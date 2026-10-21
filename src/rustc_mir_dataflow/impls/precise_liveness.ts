@@ -1,7 +1,7 @@
 // Port of compiler/rustc_mir_dataflow/src/impls/precise_liveness.rs: DECLARED (lane dataflow-contract). Every fn is a
 // stub for lane `dataflow-impls` (plan-m4 §5 wave 22).
 //
-// How to fill a stub: replace the body with the upstream logic and turn `// stub: <path>:<line> <name> (lane ..)` into
+// How to fill a stub: replace the body with the upstream logic and turn `// stub-df: <path>:<line> <name> (lane ..)` into
 // the marker `// rustc: <path>:<line> <name>`. Notes:
 // - `VisitAllocatedLocalsWith<F>(pub F)` / `VisitDeallocatedLocalsWith<F>(pub F)` keep the closure as `_0`.
 //   PORT(contract): extends mir Visitor (pending mir-contract, D4): they override `visit_place` / `visit_statement` /
@@ -44,7 +44,7 @@ export class VisitAllocatedLocalsWith<F extends (local: Local, context: PlaceCon
 
   // ---- impl Visitor for VisitAllocatedLocalsWith ----
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/precise_liveness.rs:56 visit_place (lane dataflow-impls)
+  // stub-df: compiler/rustc_mir_dataflow/src/impls/precise_liveness.rs:56 visit_place (lane dataflow-impls)
   visit_place(_place: Place, _context: PlaceContext, _location: Location): void {
     return unported("rustc_mir_dataflow::impls::precise_liveness::VisitAllocatedLocalsWith::visit_place");
   }
@@ -58,12 +58,12 @@ export class VisitDeallocatedLocalsWith<F extends (local: Local, context: PlaceC
 
   // ---- impl Visitor for VisitDeallocatedLocalsWith ----
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/precise_liveness.rs:72 visit_statement (lane dataflow-impls)
+  // stub-df: compiler/rustc_mir_dataflow/src/impls/precise_liveness.rs:72 visit_statement (lane dataflow-impls)
   visit_statement(_statement: Statement, _location: Location): void {
     return unported("rustc_mir_dataflow::impls::precise_liveness::VisitDeallocatedLocalsWith::visit_statement");
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/precise_liveness.rs:86 visit_operand (lane dataflow-impls)
+  // stub-df: compiler/rustc_mir_dataflow/src/impls/precise_liveness.rs:86 visit_operand (lane dataflow-impls)
   visit_operand(_operand: Operand, _location: Location): void {
     return unported("rustc_mir_dataflow::impls::precise_liveness::VisitDeallocatedLocalsWith::visit_operand");
   }
@@ -95,7 +95,7 @@ class KillPoints {
     public kill_points_map: (readonly [Local, Location])[][],
   ) {}
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/precise_liveness.rs:120 compute (lane dataflow-impls)
+  // stub-df: compiler/rustc_mir_dataflow/src/impls/precise_liveness.rs:120 compute (lane dataflow-impls)
   static compute(
     _tcx: TyCtxt,
     _body: Body,
@@ -119,17 +119,17 @@ class KillPointsVisitor extends ResultsVisitorBase<DenseBitSet<Local>, MaybeLive
 
   // ---- impl ResultsVisitor<MaybeLiveLocals> for KillPointsVisitor ----
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/precise_liveness.rs:173 visit_block_exit (lane dataflow-impls)
+  // stub-df: compiler/rustc_mir_dataflow/src/impls/precise_liveness.rs:173 visit_block_exit (lane dataflow-impls)
   override visit_block_exit(_state: DenseBitSet<Local>, _block: BasicBlock): void {
     return unported("rustc_mir_dataflow::impls::precise_liveness::KillPointsVisitor::visit_block_exit");
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/precise_liveness.rs:180 visit_after_early_statement_effect (lane dataflow-impls)
+  // stub-df: compiler/rustc_mir_dataflow/src/impls/precise_liveness.rs:180 visit_after_early_statement_effect (lane dataflow-impls)
   override visit_after_early_statement_effect(_state: DenseBitSet<Local>, _statement: Statement, _location: Location): void {
     return unported("rustc_mir_dataflow::impls::precise_liveness::KillPointsVisitor::visit_after_early_statement_effect");
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/precise_liveness.rs:203 visit_after_early_terminator_effect (lane dataflow-impls)
+  // stub-df: compiler/rustc_mir_dataflow/src/impls/precise_liveness.rs:203 visit_after_early_terminator_effect (lane dataflow-impls)
   override visit_after_early_terminator_effect(_state: DenseBitSet<Local>, _terminator: Terminator, _location: Location): void {
     return unported("rustc_mir_dataflow::impls::precise_liveness::KillPointsVisitor::visit_after_early_terminator_effect");
   }
@@ -153,7 +153,7 @@ class PreciseLiveness extends AnalysisBase<DenseBitSet<Local>> {
     super();
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/precise_liveness.rs:249 apply_block_start_effect (lane dataflow-impls)
+  // stub-df: compiler/rustc_mir_dataflow/src/impls/precise_liveness.rs:249 apply_block_start_effect (lane dataflow-impls)
   apply_block_start_effect(_state: DenseBitSet<Local>, _block: BasicBlock): void {
     return unported("rustc_mir_dataflow::impls::precise_liveness::PreciseLiveness::apply_block_start_effect");
   }
@@ -165,27 +165,27 @@ class PreciseLiveness extends AnalysisBase<DenseBitSet<Local>> {
 
   readonly NAME = "precise_liveness";
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/precise_liveness.rs:262 bottom_value (lane dataflow-impls)
+  // stub-df: compiler/rustc_mir_dataflow/src/impls/precise_liveness.rs:262 bottom_value (lane dataflow-impls)
   bottom_value(_body: Body): DenseBitSet<Local> {
     return unported("rustc_mir_dataflow::impls::precise_liveness::PreciseLiveness::bottom_value");
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/precise_liveness.rs:266 initialize_start_block (lane dataflow-impls)
+  // stub-df: compiler/rustc_mir_dataflow/src/impls/precise_liveness.rs:266 initialize_start_block (lane dataflow-impls)
   initialize_start_block(_body: Body, _state: DenseBitSet<Local>): void {
     return unported("rustc_mir_dataflow::impls::precise_liveness::PreciseLiveness::initialize_start_block");
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/precise_liveness.rs:273 apply_primary_statement_effect (lane dataflow-impls)
+  // stub-df: compiler/rustc_mir_dataflow/src/impls/precise_liveness.rs:273 apply_primary_statement_effect (lane dataflow-impls)
   apply_primary_statement_effect(_state: DenseBitSet<Local>, _statement: Statement, _location: Location): void {
     return unported("rustc_mir_dataflow::impls::precise_liveness::PreciseLiveness::apply_primary_statement_effect");
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/precise_liveness.rs:295 apply_primary_terminator_effect (lane dataflow-impls)
+  // stub-df: compiler/rustc_mir_dataflow/src/impls/precise_liveness.rs:295 apply_primary_terminator_effect (lane dataflow-impls)
   override apply_primary_terminator_effect(_state: DenseBitSet<Local>, _terminator: Terminator, _location: Location): void {
     return unported("rustc_mir_dataflow::impls::precise_liveness::PreciseLiveness::apply_primary_terminator_effect");
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/precise_liveness.rs:321 apply_call_return_effect (lane dataflow-impls)
+  // stub-df: compiler/rustc_mir_dataflow/src/impls/precise_liveness.rs:321 apply_call_return_effect (lane dataflow-impls)
   override apply_call_return_effect(_state: DenseBitSet<Local>, _block: BasicBlock, _return_places: CallReturnPlaces): void {
     return unported("rustc_mir_dataflow::impls::precise_liveness::PreciseLiveness::apply_call_return_effect");
   }
@@ -229,17 +229,17 @@ export const SplitPointIndex = {
   /** The inherent `SplitPointIndex::new(point, effect)` (shadows `Idx::new`, which stays `SplitPointIndex.new_`). */
   new_: SplitPointIndex_newtype.new,
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/precise_liveness.rs:363 new (lane dataflow-impls)
+  // stub-df: compiler/rustc_mir_dataflow/src/impls/precise_liveness.rs:363 new (lane dataflow-impls)
   new(_point: PointIndex, _effect: SplitPointEffect): SplitPointIndex {
     return unported("rustc_mir_dataflow::impls::precise_liveness::SplitPointIndex::new");
   },
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/precise_liveness.rs:368 point (lane dataflow-impls)
+  // stub-df: compiler/rustc_mir_dataflow/src/impls/precise_liveness.rs:368 point (lane dataflow-impls)
   point(_self: SplitPointIndex): PointIndex {
     return unported("rustc_mir_dataflow::impls::precise_liveness::SplitPointIndex::point");
   },
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/precise_liveness.rs:372 effect (lane dataflow-impls)
+  // stub-df: compiler/rustc_mir_dataflow/src/impls/precise_liveness.rs:372 effect (lane dataflow-impls)
   effect(_self: SplitPointIndex): SplitPointEffect {
     return unported("rustc_mir_dataflow::impls::precise_liveness::SplitPointIndex::effect");
   },
@@ -258,28 +258,28 @@ class MatrixBuilder {
     public maybe_live_locals: Local[],
   ) {}
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/precise_liveness.rs:393 gen_ (lane dataflow-impls)
+  // stub-df: compiler/rustc_mir_dataflow/src/impls/precise_liveness.rs:393 gen_ (lane dataflow-impls)
   gen_(_local: Local, _point: PointIndex, _effect: SplitPointEffect): void {
     return unported("rustc_mir_dataflow::impls::precise_liveness::MatrixBuilder::gen_");
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/precise_liveness.rs:403 kill (lane dataflow-impls)
+  // stub-df: compiler/rustc_mir_dataflow/src/impls/precise_liveness.rs:403 kill (lane dataflow-impls)
   kill(_local: Local, _point: PointIndex, _effect: SplitPointEffect): void {
     return unported("rustc_mir_dataflow::impls::precise_liveness::MatrixBuilder::kill");
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/precise_liveness.rs:413 kill_all (lane dataflow-impls)
+  // stub-df: compiler/rustc_mir_dataflow/src/impls/precise_liveness.rs:413 kill_all (lane dataflow-impls)
   kill_all(_point: PointIndex, _effect: SplitPointEffect): void {
     return unported("rustc_mir_dataflow::impls::precise_liveness::MatrixBuilder::kill_all");
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/precise_liveness.rs:419 kill_all_except (lane dataflow-impls)
+  // stub-df: compiler/rustc_mir_dataflow/src/impls/precise_liveness.rs:419 kill_all_except (lane dataflow-impls)
   kill_all_except(_except: Local, _point: PointIndex, _effect: SplitPointEffect): void {
     return unported("rustc_mir_dataflow::impls::precise_liveness::MatrixBuilder::kill_all_except");
   }
 }
 
-// stub: compiler/rustc_mir_dataflow/src/impls/precise_liveness.rs:429 liveness_matrix (lane dataflow-impls)
+// stub-df: compiler/rustc_mir_dataflow/src/impls/precise_liveness.rs:429 liveness_matrix (lane dataflow-impls)
 export function liveness_matrix(
   _tcx: TyCtxt,
   _body: Body,
@@ -289,7 +289,7 @@ export function liveness_matrix(
   return unported("rustc_mir_dataflow::impls::precise_liveness::liveness_matrix");
 }
 
-// stub: compiler/rustc_mir_dataflow/src/impls/precise_liveness.rs:569 dump_liveness_matrix (lane dataflow-impls)
+// stub-df: compiler/rustc_mir_dataflow/src/impls/precise_liveness.rs:569 dump_liveness_matrix (lane dataflow-impls)
 export function dump_liveness_matrix(
   _tcx: TyCtxt,
   _body: Body,

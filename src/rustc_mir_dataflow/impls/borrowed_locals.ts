@@ -1,7 +1,7 @@
 // Port of compiler/rustc_mir_dataflow/src/impls/borrowed_locals.rs: DECLARED (lane dataflow-contract). Every fn is a
 // stub for lane `dataflow-impls` (plan-m4 §5 wave 22).
 //
-// How to fill a stub: replace the body with the upstream logic and turn `// stub: <path>:<line> <name> (lane ..)` into
+// How to fill a stub: replace the body with the upstream logic and turn `// stub-df: <path>:<line> <name> (lane ..)` into
 // the marker `// rustc: <path>:<line> <name>`. `MaybeBorrowedLocals` (a unit struct) is a class extending
 // `AnalysisBase<DenseBitSet<Local>>` (framework/mod.ts); `state.kill(local)` is `GenKill_DenseBitSet<Local>().kill(state,
 // local)`; `body.local_decls().len()` / `body.basic_blocks.iter()` come from mir-contract's `Body`.
@@ -21,12 +21,12 @@ import type { Body, Local, Location, Statement, Terminator } from "../pending.ts
 /// immovable coroutines.
 // rustc-type: compiler/rustc_mir_dataflow/src/impls/borrowed_locals.rs:13 MaybeBorrowedLocals
 export class MaybeBorrowedLocals extends AnalysisBase<DenseBitSet<Local>> {
-  // stub: compiler/rustc_mir_dataflow/src/impls/borrowed_locals.rs:16 gen_statement (lane dataflow-impls)
+  // stub-df: compiler/rustc_mir_dataflow/src/impls/borrowed_locals.rs:16 gen_statement (lane dataflow-impls)
   static gen_statement(_state: DenseBitSet<Local>, _stmt: Statement): void {
     return unported("rustc_mir_dataflow::impls::borrowed_locals::MaybeBorrowedLocals::gen_statement");
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/borrowed_locals.rs:44 gen_terminator (lane dataflow-impls)
+  // stub-df: compiler/rustc_mir_dataflow/src/impls/borrowed_locals.rs:44 gen_terminator (lane dataflow-impls)
   static gen_terminator(_state: DenseBitSet<Local>, _terminator: Terminator): void {
     return unported("rustc_mir_dataflow::impls::borrowed_locals::MaybeBorrowedLocals::gen_terminator");
   }
@@ -37,29 +37,29 @@ export class MaybeBorrowedLocals extends AnalysisBase<DenseBitSet<Local>> {
   readonly Domain: Domain<DenseBitSet<Local>> = Domain_DenseBitSet(DebugWithContext_Local);
   readonly NAME = "maybe_borrowed_locals";
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/borrowed_locals.rs:82 bottom_value (lane dataflow-impls)
+  // stub-df: compiler/rustc_mir_dataflow/src/impls/borrowed_locals.rs:82 bottom_value (lane dataflow-impls)
   bottom_value(_body: Body): DenseBitSet<Local> {
     return unported("rustc_mir_dataflow::impls::borrowed_locals::MaybeBorrowedLocals::bottom_value");
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/borrowed_locals.rs:87 initialize_start_block (lane dataflow-impls)
+  // stub-df: compiler/rustc_mir_dataflow/src/impls/borrowed_locals.rs:87 initialize_start_block (lane dataflow-impls)
   initialize_start_block(_body: Body, _state: DenseBitSet<Local>): void {
     return unported("rustc_mir_dataflow::impls::borrowed_locals::MaybeBorrowedLocals::initialize_start_block");
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/borrowed_locals.rs:91 apply_primary_statement_effect (lane dataflow-impls)
+  // stub-df: compiler/rustc_mir_dataflow/src/impls/borrowed_locals.rs:91 apply_primary_statement_effect (lane dataflow-impls)
   apply_primary_statement_effect(_state: DenseBitSet<Local>, _statement: Statement, _location: Location): void {
     return unported("rustc_mir_dataflow::impls::borrowed_locals::MaybeBorrowedLocals::apply_primary_statement_effect");
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/borrowed_locals.rs:106 apply_primary_terminator_effect (lane dataflow-impls)
+  // stub-df: compiler/rustc_mir_dataflow/src/impls/borrowed_locals.rs:106 apply_primary_terminator_effect (lane dataflow-impls)
   override apply_primary_terminator_effect(_state: DenseBitSet<Local>, _terminator: Terminator, _location: Location): void {
     return unported("rustc_mir_dataflow::impls::borrowed_locals::MaybeBorrowedLocals::apply_primary_terminator_effect");
   }
 }
 
 /// The set of locals that are borrowed at some point in the MIR body.
-// stub: compiler/rustc_mir_dataflow/src/impls/borrowed_locals.rs:117 borrowed_locals (lane dataflow-impls)
+// stub-df: compiler/rustc_mir_dataflow/src/impls/borrowed_locals.rs:117 borrowed_locals (lane dataflow-impls)
 export function borrowed_locals(_body: Body): DenseBitSet<Local> {
   return unported("rustc_mir_dataflow::impls::borrowed_locals::borrowed_locals");
 }

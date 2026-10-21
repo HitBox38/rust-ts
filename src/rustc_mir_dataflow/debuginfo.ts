@@ -13,7 +13,7 @@ import type { Body, Local, Location } from "./pending.ts";
 type PlaceContext = { readonly __pending_mir: "PlaceContext" };
 
 /// Return the set of locals that appear in debuginfo.
-// stub: compiler/rustc_mir_dataflow/src/debuginfo.rs:6 debuginfo_locals (lane dataflow-move-paths)
+// stub-df: compiler/rustc_mir_dataflow/src/debuginfo.rs:6 debuginfo_locals (lane dataflow-move-paths)
 export function debuginfo_locals(_body: Body): DenseBitSet<Local> {
   return unported("rustc_mir_dataflow::debuginfo::debuginfo_locals");
 }
@@ -23,7 +23,7 @@ class DebuginfoLocals {
   constructor(public _0: DenseBitSet<Local>) {}
 
   /** `impl Visitor<'_> for DebuginfoLocals`. */
-  // stub: compiler/rustc_mir_dataflow/src/debuginfo.rs:17 visit_local (lane dataflow-move-paths)
+  // stub-df: compiler/rustc_mir_dataflow/src/debuginfo.rs:17 visit_local (lane dataflow-move-paths)
   visit_local(_local: Local, _context: PlaceContext, _location: Location): void {
     return unported("rustc_mir_dataflow::debuginfo::DebuginfoLocals::visit_local");
   }

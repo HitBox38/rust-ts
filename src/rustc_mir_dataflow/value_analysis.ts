@@ -2,7 +2,7 @@
 // here with their final shape; every fn is a stub for lane `mt-opt2-a` (plan-m4 §5 wave 26: the level >= 2 passes,
 // `dataflow_const_prop` / `jump_threading`, are its only users).
 //
-// How to fill a stub: replace the body with the upstream logic and turn `// stub: <path>:<line> <name> (lane ..)` into
+// How to fill a stub: replace the body with the upstream logic and turn `// stub-df: <path>:<line> <name> (lane ..)` into
 // the marker `// rustc: <path>:<line> <name>`. Representation (fill lanes keep it):
 // - `PlaceIndex` / `ValueIndex` are branded numbers with `newtype_index!` companions (no `debug_format`: `{}`).
 // - `State<V>` is the upstream enum as a mutable tagged union (a dataflow domain, mutated in place like `MaybeReachable`,
@@ -80,17 +80,17 @@ export class StateData<V> {
     public map: globalThis.Map<ValueIndex, V>,
   ) {}
 
-  // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:39 new (lane mt-opt2-a)
+  // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:39 new (lane mt-opt2-a)
   static new<V>(_V_: HasBottom<V>): StateData<V> {
     return unported("rustc_mir_dataflow::value_analysis::StateData::new");
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:43 get (lane mt-opt2-a)
+  // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:43 get (lane mt-opt2-a)
   get(_idx: ValueIndex): V {
     return unported("rustc_mir_dataflow::value_analysis::StateData::get");
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:47 insert (lane mt-opt2-a)
+  // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:47 insert (lane mt-opt2-a)
   insert(_idx: ValueIndex, _elem: V, _V_: HasBottom<V>): void {
     return unported("rustc_mir_dataflow::value_analysis::StateData::insert");
   }
@@ -111,12 +111,12 @@ export function StateData_eq<V>(eq_V: (a: V, b: V) => boolean): (a: StateData<V>
 /** `impl<V: Clone> Clone for StateData<V>`. */
 export function Clone_StateData<V>(_V_: Clone<V>): Clone<StateData<V>> {
   return {
-    // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:57 clone (lane mt-opt2-a)
+    // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:57 clone (lane mt-opt2-a)
     clone(_self: StateData<V>): StateData<V> {
       return unported("rustc_mir_dataflow::value_analysis::StateData::clone");
     },
 
-    // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:61 clone_from (lane mt-opt2-a)
+    // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:61 clone_from (lane mt-opt2-a)
     clone_from(_self: StateData<V>, _source: StateData<V>): void {
       return unported("rustc_mir_dataflow::value_analysis::StateData::clone_from");
     },
@@ -128,7 +128,7 @@ export function JoinSemiLattice_StateData<V>(V_: JoinSemiLattice<V> & Clone<V>):
   return {
     eq: StateData_eq(V_.eq),
 
-    // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:67 join (lane mt-opt2-a)
+    // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:67 join (lane mt-opt2-a)
     join(_self: StateData<V>, _other: StateData<V>): boolean {
       return unported("rustc_mir_dataflow::value_analysis::StateData::join");
     },
@@ -158,12 +158,12 @@ export function State_eq<V>(eq_V: (a: V, b: V) => boolean): (a: State<V>, b: Sta
 /** `impl<V: Clone> Clone for State<V>`. */
 export function Clone_State<V>(_V_: Clone<V>): Clone<State<V>> {
   return {
-    // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:100 clone (lane mt-opt2-a)
+    // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:100 clone (lane mt-opt2-a)
     clone(_self: State<V>): State<V> {
       return unported("rustc_mir_dataflow::value_analysis::State::clone");
     },
 
-    // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:107 clone_from (lane mt-opt2-a)
+    // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:107 clone_from (lane mt-opt2-a)
     clone_from(_self: State<V>, _source: State<V>): void {
       return unported("rustc_mir_dataflow::value_analysis::State::clone_from");
     },
@@ -194,36 +194,36 @@ export const State = {
     }
   },
 
-  // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:118 new_reachable (lane mt-opt2-a)
+  // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:118 new_reachable (lane mt-opt2-a)
   new_reachable<V>(_V_: StateV<V>): State<V> {
     return unported("rustc_mir_dataflow::value_analysis::State::new_reachable");
   },
 
-  // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:122 is_reachable (lane mt-opt2-a)
+  // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:122 is_reachable (lane mt-opt2-a)
   is_reachable<V>(_self: State<V>): boolean {
     return unported("rustc_mir_dataflow::value_analysis::State::is_reachable");
   },
 
   /// Assign `value` to all places that are contained in `place` or may alias one.
-  // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:127 flood_with (lane mt-opt2-a)
+  // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:127 flood_with (lane mt-opt2-a)
   flood_with<V>(_self: State<V>, _place: PlaceRef, _map: Map, _value: V, _V_: StateV<V>): void {
     return unported("rustc_mir_dataflow::value_analysis::State::flood_with");
   },
 
   /// Assign `TOP` to all places that are contained in `place` or may alias one.
-  // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:132 flood (lane mt-opt2-a)
+  // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:132 flood (lane mt-opt2-a)
   flood<V>(_self: State<V>, _place: PlaceRef, _map: Map, _V_: StateV<V> & HasTop<V>): void {
     return unported("rustc_mir_dataflow::value_analysis::State::flood");
   },
 
   /// Assign `value` to the discriminant of `place` and all places that may alias it.
-  // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:140 flood_discr_with (lane mt-opt2-a)
+  // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:140 flood_discr_with (lane mt-opt2-a)
   flood_discr_with<V>(_self: State<V>, _place: PlaceRef, _map: Map, _value: V, _V_: StateV<V>): void {
     return unported("rustc_mir_dataflow::value_analysis::State::flood_discr_with");
   },
 
   /// Assign `TOP` to the discriminant of `place` and all places that may alias it.
-  // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:145 flood_discr (lane mt-opt2-a)
+  // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:145 flood_discr (lane mt-opt2-a)
   flood_discr<V>(_self: State<V>, _place: PlaceRef, _map: Map, _V_: StateV<V> & HasTop<V>): void {
     return unported("rustc_mir_dataflow::value_analysis::State::flood_discr");
   },
@@ -235,7 +235,7 @@ export const State = {
   ///
   /// `tail_elem` allows to support discriminants that are not a place in MIR, but that we track
   /// as such.
-  // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:159 flood_with_tail_elem (lane mt-opt2-a)
+  // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:159 flood_with_tail_elem (lane mt-opt2-a)
   flood_with_tail_elem<V>(
     _self: State<V>,
     _place: PlaceRef,
@@ -251,7 +251,7 @@ export const State = {
   /// This does nothing if the place is not tracked.
   ///
   /// The target place must have been flooded before calling this method.
-  // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:174 insert_idx (lane mt-opt2-a)
+  // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:174 insert_idx (lane mt-opt2-a)
   insert_idx<V>(_self: State<V>, _target: PlaceIndex, _result: ValueOrPlace<V>, _map: Map, _V_: StateV<V>): void {
     return unported("rustc_mir_dataflow::value_analysis::State::insert_idx");
   },
@@ -260,7 +260,7 @@ export const State = {
   /// This does nothing if the place is not tracked.
   ///
   /// The target place must have been flooded before calling this method.
-  // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:185 insert_value_idx (lane mt-opt2-a)
+  // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:185 insert_value_idx (lane mt-opt2-a)
   insert_value_idx<V>(_self: State<V>, _target: PlaceIndex, _value: V, _map: Map, _V_: StateV<V>): void {
     return unported("rustc_mir_dataflow::value_analysis::State::insert_value_idx");
   },
@@ -272,31 +272,31 @@ export const State = {
   /// places that are non-overlapping or identical.
   ///
   /// The target place must have been flooded before calling this method.
-  // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:199 insert_place_idx (lane mt-opt2-a)
+  // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:199 insert_place_idx (lane mt-opt2-a)
   insert_place_idx<V>(_self: State<V>, _target: PlaceIndex, _source: PlaceIndex, _map: Map, _V_: StateV<V>): void {
     return unported("rustc_mir_dataflow::value_analysis::State::insert_place_idx");
   },
 
   /// Helper method to interpret `target = result`.
-  // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:207 assign (lane mt-opt2-a)
+  // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:207 assign (lane mt-opt2-a)
   assign<V>(_self: State<V>, _target: PlaceRef, _result: ValueOrPlace<V>, _map: Map, _V_: StateV<V> & HasTop<V>): void {
     return unported("rustc_mir_dataflow::value_analysis::State::assign");
   },
 
   /// Retrieve the value stored for a place, or `None` if it is not tracked.
-  // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:218 try_get (lane mt-opt2-a)
+  // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:218 try_get (lane mt-opt2-a)
   try_get<V>(_self: State<V>, _place: PlaceRef, _map: Map, _V_: StateV<V>): V | undefined {
     return unported("rustc_mir_dataflow::value_analysis::State::try_get");
   },
 
   /// Retrieve the discriminant stored for a place, or `None` if it is not tracked.
-  // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:224 try_get_discr (lane mt-opt2-a)
+  // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:224 try_get_discr (lane mt-opt2-a)
   try_get_discr<V>(_self: State<V>, _place: PlaceRef, _map: Map, _V_: StateV<V>): V | undefined {
     return unported("rustc_mir_dataflow::value_analysis::State::try_get_discr");
   },
 
   /// Retrieve the value stored for a place index, or `None` if it is not tracked.
-  // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:230 try_get_idx (lane mt-opt2-a)
+  // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:230 try_get_idx (lane mt-opt2-a)
   try_get_idx<V>(_self: State<V>, _place: PlaceIndex, _map: Map, _V_: StateV<V>): V | undefined {
     return unported("rustc_mir_dataflow::value_analysis::State::try_get_idx");
   },
@@ -304,7 +304,7 @@ export const State = {
   /// Retrieve the value stored for a place, or ⊤ if it is not tracked.
   ///
   /// This method returns ⊥ if the place is tracked and the state is unreachable.
-  // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:242 get (lane mt-opt2-a)
+  // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:242 get (lane mt-opt2-a)
   get<V>(_self: State<V>, _place: PlaceRef, _map: Map, _V_: StateV<V> & HasTop<V>): V {
     return unported("rustc_mir_dataflow::value_analysis::State::get");
   },
@@ -312,7 +312,7 @@ export const State = {
   /// Retrieve the value stored for a place, or ⊤ if it is not tracked.
   ///
   /// This method returns ⊥ the current state is unreachable.
-  // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:256 get_discr (lane mt-opt2-a)
+  // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:256 get_discr (lane mt-opt2-a)
   get_discr<V>(_self: State<V>, _place: PlaceRef, _map: Map, _V_: StateV<V> & HasTop<V>): V {
     return unported("rustc_mir_dataflow::value_analysis::State::get_discr");
   },
@@ -320,7 +320,7 @@ export const State = {
   /// Retrieve the value stored for a place index, or ⊤ if it is not tracked.
   ///
   /// This method returns ⊥ the current state is unreachable.
-  // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:270 get_idx (lane mt-opt2-a)
+  // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:270 get_idx (lane mt-opt2-a)
   get_idx<V>(_self: State<V>, _place: PlaceIndex, _map: Map, _V_: StateV<V> & HasTop<V>): V {
     return unported("rustc_mir_dataflow::value_analysis::State::get_idx");
   },
@@ -331,7 +331,7 @@ export function JoinSemiLattice_State<V>(V_: JoinSemiLattice<V> & Clone<V>): Joi
   return {
     eq: State_eq(V_.eq),
 
-    // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:287 join (lane mt-opt2-a)
+    // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:287 join (lane mt-opt2-a)
     join(_self: State<V>, _other: State<V>): boolean {
       return unported("rustc_mir_dataflow::value_analysis::State::join");
     },
@@ -365,19 +365,19 @@ export class Map {
   /// chosen is an implementation detail and may not be relied upon (other than that their type
   /// are scalars).
   // #[tracing::instrument(level = "trace", skip(tcx, body))]
-  // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:330 new (lane mt-opt2-a)
+  // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:330 new (lane mt-opt2-a)
   static new(_tcx: TyCtxt, _body: Body, _mode: PlaceCollectionMode): Map {
     return unported("rustc_mir_dataflow::value_analysis::Map::new");
   }
 
   /// Register all non-excluded places that have scalar layout.
-  // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:358 register_locals (lane mt-opt2-a)
+  // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:358 register_locals (lane mt-opt2-a)
   register_locals(_tcx: TyCtxt, _body: Body): void {
     return unported("rustc_mir_dataflow::value_analysis::Map::register_locals");
   }
 
   /// Collect syntactic places from body, and create `PlaceIndex` for them.
-  // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:379 collect_places (lane mt-opt2-a)
+  // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:379 collect_places (lane mt-opt2-a)
   collect_places(_tcx: TyCtxt, _body: Body): void {
     return unported("rustc_mir_dataflow::value_analysis::Map::collect_places");
   }
@@ -390,44 +390,44 @@ export class Map {
   /// `_1.0` does not appear, but we still need to track it. This is achieved by propagating
   /// projections from assignments. We recorded an assignment between `_2` and `_1`, so we
   /// want `_1` and `_2` to have the same sub-places.
-  // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:393 propagate_assignments (lane mt-opt2-a)
+  // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:393 propagate_assignments (lane mt-opt2-a)
   propagate_assignments(_tcx: TyCtxt, _body: Body): void {
     return unported("rustc_mir_dataflow::value_analysis::Map::propagate_assignments");
   }
 
   /// Create values for places whose type have scalar layout.
-  // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:493 create_values (lane mt-opt2-a)
+  // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:493 create_values (lane mt-opt2-a)
   create_values(_tcx: TyCtxt, _body: Body, _value_limit: number | undefined): void {
     return unported("rustc_mir_dataflow::value_analysis::Map::create_values");
   }
 
   /// Trim useless places.
-  // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:534 trim_useless_places (lane mt-opt2-a)
+  // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:534 trim_useless_places (lane mt-opt2-a)
   trim_useless_places(): void {
     return unported("rustc_mir_dataflow::value_analysis::Map::trim_useless_places");
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:548 register_place_index (lane mt-opt2-a)
+  // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:548 register_place_index (lane mt-opt2-a)
   register_place_index(_ty: Ty, _base: PlaceIndex, _elem: TrackElem): PlaceIndex {
     return unported("rustc_mir_dataflow::value_analysis::Map::register_place_index");
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:563 register_place (lane mt-opt2-a)
+  // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:563 register_place (lane mt-opt2-a)
   register_place(_tcx: TyCtxt, _body: Body, _place: Place, _tail: TrackElem | undefined): PlaceIndex | undefined {
     return unported("rustc_mir_dataflow::value_analysis::Map::register_place");
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:595 register_place_and_discr (lane mt-opt2-a)
+  // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:595 register_place_and_discr (lane mt-opt2-a)
   register_place_and_discr(_tcx: TyCtxt, _body: Body, _place: Place): PlaceIndex | undefined {
     return unported("rustc_mir_dataflow::value_analysis::Map::register_place_and_discr");
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:617 register_value (lane mt-opt2-a)
+  // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:617 register_value (lane mt-opt2-a)
   register_value(_tcx: TyCtxt, _typing_env: TypingEnv, _place: PlaceIndex): ValueIndex | undefined {
     return unported("rustc_mir_dataflow::value_analysis::Map::register_value");
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:646 register_copy_tree (lane mt-opt2-a)
+  // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:646 register_copy_tree (lane mt-opt2-a)
   register_copy_tree(
     // Tree to copy.
     _source: PlaceIndex,
@@ -440,7 +440,7 @@ export class Map {
 
   /// Precompute the list of values inside `root` and store it inside
   /// as a slice within `inner_values_buffer`.
-  // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:680 cache_preorder_invoke (lane mt-opt2-a)
+  // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:680 cache_preorder_invoke (lane mt-opt2-a)
   cache_preorder_invoke(_root: PlaceIndex): void {
     return unported("rustc_mir_dataflow::value_analysis::Map::cache_preorder_invoke");
   }
@@ -448,43 +448,43 @@ export class Map {
   // ---- impl<'tcx> Map<'tcx> (value_analysis.rs:716; PORTING §8: a later impl block inside the class body) ----
 
   /// Applies a single projection element, yielding the corresponding child.
-  // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:718 apply (lane mt-opt2-a)
+  // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:718 apply (lane mt-opt2-a)
   apply(_place: PlaceIndex, _elem: TrackElem): PlaceIndex | undefined {
     return unported("rustc_mir_dataflow::value_analysis::Map::apply");
   }
 
   /// Locates the given place, if it exists in the tree.
-  // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:723 find_extra (lane mt-opt2-a)
+  // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:723 find_extra (lane mt-opt2-a)
   find_extra(_place: PlaceRef, _extra: Iterable<TrackElem>): PlaceIndex | undefined {
     return unported("rustc_mir_dataflow::value_analysis::Map::find_extra");
   }
 
   /// Locates the given place, if it exists in the tree.
-  // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:741 find (lane mt-opt2-a)
+  // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:741 find (lane mt-opt2-a)
   find(_place: PlaceRef): PlaceIndex | undefined {
     return unported("rustc_mir_dataflow::value_analysis::Map::find");
   }
 
   /// Locates the given place and applies `Discriminant`, if it exists in the tree.
-  // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:746 find_discr (lane mt-opt2-a)
+  // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:746 find_discr (lane mt-opt2-a)
   find_discr(_place: PlaceRef): PlaceIndex | undefined {
     return unported("rustc_mir_dataflow::value_analysis::Map::find_discr");
   }
 
   /// Locates the given place and applies `DerefLen`, if it exists in the tree.
-  // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:751 find_len (lane mt-opt2-a)
+  // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:751 find_len (lane mt-opt2-a)
   find_len(_place: PlaceRef): PlaceIndex | undefined {
     return unported("rustc_mir_dataflow::value_analysis::Map::find_len");
   }
 
   /// Locates the value corresponding to the given place.
-  // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:756 value (lane mt-opt2-a)
+  // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:756 value (lane mt-opt2-a)
   value(_place: PlaceIndex): ValueIndex | undefined {
     return unported("rustc_mir_dataflow::value_analysis::Map::value");
   }
 
   /// Iterate over all direct children.
-  // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:761 children (lane mt-opt2-a)
+  // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:761 children (lane mt-opt2-a)
   children(_parent: PlaceIndex): Iterable<PlaceIndex> {
     return unported("rustc_mir_dataflow::value_analysis::Map::children");
   }
@@ -496,25 +496,25 @@ export class Map {
   ///
   /// `tail_elem` allows to support discriminants that are not a place in MIR, but that we track
   /// as such.
-  // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:773 for_each_aliasing_place (lane mt-opt2-a)
+  // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:773 for_each_aliasing_place (lane mt-opt2-a)
   for_each_aliasing_place(_place: PlaceRef, _tail_elem: TrackElem | undefined, _f: (value: ValueIndex) => void): void {
     return unported("rustc_mir_dataflow::value_analysis::Map::for_each_aliasing_place");
   }
 
   /// Invoke the given function on all the descendants of the given place, except one branch.
-  // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:808 for_each_variant_sibling (lane mt-opt2-a)
+  // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:808 for_each_variant_sibling (lane mt-opt2-a)
   for_each_variant_sibling(_parent: PlaceIndex, _preserved_child: PlaceIndex | undefined, _f: (value: ValueIndex) => void): void {
     return unported("rustc_mir_dataflow::value_analysis::Map::for_each_variant_sibling");
   }
 
   /// Invoke a function on each value in the given place and all descendants.
-  // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:829 for_each_value_inside (lane mt-opt2-a)
+  // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:829 for_each_value_inside (lane mt-opt2-a)
   for_each_value_inside(_root: PlaceIndex, _f: (value: ValueIndex) => void): void {
     return unported("rustc_mir_dataflow::value_analysis::Map::for_each_value_inside");
   }
 
   /// Invoke a function on each value in the given place and all descendants.
-  // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:848 for_each_projection_value (lane mt-opt2-a)
+  // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:848 for_each_projection_value (lane mt-opt2-a)
   for_each_projection_value<O>(
     _root: PlaceIndex,
     _value: O,
@@ -526,7 +526,7 @@ export class Map {
 
   /// Recursively iterates on each value contained in `target`, paired with matching projection
   /// inside `source`.
-  // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:876 for_each_value_pair (lane mt-opt2-a)
+  // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:876 for_each_value_pair (lane mt-opt2-a)
   for_each_value_pair(_target: PlaceIndex, _source: PlaceIndex, _f: (target: ValueIndex, source: ValueIndex) => void): void {
     return unported("rustc_mir_dataflow::value_analysis::Map::for_each_value_pair");
   }
@@ -547,7 +547,7 @@ class PlaceCollector {
   ) {}
 
   /** `impl<'tcx> Visitor<'tcx> for PlaceCollector<'_, 'tcx>`. */
-  // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:707 visit_place (lane mt-opt2-a)
+  // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:707 visit_place (lane mt-opt2-a)
   visit_place(_place: Place, _ctxt: PlaceContext, _location: Location): void {
     return unported("rustc_mir_dataflow::value_analysis::PlaceCollector::visit_place");
   }
@@ -577,7 +577,7 @@ class PlaceInfo {
     public next_sibling: PlaceIndex | undefined,
   ) {}
 
-  // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:923 new (lane mt-opt2-a)
+  // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:923 new (lane mt-opt2-a)
   static new(_ty: Ty, _proj_elem: TrackElem | undefined): PlaceInfo {
     return unported("rustc_mir_dataflow::value_analysis::PlaceInfo::new");
   }
@@ -590,13 +590,13 @@ class Children implements IterableIterator<PlaceIndex> {
     public next_: PlaceIndex | undefined,
   ) {}
 
-  // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:934 new (lane mt-opt2-a)
+  // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:934 new (lane mt-opt2-a)
   static new(_map: Map, _parent: PlaceIndex): Children {
     return unported("rustc_mir_dataflow::value_analysis::Children::new");
   }
 
   /** `impl Iterator for Children<'_, '_>` (`type Item = PlaceIndex`). */
-  // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:942 next (lane mt-opt2-a)
+  // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:942 next (lane mt-opt2-a)
   next(): IteratorResult<PlaceIndex> {
     return unported("rustc_mir_dataflow::value_analysis::Children::next");
   }
@@ -635,7 +635,7 @@ export const TrackElem = {
   DerefLen: Object.freeze({ $: "DerefLen" }) as TrackElem,
 
   /** `impl<V, T> TryFrom<ProjectionElem<V, T>> for TrackElem` (`type Error = ()`). */
-  // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:979 try_from (lane mt-opt2-a)
+  // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:979 try_from (lane mt-opt2-a)
   try_from<V, T>(_value: ProjectionElem<V, T>): Result<TrackElem, null> {
     return unported("rustc_mir_dataflow::value_analysis::TrackElem::try_from");
   },
@@ -647,7 +647,7 @@ export function TrackElem_key(place: PlaceIndex, elem: TrackElem): string {
 }
 
 /// Invokes `f` on all direct fields of `ty`.
-// stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:989 iter_fields (lane mt-opt2-a)
+// stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:989 iter_fields (lane mt-opt2-a)
 export function iter_fields(
   _ty: Ty,
   _tcx: TyCtxt,
@@ -658,7 +658,7 @@ export function iter_fields(
 }
 
 /// Returns all locals with projections that have their reference or address taken.
-// stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:1031 excluded_locals (lane mt-opt2-a)
+// stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:1031 excluded_locals (lane mt-opt2-a)
 export function excluded_locals(_body: Body): GrowableBitSet<Local> {
   return unported("rustc_mir_dataflow::value_analysis::excluded_locals");
 }
@@ -668,7 +668,7 @@ class excluded_locals_Collector {
   constructor(public result: GrowableBitSet<Local>) {}
 
   /** `impl<'tcx> Visitor<'tcx> for Collector`. */
-  // stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:1037 visit_place (lane mt-opt2-a)
+  // stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:1037 visit_place (lane mt-opt2-a)
   visit_place(_place: Place, _context: PlaceContext, _location: Location): void {
     return unported("rustc_mir_dataflow::value_analysis::excluded_locals::Collector::visit_place");
   }
@@ -677,7 +677,7 @@ class excluded_locals_Collector {
 /** `V: Debug + Eq + HasBottom`. */
 type DebugV<V> = HasBottom<V> & { eq(a: V, b: V): boolean; fmt: Debug<V> };
 
-// stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:1051 debug_with_context_rec (lane mt-opt2-a)
+// stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:1051 debug_with_context_rec (lane mt-opt2-a)
 function debug_with_context_rec<V>(
   _place: PlaceIndex,
   _place_str: string,
@@ -690,7 +690,7 @@ function debug_with_context_rec<V>(
   return unported("rustc_mir_dataflow::value_analysis::debug_with_context_rec");
 }
 
-// stub: compiler/rustc_mir_dataflow/src/value_analysis.rs:1097 debug_with_context (lane mt-opt2-a)
+// stub-df: compiler/rustc_mir_dataflow/src/value_analysis.rs:1097 debug_with_context (lane mt-opt2-a)
 export function debug_with_context<V>(_new: StateData<V>, _old: StateData<V> | undefined, _map: Map, _f: Fmt, _V_: DebugV<V>): string {
   return unported("rustc_mir_dataflow::value_analysis::debug_with_context");
 }

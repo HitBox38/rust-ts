@@ -1,7 +1,7 @@
 // Port of compiler/rustc_mir_dataflow/src/impls/storage_liveness.rs: DECLARED (lane dataflow-contract). Every fn is a
 // stub for lane `dataflow-impls` (plan-m4 §5 wave 22).
 //
-// How to fill a stub: replace the body with the upstream logic and turn `// stub: <path>:<line> <name> (lane ..)` into
+// How to fill a stub: replace the body with the upstream logic and turn `// stub-df: <path>:<line> <name> (lane ..)` into
 // the marker `// rustc: <path>:<line> <name>`. Notes:
 // - The three analyses extend `AnalysisBase<DenseBitSet<Local>>` (framework/mod.ts).
 // - PORT: `Cow<'a, DenseBitSet<Local>>` is the `DenseBitSet<Local>` (ownership erased; nobody mutates it).
@@ -27,7 +27,7 @@ type PlaceContext = { readonly __pending_mir: "PlaceContext" };
 /// The set of locals in a MIR body that do not have `StorageLive`/`StorageDead` annotations.
 ///
 /// These locals have fixed storage for the duration of the body.
-// stub: compiler/rustc_mir_dataflow/src/impls/storage_liveness.rs:15 always_storage_live_locals (lane dataflow-impls)
+// stub-df: compiler/rustc_mir_dataflow/src/impls/storage_liveness.rs:15 always_storage_live_locals (lane dataflow-impls)
 export function always_storage_live_locals(_body: Body): DenseBitSet<Local> {
   return unported("rustc_mir_dataflow::impls::storage_liveness::always_storage_live_locals");
 }
@@ -38,7 +38,7 @@ export class MaybeStorageLive extends AnalysisBase<DenseBitSet<Local>> {
     super();
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/storage_liveness.rs:34 new (lane dataflow-impls)
+  // stub-df: compiler/rustc_mir_dataflow/src/impls/storage_liveness.rs:34 new (lane dataflow-impls)
   static new(_always_live_locals: DenseBitSet<Local>): MaybeStorageLive {
     return unported("rustc_mir_dataflow::impls::storage_liveness::MaybeStorageLive::new");
   }
@@ -50,17 +50,17 @@ export class MaybeStorageLive extends AnalysisBase<DenseBitSet<Local>> {
 
   readonly NAME = "maybe_storage_live";
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/storage_liveness.rs:44 bottom_value (lane dataflow-impls)
+  // stub-df: compiler/rustc_mir_dataflow/src/impls/storage_liveness.rs:44 bottom_value (lane dataflow-impls)
   bottom_value(_body: Body): DenseBitSet<Local> {
     return unported("rustc_mir_dataflow::impls::storage_liveness::MaybeStorageLive::bottom_value");
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/storage_liveness.rs:49 initialize_start_block (lane dataflow-impls)
+  // stub-df: compiler/rustc_mir_dataflow/src/impls/storage_liveness.rs:49 initialize_start_block (lane dataflow-impls)
   initialize_start_block(_body: Body, _state: DenseBitSet<Local>): void {
     return unported("rustc_mir_dataflow::impls::storage_liveness::MaybeStorageLive::initialize_start_block");
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/storage_liveness.rs:57 apply_primary_statement_effect (lane dataflow-impls)
+  // stub-df: compiler/rustc_mir_dataflow/src/impls/storage_liveness.rs:57 apply_primary_statement_effect (lane dataflow-impls)
   apply_primary_statement_effect(_state: DenseBitSet<Local>, _stmt: Statement, _location: Location): void {
     return unported("rustc_mir_dataflow::impls::storage_liveness::MaybeStorageLive::apply_primary_statement_effect");
   }
@@ -72,7 +72,7 @@ export class MaybeStorageDead extends AnalysisBase<DenseBitSet<Local>> {
     super();
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/storage_liveness.rs:76 new (lane dataflow-impls)
+  // stub-df: compiler/rustc_mir_dataflow/src/impls/storage_liveness.rs:76 new (lane dataflow-impls)
   static new(_always_live_locals: DenseBitSet<Local>): MaybeStorageDead {
     return unported("rustc_mir_dataflow::impls::storage_liveness::MaybeStorageDead::new");
   }
@@ -84,17 +84,17 @@ export class MaybeStorageDead extends AnalysisBase<DenseBitSet<Local>> {
 
   readonly NAME = "maybe_storage_dead";
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/storage_liveness.rs:86 bottom_value (lane dataflow-impls)
+  // stub-df: compiler/rustc_mir_dataflow/src/impls/storage_liveness.rs:86 bottom_value (lane dataflow-impls)
   bottom_value(_body: Body): DenseBitSet<Local> {
     return unported("rustc_mir_dataflow::impls::storage_liveness::MaybeStorageDead::bottom_value");
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/storage_liveness.rs:91 initialize_start_block (lane dataflow-impls)
+  // stub-df: compiler/rustc_mir_dataflow/src/impls/storage_liveness.rs:91 initialize_start_block (lane dataflow-impls)
   initialize_start_block(_body: Body, _state: DenseBitSet<Local>): void {
     return unported("rustc_mir_dataflow::impls::storage_liveness::MaybeStorageDead::initialize_start_block");
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/storage_liveness.rs:101 apply_primary_statement_effect (lane dataflow-impls)
+  // stub-df: compiler/rustc_mir_dataflow/src/impls/storage_liveness.rs:101 apply_primary_statement_effect (lane dataflow-impls)
   apply_primary_statement_effect(_state: DenseBitSet<Local>, _stmt: Statement, _location: Location): void {
     return unported("rustc_mir_dataflow::impls::storage_liveness::MaybeStorageDead::apply_primary_statement_effect");
   }
@@ -119,7 +119,7 @@ export class MaybeRequiresStorage extends AnalysisBase<DenseBitSet<Local>> {
     super();
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/storage_liveness.rs:126 new (lane dataflow-impls)
+  // stub-df: compiler/rustc_mir_dataflow/src/impls/storage_liveness.rs:126 new (lane dataflow-impls)
   static new(_body: Body, _borrowed_locals: Results<DenseBitSet<Local>, MaybeBorrowedLocals>): MaybeRequiresStorage {
     return unported("rustc_mir_dataflow::impls::storage_liveness::MaybeRequiresStorage::new");
   }
@@ -131,43 +131,43 @@ export class MaybeRequiresStorage extends AnalysisBase<DenseBitSet<Local>> {
 
   readonly NAME = "requires_storage";
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/storage_liveness.rs:164 bottom_value (lane dataflow-impls)
+  // stub-df: compiler/rustc_mir_dataflow/src/impls/storage_liveness.rs:164 bottom_value (lane dataflow-impls)
   bottom_value(_body: Body): DenseBitSet<Local> {
     return unported("rustc_mir_dataflow::impls::storage_liveness::MaybeRequiresStorage::bottom_value");
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/storage_liveness.rs:169 initialize_start_block (lane dataflow-impls)
+  // stub-df: compiler/rustc_mir_dataflow/src/impls/storage_liveness.rs:169 initialize_start_block (lane dataflow-impls)
   initialize_start_block(_body: Body, _state: DenseBitSet<Local>): void {
     return unported("rustc_mir_dataflow::impls::storage_liveness::MaybeRequiresStorage::initialize_start_block");
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/storage_liveness.rs:177 apply_early_statement_effect (lane dataflow-impls)
+  // stub-df: compiler/rustc_mir_dataflow/src/impls/storage_liveness.rs:177 apply_early_statement_effect (lane dataflow-impls)
   override apply_early_statement_effect(_state: DenseBitSet<Local>, _stmt: Statement, _loc: Location): void {
     return unported("rustc_mir_dataflow::impls::storage_liveness::MaybeRequiresStorage::apply_early_statement_effect");
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/storage_liveness.rs:210 apply_primary_statement_effect (lane dataflow-impls)
+  // stub-df: compiler/rustc_mir_dataflow/src/impls/storage_liveness.rs:210 apply_primary_statement_effect (lane dataflow-impls)
   apply_primary_statement_effect(_state: DenseBitSet<Local>, _stmt: Statement, _loc: Location): void {
     return unported("rustc_mir_dataflow::impls::storage_liveness::MaybeRequiresStorage::apply_primary_statement_effect");
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/storage_liveness.rs:243 apply_early_terminator_effect (lane dataflow-impls)
+  // stub-df: compiler/rustc_mir_dataflow/src/impls/storage_liveness.rs:243 apply_early_terminator_effect (lane dataflow-impls)
   override apply_early_terminator_effect(_state: DenseBitSet<Local>, _terminator: Terminator, _loc: Location): void {
     return unported("rustc_mir_dataflow::impls::storage_liveness::MaybeRequiresStorage::apply_early_terminator_effect");
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/storage_liveness.rs:298 apply_primary_terminator_effect (lane dataflow-impls)
+  // stub-df: compiler/rustc_mir_dataflow/src/impls/storage_liveness.rs:298 apply_primary_terminator_effect (lane dataflow-impls)
   override apply_primary_terminator_effect(_state: DenseBitSet<Local>, _terminator: Terminator, _loc: Location): void {
     return unported("rustc_mir_dataflow::impls::storage_liveness::MaybeRequiresStorage::apply_primary_terminator_effect");
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/storage_liveness.rs:338 apply_call_return_effect (lane dataflow-impls)
+  // stub-df: compiler/rustc_mir_dataflow/src/impls/storage_liveness.rs:338 apply_call_return_effect (lane dataflow-impls)
   override apply_call_return_effect(_state: DenseBitSet<Local>, _block: BasicBlock, _return_places: CallReturnPlaces): void {
     return unported("rustc_mir_dataflow::impls::storage_liveness::MaybeRequiresStorage::apply_call_return_effect");
   }
 
   /// Kill locals that are fully moved and have not been borrowed.
-  // stub: compiler/rustc_mir_dataflow/src/impls/storage_liveness.rs:350 check_for_move (lane dataflow-impls)
+  // stub-df: compiler/rustc_mir_dataflow/src/impls/storage_liveness.rs:350 check_for_move (lane dataflow-impls)
   check_for_move(_state: DenseBitSet<Local>, _loc: Location): void {
     return unported("rustc_mir_dataflow::impls::storage_liveness::MaybeRequiresStorage::check_for_move");
   }
@@ -183,7 +183,7 @@ class KillableLocalsVisitor {
 
   // ---- impl Visitor for KillableLocalsVisitor ----
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/storage_liveness.rs:136 visit_local (lane dataflow-impls)
+  // stub-df: compiler/rustc_mir_dataflow/src/impls/storage_liveness.rs:136 visit_local (lane dataflow-impls)
   visit_local(_local: Local, _context: PlaceContext, _loc: Location): void {
     return unported("rustc_mir_dataflow::impls::storage_liveness::MaybeRequiresStorage::new::KillableLocalsVisitor::visit_local");
   }

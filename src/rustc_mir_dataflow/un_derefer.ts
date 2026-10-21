@@ -16,14 +16,14 @@ export class UnDerefer {
   constructor(public deref_chains: Map<Local, PlaceRef[]>) {}
 
   // #[inline]
-  // stub: compiler/rustc_mir_dataflow/src/un_derefer.rs:12 insert (lane dataflow-move-paths)
+  // stub-df: compiler/rustc_mir_dataflow/src/un_derefer.rs:12 insert (lane dataflow-move-paths)
   insert(_local: Local, _reffed: PlaceRef): void {
     return unported("rustc_mir_dataflow::un_derefer::UnDerefer::insert");
   }
 
   /// Returns the chain of places behind `DerefTemp` locals
   // #[inline]
-  // stub: compiler/rustc_mir_dataflow/src/un_derefer.rs:20 deref_chain (lane dataflow-move-paths)
+  // stub-df: compiler/rustc_mir_dataflow/src/un_derefer.rs:20 deref_chain (lane dataflow-move-paths)
   deref_chain(_local: Local): readonly PlaceRef[] {
     return unported("rustc_mir_dataflow::un_derefer::UnDerefer::deref_chain");
   }
@@ -32,7 +32,7 @@ export class UnDerefer {
   ///
   /// See [`PlaceRef::iter_projections`]
   // #[inline]
-  // stub: compiler/rustc_mir_dataflow/src/un_derefer.rs:28 iter_projections (lane dataflow-move-paths)
+  // stub-df: compiler/rustc_mir_dataflow/src/un_derefer.rs:28 iter_projections (lane dataflow-move-paths)
   iter_projections(_place: PlaceRef): IterableIterator<[PlaceRef, PlaceElem]> {
     return unported("rustc_mir_dataflow::un_derefer::UnDerefer::iter_projections");
   }
@@ -47,14 +47,14 @@ class ProjectionIter implements IterableIterator<[PlaceRef, PlaceElem]> {
   ) {}
 
   // #[inline]
-  // stub: compiler/rustc_mir_dataflow/src/un_derefer.rs:44 new (lane dataflow-move-paths)
+  // stub-df: compiler/rustc_mir_dataflow/src/un_derefer.rs:44 new (lane dataflow-move-paths)
   static new(_deref_chain: readonly PlaceRef[], _place: PlaceRef): ProjectionIter {
     return unported("rustc_mir_dataflow::un_derefer::ProjectionIter::new");
   }
 
   /** `impl Iterator for ProjectionIter`. */
   // #[inline]
-  // stub: compiler/rustc_mir_dataflow/src/un_derefer.rs:61 next (lane dataflow-move-paths)
+  // stub-df: compiler/rustc_mir_dataflow/src/un_derefer.rs:61 next (lane dataflow-move-paths)
   next(): IteratorResult<[PlaceRef, PlaceElem]> {
     return unported("rustc_mir_dataflow::un_derefer::ProjectionIter::next");
   }
@@ -74,13 +74,13 @@ class SlicePlusOne<T> {
   ) {}
 
   // #[inline]
-  // stub: compiler/rustc_mir_dataflow/src/un_derefer.rs:87 read (lane dataflow-move-paths)
+  // stub-df: compiler/rustc_mir_dataflow/src/un_derefer.rs:87 read (lane dataflow-move-paths)
   read(): T | undefined {
     return unported("rustc_mir_dataflow::un_derefer::SlicePlusOne::read");
   }
 
   // #[inline]
-  // stub: compiler/rustc_mir_dataflow/src/un_derefer.rs:92 advance (lane dataflow-move-paths)
+  // stub-df: compiler/rustc_mir_dataflow/src/un_derefer.rs:92 advance (lane dataflow-move-paths)
   advance(): void {
     return unported("rustc_mir_dataflow::un_derefer::SlicePlusOne::advance");
   }
