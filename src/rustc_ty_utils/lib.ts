@@ -7,6 +7,7 @@
 import type { Providers } from "../rustc_middle/queries.gen.ts";
 import * as assoc from "./assoc.ts";
 import * as common_traits from "./common_traits.ts";
+import * as consts from "./consts.ts";
 import * as implied_bounds from "./implied_bounds.ts";
 import * as layout from "./layout.ts";
 import * as needs_drop from "./needs_drop.ts";
@@ -19,7 +20,7 @@ import * as ty from "./ty.ts";
 // mod abi;                 (not ported: codegen-era, M4+)
 // mod assoc;
 // mod common_traits;
-// mod consts;              (not ported)
+// mod consts;
 // mod diagnostics;         (generated: diagnostics.gen.ts, re-exported by diagnostics.ts)
 // mod implied_bounds;
 // mod instance;            (not ported: codegen-era, M4+)
@@ -37,7 +38,7 @@ export function provide(providers: Providers): void {
   // abi::provide(providers);
   assoc.provide(providers);
   common_traits.provide(providers);
-  // consts::provide(providers);
+  consts.provide(providers);
   implied_bounds.provide(providers);
   layout.provide(providers);
   needs_drop.provide(providers);

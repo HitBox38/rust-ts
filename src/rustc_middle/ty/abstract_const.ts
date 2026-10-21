@@ -4,7 +4,8 @@
 //
 // PORT: `T: TypeFoldable` arguments take the D4 descriptor last (`tcx.expand_abstract_consts(ac, d_T)`). The fn-local
 // `Expander` is a class implementing `TypeFolder` (its provided methods forward to `TypeFolder_provided`).
-// `CastKind`, `NotConstEvaluatable` and `BoundAbstractConst` stay pending in ty/decls.ts (not reached yet).
+// `NotConstEvaluatable` and `BoundAbstractConst` stay pending in ty/decls.ts (not reached yet). `CastKind` is below
+// (lane small-gaps-21; decls.ts re-exports the type).
 // Extension module (docs/handoff/ty-contract.md "Init order"): rustc_middle/lib.ts loads it after the classes;
 // its top-level code may touch only the classes it imports, never another extension module.
 import type { ErrorGuaranteed } from "../../rustc_span/lib.ts";
@@ -20,6 +21,14 @@ import type { Clauses } from "./decls.ts";
 import type { Ty } from "./mod.ts";
 import { fold_GenericArgs } from "./generic_args.ts";
 import { fold_Ty } from "./structural_impls.ts";
+
+// rustc-type: compiler/rustc_middle/src/ty/abstract_const.rs:13 CastKind
+export type CastKind =
+  /// `thir::ExprKind::As`
+  | "As"
+  /// `thir::ExprKind::ValueExpr`
+  | "Use";
+export const CastKind = { As: "As", Use: "Use" } as const;
 
 // rustc: compiler/rustc_middle/src/ty/abstract_const.rs:37 expand_abstract_consts
 TyCtxt.prototype.expand_abstract_consts = function <T>(this: TyCtxt, ac: T, d_T: TypeFoldable<T>): T {

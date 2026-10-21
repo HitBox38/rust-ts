@@ -219,8 +219,9 @@ export type BoundExistentialPredicates = List<PolyExistentialPredicate>;
 export type RegionAssumptions = List<ArgOutlivesClause>;
 // traits/solve.rs:23 `PredefinedOpaques<'tcx> = &'tcx ty::List<(ty::OpaqueTypeKey<'tcx>, Ty<'tcx>)>`
 export type PredefinedOpaques = List<[OpaqueTypeKey, Ty]>;
-// ty/abstract_const.rs `CastKind` (a fieldless enum of a file not generated yet)
-export type CastKind = Pending<"abstract_const::CastKind">;
+// ty/abstract_const.rs `CastKind` (hand-written in ./abstract_const.ts, lane small-gaps-21)
+import type { CastKind } from "./abstract_const.ts";
+export type { CastKind };
 // mir/syntax.rs `BinOp` / `UnOp` (mir/syntax.ts, codegen set rustc_middle_mir_syntax; merge-w18)
 import type { BinOp, UnOp } from "../mir/syntax.ts";
 export type { BinOp, UnOp };
