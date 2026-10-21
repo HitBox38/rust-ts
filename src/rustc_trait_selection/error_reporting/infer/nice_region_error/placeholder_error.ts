@@ -285,11 +285,12 @@ NiceRegionError.prototype.report_trait_placeholder_mismatch = function (
     const def_id = code._0;
     const span = code._1;
     const parent = this.tcx().parent(def_id);
-    const parent_kind = this.tcx().def_kind(parent);
     const ident = this.tcx().opt_item_ident(def_id);
+    const item_span_ = ident === undefined ? this.tcx().def_span(def_id) : ident.span;
+    const parent_kind = this.tcx().def_kind(parent);
     [satisfy_span, item_span, outer_span, dup_span, item_name] = [
       span,
-      ident === undefined ? this.tcx().def_span(def_id) : ident.span,
+      item_span_,
       parent_kind.$ === "Trait" || parent_kind.$ === "Impl" ? Span.shrink_to_lo(this.tcx().def_span(parent)) : undefined,
       undefined,
       this.tcx().def_path_str(def_id),
