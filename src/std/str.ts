@@ -1,7 +1,7 @@
 // `&str` for byte-indexed text. Rust strings are UTF-8 and every offset the compiler
 // stores (token lengths, BytePos, ...) is a UTF-8 byte offset, so source text is kept
 // as a view over UTF-8 bytes. Plain JS strings are fine where no byte offsets leak out.
-import { is_whitespace, len_utf8, to_string as char_to_string, to_uppercase as char_to_uppercase } from "./char.ts";
+import { is_whitespace, len_utf8, to_string as char_to_string } from "./char.ts";
 import { escape_char } from "./fmt.ts";
 import { Panic } from "./panic.ts";
 import type { Result } from "./result.ts";
@@ -460,16 +460,4 @@ export function debug_os_bytes(bytes: Uint8Array): string {
     rest = rest.subarray(valid_len + invalid_len);
   }
   return out + '"';
-}
-
-// std: library/alloc/src/str.rs:672 to_uppercase
-/// Returns the uppercase equivalent of this string slice, as a new `String`.
-/// PORT: the ASCII-prefix fast path (`convert_while_ascii`) yields the same chars as the general loop, which is used
-/// for the whole string; `conversions::to_upper(c)` with its `'\0'` padding is `char::to_uppercase`'s char list.
-export function str_to_uppercase(self: string): string {
-  let s = "";
-  for (const c of self) {
-    s += String.fromCodePoint(...char_to_uppercase(c.codePointAt(0)!));
-  }
-  return s;
 }

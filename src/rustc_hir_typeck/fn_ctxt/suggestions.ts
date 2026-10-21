@@ -45,7 +45,8 @@ import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
 import { ToTrace_Ty } from "../../rustc_infer/infer/at.ts";
 import { unreachable, unwrap } from "../../std/panic.ts";
 import { span_bug } from "../../rustc_span/macros.ts";
-import { str_is_char_boundary, str_to_uppercase } from "../../std/str.ts";
+import { str_is_char_boundary } from "../../std/str.ts";
+import { str_to_uppercase } from "../../std/unicode/str_case.ts";
 import { FnCtxt } from "../decls.ts";
 import {
   AddReturnTypeSuggestion_subdiagnostic,
