@@ -25,8 +25,11 @@ import {
   LayoutCalculator,
   LayoutData,
   Niche,
+  ReprFlags,
+  ReprOptions,
   Scalar,
   Size,
+  TargetDataLayout,
   TyAndLayout,
   VariantLayout,
   WrappingRange,
@@ -133,7 +136,7 @@ test("every fn of the layout files is ported or declared as a stub, never both",
   // stubs only for the scope files
   for (const d of stubs) expect(FILES.some(([f]) => f === d.path)).toBe(true);
   expect(total).toBe(320);
-  expect(stubs.length).toBe(168);
+  expect(stubs.length).toBe(149);
 });
 
 function stops(f: () => unknown, what: string): void {
@@ -214,11 +217,16 @@ test("Debug of LayoutData / Layout / Scalar / BackendRepr is rustc's (tests/ui/l
 test("the stubs stop as UNPORTED with their own path", () => {
   const l = option_bool();
   stops(() => l.is_zst(), "rustc_abi::LayoutData::is_zst");
-  stops(() => LayoutData.scalar({ data_layout: () => unreachable_dl() }, scalar(u8_, 0n, 1n)), "rustc_abi::layout::simple::LayoutData::scalar");
+  // `LayoutData::scalar` (abi-layout-a) is ported: its first call is `Niche::from_scalar` (lane abi-lib)
+  stops(() => LayoutData.scalar({ data_layout: () => unreachable_dl() }, scalar(u8_, 0n, 1n)), "rustc_abi::Niche::from_scalar");
   stops(() => BackendRepr.is_unsized(l.backend_repr), "rustc_abi::BackendRepr::is_unsized");
   stops(() => Scalar.primitive(scalar(u8_, 0n, 1n)), "rustc_abi::Scalar::primitive");
   stops(() => new WrappingRange(0n, 1n).contains(0n), "rustc_abi::wrapping_range::WrappingRange::contains");
-  stops(() => LayoutCalculator.new({ data_layout: () => unreachable_dl() }).layout_of_union(null as never, []), "rustc_abi::layout::LayoutCalculator::layout_of_union");
+  // `layout_of_union` (abi-layout-a) is ported: a union with no fields is `EmptyUnion`; `layout_of_enum` is still a stub
+  const dl = TargetDataLayout.default();
+  const repr = new ReprOptions(undefined, undefined, undefined, ReprFlags.empty(), undefined, Hash64.ZERO);
+  expect(LayoutCalculator.new(dl).layout_of_union(repr, [[]])).toEqual({ $: "Err", _0: { $: "EmptyUnion" } });
+  stops(() => LayoutCalculator.new(dl).layout_of_enum(repr, [], null as never, []), "rustc_abi::layout::LayoutCalculator::layout_of_enum");
   stops(() => coroutine_saved_local_eligibility(0, [], null as never), "rustc_abi::layout::coroutine::coroutine_saved_local_eligibility");
   stops(() => layout_of_uncached(null as never, null as never), "rustc_ty_utils::layout::layout_of_uncached");
   stops(() => layout_sanity_check(null as never, null as never), "rustc_ty_utils::layout::invariant::layout_sanity_check");
