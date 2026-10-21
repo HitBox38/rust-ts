@@ -1032,6 +1032,60 @@
       "middle_traits_thir.typemap.json"
     ]
   },
+  "rustc_middle_ty_print": {
+    "files": [
+      "compiler/rustc_middle/src/ty/print/pretty.rs"
+    ],
+    "files_note": "lane small-gaps-20: only the derived TypeVisitable / TypeFoldable of the hand-written print wrappers (`TraitRefPrintOnlyTraitPath`, ...; ty/print/pretty.ts) are generated (`type_fold_hand`), into ty/print/pretty.gen.ts; every other type of the file is skipped (hand-written in pretty.ts)",
+    "class": [],
+    "hand": [
+      "rustc_middle::ty::print::pretty::TraitRefPrintOnlyTraitPath",
+      "rustc_middle::ty::print::pretty::TraitRefPrintSugared",
+      "rustc_middle::ty::print::pretty::TraitRefPrintOnlyTraitName",
+      "rustc_middle::ty::print::pretty::TraitClausePrintModifiersAndPath",
+      "rustc_middle::ty::print::pretty::TraitClausePrintWithBoundConstness"
+    ],
+    "hand_notes": "ty/print/pretty.ts (lanes ty-print-a / ty-print-b) hand-writes every type of the file, with their Debug / Display",
+    "type_fold_hand": [
+      "rustc_middle::ty::print::pretty::TraitRefPrintOnlyTraitPath",
+      "rustc_middle::ty::print::pretty::TraitRefPrintSugared",
+      "rustc_middle::ty::print::pretty::TraitRefPrintOnlyTraitName",
+      "rustc_middle::ty::print::pretty::TraitClausePrintModifiersAndPath",
+      "rustc_middle::ty::print::pretty::TraitClausePrintWithBoundConstness"
+    ],
+    "discriminant": [],
+    "skip": [
+      "rustc_middle::ty::print::pretty::RtnMode",
+      "rustc_middle::ty::print::pretty::RtnModeHelper",
+      "rustc_middle::ty::print::pretty::WrapBinderMode",
+      "rustc_middle::ty::print::pretty::RegionHighlightMode",
+      "rustc_middle::ty::print::pretty::FmtPrinter",
+      "rustc_middle::ty::print::pretty::FmtPrinterData",
+      "rustc_middle::ty::print::pretty::RegionFolder",
+      "rustc_middle::ty::print::pretty::PrintClosureAsImpl",
+      "rustc_middle::ty::print::pretty::OpaqueFnEntry"
+    ],
+    "skip_notes": {
+      "rustc_middle::ty::print::pretty::RtnMode": "hand-written in ty/print/pretty.ts (no codegen for this file beyond the type_fold_hand derives)",
+      "rustc_middle::ty::print::pretty::RtnModeHelper": "hand-written in ty/print/pretty.ts (no codegen for this file beyond the type_fold_hand derives)",
+      "rustc_middle::ty::print::pretty::WrapBinderMode": "hand-written in ty/print/pretty.ts (no codegen for this file beyond the type_fold_hand derives)",
+      "rustc_middle::ty::print::pretty::RegionHighlightMode": "hand-written in ty/print/pretty.ts (no codegen for this file beyond the type_fold_hand derives)",
+      "rustc_middle::ty::print::pretty::FmtPrinter": "hand-written in ty/print/pretty.ts (no codegen for this file beyond the type_fold_hand derives)",
+      "rustc_middle::ty::print::pretty::FmtPrinterData": "hand-written in ty/print/pretty.ts (no codegen for this file beyond the type_fold_hand derives)",
+      "rustc_middle::ty::print::pretty::RegionFolder": "hand-written in ty/print/pretty.ts (no codegen for this file beyond the type_fold_hand derives)",
+      "rustc_middle::ty::print::pretty::PrintClosureAsImpl": "hand-written in ty/print/pretty.ts (no codegen for this file beyond the type_fold_hand derives)",
+      "rustc_middle::ty::print::pretty::OpaqueFnEntry": "hand-written in ty/print/pretty.ts (no codegen for this file beyond the type_fold_hand derives)"
+    },
+    "derive_type_fold": true,
+    "resolve_files": [
+      "compiler/rustc_middle/src/ty/print/mod.rs",
+      "compiler/rustc_middle/src/ty/mod.rs"
+    ],
+    "typemap_extra": [
+      "tyir.typemap.json",
+      "middle_traits_thir.typemap.json"
+    ]
+  },
   "rustc_middle_ty_mod": {
     "files": [
       "compiler/rustc_middle/src/ty/mod.rs"
