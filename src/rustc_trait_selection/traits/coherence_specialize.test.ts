@@ -39,10 +39,9 @@ const PENDING_FACTS = new Set<string>([
 ]);
 
 /** The exact `unported(..)` texts the coherence runs stop at today (overlap.rs matches the oracle since merge-w17). */
-const PENDING_COHERENCE = new Set([
-  // negpos.rs: `impl Diagnostic for NegativePositiveConflict` (diagnostics.rs, a manual impl; unassigned)
-  "rustc_trait_selection::diagnostics::NegativePositiveConflict",
-]);
+// Re-pinned by lane errrep-infer-b: `impl Diagnostic for NegativePositiveConflict` (diagnostics.rs:41) is ported, so
+// negpos.rs (E0751) prints the oracle's stderr too; no stop is pending.
+const PENDING_COHERENCE = new Set<string>([]);
 
 const FACTS: [string, number][] = [
   // [crate, lines that must equal the probe's]
@@ -91,8 +90,8 @@ for (const [file, code] of [
     expect(oracle.stderr).toContain(`error[${code}]`);
     const ours = run(["bun", join(DIR, "run.ts"), "coherence", ...coherence_args(s, file)]);
     const m = /unported: (.*)\n/.exec(ours.stderr);
-    // overlap.rs matches the oracle since merge-w17: it must not stop.
-    if (file === "overlap.rs") expect(m).toBeNull();
+    // overlap.rs matches the oracle since merge-w17, negpos.rs since errrep-infer-b: they must not stop.
+    if (file === "overlap.rs" || file === "negpos.rs") expect(m).toBeNull();
     if (m !== null) expect(PENDING_COHERENCE).toContain(m[1]!);
     else expect({ exit: ours.exit, stderr: ours.stderr }).toEqual({ exit: oracle.exit, stderr: oracle.stderr });
   }, 120_000);
