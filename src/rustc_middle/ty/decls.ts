@@ -178,13 +178,13 @@ export type { ObligationCause };
 // hir/place.rs (lane typeck-euv): `ty::closure`'s `HirPlace` is `hir::place::Place`
 import type { Place as HirPlace } from "../hir/place.ts";
 export type { HirPlace };
-// mir/statement.rs (`mir::ProjectionKind = ProjectionElem<(), ()>`), mir/syntax.rs, mir/interpret/allocation.rs, mir/mod.rs
-export type ProjectionKind = Pending<"ProjectionKind">;
-export type PlaceElem = Pending<"PlaceElem">;
-export type Allocation = Pending<"Allocation">;
-export type ConstAllocation = Pending<"ConstAllocation">;
-export type Body = Pending<"mir::Body">;
-export type CoroutineLayout = Pending<"CoroutineLayout">;
+// mir/statement.rs (`mir::ProjectionKind = ProjectionElem<(), ()>`), mir/syntax.rs, mir/interpret/allocation.rs, mir/mod.rs,
+// mir/query.rs (codegen set rustc_middle_mir, lane mir-contract; type-only: mir/ is entered through mir/mod.ts)
+export type { ProjectionKind } from "../mir/statement.ts";
+export type { PlaceElem } from "../mir/syntax.ts";
+export type { Allocation, ConstAllocation } from "../mir/interpret/allocation.ts";
+export type { Body } from "../mir/mod.gen.ts";
+export type { CoroutineLayout } from "../mir/query.ts";
 // rustc_abi / ty/layout.rs (lane layout-contract)
 export type { Layout, LayoutData, PointeeInfo } from "../../rustc_abi/lib.ts";
 export type { FnAbiError, LayoutError, TyAndLayout } from "./layout.ts";

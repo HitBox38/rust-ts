@@ -255,7 +255,12 @@
     "class": [],
     "hand": [],
     "discriminant": [],
-    "skip": [],
+    "skip": [
+      "rustc_middle::mir::interpret::error::InterpResult"
+    ],
+    "skip_notes": {
+      "rustc_middle::mir::interpret::error::InterpResult": "plan-m4 D8: `InterpResult<T>` is src/std/result.ts's `Result<T, InterpErrorInfo>` (the `Guard` drop check is a debug aid): hand alias in interpret/error.ts"
+    },
     "auto_class": true,
     "derive_stable_hash": true,
     "derive_clone": true,
@@ -276,7 +281,12 @@
       "rustc_hir_id::definitions::PerParentDisambiguatorState"
     ],
     "discriminant": [],
-    "skip": [],
+    "skip": [
+      "rustc_middle::mir::interpret::error::InterpResult"
+    ],
+    "skip_notes": {
+      "rustc_middle::mir::interpret::error::InterpResult": "plan-m4 D8: `InterpResult<T>` is src/std/result.ts's `Result<T, InterpErrorInfo>` (the `Guard` drop check is a debug aid): hand alias in interpret/error.ts"
+    },
     "auto_class": true,
     "derive_clone": true,
     "derive_stable_hash": true,
@@ -311,7 +321,12 @@
       "rustc_crate_store::cstore::CrateStoreDyn"
     ],
     "discriminant": [],
-    "skip": [],
+    "skip": [
+      "rustc_middle::mir::interpret::error::InterpResult"
+    ],
+    "skip_notes": {
+      "rustc_middle::mir::interpret::error::InterpResult": "plan-m4 D8: `InterpResult<T>` is src/std/result.ts's `Result<T, InterpErrorInfo>` (the `Guard` drop check is a debug aid): hand alias in interpret/error.ts"
+    },
     "auto_class": true,
     "derive_clone": true,
     "derive_decodable": true,
@@ -513,7 +528,12 @@
     "class": [],
     "hand": [],
     "discriminant": [],
-    "skip": [],
+    "skip": [
+      "rustc_middle::mir::interpret::error::InterpResult"
+    ],
+    "skip_notes": {
+      "rustc_middle::mir::interpret::error::InterpResult": "plan-m4 D8: `InterpResult<T>` is src/std/result.ts's `Result<T, InterpErrorInfo>` (the `Guard` drop check is a debug aid): hand alias in interpret/error.ts"
+    },
     "auto_class": true,
     "hand_notes": {
       "*": "middle/stability.rs (lane m2b-stability): the types (UnstableKind, DeprecationEntry, DeprecationSuggestion with its derive(Subdiagnostic), Deprecated, EvalResult, AllowUnstable) are generated into src/rustc_middle/middle/stability.gen.ts; the hand port src/rustc_middle/middle/stability.ts adds the fns and Deprecated's manual `impl Diagnostic`. DeprecationEntry's derive(StableHash/Decodable) waits for the depr_map queries (M3)."
@@ -1169,32 +1189,6 @@
       "middle_traits_thir.typemap.json"
     ]
   },
-  "rustc_middle_mir_query": {
-    "files": [
-      "compiler/rustc_middle/src/mir/query.rs"
-    ],
-    "files_note": "lane typeck-gaps: only `ConstraintCategory` / `ReturnConstraint` / `AnnotationSource` (region-constraint categories that typeck / regionck already produce: ObligationCause::to_constraint_category, SubregionOrigin::to_constraint_category, QueryRegionConstraint) are generated; the coroutine-layout / const-qualif types are skipped until the MIR lane (M4)",
-    "class": [],
-    "hand": [],
-    "discriminant": [],
-    "skip": [
-      "rustc_middle::mir::query::CoroutineSavedLocal",
-      "rustc_middle::mir::query::CoroutineSavedTy",
-      "rustc_middle::mir::query::CoroutineLayout",
-      "rustc_middle::mir::query::ConstQualifs",
-      "rustc_middle::mir::query::DestructuredConstant"
-    ],
-    "derive_clone": true,
-    "derive_type_fold": true,
-    "resolve_files": [
-      "compiler/rustc_middle/src/ty/mod.rs"
-    ],
-    "typemap_extra": [
-      "tyir.typemap.json",
-      "middle_traits_thir.typemap.json",
-      "infer.typemap.json"
-    ]
-  },
   "rustc_infer": {
     "files": [
       "compiler/rustc_infer/src/diagnostics.rs",
@@ -1384,7 +1378,12 @@
       "rustc_hir_analysis::hir_ty_lowering::errors::GenericsArgsErrExtend": "no derives; its variants name both `hir::Ty` and `ty::Ty`, which the generator would import under the same TS name `Ty`: hand-written in hir_ty_lowering/errors.ts"
     },
     "discriminant": [],
-    "skip": [],
+    "skip": [
+      "rustc_middle::mir::interpret::error::InterpResult"
+    ],
+    "skip_notes": {
+      "rustc_middle::mir::interpret::error::InterpResult": "plan-m4 D8: `InterpResult<T>` is src/std/result.ts's `Result<T, InterpErrorInfo>` (the `Guard` drop check is a debug aid): hand alias in interpret/error.ts"
+    },
     "auto_class": true,
     "derive_clone": true,
     "derive_type_fold": true,
@@ -1434,7 +1433,12 @@
       "rustc_trait_selection::traits::normalize::AssocTypeNormalizer": "TypeFolder impl: hand class (traits/normalize.ts)"
     },
     "discriminant": [],
-    "skip": [],
+    "skip": [
+      "rustc_middle::mir::interpret::error::InterpResult"
+    ],
+    "skip_notes": {
+      "rustc_middle::mir::interpret::error::InterpResult": "plan-m4 D8: `InterpResult<T>` is src/std/result.ts's `Result<T, InterpErrorInfo>` (the `Guard` drop check is a debug aid): hand alias in interpret/error.ts"
+    },
     "auto_class": true,
     "derive_clone": true,
     "derive_type_fold": true,
@@ -1606,48 +1610,6 @@
     },
     "typemap_extra": ["tyir.typemap.json", "middle_traits_thir.typemap.json", "ast_lowering.typemap.json", "mir_build.typemap.json"]
   },
-  "rustc_middle_mir_syntax": {
-    "files": [
-      "compiler/rustc_middle/src/mir/syntax.rs"
-    ],
-    "files_note": "lane thir-pattern: only the mir/syntax.rs enums that THIR stores (thir.rs `ExprKind::{Binary,Unary,AssignOp}.op`, `Borrow.borrow_kind`, `ClosureExpr.fake_reads`) are generated, for their derived Debug in thir_flat; `CastKind` / `CoercionSource` too (lane typeck-gaps: rustc_middle ty/cast.rs `mir_cast_kind` returns a CastKind); every other type is skipped until the MIR lane (M4) ports mir/syntax.rs and drops the skip list.",
-    "class": [],
-    "hand": [],
-    "discriminant": [],
-    "skip": [
-      "rustc_middle::mir::syntax::MirPhase",
-      "rustc_middle::mir::syntax::AnalysisPhase",
-      "rustc_middle::mir::syntax::RuntimePhase",
-      "rustc_middle::mir::syntax::RawPtrKind",
-      "rustc_middle::mir::syntax::StatementKind",
-      "rustc_middle::mir::syntax::NonDivergingIntrinsic",
-      "rustc_middle::mir::syntax::WithRetag",
-      "rustc_middle::mir::syntax::CopyNonOverlapping",
-      "rustc_middle::mir::syntax::CallSource",
-      "rustc_middle::mir::syntax::InlineAsmMacro",
-      "rustc_middle::mir::syntax::TerminatorKind",
-      "rustc_middle::mir::syntax::BackwardIncompatibleDropReason",
-      "rustc_middle::mir::syntax::SwitchTargets",
-      "rustc_middle::mir::syntax::UnwindAction",
-      "rustc_middle::mir::syntax::UnwindTerminateReason",
-      "rustc_middle::mir::syntax::AssertKind",
-      "rustc_middle::mir::syntax::InlineAsmOperand",
-      "rustc_middle::mir::syntax::AssertMessage",
-      "rustc_middle::mir::syntax::Place",
-      "rustc_middle::mir::syntax::ProjectionElem",
-      "rustc_middle::mir::syntax::PlaceElem",
-      "rustc_middle::mir::syntax::Operand",
-      "rustc_middle::mir::syntax::ConstOperand",
-      "rustc_middle::mir::syntax::Rvalue",
-      "rustc_middle::mir::syntax::AggregateKind",
-      "rustc_middle::mir::syntax::RuntimeChecks"
-    ],
-    "derive_clone": true,
-    "typemap_extra": [
-      "tyir.typemap.json",
-      "middle_traits_thir.typemap.json"
-    ]
-  },
   "rustc_trait_selection_old_solver": {
     "files": [
       "compiler/rustc_trait_selection/src/traits/select/mod.rs",
@@ -1683,7 +1645,12 @@
       "rustc_trait_selection::traits::select::TraitObligationStackList": "field `head` collides with the method `head()`: hand class with field `head_` (traits/select/mod.ts)"
     },
     "discriminant": [],
-    "skip": [],
+    "skip": [
+      "rustc_middle::mir::interpret::error::InterpResult"
+    ],
+    "skip_notes": {
+      "rustc_middle::mir::interpret::error::InterpResult": "plan-m4 D8: `InterpResult<T>` is src/std/result.ts's `Result<T, InterpErrorInfo>` (the `Guard` drop check is a debug aid): hand alias in interpret/error.ts"
+    },
     "auto_class": true,
     "derive_clone": true,
     "derive_type_fold": true,
@@ -1811,5 +1778,78 @@
     "derive_type_fold": true,
     "resolve_files": ["compiler/rustc_middle/src/ty/mod.rs"],
     "typemap_extra": ["tyir.typemap.json", "middle_traits_thir.typemap.json"]
+  },
+  "rustc_middle_mir": {
+    "files": [
+      "compiler/rustc_middle/src/mir/mod.rs",
+      "compiler/rustc_middle/src/mir/syntax.rs",
+      "compiler/rustc_middle/src/mir/statement.rs",
+      "compiler/rustc_middle/src/mir/terminator.rs",
+      "compiler/rustc_middle/src/mir/consts.rs",
+      "compiler/rustc_middle/src/mir/query.rs",
+      "compiler/rustc_middle/src/mir/coverage.rs",
+      "compiler/rustc_middle/src/mir/basic_blocks.rs",
+      "compiler/rustc_middle/src/mir/traversal.rs",
+      "compiler/rustc_middle/src/mir/visit.rs",
+      "compiler/rustc_middle/src/mir/pretty.rs",
+      "compiler/rustc_middle/src/mir/interpret/mod.rs",
+      "compiler/rustc_middle/src/mir/interpret/allocation.rs",
+      "compiler/rustc_middle/src/mir/interpret/allocation/init_mask.rs",
+      "compiler/rustc_middle/src/mir/interpret/allocation/provenance_map.rs",
+      "compiler/rustc_middle/src/mir/interpret/value.rs",
+      "compiler/rustc_middle/src/mir/interpret/pointer.rs",
+      "compiler/rustc_middle/src/mir/interpret/error.rs",
+      "compiler/rustc_middle/src/mir/interpret/queries.rs"
+    ],
+    "files_note": "lane mir-contract (plan-m4 D3): every type of rustc_middle mir/* (but graphviz / generic_graph*) and mir/interpret/*, replacing the THIR-only subsets of the former sets rustc_middle_mir_syntax / rustc_middle_mir_query",
+    "class": [
+      "rustc_middle::mir::SourceScopeData",
+      "rustc_middle::mir::interpret::allocation::init_mask::InitChunkIter"
+    ],
+    "hand": [
+      "rustc_middle::mir::interpret::AllocId",
+      "rustc_middle::mir::interpret::AllocMap",
+      "rustc_middle::mir::interpret::allocation::ConstAllocation",
+      "rustc_middle::mir::interpret::allocation::Allocation",
+      "rustc_middle::mir::interpret::pointer::CtfeProvenance",
+      "rustc_middle::mir::terminator::SwitchTargetsIter",
+      "rustc_middle::mir::terminator::helper::Successors",
+      "rustc_middle::mir::pretty::MirDumper",
+      "rustc_middle::mir::pretty::MirWriter",
+      "rustc_middle::mir::pretty::ExtraComments",
+      "rustc_middle::mir::visit::VisitPlacesWith"
+    ],
+    "hand_notes": {
+      "rustc_middle::mir::interpret::AllocId": "`AllocId(NonZero<u64>)`: a branded number (PORTING §5 interned handles; ids stay < 2^53), interpret/mod.ts",
+      "rustc_middle::mir::interpret::AllocMap": "`ShardedHashMap` / `Lock<FxHashMap<(GlobalAlloc, usize), AllocId>>` / `AtomicU64`: a Map, a KeyedMap and a number, interpret/mod.ts",
+      "rustc_middle::mir::interpret::allocation::Allocation": "plan-m4 D8: `bytes: Box<[u8]>` is a `Uint8Array` (the `Bytes` default); a hand class whose methods are in its body, interpret/allocation.ts",
+      "rustc_middle::mir::interpret::allocation::ConstAllocation": "hash-consed (`Interned<'tcx, Allocation>`, plan-m3 D2): a frozen class extending Interned, made only by `TyCtxt::mk_const_alloc`, interpret/allocation.ts",
+      "rustc_middle::mir::interpret::pointer::CtfeProvenance": "`CtfeProvenance(NonZero<u64>)` packs flags into bits 62/63: a branded bigint (PORTING §5 u64), interpret/pointer.ts",
+      "rustc_middle::mir::terminator::SwitchTargetsIter": "`Zip<slice::Iter<Pu128>, slice::Iter<BasicBlock>>`: an iterator class, terminator.ts",
+      "rustc_middle::mir::terminator::helper::Successors": "`impl DoubleEndedIterator<Item = BasicBlock>`: a double-ended iterator class over the chained successors, terminator.ts",
+      "rustc_middle::mir::pretty::MirDumper": "holds `&dyn Display` and a MirWriter: hand class, pretty.ts",
+      "rustc_middle::mir::pretty::MirWriter": "holds `&dyn Fn(PassWhere, &mut dyn io::Write) -> io::Result<()>`: hand class, pretty.ts",
+      "rustc_middle::mir::pretty::ExtraComments": "implements `mir::visit::Visitor`: a hand class extending visit.ts's `Visitor`, pretty.ts",
+      "rustc_middle::mir::visit::VisitPlacesWith": "implements `mir::visit::Visitor`: a hand class extending `Visitor`, visit.ts"
+    },
+    "discriminant": [],
+    "skip": [
+      "rustc_middle::mir::interpret::error::InterpResult"
+    ],
+    "skip_notes": {
+      "rustc_middle::mir::interpret::error::InterpResult": "plan-m4 D8: `InterpResult<T>` is src/std/result.ts's `Result<T, InterpErrorInfo>` (the `Guard` drop check is a debug aid): hand alias in interpret/error.ts"
+    },
+    "auto_class": true,
+    "derive_clone": true,
+    "derive_type_fold": true,
+    "resolve_files": [
+      "compiler/rustc_middle/src/ty/mod.rs"
+    ],
+    "typemap_extra": [
+      "tyir.typemap.json",
+      "middle_traits_thir.typemap.json",
+      "infer.typemap.json",
+      "mir.typemap.json"
+    ]
   }
 }

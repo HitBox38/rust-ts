@@ -47,7 +47,6 @@ import type { TraitDef } from "./trait_def.ts";
 import { Pattern_deref } from "./pattern.ts";
 import type { UpvarId } from "./closure.ts";
 import type { AdtDef, BoundExistentialPredicates, CastKind, Consts, LocalDefIds, PatList, Pattern, PlaceElem, PredefinedOpaques, RegionAssumptions } from "./decls.ts";
-import { debug_BinOp, debug_UnOp } from "../mir/syntax.ts";
 import type { ArgOutlivesClause, PolyExistentialPredicate } from "../../rustc_type_ir/decls.ts";
 import type { Adjustment, PatAdjustment } from "./adjustment.gen.ts";
 import type { GenericArg } from "./generic_args.ts";
@@ -154,18 +153,26 @@ var adjustment_gen__m: typeof import("./adjustment.gen.ts") | undefined; // PORT
 function debug_CastKind(v: CastKind): string {
   return v;
 }
-/** PORT: stand-in for the `TypeFoldable`/`TypeVisitable` impls of `mir::PlaceElem` (mir/syntax.rs, M4). */
+/**
+ * The `TypeFoldable` / `TypeVisitable` of `mir::PlaceElem = ProjectionElem<Local, Ty>`: the derives of mir/syntax.rs
+ * (`*_with_ProjectionElem`, mir/syntax.gen.ts) over `Local`'s trivial impl and `Ty`'s (lane mir-contract).
+ */
 const fold_PlaceElem: TypeFoldable<PlaceElem> = {
-  try_fold_with(_self, _folder) {
-    return unported("rustc_middle::mir::PlaceElem: TypeFoldable (M4)");
+  try_fold_with(self, folder) {
+    return mir().try_fold_with_ProjectionElem(self, folder, (v) => Ok(v), (v, f) => fold_Ty.try_fold_with(v, f));
   },
-  fold_with(_self, _folder) {
-    return unported("rustc_middle::mir::PlaceElem: TypeFoldable (M4)");
+  fold_with(self, folder) {
+    return mir().fold_with_ProjectionElem(self, folder, (v) => v, (v, f) => fold_Ty.fold_with(v, f));
   },
-  visit_with(_self, _visitor) {
-    return unported("rustc_middle::mir::PlaceElem: TypeVisitable (M4)");
+  visit_with(self, visitor) {
+    return mir().visit_with_ProjectionElem(self, visitor, (_v, vis) => vis.Result.output(), (v, vis) => fold_Ty.visit_with(v, vis));
   },
 };
+/** rustc_middle mir/mod.ts, read lazily (mir/ is entered through mir/mod.ts, after ty/context.ts; init order). */
+function mir(): typeof import("../mir/mod.ts") {
+  return (mir__m ??= require("../mir/mod.ts") as typeof import("../mir/mod.ts"));
+}
+var mir__m: typeof import("../mir/mod.ts") | undefined;
 /** `T: PartialEq` of a list element: interned values by identity, others by their derived `PartialEq` (intern key). */
 function T_eq<T>(a: T, b: T): boolean {
   return a === b || intern_key_eq(a, b);
@@ -261,12 +268,12 @@ export const debug_Expr: Debug<Expr> = (self, _f) => {
     case "Binop": {
       const op = k._0;
       const [lhs_ty, rhs_ty, lhs, rhs] = Expr.binop_args(self);
-      return `(${debug_BinOp(op, PLAIN)}: (${debug_Const(lhs, PLAIN)}: ${debug_Ty(lhs_ty, PLAIN)}), (${debug_Const(rhs, PLAIN)}: ${debug_Ty(rhs_ty, PLAIN)}))`;
+      return `(${mir().debug_BinOp(op, PLAIN)}: (${debug_Const(lhs, PLAIN)}: ${debug_Ty(lhs_ty, PLAIN)}), (${debug_Const(rhs, PLAIN)}: ${debug_Ty(rhs_ty, PLAIN)}))`;
     }
     case "UnOp": {
       const op = k._0;
       const [rhs_ty, rhs] = Expr.unop_args(self);
-      return `(${debug_UnOp(op, PLAIN)}: (${debug_Const(rhs, PLAIN)}: ${debug_Ty(rhs_ty, PLAIN)}))`;
+      return `(${mir().debug_UnOp(op, PLAIN)}: (${debug_Const(rhs, PLAIN)}: ${debug_Ty(rhs_ty, PLAIN)}))`;
     }
     case "FunctionCall": {
       const [func_ty, func, args_] = Expr.call_args(self);
@@ -1125,6 +1132,26 @@ export function try_fold_with_RegionAssumptions<E>(self: RegionAssumptions, fold
 }
 export function fold_with_RegionAssumptions(self: RegionAssumptions, folder: TypeFolder): RegionAssumptions {
   return fold_RegionAssumptions.fold_with(self, folder);
+}
+
+export function visit_with_PlaceElems<R>(self: List<PlaceElem>, visitor: TypeVisitor<R>): R {
+  return fold_PlaceElems.visit_with(self, visitor);
+}
+export function try_fold_with_PlaceElems<E>(self: List<PlaceElem>, folder: FallibleTypeFolder<E>): Result<List<PlaceElem>, E> {
+  return fold_PlaceElems.try_fold_with(self, folder);
+}
+export function fold_with_PlaceElems(self: List<PlaceElem>, folder: TypeFolder): List<PlaceElem> {
+  return fold_PlaceElems.fold_with(self, folder);
+}
+
+export function visit_with_Spanned<T, R>(self: Spanned<T>, visitor: TypeVisitor<R>, visit_with_T: (v: T, visitor: TypeVisitor<R>) => R): R {
+  return fold_Spanned<T>({ visit_with: visit_with_T as TypeFoldable<T>["visit_with"] } as TypeFoldable<T>).visit_with(self, visitor);
+}
+export function try_fold_with_Spanned<T, E>(self: Spanned<T>, folder: FallibleTypeFolder<E>, try_fold_with_T: (v: T, folder: FallibleTypeFolder<E>) => Result<T, E>): Result<Spanned<T>, E> {
+  return fold_Spanned<T>({ try_fold_with: try_fold_with_T as TypeFoldable<T>["try_fold_with"] } as TypeFoldable<T>).try_fold_with(self, folder);
+}
+export function fold_with_Spanned<T>(self: Spanned<T>, folder: TypeFolder, fold_with_T: (v: T, folder: TypeFolder) => T): Spanned<T> {
+  return fold_Spanned<T>({ fold_with: fold_with_T } as TypeFoldable<T>).fold_with(self, folder);
 }
 
 export function visit_with_PredefinedOpaques<R>(self: PredefinedOpaques, visitor: TypeVisitor<R>): R {
