@@ -4,12 +4,11 @@
 // free `fn`; one stdout line per fn). Oracle: `rustc <file> --crate-type lib --edition 2024 --emit=metadata` (stderr).
 // Both sides compile the same `#![no_core]` file (lang items `pointee_sized`, `meta_sized`, `sized`, `copy`).
 //
-// rustc_pattern_analysis is not ported (lanes pat-a/b/c), so every pattern stops at `RustcPatCtxt::lower_pat`: the
-// reachable diagnostics are those `lower_pattern` emits before it (`check_borrow_conflicts_in_at_patterns`: E0499 /
-// E0502 / E0505 / E0382; `check_for_bindings_named_same_as_variants`: the E0170 lint). E0004 / E0005 (non-exhaustive /
-// refutable patterns) need `analyze_match`; add them here when pat-c lands. Checks per case: the subject's stdout is
-// the expected list, and every diagnostic block of the subject's stderr occurs, in order, in the oracle's stderr (the
-// oracle goes on to MIR building and borrowck, which may add more).
+// Diagnostics: those `lower_pattern` emits (`check_borrow_conflicts_in_at_patterns`: E0499 / E0502 / E0505 / E0382;
+// `check_for_bindings_named_same_as_variants`: the E0170 lint; these do not make `check_match` fail), and those of
+// rustc_pattern_analysis's `analyze_match` (E0004 non-exhaustive match, E0005 refutable pattern, the unreachable-pattern
+// lint). Checks per case: the subject's stdout is the expected list, and every diagnostic block of the subject's stderr
+// occurs, in order, in the oracle's stderr (the oracle goes on to MIR building and borrowck, which may add more).
 //
 // Skips (visibly) if rustc is unavailable; fails instead under RUST_TS_REQUIRE_PROBES=1.
 import { expect, test } from "bun:test";
@@ -48,7 +47,6 @@ const PRELUDE = [
   "pub struct NC;",
 ].join("\n");
 
-const STOP = "UNPORTED rustc_pattern_analysis::rustc::RustcPatCtxt::lower_pat";
 
 interface Case {
   name: string;
@@ -69,49 +67,79 @@ const CASES: Case[] = [
   {
     name: "param",
     body: "pub fn f(x: u8) -> u8 { x }",
-    stdout: [`check_match(f) = ${STOP}`],
+    stdout: ["check_match(f) = Ok"],
     diags: false,
   },
   {
     name: "multiple-mut-borrows",
     body: "pub fn f(o: Opt<u8>) { match o { ref mut a @ Opt::Just(ref mut b) => {} _ => {} } }",
-    stdout: [`check_match(f) = ${STOP}`],
+    stdout: ["check_match(f) = Ok"],
     diags: true,
   },
   {
     name: "already-mut-borrowed",
     body: "pub fn f(o: Opt<u8>) { match o { ref mut a @ Opt::Just(ref b) => {} _ => {} } }",
-    stdout: [`check_match(f) = ${STOP}`],
+    stdout: ["check_match(f) = Ok"],
     diags: true,
   },
   {
     name: "already-borrowed",
     body: "pub fn f(o: Opt<u8>) { match o { ref a @ Opt::Just(ref mut b) => {} _ => {} } }",
-    stdout: [`check_match(f) = ${STOP}`],
+    stdout: ["check_match(f) = Ok"],
     diags: true,
   },
   {
     name: "moved-while-borrowed",
     body: "pub fn f(o: Opt<NC>) { match o { ref a @ Opt::Just(b) => {} _ => {} } }",
-    stdout: [`check_match(f) = ${STOP}`],
+    stdout: ["check_match(f) = Ok"],
     diags: true,
   },
   {
     name: "borrow-of-moved-value",
     body: "pub fn f(o: Opt<NC>) { match o { a @ Opt::Just(ref b) => {} _ => {} } }",
-    stdout: [`check_match(f) = ${STOP}`],
+    stdout: ["check_match(f) = Ok"],
     diags: true,
   },
   {
     name: "let-borrow-conflict",
     body: "pub fn f(o: Opt<u8>) { let ref mut a @ Opt::Just(ref mut b) = o else { return }; }",
-    stdout: [`check_match(f) = ${STOP}`],
+    stdout: ["check_match(f) = Ok"],
     diags: true,
   },
   {
     name: "bindings-with-variant-name",
     body: "pub fn f(o: Opt<u8>) { match o { Nothing => {} } }",
-    stdout: [`check_match(f) = ${STOP}`],
+    stdout: ["check_match(f) = Ok"],
+    diags: true,
+  },
+  {
+    name: "non-exhaustive-match",
+    body: "pub fn f(o: Opt<u8>) -> u8 { match o { Opt::Just(x) => x } }",
+    stdout: ["check_match(f) = Err"],
+    diags: true,
+  },
+  {
+    name: "refutable-let",
+    body: "pub fn f(o: Opt<u8>) -> u8 { let Opt::Just(x) = o; x }",
+    stdout: ["check_match(f) = Err"],
+    diags: true,
+  },
+  {
+    name: "unreachable-pattern",
+    body: "pub fn f(o: Opt<u8>) -> u8 { match o { Opt::Just(x) => x, Opt::Nothing => 0, _ => 1 } }",
+    stdout: ["check_match(f) = Ok"],
+    diags: true,
+  },
+  {
+    name: "exhaustive-ints",
+    body: "pub fn f(x: u8, b: bool) -> u8 { match (x, b) { (0..=100, true) => 1, (101..=255, true) => 2, (_, false) => 3 } }",
+    stdout: ["check_match(f) = Ok"],
+    diags: false,
+  },
+  {
+    name: "non-exhaustive-ints",
+    body: "pub fn f(x: u8) -> u8 { match x { 0..=100 => 1, 102.. => 2 } }",
+    stdout: ["check_match(f) = Err"],
     diags: true,
   },
 ];
@@ -140,7 +168,7 @@ for (const c of CASES) {
     const file = `${c.name}.rs`;
     writeFileSync(join(WORK, file), `${PRELUDE}\n${c.body}\n`);
     const [oracle, subject] = await Promise.all([
-      run([...RUSTC, file, ...ARGS, "--emit=metadata", "-o", "/dev/null"], WORK),
+      run([...RUSTC, file, ...ARGS, "--emit=metadata", "-o", `${c.name}.rmeta`], WORK),
       run([process.execPath, RUNNER, file, ...ARGS], WORK),
     ]);
     expect(subject.stdout.split("\n").filter((l) => l !== "")).toEqual(c.stdout);

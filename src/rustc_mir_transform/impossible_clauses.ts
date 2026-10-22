@@ -44,7 +44,7 @@ import { type DefId, DefId_eq } from "../rustc_span/def_id.ts";
 import { impossible_clauses } from "../rustc_trait_selection/traits/mod.ts";
 import { MirPass, type PassCtx, PassPolicy } from "./pass_manager.ts";
 
-// rustc: compiler/rustc_mir_transform/src/impossible_clauses.rs:37 is_structurally_unsized
+// rustc: compiler/rustc_mir_transform/src/impossible_clauses.rs:38 is_structurally_unsized
 function is_structurally_unsized(tcx: TyCtxt, ty: Ty): boolean {
   const k = ty.kind();
   switch (k.$) {
@@ -68,7 +68,7 @@ function is_structurally_unsized(tcx: TyCtxt, ty: Ty): boolean {
   }
 }
 
-// rustc: compiler/rustc_mir_transform/src/impossible_clauses.rs:50 has_structurally_impossible_sized_clause
+// rustc: compiler/rustc_mir_transform/src/impossible_clauses.rs:51 has_structurally_impossible_sized_clause
 function has_structurally_impossible_sized_clause(tcx: TyCtxt, sized_trait: DefId, predicate: Clause): boolean {
   const trait_predicate_ = predicate.as_trait_clause();
   if (trait_predicate_ === undefined) {
@@ -88,7 +88,7 @@ export class ImpossibleClauses extends MirPass {
   readonly type_name = "rustc_mir_transform::impossible_clauses::ImpossibleClauses";
 
   // #[tracing::instrument(level = "trace", skip(self, tcx, body))]
-  // rustc: compiler/rustc_mir_transform/src/impossible_clauses.rs:102 run_pass
+  // rustc: compiler/rustc_mir_transform/src/impossible_clauses.rs:101 run_pass
   run_pass(tcx: TyCtxt, body: Body): void {
     // tracing::trace!(def_id = ?body.source.def_id());
     const impossible = body.tainted_by_errors !== undefined || has_impossible_clauses(tcx, body.source.def_id());
@@ -104,7 +104,7 @@ export class ImpossibleClauses extends MirPass {
     }
   }
 
-  // rustc: compiler/rustc_mir_transform/src/impossible_clauses.rs:118 policy
+  // rustc: compiler/rustc_mir_transform/src/impossible_clauses.rs:117 policy
   policy(_ctx: PassCtx): PassPolicy {
     // This can only replace code proven unreachable with immediate UB, so it cannot remove UB.
     return PassPolicy.optional(true);

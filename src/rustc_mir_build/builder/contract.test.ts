@@ -3,9 +3,9 @@
 //   declared (a `// stub: <path>:<line> <name> (lane <lane>)` comment over a declaration whose body calls `unported(..)`
 //   with a path in the fn's own module), never both; the stubs per fill lane are the split table of the handoff;
 // - `construct_error` (ported) builds the error body rustc builds; the `build_mir_inner_impl` hook (set by `provide`)
-//   runs `check_match` (stopping at rustc_pattern_analysis's `lower_pat` until lane pat-c lands); `construct_fn` builds
-//   the MIR of real fns, and the pass manager's `-Zdump-mir=built` dump of it (`dump_mir_for_phase_change`, as
-//   `mir_built` dumps it) is byte-identical to the pinned rustc's.
+//   (`check_match` with rustc_pattern_analysis, `check_tail_calls`, `construct_fn`) builds the MIR of real fns, and the
+//   pass manager's `-Zdump-mir=built` dump of it (`dump_mir_for_phase_change`, as `mir_built` dumps it) is
+//   byte-identical to the pinned rustc's.
 import { expect, test } from "bun:test";
 import { mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
@@ -26,7 +26,7 @@ import { Symbol } from "../../rustc_span/symbol.ts";
 import { Unported } from "../../std/panic.ts";
 import "../lib.ts";
 import { dump_mir_for_phase_change } from "../../rustc_mir_transform/pass_manager.ts";
-import { construct_error, construct_fn } from "./mod.ts";
+import { construct_error } from "./mod.ts";
 
 const CRATE = "compiler/rustc_mir_build/src/";
 
@@ -223,7 +223,7 @@ const SRC = [
   "pub fn letelse(o: Opt) -> u8 { let Opt::Just(v) = o else { return 0; }; v }",
 ].join("\n");
 
-test.skipIf(SKIP)("construct_error builds rustc's error body; construct_fn's MIR is the oracle's -Zdump-mir=built", () => {
+test.skipIf(SKIP)("construct_error builds rustc's error body; build_mir_inner_impl's MIR is the oracle's -Zdump-mir=built", () => {
   mkdirSync(WORK, { recursive: true });
   const file = join(WORK, "builder_contract.rs");
   writeFileSync(file, SRC);
@@ -267,21 +267,13 @@ test.skipIf(SKIP)("construct_error builds rustc's error body; construct_fn's MIR
       expect(body.tainted_by_errors).toBe(guar);
       expect(body.coroutine).toBeUndefined();
 
-      // the hook (set by `provide`) runs `check_match`, which checks the params `x`, `y` and stops at
-      // rustc_pattern_analysis's `lower_pat` (lane pat-c; move this pin when it lands), before check_tail_calls / thir_body
-      stops(() => tcx.build_mir_inner_impl(f), "rustc_pattern_analysis::rustc::RustcPatCtxt::lower_pat");
-      // the rest of its path: the `check_tail_calls` provider accepts a body without `become`
+      // the `check_tail_calls` provider accepts a body without `become`
       expect(tcx.check_tail_calls(f)).toEqual({ $: "Ok", _0: null });
 
-      // every body: `thir_body` -> `construct_fn`, then the dump `mir_built` writes (pass_manager.rs
-      // `dump_mir_for_phase_change`)
+      // every body: the hook (set by `provide`; `check_match`, `check_tail_calls`, `thir_body`, `construct_fn`), then
+      // the dump `mir_built` writes of its result (pass_manager.rs `dump_mir_for_phase_change`)
       tcx.par_hir_body_owners((def) => {
-        const r = tcx.thir_body(def) as { $: "Ok"; _0: [Steal<Thir>, ExprId] } | { $: "Err"; _0: ErrorGuaranteed };
-        if (r.$ !== "Ok") throw new Error("ERROR: thir_body failed");
-        const [thir, expr] = r._0;
-        const thir_ = thir.borrow();
-        if (thir_.body_type.$ !== "Fn") throw new Error("ERROR: not a fn body");
-        const built = construct_fn(tcx, def, thir_, expr, thir_.body_type._0);
+        const built = tcx.build_mir_inner_impl(def) as Body;
         dump_mir_for_phase_change(tcx, built);
       });
       ran = true;
