@@ -34,7 +34,7 @@ for (const [k, v] of Object.entries(process.env)) {
 }
 
 const STOP_CCI = "cross_crate_inlinable provider";
-const STOP_CONST_EVAL = "const_eval_resolve_for_typeck";
+const STOP_CONST_EVAL = "rustc_const_eval::const_eval::eval_to_valtree";
 const STOP_TY_HASH = "StableHash for Ty";
 /** The `unported` stop each case reaches instead of the oracle's output (exit 70). */
 const STOPS: Record<string, string> = {
