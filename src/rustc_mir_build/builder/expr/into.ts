@@ -38,7 +38,7 @@ import { DUMMY_SP, Span, type Spanned } from "../../../rustc_span/lib.ts";
 import { bug, span_bug } from "../../../rustc_span/macros.ts";
 import { sym, Symbol } from "../../../rustc_span/symbol.ts";
 import { PLAIN } from "../../../std/fmt.ts";
-import { assert, assert_eq, unwrap } from "../../../std/panic.ts";
+import { assert, assert_eq, panic, unwrap } from "../../../std/panic.ts";
 import { LoopMatchArmWithGuard_diagnostic, LoopMatchUnsupportedType_diagnostic } from "../../diagnostics.ts";
 import { DeclareLetBindings, Exhaustive, HasMatchGuard, LowerIfCondArgs, clone_BuiltMatchTree } from "../matches/mod.gen.ts";
 import { LintLevel } from "../scope.gen.ts";
@@ -959,7 +959,7 @@ Builder.prototype.expr_into_dest = function (this: Builder, destination: Place, 
 // PORT: `itertools::zip_eq`: zips two sequences of equal length and panics (itertools' message) if they differ.
 function zip_eq<A, B>(a: readonly A[], b: readonly B[]): [A, B][] {
   if (a.length !== b.length) {
-    return bug("itertools: .zip_eq() reached end of one iterator before the other");
+    return panic("itertools: .zip_eq() reached end of one iterator before the other");
   }
   return a.map((x, i) => [x, b[i]!] as [A, B]);
 }

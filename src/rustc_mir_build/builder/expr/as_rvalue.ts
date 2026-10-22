@@ -32,10 +32,11 @@ import { type ExprId, type ExprKind } from "../../../rustc_middle/thir.ts";
 import { CastTy, mir_cast_kind } from "../../../rustc_middle/ty/cast.ts";
 import { Ty } from "../../../rustc_middle/ty/mod.ts";
 import { IntTypeExt } from "../../../rustc_middle/ty/util.ts";
+import { debug_LayoutError } from "../../../rustc_middle/ty/layout.ts";
 import { LocalDefId } from "../../../rustc_span/def_id.ts";
 import { DUMMY_SP, type Span } from "../../../rustc_span/lib.ts";
-import { bug, span_bug } from "../../../rustc_span/macros.ts";
-import { assert, unwrap } from "../../../std/panic.ts";
+import { bug } from "../../../rustc_span/macros.ts";
+import { assert, unreachable, unwrap } from "../../../std/panic.ts";
 import { unwrap_result } from "../../../std/result.ts";
 import { Category } from "./category.ts";
 import { and, BlockAnd, Builder, NeedsTemporary } from "../mod.ts";
@@ -428,7 +429,7 @@ Builder.prototype.build_binary_op = function (this: Builder, block: BasicBlock, 
         break;
       }
       default:
-        return bug("internal error: entered unreachable code: only integers are shiftable");
+        return unreachable("internal error: entered unreachable code: only integers are shiftable");
     }
 
     // This can't overflow because the largest shiftable types are 128-bit,
@@ -625,7 +626,7 @@ Builder.prototype.limit_capture_mutability = function (this: Builder, upvar_span
 // rustc: compiler/rustc_mir_build/src/builder/expr/as_rvalue.rs:738 neg_1_literal
 Builder.prototype.neg_1_literal = function (this: Builder, span: Span, ty: Ty): Operand {
   const typing_env = this.typing_env();
-  const size = unwrap_result(this.tcx.layout_of(typing_env.as_query_input(ty))).size;
+  const size = unwrap_result(this.tcx.layout_of(typing_env.as_query_input(ty)), debug_LayoutError).size;
   const literal = Const.from_bits(this.tcx, size.unsigned_int_max(), typing_env, ty);
 
   return this.literal_operand(span, literal);
@@ -636,7 +637,7 @@ Builder.prototype.neg_1_literal = function (this: Builder, span: Span, ty: Ty): 
 Builder.prototype.minval_literal = function (this: Builder, span: Span, ty: Ty): Operand {
   assert(ty.is_signed(), "assertion failed: ty.is_signed()");
   const typing_env = this.typing_env();
-  const bits = unwrap_result(this.tcx.layout_of(typing_env.as_query_input(ty))).size.bits();
+  const bits = unwrap_result(this.tcx.layout_of(typing_env.as_query_input(ty)), debug_LayoutError).size.bits();
   // PORT: `1 << (bits - 1)` is a `u128` (the type of `Const::from_bits`'s `bits`): a `bigint`.
   const n = 1n << BigInt(bits - 1);
   const literal = Const.from_bits(this.tcx, n, typing_env, ty);
