@@ -202,8 +202,9 @@ test("construct_error builds rustc's error body; build_mir_inner_impl reaches co
       expect(body.tainted_by_errors).toBe(guar);
       expect(body.coroutine).toBeUndefined();
 
-      // the hook (set by `provide`) runs; it stops at `check_match` (lane thir-pattern), before check_tail_calls / thir_body
-      stops(() => tcx.build_mir_inner_impl(f), "rustc_mir_build::thir::pattern::check_match::check_match (lane thir-pattern)");
+      // the hook (set by `provide`) runs; `check_match` (ported, lane mb-check-match) checks the params `x`, `y` and stops
+      // at rustc_pattern_analysis's `lower_pat` (pending pat-c), before check_tail_calls / thir_body
+      stops(() => tcx.build_mir_inner_impl(f), "rustc_pattern_analysis::rustc::RustcPatCtxt::lower_pat (pending pat-c)");
       // the rest of its path: the `check_tail_calls` provider (ported) accepts a body without `become`
       expect(tcx.check_tail_calls(f)).toEqual({ $: "Ok", _0: null });
       // `thir_body` -> `construct_fn` -> `Builder::new` (ported) -> the first stub on the path
