@@ -124,8 +124,8 @@ test("every fn of interpret/**, const_eval/**, util/** and lib.rs is ported or d
     }
   }
   expect(total).toBe(657);
-  expect(markers.length).toBe(287);
-  expect(stubs.length).toBe(370);
+  expect(markers.length).toBe(335);
+  expect(stubs.length).toBe(322);
 });
 
 test("the stubs per fill lane are the handoff's split table", () => {
@@ -139,7 +139,7 @@ test("the stubs per fill lane are the handoff's split table", () => {
     "interp-step-call": 60,
     "interp-ops": 57,
     "interp-intrinsics": 28,
-    "interp-validity-intern": 48,
+    // interp-validity-intern: done (wave 23c)
     "ctfe-util": 22,
     "interp-simd": 6,
   });
