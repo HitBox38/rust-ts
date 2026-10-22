@@ -288,18 +288,16 @@ const CASES: Case[] = [
     expect: ["`use` of a local item without leading `self::`, `super::`, or `crate::`"],
   },
   {
-    name: "runtime_symbols: #[no_mangle] fn (stop: rustc_symbol_mangling::symbol_name_from_attrs)",
+    name: "runtime_symbols: #[no_mangle] fn",
     passes: ["RuntimeSymbols"],
     src: ["#[unsafe(no_mangle)]", 'pub extern "C" fn strlen(_ptr: *mut f32) -> usize { 0 }'],
     expect: ["suspicious definition of the runtime `strlen` symbol used by the standard library"],
-    stop: "rustc_symbol_mangling::symbol_name_from_attrs",
   },
   {
-    name: "runtime_symbols: foreign fn (stop: the `symbol_name` query key)",
+    name: "runtime_symbols: foreign fn",
     passes: ["RuntimeSymbols"],
     src: ['unsafe extern "C" {', "    pub fn strlen(p: *const u8) -> usize;", "}"],
     expect: ["suspicious definition of the runtime `strlen` symbol used by the standard library"],
-    stop: "QueryKey for `ty::Instance<'tcx>`",
   },
   {
     name: "opaque_hidden_inferred_bound: RPITIT without a body is skipped",

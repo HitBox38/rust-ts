@@ -22,6 +22,7 @@ import { DiagCtxt, type DiagCtxtHandle, type Diagnostic, type ErrCode, TerminalU
 import { TimingSectionHandler } from "../rustc_errors/timings.ts";
 import { UnstableFeatures } from "../rustc_feature/lib.ts";
 import type { Level, LintId } from "../rustc_lint_defs/lib.ts";
+import { StableCrateId } from "../rustc_span/def_id.ts";
 import { Edition } from "../rustc_span/edition.ts";
 import type { ErrorGuaranteed, RealFileName, Span } from "../rustc_span/lib.ts";
 import { FileName, Span as SpanC } from "../rustc_span/lib.ts";
@@ -1146,6 +1147,11 @@ export function build_session(
   validate_commandline_args_with_session_available(sess);
 
   return sess;
+}
+
+// rustc: compiler/rustc_session/src/session.rs:1535 generate_proc_macro_decls_symbol
+export function generate_proc_macro_decls_symbol(stable_crate_id: StableCrateId): string {
+  return `__rustc_proc_macro_decls_${StableCrateId.as_u64(stable_crate_id).toString(16).padStart(8, "0")}__`;
 }
 
 /// Validate command line arguments with a `Session`.

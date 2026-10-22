@@ -53,6 +53,7 @@ import type {
   type_op,
 } from "../traits/query.ts";
 import type { AliasTerm } from "../../rustc_type_ir/ty/alias.ts";
+import { debug_Instance, debug_InstanceKind, debug_ShimKind, Instance, InstanceKind, ShimKind } from "../ty/instance.ts";
 import { type Binder } from "../../rustc_type_ir/binder.ts";
 import { debug_Binder } from "../../rustc_type_ir/binder.gen.ts";
 import { debug_FnSig, type FnSig } from "../../rustc_type_ir/ty_kind.ts";
@@ -62,7 +63,6 @@ import type { Predicate } from "../ty/predicate.ts";
 import type { WellFormedLoc } from "../traits/mod.gen.ts";
 import { debug_CanonicalInput } from "../traits/solve.gen.ts";
 import type { TyCtxt } from "../ty/context.ts";
-import type { Instance } from "../ty/instance.ts";
 import type { GlobalId } from "../mir/interpret/mod.ts";
 import { DefaultCache, DefId_hash_key, DefIdCache, type QueryCache, SingleCache, VecCache } from "./caches.ts";
 
@@ -141,7 +141,8 @@ export const KEY_unit: QueryKey<null> = {
   hash_key: () => 0,
 };
 
-// PORT: `ShimKind`, `InstanceKind` (keys.rs:66-77) are not ported yet (`key_unported`).
+// PORT: `ShimKind` / `InstanceKind` / `Instance` hold interned children and `DefId`s; their cache keys are `intern_key`
+// (the derived `Hash` + `Eq`).
 
 /** ty/instance.ts and mir/interpret/mod.ts, read lazily (this module is in ty/context.ts's import closure). */
 function ty_instance(): typeof import("../ty/instance.ts") {
@@ -152,6 +153,32 @@ function mir_interpret(): typeof import("../mir/interpret/mod.ts") {
   return (mir_interpret__m ??= require("../mir/interpret/mod.ts") as typeof import("../mir/interpret/mod.ts"));
 }
 var mir_interpret__m: typeof import("../mir/interpret/mod.ts") | undefined;
+
+export const KEY_ShimKind: QueryKey<ShimKind> = {
+  make_cache: default_cache<ShimKind>(intern_key),
+  // rustc: compiler/rustc_middle/src/query/keys.rs:68 default_span
+  default_span(self: ShimKind, tcx: TyCtxt): Span {
+    return tcx.def_span(ShimKind.def_id(self));
+  },
+  key_as_def_id: QueryKey_provided.key_as_def_id,
+  as_local_key: QueryKey_provided.as_local_key,
+  debug: (v, f) => debug_ShimKind(v, f),
+  debug_local: no_local_key,
+  hash_key: intern_key,
+};
+
+export const KEY_InstanceKind: QueryKey<InstanceKind> = {
+  make_cache: default_cache<InstanceKind>(intern_key),
+  // rustc: compiler/rustc_middle/src/query/keys.rs:74 default_span
+  default_span(self: InstanceKind, tcx: TyCtxt): Span {
+    return tcx.def_span(InstanceKind.def_id(self));
+  },
+  key_as_def_id: QueryKey_provided.key_as_def_id,
+  as_local_key: QueryKey_provided.as_local_key,
+  debug: (v, f) => debug_InstanceKind(v, f),
+  debug_local: no_local_key,
+  hash_key: intern_key,
+};
 
 export const KEY_Instance: QueryKey<Instance> = {
   make_cache: default_cache<Instance>(intern_key),

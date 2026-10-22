@@ -44,6 +44,7 @@ import * as rustc_codegen_ssa from "../rustc_codegen_ssa/lib.ts";
 import * as rustc_lint from "../rustc_lint/lib.ts";
 import * as rustc_ty_utils from "../rustc_ty_utils/lib.ts";
 import * as rustc_privacy from "../rustc_privacy/lib.ts";
+import * as rustc_symbol_mangling from "../rustc_symbol_mangling/lib.ts";
 import { creader, provide as rustc_metadata_provide } from "../rustc_metadata/lib.ts";
 import type { EarlyCheckNode, LintStore } from "../rustc_lint/lib.ts";
 import { DepGraph } from "../rustc_middle/dep_graph/graph.ts";
@@ -955,10 +956,9 @@ function default_query_providers(): MiddleProviders {
   rustc_ast_lowering.provide(providers.queries);
   // PORT: pending crates (their `provide` fns are not ported): rustc_expand_queries,
   // rustc_borrowck, rustc_mir_transform,
-  // rustc_monomorphize,
-  // rustc_symbol_mangling (rustc_const_eval, rustc_mir_dataflow, rustc_privacy, rustc_hir_analysis, rustc_hir_typeck,
-  // rustc_traits, rustc_ty_utils, rustc_metadata, rustc_lint, rustc_codegen_ssa and rustc_mir_build's THIR half are
-  // provided below).
+  // rustc_monomorphize (rustc_const_eval, rustc_mir_dataflow, rustc_privacy, rustc_hir_analysis, rustc_hir_typeck,
+  // rustc_traits, rustc_ty_utils, rustc_metadata, rustc_lint, rustc_symbol_mangling, rustc_codegen_ssa and rustc_mir_build's
+  // THIR half are provided below).
   // Their queries stop as UNPORTED (`install_unported_providers`).
   limits.provide(providers.queries);
   rustc_const_eval.provide(providers);
@@ -981,6 +981,7 @@ function default_query_providers(): MiddleProviders {
   // ported) then `decoder::provide`; rustc_metadata/lib.ts exports `cstore_impl::provide` (the decoder half).
   rustc_metadata_provide(providers);
   rustc_lint.provide(providers.queries);
+  rustc_symbol_mangling.provide(providers.queries);
   rustc_codegen_ssa.provide(providers);
   return providers;
 }
