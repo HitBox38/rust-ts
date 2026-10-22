@@ -315,6 +315,10 @@ function table_arm_compute(name: string, arm: TableArm): Compute<unknown, unknow
       return (tcx, def_id, _other, cdata) => {
         const lazy = table_of(cdata, name).get(arm.fse, cdata, def_id.index);
         const decoded = lazy === undefined ? undefined : arm.decode!.decode(lazy, [cdata, tcx]);
+        // PORT: `.map(|lazy| lazy.decode(..))` is an `Option<V>`. When `V` is itself an `Option` (`const_of_item`), a
+        // present entry holding `None` decodes to `undefined` as well (PORTING §5 `Option<Option<T>>`): it is
+        // `Some(None)`, which `impl ProcessQueryValue<T> for Option<T>` unwraps to the value `None`, not the `err`.
+        if (lazy !== undefined && decoded === undefined && arm.process === ProcessQueryValue_Option_T) return undefined;
         return arm.process.process_decoded(decoded, tcx, err(def_id));
       };
     case "table_defaulted_array":
