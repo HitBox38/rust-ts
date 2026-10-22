@@ -1368,9 +1368,9 @@ function map_opt<T, U>(v: T | undefined, f: (v: T) => U): U | undefined {
   return v === undefined ? undefined : f(v);
 }
 
-/** `fmt::Result::unwrap()` (writing into a `String` never fails). */
+/** `fmt::Result::unwrap()` (writing into a `String` never fails). `fmt::Error`'s derived `Debug` is `Error`. */
 function print_unwrap(r: PrintResult): void {
-  unwrap_result(r);
+  unwrap_result(r, () => "Error");
 }
 
 /** rustc_type_ir binder.rs (`EarlyBinder::instantiate`), reached lazily (init order, as rustc_middle ty/mod.ts). */
