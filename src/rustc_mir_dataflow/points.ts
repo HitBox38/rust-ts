@@ -23,14 +23,14 @@ export class DenseLocationMap {
   ) {}
 
   // #[inline]
-  // stub-df: compiler/rustc_mir_dataflow/src/points.rs:18 new (lane dataflow-move-paths)
+  // stub: compiler/rustc_mir_dataflow/src/points.rs:18 new (lane dataflow-move-paths)
   static new(_body: Body): DenseLocationMap {
     return unported("rustc_mir_dataflow::points::DenseLocationMap::new");
   }
 
   /// Total number of point indices
   // #[inline]
-  // stub-df: compiler/rustc_mir_dataflow/src/points.rs:41 num_points (lane dataflow-move-paths)
+  // stub: compiler/rustc_mir_dataflow/src/points.rs:41 num_points (lane dataflow-move-paths)
   num_points(): number {
     return unported("rustc_mir_dataflow::points::DenseLocationMap::num_points");
   }
@@ -38,28 +38,28 @@ export class DenseLocationMap {
   /// Converts a `Location` into a `PointIndex`. O(1).
   /// [[`Self::point_in_range()`]] guaranteed for the returned index.
   // #[inline]
-  // stub-df: compiler/rustc_mir_dataflow/src/points.rs:48 point_from_location (lane dataflow-move-paths)
+  // stub: compiler/rustc_mir_dataflow/src/points.rs:48 point_from_location (lane dataflow-move-paths)
   point_from_location(_location: Location): PointIndex {
     return unported("rustc_mir_dataflow::points::DenseLocationMap::point_from_location");
   }
 
   /// Returns the `PointIndex` for the first statement in the given `BasicBlock`. O(1).
   // #[inline]
-  // stub-df: compiler/rustc_mir_dataflow/src/points.rs:59 entry_point (lane dataflow-move-paths)
+  // stub: compiler/rustc_mir_dataflow/src/points.rs:59 entry_point (lane dataflow-move-paths)
   entry_point(_block: BasicBlock): PointIndex {
     return unported("rustc_mir_dataflow::points::DenseLocationMap::entry_point");
   }
 
   /// Return the PointIndex for the block start of this index.
   // #[inline]
-  // stub-df: compiler/rustc_mir_dataflow/src/points.rs:66 to_block_start (lane dataflow-move-paths)
+  // stub: compiler/rustc_mir_dataflow/src/points.rs:66 to_block_start (lane dataflow-move-paths)
   to_block_start(_index: PointIndex): PointIndex {
     return unported("rustc_mir_dataflow::points::DenseLocationMap::to_block_start");
   }
 
   /// Converts a `PointIndex` back to a location. O(1).
   // #[inline]
-  // stub-df: compiler/rustc_mir_dataflow/src/points.rs:72 to_location (lane dataflow-move-paths)
+  // stub: compiler/rustc_mir_dataflow/src/points.rs:72 to_location (lane dataflow-move-paths)
   to_location(_index: PointIndex): Location {
     return unported("rustc_mir_dataflow::points::DenseLocationMap::to_location");
   }
@@ -69,7 +69,7 @@ export class DenseLocationMap {
   /// of bits). Use this function to filter such points out if you
   /// like.
   // #[inline]
-  // stub-df: compiler/rustc_mir_dataflow/src/points.rs:85 point_in_range (lane dataflow-move-paths)
+  // stub: compiler/rustc_mir_dataflow/src/points.rs:85 point_in_range (lane dataflow-move-paths)
   point_in_range(_index: PointIndex): boolean {
     return unported("rustc_mir_dataflow::points::DenseLocationMap::point_in_range");
   }

@@ -1,7 +1,7 @@
 // Port of compiler/rustc_mir_dataflow/src/impls/liveness.rs: DECLARED (lane dataflow-contract). Every fn is a stub for
 // lane `dataflow-impls` (plan-m4 §5 wave 22).
 //
-// How to fill a stub: replace the body with the upstream logic and turn `// stub-df: <path>:<line> <name> (lane ..)` into
+// How to fill a stub: replace the body with the upstream logic and turn `// stub: <path>:<line> <name> (lane ..)` into
 // the marker `// rustc: <path>:<line> <name>`. Notes:
 // - `MaybeLiveLocals` (unit struct) and `MaybeTransitiveLiveLocals` extend `AnalysisBase<DenseBitSet<Local>>` with
 //   `Direction = Backward`; `MaybeLiveLocals.bottom_value(body)` (the unit value) is `new MaybeLiveLocals().
@@ -49,27 +49,27 @@ export class MaybeLiveLocals extends AnalysisBase<DenseBitSet<Local>> {
 
   readonly NAME = "liveness";
 
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/liveness.rs:32 bottom_value (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/liveness.rs:32 bottom_value (lane dataflow-impls)
   bottom_value(_body: Body): DenseBitSet<Local> {
     return unported("rustc_mir_dataflow::impls::liveness::MaybeLiveLocals::bottom_value");
   }
 
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/liveness.rs:37 initialize_start_block (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/liveness.rs:37 initialize_start_block (lane dataflow-impls)
   initialize_start_block(_body: Body, _state: DenseBitSet<Local>): void {
     return unported("rustc_mir_dataflow::impls::liveness::MaybeLiveLocals::initialize_start_block");
   }
 
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/liveness.rs:41 apply_primary_statement_effect (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/liveness.rs:41 apply_primary_statement_effect (lane dataflow-impls)
   apply_primary_statement_effect(_state: DenseBitSet<Local>, _statement: Statement, _location: Location): void {
     return unported("rustc_mir_dataflow::impls::liveness::MaybeLiveLocals::apply_primary_statement_effect");
   }
 
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/liveness.rs:50 apply_primary_terminator_effect (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/liveness.rs:50 apply_primary_terminator_effect (lane dataflow-impls)
   override apply_primary_terminator_effect(_state: DenseBitSet<Local>, _terminator: Terminator, _location: Location): void {
     return unported("rustc_mir_dataflow::impls::liveness::MaybeLiveLocals::apply_primary_terminator_effect");
   }
 
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/liveness.rs:59 apply_call_return_effect (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/liveness.rs:59 apply_call_return_effect (lane dataflow-impls)
   override apply_call_return_effect(_state: DenseBitSet<Local>, _block: BasicBlock, _return_places: CallReturnPlaces): void {
     return unported("rustc_mir_dataflow::impls::liveness::MaybeLiveLocals::apply_call_return_effect");
   }
@@ -85,12 +85,12 @@ export class LivenessTransferFunction<I> {
 
   // ---- impl Visitor for LivenessTransferFunction ----
 
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/liveness.rs:87 visit_place (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/liveness.rs:87 visit_place (lane dataflow-impls)
   visit_place(_place: Place, _context: PlaceContext, _location: Location): void {
     return unported("rustc_mir_dataflow::impls::liveness::LivenessTransferFunction::visit_place");
   }
 
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/liveness.rs:115 visit_local (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/liveness.rs:115 visit_local (lane dataflow-impls)
   visit_local(_local: Local, _context: PlaceContext, _location: Location): void {
     return unported("rustc_mir_dataflow::impls::liveness::LivenessTransferFunction::visit_local");
   }
@@ -102,12 +102,12 @@ class YieldResumeEffect {
 
   // ---- impl Visitor for YieldResumeEffect ----
 
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/liveness.rs:123 visit_place (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/liveness.rs:123 visit_place (lane dataflow-impls)
   visit_place(_place: Place, _context: PlaceContext, _location: Location): void {
     return unported("rustc_mir_dataflow::impls::liveness::YieldResumeEffect::visit_place");
   }
 
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/liveness.rs:128 visit_local (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/liveness.rs:128 visit_local (lane dataflow-impls)
   visit_local(_local: Local, _context: PlaceContext, _location: Location): void {
     return unported("rustc_mir_dataflow::impls::liveness::YieldResumeEffect::visit_local");
   }
@@ -131,12 +131,12 @@ export const DefUse = {
   NonUse: "NonUse",
 
   /** `state: &mut impl GenKill<Local>`: the impl table `S_` comes last. */
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/liveness.rs:145 apply (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/liveness.rs:145 apply (lane dataflow-impls)
   apply<S>(_state: S, _place: Place, _context: PlaceContext, _S_: GenKill<S, Local>): void {
     return unported("rustc_mir_dataflow::impls::liveness::DefUse::apply");
   },
 
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/liveness.rs:153 for_place (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/liveness.rs:153 for_place (lane dataflow-impls)
   for_place(_place: Place, _context: PlaceContext): DefUse {
     return unported("rustc_mir_dataflow::impls::liveness::DefUse::for_place");
   },
@@ -161,12 +161,12 @@ export class MaybeTransitiveLiveLocals extends AnalysisBase<DenseBitSet<Local>> 
   /// considered live.
   ///
   /// This should include at least all locals that are ever borrowed.
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/liveness.rs:219 new (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/liveness.rs:219 new (lane dataflow-impls)
   static new(_always_live: DenseBitSet<Local>, _debuginfo_locals: DenseBitSet<Local>): MaybeTransitiveLiveLocals {
     return unported("rustc_mir_dataflow::impls::liveness::MaybeTransitiveLiveLocals::new");
   }
 
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/liveness.rs:226 can_be_removed_if_dead (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/liveness.rs:226 can_be_removed_if_dead (lane dataflow-impls)
   static can_be_removed_if_dead(
     _stmt_kind: StatementKind,
     _always_live: DenseBitSet<Local>,
@@ -184,27 +184,27 @@ export class MaybeTransitiveLiveLocals extends AnalysisBase<DenseBitSet<Local>> 
 
   readonly NAME = "transitive liveness";
 
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/liveness.rs:269 bottom_value (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/liveness.rs:269 bottom_value (lane dataflow-impls)
   bottom_value(_body: Body): DenseBitSet<Local> {
     return unported("rustc_mir_dataflow::impls::liveness::MaybeTransitiveLiveLocals::bottom_value");
   }
 
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/liveness.rs:273 initialize_start_block (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/liveness.rs:273 initialize_start_block (lane dataflow-impls)
   initialize_start_block(_body: Body, _state: DenseBitSet<Local>): void {
     return unported("rustc_mir_dataflow::impls::liveness::MaybeTransitiveLiveLocals::initialize_start_block");
   }
 
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/liveness.rs:277 apply_primary_statement_effect (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/liveness.rs:277 apply_primary_statement_effect (lane dataflow-impls)
   apply_primary_statement_effect(_state: DenseBitSet<Local>, _statement: Statement, _location: Location): void {
     return unported("rustc_mir_dataflow::impls::liveness::MaybeTransitiveLiveLocals::apply_primary_statement_effect");
   }
 
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/liveness.rs:295 apply_primary_terminator_effect (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/liveness.rs:295 apply_primary_terminator_effect (lane dataflow-impls)
   override apply_primary_terminator_effect(_state: DenseBitSet<Local>, _terminator: Terminator, _location: Location): void {
     return unported("rustc_mir_dataflow::impls::liveness::MaybeTransitiveLiveLocals::apply_primary_terminator_effect");
   }
 
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/liveness.rs:304 apply_call_return_effect (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/liveness.rs:304 apply_call_return_effect (lane dataflow-impls)
   override apply_call_return_effect(_state: DenseBitSet<Local>, _block: BasicBlock, _return_places: CallReturnPlaces): void {
     return unported("rustc_mir_dataflow::impls::liveness::MaybeTransitiveLiveLocals::apply_call_return_effect");
   }

@@ -1,5 +1,5 @@
 // The dataflow contract (lane dataflow-contract, docs/handoff/dataflow-contract.md, plan-m4 D5) against upstream:
-// - every fn of compiler/rustc_mir_dataflow is either ported (a `// rustc:` marker) or declared (a `// stub-df: <path>:<line>
+// - every fn of compiler/rustc_mir_dataflow is either ported (a `// rustc:` marker) or declared (a `// stub: <path>:<line>
 //   <name> (lane <lane>)` comment over a declaration whose body calls `unported(..)` with a path in the fn's own
 //   module), never both; the framework (framework/{mod, cursor, direction, fmt, lattice, results, visitor, tests}.rs) and
 //   lib.rs have no stubs;
@@ -90,7 +90,7 @@ const stubs: Decl[] = [];
 for (const f of walk(join(REPO, "src"))) {
   const lines = readFileSync(f, "utf8").split("\n");
   for (let i = 0; i < lines.length; i++) {
-    const m = /\/\/ (rustc|stub-df): (\S+):(\d+) (\w+)(?: \(lane ([\w-]+)\))?/.exec(lines[i]!);
+    const m = /\/\/ (rustc|stub): (\S+):(\d+) (\w+)(?: \(lane ([\w-]+)\))?/.exec(lines[i]!);
     if (!m || !m[2]!.startsWith(CRATE)) continue;
     const d: Decl = { file: relative(REPO, f), path: m[2]!, line: Number(m[3]), name: m[4]!, lane: m[5], unported: undefined };
     if (m[1] === "rustc") {
@@ -98,7 +98,7 @@ for (const f of walk(join(REPO, "src"))) {
       continue;
     }
     for (let j = i + 1; j < Math.min(lines.length, i + 16); j++) {
-      if (/\/\/ (rustc|stub-df): /.test(lines[j]!)) break;
+      if (/\/\/ (rustc|stub): /.test(lines[j]!)) break;
       const u = /unported\(["`]([^"`]+)["`]/.exec(lines[j]!);
       if (u) {
         d.unported = u[1];

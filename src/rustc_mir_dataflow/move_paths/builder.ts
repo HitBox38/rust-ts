@@ -24,7 +24,7 @@ class MoveDataBuilder {
     public filter: (ty: Ty) => boolean,
   ) {}
 
-  // stub-df: compiler/rustc_mir_dataflow/src/move_paths/builder.rs:25 new (lane dataflow-move-paths)
+  // stub: compiler/rustc_mir_dataflow/src/move_paths/builder.rs:25 new (lane dataflow-move-paths)
   static new(_body: Body, _tcx: TyCtxt, _filter: (ty: Ty) => boolean): MoveDataBuilder {
     return unported("rustc_mir_dataflow::move_paths::builder::MoveDataBuilder::new");
   }
@@ -38,68 +38,68 @@ class MoveDataBuilder {
   /// problematic for borrowck.
   ///
   /// Maybe we should have separate "borrowck" and "moveck" modes.
-  // stub-df: compiler/rustc_mir_dataflow/src/move_paths/builder.rs:108 move_path_for (lane dataflow-move-paths)
+  // stub: compiler/rustc_mir_dataflow/src/move_paths/builder.rs:108 move_path_for (lane dataflow-move-paths)
   move_path_for(_place: Place, _on_move: (this_: MoveDataBuilder, mpi: MovePathIndex) => void): void {
     return unported("rustc_mir_dataflow::move_paths::builder::MoveDataBuilder::move_path_for");
   }
 
-  // stub-df: compiler/rustc_mir_dataflow/src/move_paths/builder.rs:302 add_move_path (lane dataflow-move-paths)
+  // stub: compiler/rustc_mir_dataflow/src/move_paths/builder.rs:302 add_move_path (lane dataflow-move-paths)
   add_move_path(_base: MovePathIndex, _elem: MoveSubPath, _mk_place: (tcx: TyCtxt) => Place): MovePathIndex {
     return unported("rustc_mir_dataflow::move_paths::builder::MoveDataBuilder::add_move_path");
   }
 
-  // stub-df: compiler/rustc_mir_dataflow/src/move_paths/builder.rs:318 create_move_path (lane dataflow-move-paths)
+  // stub: compiler/rustc_mir_dataflow/src/move_paths/builder.rs:318 create_move_path (lane dataflow-move-paths)
   create_move_path(_place: Place): void {
     return unported("rustc_mir_dataflow::move_paths::builder::MoveDataBuilder::create_move_path");
   }
 
-  // stub-df: compiler/rustc_mir_dataflow/src/move_paths/builder.rs:324 finalize (lane dataflow-move-paths)
+  // stub: compiler/rustc_mir_dataflow/src/move_paths/builder.rs:324 finalize (lane dataflow-move-paths)
   finalize(): MoveData {
     return unported("rustc_mir_dataflow::move_paths::builder::MoveDataBuilder::finalize");
   }
 
-  // stub-df: compiler/rustc_mir_dataflow/src/move_paths/builder.rs:364 gather_args (lane dataflow-move-paths)
+  // stub: compiler/rustc_mir_dataflow/src/move_paths/builder.rs:364 gather_args (lane dataflow-move-paths)
   gather_args(): void {
     return unported("rustc_mir_dataflow::move_paths::builder::MoveDataBuilder::gather_args");
   }
 
-  // stub-df: compiler/rustc_mir_dataflow/src/move_paths/builder.rs:380 gather_statement (lane dataflow-move-paths)
+  // stub: compiler/rustc_mir_dataflow/src/move_paths/builder.rs:380 gather_statement (lane dataflow-move-paths)
   gather_statement(_stmt: Statement): void {
     return unported("rustc_mir_dataflow::move_paths::builder::MoveDataBuilder::gather_statement");
   }
 
-  // stub-df: compiler/rustc_mir_dataflow/src/move_paths/builder.rs:424 gather_rvalue (lane dataflow-move-paths)
+  // stub: compiler/rustc_mir_dataflow/src/move_paths/builder.rs:424 gather_rvalue (lane dataflow-move-paths)
   gather_rvalue(_rvalue: Rvalue): void {
     return unported("rustc_mir_dataflow::move_paths::builder::MoveDataBuilder::gather_rvalue");
   }
 
-  // stub-df: compiler/rustc_mir_dataflow/src/move_paths/builder.rs:449 gather_terminator (lane dataflow-move-paths)
+  // stub: compiler/rustc_mir_dataflow/src/move_paths/builder.rs:449 gather_terminator (lane dataflow-move-paths)
   gather_terminator(_term: Terminator): void {
     return unported("rustc_mir_dataflow::move_paths::builder::MoveDataBuilder::gather_terminator");
   }
 
-  // stub-df: compiler/rustc_mir_dataflow/src/move_paths/builder.rs:540 gather_operand (lane dataflow-move-paths)
+  // stub: compiler/rustc_mir_dataflow/src/move_paths/builder.rs:540 gather_operand (lane dataflow-move-paths)
   gather_operand(_operand: Operand): void {
     return unported("rustc_mir_dataflow::move_paths::builder::MoveDataBuilder::gather_operand");
   }
 
-  // stub-df: compiler/rustc_mir_dataflow/src/move_paths/builder.rs:551 gather_move (lane dataflow-move-paths)
+  // stub: compiler/rustc_mir_dataflow/src/move_paths/builder.rs:551 gather_move (lane dataflow-move-paths)
   gather_move(_place: Place): void {
     return unported("rustc_mir_dataflow::move_paths::builder::MoveDataBuilder::gather_move");
   }
 
-  // stub-df: compiler/rustc_mir_dataflow/src/move_paths/builder.rs:556 record_move (lane dataflow-move-paths)
+  // stub: compiler/rustc_mir_dataflow/src/move_paths/builder.rs:556 record_move (lane dataflow-move-paths)
   record_move(_place: Place, _path: MovePathIndex): void {
     return unported("rustc_mir_dataflow::move_paths::builder::MoveDataBuilder::record_move");
   }
 
-  // stub-df: compiler/rustc_mir_dataflow/src/move_paths/builder.rs:566 gather_init (lane dataflow-move-paths)
+  // stub: compiler/rustc_mir_dataflow/src/move_paths/builder.rs:566 gather_init (lane dataflow-move-paths)
   gather_init(_place: PlaceRef, _kind: InitKind): void {
     return unported("rustc_mir_dataflow::move_paths::builder::MoveDataBuilder::gather_init");
   }
 }
 
-// stub-df: compiler/rustc_mir_dataflow/src/move_paths/builder.rs:74 new_move_path (lane dataflow-move-paths)
+// stub: compiler/rustc_mir_dataflow/src/move_paths/builder.rs:74 new_move_path (lane dataflow-move-paths)
 function new_move_path(
   _move_paths: MovePath[],
   _move_out_path_map: MoveOutIndex[][],
@@ -110,7 +110,7 @@ function new_move_path(
   return unported("rustc_mir_dataflow::move_paths::builder::new_move_path");
 }
 
-// stub-df: compiler/rustc_mir_dataflow/src/move_paths/builder.rs:341 gather_moves (lane dataflow-move-paths)
+// stub: compiler/rustc_mir_dataflow/src/move_paths/builder.rs:341 gather_moves (lane dataflow-move-paths)
 export function gather_moves(_body: Body, _tcx: TyCtxt, _filter: (ty: Ty) => boolean): MoveData {
   return unported("rustc_mir_dataflow::move_paths::builder::gather_moves");
 }

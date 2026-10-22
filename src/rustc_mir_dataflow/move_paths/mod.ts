@@ -41,7 +41,7 @@ export const MovePathIndex = {
 
   /** `impl polonius_engine::Atom for MovePathIndex`. */
   Atom: {
-    // stub-df: compiler/rustc_mir_dataflow/src/move_paths/mod.rs:24 index (lane dataflow-move-paths)
+    // stub: compiler/rustc_mir_dataflow/src/move_paths/mod.rs:24 index (lane dataflow-move-paths)
     index(_self: MovePathIndex): number {
       return unported("rustc_mir_dataflow::move_paths::MovePathIndex::Atom::index");
     },
@@ -60,7 +60,7 @@ export type MoveOutIndex = number & { readonly __brand: "MoveOutIndex" };
 export const MoveOutIndex = {
   ...newtype_index<MoveOutIndex>((n) => `mo${n}`),
 
-  // stub-df: compiler/rustc_mir_dataflow/src/move_paths/mod.rs:43 move_path_index (lane dataflow-move-paths)
+  // stub: compiler/rustc_mir_dataflow/src/move_paths/mod.rs:43 move_path_index (lane dataflow-move-paths)
   move_path_index(_self: MoveOutIndex, _move_data: MoveData): MovePathIndex {
     return unported("rustc_mir_dataflow::move_paths::MoveOutIndex::move_path_index");
   },
@@ -104,13 +104,13 @@ export class MovePath {
   ) {}
 
   /// Returns an iterator over the parents of `self`.
-  // stub-df: compiler/rustc_mir_dataflow/src/move_paths/mod.rs:75 parents (lane dataflow-move-paths)
+  // stub: compiler/rustc_mir_dataflow/src/move_paths/mod.rs:75 parents (lane dataflow-move-paths)
   parents(_move_paths: readonly MovePath[]): Iterable<[MovePathIndex, MovePath]> {
     return unported("rustc_mir_dataflow::move_paths::MovePath::parents");
   }
 
   /// Returns an iterator over the immediate children of `self`.
-  // stub-df: compiler/rustc_mir_dataflow/src/move_paths/mod.rs:89 children (lane dataflow-move-paths)
+  // stub: compiler/rustc_mir_dataflow/src/move_paths/mod.rs:89 children (lane dataflow-move-paths)
   children(_move_paths: readonly MovePath[]): Iterable<[MovePathIndex, MovePath]> {
     return unported("rustc_mir_dataflow::move_paths::MovePath::children");
   }
@@ -119,20 +119,20 @@ export class MovePath {
   /// search.
   ///
   /// `f` will **not** be called on `self`.
-  // stub-df: compiler/rustc_mir_dataflow/src/move_paths/mod.rs:106 find_descendant (lane dataflow-move-paths)
+  // stub: compiler/rustc_mir_dataflow/src/move_paths/mod.rs:106 find_descendant (lane dataflow-move-paths)
   find_descendant(_move_paths: readonly MovePath[], _f: (mpi: MovePathIndex) => boolean): MovePathIndex | undefined {
     return unported("rustc_mir_dataflow::move_paths::MovePath::find_descendant");
   }
 }
 
 /** `impl Debug for MovePath`. */
-// stub-df: compiler/rustc_mir_dataflow/src/move_paths/mod.rs:136 fmt (lane dataflow-move-paths)
+// stub: compiler/rustc_mir_dataflow/src/move_paths/mod.rs:136 fmt (lane dataflow-move-paths)
 export const debug_MovePath: Debug<MovePath> = (_self: MovePath, _w: Fmt): string => {
   return unported("rustc_mir_dataflow::move_paths::MovePath::fmt (Debug)");
 };
 
 /** `impl Display for MovePath`. */
-// stub-df: compiler/rustc_mir_dataflow/src/move_paths/mod.rs:152 fmt (lane dataflow-move-paths)
+// stub: compiler/rustc_mir_dataflow/src/move_paths/mod.rs:152 fmt (lane dataflow-move-paths)
 export const display_MovePath = (_self: MovePath): string => {
   return unported("rustc_mir_dataflow::move_paths::MovePath::fmt (Display)");
 };
@@ -144,7 +144,7 @@ class MovePathLinearIter implements IterableIterator<[MovePathIndex, MovePath]> 
     public fetch_next: (mpi: MovePathIndex, path: MovePath) => [MovePathIndex, MovePath] | undefined,
   ) {}
 
-  // stub-df: compiler/rustc_mir_dataflow/src/move_paths/mod.rs:168 next (lane dataflow-move-paths)
+  // stub: compiler/rustc_mir_dataflow/src/move_paths/mod.rs:168 next (lane dataflow-move-paths)
   next(): IteratorResult<[MovePathIndex, MovePath]> {
     return unported("rustc_mir_dataflow::move_paths::MovePathLinearIter::next");
   }
@@ -183,19 +183,19 @@ export class MoveData {
     public init_path_map: InitIndex[][],
   ) {}
 
-  // stub-df: compiler/rustc_mir_dataflow/src/move_paths/mod.rs:399 gather_moves (lane dataflow-move-paths)
+  // stub: compiler/rustc_mir_dataflow/src/move_paths/mod.rs:399 gather_moves (lane dataflow-move-paths)
   static gather_moves(_body: Body, _tcx: TyCtxt, _filter: (ty: Ty) => boolean): MoveData {
     return unported("rustc_mir_dataflow::move_paths::MoveData::gather_moves");
   }
 
   /// For the move path `mpi`, returns the root local variable that starts the path.
   /// (e.g., for a path like `a.b.c` returns `a`)
-  // stub-df: compiler/rustc_mir_dataflow/src/move_paths/mod.rs:409 base_local (lane dataflow-move-paths)
+  // stub: compiler/rustc_mir_dataflow/src/move_paths/mod.rs:409 base_local (lane dataflow-move-paths)
   base_local(_mpi: MovePathIndex): Local {
     return unported("rustc_mir_dataflow::move_paths::MoveData::base_local");
   }
 
-  // stub-df: compiler/rustc_mir_dataflow/src/move_paths/mod.rs:419 find_in_move_path_or_its_descendants (lane dataflow-move-paths)
+  // stub: compiler/rustc_mir_dataflow/src/move_paths/mod.rs:419 find_in_move_path_or_its_descendants (lane dataflow-move-paths)
   find_in_move_path_or_its_descendants(_root: MovePathIndex, _pred: (mpi: MovePathIndex) => boolean): MovePathIndex | undefined {
     return unported("rustc_mir_dataflow::move_paths::MoveData::find_in_move_path_or_its_descendants");
   }
@@ -219,25 +219,25 @@ export class LocationMap<T> {
   ) {}
 
   // #[inline]
-  // stub-df: compiler/rustc_mir_dataflow/src/move_paths/mod.rs:217 offset (lane dataflow-move-paths)
+  // stub: compiler/rustc_mir_dataflow/src/move_paths/mod.rs:217 offset (lane dataflow-move-paths)
   offset(_loc: Location): number {
     return unported("rustc_mir_dataflow::move_paths::LocationMap::offset");
   }
 
   /** `impl<T> Index<Location> for LocationMap<T>`. */
-  // stub-df: compiler/rustc_mir_dataflow/src/move_paths/mod.rs:232 index (lane dataflow-move-paths)
+  // stub: compiler/rustc_mir_dataflow/src/move_paths/mod.rs:232 index (lane dataflow-move-paths)
   index(_index: Location): T {
     return unported("rustc_mir_dataflow::move_paths::LocationMap::index");
   }
 
   /** `impl<T> IndexMut<Location> for LocationMap<T>`: a slot view onto `data`. */
-  // stub-df: compiler/rustc_mir_dataflow/src/move_paths/mod.rs:238 index_mut (lane dataflow-move-paths)
+  // stub: compiler/rustc_mir_dataflow/src/move_paths/mod.rs:238 index_mut (lane dataflow-move-paths)
   index_mut(_index: Location): MutRef<T> {
     return unported("rustc_mir_dataflow::move_paths::LocationMap::index_mut");
   }
 
   /** `impl<T: Default + Clone> LocationMap<T>`: `T::default()` is `default_T()`. */
-  // stub-df: compiler/rustc_mir_dataflow/src/move_paths/mod.rs:248 new (lane dataflow-move-paths)
+  // stub: compiler/rustc_mir_dataflow/src/move_paths/mod.rs:248 new (lane dataflow-move-paths)
   static new<T>(_body: Body, _default_T: () => T): LocationMap<T> {
     return unported("rustc_mir_dataflow::move_paths::LocationMap::new");
   }
@@ -259,7 +259,7 @@ export interface MoveOut {
 }
 
 /** `impl Debug for MoveOut`. */
-// stub-df: compiler/rustc_mir_dataflow/src/move_paths/mod.rs:274 fmt (lane dataflow-move-paths)
+// stub: compiler/rustc_mir_dataflow/src/move_paths/mod.rs:274 fmt (lane dataflow-move-paths)
 export const debug_MoveOut: Debug<MoveOut> = (_self: MoveOut, _fmt: Fmt): string => {
   return unported("rustc_mir_dataflow::move_paths::MoveOut::fmt");
 };
@@ -295,13 +295,13 @@ export type InitKind =
 export const InitKind = { Deep: "Deep", Shallow: "Shallow", NonPanicPathOnly: "NonPanicPathOnly" } as const;
 
 /** `impl Debug for Init`. */
-// stub-df: compiler/rustc_mir_dataflow/src/move_paths/mod.rs:310 fmt (lane dataflow-move-paths)
+// stub: compiler/rustc_mir_dataflow/src/move_paths/mod.rs:310 fmt (lane dataflow-move-paths)
 export const debug_Init: Debug<Init> = (_self: Init, _fmt: Fmt): string => {
   return unported("rustc_mir_dataflow::move_paths::Init::fmt");
 };
 
 export const Init = {
-  // stub-df: compiler/rustc_mir_dataflow/src/move_paths/mod.rs:316 span (lane dataflow-move-paths)
+  // stub: compiler/rustc_mir_dataflow/src/move_paths/mod.rs:316 span (lane dataflow-move-paths)
   span(_self: Init, _body: Body): Span {
     return unported("rustc_mir_dataflow::move_paths::Init::span");
   },
@@ -330,21 +330,21 @@ export class MovePathLookup {
   // alternative will *not* create a MovePath on the fly for an
   // unknown place, but will rather return the nearest available
   // parent.
-  // stub-df: compiler/rustc_mir_dataflow/src/move_paths/mod.rs:359 find (lane dataflow-move-paths)
+  // stub: compiler/rustc_mir_dataflow/src/move_paths/mod.rs:359 find (lane dataflow-move-paths)
   find(_place: PlaceRef): LookupResult {
     return unported("rustc_mir_dataflow::move_paths::MovePathLookup::find");
   }
 
   /// For locals, which are roots.
   // #[inline]
-  // stub-df: compiler/rustc_mir_dataflow/src/move_paths/mod.rs:385 find_local (lane dataflow-move-paths)
+  // stub: compiler/rustc_mir_dataflow/src/move_paths/mod.rs:385 find_local (lane dataflow-move-paths)
   find_local(_local: Local): MovePathIndex | undefined {
     return unported("rustc_mir_dataflow::move_paths::MovePathLookup::find_local");
   }
 
   /// An enumerated iterator of `local`s and their associated
   /// `MovePathIndex`es.
-  // stub-df: compiler/rustc_mir_dataflow/src/move_paths/mod.rs:391 iter_locals_enumerated (lane dataflow-move-paths)
+  // stub: compiler/rustc_mir_dataflow/src/move_paths/mod.rs:391 iter_locals_enumerated (lane dataflow-move-paths)
   iter_locals_enumerated(): [Local, MovePathIndex][] {
     return unported("rustc_mir_dataflow::move_paths::MovePathLookup::iter_locals_enumerated");
   }
@@ -386,7 +386,7 @@ export type MoveSubPathResult =
   | { readonly $: "Stop" };
 
 export const MoveSubPath = {
-  // stub-df: compiler/rustc_mir_dataflow/src/move_paths/mod.rs:451 of (lane dataflow-move-paths)
+  // stub: compiler/rustc_mir_dataflow/src/move_paths/mod.rs:451 of (lane dataflow-move-paths)
   of(_elem: ProjectionKind): MoveSubPathResult {
     return unported("rustc_mir_dataflow::move_paths::MoveSubPath::of");
   },

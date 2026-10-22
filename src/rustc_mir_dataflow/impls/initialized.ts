@@ -1,7 +1,7 @@
 // Port of compiler/rustc_mir_dataflow/src/impls/initialized.rs: DECLARED (lane dataflow-contract). Every fn is a stub
 // for lane `dataflow-impls` (plan-m4 §5 wave 22).
 //
-// How to fill a stub: replace the body with the upstream logic and turn `// stub-df: <path>:<line> <name> (lane ..)` into
+// How to fill a stub: replace the body with the upstream logic and turn `// stub: <path>:<line> <name> (lane ..)` into
 // the marker `// rustc: <path>:<line> <name>`. Notes:
 // - The three analyses are classes extending `AnalysisBase<Domain, SwitchIntData>` (framework/mod.ts); their fields
 //   are the struct fields in declaration order. Fields that collide with a method get a trailing `_` (precedent
@@ -60,7 +60,7 @@ export class MaybePlacesSwitchIntData {
     public variants: VariantIdx[],
   ) {}
 
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/initialized.rs:38 new (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:38 new (lane dataflow-impls)
   static new(_tcx: TyCtxt, _body: Body, _block: BasicBlock, _targets: SwitchTargets, _discr: Operand): MaybePlacesSwitchIntData | undefined {
     return unported("rustc_mir_dataflow::impls::initialized::MaybePlacesSwitchIntData::new");
   }
@@ -117,36 +117,36 @@ export class MaybeInitializedPlaces
     super();
   }
 
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/initialized.rs:148 new (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:148 new (lane dataflow-impls)
   static new(_tcx: TyCtxt, _body: Body, _move_data: MoveData): MaybeInitializedPlaces {
     return unported("rustc_mir_dataflow::impls::initialized::MaybeInitializedPlaces::new");
   }
 
   /// Ensures definitely inactive variants are excluded from the set of initialized places for
   /// blocks reached through an `otherwise` edge.
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/initialized.rs:162 exclude_inactive_in_otherwise (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:162 exclude_inactive_in_otherwise (lane dataflow-impls)
   exclude_inactive_in_otherwise(): this {
     return unported("rustc_mir_dataflow::impls::initialized::MaybeInitializedPlaces::exclude_inactive_in_otherwise");
   }
 
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/initialized.rs:167 skipping_unreachable_unwind (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:167 skipping_unreachable_unwind (lane dataflow-impls)
   skipping_unreachable_unwind(): this {
     return unported("rustc_mir_dataflow::impls::initialized::MaybeInitializedPlaces::skipping_unreachable_unwind");
   }
 
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/initialized.rs:172 is_unwind_dead (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:172 is_unwind_dead (lane dataflow-impls)
   is_unwind_dead(_place: Place, _state: MaybeReachable<MixedBitSet<MovePathIndex>>): boolean {
     return unported("rustc_mir_dataflow::impls::initialized::MaybeInitializedPlaces::is_unwind_dead");
   }
 
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/initialized.rs:188 update_bits (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:188 update_bits (lane dataflow-impls)
   static update_bits(_state: MaybeReachable<MixedBitSet<MovePathIndex>>, _path: MovePathIndex, _dfstate: DropFlagState): void {
     return unported("rustc_mir_dataflow::impls::initialized::MaybeInitializedPlaces::update_bits");
   }
 
   // ---- impl HasMoveData for MaybeInitializedPlaces ----
 
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/initialized.rs:201 move_data (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:201 move_data (lane dataflow-impls)
   move_data(): MoveData {
     return unported("rustc_mir_dataflow::impls::initialized::MaybeInitializedPlaces::move_data");
   }
@@ -164,22 +164,22 @@ export class MaybeInitializedPlaces
 
   readonly NAME = "maybe_init";
 
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/initialized.rs:215 bottom_value (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:215 bottom_value (lane dataflow-impls)
   bottom_value(_body: Body): MaybeReachable<MixedBitSet<MovePathIndex>> {
     return unported("rustc_mir_dataflow::impls::initialized::MaybeInitializedPlaces::bottom_value");
   }
 
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/initialized.rs:220 initialize_start_block (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:220 initialize_start_block (lane dataflow-impls)
   initialize_start_block(_body: Body, _state: MaybeReachable<MixedBitSet<MovePathIndex>>): void {
     return unported("rustc_mir_dataflow::impls::initialized::MaybeInitializedPlaces::initialize_start_block");
   }
 
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/initialized.rs:229 apply_primary_statement_effect (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:229 apply_primary_statement_effect (lane dataflow-impls)
   apply_primary_statement_effect(_state: MaybeReachable<MixedBitSet<MovePathIndex>>, _statement: Statement, _location: Location): void {
     return unported("rustc_mir_dataflow::impls::initialized::MaybeInitializedPlaces::apply_primary_statement_effect");
   }
 
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/initialized.rs:253 get_terminator_edges (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:253 get_terminator_edges (lane dataflow-impls)
   override get_terminator_edges(
     _state: MaybeReachable<MixedBitSet<MovePathIndex>>,
     _terminator: Terminator,
@@ -188,7 +188,7 @@ export class MaybeInitializedPlaces
     return unported("rustc_mir_dataflow::impls::initialized::MaybeInitializedPlaces::get_terminator_edges");
   }
 
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/initialized.rs:274 apply_primary_terminator_effect (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:274 apply_primary_terminator_effect (lane dataflow-impls)
   override apply_primary_terminator_effect(
     _state: MaybeReachable<MixedBitSet<MovePathIndex>>,
     _terminator: Terminator,
@@ -197,7 +197,7 @@ export class MaybeInitializedPlaces
     return unported("rustc_mir_dataflow::impls::initialized::MaybeInitializedPlaces::apply_primary_terminator_effect");
   }
 
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/initialized.rs:285 apply_call_return_effect (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:285 apply_call_return_effect (lane dataflow-impls)
   override apply_call_return_effect(
     _state: MaybeReachable<MixedBitSet<MovePathIndex>>,
     _block: BasicBlock,
@@ -206,12 +206,12 @@ export class MaybeInitializedPlaces
     return unported("rustc_mir_dataflow::impls::initialized::MaybeInitializedPlaces::apply_call_return_effect");
   }
 
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/initialized.rs:304 get_switch_int_data (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:304 get_switch_int_data (lane dataflow-impls)
   override get_switch_int_data(_block: BasicBlock, _targets: SwitchTargets, _discr: Operand): MaybePlacesSwitchIntData | undefined {
     return unported("rustc_mir_dataflow::impls::initialized::MaybeInitializedPlaces::get_switch_int_data");
   }
 
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/initialized.rs:317 apply_switch_int_edge_effect (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:317 apply_switch_int_edge_effect (lane dataflow-impls)
   override apply_switch_int_edge_effect(
     _state: MaybeReachable<MixedBitSet<MovePathIndex>>,
     _data: MaybePlacesSwitchIntData,
@@ -273,7 +273,7 @@ export class MaybeUninitializedPlaces
     super();
   }
 
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/initialized.rs:390 new (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:390 new (lane dataflow-impls)
   static new(_tcx: TyCtxt, _body: Body, _move_data: MoveData): MaybeUninitializedPlaces {
     return unported("rustc_mir_dataflow::impls::initialized::MaybeUninitializedPlaces::new");
   }
@@ -283,24 +283,24 @@ export class MaybeUninitializedPlaces
   ///
   /// This is correct in a vacuum but is not the default because it causes problems in the borrow
   /// checker, where this information gets propagated along `FakeEdge`s.
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/initialized.rs:407 mark_inactive_variants_as_uninit (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:407 mark_inactive_variants_as_uninit (lane dataflow-impls)
   mark_inactive_variants_as_uninit(): this {
     return unported("rustc_mir_dataflow::impls::initialized::MaybeUninitializedPlaces::mark_inactive_variants_as_uninit");
   }
 
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/initialized.rs:412 skipping_unreachable_unwind (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:412 skipping_unreachable_unwind (lane dataflow-impls)
   skipping_unreachable_unwind(_unreachable_unwind: DenseBitSet<BasicBlock>): this {
     return unported("rustc_mir_dataflow::impls::initialized::MaybeUninitializedPlaces::skipping_unreachable_unwind");
   }
 
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/initialized.rs:420 update_bits (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:420 update_bits (lane dataflow-impls)
   static update_bits(_state: MaybeUninitializedPlacesDomain, _path: MovePathIndex, _dfstate: DropFlagState): void {
     return unported("rustc_mir_dataflow::impls::initialized::MaybeUninitializedPlaces::update_bits");
   }
 
   // ---- impl HasMoveData for MaybeUninitializedPlaces ----
 
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/initialized.rs:433 move_data (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:433 move_data (lane dataflow-impls)
   move_data(): MoveData {
     return unported("rustc_mir_dataflow::impls::initialized::MaybeUninitializedPlaces::move_data");
   }
@@ -314,42 +314,42 @@ export class MaybeUninitializedPlaces
 
   readonly NAME = "maybe_uninit";
 
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/initialized.rs:449 bottom_value (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:449 bottom_value (lane dataflow-impls)
   bottom_value(_body: Body): MaybeUninitializedPlacesDomain {
     return unported("rustc_mir_dataflow::impls::initialized::MaybeUninitializedPlaces::bottom_value");
   }
 
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/initialized.rs:455 initialize_start_block (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:455 initialize_start_block (lane dataflow-impls)
   initialize_start_block(_body: Body, _state: MaybeUninitializedPlacesDomain): void {
     return unported("rustc_mir_dataflow::impls::initialized::MaybeUninitializedPlaces::initialize_start_block");
   }
 
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/initialized.rs:465 apply_primary_statement_effect (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:465 apply_primary_statement_effect (lane dataflow-impls)
   apply_primary_statement_effect(_state: MaybeUninitializedPlacesDomain, _statement: Statement, _location: Location): void {
     return unported("rustc_mir_dataflow::impls::initialized::MaybeUninitializedPlaces::apply_primary_statement_effect");
   }
 
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/initialized.rs:479 get_terminator_edges (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:479 get_terminator_edges (lane dataflow-impls)
   override get_terminator_edges(_state: MaybeUninitializedPlacesDomain, _terminator: Terminator, _location: Location): TerminatorEdges {
     return unported("rustc_mir_dataflow::impls::initialized::MaybeUninitializedPlaces::get_terminator_edges");
   }
 
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/initialized.rs:494 apply_primary_terminator_effect (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:494 apply_primary_terminator_effect (lane dataflow-impls)
   override apply_primary_terminator_effect(_state: MaybeUninitializedPlacesDomain, _terminator: Terminator, _location: Location): void {
     return unported("rustc_mir_dataflow::impls::initialized::MaybeUninitializedPlaces::apply_primary_terminator_effect");
   }
 
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/initialized.rs:505 apply_call_return_effect (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:505 apply_call_return_effect (lane dataflow-impls)
   override apply_call_return_effect(_state: MaybeUninitializedPlacesDomain, _block: BasicBlock, _return_places: CallReturnPlaces): void {
     return unported("rustc_mir_dataflow::impls::initialized::MaybeUninitializedPlaces::apply_call_return_effect");
   }
 
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/initialized.rs:524 get_switch_int_data (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:524 get_switch_int_data (lane dataflow-impls)
   override get_switch_int_data(_block: BasicBlock, _targets: SwitchTargets, _discr: Operand): MaybePlacesSwitchIntData | undefined {
     return unported("rustc_mir_dataflow::impls::initialized::MaybeUninitializedPlaces::get_switch_int_data");
   }
 
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/initialized.rs:541 apply_switch_int_edge_effect (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:541 apply_switch_int_edge_effect (lane dataflow-impls)
   override apply_switch_int_edge_effect(
     _state: MaybeUninitializedPlacesDomain,
     _data: MaybePlacesSwitchIntData,
@@ -403,21 +403,21 @@ export class EverInitializedPlaces extends AnalysisBase<EverInitializedPlacesDom
     super();
   }
 
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/initialized.rs:601 new (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:601 new (lane dataflow-impls)
   static new(_body: Body, _move_data: MoveData): EverInitializedPlaces {
     return unported("rustc_mir_dataflow::impls::initialized::EverInitializedPlaces::new");
   }
 
   /// Whether the init of `local` at `init` can reach `target` via a path that doesn't pass
   /// through a `StorageDead(local)`. Mirrors the gen/kill structure of `EverInitializedPlaces`.
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/initialized.rs:609 init_reaches_location (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:609 init_reaches_location (lane dataflow-impls)
   static init_reaches_location(_body: Body, _local: Local, _init: Init, _target: Location): boolean {
     return unported("rustc_mir_dataflow::impls::initialized::EverInitializedPlaces::init_reaches_location");
   }
 
   // ---- impl HasMoveData for EverInitializedPlaces ----
 
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/initialized.rs:669 move_data (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:669 move_data (lane dataflow-impls)
   move_data(): MoveData {
     return unported("rustc_mir_dataflow::impls::initialized::EverInitializedPlaces::move_data");
   }
@@ -429,29 +429,29 @@ export class EverInitializedPlaces extends AnalysisBase<EverInitializedPlacesDom
 
   readonly NAME = "ever_init";
 
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/initialized.rs:681 bottom_value (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:681 bottom_value (lane dataflow-impls)
   bottom_value(_body: Body): EverInitializedPlacesDomain {
     return unported("rustc_mir_dataflow::impls::initialized::EverInitializedPlaces::bottom_value");
   }
 
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/initialized.rs:686 initialize_start_block (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:686 initialize_start_block (lane dataflow-impls)
   initialize_start_block(_body: Body, _state: EverInitializedPlacesDomain): void {
     return unported("rustc_mir_dataflow::impls::initialized::EverInitializedPlaces::initialize_start_block");
   }
 
   // #[instrument(skip(self, state), level = "debug")]
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/initialized.rs:693 apply_primary_statement_effect (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:693 apply_primary_statement_effect (lane dataflow-impls)
   apply_primary_statement_effect(_state: EverInitializedPlacesDomain, _stmt: Statement, _location: Location): void {
     return unported("rustc_mir_dataflow::impls::initialized::EverInitializedPlaces::apply_primary_statement_effect");
   }
 
   // #[instrument(skip(self, state, _terminator), level = "debug")]
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/initialized.rs:716 apply_primary_terminator_effect (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:716 apply_primary_terminator_effect (lane dataflow-impls)
   override apply_primary_terminator_effect(_state: EverInitializedPlacesDomain, _terminator: Terminator, _location: Location): void {
     return unported("rustc_mir_dataflow::impls::initialized::EverInitializedPlaces::apply_primary_terminator_effect");
   }
 
-  // stub-df: compiler/rustc_mir_dataflow/src/impls/initialized.rs:736 apply_call_return_effect (lane dataflow-impls)
+  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:736 apply_call_return_effect (lane dataflow-impls)
   override apply_call_return_effect(_state: EverInitializedPlacesDomain, _block: BasicBlock, _return_places: CallReturnPlaces): void {
     return unported("rustc_mir_dataflow::impls::initialized::EverInitializedPlaces::apply_call_return_effect");
   }

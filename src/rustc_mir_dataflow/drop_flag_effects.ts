@@ -28,13 +28,13 @@ export const DropFlagState = {
   Present: "Present",
   Absent: "Absent",
 
-  // stub-df: compiler/rustc_mir_dataflow/src/drop_flag_effects.rs:20 value (lane dataflow-move-paths)
+  // stub: compiler/rustc_mir_dataflow/src/drop_flag_effects.rs:20 value (lane dataflow-move-paths)
   value(_self: DropFlagState): boolean {
     return unported("rustc_mir_dataflow::drop_flag_effects::DropFlagState::value");
   },
 } as const;
 
-// stub-df: compiler/rustc_mir_dataflow/src/drop_flag_effects.rs:28 move_path_children_matching (lane dataflow-move-paths)
+// stub: compiler/rustc_mir_dataflow/src/drop_flag_effects.rs:28 move_path_children_matching (lane dataflow-move-paths)
 export function move_path_children_matching(
   _move_data: MoveData,
   _path: MovePathIndex,
@@ -43,7 +43,7 @@ export function move_path_children_matching(
   return unported("rustc_mir_dataflow::drop_flag_effects::move_path_children_matching");
 }
 
-// stub-df: compiler/rustc_mir_dataflow/src/drop_flag_effects.rs:50 on_lookup_result_bits (lane dataflow-move-paths)
+// stub: compiler/rustc_mir_dataflow/src/drop_flag_effects.rs:50 on_lookup_result_bits (lane dataflow-move-paths)
 export function on_lookup_result_bits(
   _move_data: MoveData,
   _lookup_result: LookupResult,
@@ -52,7 +52,7 @@ export function on_lookup_result_bits(
   return unported("rustc_mir_dataflow::drop_flag_effects::on_lookup_result_bits");
 }
 
-// stub-df: compiler/rustc_mir_dataflow/src/drop_flag_effects.rs:65 on_all_children_bits (lane dataflow-move-paths)
+// stub: compiler/rustc_mir_dataflow/src/drop_flag_effects.rs:65 on_all_children_bits (lane dataflow-move-paths)
 export function on_all_children_bits(
   _move_data: MoveData,
   _move_path_index: MovePathIndex,
@@ -62,7 +62,7 @@ export function on_all_children_bits(
 }
 
 /** The nested `fn on_all_children_bits` of `on_all_children_bits` (moves inside its parent when ported). */
-// stub-df: compiler/rustc_mir_dataflow/src/drop_flag_effects.rs:72 on_all_children_bits (lane dataflow-move-paths)
+// stub: compiler/rustc_mir_dataflow/src/drop_flag_effects.rs:72 on_all_children_bits (lane dataflow-move-paths)
 function on_all_children_bits_inner(
   _move_data: MoveData,
   _move_path_index: MovePathIndex,
@@ -73,7 +73,7 @@ function on_all_children_bits_inner(
 
 /// Calls `callback` for each child move path of the function's arguments. Note the move paths'
 /// `DropFlagState` argument to the callback will always be `DropFlagState::Present`.
-// stub-df: compiler/rustc_mir_dataflow/src/drop_flag_effects.rs:92 drop_flag_effects_for_function_entry (lane dataflow-move-paths)
+// stub: compiler/rustc_mir_dataflow/src/drop_flag_effects.rs:92 drop_flag_effects_for_function_entry (lane dataflow-move-paths)
 export function drop_flag_effects_for_function_entry(
   _body: Body,
   _move_data: MoveData,
@@ -82,7 +82,7 @@ export function drop_flag_effects_for_function_entry(
   return unported("rustc_mir_dataflow::drop_flag_effects::drop_flag_effects_for_function_entry");
 }
 
-// stub-df: compiler/rustc_mir_dataflow/src/drop_flag_effects.rs:108 drop_flag_effects_for_location (lane dataflow-move-paths)
+// stub: compiler/rustc_mir_dataflow/src/drop_flag_effects.rs:108 drop_flag_effects_for_location (lane dataflow-move-paths)
 export function drop_flag_effects_for_location(
   _body: Body,
   _move_data: MoveData,
@@ -92,7 +92,7 @@ export function drop_flag_effects_for_location(
   return unported("rustc_mir_dataflow::drop_flag_effects::drop_flag_effects_for_location");
 }
 
-// stub-df: compiler/rustc_mir_dataflow/src/drop_flag_effects.rs:139 for_location_inits (lane dataflow-move-paths)
+// stub: compiler/rustc_mir_dataflow/src/drop_flag_effects.rs:139 for_location_inits (lane dataflow-move-paths)
 function for_location_inits(_move_data: MoveData, _loc: Location, _callback: (mpi: MovePathIndex) => void): void {
   return unported("rustc_mir_dataflow::drop_flag_effects::for_location_inits");
 }
@@ -105,7 +105,7 @@ export type InactiveVariants =
   | { readonly $: "Active"; readonly _0: VariantIdx };
 
 export const InactiveVariants = {
-  // stub-df: compiler/rustc_mir_dataflow/src/drop_flag_effects.rs:168 contains (lane dataflow-move-paths)
+  // stub: compiler/rustc_mir_dataflow/src/drop_flag_effects.rs:168 contains (lane dataflow-move-paths)
   contains(_self: InactiveVariants, _variant_idx: VariantIdx): boolean {
     return unported("rustc_mir_dataflow::drop_flag_effects::InactiveVariants::contains");
   },
@@ -113,7 +113,7 @@ export const InactiveVariants = {
 
 /// Calls `handle_inactive_variant` for each child move path of `enum_place` corresponding to an
 /// inactive variant at a particular `SwitchInt` edge.
-// stub-df: compiler/rustc_mir_dataflow/src/drop_flag_effects.rs:178 on_all_inactive_variants (lane dataflow-move-paths)
+// stub: compiler/rustc_mir_dataflow/src/drop_flag_effects.rs:178 on_all_inactive_variants (lane dataflow-move-paths)
 export function on_all_inactive_variants(
   _move_data: MoveData,
   _enum_place: Place,
