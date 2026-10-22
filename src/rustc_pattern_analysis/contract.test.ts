@@ -5,7 +5,7 @@
 // - constructor splitting (`IntRange::split`, `Slice::split`, `ConstructorSet::split`), `DeconstructedPat` /
 //   `WitnessPat` and their `Debug` work without usefulness, on the examples of the upstream doc comments and the
 //   witnesses the crate tests expect (tests/exhaustiveness.rs);
-// - `analyze_match` stops at the first stub on its path.
+// - `analyze_match` stops at the first stub on its path (usefulness, lane pat-a, until it is ported).
 import { expect, test } from "bun:test";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
@@ -15,7 +15,7 @@ import { Constructor, ConstructorSet, debug_Constructor, debug_IntRange, debug_S
 import { MatchArm } from "./lib.ts";
 import { DeconstructedPat, debug_DeconstructedPat, debug_PatOrWild, debug_WitnessPat, type IndexedPat, PatOrWild, WitnessPat } from "./pat.ts";
 import { analyze_match, RustcPatCtxt, RustcPatCtxtState } from "./rustc.ts";
-import { CX_STATIC, Cx, type CxTypes, NEVER, pat, pats, type Ty, UNIT } from "./tests/common/mod.ts";
+import { CX_STATIC, Cx, type CxTypes, NEVER, pat, pats, type Ty, UNIT, USEFULNESS_PORTED } from "./tests/common/mod.ts";
 import { PLAIN } from "../std/fmt.ts";
 import { Unported } from "../std/panic.ts";
 
@@ -109,14 +109,14 @@ test("every fn of rustc_pattern_analysis/src/** is ported or declared as a stub,
     }
   }
   expect(total).toBe(188);
-  expect(markers.length).toBe(89);
-  expect(stubs.length).toBe(99);
+  expect(markers.length).toBe(122);
+  expect(stubs.length).toBe(66);
 });
 
 test("the stubs per fill lane are the handoff's split table", () => {
   const per_lane: Record<string, number> = {};
   for (const d of stubs) per_lane[d.lane!] = (per_lane[d.lane!] ?? 0) + 1;
-  expect(per_lane).toEqual({ "pat-a": 66, "pat-c": 33 });
+  expect(per_lane).toEqual({ "pat-a": 66 });
   for (const d of stubs) {
     const lane = /\/(usefulness|pat_column|lints|checks)\.rs$/.test(d.path) ? "pat-a" : "pat-c";
     expect(`${d.path}:${d.line} ${d.name}: ${d.lane}`).toBe(`${d.path}:${d.line} ${d.name}: ${lane}`);
@@ -325,9 +325,13 @@ test("WitnessPat: Debug of the crate tests' witnesses, wildcard / wild_from_ctor
   expect(MatchArm.clone(arm)).toEqual(arm);
 });
 
-test("analyze_match stops at the first stub on its path (lane pat-c)", () => {
+// Lane pat-c ported rustc.rs: `analyze_match` now passes `reveal_opaque_ty` and stops in usefulness (lane pat-a) until
+// that is ported (then this test is skipped; the end-to-end checks are rustc.test.ts's and the suites').
+test.skipIf(USEFULNESS_PORTED)("analyze_match stops at the first stub on its path (lane pat-a)", () => {
+  const BOOL = { kind: () => ({ $: "Bool" }) };
+  const tcx = { pattern_complexity_limit: () => ({ _0: undefined }) };
   const tycx = new RustcPatCtxt(
-    undefined as never,
+    tcx as never,
     undefined as never,
     undefined as never,
     undefined as never,
@@ -341,10 +345,10 @@ test("analyze_match stops at the first stub on its path (lane pat-c)", () => {
   );
   let err: unknown;
   try {
-    analyze_match(tycx, [], undefined as never);
+    analyze_match(tycx, [], BOOL as never);
   } catch (e) {
     err = e;
   }
   expect(err).toBeInstanceOf(Unported);
-  expect((err as Unported).what).toBe("rustc_pattern_analysis::rustc::RustcPatCtxt::reveal_opaque_ty");
+  expect((err as Unported).what).toBe("rustc_pattern_analysis::usefulness::PlaceValidity::from_bool");
 });
