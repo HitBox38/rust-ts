@@ -1,15 +1,13 @@
 //! Test the pattern complexity limit.
 //
 // Port of compiler/rustc_pattern_analysis/tests/complexity.rs (lane pat-b). `pat!(ty; ..)` is `pat(ty, "..")`
-// (common/mod.ts). The tests need lane pat-a's usefulness.rs: skipped until it is ported (`USEFULNESS_PORTED`).
+// (common/mod.ts).
 import { expect, test } from "bun:test";
-import { type CxTypes, compute_match_usefulness, pat, type Ty, USEFULNESS_PORTED } from "./common/mod.ts";
+import { type CxTypes, compute_match_usefulness, pat, type Ty } from "./common/mod.ts";
 import type { MatchArm } from "../lib.ts";
 import type { DeconstructedPat } from "../pat.ts";
 import { PlaceValidity } from "../usefulness.ts";
 import { Ok, type Result } from "../../std/result.ts";
-
-const SKIP = !USEFULNESS_PORTED;
 
 /// Analyze a match made of these patterns. Ignore the report; we only care whether we exceeded the
 /// limit or not.
@@ -84,7 +82,7 @@ function diagonal_exponential_match(arity: number): DeconstructedPat<CxTypes>[] 
 
 // #[test]
 // rustc: compiler/rustc_pattern_analysis/tests/complexity.rs:81 test_diagonal_struct_match
-test.skipIf(SKIP)("test_diagonal_struct_match", () => {
+test("test_diagonal_struct_match", () => {
   // These cases are nicely linear: we check `arity` patterns with exactly one `true`, matching
   // in 2 branches each, and a final pattern with all `false`, matching only the `_` branch.
   assert_complexity(diagonal_match(20), 41);
@@ -116,7 +114,7 @@ function big_enum(arity: number): DeconstructedPat<CxTypes>[] {
 
 // #[test]
 // rustc: compiler/rustc_pattern_analysis/tests/complexity.rs:111 test_big_enum
-test.skipIf(SKIP)("test_big_enum", () => {
+test("test_big_enum", () => {
   // We try 2 branches per variant.
   assert_complexity(big_enum(20), 40);
 });
