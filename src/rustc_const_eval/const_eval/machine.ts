@@ -108,9 +108,12 @@ export class CompileTimeMachine extends compile_time_machine implements HasStati
   }
 
   // ---- impl HasStaticRootDefId for const_eval::CompileTimeMachine<'_> (interpret/intern.rs) ----
-  // stub: compiler/rustc_const_eval/src/interpret/intern.rs:53 static_def_id (lane interp-validity-intern)
+  // rustc: compiler/rustc_const_eval/src/interpret/intern.rs:53 static_def_id
   static_def_id(): LocalDefId | undefined {
-    return unported("rustc_const_eval::interpret::intern::CompileTimeMachine::static_def_id");
+    // `Some(self.static_root_ids?.1)`
+    const static_root_ids = this.static_root_ids;
+    if (static_root_ids === undefined) return undefined;
+    return static_root_ids[1];
   }
 
   // ---- impl<'tcx> interpret::Machine<'tcx> for CompileTimeMachine<'tcx> ----
