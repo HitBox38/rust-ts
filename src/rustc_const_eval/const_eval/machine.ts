@@ -796,7 +796,7 @@ export class CompileTimeMachine extends compile_time_machine implements HasStati
 
       case sym.field_offset: {
         const frt_ty = instance.args.type_at(0);
-        const e = ensure_monomorphic_enough(frt_ty);
+        const e = ensure_monomorphic_enough(frt_ty, fold_Ty);
         if (e.$ === "Err") return e;
 
         const k = frt_ty.kind();
