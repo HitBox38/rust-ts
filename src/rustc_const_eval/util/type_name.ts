@@ -19,7 +19,7 @@ import { type TraitRef } from "../../rustc_type_ir/predicate.ts";
 import { debug_RegionKind } from "../../rustc_type_ir/region_kind.ts";
 import { CoroutineArgs } from "../../rustc_type_ir/ty_kind/closure.ts";
 import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
-import { PLAIN } from "../../std/fmt.ts";
+import { type Debug, PLAIN } from "../../std/fmt.ts";
 import { panic, unwrap } from "../../std/panic.ts";
 import type { PrintResult } from "../../rustc_middle/ty/print/mod.ts";
 import type { Const } from "../../rustc_middle/ty/consts.gen.ts";
@@ -252,9 +252,12 @@ export class TypeNamePrinter extends PrettyPrinter {
   }
 }
 
+/** `#[derive(Debug)]` of `std::fmt::Error` (a unit struct): `Error`. */
+const debug_PrintError: Debug<PrintError> = () => "Error";
+
 // rustc: compiler/rustc_const_eval/src/util/type_name.rs:216 type_name
 export function type_name(tcx: TyCtxt, ty: Ty): string {
   const p = new TypeNamePrinter(tcx, "");
-  unwrap_result<undefined, PrintError>(p.print_type(ty));
+  unwrap_result(p.print_type(ty), debug_PrintError);
   return p.path;
 }
