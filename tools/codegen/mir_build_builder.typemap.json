@@ -1,0 +1,32 @@
+{
+  "//": [
+    "Set-local type map of set rustc_mir_build_builder (lane builder-contract; types.sets.json `typemap_extra`, after",
+    "tyir.typemap.json, middle_traits_thir.typemap.json, infer.typemap.json, mir.typemap.json and mir_build.typemap.json):",
+    "the rustc_middle mir / thir / region / ty types that rustc_mir_build builder/* and check_tail_calls.rs reach. builder/*",
+    "imports mir through `use rustc_middle::mir::*;` (a glob of another crate, which the generator does not follow), so the",
+    "bare names are mapped too; they only apply to this set."
+  ],
+  "cfg": { "true": [], "false": [] },
+  "helpers": {},
+  "types": [
+    {"paths": ["Local", "rustc_middle::mir::Local"], "ts": "Local", "import": "src/rustc_middle/mir/mod.ts", "types": ["Local"], "values": ["debug_Local"], "debug": "debug_Local($v, $f)", "clone": "copy", "note": "newtype_index! (mir/mod.rs)"},
+    {"paths": ["BasicBlock", "rustc_middle::mir::BasicBlock"], "ts": "BasicBlock", "import": "src/rustc_middle/mir/mod.ts", "types": ["BasicBlock"], "values": ["debug_BasicBlock"], "debug": "debug_BasicBlock($v, $f)", "clone": "copy", "note": "newtype_index! (mir/mod.rs)"},
+    {"paths": ["SourceScope", "rustc_middle::mir::SourceScope"], "ts": "SourceScope", "import": "src/rustc_middle/mir/mod.ts", "types": ["SourceScope"], "values": ["debug_SourceScope"], "debug": "debug_SourceScope($v, $f)", "clone": "copy", "note": "newtype_index! (mir/mod.rs)"},
+    {"paths": ["Place", "rustc_middle::mir::Place", "rustc_middle::mir::syntax::Place"], "ts": "Place", "import": "src/rustc_middle/mir/mod.ts", "types": ["Place"], "values": ["debug_Place"], "clone_values": ["clone_Place"], "debug": "debug_Place($v, $f)", "clone": "clone_Place($v)", "note": "Copy struct (mir/syntax.rs; class)"},
+    {"paths": ["PlaceElem", "rustc_middle::mir::PlaceElem"], "ts": "PlaceElem", "import": "src/rustc_middle/mir/mod.ts", "types": ["PlaceElem"], "values": ["debug_ProjectionElem", "debug_Local"], "clone_values": ["clone_ProjectionElem"], "debug": "debug_ProjectionElem($v, $f, debug_Local, debug_Ty)", "clone": "clone_ProjectionElem($v, (x) => x, (x) => x)", "note": "`type PlaceElem<'tcx> = ProjectionElem<Local, Ty<'tcx>>` (mir/syntax.rs)"},
+    {"paths": ["SourceInfo", "rustc_middle::mir::SourceInfo"], "ts": "SourceInfo", "import": "src/rustc_middle/mir/mod.ts", "types": ["SourceInfo"], "values": ["debug_SourceInfo"], "clone_values": ["clone_SourceInfo"], "debug": "debug_SourceInfo($v, $f)", "clone": "clone_SourceInfo($v)", "note": "Copy struct (mir/mod.rs; class)"},
+    {"paths": ["Body", "rustc_middle::mir::Body"], "ts": "Body", "import": "src/rustc_middle/mir/mod.ts", "types": ["Body"], "values": ["debug_Body"], "clone_values": ["clone_Body"], "debug": "debug_Body($v, $f)", "clone": "clone_Body($v)", "note": "mir/mod.rs (class)"},
+    {"paths": ["BasicBlockData", "rustc_middle::mir::BasicBlockData"], "ts": "BasicBlockData", "import": "src/rustc_middle/mir/mod.ts", "types": ["BasicBlockData"], "values": ["debug_BasicBlockData"], "clone_values": ["clone_BasicBlockData"], "debug": "debug_BasicBlockData($v, $f)", "clone": "clone_BasicBlockData($v)", "note": "mir/mod.rs (class)"},
+    {"paths": ["BlockTailInfo", "rustc_middle::mir::BlockTailInfo"], "ts": "BlockTailInfo", "import": "src/rustc_middle/mir/mod.ts", "types": ["BlockTailInfo"], "values": ["debug_BlockTailInfo"], "clone_values": ["clone_BlockTailInfo"], "debug": "debug_BlockTailInfo($v, $f)", "clone": "clone_BlockTailInfo($v)", "note": "Copy struct (mir/mod.rs)"},
+    {"paths": ["FakeBorrowKind", "rustc_middle::mir::FakeBorrowKind"], "ts": "FakeBorrowKind", "import": "src/rustc_middle/mir/mod.ts", "types": ["FakeBorrowKind"], "values": ["debug_FakeBorrowKind"], "debug": "debug_FakeBorrowKind($v, $f)", "clone": "copy", "note": "fieldless enum (mir/syntax.rs)"},
+    {"paths": ["rustc_middle::mir::coverage::BranchSpan"], "ts": "BranchSpan", "import": "src/rustc_middle/mir/coverage.ts", "types": ["BranchSpan"], "values": ["debug_BranchSpan"], "clone_values": ["clone_BranchSpan"], "debug": "debug_BranchSpan($v, $f)", "clone": "clone_BranchSpan($v)", "note": "mir/coverage.rs"},
+    {"paths": ["rustc_middle::middle::region::Scope"], "ts": "region_Scope", "import": "src/rustc_middle/middle/region.ts", "types": ["Scope as region_Scope"], "values": ["debug_Scope as debug_region_Scope"], "clone_values": ["clone_Scope as clone_region_Scope"], "debug": "debug_region_Scope($v, $f)", "clone": "clone_region_Scope($v)", "note": "Copy struct (middle/region.rs; class), imported as `region_Scope`: builder/scope.rs has its own `Scope`"},
+    {"paths": ["rustc_middle::ty::TypingEnv"], "ts": "TypingEnv", "import": "src/rustc_middle/ty/mod.ts", "types": ["TypingEnv"], "values": ["debug_TypingEnv"], "debug": "debug_TypingEnv($v, $f)", "clone": "copy"},
+    {"paths": ["Thir", "rustc_middle::thir::Thir"], "ts": "Thir", "import": "src/rustc_middle/thir.ts", "types": ["Thir"], "values": ["debug_Thir"], "debug": "debug_Thir($v, $f)", "clone": "copy", "note": "`&'a Thir<'tcx>` (shared reference)"},
+    {"paths": ["LocalVarId", "rustc_middle::thir::LocalVarId"], "ts": "LocalVarId", "import": "src/rustc_middle/thir.ts", "types": ["LocalVarId"], "values": ["debug_LocalVarId"], "clone_values": ["clone_LocalVarId"], "debug": "debug_LocalVarId($v, $f)", "clone": "clone_LocalVarId($v)", "note": "`LocalVarId(HirId)` (thir.rs)"},
+    {"paths": ["PatRange", "rustc_middle::thir::PatRange"], "ts": "PatRange", "import": "src/rustc_middle/thir.ts", "types": ["PatRange"], "values": ["debug_PatRange"], "clone_values": ["clone_PatRange"], "debug": "debug_PatRange($v, $f)", "clone": "clone_PatRange($v)", "note": "thir.rs (class)"},
+    {"paths": ["rustc_middle::ty::closure::CapturedPlace"], "ts": "CapturedPlace", "import": "src/rustc_middle/ty/closure.ts", "types": ["CapturedPlace"], "values": ["debug_CapturedPlace"], "debug": "debug_CapturedPlace($v, $f)", "clone": "copy", "note": "`&'tcx ty::CapturedPlace<'tcx>` (arena reference)"},
+    {"paths": ["Mutability", "rustc_middle::mir::Mutability"], "ts": "Mutability", "import": "src/rustc_ast_ir/lib.ts", "types": ["Mutability"], "values": ["debug_Mutability"], "debug": "debug_Mutability($v, $f)", "clone": "copy", "note": "mir/mod.rs `pub use rustc_ast::Mutability` (rustc_ast_ir's)"},
+    {"paths": ["rustc_data_structures::smallvec::SmallVec"], "ts": "$0[]", "debug": "debug_vec($v, $f, $d0)", "clone": "$v.map($c0)", "note": "smallvec re-exported by rustc_data_structures (PORTING §5: an array)"}
+  ]
+}

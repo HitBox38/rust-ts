@@ -1882,5 +1882,64 @@
       "infer.typemap.json",
       "mir.typemap.json"
     ]
+  },
+  "rustc_mir_build_builder": {
+    "files": [
+      "compiler/rustc_mir_build/src/builder/block.rs",
+      "compiler/rustc_mir_build/src/builder/cfg.rs",
+      "compiler/rustc_mir_build/src/builder/coverageinfo.rs",
+      "compiler/rustc_mir_build/src/builder/custom/mod.rs",
+      "compiler/rustc_mir_build/src/builder/custom/parse.rs",
+      "compiler/rustc_mir_build/src/builder/custom/parse/instruction.rs",
+      "compiler/rustc_mir_build/src/builder/expr/as_constant.rs",
+      "compiler/rustc_mir_build/src/builder/expr/as_operand.rs",
+      "compiler/rustc_mir_build/src/builder/expr/as_place.rs",
+      "compiler/rustc_mir_build/src/builder/expr/as_rvalue.rs",
+      "compiler/rustc_mir_build/src/builder/expr/as_temp.rs",
+      "compiler/rustc_mir_build/src/builder/expr/category.rs",
+      "compiler/rustc_mir_build/src/builder/expr/into.rs",
+      "compiler/rustc_mir_build/src/builder/expr/mod.rs",
+      "compiler/rustc_mir_build/src/builder/expr/stmt.rs",
+      "compiler/rustc_mir_build/src/builder/matches/buckets.rs",
+      "compiler/rustc_mir_build/src/builder/matches/match_pair.rs",
+      "compiler/rustc_mir_build/src/builder/matches/mod.rs",
+      "compiler/rustc_mir_build/src/builder/matches/test.rs",
+      "compiler/rustc_mir_build/src/builder/matches/user_ty.rs",
+      "compiler/rustc_mir_build/src/builder/matches/util.rs",
+      "compiler/rustc_mir_build/src/builder/misc.rs",
+      "compiler/rustc_mir_build/src/builder/mod.rs",
+      "compiler/rustc_mir_build/src/builder/scope.rs",
+      "compiler/rustc_mir_build/src/check_tail_calls.rs"
+    ],
+    "files_note": "lane builder-contract (plan-m4 wave 22): every type of rustc_mir_build builder/* and check_tail_calls.rs",
+    "import_gen": ["rustc_mir_build/builder/matches/mod.ts"],
+    "import_gen_note": "scope.gen.ts imports `BuiltMatchTree` / `debug_BuiltMatchTree` from matches/mod.gen.ts, not matches/mod.ts: builder/mod.ts (defining `Builder`) imports scope.gen.ts, and matches/mod.ts assigns to `Builder.prototype` at load (builder/mod.ts header: init order)",
+    "class": [],
+    "hand": [
+      "rustc_mir_build::builder::Builder",
+      "rustc_mir_build::builder::BlockAnd",
+      "rustc_mir_build::check_tail_calls::TailCallCkVisitor"
+    ],
+    "hand_notes": {
+      "rustc_mir_build::builder::Builder": "the shared contract (builder-contract): class with all fields in builder/mod.ts; its methods are assigned by the files of their impl blocks",
+      "rustc_mir_build::builder::BlockAnd": "`struct BlockAnd<T>(BasicBlock, T)`: the tuple `[BasicBlock, T]` (builder/mod.ts), so `unpack!(block = e)` is `[block, x] = e`",
+      "rustc_mir_build::check_tail_calls::TailCallCkVisitor": "thir `Visitor` impl: a hand class extending rustc_middle thir/visit.ts's `Visitor` (check_tail_calls.ts); its field `thir` is `thir_` (the `Visitor::thir()` method has the same name; precedent check_match's `MatchVisitor`)"
+    },
+    "discriminant": [],
+    "skip": [],
+    "skip_notes": {},
+    "auto_class": true,
+    "derive_clone": true,
+    "resolve_files": [
+      "compiler/rustc_middle/src/ty/mod.rs"
+    ],
+    "typemap_extra": [
+      "tyir.typemap.json",
+      "middle_traits_thir.typemap.json",
+      "infer.typemap.json",
+      "mir.typemap.json",
+      "mir_build.typemap.json",
+      "mir_build_builder.typemap.json"
+    ]
   }
 }
