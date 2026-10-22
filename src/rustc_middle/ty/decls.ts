@@ -77,7 +77,6 @@ import type {
   IsRigid,
   OpaqueTypeKey,
   Pending,
-  Pending1,
   PlaceholderType,
   PolyExistentialPredicate,
   PolyFnSig,
@@ -190,8 +189,8 @@ export type { CoroutineLayout } from "../mir/query.ts";
 // rustc_abi / ty/layout.rs (lane layout-contract)
 export type { Layout, LayoutData, PointeeInfo } from "../../rustc_abi/lib.ts";
 export type { FnAbiError, LayoutError, TyAndLayout } from "./layout.ts";
-// rustc_target callconv (M4)
-export type FnAbi<T> = Pending1<"FnAbi", T>;
+// rustc_target callconv (lane fn-abi; type-only)
+export type { FnAbi } from "../../rustc_target/callconv/mod.ts";
 // rustc_hir (lane hir-types)
 export type BodyId = Pending<"hir::BodyId">;
 // the arenas are erased (PORTING §5); `Arena` only appears as a parameter type

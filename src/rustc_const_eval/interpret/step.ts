@@ -6,7 +6,7 @@
 //! The main entry point is the `step` method.
 import { FIRST_VARIANT, FieldIdx, type VariantIdx } from "../../rustc_abi/lib.ts";
 import { Mutability } from "../../rustc_ast_ir/lib.ts";
-import { FnArg, fn_abi_ } from "./call.ts";
+import { FnArg } from "./call.ts";
 import { InterpCx } from "./eval_context.ts";
 import { type Machine } from "./machine.ts";
 import { RetagMode } from "./machine.gen.ts";
@@ -812,7 +812,7 @@ InterpCx.prototype.eval_terminator = function (this: InterpCx, terminator: Termi
         with_caller_location,
         dest_place._0,
         target,
-        fn_abi !== undefined && fn_abi_(fn_abi).can_unwind ? unwind : UnwindAction.Unreachable,
+        fn_abi !== undefined && fn_abi.can_unwind ? unwind : UnwindAction.Unreachable,
       );
       if (r2.$ === "Err") return r2;
 

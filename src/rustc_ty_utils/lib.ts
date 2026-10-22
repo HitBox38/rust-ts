@@ -5,6 +5,7 @@
 //!
 //! This API is completely unstable and subject to change.
 import type { Providers } from "../rustc_middle/queries.gen.ts";
+import * as abi from "./abi.ts";
 import * as assoc from "./assoc.ts";
 import * as common_traits from "./common_traits.ts";
 import * as consts from "./consts.ts";
@@ -18,7 +19,7 @@ import * as representability from "./representability.ts";
 import * as structural_match from "./structural_match.ts";
 import * as ty from "./ty.ts";
 
-// mod abi;                 (not ported: codegen-era, M4+)
+// mod abi;                 (lane fn-abi)
 // mod assoc;
 // mod common_traits;
 // mod consts;
@@ -36,7 +37,7 @@ import * as ty from "./ty.ts";
 // rustc: compiler/rustc_ty_utils/src/lib.rs:30 provide
 export function provide(providers: Providers): void {
   // PORT: the `provide` fns of the modules not ported yet are skipped (their queries keep the default provider).
-  // abi::provide(providers);
+  abi.provide(providers);
   assoc.provide(providers);
   common_traits.provide(providers);
   consts.provide(providers);

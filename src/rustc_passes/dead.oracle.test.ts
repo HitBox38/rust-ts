@@ -224,17 +224,17 @@ const CASES: Case[] = [
   },
   {
     name: "abi_fn_ptr_alias",
-    args: ["--crate-type", "lib"],
+    // lane fn-abi: the suites' target (only its x86_64 SysV lowering is ported), whatever the host.
+    args: ["--crate-type", "lib", "--target", "x86_64-unknown-linux-gnu"],
     src: ["#![feature(rustc_attrs)]", "#![allow(internal_features, dead_code)]", "#[rustc_abi(debug)]", "type F = fn(u8);"],
     expect: ["fn_abi_of(F) ="],
-    pending: "rustc_middle::query::keys: QueryKey for `ty::PseudoCanonicalInput<'tcx, (ty::PolyFnSig<'tcx>, &'tcx ty::List<Ty<'tcx>>)>` (cache)",
   },
   {
     name: "abi_fn_item",
-    args: ["--crate-type", "lib"],
+    // lane fn-abi: the suites' target (only its x86_64 SysV lowering is ported), whatever the host.
+    args: ["--crate-type", "lib", "--target", "x86_64-unknown-linux-gnu"],
     src: ["#![feature(rustc_attrs)]", "#![allow(internal_features, dead_code)]", "#[rustc_abi(debug)]", "fn f(_x: u8) {}"],
     expect: ["fn_abi_of(f) ="],
-    pending: "rustc_middle::query::keys: QueryKey for `ty::PseudoCanonicalInput<'tcx, (ty::Instance<'tcx>, &'tcx ty::List<Ty<'tcx>>)>` (cache)",
   },
 ];
 

@@ -1,11 +1,9 @@
 // Port of compiler/rustc_passes/src/abi_test.rs (lane passes-dead): the `#[rustc_abi(..)]` test attribute.
 //
 // PORT notes:
-// - `FnAbi` (rustc_target callconv) is not ported yet (M4 callconv): rustc_middle ty/decls.ts types it as `Pending1`.
-//   The `fn_abi_of_instance` / `fn_abi_of_fn_ptr` providers stop as UNPORTED, so everything after them is
-//   unreachable today. What reads the `FnAbi` itself (its `Debug` for `AbiOf` / `AbiNe`, the field comparisons of
-//   `test_abi_eq`) calls `unported("... (M4 callconv)")`.
-// - The `fn_abi_of_fn_ptr` query value is `Result<unknown, FnAbiError>` in queries.gen.ts; cast to `FnAbi<Ty>`.
+// - `format!("{:#?}", abi)` of a `FnAbi<'tcx, Ty<'tcx>>` is rustc_target callconv's `debug_FnAbi` with `Ty`'s `Display`
+//   (lane fn-abi).
+import { CanonAbi_eq } from "../rustc_abi/canon_abi.ts";
 import { find_attr } from "../rustc_attr_ir/lib.ts";
 import type { RustcAbiAttrKind } from "../rustc_attr_ir/lib.ts";
 import type { ModuleItems } from "../rustc_middle/hir/mod.ts";
@@ -15,20 +13,22 @@ import { Instance } from "../rustc_middle/ty/instance.ts";
 import { display_LayoutError, type FnAbiError } from "../rustc_middle/ty/layout.ts";
 import { RawList } from "../rustc_middle/ty/list.ts";
 import { HasAttrs_LocalDefId, type Ty, TypingEnv } from "../rustc_middle/ty/mod.ts";
+import { display_Ty } from "../rustc_middle/ty/print/pretty.ts";
 import { LocalDefId } from "../rustc_span/def_id.ts";
 import type { Span } from "../rustc_span/lib.ts";
 import { span_bug } from "../rustc_span/macros.ts";
+import { callconv } from "../rustc_target/lib.ts";
 import { EarlyBinder } from "../rustc_type_ir/binder.ts";
 import { PolyFnSigTys } from "../rustc_type_ir/ty_kind.ts";
 import { Unnormalized } from "../rustc_type_ir/unnormalized.ts";
-import { unported } from "../std/panic.ts";
+import { PRETTY } from "../std/fmt.ts";
 import type { Result } from "../std/result.ts";
 import { AbiInvalidAttribute_diagnostic, AbiNe_diagnostic, AbiOf_diagnostic, UnrecognizedArgument_diagnostic } from "./diagnostics.ts";
 import { ensure_wf } from "./layout_test.ts";
 
-/** `format!("{:#?}", abi)` of a `FnAbi<'tcx, Ty<'tcx>>` (the derived `Debug` of rustc_target callconv, not ported). */
-function debug_FnAbi_pretty(_abi: FnAbi<Ty>): string {
-  return unported("rustc_target::callconv::FnAbi Debug (M4 callconv)");
+/** `format!("{:#?}", abi)` of a `FnAbi<'tcx, Ty<'tcx>>` (`impl<Ty: Display> Debug for FnAbi`, rustc_target callconv). */
+function debug_FnAbi_pretty(abi: FnAbi<Ty>): string {
+  return callconv.debug_FnAbi(abi, PRETTY, display_Ty);
 }
 
 // rustc: compiler/rustc_passes/src/abi_test.rs:12 test_abi
@@ -117,11 +117,18 @@ function dump_abi_of_fn_item(tcx: TyCtxt, item_def_id: LocalDefId, attr_span: Sp
 }
 
 // rustc: compiler/rustc_passes/src/abi_test.rs:93 test_abi_eq
-function test_abi_eq(_abi1: FnAbi<Ty>, _abi2: FnAbi<Ty>): boolean {
-  // abi1.conv != abi2.conv || abi1.args.len() != abi2.args.len() || abi1.c_variadic != abi2.c_variadic
-  //   || abi1.fixed_count != abi2.fixed_count || abi1.can_unwind != abi2.can_unwind => false;
-  // abi1.ret.eq_abi(&abi2.ret) && abi1.args.iter().zip(abi2.args.iter()).all(|(arg1, arg2)| arg1.eq_abi(arg2))
-  return unported("rustc_passes::abi_test::test_abi_eq: FnAbi fields / ArgAbi::eq_abi (M4 callconv)");
+function test_abi_eq(abi1: FnAbi<Ty>, abi2: FnAbi<Ty>): boolean {
+  if (
+    !CanonAbi_eq(abi1.conv, abi2.conv) ||
+    abi1.args.length !== abi2.args.length ||
+    abi1.c_variadic !== abi2.c_variadic ||
+    abi1.fixed_count !== abi2.fixed_count ||
+    abi1.can_unwind !== abi2.can_unwind
+  ) {
+    return false;
+  }
+
+  return abi1.ret.eq_abi(abi2.ret) && abi1.args.every((arg1, i) => arg1.eq_abi(abi2.args[i]!));
 }
 
 // rustc: compiler/rustc_passes/src/abi_test.rs:107 dump_abi_of_fn_type
@@ -141,10 +148,7 @@ function dump_abi_of_fn_type(tcx: TyCtxt, item_def_id: LocalDefId, attr_span: Sp
       }
       const [sig_tys, hdr] = [k._0, k._1];
       const abi = unwrap_fn_abi(
-        tcx.fn_abi_of_fn_ptr(typing_env.as_query_input([PolyFnSigTys.with(sig_tys, hdr), /* extra_args */ RawList.empty<Ty>()])) as Result<
-          FnAbi<Ty>,
-          FnAbiError
-        >,
+        tcx.fn_abi_of_fn_ptr(typing_env.as_query_input([PolyFnSigTys.with(sig_tys, hdr), /* extra_args */ RawList.empty<Ty>()])),
         tcx,
         item_def_id,
       );
@@ -168,10 +172,7 @@ function dump_abi_of_fn_type(tcx: TyCtxt, item_def_id: LocalDefId, attr_span: Sp
         return span_bug(attr_span, "`#[rustc_abi(assert_eq)]` on a type alias requires pair of function pointer types");
       }
       const abi1 = unwrap_fn_abi(
-        tcx.fn_abi_of_fn_ptr(typing_env.as_query_input([PolyFnSigTys.with(k1._0, k1._1), /* extra_args */ RawList.empty<Ty>()])) as Result<
-          FnAbi<Ty>,
-          FnAbiError
-        >,
+        tcx.fn_abi_of_fn_ptr(typing_env.as_query_input([PolyFnSigTys.with(k1._0, k1._1), /* extra_args */ RawList.empty<Ty>()])),
         tcx,
         item_def_id,
       );
@@ -180,10 +181,7 @@ function dump_abi_of_fn_type(tcx: TyCtxt, item_def_id: LocalDefId, attr_span: Sp
         return span_bug(attr_span, "`#[rustc_abi(assert_eq)]` on a type alias requires pair of function pointer types");
       }
       const abi2 = unwrap_fn_abi(
-        tcx.fn_abi_of_fn_ptr(typing_env.as_query_input([PolyFnSigTys.with(k2._0, k2._1), /* extra_args */ RawList.empty<Ty>()])) as Result<
-          FnAbi<Ty>,
-          FnAbiError
-        >,
+        tcx.fn_abi_of_fn_ptr(typing_env.as_query_input([PolyFnSigTys.with(k2._0, k2._1), /* extra_args */ RawList.empty<Ty>()])),
         tcx,
         item_def_id,
       );
