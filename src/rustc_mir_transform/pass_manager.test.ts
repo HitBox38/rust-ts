@@ -333,11 +333,27 @@ describe("trivial_const", () => {
     expect(built).toBe(false);
   });
 
-  test("a const stops at `has_impossible_clauses` (lane mt-cleanup) before the body", () => {
-    const tcx = { def_kind: () => ({ $: "Const" }) } as unknown as TyCtxt;
-    expect(unported_what(() => trivial_const(tcx, DefIndex.from_u32(1) as unknown as LocalDefId, () => mk_body([])))).toBe(
-      "rustc_mir_transform::impossible_clauses::has_impossible_clauses",
-    );
+  test("a const asks `has_impossible_clauses` (impossible_clauses.rs) before the body", () => {
+    // the const's clauses (none, no parent), no `Sized` lang item, then the empty-environment check of
+    // `traits::impossible_clauses` builds an inference context: stop there
+    const asked: string[] = [];
+    let built = false;
+    const tcx = {
+      def_kind: () => ({ $: "Const" }),
+      clauses_of: (d: unknown) => (asked.push(`clauses_of ${String(d)}`), { parent: undefined, clauses: [] }),
+      lang_items: () => ({ sized_trait: () => undefined }),
+      infer_ctxt: () => {
+        throw new Error("infer_ctxt");
+      },
+    } as unknown as TyCtxt;
+    expect(() =>
+      trivial_const(tcx, DefIndex.from_u32(1) as unknown as LocalDefId, () => {
+        built = true;
+        return mk_body([]);
+      }),
+    ).toThrow("infer_ctxt");
+    expect(asked.length).toBe(1);
+    expect(built).toBe(false);
   });
 });
 
@@ -397,6 +413,6 @@ describe("module layout", () => {
         expect(m[1]).toBe(`compiler/rustc_mir_transform/src/${rel}`);
       }
     }
-    expect(stubs).toBe(70);
+    expect(stubs).toBe(69);
   });
 });
