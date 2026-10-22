@@ -1,0 +1,13 @@
+{
+  "//": [
+    "Set-local type map of set rustc_mir_transform (lane mt-built-lints; types.sets.json `typemap_extra`, after",
+    "tyir.typemap.json, middle_traits_thir.typemap.json and mir.typemap.json): the rustc_middle mir / rustc_mir_dataflow",
+    "types that rustc_mir_transform's diagnostics.rs and lint_tail_expr_drop_order.rs reach."
+  ],
+  "cfg": { "true": [], "false": [] },
+  "helpers": {},
+  "types": [
+    {"paths": ["rustc_middle::mir::AssertKind"], "ts": "AssertKind<$0>", "import": "src/rustc_middle/mir/mod.ts", "types": ["AssertKind"], "values": [], "debug": null, "clone": null, "note": "mir/syntax.rs (generated in syntax.gen.ts)"},
+    {"paths": ["rustc_mir_dataflow::move_paths::MovePathIndex"], "ts": "MovePathIndex", "import": "src/rustc_mir_dataflow/move_paths/mod.ts", "types": [], "values": ["MovePathIndex"], "debug": "MovePathIndex.debug($v, $f)", "clone": "copy", "note": "newtype_index! with `debug_format = \"mp{}\"` (move_paths/mod.rs; lane dataflow-contract)"}
+  ]
+}

@@ -1,0 +1,89 @@
+// Test driver for built_lints.oracle.test.ts (lane mt-built-lints; not a port).
+//   bun src/rustc_mir_transform/built_lints_oracle/run.ts <rustc arguments...>
+//
+// `analysis` (rustc_interface passes.rs) is not ported, so in `after_expansion` this runs tydump's
+// `run_required_analyses_prefix` (src/rust_ts/tydump_dump.ts), then the part of the `MIR_borrow_checking` loop of
+// `run_required_analyses` that reaches this lane's code, in rustc's order per body owner: `check_unsafety` (which runs
+// `mir_built`: MIR building, then `LintAndRemoveUninhabited` and the MIR lints) and, for non-trivial consts,
+// `has_ffi_unwind_calls` (which `mir_promoted` runs before promotion). `mir_borrowck` (and with it the rest of
+// `mir_promoted`, borrowck and `lint_tail_expr_drop_order`), `check_liveness`, dead code and the late lints do not
+// run: the test cases must not trigger them (the oracle runs everything). Then `analysis`'s abort on non-lint errors and
+// `check_expectations(None)`.
+//
+// Stand-in: rustc_mir_dataflow's `sanity_check` (the `SanityCheck` lint at the end of `mir_built`'s pass list) is not
+// ported yet (lane dataflow-impls). Upstream it does nothing unless the body has `#[rustc_mir(..)]`, so this driver
+// replaces `SanityCheck::run_lint` with that check (stopping as UNPORTED when the attribute is present).
+//
+// Exit codes as src/rust_ts/main.ts: rustc's own, plus 70 = reached unported code, 101 = ICE.
+import type { Compiler, Config } from "../../rustc_interface/interface.ts";
+import type { Body } from "../../rustc_middle/mir/mod.ts";
+import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
+import { Panic, Unported, unported } from "../../std/panic.ts";
+import { ensure_stack } from "../../rust_ts/stack.ts";
+
+const EXIT_UNPORTED = 70;
+
+async function main(): Promise<number> {
+  ensure_stack();
+  const { catch_with_exit_code, compiler_entrypoint } = await import("../../rustc_driver_impl/lib.ts");
+  const { raw_args } = await import("../../rustc_driver_impl/args.ts");
+  const { EarlyDiagCtxt } = await import("../../rustc_session/session.ts");
+  const { ErrorOutputType } = await import("../../rustc_session/config.ts");
+  const { run_required_analyses_prefix } = await import("../../rust_ts/tydump_dump.ts");
+  const { LocalDefId } = await import("../../rustc_span/def_id.ts");
+  const { SanityCheck } = await import("../sanity_check.ts");
+  const { find_attr } = await import("../../rustc_attr_ir/lib.ts");
+  const { HasAttrs_DefId } = await import("../../rustc_middle/ty/mod.ts");
+
+  SanityCheck.prototype.run_lint = function (tcx: TyCtxt, body: Body): void {
+    const def_id = body.source.def_id();
+    if (find_attr(HasAttrs_DefId.get_attrs(def_id, tcx), (k) => (k.$ === "RustcMir" ? true : undefined)) !== undefined) {
+      unported("rustc_mir_dataflow::rustc_peek::sanity_check (#[rustc_mir])");
+    }
+  };
+
+  const callbacks = {
+    // As rustc's `TimePassesCallbacks::config` (rustc_driver_impl/src/lib.rs), minus time-passes.
+    config(config: Config): void {
+      config.opts.trimmed_def_paths = true;
+    },
+    after_expansion(_compiler: Compiler, tcx: TyCtxt): "Stop" | "Continue" {
+      run_required_analyses_prefix(tcx);
+      tcx.sess.time("MIR_borrow_checking", () => {
+        tcx.par_hir_body_owners((def_id) => {
+          const not_typeck_child = !tcx.is_typeck_child(LocalDefId.to_def_id(def_id));
+          if (not_typeck_child) {
+            // Child unsafety and borrowck happens together with the parent
+            tcx.ensure_ok().check_unsafety(def_id);
+          }
+          if (tcx.is_trivial_const(def_id)) {
+            return;
+          }
+          // (`mir_borrowck` -> `mir_promoted`: its `has_ffi_unwind_calls`, then stop.)
+          tcx.ensure_ok().has_ffi_unwind_calls(def_id);
+        });
+      });
+      // `analysis`: "we exclude lint errors from this" (rustc_interface passes.rs).
+      const guar = tcx.sess.dcx().has_errors_excluding_lint_errors();
+      if (guar !== undefined) guar.raise_fatal();
+      tcx.check_expectations(undefined);
+      return "Stop";
+    },
+  };
+
+  const early_dcx = EarlyDiagCtxt.new(ErrorOutputType.default());
+  return catch_with_exit_code(() => compiler_entrypoint(raw_args(early_dcx), callbacks));
+}
+
+try {
+  process.exitCode = await main();
+} catch (e) {
+  if (e instanceof Unported) {
+    process.stderr.write(`rust-ts: unported: ${e.what}\n`);
+    process.exitCode = EXIT_UNPORTED;
+  } else {
+    const msg = e instanceof Panic ? e.message : String(e);
+    process.stderr.write(`rust-ts: internal compiler error: ${msg}\n${e instanceof Error ? e.stack : ""}\n`);
+    process.exitCode = 101;
+  }
+}

@@ -1964,5 +1964,32 @@
       "mir_build.typemap.json",
       "mir_build_builder.typemap.json"
     ]
+  },
+  "rustc_mir_transform": {
+    "files": [
+      "compiler/rustc_mir_transform/src/diagnostics.rs",
+      "compiler/rustc_mir_transform/src/lint_tail_expr_drop_order.rs"
+    ],
+    "files_note": "lane mt-built-lints (plan-m4 wave 22): the crate's diagnostics.rs and lint_tail_expr_drop_order.rs (its lint diagnostic and `MovePathIndexAtBlock`)",
+    "class": [],
+    "hand": [
+      "rustc_mir_transform::lint_tail_expr_drop_order::DropsReachable"
+    ],
+    "hand_notes": {
+      "rustc_mir_transform::lint_tail_expr_drop_order::DropsReachable": "has an inherent `visit`: a hand class in lint_tail_expr_drop_order.ts (its `&'a mut` fields are shared objects / `MutRef`s)"
+    },
+    "discriminant": [],
+    "skip": [],
+    "skip_notes": {},
+    "derive_clone": true,
+    "resolve_files": [
+      "compiler/rustc_middle/src/ty/mod.rs"
+    ],
+    "typemap_extra": [
+      "tyir.typemap.json",
+      "middle_traits_thir.typemap.json",
+      "mir.typemap.json",
+      "mir_transform.typemap.json"
+    ]
   }
 }
