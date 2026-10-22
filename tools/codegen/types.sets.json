@@ -1636,6 +1636,16 @@
     "skip": [],
     "typemap_extra": ["tyir.typemap.json", "middle_traits_thir.typemap.json", "ast_lowering.typemap.json", "mir_build.typemap.json"]
   },
+  "rustc_const_eval": {
+    "files": [
+      "compiler/rustc_const_eval/src/diagnostics.rs"
+    ],
+    "class": [],
+    "hand": [],
+    "discriminant": [],
+    "skip": [],
+    "typemap_extra": ["tyir.typemap.json", "const_eval.typemap.json"]
+  },
   "rustc_pattern_analysis": {
     "files": [
       "compiler/rustc_pattern_analysis/src/diagnostics.rs"
