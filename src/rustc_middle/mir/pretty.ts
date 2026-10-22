@@ -47,7 +47,7 @@ import { PrettyPrintMirOptions, PassWhere, type RenderAllocation } from "./prett
 import type { CoroutineLayout } from "./query.ts";
 import type { PlaceRef, Statement, StmtDebugInfo } from "./statement.ts";
 import { closeSync, mkdirSync, openSync, writeSync } from "node:fs";
-import { type BitMatrix, debug_BitMatrix } from "../../rustc_index/bit_set.ts";
+import { type BitMatrix, debug_BitMatrix_with } from "../../rustc_index/bit_set.ts";
 import { LocalDefId } from "../../rustc_span/def_id.ts";
 import type { Constness, CoroutineKind } from "../../rustc_hir/hir.ts";
 import { debug_CoroutineKind } from "../../rustc_hir/hir.gen.ts";
@@ -903,7 +903,7 @@ export function write_coroutine_layout(tcx: TyCtxt, layout: CoroutineLayout, w: 
     }
   }
   if ((r = w.write_fmt([`${INDENT}${INDENT}}\n`])).$ === "Err") return r;
-  if ((r = w.write_fmt([`${INDENT}${INDENT}storage_conflicts = ${debug_BitMatrix(storage_conflicts as BitMatrix<number, number>, PLAIN)}\n`])).$ === "Err") return r;
+  if ((r = w.write_fmt([`${INDENT}${INDENT}storage_conflicts = ${debug_BitMatrix_with(debug_CoroutineSavedLocal, debug_CoroutineSavedLocal)(storage_conflicts as never, PLAIN)}\n`])).$ === "Err") return r;
   return w.write_fmt([`${INDENT}}\n`]);
 }
 
