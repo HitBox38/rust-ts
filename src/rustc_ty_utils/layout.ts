@@ -9,7 +9,6 @@
 //   with the guards as `if`s in upstream arm order.
 // - `-Zprint-type-sizes`: rustc_session code_stats.rs is not ported; its types are local views at the bottom of this
 //   file and `Session::code_stats` (a deferred field) stops UNPORTED when a layout is recorded.
-// - `mir::CoroutineLayout` is pending (MIR, M4): its fields are read through local views that stop UNPORTED.
 import { find_attr } from "../rustc_attr_ir/lib.ts";
 import { LangItem } from "../rustc_attr_ir/lang_items.gen.ts";
 import {
@@ -41,7 +40,6 @@ import {
 import type { LayoutCalculatorResult, RangeFrom, RangeToInclusive } from "../rustc_abi/layout.ts";
 import { Fingerprint } from "../rustc_data_structures/fingerprint.ts";
 import { Hash64 } from "../rustc_hashes/lib.ts";
-import type { BitMatrix } from "../rustc_index/bit_set.ts";
 import type { Providers } from "../rustc_middle/queries.gen.ts";
 import { ObligationCause } from "../rustc_middle/traits/mod.ts";
 import { Value } from "../rustc_middle/ty/consts/valtree.ts";
@@ -65,7 +63,6 @@ import { debug_Ty, fold_Ty } from "../rustc_middle/ty/structural_impls.ts";
 import { CoroutineArgsExt } from "../rustc_middle/ty/sty.ts";
 import type { TypeckResults } from "../rustc_middle/ty/typeck_results.ts";
 import { DefPathHash, type DefId } from "../rustc_span/def_id.ts";
-import type { Span } from "../rustc_span/lib.ts";
 import { bug } from "../rustc_span/macros.ts";
 import { sym, Symbol } from "../rustc_span/symbol.ts";
 import { Limit } from "../rustc_structures/limit.ts";
@@ -761,7 +758,7 @@ export function layout_of_uncached(cx: LayoutCxT, ty: Ty): Result<Layout, Layout
       const info = ir._0;
 
       const local_layouts: MiddleTyAndLayout[] = [];
-      for (const local of CoroutineLayout_field_tys(info)) {
+      for (const local of info.field_tys) {
         const field_ty = EarlyBinder.bind(tcx, local.ty, fold_Ty);
         const uninit_ty = Ty.new_maybe_uninit(tcx, Unnormalized.skip_norm_wip(EarlyBinder.instantiate(field_ty, tcx, args, fold_Ty)));
         const lr = cx.spanned_layout_of(uninit_ty, local.source_info.span);
@@ -780,8 +777,8 @@ export function layout_of_uncached(cx: LayoutCxT, ty: Ty): Result<Layout, Layout
         cx.calc.layout_of_coroutine(
           local_layouts,
           prefix_layouts,
-          CoroutineLayout_variant_fields(info),
-          CoroutineLayout_storage_conflicts(info),
+          info.variant_fields,
+          info.storage_conflicts,
           (tag) => new TyAndLayout(PrimitiveExt.to_ty(Scalar.primitive(tag), tcx), tcx.mk_layout(LayoutData.scalar(cx, tag))),
         ),
         (layout) => {
@@ -1245,13 +1242,13 @@ export function variant_info_for_coroutine(cx: LayoutCxT, layout: MiddleTyAndLay
     };
   });
 
-  const variant_infos: VariantInfo[] = CoroutineLayout_variant_fields(coroutine).map((variant_def, variant_idx_) => {
+  const variant_infos: VariantInfo[] = coroutine.variant_fields.map((variant_def, variant_idx_) => {
     const variant_idx = variant_idx_ as VariantIdx;
     const variant_layout = layout.for_variant(cx, variant_idx);
     let variant_size = Size.ZERO;
     const fields: FieldInfo[] = variant_def
       .map((local, field_idx): FieldInfo => {
-        const field_name = CoroutineLayout_field_tys(coroutine)[local]!.debuginfo_name;
+        const field_name = coroutine.field_tys[local]!.debuginfo_name;
         const field_layout = variant_layout.field(cx, field_idx);
         const offset = FieldsShape.offset(variant_layout.fields, field_idx);
         // The struct is as large as the last field's end
@@ -1355,25 +1352,6 @@ interface CodeStats {
   ): void;
 }
 
-/** `mir::CoroutineSavedTy` (rustc_middle mir/query.rs; MIR is M4): the fields read here. */
-interface CoroutineSavedTy {
-  readonly ty: Ty;
-  readonly source_info: { readonly span: Span };
-  readonly debuginfo_name: Symbol | undefined;
-}
-type CoroutineSavedLocal = number & { readonly __brand: "CoroutineSavedLocal" };
-/** `mir::CoroutineLayout::field_tys` (rustc_middle mir/query.rs, M4). */
-function CoroutineLayout_field_tys(_info: CoroutineLayout): readonly CoroutineSavedTy[] {
-  return unported("rustc_middle::mir::query::CoroutineLayout::field_tys (MIR, M4)");
-}
-/** `mir::CoroutineLayout::variant_fields` (rustc_middle mir/query.rs, M4). */
-function CoroutineLayout_variant_fields(_info: CoroutineLayout): readonly (readonly CoroutineSavedLocal[])[] {
-  return unported("rustc_middle::mir::query::CoroutineLayout::variant_fields (MIR, M4)");
-}
-/** `mir::CoroutineLayout::storage_conflicts` (rustc_middle mir/query.rs, M4). */
-function CoroutineLayout_storage_conflicts(_info: CoroutineLayout): BitMatrix<CoroutineSavedLocal, CoroutineSavedLocal> {
-  return unported("rustc_middle::mir::query::CoroutineLayout::storage_conflicts (MIR, M4)");
-}
 /** `ty::CoroutineArgs::variant_name` (rustc_middle ty/sty.rs:137, ported on `CoroutineArgsExt`). */
 function CoroutineArgs_variant_name(v: VariantIdx): string {
   return CoroutineArgsExt.variant_name(v);

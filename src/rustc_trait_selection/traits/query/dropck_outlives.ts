@@ -4,9 +4,7 @@
 // carried by the `ObligationCtxt` (`ocx.d_E`); `constraints: &mut DropckConstraint` is mutated in place.
 // PORT: `Vec::append(&mut other)` moves the elements and empties `other`; `drain(..)` likewise (the vectors of the
 // reused `constraints` are emptied in place). `FxHashSet<Ty>` is a `Set` (interned `Ty`).
-// PORT: `mir::CoroutineLayout` (the value of `mir_coroutine_witnesses`, M4) is read through the local view
-// `CoroutineLayout_` (precedent rustc_ty_utils needs_drop.ts); `TypingEnv: TypeFoldable` is the local `d_TypingEnv`
-// (precedent rustc_mir_build const_to_pat.ts).
+// PORT: `TypingEnv: TypeFoldable` is the local `d_TypingEnv` (precedent rustc_mir_build const_to_pat.ts).
 // Init order: top-level code here touches only other crates; this crate's modules are read inside function bodies.
 
 import { ObligationCause } from "../../../rustc_middle/traits/mod.ts";
@@ -383,7 +381,7 @@ export function dtorck_constraint_for_ty_inner(
       //
       // FIXME(@lcnr): Why do we erase regions in the env here? Seems odd
       const typing_env = tcx.erase_and_anonymize_regions(typing_env_, d_TypingEnv);
-      const witness = tcx.mir_coroutine_witnesses(def_id) as CoroutineLayout_ | undefined;
+      const witness = tcx.mir_coroutine_witnesses(def_id);
       const needs_drop = witness !== undefined && witness.field_tys.some((field) => field.ty.needs_drop(tcx, typing_env));
       if (needs_drop) {
         // Pushing types directly to `constraints.outlives` is equivalent
@@ -449,11 +447,6 @@ export function dtorck_constraint_for_ty_inner(
 }
 
 // ---- PORT: views and descriptors ---------------------------------------------------------------------------------------
-
-/** PORT: `mir::CoroutineLayout` is not ported (M4); the one field read here (`field_tys[..].ty`). */
-interface CoroutineLayout_ {
-  readonly field_tys: readonly { readonly ty: Ty }[];
-}
 
 /** PORT: `TypeFoldable for ty::TypingEnv` (`#[derive(TypeVisitable, TypeFoldable)]`, rustc_middle ty/mod.rs; no generated
  *  impl yet): `typing_mode` is `#[type_foldable(identity)] #[type_visitable(ignore)]`, `param_env` folds. */
