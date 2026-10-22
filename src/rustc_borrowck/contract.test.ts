@@ -111,8 +111,8 @@ test("every fn of rustc_borrowck is ported or declared as a stub, never both", (
     }
   }
   expect(total).toBe(901);
-  expect(markers.length).toBe(42);
-  expect(stubs.length).toBe(859);
+  expect(markers.length).toBe(106);
+  expect(stubs.length).toBe(795);
 });
 
 test("the stubs per fill lane are the handoff's split table", () => {
@@ -122,7 +122,7 @@ test("the stubs per fill lane are the handoff's split table", () => {
     "bck-lib-a": 8,
     "bck-lib-b": 22,
     "bck-core": 64,
-    "bck-nll": 64,
+    // "bck-nll": 0 (filled, wave 23)
     "bck-tc-a": 39,
     "bck-tc-b": 68,
     "bck-tc-live": 34,
@@ -259,8 +259,9 @@ test("mir_borrowck: trivial const and tainted body return early; a real body rea
         expect(bad.$).toBe("Err");
 
         // a real body: `BorrowCheckRootCtxt::do_mir_borrowck` -> `borrowck_collect_region_constraints` -> the
-        // `BorrowckInferCtxt`, the promoted MIR, then the first stub (lane bck-nll)
-        stops(() => tcx.mir_borrowck(items.get("f")!), "rustc_borrowck::nll::replace_regions_in_mir");
+        // `BorrowckInferCtxt`, the promoted MIR, `replace_regions_in_mir` (universal regions + renumbering, bck-nll),
+        // `PoloniusLocationTable::new`, `MoveData::gather_moves`, then the first stub (lane bck-core)
+        stops(() => tcx.mir_borrowck(items.get("f")!), "rustc_borrowck::borrow_set::BorrowSet::build");
         ran = true;
       });
     });

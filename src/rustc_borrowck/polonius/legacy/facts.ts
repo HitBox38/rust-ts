@@ -12,6 +12,9 @@
 // anstream's `Write`.
 import type { Local } from "../../../rustc_middle/mir/mod.ts";
 import type { TyCtxt } from "../../../rustc_middle/ty/context.ts";
+// PORT: rustc_session is entered through its lib.ts (config.ts is not a fresh entry point; lib.ts of this crate).
+import "../../../rustc_session/lib.ts";
+import { Polonius } from "../../../rustc_session/config.ts";
 import type { MovePathIndex } from "../../../rustc_mir_dataflow/move_paths/mod.ts";
 import type { RegionVid } from "../../../rustc_type_ir/region_kind.ts";
 import type { IoError } from "../../../std/io.ts";
@@ -51,9 +54,11 @@ export function RegionVid_from_PoloniusRegionVid(value: PoloniusRegionVid): Regi
 
 // #[extension(pub(crate) trait PoloniusFactsExt)] impl PoloniusFacts
 export const PoloniusFactsExt = {
-  // stub: compiler/rustc_borrowck/src/polonius/legacy/facts.rs:58 enabled (lane bck-nll)
+  /// Returns `true` if there is a need to gather `PoloniusFacts` given the
+  /// current `-Z` flags.
+  // rustc: compiler/rustc_borrowck/src/polonius/legacy/facts.rs:58 enabled
   enabled(tcx: TyCtxt): boolean {
-    return unported("rustc_borrowck::polonius::legacy::facts::PoloniusFactsExt::enabled");
+    return tcx.sess.opts.unstable_opts.nll_facts || Polonius.is_legacy_enabled(tcx.sess.opts.unstable_opts.polonius);
   },
 
   // stub: compiler/rustc_borrowck/src/polonius/legacy/facts.rs:63 write_to_dir (lane bck-polonius-legacy)

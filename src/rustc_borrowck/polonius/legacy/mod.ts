@@ -14,6 +14,9 @@ import type { TyCtxt } from "../../../rustc_middle/ty/context.ts";
 import type { GenericArg } from "../../../rustc_middle/ty/generic_args.ts";
 import type { MoveData } from "../../../rustc_mir_dataflow/move_paths/mod.ts";
 import { unported } from "../../../std/panic.ts";
+import { emit_access_facts } from "./accesses.ts";
+import { emit_loan_invalidations } from "./loan_invalidations.ts";
+import { emit_loan_kills } from "./loan_kills.ts";
 import type { BorrowSet } from "../../borrow_set.gen.ts";
 import type { LoweredConstraints } from "../../handle_placeholders.gen.ts";
 import type { UniversalRegionRelations } from "../../type_check/free_region_relations.gen.ts";
@@ -33,7 +36,7 @@ export {};
 /// - outlives constraints
 ///
 /// The rest of the facts are emitted during typeck and liveness.
-// stub: compiler/rustc_borrowck/src/polonius/legacy/mod.rs:38 emit_facts (lane bck-nll)
+// rustc: compiler/rustc_borrowck/src/polonius/legacy/mod.rs:38 emit_facts
 export function emit_facts(
   facts: PoloniusFacts | undefined,
   tcx: TyCtxt,
@@ -44,7 +47,17 @@ export function emit_facts(
   universal_region_relations: UniversalRegionRelations,
   constraints: LoweredConstraints,
 ): void {
-  return unported("rustc_borrowck::polonius::legacy::emit_facts");
+  if (facts === undefined) {
+    // We don't do anything if there are no facts to fill.
+    return;
+  }
+  // PORT: `tcx.prof.generic_activity(..)` timer dropped (driver-m2 decision 8).
+  emit_move_facts(facts, body, location_table, move_data);
+  emit_universal_region_facts(facts, borrow_set, universal_region_relations);
+  emit_loan_kills(tcx, facts, body, location_table, borrow_set);
+  emit_loan_invalidations(tcx, facts, body, location_table, borrow_set);
+  emit_access_facts(tcx, facts, body, location_table, move_data, universal_region_relations.universal_regions);
+  emit_outlives_facts(facts, location_table, constraints);
 }
 
 /// Emit facts needed for move/init analysis: moves and assignments.
