@@ -5797,6 +5797,7 @@ tests/ui/delegation/generics/free-to-trait-static-reuse.rs
 tests/ui/delegation/generics/generic-params-defaults.rs
 tests/ui/delegation/generics/generic-params-same-names.rs
 tests/ui/delegation/generics/generics-aux-pass.rs
+tests/ui/delegation/generics/generics-gen-args-errors.rs
 tests/ui/delegation/generics/impl-to-free-fn-pass.rs
 tests/ui/delegation/generics/impl-to-trait-method.rs
 tests/ui/delegation/generics/impl-trait-to-trait-method-pass.rs
@@ -14759,6 +14760,7 @@ tests/ui/privacy/ctor.rs
 tests/ui/privacy/decl-macro-infinite-global-import-cycle-ice-64784.rs
 tests/ui/privacy/decl-macro.rs
 tests/ui/privacy/deref-separate-compile-unit-6919.rs
+tests/ui/privacy/destructure-box-private-fields.rs
 tests/ui/privacy/effective-visibilities-macro-2.rs
 tests/ui/privacy/effective-visibilities-macro.rs
 tests/ui/privacy/effective_visibilities.rs
@@ -14897,6 +14899,7 @@ tests/ui/privacy/sealed-traits/re-exported-trait.rs
 tests/ui/privacy/sealed-traits/sealed-trait-local.rs
 tests/ui/privacy/struct-field-and-impl-expose-10545.rs
 tests/ui/privacy/struct-field-type.rs
+tests/ui/privacy/suggest-box-new.rs
 tests/ui/privacy/suggest-making-field-public.rs
 tests/ui/privacy/suggest-new-projection-ice.rs
 tests/ui/privacy/sysroot-private.rs
@@ -18004,6 +18007,7 @@ tests/ui/suggestions/missing-semicolon.rs
 tests/ui/suggestions/missing-trait-item.rs
 tests/ui/suggestions/missing-type-param-used-in-param.rs
 tests/ui/suggestions/move-generic-to-trait-in-method-with-params.rs
+tests/ui/suggestions/multi-suggestion.rs
 tests/ui/suggestions/multibyte-escapes.rs
 tests/ui/suggestions/multiple_tuples_implement_same_trait_continuous_arities.rs
 tests/ui/suggestions/multiple_tuples_implement_same_trait_discontinuous_arities.rs
