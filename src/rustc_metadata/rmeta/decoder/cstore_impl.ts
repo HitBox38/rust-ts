@@ -47,7 +47,7 @@ import { PLAIN } from "../../../std/fmt.ts";
 import { assert, panic, unported } from "../../../std/panic.ts";
 import { Ok } from "../../../std/result.ts";
 // rmeta-ty imports
-import { decode_Clause, decode_List_BoundVariableKind, decode_Ty } from "../../../rustc_middle/ty/codec.ts";
+import { decode_Clause, decode_ConstAllocation, decode_List_BoundVariableKind, decode_Ty } from "../../../rustc_middle/ty/codec.ts";
 import { type CoerceUnsizedInfo, decode_CoerceUnsizedInfo } from "../../../rustc_middle/ty/adjustment.ts";
 import type { Clause } from "../../../rustc_middle/ty/predicate.ts";
 import { decode_tuple, decode_usize } from "../../../rustc_serialize/serialize.ts";
@@ -63,7 +63,8 @@ import { decode_FnSig, type FnSig } from "../../../rustc_type_ir/ty_kind.ts";
 // end rmeta-ty imports
 import { CStore, type LoadedMacro } from "../../creader.ts";
 import type { CrateMetadata, DecodeIterator, MetadataDecodeContext, SimplifiedType } from "../decoder.ts";
-import { decode_Deprecation } from "../../../rustc_attr_ir/data_structures.ts";
+import { decode_Deprecation, type Deprecation } from "../../../rustc_attr_ir/data_structures.ts";
+import { DeprecationEntry } from "../../../rustc_middle/middle/stability.ts";
 import { decode_AsyncDestructor, decode_ConstConditions, decode_Destructor, decode_GenericClauses, decode_Generics, decode_ImplTraitHeader, decode_ObjectLifetimeDefault, decode_TraitDef } from "../../../rustc_middle/decodable.gen.ts";
 import { decode_ConstStability, decode_DefaultBodyStability, decode_Stability } from "../../../rustc_attr_ir/stability.ts";
 import { AttrFlags, type LazyArray, type LazyTable, type LazyTables, type LazyValue, type RawDefId } from "../mod.ts";
@@ -207,7 +208,7 @@ export const ProcessQueryValue_Deprecation: ProcessQueryValue<unknown, unknown> 
   process_decoded(self: unknown, _tcx: TyCtxt, _err: () => never): unknown {
     // self.map(DeprecationEntry::external)
     if (self === undefined) return undefined;
-    return unported("rustc_middle::middle::stability::DeprecationEntry::external");
+    return DeprecationEntry.external(self as Deprecation);
   },
 };
 
@@ -508,7 +509,7 @@ export const PROVIDE_EXTERN: { readonly [N in ExternQuery]?: ProvideEntry<N> } =
     (tcx, def_id, _other, cdata) => {
       const lazy = cdata.root.tables.eval_static_initializer.get(fse_Option_LazyValue, cdata, def_id.index);
       if (lazy === undefined) return panic(`${debug_DefId(def_id, PLAIN)} does not have eval_static_initializer`);
-      return Ok(lazy.decode([cdata, tcx], decode_unported("mir::interpret::ConstAllocation<'static>")));
+      return Ok(lazy.decode([cdata, tcx], decode_ConstAllocation));
     },
   ],
   trait_def: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ty::TraitDef", decode_TraitDef), ProcessQueryValue_Option_T)],

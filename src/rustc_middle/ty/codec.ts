@@ -28,7 +28,7 @@
 //   are the `RefDecodable` impls themselves).
 import type { BoundVariableKind, PredicateKind } from "../../rustc_type_ir/decls.ts";
 import type { InternerDecoder } from "../../rustc_type_ir/serialize.ts";
-import type { Decoder } from "../../rustc_serialize/serialize.ts";
+import { type Decoder, decode_unit } from "../../rustc_serialize/serialize.ts";
 import type { SpanDecoder } from "../../rustc_span/lib.ts";
 import type { Pending } from "../../rustc_type_ir/decls.ts";
 import type { List } from "./list.ts";
@@ -437,9 +437,11 @@ export function decode_Term_TyDecoder<D extends TyDecoder>(d: D): Term {
 function decode_PlaceElem(_d: TyDecoder): PlaceElem {
   return unported("Decodable for rustc_middle::mir::PlaceElem (mir/syntax.rs, M4)");
 }
-/** `Decodable for mir::interpret::Allocation` (allocation.rs:208, M4). */
-function decode_Allocation(_d: TyDecoder): Allocation {
-  return unported("Decodable for rustc_middle::mir::interpret::Allocation (M4)");
+/** `Decodable for mir::interpret::Allocation` (`Allocation<CtfeProvenance, (), Box<[u8]>>`): allocation.rs:213's generic
+ *  impl with `CtfeProvenance`'s decoder (above) and `()`'s; mir/interpret/allocation.ts read lazily (init order). */
+function decode_Allocation(d: TyDecoder): Allocation {
+  const allocation = require("../mir/interpret/allocation.ts") as typeof import("../mir/interpret/allocation.ts");
+  return allocation.decode_Allocation(d, decode_CtfeProvenance, decode_unit);
 }
 
 export type { BoundVariableKind };

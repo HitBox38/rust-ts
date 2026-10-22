@@ -6,8 +6,6 @@
 // `Deprecated`, `EvalResult`, `AllowUnstable`) are generated into stability.gen.ts (tools/codegen/types.ts,
 // set `rustc_middle_stability`). This file adds `DeprecationEntry`'s methods, the free fns, `Deprecated`'s
 // manual `impl Diagnostic` and the `impl TyCtxt` block (attached to `TyCtxt.prototype`, PORTING.md §5).
-// PORT: `TyCtxt` methods that need HIR (`hir_get_parent_item`, `hir_node`, `def_descr`,
-// `emit_node_span_lint`; M3) stop at `unported(..)` where upstream first needs them.
 import type { NodeId } from "../../rustc_ast/node_id.ts";
 import { display_RustcVersion } from "../../rustc_ast/attr/version.ts";
 import { type ConstStability, type DefaultBodyStability, type DeprecatedSince, type Deprecation, debug_DeprecatedSince, type Stability } from "../../rustc_attr_ir/lib.ts";
@@ -25,8 +23,9 @@ import { CrateNum, debug_DefId, type DefId, type LocalDefId } from "../../rustc_
 import { Span } from "../../rustc_span/lib.ts";
 import { display_Symbol, type Symbol, sym } from "../../rustc_span/symbol.ts";
 import { PLAIN } from "../../std/fmt.ts";
-import { unported, unreachable } from "../../std/panic.ts";
+import { unreachable } from "../../std/panic.ts";
 import { TyCtxt } from "../ty/context.ts";
+import { with_no_trimmed_paths } from "../ty/print/pretty.ts";
 import * as gen from "./stability.gen.ts";
 import { type Deprecated, DeprecationSuggestion_subdiagnostic, EvalResult, type UnstableKind } from "./stability.gen.ts";
 
@@ -227,9 +226,19 @@ function late_report_deprecation(
     return;
   }
 
-  unported(
-    "rustc_middle::middle::stability::late_report_deprecation: with_no_trimmed_paths!(def_path_str) / def_descr / hir_node / emit_node_span_lint (ty::print, HIR; M3)",
-  );
+  const def_path = with_no_trimmed_paths(() => tcx.def_path_str(def_id));
+  const def_kind = tcx.def_descr(def_id);
+
+  const method_span_ = method_span ?? span;
+  const suggestion = tcx.hir_node(hir_id).$ === "Expr" ? depr.suggestion : undefined;
+  const diag: Deprecated = {
+    sub: suggestion !== undefined ? { span: method_span_, kind: def_kind, suggestion } : undefined,
+    kind: def_kind,
+    path: def_path,
+    note: depr.note !== undefined ? depr.note.name : undefined,
+    since_kind: deprecated_since_kind(is_in_effect, depr.since),
+  };
+  tcx.emit_node_span_lint(lint, hir_id, method_span_, { into_diag: (dcx, level) => Deprecated_into_diag(diag, dcx, level) });
 }
 
 declare module "../ty/context.ts" {
@@ -302,7 +311,7 @@ TyCtxt.prototype.eval_stability_allow_unstable = function (
   if (id !== undefined) {
     const depr_entry = this.lookup_deprecation_entry(def_id);
     if (depr_entry !== undefined) {
-      const parent_def_id: OwnerId = unported("rustc_middle::hir::map::TyCtxt::hir_get_parent_item (HIR, M3)");
+      const parent_def_id: OwnerId = this.hir_get_parent_item(id);
       const parent_depr = this.lookup_deprecation_entry(parent_def_id.to_def_id());
       const skip = parent_depr !== undefined && parent_depr.same_origin(depr_entry);
 
