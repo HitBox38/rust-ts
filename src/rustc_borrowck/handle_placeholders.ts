@@ -35,35 +35,35 @@ export * from "./handle_placeholders.gen.ts";
 
 declare module "./handle_placeholders.gen.ts" {
   interface SccAnnotations<A> {
-    // handle_placeholders.rs:51 (lane bck-regions-b): `impl scc::Annotations<RegionVid> for SccAnnotations<RegionTracker>`
+    // handle_placeholders.rs:51: `impl scc::Annotations<RegionVid> for SccAnnotations<RegionTracker>`
     "new"(this: SccAnnotations<RegionTracker>, element: RegionVid): RegionTracker;
-    // handle_placeholders.rs:55 (lane bck-regions-b)
+    // handle_placeholders.rs:55
     annotate_scc(this: SccAnnotations<RegionTracker>, scc: ConstraintSccIndex, annotation: RegionTracker): void;
     /** `type Ann = RegionTracker` (the `Annotation` impl table). */
     readonly Ann: Annotation<RegionTracker>;
   }
   namespace SccAnnotations {
-    // handle_placeholders.rs:45 (lane bck-regions-b)
+    // handle_placeholders.rs:45
     function init<A>(definitions: RegionDefinition[]): SccAnnotations<A>;
   }
   interface PlaceholderReachability {
-    // handle_placeholders.rs:78 (lane bck-regions-b)
+    // handle_placeholders.rs:78
     merge(other: PlaceholderReachability): void;
   }
   interface RegionTracker {
-    // handle_placeholders.rs:123 (lane bck-regions-b); `max_nameable_universe_`: the field has the same name
+    // handle_placeholders.rs:123; `max_nameable_universe_`: the field has the same name
     max_nameable_universe_(): UniverseIndex;
-    // handle_placeholders.rs:127 (lane bck-regions-b)
+    // handle_placeholders.rs:127
     max_placeholder_universe_reached(): UniverseIndex;
-    // handle_placeholders.rs:133 (lane bck-regions-b)
+    // handle_placeholders.rs:133
     placeholders_can_be_named_by(from: UniverseIndex): boolean;
-    // handle_placeholders.rs:138 (lane bck-regions-b)
+    // handle_placeholders.rs:138
     can_name_all_placeholders(other: RegionTracker): boolean;
-    // handle_placeholders.rs:147 (lane bck-regions-b)
+    // handle_placeholders.rs:147
     unnameable_placeholder(): [UniverseIndex, RegionVid] | undefined;
   }
   namespace RegionTracker {
-    // handle_placeholders.rs:101 (lane bck-regions-b)
+    // handle_placeholders.rs:101
     function new_(rvid: RegionVid, definition: RegionDefinition): RegionTracker;
     export { new_ as new };
   }

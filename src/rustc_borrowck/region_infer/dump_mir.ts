@@ -32,9 +32,9 @@ void REGION_WIDTH;
 
 declare module "./region_context.gen.ts" {
   interface RegionInferenceContext {
-    // dump_mir.rs:21 (lane bck-regions-b)
+    // dump_mir.rs:21
     dump_mir(tcx: TyCtxt, out: Write): IoResult<null>;
-    // dump_mir.rs:65 (lane bck-regions-b)
+    // dump_mir.rs:65
     for_each_constraint(tcx: TyCtxt, with_msg: (a0: string) => IoResult<null>): IoResult<null>;
   }
 }

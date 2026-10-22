@@ -114,9 +114,9 @@ function render_region_vid(tcx: TyCtxt, rvid: RegionVid, regioncx: RegionInferen
 
 declare module "./region_context.gen.ts" {
   interface RegionInferenceContext {
-    // graphviz.rs:69 (lane bck-regions-b)
+    // graphviz.rs:69
     dump_graphviz_raw_constraints(tcx: TyCtxt, w: Write): IoResult<null>;
-    // graphviz.rs:78 (lane bck-regions-b)
+    // graphviz.rs:78
     dump_graphviz_scc_constraints(tcx: TyCtxt, w: Write): IoResult<null>;
   }
 }

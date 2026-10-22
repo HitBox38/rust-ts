@@ -13,11 +13,11 @@ export * from "./reverse_sccs.gen.ts";
 
 declare module "./reverse_sccs.gen.ts" {
   interface ReverseSccGraph {
-    // reverse_sccs.rs:47 (lane bck-regions-b)
+    // reverse_sccs.rs:47
     upper_bounds(scc0: ConstraintSccIndex): Iterable<RegionVid>;
   }
   namespace ReverseSccGraph {
-    // reverse_sccs.rs:23 (lane bck-regions-b)
+    // reverse_sccs.rs:23
     function compute(constraint_sccs: ConstraintSccs, universal_regions: UniversalRegions): ReverseSccGraph;
   }
 }

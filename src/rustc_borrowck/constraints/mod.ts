@@ -18,15 +18,15 @@ export * from "./mod.gen.ts";
 
 declare module "./mod.gen.ts" {
   interface OutlivesConstraintSet {
-    // mod.rs:24 (lane bck-regions-b)
+    // mod.rs:24
     push(constraint: OutlivesConstraint): void;
-    // mod.rs:39 (lane bck-regions-b)
+    // mod.rs:39
     graph(num_region_vars: number): NormalConstraintGraph;
-    // mod.rs:45 (lane bck-regions-b)
+    // mod.rs:45
     reverse_graph(num_region_vars: number): ReverseConstraintGraph;
-    // mod.rs:49 (lane bck-regions-b); `outlives_`: the field `outlives` has the same name
+    // mod.rs:49; `outlives_`: the field `outlives` has the same name
     outlives_(): readonly OutlivesConstraint[];
-    // mod.rs:59 (lane bck-regions-b): `impl Index<OutlivesConstraintIndex> for OutlivesConstraintSet`
+    // mod.rs:59: `impl Index<OutlivesConstraintIndex> for OutlivesConstraintSet`
     index(i: OutlivesConstraintIndex): OutlivesConstraint;
   }
 }

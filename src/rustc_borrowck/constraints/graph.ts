@@ -74,30 +74,30 @@ export const ConstraintGraphDirection_Reverse: ConstraintGraphDirection & Revers
 
 declare module "./graph.gen.ts" {
   interface ConstraintGraph<D> {
-    // graph.rs:97 (lane bck-regions-b)
+    // graph.rs:97
     region_graph(set: OutlivesConstraintSet, static_region: RegionVid): RegionGraph<D>;
-    // graph.rs:105 (lane bck-regions-b)
+    // graph.rs:105
     is_normal(): boolean;
-    // graph.rs:110 (lane bck-regions-b)
+    // graph.rs:110
     outgoing_edges_from_graph(region_sup: RegionVid, constraints: OutlivesConstraintSet): EdgesFromGraph<D>;
-    // graph.rs:119 (lane bck-regions-b)
+    // graph.rs:119
     outgoing_edges_from_static(): EdgesFromStatic;
   }
   namespace ConstraintGraph {
-    // graph.rs:75 (lane bck-regions-b)
+    // graph.rs:75
     function new_<D>(direction: D, set: OutlivesConstraintSet, num_region_vars: number): ConstraintGraph<D>;
     export { new_ as new };
   }
   interface RegionGraph<D> {
-    // graph.rs:186 (lane bck-regions-b)
+    // graph.rs:186
     outgoing_regions(region_sup: RegionVid): Successors<D>;
-    // graph.rs:225 (lane bck-regions-b): `impl graph::DirectedGraph for RegionGraph` (`type Node = RegionVid`)
+    // graph.rs:225: `impl graph::DirectedGraph for RegionGraph` (`type Node = RegionVid`)
     num_nodes(): number;
-    // graph.rs:231 (lane bck-regions-b): `impl graph::Successors for RegionGraph`
+    // graph.rs:231: `impl graph::Successors for RegionGraph`
     successors(node: RegionVid): Iterable<RegionVid>;
   }
   namespace RegionGraph {
-    // graph.rs:176 (lane bck-regions-b)
+    // graph.rs:176
     function new_<D>(set: OutlivesConstraintSet, constraint_graph: ConstraintGraph<D>, static_region: RegionVid): RegionGraph<D>;
     export { new_ as new };
   }
