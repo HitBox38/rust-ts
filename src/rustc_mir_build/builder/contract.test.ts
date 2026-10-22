@@ -116,8 +116,8 @@ test("every fn of builder/** and check_tail_calls.rs is ported or declared as a 
     }
   }
   expect(total).toBe(313);
-  expect(markers.length).toBe(50);
-  expect(stubs.length).toBe(263);
+  expect(markers.length).toBe(81); // + mb-matches-c 31
+  expect(stubs.length).toBe(232); // - mb-matches-c 31
 });
 
 test("the stubs per fill lane are the handoff's split table", () => {
@@ -130,7 +130,7 @@ test("the stubs per fill lane are the handoff's split table", () => {
     "mb-expr-b": 11,
     "mb-matches-a": 28,
     "mb-matches-b": 21,
-    "mb-matches-c": 31,
+    // mb-matches-c: 0 left (all 31 ported)
     "mb-custom-tail": 51,
   });
   // matches/mod.rs is split at line 1500 between mb-matches-a and mb-matches-b
