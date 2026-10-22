@@ -128,6 +128,7 @@ test("the stubs per fill lane are the handoff's split table", () => {
     // "mb-scope": 0 (lane mb-scope ported scope.rs)
     "mb-expr-a": 42,
     "mb-expr-b": 11,
+    "mb-matches-b": 2,
     // mb-matches-c: 0 left (all 31 ported)
   });
   // matches/mod.rs is split at line 1500 between mb-matches-a and mb-matches-b

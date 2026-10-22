@@ -1223,33 +1223,26 @@ export function push_sub_branch_bindings(flattened: Binding[], candidate_binding
 // filling this file (mb-matches-a / mb-matches-b) do not edit the same import lines. Names the header imports as types
 // are aliased (`SourceInfoC`, `LocalC`, `SpanC`, `TyC`).
 import { FIRST_VARIANT } from "../../../rustc_abi/lib.ts";
-import { Mutability } from "../../../rustc_ast_ir/lib.ts";
 import {
   LocalDecl,
   Local as LocalC,
-  Place_from_Local,
   SourceInfo as SourceInfoC,
-  Statement,
-  TerminatorKind,
   FakeReadCause,
   BorrowKind,
-  clone_Place,
-  clone_SourceInfo,
 } from "../../../rustc_middle/mir/mod.ts";
-import { type UserTypeAnnotationIndex } from "../../../rustc_middle/ty/typeck_results.ts";
 import { GenericArg } from "../../../rustc_middle/ty/generic_args.ts";
 import { debug_Ty, Ty as TyC } from "../../../rustc_middle/ty/mod.ts";
 import { DUMMY_SP, Span as SpanC } from "../../../rustc_span/lib.ts";
 import { sym } from "../../../rustc_span/symbol.ts";
-import { bug, span_bug } from "../../../rustc_span/macros.ts";
+import { span_bug } from "../../../rustc_span/macros.ts";
 import { clone_PlaceBuilder } from "../expr/as_place.gen.ts";
 import { clone_MatchPairTree, debug_MatchTreeBranch } from "./mod.gen.ts";
 import { collect_fake_borrows, ref_pat_borrow_kind } from "./util.ts";
-import { and, unit, GuardFrameLocal, type GuardFrame, type LocalsForNode } from "../mod.ts";
+import { GuardFrameLocal, type GuardFrame, type LocalsForNode } from "../mod.ts";
 import { KeyedMap } from "../../../rust_ts/keyed.ts";
 import { intern_key } from "../../../rust_ts/intern_key.ts";
 import { debug_vec, format_debug, PLAIN } from "../../../std/fmt.ts";
-import { assert, panic, unwrap } from "../../../std/panic.ts";
+import { assert, unwrap } from "../../../std/panic.ts";
 
 /// The entrypoint of the matching algorithm. Create the decision tree for the match expression,
 /// starting from `block`.
