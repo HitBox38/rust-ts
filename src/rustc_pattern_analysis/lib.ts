@@ -9,7 +9,7 @@
 //   (`Cx["Ty"]`, `Cx["VariantIdx"]`, .. are the associated types); the context object is a `PatCx<Cx>`. So
 //   `fn f<Cx: PatCx>(cx: &Cx, ty: &Cx::Ty)` is `function f<Cx extends PatCxTypes>(cx: PatCx<Cx>, ty: Cx["Ty"])`, and
 //   `Constructor<Cx>` / `DeconstructedPat<Cx>` / `MatchArm<'p, Cx>` take the bundle. rustc's bundle is
-//   `RustcPatCtxtTypes` (rustc.ts); the tests' is `TestTypes` (tests/common.ts).
+//   `RustcPatCtxtTypes` (rustc.ts); the crate tests' is `CxTypes` (tests/common/mod.ts).
 // - **What Rust reaches through the type `Cx`** (no `self`): the associated fn `Cx::write_variant_name` and the
 //   `fmt::Debug` / `PartialEq` bounds of the associated types, is `PatCxStatic<Cx>`. `PatCx<Cx>` extends it, so a
 //   context object is also its static side; Debug impls of generic types take one (`debug_Constructor(cx)`), and code
