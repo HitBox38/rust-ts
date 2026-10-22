@@ -6,9 +6,11 @@
 // - `Generalizer` is the generated class (./generalize.gen.ts); its inherent methods and its `TypeRelation` impl go on
 //   its prototype (the `declare module` below), so a `Generalizer` is a `TypeRelation`.
 // - `Generalizer.cache` (`SsoHashMap<(Ty, Variance, bool), Ty>`) is a `KeyedMap` on `intern_key` (tuple keys).
-// - `#[instrument]` / `debug!` / `warn!` are dropped (tracing is off in the oracle); `debug_assert*!` stay comments.
+// - `#[instrument]` / `debug!` are dropped (filtered out by rustc's default logger); `warn!` goes through
+//   rust_ts/tracing.ts; `debug_assert*!` stay comments.
 // Init order: top-level code here touches only ../../decls.ts, this file's .gen.ts and other crates.
 import { intern_key } from "../../../rust_ts/intern_key.ts";
+import * as tracing from "../../../rust_ts/tracing.ts";
 import { KeyedMap } from "../../../rust_ts/keyed.ts";
 import type { TyCtxt } from "../../../rustc_middle/ty/context.ts";
 import type { GenericArgs } from "../../../rustc_middle/ty/generic_args.ts";
@@ -45,7 +47,7 @@ import { type PredicateEmittingRelation, upcast_ProjectionClause_Predicate } fro
 import { Const, debug_Const } from "../../../rustc_type_ir/sty/consts.ts";
 import { debug_Region, type Region } from "../../../rustc_type_ir/sty/mod.ts";
 import { AliasTerm, AliasTermKind } from "../../../rustc_type_ir/term_kind.ts";
-import type { AliasTerm as AliasTermT } from "../../../rustc_type_ir/ty/alias.ts";
+import { type AliasTerm as AliasTermT, debug_AliasTerm } from "../../../rustc_type_ir/ty/alias.ts";
 import { IsRigid } from "../../../rustc_type_ir/ty_kind.ts";
 import type { TyVid } from "../../../rustc_type_ir/ty_kind.ts";
 import { max_universe_of_placeholders } from "../../../rustc_type_ir/universe.ts";
@@ -462,7 +464,7 @@ Generalizer.prototype.generalize_alias_term = function (this: Generalizer, alias
         const alias_max_universe = max_universe_of_placeholders(this.infcx, alias, relate_AliasTerm);
         const infer_replacement_is_complete = UniverseIndex.can_name(this.for_universe, alias_max_universe) && !TypeVisitableExt.has_escaping_bound_vars(alias, relate_AliasTerm);
         if (!infer_replacement_is_complete) {
-          // warn!("may incompletely handle alias type: {alias:?}");
+          tracing.warn("rustc_infer::infer::relate::generalize", () => `may incompletely handle alias type: ${debug_AliasTerm(alias, PLAIN)}`);
         }
 
         // debug!("generalization failure in alias");

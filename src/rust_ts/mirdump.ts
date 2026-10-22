@@ -29,6 +29,7 @@ import type { LocalDefId } from "../rustc_span/def_id.ts";
 import type { Body } from "../rustc_middle/mir/mod.ts";
 import type { ConstValue } from "../rustc_middle/mir/consts.ts";
 import { debug_IoError } from "../std/io.ts";
+import { FatalErrorMarker } from "../rustc_span/fatal_error.ts";
 import { Panic, Unported } from "../std/panic.ts";
 import { unwrap_result } from "../std/result.ts";
 import { VecU8 } from "../vendor/anstream/stream.ts";
@@ -216,19 +217,21 @@ async function main(args: string[]): Promise<number> {
   if (impl === "stub") throw new Unported("stub implementation");
   // The compiler's stack (rustc's thread stack size): see stack.ts. Re-execs this process once.
   ensure_stack();
-  const { catch_with_exit_code, compiler_entrypoint } = await import("../rustc_driver_impl/lib.ts");
+  const { catch_with_exit_code, compiler_entrypoint, init_rustc_env_logger } = await import("../rustc_driver_impl/lib.ts");
   const { raw_args } = await import("../rustc_driver_impl/args.ts");
   const { EarlyDiagCtxt } = await import("../rustc_session/session.ts");
   const { ErrorOutputType, std_print } = await import("../rustc_session/config.ts");
   const { run_required_analyses_prefix } = await import("./tydump_dump.ts");
   const { LocalDefId } = await import("../rustc_span/def_id.ts");
   const { display_Ty, with_forced_impl_filename_line } = await import("../rustc_middle/ty/print/pretty.ts");
-  // The probe's `main`: `EarlyDiagCtxt::new(ErrorOutputType::default())`,
+  // The probe's `main`: `EarlyDiagCtxt::new(ErrorOutputType::default())`, `init_rustc_env_logger(&early_dcx)`,
   // `install_ice_hook(DEFAULT_BUG_REPORT_URL, |_| ())` (not ported, as in rustc_driver_impl/lib.ts),
   // `catch_with_exit_code(|| compiler_entrypoint(&raw_args(&early_dcx), &mut callbacks))`.
   // `raw_args` reads `env::args_os()` (= process.argv[1..]: this script's path stands for argv[0]).
   // `after_expansion` writes with `stdout.write_all` (`std_print`).
   const early_dcx = EarlyDiagCtxt.new(ErrorOutputType.default());
+  // As rustc_driver_impl::main: tracing's default filter (`RUSTC_LOG` unset) prints WARN and ERROR events.
+  init_rustc_env_logger(early_dcx);
   const callbacks = make_callbacks({
     prefix: run_required_analyses_prefix,
     to_def_id: (def_id) => LocalDefId.to_def_id(def_id),
@@ -255,6 +258,10 @@ try {
   if (e instanceof Unported) {
     process.stderr.write(`rust-ts: unported: ${e.what}\n`);
     process.exitCode = EXIT_UNPORTED;
+  } else if (e instanceof FatalErrorMarker) {
+    // `FatalError.raise()` before `catch_with_exit_code` (`init_rustc_env_logger`'s `early_fatal` on a bad
+    // `RUSTC_LOG_*` value): `resume_unwind` skips the panic hook, so rustc exits 101 printing nothing more.
+    process.exitCode = 101;
   } else {
     const msg = e instanceof Panic ? e.message : String(e);
     process.stderr.write(`rust-ts: internal compiler error: ${msg}\n${e instanceof Error ? e.stack : ""}\n`);

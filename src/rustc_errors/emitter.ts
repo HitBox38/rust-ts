@@ -18,6 +18,7 @@
 // - `Buffy`'s `Drop` is not automatic: `drop()` is ported and must be called where upstream drops
 //   it; `emit_to_destination` always flushes, so an emitter's `Buffy` is empty between diagnostics.
 // - `&mut MultiSpan` / `&mut Vec<Subdiag>` / `&mut Vec<CodeSuggestion>` params are mutated in place.
+import * as tracing from "../rust_ts/tracing.ts";
 import { AutoStream, ColorChoice } from "../vendor/anstream/lib.ts";
 import { type AsLockedWrite, type FmtArguments, type RawStream, type Stderr, type Write, Write_default, dyn_write, stderr } from "../vendor/anstream/stream.ts";
 import { AnsiColor, Effects, Style as Anstyle } from "../vendor/anstyle/lib.ts";
@@ -25,9 +26,9 @@ import type { DiagArgMap } from "../rustc_error_messages/lib.ts";
 import { DiagMessage, MultiSpan } from "../rustc_error_messages/lib.ts";
 import { AstPass, DesugaringKind, ExpnKind, MacroKind, SyntaxContext } from "../rustc_span/hygiene.ts";
 import type { SourceMap } from "../rustc_span/source_map.ts";
-import { type SourceFile, Span } from "../rustc_span/lib.ts";
+import { type SourceFile, Span, debug_Span, debug_SpanSnippetError } from "../rustc_span/lib.ts";
 import { Symbol } from "../rustc_span/symbol.ts";
-import { type Debug, debug_bool, debug_struct } from "../std/fmt.ts";
+import { type Debug, PLAIN, debug_bool, debug_struct } from "../std/fmt.ts";
 import { is_whitespace } from "../std/char.ts";
 import { type IoResult } from "../std/io.ts";
 import { panic, unwrap } from "../std/panic.ts";
@@ -646,7 +647,8 @@ export function is_different(sm: SourceMap, suggested: string, sp: Span): boolea
   if (r.$ === "Ok") {
     found = r._0.toString();
   } else {
-    // warn!(error = ?e, "Invalid span {:?}", sp);
+    const e = r._0;
+    tracing.warn("rustc_errors::emitter", () => `Invalid span ${debug_Span(sp, PLAIN)}`, ["error", () => debug_SpanSnippetError(e, PLAIN)]);
     return true;
   }
   return found !== suggested;
@@ -660,7 +662,8 @@ export function detect_confusion_type(sm: SourceMap, suggested: string, sp: Span
   if (r.$ === "Ok") {
     found = r._0.toString();
   } else {
-    // warn!(error = ?e, "Invalid span {:?}", sp);
+    const e = r._0;
+    tracing.warn("rustc_errors::emitter", () => `Invalid span ${debug_Span(sp, PLAIN)}`, ["error", () => debug_SpanSnippetError(e, PLAIN)]);
     return ConfusionType.None;
   }
 

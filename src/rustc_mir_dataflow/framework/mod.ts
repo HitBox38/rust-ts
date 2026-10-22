@@ -56,6 +56,8 @@ import { newtype_index } from "../../rustc_index/newtype_index.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import { type Debug, debug_struct, debug_tuple } from "../../std/fmt.ts";
 import { panic, unreachable } from "../../std/panic.ts";
+import { display_IoError } from "../../std/io.ts";
+import * as tracing from "../../rust_ts/tracing.ts";
 import { type BasicBlock, type BasicBlockData, type Body, type CallReturnPlaces, Location, type Operand, START_BLOCK, type Statement, type SwitchTargets, type Terminator, type TerminatorEdges } from "../../rustc_middle/mir/mod.ts";
 import { MixedBitSet } from "../../rustc_index/bit_set.ts";
 import { Forward, type Direction } from "./direction.ts";
@@ -490,7 +492,8 @@ export const Analysis_provided = {
     if (tcx.sess.opts.unstable_opts.dump_mir_dataflow) {
       const res = write_graphviz_results(tcx, body, results, pass_name);
       if (res.$ === "Err") {
-        // error!("Failed to write graphviz dataflow results: {}", e);
+        const e = res._0;
+        tracing.error("rustc_mir_dataflow::framework", () => `Failed to write graphviz dataflow results: ${display_IoError(e)}`);
       }
     }
 
