@@ -66,7 +66,12 @@ equal the pinned rustc's.
 ## Checks
 - `bunx tsc --noEmit -p .`: clean. `bun scripts/coverage.ts --check`: markers ok (19046; vendor 4196).
 - `bun test src/rustc_mir_build`: 27 pass, 0 fail.
-- Full `RUST_TS_REQUIRE_PROBES=1 bun test src --timeout=120000`: see the last section.
+- Full `RUST_TS_REQUIRE_PROBES=1 bun test src --timeout=120000`: **not completed** on this machine (load avg 60-90,
+  disk 99%). Run 1 was killed mid-run (exit 144, the broad process kills root's notice mentions). Before that it showed
+  one failure, which was this lane's: std/result.test.ts "non-test code never reaches the one-argument unwrap_result"
+  flagged custom_mir_test/run.ts. Fixed (the runner checks `write_mir_fn`'s `Result` itself), and result.test.ts +
+  custom_mir.test.ts pass on their own. Run 2 hit the 60-min background limit with 0 `(fail)` lines up to that point.
+  **Root: please run the full suite on the integrated tree.**
 
 ## Samples (`RUST_TS_AGENT=root-ad4b`, case by case vs root's base runs: no status changed)
 | suite | lane run | M / D / U | base run | M / D / U |
