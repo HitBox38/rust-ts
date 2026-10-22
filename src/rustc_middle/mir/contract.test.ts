@@ -29,11 +29,9 @@ import {
   HasLocalDecls,
   Local,
   Location,
-  Operand,
   Place,
   RETURN_PLACE,
   START_BLOCK,
-  TerminatorKind,
   type PlaceElem,
 } from "./mod.ts";
 import { AllocId, CtfeProvenance, debug_AllocId, display_AllocId, InterpResult } from "./interpret/mod.ts";
@@ -133,7 +131,6 @@ test("stubs per fill lane (the split table of docs/handoff/mir-contract.md)", ()
   const per = new Map<string, number>();
   for (const d of decls.filter((d) => d.kind === "stub")) per.set(d.lane!, (per.get(d.lane!) ?? 0) + 1);
   expect(Object.fromEntries([...per].sort())).toEqual({
-    "mir-body-b": 181,
     "mir-interp-a": 91,
     "mir-interp-b": 184,
     "mir-pretty": 43,
@@ -180,8 +177,6 @@ function stops(f: () => unknown, what: string): void {
 }
 
 test("stubs stop as UNPORTED with their own path", () => {
-  stops(() => Operand.is_move(null as never), "rustc_middle::mir::statement::Operand::is_move");
-  stops(() => TerminatorKind.successors(null as never), "rustc_middle::mir::terminator::TerminatorKind::successors");
   stops(() => new MirWriter(null as never, () => null as never, null as never).write_mir_fn(null as never, null as never), "rustc_middle::mir::pretty::MirWriter::write_mir_fn");
   stops(() => write_mir_pretty(null as never, null as never), "rustc_middle::mir::pretty::write_mir_pretty");
   stops(() => CtfeProvenance.alloc_id(1n as CtfeProvenance), "rustc_middle::mir::interpret::pointer::CtfeProvenance::alloc_id");
