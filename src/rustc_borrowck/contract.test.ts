@@ -259,8 +259,11 @@ test("mir_borrowck: trivial const and tainted body return early; a real body rea
 
         // a real body: `BorrowCheckRootCtxt::do_mir_borrowck` -> `borrowck_collect_region_constraints` -> the
         // `BorrowckInferCtxt`, the promoted MIR, `replace_regions_in_mir` (universal regions + renumbering, bck-nll),
-        // `PoloniusLocationTable::new`, `MoveData::gather_moves`, then the first stub (lane bck-core)
-        stops(() => tcx.mir_borrowck(items.get("f")!), "rustc_borrowck::borrow_set::BorrowSet::build");
+        // `PoloniusLocationTable::new`, `MoveData::gather_moves`, `BorrowSet::build` (bck-core), then `type_check`
+        // (bck-tc-a: `free_region_relations::create`, `check_user_type_annotations`, `visit_body`), whose first
+        // `Assign` (`_0 = copy _1`) relates the types (`sub_types` -> `relate_types`, bck-tc-b) and reaches the first
+        // stub (lane bck-diag-f)
+        stops(() => tcx.mir_borrowck(items.get("f")!), "rustc_borrowck::diagnostics::bound_region_errors::UniverseInfo::relate");
         ran = true;
       });
     });

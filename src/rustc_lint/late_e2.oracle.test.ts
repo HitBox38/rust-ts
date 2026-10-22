@@ -326,7 +326,7 @@ const CASES: Case[] = [
       "}",
     ],
     expect: ["opaque type `Traitable` does not satisfy its associated type bounds", "impl Send + Duh"],
-    stop: "rustc_borrowck::borrow_set::BorrowSet::build",
+    stop: "rustc_borrowck::diagnostics::bound_region_errors::UniverseInfo::relate",
   },
 ];
 

@@ -32,10 +32,12 @@ const CASES = readdirSync(CASES_DIR)
 /**
  * Where the port's driver stops today (main.ts), re-pinned by passes-analysis (the real `analysis`): cases with a fn body
  * stop at `mir_borrowck` (MIR_borrow_checking loop of `run_required_analyses`, not ported yet), after printing the
- * oracle's own diagnostics; the others now run `analysis` through and equal the oracle.
+ * oracle's own diagnostics; the others now run `analysis` through and equal the oracle. Since merge-w23 (fix-w23-bck)
+ * `mir_borrowck` runs into `type_check`, whose first `Assign` relates the types and stops at `UniverseInfo::relate`
+ * (bck-diag-f).
  */
 const PENDING: Record<string, string> = Object.fromEntries(
-  ["e0049_fn", "e0049_fn_fewer", "e0049_impl_trait", "e0050", "e0053_kinds_fn", "e0053_sig", "e0185", "e0186", "e0195", "e0643", "refine_rpitit"].map((c) => [c, "rustc_borrowck::borrow_set::BorrowSet::build"]),
+  ["e0049_fn", "e0049_fn_fewer", "e0049_impl_trait", "e0050", "e0053_kinds_fn", "e0053_sig", "e0185", "e0186", "e0195", "e0643", "refine_rpitit"].map((c) => [c, "rustc_borrowck::diagnostics::bound_region_errors::UniverseInfo::relate"]),
 );
 
 /**

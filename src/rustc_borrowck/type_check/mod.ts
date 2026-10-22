@@ -142,7 +142,8 @@ import type { PoloniusFacts, PoloniusRegionVid } from "../polonius/legacy/facts.
 import type { BorrowIndex } from "../dataflow.gen.ts";
 import type { LocationIndex } from "../polonius/legacy/location.gen.ts";
 import type { PoloniusLocationTable } from "../polonius/legacy/location.gen.ts";
-import { LivenessValues, PlaceholderIndices } from "../region_infer/values.gen.ts";
+import { LivenessValues } from "../region_infer/values.gen.ts";
+import { default_PlaceholderIndices } from "../region_infer/values.ts";
 import type { RegionCtxt } from "../renumber.gen.ts";
 import { MoveUnsized_diagnostic, SimdIntrinsicArgConst_diagnostic } from "../session_diagnostics.gen.ts";
 import type { UniversalRegions } from "../universal_regions.gen.ts";
@@ -271,10 +272,11 @@ export function type_check(
   move_data: MoveData,
   location_map: DenseLocationMap,
 ): MirTypeckResults {
-  // PORT: the derived `Default`s: `PlaceholderIndices` (an `FxIndexSet` of struct keys: `KeyedSet`), `IndexVec`,
+  // PORT: the derived `Default`s: `PlaceholderIndices` (values.ts's `default_PlaceholderIndices`: an `FxIndexSet` of
+  // struct keys, a `KeyedSet` whose methods give the insertion index), `IndexVec`,
   // `OutlivesConstraintSet`, `Vec`, `FxIndexMap`.
   const constraints = new MirTypeckRegionConstraints(
-    new PlaceholderIndices(new KeyedSet<PlaceholderRegion>(intern_key)),
+    default_PlaceholderIndices(),
     [],
     LivenessValues.with_specific_points(location_map),
     new OutlivesConstraintSet([]),
