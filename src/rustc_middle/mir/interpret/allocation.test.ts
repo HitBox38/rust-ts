@@ -1,14 +1,13 @@
 // Lane mir-interp-a tests for mir/interpret/allocation.rs, allocation/init_mask.rs and allocation/provenance_map.rs
 // (upstream's own unit tests are allocation/init_mask/tests.test.ts). Expected values are worked out by hand from the
 // upstream code at the pin (u64 blocks: `InitMaskMaterialized::grow` allocates `amount / 64 + 1` blocks, ...).
-// The scalar read/write tests need lane mir-interp-b's `Scalar` / `Pointer` / `read_target_uint` / `write_target_uint`:
-// they are skipped while those are still stubs (`interp_b_ported`).
+// The scalar read/write tests use lane mir-interp-b's `Scalar` / `Pointer` / `read_target_uint` / `write_target_uint`.
 import { describe, expect, test } from "bun:test";
 import "../mod.ts";
 import { Align, Size, TargetDataLayout } from "../../../rustc_abi/lib.ts";
 import { MemDecoder } from "../../../rustc_serialize/opaque.ts";
 import { PLAIN } from "../../../std/fmt.ts";
-import { Panic, Unported } from "../../../std/panic.ts";
+import { Panic } from "../../../std/panic.ts";
 import type { Result } from "../../../std/result.ts";
 import type { Hasher } from "../../../vendor/rustc_stable_hash/lib.ts";
 import {
@@ -31,7 +30,6 @@ import {
   ProvenanceMap,
 } from "./allocation.ts";
 import type { AllocId } from "./mod.ts";
-import { read_target_uint, write_target_uint } from "./mod.ts";
 import { type CtfeProvenance, Pointer } from "./pointer.ts";
 import { Scalar } from "./value.ts";
 
@@ -314,23 +312,7 @@ describe("Allocation", () => {
   });
 });
 
-/** Lane mir-interp-b's pieces `read_scalar` / `write_scalar` / `adjust_from_tcx` call. */
-function interp_b_ported(): boolean {
-  try {
-    const ptr = Pointer.new(p1, S(1));
-    ptr.into_raw_parts();
-    Scalar.to_bits_or_ptr_internal(Scalar.from_pointer(ptr, cx), S(8));
-    Scalar.to_bits_or_ptr_internal(Scalar.from_uint<CtfeProvenance>(1n, S(4)), S(4));
-    read_target_uint("Little", new Uint8Array(4));
-    write_target_uint("Little", new Uint8Array(4), 1n);
-    return true;
-  } catch (e) {
-    if (e instanceof Unported) return false;
-    throw e;
-  }
-}
-
-describe.skipIf(!interp_b_ported())("Allocation scalars (needs lane mir-interp-b)", () => {
+describe("Allocation scalars", () => {
   const scalar = (r: Result<Scalar<CtfeProvenance>, AllocError>): string => {
     if (r.$ === "Err") return `Err(${r._0.$}${r._0.$ === "ReadPartialPointer" ? `(${r._0._0.bytes()})` : ""})`;
     const s = r._0;

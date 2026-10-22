@@ -2051,9 +2051,9 @@ const Expr_binop_args = (self: Expr): [Ty, Ty, Const, Const] => ExprC.binop_args
 const Expr_unop_args = (self: Expr): [Ty, Const] => ExprC.unop_args(self);
 const Expr_call_args = (self: Expr): [Ty, Const, Iterable<Const>] => ExprC.call_args(self);
 const Expr_cast_args = (self: Expr): [Ty, Const, Ty] => ExprC.cast_args(self);
-/** `mir::BinOp::to_hir_binop` (mir/statement.rs:953, not ported). */
-function BinOp_to_hir_binop(_self: BinOp): BinOpKind {
-  return unported("rustc_middle::mir::BinOp::to_hir_binop (mir/mod.rs)");
+/** `mir::BinOp::to_hir_binop` (mir/statement.rs:953; mir/mod.ts read lazily: init order, mir-contract R2). */
+function BinOp_to_hir_binop(self: BinOp): BinOpKind {
+  return (require("../../mir/mod.ts") as typeof import("../../mir/mod.ts")).BinOp.to_hir_binop(self);
 }
 
 // ==== lane ty-print-b: pretty.rs:1705..end ====
@@ -2133,7 +2133,7 @@ PrettyPrinter.prototype.pretty_print_const_scalar_ptr = function (this: PrettyPr
             switch (global_alloc.$) {
               case "Memory": {
                 const alloc = global_alloc._0;
-                const range: AllocRange = { start: offset, size: Size.from_bytes(len) };
+                const range: AllocRange = new (mir_interpret_allocation().AllocRange)(offset, Size.from_bytes(len));
                 const byte_str = Allocation_get_bytes_strip_provenance(ConstAllocation_inner(alloc), this.tcx(), range);
                 if (byte_str !== undefined) {
                   if ((r = this.pretty_print_byte_str(byte_str)).$ === "Err") return r;
@@ -4515,11 +4515,12 @@ function mir_interpret_pointer(): typeof import("../../mir/interpret/pointer.ts"
   return (mir_interpret_pointer__m ??= require("../../mir/interpret/pointer.ts") as typeof import("../../mir/interpret/pointer.ts"));
 }
 var mir_interpret_pointer__m: typeof import("../../mir/interpret/pointer.ts") | undefined;
-/** mir/interpret/allocation.rs:334 */
-interface AllocRange {
-  start: Size;
-  size: Size;
+type AllocRange = import("../../mir/interpret/allocation.ts").AllocRange;
+/** mir/interpret/allocation.ts, read lazily (as pointer.ts above). */
+function mir_interpret_allocation(): typeof import("../../mir/interpret/allocation.ts") {
+  return (mir_interpret_allocation__m ??= require("../../mir/interpret/allocation.ts") as typeof import("../../mir/interpret/allocation.ts"));
 }
+var mir_interpret_allocation__m: typeof import("../../mir/interpret/allocation.ts") | undefined;
 function Pointer_prov_and_relative_offset(ptr: Pointer): [CtfeProvenance, Size] {
   return ptr.prov_and_relative_offset();
 }
@@ -4536,8 +4537,9 @@ function ConstAllocation_inner(alloc: ConstAllocation): Allocation {
   return alloc.inner();
 }
 /** `Ok(bytes)` is the bytes, `Err(_)` is `undefined`. */
-function Allocation_get_bytes_strip_provenance(_alloc: Allocation, _tcx: TyCtxt, _range: AllocRange): Uint8Array | undefined {
-  return unported("rustc_middle::mir::interpret::Allocation::get_bytes_strip_provenance (M4)");
+function Allocation_get_bytes_strip_provenance(alloc: Allocation, tcx: TyCtxt, range: AllocRange): Uint8Array | undefined {
+  const r = alloc.get_bytes_strip_provenance(tcx, range);
+  return r.$ === "Ok" ? r._0 : undefined;
 }
 /** `Instance::def_id` / the field `instance.args` (ty/instance.rs). */
 function Instance_def_id(self: Instance): DefId {

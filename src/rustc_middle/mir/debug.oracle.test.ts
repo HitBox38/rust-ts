@@ -5,8 +5,9 @@
 // MIR building is not ported yet (wave 22), so each case builds its node by hand, in a `TyCtxt` of FIXTURE (a no_core
 // lib), and compares the port's `{:?}` with the expected line. Every expected line is a line of the oracle's
 // `-Zdump-mir=built` output for FIXTURE (checked here when the pinned rustc is available: skipped otherwise, a failure
-// under RUST_TS_REQUIRE_PROBES=1). Lines with a `Const::Val` operand (`const 1_i32`, fn items) are not cases: they print
-// through mir/pretty.rs `pretty_print_const_value` (lane mir-pretty).
+// under RUST_TS_REQUIRE_PROBES=1). `Const::Val` operands print through mir/pretty.rs `pretty_print_const_value` (lane
+// mir-pretty, merged): scalar ones are cases; aggregate values (`const ()`) need rustc_const_eval's
+// `try_destructure_mir_constant_for_user_output` hook (not ported) and are checked to stop there.
 //
 // Also unit checks of the CFG helpers (`successors`, `edges`, `SwitchTargets`, `StmtDebugInfos`), each against upstream
 // behavior on hand-built terminators.
@@ -38,6 +39,7 @@ import {
   BasicBlock,
   type Const,
   ConstOperand,
+  ConstValue,
   debug_Operand,
   debug_Place,
   debug_Rvalue,
@@ -61,6 +63,7 @@ import {
   UnwindAction,
 } from "./mod.ts";
 import { display_Const } from "./consts.ts";
+import { Scalar } from "./interpret/mod.ts";
 
 const REQUIRE = process.env.RUST_TS_REQUIRE_PROBES === "1";
 const RUSTC = ["rustc", `+${PIN.toolchain}`];
@@ -229,6 +232,7 @@ function term(kind: TerminatorKind): string {
   return debug_Terminator(new Terminator(SI, kind), PLAIN);
 }
 const cleanup = (n: number): UnwindAction => ({ $: "Cleanup", _0: bb(n) });
+const val = (cv: ConstValue, ty: Ty): Operand => ({ $: "Constant", _0: new ConstOperand(DUMMY_SP, undefined, { $: "Val", _0: cv, _1: ty }) });
 
 /** `[expected oracle line (without the trailing `;`), the port's text]`. */
 const CASES: [string, (cx: Cx) => string][] = [
@@ -305,6 +309,10 @@ const CASES: [string, (cx: Cx) => string][] = [
       });
     },
   ],
+  // `Const::Val` scalars (`pretty_print_const_value`)
+  ["_9 = const 1_i32", (cx) => assign(cx, 9, use_(val({ $: "Scalar", _0: Scalar.from_i32(1) }, cx.tcx.types.i32)))],
+  ["_0 = const 0_i32", (cx) => assign(cx, 0, use_(val({ $: "Scalar", _0: Scalar.from_i32(0) }, cx.tcx.types.i32)))],
+  ["_12 = const 2_usize", (cx) => assign(cx, 12, use_(val(ConstValue.from_target_usize(2, cx.tcx), cx.tcx.types.usize)))],
   // ---- terminators ----
   ["return", () => term(TK.Return)],
   ["resume", () => term(TK.UnwindResume)],
@@ -437,8 +445,9 @@ test("the port's Debug text of each hand-built node is the oracle's line", () =>
   expect(results.filter((r) => r !== "ok")).toEqual([]);
 }, 120000);
 
-test("display_Const of a `Const::Val` stops at pretty_print_const_value (lane mir-pretty)", () => {
+test("display_Const of a `Const::Val`: a scalar prints; `()` stops at rustc_const_eval's destructuring hook (not ported)", () => {
   with_fixture((cx) => {
+    expect(display_Const({ $: "Val", _0: { $: "Scalar", _0: Scalar.from_i32(1) }, _1: cx.tcx.types.i32 })).toBe("1_i32");
     let err: unknown;
     try {
       display_Const({ $: "Val", _0: { $: "ZeroSized" }, _1: cx.tcx.types.unit });
@@ -446,7 +455,7 @@ test("display_Const of a `Const::Val` stops at pretty_print_const_value (lane mi
       err = e;
     }
     expect(err).toBeInstanceOf(Unported);
-    expect((err as Unported).what).toBe("rustc_middle::mir::pretty::pretty_print_const_value");
+    expect((err as Unported).what).toBe("rustc_const_eval::const_eval::try_destructure_mir_constant_for_user_output");
   });
 }, 120000);
 

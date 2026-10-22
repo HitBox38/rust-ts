@@ -1,9 +1,8 @@
 // Tests of lane mir-body-a (rustc_middle mir/{mod, traversal, query, coverage}.rs). Upstream has no unit tests for these
 // files; the expected values below are worked out from upstream's semantics (the traversal orders follow the doc comments
 // of traversal.rs, whose `traverse_successor` example is checked verbatim).
-//
-// PORT (test): `TerminatorKind::successors` belongs to lane mir-body-b; until it lands the hand-built terminators carry
-// their successor list as an own `successors()` (shadowing the prototype), so the traversals see exactly the CFG below.
+// The hand-built blocks end in real terminators: `return` (no successor), `goto` (one), `falseEdge` (two, in the
+// order real, imaginary: terminator.rs `successors`).
 import { expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -46,18 +45,23 @@ import {
   SourceScopeData,
   START_BLOCK,
   Terminator,
+  TerminatorKind,
   traversal,
 } from "./mod.ts";
 import { type CoroutineLayout, CoroutineSavedLocal, debug_CoroutineLayout } from "./query.ts";
-import { Successors } from "./terminator.ts";
 
 const bb = (n: number): BasicBlock => BasicBlock.from_u32(n);
 
 /** A block whose terminator's successors are `succs` (see the header). */
 function block(succs: number[]): BasicBlockData {
-  const term = new Terminator(SourceInfo.outermost(DUMMY_SP), { $: "Unreachable" });
-  Object.defineProperty(term, "successors", { value: () => new Successors(succs.map(bb)) });
-  return BasicBlockData.new(term, false);
+  const kind: TerminatorKind =
+    succs.length === 0
+      ? TerminatorKind.Return
+      : succs.length === 1
+        ? TerminatorKind.goto(bb(succs[0]!))
+        : { $: "FalseEdge", real_target: bb(succs[0]!), imaginary_target: bb(succs[1]!) };
+  if (succs.length > 2) throw new Error("ERROR: test: at most two successors");
+  return BasicBlockData.new(new Terminator(SourceInfo.outermost(DUMMY_SP), kind), false);
 }
 function cfg(succs: number[][]): Body {
   return Body.new_cfg_only(succs.map(block));

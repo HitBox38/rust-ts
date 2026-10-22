@@ -13,16 +13,9 @@
 // Each test rebuilds a body (or allocation) of a fixture by hand and compares the printed text with the oracle's, byte
 // for byte (whole items, or for the intro tests the item up to the blank line before `bb0`).
 //
-// PORT(test): mir-pretty is filled in parallel with lanes mir-body-a/b, mir-visit and mir-interp-a/b (wave 21). Their
-// stubs are bridged three ways: (1) methods of the test's own objects are overridden by small subclasses (`TestBody`,
-// `TestAllocation`, ...); (2) companion / prototype stubs the printer calls (`BasicBlock::start_location`, `Const::ty`,
-// `ConstValue::*`, `CtfeProvenance::alloc_id`, `Pointer::new`, `GlobalAlloc::unwrap_memory`, `MirPhase::index`,
-// `Visitor::visit_body`) get a stand-in that runs only when the real fn stops UNPORTED (`fallback`, restored after the
-// file); (3) module-level stubs of the interpreter (`alloc_range`, `read_target_uint`, the `Debug` of `Pointer` /
-// `CtfeProvenance`) are bridged the same way through `mock.module` (`bridge`, the original exports put back after the
-// file); (4) tests whose output needs mir-body-a/b's `Debug` / `Display` impls of statements, terminators, places and
-// `mir::Const` are skipped while those stubs are unported (`blocked`, probed once below) and run as soon as they land.
-import { afterAll, beforeAll, describe, expect, mock, test } from "bun:test";
+// The bodies and allocations are built from the real MIR / interpreter types (the wave-21 sibling lanes are merged;
+// their test-only stand-ins were removed by merge-w21).
+import { describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -35,8 +28,8 @@ import { BytePos, create_default_session_globals_then, DUMMY_SP, Span } from "..
 import { SyntaxContext } from "../../rustc_span/hygiene.ts";
 import { Symbol } from "../../rustc_span/symbol.ts";
 import { Limit } from "../../rustc_structures/limit.ts";
-import { type Fmt, PLAIN } from "../../std/fmt.ts";
-import { Panic, Unported, unported } from "../../std/panic.ts";
+import { PLAIN } from "../../std/fmt.ts";
+import { unported } from "../../std/panic.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
 import { VecU8 } from "../../vendor/anstream/stream.ts";
 import { CommonLifetimes, CommonTypes, CtxtInterners, type GlobalCtxt, TyCtxt } from "../ty/context.ts";
@@ -47,40 +40,33 @@ import { Const as TyConst } from "../../rustc_type_ir/sty/consts.ts";
 import "../ty/consts.ts";
 import type { Ty } from "../ty/decls.ts";
 import { Ty as TyCompanion } from "../ty/mod.ts";
-import { Const, ConstValue, display_Const, UnevaluatedConst } from "./consts.ts";
-import { Allocation, AllocRange, ConstAllocation } from "./interpret/allocation.ts";
+import { Const, ConstValue, UnevaluatedConst } from "./consts.ts";
+import { Allocation, ConstAllocation } from "./interpret/allocation.ts";
 import { InitMask } from "./interpret/allocation/init_mask.gen.ts";
 import { ProvenanceMap } from "./interpret/allocation/provenance_map.gen.ts";
-import { type AllocId, debug_AllocId, GlobalAlloc } from "./interpret/mod.ts";
-import * as interpret_mod from "./interpret/mod.ts";
-import * as interpret_allocation from "./interpret/allocation.ts";
-import * as interpret_pointer from "./interpret/pointer.ts";
-import { type CtfeProvenance, CtfeProvenance as CtfeProvenanceC, Pointer } from "./interpret/pointer.ts";
+import type { AllocId, GlobalAlloc } from "./interpret/mod.ts";
+import { type CtfeProvenance, Pointer } from "./interpret/pointer.ts";
 import { SortedMap } from "../../rustc_data_structures/sorted_map.ts";
 import {
   BasicBlock,
   BasicBlockData,
   BasicBlocks,
   Body,
-  debug_VarDebugInfoContents,
   Local,
   LocalDecl,
   Location,
   MirPhase,
   MirSource,
-  OUTERMOST_SOURCE_SCOPE,
   Promoted,
-  RETURN_PLACE,
   SourceInfo,
   SourceScope,
   SourceScopeData,
   type VarDebugInfo,
 } from "./mod.ts";
-import { debug_Place, debug_Statement, debug_TerminatorKind, hex_number_length, MirDumper, MirWriter, PrettyPrintMirOptions, pretty_print_const_value_tcx, write_allocations, write_extra, write_mir_intro, write_mir_pretty } from "./pretty.ts";
+import { hex_number_length, MirDumper, MirWriter, PrettyPrintMirOptions, pretty_print_const_value_tcx, write_allocations, write_extra, write_mir_intro, write_mir_pretty } from "./pretty.ts";
 import { Statement, StmtDebugInfos } from "./statement.ts";
 import { ConstOperand, Place, ProjectionElem, type Rvalue, type StatementKind, TerminatorKind } from "./syntax.ts";
 import { Terminator } from "./terminator.ts";
-import { Visitor } from "./visit.ts";
 
 const DIR = join(import.meta.dir, "pretty_oracle");
 const REGEN = process.env.REGEN === "1";
@@ -123,184 +109,11 @@ const intro = (text: string, header: string): string => lines_from(text, header,
 /** An allocation (`allocN (..) {` .. `}`, or a one-line allocation), as `write_allocations` prints it (`\n` first). */
 const alloc = (text: string, header: string): string => `\n${lines_from(text, header, (l) => l === "}" || l.endsWith("{}") || l.endsWith("{ .. }") || l.endsWith(")"))}`;
 
-// ---- stand-ins (PORT(test), see the header) ----
+// ---- allocations ----
 
-const restores: (() => void)[] = [];
-/** Replaces `obj[key]` by a wrapper running the real fn and, only if it stops UNPORTED, `standin`. */
-function fallback<O extends object>(obj: O, key: string, standin: (...args: never[]) => unknown): void {
-  const o = obj as unknown as Record<string, (...args: unknown[]) => unknown>;
-  const real = o[key]!;
-  restores.push(() => {
-    o[key] = real;
-  });
-  o[key] = function (this: unknown, ...args: unknown[]): unknown {
-    try {
-      return real.apply(this, args);
-    } catch (e) {
-      if (e instanceof Unported) return (standin as (...a: unknown[]) => unknown).apply(this, args);
-      throw e;
-    }
-  };
-}
-
-const ALLOC_ID_MASK = ((1n << 64n) - 1n) & ~(1n << 63n) & ~(1n << 62n);
 /** A `CtfeProvenance` of `alloc_id` (immutable, shared: `<imm>`). */
 const prov = (alloc_id: number): CtfeProvenance => (BigInt(alloc_id) | (1n << 63n) | (1n << 62n)) as CtfeProvenance;
 
-/** (3) `mock.module(path)` with `standins` as fallbacks of the module's own exports (see `fallback`). */
-function bridge(path: string, ns: object, standins: Record<string, (...args: never[]) => unknown>): void {
-  const orig = { ...(ns as Record<string, unknown>) };
-  const patched: Record<string, unknown> = { ...orig };
-  for (const [k, s] of Object.entries(standins)) {
-    const real = orig[k] as (...args: unknown[]) => unknown;
-    patched[k] = (...args: unknown[]): unknown => {
-      try {
-        return real(...args);
-      } catch (e) {
-        if (e instanceof Unported) return (s as (...a: unknown[]) => unknown)(...args);
-        throw e;
-      }
-    };
-  }
-  mock.module(path, () => patched);
-  restores.push(() => {
-    mock.module(path, () => orig);
-  });
-}
-
-/** pointer.rs `impl Provenance for CtfeProvenance`'s `fmt` (the `Debug` of a `Pointer`) and `Debug for CtfeProvenance`. */
-function debug_ctfe_prov(p: CtfeProvenance, f: Fmt): string {
-  return `${debug_AllocId(Number(p & ALLOC_ID_MASK) as AllocId, f)}${p & (1n << 63n) ? "<imm>" : ""}`;
-}
-
-function install_standins(): void {
-  // allocation.rs:347 `alloc_range`
-  bridge("./interpret/allocation.ts", interpret_allocation, { alloc_range: (start: Size, size: Size) => new AllocRange(start, size) });
-  // interpret/mod.rs:586 `read_target_uint`
-  bridge("./interpret/mod.ts", interpret_mod, {
-    read_target_uint: (endian: "Little" | "Big", source: Uint8Array) => {
-      let v = 0n;
-      const b = endian === "Little" ? [...source].reverse() : [...source];
-      for (const x of b) v = (v << 8n) | BigInt(x);
-      return Ok(v);
-    },
-  });
-  bridge("./interpret/pointer.ts", interpret_pointer, {
-    debug_CtfeProvenance: debug_ctfe_prov,
-    // pointer.rs:174 `<CtfeProvenance as Provenance>::fmt`: the `AllocId`, a non-zero offset, `<imm>`
-    debug_Pointer: (ptr: Pointer<CtfeProvenance>, f: Fmt) =>
-      `${debug_AllocId(Number(ptr.provenance & ALLOC_ID_MASK) as AllocId, f)}${ptr.offset.bytes() > 0 ? `+0x${ptr.offset.bytes().toString(16)}` : ""}${ptr.provenance & (1n << 63n) ? "<imm>" : ""}`,
-  });
-
-  fallback(BasicBlock, "start_location", (bb: BasicBlock) => new Location(bb, 0));
-  // mod.rs:106 `MirPhase::index`
-  fallback(MirPhase, "index", (p: MirPhase) => {
-    const dialect = p.$ === "Built" ? 1 : p.$ === "Analysis" ? 2 : 3;
-    const phase = p.$ === "Built" ? 1 : p.$ === "Analysis" ? (p._0 === "Initial" ? 1 : 2) : p._0 === "Initial" ? 1 : p._0 === "PostCleanup" ? 2 : 3;
-    return [dialect, phase];
-  });
-  // consts.rs:258 `Const::ty`
-  fallback(Const, "ty", (c: Const) => (c.$ === "Ty" ? (c._1.kind().$ === "Value" ? (c._1.kind() as { _0: { ty: Ty } })._0.ty : c._0) : c._1));
-  // consts.rs:187 `ConstValue::all_bytes_uninit` (as upstream, through the fake `global_alloc`)
-  fallback(ConstValue, "all_bytes_uninit", function (ct: ConstValue, tcx: TyCtxt): boolean {
-    if (ct.$ !== "Indirect") return false;
-    const ga = tcx.global_alloc(ct.alloc_id);
-    if (ga.$ !== "Memory") return false;
-    const a = ga._0.inner();
-    const r = a.init_mask_().is_range_initialized(new AllocRange(Size.ZERO, a.size()));
-    return r.$ === "Err" && r._0.size.raw === a.size().raw;
-  });
-  // consts.rs:133 `ConstValue::try_get_slice_bytes_for_diagnostics` (the `Slice` arm; the fixtures need no other)
-  fallback(ConstValue, "try_get_slice_bytes_for_diagnostics", function (ct: ConstValue, tcx: TyCtxt): readonly number[] | undefined {
-    if (ct.$ !== "Slice") throw new Error("ERROR: test stand-in: only ConstValue::Slice");
-    const data = GlobalAlloc.unwrap_memory(tcx.global_alloc(ct.alloc_id));
-    return [...data.inner().inspect_with_uninit_and_ptr_outside_interpreter({ start: 0, end: ct.meta } as never)];
-  });
-  fallback(CtfeProvenanceC, "alloc_id", (p: CtfeProvenance) => Number(p & ALLOC_ID_MASK) as AllocId);
-  fallback(Pointer, "new", (provenance: unknown, offset: Size) => new Pointer(offset, provenance));
-  fallback(GlobalAlloc, "unwrap_memory", (g: GlobalAlloc) => {
-    if (g.$ !== "Memory") throw new Panic("expected memory, got ..");
-    return g._0;
-  });
-  // visit.rs `super_body`, the part these bodies need: the `ConstOperand`s of `x = const ..` statements.
-  fallback(Visitor.prototype, "visit_body", function (this: Visitor, body: Body): void {
-    body.basic_blocks.deref().forEach((data, bb) => {
-      data.statements.forEach((st, i) => {
-        if (st.kind.$ !== "Assign") return;
-        const rv = st.kind._0[1];
-        if (rv.$ === "Use" && rv._0.$ === "Constant") this.visit_const_operand(rv._0._0, new Location(BasicBlock.from_usize(bb), i));
-      });
-    });
-  });
-}
-
-class TestMirSource extends MirSource {
-  override def_id(): DefId {
-    if (this.instance.$ !== "Item") throw new Error("ERROR: test: Item sources only");
-    return this.instance._0;
-  }
-}
-class TestBlock extends BasicBlockData {
-  override terminator_(): Terminator {
-    return this.terminator!;
-  }
-}
-class TestStmtDebugInfos extends StmtDebugInfos {
-  override deref(): readonly never[] {
-    return [];
-  }
-}
-class TestBody extends Body {
-  override args_iter(): readonly Local[] {
-    return Array.from({ length: this.arg_count }, (_, i) => Local.from_usize(i + 1));
-  }
-  override return_ty(): Ty {
-    return this.local_decls[0]!.ty;
-  }
-  override yield_ty(): Ty | undefined {
-    return undefined;
-  }
-  override coroutine_layout_raw(): undefined {
-    return undefined;
-  }
-  override index(bb: BasicBlock): BasicBlockData {
-    return this.basic_blocks.deref()[BasicBlock.index(bb)]!;
-  }
-}
-class TestInitMask extends InitMask {
-  override is_range_initialized(range: AllocRange): Result<undefined, AllocRange> {
-    if (this.blocks.$ !== "Lazy") throw new Error("ERROR: test: lazy init masks only");
-    return this.blocks.state ? Ok(undefined) : Err(range);
-  }
-}
-class TestProvenanceMap extends ProvenanceMap<CtfeProvenance> {
-  override ptrs_(): SortedMap<Size, CtfeProvenance> {
-    return this.ptrs;
-  }
-  override get_ptr(offset: Size): CtfeProvenance | undefined {
-    return this.ptrs.get(offset);
-  }
-  override get_byte(): undefined {
-    return undefined;
-  }
-}
-class TestAllocation extends Allocation {
-  override size(): Size {
-    return Size.from_bytes(this.bytes.length);
-  }
-  override len(): number {
-    return this.bytes.length;
-  }
-  override init_mask_(): InitMask {
-    return this.init_mask;
-  }
-  override provenance_(): ProvenanceMap<CtfeProvenance> {
-    return this.provenance;
-  }
-  override inspect_with_uninit_and_ptr_outside_interpreter(range: { start: number; end: number }): Uint8Array {
-    return this.bytes.subarray(range.start, range.end);
-  }
-}
 /** An allocation of `bytes` (all init, or all uninit), with pointers `[offset, alloc_id]` (64-bit little endian). */
 function mk_alloc(bytes: number[], align: number, opts: { uninit?: boolean; ptrs?: [number, number][] } = {}): ConstAllocation {
   const b = Uint8Array.from(bytes);
@@ -308,15 +121,15 @@ function mk_alloc(bytes: number[], align: number, opts: { uninit?: boolean; ptrs
     (opts.ptrs ?? []).map(([off, id]) => [Size.from_bytes(off), prov(id)]),
     (a, c) => a.raw - c.raw,
   );
-  const a = new TestAllocation(
+  const a = new Allocation(
     b,
-    new TestProvenanceMap(ptrs, undefined),
-    new TestInitMask({ $: "Lazy", state: !opts.uninit }, Size.from_bytes(b.length)),
+    new ProvenanceMap(ptrs, undefined),
+    new InitMask({ $: "Lazy", state: !opts.uninit }, Size.from_bytes(b.length)),
     unwrap_ok(Align.from_bytes(align)),
     "Not",
     null,
   );
-  return new ConstAllocation(a as Allocation);
+  return new ConstAllocation(a);
 }
 function unwrap_ok<T, E>(r: Result<T, E>): T {
   if (r.$ === "Err") throw new Error("ERROR: unexpected Err");
@@ -355,8 +168,11 @@ function mk_tcx(fake: Fake): TyCtxt {
       return s;
     },
   };
+  const dl = TargetDataLayout.default();
+  dl.endian = "Little";
   const gcx = {
     interners,
+    data_layout: dl,
     get types() {
       return (types ??= CommonTypes.new(interners));
     },
@@ -383,8 +199,6 @@ function mk_tcx(fake: Fake): TyCtxt {
     },
   };
   const tcx = new TyCtxt(gcx as unknown as GlobalCtxt);
-  const dl = TargetDataLayout.default();
-  dl.endian = "Little";
   const by_def = (d: DefId): Item => {
     const it = fake.items[(d.index as number) - 1];
     if (it === undefined || d.krate !== LOCAL_CRATE) throw new Error("ERROR: test: unknown DefId");
@@ -447,22 +261,22 @@ function sp(fake: Fake, loc: string): Span {
 const si = (span: Span, scope = 0): SourceInfo => new SourceInfo(span, SourceScope.from_u32(scope));
 const local_decl = (mutable: boolean, ty: Ty, info: SourceInfo): LocalDecl => new LocalDecl(mutable ? "Mut" : "Not", { $: "Clear" }, ty, undefined, info);
 const place = (tcx: TyCtxt, local: number, deref = false): Place => new Place(Local.from_u32(local), tcx.mk_place_elems(deref ? [ProjectionElem.Deref] : []));
-const stmt = (info: SourceInfo, kind: StatementKind): Statement => new Statement(info, kind, new TestStmtDebugInfos(undefined));
+const stmt = (info: SourceInfo, kind: StatementKind): Statement => new Statement(info, kind, new StmtDebugInfos(undefined));
 const assign = (info: SourceInfo, p: Place, rv: Rvalue): Statement => stmt(info, { $: "Assign", _0: [p, rv] });
 const use_const = (span: Span, c: Const): Rvalue => ({ $: "Use", _0: { $: "Constant", _0: new ConstOperand(span, undefined, c) }, _1: "Yes" });
 const block = (statements: Statement[], terminator_info: SourceInfo): BasicBlockData =>
-  new TestBlock(statements, new TestStmtDebugInfos(undefined), new Terminator(terminator_info, TerminatorKind.Return), false);
+  new BasicBlockData(statements, new StmtDebugInfos(undefined), new Terminator(terminator_info, TerminatorKind.Return), false);
 const scope_data = (parent: number | undefined): SourceScopeData => new SourceScopeData(DUMMY_SP, parent === undefined ? undefined : SourceScope.from_u32(parent), undefined, undefined, { $: "Clear" });
 
 function mk_body(
   def: DefId,
   o: { promoted?: number; phase?: MirPhase; arg_count?: number; locals: LocalDecl[]; blocks: BasicBlockData[]; scopes?: SourceScopeData[]; debug?: VarDebugInfo[] },
 ): Body {
-  return new TestBody(
+  return new Body(
     BasicBlocks.new(o.blocks),
     o.phase ?? { $: "Runtime", _0: "Optimized" },
     0,
-    new TestMirSource({ $: "Item", _0: def }, o.promoted === undefined ? undefined : Promoted.from_u32(o.promoted)),
+    new MirSource({ $: "Item", _0: def }, o.promoted === undefined ? undefined : Promoted.from_u32(o.promoted)),
     o.scopes ?? [scope_data(undefined)],
     undefined,
     o.locals,
@@ -608,36 +422,6 @@ function out(f: (w: VecU8) => Result<undefined | void, unknown>): string {
   return new TextDecoder().decode(w.bytes());
 }
 const body_named = (tcx: TyCtxt, fake: Fake, name: string): Body => tcx.instance_mir({ $: "Item", _0: did(fake.items.findIndex((it) => it.name === name)) });
-
-// ---- which module-level stubs of the parallel lanes are still unported (header (3)) ----
-
-/** `true` if `f` stops UNPORTED (any other outcome: the stub has landed). */
-function stops(f: () => unknown): boolean {
-  try {
-    f();
-    return false;
-  } catch (e) {
-    return e instanceof Unported;
-  }
-}
-const blocked = with_tcx(basic(), (tcx) => {
-  const p = place(tcx, 0);
-  return {
-    // mir-body-b: the `Debug` of statements / terminators / places, `Display` of `mir::Const`; mir-body-a: `debug x => _1`
-    body: [
-      stops(() => debug_TerminatorKind(TerminatorKind.Return, PLAIN)),
-      stops(() => debug_Statement(stmt(si(DUMMY_SP), { $: "StorageLive", _0: Local.from_u32(1) }), PLAIN)),
-      stops(() => debug_Place(p, PLAIN)),
-      stops(() => debug_VarDebugInfoContents({ $: "Place", _0: p }, PLAIN)),
-      stops(() => display_Const({ $: "Val", _0: ConstValue.ZeroSized, _1: tcx.types.unit })),
-    ].some((b) => b),
-  };
-});
-
-beforeAll(install_standins);
-afterAll(() => {
-  for (const r of restores.reverse()) r();
-});
 
 // ---- tests ----
 
@@ -855,7 +639,7 @@ describe("MirDumper", () => {
   });
 });
 
-describe.skipIf(blocked.body)("whole bodies (needs mir-body-a/b's Debug impls)", () => {
+describe("whole bodies", () => {
   test("write_mir_pretty: basic.mir, basic.spans.mir, basic.noalloc.mir", () => {
     for (const [name, unstable] of [
       ["basic.mir", {}],
@@ -901,10 +685,4 @@ describe.skipIf(blocked.body)("whole bodies (needs mir-body-a/b's Debug impls)",
       rmSync(dir, { recursive: true, force: true });
     }
   });
-});
-
-test("the stand-ins are only fallbacks (restored after the file)", () => {
-  expect(restores.length).toBeGreaterThan(0);
-  expect(typeof (RETURN_PLACE as number)).toBe("number");
-  expect(OUTERMOST_SOURCE_SCOPE as number).toBe(0);
 });

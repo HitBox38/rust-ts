@@ -2,18 +2,13 @@
 // the exact sequence of callbacks, `PlaceContext`s and `TyContext`s against the walk order the macro defines
 // (compiler/rustc_middle/src/mir/visit.rs), for every statement / terminator / rvalue / operand / place / constant kind;
 // `MutVisitor` write-backs (locals, types, spans, regions, consts, args, projections) are checked with rewriting visitors.
-//
-// The walks call a few fns of sibling lanes (mir-body-a / mir-body-b) that may still be stubs on this branch
-// (`Place::as_ref`, `PlaceRef::iter_projections`, `StmtDebugInfos` `Deref`/`DerefMut`, `Body::return_ty`,
-// `SourceInfo::outermost`): while one is a stub, the test installs a test-local copy of upstream's body for it (and
-// restores the stub afterwards); once ported, the real fn is used.
-import { afterAll, beforeAll, expect, test } from "bun:test";
+import { expect, test } from "bun:test";
 import type { Span } from "../../rustc_span/lib.ts";
 import type { Const as ty_Const } from "../../rustc_type_ir/sty/consts.ts";
 import type { Variance } from "../../rustc_type_ir/lib.ts";
 import { PLAIN } from "../../std/fmt.ts";
 import type { MutRef } from "../../std/mut_ref.ts";
-import { Panic, Unported } from "../../std/panic.ts";
+import { Panic } from "../../std/panic.ts";
 import "../lib.ts";
 import type { TyCtxt } from "../ty/context.ts";
 import type { Region, Ty } from "../ty/decls.ts";
@@ -31,7 +26,6 @@ import {
   Local,
   LocalDecl,
   Location,
-  OUTERMOST_SOURCE_SCOPE,
   Place,
   PlaceRef,
   SourceInfo,
@@ -52,43 +46,6 @@ import {
   type VarDebugInfo,
 } from "./mod.ts";
 import { debug_PlaceContext, MutVisitor, PlaceContext, type TyContext, Visitor, VisitPlacesWith } from "./visit.ts";
-
-// ---- sibling-lane stubs: test-local copies of upstream's bodies while they are stubs ----
-const restore: (() => void)[] = [];
-function shim_if_stub(obj: object, key: string, impl: unknown): void {
-  const o = obj as Record<string, unknown>;
-  const cur = o[key];
-  if (String(cur).includes("unported(")) {
-    o[key] = impl;
-    restore.push(() => (o[key] = cur));
-  }
-}
-beforeAll(() => {
-  // statement.rs:412 Place::as_ref
-  shim_if_stub(Place.prototype, "as_ref", function (this: Place): PlaceRef {
-    return new PlaceRef(this.local, this.projection);
-  });
-  // statement.rs:558 PlaceRef::iter_projections
-  shim_if_stub(PlaceRef.prototype, "iter_projections", function (this: PlaceRef): [PlaceRef, PlaceElem][] {
-    return this.projection.map((proj, i) => [new PlaceRef(this.local, this.projection.slice(0, i)), proj]);
-  });
-  // statement.rs:1137 / :1144 Deref / DerefMut for StmtDebugInfos (`as_slice` / `as_mut_slice`)
-  shim_if_stub(StmtDebugInfos.prototype, "deref", function (this: StmtDebugInfos): readonly StmtDebugInfo[] {
-    return this._0 ?? [];
-  });
-  shim_if_stub(StmtDebugInfos.prototype, "deref_mut", function (this: StmtDebugInfos): StmtDebugInfo[] {
-    return this._0 ?? [];
-  });
-  // mod.rs:531 Body::return_ty
-  shim_if_stub(Body.prototype, "return_ty", function (this: Body): Ty {
-    return this.local_decls[0]!.ty;
-  });
-  // mod.rs:857 SourceInfo::outermost
-  shim_if_stub(SourceInfo, "outermost", (span: Span) => new SourceInfo(span, OUTERMOST_SOURCE_SCOPE));
-});
-afterAll(() => {
-  for (const r of restore.reverse()) r();
-});
 
 // ---- hand-built MIR ----
 const names = new Map<unknown, string>();
@@ -896,19 +853,11 @@ test("VisitPlacesWith: places (then their projections' Index locals) and locals"
   const seen: string[] = [];
   const v = new VisitPlacesWith((p, ctxt) => seen.push(`${P(p.local, p.projection)} ${C(ctxt)}`));
   const p = place(1, [{ $: "Index", _0: L(2) }, { $: "Deref" }]);
-  try {
-    // `visit_place` hands over a copy of the place, then walks the projection with the context as given (the
-    // `Index` local reaches `visit_local` as a `Copy` use)
-    v.visit_place(p, { $: "MutatingUse", _0: "Store" }, L0);
-    expect(seen.slice(0, 1)).toEqual(["_1.Index.Deref MutatingUse(Store)"]);
-    v.visit_local(L(5), { $: "NonUse", _0: { $: "StorageDead" } }, L0);
-  } catch (e) {
-    expect(seen).toEqual(["_1.Index.Deref MutatingUse(Store)"]);
-    // `Place: From<Local>` is lane mir-body-b's: until it lands, the visit stops there
-    expect(e).toBeInstanceOf(Unported);
-    expect((e as Unported).what).toBe("rustc_middle::mir::statement::<Place as From<Local>>::from");
-    return;
-  }
+  // `visit_place` hands over a copy of the place, then walks the projection with the context as given (the
+  // `Index` local reaches `visit_local` as a `Copy` use)
+  v.visit_place(p, { $: "MutatingUse", _0: "Store" }, L0);
+  expect(seen.slice(0, 1)).toEqual(["_1.Index.Deref MutatingUse(Store)"]);
+  v.visit_local(L(5), { $: "NonUse", _0: { $: "StorageDead" } }, L0);
   expect(seen).toEqual(["_1.Index.Deref MutatingUse(Store)", `_2 ${COPY}`, "_5 NonUse(StorageDead)"]);
 });
 
