@@ -1,6 +1,7 @@
 // Partial port of compiler/rustc_interface/src/passes.rs: `parse`, expansion and resolution
 // (`configure_and_expand`, `resolver_for_lowering_raw`, `early_lint_checks`), dep-info output
-// (`write_dep_info`), `create_and_enter_global_ctxt` with its helpers. Analysis and codegen are unported.
+// (`write_dep_info`), `create_and_enter_global_ctxt` with its helpers, `run_required_analyses` and `analysis`.
+// Codegen (`start_codegen`) is unported.
 //
 // PORT: the crates that the path calls into and that other lanes are porting are reached through local
 // shims below ("Pending-lane shims"), named and typed as upstream, whose bodies call `unported` with the
@@ -59,18 +60,22 @@ import * as rustc_hir_typeck from "../rustc_hir_typeck/lib.ts";
 import * as rustc_trait_selection from "../rustc_trait_selection/lib.ts";
 import type { ResolverAstLowering, ResolverGlobalCtxt } from "../rustc_middle/middle/resolve.ts";
 import { type GlobalCtxt, TyCtxt } from "../rustc_middle/ty/context.ts";
-import { provide as ty_provide } from "../rustc_middle/ty/mod.ts";
+import { provide as ty_provide, type Ty, TypingEnv } from "../rustc_middle/ty/mod.ts";
 import { clone_ExternProviders, clone_Providers, ExternProviders_default, Providers_default } from "../rustc_middle/query/query_api.ts";
 import { type Providers as QueryProviders, QUERY_DECLS, QUERY_NAMES } from "../rustc_middle/queries.gen.ts";
 import type { Providers as MiddleProviders } from "../rustc_middle/util/mod.ts";
 import { provide as rustc_passes_provide } from "../rustc_passes/lib.ts";
+import * as rustc_passes from "../rustc_passes/lib.ts";
+import { par_fns } from "../rustc_data_structures/sync/parallel.ts";
+import { EarlyBinder } from "../rustc_type_ir/binder.ts";
+import { Unnormalized } from "../rustc_type_ir/unnormalized.ts";
 import { provide as rustc_mir_build_provide } from "../rustc_mir_build/lib.ts";
 import { provide as rustc_mir_transform_provide } from "../rustc_mir_transform/lib.ts";
 import { provide as rustc_traits_provide } from "../rustc_traits/lib.ts";
 import { provide as query_impl_provide, query_system } from "../rustc_query_impl/lib.ts";
 import { feature_err } from "../rustc_session/diagnostics.ts";
 import { filename_for_input, invalid_output_for_target, validate_crate_name } from "../rustc_session/output.ts";
-import { LOCAL_CRATE, StableCrateId, type StableCrateIdMap } from "../rustc_span/def_id.ts";
+import { LOCAL_CRATE, LocalDefId, StableCrateId, type StableCrateIdMap } from "../rustc_span/def_id.ts";
 import { FatalErrorMarker } from "../rustc_span/fatal_error.ts";
 import { DUMMY_SP, display_SourceFileHash, FileName, type SourceFileHash, type SourceFileHashAlgorithm, Span as SpanC, type Span } from "../rustc_span/lib.ts";
 import { utf8 } from "../std/str.ts";
@@ -946,7 +951,7 @@ function install_unported_providers(providers: MiddleProviders): void {
 function default_query_providers(): MiddleProviders {
   const providers: MiddleProviders = { queries: Providers_default(), extern_queries: ExternProviders_default(), hooks: HookProviders_default() };
   install_unported_providers(providers);
-  providers.queries.analysis = () => unported("rustc_interface::passes::analysis (M3+)");
+  providers.queries.analysis = analysis;
   providers.queries.resolver_for_lowering_raw = resolver_for_lowering_raw;
   providers.queries.stripped_cfg_items = (tcx, _) => tcx.resolutions(null).stripped_cfg_items;
   providers.queries.resolutions = (tcx, _) => tcx.resolver_for_lowering_raw(null)[2];
@@ -1133,6 +1138,207 @@ export function emit_delayed_lints(tcx: TyCtxt): void {
   }
 }
 
+/// Runs all analyses that we guarantee to run, even if errors were reported in earlier analyses.
+/// This function never fails.
+// rustc: compiler/rustc_interface/src/passes.rs:1100 run_required_analyses
+function run_required_analyses(tcx: TyCtxt): void {
+  if (tcx.sess.opts.unstable_opts.input_stats) {
+    rustc_passes_input_stats_print_hir_stats(tcx);
+  }
+  // When using rustdoc's "jump to def" feature, it enters this code and `check_crate`
+  // is not defined. So we need to cfg it out.
+  // #[cfg(all(not(doc), debug_assertions))]
+  // rustc_passes::hir_id_validator::check_crate(tcx);
+  // PORT: rustc ships without debug assertions (PORTING §3), so this call is compiled out of the oracle.
+
+  // Prefetch this to prevent multiple threads from blocking on it later.
+  // This is needed since the `hir_id_validator::check_crate` call above is not guaranteed
+  // to use `hir_crate_items`.
+  tcx.ensure_done().hir_crate_items(null);
+
+  // PORT: `definitions.write()`: the `RwLock` is its inner value (PORTING §5).
+  tcx.untracked().definitions.commit_end_of_determinism();
+
+  rustc_passes.delegation.check_glob_and_list_delegations_target_expr(tcx);
+
+  const sess = tcx.sess;
+  sess.time("misc_checking_1", () => {
+    par_fns([
+      () => {
+        sess.time("looking_for_entry_point", () => tcx.ensure_ok().entry_fn(null));
+        sess.time("check_externally_implementable_items", () => {
+          tcx.ensure_ok().check_externally_implementable_items(null);
+        });
+
+        sess.time("looking_for_derive_registrar", () => {
+          tcx.ensure_ok().proc_macro_decls_static(null);
+        });
+
+        creader.CStore.from_tcx(tcx).report_unused_deps(tcx);
+      },
+      () => {
+        tcx.ensure_ok().exportable_items(LOCAL_CRATE);
+        tcx.ensure_ok().stable_order_of_exportable_impls(LOCAL_CRATE);
+        tcx.par_hir_for_each_module((module) => {
+          tcx.ensure_ok().check_mod_attrs(module);
+          tcx.ensure_ok().check_mod_unstable_api_usage(module);
+        });
+      },
+      () => {
+        // We force these queries to run,
+        // since they might not otherwise get called.
+        // This marks the corresponding crate-level attributes
+        // as used, and ensures that their values are valid.
+        tcx.ensure_ok().limits(null);
+      },
+    ]);
+  });
+
+  sess.time("emit_ast_lowering_delayed_lints", () => {
+    emit_delayed_lints(tcx);
+  });
+
+  rustc_hir_analysis.check_crate(tcx);
+  // Freeze definitions as we don't add new ones at this point.
+  // We need to wait until now since we synthesize a by-move body
+  // for all coroutine-closures.
+  //
+  // This improves performance by allowing lock-free access to them.
+  // PORT: `tcx.untracked().definitions.freeze()`: `FreezeLock::freeze` is a no-op (PORTING §5: the lock is its
+  // inner value).
+
+  sess.time("MIR_borrow_checking", () => {
+    tcx.par_hir_body_owners((def_id) => {
+      const not_typeck_child = !tcx.is_typeck_child(LocalDefId.to_def_id(def_id));
+      if (not_typeck_child) {
+        // Child unsafety and borrowck happens together with the parent
+        tcx.ensure_ok().check_unsafety(def_id);
+      }
+      if (tcx.is_trivial_const(def_id)) {
+        return;
+      }
+      if (not_typeck_child) {
+        tcx.ensure_ok().mir_borrowck(def_id);
+        tcx.ensure_ok().check_transmutes(def_id);
+        if (tcx.sess.opts.unstable_opts.offload.length !== 0) {
+          tcx.ensure_ok().check_offloads(def_id);
+        }
+      }
+      tcx.ensure_ok().has_ffi_unwind_calls(def_id);
+      tcx.ensure_ok().check_liveness(def_id);
+
+      // If we need to codegen, ensure that we emit all errors from
+      // `mir_drops_elaborated_and_const_checked` now, to avoid discovering
+      // them later during codegen.
+      if (tcx.sess.opts.output_types.should_codegen() || tcx.hir_body_const_context(def_id) !== undefined) {
+        tcx.ensure_ok().mir_drops_elaborated_and_const_checked(def_id);
+      }
+      if (tcx.is_coroutine(LocalDefId.to_def_id(def_id)) && !tcx.is_async_drop_in_place_coroutine(LocalDefId.to_def_id(def_id))) {
+        // Eagerly check the unsubstituted layout for cycles.
+        tcx
+          .ensure_ok()
+          .layout_of(
+            TypingEnv.codegen(tcx, LocalDefId.to_def_id(def_id)).as_query_input(
+              Unnormalized.skip_norm_wip(EarlyBinder.instantiate_identity(tcx.type_of(def_id) as EarlyBinder<Ty>)),
+            ),
+          );
+      }
+    });
+  });
+
+  sess.time("layout_testing", () => rustc_passes.layout_test.test_layout(tcx));
+  sess.time("abi_testing", () => rustc_passes.abi_test.test_abi(tcx));
+}
+
+/// Runs the type-checking, region checking and other miscellaneous analysis
+/// passes on the crate.
+// rustc: compiler/rustc_interface/src/passes.rs:1209 analysis
+function analysis(tcx: TyCtxt, _: null): null {
+  run_required_analyses(tcx);
+
+  const sess = tcx.sess;
+
+  // Avoid overwhelming user with errors if borrow checking failed.
+  // I'm not sure how helpful this is, to be honest, but it avoids a
+  // lot of annoying errors in the ui tests (basically,
+  // lint warnings and so on -- kindck used to do this abort, but
+  // kindck is gone now). -nmatsakis
+  //
+  // But we exclude lint errors from this, because lint errors are typically
+  // less serious and we're more likely to want to continue (#87337).
+  const guar = sess.dcx().has_errors_excluding_lint_errors();
+  if (guar !== undefined) {
+    guar.raise_fatal();
+  }
+
+  sess.time("misc_checking_3", () => {
+    par_fns([
+      () => {
+        tcx.ensure_ok().effective_visibilities(null);
+
+        par_fns([
+          () => {
+            tcx.par_hir_for_each_module((module) => {
+              tcx.ensure_ok().check_private_in_public(module);
+            });
+          },
+          () => {
+            tcx.par_hir_for_each_module((module) => {
+              tcx.ensure_ok().check_mod_deathness(module);
+            });
+          },
+          () => {
+            sess.time("lint_checking", () => {
+              rustc_lint.check_crate(tcx);
+            });
+          },
+          () => {
+            tcx.ensure_ok().clashing_extern_declarations(null);
+          },
+        ]);
+      },
+      () => {
+        sess.time("privacy_checking_modules", () => {
+          tcx.par_hir_for_each_module((module) => {
+            tcx.ensure_ok().check_mod_privacy(module);
+          });
+        });
+      },
+    ]);
+
+    // This check has to be run after all lints are done processing. We don't
+    // define a lint filter, as all lint checks should have finished at this point.
+    sess.time("check_lint_expectations", () => tcx.ensure_ok().check_expectations(undefined));
+
+    // This query is only invoked normally if a diagnostic is emitted that needs any
+    // diagnostic item. If the crate compiles without checking any diagnostic items,
+    // we will fail to emit overlap diagnostics. Thus we invoke it here unconditionally.
+    void tcx.all_diagnostic_items(null);
+
+    // This query is only invoked normally if a diagnostic is emitted that needs any
+    // canonical symbol. If the crate compiles without checking any runtime symbols,
+    // we will fail to emit overlap diagnostics. Thus we invoke it here unconditionally.
+    void tcx.all_canonical_symbols(null);
+  });
+
+  // If `-Zvalidate-mir` is set, we also want to compute the final MIR for each item
+  // (either its `mir_for_ctfe` or `optimized_mir`) since that helps uncover any bugs
+  // in MIR optimizations that may only be reachable through codegen, or other codepaths
+  // that requires the optimized/ctfe MIR, coroutine bodies, or evaluating consts.
+  // Nevertheless, wait after type checking is finished, as optimizing code that does not
+  // type-check is very prone to ICEs.
+  if (tcx.sess.opts.unstable_opts.validate_mir) {
+    sess.time("ensuring_final_MIR_is_computable", () => {
+      tcx.par_hir_body_owners((def_id) => {
+        if (!tcx.is_trivial_const(def_id)) {
+          tcx.instance_mir({ $: "Item", _0: LocalDefId.to_def_id(def_id) });
+        }
+      });
+    });
+  }
+  return null;
+}
+
 /// Compute and validate the crate name.
 // rustc: compiler/rustc_interface/src/passes.rs:1368 get_crate_name
 export function get_crate_name(sess: Session, krate_attrs: readonly Attribute[]): Symbol {
@@ -1289,6 +1495,11 @@ function clone_MiddleProviders(p: MiddleProviders): MiddleProviders {
 /** `rustc_passes::input_stats::print_ast_stats` (input_stats.rs:71). PORT: no lane yet (-Zinput-stats). */
 function rustc_passes_input_stats_print_ast_stats(_tcx: TyCtxt, _krate: Crate): void {
   unported("rustc_passes::input_stats::print_ast_stats (-Zinput-stats)");
+}
+
+/** `rustc_passes::input_stats::print_hir_stats` (input_stats.rs:63). PORT: no lane yet (-Zinput-stats). */
+function rustc_passes_input_stats_print_hir_stats(_tcx: TyCtxt): void {
+  unported("rustc_passes::input_stats::print_hir_stats (-Zinput-stats)");
 }
 
 export type { BufferedEarlyLint };
