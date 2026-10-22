@@ -21,7 +21,6 @@ import { AnalysisBase, type Domain, Domain_DenseBitSet, Domain_MixedBitSet } fro
 import * as lib from "./lib.ts";
 import { MaybeLiveLocals } from "./impls/liveness.ts";
 import { MoveData, MovePath, MovePathIndex } from "./move_paths/mod.ts";
-import { mir_pretty_extra_data } from "./pretty.ts";
 import { sanity_check } from "./rustc_peek.ts";
 import "../rustc_middle/lib.ts";
 import { BasicBlock, BasicBlockData, Body, Location, SourceInfo, Terminator, TerminatorKind } from "../rustc_middle/mir/mod.ts";
@@ -150,8 +149,8 @@ test("every fn of rustc_mir_dataflow is ported or declared as a stub, never both
   // nothing outside the crate's files
   for (const d of [...stubs, ...markers]) expect(FILES.some((f) => `${CRATE}/${f}` === d.path)).toBe(true);
   expect(total).toBe(378);
-  expect(markers.length).toBe(127);
-  expect(stubs.length).toBe(251);
+  expect(markers.length).toBe(218);
+  expect(stubs.length).toBe(160);
 });
 
 test("the crate root loads and re-exports the framework", () => {
@@ -197,7 +196,6 @@ test("stubs stop as UNPORTED in their own module", () => {
   expect(new MaybeLiveLocals().bottom_value(one_block_body()).domain_size()).toBe(0);
   expect(new MaybeLiveLocals().Direction.IS_BACKWARD).toBe(true);
   stops(() => sanity_check(tcx, body), "rustc_mir_dataflow::rustc_peek::sanity_check");
-  stops(() => mir_pretty_extra_data(tcx, body), "rustc_mir_dataflow::pretty::mir_pretty_extra_data");
 });
 
 class Empty extends AnalysisBase<DenseBitSet<number>> {
