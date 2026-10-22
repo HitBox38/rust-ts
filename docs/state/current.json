@@ -1,16 +1,18 @@
 {
-  "milestone": "M3a",
+  "milestone": "M3",
   "pin": "6f5da406b56c2db6607202b63daee73aa8c61297",
   "protected": {
     "lex": 25780,
     "symbols": 10,
     "emit": 1466,
+    "tydump-nocore": 21116,
     "parse-ui": 991,
-    "hir-tree": 21474,
+    "hir-tree": 21482,
     "escape-synthetic": 11,
     "tokens": 25780,
     "hir-tree-nocore": 21493,
     "fluent-format": 4210,
+    "tydump-minicore": 45,
     "resdump": 21479,
     "resdump-nocore": 21488,
     "fluent-parse": 4210,
@@ -18,15 +20,18 @@
     "tokens-str": 39,
     "unpretty-expanded-nocore": 21479,
     "escape": 25780,
-    "unpretty-hir": 21478,
+    "unpretty-hir": 21486,
     "expanded": 21469,
     "unpretty-expanded": 21469,
-    "expanded-nocore": 21479
+    "thirdump-ui": 1596,
+    "expanded-nocore": 21479,
+    "thirdump-minicore": 45,
+    "tydump-ui": 1603
   },
-  "updated": "2026-10-22T08:23:08.987Z",
+  "updated": "2026-10-22T18:53:43.595Z",
   "open_stops": [],
   "coverage": {
-    "ported": 17666,
+    "ported": 19743,
     "total": 25518
   }
 }

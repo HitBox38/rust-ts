@@ -5779,6 +5779,7 @@ tests/ui/delegation/eager-format-glob-delegation-ice-159233.rs
 tests/ui/delegation/empty-glob.rs
 tests/ui/delegation/empty-list.rs
 tests/ui/delegation/explicit-paths-in-traits-pass.rs
+tests/ui/delegation/explicit-paths-pass.rs
 tests/ui/delegation/explicit-paths-signature-pass.rs
 tests/ui/delegation/explicit-paths.rs
 tests/ui/delegation/fn-header-variadic.rs
@@ -5789,6 +5790,7 @@ tests/ui/delegation/generics/const-predicates-ice-158675.rs
 tests/ui/delegation/generics/const-type-ice-153433.rs
 tests/ui/delegation/generics/const-type-ice-153499.rs
 tests/ui/delegation/generics/const-type-ice-154334.rs
+tests/ui/delegation/generics/def-path-hash-collision-ice-153410.rs
 tests/ui/delegation/generics/free-fn-to-free-fn-pass.rs
 tests/ui/delegation/generics/free-fn-to-free-fn.rs
 tests/ui/delegation/generics/free-fn-to-trait-method-pass.rs
@@ -5801,6 +5803,7 @@ tests/ui/delegation/generics/generics-aux-pass.rs
 tests/ui/delegation/generics/generics-gen-args-errors.rs
 tests/ui/delegation/generics/impl-to-free-fn-pass.rs
 tests/ui/delegation/generics/impl-to-trait-method.rs
+tests/ui/delegation/generics/impl-trait-to-trait-method-pass.rs
 tests/ui/delegation/generics/infer-defaults.rs
 tests/ui/delegation/generics/infers.rs
 tests/ui/delegation/generics/inherent-impl-to-trait-method-pass.rs
@@ -5813,6 +5816,8 @@ tests/ui/delegation/generics/mapping/inherent-impl-to-trait-pass.rs
 tests/ui/delegation/generics/mapping/trait-to-free-pass.rs
 tests/ui/delegation/generics/mapping/trait-to-trait-pass.rs
 tests/ui/delegation/generics/self-rename.rs
+tests/ui/delegation/generics/stability-implications-non-local-defid.rs
+tests/ui/delegation/generics/synth-params-ice-143498.rs
 tests/ui/delegation/generics/synth-params-ice-154780.rs
 tests/ui/delegation/generics/trait-impl-wrong-args-count.rs
 tests/ui/delegation/generics/trait-method-to-other-pass.rs
@@ -5885,6 +5890,7 @@ tests/ui/delegation/self-mapping-output-from-wrap-errors.rs
 tests/ui/delegation/self-mapping-output-from-wrap.rs
 tests/ui/delegation/self-mapping-output-privacy.rs
 tests/ui/delegation/self-mapping-output.rs
+tests/ui/delegation/self-ty-ice-156388.rs
 tests/ui/delegation/target-expr-pass.rs
 tests/ui/delegation/target-expr-removal-defs-inside.rs
 tests/ui/delegation/target-expr-removal-free-to-free.rs
@@ -5897,6 +5903,7 @@ tests/ui/delegation/unsupported.rs
 tests/ui/delegation/unused-import-ice-144594.rs
 tests/ui/delegation/unused-target-expr-in-glob-or-list.rs
 tests/ui/delegation/wrong-fn-kind-ice-159127.rs
+tests/ui/delegation/wrong-lifetime-rib.rs
 tests/ui/delegation/zero-args-delegations-ice-154332.rs
 tests/ui/delegation/zero-args-delegations-ice-154427.rs
 tests/ui/dep-graph/dep-graph-assoc-type-codegen.rs
@@ -14629,6 +14636,7 @@ tests/ui/pin-ergonomics/pin-coercion.rs
 tests/ui/pin-ergonomics/pin-pattern-foreign-non-pin-project.rs
 tests/ui/pin-ergonomics/pin-pattern-non-pin-project.rs
 tests/ui/pin-ergonomics/pin-pattern.rs
+tests/ui/pin-ergonomics/pin_v2-attr.rs
 tests/ui/pin-ergonomics/pin_v2-packed.rs
 tests/ui/pin-ergonomics/pinned-drop-check.rs
 tests/ui/pin-ergonomics/pinned-drop-sugar-no-core.rs
