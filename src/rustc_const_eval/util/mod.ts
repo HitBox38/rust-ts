@@ -3,6 +3,14 @@
 // modules `caller_location`, `check_validity_requirement` and `type_name` (with their re-exports) are left to
 // ctfe-util, which completes this file.
 import type { BinOp, UnOp } from "../../rustc_middle/mir/mod.ts";
+import { type TyCtxt } from "../../rustc_middle/ty/context.ts";
+import { type DefId } from "../../rustc_span/def_id.ts";
+import { type Span } from "../../rustc_span/lib.ts";
+import { unported } from "../../std/panic.ts";
+import * as caller_location from "./caller_location.ts";
+export { caller_location };
+export { check_validity_requirement, validate_scalar_in_layout } from "./check_validity_requirement.ts";
+export { type_name } from "./type_name.ts";
 
 // mod alignment;
 // mod compare_types;
@@ -95,4 +103,9 @@ export function unop_homogeneous(op: UnOp): boolean {
     case "PtrMetadata":
       return false;
   }
+}
+
+// stub: compiler/rustc_const_eval/src/util/mod.rs:56 context_spans (lane ctfe-util)
+export function context_spans(tcx: TyCtxt, span: Span, def_id: DefId): Span[] {
+  return unported("rustc_const_eval::util::context_spans");
 }

@@ -34,7 +34,8 @@ for (const [k, v] of Object.entries(process.env)) {
 }
 
 const STOP_CCI = "cross_crate_inlinable provider";
-const STOP_CONST_EVAL = "rustc_const_eval::const_eval::eval_to_valtree";
+// `eval_to_valtree` -> `eval_to_allocation_raw` -> the CTFE interpreter (lane interp-contract: `eval_in_interpreter`, lane ctfe-a)
+const STOP_CONST_EVAL = "rustc_const_eval::const_eval::eval_queries::eval_in_interpreter";
 const STOP_TY_HASH = "StableHash for Ty";
 /** The `unported` stop each case reaches instead of the oracle's output (exit 70). */
 const STOPS: Record<string, string> = {
