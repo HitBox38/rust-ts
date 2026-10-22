@@ -4,7 +4,7 @@
 //! `rustc_graphviz` traits, specialized to attaching borrowck analysis
 //! data to rendered labels.
 // PORT: rustc_graphviz is not ported (as for rustc_mir_dataflow framework/graphviz.ts): `dot::Id`, `dot::LabelText` are
-// the `unknown` placeholders `dot_Id` / `dot_LabelText` below until it is; `dot::Nodes<N>` / `dot::Edges<E>` (`Cow<[T]>`)
+// the local placeholders `dot_Id` / `dot_LabelText` below until it is (see the note there); `dot::Nodes<N>` / `dot::Edges<E>` (`Cow<[T]>`)
 // are `readonly T[]`. `RawConstraints` / `SccConstraints` are generated interfaces, so their `dot::Labeller` /
 // `dot::GraphWalk` impls are impl tables (`Labeller_RawConstraints`, ...). `&mut dyn io::Write` is vendor/anstream's
 // `Write` and `io::Result<()>` `IoResult<null>` (rustc_middle mir/pretty.ts precedent).
