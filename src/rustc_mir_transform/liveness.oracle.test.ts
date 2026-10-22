@@ -156,7 +156,8 @@ function our_shape(tcx: TyCtxt, level: string, span: Span | Span[], pending: Pen
     const hi = sm.lookup_char_pos(Span.hi(sp));
     return `${lo.line}:${lo.col + 1}-${hi.line}:${hi.col + 1}`;
   };
-  const sym = (s: unknown) => Symbol.as_str(s as Symbol);
+  // `Symbol` diagnostic args render as `to_ident_string` (`IntoDiagArg for Symbol`).
+  const sym = (s: unknown) => Symbol.to_ident_string(s as Symbol);
   const v = pending.value as V;
   const name = sym(v.name);
   const labels: string[] = [];
