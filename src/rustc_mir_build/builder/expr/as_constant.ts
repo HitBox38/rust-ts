@@ -5,7 +5,7 @@ import { Size } from "../../../rustc_abi/lib.ts";
 import { debug_LitKind } from "../../../rustc_ast/lib.ts";
 import { LangItem } from "../../../rustc_attr_ir/lang_items.ts";
 import { debug_DefKind, type DefKind } from "../../../rustc_hir/def.ts";
-import { type AllocId, CTFE_ALLOC_SALT, Pointer_from_AllocId, Scalar } from "../../../rustc_middle/mir/interpret/mod.ts";
+import { CTFE_ALLOC_SALT, Pointer_from_AllocId, Scalar } from "../../../rustc_middle/mir/interpret/mod.ts";
 import { type Const, ConstOperand, type ConstValue, UnevaluatedConst } from "../../../rustc_middle/mir/mod.ts";
 import { debug_ExprKind, type Expr } from "../../../rustc_middle/thir.ts";
 import { type LitToConstInput } from "../../../rustc_middle/ty/consts/lit.ts";
@@ -153,9 +153,7 @@ export function as_constant_inner(expr: Expr, push_cuta: (a0: CanonicalUserType)
       return new ConstOperand(span, undefined, const_);
     }
     case "StaticRef": {
-      // PORT: thir.gen.ts types `alloc_id` as `unknown` (the THIR set maps `mir::interpret::AllocId` to `unknown`,
-      // mir-contract "Stand-ins"); it holds the `AllocId` that thir/cx/expr.ts reserved.
-      const alloc_id = kind.alloc_id as AllocId;
+      const alloc_id = kind.alloc_id;
       const ty = kind.ty;
       const const_val: ConstValue = { $: "Scalar", _0: Scalar.from_pointer(Pointer_from_AllocId(alloc_id), tcx) };
       const const_: Const = { $: "Val", _0: const_val, _1: ty };

@@ -4,7 +4,6 @@ import { FieldIdx, VariantIdx } from "../../../../rustc_abi/layout.ts";
 import { type Safety } from "../../../../rustc_hir/hir.ts";
 import { Scalar } from "../../../../rustc_middle/mir/interpret/value.ts";
 import { Pointer_from_AllocId } from "../../../../rustc_middle/mir/interpret/pointer.ts";
-import type { AllocId } from "../../../../rustc_middle/mir/interpret/mod.ts";
 import {
   type BasicBlock,
   BinOp,
@@ -681,8 +680,7 @@ ParseCtxt.prototype.parse_static = function (this: ParseCtxt, expr_id_: ExprId):
   const expr = this.thir.index_ExprId(expr_id);
   // tracing::debug!("Trying to parse {:?} as {}", expr.kind, "static");
   if (expr.kind.$ === "StaticRef") {
-    // PORT: thir.gen.ts types `StaticRef::alloc_id` as `unknown`; it is an `AllocId`.
-    const const_val = { $: "Scalar" as const, _0: Scalar.from_pointer(Pointer_from_AllocId(expr.kind.alloc_id as AllocId), this.tcx) };
+    const const_val = { $: "Scalar" as const, _0: Scalar.from_pointer(Pointer_from_AllocId(expr.kind.alloc_id), this.tcx) };
     const const_: Const = { $: "Val", _0: const_val, _1: expr.kind.ty };
 
     return Ok({ $: "Constant", _0: new ConstOperand(expr.span, undefined, const_) });

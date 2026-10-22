@@ -2,11 +2,13 @@
 // Hand-written additions (methods, manual Debug impls) go in diagnostics.ts next to this file.
 import { bool_into_diag_arg, into_diag_arg_using_display, number_into_diag_arg, str_into_diag_arg, String_into_diag_arg, Symbol_into_diag_arg } from "../rustc_error_messages/diagnostic_impls.ts";
 import { DiagArgValue, type MultiSpan } from "../rustc_error_messages/lib.ts";
-import { Diag, type DiagArgMap, type DiagCtxtHandle, type Diagnostic, E0030, E0080, E0133, E0158, E0170, E0579, format_diag_message, IntoDiagArg, type Level, type Subdiagnostic } from "../rustc_errors/lib.ts";
+import { Diag, type DiagArgMap, type DiagCtxtHandle, type Diagnostic, E0005, E0030, E0080, E0133, E0158, E0170, E0579, format_diag_message, IntoDiagArg, type Level, type Subdiagnostic } from "../rustc_errors/lib.ts";
 import { Ty_into_diag_arg } from "../rustc_middle/ty/diagnostics.ts";
 import { type Ty } from "../rustc_middle/ty/mod.ts";
 import { display_Ty } from "../rustc_middle/ty/print/pretty.ts";
-import { UnsafeNotInheritedLintNote_add_to_diag, UnsafeNotInheritedLintNote_subdiagnostic } from "./diagnostics.ts";
+import { AdtDefinedHere_add_to_diag, AdtDefinedHere_subdiagnostic, UnsafeNotInheritedLintNote_add_to_diag, UnsafeNotInheritedLintNote_subdiagnostic } from "./diagnostics.ts";
+import { type Uncovered, Uncovered_add_to_diag, Uncovered_subdiagnostic } from "../rustc_pattern_analysis/diagnostics.gen.ts";
+import { type RustcPatCtxt } from "../rustc_pattern_analysis/rustc.ts";
 import { debug_Span, type Span } from "../rustc_span/lib.ts";
 import { display_Ident, display_Symbol, type Ident, type Symbol } from "../rustc_span/symbol.ts";
 import { type Debug, debug_str, debug_struct } from "../std/fmt.ts";
@@ -1119,7 +1121,7 @@ export function UnusedUnsafeEnclosing_subdiagnostic(self: UnusedUnsafeEnclosing)
 
 // rustc-type: compiler/rustc_mir_build/src/diagnostics.rs:621 NonExhaustivePatternsTypeNotEmpty
 export interface NonExhaustivePatternsTypeNotEmpty {
-  cx: unknown;
+  cx: RustcPatCtxt;
   scrut_span: Span;
   braces_span: Span | undefined;
   ty: Ty;
@@ -1962,6 +1964,62 @@ export function NonEmptyNeverPattern_into_diag(self: NonEmptyNeverPattern, dcx: 
 /** `NonEmptyNeverPattern` as a `Diagnostic` trait object. */
 export function NonEmptyNeverPattern_diagnostic(self: NonEmptyNeverPattern): Diagnostic {
   return { into_diag: (dcx, level) => NonEmptyNeverPattern_into_diag(self, dcx, level) };
+}
+
+// rustc-type: compiler/rustc_mir_build/src/diagnostics.rs:1205 PatternNotCovered
+export interface PatternNotCovered {
+  span: Span;
+  origin: string;
+  uncovered: Uncovered;
+  inform: Inform | undefined;
+  interpreted_as_const: InterpretedAsConst | undefined;
+  interpreted_as_const_sugg: InterpretedAsConstSugg | undefined;
+  adt_defined_here: AdtDefinedHere | undefined;
+  witness_1_is_privately_uninhabited: boolean;
+  witness_1: string;
+  _p: null;
+  pattern_ty: Ty;
+  let_suggestion: SuggestLet | undefined;
+  misc_suggestion: MiscPatternSuggestion | undefined;
+}
+/** `#[derive(Diagnostic)]`: `impl<'_sess> Diagnostic<'_sess> for PatternNotCovered` */
+// rustc-derive: compiler/rustc_mir_build/src/diagnostics.rs:1205 Diagnostic PatternNotCovered
+export function PatternNotCovered_into_diag(self: PatternNotCovered, dcx: DiagCtxtHandle, level: Level): Diag {
+  const { span: __binding_0, origin: __binding_1, uncovered: __binding_2, inform: __binding_3, interpreted_as_const: __binding_4, interpreted_as_const_sugg: __binding_5, adt_defined_here: __binding_6, witness_1_is_privately_uninhabited: __binding_7, witness_1: __binding_8, _p: __binding_9, pattern_ty: __binding_10, let_suggestion: __binding_11, misc_suggestion: __binding_12 } = self;
+  const diag = Diag.new(dcx, level, { $: "Inline", _0: "refutable pattern in {$origin}" });
+  diag.code(E0005);
+  diag.arg("origin", IntoDiagArg.of(__binding_1, str_into_diag_arg));
+  diag.arg("witness_1", IntoDiagArg.of(__binding_8, String_into_diag_arg));
+  diag.arg("pattern_ty", IntoDiagArg.of(__binding_10, Ty_into_diag_arg));
+  diag.span(__binding_0);
+  diag.subdiagnostic(Uncovered_subdiagnostic(__binding_2));
+  if (__binding_3 !== undefined) {
+    diag.subdiagnostic(Inform_subdiagnostic(__binding_3));
+  }
+  if (__binding_4 !== undefined) {
+    diag.subdiagnostic(InterpretedAsConst_subdiagnostic(__binding_4));
+  }
+  if (__binding_5 !== undefined) {
+    diag.subdiagnostic(InterpretedAsConstSugg_subdiagnostic(__binding_5));
+  }
+  if (__binding_6 !== undefined) {
+    diag.subdiagnostic(AdtDefinedHere_subdiagnostic(__binding_6));
+  }
+  if (__binding_7) {
+    diag.note({ $: "Inline", _0: "pattern `{$witness_1}` is currently uninhabited, but this variant contains private fields which may become inhabited in the future" });
+  }
+  diag.note({ $: "Inline", _0: "the matched value is of type `{$pattern_ty}`" });
+  if (__binding_11 !== undefined) {
+    diag.subdiagnostic(SuggestLet_subdiagnostic(__binding_11));
+  }
+  if (__binding_12 !== undefined) {
+    diag.subdiagnostic(MiscPatternSuggestion_subdiagnostic(__binding_12));
+  }
+  return diag;
+}
+/** `PatternNotCovered` as a `Diagnostic` trait object. */
+export function PatternNotCovered_diagnostic(self: PatternNotCovered): Diagnostic {
+  return { into_diag: (dcx, level) => PatternNotCovered_into_diag(self, dcx, level) };
 }
 
 // rustc-type: compiler/rustc_mir_build/src/diagnostics.rs:1238 Inform

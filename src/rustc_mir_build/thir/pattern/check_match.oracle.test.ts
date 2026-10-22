@@ -48,7 +48,7 @@ const PRELUDE = [
   "pub struct NC;",
 ].join("\n");
 
-const STOP = "UNPORTED rustc_pattern_analysis::rustc::RustcPatCtxt::lower_pat (pending pat-c)";
+const STOP = "UNPORTED rustc_pattern_analysis::rustc::RustcPatCtxt::lower_pat";
 
 interface Case {
   name: string;

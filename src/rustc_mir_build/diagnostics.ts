@@ -2,10 +2,6 @@
 // `#[derive(Subdiagnostic)]` / `#[derive(LintDiagnostic)]` impls are generated into diagnostics.gen.ts
 // (tools/codegen/types.ts, set rustc_mir_build); the manual `impl Diagnostic` / `impl Subdiagnostic` blocks are ported
 // here.
-//
-// PORT: `PatternNotCovered` is not generated yet (skipped in the set): its `#[subdiagnostic] uncovered: Uncovered` is
-// rustc_pattern_analysis's (crate not ported). `RustcPatCtxt` (field `cx` of `NonExhaustivePatternsTypeNotEmpty`) is
-// `unknown` for the same reason; its into_diag reads the fields it needs through `RustcPatCtxtView`.
 import { number_into_diag_arg } from "../rustc_error_messages/diagnostic_impls.ts";
 import { MultiSpan } from "../rustc_error_messages/lib.ts";
 import {
@@ -58,13 +54,6 @@ export function UnsafeNotInheritedLintNote_subdiagnostic(self: UnsafeNotInherite
   return { add_to_diag: (diag) => UnsafeNotInheritedLintNote_add_to_diag(self, diag) };
 }
 
-/** PORT: the fields of rustc_pattern_analysis's `RustcPatCtxt` (not ported) that `into_diag` reads. */
-interface RustcPatCtxtView {
-  tcx: TyCtxt;
-  module: LocalModId;
-  typing_env: TypingEnv;
-}
-
 // impl<'a> Diagnostic<'a> for NonExhaustivePatternsTypeNotEmpty<'_, '_>
 // rustc: compiler/rustc_mir_build/src/diagnostics.rs:629 into_diag
 export function NonExhaustivePatternsTypeNotEmpty_into_diag(
@@ -72,7 +61,7 @@ export function NonExhaustivePatternsTypeNotEmpty_into_diag(
   dcx: DiagCtxtHandle,
   level: Level,
 ): Diag {
-  const cx = self.cx as RustcPatCtxtView;
+  const cx = self.cx;
   const diag = Diag.new(dcx, level, msg("non-exhaustive patterns: type `{$ty}` is non-empty"));
   diag.span(self.scrut_span);
   diag.code(E0004);

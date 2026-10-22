@@ -1,15 +1,12 @@
 // Port of compiler/rustc_mir_build/src/thir/pattern/check_match.rs (lane mb-check-match, plan-m4 wave 22).
 //
-// Every fn of check_match.rs is ported. Exhaustiveness goes through rustc_pattern_analysis, which is not ported yet
-// (lanes pat-b: constructor/pat/lib/diagnostics, pat-a: usefulness/pat_column/lints/checks, pat-c: rustc.rs + print).
-// The items of that crate this file uses are declared below, each marked `// PORT(contract): pending pat-*`: the types
-// as interfaces of exactly the API used here, the entry points (`RustcPatCtxt`'s methods, `analyze_match`,
-// `Uncovered::new`) as `unported(..)` stubs. When the crate lands, delete the block and import the real items.
+// Every fn of check_match.rs is ported. Exhaustiveness goes through rustc_pattern_analysis (src/rustc_pattern_analysis/:
+// lane pat-b's declarations, filled by pat-a / pat-c). Upstream's control flow sends every `let`, every fn/closure
+// parameter and every `match`/`if let` through `lower_pattern` -> `RustcPatCtxt::lower_pat` and `analyze_match` (the
+// irrefutability check *is* an exhaustiveness check).
 //
-// Upstream's control flow sends every `let`, every fn/closure parameter and every `match`/`if let` through
-// `lower_pattern` -> `RustcPatCtxt::lower_pat` and `analyze_match` (the irrefutability check *is* an exhaustiveness
-// check), so a body reaches the stubs as soon as it has a parameter or a pattern; bodies without patterns (e.g.
-// `fn main() { f(); }`) pass through `check_match` completely.
+// PORT: `RevealedTy` is a branded `Ty` (rustc_pattern_analysis rustc.ts): upstream's `.inner()` is `RevealedTy.inner(ty)`,
+// its `Deref` / `Display` use the value as the `Ty`.
 //
 // PORT: `MatchVisitor` (a thir `Visitor` impl) is a class extending rustc_middle thir/visit.ts's `Visitor`; its field
 // `thir` is `thir_` (the `Visitor::thir()` method has the same name). The methods of the `Visitor` impl and of
@@ -80,195 +77,22 @@ import {
   type UnreachablePatternInner,
   type Variant,
   type WantedConstant,
+  PatternNotCovered_diagnostic,
 } from "../../diagnostics.ts";
-
-// ---------------------------------------------------------------------------------------------------------------------
-// rustc_pattern_analysis (not ported): the items `use`d by check_match.rs.
-// ---------------------------------------------------------------------------------------------------------------------
-
-// PORT(contract): pending pat-c. `rustc_pattern_analysis::rustc::RevealedTy` (`#[repr(transparent)] struct
-// RevealedTy<'tcx>(Ty<'tcx>)`, `Deref<Target = Ty>`, `Display`/`Debug` as the `Ty`). Deref is `.inner()` here.
-export interface RevealedTy {
-  inner(): Ty;
-}
-
-// PORT(contract): pending pat-b. `rustc_pattern_analysis::constructor::IntRange` (only passed through here).
-export type IntRange = unknown;
-
-// PORT(contract): pending pat-b. `rustc_pattern_analysis::rustc::Constructor<'p, 'tcx>`
-// (= `constructor::Constructor<RustcPatCtxt>`): the variants, payloads typed where check_match.rs reads them.
-export type Constructor =
-  | { readonly $: "Struct" }
-  | { readonly $: "Variant"; _0: VariantIdx }
-  | { readonly $: "Ref" }
-  | { readonly $: "Slice"; _0: unknown }
-  | { readonly $: "UnionField" }
-  | { readonly $: "Bool"; _0: boolean }
-  | { readonly $: "IntRange"; _0: IntRange }
-  | { readonly $: "F16Range"; _0: unknown; _1: unknown; _2: unknown }
-  | { readonly $: "F32Range"; _0: unknown; _1: unknown; _2: unknown }
-  | { readonly $: "F64Range"; _0: unknown; _1: unknown; _2: unknown }
-  | { readonly $: "F128Range"; _0: unknown; _1: unknown; _2: unknown }
-  | { readonly $: "Str"; _0: unknown }
-  | { readonly $: "DerefPattern"; _0: RevealedTy }
-  | { readonly $: "Opaque"; _0: unknown }
-  | { readonly $: "Or" }
-  | { readonly $: "Wildcard" }
-  | { readonly $: "Never" }
-  | { readonly $: "NonExhaustive" }
-  | { readonly $: "Hidden" }
-  | { readonly $: "Missing" }
-  | { readonly $: "PrivateUninhabited" };
-
-// PORT(contract): pending pat-b. `rustc_pattern_analysis::pat::IndexedPat<RustcPatCtxt>`.
-export interface IndexedPat {
-  idx: number;
-  pat: DeconstructedPat;
-}
-
-// PORT(contract): pending pat-b. `rustc_pattern_analysis::rustc::DeconstructedPat<'p, 'tcx>`
-// (= `pat::DeconstructedPat<RustcPatCtxt>`; `PatData` = thir `Pat`, `Ty` = `RevealedTy`).
-export interface DeconstructedPat {
-  ctor(): Constructor;
-  ty(): RevealedTy;
-  data(): Pat;
-  iter_fields(): Iterable<IndexedPat>;
-  walk(it: (p: DeconstructedPat) => boolean): void;
-}
-
-// PORT(contract): pending pat-b. `rustc_pattern_analysis::rustc::WitnessPat<'p, 'tcx>`.
-export interface WitnessPat {
-  ctor(): Constructor;
-  ty(): RevealedTy;
-  is_never_pattern(): boolean;
-  iter_fields(): Iterable<WitnessPat>;
-}
-
-// PORT(contract): pending pat-b. `rustc_pattern_analysis::rustc::MatchArm<'p, 'tcx>` (`ArmData` = `HirId`; `Copy`).
-export interface MatchArm {
-  pat: DeconstructedPat;
-  has_guard: boolean;
-  arm_data: HirId;
-}
-
-// PORT(contract): pending pat-a. `rustc_pattern_analysis::rustc::RedundancyExplanation<'p, 'tcx>`.
-export interface RedundancyExplanation {
-  covered_by: DeconstructedPat[];
-}
-
-// PORT(contract): pending pat-a. `rustc_pattern_analysis::rustc::Usefulness<'p, 'tcx>`.
-export type Usefulness =
-  | { readonly $: "Useful"; _0: [DeconstructedPat, RedundancyExplanation][] }
-  | { readonly $: "Redundant"; _0: RedundancyExplanation };
-
-// PORT(contract): pending pat-a. `rustc_pattern_analysis::rustc::UsefulnessReport<'p, 'tcx>`.
-export interface UsefulnessReport {
-  arm_usefulness: [MatchArm, Usefulness][];
-  non_exhaustiveness_witnesses: WitnessPat[];
-  arm_intersections: unknown[];
-}
-
-// PORT(contract): pending pat-c. `rustc_pattern_analysis::rustc::RustcPatCtxtState` (private fields, `Default`).
-export class RustcPatCtxtState {
-  constructor(
-    /// Has a deref pattern been lowered? This is initialized to `false` and is updated by
-    /// [`RustcPatCtxt::lower_pat`] in order to avoid performing deref-pattern-specific validation
-    /// for everything containing patterns.
-    public has_lowered_deref_pat: boolean,
-  ) {}
-
-  static default_(): RustcPatCtxtState {
-    return new RustcPatCtxtState(false);
-  }
-}
-
-// PORT(contract): pending pat-c. `rustc_pattern_analysis::rustc::RustcPatCtxt<'p, 'tcx>` (imported as `PatCtxt`
-// upstream): the fields, and the methods check_match.rs calls as stubs.
-export class RustcPatCtxt {
-  constructor(
-    public tcx: TyCtxt,
-    public typeck_results: TypeckResults,
-    /// The module in which the match occurs.
-    public module: LocalModId,
-    public typing_env: TypingEnv,
-    /// To allocate the result of `self.ctor_sub_tys()`
-    public dropless_arena: null,
-    /// Lint level at the match.
-    public match_lint_level: HirId,
-    /// The span of the whole match, if applicable.
-    public whole_match_span: Span | undefined,
-    /// Span of the scrutinee.
-    public scrut_span: Span,
-    /// Only produce `NON_EXHAUSTIVE_OMITTED_PATTERNS` lint on refutable patterns.
-    public refutable: boolean,
-    /// Whether the data at the scrutinee is known to be valid.
-    public known_valid_scrutinee: boolean,
-    public internal_state: RustcPatCtxtState,
-  ) {}
-
-  // PORT(contract): pending pat-c (rustc.rs:158 is_uninhabited).
-  is_uninhabited(_ty: Ty): boolean {
-    return unported("rustc_pattern_analysis::rustc::RustcPatCtxt::is_uninhabited (pending pat-c)");
-  }
-
-  // PORT(contract): pending pat-c (rustc.rs:168 is_foreign_non_exhaustive_enum).
-  is_foreign_non_exhaustive_enum(_ty: RevealedTy): boolean {
-    return unported("rustc_pattern_analysis::rustc::RustcPatCtxt::is_foreign_non_exhaustive_enum (pending pat-c)");
-  }
-
-  // PORT(contract): pending pat-c (rustc.rs:177 is_range_beyond_boundaries).
-  is_range_beyond_boundaries(_range: IntRange, _ty: RevealedTy): boolean {
-    return unported("rustc_pattern_analysis::rustc::RustcPatCtxt::is_range_beyond_boundaries (pending pat-c)");
-  }
-
-  // PORT(contract): pending pat-c (rustc.rs:462 lower_pat).
-  lower_pat(_pat: Pat): DeconstructedPat {
-    return unported("rustc_pattern_analysis::rustc::RustcPatCtxt::lower_pat (pending pat-c)");
-  }
-
-  // PORT(contract): pending pat-c (rustc.rs:784 print_witness_pat).
-  print_witness_pat(_pat: WitnessPat): string {
-    return unported("rustc_pattern_analysis::rustc::RustcPatCtxt::print_witness_pat (pending pat-c)");
-  }
-}
-
-// PORT(contract): pending pat-c (rustc.rs:1067 analyze_match).
-export function analyze_match(_tycx: RustcPatCtxt, _arms: readonly MatchArm[], _scrut_ty: Ty): Result<UsefulnessReport, ErrorGuaranteed> {
-  return unported("rustc_pattern_analysis::rustc::analyze_match (pending pat-c)");
-}
-
-// PORT(contract): pending pat-b. `rustc_pattern_analysis::diagnostics::Uncovered` (a `#[derive(Subdiagnostic)]`).
-export type Uncovered = unknown;
-
-// PORT(contract): pending pat-b (diagnostics.rs:27 Uncovered::new).
-export function Uncovered_new(_span: Span, _cx: RustcPatCtxt, _witnesses: WitnessPat[]): Uncovered {
-  return unported("rustc_pattern_analysis::diagnostics::Uncovered::new (pending pat-b)");
-}
-
-// PORT(contract): pending tools/codegen. `crate::diagnostics::PatternNotCovered` is skipped in the codegen set until
-// `Uncovered` exists (diagnostics.ts header); the fields here are upstream's.
-export interface PatternNotCovered {
-  span: Span;
-  origin: string;
-  uncovered: Uncovered;
-  inform: Inform | undefined;
-  interpreted_as_const: InterpretedAsConst | undefined;
-  interpreted_as_const_sugg: InterpretedAsConstSugg | undefined;
-  witness_1_is_privately_uninhabited: boolean;
-  witness_1: string;
-  _p: null;
-  pattern_ty: Ty;
-  let_suggestion: SuggestLet | undefined;
-  misc_suggestion: MiscPatternSuggestion | undefined;
-  adt_defined_here: AdtDefinedHere | undefined;
-}
-
-// PORT(contract): pending tools/codegen (`#[derive(Diagnostic)] PatternNotCovered`, diagnostics.rs).
-export function PatternNotCovered_diagnostic(_self: PatternNotCovered): Diagnostic {
-  return unported("rustc_mir_build::diagnostics::PatternNotCovered (tools/codegen: skipped until rustc_pattern_analysis Uncovered)");
-}
-
-// ---------------------------------------------------------------------------------------------------------------------
+import { type Uncovered, Uncovered_new } from "../../../rustc_pattern_analysis/diagnostics.ts";
+import {
+  analyze_match,
+  type Constructor,
+  type DeconstructedPat,
+  type MatchArm,
+  type RedundancyExplanation,
+  RevealedTy,
+  RustcPatCtxt,
+  RustcPatCtxtState,
+  type Usefulness,
+  type UsefulnessReport,
+  type WitnessPat,
+} from "../../../rustc_pattern_analysis/rustc.ts";
 
 // rustc: compiler/rustc_mir_build/src/thir/pattern/check_match.rs:30 check_match
 export function check_match(tcx: TyCtxt, def_id: LocalDefId): Result<null, ErrorGuaranteed> {
@@ -691,7 +515,7 @@ export class MatchVisitor extends Visitor {
       scrut_span,
       refutable,
       known_valid_scrutinee,
-      RustcPatCtxtState.default_(),
+      RustcPatCtxtState.default(),
     );
   }
 
@@ -934,7 +758,7 @@ export class MatchVisitor extends Visitor {
     if (lp.$ === "Err") return lp;
     const pat = lp._0;
     const arms: MatchArm[] = [{ pat, arm_data: this.hir_source, has_guard: false }];
-    const rr = this.analyze_patterns(cx, arms, pat.ty().inner());
+    const rr = this.analyze_patterns(cx, arms, RevealedTy.inner(pat.ty()));
     if (rr.$ === "Err") return rr;
     const report = rr._0;
     return Ok([cx, report]);
@@ -1033,7 +857,7 @@ export class MatchVisitor extends Visitor {
     let witness_1_is_privately_uninhabited = false;
     const witness_1_ = witnesses[0];
     if (witness_1_ !== undefined) {
-      const k = witness_1_.ty().inner().kind();
+      const k = witness_1_.ty().kind();
       if (k.$ === "Adt") {
         const [adt, args] = [k._0, k._1];
         const ctor = witness_1_.ctor();
@@ -1302,8 +1126,7 @@ export function report_unreachable_pattern(
   const lint: UnreachablePatternInner = {
     span: pat_span,
     matches_no_values: undefined,
-    // PORT: `**pat.ty()` (the `Deref` of `RevealedTy`) is `.inner()`.
-    matches_no_values_ty: pat.ty().inner(),
+    matches_no_values_ty: pat.ty(),
     uninhabited_note: undefined,
     covered_by_catchall: undefined,
     covered_by_one: undefined,
@@ -1323,7 +1146,7 @@ export function report_unreachable_pattern(
     lint.matches_no_values = pat_span;
     lint.suggest_remove = whole_arm_span; // Suggest to remove the match arm
     pat.walk((subpat) => {
-      const ty = subpat.ty().inner();
+      const ty: Ty = subpat.ty();
       const c = subpat.ctor();
       if (cx.is_uninhabited(ty)) {
         lint.matches_no_values_ty = ty;
@@ -1653,36 +1476,35 @@ export function report_non_exhaustive_match(
   err.note(`the matched value is of type \`${display_Ty(scrut_ty)}\``);
 
   if (!is_empty_match) {
-    // PORT: `FxIndexSet<RevealedTy>`: `RevealedTy` hashes as its interned `Ty`, so the set is keyed on `.inner()`.
-    const special_tys: Map<Ty, RevealedTy> = new Map();
+    // PORT: `FxIndexSet<RevealedTy>` is a `Set` (a `RevealedTy` is its interned `Ty`; insertion-ordered).
+    const special_tys: Set<RevealedTy> = new Set();
     // Look at the first witness.
     collect_special_tys(cx, witnesses[0]!, special_tys);
 
-    for (const ty of special_tys.values()) {
-      // PORT: `RevealedTy`'s `Deref`/`Display` go through `.inner()`.
-      if (ty.inner().is_ptr_sized_integral()) {
-        if (ty.inner() === cx.tcx.types.usize) {
+    for (const ty of special_tys) {
+      if (ty.is_ptr_sized_integral()) {
+        if (RevealedTy.inner(ty) === cx.tcx.types.usize) {
           err.note(
-            `\`${display_Ty(ty.inner())}::MAX\` is not treated as exhaustive, ` +
+            `\`${display_Ty(ty)}::MAX\` is not treated as exhaustive, ` +
               `so half-open ranges are necessary to match exhaustively`,
           );
-        } else if (ty.inner() === cx.tcx.types.isize) {
+        } else if (RevealedTy.inner(ty) === cx.tcx.types.isize) {
           err.note(
-            `\`${display_Ty(ty.inner())}::MIN\` and \`${display_Ty(ty.inner())}::MAX\` are not treated as exhaustive, ` +
+            `\`${display_Ty(ty)}::MIN\` and \`${display_Ty(ty)}::MAX\` are not treated as exhaustive, ` +
               `so half-open ranges are necessary to match exhaustively`,
           );
         }
-      } else if (ty.inner() === cx.tcx.types.str_) {
+      } else if (RevealedTy.inner(ty) === cx.tcx.types.str_) {
         err.note("`&str` cannot be matched exhaustively, so a wildcard `_` is necessary");
       } else if (cx.is_foreign_non_exhaustive_enum(ty)) {
         err.note(
-          `\`${display_Ty(ty.inner())}\` is marked as non-exhaustive, so a wildcard \`_\` is necessary to match exhaustively`,
+          `\`${display_Ty(ty)}\` is marked as non-exhaustive, so a wildcard \`_\` is necessary to match exhaustively`,
         );
-      } else if (cx.is_uninhabited(ty.inner())) {
+      } else if (cx.is_uninhabited(RevealedTy.inner(ty))) {
         // The type is uninhabited yet there is a witness: we must be in the `MaybeInvalid`
         // case.
         err.note(
-          `\`${display_Ty(ty.inner())}\` is uninhabited but is not being matched by value, so a wildcard \`_\` is required`,
+          `\`${display_Ty(ty)}\` is uninhabited but is not being matched by value, so a wildcard \`_\` is required`,
         );
       }
     }
@@ -1830,26 +1652,21 @@ export function joined_uncovered_patterns(cx: RustcPatCtxt, witnesses: readonly 
 
 /// Collect types that require specific explanations when they show up in witnesses.
 // rustc: compiler/rustc_mir_build/src/thir/pattern/check_match.rs:1504 collect_special_tys
-export function collect_special_tys(cx: RustcPatCtxt, pat: WitnessPat, special_tys: Map<Ty, RevealedTy>): void {
+export function collect_special_tys(cx: RustcPatCtxt, pat: WitnessPat, special_tys: Set<RevealedTy>): void {
   const c = pat.ctor();
   if (c.$ === "NonExhaustive" || c.$ === "Never") {
-    insert_revealed(special_tys, pat.ty());
+    special_tys.add(pat.ty());
   }
   if (c.$ === "IntRange") {
     const range = c._0;
     if (cx.is_range_beyond_boundaries(range, pat.ty())) {
       // The range denotes the values before `isize::MIN` or the values after `usize::MAX`/`isize::MAX`.
-      insert_revealed(special_tys, pat.ty());
+      special_tys.add(pat.ty());
     }
   }
   for (const field_pat of pat.iter_fields()) {
     collect_special_tys(cx, field_pat, special_tys);
   }
-}
-
-/** PORT: `FxIndexSet<RevealedTy>::insert` (keyed on the interned `Ty`; keeps the first insertion's position). */
-function insert_revealed(set: Map<Ty, RevealedTy>, ty: RevealedTy): void {
-  if (!set.has(ty.inner())) set.set(ty.inner(), ty);
 }
 
 // rustc: compiler/rustc_mir_build/src/thir/pattern/check_match.rs:1521 report_adt_defined_here
@@ -1890,7 +1707,7 @@ export function maybe_point_at_variant(tcx: TyCtxt, def: AdtDef, patterns: Itera
     const c = pattern.ctor();
     if (c.$ === "Variant") {
       const variant_index = c._0;
-      const k = pattern.ty().inner().kind();
+      const k = pattern.ty().kind();
       if (k.$ === "Adt" && k._0.did() !== def.did()) {
         continue;
       }

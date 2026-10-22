@@ -774,9 +774,8 @@ Builder.prototype.expr_into_dest = function (this: Builder, destination: Place, 
             return { $: "InOut", reg, late, in_value, out_place };
           }
           case "Const": {
-            // PORT: thir's `InlineAsmOperand::Const::value` is a `mir::Const` (generated as `unknown`).
             const { value, span } = op;
-            return { $: "Const", value: new ConstOperand(span, undefined, value as Const) };
+            return { $: "Const", value: new ConstOperand(span, undefined, value) };
           }
           case "SymFn": {
             const { value } = op;

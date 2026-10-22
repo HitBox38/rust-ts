@@ -1633,12 +1633,7 @@
     "class": [],
     "hand": [],
     "discriminant": [],
-    "skip": [
-      "rustc_mir_build::diagnostics::PatternNotCovered"
-    ],
-    "skip_notes": {
-      "rustc_mir_build::diagnostics::PatternNotCovered": "its `#[subdiagnostic] uncovered: Uncovered` is rustc_pattern_analysis::diagnostics::Uncovered (crate not ported): generated with check_match (rustc_pattern_analysis lane)"
-    },
+    "skip": [],
     "typemap_extra": ["tyir.typemap.json", "middle_traits_thir.typemap.json", "ast_lowering.typemap.json", "mir_build.typemap.json"]
   },
   "rustc_pattern_analysis": {

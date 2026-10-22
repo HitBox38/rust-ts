@@ -6,6 +6,8 @@ import { try_visit } from "../rustc_ast_ir/visit.ts";
 import { clone_ImplicitSelfKind, clone_MatchSource, clone_RangeEnd, debug_ImplicitSelfKind, debug_MatchSource, debug_RangeEnd, type ImplicitSelfKind, type Lit, type MatchSource, type RangeEnd } from "../rustc_hir/lib.ts";
 import { debug_HirId, debug_ItemLocalId, type HirId, type ItemLocalId } from "../rustc_hir_id/lib.ts";
 import { clone_Scope, debug_Scope, type Scope } from "./middle/region.ts";
+import { type Const as MirConst, debug_Const as debug_MirConst } from "./mir/consts.ts";
+import { type AllocId, debug_AllocId } from "./mir/interpret/mod.ts";
 import { type AssignOp, type BinOp, type BorrowKind, debug_AssignOp, debug_BinOp, debug_BorrowKind, debug_FakeReadCause, debug_UnOp, type FakeReadCause, type UnOp } from "./mir/mod.ts";
 import { type ArmId, type BlockId, debug_ArmId, debug_BlockId, debug_ExprId, debug_StmtId, type ExprId, type StmtId } from "./thir.ts";
 import { debug_PointerCoercion, type PointerCoercion } from "./ty/adjustment.gen.ts";
@@ -29,8 +31,6 @@ import { type Const, debug_Const } from "../rustc_type_ir/sty/consts.ts";
 import { debug_FnSig, type FnSig } from "../rustc_type_ir/ty_kind.ts";
 import { type Debug, debug_bool, debug_int, debug_option, debug_struct, debug_tuple, debug_vec } from "../std/fmt.ts";
 import { unported } from "../std/panic.ts";
-const unported_debug = (_v: unknown): string => unported("Debug without a TS impl (see types report)");
-const unported_clone = <T>(_v: T): T => unported("Clone without a TS impl (see types report)");
 function unported_type_fold(..._a: unknown[]): never {
   return unported("TypeVisitable/TypeFoldable without a TS impl (see types report)");
 }
@@ -491,7 +491,7 @@ export type ExprKind =
   ///
   /// This is only distinguished from `Literal` so that we can register some
   /// info for diagnostics.
-  | { readonly $: "StaticRef"; alloc_id: unknown; ty: Ty; def_id: DefId }
+  | { readonly $: "StaticRef"; alloc_id: AllocId; ty: Ty; def_id: DefId }
   /// Inline assembly, i.e. `asm!()`.
   | { readonly $: "InlineAsm"; _0: InlineAsmExpr }
   /// An expression taking a reference to a thread local.
@@ -734,7 +734,7 @@ export const debug_ExprKind: Debug<ExprKind> = (v, f) => {
       ]);
     case "StaticRef":
       return debug_struct(f, "StaticRef", [
-        ["alloc_id", unported_debug(v.alloc_id)],
+        ["alloc_id", debug_AllocId(v.alloc_id, f)],
         ["ty", debug_Ty(v.ty, f)],
         ["def_id", debug_DefId(v.def_id, f)],
       ]);
@@ -967,7 +967,7 @@ export type InlineAsmOperand =
   | { readonly $: "Out"; reg: InlineAsmRegOrRegClass; late: boolean; expr: ExprId | undefined }
   | { readonly $: "InOut"; reg: InlineAsmRegOrRegClass; late: boolean; expr: ExprId }
   | { readonly $: "SplitInOut"; reg: InlineAsmRegOrRegClass; late: boolean; in_expr: ExprId; out_expr: ExprId | undefined }
-  | { readonly $: "Const"; value: unknown; span: Span }
+  | { readonly $: "Const"; value: MirConst; span: Span }
   | { readonly $: "SymFn"; value: ExprId }
   | { readonly $: "SymStatic"; def_id: DefId }
   | { readonly $: "Label"; block: BlockId };
@@ -999,7 +999,7 @@ export const debug_InlineAsmOperand: Debug<InlineAsmOperand> = (v, f) => {
       ]);
     case "Const":
       return debug_struct(f, "Const", [
-        ["value", unported_debug(v.value)],
+        ["value", debug_MirConst(v.value, f)],
         ["span", debug_Span(v.span, f)],
       ]);
     case "SymFn":
@@ -1027,7 +1027,7 @@ export function clone_InlineAsmOperand(v: InlineAsmOperand): InlineAsmOperand {
     case "SplitInOut":
       return { $: "SplitInOut", reg: v.reg, late: v.late, in_expr: v.in_expr, out_expr: v.out_expr };
     case "Const":
-      return { $: "Const", value: unported_clone(v.value), span: v.span };
+      return { $: "Const", value: v.value, span: v.span };
     case "SymFn":
       return { $: "SymFn", value: v.value };
     case "SymStatic":
