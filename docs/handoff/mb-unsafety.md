@@ -58,7 +58,8 @@ it). Both sides' complete stderr and exit code must be equal, and the oracle mus
 ## Checks
 - `bunx tsc --noEmit -p .`: clean. `bun scripts/coverage.ts --check`: markers ok (19008; vendor 4196).
 - `RUST_TS_REQUIRE_PROBES=1 bun test src/rustc_mir_build`: 31 pass / 0 fail.
-- Full `RUST_TS_REQUIRE_PROBES=1 bun test src --timeout=120000` (once, at `4f6d7c96`): see the last section.
+- Full `RUST_TS_REQUIRE_PROBES=1 bun test src --timeout=120000` (once, at `4f6d7c96`): **5802 pass, 1 skip, 0 fail**,
+  398 files, 4037 s (machine load ~90). Log: `$RUST_TS_DATA/tmp/mb-unsafety/full.log`.
 
 ## Samples (`RUST_TS_AGENT=root-ad4b`, vs root's base runs, case by case)
 - tydump-minicore (base `…-101651-…-9r7y`): 45 MATCH + 1 UNPORTED, all unchanged (run `mbu-tymc`).
