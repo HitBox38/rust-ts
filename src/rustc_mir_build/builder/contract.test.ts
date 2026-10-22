@@ -212,7 +212,7 @@ test("construct_error builds rustc's error body; build_mir_inner_impl reaches co
       const thir_ = thir.borrow();
       if (thir_.body_type.$ !== "Fn") throw new Error("ERROR: not a fn body");
       const sig = thir_.body_type._0;
-      stops(() => construct_fn(tcx, f!, thir_, expr, sig), "rustc_mir_build::builder::Builder::args_and_body"); // lane mb-mod (through scope.rs's `in_scope` / `in_breakable_scope`)
+      stops(() => construct_fn(tcx, f!, thir_, expr, sig), "rustc_mir_build::builder::expr::into::Builder::expr_into_dest"); // lane mb-expr-b (through mb-scope's scopes and mb-mod's args_and_body)
       ran = true;
     });
   });
