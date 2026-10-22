@@ -12,6 +12,8 @@
   ],
   "types": [
     { "paths": ["rustc_passes::check_attr::ProcMacroKind"], "into_diag_arg": "ProcMacroKind_into_diag_arg", "imports": { "src/rustc_passes/check_attr.ts": ["ProcMacroKind_into_diag_arg"] }, "note": "check_attr.rs:103 (small-gaps-19: `ProcMacroBadSig.kind`)" },
+    { "paths": ["rustc_hir::ConstContext", "rustc_hir::hir::ConstContext"], "into_diag_arg": "ConstContext_into_diag_arg", "display": "display_ConstContext($v)", "imports": { "src/rustc_hir/hir.ts": ["ConstContext_into_diag_arg", "display_ConstContext"] }, "note": "impl IntoDiagArg / Display for ConstContext (hir.rs:2162, 2172); added by const-check for rustc_const_eval diagnostics" },
+    { "paths": ["rustc_const_eval::interpret::InternKind", "crate::interpret::InternKind"], "into_diag_arg": "InternKind_into_diag_arg", "imports": { "src/rustc_const_eval/diagnostics.ts": ["InternKind_into_diag_arg"] }, "note": "impl IntoDiagArg for InternKind (rustc_const_eval diagnostics.rs:499); added by const-check" },
     { "paths": ["String"], "into_diag_arg": "String_into_diag_arg", "display": "$v", "imports": { "src/rustc_error_messages/diagnostic_impls.ts": ["String_into_diag_arg"] } },
     { "paths": ["str"], "into_diag_arg": "str_into_diag_arg", "display": "$v", "imports": { "src/rustc_error_messages/diagnostic_impls.ts": ["str_into_diag_arg"] } },
     { "paths": ["std::borrow::Cow", "Cow"], "into_diag_arg": "Cow_into_diag_arg", "display": "$v", "imports": { "src/rustc_error_messages/diagnostic_impls.ts": ["Cow_into_diag_arg"] }, "note": "Cow<'_, str> only" },
