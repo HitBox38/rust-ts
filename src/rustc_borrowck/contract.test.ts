@@ -111,8 +111,8 @@ test("every fn of rustc_borrowck is ported or declared as a stub, never both", (
     }
   }
   expect(total).toBe(901);
-  expect(markers.length).toBe(332);
-  expect(stubs.length).toBe(569);
+  expect(markers.length).toBe(397);
+  expect(stubs.length).toBe(504);
 });
 
 test("the stubs per fill lane are the handoff's split table", () => {
@@ -122,10 +122,10 @@ test("the stubs per fill lane are the handoff's split table", () => {
     "bck-lib-a": 8,
     "bck-lib-b": 22,
     // "bck-core": 0 (filled by lane bck-core, wave 23)
-    "bck-nll": 64,
     // "bck-tc-a": 0 (filled, wave 23: type_check/mod.rs 39 stubs -> markers)
     // "bck-tc-live": 0 (filled, wave 23)
     // bck-regions-a: 0 (filled, wave 23)
+    // "bck-nll": 0 (filled, wave 23)
     "bck-regions-b": 94,
     "bck-polonius": 39,
     "bck-diag-a": 34,
@@ -134,7 +134,7 @@ test("the stubs per fill lane are the handoff's split table", () => {
     "bck-diag-d": 70,
     "bck-diag-e": 48,
     "bck-diag-f": 70,
-    "bck-polonius-legacy": 41,
+    "bck-polonius-legacy": 40,
   });
   // lib.rs is split at line 1400 (bck-lib-a / bck-lib-b), conflict_errors.rs at line 2469 (bck-diag-a / bck-diag-b)
   for (const d of stubs.filter((d) => d.path === `${CRATE}lib.rs`)) {
@@ -145,7 +145,7 @@ test("the stubs per fill lane are the handoff's split table", () => {
   }
   // the legacy polonius fns every borrowck run reaches belong to an M4b lane (bck-nll), the rest to wave 26
   for (const d of stubs.filter((d) => d.path.startsWith(`${CRATE}polonius/legacy/`))) {
-    const main_path = d.path.endsWith("/location.rs") || (d.path.endsWith("/facts.rs") && d.name === "enabled") || (d.path.endsWith("/legacy/mod.rs") && d.name === "emit_facts");
+    const main_path = d.path.endsWith("/location.rs") || (d.path.endsWith("/facts.rs") && d.name === "enabled") || (d.path.endsWith("/legacy/mod.rs") && (d.name === "emit_facts" || d.name === "emit_drop_facts"));
     expect(`${d.path}:${d.line} ${d.name}: ${d.lane}`).toBe(`${d.path}:${d.line} ${d.name}: ${main_path ? "bck-nll" : "bck-polonius-legacy"}`);
   }
 });
@@ -258,8 +258,9 @@ test("mir_borrowck: trivial const and tainted body return early; a real body rea
         expect(bad.$).toBe("Err");
 
         // a real body: `BorrowCheckRootCtxt::do_mir_borrowck` -> `borrowck_collect_region_constraints` -> the
-        // `BorrowckInferCtxt`, the promoted MIR, then the first stub (lane bck-nll)
-        stops(() => tcx.mir_borrowck(items.get("f")!), "rustc_borrowck::nll::replace_regions_in_mir");
+        // `BorrowckInferCtxt`, the promoted MIR, `replace_regions_in_mir` (universal regions + renumbering, bck-nll),
+        // `PoloniusLocationTable::new`, `MoveData::gather_moves`, then the first stub (lane bck-core)
+        stops(() => tcx.mir_borrowck(items.get("f")!), "rustc_borrowck::borrow_set::BorrowSet::build");
         ran = true;
       });
     });

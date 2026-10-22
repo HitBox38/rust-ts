@@ -35,7 +35,7 @@ const CASES = readdirSync(CASES_DIR)
  * oracle's own diagnostics; the others now run `analysis` through and equal the oracle.
  */
 const PENDING: Record<string, string> = Object.fromEntries(
-  ["e0049_fn", "e0049_fn_fewer", "e0049_impl_trait", "e0050", "e0053_kinds_fn", "e0053_sig", "e0185", "e0186", "e0195", "e0643", "refine_rpitit"].map((c) => [c, "mir_borrowck provider (not ported)"]),
+  ["e0049_fn", "e0049_fn_fewer", "e0049_impl_trait", "e0050", "e0053_kinds_fn", "e0053_sig", "e0185", "e0186", "e0195", "e0643", "refine_rpitit"].map((c) => [c, "rustc_borrowck::borrow_set::BorrowSet::build"]),
 );
 
 /**
