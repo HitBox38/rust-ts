@@ -134,7 +134,6 @@ test("stubs per fill lane (the split table of docs/handoff/mir-contract.md)", ()
     "mir-interp-a": 91,
     "mir-interp-b": 184,
     "mir-pretty": 43,
-    "mir-visit": 125,
   });
 });
 
@@ -181,14 +180,15 @@ test("stubs stop as UNPORTED with their own path", () => {
   stops(() => write_mir_pretty(null as never, null as never), "rustc_middle::mir::pretty::write_mir_pretty");
   stops(() => CtfeProvenance.alloc_id(1n as CtfeProvenance), "rustc_middle::mir::interpret::pointer::CtfeProvenance::alloc_id");
   stops(() => InterpResult.unwrap({ $: "Ok", _0: 1 }), "rustc_middle::mir::interpret::error::InterpResult::unwrap");
+  // (lane mir-visit) `Visitor` / `MutVisitor` are ported: their walks are checked in visit.test.ts.
   class V extends Visitor {}
-  stops(() => new V().visit_body(null as never), "rustc_middle::mir::visit::Visitor::visit_body");
+  expect(() => new V().visit_local(RETURN_PLACE, { $: "MutatingUse", _0: "Store" }, Location.START)).not.toThrow();
   class M extends MutVisitor {
     tcx(): never {
       throw new Error("unused");
     }
   }
-  stops(() => new M().visit_local({ value: RETURN_PLACE }, null as never, null as never), "rustc_middle::mir::visit::MutVisitor::visit_local");
+  expect(() => new M().visit_local({ value: RETURN_PLACE }, { $: "MutatingUse", _0: "Store" }, Location.START)).not.toThrow();
 });
 
 test("ported glue: HasLocalDecls, Location / AllocId Debug, BasicBlocks caches", () => {
