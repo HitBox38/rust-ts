@@ -541,7 +541,9 @@ InterpCx.prototype.allocate_bytes_ptr = function (this: InterpCx, bytes: Uint8Ar
 
 // rustc: compiler/rustc_const_eval/src/interpret/memory.rs:279 insert_allocation
 InterpCx.prototype.insert_allocation = function (this: InterpCx, alloc: Allocation, kind: MemoryKind<CtfeMemoryKind>): InterpResult<Pointer> {
-  assert(alloc.size().bytes() <= PointerArithmetic_provided.max_size_of_val(this).bytes(), "assertion failed: alloc.size() <= self.max_size_of_val()");
+  // PORT: `self.max_size_of_val()` is `Size::from_bytes(self.target_isize_max())`, beyond 2^53 on 64-bit targets (a
+  // `Size` is a number, recorded decision): the comparison is on the bytes, as `bigint`s.
+  assert(BigInt(alloc.size().bytes()) <= PointerArithmetic_provided.target_isize_max(this), "assertion failed: alloc.size() <= self.max_size_of_val()");
   const id = this.tcx.deref().reserve_alloc_id();
   // debug_assert_ne!(Some(kind), M::GLOBAL_KIND.map(MemoryKind::Machine), "dynamically allocating global memory");
   // This cannot be merged with the `adjust_global_allocation` code path
