@@ -24,6 +24,8 @@ import { DefKind } from "../rustc_hir/def.ts";
 import { bug } from "../rustc_span/macros.ts";
 import { panic, unported } from "../std/panic.ts";
 import { PLAIN } from "../std/fmt.ts";
+import { DiagSymbolList_from } from "../rustc_errors/diagnostic_impls.ts";
+import * as diagnostics from "./diagnostics.ts";
 
 // thread_local! {
 /// Maps MIR pass names to a snake case form to match profiling naming style
@@ -341,16 +343,15 @@ function run_passes_inner(tcx: TyCtxt, body: Body, passes: readonly MirPass[], p
   const pass_names = PASS_NAMES();
   for (const name of named_passes) {
     if (pass_names.has(name)) continue;
-    // tcx.dcx().emit_warn(diagnostics::UnknownPassName { name });
-    unported("rustc_mir_transform::diagnostics::UnknownPassName (generated diagnostics; lane mt-built-lints)");
+    tcx.dcx().emit_warn(diagnostics.UnknownPassName_diagnostic({ name }));
     unknown_found = true;
   }
 
   if (unknown_found) {
-    // let mut valid_pass_names = crate::PASS_NAMES.iter().copied().collect::<Vec<_>>();
-    // valid_pass_names.sort();
-    // tcx.dcx().emit_note(diagnostics::ValidPassNames { valid_passes: valid_pass_names.into() });
-    unported("rustc_mir_transform::diagnostics::ValidPassNames (generated diagnostics; lane mt-built-lints)");
+    const valid_pass_names = [...PASS_NAMES()];
+    // PORT: `<[&str]>::sort` compares bytes; the pass names are ASCII, so UTF-16 order is the same.
+    valid_pass_names.sort();
+    tcx.dcx().emit_note(diagnostics.ValidPassNames_diagnostic({ valid_passes: DiagSymbolList_from(valid_pass_names) }));
   }
 
   // Verify that no passes are missing from the `declare_passes` invocation

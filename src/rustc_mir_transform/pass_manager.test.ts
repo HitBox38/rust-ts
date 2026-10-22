@@ -39,6 +39,20 @@ import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import type { Ty } from "../rustc_middle/ty/decls.ts";
 import type { Providers } from "../rustc_middle/util/mod.ts";
 import { Unported } from "../std/panic.ts";
+import { DiagCtxt, DiagCtxtFlags_default, type DiagInner } from "../rustc_errors/lib.ts";
+import { Emitter } from "../rustc_errors/emitter.ts";
+import { format_diag_messages } from "../rustc_errors/formatting.ts";
+
+/** An emitter that records the emitted diagnostics. */
+class RecordingEmitter extends Emitter {
+  readonly out: DiagInner[] = [];
+  emit_diagnostic(diag: DiagInner): void {
+    this.out.push(diag);
+  }
+  source_map(): undefined {
+    return undefined;
+  }
+}
 import { PASS_NAMES, provide } from "./lib.ts";
 import { Lint, MirLint, MirPass, PassCtx, PassPolicy, run_passes, should_run_pass, simplify_pass_type_name, WithMinOptLevel } from "./pass_manager.ts";
 import { MirPatch } from "./patch.ts";
@@ -264,11 +278,16 @@ describe("run_passes", () => {
     expect(body.phase).toEqual({ $: "Analysis", _0: "Initial" });
   });
 
-  test("unknown -Zmir-enable-passes names stop at the generated diagnostics (lane mt-built-lints)", () => {
+  test("unknown -Zmir-enable-passes names: the warning, then the oracle's note listing the valid names (lane mt-built-lints)", () => {
     const body = mk_body([block([], { $: "Return" })]);
-    expect(unported_what(() => run_passes(fake_tcx({ mir_enable_passes: [["NoSuchPass", true]] }), body, [], undefined))).toBe(
-      "rustc_mir_transform::diagnostics::UnknownPassName (generated diagnostics; lane mt-built-lints)",
-    );
+    const em = new RecordingEmitter();
+    const dcx = DiagCtxt.new(em).with_flags({ ...DiagCtxtFlags_default(), can_emit_warnings: true });
+    const tcx = fake_tcx({ mir_enable_passes: [["NoSuchPass", true]] });
+    (tcx as unknown as { dcx: () => unknown }).dcx = () => dcx.handle();
+    run_passes(tcx, body, [], undefined);
+    const out = em.out.map((d) => `${d.level.$ === "Warning" ? "warning" : d.level.$ === "Note" ? "note" : d.level.$}: ${format_diag_messages(d.messages, d.args)}`);
+    const oracle_note = readFileSync(join(DIR, "pass_names.txt"), "utf8").trimEnd();
+    expect(out).toEqual(["warning: MIR pass `NoSuchPass` is unknown and will be ignored", oracle_note]);
   });
 });
 
@@ -397,7 +416,8 @@ describe("module layout", () => {
       for (const e of readdirSync(d)) {
         const p = join(d, e);
         if (statSync(p).isDirectory()) walk(p);
-        else if (p.endsWith(".ts") && !p.endsWith(".test.ts")) files.push(p);
+        // generated `<module>.gen.ts` files belong to their hand module (`<module>.ts`)
+        else if (p.endsWith(".ts") && !p.endsWith(".test.ts") && !p.endsWith(".gen.ts")) files.push(p);
       }
     };
     walk(src);
@@ -414,7 +434,7 @@ describe("module layout", () => {
         expect(m[1]).toBe(`compiler/rustc_mir_transform/src/${rel}`);
       }
     }
-    expect(stubs).toBe(69);
+    expect(stubs).toBe(60);
   });
 });
 
