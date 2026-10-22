@@ -18,7 +18,7 @@ import type { PolyFnSig as PolyFnSigT } from "../rustc_type_ir/decls.ts";
 import type { TypingMode } from "../rustc_type_ir/infer_ctxt.ts";
 import { fold_FnSig, PolyFnSig, PolyFnSigTys } from "../rustc_type_ir/ty_kind.ts";
 import { Unnormalized } from "../rustc_type_ir/unnormalized.ts";
-import { unported } from "../std/panic.ts";
+import { symbol_name_from_attrs } from "../rustc_symbol_mangling/lib.ts";
 import type { LateContext } from "./context.ts";
 import { RedefiningRuntimeSymbolsDiag_diagnostic } from "./diagnostics.gen.ts";
 import type { LateLintPass } from "./passes.ts";
@@ -52,9 +52,7 @@ RuntimeSymbols.prototype.check_item = function (this: RuntimeSymbols, cx: LateCo
 
       // Try to get the overridden symbol name of this function (our mangling
       // cannot ever conflict with runtime symbols, so no need to check for those).
-      // PORT: `rustc_symbol_mangling::symbol_name_from_attrs(cx.tcx, InstanceKind::Item(item.owner_id.to_def_id()))`
-      // (rustc_symbol_mangling/src/lib.rs:172): the crate is not ported.
-      const symbol_name: string | undefined = unported("rustc_symbol_mangling::symbol_name_from_attrs");
+      const symbol_name = symbol_name_from_attrs(cx.tcx, { $: "Item", _0: item.owner_id.to_def_id() });
       if (symbol_name === undefined) {
         return;
       }
@@ -65,8 +63,7 @@ RuntimeSymbols.prototype.check_item = function (this: RuntimeSymbols, cx: LateCo
     case "Static": {
       // Compute the symbol name of this static (without mangling, as our mangling
       // cannot ever conflict with runtime symbols).
-      // PORT: `rustc_symbol_mangling::symbol_name_from_attrs` as above.
-      const symbol_name: string | undefined = unported("rustc_symbol_mangling::symbol_name_from_attrs");
+      const symbol_name = symbol_name_from_attrs(cx.tcx, { $: "Item", _0: item.owner_id.to_def_id() });
       if (symbol_name === undefined) {
         return;
       }

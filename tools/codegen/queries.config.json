@@ -41,6 +41,8 @@
   "keys": {
     "()": "unit",
     "rustc_span::def_id::DefId": "DefId",
+    "rustc_middle::ty::instance::Instance": "Instance",
+    "rustc_middle::ty::instance::InstanceKind": "InstanceKind",
     "rustc_span::def_id::LocalDefId": "LocalDefId",
     "rustc_span::def_id::CrateNum": "CrateNum",
     "rustc_hir_id::OwnerId": "OwnerId",

@@ -63,6 +63,8 @@
     "getopts": "=0.2.24",
     "rustc-stable-hash": "=0.1.2",
     "odht": "=0.3.1",
-    "ena": "=0.14.4"
+    "ena": "=0.14.4",
+    "punycode": "=0.4.1",
+    "rustc-demangle": "=0.1.28"
   }
 }
