@@ -111,7 +111,10 @@ import type { Ty } from "../rustc_middle/ty/decls.ts";
 import type { Providers } from "../rustc_middle/util/mod.ts";
 import { debug_LocalDefId, type DefId, LocalDefId } from "../rustc_span/def_id.ts";
 import { DUMMY_SP, type Spanned } from "../rustc_span/lib.ts";
-import { bug } from "../rustc_span/macros.ts";
+import { bug, span_bug } from "../rustc_span/macros.ts";
+import { check_consts } from "../rustc_const_eval/lib.ts";
+import { fold_Ty } from "../rustc_middle/ty/structural_impls.ts";
+import { TypeVisitableExt } from "../rustc_type_ir/visit.ts";
 import { sym } from "../rustc_span/symbol.ts";
 import { PLAIN } from "../std/fmt.ts";
 import { assert, panic, unported, unreachable, unwrap } from "../std/panic.ts";
@@ -538,25 +541,26 @@ function mir_const_qualif(tcx: TyCtxt, def: LocalDefId): ConstQualifs {
   // cannot yet be stolen), because `mir_promoted()`, which steals
   // from `mir_built()`, forces this query to execute before
   // performing the steal.
-  const _body = tcx.mir_built(def).borrow();
-  // PORT: rustc_const_eval's check_consts is not ported (lanes mt-promote / const-check): the rest of this fn is
-  //   let ccx = check_consts::ConstCx::new(tcx, body);
-  //   // No need to const-check a non-const `fn`.
-  //   match ccx.const_kind {
-  //       Some(ConstContext::Const { .. } | ConstContext::Static(_) | ConstContext::ConstFn) => {}
-  //       None => span_bug!(tcx.def_span(def), "`mir_const_qualif` should only be called on const fns and const items"),
-  //   }
-  //   if body.return_ty().references_error() {
-  //       // It's possible to reach here without an error being emitted (#121103).
-  //       tcx.dcx().span_delayed_bug(body.span, "mir_const_qualif: MIR had errors");
-  //       return Default::default();
-  //   }
-  //   let mut validator = check_consts::check::Checker::new(&ccx);
-  //   validator.check_body();
-  //   // We return the qualifs in the return place for every MIR body, even though it is only used
-  //   // when deciding to promote a reference to a `const` for now.
-  //   validator.qualifs_in_return_place()
-  return unported("rustc_const_eval::check_consts::ConstCx::new (mir_const_qualif; lanes mt-promote / const-check)");
+  const body = tcx.mir_built(def).borrow();
+  const ccx = check_consts.ConstCx.new(tcx, body);
+  // No need to const-check a non-const `fn`.
+  if (ccx.const_kind === undefined) {
+    return span_bug(tcx.def_span(def), "`mir_const_qualif` should only be called on const fns and const items");
+  }
+  // Some(ConstContext::Const { .. } | ConstContext::Static(_) | ConstContext::ConstFn) => {}
+
+  if (TypeVisitableExt.references_error(body.return_ty(), fold_Ty)) {
+    // It's possible to reach here without an error being emitted (#121103).
+    tcx.dcx().span_delayed_bug(body.span, "mir_const_qualif: MIR had errors");
+    return ConstQualifs_default();
+  }
+
+  const validator = check_consts.check.Checker.new(ccx);
+  validator.check_body();
+
+  // We return the qualifs in the return place for every MIR body, even though it is only used
+  // when deciding to promote a reference to a `const` for now.
+  return validator.qualifs_in_return_place();
 }
 
 /// Implementation of the `mir_built` query.
@@ -791,13 +795,6 @@ function phase_eq(a: MirPhase, b: MirPhase): boolean {
   return MirPhase_cmp(a, b) === 0;
 }
 
-/**
- * `check_consts::post_drop_elaboration::checking_enabled(&ConstCx::new(tcx, body))`. PORT: rustc_const_eval's
- * check_consts is not ported (lane mt-promote); this stand-in stops there.
- */
-function checking_enabled_ConstCx_new(_tcx: TyCtxt, _body: Body): boolean {
-  return unported("rustc_const_eval::check_consts::post_drop_elaboration::checking_enabled (lane mt-promote)");
-}
 
 // Made public so that `mir_drops_elaborated_and_const_checked` can be overridden
 // by custom rustc drivers, running all the steps by themselves. See #114628.
@@ -811,7 +808,7 @@ export function run_analysis_to_runtime_passes(tcx: TyCtxt, body: Body): void {
   assert(phase_eq(body.phase, { $: "Analysis", _0: "PostCleanup" }), "assertion failed: body.phase == MirPhase::Analysis(AnalysisPhase::PostCleanup)");
 
   // Do a little drop elaboration before const-checking if `const_precise_live_drops` is enabled.
-  if (checking_enabled_ConstCx_new(tcx, body)) {
+  if (check_consts.post_drop_elaboration.checking_enabled(check_consts.ConstCx.new(tcx, body))) {
     pass_manager.run_passes(
       tcx,
       body,

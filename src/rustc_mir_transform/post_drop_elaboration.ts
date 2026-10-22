@@ -1,17 +1,16 @@
-// Stub module (lane mt-promote): compiler/rustc_mir_transform/src/post_drop_elaboration.rs is not ported yet.
-// Lane mt-skeleton declared only what lib.rs / pass_manager.rs reference (docs/handoff/mt-skeleton.md, "Module
-// layout"); the porting lane replaces this file with the whole port, keeping these names and shapes. Every stub stops
-// as UNPORTED with its upstream path.
-import { unported } from "../std/panic.ts";
+// Port of compiler/rustc_mir_transform/src/post_drop_elaboration.rs (lane mt-promote).
+import { check_consts } from "../rustc_const_eval/lib.ts";
 import type { Body } from "../rustc_middle/mir/mod.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import { MirLint } from "./pass_manager.ts";
 
-// stub: compiler/rustc_mir_transform/src/post_drop_elaboration.rs:7 CheckLiveDrops (lane mt-promote)
+// rustc-type: compiler/rustc_mir_transform/src/post_drop_elaboration.rs:7 CheckLiveDrops
 export class CheckLiveDrops extends MirLint {
   readonly type_name = "rustc_mir_transform::post_drop_elaboration::CheckLiveDrops";
 
-  run_lint(_tcx: TyCtxt, _body: Body): void {
-    return unported("rustc_mir_transform::post_drop_elaboration::CheckLiveDrops (pass not ported)");
+  // impl<'tcx> MirLint<'tcx> for CheckLiveDrops
+  // rustc: compiler/rustc_mir_transform/src/post_drop_elaboration.rs:10 run_lint
+  run_lint(tcx: TyCtxt, body: Body): void {
+    check_consts.post_drop_elaboration.check_live_drops(tcx, body);
   }
 }
