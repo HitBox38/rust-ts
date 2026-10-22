@@ -281,9 +281,10 @@ function dump_layouts(tcx: TyCtxt): string[] {
 
 /** Sources whose every item still stops before its layout (the exact stop; promote to a match when it moves). */
 const PENDING: Record<string, string> = {
-  // explicit discriminants: `AdtDef::discriminants` -> `eval_explicit_discr` -> `const_eval_poly` (M4); the implicit ones
-  // (`E2`, `E3`, ... in layout_aggregates.rs) match
-  layout_discriminants: "rustc_middle::mir::interpret::TyCtxt::const_eval_poly (M4)",
+  // explicit discriminants: `AdtDef::discriminants` -> `eval_explicit_discr` -> `const_eval_poly` (ported, lane
+  // mir-interp-b) -> the `eval_to_const_value_raw` query's key (M4); the implicit ones (`E2`, `E3`, ... in
+  // layout_aggregates.rs) match
+  layout_discriminants: "rustc_middle::query::keys: QueryKey for `ty::PseudoCanonicalInput<'tcx, GlobalId<'tcx>>` (cache)",
 };
 
 for (const [name, lines] of SOURCES) {

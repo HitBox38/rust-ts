@@ -151,8 +151,9 @@ const CASES: Case[] = [
       "}",
     ],
     expect: ["`Default` impl doesn't use the declared default field values", "derive the `Default`"],
-    // Default field values are const-evaluated in the analysis prefix, before the lint runs.
-    stop: ["rustc_middle::mir::interpret::TyCtxt::const_eval_poly"],
+    // Default field values are const-evaluated in the analysis prefix, before the lint runs (`const_eval_poly`, ported by
+    // lane mir-interp-b, stops at the `eval_to_const_value_raw` query's key until CTFE lands).
+    stop: ["rustc_middle::query::keys: QueryKey for `ty::PseudoCanonicalInput<'tcx, GlobalId<'tcx>>`"],
   },
   // deref_into_dyn_supertrait.rs
   {
