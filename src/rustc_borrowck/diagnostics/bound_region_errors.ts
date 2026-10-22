@@ -8,41 +8,77 @@
 // `ToUniverseInfo_<Type>`; the impl for `!` is `ToUniverseInfo_never`.
 // PORT: `T: Copy + fmt::Display + TypeFoldable<TyCtxt>` of the `NormalizeQuery<T>` / `CanonicalTypeOpNormalizeGoal<T>`
 // impls become the parameters `display_T` / `d_T` of the impl-table constructors (errctxt-contract signature rule 5).
+import { fold_ParamEnvAnd } from "../../rust_ts/fold_param_env_and.ts";
+import { intern_key_eq } from "../../rust_ts/intern_key.ts";
 import type { Diag } from "../../rustc_errors/lib.ts";
 import type { InferCtxt } from "../../rustc_infer/decls.ts";
-import type { RegionVariableOrigin } from "../../rustc_infer/infer/mod.ts";
-import type { RegionConstraintData } from "../../rustc_infer/infer/region_constraints/mod.ts";
+import type { RegionResolutionError } from "../../rustc_infer/infer/lexical_region_resolve/mod.ts";
+import { clone_SubregionOrigin, type RegionVariableOrigin, type SubregionOrigin } from "../../rustc_infer/infer/mod.ts";
+import { clone_RegionConstraintData, type Constraint, type RegionConstraintData } from "../../rustc_infer/infer/region_constraints/mod.ts";
 import type { ObligationCause } from "../../rustc_middle/traits/mod.ts";
-import type {
-  CanonicalTypeOpAscribeUserTypeGoal,
-  CanonicalTypeOpNormalizeGoal,
-  CanonicalTypeOpProvePredicateGoal,
+import {
+  type CanonicalTypeOpAscribeUserTypeGoal,
+  type CanonicalTypeOpNormalizeGoal,
+  type CanonicalTypeOpProvePredicateGoal,
+  type_op as middle_type_op,
 } from "../../rustc_middle/traits/query.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
-import type { Ty } from "../../rustc_middle/ty/mod.ts";
+import type { ParamEnv, Ty } from "../../rustc_middle/ty/mod.ts";
+import { display_Predicate } from "../../rustc_middle/ty/print/pretty.ts";
 import type { LocalDefId } from "../../rustc_span/def_id.ts";
 import type { Span } from "../../rustc_span/lib.ts";
-import type { ObligationCtxt } from "../../rustc_trait_selection/traits/engine.ts";
-import type { PlaceholderRegion } from "../../rustc_type_ir/binder.ts";
+import { NiceRegionError } from "../../rustc_trait_selection/error_reporting/infer/nice_region_error/mod.ts";
+import { ObligationCtxt } from "../../rustc_trait_selection/traits/engine.ts";
+import { type_op_ascribe_user_type_with_span } from "../../rustc_trait_selection/traits/query/type_op/ascribe_user_type.ts";
+import { type_op_prove_predicate_with_cause } from "../../rustc_trait_selection/traits/query/type_op/prove_predicate.ts";
+import { PlaceholderRegion } from "../../rustc_type_ir/binder.ts";
 import type { TypeFoldable } from "../../rustc_type_ir/fold.ts";
-import type { UniverseIndex } from "../../rustc_type_ir/lib.ts";
+import { UniverseIndex } from "../../rustc_type_ir/lib.ts";
 import type { RegionVid } from "../../rustc_type_ir/region_kind.ts";
-import type { Region } from "../../rustc_type_ir/sty/mod.ts";
-import { unported } from "../../std/panic.ts";
+import { Region } from "../../rustc_type_ir/sty/mod.ts";
+import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
+import { unreachable, unwrap } from "../../std/panic.ts";
 import type { MirBorrowckCtxt } from "../lib.gen.ts";
+import { HigherRankedLifetimeError_diagnostic, HigherRankedSubtypeError_diagnostic } from "../session_diagnostics.gen.ts";
 import type { InstantiateOpaqueType } from "../type_check/mod.gen.ts";
 import * as gen from "./bound_region_errors.gen.ts";
 import type { AscribeUserTypeQuery, NormalizeQuery, PredicateQuery } from "./bound_region_errors.gen.ts";
 
 export * from "./bound_region_errors.gen.ts";
 
+// PORT: the `TypeFoldable` impls of the type-op keys handed to `build_with_canonical` (derived upstream; D4
+// descriptors as in rustc_traits type_op.ts).
+const d_ParamEnvAnd_ProvePredicate = fold_ParamEnvAnd<middle_type_op.ProvePredicate>({
+  visit_with: middle_type_op.visit_with_ProvePredicate,
+  try_fold_with: middle_type_op.try_fold_with_ProvePredicate,
+  fold_with: middle_type_op.fold_with_ProvePredicate,
+});
+const d_ParamEnvAnd_AscribeUserType = fold_ParamEnvAnd<middle_type_op.AscribeUserType>({
+  visit_with: middle_type_op.visit_with_AscribeUserType,
+  try_fold_with: middle_type_op.try_fold_with_AscribeUserType,
+  fold_with: middle_type_op.fold_with_AscribeUserType,
+});
+/** `Normalize<T>: TypeFoldable` (derived, generic over `T`). */
+function d_Normalize<T>(d_T: TypeFoldable<T>): TypeFoldable<middle_type_op.Normalize<T>> {
+  return {
+    visit_with: (self, v) => middle_type_op.visit_with_Normalize(self, v, d_T.visit_with),
+    try_fold_with: (self, f) => middle_type_op.try_fold_with_Normalize(self, f, d_T.try_fold_with),
+    fold_with: (self, f) => middle_type_op.fold_with_Normalize(self, f, d_T.fold_with),
+  };
+}
+
+/** PORT: `u32::checked_sub`. */
+function checked_sub_u32(a: number, b: number): number | undefined {
+  return a >= b ? a - b : undefined;
+}
+
 // impl<'tcx> UniverseInfo<'tcx>
 export interface UniverseInfo_methods {
-  // bound_region_errors.rs:44 (lane bck-diag-f)
+  // bound_region_errors.rs:44
   other(): UniverseInfo;
-  // bound_region_errors.rs:48 (lane bck-diag-f)
+  // bound_region_errors.rs:48
   relate(expected: Ty, found: Ty): UniverseInfo;
-  // bound_region_errors.rs:53 (lane bck-diag-f)
+  // bound_region_errors.rs:53
   report_erroneous_element(
     self: UniverseInfo,
     mbcx: MirBorrowckCtxt,
@@ -65,7 +101,7 @@ UniverseInfo.relate = function (expected: Ty, found: Ty): UniverseInfo {
 };
 
 /// Report an error where an element erroneously made its way into `placeholder`.
-// stub: compiler/rustc_borrowck/src/diagnostics/bound_region_errors.rs:53 report_erroneous_element (lane bck-diag-f)
+// rustc: compiler/rustc_borrowck/src/diagnostics/bound_region_errors.rs:53 report_erroneous_element
 UniverseInfo.report_erroneous_element = function (
   self: UniverseInfo,
   mbcx: MirBorrowckCtxt,
@@ -73,7 +109,28 @@ UniverseInfo.report_erroneous_element = function (
   error_element: PlaceholderRegion | undefined,
   cause: ObligationCause,
 ): void {
-  return unported("rustc_borrowck::diagnostics::bound_region_errors::UniverseInfo::report_erroneous_element");
+  switch (self.$) {
+    case "RelateTys": {
+      const { expected, found } = self;
+      const err = mbcx.infcx.err_ctxt().report_mismatched_types(cause, mbcx.infcx.param_env, expected, found, {
+        $: "RegionsPlaceholderMismatch",
+      });
+      mbcx.buffer_error(err);
+      break;
+    }
+    case "TypeOp": {
+      const type_op_info = self._0;
+      type_op_info.report_erroneous_element(mbcx, placeholder, error_element, cause);
+      break;
+    }
+    case "Other": {
+      // FIXME: This error message isn't great, but it doesn't show
+      // up in the existing UI tests. Consider investigating this
+      // some more.
+      mbcx.buffer_error(mbcx.dcx().create_err(HigherRankedSubtypeError_diagnostic({ span: cause.span })));
+      break;
+    }
+  }
 };
 
 /** `pub(crate) trait ToUniverseInfo<'tcx>`: the impl table of a type `T`. */
@@ -162,7 +219,7 @@ export const TypeOpInfo_provided = {
   /// Constraints require that `error_element` appear in the
   /// values of `placeholder`, but this cannot be proven to
   /// hold. Report an error.
-  // stub: compiler/rustc_borrowck/src/diagnostics/bound_region_errors.rs:145 report_erroneous_element (lane bck-diag-f)
+  // rustc: compiler/rustc_borrowck/src/diagnostics/bound_region_errors.rs:145 report_erroneous_element
   report_erroneous_element(
     self: TypeOpInfo,
     mbcx: MirBorrowckCtxt,
@@ -170,7 +227,37 @@ export const TypeOpInfo_provided = {
     error_element: PlaceholderRegion | undefined,
     cause: ObligationCause,
   ): void {
-    return unported("rustc_borrowck::diagnostics::bound_region_errors::TypeOpInfo::report_erroneous_element");
+    const tcx = mbcx.infcx.tcx;
+    const base_universe = self.base_universe();
+    // debug!(?base_universe);
+
+    const adjusted_universe = checked_sub_u32(UniverseIndex.as_u32(placeholder.universe), UniverseIndex.as_u32(base_universe));
+    if (adjusted_universe === undefined) {
+      mbcx.buffer_error(self.fallback_error(tcx, cause.span));
+      return;
+    }
+
+    const placeholder_region = Region.new_placeholder(tcx, PlaceholderRegion.new(UniverseIndex.from_u32(adjusted_universe), placeholder.bound));
+
+    // FIXME: one day this should just be error_element,
+    // and this method shouldn't do anything.
+    let error_region: Region | undefined;
+    if (error_element !== undefined) {
+      const e = error_element;
+      const adjusted_universe = checked_sub_u32(UniverseIndex.as_u32(e.universe), UniverseIndex.as_u32(base_universe));
+      error_region =
+        adjusted_universe === undefined
+          ? undefined
+          : Region.new_placeholder(tcx, PlaceholderRegion.new(UniverseIndex.from_u32(adjusted_universe), e.bound));
+    }
+
+    // debug!(?placeholder_region);
+
+    const span = cause.span;
+    const nice_error = self.nice_error(mbcx, cause, placeholder_region, error_region);
+
+    // debug!(?nice_error);
+    mbcx.buffer_error(nice_error !== undefined ? nice_error : self.fallback_error(tcx, span));
   },
 };
 
@@ -188,89 +275,165 @@ export function TypeOpInfo_of<T>(self: T, impl: TypeOpInfo_impl<T>): TypeOpInfo 
 
 // impl<'tcx> TypeOpInfo<'tcx> for PredicateQuery<'tcx>
 export const TypeOpInfo_PredicateQuery: TypeOpInfo_impl<PredicateQuery> = {
-  // stub: compiler/rustc_borrowck/src/diagnostics/bound_region_errors.rs:196 fallback_error (lane bck-diag-f)
+  // rustc: compiler/rustc_borrowck/src/diagnostics/bound_region_errors.rs:196 fallback_error
   fallback_error(self: PredicateQuery, tcx: TyCtxt, span: Span): Diag {
-    return unported("rustc_borrowck::diagnostics::bound_region_errors::PredicateQuery::fallback_error");
+    return tcx.dcx().create_err(
+      HigherRankedLifetimeError_diagnostic({
+        cause: {
+          $: "CouldNotProve",
+          predicate: display_Predicate(self.canonical_query.canonical.value.value.predicate),
+        },
+        span,
+      }),
+    );
   },
 
-  // stub: compiler/rustc_borrowck/src/diagnostics/bound_region_errors.rs:205 base_universe (lane bck-diag-f)
+  // rustc: compiler/rustc_borrowck/src/diagnostics/bound_region_errors.rs:205 base_universe
   base_universe(self: PredicateQuery): UniverseIndex {
-    return unported("rustc_borrowck::diagnostics::bound_region_errors::PredicateQuery::base_universe");
+    return self.base_universe;
   },
 
-  // stub: compiler/rustc_borrowck/src/diagnostics/bound_region_errors.rs:209 nice_error (lane bck-diag-f)
+  // rustc: compiler/rustc_borrowck/src/diagnostics/bound_region_errors.rs:209 nice_error
   nice_error(self: PredicateQuery, mbcx: MirBorrowckCtxt, cause: ObligationCause, placeholder_region: Region, error_region: Region | undefined): Diag | undefined {
-    return unported("rustc_borrowck::diagnostics::bound_region_errors::PredicateQuery::nice_error");
+    const [infcx, key, _] = mbcx.infcx.tcx.infer_ctxt().build_with_canonical(cause.span, self.canonical_query, d_ParamEnvAnd_ProvePredicate);
+    const ocx = ObligationCtxt.new(infcx);
+    type_op_prove_predicate_with_cause(ocx, key, cause);
+    const diag_ = try_extract_error_from_fulfill_cx(ocx, mbcx.mir_def_id(), placeholder_region, error_region);
+    if (diag_ === undefined) return undefined;
+    const diag = diag_.with_dcx(mbcx.dcx());
+    return diag;
   },
 };
 
 // impl<'tcx, T> TypeOpInfo<'tcx> for NormalizeQuery<'tcx, T> where T: Copy + fmt::Display + TypeFoldable<TyCtxt<'tcx>> + 'tcx
 export function TypeOpInfo_NormalizeQuery<T>(display_T: (v: T) => string, d_T: TypeFoldable<T>): TypeOpInfo_impl<NormalizeQuery<T>> {
   return {
-    // stub: compiler/rustc_borrowck/src/diagnostics/bound_region_errors.rs:240 fallback_error (lane bck-diag-f)
+    // rustc: compiler/rustc_borrowck/src/diagnostics/bound_region_errors.rs:240 fallback_error
     fallback_error(self: NormalizeQuery<T>, tcx: TyCtxt, span: Span): Diag {
-      return unported("rustc_borrowck::diagnostics::bound_region_errors::NormalizeQuery::fallback_error");
+      return tcx.dcx().create_err(
+        HigherRankedLifetimeError_diagnostic({
+          cause: {
+            $: "CouldNotNormalize",
+            value: display_T(Unnormalized.skip_normalization(self.canonical_query.canonical.value.value.value)),
+          },
+          span,
+        }),
+      );
     },
 
-    // stub: compiler/rustc_borrowck/src/diagnostics/bound_region_errors.rs:256 base_universe (lane bck-diag-f)
+    // rustc: compiler/rustc_borrowck/src/diagnostics/bound_region_errors.rs:256 base_universe
     base_universe(self: NormalizeQuery<T>): UniverseIndex {
-      return unported("rustc_borrowck::diagnostics::bound_region_errors::NormalizeQuery::base_universe");
+      return self.base_universe;
     },
 
-    // stub: compiler/rustc_borrowck/src/diagnostics/bound_region_errors.rs:260 nice_error (lane bck-diag-f)
+    // rustc: compiler/rustc_borrowck/src/diagnostics/bound_region_errors.rs:260 nice_error
     nice_error(self: NormalizeQuery<T>, mbcx: MirBorrowckCtxt, cause: ObligationCause, placeholder_region: Region, error_region: Region | undefined): Diag | undefined {
-      return unported("rustc_borrowck::diagnostics::bound_region_errors::NormalizeQuery::nice_error");
+      const [infcx, key, _] = mbcx.infcx.tcx
+        .infer_ctxt()
+        .build_with_canonical(cause.span, self.canonical_query, fold_ParamEnvAnd(d_Normalize(d_T)));
+      const ocx = ObligationCtxt.new(infcx);
+
+      // FIXME(lqd): Unify and de-duplicate the following with the actual
+      // `rustc_traits::type_op::type_op_normalize` query to allow the span we need in the
+      // `ObligationCause`. The normalization results are currently different between
+      // `QueryNormalizeExt::query_normalize` used in the query and `normalize` called below:
+      // the former fails to normalize the `nll/relate_tys/impl-fn-ignore-binder-via-bottom.rs`
+      // test. Check after #85499 lands to see if its fixes have erased this difference.
+      const { param_env, value } = key;
+      void ocx.normalize(cause, param_env, value.value, d_T);
+
+      const diag_ = try_extract_error_from_fulfill_cx(ocx, mbcx.mir_def_id(), placeholder_region, error_region);
+      if (diag_ === undefined) return undefined;
+      const diag = diag_.with_dcx(mbcx.dcx());
+      return diag;
     },
   };
 }
 
 // impl<'tcx> TypeOpInfo<'tcx> for AscribeUserTypeQuery<'tcx>
 export const TypeOpInfo_AscribeUserTypeQuery: TypeOpInfo_impl<AscribeUserTypeQuery> = {
-  // stub: compiler/rustc_borrowck/src/diagnostics/bound_region_errors.rs:297 fallback_error (lane bck-diag-f)
+  // rustc: compiler/rustc_borrowck/src/diagnostics/bound_region_errors.rs:297 fallback_error
   fallback_error(self: AscribeUserTypeQuery, tcx: TyCtxt, span: Span): Diag {
-    return unported("rustc_borrowck::diagnostics::bound_region_errors::AscribeUserTypeQuery::fallback_error");
+    // FIXME: This error message isn't great, but it doesn't show up in the existing UI tests,
+    // and is only the fallback when the nice error fails. Consider improving this some more.
+    return tcx.dcx().create_err(HigherRankedLifetimeError_diagnostic({ cause: undefined, span }));
   },
 
-  // stub: compiler/rustc_borrowck/src/diagnostics/bound_region_errors.rs:303 base_universe (lane bck-diag-f)
+  // rustc: compiler/rustc_borrowck/src/diagnostics/bound_region_errors.rs:303 base_universe
   base_universe(self: AscribeUserTypeQuery): UniverseIndex {
-    return unported("rustc_borrowck::diagnostics::bound_region_errors::AscribeUserTypeQuery::base_universe");
+    return self.base_universe;
   },
 
-  // stub: compiler/rustc_borrowck/src/diagnostics/bound_region_errors.rs:307 nice_error (lane bck-diag-f)
+  // rustc: compiler/rustc_borrowck/src/diagnostics/bound_region_errors.rs:307 nice_error
   nice_error(self: AscribeUserTypeQuery, mbcx: MirBorrowckCtxt, cause: ObligationCause, placeholder_region: Region, error_region: Region | undefined): Diag | undefined {
-    return unported("rustc_borrowck::diagnostics::bound_region_errors::AscribeUserTypeQuery::nice_error");
+    const [infcx, key, _] = mbcx.infcx.tcx.infer_ctxt().build_with_canonical(cause.span, self.canonical_query, d_ParamEnvAnd_AscribeUserType);
+    const ocx = ObligationCtxt.new(infcx);
+    if (type_op_ascribe_user_type_with_span(ocx, key, cause.span).$ === "Err") return undefined;
+    const diag_ = try_extract_error_from_fulfill_cx(ocx, mbcx.mir_def_id(), placeholder_region, error_region);
+    if (diag_ === undefined) return undefined;
+    const diag = diag_.with_dcx(mbcx.dcx());
+    return diag;
   },
 };
 
 // impl<'tcx> TypeOpInfo<'tcx> for crate::type_check::InstantiateOpaqueType<'tcx>
 export const TypeOpInfo_InstantiateOpaqueType: TypeOpInfo_impl<InstantiateOpaqueType> = {
-  // stub: compiler/rustc_borrowck/src/diagnostics/bound_region_errors.rs:330 fallback_error (lane bck-diag-f)
+  // rustc: compiler/rustc_borrowck/src/diagnostics/bound_region_errors.rs:330 fallback_error
   fallback_error(self: InstantiateOpaqueType, tcx: TyCtxt, span: Span): Diag {
-    return unported("rustc_borrowck::diagnostics::bound_region_errors::InstantiateOpaqueType::fallback_error");
+    // FIXME: This error message isn't great, but it doesn't show up in the existing UI tests,
+    // and is only the fallback when the nice error fails. Consider improving this some more.
+    return tcx.dcx().create_err(HigherRankedLifetimeError_diagnostic({ cause: undefined, span }));
   },
 
-  // stub: compiler/rustc_borrowck/src/diagnostics/bound_region_errors.rs:336 base_universe (lane bck-diag-f)
+  // rustc: compiler/rustc_borrowck/src/diagnostics/bound_region_errors.rs:336 base_universe
   base_universe(self: InstantiateOpaqueType): UniverseIndex {
-    return unported("rustc_borrowck::diagnostics::bound_region_errors::InstantiateOpaqueType::base_universe");
+    return unwrap(self.base_universe);
   },
 
-  // stub: compiler/rustc_borrowck/src/diagnostics/bound_region_errors.rs:340 nice_error (lane bck-diag-f)
+  // rustc: compiler/rustc_borrowck/src/diagnostics/bound_region_errors.rs:340 nice_error
   nice_error(self: InstantiateOpaqueType, mbcx: MirBorrowckCtxt, _cause: ObligationCause, placeholder_region: Region, error_region: Region | undefined): Diag | undefined {
-    return unported("rustc_borrowck::diagnostics::bound_region_errors::InstantiateOpaqueType::nice_error");
+    // PORT: `mbcx.infcx` (`&BorrowckInferCtxt`) deref-coerces to `&InferCtxt`: its field `infcx`.
+    const d = try_extract_error_from_region_constraints(
+      mbcx.infcx.infcx,
+      mbcx.mir_def_id(),
+      placeholder_region,
+      error_region,
+      unwrap(self.region_constraints),
+      // We're using the original `InferCtxt` that we
+      // started MIR borrowchecking with, so the region
+      // constraints have already been taken. Use the data from
+      // our `mbcx` instead.
+      (vid) => ({ $: "Nll", _0: mbcx.regioncx.definitions[vid]!.origin }),
+      (vid) => mbcx.regioncx.definitions[vid]!.universe,
+    );
+    return d === undefined ? undefined : d.with_dcx(mbcx.dcx());
   },
 };
 
-// stub: compiler/rustc_borrowck/src/diagnostics/bound_region_errors.rs:365 try_extract_error_from_fulfill_cx (lane bck-diag-f)
+// rustc: compiler/rustc_borrowck/src/diagnostics/bound_region_errors.rs:365 try_extract_error_from_fulfill_cx
 export function try_extract_error_from_fulfill_cx(
   ocx: ObligationCtxt,
   generic_param_scope: LocalDefId,
   placeholder_region: Region,
   error_region: Region | undefined,
 ): Diag | undefined {
-  return unported("rustc_borrowck::diagnostics::bound_region_errors::try_extract_error_from_fulfill_cx");
+  // We generally shouldn't have errors here because the query was
+  // already run, but there's no point using `span_delayed_bug`
+  // when we're going to emit an error here anyway.
+  const _errors = ocx.evaluate_obligations_error_on_ambiguity();
+  const region_constraints = ocx.infcx.with_region_constraints((r) => clone_RegionConstraintData(r));
+  return try_extract_error_from_region_constraints(
+    ocx.infcx,
+    generic_param_scope,
+    placeholder_region,
+    error_region,
+    region_constraints,
+    (vid) => ocx.infcx.region_var_origin(vid),
+    (vid) => ocx.infcx.universe_of_region(Region.new_var(ocx.infcx.tcx, vid)),
+  );
 }
 
-// stub: compiler/rustc_borrowck/src/diagnostics/bound_region_errors.rs:388 try_extract_error_from_region_constraints (lane bck-diag-f)
+// rustc: compiler/rustc_borrowck/src/diagnostics/bound_region_errors.rs:388 try_extract_error_from_region_constraints
 export function try_extract_error_from_region_constraints(
   infcx: InferCtxt,
   generic_param_scope: LocalDefId,
@@ -280,5 +443,94 @@ export function try_extract_error_from_region_constraints(
   region_var_origin: (vid: RegionVid) => RegionVariableOrigin,
   universe_of_region: (vid: RegionVid) => UniverseIndex,
 ): Diag | undefined {
-  return unported("rustc_borrowck::diagnostics::bound_region_errors::try_extract_error_from_region_constraints");
+  const pk = placeholder_region.kind();
+  const placeholder_universe = pk.$ === "RePlaceholder" ? pk._0.universe : pk.$ === "ReVar" ? universe_of_region(pk._0) : UniverseIndex.ROOT;
+  // Are the two regions the same?
+  const regions_the_same = (a_region: Region, b_region: Region): boolean => {
+    const a = a_region.kind();
+    const b = b_region.kind();
+    if (a.$ === "RePlaceholder" && b.$ === "RePlaceholder") return intern_key_eq(a._0.bound, b._0.bound);
+    return a_region === b_region;
+  };
+  const check = (c: Constraint, cause: SubregionOrigin, exact: boolean): [Region, SubregionOrigin] | undefined => {
+    switch (c.kind) {
+      case "RegSubReg":
+        if (((exact && c.sup === placeholder_region) || (!exact && regions_the_same(c.sup, placeholder_region))) && c.sup !== c.sub) {
+          return [c.sub, clone_SubregionOrigin(cause)];
+        }
+        return undefined;
+      case "VarSubReg":
+        if (
+          (exact && c.sup === placeholder_region && !UniverseIndex.can_name(universe_of_region(c.sub.as_var()), placeholder_universe)) ||
+          (!exact && regions_the_same(c.sup, placeholder_region))
+        ) {
+          return [c.sub, clone_SubregionOrigin(cause)];
+        }
+        return undefined;
+      case "VarSubVar":
+      case "RegSubVar":
+        return undefined;
+
+      case "VarEqVar":
+      case "VarEqReg":
+      case "RegEqReg":
+        return unreachable();
+    }
+  };
+
+  const find_culprit = (exact_match: boolean): [Region, SubregionOrigin] | undefined => {
+    for (const [constraint_, cause] of region_constraints.constraints) {
+      for (const constraint of constraint_.iter_outlives()) {
+        const r = check(constraint, cause, exact_match);
+        if (r !== undefined) return r;
+      }
+    }
+    return undefined;
+  };
+
+  const culprit = find_culprit(true) ?? find_culprit(false);
+  if (culprit === undefined) return undefined;
+  const [sub_region, cause] = culprit;
+
+  // debug!(?sub_region, "cause = {:#?}", cause);
+  const sk = sub_region.kind();
+  let error: RegionResolutionError;
+  if (error_region !== undefined && sk.$ === "ReVar") {
+    const vid = sk._0;
+    error = {
+      $: "SubSupConflict",
+      _0: vid,
+      _1: region_var_origin(vid),
+      _2: clone_SubregionOrigin(cause),
+      _3: error_region,
+      _4: clone_SubregionOrigin(cause),
+      _5: placeholder_region,
+      _6: [],
+    };
+  } else if (error_region !== undefined) {
+    error = { $: "ConcreteFailure", _0: clone_SubregionOrigin(cause), _1: error_region, _2: placeholder_region };
+  } else if (sk.$ === "ReVar") {
+    // Note universe here is wrong...
+    const vid = sk._0;
+    error = {
+      $: "UpperBoundUniverseConflict",
+      _0: vid,
+      _1: region_var_origin(vid),
+      _2: universe_of_region(vid),
+      _3: clone_SubregionOrigin(cause),
+      _4: placeholder_region,
+    };
+  } else {
+    error = { $: "ConcreteFailure", _0: clone_SubregionOrigin(cause), _1: sub_region, _2: placeholder_region };
+  }
+  const nice = NiceRegionError.new(infcx.err_ctxt(), generic_param_scope, error).try_report_from_nll();
+  if (nice !== undefined) return nice;
+  if (cause.$ === "Subtype") {
+    const trace = cause._0;
+    return infcx.err_ctxt().report_and_explain_type_error(trace, infcx.tcx.param_env(generic_param_scope) as ParamEnv, {
+      $: "RegionsPlaceholderMismatch",
+    });
+  } else {
+    return undefined;
+  }
 }
