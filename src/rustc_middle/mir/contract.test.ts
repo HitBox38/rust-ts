@@ -86,7 +86,8 @@ for (const f of walk(join(REPO, "src"))) {
   const lines = readFileSync(f, "utf8").split("\n");
   for (let i = 0; i < lines.length; i++) {
     const m = /\/\/ (rustc|rustc-skip|stub): (\S+):(\d+) (\w+)(?: \(lane ([\w-]+)\))?/.exec(lines[i]!);
-    if (!m || !m[2]!.startsWith(MIR)) continue;
+    // ported upstream unit tests (`<dir>/tests.rs` -> `tests.test.ts`, e.g. interpret/allocation/init_mask/tests.rs) are not scope files
+    if (!m || !m[2]!.startsWith(MIR) || m[2]!.endsWith("/tests.rs")) continue;
     const d: Decl = { file: relative(REPO, f), kind: m[1] as Decl["kind"], path: m[2]!, line: Number(m[3]), name: m[4]!, lane: m[5], unported: undefined };
     if (d.kind === "stub") {
       for (let j = i + 1; j < Math.min(lines.length, i + 16); j++) {
@@ -131,7 +132,6 @@ test("stubs per fill lane (the split table of docs/handoff/mir-contract.md)", ()
   const per = new Map<string, number>();
   for (const d of decls.filter((d) => d.kind === "stub")) per.set(d.lane!, (per.get(d.lane!) ?? 0) + 1);
   expect(Object.fromEntries([...per].sort())).toEqual({
-    "mir-interp-a": 91,
     "mir-interp-b": 184,
   });
 });
