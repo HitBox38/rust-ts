@@ -429,7 +429,7 @@ InterpCx.prototype.binary_int_op = function (this: InterpCx, bin_op: BinOp, left
       const res = ImmTy.from_scalar_int(result, left.layout);
       if (with_overflow) {
         const overflow_ = ImmTy.from_bool(overflow, this.tcx.deref());
-        return interp_ok(ImmTy.from_pair(res, overflow_, from_pair_cx(this)));
+        return interp_ok(ImmTy.from_pair(res, overflow_, this));
       } else {
         return interp_ok(res);
       }
@@ -510,19 +510,13 @@ InterpCx.prototype.binary_int_op = function (this: InterpCx, bin_op: BinOp, left
       const res = ImmTy.from_scalar_int(result, left.layout);
       if (with_overflow) {
         const overflow_ = ImmTy.from_bool(overflow, this.tcx.deref());
-        return interp_ok(ImmTy.from_pair(res, overflow_, from_pair_cx(this)));
+        return interp_ok(ImmTy.from_pair(res, overflow_, this));
       } else {
         return interp_ok(res);
       }
     }
   }
 };
-
-/** PORT: `ImmTy::from_pair`'s `cx: &(impl HasTypingEnv + HasTyCtxt)` is declared as `[HasTypingEnv]` in operand.ts
- * (contract); the interpreter itself is that context (handoff). */
-function from_pair_cx(ecx: InterpCx): Parameters<typeof ImmTy.from_pair>[2] {
-  return ecx as unknown as Parameters<typeof ImmTy.from_pair>[2];
-}
 
 /// Computes the total size of this access, `count * elem_size`,
 /// checking for overflow beyond isize::MAX.
