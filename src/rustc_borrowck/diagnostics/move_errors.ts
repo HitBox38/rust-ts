@@ -6,7 +6,7 @@ import { Mutability, Pinnedness } from "../../rustc_ast_ir/lib.ts";
 import { FieldIdx } from "../../rustc_abi/lib.ts";
 import { Applicability, type Diag } from "../../rustc_errors/lib.ts";
 import * as hir from "../../rustc_hir/lib.ts";
-import { HirId_eq } from "../../rustc_hir/lib.ts";
+import { type HirId, HirId_eq } from "../../rustc_hir/lib.ts";
 import type { HirTyCtxt } from "../../rustc_hir/intravisit.ts";
 import { HirIdSet } from "../../rustc_hir_id/lib.ts";
 import { TraitErrors } from "../../rustc_infer/traits/engine.ts";
@@ -908,9 +908,7 @@ MirBorrowckCtxt.prototype.add_borrow_suggestions = function (this: MirBorrowckCt
           is_ref = true;
         }
       }
-      is_destructuring_assignment = [...this.infcx.tcx.hir_parent_iter(inner.hir_id)].some(
-        ([_, node]) => node.$ === "LetStmt" && node._0.source === "AssignDesugar",
-      );
+      is_destructuring_assignment = any_parent_is_assign_desugar_let(this.infcx.tcx, inner.hir_id);
     }
     // If the `inner` is a raw pointer, do not suggest removing the "*", see #126863
     // FIXME: need to check whether the assigned object can be a raw pointer, see `tests/ui/borrowck/issue-20801.rs`.
@@ -929,6 +927,15 @@ MirBorrowckCtxt.prototype.add_borrow_suggestions = function (this: MirBorrowckCt
     err.span_suggestion_verbose(Span.shrink_to_lo(span), "consider borrowing here", "&", Applicability.MaybeIncorrect);
   }
 };
+
+/** PORT: no upstream counterpart: the lazy `tcx.hir_parent_iter(id).any(|(_, node)| matches!(node,
+ * hir::Node::LetStmt(&hir::LetStmt { source: hir::LocalSource::AssignDesugar, .. })))` (stops at the first match). */
+function any_parent_is_assign_desugar_let(tcx: TyCtxt, id: HirId): boolean {
+  for (const [_, node] of tcx.hir_parent_iter(id)) {
+    if (node.$ === "LetStmt" && node._0.source === "AssignDesugar") return true;
+  }
+  return false;
+}
 
 // rustc: compiler/rustc_borrowck/src/diagnostics/move_errors.rs:972 should_suggest_pattern_binding_instead
 MirBorrowckCtxt.prototype.should_suggest_pattern_binding_instead = function (this: MirBorrowckCtxt, span: Span, binding_info: PatternBindingInfo): boolean {
@@ -1079,7 +1086,9 @@ MirBorrowckCtxt.prototype.add_move_error_suggestions = function (this: MirBorrow
       }
 
       const parent_has_adjustments = this.has_adjustments;
-      this.has_adjustments ||= this.typeck_results.pat_adjustments().contains_key(p.hir_id);
+      // `|=` (not short-circuiting)
+      const has_pat_adjustments = this.typeck_results.pat_adjustments().contains_key(p.hir_id);
+      this.has_adjustments = this.has_adjustments || has_pat_adjustments;
 
       // Track the innermost `&` or `&mut` enclosing bindings, to suggest removing it.
       const parent_ref_pat = this.ref_pat;
@@ -1102,8 +1111,7 @@ MirBorrowckCtxt.prototype.add_move_error_suggestions = function (this: MirBorrow
         // These have name `lhs` and their parent is a `LetStmt` with
         // `LocalSource::AssignDesugar`
         const dominated_by_desugar_assign =
-          ident.name === sym.lhs &&
-          [...this.tcx.hir_parent_iter(p.hir_id)].some(([_, node]) => node.$ === "LetStmt" && node._0.source === "AssignDesugar");
+          ident.name === sym.lhs && any_parent_is_assign_desugar_let(this.tcx, p.hir_id);
 
         if (dominated_by_desugar_assign) {
           const bind_sp = this.binding_spans.find((bind_sp) => Span.contains(bind_sp, ident.span));
