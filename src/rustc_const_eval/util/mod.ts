@@ -1,12 +1,10 @@
-// Port of compiler/rustc_const_eval/src/util/mod.rs, partial (lane mt-validate, ahead of ctfe-util: the MIR
-// `Validator` calls `binop_right_homogeneous`). The three operator classifiers are ported; `context_spans` and the
-// modules `caller_location`, `check_validity_requirement` and `type_name` (with their re-exports) are left to
-// ctfe-util, which completes this file.
+// Port of compiler/rustc_const_eval/src/util/mod.rs (lane mt-validate ported the three operator classifiers ahead of
+// ctfe-util, for the MIR `Validator`; lane ctfe-util completed the file with `context_spans`).
 import type { BinOp, UnOp } from "../../rustc_middle/mir/mod.ts";
 import { type TyCtxt } from "../../rustc_middle/ty/context.ts";
 import { type DefId } from "../../rustc_span/def_id.ts";
-import { type Span } from "../../rustc_span/lib.ts";
-import { unported } from "../../std/panic.ts";
+import { Span } from "../../rustc_span/lib.ts";
+import { type ExpnData } from "../../rustc_span/hygiene.ts";
 import * as caller_location from "./caller_location.ts";
 export { caller_location };
 export { check_validity_requirement, validate_scalar_in_layout } from "./check_validity_requirement.ts";
@@ -105,7 +103,46 @@ export function unop_homogeneous(op: UnOp): boolean {
   }
 }
 
-// stub: compiler/rustc_const_eval/src/util/mod.rs:56 context_spans (lane ctfe-util)
-export function context_spans(tcx: TyCtxt, span: Span, def_id: DefId): Span[] {
-  return unported("rustc_const_eval::util::context_spans");
+// rustc: compiler/rustc_const_eval/src/util/mod.rs:56 context_spans
+export function context_spans(tcx: TyCtxt, span_: Span, def_id: DefId): Span[] {
+  // For consts where the enclosing item might be useful context, include their spans in the
+  // diagnostic.
+  const instance_span = Span.shrink_to_lo(tcx.def_span(def_id));
+  const parent = tcx.parent(def_id);
+  const parent_span = Span.shrink_to_lo(tcx.def_span(parent));
+  let span = span_;
+  // PORT: `macro_backtrace().last()` drains the iterator.
+  let sp: ExpnData | undefined;
+  for (const e of Span.macro_backtrace(span)) sp = e;
+  if (sp !== undefined) {
+    // We want the outermost span when macros are involved, as we don't care about the
+    // macro's internal consts for the purposes of adding context.
+    span = sp.call_site;
+  }
+  const kind = tcx.def_kind(def_id).$;
+  const parent_kind = tcx.def_kind(parent).$;
+  if (
+    (parent_kind === "Struct" ||
+      parent_kind === "Union" ||
+      parent_kind === "Enum" ||
+      parent_kind === "Trait" ||
+      parent_kind === "Impl" ||
+      parent_kind === "TyAlias" ||
+      parent_kind === "Const" ||
+      parent_kind === "Fn" ||
+      parent_kind === "Static" ||
+      kind === "AssocConst" ||
+      kind === "AssocFn" ||
+      kind === "AssocTy") &&
+    Span.eq_ctxt(span, instance_span) &&
+    Span.eq_ctxt(span, parent_span)
+  ) {
+    return [instance_span, parent_span];
+  } else if (parent_kind === "Variant" && Span.eq_ctxt(span, instance_span) && Span.eq_ctxt(span, parent_span)) {
+    return [instance_span, parent_span, Span.shrink_to_lo(tcx.def_span(tcx.parent(parent)))];
+  } else if ((kind === "Const" || kind === "Static") && Span.eq_ctxt(span, instance_span)) {
+    return [instance_span];
+  } else {
+    return [];
+  }
 }
