@@ -1636,25 +1636,24 @@
     "skip": [],
     "typemap_extra": ["tyir.typemap.json", "middle_traits_thir.typemap.json", "ast_lowering.typemap.json", "mir_build.typemap.json"]
   },
-<<<<<<< HEAD
   "rustc_mir_dataflow": {
     "files": [
       "compiler/rustc_mir_dataflow/src/diagnostics.rs"
-=======
-  "rustc_const_eval": {
-    "files": [
-      "compiler/rustc_const_eval/src/diagnostics.rs"
->>>>>>> lane/const-check
     ],
     "class": [],
     "hand": [],
     "discriminant": [],
-<<<<<<< HEAD
     "skip": []
-=======
+  },
+  "rustc_const_eval": {
+    "files": [
+      "compiler/rustc_const_eval/src/diagnostics.rs"
+    ],
+    "class": [],
+    "hand": [],
+    "discriminant": [],
     "skip": [],
     "typemap_extra": ["tyir.typemap.json", "const_eval.typemap.json"]
->>>>>>> lane/const-check
   },
   "rustc_pattern_analysis": {
     "files": [
