@@ -20,7 +20,7 @@
 //   rounded).
 // - `ProvenanceExtra` is `boolean` (`CtfeProvenance::immutable`), `AllocExtra` is `null`, `Bytes` is `Uint8Array`;
 //   `*const u8` / `*mut u8` / `&[u8]` are `Uint8Array` views (`subarray`) into the allocation's bytes.
-import { type Align, Align as AlignC, Align_eq, Size } from "../../rustc_abi/lib.ts";
+import { type Align, Align as AlignC, Align_eq, debug_AlignFromBytesError, Size } from "../../rustc_abi/lib.ts";
 import { Mutability } from "../../rustc_ast_ir/lib.ts";
 import { InterpCx } from "./eval_context.ts";
 import { type CtfeMemoryKind, type CtfeMemoryMap, type Machine, type MayLeak } from "./machine.ts";
@@ -856,7 +856,7 @@ InterpCx.prototype.is_ptr_misaligned = function (this: InterpCx, ptr: Pointer<Ct
     } else {
       // The biggest power of two through which `offset` is divisible.
       const offset_pow2 = 1n << trailing_zeros_u64(offset);
-      return { has: unwrap_result(AlignC.from_bytes(offset_pow2)), required: align };
+      return { has: unwrap_result(AlignC.from_bytes(offset_pow2), debug_AlignFromBytesError), required: align };
     }
   }
 
@@ -1456,7 +1456,8 @@ InterpCx.prototype.print_alloc_bytes_for_diagnostics = function (this: InterpCx,
     const w = new pretty.StringFmtWrite();
     w.write_str("\n");
     // FIXME(translation) there might be pieces that are translatable.
-    unwrap_result(pretty.write_allocation_bytes(this.tcx.deref(), alloc, w, "    "));
+    // `.unwrap()` of a `fmt::Result` (`fmt::Error`'s Debug is `Error`)
+    unwrap_result(pretty.write_allocation_bytes(this.tcx.deref(), alloc, w, "    "), () => "Error");
     bytes = w.buf;
   }
   return bytes;
