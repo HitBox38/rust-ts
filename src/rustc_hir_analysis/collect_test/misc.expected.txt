@@ -77,7 +77,7 @@ DefId(0:30 ~ misc[c6e0]::rpit) Fn
   type_of EarlyBinder { value: FnDef(DefId(0:30 ~ misc[c6e0]::rpit), Binder { value: [], bound_vars: [] }), .. }
 DefId(0:31 ~ misc[c6e0]::rpit::{opaque#0}) OpaqueTy
   generics_of Generics { parent: Some(DefId(0:30 ~ misc[c6e0]::rpit)), parent_count: 0, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
-  type_of STOP UNPORTED: mir_borrowck provider (not ported)
+  type_of STOP UNPORTED: rustc_borrowck::nll::replace_regions_in_mir
 DefId(0:32 ~ misc[c6e0]::fptr) Fn
   generics_of Generics { parent: None, parent_count: 0, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
   type_of EarlyBinder { value: FnDef(DefId(0:32 ~ misc[c6e0]::fptr), Binder { value: [], bound_vars: [] }), .. }
