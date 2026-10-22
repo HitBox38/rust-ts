@@ -129,15 +129,25 @@ interface UnusedVariable {
   string_interp: UnusedVariableStringInterp[];
   sugg: UnusedVariableSugg;
 }
-function pending_diagnostic(name: string): Diagnostic {
-  return { into_diag: () => unported(`rustc_mir_transform::diagnostics::${name} (generated; lane mt-built-lints)`) };
+/**
+ * The stand-in `Diagnostic` of a pending type. `pending` carries the type name and the value (read by
+ * liveness.oracle.test.ts, which compares them with the oracle's diagnostics until the generated module lands).
+ */
+export interface PendingDiagnostic extends Diagnostic {
+  readonly pending: { readonly type: string; readonly value: unknown };
+}
+function pending_diagnostic(type: string, value: unknown): PendingDiagnostic {
+  return {
+    into_diag: () => unported(`rustc_mir_transform::diagnostics::${type} (generated; lane mt-built-lints)`),
+    pending: { type, value },
+  };
 }
 const diagnostics = {
-  UnusedCaptureMaybeCaptureRef_diagnostic: (_self: UnusedCaptureMaybeCaptureRef): Diagnostic => pending_diagnostic("UnusedCaptureMaybeCaptureRef"),
-  UnusedVarAssignedOnly_diagnostic: (_self: UnusedVarAssignedOnly): Diagnostic => pending_diagnostic("UnusedVarAssignedOnly"),
-  UnusedAssign_diagnostic: (_self: UnusedAssign): Diagnostic => pending_diagnostic("UnusedAssign"),
-  UnusedAssignPassed_diagnostic: (_self: UnusedAssignPassed): Diagnostic => pending_diagnostic("UnusedAssignPassed"),
-  UnusedVariable_diagnostic: (_self: UnusedVariable): Diagnostic => pending_diagnostic("UnusedVariable"),
+  UnusedCaptureMaybeCaptureRef_diagnostic: (self: UnusedCaptureMaybeCaptureRef): Diagnostic => pending_diagnostic("UnusedCaptureMaybeCaptureRef", self),
+  UnusedVarAssignedOnly_diagnostic: (self: UnusedVarAssignedOnly): Diagnostic => pending_diagnostic("UnusedVarAssignedOnly", self),
+  UnusedAssign_diagnostic: (self: UnusedAssign): Diagnostic => pending_diagnostic("UnusedAssign", self),
+  UnusedAssignPassed_diagnostic: (self: UnusedAssignPassed): Diagnostic => pending_diagnostic("UnusedAssignPassed", self),
+  UnusedVariable_diagnostic: (self: UnusedVariable): Diagnostic => pending_diagnostic("UnusedVariable", self),
 };
 // ---- end PORT(pending mt-built-lints) -------------------------------------------------------------------------------
 
