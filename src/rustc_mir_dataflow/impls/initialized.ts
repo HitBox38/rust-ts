@@ -1,8 +1,5 @@
-// Port of compiler/rustc_mir_dataflow/src/impls/initialized.rs: DECLARED (lane dataflow-contract). Every fn is a stub
-// for lane `dataflow-impls` (plan-m4 §5 wave 22).
-//
-// How to fill a stub: replace the body with the upstream logic and turn `// stub: <path>:<line> <name> (lane ..)` into
-// the marker `// rustc: <path>:<line> <name>`. Notes:
+// Port of compiler/rustc_mir_dataflow/src/impls/initialized.rs (declared by lane dataflow-contract, filled by lane
+// dataflow-impls). Notes:
 // - The three analyses are classes extending `AnalysisBase<Domain, SwitchIntData>` (framework/mod.ts); their fields
 //   are the struct fields in declaration order. Fields that collide with a method get a trailing `_` (precedent
 //   `NiceRegionError.regions_`): `move_data_` (the `HasMoveData::move_data()` method), `exclude_inactive_in_otherwise_`,
@@ -13,25 +10,61 @@
 //   `MaybeReachable.assign(state, ..)` (lattice.ts); `state.contains(p)` is `MaybeReachable.contains(state, p,
 //   BitSetExt_MixedBitSet)`.
 // - `MaybePlacesSwitchIntData` is the `SwitchIntData` (`S`) of both maybe-places analyses.
+// - `Place == Place` is `local === && projection ===` (interned list); `Location == Location` compares the fields;
+//   `FxIndexSet<Location>` is a `KeyedSet` keyed by `block:statement_index`.
 
 import type { VariantIdx } from "../../rustc_abi/layout.ts";
-import type { DenseBitSet } from "../../rustc_index/bit_set.ts";
+import { DenseBitSet, MixedBitSet } from "../../rustc_index/bit_set.ts";
+import { KeyedSet } from "../../rust_ts/keyed.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
-import { unported } from "../../std/panic.ts";
-import type { DropFlagState } from "../drop_flag_effects.ts";
+import { debug_Ty } from "../../rustc_middle/ty/structural_impls.ts";
+import { bug } from "../../rustc_span/macros.ts";
+import { PLAIN } from "../../std/fmt.ts";
+import { assert_matches, panic } from "../../std/panic.ts";
+import {
+  DropFlagState,
+  drop_flag_effects_for_function_entry,
+  drop_flag_effects_for_location,
+  InactiveVariants,
+  on_all_children_bits,
+  on_all_inactive_variants,
+  on_lookup_result_bits,
+} from "../drop_flag_effects.ts";
 import { DebugWithContext_Local, DebugWithContext_MovePathIndex } from "../framework/fmt.ts";
-import type { MaybeReachable } from "../framework/lattice.ts";
+import { MaybeReachable } from "../framework/lattice.ts";
 import {
   AnalysisBase,
   type Domain,
   Domain_DenseBitSet,
   Domain_MaybeReachable,
   Domain_MixedBitSet,
+  GenKill_DenseBitSet,
+  GenKill_MaybeReachable,
+  GenKill_MixedBitSet,
+  type BitSetExt,
+  BitSetExt_MixedBitSet,
   type SwitchTargetIndex,
 } from "../framework/mod.ts";
 import type { HasMoveData, Init, MoveData, MovePathIndex } from "../move_paths/mod.ts";
-import type { BasicBlock, Body, CallReturnPlaces, Local, Location, Operand, Place, Statement, SwitchTargets, Terminator, TerminatorEdges } from "../../rustc_middle/mir/mod.ts";
-import type { MixedBitSet } from "../../rustc_index/bit_set.ts";
+import {
+  BasicBlock,
+  type Body,
+  CallReturnPlaces,
+  debug_UnwindAction,
+  type Local,
+  Location,
+  Operand,
+  type Place,
+  type Statement,
+  StatementKind,
+  type SwitchTargets,
+  type Terminator,
+  type TerminatorEdges,
+} from "../../rustc_middle/mir/mod.ts";
+
+const GK_MaybeInit = GenKill_MaybeReachable(GenKill_MixedBitSet<MovePathIndex>());
+const GK_MaybeUninit = GenKill_MixedBitSet<MovePathIndex>();
+const GK_EverInit = GenKill_DenseBitSet<Local>();
 
 // Used by both `MaybeInitializedPlaces` and `MaybeUninitializedPlaces`.
 // rustc-type: compiler/rustc_mir_dataflow/src/impls/initialized.rs:25 MaybePlacesSwitchIntData
@@ -48,9 +81,66 @@ export class MaybePlacesSwitchIntData {
     public variants: VariantIdx[],
   ) {}
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:38 new (lane dataflow-impls)
-  static new(_tcx: TyCtxt, _body: Body, _block: BasicBlock, _targets: SwitchTargets, _discr: Operand): MaybePlacesSwitchIntData | undefined {
-    return unported("rustc_mir_dataflow::impls::initialized::MaybePlacesSwitchIntData::new");
+  // rustc: compiler/rustc_mir_dataflow/src/impls/initialized.rs:38 new
+  static new(tcx: TyCtxt, body: Body, block: BasicBlock, targets: SwitchTargets, discr_: Operand): MaybePlacesSwitchIntData | undefined {
+    const discr = Operand.place(discr_);
+    if (discr === undefined) return undefined;
+
+    // Inspect a `SwitchInt`-terminated basic block to see if the condition of that `SwitchInt`
+    // is an enum discriminant.
+    //
+    // We expect such blocks to have a call to `discriminant` as their last statement like so:
+    // ```text
+    // ...
+    // _42 = discriminant(_1)
+    // SwitchInt(_42, ..)
+    // ```
+    // If the basic block matches this pattern, this function gathers the place corresponding
+    // to the enum (`_1` in the example above) as well as the discriminants.
+    const block_data = body.index(block);
+    outer: for (let i = block_data.statements.length - 1; i >= 0; i--) {
+      const statement = block_data.statements[i]!;
+      const kind = statement.kind;
+      if (kind.$ === "Assign" && kind._0[1].$ === "Discriminant" && Place_eq(kind._0[0], discr)) {
+        const enum_place = kind._0[1]._0;
+        const t = enum_place.ty(body, tcx).ty;
+        const ty_kind = t.kind();
+        switch (ty_kind.$) {
+          case "Adt": {
+            const enum_def = ty_kind._0;
+            // For each value in the SwitchInt, find the VariantIdx for the variant
+            // with that value. This works because `discriminant_vals` and
+            // `targets.all_values()` are guaranteed to list variants in the same
+            // AdtDef order. (If that ever changes the `expect` will panic.)
+            const discriminants = enum_def.discriminants(tcx);
+            const variants = targets.all_values().map((value) => {
+              // On each call to this closure `find` only consumes part of
+              // the `discriminants` iterator.
+              for (let d = discriminants.next(); !d.done; d = discriminants.next()) {
+                if (d.value[1].val === value) return d.value[0];
+              }
+              return panic("SwitchInt vals should match a variant");
+            });
+
+            return new MaybePlacesSwitchIntData(enum_place, variants);
+          }
+
+          // `Rvalue::Discriminant` is also used to get the active yield point for a
+          // coroutine, but we do not need edge-specific effects in that case. This
+          // may change in the future.
+          case "Coroutine":
+            break outer;
+
+          default:
+            return bug(`\`discriminant\` called on unexpected type ${debug_Ty(t, PLAIN)}`);
+        }
+      } else if (kind.$ === "Coverage") {
+        continue;
+      } else {
+        break;
+      }
+    }
+    return undefined;
   }
 }
 
@@ -105,38 +195,57 @@ export class MaybeInitializedPlaces
     super();
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:148 new (lane dataflow-impls)
-  static new(_tcx: TyCtxt, _body: Body, _move_data: MoveData): MaybeInitializedPlaces {
-    return unported("rustc_mir_dataflow::impls::initialized::MaybeInitializedPlaces::new");
+  // rustc: compiler/rustc_mir_dataflow/src/impls/initialized.rs:148 new
+  static new(tcx: TyCtxt, body: Body, move_data: MoveData): MaybeInitializedPlaces {
+    return new MaybeInitializedPlaces(tcx, body, move_data, false, false);
   }
 
   /// Ensures definitely inactive variants are excluded from the set of initialized places for
   /// blocks reached through an `otherwise` edge.
-  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:162 exclude_inactive_in_otherwise (lane dataflow-impls)
+  // rustc: compiler/rustc_mir_dataflow/src/impls/initialized.rs:162 exclude_inactive_in_otherwise
   exclude_inactive_in_otherwise(): this {
-    return unported("rustc_mir_dataflow::impls::initialized::MaybeInitializedPlaces::exclude_inactive_in_otherwise");
+    this.exclude_inactive_in_otherwise_ = true;
+    return this;
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:167 skipping_unreachable_unwind (lane dataflow-impls)
+  // rustc: compiler/rustc_mir_dataflow/src/impls/initialized.rs:167 skipping_unreachable_unwind
   skipping_unreachable_unwind(): this {
-    return unported("rustc_mir_dataflow::impls::initialized::MaybeInitializedPlaces::skipping_unreachable_unwind");
+    this.skip_unreachable_unwind = true;
+    return this;
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:172 is_unwind_dead (lane dataflow-impls)
-  is_unwind_dead(_place: Place, _state: MaybeReachable<MixedBitSet<MovePathIndex>>): boolean {
-    return unported("rustc_mir_dataflow::impls::initialized::MaybeInitializedPlaces::is_unwind_dead");
+  // rustc: compiler/rustc_mir_dataflow/src/impls/initialized.rs:172 is_unwind_dead
+  is_unwind_dead(place: Place, state: MaybeReachable<MixedBitSet<MovePathIndex>>): boolean {
+    const r = this.move_data().rev_lookup.find(place.as_ref());
+    if (r.$ === "Exact") {
+      const path = r._0;
+      let maybe_live = false;
+      on_all_children_bits(this.move_data(), path, (child) => {
+        maybe_live ||= MaybeReachable_contains(state, child);
+      });
+      return !maybe_live;
+    } else {
+      return false;
+    }
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:188 update_bits (lane dataflow-impls)
-  static update_bits(_state: MaybeReachable<MixedBitSet<MovePathIndex>>, _path: MovePathIndex, _dfstate: DropFlagState): void {
-    return unported("rustc_mir_dataflow::impls::initialized::MaybeInitializedPlaces::update_bits");
+  // rustc: compiler/rustc_mir_dataflow/src/impls/initialized.rs:188 update_bits
+  static update_bits(state: MaybeReachable<MixedBitSet<MovePathIndex>>, path: MovePathIndex, dfstate: DropFlagState): void {
+    switch (dfstate) {
+      case "Absent":
+        GK_MaybeInit.kill(state, path);
+        break;
+      case "Present":
+        GK_MaybeInit.gen_(state, path);
+        break;
+    }
   }
 
   // ---- impl HasMoveData for MaybeInitializedPlaces ----
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:201 move_data (lane dataflow-impls)
+  // rustc: compiler/rustc_mir_dataflow/src/impls/initialized.rs:201 move_data
   move_data(): MoveData {
-    return unported("rustc_mir_dataflow::impls::initialized::MaybeInitializedPlaces::move_data");
+    return this.move_data_;
   }
 
   // ---- impl Analysis for MaybeInitializedPlaces ----
@@ -152,60 +261,123 @@ export class MaybeInitializedPlaces
 
   readonly NAME = "maybe_init";
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:215 bottom_value (lane dataflow-impls)
-  bottom_value(_body: Body): MaybeReachable<MixedBitSet<MovePathIndex>> {
-    return unported("rustc_mir_dataflow::impls::initialized::MaybeInitializedPlaces::bottom_value");
+  // rustc: compiler/rustc_mir_dataflow/src/impls/initialized.rs:215 bottom_value
+  bottom_value(_1: Body): MaybeReachable<MixedBitSet<MovePathIndex>> {
+    // bottom = uninitialized
+    return MaybeReachable.Unreachable();
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:220 initialize_start_block (lane dataflow-impls)
-  initialize_start_block(_body: Body, _state: MaybeReachable<MixedBitSet<MovePathIndex>>): void {
-    return unported("rustc_mir_dataflow::impls::initialized::MaybeInitializedPlaces::initialize_start_block");
+  // rustc: compiler/rustc_mir_dataflow/src/impls/initialized.rs:220 initialize_start_block
+  initialize_start_block(_1: Body, state: MaybeReachable<MixedBitSet<MovePathIndex>>): void {
+    MaybeReachable.assign(state, MaybeReachable.Reachable(MixedBitSet.new_empty<MovePathIndex>(this.move_data().move_paths.length)));
+    drop_flag_effects_for_function_entry(this.body, this.move_data_, (path, _s) => {
+      // debug_assert!(s == DropFlagState::Present);
+      GK_MaybeInit.gen_(state, path);
+    });
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:229 apply_primary_statement_effect (lane dataflow-impls)
-  apply_primary_statement_effect(_state: MaybeReachable<MixedBitSet<MovePathIndex>>, _statement: Statement, _location: Location): void {
-    return unported("rustc_mir_dataflow::impls::initialized::MaybeInitializedPlaces::apply_primary_statement_effect");
+  // rustc: compiler/rustc_mir_dataflow/src/impls/initialized.rs:229 apply_primary_statement_effect
+  apply_primary_statement_effect(state: MaybeReachable<MixedBitSet<MovePathIndex>>, statement: Statement, location: Location): void {
+    drop_flag_effects_for_location(this.body, this.move_data_, location, (path, s) => MaybeInitializedPlaces.update_bits(state, path, s));
+
+    // Mark all places as "maybe init" if they are mutably borrowed. See #90752.
+    if (this.tcx.sess.opts.unstable_opts.precise_enum_drop_elaboration) {
+      const assign = StatementKind.as_assign(statement.kind);
+      if (assign !== undefined) {
+        const rvalue = assign[1];
+        let place: Place | undefined;
+        if (rvalue.$ === "Ref" && rvalue._1.$ === "Mut") {
+          place = rvalue._2;
+        } else if (rvalue.$ === "RawPtr") {
+          // FIXME: Does `&raw const foo` allow mutation? See #90413.
+          place = rvalue._1;
+        }
+        if (place !== undefined) {
+          const r = this.move_data().rev_lookup.find(place.as_ref());
+          if (r.$ === "Exact") {
+            const mpi = r._0;
+            on_all_children_bits(this.move_data(), mpi, (child) => {
+              GK_MaybeInit.gen_(state, child);
+            });
+          }
+        }
+      }
+    }
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:253 get_terminator_edges (lane dataflow-impls)
+  // rustc: compiler/rustc_mir_dataflow/src/impls/initialized.rs:253 get_terminator_edges
   override get_terminator_edges(
-    _state: MaybeReachable<MixedBitSet<MovePathIndex>>,
-    _terminator: Terminator,
+    state: MaybeReachable<MixedBitSet<MovePathIndex>>,
+    terminator: Terminator,
     _location: Location,
   ): TerminatorEdges {
-    return unported("rustc_mir_dataflow::impls::initialized::MaybeInitializedPlaces::get_terminator_edges");
+    // Note: this relies on `get_terminator_edges` being called before
+    // `apply_primary_terminator_effect` because the result of `is_unwind_dead` is affected by
+    // the `drop_flag_effects_for_location` in `apply_primary_terminator_effect`.
+    let edges = terminator.edges();
+    const kind = terminator.kind;
+    if (
+      this.skip_unreachable_unwind &&
+      kind.$ === "Drop" &&
+      kind.unwind.$ === "Cleanup" &&
+      this.is_unwind_dead(kind.place, state)
+    ) {
+      edges = { $: "Single", _0: kind.target };
+    }
+    return edges;
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:274 apply_primary_terminator_effect (lane dataflow-impls)
+  // rustc: compiler/rustc_mir_dataflow/src/impls/initialized.rs:274 apply_primary_terminator_effect
   override apply_primary_terminator_effect(
-    _state: MaybeReachable<MixedBitSet<MovePathIndex>>,
+    state: MaybeReachable<MixedBitSet<MovePathIndex>>,
     _terminator: Terminator,
-    _location: Location,
+    location: Location,
   ): void {
-    return unported("rustc_mir_dataflow::impls::initialized::MaybeInitializedPlaces::apply_primary_terminator_effect");
+    drop_flag_effects_for_location(this.body, this.move_data_, location, (path, s) => MaybeInitializedPlaces.update_bits(state, path, s));
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:285 apply_call_return_effect (lane dataflow-impls)
+  // rustc: compiler/rustc_mir_dataflow/src/impls/initialized.rs:285 apply_call_return_effect
   override apply_call_return_effect(
-    _state: MaybeReachable<MixedBitSet<MovePathIndex>>,
+    state: MaybeReachable<MixedBitSet<MovePathIndex>>,
     _block: BasicBlock,
-    _return_places: CallReturnPlaces,
+    return_places: CallReturnPlaces,
   ): void {
-    return unported("rustc_mir_dataflow::impls::initialized::MaybeInitializedPlaces::apply_call_return_effect");
+    CallReturnPlaces.for_each(return_places, (place) => {
+      // when a call returns successfully, that means we need to set
+      // the bits for that dest_place to 1 (initialized).
+      on_lookup_result_bits(this.move_data(), this.move_data().rev_lookup.find(place.as_ref()), (mpi) => {
+        GK_MaybeInit.gen_(state, mpi);
+      });
+    });
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:304 get_switch_int_data (lane dataflow-impls)
-  override get_switch_int_data(_block: BasicBlock, _targets: SwitchTargets, _discr: Operand): MaybePlacesSwitchIntData | undefined {
-    return unported("rustc_mir_dataflow::impls::initialized::MaybeInitializedPlaces::get_switch_int_data");
+  // rustc: compiler/rustc_mir_dataflow/src/impls/initialized.rs:304 get_switch_int_data
+  override get_switch_int_data(block: BasicBlock, targets: SwitchTargets, discr: Operand): MaybePlacesSwitchIntData | undefined {
+    if (!this.tcx.sess.opts.unstable_opts.precise_enum_drop_elaboration) {
+      return undefined;
+    }
+
+    return MaybePlacesSwitchIntData.new(this.tcx, this.body, block, targets, discr);
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:317 apply_switch_int_edge_effect (lane dataflow-impls)
+  // rustc: compiler/rustc_mir_dataflow/src/impls/initialized.rs:317 apply_switch_int_edge_effect
   override apply_switch_int_edge_effect(
-    _state: MaybeReachable<MixedBitSet<MovePathIndex>>,
-    _data: MaybePlacesSwitchIntData,
-    _target_idx: SwitchTargetIndex,
+    state: MaybeReachable<MixedBitSet<MovePathIndex>>,
+    data: MaybePlacesSwitchIntData,
+    target_idx: SwitchTargetIndex,
   ): void {
-    return unported("rustc_mir_dataflow::impls::initialized::MaybeInitializedPlaces::apply_switch_int_edge_effect");
+    let inactive_variants: InactiveVariants;
+    if (target_idx.$ === "Normal") {
+      inactive_variants = { $: "Active", _0: data.variants[target_idx._0]! };
+    } else if (target_idx.$ === "Otherwise" && this.exclude_inactive_in_otherwise_) {
+      inactive_variants = { $: "Inactives", _0: [...data.variants] };
+    } else {
+      return;
+    }
+
+    // Kill all move paths that correspond to variants we know to be inactive along this
+    // particular outgoing edge of a `SwitchInt`.
+    on_all_inactive_variants(this.move_data_, data.enum_place, inactive_variants, (mpi) => GK_MaybeInit.kill(state, mpi));
   }
 }
 
@@ -261,9 +433,9 @@ export class MaybeUninitializedPlaces
     super();
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:390 new (lane dataflow-impls)
-  static new(_tcx: TyCtxt, _body: Body, _move_data: MoveData): MaybeUninitializedPlaces {
-    return unported("rustc_mir_dataflow::impls::initialized::MaybeUninitializedPlaces::new");
+  // rustc: compiler/rustc_mir_dataflow/src/impls/initialized.rs:390 new
+  static new(tcx: TyCtxt, body: Body, move_data: MoveData): MaybeUninitializedPlaces {
+    return new MaybeUninitializedPlaces(tcx, body, move_data, false, DenseBitSet.new_empty<BasicBlock>(body.basic_blocks.deref().length));
   }
 
   /// Causes inactive enum variants to be marked as "maybe uninitialized" after a switch on an
@@ -271,26 +443,35 @@ export class MaybeUninitializedPlaces
   ///
   /// This is correct in a vacuum but is not the default because it causes problems in the borrow
   /// checker, where this information gets propagated along `FakeEdge`s.
-  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:407 mark_inactive_variants_as_uninit (lane dataflow-impls)
+  // rustc: compiler/rustc_mir_dataflow/src/impls/initialized.rs:407 mark_inactive_variants_as_uninit
   mark_inactive_variants_as_uninit(): this {
-    return unported("rustc_mir_dataflow::impls::initialized::MaybeUninitializedPlaces::mark_inactive_variants_as_uninit");
+    this.mark_inactive_variants_as_uninit_ = true;
+    return this;
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:412 skipping_unreachable_unwind (lane dataflow-impls)
-  skipping_unreachable_unwind(_unreachable_unwind: DenseBitSet<BasicBlock>): this {
-    return unported("rustc_mir_dataflow::impls::initialized::MaybeUninitializedPlaces::skipping_unreachable_unwind");
+  // rustc: compiler/rustc_mir_dataflow/src/impls/initialized.rs:412 skipping_unreachable_unwind
+  skipping_unreachable_unwind(unreachable_unwind: DenseBitSet<BasicBlock>): this {
+    this.skip_unreachable_unwind = unreachable_unwind;
+    return this;
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:420 update_bits (lane dataflow-impls)
-  static update_bits(_state: MaybeUninitializedPlacesDomain, _path: MovePathIndex, _dfstate: DropFlagState): void {
-    return unported("rustc_mir_dataflow::impls::initialized::MaybeUninitializedPlaces::update_bits");
+  // rustc: compiler/rustc_mir_dataflow/src/impls/initialized.rs:420 update_bits
+  static update_bits(state: MaybeUninitializedPlacesDomain, path: MovePathIndex, dfstate: DropFlagState): void {
+    switch (dfstate) {
+      case "Absent":
+        GK_MaybeUninit.gen_(state, path);
+        break;
+      case "Present":
+        GK_MaybeUninit.kill(state, path);
+        break;
+    }
   }
 
   // ---- impl HasMoveData for MaybeUninitializedPlaces ----
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:433 move_data (lane dataflow-impls)
+  // rustc: compiler/rustc_mir_dataflow/src/impls/initialized.rs:433 move_data
   move_data(): MoveData {
-    return unported("rustc_mir_dataflow::impls::initialized::MaybeUninitializedPlaces::move_data");
+    return this.move_data_;
   }
 
   // ---- impl Analysis for MaybeUninitializedPlaces ----
@@ -302,48 +483,93 @@ export class MaybeUninitializedPlaces
 
   readonly NAME = "maybe_uninit";
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:449 bottom_value (lane dataflow-impls)
-  bottom_value(_body: Body): MaybeUninitializedPlacesDomain {
-    return unported("rustc_mir_dataflow::impls::initialized::MaybeUninitializedPlaces::bottom_value");
+  // rustc: compiler/rustc_mir_dataflow/src/impls/initialized.rs:449 bottom_value
+  bottom_value(_1: Body): MaybeUninitializedPlacesDomain {
+    // bottom = initialized (`initialize_start_block` overwrites this on first entry)
+    return MixedBitSet.new_empty<MovePathIndex>(this.move_data().move_paths.length);
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:455 initialize_start_block (lane dataflow-impls)
-  initialize_start_block(_body: Body, _state: MaybeUninitializedPlacesDomain): void {
-    return unported("rustc_mir_dataflow::impls::initialized::MaybeUninitializedPlaces::initialize_start_block");
+  // sets state bits for Arg places
+  // rustc: compiler/rustc_mir_dataflow/src/impls/initialized.rs:455 initialize_start_block
+  initialize_start_block(_1: Body, state: MaybeUninitializedPlacesDomain): void {
+    // set all bits to 1 (uninit) before gathering counter-evidence
+    MixedBitSet.insert_all(state);
+
+    drop_flag_effects_for_function_entry(this.body, this.move_data_, (path, _s) => {
+      // debug_assert!(s == DropFlagState::Present);
+      MixedBitSet.remove(state, path);
+    });
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:465 apply_primary_statement_effect (lane dataflow-impls)
-  apply_primary_statement_effect(_state: MaybeUninitializedPlacesDomain, _statement: Statement, _location: Location): void {
-    return unported("rustc_mir_dataflow::impls::initialized::MaybeUninitializedPlaces::apply_primary_statement_effect");
+  // rustc: compiler/rustc_mir_dataflow/src/impls/initialized.rs:465 apply_primary_statement_effect
+  apply_primary_statement_effect(state: MaybeUninitializedPlacesDomain, _statement: Statement, location: Location): void {
+    drop_flag_effects_for_location(this.body, this.move_data_, location, (path, s) => MaybeUninitializedPlaces.update_bits(state, path, s));
+
+    // Unlike in `MaybeInitializedPlaces` above, we don't need to change the state when a
+    // mutable borrow occurs. Places cannot become uninitialized through a mutable reference.
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:479 get_terminator_edges (lane dataflow-impls)
-  override get_terminator_edges(_state: MaybeUninitializedPlacesDomain, _terminator: Terminator, _location: Location): TerminatorEdges {
-    return unported("rustc_mir_dataflow::impls::initialized::MaybeUninitializedPlaces::get_terminator_edges");
+  // rustc: compiler/rustc_mir_dataflow/src/impls/initialized.rs:479 get_terminator_edges
+  override get_terminator_edges(_state: MaybeUninitializedPlacesDomain, terminator: Terminator, location: Location): TerminatorEdges {
+    if (this.skip_unreachable_unwind.contains(location.block)) {
+      const kind = terminator.kind;
+      if (kind.$ !== "Drop") return bug();
+      const { target, unwind } = kind;
+      assert_matches(unwind, unwind.$ === "Cleanup", "mir::UnwindAction::Cleanup(_)", (u) => debug_UnwindAction(u, PLAIN));
+      return { $: "Single", _0: target };
+    } else {
+      return terminator.edges();
+    }
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:494 apply_primary_terminator_effect (lane dataflow-impls)
-  override apply_primary_terminator_effect(_state: MaybeUninitializedPlacesDomain, _terminator: Terminator, _location: Location): void {
-    return unported("rustc_mir_dataflow::impls::initialized::MaybeUninitializedPlaces::apply_primary_terminator_effect");
+  // rustc: compiler/rustc_mir_dataflow/src/impls/initialized.rs:494 apply_primary_terminator_effect
+  override apply_primary_terminator_effect(state: MaybeUninitializedPlacesDomain, _terminator: Terminator, location: Location): void {
+    drop_flag_effects_for_location(this.body, this.move_data_, location, (path, s) => MaybeUninitializedPlaces.update_bits(state, path, s));
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:505 apply_call_return_effect (lane dataflow-impls)
-  override apply_call_return_effect(_state: MaybeUninitializedPlacesDomain, _block: BasicBlock, _return_places: CallReturnPlaces): void {
-    return unported("rustc_mir_dataflow::impls::initialized::MaybeUninitializedPlaces::apply_call_return_effect");
+  // rustc: compiler/rustc_mir_dataflow/src/impls/initialized.rs:505 apply_call_return_effect
+  override apply_call_return_effect(state: MaybeUninitializedPlacesDomain, _block: BasicBlock, return_places: CallReturnPlaces): void {
+    CallReturnPlaces.for_each(return_places, (place) => {
+      // when a call returns successfully, that means we need to set
+      // the bits for that dest_place to 0 (initialized).
+      on_lookup_result_bits(this.move_data(), this.move_data().rev_lookup.find(place.as_ref()), (mpi) => {
+        GK_MaybeUninit.kill(state, mpi);
+      });
+    });
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:524 get_switch_int_data (lane dataflow-impls)
-  override get_switch_int_data(_block: BasicBlock, _targets: SwitchTargets, _discr: Operand): MaybePlacesSwitchIntData | undefined {
-    return unported("rustc_mir_dataflow::impls::initialized::MaybeUninitializedPlaces::get_switch_int_data");
+  // rustc: compiler/rustc_mir_dataflow/src/impls/initialized.rs:524 get_switch_int_data
+  override get_switch_int_data(block: BasicBlock, targets: SwitchTargets, discr: Operand): MaybePlacesSwitchIntData | undefined {
+    if (!this.tcx.sess.opts.unstable_opts.precise_enum_drop_elaboration) {
+      return undefined;
+    }
+
+    if (!this.mark_inactive_variants_as_uninit_) {
+      return undefined;
+    }
+
+    return MaybePlacesSwitchIntData.new(this.tcx, this.body, block, targets, discr);
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:541 apply_switch_int_edge_effect (lane dataflow-impls)
+  // rustc: compiler/rustc_mir_dataflow/src/impls/initialized.rs:541 apply_switch_int_edge_effect
   override apply_switch_int_edge_effect(
-    _state: MaybeUninitializedPlacesDomain,
-    _data: MaybePlacesSwitchIntData,
-    _target_idx: SwitchTargetIndex,
+    state: MaybeUninitializedPlacesDomain,
+    data: MaybePlacesSwitchIntData,
+    target_idx: SwitchTargetIndex,
   ): void {
-    return unported("rustc_mir_dataflow::impls::initialized::MaybeUninitializedPlaces::apply_switch_int_edge_effect");
+    let inactive_variants: InactiveVariants;
+    switch (target_idx.$) {
+      case "Normal":
+        inactive_variants = { $: "Active", _0: data.variants[target_idx._0]! };
+        break;
+      case "Otherwise":
+        inactive_variants = { $: "Inactives", _0: [...data.variants] };
+        break;
+    }
+
+    // Mark all move paths that correspond to variants other than this one as maybe
+    // uninitialized (in reality, they are *definitely* uninitialized).
+    on_all_inactive_variants(this.move_data_, data.enum_place, inactive_variants, (mpi) => GK_MaybeUninit.gen_(state, mpi));
   }
 }
 
@@ -391,23 +617,75 @@ export class EverInitializedPlaces extends AnalysisBase<EverInitializedPlacesDom
     super();
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:601 new (lane dataflow-impls)
-  static new(_body: Body, _move_data: MoveData): EverInitializedPlaces {
-    return unported("rustc_mir_dataflow::impls::initialized::EverInitializedPlaces::new");
+  // rustc: compiler/rustc_mir_dataflow/src/impls/initialized.rs:601 new
+  static new(body: Body, move_data: MoveData): EverInitializedPlaces {
+    return new EverInitializedPlaces(body, move_data);
   }
 
   /// Whether the init of `local` at `init` can reach `target` via a path that doesn't pass
   /// through a `StorageDead(local)`. Mirrors the gen/kill structure of `EverInitializedPlaces`.
-  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:609 init_reaches_location (lane dataflow-impls)
-  static init_reaches_location(_body: Body, _local: Local, _init: Init, _target: Location): boolean {
-    return unported("rustc_mir_dataflow::impls::initialized::EverInitializedPlaces::init_reaches_location");
+  // rustc: compiler/rustc_mir_dataflow/src/impls/initialized.rs:609 init_reaches_location
+  static init_reaches_location(body: Body, local: Local, init: Init, target: Location): boolean {
+    let init_loc: Location;
+    switch (init.location.$) {
+      // Arguments are initialized on entry, and `StorageDead` is never emitted for them, so
+      // they reach every location.
+      case "Argument":
+        return true;
+      case "Statement":
+        init_loc = init.location._0;
+        break;
+    }
+
+    // Worklist of locations to walk forward from, seeded with the location(s) following `init`.
+    const queue: Location[] = [];
+
+    const basic_blocks = body.basic_blocks.deref();
+    const init_block_data = basic_blocks[init_loc.block]!;
+    if (init_loc.statement_index < init_block_data.statements.length) {
+      // This case mirrors `apply_primary_statement_effect`.
+      queue.push(init_loc.successor_within_block());
+    } else if (init.kind === "NonPanicPathOnly") {
+      // This case mirrors `apply_call_return_effect`.
+      const edges = init_block_data.terminator_().edges();
+      if (edges.$ !== "AssignOnReturn") {
+        return bug("`NonPanicPathOnly` should only be seen on terminators with return edges");
+      }
+      queue.push(...edges.return_.map(BasicBlock.start_location));
+    } else {
+      // This case mirrors `apply_primary_terminator_effect`.
+      queue.push(...[...init_block_data.terminator_().successors()].map(BasicBlock.start_location));
+    }
+
+    const visited = new KeyedSet<Location>(Location_key);
+    let loc: Location | undefined;
+    outer: while ((loc = queue.pop()) !== undefined) {
+      if (visited.has(loc)) {
+        continue;
+      }
+      visited.add(loc);
+      // Walk from `loc` to the end of its block, looking for `target` or a kill.
+      const block_data = basic_blocks[loc.block]!;
+      for (let statement_index = loc.statement_index; statement_index <= block_data.statements.length; statement_index++) {
+        if (target.block === loc.block && target.statement_index === statement_index) {
+          return true;
+        }
+        const stmt = block_data.statements[statement_index];
+        if (stmt !== undefined && stmt.kind.$ === "StorageDead" && stmt.kind._0 === local) {
+          continue outer;
+        }
+      }
+
+      queue.push(...[...block_data.terminator_().successors()].map(BasicBlock.start_location));
+    }
+    return false;
   }
 
   // ---- impl HasMoveData for EverInitializedPlaces ----
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:669 move_data (lane dataflow-impls)
+  // rustc: compiler/rustc_mir_dataflow/src/impls/initialized.rs:669 move_data
   move_data(): MoveData {
-    return unported("rustc_mir_dataflow::impls::initialized::EverInitializedPlaces::move_data");
+    return this.move_data_;
   }
 
   // ---- impl Analysis for EverInitializedPlaces ----
@@ -417,33 +695,105 @@ export class EverInitializedPlaces extends AnalysisBase<EverInitializedPlacesDom
 
   readonly NAME = "ever_init";
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:681 bottom_value (lane dataflow-impls)
-  bottom_value(_body: Body): EverInitializedPlacesDomain {
-    return unported("rustc_mir_dataflow::impls::initialized::EverInitializedPlaces::bottom_value");
+  // rustc: compiler/rustc_mir_dataflow/src/impls/initialized.rs:681 bottom_value
+  bottom_value(body: Body): EverInitializedPlacesDomain {
+    // bottom = no initialized locals by default
+    return DenseBitSet.new_empty<Local>(body.local_decls.length);
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:686 initialize_start_block (lane dataflow-impls)
-  initialize_start_block(_body: Body, _state: EverInitializedPlacesDomain): void {
-    return unported("rustc_mir_dataflow::impls::initialized::EverInitializedPlaces::initialize_start_block");
+  // rustc: compiler/rustc_mir_dataflow/src/impls/initialized.rs:686 initialize_start_block
+  initialize_start_block(body: Body, state: EverInitializedPlacesDomain): void {
+    for (const arg of body.args_iter()) {
+      state.insert(arg);
+    }
   }
 
   // #[instrument(skip(self, state), level = "debug")]
-  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:693 apply_primary_statement_effect (lane dataflow-impls)
-  apply_primary_statement_effect(_state: EverInitializedPlacesDomain, _stmt: Statement, _location: Location): void {
-    return unported("rustc_mir_dataflow::impls::initialized::EverInitializedPlaces::apply_primary_statement_effect");
+  // rustc: compiler/rustc_mir_dataflow/src/impls/initialized.rs:693 apply_primary_statement_effect
+  apply_primary_statement_effect(state: EverInitializedPlacesDomain, stmt: Statement, location: Location): void {
+    const move_data = this.move_data();
+    const init_loc_map = move_data.init_loc_map;
+
+    // Record inits of locals. Projections can be ignored.
+    GK_EverInit.gen_all(
+      state,
+      filter_map(init_loc_map.index(location), (ii) => {
+        const init_mpi = move_data.inits[ii]!.path;
+        return move_data.move_paths[init_mpi]!.place.as_local();
+      }),
+    );
+
+    // Kill on StorageDead, so that an immutable variable can
+    // be reinitialized on the next iteration of the loop.
+    if (stmt.kind.$ === "StorageDead") {
+      const local = stmt.kind._0;
+      GK_EverInit.kill(state, local);
+    }
   }
 
   // #[instrument(skip(self, state, _terminator), level = "debug")]
-  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:716 apply_primary_terminator_effect (lane dataflow-impls)
-  override apply_primary_terminator_effect(_state: EverInitializedPlacesDomain, _terminator: Terminator, _location: Location): void {
-    return unported("rustc_mir_dataflow::impls::initialized::EverInitializedPlaces::apply_primary_terminator_effect");
+  // rustc: compiler/rustc_mir_dataflow/src/impls/initialized.rs:716 apply_primary_terminator_effect
+  override apply_primary_terminator_effect(state: EverInitializedPlacesDomain, _terminator: Terminator, location: Location): void {
+    const move_data = this.move_data();
+    const init_loc_map = move_data.init_loc_map;
+
+    // Record inits of locals. Projections can be ignored.
+    GK_EverInit.gen_all(
+      state,
+      filter_map(init_loc_map.index(location), (ii) => {
+        const init = move_data.inits[ii]!;
+        if (init.kind !== "NonPanicPathOnly") {
+          return move_data.move_paths[init.path]!.place.as_local();
+        } else {
+          return undefined;
+        }
+      }),
+    );
   }
 
-  // stub: compiler/rustc_mir_dataflow/src/impls/initialized.rs:736 apply_call_return_effect (lane dataflow-impls)
-  override apply_call_return_effect(_state: EverInitializedPlacesDomain, _block: BasicBlock, _return_places: CallReturnPlaces): void {
-    return unported("rustc_mir_dataflow::impls::initialized::EverInitializedPlaces::apply_call_return_effect");
+  // rustc: compiler/rustc_mir_dataflow/src/impls/initialized.rs:736 apply_call_return_effect
+  override apply_call_return_effect(state: EverInitializedPlacesDomain, block: BasicBlock, _return_places: CallReturnPlaces): void {
+    const move_data = this.move_data();
+    const init_loc_map = move_data.init_loc_map;
+
+    // Record inits of locals. Projections can be ignored.
+    const call_loc = this.body.terminator_loc(block);
+    GK_EverInit.gen_all(
+      state,
+      filter_map(init_loc_map.index(call_loc), (ii) => {
+        const init = move_data.inits[ii]!;
+        if (init.kind === "NonPanicPathOnly") {
+          return move_data.move_paths[init.path]!.place.as_local();
+        } else {
+          return undefined;
+        }
+      }),
+    );
   }
 }
 
 // rustc-type: compiler/rustc_mir_dataflow/src/impls/initialized.rs:674 EverInitializedPlacesDomain
 export type EverInitializedPlacesDomain = DenseBitSet<Local>;
+
+/** `Place == Place` (derived `PartialEq`: the local and the interned projection list). */
+function Place_eq(a: Place, b: Place): boolean {
+  return a.local === b.local && a.projection === b.projection;
+}
+
+/** The key of a `Location` in an `FxIndexSet<Location>` (derived `Hash` + `Eq`). */
+function Location_key(loc: Location): string {
+  return `${loc.block}:${loc.statement_index}`;
+}
+
+/** `state.contains(elem)` on a `MaybeReachable<MixedBitSet<_>>` (`MaybeReachable::contains`). */
+function MaybeReachable_contains(state: MaybeReachable<MixedBitSet<MovePathIndex>>, elem: MovePathIndex): boolean {
+  return MaybeReachable.contains(state, elem, BitSetExt_MixedBitSet as BitSetExt<MixedBitSet<MovePathIndex>, MovePathIndex>);
+}
+
+/** PORT: `iter.copied().filter_map(f)`, collected for `gen_all` (which takes an `IntoIterator`). */
+function* filter_map<T, U>(it: Iterable<T>, f: (x: T) => U | undefined): Generator<U> {
+  for (const x of it) {
+    const y = f(x);
+    if (y !== undefined) yield y;
+  }
+}

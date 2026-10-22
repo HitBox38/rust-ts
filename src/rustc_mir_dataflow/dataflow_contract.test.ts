@@ -19,8 +19,6 @@ import { write_graphviz_results } from "./framework/graphviz.ts";
 import { AnalysisBase, type Domain, Domain_DenseBitSet, Domain_MixedBitSet } from "./framework/mod.ts";
 import * as lib from "./lib.ts";
 import { MaybeLiveLocals } from "./impls/liveness.ts";
-import { mir_pretty_extra_data } from "./pretty.ts";
-import { sanity_check } from "./rustc_peek.ts";
 import "../rustc_middle/lib.ts";
 import { BasicBlockData, Body, SourceInfo, Terminator, TerminatorKind } from "../rustc_middle/mir/mod.ts";
 import { MixedBitSet } from "../rustc_index/bit_set.ts";
@@ -155,8 +153,8 @@ test("every fn of rustc_mir_dataflow is ported or declared as a stub, never both
   // nothing outside the crate's files
   for (const d of [...stubs, ...markers]) expect(FILES.some((f) => `${CRATE}/${f}` === d.path)).toBe(true);
   expect(total).toBe(378);
-  expect(markers.length).toBe(172);
-  expect(stubs.length).toBe(206);
+  expect(markers.length).toBe(288);
+  expect(stubs.length).toBe(90);
 });
 
 test("the crate root loads and re-exports the framework", () => {
@@ -188,11 +186,9 @@ test("stubs stop as UNPORTED in their own module", () => {
   const body = {} as Body;
   // (move_paths / drop_flag_effects / un_derefer / points / debuginfo are ported: move_paths/move_paths.test.ts)
   stops(() => write_graphviz_results(tcx, body, {} as never, undefined), "rustc_mir_dataflow::framework::graphviz::write_graphviz_results");
-  // an analysis declared by the contract runs the framework up to its first stub
-  stops(() => new MaybeLiveLocals().iterate_to_fixpoint(tcx, one_block_body(), undefined), "rustc_mir_dataflow::impls::liveness::MaybeLiveLocals::bottom_value");
+  // a filled analysis (lane dataflow-impls; tested on built MIR in impls/impls.test.ts): bottom = no local live
+  expect(new MaybeLiveLocals().bottom_value(one_block_body()).domain_size()).toBe(0);
   expect(new MaybeLiveLocals().Direction.IS_BACKWARD).toBe(true);
-  stops(() => sanity_check(tcx, body), "rustc_mir_dataflow::rustc_peek::sanity_check");
-  stops(() => mir_pretty_extra_data(tcx, body), "rustc_mir_dataflow::pretty::mir_pretty_extra_data");
 });
 
 class Empty extends AnalysisBase<DenseBitSet<number>> {
