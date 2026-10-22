@@ -144,7 +144,10 @@ test("Location: successor_within_block, is_predecessor_of, dominates; DefLocatio
   expect(loc(1, 3).is_predecessor_of(loc(1, 0), l)).toBe(true);
   expect(loc(2, 0).is_predecessor_of(loc(1, 0), l)).toBe(false);
 
-  const doms = dominators(d.basic_blocks as unknown as ControlFlowGraph<BasicBlock>);
+  const doms = d.basic_blocks.dominators();
+  // the cache of basic_blocks.rs:38 (computed once, by index-ds's `dominators`)
+  expect(d.basic_blocks.dominators()).toBe(doms);
+  expect(doms.immediate_dominator(bb(3))).toEqual(dominators(d.basic_blocks as unknown as ControlFlowGraph<BasicBlock>).immediate_dominator(bb(3)));
   expect(loc(0, 5).dominates(loc(3, 0), doms)).toBe(true);
   expect(loc(1, 0).dominates(loc(3, 0), doms)).toBe(false);
   expect(loc(1, 2).dominates(loc(1, 2), doms)).toBe(true);

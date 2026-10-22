@@ -5,8 +5,6 @@ import { type BasicBlock, type BasicBlockData, type Body } from "./mod.ts";
 import { type Successors } from "./terminator.ts";
 import { type TyCtxt } from "../ty/context.ts";
 import { type Instance } from "../ty/instance.ts";
-import { unported } from "../../std/panic.ts";
-const unported_clone = <T>(_v: T): T => unported("Clone without a TS impl (see types report)");
 
 // rustc-type: compiler/rustc_middle/src/mir/traversal.rs:22 Preorder
 /// Preorder traversal of a graph.
@@ -35,7 +33,7 @@ export class Preorder {
   ) {}
 }
 export function clone_Preorder(v: Preorder): Preorder {
-  return new Preorder(v.body, unported_clone(v.visited), v.worklist.slice());
+  return new Preorder(v.body, v.visited.clone(), v.worklist.slice());
 }
 
 // rustc-type: compiler/rustc_middle/src/mir/traversal.rs:97 Postorder
