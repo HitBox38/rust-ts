@@ -5,14 +5,17 @@
 // enum companions come from the defining modules, which may assign prototypes / companion methods).
 import type { FieldIdx, VariantIdx } from "../../rustc_abi/lib.ts";
 import type { Diag } from "../../rustc_errors/lib.ts";
+import { index_map_swap_remove } from "../../rustc_errors/decorate_diag.ts";
 import type { ClosureKind, CoroutineKind } from "../../rustc_hir/lib.ts";
-import type { BorrowKind, ConstraintCategory, Local, Location, Operand, Place, PlaceRef } from "../../rustc_middle/mir/mod.ts";
+import { type BorrowKind, type ConstraintCategory, debug_Local, type Local, type Location, type Operand, type Place, type PlaceRef } from "../../rustc_middle/mir/mod.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import type { Ty } from "../../rustc_middle/ty/mod.ts";
 import type { MoveOutIndex } from "../../rustc_mir_dataflow/move_paths/mod.ts";
 import type { LocalDefId } from "../../rustc_span/def_id.ts";
-import type { Span } from "../../rustc_span/lib.ts";
-import type { Symbol } from "../../rustc_span/symbol.ts";
+import { DUMMY_SP, Span } from "../../rustc_span/lib.ts";
+import { span_bug } from "../../rustc_span/macros.ts";
+import { Symbol } from "../../rustc_span/symbol.ts";
+import { format_debug, PLAIN } from "../../std/fmt.ts";
 import type { MutRef } from "../../std/mut_ref.ts";
 import { unported } from "../../std/panic.ts";
 import type { Result } from "../../std/result.ts";
@@ -153,66 +156,138 @@ export const BorrowedContentSource = gen.BorrowedContentSource as typeof gen.Bor
 
 // ---- impl BorrowckDiagnosticsBuffer --------------------------------------------------------------------------------
 
-// stub: compiler/rustc_borrowck/src/diagnostics/mod.rs:103 buffer_error (lane bck-diag-d)
+// rustc: compiler/rustc_borrowck/src/diagnostics/mod.rs:103 buffer_error
 BorrowckDiagnosticsBuffer.prototype.buffer_error = function (this: BorrowckDiagnosticsBuffer, diag: Diag): void {
-  return unported("rustc_borrowck::diagnostics::BorrowckDiagnosticsBuffer::buffer_error");
+  const sort_span = diag.deref().span.primary_span() ?? DUMMY_SP;
+  this.buffered_diags.push([sort_span, diag]);
 };
 
-// stub: compiler/rustc_borrowck/src/diagnostics/mod.rs:108 buffer_error_with_sort_span (lane bck-diag-d)
+// rustc: compiler/rustc_borrowck/src/diagnostics/mod.rs:108 buffer_error_with_sort_span
 BorrowckDiagnosticsBuffer.prototype.buffer_error_with_sort_span = function (this: BorrowckDiagnosticsBuffer, diag: Diag, sort_span: Span): void {
-  return unported("rustc_borrowck::diagnostics::BorrowckDiagnosticsBuffer::buffer_error_with_sort_span");
+  this.buffered_diags.push([sort_span, diag]);
 };
 
-// stub: compiler/rustc_borrowck/src/diagnostics/mod.rs:112 emit_errors (lane bck-diag-d)
+// rustc: compiler/rustc_borrowck/src/diagnostics/mod.rs:112 emit_errors
 BorrowckDiagnosticsBuffer.prototype.emit_errors = function (this: BorrowckDiagnosticsBuffer): void {
-  return unported("rustc_borrowck::diagnostics::BorrowckDiagnosticsBuffer::emit_errors");
+  // Buffer any move errors that we collected and de-duplicated.
+  // PORT: `std::mem::take` of the `BTreeMap`: its entries in key order (`Vec<MoveOutIndex>` compares lexicographically),
+  // the map left empty.
+  const buffered_move_errors = [...this.buffered_move_errors].sort(([a], [b]) => cmp_move_out_indices(a, b));
+  this.buffered_move_errors.clear();
+  for (const [_, [__, diag]] of buffered_move_errors) {
+    // We have already set tainted for this error, so just buffer it.
+    this.buffer_error(diag);
+  }
+  // PORT: `std::mem::take` of the `FxIndexMap`: its entries in insertion order, the map left empty.
+  const buffered_mut_errors = [...this.buffered_mut_errors];
+  this.buffered_mut_errors.clear();
+  for (const [_, [diag, count]] of buffered_mut_errors) {
+    if (count > 10) {
+      diag.note(`...and ${count - 10} other attempted mutable borrows`);
+    }
+    this.buffer_error(diag);
+  }
+
+  if (!(this.buffered_diags.length === 0)) {
+    // PORT: `sort_by_key(|(sort_span, _)| sort_span.lo_hi())` is a stable sort on the `(lo, hi)` tuple; so is
+    // `Array.prototype.sort`.
+    const keyed = this.buffered_diags.map(([sort_span, diag]) => [Span.lo_hi(sort_span), diag] as const);
+    keyed.sort(([[alo, ahi]], [[blo, bhi]]) => (alo !== blo ? alo - blo : ahi - bhi));
+    // `drain(..)`
+    this.buffered_diags.length = 0;
+    for (const [_, diag] of keyed) {
+      diag.emit();
+    }
+  }
 };
+
+/** PORT: no upstream counterpart: `Ord for Vec<MoveOutIndex>` (lexicographic), the key order of `buffered_move_errors`. */
+function cmp_move_out_indices(a: readonly MoveOutIndex[], b: readonly MoveOutIndex[]): number {
+  const n = Math.min(a.length, b.length);
+  for (let i = 0; i < n; i++) {
+    if (a[i] !== b[i]) return (a[i] as number) - (b[i] as number);
+  }
+  return a.length - b.length;
+}
 
 // ---- impl MirBorrowckCtxt (buffering) ------------------------------------------------------------------------------
 
-// stub: compiler/rustc_borrowck/src/diagnostics/mod.rs:135 buffer_error (lane bck-diag-d)
+// rustc: compiler/rustc_borrowck/src/diagnostics/mod.rs:135 buffer_error
 MirBorrowckCtxt.prototype.buffer_error = function (this: MirBorrowckCtxt, diag: Diag): void {
-  return unported("rustc_borrowck::diagnostics::MirBorrowckCtxt::buffer_error");
+  this.diags_buffer.buffer_error(diag.with_dcx(this.dcx()));
 };
 
-// stub: compiler/rustc_borrowck/src/diagnostics/mod.rs:139 buffer_error_with_sort_span (lane bck-diag-d)
+// rustc: compiler/rustc_borrowck/src/diagnostics/mod.rs:139 buffer_error_with_sort_span
 MirBorrowckCtxt.prototype.buffer_error_with_sort_span = function (this: MirBorrowckCtxt, diag: Diag, sort_span: Span): void {
-  return unported("rustc_borrowck::diagnostics::MirBorrowckCtxt::buffer_error_with_sort_span");
+  this.diags_buffer.buffer_error_with_sort_span(diag.with_dcx(this.dcx()), sort_span);
 };
 
-// stub: compiler/rustc_borrowck/src/diagnostics/mod.rs:143 buffer_move_error (lane bck-diag-d)
+// rustc: compiler/rustc_borrowck/src/diagnostics/mod.rs:143 buffer_move_error
 MirBorrowckCtxt.prototype.buffer_move_error = function (this: MirBorrowckCtxt, move_out_indices: MoveOutIndex[], place_and_err: [PlaceRef, Diag]): boolean {
-  return unported("rustc_borrowck::diagnostics::MirBorrowckCtxt::buffer_move_error");
+  // PORT: `BTreeMap::insert` returns the old value (the stored key is kept); the map is a `KeyedMap` on the indices.
+  const old = this.diags_buffer.buffered_move_errors.get(move_out_indices);
+  this.diags_buffer.buffered_move_errors.set(move_out_indices, place_and_err);
+  if (old !== undefined) {
+    const [_, diag] = old;
+    // Cancel the old diagnostic so we don't ICE
+    diag.cancel();
+    return false;
+  } else {
+    return true;
+  }
 };
 
-// stub: compiler/rustc_borrowck/src/diagnostics/mod.rs:159 get_buffered_mut_error (lane bck-diag-d)
+// rustc: compiler/rustc_borrowck/src/diagnostics/mod.rs:159 get_buffered_mut_error
 MirBorrowckCtxt.prototype.get_buffered_mut_error = function (this: MirBorrowckCtxt, span: Span): [Diag, number] | undefined {
-  return unported("rustc_borrowck::diagnostics::MirBorrowckCtxt::get_buffered_mut_error");
+  // FIXME(#120456) - is `swap_remove` correct?
+  return index_map_swap_remove(this.diags_buffer.buffered_mut_errors, span);
 };
 
-// stub: compiler/rustc_borrowck/src/diagnostics/mod.rs:164 buffer_mut_error (lane bck-diag-d)
+// rustc: compiler/rustc_borrowck/src/diagnostics/mod.rs:164 buffer_mut_error
 MirBorrowckCtxt.prototype.buffer_mut_error = function (this: MirBorrowckCtxt, span: Span, diag: Diag, count: number): void {
-  return unported("rustc_borrowck::diagnostics::MirBorrowckCtxt::buffer_mut_error");
+  this.diags_buffer.buffered_mut_errors.set(span, [diag, count]);
 };
 
-// stub: compiler/rustc_borrowck/src/diagnostics/mod.rs:168 has_buffered_diags (lane bck-diag-d)
+// rustc: compiler/rustc_borrowck/src/diagnostics/mod.rs:168 has_buffered_diags
 MirBorrowckCtxt.prototype.has_buffered_diags = function (this: MirBorrowckCtxt): boolean {
-  return unported("rustc_borrowck::diagnostics::MirBorrowckCtxt::has_buffered_diags");
+  return this.diags_buffer.buffered_diags.length === 0;
 };
 
-// stub: compiler/rustc_borrowck/src/diagnostics/mod.rs:172 has_move_error (lane bck-diag-d)
+// rustc: compiler/rustc_borrowck/src/diagnostics/mod.rs:172 has_move_error
 MirBorrowckCtxt.prototype.has_move_error = function (this: MirBorrowckCtxt, move_out_indices: readonly MoveOutIndex[]): [PlaceRef, Diag] | undefined {
-  return unported("rustc_borrowck::diagnostics::MirBorrowckCtxt::has_move_error");
+  return this.diags_buffer.buffered_move_errors.get(move_out_indices as MoveOutIndex[]);
 };
 
-// stub: compiler/rustc_borrowck/src/diagnostics/mod.rs:180 local_name (lane bck-diag-d)
+/// Uses `body.var_debug_info` to find the symbol
+// rustc: compiler/rustc_borrowck/src/diagnostics/mod.rs:180 local_name
 MirBorrowckCtxt.prototype.local_name = function (this: MirBorrowckCtxt, index: Local): Symbol | undefined {
-  return unported("rustc_borrowck::diagnostics::MirBorrowckCtxt::local_name");
+  return this.local_names_()[index];
 };
 
-// stub: compiler/rustc_borrowck/src/diagnostics/mod.rs:184 local_names (lane bck-diag-d)
+// rustc: compiler/rustc_borrowck/src/diagnostics/mod.rs:184 local_names
 MirBorrowckCtxt.prototype.local_names_ = function (this: MirBorrowckCtxt): readonly (Symbol | undefined)[] {
-  return unported("rustc_borrowck::diagnostics::MirBorrowckCtxt::local_names");
+  // `OnceCell::get_or_init`
+  if (this.local_names === undefined) {
+    const local_names: (Symbol | undefined)[] = this.body.local_decls.map(() => undefined);
+    for (const var_debug_info of this.body.var_debug_info) {
+      if (var_debug_info.value.$ === "Place") {
+        const place = var_debug_info.value._0;
+        const local = place.as_local();
+        if (local !== undefined) {
+          const prev_name = local_names[local];
+          if (prev_name !== undefined && var_debug_info.name !== prev_name) {
+            span_bug(
+              var_debug_info.source_info.span,
+              `local ${format_debug(local, debug_Local, PLAIN)} has many names (\`${Symbol.as_str(prev_name)}\` vs \`${Symbol.as_str(var_debug_info.name)}\`)`,
+            );
+          }
+          local_names[local] = var_debug_info.name;
+        }
+      }
+    }
+    this.local_names = local_names;
+  }
+  return this.local_names;
 };
 
 // ---- impl MirBorrowckCtxt (describing places) ----------------------------------------------------------------------
