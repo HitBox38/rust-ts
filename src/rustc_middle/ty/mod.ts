@@ -33,6 +33,9 @@ import { unported } from "../../std/panic.ts";
 import type { Result } from "../../std/result.ts";
 import { type IntoQueryKey, into_query_key_DefId } from "../query/into_query_key.ts";
 import type { TyCtxt } from "./context.ts";
+import { BitMatrix } from "../../rustc_index/bit_set.ts"; // (mt-coroutine-b)
+import type { SourceInfo } from "../mir/mod.ts"; // (mt-coroutine-b)
+import type { CoroutineSavedLocal } from "../mir/query.ts"; // (mt-coroutine-b)
 import type { AssocItem, Attribute, Body, BodyId, CoroutineLayout, FieldIdx, FnAbi, FnAbiError, Instance, InstanceKind, LayoutError, TypeckResults } from "./decls.ts";
 import type { EarlyBinder, ImplPolarity, TraitRef } from "../../rustc_type_ir/decls.ts";
 import type { GenericArg, GenericArgs } from "./generic_args.ts";
@@ -2368,8 +2371,8 @@ export function TyCtxt_layout_error(_tcx: TyCtxt, err: LayoutError): LayoutError
 ///
 /// Takes `coroutine_kind` which can be acquired from the `CoroutineArgs::kind_ty`,
 /// e.g. `args.as_coroutine().kind_ty()`.
-// PORT: MIR (M4): `optimized_mir` / `type_of` values are `unknown` in queries.gen.ts; `Body::coroutine_layout_raw`
-// is the stand-in `Body_coroutine_layout_raw`; `LayoutError::Unknown(ty)` is built in its PORTING §5 shape.
+// PORT: MIR (M4): `type_of` values are `unknown` in queries.gen.ts; `LayoutError::Unknown(ty)` is built in its
+// PORTING §5 shape.
 // rustc: compiler/rustc_middle/src/ty/mod.rs:1941 ordinary_coroutine_layout
 export function TyCtxt_ordinary_coroutine_layout(tcx: TyCtxt, def_id: DefIdT, args: GenericArgs): Result<CoroutineLayout, LayoutError> {
   const coroutine_kind_ty = closure().CoroutineArgs.kind_ty(args.as_coroutine());
@@ -2378,7 +2381,7 @@ export function TyCtxt_ordinary_coroutine_layout(tcx: TyCtxt, def_id: DefIdT, ar
   const unknown_layout = (): LayoutError => tcx.layout_error(to_pending<LayoutError>({ $: "Unknown", _0: ty() }));
   // Regular coroutine
   if (coroutine_kind_ty.is_unit()) {
-    return ok_or_else(Body_coroutine_layout_raw(mir), unknown_layout);
+    return ok_or_else(mir.coroutine_layout_raw(), unknown_layout);
   } else {
     // If we have a `Coroutine` that comes from an coroutine-closure,
     // then it may be a by-move or by-ref body.
@@ -2391,12 +2394,12 @@ export function TyCtxt_ordinary_coroutine_layout(tcx: TyCtxt, def_id: DefIdT, ar
     // If the types differ, then we must be getting the by-move body of
     // a by-ref coroutine.
     if (identity_kind_ty === coroutine_kind_ty) {
-      return ok_or_else(Body_coroutine_layout_raw(mir), unknown_layout);
+      return ok_or_else(mir.coroutine_layout_raw(), unknown_layout);
     } else {
       assert(coroutine_kind_ty.to_opt_closure_kind() === "FnOnce", "assertion failed: `coroutine_kind_ty.to_opt_closure_kind()` matches `Some(ClosureKind::FnOnce)`");
       const k2 = identity_kind_ty.to_opt_closure_kind();
       assert(k2 === "Fn" || k2 === "FnMut", "assertion failed: `identity_kind_ty.to_opt_closure_kind()` matches `Some(ClosureKind::Fn | ClosureKind::FnMut)`");
-      return ok_or_else(Body_coroutine_layout_raw(tcx.optimized_mir(tcx.coroutine_by_move_body_def_id(def_id))), unknown_layout);
+      return ok_or_else(tcx.optimized_mir(tcx.coroutine_by_move_body_def_id(def_id)).coroutine_layout_raw(), unknown_layout);
     }
   }
 }
@@ -2413,7 +2416,7 @@ export function TyCtxt_async_drop_coroutine_layout(tcx: TyCtxt, def_id: DefIdT, 
     return Err(tcx.layout_error(to_pending<LayoutError>({ $: "TooGeneric", _0: ty() })));
   }
   const instance = { $: "AsyncDropGlue", _0: def_id, _1: Ty.new_coroutine(tcx, def_id, args) };
-  return ok_or_else(Body_coroutine_layout_raw(tcx.mir_shims(instance)), () =>
+  return ok_or_else(tcx.mir_shims(instance).coroutine_layout_raw(), () =>
     tcx.layout_error(to_pending<LayoutError>({ $: "Unknown", _0: ty() })),
   );
 }
@@ -2429,10 +2432,23 @@ export function TyCtxt_coroutine_layout(tcx: TyCtxt, def_id: DefIdT, args: Gener
     const arg_cor_ty = generic_args().GenericArg.expect_ty(unwrap(args[0]));
     if (arg_cor_ty.is_coroutine()) {
       const span = tcx.def_span(def_id);
-      // PORT: `SourceInfo::outermost(span)`, `CoroutineLayout`, `CoroutineSavedLocal`, `BitMatrix::new(0, 0)` and
-      // `CoroutineArgs::RESERVED_VARIANTS` are MIR (M4); the empty proxy layout is not built yet.
-      void span;
-      return unported("rustc_middle::ty::TyCtxt::coroutine_layout: empty proxy CoroutineLayout (mir::SourceInfo, CoroutineLayout; M4)");
+      // PORT (mt-coroutine-b): mir/mod.ts and ty/sty.ts are reached lazily (`coroutine_layout_mods`, init order).
+      const { mir, sty } = coroutine_layout_mods();
+      const source_info = mir.SourceInfo.outermost(span);
+      // Even minimal, empty coroutine has 3 states (RESERVED_VARIANTS),
+      // so variant_fields and variant_source_info should have 3 elements.
+      const variant_fields: CoroutineSavedLocal[][] = Array.from({ length: sty.CoroutineArgsExt.RESERVED_VARIANTS }, () => []);
+      // PORT: `iter::repeat(source_info)` copies the `Copy` `SourceInfo` (`clone_SourceInfo`, PORTING §8).
+      const variant_source_info: SourceInfo[] = Array.from({ length: sty.CoroutineArgsExt.RESERVED_VARIANTS }, () =>
+        mir.clone_SourceInfo(source_info),
+      );
+      const proxy_layout: CoroutineLayout = {
+        field_tys: [],
+        variant_fields,
+        variant_source_info,
+        storage_conflicts: BitMatrix.new<CoroutineSavedLocal, CoroutineSavedLocal>(0, 0),
+      };
+      return Ok(proxy_layout);
     } else {
       return tcx.async_drop_coroutine_layout(def_id, args);
     }
@@ -3000,10 +3016,14 @@ interface BodyView {
   phase: { readonly $: string };
 }
 
-/** PORT: stand-in for `mir::Body::coroutine_layout_raw` (mir/mod.rs, M4). */
-function Body_coroutine_layout_raw(_self: unknown): CoroutineLayout | undefined {
-  return unported("rustc_middle::mir::Body::coroutine_layout_raw (M4)");
+/** PORT (mt-coroutine-b): the modules `coroutine_layout`'s empty proxy layout needs, reached lazily (init order). */
+function coroutine_layout_mods(): { mir: typeof import("../mir/mod.ts"); sty: typeof import("./sty.ts") } {
+  return (coroutine_layout_mods__m ??= {
+    mir: require("../mir/mod.ts") as typeof import("../mir/mod.ts"),
+    sty: require("./sty.ts") as typeof import("./sty.ts"),
+  });
 }
+var coroutine_layout_mods__m: { mir: typeof import("../mir/mod.ts"); sty: typeof import("./sty.ts") } | undefined;
 
 /** PORT: stand-ins for the sub-providers `ty::provide` calls (see `provide`). */
 function closure_provide(providers: Providers): void {
