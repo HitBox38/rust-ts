@@ -54,14 +54,14 @@ export interface UniverseInfo_methods {
 export type UniverseInfo = gen.UniverseInfo;
 export const UniverseInfo = gen.UniverseInfo as typeof gen.UniverseInfo & UniverseInfo_methods;
 
-// stub: compiler/rustc_borrowck/src/diagnostics/bound_region_errors.rs:44 other (lane bck-diag-f)
+// rustc: compiler/rustc_borrowck/src/diagnostics/bound_region_errors.rs:44 other
 UniverseInfo.other = function (): UniverseInfo {
-  return unported("rustc_borrowck::diagnostics::bound_region_errors::UniverseInfo::other");
+  return UniverseInfo.Other;
 };
 
-// stub: compiler/rustc_borrowck/src/diagnostics/bound_region_errors.rs:48 relate (lane bck-diag-f)
+// rustc: compiler/rustc_borrowck/src/diagnostics/bound_region_errors.rs:48 relate
 UniverseInfo.relate = function (expected: Ty, found: Ty): UniverseInfo {
-  return unported("rustc_borrowck::diagnostics::bound_region_errors::UniverseInfo::relate");
+  return { $: "RelateTys", expected, found };
 };
 
 /// Report an error where an element erroneously made its way into `placeholder`.
@@ -84,17 +84,20 @@ export interface ToUniverseInfo<T> {
 
 // impl<'tcx> ToUniverseInfo<'tcx> for crate::type_check::InstantiateOpaqueType<'tcx>
 export const ToUniverseInfo_InstantiateOpaqueType: ToUniverseInfo<InstantiateOpaqueType> = {
-  // stub: compiler/rustc_borrowck/src/diagnostics/bound_region_errors.rs:91 to_universe_info (lane bck-diag-f)
+  // rustc: compiler/rustc_borrowck/src/diagnostics/bound_region_errors.rs:91 to_universe_info
   to_universe_info(self: InstantiateOpaqueType, base_universe: UniverseIndex): UniverseInfo {
-    return unported("rustc_borrowck::diagnostics::bound_region_errors::InstantiateOpaqueType::to_universe_info");
+    return {
+      $: "TypeOp",
+      _0: TypeOpInfo_of<InstantiateOpaqueType>({ ...self, base_universe: base_universe }, TypeOpInfo_InstantiateOpaqueType),
+    };
   },
 };
 
 // impl<'tcx> ToUniverseInfo<'tcx> for CanonicalTypeOpProvePredicateGoal<'tcx>
 export const ToUniverseInfo_CanonicalTypeOpProvePredicateGoal: ToUniverseInfo<CanonicalTypeOpProvePredicateGoal> = {
-  // stub: compiler/rustc_borrowck/src/diagnostics/bound_region_errors.rs:100 to_universe_info (lane bck-diag-f)
+  // rustc: compiler/rustc_borrowck/src/diagnostics/bound_region_errors.rs:100 to_universe_info
   to_universe_info(self: CanonicalTypeOpProvePredicateGoal, base_universe: UniverseIndex): UniverseInfo {
-    return unported("rustc_borrowck::diagnostics::bound_region_errors::CanonicalTypeOpProvePredicateGoal::to_universe_info");
+    return { $: "TypeOp", _0: TypeOpInfo_of<PredicateQuery>({ canonical_query: self, base_universe }, TypeOpInfo_PredicateQuery) };
   },
 };
 
@@ -104,26 +107,32 @@ export function ToUniverseInfo_CanonicalTypeOpNormalizeGoal<T>(
   d_T: TypeFoldable<T>,
 ): ToUniverseInfo<CanonicalTypeOpNormalizeGoal<T>> {
   return {
-    // stub: compiler/rustc_borrowck/src/diagnostics/bound_region_errors.rs:108 to_universe_info (lane bck-diag-f)
+    // rustc: compiler/rustc_borrowck/src/diagnostics/bound_region_errors.rs:108 to_universe_info
     to_universe_info(self: CanonicalTypeOpNormalizeGoal<T>, base_universe: UniverseIndex): UniverseInfo {
-      return unported("rustc_borrowck::diagnostics::bound_region_errors::CanonicalTypeOpNormalizeGoal::to_universe_info");
+      return {
+        $: "TypeOp",
+        _0: TypeOpInfo_of<NormalizeQuery<T>>({ canonical_query: self, base_universe }, TypeOpInfo_NormalizeQuery(display_T, d_T)),
+      };
     },
   };
 }
 
 // impl<'tcx> ToUniverseInfo<'tcx> for CanonicalTypeOpAscribeUserTypeGoal<'tcx>
 export const ToUniverseInfo_CanonicalTypeOpAscribeUserTypeGoal: ToUniverseInfo<CanonicalTypeOpAscribeUserTypeGoal> = {
-  // stub: compiler/rustc_borrowck/src/diagnostics/bound_region_errors.rs:114 to_universe_info (lane bck-diag-f)
+  // rustc: compiler/rustc_borrowck/src/diagnostics/bound_region_errors.rs:114 to_universe_info
   to_universe_info(self: CanonicalTypeOpAscribeUserTypeGoal, base_universe: UniverseIndex): UniverseInfo {
-    return unported("rustc_borrowck::diagnostics::bound_region_errors::CanonicalTypeOpAscribeUserTypeGoal::to_universe_info");
+    return {
+      $: "TypeOp",
+      _0: TypeOpInfo_of<AscribeUserTypeQuery>({ canonical_query: self, base_universe }, TypeOpInfo_AscribeUserTypeQuery),
+    };
   },
 };
 
 // impl<'tcx> ToUniverseInfo<'tcx> for !
 export const ToUniverseInfo_never: ToUniverseInfo<never> = {
-  // stub: compiler/rustc_borrowck/src/diagnostics/bound_region_errors.rs:120 to_universe_info (lane bck-diag-f)
+  // rustc: compiler/rustc_borrowck/src/diagnostics/bound_region_errors.rs:120 to_universe_info
   to_universe_info(self: never, _base_universe: UniverseIndex): UniverseInfo {
-    return unported("rustc_borrowck::diagnostics::bound_region_errors::never::to_universe_info");
+    return self;
   },
 };
 
