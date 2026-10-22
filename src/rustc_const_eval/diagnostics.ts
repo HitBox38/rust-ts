@@ -1,10 +1,8 @@
 // Port of compiler/rustc_const_eval/src/diagnostics.rs (lane const-check): the types and their `#[derive(Diagnostic)]` /
 // `#[derive(Subdiagnostic)]` impls are generated into diagnostics.gen.ts (tools/codegen/types.ts, set rustc_const_eval);
 // the manual `impl Subdiagnostic for FrameNote` and `impl IntoDiagArg for InternKind` are ported here.
-// PORT: `crate::interpret::InternKind` (interpret/intern.rs:181) is declared here until interpret/intern.rs is ported
-// (wave 23b): its port should take this declaration over and re-export it from here (codegen typemap
-// const_eval.typemap.json points at this module).
-import type { Mutability } from "../rustc_ast_ir/lib.ts";
+// `crate::interpret::InternKind` (interpret/intern.rs:181) is generated into interpret/intern.gen.ts (lane interp-contract
+// took over the stand-in declaration of lane const-check); it is re-exported here for the existing importers.
 import type { MutRef } from "../std/mut_ref.ts";
 import { MultiSpan, type DiagArgValue, type PathBuf } from "../rustc_error_messages/lib.ts";
 import { Span } from "../rustc_span/lib.ts";
@@ -15,14 +13,8 @@ import type { FrameNote } from "./diagnostics.gen.ts";
 
 export * from "./diagnostics.gen.ts";
 
-/// How a constant value should be interned.
-// rustc-type: compiler/rustc_const_eval/src/interpret/intern.rs:181 InternKind
-export type InternKind =
-  /// The `mutability` of the static, ignoring the type which may have interior mutability.
-  | { readonly $: "Static"; readonly _0: Mutability }
-  /// A `const` item
-  | { readonly $: "Constant" }
-  | { readonly $: "Promoted" };
+export type { InternKind } from "./interpret/intern.gen.ts";
+import type { InternKind } from "./interpret/intern.gen.ts";
 
 // impl Subdiagnostic for FrameNote
 // rustc: compiler/rustc_const_eval/src/diagnostics.rs:321 add_to_diag

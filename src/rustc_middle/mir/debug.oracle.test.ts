@@ -445,17 +445,11 @@ test("the port's Debug text of each hand-built node is the oracle's line", () =>
   expect(results.filter((r) => r !== "ok")).toEqual([]);
 }, 120000);
 
-test("display_Const of a `Const::Val`: a scalar prints; `()` stops at rustc_const_eval's destructuring hook (not ported)", () => {
+test("display_Const of a `Const::Val`: a scalar prints; `()` prints through rustc_const_eval's destructuring hook", () => {
   with_fixture((cx) => {
     expect(display_Const({ $: "Val", _0: { $: "Scalar", _0: Scalar.from_i32(1) }, _1: cx.tcx.types.i32 })).toBe("1_i32");
-    let err: unknown;
-    try {
-      display_Const({ $: "Val", _0: { $: "ZeroSized" }, _1: cx.tcx.types.unit });
-    } catch (e) {
-      err = e;
-    }
-    expect(err).toBeInstanceOf(Unported);
-    expect((err as Unported).what).toBe("rustc_const_eval::const_eval::try_destructure_mir_constant_for_user_output");
+    // `const ()` of `-Zunpretty=mir` (the oracle's MIR text of a unit constant)
+    expect(display_Const({ $: "Val", _0: { $: "ZeroSized" }, _1: cx.tcx.types.unit })).toBe("()");
   });
 }, 120000);
 

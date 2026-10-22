@@ -172,8 +172,7 @@ const CASES: Case[] = [
     ],
     expect: ["`Default` impl doesn't use the declared default field values", "derive the `Default`"],
     // Default field values are const-evaluated in the analysis prefix, before the lint runs (`const_eval_poly`, ported by
-    // lane mir-interp-b, reaches the `eval_to_const_value_raw` provider: CTFE, not ported yet).
-    stop: ["rustc_const_eval::const_eval::eval_to_const_value_raw_provider"],
+    // lane mir-interp-b; the `eval_to_const_value_raw` provider returns the trivial consts' values, lane interp-contract).
   },
   // deref_into_dyn_supertrait.rs
   {
