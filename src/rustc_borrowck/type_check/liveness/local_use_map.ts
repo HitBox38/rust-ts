@@ -5,12 +5,14 @@
 // PORT: `AppearancesIter` is a data-only struct (generated interface); its `Iterator` impl is the impl table
 // `Iterator_AppearancesIter` (`next(self)` returns a JS `IteratorResult`). `impl Iterator<Item = T>` returns are
 // `Iterable<T>`; the `mut live_locals: impl Iterator<Item = Local>` parameter (`.next()` is called) is a JS `Iterator`.
-import type { DenseBitSet } from "../../../rustc_index/bit_set.ts";
+import { DenseBitSet } from "../../../rustc_index/bit_set.ts";
+import { IndexVec } from "../../../rustc_index/vec.ts";
 import type { Body, Local, Location } from "../../../rustc_middle/mir/mod.ts";
 import { type PlaceContext, Visitor } from "../../../rustc_middle/mir/visit.ts";
 import type { DenseLocationMap, PointIndex } from "../../../rustc_mir_dataflow/points.ts";
-import { unported } from "../../../std/panic.ts";
-import type { AppearanceIndex, Appearances, AppearancesIter } from "./local_use_map.gen.ts";
+import * as def_use_mod from "../../def_use.ts";
+import type { DefUse } from "../../def_use.gen.ts";
+import type { Appearance, AppearanceIndex, Appearances, AppearancesIter } from "./local_use_map.gen.ts";
 import { LocalUseMap } from "./local_use_map.gen.ts";
 export * from "./local_use_map.gen.ts";
 
@@ -29,44 +31,79 @@ declare module "./local_use_map.gen.ts" {
   }
 }
 
-// stub: compiler/rustc_borrowck/src/type_check/liveness/local_use_map.rs:55 appearances_iter (lane bck-tc-live)
+// rustc: compiler/rustc_borrowck/src/type_check/liveness/local_use_map.rs:55 appearances_iter
 export function appearances_iter(first: AppearanceIndex | undefined, appearances: Appearances): Iterable<AppearanceIndex> {
-  return unported("rustc_borrowck::type_check::liveness::local_use_map::appearances_iter");
+  const it: AppearancesIter = { appearances, current: first };
+  return { [Symbol.iterator]: () => ({ next: () => Iterator_AppearancesIter.next(it) }) };
 }
 
+// Iterates over `Appearances` by following `next` fields.
 // impl<'a> Iterator for AppearancesIter<'a>
 export const Iterator_AppearancesIter = {
-  // stub: compiler/rustc_borrowck/src/type_check/liveness/local_use_map.rs:71 next (lane bck-tc-live)
+  // rustc: compiler/rustc_borrowck/src/type_check/liveness/local_use_map.rs:71 next
   next(self: AppearancesIter): IteratorResult<AppearanceIndex> {
-    return unported("rustc_borrowck::type_check::liveness::local_use_map::AppearancesIter::next");
+    const c = self.current;
+    if (c !== undefined) {
+      self.current = self.appearances[c]!.next;
+      return { done: false, value: c };
+    } else {
+      return { done: true, value: undefined };
+    }
   },
 };
 
 //-----------------------------------------------------------------------------
 
-// stub: compiler/rustc_borrowck/src/type_check/liveness/local_use_map.rs:84 build (lane bck-tc-live)
+// rustc: compiler/rustc_borrowck/src/type_check/liveness/local_use_map.rs:84 build
 (LocalUseMap as unknown as { build: typeof LocalUseMap.build }).build = function (
   live_locals: Iterator<Local>,
   location_map: DenseLocationMap,
   body: Body,
 ): LocalUseMap {
-  return unported("rustc_borrowck::type_check::liveness::local_use_map::LocalUseMap::build");
+  const nones = IndexVec.from_elem<AppearanceIndex | undefined, unknown>(undefined, body.local_decls);
+  const local_use_map = new LocalUseMap(nones.slice(), nones.slice(), nones, IndexVec.new());
+
+  const head_ = live_locals.next();
+  if (head_.done) {
+    return local_use_map;
+  }
+  const head = head_.value;
+
+  const locals_with_use_data = DenseBitSet.new_empty<Local>(body.local_decls.length);
+  locals_with_use_data.insert(head);
+  for (let r = live_locals.next(); !r.done; r = live_locals.next()) {
+    const local = r.value;
+    locals_with_use_data.insert(local);
+  }
+
+  new LocalUseMapBuild(local_use_map, location_map, locals_with_use_data).visit_body(body);
+
+  return local_use_map;
 };
 
-// stub: compiler/rustc_borrowck/src/type_check/liveness/local_use_map.rs:111 defs (lane bck-tc-live)
+// rustc: compiler/rustc_borrowck/src/type_check/liveness/local_use_map.rs:111 defs
 LocalUseMap.prototype.defs = function (this: LocalUseMap, local: Local): Iterable<PointIndex> {
-  return unported("rustc_borrowck::type_check::liveness::local_use_map::LocalUseMap::defs");
+  return map_iter(appearances_iter(this.first_def_at[local], this.appearances), (aa) => this.appearances[aa]!.point_index);
 };
 
-// stub: compiler/rustc_borrowck/src/type_check/liveness/local_use_map.rs:116 uses (lane bck-tc-live)
+// rustc: compiler/rustc_borrowck/src/type_check/liveness/local_use_map.rs:116 uses
 LocalUseMap.prototype.uses = function (this: LocalUseMap, local: Local): Iterable<PointIndex> {
-  return unported("rustc_borrowck::type_check::liveness::local_use_map::LocalUseMap::uses");
+  return map_iter(appearances_iter(this.first_use_at[local], this.appearances), (aa) => this.appearances[aa]!.point_index);
 };
 
-// stub: compiler/rustc_borrowck/src/type_check/liveness/local_use_map.rs:121 drops (lane bck-tc-live)
+// rustc: compiler/rustc_borrowck/src/type_check/liveness/local_use_map.rs:121 drops
 LocalUseMap.prototype.drops = function (this: LocalUseMap, local: Local): Iterable<PointIndex> {
-  return unported("rustc_borrowck::type_check::liveness::local_use_map::LocalUseMap::drops");
+  return map_iter(appearances_iter(this.first_drop_at[local], this.appearances), (aa) => this.appearances[aa]!.point_index);
 };
+
+/** PORT: the lazy `Iterator::map` of `defs` / `uses` / `drops` (each `for` re-walks the list, as each Rust call does). */
+function map_iter<T, U>(it: Iterable<T>, f: (x: T) => U): Iterable<U> {
+  return {
+    *[Symbol.iterator]() {
+      for (const x of it) yield f(x);
+    },
+  };
+}
 
 // rustc-type: compiler/rustc_borrowck/src/type_check/liveness/local_use_map.rs:127 LocalUseMapBuild
 export class LocalUseMapBuild extends Visitor {
@@ -87,8 +124,26 @@ export class LocalUseMapBuild extends Visitor {
   }
 
   // impl Visitor<'_> for LocalUseMapBuild<'_>
-  // stub: compiler/rustc_borrowck/src/type_check/liveness/local_use_map.rs:142 visit_local (lane bck-tc-live)
+  // rustc: compiler/rustc_borrowck/src/type_check/liveness/local_use_map.rs:142 visit_local
   override visit_local(local: Local, context: PlaceContext, location: Location): void {
-    return unported("rustc_borrowck::type_check::liveness::local_use_map::LocalUseMapBuild::visit_local");
+    let def_use: DefUse | undefined;
+    if (this.locals_with_use_data.contains(local) && (def_use = def_use_mod.categorize(context)) !== undefined) {
+      // PORT: `&mut self.local_use_map.first_*_at[local]` is the array and the index.
+      let first_appearance: (AppearanceIndex | undefined)[];
+      switch (def_use) {
+        case "Def":
+          first_appearance = this.local_use_map.first_def_at;
+          break;
+        case "Use":
+          first_appearance = this.local_use_map.first_use_at;
+          break;
+        case "Drop":
+          first_appearance = this.local_use_map.first_drop_at;
+          break;
+      }
+      const point_index = this.location_map.point_from_location(location);
+      const appearance_index = IndexVec.push<AppearanceIndex, Appearance>(this.local_use_map.appearances, { point_index, next: first_appearance[local] });
+      first_appearance[local] = appearance_index;
+    }
   }
 }

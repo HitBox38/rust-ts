@@ -19,9 +19,11 @@
 // load; ../lib.ts loads rustc_infer first. Other modules of this crate are read inside function bodies only.
 
 import * as dyn_compatibility from "./dyn_compatibility.ts";
+import * as outlives_for_liveness from "./outlives_for_liveness.ts";
 import * as specialize from "./specialize/mod.ts";
 import * as vtable from "./vtable.ts";
 import { FulfillmentError } from "./mod.gen.ts";
+import type { AliasTyKind } from "../../rustc_type_ir/ty_kind.ts";
 
 export * from "./mod.gen.ts";
 
@@ -1158,11 +1160,10 @@ export function provide(providers: Providers): void {
   providers.specialization_enabled_in = specialize.specialization_enabled_in;
   providers.instantiate_and_check_impossible_clauses = (tcx, key) => instantiate_and_check_impossible_clauses(tcx, key as [DefId, GenericArgs]);
   providers.is_impossible_associated_item = is_impossible_associated_item;
-  // PORT: traits/outlives_for_liveness.rs is not ported yet (no lane); these two keep the placeholder providers.
-  // live_args_for_alias_from_outlives_bounds:
-  //     outlives_for_liveness::live_args_for_alias_from_outlives_bounds,
-  // args_known_to_outlive_alias_params:
-  //     outlives_for_liveness::args_known_to_outlive_alias_params,
+  // PORT: the query key of `live_args_for_alias_from_outlives_bounds` (`AliasTyKind`) is `unknown` in queries.gen.ts.
+  providers.live_args_for_alias_from_outlives_bounds = (tcx, kind) =>
+    outlives_for_liveness.live_args_for_alias_from_outlives_bounds(tcx, kind as AliasTyKind);
+  providers.args_known_to_outlive_alias_params = outlives_for_liveness.args_known_to_outlive_alias_params;
 }
 
 // ---- helpers ---------------------------------------------------------------------------------------------------------
