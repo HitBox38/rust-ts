@@ -13,7 +13,8 @@
 //   `Discriminant`), operands (`Copy` / `Move`), places (fields, deref, index), terminators (`Goto`, `Return`,
 //   `Unreachable`, `UnwindResume`, `Drop`, `SwitchInt` from `match`).
 // - custom_error: `span_fatal` "Could not parse local, found: .." (`expr_error`'s `{:?}` of the THIR `ExprKind`).
-// PENDING (pinned to the exact stop): custom_const: `parse_integer_literal` -> `as_constant_inner` (lane mb-expr-a).
+// - custom_const: constants (`parse_integer_literal` -> `as_constant_inner`).
+// PENDING (pinned to the exact stop): none.
 import { expect, test } from "bun:test";
 import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -26,11 +27,9 @@ const REGEN = process.env.REGEN === "1";
 const ENV = { ...process.env, RUSTC_ICE: "0", RUST_BACKTRACE: "0" };
 const WORK = test_scratch_dir("mb-custom-tail-custom-mir");
 
-const CASES = ["custom_basic", "custom_error"] as const;
+const CASES = ["custom_basic", "custom_error", "custom_const"] as const;
 /** Cases whose port run stops at unported code today: the case and its exact stop. */
-const PENDING: Record<string, string> = {
-  custom_const: "rustc_mir_build::builder::expr::as_constant::as_constant_inner",
-};
+const PENDING: Record<string, string> = {};
 
 function sysroot(): string | undefined {
   try {

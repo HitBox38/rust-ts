@@ -287,3 +287,18 @@ for (const [i, f] of UI.entries()) {
     120_000,
   );
 }
+
+// The real `mir_built` (`--real-mir-built`): MIR building runs (the builder is ported), then `mir_built`'s pass list
+// stops at its first pass, `LintAndRemoveUninhabited` (lane mt-built-lints); a body with a pattern stops earlier, at
+// rustc_pattern_analysis's `lower_pat` (lane pat-c) in `check_match`. When both land, drop the driver's stand-in
+// (run.ts header) and this pin.
+test.skipIf(SKIP)(
+  "check_unsafety with the real mir_built: stops at the first unported pass",
+  () => {
+    const file = "real_mir_built.rs";
+    writeFileSync(join(WORK, file), "unsafe fn f() {}\nfn main() { unsafe { f() } }\n");
+    const ours = run([process.execPath, RUNNER, "--real-mir-built", ...args("2021"), "-o", "real_mir_built.rmeta", file]);
+    expect(ours).toEqual({ stderr: "rust-ts: unported: rustc_mir_transform::lint_and_remove_uninhabited::LintAndRemoveUninhabited (pass not ported)\n", code: 70 });
+  },
+  120_000,
+);

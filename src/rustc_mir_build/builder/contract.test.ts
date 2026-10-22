@@ -189,7 +189,8 @@ function dumps(dir: string): Map<string, string> {
 // and bodies covering arguments, an `if` (switchInt, temps with StorageLive/Dead, scopes), `let` bindings and a
 // destructuring `let`, overflow-checked arithmetic (`Assert`), a tuple aggregate and a field read, a call, a `loop`
 // with `break`, `&&` / `||` / `!`, a `match` on a tuple with integer ranges, a bool and wildcards, and trait methods
-// (`*self`, the `eq` / `add` / `not` lang-item impls). No body has a `()`-typed constant: printing `const ()` goes
+// (`*self`, the `eq` / `add` / `not` lang-item impls); for match lowering (builder/matches/**): an enum, `if let` with a
+// let chain, `||` conditions, guards (with an `@` binding, an or-pattern, an `if let` guard), `let .. else`. No body has a `()`-typed constant: printing `const ()` goes
 // through rustc_const_eval's `try_destructure_mir_constant_for_user_output` (not ported yet).
 const SRC = [
   "#![feature(no_core, lang_items)]",
@@ -216,6 +217,10 @@ const SRC = [
   "pub fn m(n: u8, b: bool) -> u8 { match (n, b) { (0, _) => 1, (1..=9, true) => 2, (_, false) => 3, _ => 4 } }",
   "pub struct S { pub a: u8, pub b: bool }",
   "pub fn s(x: S) -> u8 { let S { a, b } = x; if b && a == 2 || !b { a } else { 0 } }",
+  "pub enum Opt { Nothing, Just(u8) }",
+  "pub fn iflet(o: Opt, b: bool) -> u8 { if let Opt::Just(v) = o && b { v } else if b || b { 1 } else { 2 } }",
+  "pub fn guard(o: Opt, b: bool) -> u8 { match o { Opt::Just(v @ 1..=5) if v == 3 => v, Opt::Just(0 | 9) if let true = b && b => 7, Opt::Just(w) => w, Opt::Nothing => 0 } }",
+  "pub fn letelse(o: Opt) -> u8 { let Opt::Just(v) = o else { return 0; }; v }",
 ].join("\n");
 
 test.skipIf(SKIP)("construct_error builds rustc's error body; construct_fn's MIR is the oracle's -Zdump-mir=built", () => {
@@ -236,7 +241,7 @@ test.skipIf(SKIP)("construct_error builds rustc's error body; construct_fn's MIR
   });
   if (o.exitCode !== 0) throw new Error(`ERROR: oracle failed: ${o.stderr.toString()}`);
   const oracle = dumps(oracle_dir);
-  expect(oracle.size).toBe(9);
+  expect(oracle.size).toBe(12);
 
   let ran = false;
   run_compiler(config_from_args([...flags, `-Zdump-mir-dir=${port_dir}`, file]), (compiler) => {

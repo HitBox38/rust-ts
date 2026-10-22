@@ -1,7 +1,8 @@
 // Lane mb-expr-a: builder/expr/{as_place, as_operand, as_temp, category, as_constant, stmt}.rs on hand-built `Builder`
-// states (MIR building does not run end to end yet: `construct_fn` stops at `scope::Builder::in_scope`, lane mb-scope).
-// A `Builder` is made with `Builder::new` (ported) over the THIR of a small no_core fn; locals / `var_indices` are filled
-// by hand where `args_and_body` (lane mb-mod) would. Paths that reach another lane's stub check the stop.
+// states (end to end, the built MIR is compared with the oracle's in builder/contract.test.ts). A `Builder` is made with
+// `Builder::new` (ported) over the THIR of a small no_core fn, without the scopes `construct_fn` pushes; locals /
+// `var_indices` are filled by hand where `args_and_body` would. Paths that need a scope stop at upstream's own
+// `bug!` / `expect` for a missing scope.
 import { expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -22,7 +23,6 @@ import { LocalDefId } from "../../../rustc_span/def_id.ts";
 import { ErrorGuaranteed } from "../../../rustc_span/lib.ts";
 import { Symbol } from "../../../rustc_span/symbol.ts";
 import { TypingMode } from "../../../rustc_type_ir/infer_ctxt.ts";
-import { Unported } from "../../../std/panic.ts";
 import { PLAIN } from "../../../std/fmt.ts";
 import "../../lib.ts";
 import { Builder } from "../mod.ts";
@@ -36,17 +36,6 @@ import { lit_to_mir_constant } from "./as_constant.ts";
 import { Category } from "./category.ts";
 
 const WORK = join(DATA, "tmp", "mb-expr-a", process.env.RUST_TS_AGENT ?? "default");
-
-function stops(f: () => unknown, what: string): void {
-  let err: unknown;
-  try {
-    f();
-  } catch (e) {
-    err = e;
-  }
-  expect(err).toBeInstanceOf(Unported);
-  expect((err as Unported).what).toBe(what);
-}
 
 class CaptureConfig extends Error {}
 function config_from_args(args: string[]): Config {
@@ -174,11 +163,14 @@ test("lit_to_mir_constant, as_constant / as_operand of literals", () => {
     expect(op[1].$).toBe("Constant");
     expect((op[1] as { _0: { span: unknown; user_ty: unknown; const_: { $: string; _1: unknown } } })._0.const_._1).toBe(tcx.types.u8);
     expect(stmts(b)).toEqual([]);
-    // a Scope around it goes through `in_scope` (lane mb-scope)
+    // a Scope around it goes through `in_scope`: the same constant, still no statements
     const scope = thir.exprs.findIndex((e) => e.kind.$ === "Scope" && (e.kind as { value: ExprId }).value === lit) as ExprId;
-    stops(() => b.as_operand(START_BLOCK, { temp_lifetime: undefined, backwards_incompatible: undefined }, scope, { $: "Boring" }, "Maybe"), "rustc_mir_build::builder::scope::Builder::in_scope");
-    // `as_local_operand` asks for the local scope first (lane mb-scope)
-    stops(() => b.as_local_operand(START_BLOCK, lit!), "rustc_mir_build::builder::scope::Builder::local_scope");
+    const sop = b.as_operand(START_BLOCK, { temp_lifetime: undefined, backwards_incompatible: undefined }, scope, { $: "Boring" }, "Maybe");
+    expect(sop[0]).toBe(START_BLOCK);
+    expect(sop[1]).toEqual(op[1]);
+    expect(stmts(b)).toEqual([]);
+    // `as_local_operand` asks for the local scope first: none is pushed here (`Scopes::topmost`'s `expect`)
+    expect(() => b.as_local_operand(START_BLOCK, lit!)).toThrow("topmost_scope: no scopes present");
   });
 });
 
@@ -199,18 +191,20 @@ test("expr_as_place of a VarRef; as_temp; stmt_expr without a statement scope", 
     const [, ro] = b.as_read_only_place(START_BLOCK, x);
     expect(debug_Place(ro, PLAIN)).toBe("_1");
 
-    // as_temp of the literal: a fresh immutable temp, `StorageLive`, then `expr_into_dest` (lane mb-expr-b)
+    // as_temp of the literal: a fresh immutable temp, `StorageLive`, then `expr_into_dest`, which needs a scope (none is
+    // pushed here: `Scopes::topmost`'s `expect`)
     const [lit] = exprs_of(thir, "Literal");
     const n = b.local_decls.length;
-    stops(() => b.as_temp(START_BLOCK, { temp_lifetime: undefined, backwards_incompatible: undefined }, lit!, "Not"), "rustc_mir_build::builder::expr::into::Builder::expr_into_dest");
+    expect(() => b.as_temp(START_BLOCK, { temp_lifetime: undefined, backwards_incompatible: undefined }, lit!, "Not")).toThrow("topmost_scope: no scopes present");
     expect(b.local_decls.length).toBe(n + 1);
     expect(b.local_decls[n]!.mutability).toBe("Not");
     expect(b.local_decls[n]!.local_info).toEqual({ $: "Set", _0: { $: "Boring" } });
     expect(stmts(b)).toEqual([`StorageLive(_${n})`]);
 
-    // a non-place expression in place context goes through a temp too (its temporary scope is the enclosing one, so
-    // the temp's storage is scheduled for drop: lane mb-scope)
-    stops(() => b.as_place(START_BLOCK, lit!), "rustc_mir_build::builder::scope::Builder::schedule_drop_storage");
+    // a non-place expression in place context goes through a temp too (`StorageLive`); its temporary scope is the
+    // enclosing one, so the temp's storage is scheduled for drop there, which is not pushed here (`span_bug!`)
+    expect(() => b.as_place(START_BLOCK, lit!)).toThrow(`region scope Node(15) not in scope to drop _${n + 1}`);
+    expect(stmts(b)).toEqual([`StorageLive(_${n})`, `StorageLive(_${n + 1})`]);
 
     // the general case of stmt_expr requires a statement scope
     expect(() => b.stmt_expr(START_BLOCK, lit!, undefined)).toThrow("Should not be calling `stmt_expr` on a general expression without a statement scope");
@@ -231,19 +225,28 @@ test("len_of_slice_or_array, add_fake_borrows_of_base, read_fake_borrows", () =>
     expect((len as { _0: { const_: { $: string; _0: unknown; _1: unknown } } })._0.const_).toEqual({ $: "Ty", _0: tcx.types.usize, _1: k._1 });
     expect(stmts(b)).toEqual([`FakeRead(ForIndex, _${arr})`]);
 
-    // slices behind a `&` (Copy): `PtrMetadata(copy _s)` into a fresh temp (`Builder::temp`, lane mb-mod)
+    // slices behind a `&` (Copy): `PtrMetadata(copy _s)` into a fresh temp (`Builder::temp`), moved out
     const deref = new Place(sref as Local, tcx.mk_place_elems([{ $: "Deref" }]));
-    stops(() => b.len_of_slice_or_array(START_BLOCK, deref, span, si), "rustc_mir_build::builder::misc::Builder::temp");
+    const slen = b.len_of_slice_or_array(START_BLOCK, deref, span, si);
+    const t = sref + 1;
+    expect(slen).toEqual({ $: "Move", _0: Place_from_Local(t as Local) });
+    expect(b.local_decls[t]!.ty).toBe(tcx.types.usize);
+    expect(stmts(b)).toEqual([`FakeRead(ForIndex, _${arr})`, `_${t} = PtrMetadata(copy _${sref})`]);
 
     // `*_s` is a slice: one shallow fake borrow of the pointer `_s` (the base of the `Deref`)
     const temps: Local[] = [];
     b.add_fake_borrows_of_base(deref, START_BLOCK, temps, span, si);
-    expect(temps).toEqual([(sref + 1) as Local]);
-    expect(b.local_decls[sref + 1]!.ty).toBe(TyC.new_imm_ref(tcx, tcx.lifetimes.re_erased, b.local_decls[sref]!.ty));
+    expect(temps).toEqual([(t + 1) as Local]);
+    expect(b.local_decls[t + 1]!.ty).toBe(TyC.new_imm_ref(tcx, tcx.lifetimes.re_erased, b.local_decls[sref]!.ty));
     // an array base needs none
     b.add_fake_borrows_of_base(Place_from_Local(arr as Local), START_BLOCK, temps, span, si);
     expect(temps.length).toBe(1);
     b.read_fake_borrows(START_BLOCK, temps, si);
-    expect(stmts(b)).toEqual([`FakeRead(ForIndex, _${arr})`, `_${sref + 1} = &fake shallow _${sref}`, `FakeRead(ForIndex, _${sref + 1})`]);
+    expect(stmts(b)).toEqual([
+      `FakeRead(ForIndex, _${arr})`,
+      `_${t} = PtrMetadata(copy _${sref})`,
+      `_${t + 1} = &fake shallow _${sref}`,
+      `FakeRead(ForIndex, _${t + 1})`,
+    ]);
   });
 });

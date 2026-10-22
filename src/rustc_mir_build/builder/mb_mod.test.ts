@@ -1,7 +1,7 @@
 // Tests of lane mb-mod (rustc_mir_build builder/{mod (rest), block, coverageinfo, misc}.rs). Upstream has no unit tests for
-// these files and MIR building stops at `scope::Builder::in_scope` (lane mb-scope) end to end, so the methods run on a
-// `Builder` made by the ported `Builder::new` for a real fn (`f` below) and on hand-built coverage states; the expected
-// values are worked out from upstream's code. Each method that reaches another lane's stub is pinned to that stop.
+// these files, so the methods run on a `Builder` made by the ported `Builder::new` for a real fn (`f` below) and on
+// hand-built coverage states; the expected values are worked out from upstream's code. (End to end, the built MIR is
+// compared with the oracle's in contract.test.ts.)
 import { expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -15,7 +15,7 @@ import { create_and_enter_global_ctxt, parse } from "../../rustc_interface/passe
 import "../../rustc_middle/lib.ts";
 import { Scope as RegionScope, ScopeData } from "../../rustc_middle/middle/region.ts";
 import { BlockMarkerId } from "../../rustc_middle/mir/coverage.ts";
-import { Local, Place, START_BLOCK } from "../../rustc_middle/mir/mod.ts";
+import { Local, Place, Place_from_Local, START_BLOCK } from "../../rustc_middle/mir/mod.ts";
 import type { BlockId, Expr, ExprId, Thir } from "../../rustc_middle/thir.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import type { Ty } from "../../rustc_middle/ty/mod.ts";
@@ -148,7 +148,9 @@ test("misc.rs: temp, literal_operand, zero_literal, push_usize, consume_by_copy_
     expect(stmts.length).toBe(1);
     const k = stmts[0]!.kind;
     if (k.$ !== "Assign") throw new Error("ERROR: push_usize did not assign");
-    expect(k._0[0]).toBe(p);
+    // the statement holds its own copy of the place (cfg.ts: aliasing)
+    expect(k._0[0]).toEqual(p);
+    expect(k._0[0]).not.toBe(p);
     const rv = k._0[1];
     if (rv.$ !== "Use" || rv._0.$ !== "Constant") throw new Error("ERROR: push_usize rvalue shape");
     expect(rv._0._0.const_._1).toBe(tcx.types.usize);
@@ -168,7 +170,7 @@ test("misc.rs: temp, literal_operand, zero_literal, push_usize, consume_by_copy_
   });
 });
 
-test("mod.rs: args_and_body allocates the arg locals and debuginfo, then stops at schedule_drop_value; insert_upvar_arg on a fn", () => {
+test("mod.rs: args_and_body allocates the arg locals and debuginfo and lowers the body (block.rs ast_block); insert_upvar_arg on a fn", () => {
   with_fixture(({ tcx, thir, expr, builder }) => {
     // not a closure: no capture-struct local / not a closure type -> no upvars
     const b0 = builder();
@@ -177,10 +179,7 @@ test("mod.rs: args_and_body allocates the arg locals and debuginfo, then stops a
     expect(b0.var_debug_info.length).toBe(0);
 
     const b = builder();
-    stops(
-      () => b.args_and_body(START_BLOCK, thir.params, new RegionScope(tcx.hir_body_owned_by(b.def_id).id().hir_id.local_id, ScopeData.Arguments), expr),
-      "rustc_mir_build::builder::scope::Builder::schedule_drop_value",
-    );
+    const [block] = b.args_and_body(START_BLOCK, thir.params, new RegionScope(tcx.hir_body_owned_by(b.def_id).id().hir_id.local_id, ScopeData.Arguments), expr);
     expect(b.local_decls.map((d) => d.ty)).toEqual([tcx.types.u8, tcx.types.u8, tcx.types.bool]);
     expect(b.var_debug_info.map((v) => [Symbol.as_str(v.name), v.argument_index, v.value.$])).toEqual([
       ["x", 1, "Place"],
@@ -192,17 +191,22 @@ test("mod.rs: args_and_body allocates the arg locals and debuginfo, then stops a
     // the debuginfo's `SourceInfo` is a copy, not the `LocalDecl`'s (which args_and_body later re-scopes in place)
     expect(b.var_debug_info[0]!.source_info).not.toBe(b.local_decls[1]!.source_info);
     expect(b.var_debug_info[0]!.source_info.span).toBe(b.local_decls[1]!.source_info.span);
+    // the body `{ x }` (ast_block, then the tail expression into the return place): `_0 = copy _1` in the same block
+    expect(block).toBe(START_BLOCK);
+    const stmts = b.cfg.basic_blocks[START_BLOCK]!.statements;
+    expect(stmts.length).toBe(1);
+    const k = stmts[0]!.kind;
+    if (k.$ !== "Assign") throw new Error("ERROR: no assignment");
+    expect(k._0[0]).toEqual(Place.return_place());
+    expect(k._0[1]).toEqual({ $: "Use", _0: { $: "Copy", _0: Place_from_Local(Local.arg(0)) }, _1: "Yes" });
 
-    // set_correct_source_scope_for_arg: reads the lint root of the scope, then `maybe_new_source_scope` (mb-scope)
+    // set_correct_source_scope_for_arg: the param has the fn's lint level, so `maybe_new_source_scope` keeps the scope
     const b2 = builder();
-    stops(() => b2.set_correct_source_scope_for_arg(tcx.local_def_id_to_hir_id(b2.def_id), b2.source_scope, DUMMY_SP), "rustc_mir_build::builder::scope::Builder::maybe_new_source_scope");
-  });
-});
-
-test("block.rs: ast_block enters the block's scope (in_scope, lane mb-scope)", () => {
-  with_fixture(({ builder }) => {
-    const b = builder();
-    stops(() => b.ast_block(Place.return_place(), START_BLOCK, 0 as BlockId, b.source_info(DUMMY_SP)), "rustc_mir_build::builder::scope::Builder::in_scope");
+    const n_scopes = b2.source_scopes.length;
+    const scope = b2.source_scope;
+    b2.set_correct_source_scope_for_arg(tcx.local_def_id_to_hir_id(b2.def_id), b2.source_scope, DUMMY_SP);
+    expect(b2.source_scopes.length).toBe(n_scopes);
+    expect(b2.source_scope).toBe(scope);
   });
 });
 

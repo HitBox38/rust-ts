@@ -7,11 +7,14 @@
 // `run_required_analyses` (passes.rs: `par_hir_body_owners`, `check_unsafety` for every body owner that is not a typeck
 // child), then `analysis`'s abort on non-lint errors, then `check_expectations(None)`, then it stops.
 //
-// `check_unsafety` runs `tcx.ensure_done().mir_built(def)` before the visitor. MIR building is being filled by the
-// builder lanes (wave 22), so by default this driver overrides the `mir_built` provider with one that only runs
-// `thir_body` (what `mir_built` reads first) and returns an empty `Steal`: `ensure_done` discards the value, and the
-// test cases avoid everything MIR building would report (check_match, MIR lints). `--real-mir-built` keeps the real
-// provider. Borrowck, liveness, dead code and the late lints do not run: test cases must not trigger them (the oracle
+// `check_unsafety` runs `tcx.ensure_done().mir_built(def)` before the visitor. The `mir_built` provider is ported
+// (rustc_mir_transform lib.ts) and MIR building runs, but the provider still stops at unported code for every body: its
+// pass list at `LintAndRemoveUninhabited` (lane mt-built-lints), and `check_match` at rustc_pattern_analysis's
+// `lower_pat` (lane pat-c) for any body with a pattern. So by default this driver overrides the `mir_built` provider
+// with one that only runs `thir_body` (what `mir_built` reads first) and returns an empty `Steal`: `ensure_done`
+// discards the value, and the test cases avoid everything MIR building would report (check_match, MIR lints).
+// `--real-mir-built` keeps the real provider (check_unsafety.oracle.test.ts pins where it stops; drop the override
+// when those lanes land). Borrowck, liveness, dead code and the late lints do not run: test cases must not trigger them (the oracle
 // runs everything).
 //
 // Exit codes as src/rust_ts/main.ts: rustc's own, plus 70 = reached unported code, 101 = ICE.

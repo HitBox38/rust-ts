@@ -1,7 +1,6 @@
-// Unit tests of builder/matches/mod.rs:1500..3010 (lane mb-matches-b). MIR building does not reach match lowering
-// end to end yet (`construct_fn` stops at `scope::Builder::in_scope`, lane mb-scope), so the tests take the real
-// `Builder` that `construct_fn` builds for `pub fn f(x: u8, y: bool) -> u8 { x }` (no_core) by intercepting `in_scope`,
-// and drive the ported fns on hand-made candidates. Paths through other lanes' stubs check where they stop.
+// Unit tests of builder/matches/mod.rs:1500..3010 (lane mb-matches-b): a `Builder` made by `Builder::new` for
+// `pub fn f(x: u8, y: bool) -> u8 { x }` (no_core) drives the ported fns on hand-made candidates. (End to end, match
+// lowering is compared with the oracle's built MIR in builder/contract.test.ts.)
 import { expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -20,22 +19,13 @@ import { LocalDefId } from "../../../rustc_span/def_id.ts";
 import { DUMMY_SP, ErrorGuaranteed } from "../../../rustc_span/lib.ts";
 import { sym, Symbol } from "../../../rustc_span/symbol.ts";
 import { Panic, Unported } from "../../../std/panic.ts";
+import { TypingMode } from "../../../rustc_type_ir/infer_ctxt.ts";
+import { FnSig } from "../../../rustc_type_ir/ty_kind.ts";
 import "../../lib.ts";
-import { Builder, construct_fn, type LocalsForNode } from "../mod.ts";
+import { Builder, type LocalsForNode } from "../mod.ts";
 import { Candidate, PatternExtraData } from "./mod.ts";
 
 const WORK = join(DATA, "tmp", "mb-matches-b", process.env.RUST_TS_AGENT ?? "default");
-
-function stops(f: () => unknown, what: string): void {
-  let err: unknown;
-  try {
-    f();
-  } catch (e) {
-    err = e;
-  }
-  expect(err).toBeInstanceOf(Unported);
-  expect((err as Unported).what).toBe(what);
-}
 
 class CaptureConfig extends Error {}
 function config_from_args(args: string[]): Config {
@@ -54,13 +44,7 @@ function config_from_args(args: string[]): Config {
   return config;
 }
 
-class Captured extends Error {
-  constructor(readonly builder: Builder) {
-    super("captured");
-  }
-}
-
-/** Runs `f` with the `Builder` that `construct_fn` makes for `pub fn f`, taken where it calls `in_scope`. */
+/** Runs `f` with a `Builder` for `pub fn f` (`Builder::new`, as `construct_fn` makes it). */
 function with_builder(f: (tcx: TyCtxt, b: Builder) => void): void {
   mkdirSync(WORK, { recursive: true });
   const file = join(WORK, "matches_b.rs");
@@ -86,20 +70,11 @@ function with_builder(f: (tcx: TyCtxt, b: Builder) => void): void {
       const [thir, expr] = r._0;
       const thir_ = thir.borrow();
       if (thir_.body_type.$ !== "Fn") throw new Error("ERROR: not a fn body");
-      const in_scope = Builder.prototype.in_scope;
-      let builder: Builder | undefined;
-      Builder.prototype.in_scope = function (this: Builder) {
-        throw new Captured(this);
-      } as typeof in_scope;
-      try {
-        construct_fn(tcx, fn_def, thir_, expr, thir_.body_type._0);
-      } catch (e) {
-        if (!(e instanceof Captured)) throw e;
-        builder = e.builder;
-      } finally {
-        Builder.prototype.in_scope = in_scope;
-      }
-      if (builder === undefined) throw new Error("ERROR: no builder");
+      const infcx = tcx.infer_ctxt().build(TypingMode.non_body_analysis());
+      const fn_id = tcx.local_def_id_to_hir_id(fn_def);
+      const span = tcx.hir_span_with_body(fn_id);
+      const builder = Builder.new(thir_, infcx, fn_def, fn_id, span, thir_.params.length, FnSig.output(thir_.body_type._0), DUMMY_SP, undefined);
+      void expr;
       f(tcx, builder);
       ran = true;
     });
@@ -140,10 +115,30 @@ test("match_candidates links fully-matched candidates in order; the select/expan
     expect(parent.subcandidates.length).toBe(2);
     b.merge_trivial_subcandidates(parent);
     expect(parent.subcandidates.length).toBe(2);
-    // without a guard it asks the subcandidates' `PatternExtraData::is_empty` (lane mb-matches-a)
+    // without a guard, trivial subcandidates (no subcandidates, empty extra data) are merged: each pre-binding block
+    // jumps to one shared pre-binding block, the parent becomes a leaf with the last subcandidate's otherwise block
     const parent2 = leaf();
-    parent2.subcandidates = [leaf()];
-    stops(() => b.merge_trivial_subcandidates(parent2), "rustc_mir_build::builder::matches::PatternExtraData::is_empty");
+    parent2.or_span = DUMMY_SP;
+    const [s0, s1] = [leaf(), leaf()];
+    const [p0, p1, o0, o1] = [b.cfg.start_new_block(), b.cfg.start_new_block(), b.cfg.start_new_block(), b.cfg.start_new_block()];
+    [s0.pre_binding_block, s0.otherwise_block, s0.false_edge_start_block] = [p0, o0, p0];
+    [s1.pre_binding_block, s1.otherwise_block] = [p1, o1];
+    parent2.subcandidates = [s0, s1];
+    const shared = b.cfg.basic_blocks.length as BasicBlock;
+    b.merge_trivial_subcandidates(parent2);
+    expect(parent2.subcandidates.length).toBe(0);
+    expect(parent2.or_span).toBeUndefined();
+    expect(parent2.pre_binding_block).toBe(shared);
+    expect(parent2.otherwise_block).toBe(o1);
+    expect(parent2.false_edge_start_block).toBe(p0);
+    for (const p of [p0, p1]) {
+      const t = b.cfg.basic_blocks[p]!.terminator!.kind;
+      expect(t.$ === "Goto" && t.target).toBe(shared);
+    }
+    // a candidate built by hand without `or_span` is not an or-pattern candidate: `or_span.take().unwrap()` panics
+    const parent3 = leaf();
+    parent3.subcandidates = [leaf()];
+    expect(() => b.merge_trivial_subcandidates(parent3)).toThrow("called `Option::unwrap()` on a `None` value");
     // nothing left to test after the or-pattern
     b.test_remaining_match_pairs_after_or(DUMMY_SP, DUMMY_SP, leaf());
     void tcx;
@@ -202,7 +197,9 @@ test("bind_and_guard_matched_candidate, declare_binding, should_emit_debug_info_
     expect(bug).toBeInstanceOf(Error);
     expect(bug).not.toBeInstanceOf(Unported);
 
-    // where the other paths stop now
-    stops(() => b.pick_test([{ ...leaf(), match_pairs: [{ kind: { $: "Or", or_subpats: [] }, pattern_span: DUMMY_SP }] } as never]), "rustc_mir_build::builder::matches::test::Builder::pick_test_for_match_pair");
+    // or-patterns are expanded before tests are picked (`pick_test_for_match_pair`'s `bug!`)
+    expect(() => b.pick_test([{ ...leaf(), match_pairs: [{ kind: { $: "Or", or_subpats: [] }, pattern_span: DUMMY_SP }] } as never])).toThrow(
+      "or-patterns should have already been handled",
+    );
   });
 });
