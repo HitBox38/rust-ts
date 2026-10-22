@@ -30,7 +30,7 @@ import { type ErrorGuaranteed, Span } from "../rustc_span/lib.ts";
 import { span_bug } from "../rustc_span/macros.ts";
 import { Symbol } from "../rustc_span/symbol.ts";
 import { PolyFnSig } from "../rustc_type_ir/ty_kind.ts";
-import { assert, unreachable } from "../std/panic.ts";
+import { assert, unreachable, unwrap } from "../std/panic.ts";
 import { type Result } from "../std/result.ts";
 import {
   AccessToUnionFieldRequiresUnsafe_diagnostic,
@@ -801,7 +801,7 @@ const UnsafeOpKind = {
     let unsafe_not_inherited_note: UnsafeNotInheritedLintNote | undefined;
     if (should_suggest) {
       if (suggest_unsafe_block) {
-        const body_span = tcx.hir_body(OwnerNode.body_id(parent_owner)!).value.span;
+        const body_span = tcx.hir_body(unwrap(OwnerNode.body_id(parent_owner))).value.span;
         unsafe_not_inherited_note = {
           signature_span: tcx.def_span(LocalDefId.to_def_id(parent_id.def_id)),
           body_span,
