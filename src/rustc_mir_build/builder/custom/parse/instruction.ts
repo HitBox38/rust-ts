@@ -483,7 +483,9 @@ ParseCtxt.prototype.parse_rvalue = function (this: ParseCtxt, expr_id_: ExprId):
         if (r.$ === "Err") return r;
         return Ok({ $: "BinaryOp", _0: op_with_overflow, _1: [l._0, r._0] });
       } else {
-        return Err(this.expr_error(expr_id, "No WithOverflow form of this operator"));
+        // PORT: `expr_id` here is the fn's parameter (macro hygiene: `parse_by_kind!`'s own `expr_id` is not visible in
+        // its arms), not the preparsed id.
+        return Err(this.expr_error(expr_id_, "No WithOverflow form of this operator"));
       }
     }
     return Err(this.expr_error(expr_id2, "binary op"));
@@ -546,7 +548,7 @@ ParseCtxt.prototype.parse_rvalue = function (this: ParseCtxt, expr_id_: ExprId):
     if (ops.$ === "Err") return ops;
     return Ok({ $: "Aggregate", _0: { $: "Adt", _0: adt_def.did(), _1: variant_index, _2: args, _3: undefined, _4: active_field_index }, _1: ops._0 });
   } else {
-    const op = this.parse_operand(expr_id);
+    const op = this.parse_operand(expr_id_);
     return op.$ === "Ok" ? Ok({ $: "Use", _0: op._0, _1: "Yes" }) : op;
   }
 };
@@ -568,7 +570,7 @@ ParseCtxt.prototype.parse_operand = function (this: ParseCtxt, expr_id_: ExprId)
   } else if (k.$ === "Literal" || k.$ === "NamedConst" || k.$ === "NonHirLiteral" || k.$ === "ZstLiteral" || k.$ === "ConstParam" || k.$ === "ConstBlock") {
     return Ok({ $: "Constant", _0: as_constant_inner(expr, (_) => undefined, this.tcx) });
   } else {
-    const p = this.parse_place(expr_id);
+    const p = this.parse_place(expr_id_);
     return p.$ === "Ok" ? Ok({ $: "Copy", _0: p._0 }) : p;
   }
 };
@@ -623,7 +625,7 @@ ParseCtxt.prototype.parse_place_inner = function (this: ParseCtxt, expr_id_: Exp
     } else if (k.$ === "Field") {
       [parent, proj] = [k.lhs, { $: "Field", _0: k.name, _1: expr.ty }];
     } else {
-      const l = this.parse_local(expr_id);
+      const l = this.parse_local(expr_id_);
       if (l.$ === "Err") return l;
       const place = Place_from_Local(l._0);
       return Ok([place, PlaceTy.from_ty(expr.ty)]);

@@ -23,7 +23,7 @@ async function main(argv: string[]): Promise<number> {
   const { MirWriter } = await import("../../../../rustc_middle/mir/pretty.ts");
   const { VecU8 } = await import("../../../../vendor/anstream/stream.ts");
   const { debug_IoError } = await import("../../../../std/io.ts");
-  const { unwrap_result } = await import("../../../../std/result.ts");
+  const { PLAIN } = await import("../../../../std/fmt.ts");
   type Steal<T> = import("../../../../rustc_data_structures/steal.ts").Steal<T>;
   type Thir = import("../../../../rustc_middle/thir.ts").Thir;
   type ExprId = import("../../../../rustc_middle/thir.ts").ExprId;
@@ -43,7 +43,8 @@ async function main(argv: string[]): Promise<number> {
         if (thir_.body_type.$ !== "Fn") continue;
         const body = construct_fn(tcx, def_id, thir_, expr, thir_.body_type._0);
         const w = new VecU8();
-        unwrap_result(MirWriter.new(tcx).write_mir_fn(body, w), debug_IoError);
+        const wr = MirWriter.new(tcx).write_mir_fn(body, w);
+        if (wr.$ === "Err") throw new Error(`ERROR: write_mir_fn: ${debug_IoError(wr._0, PLAIN)}`);
         process.stdout.write(new TextDecoder("utf-8", { fatal: true }).decode(w.bytes()));
       }
       return "Stop" as const;

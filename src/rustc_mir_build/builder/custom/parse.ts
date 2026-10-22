@@ -29,6 +29,8 @@ import { ParseCtxt, type PResult } from "./mod.gen.ts";
 // macro's order (`@call` arms, `@variant` arms, then the patterns), ending in the macro's fallthrough
 // `return Err(this.expr_error(expr_id, <expected>))`. The guards of the `@call` / `@variant` arms are
 // `parse_by_kind_call` / `parse_by_kind_variant` (the arm's bindings, or `undefined` when the arm does not match).
+// Macro hygiene: the macro's own `expr_id` / `expr` are not visible in the arms, so an `expr_id` written in an arm is
+// the caller's (the fn parameter, `expr_id_` in the ports), and `expr` only where the use binds `$expr_name` to it.
 
 /** The `@call($name, $args)` arm of `parse_by_kind!`: `ExprKind::Call { ty, fun: _, args: $args, .. }` whose `ty` is the
  *  `FnDef` of the diagnostic item `$name`; returns `$args`. */
