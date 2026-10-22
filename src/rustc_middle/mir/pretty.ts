@@ -84,6 +84,7 @@ import {
   debug_VarDebugInfoContents,
   Local,
   MirPhase,
+  MirPhase_cmp,
   OUTERMOST_SOURCE_SCOPE,
   RETURN_PLACE,
 } from "./mod.ts";
@@ -109,7 +110,6 @@ import {
   UnwindTerminateReason,
   WithRetag,
 } from "./syntax.ts";
-import { AnalysisPhase_discriminant, RuntimePhase_discriminant } from "./syntax.gen.ts";
 import type { Terminator } from "./terminator.ts";
 import { Visitor } from "./visit.ts";
 export * from "./pretty.gen.ts";
@@ -175,14 +175,6 @@ function debug_prov<Prov>(prov: Prov, f: Fmt): string {
   return typeof prov === "bigint" ? debug_CtfeProvenance(prov as unknown as CtfeProvenance, f) : debug_AllocId(prov as unknown as AllocId, f);
 }
 
-/** PORT: `#[derive(PartialOrd)]` of `MirPhase` (variant order, then the phase): `a <= b`. */
-function MirPhase_le(a: MirPhase, b: MirPhase): boolean {
-  const variant = (p: MirPhase): number => (p.$ === "Built" ? 0 : p.$ === "Analysis" ? 1 : 2);
-  const inner = (p: MirPhase): number =>
-    p.$ === "Analysis" ? AnalysisPhase_discriminant[p._0] : p.$ === "Runtime" ? RuntimePhase_discriminant[p._0] : 0;
-  if (variant(a) !== variant(b)) return variant(a) < variant(b);
-  return inner(a) <= inner(b);
-}
 
 /** A `String` used as a `fmt::Write` (`write!(string, ..)`). */
 class StringWrite implements FmtWrite {
@@ -2070,7 +2062,7 @@ export function write_allocations(tcx: TyCtxt, body: Body, w: Write): IoResult<v
       const did = global_alloc._0;
       if ((r = w.write_fmt([` (static: ${tcx.def_path_str(did)}`])).$ === "Err") return r;
       if (
-        MirPhase_le(body.phase, { $: "Runtime", _0: "PostCleanup" }) &&
+        MirPhase_cmp(body.phase, { $: "Runtime", _0: "PostCleanup" }) <= 0 &&
         ((def_id) => def_id !== undefined && tcx.hir_body_const_context(def_id) !== undefined)(body.source.def_id().as_local())
       ) {
         // Statics may be cyclic and evaluating them too early

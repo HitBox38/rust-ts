@@ -18,7 +18,7 @@
 //!
 //! [rustc dev guide]: https://rustc-dev-guide.rust-lang.org/mir/index.html
 export * from "./syntax.ts";
-import { AnalysisPhase_discriminant, debug_Place, MirPhase, type Place, RuntimeChecks, type RuntimePhase, RuntimePhase_discriminant, StatementKind } from "./syntax.ts";
+import { AnalysisPhase_discriminant, debug_Place, MirPhase, MirPhase_cmp, type Place, RuntimeChecks, type RuntimePhase, RuntimePhase_discriminant, StatementKind } from "./syntax.ts";
 import { Mutability } from "../../rustc_ast_ir/lib.ts";
 import type { Dominators } from "../../rustc_data_structures/graph/dominators/mod.ts";
 import type { CoroutineKind, HirId } from "../../rustc_hir/lib.ts";
@@ -399,17 +399,6 @@ MirPhase.index = function (self: MirPhase): [number, number] {
   }
 };
 
-/**
- * PORT: `#[derive(PartialOrd)]` of `MirPhase` (syntax.rs:43): variants in declaration order (`Built`, `Analysis`,
- * `Runtime`), then the phase's discriminant. `a > b`.
- */
-function MirPhase_gt(a: MirPhase, b: MirPhase): boolean {
-  const order = { Built: 0, Analysis: 1, Runtime: 2 } as const;
-  if (order[a.$] !== order[b.$]) return order[a.$] > order[b.$];
-  if (a.$ === "Analysis" && b.$ === "Analysis") return AnalysisPhase_discriminant[a._0] > AnalysisPhase_discriminant[b._0];
-  if (a.$ === "Runtime" && b.$ === "Runtime") return RuntimePhase_discriminant[a._0] > RuntimePhase_discriminant[b._0];
-  return false;
-}
 
 // rustc: compiler/rustc_middle/src/mir/mod.rs:126 item
 (MirSource as unknown as { item: typeof MirSource.item }).item = function (def_id: DefId): MirSource {
@@ -688,7 +677,7 @@ Body.prototype.should_skip = function (this: Body): boolean {
   if (injection_phase === undefined) {
     return false;
   }
-  return MirPhase_gt(injection_phase, this.phase);
+  return MirPhase_cmp(injection_phase, this.phase) > 0;
 };
 
 // rustc: compiler/rustc_middle/src/mir/mod.rs:612 is_custom_mir
