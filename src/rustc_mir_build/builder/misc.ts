@@ -1,49 +1,70 @@
-// Port of compiler/rustc_mir_build/src/builder/misc.rs: DECLARED (lane builder-contract, plan-m4 wave 22). Every fn is a stub
-// (`// stub: <path>:<line> <name> (lane <lane>)` over its final signature, body `unported(..)`) for the lane
-// mb-mod; docs/handoff/builder-contract.md has the split table, the conventions and "How to fill a stub"
-// (builder/mod.ts's header has the representation notes).
-import { type BasicBlock, type Const, type Operand, type Place, type SourceInfo } from "../../rustc_middle/mir/mod.ts";
+// Port of compiler/rustc_mir_build/src/builder/misc.rs (lane mb-mod, plan-m4 wave 22): `impl Builder` methods put on its
+// prototype (builder/mod.ts header: conventions). `InferCtxt::type_is_copy_modulo_regions` is rustc_trait_selection's
+// `InferCtxtExt` (infer.ts), loaded with that crate (as the other mir_build callers of its extensions rely on).
+//! Miscellaneous builder routines that are not specific to building any particular
+//! kind of thing.
+import { type BasicBlock, Const, ConstOperand, Local, LocalDecl, type Operand, type Place, Place_from_Local, type SourceInfo } from "../../rustc_middle/mir/mod.ts";
 import { type Ty } from "../../rustc_middle/ty/mod.ts";
 import { Builder } from "./mod.ts";
 import { type Span } from "../../rustc_span/lib.ts";
-import { unported } from "../../std/panic.ts";
 
 declare module "./mod.ts" {
   interface Builder {
-    // misc.rs:18 (lane mb-mod)
     temp(ty: Ty, span: Span): Place;
-    // misc.rs:27 (lane mb-mod)
     literal_operand(span: Span, const_: Const): Operand;
-    // misc.rs:34 (lane mb-mod)
     zero_literal(span: Span, ty: Ty): Operand;
-    // misc.rs:40 (lane mb-mod)
     push_usize(block: BasicBlock, source_info: SourceInfo, value: number): Place;
-    // misc.rs:61 (lane mb-mod)
     consume_by_copy_or_move(place: Place): Operand;
   }
 }
 
-// stub: compiler/rustc_mir_build/src/builder/misc.rs:18 temp (lane mb-mod)
+/// Adds a new temporary value of type `ty` storing the result of
+/// evaluating `expr`.
+///
+/// N.B., **No cleanup is scheduled for this temporary.** You should
+/// call `schedule_drop` once the temporary is initialized.
+// rustc: compiler/rustc_mir_build/src/builder/misc.rs:18 temp
 Builder.prototype.temp = function (this: Builder, ty: Ty, span: Span): Place {
-  return unported("rustc_mir_build::builder::misc::Builder::temp");
+  // `IndexVec::push` returns the index of the new element.
+  this.local_decls.push(LocalDecl.new(ty, span));
+  const temp = Local.from_usize(this.local_decls.length - 1);
+  const place = Place_from_Local(temp);
+  // debug!("temp: created temp {:?} with type {:?}", place, self.local_decls[temp].ty);
+  return place;
 };
 
-// stub: compiler/rustc_mir_build/src/builder/misc.rs:27 literal_operand (lane mb-mod)
+/// Convenience function for creating a literal operand, one
+/// without any user type annotation.
+// rustc: compiler/rustc_mir_build/src/builder/misc.rs:27 literal_operand
 Builder.prototype.literal_operand = function (this: Builder, span: Span, const_: Const): Operand {
-  return unported("rustc_mir_build::builder::misc::Builder::literal_operand");
+  const constant = new ConstOperand(span, undefined, const_);
+  return { $: "Constant", _0: constant };
 };
 
-// stub: compiler/rustc_mir_build/src/builder/misc.rs:34 zero_literal (lane mb-mod)
+/// Returns a zero literal operand for the appropriate type, works for
+/// bool, char and integers.
+// rustc: compiler/rustc_mir_build/src/builder/misc.rs:34 zero_literal
 Builder.prototype.zero_literal = function (this: Builder, span: Span, ty: Ty): Operand {
-  return unported("rustc_mir_build::builder::misc::Builder::zero_literal");
+  const literal = Const.from_bits(this.tcx, 0n, this.typing_env(), ty);
+
+  return this.literal_operand(span, literal);
 };
 
-// stub: compiler/rustc_mir_build/src/builder/misc.rs:40 push_usize (lane mb-mod)
+// rustc: compiler/rustc_mir_build/src/builder/misc.rs:40 push_usize
 Builder.prototype.push_usize = function (this: Builder, block: BasicBlock, source_info: SourceInfo, value: number): Place {
-  return unported("rustc_mir_build::builder::misc::Builder::push_usize");
+  const usize_ty = this.tcx.types.usize;
+  const temp = this.temp(usize_ty, source_info.span);
+  this.cfg.push_assign_constant(block, source_info, temp, new ConstOperand(source_info.span, undefined, Const.from_usize(this.tcx, value)));
+  return temp;
 };
 
-// stub: compiler/rustc_mir_build/src/builder/misc.rs:61 consume_by_copy_or_move (lane mb-mod)
+// rustc: compiler/rustc_mir_build/src/builder/misc.rs:61 consume_by_copy_or_move
 Builder.prototype.consume_by_copy_or_move = function (this: Builder, place: Place): Operand {
-  return unported("rustc_mir_build::builder::misc::Builder::consume_by_copy_or_move");
+  const tcx = this.tcx;
+  const ty = place.ty(this.local_decls, tcx).ty;
+  if (this.infcx.type_is_copy_modulo_regions(this.param_env, ty)) {
+    return { $: "Copy", _0: place };
+  } else {
+    return { $: "Move", _0: place };
+  }
 };
