@@ -8,8 +8,6 @@
 //   parsed with the macro's grammar (tt-muncher stages `@ctor` / `@pat` / `@fields` are `parse_ctor` / `parse_pat` /
 //   `parse_fields`). A `.$idx:ident` field index is written into the string by the caller (`` `Struct { .${i}: true }` ``).
 // - `init_tracing` has nothing to set up (tracing is not ported).
-// - `USEFULNESS_PORTED` (not upstream): whether `usefulness::compute_match_usefulness` (lane pat-a) is ported yet; the
-//   tests that need it are skipped until it is. Lane pat-a: drop it and the `skipIf`s when you port usefulness.rs.
 import {
   Constructor,
   type ConstructorSet,
@@ -23,7 +21,7 @@ import { type MatchArm, type PatCx, PatCx_provided, PrivateUninhabitedField } fr
 import { DeconstructedPat, type IndexedPat } from "../../pat.ts";
 import { compute_match_usefulness as compute_match_usefulness_, PlaceValidity, type UsefulnessReport } from "../../usefulness.ts";
 import { type Debug, debug_int, debug_struct, debug_tuple, debug_vec, type Fmt, PLAIN } from "../../../std/fmt.ts";
-import { panic, Unported, unwrap } from "../../../std/panic.ts";
+import { panic, unwrap } from "../../../std/panic.ts";
 import { Err, Ok, type Result } from "../../../std/result.ts";
 
 /// Sets up `tracing` for easier debugging. Tries to look like the `rustc` setup.
@@ -427,14 +425,3 @@ class PatsParser {
     return panic(`pats!: no rule expected the token \`${t}\``);
   }
 }
-
-/** Not upstream (header): whether lane pat-a's `compute_match_usefulness` is ported. */
-export const USEFULNESS_PORTED: boolean = (() => {
-  try {
-    compute_match_usefulness([], Ty.Bool, PlaceValidity.ValidOnly, Number.MAX_SAFE_INTEGER, false);
-    return true;
-  } catch (e) {
-    if (e instanceof Unported && e.what.startsWith("rustc_pattern_analysis::")) return false;
-    throw e;
-  }
-})();

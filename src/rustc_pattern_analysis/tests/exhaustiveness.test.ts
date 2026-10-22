@@ -1,17 +1,15 @@
 //! Test exhaustiveness checking.
 //
 // Port of compiler/rustc_pattern_analysis/tests/exhaustiveness.rs (lane pat-b). `pats!(ty; ..)` is `pats(ty, "..")`
-// (common/mod.ts). The tests need lane pat-a's usefulness.rs: skipped until it is ported (`USEFULNESS_PORTED`).
+// (common/mod.ts).
 import { expect, test } from "bun:test";
-import { type CxTypes, CX_STATIC, compute_match_usefulness, NEVER, pats, type Ty, UNIT, USEFULNESS_PORTED } from "./common/mod.ts";
+import { type CxTypes, CX_STATIC, compute_match_usefulness, NEVER, pats, type Ty, UNIT } from "./common/mod.ts";
 import type { MatchArm } from "../lib.ts";
 import { type DeconstructedPat, debug_WitnessPat, type WitnessPat } from "../pat.ts";
 import { PlaceValidity } from "../usefulness.ts";
 import { debug_vec, PLAIN } from "../../std/fmt.ts";
 import { panic } from "../../std/panic.ts";
 import { unwrap_result } from "../../std/result.ts";
-
-const SKIP = !USEFULNESS_PORTED;
 
 /// Analyze a match made of these patterns.
 // rustc: compiler/rustc_pattern_analysis/tests/exhaustiveness.rs:14 run
@@ -65,7 +63,7 @@ function assert_witnesses(which: WhichWitnesses, ty: Ty, patterns: Deconstructed
 
 // #[test]
 // rustc: compiler/rustc_pattern_analysis/tests/exhaustiveness.rs:73 test_int_ranges
-test.skipIf(SKIP)("test_int_ranges", () => {
+test("test_int_ranges", () => {
   const ty: Ty = { $: "U8" };
   assert_exhaustive(pats(ty, `
         0..=255,
@@ -88,7 +86,7 @@ test.skipIf(SKIP)("test_int_ranges", () => {
 
 // #[test]
 // rustc: compiler/rustc_pattern_analysis/tests/exhaustiveness.rs:95 test_nested
-test.skipIf(SKIP)("test_nested", () => {
+test("test_nested", () => {
   // enum E { A(bool), B(bool) }
   // ty = (E, E)
   const ty: Ty = { $: "BigStruct", arity: 2, ty: { $: "BigEnum", arity: 2, ty: { $: "Bool" } } };
@@ -112,7 +110,7 @@ test.skipIf(SKIP)("test_nested", () => {
 
 // #[test]
 // rustc: compiler/rustc_pattern_analysis/tests/exhaustiveness.rs:118 test_witnesses
-test.skipIf(SKIP)("test_witnesses", () => {
+test("test_witnesses", () => {
   // TY = Option<bool>
   const TY: Ty = { $: "Enum", _0: [{ $: "Bool" }, UNIT] };
   // ty = (Option<bool>, Option<bool>)
@@ -180,7 +178,7 @@ test.skipIf(SKIP)("test_witnesses", () => {
 
 // #[test]
 // rustc: compiler/rustc_pattern_analysis/tests/exhaustiveness.rs:185 test_empty
-test.skipIf(SKIP)("test_empty", () => {
+test("test_empty", () => {
   // `TY = Result<bool, !>`
   const TY: Ty = { $: "Enum", _0: [{ $: "Bool" }, NEVER] };
   assert_exhaustive(pats(TY, `

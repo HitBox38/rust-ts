@@ -109,14 +109,14 @@ test("every fn of rustc_pattern_analysis/src/** is ported or declared as a stub,
     }
   }
   expect(total).toBe(188);
-  expect(markers.length).toBe(89);
-  expect(stubs.length).toBe(99);
+  expect(markers.length).toBe(155);
+  expect(stubs.length).toBe(33);
 });
 
 test("the stubs per fill lane are the handoff's split table", () => {
   const per_lane: Record<string, number> = {};
   for (const d of stubs) per_lane[d.lane!] = (per_lane[d.lane!] ?? 0) + 1;
-  expect(per_lane).toEqual({ "pat-a": 66, "pat-c": 33 });
+  expect(per_lane).toEqual({ "pat-c": 33 });
   for (const d of stubs) {
     const lane = /\/(usefulness|pat_column|lints|checks)\.rs$/.test(d.path) ? "pat-a" : "pat-c";
     expect(`${d.path}:${d.line} ${d.name}: ${d.lane}`).toBe(`${d.path}:${d.line} ${d.name}: ${lane}`);

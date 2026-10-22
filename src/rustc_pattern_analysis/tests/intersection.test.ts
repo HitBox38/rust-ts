@@ -1,15 +1,13 @@
 //! Test the computation of arm intersections.
 //
 // Port of compiler/rustc_pattern_analysis/tests/intersection.rs (lane pat-b). `pats!(ty; ..)` is `pats(ty, "..")`
-// (common/mod.ts). The tests need lane pat-a's usefulness.rs: skipped until it is ported (`USEFULNESS_PORTED`).
+// (common/mod.ts).
 import { expect, test } from "bun:test";
-import { type CxTypes, compute_match_usefulness, pats, type Ty, USEFULNESS_PORTED } from "./common/mod.ts";
+import { type CxTypes, compute_match_usefulness, pats, type Ty } from "./common/mod.ts";
 import type { MatchArm } from "../lib.ts";
 import type { DeconstructedPat } from "../pat.ts";
 import { PlaceValidity } from "../usefulness.ts";
 import { unwrap_result } from "../../std/result.ts";
-
-const SKIP = !USEFULNESS_PORTED;
 
 /// Analyze a match made of these patterns and returns the computed arm intersections.
 // rustc: compiler/rustc_pattern_analysis/tests/intersection.rs:14 check
@@ -29,7 +27,7 @@ function assert_intersects(patterns: DeconstructedPat<CxTypes>[], intersects: nu
 
 // #[test]
 // rustc: compiler/rustc_pattern_analysis/tests/intersection.rs:31 test_int_ranges
-test.skipIf(SKIP)("test_int_ranges", () => {
+test("test_int_ranges", () => {
   const ty: Ty = { $: "U8" };
   assert_intersects(
     pats(ty, `
@@ -56,7 +54,7 @@ test.skipIf(SKIP)("test_int_ranges", () => {
 
 // #[test]
 // rustc: compiler/rustc_pattern_analysis/tests/intersection.rs:57 test_nested
-test.skipIf(SKIP)("test_nested", () => {
+test("test_nested", () => {
   let ty: Ty = { $: "Tuple", _0: [{ $: "Bool" }, { $: "Bool" }] };
   assert_intersects(
     pats(ty, `
