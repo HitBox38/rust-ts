@@ -54,14 +54,16 @@
 //! `let this = self;` or similar, allowing subsequent code to uniformly refer
 //! to the builder as `this` (and never `self`), even when not nested.
 import { ExternAbi } from "../../rustc_abi/extern_abi.ts";
+import { FieldIdx } from "../../rustc_abi/lib.ts";
+import { BindingMode, ByRef } from "../../rustc_ast/lib.ts";
 import { type FloatTy } from "../../rustc_ast_ir/lib.ts";
 import { find_attr } from "../../rustc_attr_ir/lib.ts";
 import type { SortedIndexMultiMap } from "../../rustc_data_structures/sorted_map/index_map.ts";
 import { SortedIndexMultiMap as SortedIndexMultiMapC } from "../../rustc_data_structures/sorted_map/index_map.ts";
 import type { Steal } from "../../rustc_data_structures/steal.ts";
 import type { ErrorGuaranteed } from "../../rustc_span/lib.ts";
-import { Span } from "../../rustc_span/lib.ts";
-import { type HirId, HirId_key, type ItemLocalId } from "../../rustc_hir_id/lib.ts";
+import { DUMMY_SP, Span } from "../../rustc_span/lib.ts";
+import { debug_OwnerId, type HirId, HirId_key, type ItemLocalId, type OwnerId, OwnerId_eq } from "../../rustc_hir_id/lib.ts";
 import { GrowableBitSet } from "../../rustc_index/bit_set.ts";
 import type { InferCtxt } from "../../rustc_infer/decls.ts";
 import { type Scope as region_Scope, Scope as RegionScope, ScopeData, type ScopeTree } from "../../rustc_middle/middle/region.ts";
@@ -74,9 +76,13 @@ import {
   CoroutineInfo,
   Local,
   LocalDecl,
+  type LocalInfo,
   MirSource,
   OUTERMOST_SOURCE_SCOPE,
   Place,
+  Place_from_Local,
+  type PlaceElem,
+  ProjectionElem,
   SourceInfo,
   type SourceScope,
   SourceScopeData,
@@ -105,6 +111,8 @@ import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import { ScalarInt } from "../../rustc_middle/ty/consts/int.ts";
 import { HasAttrs_HirId, type ParamEnv, type Ty, Ty as TyC, type TypingEnv } from "../../rustc_middle/ty/mod.ts";
 import { fold_Ty } from "../../rustc_middle/ty/structural_impls.ts";
+import { CAPTURE_STRUCT_LOCAL } from "../../rustc_middle/ty/closure.ts";
+import { type UpvarArgs, UpvarArgs as UpvarArgsC } from "../../rustc_middle/ty/sty.ts";
 import { type DefId, LocalDefId } from "../../rustc_span/def_id.ts";
 import { bug, span_bug } from "../../rustc_span/macros.ts";
 import { Symbol } from "../../rustc_span/symbol.ts";
@@ -461,24 +469,225 @@ export class Builder {
     return body;
   }
 
-  // stub: compiler/rustc_mir_build/src/builder/mod.rs:871 insert_upvar_arg (lane mb-mod)
+  // rustc: compiler/rustc_mir_build/src/builder/mod.rs:871 insert_upvar_arg
   insert_upvar_arg(): void {
-    return unported("rustc_mir_build::builder::Builder::insert_upvar_arg");
+    // PORT: ty/closure.ts's `CAPTURE_STRUCT_LOCAL` carries a stand-in `Local` brand ("mir::Local"); it is `Local(1)`.
+    const CAPTURE_STRUCT_LOCAL_ = CAPTURE_STRUCT_LOCAL as unknown as Local;
+    const closure_arg = this.local_decls[CAPTURE_STRUCT_LOCAL_];
+    if (closure_arg === undefined) return;
+
+    let closure_ty = closure_arg.ty;
+    const closure_env_projs: PlaceElem[] = [];
+    const ref_kind = closure_ty.kind();
+    if (ref_kind.$ === "Ref") {
+      const ty = ref_kind._1;
+      closure_env_projs.push(ProjectionElem.Deref);
+      closure_ty = ty;
+    }
+
+    let upvar_args: UpvarArgs;
+    const closure_kind = closure_ty.kind();
+    switch (closure_kind.$) {
+      case "Closure":
+        upvar_args = { $: "Closure", _0: closure_kind._1 };
+        break;
+      case "Coroutine":
+        upvar_args = { $: "Coroutine", _0: closure_kind._1 };
+        break;
+      case "CoroutineClosure":
+        upvar_args = { $: "CoroutineClosure", _0: closure_kind._1 };
+        break;
+      default:
+        return;
+    }
+
+    // In analyze_closure() in upvar.rs we gathered a list of upvars used by an
+    // indexed closure and we stored in a map called closure_min_captures in TypeckResults
+    // with the closure's DefId. Here, we run through that vec of UpvarIds for
+    // the given closure and use the necessary information to create upvar
+    // debuginfo and to fill `self.upvars`.
+    const capture_tys = UpvarArgsC.upvar_tys(upvar_args);
+
+    const tcx = this.tcx;
+    let upvar_owner: OwnerId | undefined = undefined;
+    const captures = tcx.closure_captures(this.def_id);
+    // PORT: `.iter().zip_eq(capture_tys).enumerate().map(..).collect()`: the map runs element by element, and `zip_eq`
+    // panics (itertools' message) when one side ends before the other.
+    const entries: [ItemLocalId, Capture][] = [];
+    for (let i = 0; ; i++) {
+      if (i >= captures.length || i >= capture_tys.length) {
+        if (captures.length !== capture_tys.length) panic("itertools: .zip_eq() reached end of one iterator before the other");
+        break;
+      }
+      const captured_place = captures[i]!;
+      const ty = capture_tys[i]!;
+      const name = captured_place.to_symbol();
+
+      const capture = captured_place.info.capture_kind;
+      const base = captured_place.place.base;
+      const var_id_ = base.$ === "Upvar" ? base._0.var_path.hir_id : bug("Expected an upvar");
+      if (upvar_owner === undefined) upvar_owner = var_id_.owner;
+      const upvar_base = upvar_owner;
+      assert_eq(upvar_base, var_id_.owner, (o) => debug_OwnerId(o, PLAIN), OwnerId_eq);
+      const var_id = var_id_.local_id;
+
+      const mutability = captured_place.mutability;
+
+      const projs = [...closure_env_projs];
+      // `FieldIdx::new(i)` (`Idx::new`)
+      projs.push({ $: "Field", _0: FieldIdx.from_usize(i), _1: ty });
+      switch (capture.$) {
+        case "ByValue":
+        case "ByUse":
+          break;
+        case "ByRef":
+          projs.push(ProjectionElem.Deref);
+          break;
+      }
+
+      const use_place = new Place(CAPTURE_STRUCT_LOCAL_, tcx.mk_place_elems(projs));
+      this.var_debug_info.push({
+        name,
+        source_info: SourceInfo.outermost(captured_place.var_ident.span),
+        value: { $: "Place", _0: use_place },
+        composite: undefined,
+        argument_index: undefined,
+      });
+
+      const capture_: Capture = { captured_place, use_place, mutability };
+      entries.push([var_id, capture_]);
+    }
+    this.upvars = SortedIndexMultiMapC.from_iter<number, ItemLocalId, Capture>(entries, (a, b) => a - b);
   }
 
-  // stub: compiler/rustc_mir_build/src/builder/mod.rs:943 args_and_body (lane mb-mod)
+  // rustc: compiler/rustc_mir_build/src/builder/mod.rs:943 args_and_body
   args_and_body(block: BasicBlock, arguments_: readonly Param[], argument_scope: region_Scope, expr_id: ExprId): BlockAnd<null> {
-    return unported("rustc_mir_build::builder::Builder::args_and_body");
+    const expr_span = this.thir.index_ExprId(expr_id).span;
+    // Allocate locals for the function arguments
+    for (let argument_index = 0; argument_index < arguments_.length; argument_index++) {
+      const param = arguments_[argument_index]!;
+      const source_info = SourceInfo.outermost(param.pat === undefined ? this.fn_span : param.pat.span);
+      // `IndexVec::push` returns the index of the new element.
+      this.local_decls.push(LocalDecl.with_source_info(param.ty, source_info));
+      const arg_local = Local.from_usize(this.local_decls.length - 1);
+
+      // If this is a simple binding pattern, give debuginfo a nice name.
+      const pat = param.pat;
+      let name: Symbol | undefined;
+      if (pat !== undefined && (name = pat.simple_ident()) !== undefined) {
+        this.var_debug_info.push({
+          name,
+          // PORT: `SourceInfo` is `Copy`; the `LocalDecl` above holds `source_info` itself.
+          source_info: clone_SourceInfo(source_info),
+          value: { $: "Place", _0: Place_from_Local(arg_local) },
+          composite: undefined,
+          argument_index: argument_index + 1,
+        });
+      }
+    }
+
+    this.insert_upvar_arg();
+
+    let scope: SourceScope | undefined = undefined;
+    // Bind the argument patterns
+    for (let index = 0; index < arguments_.length; index++) {
+      const param = arguments_[index]!;
+      // Function arguments always get the first Local indices after the return place
+      const local = Local.arg(index);
+      const place = Place_from_Local(local);
+
+      // Make sure we drop (parts of) the argument even when not matched on.
+      this.schedule_drop_value(param.pat === undefined ? expr_span : param.pat.span, argument_scope, local);
+
+      const pat = param.pat;
+      if (pat === undefined) {
+        continue;
+      }
+      const original_source_scope = this.source_scope;
+      const span = pat.span;
+      if (param.hir_id !== undefined) {
+        const arg_hir_id = param.hir_id;
+        this.set_correct_source_scope_for_arg(arg_hir_id, original_source_scope, span);
+      }
+      const kind = pat.kind;
+      if (kind.$ === "Binding" && kind.mode._0.$ === "No" && kind.subpattern === undefined) {
+        // Don't introduce extra copies for simple bindings
+        const { var: var_ } = kind;
+        const mutability = kind.mode._1;
+        this.local_decls[local]!.mutability = mutability;
+        this.local_decls[local]!.source_info.scope = this.source_scope;
+        let local_info: LocalInfo;
+        if (param.self_kind !== undefined) {
+          const kind = param.self_kind;
+          local_info = { $: "User", _0: { $: "ImplicitSelf", _0: kind } };
+        } else {
+          const binding_mode = new BindingMode(ByRef.No, mutability);
+          local_info = {
+            $: "User",
+            _0: {
+              $: "Var",
+              _0: {
+                binding_mode,
+                opt_ty_info: param.ty_span,
+                opt_match_place: [undefined, span],
+                pat_span: span,
+                introductions: [{ span, is_shorthand: false }],
+              },
+            },
+          };
+        }
+        // `**self.local_decls[local].local_info.as_mut().unwrap_crate_local() = ..`: replaces the boxed `LocalInfo` (a
+        // `ClearCrossCrate::Clear` is a `bug!`).
+        ClearCrossCrate.unwrap_crate_local(ClearCrossCrate.as_mut(this.local_decls[local]!.local_info));
+        this.local_decls[local]!.local_info = { $: "Set", _0: local_info };
+        this.var_indices.set(var_, { $: "One", _0: local });
+      } else {
+        scope = this.declare_bindings(scope, expr_span, pat, undefined, [place, span]);
+        const place_builder = as_place().PlaceBuilder_from_Local(local);
+        block = BlockAnd.into_block(this.place_into_pattern(block, pat, place_builder, false));
+      }
+      this.source_scope = original_source_scope;
+    }
+
+    // Enter the argument pattern bindings source scope, if it exists.
+    if (scope !== undefined) {
+      const source_scope = scope;
+      this.source_scope = source_scope;
+    }
+
+    const intrinsic = this.tcx.intrinsic(LocalDefId.to_def_id(this.def_id));
+    if ((intrinsic !== undefined && intrinsic.must_be_overridden) || this.tcx.is_sdylib_interface_build()) {
+      const source_info = this.source_info(DUMMY_SP);
+      this.cfg.terminate(block, source_info, TerminatorKind.Unreachable);
+      return unit(this.cfg.start_new_block());
+    } else {
+      // Ensure we don't silently codegen functions with fake bodies.
+      const node = this.tcx.hir_node(this.hir_id);
+      if (node.$ === "Item" && node._0.kind.$ === "Fn" && !node._0.kind.has_body) {
+        this.tcx.dcx().span_delayed_bug(expr_span, `fn item without body has reached MIR building: ${debug_LocalDefId_(this.def_id)}`);
+      }
+      return this.expr_into_dest(Place.return_place(), block, expr_id);
+    }
   }
 
-  // stub: compiler/rustc_mir_build/src/builder/mod.rs:1068 set_correct_source_scope_for_arg (lane mb-mod)
+  // rustc: compiler/rustc_mir_build/src/builder/mod.rs:1068 set_correct_source_scope_for_arg
   set_correct_source_scope_for_arg(arg_hir_id: HirId, original_source_scope: SourceScope, pattern_span: Span): void {
-    return unported("rustc_mir_build::builder::Builder::set_correct_source_scope_for_arg");
+    const parent_id = ClearCrossCrate.unwrap_crate_local(ClearCrossCrate.as_ref(this.source_scopes[original_source_scope]!.local_data)).lint_root;
+    this.maybe_new_source_scope(pattern_span, arg_hir_id, parent_id);
   }
 
-  // stub: compiler/rustc_mir_build/src/builder/mod.rs:1082 get_unit_temp (lane mb-mod)
+  // rustc: compiler/rustc_mir_build/src/builder/mod.rs:1082 get_unit_temp
   get_unit_temp(): Place {
-    return unported("rustc_mir_build::builder::Builder::get_unit_temp");
+    if (this.unit_temp !== undefined) {
+      const tmp = this.unit_temp;
+      return tmp;
+    } else {
+      const ty = this.tcx.types.unit;
+      const fn_span = this.fn_span;
+      const tmp = this.temp(ty, fn_span);
+      this.unit_temp = tmp;
+      return tmp;
+    }
   }
 }
 
@@ -488,6 +697,11 @@ function gen_clone(): typeof import("../../rustc_middle/mir/mod.ts") & typeof im
     ...(require("../../rustc_middle/mir/mod.ts") as typeof import("../../rustc_middle/mir/mod.ts")),
     ...(require("../../rustc_middle/ty/typeck_results.ts") as typeof import("../../rustc_middle/ty/typeck_results.ts")),
   };
+}
+
+/** builder/expr/as_place.ts (an extension module: read lazily, see "init order" above). */
+function as_place(): typeof import("./expr/as_place.ts") {
+  return require("./expr/as_place.ts") as typeof import("./expr/as_place.ts");
 }
 
 /** `CaptureMap::new()` (`SortedIndexMultiMap<usize, ItemLocalId, Capture>`; `ItemLocalId: Ord` is the numeric order). */
