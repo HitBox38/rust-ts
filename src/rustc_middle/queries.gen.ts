@@ -33,7 +33,7 @@ import { type Body, type Promoted, debug_Body, debug_Promoted } from "./mir/mod.
 import { type ConstQualifs, type CoroutineLayout, debug_ConstQualifs, debug_CoroutineLayout } from "./mir/query.ts";
 import { describe_as_module } from "./queries.ts";
 import { into_query_key_DefId, into_query_key_LocalDefId, into_query_key_identity } from "./query/into_query_key.ts";
-import { KEY_AliasTyKind, KEY_CanonicalAliasGoal, KEY_CanonicalDropckOutlivesGoal, KEY_CanonicalImpliedOutlivesBoundsGoal_bool, KEY_CanonicalInput_usize, KEY_CanonicalMethodAutoderefStepsGoal, KEY_CanonicalPredicateGoal, KEY_CanonicalTypeOpAscribeUserTypeGoal, KEY_CanonicalTypeOpNormalizeGoal_Clause, KEY_CanonicalTypeOpNormalizeGoal_FnSig, KEY_CanonicalTypeOpNormalizeGoal_PolyFnSig, KEY_CanonicalTypeOpNormalizeGoal_Ty, KEY_CanonicalTypeOpProvePredicateGoal, KEY_Clauses, KEY_CrateNum, KEY_CrateNum_DefId, KEY_CrateNum_SimplifiedType, KEY_DefId, KEY_DefId_DefId, KEY_DefId_GenericArgsRef, KEY_DefId_Ident, KEY_DefId_SizedTraitKind, KEY_GenericArgsRef, KEY_LitToConstInput, KEY_LocalDefId, KEY_LocalDefId_LocalDefId_Ident, KEY_LocalModId, KEY_ModId, KEY_Option_Symbol, KEY_OsStr, KEY_OwnerId, KEY_Predicate_WellFormedLoc, KEY_PseudoCanonicalInput_DefId_GenericArgsRef, KEY_PseudoCanonicalInput_GenericArg, KEY_PseudoCanonicalInput_TraitRef, KEY_PseudoCanonicalInput_Ty, KEY_SimplifiedType, KEY_Symbol, KEY_TraitRef, KEY_Ty, KEY_Ty_Option_ExistentialTraitRef, KEY_Ty_Ty, KEY_unit, type LocalQueryKeyOf, key_unported } from "./query/keys.ts";
+import { KEY_AliasTyKind, KEY_CanonicalAliasGoal, KEY_CanonicalDropckOutlivesGoal, KEY_CanonicalImpliedOutlivesBoundsGoal_bool, KEY_CanonicalInput_usize, KEY_CanonicalMethodAutoderefStepsGoal, KEY_CanonicalPredicateGoal, KEY_CanonicalTypeOpAscribeUserTypeGoal, KEY_CanonicalTypeOpNormalizeGoal_Clause, KEY_CanonicalTypeOpNormalizeGoal_FnSig, KEY_CanonicalTypeOpNormalizeGoal_PolyFnSig, KEY_CanonicalTypeOpNormalizeGoal_Ty, KEY_CanonicalTypeOpProvePredicateGoal, KEY_Clauses, KEY_CrateNum, KEY_CrateNum_DefId, KEY_CrateNum_SimplifiedType, KEY_DefId, KEY_DefId_DefId, KEY_DefId_GenericArgsRef, KEY_DefId_Ident, KEY_DefId_SizedTraitKind, KEY_GenericArgsRef, KEY_LitToConstInput, KEY_LocalDefId, KEY_LocalDefId_LocalDefId_Ident, KEY_LocalModId, KEY_ModId, KEY_Option_Symbol, KEY_OsStr, KEY_OwnerId, KEY_Predicate_WellFormedLoc, KEY_PseudoCanonicalInput_AdtDef_GenericArgsRef, KEY_PseudoCanonicalInput_DefId_GenericArgsRef, KEY_PseudoCanonicalInput_GenericArg, KEY_PseudoCanonicalInput_TraitRef, KEY_PseudoCanonicalInput_Ty, KEY_SimplifiedType, KEY_Symbol, KEY_TraitRef, KEY_Ty, KEY_Ty_Option_ExistentialTraitRef, KEY_Ty_Ty, KEY_unit, type LocalQueryKeyOf, key_unported } from "./query/keys.ts";
 import { type QueryDecl } from "./query/query_api.ts";
 import { stable_hash_Visibility } from "./stable_hash.gen.ts";
 import { type CodegenObligationError, type DynCompatibilityViolation, type ObligationCause, type WellFormedLoc, debug_DynCompatibilityViolation, debug_ObligationCause, debug_WellFormedLoc } from "./traits/mod.ts";
@@ -44,10 +44,11 @@ import { type CoerceUnsizedInfo, debug_CoerceUnsizedInfo } from "./ty/adjustment
 import { type LitToConstInput } from "./ty/consts/lit.ts";
 import { type Limits, type TyCtxt } from "./ty/context.ts";
 import { type SimplifiedType, debug_SimplifiedType } from "./ty/fast_reject.ts";
+import { type InhabitedPredicate, debug_InhabitedPredicate } from "./ty/inhabitedness/inhabited_predicate.ts";
 import { type Instance, type InstanceKind, debug_Instance, display_Instance } from "./ty/instance.ts";
 import { type FnAbiError, type LayoutError, type TyAndLayout, type ValidityRequirement } from "./ty/layout.ts";
 import { type PseudoCanonicalInput, type Ty, type Visibility, debug_Ty, debug_Visibility } from "./ty/mod.ts";
-import { type Predicate, debug_Predicate } from "./ty/predicate.ts";
+import { type Clause, type Predicate, debug_Clause, debug_Predicate } from "./ty/predicate.ts";
 import { display_Ty } from "./ty/print/pretty.ts";
 import { type VtblEntry, debug_VtblEntry } from "./ty/vtable.ts";
 import { type CrateNum, type DefId, type DefIdMap, type LocalDefId, type LocalModId, type ModId, debug_CrateNum, debug_DefId, debug_LocalDefId, debug_ModId, display_CrateNum, stable_hash_CrateNum, stable_hash_DefId, stable_hash_LocalDefId } from "../rustc_span/def_id.ts";
@@ -56,6 +57,7 @@ import { type ErrorGuaranteed, type Span, type Spanned, debug_ErrorGuaranteed, d
 import { stable_hash_Ident, stable_hash_ModId } from "../rustc_span/stable_hash.gen.ts";
 import { type Ident, type Symbol, debug_Ident, debug_Symbol, display_Ident, display_Symbol, stable_hash_Symbol } from "../rustc_span/symbol.ts";
 import { type PanicStrategy } from "../rustc_target/spec/mod.ts";
+import { type PolyFnSig } from "../rustc_type_ir/decls.ts";
 import { PLAIN, debug_bool, debug_int, debug_map, debug_option, debug_set, debug_str, debug_tuple, debug_vec } from "../std/fmt.ts";
 import { unported } from "../std/panic.ts";
 import { type Result, debug_result } from "../std/result.ts";
@@ -516,8 +518,7 @@ export interface QueryTypes {
    * **Tip**: You can use `#[rustc_dump_inferred_outlives]` on an item to basically
    * print the result of this query for use in UI tests or for debugging purposes.
    */
-  // PORT: value `&'tcx [(ty::Clause<'tcx>, Span)]` not ported (`unknown`)
-  inferred_outlives_of: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: readonly [unknown, Span][]; ProvidedValue: readonly [unknown, Span][] };
+  inferred_outlives_of: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: readonly [Clause, Span][]; ProvidedValue: readonly [Clause, Span][] };
   /**
    * Returns the explicitly user-written *super-clauses* of the trait given by `DefId`.
    *
@@ -1153,7 +1154,7 @@ export interface QueryTypes {
    * instead, where the instance is an `InstanceKind::Virtual`.
    */
   // PORT: key `ty::PseudoCanonicalInput<'tcx, (ty::PolyFnSig<'tcx>, &'tcx ty::List<Ty<'tcx>>)>` not ported; value `Result<&'tcx rustc_target::callconv::FnAbi<'tcx, Ty<'tcx>>, &'tcx ty::layout::FnAbiError<'tcx>>` not ported (`unknown`)
-  fn_abi_of_fn_ptr: { Key: PseudoCanonicalInput<[unknown, unknown]>; KeyArg: PseudoCanonicalInput<[unknown, unknown]>; LocalKey: PseudoCanonicalInput<[unknown, unknown]>; Value: Result<unknown, FnAbiError>; ProvidedValue: Result<unknown, FnAbiError> };
+  fn_abi_of_fn_ptr: { Key: PseudoCanonicalInput<[PolyFnSig, unknown]>; KeyArg: PseudoCanonicalInput<[PolyFnSig, unknown]>; LocalKey: PseudoCanonicalInput<[PolyFnSig, unknown]>; Value: Result<unknown, FnAbiError>; ProvidedValue: Result<unknown, FnAbiError> };
   /**
    * Compute a `FnAbi` suitable for declaring/defining an `fn` instance, and for direct calls*
    * to an `fn`. Indirectly-passed parameters in the returned ABI might not include all possible
@@ -1428,13 +1429,11 @@ export interface QueryTypes {
    * In here, if you call `visibility` on `T`, it'll panic.
    */
   visibility: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: Visibility<ModId>; ProvidedValue: Visibility<ModId> };
-  // PORT: value `ty::inhabitedness::InhabitedPredicate<'tcx>` not ported (`unknown`)
-  inhabited_predicate_for_def: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: DefId; Value: unknown; ProvidedValue: unknown };
+  inhabited_predicate_for_def: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: DefId; Value: InhabitedPredicate; ProvidedValue: InhabitedPredicate };
   /**
    * Do not call this query directly: invoke `Ty::inhabited_predicate` instead.
    */
-  // PORT: value `ty::inhabitedness::InhabitedPredicate<'tcx>` not ported (`unknown`)
-  inhabited_predicate_type: { Key: Ty; KeyArg: Ty; LocalKey: Ty; Value: unknown; ProvidedValue: unknown };
+  inhabited_predicate_type: { Key: Ty; KeyArg: Ty; LocalKey: Ty; Value: InhabitedPredicate; ProvidedValue: InhabitedPredicate };
   /**
    * Do not call this query directly: invoke `Ty::is_opsem_inhabited` instead.
    */
@@ -1675,13 +1674,13 @@ export interface QueryTypes {
   /**
    * Do not call this query directly: part of the `Normalize` type-op
    */
-  // PORT: key `CanonicalTypeOpNormalizeGoal<'tcx, ty::Clause<'tcx>>` not ported; value `Result<&'tcx Canonical<'tcx, canonical::QueryResponse<'tcx, ty::Clause<'tcx>>>, NoSolution,>` not ported (`unknown`)
-  type_op_normalize_clause: { Key: CanonicalTypeOpNormalizeGoal<unknown>; KeyArg: CanonicalTypeOpNormalizeGoal<unknown>; LocalKey: CanonicalTypeOpNormalizeGoal<unknown>; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
+  // PORT: value `Result<&'tcx Canonical<'tcx, canonical::QueryResponse<'tcx, ty::Clause<'tcx>>>, NoSolution,>` not ported (`unknown`)
+  type_op_normalize_clause: { Key: CanonicalTypeOpNormalizeGoal<Clause>; KeyArg: CanonicalTypeOpNormalizeGoal<Clause>; LocalKey: CanonicalTypeOpNormalizeGoal<Clause>; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
   /**
    * Do not call this query directly: part of the `Normalize` type-op
    */
-  // PORT: key `CanonicalTypeOpNormalizeGoal<'tcx, ty::PolyFnSig<'tcx>>` not ported; value `Result<&'tcx Canonical<'tcx, canonical::QueryResponse<'tcx, ty::PolyFnSig<'tcx>>>, NoSolution,>` not ported (`unknown`)
-  type_op_normalize_poly_fn_sig: { Key: CanonicalTypeOpNormalizeGoal<unknown>; KeyArg: CanonicalTypeOpNormalizeGoal<unknown>; LocalKey: CanonicalTypeOpNormalizeGoal<unknown>; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
+  // PORT: value `Result<&'tcx Canonical<'tcx, canonical::QueryResponse<'tcx, ty::PolyFnSig<'tcx>>>, NoSolution,>` not ported (`unknown`)
+  type_op_normalize_poly_fn_sig: { Key: CanonicalTypeOpNormalizeGoal<PolyFnSig>; KeyArg: CanonicalTypeOpNormalizeGoal<PolyFnSig>; LocalKey: CanonicalTypeOpNormalizeGoal<PolyFnSig>; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
   /**
    * Do not call this query directly: part of the `Normalize` type-op
    */
@@ -3051,7 +3050,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: true,
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `computing inferred outlives-clauses of \`${__0}\``; },
-    debug_value: undefined,
+    debug_value: (v, f) => debug_vec(v, f, (x, f) => debug_tuple(f, "", [debug_Clause(x[0], f), debug_Span(x[1], f)])),
     stable_hash_value: undefined,
   },
   explicit_super_clauses_of: {
@@ -6201,7 +6200,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: false,
     returns_error_guaranteed: false,
     desc: (_tcx, key) => { const __0 = key; return `computing the uninhabited predicate of \`${debug_DefId(__0, PLAIN)}\``; },
-    debug_value: undefined,
+    debug_value: (v, f) => debug_InhabitedPredicate(v, f),
     stable_hash_value: undefined,
   },
   inhabited_predicate_type: {
@@ -6219,12 +6218,12 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: false,
     returns_error_guaranteed: false,
     desc: (_tcx, key) => { const __0 = key; return `computing the uninhabited predicate of \`${display_Ty(__0)}\``; },
-    debug_value: undefined,
+    debug_value: (v, f) => debug_InhabitedPredicate(v, f),
     stable_hash_value: undefined,
   },
   is_opsem_inhabited_adt_cached: {
     name: "is_opsem_inhabited_adt_cached",
-    key: key_unported("ty::PseudoCanonicalInput<'tcx, (ty::AdtDef<'tcx>, ty::GenericArgsRef<'tcx>)>"),
+    key: KEY_PseudoCanonicalInput_AdtDef_GenericArgsRef,
     into_key: into_query_key_identity,
     arena_cache: false,
     cache_on_disk: false,

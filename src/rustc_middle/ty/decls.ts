@@ -166,7 +166,9 @@ export type Scalar = Pending<"Scalar">;
 // rustc_abi lib.rs:1803 (lane layout-contract)
 import type { NumScalableVectors } from "../../rustc_abi/lib.ts";
 export type { NumScalableVectors };
-export type InhabitedPredicate = Pending<"InhabitedPredicate">;
+// ty/inhabitedness/inhabited_predicate.rs:16 (lane merge-lints)
+import type { InhabitedPredicate } from "./inhabitedness/inhabited_predicate.ts";
+export type { InhabitedPredicate };
 import type { NormalizationError } from "./normalize_erasing_regions.ts";
 export type { NormalizationError };
 // traits/solve.rs:33, :44 (D2: hash-consed; lane middle-traits-thir)

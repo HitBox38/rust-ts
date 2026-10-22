@@ -29,6 +29,7 @@ import { intern_key } from "../../rust_ts/intern_key.ts";
 import { debug_str } from "../../std/fmt.ts";
 import { debug_ParamEnvAnd, debug_PseudoCanonicalInput, debug_Ty, type ParamEnvAnd, type PseudoCanonicalInput, type Ty } from "../ty/mod.ts";
 import type { AdtDef } from "../ty/decls.ts";
+import { debug_AdtDef } from "../ty/structural_impls.ts";
 import { debug_LitToConstInput, type LitToConstInput } from "../ty/consts/lit.ts";
 import { debug_SimplifiedType, type SimplifiedType, SimplifiedType_key } from "../ty/fast_reject.ts";
 import { debug_GenericArg, debug_GenericArgs, type GenericArg, type GenericArgsRef } from "../ty/generic_args.ts";
@@ -525,7 +526,20 @@ export const KEY_PseudoCanonicalInput_TraitRef: QueryKey<PseudoCanonicalInput<Tr
 /** `PseudoCanonicalInput<(DefId, GenericArgsRef)>` (`resolve_instance_raw`). */
 export const KEY_PseudoCanonicalInput_DefId_GenericArgsRef: QueryKey<PseudoCanonicalInput<[DefId, GenericArgsRef]>> = pseudo_canonical_input_key(KEY_DefId_GenericArgsRef);
 
-// PORT: `(AdtDef, GenericArgsRef)` (keys.rs:311) is not ported yet (`key_unported`).
+export const KEY_AdtDef_GenericArgsRef: QueryKey<[AdtDef, GenericArgsRef]> = {
+  make_cache: default_cache<[AdtDef, GenericArgsRef]>(intern_key),
+  // rustc: compiler/rustc_middle/src/query/keys.rs:312 default_span
+  default_span(self: [AdtDef, GenericArgsRef], tcx: TyCtxt): Span {
+    return tcx.def_span(self[0].did());
+  },
+  key_as_def_id: QueryKey_provided.key_as_def_id,
+  as_local_key: QueryKey_provided.as_local_key,
+  debug: (v, f) => debug_tuple(f, "", [debug_AdtDef(v[0], f), debug_GenericArgs(v[1], f)]),
+  debug_local: no_local_key,
+  hash_key: intern_key,
+};
+/** `PseudoCanonicalInput<(AdtDef, GenericArgsRef)>` (`is_opsem_inhabited_adt_cached`). */
+export const KEY_PseudoCanonicalInput_AdtDef_GenericArgsRef: QueryKey<PseudoCanonicalInput<[AdtDef, GenericArgsRef]>> = pseudo_canonical_input_key(KEY_AdtDef_GenericArgsRef);
 
 export const KEY_Symbol: QueryKey<Symbol> = {
   make_cache: default_cache<Symbol>((k) => k),

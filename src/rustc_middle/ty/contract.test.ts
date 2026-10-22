@@ -18,7 +18,7 @@ import { upstreamFns } from "../../../scripts/coverage.ts";
 import { UPSTREAM } from "../../../scripts/lib/common.ts";
 import { FrontmatterAllowed, tokenize } from "../../rustc_lexer/lib.ts";
 import { Unported } from "../../std/panic.ts";
-import { unported_stub_path } from "../../rust_ts/stubs.ts";
+import { unported_methods, unported_stub_path } from "../../rust_ts/stubs.ts";
 import { Str } from "../../std/str.ts";
 import "../lib.ts";
 import { Const, Region } from "../../rustc_type_ir/sty/mod.ts";
@@ -211,8 +211,11 @@ test("every declared method exists on its prototype (or constructor) once rustc_
 });
 
 test("a stub stops as UNPORTED", () => {
-  // `Ty::is_bool` is ported now (lane ty-sty); a ty/inhabitedness/mod.rs stub stands in.
-  expect(() => (Ty.prototype as unknown as { inhabited_predicate(): unknown }).inhabited_predicate.call(undefined)).toThrow(Unported);
+  // `Ty::is_bool` is ported now (lane ty-sty), and so is ty/inhabitedness/mod.rs (merge-lints): no `Ty` stub is
+  // left, so a fresh prototype stands in for the stub mechanism (rust_ts/stubs.ts `unported_methods`).
+  const proto = {} as { inhabited_predicate(): unknown };
+  unported_methods(proto, "rustc_middle::ty::inhabitedness::Ty", ["inhabited_predicate"]);
+  expect(() => proto.inhabited_predicate()).toThrow(Unported);
   // `trait_is_marker` (lane ty-ctxt), `typeck_root_def_id_local` (lane ty-util) and `expand_abstract_consts` (ty/abstract_const.rs,
   // small-gaps-19) are ported now: no `TyCtxt` stub is left.
   // `Region::new_static` (sty/mod.rs:135) is ported now (lane tyir-misc): it is the interner's pre-interned `'static`.

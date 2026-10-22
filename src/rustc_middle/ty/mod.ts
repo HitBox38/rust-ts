@@ -3016,8 +3016,9 @@ function erase_regions_provide(providers: Providers): void {
   // PORT: ty/erase_regions.ts is an extension module: reached through `require` (like `print_provide`).
   (require("./erase_regions.ts") as typeof import("./erase_regions.ts")).provide(providers);
 }
-function inhabitedness_provide(_providers: Providers): void {
-  // rustc_middle::ty::inhabitedness::provide (ty/inhabitedness/mod.rs, not ported)
+function inhabitedness_provide(providers: Providers): void {
+  // PORT: ty/inhabitedness/mod.ts is an extension module: reached through `require` (like `print_provide`).
+  (require("./inhabitedness/mod.ts") as typeof import("./inhabitedness/mod.ts")).provide(providers);
 }
 function util_provide(providers: Providers): void {
   // PORT: ty/util.ts is an extension module: reached through `require` (like `print_provide`).

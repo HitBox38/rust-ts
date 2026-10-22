@@ -17,7 +17,7 @@ import { find_feature_issue, GateIssue } from "../rustc_feature/lib.ts";
 import { type Edition, Edition_discriminant } from "../rustc_span/edition.ts";
 import { Span } from "../rustc_span/lib.ts";
 import { display_Ident, type Ident, kw, Symbol, sym } from "../rustc_span/symbol.ts";
-import { assert, panic, unported, unreachable } from "../std/panic.ts";
+import { assert, panic, unreachable } from "../std/panic.ts";
 import type { EarlyContext } from "./context.ts";
 import { BuiltinKeywordIdents_diagnostic } from "./diagnostics.ts";
 import {
@@ -74,6 +74,7 @@ import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import { GenericArg } from "../rustc_middle/ty/generic_args.ts";
 import type { GenericClauses, Generics } from "../rustc_middle/ty/generics.ts";
 import { RawList } from "../rustc_middle/ty/list.ts";
+import { InhabitedPredicate } from "../rustc_middle/ty/inhabitedness/inhabited_predicate.ts";
 import { HasAttrs_LocalDefId, Ty, type TypingEnv, Visibility } from "../rustc_middle/ty/mod.ts";
 import { type Predicate, Predicate_upcast_from_TraitClause } from "../rustc_middle/ty/predicate.ts";
 import { fold_Clause, fold_Ty } from "../rustc_middle/ty/structural_impls.ts";
@@ -2054,9 +2055,26 @@ InvalidValue.prototype.check_expr = function (this: InvalidValue, cx: LateContex
       const span = cx.tcx.def_span(adt_def.did());
       const potential_variants = (function* (): Generator<[VariantDef, boolean]> {
         for (const variant of adt_def.variants()) {
-          // `variant.inhabited_predicate(cx.tcx).instantiate(cx.tcx, args).apply_any_module(cx.tcx, cx.typing_env())`
-          void variant;
-          return unported("rustc_middle::ty::inhabitedness VariantDef::inhabited_predicate (not ported)");
+          let definitely_inhabited: boolean;
+          switch (
+            InhabitedPredicate.apply_any_module(
+              InhabitedPredicate.instantiate(variant.inhabited_predicate(cx.tcx), cx.tcx, args),
+              cx.tcx,
+              cx.typing_env(),
+            )
+          ) {
+            // Entirely skip uninhabited variants.
+            case false:
+              continue;
+            // Forward the others, but remember which ones are definitely inhabited.
+            case true:
+              definitely_inhabited = true;
+              break;
+            case undefined:
+              definitely_inhabited = false;
+              break;
+          }
+          yield [variant, definitely_inhabited];
         }
       })();
       const first = potential_variants.next();

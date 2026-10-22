@@ -192,8 +192,7 @@ export function BuiltinUnpermittedTypeInit_into_diag(self: BuiltinUnpermittedTyp
   const diag = Diag.new(dcx, level, self.msg)
     .with_arg("ty", IntoDiagArg.of(self.ty, Ty_into_diag_arg))
     .with_span_label(self.label, msg("this code causes undefined behavior when executed"));
-  // PORT: `InhabitedPredicate` is a pending stand-in (rustc_middle ty/inhabitedness, not ported: the call stops there).
-  if ((self.ty.inhabited_predicate(self.tcx) as unknown as { $: string }).$ === "True") {
+  if (self.ty.inhabited_predicate(self.tcx).$ === "True") {
     // Only suggest late `MaybeUninit::assume_init` initialization if the type is inhabited.
     diag.span_label(
       self.label,

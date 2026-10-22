@@ -276,6 +276,27 @@ const CASES: Case[] = [
     expect: [],
   },
   {
+    name: "InvalidValue: references, bool, enums with one / several inhabited variants (inhabitedness)",
+    passes: [B("InvalidValue")],
+    src: [
+      "pub enum Void {}",
+      "pub enum E { A(u8), B }",
+      "pub enum One { A(u8), B(Void) }",
+      "pub fn f() {",
+      "    unsafe {",
+      "        let _r: &u8 = std::mem::zeroed();",
+      "        let _b: bool = std::mem::MaybeUninit::uninit().assume_init();",
+      "        let _e: E = std::mem::MaybeUninit::uninit().assume_init();",
+      "        let _o: One = std::mem::MaybeUninit::uninit().assume_init();",
+      "        let _t: (u8, &u8) = std::mem::zeroed();",
+      "    }",
+      "}",
+    ],
+    // (A value of the uninhabited `Void` itself would also trigger liveness' `unreachable_code`, which the driver does
+    // not run.)
+    expect: ["the type `&u8` does not permit zero-initialization", "enums with multiple inhabited variants have to be initialized to a variant"],
+  },
+  {
     name: "DerefNullPtr: `*ptr::null()`, `*(0 as *const T)`, `*ptr::null_mut()` (deny); `&raw const *null` and ZST pointees do not lint",
     passes: [B("DerefNullPtr")],
     src: [

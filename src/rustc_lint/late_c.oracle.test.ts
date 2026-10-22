@@ -201,15 +201,29 @@ const CASES: Case[] = [
     src: ["pub struct W<'a>(pub &'a u8);", "pub fn a<'a>(x: &'a u8) -> &u8 { x }", "pub fn b(x: &u8) -> W { W(x) }"],
     expect: ["eliding a lifetime that's named elsewhere is confusing", "hiding a lifetime that's elided elsewhere is confusing"],
   },
-];
-
-const BLOCKED: BlockedCase[] = [
   {
     name: "unused_must_use on a non-unit type",
     src: ["#[must_use]", "pub fn g() -> i32 { 1 }", "pub fn f() {", "    g();", "    1 + 2;", "}"],
     expect: ["unused return value of `g` that must be used", "unused arithmetic operation that must be used"],
-    blocked_by: "rustc_middle::ty::inhabitedness::Ty::is_inhabited_from",
   },
+  {
+    name: "unused_must_use: uninhabited and Result<_, !>-like types",
+    src: [
+      "pub enum Void {}",
+      "#[must_use]",
+      "pub fn r() -> Result<u8, Void> { Ok(1) }",
+      "#[must_use]",
+      "pub fn v() -> Result<(), Void> { Ok(()) }",
+      "pub fn f() {",
+      "    r();",
+      "    v();",
+      "}",
+    ],
+    expect: ["unused return value of `r` that must be used"],
+  },
+];
+
+const BLOCKED: BlockedCase[] = [
   {
     name: "impl_trait_overcaptures fires (RPIT with a body)",
     src: ["#![warn(impl_trait_overcaptures)]", "fn f<'a>(x: &'a ()) -> impl Sized { *x }"],
