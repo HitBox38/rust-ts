@@ -9,9 +9,9 @@
 // PORT: `EdgesFromGraph` / `EdgesFromStatic` (interfaces) and `Successors` (an enum) implement `Iterator`: impl tables
 // `Iterator_EdgesFromGraph` / `Iterator_EdgesFromStatic` / `Iterator_Successors` whose `next(self)` returns a JS
 // `IteratorResult` (mir-contract: Iterator impls are JS iterators).
-import type { RegionVid } from "../../rustc_type_ir/region_kind.ts";
-import { unported } from "../../std/panic.ts";
-import type { OutlivesConstraint, OutlivesConstraintSet } from "./mod.gen.ts";
+import { RegionVid } from "../../rustc_type_ir/region_kind.ts";
+import { panic } from "../../std/panic.ts";
+import type { OutlivesConstraint, OutlivesConstraintIndex, OutlivesConstraintSet } from "./mod.gen.ts";
 import {
   ConstraintGraph,
   type EdgesFromGraph,
@@ -38,37 +38,37 @@ export interface ConstraintGraphDirection {
 
 // impl ConstraintGraphDirection for Normal
 export const ConstraintGraphDirection_Normal: ConstraintGraphDirection & Normal = {
-  // stub: compiler/rustc_borrowck/src/constraints/graph.rs:36 start_region (lane bck-regions-b)
+  // rustc: compiler/rustc_borrowck/src/constraints/graph.rs:36 start_region
   start_region(sup: RegionVid, _sub: RegionVid): RegionVid {
-    return unported("rustc_borrowck::constraints::graph::Normal::start_region");
+    return sup;
   },
 
-  // stub: compiler/rustc_borrowck/src/constraints/graph.rs:40 end_region (lane bck-regions-b)
+  // rustc: compiler/rustc_borrowck/src/constraints/graph.rs:40 end_region
   end_region(_sup: RegionVid, sub: RegionVid): RegionVid {
-    return unported("rustc_borrowck::constraints::graph::Normal::end_region");
+    return sub;
   },
 
-  // stub: compiler/rustc_borrowck/src/constraints/graph.rs:44 is_normal (lane bck-regions-b)
+  // rustc: compiler/rustc_borrowck/src/constraints/graph.rs:44 is_normal
   is_normal(): boolean {
-    return unported("rustc_borrowck::constraints::graph::Normal::is_normal");
+    return true;
   },
 };
 
 // impl ConstraintGraphDirection for Reverse
 export const ConstraintGraphDirection_Reverse: ConstraintGraphDirection & Reverse = {
-  // stub: compiler/rustc_borrowck/src/constraints/graph.rs:57 start_region (lane bck-regions-b)
+  // rustc: compiler/rustc_borrowck/src/constraints/graph.rs:57 start_region
   start_region(_sup: RegionVid, sub: RegionVid): RegionVid {
-    return unported("rustc_borrowck::constraints::graph::Reverse::start_region");
+    return sub;
   },
 
-  // stub: compiler/rustc_borrowck/src/constraints/graph.rs:61 end_region (lane bck-regions-b)
+  // rustc: compiler/rustc_borrowck/src/constraints/graph.rs:61 end_region
   end_region(sup: RegionVid, _sub: RegionVid): RegionVid {
-    return unported("rustc_borrowck::constraints::graph::Reverse::end_region");
+    return sup;
   },
 
-  // stub: compiler/rustc_borrowck/src/constraints/graph.rs:65 is_normal (lane bck-regions-b)
+  // rustc: compiler/rustc_borrowck/src/constraints/graph.rs:65 is_normal
   is_normal(): boolean {
-    return unported("rustc_borrowck::constraints::graph::Reverse::is_normal");
+    return false;
   },
 };
 
@@ -107,57 +107,88 @@ declare module "./graph.gen.ts" {
 /// R2` is treated as an edge `R1 -> R2`. We use this graph to
 /// construct SCCs for region inference but also for error
 /// reporting.
-// stub: compiler/rustc_borrowck/src/constraints/graph.rs:75 new (lane bck-regions-b)
+// rustc: compiler/rustc_borrowck/src/constraints/graph.rs:75 new
 (ConstraintGraph as unknown as { new: typeof ConstraintGraph.new }).new = function <D>(
   direction: D,
   set: OutlivesConstraintSet,
   num_region_vars: number,
 ): ConstraintGraph<D> {
-  return unported("rustc_borrowck::constraints::graph::ConstraintGraph::new");
+  const D = direction as unknown as ConstraintGraphDirection;
+  const first_constraints: (OutlivesConstraintIndex | undefined)[] = new Array(num_region_vars).fill(undefined);
+  const next_constraints: (OutlivesConstraintIndex | undefined)[] = new Array(set.outlives.length).fill(undefined);
+
+  for (let i = set.outlives.length - 1; i >= 0; i--) {
+    const idx = i as OutlivesConstraintIndex;
+    const constraint = set.outlives[i]!;
+    const head_idx = D.start_region(constraint.sup, constraint.sub);
+    if (head_idx >= first_constraints.length) {
+      panic(`index out of bounds: the len is ${first_constraints.length} but the index is ${head_idx}`);
+    }
+    // debug_assert!(next.is_none());
+    next_constraints[idx] = first_constraints[head_idx];
+    first_constraints[head_idx] = idx;
+  }
+
+  return new ConstraintGraph(direction, first_constraints, next_constraints);
 };
 
 /// Given the constraint set from which this graph was built
 /// creates a region graph so that you can iterate over *regions*
 /// and not constraints.
-// stub: compiler/rustc_borrowck/src/constraints/graph.rs:97 region_graph (lane bck-regions-b)
+// rustc: compiler/rustc_borrowck/src/constraints/graph.rs:97 region_graph
 ConstraintGraph.prototype.region_graph = function <D>(this: ConstraintGraph<D>, set: OutlivesConstraintSet, static_region: RegionVid): RegionGraph<D> {
-  return unported("rustc_borrowck::constraints::graph::ConstraintGraph::region_graph");
+  return RegionGraph.new(set, this, static_region);
 };
 
-// stub: compiler/rustc_borrowck/src/constraints/graph.rs:105 is_normal (lane bck-regions-b)
+// rustc: compiler/rustc_borrowck/src/constraints/graph.rs:105 is_normal
 ConstraintGraph.prototype.is_normal = function <D>(this: ConstraintGraph<D>): boolean {
-  return unported("rustc_borrowck::constraints::graph::ConstraintGraph::is_normal");
+  return direction_of(this).is_normal();
 };
 
 /// Given a region `R`, iterate over all constraints `R: R1`.
-// stub: compiler/rustc_borrowck/src/constraints/graph.rs:110 outgoing_edges_from_graph (lane bck-regions-b)
+// rustc: compiler/rustc_borrowck/src/constraints/graph.rs:110 outgoing_edges_from_graph
 ConstraintGraph.prototype.outgoing_edges_from_graph = function <D>(
   this: ConstraintGraph<D>,
   region_sup: RegionVid,
   constraints: OutlivesConstraintSet,
 ): EdgesFromGraph<D> {
-  return unported("rustc_borrowck::constraints::graph::ConstraintGraph::outgoing_edges_from_graph");
+  if (region_sup >= this.first_constraints.length) {
+    panic(`index out of bounds: the len is ${this.first_constraints.length} but the index is ${region_sup}`);
+  }
+  return { graph: this, constraints, pointer: this.first_constraints[region_sup] };
 };
 
 /// Returns all regions (#53178).
-// stub: compiler/rustc_borrowck/src/constraints/graph.rs:119 outgoing_edges_from_static (lane bck-regions-b)
+// rustc: compiler/rustc_borrowck/src/constraints/graph.rs:119 outgoing_edges_from_static
 ConstraintGraph.prototype.outgoing_edges_from_static = function <D>(this: ConstraintGraph<D>): EdgesFromStatic {
-  return unported("rustc_borrowck::constraints::graph::ConstraintGraph::outgoing_edges_from_static");
+  return { next_static_idx: 0, end_static_idx: this.first_constraints.length };
 };
 
 // impl<'a, 'tcx, D: ConstraintGraphDirection> Iterator for EdgesFromGraph<'a, 'tcx, D>
 export const Iterator_EdgesFromGraph = {
-  // stub: compiler/rustc_borrowck/src/constraints/graph.rs:133 next (lane bck-regions-b)
+  // rustc: compiler/rustc_borrowck/src/constraints/graph.rs:133 next
   next<D>(self: EdgesFromGraph<D>): IteratorResult<OutlivesConstraint> {
-    return unported("rustc_borrowck::constraints::graph::EdgesFromGraph::next");
+    const p = self.pointer;
+    if (p !== undefined) {
+      self.pointer = self.graph.next_constraints[p];
+      return { done: false, value: self.constraints.index(p) };
+    } else {
+      return { done: true, value: undefined };
+    }
   },
 };
 
 // impl Iterator for EdgesFromStatic
 export const Iterator_EdgesFromStatic = {
-  // stub: compiler/rustc_borrowck/src/constraints/graph.rs:151 next (lane bck-regions-b)
+  // rustc: compiler/rustc_borrowck/src/constraints/graph.rs:151 next
   next(self: EdgesFromStatic): IteratorResult<RegionVid> {
-    return unported("rustc_borrowck::constraints::graph::EdgesFromStatic::next");
+    if (self.next_static_idx < self.end_static_idx) {
+      const ret = RegionVid.from_usize(self.next_static_idx);
+      self.next_static_idx += 1;
+      return { done: false, value: ret };
+    } else {
+      return { done: true, value: undefined };
+    }
   },
 };
 
@@ -165,38 +196,69 @@ export const Iterator_EdgesFromStatic = {
 /// R2` is treated as an edge `R1 -> R2`. We use this graph to
 /// construct SCCs for region inference but also for error
 /// reporting.
-// stub: compiler/rustc_borrowck/src/constraints/graph.rs:176 new (lane bck-regions-b)
+// rustc: compiler/rustc_borrowck/src/constraints/graph.rs:176 new
 (RegionGraph as unknown as { new: typeof RegionGraph.new }).new = function <D>(
   set: OutlivesConstraintSet,
   constraint_graph: ConstraintGraph<D>,
   static_region: RegionVid,
 ): RegionGraph<D> {
-  return unported("rustc_borrowck::constraints::graph::RegionGraph::new");
+  return new RegionGraph(set, constraint_graph, static_region);
 };
 
 /// Given a region `R`, iterate over all regions `R1` such that
 /// there exists a constraint `R: R1`.
-// stub: compiler/rustc_borrowck/src/constraints/graph.rs:186 outgoing_regions (lane bck-regions-b)
+// rustc: compiler/rustc_borrowck/src/constraints/graph.rs:186 outgoing_regions
 RegionGraph.prototype.outgoing_regions = function <D>(this: RegionGraph<D>, region_sup: RegionVid): Successors<D> {
-  return unported("rustc_borrowck::constraints::graph::RegionGraph::outgoing_regions");
+  // If this is the `'static` region and the graph's direction is normal,
+  // then setup the Edges iterator to return all regions (#53178).
+  if (region_sup === this.static_region && direction_of(this.constraint_graph).is_normal()) {
+    return { $: "FromStatic", _0: this.constraint_graph.outgoing_edges_from_static() };
+  } else {
+    // Otherwise, just setup the iterator as normal.
+    return {
+      $: "FromGraph",
+      _0: this.constraint_graph.outgoing_edges_from_graph(region_sup, this.set),
+    };
+  }
 };
 
 // impl<'a, 'tcx, D: ConstraintGraphDirection> Iterator for Successors<'a, 'tcx, D>
 export const Iterator_Successors = {
-  // stub: compiler/rustc_borrowck/src/constraints/graph.rs:208 next (lane bck-regions-b)
+  // rustc: compiler/rustc_borrowck/src/constraints/graph.rs:208 next
   next<D>(self: Successors<D>): IteratorResult<RegionVid> {
-    return unported("rustc_borrowck::constraints::graph::Successors::next");
+    switch (self.$) {
+      case "FromStatic": {
+        const edges = self._0;
+        // No `D::end_region` call needed here: static successors are only possible when
+        // the direction is `Normal`, so we can directly use what would be the `sub` value.
+        return Iterator_EdgesFromStatic.next(edges);
+      }
+      case "FromGraph": {
+        const edges = self._0;
+        const r = Iterator_EdgesFromGraph.next(edges);
+        if (r.done) return { done: true, value: undefined };
+        const constraint = r.value;
+        return { done: false, value: direction_of(edges.graph).end_region(constraint.sup, constraint.sub) };
+      }
+    }
   },
 };
 
 // impl<'a, 'tcx, D: ConstraintGraphDirection> graph::DirectedGraph for RegionGraph<'a, 'tcx, D>
-// stub: compiler/rustc_borrowck/src/constraints/graph.rs:225 num_nodes (lane bck-regions-b)
+// rustc: compiler/rustc_borrowck/src/constraints/graph.rs:225 num_nodes
 RegionGraph.prototype.num_nodes = function <D>(this: RegionGraph<D>): number {
-  return unported("rustc_borrowck::constraints::graph::RegionGraph::num_nodes");
+  return this.constraint_graph.first_constraints.length;
 };
 
 // impl<'a, 'tcx, D: ConstraintGraphDirection> graph::Successors for RegionGraph<'a, 'tcx, D>
-// stub: compiler/rustc_borrowck/src/constraints/graph.rs:231 successors (lane bck-regions-b)
+// rustc: compiler/rustc_borrowck/src/constraints/graph.rs:231 successors
 RegionGraph.prototype.successors = function <D>(this: RegionGraph<D>, node: RegionVid): Iterable<RegionVid> {
-  return unported("rustc_borrowck::constraints::graph::RegionGraph::successors");
+  const successors = this.outgoing_regions(node);
+  // PORT: `impl Iterator` -> a JS iterable over `Iterator_Successors.next`.
+  return { [Symbol.iterator]: (): Iterator<RegionVid> => ({ next: () => Iterator_Successors.next(successors) }) };
 };
+
+/** `D` of a `ConstraintGraph<D>`: the stored `_direction` is the direction's impl table (header). */
+function direction_of<D>(graph: ConstraintGraph<D>): ConstraintGraphDirection {
+  return graph._direction as unknown as ConstraintGraphDirection;
+}
