@@ -5,7 +5,7 @@
 // `A: Analysis<'tcx>` is erased to `Analysis<D, S>`; `propagate: impl FnMut(BasicBlock, &A::Domain)` is a closure.
 
 import { panic } from "../../std/panic.ts";
-import type { BasicBlock, BasicBlockData, Body, Location } from "../pending.ts";
+import { type BasicBlock, type BasicBlockData, type Body, Location } from "../../rustc_middle/mir/mod.ts";
 import type { ResultsVisitor } from "./visitor.ts";
 import { type Analysis, Effect, type EffectIndex, SwitchTargetIndex } from "./mod.ts";
 
@@ -80,20 +80,20 @@ export const Backward: Direction = {
     block_data: BasicBlockData,
     propagate: (target: BasicBlock, state: D) => void,
   ): void {
-    const terminator = block_data.terminator();
-    const location: Location = { block, statement_index: block_data.statements.length };
+    const terminator = block_data.terminator_();
+    const location: Location = new Location(block, block_data.statements.length);
     analysis.apply_early_terminator_effect(state, terminator, location);
     analysis.apply_primary_terminator_effect(state, terminator, location);
     for (let statement_index = block_data.statements.length - 1; statement_index >= 0; statement_index--) {
       const statement = block_data.statements[statement_index]!;
-      const location: Location = { block, statement_index };
+      const location: Location = new Location(block, statement_index);
       analysis.apply_early_statement_effect(state, statement, location);
       analysis.apply_primary_statement_effect(state, statement, location);
     }
 
     const exit_state = state;
     for (const pred of body.basic_blocks.predecessors()[block]!) {
-      const edges = body.index(pred).terminator().edges();
+      const edges = body.index(pred).terminator_().edges();
       // Apply terminator-specific edge effects.
       if (edges.$ === "AssignOnReturn" && edges.return_.includes(block)) {
         const place = edges.place;
@@ -122,8 +122,8 @@ export const Backward: Direction = {
     block_data: BasicBlockData,
     vis: ResultsVisitor<D, A>,
   ): void {
-    const loc: Location = { block, statement_index: block_data.statements.length };
-    const term = block_data.terminator();
+    const loc: Location = new Location(block, block_data.statements.length);
+    const term = block_data.terminator_();
     analysis.apply_early_terminator_effect(state, term, loc);
     vis.visit_after_early_terminator_effect(state, term, loc);
     analysis.apply_primary_terminator_effect(state, term, loc);
@@ -131,7 +131,7 @@ export const Backward: Direction = {
 
     for (let statement_index = block_data.statements.length - 1; statement_index >= 0; statement_index--) {
       const stmt = block_data.statements[statement_index]!;
-      const loc: Location = { block, statement_index };
+      const loc: Location = new Location(block, statement_index);
       analysis.apply_early_statement_effect(state, stmt, loc);
       vis.visit_after_early_statement_effect(state, stmt, loc);
       analysis.apply_primary_statement_effect(state, stmt, loc);
@@ -175,12 +175,12 @@ export const Forward: Direction = {
   ): void {
     for (let statement_index = 0; statement_index < block_data.statements.length; statement_index++) {
       const statement = block_data.statements[statement_index]!;
-      const location: Location = { block, statement_index };
+      const location: Location = new Location(block, statement_index);
       analysis.apply_early_statement_effect(state, statement, location);
       analysis.apply_primary_statement_effect(state, statement, location);
     }
-    const terminator = block_data.terminator();
-    const location: Location = { block, statement_index: block_data.statements.length };
+    const terminator = block_data.terminator_();
+    const location: Location = new Location(block, block_data.statements.length);
     analysis.apply_early_terminator_effect(state, terminator, location);
     // Edges are obtained *before* calling `apply_primary_terminator_effect`.
     const edges = analysis.get_terminator_edges(state, terminator, location);
@@ -253,15 +253,15 @@ export const Forward: Direction = {
   ): void {
     for (let statement_index = 0; statement_index < block_data.statements.length; statement_index++) {
       const stmt = block_data.statements[statement_index]!;
-      const loc: Location = { block, statement_index };
+      const loc: Location = new Location(block, statement_index);
       analysis.apply_early_statement_effect(state, stmt, loc);
       vis.visit_after_early_statement_effect(state, stmt, loc);
       analysis.apply_primary_statement_effect(state, stmt, loc);
       vis.visit_after_primary_statement_effect(state, stmt, loc);
     }
 
-    const loc: Location = { block, statement_index: block_data.statements.length };
-    const term = block_data.terminator();
+    const loc: Location = new Location(block, block_data.statements.length);
+    const term = block_data.terminator_();
     analysis.apply_early_terminator_effect(state, term, loc);
     vis.visit_after_early_terminator_effect(state, term, loc);
     analysis.apply_primary_terminator_effect(state, term, loc);

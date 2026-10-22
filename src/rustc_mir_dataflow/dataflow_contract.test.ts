@@ -5,7 +5,7 @@
 //   lib.rs have no stubs;
 // - the crate root loads, the stubs stop as UNPORTED at runtime (representative calls), and `iterate_to_fixpoint` under
 //   `-Zdump-mir-dataflow` reaches the graphviz stub;
-// - the pending stand-ins (../pending.ts) behave as upstream's `DenseBitSet` / `MixedBitSet` methods.
+// - a `MixedBitSet` domain's `Large` arm (rustc_index `ChunkedBitSet`) goes through the framework's lattice / fmt impls.
 import { expect, test } from "bun:test";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
@@ -17,13 +17,17 @@ import { Unported } from "../std/panic.ts";
 import { drop_flag_effects_for_location, DropFlagState } from "./drop_flag_effects.ts";
 import { DebugWithContext_Local } from "./framework/fmt.ts";
 import { write_graphviz_results } from "./framework/graphviz.ts";
-import { AnalysisBase, type Domain, Domain_DenseBitSet } from "./framework/mod.ts";
+import { AnalysisBase, type Domain, Domain_DenseBitSet, Domain_MixedBitSet } from "./framework/mod.ts";
 import * as lib from "./lib.ts";
 import { MaybeLiveLocals } from "./impls/liveness.ts";
 import { MoveData, MovePath, MovePathIndex } from "./move_paths/mod.ts";
 import { mir_pretty_extra_data } from "./pretty.ts";
 import { sanity_check } from "./rustc_peek.ts";
-import { type BasicBlock, type Body, DenseBitSet_eq, MixedBitSet } from "./pending.ts";
+import "../rustc_middle/lib.ts";
+import { BasicBlock, BasicBlockData, Body, Location, SourceInfo, Terminator, TerminatorKind } from "../rustc_middle/mir/mod.ts";
+import { MixedBitSet } from "../rustc_index/bit_set.ts";
+import { DUMMY_SP } from "../rustc_span/lib.ts";
+import { PLAIN } from "../std/fmt.ts";
 
 const CRATE = "compiler/rustc_mir_dataflow/src";
 const FILES: string[] = [
@@ -158,14 +162,9 @@ test("the crate root loads and re-exports the framework", () => {
   expect(typeof lib.move_paths.MoveData).toBe("function");
 });
 
-/** `bb0: return` (pending mir-contract stand-ins). */
+/** `bb0: return`. */
 function one_block_body(): Body {
-  const data = { statements: [], terminator: () => ({ edges: () => ({ $: "None" as const }) }) };
-  return {
-    basic_blocks: { len: () => 1, predecessors: () => [[]], reverse_postorder: () => [0 as BasicBlock] },
-    index: () => data,
-    terminator_loc: (bb) => ({ block: bb, statement_index: 0 }),
-  };
+  return Body.new_cfg_only([BasicBlockData.new_stmts([], new Terminator(SourceInfo.outermost(DUMMY_SP), TerminatorKind.Return), false)]);
 }
 
 function stops(f: () => unknown, what: string): void {
@@ -189,7 +188,7 @@ test("stubs stop as UNPORTED in their own module", () => {
   );
   stops(() => MovePathIndex.Atom.index(MovePathIndex.from_u32(0)), "rustc_mir_dataflow::move_paths::MovePathIndex::Atom::index");
   stops(
-    () => drop_flag_effects_for_location(body, {} as MoveData, { block: 0 as BasicBlock, statement_index: 0 }, () => {}),
+    () => drop_flag_effects_for_location(body, {} as MoveData, new Location(BasicBlock.from_u32(0), 0), () => {}),
     "rustc_mir_dataflow::drop_flag_effects::drop_flag_effects_for_location",
   );
   stops(() => DropFlagState.value("Present"), "rustc_mir_dataflow::drop_flag_effects::DropFlagState::value");
@@ -218,29 +217,19 @@ test("iterate_to_fixpoint under -Zdump-mir-dataflow reaches the graphviz stub", 
   stops(() => new Empty().iterate_to_fixpoint(tcx(true), body, "pass"), "rustc_mir_dataflow::framework::graphviz::write_graphviz_results");
 });
 
-test("pending index-ds stand-ins behave as upstream", () => {
-  const a = DenseBitSet.new_empty<number>(130);
-  const b = DenseBitSet.new_empty<number>(130);
-  for (const i of [3, 64, 129]) a.insert(i);
-  for (const i of [3, 70]) b.insert(i);
-  expect(a.first_set_at_or_after(4)).toBe(64);
-  expect(a.first_set_at_or_after(65)).toBe(129);
-  expect(b.first_set_at_or_after(71)).toBe(undefined);
-  expect(a.union(b)).toBe(true);
-  expect(a.union(b)).toBe(false);
-  expect([...a.iter()]).toEqual([3, 64, 70, 129]);
-  const c = a.clone();
-  expect(DenseBitSet_eq(a, c)).toBe(true);
-  c.remove(3);
-  expect(DenseBitSet_eq(a, c)).toBe(false);
-  b.clone_from(c);
-  expect([...b.iter()]).toEqual([64, 70, 129]);
-  expect(a.subtract(b)).toBe(true);
-  expect([...a.iter()]).toEqual([3]);
-  // MixedBitSet: Small up to CHUNK_BITS (2048), Large (ChunkedBitSet) pending index-ds
-  const m = MixedBitSet.new_empty<number>(2048);
-  expect(m.$).toBe("Small");
-  expect(MixedBitSet.insert(m, 2047)).toBe(true);
-  expect(MixedBitSet.contains(m, 2047)).toBe(true);
-  stops(() => MixedBitSet.new_empty(2049), "rustc_index::bit_set::ChunkedBitSet (pending index-ds)");
+test("a MixedBitSet domain past CHUNK_BITS (the Large arm) joins, compares and prints", () => {
+  const D = Domain_MixedBitSet<number, unknown>(DebugWithContext_Local as never);
+  const a = MixedBitSet.new_empty<number>(2049);
+  const b = MixedBitSet.new_empty<number>(2049);
+  expect(a.$).toBe("Large");
+  MixedBitSet.insert(b, 3);
+  MixedBitSet.insert(b, 2048);
+  expect(D.join(a, b)).toBe(true);
+  expect(D.join(a, b)).toBe(false);
+  expect(D.eq(a, b)).toBe(true);
+  const c = D.clone(a);
+  MixedBitSet.remove(c, 3);
+  expect(D.eq(a, c)).toBe(false);
+  // `Debug for MixedBitSet` -> `ChunkedBitSet`'s `debug_list` of the elements (`Local`'s Debug: `_3`)
+  expect(D.fmt(a, PLAIN)).toBe("[_3, _2048]");
 });

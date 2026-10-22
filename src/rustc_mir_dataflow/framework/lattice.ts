@@ -51,7 +51,7 @@
 import type { DenseBitSet } from "../../rustc_index/bit_set.ts";
 import { type Debug, debug_tuple } from "../../std/fmt.ts";
 import type { MutRef } from "../../std/mut_ref.ts";
-import { DenseBitSet_eq, MixedBitSet } from "../pending.ts";
+import { DenseBitSet_eq, MixedBitSet, MixedBitSet_eq } from "../../rustc_index/bit_set.ts";
 import type { BitSetExt, Clone } from "./mod.ts";
 
 /// A [partially ordered set][poset] that has a [least upper bound][lub] for any pair of elements
@@ -100,7 +100,7 @@ export const JoinSemiLattice_DenseBitSet = {
 };
 
 export const JoinSemiLattice_MixedBitSet = {
-  eq: MixedBitSet.eq,
+  eq: MixedBitSet_eq,
 
   // rustc: compiler/rustc_mir_dataflow/src/framework/lattice.rs:81 join
   join<T extends number>(self: MixedBitSet<T>, other: MixedBitSet<T>): boolean {

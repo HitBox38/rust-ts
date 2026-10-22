@@ -20,7 +20,7 @@ import type { ResultsCursor } from "./framework/cursor.ts";
 import type { Analysis, BitSetExt } from "./framework/mod.ts";
 import type { MaybeLiveLocals } from "./impls/liveness.ts";
 import type { HasMoveData, MovePathIndex } from "./move_paths/mod.ts";
-import type { Body, Local, Place, Rvalue, Statement, Terminator } from "./pending.ts";
+import type { Body, Local, Place, Rvalue, Statement, Terminator } from "../rustc_middle/mir/mod.ts";
 
 // stub: compiler/rustc_mir_dataflow/src/rustc_peek.rs:16 sanity_check (lane dataflow-impls)
 export function sanity_check(_tcx: TyCtxt, _body: Body): void {

@@ -4,8 +4,8 @@
 //
 // How to fill a stub: replace the body with the upstream logic and turn `// stub: <path>:<line> <name> (lane ..)` into
 // the marker `// rustc: <path>:<line> <name>`. Notes:
-// - `PassWhere` (mir/pretty.rs) and the writer behind `&mut dyn io::Write` are mir-pretty's (pending; declared locally
-//   below). `ExtraDataFn` is a closure; `Option<Box<ExtraDataFn>>` is `ExtraDataFn | undefined`.
+// - `PassWhere` is mir/pretty.rs's; `&mut dyn io::Write` is vendor/anstream's `Write` (as in rustc_middle mir/pretty.ts).
+//   `ExtraDataFn` is a closure; `Option<Box<ExtraDataFn>>` is `ExtraDataFn | undefined`.
 // - `FxIndexMap<PassWhere, Vec<String>>` is a `KeyedMap` keyed by mir-pretty's `PassWhere` key (derived `Hash` + `Eq`).
 // - `Annotator` implements `ResultsVisitor` for two analyses (`MaybeLiveLocals`, `MaybeTransitiveLiveLocals`) with the
 //   same method names: the two impls are the classes `Annotator_MaybeLiveLocals` / `Annotator_MaybeTransitiveLiveLocals`
@@ -19,11 +19,10 @@ import type { IoResult } from "../std/io.ts";
 import { unported } from "../std/panic.ts";
 import { ResultsVisitorBase } from "./framework/visitor.ts";
 import type { MaybeLiveLocals, MaybeTransitiveLiveLocals } from "./impls/liveness.ts";
-import type { Body, Local, Location, Statement, Terminator } from "./pending.ts";
+import type { Body, Local, Location, Statement, Terminator } from "../rustc_middle/mir/mod.ts";
+import type { PassWhere } from "../rustc_middle/mir/pretty.ts";
+import type { Write } from "../vendor/anstream/stream.ts";
 
-// PORT(contract): pending mir-pretty (mir/pretty.rs `PassWhere`) and the `io::Write` sink it writes to.
-type PassWhere = { readonly __pending_mir: "PassWhere" };
-type Write = { readonly __pending_mir: "io::Write" };
 
 // rustc-type: compiler/rustc_mir_dataflow/src/pretty.rs:17 ExtraDataFn
 type ExtraDataFn = (pass_where: PassWhere, out: Write) => IoResult<null>;

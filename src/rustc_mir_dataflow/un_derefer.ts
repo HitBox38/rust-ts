@@ -7,7 +7,7 @@
 // - `ProjectionIter` is an `IterableIterator<[PlaceRef, PlaceElem]>` class; `SlicePlusOne<T>` keeps the slice as the
 //   array plus a start offset (`&slice[1..]` is `start + 1`), `last: Option<T>` is `T | undefined`.
 import { unported } from "../std/panic.ts";
-import type { Local, PlaceElem, PlaceRef } from "./pending.ts";
+import type { Local, PlaceElem, PlaceRef } from "../rustc_middle/mir/mod.ts";
 
 /// Used for reverting changes made by `DerefSeparator`
 // #[derive(Default, Debug)]

@@ -24,7 +24,7 @@ import type { Span } from "../../rustc_span/span_encoding.ts";
 import type { Debug, Fmt } from "../../std/fmt.ts";
 import type { MutRef } from "../../std/mut_ref.ts";
 import { unported } from "../../std/panic.ts";
-import type { BasicBlock, Body, Local, Location, Place, PlaceRef, ProjectionKind } from "../pending.ts";
+import type { BasicBlock, Body, Local, Location, Place, PlaceRef, ProjectionKind } from "../../rustc_middle/mir/mod.ts";
 import type { UnDerefer } from "../un_derefer.ts";
 
 // rustc_index::newtype_index! {

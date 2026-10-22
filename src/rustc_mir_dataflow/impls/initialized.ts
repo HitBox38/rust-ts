@@ -30,20 +30,8 @@ import {
   type SwitchTargetIndex,
 } from "../framework/mod.ts";
 import type { HasMoveData, Init, MoveData, MovePathIndex } from "../move_paths/mod.ts";
-import type {
-  BasicBlock,
-  Body,
-  CallReturnPlaces,
-  Local,
-  Location,
-  MixedBitSet,
-  Operand,
-  Place,
-  Statement,
-  SwitchTargets,
-  Terminator,
-  TerminatorEdges,
-} from "../pending.ts";
+import type { BasicBlock, Body, CallReturnPlaces, Local, Location, Operand, Place, Statement, SwitchTargets, Terminator, TerminatorEdges } from "../../rustc_middle/mir/mod.ts";
+import type { MixedBitSet } from "../../rustc_index/bit_set.ts";
 
 // Used by both `MaybeInitializedPlaces` and `MaybeUninitializedPlaces`.
 // rustc-type: compiler/rustc_mir_dataflow/src/impls/initialized.rs:25 MaybePlacesSwitchIntData

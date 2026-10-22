@@ -32,13 +32,10 @@ import { unported } from "../std/panic.ts";
 import type { Result } from "../std/result.ts";
 import type { HasBottom, HasTop, JoinSemiLattice } from "./framework/lattice.ts";
 import type { Clone } from "./framework/mod.ts";
-import type { Body, Local, Location, Place, PlaceRef } from "./pending.ts";
+import type { Body, Local, Location, Place, PlaceRef, ProjectionElem } from "../rustc_middle/mir/mod.ts";
+import type { PlaceContext } from "../rustc_middle/mir/visit.ts";
+import type { GrowableBitSet } from "../rustc_index/bit_set.ts";
 
-// PORT(contract): pending mir-contract
-type PlaceContext = { readonly __pending_mir: "PlaceContext" };
-type ProjectionElem<_V, _T> = { readonly __pending_mir: "ProjectionElem" };
-// PORT(contract): pending index-ds (`rustc_index::bit_set::GrowableBitSet`)
-type GrowableBitSet<T> = { readonly __pending_index_ds: "GrowableBitSet"; readonly __t?: T };
 
 /** `std::ops::Range<usize>`. */
 interface Range {

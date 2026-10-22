@@ -6,7 +6,7 @@
 // companion (`PointIndex.new(i)`, `PointIndex.index(p)`; Debug `PointIndex({})`).
 import { newtype_index } from "../rustc_index/newtype_index.ts";
 import { unported } from "../std/panic.ts";
-import type { BasicBlock, Body, Location } from "./pending.ts";
+import type { BasicBlock, Body, Location } from "../rustc_middle/mir/mod.ts";
 
 /// Maps between a `Location` and a `PointIndex` (and vice versa).
 // rustc-type: compiler/rustc_mir_dataflow/src/points.rs:5 DenseLocationMap

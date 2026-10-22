@@ -3,7 +3,7 @@
 // its methods are provided (no-ops) and live in `ResultsVisitor_provided` (PORTING §8). Implementors `extend
 // ResultsVisitorBase<D, A>` (forwarders) and override what they need, or write their own forwarders.
 
-import type { BasicBlock, Body, Location, Statement, Terminator } from "../pending.ts";
+import type { BasicBlock, Body, Location, Statement, Terminator } from "../../rustc_middle/mir/mod.ts";
 import type { Analysis } from "./mod.ts";
 import type { Results } from "./results.ts";
 

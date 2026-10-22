@@ -4,7 +4,7 @@
 // How to fill a stub: replace the body with the upstream logic and turn `// stub: <path>:<line> <name> (lane ..)` into
 // the marker `// rustc: <path>:<line> <name>`. Notes:
 // - `VisitAllocatedLocalsWith<F>(pub F)` / `VisitDeallocatedLocalsWith<F>(pub F)` keep the closure as `_0`.
-//   PORT(contract): extends mir Visitor (pending mir-contract, D4): they override `visit_place` / `visit_statement` /
+//   PORT(contract): the fill lane makes them extend rustc_middle mir/visit.ts's `Visitor` (D4); they override `visit_place` / `visit_statement` /
 //   `visit_operand` of mir-contract's `Visitor` (`self.super_statement(..)` comes from it); `VisitPlacesWith` is
 //   mir-contract's too.
 // - `KillPoints<'a>.kill_points_map: IndexVec<PointIndex, &'a [(Local, Location)]>` is an array of slices of the
@@ -14,7 +14,6 @@
 // - `SplitPointEffect` has explicit discriminants (`Early = 0`, `Late = 1`): `SplitPointEffect_discriminant`.
 //   `SplitPointIndex` is a `newtype_index!` (`SplitPointIndex({})`); its inherent fns `new` / `point` / `effect` are on
 //   the companion.
-// - `SparseIntervalMatrix` (rustc_index interval.rs) is pending lane index-ds; declared locally below.
 
 import type { DenseBitSet } from "../../rustc_index/bit_set.ts";
 import { newtype_index } from "../../rustc_index/newtype_index.ts";
@@ -24,17 +23,11 @@ import { DebugWithContext_Local } from "../framework/fmt.ts";
 import { AnalysisBase, type Domain, Domain_DenseBitSet } from "../framework/mod.ts";
 import { ResultsVisitorBase } from "../framework/visitor.ts";
 import type { DenseLocationMap, PointIndex } from "../points.ts";
-import type { BasicBlock, Body, CallReturnPlaces, Local, Location, Operand, Place, Statement, Terminator } from "../pending.ts";
+import type { BasicBlock, Body, CallReturnPlaces, Local, Location, Operand, Place, Statement, Terminator } from "../../rustc_middle/mir/mod.ts";
+import type { PlaceContext } from "../../rustc_middle/mir/visit.ts";
+import type { SparseIntervalMatrix } from "../../rustc_index/interval.ts";
 import type { MaybeLiveLocals } from "./liveness.ts";
 
-// PORT(contract): pending mir-contract (mir/visit.rs `PlaceContext`).
-type PlaceContext = { readonly __pending_mir: "PlaceContext" };
-// PORT(contract): pending index-ds (rustc_index interval.rs `SparseIntervalMatrix<R, C>`).
-type SparseIntervalMatrix<R extends number, C extends number> = {
-  readonly __pending_index_ds: "SparseIntervalMatrix";
-  readonly __r?: R;
-  readonly __c?: C;
-};
 
 /// Visits locals that are implicitly allocated by a statement or terminator as
 /// part of destination place evaluation.

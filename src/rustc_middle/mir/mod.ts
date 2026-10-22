@@ -140,6 +140,12 @@ declare module "./mod.gen.ts" {
 }
 // impl Location { pub const START: Location = Location { block: START_BLOCK, statement_index: 0 }; } (mod.rs:1599)
 (Location as unknown as { START: Location }).START = new Location(gen.START_BLOCK, 0);
+/** PORT: `#[derive(PartialOrd, Ord)]` of `Location` (mod.rs:1586): `block`, then `statement_index`. */
+export function Location_cmp(a: Location, b: Location): -1 | 0 | 1 {
+  if (a.block !== b.block) return a.block < b.block ? -1 : 1;
+  if (a.statement_index !== b.statement_index) return a.statement_index < b.statement_index ? -1 : 1;
+  return 0;
+}
 
 declare module "./mod.gen.ts" {
   interface Body {

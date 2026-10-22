@@ -11,7 +11,7 @@
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import type { Ty } from "../../rustc_middle/ty/mod.ts";
 import { unported } from "../../std/panic.ts";
-import type { Body, Location, Operand, Place, PlaceRef, Rvalue, Statement, Terminator } from "../pending.ts";
+import type { Body, Location, Operand, Place, PlaceRef, Rvalue, Statement, Terminator } from "../../rustc_middle/mir/mod.ts";
 import type { InitIndex, InitKind, MoveData, MoveOutIndex, MovePath, MovePathIndex, MoveSubPath } from "./mod.ts";
 
 // rustc-type: compiler/rustc_mir_dataflow/src/move_paths/builder.rs:16 MoveDataBuilder

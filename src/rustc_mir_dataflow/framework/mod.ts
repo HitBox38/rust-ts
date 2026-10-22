@@ -15,7 +15,8 @@
 //   replaces its state wholesale (`*state = ..`) writes through the object (`MaybeReachable.assign`, lattice.ts).
 // - Other traits are impl tables (`BitSetExt<S, T>`, `GenKill<S, T>`, lattice.ts / fmt.ts): `state.gen_(e)` on a
 //   `DenseBitSet` domain is `GenKill_DenseBitSet.gen_(state, e)`; a generic `T: GenKill<Local>` takes the table.
-// - `IndexVec<BasicBlock, D>` is a `D[]` (PORTING §5). MIR types come from mir-contract (stand-ins in ../pending.ts).
+// - `IndexVec<BasicBlock, D>` is a `D[]` (PORTING §5). MIR types are rustc_middle mir/'s (mir-contract)
+//   and bit sets rustc_index's (index-ds); merge-w21 removed the contract's stand-ins (pending.ts).
 //! A framework that can express both [gen-kill] and generic dataflow problems.
 //!
 //! To use this framework, implement the [`Analysis`] trait. There used to be a `GenKillAnalysis`
@@ -55,20 +56,8 @@ import { newtype_index } from "../../rustc_index/newtype_index.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import { type Debug, debug_struct, debug_tuple } from "../../std/fmt.ts";
 import { panic, unreachable } from "../../std/panic.ts";
-import {
-  type BasicBlock,
-  type BasicBlockData,
-  type Body,
-  type CallReturnPlaces,
-  type Location,
-  MixedBitSet,
-  type Operand,
-  START_BLOCK,
-  type Statement,
-  type SwitchTargets,
-  type Terminator,
-  type TerminatorEdges,
-} from "../pending.ts";
+import { type BasicBlock, type BasicBlockData, type Body, type CallReturnPlaces, Location, type Operand, START_BLOCK, type Statement, type SwitchTargets, type Terminator, type TerminatorEdges } from "../../rustc_middle/mir/mod.ts";
+import { MixedBitSet } from "../../rustc_index/bit_set.ts";
 import { Forward, type Direction } from "./direction.ts";
 import {
   type DebugWithContext,
@@ -300,7 +289,7 @@ export const Analysis_provided = {
   apply_effect<D, S>(self: Analysis<D, S>, state: D, block: BasicBlock, block_data: BasicBlockData, idx: EffectIndex): void {
     const statement_index = idx.statement_index;
     const terminator_index = block_data.statements.length;
-    const loc: Location = { block, statement_index };
+    const loc: Location = new Location(block, statement_index);
     const is_terminator = statement_index === terminator_index;
 
     if (!is_terminator) {
@@ -312,7 +301,7 @@ export const Analysis_provided = {
           return self.apply_primary_statement_effect(state, statement, loc);
       }
     } else {
-      const terminator = block_data.terminator();
+      const terminator = block_data.terminator_();
       switch (idx.effect) {
         case "Early":
           return self.apply_early_terminator_effect(state, terminator, loc);
@@ -413,7 +402,7 @@ export const Analysis_provided = {
   // rustc: compiler/rustc_mir_dataflow/src/framework/mod.rs:288 iterate_to_fixpoint
   iterate_to_fixpoint<D, S, A extends Analysis<D, S>>(self: A, tcx: TyCtxt, body: Body, pass_name: string | undefined): Results<D, A> {
     const entry_states: D[] = [];
-    for (let i = 0; i < body.basic_blocks.len(); i++) entry_states.push(self.bottom_value(body));
+    for (let i = 0; i < body.basic_blocks.deref().length; i++) entry_states.push(self.bottom_value(body));
     self.initialize_start_block(body, entry_states[START_BLOCK]!);
 
     if (self.Direction.IS_BACKWARD && !self.Domain.eq(entry_states[START_BLOCK]!, self.bottom_value(body))) {
@@ -448,7 +437,7 @@ export const Analysis_provided = {
     const rpo: readonly BasicBlock[] = body.basic_blocks.reverse_postorder();
     const last = rpo.length - 1;
 
-    const ranks: (BasicBlockRank | undefined)[] = new Array<BasicBlockRank | undefined>(body.basic_blocks.len()).fill(undefined);
+    const ranks: (BasicBlockRank | undefined)[] = new Array<BasicBlockRank | undefined>(body.basic_blocks.deref().length).fill(undefined);
     for (let i = 0; i < rpo.length; i++) {
       const bb = rpo[i]!;
       const rank = self.Direction.IS_FORWARD ? i : last - i;

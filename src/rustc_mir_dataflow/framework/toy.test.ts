@@ -8,25 +8,33 @@
 //   the call-return effect on the predecessor edge);
 // - `MaybeReachable` domains (unreachable blocks stay `Unreachable`), `visit_results`, and the `DebugWithContext`
 //   output of bit sets (fmt.rs).
-// PORT(contract): the bodies use the stand-ins of ../pending.ts (pending mir-contract); statements carry a test payload.
+// The bodies are real MIR (`Body::new_cfg_only`): `nop` statements carrying a test payload (a side table), and real
+// `return` / `goto` / `switchInt` / `call` terminators, so predecessors and the reverse postorder are the real caches.
 import { describe, expect, test } from "bun:test";
 import { DenseBitSet } from "../../rustc_index/bit_set.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import { PLAIN, PRETTY } from "../../std/fmt.ts";
 import { Panic } from "../../std/panic.ts";
+import "../../rustc_middle/lib.ts";
 import {
-  type BasicBlock,
-  type BasicBlockData,
-  type Body,
+  BasicBlock,
+  BasicBlockData,
+  Body,
   type CallReturnPlaces,
-  type Location,
+  Local,
+  Location,
   type Operand,
-  type Place,
-  type Statement,
-  type SwitchTargets,
-  type Terminator,
-  type TerminatorEdges,
-} from "../pending.ts";
+  Place,
+  SourceInfo,
+  Statement,
+  StatementKind,
+  SwitchTargets,
+  Terminator,
+  TerminatorKind,
+  UnwindAction,
+} from "../../rustc_middle/mir/mod.ts";
+import { RawList } from "../../rustc_middle/ty/list.ts";
+import { DUMMY_SP } from "../../rustc_span/lib.ts";
 import { DebugWithContext_DenseBitSet, DebugWithContext_Local, DebugWithContext_MaybeReachable } from "./fmt.ts";
 import { FlatSet, JoinSemiLattice_FlatSet, MaybeReachable } from "./lattice.ts";
 import {
@@ -56,77 +64,53 @@ type ToyTerm =
   | { $: "Switch"; targets: number[]; otherwise: number }
   | { $: "Call"; target: number; cleanup?: number; dest: number };
 
-const stmt = (s: ToyStmt): Statement => s as unknown as Statement;
-const payload = (s: Statement): ToyStmt => s as unknown as ToyStmt;
+const payloads = new WeakMap<Statement, ToyStmt>();
+const si = (): SourceInfo => SourceInfo.outermost(DUMMY_SP);
+function stmt(s: ToyStmt): Statement {
+  const st = Statement.new(si(), StatementKind.Nop);
+  payloads.set(st, s);
+  return st;
+}
+const payload = (s: Statement): ToyStmt => payloads.get(s)!;
+const place = (local: number): Place => new Place(Local.from_u32(local), RawList.empty());
 
-function edges_of(t: ToyTerm): TerminatorEdges {
+function kind_of(t: ToyTerm): TerminatorKind {
   switch (t.$) {
     case "Return":
-      return { $: "None" };
+      return TerminatorKind.Return;
     case "Goto":
-      return { $: "Single", _0: t.target as BasicBlock };
-    case "Switch": {
-      const targets: SwitchTargets = {
-        iter: () => t.targets.map((bb, i): [bigint, BasicBlock] => [BigInt(i), bb as BasicBlock]),
-        otherwise: () => t.otherwise as BasicBlock,
-        all_targets: () => [...t.targets, t.otherwise] as BasicBlock[],
+      return TerminatorKind.goto(BasicBlock.from_u32(t.target));
+    case "Switch":
+      return {
+        $: "SwitchInt",
+        discr: { $: "Copy", _0: place(0) },
+        targets: SwitchTargets.new(
+          t.targets.map((bb, i): [bigint, BasicBlock] => [BigInt(i), BasicBlock.from_u32(bb)]),
+          BasicBlock.from_u32(t.otherwise),
+        ),
       };
-      return { $: "SwitchInt", targets, discr: {} as Operand };
-    }
     case "Call":
       return {
-        $: "AssignOnReturn",
-        return_: [t.target as BasicBlock],
-        cleanup: t.cleanup as BasicBlock | undefined,
-        place: { $: "Call", _0: { dest: t.dest } as unknown as Place },
+        $: "Call",
+        func: { $: "Copy", _0: place(0) },
+        args: [],
+        destination: place(t.dest),
+        target: BasicBlock.from_u32(t.target),
+        unwind: t.cleanup === undefined ? UnwindAction.Continue : { $: "Cleanup", _0: BasicBlock.from_u32(t.cleanup) },
+        call_source: "Misc",
+        fn_span: DUMMY_SP,
       };
   }
 }
 
-function successors(e: TerminatorEdges): BasicBlock[] {
-  switch (e.$) {
-    case "None":
-      return [];
-    case "Single":
-      return [e._0];
-    case "Double":
-      return [e._0, e._1];
-    case "AssignOnReturn":
-      return [...e.return_, ...(e.cleanup === undefined ? [] : [e.cleanup])];
-    case "SwitchInt":
-      return [...e.targets.all_targets()];
-  }
-}
-
-/** A body with predecessors and a reverse postorder (DFS from bb0), like `BasicBlocks`' caches. */
+/** A real body (`Body::new_cfg_only`): its predecessors and reverse postorder are `BasicBlocks`' caches. */
 function toy_body(blocks: [ToyStmt[], ToyTerm][]): Body {
-  const data: BasicBlockData[] = blocks.map(([stmts, term]) => {
-    const t: Terminator = { edges: () => edges_of(term) };
-    return { statements: stmts.map(stmt), terminator: () => t };
-  });
-  const preds: BasicBlock[][] = data.map(() => []);
-  data.forEach((bbd, bb) => {
-    for (const s of successors(bbd.terminator().edges())) preds[s]!.push(bb as BasicBlock);
-  });
-  const post: BasicBlock[] = [];
-  const seen = new Set<number>();
-  const dfs = (bb: BasicBlock): void => {
-    seen.add(bb);
-    for (const s of successors(data[bb]!.terminator().edges())) if (!seen.has(s)) dfs(s);
-    post.push(bb);
-  };
-  dfs(0 as BasicBlock);
-  const rpo = post.reverse();
-  return {
-    basic_blocks: { len: () => data.length, predecessors: () => preds, reverse_postorder: () => rpo },
-    index: (bb) => data[bb]!,
-    terminator_loc: (bb) => ({ block: bb, statement_index: data[bb]!.statements.length }),
-  };
+  return Body.new_cfg_only(blocks.map(([stmts, term]) => BasicBlockData.new_stmts(stmts.map(stmt), new Terminator(si(), kind_of(term)), false)));
 }
 
 const tcx = { sess: { opts: { unstable_opts: { dump_mir_dataflow: false } } } } as unknown as TyCtxt;
 const set = (s: DenseBitSet<number>): number[] => [...s.iter()];
-const loc = (block: number, statement_index: number): Location => ({ block: block as BasicBlock, statement_index });
+const loc = (block: number, statement_index: number): Location => new Location(BasicBlock.from_u32(block), statement_index);
 
 // ---- reaching definitions (forward) ----------------------------------------------------------------------------
 
@@ -200,16 +184,18 @@ describe("forward: reaching definitions on a loop", () => {
         seen.push(`exit bb${block} ${set(state)}`);
       }
     }
+    // the real reverse postorder: `Postorder` takes bb1's successors from the back (bb3 first), so bb2 precedes bb3
+    expect(body.basic_blocks.reverse_postorder().map(Number)).toEqual([0, 1, 2, 3]);
     visit_results(body, body.basic_blocks.reverse_postorder(), results, new Collect());
     expect(seen).toEqual([
       "bb0[0] 0",
       "bb0[1] 0,1",
       "exit bb0 0,1",
       "exit bb1 0,1,2",
-      "bb3[0] 0,2,3",
-      "exit bb3 0,2,3",
       "bb2[0] 1,2",
       "exit bb2 1,2",
+      "bb3[0] 0,2,3",
+      "exit bb3 0,2,3",
     ]);
   });
 });
@@ -296,7 +282,8 @@ class Liveness extends AnalysisBase<DenseBitSet<number>> {
   }
   override apply_call_return_effect(state: DenseBitSet<number>, _block: BasicBlock, places: CallReturnPlaces): void {
     // the call's destination is defined on return
-    state.remove((places as unknown as { _0: { dest: number } })._0.dest);
+    if (places.$ !== "Call") throw new Error("ERROR: test: a Call terminator");
+    state.remove(places._0.local);
   }
 }
 

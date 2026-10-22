@@ -8,8 +8,8 @@
 // - `KillableLocals = FxHashMap<Location, SmallVec<[Local; 4]>>` is a `KeyedMap<Location, Local[]>` keyed by
 //   `KillableLocals_key` (PORTING §5 composite keys); `.entry(loc).or_default().push(l)` gets-or-inserts `[]`.
 // - The struct `KillableLocalsVisitor` and its `Visitor` impl are local to `MaybeRequiresStorage::new` upstream; they
-//   are declared at module level until the fill lane moves them inside `new`. PORT(contract): extends mir Visitor
-//   (pending mir-contract, D4): `visit_local` overrides mir-contract's `Visitor` (`visit_basic_block_data` from it).
+//   are declared at module level until the fill lane moves them inside `new`. PORT(contract): the fill lane makes it
+//   extend rustc_middle mir/visit.ts's `Visitor` (D4): `visit_local` overrides mir-contract's `Visitor` (`visit_basic_block_data` from it).
 
 import type { DenseBitSet } from "../../rustc_index/bit_set.ts";
 import { KeyedMap } from "../../rust_ts/keyed.ts";
@@ -18,11 +18,10 @@ import type { ResultsCursor } from "../framework/cursor.ts";
 import { DebugWithContext_Local } from "../framework/fmt.ts";
 import { AnalysisBase, type Domain, Domain_DenseBitSet } from "../framework/mod.ts";
 import type { Results } from "../framework/results.ts";
-import type { BasicBlock, Body, CallReturnPlaces, Local, Location, Statement, Terminator } from "../pending.ts";
+import type { BasicBlock, Body, CallReturnPlaces, Local, Location, Statement, Terminator } from "../../rustc_middle/mir/mod.ts";
+import type { PlaceContext } from "../../rustc_middle/mir/visit.ts";
 import type { MaybeBorrowedLocals } from "./borrowed_locals.ts";
 
-// PORT(contract): pending mir-contract (mir/visit.rs `PlaceContext`).
-type PlaceContext = { readonly __pending_mir: "PlaceContext" };
 
 /// The set of locals in a MIR body that do not have `StorageLive`/`StorageDead` annotations.
 ///

@@ -6,7 +6,7 @@
 
 import { type Debug, debug_option, debug_struct } from "../../std/fmt.ts";
 import { assert } from "../../std/panic.ts";
-import { BasicBlock, type Body, type Location, Location_cmp, START_BLOCK } from "../pending.ts";
+import { BasicBlock, type Body, type Location, Location_cmp, START_BLOCK } from "../../rustc_middle/mir/mod.ts";
 import { type Analysis, Effect, Effect_cmp, type EffectIndex, EffectIndex_eq, debug_EffectIndex } from "./mod.ts";
 import type { Results } from "./results.ts";
 

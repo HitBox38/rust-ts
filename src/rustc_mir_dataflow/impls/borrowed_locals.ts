@@ -10,7 +10,7 @@ import type { DenseBitSet } from "../../rustc_index/bit_set.ts";
 import { unported } from "../../std/panic.ts";
 import { AnalysisBase, type Domain, Domain_DenseBitSet } from "../framework/mod.ts";
 import { DebugWithContext_Local } from "../framework/fmt.ts";
-import type { Body, Local, Location, Statement, Terminator } from "../pending.ts";
+import type { Body, Local, Location, Statement, Terminator } from "../../rustc_middle/mir/mod.ts";
 
 /// A dataflow analysis that tracks whether a pointer or reference could possibly exist that points
 /// to a given local. This analysis ignores fake borrows, so it should not be used by

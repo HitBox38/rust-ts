@@ -2,7 +2,7 @@
 // PORT (plan-m4 D5): `Results<'tcx, A>` is `Results<D, A>` (`D` = `A::Domain`); `IndexVec<BasicBlock, D>` is a `D[]`.
 //! Dataflow analysis results.
 
-import type { Body } from "../pending.ts";
+import type { Body } from "../../rustc_middle/mir/mod.ts";
 import { ResultsCursor } from "./cursor.ts";
 import type { Analysis } from "./mod.ts";
 

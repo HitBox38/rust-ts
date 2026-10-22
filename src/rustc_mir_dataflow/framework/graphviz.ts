@@ -14,7 +14,7 @@ import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import type { DefId } from "../../rustc_span/def_id.ts";
 import type { IoResult } from "../../std/io.ts";
 import { unported } from "../../std/panic.ts";
-import type { BasicBlock, Body, Location, Statement, Terminator } from "../pending.ts";
+import type { BasicBlock, Body, Location, Statement, Terminator } from "../../rustc_middle/mir/mod.ts";
 import type { ResultsCursor } from "./cursor.ts";
 import type { Analysis } from "./mod.ts";
 import type { Results } from "./results.ts";

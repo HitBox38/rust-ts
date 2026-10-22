@@ -3,14 +3,14 @@
 //
 // Representation (fill lanes keep it): `struct DebuginfoLocals(DenseBitSet<Local>)` is a class with field `_0`;
 // `impl Visitor for DebuginfoLocals` makes it extend mir-contract's `Visitor` class (plan-m4 D4) overriding
-// `visit_local` (`PlaceContext` is mir-contract's; pending here). `body.local_decls` / `body.var_debug_info` are
+// `visit_local` (`PlaceContext`: rustc_middle mir/visit.ts). The class is plain until the fill lane makes it extend
+// `Visitor` (merge-w21 left the stub shapes as declared). `body.local_decls` / `body.var_debug_info` are
 // mir-contract's `Body` fields.
 import type { DenseBitSet } from "../rustc_index/bit_set.ts";
 import { unported } from "../std/panic.ts";
-import type { Body, Local, Location } from "./pending.ts";
+import type { Body, Local, Location } from "../rustc_middle/mir/mod.ts";
+import type { PlaceContext } from "../rustc_middle/mir/visit.ts";
 
-// PORT(contract): pending mir-contract
-type PlaceContext = { readonly __pending_mir: "PlaceContext" };
 
 /// Return the set of locals that appear in debuginfo.
 // stub: compiler/rustc_mir_dataflow/src/debuginfo.rs:6 debuginfo_locals (lane dataflow-move-paths)

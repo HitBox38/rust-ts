@@ -1,27 +1,32 @@
-// Port of compiler/rustc_mir_dataflow/src/framework/tests.rs (lane dataflow-contract).
-// PORT(contract): `mock_body` builds the MIR with the stand-ins of ../pending.ts (pending mir-contract): a statement is
-// an opaque `Nop` object, a terminator an object whose `edges()` is what `TerminatorKind::edges` returns for `Return`
-// (`None`) and for the `Call { target: Some(START_BLOCK), unwind: Continue }` of upstream (`AssignOnReturn`), and
-// `Body::new_cfg_only` is the local `new_cfg_only` (the cursor never reads predecessors or the reverse postorder). At
-// merge, root repoints this to mir-contract's `Statement::new`, `BasicBlockData::new_stmts`, `Body::new_cfg_only`.
+// Port of compiler/rustc_mir_dataflow/src/framework/tests.rs (lane dataflow-contract; merge-w21: the real MIR types).
 //! A test for the logic that updates the state in a `ResultsCursor` during seek.
 
 import { expect, test } from "bun:test";
 import { DenseBitSet } from "../../rustc_index/bit_set.ts";
 import { debug_int } from "../../std/fmt.ts";
 import { assert, panic } from "../../std/panic.ts";
+import "../../rustc_middle/lib.ts";
 import {
   BasicBlock,
-  type BasicBlockData,
-  type Body,
-  DenseBitSet_eq,
-  type Location,
-  type Place,
+  BasicBlockData,
+  Body,
+  clone_Place,
+  clone_SourceInfo,
+  clone_Statement,
+  Location,
+  Place,
+  RETURN_PLACE,
+  SourceInfo,
   START_BLOCK,
-  type Statement,
-  type Terminator,
-  type TerminatorEdges,
-} from "../pending.ts";
+  Statement,
+  StatementKind,
+  Terminator,
+  TerminatorKind,
+  UnwindAction,
+} from "../../rustc_middle/mir/mod.ts";
+import { RawList } from "../../rustc_middle/ty/list.ts";
+import { DUMMY_SP } from "../../rustc_span/lib.ts";
+import { DenseBitSet_eq } from "../../rustc_index/bit_set.ts";
 import { DebugWithContext_impl } from "./fmt.ts";
 import {
   AnalysisBase,
@@ -36,50 +41,49 @@ import {
   Results,
 } from "./mod.ts";
 
-/** PORT(contract): `mir::Body::new_cfg_only(blocks)` over the pending stand-ins. */
-function new_cfg_only(blocks: BasicBlockData[]): Body {
-  return {
-    basic_blocks: {
-      len: () => blocks.length,
-      predecessors: () => panic("mock body: predecessors"),
-      reverse_postorder: () => panic("mock body: reverse_postorder"),
-    },
-    index: (bb) => blocks[bb]!,
-    terminator_loc: (bb) => ({ block: bb, statement_index: blocks[bb]!.statements.length }),
-  };
-}
-
 /// Creates a `mir::Body` with a few disconnected basic blocks.
 ///
 /// This is the `Body` that will be used by the `MockAnalysis` below. The shape of its CFG is not
 /// important.
 // rustc: compiler/rustc_mir_dataflow/src/framework/tests.rs:15 mock_body
 function mock_body(): Body {
-  // let source_info = mir::SourceInfo::outermost(DUMMY_SP);
+  const source_info = SourceInfo.outermost(DUMMY_SP);
 
   const blocks: BasicBlockData[] = [];
-  const block = (n: number, kind: "Return" | "Call"): void => {
-    const nop = { kind: "Nop" } as unknown as Statement;
+  const block = (n: number, kind: TerminatorKind): void => {
+    const nop = Statement.new(source_info, StatementKind.Nop);
 
-    const edges: TerminatorEdges =
-      kind === "Return"
-        ? { $: "None" }
-        : { $: "AssignOnReturn", return_: [START_BLOCK], cleanup: undefined, place: { $: "Call", _0: dummy_place } };
-    const terminator: Terminator = { edges: () => edges };
-    const statements = new Array<Statement>(n).fill(nop);
-    blocks.push({ statements, terminator: () => terminator });
+    blocks.push(BasicBlockData.new_stmts(Array.from({ length: n }, () => clone_Statement(nop)), new Terminator(clone_SourceInfo(source_info), kind), false));
   };
 
-  const dummy_place = { local: "RETURN_PLACE", projection: [] } as unknown as Place;
+  const dummy_place = new Place(RETURN_PLACE, RawList.empty());
 
-  block(4, "Return");
-  block(1, "Return");
-  block(2, "Call");
-  block(3, "Return");
-  block(0, "Return");
-  block(4, "Call");
+  block(4, TerminatorKind.Return);
+  block(1, TerminatorKind.Return);
+  block(2, {
+    $: "Call",
+    func: { $: "Copy", _0: clone_Place(dummy_place) },
+    args: [],
+    destination: clone_Place(dummy_place),
+    target: START_BLOCK,
+    unwind: UnwindAction.Continue,
+    call_source: "Misc",
+    fn_span: DUMMY_SP,
+  });
+  block(3, TerminatorKind.Return);
+  block(0, TerminatorKind.Return);
+  block(4, {
+    $: "Call",
+    func: { $: "Copy", _0: clone_Place(dummy_place) },
+    args: [],
+    destination: clone_Place(dummy_place),
+    target: START_BLOCK,
+    unwind: UnwindAction.Continue,
+    call_source: "Misc",
+    fn_span: DUMMY_SP,
+  });
 
-  return new_cfg_only(blocks);
+  return Body.new_cfg_only(blocks);
 }
 
 /// A dataflow analysis whose state is unique at every possible `SeekTarget`.
@@ -129,9 +133,9 @@ class MockAnalysis extends AnalysisBase<DenseBitSet<number>> {
   mock_entry_states(): DenseBitSet<number>[] {
     const empty = this.bottom_value(this.body);
     const ret: DenseBitSet<number>[] = [];
-    for (let i = 0; i < this.body.basic_blocks.len(); i++) ret.push(empty.clone());
+    for (let i = 0; i < this.body.basic_blocks.deref().length; i++) ret.push(empty.clone());
 
-    for (let bb = 0 as BasicBlock; bb < this.body.basic_blocks.len(); bb = (bb + 1) as BasicBlock) {
+    for (let bb = 0 as BasicBlock; bb < this.body.basic_blocks.deref().length; bb = (bb + 1) as BasicBlock) {
       ret[bb] = this.mock_entry_set(bb);
     }
 
@@ -197,7 +201,7 @@ class MockAnalysis extends AnalysisBase<DenseBitSet<number>> {
 
   // rustc: compiler/rustc_mir_dataflow/src/framework/tests.rs:161 bottom_value
   bottom_value(body: Body): DenseBitSet<number> {
-    return DenseBitSet.new_empty(MockAnalysis.BASIC_BLOCK_OFFSET + body.basic_blocks.len());
+    return DenseBitSet.new_empty(MockAnalysis.BASIC_BLOCK_OFFSET + body.basic_blocks.deref().length);
   }
 
   // rustc: compiler/rustc_mir_dataflow/src/framework/tests.rs:165 initialize_start_block
@@ -252,7 +256,7 @@ const SeekTarget = {
     const statements_and_terminator: SeekTarget[] = [];
     for (let i = 0; i <= body.index(block).statements.length; i++) {
       for (let kind = 0; kind < 2; kind++) {
-        const loc: Location = { block, statement_index: i };
+        const loc: Location = new Location(block, i);
         switch (kind) {
           case 0:
             statements_and_terminator.push({ $: "Early", _0: loc });
@@ -283,7 +287,7 @@ function test_cursor(analysis: MockAnalysis): void {
 
   const every_target = (): SeekTarget[] => {
     const out: SeekTarget[] = [];
-    for (let bb = 0 as BasicBlock; bb < body.basic_blocks.len(); bb = (bb + 1) as BasicBlock) {
+    for (let bb = 0 as BasicBlock; bb < body.basic_blocks.deref().length; bb = (bb + 1) as BasicBlock) {
       out.push(...SeekTarget.iter_in_block(body, bb));
     }
     return out;

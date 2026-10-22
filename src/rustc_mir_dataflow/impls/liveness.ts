@@ -8,8 +8,8 @@
 //   bottom_value(body)`.
 // - `LivenessTransferFunction<'a, I>(pub &'a mut I)` with `I: GenKill<Local>` keeps `_0: I` and takes the impl table
 //   `I_: GenKill<I, Local>` last (PORTING §5 trait tables); `YieldResumeEffect(&mut DenseBitSet<Local>)` is `_0`.
-// - PORT(contract): extends mir Visitor (pending mir-contract, D4): `LivenessTransferFunction` / `YieldResumeEffect`
-//   override `visit_place` / `visit_local` of mir-contract's `Visitor` class; until it exists they are plain classes
+// - PORT(contract): `LivenessTransferFunction` / `YieldResumeEffect` override `visit_place` / `visit_local` of
+//   rustc_middle mir/visit.ts's `Visitor` (D4); they stay plain classes until the fill lane makes them extend it
 //   (`self.visit_projection(..)` / `visit_statement` / `visit_terminator` come from it).
 // - `DefUse` is a fieldless enum (string union + companion holding `apply` / `for_place`).
 
@@ -18,10 +18,9 @@ import { unported } from "../../std/panic.ts";
 import { Backward, type Direction } from "../framework/direction.ts";
 import { DebugWithContext_Local } from "../framework/fmt.ts";
 import { AnalysisBase, type Domain, Domain_DenseBitSet, type GenKill } from "../framework/mod.ts";
-import type { BasicBlock, Body, CallReturnPlaces, Local, Location, Place, Statement, StatementKind, Terminator } from "../pending.ts";
+import type { BasicBlock, Body, CallReturnPlaces, Local, Location, Place, Statement, StatementKind, Terminator } from "../../rustc_middle/mir/mod.ts";
+import type { PlaceContext } from "../../rustc_middle/mir/visit.ts";
 
-// PORT(contract): pending mir-contract (mir/visit.rs `PlaceContext`).
-type PlaceContext = { readonly __pending_mir: "PlaceContext" };
 
 /// A [live-variable dataflow analysis][liveness].
 ///

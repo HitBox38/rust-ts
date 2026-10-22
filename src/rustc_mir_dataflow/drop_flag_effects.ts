@@ -11,7 +11,7 @@
 import type { VariantIdx } from "../rustc_abi/layout.ts";
 import { unported } from "../std/panic.ts";
 import type { LookupResult, MoveData, MovePathIndex } from "./move_paths/mod.ts";
-import type { Body, Location, Place, PlaceElem } from "./pending.ts";
+import type { Body, Location, Place, PlaceElem } from "../rustc_middle/mir/mod.ts";
 
 /// The value of an inserted drop flag.
 // #[derive(Debug, PartialEq, Eq, Copy, Clone)]

@@ -11,7 +11,8 @@ import type { DenseBitSet } from "../../rustc_index/bit_set.ts";
 import { type Debug, debug_set, type Fmt } from "../../std/fmt.ts";
 import { assert_eq, panic } from "../../std/panic.ts";
 import { display_MovePath, type HasMoveData, InitIndex, MovePathIndex } from "../move_paths/mod.ts";
-import { type ChunkedBitSet, debug_DenseBitSet, DenseBitSet_eq, Local, MixedBitSet } from "../pending.ts";
+import { Local } from "../../rustc_middle/mir/mod.ts";
+import { type ChunkedBitSet, ChunkedBitSet_eq, debug_ChunkedBitSet, debug_DenseBitSet, DenseBitSet_eq, MixedBitSet, MixedBitSet_eq } from "../../rustc_index/bit_set.ts";
 import { debug_MaybeReachable, type MaybeReachable, MaybeReachable_eq } from "./lattice.ts";
 
 /// An extension to `fmt::Debug` for data that can be better printed with some auxiliary data `C`.
@@ -123,7 +124,7 @@ export function debug_DebugDiffWithAdapter<T, C>(T_: DebugWithContext<T, C>): De
 
 /** `impl<T: Idx + DebugWithContext<C>, C> DebugWithContext<C> for DenseBitSet<T>`. */
 export function DebugWithContext_DenseBitSet<T extends number, C>(T_: DebugWithContext<T, C>): DebugWithContext<DenseBitSet<T>, C> {
-  return DebugWithContext_impl<DenseBitSet<T>, C>(DenseBitSet_eq, debug_DenseBitSet(T_.fmt), {
+  return DebugWithContext_impl<DenseBitSet<T>, C>(DenseBitSet_eq, (self, f) => debug_DenseBitSet(self, f, T_.fmt), {
     // rustc: compiler/rustc_mir_dataflow/src/framework/fmt.rs:80 fmt_with
     fmt_with(self: DenseBitSet<T>, ctxt: C, f: Fmt): string {
       return debug_set(
@@ -159,12 +160,8 @@ export function DebugWithContext_DenseBitSet<T extends number, C>(T_: DebugWithC
 }
 
 /** `impl<T: Idx + DebugWithContext<C>, C> DebugWithContext<C> for ChunkedBitSet<T>`. */
-export function DebugWithContext_ChunkedBitSet<T extends number, C>(
-  T_: DebugWithContext<T, C>,
-  eq: (a: ChunkedBitSet<T>, b: ChunkedBitSet<T>) => boolean,
-  fmt: Debug<ChunkedBitSet<T>>,
-): DebugWithContext<ChunkedBitSet<T>, C> {
-  return DebugWithContext_impl<ChunkedBitSet<T>, C>(eq, fmt, {
+export function DebugWithContext_ChunkedBitSet<T extends number, C>(T_: DebugWithContext<T, C>): DebugWithContext<ChunkedBitSet<T>, C> {
+  return DebugWithContext_impl<ChunkedBitSet<T>, C>(ChunkedBitSet_eq, (self, f) => debug_ChunkedBitSet(self, f, T_.fmt), {
     // rustc: compiler/rustc_mir_dataflow/src/framework/fmt.rs:107 fmt_with
     fmt_with(self: ChunkedBitSet<T>, ctxt: C, f: Fmt): string {
       return debug_set(
@@ -202,14 +199,10 @@ export function DebugWithContext_ChunkedBitSet<T extends number, C>(
 /** `impl<T: Idx + DebugWithContext<C>, C> DebugWithContext<C> for MixedBitSet<T>`. */
 export function DebugWithContext_MixedBitSet<T extends number, C>(T_: DebugWithContext<T, C>): DebugWithContext<MixedBitSet<T>, C> {
   const small = DebugWithContext_DenseBitSet(T_);
-  // PORT(contract): the `Large` arm's `ChunkedBitSet` Debug / `PartialEq` are pending index-ds (pending.ts).
-  const large = DebugWithContext_ChunkedBitSet<T, C>(
-    T_,
-    () => panic("ChunkedBitSet: PartialEq (pending index-ds)"),
-    () => panic("ChunkedBitSet: Debug (pending index-ds)"),
-  );
-  const fmt: Debug<MixedBitSet<T>> = (self, f) => (self.$ === "Small" ? small.fmt(self._0, f) : large.fmt(self._0, f));
-  return DebugWithContext_impl<MixedBitSet<T>, C>(MixedBitSet.eq, fmt, {
+  const large = DebugWithContext_ChunkedBitSet<T, C>(T_);
+  // `impl Debug for MixedBitSet` (rustc_index bit_set.rs:1187) with `T`'s Debug
+  const fmt: Debug<MixedBitSet<T>> = (self, f) => MixedBitSet.fmt(self, f, T_.fmt);
+  return DebugWithContext_impl<MixedBitSet<T>, C>(MixedBitSet_eq, fmt, {
     // rustc: compiler/rustc_mir_dataflow/src/framework/fmt.rs:134 fmt_with
     fmt_with(self: MixedBitSet<T>, ctxt: C, f: Fmt): string {
       switch (self.$) {
