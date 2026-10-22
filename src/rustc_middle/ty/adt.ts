@@ -13,8 +13,8 @@
 // Defining module (docs/handoff/ty-contract.md "Init order"): it never imports an extension module and its top-level
 // code touches nothing but its own classes. context.ts may import it.
 //
-// PORT(decls): pending. `ErrorHandled` / `const_eval_poly` (mir/interpret, M4) are not ported: their methods go
-// through the `unported` stand-ins at the end of the file (lane repr-options: `ReprOptions` is rustc_abi's). (merge-w15b: `VariantDef`,
+// PORT(decls): pending. `ConstValue::try_to_bits_for_ty` (mir/consts.rs, M4) is not ported: it goes
+// through the `unported` stand-in at the end of the file (`const_eval_poly` / `ErrorHandled`: mir/interpret, lane mir-interp-b) (lane repr-options: `ReprOptions` is rustc_abi's). (merge-w15b: `VariantDef`,
 // `FieldDef`, `Destructor` are ty/mod.ts's, `Discr` / `IntTypeExt` ty/util.ts's, `ty::Value` / `ScalarInt`
 // ty/consts/*.ts's; ty/mod.ts / util.ts / valtree.ts are reached lazily.)
 import { Interned } from "../../rustc_data_structures/intern.ts";
@@ -704,7 +704,7 @@ export class AdtDef extends Interned {
     assert(this.is_enum(), "assertion failed: self.is_enum()");
 
     const repr_type = this.repr().discr_type();
-    const r = TyCtxt_const_eval_poly(tcx, expr_did);
+    const r = tcx.const_eval_poly(expr_did);
     switch (r.$) {
       case "Ok": {
         const val = r._0;
@@ -729,7 +729,7 @@ export class AdtDef extends Interned {
         let guar: ErrorGuaranteed;
         switch (err.$) {
           case "Reported":
-            guar = ReportedErrorInfo_into_ErrorGuaranteed(err._0);
+            guar = mir_interpret_error().ErrorGuaranteed_from_ReportedErrorInfo(err._0);
             break;
           case "TooGeneric":
             guar = tcx.dcx().span_delayed_bug(tcx.def_span(expr_did), "enum discriminant depends on generics");
@@ -913,20 +913,14 @@ function eq_Option_DefId(a: DefId | undefined, b: DefId): boolean {
 /** PORT: stand-in for `impl HasAttrs for DefId` (ty/mod.rs:2349, lane ty-mod): the upstream body. */
 export 
 
-/** `mir::ConstValue` (pending, M4). */
-type ConstValue = { readonly __pending: "mir::ConstValue" };
-/** `mir::interpret::ErrorHandled` (pending, M4). */
-type ErrorHandled = { readonly $: "Reported"; readonly _0: ReportedErrorInfo; readonly _1: Span } | { readonly $: "TooGeneric"; readonly _0: Span };
-type ReportedErrorInfo = { readonly __pending: "mir::interpret::ReportedErrorInfo" };
-/** PORT: stand-in for `TyCtxt::const_eval_poly` (mir/interpret/queries.rs, M4). */
-function TyCtxt_const_eval_poly(_tcx: TyCtxt, _def_id: DefId): Result<ConstValue, ErrorHandled> {
-  return unported("rustc_middle::mir::interpret::TyCtxt::const_eval_poly (M4)");
-}
+/** `mir::ConstValue` */
+type ConstValue = import("../mir/consts.ts").ConstValue;
 /** PORT: stand-in for `ConstValue::try_to_bits_for_ty` (mir/consts.rs, M4). */
 function ConstValue_try_to_bits_for_ty(_self: ConstValue, _tcx: TyCtxt, _typing_env: TypingEnv, _ty: Ty): bigint | undefined {
   return unported("rustc_middle::mir::ConstValue::try_to_bits_for_ty (M4)");
 }
-/** PORT: stand-in for `impl From<ReportedErrorInfo> for ErrorGuaranteed` (mir/interpret/error.rs, M4). */
-function ReportedErrorInfo_into_ErrorGuaranteed(_self: ReportedErrorInfo): ErrorGuaranteed {
-  return unported("rustc_middle::mir::interpret::ReportedErrorInfo: Into<ErrorGuaranteed> (M4)");
+/** mir/interpret/error.ts (`From<ReportedErrorInfo> for ErrorGuaranteed`), read lazily (init order, module comment). */
+function mir_interpret_error(): typeof import("../mir/interpret/error.ts") {
+  return (mir_interpret_error__m ??= require("../mir/interpret/error.ts") as typeof import("../mir/interpret/error.ts"));
 }
+var mir_interpret_error__m: typeof import("../mir/interpret/error.ts") | undefined;

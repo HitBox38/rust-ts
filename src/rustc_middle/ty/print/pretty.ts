@@ -4495,35 +4495,34 @@ export type { UserTypeKind } from "../typeck_results.ts";
 // ---- pending mir-interpret (M4): mir/interpret's `Scalar`, `Pointer`, `GlobalAlloc`, `AllocRange` ----
 // `Scalar` is `Pending` in decls.ts; `ScalarShape` is mir/interpret/value.rs:25 per PORTING §5.
 type ScalarShape = { readonly $: "Int"; _0: ScalarInt } | { readonly $: "Ptr"; _0: Pointer; _1: number };
-type Pointer = Pending<"mir::interpret::Pointer">;
-type CtfeProvenance = Pending<"mir::interpret::CtfeProvenance">;
-type AllocId = Pending<"mir::interpret::AllocId">;
-/** mir/interpret/mod.rs:255 per PORTING §5. */
-type GlobalAlloc =
-  | { readonly $: "Function"; instance: Instance }
-  | { readonly $: "VTable"; _0: Ty; _1: List<PolyExistentialPredicate> }
-  | { readonly $: "Static"; _0: DefId }
-  | { readonly $: "Memory"; _0: ConstAllocation }
-  | { readonly $: "TypeId"; ty: Ty };
+type Pointer = import("../../mir/interpret/pointer.ts").Pointer;
+type CtfeProvenance = import("../../mir/interpret/pointer.ts").CtfeProvenance;
+type AllocId = import("../../mir/interpret/mod.ts").AllocId;
+type GlobalAlloc = import("../../mir/interpret/mod.ts").GlobalAlloc;
+/** mir/interpret/pointer.ts, read lazily (lane mir-interp-b; init order: mir/ is in ty/context.ts's import closure). */
+function mir_interpret_pointer(): typeof import("../../mir/interpret/pointer.ts") {
+  return (mir_interpret_pointer__m ??= require("../../mir/interpret/pointer.ts") as typeof import("../../mir/interpret/pointer.ts"));
+}
+var mir_interpret_pointer__m: typeof import("../../mir/interpret/pointer.ts") | undefined;
 /** mir/interpret/allocation.rs:334 */
 interface AllocRange {
   start: Size;
   size: Size;
 }
-function Pointer_prov_and_relative_offset(_ptr: Pointer): [CtfeProvenance, Size] {
-  return unported("rustc_middle::mir::interpret::Pointer::prov_and_relative_offset (M4)");
+function Pointer_prov_and_relative_offset(ptr: Pointer): [CtfeProvenance, Size] {
+  return ptr.prov_and_relative_offset();
 }
-function debug_Pointer(_ptr: Pointer, _f: Fmt): string {
-  return unported("rustc_middle::mir::interpret::Pointer: Debug (M4)");
+function debug_Pointer(ptr: Pointer, f: Fmt): string {
+  return mir_interpret_pointer().debug_Pointer(ptr, f, mir_interpret_pointer().debug_CtfeProvenance);
 }
-function CtfeProvenance_alloc_id(_prov: CtfeProvenance): AllocId {
-  return unported("rustc_middle::mir::interpret::CtfeProvenance::alloc_id (M4)");
+function CtfeProvenance_alloc_id(prov: CtfeProvenance): AllocId {
+  return mir_interpret_pointer().CtfeProvenance.alloc_id(prov);
 }
-function TyCtxt_try_get_global_alloc(_tcx: TyCtxt, _id: AllocId): GlobalAlloc | undefined {
-  return unported("rustc_middle::mir::interpret::TyCtxt::try_get_global_alloc (M4)");
+function TyCtxt_try_get_global_alloc(tcx: TyCtxt, id: AllocId): GlobalAlloc | undefined {
+  return tcx.try_get_global_alloc(id);
 }
-function ConstAllocation_inner(_alloc: ConstAllocation): Allocation {
-  return unported("rustc_middle::mir::interpret::ConstAllocation::inner (M4)");
+function ConstAllocation_inner(alloc: ConstAllocation): Allocation {
+  return alloc.inner();
 }
 /** `Ok(bytes)` is the bytes, `Err(_)` is `undefined`. */
 function Allocation_get_bytes_strip_provenance(_alloc: Allocation, _tcx: TyCtxt, _range: AllocRange): Uint8Array | undefined {

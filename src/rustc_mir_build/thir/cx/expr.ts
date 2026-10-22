@@ -1691,9 +1691,8 @@ ThirBuildCx.prototype.convert_path_expr = function (this: ThirBuildCx, expr: Hir
     if (this.tcx.is_thread_local_static(id)) {
       kind = { $: "ThreadLocalRef", _0: id };
     } else {
-      // `let alloc_id = self.tcx.reserve_and_set_static_alloc(id);`
-      // `ExprKind::StaticRef { alloc_id, ty, def_id: id }`
-      return unported("rustc_middle::ty::TyCtxt::reserve_and_set_static_alloc (mir/interpret, M4)");
+      const alloc_id = this.tcx.reserve_and_set_static_alloc(id);
+      kind = { $: "StaticRef", alloc_id, ty, def_id: id };
     }
     return {
       $: "Deref",

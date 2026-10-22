@@ -32,6 +32,7 @@ import { type Config, run_compiler } from "../../rustc_interface/interface.ts";
 import { create_and_enter_global_ctxt, parse } from "../../rustc_interface/passes.ts";
 import type { ModChild } from "../../rustc_middle/middle/resolve.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
+import { AllocDecodingState } from "../../rustc_middle/mir/interpret/mod.ts";
 import { HygieneDecodeContext } from "../../rustc_span/hygiene.ts";
 import { CRATE_DEF_INDEX, CrateNum, type DefId, DefIndex, debug_DefPathHash } from "../../rustc_span/def_id.ts";
 import { create_default_session_globals_then } from "../../rustc_span/lib.ts";
@@ -117,7 +118,7 @@ function cdata_of(c: OracleCrate, blob: MetadataBlob): CrateMetadata {
     [],
     undefined as never, // def_path_hash_map (no compared method reads it)
     undefined,
-    undefined, // alloc_decoding_state
+    AllocDecodingState.new([]), // alloc_decoding_state (no interpret allocations)
     new Map(),
     CrateNum.from_u32(c.cnum),
     [],
@@ -235,7 +236,7 @@ function with_registered_crates(f: (tcx: TyCtxt, cdatas: Map<string, CrateMetada
           [],
           undefined as never, // def_path_hash_map (no compared method reads it)
           undefined,
-          undefined, // alloc_decoding_state
+          AllocDecodingState.new([]), // alloc_decoding_state (no interpret allocations)
           new Map(),
           cnum,
           cnum_map,

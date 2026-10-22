@@ -132,7 +132,6 @@ test("stubs per fill lane (the split table of docs/handoff/mir-contract.md)", ()
   const per = new Map<string, number>();
   for (const d of decls.filter((d) => d.kind === "stub")) per.set(d.lane!, (per.get(d.lane!) ?? 0) + 1);
   expect(Object.fromEntries([...per].sort())).toEqual({
-    "mir-interp-b": 184,
   });
 });
 
@@ -175,9 +174,10 @@ function stops(f: () => unknown, what: string): void {
 }
 
 test("stubs stop as UNPORTED with their own path", () => {
-  stops(() => CtfeProvenance.alloc_id(1n as CtfeProvenance), "rustc_middle::mir::interpret::pointer::CtfeProvenance::alloc_id");
-  stops(() => InterpResult.unwrap({ $: "Ok", _0: 1 }), "rustc_middle::mir::interpret::error::InterpResult::unwrap");
   // (lane mir-visit) `Visitor` / `MutVisitor` are ported: their walks are checked in visit.test.ts.
+  // (lane mir-interp-b: interpret/{mod, value, pointer, error, queries}.rs are ported, no stubs left)
+  expect(CtfeProvenance.alloc_id(1n as CtfeProvenance)).toBe(1 as AllocId);
+  expect(InterpResult.unwrap({ $: "Ok", _0: 1 })).toBe(1);
   class V extends Visitor {}
   expect(() => new V().visit_local(RETURN_PLACE, { $: "MutatingUse", _0: "Store" }, Location.START)).not.toThrow();
   class M extends MutVisitor {

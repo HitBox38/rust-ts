@@ -29,6 +29,7 @@ import { type Config, run_compiler } from "../../rustc_interface/interface.ts";
 import { create_and_enter_global_ctxt, parse } from "../../rustc_interface/passes.ts";
 import { CFG_VERSION } from "../../rustc_interface/util.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
+import { AllocDecodingState } from "../../rustc_middle/mir/interpret/mod.ts";
 import { type CrateNum, DefIndex, LOCAL_CRATE, type LocalDefId } from "../../rustc_span/def_id.ts";
 import { debug_ExpnKind, type ExpnId, HygieneDecodeContext, SyntaxContext } from "../../rustc_span/hygiene.ts";
 import { FileName, Span } from "../../rustc_span/lib.ts";
@@ -157,7 +158,7 @@ function register(tcx: TyCtxt, sysroot: string, name: string, cnums: Map<string,
     [],
     undefined as never, // def_path_hash_map: odht (not ported); not read by the methods under test
     undefined,
-    undefined,
+    AllocDecodingState.new([]), // alloc_decoding_state (no interpret allocations)
     new Map(),
     cnum,
     cnum_map,

@@ -51,8 +51,8 @@ export {
 } from "./codec/ref_decodable.ts";
 
 // mir / mir::interpret are not ported (M4): their shapes stay opaque here. (`ty::SymbolName` is ty/mod.ts's.)
-type AllocId = Pending<"mir::interpret::AllocId">;
-type CtfeProvenance = Pending<"mir::interpret::CtfeProvenance">;
+type AllocId = import("../mir/interpret/mod.ts").AllocId;
+type CtfeProvenance = import("../mir/interpret/pointer.ts").CtfeProvenance;
 type SymbolName = import("./mod.ts").SymbolName;
 type Local = number & { readonly __brand: "mir::Local" };
 /** `mir::Place<'tcx> { local, projection: &'tcx List<PlaceElem<'tcx>> }` (mir/syntax.rs, M4) */
@@ -62,6 +62,11 @@ interface Place {
 }
 
 // ---- lazily loaded callees (module comment) ----
+/** mir/interpret/pointer.ts (`CtfeProvenance::from_parts`), read lazily. */
+function mir_interpret_pointer_(): typeof import("../mir/interpret/pointer.ts") {
+  return (mir_interpret_pointer__m ??= require("../mir/interpret/pointer.ts") as typeof import("../mir/interpret/pointer.ts"));
+}
+var mir_interpret_pointer__m: typeof import("../mir/interpret/pointer.ts") | undefined;
 function binder_(): typeof import("../../rustc_type_ir/binder.ts") {
   return (binder___m ??= require("../../rustc_type_ir/binder.ts") as typeof import("../../rustc_type_ir/binder.ts"));
 }
@@ -292,9 +297,9 @@ export function decode_AllocId<D extends TyDecoder>(decoder: D): AllocId {
 // impl<'tcx, D: TyDecoder<'tcx>> Decodable<D> for CtfeProvenance
 // rustc: compiler/rustc_middle/src/ty/codec.rs:270 decode
 export function decode_CtfeProvenance<D extends TyDecoder>(decoder: D): CtfeProvenance {
-  // `let parts = Decodable::decode(decoder);`: `(AllocId, bool)` (`CtfeProvenance::into_parts`)
-  const parts: [AllocId, boolean] = [decode_AllocId(decoder), decoder.read_bool()];
-  return CtfeProvenance_from_parts(parts);
+  // `let parts = Decodable::decode(decoder);`: `(AllocId, bool, bool)` (`CtfeProvenance::into_parts`)
+  const parts: [AllocId, boolean, boolean] = [decode_AllocId(decoder), decoder.read_bool(), decoder.read_bool()];
+  return mir_interpret_pointer_().CtfeProvenance.from_parts(parts);
 }
 
 // impl<'tcx, D: TyDecoder<'tcx>> Decodable<D> for ty::SymbolName<'tcx>
@@ -431,10 +436,6 @@ export function decode_Term_TyDecoder<D extends TyDecoder>(d: D): Term {
 /** `Decodable for mir::PlaceElem` (`ProjectionElem<Local, Ty>`, derive(TyDecodable) in mir/syntax.rs; M4). */
 function decode_PlaceElem(_d: TyDecoder): PlaceElem {
   return unported("Decodable for rustc_middle::mir::PlaceElem (mir/syntax.rs, M4)");
-}
-/** `CtfeProvenance::from_parts` (mir/interpret/pointer.rs; M4). */
-function CtfeProvenance_from_parts(_parts: [AllocId, boolean]): CtfeProvenance {
-  return unported("rustc_middle::mir::interpret::CtfeProvenance::from_parts (M4)");
 }
 /** `Decodable for mir::interpret::Allocation` (allocation.rs:208, M4). */
 function decode_Allocation(_d: TyDecoder): Allocation {
