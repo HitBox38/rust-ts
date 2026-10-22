@@ -111,15 +111,15 @@ test("every fn of rustc_borrowck is ported or declared as a stub, never both", (
     }
   }
   expect(total).toBe(901);
-  expect(markers.length).toBe(397);
-  expect(stubs.length).toBe(504);
+  expect(markers.length).toBe(405);
+  expect(stubs.length).toBe(496);
 });
 
 test("the stubs per fill lane are the handoff's split table", () => {
   const per_lane: Record<string, number> = {};
   for (const d of stubs) per_lane[d.lane!] = (per_lane[d.lane!] ?? 0) + 1;
   expect(per_lane).toEqual({
-    "bck-lib-a": 8,
+    // "bck-lib-a": 0 (filled, wave 23: lib.rs lines < 1400, 8 stubs -> markers)
     "bck-lib-b": 22,
     // "bck-core": 0 (filled by lane bck-core, wave 23)
     // "bck-tc-a": 0 (filled, wave 23: type_check/mod.rs 39 stubs -> markers)
