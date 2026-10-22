@@ -538,6 +538,20 @@
     },
     {
       "paths": [
+        "rustc_index::interval::IntervalSet"
+      ],
+      "ts": "IntervalSet<$0>",
+      "import": "src/rustc_index/interval.ts",
+      "types": [
+        "IntervalSet"
+      ],
+      "values": [],
+      "debug": null,
+      "clone": "$v.clone()",
+      "note": "rustc_index interval.rs (the global type maps have an older `Set<$0>` placeholder)"
+    },
+    {
+      "paths": [
         "rustc_data_structures::frozen::Frozen"
       ],
       "ts": "$0",

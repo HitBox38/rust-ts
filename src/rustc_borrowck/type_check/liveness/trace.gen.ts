@@ -4,6 +4,7 @@ import { type BorrowckInferCtxt } from "../../lib.gen.ts";
 import { type LocalUseMap } from "./local_use_map.gen.ts";
 import { type TypeChecker } from "../mod.gen.ts";
 import { type DenseBitSet, MixedBitSet } from "../../../rustc_index/bit_set.ts";
+import { type IntervalSet } from "../../../rustc_index/interval.ts";
 import { type QueryRegionConstraints } from "../../../rustc_middle/infer/canonical.ts";
 import { type Body, type Location } from "../../../rustc_middle/mir/mod.ts";
 import { type DropckOutlivesResult } from "../../../rustc_middle/traits/query.ts";
@@ -35,7 +36,7 @@ export class LivenessComputation {
     public defs: DenseBitSet<PointIndex>,
     /// Points where the current variable is "use live" -- meaning
     /// that there is a future "full use" that may use its value.
-    public use_live_at: Set<PointIndex>,
+    public use_live_at: IntervalSet<PointIndex>,
     /// Points where the current variable is "drop live" -- meaning
     /// that there is no future "full use" that may use its value, but
     /// there is a future drop.
