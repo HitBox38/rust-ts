@@ -5,7 +5,7 @@
 // - init order: every hand module of the contract loads as a fresh entry point (no TDZ: the extension modules assign to
 //   `InterpCx.prototype` and the generated classes' prototypes at load);
 // - runtime: `InterpCx::new` with both machines, the layout cache, `try_destructure_mir_constant_for_user_output` of
-//   `()` (the MIR printer's `const ()`), `mk_eval_cx_for_const_val` of a scalar, and where const evaluation stops now.
+//   `()` (the MIR printer's `const ()`), `mk_eval_cx_for_const_val` of a scalar, and `eval_to_allocation_raw` of a const.
 import { expect, test } from "bun:test";
 import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
@@ -23,8 +23,7 @@ import { ScalarInt } from "../../rustc_middle/ty/consts/int.ts";
 import { DUMMY_SP } from "../../rustc_span/lib.ts";
 import { LocalDefId } from "../../rustc_span/def_id.ts";
 import { Instance } from "../../rustc_middle/ty/instance.ts";
-import { GlobalId } from "../../rustc_middle/mir/interpret/mod.ts";
-import { Unported } from "../../std/panic.ts";
+import { GlobalAlloc, GlobalId } from "../../rustc_middle/mir/interpret/mod.ts";
 import { CanAccessMutGlobal, CheckAlignment, CompileTimeMachine, DummyMachine, mk_eval_cx_for_const_val } from "../const_eval/mod.ts";
 import { InterpCx } from "./eval_context.ts";
 
@@ -161,17 +160,6 @@ test("every module of the contract loads as a fresh entry point (init order)", (
   expect(failed).toEqual([]);
 }, 300_000);
 
-function stops(f: () => unknown, what: string): void {
-  let err: unknown;
-  try {
-    f();
-  } catch (e) {
-    err = e;
-  }
-  expect(err).toBeInstanceOf(Unported);
-  expect((err as Unported).what).toBe(what);
-}
-
 class CaptureConfig extends Error {}
 function config_from_args(args: string[]): Config {
   let config: Config | undefined;
@@ -199,7 +187,7 @@ const SRC = [
   "pub const C: u8 = 7;",
 ].join("\n");
 
-test("InterpCx::new, the layout cache and the trivial-const entry points run; non-trivial CTFE stops at its fill lane", () => {
+test("InterpCx::new, the layout cache and the trivial-const entry points run; a const evaluates through the interpreter", () => {
   const file = join(DATA, "tmp", "interp-contract", `agent-${Bun.hash(process.env.RUST_TS_AGENT ?? "default").toString(16)}`, "interp_contract.rs");
   mkdirSync(dirname(file), { recursive: true });
   writeFileSync(file, SRC);
@@ -240,7 +228,8 @@ test("InterpCx::new, the layout cache and the trivial-const entry points run; no
       expect(r[1].op.$).toBe("Immediate");
       expect(r[1].layout.ty).toBe(tcx.types.u8);
 
-      // where const evaluation stops now (the first stub on each path; re-pin as the fill lanes port)
+      // a const evaluates end to end through the interpreter (`eval_in_interpreter`: `load_mir`, the body's steps,
+      // interning and validation): the value lives at offset 0 of an `AllocKind::Memory` allocation
       let c: LocalDefId | undefined;
       for (const id of tcx.hir_free_items()) {
         const item = tcx.hir_item(id);
@@ -248,10 +237,13 @@ test("InterpCx::new, the layout cache and the trivial-const entry points run; no
       }
       if (c === undefined) throw new Error("ERROR: no const C");
       const cid = new GlobalId(Instance.mono(tcx, LocalDefId.to_def_id(c)), undefined);
-      stops(
-        () => tcx.eval_to_allocation_raw(typing_env.as_query_input(cid)),
-        "rustc_const_eval::interpret::place::InterpCx::allocate",
-      );
+      const res = tcx.eval_to_allocation_raw(typing_env.as_query_input(cid));
+      if (res.$ !== "Ok") throw new Error("ERROR: eval_to_allocation_raw(C) failed");
+      expect(res._0.ty).toBe(tcx.types.u8);
+      const alloc = GlobalAlloc.unwrap_memory(tcx.global_alloc(res._0.alloc_id)).inner();
+      expect(alloc.size().bytes()).toBe(1);
+      expect([...alloc.inspect_with_uninit_and_ptr_outside_interpreter({ start: 0, end: 1 })]).toEqual([7]);
+      expect(alloc.mutability).toBe("Not");
       ran = true;
     });
   });

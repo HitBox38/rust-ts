@@ -1,6 +1,5 @@
-// Unit tests of interpret/place.ts and interpret/operand.ts (lane interp-place-operand). The memory-backed paths
-// (allocation, reads/writes through `AllocRef`) wait for lane interp-memory; these tests cover the immediate and
-// local-place paths end to end and pin where the memory paths stop.
+// Unit tests of interpret/place.ts and interpret/operand.ts (lane interp-place-operand): the immediate and local-place
+// paths end to end, and the memory-backed paths (allocation, reads/writes through `AllocRef`, lane interp-memory).
 import { expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -18,7 +17,7 @@ import { ScalarInt } from "../../rustc_middle/ty/consts/int.ts";
 import { Ty, TypingEnv } from "../../rustc_middle/ty/mod.ts";
 import { DUMMY_SP } from "../../rustc_span/lib.ts";
 import { PLAIN } from "../../std/fmt.ts";
-import { Panic, Unported } from "../../std/panic.ts";
+import { Panic } from "../../std/panic.ts";
 import { CanAccessMutGlobal, CheckAlignment, CompileTimeMachine } from "../const_eval/mod.ts";
 import { InterpCx } from "./eval_context.ts";
 import { MemoryKind } from "./memory.gen.ts";
@@ -40,17 +39,6 @@ function config_from_args(args: string[]): Config {
   }
   if (config === undefined) throw new Error("ERROR: no config");
   return config;
-}
-
-function stops(f: () => unknown, what: string): void {
-  let err: unknown;
-  try {
-    f();
-  } catch (e) {
-    err = e;
-  }
-  expect(err).toBeInstanceOf(Unported);
-  expect((err as Unported).what).toBe(what);
 }
 
 const SRC = [
@@ -146,9 +134,19 @@ test("immediates, operands and local places", () => {
       if (shifted.$ !== "Ok") throw new Error("ERROR: wrapping offset failed");
       expect(shifted._0.ptr().offset.bytes()).toBe(18);
 
-      // where the memory-backed paths stop now (the next lane's stubs)
-      stops(() => ecx.allocate(u8, MemoryKind.Stack), "rustc_const_eval::interpret::memory::InterpCx::allocate_ptr");
-      stops(() => ecx.copy_op(op, mp), "rustc_const_eval::const_eval::machine::CompileTimeMachine::enforce_validity");
+      // the memory-backed paths (lane interp-memory): a stack allocation of `u8` takes the operand and reads it
+      // back; writing through an integer address (no provenance) is a dangling-pointer access (UB)
+      const a = ecx.allocate(u8, MemoryKind.Stack);
+      if (a.$ !== "Ok") throw new Error("ERROR: allocate failed");
+      expect(a._0.layout).toBe(u8);
+      expect(ecx.copy_op(op, a._0).$).toBe("Ok");
+      expect(ecx.read_scalar(a._0)).toEqual({ $: "Ok", _0: { $: "Int", _0: ScalarInt.from_u8(7) } });
+      const dangling = ecx.copy_op(op, mp);
+      if (dangling.$ !== "Err") throw new Error("ERROR: write through an integer address succeeded");
+      expect(dangling._0.kind()).toEqual({
+        $: "UndefinedBehavior",
+        _0: { $: "DanglingIntPointer", addr: 16, inbounds_size: 1, msg: { $: "MemoryAccess" } },
+      });
       ran = true;
     });
   });

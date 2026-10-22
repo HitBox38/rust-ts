@@ -9,13 +9,13 @@
 // Encoding of a result: `<hex bits> <code>`; code 0 = value, 1 = the overflow flag of a `*WithOverflow` pair, 2..7 =
 // the UB `DivisionByZero`, `RemainderByZero`, `DivisionOverflow`, `RemainderOverflow`, `ArithOverflow`, `ShiftOverflow`.
 //
-// The operand.rs helpers these paths call (`ImmTy::from_*`, `Immediate::to_scalar*`, ...) belong to lane
-// interp-place-operand; while one is still a stub it is replaced for this file by a test double written from upstream
-// (installed only if the real one is `unported`, restored afterwards). `Scalar::to_f16..to_f128` are unported in
-// rustc_middle, so float ops are entered at `binary_float_op` / `cast_from_float` (below `binary_op` / `float_to_float_or_int`).
+// The operand.rs helpers these paths call (`ImmTy::from_*`, `Immediate::to_scalar*`, ...) are the real ones (lane
+// interp-place-operand); `ImmTy::from_ordering` needs the `Ordering` lang item, which the no_core test crate declares
+// as core does. `Scalar::to_f16..to_f128` are unported in rustc_middle, so float ops are entered at `binary_float_op` /
+// `cast_from_float` (below `binary_op` / `float_to_float_or_int`).
 //
 // Without the pinned toolchain this is a visible skip; RUST_TS_REQUIRE_PROBES=1 makes that a failure.
-import { afterAll, beforeAll, expect, test } from "bun:test";
+import { beforeAll, expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { DATA, PIN } from "../../../scripts/lib/common.ts";
@@ -25,9 +25,8 @@ import "../../rustc_hir_analysis/lib.ts";
 import { type Config, run_compiler } from "../../rustc_interface/interface.ts";
 import { create_and_enter_global_ctxt, parse } from "../../rustc_interface/passes.ts";
 import "../../rustc_middle/lib.ts";
-import { type InterpErrorInfo, type InterpResult, Scalar, Scalar_from_ScalarInt } from "../../rustc_middle/mir/interpret/mod.ts";
+import { type InterpErrorInfo, type InterpResult, Scalar } from "../../rustc_middle/mir/interpret/mod.ts";
 import type { BinOp, UnOp } from "../../rustc_middle/mir/mod.ts";
-import { ScalarInt } from "../../rustc_middle/ty/consts/int.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import type { TyAndLayout } from "../../rustc_middle/ty/layout.ts";
 import { Ty, TypingEnv } from "../../rustc_middle/ty/mod.ts";
@@ -38,7 +37,7 @@ import { panic } from "../../std/panic.ts";
 import { unwrap_result } from "../../std/result.ts";
 import { CanAccessMutGlobal, CheckAlignment, CompileTimeMachine } from "../const_eval/mod.ts";
 import { InterpCx } from "./eval_context.ts";
-import { ImmTy, Immediate } from "./operand.ts";
+import { ImmTy } from "./operand.ts";
 import "./mod.ts";
 
 const REQUIRE = process.env.RUST_TS_REQUIRE_PROBES === "1";
@@ -377,65 +376,6 @@ beforeAll(() => {
   oracle = r.stdout.toString().split("\n").slice(0, CASES.length);
 }, 300_000);
 
-// ---- test doubles for the operand.rs helpers still stubbed (lane interp-place-operand) ----
-
-const restores: (() => void)[] = [];
-function is_stub(f: unknown): boolean {
-  return typeof f === "function" && f.toString().includes("unported(");
-}
-function double<T extends object, K extends keyof T>(obj: T, key: K, f: T[K]): void {
-  if (!is_stub(obj[key])) return;
-  const old = obj[key];
-  obj[key] = f;
-  restores.push(() => {
-    obj[key] = old;
-  });
-}
-afterAll(() => {
-  for (const r of restores.reverse()) r();
-});
-
-function install_doubles(tcx: TyCtxt): void {
-  const bool_layout = (): TyAndLayout => unwrap_result(tcx.layout_of(TypingEnv.fully_monomorphized().as_query_input(tcx.types.bool)));
-  // operand.rs:83 to_scalar
-  double(Immediate, "to_scalar", (self: Immediate) => (self.$ === "Scalar" ? self._0 : panic("Got a non-scalar where a scalar was expected")));
-  // operand.rs:99 to_scalar_pair
-  double(Immediate, "to_scalar_pair", (self: Immediate): [Scalar, Scalar] =>
-    self.$ === "ScalarPair" ? [self._0, self._1] : panic("Got a non-pair where a scalar pair was expected"),
-  );
-  // operand.rs:259 from_scalar
-  double(ImmTy, "from_scalar", (val: Scalar, layout: TyAndLayout) => new ImmTy({ $: "Scalar", _0: val }, layout));
-  // operand.rs:266 from_scalar_pair
-  double(ImmTy, "from_scalar_pair", (a: Scalar, b: Scalar, layout: TyAndLayout) => new ImmTy({ $: "ScalarPair", _0: a, _1: b }, layout));
-  // operand.rs:276 from_immediate
-  double(ImmTy, "from_immediate", (imm: Immediate, layout: TyAndLayout) => new ImmTy(imm, layout));
-  // operand.rs:297 from_scalar_int
-  double(ImmTy, "from_scalar_int", (s: ScalarInt, layout: TyAndLayout) => ImmTy.from_scalar(Scalar_from_ScalarInt(s), layout));
-  // operand.rs:302 from_uint
-  double(ImmTy, "from_uint", (i: bigint, layout: TyAndLayout) => ImmTy.from_scalar(Scalar.from_uint(i, layout.size), layout));
-  // operand.rs:307 from_int
-  double(ImmTy, "from_int", (i: bigint, layout: TyAndLayout) => ImmTy.from_scalar(Scalar.from_int(i, layout.size), layout));
-  // operand.rs:312 from_bool
-  double(ImmTy, "from_bool", (b: boolean) => ImmTy.from_scalar(Scalar.from_bool(b), bool_layout()));
-  // operand.rs:321 from_ordering. PORT (test double): `Ordering` is a lang item the test crate (no_core) lacks; the
-  // value is the same `i8` `ScalarInt`, given the `i8` layout.
-  double(ImmTy, "from_ordering", (c: -1 | 0 | 1) =>
-    ImmTy.from_scalar(Scalar_from_ScalarInt(ScalarInt.from_Ordering(c)), unwrap_result(tcx.layout_of(TypingEnv.fully_monomorphized().as_query_input(tcx.types.i8)))),
-  );
-  // operand.rs:329 from_pair
-  double(ImmTy, "from_pair", (a: ImmTy, b: ImmTy) => {
-    const layout = unwrap_result(tcx.layout_of(TypingEnv.fully_monomorphized().as_query_input(Ty.new_tup(tcx, [a.layout.ty, b.layout.ty]))));
-    return ImmTy.from_scalar_pair(Immediate.to_scalar(a.imm), Immediate.to_scalar(b.imm), layout);
-  });
-  // operand.rs:342 to_scalar_int
-  double(ImmTy.prototype, "to_scalar_int", function (this: ImmTy) {
-    const s = Scalar.to_scalar_int(Immediate.to_scalar(this.imm));
-    if (s.$ === "Err") return s;
-    if (s._0.size().bytes() !== this.layout.size.bytes()) panic("scalar immediate size does not match layout");
-    return s;
-  });
-}
-
 // ---- driver ----
 
 class CaptureConfig extends Error {}
@@ -458,10 +398,14 @@ function config_from_args(args: string[]): Config {
 const SRC = [
   "#![feature(no_core, lang_items)]",
   "#![no_core]",
-  "#![allow(internal_features)]",
+  "#![allow(internal_features, overflowing_literals)]",
   '#[lang = "pointee_sized"] pub trait PointeeSized {}',
   '#[lang = "meta_sized"] pub trait MetaSized: PointeeSized {}',
   '#[lang = "sized"] pub trait Sized: MetaSized {}',
+  // library/core/src/cmp.rs: the three-way comparison's result type. `Less = -1` is written as the `i8` bit pattern
+  // `0xff` (allowed overflowing literal): unary `-` needs the `neg` lang item, and a non-trivial discriminant const
+  // would go through `mir_borrowck`, which this test does not exercise.
+  '#[lang = "Ordering"] #[repr(i8)] pub enum Ordering { Less = 0xff, Equal = 0, Greater = 1 }',
 ].join("\n");
 
 test("binary / unary ops and casts on every int and float width equal the pinned rustc's CTFE", () => {
@@ -477,7 +421,6 @@ test("binary / unary ops and casts on every int and float width equal the pinned
     const krate: Crate = parse(compiler.sess);
     create_and_enter_global_ctxt(compiler, krate, (tcx) => {
       void tcx.resolver_for_lowering();
-      install_doubles(tcx);
       const ecx = InterpCx.new(tcx, DUMMY_SP, TypingEnv.fully_monomorphized(), CompileTimeMachine.new(CanAccessMutGlobal.No, CheckAlignment.No));
       const types = tcx.types as unknown as Record<string, Ty>;
       const cx: Cx = {
