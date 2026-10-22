@@ -244,7 +244,7 @@ export class CtxtInterners {
     public place_elems: InternedSet<List<PlaceElem>>,
     public const_: InternedSet<Const>,
     public pat: InternedSet<Pattern>,
-    public const_allocation: InternedSet<unknown>,
+    public const_allocation: InternedSet<ConstAllocation>,
     public bound_variable_kinds: InternedSet<List<BoundVariableKind>>,
     public layout: InternedSet<Layout>,
     public adt_def: InternedSet<AdtDef>,
@@ -1868,9 +1868,14 @@ export class TyCtxt {
   mk_pat(v: PatternKind): Pattern {
     return Interned.new_unchecked(this.interners.pat.intern(v, intern_key(v), (v) => new Pattern(v)));
   }
-  /** Stub (`direct_interners!` `mk_const_alloc`, context.rs:2018): MIR allocations (M4). */
-  mk_const_alloc(_v: Allocation): ConstAllocation {
-    return unported("rustc_middle::ty::context::TyCtxt::mk_const_alloc (ConstAllocation, M4)");
+  // PORT (const-check): the key is the derived `PartialEq` of `Allocation` (`key_Allocation` below: the bytes, the
+  // provenance maps without their comparator, the init mask, align, mutability; `extra: ()`), which is the equality
+  // upstream's `InternedInSet<Allocation>` uses (its `Hash` only decides the bucket).
+  // rustc-macro: compiler/rustc_middle/src/ty/context.rs:2018 direct_interners! mk_const_alloc
+  mk_const_alloc(v: Allocation): ConstAllocation {
+    return Interned.new_unchecked(
+      this.interners.const_allocation.intern(v, key_Allocation(v), (v) => new (mir().interpret.ConstAllocation)(v)),
+    );
   }
   // PORT (layout-contract): the key is the derived `Hash` + `Eq` of `LayoutData` (`intern_key`); `Layout` deep-freezes it.
   // rustc-macro: compiler/rustc_middle/src/ty/context.rs:2019 direct_interners! mk_layout
@@ -3051,6 +3056,26 @@ function alias_term_def_id_and_is_self_args(kind: AliasTermKind): [DefId, boolea
  * module must not import it (docs/handoff/ty-contract.md "Init order"); `emit_node_span_lint` / `emit_node_lint`
  * require it when they run, after every module has loaded.
  */
+/**
+ * PORT (const-check): the intern key of an `Allocation` (`mk_const_alloc`): its derived `PartialEq` as a string. The
+ * bytes are one char per byte; `SortedMap`s contribute their entries (`data`), not their `cmp` function; `InitMask`
+ * keeps its representation (`Lazy` / `Materialized`, as the derive compares it); `extra` is `()`.
+ */
+function key_Allocation(a: Allocation): string {
+  let bytes = "";
+  const b = a.bytes;
+  for (let i = 0; i < b.length; i += 8192) bytes += String.fromCharCode.apply(null, Array.from(b.subarray(i, i + 8192)));
+  return intern_key([
+    bytes,
+    a.provenance.ptrs.data,
+    a.provenance.bytes === undefined ? undefined : a.provenance.bytes.data,
+    a.init_mask.blocks,
+    a.init_mask.len,
+    a.align.pow2,
+    a.mutability,
+  ]);
+}
+
 /** rustc_middle mir/mod.ts (`mir::Place`), read lazily (mir/ is in this module's import closure; lane mir-contract). */
 function mir(): typeof import("../mir/mod.ts") {
   return (mir__m ??= require("../mir/mod.ts") as typeof import("../mir/mod.ts"));
