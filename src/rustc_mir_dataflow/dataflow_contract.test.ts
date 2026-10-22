@@ -14,17 +14,15 @@ import { REPO } from "../../scripts/lib/common.ts";
 import { DenseBitSet } from "../rustc_index/bit_set.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import { Unported } from "../std/panic.ts";
-import { drop_flag_effects_for_location, DropFlagState } from "./drop_flag_effects.ts";
 import { DebugWithContext_Local } from "./framework/fmt.ts";
 import { write_graphviz_results } from "./framework/graphviz.ts";
 import { AnalysisBase, type Domain, Domain_DenseBitSet, Domain_MixedBitSet } from "./framework/mod.ts";
 import * as lib from "./lib.ts";
 import { MaybeLiveLocals } from "./impls/liveness.ts";
-import { MoveData, MovePath, MovePathIndex } from "./move_paths/mod.ts";
 import { mir_pretty_extra_data } from "./pretty.ts";
 import { sanity_check } from "./rustc_peek.ts";
 import "../rustc_middle/lib.ts";
-import { BasicBlock, BasicBlockData, Body, Location, SourceInfo, Terminator, TerminatorKind } from "../rustc_middle/mir/mod.ts";
+import { BasicBlockData, Body, SourceInfo, Terminator, TerminatorKind } from "../rustc_middle/mir/mod.ts";
 import { MixedBitSet } from "../rustc_index/bit_set.ts";
 import { DUMMY_SP } from "../rustc_span/lib.ts";
 import { PLAIN } from "../std/fmt.ts";
@@ -69,6 +67,13 @@ const PORTED = [
   "framework/results.rs",
   "framework/tests.rs",
   "framework/visitor.rs",
+  // lane dataflow-move-paths (wave 22)
+  "debuginfo.rs",
+  "drop_flag_effects.rs",
+  "move_paths/builder.rs",
+  "move_paths/mod.rs",
+  "points.rs",
+  "un_derefer.rs",
 ];
 
 function walk(dir: string, out: string[] = []): string[] {
@@ -150,8 +155,8 @@ test("every fn of rustc_mir_dataflow is ported or declared as a stub, never both
   // nothing outside the crate's files
   for (const d of [...stubs, ...markers]) expect(FILES.some((f) => `${CRATE}/${f}` === d.path)).toBe(true);
   expect(total).toBe(378);
-  expect(markers.length).toBe(109);
-  expect(stubs.length).toBe(269);
+  expect(markers.length).toBe(172);
+  expect(stubs.length).toBe(206);
 });
 
 test("the crate root loads and re-exports the framework", () => {
@@ -181,17 +186,7 @@ function stops(f: () => unknown, what: string): void {
 test("stubs stop as UNPORTED in their own module", () => {
   const tcx = {} as TyCtxt;
   const body = {} as Body;
-  stops(() => MoveData.gather_moves(body, tcx, () => true), "rustc_mir_dataflow::move_paths::MoveData::gather_moves");
-  stops(
-    () => new MovePath(undefined, undefined, undefined, {} as never).find_descendant([], () => true),
-    "rustc_mir_dataflow::move_paths::MovePath::find_descendant",
-  );
-  stops(() => MovePathIndex.Atom.index(MovePathIndex.from_u32(0)), "rustc_mir_dataflow::move_paths::MovePathIndex::Atom::index");
-  stops(
-    () => drop_flag_effects_for_location(body, {} as MoveData, new Location(BasicBlock.from_u32(0), 0), () => {}),
-    "rustc_mir_dataflow::drop_flag_effects::drop_flag_effects_for_location",
-  );
-  stops(() => DropFlagState.value("Present"), "rustc_mir_dataflow::drop_flag_effects::DropFlagState::value");
+  // (move_paths / drop_flag_effects / un_derefer / points / debuginfo are ported: move_paths/move_paths.test.ts)
   stops(() => write_graphviz_results(tcx, body, {} as never, undefined), "rustc_mir_dataflow::framework::graphviz::write_graphviz_results");
   // an analysis declared by the contract runs the framework up to its first stub
   stops(() => new MaybeLiveLocals().iterate_to_fixpoint(tcx, one_block_body(), undefined), "rustc_mir_dataflow::impls::liveness::MaybeLiveLocals::bottom_value");
