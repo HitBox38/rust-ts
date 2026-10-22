@@ -6,9 +6,19 @@
 
 import { BITMASK_ITER_MASK, BITMASK_STRIDE, type BitMaskWord } from "./group/mod.ts";
 
+const U64_MAX = 0xffff_ffff_ffff_ffffn;
+
 /** `u64::trailing_zeros` (64 for 0). */
-function u64_trailing_zeros(x: bigint): number {
+export function u64_trailing_zeros(x: bigint): number {
   if (x === 0n) return 64;
+  // PORT (perf-intern): for a u64, the two 32-bit halves with `Math.clz32` of the lowest set bit (same result as the
+  // bit loop below, which stays for a value outside 0..2^64).
+  if (x > 0n && x <= U64_MAX) {
+    const lo = Number(x & 0xffff_ffffn);
+    if (lo !== 0) return 31 - Math.clz32(lo & -lo);
+    const hi = Number(x >> 32n);
+    return 63 - Math.clz32(hi & -hi);
+  }
   let n = 0;
   while ((x & 1n) === 0n) {
     x >>= 1n;
@@ -18,7 +28,14 @@ function u64_trailing_zeros(x: bigint): number {
 }
 
 /** `u64::leading_zeros` (64 for 0). */
-function u64_leading_zeros(x: bigint): number {
+export function u64_leading_zeros(x: bigint): number {
+  // PORT (perf-intern): for a u64, `Math.clz32` of the two 32-bit halves (same result as the loop below, which stays
+  // for a value outside 0..2^64).
+  if (x >= 0n && x <= U64_MAX) {
+    const hi = Number(x >> 32n);
+    if (hi !== 0) return Math.clz32(hi);
+    return 32 + Math.clz32(Number(x));
+  }
   let n = 64;
   while (x !== 0n) {
     x >>= 1n;

@@ -9,7 +9,7 @@ import { msg } from "../../../rustc_errors/lib.ts";
 import type { Node as HirNode } from "../../../rustc_hir/hir.ts";
 import type { HirId } from "../../../rustc_hir_id/lib.ts";
 import type { InferCtxt } from "../../../rustc_infer/infer/mod.ts";
-import { Obligation } from "../../../rustc_infer/traits/mod.ts";
+import { Obligation, type PolyTraitObligation } from "../../../rustc_infer/traits/mod.ts";
 import type { PredicateObligation } from "../../../rustc_infer/traits/mod.gen.ts";
 import { type FieldPat, Pat, type PatKind, visit_with_Pat } from "../../../rustc_middle/thir.ts";
 import { ObligationCause } from "../../../rustc_middle/traits/mod.ts";
@@ -17,7 +17,7 @@ import type { TyCtxt } from "../../../rustc_middle/ty/context.ts";
 import type { Value } from "../../../rustc_middle/ty/decls.ts";
 import { GenericArg } from "../../../rustc_middle/ty/generic_args.ts";
 import { HasAttrs_DefId, type Ty, TypingEnv } from "../../../rustc_middle/ty/mod.ts";
-import { Predicate_upcast_from_PolyTraitRef, Predicate_upcast_from_TraitRef } from "../../../rustc_middle/ty/predicate.ts";
+import { Predicate_upcast_from_TraitRef } from "../../../rustc_middle/ty/predicate.ts";
 import { display_Ty } from "../../../rustc_middle/ty/print/pretty.ts";
 import { fold_Ty } from "../../../rustc_middle/ty/structural_impls.ts";
 import { fold_with_ParamEnv, try_fold_with_ParamEnv, visit_with_ParamEnv } from "../../../rustc_middle/ty/mod.ts";
@@ -33,7 +33,8 @@ import type { AliasConst } from "../../../rustc_middle/ty/consts.gen.ts";
 import type { TypeFoldable } from "../../../rustc_type_ir/fold.ts";
 import { TypeVisitableExt, type TypeVisitor, TypeVisitor_provided } from "../../../rustc_type_ir/visit.ts";
 import { visit_with_TraitRef } from "../../../rustc_type_ir/predicate.gen.ts";
-import { as_interner, TraitRef } from "../../../rustc_type_ir/predicate.ts";
+import { as_interner, PolyTraitClause, TraitRef } from "../../../rustc_type_ir/predicate.ts";
+import { compute_applicable_impls_for_diagnostics } from "../../../rustc_trait_selection/error_reporting/traits/ambiguity.ts";
 import { relate_AliasConst } from "../../../rustc_type_ir/relate.ts";
 import { type Const, debug_Const, fold_Const } from "../../../rustc_type_ir/sty/consts.ts";
 import { Unnormalized } from "../../../rustc_type_ir/unnormalized.ts";
@@ -762,12 +763,12 @@ export function type_has_partial_eq_impl(tcx: TyCtxt, typing_env: TypingEnv, ty:
   // bounds are met.
   let possibly_inapplicable_derived_partial_eq: boolean;
   {
-    const obligation: PredicateObligation = Obligation.new(
+    const obligation: PolyTraitObligation = Obligation.new(
       tcx,
       ObligationCause.dummy(),
       param_env,
       Binder.dummy(TraitRef.new(as_interner(tcx), partial_eq_trait_id, [ty, ty]), d_TraitRef),
-      (from, _cx) => Predicate_upcast_from_PolyTraitRef(from, tcx),
+      (from, _cx) => PolyTraitClause.upcast_from_PolyTraitRef(from, as_interner(tcx)),
     );
     possibly_inapplicable_derived_partial_eq = compute_applicable_impls_for_diagnostics(infcx, obligation, true).some(
       (candidate_source) =>
@@ -779,12 +780,12 @@ export function type_has_partial_eq_impl(tcx: TyCtxt, typing_env: TypingEnv, ty:
 
   let possibly_inapplicable_structural_partial_eq: boolean;
   {
-    const obligation: PredicateObligation = Obligation.new(
+    const obligation: PolyTraitObligation = Obligation.new(
       tcx,
       ObligationCause.dummy(),
       param_env,
       Binder.dummy(TraitRef.new(as_interner(tcx), structural_partial_eq_trait_id, [ty]), d_TraitRef),
-      (from, _cx) => Predicate_upcast_from_PolyTraitRef(from, tcx),
+      (from, _cx) => PolyTraitClause.upcast_from_PolyTraitRef(from, as_interner(tcx)),
     );
     possibly_inapplicable_structural_partial_eq = compute_applicable_impls_for_diagnostics(infcx, obligation, true).some(
       (candidate_source) => candidate_source.$ === "DefId",
@@ -806,19 +807,4 @@ export function type_has_partial_eq_impl(tcx: TyCtxt, typing_env: TypingEnv, ty:
     non_blanket_impl: impl_def_id,
     possibly_inapplicable_derived_partial_eq,
   };
-}
-
-// ---- stand-ins for fns of other upstream files that are not ported yet (not markers; repoint when they land) ----
-
-/** PORT: `rustc_trait_selection::error_reporting::traits::ambiguity::{CandidateSource,
- *  compute_applicable_impls_for_diagnostics}` (not ported). */
-type CandidateSource = { $: "DefId"; _0: DefId } | { $: "ParamEnv"; _0: Span };
-function compute_applicable_impls_for_diagnostics(
-  _infcx: InferCtxt,
-  _obligation: PredicateObligation,
-  _include_env_candidates: boolean,
-): CandidateSource[] {
-  return unported(
-    "rustc_trait_selection::error_reporting::traits::ambiguity::compute_applicable_impls_for_diagnostics (not ported)",
-  );
 }

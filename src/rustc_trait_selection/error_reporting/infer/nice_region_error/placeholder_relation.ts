@@ -1,21 +1,82 @@
-// Port of compiler/rustc_trait_selection/src/error_reporting/infer/nice_region_error/placeholder_relation.rs (lane errrep-nice-region; contract stub of lane errctxt-contract).
+// Port of compiler/rustc_trait_selection/src/error_reporting/infer/nice_region_error/placeholder_relation.rs (lane errrep-nice-region).
 //
-// How to fill this stub (docs/handoff/errctxt-contract.md "How to fill a stub"):
-// - Every fn of this file is declared in src/rustc_trait_selection/decls.ts under `// error_reporting/infer/nice_region_error/placeholder_relation.rs:<line>`:
-//   `interface TypeErrCtxt` (methods), `NiceRegionError` (methods / statics), `Fns_<module>` (free fns) or a comment-only
-//   declaration (trait impls, helper types: pick the TS form). Do not change a real signature; write a needed change in
-//   your handoff (or a local `declare module` marked `// PORT(decls): pending root`).
-// - Methods: in upstream order, `TypeErrCtxt.prototype.<name> = function (this: TypeErrCtxt, ..): R { .. };` with
-//   `// rustc: compiler/rustc_trait_selection/src/error_reporting/infer/nice_region_error/placeholder_relation.rs:<line> <name>` directly above, then delete the name from the
-//   `unported_methods(..)` list below (and the call when the list is empty). In a split file edit only your lane's list.
-// - Free fns: replace `export const f = ((): never => unported(..)) as Fns_..["f"]` by `export function f(..)` with the
-//   declared signature and the marker. `self.tcx` / `self.infcx` / InferCtxt methods are read through the Deref forwarders
-//   (`this.tcx`, `this.next_ty_var(..)`); a `&TypeErrCtxt` passed as `&InferCtxt` is `this.infcx`.
-// Init order: top-level code here may touch only the crate decls.ts (TypeErrCtxt), this file's .gen.ts and other
-// crates; other rustc_trait_selection modules are read inside function bodies only.
-import { unported_methods } from "../../../../rust_ts/stubs.ts";
+// `impl NiceRegionError` methods are assigned onto `NiceRegionError.prototype` (declared in the crate decls.ts).
+// Init order: top-level code here touches only ./mod.ts (`NiceRegionError`) and other crates; the crate's diagnostics
+// module is read inside function bodies only.
+import type { Diag } from "../../../../rustc_errors/lib.ts";
+import type { Span } from "../../../../rustc_span/lib.ts";
+import { bug } from "../../../../rustc_span/macros.ts";
+import type { Symbol } from "../../../../rustc_span/symbol.ts";
+import type { BoundRegionKind } from "../../../../rustc_type_ir/binder.ts";
+import type { PlaceholderRelationLfNotSatisfied } from "../../../diagnostics.gen.ts";
 import { NiceRegionError } from "./mod.ts";
 
-unported_methods(NiceRegionError.prototype, "rustc_trait_selection::error_reporting::infer::nice_region_error::placeholder_relation::NiceRegionError", [
-  "try_report_placeholder_relation",
-]);
+/** The crate's diagnostics.gen.ts (read lazily, init order). */
+function diagnostics_gen(): typeof import("../../../diagnostics.gen.ts") {
+  return (diagnostics_gen__m ??= require("../../../diagnostics.gen.ts") as typeof import("../../../diagnostics.gen.ts"));
+}
+var diagnostics_gen__m: typeof import("../../../diagnostics.gen.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
+
+// impl<'tcx> NiceRegionError<'_, 'tcx> {
+/// Emitted wwhen given a `ConcreteFailure` when relating two placeholders.
+// rustc: compiler/rustc_trait_selection/src/error_reporting/infer/nice_region_error/placeholder_relation.rs:12 try_report_placeholder_relation
+NiceRegionError.prototype.try_report_placeholder_relation = function (this: NiceRegionError): Diag | undefined {
+  const e = this.error;
+  let sub_k, sup_k;
+  if (
+    e !== undefined &&
+    e.$ === "ConcreteFailure" &&
+    e._0.$ === "RelateRegionParamBound" &&
+    (sub_k = e._1.kind()).$ === "RePlaceholder" &&
+    (sup_k = e._2.kind()).$ === "RePlaceholder"
+  ) {
+    const sub_name: BoundRegionKind = sub_k._0.bound.kind;
+    const sup_name: BoundRegionKind = sup_k._0.bound.kind;
+    const span = e._0._0;
+    let sub_span: Span | undefined;
+    let sub_symbol: Symbol | undefined;
+    switch (sub_name.$) {
+      case "Named": {
+        const def_id = sub_name._0;
+        [sub_span, sub_symbol] = [this.tcx().def_span(def_id), this.tcx().item_name(def_id)];
+        break;
+      }
+      case "Anon":
+      case "ClosureEnv":
+        [sub_span, sub_symbol] = [undefined, undefined];
+        break;
+      case "NamedForPrinting":
+        return bug("only used for pretty printing");
+    }
+    let sup_span: Span | undefined;
+    let sup_symbol: Symbol | undefined;
+    switch (sup_name.$) {
+      case "Named": {
+        const def_id = sup_name._0;
+        [sup_span, sup_symbol] = [this.tcx().def_span(def_id), this.tcx().item_name(def_id)];
+        break;
+      }
+      case "Anon":
+      case "ClosureEnv":
+        [sup_span, sup_symbol] = [undefined, undefined];
+        break;
+      case "NamedForPrinting":
+        return bug("only used for pretty printing");
+    }
+    let diag: PlaceholderRelationLfNotSatisfied;
+    if (sub_span !== undefined && sup_span !== undefined && sub_symbol !== undefined && sup_symbol !== undefined) {
+      diag = { $: "HasBoth", span, sub_span, sup_span, sub_symbol, sup_symbol, note: null };
+    } else if (sub_span !== undefined && sup_span !== undefined && sup_symbol !== undefined) {
+      diag = { $: "HasSup", span, sub_span, sup_span, sup_symbol, note: null };
+    } else if (sub_span !== undefined && sup_span !== undefined && sub_symbol !== undefined) {
+      diag = { $: "HasSub", span, sub_span, sup_span, sub_symbol, note: null };
+    } else if (sub_span !== undefined && sup_span !== undefined) {
+      diag = { $: "HasNone", span, sub_span, sup_span, note: null };
+    } else {
+      diag = { $: "OnlyPrimarySpan", span, note: null };
+    }
+    return this.tcx().dcx().create_err(diagnostics_gen().PlaceholderRelationLfNotSatisfied_diagnostic(diag));
+  }
+  return undefined;
+};
+// }

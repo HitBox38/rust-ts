@@ -27,10 +27,10 @@ import { type AstOwner, type DocLinkResMap, type ModChild, type ResolverAstLower
 import { type DeprecationEntry, debug_DeprecationEntry } from "./middle/stability.ts";
 import { describe_as_module } from "./queries.ts";
 import { into_query_key_DefId, into_query_key_LocalDefId, into_query_key_identity } from "./query/into_query_key.ts";
-import { KEY_AliasTyKind, KEY_CanonicalAliasGoal, KEY_CanonicalDropckOutlivesGoal, KEY_CanonicalImpliedOutlivesBoundsGoal_bool, KEY_CanonicalInput_usize, KEY_CanonicalMethodAutoderefStepsGoal, KEY_CanonicalPredicateGoal, KEY_CanonicalTypeOpAscribeUserTypeGoal, KEY_CanonicalTypeOpNormalizeGoal_Clause, KEY_CanonicalTypeOpNormalizeGoal_FnSig, KEY_CanonicalTypeOpNormalizeGoal_PolyFnSig, KEY_CanonicalTypeOpNormalizeGoal_Ty, KEY_CanonicalTypeOpProvePredicateGoal, KEY_Clauses, KEY_CrateNum, KEY_CrateNum_DefId, KEY_CrateNum_SimplifiedType, KEY_DefId, KEY_DefId_DefId, KEY_DefId_GenericArgsRef, KEY_DefId_Ident, KEY_DefId_SizedTraitKind, KEY_GenericArgsRef, KEY_LitToConstInput, KEY_LocalDefId, KEY_LocalDefId_LocalDefId_Ident, KEY_LocalModId, KEY_ModId, KEY_Option_Symbol, KEY_OsStr, KEY_OwnerId, KEY_PseudoCanonicalInput_GenericArg, KEY_PseudoCanonicalInput_TraitRef, KEY_PseudoCanonicalInput_Ty, KEY_SimplifiedType, KEY_Symbol, KEY_TraitRef, KEY_Ty, KEY_Ty_Option_ExistentialTraitRef, KEY_Ty_Ty, KEY_unit, type LocalQueryKeyOf, key_unported } from "./query/keys.ts";
+import { KEY_AliasTyKind, KEY_CanonicalAliasGoal, KEY_CanonicalDropckOutlivesGoal, KEY_CanonicalImpliedOutlivesBoundsGoal_bool, KEY_CanonicalInput_usize, KEY_CanonicalMethodAutoderefStepsGoal, KEY_CanonicalPredicateGoal, KEY_CanonicalTypeOpAscribeUserTypeGoal, KEY_CanonicalTypeOpNormalizeGoal_Clause, KEY_CanonicalTypeOpNormalizeGoal_FnSig, KEY_CanonicalTypeOpNormalizeGoal_PolyFnSig, KEY_CanonicalTypeOpNormalizeGoal_Ty, KEY_CanonicalTypeOpProvePredicateGoal, KEY_Clauses, KEY_CrateNum, KEY_CrateNum_DefId, KEY_CrateNum_SimplifiedType, KEY_DefId, KEY_DefId_DefId, KEY_DefId_GenericArgsRef, KEY_DefId_Ident, KEY_DefId_SizedTraitKind, KEY_GenericArgsRef, KEY_LitToConstInput, KEY_LocalDefId, KEY_LocalDefId_LocalDefId_Ident, KEY_LocalModId, KEY_ModId, KEY_Option_Symbol, KEY_OsStr, KEY_OwnerId, KEY_Predicate_WellFormedLoc, KEY_PseudoCanonicalInput_DefId_GenericArgsRef, KEY_PseudoCanonicalInput_GenericArg, KEY_PseudoCanonicalInput_TraitRef, KEY_PseudoCanonicalInput_Ty, KEY_SimplifiedType, KEY_Symbol, KEY_TraitRef, KEY_Ty, KEY_Ty_Option_ExistentialTraitRef, KEY_Ty_Ty, KEY_unit, type LocalQueryKeyOf, key_unported } from "./query/keys.ts";
 import { type QueryDecl } from "./query/query_api.ts";
 import { stable_hash_Visibility } from "./stable_hash.gen.ts";
-import { type CodegenObligationError, type DynCompatibilityViolation, type ObligationCause, type WellFormedLoc, debug_DynCompatibilityViolation, debug_ObligationCause } from "./traits/mod.ts";
+import { type CodegenObligationError, type DynCompatibilityViolation, type ObligationCause, type WellFormedLoc, debug_DynCompatibilityViolation, debug_ObligationCause, debug_WellFormedLoc } from "./traits/mod.ts";
 import { type CanonicalAliasGoal, type CanonicalDropckOutlivesGoal, type CanonicalImpliedOutlivesBoundsGoal, type CanonicalMethodAutoderefStepsGoal, type CanonicalPredicateGoal, type CanonicalTypeOpAscribeUserTypeGoal, type CanonicalTypeOpNormalizeGoal, type CanonicalTypeOpProvePredicateGoal, type DropckConstraint, type DropckOutlivesResult, type MethodAutoderefStepsResult, type MirBorrowckImpliedOutlivesBounds, type NormalizationResult, type OutlivesBound, debug_DropckConstraint, debug_MethodAutoderefStepsResult } from "./traits/query.ts";
 import { type CanonicalInput } from "./traits/solve.ts";
 import { type Graph, debug_Graph } from "./traits/specialization_graph.ts";
@@ -38,8 +38,12 @@ import { type CoerceUnsizedInfo, debug_CoerceUnsizedInfo } from "./ty/adjustment
 import { type LitToConstInput } from "./ty/consts/lit.ts";
 import { type Limits, type TyCtxt } from "./ty/context.ts";
 import { type SimplifiedType, debug_SimplifiedType } from "./ty/fast_reject.ts";
+import { type Instance, type InstanceKind, debug_Instance, display_Instance } from "./ty/instance.ts";
+import { type FnAbiError, type LayoutError, type TyAndLayout, type ValidityRequirement } from "./ty/layout.ts";
 import { type PseudoCanonicalInput, type Ty, type Visibility, debug_Ty, debug_Visibility } from "./ty/mod.ts";
+import { type Predicate, debug_Predicate } from "./ty/predicate.ts";
 import { display_Ty } from "./ty/print/pretty.ts";
+import { type VtblEntry, debug_VtblEntry } from "./ty/vtable.ts";
 import { type CrateNum, type DefId, type DefIdMap, type LocalDefId, type LocalModId, type ModId, debug_CrateNum, debug_DefId, debug_LocalDefId, debug_ModId, display_CrateNum, stable_hash_CrateNum, stable_hash_DefId, stable_hash_LocalDefId } from "../rustc_span/def_id.ts";
 import { type ExpnId, type LocalExpnId, debug_ExpnId, stable_hash_ExpnId } from "../rustc_span/hygiene.ts";
 import { type ErrorGuaranteed, type Span, type Spanned, debug_ErrorGuaranteed, debug_Span, stable_hash_Span } from "../rustc_span/lib.ts";
@@ -455,8 +459,8 @@ export interface QueryTypes {
    *
    * Returns `None` for functions that were not instrumented.
    */
-  // PORT: key `ty::InstanceKind<'tcx>` not ported; value `Option<&'tcx mir::coverage::CoverageCodegenInfo>` not ported (`unknown`)
-  coverage_codegen_info: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: unknown | undefined; ProvidedValue: unknown | undefined };
+  // PORT: value `Option<&'tcx mir::coverage::CoverageCodegenInfo>` not ported (`unknown`)
+  coverage_codegen_info: { Key: InstanceKind; KeyArg: InstanceKind; LocalKey: InstanceKind; Value: unknown | undefined; ProvidedValue: unknown | undefined };
   /**
    * The `DefId` is the `DefId` of the containing MIR body. Promoteds do not have their own
    * `DefId`. This function returns all promoteds in the specified body. The body references
@@ -853,8 +857,8 @@ export interface QueryTypes {
   /**
    * Obtain all the calls into other local functions
    */
-  // PORT: key `ty::InstanceKind<'tcx>` not ported; value `&'tcx [(DefId, GenericArgsRef<'tcx>)]` not ported (`unknown`)
-  mir_inliner_callees: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: readonly [DefId, unknown][]; ProvidedValue: readonly [DefId, unknown][] };
+  // PORT: value `&'tcx [(DefId, GenericArgsRef<'tcx>)]` not ported (`unknown`)
+  mir_inliner_callees: { Key: InstanceKind; KeyArg: InstanceKind; LocalKey: InstanceKind; Value: readonly [DefId, unknown][]; ProvidedValue: readonly [DefId, unknown][] };
   /**
    * Computes the tag (if any) for a given type and variant.
    *
@@ -935,8 +939,8 @@ export interface QueryTypes {
    * given instance from the local crate. In particular, it will also
    * look up the correct symbol name of instances from upstream crates.
    */
-  // PORT: key `ty::Instance<'tcx>` not ported; value `ty::SymbolName<'tcx>` not ported (`unknown`)
-  symbol_name: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: unknown; ProvidedValue: unknown };
+  // PORT: value `ty::SymbolName<'tcx>` not ported (`unknown`)
+  symbol_name: { Key: Instance; KeyArg: Instance; LocalKey: Instance; Value: unknown; ProvidedValue: unknown };
   def_kind: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: DefKind; ProvidedValue: DefKind };
   /**
    * Gets the span for the definition.
@@ -1006,8 +1010,8 @@ export interface QueryTypes {
   impl_parent: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: DefId | undefined; ProvidedValue: DefId | undefined };
   is_mir_available: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: boolean; ProvidedValue: boolean };
   own_existential_vtable_entries: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: DefId; Value: readonly DefId[]; ProvidedValue: readonly DefId[] };
-  // PORT: key `ty::TraitRef<'tcx>` not ported; value `&'tcx [ty::VtblEntry<'tcx>]` not ported (`unknown`)
-  vtable_entries: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: readonly unknown[]; ProvidedValue: readonly unknown[] };
+  // PORT: key `ty::TraitRef<'tcx>` not ported (`unknown`)
+  vtable_entries: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: readonly VtblEntry[]; ProvidedValue: readonly VtblEntry[] };
   // PORT: key `ty::TraitRef<'tcx>` not ported (`unknown`)
   first_method_vtable_slot: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: number; ProvidedValue: number };
   supertrait_vtable_slot: { Key: [Ty, Ty]; KeyArg: [Ty, Ty]; LocalKey: [Ty, Ty]; Value: number | undefined; ProvidedValue: number | undefined };
@@ -1148,8 +1152,7 @@ export interface QueryTypes {
    * Computes the layout of a type. Note that this implicitly
    * executes in `TypingMode::PostAnalysis`, and will normalize the input type.
    */
-  // PORT: value `Result<ty::layout::TyAndLayout<'tcx>, &'tcx ty::layout::LayoutError<'tcx>>` not ported (`unknown`)
-  layout_of: { Key: PseudoCanonicalInput<Ty>; KeyArg: PseudoCanonicalInput<Ty>; LocalKey: PseudoCanonicalInput<Ty>; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
+  layout_of: { Key: PseudoCanonicalInput<Ty>; KeyArg: PseudoCanonicalInput<Ty>; LocalKey: PseudoCanonicalInput<Ty>; Value: Result<TyAndLayout, LayoutError>; ProvidedValue: Result<TyAndLayout, LayoutError> };
   /**
    * Compute a `FnAbi` suitable for indirect calls, i.e. to `fn` pointers.
    *
@@ -1157,7 +1160,7 @@ export interface QueryTypes {
    * instead, where the instance is an `InstanceKind::Virtual`.
    */
   // PORT: key `ty::PseudoCanonicalInput<'tcx, (ty::PolyFnSig<'tcx>, &'tcx ty::List<Ty<'tcx>>)>` not ported; value `Result<&'tcx rustc_target::callconv::FnAbi<'tcx, Ty<'tcx>>, &'tcx ty::layout::FnAbiError<'tcx>>` not ported (`unknown`)
-  fn_abi_of_fn_ptr: { Key: PseudoCanonicalInput<[unknown, unknown]>; KeyArg: PseudoCanonicalInput<[unknown, unknown]>; LocalKey: PseudoCanonicalInput<[unknown, unknown]>; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
+  fn_abi_of_fn_ptr: { Key: PseudoCanonicalInput<[unknown, unknown]>; KeyArg: PseudoCanonicalInput<[unknown, unknown]>; LocalKey: PseudoCanonicalInput<[unknown, unknown]>; Value: Result<unknown, FnAbiError>; ProvidedValue: Result<unknown, FnAbiError> };
   /**
    * Compute a `FnAbi` suitable for declaring/defining an `fn` instance, and for direct calls*
    * to an `fn`. Indirectly-passed parameters in the returned ABI might not include all possible
@@ -1172,7 +1175,7 @@ export interface QueryTypes {
    *   `InstanceKind::Virtual` instance (of `<dyn Trait as Trait>::fn`).
    */
   // PORT: key `ty::PseudoCanonicalInput<'tcx, (ty::Instance<'tcx>, &'tcx ty::List<Ty<'tcx>>)>` not ported; value `Result<&'tcx rustc_target::callconv::FnAbi<'tcx, Ty<'tcx>>, &'tcx ty::layout::FnAbiError<'tcx>>` not ported (`unknown`)
-  fn_abi_of_instance_no_deduced_attrs: { Key: PseudoCanonicalInput<[unknown, unknown]>; KeyArg: PseudoCanonicalInput<[unknown, unknown]>; LocalKey: PseudoCanonicalInput<[unknown, unknown]>; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
+  fn_abi_of_instance_no_deduced_attrs: { Key: PseudoCanonicalInput<[Instance, unknown]>; KeyArg: PseudoCanonicalInput<[Instance, unknown]>; LocalKey: PseudoCanonicalInput<[Instance, unknown]>; Value: Result<unknown, FnAbiError>; ProvidedValue: Result<unknown, FnAbiError> };
   /**
    * Compute a `FnAbi` suitable for declaring/defining an `fn` instance, and for direct calls*
    * to an `fn`. Indirectly-passed parameters in the returned ABI will include applicable
@@ -1190,7 +1193,7 @@ export interface QueryTypes {
    *   `InstanceKind::Virtual` instance (of `<dyn Trait as Trait>::fn`).
    */
   // PORT: key `ty::PseudoCanonicalInput<'tcx, (ty::Instance<'tcx>, &'tcx ty::List<Ty<'tcx>>)>` not ported; value `Result<&'tcx rustc_target::callconv::FnAbi<'tcx, Ty<'tcx>>, &'tcx ty::layout::FnAbiError<'tcx>>` not ported (`unknown`)
-  fn_abi_of_instance_raw: { Key: PseudoCanonicalInput<[unknown, unknown]>; KeyArg: PseudoCanonicalInput<[unknown, unknown]>; LocalKey: PseudoCanonicalInput<[unknown, unknown]>; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
+  fn_abi_of_instance_raw: { Key: PseudoCanonicalInput<[Instance, unknown]>; KeyArg: PseudoCanonicalInput<[Instance, unknown]>; LocalKey: PseudoCanonicalInput<[Instance, unknown]>; Value: Result<unknown, FnAbiError>; ProvidedValue: Result<unknown, FnAbiError> };
   // PORT: value `&'tcx [(CrateNum, LinkagePreference)]` not ported (`unknown`)
   dylib_dependency_formats: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: readonly [CrateNum, unknown][]; ProvidedValue: readonly [CrateNum, unknown][] };
   // PORT: value `&'tcx Arc<crate::middle::dependency_format::Dependencies>` not ported (`unknown`)
@@ -1720,8 +1723,8 @@ export interface QueryTypes {
    *    from `Ok(None)` to avoid misleading diagnostics when an error
    *    has already been/will be emitted, for the original cause.
    */
-  // PORT: key `ty::PseudoCanonicalInput<'tcx, (DefId, GenericArgsRef<'tcx>)>` not ported; value `Result<Option<ty::Instance<'tcx>>, ErrorGuaranteed>` not ported (`unknown`)
-  resolve_instance_raw: { Key: PseudoCanonicalInput<[DefId, unknown]>; KeyArg: PseudoCanonicalInput<[DefId, unknown]>; LocalKey: PseudoCanonicalInput<[DefId, unknown]>; Value: Result<unknown | undefined, ErrorGuaranteed>; ProvidedValue: Result<unknown | undefined, ErrorGuaranteed> };
+  // PORT: key `ty::PseudoCanonicalInput<'tcx, (DefId, GenericArgsRef<'tcx>)>` not ported (`unknown`)
+  resolve_instance_raw: { Key: PseudoCanonicalInput<[DefId, unknown]>; KeyArg: PseudoCanonicalInput<[DefId, unknown]>; LocalKey: PseudoCanonicalInput<[DefId, unknown]>; Value: Result<Instance | undefined, ErrorGuaranteed>; ProvidedValue: Result<Instance | undefined, ErrorGuaranteed> };
   // PORT: key `ty::Clauses<'tcx>` not ported; value `ty::Clauses<'tcx>` not ported (`unknown`)
   reveal_opaque_types_in_bounds: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: unknown; ProvidedValue: unknown };
   limits: { Key: null; KeyArg: null; LocalKey: null; Value: Limits; ProvidedValue: Limits };
@@ -1735,10 +1738,8 @@ export interface QueryTypes {
    * all of the cases that the normal `ty::Ty`-based wfcheck does. This is fine,
    * because the `ty::Ty`-based wfcheck is always run.
    */
-  // PORT: key `(ty::Predicate<'tcx>, WellFormedLoc)` not ported (`unknown`)
-  diagnostic_hir_wf_check: { Key: [unknown, WellFormedLoc]; KeyArg: [unknown, WellFormedLoc]; LocalKey: [unknown, WellFormedLoc]; Value: ObligationCause | undefined; ProvidedValue: ObligationCause | undefined };
-  // PORT: key `(ValidityRequirement, ty::PseudoCanonicalInput<'tcx, Ty<'tcx>>)` not ported; value `Result<bool, &'tcx ty::layout::LayoutError<'tcx>>` not ported (`unknown`)
-  check_validity_requirement: { Key: [unknown, PseudoCanonicalInput<Ty>]; KeyArg: [unknown, PseudoCanonicalInput<Ty>]; LocalKey: [unknown, PseudoCanonicalInput<Ty>]; Value: Result<boolean, unknown>; ProvidedValue: Result<boolean, unknown> };
+  diagnostic_hir_wf_check: { Key: [Predicate, WellFormedLoc]; KeyArg: [Predicate, WellFormedLoc]; LocalKey: [Predicate, WellFormedLoc]; Value: ObligationCause | undefined; ProvidedValue: ObligationCause | undefined };
+  check_validity_requirement: { Key: [ValidityRequirement, PseudoCanonicalInput<Ty>]; KeyArg: [ValidityRequirement, PseudoCanonicalInput<Ty>]; LocalKey: [ValidityRequirement, PseudoCanonicalInput<Ty>]; Value: Result<boolean, LayoutError>; ProvidedValue: Result<boolean, LayoutError> };
   /**
    * This takes the def-id of an associated item from a impl of a trait,
    * and checks its validity against the trait item it corresponds to.
@@ -1764,12 +1765,10 @@ export interface QueryTypes {
    * This is used for lints/errors that can only be checked once the instance is fully
    * monomorphized.
    */
-  // PORT: key `ty::Instance<'tcx>` not ported (`unknown`)
-  check_mono_item: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: null; ProvidedValue: null };
+  check_mono_item: { Key: Instance; KeyArg: Instance; LocalKey: Instance; Value: null; ProvidedValue: null };
   // PORT: key `(ty::Instance<'tcx>, CollectionMode)` not ported; value `Result<(&'tcx [Spanned<MonoItem<'tcx>>], &'tcx [Spanned<MonoItem<'tcx>>]), NormalizationErrorInMono>` not ported (`unknown`)
-  items_of_instance: { Key: [unknown, unknown]; KeyArg: [unknown, unknown]; LocalKey: [unknown, unknown]; Value: Result<[readonly Spanned<unknown>[], readonly Spanned<unknown>[]], unknown>; ProvidedValue: Result<[readonly Spanned<unknown>[], readonly Spanned<unknown>[]], unknown> };
-  // PORT: key `ty::Instance<'tcx>` not ported (`unknown`)
-  size_estimate: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: number; ProvidedValue: number };
+  items_of_instance: { Key: [Instance, unknown]; KeyArg: [Instance, unknown]; LocalKey: [Instance, unknown]; Value: Result<[readonly Spanned<unknown>[], readonly Spanned<unknown>[]], unknown>; ProvidedValue: Result<[readonly Spanned<unknown>[], readonly Spanned<unknown>[]], unknown> };
+  size_estimate: { Key: Instance; KeyArg: Instance; LocalKey: Instance; Value: number; ProvidedValue: number };
   // PORT: value `ty::AnonConstKind` not ported (`unknown`)
   anon_const_kind: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: unknown; ProvidedValue: unknown };
   // PORT: value `Option<(mir::ConstValue, Ty<'tcx>)>` not ported (`unknown`)
@@ -4373,7 +4372,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     no_hash: false,
     separate_provide_extern: false,
     returns_error_guaranteed: false,
-    desc: () => unported("desc of query `symbol_name` (Display of `rustc_middle::ty::Instance`)"),
+    desc: (_tcx, key) => { const __0 = key; return `computing the symbol for \`${display_Instance(__0)}\``; },
     debug_value: undefined,
     stable_hash_value: undefined,
   },
@@ -4770,7 +4769,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: false,
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `vtable_entries` (field `.def_id`)"),
-    debug_value: undefined,
+    debug_value: (v, f) => debug_vec(v, f, (x, f) => debug_VtblEntry(x, f)),
     stable_hash_value: undefined,
   },
   first_method_vtable_slot: {
@@ -7331,7 +7330,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
   },
   resolve_instance_raw: {
     name: "resolve_instance_raw",
-    key: key_unported("ty::PseudoCanonicalInput<'tcx, (DefId, GenericArgsRef<'tcx>)>"),
+    key: KEY_PseudoCanonicalInput_DefId_GenericArgsRef,
     into_key: into_query_key_identity,
     arena_cache: false,
     cache_on_disk: false,
@@ -7344,7 +7343,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: false,
     returns_error_guaranteed: true,
     desc: () => unported("desc of query `resolve_instance_raw` (call of a path)"),
-    debug_value: undefined,
+    debug_value: (v, f) => debug_result(v, f, ((x, f) => debug_option(x, f, ((x, f) => debug_Instance(x, f)))), ((x, f) => debug_ErrorGuaranteed(x, f))),
     stable_hash_value: undefined,
   },
   reveal_opaque_types_in_bounds: {
@@ -7385,7 +7384,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
   },
   diagnostic_hir_wf_check: {
     name: "diagnostic_hir_wf_check",
-    key: key_unported("(ty::Predicate<'tcx>, WellFormedLoc)"),
+    key: KEY_Predicate_WellFormedLoc,
     into_key: into_query_key_identity,
     arena_cache: true,
     cache_on_disk: false,
@@ -7397,7 +7396,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     no_hash: true,
     separate_provide_extern: false,
     returns_error_guaranteed: false,
-    desc: () => unported("desc of query `diagnostic_hir_wf_check` (Debug of `rustc_middle::ty::Predicate`)"),
+    desc: (_tcx, key) => { const __0 = key[0]; const __1 = key[1]; return `performing HIR wf-checking for predicate \`${debug_Predicate(__0, PLAIN)}\` at item \`${debug_WellFormedLoc(__1, PLAIN)}\``; },
     debug_value: (v, f) => debug_option(v, f, ((x, f) => debug_ObligationCause(x, f))),
     stable_hash_value: undefined,
   },
@@ -7577,7 +7576,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     no_hash: false,
     separate_provide_extern: false,
     returns_error_guaranteed: false,
-    desc: () => unported("desc of query `items_of_instance` (Display of `rustc_middle::ty::Instance`)"),
+    desc: (_tcx, key) => { const __0 = key[0]; return `collecting items used by \`${display_Instance(__0)}\``; },
     debug_value: undefined,
     stable_hash_value: undefined,
   },
@@ -7595,7 +7594,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     no_hash: false,
     separate_provide_extern: false,
     returns_error_guaranteed: false,
-    desc: () => unported("desc of query `size_estimate` (Display of `rustc_middle::ty::Instance`)"),
+    desc: (_tcx, key) => { const __0 = key; return `estimating codegen size of \`${display_Instance(__0)}\``; },
     debug_value: (v, f) => debug_int(v, f),
     stable_hash_value: stable_hash_usize,
   },

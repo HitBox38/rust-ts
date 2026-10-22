@@ -39,6 +39,7 @@ import { ObligationCause } from "../rustc_middle/traits/mod.ts";
 import { fold_with_ObligationCause, try_fold_with_ObligationCause, visit_with_ObligationCause } from "../rustc_middle/traits/mod.gen.ts";
 import { type Adjustment, type PatAdjustment } from "../rustc_middle/ty/adjustment.ts";
 import { fold_with_Adjustment, fold_with_PatAdjustment, try_fold_with_Adjustment, try_fold_with_PatAdjustment, visit_with_Adjustment, visit_with_PatAdjustment } from "../rustc_middle/ty/adjustment.gen.ts";
+import * as middle_closure from "../rustc_middle/ty/closure.ts";
 import type { CapturedPlace } from "../rustc_middle/ty/closure.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import type { HirPlace } from "../rustc_middle/ty/decls.ts";
@@ -1252,11 +1253,11 @@ const fold_ClosureSizeProfileData: TypeFoldable<ClosureSizeProfileData> = {
   try_fold_with: (self, folder) => middle_ty.try_fold_with_ClosureSizeProfileData(self, folder),
   fold_with: (self, folder) => middle_ty.fold_with_ClosureSizeProfileData(self, folder),
 };
-/** `#[derive(TypeFoldable, TypeVisitable)] for ty::CapturedPlace` (rustc_middle ty/closure.rs; not generated yet). */
+/** `#[derive(TypeFoldable, TypeVisitable)] for ty::CapturedPlace` (hand-written in rustc_middle ty/closure.ts). */
 const fold_CapturedPlace: TypeFoldable<CapturedPlace> = {
-  visit_with: () => unported("TypeVisitable for ty::CapturedPlace (derive; tools/codegen)"),
-  try_fold_with: () => unported("TypeFoldable for ty::CapturedPlace (derive; tools/codegen)"),
-  fold_with: () => unported("TypeFoldable for ty::CapturedPlace (derive; tools/codegen)"),
+  visit_with: (self, visitor) => middle_closure.visit_with_CapturedPlace(self, visitor),
+  try_fold_with: (self, folder) => middle_closure.try_fold_with_CapturedPlace(self, folder),
+  fold_with: (self, folder) => middle_closure.fold_with_CapturedPlace(self, folder),
 };
 /** `#[derive(TypeFoldable, TypeVisitable)] for hir::place::Place` (generated into rustc_middle hir/place.ts). */
 const fold_HirPlace: TypeFoldable<HirPlace> = {

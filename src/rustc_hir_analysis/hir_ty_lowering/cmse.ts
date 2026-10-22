@@ -3,10 +3,8 @@
 // The free fns keep the signatures of decls.ts `Fns_hir_ty_lowering_cmse`.
 // Init order: top-level code here may touch only ../decls.ts (the classes), this file's .gen.ts and other crates; every other
 // rustc_hir_analysis export is read inside function bodies only.
-// PORT: layouts are M4. `LayoutError`, `TyAndLayout` and `LayoutCx` are pending types (ty/decls.ts, ../decls.ts); this file
-// reads `LayoutError` through a local view in its PORTING §5 shape (`LayoutErrorView`, ty/layout.rs:253) and reaches the
-// layout data only through the stand-ins at the end, which stop as UNPORTED. `tcx.layout_of` is the query (its provider
-// is not ported, so it stops first).
+// Layouts: `LayoutError`, `TyAndLayout` and `LayoutCx` are rustc_middle ty/layout.ts's (lane layout-contract repointed the
+// former local view and stand-ins to them).
 // PORT: `u64` sizes / alignments are `number`: cmse ABIs exist only on 32-bit Armv8-M targets, so they stay < 2^53.
 import { display_ExternAbi, type ExternAbi } from "../../rustc_abi/extern_abi.ts";
 import { type DiagCtxtHandle, E0781, struct_span_code_err } from "../../rustc_errors/lib.ts";
@@ -15,6 +13,7 @@ import type * as hir from "../../rustc_hir/lib.ts";
 import { FnRetTy, Node as HirNode } from "../../rustc_hir/lib.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import type { LayoutError, TyAndLayout } from "../../rustc_middle/ty/decls.ts";
+import { LayoutCx as LayoutCx_ } from "../../rustc_middle/ty/layout.ts";
 import { type Ty, TypingEnv } from "../../rustc_middle/ty/mod.ts";
 import { fold_Ty } from "../../rustc_middle/ty/structural_impls.ts";
 import type { ErrorGuaranteed, Span } from "../../rustc_span/lib.ts";
@@ -110,16 +109,16 @@ export function is_valid_cmse_inputs(
     const ty = inputs[i]!;
     const hir_ty = fn_decl.inputs[i]!;
     if (TypeVisitableExt.has_infer_types(ty, fold_Ty)) {
-      const err: LayoutErrorView = { $: "Unknown", _0: ty };
-      return Err([hir_ty.span, /* tcx.arena.alloc */ err as unknown as LayoutError]);
+      const err: LayoutError = { $: "Unknown", _0: ty };
+      return Err([hir_ty.span, /* tcx.arena.alloc */ err]);
     }
 
-    const layout_r = tcx.layout_of(TypingEnv.fully_monomorphized().as_query_input(ty)) as Result<TyAndLayout, LayoutError>;
+    const layout_r = tcx.layout_of(TypingEnv.fully_monomorphized().as_query_input(ty));
     if (layout_r.$ === "Err") return Err([hir_ty.span, layout_r._0]);
     const layout = layout_r._0;
 
-    const align = TyAndLayout_layout_align_bytes(layout);
-    const size = TyAndLayout_layout_size_bytes(layout);
+    const align = layout.layout.align().abi.bytes();
+    const size = layout.layout.size().bytes();
 
     accum += size;
     accum = next_multiple_of(accum, Math.max(4, align));
@@ -168,15 +167,15 @@ export function is_valid_cmse_output(
   }
 
   if (TypeVisitableExt.has_infer_types(return_type, fold_Ty)) {
-    const err: LayoutErrorView = { $: "Unknown", _0: return_type };
-    return Err(/* tcx.arena.alloc */ err as unknown as LayoutError);
+    const err: LayoutError = { $: "Unknown", _0: return_type };
+    return Err(/* tcx.arena.alloc */ err);
   }
 
   const typing_env = TypingEnv.fully_monomorphized();
-  const layout_r = tcx.layout_of(typing_env.as_query_input(return_type)) as Result<TyAndLayout, LayoutError>;
+  const layout_r = tcx.layout_of(typing_env.as_query_input(return_type));
   if (layout_r.$ === "Err") return layout_r;
   const layout = layout_r._0;
-  const layout_cx = LayoutCx_new(tcx, typing_env);
+  const layout_cx = LayoutCx_.new(tcx, typing_env);
 
   if (!is_valid_cmse_output_layout(layout_cx, layout)) {
     dcx.emit_err(CmseOutputStackSpill_diagnostic({ span: FnRetTy.span(fn_decl.output), abi }));
@@ -188,7 +187,7 @@ export function is_valid_cmse_output(
 /// Returns whether the output will fit into the available registers
 // rustc: compiler/rustc_hir_analysis/src/hir_ty_lowering/cmse.rs:162 is_valid_cmse_output_layout
 export function is_valid_cmse_output_layout(cx: LayoutCx, layout: TyAndLayout): boolean {
-  const size = TyAndLayout_layout_size_bytes(layout);
+  const size = layout.layout.size().bytes();
 
   if (size <= 4) {
     return true;
@@ -197,14 +196,14 @@ export function is_valid_cmse_output_layout(cx: LayoutCx, layout: TyAndLayout): 
   }
 
   // Accept (transparently wrapped) scalar 64-bit primitives.
-  const kind = TyAndLayout_peel_transparent_wrappers_from_non_1zst_ty(layout, cx).kind();
+  const kind = layout.peel_transparent_wrappers_from_non_1zst(cx).ty.kind();
   return (kind.$ === "Int" && kind._0 === "I64") || (kind.$ === "Uint" && kind._0 === "U64") || (kind.$ === "Float" && kind._0 === "F64");
 }
 
 // rustc: compiler/rustc_hir_analysis/src/hir_ty_lowering/cmse.rs:178 should_emit_layout_error
 export function should_emit_layout_error(abi: ExternAbi, layout_err_: LayoutError): boolean {
   // use LayoutError::*;
-  const layout_err = layout_err_ as unknown as LayoutErrorView;
+  const layout_err = layout_err_;
 
   switch (layout_err.$) {
     case "TooGeneric": {
@@ -230,42 +229,8 @@ export function should_emit_layout_error(abi: ExternAbi, layout_err_: LayoutErro
 
 // ---- local helpers (not ports) ----
 
-/**
- * rustc_middle ty/layout.rs:253 `enum LayoutError<'tcx>` as read here (PORTING §5 shape). PORT: a local view of the pending
- * `LayoutError`; the payloads this file does not read are `unknown`.
- */
-type LayoutErrorView =
-  | { readonly $: "Unknown"; _0: Ty }
-  | { readonly $: "SizeOverflow"; _0: Ty }
-  | { readonly $: "InvalidSimd"; ty: Ty; kind: unknown }
-  | { readonly $: "TooGeneric"; _0: Ty }
-  | { readonly $: "NormalizationFailure"; _0: Ty; _1: unknown }
-  | { readonly $: "ReferencesError"; _0: ErrorGuaranteed };
-
 /** `u64::next_multiple_of` (panics on a zero `rhs`, as the `Ord::max(4, ..)` argument never is). */
 function next_multiple_of(lhs: number, rhs: number): number {
   const r = lhs % rhs;
   return r === 0 ? lhs : lhs + (rhs - r);
-}
-
-// ==== stand-ins (PORT: M4 layout, not ported). Root replaces each when rustc_middle ty/layout.rs / rustc_abi land. ====
-
-/** `layout.layout.align().bytes()` (rustc_abi `Layout::align`, `Align::bytes`). */
-function TyAndLayout_layout_align_bytes(_layout: TyAndLayout): number {
-  return unported("rustc_abi::Layout::align");
-}
-
-/** `layout.layout.size().bytes()` (rustc_abi `Layout::size`, `Size::bytes`). */
-function TyAndLayout_layout_size_bytes(_layout: TyAndLayout): number {
-  return unported("rustc_abi::Layout::size");
-}
-
-/** `layout.peel_transparent_wrappers_from_non_1zst(&cx).ty` (rustc_abi layout/ty.rs:268). */
-function TyAndLayout_peel_transparent_wrappers_from_non_1zst_ty(_layout: TyAndLayout, _cx: LayoutCx): Ty {
-  return unported("rustc_abi::TyAndLayout::peel_transparent_wrappers_from_non_1zst");
-}
-
-/** `LayoutCx::new(tcx, typing_env)` (rustc_middle ty/layout.rs:323). */
-function LayoutCx_new(_tcx: TyCtxt, _typing_env: TypingEnv): LayoutCx {
-  return unported("rustc_middle::ty::layout::LayoutCx::new");
 }

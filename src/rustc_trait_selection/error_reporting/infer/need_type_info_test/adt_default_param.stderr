@@ -1,0 +1,23 @@
+warning: the feature `lang_items` is internal to the compiler or standard library
+ --> adt_default_param.rs:1:21
+  |
+1 | #![feature(no_core, lang_items)]
+  |                     ^^^^^^^^^^
+  |
+  = note: using it is strongly discouraged
+  = note: `#[warn(internal_features)]` on by default
+
+error[E0282]: type annotations needed
+ --> adt_default_param.rs:8:14
+  |
+8 | pub fn f() { S::new(); }
+  |              ^^^^^^ cannot infer type of the type parameter `T` declared on the struct `S`
+  |
+help: consider specifying a concrete type for the type parameter `T`
+  |
+8 | pub fn f() { S::</* Type */>::new(); }
+  |               ++++++++++++++
+
+error: aborting due to 1 previous error; 1 warning emitted
+
+For more information about this error, try `rustc --explain E0282`.

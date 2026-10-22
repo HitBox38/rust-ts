@@ -80,5 +80,6 @@ export function Mutability_from_AutoBorrowMutability(m: AutoBorrowMutability): M
 
 /** PORT (merge-w15b): ty/assoc.ts is an extension module of `TyCtxt`: reached lazily. */
 function assoc(): typeof import("./assoc.ts") {
-  return require("./assoc.ts") as typeof import("./assoc.ts");
+  return (assoc__m ??= require("./assoc.ts") as typeof import("./assoc.ts"));
 }
+var assoc__m: typeof import("./assoc.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)

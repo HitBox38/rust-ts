@@ -57,14 +57,18 @@ test.skipIf(!HAVE_UPSTREAM && !REQUIRE_PROBES)("golden: the rustc_ty set reprodu
   expect([res.files.size, sum("types"), sum("debug_fns"), sum("type_fold"), sum("decodable")]).toEqual([35, 255, 128, 204, 94]);
   for (const [file, content] of res.files) expect(content).toBe(readFileSync(file, "utf8"));
   // no stale generated file of the set left on disk (fast_reject.gen.ts / stable_hash.gen.ts belong to set rustc_type_ir,
-  // typeck_results.gen.ts to set rustc_middle_typeck_results, mod.gen.ts to set rustc_middle_ty_mod)
+  // typeck_results.gen.ts to set rustc_middle_typeck_results, mod.gen.ts to set rustc_middle_ty_mod, print/pretty.gen.ts to set
+  // rustc_middle_ty_print, instance.gen.ts / vtable.gen.ts to set rustc_middle_ty_instance)
   const onDisk: string[] = [];
   for (const dir of ["rustc_type_ir", "rustc_middle/ty"])
     for (const f of readdirSync(join(SRC, dir), { recursive: true }) as string[])
       if (
         f.endsWith(".gen.ts") &&
         !(dir === "rustc_type_ir" && (f === "fast_reject.gen.ts" || f === "stable_hash.gen.ts")) &&
-        !(dir === "rustc_middle/ty" && (f === "typeck_results.gen.ts" || f === "mod.gen.ts"))
+        !(
+          dir === "rustc_middle/ty" &&
+          (f === "typeck_results.gen.ts" || f === "mod.gen.ts" || f === join("print", "pretty.gen.ts") || f === "instance.gen.ts" || f === "vtable.gen.ts")
+        )
       )
         onDisk.push(resolve(SRC, dir, f));
   expect(onDisk.sort()).toEqual([...res.files.keys()].map((f) => resolve(f)).sort());

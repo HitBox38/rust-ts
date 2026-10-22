@@ -1,0 +1,87 @@
+error[E0308]: mismatched types
+ --> fn_ptr_cast.rs:7:9
+  |
+6 |     let mut f = a1;
+  |                 -- expected due to this value
+7 |     f = a2;
+  |         ^^ expected fn item, found a different fn item
+  |
+  = note: expected fn item `fn(_) {a1}`
+             found fn item `fn(_) {a2}`
+  = note: different fn items have unique types, even if their signatures are the same
+  = help: consider casting both fn items to fn pointers using `as fn(u32)`
+
+error[E0308]: mismatched types
+  --> fn_ptr_cast.rs:11:9
+   |
+10 |     let mut f = &a1;
+   |                 --- expected due to this value
+11 |     f = &a2;
+   |         ^^^ expected `&fn(u32) {a1}`, found `&fn(u32) {a2}`
+   |
+   = note: expected reference `&fn(_) {a1}`
+              found reference `&fn(_) {a2}`
+   = note: different fn items have unique types, even if their signatures are the same
+   = help: consider casting both fn items to fn pointers using `as fn(u32)`
+
+error[E0308]: mismatched types
+  --> fn_ptr_cast.rs:14:10
+   |
+14 |     take(&a1);
+   |     ---- ^^^ expected `&fn(u32)`, found `&fn(u32) {a1}`
+   |     |
+   |     arguments to this function are incorrect
+   |
+   = note: expected reference `&fn(_)`
+              found reference `&fn(_) {a1}`
+   = note: fn items are distinct from fn pointers
+note: function defined here
+  --> fn_ptr_cast.rs:3:8
+   |
+ 3 | pub fn take(_f: &fn(u32)) {}
+   |        ^^^^ ------------
+help: consider casting to a fn pointer
+   |
+14 -     take(&a1);
+14 +     take(&(a1 as fn(u32)));
+   |
+
+error[E0308]: mismatched types
+  --> fn_ptr_cast.rs:17:10
+   |
+17 |     take(a1);
+   |     ---- ^^ expected `&fn(u32)`, found fn item
+   |     |
+   |     arguments to this function are incorrect
+   |
+   = note: expected reference `&fn(_)`
+                found fn item `fn(_) {a1}`
+note: function defined here
+  --> fn_ptr_cast.rs:3:8
+   |
+ 3 | pub fn take(_f: &fn(u32)) {}
+   |        ^^^^ ------------
+help: consider using a reference
+   |
+17 |     take(&a1);
+   |          +
+
+error[E0308]: mismatched types
+  --> fn_ptr_cast.rs:20:14
+   |
+20 |     take_val(g);
+   |     -------- ^ expected fn pointer, found `&fn(u32) -> u8`
+   |     |
+   |     arguments to this function are incorrect
+   |
+   = note: expected fn pointer `fn(_) -> ()`
+               found reference `&fn(_) -> u8`
+note: function defined here
+  --> fn_ptr_cast.rs:4:8
+   |
+ 4 | pub fn take_val(_f: fn(u32)) {}
+   |        ^^^^^^^^ -----------
+
+error: aborting due to 5 previous errors
+
+For more information about this error, try `rustc --explain E0308`.

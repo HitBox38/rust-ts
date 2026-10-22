@@ -33,7 +33,7 @@ const WORD_ALL_ONES: Word = (1n << 64n) - 1n;
 /// will panic if the bitsets have differing domain sizes.
 ///
 // rustc-type: compiler/rustc_index/src/bit_set.rs:79 DenseBitSet
-export class DenseBitSet<T extends number> {
+export class DenseBitSet<T extends number = number> {
   /** `marker: PhantomData<T>` (erased). */
   declare readonly __t?: T;
 
@@ -102,6 +102,13 @@ export class DenseBitSet<T extends number> {
   insert(value: T): boolean {
     assert(value < this.domain_size_, `inserting element at index ${value} but domain size is ${this.domain_size_}`);
     return insert(this.words, value);
+  }
+
+  /// Sets all bits to true.
+  // rustc: compiler/rustc_index/src/bit_set.rs:210 insert_all
+  insert_all(): void {
+    this.words.fill(WORD_ALL_ONES);
+    this.clear_excess_bits();
   }
 
   /// Returns `true` if the set has changed.

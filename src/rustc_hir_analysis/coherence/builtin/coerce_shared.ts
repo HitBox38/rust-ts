@@ -38,7 +38,6 @@ import {
   collect_reborrow_data_fields,
   field_type_is_copy,
   field_type_is_reborrow,
-  LayoutData_is_zst,
   type ReborrowDataField,
   trait_impl_lifetime_params_count,
   upcast_TraitRef,
@@ -614,7 +613,7 @@ function non_zst_reborrow_data_fields(infcx: InferCtxt, param_env: ParamEnv, def
   const tcx = infcx.tcx;
   return collect_reborrow_data_fields(tcx, def, args).filter((field) => {
     const layout = tcx.layout_of(infcx.typing_env(param_env).as_query_input(field.ty));
-    return !(layout.$ === "Ok" && LayoutData_is_zst(layout._0));
+    return !(layout.$ === "Ok" && layout._0.is_zst());
   });
 }
 

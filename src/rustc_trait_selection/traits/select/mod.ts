@@ -1763,11 +1763,13 @@ import { type AutoImplConstituents, visit_with_AutoImplConstituents } from "./mo
 
 /** Lazily read modules of this crate (init order: module comment). */
 function normalize_mod_b(): typeof import("../normalize.ts") {
-  return require("../normalize.ts") as typeof import("../normalize.ts");
+  return (normalize_mod_b__m ??= require("../normalize.ts") as typeof import("../normalize.ts"));
 }
+var normalize_mod_b__m: typeof import("../normalize.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function util_mod_b(): typeof import("../util.ts") {
-  return require("../util.ts") as typeof import("../util.ts");
+  return (util_mod_b__m ??= require("../util.ts") as typeof import("../util.ts"));
 }
+var util_mod_b__m: typeof import("../util.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 /** D4 descriptor of `ty::PolyTraitClause` (`Binder<TraitClause>`: `TypeFoldable` + `PartialEq` + `Relate`). */
 const d_PolyTraitClauseRel = relate_Binder<TraitClause>(relate_TraitClause);
@@ -3268,8 +3270,9 @@ export function debug_TraitObligationStack(self: TraitObligationStack, _f: Fmt):
 
 /** Lazily read `crate::traits` (init order: module comment). */
 function traits_mod(): typeof import("../mod.ts") {
-  return require("../mod.ts") as typeof import("../mod.ts");
+  return (traits_mod__m ??= require("../mod.ts") as typeof import("../mod.ts"));
 }
+var traits_mod__m: typeof import("../mod.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 /** `Ord::max` of `EvaluationResult` (derived `Ord` compares the discriminants; `max` returns `other` on ties). */
 function max_EvaluationResult(self: EvaluationResult, other: EvaluationResult): EvaluationResult {

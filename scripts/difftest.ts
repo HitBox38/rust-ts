@@ -7,27 +7,51 @@
 //     --jobs N          parallel processes (default: cores)
 //     --batch-size N    files per process in batch suites (default 100)
 //     --run-id ID       output dir name under $RUST_TS_DATA/runs (default: timestamp)
+//     --report blessed  also write the blessed-output report (suites with `Suite.blessed`; never a status)
 //     --list            list suites
 //
 // Statuses: MATCH | DIFF | UNPORTED (exit 70) | CRASH (subject ICE/exit mismatch with no output) |
 // TIMEOUT (the subject timed out) | ORACLE_TIMEOUT (the oracle timed out twice, the second time with
-// ORACLE_RETRY_FACTOR x its timeout; never cached, never compared, never MATCH)
+// ORACLE_RETRY_FACTOR x its timeout; never cached, never compared, never MATCH) | UNSTABLE (the oracle's output
+// is not reproducible: the case is listed in `Suite.unstable`, or its oracle stderr matches one of
+// `UNSTABLE_ORACLE_PATTERNS`; never cached, never compared, never MATCH, and the gate never protects it)
+//
+// Environment: both sides run with the caller's environment minus the variables scripts/lib/env.ts scrubs
+// (`RUSTC_LOG*`, `RUST_BACKTRACE`, `RUSTC_BOOTSTRAP`, `CLICOLOR_FORCE`, `CARGO_*`, ...), plus the case's own
+// `Case.env`. Upstream checkout: `git status` of $RUST_TS_DATA/rust (ignored files included, `build/` excluded:
+// compiletest's output dirs) is compared before and after the run; any change prints an `ERROR:` line and is
+// listed in `<suite>.upstream-changes.txt` (`upstreamChanges` in the result; the gate fails on it).
 // Prints one summary line; details go to $RUST_TS_DATA/runs/<run-id>/ (`<suite>.skipped.jsonl` lists
-// the tests a suite leaves out, with reasons).
+// the tests a suite leaves out, with reasons). Suites with `Suite.subsets` also get per-subset counts
+// (summary `subsets`, one line each).
+//
+// `--report blessed` (report only; it never changes a status): for every case of a suite with
+// `Suite.blessed` (the UI-test suites of M3), the oracle's stderr is normalized as compiletest would
+// and compared with the test's blessed `.stderr`. Where they are equal ("covered": the probe's
+// diagnostics are all the test expects), the subject's normalized stderr is compared too: PASS or FAIL.
+// Other cases are NOT_COVERED (with the first oracle/blessed difference), N/A (no blessed comparison,
+// with why) or ORACLE_TIMEOUT. Written to `<suite>.blessed.jsonl` and summary `blessed`.
 import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { availableParallelism } from "node:os";
 import { join } from "node:path";
 import { SUITES, suite as getSuite, type Case, type Suite } from "../harness/suites.ts";
+import type { Blessed } from "../harness/compiletest.ts";
 import { ORACLE_CACHE, PIN, RUNS, UPSTREAM, die, ensureDir, hash, nowId, parseArgs, pool, requireUpstream, run } from "./lib/common.ts";
 import { caseDeps, type Dep } from "./lib/deps.ts";
-import { rustcDriverHash, verifyOraclePin } from "./lib/oracle.ts";
+import { caseEnv } from "./lib/env.ts";
+import { UNSTABLE_ORACLE_PATTERNS, unstableOracleReason } from "./lib/unstable.ts";
+import { upstreamChanges, upstreamError, upstreamStatus } from "./lib/upstream.ts";
+import { ORACLE_RETRY_FACTOR, rustcDriverHash, verifyOraclePin } from "./lib/oracle.ts";
 import { isRustcDevProbe } from "./probes.ts";
 
-export type Status = "MATCH" | "DIFF" | "UNPORTED" | "CRASH" | "TIMEOUT" | "ORACLE_TIMEOUT";
-export const STATUSES: Status[] = ["MATCH", "DIFF", "UNPORTED", "CRASH", "TIMEOUT", "ORACLE_TIMEOUT"];
+export type Status = "MATCH" | "DIFF" | "UNPORTED" | "CRASH" | "TIMEOUT" | "ORACLE_TIMEOUT" | "UNSTABLE";
+export const STATUSES: Status[] = ["MATCH", "DIFF", "UNPORTED", "CRASH", "TIMEOUT", "ORACLE_TIMEOUT", "UNSTABLE"];
 
-/** An oracle process that times out is run once more with this many times its timeout. */
-export const ORACLE_RETRY_FACTOR = 4;
+/** Oracle stderr patterns that are not reproducible (scripts/lib/unstable.ts). */
+export { UNSTABLE_ORACLE_PATTERNS, unstableOracleReason };
+
+/** An oracle process that times out is run once more with this many times its timeout (scripts/lib/oracle.ts). */
+export { ORACLE_RETRY_FACTOR };
 
 export interface CaseResult {
   id: string;
@@ -37,10 +61,12 @@ export interface CaseResult {
   /** DIFF/CRASH: the first differing line, as `<line>: <oracle> | <subject>` (each JSON, cut to 200 chars). */
   first?: string;
   /**
-   * ORACLE_TIMEOUT: what the subject did, which the status alone would hide: `TIMEOUT`, `ICE`
+   * ORACLE_TIMEOUT, UNSTABLE: what the subject did, which the status alone would hide: `TIMEOUT`, `ICE`
    * (exit 101), `UNPORTED: <what>` (exit 70), or `exit <code>`.
    */
   subject?: string;
+  /** UNSTABLE: why (the `Suite.unstable` reason, or `detected: <pattern reason>`). */
+  unstable?: string;
 }
 
 /** ORACLE_TIMEOUT cases by what the subject did (see `CaseResult.subject`). */
@@ -55,6 +81,8 @@ interface Output {
   text: string;
   code: number;
   timedOut: boolean;
+  /** Not reproducible, with why (see `Suite.unstable`, `UNSTABLE_ORACLE_PATTERNS`); never cached. */
+  unstable?: string;
 }
 
 const EXIT_UNPORTED = 70;
@@ -162,14 +190,29 @@ export function cachePath(s: Suite, c: Case, fileHash: string, deps: Dep[]): str
   return join(ensureDir(join(ORACLE_CACHE, key.slice(0, 2))), key);
 }
 
+/** `Suite.unstable` as a map from case id to reason. */
+export function unstableOf(s: Suite): Map<string, string> {
+  return new Map((s.unstable?.() ?? []).map((u) => [u.id, u.reason]));
+}
+
 async function runOracle(s: Suite, cases: Case[]): Promise<Map<string, Output>> {
   const out = new Map<string, Output>();
   const todo: Case[] = [];
   const paths = new Map<string, string>();
+  const listed = unstableOf(s);
   for (const c of cases) {
     const p = cachePath(s, c, fileHash(s, c), depsOf(s, c));
     paths.set(c.id, p);
-    const cached = existsSync(p) ? readCached(p) : undefined;
+    // A listed unstable case's oracle output is never read from (or written to) the cache.
+    let cached = !listed.has(c.id) && existsSync(p) ? readCached(p) : undefined;
+    if (cached && s.mode === "single") {
+      // An entry written before its pattern was known: never reused, removed.
+      const why = unstableOracleReason(stderrOf(cached));
+      if (why) {
+        rmSync(p, { force: true });
+        cached = undefined;
+      }
+    }
     if (cached) out.set(c.id, cached);
     else todo.push(c);
   }
@@ -177,8 +220,8 @@ async function runOracle(s: Suite, cases: Case[]): Promise<Map<string, Output>> 
   const timeoutMs = s.oracleTimeoutMs ?? s.timeoutMs;
   /** One oracle process; a timed-out one is retried once with a longer timeout. */
   const runOnce = async (cmd: string[], env: Case["env"]) => {
-    const r = await run(cmd, { cwd: cwdOf(s), timeoutMs, env });
-    return r.timedOut ? await run(cmd, { cwd: cwdOf(s), timeoutMs: timeoutMs * ORACLE_RETRY_FACTOR, env }) : r;
+    const r = await run(cmd, { cwd: cwdOf(s), timeoutMs, env: caseEnv(env) });
+    return r.timedOut ? await run(cmd, { cwd: cwdOf(s), timeoutMs: timeoutMs * ORACLE_RETRY_FACTOR, env: caseEnv(env) }) : r;
   };
   /** A case whose oracle timed out twice: no output to compare, never cached. */
   const timedOut = (code: number): Output => ({ text: "", code, timedOut: true });
@@ -187,7 +230,7 @@ async function runOracle(s: Suite, cases: Case[]): Promise<Map<string, Output>> 
     // fail when a single file cannot be run by the oracle (a single file that times out twice is
     // ORACLE_TIMEOUT).
     const runBatch = async (batch: Case[]): Promise<void> => {
-      const r = batch.length === 1 ? await runOnce(s.oracle(batch), undefined) : await run(s.oracle(batch), { cwd: cwdOf(s), timeoutMs });
+      const r = batch.length === 1 ? await runOnce(s.oracle(batch), undefined) : await run(s.oracle(batch), { cwd: cwdOf(s), timeoutMs, env: caseEnv(undefined) });
       if (r.code !== 0 || r.timedOut) {
         if (batch.length === 1 && r.timedOut) {
           out.set(batch[0]!.id, timedOut(r.code));
@@ -202,8 +245,10 @@ async function runOracle(s: Suite, cases: Case[]): Promise<Map<string, Output>> 
       const parts = splitBatch(r.stdout);
       for (const c of batch) {
         const o: Output = { text: parts.get(c.file) ?? "", code: 0, timedOut: false };
+        // (Batch output is per-file stdout; only `Suite.unstable` applies.)
+        if (listed.has(c.id)) o.unstable = listed.get(c.id)!;
         out.set(c.id, o);
-        writeCached(paths.get(c.id)!, o);
+        if (!o.unstable) writeCached(paths.get(c.id)!, o);
       }
     };
     await runBatch(todo);
@@ -215,8 +260,10 @@ async function runOracle(s: Suite, cases: Case[]): Promise<Map<string, Output>> 
         continue;
       }
       const o: Output = { text: render(r), code: r.code, timedOut: false };
+      const why = listed.get(c.id) ?? unstableOracleReason(r.stderr);
+      if (why) o.unstable = why;
       out.set(c.id, o);
-      writeCached(paths.get(c.id)!, o);
+      if (!why) writeCached(paths.get(c.id)!, o);
     }
   }
   return out;
@@ -247,7 +294,7 @@ export async function runSubject(s: Suite, cases: Case[], impl: string, stats?: 
   const exec = async (batch: Case[]) => {
     if (stats) stats.processes++;
     // (Only single-mode suites have per-case env; `difftest` rejects it in batch suites.)
-    const r = await run(s.subject(batch), { cwd: cwdOf(s), timeoutMs: s.timeoutMs, env: { ...batch[0]!.env, ...env } });
+    const r = await run(s.subject(batch), { cwd: cwdOf(s), timeoutMs: s.timeoutMs, env: { ...caseEnv(batch[0]!.env), ...env } });
     if (batch.length > 1 && (r.code !== 0 || r.timedOut)) failedBatches.push({ ids: new Set(batch.map((c) => c.id)), timedOut: r.timedOut });
     return r;
   };
@@ -370,6 +417,7 @@ export async function runSubject(s: Suite, cases: Case[], impl: string, stats?: 
 
 export function classify(o: Output, sub: Output): Status {
   if (o.timedOut) return "ORACLE_TIMEOUT";
+  if (o.unstable !== undefined) return "UNSTABLE";
   if (sub.timedOut) return "TIMEOUT";
   if (sub.text === o.text && sub.code === o.code) return "MATCH";
   if (sub.code === EXIT_UNPORTED) return "UNPORTED";
@@ -404,6 +452,31 @@ export function sample<T extends { id: string }>(items: T[], n: number, seed: st
     .sort((a, b) => (a.id < b.id ? -1 : 1));
 }
 
+/** The blessed-output report of one case (see the header). */
+export interface BlessedResult {
+  id: string;
+  blessed: "PASS" | "FAIL" | "NOT_COVERED" | "N/A" | "ORACLE_TIMEOUT";
+  /** N/A: why; NOT_COVERED: first difference oracle | blessed; FAIL: first difference subject | blessed. */
+  why?: string;
+}
+export const BLESSED_STATUSES: BlessedResult["blessed"][] = ["PASS", "FAIL", "NOT_COVERED", "N/A", "ORACLE_TIMEOUT"];
+
+/** The stderr part of a single-mode output (`render`). */
+function stderrOf(o: Output): string {
+  const start = o.text.indexOf("\n--- stderr ---\n");
+  const end = o.text.lastIndexOf("\n--- exit: ");
+  return start < 0 || end < start ? "" : o.text.slice(start + "\n--- stderr ---\n".length, end);
+}
+
+function blessedResult(id: string, b: Blessed, o: Output, sub: Output): BlessedResult {
+  if ("na" in b) return { id, blessed: "N/A", why: b.na };
+  if (o.timedOut) return { id, blessed: "ORACLE_TIMEOUT" };
+  const on = b.normalize(stderrOf(o));
+  if (on !== b.expected) return { id, blessed: "NOT_COVERED", why: firstDiffLine(on, b.expected) };
+  const sn = b.normalize(stderrOf(sub));
+  return sn === b.expected ? { id, blessed: "PASS" } : { id, blessed: "FAIL", why: firstDiffLine(sn, b.expected) };
+}
+
 export interface RunOptions {
   suite: string;
   sample?: number;
@@ -414,19 +487,46 @@ export interface RunOptions {
   batchSize?: number;
   runId?: string;
   quiet?: boolean;
+  /** `blessed`: also write the blessed-output report (see the header). */
+  report?: string;
 }
 
 export async function difftest(
   opts: RunOptions,
-): Promise<{ results: CaseResult[]; dir: string; counts: Record<Status, number>; stats: SubjectStats; skipped?: number; oracleTimeoutSubjects: OracleTimeoutSubjects }> {
+): Promise<{
+  results: CaseResult[];
+  dir: string;
+  counts: Record<Status, number>;
+  stats: SubjectStats;
+  skipped?: number;
+  oracleTimeoutSubjects: OracleTimeoutSubjects;
+  subsets?: Record<string, Record<Status | "total", number>>;
+  blessed?: Record<BlessedResult["blessed"], number>;
+  /** `git status` lines of the upstream checkout before the run (scripts/lib/upstream.ts); should be empty. */
+  upstreamDirty: string[];
+  /** What the run (or a concurrent process) changed in the upstream checkout; should be empty. */
+  upstreamChanges: string[];
+}> {
   requireUpstream();
   await verifyOraclePin();
+  const upstreamBefore = upstreamStatus(UPSTREAM);
+  if (upstreamBefore.length) console.log(upstreamError("the upstream checkout is not clean before the run", upstreamBefore, UPSTREAM));
   const s = getSuite(opts.suite);
   let cases = s.cases();
+  const listedUnstable = unstableOf(s);
+  if (!opts.filter && !opts.sample) {
+    const ids = new Set(cases.map((c) => c.id));
+    const stale = [...listedUnstable.keys()].filter((id) => !ids.has(id));
+    if (stale.length) console.log(`note: suite ${s.name} lists ${stale.length} unstable case(s) that are not cases of it (e.g. ${stale[0]})`);
+  }
   if (s.mode === "batch" && cases.some((c) => c.env !== undefined)) die(`suite ${s.name}: a batch suite's cases cannot have their own env`);
   if (opts.filter) cases = cases.filter((c) => c.id.includes(opts.filter!));
   const skipped = (s.skipped?.() ?? []).filter((k) => !opts.filter || k.id.includes(opts.filter));
   if (opts.sample) cases = sample(cases, opts.sample, opts.seed ?? process.env.RUST_TS_AGENT ?? "0");
+  if (opts.report !== undefined && opts.report !== "blessed") die(`unknown report '${opts.report}' (have: blessed)`);
+  const blessedFor = opts.report === "blessed" ? s.blessed : undefined;
+  if (opts.report === "blessed" && !blessedFor) die(`suite ${s.name} has no blessed-output report`);
+  const blessedResults: BlessedResult[] = [];
   const impl = opts.impl ?? "port";
   const dir = ensureDir(join(RUNS, opts.runId ?? nowId()));
   const diffDir = ensureDir(join(dir, "diffs", s.name));
@@ -454,13 +554,18 @@ export async function difftest(
           const m = /^rust-ts: unported: (.*)$/m.exec(sc.text);
           if (m) r.unported = m[1]!.slice(0, 300);
         } else if (status === "DIFF" || status === "CRASH") r.first = firstDiffLine(oc.text, sc.text);
-        else if (status === "ORACLE_TIMEOUT") {
+        else if (status === "UNSTABLE") {
+          const m = /^rust-ts: unported: (.*)$/m.exec(sc.text);
+          r.unstable = oc.unstable!;
+          r.subject = sc.timedOut ? "TIMEOUT" : sc.code === 101 ? "ICE" : sc.code === EXIT_UNPORTED ? `UNPORTED: ${(m?.[1] ?? "").slice(0, 300)}` : `exit ${sc.code}`;
+        } else if (status === "ORACLE_TIMEOUT") {
           const m = /^rust-ts: unported: (.*)$/m.exec(sc.text);
           r.subject = sc.timedOut ? "TIMEOUT" : sc.code === 101 ? "ICE" : sc.code === EXIT_UNPORTED ? `UNPORTED: ${(m?.[1] ?? "").slice(0, 300)}` : `exit ${sc.code}`;
           const k = sc.timedOut ? "TIMEOUT" : sc.code === 101 ? "ICE" : sc.code === EXIT_UNPORTED ? "UNPORTED" : "ok";
           oracleTimeoutSubjects[k]++;
         }
         results.push(r);
+        if (blessedFor) blessedResults.push(blessedResult(c.id, blessedFor(c), oc, sc));
         if (status !== "MATCH" && status !== "UNPORTED" && diffsWritten < 500) {
           diffsWritten++;
           const name = c.id.replace(/[\\/:]/g, "__");
@@ -482,7 +587,34 @@ export async function difftest(
   const counts = Object.fromEntries(STATUSES.map((st) => [st, 0])) as Record<Status, number>;
   for (const r of results) counts[r.status]++;
   writeFileSync(join(dir, `${s.name}.jsonl`), results.map((r) => JSON.stringify(r)).join("\n") + "\n");
+  let subsets: Record<string, Record<Status | "total", number>> | undefined;
+  if (s.subsets) {
+    subsets = {};
+    const byId = new Map(cases.map((c) => [c.id, c]));
+    for (const [name, has] of Object.entries(s.subsets)) {
+      const sc = Object.fromEntries(["total", ...STATUSES].map((st) => [st, 0])) as Record<Status | "total", number>;
+      for (const r of results) {
+        if (!has(byId.get(r.id)!)) continue;
+        sc.total++;
+        sc[r.status]++;
+      }
+      subsets[name] = sc;
+    }
+  }
+  let blessed: Record<BlessedResult["blessed"], number> | undefined;
+  if (blessedFor) {
+    blessedResults.sort((a, b) => (a.id < b.id ? -1 : 1));
+    blessed = Object.fromEntries(BLESSED_STATUSES.map((st) => [st, 0])) as Record<BlessedResult["blessed"], number>;
+    for (const r of blessedResults) blessed[r.blessed]++;
+    writeFileSync(join(dir, `${s.name}.blessed.jsonl`), blessedResults.map((r) => JSON.stringify(r) + "\n").join(""));
+  }
   if (s.skipped) writeFileSync(join(dir, `${s.name}.skipped.jsonl`), skipped.map((k) => JSON.stringify(k) + "\n").join(""));
+  const upstreamAfter = upstreamStatus(UPSTREAM);
+  const changed = upstreamChanges(upstreamBefore, upstreamAfter);
+  if (changed.length) {
+    console.log(upstreamError(`suite ${s.name}: the upstream checkout changed during the run (this run or a concurrent process)`, changed, UPSTREAM));
+    writeFileSync(join(dir, `${s.name}.upstream-changes.txt`), changed.join("\n") + "\n");
+  }
   const summary = {
     suite: s.name,
     impl,
@@ -494,9 +626,13 @@ export async function difftest(
     ...stats,
     ...(s.skipped ? { skipped: skipped.length } : {}),
     ...(counts.ORACLE_TIMEOUT ? { oracleTimeoutSubjects } : {}),
+    ...(subsets ? { subsets } : {}),
+    ...(blessed ? { blessed } : {}),
+    ...(upstreamBefore.length ? { upstreamDirty: upstreamBefore } : {}),
+    ...(changed.length ? { upstreamChanges: changed } : {}),
   };
   writeFileSync(join(dir, `${s.name}.summary.json`), JSON.stringify(summary, null, 2));
-  return { results, dir, counts, stats, skipped: s.skipped ? skipped.length : undefined, oracleTimeoutSubjects };
+  return { results, dir, counts, stats, skipped: s.skipped ? skipped.length : undefined, oracleTimeoutSubjects, subsets, blessed, upstreamDirty: upstreamBefore, upstreamChanges: changed };
 }
 
 if (import.meta.main) {
@@ -507,7 +643,7 @@ if (import.meta.main) {
     process.exit(0);
   }
   const num = (k: string) => (typeof a[k] === "string" ? Number(a[k]) : undefined);
-  const { dir, counts, results, stats, skipped, oracleTimeoutSubjects: ots } = await difftest({
+  const { dir, counts, results, stats, skipped, oracleTimeoutSubjects: ots, subsets, blessed } = await difftest({
     suite: String(a.suite),
     sample: num("sample"),
     seed: typeof a.seed === "string" ? a.seed : undefined,
@@ -516,11 +652,19 @@ if (import.meta.main) {
     jobs: num("jobs"),
     batchSize: num("batch-size"),
     runId: typeof a["run-id"] === "string" ? a["run-id"] : undefined,
+    report: typeof a.report === "string" ? a.report : undefined,
   });
   const pct = results.length ? ((100 * counts.MATCH) / results.length).toFixed(2) : "0";
   console.log(`suite=${a.suite} total=${results.length} ${STATUSES.map((s) => `${s}=${counts[s]}`).join(" ")} match%=${pct}${skipped !== undefined ? ` skipped=${skipped}` : ""}`);
+  for (const [name, sc] of Object.entries(subsets ?? {})) {
+    console.log(`subset ${name}: total=${sc.total} ${STATUSES.map((st) => `${st}=${sc[st]}`).join(" ")} match%=${sc.total ? ((100 * sc.MATCH) / sc.total).toFixed(2) : "0"}`);
+  }
+  if (blessed) console.log(`blessed (report only): ${BLESSED_STATUSES.map((st) => `${st}=${blessed[st]}`).join(" ")} (per case: ${a.suite}.blessed.jsonl)`);
   if (stats.batchOnlyFailures || stats.batchOnlyTimeouts) {
     console.log(`note: ${stats.batchOnlyFailures} batch-only failure(s), ${stats.batchOnlyTimeouts} batch-only timeout(s): a batch process failed at a case that passes alone (see ${a.suite}.summary.json)`);
+  }
+  if (counts.UNSTABLE) {
+    console.log(`note: ${counts.UNSTABLE} UNSTABLE case(s): the oracle's output is not reproducible (listed in the suite or detected); never cached, never MATCH (per case: \`unstable\`, \`subject\` in ${a.suite}.jsonl)`);
   }
   if (counts.ORACLE_TIMEOUT) {
     console.log(`note: ${counts.ORACLE_TIMEOUT} ORACLE_TIMEOUT case(s); the subject on them: ok=${ots.ok} TIMEOUT=${ots.TIMEOUT} ICE=${ots.ICE} UNPORTED=${ots.UNPORTED} (per case: \`subject\` in ${a.suite}.jsonl)`);

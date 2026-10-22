@@ -84,6 +84,7 @@ import type { DefId, LocalDefId, LocalModId } from "../rustc_span/def_id.ts";
 import type { Edition } from "../rustc_span/edition.ts";
 import type { ErrorGuaranteed, PathBuf, Span, Spanned } from "../rustc_span/lib.ts";
 import type { OrdSpan } from "../rustc_span/span_encoding.ts";
+import type { SortedMap } from "../rustc_data_structures/sorted_map.ts";
 import type { Ident, Symbol } from "../rustc_span/symbol.ts";
 import type { TypeErrCtxt } from "../rustc_trait_selection/decls.ts";
 import type { FulfillmentEngine } from "../rustc_trait_selection/traits/engine.ts";
@@ -128,8 +129,9 @@ import type { WritebackCx } from "./writeback.gen.ts";
 // rustc_middle hir/place.rs (lane typeck-euv): `PlaceWithHirId<'tcx>`, `Place<'tcx>` (`ty::closure`'s `HirPlace`),
 // `PlaceBase`, `Projection<'tcx>` (re-exported by expr_use_visitor.rs as `pub use`).
 export type { Place, PlaceBase, PlaceWithHirId, Projection };
-/** rustc_middle ty/layout.rs `SizeSkeleton<'tcx>` (intrinsicck.rs; M4 layout). */
-export type SizeSkeleton = Pending<"rustc_middle::ty::layout::SizeSkeleton">;
+/** rustc_middle ty/layout.rs `SizeSkeleton<'tcx>` (intrinsicck.rs; layout-contract / middle-layout). */
+export type { SizeSkeleton } from "../rustc_middle/ty/layout.ts";
+import type { SizeSkeleton } from "../rustc_middle/ty/layout.ts";
 /** rustc_trait_selection error_reporting/traits/mod.rs `DefIdOrName` (generated; errctxt-contract). */
 export type { DefIdOrName } from "../rustc_trait_selection/error_reporting/traits/mod.gen.ts";
 import type { DefIdOrName } from "../rustc_trait_selection/error_reporting/traits/mod.gen.ts";
@@ -1081,7 +1083,7 @@ export interface FnCtxt extends Omit<TypeckRootCtxt, FnCtxt_shadowed> {
   // method/suggest.rs:821
   suggest_static_method_candidates(err: Diag, span: Span, rcvr_ty: Ty, item_ident: Ident, source: SelfSource, args: readonly hir.Expr[] | undefined, sugg_span: Span, no_match_data: NoMatchData): CandidateSource[];
   // method/suggest.rs:881
-  suggest_unsatisfied_ty_or_trait(err: Diag, span: Span, rcvr_ty: Ty, item_ident: Ident, item_kind: string, source: SelfSource, unsatisfied_predicates: UnsatisfiedPredicates, static_candidates: readonly CandidateSource[]): Result<[boolean, boolean, boolean, boolean, Map<OrdSpan, string[]>], null>;
+  suggest_unsatisfied_ty_or_trait(err: Diag, span: Span, rcvr_ty: Ty, item_ident: Ident, item_kind: string, source: SelfSource, unsatisfied_predicates: UnsatisfiedPredicates, static_candidates: readonly CandidateSource[]): Result<[boolean, boolean, boolean, boolean, SortedMap<OrdSpan, string[]>], null>;
   // method/suggest.rs:1021
   suggest_surround_method_call(err: Diag, span: Span, rcvr_ty: Ty, item_ident: Ident, source: SelfSource, similar_candidate: AssocItem | undefined): boolean;
   // method/suggest.rs:1041
@@ -1089,15 +1091,15 @@ export interface FnCtxt extends Omit<TypeckRootCtxt, FnCtxt_shadowed> {
   // method/suggest.rs:1095
   suggest_confusable_or_similarly_named_method(err: Diag, span: Span, rcvr_ty: Ty, item_ident: Ident, mode: Mode, args: readonly hir.Expr[] | undefined, unsatisfied_predicates: UnsatisfiedPredicates, similar_candidate: AssocItem | undefined): void;
   // method/suggest.rs:1132
-  suggest_method_not_found_because_of_unsatisfied_bounds(err: Diag, rcvr_ty: Ty, item_ident: Ident, item_kind: string, bound_spans: Map<OrdSpan, string[]>, unsatisfied_predicates: UnsatisfiedPredicates): void;
+  suggest_method_not_found_because_of_unsatisfied_bounds(err: Diag, rcvr_ty: Ty, item_ident: Ident, item_kind: string, bound_spans: SortedMap<OrdSpan, string[]>, unsatisfied_predicates: UnsatisfiedPredicates): void;
   // method/suggest.rs:1233
   report_no_match_method_error(span: Span, rcvr_ty: Ty, item_ident: Ident, expr_id: HirId, source: SelfSource, args: readonly hir.Expr[] | undefined, sugg_span: Span, no_match_data: NoMatchData, expected: Expectation, trait_missing_method: boolean, within_macro_span: Span | undefined): ErrorGuaranteed;
   // method/suggest.rs:1443
-  set_not_found_span_label(err: Diag, rcvr_ty: Ty, item_ident: Ident, item_kind: string, mode: Mode, source: SelfSource, span: Span, unsatisfied_predicates: UnsatisfiedPredicates, find_candidate_for_method: boolean): void;
+  set_not_found_span_label(err: Diag, rcvr_ty: Ty, item_ident: Ident, item_kind: string, mode: Mode, source: SelfSource, span: Span, unsatisfied_predicates: UnsatisfiedPredicates, find_candidate_for_method: MutRef<boolean>): void;
   // method/suggest.rs:1568
   suggest_enum_variant_for_method_call(err: Diag, rcvr_ty: Ty, item_ident: Ident, span: Span, source: SelfSource, unsatisfied_predicates: UnsatisfiedPredicates): void;
   // method/suggest.rs:1705
-  handle_unsatisfied_predicates(err: Diag, rcvr_ty: Ty, item_ident: Ident, item_kind: string, span: Span, unsatisfied_predicates: UnsatisfiedPredicates, restrict_type_params: boolean, suggested_derive: boolean, unsatisfied_bounds: boolean, custom_span_label: boolean, bound_spans: Map<OrdSpan, string[]>): void;
+  handle_unsatisfied_predicates(err: Diag, rcvr_ty: Ty, item_ident: Ident, item_kind: string, span: Span, unsatisfied_predicates: UnsatisfiedPredicates, restrict_type_params: MutRef<boolean>, suggested_derive: MutRef<boolean>, unsatisfied_bounds: MutRef<boolean>, custom_span_label: MutRef<boolean>, bound_spans: SortedMap<OrdSpan, string[]>): void;
   // method/suggest.rs:2227
   lookup_segments_chain_for_no_match_method(err: Diag, item_name: Ident, item_kind: string, source: SelfSource, no_match_data: NoMatchData): void;
   // method/suggest.rs:2288
@@ -1115,7 +1117,7 @@ export interface FnCtxt extends Omit<TypeckRootCtxt, FnCtxt_shadowed> {
   // method/suggest.rs:2881
   report_failed_method_call_on_range_end(tcx: TyCtxt, actual: Ty, source: SelfSource, span: Span, item_name: Ident): Result<undefined, ErrorGuaranteed>;
   // method/suggest.rs:2974
-  report_failed_method_call_on_numerical_infer_var(tcx: TyCtxt, actual: Ty, source: SelfSource, span: Span, item_kind: string, item_name: Ident, long_ty_path: PathBuf | undefined): Result<undefined, ErrorGuaranteed>;
+  report_failed_method_call_on_numerical_infer_var(tcx: TyCtxt, actual: Ty, source: SelfSource, span: Span, item_kind: string, item_name: Ident, long_ty_path: MutRef<PathBuf | undefined>): Result<undefined, ErrorGuaranteed>;
   // method/suggest.rs:3133
   suggest_assoc_method_call(segs: readonly hir.PathSegment[]): void;
   // method/suggest.rs:3190

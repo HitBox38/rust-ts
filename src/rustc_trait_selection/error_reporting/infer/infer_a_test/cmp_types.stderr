@@ -1,0 +1,137 @@
+error[E0308]: mismatched types
+ --> cmp_types.rs:4:5
+  |
+3 | pub fn adt(x: S<u32, u16>) -> S<u8, u16> {
+  |                               ---------- expected `S<u8, u16>` because of return type
+4 |     x
+  |     ^ expected `S<u8, u16>`, found `S<u32, u16>`
+  |
+  = note: expected struct `S<u8, _>`
+             found struct `S<u32, _>`
+
+error[E0308]: mismatched types
+ --> cmp_types.rs:7:5
+  |
+6 | pub fn adt_default(x: S<u32>) -> S<u32, u16> {
+  |                                  ----------- expected `S<u32, u16>` because of return type
+7 |     x
+  |     ^ expected `S<u32, u16>`, found `S<u32>`
+  |
+  = note: expected struct `S<_, u16>`
+             found struct `S<_, u8>`
+
+error[E0308]: mismatched types
+  --> cmp_types.rs:10:5
+   |
+ 9 | pub fn nested(x: One<One<u8>>) -> One<One<u16>> {
+   |                                   ------------- expected `One<One<u16>>` because of return type
+10 |     x
+   |     ^ expected `One<One<u16>>`, found `One<One<u8>>`
+   |
+   = note: expected struct `One<One<u16>>`
+              found struct `One<One<u8>>`
+
+error[E0308]: mismatched types
+  --> cmp_types.rs:13:5
+   |
+12 | pub fn refs(x: &mut u8) -> &u16 {
+   |                            ---- expected `&u16` because of return type
+13 |     x
+   |     ^ expected `&u16`, found `&mut u8`
+   |
+   = note:      expected reference `&u16`
+           found mutable reference `&mut u8`
+
+error[E0308]: mismatched types
+  --> cmp_types.rs:16:5
+   |
+15 | pub fn refs2<'a>(x: &'a One<u8>) -> &'a mut One<u8> {
+   |                                     --------------- expected `&'a mut One<u8>` because of return type
+16 |     x
+   |     ^ types differ in mutability
+   |
+   = note: expected mutable reference `&'a mut One<_>`
+                      found reference `&'a One<_>`
+
+error[E0308]: mismatched types
+  --> cmp_types.rs:19:5
+   |
+18 | pub fn tuples(x: (u8, u16, u32)) -> (u8, u32, u32) {
+   |                                     -------------- expected `(u8, u32, u32)` because of return type
+19 |     x
+   |     ^ expected `(u8, u32, u32)`, found `(u8, u16, u32)`
+   |
+   = note: expected tuple `(_, u32, _)`
+              found tuple `(_, u16, _)`
+
+error[E0308]: mismatched types
+  --> cmp_types.rs:22:5
+   |
+21 | pub fn fn_ptrs(x: fn(u8) -> u16) -> fn(u8, u8) -> u16 {
+   |                                     ----------------- expected `fn(u8, u8) -> u16` because of return type
+22 |     x
+   |     ^ incorrect number of function parameters
+   |
+   = note: expected fn pointer `fn(u8, u8) -> _`
+              found fn pointer `fn(u8) -> _`
+
+error[E0308]: mismatched types
+  --> cmp_types.rs:25:5
+   |
+24 | pub fn unsafe_fn_ptrs(x: unsafe fn(u8)) -> fn(u8) {
+   |                                            ------ expected `fn(u8)` because of return type
+25 |     x
+   |     ^ expected safe fn, found unsafe fn
+   |
+   = note: expected fn pointer `fn(_)`
+              found fn pointer `unsafe fn(_)`
+
+error[E0308]: mismatched types
+  --> cmp_types.rs:29:9
+   |
+28 |     let mut c = |x: u8| x;
+   |                 ------- the expected closure
+29 |     c = |x: u8| x + 1;
+   |         ^^^^^^^^^^^^^ expected closure, found a different closure
+   |
+   = note: expected closure `{closure@cmp_types.rs:28:17: 28:24}`
+              found closure `{closure@cmp_types.rs:29:9: 29:16}`
+   = note: no two closures, even if identical, have the same type
+   = help: consider boxing your closure and/or using it as a trait object
+
+error[E0308]: mismatched types
+  --> cmp_types.rs:32:5
+   |
+31 | pub fn slices(x: &[u8]) -> &[u16] {
+   |                            ------ expected `&[u16]` because of return type
+32 |     x
+   |     ^ expected `&[u16]`, found `&[u8]`
+   |
+   = note: expected reference `&[u16]`
+              found reference `&[u8]`
+
+error[E0308]: mismatched types
+  --> cmp_types.rs:35:5
+   |
+34 | pub fn raw(x: *const u8) -> *mut u8 {
+   |                             ------- expected `*mut u8` because of return type
+35 |     x
+   |     ^ types differ in mutability
+   |
+   = note: expected raw pointer `*mut u8`
+              found raw pointer `*const u8`
+
+error[E0308]: mismatched types
+  --> cmp_types.rs:38:5
+   |
+37 | pub fn options(x: Option<Result<u8, u16>>) -> Option<Result<u8, u32>> {
+   |                                               ----------------------- expected `Option<Result<u8, u32>>` because of return type
+38 |     x
+   |     ^ expected `Option<Result<u8, u32>>`, found `Option<Result<u8, u16>>`
+   |
+   = note: expected enum `Option<Result<_, u32>>`
+              found enum `Option<Result<_, u16>>`
+
+error: aborting due to 12 previous errors
+
+For more information about this error, try `rustc --explain E0308`.

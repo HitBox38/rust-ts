@@ -22,14 +22,17 @@ import type { Region } from "./sty/mod.ts";
 import type { UnsafeBinderInner } from "./ty_kind.ts";
 
 function binder_(): typeof import("./binder.ts") {
-  return require("./binder.ts") as typeof import("./binder.ts");
+  return (binder___m ??= require("./binder.ts") as typeof import("./binder.ts"));
 }
+var binder___m: typeof import("./binder.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function consts_(): typeof import("./sty/consts.ts") {
-  return require("./sty/consts.ts") as typeof import("./sty/consts.ts");
+  return (consts___m ??= require("./sty/consts.ts") as typeof import("./sty/consts.ts"));
 }
+var consts___m: typeof import("./sty/consts.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function ty_kind_(): typeof import("./ty_kind.ts") {
-  return require("./ty_kind.ts") as typeof import("./ty_kind.ts");
+  return (ty_kind___m ??= require("./ty_kind.ts") as typeof import("./ty_kind.ts"));
 }
+var ty_kind___m: typeof import("./ty_kind.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 /// A decoder that can reconstruct interned type IR values by supplying the
 /// interner that owns the decoded data.

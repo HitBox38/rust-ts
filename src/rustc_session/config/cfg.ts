@@ -21,7 +21,7 @@
 //!  - Add the feature gating in `compiler/rustc_feature/src/builtin_attrs.rs`
 import { EXPLICIT_BUILTIN_CFGS_IN_FLAGS } from "../../rustc_lint_defs/builtin.ts";
 import { Symbol, sym } from "../../rustc_span/symbol.ts";
-import { type Align, Endian } from "../../rustc_abi/lib.ts";
+import { type Align, Endian, TargetDataLayoutError_into_diag } from "../../rustc_abi/lib.ts";
 import { spec, target_features } from "../../rustc_target/lib.ts";
 import type { Target } from "../../rustc_target/spec/mod.ts";
 import { BUILTIN_TARGET_CFG_VALUES } from "../../rust_ts/target_config.gen.ts";
@@ -535,8 +535,8 @@ export function default_configuration(sess: Session): Cfg {
   // `target_has_atomic*`
   const layout_r = sess.target.parse_data_layout();
   if (layout_r.$ === "Err") {
-    // `sess.dcx().emit_fatal(err)`
-    return unported("rustc_abi::TargetDataLayoutError::into_diag (default_configuration)");
+    const err = layout_r._0;
+    return sess.dcx().emit_fatal({ into_diag: (dcx, level) => TargetDataLayoutError_into_diag(err, dcx, level) });
   }
   const layout = layout_r._0;
   let has_atomic = false;

@@ -3,8 +3,8 @@
 // seems likely that they should eventually be merged into more
 // general routines.
 //
-// Port of compiler/rustc_traits/src/codegen.rs (lane selcx-contract). The query key (`PseudoCanonicalInput<TraitRef>`) is
-// not wired yet (`key_unported`), so nothing reaches this provider before M4. `tcx.arena.alloc(x)` is `x`.
+// Port of compiler/rustc_traits/src/codegen.rs (lane selcx-contract). Reached from rustc_ty_utils's
+// `resolve_associated_item` (lane instance-vtable). `tcx.arena.alloc(x)` is `x`.
 
 import { ImplSource, type CodegenObligationError, type SelectionError } from "../rustc_middle/traits/mod.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
@@ -14,7 +14,7 @@ import { bug } from "../rustc_span/macros.ts";
 import type { TraitRef } from "../rustc_type_ir/decls.ts";
 import { fold_with_TraitRef, TraitClause, try_fold_with_TraitRef, visit_with_TraitRef } from "../rustc_type_ir/predicate.ts";
 import { TypeVisitableExt } from "../rustc_type_ir/visit.ts";
-import { unported, unreachable } from "../std/panic.ts";
+import { unreachable } from "../std/panic.ts";
 import { PLAIN } from "../std/fmt.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
 import { Obligation } from "../rustc_infer/traits/mod.ts";
@@ -22,13 +22,19 @@ import { ObligationCause, debug_SelectionError } from "../rustc_middle/traits/mo
 import { TraitErrors } from "../rustc_infer/traits/engine.ts";
 import { debug_TraitRef } from "../rustc_type_ir/ir_print.ts";
 import { ObligationCtxt, SelectionContext } from "../rustc_trait_selection/traits/mod.ts";
-import type { TypeFoldable } from "../rustc_type_ir/fold.ts";
+import { type FallibleTypeFolder, type TypeFoldable, type TypeVisitor, fold_with_trivial, try_fold_with_trivial, visit_with_trivial } from "../rustc_type_ir/fold.ts";
+import { fold_with_ImplSource, try_fold_with_ImplSource, visit_with_ImplSource } from "../rustc_middle/traits/mod.gen.ts";
 
 const d_TraitRef: TypeFoldable<TraitRef> = { visit_with: visit_with_TraitRef, try_fold_with: try_fold_with_TraitRef, fold_with: fold_with_TraitRef };
 
-/** `ImplSource<'tcx, ()>: TypeFoldable` (rustc_middle traits/structural_impls.rs derive; not generated yet). */
+/** `ImplSource<'tcx, ()>: TypeFoldable`: the derive (rustc_middle traits/mod.rs, generated into traits/mod.gen.ts) over
+ *  `()`'s trivial traversal (`TrivialTypeTraversalImpls!`). */
 function d_ImplSource_unit(): TypeFoldable<ImplSource<null>> {
-  return unported("rustc_middle::traits::ImplSource<()>: TypeFoldable (derive not generated yet)");
+  return {
+    visit_with: <R>(self: ImplSource<null>, visitor: TypeVisitor<R>) => visit_with_ImplSource<null, R>(self, visitor, visit_with_trivial),
+    try_fold_with: <E>(self: ImplSource<null>, folder: FallibleTypeFolder<E>) => try_fold_with_ImplSource<null, E>(self, folder, try_fold_with_trivial),
+    fold_with: (self, folder) => fold_with_ImplSource<null>(self, folder, fold_with_trivial),
+  };
 }
 
 /// Attempts to resolve an obligation to an `ImplSource`. The result is

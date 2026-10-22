@@ -78,8 +78,9 @@ export const NormalizationError = {
 
 /** `require` of the extension module ty/print/pretty.ts (module comment). */
 function pretty(): typeof import("./print/pretty.ts") {
-  return require("./print/pretty.ts") as typeof import("./print/pretty.ts");
+  return (pretty__m ??= require("./print/pretty.ts") as typeof import("./print/pretty.ts"));
 }
+var pretty__m: typeof import("./print/pretty.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 /// Erase the regions in `value` and then fully normalize all the
 /// types found within. The result will also have regions erased.

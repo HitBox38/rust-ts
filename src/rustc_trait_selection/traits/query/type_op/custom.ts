@@ -164,5 +164,6 @@ export function scrape_region_constraints<R, ErrorInfo>(
 
 /** `crate::traits::engine` (this crate), read lazily (init order). */
 function engine(): typeof import("../../engine.ts") {
-  return require("../../engine.ts") as typeof import("../../engine.ts");
+  return (engine__m ??= require("../../engine.ts") as typeof import("../../engine.ts"));
 }
+var engine__m: typeof import("../../engine.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)

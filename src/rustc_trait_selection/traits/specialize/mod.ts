@@ -17,13 +17,13 @@
 // - `tcx.arena.alloc(sg)` is `sg` (arenas are erased).
 // - Iterators that upstream feeds lazily into `ObligationCtxt::register_obligations` (which normalizes as it goes) are
 //   generators here, so normalization and registration interleave as upstream.
-// - The items this file calls that are not ported yet (`NegativePositiveConflict`, unassigned) are local stand-ins at the end of the file that stop as UNPORTED.
+// - `diagnostics::NegativePositiveConflict` is read lazily from ../../diagnostics.ts (its stand-in was removed by lane errrep-infer-b).
 // - `#[instrument]` / `debug!` are tracing only and stay as comments.
 // Init order: top-level code here touches only other crates; this crate's modules are read inside function bodies only.
 
 import { predicates_for_generics } from "../mod.ts";
 import { ObligationCtxt } from "../engine.ts";
-import { type Diag, type Diagnostic, DiagDecorator, E0119 } from "../../../rustc_errors/lib.ts";
+import { type Diag, DiagDecorator, E0119 } from "../../../rustc_errors/lib.ts";
 import type { InferCtxt } from "../../../rustc_infer/infer/mod.ts";
 import { ToTrace_TraitRef } from "../../../rustc_infer/infer/at.ts";
 import { TraitErrors } from "../../../rustc_infer/traits/engine.ts";
@@ -55,7 +55,6 @@ import type { TypeError } from "../../../rustc_type_ir/error.ts";
 import { Unnormalized } from "../../../rustc_type_ir/unnormalized.ts";
 import { upcast_from_self } from "../../../rustc_type_ir/upcast.ts";
 import { TypeVisitableExt } from "../../../rustc_type_ir/visit.ts";
-import { unported } from "../../../std/panic.ts";
 import { Err, Ok, type Result } from "../../../std/result.ts";
 import type { NoSolution } from "../../../rustc_type_ir/solve/mod.ts";
 import { IntercrateAmbiguityCause } from "../select/mod.ts";
@@ -507,7 +506,7 @@ function report_negative_positive_conflict(
   positive_impl_def_id: DefId,
 ): ErrorGuaranteed {
   const diag = tcx.dcx().create_err(
-    NegativePositiveConflict_diagnostic({
+    diagnostics_mod().NegativePositiveConflict_diagnostic({
       impl_span: tcx.def_span(local_impl_def_id),
       trait_desc: overlap.trait_ref,
       self_ty: overlap.self_ty,
@@ -644,22 +643,12 @@ function upcast_Clause_to_Predicate(): (from: Clause, tcx: unknown) => Predicate
 
 // ---- lazy loads (init order: ../coherence.ts imports this module's siblings) -----------------------------------------
 function coherence_mod(): typeof import("../coherence.ts") {
-  return require("../coherence.ts") as typeof import("../coherence.ts");
+  return (coherence_mod__m ??= require("../coherence.ts") as typeof import("../coherence.ts"));
 }
+var coherence_mod__m: typeof import("../coherence.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
-// ---- stand-ins for items that are not ported yet (each stops as UNPORTED) ------------------------------------------
-
-
-/** the fields of `diagnostics::NegativePositiveConflict` (diagnostics.rs:31). */
-interface NegativePositiveConflict {
-  impl_span: Span;
-  trait_desc: TraitRef;
-  self_ty: Ty | undefined;
-  negative_impl_span: Result<Span, Symbol>;
-  positive_impl_span: Result<Span, Symbol>;
+/** `crate::diagnostics` (lazy: init order). */
+function diagnostics_mod(): typeof import("../../diagnostics.ts") {
+  return (diagnostics_mod__m ??= require("../../diagnostics.ts") as typeof import("../../diagnostics.ts"));
 }
-/** stand-in for `impl Diagnostic for NegativePositiveConflict` (diagnostics.rs:39, not assigned yet). */
-function NegativePositiveConflict_diagnostic(_d: NegativePositiveConflict): Diagnostic {
-  return unported("rustc_trait_selection::diagnostics::NegativePositiveConflict");
-}
-
+var diagnostics_mod__m: typeof import("../../diagnostics.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)

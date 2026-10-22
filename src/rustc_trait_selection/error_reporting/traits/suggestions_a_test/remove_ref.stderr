@@ -1,0 +1,60 @@
+error[E0277]: the trait bound `&S: A` is not satisfied
+  --> remove_ref.rs:19:19
+   |
+19 | pub fn g() { need(&S); need(&&S); let r = &S; need(r); }
+   |              ---- ^^ the trait `A` is not implemented for `&S`
+   |              |
+   |              required by a bound introduced by this call
+   |
+note: required by a bound in `need`
+  --> remove_ref.rs:17:16
+   |
+17 | pub fn need<T: A>(_t: T) {}
+   |                ^ required by this bound in `need`
+help: consider removing the leading `&`-reference
+   |
+19 - pub fn g() { need(&S); need(&&S); let r = &S; need(r); }
+19 + pub fn g() { need(S); need(&&S); let r = &S; need(r); }
+   |
+
+error[E0277]: the trait bound `&&S: A` is not satisfied
+  --> remove_ref.rs:19:29
+   |
+19 | pub fn g() { need(&S); need(&&S); let r = &S; need(r); }
+   |                        ---- ^^^ the trait `A` is not implemented for `&&S`
+   |                        |
+   |                        required by a bound introduced by this call
+   |
+note: required by a bound in `need`
+  --> remove_ref.rs:17:16
+   |
+17 | pub fn need<T: A>(_t: T) {}
+   |                ^ required by this bound in `need`
+help: consider removing 2 leading `&`-references
+   |
+19 - pub fn g() { need(&S); need(&&S); let r = &S; need(r); }
+19 + pub fn g() { need(&S); need(S); let r = &S; need(r); }
+   |
+
+error[E0277]: the trait bound `&S: A` is not satisfied
+  --> remove_ref.rs:19:52
+   |
+19 | pub fn g() { need(&S); need(&&S); let r = &S; need(r); }
+   |                                               ---- ^ the trait `A` is not implemented for `&S`
+   |                                               |
+   |                                               required by a bound introduced by this call
+   |
+note: required by a bound in `need`
+  --> remove_ref.rs:17:16
+   |
+17 | pub fn need<T: A>(_t: T) {}
+   |                ^ required by this bound in `need`
+help: consider removing the leading `&`-reference
+   |
+19 - pub fn g() { need(&S); need(&&S); let r = &S; need(r); }
+19 + pub fn g() { need(&S); need(&&S); let r = S; need(r); }
+   |
+
+error: aborting due to 3 previous errors
+
+For more information about this error, try `rustc --explain E0277`.

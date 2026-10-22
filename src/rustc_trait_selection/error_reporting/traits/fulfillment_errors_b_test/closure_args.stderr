@@ -1,0 +1,95 @@
+error[E0593]: closure is expected to take 1 argument, but it takes 2 arguments
+ --> closure_args.rs:6:5
+  |
+6 |     f(|a, b| ());
+  |     ^^------^^^^
+  |     | |
+  |     | takes 2 arguments
+  |     expected closure that takes 1 argument
+
+error[E0593]: closure is expected to take 1 argument, but it takes 0 arguments
+ --> closure_args.rs:9:5
+  |
+9 |     f(|| ());
+  |     ^^--^^^^
+  |     | |
+  |     | takes 0 arguments
+  |     expected closure that takes 1 argument
+  |
+help: consider changing the closure to take and ignore the expected argument
+  |
+9 |     f(|_| ());
+  |        +
+
+error[E0593]: closure is expected to take 2 distinct arguments, but it takes a single 2-tuple as argument
+  --> closure_args.rs:12:5
+   |
+12 |     g(|(a, b)| ());
+   |     ^^--------^^^^
+   |     | |
+   |     | takes a single 2-tuple as argument
+   |     expected closure that takes 2 distinct arguments
+   |
+help: change the closure to take multiple arguments instead of a single tuple
+   |
+12 -     g(|(a, b)| ());
+12 +     g(|a, b| ());
+   |
+
+error[E0593]: closure is expected to take a single 2-tuple as argument, but it takes 2 distinct arguments
+  --> closure_args.rs:15:5
+   |
+15 |     h(|a, b| ());
+   |     ^^------^^^^
+   |     | |
+   |     | takes 2 distinct arguments
+   |     expected closure that takes a single 2-tuple as argument
+   |
+help: change the closure to accept a tuple instead of individual arguments
+   |
+15 -     h(|a, b| ());
+15 +     h(|(a, b)| ());
+   |
+
+error[E0277]: expected an `Fn(&u8)` closure, found `{closure@closure_args.rs:18:7: 18:14}`
+  --> closure_args.rs:18:7
+   |
+18 |     r(|x: u8| ());
+   |     - ^^^^^^^^^^ expected an `Fn(&u8)` closure, found `{closure@closure_args.rs:18:7: 18:14}`
+   |     |
+   |     required by a bound introduced by this call
+   |
+help: the trait `for<'a> Fn(&'a u8)` is not implemented for closure `{closure@closure_args.rs:18:7: 18:14}`
+  --> closure_args.rs:18:7
+   |
+18 |     r(|x: u8| ());
+   |       ^^^^^^^
+   = note: expected a closure with signature `for<'a> fn(&'a _)`
+              found a closure with signature `fn(_)`
+note: required by a bound in `r`
+  --> closure_args.rs:4:13
+   |
+ 4 | pub fn r<F: Fn(&u8)>(_f: F) {}
+   |             ^^^^^^^ required by this bound in `r`
+
+error[E0277]: expected an `Fn(u8)` closure, found `fn(u16) {takes}`
+  --> closure_args.rs:22:7
+   |
+22 |     f(takes);
+   |     - ^^^^^ expected an `Fn(u8)` closure, found `fn(u16) {takes}`
+   |     |
+   |     required by a bound introduced by this call
+   |
+   = help: the trait `Fn(u8)` is not implemented for fn item `fn(u16) {takes}`
+   = note: expected a closure with signature `fn(u8)`
+              found a closure with signature `fn(u16)`
+note: required by a bound in `f`
+  --> closure_args.rs:1:13
+   |
+ 1 | pub fn f<F: Fn(u8)>(_f: F) {}
+   |             ^^^^^^ required by this bound in `f`
+
+error: aborting due to 6 previous errors
+
+Some errors have detailed explanations: E0277, E0593.
+For more information about an error, try `rustc --explain E0277`.

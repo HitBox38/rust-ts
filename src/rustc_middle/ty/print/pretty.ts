@@ -74,6 +74,7 @@ import { debug_RegionVid } from "../../../rustc_type_ir/region_kind.ts";
 import type { MutRef } from "../../../std/mut_ref.ts";
 import type { Providers } from "../../queries.gen.ts";
 import { with_ } from "../context/tls.ts";
+import { Instance as InstanceC } from "../instance.ts";
 import { EarlyParamRegion, LateParamRegionKind } from "../region.ts";
 import type { ParamConst, ParamTy } from "../sty.ts";
 import { into_query_key_DefId, type IntoQueryKey } from "../../query/into_query_key.ts";
@@ -4160,6 +4161,15 @@ export function display_GenericArg(self: GenericArg): string {
   return forward_display_to_print(self, print_GenericArg);
 }
 
+/**
+ * `impl Display for ty::Binder<'tcx, ty::FnSig<'tcx>>`: rustc_type_ir ir_print.rs:89 through the blanket
+ * `IrPrint<T> for TyCtxt` (ty/print/mod.rs:423) over `Print for ty::Binder<'tcx, T>` (`print_Binder`). That impl
+ * prints into a fresh `FmtPrinter` like `forward_display_to_print` (`lift` is the identity), so it is reused.
+ */
+export function display_PolyFnSig(self: Binder<FnSig>): string {
+  return forward_display_to_print(self, (v: Binder<FnSig>, p: FmtPrinter) => print_Binder(v, p, print_FnSig, fold_FnSig_));
+}
+
 // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3448 for_each_def
 function for_each_def(tcx: TyCtxt, collect_fn: (ident: Ident, ns: Namespace, def_id: DefId) => void): void {
   // Iterate all (non-anonymous) local crate items no matter where they are defined.
@@ -4519,15 +4529,16 @@ function ConstAllocation_inner(_alloc: ConstAllocation): Allocation {
 function Allocation_get_bytes_strip_provenance(_alloc: Allocation, _tcx: TyCtxt, _range: AllocRange): Uint8Array | undefined {
   return unported("rustc_middle::mir::interpret::Allocation::get_bytes_strip_provenance (M4)");
 }
-/** PORT: pending (ty/instance.rs, not ported; lane ty-print-a's mod.ts has the same module-local stand-in). */
-function Instance_def_id(_self: Instance): DefId {
-  return unported("rustc_middle::ty::instance::Instance::def_id (ty/instance.rs)");
+/** `Instance::def_id` / the field `instance.args` (ty/instance.rs). */
+function Instance_def_id(self: Instance): DefId {
+  return InstanceC.def_id(self);
 }
-function Instance_args(_instance: Instance): GenericArgs {
-  return unported("rustc_middle::ty::instance::Instance::args (M4)");
+function Instance_args(instance: Instance): GenericArgs {
+  return instance.args;
 }
 
 /** PORT (merge-w15b): ty/assoc.ts is another extension module of `TyCtxt`: reached lazily. */
 function middle_assoc(): typeof import("../assoc.ts") {
-  return require("../assoc.ts") as typeof import("../assoc.ts");
+  return (middle_assoc__m ??= require("../assoc.ts") as typeof import("../assoc.ts"));
 }
+var middle_assoc__m: typeof import("../assoc.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)

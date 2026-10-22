@@ -83,6 +83,8 @@ impl Callbacks for ThirDump {
 
 fn main() -> ExitCode {
     let early_dcx = EarlyDiagCtxt::new(ErrorOutputType::default());
+    // As rustc_driver_impl::main: tracing's default filter (`RUSTC_LOG` unset) prints WARN and ERROR events.
+    rustc_driver::init_rustc_env_logger(&early_dcx);
     rustc_driver::install_ice_hook(rustc_driver::DEFAULT_BUG_REPORT_URL, |_| ());
     let tree = std::env::var_os("THIRDUMP_FORMAT").is_some_and(|v| v == "tree");
     let mut callbacks = ThirDump { tree };

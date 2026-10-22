@@ -52,7 +52,8 @@ import { Visibility } from "./mod.ts";
 import type { Ordering } from "./mod.ts";
 import { Interned } from "../../rustc_data_structures/intern.ts";
 import { type InternedSet as InternedSetImpl, ShardedHashMap } from "../../rustc_data_structures/sharded.ts";
-import { intern_key } from "../../rust_ts/intern_key.ts";
+import { Layout as AbiLayout, TargetDataLayoutError_into_diag } from "../../rustc_abi/lib.ts";
+import { intern_key, intern_key_eq } from "../../rust_ts/intern_key.ts";
 import type { ArgOutlivesClause, BoundVar, BoundVariableKind, CanonicalInputData, CanonicalVarKind, ConstKind, DebruijnIndex, ExternalConstraintsData, ImplPolarity, OpaqueTypeKey, PatternKind, PolyExistentialPredicate, PredicateKind, RegionKind, RegionVid, TraitRef, TyKind, TyVid, ValTreeKind } from "../../rustc_type_ir/decls.ts";
 import { FlagComputation } from "../../rustc_type_ir/flags.ts";
 import { CollectAndApply_Result, CollectAndApply_T } from "../../rustc_type_ir/interner.ts";
@@ -246,7 +247,7 @@ export class CtxtInterners {
     public pat: InternedSet<Pattern>,
     public const_allocation: InternedSet<unknown>,
     public bound_variable_kinds: InternedSet<List<BoundVariableKind>>,
-    public layout: InternedSet<unknown>,
+    public layout: InternedSet<Layout>,
     public adt_def: InternedSet<AdtDef>,
     public external_constraints: InternedSet<ExternalConstraints>,
     public predefined_opaques_in_body: InternedSet<List<[OpaqueTypeKey, Ty]>>,
@@ -1870,9 +1871,10 @@ export class TyCtxt {
   mk_const_alloc(_v: Allocation): ConstAllocation {
     return unported("rustc_middle::ty::context::TyCtxt::mk_const_alloc (ConstAllocation, M4)");
   }
-  /** Stub (`direct_interners!` `mk_layout`, context.rs:2019): layouts (M4). */
-  mk_layout(_v: LayoutData): Layout {
-    return unported("rustc_middle::ty::context::TyCtxt::mk_layout (Layout, M4)");
+  // PORT (layout-contract): the key is the derived `Hash` + `Eq` of `LayoutData` (`intern_key`); `Layout` deep-freezes it.
+  // rustc-macro: compiler/rustc_middle/src/ty/context.rs:2019 direct_interners! mk_layout
+  mk_layout(v: LayoutData): Layout {
+    return Interned.new_unchecked(this.interners.layout.intern(v, intern_key(v), (v) => new AbiLayout(v)));
   }
   // PORT: the key is `impl Hash for AdtDefData` (adt.rs:154: only `did`), not the derived key of every field.
   // rustc-macro: compiler/rustc_middle/src/ty/context.rs:2020 direct_interners! mk_adt_def_from_data
@@ -2050,7 +2052,7 @@ export class TyCtxt {
   // rustc: compiler/rustc_middle/src/ty/context.rs:2143 reuse_or_mk_predicate
   reuse_or_mk_predicate(pred: Predicate, binder: Binder<PredicateKind>): Predicate {
     // PORT: `pred.kind() != binder` is the derived `PartialEq` of `Binder<PredicateKind>`: the intern key.
-    return intern_key(pred.kind()) !== intern_key(binder) ? this.mk_predicate(binder) : pred;
+    return !intern_key_eq(pred.kind(), binder) ? this.mk_predicate(binder) : pred;
   }
 
   /// If you have a [`ty::Alias`], you should almost certainly be calling
@@ -2934,7 +2936,8 @@ export class GlobalCtxt {
       //     sess.dcx().emit_fatal(err); })`, on first read (module comment).
       const r = this.sess.target.parse_data_layout();
       if (r.$ === "Err") {
-        return unported("rustc_errors::diagnostic_impls: Diagnostic for rustc_abi::TargetDataLayoutErrors (GlobalCtxt::data_layout: emit_fatal)");
+        const err = r._0;
+        return this.sess.dcx().emit_fatal({ into_diag: (dcx, level) => TargetDataLayoutError_into_diag(err, dcx, level) });
       }
       this.data_layout_ = r._0;
     }
@@ -3049,25 +3052,29 @@ function alias_term_def_id_and_is_self_args(kind: AliasTermKind): [DefId, boolea
  * require it when they run, after every module has loaded.
  */
 function middle_lint(): typeof import("../lint.ts") {
-  return require("../lint.ts") as typeof import("../lint.ts");
+  return (middle_lint__m ??= require("../lint.ts") as typeof import("../lint.ts"));
 }
+var middle_lint__m: typeof import("../lint.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 /** PORT: hir/mod.ts is an extension module of `TyCtxt` (it defines `ProjectedOwnerInfo` and attaches the HIR
  * `impl TyCtxt` blocks), so `feed_hir` reaches it lazily, as `middle_lint()` (decision 5). */
 function middle_hir(): typeof import("../hir/mod.ts") {
-  return require("../hir/mod.ts") as typeof import("../hir/mod.ts");
+  return (middle_hir__m ??= require("../hir/mod.ts") as typeof import("../hir/mod.ts"));
 }
+var middle_hir__m: typeof import("../hir/mod.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 /** PORT: ty/diagnostics.ts imports rustc_hir's visitor and attaches `TyCtxt` methods: reached lazily (merge-w15b). */
 function middle_ty_diagnostics(): typeof import("./diagnostics.ts") {
-  return require("./diagnostics.ts") as typeof import("./diagnostics.ts");
+  return (middle_ty_diagnostics__m ??= require("./diagnostics.ts") as typeof import("./diagnostics.ts"));
 }
+var middle_ty_diagnostics__m: typeof import("./diagnostics.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 /** PORT: ty/assoc.ts is an extension module of `TyCtxt` (it attaches `associated_types_for_impl_traits_in_associated_fn`),
  * so `is_method` reaches its `AssocItem` companion lazily, as `middle_lint()` (decision 5). */
 function middle_assoc(): typeof import("./assoc.ts") {
-  return require("./assoc.ts") as typeof import("./assoc.ts");
+  return (middle_assoc__m ??= require("./assoc.ts") as typeof import("./assoc.ts"));
 }
+var middle_assoc__m: typeof import("./assoc.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 // ---- stand-ins for fns of other upstream files that are not ported yet (not markers; repoint when they land) ----
 

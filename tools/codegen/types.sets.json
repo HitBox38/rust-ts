@@ -419,6 +419,29 @@
       "decodable_types": "`ReprOptions` and its field types: crate metadata's `AdtDefData.repr` (rustc_middle ty/codec.rs `Decodable for AdtDef`; lane small-gaps-18)"
     }
   },
+  "rustc_index": {
+    "files": [
+      "compiler/rustc_index/src/bit_set.rs"
+    ],
+    "class": [],
+    "hand": [],
+    "discriminant": [],
+    "skip": [],
+    "derive_only": true,
+    "derive_decodable": true,
+    "decodable_types": [
+      "rustc_index::bit_set::DenseBitSet"
+    ],
+    "decodable_construct": {
+      "rustc_index::bit_set::DenseBitSet": { "expr": "new DenseBitSet($0, $1)", "import": ["DenseBitSet"] }
+    },
+    "erase_params": ["T"],
+    "hand_notes": {
+      "erase_params": "`DenseBitSet<T>`'s `T: Idx` is a number-like index in bit_set.ts (`T extends number = number`); the decoded set is a `DenseBitSet<number>` (metadata only holds `DenseBitSet<u32>`)",
+      "*": "rustc_index's types are hand-written (src/rustc_index/bit_set.ts, a subset); this set only generates rustc_index/decodable.gen.ts.",
+      "decodable_types": "`DenseBitSet`: crate metadata's `params_in_repr` / `args_known_to_outlive_alias_params` (rustc_metadata cstore_impl.rs; lane small-gaps-20)"
+    }
+  },
   "rustc_middle": {
     "files": [
       "compiler/rustc_middle/src/ty/mod.rs",
@@ -429,7 +452,8 @@
       "compiler/rustc_middle/src/middle/mod.rs",
       "compiler/rustc_middle/src/middle/resolve_bound_vars.rs",
       "compiler/rustc_middle/src/ty/consts/valtree.rs",
-      "compiler/rustc_middle/src/ty/intrinsic.rs"
+      "compiler/rustc_middle/src/ty/intrinsic.rs",
+      "compiler/rustc_middle/src/ty/predicate.rs"
     ],
     "class": [],
     "hand": [],
@@ -456,6 +480,7 @@
       "rustc_middle::ty::trait_def::TraitSpecializationKind",
       "rustc_middle::ty::trait_def::TraitDef",
       "rustc_middle::ty::generics::GenericClauses",
+      "rustc_middle::ty::generics::ConstConditions",
       "rustc_middle::ty::VariantDiscr",
       "rustc_middle::ty::VariantFlags",
       "rustc_middle::ty::FieldDef",
@@ -1007,6 +1032,60 @@
       "middle_traits_thir.typemap.json"
     ]
   },
+  "rustc_middle_ty_print": {
+    "files": [
+      "compiler/rustc_middle/src/ty/print/pretty.rs"
+    ],
+    "files_note": "lane small-gaps-20: only the derived TypeVisitable / TypeFoldable of the hand-written print wrappers (`TraitRefPrintOnlyTraitPath`, ...; ty/print/pretty.ts) are generated (`type_fold_hand`), into ty/print/pretty.gen.ts; every other type of the file is skipped (hand-written in pretty.ts)",
+    "class": [],
+    "hand": [
+      "rustc_middle::ty::print::pretty::TraitRefPrintOnlyTraitPath",
+      "rustc_middle::ty::print::pretty::TraitRefPrintSugared",
+      "rustc_middle::ty::print::pretty::TraitRefPrintOnlyTraitName",
+      "rustc_middle::ty::print::pretty::TraitClausePrintModifiersAndPath",
+      "rustc_middle::ty::print::pretty::TraitClausePrintWithBoundConstness"
+    ],
+    "hand_notes": "ty/print/pretty.ts (lanes ty-print-a / ty-print-b) hand-writes every type of the file, with their Debug / Display",
+    "type_fold_hand": [
+      "rustc_middle::ty::print::pretty::TraitRefPrintOnlyTraitPath",
+      "rustc_middle::ty::print::pretty::TraitRefPrintSugared",
+      "rustc_middle::ty::print::pretty::TraitRefPrintOnlyTraitName",
+      "rustc_middle::ty::print::pretty::TraitClausePrintModifiersAndPath",
+      "rustc_middle::ty::print::pretty::TraitClausePrintWithBoundConstness"
+    ],
+    "discriminant": [],
+    "skip": [
+      "rustc_middle::ty::print::pretty::RtnMode",
+      "rustc_middle::ty::print::pretty::RtnModeHelper",
+      "rustc_middle::ty::print::pretty::WrapBinderMode",
+      "rustc_middle::ty::print::pretty::RegionHighlightMode",
+      "rustc_middle::ty::print::pretty::FmtPrinter",
+      "rustc_middle::ty::print::pretty::FmtPrinterData",
+      "rustc_middle::ty::print::pretty::RegionFolder",
+      "rustc_middle::ty::print::pretty::PrintClosureAsImpl",
+      "rustc_middle::ty::print::pretty::OpaqueFnEntry"
+    ],
+    "skip_notes": {
+      "rustc_middle::ty::print::pretty::RtnMode": "hand-written in ty/print/pretty.ts (no codegen for this file beyond the type_fold_hand derives)",
+      "rustc_middle::ty::print::pretty::RtnModeHelper": "hand-written in ty/print/pretty.ts (no codegen for this file beyond the type_fold_hand derives)",
+      "rustc_middle::ty::print::pretty::WrapBinderMode": "hand-written in ty/print/pretty.ts (no codegen for this file beyond the type_fold_hand derives)",
+      "rustc_middle::ty::print::pretty::RegionHighlightMode": "hand-written in ty/print/pretty.ts (no codegen for this file beyond the type_fold_hand derives)",
+      "rustc_middle::ty::print::pretty::FmtPrinter": "hand-written in ty/print/pretty.ts (no codegen for this file beyond the type_fold_hand derives)",
+      "rustc_middle::ty::print::pretty::FmtPrinterData": "hand-written in ty/print/pretty.ts (no codegen for this file beyond the type_fold_hand derives)",
+      "rustc_middle::ty::print::pretty::RegionFolder": "hand-written in ty/print/pretty.ts (no codegen for this file beyond the type_fold_hand derives)",
+      "rustc_middle::ty::print::pretty::PrintClosureAsImpl": "hand-written in ty/print/pretty.ts (no codegen for this file beyond the type_fold_hand derives)",
+      "rustc_middle::ty::print::pretty::OpaqueFnEntry": "hand-written in ty/print/pretty.ts (no codegen for this file beyond the type_fold_hand derives)"
+    },
+    "derive_type_fold": true,
+    "resolve_files": [
+      "compiler/rustc_middle/src/ty/print/mod.rs",
+      "compiler/rustc_middle/src/ty/mod.rs"
+    ],
+    "typemap_extra": [
+      "tyir.typemap.json",
+      "middle_traits_thir.typemap.json"
+    ]
+  },
   "rustc_middle_ty_mod": {
     "files": [
       "compiler/rustc_middle/src/ty/mod.rs"
@@ -1254,6 +1333,7 @@
   "rustc_hir_analysis": {
     "files": [
       "compiler/rustc_hir_analysis/src/diagnostics.rs",
+      "compiler/rustc_hir_analysis/src/diagnostics/precise_captures.rs",
       "compiler/rustc_hir_analysis/src/collect.rs",
       "compiler/rustc_hir_analysis/src/collect/generics_of.rs",
       "compiler/rustc_hir_analysis/src/collect/type_of.rs",
@@ -1700,5 +1780,36 @@
       "compiler/rustc_trait_selection/src/traits/mod.rs"
     ],
     "typemap_extra": ["tyir.typemap.json", "middle_traits_thir.typemap.json", "ast_lowering.typemap.json", "infer.typemap.json", "hir_analysis.typemap.json", "trait_selection.typemap.json", "old_solver.typemap.json", "hir_typeck.typemap.json", "error_reporting.typemap.json"]
+  },
+  "rustc_next_trait_solver_structural_traits": {
+    "files": ["compiler/rustc_next_trait_solver/src/solve/assembly/structural_traits.rs"],
+    "files_note": "lane small-gaps-21: only the derived TypeVisitable_Generic / TypeFoldable_Generic of `AsyncCallableRelevantTypes` (hand-written interface in solve/assembly/structural_traits.ts) are generated (`type_fold_hand`), into structural_traits.gen.ts; the other types of the file are skipped (hand-written)",
+    "class": [],
+    "hand": ["rustc_next_trait_solver::solve::assembly::structural_traits::AsyncCallableRelevantTypes"],
+    "hand_notes": "solve/assembly/structural_traits.ts (lane next-solver) hand-writes the types of the file, with their Debug",
+    "type_fold_hand": ["rustc_next_trait_solver::solve::assembly::structural_traits::AsyncCallableRelevantTypes"],
+    "discriminant": [],
+    "skip": [
+      "rustc_next_trait_solver::solve::assembly::structural_traits::ReplaceProjectionWith",
+      "rustc_next_trait_solver::solve::assembly::structural_traits::AmbiguousOrRerunNonErased"
+    ],
+    "skip_notes": {
+      "rustc_next_trait_solver::solve::assembly::structural_traits::ReplaceProjectionWith": "TypeFolder impl: hand class in solve/assembly/structural_traits.ts",
+      "rustc_next_trait_solver::solve::assembly::structural_traits::AmbiguousOrRerunNonErased": "hand-written in solve/assembly/structural_traits.ts"
+    },
+    "derive_type_fold": true,
+    "erase_params": ["I"],
+    "typemap_extra": ["tyir.typemap.json"]
+  },
+  "rustc_middle_ty_instance": {
+    "files": ["compiler/rustc_middle/src/ty/instance.rs", "compiler/rustc_middle/src/ty/vtable.rs"],
+    "files_note": "lane instance-vtable: the types of ty/instance.rs (Instance, ReifyReason, InstanceKind, ShimKind) and ty/vtable.rs (VtblEntry) with their derived Debug / TypeVisitable / TypeFoldable; the inherent methods (instance.ts) and VtblEntry's manual Debug (vtable.ts) are hand-written",
+    "class": [],
+    "hand": [],
+    "discriminant": [],
+    "skip": [],
+    "derive_type_fold": true,
+    "resolve_files": ["compiler/rustc_middle/src/ty/mod.rs"],
+    "typemap_extra": ["tyir.typemap.json", "middle_traits_thir.typemap.json"]
   }
 }

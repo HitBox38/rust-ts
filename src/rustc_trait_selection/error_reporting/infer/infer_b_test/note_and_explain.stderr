@@ -1,0 +1,161 @@
+warning: the feature `lang_items` is internal to the compiler or standard library
+ --> note_and_explain.rs:1:21
+  |
+1 | #![feature(no_core, lang_items, unboxed_closures, fundamental)]
+  |                     ^^^^^^^^^^
+  |
+  = note: using it is strongly discouraged
+  = note: `#[warn(internal_features)]` on by default
+
+error[E0308]: mismatched types
+  --> note_and_explain.rs:35:29
+   |
+35 | pub fn f<A, B>(a: A) -> B { a }
+   |          -  -           -   ^ expected type parameter `B`, found type parameter `A`
+   |          |  |           |
+   |          |  |           expected `B` because of return type
+   |          |  expected type parameter
+   |          found type parameter
+   |
+   = note: expected type parameter `B`
+              found type parameter `A`
+   = note: a type parameter was expected, but a different one was found; you might be missing a type parameter or trait bound
+   = note: for more information, visit https://doc.rust-lang.org/book/ch10-02-traits.html#traits-as-parameters
+   = note: the caller chooses a type for `B` which can be different from `A`
+
+error[E0308]: mismatched types
+  --> note_and_explain.rs:36:28
+   |
+36 | pub fn g() { let _x: f32 = 1; }
+   |                      ---   ^ expected `f32`, found integer
+   |                      |
+   |                      expected due to this
+   |
+help: use a float literal
+   |
+36 | pub fn g() { let _x: f32 = 1.0; }
+   |                             ++
+
+error[E0308]: mismatched types
+  --> note_and_explain.rs:37:28
+   |
+37 | pub fn h<T>(t: T) -> u32 { t }
+   |          -           ---   ^ expected `u32`, found type parameter `T`
+   |          |           |
+   |          |           expected `u32` because of return type
+   |          found this type parameter
+   |
+   = note:        expected type `u32`
+           found type parameter `T`
+
+error[E0308]: mismatched types
+  --> note_and_explain.rs:38:32
+   |
+38 | pub fn k<T: Tr>(t: T) -> u32 { t.m() }
+   |                          ---   ^^^^^ expected `u32`, found associated type
+   |                          |
+   |                          expected `u32` because of return type
+   |
+   = note:         expected type `u32`
+           found associated type `<T as Tr>::A`
+help: consider constraining the associated type `<T as Tr>::A` to `u32`
+   |
+38 | pub fn k<T: Tr<A = u32>>(t: T) -> u32 { t.m() }
+   |               +++++++++
+
+error[E0308]: mismatched types
+  --> note_and_explain.rs:39:41
+   |
+39 | pub fn k3<T>(t: T) -> u32 where T: Tr { t.m() }
+   |                       ---               ^^^^^ expected `u32`, found associated type
+   |                       |
+   |                       expected `u32` because of return type
+   |
+   = note:         expected type `u32`
+           found associated type `<T as Tr>::A`
+help: consider constraining the associated type `<T as Tr>::A` to `u32`
+   |
+39 | pub fn k3<T>(t: T) -> u32 where T: Tr<A = u32> { t.m() }
+   |                                      +++++++++
+
+error[E0308]: mismatched types
+  --> note_and_explain.rs:40:43
+   |
+40 | pub fn z<T: Tr, U>(_t: T, u: U) -> T::A { u }
+   |                 -                  ----   ^ expected associated type, found type parameter `U`
+   |                 |                  |
+   |                 |                  expected `<T as Tr>::A` because of return type
+   |                 found this type parameter
+   |
+   = note: expected associated type `<T as Tr>::A`
+               found type parameter `U`
+help: consider further restricting this bound
+   |
+40 | pub fn z<T: Tr<A = U>, U>(_t: T, u: U) -> T::A { u }
+   |               +++++++
+
+error[E0308]: mismatched types
+  --> note_and_explain.rs:41:40
+   |
+41 | pub fn cl() { let mut c = || 1u32; c = || 2u32; }
+   |                           --           ^^^^^^^ expected closure, found a different closure
+   |                           |
+   |                           the expected closure
+   |
+   = note: expected closure `{closure@note_and_explain.rs:41:27: 41:29}`
+              found closure `{closure@note_and_explain.rs:41:40: 41:42}`
+   = note: no two closures, even if identical, have the same type
+   = help: consider boxing your closure and/or using it as a trait object
+
+error[E0308]: mismatched types
+  --> note_and_explain.rs:42:29
+   |
+42 | pub fn pc<F: Fn()>() -> F { || {} }
+   |           -             -   ^^^^^ expected type parameter `F`, found closure
+   |           |             |
+   |           |             expected `F` because of return type
+   |           |             help: consider using an impl return type: `impl Fn()`
+   |           expected this type parameter
+   |
+   = note: expected type parameter `F`
+                     found closure `{closure@note_and_explain.rs:42:29: 42:31}`
+   = help: every closure has a distinct type and so could not always match the caller-chosen type of parameter `F`
+
+error[E0308]: mismatched types
+  --> note_and_explain.rs:43:29
+   |
+43 | pub fn hh<T>(t: u32) -> T { t }
+   |           -             -   ^ expected type parameter `T`, found `u32`
+   |           |             |
+   |           |             expected `T` because of return type
+   |           expected this type parameter
+   |
+   = note: expected type parameter `T`
+                        found type `u32`
+   = note: the caller chooses a type for `T` which can be different from `u32`
+
+error[E0308]: mismatched types
+  --> note_and_explain.rs:45:53
+   |
+45 | impl<T: Tr> S<T> { pub fn q(&self, t: &T) -> T::A { 0u32 } }
+   |                                              ----   ^^^^ expected associated type, found `u32`
+   |                                              |
+   |                                              expected `<T as Tr>::A` because of return type
+   |
+   = note: expected associated type `<T as Tr>::A`
+                         found type `u32`
+help: some methods are available that return `<T as Tr>::A`
+  --> note_and_explain.rs:34:24
+   |
+34 | pub trait Tr { type A; fn m(&self) -> Self::A; fn n(&self) -> Self::A; }
+   |                        ^^^^^^^^^^^^^^^^^^^^^^^ ^^^^^^^^^^^^^^^^^^^^^^^ consider calling `Tr::n`
+   |                        |
+   |                        consider calling `Tr::m`
+help: consider constraining the associated type `<T as Tr>::A` to `u32`
+   |
+45 | impl<T: Tr<A = u32>> S<T> { pub fn q(&self, t: &T) -> T::A { 0u32 } }
+   |           +++++++++
+
+error: aborting due to 10 previous errors; 1 warning emitted
+
+For more information about this error, try `rustc --explain E0308`.

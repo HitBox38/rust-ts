@@ -10,9 +10,9 @@ import { type FeatureStability } from "./middle/mod.ts";
 import { type AmbigModChild, type ModChild, Reexport } from "./middle/resolve.ts";
 import { ObjectLifetimeDefault } from "./middle/resolve_bound_vars.ts";
 import { AdtDefData, type AdtFlags } from "./ty/adt.ts";
-import { decode_Clause, decode_Ty, decode_ValTree, type TyDecoder } from "./ty/codec.ts";
+import { decode_Clause, decode_List_BoundVariableKind, decode_Ty, decode_ValTree, type TyDecoder } from "./ty/codec.ts";
 import { type Value } from "./ty/consts/valtree.ts";
-import { type GenericClauses, type GenericParamDef, GenericParamDefKind, Generics } from "./ty/generics.ts";
+import { type ConstConditions, type GenericClauses, type GenericParamDef, GenericParamDefKind, Generics } from "./ty/generics.ts";
 import { type IntrinsicDef } from "./ty/intrinsic.ts";
 import { type AsyncDestructor, type Destructor, FieldDef, ImplTraitHeader, type ImplTraitInTraitData, RestrictionKind, VariantDef, type VariantDiscr, type VariantFlags, Visibility } from "./ty/mod.ts";
 import { TraitDef, type TraitSpecializationKind } from "./ty/trait_def.ts";
@@ -21,6 +21,7 @@ import { decode_Ident, decode_ModId } from "../rustc_span/decodable.gen.ts";
 import { type BlobDecoder, decode_ErrorGuaranteed, type SpanDecoder } from "../rustc_span/lib.ts";
 import { decode_EarlyBinder } from "../rustc_type_ir/binder.ts";
 import { decode_ImplPolarity, decode_TraitRef } from "../rustc_type_ir/predicate.ts";
+import { decode_Binder } from "../rustc_type_ir/serialize.ts";
 import { panic } from "../std/panic.ts";
 
 // rustc-derive: compiler/rustc_middle/src/ty/mod.rs:169 TyDecodable for ImplTraitHeader
@@ -168,6 +169,14 @@ export function decode_GenericClauses(__decoder: TyDecoder): GenericClauses {
   return {
     parent: decode_Option(__decoder, (__decoder) => __decoder.decode_def_id()),
     clauses: decode_RefDecodable_slice_into_arena(__decoder, (__decoder) => decode_tuple(__decoder, decode_Clause, (__decoder) => __decoder.decode_span())),
+  };
+}
+
+// rustc-derive: compiler/rustc_middle/src/ty/generics.rs:540 TyDecodable for ConstConditions
+export function decode_ConstConditions(__decoder: TyDecoder): ConstConditions {
+  return {
+    parent: decode_Option(__decoder, (__decoder) => __decoder.decode_def_id()),
+    clauses: decode_RefDecodable_slice_into_arena(__decoder, (__decoder) => decode_tuple(__decoder, (__decoder) => decode_Binder(__decoder, decode_TraitRef, decode_List_BoundVariableKind), (__decoder) => __decoder.decode_span())),
   };
 }
 

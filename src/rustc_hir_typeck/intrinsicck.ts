@@ -1,14 +1,16 @@
 // Port of compiler/rustc_hir_typeck/src/intrinsicck.rs (lane typeck-euv).
 //
-// PORT: the layout parts (rustc_middle ty/layout.rs `SizeSkeleton` / `LayoutError`, M4) are `Pending` (decls.ts
-// `SizeSkeleton`, rustc_middle ty/decls.ts `LayoutError`): the code stops with `unported(..)` where it reaches them
-// (`SizeSkeleton::compute`, `LayoutError::NormalizationFailure`, `skeleton_string`).
+// The layout parts use rustc_middle ty/layout.rs's `SizeSkeleton` / `LayoutError` (repointed from stand-ins by
+// merge-layout).
 // PORT: `trace!` is tracing only and not ported.
 // Init order: top-level code here touches only ./decls.ts and other crates.
+import { debug_Size, Primitive } from "../rustc_abi/lib.ts";
 import { into_MultiSpan } from "../rustc_error_messages/lib.ts";
+import { E0512, E0591, struct_span_code_err } from "../rustc_errors/lib.ts";
 import type { HirId } from "../rustc_hir_id/lib.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
-import type { LayoutError, VariantIdx } from "../rustc_middle/ty/decls.ts";
+import type { VariantIdx } from "../rustc_middle/ty/decls.ts";
+import { display_LayoutError, type LayoutError, SizeSkeleton } from "../rustc_middle/ty/layout.ts";
 import { Ty, TypingEnv } from "../rustc_middle/ty/mod.ts";
 import { debug_Ty, fold_Ty } from "../rustc_middle/ty/structural_impls.ts";
 import { display_Ty } from "../rustc_middle/ty/print/pretty.ts";
@@ -19,11 +21,11 @@ import type { PolyFnSig } from "../rustc_type_ir/decls.ts";
 import { fold_tuple2, set_aliases_to_non_rigid } from "../rustc_type_ir/fold.ts";
 import { FnSig, fold_FnSig } from "../rustc_type_ir/ty_kind.ts";
 import { Unnormalized } from "../rustc_type_ir/unnormalized.ts";
-import { PRETTY } from "../std/fmt.ts";
+import { PLAIN, PRETTY } from "../std/fmt.ts";
 import { assert, unported } from "../std/panic.ts";
+import { bug } from "../rustc_span/macros.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
 import type { TypeckResults } from "../rustc_middle/ty/typeck_results.ts";
-import type { SizeSkeleton } from "./decls.ts";
 
 /// If the type is `Option<T>`, it will return `T`, otherwise
 /// the type itself. Works on most `Option`-like types.
@@ -58,14 +60,34 @@ export function unpack_option_like(tcx: TyCtxt, ty: Ty): Ty {
 
 /// Try to display a sensible error with as much information as possible.
 // rustc: compiler/rustc_hir_typeck/src/intrinsicck.rs:42 skeleton_string
-export function skeleton_string(_ty: Ty, _sk: Result<SizeSkeleton, LayoutError>): string {
-  // match sk {
-  //     Ok(SizeSkeleton::Pointer { tail, .. }) => format!("pointer to `{tail}`"),
-  //     Ok(SizeSkeleton::Known(size, _)) => .. format!("{v} bits") ..,
-  //     Err(LayoutError::TooGeneric(bad)) => ..,
-  //     Err(err) => err.to_string(),
-  // }
-  return unported("rustc_middle::ty::layout::SizeSkeleton / LayoutError (M4)");
+export function skeleton_string(ty: Ty, sk: Result<SizeSkeleton, LayoutError>): string {
+  if (sk.$ === "Ok" && sk._0.$ === "Pointer") {
+    const { tail } = sk._0;
+    return `pointer to \`${display_Ty(tail)}\``;
+  } else if (sk.$ === "Ok" && sk._0.$ === "Known") {
+    const size = sk._0._0;
+    // PORT: `u128::from(size.bytes()).checked_mul(8)` cannot overflow a u128 for a u64 byte count; kept as a `bigint`
+    // check against `u128::MAX`.
+    const v = BigInt(size.bytes()) * 8n;
+    if (v <= (1n << 128n) - 1n) {
+      return `${v} bits`;
+    } else {
+      // `u128` should definitely be able to hold the size of different architectures
+      // larger sizes should be reported as error `are too big for the target architecture`
+      // otherwise we have a bug somewhere
+      return bug(`${debug_Size(size, PLAIN)} overflow for u128`);
+    }
+  } else if (sk.$ === "Err" && sk._0.$ === "TooGeneric") {
+    const bad = sk._0._0;
+    if (bad === ty) {
+      return "this type does not have a fixed size";
+    } else {
+      return `size can vary because of ${display_Ty(bad)}`;
+    }
+  } else {
+    const err = (sk as { $: "Err"; _0: LayoutError })._0;
+    return display_LayoutError(err);
+  }
 }
 
 // rustc: compiler/rustc_hir_typeck/src/intrinsicck.rs:69 check_transmute
@@ -74,9 +96,8 @@ export function check_transmute(tcx: TyCtxt, typing_env: TypingEnv, from_: Unnor
   const normalize = (ty: Unnormalized<Ty>): Result<Ty, ErrorGuaranteed> => {
     const r = tcx.try_normalize_erasing_regions(typing_env, ty, fold_Ty);
     if (r.$ === "Ok") return r;
-    // let err = LayoutError::NormalizationFailure(ty.skip_normalization(), err);
-    // tcx.dcx().span_err(span, err.to_string())
-    return unported("rustc_middle::ty::layout::LayoutError::NormalizationFailure (M4)");
+    const err: LayoutError = { $: "NormalizationFailure", _0: Unnormalized.skip_normalization(ty), _1: r._0 };
+    return Err(tcx.dcx().span_err(span, display_LayoutError(err)));
   };
 
   const from = normalize(from_);
@@ -89,11 +110,42 @@ export function check_transmute(tcx: TyCtxt, typing_env: TypingEnv, from_: Unnor
     return Ok(undefined);
   }
 
-  // let sk_from = SizeSkeleton::compute(from, tcx, typing_env, span);
-  // let sk_to = SizeSkeleton::compute(to, tcx, typing_env, span);
-  // .. (same-size check, E0591 / E0512 with `skeleton_string`)
-  void span;
-  return unported("rustc_middle::ty::layout::SizeSkeleton::compute (M4)");
+  const sk_from = SizeSkeleton.compute(from._0, tcx, typing_env, span);
+  const sk_to = SizeSkeleton.compute(to._0, tcx, typing_env, span);
+
+  // Check for same size using the skeletons.
+  if (sk_from.$ === "Ok" && sk_to.$ === "Ok") {
+    if (SizeSkeleton.same_size(sk_from._0, sk_to._0)) {
+      return Ok(undefined);
+    }
+
+    // Special-case transmuting from `typeof(function)` and
+    // `Option<typeof(function)>` to present a clearer error.
+    const from_ = unpack_option_like(tcx, from._0);
+    const sk = sk_to._0;
+    if (
+      from_.kind().$ === "FnDef" &&
+      sk.$ === "Known" &&
+      sk._0.bytes() === Primitive.size({ $: "Pointer", _0: tcx.data_layout().instruction_address_space }, tcx).bytes()
+    ) {
+      struct_span_code_err(tcx.sess.dcx(), span, E0591, "can't transmute zero-sized type")
+        .with_note(`source type: ${display_Ty(from_)}`)
+        .with_note(`target type: ${display_Ty(to._0)}`)
+        .with_help("cast with `as` to a pointer instead")
+        .emit();
+      return Ok(undefined);
+    }
+  }
+
+  const err = struct_span_code_err(tcx.sess.dcx(), span, E0512, "cannot transmute between types of different sizes, or dependently-sized types");
+  if (from._0 === to._0) {
+    err.note(`\`${display_Ty(from._0)}\` does not have a fixed size`);
+    return Err(err.emit_err());
+  } else {
+    err.note(`source type: \`${display_Ty(from._0)}\` (${skeleton_string(from._0, sk_from)})`);
+    err.note(`target type: \`${display_Ty(to._0)}\` (${skeleton_string(to._0, sk_to)})`);
+    return Err(err.emit_err());
+  }
 }
 
 // rustc: compiler/rustc_hir_typeck/src/intrinsicck.rs:137 check_offload

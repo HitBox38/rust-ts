@@ -1,26 +1,16 @@
-// Port of compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs (STUB, lane typeck-checks-a|typeck-checks-b): see docs/handoff/fnctxt-contract.md "How to
-// fill a stub".
+// Port of compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs (lanes typeck-checks-a: :1..1668, typeck-checks-b: :1669..).
 //
-// Every fn of this file is declared in ../decls.ts under `// fn_ctxt/checks.rs:<line>`:
-// - methods of FnCtxt and the other contract classes: assign each onto the prototype in upstream order
-//   (`FnCtxt.prototype.<name> = function (this: FnCtxt, ..): R { .. };`) with the marker
-//   `// rustc: compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs:<line> <name>` directly above it, then delete the name from the
-//   `unported_methods(..)` list below (and the call when the list is empty);
-// - free fns have their final signatures (decls.ts `Fns_*`): fill the body in place, add the marker and drop the
-//   `(stub ..)` comment;
-// - comment-only declarations (helper types, trait impls, nested fns): pick the form (decls.ts, last section).
+// Every fn of this file is declared in ../decls.ts under `// fn_ctxt/checks.rs:<line>` (FnCtxt and the contract classes
+// `CallCtxt` / `ArgsCtxt` / `ArgMatchingCtxt` / `FnCallDiagCtxt`; comment-only declarations for helper types, trait
+// impls and nested fns).
 // Init order: top-level code here may touch only ../decls.ts (the classes), this file's .gen.ts and other crates; every
 // other rustc_hir_typeck export is read inside function bodies only.
 export * from "./checks.gen.ts";
-import { unported_methods } from "../../rust_ts/stubs.ts";
 import { unported } from "../../std/panic.ts";
 import { FnCtxt, register_deref } from "../decls.ts";
 import { ArgMatchingCtxt, ArgsCtxt, CallCtxt, FnCallDiagCtxt } from "./checks.gen.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
-import type { Ty } from "../../rustc_middle/ty/mod.ts";
-
-/** fn_ctxt/checks.rs:2172 `struct FindClosureArg` (`impl Visitor`; hand type, lane typeck-checks-b writes the class). */
-export type FindClosureArg = unknown;
+import { Ty } from "../../rustc_middle/ty/mod.ts";
 
 // fn_ctxt/checks.rs:3449 `impl Deref for CallCtxt { type Target = FnCtxt }` (`&self.fn_ctxt`): forwarders installed by lib.ts (decls.ts `register_deref`).
 register_deref(CallCtxt, "fn_ctxt", FnCtxt);
@@ -113,6 +103,55 @@ import {
   type VarianceDiagInfo as VarianceDiagInfoR,
 } from "../../rustc_type_ir/relate.ts";
 import type { Region as RegionR } from "../../rustc_type_ir/sty/mod.ts";
+// ---- lane typeck-checks-b: checks.rs:1669.. ----
+import { LangItem } from "../../rustc_attr_ir/lang_items.ts";
+import { a_or_an, Applicability, listify, MultiSpan, pluralize, type Diag, type ErrCode } from "../../rustc_errors/lib.ts";
+import { struct_span_code_err } from "../../rustc_errors/diagnostic.ts";
+import { E0308 } from "../../rustc_errors/error_codes.gen.ts";
+import * as hir from "../../rustc_hir/lib.ts";
+import { DefKind } from "../../rustc_hir/def.ts";
+import type { HirTyCtxt } from "../../rustc_hir/intravisit.ts";
+import { OwnerId_eq } from "../../rustc_hir_id/lib.ts";
+import { potentially_plural_count } from "../../rustc_hir_analysis/check/mod.ts";
+import { DefineOpaqueTypes, ToTrace_Ty } from "../../rustc_infer/infer/at.ts";
+import { TypeTrace } from "../../rustc_infer/infer/mod.ts";
+import { BoundRegionConversionTime } from "../../rustc_infer/infer/mod.gen.ts";
+import { Obligation } from "../../rustc_infer/traits/mod.ts";
+import { TyCtxt_as_HirTyCtxt } from "../../rustc_middle/hir/map.ts";
+import { All } from "../../rustc_middle/hir/nested_filter.ts";
+import { ObligationCause } from "../../rustc_middle/traits/mod.ts";
+import { AssocItem } from "../../rustc_middle/ty/assoc.ts";
+import { IsSuggestable } from "../../rustc_middle/ty/diagnostics.ts";
+import { GenericArg } from "../../rustc_middle/ty/generic_args.ts";
+import { GenericClauses, GenericParamDefKind, type Generics } from "../../rustc_middle/ty/generics.ts";
+import { display_Ty, with_forced_trimmed_paths } from "../../rustc_middle/ty/print/pretty.ts";
+import { fold_Ty } from "../../rustc_middle/ty/structural_impls.ts";
+import { DefId_eq, LocalDefId, type DefId } from "../../rustc_span/def_id.ts";
+import { DUMMY_SP, Span, type ErrorGuaranteed } from "../../rustc_span/lib.ts";
+import { span_bug } from "../../rustc_span/macros.ts";
+import type { SourceMap } from "../../rustc_span/source_map.ts";
+import { kw, sym, Symbol, type Ident, type Symbol as SymbolT } from "../../rustc_span/symbol.ts";
+import { SelectionContext } from "../../rustc_trait_selection/traits/select/mod.ts";
+import { Binder, EarlyBinder, fold_Binder } from "../../rustc_type_ir/binder.ts";
+import type { ClosureKind, PolyFnSig } from "../../rustc_type_ir/decls.ts";
+import { ExpectedFound, type TypeError } from "../../rustc_type_ir/error.ts";
+import { as_interner, TraitClause, TraitRef } from "../../rustc_type_ir/predicate.ts";
+import { fold_FnSig, FnSig } from "../../rustc_type_ir/ty_kind.ts";
+import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
+import { TypeVisitableExt } from "../../rustc_type_ir/visit.ts";
+import { format_debug } from "../../std/fmt.ts";
+import { assert, unreachable, unwrap } from "../../std/panic.ts";
+import { Scalar } from "../../rustc_abi/lib.ts";
+import type { Result } from "../../std/result.ts";
+import type { Str } from "../../std/str.ts";
+import type { SplatLoweringInfo } from "../callee.gen.ts";
+import { ArgMismatchIndeterminate_diagnostic } from "../diagnostics.gen.ts";
+import { Expectation } from "../expectation.ts";
+import { TupleArgumentsFlag } from "../lib.ts";
+import type { MethodError } from "../method/mod.gen.ts";
+import { Mode, ProbeScope } from "../method/probe.gen.ts";
+import { ArgMatrix, clone_Compatibility, Compatibility, ExpectedIdx, ProvidedIdx, type Error as ArgError } from "./arg_matrix.ts";
+import { ArgumentsFormatting, GenericIdx, SuggestionText, type CallMetadata, type FnParam as FnParamG } from "./checks.gen.ts";
 
 /** `Option<DefId> == Some(def_id)`. */
 function DefId_eqA_opt(a: DefIdA | undefined, b: DefIdA): boolean {
@@ -1070,17 +1109,22 @@ FnCtxt.prototype.check_expr_lit = function (this: FnCtxt, lit: hirA.Lit, lint_id
                 break;
               case "Pat":
                 if (k._0.is_integral()) {
-                  // let layout = tcx
-                  //     .layout_of(self.typing_env(self.param_env).as_query_input(ty))
-                  //     .ok()?;
-                  // assert!(!layout.uninhabited);
-                  // match layout.backend_repr {
-                  //     rustc_abi::BackendRepr::Scalar(scalar) => {
-                  //         scalar.valid_range(&tcx).contains(u128::from(i.get())).then_some(ty)
-                  //     }
-                  //     _ => unreachable!(),
-                  // }
-                  return unported("rustc_hir_typeck::fn_ctxt::checks::FnCtxt::check_expr_lit: tcx.layout_of (rustc_middle ty/layout.rs, M4) for an integer literal expected to be a pattern type");
+                  const layout = tcx.layout_of(this.typing_env(this.param_env).as_query_input(ty));
+                  // `.ok()?` returns `None` from the `and_then` closure
+                  if (layout.$ === "Err") {
+                    opt_ty = undefined;
+                    break;
+                  }
+                  assert(!layout._0.uninhabited, "assertion failed: !layout.uninhabited");
+
+                  const repr = layout._0.backend_repr;
+                  if (repr.$ === "Scalar") {
+                    const scalar = repr._0;
+                    opt_ty = Scalar.valid_range(scalar, tcx).contains(node._0) ? ty : undefined;
+                  } else {
+                    unreachable();
+                  }
+                  break;
                 }
                 opt_ty = undefined;
                 break;
@@ -1662,15 +1706,1702 @@ FnCtxt.prototype.adjust_fulfillment_errors_for_expr_obligation = function (this:
 };
 
 // ==== lane typeck-checks-b: checks.rs:1669..3710 ====
-unported_methods(FnCtxt.prototype, "rustc_hir_typeck::fn_ctxt::checks::FnCtxt", ["label_fn_like", "label_generic_mismatches", "get_hir_param_info"]);
-unported_methods(CallCtxt.prototype, "rustc_hir_typeck::fn_ctxt::checks::CallCtxt", ["deref", "call_metadata", "mk_trace", "ty_to_snippet", "first_incompatible_error"]);
-unported_methods(CallCtxt, "rustc_hir_typeck::fn_ctxt::checks::CallCtxt", ["new"]);
-unported_methods(ArgsCtxt.prototype, "rustc_hir_typeck::fn_ctxt::checks::ArgsCtxt", ["deref", "normalize_span", "provided_arg_tys", "similar_assoc", "call_is_in_macro"]);
-unported_methods(ArgsCtxt, "rustc_hir_typeck::fn_ctxt::checks::ArgsCtxt", ["new"]);
-unported_methods(ArgMatchingCtxt.prototype, "rustc_hir_typeck::fn_ctxt::checks::ArgMatchingCtxt", ["deref", "suggest_confusable", "check_compatible", "remove_idx_is_perfect"]);
-unported_methods(ArgMatchingCtxt, "rustc_hir_typeck::fn_ctxt::checks::ArgMatchingCtxt", ["new"]);
-unported_methods(FnCallDiagCtxt.prototype, "rustc_hir_typeck::fn_ctxt::checks::FnCallDiagCtxt", ["deref", "check_wrap_args_in_tuple", "ensure_has_errors", "detect_dotdot", "filter_out_invalid_arguments", "check_single_incompatible", "maybe_optimize_extra_arg_suggestion", "initial_final_diagnostic", "labels_and_suggestion_text", "label_generic_mismatches", "append_arguments_changes", "arguments_formatting", "suggestion_code", "maybe_suggest_expect_for_unwrap"]);
-unported_methods(FnCallDiagCtxt, "rustc_hir_typeck::fn_ctxt::checks::FnCallDiagCtxt", ["new", "format_suggestion_text"]);
+// - `IndexVec<ExpectedIdx | ProvidedIdx | GenericIdx, T>` are arrays indexed by the handle number; `.get(i)` is
+//   `i < a.length ? a[i] : None`.
+// - `impl Deref` of the four contexts: the field + `deref()` + the forwarders (`register_deref` above); a field of an
+//   inner context reads through them (`this.formal_and_expected_inputs`, `this.tcx`, ...).
+// - `FnParam`'s methods are on its companion (PORTING §8); `FnParam::display`'s `impl Display` is the string the
+//   fn-local `D`'s `fmt` writes.
+
+/** `struct MismatchedParam<'a>` (fn-local in `label_fn_like`). */
+interface MismatchedParam {
+  idx: ExpectedIdx;
+  generic: GenericIdx;
+  param: FnParamG;
+  deps: ExpectedIdx[];
+}
+
+// rustc: compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs:1670 label_fn_like
+FnCtxt.prototype.label_fn_like = function (
+  this: FnCtxt,
+  err: Diag,
+  // Lowering info if a splatted function is being called.
+  callable_id: SplatLoweringInfo,
+  callee_ty: Ty | undefined,
+  call_expr: hir.Expr,
+  expected_ty: Ty | undefined,
+  // A specific argument should be labeled, instead of all of them
+  expected_idx: number | undefined,
+  matched_inputs: (ProvidedIdx | undefined)[],
+  formal_and_expected_inputs: [Ty, Ty][],
+  is_method: boolean,
+  tuple_arguments: TupleArgumentsFlag,
+): void {
+  if (callable_id.$ !== "FnDef") {
+    // FIXME(FnPtr, splat): Handle FnPtr types and splatting here
+    return;
+  }
+  let def_id: DefId = callable_id._0;
+
+  // If we're calling a method of a Fn/FnMut/FnOnce trait object implicitly
+  // (eg invoking a closure) we want to point at the underlying callable,
+  // not the method implicitly invoked (eg call_once).
+  // TupleAllCallArgs is set only when this is an implicit call `my_closure(...)` rather
+  // than explicit `my_closure.call(...)`.
+  let assoc_item: AssocItem | undefined;
+  let maybe_trait_item_def_id: Result<DefId, ErrorGuaranteed>;
+  let call_kind: ClosureKind | undefined;
+  if (
+    tuple_arguments.$ === "TupleAllCallArgs" &&
+    (assoc_item = this.tcx.opt_associated_item(def_id)) !== undefined &&
+    // Since this is an associated item, it might point at either an impl or a trait item.
+    // We want it to always point to the trait item.
+    // If we're pointing at an inherent function, we don't need to do anything,
+    // so we fetch the parent and verify if it's a trait item.
+    (maybe_trait_item_def_id = AssocItem.trait_item_or_self(assoc_item)).$ === "Ok" &&
+    // Just an easy way to check "trait_def_id == Fn/FnMut/FnOnce"
+    (call_kind = this.tcx.fn_trait_kind_from_def_id(this.tcx.parent(maybe_trait_item_def_id._0))) !== undefined &&
+    callee_ty !== undefined
+  ) {
+    const call_kind_ = call_kind;
+    const callee_ty_ = callee_ty.peel_refs();
+    const k = callee_ty_.kind();
+    if (k.$ === "Param") {
+      const param = (this.tcx.generics_of(this.body_def_id) as Generics).type_param(k._0, this.tcx);
+      if (GenericParamDefKind.is_synthetic(param.kind)) {
+        // if it's `impl Fn() -> ..` then just fall down to the def-id based logic
+        def_id = param.def_id;
+      } else {
+        // Otherwise, find the predicate that makes this generic callable,
+        // and point at that.
+        const instantiated = GenericClauses.instantiate_identity(this.tcx.explicit_clauses_of(this.body_def_id) as GenericClauses, this.tcx);
+        // FIXME(compiler-errors): This could be problematic if something has two
+        // fn-like predicates with different args, but callable types really never
+        // do that, so it's OK.
+        for (const [clause, span] of instantiated) {
+          const ck = Binder.skip_binder(Unnormalized.skip_norm_wip(clause).kind());
+          if (ck.$ === "Trait" && TraitClause.self_ty(ck._0).peel_refs() === callee_ty_ && this.tcx.is_fn_trait(TraitClause.def_id(ck._0))) {
+            err.span_note(span, "callable defined here");
+            return;
+          }
+        }
+      }
+    } else if (k.$ === "Alias" && k._1.kind.$ === "Opaque") {
+      def_id = k._1.kind.def_id;
+    } else if (k.$ === "Closure" || k.$ === "FnDef") {
+      def_id = k._0;
+    } else {
+      // Look for a user-provided impl of a `Fn` trait, and point to it.
+      const new_def_id = this.probe((_): DefId | undefined => {
+        const fn_trait = this.tcx.fn_trait_kind_to_def_id(call_kind_);
+        if (fn_trait === undefined) return undefined;
+        const trait_ref = TraitRef.new(as_interner(this.tcx), fn_trait, [GenericArg.from_Ty(callee_ty_), GenericArg.from_Ty(this.next_ty_var(DUMMY_SP))]);
+        const obligation = Obligation.new(this.tcx, ObligationCause.dummy(), this.param_env, trait_ref, TraitClause.upcast_from_TraitRef);
+        // PORT: `SelectionContext::new(self)`: `&InferCtxt` is the deref coercion of `self`.
+        const sel = SelectionContext.new(this.infcx).select(obligation);
+        if (sel.$ === "Ok" && sel._0 !== undefined && sel._0.$ === "UserDefined") {
+          return sel._0._0.impl_def_id;
+        }
+        return undefined;
+      });
+      if (new_def_id === undefined) return;
+      def_id = new_def_id;
+    }
+  }
+
+  let def_span: Span | undefined;
+  let e: hir.Node | undefined;
+  if ((def_span = this.tcx.def_ident_span(def_id)) !== undefined && !Span.is_dummy(def_span)) {
+    const spans: MultiSpan = MultiSpan.from_span(def_span);
+    const info = this.get_hir_param_info(def_id, is_method);
+    if (info !== undefined) {
+      const [params_with_generics, hir_generics] = info;
+
+      // FIXME(splat): fix the generic mismatch earlier, so it doesn't reach here
+      if (!TupleArgumentsFlag.is_splatted(tuple_arguments)) {
+        // debug_assert_eq!(params_with_generics.len(), matched_inputs.len());
+      }
+      // Gather all mismatched parameters with generics.
+      const mismatched_params: MismatchedParam[] = [];
+      let use_splat_fallback = false;
+      if (expected_idx !== undefined) {
+        const expected_idx_ = ExpectedIdx.from_usize(expected_idx);
+        const entry = expected_idx_ < params_with_generics.length ? params_with_generics[expected_idx_]! : undefined;
+        if (entry !== undefined && entry[0] !== undefined) {
+          mismatched_params.push({ idx: expected_idx_, generic: entry[0], param: entry[1], deps: [] });
+        } else if (entry !== undefined) {
+          // Still mark the mismatched parameter
+          spans.push_span_label(FnParam.span(entry[1]), "");
+        } else {
+          if (TupleArgumentsFlag.is_splatted(tuple_arguments)) {
+            // FIXME(splat): when the arg is splatted, adjust its index, to handle the type mismatch properly
+            use_splat_fallback = true;
+          } else {
+            span_bug(this.tcx.def_span(def_id), `arg index ${ExpectedIdx.as_usize(expected_idx_)} out of bounds for method with ${params_with_generics.length} inputs`);
+          }
+        }
+      }
+
+      if (expected_idx === undefined || use_splat_fallback) {
+        const n = Math.min(params_with_generics.length, matched_inputs.length);
+        for (let i = 0; i < n; i++) {
+          const idx = ExpectedIdx.from_usize(i);
+          const [generic, param] = params_with_generics[i]!;
+          const matched_idx = matched_inputs[i];
+          if (matched_idx !== undefined) {
+            continue;
+          } else if (generic !== undefined) {
+            mismatched_params.push({ idx, generic, param, deps: [] });
+          } else {
+            // Still mark mismatched parameters
+            spans.push_span_label(FnParam.span(param), "");
+          }
+        }
+      }
+
+      if (mismatched_params.length !== 0) {
+        // For each mismatched parameter, create a two-way link to each matched parameter
+        // of the same type.
+        const dependants: number[][] = Array.from({ length: params_with_generics.length }, (): number[] => []);
+        const generic_uses: ExpectedIdx[][] = Array.from({ length: hir_generics.params.length }, (): ExpectedIdx[] => []);
+        for (let idx = 0; idx < mismatched_params.length; idx++) {
+          const param = mismatched_params[idx]!;
+          const n = Math.min(params_with_generics.length, matched_inputs.length);
+          for (let o = 0; o < n; o++) {
+            const other_idx = ExpectedIdx.from_usize(o);
+            const other_generic = params_with_generics[o]![0];
+            const other_matched_idx = matched_inputs[o];
+            if (other_generic !== undefined && other_generic === param.generic && other_matched_idx !== undefined) {
+              generic_uses[param.generic]!.push(param.idx, other_idx);
+              dependants[other_idx]!.push(idx);
+              param.deps.push(other_idx);
+            }
+          }
+        }
+
+        // Highlight each mismatched type along with a note about which other parameters
+        // the type depends on (if any).
+        for (const param of mismatched_params) {
+          const deps_list = listify(param.deps, (dep) => FnParam.display(params_with_generics[dep]![1], ExpectedIdx.as_usize(dep)));
+          if (deps_list !== undefined) {
+            spans.push_span_label(
+              FnParam.span(param.param),
+              `this parameter needs to match the ${this.deeply_resolve_ignoring_regions(formal_and_expected_inputs[param.deps[0]!]![1], fold_Ty).sort_string(this.tcx)} type of ${deps_list}`,
+            );
+          } else {
+            // Still mark mismatched parameters
+            spans.push_span_label(FnParam.span(param.param), "");
+          }
+        }
+        // Highlight each parameter being depended on for a generic type.
+        const n = Math.min(params_with_generics.length, dependants.length, formal_and_expected_inputs.length);
+        for (let i = 0; i < n; i++) {
+          const param = params_with_generics[i]![1];
+          const deps = dependants[i]!;
+          const expected_ty = formal_and_expected_inputs[i]![1];
+          const deps_list = listify(deps, (dep) => {
+            const param = mismatched_params[dep]!;
+            return FnParam.display(param.param, ExpectedIdx.as_usize(param.idx));
+          });
+          if (deps_list !== undefined) {
+            spans.push_span_label(
+              FnParam.span(param),
+              `${deps_list} need${pluralize(deps.length !== 1 ? 1 : 0)} to match the ${this.deeply_resolve_ignoring_regions(expected_ty, fold_Ty).sort_string(this.tcx)} type of this parameter`,
+            );
+          }
+        }
+        // Highlight each generic parameter in use.
+        const m = Math.min(hir_generics.params.length, generic_uses.length);
+        for (let i = 0; i < m; i++) {
+          const param = hir_generics.params[i]!;
+          // `uses.sort(); uses.dedup();`
+          const uses = [...new Set(generic_uses[i]!.sort((a, b) => a - b))];
+          generic_uses[i] = uses;
+          const param_list = listify(uses, (idx) => FnParam.display(params_with_generics[idx]![1], ExpectedIdx.as_usize(idx)));
+          if (param_list !== undefined) {
+            spans.push_span_label(
+              param.span,
+              `${param_list} ${uses.length === 2 ? "both" : "all"} reference this parameter \`${Symbol.as_str(hir.ParamName.ident(param.name).name)}\``,
+            );
+          }
+        }
+      }
+    }
+    err.span_note(spans, `${this.tcx.def_descr(def_id)} defined here`);
+    const dk = this.tcx.def_kind(def_id);
+    if (
+      (dk.$ === "Fn" || dk.$ === "AssocFn") &&
+      FnSig.output(Unnormalized.skip_binder(EarlyBinder.instantiate_identity(this.tcx.fn_sig(def_id) as EarlyBinder<PolyFnSig>))).kind().$ === "Param"
+    ) {
+      const parent = this.tcx.hir_get_parent_item(call_expr.hir_id).def_id;
+      const node = this.tcx.hir_node_by_def_id(parent);
+      let found: [hir.FnRetTy, hir.BodyId] | undefined;
+      if (node.$ === "Item" && node._0.kind.$ === "Fn") {
+        found = [node._0.kind.sig.decl.output, node._0.kind.body];
+      } else if (node.$ === "TraitItem" && node._0.kind.$ === "Fn" && node._0.kind._1.$ === "Provided") {
+        found = [node._0.kind._0.decl.output, node._0.kind._1._0];
+      } else if (node.$ === "ImplItem" && node._0.kind.$ === "Fn") {
+        found = [node._0.kind._0.decl.output, node._0.kind._1];
+      } else {
+        found = undefined;
+      }
+      if (found !== undefined) {
+        const [output, body_id] = found;
+        const expr = this.tcx.hir_body(body_id).value;
+        let ret: hir.Node;
+        if (
+          expr.peel_blocks().span === call_expr.span ||
+          ((ret = this.tcx.parent_hir_node(call_expr.hir_id)).$ === "Expr" && ret._0.kind.$ === "Ret")
+        ) {
+          err.span_label(
+            hir.FnRetTy.span(output),
+            output.$ === "DefaultReturn"
+              ? `this implicit \`()\` return type influences the call expression's return type`
+              : "this return type influences the call expression's return type",
+          );
+        }
+      }
+    }
+  } else if ((e = this.tcx.hir_get_if_local(def_id)) !== undefined && e.$ === "Expr" && e._0.kind.$ === "Closure") {
+    const body = e._0.kind._0.body;
+    let param: hir.Param | undefined;
+    if (expected_idx !== undefined) {
+      const params = this.tcx.hir_body(body).params;
+      param = expected_idx < params.length ? params[expected_idx] : undefined;
+    }
+    let kind: string;
+    let span: Span;
+    if (param !== undefined) {
+      // Try to find earlier invocations of this closure to find if the type mismatch
+      // is because of inference. If we find one, point at them.
+      const call_finder = new FindClosureArg(this.tcx, []);
+      const parent_def_id = this.tcx.hir_get_parent_item(call_expr.hir_id).def_id;
+      const node = this.tcx.hir_node_by_def_id(parent_def_id);
+      switch (node.$) {
+        case "Item":
+          call_finder.visit_item(node._0);
+          break;
+        case "TraitItem":
+          call_finder.visit_trait_item(node._0);
+          break;
+        case "ImplItem":
+          call_finder.visit_impl_item(node._0);
+          break;
+        default:
+          break;
+      }
+      const typeck = this.typeck_results;
+      for (const [rcvr, args] of call_finder.calls) {
+        let rcvr_ty: Ty | undefined;
+        let rk: ReturnType<Ty["kind"]>;
+        let arg: hir.Expr | undefined;
+        let arg_ty: Ty | undefined;
+        if (
+          OwnerId_eq(rcvr.hir_id.owner, typeck.hir_owner) &&
+          (rcvr_ty = typeck.node_type_opt(rcvr.hir_id)) !== undefined &&
+          (rk = rcvr_ty.kind()).$ === "Closure" &&
+          DefId_eq(def_id, rk._0) &&
+          expected_idx !== undefined &&
+          (arg = expected_idx < args.length ? args[expected_idx] : undefined) !== undefined &&
+          (arg_ty = typeck.node_type_opt(arg.hir_id)) !== undefined &&
+          expected_ty !== undefined &&
+          this.can_eq(this.param_env, arg_ty, expected_ty, ToTrace_Ty)
+        ) {
+          const sp: MultiSpan = MultiSpan.from_spans([arg.span]);
+          sp.push_span_label(arg.span, `expected because this argument is of type \`${display_Ty(arg_ty)}\``);
+          sp.push_span_label(rcvr.span, "in this closure call");
+          err.span_note(sp, `expected because the closure was earlier called with an argument of type \`${display_Ty(arg_ty)}\``);
+          break;
+        }
+      }
+
+      [kind, span] = ["closure parameter", param.span];
+    } else {
+      [kind, span] = ["closure", this.tcx.def_span(def_id)];
+    }
+    err.span_note(span, `${kind} defined here`);
+  } else {
+    err.span_note(this.tcx.def_span(def_id), `${this.tcx.def_descr(def_id)} defined here`);
+  }
+};
+
+// rustc: compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs:2022 label_generic_mismatches
+FnCtxt.prototype.label_generic_mismatches = function (
+  this: FnCtxt,
+  err: Diag,
+  // Lowering info if a splatted function is being called.
+  callable_id: SplatLoweringInfo,
+  matched_inputs: (ProvidedIdx | undefined)[],
+  provided_arg_tys: [Ty, Span][],
+  formal_and_expected_inputs: [Ty, Ty][],
+  is_method: boolean,
+  is_splat: boolean,
+): void {
+  if (callable_id.$ !== "FnDef") {
+    // FIXME(FnPtr, splat): Handle FnPtr types and splatting here
+    return;
+  }
+  const def_id = callable_id._0;
+
+  const info = this.get_hir_param_info(def_id, is_method);
+  if (info !== undefined) {
+    const [params_with_generics] = info;
+    // FIXME(splat): fix the generic mismatch earlier, so it doesn't reach here
+    if (!is_splat) {
+      // debug_assert_eq!(params_with_generics.len(), matched_inputs.len());
+    }
+    for (let i = 0; i < params_with_generics.length; i++) {
+      const idx = ExpectedIdx.from_usize(i);
+      const generic_param = params_with_generics[i]![0];
+      if (matched_inputs[idx] === undefined) {
+        continue;
+      }
+
+      const provided_idx = ExpectedIdx.to_provided_idx(idx);
+      if (!(provided_idx < provided_arg_tys.length)) {
+        continue;
+      }
+      const [, matched_arg_span] = provided_arg_tys[provided_idx]!;
+
+      if (generic_param === undefined) {
+        continue;
+      }
+
+      let idxs_matched = 0;
+      for (let o = 0; o < params_with_generics.length; o++) {
+        const other_idx = ExpectedIdx.from_usize(o);
+        const other_generic_param = params_with_generics[o]![0];
+        const keep = ((): boolean => {
+          if (other_idx === idx) {
+            return false;
+          }
+          if (other_generic_param === undefined) {
+            return false;
+          }
+          if (matched_inputs[other_idx] !== undefined) {
+            return false;
+          }
+          return other_generic_param === generic_param;
+        })();
+        if (keep) idxs_matched++;
+      }
+
+      if (idxs_matched === 0) {
+        continue;
+      }
+
+      const expected_display_type = this.deeply_resolve_ignoring_regions(formal_and_expected_inputs[idx]![1], fold_Ty).sort_string(this.tcx);
+      const label =
+        idxs_matched === params_with_generics.length - 1
+          ? `expected all arguments to be this ${expected_display_type} type because they need to match the type of this parameter`
+          : `expected some other arguments to be ${a_or_an(expected_display_type)} ${expected_display_type} type to match the type of this parameter`;
+
+      err.span_label(matched_arg_span, label);
+    }
+  }
+};
+
+/// Returns the parameters of a function, with their generic parameters if those are the full
+/// type of that parameter.
+///
+/// Returns `None` if the body is not a named function (e.g. a closure).
+// rustc: compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs:2102 get_hir_param_info
+FnCtxt.prototype.get_hir_param_info = function (this: FnCtxt, def_id: DefId, is_method: boolean): [[GenericIdx | undefined, FnParamG][], hir.Generics] | undefined {
+  const node = this.tcx.hir_get_if_local(def_id);
+  if (node === undefined) return undefined;
+  let sig: hir.FnSig;
+  let generics: hir.Generics;
+  let body_id: hir.BodyId | undefined;
+  let params: readonly (Ident | undefined)[] | undefined;
+  if (node.$ === "TraitItem" && node._0.kind.$ === "Fn") {
+    const trait_fn = node._0.kind._1;
+    switch (trait_fn.$) {
+      case "Required":
+        [sig, generics, body_id, params] = [node._0.kind._0, node._0.generics, undefined, trait_fn._0];
+        break;
+      case "Provided":
+        [sig, generics, body_id, params] = [node._0.kind._0, node._0.generics, trait_fn._0, undefined];
+        break;
+    }
+  } else if (node.$ === "ImplItem" && node._0.kind.$ === "Fn") {
+    [sig, generics, body_id, params] = [node._0.kind._0, node._0.generics, node._0.kind._1, undefined];
+  } else if (node.$ === "Item" && node._0.kind.$ === "Fn") {
+    [sig, generics, body_id, params] = [node._0.kind.sig, node._0.kind.generics, node._0.kind.body, undefined];
+  } else if (node.$ === "ForeignItem" && node._0.kind.$ === "Fn") {
+    [sig, generics, body_id, params] = [node._0.kind._0, node._0.kind._2, undefined, node._0.kind._1];
+  } else {
+    return undefined;
+  }
+
+  // Make sure to remove both the receiver and variadic argument. Both are removed
+  // when matching parameter types.
+  const start = is_method ? 1 : 0;
+  if (start > sig.decl.inputs.length) return undefined;
+  const fn_inputs: (GenericIdx | undefined)[] = sig.decl.inputs.slice(start).map((param): GenericIdx | undefined => {
+    if (param.kind.$ === "Path" && param.kind._0.$ === "Resolved" && param.kind._0._1.res.$ === "Def") {
+      const res_def_id = param.kind._0._1.res._1;
+      const pos = generics.params.findIndex((param) => DefId_eq(LocalDefId.to_def_id(param.def_id), res_def_id));
+      return pos === -1 ? undefined : GenericIdx.from_usize(pos);
+    } else {
+      return undefined;
+    }
+  });
+  /** `params.get(is_method as usize..params.len() - sig.decl.c_variadic() as usize)` */
+  const get_range = <T>(params: readonly T[]): readonly T[] | undefined => {
+    const lo = is_method ? 1 : 0;
+    const hi = params.length - (sig.decl.c_variadic() ? 1 : 0);
+    // PORT: `params.len() - 1` on an empty slice wraps in release builds, and `get` returns `None`.
+    if (hi < 0 || lo > hi || hi > params.length) return undefined;
+    return params.slice(lo, hi);
+  };
+  if ((body_id !== undefined && params !== undefined) || (body_id === undefined && params === undefined)) {
+    return unreachable();
+  } else if (body_id !== undefined) {
+    const params_ = get_range(this.tcx.hir_body(body_id).params);
+    if (params_ === undefined) return undefined;
+    // debug_assert_eq!(params.len(), fn_inputs.len());
+    const n = Math.min(fn_inputs.length, params_.length);
+    const out: [GenericIdx | undefined, FnParamG][] = [];
+    for (let i = 0; i < n; i++) out.push([fn_inputs[i], { $: "Param", _0: params_[i]! }]);
+    return [out, generics];
+  } else {
+    const params_ = get_range(params!);
+    if (params_ === undefined) return undefined;
+    // debug_assert_eq!(params.len(), fn_inputs.len());
+    const n = Math.min(fn_inputs.length, params_.length);
+    const out: [GenericIdx | undefined, FnParamG][] = [];
+    for (let i = 0; i < n; i++) out.push([fn_inputs[i], { $: "Ident", _0: params_[i] }]);
+    return [out, generics];
+  }
+};
+
+// `struct FindClosureArg<'tcx>`
+export class FindClosureArg extends hir.intravisit.Visitor {
+  // impl<'tcx> Visitor<'tcx> for FindClosureArg<'tcx>
+  // type NestedFilter = rustc_middle::hir::nested_filter::All;
+  override NestedFilter = All;
+
+  constructor(
+    public tcx: TyCtxt,
+    public calls: [hir.Expr, readonly hir.Expr[]][],
+  ) {
+    super();
+  }
+
+  // rustc: compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs:2180 maybe_tcx
+  override maybe_tcx(): HirTyCtxt {
+    return TyCtxt_as_HirTyCtxt(this.tcx);
+  }
+
+  // rustc: compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs:2184 visit_expr
+  override visit_expr(ex: hir.Expr): undefined {
+    if (ex.kind.$ === "Call") {
+      this.calls.push([ex.kind._0, ex.kind._1]);
+    }
+    hir.intravisit.walk_expr(this, ex);
+  }
+}
+
+// impl FnParam<'_>
+export type FnParam = FnParamG;
+export const FnParam = {
+  // rustc: compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs:2199 span
+  span(self: FnParamG): Span {
+    switch (self.$) {
+      case "Param":
+        return self._0.span;
+      case "Ident": {
+        const ident = self._0;
+        if (ident !== undefined) {
+          return ident.span;
+        } else {
+          return DUMMY_SP;
+        }
+      }
+    }
+  },
+
+  // rustc: compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs:2212 display
+  display(self: FnParamG, idx: number): string {
+    // `struct D<'a>(FnParam<'a>, usize);` + `impl fmt::Display for D<'_>`
+    // rustc: compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs:2215 fmt
+    const fmt = (d0: FnParamG, d1: number): string => {
+      // A "unique" param name is one that (a) exists, and (b) is guaranteed to be unique
+      // among the parameters, i.e. `_` does not count.
+      let unique_name: SymbolT | undefined;
+      if (d0.$ === "Param" && d0._0.pat.kind.$ === "Binding") {
+        unique_name = d0._0.pat.kind._2.name;
+      } else if (d0.$ === "Ident" && d0._0 !== undefined && d0._0.name !== kw.Underscore) {
+        unique_name = d0._0.name;
+      } else {
+        unique_name = undefined;
+      }
+      if (unique_name !== undefined) {
+        return `\`${Symbol.as_str(unique_name)}\``;
+      } else {
+        return `parameter #${d1 + 1}`;
+      }
+    };
+    return fmt(self, idx);
+  },
+};
+
+// rustc: compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs:2252 deref
+FnCallDiagCtxt.prototype.deref = function (this: FnCallDiagCtxt): ArgMatchingCtxt {
+  return this.arg_matching_ctxt;
+};
+
+// impl<'a, 'tcx> FnCallDiagCtxt<'a, 'tcx>
+
+// rustc: compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs:2264 new
+(FnCallDiagCtxt as unknown as { new: typeof FnCallDiagCtxt.new }).new = function (
+  arg: FnCtxt,
+  compatibility_diagonal: Compatibility[],
+  formal_and_expected_inputs: [Ty, Ty][],
+  provided_args: hir.Expr[],
+  c_variadic: boolean,
+  err_code: ErrCode,
+  // Lowering info if a splatted function is being called.
+  fn_id: SplatLoweringInfo,
+  call_span: Span,
+  call_expr: hir.Expr,
+  tuple_arguments: TupleArgumentsFlag,
+): FnCallDiagCtxt {
+  const arg_matching_ctxt = ArgMatchingCtxt.new(arg, compatibility_diagonal, formal_and_expected_inputs, provided_args, c_variadic, err_code, fn_id, call_span, call_expr, tuple_arguments);
+
+  // The algorithm here is inspired by levenshtein distance and longest common subsequence.
+  // We'll try to detect 4 different types of mistakes:
+  // - An extra parameter has been provided that doesn't satisfy *any* of the other inputs
+  // - An input is missing, which isn't satisfied by *any* of the other arguments
+  // - Some number of arguments have been provided in the wrong order
+  // - A type is straight up invalid
+  const [errors, matched_inputs] = ArgMatrix.new(arg_matching_ctxt.provided_args.length, arg_matching_ctxt.formal_and_expected_inputs.length, (provided, expected) =>
+    arg_matching_ctxt.check_compatible(provided, expected),
+  ).find_errors();
+
+  return new FnCallDiagCtxt(arg_matching_ctxt, errors, matched_inputs);
+};
+
+// rustc: compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs:2306 check_wrap_args_in_tuple
+FnCallDiagCtxt.prototype.check_wrap_args_in_tuple = function (this: FnCallDiagCtxt): ErrorGuaranteed | undefined {
+  const first = this.first_incompatible_error();
+  if (first !== undefined) {
+    const [mismatch_idx, terr] = first;
+    // Is the first bad expected argument a tuple?
+    // Do we have as many extra provided arguments as the tuple's length?
+    // If so, we might have just forgotten to wrap some args in a tuple.
+    const mismatch_expected_idx = ProvidedIdx.to_expected_idx(mismatch_idx);
+    const k = mismatch_expected_idx < this.formal_and_expected_inputs.length ? this.formal_and_expected_inputs[mismatch_expected_idx]![1].kind() : undefined;
+    if (
+      k !== undefined &&
+      k.$ === "Tuple" &&
+      // If the tuple is unit, we're not actually wrapping any arguments.
+      k._0.length !== 0 &&
+      this.provided_arg_tys.length === this.formal_and_expected_inputs.length - 1 + k._0.length
+    ) {
+      const tys = k._0;
+      // Wrap up the N provided arguments starting at this position in a tuple.
+      if (mismatch_idx > this.provided_arg_tys.length) {
+        panicA(`range start index ${mismatch_idx} out of range for slice of length ${this.provided_arg_tys.length}`);
+      }
+      const provided_args_to_tuple_ = this.provided_arg_tys.slice(mismatch_idx);
+      assert(tys.length <= provided_args_to_tuple_.length, "mid > len");
+      const provided_args_to_tuple = provided_args_to_tuple_.slice(0, tys.length);
+      const provided_args_after_tuple = provided_args_to_tuple_.slice(tys.length);
+      const provided_as_tuple = Ty.new_tup_from_iter(
+        this.tcx,
+        provided_args_to_tuple.map(([ty]) => ty),
+      );
+
+      let satisfied = true;
+      // Check if the newly wrapped tuple + rest of the arguments are compatible.
+      const expected_rest = this.formal_and_expected_inputs.slice(mismatch_expected_idx);
+      const provided_rest = [provided_as_tuple, ...provided_args_after_tuple.map(([ty]) => ty)];
+      const n = Math.min(expected_rest.length, provided_rest.length);
+      for (let i = 0; i < n; i++) {
+        const [, expected_ty] = expected_rest[i]!;
+        const provided_ty = provided_rest[i]!;
+        if (!this.may_coerce(provided_ty, expected_ty)) {
+          satisfied = false;
+          break;
+        }
+      }
+
+      // If they're compatible, suggest wrapping in an arg, and we're done!
+      // Take some care with spans, so we don't suggest wrapping a macro's
+      // innards in parenthesis, for example.
+      if (satisfied && provided_args_to_tuple.length >= 1) {
+        // `&[(_, hi @ lo)] | &[(_, lo), .., (_, hi)]`
+        const lo = provided_args_to_tuple[0]![1];
+        const hi = provided_args_to_tuple[provided_args_to_tuple.length - 1]![1];
+        let err: Diag;
+        if (tys.length === 1) {
+          // A tuple wrap suggestion actually occurs within,
+          // so don't do anything special here.
+          err = this.err_ctxt().report_and_explain_type_error(
+            this.arg_matching_ctxt.args_ctxt.call_ctxt.mk_trace(lo, this.formal_and_expected_inputs[mismatch_expected_idx]!, this.provided_arg_tys[mismatch_idx]![0]),
+            this.param_env,
+            terr,
+          );
+          const call_name = this.call_metadata.call_name;
+          err.span_label(this.call_metadata.full_call_span, `arguments to this ${call_name} are incorrect`);
+        } else {
+          const call_name = this.call_metadata.call_name;
+          err = this.dcx().struct_span_err(
+            this.arg_matching_ctxt.args_ctxt.call_metadata.full_call_span,
+            `${call_name} takes ${this.arg_matching_ctxt.args_ctxt.c_variadic ? "at least " : ""}${potentially_plural_count(this.formal_and_expected_inputs.length, "argument")} but ${potentially_plural_count(this.provided_args.length, "argument")} ${pluralize("was", this.provided_args.length)} supplied`,
+          );
+          err.code(this.err_code);
+          err.multipart_suggestion(
+            "wrap these arguments in parentheses to construct a tuple",
+            [
+              [Span.shrink_to_lo(lo), "("],
+              [Span.shrink_to_hi(hi), ")"],
+            ],
+            Applicability.MachineApplicable,
+          );
+        }
+        this.arg_matching_ctxt.args_ctxt.call_ctxt.fn_ctxt.label_fn_like(
+          err,
+          this.fn_id,
+          this.callee_ty,
+          this.call_expr,
+          undefined,
+          ProvidedIdx.as_usize(mismatch_idx),
+          this.matched_inputs,
+          this.formal_and_expected_inputs,
+          this.call_metadata.is_method,
+          this.tuple_arguments,
+        );
+        this.suggest_confusable(err);
+        return err.emit_err();
+      } else {
+        return undefined;
+      }
+    } else {
+      return undefined;
+    }
+  } else {
+    return undefined;
+  }
+};
+
+// rustc: compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs:2418 ensure_has_errors
+FnCallDiagCtxt.prototype.ensure_has_errors = function (this: FnCallDiagCtxt): ErrorGuaranteed | undefined {
+  if (this.errors.length === 0) {
+    // `if cfg!(debug_assertions) { span_bug!(self.call_metadata.error_span, "expected errors from argument matrix"); }
+    // else { .. }`: rustc ships without debug assertions.
+    {
+      const err = this.dcx().create_err(ArgMismatchIndeterminate_diagnostic({ span: this.call_metadata.error_span }));
+      this.arg_matching_ctxt.suggest_confusable(err);
+      return err.emit_err();
+    }
+  }
+
+  return undefined;
+};
+
+// rustc: compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs:2434 detect_dotdot
+FnCallDiagCtxt.prototype.detect_dotdot = function (this: FnCallDiagCtxt, err: Diag, ty: Ty, expr: hir.Expr): void {
+  const k = ty.kind();
+  if (
+    k.$ === "Adt" &&
+    this.tcx.is_lang_item(k._0.did(), LangItem.RangeFull) &&
+    hir.is_range_literal(expr) &&
+    expr.kind.$ === "Struct" &&
+    expr.kind._1.length === 0 &&
+    this.tcx.qpath_is_lang_item(expr.kind._0, LangItem.RangeFull)
+  ) {
+    // We have `Foo(a, .., c)`, where the user might be trying to use the "rest" syntax
+    // from default field values, which is not supported on tuples.
+    const explanation = this.tcx.features().default_field_values()
+      ? "this is only supported on non-tuple struct literals"
+      : this.tcx.sess.is_nightly_build()
+        ? "this is only supported on non-tuple struct literals when `#![feature(default_field_values)]` is enabled"
+        : "this is not supported";
+    const msg = `you might have meant to use \`..\` to skip providing a value for expected fields, but ${explanation}; it is instead interpreted as a \`std::ops::RangeFull\` literal`;
+    err.span_help(expr.span, msg);
+  }
+};
+
+// rustc: compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs:2460 filter_out_invalid_arguments
+FnCallDiagCtxt.prototype.filter_out_invalid_arguments = function (this: FnCallDiagCtxt): ErrorGuaranteed | undefined {
+  let reported: ErrorGuaranteed | undefined = undefined;
+
+  // `self.errors.retain(|error| ..)`
+  const kept: ArgError[] = [];
+  for (const error of this.errors) {
+    const keep = ((): boolean => {
+      if (!(error.$ === "Invalid" && error._2.$ === "Incompatible" && error._2._0 !== undefined)) {
+        return true;
+      }
+      const [provided_idx, expected_idx, e] = [error._0, error._1, error._2._0];
+      const [provided_ty, provided_span] = this.arg_matching_ctxt.provided_arg_tys[provided_idx]!;
+      const trace = this.arg_matching_ctxt.mk_trace(provided_span, this.arg_matching_ctxt.formal_and_expected_inputs[expected_idx]!, provided_ty);
+      if (trace.cause.as_failure_code(e) !== "Error0308") {
+        const err = this.arg_matching_ctxt.err_ctxt().report_and_explain_type_error(trace, this.arg_matching_ctxt.param_env, e);
+        this.arg_matching_ctxt.suggest_confusable(err);
+        reported = err.emit_err();
+        return false;
+      }
+      return true;
+    })();
+    if (keep) kept.push(error);
+  }
+  this.errors = kept;
+
+  return reported;
+};
+
+// rustc: compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs:2492 check_single_incompatible
+FnCallDiagCtxt.prototype.check_single_incompatible = function (this: FnCallDiagCtxt): ErrorGuaranteed | undefined {
+  const only = this.errors.length === 1 ? this.errors[0]! : undefined;
+  if (only !== undefined && only.$ === "Invalid" && only._2.$ === "Incompatible" && only._2._0 !== undefined) {
+    const [provided_idx, expected_idx, err_] = [only._0, only._1, only._2._0];
+    const [formal_ty, expected_ty] = this.formal_and_expected_inputs[expected_idx]!;
+    const [provided_ty, provided_arg_span] = this.provided_arg_tys[provided_idx]!;
+    const trace = this.mk_trace(provided_arg_span, [formal_ty, expected_ty], provided_ty);
+    const err = this.err_ctxt().report_and_explain_type_error(trace, this.param_env, err_);
+    this.emit_coerce_suggestions(
+      err,
+      this.provided_args[provided_idx]!,
+      provided_ty,
+      Expectation.only_has_type(Expectation.rvalue_hint(this.fn_ctxt, expected_ty), this.fn_ctxt) ?? formal_ty,
+      undefined,
+      undefined,
+    );
+    const call_name = this.call_metadata.call_name;
+    err.span_label(this.call_metadata.full_call_span, `arguments to this ${call_name} are incorrect`);
+
+    this.label_generic_mismatches(err);
+
+    const ck = this.arg_matching_ctxt.args_ctxt.call_ctxt.call_expr.kind;
+    if (ck.$ === "MethodCall" && ProvidedIdx.as_usize(provided_idx) === ExpectedIdx.as_usize(expected_idx)) {
+      const rcvr = ck._1;
+      this.note_source_of_type_mismatch_constraint(err, rcvr, {
+        $: "Arg",
+        call_expr: this.call_expr,
+        incompatible_arg: ProvidedIdx.as_usize(provided_idx),
+      });
+    }
+
+    this.suggest_mut_addr(expected_ty, provided_ty, this.provided_args[provided_idx]!, err);
+
+    this.suggest_deref_unwrap_or(err, this.callee_ty, this.call_metadata.call_ident, expected_ty, provided_ty, this.provided_args[provided_idx]!, this.call_metadata.is_method);
+
+    // Call out where the function is defined
+    this.label_fn_like(
+      err,
+      this.fn_id,
+      this.callee_ty,
+      this.call_expr,
+      expected_ty,
+      ExpectedIdx.as_usize(expected_idx),
+      this.matched_inputs,
+      this.formal_and_expected_inputs,
+      this.call_metadata.is_method,
+      this.tuple_arguments,
+    );
+    this.arg_matching_ctxt.suggest_confusable(err);
+    this.detect_dotdot(err, provided_ty, this.provided_args[provided_idx]!);
+    return err.emit_err();
+  }
+
+  return undefined;
+};
+
+// rustc: compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs:2571 maybe_optimize_extra_arg_suggestion
+FnCallDiagCtxt.prototype.maybe_optimize_extra_arg_suggestion = function (this: FnCallDiagCtxt): void {
+  const only = this.errors.length === 1 ? this.errors[0]! : undefined;
+  if (only !== undefined && only.$ === "Extra") {
+    const provided_idx = only._0;
+    if (!this.remove_idx_is_perfect(ProvidedIdx.as_usize(provided_idx))) {
+      let found: number | undefined;
+      for (let i = 0; i < this.args_ctxt.call_ctxt.provided_args.length; i++) {
+        if (this.remove_idx_is_perfect(i)) {
+          found = i;
+          break;
+        }
+      }
+      if (found !== undefined) {
+        this.errors = [{ $: "Extra", _0: ProvidedIdx.from_usize(found) }];
+      }
+    }
+  }
+};
+
+// rustc: compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs:2583 initial_final_diagnostic
+FnCallDiagCtxt.prototype.initial_final_diagnostic = function (this: FnCallDiagCtxt): Diag {
+  if (this.formal_and_expected_inputs.length === this.provided_args.length) {
+    return struct_span_code_err(this.dcx(), this.call_metadata.full_call_span, E0308, `arguments to this ${this.call_metadata.call_name} are incorrect`);
+  } else {
+    return this.arg_matching_ctxt
+      .dcx()
+      .struct_span_err(
+        this.call_metadata.full_call_span,
+        `this ${this.call_metadata.call_name} takes ${this.arg_matching_ctxt.args_ctxt.c_variadic ? "at least " : ""}${potentially_plural_count(this.formal_and_expected_inputs.length, "argument")} but ${potentially_plural_count(this.provided_args.length, "argument")} ${pluralize("was", this.provided_args.length)} supplied`,
+      )
+      .with_code(this.err_code);
+  }
+};
+
+// rustc: compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs:2610 labels_and_suggestion_text
+FnCallDiagCtxt.prototype.labels_and_suggestion_text = function (this: FnCallDiagCtxt, err: Diag): [[Span, string][], [Span, string][], SuggestionText] {
+  // Don't print if it has error types or is just plain `_`
+  // rustc: compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs:2615 has_error_or_infer
+  function has_error_or_infer(tys: Iterable<Ty>): boolean {
+    for (const ty of tys) {
+      if (TypeVisitableExt.references_error(ty, fold_Ty) || ty.is_ty_var()) return true;
+    }
+    return false;
+  }
+
+  const labels: [Span, string][] = [];
+  let suggestion_text: SuggestionText = SuggestionText.None;
+
+  // `self.errors.iter().peekable()`
+  const all_errors = this.errors;
+  let pos = 0;
+  const peek = (): ArgError | undefined => all_errors[pos];
+  let only_extras_so_far = ((first) => first !== undefined && first.$ === "Extra" && ProvidedIdx.index(first._0) === 0)(peek());
+  let prev_extra_idx: number | undefined = undefined;
+  const suggestions: [Span, string][] = [];
+  let error: ArgError | undefined;
+  while ((error = all_errors[pos]) !== undefined) {
+    pos++;
+    only_extras_so_far &&= error.$ === "Extra";
+
+    switch (error.$) {
+      case "Invalid": {
+        const [provided_idx, expected_idx, compatibility] = [error._0, error._1, error._2];
+        const [formal_ty, expected_ty] = this.arg_matching_ctxt.args_ctxt.call_ctxt.formal_and_expected_inputs[expected_idx]!;
+        const [provided_ty, provided_span] = this.arg_matching_ctxt.provided_arg_tys[provided_idx]!;
+        if (compatibility.$ === "Incompatible") {
+          const error = compatibility._0;
+          const trace = this.arg_matching_ctxt.args_ctxt.call_ctxt.mk_trace(provided_span, [formal_ty, expected_ty], provided_ty);
+          if (error !== undefined) {
+            const e = error;
+            this.err_ctxt().note_type_err(err, trace.cause, undefined, this.param_env.and(trace.values), e, true, undefined);
+          }
+        }
+
+        this.emit_coerce_suggestions(
+          err,
+          this.provided_args[provided_idx]!,
+          provided_ty,
+          Expectation.only_has_type(Expectation.rvalue_hint(this.fn_ctxt, expected_ty), this.fn_ctxt) ?? formal_ty,
+          undefined,
+          undefined,
+        );
+        this.detect_dotdot(err, provided_ty, this.provided_args[provided_idx]!);
+        break;
+      }
+      case "Extra": {
+        const arg_idx = error._0;
+        const [provided_ty, provided_span] = this.provided_arg_tys[arg_idx]!;
+        const provided_ty_name = !has_error_or_infer([provided_ty])
+          ? // FIXME: not suggestable, use something else
+            ` of type \`${display_Ty(provided_ty)}\``
+          : "";
+        const idx = this.provided_arg_tys.length === 1 ? "" : ` #${ProvidedIdx.as_usize(arg_idx) + 1}`;
+        labels.push([provided_span, `unexpected argument${idx}${provided_ty_name}`]);
+        let span_: Span | undefined;
+        if (this.provided_arg_tys.length === 1 && (span_ = this.maybe_suggest_expect_for_unwrap(provided_ty)) !== undefined) {
+          err.span_suggestion_verbose(span_, "did you mean to use `expect`?", "expect", Applicability.MaybeIncorrect);
+          continue;
+        }
+        let span = provided_span;
+        if (Span.can_be_used_for_suggestions(span) && Span.can_be_used_for_suggestions(this.call_metadata.error_span)) {
+          const prev_i = ProvidedIdx.index(arg_idx) - 1;
+          if (ProvidedIdx.index(arg_idx) > 0 && prev_i < this.provided_arg_tys.length) {
+            const [, prev] = this.provided_arg_tys[ProvidedIdx.from_usize(prev_i)]!;
+            // Include previous comma
+            span = Span.to(Span.shrink_to_hi(prev), span);
+          }
+
+          // Is last argument for deletion in a row starting from the 0-th argument?
+          // Then delete the next comma, so we are not left with `f(, ...)`
+          //
+          //     fn f() {}
+          //   - f(0, 1,)
+          //   + f()
+          const next_error = peek();
+          let trim_next_comma: boolean;
+          if (next_error !== undefined && next_error.$ === "Extra" && only_extras_so_far && ProvidedIdx.index(next_error._0) > ProvidedIdx.index(arg_idx) + 1) {
+            // If the next Error::Extra ("next") doesn't next to current ("current"),
+            // fn foo(_: (), _: u32) {}
+            // - foo("current", (), 1u32, "next")
+            // + foo((), 1u32)
+            // If the previous error is not a `Error::Extra`, then do not trim the next comma
+            // - foo((), "current", 42u32, "next")
+            // + foo((), 42u32)
+            trim_next_comma = prev_extra_idx === undefined || prev_extra_idx + 1 === ProvidedIdx.index(arg_idx);
+          } else if (next_error === undefined && only_extras_so_far) {
+            // If no error left, we need to delete the next comma
+            trim_next_comma = true;
+          } else {
+            // Not sure if other error type need to be handled as well
+            trim_next_comma = false;
+          }
+
+          if (trim_next_comma) {
+            const next_i = arg_idx + 1;
+            const next =
+              next_i < this.provided_arg_tys.length
+                ? this.provided_arg_tys[next_i]![1]
+                : // Try to move before `)`. Note that `)` here is not necessarily
+                  // the latin right paren, it could be a Unicode-confusable that
+                  // looks like a `)`, so we must not use `- BytePos(1)`
+                  // manipulations here.
+                  this.arg_matching_ctxt.tcx.sess.source_map().end_point(this.call_expr.span);
+
+            // Include next comma
+            span = Span.until(span, next);
+          }
+
+          suggestions.push([span, ""]);
+
+          switch (suggestion_text.$) {
+            case "None":
+              suggestion_text = { $: "Remove", _0: false };
+              break;
+            case "Remove":
+              suggestion_text = { $: "Remove", _0: true };
+              break;
+            default:
+              suggestion_text = SuggestionText.DidYouMean;
+          }
+          prev_extra_idx = ProvidedIdx.index(arg_idx);
+        }
+        this.detect_dotdot(err, provided_ty, this.provided_args[arg_idx]!);
+        break;
+      }
+      case "Missing": {
+        // If there are multiple missing arguments adjacent to each other,
+        // then we can provide a single error.
+
+        const missing_idxs: ExpectedIdx[] = [error._0];
+        let e: ArgError | undefined;
+        while ((e = peek()) !== undefined && e.$ === "Missing" && e._0 === missing_idxs[missing_idxs.length - 1]! + 1) {
+          pos++;
+          switch (e.$) {
+            case "Missing":
+              missing_idxs.push(e._0);
+              break;
+            default:
+              unreachable("control flow ensures that we should always get an `Error::Missing`");
+          }
+        }
+
+        // NOTE: Because we might be re-arranging arguments, might have extra
+        // arguments, etc. it's hard to *really* know where we should provide
+        // this error label, so as a heuristic, we point to the provided arg, or
+        // to the call if the missing inputs pass the provided args.
+        const provided_span_of = (idx: ExpectedIdx): Span | undefined => {
+          const p = ExpectedIdx.to_provided_idx(idx);
+          return p < this.provided_arg_tys.length ? this.provided_arg_tys[p]![1] : undefined;
+        };
+        if (missing_idxs.length === 1) {
+          const expected_idx = missing_idxs[0]!;
+          const [, input_ty] = this.formal_and_expected_inputs[expected_idx]!;
+          const arg_span = provided_span_of(expected_idx);
+          const span = arg_span !== undefined ? arg_span : this.args_span;
+          const rendered = !has_error_or_infer([input_ty]) ? ` of type \`${display_Ty(input_ty)}\`` : "";
+          labels.push([span, `argument #${ExpectedIdx.as_usize(expected_idx) + 1}${rendered} is missing`]);
+
+          switch (suggestion_text.$) {
+            case "None":
+              suggestion_text = { $: "Provide", _0: false };
+              break;
+            case "Provide":
+              suggestion_text = { $: "Provide", _0: true };
+              break;
+            default:
+              suggestion_text = SuggestionText.DidYouMean;
+          }
+        } else if (missing_idxs.length === 2) {
+          const [first_idx, second_idx] = [missing_idxs[0]!, missing_idxs[1]!];
+          const [, first_expected_ty] = this.formal_and_expected_inputs[first_idx]!;
+          const [, second_expected_ty] = this.formal_and_expected_inputs[second_idx]!;
+          const first_span = provided_span_of(first_idx);
+          const second_span = provided_span_of(second_idx);
+          const span = first_span !== undefined && second_span !== undefined ? Span.to(first_span, second_span) : this.args_span;
+          const rendered = !has_error_or_infer([first_expected_ty, second_expected_ty])
+            ? ` of type \`${display_Ty(first_expected_ty)}\` and \`${display_Ty(second_expected_ty)}\``
+            : "";
+          labels.push([span, `two arguments${rendered} are missing`]);
+          switch (suggestion_text.$) {
+            case "None":
+            case "Provide":
+              suggestion_text = { $: "Provide", _0: true };
+              break;
+            default:
+              suggestion_text = SuggestionText.DidYouMean;
+          }
+        } else if (missing_idxs.length === 3) {
+          const [first_idx, second_idx, third_idx] = [missing_idxs[0]!, missing_idxs[1]!, missing_idxs[2]!];
+          const [, first_expected_ty] = this.formal_and_expected_inputs[first_idx]!;
+          const [, second_expected_ty] = this.formal_and_expected_inputs[second_idx]!;
+          const [, third_expected_ty] = this.formal_and_expected_inputs[third_idx]!;
+          const first_span = provided_span_of(first_idx);
+          const third_span = provided_span_of(third_idx);
+          const span = first_span !== undefined && third_span !== undefined ? Span.to(first_span, third_span) : this.args_span;
+          const rendered = !has_error_or_infer([first_expected_ty, second_expected_ty, third_expected_ty])
+            ? ` of type \`${display_Ty(first_expected_ty)}\`, \`${display_Ty(second_expected_ty)}\`, and \`${display_Ty(third_expected_ty)}\``
+            : "";
+          labels.push([span, `three arguments${rendered} are missing`]);
+          switch (suggestion_text.$) {
+            case "None":
+            case "Provide":
+              suggestion_text = { $: "Provide", _0: true };
+              break;
+            default:
+              suggestion_text = SuggestionText.DidYouMean;
+          }
+        } else {
+          const first_idx = missing_idxs[0]!;
+          const last_idx = missing_idxs[missing_idxs.length - 1]!;
+          // NOTE: Because we might be re-arranging arguments, might have extra arguments, etc.
+          // It's hard to *really* know where we should provide this error label, so this is a
+          // decent heuristic
+          const first_span = provided_span_of(first_idx);
+          const last_span = provided_span_of(last_idx);
+          const span = first_span !== undefined && last_span !== undefined ? Span.to(first_span, last_span) : this.args_span;
+          labels.push([span, "multiple arguments are missing"]);
+          switch (suggestion_text.$) {
+            case "None":
+            case "Provide":
+              suggestion_text = { $: "Provide", _0: true };
+              break;
+            default:
+              suggestion_text = SuggestionText.DidYouMean;
+          }
+        }
+        break;
+      }
+      case "Swap": {
+        const [first_provided_idx, second_provided_idx, first_expected_idx, second_expected_idx] = [error._0, error._1, error._2, error._3];
+        const [first_provided_ty, first_span] = this.provided_arg_tys[first_provided_idx]!;
+        const [, first_expected_ty] = this.formal_and_expected_inputs[first_expected_idx]!;
+        const first_provided_ty_name = !has_error_or_infer([first_provided_ty]) ? `, found \`${display_Ty(first_provided_ty)}\`` : "";
+        labels.push([first_span, `expected \`${display_Ty(first_expected_ty)}\`${first_provided_ty_name}`]);
+
+        const [second_provided_ty, second_span] = this.provided_arg_tys[second_provided_idx]!;
+        const [, second_expected_ty] = this.formal_and_expected_inputs[second_expected_idx]!;
+        const second_provided_ty_name = !has_error_or_infer([second_provided_ty]) ? `, found \`${display_Ty(second_provided_ty)}\`` : "";
+        labels.push([second_span, `expected \`${display_Ty(second_expected_ty)}\`${second_provided_ty_name}`]);
+
+        switch (suggestion_text.$) {
+          case "None":
+            suggestion_text = SuggestionText.Swap;
+            break;
+          default:
+            suggestion_text = SuggestionText.DidYouMean;
+        }
+        break;
+      }
+      case "Permutation": {
+        const args = error._0;
+        for (const [dst_arg, dest_input] of args) {
+          const [, expected_ty] = this.formal_and_expected_inputs[dst_arg]!;
+          const [provided_ty, provided_span] = this.provided_arg_tys[dest_input]!;
+          const provided_ty_name = !has_error_or_infer([provided_ty]) ? `, found \`${display_Ty(provided_ty)}\`` : "";
+          labels.push([provided_span, `expected \`${display_Ty(expected_ty)}\`${provided_ty_name}`]);
+        }
+
+        switch (suggestion_text.$) {
+          case "None":
+            suggestion_text = SuggestionText.Reorder;
+            break;
+          default:
+            suggestion_text = SuggestionText.DidYouMean;
+        }
+        break;
+      }
+    }
+  }
+
+  return [suggestions, labels, suggestion_text];
+};
+
+// rustc: compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs:2969 label_generic_mismatches
+FnCallDiagCtxt.prototype.label_generic_mismatches = function (this: FnCallDiagCtxt, err: Diag): void {
+  this.fn_ctxt.label_generic_mismatches(
+    err,
+    this.fn_id,
+    this.matched_inputs,
+    this.provided_arg_tys,
+    this.formal_and_expected_inputs,
+    this.call_metadata.is_method,
+    TupleArgumentsFlag.is_splatted(this.arg_matching_ctxt.tuple_arguments),
+  );
+};
+
+/// Incorporate the argument changes in the removal suggestion.
+///
+/// When a type is *missing*, and the rest are additional, we want to suggest these with a
+/// multipart suggestion, but in order to do so we need to figure out *where* the arg that
+/// was provided but had the wrong type should go, because when looking at `expected_idx`
+/// that is the position in the argument list in the definition, while `provided_idx` will
+/// not be present. So we have to look at what the *last* provided position was, and point
+/// one after to suggest the replacement.
+// rustc: compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs:2989 append_arguments_changes
+FnCallDiagCtxt.prototype.append_arguments_changes = function (this: FnCallDiagCtxt, suggestions: [Span, string][]): void {
+  // FIXME(estebank): This is hacky, and there's
+  // probably a better more involved change we can make to make this work.
+  // For example, if we have
+  // ```
+  // fn foo(i32, &'static str) {}
+  // foo((), (), ());
+  // ```
+  // what should be suggested is
+  // ```
+  // foo(/* i32 */, /* &str */);
+  // ```
+  // which includes the replacement of the first two `()` for the correct type, and the
+  // removal of the last `()`.
+
+  let prev = -1;
+  for (let i = 0; i < this.matched_inputs.length; i++) {
+    const expected_idx = ExpectedIdx.from_usize(i);
+    const provided_idx = this.matched_inputs[i];
+    // We want to point not at the *current* argument expression index, but rather at the
+    // index position where it *should have been*, which is *after* the previous one.
+    if (provided_idx !== undefined) {
+      prev = ProvidedIdx.index(provided_idx);
+      continue;
+    }
+    const idx = ProvidedIdx.from_usize(prev + 1);
+    if (idx < this.provided_arg_tys.length) {
+      const [, arg_span] = this.provided_arg_tys[idx]!;
+      prev += 1;
+      // There is a type that was *not* found anywhere, so it isn't a move, but a
+      // replacement and we look at what type it should have been. This will allow us
+      // To suggest a multipart suggestion when encountering `foo(1, "")` where the def
+      // was `fn foo(())`.
+      const [, expected_ty] = this.formal_and_expected_inputs[expected_idx]!;
+      // Check if the new suggestion would overlap with any existing suggestion.
+      // This can happen when we have both removal suggestions (which may include
+      // adjacent commas) and type replacement suggestions for the same span.
+      const dominated = suggestions.some(([span]) => Span.contains(span, arg_span) || Span.overlaps(arg_span, span));
+      if (!dominated) {
+        suggestions.push([arg_span, this.ty_to_snippet(expected_ty, expected_idx)]);
+      }
+    }
+  }
+};
+
+// rustc: compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs:3033 format_suggestion_text
+(FnCallDiagCtxt as unknown as { format_suggestion_text: typeof FnCallDiagCtxt.format_suggestion_text }).format_suggestion_text = function (
+  err: Diag,
+  suggestions: [Span, string][],
+  suggestion_text: SuggestionText,
+): string | undefined {
+  switch (suggestion_text.$) {
+    case "None":
+      return undefined;
+    case "Provide": {
+      const plural = suggestion_text._0;
+      return `provide the argument${plural ? "s" : ""}`;
+    }
+    case "Remove": {
+      const plural = suggestion_text._0;
+      err.multipart_suggestion(`remove the extra argument${plural ? "s" : ""}`, suggestions, Applicability.HasPlaceholders);
+      return undefined;
+    }
+    case "Swap":
+      return "swap these arguments";
+    case "Reorder":
+      return "reorder these arguments";
+    case "DidYouMean":
+      return "did you mean";
+  }
+};
+
+// rustc: compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs:3057 arguments_formatting
+FnCallDiagCtxt.prototype.arguments_formatting = function (this: FnCallDiagCtxt, suggestion_span: Span): ArgumentsFormatting {
+  const source_map = this.sess().source_map();
+  // `self.matched_inputs.iter().filter_map(|a| *a)`
+  const provided_inputs = this.matched_inputs.filter((a): a is ProvidedIdx => a !== undefined);
+  let brace_indent: Str | undefined;
+  let first_idx: ProvidedIdx | undefined;
+  let last_idx: ProvidedIdx | undefined;
+  let first_span: Span;
+  let fallback_indent: Str | undefined;
+  if (
+    (brace_indent = source_map.indentation_before(suggestion_span)) !== undefined &&
+    (first_idx = provided_inputs[0]) !== undefined &&
+    (last_idx = provided_inputs[1]) !== undefined &&
+    ((first_span = this.provided_arg_tys[first_idx]![1]), true) &&
+    source_map.is_multiline(Span.to(first_span, this.provided_arg_tys[last_idx]![1])) &&
+    (fallback_indent = source_map.indentation_before(first_span)) !== undefined
+  ) {
+    return { $: "Multiline", fallback_indent: fallback_indent.toString(), brace_indent: brace_indent.toString() };
+  } else {
+    return ArgumentsFormatting.SingleLine;
+  }
+};
+
+// rustc: compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs:3074 suggestion_code
+FnCallDiagCtxt.prototype.suggestion_code = function (this: FnCallDiagCtxt): [Span, string] {
+  const source_map = this.sess().source_map();
+  const args_span = Span.trim_start(this.call_metadata.error_span, this.call_metadata.full_call_span);
+  const suggestion_span =
+    args_span !== undefined
+      ? // Span of the braces, e.g. `(a, b, c)`.
+        args_span
+      : // The arg span of a function call that wasn't even given braces
+        // like what might happen with delegation reuse.
+        // e.g. `reuse HasSelf::method;` should suggest `reuse HasSelf::method($args);`.
+        Span.shrink_to_hi(this.call_metadata.full_call_span);
+
+  const arguments_formatting = this.arguments_formatting(suggestion_span);
+
+  let suggestion = "(";
+  let needs_comma = false;
+  for (let i = 0; i < this.matched_inputs.length; i++) {
+    const expected_idx = ExpectedIdx.from_usize(i);
+    const provided_idx = this.matched_inputs[i];
+    if (needs_comma) {
+      suggestion += ",";
+    }
+    switch (arguments_formatting.$) {
+      case "SingleLine":
+        if (needs_comma) suggestion += " ";
+        break;
+      case "Multiline":
+        suggestion += "\n";
+        break;
+    }
+    needs_comma = true;
+    let suggestion_span: Span | undefined;
+    let suggestion_text: string;
+    let arg_text: ReturnType<SourceMap["span_to_snippet"]> | undefined;
+    let provided_span: Span;
+    if (
+      provided_idx !== undefined &&
+      ((provided_span = this.provided_arg_tys[provided_idx]![1]), true) &&
+      (arg_text = source_map.span_to_snippet(provided_span)).$ === "Ok"
+    ) {
+      [suggestion_span, suggestion_text] = [provided_span, arg_text._0.toString()];
+    } else {
+      // Propose a placeholder of the correct type
+      const [, expected_ty] = this.formal_and_expected_inputs[expected_idx]!;
+      [suggestion_span, suggestion_text] = [undefined, this.ty_to_snippet(expected_ty, expected_idx)];
+    }
+    if (arguments_formatting.$ === "Multiline") {
+      const fallback_indent = arguments_formatting.fallback_indent;
+      const indent = (suggestion_span !== undefined ? source_map.indentation_before(suggestion_span)?.toString() : undefined) ?? fallback_indent;
+      suggestion += indent;
+    }
+    suggestion += suggestion_text;
+  }
+  if (arguments_formatting.$ === "Multiline") {
+    const brace_indent = arguments_formatting.brace_indent;
+    suggestion += ",\n";
+    suggestion += brace_indent;
+  }
+  suggestion += ")";
+
+  return [suggestion_span, suggestion];
+};
+
+// rustc: compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs:3129 maybe_suggest_expect_for_unwrap
+FnCallDiagCtxt.prototype.maybe_suggest_expect_for_unwrap = function (this: FnCallDiagCtxt, provided_ty: Ty): Span | undefined {
+  const tcx = this.tcx;
+  const call_ident = this.call_metadata.call_ident;
+  const callee_ty = this.callee_ty;
+  let k: ReturnType<Ty["kind"]>;
+  if (
+    call_ident !== undefined &&
+    call_ident.name === sym.unwrap &&
+    callee_ty !== undefined &&
+    (k = callee_ty.peel_refs().kind()).$ === "Adt" &&
+    (tcx.is_diagnostic_item(sym.Option, k._0.did()) || tcx.is_diagnostic_item(sym.Result, k._0.did())) &&
+    this.may_coerce(provided_ty, Ty.new_static_str(tcx))
+  ) {
+    return call_ident.span;
+  } else {
+    return undefined;
+  }
+};
+
+// rustc: compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs:3154 deref
+ArgMatchingCtxt.prototype.deref = function (this: ArgMatchingCtxt): ArgsCtxt {
+  return this.args_ctxt;
+};
+
+// impl<'a, 'tcx> ArgMatchingCtxt<'a, 'tcx>
+
+// rustc: compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs:3160 new
+(ArgMatchingCtxt as unknown as { new: typeof ArgMatchingCtxt.new }).new = function (
+  arg: FnCtxt,
+  compatibility_diagonal: Compatibility[],
+  formal_and_expected_inputs: [Ty, Ty][],
+  provided_args: hir.Expr[],
+  c_variadic: boolean,
+  err_code: ErrCode,
+  // Lowering info if a splatted function is being called.
+  fn_id: SplatLoweringInfo,
+  call_span: Span,
+  call_expr: hir.Expr,
+  tuple_arguments: TupleArgumentsFlag,
+): ArgMatchingCtxt {
+  const args_ctxt = ArgsCtxt.new(arg, compatibility_diagonal, formal_and_expected_inputs, provided_args, c_variadic, err_code, fn_id, call_span, call_expr, tuple_arguments);
+  const provided_arg_tys = args_ctxt.provided_arg_tys();
+
+  return new ArgMatchingCtxt(args_ctxt, provided_arg_tys);
+};
+
+// rustc: compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs:3190 suggest_confusable
+ArgMatchingCtxt.prototype.suggest_confusable = function (this: ArgMatchingCtxt, err: Diag): void {
+  const call_name = this.call_metadata.call_ident;
+  if (call_name === undefined) {
+    return;
+  }
+  const callee_ty = this.callee_ty;
+  if (callee_ty === undefined) {
+    return;
+  }
+  const input_types: Ty[] = this.provided_arg_tys.map(([ty]) => ty);
+
+  // Check for other methods in the following order
+  //  - methods marked as `rustc_confusables` with the provided arguments
+  //  - methods with the same argument type/count and short levenshtein distance
+  //  - methods marked as `rustc_confusables` (done)
+  //  - methods with short levenshtein distance
+
+  // Look for commonly confusable method names considering arguments.
+  if (this.confusable_method_name(err, callee_ty.peel_refs(), call_name, input_types.slice()) !== undefined) {
+    return;
+  }
+  // Look for method names with short levenshtein distance, considering arguments.
+  const similar = this.similar_assoc(call_name);
+  if (similar !== undefined) {
+    const [assoc, fn_sig] = similar;
+    // `fn_sig.inputs()[1..].iter().eq_by(input_types, |expected, found| self.may_coerce(*expected, found))`
+    const inputs = FnSig.inputs(fn_sig);
+    assert(inputs.length >= 1, "range start index 1 out of range for slice");
+    const expected_inputs = inputs.slice(1);
+    let eq = true;
+    for (let i = 0; ; i++) {
+      if (i >= expected_inputs.length || i >= input_types.length) {
+        eq = i >= expected_inputs.length && i >= input_types.length;
+        break;
+      }
+      if (!this.may_coerce(expected_inputs[i]!, input_types[i]!)) {
+        eq = false;
+        break;
+      }
+    }
+    if (eq) {
+      const assoc_name = Symbol.as_str(AssocItem.name(assoc));
+      err.span_suggestion_verbose(call_name.span, `you might have meant to use \`${assoc_name}\``, assoc_name, Applicability.MaybeIncorrect);
+      return;
+    }
+  }
+
+  this.annotate_alternative_method_deref(err, this.call_expr, undefined);
+};
+
+/// A "softer" version of the `demand_compatible`, which checks types without persisting them,
+/// and treats error types differently
+/// This will allow us to "probe" for other argument orders that would likely have been correct
+// rustc: compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs:3236 check_compatible
+ArgMatchingCtxt.prototype.check_compatible = function (this: ArgMatchingCtxt, provided_idx: ProvidedIdx, expected_idx: ExpectedIdx): Compatibility {
+  if (ProvidedIdx.as_usize(provided_idx) === ExpectedIdx.as_usize(expected_idx)) {
+    return clone_Compatibility(this.compatibility_diagonal[provided_idx]!);
+  }
+
+  const [formal_input_ty, expected_input_ty] = this.formal_and_expected_inputs[expected_idx]!;
+  // If either is an error type, we defy the usual convention and consider them to *not* be
+  // coercible. This prevents our error message heuristic from trying to pass errors into
+  // every argument.
+  if (TypeVisitableExt.references_error(formal_input_ty, fold_Ty) || TypeVisitableExt.references_error(expected_input_ty, fold_Ty)) {
+    return { $: "Incompatible", _0: undefined };
+  }
+
+  const [arg_ty, arg_span] = this.provided_arg_tys[provided_idx]!;
+
+  const expectation = Expectation.rvalue_hint(this.fn_ctxt, expected_input_ty);
+  const coerced_ty = Expectation.only_has_type(expectation, this.fn_ctxt) ?? formal_input_ty;
+  const can_coerce = this.may_coerce(arg_ty, coerced_ty);
+  if (!can_coerce) {
+    return { $: "Incompatible", _0: { $: "Sorts", _0: ExpectedFound.new(coerced_ty, arg_ty) } };
+  }
+
+  // Using probe here, since we don't want this subtyping to affect inference.
+  const subtyping_error = this.probe((_): TypeError | undefined => {
+    const r = this.at(this.misc(arg_span), this.param_env).sup(DefineOpaqueTypes.Yes, formal_input_ty, coerced_ty, ToTrace_Ty);
+    return r.$ === "Err" ? r._0 : undefined;
+  });
+
+  // Same as above: if either the coerce type or the checked type is an error type,
+  // consider them *not* compatible.
+  const references_error = TypeVisitableExt.references_error(coerced_ty, fold_Ty) || TypeVisitableExt.references_error(arg_ty, fold_Ty);
+  if (!references_error && subtyping_error === undefined) {
+    return Compatibility.Compatible;
+  } else {
+    return { $: "Incompatible", _0: subtyping_error };
+  }
+};
+
+// rustc: compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs:3280 remove_idx_is_perfect
+ArgMatchingCtxt.prototype.remove_idx_is_perfect = function (this: ArgMatchingCtxt, idx: number): boolean {
+  const removed_arg_tys = this.provided_arg_tys.filter((_arg, j) => idx !== j);
+  const n = Math.min(this.formal_and_expected_inputs.length, removed_arg_tys.length);
+  for (let i = 0; i < n; i++) {
+    const [expected_ty] = this.formal_and_expected_inputs[i]!;
+    const [provided_ty] = removed_arg_tys[i]!;
+    if (!(!TypeVisitableExt.references_error(provided_ty, fold_Ty) && this.may_coerce(provided_ty, expected_ty))) {
+      return false;
+    }
+  }
+  return true;
+};
+
+// rustc: compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs:3304 deref
+ArgsCtxt.prototype.deref = function (this: ArgsCtxt): CallCtxt {
+  return this.call_ctxt;
+};
+
+// impl<'a, 'tcx> ArgsCtxt<'a, 'tcx>
+
+// rustc: compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs:3310 new
+(ArgsCtxt as unknown as { new: typeof ArgsCtxt.new }).new = function (
+  arg: FnCtxt,
+  compatibility_diagonal: Compatibility[],
+  formal_and_expected_inputs: [Ty, Ty][],
+  provided_args: hir.Expr[],
+  c_variadic: boolean,
+  err_code: ErrCode,
+  // Lowering info if a splatted function is being called.
+  fn_id: SplatLoweringInfo,
+  call_span: Span,
+  call_expr: hir.Expr,
+  tuple_arguments: TupleArgumentsFlag,
+): ArgsCtxt {
+  const call_ctxt: CallCtxt = CallCtxt.new(arg, compatibility_diagonal, formal_and_expected_inputs, provided_args, c_variadic, err_code, fn_id, call_span, call_expr, tuple_arguments);
+
+  const call_metadata = call_ctxt.call_metadata();
+  const args_span = Span.trim_start(call_metadata.error_span, call_metadata.full_call_span) ?? call_metadata.error_span;
+
+  return new ArgsCtxt(call_ctxt, call_metadata, args_span);
+};
+
+/// Get the argument span in the context of the call span so that
+/// suggestions and labels are (more) correct when an arg is a
+/// macro invocation.
+// rustc: compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs:3348 normalize_span
+ArgsCtxt.prototype.normalize_span = function (this: ArgsCtxt, span: Span): Span {
+  const normalized_span = Span.find_ancestor_inside_same_ctxt(span, this.call_metadata.error_span) ?? span;
+  // Sometimes macros mess up the spans, so do not normalize the
+  // arg span to equal the error span, because that's less useful
+  // than pointing out the arg expr in the wrong context.
+  const [nlo, nhi] = Span.lo_hi(normalized_span);
+  const [elo, ehi] = Span.lo_hi(this.call_metadata.error_span);
+  if (nlo === elo && nhi === ehi) {
+    return span;
+  } else {
+    return normalized_span;
+  }
+};
+
+/// Computes the provided types and spans.
+// rustc: compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs:3362 provided_arg_tys
+ArgsCtxt.prototype.provided_arg_tys = function (this: ArgsCtxt): [Ty, Span][] {
+  return this.call_ctxt.provided_args.map((expr): [Ty, Span] => {
+    const ty = this.call_ctxt.fn_ctxt.typeck_results.expr_ty_adjusted_opt(expr) ?? Ty.new_misc_error(this.call_ctxt.fn_ctxt.tcx);
+    return [this.call_ctxt.fn_ctxt.deeply_resolve_ignoring_regions(ty, fold_Ty), this.normalize_span(expr.span)];
+  });
+};
+
+// Obtain another method on `Self` that have similar name.
+// rustc: compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs:3383 similar_assoc
+ArgsCtxt.prototype.similar_assoc = function (this: ArgsCtxt, call_name: Ident): [AssocItem, FnSig] | undefined {
+  const callee_ty = this.call_ctxt.callee_ty;
+  let r: Result<AssocItem | undefined, MethodError>;
+  if (
+    callee_ty !== undefined &&
+    (r = this.call_ctxt.fn_ctxt.probe_op(
+      call_name.span,
+      Mode.MethodCall,
+      call_name,
+      undefined,
+      { _0: true },
+      callee_ty.peel_refs(),
+      unwrap(this.call_ctxt.callee_expr).hir_id,
+      ProbeScope.TraitsInScope,
+      (ctxt) => ctxt.probe_for_similar_candidate(),
+    )).$ === "Ok" &&
+    r._0 !== undefined &&
+    AssocItem.is_method(r._0)
+  ) {
+    const assoc = r._0;
+    const args = this.call_ctxt.fn_ctxt.infcx.fresh_args_for_item(call_name.span, assoc.def_id);
+    const fn_sig = Unnormalized.skip_norm_wip(
+      EarlyBinder.instantiate(this.call_ctxt.fn_ctxt.tcx.fn_sig(assoc.def_id) as EarlyBinder<PolyFnSig>, this.call_ctxt.fn_ctxt.tcx, args, fold_Binder(fold_FnSig)),
+    );
+
+    this.call_ctxt.fn_ctxt.instantiate_binder_with_fresh_vars(call_name.span, BoundRegionConversionTime.FnCall, fn_sig, fold_FnSig);
+  }
+  return undefined;
+};
+
+// rustc: compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs:3417 call_is_in_macro
+ArgsCtxt.prototype.call_is_in_macro = function (this: ArgsCtxt): boolean {
+  return Span.in_external_macro(this.call_metadata.full_call_span, this.sess().source_map());
+};
+
+// rustc: compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs:3449 deref
+CallCtxt.prototype.deref = function (this: CallCtxt): FnCtxt {
+  return this.fn_ctxt;
+};
+
+// impl<'a, 'tcx> CallCtxt<'a, 'tcx>
+
+// rustc: compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs:3455 new
+(CallCtxt as unknown as { new: typeof CallCtxt.new }).new = function (
+  fn_ctxt: FnCtxt,
+  compatibility_diagonal: Compatibility[],
+  formal_and_expected_inputs: [Ty, Ty][],
+  provided_args: hir.Expr[],
+  c_variadic: boolean,
+  err_code: ErrCode,
+  // Lowering info if a splatted function is being called.
+  fn_id: SplatLoweringInfo,
+  call_span: Span,
+  call_expr: hir.Expr,
+  tuple_arguments: TupleArgumentsFlag,
+): CallCtxt {
+  let callee_expr: hir.Expr | undefined;
+  const ck = call_expr.peel_blocks().kind;
+  switch (ck.$) {
+    case "Call":
+      callee_expr = ck._0;
+      break;
+    case "MethodCall": {
+      const receiver = ck._1;
+      let tdd: [DefKind, DefId] | undefined;
+      let assoc: AssocItem | undefined;
+      if (
+        (tdd = fn_ctxt.typeck_results.type_dependent_def(call_expr.hir_id)) !== undefined &&
+        tdd[0].$ === "AssocFn" &&
+        (assoc = fn_ctxt.tcx.opt_associated_item(tdd[1])) !== undefined &&
+        AssocItem.is_method(assoc)
+      ) {
+        callee_expr = receiver;
+      } else {
+        callee_expr = undefined;
+      }
+      break;
+    }
+    default:
+      callee_expr = undefined;
+  }
+
+  const callee_ty = callee_expr !== undefined ? fn_ctxt.typeck_results.expr_ty_adjusted_opt(callee_expr) : undefined;
+
+  return new CallCtxt(
+    fn_ctxt,
+    compatibility_diagonal,
+    formal_and_expected_inputs,
+    provided_args,
+    c_variadic,
+    err_code,
+    fn_id,
+    call_span,
+    call_expr,
+    tuple_arguments,
+    callee_expr,
+    callee_ty,
+  );
+};
+
+// rustc: compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs:3504 call_metadata
+CallCtxt.prototype.call_metadata = function (this: CallCtxt): CallMetadata {
+  const k = this.call_expr.kind;
+  if (k.$ === "Call" && k._0.kind.$ === "Path") {
+    const { hir_id, span } = k._0;
+    const qpath = k._0.kind._0;
+    const res = this.typeck_results.qpath_res(qpath, hir_id);
+    if (res.$ === "Def" && res._0.$ === "Ctor") {
+      const of = res._0._0;
+      let name: string;
+      switch (of) {
+        case "Struct":
+          name = "struct";
+          break;
+        case "Variant":
+          name = "enum variant";
+          break;
+      }
+      return { error_span: this.call_span, call_ident: undefined, full_call_span: span, call_name: name, is_method: false };
+    } else {
+      return { error_span: this.call_span, call_ident: undefined, full_call_span: span, call_name: "function", is_method: false };
+    }
+  } else if (k.$ === "Call") {
+    const { span } = k._0;
+    return { error_span: this.call_span, call_ident: undefined, full_call_span: span, call_name: "function", is_method: false };
+  } else if (k.$ === "MethodCall") {
+    const [path_segment, span] = [k._0, k._3];
+    let ident_span = path_segment.ident.span;
+    const args = path_segment.args;
+    if (args !== undefined) {
+      ident_span = Span.with_hi(ident_span, Span.hi(args.span_ext));
+    }
+    return { error_span: span, call_ident: path_segment.ident, full_call_span: ident_span, call_name: "method", is_method: true };
+  } else {
+    return span_bug(this.call_span, `checking argument types on a non-call: \`${format_debug(k, hir.debug_ExprKind, PLAINA)}\``);
+  }
+};
+
+// rustc: compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs:3560 mk_trace
+CallCtxt.prototype.mk_trace = function (this: CallCtxt, span: Span, [formal_ty, expected_ty]: [Ty, Ty], provided_ty: Ty): TypeTrace {
+  const mismatched_ty =
+    expected_ty === provided_ty
+      ? // If expected == provided, then we must have failed to sup
+        // the formal type. Avoid printing out "expected Ty, found Ty"
+        // in that case.
+        formal_ty
+      : expected_ty;
+  return TypeTrace.types(this.misc(span), mismatched_ty, provided_ty);
+};
+
+// rustc: compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs:3577 ty_to_snippet
+CallCtxt.prototype.ty_to_snippet = function (this: CallCtxt, ty: Ty, expected_idx: ExpectedIdx): string {
+  let fn_def_id: DefId;
+  let arg: Ident | undefined;
+  if (ty.is_unit()) {
+    return "()";
+  } else if (IsSuggestable.is_suggestable(ty, this.tcx, false, fold_Ty)) {
+    return with_forced_trimmed_paths(() => `/* ${display_Ty(ty)} */`);
+  } else if (
+    this.fn_id.$ === "FnDef" &&
+    ((fn_def_id = this.fn_id._0), true) &&
+    DefKind.is_fn_like(this.tcx.def_kind(fn_def_id)) &&
+    ((arg = ((idents, i) => (i < idents.length ? idents[i] : undefined))(this.tcx.fn_arg_idents(fn_def_id), ExpectedIdx.as_usize(expected_idx) + (this.call_expr.kind.$ === "MethodCall" ? 1 : 0))) !== undefined) &&
+    arg.name !== kw.SelfLower
+  ) {
+    return `/* ${Symbol.as_str(arg.name)} */`;
+  } else {
+    // FIXME(FnPtr, splat): What suggestions are needed for FnPtrs?
+    // SplatLoweringInfo::FnPtr(Ty) and SplatLoweringInfo::Error currently fall through to
+    // this placeholder
+    return "/* value */";
+  }
+};
+
+// rustc: compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs:3599 first_incompatible_error
+CallCtxt.prototype.first_incompatible_error = function (this: CallCtxt): [ProvidedIdx, TypeError] | undefined {
+  for (let i = 0; i < this.compatibility_diagonal.length; i++) {
+    const c = this.compatibility_diagonal[i]!;
+    if (c.$ === "Incompatible" && c._0 !== undefined) {
+      return [ProvidedIdx.from_usize(i), c._0];
+    }
+  }
+  return undefined;
+};
 
 // rustc: compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs:3615 same_type_modulo_vars
 export function same_type_modulo_vars(tcx: TyCtxt, a: Ty, b: Ty): boolean {

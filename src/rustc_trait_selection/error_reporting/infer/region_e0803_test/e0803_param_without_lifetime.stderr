@@ -1,0 +1,30 @@
+error[E0803]: cannot infer an appropriate lifetime for lifetime parameter '_ in generic type due to conflicting requirements
+  --> e0803_param_without_lifetime.rs:14:5
+   |
+14 |     fn get_relation(&self) -> &ProofReader {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: first, the lifetime cannot outlive the anonymous lifetime defined here...
+  --> e0803_param_without_lifetime.rs:10:21
+   |
+10 |     fn get_relation(&self) -> To;
+   |                     ^^^^^
+note: ...so that the declared lifetime parameter bounds are satisfied
+  --> e0803_param_without_lifetime.rs:14:5
+   |
+14 |     fn get_relation(&self) -> &ProofReader {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: but, the lifetime must be valid for the anonymous lifetime as defined here...
+  --> e0803_param_without_lifetime.rs:13:23
+   |
+13 | impl HaveRelationship<&ProofReader> for Article {
+   |                       ^
+note: ...so that the declared lifetime parameter bounds are satisfied
+  --> e0803_param_without_lifetime.rs:14:5
+   |
+14 |     fn get_relation(&self) -> &ProofReader {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: aborting due to 1 previous error
+
+For more information about this error, try `rustc --explain E0803`.

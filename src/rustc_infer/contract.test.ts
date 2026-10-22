@@ -317,7 +317,7 @@ describe("InferCtxt construction (ported: builder, InferCtxtInner glue, ena tabl
     expect(infcx.inner.undo_log.logs).toEqual([]);
   });
 
-  test("the contract's placeholders stop as UNPORTED", () => {
+  test("the contract's former placeholders are ported", () => {
     const tcx = mk_tcx();
     const infcx = tcx.infer_ctxt().build(TypingMode.non_body_analysis());
     // (`next_ty_var` and `unwrap_region_constraints` stopped here until lanes infer-core / infer-regions ported them.)
@@ -326,8 +326,11 @@ describe("InferCtxt construction (ported: builder, InferCtxtInner glue, ena tabl
     // (`At::query_normalize` stopped here until lane old-query-typeops ported traits/query/normalize.rs.)
     // (`err_ctxt` stopped here until lane errctxt-contract ported error_reporting/mod.rs; its `TypeErrCtxt` methods are
     // the error-reporting lanes' placeholders.)
+    // (`report_fulfillment_errors` stopped here until lane errrep-traits-a ported error_reporting/traits/mod.rs.)
+    // (`describe_closure` stopped here until lane errrep-traits-b ported it (fulfillment_errors.rs:2077); every
+    // `TypeErrCtxt` placeholder is filled since wave 19 (merge-w19), see errctxt_contract.test.ts.)
     const ecx = infcx.err_ctxt();
-    expect(() => ecx.report_fulfillment_errors([])).toThrow(/rustc_trait_selection::error_reporting::traits::TypeErrCtxt::report_fulfillment_errors/);
+    expect(ecx.describe_closure({ $: "Closure" })).toBe("a closure");
   });
 
   test("rustc_middle infer/canonical.rs: CanonicalParamEnvCache and OriginalQueryValues defaults", () => {

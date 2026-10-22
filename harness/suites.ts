@@ -3,9 +3,11 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { DATA, REPO, UPSTREAM, hash } from "../scripts/lib/common.ts";
-import { oracleRustcCmd, oracleSysroot, rustcDriverHash } from "../scripts/lib/oracle.ts";
+import { caseDeps } from "../scripts/lib/deps.ts";
+import { caseEnv, mergeEnv } from "../scripts/lib/env.ts";
+import { oraclePinnedPathEnv, oracleRustcCmd, oracleSysroot, rustcDriverHash } from "../scripts/lib/oracle.ts";
 import { probePath } from "../scripts/probes.ts";
-import { COMPILETEST_TARGET, uiCases, type ErrorFormat } from "./compiletest.ts";
+import { COMPILETEST_TARGET, collectUiTests, uiBlessed, uiCases, uiFileCases, type Blessed, type ErrorFormat } from "./compiletest.ts";
 
 export interface Case {
   /** Stable id; the protected set (harness/baseline) is a list of these. */
@@ -26,6 +28,12 @@ export interface Case {
 
 /** A test a suite does not run, with the reason (written next to each run's results). */
 export interface SkippedCase {
+  id: string;
+  reason: string;
+}
+
+/** A case whose oracle output is not reproducible, with the reason (`Suite.unstable`). */
+export interface UnstableCase {
   id: string;
   reason: string;
 }
@@ -61,6 +69,25 @@ export interface Suite {
    * covers every other file a case may make rustc read (scripts/lib/deps.ts).
    */
   readsOnlyCaseFile?: boolean;
+  /**
+   * Named subsets of the cases (e.g. the parts a milestone gate is defined on); difftest reports their
+   * counts besides the suite's.
+   */
+  subsets?: Record<string, (c: Case) => boolean>;
+  /**
+   * The case's blessed compiletest output and normalization, for difftest's report-only `--report blessed`
+   * (UI-test suites; never part of a case's status).
+   */
+  blessed?(c: Case): Blessed;
+  /**
+   * Cases whose oracle output differs between two runs of the same oracle binary on the same input and environment
+   * (lane harness-w20c), each with the reason. Only truly nondeterministic oracle output belongs here; a difference
+   * the harness causes (a run-specific path, env or temp dir) is fixed in the case definition instead. difftest
+   * reports these cases as UNSTABLE (never MATCH), never reads or writes their oracle cache entry, and the gate
+   * refuses to protect them and fails if a baseline lists one. difftest also reports a case outside the list as
+   * UNSTABLE when its oracle stderr shows a known nondeterministic pattern (difftest `UNSTABLE_ORACLE_PATTERNS`).
+   */
+  unstable?(): UnstableCase[];
 }
 
 function walk(dir: string, out: string[] = []): string[] {
@@ -321,6 +348,61 @@ SUITES.push(
 // and `RUST_BACKTRACE=0` (an ICE prints no backtrace, whose frames/addresses vary). Timeouts as `parse`:
 // the oracle's `{:#?}` of very deep ASTs (tests/ui/try-trait/deep-try-chain-issue-153583.rs) needs minutes.
 const NOCORE_ENV: Record<string, string> = { RUSTC_ICE: "0", RUST_BACKTRACE: "0" };
+
+// Session variables (lane harness-w20b, gate determinism). `env!`/`option_env!` expand to the value of a
+// variable in rustc's own environment, so a test that reads e.g. `PATH` puts the caller's PATH into the
+// expanded / HIR / resolver / typeck output of both sides, while the oracle cache key covers only `Case.env`
+// (scripts/difftest.ts `cachePath`): a cached oracle output from another session then differs from the subject.
+// So every case that may read a variable of `SESSION_ENV_VARS` (variables a login session or shell sets, whose
+// values differ between sessions) gets a fixed value for it in its `Case.env`, the same on both sides and part
+// of its oracle cache key: `PATH` is `oraclePathEnv()` (`$CARGO_HOME/bin`: the oracle's `rustc +<toolchain>` is
+// found there, and rustup, which prepends that directory to its rustc's PATH when it is missing, leaves it
+// alone; the subject and the probes are run by absolute path; on Windows also `RUSTUP_WINDOWS_PATH_ADD_BIN=0`, so that
+// rustup does not add the toolchain's `bin` directory either: scripts/lib/env.ts `pinnedPathEnv`), every other one is
+// unset. A case's own env (compiletest's `rustc-env` / `unset-rustc-env`) wins. Other cases are untouched.
+// "May read" is a static scan of the case file, every file it may pull in (scripts/lib/deps.ts `caseDeps`) and
+// its aux crates' sources (with theirs): a variable is read if its name is the string-literal first argument of
+// any macro call (`env!("PATH")`, `option_env!("PATH")`, and aliases: `use env as env_imported;` ..
+// `env_imported!("PATH")`), or if a macro whose name contains `env` is called with a non-literal first
+// argument (`env!(env_name!())`) and the name occurs as a string literal.
+// It over-approximates (a call in a `#[cfg(test)]` fn, in a macro that is never expanded, ...); checked against
+// the oracle's `--emit=dep-info` `# env-dep:` lines over every `resdump` case (docs/handoff/harness-w20b.md).
+// Applied in every suite whose tools expand macros on tests/ui files (not lex/parse/tokens/parse-ui).
+const SESSION_ENV_VARS = ["PATH", "HOME", "USER", "LOGNAME", "PWD", "OLDPWD", "TMPDIR", "TMP", "TEMP", "SHELL", "TERM", "LANG", "LC_ALL", "USERPROFILE"];
+const MACRO_LIT_ARG = /\b\w+!\s*[(\[{]\s*"([^"\\]*)"/g;
+const ENV_MACRO_DYN = /\b\w*env\w*!\s*[(\[{]\s*[^"\s)\]}]/;
+const sessionReadsMemo = new Map<string, string[]>();
+/** The `SESSION_ENV_VARS` that `file` (relative to `cwd`) and the files it may pull in may read (see above). */
+function sessionVarsRead(cwd: string, file: string, env: Case["env"]): string[] {
+  const key = `${cwd}\0${file}\0${JSON.stringify(env ?? {})}`;
+  let r = sessionReadsMemo.get(key);
+  if (r) return r;
+  const texts = [readFileSync(join(cwd, file), "utf8")];
+  for (const [p, st] of caseDeps(cwd, file, env)) if (st !== "-" && st !== "dir" && st !== "other" && !st.startsWith("ls:")) texts.push(readFileSync(join(cwd, p), "utf8"));
+  const read = new Set<string>();
+  const dyn = texts.some((t) => ENV_MACRO_DYN.test(t));
+  for (const t of texts) {
+    for (const m of t.matchAll(MACRO_LIT_ARG)) if (SESSION_ENV_VARS.includes(m[1]!)) read.add(m[1]!);
+    if (dyn) for (const v of SESSION_ENV_VARS) if (t.includes(`"${v}"`)) read.add(v);
+  }
+  r = SESSION_ENV_VARS.filter((v) => read.has(v));
+  sessionReadsMemo.set(key, r);
+  return r;
+}
+/** `c` with fixed values for the session variables its sources may read (see above), or `c` itself if none. */
+function pinSessionEnv(c: Case, auxFiles: readonly string[] = []): Case {
+  const read = new Set([c.file, ...auxFiles].flatMap((f) => sessionVarsRead(UPSTREAM, f, c.env)));
+  if (read.size === 0) return c;
+  const env: Record<string, string | null> = { ...c.env };
+  for (const v of SESSION_ENV_VARS) {
+    if (!read.has(v) || Object.hasOwn(env, v)) continue;
+    if (v !== "PATH") env[v] = null;
+    // `{ PATH }`, and on Windows also `RUSTUP_WINDOWS_PATH_ADD_BIN=0` (scripts/lib/env.ts `pinnedPathEnv`), unless the
+    // case sets that itself.
+    else for (const [k, x] of Object.entries(oraclePinnedPathEnv())) if (k === "PATH" || !Object.hasOwn(env, k)) env[k] = x;
+  }
+  return { ...c, env };
+}
 const nocoreArgs = (f: string): string[] => [
   "--target",
   COMPILETEST_TARGET,
@@ -351,7 +433,7 @@ const nocoreSuite = (name: string, unpretty: string, description: string): Suite
   mode: "single",
   timeoutMs: 60_000,
   oracleTimeoutMs: 300_000,
-  cases: () => nocoreCorpus().map((f) => ({ id: f, file: f, args: [...nocoreArgs(f), `-Zunpretty=${unpretty}`, f], env: NOCORE_ENV })),
+  cases: () => nocoreCorpus().map((f) => pinSessionEnv({ id: f, file: f, args: [...nocoreArgs(f), `-Zunpretty=${unpretty}`, f], env: NOCORE_ENV })),
   skipped: () => NOCORE_SKIPPED,
   oracle: ([c]) => oracleRustcCmd(c!.args),
   subject: ([c]) => [...bunCmd("src/rust_ts/main.ts"), ...c!.args],
@@ -379,7 +461,7 @@ SUITES.push(
     timeoutMs: 60_000,
     oracleTimeoutMs: 300_000,
     probes: ["resdump"],
-    cases: () => nocoreCorpus().map((f) => ({ id: f, file: f, args: [...nocoreArgs(f), f], env: NOCORE_ENV })),
+    cases: () => nocoreCorpus().map((f) => pinSessionEnv({ id: f, file: f, args: [...nocoreArgs(f), f], env: NOCORE_ENV })),
     skipped: () => NOCORE_SKIPPED,
     oracle: ([c]) => [probePath("resdump"), ...c!.args],
     subject: ([c]) => [...bunCmd("src/rust_ts/resdump.ts"), ...c!.args],
@@ -412,7 +494,7 @@ const stdSuite = (name: string, unpretty: string, description: string): Suite =>
   mode: "single",
   timeoutMs: 60_000,
   oracleTimeoutMs: 300_000,
-  cases: () => stdCorpus().map((f) => ({ id: f, file: f, args: [...stdArgs(f), `-Zunpretty=${unpretty}`, f], env: NOCORE_ENV })),
+  cases: () => stdCorpus().map((f) => pinSessionEnv({ id: f, file: f, args: [...stdArgs(f), `-Zunpretty=${unpretty}`, f], env: NOCORE_ENV })),
   skipped: () => STD_SKIPPED,
   oracle: ([c]) => oracleRustcCmd(c!.args),
   subject: ([c]) => [...bunCmd("src/rust_ts/main.ts"), ...c!.args],
@@ -434,7 +516,7 @@ SUITES.push(
     timeoutMs: 60_000,
     oracleTimeoutMs: 300_000,
     probes: ["resdump"],
-    cases: () => stdCorpus().map((f) => ({ id: f, file: f, args: [...stdArgs(f), f], env: NOCORE_ENV })),
+    cases: () => stdCorpus().map((f) => pinSessionEnv({ id: f, file: f, args: [...stdArgs(f), f], env: NOCORE_ENV })),
     skipped: () => STD_SKIPPED,
     oracle: ([c]) => [probePath("resdump"), ...c!.args],
     subject: ([c]) => [...bunCmd("src/rust_ts/resdump.ts"), ...c!.args],
@@ -459,7 +541,7 @@ SUITES.push({
   timeoutMs: 60_000,
   oracleTimeoutMs: 300_000,
   probes: ["tydump"],
-  cases: () => nocoreCorpus().map((f) => ({ id: f, file: f, args: [...nocoreArgs(f), f], env: NOCORE_ENV })),
+  cases: () => nocoreCorpus().map((f) => pinSessionEnv({ id: f, file: f, args: [...nocoreArgs(f), f], env: NOCORE_ENV })),
   skipped: () => NOCORE_SKIPPED,
   oracle: ([c]) => [probePath("tydump"), ...c!.args],
   subject: ([c]) => [...bunCmd("src/rust_ts/tydump.ts"), ...c!.args],
@@ -503,7 +585,7 @@ function oracleAuxRmeta(file: string, crate: string, args: string[]): string {
     mkdirSync(dir, { recursive: true });
     const r = Bun.spawnSync(oracleRustcCmd([...args, file, "--crate-type", "lib", "--emit=metadata", "--out-dir", dir]), {
       cwd: UPSTREAM,
-      env: { ...process.env, ...NOCORE_ENV },
+      env: mergeEnv(process.env, caseEnv(NOCORE_ENV)),
     });
     if (r.exitCode !== 0 || !existsSync(out)) throw new Error(`ERROR: oracle build of aux crate ${file} failed: ${r.stderr.toString().trim()}`);
   }
@@ -519,8 +601,8 @@ function minicoreCorpus(): { cases: Case[]; skipped: SkippedCase[] } {
   const mc = `${CG_CLIF_EXAMPLE}/mini_core.rs`;
   const hw = `${CG_CLIF_EXAMPLE}/mini_core_hello_world.rs`;
   const cases: Case[] = [
-    { id: mc, file: mc, args: [...cgClifArgs(), mc, "--crate-type", "lib"], env: NOCORE_ENV },
-    { id: hw, file: hw, args: ["--extern", `mini_core=${oracleAuxRmeta(mc, "mini_core", cgClifArgs())}`, ...cgClifArgs(), hw], env: NOCORE_ENV },
+    pinSessionEnv({ id: mc, file: mc, args: [...cgClifArgs(), mc, "--crate-type", "lib"], env: NOCORE_ENV }),
+    pinSessionEnv({ id: hw, file: hw, args: ["--extern", `mini_core=${oracleAuxRmeta(mc, "mini_core", cgClifArgs())}`, ...cgClifArgs(), hw], env: NOCORE_ENV }, [mc]),
   ];
   const files = corpus("tests/ui").filter((f) => !f.includes("/auxiliary/") && minicoreUiFile(f));
   const want = new Set(files);
@@ -531,7 +613,7 @@ function minicoreCorpus(): { cases: Case[]; skipped: SkippedCase[] } {
   const fileOf = (id: string) => id.split("#")[0]!;
   for (const c of ui.cases) {
     if (!want.has(c.file)) continue;
-    cases.push({ id: c.id, file: c.file, args: c.args.filter((a) => a !== "-Zparse-crate-root-only"), env: { ...NOCORE_ENV, ...c.env } });
+    cases.push(pinSessionEnv({ id: c.id, file: c.file, args: c.args.filter((a) => a !== "-Zparse-crate-root-only"), env: { ...NOCORE_ENV, ...c.env } }));
   }
   const skipped = ui.skipped.filter((k) => want.has(fileOf(k.id)));
   return (minicoreMemo = { cases, skipped });
@@ -623,7 +705,7 @@ const hirSuite = (name: string, args: (f: string) => string[], unpretty: string,
     const skip = new Set(skipped.map((k) => k.id));
     return corpus("tests/ui")
       .filter((f) => !skip.has(f))
-      .map((f) => ({ id: f, file: f, args: [...args(f), `-Zunpretty=${unpretty}`, f], env: NOCORE_ENV }));
+      .map((f) => pinSessionEnv({ id: f, file: f, args: [...args(f), `-Zunpretty=${unpretty}`, f], env: NOCORE_ENV }));
   },
   skipped: () => skipped,
   oracle: ([c]) => oracleRustcCmd(c!.args),
@@ -650,6 +732,109 @@ SUITES.push(
     "hir",
     [],
     "hir-tree with -Zunpretty=hir (rustc_hir_pretty::print_crate, the pretty-printed HIR, instead of the HIR tree); no skips",
+  ),
+);
+
+// M3 (plan-m3 §4, lane harness-w20): the M3 gate suites, type checking of whole UI-test directories with
+// compiletest's own argv. Cases: every UI test (and revision) of tests/ui/typeck and tests/ui/traits,
+// plus every tests/ui test with a `#[rustc_dump_*]` attribute (`UI_DUMP_ATTR`; the dumps of
+// rustc_hir_analysis check_crate and typeck writeback run in the probes' prefix, the others, e.g.
+// rustc_dump_layout or rustc_dump_symbol_name, belong to later phases and leave just a type-checked test),
+// for thirdump-ui also tests/ui/thir-print. Argv, env, directives, revisions, ignores and skips are
+// harness/compiletest.ts's (`human` format, as tydump-minicore; `-Zparse-crate-root-only` dropped), so
+// `-Znext-solver=coherence` (decision 2026-10-15: the old solver in typeck, the new one in coherence;
+// `//@[next] compile-flags: -Znext-solver` revisions switch to the new solver everywhere), with
+// `aux-build`/`aux-crate`/`aux-bin` crates built by the oracle as rmeta (compiletest.ts header; plan-m2
+// D5). compiletest is run as on x86_64-unknown-linux-gnu (decision D1 of plan-m2, as every ui suite),
+// so the case set does not depend on the machine. Env, timeouts and one process per case as
+// tydump-minicore. Subsets (difftest prints their counts): the M3 gate is on `typeck+traits` and
+// `rustc_dump`. Report only (`difftest --report blessed`): the blessed `.stderr` comparison (plan-m3 §4).
+// Unprotected until root accepts a run.
+const UI_DUMP_ATTR = /#!?\[[^\]\n]*\brustc_dump_\w+/;
+let uiDumpMemo: Set<string> | undefined;
+/** Every UI test (as compiletest collects them) with a `#[rustc_dump_*]` attribute. */
+function uiDumpTests(): Set<string> {
+  return (uiDumpMemo ??= new Set(collectUiTests("tests/ui").filter((f) => UI_DUMP_ATTR.test(readFileSync(join(UPSTREAM, f), "utf8")))));
+}
+const M3_UI_DIRS = ["tests/ui/typeck", "tests/ui/traits"];
+/** The M3 ui suites' oracle timeout, also that of their aux builds (harness/compiletest.ts `buildAux`). */
+const M3_UI_ORACLE_TIMEOUT_MS = 300_000;
+const inDirs = (dirs: string[]) => (c: Case) => dirs.some((d) => c.file.startsWith(d + "/"));
+const m3UiMemo = new Map<string, { cases: Case[]; skipped: SkippedCase[] }>();
+function m3UiCorpus(dirs: string[]): { cases: Case[]; skipped: SkippedCase[] } {
+  const key = dirs.join("|");
+  const m = m3UiMemo.get(key);
+  if (m) return m;
+  const files = [...new Set([...dirs.flatMap((d) => collectUiTests(d)), ...uiDumpTests()])].sort();
+  const ui = uiFileCases(files, "human", { aux: true, auxTimeoutMs: M3_UI_ORACLE_TIMEOUT_MS });
+  // Only the harness's own trailing `-Zparse-crate-root-only` is dropped: a test may pass it in its compile-flags
+  // (tests/ui/traits/const-traits/parse-const-unsafe-trait.rs). (The minicore corpus filters every occurrence.)
+  const cases = ui.cases.map((c) => {
+    if (c.args.at(-1) !== "-Zparse-crate-root-only") throw new Error(`ERROR: ${c.id}: argv does not end with -Zparse-crate-root-only`);
+    return pinSessionEnv({ id: c.id, file: c.file, args: c.args.slice(0, -1), env: { ...NOCORE_ENV, ...c.env } }, ui.auxFiles.get(c.id));
+  });
+  const r = { cases, skipped: ui.skipped };
+  m3UiMemo.set(key, r);
+  return r;
+}
+// Unstable cases of tydump-ui and thirdump-ui (lane harness-w20c; review harness-w20b §5): each oracle output differed
+// between two runs of the same probe binary with the same argv, env and cwd (both probes, measured twice), and the
+// difference is not caused by the harness:
+// - an ICE under compiletest's `RUST_BACKTRACE=short`: std's panic message names the OS thread id,
+//   `thread 'rustc' (<tid>) panicked at ...` (compiletest normalizes it to `$TID`). For five of the six, the port ICEs
+//   at the same point too (root decision, lane ui-diffs-20), so they could only ever differ in the ICE report;
+//   old-solver-caching-bug-151069.rs#old is listed for the thread id alone;
+// - `-Zwrite-long-types-to-disk=yes` (the test's own compile-flags, after compiletest's `=no`): the note
+//   `the full name for the type has been written to '<out dir>/<stem>.long-type-<hash>.txt'` names a hash of the type
+//   (rustc_middle ty/error.rs `short_string_namespace`: `DefaultHasher` over `Hash` of an interned value, which hashes
+//   its address). The note is printed whether or not the out dir exists, and the address varies from run to run
+//   (ASLR), so no out dir or temp dir makes it reproducible (compiletest normalizes it to `$LONG_TYPE_HASH`).
+const M3_UI_TID = "ICE: the panic message names the oracle's OS thread id (`thread 'rustc' (<tid>) panicked`)";
+// Root decision (lane ui-diffs-20): the port reaches the same assert!/bug! as rustc, after identical earlier errors.
+const M3_UI_SAME_ICE = "both sides ICE at the same point; rustc's ICE report (thread id, backtrace) is not reproducible";
+const M3_UI_LONG_TYPE = "the long-type note names `<stem>.long-type-<hash>.txt`, a hash of an interned type's address";
+const M3_UI_UNSTABLE: UnstableCase[] = [
+  { id: "tests/ui/traits/error-reporting/conditionally-implemented-trait-long-type.rs", reason: M3_UI_LONG_TYPE },
+  { id: "tests/ui/traits/next-solver/cycles/use-impl-to-normalize-own-self-ty-ice.rs#old", reason: M3_UI_SAME_ICE },
+  { id: "tests/ui/traits/next-solver/normalize/old-solver-caching-bug-151069.rs#old", reason: M3_UI_TID },
+  { id: "tests/ui/traits/next-solver/normalize/success-results-in-unconstrained-infer.rs#old", reason: M3_UI_SAME_ICE },
+  { id: "tests/ui/traits/next-solver/overflow/incorrect-old-solver-caching-ice-148095.rs#old", reason: M3_UI_SAME_ICE },
+  { id: "tests/ui/traits/on_unimplemented_long_types.rs", reason: M3_UI_LONG_TYPE },
+  { id: "tests/ui/traits/projection-cache-rematch-impl-122529.rs#old", reason: M3_UI_SAME_ICE },
+  { id: "tests/ui/traits/projection-cache-rematch-impl-141124.rs#old", reason: M3_UI_SAME_ICE },
+];
+const m3UiSuite = (name: string, probe: string, subject: string, dirs: string[], subsets: Suite["subsets"], description: string): Suite => ({
+  name,
+  milestone: "M3",
+  description,
+  mode: "single",
+  timeoutMs: 60_000,
+  oracleTimeoutMs: M3_UI_ORACLE_TIMEOUT_MS,
+  probes: [probe],
+  cases: () => m3UiCorpus(dirs).cases,
+  skipped: () => m3UiCorpus(dirs).skipped,
+  oracle: ([c]) => [probePath(probe), ...c!.args],
+  subject: ([c]) => [...bunCmd(subject), ...c!.args],
+  subsets,
+  blessed: (c) => uiBlessed(c.id, c.args),
+  unstable: () => M3_UI_UNSTABLE,
+});
+SUITES.push(
+  m3UiSuite(
+    "tydump-ui",
+    "tydump",
+    "src/rust_ts/tydump.ts",
+    M3_UI_DIRS,
+    { "typeck+traits": inDirs(M3_UI_DIRS), rustc_dump: (c) => uiDumpTests().has(c.file) },
+    "tools/probes/tydump (as tydump-nocore) on tests/ui/typeck, tests/ui/traits and every tests/ui test with a #[rustc_dump_*] attribute, with compiletest's UI-test argv (human diagnostics, -Znext-solver=coherence, revisions, aux crates built by the oracle as rmeta)",
+  ),
+  m3UiSuite(
+    "thirdump-ui",
+    "thirdump",
+    "src/rust_ts/thirdump.ts",
+    [...M3_UI_DIRS, "tests/ui/thir-print"],
+    { "typeck+traits": inDirs(M3_UI_DIRS), rustc_dump: (c) => uiDumpTests().has(c.file), "thir-print": inDirs(["tests/ui/thir-print"]) },
+    "tools/probes/thirdump (as thirdump-minicore) on the tydump-ui cases plus tests/ui/thir-print",
   ),
 );
 

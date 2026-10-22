@@ -151,8 +151,9 @@ const upcast_TraitRef = Predicate_upcast_from_TraitRef as unknown as (from: Trai
 
 /** The crate's `normalize` module (read lazily: init order). */
 function normalize_mod(): typeof import("./normalize.ts") {
-  return require("./normalize.ts") as typeof import("./normalize.ts");
+  return (normalize_mod__m ??= require("./normalize.ts") as typeof import("./normalize.ts"));
 }
+var normalize_mod__m: typeof import("./normalize.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 /// PORT: `#[derive(PartialEq)]` of `ProjectionCandidate`. The clause variants compare their `Binder` by value; `Select`
 /// compares the `ImplSource`, whose nested `Obligation`s compare by `param_env` and `predicate` only (rustc_infer's

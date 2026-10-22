@@ -1,0 +1,99 @@
+error[E0308]: mismatched types
+  --> demand_basic.rs:18:32
+   |
+18 | pub fn let_ty() { let _x: u8 = true; }
+   |                           --   ^^^^ expected `u8`, found `bool`
+   |                           |
+   |                           expected due to this
+
+error[E0308]: mismatched types
+  --> demand_basic.rs:20:32
+   |
+20 | pub fn assign(mut y: u8) { y = true; }
+   |                      --        ^^^^ expected `u8`, found `bool`
+   |                      |
+   |                      expected due to this parameter type
+
+error[E0308]: mismatched types
+  --> demand_basic.rs:22:46
+   |
+22 | pub fn assign_local() { let mut z = 0u8; z = true; }
+   |                                     ---      ^^^^ expected `u8`, found `bool`
+   |                                     |
+   |                                     expected due to this value
+
+error[E0308]: mismatched types
+  --> demand_basic.rs:25:33
+   |
+25 | pub fn field(p: &mut P) { p.x = true; }
+   |                           ---   ^^^^ expected `u8`, found `bool`
+   |                           |
+   |                           expected due to the type of this binding
+
+error[E0308]: mismatched types
+  --> demand_basic.rs:27:73
+   |
+27 | pub fn inferred() { let mut w = W::new(); w.put(1u8); let _v: W<bool> = w; }
+   |                                           -     ---           -------   ^ expected `W<bool>`, found `W<u8>`
+   |                                           |     |             |
+   |                                           |     |             expected due to this
+   |                                           |     this argument has type `u8`...
+   |                                           ... which causes `w` to have type `W<u8>`
+   |
+   = note: expected struct `W<bool>`
+              found struct `W<u8>`
+
+error[E0308]: mismatched types
+  --> demand_basic.rs:29:64
+   |
+29 | pub fn lp(b: bool) { let _x = loop { if b { break 1u8; } break true; }; }
+   |                                             ---------          ^^^^ expected `u8`, found `bool`
+   |                                             |
+   |                                             expected because of this `break`
+
+error[E0308]: mismatched types
+  --> demand_basic.rs:31:42
+   |
+31 | pub fn mut_bind(mut a: &u8, b: u8) { a = b; }
+   |                        ---               ^ expected `&u8`, found `u8`
+   |                        |
+   |                        expected due to this parameter type
+   |
+help: you might have meant to mutate the pointed at value being passed in, instead of changing the reference in the local binding
+   |
+31 - pub fn mut_bind(mut a: &u8, b: u8) { a = b; }
+31 + pub fn mut_bind(a: &mut u8, b: u8) { *a = b; }
+   |
+
+error[E0308]: mismatched types
+  --> demand_basic.rs:34:50
+   |
+34 | impl<T> G<T> { pub fn mk(t: T) { let _g: G<u8> = Self(t); } }
+   |      -                                   -----   ^^^^^^^ expected `G<u8>`, found `G<T>`
+   |      |                                   |
+   |      found this type parameter           expected due to this
+   |
+   = note: expected struct `G<u8>`
+              found struct `G<T>`
+
+error[E0308]: mismatched types
+  --> demand_basic.rs:36:50
+   |
+36 | impl<T> H<T> { pub fn mk(t: T) { let _h: H<u8> = Self { x: t }; } }
+   |      -  ----                             -----   ^^^^^^^^^^^^^ expected `H<u8>`, found `H<T>`
+   |      |  |                                |
+   |      |  |                                expected due to this
+   |      |  this is the type of the `Self` literal
+   |      found this type parameter
+   |
+   = note: expected struct `H<u8>`
+              found struct `H<T>`
+help: use the type name directly
+   |
+36 - impl<T> H<T> { pub fn mk(t: T) { let _h: H<u8> = Self { x: t }; } }
+36 + impl<T> H<T> { pub fn mk(t: T) { let _h: H<u8> = H::<u8> { x: t }; } }
+   |
+
+error: aborting due to 9 previous errors
+
+For more information about this error, try `rustc --explain E0308`.

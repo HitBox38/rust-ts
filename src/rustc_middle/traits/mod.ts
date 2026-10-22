@@ -11,7 +11,8 @@ import type { Span } from "../../rustc_span/lib.ts";
 import { DUMMY_SP } from "../../rustc_span/span_encoding.ts";
 import { OrdSpan } from "../../rustc_span/span_encoding.ts";
 import { display_Symbol, sym } from "../../rustc_span/symbol.ts";
-import { fold_with_Binder, try_fold_with_Binder, visit_with_Binder } from "../../rustc_type_ir/binder.ts";
+import { type BoundTy, fold_with_Binder, fold_with_Placeholder, type PlaceholderType, try_fold_with_Binder, try_fold_with_Placeholder, visit_with_Binder, visit_with_Placeholder } from "../../rustc_type_ir/binder.ts";
+import { fold_with_trivial, try_fold_with_trivial, visit_with_trivial } from "../../rustc_type_ir/macros.ts";
 import type { FallibleTypeFolder, TypeFolder } from "../../rustc_type_ir/fold.ts";
 import { fold_with_TraitClause, try_fold_with_TraitClause, visit_with_TraitClause } from "../../rustc_type_ir/predicate.ts";
 import { fold_with_Alias, try_fold_with_Alias, visit_with_Alias } from "../../rustc_type_ir/ty/alias.ts";
@@ -543,6 +544,19 @@ export function try_fold_with_PolyFnSig<E>(self: PolyFnSig, folder: FallibleType
 }
 export function fold_with_PolyFnSig(self: PolyFnSig, folder: TypeFolder): PolyFnSig {
   return fold_with_Binder(self, folder, fold_with_FnSig);
+}
+
+/** PORT: `impl TypeVisitable for ty::PlaceholderType<'tcx>` (`ir::Placeholder<TyCtxt, BoundTy>`): binder.rs's derived
+ *  impl applied to `BoundTy`'s (trivially traversable). type_fold.json points the alias here (lane small-gaps-21;
+ *  rustc_infer region_constraints `GenericKind::Placeholder`). */
+export function visit_with_PlaceholderType<R>(self: PlaceholderType, visitor: TypeVisitor<R>): R {
+  return visit_with_Placeholder(self, visitor, visit_with_trivial);
+}
+export function try_fold_with_PlaceholderType<E>(self: PlaceholderType, folder: FallibleTypeFolder<E>): Result<PlaceholderType, E> {
+  return try_fold_with_Placeholder<BoundTy, E>(self, folder, try_fold_with_trivial);
+}
+export function fold_with_PlaceholderType(self: PlaceholderType, folder: TypeFolder): PlaceholderType {
+  return fold_with_Placeholder<BoundTy>(self, folder, fold_with_trivial);
 }
 
 /** PORT: `impl TypeVisitable for ty::AliasTy<'tcx>` (`ir::Alias<TyCtxt, AliasTyKind>`): alias.rs's derived impl applied

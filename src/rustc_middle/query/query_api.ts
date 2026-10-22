@@ -128,8 +128,9 @@ export const debug_TaggedQueryKey: Debug<TaggedQueryKey> = (v, f) => debug_tuple
 /** PORT: ty/print/pretty.ts is an extension module of `TyCtxt` (it assigns `TyCtxt.prototype` methods at load
  * time), so the defining-module side reaches it lazily (ty-ctxt decision 5 precedent: `middle_lint()`). */
 function ty_print(): typeof import("../ty/print/pretty.ts") {
-  return require("../ty/print/pretty.ts") as typeof import("../ty/print/pretty.ts");
+  return (ty_print__m ??= require("../ty/print/pretty.ts") as typeof import("../ty/print/pretty.ts"));
 }
+var ty_print__m: typeof import("../ty/print/pretty.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 // ---- Providers / ExternProviders ----------------------------------------------------------------
 

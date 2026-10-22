@@ -36,15 +36,15 @@ const args = (s: string, file: string): string[] => [
   "--sysroot", s, "--edition=2021", "--crate-type", "lib", "--emit=metadata", "-o", join(OUT, `${file}.rmeta`), file,
 ];
 
-/** The exact `unported(..)` texts the cases stop at today (re-pinned by merge-w17, merge-w18c). */
-const PENDING = new Set([
-  // field_bound.rs: E0277 report (wave 19); re-pinned by errctxt-contract (`err_ctxt` ported)
-  "rustc_trait_selection::error_reporting::traits::TypeErrCtxt::report_fulfillment_errors",
+/** The exact `unported(..)` texts the cases stop at today (none since merge-w19). */
+const PENDING = new Set<string>([
+  // (field_bound.rs prints the oracle's E0277 since merge-w19: the wave-19 error-reporting lanes landed and the
+  // `(Predicate, WellFormedLoc)` query key of `diagnostic_hir_wf_check` is ported)
 ]);
 
 /** Cases that print the oracle's stderr since merge-w17 (const_param.rs) / merge-w18c (`mir::ConstraintCategory`
- *  generated: gat.rs, marker.rs, unused.rs in `wf` mode): they must not stop. */
-const NOW_EXACT = new Set(["const_param.rs", "gat.rs", "marker.rs", "unused.rs"]);
+ *  generated: gat.rs, marker.rs, unused.rs in `wf` mode) / merge-w19 (field_bound.rs): they must not stop. */
+const NOW_EXACT = new Set(["const_param.rs", "gat.rs", "marker.rs", "unused.rs", "field_bound.rs"]);
 
 for (const [file, contains] of [
   ["shadow.rs", "warning: trait item `f` from `Both` shadows identically named item from supertrait"],

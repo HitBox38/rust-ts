@@ -4,7 +4,7 @@ import { try_visit } from "../../../rustc_ast_ir/visit.ts";
 import { clone_RegionVariableOrigin, clone_SubregionOrigin, debug_RegionVariableOrigin, debug_SubregionOrigin, type RegionVariableOrigin, type SubregionOrigin } from "../mod.ts";
 import { debug_GenericKind, type RegionConstraintStorage } from "./mod.ts";
 import { type InferCtxtUndoLogs } from "../snapshot/undo_log.ts";
-import { fold_with_AliasTy, try_fold_with_AliasTy, visit_with_AliasTy } from "../../../rustc_middle/traits/mod.ts";
+import { fold_with_AliasTy, fold_with_PlaceholderType, try_fold_with_AliasTy, try_fold_with_PlaceholderType, visit_with_AliasTy, visit_with_PlaceholderType } from "../../../rustc_middle/traits/mod.ts";
 import { debug_Ty, fold_with_Ty, try_fold_with_Ty, type Ty, visit_with_Ty } from "../../../rustc_middle/ty/mod.ts";
 import { type AliasTy, type ParamTy } from "../../../rustc_middle/ty/sty.gen.ts";
 import { type Binder, debug_Binder, fold_with_Binder, type PlaceholderType, try_fold_with_Binder, visit_with_Binder } from "../../../rustc_type_ir/binder.ts";
@@ -15,10 +15,6 @@ import { debug_VisibleForLeakCheck, type VisibleForLeakCheck } from "../../../ru
 import { debug_Region, fold_with_Region, type Region, try_fold_with_Region, visit_with_Region } from "../../../rustc_type_ir/sty/mod.ts";
 import { type Debug, debug_struct, debug_tuple, debug_vec } from "../../../std/fmt.ts";
 import { Ok, type Result } from "../../../std/result.ts";
-import { unported } from "../../../std/panic.ts";
-function unported_type_fold(..._a: unknown[]): never {
-  return unported("TypeVisitable/TypeFoldable without a TS impl (see types report)");
-}
 
 // rustc-type: compiler/rustc_infer/src/infer/region_constraints/mod.rs:24 RegionConstraintStorage
 export type { RegionConstraintStorage } from "./mod.ts";
@@ -160,7 +156,7 @@ export function visit_with_GenericKind<R>(self: GenericKind, __visitor: TypeVisi
   let r: R | undefined;
   switch (self.$) {
     case "Placeholder":
-      if ((r = try_visit(__visitor.Result, unported_type_fold(self._0))) !== undefined) return r;
+      if ((r = try_visit(__visitor.Result, visit_with_PlaceholderType(self._0, __visitor))) !== undefined) return r;
       break;
     case "Alias":
       if ((r = try_visit(__visitor.Result, visit_with_AliasTy(self._0, __visitor))) !== undefined) return r;
@@ -175,7 +171,9 @@ export function try_fold_with_GenericKind<E>(self: GenericKind, __folder: Fallib
       return Ok({ $: "Param" as const, _0: self._0 });
     }
     case "Placeholder": {
-      return unported_type_fold(self._0);
+      const __0 = try_fold_with_PlaceholderType(self._0, __folder);
+      if (__0.$ === "Err") return __0;
+      return Ok({ $: "Placeholder" as const, _0: __0._0 });
     }
     case "Alias": {
       const __0 = try_fold_with_AliasTy(self._0, __folder);
@@ -191,7 +189,7 @@ export function fold_with_GenericKind(self: GenericKind, __folder: TypeFolder): 
       return { $: "Param" as const, _0: self._0 };
     }
     case "Placeholder": {
-      return { $: "Placeholder" as const, _0: unported_type_fold(self._0) };
+      return { $: "Placeholder" as const, _0: fold_with_PlaceholderType(self._0, __folder) };
     }
     case "Alias": {
       return { $: "Alias" as const, _0: fold_with_AliasTy(self._0, __folder) };

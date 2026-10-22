@@ -251,6 +251,11 @@ export function Binder_into_diag_arg<T>(
   return T_into_diag_arg(Binder.skip_binder(self), path);
 }
 
+/** `IntoDiagArg for Binder<I, FnSig<I>>`: the generic impl above (:140) with `T = FnSig` (:134). */
+export function PolyFnSig_into_diag_arg(self: Binder<FnSig>, path: MutRef<PathBuf | undefined>): DiagArgValue {
+  return Binder_into_diag_arg(self, path, FnSig_into_diag_arg);
+}
+
 // rustc: compiler/rustc_type_ir/src/ir_print.rs:146 into_diag_arg
 export function ClosureKind_into_diag_arg(self: ClosureKind, _: MutRef<PathBuf | undefined>): DiagArgValue {
   return { $: "Str", _0: ClosureKind.as_str(self) };

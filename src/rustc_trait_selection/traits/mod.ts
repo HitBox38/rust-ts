@@ -20,6 +20,7 @@
 
 import * as dyn_compatibility from "./dyn_compatibility.ts";
 import * as specialize from "./specialize/mod.ts";
+import * as vtable from "./vtable.ts";
 import { FulfillmentError } from "./mod.gen.ts";
 
 export * from "./mod.gen.ts";
@@ -1151,9 +1152,7 @@ class ReferencesOnlyParentGenerics implements TypeVisitor<ControlFlow<null>> {
 // rustc: compiler/rustc_trait_selection/src/traits/mod.rs:982 provide
 export function provide(providers: Providers): void {
   dyn_compatibility.provide(providers);
-  // PORT: `vtable::provide(providers)`: traits/vtable.rs is not ported yet (no lane); its queries keep the driver's
-  // `unported` placeholder providers.
-  // vtable::provide(providers);
+  vtable.provide(providers);
   providers.specialization_graph_of = specialize.specialization_graph_provider;
   providers.specializes = specialize.specializes;
   providers.specialization_enabled_in = specialize.specialization_enabled_in;
@@ -1173,8 +1172,9 @@ function fold_Term(): TypeFoldable<import("../../rustc_middle/ty/decls.ts").Term
   return middle_ty_mod().fold_Term;
 }
 function middle_ty_mod(): typeof import("../../rustc_middle/ty/mod.ts") {
-  return require("../../rustc_middle/ty/mod.ts") as typeof import("../../rustc_middle/ty/mod.ts");
+  return (middle_ty_mod__m ??= require("../../rustc_middle/ty/mod.ts") as typeof import("../../rustc_middle/ty/mod.ts"));
 }
+var middle_ty_mod__m: typeof import("../../rustc_middle/ty/mod.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 /** The derived `TypeFoldable` of `AliasConst` (= `Alias<AliasConstKind>`, rustc_type_ir ty/alias.rs), as a D4 descriptor. */
 function d_AliasConst(): TypeFoldable<import("../../rustc_type_ir/decls.ts").AliasConst> {
   return {

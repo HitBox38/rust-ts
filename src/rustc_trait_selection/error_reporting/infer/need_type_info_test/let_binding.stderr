@@ -1,0 +1,36 @@
+error[E0282]: type annotations needed for `Vec<_>`
+ --> let_binding.rs:2:9
+  |
+2 |     let x = Vec::new();
+  |         ^   ---------- type must be known at this point
+  |
+help: consider giving `x` an explicit type, where the type for type parameter `T` is specified
+  |
+2 |     let x: Vec<T> = Vec::new();
+  |          ++++++++
+
+error[E0282]: type annotations needed for `Option<_>`
+ --> let_binding.rs:5:9
+  |
+5 |     let v = None;
+  |         ^   ---- type must be known at this point
+  |
+help: consider giving `v` an explicit type, where the type for type parameter `T` is specified
+  |
+5 |     let v: Option<T> = None;
+  |          +++++++++++
+
+error[E0282]: type annotations needed
+ --> let_binding.rs:8:19
+  |
+8 |     let (p, q) = (Vec::new(), 1u8);
+  |                   ^^^^^^^^ cannot infer type of the type parameter `T` declared on the struct `Vec`
+  |
+help: consider specifying a concrete type for the type parameter `T`
+  |
+8 |     let (p, q) = (Vec::</* Type */>::new(), 1u8);
+  |                      ++++++++++++++
+
+error: aborting due to 3 previous errors
+
+For more information about this error, try `rustc --explain E0282`.

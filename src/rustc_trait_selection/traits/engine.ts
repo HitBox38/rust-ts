@@ -448,8 +448,9 @@ export class ObligationCtxt<E = ScrubbedTraitError> {
 // ---- the old solver's engine (traits/fulfill.ts), read lazily (module cycle) ---------------------------------------
 
 function fulfill_mod(): typeof import("./fulfill.ts") {
-  return require("./fulfill.ts") as typeof import("./fulfill.ts");
+  return (fulfill_mod__m ??= require("./fulfill.ts") as typeof import("./fulfill.ts"));
 }
+var fulfill_mod__m: typeof import("./fulfill.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 /**
  * `impl FromSolverError<'tcx, NextSolverError<'tcx>> for ScrubbedTraitError<'tcx>` (solve/fulfill.ts) and

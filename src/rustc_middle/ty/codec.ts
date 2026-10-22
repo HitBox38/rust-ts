@@ -63,42 +63,54 @@ interface Place {
 
 // ---- lazily loaded callees (module comment) ----
 function binder_(): typeof import("../../rustc_type_ir/binder.ts") {
-  return require("../../rustc_type_ir/binder.ts") as typeof import("../../rustc_type_ir/binder.ts");
+  return (binder___m ??= require("../../rustc_type_ir/binder.ts") as typeof import("../../rustc_type_ir/binder.ts"));
 }
+var binder___m: typeof import("../../rustc_type_ir/binder.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function ty_kind_(): typeof import("../../rustc_type_ir/ty_kind.ts") {
-  return require("../../rustc_type_ir/ty_kind.ts") as typeof import("../../rustc_type_ir/ty_kind.ts");
+  return (ty_kind___m ??= require("../../rustc_type_ir/ty_kind.ts") as typeof import("../../rustc_type_ir/ty_kind.ts"));
 }
+var ty_kind___m: typeof import("../../rustc_type_ir/ty_kind.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function predicate_kind_(): typeof import("../../rustc_type_ir/predicate_kind.ts") {
-  return require("../../rustc_type_ir/predicate_kind.ts") as typeof import("../../rustc_type_ir/predicate_kind.ts");
+  return (predicate_kind___m ??= require("../../rustc_type_ir/predicate_kind.ts") as typeof import("../../rustc_type_ir/predicate_kind.ts"));
 }
+var predicate_kind___m: typeof import("../../rustc_type_ir/predicate_kind.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function canonical_(): typeof import("../../rustc_type_ir/canonical.ts") {
-  return require("../../rustc_type_ir/canonical.ts") as typeof import("../../rustc_type_ir/canonical.ts");
+  return (canonical___m ??= require("../../rustc_type_ir/canonical.ts") as typeof import("../../rustc_type_ir/canonical.ts"));
 }
+var canonical___m: typeof import("../../rustc_type_ir/canonical.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 // PORT (init order): decodable.gen.ts imports the extension module ty/trait_def.ts, which must load after TyCtxt.
 function decodable_(): typeof import("../decodable.gen.ts") {
-  return require("../decodable.gen.ts") as typeof import("../decodable.gen.ts");
+  return (decodable___m ??= require("../decodable.gen.ts") as typeof import("../decodable.gen.ts"));
 }
+var decodable___m: typeof import("../decodable.gen.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function pattern_(): typeof import("../../rustc_type_ir/pattern.ts") {
-  return require("../../rustc_type_ir/pattern.ts") as typeof import("../../rustc_type_ir/pattern.ts");
+  return (pattern___m ??= require("../../rustc_type_ir/pattern.ts") as typeof import("../../rustc_type_ir/pattern.ts"));
 }
+var pattern___m: typeof import("../../rustc_type_ir/pattern.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function const_kind_(): typeof import("../../rustc_type_ir/const_kind.ts") {
-  return require("../../rustc_type_ir/const_kind.ts") as typeof import("../../rustc_type_ir/const_kind.ts");
+  return (const_kind___m ??= require("../../rustc_type_ir/const_kind.ts") as typeof import("../../rustc_type_ir/const_kind.ts"));
 }
+var const_kind___m: typeof import("../../rustc_type_ir/const_kind.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function generic_arg_ir_(): typeof import("../../rustc_type_ir/generic_arg.ts") {
-  return require("../../rustc_type_ir/generic_arg.ts") as typeof import("../../rustc_type_ir/generic_arg.ts");
+  return (generic_arg_ir___m ??= require("../../rustc_type_ir/generic_arg.ts") as typeof import("../../rustc_type_ir/generic_arg.ts"));
 }
+var generic_arg_ir___m: typeof import("../../rustc_type_ir/generic_arg.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function term_kind_(): typeof import("../../rustc_type_ir/term_kind.ts") {
-  return require("../../rustc_type_ir/term_kind.ts") as typeof import("../../rustc_type_ir/term_kind.ts");
+  return (term_kind___m ??= require("../../rustc_type_ir/term_kind.ts") as typeof import("../../rustc_type_ir/term_kind.ts"));
 }
+var term_kind___m: typeof import("../../rustc_type_ir/term_kind.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function generic_args_(): typeof import("./generic_args.ts") {
-  return require("./generic_args.ts") as typeof import("./generic_args.ts");
+  return (generic_args___m ??= require("./generic_args.ts") as typeof import("./generic_args.ts"));
 }
+var generic_args___m: typeof import("./generic_args.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function mod_(): typeof import("./mod.ts") {
-  return require("./mod.ts") as typeof import("./mod.ts");
+  return (mod___m ??= require("./mod.ts") as typeof import("./mod.ts"));
 }
+var mod___m: typeof import("./mod.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function ref_decodable_(): typeof import("./codec/ref_decodable.ts") {
-  return require("./codec/ref_decodable.ts") as typeof import("./codec/ref_decodable.ts");
+  return (ref_decodable___m ??= require("./codec/ref_decodable.ts") as typeof import("./codec/ref_decodable.ts"));
 }
+var ref_decodable___m: typeof import("./codec/ref_decodable.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 /// The shorthand encoding uses an enum's variant index `usize`
 /// and is offset by this value so it never matches a real variant.

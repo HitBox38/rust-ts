@@ -103,35 +103,45 @@ export type Ordering = "Less" | "Equal" | "Greater";
 // throws a TDZ `ReferenceError` when rustc_middle/lib.ts loads. They are required lazily, at call time (the precedent
 // of rustc_type_ir sty/mod.ts).
 function tyir_binder(): typeof import("../../rustc_type_ir/binder.ts") {
-  return require("../../rustc_type_ir/binder.ts") as typeof import("../../rustc_type_ir/binder.ts");
+  return (tyir_binder__m ??= require("../../rustc_type_ir/binder.ts") as typeof import("../../rustc_type_ir/binder.ts"));
 }
+var tyir_binder__m: typeof import("../../rustc_type_ir/binder.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function tyir_fold(): typeof import("../../rustc_type_ir/fold.ts") {
-  return require("../../rustc_type_ir/fold.ts") as typeof import("../../rustc_type_ir/fold.ts");
+  return (tyir_fold__m ??= require("../../rustc_type_ir/fold.ts") as typeof import("../../rustc_type_ir/fold.ts"));
 }
+var tyir_fold__m: typeof import("../../rustc_type_ir/fold.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function tyir_visit(): typeof import("../../rustc_type_ir/visit.ts") {
-  return require("../../rustc_type_ir/visit.ts") as typeof import("../../rustc_type_ir/visit.ts");
+  return (tyir_visit__m ??= require("../../rustc_type_ir/visit.ts") as typeof import("../../rustc_type_ir/visit.ts"));
 }
+var tyir_visit__m: typeof import("../../rustc_type_ir/visit.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function tyir_predicate(): typeof import("../../rustc_type_ir/predicate.ts") {
-  return require("../../rustc_type_ir/predicate.ts") as typeof import("../../rustc_type_ir/predicate.ts");
+  return (tyir_predicate__m ??= require("../../rustc_type_ir/predicate.ts") as typeof import("../../rustc_type_ir/predicate.ts"));
 }
+var tyir_predicate__m: typeof import("../../rustc_type_ir/predicate.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function tyir_unnormalized(): typeof import("../../rustc_type_ir/unnormalized.ts") {
-  return require("../../rustc_type_ir/unnormalized.ts") as typeof import("../../rustc_type_ir/unnormalized.ts");
+  return (tyir_unnormalized__m ??= require("../../rustc_type_ir/unnormalized.ts") as typeof import("../../rustc_type_ir/unnormalized.ts"));
 }
+var tyir_unnormalized__m: typeof import("../../rustc_type_ir/unnormalized.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function tyir_term_kind(): typeof import("../../rustc_type_ir/term_kind.ts") {
-  return require("../../rustc_type_ir/term_kind.ts") as typeof import("../../rustc_type_ir/term_kind.ts");
+  return (tyir_term_kind__m ??= require("../../rustc_type_ir/term_kind.ts") as typeof import("../../rustc_type_ir/term_kind.ts"));
 }
+var tyir_term_kind__m: typeof import("../../rustc_type_ir/term_kind.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function tyir_walk(): typeof import("../../rustc_type_ir/walk.ts") {
-  return require("../../rustc_type_ir/walk.ts") as typeof import("../../rustc_type_ir/walk.ts");
+  return (tyir_walk__m ??= require("../../rustc_type_ir/walk.ts") as typeof import("../../rustc_type_ir/walk.ts"));
 }
+var tyir_walk__m: typeof import("../../rustc_type_ir/walk.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function middle_generic_args(): typeof import("./generic_args.ts") {
-  return require("./generic_args.ts") as typeof import("./generic_args.ts");
+  return (middle_generic_args__m ??= require("./generic_args.ts") as typeof import("./generic_args.ts"));
 }
+var middle_generic_args__m: typeof import("./generic_args.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function middle_predicate(): typeof import("./predicate.ts") {
-  return require("./predicate.ts") as typeof import("./predicate.ts");
+  return (middle_predicate__m ??= require("./predicate.ts") as typeof import("./predicate.ts"));
 }
+var middle_predicate__m: typeof import("./predicate.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function middle_pretty(): typeof import("./print/pretty.ts") {
-  return require("./print/pretty.ts") as typeof import("./print/pretty.ts");
+  return (middle_pretty__m ??= require("./print/pretty.ts") as typeof import("./print/pretty.ts"));
 }
+var middle_pretty__m: typeof import("./print/pretty.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 /** PORT: the visit descriptor of `(Ty, Ty)` (rustc_type_ir visit.rs:136 over `fold_Ty`). */
 function visit_Ty_Ty(): TypeVisitable<[Ty, Ty]> {
@@ -140,8 +150,9 @@ function visit_Ty_Ty(): TypeVisitable<[Ty, Ty]> {
 
 /** PORT (merge-w15b): ty/opaque_types.ts imports print/pretty.ts (an extension module): reached lazily. */
 function middle_opaque_types(): typeof import("./opaque_types.ts") {
-  return require("./opaque_types.ts") as typeof import("./opaque_types.ts");
+  return (middle_opaque_types__m ??= require("./opaque_types.ts") as typeof import("./opaque_types.ts"));
 }
+var middle_opaque_types__m: typeof import("./opaque_types.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 // Data types
 
@@ -1349,6 +1360,26 @@ export const debug_TypingEnv: Debug<TypingEnv> = (v, f) =>
     ["param_env", debug_ParamEnv(v.param_env, f)],
   ]);
 
+// PORT: `#[derive(TypeVisitable, TypeFoldable)]` of `TypingEnv` (mod.rs:1103), hand-written in tools/codegen's struct
+// shape (lane instance-vtable): the generator would read the field as `typing_mode`, which is `typing_mode_` here (the
+// method `typing_mode()` has the field's name). `typing_mode` is `#[type_visitable(ignore)]` / `#[type_foldable(identity)]`.
+// rustc-derive: compiler/rustc_middle/src/ty/mod.rs:1103 TypeVisitable for TypingEnv
+export function visit_with_TypingEnv<R>(self: TypingEnv, __visitor: TypeVisitor<R>): R {
+  let r: R | undefined;
+  if ((r = try_visit(__visitor.Result, visit_with_ParamEnv(self.param_env, __visitor))) !== undefined) return r;
+  return __visitor.Result.output();
+}
+// rustc-derive: compiler/rustc_middle/src/ty/mod.rs:1103 TypeFoldable for TypingEnv (try_fold_with)
+export function try_fold_with_TypingEnv<E>(self: TypingEnv, __folder: FallibleTypeFolder<E>): Result<TypingEnv, E> {
+  const __1 = try_fold_with_ParamEnv(self.param_env, __folder);
+  if (__1.$ === "Err") return __1;
+  return Ok(new TypingEnv(self.typing_mode_, __1._0));
+}
+// rustc-derive: compiler/rustc_middle/src/ty/mod.rs:1103 TypeFoldable for TypingEnv (fold_with)
+export function fold_with_TypingEnv(self: TypingEnv, __folder: TypeFolder): TypingEnv {
+  return new TypingEnv(self.typing_mode_, fold_with_ParamEnv(self.param_env, __folder));
+}
+
 // ---- tools/codegen's view of the traversal / Debug impls (merge-w13) ----
 // PORT: generated code calls `visit_with_<T>` / `try_fold_with_<T>` / `fold_with_<T>` free fns and `debug_<T>`
 // (tools/codegen type_fold.json / tyir.typemap.json). For `Term` they are the methods of the D4 descriptor above;
@@ -1508,6 +1539,40 @@ export function debug_PseudoCanonicalInput<T>(v: PseudoCanonicalInput<T>, f: Fmt
     ["typing_env", debug_TypingEnv(v.typing_env, f)],
     ["value", debug_T(v.value, f)],
   ]);
+}
+
+// PORT: `#[derive(TypeVisitable, TypeFoldable)]` of `PseudoCanonicalInput<T>` (mod.rs:1246), hand-written in
+// tools/codegen's struct shape next to the hand-written type (lane instance-vtable), with its D4 descriptor.
+// rustc-derive: compiler/rustc_middle/src/ty/mod.rs:1246 TypeVisitable for PseudoCanonicalInput
+export function visit_with_PseudoCanonicalInput<T, R>(self: PseudoCanonicalInput<T>, __visitor: TypeVisitor<R>, visit_with_T: TypeFoldable<T>["visit_with"]): R {
+  let r: R | undefined;
+  if ((r = try_visit(__visitor.Result, visit_with_TypingEnv(self.typing_env, __visitor))) !== undefined) return r;
+  if ((r = try_visit(__visitor.Result, visit_with_T(self.value, __visitor))) !== undefined) return r;
+  return __visitor.Result.output();
+}
+// rustc-derive: compiler/rustc_middle/src/ty/mod.rs:1246 TypeFoldable for PseudoCanonicalInput (try_fold_with)
+export function try_fold_with_PseudoCanonicalInput<T, E>(
+  self: PseudoCanonicalInput<T>,
+  __folder: FallibleTypeFolder<E>,
+  try_fold_with_T: TypeFoldable<T>["try_fold_with"],
+): Result<PseudoCanonicalInput<T>, E> {
+  const __0 = try_fold_with_TypingEnv(self.typing_env, __folder);
+  if (__0.$ === "Err") return __0;
+  const __1 = try_fold_with_T(self.value, __folder);
+  if (__1.$ === "Err") return __1;
+  return Ok({ typing_env: __0._0, value: __1._0 });
+}
+// rustc-derive: compiler/rustc_middle/src/ty/mod.rs:1246 TypeFoldable for PseudoCanonicalInput (fold_with)
+export function fold_with_PseudoCanonicalInput<T>(self: PseudoCanonicalInput<T>, __folder: TypeFolder, fold_with_T: TypeFoldable<T>["fold_with"]): PseudoCanonicalInput<T> {
+  return { typing_env: fold_with_TypingEnv(self.typing_env, __folder), value: fold_with_T(self.value, __folder) };
+}
+/** The D4 descriptor of `PseudoCanonicalInput<T>` over `T`'s. */
+export function fold_PseudoCanonicalInput<T>(d_T: TypeFoldable<T>): TypeFoldable<PseudoCanonicalInput<T>> {
+  return {
+    visit_with: (self, visitor) => visit_with_PseudoCanonicalInput(self, visitor, d_T.visit_with),
+    try_fold_with: (self, folder) => try_fold_with_PseudoCanonicalInput(self, folder, d_T.try_fold_with),
+    fold_with: (self, folder) => fold_with_PseudoCanonicalInput(self, folder, d_T.fold_with),
+  };
 }
 
 // rustc-type: compiler/rustc_middle/src/ty/mod.rs:1253 Destructor
@@ -2785,8 +2850,9 @@ export function provide(providers: Providers): void {
 
 /** `require` of the defining module context.ts (it imports this module; see `provide`). */
 function ty_context(): typeof import("./context.ts") {
-  return require("./context.ts") as typeof import("./context.ts");
+  return (ty_context__m ??= require("./context.ts") as typeof import("./context.ts"));
 }
+var ty_context__m: typeof import("./context.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 /// A map for the local crate mapping each type to a vector of its
 /// inherent impls. This is not meant to be used outside of coherence;
@@ -2857,32 +2923,41 @@ export const debug_DestructuredAdtConst: Debug<DestructuredAdtConst> = (v, f) =>
 // `ReferenceError` when this module is the first one loaded. They are required lazily, at call time (precedent:
 // rustc_type_ir sty/mod.ts `binder()` / `region_kind()`).
 function binder(): typeof import("../../rustc_type_ir/binder.ts") {
-  return require("../../rustc_type_ir/binder.ts") as typeof import("../../rustc_type_ir/binder.ts");
+  return (binder__m ??= require("../../rustc_type_ir/binder.ts") as typeof import("../../rustc_type_ir/binder.ts"));
 }
+var binder__m: typeof import("../../rustc_type_ir/binder.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function visit(): typeof import("../../rustc_type_ir/visit.ts") {
-  return require("../../rustc_type_ir/visit.ts") as typeof import("../../rustc_type_ir/visit.ts");
+  return (visit__m ??= require("../../rustc_type_ir/visit.ts") as typeof import("../../rustc_type_ir/visit.ts"));
 }
+var visit__m: typeof import("../../rustc_type_ir/visit.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function fold(): typeof import("../../rustc_type_ir/fold.ts") {
-  return require("../../rustc_type_ir/fold.ts") as typeof import("../../rustc_type_ir/fold.ts");
+  return (fold__m ??= require("../../rustc_type_ir/fold.ts") as typeof import("../../rustc_type_ir/fold.ts"));
 }
+var fold__m: typeof import("../../rustc_type_ir/fold.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function unnormalized(): typeof import("../../rustc_type_ir/unnormalized.ts") {
-  return require("../../rustc_type_ir/unnormalized.ts") as typeof import("../../rustc_type_ir/unnormalized.ts");
+  return (unnormalized__m ??= require("../../rustc_type_ir/unnormalized.ts") as typeof import("../../rustc_type_ir/unnormalized.ts"));
 }
+var unnormalized__m: typeof import("../../rustc_type_ir/unnormalized.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function infer_ctxt(): typeof import("../../rustc_type_ir/infer_ctxt.ts") {
-  return require("../../rustc_type_ir/infer_ctxt.ts") as typeof import("../../rustc_type_ir/infer_ctxt.ts");
+  return (infer_ctxt__m ??= require("../../rustc_type_ir/infer_ctxt.ts") as typeof import("../../rustc_type_ir/infer_ctxt.ts"));
 }
+var infer_ctxt__m: typeof import("../../rustc_type_ir/infer_ctxt.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function closure(): typeof import("../../rustc_type_ir/ty_kind/closure.ts") {
-  return require("../../rustc_type_ir/ty_kind/closure.ts") as typeof import("../../rustc_type_ir/ty_kind/closure.ts");
+  return (closure__m ??= require("../../rustc_type_ir/ty_kind/closure.ts") as typeof import("../../rustc_type_ir/ty_kind/closure.ts"));
 }
+var closure__m: typeof import("../../rustc_type_ir/ty_kind/closure.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function fast_reject(): typeof import("../../rustc_type_ir/fast_reject.ts") {
-  return require("../../rustc_type_ir/fast_reject.ts") as typeof import("../../rustc_type_ir/fast_reject.ts");
+  return (fast_reject__m ??= require("../../rustc_type_ir/fast_reject.ts") as typeof import("../../rustc_type_ir/fast_reject.ts"));
 }
+var fast_reject__m: typeof import("../../rustc_type_ir/fast_reject.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function predicate_gen(): typeof import("../../rustc_type_ir/predicate.gen.ts") {
-  return require("../../rustc_type_ir/predicate.gen.ts") as typeof import("../../rustc_type_ir/predicate.gen.ts");
+  return (predicate_gen__m ??= require("../../rustc_type_ir/predicate.gen.ts") as typeof import("../../rustc_type_ir/predicate.gen.ts"));
 }
+var predicate_gen__m: typeof import("../../rustc_type_ir/predicate.gen.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function generic_args(): typeof import("./generic_args.ts") {
-  return require("./generic_args.ts") as typeof import("./generic_args.ts");
+  return (generic_args__m ??= require("./generic_args.ts") as typeof import("./generic_args.ts"));
 }
+var generic_args__m: typeof import("./generic_args.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 /** `impl TypeVisitable for TraitRef` (derived; predicate.gen.ts) as a D4 descriptor. */
 const TraitRef_visitable: TypeVisitable<TraitRef> = { visit_with: (self, visitor) => predicate_gen().visit_with_TraitRef(self, visitor) };
@@ -2960,13 +3035,17 @@ const trait_def_trait_impls_of_provider: Providers["trait_impls_of"] = (tcx, k) 
 const trait_def_incoherent_impls_provider: Providers["incoherent_impls"] = (tcx, k) => trait_def().incoherent_impls_provider(tcx, k as SimplifiedType<DefIdT>);
 const trait_def_trait_impls_in_crate_provider: Providers["trait_impls_in_crate"] = (tcx, k) => trait_def().trait_impls_in_crate_provider(tcx, k);
 const trait_def_traits_provider: Providers["traits"] = (tcx, k) => trait_def().traits_provider(tcx, k);
-const vtable_vtable_allocation_provider: Providers["vtable_allocation"] = () => unported("rustc_middle::ty::vtable::vtable_allocation_provider (M4)");
+// PORT: ty/vtable.ts is reached through `require` (init order: it imports this module back).
+const vtable_vtable_allocation_provider: Providers["vtable_allocation"] = (tcx, k) =>
+  (require("./vtable.ts") as typeof import("./vtable.ts")).vtable_allocation_provider(tcx, k as Parameters<typeof import("./vtable.ts").vtable_allocation_provider>[1]);
 
 /** PORT (init order): ty/assoc.ts and ty/trait_def.ts import this defining module back (assoc.ts is an extension
  * module of `TyCtxt`); they are reached lazily, as `binder()` / `visit()` above. */
 function assoc(): typeof import("./assoc.ts") {
-  return require("./assoc.ts") as typeof import("./assoc.ts");
+  return (assoc__m ??= require("./assoc.ts") as typeof import("./assoc.ts"));
 }
+var assoc__m: typeof import("./assoc.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function trait_def(): typeof import("./trait_def.ts") {
-  return require("./trait_def.ts") as typeof import("./trait_def.ts");
+  return (trait_def__m ??= require("./trait_def.ts") as typeof import("./trait_def.ts"));
 }
+var trait_def__m: typeof import("./trait_def.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)

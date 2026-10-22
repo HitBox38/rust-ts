@@ -28,25 +28,23 @@ export type { DestructuredAdtConst };
 
 // ---- lazy modules (init order, module comment) ----
 function structural_impls(): typeof import("../structural_impls.ts") {
-  return require("../structural_impls.ts") as typeof import("../structural_impls.ts");
+  return (structural_impls__m ??= require("../structural_impls.ts") as typeof import("../structural_impls.ts"));
 }
+var structural_impls__m: typeof import("../structural_impls.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function pretty(): typeof import("../print/pretty.ts") {
-  return require("../print/pretty.ts") as typeof import("../print/pretty.ts");
+  return (pretty__m ??= require("../print/pretty.ts") as typeof import("../print/pretty.ts"));
 }
+var pretty__m: typeof import("../print/pretty.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function tls(): typeof import("../context/tls.ts") {
-  return require("../context/tls.ts") as typeof import("../context/tls.ts");
+  return (tls__m ??= require("../context/tls.ts") as typeof import("../context/tls.ts"));
 }
+var tls__m: typeof import("../context/tls.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 
 // ---- PORT stand-ins for items of other lanes' files that are not ported yet --------------------------------------
 
 /** PORT: `rustc_abi::FIRST_VARIANT` (`VariantIdx::ZERO`). */
 const FIRST_VARIANT = 0 as VariantIdx;
-/** PORT: stand-in for `TypingEnv::with_post_analysis_normalized(tcx).as_query_input(ty)` + `tcx.layout_of(..)` (ty/mod.rs,
- *  ty/layout.rs): layouts are M4. Returns the layout's `size` or `undefined` for `Err`. */
-function layout_size_of(_tcx: TyCtxt, _typing_env: TypingEnv, _ty: Ty): Size | undefined {
-  return unported("rustc_middle::ty::layout::LayoutOf::layout_of (TypingEnv::as_query_input; layouts are M4)");
-}
 /** PORT: `Scalar::Int(int)` (mir/interpret/value.rs:25, M4): the variant's PORTING §5 shape. */
 function Scalar_Int(int: ScalarInt): Scalar {
   return { $: "Int", _0: int } as unknown as Scalar;
@@ -184,8 +182,10 @@ export const Value = {
     }
     const scalar = Value.try_to_leaf(self);
     if (scalar === undefined) return undefined;
-    const size = layout_size_of(tcx, typing_env, self.ty);
-    if (size === undefined) return undefined;
+    const input = typing_env.with_post_analysis_normalized(tcx).as_query_input(self.ty);
+    const layout = tcx.layout_of(input);
+    if (layout.$ === "Err") return undefined;
+    const size = layout._0.size;
     return scalar.to_bits(size);
   },
 

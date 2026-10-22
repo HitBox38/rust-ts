@@ -1,0 +1,94 @@
+warning: the feature `lang_items` is internal to the compiler or standard library
+ --> traits_to_implement.rs:1:12
+  |
+1 | #![feature(lang_items, no_core, rustc_attrs)]
+  |            ^^^^^^^^^^
+  |
+  = note: using it is strongly discouraged
+  = note: `#[warn(internal_features)]` on by default
+
+warning: the feature `rustc_attrs` is internal to the compiler or standard library
+ --> traits_to_implement.rs:1:33
+  |
+1 | #![feature(lang_items, no_core, rustc_attrs)]
+  |                                 ^^^^^^^^^^^
+  |
+  = note: using it is strongly discouraged
+
+error[E0599]: no method named `bar` found for struct `S` in the current scope
+  --> traits_to_implement.rs:15:20
+   |
+11 | pub struct S;
+   | ------------ method `bar` not found for this struct
+...
+15 | pub fn f(s: S) { s.bar(); s.qux(); }
+   |                    ^^^ method not found in `S`
+   |
+   = help: items from traits can only be used if the trait is implemented and in scope
+   = note: the following traits define an item `bar`, perhaps you need to implement one of them:
+           candidate #1: `Ab`
+           candidate #2: `Zb`
+
+error[E0599]: no method named `qux` found for struct `S` in the current scope
+  --> traits_to_implement.rs:15:29
+   |
+11 | pub struct S;
+   | ------------ method `qux` not found for this struct
+...
+15 | pub fn f(s: S) { s.bar(); s.qux(); }
+   |                             ^^^ method not found in `S`
+   |
+   = help: items from traits can only be used if the trait is implemented and in scope
+note: `One` defines an item `qux`, perhaps you need to implement it
+  --> traits_to_implement.rs:14:1
+   |
+14 | pub trait One { fn qux(&self); }
+   | ^^^^^^^^^^^^^
+
+error[E0599]: no method named `bar` found for type parameter `T` in the current scope
+  --> traits_to_implement.rs:16:23
+   |
+16 | pub fn g<T>(t: T) { t.bar(); }
+   |          -            ^^^ method not found in `T`
+   |          |
+   |          method `bar` not found for this type parameter
+   |
+   = help: items from traits can only be used if the type parameter is bounded by the trait
+help: the following traits define an item `bar`, perhaps you need to restrict type parameter `T` with one of them:
+   |
+16 | pub fn g<T: Ab>(t: T) { t.bar(); }
+   |           ++++
+16 | pub fn g<T: Zb>(t: T) { t.bar(); }
+   |           ++++
+
+error[E0599]: no method named `bar` found for reference `&T` in the current scope
+  --> traits_to_implement.rs:17:29
+   |
+17 | pub fn h<T: One>(t: &T) { t.bar(); }
+   |                             ^^^ method not found in `&T`
+   |
+   = help: items from traits can only be used if the type parameter is bounded by the trait
+help: the following traits define an item `bar`, perhaps you need to restrict type parameter `T` with one of them:
+   |
+17 | pub fn h<T: One + Ab>(t: &T) { t.bar(); }
+   |                 ++++
+17 | pub fn h<T: One + Zb>(t: &T) { t.bar(); }
+   |                 ++++
+
+error[E0599]: no method named `bar` found for reference `&Self` in the current scope
+  --> traits_to_implement.rs:18:36
+   |
+18 | pub trait Sup { fn m(&self) { self.bar(); } }
+   |                                    ^^^ method not found in `&Self`
+   |
+   = help: items from traits can only be used if the type parameter is bounded by the trait
+help: the following traits define an item `bar`, perhaps you need to add a supertrait for one of them:
+   |
+18 | pub trait Sup: Ab { fn m(&self) { self.bar(); } }
+   |              ++++
+18 | pub trait Sup: Zb { fn m(&self) { self.bar(); } }
+   |              ++++
+
+error: aborting due to 5 previous errors; 2 warnings emitted
+
+For more information about this error, try `rustc --explain E0599`.

@@ -22,7 +22,8 @@
 import { ExternAbi } from "../rustc_abi/extern_abi.ts";
 import { Mutability } from "../rustc_ast_ir/lib.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
-import type { AdtDef, BoundExistentialPredicates, Pattern, Value } from "../rustc_middle/ty/decls.ts";
+import type { AdtDef, BoundExistentialPredicates, Pattern } from "../rustc_middle/ty/decls.ts";
+import { Value as ValueC } from "../rustc_middle/ty/consts/valtree.ts";
 import type { Expr } from "../rustc_middle/ty/consts/kind.ts";
 import { fold_with_Expr, try_fold_with_Expr, visit_with_Expr } from "../rustc_middle/ty/consts/kind.ts";
 import { debug_GenericArg, fold_GenericArg, fold_GenericArgs, GenericArg, type GenericArgs } from "../rustc_middle/ty/generic_args.ts";
@@ -36,7 +37,7 @@ import {
   visit_with_BoundExistentialPredicates,
   visit_with_Pattern,
 } from "../rustc_middle/ty/structural_impls.ts";
-import { intern_key } from "../rust_ts/intern_key.ts";
+import { intern_key, intern_key_eq } from "../rust_ts/intern_key.ts";
 import { type DefId, DefId_eq } from "../rustc_span/def_id.ts";
 import { PLAIN } from "../std/fmt.ts";
 import { panic, unported, unwrap } from "../std/panic.ts";
@@ -92,12 +93,6 @@ export * from "./relate.gen.ts";
 // Not markers. One-liners keep their upstream body; the rest call `unported`. Root repoints them at the real ports.
 
 
-/** PORT: stand-in for `inherent::ValueConst::valtree` + `ValTree::kind` (rustc_middle ty/consts/valtree.rs; `ty::Value`
- *  is pending). */
-function Value_valtree_kind(_self: Value): ValTreeKind {
-  return unported("rustc_middle::ty::Value: valtree().kind() (ty::Value is pending)");
-}
-
 /** PORT: `I = TyCtxt` seen through its `impl Interner`. Every `Interner` method is real since ty-ctxt (merge-w15a), but
  *  queries.gen.ts still types several query values `unknown` (`generics_of`, ..), so the `TyCtxt` class type is not
  *  assignable to `Interner`: calls of `Interner` methods go through this view. Drop it when the query types land. */
@@ -107,7 +102,7 @@ export function interner(tcx: TyCtxt): Interner {
 
 /** PORT: derived `PartialEq` of a non-interned value (header). */
 function eq_by_key<T>(a: T, b: T): boolean {
-  return intern_key(a) === intern_key(b);
+  return intern_key_eq(a, b);
 }
 
 /** PORT: `PartialEq` of an interned value (pointer equality). */
@@ -890,8 +885,8 @@ export function structurally_relate_consts(relation: TypeRelation, a: Const, b: 
   } else if (ak.$ === "Placeholder" && bk.$ === "Placeholder") {
     is_match = eq_by_key(ak._0, bk._0);
   } else if (ak.$ === "Value" && bk.$ === "Value") {
-    const av = Value_valtree_kind(ak._0);
-    const bv = Value_valtree_kind(bk._0);
+    const av = ValueC.valtree(ak._0).kind();
+    const bv = ValueC.valtree(bk._0).kind();
     if (av.$ === "Leaf" && bv.$ === "Leaf") {
       is_match = eq_by_key(av._0, bv._0);
     } else if (av.$ === "Branch" && bv.$ === "Branch" && av._0.length === bv._0.length) {

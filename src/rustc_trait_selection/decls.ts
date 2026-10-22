@@ -488,7 +488,7 @@ import type { UpvarArgs } from "../rustc_middle/ty/sty.ts";
 import type { TypeckResults } from "../rustc_middle/ty/typeck_results.ts";
 import type { CrateNum, DefIdSet } from "../rustc_span/def_id.ts";
 import type { ErrorGuaranteed, PathBuf, Span } from "../rustc_span/lib.ts";
-import type { Ident } from "../rustc_span/symbol.ts";
+import type { Ident, Symbol } from "../rustc_span/symbol.ts";
 import type { OpaqueTypeKey, PolyFnSig } from "../rustc_type_ir/decls.ts";
 import type { ExpectedFound, TypeError } from "../rustc_type_ir/error.ts";
 import type { ClosureKind } from "../rustc_type_ir/lib.ts";
@@ -1011,9 +1011,9 @@ declare module "./error_reporting/infer/nice_region_error/mod.ts" {
     function new_(cx: TypeErrCtxt, generic_param_scope: LocalDefId, error: RegionResolutionError): NiceRegionError;
     export { new_ as new };
     // error_reporting/infer/nice_region_error/mod.rs:52 (lane errrep-region)
-    function new_from_span(cx: TypeErrCtxt, generic_param_scope: LocalDefId, span: Span, sub: Region, sup: Region): NiceRegionError;
+    export function new_from_span(cx: TypeErrCtxt, generic_param_scope: LocalDefId, span: Span, sub: Region, sup: Region): NiceRegionError;
     // error_reporting/infer/nice_region_error/static_impl_trait.rs:350 (lane errrep-nice-region)
-    function get_impl_ident_and_self_ty_from_trait(tcx: TyCtxt, def_id: DefId, trait_objects: DefIdSet): [Ident, hir.Ty] | undefined;
+    export function get_impl_ident_and_self_ty_from_trait(tcx: TyCtxt, def_id: DefId, trait_objects: DefIdSet): [Ident, hir.Ty] | undefined;
   }
 }
 

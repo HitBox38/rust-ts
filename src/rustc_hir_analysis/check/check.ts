@@ -63,6 +63,7 @@ import { clone_Ancestors, Node as Node_ } from "../../rustc_middle/traits/specia
 import { clone_ObligationCause, ObligationCause, ObligationCauseCode, type WellFormedLoc } from "../../rustc_middle/traits/mod.ts";
 import type { PredicateObligation } from "../../rustc_infer/traits/mod.gen.ts";
 import { Asyncness, type FieldDef, HasAttrs_LocalDefId, type ImplTraitHeader, type ParamEnv, ProvisionalHiddenType, type Term, Ty, TypingEnv, type VariantDef, Visibility } from "../../rustc_middle/ty/mod.ts";
+import { debug_LayoutError, display_LayoutError, type TyAndLayout } from "../../rustc_middle/ty/layout.ts";
 import { display_Ty } from "../../rustc_middle/ty/print/pretty.ts";
 import { fold_Clause, fold_Predicate, fold_Span, fold_Ty } from "../../rustc_middle/ty/structural_impls.ts";
 import { type Discr, display_Discr } from "../../rustc_middle/ty/util.ts";
@@ -102,6 +103,7 @@ import type { TypeError } from "../../rustc_type_ir/error.ts";
 import { type PredicateKind, visit_with_PredicateKind } from "../../rustc_type_ir/predicate_kind.gen.ts";
 import { fold_with_OpaqueTypeKey, try_fold_with_OpaqueTypeKey, visit_with_OpaqueTypeKey } from "../../rustc_type_ir/opaque_ty.gen.ts";
 import * as diagnostics from "../diagnostics.ts";
+import * as precise_captures from "../diagnostics/precise_captures.gen.ts";
 import { check_c_variadic_abi } from "../lib.ts";
 import { bad_variant_count, default_body_is_unstable, get_owner_return_paths, missing_items_err, missing_items_must_implement_one_of_err } from "./mod.ts";
 
@@ -286,42 +288,36 @@ function check_static_inhabited(tcx: TyCtxt, def_id: LocalDefId): void {
   // reason to allow any statics to be uninhabited.
   const ty = Unnormalized.skip_norm_wip(EarlyBinder.instantiate_identity(tcx.type_of(def_id) as EarlyBinder<Ty>));
   const span = tcx.def_span(def_id);
-  const layout = tcx.layout_of(TypingEnv.fully_monomorphized().as_query_input(ty));
-  void layout;
-  void span;
-  void StaticOfUninhabitedType;
-  // let layout = match layout {
-  //     Ok(l) => l,
-  //     // Foreign statics that overflow their allowed size should emit an error
-  //     Err(LayoutError::SizeOverflow(_))
-  //         if matches!(tcx.def_kind(def_id), DefKind::Static{ .. }
-  //             if tcx.def_kind(tcx.local_parent(def_id)) == DefKind::ForeignMod) =>
-  //     {
-  //         tcx.dcx().emit_err(diagnostics::TooLargeStatic { span });
-  //         return;
-  //     }
-  //     // SIMD types with invalid layout (e.g., zero-length) should emit an error
-  //     Err(e @ LayoutError::InvalidSimd { .. }) => {
-  //         let ty_span = tcx.ty_span(def_id);
-  //         tcx.dcx().span_err(ty_span, e.to_string());
-  //         return;
-  //     }
-  //     // Generic statics are rejected, but we still reach this case.
-  //     Err(e) => {
-  //         tcx.dcx().span_delayed_bug(span, format!("{e:?}"));
-  //         return;
-  //     }
-  // };
-  // if layout.is_uninhabited() {
-  //     tcx.emit_node_span_lint(
-  //         UNINHABITED_STATIC,
-  //         tcx.local_def_id_to_hir_id(def_id),
-  //         span,
-  //         StaticOfUninhabitedType,
-  //     );
-  // }
-  void UNINHABITED_STATIC;
-  return unported("rustc_middle::ty::layout::{TyAndLayout, LayoutError} (the value of `layout_of`, M4)");
+  const r = tcx.layout_of(TypingEnv.fully_monomorphized().as_query_input(ty));
+  let layout: TyAndLayout;
+  if (r.$ === "Ok") {
+    layout = r._0;
+  } else {
+    const e = r._0;
+    // Foreign statics that overflow their allowed size should emit an error
+    if (
+      e.$ === "SizeOverflow" &&
+      (() => {
+        const k = tcx.def_kind(def_id);
+        return k.$ === "Static" && tcx.def_kind(tcx.local_parent(def_id)).$ === "ForeignMod";
+      })()
+    ) {
+      tcx.dcx().emit_err(diagnostics.TooLargeStatic_diagnostic({ span }));
+      return;
+    }
+    // SIMD types with invalid layout (e.g., zero-length) should emit an error
+    if (e.$ === "InvalidSimd") {
+      const ty_span = tcx.ty_span(def_id);
+      tcx.dcx().span_err(ty_span, display_LayoutError(e));
+      return;
+    }
+    // Generic statics are rejected, but we still reach this case.
+    tcx.dcx().span_delayed_bug(span, debug_LayoutError(e, PLAIN));
+    return;
+  }
+  if (layout.is_uninhabited()) {
+    tcx.emit_node_span_lint(UNINHABITED_STATIC, tcx.local_def_id_to_hir_id(def_id), span, StaticOfUninhabitedType);
+  }
 }
 
 /// Checks that an opaque type does not contain cycles and does not use `Self` or `T::Foo`
@@ -706,13 +702,13 @@ function check_opaque_precise_captures(tcx: TyCtxt, opaque_def_id: LocalDefId): 
       case "Lifetime": {
         ({ hir_id, ident: ident_ } = arg._0);
         if (prev_non_lifetime_param !== undefined) {
-          // tcx.dcx().emit_err(diagnostics::LifetimesMustBeFirst {
-          //     lifetime_span: ident.span,
-          //     name: ident.name,
-          //     other_span: prev_non_lifetime_param.span,
-          // });
-          // PORT: `LifetimesMustBeFirst` is in diagnostics/precise_captures.rs, which is in no codegen set.
-          return unported("rustc_hir_analysis::diagnostics::precise_captures::LifetimesMustBeFirst");
+          tcx.dcx().emit_err(
+            precise_captures.LifetimesMustBeFirst_diagnostic({
+              lifetime_span: ident_.span,
+              name: ident_.name,
+              other_span: prev_non_lifetime_param.span,
+            }),
+          );
         }
         break;
       }
@@ -722,13 +718,14 @@ function check_opaque_precise_captures(tcx: TyCtxt, opaque_def_id: LocalDefId): 
     const prev = seen_params.get(ident);
     seen_params.set(ident, ident.span);
     if (prev !== undefined) {
-      // tcx.dcx().emit_err(diagnostics::DuplicatePreciseCapture {
-      //     name: ident.name,
-      //     first_span: span,
-      //     second_span: ident.span,
-      // });
-      // PORT: `DuplicatePreciseCapture` is in diagnostics/precise_captures.rs, which is in no codegen set.
-      return unported("rustc_hir_analysis::diagnostics::precise_captures::DuplicatePreciseCapture");
+      const span = prev;
+      tcx.dcx().emit_err(
+        precise_captures.DuplicatePreciseCapture_diagnostic({
+          name: ident.name,
+          first_span: span,
+          second_span: ident.span,
+        }),
+      );
     }
 
     const resolved = tcx.named_bound_var(hir_id);
@@ -783,36 +780,33 @@ function check_opaque_precise_captures(tcx: TyCtxt, opaque_def_id: LocalDefId): 
                 .map_opaque_lifetime_to_parent_lifetime(param.def_id.expect_local())
                 .opt_param_def_id(tcx, tcx.parent(LocalDefId.to_def_id(opaque_def_id)))) !== undefined
             ) {
-              // tcx.dcx().emit_err(diagnostics::LifetimeNotCaptured {
-              //     opaque_span,
-              //     use_span,
-              //     param_span: tcx.def_span(def_id),
-              // });
-              void def_id3;
-              void use_span;
-              // PORT: `LifetimeNotCaptured` is in diagnostics/precise_captures.rs, which is in no codegen set.
-              return unported("rustc_hir_analysis::diagnostics::precise_captures::LifetimeNotCaptured");
+              tcx.dcx().emit_err(
+                precise_captures.LifetimeNotCaptured_diagnostic({
+                  opaque_span,
+                  use_span,
+                  param_span: tcx.def_span(def_id3),
+                }),
+              );
             } else {
               if (tcx.def_kind(tcx.parent(param.def_id)).$ === "Trait") {
-                // tcx.dcx().emit_err(diagnostics::LifetimeImplicitlyCaptured {
-                //     opaque_span,
-                //     param_span: tcx.def_span(param.def_id),
-                // });
-                // PORT: `LifetimeImplicitlyCaptured` is in diagnostics/precise_captures.rs, which is in no codegen set.
-                return unported("rustc_hir_analysis::diagnostics::precise_captures::LifetimeImplicitlyCaptured");
+                tcx.dcx().emit_err(
+                  precise_captures.LifetimeImplicitlyCaptured_diagnostic({
+                    opaque_span,
+                    param_span: tcx.def_span(param.def_id),
+                  }),
+                );
               } else {
                 // If the `use_span` is actually just the param itself, then we must
                 // have not duplicated the lifetime but captured the original.
                 // The "effective" `use_span` will be the span of the opaque itself,
                 // and the param span will be the def span of the param.
-                // tcx.dcx().emit_err(diagnostics::LifetimeNotCaptured {
-                //     opaque_span,
-                //     use_span: opaque_span,
-                //     param_span: use_span,
-                // });
-                void opaque_span;
-                // PORT: `LifetimeNotCaptured` is in diagnostics/precise_captures.rs, which is in no codegen set.
-                return unported("rustc_hir_analysis::diagnostics::precise_captures::LifetimeNotCaptured");
+                tcx.dcx().emit_err(
+                  precise_captures.LifetimeNotCaptured_diagnostic({
+                    opaque_span,
+                    use_span: opaque_span,
+                    param_span: use_span,
+                  }),
+                );
               }
             }
             continue;
@@ -823,33 +817,33 @@ function check_opaque_precise_captures(tcx: TyCtxt, opaque_def_id: LocalDefId): 
           const dk = tcx.def_kind(param.def_id);
           if (dk.$ === "Trait" || dk.$ === "TraitAlias") {
             // FIXME(precise_capturing): Structured suggestion for this would be useful
-            // tcx.dcx().emit_err(diagnostics::SelfTyNotCaptured {
-            //     trait_span: tcx.def_span(param.def_id),
-            //     opaque_span: tcx.def_span(opaque_def_id),
-            // });
-            // PORT: `SelfTyNotCaptured` is in diagnostics/precise_captures.rs, which is in no codegen set.
-            return unported("rustc_hir_analysis::diagnostics::precise_captures::SelfTyNotCaptured");
+            tcx.dcx().emit_err(
+              precise_captures.SelfTyNotCaptured_diagnostic({
+                trait_span: tcx.def_span(param.def_id),
+                opaque_span: tcx.def_span(opaque_def_id),
+              }),
+            );
           } else {
             // FIXME(precise_capturing): Structured suggestion for this would be useful
-            // tcx.dcx().emit_err(diagnostics::ParamNotCaptured {
-            //     param_span: tcx.def_span(param.def_id),
-            //     opaque_span: tcx.def_span(opaque_def_id),
-            //     kind: "type",
-            // });
-            // PORT: `ParamNotCaptured` is in diagnostics/precise_captures.rs, which is in no codegen set.
-            return unported("rustc_hir_analysis::diagnostics::precise_captures::ParamNotCaptured");
+            tcx.dcx().emit_err(
+              precise_captures.ParamNotCaptured_diagnostic({
+                param_span: tcx.def_span(param.def_id),
+                opaque_span: tcx.def_span(opaque_def_id),
+                kind: "type",
+              }),
+            );
           }
           break;
         }
         case "Const": {
           // FIXME(precise_capturing): Structured suggestion for this would be useful
-          // tcx.dcx().emit_err(diagnostics::ParamNotCaptured {
-          //     param_span: tcx.def_span(param.def_id),
-          //     opaque_span: tcx.def_span(opaque_def_id),
-          //     kind: "const",
-          // });
-          // PORT: `ParamNotCaptured` is in diagnostics/precise_captures.rs, which is in no codegen set.
-          return unported("rustc_hir_analysis::diagnostics::precise_captures::ParamNotCaptured");
+          tcx.dcx().emit_err(
+            precise_captures.ParamNotCaptured_diagnostic({
+              param_span: tcx.def_span(param.def_id),
+              opaque_span: tcx.def_span(opaque_def_id),
+              kind: "const",
+            }),
+          );
           break;
         }
       }
@@ -2010,37 +2004,37 @@ function check_transparent(tcx: TyCtxt, adt: AdtDef): void {
     }
   }
 
+  // PORT: the `filter_map(..).collect::<Vec<_>>()` is a loop pushing each `Some` (`continue` for the early `return Some(..)`).
   const non_trivial_fields: NonTrivialFieldInfo[] = [];
   for (const field of variant.fields) {
     const ty = Unnormalized.skip_norm_wip(field.ty(tcx, RawList.identity_for_item(tcx, field.did)));
     const layout = tcx.layout_of(typing_env.as_query_input(ty));
     // We are currently checking the type this field came from, so it must be local
     const span = unwrap(tcx.hir_span_if_local(field.did));
-    void layout;
-    void span;
-    void is_trivial;
-    void non_trivial_fields;
-    // // Rule out non-1ZST
-    // if !layout.is_ok_and(|layout| layout.is_1zst()) {
-    //     let reason = match layout {
-    //         Err(_) => NonTrivialReason::UnknownLayout,
-    //         Ok(layout) => {
-    //             if !(layout.is_sized() && layout.size.bytes() == 0) {
-    //                 NonTrivialReason::NonZeroSized
-    //             } else {
-    //                 NonTrivialReason::NonTrivialAlignment
-    //             }
-    //         }
-    //     };
-    //     return Some(NonTrivialFieldInfo { span, reason });
-    // }
-    // // Recursively check for other things that have to be ruled out.
-    // if let Some(reason) = is_trivial(tcx, typing_env, ty).break_value() {
-    //     return Some(NonTrivialFieldInfo { span, reason });
-    // }
-    // // Otherwise,
+    // Rule out non-1ZST
+    if (!(layout.$ === "Ok" && layout._0.is_1zst())) {
+      let reason: NonTrivialReason;
+      if (layout.$ === "Err") {
+        reason = { $: "UnknownLayout" };
+      } else {
+        const l = layout._0;
+        if (!(l.is_sized() && l.size.bytes() === 0)) {
+          reason = { $: "NonZeroSized" };
+        } else {
+          reason = { $: "NonTrivialAlignment" };
+        }
+      }
+      non_trivial_fields.push({ span, reason });
+      continue;
+    }
+    // Recursively check for other things that have to be ruled out.
+    const r = is_trivial(tcx, typing_env, ty);
+    if (r.$ === "Break") {
+      non_trivial_fields.push({ span, reason: r._0 });
+      continue;
+    }
+    // Otherwise,
     // None
-    return unported("rustc_middle::ty::layout::{TyAndLayout, LayoutError} (the value of `layout_of`, M4)");
   }
 
   if (non_trivial_fields.length > 1) {
@@ -2581,8 +2575,9 @@ function HirPlace_ty(_place: unknown): Ty {
 
 /** `crate::collect` (read at call time: init order). */
 function collect(): typeof import("../collect.ts") {
-  return require("../collect.ts") as typeof import("../collect.ts");
+  return (collect__m ??= require("../collect.ts") as typeof import("../collect.ts"));
 }
+var collect__m: typeof import("../collect.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 /** `#[derive(TypeFoldable, TypeVisitable)] for OpaqueTypeKey` (rustc_type_ir opaque_ty.gen.ts). */
 const fold_OpaqueTypeKey: TypeFoldable<OpaqueTypeKey> = {

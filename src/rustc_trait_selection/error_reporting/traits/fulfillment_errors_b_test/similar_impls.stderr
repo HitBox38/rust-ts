@@ -1,0 +1,95 @@
+error[E0277]: the trait bound `u32: A` is not satisfied
+  --> similar_impls.rs:12:10
+   |
+12 |     need(1u32);
+   |     ---- ^^^^ the trait `A` is not implemented for `u32`
+   |     |
+   |     required by a bound introduced by this call
+   |
+help: the following other types implement trait `A`
+  --> similar_impls.rs:2:1
+   |
+ 2 | impl A for u8 {}
+   | ^^^^^^^^^^^^^ `u8`
+ 3 | impl A for u16 {}
+   | ^^^^^^^^^^^^^^ `u16`
+note: required by a bound in `need`
+  --> similar_impls.rs:10:16
+   |
+10 | pub fn need<T: A>(_t: T) {}
+   |                ^ required by this bound in `need`
+
+error[E0277]: the trait bound `W<u32>: A` is not satisfied
+  --> similar_impls.rs:15:10
+   |
+15 |     need(W(1u32));
+   |     ---- ^^^^^^^ unsatisfied trait bound
+   |     |
+   |     required by a bound introduced by this call
+   |
+help: the trait `A` is not implemented for `W<u32>`
+  --> similar_impls.rs:7:1
+   |
+ 7 | pub struct W<T>(pub T);
+   | ^^^^^^^^^^^^^^^
+help: the following other types implement trait `A`
+  --> similar_impls.rs:8:1
+   |
+ 8 | impl A for W<u8> {}
+   | ^^^^^^^^^^^^^^^^ `W<u8>`
+ 9 | impl A for W<bool> {}
+   | ^^^^^^^^^^^^^^^^^^ `W<bool>`
+note: required by a bound in `need`
+  --> similar_impls.rs:10:16
+   |
+10 | pub fn need<T: A>(_t: T) {}
+   |                ^ required by this bound in `need`
+
+error[E0277]: the trait bound `(u32, u32): A` is not satisfied
+  --> similar_impls.rs:18:10
+   |
+18 |     need((1u32, 2u32));
+   |     ---- ^^^^^^^^^^^^ the trait `A` is not implemented for `(u32, u32)`
+   |     |
+   |     required by a bound introduced by this call
+   |
+help: the following other types implement trait `A`
+  --> similar_impls.rs:4:1
+   |
+ 4 | impl A for (u8, u8) {}
+   | ^^^^^^^^^^^^^^^^^^^ `(u8, u8)`
+ 5 | impl A for (u8,) {}
+   | ^^^^^^^^^^^^^^^^ `(u8,)`
+note: required by a bound in `need`
+  --> similar_impls.rs:10:16
+   |
+10 | pub fn need<T: A>(_t: T) {}
+   |                ^ required by this bound in `need`
+
+error[E0277]: the trait bound `bool: Many` is not satisfied
+  --> similar_impls.rs:34:15
+   |
+34 |     need_many(true);
+   |     --------- ^^^^ the trait `Many` is not implemented for `bool`
+   |     |
+   |     required by a bound introduced by this call
+   |
+   = help: the following other types implement trait `Many`:
+             char
+             f32
+             f64
+             i16
+             i32
+             i64
+             i8
+             u16
+           and 3 others
+note: required by a bound in `need_many`
+  --> similar_impls.rs:32:21
+   |
+32 | pub fn need_many<T: Many>(_t: T) {}
+   |                     ^^^^ required by this bound in `need_many`
+
+error: aborting due to 4 previous errors
+
+For more information about this error, try `rustc --explain E0277`.

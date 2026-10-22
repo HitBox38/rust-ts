@@ -14,7 +14,7 @@
 //    the next stop is the std crate's metadata decode of `ty::ImplTraitHeader` (impl_trait_header, not generated yet).
 //    Re-pinned by merge-w18d: `ty::ImplTraitHeader` decodes (merge-w18c); generic_main.rs, where_main.rs and plain_main.rs
 //    now print the oracle's stderr exactly (NOW_EXACT); args_main.rs's E0580 is a type-error report through
-//    `InferCtxt::err_ctxt` (rustc_trait_selection error_reporting, wave 19).
+//    `InferCtxt::err_ctxt` (rustc_trait_selection error_reporting, wave 19), exact since merge-w19.
 import { expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -25,13 +25,13 @@ const DIR = join(import.meta.dir, "entry_test");
 const REQUIRE = process.env.RUST_TS_REQUIRE_PROBES === "1";
 const ENV = { ...process.env, RUSTC_ICE: "0", RUST_BACKTRACE: "0" };
 
-const PENDING = new Set([
-  // args_main.rs: E0580 report (wave 19); re-pinned by errctxt-contract (`err_ctxt` and `ObligationCauseExt` ported)
-  "rustc_trait_selection::error_reporting::infer::TypeErrCtxt::note_type_err",
+const PENDING = new Set<string>([
+  // (args_main.rs prints the oracle's E0580 since merge-w19: the wave-19 error-reporting lanes landed; it was re-pinned
+  // by errctxt-contract (`err_ctxt` and `ObligationCauseExt` ported), then by errrep-infer-a (`note_type_err` ported))
 ]);
 
-/** Cases that print the oracle's stderr since merge-w18d: they must not stop. */
-const NOW_EXACT = new Set(["generic_main.rs", "where_main.rs", "plain_main.rs"]);
+/** Cases that print the oracle's stderr since merge-w18d (args_main.rs since merge-w19): they must not stop. */
+const NOW_EXACT = new Set(["generic_main.rs", "where_main.rs", "plain_main.rs", "args_main.rs"]);
 
 function sysroot(): string | undefined {
   try {

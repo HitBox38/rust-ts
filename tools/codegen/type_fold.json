@@ -20,7 +20,7 @@
   "trivial_fns": { "visit": "visit_with_trivial", "try_fold": "try_fold_with_trivial", "fold": "fold_with_trivial" },
   "trivial": [
     "bool", "i8", "i16", "i32", "i64", "i128", "isize", "u8", "u16", "u32", "u64", "usize",
-    "rustc_type_ir::predicate::BoundConstness",
+    "rustc_type_ir::predicate::BoundConstness", "rustc_middle::ty::BoundConstness",
     "rustc_type_ir::BoundVar",
     "rustc_type_ir::predicate::ClausePolarity",
     "rustc_type_ir::DebruijnIndex",
@@ -63,7 +63,8 @@
     "rustc_middle::traits::IsConstable", "rustc_middle::traits::select::OverflowError", "rustc_middle::ty::AdtKind", "rustc_middle::ty::AssocKind",
     "rustc_middle::ty::AssocItem", "rustc_middle::ty::abstract_const::NotConstEvaluatable", "rustc_middle::traits::solve::BuiltinImplSource",
     "rustc_middle::ty::Variance", "rustc_middle::mir::BorrowKind", "rustc_middle::mir::FakeReadCause", "rustc_hir::MatchSource", "rustc_hir::RangeEnd",
-    "rustc_ast::InlineAsmOptions", "rustc_ast::InlineAsmTemplatePiece", "rustc_attr_ir::UnrollAttr", "rustc_target::asm::InlineAsmRegOrRegClass"
+    "rustc_ast::InlineAsmOptions", "rustc_ast::InlineAsmTemplatePiece", "rustc_attr_ir::UnrollAttr", "rustc_target::asm::InlineAsmRegOrRegClass",
+    "rustc_middle::ty::instance::ReifyReason"
   ],
   "types": [
     { "paths": ["Option"], "visit": "visit_with_Option($0)", "try_fold": "try_fold_with_Option($0)", "fold": "fold_with_Option($0)", "note": "visit.rs:153 / fold.rs:261" },
@@ -113,11 +114,13 @@
     { "paths": ["rustc_middle::ty::predicate::PolyTraitClause", "rustc_middle::ty::PolyTraitClause"], "import": "src/rustc_middle/traits/mod.ts", "visit": "visit_with_PolyTraitClause", "try_fold": "try_fold_with_PolyTraitClause", "fold": "fold_with_PolyTraitClause", "note": "`Binder<'tcx, TraitClause<'tcx>>`: the Binder impls applied to TraitClause's (lane middle-traits-thir; traits/mod.ts, as no alias carries an impl)" },
     { "paths": ["rustc_middle::ty::predicate::HostEffectClause", "rustc_middle::ty::HostEffectClause"], "import": "src/rustc_type_ir/predicate.ts", "visit": "visit_with_HostEffectClause", "try_fold": "try_fold_with_HostEffectClause", "fold": "fold_with_HostEffectClause", "note": "`ty::HostEffectClause<'tcx> = ir::HostEffectClause<TyCtxt<'tcx>>` (lane middle-traits-thir)" },
     { "paths": ["rustc_middle::ty::predicate::TraitRef", "rustc_middle::ty::TraitRef"], "import": "src/rustc_type_ir/predicate.ts", "visit": "visit_with_TraitRef", "try_fold": "try_fold_with_TraitRef", "fold": "fold_with_TraitRef", "note": "`ty::TraitRef<'tcx> = ir::TraitRef<TyCtxt<'tcx>>` (lane middle-traits-thir)" },
+    { "paths": ["rustc_middle::ty::predicate::TraitClause", "rustc_middle::ty::TraitClause"], "import": "src/rustc_type_ir/predicate.ts", "visit": "visit_with_TraitClause", "try_fold": "try_fold_with_TraitClause", "fold": "fold_with_TraitClause", "note": "`ty::TraitClause<'tcx> = ir::TraitClause<TyCtxt<'tcx>>` (small-gaps-20: the print wrappers of ty/print/pretty.rs)" },
     { "paths": ["rustc_middle::ty::error::TypeError", "rustc_middle::ty::TypeError"], "import": "src/rustc_type_ir/error.ts", "visit": "visit_with_TypeError", "note": "`ty::error::TypeError<'tcx>` (lane middle-traits-thir); TypeVisitable only" },
     { "paths": ["rustc_type_ir::solve::AliasBoundKind"], "import": "src/rustc_type_ir/solve/mod.ts", "visit": "visit_with_AliasBoundKind", "try_fold": "try_fold_with_AliasBoundKind", "fold": "fold_with_AliasBoundKind", "note": "derive in rustc_type_ir solve/mod.rs (lane middle-traits-thir)" },
     { "paths": ["rustc_middle::ty::sty::Unnormalized", "rustc_middle::ty::Unnormalized"], "import": "src/rustc_type_ir/unnormalized.ts", "visit": "visit_with_Unnormalized($0)", "try_fold": "try_fold_with_Unnormalized($0)", "fold": "fold_with_Unnormalized($0)", "note": "`ty::Unnormalized<'tcx, T>` (lane middle-traits-thir)" },
     { "paths": ["rustc_middle::mir::ConstraintCategory", "rustc_middle::mir::query::ConstraintCategory"], "import": "src/rustc_middle/mir/query.ts", "visit": "visit_with_ConstraintCategory", "try_fold": "try_fold_with_ConstraintCategory", "fold": "fold_with_ConstraintCategory", "note": "mir/query.rs derive (set rustc_middle_mir_query, lane typeck-gaps)" },
     { "paths": ["rustc_middle::ty::sty::PolyFnSig", "rustc_middle::ty::PolyFnSig"], "import": "src/rustc_middle/traits/mod.ts", "visit": "visit_with_PolyFnSig", "try_fold": "try_fold_with_PolyFnSig", "fold": "fold_with_PolyFnSig", "note": "`ty::PolyFnSig<'tcx> = Binder<'tcx, FnSig<'tcx>>`: the Binder impls applied to FnSig's (lane typeck-gaps; traits/mod.ts, as PolyTraitClause)" },
+    { "paths": ["rustc_middle::ty::sty::PlaceholderType", "rustc_middle::ty::PlaceholderType"], "import": "src/rustc_middle/traits/mod.ts", "visit": "visit_with_PlaceholderType", "try_fold": "try_fold_with_PlaceholderType", "fold": "fold_with_PlaceholderType", "note": "`ty::PlaceholderType<'tcx> = ir::Placeholder<TyCtxt<'tcx>, BoundTy>`: the Placeholder impls applied to BoundTy's (trivial) (lane small-gaps-21)" },
     { "paths": ["rustc_middle::ty::sty::AliasTy", "rustc_middle::ty::AliasTy"], "import": "src/rustc_middle/traits/mod.ts", "visit": "visit_with_AliasTy", "try_fold": "try_fold_with_AliasTy", "fold": "fold_with_AliasTy", "note": "`ty::AliasTy<'tcx> = ir::Alias<TyCtxt<'tcx>, AliasTyKind>`: the Alias impls applied to AliasTyKind's (lane middle-traits-thir; traits/mod.ts, as no alias carries an impl)" },
     { "paths": ["rustc_middle::ty::consts::AliasConstKind", "rustc_middle::ty::AliasConstKind"], "import": "src/rustc_type_ir/const_kind.ts", "visit": "visit_with_AliasConstKind", "try_fold": "try_fold_with_AliasConstKind", "fold": "fold_with_AliasConstKind", "note": "`ty::AliasConstKind<'tcx>` (lane middle-traits-thir)" },
     { "paths": ["rustc_middle::ty::error::ExpectedFound"], "import": "src/rustc_type_ir/error.ts", "visit": "visit_with_ExpectedFound($0)", "try_fold": "try_fold_with_ExpectedFound($0)", "fold": "fold_with_ExpectedFound($0)", "note": "`ty::error::ExpectedFound<T> = ir::error::ExpectedFound<T>` (lane trait-sel-traits-a)" },
