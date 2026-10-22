@@ -3,18 +3,19 @@ import { afterAll, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { dumpFilesInOrder, firstDumpDifference } from "./mir-dump.ts";
+import { dumpFilesInOrder, firstDumpDifference, matchKeys, parseDumpName } from "./mir-dump.ts";
 
 const root = mkdtempSync(join(tmpdir(), "mir-dump-test-"));
 afterAll(() => rmSync(root, { recursive: true, force: true }));
 let n = 0;
-/** A dump dir holding `files` ([name, text]) written in that order (mtimes 1 s apart). */
-function dir(files: [string, string][]): string {
+/** A dump dir holding `files` ([name, text]) written in that order (mtimes 1 s apart; all equal with `sameMtime`). */
+function dir(files: [string, string][], sameMtime = false): string {
   const d = join(root, String(n++));
   mkdirSync(d);
   files.forEach(([name, text], i) => {
     writeFileSync(join(d, name), text);
-    utimesSync(join(d, name), 1_000_000 + i, 1_000_000 + i);
+    const t = 1_000_000 + (sameMtime ? 0 : i);
+    utimesSync(join(d, name), t, t);
   });
   return d;
 }
@@ -86,4 +87,70 @@ test("an extra subject file written before the first differing file is reported 
     ["a.f.Extra.after.mir", "e\n"],
   ]);
   expect(firstDumpDifference(o, s2)?.kind).toBe("differs");
+});
+
+// Lane harness-w23 (review-w21 L1/L3): names with the pass number (no `-Zdump-mir-exclude-pass-number`).
+test("dump names: the pass number is split off; matching keys number repeated passes", () => {
+  expect(parseDumpName("t1.main.1-2-003.AddCallGuards.before.mir")).toEqual({
+    stripped: "t1.main.AddCallGuards.before.mir",
+    body: "t1.main",
+    num: [1, 2, 3],
+    rank: 0,
+  });
+  expect(parseDumpName("t1.main-promoted[0].-------.nll.0.regioncx.all.dot")).toEqual({
+    stripped: "t1.main-promoted[0].nll.0.regioncx.all.dot",
+    body: "t1.main-promoted[0]",
+    num: undefined,
+    rank: 2,
+  });
+  expect(parseDumpName("a.f.X.after.mir").stripped).toBe("a.f.X.after.mir");
+  expect(matchKeys(["a.f.2-1-004.AddCallGuards.after.mir", "a.f.2-2-001.X.after.mir", "a.f.2-2-005.AddCallGuards.after.mir"])).toEqual([
+    "a.f.AddCallGuards.after.mir",
+    "a.f.X.after.mir",
+    "a.f.AddCallGuards.after.mir#1",
+  ]);
+});
+
+test("a pass that runs twice keeps both dumps, and the second one is compared too", () => {
+  const o = dir([
+    ["a.f.2-1-004.AddCallGuards.after.mir", "first\n"],
+    ["a.f.2-2-005.AddCallGuards.after.mir", "second\n"],
+  ]);
+  const s = dir([
+    ["a.f.2-1-004.AddCallGuards.after.mir", "first\n"],
+    ["a.f.2-2-005.AddCallGuards.after.mir", "SECOND\n"],
+  ]);
+  expect(firstDumpDifference(o, s)).toEqual({ file: "a.f.2-2-005.AddCallGuards.after.mir", kind: "differs", line: 1, oracle: "second", subject: "SECOND", matched: 1 });
+});
+
+test("an extra pass in the subject shifts its pass numbers but is reported as the one extra file", () => {
+  const o = dir([
+    ["a.f.2-1-001.A.after.mir", "a\n"],
+    ["a.f.2-1-002.B.after.mir", "b\n"],
+  ]);
+  const s = dir([
+    ["a.f.2-1-001.A.after.mir", "a\n"],
+    ["a.f.2-1-002.Extra.after.mir", "e\n"],
+    ["a.f.2-1-003.B.after.mir", "b\n"],
+  ]);
+  expect(firstDumpDifference(o, s)).toEqual({ file: "a.f.2-1-002.Extra.after.mir", kind: "extra", matched: 2 });
+  const s2 = dir([
+    ["a.f.2-1-001.A.after.mir", "a\n"],
+    ["a.f.2-1-002.Extra.after.mir", "e\n"],
+    ["a.f.2-1-003.B.after.mir", "not b\n"],
+  ]);
+  expect(firstDumpDifference(o, s2)).toEqual({ file: "a.f.2-1-002.Extra.after.mir", kind: "extra", matched: 1 });
+});
+
+test("equal mtimes: one body's dumps in pass-number order, `before` ahead of `after`", () => {
+  const d = dir(
+    [
+      ["a.f.2-1-010.Z.after.mir", ""],
+      ["a.f.2-1-010.Z.before.mir", ""],
+      ["a.f.2-1-002.Y.after.mir", ""],
+      ["a.f.1-0-000.analysis.after.mir", ""],
+    ],
+    true,
+  );
+  expect(dumpFilesInOrder(d)).toEqual(["a.f.1-0-000.analysis.after.mir", "a.f.2-1-002.Y.after.mir", "a.f.2-1-010.Z.before.mir", "a.f.2-1-010.Z.after.mir"]);
 });
