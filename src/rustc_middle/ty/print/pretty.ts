@@ -80,6 +80,7 @@ import type { ParamConst, ParamTy } from "../sty.ts";
 import { into_query_key_DefId, type IntoQueryKey } from "../../query/into_query_key.ts";
 import { fold_Ty } from "../structural_impls.ts";
 import { ConstInt, debug_ConstInt, lower_hex_ScalarInt as lower_hex_ScalarIntC, ScalarInt as ScalarIntC, ScalarInt_eq as ScalarInt_eqC, TargetDataLayout_pointer_size } from "../consts/int.ts";
+import type { IeeeFloat as IeeeFloat_, Semantics } from "../../../vendor/rustc_apfloat/ieee.ts";
 import { Expr as ExprC } from "../consts/kind.ts";
 import { debug_ValTree as debug_ValTreeC, ValTree as ValTreeC, type Value as ValueT, Value as ValueC } from "../consts/valtree.ts";
 import type { UserTypeKind } from "../typeck_results.ts";
@@ -4468,22 +4469,32 @@ function char_try_from_ScalarInt(int: ScalarInt): number | undefined {
 function ConstInt_new(int: ScalarInt, signed: boolean, is_ptr_sized_integral: boolean): ConstInt {
   return ConstInt.new(int as unknown as ScalarIntC, signed, is_ptr_sized_integral);
 }
-/** PORT: pending (rustc_apfloat, not ported): `Half`/`Single`/`Double`/`Quad::try_from(ScalarInt)` (int.rs). */
-type IeeeFloat = Pending<"rustc_apfloat::ieee::IeeeFloat">;
-function IeeeFloat_try_from_ScalarInt(_kind: "Half" | "Single" | "Double" | "Quad", _int: ScalarInt): IeeeFloat | undefined {
-  return unported("rustc_middle::ty::consts::int::<IeeeFloat as TryFrom<ScalarInt>>::try_from (rustc_apfloat, not ported)");
+/** `Half`/`Single`/`Double`/`Quad::try_from(ScalarInt)`: the blanket `TryFrom` of int.rs's `From<ScalarInt>` impls. */
+type IeeeFloat = IeeeFloat_<Semantics>;
+function IeeeFloat_try_from_ScalarInt(kind: "Half" | "Single" | "Double" | "Quad", int: ScalarInt): IeeeFloat | undefined {
+  const i = int as unknown as ScalarIntC;
+  switch (kind) {
+    case "Half":
+      return ScalarIntC.into_Half(i);
+    case "Single":
+      return ScalarIntC.into_Single(i);
+    case "Double":
+      return ScalarIntC.into_Double(i);
+    case "Quad":
+      return ScalarIntC.into_Quad(i);
+  }
 }
-/** `.unwrap()` of a `Result<IeeeFloat, Size>` (`Err` is `undefined`). */
+/** `.unwrap()` of a `Result<IeeeFloat, Infallible>` (`Err` is `undefined`). */
 function unwrap_float(v: IeeeFloat | undefined): IeeeFloat {
   return v === undefined ? panic("called `Result::unwrap()` on an `Err` value") : v;
 }
-/** PORT: pending (rustc_apfloat, not ported): `Float::is_finite`. */
-function IeeeFloat_is_finite(_v: IeeeFloat): boolean {
-  return unported("rustc_apfloat::Float::is_finite (not ported)");
+/** `Float::is_finite` (vendored rustc_apfloat). */
+function IeeeFloat_is_finite(v: IeeeFloat): boolean {
+  return v.is_finite();
 }
-/** PORT: pending (rustc_apfloat, not ported): `Display for IeeeFloat`. */
-function display_IeeeFloat(_v: IeeeFloat): string {
-  return unported("rustc_apfloat::ieee::IeeeFloat: Display (not ported)");
+/** `Display for IeeeFloat` (`{}`: no width / precision / `#`; vendored rustc_apfloat). */
+function display_IeeeFloat(v: IeeeFloat): string {
+  return v.fmt();
 }
 /** PORT: pending (rustc_const_eval, not ported): `TyCtxt::validate_scalar_in_layout` (check_validity_requirement.rs:183). */
 function TyCtxt_validate_scalar_in_layout(_tcx: TyCtxt, _int: ScalarInt, _ty: Ty): boolean {

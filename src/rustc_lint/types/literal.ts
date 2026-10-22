@@ -5,7 +5,7 @@
 // - `cx.typeck_results()` is `cx.typeck_results_()` (context.ts).
 // - `OVERFLOWING_LITERALS` is imported from types.lints.gen.ts (not `crate::types`), so this module and types.ts do
 //   not import each other.
-// - `float_is_infinite` needs rustc_apfloat (`IeeeFloat::from_str`), which is not ported: it stops with `unported`.
+// - `float_is_infinite::<S>` takes the `Semantics` value `S` (vendored rustc_apfloat).
 import { Integer, type Size } from "../../rustc_abi/lib.ts";
 import { FloatTy, IntTy, type IntTy as IntTyT, UintTy, type UintTy as UintTyT } from "../../rustc_ast_ir/lib.ts";
 import type { IntType } from "../../rustc_attr_ir/data_structures.gen.ts";
@@ -15,8 +15,9 @@ import { IntegerExt } from "../../rustc_middle/ty/layout.ts";
 import type { Ty } from "../../rustc_middle/ty/mod.ts";
 import { Span } from "../../rustc_span/lib.ts";
 import { bug } from "../../rustc_span/macros.ts";
-import { display_Symbol, type Symbol } from "../../rustc_span/symbol.ts";
-import { assert, unported } from "../../std/panic.ts";
+import { display_Symbol, Symbol } from "../../rustc_span/symbol.ts";
+import { DoubleS, HalfS, type IeeeFloat, QuadS, type Semantics, SingleS, ieee_float_type } from "../../vendor/rustc_apfloat/ieee.ts";
+import { assert } from "../../std/panic.ts";
 import type { LateContext } from "../context.ts";
 import {
   OnlyCastu8ToChar_diagnostic,
@@ -430,11 +431,13 @@ function lint_uint_literal(cx: LateContext, hir_id: HirId, span: Span, lit: Lit,
 
 /// `None` if `v` does not parse as the float type, otherwise indicates whether a literal rounds
 /// to infinity.
-// PORT: `S: Semantics` is the `FloatTy` the caller picked (`HalfS` / `SingleS` / `DoubleS` / `QuadS`).
+// PORT: `S: Semantics` is passed as the semantics value (`HalfS` / `SingleS` / `DoubleS` / `QuadS`).
 // rustc: compiler/rustc_lint/src/types/literal.rs:409 float_is_infinite
-function float_is_infinite(_s: FloatTy, _v: Symbol): boolean | undefined {
-  // `let x: IeeeFloat<S> = v.as_str().parse().ok()?; Some(x.is_infinite())`
-  return unported("rustc_apfloat::ieee::IeeeFloat::from_str (rustc_apfloat is not ported)");
+function float_is_infinite<S extends Semantics>(S: S, v: Symbol): boolean | undefined {
+  const r = ieee_float_type(S).from_str(Symbol.as_str(v));
+  if (r.$ === "Err") return undefined;
+  const x: IeeeFloat<S> = r._0;
+  return x.is_infinite();
 }
 
 // rustc: compiler/rustc_lint/src/types/literal.rs:414 lint_literal
@@ -463,16 +466,16 @@ export function lint_literal(cx: LateContext, hir_id: HirId, span: Span, lit: Li
     let is_infinite: boolean | undefined;
     switch (t) {
       case "F16":
-        is_infinite = float_is_infinite("F16", v);
+        is_infinite = float_is_infinite(HalfS, v);
         break;
       case "F32":
-        is_infinite = float_is_infinite("F32", v);
+        is_infinite = float_is_infinite(SingleS, v);
         break;
       case "F64":
-        is_infinite = float_is_infinite("F64", v);
+        is_infinite = float_is_infinite(DoubleS, v);
         break;
       case "F128":
-        is_infinite = float_is_infinite("F128", v);
+        is_infinite = float_is_infinite(QuadS, v);
         break;
     }
 
