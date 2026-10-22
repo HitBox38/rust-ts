@@ -1,8 +1,11 @@
 // Port of compiler/rustc_const_eval/src/lib.rs (lane small-gaps-17): the crate root with `provide`. Only
-// const_eval/fn_queries.rs is ported; the other modules (check_consts, interpret, util and the rest of const_eval) are
-// M4/M6, and the providers they install are `unported` placeholders that name the upstream fn.
+// const_eval/fn_queries.rs and check_consts/ (lanes mt-promote / const-check) are ported; the other modules (interpret,
+// util and the rest of const_eval) are M4/M6, and the providers they install are `unported` placeholders that name the
+// upstream fn.
 
-// pub mod check_consts;   (M4/M6)
+// pub mod check_consts;   (lane mt-promote: mod, qualifs, resolver, post_drop_elaboration; lane const-check: check, ops)
+import * as check_consts from "./check_consts/mod.ts";
+export { check_consts };
 // pub mod const_eval;
 import * as const_eval from "./const_eval/mod.ts";
 export { const_eval };
