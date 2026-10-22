@@ -289,15 +289,16 @@ for (const [i, f] of UI.entries()) {
 }
 
 // The real `mir_built` (`--real-mir-built`): MIR building runs (the builder and rustc_pattern_analysis are ported),
-// then `mir_built`'s pass list stops at its first pass, `LintAndRemoveUninhabited` (lane mt-built-lints). When it
-// lands, drop the driver's stand-in (run.ts header) and this pin.
+// then `mir_built`'s pass list runs `LintAndRemoveUninhabited` and the MIR lints (lane mt-built-lints) and stops at its
+// last pass, `SanityCheck` (rustc_mir_dataflow's `sanity_check`, lane dataflow-impls). When that lands, drop the
+// driver's stand-in (run.ts header) and this pin.
 test.skipIf(SKIP)(
   "check_unsafety with the real mir_built: stops at the first unported pass",
   () => {
     const file = "real_mir_built.rs";
     writeFileSync(join(WORK, file), "unsafe fn f() {}\nfn main() { unsafe { f() } }\n");
     const ours = run([process.execPath, RUNNER, "--real-mir-built", ...args("2021"), "-o", "real_mir_built.rmeta", file]);
-    expect(ours).toEqual({ stderr: "rust-ts: unported: rustc_mir_transform::lint_and_remove_uninhabited::LintAndRemoveUninhabited (pass not ported)\n", code: 70 });
+    expect(ours).toEqual({ stderr: "rust-ts: unported: rustc_mir_dataflow::rustc_peek::sanity_check\n", code: 70 });
   },
   120_000,
 );

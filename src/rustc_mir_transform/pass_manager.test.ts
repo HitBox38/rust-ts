@@ -415,7 +415,10 @@ describe("module layout", () => {
     const walk = (d: string) => {
       for (const e of readdirSync(d)) {
         const p = join(d, e);
-        if (statSync(p).isDirectory()) walk(p);
+        // `<name>_oracle/` directories hold test fixtures and test drivers, not ports
+        if (statSync(p).isDirectory()) {
+          if (!e.endsWith("_oracle")) walk(p);
+        }
         // generated `<module>.gen.ts` files belong to their hand module (`<module>.ts`)
         else if (p.endsWith(".ts") && !p.endsWith(".test.ts") && !p.endsWith(".gen.ts")) files.push(p);
       }
