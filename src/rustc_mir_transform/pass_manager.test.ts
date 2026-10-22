@@ -40,12 +40,13 @@ import type { Ty } from "../rustc_middle/ty/decls.ts";
 import type { Providers } from "../rustc_middle/util/mod.ts";
 import { Unported } from "../std/panic.ts";
 import { PASS_NAMES, provide } from "./lib.ts";
-import { Lint, MirLint, MirPass, type PassCtx, PassPolicy, run_passes, should_run_pass, simplify_pass_type_name, WithMinOptLevel } from "./pass_manager.ts";
+import { Lint, MirLint, MirPass, PassCtx, PassPolicy, run_passes, should_run_pass, simplify_pass_type_name, WithMinOptLevel } from "./pass_manager.ts";
 import { MirPatch } from "./patch.ts";
 import { RequiredConstsVisitor } from "./required_consts.ts";
 import { SanityCheck } from "./sanity_check.ts";
 import { SimplifyCfg, SimplifyLocals } from "./simplify.ts";
 import { trivial_const } from "./trivial_const.ts";
+import { ForceInline, Inline } from "./inline.ts";
 
 const DIR = join(import.meta.dir, "simplify_oracle");
 
@@ -414,5 +415,27 @@ describe("module layout", () => {
       }
     }
     expect(stubs).toBe(69);
+  });
+});
+
+describe("inline.rs policies (asked by mir_drops_elaborated_and_const_checked)", () => {
+  const ctx = (level: number, optimize: string, incremental: string | undefined, inline_mir: boolean | undefined) =>
+    new PassCtx({ opts: { optimize, incremental, unstable_opts: { inline_mir } } } as never, level);
+  test("Inline::policy: -Zinline-mir wins; else off at mir-opt-level 0/1, at 2 only for -Copt-level=2/3 without incremental, on above", () => {
+    const on = (c: PassCtx) => new Inline().policy(c);
+    expect(on(ctx(0, "Aggressive", undefined, true))).toEqual(PassPolicy.optional(true));
+    expect(on(ctx(3, "Aggressive", undefined, false))).toEqual(PassPolicy.optional(false));
+    expect(on(ctx(1, "Aggressive", undefined, undefined))).toEqual(PassPolicy.optional(false));
+    expect(on(ctx(2, "More", undefined, undefined))).toEqual(PassPolicy.optional(true));
+    expect(on(ctx(2, "Aggressive", undefined, undefined))).toEqual(PassPolicy.optional(true));
+    expect(on(ctx(2, "Size", undefined, undefined))).toEqual(PassPolicy.optional(false));
+    expect(on(ctx(2, "More", "inc", undefined))).toEqual(PassPolicy.optional(false));
+    expect(on(ctx(4, "No", "inc", undefined))).toEqual(PassPolicy.optional(true));
+  });
+  test("ForceInline: Required; should_run_pass_for_callee iff #[rustc_force_inline]", () => {
+    expect(new ForceInline().policy(ctx(0, "No", undefined, undefined))).toBe(PassPolicy.Required);
+    const tcx = (inline: unknown) => ({ codegen_fn_attrs: () => ({ inline }) }) as unknown as TyCtxt;
+    expect(ForceInline.should_run_pass_for_callee(tcx({ $: "Force", attr_span: DUMMY_SP, reason: undefined }), undefined as never)).toBe(true);
+    expect(ForceInline.should_run_pass_for_callee(tcx({ $: "Always" }), undefined as never)).toBe(false);
   });
 });
