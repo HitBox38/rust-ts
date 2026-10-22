@@ -116,8 +116,8 @@ test("every fn of builder/** and check_tail_calls.rs is ported or declared as a 
     }
   }
   expect(total).toBe(313);
-  expect(markers.length).toBe(75);
-  expect(stubs.length).toBe(238);
+  expect(markers.length).toBe(129);
+  expect(stubs.length).toBe(184);
 });
 
 test("the stubs per fill lane are the handoff's split table", () => {
@@ -125,7 +125,7 @@ test("the stubs per fill lane are the handoff's split table", () => {
   for (const d of stubs) per_lane[d.lane!] = (per_lane[d.lane!] ?? 0) + 1;
   expect(per_lane).toEqual({
     // mb-mod: 0 (all 25 ported, lane mb-mod)
-    "mb-scope": 54,
+    // "mb-scope": 0 (lane mb-scope ported scope.rs)
     "mb-expr-a": 42,
     "mb-expr-b": 11,
     "mb-matches-a": 28,
@@ -213,7 +213,7 @@ test("construct_error builds rustc's error body; build_mir_inner_impl reaches co
       const thir_ = thir.borrow();
       if (thir_.body_type.$ !== "Fn") throw new Error("ERROR: not a fn body");
       const sig = thir_.body_type._0;
-      stops(() => construct_fn(tcx, f!, thir_, expr, sig), "rustc_mir_build::builder::scope::Builder::in_scope"); // lane mb-scope
+      stops(() => construct_fn(tcx, f!, thir_, expr, sig), "rustc_mir_build::builder::Builder::args_and_body"); // lane mb-mod (through scope.rs's `in_scope` / `in_breakable_scope`)
       ran = true;
     });
   });
