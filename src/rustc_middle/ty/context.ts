@@ -6,7 +6,8 @@
 // - `TyCtxt` is a class wrapping the `GlobalCtxt` (`gcx`); `impl Deref for TyCtxt` is the getters below
 //   (`sess`, `dep_graph`, `prof`, `hooks`, `query_system`). Private `GlobalCtxt` fields (`untracked`,
 //   `crate_types`, `stable_crate_id`) are read through `this.gcx`.
-// - Arenas are erased (`arena`, `hir_arena`); `GlobalCaches` and `alloc_map` are not ported.
+// - Arenas are erased (`arena`, `hir_arena`). `alloc_map` (`interpret::AllocMap::new()`, lane mir-interp-b) is built by
+//   `create_global_ctxt` through the lazy `mir()` (mir/ is in this module's import closure).
 // - Type interning (lane ty-contract, docs/plan-m3.md D2): `CtxtInterners` (eager, in `create_global_ctxt`), the
 //   `direct_interners!` / `slice_interners!` methods and the `mk_*` entry points that only intern. `CommonTypes`,
 //   `CommonLifetimes` and `CommonConsts` are built on the first read of `types` / `lifetimes` / `consts` instead of
@@ -201,11 +202,12 @@ export const inherent_Span = {
 
 // PORT: types of upstream modules that are not ported yet, used in signatures here (`Pending`, rustc_type_ir/decls.ts).
 // `CodegenFnAttrs` / `TargetFeature` (middle/codegen_fn_attrs.rs) and `Place` (mir/syntax.rs) list only the fields this
-// file reads.
+// file reads. `Local` / `Place` are mir's (lane mir-contract; type-only: mir/ is read lazily, `mir()` below).
 type Thir = Pending<"thir::Thir">;
-type AllocId = Pending<"mir::interpret::AllocId">;
+type AllocId = import("../mir/interpret/mod.ts").AllocId;
+type AllocMap = import("../mir/interpret/mod.ts").AllocMap;
 type DepNode = Pending<"dep_graph::DepNode">;
-type Local = Pending<"mir::Local">;
+type Local = import("../mir/mod.ts").Local;
 import type { ResolvedArg } from "../middle/resolve_bound_vars.ts";
 interface TargetFeature {
   name: Symbol;
@@ -213,10 +215,7 @@ interface TargetFeature {
 interface CodegenFnAttrs {
   target_features: readonly TargetFeature[];
 }
-interface Place {
-  local: Local;
-  projection: List<PlaceElem>;
-}
+type Place = import("../mir/syntax.ts").Place;
 /** `std::env::VarError` */
 type VarError = { $: "NotPresent" } | { $: "NotUnicode"; _0: string };
 
@@ -245,7 +244,7 @@ export class CtxtInterners {
     public place_elems: InternedSet<List<PlaceElem>>,
     public const_: InternedSet<Const>,
     public pat: InternedSet<Pattern>,
-    public const_allocation: InternedSet<unknown>,
+    public const_allocation: InternedSet<ConstAllocation>,
     public bound_variable_kinds: InternedSet<List<BoundVariableKind>>,
     public layout: InternedSet<Layout>,
     public adt_def: InternedSet<AdtDef>,
@@ -1032,8 +1031,10 @@ export class TyCtxt {
   // rustc: compiler/rustc_middle/src/ty/context.rs:902 allocate_bytes_dedup
   allocate_bytes_dedup(bytes: Uint8Array, salt: number): AllocId {
     // Create an allocation that just contains these bytes.
-    void [bytes, salt];
-    return unported("rustc_middle::mir::interpret::Allocation::from_bytes_byte_aligned_immutable / reserve_and_set_memory_dedup (MIR interpret, M4)");
+    // PORT: `bytes: impl Into<Cow<[u8]>>` is the byte array.
+    const alloc = mir().interpret.Allocation.from_bytes_byte_aligned_immutable(bytes, null);
+    const alloc_ = this.mk_const_alloc(alloc);
+    return this.reserve_and_set_memory_dedup(alloc_, salt);
   }
 
   /// Traits added on all bounds by default, excluding `Sized` which is treated separately.
@@ -1093,7 +1094,7 @@ export class TyCtxt {
     // `CommonConsts::new(&interners, &common_types)` run on the first read of `types` / `lifetimes` / `consts`
     // (module comment).
     if (gcx_cell.value === undefined) {
-      gcx_cell.value = new GlobalCtxt(sess, crate_types, stable_crate_id, interners, incr_comp_session, dep_graph, sess.prof, hooks, untracked, query_system, current_gcx);
+      gcx_cell.value = new GlobalCtxt(sess, crate_types, stable_crate_id, interners, incr_comp_session, dep_graph, sess.prof, hooks, untracked, query_system, mir().interpret.AllocMap.new(), current_gcx);
     }
     const gcx = gcx_cell.value;
 
@@ -1867,9 +1868,14 @@ export class TyCtxt {
   mk_pat(v: PatternKind): Pattern {
     return Interned.new_unchecked(this.interners.pat.intern(v, intern_key(v), (v) => new Pattern(v)));
   }
-  /** Stub (`direct_interners!` `mk_const_alloc`, context.rs:2018): MIR allocations (M4). */
-  mk_const_alloc(_v: Allocation): ConstAllocation {
-    return unported("rustc_middle::ty::context::TyCtxt::mk_const_alloc (ConstAllocation, M4)");
+  // PORT (const-check): the key is the derived `PartialEq` of `Allocation` (`key_Allocation` below: the bytes, the
+  // provenance maps without their comparator, the init mask, align, mutability; `extra: ()`), which is the equality
+  // upstream's `InternedInSet<Allocation>` uses (its `Hash` only decides the bucket).
+  // rustc-macro: compiler/rustc_middle/src/ty/context.rs:2018 direct_interners! mk_const_alloc
+  mk_const_alloc(v: Allocation): ConstAllocation {
+    return Interned.new_unchecked(
+      this.interners.const_allocation.intern(v, key_Allocation(v), (v) => new (mir().interpret.ConstAllocation)(v)),
+    );
   }
   // PORT (layout-contract): the key is the derived `Hash` + `Eq` of `LayoutData` (`intern_key`); `Layout` deep-freezes it.
   // rustc-macro: compiler/rustc_middle/src/ty/context.rs:2019 direct_interners! mk_layout
@@ -2211,28 +2217,27 @@ export class TyCtxt {
 
   // rustc: compiler/rustc_middle/src/ty/context.rs:2380 mk_place_field
   mk_place_field(place: Place, f: FieldIdx, ty: Ty): Place {
-    return this.mk_place_elem(place, { $: "Field", _0: f, _1: ty } as unknown as PlaceElem);
+    return this.mk_place_elem(place, { $: "Field", _0: f, _1: ty });
   }
 
   // rustc: compiler/rustc_middle/src/ty/context.rs:2384 mk_place_deref
   mk_place_deref(place: Place): Place {
-    return this.mk_place_elem(place, { $: "Deref" } as unknown as PlaceElem);
+    return this.mk_place_elem(place, { $: "Deref" });
   }
 
   // rustc: compiler/rustc_middle/src/ty/context.rs:2388 mk_place_downcast
   mk_place_downcast(place: Place, adt_def: AdtDef, variant_index: VariantIdx): Place {
-    // PORT: `PlaceElem` (mir) is pending: its `Downcast` variant in PORTING §5 shape.
-    return this.mk_place_elem(place, { $: "Downcast", _0: adt_def.variant(variant_index).name, _1: variant_index } as unknown as PlaceElem);
+    return this.mk_place_elem(place, { $: "Downcast", _0: adt_def.variant(variant_index).name, _1: variant_index });
   }
 
   // rustc: compiler/rustc_middle/src/ty/context.rs:2400 mk_place_downcast_unnamed
   mk_place_downcast_unnamed(place: Place, variant_index: VariantIdx): Place {
-    return this.mk_place_elem(place, { $: "Downcast", _0: undefined, _1: variant_index } as unknown as PlaceElem);
+    return this.mk_place_elem(place, { $: "Downcast", _0: undefined, _1: variant_index });
   }
 
   // rustc: compiler/rustc_middle/src/ty/context.rs:2408 mk_place_index
   mk_place_index(place: Place, index: Local): Place {
-    return this.mk_place_elem(place, { $: "Index", _0: index } as unknown as PlaceElem);
+    return this.mk_place_elem(place, { $: "Index", _0: index });
   }
 
   /// This method copies `Place`'s projection, add an element and reintern it. Should not be used
@@ -2240,10 +2245,7 @@ export class TyCtxt {
   /// flight.
   // rustc: compiler/rustc_middle/src/ty/context.rs:2415 mk_place_elem
   mk_place_elem(place: Place, elem: PlaceElem): Place {
-    return {
-      local: place.local,
-      projection: this.mk_place_elems_from_iter([...place.projection, elem]),
-    };
+    return new (mir().Place)(place.local, this.mk_place_elems_from_iter([...place.projection, elem]));
   }
 
   // rustc: compiler/rustc_middle/src/ty/context.rs:2422 mk_poly_existential_predicates
@@ -2899,6 +2901,9 @@ export class GlobalCtxt {
 
     public query_system: QuerySystem,
 
+    /// Stores memory for globals (statics/consts).
+    public alloc_map: AllocMap,
+
     public current_gcx: CurrentGcx,
   ) {}
 
@@ -3051,6 +3056,31 @@ function alias_term_def_id_and_is_self_args(kind: AliasTermKind): [DefId, boolea
  * module must not import it (docs/handoff/ty-contract.md "Init order"); `emit_node_span_lint` / `emit_node_lint`
  * require it when they run, after every module has loaded.
  */
+/**
+ * PORT (const-check): the intern key of an `Allocation` (`mk_const_alloc`): its derived `PartialEq` as a string. The
+ * bytes are one char per byte; `SortedMap`s contribute their entries (`data`), not their `cmp` function; `InitMask`
+ * keeps its representation (`Lazy` / `Materialized`, as the derive compares it); `extra` is `()`.
+ */
+function key_Allocation(a: Allocation): string {
+  let bytes = "";
+  const b = a.bytes;
+  for (let i = 0; i < b.length; i += 8192) bytes += String.fromCharCode.apply(null, Array.from(b.subarray(i, i + 8192)));
+  return intern_key([
+    bytes,
+    a.provenance.ptrs.data,
+    a.provenance.bytes === undefined ? undefined : a.provenance.bytes.data,
+    a.init_mask.blocks,
+    a.init_mask.len,
+    a.align.pow2,
+    a.mutability,
+  ]);
+}
+
+/** rustc_middle mir/mod.ts (`mir::Place`), read lazily (mir/ is in this module's import closure; lane mir-contract). */
+function mir(): typeof import("../mir/mod.ts") {
+  return (mir__m ??= require("../mir/mod.ts") as typeof import("../mir/mod.ts"));
+}
+var mir__m: typeof import("../mir/mod.ts") | undefined;
 function middle_lint(): typeof import("../lint.ts") {
   return (middle_lint__m ??= require("../lint.ts") as typeof import("../lint.ts"));
 }

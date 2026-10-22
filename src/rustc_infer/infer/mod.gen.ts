@@ -12,6 +12,7 @@ import { debug_DefId, debug_LocalDefId, type DefId, type LocalDefId } from "../.
 import { debug_Span, type Span } from "../../rustc_span/lib.ts";
 import { debug_Symbol, type Symbol } from "../../rustc_span/symbol.ts";
 import { type BoundRegionKind, debug_BoundRegion, debug_BoundRegionKind, debug_Placeholder, type PlaceholderRegion } from "../../rustc_type_ir/binder.ts";
+import { type PolyExistentialTraitRef, type PolyFnSig } from "../../rustc_type_ir/decls.ts";
 import { debug_ExpectedFound, type ExpectedFound, fold_with_ExpectedFound, try_fold_with_ExpectedFound, type TypeError, visit_with_ExpectedFound } from "../../rustc_type_ir/error.ts";
 import { type FallibleTypeFolder, type FoldWith, type TryFoldWith, type TypeFolder, type TypeVisitor, type VisitWith } from "../../rustc_type_ir/fold.ts";
 import { debug_TraitRef } from "../../rustc_type_ir/ir_print.ts";
@@ -67,8 +68,8 @@ export type ValuePairs =
   | { readonly $: "Terms"; _0: ExpectedFound<Term> }
   | { readonly $: "Aliases"; _0: ExpectedFound<AliasTerm> }
   | { readonly $: "TraitRefs"; _0: ExpectedFound<TraitRef> }
-  | { readonly $: "PolySigs"; _0: ExpectedFound<unknown> }
-  | { readonly $: "ExistentialTraitRef"; _0: ExpectedFound<unknown> }
+  | { readonly $: "PolySigs"; _0: ExpectedFound<PolyFnSig> }
+  | { readonly $: "ExistentialTraitRef"; _0: ExpectedFound<PolyExistentialTraitRef> }
   | { readonly $: "ExistentialProjection"; _0: ExpectedFound<PolyExistentialProjection> };
 export const debug_ValuePairs: Debug<ValuePairs> = (v, f) => {
   switch (v.$) {
@@ -123,10 +124,10 @@ export function visit_with_ValuePairs<R>(self: ValuePairs, __visitor: TypeVisito
       if ((r = try_visit(__visitor.Result, visit_with_ExpectedFound<TraitRef, R>(self._0, __visitor, visit_with_TraitRef))) !== undefined) return r;
       break;
     case "PolySigs":
-      if ((r = try_visit(__visitor.Result, visit_with_ExpectedFound<unknown, R>(self._0, __visitor, visit_with_PolyFnSig))) !== undefined) return r;
+      if ((r = try_visit(__visitor.Result, visit_with_ExpectedFound<PolyFnSig, R>(self._0, __visitor, visit_with_PolyFnSig))) !== undefined) return r;
       break;
     case "ExistentialTraitRef":
-      if ((r = try_visit(__visitor.Result, visit_with_ExpectedFound<unknown, R>(self._0, __visitor, <R>(__v: unknown, __visitor: TypeVisitor<R>): R => unported_type_fold(__v)))) !== undefined) return r;
+      if ((r = try_visit(__visitor.Result, visit_with_ExpectedFound<PolyExistentialTraitRef, R>(self._0, __visitor, <R>(__v: PolyExistentialTraitRef, __visitor: TypeVisitor<R>): R => unported_type_fold(__v)))) !== undefined) return r;
       break;
     case "ExistentialProjection":
       if ((r = try_visit(__visitor.Result, visit_with_ExpectedFound<PolyExistentialProjection, R>(self._0, __visitor, <R>(__v: PolyExistentialProjection, __visitor: TypeVisitor<R>): R => unported_type_fold(__v)))) !== undefined) return r;
@@ -158,12 +159,12 @@ export function try_fold_with_ValuePairs<E>(self: ValuePairs, __folder: Fallible
       return Ok({ $: "TraitRefs" as const, _0: __0._0 });
     }
     case "PolySigs": {
-      const __0 = try_fold_with_ExpectedFound<unknown, E>(self._0, __folder, try_fold_with_PolyFnSig);
+      const __0 = try_fold_with_ExpectedFound<PolyFnSig, E>(self._0, __folder, try_fold_with_PolyFnSig);
       if (__0.$ === "Err") return __0;
       return Ok({ $: "PolySigs" as const, _0: __0._0 });
     }
     case "ExistentialTraitRef": {
-      const __0 = try_fold_with_ExpectedFound<unknown, E>(self._0, __folder, <E>(__v: unknown, __folder: FallibleTypeFolder<E>): Result<unknown, E> => unported_type_fold(__v));
+      const __0 = try_fold_with_ExpectedFound<PolyExistentialTraitRef, E>(self._0, __folder, <E>(__v: PolyExistentialTraitRef, __folder: FallibleTypeFolder<E>): Result<PolyExistentialTraitRef, E> => unported_type_fold(__v));
       if (__0.$ === "Err") return __0;
       return Ok({ $: "ExistentialTraitRef" as const, _0: __0._0 });
     }
@@ -190,10 +191,10 @@ export function fold_with_ValuePairs(self: ValuePairs, __folder: TypeFolder): Va
       return { $: "TraitRefs" as const, _0: fold_with_ExpectedFound<TraitRef>(self._0, __folder, fold_with_TraitRef) };
     }
     case "PolySigs": {
-      return { $: "PolySigs" as const, _0: fold_with_ExpectedFound<unknown>(self._0, __folder, fold_with_PolyFnSig) };
+      return { $: "PolySigs" as const, _0: fold_with_ExpectedFound<PolyFnSig>(self._0, __folder, fold_with_PolyFnSig) };
     }
     case "ExistentialTraitRef": {
-      return { $: "ExistentialTraitRef" as const, _0: fold_with_ExpectedFound<unknown>(self._0, __folder, (__v: unknown, __folder: TypeFolder): unknown => unported_type_fold(__v)) };
+      return { $: "ExistentialTraitRef" as const, _0: fold_with_ExpectedFound<PolyExistentialTraitRef>(self._0, __folder, (__v: PolyExistentialTraitRef, __folder: TypeFolder): PolyExistentialTraitRef => unported_type_fold(__v)) };
     }
     case "ExistentialProjection": {
       return { $: "ExistentialProjection" as const, _0: fold_with_ExpectedFound<PolyExistentialProjection>(self._0, __folder, (__v: PolyExistentialProjection, __folder: TypeFolder): PolyExistentialProjection => unported_type_fold(__v)) };

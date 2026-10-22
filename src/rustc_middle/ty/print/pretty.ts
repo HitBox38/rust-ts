@@ -80,6 +80,7 @@ import type { ParamConst, ParamTy } from "../sty.ts";
 import { into_query_key_DefId, type IntoQueryKey } from "../../query/into_query_key.ts";
 import { fold_Ty } from "../structural_impls.ts";
 import { ConstInt, debug_ConstInt, lower_hex_ScalarInt as lower_hex_ScalarIntC, ScalarInt as ScalarIntC, ScalarInt_eq as ScalarInt_eqC, TargetDataLayout_pointer_size } from "../consts/int.ts";
+import type { IeeeFloat as IeeeFloat_, Semantics } from "../../../vendor/rustc_apfloat/ieee.ts";
 import { Expr as ExprC } from "../consts/kind.ts";
 import { debug_ValTree as debug_ValTreeC, ValTree as ValTreeC, type Value as ValueT, Value as ValueC } from "../consts/valtree.ts";
 import type { UserTypeKind } from "../typeck_results.ts";
@@ -2050,9 +2051,9 @@ const Expr_binop_args = (self: Expr): [Ty, Ty, Const, Const] => ExprC.binop_args
 const Expr_unop_args = (self: Expr): [Ty, Const] => ExprC.unop_args(self);
 const Expr_call_args = (self: Expr): [Ty, Const, Iterable<Const>] => ExprC.call_args(self);
 const Expr_cast_args = (self: Expr): [Ty, Const, Ty] => ExprC.cast_args(self);
-/** `mir::BinOp::to_hir_binop` (mir/statement.rs:953, not ported). */
-function BinOp_to_hir_binop(_self: BinOp): BinOpKind {
-  return unported("rustc_middle::mir::BinOp::to_hir_binop (mir/mod.rs)");
+/** `mir::BinOp::to_hir_binop` (mir/statement.rs:953; mir/mod.ts read lazily: init order, mir-contract R2). */
+function BinOp_to_hir_binop(self: BinOp): BinOpKind {
+  return (require("../../mir/mod.ts") as typeof import("../../mir/mod.ts")).BinOp.to_hir_binop(self);
 }
 
 // ==== lane ty-print-b: pretty.rs:1705..end ====
@@ -2132,7 +2133,7 @@ PrettyPrinter.prototype.pretty_print_const_scalar_ptr = function (this: PrettyPr
             switch (global_alloc.$) {
               case "Memory": {
                 const alloc = global_alloc._0;
-                const range: AllocRange = { start: offset, size: Size.from_bytes(len) };
+                const range: AllocRange = new (mir_interpret_allocation().AllocRange)(offset, Size.from_bytes(len));
                 const byte_str = Allocation_get_bytes_strip_provenance(ConstAllocation_inner(alloc), this.tcx(), range);
                 if (byte_str !== undefined) {
                   if ((r = this.pretty_print_byte_str(byte_str)).$ === "Err") return r;
@@ -4468,22 +4469,32 @@ function char_try_from_ScalarInt(int: ScalarInt): number | undefined {
 function ConstInt_new(int: ScalarInt, signed: boolean, is_ptr_sized_integral: boolean): ConstInt {
   return ConstInt.new(int as unknown as ScalarIntC, signed, is_ptr_sized_integral);
 }
-/** PORT: pending (rustc_apfloat, not ported): `Half`/`Single`/`Double`/`Quad::try_from(ScalarInt)` (int.rs). */
-type IeeeFloat = Pending<"rustc_apfloat::ieee::IeeeFloat">;
-function IeeeFloat_try_from_ScalarInt(_kind: "Half" | "Single" | "Double" | "Quad", _int: ScalarInt): IeeeFloat | undefined {
-  return unported("rustc_middle::ty::consts::int::<IeeeFloat as TryFrom<ScalarInt>>::try_from (rustc_apfloat, not ported)");
+/** `Half`/`Single`/`Double`/`Quad::try_from(ScalarInt)`: the blanket `TryFrom` of int.rs's `From<ScalarInt>` impls. */
+type IeeeFloat = IeeeFloat_<Semantics>;
+function IeeeFloat_try_from_ScalarInt(kind: "Half" | "Single" | "Double" | "Quad", int: ScalarInt): IeeeFloat | undefined {
+  const i = int as unknown as ScalarIntC;
+  switch (kind) {
+    case "Half":
+      return ScalarIntC.into_Half(i);
+    case "Single":
+      return ScalarIntC.into_Single(i);
+    case "Double":
+      return ScalarIntC.into_Double(i);
+    case "Quad":
+      return ScalarIntC.into_Quad(i);
+  }
 }
-/** `.unwrap()` of a `Result<IeeeFloat, Size>` (`Err` is `undefined`). */
+/** `.unwrap()` of a `Result<IeeeFloat, Infallible>` (`Err` is `undefined`). */
 function unwrap_float(v: IeeeFloat | undefined): IeeeFloat {
   return v === undefined ? panic("called `Result::unwrap()` on an `Err` value") : v;
 }
-/** PORT: pending (rustc_apfloat, not ported): `Float::is_finite`. */
-function IeeeFloat_is_finite(_v: IeeeFloat): boolean {
-  return unported("rustc_apfloat::Float::is_finite (not ported)");
+/** `Float::is_finite` (vendored rustc_apfloat). */
+function IeeeFloat_is_finite(v: IeeeFloat): boolean {
+  return v.is_finite();
 }
-/** PORT: pending (rustc_apfloat, not ported): `Display for IeeeFloat`. */
-function display_IeeeFloat(_v: IeeeFloat): string {
-  return unported("rustc_apfloat::ieee::IeeeFloat: Display (not ported)");
+/** `Display for IeeeFloat` (`{}`: no width / precision / `#`; vendored rustc_apfloat). */
+function display_IeeeFloat(v: IeeeFloat): string {
+  return v.fmt();
 }
 /** PORT: pending (rustc_const_eval, not ported): `TyCtxt::validate_scalar_in_layout` (check_validity_requirement.rs:183). */
 function TyCtxt_validate_scalar_in_layout(_tcx: TyCtxt, _int: ScalarInt, _ty: Ty): boolean {
@@ -4495,39 +4506,40 @@ export type { UserTypeKind } from "../typeck_results.ts";
 // ---- pending mir-interpret (M4): mir/interpret's `Scalar`, `Pointer`, `GlobalAlloc`, `AllocRange` ----
 // `Scalar` is `Pending` in decls.ts; `ScalarShape` is mir/interpret/value.rs:25 per PORTING §5.
 type ScalarShape = { readonly $: "Int"; _0: ScalarInt } | { readonly $: "Ptr"; _0: Pointer; _1: number };
-type Pointer = Pending<"mir::interpret::Pointer">;
-type CtfeProvenance = Pending<"mir::interpret::CtfeProvenance">;
-type AllocId = Pending<"mir::interpret::AllocId">;
-/** mir/interpret/mod.rs:255 per PORTING §5. */
-type GlobalAlloc =
-  | { readonly $: "Function"; instance: Instance }
-  | { readonly $: "VTable"; _0: Ty; _1: List<PolyExistentialPredicate> }
-  | { readonly $: "Static"; _0: DefId }
-  | { readonly $: "Memory"; _0: ConstAllocation }
-  | { readonly $: "TypeId"; ty: Ty };
-/** mir/interpret/allocation.rs:334 */
-interface AllocRange {
-  start: Size;
-  size: Size;
+type Pointer = import("../../mir/interpret/pointer.ts").Pointer;
+type CtfeProvenance = import("../../mir/interpret/pointer.ts").CtfeProvenance;
+type AllocId = import("../../mir/interpret/mod.ts").AllocId;
+type GlobalAlloc = import("../../mir/interpret/mod.ts").GlobalAlloc;
+/** mir/interpret/pointer.ts, read lazily (lane mir-interp-b; init order: mir/ is in ty/context.ts's import closure). */
+function mir_interpret_pointer(): typeof import("../../mir/interpret/pointer.ts") {
+  return (mir_interpret_pointer__m ??= require("../../mir/interpret/pointer.ts") as typeof import("../../mir/interpret/pointer.ts"));
 }
-function Pointer_prov_and_relative_offset(_ptr: Pointer): [CtfeProvenance, Size] {
-  return unported("rustc_middle::mir::interpret::Pointer::prov_and_relative_offset (M4)");
+var mir_interpret_pointer__m: typeof import("../../mir/interpret/pointer.ts") | undefined;
+type AllocRange = import("../../mir/interpret/allocation.ts").AllocRange;
+/** mir/interpret/allocation.ts, read lazily (as pointer.ts above). */
+function mir_interpret_allocation(): typeof import("../../mir/interpret/allocation.ts") {
+  return (mir_interpret_allocation__m ??= require("../../mir/interpret/allocation.ts") as typeof import("../../mir/interpret/allocation.ts"));
 }
-function debug_Pointer(_ptr: Pointer, _f: Fmt): string {
-  return unported("rustc_middle::mir::interpret::Pointer: Debug (M4)");
+var mir_interpret_allocation__m: typeof import("../../mir/interpret/allocation.ts") | undefined;
+function Pointer_prov_and_relative_offset(ptr: Pointer): [CtfeProvenance, Size] {
+  return ptr.prov_and_relative_offset();
 }
-function CtfeProvenance_alloc_id(_prov: CtfeProvenance): AllocId {
-  return unported("rustc_middle::mir::interpret::CtfeProvenance::alloc_id (M4)");
+function debug_Pointer(ptr: Pointer, f: Fmt): string {
+  return mir_interpret_pointer().debug_Pointer(ptr, f, mir_interpret_pointer().debug_CtfeProvenance);
 }
-function TyCtxt_try_get_global_alloc(_tcx: TyCtxt, _id: AllocId): GlobalAlloc | undefined {
-  return unported("rustc_middle::mir::interpret::TyCtxt::try_get_global_alloc (M4)");
+function CtfeProvenance_alloc_id(prov: CtfeProvenance): AllocId {
+  return mir_interpret_pointer().CtfeProvenance.alloc_id(prov);
 }
-function ConstAllocation_inner(_alloc: ConstAllocation): Allocation {
-  return unported("rustc_middle::mir::interpret::ConstAllocation::inner (M4)");
+function TyCtxt_try_get_global_alloc(tcx: TyCtxt, id: AllocId): GlobalAlloc | undefined {
+  return tcx.try_get_global_alloc(id);
+}
+function ConstAllocation_inner(alloc: ConstAllocation): Allocation {
+  return alloc.inner();
 }
 /** `Ok(bytes)` is the bytes, `Err(_)` is `undefined`. */
-function Allocation_get_bytes_strip_provenance(_alloc: Allocation, _tcx: TyCtxt, _range: AllocRange): Uint8Array | undefined {
-  return unported("rustc_middle::mir::interpret::Allocation::get_bytes_strip_provenance (M4)");
+function Allocation_get_bytes_strip_provenance(alloc: Allocation, tcx: TyCtxt, range: AllocRange): Uint8Array | undefined {
+  const r = alloc.get_bytes_strip_provenance(tcx, range);
+  return r.$ === "Ok" ? r._0 : undefined;
 }
 /** `Instance::def_id` / the field `instance.args` (ty/instance.rs). */
 function Instance_def_id(self: Instance): DefId {

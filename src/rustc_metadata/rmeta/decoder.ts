@@ -48,6 +48,7 @@ import type { CtorKind, DefKind, Safety } from "../../rustc_hir/def.ts";
 import type { DefKey, DefPath, DefPathHash } from "../../rustc_hir_id/definitions.ts";
 import type { AmbigModChild, DocLinkResMap, ModChild } from "../../rustc_middle/middle/resolve.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
+import { AllocDecodingSession, AllocDecodingState, type AllocId } from "../../rustc_middle/mir/interpret/mod.ts";
 import type { Visibility } from "../../rustc_middle/ty/mod.ts";
 import { MemDecoder } from "../../rustc_serialize/opaque.ts";
 import { type Decodable, type Decoder, Decoder_provided, decode_Option as decode_Option_, decode_String, decode_tuple as decode_tuple_ } from "../../rustc_serialize/serialize.ts";
@@ -193,9 +194,7 @@ export type { BlobDecoder, SpanDecoder };
 
 /** Types without a TS port yet (M3 / M6), named for the declarations below. */
 export type ProcMacroClient = unknown; // rustc_proc_macro::bridge::client::Client (M6)
-export type AllocDecodingState = unknown; // rustc_middle::mir::interpret (M3)
-export type AllocDecodingSession = unknown; // rustc_middle::mir::interpret (M3)
-type AllocId = Pending<"mir::interpret::AllocId">; // rustc_middle::mir::interpret (M4)
+export type { AllocDecodingSession, AllocDecodingState };
 export type HygieneDecodeContext = unknown; // rustc_span::hygiene (lane hygiene-decode)
 // `rustc_middle::ty::fast_reject::SimplifiedType` (rustc_type_ir fast_reject.rs at `DefId`, lane decode-elems).
 export type { SimplifiedType };
@@ -363,8 +362,11 @@ export class CrateMetadata {
       // PORT: mod.ts types `TraitImpls::impls`' element `(LocalDefId, Option<SimplifiedType>)` as `[LocalDefId, unknown]`.
       trait_impls.set(trait_impls_.trait_id, trait_impls_.impls as LazyArray<[LocalDefId, SimplifiedType | undefined]>);
     }
-    // PORT: `interpret_alloc_index` is a `LazyArray<u64>` (mod.ts types its phantom element `number`).
-    const alloc_decoding_state = AllocDecodingState_new([...(root.interpret_alloc_index as LazyArray<unknown> as LazyArray<bigint>).decode(blob, decode_u64)]);
+    // PORT: `interpret_alloc_index` is a `LazyArray<u64>` (mod.ts types its phantom element `number`); the offsets are
+    // positions in the blob (`usize::try_from(..).unwrap()` in `decode_alloc_id`), far below 2^53: numbers.
+    const alloc_decoding_state = AllocDecodingState.new(
+      [...(root.interpret_alloc_index as LazyArray<unknown> as LazyArray<bigint>).decode(blob, decode_u64)].map((o) => Number(o)),
+    );
 
     // Pre-decode the DefPathHash->DefIndex table. This is a cheap operation
     // that does not copy any data. It just does some data verification.
@@ -741,10 +743,7 @@ export function CrateMetadata_tcx_decoder(self: [CrateMetadata, TyCtxt], pos: nu
     self[0].blob().decoder(pos),
     self[0],
     self[1],
-    // PORT: `self.0.alloc_decoding_state.new_decoding_session()`: rustc_middle mir/interpret/mod.rs:158 is
-    // `AllocDecodingSession { state: self }` (no other state); `AllocDecodingState` has no TS port yet (M3), so the
-    // session is that one-field record. Only `decode_alloc_id` (M3, unported) reads it.
-    { state: self[0].alloc_decoding_state },
+    self[0].alloc_decoding_state.new_decoding_session(),
   );
 }
 
@@ -896,9 +895,8 @@ MetadataDecodeContext.prototype.with_position = function <R>(this: MetadataDecod
 
 // rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:428 decode_alloc_id
 MetadataDecodeContext.prototype.decode_alloc_id = function (this: MetadataDecodeContext): AllocId {
-  // let ads = self.alloc_decoding_session;
-  // ads.decode_alloc_id(self)
-  return unported("rustc_metadata::rmeta::decoder::MetadataDecodeContext::decode_alloc_id (AllocDecodingSession::decode_alloc_id, M3)");
+  const ads = this.alloc_decoding_session;
+  return ads.decode_alloc_id(this);
 };
 
 // the provided `TyDecoder::positioned_at_shorthand` (ty/codec.rs:55)
@@ -2497,25 +2495,6 @@ CrateMetadata.prototype.get_doc_link_traits_in_scope = function (this: CrateMeta
   if (lazy === undefined) return panic("no traits in scope for a doc link");
   return lazy.decode([this, tcx], (d) => d.decode_def_id());
 };
-
-/**
- * PORT: stand-in for `rustc_middle::mir::interpret::AllocDecodingState` (mir/interpret/mod.rs:149; rustc_middle's
- * mir is M3): its two fields, built as `AllocDecodingState::new` (mod.rs:162) builds them. `State::Empty` is
- * `"Empty"`; `Lock<State>` is the element itself.
- */
-export interface AllocDecodingStateStandIn {
-  // For each `AllocId`, we keep track of which decoding state it's currently in.
-  decoding_state: ({ $: "Empty" } | { $: "Done"; _0: unknown /* AllocId */ })[];
-  // The offsets of each allocation in the data stream.
-  data_offsets: bigint[];
-}
-/** `AllocDecodingState::new(data_offsets)` (rustc_middle mir/interpret/mod.rs:162) for the stand-in. */
-function AllocDecodingState_new(data_offsets: bigint[]): AllocDecodingStateStandIn {
-  const decoding_state: AllocDecodingStateStandIn["decoding_state"] = [];
-  for (let i = 0; i < data_offsets.length; i++) decoding_state.push({ $: "Empty" });
-
-  return { decoding_state, data_offsets };
-}
 
 // ---- end rmeta-decoder-b ----
 

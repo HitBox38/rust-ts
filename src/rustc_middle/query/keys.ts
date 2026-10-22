@@ -29,6 +29,7 @@ import { intern_key } from "../../rust_ts/intern_key.ts";
 import { debug_str } from "../../std/fmt.ts";
 import { debug_ParamEnvAnd, debug_PseudoCanonicalInput, debug_Ty, type ParamEnvAnd, type PseudoCanonicalInput, type Ty } from "../ty/mod.ts";
 import type { AdtDef } from "../ty/decls.ts";
+import { debug_AdtDef } from "../ty/structural_impls.ts";
 import { debug_LitToConstInput, type LitToConstInput } from "../ty/consts/lit.ts";
 import { debug_SimplifiedType, type SimplifiedType, SimplifiedType_key } from "../ty/fast_reject.ts";
 import { debug_GenericArg, debug_GenericArgs, type GenericArg, type GenericArgsRef } from "../ty/generic_args.ts";
@@ -52,6 +53,7 @@ import type {
   type_op,
 } from "../traits/query.ts";
 import type { AliasTerm } from "../../rustc_type_ir/ty/alias.ts";
+import { debug_Instance, debug_InstanceKind, debug_ShimKind, Instance, InstanceKind, ShimKind } from "../ty/instance.ts";
 import { type Binder } from "../../rustc_type_ir/binder.ts";
 import { debug_Binder } from "../../rustc_type_ir/binder.gen.ts";
 import { debug_FnSig, type FnSig } from "../../rustc_type_ir/ty_kind.ts";
@@ -61,6 +63,7 @@ import type { Predicate } from "../ty/predicate.ts";
 import type { WellFormedLoc } from "../traits/mod.gen.ts";
 import { debug_CanonicalInput } from "../traits/solve.gen.ts";
 import type { TyCtxt } from "../ty/context.ts";
+import type { GlobalId } from "../mir/interpret/mod.ts";
 import { DefaultCache, DefId_hash_key, DefIdCache, type QueryCache, SingleCache, VecCache } from "./caches.ts";
 
 /// Placeholder for `CrateNum`'s "local" counterpart
@@ -138,8 +141,70 @@ export const KEY_unit: QueryKey<null> = {
   hash_key: () => 0,
 };
 
-// PORT: `ShimKind`, `InstanceKind`, `Instance` (keys.rs:66-84) and `mir::interpret::GlobalId` (:90) are not ported
-// yet (`key_unported`).
+// PORT: `ShimKind` / `InstanceKind` / `Instance` hold interned children and `DefId`s; their cache keys are `intern_key`
+// (the derived `Hash` + `Eq`).
+
+/** ty/instance.ts and mir/interpret/mod.ts, read lazily (this module is in ty/context.ts's import closure). */
+function ty_instance(): typeof import("../ty/instance.ts") {
+  return (ty_instance__m ??= require("../ty/instance.ts") as typeof import("../ty/instance.ts"));
+}
+var ty_instance__m: typeof import("../ty/instance.ts") | undefined;
+function mir_interpret(): typeof import("../mir/interpret/mod.ts") {
+  return (mir_interpret__m ??= require("../mir/interpret/mod.ts") as typeof import("../mir/interpret/mod.ts"));
+}
+var mir_interpret__m: typeof import("../mir/interpret/mod.ts") | undefined;
+
+export const KEY_ShimKind: QueryKey<ShimKind> = {
+  make_cache: default_cache<ShimKind>(intern_key),
+  // rustc: compiler/rustc_middle/src/query/keys.rs:68 default_span
+  default_span(self: ShimKind, tcx: TyCtxt): Span {
+    return tcx.def_span(ShimKind.def_id(self));
+  },
+  key_as_def_id: QueryKey_provided.key_as_def_id,
+  as_local_key: QueryKey_provided.as_local_key,
+  debug: (v, f) => debug_ShimKind(v, f),
+  debug_local: no_local_key,
+  hash_key: intern_key,
+};
+
+export const KEY_InstanceKind: QueryKey<InstanceKind> = {
+  make_cache: default_cache<InstanceKind>(intern_key),
+  // rustc: compiler/rustc_middle/src/query/keys.rs:74 default_span
+  default_span(self: InstanceKind, tcx: TyCtxt): Span {
+    return tcx.def_span(InstanceKind.def_id(self));
+  },
+  key_as_def_id: QueryKey_provided.key_as_def_id,
+  as_local_key: QueryKey_provided.as_local_key,
+  debug: (v, f) => debug_InstanceKind(v, f),
+  debug_local: no_local_key,
+  hash_key: intern_key,
+};
+
+export const KEY_Instance: QueryKey<Instance> = {
+  make_cache: default_cache<Instance>(intern_key),
+  // rustc: compiler/rustc_middle/src/query/keys.rs:80 default_span
+  default_span(self: Instance, tcx: TyCtxt): Span {
+    return tcx.def_span(ty_instance().Instance.def_id(self));
+  },
+  key_as_def_id: QueryKey_provided.key_as_def_id,
+  as_local_key: QueryKey_provided.as_local_key,
+  debug: (v, f) => ty_instance().debug_Instance(v, f),
+  debug_local: no_local_key,
+  hash_key: intern_key,
+};
+
+export const KEY_GlobalId: QueryKey<GlobalId> = {
+  make_cache: default_cache<GlobalId>(intern_key),
+  // rustc: compiler/rustc_middle/src/query/keys.rs:86 default_span
+  default_span(self: GlobalId, tcx: TyCtxt): Span {
+    return KEY_Instance.default_span(self.instance, tcx);
+  },
+  key_as_def_id: QueryKey_provided.key_as_def_id,
+  as_local_key: QueryKey_provided.as_local_key,
+  debug: (v, f) => mir_interpret().debug_GlobalId(v, f),
+  debug_local: no_local_key,
+  hash_key: intern_key,
+};
 
 export const KEY_Ty_Option_ExistentialTraitRef: QueryKey<[Ty, ExistentialTraitRef | undefined]> = {
   make_cache: default_cache<[Ty, ExistentialTraitRef | undefined]>(intern_key),
@@ -524,8 +589,23 @@ export const KEY_PseudoCanonicalInput_GenericArg: QueryKey<PseudoCanonicalInput<
 export const KEY_PseudoCanonicalInput_TraitRef: QueryKey<PseudoCanonicalInput<TraitRef>> = pseudo_canonical_input_key(KEY_TraitRef);
 /** `PseudoCanonicalInput<(DefId, GenericArgsRef)>` (`resolve_instance_raw`). */
 export const KEY_PseudoCanonicalInput_DefId_GenericArgsRef: QueryKey<PseudoCanonicalInput<[DefId, GenericArgsRef]>> = pseudo_canonical_input_key(KEY_DefId_GenericArgsRef);
+/** `PseudoCanonicalInput<GlobalId>` (`eval_to_allocation_raw`, `eval_to_const_value_raw`, `eval_to_valtree`). */
+export const KEY_PseudoCanonicalInput_GlobalId: QueryKey<PseudoCanonicalInput<GlobalId>> = pseudo_canonical_input_key(KEY_GlobalId);
 
-// PORT: `(AdtDef, GenericArgsRef)` (keys.rs:311) is not ported yet (`key_unported`).
+export const KEY_AdtDef_GenericArgsRef: QueryKey<[AdtDef, GenericArgsRef]> = {
+  make_cache: default_cache<[AdtDef, GenericArgsRef]>(intern_key),
+  // rustc: compiler/rustc_middle/src/query/keys.rs:312 default_span
+  default_span(self: [AdtDef, GenericArgsRef], tcx: TyCtxt): Span {
+    return tcx.def_span(self[0].did());
+  },
+  key_as_def_id: QueryKey_provided.key_as_def_id,
+  as_local_key: QueryKey_provided.as_local_key,
+  debug: (v, f) => debug_tuple(f, "", [debug_AdtDef(v[0], f), debug_GenericArgs(v[1], f)]),
+  debug_local: no_local_key,
+  hash_key: intern_key,
+};
+/** `PseudoCanonicalInput<(AdtDef, GenericArgsRef)>` (`is_opsem_inhabited_adt_cached`). */
+export const KEY_PseudoCanonicalInput_AdtDef_GenericArgsRef: QueryKey<PseudoCanonicalInput<[AdtDef, GenericArgsRef]>> = pseudo_canonical_input_key(KEY_AdtDef_GenericArgsRef);
 
 export const KEY_Symbol: QueryKey<Symbol> = {
   make_cache: default_cache<Symbol>((k) => k),

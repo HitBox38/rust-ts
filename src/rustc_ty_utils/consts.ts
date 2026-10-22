@@ -5,7 +5,7 @@
 // `unknown`): it is `(Steal<Thir>, ExprId)` (rustc_mir_build thir/cx/mod.ts). `#[instrument]` (tracing) is dropped.
 import { DefKind } from "../rustc_hir/def.ts";
 import type { Steal } from "../rustc_data_structures/steal.ts";
-import type { BinOp, UnOp } from "../rustc_middle/mir/syntax.ts";
+import type { BinOp, UnOp } from "../rustc_middle/mir/mod.ts";
 import type { Providers } from "../rustc_middle/queries.gen.ts";
 import { type Expr, type ExprId, type Pat, type Thir, visit_with_PatRangeBoundary } from "../rustc_middle/thir.ts";
 import { Visitor, walk_expr, walk_pat } from "../rustc_middle/thir/visit.ts";

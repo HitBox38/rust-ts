@@ -1,0 +1,10 @@
+// MIR for `C` after built
+
+const C: i32 = {
+    let mut _0: i32;
+
+    bb0: {
+        _0 = const 7_i32;
+        return;
+    }
+}

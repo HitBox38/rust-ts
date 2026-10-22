@@ -1,12 +1,174 @@
-// Stub of compiler/rustc_lint/src/opaque_hidden_inferred_bound.rs (lane lint-early-a; parser-core pattern). The lint statics and
-// `declare_lint_pass!` / `impl_lint_pass!` expansions are generated (opaque_hidden_inferred_bound.lints.gen.ts); the pass
-// implementations are filled by lane lint-early-b (early passes) / M3 (late passes).
-// PORT: stub: pass types keep their upstream names; every `check_*` method upstream implements is an
-// `unported` placeholder (rust_ts/stubs.ts), so no pass silently does nothing. No markers.
-import { unported_methods } from "../rust_ts/stubs.ts";
-import { OpaqueHiddenInferredBound } from "./opaque_hidden_inferred_bound.lints.gen.ts";
+// Port of compiler/rustc_lint/src/opaque_hidden_inferred_bound.rs. The lint static and the `declare_lint_pass!`
+// expansion are generated (opaque_hidden_inferred_bound.lints.gen.ts); the file's own
+// `#[derive(Diagnostic)] struct OpaqueHiddenInferredBoundLint` and `#[derive(Subdiagnostic)] struct AddBound` are
+// generated into opaque_hidden_inferred_bound.gen.ts (tools/codegen set `rustc_lint`).
+import { Defaultness } from "../rustc_hir/hir.ts";
+import type * as hir from "../rustc_hir/hir.ts";
+import { ObligationCause } from "../rustc_middle/traits/mod.ts";
+import type { Clause, ParamEnv, Predicate } from "../rustc_middle/ty/decls.ts";
+import { BottomUpFolder } from "../rustc_middle/ty/fold.ts";
+import { RawList } from "../rustc_middle/ty/list.ts";
+import { Term, Ty } from "../rustc_middle/ty/mod.ts";
+import { Predicate_upcast_from_Clause } from "../rustc_middle/ty/predicate.ts";
+import { TraitClause_print_modifiers_and_trait_path } from "../rustc_middle/ty/print/pretty.ts";
+import { fold_Clause, fold_Span } from "../rustc_middle/ty/structural_impls.ts";
+import type { TyCtxt } from "../rustc_middle/ty/context.ts";
+import { DefId_eq, LocalDefId } from "../rustc_span/def_id.ts";
+import { Span } from "../rustc_span/lib.ts";
+import { kw } from "../rustc_span/symbol.ts";
+import { Obligation } from "../rustc_infer/traits/mod.ts";
+import { ObligationCtxt } from "../rustc_trait_selection/traits/engine.ts";
+import { TraitErrors } from "../rustc_infer/traits/engine.ts";
+import { Binder, EarlyBinder } from "../rustc_type_ir/binder.ts";
+import { fold_tuple2 } from "../rustc_type_ir/fold.ts";
+import { ProjectionClause } from "../rustc_type_ir/predicate.ts";
+import type { TypingMode } from "../rustc_type_ir/infer_ctxt.ts";
+import { fold_with_ClauseKind, try_fold_with_ClauseKind, visit_with_ClauseKind } from "../rustc_type_ir/predicate_kind.gen.ts";
+import type { ClauseKind } from "../rustc_type_ir/predicate_kind.ts";
+import { AliasTerm } from "../rustc_type_ir/term_kind.ts";
+import { AliasTy } from "../rustc_type_ir/ty_kind.ts";
+import { Unnormalized } from "../rustc_type_ir/unnormalized.ts";
+import type { Interner } from "../rustc_type_ir/interner.ts";
+import type { LateContext } from "./context.ts";
+import { type AddBound, OpaqueHiddenInferredBoundLint_diagnostic } from "./opaque_hidden_inferred_bound.gen.ts";
+import { OPAQUE_HIDDEN_INFERRED_BOUND, OpaqueHiddenInferredBound } from "./opaque_hidden_inferred_bound.lints.gen.ts";
+import type { LateLintPass } from "./passes.ts";
 
+export * from "./opaque_hidden_inferred_bound.gen.ts";
 export * from "./opaque_hidden_inferred_bound.lints.gen.ts";
 
-// impl LateLintPass for OpaqueHiddenInferredBound (opaque_hidden_inferred_bound.rs:69)
-unported_methods(OpaqueHiddenInferredBound.prototype, "rustc_lint::opaque_hidden_inferred_bound::OpaqueHiddenInferredBound", ["check_ty"]);
+declare module "./opaque_hidden_inferred_bound.lints.gen.ts" {
+  interface OpaqueHiddenInferredBound extends LateLintPass {}
+}
+
+/** The D4 `TypeFoldable` descriptor of `ClauseKind` (from its generated impl fns, as ty/print/pretty.ts). */
+const fold_ClauseKind = {
+  visit_with: visit_with_ClauseKind,
+  try_fold_with: try_fold_with_ClauseKind,
+  fold_with: fold_with_ClauseKind,
+};
+const Predicate_upcast_from_Clause_ = (from: Clause, tcx: Interner): Predicate => Predicate_upcast_from_Clause(from, tcx as unknown as TyCtxt);
+
+// impl<'tcx> LateLintPass<'tcx> for OpaqueHiddenInferredBound
+// rustc: compiler/rustc_lint/src/opaque_hidden_inferred_bound.rs:70 check_ty
+OpaqueHiddenInferredBound.prototype.check_ty = function (this: OpaqueHiddenInferredBound, cx: LateContext, ty: hir.Ty<hir.AmbigArg>): void {
+  if (ty.kind.$ !== "OpaqueDef") {
+    return;
+  }
+  const opaque = ty.kind._0;
+
+  // If this is an RPITIT from a trait method with no body, then skip.
+  // That's because although we may have an opaque type on the function,
+  // it won't have a hidden type, so proving predicates about it is
+  // not really meaningful.
+  if (opaque.origin.$ === "FnReturn") {
+    const method_def_id = opaque.origin.parent;
+    const node = cx.tcx.hir_node_by_def_id(method_def_id);
+    if (node.$ === "TraitItem" && !Defaultness.has_value(node._0.defaultness)) {
+      return;
+    }
+  }
+
+  const def_id = LocalDefId.to_def_id(opaque.def_id);
+  // PORT: `LateContext::typing_mode` / `param_env` are typed `unknown` in context.ts (lane lint-late-a types them).
+  const infcx = cx.tcx.infer_ctxt().build(cx.typing_mode() as TypingMode);
+  const param_env = (): ParamEnv => cx.param_env as ParamEnv;
+  // For every projection predicate in the opaque type's explicit bounds,
+  // check that the type that we're assigning actually satisfies the bounds
+  // of the associated type.
+  for (const u of EarlyBinder.iter_identity_copied(cx.tcx.explicit_item_bounds(def_id) as EarlyBinder<readonly (readonly [Clause, Span])[]>)) {
+    const [pred, pred_span] = Unnormalized.skip_norm_wip(u);
+    infcx.enter_forall(
+      pred.kind(),
+      (predicate: ClauseKind): void => {
+        if (predicate.$ !== "Projection") {
+          return;
+        }
+        const proj = predicate._0;
+        // Only check types, since those are the only things that may
+        // have opaques in them anyways.
+        const proj_term = Term.as_type(proj.term);
+        if (proj_term === undefined) return;
+
+        // HACK: `impl Trait<Assoc = impl Trait2>` from an RPIT is "ok"...
+        const ptk = proj_term.kind();
+        if (
+          ptk.$ === "Alias" &&
+          ptk._1.kind.$ === "Opaque" &&
+          DefId_eq(cx.tcx.parent(ptk._1.kind.def_id), def_id) &&
+          (opaque.origin.$ === "FnReturn" || opaque.origin.$ === "AsyncFn")
+        ) {
+          return;
+        }
+
+        // HACK: `async fn() -> Self` in traits is "ok"...
+        // This is not really that great, but it's similar to why the `-> Self`
+        // return type is well-formed in traits even when `Self` isn't sized.
+        if (ptk.$ === "Param" && ptk._0.name === kw.SelfUpper && opaque.origin.$ === "AsyncFn" && opaque.origin.in_trait_or_impl === "Trait") {
+          return;
+        }
+
+        const proj_ty = AliasTy.to_ty(AliasTerm.expect_ty(proj.projection_term), cx.tcx, "No");
+        // For every instance of the projection type in the bounds,
+        // replace them with the term we're assigning to the associated
+        // type in our opaque type.
+        const proj_replacer = new BottomUpFolder(
+          cx.tcx,
+          (ty) => (ty === proj_ty ? proj_term : ty),
+          (lt) => lt,
+          (ct) => ct,
+        );
+        // For example, in `impl Trait<Assoc = impl Send>`, for all of the bounds on `Assoc`,
+        // e.g. `type Assoc: OtherTrait`, replace `<impl Trait as Trait>::Assoc: OtherTrait`
+        // with `impl Send: OtherTrait`.
+        for (const v of EarlyBinder.iter_instantiated_copied(
+          cx.tcx.explicit_item_bounds(ProjectionClause.def_id(proj)) as EarlyBinder<readonly [Clause, Span][]>,
+          cx.tcx,
+          proj.projection_term.args,
+          fold_tuple2(fold_Clause, fold_Span),
+        )) {
+          const [assoc_pred_, assoc_pred_span] = Unnormalized.skip_norm_wip(v);
+          const assoc_pred_folded = fold_Clause.fold_with(assoc_pred_, proj_replacer);
+
+          const ocx = ObligationCtxt.new(infcx);
+          const assoc_pred = ocx.normalize(ObligationCause.dummy(), param_env(), Unnormalized.new_wip(assoc_pred_folded), fold_Clause);
+          if (!TraitErrors.no_errors(ocx.evaluate_obligations_error_on_ambiguity())) {
+            // Can't normalize for some reason...?
+            continue;
+          }
+
+          ocx.register_obligation(Obligation.new(cx.tcx, ObligationCause.dummy(), param_env(), assoc_pred, Predicate_upcast_from_Clause_));
+
+          // If that predicate doesn't hold modulo regions (but passed during type-check),
+          // then we must've taken advantage of the hack in `project_and_unify_types` where
+          // we replace opaques with inference vars. Emit a warning!
+          if (!TraitErrors.no_errors(ocx.evaluate_obligations_error_on_ambiguity())) {
+            // If it's a trait bound and an opaque that doesn't satisfy it,
+            // then we can emit a suggestion to add the bound.
+            const ak = Binder.skip_binder(assoc_pred.kind());
+            const add_bound: AddBound | undefined =
+              ptk.$ === "Alias" && ptk._1.kind.$ === "Opaque" && ak.$ === "Trait"
+                ? {
+                    suggest_span: Span.shrink_to_hi(cx.tcx.def_span(ptk._1.kind.def_id)),
+                    trait_ref: TraitClause_print_modifiers_and_trait_path(ak._0),
+                  }
+                : undefined;
+
+            cx.emit_span_lint(
+              OPAQUE_HIDDEN_INFERRED_BOUND,
+              pred_span,
+              OpaqueHiddenInferredBoundLint_diagnostic({
+                ty: Ty.new_opaque(cx.tcx, "No", def_id, RawList.identity_for_item(cx.tcx, def_id)),
+                proj_ty: proj_term,
+                assoc_pred_span,
+                add_bound,
+              }),
+            );
+          }
+        }
+      },
+      fold_ClauseKind,
+    );
+  }
+};
+

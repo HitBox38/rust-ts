@@ -5,7 +5,8 @@
 // so `ValTreeKind::Leaf(ScalarInt)` interns by value.
 // PORT: `ScalarInt` is a defining module of the valtree / const graph (imported by consts/valtree.ts, which the defining
 // module rustc_type_ir sty/consts.ts imports): it imports no extension module.
-// PORT: rustc_apfloat is not ported: the float conversions (`to_float`, `From<Half/Single/Double/Quad>`) call `unported`.
+// PORT: the float conversions (`to_float`, `From<Half/Single/Double/Quad>`) use the vendored rustc_apfloat
+// (src/vendor/rustc_apfloat); `to_float::<F>` takes the float type's dictionary `F` (`Half`, `Single`, ...).
 import { Size } from "../../../rustc_abi/lib.ts";
 import type { Decoder } from "../../../rustc_serialize/serialize.ts";
 import { bug } from "../../../rustc_span/macros.ts";
@@ -13,8 +14,16 @@ import { type Debug, type Fmt, PLAIN } from "../../../std/fmt.ts";
 import { panic, unported } from "../../../std/panic.ts";
 import { Err, Ok, type Result } from "../../../std/result.ts";
 import type { TyCtxt } from "../context.ts";
+import { Double, Half, Quad, Single } from "../../../vendor/rustc_apfloat/ieee.ts";
+import type { Float, FloatType } from "../../../vendor/rustc_apfloat/lib.ts";
 
 const U128_MAX = (1n << 128n) - 1n;
+
+/** `NonZero::new(x as u8).unwrap()` */
+function nonzero_u8(x: number): number {
+  const v = x & 0xff;
+  return v === 0 ? panic("called `Option::unwrap()` on a `None` value") : v;
+}
 
 // ---- PORT stand-ins for rustc_abi fns that are not ported yet (rustc_abi/lib.ts is not this lane's) ------------------
 
@@ -553,36 +562,36 @@ export class ScalarInt {
     return this.to_int(TargetDataLayout_pointer_size(tcx.gcx.data_layout));
   }
 
-  // PORT: rustc_apfloat is not ported (module comment).
+  // PORT: `F: Float` is passed as its `FloatType` dictionary.
   // #[inline]
   // rustc: compiler/rustc_middle/src/ty/consts/int.rs:425 to_float
-  to_float(_F: string): never {
+  to_float<F extends Float<F>>(F: FloatType<F>): F {
     // Going through `to_uint` to check size and truncation.
-    return unported("rustc_apfloat::Float::from_bits (ScalarInt::to_float)");
+    return F.from_bits(this.to_bits(Size.from_bits(F.BITS)));
   }
 
   // #[inline]
   // rustc: compiler/rustc_middle/src/ty/consts/int.rs:431 to_f16
-  to_f16(): never {
-    return this.to_float("Half");
+  to_f16(): Half {
+    return this.to_float(Half);
   }
 
   // #[inline]
   // rustc: compiler/rustc_middle/src/ty/consts/int.rs:436 to_f32
-  to_f32(): never {
-    return this.to_float("Single");
+  to_f32(): Single {
+    return this.to_float(Single);
   }
 
   // #[inline]
   // rustc: compiler/rustc_middle/src/ty/consts/int.rs:441 to_f64
-  to_f64(): never {
-    return this.to_float("Double");
+  to_f64(): Double {
+    return this.to_float(Double);
   }
 
   // #[inline]
   // rustc: compiler/rustc_middle/src/ty/consts/int.rs:446 to_f128
-  to_f128(): never {
-    return this.to_float("Quad");
+  to_f128(): Quad {
+    return this.to_float(Quad);
   }
 
   // ---- `From` / `TryFrom` impls (int.rs:451-618) ----
@@ -719,42 +728,42 @@ export class ScalarInt {
     return Ok(c);
   }
 
-  // `impl From<Half/Single/Double/Quad> for ScalarInt` and back: rustc_apfloat is not ported (module comment).
+  // `impl From<Half/Single/Double/Quad> for ScalarInt` and back (`From<ScalarInt> for Half` is `ScalarInt.into_Half`).
   // rustc: compiler/rustc_middle/src/ty/consts/int.rs:562 from
-  static from_Half(_f: never): ScalarInt {
+  static from_Half(f: Half): ScalarInt {
     // We trust apfloat to give us properly truncated data.
-    return unported("rustc_apfloat::ieee::Half (From<Half> for ScalarInt)");
+    return new ScalarInt(f.to_bits(), nonzero_u8(Half.BITS / 8));
   }
   // rustc: compiler/rustc_middle/src/ty/consts/int.rs:570 from
-  static into_Half(_int: ScalarInt): never {
-    return unported("rustc_apfloat::ieee::Half::from_bits (From<ScalarInt> for Half)");
+  static into_Half(int: ScalarInt): Half {
+    return Half.from_bits(int.to_bits(Size.from_bytes(2)));
   }
   // rustc: compiler/rustc_middle/src/ty/consts/int.rs:577 from
-  static from_Single(_f: never): ScalarInt {
+  static from_Single(f: Single): ScalarInt {
     // We trust apfloat to give us properly truncated data.
-    return unported("rustc_apfloat::ieee::Single (From<Single> for ScalarInt)");
+    return new ScalarInt(f.to_bits(), nonzero_u8(Single.BITS / 8));
   }
   // rustc: compiler/rustc_middle/src/ty/consts/int.rs:585 from
-  static into_Single(_int: ScalarInt): never {
-    return unported("rustc_apfloat::ieee::Single::from_bits (From<ScalarInt> for Single)");
+  static into_Single(int: ScalarInt): Single {
+    return Single.from_bits(int.to_bits(Size.from_bytes(4)));
   }
   // rustc: compiler/rustc_middle/src/ty/consts/int.rs:592 from
-  static from_Double(_f: never): ScalarInt {
+  static from_Double(f: Double): ScalarInt {
     // We trust apfloat to give us properly truncated data.
-    return unported("rustc_apfloat::ieee::Double (From<Double> for ScalarInt)");
+    return new ScalarInt(f.to_bits(), nonzero_u8(Double.BITS / 8));
   }
   // rustc: compiler/rustc_middle/src/ty/consts/int.rs:600 from
-  static into_Double(_int: ScalarInt): never {
-    return unported("rustc_apfloat::ieee::Double::from_bits (From<ScalarInt> for Double)");
+  static into_Double(int: ScalarInt): Double {
+    return Double.from_bits(int.to_bits(Size.from_bytes(8)));
   }
   // rustc: compiler/rustc_middle/src/ty/consts/int.rs:607 from
-  static from_Quad(_f: never): ScalarInt {
+  static from_Quad(f: Quad): ScalarInt {
     // We trust apfloat to give us properly truncated data.
-    return unported("rustc_apfloat::ieee::Quad (From<Quad> for ScalarInt)");
+    return new ScalarInt(f.to_bits(), nonzero_u8(Quad.BITS / 8));
   }
   // rustc: compiler/rustc_middle/src/ty/consts/int.rs:615 from
-  static into_Quad(_int: ScalarInt): never {
-    return unported("rustc_apfloat::ieee::Quad::from_bits (From<ScalarInt> for Quad)");
+  static into_Quad(int: ScalarInt): Quad {
+    return Quad.from_bits(int.to_bits(Size.from_bytes(16)));
   }
 }
 

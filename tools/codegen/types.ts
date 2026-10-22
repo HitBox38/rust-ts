@@ -271,6 +271,13 @@ export interface SetConfig {
    */
   decodable_import_gen?: string[];
   /**
+   * Hand modules (src-relative paths) through which this set's generated modules do *not* import items of another file
+   * of the set: they import them from that file's `.gen.ts` itself. For an extension module (assigns to a class of a
+   * defining module at load) that a defining module's `.gen.ts` imports would otherwise evaluate early, in the defining
+   * module's TDZ (lane builder-contract: scope.gen.ts -> matches/mod.ts, which extends `Builder` of builder/mod.ts).
+   */
+  import_gen?: string[];
+  /**
    * Type parameters erased from the TS types of this set's items (plan-m3 D3: `I: Interner`, generic code takes no
    * interner type). An erased parameter is dropped from the item's TS generics and from every reference's type
    * arguments at its position (`Binder<I, T>` -> `Binder<T>`, `ir::TraitRef<TyCtxt<'tcx>>` -> `TraitRef`), and
@@ -338,6 +345,12 @@ export interface TypeFoldMap {
   trivial: string[];
   types: TypeFoldMapEntry[];
 }
+/** `"Name as Alias"` (an import alias in a type map / type-fold map entry) -> `[Name, Alias]`; a plain name is its own alias. */
+export function asAlias(s: string): [string, string] {
+  const m = /^(\S+) as (\S+)$/.exec(s);
+  return m ? [m[1]!, m[2]!] : [s, s];
+}
+
 export function loadTypeFoldMap(): TypeFoldMap {
   return JSON.parse(readFileSync(join(HERE, "type_fold.json"), "utf8"));
 }
@@ -1105,6 +1118,12 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
     : { module: "", names: { visitor: "", folder: "", fallible_folder: "", visit_fn: "", try_fold_fn: "", fold_fn: "" }, trivial_fns: { visit: "", try_fold: "", fold: "" }, trivial: [], types: [] };
   const tfIndex = new Map<string, TypeFoldMapEntry>();
   for (const e of tfMap.types) for (const p of e.paths) tfIndex.set(p, e);
+  // set-local type_fold.json entries (`type_fold` of the `typemap_extra` files) win over the global ones (lane mir-contract)
+  if (set.derive_type_fold)
+    for (const name of set.typemap_extra ?? []) {
+      const extra: { type_fold?: TypeFoldMapEntry[] } = JSON.parse(readFileSync(join(HERE, name), "utf8"));
+      for (const e of extra.type_fold ?? []) for (const p of e.paths) tfIndex.set(p, e);
+    }
   const tfTrivial = new Set(tfMap.trivial);
   /** `export function <name>` / `export const <name>` / `export { .. <name> .. }` in a hand module (under --src-root). */
   const handExports = new Map<string, string>();
@@ -1232,6 +1251,7 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
      */
     const viaHand = (r: ItemRef): string => {
       if (r.mf === mf) return `gen:${r.mf.gen}`;
+      if (set.import_gen?.includes(r.mf.hand)) return `gen:${r.mf.gen}`;
       addStub(r.mf.hand, "*", `export * from "./${r.mf.gen.split("/").pop()}";`);
       return `src:${r.mf.hand}`;
     };
@@ -1285,8 +1305,10 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
     };
     const useEntry = (e: TypeMapEntry, withValues: boolean) => {
       if (!e.import) return;
-      for (const t of e.types ?? []) {
-        imp(`src:${e.import.replace(/^src\//, "")}`, "types", t, t);
+      for (const t0 of e.types ?? []) {
+        // `"Name as Alias"`: imported under the alias (the `ts` template uses it), for a name the set's own items take
+        const [t, ta] = asAlias(t0);
+        imp(`src:${e.import.replace(/^src\//, "")}`, "types", t, ta);
         const arity = new Set(e.ts.match(/\$\d/g) ?? []).size;
         const ps = Array.from({ length: arity }, (_, i) => `T${i}`);
         addStub(
@@ -1296,8 +1318,9 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
         );
       }
       if (withValues)
-        for (const v of e.values ?? []) {
-          imp(`src:${e.import.replace(/^src\//, "")}`, "values", v, v);
+        for (const v0 of e.values ?? []) {
+          const [v, va] = asAlias(v0);
+          imp(`src:${e.import.replace(/^src\//, "")}`, "values", v, va);
           addStub(e.import.replace(/^src\//, ""), v, `export declare function ${v}(v: any, f: Fmt, ...d: Debug<any>[]): string;`);
         }
     };
@@ -2548,9 +2571,10 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
     type TfKind = "visit" | "try_fold" | "fold";
     const TF_PREFIX: Record<TfKind, string> = { visit: "visit_with", try_fold: "try_fold_with", fold: "fold_with" };
     const tfModule = `src:${tfMap.module.replace(/^src\//, "")}`;
-    const tfUse = (name: string, module: string = tfModule): string => {
-      imp(module, "values", name, name);
-      return name;
+    const tfUse = (name0: string, module: string = tfModule): string => {
+      const [name, alias] = asAlias(name0);
+      imp(module, "values", name, alias);
+      return alias;
     };
     const tfType = (name: string): string => {
       imp(tfModule, "types", name, name);
@@ -2616,8 +2640,7 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
         return `unported_type_fold(${v})`;
       }
       // `name($1, $0)`: the impls of these type arguments, in this order
-      const name = fn.replace(/\(.*$/s, "");
-      tfUse(name, e.import ? `src:${e.import.replace(/^src\//, "")}` : tfModule);
+      const name = tfUse(fn.replace(/\(.*$/s, ""), e.import ? `src:${e.import.replace(/^src\//, "")}` : tfModule);
       const fns: string[] = [];
       const tys: string[] = [];
       for (const m of fn.matchAll(/\$(\d)/g)) {

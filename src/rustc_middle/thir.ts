@@ -21,7 +21,7 @@ import type { ErrorGuaranteed, Span } from "../rustc_span/lib.ts";
 import type { Symbol } from "../rustc_span/symbol.ts";
 import { bug } from "../rustc_span/macros.ts";
 import { type Debug, debug_map, debug_struct, debug_vec } from "../std/fmt.ts";
-import { panic, unported } from "../std/panic.ts";
+import { panic } from "../std/panic.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
 import type { TyCtxt } from "./ty/context.ts";
 import type { ScalarInt, ValTree, Value } from "./ty/decls.ts";
@@ -50,6 +50,7 @@ import {
 } from "./thir.gen.ts";
 import * as gen from "./thir.gen.ts";
 import { for_each_immediate_subpat } from "./thir/visit.ts";
+import { Double, Half, Quad, Single } from "../vendor/rustc_apfloat/ieee.ts";
 
 export * from "./thir.gen.ts";
 // pub mod visit;
@@ -486,13 +487,30 @@ export const PatRangeBoundary = {
     switch (tk.$) {
       case "Float":
         switch (tk._0) {
-          case "F16":
-          case "F32":
-          case "F64":
-          case "F128":
-            // `rustc_apfloat::ieee::{Half,Single,Double,Quad}::from_bits(a).partial_cmp(&from_bits(b))`
-            void [a, b];
-            return unported("rustc_apfloat (vendor crate not ported): ieee float from_bits / partial_cmp");
+          case "F16": {
+            // use rustc_apfloat::Float;
+            const a_ = Half.from_bits(a);
+            const b_ = Half.from_bits(b);
+            return apfloat_ordering(a_.partial_cmp(b_));
+          }
+          case "F32": {
+            // use rustc_apfloat::Float;
+            const a_ = Single.from_bits(a);
+            const b_ = Single.from_bits(b);
+            return apfloat_ordering(a_.partial_cmp(b_));
+          }
+          case "F64": {
+            // use rustc_apfloat::Float;
+            const a_ = Double.from_bits(a);
+            const b_ = Double.from_bits(b);
+            return apfloat_ordering(a_.partial_cmp(b_));
+          }
+          case "F128": {
+            // use rustc_apfloat::Float;
+            const a_ = Quad.from_bits(a);
+            const b_ = Quad.from_bits(b);
+            return apfloat_ordering(a_.partial_cmp(b_));
+          }
         }
         break;
       case "Int": {
@@ -511,6 +529,10 @@ export const PatRangeBoundary = {
 };
 
 /** `Ord::cmp` of two integers. */
+/** PORT: rustc_apfloat's `Option<Ordering>` (`-1 | 0 | 1 | undefined`) as this module's `Ordering`. */
+function apfloat_ordering(o: -1 | 0 | 1 | undefined): Ordering | undefined {
+  return o === undefined ? undefined : o === -1 ? "Less" : o === 0 ? "Equal" : "Greater";
+}
 function cmp_bigint(a: bigint, b: bigint): Ordering {
   return a < b ? "Less" : a > b ? "Greater" : "Equal";
 }

@@ -1,0 +1,40 @@
+// MIR for `h` after SimplifyCfg-initial
+
+fn h(_1: bool, _2: i32) -> i32 {
+    debug c => _1;
+    debug x => _2;
+    let mut _0: i32;
+    let mut _3: ();
+    let mut _4: bool;
+    let mut _5: !;
+
+    bb0: {
+        goto -> bb1;
+    }
+
+    bb1: {
+        falseUnwind -> [real: bb2, unwind: bb5];
+    }
+
+    bb2: {
+        StorageLive(_4);
+        _4 = copy _1;
+        switchInt(move _4) -> [0: bb4, otherwise: bb3];
+    }
+
+    bb3: {
+        _0 = copy _2;
+        StorageDead(_4);
+        return;
+    }
+
+    bb4: {
+        _3 = const ();
+        StorageDead(_4);
+        goto -> bb1;
+    }
+
+    bb5 (cleanup): {
+        resume;
+    }
+}

@@ -722,7 +722,7 @@
       ],
       "debug": "debug_ConstraintCategory($v, $f)",
       "clone": "copy",
-      "note": "rustc_middle mir/query.rs (set rustc_middle_mir_query, lane typeck-gaps; Copy)"
+      "note": "rustc_middle mir/query.rs (set rustc_middle_mir, lane mir-contract; Copy)"
     }
   ]
 }

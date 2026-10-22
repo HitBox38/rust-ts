@@ -1,0 +1,20 @@
+error: unsized arguments cannot be used in a tail call
+  --> unsized-argument.rs:14:5
+   |
+LL |     become unsized_argument(b);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: unsized argument of type `[u8]`
+
+error: mismatched signatures
+  --> unsized-argument.rs:28:5
+   |
+LL |     become f(x)
+   |     ^^^^^^^^^^^
+   |
+   = note: `become` requires caller and callee to have matching signatures
+   = note: caller signature: `fn(fn(u32) -> u32, u32) -> u32`
+   = note: callee signature: `fn(u32) -> u32`
+
+error: aborting due to 2 previous errors
+

@@ -1,0 +1,20 @@
+# The index-ds lane's rustc-dev probe (tools/probes template format, so root can move it to
+# tools/probes/bitsetprobe unchanged). Built by hand in the lane:
+#   RUSTC_BOOTSTRAP=1 CARGO_ENCODED_RUSTFLAGS=-C<US>link-arg=-Wl,-rpath,<sysroot>/lib \
+#   cargo +nightly-2026-10-11 build --release
+# Its output is committed as a fixture (src/rustc_index/bit_set_oracle.json); the test
+# (src/rustc_index/bit_set.oracle.test.ts) replays it and does not need the probe.
+[package]
+name = "bitsetprobe"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata.rust-ts]
+rustc_dev = true
+
+[[bin]]
+name = "bitsetprobe"
+path = "@SRC@/main.rs"
+
+[workspace]

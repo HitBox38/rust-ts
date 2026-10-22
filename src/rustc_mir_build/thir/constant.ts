@@ -15,13 +15,7 @@ import { ByteSymbol, Symbol } from "../../rustc_span/symbol.ts";
 import { bug } from "../../rustc_span/macros.ts";
 import { EarlyBinder } from "../../rustc_type_ir/binder.ts";
 import { TypeVisitableExt } from "../../rustc_type_ir/visit.ts";
-import { unported } from "../../std/panic.ts";
-
-// PORT: stand-in for `crate::builder::parse_float_into_scalar` (builder/mod.rs; MIR building is not ported, and it
-// needs rustc_apfloat). Not a marker: repoint when builder lands.
-function parse_float_into_scalar(_num: Symbol, _float_ty: FloatTy, _neg: boolean): ScalarInt | undefined {
-  return unported("rustc_mir_build::builder::parse_float_into_scalar (builder, rustc_apfloat)");
-}
+import { parse_float_into_scalar } from "../builder/mod.ts";
 
 /** `u128::wrapping_neg` */
 function u128_wrapping_neg(n: bigint): bigint {

@@ -114,7 +114,8 @@ for (const f of walk(join(REPO, "src"))) {
         break;
       }
     }
-    stubs.push(d);
+    // (re-pinned, lane mir-contract: other contracts' stubs, e.g. rustc_middle mir/, are not this test's)
+    if (FILES.some(([f]) => f === d.path)) stubs.push(d);
   }
 }
 

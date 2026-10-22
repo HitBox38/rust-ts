@@ -7,10 +7,20 @@
 // `<stem>.long-type-<hash>.txt` notes) and the check phase writes its metadata to stdout with `--emit=metadata=-`
 // (was `-o -`, whose out dir is the cwd). Env: the caller's minus scripts/lib/env.ts's scrubbed variables, plus
 // `RUSTC_ICE=0` (no `rustc-ice-*.txt` report in the cwd) and `RUST_BACKTRACE=0`, as the M2/M3 suites.
+// MIR stage `mir-dump` (plan-m4 D11, lane harness-w21), before `mir`: both sides run `-Zunpretty=mir` with
+// `-Zdump-mir=all -Zdump-mir-dir=<run dir>/{oracle,subject}`, and the stage reports the first dump file that differs in
+// pass order (scripts/lib/mir-dump.ts: `<crate>.<item>.-------.built.after.mir`, `<crate>.<item>.<n>-<n>-<nnn>.<Pass>.
+// {before,after}.mir`, `....-------.renumber.0.mir`, `nll.0.mir`, ...), or that only one side wrote. Its stdout/stderr
+// are not compared there; the `mir` phase compares them. Lane harness-w23 (review-w21 L1-L3): the pass number stays in
+// the names (`-Zdump-mir-exclude-pass-number` made a pass that runs twice on a body overwrite its first dump; matching
+// strips it, scripts/lib/mir-dump.ts), and `<run dir>` is a fresh directory per run,
+// `$RUST_TS_DATA/phase-diff/mir-dump/<RUST_TS_AGENT>-XXXXXX`, so concurrent runs never share or delete each other's
+// dumps; it is removed when the stage matches and kept (its path printed) when it diverges.
 import { isAbsolute, join, dirname, basename } from "node:path";
-import { writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { DATA, REPO, UPSTREAM, ensureDir, parseArgs, run } from "./lib/common.ts";
 import { caseEnv } from "./lib/env.ts";
+import { dumpFilesInOrder, firstDumpDifference } from "./lib/mir-dump.ts";
 import { upstreamChanges, upstreamError, upstreamStatus } from "./lib/upstream.ts";
 import { oracleRustcCmd, verifyOraclePin } from "./lib/oracle.ts";
 
@@ -19,6 +29,8 @@ const PHASES: [string, string[]][] = [
   ["expand", ["-Zunpretty=ast-tree,expanded"]],
   ["hir", ["-Zunpretty=hir-tree"]],
   ["thir", ["-Zunpretty=thir-tree"]],
+  // + `-Zdump-mir-dir=<run dir>/<side>` (see the header).
+  ["mir-dump", ["-Zunpretty=mir", "-Zdump-mir=all"]],
   ["mir", ["-Zunpretty=mir"]],
   ["check", ["--emit=metadata=-"]],
 ];
@@ -45,12 +57,38 @@ const checkUpstream = () => {
   if (changed.length) console.log(upstreamError("the upstream checkout changed during phase-diff", changed, UPSTREAM));
 };
 
+/** This run's dump directory (see the header), made by the `mir-dump` phase. */
+let runDumpDir = "";
+const dumpDir = (side: "oracle" | "subject") => join(runDumpDir, side);
 for (const [phase, flags] of PHASES) {
   const args = [`--edition=${edition}`, ...flags, "--out-dir", outDir, rel];
+  const dump = phase === "mir-dump";
+  if (dump) runDumpDir = mkdtempSync(join(ensureDir(join(out, "mir-dump")), `${(process.env.RUST_TS_AGENT ?? "local").replace(/[^\w.-]/g, "_")}-`));
+  const sideArgs = (side: "oracle" | "subject") => (dump ? [`-Zdump-mir-dir=${dumpDir(side)}`, ...args] : args);
   const [o, s] = await Promise.all([
-    run(oracleRustcCmd(args), { cwd, timeoutMs: 120_000, env: oracleEnv }),
-    run([process.execPath, join(REPO, "src/rust_ts/main.ts"), ...args], { cwd, timeoutMs: 120_000, env }),
+    run(oracleRustcCmd(sideArgs("oracle")), { cwd, timeoutMs: 120_000, env: oracleEnv }),
+    run([process.execPath, join(REPO, "src/rust_ts/main.ts"), ...sideArgs("subject")], { cwd, timeoutMs: 120_000, env }),
   ]);
+  if (dump) {
+    const d = firstDumpDifference(dumpDir("oracle"), dumpDir("subject"));
+    const n = dumpFilesInOrder(dumpDir("oracle")).length;
+    if (!d) {
+      rmSync(runDumpDir, { recursive: true, force: true });
+      console.log(`ok    ${phase} (${n} files)`);
+      continue;
+    }
+    const exits = s.code === 70 ? "subject unported" : `exit ${s.code} vs ${o.code}`;
+    const sf = d.subjectFile ? ` (subject: ${d.subjectFile})` : "";
+    console.log(`DIVERGES at phase '${phase}' (${exits}), file ${d.file}${sf} (${d.kind}; ${d.matched} of the oracle's ${n} files matched before it)${d.line ? `, line ${d.line}:` : ""}`);
+    if (d.line) {
+      console.log(`  - ${d.oracle ?? "<eof>"}`);
+      console.log(`  + ${d.subject ?? "<eof>"}`);
+    }
+    if (s.code === 70) console.log(`  ${s.stderr.split("\n").find((l) => l.startsWith("rust-ts: unported")) ?? ""}`);
+    console.log(`dump dirs: ${runDumpDir}/{oracle,subject}`);
+    checkUpstream();
+    process.exit(1);
+  }
   const ot = `${o.stdout}\n--- stderr ---\n${o.stderr}\n--- exit: ${o.code} ---\n`;
   const st = `${s.stdout}\n--- stderr ---\n${s.stderr}\n--- exit: ${s.code} ---\n`;
   writeFileSync(join(out, `${phase}.oracle.txt`), ot);
