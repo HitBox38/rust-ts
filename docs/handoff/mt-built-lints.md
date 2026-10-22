@@ -111,3 +111,11 @@ Stops moved past this lane:
 
 ## Checks
 - `bunx tsc --noEmit -p .`: clean. `bun scripts/coverage.ts --check`: markers ok (19794; vendor 4330).
+- Full `RUST_TS_AGENT=mt-built-lints RUST_TS_REQUIRE_PROBES=1 bun test src --timeout=120000` (once, at `12c6f904`,
+  detached): **6019 pass, 1 fail** (6021 tests, 422 files, 2499 s). The one fail is an artifact of the agent name, not
+  of this lane's code: `rustc_mir_build/builder/contract.test.ts` writes its crate under
+  `$RUST_TS_DATA/tmp/builder-contract/$RUST_TS_AGENT/`, and the oracle's `-Zdump-mir=built` filter also matches the
+  def path of an impl, which a no_core crate prints with its file path (`<impl at …/mt-built-lints/…>`, which contains
+  "built"): the pinned rustc itself dumps 54 files instead of 12 there (reproduced by running rustc directly). With
+  `RUST_TS_AGENT=mtbl-check` the same file passes (3/3). Follow-up for root: that test should use a WORK path that
+  cannot contain "built" (or filter `-Zdump-mir=built` results by pass name).
