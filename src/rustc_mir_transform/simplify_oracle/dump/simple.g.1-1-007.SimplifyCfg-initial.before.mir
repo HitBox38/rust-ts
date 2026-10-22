@@ -1,0 +1,36 @@
+// MIR for `g` before SimplifyCfg-initial
+
+fn g(_1: i32) -> i32 {
+    debug x => _1;
+    let mut _0: i32;
+    let mut _2: !;
+    let _3: !;
+    scope 1 {
+        debug _a => _3;
+    }
+
+    bb0: {
+        StorageLive(_3);
+        _0 = copy _1;
+        goto -> bb3;
+    }
+
+    bb1: {
+        FakeRead(ForLet(None), _3);
+        StorageDead(_3);
+        unreachable;
+    }
+
+    bb2: {
+        goto -> bb4;
+    }
+
+    bb3: {
+        StorageDead(_3);
+        goto -> bb4;
+    }
+
+    bb4: {
+        return;
+    }
+}

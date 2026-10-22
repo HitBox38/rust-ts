@@ -64,6 +64,7 @@ import { type Providers as QueryProviders, QUERY_DECLS, QUERY_NAMES } from "../r
 import type { Providers as MiddleProviders } from "../rustc_middle/util/mod.ts";
 import { provide as rustc_passes_provide } from "../rustc_passes/lib.ts";
 import { provide as rustc_mir_build_provide } from "../rustc_mir_build/lib.ts";
+import { provide as rustc_mir_transform_provide } from "../rustc_mir_transform/lib.ts";
 import { provide as rustc_traits_provide } from "../rustc_traits/lib.ts";
 import { provide as query_impl_provide, query_system } from "../rustc_query_impl/lib.ts";
 import { feature_err } from "../rustc_session/diagnostics.ts";
@@ -954,11 +955,11 @@ function default_query_providers(): MiddleProviders {
   providers.queries.proc_macro_decls_static = (tcx, _) => (tcx.hir_crate_items(null) as hir.ModuleItems).proc_macro_decls();
   rustc_ast_lowering.provide(providers.queries);
   // PORT: pending crates (their `provide` fns are not ported): rustc_expand_queries,
-  // rustc_borrowck, rustc_mir_transform,
+  // rustc_borrowck,
   // rustc_monomorphize,
-  // rustc_symbol_mangling (rustc_const_eval, rustc_mir_dataflow, rustc_privacy, rustc_hir_analysis, rustc_hir_typeck,
-  // rustc_traits, rustc_ty_utils, rustc_metadata, rustc_lint, rustc_codegen_ssa and rustc_mir_build's THIR half are
-  // provided below).
+  // rustc_symbol_mangling (rustc_const_eval, rustc_mir_dataflow, rustc_mir_transform, rustc_privacy,
+  // rustc_hir_analysis, rustc_hir_typeck, rustc_traits, rustc_ty_utils, rustc_metadata, rustc_lint, rustc_codegen_ssa
+  // and rustc_mir_build are provided below).
   // Their queries stop as UNPORTED (`install_unported_providers`).
   limits.provide(providers.queries);
   rustc_const_eval.provide(providers);
@@ -966,6 +967,7 @@ function default_query_providers(): MiddleProviders {
   rustc_incremental_provide(providers);
   rustc_mir_build_provide(providers);
   rustc_mir_dataflow.provide(providers);
+  rustc_mir_transform_provide(providers);
   rustc_privacy.provide(providers.queries);
   query_impl_provide(providers);
   rustc_resolve.provide(providers.queries);
