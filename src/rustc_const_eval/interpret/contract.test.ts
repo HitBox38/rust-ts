@@ -124,8 +124,8 @@ test("every fn of interpret/**, const_eval/**, util/** and lib.rs is ported or d
     }
   }
   expect(total).toBe(657);
-  expect(markers.length).toBe(586);
-  expect(stubs.length).toBe(71);
+  expect(markers.length).toBe(623);
+  expect(stubs.length).toBe(34);
 });
 
 test("the stubs per fill lane are the handoff's split table", () => {
@@ -134,7 +134,7 @@ test("the stubs per fill lane are the handoff's split table", () => {
   expect(per_lane).toEqual({
     // wave 23b (interp-memory: done)
     // interp-place-operand: done (0)
-    "ctfe-a": 37,
+    // ctfe-a: done (wave 23c)
     // wave 24
     // interp-step-call: done (0)
     // interp-ops: done (lane interp-ops, wave 23c)
@@ -250,7 +250,7 @@ test("InterpCx::new, the layout cache and the trivial-const entry points run; no
       const cid = new GlobalId(Instance.mono(tcx, LocalDefId.to_def_id(c)), undefined);
       stops(
         () => tcx.eval_to_allocation_raw(typing_env.as_query_input(cid)),
-        "rustc_const_eval::const_eval::eval_queries::eval_in_interpreter",
+        "rustc_const_eval::interpret::place::InterpCx::allocate",
       );
       ran = true;
     });

@@ -13,7 +13,14 @@ import { type TyAndLayout } from "../../rustc_middle/ty/layout.ts";
 import { type Ty } from "../../rustc_middle/ty/mod.ts";
 import { type DefId, type LocalDefId } from "../../rustc_span/def_id.ts";
 import { type Fmt } from "../../std/fmt.ts";
-import { panic, unported } from "../../std/panic.ts";
+import { assert_eq, panic } from "../../std/panic.ts";
+import { Err } from "../../std/result.ts";
+import { PLAIN } from "../../std/fmt.ts";
+import { BackendRepr_eq, debug_BackendRepr } from "../../rustc_abi/lib.ts";
+import { Mutability } from "../../rustc_ast_ir/lib.ts";
+import { InterpErrorInfo_from_InterpErrorKind, interp_ok, type MachineStopType, MachineStopType_provided, PointerArithmetic_provided, Scalar } from "../../rustc_middle/mir/interpret/mod.ts";
+import { debug_BinOp, debug_RuntimeChecks } from "../../rustc_middle/mir/mod.ts";
+import { span_bug } from "../../rustc_span/macros.ts";
 import { compile_time_machine } from "../interpret/machine.ts";
 import type { HasStaticRootDefId } from "../interpret/intern.ts";
 
@@ -45,59 +52,169 @@ export class DummyMachine extends compile_time_machine implements HasStaticRootD
   // We want to just eval random consts in the program, so `eval_mir_const` can fail.
   override readonly ALL_CONSTS_ARE_PRECHECKED: boolean = false;
 
-  // stub: compiler/rustc_const_eval/src/const_eval/dummy_machine.rs:50 enforce_alignment (lane ctfe-a)
+  // rustc: compiler/rustc_const_eval/src/const_eval/dummy_machine.rs:50 enforce_alignment
   enforce_alignment(_ecx: InterpCx): boolean {
-    return unported("rustc_const_eval::const_eval::dummy_machine::DummyMachine::enforce_alignment");
+    return false; // no reason to enforce alignment
   }
 
-  // stub: compiler/rustc_const_eval/src/const_eval/dummy_machine.rs:54 enforce_validity (lane ctfe-a)
+  // rustc: compiler/rustc_const_eval/src/const_eval/dummy_machine.rs:54 enforce_validity
   enforce_validity(_ecx: InterpCx, _layout: TyAndLayout): boolean {
-    return unported("rustc_const_eval::const_eval::dummy_machine::DummyMachine::enforce_validity");
+    return false;
   }
 
-  // stub: compiler/rustc_const_eval/src/const_eval/dummy_machine.rs:58 before_access_global (lane ctfe-a)
+  // rustc: compiler/rustc_const_eval/src/const_eval/dummy_machine.rs:58 before_access_global
   override before_access_global(_tcx: TyCtxtAt, _machine: DummyMachine, _alloc_id: AllocId, alloc: ConstAllocation, _static_def_id: DefId | undefined, is_write: boolean): InterpResult {
-    return unported("rustc_const_eval::const_eval::dummy_machine::DummyMachine::before_access_global");
+    if (is_write) {
+      // throw_machine_stop_str!("can't write to global");
+      return Err(InterpErrorInfo_from_InterpErrorKind({ $: "MachineStop", _0: new Zst("can't write to global") }));
+    }
+
+    // If the static allocation is mutable, then we can't const prop it as its content
+    // might be different at runtime.
+    if (Mutability.is_mut(alloc.inner().mutability)) {
+      // throw_machine_stop_str!("can't access mutable globals in ConstProp");
+      return Err(InterpErrorInfo_from_InterpErrorKind({ $: "MachineStop", _0: new Zst("can't access mutable globals in ConstProp") }));
+    }
+
+    return interp_ok(undefined);
   }
 
-  // stub: compiler/rustc_const_eval/src/const_eval/dummy_machine.rs:79 find_mir_or_eval_fn (lane ctfe-a)
+  // rustc: compiler/rustc_const_eval/src/const_eval/dummy_machine.rs:79 find_mir_or_eval_fn
   find_mir_or_eval_fn(_ecx: InterpCx, _instance: Instance, _abi: FnAbi<Ty>, _args: readonly FnArg[], _destination: PlaceTy, _target: BasicBlock | undefined, _unwind: UnwindAction): InterpResult<[Body, Instance] | undefined> {
-    return unported("rustc_const_eval::const_eval::dummy_machine::DummyMachine::find_mir_or_eval_fn");
+    return panic("not implemented");
   }
 
-  // stub: compiler/rustc_const_eval/src/const_eval/dummy_machine.rs:91 panic_nounwind (lane ctfe-a)
+  // rustc: compiler/rustc_const_eval/src/const_eval/dummy_machine.rs:91 panic_nounwind
   panic_nounwind(_ecx: InterpCx, _msg: string): InterpResult {
-    return unported("rustc_const_eval::const_eval::dummy_machine::DummyMachine::panic_nounwind");
+    return panic("not implemented");
   }
 
-  // stub: compiler/rustc_const_eval/src/const_eval/dummy_machine.rs:98 call_intrinsic (lane ctfe-a)
+  // rustc: compiler/rustc_const_eval/src/const_eval/dummy_machine.rs:98 call_intrinsic
   call_intrinsic(_ecx: InterpCx, _instance: Instance, _args: readonly OpTy[], _destination: PlaceTy, _target: BasicBlock | undefined, _unwind: UnwindAction): InterpResult<Instance | undefined> {
-    return unported("rustc_const_eval::const_eval::dummy_machine::DummyMachine::call_intrinsic");
+    return panic("not implemented");
   }
 
-  // stub: compiler/rustc_const_eval/src/const_eval/dummy_machine.rs:109 call_llvm_intrinsic (lane ctfe-a)
+  // rustc: compiler/rustc_const_eval/src/const_eval/dummy_machine.rs:109 call_llvm_intrinsic
   call_llvm_intrinsic(_ecx: InterpCx, _instance: Instance, _args: readonly OpTy[], _destination: PlaceTy, _target: BasicBlock | undefined): InterpResult {
-    return unported("rustc_const_eval::const_eval::dummy_machine::DummyMachine::call_llvm_intrinsic");
+    return panic("not implemented");
   }
 
-  // stub: compiler/rustc_const_eval/src/const_eval/dummy_machine.rs:119 assert_panic (lane ctfe-a)
+  // rustc: compiler/rustc_const_eval/src/const_eval/dummy_machine.rs:119 assert_panic
   assert_panic(_ecx: InterpCx, _msg: AssertMessage, _unwind: UnwindAction): InterpResult {
-    return unported("rustc_const_eval::const_eval::dummy_machine::DummyMachine::assert_panic");
+    return panic("not implemented");
   }
 
-  // stub: compiler/rustc_const_eval/src/const_eval/dummy_machine.rs:128 runtime_checks (lane ctfe-a)
+  // rustc: compiler/rustc_const_eval/src/const_eval/dummy_machine.rs:128 runtime_checks
   runtime_checks(_ecx: InterpCx, r: RuntimeChecks): InterpResult<boolean> {
-    return unported("rustc_const_eval::const_eval::dummy_machine::DummyMachine::runtime_checks");
+    // Runtime checks have different value depending on the crate they are codegenned in.
+    // Verify we aren't trying to evaluate them in mir-optimizations.
+    return panic(`compiletime machine evaluated ${debug_RuntimeChecks(r, PLAIN)}`);
   }
 
-  // stub: compiler/rustc_const_eval/src/const_eval/dummy_machine.rs:134 binary_ptr_op (lane ctfe-a)
+  // rustc: compiler/rustc_const_eval/src/const_eval/dummy_machine.rs:134 binary_ptr_op
   binary_ptr_op(ecx: InterpCx, bin_op: BinOp, left: ImmTy, right: ImmTy): InterpResult<ImmTy> {
-    return unported("rustc_const_eval::const_eval::dummy_machine::DummyMachine::binary_ptr_op");
+    // use rustc_middle::mir::BinOp::*;
+    let res_: ImmTy;
+    switch (bin_op) {
+      case "Eq":
+      case "Ne":
+      case "Lt":
+      case "Le":
+      case "Gt":
+      case "Ge": {
+        // Types can differ, e.g. fn ptrs with different `for`.
+        assert_eq(left.layout.backend_repr, right.layout.backend_repr, (v) => debug_BackendRepr(v, PLAIN), BackendRepr_eq);
+        const size = PointerArithmetic_provided.pointer_size(ecx);
+        // Just compare the bits. ScalarPairs are compared lexicographically.
+        // We thus always compare pairs and simply fill scalars up with 0.
+        // If the pointer has provenance, `to_bits` will return `Err` and we bail out.
+        let left_: [bigint, bigint];
+        const l = left.imm;
+        switch (l.$) {
+          case "Scalar": {
+            const b = Scalar.to_bits(l._0, size);
+            if (b.$ === "Err") return b;
+            left_ = [b._0, 0n];
+            break;
+          }
+          case "ScalarPair": {
+            const b1 = Scalar.to_bits(l._0, size);
+            if (b1.$ === "Err") return b1;
+            const b2 = Scalar.to_bits(l._1, size);
+            if (b2.$ === "Err") return b2;
+            left_ = [b1._0, b2._0];
+            break;
+          }
+          case "Uninit":
+            return panic("we should never see uninit data here");
+        }
+        let right_: [bigint, bigint];
+        const r = right.imm;
+        switch (r.$) {
+          case "Scalar": {
+            const b = Scalar.to_bits(r._0, size);
+            if (b.$ === "Err") return b;
+            right_ = [b._0, 0n];
+            break;
+          }
+          case "ScalarPair": {
+            const b1 = Scalar.to_bits(r._0, size);
+            if (b1.$ === "Err") return b1;
+            const b2 = Scalar.to_bits(r._1, size);
+            if (b2.$ === "Err") return b2;
+            right_ = [b1._0, b2._0];
+            break;
+          }
+          case "Uninit":
+            return panic("we should never see uninit data here");
+        }
+        // PORT: tuple `PartialOrd` is lexicographic.
+        const cmp = left_[0] < right_[0] ? -1 : left_[0] > right_[0] ? 1 : left_[1] < right_[1] ? -1 : left_[1] > right_[1] ? 1 : 0;
+        let res: boolean;
+        switch (bin_op) {
+          case "Eq":
+            res = cmp === 0;
+            break;
+          case "Ne":
+            res = cmp !== 0;
+            break;
+          case "Lt":
+            res = cmp < 0;
+            break;
+          case "Le":
+            res = cmp <= 0;
+            break;
+          case "Gt":
+            res = cmp > 0;
+            break;
+          case "Ge":
+            res = cmp >= 0;
+            break;
+        }
+        res_ = ImmTy.from_bool(res, ecx.tcx.tcx);
+        break;
+      }
+
+      // Some more operations are possible with atomics.
+      // The return value always has the provenance of the *left* operand.
+      case "Add":
+      case "Sub":
+      case "BitOr":
+      case "BitAnd":
+      case "BitXor": {
+        // throw_machine_stop_str!("pointer arithmetic is not handled")
+        return Err(InterpErrorInfo_from_InterpErrorKind({ $: "MachineStop", _0: new Zst("pointer arithmetic is not handled") }));
+      }
+
+      default:
+        return span_bug(ecx.cur_span(), `Invalid operator on pointers: ${debug_BinOp(bin_op, PLAIN)}`);
+    }
+    return interp_ok(res_);
   }
 
-  // stub: compiler/rustc_const_eval/src/const_eval/dummy_machine.rs:181 expose_provenance (lane ctfe-a)
+  // rustc: compiler/rustc_const_eval/src/const_eval/dummy_machine.rs:181 expose_provenance
   expose_provenance(_ecx: InterpCx, _provenance: CtfeProvenance): InterpResult {
-    return unported("rustc_const_eval::const_eval::dummy_machine::DummyMachine::expose_provenance");
+    return panic("not implemented");
   }
 
   // rustc: compiler/rustc_const_eval/src/const_eval/dummy_machine.rs:188 init_frame
@@ -125,12 +242,26 @@ export class DummyMachine extends compile_time_machine implements HasStaticRootD
 
 /** The `throw_machine_stop_str!` macro's local `#[derive(Debug)] struct Zst` (its `Display` prints the macro's
  * format arguments, held here already formatted). */
-export class Zst {
+// PORT: `impl rustc_middle::mir::interpret::MachineStopType for Zst {}`: the class is the `Box<dyn MachineStopType>`
+// (`display` is its `Display`, `debug` the derived `Debug`, `with_validation_path` the provided method).
+export class Zst implements MachineStopType {
   constructor(readonly msg: string) {}
+
+  display(): string {
+    return display_Zst(this, PLAIN);
+  }
+
+  debug(_f: Fmt): string {
+    return "Zst";
+  }
+
+  with_validation_path(path: string): void {
+    MachineStopType_provided.with_validation_path(this, path);
+  }
 }
 
 // impl Display for Zst
-// stub: compiler/rustc_const_eval/src/const_eval/dummy_machine.rs:25 fmt (lane ctfe-a)
+// rustc: compiler/rustc_const_eval/src/const_eval/dummy_machine.rs:25 fmt
 export function display_Zst(self: Zst, f: Fmt): string {
-  return unported("rustc_const_eval::const_eval::dummy_machine::Zst::fmt");
+  return self.msg;
 }

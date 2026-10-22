@@ -2,23 +2,66 @@
 // (`// stub: <path>:<line> <name> (lane <lane>)` over its final signature, body `unported(..)`) for the lane
 // ctfe-a; docs/handoff/interp-contract.md has the split table, the conventions and "How to fill a stub"
 // (interpret/eval_context.ts's header has the representation notes).
-import { CanAccessMutGlobal, type CompileTimeInterpCx, CompileTimeMachine, CheckAlignment } from "./machine.ts";
-import { InternKind } from "../interpret/intern.ts";
-import { type AllocId, type ErrorHandled, type EvalStaticInitializerRawResult, type EvalToAllocationRawResult, type EvalToConstValueResult, GlobalId, type InterpErrorInfo, InterpResult } from "../../rustc_middle/mir/interpret/mod.ts";
-import { type Body, type ConstAlloc, type ConstValue } from "../../rustc_middle/mir/mod.ts";
+import { CanAccessMutGlobal, CanAccessMutGlobal_from_bool, type CompileTimeInterpCx, CompileTimeMachine, CheckAlignment } from "./machine.ts";
+import { report } from "./error.ts";
+import { InternKind, intern_const_alloc_recursive } from "../interpret/intern.ts";
+import {
+  type AllocId,
+  CtfeProvenance,
+  debug_InterpErrorInfo,
+  type ErrorHandled,
+  type EvalStaticInitializerRawResult,
+  type EvalToAllocationRawResult,
+  type EvalToConstValueResult,
+  GlobalId,
+  type InterpErrorInfo,
+  InterpErrorInfo_from_ErrorHandled,
+  InterpErrorInfo_from_InterpErrorKind,
+  InterpResult,
+  interp_ok,
+  ReportedErrorInfo,
+  Scalar,
+} from "../../rustc_middle/mir/interpret/mod.ts";
+import { type Body, type ConstAlloc, ConstValue, type Either } from "../../rustc_middle/mir/mod.ts";
 import { type TyCtxtAt } from "../../rustc_middle/query/calls.ts";
 import { type TyCtxt } from "../../rustc_middle/ty/context.ts";
 import { type TyAndLayout } from "../../rustc_middle/ty/layout.ts";
 import { type PseudoCanonicalInput, type Ty, TypingEnv } from "../../rustc_middle/ty/mod.ts";
+import { display_Ty, with_no_trimmed_paths } from "../../rustc_middle/ty/print/pretty.ts";
+import { fold_Ty } from "../../rustc_middle/ty/structural_impls.ts";
 import { LocalDefId } from "../../rustc_span/def_id.ts";
-import { Instance } from "../../rustc_middle/ty/instance.ts";
+import { display_Instance, Instance, InstanceKind } from "../../rustc_middle/ty/instance.ts";
 import { TypingMode } from "../../rustc_type_ir/infer_ctxt.ts";
+import { EarlyBinder } from "../../rustc_type_ir/binder.ts";
+import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
+import { debug_DefKind } from "../../rustc_hir/def.gen.ts";
+import { debug_Size, Size } from "../../rustc_abi/lib.ts";
+import { type ErrorGuaranteed } from "../../rustc_span/lib.ts";
 import { type Span } from "../../rustc_span/lib.ts";
-import { assert, unported } from "../../std/panic.ts";
-import { Ok, type Result } from "../../std/result.ts";
-import { OpTy } from "../interpret/operand.gen.ts";
-import { MPlaceTy } from "../interpret/place.gen.ts";
+import { bug } from "../../rustc_span/macros.ts";
+import { PLAIN } from "../../std/fmt.ts";
+import { assert, panic, unwrap } from "../../std/panic.ts";
+import { Err, expect_result, Ok, type Result, unwrap_result } from "../../std/result.ts";
+import * as diagnostics from "../diagnostics.ts";
+import { FrameNote_add_to_diag, type FrameNote } from "../diagnostics.ts";
+import { ImmTy, OpTy } from "../interpret/operand.gen.ts";
+import { OpTy_from_MPlaceTy } from "../interpret/operand.ts";
+import { MPlaceTy, clone_MPlaceTy } from "../interpret/place.gen.ts";
+import { key_MPlaceTy, PlaceTy_from_MPlaceTy } from "../interpret/place.ts";
+import { MemoryKind } from "../interpret/memory.ts";
+import { CtfeValidationMode, RefTracking } from "../interpret/validity.ts";
 import { InterpCx } from "../interpret/eval_context.ts";
+import type { Subdiagnostic } from "../../rustc_errors/lib.ts";
+
+/** Lazy util/mod.ts (`crate::util::context_spans`). */
+function crate_util(): typeof import("../util/mod.ts") {
+  return require("../util/mod.ts") as typeof import("../util/mod.ts");
+}
+
+/** `impl Subdiagnostic for FrameNote` (diagnostics.rs) as a trait object. */
+function FrameNote_subdiagnostic(self: FrameNote): Subdiagnostic {
+  return { add_to_diag: (diag) => FrameNote_add_to_diag(self, diag) };
+}
 
 // pub trait InterpretationResult<'tcx>
 // PORT: an impl table; a generic `R: InterpretationResult` is the table `R_` passed first (precedent mt-promote's
@@ -67,24 +110,160 @@ export function retry_codegen_mode_with_postanalysis<K, V>(
   return undefined;
 }
 
-// stub: compiler/rustc_const_eval/src/const_eval/eval_queries.rs:54 setup_for_eval (lane ctfe-a)
+// rustc: compiler/rustc_const_eval/src/const_eval/eval_queries.rs:54 setup_for_eval
 export function setup_for_eval(ecx: CompileTimeInterpCx, cid: GlobalId, layout: TyAndLayout): InterpResult<[InternKind, MPlaceTy]> {
-  return unported("rustc_const_eval::const_eval::eval_queries::setup_for_eval");
+  const tcx = ecx.tcx.tcx;
+  const k = ecx.tcx.def_kind(Instance.def_id(cid.instance));
+  if (
+    !(
+      cid.promoted !== undefined ||
+      k.$ === "Const" ||
+      k.$ === "Static" ||
+      k.$ === "ConstParam" ||
+      k.$ === "AnonConst" ||
+      k.$ === "AssocConst"
+    )
+  ) {
+    panic(`Unexpected DefKind: ${debug_DefKind(ecx.tcx.def_kind(Instance.def_id(cid.instance)), PLAIN)}`);
+  }
+  assert(layout.is_sized(), "assertion failed: layout.is_sized()");
+
+  let intern_kind: InternKind;
+  if (cid.promoted !== undefined) {
+    intern_kind = InternKind.Promoted;
+  } else {
+    const m = tcx.static_mutability(Instance.def_id(cid.instance));
+    if (m !== undefined) {
+      intern_kind = { $: "Static", _0: m };
+    } else {
+      intern_kind = InternKind.Constant;
+    }
+  }
+
+  let return_place: InterpResult<MPlaceTy>;
+  if (intern_kind.$ === "Static") {
+    return_place = interpret_util().create_static_alloc(ecx, Instance.def_id(cid.instance).expect_local(), layout);
+  } else {
+    return_place = ecx.allocate(layout, MemoryKind.Stack);
+  }
+
+  return InterpResult.map(return_place, (ret): [InternKind, MPlaceTy] => [intern_kind, ret]);
 }
 
-// stub: compiler/rustc_const_eval/src/const_eval/eval_queries.rs:94 eval_body_using_ecx (lane ctfe-a)
+// #[instrument(level = "trace", skip(ecx, body))]
+// rustc: compiler/rustc_const_eval/src/const_eval/eval_queries.rs:94 eval_body_using_ecx
 export function eval_body_using_ecx<R>(R_: InterpretationResult<R>, ecx: CompileTimeInterpCx, cid: GlobalId, body: Body): InterpResult<R> {
-  return unported("rustc_const_eval::const_eval::eval_queries::eval_body_using_ecx");
+  const tcx = ecx.tcx.tcx;
+  const ty = Unnormalized.skip_norm_wip(EarlyBinder.instantiate(body.bound_return_ty(tcx), tcx, cid.instance.args, fold_Ty));
+  const r0 = interpret_util().ensure_monomorphic_enough(ty, fold_Ty);
+  if (r0.$ === "Err") return r0;
+
+  const layout_r = ecx.layout_of(ty);
+  if (layout_r.$ === "Err") return Err(InterpErrorInfo_from_InterpErrorKind(layout_r._0));
+  const layout = layout_r._0;
+  const setup = setup_for_eval(ecx, cid, layout);
+  if (setup.$ === "Err") return setup;
+  const [intern_kind, ret] = setup._0;
+
+  // trace!(
+  //     "eval_body_using_ecx: pushing stack frame for global: {}{}",
+  //     with_no_trimmed_paths!(ecx.tcx.def_path_str(cid.instance.def_id())),
+  //     cid.promoted.map_or_else(String::new, |p| format!("::{p:?}"))
+  // );
+
+  // This can't use `init_stack_frame` since `body` is not a function,
+  // so computing its ABI would fail. It's also not worth it since there are no arguments to pass.
+  const r1 = ecx.push_stack_frame_raw(cid.instance, body, PlaceTy_from_MPlaceTy(clone_MPlaceTy(ret)), { $: "Stop", cleanup: false });
+  if (r1.$ === "Err") return r1;
+  const r2 = ecx.push_stack_frame_done();
+  if (r2.$ === "Err") return r2;
+
+  // The main interpreter loop.
+  for (;;) {
+    const s = ecx.step();
+    if (s.$ === "Err") return s;
+    if (!s._0) break;
+    if (crate().CTRL_C_RECEIVED.value) {
+      // throw_exhaust!(Interrupted)
+      return Err(InterpErrorInfo_from_InterpErrorKind({ $: "ResourceExhaustion", _0: "Interrupted" }));
+    }
+  }
+
+  return intern_and_validate(R_, ecx, cid, intern_kind, ret);
 }
 
-// stub: compiler/rustc_const_eval/src/const_eval/eval_queries.rs:133 eval_trivial_const_using_ecx (lane ctfe-a)
+// #[instrument(level = "trace", skip(ecx))]
+// rustc: compiler/rustc_const_eval/src/const_eval/eval_queries.rs:133 eval_trivial_const_using_ecx
 export function eval_trivial_const_using_ecx<R>(R_: InterpretationResult<R>, ecx: CompileTimeInterpCx, cid: GlobalId, val: ConstValue, ty: Ty): InterpResult<R> {
-  return unported("rustc_const_eval::const_eval::eval_queries::eval_trivial_const_using_ecx");
+  const layout_r = ecx.layout_of(ty);
+  if (layout_r.$ === "Err") return Err(InterpErrorInfo_from_InterpErrorKind(layout_r._0));
+  const layout = layout_r._0;
+  const setup = setup_for_eval(ecx, cid, layout);
+  if (setup.$ === "Err") return setup;
+  const [intern_kind, return_place] = setup._0;
+
+  const opty = ecx.const_val_to_op(val, ty, layout);
+  if (opty.$ === "Err") return opty;
+  const r = ecx.copy_op(opty._0, return_place);
+  if (r.$ === "Err") return r;
+
+  return intern_and_validate(R_, ecx, cid, intern_kind, return_place);
 }
 
-// stub: compiler/rustc_const_eval/src/const_eval/eval_queries.rs:148 intern_and_validate (lane ctfe-a)
+// rustc: compiler/rustc_const_eval/src/const_eval/eval_queries.rs:148 intern_and_validate
 export function intern_and_validate<R>(R_: InterpretationResult<R>, ecx: CompileTimeInterpCx, cid: GlobalId, intern_kind: InternKind, ret: MPlaceTy): InterpResult<R> {
-  return unported("rustc_const_eval::const_eval::eval_queries::intern_and_validate");
+  // Intern the result
+  const intern_result = intern_const_alloc_recursive(ecx, intern_kind, ret);
+
+  // Since evaluation had no errors, validate the resulting constant.
+  const v = const_validate_mplace(ecx, ret, cid);
+  // `?` on `Result<(), ErrorHandled>` (`From<ErrorHandled> for InterpErrorInfo`)
+  if (v.$ === "Err") return Err(InterpErrorInfo_from_ErrorHandled(v._0));
+
+  // Only report this after validation, as validation produces much better diagnostics.
+  // FIXME: ensure validation always reports this and stop making interning care about it.
+
+  if (intern_result.$ === "Err") {
+    let guar: ErrorGuaranteed;
+    switch (intern_result._0) {
+      case "DanglingPointer":
+        guar = ecx.tcx.tcx.dcx().emit_err(
+          diagnostics.DanglingPtrInFinal_diagnostic({
+            span: ecx.tcx.span,
+            kind: intern_kind,
+          }),
+        );
+        break;
+      case "BadMutablePointer":
+        guar = ecx.tcx.tcx.dcx().emit_err(
+          diagnostics.MutablePtrInFinal_diagnostic({
+            span: ecx.tcx.span,
+            kind: intern_kind,
+          }),
+        );
+        break;
+      case "ConstAllocNotGlobal":
+        guar = ecx.tcx.tcx.dcx().emit_err(diagnostics.ConstHeapPtrInFinal_diagnostic({ span: ecx.tcx.span }));
+        break;
+      case "PartialPointer":
+        guar = ecx.tcx.tcx.dcx().emit_err(
+          diagnostics.PartialPtrInFinal_diagnostic({
+            span: ecx.tcx.span,
+            kind: intern_kind,
+          }),
+        );
+        break;
+    }
+    // throw_inval!(AlreadyReported(ReportedErrorInfo::non_const_eval_error(..)))
+    return Err(
+      InterpErrorInfo_from_InterpErrorKind({
+        $: "InvalidProgram",
+        _0: { $: "AlreadyReported", _0: ReportedErrorInfo.non_const_eval_error(guar) },
+      }),
+    );
+  }
+
+  return interp_ok(R_.make_result(ret, ecx));
 }
 
 /// The `InterpCx` is only meant to be used to do field and index projections into constants for
@@ -114,14 +293,128 @@ export function mk_eval_cx_for_const_val(tcx: TyCtxtAt, typing_env: TypingEnv, v
   return [ecx, op];
 }
 
-// stub: compiler/rustc_const_eval/src/const_eval/eval_queries.rs:245 op_to_const (lane ctfe-a)
+/// This function converts an interpreter value into a MIR constant.
+///
+/// The `for_diagnostics` flag turns the usual rules for returning `ConstValue::Scalar` into a
+/// best-effort attempt. This is not okay for use in const-eval sine it breaks invariants rustc
+/// relies on, but it is okay for diagnostics which will just give up gracefully when they
+/// encounter an `Indirect` they cannot handle.
+// #[instrument(skip(ecx), level = "debug")]
+// rustc: compiler/rustc_const_eval/src/const_eval/eval_queries.rs:245 op_to_const
 export function op_to_const(ecx: CompileTimeInterpCx, op: OpTy, for_diagnostics: boolean): ConstValue {
-  return unported("rustc_const_eval::const_eval::eval_queries::op_to_const");
+  // Handle ZST consistently and early.
+  if (op.layout.is_zst()) {
+    return ConstValue.ZeroSized;
+  }
+
+  // All scalar types should be stored as `ConstValue::Scalar`. This is needed to make
+  // `ConstValue::try_to_scalar` efficient; we want that to work for *all* constants of scalar
+  // type (it's used throughout the compiler and having it work just on literals is not enough)
+  // and we want it to be fast (i.e., don't go to an `Allocation` and reconstruct the `Scalar`
+  // from its byte-serialized form).
+  const br = op.layout.backend_repr;
+  const force_as_immediate =
+    br.$ === "Scalar" && br._0.$ === "Initialized"
+      ? true
+      : // We don't *force* `ConstValue::Slice` for `ScalarPair`. This has the advantage that if the
+        // input `op` is a place, then turning it into a `ConstValue` and back into a `OpTy` will
+        // not have to generate any duplicate allocations (we preserve the original `AllocId` in
+        // `ConstValue::Indirect`). It means accessing the contents of a slice can be slow (since
+        // they can be stored as `ConstValue::Indirect`), but that's not relevant since we barely
+        // ever have to do this. (`try_get_slice_bytes_for_diagnostics` exists to provide this
+        // functionality.)
+        false;
+  let immediate: Either<MPlaceTy, ImmTy>;
+  if (force_as_immediate) {
+    const r = InterpResult.report_err(ecx.read_immediate(op));
+    if (r.$ === "Ok") {
+      immediate = { $: "Right", _0: r._0 };
+    } else {
+      const err = r._0;
+      if (for_diagnostics) {
+        // This discard the error, but for diagnostics that's okay.
+        immediate = op.as_mplace_or_imm();
+      } else {
+        return panic(`normalization works on validated constants: ${debug_InterpErrorInfo(err, PLAIN)}`);
+      }
+    }
+  } else {
+    immediate = op.as_mplace_or_imm();
+  }
+
+  // debug!(?immediate);
+
+  switch (immediate.$) {
+    case "Left": {
+      const mplace = immediate._0;
+      const [prov, offset] = unwrap_result(mplace.ptr().into_pointer_or_addr<CtfeProvenance>(), debug_Size).prov_and_relative_offset();
+      const alloc_id = CtfeProvenance.alloc_id(prov);
+      return { $: "Indirect", alloc_id, offset };
+    }
+    // see comment on `let force_as_immediate` above
+    case "Right": {
+      const imm = immediate._0;
+      const v = imm.imm;
+      switch (v.$) {
+        case "Scalar":
+          return { $: "Scalar", _0: v._0 };
+        case "ScalarPair": {
+          const a = v._0;
+          const b = v._1;
+          // debug!("ScalarPair(a: {:?}, b: {:?})", a, b);
+          // This codepath solely exists for `valtree_to_const_value` to not need to generate
+          // a `ConstValue::Indirect` for wide references, so it is tightly restricted to just
+          // that case.
+          const _pointee_ty = unwrap(imm.layout.ty.builtin_deref(false)); // `false` = no raw ptrs
+          // debug_assert!(
+          //     matches!(
+          //         ecx.tcx.struct_tail_for_codegen(pointee_ty, ecx.typing_env()).kind(),
+          //         ty::Str | ty::Slice(..),
+          //     ),
+          //     "`ConstValue::Slice` is for slice-tailed types only, but got {}",
+          //     imm.layout.ty,
+          // );
+          const msg = "`op_to_const` on an immediate scalar pair must only be used on slice references to the beginning of an actual allocation";
+          const ptr = Scalar.to_pointer(a, ecx);
+          const [prov, offset] = expect_result(ptr.into_pointer_or_addr<CtfeProvenance>(), msg, debug_Size).prov_and_relative_offset();
+          const alloc_id = CtfeProvenance.alloc_id(prov);
+          assert(offset.bytes() === Size.ZERO.bytes(), msg);
+          const meta = InterpResult.expect(Scalar.to_target_usize(b, ecx), msg);
+          // PORT: `ConstValue::Slice.meta` (u64) is a number (generated); a slice length stays below 2^53.
+          return { $: "Slice", alloc_id, meta: Number(meta) };
+        }
+        case "Uninit":
+          return bug(`\`Uninit\` is not a valid value for ${display_Ty(op.layout.ty)}`);
+      }
+    }
+  }
 }
 
-// stub: compiler/rustc_const_eval/src/const_eval/eval_queries.rs:328 turn_into_const_value (lane ctfe-a)
+// #[instrument(skip(tcx), level = "debug", ret)]
+// rustc: compiler/rustc_const_eval/src/const_eval/eval_queries.rs:328 turn_into_const_value
 export function turn_into_const_value(tcx: TyCtxt, constant: ConstAlloc, key: PseudoCanonicalInput<GlobalId>): ConstValue {
-  return unported("rustc_const_eval::const_eval::eval_queries::turn_into_const_value");
+  const cid = key.value;
+  const def_id = InstanceKind.def_id(cid.instance.def);
+  const is_static = tcx.is_static(def_id);
+  // This is just accessing an already computed constant, so no need to check alignment here.
+  const ecx = mk_eval_cx_to_read_const_val(
+    tcx,
+    tcx.def_span(Instance.def_id(key.value.instance)),
+    key.typing_env,
+    CanAccessMutGlobal_from_bool(is_static),
+  );
+
+  const mplace = InterpResult.expect(
+    ecx.raw_const_to_mplace(constant),
+    "can only fail if layout computation failed, " + "which should have given a good error before ever invoking this function",
+  );
+  assert(
+    !is_static || cid.promoted !== undefined,
+    "the `eval_to_const_value_raw` query should not be used for statics, use `eval_to_allocation` instead",
+  );
+
+  // Turn this into a proper constant.
+  return op_to_const(ecx, OpTy_from_MPlaceTy(mplace), /* for diagnostics */ false);
 }
 
 // #[instrument(skip(tcx), level = "debug")]
@@ -154,16 +447,17 @@ export function eval_static_initializer_provider(tcx: TyCtxt, def_id: LocalDefId
   return eval_in_interpreter(interpret_util().InterpretationResult_ConstAllocation, tcx, cid, TypingEnv.fully_monomorphized());
 }
 
-/** Lazy interpret/util.ts (`impl InterpretationResult for ConstAllocation`). */
+/** Lazy interpret/util.ts (`impl InterpretationResult for ConstAllocation`, `create_static_alloc`,
+ *  `ensure_monomorphic_enough`). */
 function interpret_util(): typeof import("../interpret/util.ts") {
   return require("../interpret/util.ts") as typeof import("../interpret/util.ts");
 }
 
 // impl<'tcx> InterpretationResult<'tcx> for ConstAlloc<'tcx>
 export const InterpretationResult_ConstAlloc: InterpretationResult<ConstAlloc> = {
-  // stub: compiler/rustc_const_eval/src/const_eval/eval_queries.rs:400 make_result (lane ctfe-a)
+  // rustc: compiler/rustc_const_eval/src/const_eval/eval_queries.rs:400 make_result
   make_result(mplace: MPlaceTy, _ecx: CompileTimeInterpCx): ConstAlloc {
-    return unported("rustc_const_eval::const_eval::eval_queries::ConstAlloc::make_result");
+    return { alloc_id: CtfeProvenance.alloc_id(unwrap(mplace.ptr().provenance)), ty: mplace.layout.ty };
   },
 };
 
@@ -189,22 +483,111 @@ export function eval_to_allocation_raw_provider(tcx: TyCtxt, key: PseudoCanonica
   return eval_in_interpreter(InterpretationResult_ConstAlloc, tcx, key.value, key.typing_env);
 }
 
-// stub: compiler/rustc_const_eval/src/const_eval/eval_queries.rs:437 eval_in_interpreter (lane ctfe-a)
+// rustc: compiler/rustc_const_eval/src/const_eval/eval_queries.rs:437 eval_in_interpreter
 export function eval_in_interpreter<R>(R_: InterpretationResult<R>, tcx: TyCtxt, cid: GlobalId, typing_env: TypingEnv): Result<R, ErrorHandled> {
-  return unported("rustc_const_eval::const_eval::eval_queries::eval_in_interpreter");
+  const def = InstanceKind.def_id(cid.instance.def);
+  // directly represented consts don't have bodies
+  // PORT: `if cfg!(debug_assertions) && matches!(tcx.def_kind(def), DefKind::Const | DefKind::AssocConst) {
+  // debug_assert!(tcx.const_of_item(def).is_none(), ..) }` is skipped: rustc ships without debug assertions.
+
+  const is_static = tcx.is_static(def);
+  const ecx: CompileTimeInterpCx = InterpCx.new(
+    tcx,
+    tcx.def_span(def),
+    typing_env,
+    // Statics (and promoteds inside statics) may access mutable global memory, because unlike consts
+    // they do not have to behave "as if" they were evaluated at runtime.
+    // For consts however we want to ensure they behave "as if" they were evaluated at runtime,
+    // so we have to reject reading mutable global memory.
+    CompileTimeMachine.new(CanAccessMutGlobal_from_bool(is_static), CheckAlignment.Error),
+  );
+
+  let result: InterpResult<R>;
+  const trivial = tcx.trivial_const(def);
+  if (trivial !== undefined) {
+    const [value, ty] = trivial;
+    result = eval_trivial_const_using_ecx(R_, ecx, cid, value, ty);
+  } else {
+    result = InterpResult.and_then(ecx.load_mir(cid.instance.def, cid.promoted), (body) => eval_body_using_ecx(R_, ecx, cid, body));
+  }
+  const r = InterpResult.report_err(result);
+  return r.$ === "Ok" ? r : Err(report_eval_error(ecx, cid, r._0));
 }
 
-// stub: compiler/rustc_const_eval/src/const_eval/eval_queries.rs:473 const_validate_mplace (lane ctfe-a)
+// #[inline(always)]
+// rustc: compiler/rustc_const_eval/src/const_eval/eval_queries.rs:473 const_validate_mplace
 export function const_validate_mplace(ecx: CompileTimeInterpCx, mplace: MPlaceTy, cid: GlobalId): Result<undefined, ErrorHandled> {
-  return unported("rustc_const_eval::const_eval::eval_queries::const_validate_mplace");
+  const alloc_id = CtfeProvenance.alloc_id(unwrap(mplace.ptr().provenance));
+  const ref_tracking = RefTracking.new(clone_MPlaceTy(mplace), mplace.layout.ty, key_MPlaceTy);
+  let inner = false;
+  for (;;) {
+    const next = ref_tracking.next();
+    if (next === undefined) break;
+    const [mplace, path] = next;
+    let mode: CtfeValidationMode;
+    const mutbl = ecx.tcx.tcx.static_mutability(Instance.def_id(cid.instance));
+    if (cid.promoted !== undefined) {
+      mode = CtfeValidationMode.Promoted;
+    } else if (mutbl !== undefined) {
+      mode = { $: "Static", mutbl }; // a `static`
+    } else {
+      // This is a normal `const` (not promoted).
+      // The outermost allocation is always only copied, so having `UnsafeCell` in there
+      // is okay despite them being in immutable memory.
+      mode = { $: "Const", allow_immutable_unsafe_cell: !inner };
+    }
+    const r = InterpResult.report_err(ecx.const_validate_place(PlaceTy_from_MPlaceTy(mplace), path, ref_tracking, mode));
+    // Instead of just reporting the `InterpError` via the usual machinery, we give a more targeted
+    // error about the validation failure.
+    if (r.$ === "Err") return Err(report_validation_error(ecx, cid, r._0, alloc_id));
+    inner = true;
+  }
+
+  return Ok(undefined);
 }
 
-// stub: compiler/rustc_const_eval/src/const_eval/eval_queries.rs:504 report_eval_error (lane ctfe-a)
+// #[inline(never)]
+// rustc: compiler/rustc_const_eval/src/const_eval/eval_queries.rs:504 report_eval_error
 export function report_eval_error(ecx: CompileTimeInterpCx, cid: GlobalId, error: InterpErrorInfo): ErrorHandled {
-  return unported("rustc_const_eval::const_eval::eval_queries::report_eval_error");
+  const [error_, backtrace] = error.into_parts();
+  backtrace.print_backtrace();
+
+  return report(ecx, error_, (diag, span, frames) => {
+    const num_frames = frames.length;
+    diag.span_label(
+      span,
+      `evaluation of \`${with_no_trimmed_paths(() => display_Instance(cid.instance))}\` failed ${num_frames === 0 ? "here" : "inside this call"}`,
+    );
+    for (const span_ of crate_util().context_spans(ecx.tcx.tcx, span, Instance.def_id(cid.instance))) {
+      diag.span_context(span_);
+    }
+    for (const frame of frames) {
+      diag.subdiagnostic(FrameNote_subdiagnostic(frame));
+    }
+  });
 }
 
-// stub: compiler/rustc_const_eval/src/const_eval/eval_queries.rs:532 report_validation_error (lane ctfe-a)
+// #[inline(never)]
+// rustc: compiler/rustc_const_eval/src/const_eval/eval_queries.rs:532 report_validation_error
 export function report_validation_error(ecx: CompileTimeInterpCx, cid: GlobalId, error: InterpErrorInfo, alloc_id: AllocId): ErrorHandled {
-  return unported("rustc_const_eval::const_eval::eval_queries::report_validation_error");
+  if (!(error.kind().$ === "UndefinedBehavior")) {
+    // Some other error happened during validation, e.g. an unsupported operation.
+    return report_eval_error(ecx, cid, error);
+  }
+
+  const [error_, backtrace] = error.into_parts();
+  backtrace.print_backtrace();
+
+  const bytes = ecx.print_alloc_bytes_for_diagnostics(alloc_id);
+  const info = ecx.get_alloc_info(alloc_id);
+  const raw_bytes: diagnostics.RawBytesNote = { size: info.size.bytes(), align: info.align.bytes(), bytes };
+
+  return report(ecx, error_, (diag, span, frames) => {
+    diag.span_label(span, "it is undefined behavior to use this value");
+    diag.note(
+      "the rules on what exactly is undefined behavior aren't clear, so this check might be overzealous. Please open an issue on the rustc repository if you believe it should not be considered undefined behavior.",
+    );
+    assert(frames.length === 0, "assertion failed: frames.is_empty()"); // we just report validation errors for the final const here
+    diag.subdiagnostic(diagnostics.RawBytesNote_subdiagnostic(raw_bytes));
+  });
 }

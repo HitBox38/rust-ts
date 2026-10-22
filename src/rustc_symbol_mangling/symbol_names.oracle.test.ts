@@ -34,8 +34,11 @@ for (const [k, v] of Object.entries(process.env)) {
 }
 
 const STOP_CCI = "cross_crate_inlinable provider";
-// `eval_to_valtree` -> `eval_to_allocation_raw` -> the CTFE interpreter (lane interp-contract: `eval_in_interpreter`, lane ctfe-a)
-const STOP_CONST_EVAL = "rustc_const_eval::const_eval::eval_queries::eval_in_interpreter";
+// `eval_to_valtree` -> `eval_to_allocation_raw` -> the CTFE interpreter (`eval_in_interpreter`, lane ctfe-a): a const with
+// a body stops loading its MIR (`CompileTimeMachine::load_mir`, lane ctfe-b), a trivial const allocating its return place
+// (`InterpCx::allocate`, lane interp-place-operand)
+const STOP_CONST_EVAL = "rustc_const_eval::const_eval::machine::CompileTimeMachine::load_mir";
+const STOP_CONST_EVAL_TRIVIAL = "rustc_const_eval::interpret::place::InterpCx::allocate";
 const STOP_TY_HASH = "StableHash for Ty";
 /** The `unported` stop each case reaches instead of the oracle's output (exit 70). */
 const STOPS: Record<string, string> = {
@@ -53,9 +56,9 @@ const STOPS: Record<string, string> = {
   "tests/ui/symbol-names/issue-75326.rs#legacy": STOP_CCI,
   "tests/ui/symbol-names/issue-75326.rs#v0": STOP_CCI,
   "tests/ui/symbol-names/trait-objects.rs#v0": STOP_CCI,
-  "tests/ui/symbol-names/types.rs#legacy": STOP_CONST_EVAL,
-  "tests/ui/symbol-names/types.rs#v0": STOP_CONST_EVAL,
-  "tests/ui/symbol-names/types.rs#verbose-legacy": STOP_CONST_EVAL,
+  "tests/ui/symbol-names/types.rs#legacy": STOP_CONST_EVAL_TRIVIAL,
+  "tests/ui/symbol-names/types.rs#v0": STOP_CONST_EVAL_TRIVIAL,
+  "tests/ui/symbol-names/types.rs#verbose-legacy": STOP_CONST_EVAL_TRIVIAL,
 };
 
 const DIR = "tests/ui/symbol-names";
