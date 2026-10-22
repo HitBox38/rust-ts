@@ -271,6 +271,13 @@ export interface SetConfig {
    */
   decodable_import_gen?: string[];
   /**
+   * Hand modules (src-relative paths) through which this set's generated modules do *not* import items of another file
+   * of the set: they import them from that file's `.gen.ts` itself. For an extension module (assigns to a class of a
+   * defining module at load) that a defining module's `.gen.ts` imports would otherwise evaluate early, in the defining
+   * module's TDZ (lane builder-contract: scope.gen.ts -> matches/mod.ts, which extends `Builder` of builder/mod.ts).
+   */
+  import_gen?: string[];
+  /**
    * Type parameters erased from the TS types of this set's items (plan-m3 D3: `I: Interner`, generic code takes no
    * interner type). An erased parameter is dropped from the item's TS generics and from every reference's type
    * arguments at its position (`Binder<I, T>` -> `Binder<T>`, `ir::TraitRef<TyCtxt<'tcx>>` -> `TraitRef`), and
@@ -1244,6 +1251,7 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
      */
     const viaHand = (r: ItemRef): string => {
       if (r.mf === mf) return `gen:${r.mf.gen}`;
+      if (set.import_gen?.includes(r.mf.hand)) return `gen:${r.mf.gen}`;
       addStub(r.mf.hand, "*", `export * from "./${r.mf.gen.split("/").pop()}";`);
       return `src:${r.mf.hand}`;
     };
