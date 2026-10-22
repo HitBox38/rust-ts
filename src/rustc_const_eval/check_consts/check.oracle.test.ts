@@ -1,16 +1,15 @@
 // Oracle scenarios for check_consts/check.rs + ops.rs (lane const-check) against the pinned nightly rustc.
 //
-// Subject: check_oracle/run.ts (the ported driver up to the global ctxt, then what `mir_const_qualif` does for every
-// const-context body: `Checker::check_body` on the built MIR). Oracle: `rustc <file> --crate-type lib --edition 2021
+// Subject: check_oracle/run.ts (the ported driver up to the global ctxt, then the real `mir_const_qualif` query for
+// every const-context body). Oracle: `rustc <file> --crate-type lib --edition 2021
 // --emit=metadata` (stderr). Both sides compile the same file against the pinned toolchain's sysroot.
 //
 // Every case is a crate whose only errors are const-checking errors (E0015 non-const calls in their desugared forms,
 // E0492 / E0764 escaping borrows, E0493 live drops, E0658 feature-gated ops, function-pointer calls, raw pointer
 // casts and comparisons), so the subject's whole stderr must equal the oracle's, byte for byte.
 //
-// PENDING: while check_consts/{mod, qualifs, resolver, post_drop_elaboration}.rs (lane mt-promote) or
-// rustc_mir_dataflow's storage_liveness.rs (lane dataflow-impls) are stubs on this branch, a body stops UNPORTED in
-// them; such a case is reported PENDING (and passes). Any other UNPORTED stop fails.
+// Strict: any UNPORTED stop fails (the PENDING allowance for the mt-promote / dataflow-impls stubs is gone since
+// those lanes merged).
 //
 // Skips (visibly) if rustc is unavailable; fails instead under RUST_TS_REQUIRE_PROBES=1.
 import { expect, test } from "bun:test";
@@ -36,17 +35,6 @@ const SYSROOT = HAVE ? Bun.spawnSync([...RUSTC, "--print", "sysroot"]).stdout.to
 const WORK = test_scratch_dir("const-check-oracle");
 const RUNNER = join(REPO, "src/rustc_const_eval/check_consts/check_oracle/run.ts");
 const ARGS = ["--crate-type", "lib", "--edition", "2021"];
-
-/** `unported(..)` stops in other lanes' stub modules (see the header). */
-const PENDING_STUBS = [
-  "rustc_const_eval::check_consts::ConstCx::",
-  "rustc_const_eval::check_consts::rustc_allow_const_fn_unstable",
-  "rustc_const_eval::check_consts::is_fn_or_trait_safe_to_expose_on_stable",
-  "rustc_const_eval::check_consts::qualifs::",
-  "rustc_const_eval::check_consts::resolver::",
-  "rustc_const_eval::check_consts::post_drop_elaboration::",
-  "rustc_mir_dataflow::impls::storage_liveness::",
-];
 
 interface Case {
   name: string;
@@ -100,13 +88,7 @@ for (const c of CASES) {
     expect(oracle.stderr.split("\n").filter((l) => l.startsWith("error")).length).toBe(c.errors);
     const lines = subject.stdout.split("\n").filter((l) => l !== "");
     expect(lines.length).toBeGreaterThan(0);
-    const stops = lines.filter((l) => l.includes(" = UNPORTED "));
-    if (stops.length > 0) {
-      const what = stops.map((l) => l.slice(l.indexOf(" = UNPORTED ") + 12));
-      expect(what.every((w) => PENDING_STUBS.some((p) => w.startsWith(p)))).toBe(true);
-      console.log(`PENDING const-check oracle ${c.name}: ${what[0]}`);
-      return;
-    }
+    expect(lines.filter((l) => l.includes(" = UNPORTED "))).toEqual([]);
     expect(subject.stderr).toBe(oracle.stderr);
   });
 }

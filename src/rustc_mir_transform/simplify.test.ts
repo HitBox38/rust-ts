@@ -8,8 +8,8 @@
 // the pass count 007 (`simple.f.1-1-007.SimplifyCfg-initial.before.mir`).
 //
 // Each test builds the body `SimplifyCfg-initial` sees (the `before` dump), runs `run_passes` with seven no-op passes
-// standing for the first seven of `mir_built` (the real ones are stubs of later lanes), `SimplifyCfg::Initial` and one
-// no-op lint, and compares the files the pass manager wrote (names and text) with the oracle's, byte for byte. The
+// standing for the first seven of `mir_built` (the real ones need a full `TyCtxt`, which the hand-built context of this
+// test does not have), `SimplifyCfg::Initial` and one no-op lint, and compares the files the pass manager wrote (names and text) with the oracle's, byte for byte. The
 // `before` file checks the hand-built body; the `after` file checks `simplify_cfg` (goto chains, block merging, dead
 // blocks, a cleanup block, a loop).
 import { describe, expect, test } from "bun:test";

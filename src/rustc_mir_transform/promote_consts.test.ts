@@ -1,14 +1,11 @@
-// Promotion (promote_consts.rs + rustc_const_eval check_consts/{mod, qualifs}) against the oracle: the mirdump probe
-// (tools/probes/mirdump) prints, per body, `mir_built` and then `mir_promoted` with its promoted fragments. The port
-// side builds the same bodies in process and runs what `mir_built` / `mir_promoted` run that changes MIR here:
-// - `mir_built`: `build_mir_inner_impl`, then the pass list. Its other passes are stubs (lane mt-built-lints) and leave
-//   these bodies unchanged (no uninhabited types; the rest are lints), so only `SimplifyCfg::Initial` runs;
-// - `mir_promoted`: `RequiredConstsVisitor::compute_required_consts`, `PromoteTemps`, `SimplifyCfg::PromoteConsts`
-//   (the phase change to `Analysis(Initial)`); `InstrumentCoverage` is off without `-Cinstrument-coverage`.
-//   `mir_const_qualif` (const items) is skipped: it only supplies `tainted_by_errors`, which is `None` here, and its
-//   `Checker` is lane const-check's.
-// The bodies are then printed with `MirWriter::write_mir_fn` in the probe's layout and compared with the probe's
-// output byte for byte (trivial consts, the probe's one-liners, are left out on both sides).
+// Promotion (promote_consts.rs + rustc_const_eval check_consts/{mod, qualifs, check}) against the oracle: the mirdump
+// probe (tools/probes/mirdump) prints, per body, `mir_built` and then `mir_promoted` with its promoted fragments. The
+// port side runs the real queries in process: `tcx.mir_built(def)` (MIR building + the whole `mir_built` pass list),
+// printed before it is stolen, then `tcx.mir_promoted(def)` (`mir_const_qualif` for const contexts,
+// `has_ffi_unwind_calls`, `compute_required_consts`, `PromoteTemps`, `SimplifyCfg::PromoteConsts`, the phase change to
+// `Analysis(Initial)`; `InstrumentCoverage` is off without `-Cinstrument-coverage`).
+// The bodies are printed with `MirWriter::write_mir_fn` in the probe's layout and compared with the probe's output
+// byte for byte (trivial consts, the probe's one-liners, are left out on both sides).
 import { expect, test } from "bun:test";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -142,17 +139,13 @@ test("promoted MIR (mir_promoted and its promoted fragments) equals the mirdump 
       const items: string[] = [];
       for (const def of tcx.mir_keys(null)) {
         if (tcx.is_constructor(LocalDefId.to_def_id(def))) continue;
-        const body = tcx.build_mir_inner_impl(def) as Body;
-        if (trivial_const(tcx, def, () => body) !== undefined) continue;
-        // mir_built
-        run_passes(tcx, body, [SimplifyCfg.Initial], undefined);
-        let w = "// mir_built\n" + write(body);
+        if (tcx.trivial_const(def) !== undefined) continue;
+        // mir_built (printed before `mir_promoted` steals it)
+        let w = "// mir_built\n" + write(tcx.mir_built(def).borrow());
         // mir_promoted
-        RequiredConstsVisitor.compute_required_consts(body);
-        const promote_pass = new PromoteTemps([]);
-        run_passes(tcx, body, [promote_pass, SimplifyCfg.PromoteConsts], { $: "Analysis", _0: "Initial" });
-        w += "\n// mir_promoted\n" + write(body);
-        for (const promoted of promote_pass.promoted_fragments) w += "\n" + write(promoted);
+        const [body, promoted] = tcx.mir_promoted(def);
+        w += "\n// mir_promoted\n" + write(body.borrow());
+        for (const p of promoted.borrow()) w += "\n" + write(p);
         items.push(w);
       }
       port = items.join("\n");

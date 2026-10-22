@@ -10,15 +10,10 @@
 // run: the test cases must not trigger them (the oracle runs everything). Then `analysis`'s abort on non-lint errors and
 // `check_expectations(None)`.
 //
-// Stand-in: rustc_mir_dataflow's `sanity_check` (the `SanityCheck` lint at the end of `mir_built`'s pass list) is not
-// ported yet (lane dataflow-impls). Upstream it does nothing unless the body has `#[rustc_mir(..)]`, so this driver
-// replaces `SanityCheck::run_lint` with that check (stopping as UNPORTED when the attribute is present).
-//
 // Exit codes as src/rust_ts/main.ts: rustc's own, plus 70 = reached unported code, 101 = ICE.
 import type { Compiler, Config } from "../../rustc_interface/interface.ts";
-import type { Body } from "../../rustc_middle/mir/mod.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
-import { Panic, Unported, unported } from "../../std/panic.ts";
+import { Panic, Unported } from "../../std/panic.ts";
 import { ensure_stack } from "../../rust_ts/stack.ts";
 
 const EXIT_UNPORTED = 70;
@@ -31,16 +26,6 @@ async function main(): Promise<number> {
   const { ErrorOutputType } = await import("../../rustc_session/config.ts");
   const { run_required_analyses_prefix } = await import("../../rust_ts/tydump_dump.ts");
   const { LocalDefId } = await import("../../rustc_span/def_id.ts");
-  const { SanityCheck } = await import("../sanity_check.ts");
-  const { find_attr } = await import("../../rustc_attr_ir/lib.ts");
-  const { HasAttrs_DefId } = await import("../../rustc_middle/ty/mod.ts");
-
-  SanityCheck.prototype.run_lint = function (tcx: TyCtxt, body: Body): void {
-    const def_id = body.source.def_id();
-    if (find_attr(HasAttrs_DefId.get_attrs(def_id, tcx), (k) => (k.$ === "RustcMir" ? true : undefined)) !== undefined) {
-      unported("rustc_mir_dataflow::rustc_peek::sanity_check (#[rustc_mir])");
-    }
-  };
 
   const callbacks = {
     // As rustc's `TimePassesCallbacks::config` (rustc_driver_impl/src/lib.rs), minus time-passes.

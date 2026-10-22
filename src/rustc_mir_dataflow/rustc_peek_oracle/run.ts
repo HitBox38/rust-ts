@@ -6,17 +6,13 @@
 // `MIR_borrow_checking` loop of `run_required_analyses` (rustc_interface passes.rs), which is where the oracle builds
 // MIR first (`check_unsafety` runs `tcx.ensure_done().mir_built(def)`), then `analysis`'s abort on non-lint errors.
 //
-// The `mir_built` provider (rustc_mir_transform lib.ts) still stops at `LintAndRemoveUninhabited` (lane
-// mt-built-lints), so this driver overrides it with `build_mir_inner_impl` followed by the two passes of its list that
-// matter here: `SimplifyCfg::Initial` and `Lint(SanityCheck)` (which runs rustc_mir_dataflow's `rustc_peek`
-// `sanity_check`). The six lint passes before them only emit lints and `LintAndRemoveUninhabited` only changes bodies
-// with uninhabited types, which the test cases do not have. Borrowck, liveness and the late lints do not run: the
-// cases end in `#[rustc_mir(stop_after_dataflow)]` (a fatal error in `mir_built` of the first body owner).
+// `mir_built` is the real provider (rustc_mir_transform lib.ts): MIR building, then its pass list, whose last pass
+// `Lint(SanityCheck)` runs rustc_mir_dataflow's `rustc_peek` `sanity_check`. Borrowck, liveness and the late lints do
+// not run: the cases end in `#[rustc_mir(stop_after_dataflow)]` (a fatal error in `mir_built` of the first body owner).
 //
 // Exit codes as src/rust_ts/main.ts: rustc's own, plus 70 = reached unported code, 101 = ICE.
 import type { Compiler, Config } from "../../rustc_interface/interface.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
-import type { Providers } from "../../rustc_middle/util/mod.ts";
 import { Panic, Unported } from "../../std/panic.ts";
 import { ensure_stack } from "../../rust_ts/stack.ts";
 
@@ -30,21 +26,11 @@ async function main(): Promise<number> {
   const { ErrorOutputType } = await import("../../rustc_session/config.ts");
   const { run_required_analyses_prefix } = await import("../../rust_ts/tydump_dump.ts");
   const { LocalDefId } = await import("../../rustc_span/def_id.ts");
-  const { Lint, run_passes } = await import("../../rustc_mir_transform/pass_manager.ts");
-  const { SimplifyCfg } = await import("../../rustc_mir_transform/simplify.ts");
-  const { SanityCheck } = await import("../../rustc_mir_transform/sanity_check.ts");
 
   const callbacks = {
     // As rustc's `TimePassesCallbacks::config` (rustc_driver_impl/src/lib.rs), minus time-passes.
     config(config: Config): void {
       config.opts.trimmed_def_paths = true;
-      config.override_queries = (_sess: unknown, providers: Providers): void => {
-        providers.queries.mir_built = (tcx, def) => {
-          const body = tcx.build_mir_inner_impl(def) as import("../../rustc_middle/mir/mod.ts").Body;
-          run_passes(tcx, body, [SimplifyCfg.Initial, new Lint(new SanityCheck())], undefined);
-          return tcx.alloc_steal_mir(body);
-        };
-      };
     },
     after_expansion(_compiler: Compiler, tcx: TyCtxt): "Stop" | "Continue" {
       run_required_analyses_prefix(tcx);

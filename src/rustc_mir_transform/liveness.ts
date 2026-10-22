@@ -15,7 +15,6 @@ import { BindingMode, BindingMode_eq } from "../rustc_ast/lib.ts";
 import type { FieldIdx } from "../rustc_abi/layout.ts";
 import { Mutability } from "../rustc_ast_ir/lib.ts";
 import { find_attr } from "../rustc_attr_ir/lib.ts";
-import type { Diagnostic } from "../rustc_errors/lib.ts";
 import { type DefKind } from "../rustc_hir/def.ts";
 import * as hir from "../rustc_hir/hir.ts";
 import { Node } from "../rustc_hir/hir.ts";
@@ -74,82 +73,9 @@ import { set_aliases_to_non_rigid } from "../rustc_type_ir/fold.ts";
 import { Unnormalized } from "../rustc_type_ir/unnormalized.ts";
 import { KeyedMap, KeyedSet } from "../rust_ts/keyed.ts";
 import { PLAIN } from "../std/fmt.ts";
-import { unported, unreachable } from "../std/panic.ts";
+import { unreachable } from "../std/panic.ts";
 
-// ---- PORT(pending mt-built-lints): `use crate::diagnostics;` --------------------------------------------------------
-// compiler/rustc_mir_transform/src/diagnostics.rs is generated (`#[derive(Diagnostic)]` / `#[derive(Subdiagnostic)]`,
-// tools/codegen) plus two hand-written `impl Subdiagnostic` blocks, in lane mt-built-lints. Until it lands, this block
-// declares the ten types liveness.rs builds (upstream field names and order) and stand-ins for their `Diagnostic` trait
-// objects whose `into_diag` stops UNPORTED (so allowed lints, which are never decorated, run through). At merge the
-// whole block is replaced by `import * as diagnostics from "./diagnostics.ts";` and the type names below by
-// `diagnostics.<Type>`; the call sites already use the generated names (`diagnostics.<Type>_diagnostic(..)`).
-interface PatternTypo {
-  span: Span;
-  code: string;
-  item_name: Symbol;
-  kind: string;
-}
-interface UnusedAssignOverwrite {
-  assigned_span: Span;
-  overwrite_span: Span;
-  name: Symbol;
-}
-interface UnusedAssignSuggestion {
-  pre: string;
-  ty_span: Span | undefined;
-  ty_ref_span: Span;
-  pre_lhs_span: Span;
-  rhs_borrow_span: Span;
-}
-interface UnusedVariableStringInterp {
-  lit: Span;
-}
-type UnusedVariableSugg =
-  | { readonly $: "TryIgnore"; shorthands: Span[]; non_shorthands: Span[]; name: string }
-  | { readonly $: "TryPrefix"; spans: Span[]; name: Symbol; typo: PatternTypo | undefined }
-  | { readonly $: "NoSugg"; span: Span; name: Symbol };
-interface UnusedCaptureMaybeCaptureRef {
-  name: Symbol;
-}
-interface UnusedVarAssignedOnly {
-  name: Symbol;
-  typo: PatternTypo | undefined;
-}
-interface UnusedAssign {
-  name: Symbol;
-  overwrite: UnusedAssignOverwrite | undefined;
-  suggestion: UnusedAssignSuggestion | undefined;
-  help: boolean;
-}
-interface UnusedAssignPassed {
-  name: Symbol;
-}
-interface UnusedVariable {
-  name: Symbol;
-  string_interp: UnusedVariableStringInterp[];
-  sugg: UnusedVariableSugg;
-}
-/**
- * The stand-in `Diagnostic` of a pending type. `pending` carries the type name and the value (read by
- * liveness.oracle.test.ts, which compares them with the oracle's diagnostics until the generated module lands).
- */
-export interface PendingDiagnostic extends Diagnostic {
-  readonly pending: { readonly type: string; readonly value: unknown };
-}
-function pending_diagnostic(type: string, value: unknown): PendingDiagnostic {
-  return {
-    into_diag: () => unported(`rustc_mir_transform::diagnostics::${type} (generated; lane mt-built-lints)`),
-    pending: { type, value },
-  };
-}
-const diagnostics = {
-  UnusedCaptureMaybeCaptureRef_diagnostic: (self: UnusedCaptureMaybeCaptureRef): Diagnostic => pending_diagnostic("UnusedCaptureMaybeCaptureRef", self),
-  UnusedVarAssignedOnly_diagnostic: (self: UnusedVarAssignedOnly): Diagnostic => pending_diagnostic("UnusedVarAssignedOnly", self),
-  UnusedAssign_diagnostic: (self: UnusedAssign): Diagnostic => pending_diagnostic("UnusedAssign", self),
-  UnusedAssignPassed_diagnostic: (self: UnusedAssignPassed): Diagnostic => pending_diagnostic("UnusedAssignPassed", self),
-  UnusedVariable_diagnostic: (self: UnusedVariable): Diagnostic => pending_diagnostic("UnusedVariable", self),
-};
-// ---- end PORT(pending mt-built-lints) -------------------------------------------------------------------------------
+import * as diagnostics from "./diagnostics.ts";
 
 // PORT: `ty::CAPTURE_STRUCT_LOCAL` (ty/closure.ts declares its own `Local` brand) as a mir `Local` (decision #15).
 const CAPTURE_STRUCT_LOCAL = ty_CAPTURE_STRUCT_LOCAL as unknown as Local;
@@ -341,7 +267,7 @@ function is_capture(place: PlaceRef): boolean {
 
 /// Give a diagnostic when an unused variable may be a typo of a unit variant or a struct.
 // rustc: compiler/rustc_mir_transform/src/liveness.rs:171 maybe_suggest_unit_pattern_typo
-function maybe_suggest_unit_pattern_typo(tcx: TyCtxt, body_def_id: DefId, name: Symbol, span: Span, ty: Ty): PatternTypo | undefined {
+function maybe_suggest_unit_pattern_typo(tcx: TyCtxt, body_def_id: DefId, name: Symbol, span: Span, ty: Ty): diagnostics.PatternTypo | undefined {
   const peeled = ty.peel_refs().kind();
   if (peeled.$ === "Adt") {
     const adt_def = peeled._0;
@@ -454,7 +380,7 @@ function annotate_mut_binding_to_immutable_binding(
   body_def_id: LocalDefId,
   assignment_span: Span,
   body: Body,
-): UnusedAssignSuggestion | undefined {
+): diagnostics.UnusedAssignSuggestion | undefined {
   // use rustc_hir as hir;
   // use rustc_hir::intravisit::{self, Visitor};
 
@@ -1100,7 +1026,7 @@ class AssignmentResult {
     // Give a diagnostic when any of the string constants look like a naked format string that
     // would interpolate our dead local.
     let string_constants_in_body: [Span, string][] | undefined = undefined;
-    const maybe_suggest_literal_matching_name = (name: Symbol): UnusedVariableStringInterp[] => {
+    const maybe_suggest_literal_matching_name = (name: Symbol): diagnostics.UnusedVariableStringInterp[] => {
       // Visiting MIR to enumerate string constants can be expensive, so cache the result.
       string_constants_in_body ??= (() => {
         const finder = new LiteralFinder([]);
@@ -1156,7 +1082,7 @@ class AssignmentResult {
       // we can't provide a good suggestion, instead we pointed out the spans from macro
       const from_macro = Span.from_expansion(def_span) && introductions.some((intro) => Span.eq_ctxt(intro.span, def_span));
 
-      const maybe_suggest_typo = (): PatternTypo | undefined => {
+      const maybe_suggest_typo = (): diagnostics.PatternTypo | undefined => {
         if (this.body.local_kind(local) === "Arg") {
           return undefined;
         } else {
@@ -1186,7 +1112,7 @@ class AssignmentResult {
           continue;
         }
 
-        let sugg: UnusedVariableSugg;
+        let sugg: diagnostics.UnusedVariableSugg;
         if (from_macro) {
           sugg = { $: "NoSugg", span: def_span, name };
         } else {
@@ -1244,7 +1170,7 @@ class AssignmentResult {
 
       const any_shorthand = introductions.some((intro) => intro.is_shorthand);
 
-      let sugg: UnusedVariableSugg;
+      let sugg: diagnostics.UnusedVariableSugg;
       if (any_shorthand) {
         sugg = {
           $: "TryIgnore",
@@ -1299,13 +1225,13 @@ class AssignmentResult {
       }
 
       const next_direct_assignments: [Span, Location][] = [];
-      const dead_statements: [SourceInfo, AccessKind, boolean, UnusedAssignOverwrite | undefined][] = [];
+      const dead_statements: [SourceInfo, AccessKind, boolean, diagnostics.UnusedAssignOverwrite | undefined][] = [];
 
       for (const [source_info, { live, kind, is_direct, location }] of statements) {
         const direct_assignment = kind === AccessKind.Assign && is_direct;
         const should_report = !live && (is_direct || !is_maybe_drop_guard);
 
-        let overwrite: UnusedAssignOverwrite | undefined;
+        let overwrite: diagnostics.UnusedAssignOverwrite | undefined;
         if (should_report && direct_assignment) {
           let found: [Span, Location] | undefined = undefined;
           for (let i = next_direct_assignments.length - 1; i >= 0; i--) {

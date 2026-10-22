@@ -4,7 +4,7 @@
 // Each case is a crate whose one annotated fn carries `#[rustc_mir(rustc_peek_.., stop_after_dataflow)]`: the oracle
 // reports the peeks whose bit is not set while building that fn's MIR (`mir_built`'s `Lint(SanityCheck)`), then stops
 // with the fatal `stop_after_dataflow ended compilation`. The port runs rustc_peek_oracle/run.ts (see its header: the
-// analysis prefix, then `check_unsafety` per body owner with `mir_built` = MIR building + `SimplifyCfg::Initial` +
+// analysis prefix, then `check_unsafety` per body owner with the real `mir_built`, whose pass list ends in
 // `Lint(SanityCheck)`). The complete stderr and the exit code must be equal. Cases: the `tests/ui/mir-dataflow` UI tests
 // and rustc_peek_oracle/*.rs (loops, calls, moves out of tuple fields, an untracked place, enum matches with drops,
 // liveness across a loop). Target x86_64-unknown-linux-gnu with the oracle sysroot (std loads from metadata).
@@ -45,16 +45,6 @@ function run(cmd: string[]): Out {
 }
 const sysroot = (): string => Bun.spawnSync([...RUSTC, "--print", "sysroot"]).stdout.toString().trim();
 
-/**
- * Cases that stop at unported code outside this lane, before the dataflow: `file -> stop`. The stop is pinned (the
- * port's last stderr line) and the oracle must still report the peeks (its stderr has `rustc_peek`).
- */
-const PENDING: Record<string, string> = {
-  // a `&'static str` / const allocation in the built MIR (`TyCtxt::mk_const_alloc`, M4)
-  "liveness-enum.rs": "rust-ts: unported: rustc_middle::ty::context::TyCtxt::mk_const_alloc (ConstAllocation, M4)",
-  "liveness-projection.rs": "rust-ts: unported: rustc_middle::ty::context::TyCtxt::mk_const_alloc (ConstAllocation, M4)",
-};
-
 const UI = join(UPSTREAM, "tests/ui/mir-dataflow");
 const CASES: [string, string][] = [
   ...readdirSync(UI)
@@ -78,12 +68,6 @@ for (const [name, file] of CASES) {
     const ours = run([process.execPath, RUNNER, ...a, file]);
     // the oracle really ran the dataflow and stopped after it
     expect(oracle.stderr).toContain("error: stop_after_dataflow ended compilation");
-    const pending = PENDING[name];
-    if (pending !== undefined) {
-      expect(ours.stderr.trimEnd().split("\n").at(-1)).toBe(pending);
-      expect(ours.code).toBe(70);
-      return;
-    }
     expect(ours.stderr).not.toContain("rust-ts: ");
     if (ours.stderr !== oracle.stderr) {
       const ol = oracle.stderr.split("\n");

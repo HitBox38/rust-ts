@@ -1,9 +1,9 @@
 // Oracle checks of the THIR unsafety checker (lane mb-unsafety: check_unsafety.ts) against the pinned nightly rustc.
 //
-// MIR building, borrowck and the late lints are not complete yet, so each case runs this lane's test driver
+// Borrowck and the late lints are not complete yet, so each case runs this lane's test driver
 // src/rustc_mir_build/check_unsafety_oracle/run.ts (see its header): the ported driver through type checking (the
-// tydump probe's analysis prefix), then `check_unsafety` for every body owner as the `MIR_borrow_checking` loop does,
-// with `mir_built` reduced to its `thir_body` read. The oracle compiles the same file (a bin crate, `--emit=metadata`,
+// tydump probe's analysis prefix), then `check_unsafety` for every body owner as the `MIR_borrow_checking` loop does
+// (with the real `mir_built`). The oracle compiles the same file (a bin crate, `--emit=metadata`,
 // target x86_64-unknown-linux-gnu, the oracle sysroot so core/std load). The cases avoid everything else rustc would
 // report (dead code, unused variables, check_match, borrowck, ...), so the complete stderr of both sides must be equal.
 // The `tests/ui` cases are UI tests whose whole oracle stderr is unsafety diagnostics plus what the prefix reports; their
@@ -287,18 +287,3 @@ for (const [i, f] of UI.entries()) {
     120_000,
   );
 }
-
-// The real `mir_built` (`--real-mir-built`): MIR building runs (the builder and rustc_pattern_analysis are ported),
-// then `mir_built`'s pass list runs `LintAndRemoveUninhabited` and the MIR lints (lane mt-built-lints) and stops at its
-// last pass, `SanityCheck` (rustc_mir_dataflow's `sanity_check`, lane dataflow-impls). When that lands, drop the
-// driver's stand-in (run.ts header) and this pin.
-test.skipIf(SKIP)(
-  "check_unsafety with the real mir_built: stops at the first unported pass",
-  () => {
-    const file = "real_mir_built.rs";
-    writeFileSync(join(WORK, file), "unsafe fn f() {}\nfn main() { unsafe { f() } }\n");
-    const ours = run([process.execPath, RUNNER, "--real-mir-built", ...args("2021"), "-o", "real_mir_built.rmeta", file]);
-    expect(ours).toEqual({ stderr: "rust-ts: unported: rustc_mir_dataflow::rustc_peek::sanity_check\n", code: 70 });
-  },
-  120_000,
-);

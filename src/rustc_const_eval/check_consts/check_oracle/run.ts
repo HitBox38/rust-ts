@@ -1,10 +1,8 @@
 // Subject side of check.oracle.test.ts (our own code, not a port): runs the ported driver on `<rustc args..>` up to the
-// global ctxt, then, for every `mir_keys` body that is a const context (`hir_body_const_context`), what
-// rustc_mir_transform's `mir_const_qualif` does: build the MIR, `Checker::new(&ConstCx::new(..))`, `check_body`,
-// `qualifs_in_return_place`. One stdout line per body: `const_qualif(<def path>) = <ConstQualifs Debug> | UNPORTED <what>`.
-// Diagnostics go to stderr as rustc's.
-// PORT (test driver): the body is `build_mir_inner_impl`'s (MIR as built), not `mir_built`'s: the `mir_built` pass list
-// (LintAndRemoveUninhabited, ..., SimplifyCfg::Initial) is lane mt-built-lints' and stops UNPORTED before it.
+// global ctxt, then, for every `mir_keys` body that is a const context (`hir_body_const_context`), the real
+// `tcx.mir_const_qualif(def)` query (rustc_mir_transform: `mir_built` with its pass list, `ConstCx::new`,
+// `Checker::check_body`, `qualifs_in_return_place`). One stdout line per body:
+// `const_qualif(<def path>) = <ConstQualifs Debug> | UNPORTED <what>`. Diagnostics go to stderr as rustc's.
 //   bun src/rustc_const_eval/check_consts/check_oracle/run.ts <rustc arguments...>
 import type { Crate } from "../../../rustc_ast/lib.ts";
 import { compiler_entrypoint } from "../../../rustc_driver_impl/lib.ts";
@@ -12,13 +10,10 @@ import "../../../rustc_hir_analysis/lib.ts";
 import { type Config, run_compiler } from "../../../rustc_interface/interface.ts";
 import { create_and_enter_global_ctxt, parse } from "../../../rustc_interface/passes.ts";
 import "../../../rustc_middle/lib.ts";
-import type { Body } from "../../../rustc_middle/mir/mod.ts";
 import { debug_ConstQualifs } from "../../../rustc_middle/mir/query.gen.ts";
 import { LocalDefId } from "../../../rustc_span/def_id.ts";
 import { PLAIN } from "../../../std/fmt.ts";
 import { Unported } from "../../../std/panic.ts";
-import { Checker } from "../check.ts";
-import { ConstCx } from "../mod.ts";
 
 class CaptureConfig extends Error {}
 function config_from_args(args: string[]): Config {
@@ -51,11 +46,7 @@ function main(): void {
           if (tcx.hir_body_const_context(def) === undefined) continue;
           const name = tcx.def_path_str(LocalDefId.to_def_id(def));
           try {
-            const body = tcx.build_mir_inner_impl(def) as Body;
-            const ccx = ConstCx.new(tcx, body);
-            const validator = Checker.new(ccx);
-            validator.check_body();
-            lines.push(`const_qualif(${name}) = ${debug_ConstQualifs(validator.qualifs_in_return_place(), PLAIN)}`);
+            lines.push(`const_qualif(${name}) = ${debug_ConstQualifs(tcx.mir_const_qualif(def), PLAIN)}`);
           } catch (e) {
             if (!(e instanceof Unported)) throw e;
             lines.push(`const_qualif(${name}) = UNPORTED ${e.what}`);

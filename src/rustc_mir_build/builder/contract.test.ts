@@ -135,7 +135,10 @@ test("the stubs per fill lane are the handoff's split table", () => {
   }
 });
 
-const WORK = join(DATA, "tmp", "builder-contract", process.env.RUST_TS_AGENT ?? "default");
+// The scratch dir is named by a hash of the agent name, never the name itself: a no_core crate prints impl def paths
+// with their file path (`<impl at …>`), and `-Zdump-mir=built` matches any def path containing "built" (an agent
+// named e.g. `mt-built-lints` made the oracle dump 54 files instead of 12).
+const WORK = join(DATA, "tmp", "builder-contract", `agent-${Bun.hash(process.env.RUST_TS_AGENT ?? "default").toString(16)}`);
 
 const REQUIRE = process.env.RUST_TS_REQUIRE_PROBES === "1";
 const RUSTC = ["rustc", `+${PIN.toolchain}`];
