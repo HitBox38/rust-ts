@@ -56,6 +56,8 @@ import * as getopts from "../vendor/getopts/lib.ts";
 import { arg_expand_all, raw_args } from "./args.ts";
 import * as pretty from "./pretty.ts";
 import * as signal_handler from "./signal_handler.ts";
+import * as rustc_log from "../rustc_log/lib.ts";
+import * as tracing from "../rust_ts/tracing.ts";
 import { safe_println } from "./print.ts";
 
 export * as args from "./args.ts";
@@ -1082,8 +1084,9 @@ function ice_path_with_config(config: UnstableOptions | undefined): PathBuf | un
           // Explicitly opting out of writing ICEs to disk.
           return undefined;
         }
-        // `tracing::warn!("ignoring -Zmetrics-dir in favor of RUSTC_ICE ..")` when `-Zmetrics-dir` is set:
-        // PORT: the logger (rustc_log) is not ported; see `init_rustc_env_logger`.
+        if (config !== undefined && config.metrics_dir !== undefined) {
+          tracing.warn("rustc_driver_impl", () => "ignoring -Zmetrics-dir in favor of RUSTC_ICE for destination of ICE report files");
+        }
         path = s;
       } else {
         path = config?.metrics_dir ?? process.cwd();
@@ -1153,16 +1156,23 @@ const CFG_RELEASE_CHANNEL: string = "nightly";
 /// This allows tools to enable rust logging without having to magically match rustc's
 /// tracing crate version.
 // rustc: compiler/rustc_driver_impl/src/lib.rs:1630 init_rustc_env_logger
-export function init_rustc_env_logger(_early_dcx: EarlyDiagCtxt): void {
-  // `init_logger(early_dcx, rustc_log::LoggerConfig::from_env("RUSTC_LOG"))`
-  // PORT: rustc_log (tracing) is not ported. Without `RUSTC_LOG` upstream installs a WARN-level
-  // subscriber; no `warn!` on the ported path fires. With `RUSTC_LOG` set: unported.
-  if (process.env.RUSTC_LOG !== undefined) {
-    unported("rustc_log::init_logger (RUSTC_LOG)");
+export function init_rustc_env_logger(early_dcx: EarlyDiagCtxt): void {
+  init_logger(early_dcx, rustc_log.LoggerConfig.from_env("RUSTC_LOG"));
+}
+
+/// This allows tools to enable rust logging without having to magically match rustc's
+/// tracing crate version. In contrast to `init_rustc_env_logger` it allows you to choose
+/// the logger config directly rather than having to set an environment variable.
+// rustc: compiler/rustc_driver_impl/src/lib.rs:1637 init_logger
+export function init_logger(early_dcx: EarlyDiagCtxt, cfg: rustc_log.LoggerConfig): void {
+  const r = rustc_log.init_logger(cfg);
+  if (r.$ === "Err") {
+    const error = r._0;
+    early_dcx.early_fatal(rustc_log.display_Error(error));
   }
 }
 
-// `init_logger` (1637), `init_logger_with_additional_layer` (1648): not ported (rustc_log).
+// `init_logger_with_additional_layer` (1648): not ported (no caller; tools only).
 
 /// Install our usual `ctrlc` handler, which sets [`rustc_const_eval::CTRL_C_RECEIVED`].
 /// Making this handler optional lets tools can install a different handler, if they wish.
