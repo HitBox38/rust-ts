@@ -1,0 +1,47 @@
+error[E0308]: mismatched types
+  --> return-mismatches.rs:5:5
+   |
+LL |     become _g0(); //~ error: mismatched types
+   |     ^^^^^^^^^^^^ expected `&[u8]`, found `&[u8; 1]`
+   |
+   = note: expected reference `&'static [u8]`
+              found reference `&'static [u8; 1]`
+
+error[E0308]: mismatched types
+  --> return-mismatches.rs:13:5
+   |
+LL |     become _g1(); //~ error: mismatched types
+   |     ^^^^^^^^^^^^ expected `()`, found `!`
+   |
+   = note: expected unit type `()`
+                   found type `!`
+
+warning: unreachable expression
+  --> return-mismatches.rs:13:5
+   |
+LL |     become _g1(); //~ error: mismatched types
+   |     ^^^^^^^-----
+   |     |      |
+   |     |      any code following this expression is unreachable
+   |     unreachable expression
+   |
+   = note: `#[warn(unreachable_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: unreachable expression
+  --> return-mismatches.rs:17:5
+   |
+LL |     become _g1();
+   |     ^^^^^^^-----
+   |     |      |
+   |     |      any code following this expression is unreachable
+   |     unreachable expression
+
+error[E0308]: mismatched types
+  --> return-mismatches.rs:21:5
+   |
+LL |     become _g2(); //~ error: mismatched types
+   |     ^^^^^^^^^^^^ expected `u32`, found `u16`
+
+error: aborting due to 3 previous errors; 2 warnings emitted
+
+For more information about this error, try `rustc --explain E0308`.

@@ -1,0 +1,44 @@
+error: `become` requires a function call
+  --> become-uncallable.rs:7:12
+   |
+LL |     become 1; //~ error: `become` requires a function call
+   |     -------^
+   |     |
+   |     help: try using `return` instead: `return`
+   |
+note: not a function call
+  --> become-uncallable.rs:7:12
+   |
+LL |     become 1; //~ error: `become` requires a function call
+   |            ^
+
+error: `become` requires a function call
+  --> become-uncallable.rs:11:12
+   |
+LL |     become { h() }; //~ error: `become` requires a function call
+   |     -------^^^^^^^
+   |     |
+   |     help: try using `return` instead: `return`
+   |
+note: not a function call
+  --> become-uncallable.rs:11:12
+   |
+LL |     become { h() }; //~ error: `become` requires a function call
+   |            ^^^^^^^
+
+error: `become` requires a function call
+  --> become-uncallable.rs:15:12
+   |
+LL |     become *&g(); //~ error: `become` requires a function call
+   |     -------^^^^^
+   |     |
+   |     help: try using `return` instead: `return`
+   |
+note: not a function call
+  --> become-uncallable.rs:15:12
+   |
+LL |     become *&g(); //~ error: `become` requires a function call
+   |            ^^^^^
+
+error: aborting due to 3 previous errors
+

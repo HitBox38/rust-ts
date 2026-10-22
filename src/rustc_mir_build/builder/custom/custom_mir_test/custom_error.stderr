@@ -1,0 +1,8 @@
+error: Could not parse local, found: "Cast { source: e5 }"
+  --> custom_error.rs:28:32
+   |
+LL |             RET = S { a: x, b: s as u8 };
+   |                                ^^^^^^^
+
+error: aborting due to 1 previous error
+
