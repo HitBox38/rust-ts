@@ -111,8 +111,8 @@ test("every fn of rustc_borrowck is ported or declared as a stub, never both", (
     }
   }
   expect(total).toBe(901);
-  expect(markers.length).toBe(42);
-  expect(stubs.length).toBe(859);
+  expect(markers.length).toBe(106);
+  expect(stubs.length).toBe(795);
 });
 
 test("the stubs per fill lane are the handoff's split table", () => {
@@ -121,7 +121,7 @@ test("the stubs per fill lane are the handoff's split table", () => {
   expect(per_lane).toEqual({
     "bck-lib-a": 8,
     "bck-lib-b": 22,
-    "bck-core": 64,
+    // "bck-core": 0 (filled by lane bck-core, wave 23)
     "bck-nll": 64,
     "bck-tc-a": 39,
     "bck-tc-b": 68,
