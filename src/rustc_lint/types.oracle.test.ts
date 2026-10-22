@@ -137,11 +137,39 @@ const CASES: Case[] = [
     expect: ["ambiguous wide pointer comparison, the comparison includes metadata which may not be expected"],
   },
   {
-    name: "PENDING TypeLimits: float literals stop at rustc_apfloat",
+    // (vendor-apfloat-b) `float_is_infinite` parses with the vendored rustc_apfloat: literals that round to infinity
+    // (including just above the largest finite value), not those that round to `MAX` or underflow to zero.
+    name: "TypeLimits: overflowing float literals (f32 / f64, negated, suffixed, round to MAX vs infinity, underflow)",
     passes: [TL],
-    src: ["pub fn a() -> f32 { 1e40 }"],
-    expect: ["literal out of range for `f32`"],
-    pending: "rust-ts: unported: rustc_apfloat::ieee::IeeeFloat::from_str (rustc_apfloat is not ported)\n",
+    src: [
+      "pub fn a() -> f32 { 1e40 }",
+      "pub fn b() -> f64 { -1e400 }",
+      "pub fn c() -> f32 { 3.4028235e38 }",
+      "pub fn d() -> f32 { 3.4028236e38 }",
+      "pub fn e() -> f32 { 3.4028236e38_f32 }",
+      "pub fn g() -> f32 { 3.40282357e38 }",
+      "pub fn h() -> f64 { 1.7976931348623157e308 }",
+      "pub fn i() -> f64 { 1.7976931348623159e308 }",
+      "pub fn j() -> f32 { 1e-50 }",
+      "pub fn k(x: f64) -> bool { x == 1e309 }",
+      "pub fn l() -> f32 { 100_000_000_000_000_000_000_000_000_000_000_000_000_000.0 }",
+      "pub fn m() -> f64 { 0.0 }",
+    ],
+    expect: ["literal out of range for `f32`", "literal out of range for `f64`"],
+  },
+  {
+    name: "TypeLimits: overflowing f16 / f128 literals",
+    passes: [TL],
+    src: [
+      "#![feature(f16, f128)]",
+      "pub fn a() -> f16 { 65504.0 }",
+      "pub fn b() -> f16 { 65520.0 }",
+      "pub fn c() -> f16 { -1e5 }",
+      "pub fn d() -> f128 { 1.18973149535723176508575932662800702e4932 }",
+      "pub fn e() -> f128 { 1.2e4932 }",
+      "pub fn f() -> f128 { 1e-5000 }",
+    ],
+    expect: ["literal out of range for `f16`", "literal out of range for `f128`"],
   },
   {
     name: "VariantSizeDifferences: largest vs second largest variant, repr(u8), generic, #[allow], non-null niche",

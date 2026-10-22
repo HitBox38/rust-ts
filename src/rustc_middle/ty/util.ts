@@ -65,6 +65,7 @@ import type { EarlyParamRegion } from "./region.ts";
 import type { ParamConst, ParamTy } from "./sty.ts";
 import { fold_Clauses, fold_Ty } from "./structural_impls.ts";
 import { CodegenFnAttrFlags, type CodegenFnAttrs } from "../middle/codegen_fn_attrs.ts";
+import { Double, Half, Quad, Single } from "../../vendor/rustc_apfloat/ieee.ts";
 
 // rustc-type: compiler/rustc_middle/src/ty/util.rs:37 Discr
 // #[derive(Copy, Clone, Debug)]
@@ -1310,13 +1311,13 @@ Ty.prototype.numeric_min_and_max_as_bits = function (this: Ty, tcx: TyCtxt): [bi
     case "Float":
       switch (k._0) {
         case "F16":
-          return unported("rustc_apfloat::ieee::Half::INFINITY.to_bits (rustc_apfloat is not ported)");
+          return [Half.INFINITY.neg().to_bits(), Half.INFINITY.to_bits()];
         case "F32":
-          return unported("rustc_apfloat::ieee::Single::INFINITY.to_bits (rustc_apfloat is not ported)");
+          return [Single.INFINITY.neg().to_bits(), Single.INFINITY.to_bits()];
         case "F64":
-          return unported("rustc_apfloat::ieee::Double::INFINITY.to_bits (rustc_apfloat is not ported)");
+          return [Double.INFINITY.neg().to_bits(), Double.INFINITY.to_bits()];
         case "F128":
-          return unported("rustc_apfloat::ieee::Quad::INFINITY.to_bits (rustc_apfloat is not ported)");
+          return [Quad.INFINITY.neg().to_bits(), Quad.INFINITY.to_bits()];
       }
       break;
     default:

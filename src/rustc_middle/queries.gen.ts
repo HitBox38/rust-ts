@@ -33,7 +33,7 @@ import { type Body, type Promoted, debug_Body, debug_Promoted } from "./mir/mod.
 import { type ConstQualifs, type CoroutineLayout, debug_ConstQualifs, debug_CoroutineLayout } from "./mir/query.ts";
 import { describe_as_module } from "./queries.ts";
 import { into_query_key_DefId, into_query_key_LocalDefId, into_query_key_identity } from "./query/into_query_key.ts";
-import { KEY_AliasTyKind, KEY_CanonicalAliasGoal, KEY_CanonicalDropckOutlivesGoal, KEY_CanonicalImpliedOutlivesBoundsGoal_bool, KEY_CanonicalInput_usize, KEY_CanonicalMethodAutoderefStepsGoal, KEY_CanonicalPredicateGoal, KEY_CanonicalTypeOpAscribeUserTypeGoal, KEY_CanonicalTypeOpNormalizeGoal_Clause, KEY_CanonicalTypeOpNormalizeGoal_FnSig, KEY_CanonicalTypeOpNormalizeGoal_PolyFnSig, KEY_CanonicalTypeOpNormalizeGoal_Ty, KEY_CanonicalTypeOpProvePredicateGoal, KEY_Clauses, KEY_CrateNum, KEY_CrateNum_DefId, KEY_CrateNum_SimplifiedType, KEY_DefId, KEY_DefId_DefId, KEY_DefId_GenericArgsRef, KEY_DefId_Ident, KEY_DefId_SizedTraitKind, KEY_GenericArgsRef, KEY_LitToConstInput, KEY_LocalDefId, KEY_LocalDefId_LocalDefId_Ident, KEY_LocalModId, KEY_ModId, KEY_Option_Symbol, KEY_OsStr, KEY_OwnerId, KEY_Predicate_WellFormedLoc, KEY_PseudoCanonicalInput_AdtDef_GenericArgsRef, KEY_PseudoCanonicalInput_DefId_GenericArgsRef, KEY_PseudoCanonicalInput_GenericArg, KEY_PseudoCanonicalInput_TraitRef, KEY_PseudoCanonicalInput_Ty, KEY_SimplifiedType, KEY_Symbol, KEY_TraitRef, KEY_Ty, KEY_Ty_Option_ExistentialTraitRef, KEY_Ty_Ty, KEY_unit, type LocalQueryKeyOf, key_unported } from "./query/keys.ts";
+import { KEY_AliasTyKind, KEY_CanonicalAliasGoal, KEY_CanonicalDropckOutlivesGoal, KEY_CanonicalImpliedOutlivesBoundsGoal_bool, KEY_CanonicalInput_usize, KEY_CanonicalMethodAutoderefStepsGoal, KEY_CanonicalPredicateGoal, KEY_CanonicalTypeOpAscribeUserTypeGoal, KEY_CanonicalTypeOpNormalizeGoal_Clause, KEY_CanonicalTypeOpNormalizeGoal_FnSig, KEY_CanonicalTypeOpNormalizeGoal_PolyFnSig, KEY_CanonicalTypeOpNormalizeGoal_Ty, KEY_CanonicalTypeOpProvePredicateGoal, KEY_Clauses, KEY_CrateNum, KEY_CrateNum_DefId, KEY_CrateNum_SimplifiedType, KEY_DefId, KEY_DefId_DefId, KEY_DefId_GenericArgsRef, KEY_DefId_Ident, KEY_DefId_SizedTraitKind, KEY_GenericArgsRef, KEY_LitToConstInput, KEY_LocalDefId, KEY_LocalDefId_LocalDefId_Ident, KEY_LocalModId, KEY_ModId, KEY_Option_Symbol, KEY_OsStr, KEY_OwnerId, KEY_Predicate_WellFormedLoc, KEY_PseudoCanonicalInput_AdtDef_GenericArgsRef, KEY_PseudoCanonicalInput_DefId_GenericArgsRef, KEY_PseudoCanonicalInput_GenericArg, KEY_PseudoCanonicalInput_GlobalId, KEY_PseudoCanonicalInput_TraitRef, KEY_PseudoCanonicalInput_Ty, KEY_SimplifiedType, KEY_Symbol, KEY_TraitRef, KEY_Ty, KEY_Ty_Option_ExistentialTraitRef, KEY_Ty_Ty, KEY_unit, type LocalQueryKeyOf, key_unported } from "./query/keys.ts";
 import { type QueryDecl } from "./query/query_api.ts";
 import { stable_hash_Visibility } from "./stable_hash.gen.ts";
 import { type CodegenObligationError, type DynCompatibilityViolation, type ObligationCause, type WellFormedLoc, debug_DynCompatibilityViolation, debug_ObligationCause, debug_WellFormedLoc } from "./traits/mod.ts";
@@ -4135,7 +4135,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
   },
   eval_to_allocation_raw: {
     name: "eval_to_allocation_raw",
-    key: key_unported("ty::PseudoCanonicalInput<'tcx, GlobalId<'tcx>>"),
+    key: KEY_PseudoCanonicalInput_GlobalId,
     into_key: into_query_key_identity,
     arena_cache: false,
     cache_on_disk: true,
@@ -4171,7 +4171,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
   },
   eval_to_const_value_raw: {
     name: "eval_to_const_value_raw",
-    key: key_unported("ty::PseudoCanonicalInput<'tcx, GlobalId<'tcx>>"),
+    key: KEY_PseudoCanonicalInput_GlobalId,
     into_key: into_query_key_identity,
     arena_cache: false,
     cache_on_disk: true,
@@ -4189,7 +4189,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
   },
   eval_to_valtree: {
     name: "eval_to_valtree",
-    key: key_unported("ty::PseudoCanonicalInput<'tcx, GlobalId<'tcx>>"),
+    key: KEY_PseudoCanonicalInput_GlobalId,
     into_key: into_query_key_identity,
     arena_cache: false,
     cache_on_disk: false,

@@ -38,6 +38,7 @@ import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import { debug_AdtFlags } from "../../rustc_middle/ty/adt.ts";
 import { debug_PointerCoercion } from "../../rustc_middle/ty/adjustment.gen.ts";
 import { debug_ScalarInt } from "../../rustc_middle/ty/consts/int.ts";
+import { type AllocId, debug_AllocId as debug_AllocId_ } from "../../rustc_middle/mir/interpret/mod.ts";
 import { display_Value } from "../../rustc_middle/ty/consts/valtree.ts";
 import type { AdtDef } from "../../rustc_middle/ty/decls.ts";
 import { debug_AssignOp, debug_BinOp, debug_BorrowKind, debug_FakeReadCause, debug_UnOp } from "../../rustc_middle/mir/mod.ts";
@@ -1219,7 +1220,7 @@ function debug_Pat(v: Pat): string {
 function debug_mir_Const(_v: unknown): string {
   return unported("Debug for rustc_middle::mir::Const (mir/consts.rs not ported)");
 }
-/** `{:?}` of `mir::interpret::AllocId` (not ported). */
-function debug_AllocId(_v: unknown): string {
-  return unported("Debug for rustc_middle::mir::interpret::AllocId (not ported)");
+/** `{:?}` of `mir::interpret::AllocId` (thir.gen.ts types the field `unknown`). */
+function debug_AllocId(v: unknown): string {
+  return debug_AllocId_(v as AllocId, PLAIN);
 }

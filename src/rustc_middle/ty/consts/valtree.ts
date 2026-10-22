@@ -148,7 +148,7 @@ function debug_ValTreeKind_(v: ValTreeKind, f: Fmt): string {
 /// The caller can then show an appropriate error; the query does not have the
 /// necessary context to give good user-facing errors for this case.
 // rustc-type: compiler/rustc_middle/src/ty/consts/valtree.rs:94 ConstToValTreeResult
-export type ConstToValTreeResult = Result<Result<ValTree, Ty>, unknown /* ErrorHandled, M4 */>;
+export type ConstToValTreeResult = Result<Result<ValTree, Ty>, import("../../mir/interpret/error.ts").ErrorHandled>;
 
 /// A type-level constant value.
 ///

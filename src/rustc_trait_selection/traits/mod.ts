@@ -156,6 +156,7 @@ import { ControlFlow, type VisitorResult } from "../../rustc_ast_ir/visit.ts";
 import { VisitorResult as VisitorResultC } from "../../rustc_ast_ir/visit.ts";
 import { Binder, EarlyBinder, PlaceholderConst, PlaceholderType } from "../../rustc_type_ir/binder.ts";
 import { AliasConst, AliasConstKind } from "../../rustc_type_ir/const_kind.ts";
+import { ErrorGuaranteed_from_ReportedErrorInfo } from "../../rustc_middle/mir/interpret/mod.ts";
 import type { AnonConstKind, BoundVar as BoundVarT } from "../../rustc_type_ir/decls.ts";
 import type { Clauses } from "../../rustc_middle/ty/decls.ts";
 import { RawList } from "../../rustc_middle/ty/list.ts";
@@ -907,30 +908,29 @@ export function try_evaluate_const<E>(
       // FIXME: `def_span` will point at the definition of this const; ideally, we'd point at
       // where it gets used as a const generic.
       const span = AliasConstKind.def_span(alias_const2.kind, as_interner(tcx));
-      // PORT: `TyCtxt::const_eval_resolve_for_typeck` (rustc_middle mir/interpret/queries.rs) and `ErrorHandled` are
-      // const eval (M4, D1a); the match on its result is kept below in comments.
-      void typing_env;
-      void erased_alias_const;
-      void span;
-      void normalize_ty;
-      return unported("rustc_middle::ty::TyCtxt::const_eval_resolve_for_typeck (mir interpret queries, const eval: M4)");
-      // match tcx.const_eval_resolve_for_typeck(typing_env, erased_alias_const, span) {
-      //     Ok(Ok(val)) => {
-      //         let ty = normalize_ty(alias_const.type_of(tcx))
-      //             .map_err(EvaluateConstErr::FailedNormalization)?;
-      //         Ok(ty::Const::new_value(tcx, val, ty))
-      //     }
-      //     Ok(Err(_)) => {
-      //         let e = tcx.dcx().delayed_bug(
-      //             "Type system constant with non valtree'able type evaluated but no error emitted",
-      //         );
-      //         Err(EvaluateConstErr::InvalidConstParamTy(e))
-      //     }
-      //     Err(ErrorHandled::Reported(info, _)) => {
-      //         Err(EvaluateConstErr::EvaluationFailure(info.into()))
-      //     }
-      //     Err(ErrorHandled::TooGeneric(_)) => Err(EvaluateConstErr::HasGenericsOrInfers),
-      // }
+      const r = tcx.const_eval_resolve_for_typeck(typing_env, erased_alias_const, span);
+      if (r.$ === "Ok") {
+        if (r._0.$ === "Ok") {
+          const val = r._0._0;
+          const ty_r = normalize_ty(AliasConst.type_of(alias_const, tcx));
+          if (ty_r.$ === "Err") return Err({ $: "FailedNormalization", _0: ty_r._0 });
+          const ty = ty_r._0;
+          return Ok(Const.new_value(tcx, val, ty));
+        } else {
+          const e = tcx.dcx().delayed_bug("Type system constant with non valtree'able type evaluated but no error emitted");
+          return Err({ $: "InvalidConstParamTy", _0: e });
+        }
+      } else {
+        const err = r._0;
+        switch (err.$) {
+          case "Reported": {
+            const info = err._0;
+            return Err({ $: "EvaluationFailure", _0: ErrorGuaranteed_from_ReportedErrorInfo(info) });
+          }
+          case "TooGeneric":
+            return Err({ $: "HasGenericsOrInfers" });
+        }
+      }
     }
   }
 }

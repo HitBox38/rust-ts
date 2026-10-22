@@ -915,3 +915,17 @@ export const FLOAT_COMMON_METHODS = [
 
 // pub mod ieee;
 // pub mod ppc;
+
+// Files of the published crate outside the library and its tests (no logic the compiler runs):
+// - build.rs: a cargo build script that checks, at build time, that `src/lib.rs`'s LLVM commit hash matches the
+//   package version's `+llvm-<hash>` suffix (the pinned version is `0.2.3+llvm-462a31f5a5ab`, see the `//!` above).
+// crate-skip: rustc_apfloat-0.2.3+llvm-462a31f5a5ab/build.rs:9 main cargo build script (build-time version check; no runtime logic)
+// - benches/decimal.rs: criterion benchmarks of `Double` from_str / Display (timing only; the parse / print logic is
+//   ieee.ts and is tested by tests/ieee.test.ts and the oracle test).
+// crate-skip: rustc_apfloat-0.2.3+llvm-462a31f5a5ab/benches/decimal.rs:14 fmt criterion benchmark harness (timing only)
+// crate-skip: rustc_apfloat-0.2.3+llvm-462a31f5a5ab/benches/decimal.rs:26 new criterion benchmark harness (timing only)
+// crate-skip: rustc_apfloat-0.2.3+llvm-462a31f5a5ab/benches/decimal.rs:30 named criterion benchmark harness (timing only)
+// crate-skip: rustc_apfloat-0.2.3+llvm-462a31f5a5ab/benches/decimal.rs:43 double_from_str criterion benchmark harness (timing only)
+// crate-skip: rustc_apfloat-0.2.3+llvm-462a31f5a5ab/benches/decimal.rs:60 write_str criterion benchmark harness (timing only)
+// crate-skip: rustc_apfloat-0.2.3+llvm-462a31f5a5ab/benches/decimal.rs:67 finish criterion benchmark harness (timing only)
+// crate-skip: rustc_apfloat-0.2.3+llvm-462a31f5a5ab/benches/decimal.rs:76 double_to_str criterion benchmark harness (timing only)

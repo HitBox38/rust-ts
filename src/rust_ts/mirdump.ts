@@ -11,15 +11,15 @@
 // This is our own code (not a port): the upstream statements the probe runs are called through their ported fns and
 // queries; what is not ported stops there as UNPORTED (a query provider: `<query> provider (not ported)`).
 //
-// SEAMS for root (lane mir-contract declares the MIR types and `MirWriter::write_mir_fn` in parallel; nothing of it was
-// committed when this file was written). Each seam is one function of `MirSeams` below, loaded in `load_seams()`:
+// SEAMS: the MIR printer and the MIR types are ported (wave 21: mir-contract, mir-pretty, mir-body-a/b). Each seam is
+// one function of `MirSeams` below, loaded in `load_seams()` (after the driver's imports):
 // - `write_mir_fn(tcx, body)`: rustc_middle/src/mir/pretty.rs:393 `MirWriter::new(tcx).write_mir_fn(body, w)` into a
 //   string (the probe writes into a `Vec<u8>`; `write_mir_intro`, the blocks, `}`, `write_allocations`);
 // - `clone_body(body)` / `clone_promoted(promoted)`: `Clone` of `mir::Body` and of `IndexVec<Promoted, Body>` (D3:
 //   codegen's `clone_Body`, a deep copy);
-// - `display_const_val(val, ty)`: `{}` of `mir::Const::Val(val, ty)` (rustc_middle/src/mir/pretty.rs
-//   `pretty_print_const_value`), for the trivial-const one-liner.
-// Until they are wired, each calls `unported(...)`; the `mir_built` provider is reached first in practice.
+// - `display_const_val(val, ty)`: `{}` of `mir::Const::Val(val, ty)` (rustc_middle/src/mir/consts.rs `Display for Const`
+//   -> pretty.rs `pretty_print_const_value`), for the trivial-const one-liner.
+// What these reach that is not ported yet stops as UNPORTED there; the `mir_built` provider is reached first in practice.
 import type { Compiler, Config } from "../rustc_interface/interface.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import type { Providers } from "../rustc_middle/util/mod.ts";
@@ -27,12 +27,15 @@ import type { Steal } from "../rustc_data_structures/steal.ts";
 import type { Ty } from "../rustc_middle/ty/mod.ts";
 import type { LocalDefId } from "../rustc_span/def_id.ts";
 import type { Body } from "../rustc_middle/mir/mod.ts";
-import { Panic, Unported, unported } from "../std/panic.ts";
+import type { ConstValue } from "../rustc_middle/mir/consts.ts";
+import { debug_IoError } from "../std/io.ts";
+import { Panic, Unported } from "../std/panic.ts";
+import { unwrap_result } from "../std/result.ts";
+import { VecU8 } from "../vendor/anstream/stream.ts";
 import { ensure_stack } from "./stack.ts";
 
 const EXIT_UNPORTED = 70;
 
-/** A `mir::Body` (not declared in the port yet: lane mir-contract). */
 /** `mir_promoted`'s value: the body and `IndexVec<Promoted, Body>`. */
 type MirPromoted = [Steal<Body>, Steal<Body[]>];
 
@@ -44,13 +47,24 @@ interface MirSeams {
   display_const_val(val: unknown, ty: Ty): string;
 }
 
-/** The seams' current state: not ported (see the header). */
+/**
+ * The seams (see the header), wired by lane mir-pretty. The mir modules are loaded here, when `main` calls this (after
+ * its driver imports, as the driver's own modules are), not at this script's load.
+ */
 function load_seams(): MirSeams {
+  const { MirWriter } = require("../rustc_middle/mir/pretty.ts") as typeof import("../rustc_middle/mir/pretty.ts");
+  const { clone_Body, display_Const } = require("../rustc_middle/mir/mod.ts") as typeof import("../rustc_middle/mir/mod.ts");
   return {
-    write_mir_fn: () => unported("rustc_middle::mir::pretty::MirWriter::write_mir_fn (lane mir-contract; mirdump seam)"),
-    clone_body: () => unported("Clone for rustc_middle::mir::Body (codegen clone_Body, lane mir-contract; mirdump seam)"),
-    clone_promoted: () => unported("Clone for IndexVec<Promoted, mir::Body> (codegen clone_Body, lane mir-contract; mirdump seam)"),
-    display_const_val: () => unported("Display for mir::Const::Val (rustc_middle::mir::pretty pretty_print_const_value; mirdump seam)"),
+    // `MirWriter::new(tcx).write_mir_fn(body, &mut Vec<u8>)`, the bytes as UTF-8 (the probe's `String::from_utf8`).
+    write_mir_fn: (tcx, body) => {
+      const w = new VecU8();
+      unwrap_result(MirWriter.new(tcx).write_mir_fn(body, w), debug_IoError);
+      return new TextDecoder("utf-8", { fatal: true }).decode(w.bytes());
+    },
+    clone_body: (body) => clone_Body(body),
+    clone_promoted: (promoted) => promoted.map(clone_Body),
+    // `{}` of `mir::Const::Val(val, ty)` (consts.rs `impl Display for Const`).
+    display_const_val: (val, ty) => display_Const({ $: "Val", _0: val as ConstValue, _1: ty }),
   };
 }
 

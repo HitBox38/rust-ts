@@ -14,6 +14,7 @@ import {
   X87DoubleExtended,
 } from "../ieee.ts";
 import { type Round, type Status, type StatusAnd, debug_Status, debug_StatusAnd } from "../lib.ts";
+import { DoubleDouble } from "../ppc.ts";
 import { Panic } from "../../../std/panic.ts";
 
 const PLAIN = { alternate: false };
@@ -30,6 +31,10 @@ export const FORMATS: Record<string, T> = {
   e5: Float8E5M2,
   e4: Float8E4M3FN,
 } as unknown as Record<string, T>;
+/** `DoubleDouble` (`dd`): every op but `cvt` (it implements no `FloatConvert`). Typed as the IEEE dictionaries for
+ * `run` (it only calls `Float` / `FloatType` methods, which `DoubleFloat` has too). */
+const DD = DoubleDouble as unknown as T;
+export const ALL_FORMATS: Record<string, T> = { ...FORMATS, dd: DD };
 const ROUNDS: Record<string, Round> = {
   E: "NearestTiesToEven",
   P: "TowardPositive",
@@ -239,6 +244,7 @@ function moderate(Fm: T, span: number): bigint {
   return pack(Fm, rint(2), bias + BigInt(rint(2 * span + 1) - span), m);
 }
 function value(Fm: T, span = 0): bigint {
+  if (Fm === DD) return dd_value(span);
   const k = rint(10);
   if (k < 3) return pick(edges(Fm));
   if (k < 6 || span > 0) return moderate(Fm, span > 0 ? span : 40);
@@ -246,12 +252,59 @@ function value(Fm: T, span = 0): bigint {
 }
 /** A second operand close to `a` (cancellation, ties, equal exponents). */
 function near(Fm: T, a: bigint): bigint {
+  if (Fm === DD) return dd_near(a);
   const k = rint(4);
   if (k === 0) return a ^ (1n << BigInt(Fm.BITS - 1));
   if (k === 1) return a ^ BigInt(1 + rint(7));
   if (k === 2) return a ^ (1n << BigInt(rint(Fm.BITS - 1)));
   return a;
 }
+
+// ---- DoubleDouble inputs: (hi, lo) pairs of `Double` bit patterns, `lo` in the high 64 bits ----
+
+const D = Double as unknown as T;
+const dd = (hi: bigint, lo: bigint) => (lo << 64n) | hi;
+const M64 = (1n << 64n) - 1n;
+/** A `lo` for `hi`: canonical-ish (about 2^-53..2^-60 of `hi`, either sign), zero, or anything. */
+function dd_lo(hi: bigint): bigint {
+  const h = D.from_bits(hi);
+  const k = rint(8);
+  if (k < 4 && h.is_finite_non_zero()) {
+    const m = D.from_bits(pack(D, rint(2), 1023n, rbig(52)));
+    return m.scalbn(h.ilogb() - 53 - rint(8)).to_bits();
+  }
+  if (k < 5) return rint(2) === 0 ? 0n : 1n << 63n;
+  if (k < 6) return pick(edges(D));
+  return value(D);
+}
+function dd_value(span: number): bigint {
+  if (span === 0 && rint(5) === 0) return pick(dd_edges());
+  const hi = span > 0 ? moderate(D, span) : value(D);
+  return dd(hi, dd_lo(hi));
+}
+function dd_near(a: bigint): bigint {
+  const [hi, lo] = [a & M64, a >> 64n];
+  const k = rint(5);
+  if (k === 0) return dd(hi ^ (1n << 63n), lo ^ (1n << 63n));
+  if (k === 1) return dd(hi ^ BigInt(1 + rint(7)), lo);
+  if (k === 2) return dd(hi, lo ^ BigInt(1 + rint(7)));
+  if (k === 3) return dd(hi, dd_lo(hi));
+  return a;
+}
+let DD_EDGES: bigint[] | undefined;
+function dd_edges(): bigint[] {
+  if (DD_EDGES) return DD_EDGES;
+  DD_EDGES = [];
+  for (const hi of edges(D)) {
+    for (const lo of [0n, 1n << 63n, 1n, pick(edges(D))]) DD_EDGES.push(dd(hi, lo));
+    DD_EDGES.push(dd(hi, dd_lo(hi)));
+  }
+  for (const x of [DoubleDouble.largest(), DoubleDouble.smallest_normalized(), DoubleDouble.SMALLEST]) {
+    DD_EDGES.push(x.to_bits(), x.neg().to_bits());
+  }
+  return DD_EDGES;
+}
+
 const R = () => pick(Object.keys(ROUNDS));
 function str_hex(s: string): string {
   if (s === "") return "_";
@@ -298,8 +351,8 @@ const SPECIAL_STRINGS = [
 
 export function gen(): string[] {
   const lines: string[] = [];
-  for (const [k, Fm] of Object.entries(FORMATS)) {
-    const big = k === "q" || k === "x";
+  for (const [k, Fm] of Object.entries(ALL_FORMATS)) {
+    const big = k === "q" || k === "x" || k === "dd";
     lines.push(`${k} consts`);
     const N = 1500;
     for (const op of ["add", "sub", "mul", "div"]) {
@@ -324,8 +377,10 @@ export function gen(): string[] {
     }
     for (let i = 0; i < 1000; i++) lines.push(`${k} rti ${R()} ${hex(value(Fm))}`);
     for (let i = 0; i < 1000; i++) lines.push(`${k} ${pick(["nu", "nd"])} ${hex(value(Fm))}`);
-    for (const t of Object.keys(FORMATS)) {
-      for (let i = 0; i < 300; i++) lines.push(`${k} cvt ${t} ${R()} ${hex(value(Fm))}`);
+    if (k !== "dd") {
+      for (const t of Object.keys(FORMATS)) {
+        for (let i = 0; i < 300; i++) lines.push(`${k} cvt ${t} ${R()} ${hex(value(Fm))}`);
+      }
     }
     for (const op of ["toi", "tou"]) {
       for (let i = 0; i < 1000; i++) {
@@ -345,7 +400,7 @@ export function gen(): string[] {
     for (let i = 0; i < 400; i++) lines.push(`${k} fs ${R()} ${str_hex(hex_string())}`);
     // Decimal strings at (and one digit off) the midpoint of two adjacent values: exact decimal expansions
     // printed by Display of the midpoint in a wider format.
-    if (k !== "q" && k !== "x") {
+    if (k !== "q" && k !== "x" && k !== "dd") {
       for (let i = 0; i < 400; i++) {
         const a = Fm.from_bits(moderate(Fm, 30)).abs();
         const b = a.next_up().value;
@@ -370,7 +425,20 @@ export function gen(): string[] {
       const P = pick(["-", "-", "0", "1", "2", "5", "10", "17", "40", "60"]);
       lines.push(`${k} disp ${W} ${P} ${rint(3) === 0 ? 1 : 0} ${hex(big ? value(Fm, 300) : value(Fm))}`);
     }
-    if (big) for (const x of edges(Fm)) lines.push(`${k} disp - - 0 ${hex(x)}`);
+    if (k === "dd") {
+      // Round trips through long decimal strings (Display of a value, then parsing it).
+      for (let i = 0; i < 400; i++) {
+        let s: string;
+        try {
+          s = Fm.from_bits(dd_value(0)).fmt({ width: 0, precision: 30 + rint(12) });
+        } catch (e) {
+          if (e instanceof Panic) continue; // e.g. an sNaN `hi` (the conversion to `Fallback` asserts `Status::OK`)
+          throw e;
+        }
+        lines.push(`${k} fs ${R()} ${str_hex(s)}`);
+      }
+    }
+    if (big) for (const x of k === "dd" ? dd_edges() : edges(Fm)) lines.push(`${k} disp - - 0 ${hex(x)}`);
     for (let i = 0; i < 500; i++) lines.push(`${k} dbg ${hex(big ? value(Fm, 300) : value(Fm))}`);
     for (let i = 0; i < 1000; i++) {
       const e = pick([rint(2 * Fm.MAX_EXP + 400) - Fm.MAX_EXP - 200, rint(80) - 40, 2147483647, -2147483648, 2147483000, -2147483000]);
@@ -396,7 +464,7 @@ export function gen(): string[] {
 export function run_line(line: string): string {
   const [fmt, op, ...args] = line.split(" ");
   try {
-    return run(FORMATS[fmt!]!, op!, args);
+    return run(ALL_FORMATS[fmt!]!, op!, args);
   } catch (e) {
     return e instanceof Panic ? "PANIC" : `THROW ${(e as Error).message.split("\n")[0]}`;
   }

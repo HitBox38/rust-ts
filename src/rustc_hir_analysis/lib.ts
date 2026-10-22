@@ -69,7 +69,10 @@ import { display_ExternAbi, ExternAbi } from "../rustc_abi/extern_abi.ts";
 import type * as hir from "../rustc_hir/lib.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import type { Const } from "../rustc_middle/ty/decls.ts";
-import type { Ty } from "../rustc_middle/ty/mod.ts";
+import { type Ty, TypingEnv } from "../rustc_middle/ty/mod.ts";
+import { Instance } from "../rustc_middle/ty/instance.ts";
+import { RawList } from "../rustc_middle/ty/list.ts";
+import { GlobalId } from "../rustc_middle/mir/interpret/mod.ts";
 import type { Generics } from "../rustc_middle/ty/generics.ts";
 import { LocalDefId } from "../rustc_span/def_id.ts";
 import type { AnonConstKind } from "../rustc_type_ir/const_kind.gen.ts";
@@ -193,12 +196,10 @@ export function check_crate(tcx: TyCtxt): void {
     ) {
       // FIXME(generic_const_items): Passing empty instead of identity args is fishy but
       //                             seems to be fine for now. Revisit this!
-      // let instance = ty::Instance::new_raw(item_def_id.into(), ty::GenericArgs::empty());
-      // let cid = GlobalId { instance, promoted: None };
-      // let typing_env = ty::TypingEnv::fully_monomorphized();
-      // tcx.ensure_ok().eval_to_const_value_raw(typing_env.as_query_input(cid));
-      // PORT: `ty::Instance` / `mir::interpret::GlobalId` are not ported (M4).
-      return unported("rustc_middle::mir::interpret::GlobalId / ty::Instance::new_raw (M4)");
+      const instance = Instance.new_raw(LocalDefId.to_def_id(item_def_id), RawList.empty());
+      const cid = new GlobalId(instance, undefined);
+      const typing_env = TypingEnv.fully_monomorphized();
+      tcx.ensure_ok().eval_to_const_value_raw(typing_env.as_query_input(cid));
     }
     // Skip `AnonConst`s and type system `InlineConst`s because we feed their `type_of` in
     // `feed_anon_const_type`.

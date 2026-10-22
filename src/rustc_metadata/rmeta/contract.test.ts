@@ -43,9 +43,15 @@ test("the CrateMetadata contract: every declared method exists after loading lib
   for (const n of names) expect(typeof (CrateMetadata.prototype as unknown as Record<string, unknown>)[n]).toBe("function");
 });
 
-test("stubs stop as UNPORTED with their path", () => {
+test("decode_alloc_id goes through the crate's AllocDecodingSession", () => {
   // rmeta-decoder-b's region has no stubs left (lane rmeta-ty ported `get_associated_item`, its last M3 stop).
-  // rmeta-decoder-a: `def_kind` is ported; an M3 stop of its region instead.
+  // rmeta-decoder-a: `def_kind` is ported; its last M3 stop, `decode_alloc_id`, was ported by lane mir-interp-b
+  // (rustc_middle mir/interpret `AllocDecodingSession::decode_alloc_id`): it hands the decoder to the session.
   const dcx = Object.create(MetadataDecodeContext.prototype) as MetadataDecodeContext;
-  expect(() => dcx.decode_alloc_id()).toThrow("rustc_metadata::rmeta::decoder::MetadataDecodeContext::decode_alloc_id");
+  let seen: unknown;
+  Object.defineProperty(dcx, "alloc_decoding_session", {
+    value: { decode_alloc_id: (d: unknown) => ((seen = d), 5) },
+  });
+  expect(dcx.decode_alloc_id() as number).toBe(5);
+  expect(seen).toBe(dcx);
 });

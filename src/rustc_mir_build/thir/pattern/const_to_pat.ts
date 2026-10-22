@@ -201,13 +201,12 @@ export class ConstToPat {
     } else {
       // try to resolve e.g. associated constants to their definition on an impl, and then
       // evaluate the const.
-      // PORT: `TyCtxt::const_eval_resolve_for_typeck` (rustc_middle mir/interpret/queries.rs) and `ErrorHandled`
-      // are const evaluation (M4). Its `Ok(Ok(c))`, `Err(ErrorHandled::Reported(..))`, `Err(ErrorHandled::TooGeneric)`
-      // and `Ok(Err(bad_ty))` arms (UnionPattern / PointerPattern / InvalidPattern, `mk_too_generic_err`) are ported
-      // below in `alias_to_pat_eval_result` for when it lands.
+      // PORT: the `match` on `const_eval_resolve_for_typeck`'s result (its `Ok(Ok(c))`, `Err(ErrorHandled::Reported(..))`,
+      // `Err(ErrorHandled::TooGeneric)` and `Ok(Err(bad_ty))` arms: UnionPattern / PointerPattern / InvalidPattern,
+      // `mk_too_generic_err`) is `alias_to_pat_eval_result` below.
       const valtree = alias_to_pat_eval_result(
         this,
-        unported("rustc_middle::ty::TyCtxt::const_eval_resolve_for_typeck (mir/interpret, M4)"),
+        this.tcx.const_eval_resolve_for_typeck(typing_env, alias_const, this.span),
         ty,
         mk_too_generic_err,
       );

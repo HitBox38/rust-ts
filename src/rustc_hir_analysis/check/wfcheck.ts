@@ -12,7 +12,7 @@
 // - `#[instrument]` / `debug!` are tracing only and stay as comments.
 // - The rustc_trait_selection items this file calls that are not ported yet (`ObligationCtxt`, `traits::wf`,
 //   `regions::{region,ty}_known_to_outlive`, `misc::type_allowed_to_implement_const_param_ty`, the `TypeErrCtxt`
-//   reports) and the items of lanes not in this lane's base (`check::check_item_type`, `const_eval_poly` (M4)) are
+//   reports) and the items of lanes not in this lane's base (`check::check_item_type`) are
 //   local stand-ins at the end of the check-wf-a region that stop as UNPORTED.
 //
 // PORT notes of the check-wf-b region (file-wide):
@@ -1155,7 +1155,7 @@ export function check_type_defn(tcx: TyCtxt, item: LocalDefId, all_sized_: boole
           } else {
             // Evaluate the constant proactively, to emit an error if the constant has
             // an unconditional error. We only do so if the const has no type params.
-            const_eval_poly(tcx, def_id);
+            tcx.const_eval_poly(def_id);
           }
         }
         const field_id = field.did.expect_local();
@@ -1210,7 +1210,7 @@ export function check_type_defn(tcx: TyCtxt, item: LocalDefId, all_sized_: boole
       // Explicit `enum` discriminant values must const-evaluate successfully.
       if (variant.discr.$ === "Explicit") {
         const discr_def_id = variant.discr._0;
-        const r = const_eval_poly(tcx, discr_def_id);
+        const r = tcx.const_eval_poly(discr_def_id);
         if (r.$ === "Ok") {
           // ok
         } else if (r._0.$ === "Reported") {
@@ -1275,13 +1275,6 @@ const WellFormedLoc_None: WellFormedLoc = { $: "None" };
 /** D4 descriptor of `Vec<(Clause, Span)>` (`explicit_item_bounds(..).iter_identity_copied().collect()`). */
 const d_Vec_Clause_Span: TypeFoldable<readonly [Clause, Span][]> = fold_Vec(fold_tuple2(fold_Clause, fold_Span));
 
-/** `mir::interpret::ErrorHandled` (rustc_middle mir/interpret/error.rs, M4): the variants this file matches. */
-type ErrorHandled = { readonly $: "Reported"; _0: unknown; _1: Span } | { readonly $: "TooGeneric"; _0: Span };
-
-/** PORT: stand-in for `TyCtxt::const_eval_poly` (rustc_middle mir/interpret/queries.rs, M4). */
-function const_eval_poly(_tcx: TyCtxt, _def_id: DefId): Result<unknown, ErrorHandled> {
-  return unported("rustc_middle::mir::interpret::TyCtxt::const_eval_poly (M4)");
-}
 
 // ==== lane check-wf-b: wfcheck.rs:1140..end ====
 

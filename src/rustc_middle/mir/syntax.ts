@@ -45,6 +45,19 @@ export const debug_Place: Debug<gen.Place> = (v, f) => mir_pretty().debug_Place(
 export interface MirPhase_methods {}
 export type MirPhase = gen.MirPhase;
 export const MirPhase = gen.MirPhase as typeof gen.MirPhase & MirPhase_methods;
+/**
+ * PORT: `#[derive(PartialOrd, Ord)]` of `MirPhase` (syntax.rs:43): the variants in declaration order (`Built`,
+ * `Analysis`, `Runtime`), then the phase's discriminant (`AnalysisPhase` / `RuntimePhase` derive `Ord` too).
+ */
+export function MirPhase_cmp(a: MirPhase, b: MirPhase): -1 | 0 | 1 {
+  const variant = (p: MirPhase): number => (p.$ === "Built" ? 0 : p.$ === "Analysis" ? 1 : 2);
+  const inner = (p: MirPhase): number =>
+    p.$ === "Analysis" ? gen.AnalysisPhase_discriminant[p._0] : p.$ === "Runtime" ? gen.RuntimePhase_discriminant[p._0] : 0;
+  const [va, vb] = [variant(a), variant(b)];
+  if (va !== vb) return va < vb ? -1 : 1;
+  const [ia, ib] = [inner(a), inner(b)];
+  return ia === ib ? 0 : ia < ib ? -1 : 1;
+}
 // mir/statement.rs
 export interface BorrowKind_methods {}
 export type BorrowKind = gen.BorrowKind;

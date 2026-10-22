@@ -12,24 +12,14 @@
 // `predecessors(node)` and the inherent `predecessors()` share the prototype slot (overloads, dispatched on the
 // argument).
 import "./mod.ts";
+import { dominators, type Dominators } from "../../rustc_data_structures/graph/dominators/mod.ts";
+import type { ControlFlowGraph } from "../../rustc_data_structures/graph/mod.ts";
 import type { StableHashCtxt, StableHasher } from "../../rustc_data_structures/stable_hash.ts";
-import type { Pending1 } from "../../rustc_type_ir/decls.ts";
-import { unported } from "../../std/panic.ts";
 import type { TyDecoder } from "../ty/codec.ts";
 import { BasicBlocks, type Cache, type Predecessors } from "./basic_blocks.gen.ts";
 import { type BasicBlock, type BasicBlockData, START_BLOCK } from "./mod.gen.ts";
 import { Postorder } from "./traversal.ts";
 export * from "./basic_blocks.gen.ts";
-
-/**
- * PORT: `rustc_data_structures::graph::dominators::Dominators<N>` is not ported yet (lane index-ds, wave 21): a
- * placeholder type until it is; `dominators` below stops there.
- */
-export type Dominators<N extends number> = Pending1<"rustc_data_structures::graph::dominators::Dominators", N>;
-/** `rustc_data_structures::graph::dominators::dominators(graph)` (not ported yet: lane index-ds). */
-function dominators(_graph: BasicBlocks): Dominators<BasicBlock> {
-  return unported("rustc_data_structures::graph::dominators::dominators (lane index-ds)");
-}
 
 /** `Cache::default()` (derive(Default): every `OnceLock` empty). */
 function default_Cache(): Cache {
@@ -76,7 +66,8 @@ declare module "./basic_blocks.gen.ts" {
 
 // rustc: compiler/rustc_middle/src/mir/basic_blocks.rs:38 dominators
 BasicBlocks.prototype.dominators = function (this: BasicBlocks): Dominators<BasicBlock> {
-  return (this.cache.dominators ??= dominators(this));
+  // PORT: the class implements the graph traits (header); the cast is for the overloaded `predecessors` slot.
+  return (this.cache.dominators ??= dominators(this as unknown as ControlFlowGraph<BasicBlock>));
 };
 
 /// Returns predecessors for each basic block.

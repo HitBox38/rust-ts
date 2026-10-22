@@ -303,19 +303,28 @@ interface SemanticsImpl {
   readonly EXP_BITS: number;
   readonly PRECISION?: number;
   readonly NONFINITE_BEHAVIOR?: NonfiniteBehavior;
+  readonly MAX_EXP?: ExpInt;
+  readonly MIN_EXP?: ExpInt;
   readonly QNAN_SIGNIFICAND?: (PRECISION: number) => Limb;
   readonly from_bits?: (this: Semantics, bits: bigint) => IeeeFloat<Semantics>;
   readonly to_bits?: (this: Semantics, x: IeeeFloat<Semantics>) => bigint;
 }
 
-/** PORT: `impl Semantics for <NAME>`: the associated consts with the trait's defaults, in upstream's order. */
-function semantics<const N extends string>(NAME: N, d: SemanticsImpl): Semantics & { readonly NAME: N } {
+/**
+ * PORT: `impl Semantics for <NAME>`: the associated consts with the trait's defaults, in upstream's order.
+ * Exported for ppc.ts (`FallbackS` / `FallbackExtendedS`, which set `MAX_EXP` / `MIN_EXP` and `BITS = EXP_BITS = 0`).
+ * Rust evaluates an associated const only where it is used: when an impl sets both `MAX_EXP` and `MIN_EXP`, the
+ * defaults `IEEE_MIN_EXP` / `IEEE_MAX_EXP` are never evaluated (for `EXP_BITS = 0` they would not compile:
+ * `1 << (0 - 1)`), so they are getters that panic if read.
+ */
+export function semantics<const N extends string>(NAME: N, d: SemanticsImpl): Semantics & { readonly NAME: N } {
   const BITS = d.BITS;
   const EXP_BITS = d.EXP_BITS;
   const PRECISION = d.PRECISION ?? BITS - 1 - EXP_BITS + 1;
   const NONFINITE_BEHAVIOR = d.NONFINITE_BEHAVIOR ?? NonfiniteBehavior.IEEE754;
-  const IEEE_MIN_EXP = -(1 << (EXP_BITS - 1)) + 2;
-  const MIN_EXP = IEEE_MIN_EXP;
+  const ieee_exp_unused = d.MAX_EXP !== undefined && d.MIN_EXP !== undefined;
+  const IEEE_MIN_EXP = ieee_exp_unused ? NaN : -(1 << (EXP_BITS - 1)) + 2;
+  const MIN_EXP = d.MIN_EXP ?? IEEE_MIN_EXP;
   const IEEE_MAX_EXP = -IEEE_MIN_EXP + 1;
   let ieee_inf_and_nan_replaced_with_extra_normals: boolean;
   switch (NONFINITE_BEHAVIOR) {
@@ -326,12 +335,12 @@ function semantics<const N extends string>(NAME: N, d: SemanticsImpl): Semantics
       ieee_inf_and_nan_replaced_with_extra_normals = true;
       break;
   }
-  const MAX_EXP = IEEE_MAX_EXP + (MIN_EXP - IEEE_MIN_EXP) + (ieee_inf_and_nan_replaced_with_extra_normals ? 1 : 0);
+  const MAX_EXP = d.MAX_EXP ?? IEEE_MAX_EXP + (MIN_EXP - IEEE_MIN_EXP) + (ieee_inf_and_nan_replaced_with_extra_normals ? 1 : 0);
   const ieee = NONFINITE_BEHAVIOR === NonfiniteBehavior.IEEE754;
   const NAN_SIGNIFICAND_BASE = ieee ? 0n : shl(1n, PRECISION - 1) - 1n;
   const NAN_PAYLOAD_MASK = ieee ? shl(1n, PRECISION - 1) - 1n : 0n;
   const QNAN_SIGNIFICAND = d.QNAN_SIGNIFICAND !== undefined ? d.QNAN_SIGNIFICAND(PRECISION) : ieee ? shl(1n, PRECISION - 2) : 0n;
-  return Object.freeze({
+  const r: Semantics & { readonly NAME: N } = {
     NAME,
     BITS,
     EXP_BITS,
@@ -346,7 +355,15 @@ function semantics<const N extends string>(NAME: N, d: SemanticsImpl): Semantics
     QNAN_SIGNIFICAND,
     from_bits: d.from_bits ?? Semantics_provided.from_bits,
     to_bits: d.to_bits ?? Semantics_provided.to_bits,
-  });
+  };
+  if (ieee_exp_unused) {
+    for (const name of ["IEEE_MAX_EXP", "IEEE_MIN_EXP"]) {
+      Object.defineProperty(r, name, {
+        get: (): never => panic(`rustc_apfloat: \`<${NAME} as Semantics>::${name}\` is never evaluated upstream`),
+      });
+    }
+  }
+  return Object.freeze(r);
 }
 
 export const Semantics_provided = {

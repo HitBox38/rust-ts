@@ -17,7 +17,6 @@ import type { Crate } from "../../rustc_ast/lib.ts";
 import { compiler_entrypoint } from "../../rustc_driver_impl/lib.ts";
 import { type Config, run_compiler } from "../../rustc_interface/interface.ts";
 import { create_and_enter_global_ctxt, parse } from "../../rustc_interface/passes.ts";
-import { DUMMY_SP } from "../../rustc_span/lib.ts";
 import { PLAIN } from "../../std/fmt.ts";
 import { Unported } from "../../std/panic.ts";
 import "../lib.ts";
@@ -25,22 +24,18 @@ import {
   BasicBlock,
   BasicBlockData,
   BasicBlocks,
-  Body,
   clone_Body,
   debug_Location,
   HasLocalDecls,
   Local,
-  LocalDecl,
   Location,
-  Operand,
   Place,
   RETURN_PLACE,
   START_BLOCK,
-  TerminatorKind,
   type PlaceElem,
 } from "./mod.ts";
 import { AllocId, CtfeProvenance, debug_AllocId, display_AllocId, InterpResult } from "./interpret/mod.ts";
-import { MirWriter, write_mir_pretty } from "./pretty.ts";
+import "./pretty.ts";
 import { MutVisitor, Visitor } from "./visit.ts";
 
 const MIR = "compiler/rustc_middle/src/mir/";
@@ -91,7 +86,8 @@ for (const f of walk(join(REPO, "src"))) {
   const lines = readFileSync(f, "utf8").split("\n");
   for (let i = 0; i < lines.length; i++) {
     const m = /\/\/ (rustc|rustc-skip|stub): (\S+):(\d+) (\w+)(?: \(lane ([\w-]+)\))?/.exec(lines[i]!);
-    if (!m || !m[2]!.startsWith(MIR)) continue;
+    // ported upstream unit tests (`<dir>/tests.rs` -> `tests.test.ts`, e.g. interpret/allocation/init_mask/tests.rs) are not scope files
+    if (!m || !m[2]!.startsWith(MIR) || m[2]!.endsWith("/tests.rs")) continue;
     const d: Decl = { file: relative(REPO, f), kind: m[1] as Decl["kind"], path: m[2]!, line: Number(m[3]), name: m[4]!, lane: m[5], unported: undefined };
     if (d.kind === "stub") {
       for (let j = i + 1; j < Math.min(lines.length, i + 16); j++) {
@@ -136,12 +132,6 @@ test("stubs per fill lane (the split table of docs/handoff/mir-contract.md)", ()
   const per = new Map<string, number>();
   for (const d of decls.filter((d) => d.kind === "stub")) per.set(d.lane!, (per.get(d.lane!) ?? 0) + 1);
   expect(Object.fromEntries([...per].sort())).toEqual({
-    "mir-body-a": 103,
-    "mir-body-b": 181,
-    "mir-interp-a": 91,
-    "mir-interp-b": 184,
-    "mir-pretty": 43,
-    "mir-visit": 125,
   });
 });
 
@@ -184,23 +174,18 @@ function stops(f: () => unknown, what: string): void {
 }
 
 test("stubs stop as UNPORTED with their own path", () => {
-  stops(() => Body.new_cfg_only([]), "rustc_middle::mir::Body::new_cfg_only");
-  stops(() => LocalDecl.new(null as never, DUMMY_SP), "rustc_middle::mir::LocalDecl::new");
-  stops(() => Local.arg(0), "rustc_middle::mir::Local::arg");
-  stops(() => Operand.is_move(null as never), "rustc_middle::mir::statement::Operand::is_move");
-  stops(() => TerminatorKind.successors(null as never), "rustc_middle::mir::terminator::TerminatorKind::successors");
-  stops(() => new MirWriter(null as never, () => null as never, null as never).write_mir_fn(null as never, null as never), "rustc_middle::mir::pretty::MirWriter::write_mir_fn");
-  stops(() => write_mir_pretty(null as never, null as never), "rustc_middle::mir::pretty::write_mir_pretty");
-  stops(() => CtfeProvenance.alloc_id(1n as CtfeProvenance), "rustc_middle::mir::interpret::pointer::CtfeProvenance::alloc_id");
-  stops(() => InterpResult.unwrap({ $: "Ok", _0: 1 }), "rustc_middle::mir::interpret::error::InterpResult::unwrap");
+  // (lane mir-visit) `Visitor` / `MutVisitor` are ported: their walks are checked in visit.test.ts.
+  // (lane mir-interp-b: interpret/{mod, value, pointer, error, queries}.rs are ported, no stubs left)
+  expect(CtfeProvenance.alloc_id(1n as CtfeProvenance)).toBe(1 as AllocId);
+  expect(InterpResult.unwrap({ $: "Ok", _0: 1 })).toBe(1);
   class V extends Visitor {}
-  stops(() => new V().visit_body(null as never), "rustc_middle::mir::visit::Visitor::visit_body");
+  expect(() => new V().visit_local(RETURN_PLACE, { $: "MutatingUse", _0: "Store" }, Location.START)).not.toThrow();
   class M extends MutVisitor {
     tcx(): never {
       throw new Error("unused");
     }
   }
-  stops(() => new M().visit_local({ value: RETURN_PLACE }, null as never, null as never), "rustc_middle::mir::visit::MutVisitor::visit_local");
+  expect(() => new M().visit_local({ value: RETURN_PLACE }, { $: "MutatingUse", _0: "Store" }, Location.START)).not.toThrow();
 });
 
 test("ported glue: HasLocalDecls, Location / AllocId Debug, BasicBlocks caches", () => {

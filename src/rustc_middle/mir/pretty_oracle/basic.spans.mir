@@ -1,0 +1,98 @@
+// WARNING: This output format is intended for human consumers only
+// and is subject to change without notice. Knock yourself out.
+// HINT: See also -Z dump-mir for MIR at specific points during compilation.
+fn f(_1: i32) -> i32 {
+    debug x => _1;                       // in scope 0 at basic.rs:19:10: 19:11
+    let mut _0: i32;                     // return place in scope 0 at basic.rs:19:21: 19:24
+    scope 1 {
+        debug y => _1;                   // in scope 1 at basic.rs:19:31: 19:32
+    }
+
+    bb0: {
+        _0 = copy _1;                    // scope 1 at basic.rs:19:38: 19:39
+        return;                          // scope 0 at basic.rs:19:41: 19:41
+    }
+}
+
+static S: &str = {
+    let mut _0: &str;                    // return place in scope 0 at basic.rs:20:15: 20:19
+
+    bb0: {
+        _0 = const "hello";              // scope 0 at basic.rs:20:22: 20:29
+                                         // mir::ConstOperand
+                                         // + span: basic.rs:20:22: 20:29
+                                         // + const_: Const { ty: &str, val: Value("hello") }
+        return;                          // scope 0 at basic.rs:20:1: 20:30
+    }
+}
+
+alloc1 (size: 5, align: 1) {
+    68 65 6c 6c 6f                                  │ hello
+}
+
+static P: &i32 = {
+    let mut _0: &i32;                    // return place in scope 0 at basic.rs:21:15: 21:19
+    let _1: &i32;                        // in scope 0 at basic.rs:21:22: 21:24
+    let _2: i32;                         // in scope 0 at basic.rs:21:23: 21:24
+    let mut _3: &i32;                    // in scope 0 at basic.rs:21:22: 21:24
+
+    bb0: {
+        StorageLive(_1);                 // scope 0 at basic.rs:21:22: 21:24
+        _3 = const P::promoted[0];       // scope 0 at basic.rs:21:22: 21:24
+                                         // mir::ConstOperand
+                                         // + span: basic.rs:21:22: 21:24
+                                         // + const_: Const { ty: &i32, val: Unevaluated(P, [], Some(promoted[0])) }
+        _1 = &(*_3);                     // scope 0 at basic.rs:21:22: 21:24
+        _0 = &(*_1);                     // scope 0 at basic.rs:21:22: 21:24
+        StorageDead(_1);                 // scope 0 at basic.rs:21:23: 21:24
+        return;                          // scope 0 at basic.rs:21:1: 21:25
+    }
+}
+
+const P::promoted[0]: &i32 = {
+    let mut _0: &i32;                    // return place in scope 0 at basic.rs:21:22: 21:24
+    let mut _1: i32;                     // in scope 0 at basic.rs:21:23: 21:24
+
+    bb0: {
+        _1 = const 5_i32;                // scope 0 at basic.rs:21:23: 21:24
+        _0 = &_1;                        // scope 0 at basic.rs:21:22: 21:24
+        return;                          // scope 0 at basic.rs:21:22: 21:24
+    }
+}
+
+static L: &[u8; 20] = {
+    let mut _0: &[u8; 20];               // return place in scope 0 at basic.rs:22:15: 22:24
+
+    bb0: {
+        _0 = const b"0123456789abcdefghij"; // scope 0 at basic.rs:22:27: 22:50
+                                         // mir::ConstOperand
+                                         // + span: basic.rs:22:27: 22:50
+                                         // + const_: Const { ty: &[u8; 20], val: Value(b"0123456789abcdefghij") }
+        return;                          // scope 0 at basic.rs:22:1: 22:51
+    }
+}
+
+alloc6 (size: 20, align: 1) {
+    0x00 │ 30 31 32 33 34 35 36 37 38 39 61 62 63 64 65 66 │ 0123456789abcdef
+    0x10 │ 67 68 69 6a                                     │ ghij
+}
+
+const L::{constant#0}: usize = const 20_usize;
+
+const C: i32 = const 7_i32;
+
+fn g() -> &str {
+    let mut _0: &str;                    // return place in scope 0 at basic.rs:24:15: 24:27
+
+    bb0: {
+        _0 = const "hi";                 // scope 0 at basic.rs:24:30: 24:34
+                                         // mir::ConstOperand
+                                         // + span: basic.rs:24:30: 24:34
+                                         // + const_: Const { ty: &str, val: Value("hi") }
+        return;                          // scope 0 at basic.rs:24:36: 24:36
+    }
+}
+
+alloc8 (size: 2, align: 1) {
+    68 69                                           │ hi
+}
