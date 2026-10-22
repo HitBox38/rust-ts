@@ -111,8 +111,8 @@ test("every fn of rustc_borrowck is ported or declared as a stub, never both", (
     }
   }
   expect(total).toBe(901);
-  expect(markers.length).toBe(106);
-  expect(stubs.length).toBe(795);
+  expect(markers.length).toBe(107);
+  expect(stubs.length).toBe(794);
 });
 
 test("the stubs per fill lane are the handoff's split table", () => {
@@ -135,7 +135,7 @@ test("the stubs per fill lane are the handoff's split table", () => {
     "bck-diag-d": 70,
     "bck-diag-e": 48,
     "bck-diag-f": 70,
-    "bck-polonius-legacy": 41,
+    "bck-polonius-legacy": 40,
   });
   // lib.rs is split at line 1400 (bck-lib-a / bck-lib-b), conflict_errors.rs at line 2469 (bck-diag-a / bck-diag-b)
   for (const d of stubs.filter((d) => d.path === `${CRATE}lib.rs`)) {
@@ -146,7 +146,7 @@ test("the stubs per fill lane are the handoff's split table", () => {
   }
   // the legacy polonius fns every borrowck run reaches belong to an M4b lane (bck-nll), the rest to wave 26
   for (const d of stubs.filter((d) => d.path.startsWith(`${CRATE}polonius/legacy/`))) {
-    const main_path = d.path.endsWith("/location.rs") || (d.path.endsWith("/facts.rs") && d.name === "enabled") || (d.path.endsWith("/legacy/mod.rs") && d.name === "emit_facts");
+    const main_path = d.path.endsWith("/location.rs") || (d.path.endsWith("/facts.rs") && d.name === "enabled") || (d.path.endsWith("/legacy/mod.rs") && (d.name === "emit_facts" || d.name === "emit_drop_facts"));
     expect(`${d.path}:${d.line} ${d.name}: ${d.lane}`).toBe(`${d.path}:${d.line} ${d.name}: ${main_path ? "bck-nll" : "bck-polonius-legacy"}`);
   }
 });
