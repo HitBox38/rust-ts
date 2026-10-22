@@ -15,7 +15,7 @@ import { Constructor, ConstructorSet, debug_Constructor, debug_IntRange, debug_S
 import { MatchArm } from "./lib.ts";
 import { DeconstructedPat, debug_DeconstructedPat, debug_PatOrWild, debug_WitnessPat, type IndexedPat, PatOrWild, WitnessPat } from "./pat.ts";
 import { analyze_match, RustcPatCtxt, RustcPatCtxtState } from "./rustc.ts";
-import { CX_STATIC, Cx, type CxTypes, NEVER, pat, pats, type Ty, UNIT, USEFULNESS_PORTED } from "./tests/common/mod.ts";
+import { CX_STATIC, Cx, type CxTypes, NEVER, pat, pats, type Ty, UNIT } from "./tests/common/mod.ts";
 import { PLAIN } from "../std/fmt.ts";
 import { Unported } from "../std/panic.ts";
 
@@ -325,30 +325,3 @@ test("WitnessPat: Debug of the crate tests' witnesses, wildcard / wild_from_ctor
   expect(MatchArm.clone(arm)).toEqual(arm);
 });
 
-// Lane pat-c ported rustc.rs: `analyze_match` now passes `reveal_opaque_ty` and stops in usefulness (lane pat-a) until
-// that is ported (then this test is skipped; the end-to-end checks are rustc.test.ts's and the suites').
-test.skipIf(USEFULNESS_PORTED)("analyze_match stops at the first stub on its path (lane pat-a)", () => {
-  const BOOL = { kind: () => ({ $: "Bool" }) };
-  const tcx = { pattern_complexity_limit: () => ({ _0: undefined }) };
-  const tycx = new RustcPatCtxt(
-    tcx as never,
-    undefined as never,
-    undefined as never,
-    undefined as never,
-    undefined,
-    undefined as never,
-    undefined,
-    undefined as never,
-    true,
-    true,
-    RustcPatCtxtState.default(),
-  );
-  let err: unknown;
-  try {
-    analyze_match(tycx, [], BOOL as never);
-  } catch (e) {
-    err = e;
-  }
-  expect(err).toBeInstanceOf(Unported);
-  expect((err as Unported).what).toBe("rustc_pattern_analysis::usefulness::PlaceValidity::from_bool");
-});
