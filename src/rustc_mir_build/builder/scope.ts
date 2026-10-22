@@ -37,7 +37,9 @@ import { type ArmId, type ExprId } from "../../rustc_middle/thir.ts";
 import { ScalarInt } from "../../rustc_middle/ty/consts/int.ts";
 import { ValTree } from "../../rustc_middle/ty/consts/valtree.ts";
 import { type TyCtxt } from "../../rustc_middle/ty/context.ts";
-import { debug_Ty, type Ty, type TypingEnv } from "../../rustc_middle/ty/mod.ts";
+import { debug_Ty, type Ty, TypingEnv } from "../../rustc_middle/ty/mod.ts";
+import type { TypeckResults } from "../../rustc_middle/ty/decls.ts";
+import { RustcPatCtxt, RustcPatCtxtState } from "../../rustc_pattern_analysis/rustc.ts";
 import { fold_Ty } from "../../rustc_middle/ty/structural_impls.ts";
 import { debug_ConstKind } from "../../rustc_type_ir/const_kind.ts";
 import { Const as ty_Const } from "../../rustc_type_ir/sty/mod.ts";
@@ -52,7 +54,7 @@ import {
 import { type BuiltMatchTree } from "./matches/mod.gen.ts";
 import { BlockAnd, BlockFrame, Builder, type CFG, unit } from "./mod.ts";
 import { DropIdx, DropKind, DropTree, Scope, Scopes, type BreakableTarget, type DropData, type DropNode, type DropNodeKey, type LintLevel } from "./scope.gen.ts";
-import { DUMMY_SP, type Span, type Spanned } from "../../rustc_span/lib.ts";
+import { DUMMY_SP, Span, type Spanned } from "../../rustc_span/lib.ts";
 import { KeyedMap } from "../../rust_ts/keyed.ts";
 import { PLAIN, PRETTY } from "../../std/fmt.ts";
 import { type MutRef } from "../../std/mut_ref.ts";
@@ -855,14 +857,22 @@ Builder.prototype.break_const_continuable_scope = function (this: Builder, block
 
   // The `PatCtxt` is normally used in pattern exhaustiveness checking, but reused
   // here because it performs normalization and const evaluation.
-  // let dropless_arena = rustc_arena::DroplessArena::default();
-  const typeck_results = this.tcx.typeck(this.def_id);
-  void typeck_results;
-  // PORT: `RustcPatCtxt { tcx, typeck_results, module: tcx.parent_module(hir_id), typing_env:
-  // TypingEnv::post_typeck_until_borrowck_for_mir_build(tcx, def_id), dropless_arena, match_lint_level: hir_id,
-  // whole_match_span: Some(Span::default()), scrut_span: Span::default(), refutable: true, known_valid_scrutinee: true,
-  // internal_state: Default::default() }`: rustc_pattern_analysis is not ported.
-  const cx: unknown = unported("rustc_pattern_analysis::rustc::RustcPatCtxt");
+  // PORT: rustc_arena is erased (PORTING §5): the arena is `null`.
+  const dropless_arena = null;
+  const typeck_results = this.tcx.typeck(this.def_id) as TypeckResults;
+  const cx = new RustcPatCtxt(
+    this.tcx,
+    typeck_results,
+    this.tcx.parent_module(this.hir_id),
+    TypingEnv.post_typeck_until_borrowck_for_mir_build(this.tcx, this.def_id),
+    dropless_arena,
+    this.hir_id,
+    Span.default(),
+    Span.default(),
+    true,
+    true,
+    RustcPatCtxtState.default(),
+  );
 
   let valtree: ValTree;
   const ev = this.eval_unevaluated_mir_constant_to_valtree(constant);

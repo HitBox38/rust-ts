@@ -1,10 +1,19 @@
 // Port of compiler/rustc_mir_build/src/builder/cfg.rs (lane builder-contract): `impl CFG` (the generated class of
 // mod.gen.ts) is put on its prototype here (PORTING §5 "Methods defined in another file"; builder/mod.ts header).
+//
+// PORT: aliasing (decision 2026-10-22 "MIR build aliasing"): `mir::Place` and `SourceInfo` are `Copy` upstream, and a
+// statement / terminator owns what it holds, so no two MIR locations can share a value; MIR passes edit places and
+// source infos in place (MutVisitor). `push` and `terminate` are where every statement and terminator enters the MIR,
+// so they store a copy (`clone_Statement`; `clone_SourceInfo` + `clone_TerminatorKind`): every `Place` / `SourceInfo`
+// / operand inside is copied once here, as upstream copies it into the statement. Callers may keep using their values.
 //! Routines for manipulating the control-flow graph.
 import type { UnrollAttr } from "../../rustc_attr_ir/lib.ts";
 import {
   type BasicBlock,
   BasicBlockData,
+  clone_SourceInfo,
+  clone_Statement,
+  clone_TerminatorKind,
   Const,
   ConstOperand,
   type FakeReadCause,
@@ -67,7 +76,8 @@ CFG.prototype.start_new_cleanup_block = function (this: CFG): BasicBlock {
 // rustc: compiler/rustc_mir_build/src/builder/cfg.rs:33 push
 CFG.prototype.push = function (this: CFG, block: BasicBlock, statement: Statement): void {
   // debug!("push({:?}, {:?})", block, statement);
-  this.block_data_mut(block).statements.push(statement);
+  // PORT: a copy (header: aliasing).
+  this.block_data_mut(block).statements.push(clone_Statement(statement));
 };
 
 // rustc: compiler/rustc_mir_build/src/builder/cfg.rs:38 push_assign
@@ -113,7 +123,8 @@ CFG.prototype.terminate = function (this: CFG, block: BasicBlock, source_info: S
   //     block,
   //     self.block_data(block)
   // );
-  this.block_data_mut(block).terminator = new Terminator(source_info, kind);
+  // PORT: copies (header: aliasing).
+  this.block_data_mut(block).terminator = new Terminator(clone_SourceInfo(source_info), clone_TerminatorKind(kind));
   return this.block_data_mut(block).terminator!;
 };
 

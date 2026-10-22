@@ -58,9 +58,11 @@ import { BytePos, Span } from "../../../rustc_span/lib.ts";
 import { bug } from "../../../rustc_span/macros.ts";
 import { type Symbol } from "../../../rustc_span/symbol.ts";
 import { panic, unported } from "../../../std/panic.ts";
-// PORT: rustc_pattern_analysis is not ported (wave 22 lanes pat-a/-b/-c): its types are pending.
-type RustcPatCtxt = unknown;
-type DeconstructedPat = unknown;
+import { debug_Constructor, IntRange, MaybeInfiniteInt, type RangeEnd } from "../../../rustc_pattern_analysis/constructor.ts";
+import { type DeconstructedPat, type RustcPatCtxt, RustcPatCtxt as RustcPatCtxtC, type RustcPatCtxtTypes } from "../../../rustc_pattern_analysis/rustc.ts";
+import { VariantIdx } from "../../../rustc_abi/lib.ts";
+import { ValTreeKind } from "../../../rustc_type_ir/const_kind.ts";
+import type { IeeeFloat } from "../../../vendor/rustc_apfloat/ieee.ts";
 import * as gen from "./mod.gen.ts";
 export * from "./mod.gen.ts";
 
@@ -2456,12 +2458,140 @@ Builder.prototype.should_emit_debug_info_for_binding = function (this: Builder, 
   return true;
 };
 
-// stub: compiler/rustc_mir_build/src/builder/matches/mod.rs:2883 static_pattern_match (lane mb-matches-b)
+/// Attempt to statically pick the `BasicBlock` that a value would resolve to at runtime.
+// rustc: compiler/rustc_mir_build/src/builder/matches/mod.rs:2883 static_pattern_match
 Builder.prototype.static_pattern_match = function (this: Builder, cx: RustcPatCtxt, valtree: ValTree, arms: readonly ArmId[], built_match_tree: BuiltMatchTree): BasicBlock | undefined {
-  return unported("rustc_mir_build::builder::matches::Builder::static_pattern_match");
+  // PORT: `arms.iter().zip(built_match_tree.branches.iter())` is one loop over the shorter length.
+  const n = Math.min(arms.length, built_match_tree.branches.length);
+  for (let i = 0; i < n; i++) {
+    const arm_id = arms[i]!;
+    const branch = built_match_tree.branches[i]!;
+    const pat = cx.lower_pat(this.thir.index_ArmId(arm_id).pattern);
+
+    // Peel off or-patterns if they exist.
+    if (pat.ctor().$ === "Or") {
+      for (const pat_ of pat.iter_fields()) {
+        // For top-level or-patterns (the only ones we accept right now), when the
+        // bindings are the same (e.g. there are none), the sub_branch is stored just
+        // once.
+        const sub_branch = branch.sub_branches[pat_.idx] ?? branch.sub_branches[branch.sub_branches.length - 1];
+        if (sub_branch === undefined) panic("called `Option::unwrap()` on a `None` value");
+
+        switch (this.static_pattern_match_inner(valtree, pat_.pat)) {
+          case true:
+            return sub_branch.success_block;
+          case false:
+            continue;
+        }
+      }
+    } else if (this.static_pattern_match_inner(valtree, pat)) {
+      return branch.sub_branches[0]!.success_block;
+    }
+  }
+
+  return undefined;
 };
 
-// stub: compiler/rustc_mir_build/src/builder/matches/mod.rs:2922 static_pattern_match_inner (lane mb-matches-b)
+/// PORT: `(l..=h).contains(&actual)` / `(l..h).contains(&actual)` of the apfloat types (`PartialOrd`; NaN is in no
+/// range).
+function float_range_contains<F extends IeeeFloat>(l: F, h: F, end: RangeEnd, actual: F): boolean {
+  const lo = l.partial_cmp(actual as never);
+  if (!(lo === -1 || lo === 0)) return false;
+  const hi = actual.partial_cmp(h as never);
+  switch (end) {
+    case "Included":
+      return hi === -1 || hi === 0;
+    case "Excluded":
+      return hi === -1;
+  }
+}
+
+/// Helper for [`Self::static_pattern_match`], checking whether the value represented by the
+/// `ValTree` matches the given pattern. This function does not recurse, meaning that it does
+/// not handle or-patterns, or patterns for types with fields.
+// rustc: compiler/rustc_mir_build/src/builder/matches/mod.rs:2922 static_pattern_match_inner
 Builder.prototype.static_pattern_match_inner = function (this: Builder, valtree: ValTree, pat: DeconstructedPat): boolean {
-  return unported("rustc_mir_build::builder::matches::Builder::static_pattern_match_inner");
+  // use rustc_pattern_analysis::constructor::{IntRange, MaybeInfiniteInt};
+  // use rustc_pattern_analysis::rustc::Constructor;
+
+  const ctor = pat.ctor();
+  switch (ctor.$) {
+    case "Variant": {
+      const variant_index = ctor._0;
+      const k = valtree.kind();
+      if (k.$ !== "Branch") {
+        return bug("malformed valtree for an enum");
+      }
+      const branch = k._0;
+      if (branch.length !== 1) {
+        bug("malformed valtree for an enum");
+      }
+      const k0 = branch[0]!.to_value().valtree.kind();
+      if (k0.$ !== "Leaf") {
+        return bug("malformed valtree for an enum");
+      }
+      const actual_variant_idx = k0._0;
+
+      return variant_index === VariantIdx.from_u32(actual_variant_idx.to_u32());
+    }
+    case "IntRange": {
+      const int_range = ctor._0;
+      const size = pat.ty().primitive_size(this.tcx);
+      const actual_int_bits = ValTreeKind.to_leaf(valtree.kind()).to_bits(size);
+      const actual_int = pat.ty().is_signed()
+        ? MaybeInfiniteInt.new_finite_int(actual_int_bits, size.bits())
+        : MaybeInfiniteInt.new_finite_uint(actual_int_bits);
+      return IntRange.from_singleton(actual_int).is_subrange(int_range);
+    }
+    case "Bool": {
+      const pattern_value = ctor._0;
+      const r = ValTreeKind.to_leaf(valtree.kind()).try_to_bool();
+      if (r.$ === "Ok") {
+        return pattern_value === r._0;
+      } else {
+        return bug("bool value with invalid bits");
+      }
+    }
+    case "F16Range": {
+      const actual = ValTreeKind.to_leaf(valtree.kind()).to_f16();
+      return float_range_contains(ctor._0, ctor._1, ctor._2, actual);
+    }
+    case "F32Range": {
+      const actual = ValTreeKind.to_leaf(valtree.kind()).to_f32();
+      return float_range_contains(ctor._0, ctor._1, ctor._2, actual);
+    }
+    case "F64Range": {
+      const actual = ValTreeKind.to_leaf(valtree.kind()).to_f64();
+      return float_range_contains(ctor._0, ctor._1, ctor._2, actual);
+    }
+    case "F128Range": {
+      const actual = ValTreeKind.to_leaf(valtree.kind()).to_f128();
+      return float_range_contains(ctor._0, ctor._1, ctor._2, actual);
+    }
+    case "Wildcard":
+      return true;
+
+    // Opaque patterns must not be matched on structurally.
+    case "Opaque":
+      return false;
+
+    // These we may eventually support:
+    case "Struct":
+    case "Ref":
+    case "DerefPattern":
+    case "Slice":
+    case "UnionField":
+    case "Or":
+    case "Str":
+      return bug(`unsupported pattern constructor ${debug_Constructor<RustcPatCtxtTypes>(RustcPatCtxtC.prototype)(pat.ctor(), PLAIN)}`);
+
+    // These should never occur here:
+    case "Never":
+    case "NonExhaustive":
+    case "Hidden":
+    case "Missing":
+    case "PrivateUninhabited": {
+      return bug(`unsupported pattern constructor ${debug_Constructor<RustcPatCtxtTypes>(RustcPatCtxtC.prototype)(pat.ctor(), PLAIN)}`);
+    }
+  }
 };

@@ -31,7 +31,9 @@
 //   `FxIndexMap<Place, _>`, ...) are `KeyedMap`s (rust_ts/keyed.ts) with the key fns of their modules (`key_LocalVarId`
 //   here); a `KeyedMap` is a `Map`, so the generated field types (`Map<K, V>`) hold them.
 // - `SourceInfo`, `Place`, `region::Scope` are `Copy` classes: clone them (`clone_SourceInfo`, ...) where rustc copies one
-//   into a place that is later mutated in place (PORTING §8), e.g. `LocalDecl.source_info`.
+//   into a place that is later mutated in place (PORTING §8), e.g. `LocalDecl.source_info`. Statements and terminators
+//   are copied where they enter the MIR (`CFG::push` / `CFG::terminate`, cfg.ts header), so a `Place` / `SourceInfo`
+//   given to them may be reused by the caller.
 //! This module used to be named `build`, but that was causing GitHub's
 //! "Go to file" feature to silently ignore all files in the module, probably
 //! because it assumes that "build" is a build-output directory.
