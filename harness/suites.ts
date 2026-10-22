@@ -907,6 +907,52 @@ SUITES.push(
   },
 );
 
+// M4b (plan-m4 D2, D14, §4; lane harness-w23): the real `analysis` through the rustc-dev probe tools/probes/ckdump:
+// rustc's own `compiler_entrypoint` with `TimePassesCallbacks::config`'s `trimmed_def_paths` and an `after_analysis`
+// that returns `Compilation::Stop`, so everything up to the end of `analysis` runs as in rustc (check_crate with CTFE,
+// MIR_borrow_checking with mir_borrowck and, for build/run tests or const contexts, drop elaboration, layout/abi tests,
+// the error abort, misc_checking_3) and nothing after it (no metadata encoding, codegen or link; the probe's header has
+// the list). stdout is empty, stderr is every analysis diagnostic. Subject: src/rust_ts/ckdump.ts, main.ts with the
+// same stop. Cases, argv, env, aux crates, directives and skips exactly as tydump-ui (`m3UiCorpus`, without the
+// rustc_dump tests), so compiletest's argv with `-Znext-solver=coherence` and revisions (D14; `-o` / `--out-dir` stay:
+// nothing is written after the stop, and no test of these directories asks for `-Zunpretty`, `-Zdump-mir` or
+// `--emit`). Timeouts as the M3 ui suites. Report only: `--report blessed`. Unprotected until root accepts a run.
+// - `borrowck-ui`: tests/ui/borrowck + tests/ui/nll, the M4b gate population (§4: >= 85%); subsets per directory.
+// - `borrowck-ui-report`: §4's report directories (ui/lifetimes, closures, moves, coroutine, async-await), kept out of
+//   the gate suite so its population stays the gate's; report only, subsets per directory.
+const M4B_UI_DIRS = ["tests/ui/borrowck", "tests/ui/nll"];
+const M4B_REPORT_DIRS = ["tests/ui/lifetimes", "tests/ui/closures", "tests/ui/moves", "tests/ui/coroutine", "tests/ui/async-await"];
+// Unstable cases (lane harness-w23): the oracle (the same probe binary, argv, env and cwd) was run twice on every case of
+// both M4b suites, and all 2236 pairs of outputs were identical (none of these tests ICEs by design), so neither suite
+// has an `unstable` list. difftest's pattern detection (scripts/lib/unstable.ts) still applies.
+const m4bUiSuite = (name: string, dirs: string[], description: string): Suite => ({
+  name,
+  milestone: "M4b",
+  description,
+  mode: "single",
+  timeoutMs: 60_000,
+  oracleTimeoutMs: M3_UI_ORACLE_TIMEOUT_MS,
+  probes: ["ckdump"],
+  cases: () => m3UiCorpus(dirs, false).cases,
+  skipped: () => m3UiCorpus(dirs, false).skipped,
+  oracle: ([c]) => [probePath("ckdump"), ...c!.args],
+  subject: ([c]) => [...bunCmd("src/rust_ts/ckdump.ts"), ...c!.args],
+  subsets: Object.fromEntries(dirs.map((d) => [d.slice("tests/ui/".length), inDirs([d])])),
+  blessed: (c) => uiBlessed(c.id, c.args),
+});
+SUITES.push(
+  m4bUiSuite(
+    "borrowck-ui",
+    M4B_UI_DIRS,
+    "the real `analysis` (rustc-dev probe tools/probes/ckdump: rustc's compiler_entrypoint stopped by after_analysis; stderr = every analysis diagnostic, incl. borrowck and late lints) on tests/ui/{borrowck,nll}, with compiletest's UI-test argv as tydump-ui (human diagnostics, -Znext-solver=coherence, revisions, aux crates built by the oracle as rmeta)",
+  ),
+  m4bUiSuite(
+    "borrowck-ui-report",
+    M4B_REPORT_DIRS,
+    "borrowck-ui (probe ckdump) on plan-m4 §4's report directories tests/ui/{lifetimes,closures,moves,coroutine,async-await}; report only",
+  ),
+);
+
 export function suite(name: string): Suite {
   const s = SUITES.find((s) => s.name === name);
   if (!s) throw new Error(`unknown suite '${name}' (have: ${SUITES.map((s) => s.name).join(", ")})`);
