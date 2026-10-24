@@ -1164,6 +1164,7 @@ tests/ui/traits/privacy.rs
 tests/ui/traits/project-modulo-regions.rs#with_clause
 tests/ui/traits/project-modulo-regions.rs#without_clause
 tests/ui/traits/projection-cache-rematch-impl-122529.rs#next
+tests/ui/traits/projection-cache-rematch-impl-141124.rs#next
 tests/ui/traits/projection-no-progress-cycle-issue-157516.rs
 tests/ui/traits/question-mark-result-err-mismatch.rs
 tests/ui/traits/question-mark-span-144304.rs

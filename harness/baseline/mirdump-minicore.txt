@@ -1,0 +1,17 @@
+tests/ui/attributes/export/lang-item.rs
+tests/ui/attributes/link-foreign-mod-abi.rs
+tests/ui/attributes/link-invalid-abi.rs
+tests/ui/feature-gates/feature-gate-no_core.rs
+tests/ui/hygiene/unpretty-debug-lifetimes.rs
+tests/ui/hygiene/unpretty-debug-metavars.rs
+tests/ui/hygiene/unpretty-debug-shadow.rs
+tests/ui/hygiene/unpretty-debug.rs
+tests/ui/lang-items/issue-83471.rs
+tests/ui/lang-items/lang-item-generic-requirements.rs
+tests/ui/lang-items/lang-item-missing.rs
+tests/ui/lang-items/required-lang-item.rs
+tests/ui/linking/staticlib-hide-internal-symbols-wrong-crate-type.rs
+tests/ui/linking/staticlib-rename-internal-symbols-wrong-crate-type.rs
+tests/ui/panic-handler/panic-handler-requires-panic-info.rs
+tests/ui/privacy/privacy2.rs
+tests/ui/privacy/privacy3.rs

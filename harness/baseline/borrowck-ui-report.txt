@@ -1,0 +1,3 @@
+tests/ui/coroutine/async_gen_fn.rs#e2015
+tests/ui/coroutine/async_gen_fn.rs#mid
+tests/ui/coroutine/gen_fn.rs#none

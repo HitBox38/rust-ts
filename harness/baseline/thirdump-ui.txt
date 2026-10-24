@@ -443,6 +443,7 @@ tests/ui/traits/dyn-drop-principal.rs
 tests/ui/traits/dyn-iterator-deref-in-for-loop.rs#current
 tests/ui/traits/dyn-iterator-deref-in-for-loop.rs#next
 tests/ui/traits/dyn-trait-size-error-23281.rs
+tests/ui/traits/dyn-trait.rs
 tests/ui/traits/dynamic-dispatch-trait-objects-5666.rs
 tests/ui/traits/early-vtbl-resolution.rs
 tests/ui/traits/elaborate-type-region.rs
@@ -507,6 +508,7 @@ tests/ui/traits/impl-method-mismatch.rs
 tests/ui/traits/impl-object-overlap-issue-23853.rs
 tests/ui/traits/impl-of-supertrait-has-wrong-lifetime-parameters.rs
 tests/ui/traits/impl-trait-chain-14229.rs
+tests/ui/traits/impl.rs
 tests/ui/traits/incoherent-impl-ambiguity.rs
 tests/ui/traits/incomplete-infer-via-sized-wc.rs#current
 tests/ui/traits/incomplete-infer-via-sized-wc.rs#next
@@ -543,6 +545,7 @@ tests/ui/traits/inheritance/overloading-xc-exe.rs
 tests/ui/traits/inheritance/overloading.rs
 tests/ui/traits/inheritance/repeated-supertrait-ambig.rs
 tests/ui/traits/inheritance/repeated-supertrait.rs
+tests/ui/traits/inheritance/self-in-supertype.rs
 tests/ui/traits/inheritance/self.rs
 tests/ui/traits/inheritance/simple.rs
 tests/ui/traits/inheritance/static.rs
@@ -585,6 +588,7 @@ tests/ui/traits/issue-38404.rs
 tests/ui/traits/issue-38604.rs
 tests/ui/traits/issue-3973.rs
 tests/ui/traits/issue-3979-generics.rs
+tests/ui/traits/issue-40085.rs
 tests/ui/traits/issue-4107.rs
 tests/ui/traits/issue-43132.rs
 tests/ui/traits/issue-43784-supertrait.rs
@@ -1122,6 +1126,7 @@ tests/ui/traits/object/issue-44454-1.rs
 tests/ui/traits/object/issue-44454-2.rs
 tests/ui/traits/object/issue-44454-3.rs
 tests/ui/traits/object/iterator-methods-on-boxed-trait-object.rs
+tests/ui/traits/object/lifetime-first.rs
 tests/ui/traits/object/macro-matcher.rs
 tests/ui/traits/object/nested-trait-method-call.rs
 tests/ui/traits/object/no-incomplete-inference.rs#current
@@ -1158,6 +1163,7 @@ tests/ui/traits/privacy.rs
 tests/ui/traits/project-modulo-regions.rs#with_clause
 tests/ui/traits/project-modulo-regions.rs#without_clause
 tests/ui/traits/projection-cache-rematch-impl-122529.rs#next
+tests/ui/traits/projection-cache-rematch-impl-141124.rs#next
 tests/ui/traits/projection-no-progress-cycle-issue-157516.rs
 tests/ui/traits/question-mark-result-err-mismatch.rs
 tests/ui/traits/question-mark-span-144304.rs

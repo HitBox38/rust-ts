@@ -1499,6 +1499,7 @@ tests/ui/attributes/attr-before-view-item2.rs
 tests/ui/attributes/attr-eq-token-tree.rs
 tests/ui/attributes/attr-mix-new.rs
 tests/ui/attributes/attr-on-mac-call.rs
+tests/ui/attributes/attr-order-deprecated.rs
 tests/ui/attributes/attr-order-must-use.rs
 tests/ui/attributes/attr-shebang.rs
 tests/ui/attributes/attr_unknown_custom_attr.rs
@@ -3650,6 +3651,7 @@ tests/ui/conditional-compilation/cfg-attr-invalid-predicate.rs
 tests/ui/conditional-compilation/cfg-attr-multi-false.rs
 tests/ui/conditional-compilation/cfg-attr-multi-invalid-1.rs
 tests/ui/conditional-compilation/cfg-attr-multi-invalid-2.rs
+tests/ui/conditional-compilation/cfg-attr-multi-true.rs
 tests/ui/conditional-compilation/cfg-attr-parse.rs
 tests/ui/conditional-compilation/cfg-attr-parsed-span-issue-154801.rs
 tests/ui/conditional-compilation/cfg-attr-syntax-validation.rs
@@ -5763,8 +5765,10 @@ tests/ui/deprecation/deprecated-macro_escape-inner.rs
 tests/ui/deprecation/deprecated-macro_escape.rs
 tests/ui/deprecation/deprecated-unstable-method-in-staged-api.rs
 tests/ui/deprecation/deprecated_main_function.rs
+tests/ui/deprecation/deprecation-in-future.rs
 tests/ui/deprecation/deprecation-lint-2.rs
 tests/ui/deprecation/deprecation-lint-3.rs
+tests/ui/deprecation/deprecation-lint-nested.rs
 tests/ui/deprecation/deprecation-lint.rs
 tests/ui/deprecation/deprecation-sanity.rs
 tests/ui/deprecation/derive_on_deprecated.rs
@@ -5773,7 +5777,10 @@ tests/ui/deprecation/feature-gate-deprecated_suggestion.rs
 tests/ui/deprecation/invalid-literal.rs
 tests/ui/deprecation/issue-66340-deprecated-attr-non-meta-grammar.rs
 tests/ui/deprecation/issue-84637-deprecated-associated-function.rs
+tests/ui/deprecation/staged-deprecation-in-future.rs
+tests/ui/deprecation/suggestion.rs
 tests/ui/deprecation/try-macro-suggestion.rs
+tests/ui/deprecation/unit_and_tuple_struct.rs
 tests/ui/deref/deref-impl-for-dyn-trait.rs
 tests/ui/deref/deref-in-for-loop.rs
 tests/ui/deref/deref-mut-closure-drop-order.rs
@@ -6474,10 +6481,12 @@ tests/ui/editions/never-type-fallback-breaking.rs
 tests/ui/editions/never-type-fallback.rs
 tests/ui/editions/unsafe-attr-edition-span.rs
 tests/ui/eii/attribute_targets.rs
+tests/ui/eii/attrs.rs
 tests/ui/eii/auxiliary/other_crate_privacy1.rs
 tests/ui/eii/auxiliary/other_crate_privacy2.rs
 tests/ui/eii/auxiliary/unused_extern_crate_decl.rs
 tests/ui/eii/auxiliary/unused_extern_crate_impl.rs
+tests/ui/eii/cfg_on_eii.rs
 tests/ui/eii/default/auxiliary/decl_with_default.rs
 tests/ui/eii/default/auxiliary/decl_with_default_panics.rs
 tests/ui/eii/default/auxiliary/impl1.rs
@@ -8423,6 +8432,7 @@ tests/ui/impl-trait/defining-use-captured-non-universal-region.rs
 tests/ui/impl-trait/defining-use-uncaptured-non-universal-region-2.rs
 tests/ui/impl-trait/defining-use-uncaptured-non-universal-region-3.rs
 tests/ui/impl-trait/defining-use-uncaptured-non-universal-region.rs
+tests/ui/impl-trait/deprecated_annotation.rs
 tests/ui/impl-trait/diagnostics/fully-qualified-path-impl-trait.rs
 tests/ui/impl-trait/diagnostics/highlight-difference-between-expected-trait-and-found-trait.rs
 tests/ui/impl-trait/diagnostics/incorrect-skip-binder-for-item-bound.rs
@@ -11355,6 +11365,7 @@ tests/ui/macros/metavar-expressions/concat-raw-identifiers.rs
 tests/ui/macros/metavar-expressions/concat-repetitions.rs
 tests/ui/macros/metavar-expressions/concat-str-escape.rs
 tests/ui/macros/metavar-expressions/concat-str-horror.rs
+tests/ui/macros/metavar-expressions/concat-str.rs
 tests/ui/macros/metavar-expressions/concat-trace-errors.rs
 tests/ui/macros/metavar-expressions/concat-unicode-expansion.rs
 tests/ui/macros/metavar-expressions/concat-usage-errors.rs
@@ -14952,6 +14963,7 @@ tests/ui/proc-macro/pretty-print-tts.rs
 tests/ui/proc-macro/proc-macro-abi.rs
 tests/ui/proc-macro/proc-macro-attributes.rs
 tests/ui/proc-macro/proc-macro-decls.rs
+tests/ui/proc-macro/proc-macro-deprecated-attr.rs
 tests/ui/proc-macro/proc-macro-gates.rs
 tests/ui/proc-macro/proc-macro-gates2.rs
 tests/ui/proc-macro/proc-macro-sanitizer-attr.rs
@@ -17062,6 +17074,8 @@ tests/ui/stability-attribute/auxiliary/stable-glob-source.rs
 tests/ui/stability-attribute/auxiliary/stable-in-unstable-core.rs
 tests/ui/stability-attribute/auxiliary/stable-in-unstable-std.rs
 tests/ui/stability-attribute/auxiliary/unstable-glob-source.rs
+tests/ui/stability-attribute/auxiliary/unstable_generic_param.rs
+tests/ui/stability-attribute/check-stability-issue-138319.rs
 tests/ui/stability-attribute/const-stability-attribute-implies-missing.rs
 tests/ui/stability-attribute/const-stability-attribute-implies-no-feature.rs
 tests/ui/stability-attribute/const-stability-attribute-implies-using-stable.rs
