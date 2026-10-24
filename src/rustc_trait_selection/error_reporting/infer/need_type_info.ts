@@ -16,6 +16,7 @@ import { Mutability } from "../../../rustc_ast_ir/lib.ts";
 import { type DiagArgValue } from "../../../rustc_error_messages/lib.ts";
 import { type Diag, E0282, E0283, E0284, type ErrCode } from "../../../rustc_errors/lib.ts";
 import { Namespace, Res } from "../../../rustc_hir/def.ts";
+import * as tracing from "../../../rust_ts/tracing.ts";
 import * as hir from "../../../rustc_hir/lib.ts";
 import type { HirTyCtxt } from "../../../rustc_hir/intravisit.ts";
 import { debug_HirId, type HirId } from "../../../rustc_hir_id/lib.ts";
@@ -28,13 +29,13 @@ import type { TyCtxt } from "../../../rustc_middle/ty/context.ts";
 import type { Const } from "../../../rustc_middle/ty/decls.ts";
 import { Ty } from "../../../rustc_middle/ty/mod.ts";
 import { IsSuggestable } from "../../../rustc_middle/ty/diagnostics.ts";
-import { fold_GenericArg, fold_GenericArgs, GenericArg, type GenericArgs } from "../../../rustc_middle/ty/generic_args.ts";
+import { debug_GenericArgs, fold_GenericArg, fold_GenericArgs, GenericArg, type GenericArgs } from "../../../rustc_middle/ty/generic_args.ts";
 import { GenericParamDef, type Generics } from "../../../rustc_middle/ty/generics.ts";
 import { fold_Term, Term } from "../../../rustc_middle/ty/mod.ts";
 import type { PrintResult } from "../../../rustc_middle/ty/print/mod.ts";
 import { print_Const, print_Ty } from "../../../rustc_middle/ty/print/mod.ts";
 import { FmtPrinter, print_Binder, print_FnSig, print_GenericArg, RegionHighlightMode } from "../../../rustc_middle/ty/print/pretty.ts";
-import { debug_Ty, fold_Ty } from "../../../rustc_middle/ty/structural_impls.ts";
+import { debug_AdtDef, debug_Ty, fold_Ty } from "../../../rustc_middle/ty/structural_impls.ts";
 import type { TypeckResults } from "../../../rustc_middle/ty/typeck_results.ts";
 import { debug_DefId, type DefId, LocalDefId } from "../../../rustc_span/def_id.ts";
 import { type BytePos, debug_BytePos, debug_Span, DUMMY_SP, type PathBuf, Span } from "../../../rustc_span/lib.ts";
@@ -48,7 +49,7 @@ import { ClosureArgs } from "../../../rustc_type_ir/ty_kind/closure.ts";
 import { fold_FnSig, FnSig, PolyFnSig } from "../../../rustc_type_ir/ty_kind.ts";
 import { Unnormalized } from "../../../rustc_type_ir/unnormalized.ts";
 import { TypeVisitableExt } from "../../../rustc_type_ir/visit.ts";
-import { type Debug, debug_list, debug_option, debug_str, debug_struct, debug_int, debug_bool, debug_tuple } from "../../../std/fmt.ts";
+import { type Debug, PLAIN, debug_list, debug_option, debug_str, debug_struct, debug_int, debug_bool, debug_tuple } from "../../../std/fmt.ts";
 import type { MutRef } from "../../../std/mut_ref.ts";
 import { panic, unwrap } from "../../../std/panic.ts";
 import { bug } from "../../../rustc_span/macros.ts";
@@ -349,7 +350,7 @@ export function fmt_printer(infcx: InferCtxt, ns: Namespace): FmtPrinter {
   const p = FmtPrinter.new(infcx.tcx, ns);
   const ty_getter = (ty_vid: Parameters<InferCtxt["type_var_origin"]>[0]) => {
     if (infcx.try_resolve_ty_var(ty_vid).$ === "Ok") {
-      // warn!("resolved ty var in error message");
+      tracing.warn("rustc_trait_selection::error_reporting::infer::need_type_info", () => "resolved ty var in error message");
     }
 
     const var_origin = infcx.type_var_origin(ty_vid);
@@ -1459,7 +1460,7 @@ export class FindInferSourceVisitor extends hir.intravisit.Visitor {
                     // some examples.
                     break;
                   }
-                  // warn!("unexpected path: def={:?} args={:?} path={:?}", def, args, path);
+                  tracing.warn("rustc_trait_selection::error_reporting::infer::need_type_info", () => `unexpected path: def=${debug_AdtDef(def, PLAIN)} args=${debug_GenericArgs(args_, PLAIN)} path=${hir.debug_Path(path, PLAIN, (x, f) => hir.def.debug_Res(x, f, debug_HirId))}`);
                   break;
                 // There cannot be inference variables in the self type,
                 // so there's nothing for us to do here.
@@ -1467,7 +1468,7 @@ export class FindInferSourceVisitor extends hir.intravisit.Visitor {
                 case "SelfTyAlias":
                   break;
                 default:
-                  // warn!("unexpected path: def={:?} args={:?} path={:?}", def, args, path);
+                  tracing.warn("rustc_trait_selection::error_reporting::infer::need_type_info", () => `unexpected path: def=${debug_AdtDef(def, PLAIN)} args=${debug_GenericArgs(args_, PLAIN)} path=${hir.debug_Path(path, PLAIN, (x, f) => hir.def.debug_Res(x, f, debug_HirId))}`);
                   break;
               }
             } else {

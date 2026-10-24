@@ -1,7 +1,7 @@
 // Port of compiler/rustc_ty_utils/src/needs_drop.rs (lane ty-utils).
 //! Check whether a type has (potentially) non-trivial drop glue.
 //
-// PORT: query values typed `unknown` in queries.gen.ts (`type_of`, `adt_drop_tys`, `mir_coroutine_witnesses`) are cast
+// PORT: query values typed `unknown` in queries.gen.ts (`type_of`, `adt_drop_tys`) are cast
 // to their upstream types at the read site; the query keys typed `unknown` (`PseudoCanonicalInput<Ty>`) likewise.
 // PORT: `NeedsDropTypes` is an `Iterator`; `drop_tys_helper` returns it and the callers drive it with `next()`
 // (`.filter(..).next()`, `.collect::<Result<Vec<_>, _>>()`, `.filter_map(..).collect()`), so it is exactly as lazy as
@@ -31,11 +31,6 @@ import { Err, Ok, type Result } from "../std/result.ts";
 import { NeedsDropOverflow_diagnostic } from "./diagnostics.ts";
 
 type NeedsDropResult<T> = Result<T, AlwaysRequiresDrop>;
-
-/** PORT: `mir::CoroutineLayout` is not ported; the one field read here (`field_tys[..].ty`). */
-interface CoroutineLayout_ {
-  readonly field_tys: readonly { readonly ty: Ty }[];
-}
 
 // rustc: compiler/rustc_ty_utils/src/needs_drop.rs:17 needs_drop_raw
 function needs_drop_raw(tcx: TyCtxt, query: PseudoCanonicalInput<Ty>): boolean {
@@ -226,7 +221,7 @@ class NeedsDropTypes {
               queue_type(this, upvar);
             }
             queue_type(this, CoroutineArgs.resume_ty(args.as_coroutine()));
-            const witness = tcx.mir_coroutine_witnesses(def_id) as CoroutineLayout_ | undefined;
+            const witness = tcx.mir_coroutine_witnesses(def_id);
             if (witness !== undefined) {
               for (const field_ty of witness.field_tys) {
                 queue_type(this, Unnormalized.skip_norm_wip(EarlyBinder.instantiate(EarlyBinder.bind(tcx, field_ty.ty, fold_Ty), tcx, args, fold_Ty)));

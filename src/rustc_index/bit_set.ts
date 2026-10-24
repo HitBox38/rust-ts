@@ -1728,19 +1728,29 @@ export function hash_BitMatrix<R extends number, C extends number>(self: BitMatr
 }
 
 // impl<R: Idx, C: Idx> fmt::Debug for BitMatrix<R, C>
+// PORT: generic over `R` / `C`: their `Debug` impls are passed in (`debug_R`, `debug_C`); `debug_BitMatrix` is the
+// `R = C = usize` instance (indices print as plain numbers).
 // rustc: compiler/rustc_index/src/bit_set.rs:1469 fmt
-export const debug_BitMatrix: Debug<BitMatrix<number, number>> = (self, fmt) => {
-  /// Forces its contents to print in regular mode instead of alternate mode.
-  // struct OneLinePrinter<T>(T);
-  // rustc: compiler/rustc_index/src/bit_set.rs:1473 fmt
-  const OneLinePrinter = ([r, c]: [number, number], _fmt: Fmt): string => debug_tuple(PLAIN, "", [String(r), String(c)]);
+export function debug_BitMatrix_with<R extends number, C extends number>(debug_R: Debug<R>, debug_C: Debug<C>): Debug<BitMatrix<R, C>> {
+  return (self, fmt) => {
+    /// Forces its contents to print in regular mode instead of alternate mode.
+    // struct OneLinePrinter<T>(T);
+    // rustc: compiler/rustc_index/src/bit_set.rs:1473 fmt
+    const OneLinePrinter = ([r, c]: [R, C], _fmt: Fmt): string => debug_tuple(PLAIN, "", [debug_R(r, PLAIN), debug_C(c, PLAIN)]);
 
-  let s = `BitMatrix(${self.num_rows}x${self.num_columns}) `;
-  const items: string[] = [];
-  for (const r of self.rows()) for (const c of self.iter(r)) items.push(OneLinePrinter([r, c], fmt));
-  s += debug_set(fmt, items);
-  return s;
-};
+    let s = `BitMatrix(${self.num_rows}x${self.num_columns}) `;
+    const items: string[] = [];
+    for (const r of self.rows()) for (const c of self.iter(r)) items.push(OneLinePrinter([r as R, c as C], fmt));
+    s += debug_set(fmt, items);
+    return s;
+  };
+}
+
+/** `BitMatrix<usize, usize>`'s Debug. */
+export const debug_BitMatrix: Debug<BitMatrix<number, number>> = debug_BitMatrix_with<number, number>(
+  (v) => String(v),
+  (v) => String(v),
+);
 
 /// A fixed-column-size, variable-row-size 2D bit matrix with a moderately
 /// sparse representation.

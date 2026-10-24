@@ -13,7 +13,7 @@
 //   (no codegen set covers rustc_trait_selection yet; see the handoff).
 // - `FxIndexSet<IntercrateAmbiguityCause>` / `FxHashSet<Goal<Predicate>>` are `KeyedSet`s on `intern_key` (the derived
 //   `Hash` + `Eq` of values holding interned handles), insertion-ordered as an `IndexSet`.
-// - `#[instrument]` / `debug!` / `warn!` are tracing only and stay as comments.
+// - `#[instrument]` / `debug!` are tracing only and stay as comments; `warn!` goes through rust_ts/tracing.ts.
 // Init order: top-level code here touches only other crates; this crate's modules are read inside function bodies only.
 
 import { SkipLeakCheck_ } from "./mod.ts";
@@ -30,6 +30,9 @@ import { TraitErrors } from "../../rustc_infer/traits/engine.ts";
 import { clone_Obligation, Obligation, type PredicateObligation, ScrubbedTraitError } from "../../rustc_infer/traits/mod.ts";
 import { intern_key } from "../../rust_ts/intern_key.ts";
 import { KeyedSet } from "../../rust_ts/keyed.ts";
+import * as tracing from "../../rust_ts/tracing.ts";
+import { debug_TraitRef } from "../../rustc_type_ir/ir_print.ts";
+import { PLAIN } from "../../std/fmt.ts";
 import { ObligationCause } from "../../rustc_middle/traits/mod.ts";
 import { OverlapMode } from "../../rustc_middle/traits/specialization_graph.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
@@ -741,7 +744,7 @@ class AmbiguityCausesVisitor implements ProofTreeVisitor<undefined> {
       if (k.$ === "Err") {
         return;
       } else if (k._0.$ === "Ok") {
-        // warn!("expected an unknowable trait ref: {trait_ref:?}");
+        tracing.warn("rustc_trait_selection::traits::coherence", () => `expected an unknowable trait ref: ${debug_TraitRef(trait_ref, PLAIN)}`);
         return;
       } else {
         conflict = k._0._0;

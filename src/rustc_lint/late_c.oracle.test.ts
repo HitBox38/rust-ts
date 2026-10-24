@@ -228,7 +228,7 @@ const BLOCKED: BlockedCase[] = [
     name: "impl_trait_overcaptures fires (RPIT with a body)",
     src: ["#![warn(impl_trait_overcaptures)]", "fn f<'a>(x: &'a ()) -> impl Sized { *x }"],
     expect: ["`impl Sized` will capture more lifetimes than possibly intended in edition 2024"],
-    blocked_by: "mir_borrowck provider",
+    blocked_by: "rustc_borrowck::diagnostics::bound_region_errors::UniverseInfo::relate",
   },
   {
     name: "if_let_rescope fires",

@@ -3,7 +3,7 @@
 // rustc_middle_mir); the file's one fn (the manual `Debug` of `CoroutineLayout`) is ported below (lane mir-body-a).
 //! Values computed by queries that use MIR.
 import "./mod.ts";
-import { debug_BitMatrix } from "../../rustc_index/bit_set.ts";
+import { debug_BitMatrix_with } from "../../rustc_index/bit_set.ts";
 import { type Debug, debug_map, debug_struct, debug_vec, PLAIN } from "../../std/fmt.ts";
 import type { VariantIdx } from "../ty/decls.ts";
 import { type CoroutineLayout, debug_CoroutineSavedLocal, debug_CoroutineSavedTy, type CoroutineSavedLocal } from "./query.gen.ts";
@@ -36,7 +36,7 @@ export const debug_CoroutineLayout: Debug<CoroutineLayout> = (self, fmt) => {
         return debug_map(fmt, map);
       })(),
     ],
-    ["storage_conflicts", debug_BitMatrix(self.storage_conflicts, fmt)],
+    ["storage_conflicts", debug_BitMatrix_with(debug_CoroutineSavedLocal, debug_CoroutineSavedLocal)(self.storage_conflicts as never, fmt)],
   ]);
 };
 

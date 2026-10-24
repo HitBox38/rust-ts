@@ -64,6 +64,9 @@ import * as M_naked_functions from "./naked_functions.ts";
 import * as M_op from "./op.ts";
 import * as M_pat from "./pat.ts";
 import * as M_upvar from "./upvar.ts";
+// The `Deref` registry is shared (rust_ts/deref.ts): load rustc_borrowck (the driver's providers load it) so the
+// registered list below does not depend on which test files ran first.
+import "../rustc_borrowck/lib.ts";
 
 const SRC = "compiler/rustc_hir_typeck/src/";
 const FILES: string[] = [
@@ -505,6 +508,10 @@ test("Deref: FnCtxt -> TypeckRootCtxt -> InferCtxt forwarders, own members shado
       "ArgsCtxt.call_ctxt -> CallCtxt",
       "ArgMatchingCtxt.args_ctxt -> ArgsCtxt",
       "FnCallDiagCtxt.arg_matching_ctxt -> ArgMatchingCtxt",
+      // rustc_borrowck (borrowck-contract; loaded with the driver's providers): lib.ts, region_infer/region_context.ts
+      "BorrowckInferCtxt.infcx -> InferCtxt",
+      "RegionInferenceContext.inner -> RegionInferenceContextInner",
+      "UnsolvedRegionInferenceContext.inner -> RegionInferenceContextInner",
     ].sort(),
   );
   // Every InferCtxt member (fields and prototype methods) is reachable on a FnCtxt.

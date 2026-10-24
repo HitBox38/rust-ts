@@ -34,7 +34,11 @@ for (const [k, v] of Object.entries(process.env)) {
 }
 
 const STOP_CCI = "cross_crate_inlinable provider";
-const STOP_CONST_EVAL = "rustc_const_eval::const_eval::eval_to_valtree";
+// `eval_to_valtree` -> `eval_to_allocation_raw` -> the CTFE interpreter (`eval_in_interpreter`): a const with a body
+// loads its MIR (`load_mir` -> `mir_for_ctfe` -> `mir_drops_elaborated_and_const_checked`), whose `mir_borrowck` type
+// check stops relating types (`UniverseInfo::relate`, lane bck-diag-f). A trivial const (`types.rs`'s `ZERO`) now
+// evaluates; the legacy manglings then stop hashing the type (`STOP_TY_HASH`), while v0 matches the oracle.
+const STOP_CONST_EVAL = "rustc_borrowck::diagnostics::bound_region_errors::UniverseInfo::relate";
 const STOP_TY_HASH = "StableHash for Ty";
 /** The `unported` stop each case reaches instead of the oracle's output (exit 70). */
 const STOPS: Record<string, string> = {
@@ -52,9 +56,8 @@ const STOPS: Record<string, string> = {
   "tests/ui/symbol-names/issue-75326.rs#legacy": STOP_CCI,
   "tests/ui/symbol-names/issue-75326.rs#v0": STOP_CCI,
   "tests/ui/symbol-names/trait-objects.rs#v0": STOP_CCI,
-  "tests/ui/symbol-names/types.rs#legacy": STOP_CONST_EVAL,
-  "tests/ui/symbol-names/types.rs#v0": STOP_CONST_EVAL,
-  "tests/ui/symbol-names/types.rs#verbose-legacy": STOP_CONST_EVAL,
+  "tests/ui/symbol-names/types.rs#legacy": STOP_TY_HASH,
+  "tests/ui/symbol-names/types.rs#verbose-legacy": STOP_TY_HASH,
 };
 
 const DIR = "tests/ui/symbol-names";

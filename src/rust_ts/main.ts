@@ -7,6 +7,7 @@
 //
 // Exit codes: rustc's own (0 ok, 1 errors, 101 ICE), plus 70 = reached unported code.
 // 70 must never be interpreted as a rustc status.
+import { FatalErrorMarker } from "../rustc_span/fatal_error.ts";
 import { Panic, Unported } from "../std/panic.ts";
 import { ensure_stack } from "./stack.ts";
 
@@ -43,6 +44,10 @@ try {
   if (e instanceof Unported) {
     process.stderr.write(`rust-ts: unported: ${e.what}\n`);
     process.exitCode = EXIT_UNPORTED;
+  } else if (e instanceof FatalErrorMarker) {
+    // `FatalError.raise()` before `catch_with_exit_code` (`init_rustc_env_logger`'s `early_fatal` on a bad
+    // `RUSTC_LOG_*` value): `resume_unwind` skips the panic hook, so rustc exits 101 printing nothing more.
+    process.exitCode = 101;
   } else {
     const msg = e instanceof Panic ? e.message : String(e);
     process.stderr.write(`rust-ts: internal compiler error: ${msg}\n${e instanceof Error ? e.stack : ""}\n`);

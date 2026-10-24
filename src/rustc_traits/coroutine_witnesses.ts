@@ -1,8 +1,6 @@
 // Port of compiler/rustc_traits/src/coroutine_witnesses.rs (lane selcx-contract).
 //
-// PORT: `mir_coroutine_witnesses` returns `Option<&CoroutineLayout>` (rustc_middle mir/query.rs, M4: the query value is
-// `unknown` until MIR lands); `CoroutineLayoutFieldTys` is the view of the one field this file reads. `tcx.arena` /
-// `&List::empty()` are the interned lists.
+// PORT: `tcx.arena` / `&List::empty()` are the interned lists.
 
 import { RawList } from "../rustc_middle/ty/list.ts";
 import type { List } from "../rustc_middle/ty/list.ts";
@@ -33,11 +31,6 @@ import { Predicate_upcast_from_ClauseKind } from "../rustc_middle/ty/predicate.t
 import { make_query_region_constraints } from "../rustc_infer/infer/canonical/query_response.ts";
 import { ObligationCtxt, with_replaced_escaping_bound_vars } from "../rustc_trait_selection/traits/mod.ts";
 
-/** PORT: the field of `CoroutineLayout` (rustc_middle mir/query.rs, M4) read here. */
-interface CoroutineLayoutFieldTys {
-  field_tys: readonly { ty: Ty; ignore_for_traits: boolean }[];
-}
-
 const d_CoroutineWitnessTypes: TypeFoldable<CoroutineWitnessTypes> = {
   visit_with: visit_with_CoroutineWitnessTypes,
   try_fold_with: try_fold_with_CoroutineWitnessTypes,
@@ -54,7 +47,7 @@ const d_QueryRegionConstraint: TypeFoldable<QueryRegionConstraint> = {
 /// `ReErased` with new existential bound lifetimes.
 // rustc: compiler/rustc_traits/src/coroutine_witnesses.rs:12 coroutine_hidden_types
 export function coroutine_hidden_types(tcx: TyCtxt, def_id: DefId): EarlyBinder<Binder<CoroutineWitnessTypes>> {
-  const coroutine_layout = tcx.mir_coroutine_witnesses(def_id) as CoroutineLayoutFieldTys | undefined;
+  const coroutine_layout = tcx.mir_coroutine_witnesses(def_id);
   const vars: BoundVariableKind[] = [];
   const field_tys = coroutine_layout === undefined ? [] : coroutine_layout.field_tys;
   const bound_tys = tcx.mk_type_list_from_iter(

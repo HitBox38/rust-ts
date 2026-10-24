@@ -13,8 +13,8 @@
 // Defining module (docs/handoff/ty-contract.md "Init order"): it never imports an extension module and its top-level
 // code touches nothing but its own classes. context.ts may import it.
 //
-// PORT(decls): pending. `ConstValue::try_to_bits_for_ty` (mir/consts.rs, M4) is not ported: it goes
-// through the `unported` stand-in at the end of the file (`const_eval_poly` / `ErrorHandled`: mir/interpret, lane mir-interp-b) (lane repr-options: `ReprOptions` is rustc_abi's). (merge-w15b: `VariantDef`,
+// PORT(decls): `ConstValue::try_to_bits_for_ty` (mir/consts.rs) is reached lazily through the helper at the end of
+// the file (`const_eval_poly` / `ErrorHandled`: mir/interpret, lane mir-interp-b) (lane repr-options: `ReprOptions` is rustc_abi's). (merge-w15b: `VariantDef`,
 // `FieldDef`, `Destructor` are ty/mod.ts's, `Discr` / `IntTypeExt` ty/util.ts's, `ty::Value` / `ScalarInt`
 // ty/consts/*.ts's; ty/mod.ts / util.ts / valtree.ts are reached lazily.)
 import { Interned } from "../../rustc_data_structures/intern.ts";
@@ -27,7 +27,7 @@ import type { ErrorGuaranteed, Span } from "../../rustc_span/lib.ts";
 import { bug } from "../../rustc_span/macros.ts";
 import { type Symbol, sym } from "../../rustc_span/symbol.ts";
 import { type Debug, PLAIN } from "../../std/fmt.ts";
-import { assert, panic, unported, unwrap } from "../../std/panic.ts";
+import { assert, panic, unwrap } from "../../std/panic.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
 import { to_writer } from "../../vendor/bitflags/parser.ts";
 import { flags_companion } from "../../vendor/bitflags/traits.ts";
@@ -915,10 +915,14 @@ export
 
 /** `mir::ConstValue` */
 type ConstValue = import("../mir/consts.ts").ConstValue;
-/** PORT: stand-in for `ConstValue::try_to_bits_for_ty` (mir/consts.rs, M4). */
-function ConstValue_try_to_bits_for_ty(_self: ConstValue, _tcx: TyCtxt, _typing_env: TypingEnv, _ty: Ty): bigint | undefined {
-  return unported("rustc_middle::mir::ConstValue::try_to_bits_for_ty (M4)");
+/** `ConstValue::try_to_bits_for_ty` (mir/consts.rs, ported by mir-body-b), read lazily (init order, module comment). */
+function ConstValue_try_to_bits_for_ty(self: ConstValue, tcx: TyCtxt, typing_env: TypingEnv, ty: Ty): bigint | undefined {
+  return mir_consts().ConstValue.try_to_bits_for_ty(self, tcx, typing_env, ty);
 }
+function mir_consts(): typeof import("../mir/consts.ts") {
+  return (mir_consts__m ??= require("../mir/consts.ts") as typeof import("../mir/consts.ts"));
+}
+var mir_consts__m: typeof import("../mir/consts.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 /** mir/interpret/error.ts (`From<ReportedErrorInfo> for ErrorGuaranteed`), read lazily (init order, module comment). */
 function mir_interpret_error(): typeof import("../mir/interpret/error.ts") {
   return (mir_interpret_error__m ??= require("../mir/interpret/error.ts") as typeof import("../mir/interpret/error.ts"));

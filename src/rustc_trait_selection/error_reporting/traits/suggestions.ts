@@ -3492,9 +3492,7 @@ TypeErrCtxt.prototype.maybe_note_obligation_cause_for_async_await = function (th
     // Try to avoid cycles.
     !coroutine_within_in_progress_typeck
   ) {
-    // PORT: the `mir_coroutine_witnesses` query's value is typed `unknown` in queries.gen.ts (MIR, M4); it is
-    // `Option<&CoroutineLayout>`; `CoroutineLayoutView` is the view of the fields read here.
-    const coroutine_info = this.tcx.mir_coroutine_witnesses(coroutine_did) as CoroutineLayoutView | undefined;
+    const coroutine_info = this.tcx.mir_coroutine_witnesses(coroutine_did);
     if (coroutine_info !== undefined) {
       // debug!(?coroutine_info);
       find_source: for (let v = 0; v < Math.min(coroutine_info.variant_fields.length, coroutine_info.variant_source_info.length); v++) {
@@ -5012,22 +5010,6 @@ function fn_sig_of_node(node: hir.Node): hir.FnSig | undefined {
   if (node.$ === "ImplItem" && node._0.kind.$ === "Fn") return node._0.kind._0;
   if (node.$ === "TraitItem" && node._0.kind.$ === "Fn") return node._0.kind._0;
   return undefined;
-}
-
-/**
- * `mir::CoroutineLayout` (rustc_middle mir/query.rs): the fields `maybe_note_obligation_cause_for_async_await` reads.
- * PORT: the `mir_coroutine_witnesses` query's value is `unknown` until MIR lands (M4; precedent rustc_traits
- * coroutine_witnesses.ts `CoroutineLayoutFieldTys`).
- */
-interface CoroutineLayoutView {
-  /// The type of every local stored inside the coroutine.
-  field_tys: readonly { ty: Ty; source_info: { span: Span }; ignore_for_traits: boolean }[];
-  /// Which of the above fields are in each variant. Note that one field may
-  /// be stored in multiple variants.
-  variant_fields: readonly (readonly number[])[];
-  /// The source that led to each variant being created (usually, a yield or
-  /// await).
-  variant_source_info: readonly { span: Span }[];
 }
 
 /** `FxHashSet::insert`: `true` if the value was not present. */

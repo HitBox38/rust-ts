@@ -2469,12 +2469,9 @@ function opaque_type_cycle_error(tcx: TyCtxt, opaque_def_id: LocalDefId): ErrorG
           if (tcx.is_coroutine(closure_def_id)) {
             const coroutine_layout = tcx.mir_coroutine_witnesses(closure_def_id);
             if (coroutine_layout !== undefined) {
-              void coroutine_layout;
-              // for interior_ty in &coroutine_layout.field_tys {
-              //     label_match(interior_ty.ty, interior_ty.source_info.span);
-              // }
-              // PORT: `CoroutineLayout` (rustc_middle mir/query.rs) is MIR (M4).
-              return unported("rustc_middle::mir::query::CoroutineLayout (M4)");
+              for (const interior_ty of coroutine_layout.field_tys) {
+                label_match(interior_ty.ty, interior_ty.source_info.span);
+              }
             }
           }
         }
