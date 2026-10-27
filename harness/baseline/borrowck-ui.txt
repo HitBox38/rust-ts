@@ -1,1 +1,2 @@
-
+tests/ui/borrowck/non-ADT-struct-pattern-box-pattern-ice-121463.rs
+tests/ui/nll/user-annotations/region-error-ice-109072.rs

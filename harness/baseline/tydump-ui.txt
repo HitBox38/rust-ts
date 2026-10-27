@@ -2,6 +2,7 @@ tests/ui/associated-types/issue-85103-layout-debug.rs
 tests/ui/attributes/args-checked.rs
 tests/ui/attributes/doc_examples/rustc_dump_clauses.rs
 tests/ui/attributes/doc_examples/rustc_dump_clauses_super_trait.rs
+tests/ui/attributes/doc_examples/rustc_dump_def_parents.rs
 tests/ui/attributes/doc_examples/rustc_dump_def_path.rs
 tests/ui/attributes/doc_examples/rustc_dump_generics.rs
 tests/ui/attributes/doc_examples/rustc_dump_inferred_outlives.rs
@@ -18,14 +19,19 @@ tests/ui/attributes/doc_examples/rustc_dump_variances.rs
 tests/ui/attributes/doc_examples/rustc_dump_vtable.rs
 tests/ui/attributes/dump_generics.rs
 tests/ui/const-generics/associated-const-bindings/dyn-compat-symbol-mangling.rs#v0
+tests/ui/enum-discriminant/wrapping_niche.rs
 tests/ui/feature-gates/feature-gate-rustc-attrs-1.rs
+tests/ui/impl-trait/implicit-capture-late.rs
 tests/ui/layout/enum-scalar-pair-int-ptr.rs
+tests/ui/layout/enum-unusual-variants.rs
 tests/ui/layout/enum.rs
 tests/ui/layout/homogeneous-aggr-transparent.rs
 tests/ui/layout/homogeneous-aggr-zero-sized-c-struct.rs
 tests/ui/layout/homogeneous-aggr-zero-sized-repr-rust.rs
 tests/ui/layout/issue-96158-scalarpair-payload-might-be-uninit.rs
+tests/ui/layout/issue-96185-overaligned-enum.rs
 tests/ui/layout/struct.rs
+tests/ui/layout/zero-sized-array-enum-niche.rs
 tests/ui/layout/zero-sized-array-union.rs
 tests/ui/nll/user-annotations/dump-adt-brace-struct.rs
 tests/ui/nll/user-annotations/dump-fn-method.rs
@@ -63,6 +69,9 @@ tests/ui/symbol-names/issue-60925.rs#v0
 tests/ui/symbol-names/issue-75326.rs#legacy
 tests/ui/symbol-names/issue-75326.rs#v0
 tests/ui/symbol-names/trait-objects.rs#v0
+tests/ui/symbol-names/types.rs#legacy
+tests/ui/symbol-names/types.rs#v0
+tests/ui/symbol-names/types.rs#verbose-legacy
 tests/ui/traits/alias/ambiguous.rs
 tests/ui/traits/alias/basic.rs
 tests/ui/traits/alias/bounds.rs
@@ -111,6 +120,7 @@ tests/ui/traits/assignability-trait.rs
 tests/ui/traits/assoc-type-in-superbad.rs
 tests/ui/traits/assoc-type-in-supertrait.rs
 tests/ui/traits/associated-item-unsatisfied-trait-bounds.rs
+tests/ui/traits/associated_type_bound/116464-invalid-assoc-type-suggestion-in-trait-impl.rs
 tests/ui/traits/associated_type_bound/assoc-type-bounds-with-the-same-name-with-lacking-generic-arg-148121.rs
 tests/ui/traits/associated_type_bound/assoc-type-maybe-trait-147356.rs
 tests/ui/traits/associated_type_bound/assoc-type-via-another-trait-issue-19479.rs
@@ -285,6 +295,7 @@ tests/ui/traits/const-traits/generic-bound.rs
 tests/ui/traits/const-traits/group-traits.rs
 tests/ui/traits/const-traits/hir-const-check.rs
 tests/ui/traits/const-traits/ice-119717-constant-lifetime.rs
+tests/ui/traits/const-traits/ice-120503-async-const-method.rs
 tests/ui/traits/const-traits/ice-121536-const-method.rs
 tests/ui/traits/const-traits/ice-124857-combine-effect-const-infer-vars.rs
 tests/ui/traits/const-traits/ice-126148-failed-to-normalize.rs
@@ -560,6 +571,7 @@ tests/ui/traits/issue-103563.rs
 tests/ui/traits/issue-104322.rs
 tests/ui/traits/issue-105231.rs
 tests/ui/traits/issue-106072.rs
+tests/ui/traits/issue-117794.rs
 tests/ui/traits/issue-15155.rs
 tests/ui/traits/issue-18400.rs
 tests/ui/traits/issue-18412.rs
@@ -624,6 +636,8 @@ tests/ui/traits/issue-85360-eval-obligation-ice.rs
 tests/ui/traits/issue-85735.rs
 tests/ui/traits/issue-87558.rs
 tests/ui/traits/issue-89119.rs
+tests/ui/traits/issue-90195-2.rs
+tests/ui/traits/issue-90195.rs
 tests/ui/traits/issue-90662-projection-caching.rs
 tests/ui/traits/issue-91594.rs
 tests/ui/traits/issue-91949-hangs-on-recursion.rs
@@ -673,6 +687,8 @@ tests/ui/traits/negative-bounds/associated-constraints.rs
 tests/ui/traits/negative-bounds/negative-metasized.rs#current
 tests/ui/traits/negative-bounds/negative-metasized.rs#next
 tests/ui/traits/negative-bounds/negative-sized.rs
+tests/ui/traits/negative-bounds/on-unimplemented.rs
+tests/ui/traits/negative-bounds/opaque-type-unsatisfied-fn-bound.rs
 tests/ui/traits/negative-bounds/simple.rs
 tests/ui/traits/negative-bounds/supertrait.rs
 tests/ui/traits/negative-impls/ambiguity-cause.rs#negative_coherence
@@ -726,6 +742,7 @@ tests/ui/traits/next-solver/assembly/incomplete-guidance-normalize-impl-header.r
 tests/ui/traits/next-solver/assembly/incomplete-guidance-normalize-impl-header.rs#old
 tests/ui/traits/next-solver/assembly/param-env-alias-bound-conflict.rs
 tests/ui/traits/next-solver/assembly/runaway-impl-candidate-selection.rs
+tests/ui/traits/next-solver/assertion-left-right-goal.rs
 tests/ui/traits/next-solver/assoc-type-static-lifetime-object-bound.rs
 tests/ui/traits/next-solver/async.rs#fail
 tests/ui/traits/next-solver/async.rs#pass
@@ -820,8 +837,10 @@ tests/ui/traits/next-solver/diagnostics/dont-pick-fnptr-bound-as-leaf.rs#next
 tests/ui/traits/next-solver/diagnostics/dont-suppress-independent-projection-error.rs#current
 tests/ui/traits/next-solver/diagnostics/dont-suppress-independent-projection-error.rs#next
 tests/ui/traits/next-solver/diagnostics/iterator-item-suggest-no-ice.rs
+tests/ui/traits/next-solver/diagnostics/overflowing-opaque-incorrectly-unconstrained.rs
 tests/ui/traits/next-solver/diagnostics/point-at-failing-nested.rs
 tests/ui/traits/next-solver/diagnostics/projection-trait-ref.rs
+tests/ui/traits/next-solver/diagnostics/rpitit-fulfillment-error.rs
 tests/ui/traits/next-solver/diagnostics/where-clause-doesnt-apply.rs
 tests/ui/traits/next-solver/dont-canonicalize-re-error.rs
 tests/ui/traits/next-solver/dont-coerce-infer-to-dyn.rs
@@ -874,6 +893,7 @@ tests/ui/traits/next-solver/higher-ranked-dyn-bounds.rs
 tests/ui/traits/next-solver/implied_outlives_bounds_not_resolving_vars_ice.rs
 tests/ui/traits/next-solver/int-var-alias-eq.rs
 tests/ui/traits/next-solver/int-var-is-send.rs
+tests/ui/traits/next-solver/issue-118950-root-region.rs
 tests/ui/traits/next-solver/iter-filter-projection.rs
 tests/ui/traits/next-solver/known-type-outlives-has-constraints.rs
 tests/ui/traits/next-solver/lazy-nested-obligations-1.rs
@@ -908,6 +928,7 @@ tests/ui/traits/next-solver/normalization-shadowing/param-candidate-shadows-proj
 tests/ui/traits/next-solver/normalization-shadowing/param-env-impl-conflict.rs
 tests/ui/traits/next-solver/normalization-shadowing/use_object_if_empty_env.rs
 tests/ui/traits/next-solver/normalize-capture-place-151579.rs
+tests/ui/traits/next-solver/normalize-const-item-type.rs
 tests/ui/traits/next-solver/normalize-in-implied_outlives_bounds.rs
 tests/ui/traits/next-solver/normalize/ambig-goal-infer-in-type-oulives.rs
 tests/ui/traits/next-solver/normalize/deeply-normalize-env-in-compare-impl-item.rs
@@ -954,6 +975,9 @@ tests/ui/traits/next-solver/object-projection-with-unsatisfied-bound-1.rs#curren
 tests/ui/traits/next-solver/object-projection-with-unsatisfied-bound-1.rs#next
 tests/ui/traits/next-solver/object-soundness-requires-generalization.rs#next
 tests/ui/traits/next-solver/object-soundness-requires-generalization.rs#old
+tests/ui/traits/next-solver/opaques/implied-bounds-opaque-hidden-in-closure-sig.rs#current
+tests/ui/traits/next-solver/opaques/method_autoderef_constraints.rs
+tests/ui/traits/next-solver/opaques/recursive-hidden-type-canonicalization.rs
 tests/ui/traits/next-solver/opportunistic-region-resolve.rs
 tests/ui/traits/next-solver/outlives-goal-error-due-to-normalization-failure-no-ice.rs
 tests/ui/traits/next-solver/overflow-discards-constraints.rs
@@ -965,6 +989,8 @@ tests/ui/traits/next-solver/overflow/coherence-alias-hang.rs#ai
 tests/ui/traits/next-solver/overflow/coherence-alias-hang.rs#ia
 tests/ui/traits/next-solver/overflow/coherence-alias-hang.rs#ii
 tests/ui/traits/next-solver/overflow/cycle-required-depth.rs
+tests/ui/traits/next-solver/overflow/dont-drop-obligations-on-overflow-1.rs
+tests/ui/traits/next-solver/overflow/dont-drop-obligations-on-overflow-2.rs
 tests/ui/traits/next-solver/overflow/exponential-trait-goals.rs
 tests/ui/traits/next-solver/overflow/fcw-on-auto-trait.rs#next
 tests/ui/traits/next-solver/overflow/fcw-on-auto-trait.rs#old
@@ -994,6 +1020,7 @@ tests/ui/traits/next-solver/pointee.rs
 tests/ui/traits/next-solver/prefer-candidate-no-constraints.rs
 tests/ui/traits/next-solver/prefer-param-env-on-ambiguity.rs
 tests/ui/traits/next-solver/projection-discr-kind.rs
+tests/ui/traits/next-solver/rpit-in-trait-malformed-bound-globally-156100.rs
 tests/ui/traits/next-solver/self-referential-closure-sig-1.rs#next
 tests/ui/traits/next-solver/self-referential-closure-sig-1.rs#old
 tests/ui/traits/next-solver/self-referential-closure-sig-3.rs#next
@@ -1003,6 +1030,7 @@ tests/ui/traits/next-solver/specialization-transmute.rs
 tests/ui/traits/next-solver/specialization-unconstrained.rs
 tests/ui/traits/next-solver/stall-num-var-auto-trait.rs#constrain
 tests/ui/traits/next-solver/stall-num-var-auto-trait.rs#fallback
+tests/ui/traits/next-solver/stalled-coroutine-obligations.rs
 tests/ui/traits/next-solver/structurally-normalize-in-borrowck-field-projection.rs
 tests/ui/traits/next-solver/supertrait-alias-1.rs
 tests/ui/traits/next-solver/supertrait-alias-2.rs
@@ -1048,6 +1076,7 @@ tests/ui/traits/non_lifetime_binders/binder-defaults-112547.rs
 tests/ui/traits/non_lifetime_binders/binder-defaults-118697.rs
 tests/ui/traits/non_lifetime_binders/binder-defaults-119489.rs
 tests/ui/traits/non_lifetime_binders/bounds-on-type-binders.rs
+tests/ui/traits/non_lifetime_binders/diagnostic-hir-wf-check.rs
 tests/ui/traits/non_lifetime_binders/disqualifying-object-candidates.rs
 tests/ui/traits/non_lifetime_binders/drop-impl-pred.rs#no
 tests/ui/traits/non_lifetime_binders/drop-impl-pred.rs#yes
@@ -1055,6 +1084,7 @@ tests/ui/traits/non_lifetime_binders/expected-region-found-kind.rs
 tests/ui/traits/non_lifetime_binders/fail.rs
 tests/ui/traits/non_lifetime_binders/foreach-partial-eq-next-solver.rs
 tests/ui/traits/non_lifetime_binders/foreach-partial-eq.rs
+tests/ui/traits/non_lifetime_binders/late-bound-assoc-type.rs
 tests/ui/traits/non_lifetime_binders/late-bound-in-anon-ct.rs
 tests/ui/traits/non_lifetime_binders/method-probe.rs
 tests/ui/traits/non_lifetime_binders/missing-assoc-item.rs
@@ -1068,6 +1098,8 @@ tests/ui/traits/non_lifetime_binders/placeholders-dont-outlive-static.rs#good
 tests/ui/traits/non_lifetime_binders/shadowed.rs
 tests/ui/traits/non_lifetime_binders/sized-late-bound-issue-114872.rs
 tests/ui/traits/non_lifetime_binders/supertrait-dyn-compatibility.rs
+tests/ui/traits/non_lifetime_binders/type-alias-impl-trait/non-lifetime-binder-in-constraint.rs
+tests/ui/traits/non_lifetime_binders/type-alias-impl-trait/non-lifetime-binder.rs
 tests/ui/traits/non_lifetime_binders/unifying-placeholders-in-query-response-2.rs#current
 tests/ui/traits/non_lifetime_binders/unifying-placeholders-in-query-response-2.rs#next
 tests/ui/traits/non_lifetime_binders/unifying-placeholders-in-query-response.rs#current
@@ -1112,6 +1144,7 @@ tests/ui/traits/object/constrain-via-unnecessary-bound.rs
 tests/ui/traits/object/crash-due-to-projections-modulo-norm.rs
 tests/ui/traits/object/dyn-iter-box-and-ref-impl-iter.rs
 tests/ui/traits/object/dyn-iterator-with-non-ord-item.rs
+tests/ui/traits/object/dyn-proj-non-dyn-compat.rs
 tests/ui/traits/object/dyn-type-param-bound-not-checked.rs#current
 tests/ui/traits/object/dyn-type-param-bound-not-checked.rs#next
 tests/ui/traits/object/elaborated-predicates-unconstrained-late-bound.rs
@@ -1166,11 +1199,13 @@ tests/ui/traits/project-modulo-regions.rs#without_clause
 tests/ui/traits/projection-cache-rematch-impl-122529.rs#next
 tests/ui/traits/projection-cache-rematch-impl-141124.rs#next
 tests/ui/traits/projection-no-progress-cycle-issue-157516.rs
+tests/ui/traits/projection-no-progress-cycle-issue-159750.rs
 tests/ui/traits/question-mark-result-err-mismatch.rs
 tests/ui/traits/question-mark-span-144304.rs
 tests/ui/traits/rc-not-send.rs
 tests/ui/traits/region-pointer-simple.rs
 tests/ui/traits/resolution-in-overloaded-op.rs
+tests/ui/traits/resolve-impl-before-constrain-check.rs
 tests/ui/traits/safety-fn-body.rs
 tests/ui/traits/safety-inherent-impl.rs
 tests/ui/traits/safety-ok-cc.rs
@@ -1421,6 +1456,8 @@ tests/ui/typeck/issue-112252-ptr-arithmetics-help.rs
 tests/ui/typeck/issue-112385-while-assign-lhs-place-expr-ice.rs
 tests/ui/typeck/issue-114423-ice-regression-in-suggestion.rs
 tests/ui/typeck/issue-116473-ice-wrong-span-variant-args.rs
+tests/ui/typeck/issue-116864.rs#current
+tests/ui/typeck/issue-116864.rs#next
 tests/ui/typeck/issue-120856.rs
 tests/ui/typeck/issue-13853-2.rs
 tests/ui/typeck/issue-13853-5.rs
@@ -1579,6 +1616,7 @@ tests/ui/typeck/typeck-fn-to-unsafe-fn-ptr.rs
 tests/ui/typeck/typeck-inner-expr-on-field-access-error.rs
 tests/ui/typeck/typeck-unsafe-always-share.rs
 tests/ui/typeck/typeck_type_placeholder_1.rs
+tests/ui/typeck/typeck_type_placeholder_item.rs
 tests/ui/typeck/typeck_type_placeholder_item_help.rs
 tests/ui/typeck/typeck_type_placeholder_lifetime_1.rs
 tests/ui/typeck/typeck_type_placeholder_lifetime_2.rs
