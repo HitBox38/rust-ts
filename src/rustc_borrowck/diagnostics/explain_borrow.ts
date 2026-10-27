@@ -732,30 +732,6 @@ MirBorrowckCtxt.prototype.later_use_kind = function (
   use_spans: UseSpans,
   location: Location,
 ): [LaterUseKind, Span, Span | undefined] {
-  // PORT: `match func { .. }` of the two `TerminatorKind::Call` arms (identical upstream code, inlined twice there).
-  const function_span_of = (func: Operand, span: Span): Span => {
-    switch (func.$) {
-      case "RuntimeChecks":
-        return span;
-      case "Constant":
-        return func._0.span;
-      case "Copy":
-      case "Move": {
-        const place = func._0;
-        const l = place.as_local();
-        if (l !== undefined) {
-          const local_decl = this.body.local_decls[l]!;
-          if (this.local_name(l) === undefined) {
-            return local_decl.source_info.span;
-          } else {
-            return span;
-          }
-        } else {
-          return span;
-        }
-      }
-    }
-  };
   if (use_spans.$ === "ClosureUse") {
     const { capture_kind_span, path_span } = use_spans;
     // Used in a closure.
@@ -773,7 +749,32 @@ MirBorrowckCtxt.prototype.later_use_kind = function (
     const tk = this.body.basic_blocks.deref()[location.block]!.terminator_().kind;
     if (tk.$ === "Call" && tk.call_source === "Normal") {
       // Just point to the function, to reduce the chance of overlapping spans.
-      const function_span = function_span_of(tk.func, span);
+      let function_span: Span;
+      const func = tk.func;
+      switch (func.$) {
+        case "RuntimeChecks":
+          function_span = span;
+          break;
+        case "Constant":
+          function_span = func._0.span;
+          break;
+        case "Copy":
+        case "Move": {
+          const place = func._0;
+          const l = place.as_local();
+          if (l !== undefined) {
+            const local_decl = this.body.local_decls[l]!;
+            if (this.local_name(l) === undefined) {
+              function_span = local_decl.source_info.span;
+            } else {
+              function_span = span;
+            }
+          } else {
+            function_span = span;
+          }
+          break;
+        }
+      }
       return ["Call", function_span, undefined];
     } else {
       return ["Other", span, undefined];
@@ -798,7 +799,32 @@ MirBorrowckCtxt.prototype.later_use_kind = function (
     const tk = block.terminator_().kind;
     if (tk.$ === "Call" && tk.call_source === "Normal") {
       // Just point to the function, to reduce the chance of overlapping spans.
-      const function_span = function_span_of(tk.func, span);
+      let function_span: Span;
+      const func = tk.func;
+      switch (func.$) {
+        case "RuntimeChecks":
+          function_span = span;
+          break;
+        case "Constant":
+          function_span = func._0.span;
+          break;
+        case "Copy":
+        case "Move": {
+          const place = func._0;
+          const l = place.as_local();
+          if (l !== undefined) {
+            const local_decl = this.body.local_decls[l]!;
+            if (this.local_name(l) === undefined) {
+              function_span = local_decl.source_info.span;
+            } else {
+              function_span = span;
+            }
+          } else {
+            function_span = span;
+          }
+          break;
+        }
+      }
       return ["Call", function_span, undefined];
     } else {
       kind = "Other";
