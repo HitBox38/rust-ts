@@ -4,16 +4,21 @@
 // generated in session_diagnostics.gen.ts (set rustc_borrowck); the manual `impl Diagnostic for TailExprDropOrder<F>` is
 // declared here (precedent rustc_mir_transform diagnostics.ts `AssertLint_into_diag` / `AssertLint_diagnostic`).
 // PORT: `F: FnOnce(&mut Diag<'_>)` is the arrow type `(diag: Diag) => void` (the `Diag` object is mutated in place).
-import type { Diag, DiagCtxtHandle, Diagnostic, Level } from "../rustc_errors/lib.ts";
-import { unported } from "../std/panic.ts";
+import { Diag, type DiagCtxtHandle, type Diagnostic, type Level } from "../rustc_errors/lib.ts";
 import type { TailExprDropOrder } from "./session_diagnostics.gen.ts";
 
 export * from "./session_diagnostics.gen.ts";
 
 // impl<'a, F: FnOnce(&mut Diag<'_>)> Diagnostic<'a> for TailExprDropOrder<F>
-// stub: compiler/rustc_borrowck/src/session_diagnostics.rs:668 into_diag (lane bck-diag-f)
+// rustc: compiler/rustc_borrowck/src/session_diagnostics.rs:668 into_diag
 export function TailExprDropOrder_into_diag<F extends (diag: Diag) => void>(self: TailExprDropOrder<F>, dcx: DiagCtxtHandle, level: Level): Diag {
-  return unported("rustc_borrowck::session_diagnostics::TailExprDropOrder::into_diag");
+  const { borrowed, callback } = self;
+  const diag = Diag.new(dcx, level, "relative drop order changing in Rust 2024").with_span_label(
+    borrowed,
+    "this temporary value will be dropped at the end of the block",
+  );
+  callback(diag);
+  return diag;
 }
 /** `TailExprDropOrder<F>` as a `Diagnostic` trait object. */
 export function TailExprDropOrder_diagnostic<F extends (diag: Diag) => void>(self: TailExprDropOrder<F>): Diagnostic {
