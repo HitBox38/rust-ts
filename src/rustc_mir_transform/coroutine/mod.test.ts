@@ -76,7 +76,7 @@ function kinds(stmts: Statement[]): string[] {
         return `StorageLive(${k._0})`;
       case "Assign": {
         const [lhs, rv] = k._0;
-        const rhs = rv.$ === "Use" ? `${rv._0.$}(${rv._0.$ === "Constant" ? "" : rv._0._0.local})` : rv.$ === "Discriminant" ? `discriminant(${rv._0.local})` : rv.$;
+        const rhs = rv.$ === "Use" ? `${rv._0.$}(${rv._0.$ === "Copy" || rv._0.$ === "Move" ? rv._0._0.local : ""})` : rv.$ === "Discriminant" ? `discriminant(${rv._0.local})` : rv.$;
         return `_${lhs.local}${lhs.projection.length === 0 ? "" : "+proj"} = ${rhs}`;
       }
       case "SetDiscriminant":
