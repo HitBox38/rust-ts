@@ -52,6 +52,8 @@ declare module "../eval_context.ts" {
 /// Returns `true` if emulation happened.
 /// Here we implement the intrinsics that are common to all CTFE instances; individual machines can add their own
 /// intrinsic handling.
+// PORT: the parameter `dest` is `dest_` (upstream shadows it with `dest.force_mplace(self)?`); the arms' shadowing
+// `let (dest, dest_len) = self.project_to_simd(&dest)?` / `let dest = self.project_index(&dest, i)?` are `dest_v` / `dest_i`.
 // rustc: compiler/rustc_const_eval/src/interpret/intrinsics/simd.rs:22 eval_simd_intrinsic
 InterpCx.prototype.eval_simd_intrinsic = function (this: InterpCx, intrinsic_name: Symbol, generic_args: GenericArgsRef, args: readonly OpTy[], dest_: PlaceTy, ret: BasicBlock | undefined): InterpResult<boolean> {
   const dest_r = dest_.force_mplace(this);

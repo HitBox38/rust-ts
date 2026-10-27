@@ -26,7 +26,7 @@ import { type Config, run_compiler } from "../../../rustc_interface/interface.ts
 import { create_and_enter_global_ctxt, parse } from "../../../rustc_interface/passes.ts";
 import type { ModuleItems } from "../../../rustc_middle/hir/mod.ts";
 import "../../../rustc_middle/lib.ts";
-import { Scalar } from "../../../rustc_middle/mir/interpret/mod.ts";
+import { display_InterpErrorKind, Scalar } from "../../../rustc_middle/mir/interpret/mod.ts";
 import type { TyCtxt } from "../../../rustc_middle/ty/context.ts";
 import type { TyAndLayout } from "../../../rustc_middle/ty/layout.ts";
 import { Ty, TypingEnv } from "../../../rustc_middle/ty/mod.ts";
@@ -441,7 +441,7 @@ function read_out(cx: Cx, o: Out, dest: MPlaceTy): string {
 // array index projection into memory on a 64-bit target stops there; see docs/handoff/interp-simd.md)
 const PENDING = /rustc_const_eval::interpret::intrinsics::InterpCx::|Scalar::to_float|rustc_abi::Size beyond 2\^53/;
 
-/** The result lanes, `err <UB message>`, or `pending` (a stub of a lane not in this base). */
+/** The result lanes, `err <error message>`, or `pending` (a stub of a lane not in this base). */
 function run(cx: Cx, c: Case): string {
   try {
     const args = c.args.map((a) => OpTy_from_MPlaceTy(make_arg(cx, a)));
@@ -450,8 +450,7 @@ function run(cx: Cx, c: Case): string {
     if (r.$ === "Ok") return `unexpected Ok(${r._0})`;
     const k = r._0.kind();
     if (k.$ === "UndefinedBehavior" && k._0.$ === "Unreachable") return read_out(cx, c.out, dest);
-    if (k.$ === "UndefinedBehavior" && k._0.$ === "Ub") return `err ${k._0._0}`;
-    return `err (kind ${k.$} ${"_0" in k ? (k._0 as { $: string }).$ : ""})`;
+    return `err ${display_InterpErrorKind(k)}`;
   } catch (e) {
     if (e instanceof Unported && PENDING.test(e.message)) return "pending";
     throw e;
