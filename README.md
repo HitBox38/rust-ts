@@ -8,22 +8,26 @@ The mirror image of [ts-rust](https://github.com/pingdotgg/ts-rust).
 | | |
 |---|---|
 | Upstream pin | `rust-lang/rust@6f5da406b` = `rustc 1.101.0-nightly (2026-10-10)` |
-| Milestone | M0 done (harness); M1 (lexer → parser → `-Zunpretty=ast-tree`) in progress |
-| Protected parity | **51,581** cases that match the real compiler byte-for-byte and can never regress |
-| Ported | 1,196 / 25,517 upstream functions (4.7%) |
+| Milestone | M0–M3 done (harness; lexer/parser; expansion + name resolution; typeck + trait solving). M4 (MIR build, borrowck, MIR transforms, const eval) in progress |
+| Protected parity | **329,279** cases across 29 suites that match the real compiler byte-for-byte and can never regress |
+| Ported | 20,657 / 25,518 in-scope upstream functions (81.0%) |
 
-Crates so far: `rustc_lexer`, `rustc_span` (incl. SourceMap, hygiene, the 2,434-symbol interner),
-`rustc_error_messages` at 100%; `rustc_errors` 60%; `rustc_ast` 30% (all types + Debug generated, tokens,
-token streams, literals); vendored `unicode-ident`, `unicode-properties`, `unicode-width`,
-`rustc-literal-escaper`, `bitflags`.
+At 100%: the front end (`rustc_lexer`, `rustc_span`, `rustc_ast`, `rustc_ast_lowering`, `rustc_ast_passes`,
+`rustc_builtin_macros`, `rustc_attr_parsing`, `rustc_resolve`), type checking (`rustc_hir_typeck`,
+`rustc_hir_analysis`, `rustc_infer`, `rustc_type_ir`, `rustc_next_trait_solver`, `rustc_traits`), plus
+`rustc_mir_build`, `rustc_pattern_analysis` and `rustc_symbol_mangling`. Nearly done: `rustc_parse`,
+`rustc_expand`, `rustc_lint`, `rustc_trait_selection`, `rustc_middle` (90%), `rustc_const_eval` (96%).
+Still in progress: `rustc_borrowck` (44%), `rustc_mir_dataflow` (76%) and `rustc_mir_transform` (26%).
 
-| suite | what it compares against the oracle | protected |
+| suite (milestone) | what it compares against the oracle | protected |
 |---|---|---|
-| `lex` | every token of 25,780 files (tests/ui, library, compiler) vs the real `rustc_lexer` | 25,780 |
-| `escape` | every literal's unescaped value / error vs `rustc-literal-escaper` | 25,780 |
-| `escape-synthetic` | generated corpus hitting every literal mode and escape error | 11 |
-| `symbols` | the predefined symbol table vs a probe linking upstream `rustc_span` | 10 |
-| `parse` | `-Zunpretty=ast-tree` on tests/ui (the M1 goal) | 0 (unported) |
+| `lex`, `tokens`, `escape` (M1) | every token and literal of 25,780 files (tests/ui, library, compiler) | 25,780 each |
+| `parse`, `parse-ui` (M1) | `-Zunpretty=ast-tree` on tests/ui; ui/parser diagnostics | 21,523 / 991 |
+| `expanded`, `unpretty-expanded`, `resdump` (M2) | macro expansion and name resolution | ~21,470 each |
+| `hir-tree`, `unpretty-hir`, `tydump-nocore` (M3) | HIR and type checking | ~21,480 each |
+| `tydump-ui`, `thirdump-ui` (M3) | types and THIR on tests/ui | 1,642 / 1,640 |
+| `mirdump-ui`, `mirdump-minicore` (M4) | MIR built and checked by the compiler | 1,190 / 45 |
+| `borrowck-ui-report` (M4) | borrow-check results on tests/ui | 64 |
 
 Start here: [PLAN.md](PLAN.md) · [AGENTS.md](AGENTS.md) · [PORTING.md](PORTING.md) · [docs/next.md](docs/next.md)
 
