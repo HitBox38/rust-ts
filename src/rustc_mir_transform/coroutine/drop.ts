@@ -5,9 +5,9 @@
 // items this file uses (`TransformVisitor`, `Operation`, `create_cases`, `insert_switch`, `insert_term_block`,
 // `insert_poll_ready_block`, `insert_panic_block`, `return_poll_ready_assign`, `make_coroutine_state_argument_indirect`,
 // `make_coroutine_state_argument_pinned`, `generate_poison_block_and_redirect_unwinds_there`, `transform_async_context`)
-// as do `elaborate_drop::{Unwind, elaborate_drop}` (lane mt-drops) and `shim::DropShimElaborator` (lane mt-shim),
-// `deref_separator::deref_finder` (lane mt-cleanup). They are module-local stand-ins at the end of this file (not
-// markers; each stops UNPORTED with its upstream path) that those lanes repoint at their ports. `SELF_ARG` is mod.rs's
+// as do `elaborate_drop::{Unwind, elaborate_drop}` (lane mt-drops) and `deref_separator::deref_finder` (lane
+// mt-cleanup). They are module-local stand-ins at the end of this file (not markers; each stops UNPORTED with its
+// upstream path) that those lanes repoint at their ports. `shim::DropShimElaborator` is shim.ts's class (lane mt-shim). `SELF_ARG` is mod.rs's
 // constant (`Local::arg(0)`, mod.rs:160), declared here with the same value. Nothing imports this module yet:
 // coroutine/mod.ts (`mod drop;` + the `use drop::{..}` list) is mt-coroutine-a's.
 // PORT: `FixReturnPendingVisitor` `extends MutVisitor` (mir/visit.ts, D4). `*rvalue = ..` replaces the caller's `Rvalue`
@@ -54,6 +54,7 @@ import * as abort_unwinding_calls from "../abort_unwinding_calls.ts";
 import * as pm from "../pass_manager.ts";
 import { MirPatch } from "../patch.ts";
 import * as simplify from "../simplify.ts";
+import { DropShimElaborator } from "../shim.ts";
 
 // PORT: coroutine/mod.rs:160 `const SELF_ARG: Local = Local::arg(0);` (see the header).
 const SELF_ARG: Local = Local.arg(0);
@@ -157,16 +158,16 @@ export function elaborate_coroutine_drops(tcx: TyCtxt, body: Body): void {
   // coroutine's resume function.
   const typing_env = body.typing_env(tcx);
 
-  const elaborator: DropShimElaborator = {
+  const elaborator = new DropShimElaborator(
     body,
-    patch: MirPatch.new(body),
+    MirPatch.new(body),
     tcx,
     typing_env,
     // FIXME(async_drop): Drops, produced by insert_clean_drop + elaborate_coroutine_drops, are
     // currently sync only. To allow async for them, flip this flag and fix the related
     // problems.
-    produce_async_drops: false,
-  };
+    /* produce_async_drops */ false,
+  );
 
   const blocks = body.basic_blocks.deref();
   for (let i = 0; i < blocks.length; i++) {
@@ -500,15 +501,6 @@ function generate_poison_block_and_redirect_unwinds_there(_transform: TransformV
 /** PORT: stand-in for `deref_separator::deref_finder` (deref_separator.rs, lane mt-cleanup). */
 function deref_finder(_tcx: TyCtxt, _body: Body, _storage_to_remove: boolean): void {
   return unported("rustc_mir_transform::deref_separator::deref_finder (lane mt-cleanup)");
-}
-
-/** PORT: stand-in for `shim::DropShimElaborator` (shim.rs, lane mt-shim): its fields, as built here. */
-interface DropShimElaborator {
-  body: Body;
-  patch: MirPatch;
-  tcx: TyCtxt;
-  typing_env: TypingEnv;
-  produce_async_drops: boolean;
 }
 
 /** PORT: stand-in for `elaborate_drop::Unwind` (elaborate_drop.rs, lane mt-drops). */
