@@ -40,7 +40,7 @@ async function main(): Promise<number> {
   const { clone_Body } = await import("../../rustc_middle/mir/mod.ts");
   const { DefKind } = await import("../../rustc_hir/def.ts");
   const { VecU8 } = await import("../../vendor/anstream/stream.ts");
-  const { unwrap_result } = await import("../../std/result.ts");
+  const std_result = await import("../../std/result.ts");
   const { debug_IoError } = await import("../../std/io.ts");
 
   const callbacks = {
@@ -77,7 +77,7 @@ async function main(): Promise<number> {
       if (process.env.KPL_ORACLE_UB_PASSES === "1") {
         const write = (body: Parameters<typeof clone_Body>[0]): string => {
           const w = new VecU8();
-          unwrap_result(MirWriter.new(tcx).write_mir_fn(body, w), debug_IoError);
+          std_result.unwrap_result(MirWriter.new(tcx).write_mir_fn(body, w), debug_IoError);
           return new TextDecoder("utf-8", { fatal: true }).decode(w.bytes());
         };
         let out = "";
