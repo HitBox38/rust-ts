@@ -5,8 +5,9 @@
 // items this file uses (`TransformVisitor`, `Operation`, `create_cases`, `insert_switch`, `insert_term_block`,
 // `insert_poll_ready_block`, `insert_panic_block`, `return_poll_ready_assign`, `make_coroutine_state_argument_indirect`,
 // `make_coroutine_state_argument_pinned`, `generate_poison_block_and_redirect_unwinds_there`, `transform_async_context`)
-// as do `elaborate_drop::{Unwind, elaborate_drop}` (lane mt-drops) and `shim::DropShimElaborator` (lane mt-shim),
-// `deref_separator::deref_finder` (lane mt-cleanup). They are module-local stand-ins at the end of this file (not
+// as do `elaborate_drop::{Unwind, elaborate_drop}` (lane mt-drops) and `shim::DropShimElaborator` (lane mt-shim)
+// (`deref_separator::deref_finder` is imported from its port, lane mt-cleanup). They are module-local stand-ins at the
+// end of this file (not
 // markers; each stops UNPORTED with its upstream path) that those lanes repoint at their ports. `SELF_ARG` is mod.rs's
 // constant (`Local::arg(0)`, mod.rs:160), declared here with the same value. Nothing imports this module yet:
 // coroutine/mod.ts (`mod drop;` + the `use drop::{..}` list) is mt-coroutine-a's.
@@ -51,6 +52,7 @@ import { replace_in_place } from "../../std/mut_ref.ts";
 import { unported, unwrap } from "../../std/panic.ts";
 
 import * as abort_unwinding_calls from "../abort_unwinding_calls.ts";
+import { deref_finder } from "../deref_separator.ts";
 import * as pm from "../pass_manager.ts";
 import { MirPatch } from "../patch.ts";
 import * as simplify from "../simplify.ts";
@@ -497,10 +499,6 @@ function generate_poison_block_and_redirect_unwinds_there(_transform: TransformV
   return unported("rustc_mir_transform::coroutine::generate_poison_block_and_redirect_unwinds_there (lane mt-coroutine-a)");
 }
 
-/** PORT: stand-in for `deref_separator::deref_finder` (deref_separator.rs, lane mt-cleanup). */
-function deref_finder(_tcx: TyCtxt, _body: Body, _storage_to_remove: boolean): void {
-  return unported("rustc_mir_transform::deref_separator::deref_finder (lane mt-cleanup)");
-}
 
 /** PORT: stand-in for `shim::DropShimElaborator` (shim.rs, lane mt-shim): its fields, as built here. */
 interface DropShimElaborator {
