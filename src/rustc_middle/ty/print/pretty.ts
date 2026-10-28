@@ -2254,7 +2254,7 @@ PrettyPrinter.prototype.pretty_print_const_scalar_int = function (this: PrettyPr
       )).$ === "Err"
     )
       return r;
-  } else if (k.$ === "Pat" && TyCtxt_validate_scalar_in_layout(this.tcx(), int, ty)) {
+  } else if (k.$ === "Pat" && this.tcx().validate_scalar_in_layout(int, ty)) {
     const base_ty = k._0;
     const pat = k._1;
     if ((r = this.pretty_print_const_scalar_int(int, base_ty, print_ty)).$ === "Err") return r;
@@ -4495,10 +4495,6 @@ function IeeeFloat_is_finite(v: IeeeFloat): boolean {
 /** `Display for IeeeFloat` (`{}`: no width / precision / `#`; vendored rustc_apfloat). */
 function display_IeeeFloat(v: IeeeFloat): string {
   return v.fmt();
-}
-/** PORT: pending (rustc_const_eval, not ported): `TyCtxt::validate_scalar_in_layout` (check_validity_requirement.rs:183). */
-function TyCtxt_validate_scalar_in_layout(_tcx: TyCtxt, _int: ScalarInt, _ty: Ty): boolean {
-  return unported("rustc_const_eval::util::check_validity_requirement::validate_scalar_in_layout (not ported)");
 }
 /** `UserTypeKind` (typeck_results.rs, lane ty-results). */
 export type { UserTypeKind } from "../typeck_results.ts";
