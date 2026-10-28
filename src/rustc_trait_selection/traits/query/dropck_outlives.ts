@@ -79,7 +79,7 @@ export function trivial_dropck_outlives(tcx: TyCtxt, ty: Ty): boolean {
       const ty = k._0;
       const size = k._1;
       // Empty array never has a dtor. See issue #110288.
-      if (size.try_to_target_usize(tcx) === 0) {
+      if (size.try_to_target_usize(tcx) === 0n) {
         return true;
       } else {
         return trivial_dropck_outlives(tcx, ty);

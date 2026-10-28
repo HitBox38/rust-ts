@@ -31,6 +31,7 @@ import {
 import { UnusedDef_diagnostic } from "../diagnostics.ts";
 import type { LateLintPass } from "../passes.ts";
 import { UNUSED_MUST_USE, UNUSED_RESULTS, UnusedResults } from "./must_use.lints.gen.ts";
+import { u64_to_number } from "../../rust_ts/u64.ts";
 
 export * from "./must_use.lints.gen.ts";
 
@@ -80,7 +81,7 @@ export type MustUsePath =
   | { readonly $: "Result"; _0: MustUsePath }
   /// `ControlFlow<Uninhabited, T>`
   | { readonly $: "ControlFlow"; _0: MustUsePath }
-  // PORT: the `u64` length is a `number` (`Const::try_to_target_usize` returns `number`, ty/decls.ts).
+  // PORT: the `u64` length is a `number` (converted from `Const::try_to_target_usize`'s `bigint`, rust_ts/u64.ts).
   | { readonly $: "Array"; _0: MustUsePath; _1: number }
   /// The root of the unused_closures lint.
   | { readonly $: "Closure"; _0: Span }
@@ -262,9 +263,9 @@ export function is_ty_must_use(cx: LateContext, ty: Ty, expr: hir.Expr): IsTyMus
       const ty = kind._0;
       const len = kind._1.try_to_target_usize(cx.tcx);
       // If the array is empty we don't lint, to avoid false positives
-      if (len === 0 || len === undefined) return IsTyMustUse.No;
+      if (len === 0n || len === undefined) return IsTyMustUse.No;
       // If the array is definitely non-empty, we can do `#[must_use]` checking.
-      return IsTyMustUse.map(is_ty_must_use(cx, ty, expr), (inner) => ({ $: "Array", _0: inner, _1: len }));
+      return IsTyMustUse.map(is_ty_must_use(cx, ty, expr), (inner) => ({ $: "Array", _0: inner, _1: u64_to_number(len, "MustUsePath::Array") }));
     }
     case "Closure":
     case "CoroutineClosure":

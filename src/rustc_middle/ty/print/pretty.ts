@@ -2124,7 +2124,7 @@ PrettyPrinter.prototype.pretty_print_const_scalar_ptr = function (this: PrettyPr
         const elem = ik._0;
         const ct_len = ik._1;
         const ek = elem.kind();
-        let len: number | undefined;
+        let len: bigint | undefined;
         if (ek.$ === "Uint" && ek._0 === "U8" && (len = ct_len.try_to_target_usize(this.tcx())) !== undefined) {
           const global_alloc = TyCtxt_try_get_global_alloc(this.tcx(), CtfeProvenance_alloc_id(prov));
           if (global_alloc === undefined) {

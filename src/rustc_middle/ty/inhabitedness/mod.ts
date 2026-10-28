@@ -285,7 +285,7 @@ function inhabited_predicate_type(tcx: TyCtxt, ty: Ty): InhabitedPredicate {
       const ty = k._0;
       const len = k._1;
       const n = len.try_to_target_usize(tcx);
-      if (n === 0) return InhabitedPredicate.True;
+      if (n === 0n) return InhabitedPredicate.True;
       if (n !== undefined) return ty.inhabited_predicate(tcx);
       return InhabitedPredicate.or(ty.inhabited_predicate(tcx), tcx, { $: "ConstIsZero", _0: len });
     }
@@ -353,7 +353,7 @@ class OpsemInhabitedCtx {
         const len = k._1;
         const n = len.try_to_target_usize(tcx);
         if (n === undefined) return bug("called `Option::unwrap()` on a `None` value");
-        return n === 0 || this.is_inhabited_ty(elem);
+        return n === 0n || this.is_inhabited_ty(elem);
       }
       case "Pat":
         return this.is_inhabited_ty(k._0);

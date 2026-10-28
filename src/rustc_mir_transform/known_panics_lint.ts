@@ -974,7 +974,7 @@ class ConstPropagator extends Visitor {
                 find_attr(HasAttrs_DefId.get_attrs(param_def.def_id, this.tcx), (k) =>
                   k.$ === "RustcPanicsWhenZero" ? true : undefined,
                 ) !== undefined &&
-                ct.try_to_target_usize(this.tcx) === 0
+                ct.try_to_target_usize(this.tcx) === 0n
               ) {
                 // We managed to figure-out that the value of a
                 // `#[rustc_panics_when_zero]` const-generic parameter is zero.

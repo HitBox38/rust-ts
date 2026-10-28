@@ -697,7 +697,7 @@ export const SizeSkeleton = {
         }
         const [inner, len] = [k._0, k._1];
         const len_eval = len.try_to_target_usize(tcx);
-        if (len_eval === 0) {
+        if (len_eval === 0n) {
           return Ok({ $: "Known", _0: Size.from_bytes(0), _1: undefined });
         }
 

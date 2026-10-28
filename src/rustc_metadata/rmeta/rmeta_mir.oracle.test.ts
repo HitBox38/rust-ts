@@ -29,7 +29,7 @@ import { display_Ty, with_forced_impl_filename_line } from "../../rustc_middle/t
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import { type CrateNum, DefId, DefIndex } from "../../rustc_span/def_id.ts";
 import { Symbol } from "../../rustc_span/symbol.ts";
-import { Unported } from "../../std/panic.ts";
+import { InlineAsmRegOrRegClass } from "../../rustc_target/asm/mod.ts";
 import type { Result } from "../../std/result.ts";
 import { VecU8 } from "../../vendor/anstream/stream.ts";
 import { creader } from "../lib.ts";
@@ -58,7 +58,8 @@ const AUX_NAME = "mm_aux";
  *  No closures: the MIR printer renders a non-local closure differently from a local one by design (`{closure@<def
  *  path>}` and positional upvar names instead of the span and the upvars' names, ty/print/pretty.rs / mir/pretty.rs).
  *  No tuple variants: trimmed paths (`trimmed_def_paths`) shorten a visible foreign variant's path (`Circle`), never a
- *  local one (`Shape::Circle`); the tuple struct `Wrap` covers constructors. */
+ *  local one (`Shape::Circle`); the tuple struct `Wrap` covers constructors. `asm_ops`: inline-asm register operands
+ *  (`InlineAsmOperand::{In, Out, InOut}.reg`, explicit registers and classes; lane key-value). */
 const AUX = `#![no_std]
 pub struct Point { pub x: i32, pub y: i32 }
 pub enum Shape { Circle { r: u32 }, Rect { w: u16, h: u16 }, Empty }
@@ -86,6 +87,16 @@ pub fn tuple() -> (u8, bool, Wrap) { (1, true, Wrap(2, false)) }
 pub fn cast(f: f64) -> i16 { f as i16 }
 pub const fn cfn(x: u32) -> u32 { x.wrapping_mul(3) }
 pub fn arr() -> [i32; 3] { [ANSWER; 3] }
+pub fn asm_ops(a: u64, v: u32) -> u64 {
+    let r: u64;
+    let mut x = v;
+    let b: u8;
+    unsafe {
+        core::arch::asm!("lea {r}, [{a} + 1]", "add {x:e}, 1", "mov {b}, 2", r = out(reg) r, a = in(reg) a, x = inout(reg) x,
+            b = lateout(reg_byte) b, in("eax") 3u32, out("xmm0") _, inout("ecx") 4u32 => _, options(nostack));
+    }
+    r + x as u64 + b as u64
+}
 `;
 
 function sysroot(): string {
@@ -229,30 +240,39 @@ test.skipIf(SKIP)("rmeta-mir oracle: MIR bodies of an extern crate equal its -Zu
 
 /** Every MIR body `core` and `alloc` carry in their metadata decodes: `optimized_mir` / `mir_for_ctfe` /
  *  `promoted_mir` of each `DefIndex` whose table entry is present, and `trivial_const` (a structural check: each body's
- *  basic blocks end in a terminator and its locals have types). The one known stop: inline-asm operands
- *  (`InlineAsmOperand::{In, Out, InOut}.reg: InlineAsmRegOrRegClass`, rustc_target asm/mod.rs, which has no TS
- *  `Decodable` yet); bodies stopping there are counted (`MAX_ASM_STOPS`, measured by lane meta-mir), any other error
- *  fails the test. */
-const MAX_ASM_STOPS = 38;
+ *  basic blocks end in a terminator and its locals have types). Any error fails the test. Inline-asm register operands
+ *  (`InlineAsmOperand::{In, Out, InOut}.reg: InlineAsmRegOrRegClass`, rustc_target asm/mod.rs; lane key-value, before
+ *  which their 38 bodies stopped) are checked too: each names an x86 register or class (the target is x86_64), and the
+ *  number of bodies holding one is pinned (`ASM_REG_BODIES`, the oracle sysroot's core). */
+const ASM_REG_BODIES = 38;
 test.skipIf(SKIP)("rmeta-mir: every MIR body of core and alloc decodes", () => {
   mkdirSync(WORK, { recursive: true });
   const main = join(WORK, "alloc_main.rs");
   writeFileSync(main, "#![no_std]\nextern crate alloc;\n");
   const counts = new Map<string, number>();
   const bump = (k: string) => counts.set(k, (counts.get(k) ?? 0) + 1);
+  let asm_reg_bodies = 0;
+  const asm_regs = new Set<string>();
   const check = (body: Body) => {
-    for (const bb of body.basic_blocks.deref()) expect(bb.terminator).toBeDefined();
+    let has_reg = false;
+    for (const bb of body.basic_blocks.deref()) {
+      expect(bb.terminator).toBeDefined();
+      const kind = bb.terminator!.kind;
+      if (kind.$ !== "InlineAsm") continue;
+      for (const op of kind.operands) {
+        if (op.$ !== "In" && op.$ !== "Out" && op.$ !== "InOut") continue;
+        has_reg = true;
+        const rendered = InlineAsmRegOrRegClass.display(op.reg);
+        expect(`${rendered}: ${InlineAsmRegOrRegClass.reg_class(op.reg).$}`).toBe(`${rendered}: X86`);
+        asm_regs.add(rendered);
+      }
+    }
+    if (has_reg) asm_reg_bodies++;
     for (const decl of body.local_decls) expect(decl.ty).toBeDefined();
   };
-  let asm_stops = 0;
   const decoded = (what: string, f: () => void) => {
-    try {
-      f();
-      bump(what);
-    } catch (e) {
-      if (!(e instanceof Unported) || !(e.stack ?? "").includes("decode_InlineAsmOperand")) throw e;
-      asm_stops++;
-    }
+    f();
+    bump(what);
   };
   run_compiler(config_from_args([...common_args(), "--crate-type", "lib", main]), (compiler) => {
     const krate: Crate = parse(compiler.sess);
@@ -280,9 +300,14 @@ test.skipIf(SKIP)("rmeta-mir: every MIR body of core and alloc decodes", () => {
       }
     });
   });
-  writeFileSync(join(WORK, "core-alloc-counts.txt"), [...counts, ["asm stops", asm_stops] as const].map(([k, v]) => `${k}: ${v}`).join("\n") + "\n");
+  writeFileSync(
+    join(WORK, "core-alloc-counts.txt"),
+    [...counts, ["asm reg bodies", asm_reg_bodies] as const, ["asm regs", [...asm_regs].sort().join(" ")] as const]
+      .map(([k, v]) => `${k}: ${v}`)
+      .join("\n") + "\n",
+  );
   expect(counts.get("core optimized_mir") ?? 0).toBeGreaterThan(20000);
   expect(counts.get("core mir_for_ctfe") ?? 0).toBeGreaterThan(15000);
   expect(counts.get("alloc optimized_mir") ?? 0).toBeGreaterThan(3000);
-  expect(asm_stops).toBeLessThanOrEqual(MAX_ASM_STOPS);
-});
+  expect(asm_reg_bodies).toBe(ASM_REG_BODIES);
+}, 300_000);

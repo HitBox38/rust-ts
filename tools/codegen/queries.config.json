@@ -71,6 +71,7 @@
     "rustc_middle::ty::AliasTyKind": "AliasTyKind",
     "(rustc_middle::traits::solve::CanonicalInput, usize)": "CanonicalInput_usize",
     "rustc_middle::ty::LitToConstInput": "LitToConstInput",
+    "rustc_middle::ty::Value": "Value",
     "rustc_middle::ty::PseudoCanonicalInput<rustc_middle::ty::Ty>": "PseudoCanonicalInput_Ty",
     "rustc_middle::ty::PseudoCanonicalInput<rustc_middle::ty::GenericArg>": "PseudoCanonicalInput_GenericArg",
     "rustc_middle::ty::PseudoCanonicalInput<rustc_middle::ty::TraitRef>": "PseudoCanonicalInput_TraitRef",

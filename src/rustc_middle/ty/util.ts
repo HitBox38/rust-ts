@@ -1837,7 +1837,7 @@ export function needs_drop_components_with_async(tcx: TyCtxt, ty: Ty, asyncness:
         return res;
       }
       const n = size.try_to_target_usize(tcx);
-      if (n === 0) {
+      if (n === 0n) {
         // Arrays of size zero don't need drop, even if their element
         // type does.
         return Ok([]);

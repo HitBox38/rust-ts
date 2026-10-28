@@ -26,6 +26,7 @@ import { debug_DefId, debug_LocalDefId, type DefId, type LocalDefId } from "../.
 import { type Span, type Spanned } from "../../rustc_span/lib.ts";
 import { debug_Symbol, type Symbol } from "../../rustc_span/symbol.ts";
 import { debug_InlineAsmRegOrRegClass, type InlineAsmRegOrRegClass } from "../../rustc_target/asm/mod.ts";
+import { decode_InlineAsmRegOrRegClass } from "../../rustc_target/decodable.gen.ts";
 import { type FallibleTypeFolder, fold_with_Option, fold_with_slice, fold_with_trivial, fold_with_tuple2, fold_with_Vec, type FoldWith, try_fold_with_Option, try_fold_with_slice, try_fold_with_trivial, try_fold_with_tuple2, try_fold_with_Vec, type TryFoldWith, type TypeFolder, type TypeVisitor, visit_with_Option, visit_with_slice, visit_with_trivial, visit_with_tuple2, visit_with_Vec, type VisitWith } from "../../rustc_type_ir/fold.ts";
 import { decode_Variance, type Variance } from "../../rustc_type_ir/lib.ts";
 import { decode_RegionKind } from "../../rustc_type_ir/region_kind.ts";
@@ -35,10 +36,6 @@ import { fold_with_Region, type Region, try_fold_with_Region, visit_with_Region 
 import { type Debug, debug_bool, debug_int, debug_option, debug_struct, debug_tuple, debug_vec, type Fmt } from "../../std/fmt.ts";
 import { panic } from "../../std/panic.ts";
 import { Ok, type Result } from "../../std/result.ts";
-import { unported } from "../../std/panic.ts";
-function unported_decodable(..._a: unknown[]): never {
-  return unported("Decodable without a TS impl (see types report)");
-}
 
 // rustc-type: compiler/rustc_middle/src/mir/syntax.rs:44 MirPhase
 /// Represents the "flavors" of MIR.
@@ -2157,11 +2154,11 @@ export function decode_InlineAsmOperand(__decoder: TyDecoder): InlineAsmOperand 
   const __tag = __decoder.read_u8();
   switch (__tag) {
     case 0:
-      return { $: "In", reg: unported_decodable(__decoder), value: decode_Operand(__decoder) };
+      return { $: "In", reg: decode_InlineAsmRegOrRegClass(__decoder), value: decode_Operand(__decoder) };
     case 1:
-      return { $: "Out", reg: unported_decodable(__decoder), late: decode_bool(__decoder), place: decode_Option(__decoder, decode_Place) };
+      return { $: "Out", reg: decode_InlineAsmRegOrRegClass(__decoder), late: decode_bool(__decoder), place: decode_Option(__decoder, decode_Place) };
     case 2:
-      return { $: "InOut", reg: unported_decodable(__decoder), late: decode_bool(__decoder), in_value: decode_Operand(__decoder), out_place: decode_Option(__decoder, decode_Place) };
+      return { $: "InOut", reg: decode_InlineAsmRegOrRegClass(__decoder), late: decode_bool(__decoder), in_value: decode_Operand(__decoder), out_place: decode_Option(__decoder, decode_Place) };
     case 3:
       return { $: "Const", value: decode_ConstOperand(__decoder) };
     case 4:

@@ -43,6 +43,7 @@ export { eval_to_valtree, valtree_to_const_value } from "./valtrees.ts";
 import "./dyn_trait.ts";
 import "./type_info.ts";
 import "./type_info/adt.ts";
+import { u64_to_number } from "../../rust_ts/u64.ts";
 
 // We forbid type-level constants that contain more than `VALTREE_MAX_NODES` nodes.
 export const VALTREE_MAX_NODES = 100000;
@@ -65,7 +66,7 @@ export function try_destructure_mir_constant_for_user_output(tcx: TyCtxt, val: C
     case "Array": {
       const len = kind._1.try_to_target_usize(tcx);
       if (len === undefined) return undefined;
-      [field_count, variant, down] = [len, undefined, op];
+      [field_count, variant, down] = [u64_to_number(len, "try_destructure_mir_constant_for_user_output"), undefined, op];
       break;
     }
     case "Adt": {
