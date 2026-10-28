@@ -5,8 +5,7 @@
 // mod.ts (`TransformVisitor`, `Operation`, `SELF_ARG`, `create_cases`, `insert_switch`, ...). `deref_separator::deref_finder`
 // is imported from its port (lane mt-cleanup) and `elaborate_drop::Unwind` from elaborate_drop.ts (lane mt-drops);
 // `elaborate_drop::elaborate_drop` is called through a local adapter until `DropShimElaborator` (lane mt-shim) implements
-// `DropElaborator<null>`; `shim::DropShimElaborator` is a module-local stand-in at the end of this file (not a marker;
-// it stops UNPORTED with its upstream path).
+// `DropElaborator<null>`; `shim::DropShimElaborator` is shim.ts's class (lane mt-shim).
 // PORT: `FixReturnPendingVisitor` `extends MutVisitor` (mir/visit.ts, D4). `*rvalue = ..` replaces the caller's `Rvalue`
 // object in place (`replace_in_place`); `*args = ..` writes the `Adt` aggregate's `_2` field.
 // PORT: `body.clone()` is the generated `clone_Body`; `Option::take` of `body.coroutine` sets it to `undefined`.
@@ -69,6 +68,7 @@ import * as pm from "../pass_manager.ts";
 import { MirPatch } from "../patch.ts";
 import { Unwind } from "../elaborate_drop.ts";
 import * as simplify from "../simplify.ts";
+import { DropShimElaborator } from "../shim.ts";
 
 
 // Fix return Poll<Rv>::Pending statement into Poll<()>::Pending for async drop function
@@ -170,16 +170,16 @@ export function elaborate_coroutine_drops(tcx: TyCtxt, body: Body): void {
   // coroutine's resume function.
   const typing_env = body.typing_env(tcx);
 
-  const elaborator: DropShimElaborator = {
+  const elaborator = new DropShimElaborator(
     body,
-    patch: MirPatch.new(body),
+    MirPatch.new(body),
     tcx,
     typing_env,
     // FIXME(async_drop): Drops, produced by insert_clean_drop + elaborate_coroutine_drops, are
     // currently sync only. To allow async for them, flip this flag and fix the related
     // problems.
-    produce_async_drops: false,
-  };
+    /* produce_async_drops */ false,
+  );
 
   const blocks = body.basic_blocks.deref();
   for (let i = 0; i < blocks.length; i++) {
@@ -461,19 +461,10 @@ export function create_coroutine_drop_shim_proxy_async(tcx: TyCtxt, body_: Body,
 // Not markers. Each calls `unported`; the owning lanes repoint them at the real ports (see the header).
 
 
-/** PORT: stand-in for `shim::DropShimElaborator` (shim.rs, lane mt-shim): its fields, as built here. */
-interface DropShimElaborator {
-  body: Body;
-  patch: MirPatch;
-  tcx: TyCtxt;
-  typing_env: TypingEnv;
-  produce_async_drops: boolean;
-}
-
 /**
  * PORT: adapter for `elaborate_drop::elaborate_drop` (elaborate_drop.ts, ported by lane mt-drops): the real fn takes a
- * `DropElaborator<()>`, which the `DropShimElaborator` stand-in above is not, so the call stops here until lane mt-shim
- * ports `DropShimElaborator` (shim.rs, `impl DropElaborator`). mt-shim: delete this adapter and the stand-in interface and
+ * `DropElaborator<()>`, which shim.ts's `DropShimElaborator` does not implement yet, so the call stops here until lane mt-shim
+ * ports `DropShimElaborator` (shim.rs, `impl DropElaborator`). delete this adapter and
  * import `elaborate_drop` from ../elaborate_drop.ts (`path` is `()` = `null`).
  */
 function elaborate_drop(
