@@ -3,7 +3,7 @@
 // to the caller (interpret/eval_context.ts's header has the representation notes).
 //! Manages calling a concrete function (with known MIR body) with argument passing,
 //! and returning the return value to the caller.
-import { type CanonAbi, display_CanonAbi } from "../../rustc_abi/canon_abi.ts";
+import { CanonAbi_eq, display_CanonAbi } from "../../rustc_abi/canon_abi.ts";
 import { ExternAbi } from "../../rustc_abi/extern_abi.ts";
 import { type AddressSpace, FieldIdx, FieldsShape, type Integer, Scalar as abi_Scalar, VariantIdx, debug_Variants } from "../../rustc_abi/lib.ts";
 import { debug_Layout, TyAndLayout as abi_TyAndLayout } from "../../rustc_abi/layout/ty.ts";
@@ -25,7 +25,8 @@ import {
 } from "../../rustc_middle/mir/interpret/mod.ts";
 import { type BasicBlock, type Body, debug_Location, Local, type Place as mir_Place, Place_from_Local, RETURN_PLACE, UnwindAction } from "../../rustc_middle/mir/mod.ts";
 import { type AdtDef } from "../../rustc_middle/ty/adt.ts";
-import { type FnAbi } from "../../rustc_middle/ty/decls.ts";
+import type { ArgAbi, FnAbi } from "../../rustc_target/callconv/mod.ts";
+import { callconv } from "../../rustc_target/lib.ts";
 import { debug_Instance, debug_InstanceKind, Instance, InstanceKind } from "../../rustc_middle/ty/instance.ts";
 import { IntegerExt, type TyAndLayout } from "../../rustc_middle/ty/layout.ts";
 import { RawList } from "../../rustc_middle/ty/list.ts";
@@ -44,54 +45,10 @@ import { Err } from "../../std/result.ts";
 import { OpTy, ImmTy } from "./operand.gen.ts";
 import { MPlaceTy, PlaceTy } from "./place.gen.ts";
 import * as gen from "./call.gen.ts";
-import type { Pending1 } from "../../rustc_type_ir/decls.ts";
 
-/** PORT: rustc_target `callconv::ArgAbi` is not ported yet (lane fn-abi; `FnAbi` is the same placeholder in ty/decls.ts). */
-export type ArgAbi<T> = Pending1<"ArgAbi", T>;
-
-// PORT: `FnAbi` / `ArgAbi` (rustc_target callconv/mod.rs) are `Pending1` placeholders until lane fn-abi. The interpreter
-// reads these upstream fields / methods of them; each read goes through the accessors below, which stop with an exact
-// `unported` until lane fn-abi gives the types their fields (then the accessors become the identity / the methods).
-// No `FnAbi` value exists before that (the `fn_abi_of_*` queries have no provider yet).
-/** The fields of `FnAbi<'tcx, Ty<'tcx>>` the interpreter reads. */
-export interface FnAbiFields {
-  args: ArgAbi<Ty>[];
-  ret: ArgAbi<Ty>;
-  c_variadic: boolean;
-  fixed_count: number;
-  conv: CanonAbi;
-  can_unwind: boolean;
-}
-/** The fields of `ArgAbi<'tcx, Ty<'tcx>>` the interpreter reads (`layout` is written by the `Virtual` call patch-up). */
-export interface ArgAbiFields {
-  layout: TyAndLayout;
-}
-/** `fn_abi.<field>` (lane fn-abi). */
-export function fn_abi_(fn_abi: FnAbi<Ty>): FnAbiFields {
-  void fn_abi;
-  return unported("rustc_target::callconv::FnAbi (lane fn-abi)");
-}
-/** `arg_abi.<field>` (lane fn-abi). */
-function arg_abi_(arg_abi: ArgAbi<Ty>): ArgAbiFields {
-  void arg_abi;
-  return unported("rustc_target::callconv::ArgAbi (lane fn-abi)");
-}
-/** `ArgAbi::eq_abi` (rustc_target callconv/mod.rs, lane fn-abi). */
-function ArgAbi_eq_abi(self: ArgAbi<Ty>, other: ArgAbi<Ty>): boolean {
-  void self;
-  void other;
-  return unported("rustc_target::callconv::ArgAbi::eq_abi (lane fn-abi)");
-}
-/** `ArgAbi::is_ignore` (rustc_target callconv/mod.rs, lane fn-abi). */
-function ArgAbi_is_ignore(self: ArgAbi<Ty>): boolean {
-  void self;
-  return unported("rustc_target::callconv::ArgAbi::is_ignore (lane fn-abi)");
-}
-/** `<FnAbi as Clone>::clone` (lane fn-abi). */
-function clone_FnAbi(self: FnAbi<Ty>): FnAbi<Ty> {
-  void self;
-  return unported("rustc_target::callconv::FnAbi::clone (lane fn-abi)");
-}
+// PORT: `FnAbi` / `ArgAbi` are rustc_target callconv/mod.ts's classes (lane fn-abi); `ArgAbi<'tcx, Ty<'tcx>>` is
+// `ArgAbi<Ty>`.
+export type { ArgAbi } from "../../rustc_target/callconv/mod.ts";
 
 /** `Iterator::next` of the JS iterators that stand for upstream's `impl Iterator` arguments. */
 function next<T>(it: Iterator<T>): T | undefined {
@@ -584,12 +541,12 @@ InterpCx.prototype.layout_compat = function (this: InterpCx, caller_: TyAndLayou
 InterpCx.prototype.check_argument_compat = function (this: InterpCx, caller_abi: ArgAbi<Ty>, callee_abi: ArgAbi<Ty>): InterpResult<boolean> {
   // We do not want to accept things as ABI-compatible that just "happen to be" compatible on the current target,
   // so we implement a type-based check that reflects the guaranteed rules for ABI compatibility.
-  const r = this.layout_compat(arg_abi_(caller_abi).layout, arg_abi_(callee_abi).layout);
+  const r = this.layout_compat(caller_abi.layout, callee_abi.layout);
   if (r.$ === "Err") return r;
   if (r._0) {
     // Ensure that our checks imply actual ABI compatibility for this concrete call.
     // (This can fail e.g. if `#[rustc_nonnull_optimization_guaranteed]` is used incorrectly.)
-    assert(ArgAbi_eq_abi(caller_abi, callee_abi), "assertion failed: caller_abi.eq_abi(callee_abi)");
+    assert(caller_abi.eq_abi(callee_abi), "assertion failed: caller_abi.eq_abi(callee_abi)");
     return interp_ok(true);
   } else {
     // trace!(
@@ -612,7 +569,7 @@ InterpCx.prototype.pass_argument = function (
 ): InterpResult {
   // Get next callee arg.
   const [callee_arg_idx, callee_abi] = unwrap(next(callee_args_abis));
-  assert_eq(callee_ty, arg_abi_(callee_abi).layout.ty, (v) => debug_Ty(v, PLAIN));
+  assert_eq(callee_ty, callee_abi.layout.ty, (v) => debug_Ty(v, PLAIN));
   // Get next caller arg.
   const caller = next(caller_args);
   if (caller === undefined) {
@@ -622,7 +579,7 @@ InterpCx.prototype.pass_argument = function (
     );
   }
   const [caller_arg, caller_abi] = caller;
-  assert_eq(FnArg.layout(caller_arg).layout, arg_abi_(caller_abi).layout.layout, (v) => debug_Layout(v, PLAIN));
+  assert_eq(FnArg.layout(caller_arg).layout, caller_abi.layout.layout, (v) => debug_Layout(v, PLAIN));
   // Sadly we cannot assert that `caller_arg.layout().ty` and `caller_abi.layout.ty` are
   // equal; in closures the types sometimes differ. We just hope that `caller_abi` is the
   // right type to print to the user.
@@ -635,7 +592,7 @@ InterpCx.prototype.pass_argument = function (
     return Err(
       InterpErrorInfo_from_InterpErrorKind({
         $: "UndefinedBehavior",
-        _0: { $: "AbiMismatchArgument", arg_idx: callee_arg_idx, caller_ty: arg_abi_(caller_abi).layout.ty, callee_ty: arg_abi_(callee_abi).layout.ty },
+        _0: { $: "AbiMismatchArgument", arg_idx: callee_arg_idx, caller_ty: caller_abi.layout.ty, callee_ty: callee_abi.layout.ty },
       }),
     );
   }
@@ -693,8 +650,8 @@ InterpCx.prototype.init_stack_frame = function (
   // We use the *caller* information to determine where to split the list of arguments,
   // and then later check that the callee indeed has the same number of fixed arguments.
   let extra_tys;
-  if (fn_abi_(caller_fn_abi).c_variadic) {
-    const fixed_count = fn_abi_(caller_fn_abi).fixed_count; // usize::try_from(u32).unwrap()
+  if (caller_fn_abi.c_variadic) {
+    const fixed_count = caller_fn_abi.fixed_count; // usize::try_from(u32).unwrap()
     const extra_tys_ = slice_from(args, fixed_count).map((arg) => FnArg.layout(arg).ty);
     extra_tys = tcx.mk_type_list_from_iter(extra_tys_);
   } else {
@@ -704,34 +661,34 @@ InterpCx.prototype.init_stack_frame = function (
   if (callee_fn_abi_r.$ === "Err") return Err(InterpErrorInfo_from_InterpErrorKind(callee_fn_abi_r._0));
   const callee_fn_abi = callee_fn_abi_r._0;
 
-  if (fn_abi_(caller_fn_abi).conv !== fn_abi_(callee_fn_abi).conv) {
+  if (!CanonAbi_eq(caller_fn_abi.conv, callee_fn_abi.conv)) {
     // throw_ub_format!(..)
     return Err(
       InterpErrorInfo_from_InterpErrorKind({
         $: "UndefinedBehavior",
         _0: {
           $: "Ub",
-          _0: `calling a function with calling convention "${display_CanonAbi(fn_abi_(callee_fn_abi).conv)}" using calling convention "${display_CanonAbi(fn_abi_(caller_fn_abi).conv)}"`,
+          _0: `calling a function with calling convention "${display_CanonAbi(callee_fn_abi.conv)}" using calling convention "${display_CanonAbi(caller_fn_abi.conv)}"`,
         },
       }),
     );
   }
 
-  if (fn_abi_(caller_fn_abi).c_variadic !== fn_abi_(callee_fn_abi).c_variadic) {
+  if (caller_fn_abi.c_variadic !== callee_fn_abi.c_variadic) {
     // throw_ub!(CVariadicMismatch { .. })
     return Err(
       InterpErrorInfo_from_InterpErrorKind({
         $: "UndefinedBehavior",
-        _0: { $: "CVariadicMismatch", caller_is_c_variadic: fn_abi_(caller_fn_abi).c_variadic, callee_is_c_variadic: fn_abi_(callee_fn_abi).c_variadic },
+        _0: { $: "CVariadicMismatch", caller_is_c_variadic: caller_fn_abi.c_variadic, callee_is_c_variadic: callee_fn_abi.c_variadic },
       }),
     );
   }
-  if (fn_abi_(caller_fn_abi).c_variadic && fn_abi_(caller_fn_abi).fixed_count !== fn_abi_(callee_fn_abi).fixed_count) {
+  if (caller_fn_abi.c_variadic && caller_fn_abi.fixed_count !== callee_fn_abi.fixed_count) {
     // throw_ub!(CVariadicFixedCountMismatch { .. })
     return Err(
       InterpErrorInfo_from_InterpErrorKind({
         $: "UndefinedBehavior",
-        _0: { $: "CVariadicFixedCountMismatch", caller: fn_abi_(caller_fn_abi).fixed_count, callee: fn_abi_(callee_fn_abi).fixed_count },
+        _0: { $: "CVariadicFixedCountMismatch", caller: caller_fn_abi.fixed_count, callee: callee_fn_abi.fixed_count },
       }),
     );
   }
@@ -745,7 +702,7 @@ InterpCx.prototype.init_stack_frame = function (
   // If the signature says this cannot unwind, reflect this in the unwind destination so that
   // we don't have to check this later. (`init_fn_call` already did this for the caller so
   // here we only have to check the callee.)
-  if (!fn_abi_(callee_fn_abi).can_unwind) {
+  if (!callee_fn_abi.can_unwind) {
     switch (cont.$) {
       case "Stop":
         break;
@@ -774,14 +731,14 @@ InterpCx.prototype.init_stack_frame = function (
 
   // Determine whether there is a special VaList argument. This is always the
   // last argument, and since arguments start at index 1 that's `arg_count`.
-  const va_list_arg = fn_abi_(callee_fn_abi).c_variadic ? Local.from_usize(body.arg_count) : undefined;
+  const va_list_arg = callee_fn_abi.c_variadic ? Local.from_usize(body.arg_count) : undefined;
   // Determine whether this is a non-capturing closure. That's relevant as their first
   // argument can be skipped (and that's the only kind of argument skipping we allow).
   const is_non_capturing_closure =
     ((instance.def.$ === "Shim" && instance.def._0.$ === "ClosureOnce") || tcx.is_closure_like(def_id)) &&
     (() => {
-      const arg = unwrap(fn_abi_(callee_fn_abi).args[0], "index out of bounds: the len is 0 but the index is 0");
-      const k = arg_abi_(arg).layout.ty.kind();
+      const arg = unwrap(callee_fn_abi.args[0], "index out of bounds: the len is 0 but the index is 0");
+      const k = arg.layout.ty.kind();
       return k.$ === "Closure" && ClosureArgs.upvar_tys(k._1.as_closure()).length === 0;
     })();
 
@@ -794,18 +751,18 @@ InterpCx.prototype.init_stack_frame = function (
   // we will not pass; our `caller_location` intrinsic implementation walks the stack instead).
   {
     const left = args.length + (with_caller_location ? 1 : 0);
-    const right = fn_abi_(caller_fn_abi).args.length;
+    const right = caller_fn_abi.args.length;
     if (left !== right) {
       panic(`assertion \`left == right\` failed: mismatch between caller ABI and caller arguments\n  left: ${left}\n right: ${right}`);
     }
   }
-  const caller_args = zip(args, fn_abi_(caller_fn_abi).args);
+  const caller_args = zip(args, caller_fn_abi.args);
 
   // Now we have to spread them out across the callee's locals,
   // taking into account the `spread_arg`. If we could write
   // this is a single iterator (that handles `spread_arg`), then
   // `pass_argument` would be the loop body.
-  const callee_args_abis = enumerate(fn_abi_(callee_fn_abi).args);
+  const callee_args_abis = enumerate(callee_fn_abi.args);
   // During argument passing, we want retagging with protectors.
   const r_args = this.machine.with_retag_mode(this, RetagMode.FnEntry, (ecx): InterpResult => {
     for (const local of body.args_iter()) {
@@ -829,24 +786,24 @@ InterpCx.prototype.init_stack_frame = function (
         // This argument might be missing on the caller side. So just initialize it in
         // the callee.
         const [callee_arg_idx, callee_abi] = unwrap(next(callee_args_abis));
-        assert(arg_abi_(callee_abi).layout.is_1zst() && ArgAbi_is_ignore(callee_abi), "assertion failed: callee_abi.layout.is_1zst() && callee_abi.is_ignore()");
+        assert(callee_abi.layout.is_1zst() && callee_abi.is_ignore(), "assertion failed: callee_abi.layout.is_1zst() && callee_abi.is_ignore()");
         const r = ecx.storage_live(local);
         if (r.$ === "Err") return r;
         // And skip it in the caller, if present. We can tell whether it is present by
         // comparing the number of arguments on the caller and callee side.
-        if (fn_abi_(caller_fn_abi).args.length === fn_abi_(callee_fn_abi).args.length) {
+        if (caller_fn_abi.args.length === callee_fn_abi.args.length) {
           const [_caller_arg, caller_abi] = unwrap(next(caller_args));
-          if (!arg_abi_(caller_abi).layout.is_1zst()) {
+          if (!caller_abi.layout.is_1zst()) {
             // The caller gave us some other, non-ignorable argument.
             // throw_ub!(AbiMismatchArgument { .. })
             return Err(
               InterpErrorInfo_from_InterpErrorKind({
                 $: "UndefinedBehavior",
-                _0: { $: "AbiMismatchArgument", arg_idx: callee_arg_idx, caller_ty: arg_abi_(caller_abi).layout.ty, callee_ty: arg_abi_(callee_abi).layout.ty },
+                _0: { $: "AbiMismatchArgument", arg_idx: callee_arg_idx, caller_ty: caller_abi.layout.ty, callee_ty: callee_abi.layout.ty },
               }),
             );
           }
-          assert(ArgAbi_is_ignore(caller_abi), "assertion failed: caller_abi.is_ignore()");
+          assert(caller_abi.is_ignore(), "assertion failed: caller_abi.is_ignore()");
         }
       } else if (local === va_list_arg) {
         // This is the last callee-side argument of a variadic function.
@@ -909,14 +866,14 @@ InterpCx.prototype.init_stack_frame = function (
 
   // Don't forget to check the return type!
   this.frame_mut().loc = { $: "Right", _0: unwrap(body.local_decls[RETURN_PLACE]).source_info.span };
-  const r_ret = this.check_argument_compat(fn_abi_(caller_fn_abi).ret, fn_abi_(callee_fn_abi).ret);
+  const r_ret = this.check_argument_compat(caller_fn_abi.ret, callee_fn_abi.ret);
   if (r_ret.$ === "Err") return r_ret;
   if (!r_ret._0) {
     // throw_ub!(AbiMismatchReturn { .. })
     return Err(
       InterpErrorInfo_from_InterpErrorKind({
         $: "UndefinedBehavior",
-        _0: { $: "AbiMismatchReturn", caller_ty: arg_abi_(fn_abi_(caller_fn_abi).ret).layout.ty, callee_ty: arg_abi_(fn_abi_(callee_fn_abi).ret).layout.ty },
+        _0: { $: "AbiMismatchReturn", caller_ty: caller_fn_abi.ret.layout.ty, callee_ty: callee_fn_abi.ret.layout.ty },
       }),
     );
   }
@@ -971,7 +928,7 @@ InterpCx.prototype.init_fn_call = function (
 
   // If the signature says this cannot unwind, reflect this in the unwind destination
   // so that we don't have to check this later.
-  if (caller_fn_abi !== undefined && !fn_abi_(caller_fn_abi).can_unwind) {
+  if (caller_fn_abi !== undefined && !caller_fn_abi.can_unwind) {
     unwind = UnwindAction.Unreachable;
   }
 
@@ -1142,8 +1099,8 @@ InterpCx.prototype.init_fn_call = function (
       // already fine! Just the type is bogus. This is due to what `force_thin_self_ptr`
       // does in `fn_abi_new_uncached`; supposedly, codegen relies on having the bogus
       // type, so we just patch this up locally.
-      const caller_fn_abi_patched = clone_FnAbi(caller_fn_abi_);
-      const arg0 = arg_abi_(unwrap(fn_abi_(caller_fn_abi_patched).args[0], "index out of bounds: the len is 0 but the index is 0"));
+      const caller_fn_abi_patched = callconv.clone_FnAbi(caller_fn_abi_);
+      const arg0 = unwrap(caller_fn_abi_patched.args[0], "index out of bounds: the len is 0 but the index is 0");
       arg0.layout = new abi_TyAndLayout(receiver_ty, arg0.layout.layout);
 
       // recurse with concrete function

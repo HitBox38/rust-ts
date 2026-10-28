@@ -33,7 +33,7 @@ import { debug_AdtDef } from "../ty/structural_impls.ts";
 import { debug_LitToConstInput, type LitToConstInput } from "../ty/consts/lit.ts";
 import { debug_SimplifiedType, type SimplifiedType, SimplifiedType_key } from "../ty/fast_reject.ts";
 import { debug_GenericArg, debug_GenericArgs, type GenericArg, type GenericArgsRef } from "../ty/generic_args.ts";
-import { type Clauses, debug_RawList } from "../ty/list.ts";
+import { type Clauses, debug_RawList, type List } from "../ty/list.ts";
 import { type Clause, debug_Clause } from "../ty/predicate.ts";
 import type { ExistentialTraitRef, TraitRef } from "../ty/predicate.gen.ts";
 import type { AliasTyKind } from "../ty/sty.gen.ts";
@@ -779,7 +779,37 @@ export const KEY_Predicate_WellFormedLoc: QueryKey<[Predicate, WellFormedLoc]> =
   hash_key: intern_key,
 };
 
-// PORT: the other canonical inputs (keys.rs:355-366), `(Ty, VariantIdx)`, `(PolyFnSig, &List<Ty>)`, `(Instance, &List<Ty>)`, `ty::Value`, `(LocalExpnId, &TokenStream)`,
+export const KEY_PolyFnSig_List_Ty: QueryKey<[Binder<FnSig>, List<Ty>]> = {
+  make_cache: default_cache<[Binder<FnSig>, List<Ty>]>(intern_key),
+  // rustc: compiler/rustc_middle/src/query/keys.rs:386 default_span
+  default_span(_self: [Binder<FnSig>, List<Ty>], _: TyCtxt): Span {
+    return DUMMY_SP;
+  },
+  key_as_def_id: QueryKey_provided.key_as_def_id,
+  as_local_key: QueryKey_provided.as_local_key,
+  debug: (v, f) => debug_tuple(f, "", [debug_Binder(v[0], f, debug_FnSig), debug_RawList(v[1], f, debug_Ty)]),
+  debug_local: no_local_key,
+  hash_key: intern_key,
+};
+/** `PseudoCanonicalInput<(PolyFnSig, &List<Ty>)>` (`fn_abi_of_fn_ptr`; lane fn-abi). */
+export const KEY_PseudoCanonicalInput_PolyFnSig_List_Ty: QueryKey<PseudoCanonicalInput<[Binder<FnSig>, List<Ty>]>> = pseudo_canonical_input_key(KEY_PolyFnSig_List_Ty);
+
+export const KEY_Instance_List_Ty: QueryKey<[Instance, List<Ty>]> = {
+  make_cache: default_cache<[Instance, List<Ty>]>(intern_key),
+  // rustc: compiler/rustc_middle/src/query/keys.rs:392 default_span
+  default_span(self: [Instance, List<Ty>], tcx: TyCtxt): Span {
+    return KEY_Instance.default_span(self[0], tcx);
+  },
+  key_as_def_id: QueryKey_provided.key_as_def_id,
+  as_local_key: QueryKey_provided.as_local_key,
+  debug: (v, f) => debug_tuple(f, "", [ty_instance().debug_Instance(v[0], f), debug_RawList(v[1], f, debug_Ty)]),
+  debug_local: no_local_key,
+  hash_key: intern_key,
+};
+/** `PseudoCanonicalInput<(Instance, &List<Ty>)>` (`fn_abi_of_instance_no_deduced_attrs`, `fn_abi_of_instance_raw`; lane fn-abi). */
+export const KEY_PseudoCanonicalInput_Instance_List_Ty: QueryKey<PseudoCanonicalInput<[Instance, List<Ty>]>> = pseudo_canonical_input_key(KEY_Instance_List_Ty);
+
+// PORT: the other canonical inputs (keys.rs:355-366), `(Ty, VariantIdx)`, `ty::Value`, `(LocalExpnId, &TokenStream)`,
 // `(ValidityRequirement, PseudoCanonicalInput<Ty>)` and `(Instance, CollectionMode)` (:378-422) are not ported yet
 // (`key_unported`).
 
