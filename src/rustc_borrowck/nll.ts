@@ -3,9 +3,9 @@
 //! The entry point of the NLL borrow checker.
 // PORT: `&mut dyn io::Write` is vendor/anstream's `Write` and `io::Result<T>` src/std's `IoResult<T>` (mir-contract,
 // rustc_middle mir/pretty.ts). `Rc<DenseLocationMap>` / `Frozen<UniversalRegionRelations>` are the values.
-// PORT: `polonius_facts: Option<AllFacts<RustcFacts>>` is `PoloniusFacts | undefined` (`PoloniusFacts` is `unknown`
-// until vendor polonius-engine is ported, plan-m4 D7); `Output::compute` stops `unported` (only `-Zpolonius=legacy` or
-// a consumer asking for polonius output reach it, and they already stop at `PoloniusFacts::default()`).
+// PORT: `polonius_facts: Option<AllFacts<RustcFacts>>` is `PoloniusFacts | undefined` (vendor polonius-engine's
+// `AllFacts<RustcFactTypes>`). `Option<Box<PoloniusOutput>>` is `PoloniusOutput | undefined`; its `.clone()` for
+// `RegionInferenceContext::solve` shares the object (it is never mutated after `Output::compute`).
 // PORT: the `BufWriter<File>` of `MirDumper::create_dump_file` is rustc_middle mir/pretty.ts's unexported `DumpFile`:
 // its `drop()` (flush + close, the end of the `try` block's scope) is reached through a structural cast.
 import { find_attr } from "../rustc_attr_ir/lib.ts";
@@ -23,10 +23,10 @@ import "../rustc_session/lib.ts";
 import { Polonius } from "../rustc_session/config.ts";
 import { debug_RegionVid } from "../rustc_type_ir/region_kind.gen.ts";
 import { Region } from "../rustc_type_ir/sty/mod.ts";
-import { format_debug, PLAIN } from "../std/fmt.ts";
+import { debug_str, format_debug, PLAIN } from "../std/fmt.ts";
+import { Algorithm, Output } from "../vendor/polonius_engine/lib.ts";
 import { debug_IoError, type IoResult } from "../std/io.ts";
 import { path_join } from "../std/path.ts";
-import { unported } from "../std/panic.ts";
 import { Ok, unwrap_result } from "../std/result.ts";
 import type { Write } from "../vendor/anstream/stream.ts";
 import type { BorrowSet } from "./borrow_set.gen.ts";
@@ -170,11 +170,11 @@ export function compute_regions(
 
     if (polonius_output_wanted) {
       const algorithm_ = infcx.tcx.env_var("POLONIUS_ALGORITHM");
-      const _algorithm = algorithm_.$ === "Ok" ? algorithm_._0 : "Hybrid";
-      // let algorithm = Algorithm::from_str(algorithm).unwrap();
+      const algorithm__ = algorithm_.$ === "Ok" ? algorithm_._0 : "Hybrid";
+      const algorithm = unwrap_result(Algorithm.from_str(algorithm__), (e) => debug_str(e));
       // debug!("compute_regions: using polonius algorithm {:?}", algorithm);
-      // Some(Box::new(Output::compute(polonius_facts, algorithm, false)))
-      polonius_output = unported("polonius_engine::Output::compute (vendor polonius-engine, plan-m4 D7, wave 26)");
+      // PORT: `tcx.prof.generic_activity(..)` timer dropped (driver-m2 decision 8).
+      polonius_output = Output.compute(polonius_facts, algorithm, false);
     } else {
       polonius_output = undefined;
     }
