@@ -591,6 +591,30 @@ export class Session {
     return Edition.at_least_rust_2024(this.edition());
   }
 
+  /// Checks if LLVM lifetime markers should be emitted.
+  // rustc: compiler/rustc_session/src/session.rs:883 emit_lifetime_markers
+  emit_lifetime_markers(): boolean {
+    return (
+      this.opts.optimize !== "No" ||
+      // AddressSanitizer and KernelAddressSanitizer uses lifetimes to detect use after scope bugs.
+      //
+      // MemorySanitizer uses lifetimes to detect use of uninitialized stack variables.
+      //
+      // HWAddressSanitizer and KernelHWAddressSanitizer will use lifetimes to detect use after
+      // scope bugs in the future.
+      // PORT: `SanitizerSet::intersects` is a nonzero `&` of the bit sets.
+      (this.sanitizers() &
+        (SanitizerSet.ADDRESS |
+          SanitizerSet.KERNELADDRESS |
+          SanitizerSet.MEMORY |
+          SanitizerSet.HWADDRESS |
+          SanitizerSet.KERNELHWADDRESS)) !==
+        0 ||
+      // Lifetimes are necessary for retagging semantics.
+      this.opts.unstable_opts.codegen_emit_retag !== undefined
+    );
+  }
+
   // rustc: compiler/rustc_session/src/session.rs:896 diagnostic_width
   diagnostic_width(): number {
     const default_column_width = 140;

@@ -36,6 +36,7 @@ import {
   clone_ConstOperand,
   clone_MirSource,
   clone_Rvalue,
+  clone_SourceInfo,
   clone_SourceScopeData,
   clone_Terminator,
   Const,
@@ -1068,7 +1069,8 @@ class Promoter extends MutVisitor {
         // `mem::replace(&mut terminator.kind, TerminatorKind::goto(target))`
         const kind = terminator_.kind;
         terminator_.kind = TerminatorKind.goto(target);
-        terminator = new Terminator(terminator_.source_info, kind);
+        // PORT: `SourceInfo` is `Copy`: the promoted's terminator gets its own copy (MIR aliasing; lane fix-ubchecks-alias).
+        terminator = new Terminator(clone_SourceInfo(terminator_.source_info), kind);
       }
 
       const tk = terminator.kind;
@@ -1150,15 +1152,15 @@ class Promoter extends MutVisitor {
       // This is because `*r` requires `r` to be a local,
       // otherwise we would use the `promoted` directly.
       const promoted_ref_decl = LocalDecl.new(ref_ty, span);
-      // `statement.source_info` (`SourceInfo: Copy`)
-      promoted_ref_decl.source_info = statement.source_info;
+      // `statement.source_info` (`SourceInfo: Copy`; a copy: MIR aliasing, lane fix-ubchecks-alias)
+      promoted_ref_decl.source_info = clone_SourceInfo(statement.source_info);
       local_decls.push(promoted_ref_decl);
       const promoted_ref = Local.from_usize(local_decls.length - 1);
       this.temps.push(TempState.Unpromotable);
       assert_eq(Local.from_usize(this.temps.length - 1), promoted_ref, (l) => debug_Local(l, PLAIN));
 
       const promoted_operand_ = promoted_operand(ref_ty, span);
-      const promoted_ref_statement = Statement.new(statement.source_info, {
+      const promoted_ref_statement = Statement.new(clone_SourceInfo(statement.source_info), {
         $: "Assign",
         _0: [
           Place_from_Local(promoted_ref),
