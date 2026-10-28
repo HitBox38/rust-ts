@@ -315,9 +315,9 @@ class ConstPropagator extends Visitor {
         // Some errors shouldn't come up because creating them causes
         // an allocation, which we should avoid. When that happens,
         // dedicated error variants should be introduced instead.
-        // PORT: the message is formatted only on failure (`assert!` formats lazily).
+        // PORT: the message is a thunk, formatted only on failure (`assert!` formats lazily).
         const formatted = InterpErrorKind.formatted_string(err.kind());
-        assert(!formatted, formatted ? `known panics lint encountered formatting error: ${err.to_string()}` : undefined);
+        assert(!formatted, () => `known panics lint encountered formatting error: ${err.to_string()}`);
       }),
     );
   }
@@ -974,7 +974,7 @@ class ConstPropagator extends Visitor {
                 find_attr(HasAttrs_DefId.get_attrs(param_def.def_id, this.tcx), (k) =>
                   k.$ === "RustcPanicsWhenZero" ? true : undefined,
                 ) !== undefined &&
-                ct.try_to_target_usize(this.tcx) === 0
+                ct.try_to_target_usize(this.tcx) === 0n
               ) {
                 // We managed to figure-out that the value of a
                 // `#[rustc_panics_when_zero]` const-generic parameter is zero.

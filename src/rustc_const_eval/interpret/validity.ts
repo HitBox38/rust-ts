@@ -40,7 +40,7 @@ import { bug } from "../../rustc_span/macros.ts";
 import { display_Symbol, sym, type Symbol } from "../../rustc_span/symbol.ts";
 import { type Fmt, PLAIN } from "../../std/fmt.ts";
 import { type MutRef } from "../../std/mut_ref.ts";
-import { assert, assert_eq, panic, unwrap } from "../../std/panic.ts";
+import { assert, assert_eq, Panic, panic, unwrap } from "../../std/panic.ts";
 import { Err } from "../../std/result.ts";
 import { Immediate, type ImmTy } from "./operand.ts";
 import { type MPlaceTy, type PlaceTy } from "./place.gen.ts";
@@ -1055,7 +1055,7 @@ export class ValidityVisitor<M extends Machine = Machine> extends ValueVisitor_p
     for (const [offset, size] of data_bytes._0) {
       assert(
         offset.bytes() >= padding_cleared_until.bytes(),
-        `reset_padding on ${display_Ty(mplace.layout.ty)}: previous field ended at offset ${padding_cleared_until.sub(start_offset).bytes()}, next field starts at ${offset.sub(start_offset).bytes()} (and has a size of ${size.bytes()} bytes)`,
+        () => `reset_padding on ${display_Ty(mplace.layout.ty)}: previous field ended at offset ${padding_cleared_until.sub(start_offset).bytes()}, next field starts at ${offset.sub(start_offset).bytes()} (and has a size of ${size.bytes()} bytes)`,
       );
       if (offset.bytes() > padding_cleared_until.bytes()) {
         // We found padding. Adjust the range to be relative to `alloc`, and make it uninit.
@@ -1246,7 +1246,7 @@ export class ValidityVisitor<M extends Machine = Machine> extends ValueVisitor_p
   // rustc: compiler/rustc_const_eval/src/interpret/validity.rs:1337 visit_variantless
   override visit_variantless(val: PlaceTy): InterpResult {
     const ty = val.layout.ty;
-    assert(ty.is_enum(), `encountered non-enum variantless type \`${display_Ty(ty)}\``);
+    assert(ty.is_enum(), () => `encountered non-enum variantless type \`${display_Ty(ty)}\``);
     return throw_validation_failure(
       this.path,
       `encountered a value of zero-variant enum \`${display_Ty(ty)}\``,
@@ -1520,10 +1520,11 @@ export class ValidityVisitor<M extends Machine = Machine> extends ValueVisitor_p
 
     // Assert that we checked everything there is to check about this type.
     // `is_opsem_inhabited` implies that the layout is inhabited (checked by layout invariants).
-    assert(
-      val.layout.ty.is_opsem_inhabited(this.ecx.tcx.deref(), this.ecx.typing_env),
-      `a value of type \`${display_Ty(val.layout.ty)}\` passed validation but that type is uninhabited`,
-    );
+    // PORT: `assert!`'s message is only formatted on failure; building it eagerly would print a type path and trip
+    // rustc's `trimmed_def_paths` delayed check at exit.
+    if (!val.layout.ty.is_opsem_inhabited(this.ecx.tcx.deref(), this.ecx.typing_env)) {
+      throw new Panic(`a value of type \`${display_Ty(val.layout.ty)}\` passed validation but that type is uninhabited`);
+    }
     // PORT: the `if cfg!(debug_assertions) { .. }` re-check of the scalar ranges is skipped (rustc ships without
     // debug assertions; interpret/eval_context.ts header).
 

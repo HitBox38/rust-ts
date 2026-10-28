@@ -1619,7 +1619,7 @@ FnCtxt.prototype.suggest_deref_unwrap_or = function (
   if (
     ak.$ === "Array" &&
     ak._0.kind().$ === "Infer" &&
-    this.try_structurally_resolve_const(provided_expr.span, ak._1).try_to_target_usize(this.tcx) === 0
+    this.try_structurally_resolve_const(provided_expr.span, ak._1).try_to_target_usize(this.tcx) === 0n
   ) {
     const slice = Ty.new_slice(this.tcx, ak._0);
     dummy_ty = Ty.new_imm_ref(this.tcx, this.tcx.lifetimes.re_static, slice);

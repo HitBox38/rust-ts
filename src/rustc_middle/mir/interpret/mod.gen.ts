@@ -3,16 +3,19 @@
 import { try_visit } from "../../../rustc_ast_ir/visit.ts";
 import { clone_ConstAllocation, type ConstAllocation, debug_ConstAllocation } from "./allocation.ts";
 import { type AllocId, type AllocMap, clone_AllocId } from "./mod.ts";
-import { debug_Promoted, type Promoted } from "../mod.ts";
-import { debug_Instance, fold_with_Instance, type Instance, try_fold_with_Instance, visit_with_Instance } from "../../ty/instance.ts";
+import { debug_Promoted, decode_Promoted, type Promoted } from "../mod.ts";
+import { decode_ConstAllocation, decode_List_PolyExistentialPredicate, decode_Ty, type TyDecoder } from "../../ty/codec.ts";
+import { debug_Instance, decode_Instance, fold_with_Instance, type Instance, try_fold_with_Instance, visit_with_Instance } from "../../ty/instance.ts";
 import { debug_RawList, type List } from "../../ty/list.ts";
 import { debug_Ty, type Ty } from "../../ty/mod.ts";
 import { type PolyExistentialPredicate } from "../../ty/predicate.ts";
+import { decode_Option } from "../../../rustc_serialize/serialize.ts";
 import { debug_DefId, type DefId } from "../../../rustc_span/def_id.ts";
 import { debug_Binder } from "../../../rustc_type_ir/binder.ts";
 import { type FallibleTypeFolder, fold_with_Option, fold_with_trivial, type FoldWith, try_fold_with_Option, try_fold_with_trivial, type TryFoldWith, type TypeFolder, type TypeVisitor, visit_with_Option, visit_with_trivial, type VisitWith } from "../../../rustc_type_ir/fold.ts";
 import { debug_ExistentialPredicate } from "../../../rustc_type_ir/predicate.gen.ts";
 import { type Debug, debug_option, debug_struct, debug_tuple } from "../../../std/fmt.ts";
+import { panic } from "../../../std/panic.ts";
 import { Ok, type Result } from "../../../std/result.ts";
 
 // rustc-type: compiler/rustc_middle/src/mir/interpret/mod.rs:56 GlobalId
@@ -35,6 +38,10 @@ export const debug_GlobalId: Debug<GlobalId> = (v, f) =>
   ]);
 export function clone_GlobalId(v: GlobalId): GlobalId {
   return new GlobalId(v.instance, v.promoted);
+}
+// rustc-derive: compiler/rustc_middle/src/mir/interpret/mod.rs:56 TyDecodable for GlobalId
+export function decode_GlobalId(__decoder: TyDecoder): GlobalId {
+  return new GlobalId(decode_Instance(__decoder), decode_Option(__decoder, decode_Promoted));
 }
 // rustc-derive: compiler/rustc_middle/src/mir/interpret/mod.rs:56 TypeVisitable for GlobalId
 export function visit_with_GlobalId<R>(self: GlobalId, __visitor: TypeVisitor<R>): R {
@@ -67,6 +74,24 @@ export type AllocDiscriminant =
   | "Static"
   | "Type";
 export const AllocDiscriminant = { Alloc: "Alloc", Fn: "Fn", VTable: "VTable", Static: "Static", Type: "Type" } as const;
+// rustc-derive: compiler/rustc_middle/src/mir/interpret/mod.rs:96 TyDecodable for AllocDiscriminant
+export function decode_AllocDiscriminant(__decoder: TyDecoder): AllocDiscriminant {
+  const __tag = __decoder.read_u8();
+  switch (__tag) {
+    case 0:
+      return "Alloc";
+    case 1:
+      return "Fn";
+    case 2:
+      return "VTable";
+    case 3:
+      return "Static";
+    case 4:
+      return "Type";
+    default:
+      return panic(`invalid enum variant tag while decoding \`AllocDiscriminant\`, expected 0..5, actual ${__tag}`);
+  }
+}
 
 // rustc-type: compiler/rustc_middle/src/mir/interpret/mod.rs:144 State
 export type State =
@@ -152,6 +177,24 @@ export function clone_GlobalAlloc(v: GlobalAlloc): GlobalAlloc {
       return { $: "Memory", _0: clone_ConstAllocation(v._0) };
     case "TypeId":
       return { $: "TypeId", ty: v.ty };
+  }
+}
+// rustc-derive: compiler/rustc_middle/src/mir/interpret/mod.rs:255 TyDecodable for GlobalAlloc
+export function decode_GlobalAlloc(__decoder: TyDecoder): GlobalAlloc {
+  const __tag = __decoder.read_u8();
+  switch (__tag) {
+    case 0:
+      return { $: "Function", instance: decode_Instance(__decoder) };
+    case 1:
+      return { $: "VTable", _0: decode_Ty(__decoder), _1: decode_List_PolyExistentialPredicate(__decoder) };
+    case 2:
+      return { $: "Static", _0: __decoder.decode_def_id() };
+    case 3:
+      return { $: "Memory", _0: decode_ConstAllocation(__decoder) };
+    case 4:
+      return { $: "TypeId", ty: decode_Ty(__decoder) };
+    default:
+      return panic(`invalid enum variant tag while decoding \`GlobalAlloc\`, expected 0..5, actual ${__tag}`);
   }
 }
 

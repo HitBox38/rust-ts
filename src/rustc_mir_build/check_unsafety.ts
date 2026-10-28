@@ -673,7 +673,7 @@ class UnsafetyVisitor extends Visitor {
                 // reject such unions.
                 assert(
                   this.tcx.dcx().has_errors() !== undefined,
-                  `union fields that need dropping should be impossible: ${display_Ty(assigned_ty)}`,
+                  () => `union fields that need dropping should be impossible: ${display_Ty(assigned_ty)}`,
                 );
               }
             } else {

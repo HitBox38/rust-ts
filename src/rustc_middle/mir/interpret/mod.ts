@@ -261,7 +261,7 @@ AllocDecodingSession.prototype.decode_alloc_id = function (this: AllocDecodingSe
       }
       case "Fn": {
         // trace!("creating fn alloc ID");
-        const instance: Instance = unported("Decodable for rustc_middle::ty::Instance (derive(TyDecodable), ty/instance.rs)");
+        const instance: Instance = ty_instance().decode_Instance(decoder);
         // trace!("decoded fn alloc instance: {:?}", instance);
         return decoder.interner().reserve_and_set_fn_alloc(instance, CTFE_ALLOC_SALT);
       }

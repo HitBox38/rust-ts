@@ -471,7 +471,7 @@ InterpCx.prototype.global_root_pointer = function (this: InterpCx, ptr: Pointer)
   } else if (g === undefined) {
     const is_fn_ptr = this.memory.extra_fn_ptr_map.has(alloc_id);
     const is_va_list = this.memory.va_list_map.has(alloc_id);
-    assert(is_fn_ptr || is_va_list, `${debug_AllocId(alloc_id, PLAIN)} is neither global, va_list nor a function pointer`);
+    assert(is_fn_ptr || is_va_list, () => `${debug_AllocId(alloc_id, PLAIN)} is neither global, va_list nor a function pointer`);
   } else {
     // _ => {}
   }

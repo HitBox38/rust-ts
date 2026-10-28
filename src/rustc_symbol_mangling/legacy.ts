@@ -500,7 +500,7 @@ class LegacySymbolMangler extends PrettyPrinter {
       // PORT: `[GenericArg]: TypeVisitable` visits every element, so the flag check is `any` over the elements.
       assert(
         !args.some((a) => TypeVisitableExt.has_non_region_param(a, fold_GenericArg)),
-        `should not be mangling partially substituted polymorphic instance: ${debug_DefId(impl_def_id, PLAIN)} ${debug_list(PLAIN, args.map((a) => debug_GenericArg(a, PLAIN)))}`,
+        () => `should not be mangling partially substituted polymorphic instance: ${debug_DefId(impl_def_id, PLAIN)} ${debug_list(PLAIN, args.map((a) => debug_GenericArg(a, PLAIN)))}`,
       );
       [typing_env, self_ty, impl_trait_ref] = [
         TypingEnv.fully_monomorphized(),

@@ -175,7 +175,7 @@ export function layout_sanity_check(cx: LayoutCx, layout: TyAndLayout): void {
         const inner = skip_newtypes(cx, layout);
         assert(
           inner.layout.backend_repr().$ === "Scalar",
-          `\`Scalar\` type ${display_Ty(layout.ty)} is newtype around non-\`Scalar\` type ${display_Ty(inner.ty)}`,
+          () => `\`Scalar\` type ${display_Ty(layout.ty)} is newtype around non-\`Scalar\` type ${display_Ty(inner.ty)}`,
         );
         const fields = inner.layout.fields();
         switch (fields.$) {
@@ -189,7 +189,7 @@ export function layout_sanity_check(cx: LayoutCx, layout: TyAndLayout): void {
           }
           case "Arbitrary": {
             // Should be an enum, the only field is the discriminant.
-            assert(inner.ty.is_enum(), `\`Scalar\` layout for non-primitive non-enum type ${display_Ty(inner.ty)}`);
+            assert(inner.ty.is_enum(), () => `\`Scalar\` layout for non-primitive non-enum type ${display_Ty(inner.ty)}`);
             assert_eq_msg(FieldsShape.count(inner.layout.fields()), 1, (v) => debug_int(v, PLAIN), (a, b) => a === b, () => `\`Scalar\` layout for multiple-field type in ${debug_TyAndLayout_Ty(inner, PRETTY)}`);
             const offset = FieldsShape.offset(inner.layout.fields(), 0);
             const field: TyAndLayout = inner.field(cx, 0);
@@ -197,7 +197,7 @@ export function layout_sanity_check(cx: LayoutCx, layout: TyAndLayout): void {
             assert_eq_msg(offset, Size.ZERO, (v) => debug_Size(v, PLAIN), size_eq, () => `\`Scalar\` field at non-0 offset in ${debug_TyAndLayout_Ty(inner, PRETTY)}`);
             assert_eq_msg(field.size, size_, (v) => debug_Size(v, PLAIN), size_eq, () => `\`Scalar\` field with bad size in ${debug_TyAndLayout_Ty(inner, PRETTY)}`);
             assert_eq_msg(field.align.abi, align_, debug_Align_, align_eq, () => `\`Scalar\` field with bad align in ${debug_TyAndLayout_Ty(inner, PRETTY)}`);
-            assert(field.backend_repr.$ === "Scalar", `\`Scalar\` field with bad ABI in ${debug_TyAndLayout_Ty(inner, PRETTY)}`);
+            assert(field.backend_repr.$ === "Scalar", () => `\`Scalar\` field with bad ABI in ${debug_TyAndLayout_Ty(inner, PRETTY)}`);
             break;
           }
           default: {
@@ -212,7 +212,7 @@ export function layout_sanity_check(cx: LayoutCx, layout: TyAndLayout): void {
         const inner = skip_newtypes(cx, layout);
         assert(
           inner.layout.backend_repr().$ === "ScalarPair",
-          `\`ScalarPair\` type ${display_Ty(layout.ty)} is newtype around non-\`ScalarPair\` type ${display_Ty(inner.ty)}`,
+          () => `\`ScalarPair\` type ${display_Ty(layout.ty)} is newtype around non-\`ScalarPair\` type ${display_Ty(inner.ty)}`,
         );
         // `a` is at memory offset zero, so to keep them from overlapping the offset
         // to `b` must be at least as much as the size of `a`.

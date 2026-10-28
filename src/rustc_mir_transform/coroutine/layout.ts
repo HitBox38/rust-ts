@@ -57,6 +57,7 @@ import { assert, assert_eq } from "../../std/panic.ts";
 
 import { MustNotSupend_diagnostic } from "../diagnostics.ts";
 import type { MustNotSuspendReason } from "../diagnostics.gen.ts";
+import { u64_to_number } from "../../rust_ts/u64.ts";
 
 // PORT: `ty::CAPTURE_STRUCT_LOCAL` (ty/closure.ts declares its own `Local` brand) as a mir `Local` (decision #15).
 const CAPTURE_STRUCT_LOCAL = ty_CAPTURE_STRUCT_LOCAL as unknown as Local;
@@ -217,7 +218,7 @@ export class CoroutineSavedLocals {
   // rustc: compiler/rustc_mir_transform/src/coroutine/layout.rs:203 renumber_bitset
   renumber_bitset(input: DenseBitSet<Local>): DenseBitSet<CoroutineSavedLocal> {
     if (!this.deref().superset(input)) {
-      assert(false, `${debug_DenseBitSet(this._0, PLAIN, debug_Local)} not a superset of ${debug_DenseBitSet(input, PLAIN, debug_Local)}`);
+      assert(false, () => `${debug_DenseBitSet(this._0, PLAIN, debug_Local)} not a superset of ${debug_DenseBitSet(input, PLAIN, debug_Local)}`);
     }
     const out = DenseBitSet.new_empty<CoroutineSavedLocal>(this.deref().count());
     for (const [saved_local, local] of this.iter_enumerated()) {
@@ -702,7 +703,7 @@ function check_must_not_suspend_ty(tcx: TyCtxt, ty: Ty, hir_id: HirId, data: Sus
         ...data,
         descr_pre,
         // FIXME(must_not_suspend): This is wrong. We should handle printing unevaluated consts.
-        plural_len: (len.try_to_target_usize(tcx) ?? 0) + 1,
+        plural_len: u64_to_number(len.try_to_target_usize(tcx) ?? 0n, "check_must_not_suspend_ty") + 1,
       });
     }
     // If drop tracking is enabled, we want to look through references, since the referent

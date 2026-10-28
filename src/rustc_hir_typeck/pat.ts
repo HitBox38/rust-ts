@@ -64,6 +64,7 @@ import { debug_PatExprKind } from "../rustc_hir/hir.gen.ts";
 import * as hir from "../rustc_hir/lib.ts";
 import * as diagnostics from "./diagnostics.gen.ts";
 import * as gen from "./pat.gen.ts";
+import { u64_to_number } from "../rust_ts/u64.ts";
 
 // ==== lane typeck-pat-a: pat.rs:1..1779 ====
 // Port notes (lane typeck-pat-a):
@@ -2833,21 +2834,21 @@ FnCtxt.prototype.check_array_pat_len = function (
       // ...and since there is no variable-length pattern,
       // we require an exact match between the number of elements
       // in the array pattern and as provided by the matched type.
-      if (min_len === len) {
+      if (BigInt(min_len) === len) {
         return [undefined, arr_ty];
       }
 
-      guar = this.error_scrutinee_inconsistent_length(span, min_len, len);
+      guar = this.error_scrutinee_inconsistent_length(span, min_len, u64_to_number(len, "error_scrutinee_inconsistent_length"));
     } else if (len >= min_len) {
       // `len.checked_sub(min_len)` is `Some(pat_len)`
-      const pat_len = len - min_len;
+      const pat_len = len - BigInt(min_len);
       // The variable-length pattern was there,
       // so it has an array type with the remaining elements left as its size...
-      return [Ty.new_array(this.tcx, element_ty, pat_len), arr_ty];
+      return [Ty.new_array(this.tcx, element_ty, u64_to_number(pat_len, "Ty::new_array")), arr_ty];
     } else {
       // ...however, in this case, there were no remaining elements.
       // That is, the slice pattern requires more than the array type offers.
-      guar = this.error_scrutinee_with_rest_inconsistent_length(span, min_len, len);
+      guar = this.error_scrutinee_with_rest_inconsistent_length(span, min_len, u64_to_number(len, "error_scrutinee_with_rest_inconsistent_length"));
     }
   } else if (slice === undefined) {
     // We have a pattern with a fixed length,

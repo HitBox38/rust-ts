@@ -1206,7 +1206,7 @@ InterpCx.prototype.eval_nondiverging_intrinsic = function (this: InterpCx, intri
 
 // rustc: compiler/rustc_const_eval/src/interpret/intrinsics.rs:971 numeric_intrinsic
 InterpCx.prototype.numeric_intrinsic = function (this: InterpCx, name: Symbol, val: Scalar, layout: TyAndLayout, ret_layout: TyAndLayout): InterpResult<Scalar> {
-  assert(layout.ty.is_integral(), `invalid type for numeric intrinsic: ${display_Ty(layout.ty)}`);
+  assert(layout.ty.is_integral(), () => `invalid type for numeric intrinsic: ${display_Ty(layout.ty)}`);
   const bits_r = Scalar.to_bits(val, layout.size); // these operations all ignore the sign
   if (bits_r.$ === "Err") return bits_r;
   const bits = bits_r._0;

@@ -83,12 +83,12 @@ export function scrape_region_constraints<R, ErrorInfo>(
   const pre_obligations = infcx.take_registered_region_obligations();
   assert(
     pre_obligations.length === 0,
-    `scrape_region_constraints: incoming region obligations = ${format_debug(pre_obligations, (v, f) => debug_vec(v, f, debug_TypeOutlivesConstraint), PRETTY)}`,
+    () => `scrape_region_constraints: incoming region obligations = ${format_debug(pre_obligations, (v, f) => debug_vec(v, f, debug_TypeOutlivesConstraint), PRETTY)}`,
   );
   const pre_assumptions = infcx.take_registered_region_assumptions();
   assert(
     pre_assumptions.length === 0,
-    `scrape_region_constraints: incoming region assumptions = ${format_debug(pre_assumptions, (v, f) => debug_vec(v, f, (x, f) => debug_OutlivesClause(x, f, debug_GenericArg)), PRETTY)}`,
+    () => `scrape_region_constraints: incoming region assumptions = ${format_debug(pre_assumptions, (v, f) => debug_vec(v, f, (x, f) => debug_OutlivesClause(x, f, debug_GenericArg)), PRETTY)}`,
   );
 
   const value_r = infcx.commit_if_ok<R, ErrorGuaranteed>((_) => {

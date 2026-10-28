@@ -42,11 +42,11 @@ test.skipIf(!HAVE_UPSTREAM && !REQUIRE_PROBES)("golden: the rustc_ty set reprodu
     "rustc_type_ir::solve::NoSolution (TypeVisitable)",
   ]);
   // derive(Decodable_NoContext / TyDecodable) (lane rmeta-ty): the fields whose Decodable impl is not ported yet
+  // (lane meta-mir: `rustc_abi::FieldIdx` has a serialize.json entry now)
   expect(Object.keys(res.report.missing_decodable).sort()).toEqual([
     "I::LocalDefIds",
     "I::PredefinedOpaques",
     "I::RegionAssumptions",
-    "rustc_abi::FieldIdx",
     "rustc_middle::mir::BinOp",
     "rustc_middle::mir::UnOp",
     "rustc_middle::ty::ImplTraitInTraitData",

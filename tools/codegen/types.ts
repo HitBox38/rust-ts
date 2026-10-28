@@ -256,6 +256,8 @@ export interface SetConfig {
    * derive(Decodable) of hand types whose TS value is not a `{ field }` object / `new T(..)`, keyed by type key:
    * `expr` builds the value from the decoded fields `$0..$n` (decoded first, in declaration order), `import` = values
    * it needs from the type's hand module (e.g. a branded newtype `ExpnHash(Fingerprint)`: `ExpnHash.of($0)`).
+   * A key `<type key>::<Variant>` builds one variant of an enum the same way (`$0..$n` its fields), e.g. interned
+   * values made by the companion's variant functions (`InlineAsmReg.X86($0)`).
    */
   decodable_construct?: Record<string, { expr: string; import?: string[] }>;
   /**
@@ -2489,6 +2491,16 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
           if (v.name !== undefined) {
             if (fieldless) return [`${indent}return ${JSON.stringify(v.name)};`];
             if (v.style === "unit") return [`${indent}return ${serCompanion(r)}.${v.name};`];
+            // a variant of a hand enum whose values are not `{ $, field }` objects (e.g. interned): `<key>::<Variant>`
+            const vcons = set.decodable_construct?.[`${r.key}::${v.name}`];
+            if (vcons) {
+              for (const n of vcons.import ?? []) imp(ser ? `src:${r.mf.hand}` : viaHand(r), "values", n, n);
+              const vvals = v.fields.map((fl) => decExpr(fl.ty, sc, fat(fl)));
+              let e = vcons.expr;
+              for (let i = vvals.length - 1; i >= 0; i--) e = e.replaceAll(`$${i}`, `__${i}`);
+              // a block: the `const`s of the other `case`s share the `switch`'s scope
+              return [`${indent}{`, ...vvals.map((x, i) => `${indent}  const __${i} = ${x};`), `${indent}  return ${e};`, `${indent}}`];
+            }
             return [`${indent}return { $: ${JSON.stringify(v.name)}${v.fields.map((fl) => `, ${fieldName(fl)}: ${decExpr(fl.ty, sc, fat(fl))}`).join("")} };`];
           }
           const vals = v.fields.map((fl) => decExpr(fl.ty, sc, fat(fl)));

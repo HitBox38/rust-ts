@@ -395,7 +395,7 @@ function make_attr_token_stream(iter: Iterator<FlatToken>, break_last_token: num
           const [open_delim, open_sp, open_spacing] = unwrap(frame_data.open_delim_sp);
           assert(
             DelimiterC.eq_ignoring_invisible_origin(open_delim, delim),
-            `Mismatched open/close delims: open=${debug_Delimiter(open_delim, PLAIN)} close=${debug_Span(span, PLAIN)}`,
+            () => `Mismatched open/close delims: open=${debug_Delimiter(open_delim, PLAIN)} close=${debug_Span(span, PLAIN)}`,
           );
           const dspan = DelimSpan.from_pair(open_sp, span);
           const dspacing = DelimSpacing.new(open_spacing, spacing);
@@ -520,7 +520,7 @@ function attrs_and_tokens_to_token_trees(
   // Insert inner attribute tokens.
   if (inner_attrs.length !== 0) {
     const found = insert_inner_attrs(inner_attrs, res);
-    assert(found, `Failed to find trailing delimited group in: ${debug_TokenTrees(res)}`);
+    assert(found, () => `Failed to find trailing delimited group in: ${debug_TokenTrees(res)}`);
   }
 
   // Inner attributes are only supported on blocks, functions, impls, and

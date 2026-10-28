@@ -33,28 +33,20 @@ for (const [k, v] of Object.entries(process.env)) {
   if (v !== undefined && !["MAKEFLAGS", "CARGO_MAKEFLAGS", "MFLAGS", "RUSTC_LOG", "RUSTC_BOOTSTRAP", "RUSTC_ICE"].includes(k)) BASE_ENV[k] = v;
 }
 
-const STOP_CCI = "cross_crate_inlinable provider";
 // `eval_to_valtree` -> `eval_to_allocation_raw` -> the CTFE interpreter (`eval_in_interpreter`): a const with a body
 // loads its MIR (`load_mir` -> `mir_for_ctfe`). A local const's body now borrow-checks and evaluates (impl2.rs and
 // const-generics-structural-demangling.rs equal the oracle since fix-w24-bck); `i8::MIN` & co. (const-generics.rs) are
-// `core`'s associated consts, whose `mir_for_ctfe` is decoded from crate metadata. A trivial const (`types.rs`'s `ZERO`)
-// evaluates; the legacy manglings then stop hashing the type (`STOP_TY_HASH`), while v0 matches the oracle.
-const STOP_EXTERN_MIR = "rustc_metadata::rmeta::decoder::cstore_impl: Decodable for mir::Body<'static>";
+// `core`'s associated consts, whose `mir_for_ctfe` is decoded from crate metadata (equal to the oracle since lane
+// meta-mir). A trivial const (`types.rs`'s `ZERO`) evaluates; the legacy manglings then stop hashing the type
+// (`STOP_TY_HASH`), while v0 matches the oracle.
 const STOP_TY_HASH = "StableHash for Ty";
 /** The `unported` stop each case reaches instead of the oracle's output (exit 70). */
 const STOPS: Record<string, string> = {
   "tests/ui/symbol-names/basic.rs#legacy": STOP_TY_HASH,
-  "tests/ui/symbol-names/const-generics-demangling.rs#legacy": STOP_CCI,
-  "tests/ui/symbol-names/const-generics-demangling.rs#v0": STOP_CCI,
-  "tests/ui/symbol-names/const-generics.rs#legacy": STOP_EXTERN_MIR,
-  "tests/ui/symbol-names/const-generics.rs#v0": STOP_EXTERN_MIR,
-  "tests/ui/symbol-names/impl1.rs#legacy": STOP_CCI,
-  "tests/ui/symbol-names/impl1.rs#v0": STOP_CCI,
-  "tests/ui/symbol-names/issue-60925.rs#legacy": STOP_CCI,
-  "tests/ui/symbol-names/issue-60925.rs#v0": STOP_CCI,
-  "tests/ui/symbol-names/issue-75326.rs#legacy": STOP_CCI,
-  "tests/ui/symbol-names/issue-75326.rs#v0": STOP_CCI,
-  "tests/ui/symbol-names/trait-objects.rs#v0": STOP_CCI,
+  "tests/ui/symbol-names/const-generics-demangling.rs#legacy": STOP_TY_HASH,
+  "tests/ui/symbol-names/impl1.rs#legacy": STOP_TY_HASH,
+  "tests/ui/symbol-names/issue-60925.rs#legacy": STOP_TY_HASH,
+  "tests/ui/symbol-names/issue-75326.rs#legacy": STOP_TY_HASH,
   "tests/ui/symbol-names/types.rs#legacy": STOP_TY_HASH,
   "tests/ui/symbol-names/types.rs#verbose-legacy": STOP_TY_HASH,
 };

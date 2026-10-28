@@ -3048,7 +3048,7 @@ export function is_late_bound_map(tcx: TyCtxt, owner_id: hir.OwnerId): Set<hir.I
 
     const inserted = !late_bound.has(param.hir_id.local_id);
     late_bound.add(param.hir_id.local_id);
-    assert(inserted, `visited lifetime ${debug_LocalDefId(param.def_id, PLAIN)} twice`);
+    assert(inserted, () => `visited lifetime ${debug_LocalDefId(param.def_id, PLAIN)} twice`);
   }
 
   // debug!(?late_bound);

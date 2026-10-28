@@ -10,6 +10,7 @@ import {
   BasicBlock,
   BasicBlockData,
   type Body,
+  clone_SourceInfo,
   type LocalDecl,
   Location,
   type Operand,
@@ -101,7 +102,9 @@ export function check_pointers(
     for (let statement_index = basic_blocks[block]!.statements.length - 1; statement_index >= 0; statement_index--) {
       const location = new Location(block, statement_index);
       const statement = basic_blocks[block]!.statements[statement_index]!;
-      const source_info = statement.source_info;
+      // PORT: MIR aliasing (lane fix-ubchecks-alias): `SourceInfo` is `Copy`; this is the copy, and the terminator below
+      // gets its own (`on_finding` copies it into what it builds).
+      const source_info = clone_SourceInfo(statement.source_info);
 
       const finder = PointerFinder.new(tcx, local_decls, typing_env, excluded_pointees, field_projection_mode);
       finder.visit_statement(statement, location);
@@ -115,7 +118,7 @@ export function check_pointers(
         // we're performing in the Terminator.
         const block_data = basic_blocks[block]!;
         const pointer_check = on_finding(tcx, local, ty, context, local_decls, block_data.statements, source_info);
-        block_data.terminator = new Terminator(source_info, {
+        block_data.terminator = new Terminator(clone_SourceInfo(source_info), {
           $: "Assert",
           cond: pointer_check.cond,
           expected: true,

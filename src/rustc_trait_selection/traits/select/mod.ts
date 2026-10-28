@@ -836,7 +836,7 @@ SelectionContext.prototype.evaluate_predicate_recursively = function (
       const c1 = kind._0;
       const c2 = kind._1;
       const tcx = this.tcx();
-      assert(tcx.features().generic_const_exprs(), `\`ConstEquate\` without a feature gate: ${debug_Const(c1, PLAIN)} ${debug_Const(c2, PLAIN)}`);
+      assert(tcx.features().generic_const_exprs(), () => `\`ConstEquate\` without a feature gate: ${debug_Const(c1, PLAIN)} ${debug_Const(c2, PLAIN)}`);
 
       {
         const c1_ = tcx.expand_abstract_consts(c1, fold_Const);

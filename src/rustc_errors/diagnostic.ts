@@ -540,7 +540,7 @@ export class Diag {
     const level = this.deref().level;
     assert(
       level.$ === "Error" || level.$ === "DelayedBug",
-      `downgrade_to_delayed_bug: cannot downgrade ${debug_level(level)} to DelayedBug: not an error`,
+      () => `downgrade_to_delayed_bug: cannot downgrade ${debug_level(level)} to DelayedBug: not an error`,
     );
     this.deref_mut().level = { $: "DelayedBug" };
   }
@@ -549,7 +549,7 @@ export class Diag {
   // rustc: compiler/rustc_errors/src/diagnostic.rs:478 upgrade_to_fatal
   upgrade_to_fatal(): Diag {
     const level = this.deref().level;
-    assert(level.$ === "Error", `upgrade_to_fatal: cannot upgrade ${debug_level(level)} to Fatal: not an error`);
+    assert(level.$ === "Error", () => `upgrade_to_fatal: cannot upgrade ${debug_level(level)} to Fatal: not an error`);
     this.deref_mut().level = { $: "Fatal" };
 
     // Take is okay since we immediately rewrap it in another diagnostic.
@@ -1240,7 +1240,7 @@ export class Diag {
     // protects against that, too.)
     assert(
       diag.level.$ === "Error" || diag.level.$ === "DelayedBug",
-      `invalid diagnostic level (${debug_level(diag.level)})`,
+      () => `invalid diagnostic level (${debug_level(diag.level)})`,
     );
 
     const guar = this.dcx.emit_diagnostic(diag);

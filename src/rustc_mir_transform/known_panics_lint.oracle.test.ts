@@ -8,8 +8,8 @@
 // the oracle sysroot. The cases avoid what the driver skips (borrowck errors, drops, coroutines), so the complete
 // stderr and the exit code of both sides must be equal, and the oracle's stderr must contain the diagnostics under
 // test. The cases are in known_panics_lint_oracle/cases/. (tests/ui cases do not fit yet: those tried stop in
-// rustc_borrowck when the lint evaluates a promoted constant (CTFE runs `mir_borrowck`), at the `valtree_to_const_val`
-// stop below, or emit late lints the driver does not run; see docs/handoff/mt-kpl-ubchecks.md.)
+// rustc_borrowck when the lint evaluates a promoted constant (CTFE runs `mir_borrowck`), or emit late lints the driver
+// does not run; see docs/handoff/mt-kpl-ubchecks.md.)
 // Skips (visibly) if rustc is unavailable; fails instead under RUST_TS_REQUIRE_PROBES=1.
 import { expect, test } from "bun:test";
 import { mkdirSync, readdirSync, readFileSync, rmSync } from "node:fs";
@@ -97,6 +97,9 @@ const HAND: Case[] = [
       "attempt to compute `44_u8 + 250_u8`, which would overflow",
     ],
   },
+  // An array's length is a `Const::Ty` value: `eval_mir_constant` runs the `valtree_to_const_val` query (key
+  // `ty::Value`, lane key-value; this case pinned that stop before).
+  { file: "bounds.rs", expect: ["error: this operation will panic at runtime", "index out of bounds: the length is 3 but the index is 5"] },
 ];
 
 for (const c of HAND) {
@@ -106,19 +109,6 @@ for (const c of HAND) {
     compare(CASES_DIR, c.file, args("2021", []), c.expect);
   }, 300_000);
 }
-
-// Where the lint stops today: an array's length is a `Const::Ty` value, whose `eval_mir_constant` runs the
-// `valtree_to_const_val` query, and the `QueryKey` of its key `ty::Value` is not ported (rustc_middle
-// query/keys.ts `key_unported`, queries.gen.ts). The case pins that stop; when it moves, make this an oracle case.
-const STOP_VALTREE_KEY = "rust-ts: unported: rustc_middle::query::keys: QueryKey for `ty::Value<'tcx>` (cache)";
-test.skipIf(SKIP)("oracle: bounds.rs (pinned stop)", () => {
-  const a = args("2021", []);
-  const oracle = run([...RUSTC, ...a, "bounds.rs"], CASES_DIR);
-  expect(oracle.stderr).toContain("index out of bounds: the length is 3 but the index is 5");
-  const ours = run([process.execPath, RUNNER, ...a, "bounds.rs"], CASES_DIR);
-  expect(ours.stderr).toContain(STOP_VALTREE_KEY);
-  expect(ours.code).toBe(70);
-}, 300_000);
 
 // CheckAlignment / CheckNull / CheckEnums: the driver's `KPL_ORACLE_UB_PASSES=1` dump (see run.ts) against rustc's
 // `-Zdump-mir` files. Every fn of ub_checks.rs has a `mir_promoted` text equal to rustc's "before CheckAlignment" text

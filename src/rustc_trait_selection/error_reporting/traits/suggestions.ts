@@ -6424,7 +6424,7 @@ TypeErrCtxt.prototype.ty_kind_suggestion = function (this: TypeErrCtxt, param_en
     const item = tcx.get_diagnostic_item(name);
     return item !== undefined && DefId_eq(def.did(), item);
   };
-  let len: number | undefined;
+  let len: bigint | undefined;
   switch (k.$) {
     case "Never":
     case "Error":
@@ -6479,9 +6479,9 @@ TypeErrCtxt.prototype.ty_kind_suggestion = function (this: TypeErrCtxt, param_en
     case "Array":
       if ((len = k._1.try_to_target_usize(tcx)) !== undefined) {
         const ty_ = k._0;
-        if (len === 0) {
+        if (len === 0n) {
           return "[]";
-        } else if (this.type_is_copy_modulo_regions(param_env, ty_) || len === 1) {
+        } else if (this.type_is_copy_modulo_regions(param_env, ty_) || len === 1n) {
           // Can only suggest `[ty; 0]` if sz == 1 or copy
           const inner = this.ty_kind_suggestion(param_env, ty_);
           if (inner === undefined) return undefined;

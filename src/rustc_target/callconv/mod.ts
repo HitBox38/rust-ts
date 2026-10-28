@@ -267,7 +267,7 @@ export class ArgAttributes {
   ext(ext: ArgExtension): ArgAttributes {
     assert(
       this.arg_ext === ArgExtension.None || this.arg_ext === ext,
-      `cannot set ${debug_ArgExtension(ext, PLAIN)} when ${debug_ArgExtension(this.arg_ext, PLAIN)} is already set`,
+      () => `cannot set ${debug_ArgExtension(ext, PLAIN)} when ${debug_ArgExtension(this.arg_ext, PLAIN)} is already set`,
     );
     this.arg_ext = ext;
     return this;

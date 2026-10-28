@@ -153,7 +153,7 @@ export const InhabitedPredicate = {
         return Ok(true);
       case "ConstIsZero": {
         const n = self._0.try_to_target_usize(tcx);
-        return n === undefined || n === 0 ? Ok(true) : Ok(false);
+        return n === undefined || n === 0n ? Ok(true) : Ok(false);
       }
       case "NotInModule": {
         const r = in_module(self._0);
@@ -334,7 +334,7 @@ export const InhabitedPredicate = {
       case "ConstIsZero": {
         const c = Unnormalized.skip_norm_wip(EarlyBinder.instantiate(EarlyBinder.bind(tcx, self._0, fold_Const), tcx, args, fold_Const));
         const n = c.try_to_target_usize(tcx);
-        const pred: Self = n === 0 ? TRUE : n !== undefined ? FALSE : { $: "ConstIsZero", _0: c };
+        const pred: Self = n === 0n ? TRUE : n !== undefined ? FALSE : { $: "ConstIsZero", _0: c };
         return pred;
       }
       case "GenericType":

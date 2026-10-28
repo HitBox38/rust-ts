@@ -199,7 +199,7 @@ export class WrappingRange {
     }
 
     // Just checking the max is enough to ensure that everything is in-range.
-    assert(max <= size.unsigned_int_max(), `Value ${max} is too big for ${debug_Size(size, PLAIN)}`);
+    assert(max <= size.unsigned_int_max(), () => `Value ${max} is too big for ${debug_Size(size, PLAIN)}`);
 
     // The simple answer is the non-wraparound range `min..=max`.
     const obvious_range = new WrappingRange(min, max);

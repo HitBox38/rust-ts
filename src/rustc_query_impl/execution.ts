@@ -270,7 +270,7 @@ function check_feedable_consistency<K, V>(tcx: TyCtxt, query: QueryVTable<K, V>,
     // PORT: `query.dep_kind` is the query name (no dep graph, D3); `{:#?}` of the formatted `String`s.
     assert(
       tcx.dcx().has_errors() !== undefined,
-      `Computed query value for ${query.name}(${query.key_impl.debug(key, PLAIN)}) is inconsistent with fed value,\n` +
+      () => `Computed query value for ${query.name}(${query.key_impl.debug(key, PLAIN)}) is inconsistent with fed value,\n` +
         `computed=${debug_str(formatter(value))}\nfed=${debug_str(formatter(cached_value))}`,
     );
   }

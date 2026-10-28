@@ -293,9 +293,9 @@ export function type_check(
   {
     // Scope these variables so it's clear they're not used later
     const pre_obligations = infcx.take_registered_region_obligations();
-    assert(pre_obligations.length === 0, `there should be no incoming region obligations = ${format_debug(pre_obligations, (v, f) => debug_vec(v, f, debug_TypeOutlivesConstraint), PRETTY)}`);
+    assert(pre_obligations.length === 0, () => `there should be no incoming region obligations = ${format_debug(pre_obligations, (v, f) => debug_vec(v, f, debug_TypeOutlivesConstraint), PRETTY)}`);
     const pre_assumptions = infcx.take_registered_region_assumptions();
-    assert(pre_assumptions.length === 0, `there should be no incoming region assumptions = ${format_debug(pre_assumptions, (v, f) => debug_vec(v, f, (x, f) => debug_OutlivesClause(x, f, debug_GenericArg)), PRETTY)}`);
+    assert(pre_assumptions.length === 0, () => `there should be no incoming region assumptions = ${format_debug(pre_assumptions, (v, f) => debug_vec(v, f, (x, f) => debug_OutlivesClause(x, f, debug_GenericArg)), PRETTY)}`);
   }
 
   // debug!(?normalized_inputs_and_output);

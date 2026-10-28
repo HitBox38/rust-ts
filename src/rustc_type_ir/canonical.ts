@@ -121,7 +121,7 @@ export const CanonicalVarKind = {
       case "Float":
         assert(
           ui === UniverseIndex.ROOT,
-          `assertion \`left == right\` failed\n  left: ${debug_UniverseIndex(ui, PLAIN)}\n right: ${debug_UniverseIndex(UniverseIndex.ROOT, PLAIN)}`,
+          () => `assertion \`left == right\` failed\n  left: ${debug_UniverseIndex(ui, PLAIN)}\n right: ${debug_UniverseIndex(UniverseIndex.ROOT, PLAIN)}`,
         );
         return self;
     }

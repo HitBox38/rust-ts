@@ -60,6 +60,7 @@ import { type Debug, PLAIN } from "../std/fmt.ts";
 import { assert, panic, unwrap } from "../std/panic.ts";
 import type { MirPatch } from "./patch.ts";
 import { CTX_ARG } from "./coroutine/mod.ts";
+import { u64_to_number } from "../rust_ts/u64.ts";
 
 /// Describes how/if a value should be dropped.
 // #[derive(Debug)]
@@ -1405,7 +1406,7 @@ class DropCtxt<Path> {
         return this.complete_drop(this.succ, this.unwind);
       case "Array": {
         const size = k._1.try_to_target_usize(this.tcx());
-        return this.open_drop_for_array(ty, k._0, size);
+        return this.open_drop_for_array(ty, k._0, size === undefined ? undefined : u64_to_number(size, "open_drop_for_array"));
       }
       case "Slice":
         return this.drop_loop_trio_for_slice(k._0);

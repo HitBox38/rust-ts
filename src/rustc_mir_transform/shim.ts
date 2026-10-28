@@ -12,7 +12,8 @@
 // `Option<()>`'s `Some(())` is `null` and `None` is `undefined`.
 // PORT: `crate::run_optimization_passes` (lib.rs) is `require`d inside `make_shim`: pass modules must not import lib.ts
 // (pass_manager.ts header; precedent `pass_manager.ts` `PASS_NAMES`).
-// PORT: a `SourceInfo` (`Copy`) used by value more than once is copied with `clone_SourceInfo` (PORTING §8).
+// PORT: a `SourceInfo` (`Copy`) used by value more than once is copied with `clone_SourceInfo` (PORTING §8); so is a
+// `Place` stored a second time (`clone_Place`; lane fix-ubchecks-alias).
 // PORT: `debug!` / `#[instrument]` are comments (no tracing subscriber for debug).
 import { panic, unreachable, unwrap, assert, assert_eq } from "../std/panic.ts";
 import type { Providers } from "../rustc_middle/util/mod.ts";
@@ -23,6 +24,7 @@ import {
   BasicBlock,
   BasicBlockData,
   Body,
+  clone_Place,
   clone_SourceInfo,
   Const,
   ConstOperand,
@@ -740,7 +742,7 @@ class CloneShimBuilder {
       {
         $: "Call",
         func,
-        args: [{ node: { $: "Move", _0: ref_loc }, span: DUMMY_SP }],
+        args: [{ node: { $: "Move", _0: clone_Place(ref_loc) }, span: DUMMY_SP }],
         destination: dest,
         target: next,
         unwind: { $: "Cleanup", _0: cleanup },
@@ -778,7 +780,7 @@ class CloneShimBuilder {
         [],
         {
           $: "Drop",
-          place: dest_field,
+          place: clone_Place(dest_field),
           target: unwind,
           unwind: { $: "Terminate", _0: "InCleanup" },
           replace: false,
@@ -836,7 +838,7 @@ class CloneShimBuilder {
       data.statements.push(statement);
       data.terminator.kind = {
         $: "SwitchInt",
-        discr: { $: "Move", _0: temp },
+        discr: { $: "Move", _0: clone_Place(temp) },
         targets: SwitchTargets.new(cases, unreachable_),
       };
     } else {
@@ -1134,7 +1136,7 @@ export function build_adt_ctor(tcx: TyCtxt, ctor_id: DefId): Body {
   // debug!("build_ctor: variant_index={:?}", variant_index);
 
   const variant = adt_def.variant(variant_index);
-  const statement = Statement.new(source_info, {
+  const statement = Statement.new(clone_SourceInfo(source_info), {
     $: "Assign",
     _0: [
       PlaceC.return_place(),
@@ -1146,7 +1148,7 @@ export function build_adt_ctor(tcx: TyCtxt, ctor_id: DefId): Body {
     ],
   });
 
-  const start_block = BasicBlockData.new_stmts([statement], new Terminator(source_info, { $: "Return" }), false);
+  const start_block = BasicBlockData.new_stmts([statement], new Terminator(clone_SourceInfo(source_info), { $: "Return" }), false);
 
   const source = MirSourceC.item(ctor_id);
   const body = new_body(source, [start_block], local_decls, FnSigC.inputs(sig).length, span);

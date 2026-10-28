@@ -506,7 +506,7 @@ function fn_abi_sanity_check(cx: LayoutCx, fn_abi: FnAbi<Ty>, spec_abi: ExternAb
         const [attrs1, attrs2] = [mode._0, mode._1];
         // Similar to `Direct`, we need to make sure that backends use `layout.backend_repr`
         // and ignore the rest of the layout.
-        assert(arg.layout.backend_repr.$ === "ScalarPair", `PassMode::Pair for type ${display_Ty(arg.layout.ty)}`);
+        assert(arg.layout.backend_repr.$ === "ScalarPair", () => `PassMode::Pair for type ${display_Ty(arg.layout.ty)}`);
         fn_arg_attrs_sanity_check(attrs1, is_ret);
         fn_arg_attrs_sanity_check(attrs2, is_ret);
         break;

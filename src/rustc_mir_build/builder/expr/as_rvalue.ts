@@ -99,7 +99,7 @@ Builder.prototype.as_rvalue = function (this: Builder, block: BasicBlock, scope:
     }
     case "Repeat": {
       const { value, count } = kind;
-      if (0 === count.try_to_target_usize(this.tcx)) {
+      if (0n === count.try_to_target_usize(this.tcx)) {
         return this.build_zero_repeat(block, value, scope, source_info);
       } else {
         let value_operand: Operand;

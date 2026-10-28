@@ -149,7 +149,7 @@ import type { ModuleItems } from "../rustc_middle/hir/mod.ts";
 // mod liveness;                (stub, lane mt-liveness)
 // mod patch;                   (patch.ts)
 // mod shim;                    (stub, lane mt-shim)
-// mod ssa;                     (not referenced here: lane mt-opt1 adds ssa.ts)
+// mod ssa;                     (ssa.ts; not referenced here: copy_prop imports it)
 // mod trivial_const;           (trivial_const.ts)
 
 /// Exposed for rustc drivers.

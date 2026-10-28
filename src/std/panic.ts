@@ -23,8 +23,9 @@ export function unported(what: string): never {
   throw new Unported(what);
 }
 
-export function assert(cond: boolean, message = "assertion failed"): asserts cond {
-  if (!cond) throw new Panic(message);
+/** `assert!`: the message may be a thunk so that, as in Rust, it is only formatted when the assertion fails. */
+export function assert(cond: boolean, message: string | (() => string) = "assertion failed"): asserts cond {
+  if (!cond) throw new Panic(typeof message === "function" ? message() : message);
 }
 
 export function unreachable(message = "internal error: entered unreachable code"): never {
