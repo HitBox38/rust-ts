@@ -1,8 +1,9 @@
 # Handoff: mt-opt2-c (wave 27, MIR passes at -Zmir-opt-level >= 2, part c)
 
 Branch `lane/mt-opt2-c` (base `fbb8fa9a` on integ-w25, no merges). Commits: `4a4660d1` the four policies (first, as
-asked), `cf737030` tail_copy_to_move + match_branches, `517422f0` dest_prop, `0dcc21a5` jump_threading, then this
-handoff.
+asked), `cf737030` tail_copy_to_move + match_branches, `517422f0` dest_prop, `0dcc21a5` jump_threading, `fdabb367`
+handoff draft, a fix commit (`unwrap_result` gets the error's Debug, caught by `std/result.test.ts`), then this
+handoff update.
 
 ## Files touched
 All in `src/rustc_mir_transform/`; each replaces an mt-opt2 stub and keeps the stub's names and shapes.
@@ -24,6 +25,9 @@ jump_threading 34/34, dest_prop 21/21, match_branches 15/15, tail_copy_to_move 6
 
 ## Tests
 - `bun test src/rustc_mir_transform`: 77 pass, 0 fail.
+- Full `bun test src` (once, after the gate): 6222 pass, 1 fail: `std/result.test.ts` "non-test code never reaches
+  the one-argument unwrap_result" (my four `layout_of` unwraps); fixed in the next commit (now passing:
+  `result.test.ts` 3/3, `rustc_mir_transform` 77/77).
 - No test pinned the four stubs' stops.
 
 ## Runtime stops left (`unported(...)`) and cross-lane dependencies
@@ -82,5 +86,26 @@ mt-opt1 / fix-ubchecks-alias's driver (`cwrap.ts`, `cmp.sh`, `batch.sh`), repoin
   `mir_borrowck`. No body stopped.
 - c7 at level 2 + inliner: `ast` stops at the known `QueryKey for (ValidityRequirement, ..)` (not this lane).
 
-## Sample difftests
-(see below)
+## Sample difftests (`RUST_TS_AGENT=root-f5de`, after root's gate finished)
+Compared case by case with the base runs named in the assignment (`scratch/mt-opt2-c/cmpruns.py`):
+
+| suite | this branch | run | base run | moves |
+|---|---|---|---|---|
+| tydump-minicore | 46/46 MATCH | `20261028-131753-root-f5de-j52h` | 45 + 1 UNPORTED | UNPORTED->MATCH 1 |
+| mirdump-minicore | 46/46 MATCH | `20261028-131804-root-f5de-ekvl` | 45 + 1 UNPORTED | UNPORTED->MATCH 1 |
+| tydump-ui --sample 300 | 295 MATCH, 3 UNPORTED, 2 UNSTABLE | `20261028-131819-root-f5de-ceow` | 261 / 37 / 2 | UNPORTED->MATCH 34 |
+| mirdump-ui --sample 300 | 300/300 MATCH | `20261028-132043-root-f5de-tzbv` | 269 / 31 | UNPORTED->MATCH 31 |
+| borrowck-ui --sample 300 | 286 MATCH, 14 UNPORTED | `20261028-132405-root-f5de-cd6x` | 0 / 300 | UNPORTED->MATCH 286 |
+
+No MATCH lost, no DIFF / CRASH / TIMEOUT. The gains come from the base (integ-w25) over the older base runs. The
+borrowck-ui stops: 12 `polonius_engine::AllFacts::default`, 1 `UnreachablePropagation (pass not ported)` (mt-opt2-a's
+policy stub at this base), 1 `NonGenericOpaqueTypeParam` diagnostic. tydump-ui stops: 2 `hash_result (type_of)`,
+1 `IntoDiagArg`. None is in this lane's files.
+
+## For root
+1. Replace match_branches.ts's `remove_successors_from_switch` stand-in by the import from `./unreachable_prop.ts`
+   once mt-opt2-a is merged (above).
+2. `pass_manager.test.ts` stub count: combine the four mt-opt2 lanes' deltas (this lane: -4).
+3. Once value_analysis (mt-opt2-b) is merged, jump_threading runs; it was oracle-checked with b's `Map::new` (table).
+4. The scratch driver's stand-ins (`CWRAP_VA`, the `-Zmir-enable-passes=-...` list in `off.txt`) go once the other
+   mt-opt2 lanes land; then re-run `scratch/mt-opt2-c/batch.sh` at `-Zmir-opt-level=2` without `off.txt`.
