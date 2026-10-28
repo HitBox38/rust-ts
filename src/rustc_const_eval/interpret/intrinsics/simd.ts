@@ -32,6 +32,7 @@ import { bug, span_bug } from "../../../rustc_span/macros.ts";
 import { sym, Symbol } from "../../../rustc_span/symbol.ts";
 import { PLAIN } from "../../../std/fmt.ts";
 import { assert, assert_eq, Panic, unreachable, unwrap } from "../../../std/panic.ts";
+import { debug_InterpErrorInfo, debug_InterpErrorKind } from "../../../rustc_middle/mir/interpret/error.gen.ts";
 import { Err, unwrap_result } from "../../../std/result.ts";
 import { Round } from "../../../vendor/rustc_apfloat/lib.ts";
 import type { Double as ApDouble, Half as ApHalf, Quad as ApQuad, Single as ApSingle } from "../../../vendor/rustc_apfloat/ieee.ts";
@@ -448,7 +449,7 @@ InterpCx.prototype.eval_simd_intrinsic = function (this: InterpCx, intrinsic_nam
             if (mir_op === "Eq" || mir_op === "Ne" || mir_op === "Lt" || mir_op === "Le" || mir_op === "Gt" || mir_op === "Ge") {
               // Special handling for boolean-returning operations
               assert_eq(v.layout.ty, this.tcx.deref().types.bool, (t) => debug_Ty(t, PLAIN));
-              const b = unwrap_result(Scalar.to_bool(Immediate.to_scalar(v.imm)));
+              const b = unwrap_result(Scalar.to_bool(Immediate.to_scalar(v.imm)), debug_InterpErrorInfo);
               val = bool_to_simd_element(b, dest_i.layout.size);
             } else {
               assert_ne(v.layout.ty, this.tcx.deref().types.bool, (t) => debug_Ty(t, PLAIN));
@@ -505,7 +506,7 @@ InterpCx.prototype.eval_simd_intrinsic = function (this: InterpCx, intrinsic_nam
       const [op_v, op_len] = op_r._0;
 
       const imm_from_bool = (b: boolean): ImmTy => {
-        return ImmTy.from_scalar(Scalar.from_bool(b), unwrap_result(this.layout_of(this.tcx.deref().types.bool)));
+        return ImmTy.from_scalar(Scalar.from_bool(b), unwrap_result(this.layout_of(this.tcx.deref().types.bool), debug_InterpErrorKind));
       };
 
       type Op = { $: "MirOp"; _0: BinOp } | { $: "MirOpBool"; _0: BinOp } | { $: "MinMax"; _0: MinMax };
