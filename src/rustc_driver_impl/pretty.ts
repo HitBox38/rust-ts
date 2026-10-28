@@ -23,9 +23,9 @@ import { Symbol } from "../rustc_span/symbol.ts";
 import { Input, OutFileName, type OutputFilenames, type PpMode, PpMode as PpModeC } from "../rustc_session/config.ts";
 import type { Session } from "../rustc_session/session.ts";
 import type { FileName } from "../rustc_span/lib.ts";
-import { format_debug, PLAIN, PRETTY } from "../std/fmt.ts";
+import { debug_list, debug_struct, format_debug, PLAIN, PRETTY } from "../std/fmt.ts";
 import { panic, unported } from "../std/panic.ts";
-import { from_utf8, type Str } from "../std/str.ts";
+import { from_utf8, type Str, type Utf8Error } from "../std/str.ts";
 import { debug_IoError, io_error_from_node, type IoResult } from "../std/io.ts";
 import { closeSync, openSync, writeSync } from "node:fs";
 import { Err, Ok, unwrap_result } from "../std/result.ts";
@@ -245,6 +245,17 @@ class HirTypedAnn extends pprust_hir.PpAnn {
   }
 }
 
+/** `String::from_utf8(out).unwrap()` (the `Debug` of `FromUtf8Error` as rustc_errors/json.ts). */
+function string_from_utf8_unwrap(bytes: Uint8Array): string {
+  return unwrap_result(from_utf8(bytes), (e: Utf8Error, f) =>
+    // `#[derive(Debug)] struct FromUtf8Error { bytes: Vec<u8>, error: Utf8Error }`
+    debug_struct(f, "FromUtf8Error", [
+      ["bytes", debug_list(f, [...bytes].map(String))],
+      ["error", e.debug()],
+    ]),
+  );
+}
+
 // rustc: compiler/rustc_driver_impl/src/pretty.rs:189 get_source
 function get_source(sess: Session): [Str, FileName] {
   const src_name = Input.file_name(sess.io.input, sess);
@@ -370,13 +381,13 @@ export function print(sess: Session, ppm: PpMode, ex: PrintExtra): void {
     case "Mir": {
       const out_ = new VecU8();
       unwrap_result(write_mir_pretty(PrintExtra.tcx(ex), out_), debug_IoError);
-      out = unwrap_result(from_utf8(out_.bytes())); // `String::from_utf8(out).unwrap()`
+      out = string_from_utf8_unwrap(out_.bytes());
       break;
     }
     case "MirCFG": {
       const out_ = new VecU8();
       unwrap_result(write_mir_graphviz(PrintExtra.tcx(ex), out_), debug_IoError);
-      out = unwrap_result(from_utf8(out_.bytes())); // `String::from_utf8(out).unwrap()`
+      out = string_from_utf8_unwrap(out_.bytes());
       break;
     }
     case "StableMir":
