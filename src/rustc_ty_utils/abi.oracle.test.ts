@@ -65,10 +65,8 @@ const CASES: Case[] = [
     file: "abi/debug.rs",
     args: ["--edition", "2015", "-O", ...MINICORE],
     expect: ["fn_abi_of(test) ="],
-    // `deduced_param_attrs` (lane mt-opt2-b) runs `optimized_mir` at mir-opt-level 2, which stops at the first level-2
-    // pass still stubbed by another mt-opt2 lane. (With those passes disabled on both sides by `-Zmir-enable-passes`,
-    // the output equals the oracle's, and the oracle's equals its full `-O` output: docs/handoff/mt-opt2-b.md.)
-    pending: "rustc_mir_transform::unreachable_prop::UnreachablePropagation (pass not ported)",
+    // `deduced_param_attrs` (lane mt-opt2-b) runs `optimized_mir` at mir-opt-level 2; with every level-2 pass ported
+    // (mt-opt2-a..d) the `-O` output is compared with the oracle's.
   },
   {
     name: "c_zst",
