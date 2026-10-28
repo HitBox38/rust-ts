@@ -21,6 +21,8 @@ console.log(JSON.stringify({
   tydump: listed("tydump-ui"),
   thirdump: listed("thirdump-ui"),
   mirdump: listed("mirdump-ui"),
+  mir: listed("mir"),
+  thirTree: listed("thir-tree"),
   withUnstable: SUITES.filter((s) => s.unstable).map((s) => s.name),
   protectedListed: g.protectedUnstable("tydump-ui", new Set([id, "tests/ui/typeck/other.rs"])),
   protectedNone: g.protectedUnstable("tydump-ui", new Set(["tests/ui/typeck/other.rs"])),
@@ -39,13 +41,19 @@ test("UNSTABLE status, the M3 ui lists, and the gate's refusal to protect listed
   expect(j.unstableUnported).toBe("UNSTABLE");
   expect(j.oracleTimeoutFirst).toBe("ORACLE_TIMEOUT");
   // The 8 measured cases (harness/suites.ts M3_UI_UNSTABLE), with reasons, in both M3 ui suites; mirdump-ui has its own
-  // list (M4A_UI_UNSTABLE).
+  // list (M4A_UI_UNSTABLE), and so have the M4c suites mir (MIR_UNSTABLE) and thir-tree (THIR_TREE_UNSTABLE: the 8 M3 ids
+  // plus one, lane harness-w25).
   expect(j.tydump.length).toBe(8);
   expect(j.thirdump).toEqual(j.tydump);
   for (const [, why] of j.tydump) expect(why.length).toBeGreaterThan(0);
-  expect(j.withUnstable).toEqual(["tydump-ui", "thirdump-ui", "mirdump-ui"]);
+  expect(j.withUnstable).toEqual(["tydump-ui", "thirdump-ui", "mirdump-ui", "mir", "thir-tree"]);
   expect(j.mirdump.length).toBe(4);
   for (const [, why] of j.mirdump) expect(why.length).toBeGreaterThan(0);
+  expect(j.mir.length).toBe(14);
+  for (const [, why] of j.mir) expect(why.length).toBeGreaterThan(0);
+  expect(j.thirTree.length).toBe(9);
+  for (const [, why] of j.thirTree) expect(why.length).toBeGreaterThan(0);
+  for (const [k] of j.tydump) expect(j.thirTree.map(([t]: [string, string]) => t)).toContain(k);
   expect(j.protectedListed).toEqual([j.tydump[0][0]]);
   expect(j.protectedNone).toEqual([]);
   // No baseline protects a listed unstable case.

@@ -953,6 +953,201 @@ SUITES.push(
   ),
 );
 
+// M4c (plan-m4 §4, D13, D14; lane harness-w25): the real `-Zunpretty=mir` and `-Zunpretty=thir-tree`, rustc against
+// src/rust_ts/main.ts through the CLI. Both modes `needs_analysis()` (rustc_session/src/config.rs:3334), so
+// `pretty::print` (rustc_driver_impl/src/pretty.rs:232) runs the whole `analysis` first (with errors it prints nothing on
+// stdout: only the diagnostics are compared), then `write_mir_pretty` (optimized MIR / `mir_for_ctfe` of every
+// `mir_keys` item, promoteds, allocations with their global AllocIds, compared as printed: D13) or `thir_tree` of every
+// body owner. The driver then runs `write_dep_info` and returns (lib.rs:281): no codegen, metadata or link.
+// - D14: where a case uses compiletest's argv (the minicore corpus's UI tests, the thirdump-ui cases), the argv is kept
+//   as the M3 ui suites have it (`-Znext-solver=coherence`, revisions, aux crates built by the oracle as rmeta, env),
+//   except the harness's own `-o build/<target>/test/ui/<dir>/<stem>[.<rev>]/a` (run-* tests: compiletest's
+//   `make_compile_args`), which is dropped (`dropHarnessOutFile`): with `-o`, `write_or_print` (pretty.rs:202) writes
+//   the dump into that file instead of stdout. `--out-dir` stays (`write_dep_info` only creates the empty directory,
+//   under `build/`, which the upstream-checkout check ignores). No case of these corpora passes its own `-o`,
+//   `--emit=dep-info` or `-Zdump-mir` (checked when the case list is made: `assertNoOwnOutput`; 3 cases pass
+//   `--emit=link` / `--emit=mir`, which the `-Zunpretty` path never produces), so nothing is written into the upstream
+//   checkout. Own `-Zunpretty` flags: the thir-print tests (kept, see `thir-tree`) and 4 minicore tests
+//   (tests/ui/hygiene/unpretty-debug*.rs, `-Zunpretty=expanded,hygiene`), where the appended `-Zunpretty=mir` comes last
+//   and wins (options.rs `parse_unpretty` overwrites the slot), so their argv stays compiletest's and they are MIR cases
+//   like the rest of the corpus.
+// - Env NOCORE_ENV (+ the case's own), session variables pinned (`pinSessionEnv`), one process per case, subject 60 s,
+//   oracle 300 s (+ the 4x retry), as the suites each corpus comes from.
+// Suites:
+// - `mir-minicore`: the tydump-minicore corpus (`minicoreCorpus`, same skips) + `-Zunpretty=mir`. Subset `cg_clif`:
+//   mini_core.rs and mini_core_hello_world.rs, which the M4c gate names.
+// - `mir-o0`: mir-minicore + `-Zmir-opt-level=0` (after the test's own flags, so it wins; report only, M4c-1).
+// - `mir`: every tests/ui file with `stdArgs` (std injected, no compiletest flags) + `-Zunpretty=mir`, as hir-tree, plus
+//   compiletest's `-Zwrite-long-types-to-disk=no`. Unlike hir-tree, this mode type-checks, and with the default (`yes`)
+//   every type error naming a long type writes `<stem>.long-type-<hash>.txt` into the cwd, i.e. the upstream checkout
+//   (measured: 242 files from 74 cases in two oracle passes), and its note names a hash of an interned type's address
+//   (UNSTABLE). With `no`, rustc prints the full type instead, as in every compiletest-argv suite. Skips re-measured for
+//   this mode (`MIR_SKIPPED`).
+// - `thir-tree`: thirdump-ui's cases (`m3UiCorpus([...M3_UI_DIRS, "tests/ui/thir-print"])`: tests/ui/typeck,
+//   tests/ui/traits, every `#[rustc_dump_*]` test and tests/ui/thir-print) + `-Zunpretty=thir-tree`, except that a case
+//   whose own compile-flags already ask for `-Zunpretty` (the thir-print tests, 3 of them `thir-flat`) keeps its own
+//   mode, so it is exactly compiletest's run of the test. Subsets and `--report blessed` as thirdump-ui (report only).
+// Unprotected until root accepts a run.
+/** Whether `args` asks for `-Zunpretty` (`-Zunpretty=x` or `-Z unpretty=x`). */
+const hasUnpretty = (args: string[]): boolean => args.some((a, i) => /^-Zunpretty=/.test(a) || (args[i - 1] === "-Z" && a.startsWith("unpretty=")));
+/**
+ * `c` without the `-o <path>` harness/compiletest.ts adds for a run-* test (D14, see above). That `-o` is compiletest's,
+ * pushed before `-Znext-solver=coherence` and only when the test's compile-flags have no `-o`; the cg_clif cases have
+ * neither. Anything else is an `ERROR:`.
+ */
+function dropHarnessOutFile(c: Case): Case {
+  const end = c.args.indexOf("-Znext-solver=coherence");
+  const at = c.args.indexOf("-o");
+  if (at < 0) return c;
+  const out = c.args[at + 1] ?? "";
+  if (end < 0 || at > end || !out.startsWith(`build/${COMPILETEST_TARGET}/test/ui/`) || !out.endsWith("/a")) {
+    throw new Error(`ERROR: ${c.id}: unexpected \`-o ${out}\` in a real-CLI -Zunpretty case`);
+  }
+  return { ...c, args: [...c.args.slice(0, at), ...c.args.slice(at + 2)] };
+}
+/**
+ * Throws (`ERROR:`) if a case could make rustc write a file other than compiletest's `--out-dir` (see above). On the
+ * `-Zunpretty` path rustc writes only the dump (stdout, or the `-o` file) and, in `write_dep_info`, the dep-info file
+ * if `--emit` asks for `dep-info` (into the out dir, or an explicit `dep-info=<path>`); other `--emit` kinds (`link`,
+ * `mir`, `metadata`) are never produced (lib.rs:281 returns before `emit_mir` / codegen). Flags that write files during
+ * `analysis` (`-Zdump-mir`, `-Zself-profile`, ...) are rejected too.
+ */
+const WRITES_FILES = /^(?:dump-mir|self-profile|dump-dep-graph|temps-dir|dump-mono-stats|llvm-time-trace|metrics-dir|nll-facts|dump-proof-tree)/;
+function assertNoOwnOutput(c: Case): void {
+  const bad = c.args.find((a, i) => {
+    const prev = c.args[i - 1];
+    if (a.startsWith("-o")) return true;
+    const emit = a.startsWith("--emit=") ? a.slice("--emit=".length) : prev === "--emit" ? a : undefined;
+    if (emit !== undefined && (emit.includes("dep-info") || emit.includes("="))) return true;
+    return (a.startsWith("-Z") && WRITES_FILES.test(a.slice(2).trimStart())) || (prev === "-Z" && WRITES_FILES.test(a));
+  });
+  if (bad !== undefined) throw new Error(`ERROR: ${c.id}: argv has \`${bad}\`, which would write outside stdout/--out-dir in a real-CLI -Zunpretty case`);
+}
+const mirMinicoreCases = (extra: string[]): Case[] =>
+  minicoreCorpus().cases.map((c0) => {
+    const c = dropHarnessOutFile(c0);
+    // The 4 tests/ui/hygiene/unpretty-debug*.rs cases pass their own `-Zunpretty=expanded,hygiene`; ours comes after it
+    // and wins (rustc_session options.rs `parse_unpretty` overwrites the slot), see above.
+    assertNoOwnOutput(c);
+    return { ...c, args: [...c.args, "-Zunpretty=mir", ...extra] };
+  });
+const MINICORE_CG_CLIF = (c: Case) => c.file.startsWith(`${CG_CLIF_EXAMPLE}/`);
+// Skips of `mir`, re-measured on the oracle with this suite's argv (lane harness-w25; every case run, see
+// docs/handoff/harness-w25.md): none. hir-tree's 4 skips (`HIR_TREE_SKIPPED`), and suggestions/fn-to-method-deeply-nested.rs
+// (182 s for hir-tree), print no `{:#?}` tree here and finish in < 2 s (issue-93775.rs, expr-stack-overflow.rs and
+// survive-peano-lesson-queue.rs print MIR; deep-try-chain-issue-153583.rs and fn-to-method-deeply-nested.rs exit 1 with
+// diagnostics). The slowest case, tests/ui/closures/supertrait-hint-cycle.rs (E0275 overflow), takes ~120 s of CPU
+// (90-100 s wall with 4 jobs; 323 s wall alone at load average 67; one pass at load average 125-144 hit 300 s): within the
+// oracle's 300 s + 4 x 300 s, cached once per oracle build, so it stays (as fn-to-method-deeply-nested.rs in hir-tree).
+// Every other case took < 6 s wall at load average ~10 (< 15 s at ~100).
+const MIR_SKIPPED: SkippedCase[] = [];
+// Unstable cases of `mir` (lane harness-w25): the oracle was run twice on every case (and these a third and fourth time);
+// these 14 differed, each only in `thread 'rustc' (<tid>) panicked`: rustc ICEs on them with this argv (no compiletest
+// flags: broken-MIR validation in the simd and mir/validate tests, elaborate_box_derefs, CTFE of `do_not_const_check`, a
+// typeck `bug!` in move-expr/name-resolution.rs, track-diagnostics' deliberate ICE), and the panic message names the OS
+// thread id. difftest's pattern detection
+// (scripts/lib/unstable.ts) finds all 14 too; the list documents them. Every other case's outputs were identical.
+const MIR_ICE_TID = "the oracle ICEs with this argv; the panic message names its OS thread id (`thread 'rustc' (<tid>) panicked`)";
+const MIR_UNSTABLE: UnstableCase[] = [
+  "tests/ui/borrowck/borrowck-describe-field-generic-param-owned-box.rs",
+  "tests/ui/consts/const-eval/do_not_const_check.rs",
+  "tests/ui/mir/validate/noncleanup-cleanup.rs",
+  "tests/ui/mir/validate/noncleanup-resume.rs",
+  "tests/ui/mir/validate/noncleanup-terminate.rs",
+  "tests/ui/move-expr/name-resolution.rs",
+  "tests/ui/simd/intrinsic/generic-arithmetic-saturating-2.rs",
+  "tests/ui/simd/intrinsic/generic-gather-scatter.rs",
+  "tests/ui/simd/intrinsic/generic-select.rs",
+  "tests/ui/simd/intrinsic/generic-shuffle.rs",
+  "tests/ui/simd/intrinsic/inlining-issue67557-ice.rs",
+  "tests/ui/simd/masked-load-store-build-fail.rs",
+  "tests/ui/simd/shuffle.rs",
+  "tests/ui/track-diagnostics/track.rs",
+].map((id) => ({ id, reason: MIR_ICE_TID }));
+const mirCorpus = (): string[] => {
+  const skip = new Set(MIR_SKIPPED.map((k) => k.id));
+  return corpus("tests/ui").filter((f) => !skip.has(f));
+};
+const M4C_THIR_DIRS = [...M3_UI_DIRS, "tests/ui/thir-print"];
+// Unstable cases of `thir-tree` (lane harness-w25): the oracle was run twice on every case; these 9 differed. 8 are
+// thirdump-ui's (`M3_UI_UNSTABLE`): the two `-Zwrite-long-types-to-disk=yes` tests and six `#old` revisions that ICE
+// (thread id); the ninth, trait-bound-holds-for-ty-error-140303.rs#old, ICEs only on this path (the probe stops before).
+// Every other case's two outputs were identical. difftest's pattern detection finds all 9 too.
+const THIR_TREE_ICE_TID = "the oracle ICEs; the panic message names its OS thread id (`thread 'rustc' (<tid>) panicked`)";
+const THIR_TREE_UNSTABLE: UnstableCase[] = [
+  ...M3_UI_UNSTABLE.map((k) => (k.reason === M3_UI_LONG_TYPE ? k : { id: k.id, reason: THIR_TREE_ICE_TID })),
+  { id: "tests/ui/traits/error-reporting/trait-bound-holds-for-ty-error-140303.rs#old", reason: THIR_TREE_ICE_TID },
+].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+let thirTreeMemo: Case[] | undefined;
+function thirTreeCases(): Case[] {
+  return (thirTreeMemo ??= m3UiCorpus(M4C_THIR_DIRS).cases.map((c0) => {
+    const c = dropHarnessOutFile(c0);
+    const own = hasUnpretty(c.args);
+    if (own && !c.file.startsWith("tests/ui/thir-print/")) throw new Error(`ERROR: ${c.id}: own -Zunpretty outside tests/ui/thir-print`);
+    assertNoOwnOutput(c);
+    return own ? c : { ...c, args: [...c.args, "-Zunpretty=thir-tree"] };
+  }));
+}
+SUITES.push(
+  {
+    name: "mir-minicore",
+    milestone: "M4c",
+    description:
+      "rustc -Zunpretty=mir (the whole analysis, then optimized MIR / mir_for_ctfe + promoteds of every mir_keys item, allocations with their AllocIds) on the tydump-minicore cases, argv as tydump-minicore minus compiletest's `-o` (D14)",
+    mode: "single",
+    timeoutMs: 60_000,
+    oracleTimeoutMs: 300_000,
+    cases: () => mirMinicoreCases([]),
+    skipped: () => minicoreCorpus().skipped,
+    oracle: ([c]) => oracleRustcCmd(c!.args),
+    subject: ([c]) => [...bunCmd("src/rust_ts/main.ts"), ...c!.args],
+    subsets: { cg_clif: MINICORE_CG_CLIF },
+  },
+  {
+    name: "mir-o0",
+    milestone: "M4c",
+    description: "mir-minicore with -Zmir-opt-level=0 (no level-1 MIR passes; UB checks stay on); report only",
+    mode: "single",
+    timeoutMs: 60_000,
+    oracleTimeoutMs: 300_000,
+    cases: () => mirMinicoreCases(["-Zmir-opt-level=0"]),
+    skipped: () => minicoreCorpus().skipped,
+    oracle: ([c]) => oracleRustcCmd(c!.args),
+    subject: ([c]) => [...bunCmd("src/rust_ts/main.ts"), ...c!.args],
+    subsets: { cg_clif: MINICORE_CG_CLIF },
+  },
+  {
+    name: "mir",
+    milestone: "M4c",
+    description:
+      "rustc -Zunpretty=mir (as mir-minicore) on every .rs in tests/ui with std injected, args as hir-tree (--target x86_64-unknown-linux-gnu --sysroot <oracle sysroot>, edition from directives) plus -Zwrite-long-types-to-disk=no",
+    mode: "single",
+    timeoutMs: 60_000,
+    oracleTimeoutMs: 300_000,
+    cases: () => mirCorpus().map((f) => pinSessionEnv({ id: f, file: f, args: [...stdArgs(f), "-Zwrite-long-types-to-disk=no", "-Zunpretty=mir", f], env: NOCORE_ENV })),
+    skipped: () => MIR_SKIPPED,
+    unstable: () => MIR_UNSTABLE,
+    oracle: ([c]) => oracleRustcCmd(c!.args),
+    subject: ([c]) => [...bunCmd("src/rust_ts/main.ts"), ...c!.args],
+  },
+  {
+    name: "thir-tree",
+    milestone: "M4c",
+    description:
+      "rustc -Zunpretty=thir-tree (the whole analysis, then the THIR tree of every body owner) on the thirdump-ui cases (tests/ui/typeck, tests/ui/traits, #[rustc_dump_*] tests, tests/ui/thir-print with their own -Zunpretty) with compiletest's UI-test argv minus its `-o` (D14); report only",
+    mode: "single",
+    timeoutMs: 60_000,
+    oracleTimeoutMs: M3_UI_ORACLE_TIMEOUT_MS,
+    cases: thirTreeCases,
+    skipped: () => m3UiCorpus(M4C_THIR_DIRS).skipped,
+    oracle: ([c]) => oracleRustcCmd(c!.args),
+    subject: ([c]) => [...bunCmd("src/rust_ts/main.ts"), ...c!.args],
+    subsets: { "typeck+traits": inDirs(M3_UI_DIRS), rustc_dump: (c) => uiDumpTests().has(c.file), "thir-print": inDirs(["tests/ui/thir-print"]) },
+    blessed: (c) => uiBlessed(c.id, c.args),
+    unstable: () => THIR_TREE_UNSTABLE,
+  },
+);
+
 export function suite(name: string): Suite {
   const s = SUITES.find((s) => s.name === name);
   if (!s) throw new Error(`unknown suite '${name}' (have: ${SUITES.map((s) => s.name).join(", ")})`);
