@@ -5,14 +5,15 @@
 import { unported } from "../std/panic.ts";
 import type { Body } from "../rustc_middle/mir/mod.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
-import { MirPass, type PassCtx, type PassPolicy } from "./pass_manager.ts";
+import { MirPass, type PassCtx, PassPolicy } from "./pass_manager.ts";
 
 // stub: compiler/rustc_mir_transform/src/ref_prop.rs:73 ReferencePropagation (lane mt-opt2)
 export class ReferencePropagation extends MirPass {
   readonly type_name = "rustc_mir_transform::ref_prop::ReferencePropagation";
 
-  policy(_ctx: PassCtx): PassPolicy {
-    return unported("rustc_mir_transform::ref_prop::ReferencePropagation (pass not ported)");
+  // rustc: compiler/rustc_mir_transform/src/ref_prop.rs:76 policy
+  policy(ctx: PassCtx): PassPolicy {
+    return PassPolicy.optional(ctx.mir_opt_level() >= 2);
   }
 
   run_pass(_tcx: TyCtxt, _body: Body): void {
