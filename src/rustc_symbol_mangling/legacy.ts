@@ -7,9 +7,8 @@
 // - `SymbolPath`'s `String`s hold only ASCII (the sanitizer in `write_str` escapes everything else), so
 //   `temp_buf.len()` is `.length`.
 // - `Hash64` is a `bigint`; `{hash:016x}` is its zero-padded hex.
-// - `get_symbol_hash` stops at the first `StableHash` impl that is not ported: `Ty: StableHash` (rustc_middle's
-//   `WithCachedTypeInfo<TyKind>` / `TyKind` derive, rustc_type_ir). The calls after it are kept in order; they
-//   would need `PolyFnSig: StableHash` and `GenericArgsRef: StableHash` (impls_ty.rs) as well.
+// - `get_symbol_hash` hashes `Ty` / `PolyFnSig` / `GenericArgsRef` with the generated derives (rustc_middle
+//   stable_hash.gen.ts, rustc_type_ir ty_stable_hash.gen.ts) and the impls_ty.rs impls (lane misc-blockers).
 import { StableHasher, stable_hash_Discriminant } from "../rustc_data_structures/stable_hash.ts";
 import { Hash64 } from "../rustc_hashes/lib.ts";
 import { type DisambiguatedDefPathData, display_DefPathData } from "../rustc_hir_id/definitions.ts";
@@ -21,6 +20,9 @@ import type { Generics } from "../rustc_middle/ty/generics.ts";
 import { type Instance, Instance as InstanceC } from "../rustc_middle/ty/instance.ts";
 import type { List } from "../rustc_middle/ty/list.ts";
 import { RawList } from "../rustc_middle/ty/list.ts";
+import { stable_hash_GenericArg, stable_hash_RawList } from "../rustc_middle/ty/impls_ty.ts";
+import { stable_hash_Ty } from "../rustc_middle/stable_hash.gen.ts";
+import { stable_hash_Binder, stable_hash_FnSig } from "../rustc_type_ir/ty_stable_hash.gen.ts";
 import { type Ty, TypingEnv } from "../rustc_middle/ty/mod.ts";
 import { type Print, type PrintResult, PRINT_OK, PrettyPrinter, print_Binder, print_ExistentialPredicate, print_GenericArg, print_ParamConst, print_Ty } from "../rustc_middle/ty/print/mod.ts";
 import { display_Ty } from "../rustc_middle/ty/print/pretty.ts";
@@ -45,7 +47,7 @@ import type { Const, Region } from "../rustc_type_ir/sty/mod.ts";
 import { Unnormalized } from "../rustc_type_ir/unnormalized.ts";
 import { TypeVisitableExt } from "../rustc_type_ir/visit.ts";
 import { debug_list, PLAIN, PRETTY } from "../std/fmt.ts";
-import { assert, assert_eq, panic, unported, unwrap } from "../std/panic.ts";
+import { assert, assert_eq, panic, unwrap } from "../std/panic.ts";
 import { fold_GenericArg, debug_GenericArg } from "../rustc_middle/ty/generic_args.ts";
 
 /** PORT: the `TypeFoldable` impl fns of `TraitRef` / `ExistentialPredicate` (generated) as D4 descriptors. */
@@ -58,12 +60,6 @@ const d_ExistentialPredicate: TypeFoldable<ExistentialPredicate> = {
 
 /** `mem::discriminant(&instance.def)` of `InstanceKind` (declaration order, `isize`). */
 const InstanceKind__discriminant = { Item: 0, Intrinsic: 1, LlvmIntrinsic: 2, Virtual: 3, Shim: 4 } as const;
-
-/** PORT: `unported(..)` typed `void` so the hashing steps after a stop keep their control flow (TS narrows nothing in
- * code it considers unreachable). */
-function stable_hash_unported(what: string): void {
-  unported(what);
-}
 
 /** `Result<(), fmt::Error>::unwrap()` */
 function unwrap_print(r: PrintResult): void {
@@ -201,20 +197,17 @@ function get_symbol_hash(
     // ought to be the same for every reference anyway.
     assert(!TypeVisitableExt.has_erasable_regions(item_type, fold_Ty), "assertion failed: !item_type.has_erasable_regions()");
     hcx.while_hashing_spans(false, (hcx) => {
-      // PORT: `item_type.stable_hash(hcx, &mut hasher)`: `Ty: StableHash` is not ported (header).
-      stable_hash_unported("rustc_middle::ty: StableHash for Ty (WithCachedTypeInfo<TyKind>), legacy get_symbol_hash");
+      stable_hash_Ty(item_type, hcx, hasher);
 
       // If this is a function, we hash the signature as well.
       // This is not *strictly* needed, but it may help in some
       // situations, see the `run-make/a-b-a-linker-guard` test.
       if (item_type.kind().$ === "FnDef") {
-        // PORT: `item_type.fn_sig(tcx).stable_hash(hcx, &mut hasher)`: `PolyFnSig: StableHash` is not ported.
-        stable_hash_unported("rustc_middle::ty: StableHash for PolyFnSig, legacy get_symbol_hash");
+        stable_hash_Binder(item_type.fn_sig(tcx), hcx, hasher, stable_hash_FnSig);
       }
 
       // also include any type parameters (for generic items)
-      // PORT: `args.stable_hash(hcx, &mut hasher)`: `GenericArgsRef: StableHash` (impls_ty.rs) is not ported.
-      stable_hash_unported(`rustc_middle::ty::impls_ty: StableHash for GenericArgsRef (${args.length} args), legacy get_symbol_hash`);
+      stable_hash_RawList(args, hcx, hasher, stable_hash_GenericArg);
 
       if (instantiating_crate !== undefined) {
         stable_hash_StableCrateId(tcx.stable_crate_id(instantiating_crate), hcx, hasher);

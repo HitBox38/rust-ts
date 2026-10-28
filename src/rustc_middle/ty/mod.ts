@@ -25,6 +25,7 @@ import type { DefKind, Res } from "../../rustc_hir/def.ts";
 import { type Debug, debug_list, debug_tuple, type Fmt, PLAIN } from "../../std/fmt.ts";
 import { panic } from "../../std/panic.ts";
 import { Interned } from "../../rustc_data_structures/intern.ts";
+import type { StableHashCtxt, StableHasher } from "../../rustc_data_structures/stable_hash.ts";
 import { unported_methods } from "../../rust_ts/stubs.ts";
 import type { DebruijnIndex, TermKind, TyKind, TypeFlags } from "../../rustc_type_ir/decls.ts";
 import type { FallibleTypeFolder, TypeFoldable, TypeFolder } from "../../rustc_type_ir/fold.ts";
@@ -785,7 +786,17 @@ export function debug_Term(v: Term, _f: Fmt): string {
   }
 }
 
-// rustc-skip: compiler/rustc_middle/src/ty/mod.rs:600 stable_hash StableHash impl (incremental, M5)
+// PORT (init order): the generated StableHash module reaches most of rustc_middle at load, so it is required lazily
+// (the precedent of the `tyir_*` accessors in rustc_middle ty/mod.ts).
+function tyir_ty_stable_hash(): typeof import("../../rustc_type_ir/ty_stable_hash.gen.ts") {
+  return (tyir_ty_stable_hash__m ??= require("../../rustc_type_ir/ty_stable_hash.gen.ts") as typeof import("../../rustc_type_ir/ty_stable_hash.gen.ts"));
+}
+var tyir_ty_stable_hash__m: typeof import("../../rustc_type_ir/ty_stable_hash.gen.ts") | undefined;
+// rustc: compiler/rustc_middle/src/ty/mod.rs:600 stable_hash
+/** `impl<'tcx> StableHash for Term<'tcx>` */
+export function stable_hash_Term(self: Term, hcx: StableHashCtxt, hasher: StableHasher): void {
+  tyir_ty_stable_hash().stable_hash_TermKind(Term.kind(self), hcx, hasher);
+}
 
 /** D4 descriptor: `impl TypeFoldable for Term` (mod.rs:605) + `impl TypeVisitable for Term` (:624). */
 export const fold_Term: TypeFoldable<Term> = {

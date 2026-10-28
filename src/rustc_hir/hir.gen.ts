@@ -11,7 +11,7 @@ import { debug_TaggedRef, type TaggedRef } from "../rustc_data_structures/tagged
 import { clone_Res, debug_MacroKinds, debug_PerNS, debug_Res, type MacroKinds, type PerNS, type Res } from "./def.ts";
 import { debug_DotDotPos, debug_FnDeclFlags, debug_OwnerNodes } from "./hir.ts";
 import { clone_HirId, clone_OwnerId, debug_HirId, debug_ItemLocalId, debug_OwnerId, type HirId, type ItemLocalId, type OwnerId } from "../rustc_hir_id/lib.ts";
-import { decode_bool } from "../rustc_serialize/serialize.ts";
+import { type Decodable, decode_bool, decode_Option } from "../rustc_serialize/serialize.ts";
 import { debug_DefId, debug_LocalDefId, type DefId, type LocalDefId } from "../rustc_span/def_id.ts";
 import { debug_LocalExpnId, type LocalExpnId } from "../rustc_span/hygiene.ts";
 import { debug_ErrorGuaranteed, debug_Span, debug_Spanned, type ErrorGuaranteed, type Span, type SpanDecoder, type Spanned } from "../rustc_span/lib.ts";
@@ -3079,6 +3079,18 @@ export function clone_PreciseCapturingArgKind<T, U>(v: PreciseCapturingArgKind<T
       return { $: "Param", _0: clone_U(v._0) };
   }
 }
+// rustc-derive: compiler/rustc_hir/src/hir.rs:3437 Decodable for PreciseCapturingArgKind
+export function decode_PreciseCapturingArgKind<T, U, __D extends SpanDecoder = SpanDecoder>(__decoder: __D, decode_T: Decodable<T, __D>, decode_U: Decodable<U, __D>): PreciseCapturingArgKind<T, U> {
+  const __tag = __decoder.read_u8();
+  switch (__tag) {
+    case 0:
+      return { $: "Lifetime", _0: decode_T(__decoder) };
+    case 1:
+      return { $: "Param", _0: decode_U(__decoder) };
+    default:
+      return panic(`invalid enum variant tag while decoding \`PreciseCapturingArgKind\`, expected 0..2, actual ${__tag}`);
+  }
+}
 
 // rustc-type: compiler/rustc_hir/src/hir.rs:3443 PreciseCapturingArg
 export type PreciseCapturingArg = PreciseCapturingArgKind<Lifetime, PreciseCapturingNonLifetimeArg>;
@@ -3115,6 +3127,18 @@ export const RpitContext = { Trait: "Trait", TraitImpl: "TraitImpl" } as const;
 export const debug_RpitContext: Debug<RpitContext> = (v) => v;
 export function clone_RpitContext(v: RpitContext): RpitContext {
   return v;
+}
+// rustc-derive: compiler/rustc_hir/src/hir.rs:3476 Decodable for RpitContext
+export function decode_RpitContext(__decoder: SpanDecoder): RpitContext {
+  const __tag = __decoder.read_u8();
+  switch (__tag) {
+    case 0:
+      return "Trait";
+    case 1:
+      return "TraitImpl";
+    default:
+      return panic(`invalid enum variant tag while decoding \`RpitContext\`, expected 0..2, actual ${__tag}`);
+  }
 }
 
 // rustc-type: compiler/rustc_hir/src/hir.rs:3484 OpaqueTyOrigin
@@ -3153,6 +3177,20 @@ export function clone_OpaqueTyOrigin<D>(v: OpaqueTyOrigin<D>, clone_D: (v: D) =>
       return { $: "AsyncFn", parent: clone_D(v.parent), in_trait_or_impl: v.in_trait_or_impl };
     case "TyAlias":
       return { $: "TyAlias", parent: clone_D(v.parent), in_assoc_ty: v.in_assoc_ty };
+  }
+}
+// rustc-derive: compiler/rustc_hir/src/hir.rs:3484 Decodable for OpaqueTyOrigin
+export function decode_OpaqueTyOrigin<D, __D extends SpanDecoder = SpanDecoder>(__decoder: __D, decode_D: Decodable<D, __D>): OpaqueTyOrigin<D> {
+  const __tag = __decoder.read_u8();
+  switch (__tag) {
+    case 0:
+      return { $: "FnReturn", parent: decode_D(__decoder), in_trait_or_impl: decode_Option(__decoder, decode_RpitContext) };
+    case 1:
+      return { $: "AsyncFn", parent: decode_D(__decoder), in_trait_or_impl: decode_Option(__decoder, decode_RpitContext) };
+    case 2:
+      return { $: "TyAlias", parent: decode_D(__decoder), in_assoc_ty: decode_bool(__decoder) };
+    default:
+      return panic(`invalid enum variant tag while decoding \`OpaqueTyOrigin\`, expected 0..3, actual ${__tag}`);
   }
 }
 

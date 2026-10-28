@@ -311,7 +311,10 @@
       "rustc_hir::hir::CoroutineKind",
       "rustc_hir::hir::CoroutineSource",
       "rustc_hir::hir::CoroutineDesugaring",
-      "rustc_hir::hir::ImplicitSelfKind"
+      "rustc_hir::hir::ImplicitSelfKind",
+      "rustc_hir::hir::PreciseCapturingArgKind",
+      "rustc_hir::hir::OpaqueTyOrigin",
+      "rustc_hir::hir::RpitContext"
     ],
     "hand_notes": {
       "decodable_types": "crate metadata's def_keys table (rmeta decoder.rs `CrateMetadata::def_key`, lane rmeta-decoder-b)",
@@ -424,6 +427,8 @@
     "discriminant": [],
     "skip": [],
     "derive_only": true,
+    "derive_stable_hash": true,
+    "stable_hash_types": ["rustc_abi::Align", "rustc_abi::Integer", "rustc_abi::IntegerType", "rustc_abi::ScalableElt", "rustc_abi::ReprFlags", "rustc_abi::ReprOptions"],
     "derive_decodable": true,
     "decodable_types": [
       "rustc_abi::Integer",
@@ -742,7 +747,8 @@
       "compiler/rustc_middle/src/ty/consts/valtree.rs",
       "compiler/rustc_middle/src/ty/intrinsic.rs",
       "compiler/rustc_middle/src/ty/predicate.rs",
-      "compiler/rustc_middle/src/middle/deduced_param_attrs.rs"
+      "compiler/rustc_middle/src/middle/deduced_param_attrs.rs",
+      "compiler/rustc_middle/src/ty/pattern.rs"
     ],
     "class": [],
     "hand": [],
@@ -751,8 +757,25 @@
     "derive_only": true,
     "derive_stable_hash": true,
     "stable_hash_types": [
-      "rustc_middle::ty::Visibility"
+      "rustc_middle::ty::Visibility",
+      "rustc_middle::ty::Ty",
+      "rustc_middle::ty::adt::AdtDef",
+      "rustc_middle::ty::pattern::Pattern",
+      "rustc_middle::ty::consts::valtree::ValTree",
+      "rustc_middle::ty::consts::valtree::Value",
+      "rustc_middle::ty::VariantDef",
+      "rustc_middle::ty::FieldDef",
+      "rustc_middle::ty::VariantDiscr",
+      "rustc_middle::ty::VariantFlags",
+      "rustc_middle::ty::adt::AdtFlags",
+      "rustc_middle::ty::RestrictionKind"
     ],
+    "stable_hash_access": {
+      "rustc_middle::ty::Ty::0": { "expr": "$v" },
+      "rustc_middle::ty::adt::AdtDef::0": { "expr": "$v.internee" },
+      "rustc_middle::ty::pattern::Pattern::0": { "expr": "$v.internee" },
+      "rustc_middle::ty::consts::valtree::ValTree::0": { "expr": "$v.internee" }
+    },
     "derive_decodable": true,
     "decodable_types": [
       "rustc_middle::ty::Visibility",
@@ -1137,7 +1160,8 @@
       "compiler/rustc_middle/src/ty/consts/kind.rs",
       "compiler/rustc_middle/src/ty/generic_args.rs",
       "compiler/rustc_middle/src/ty/adjustment.rs",
-      "compiler/rustc_middle/src/ty/assoc.rs"
+      "compiler/rustc_middle/src/ty/assoc.rs",
+      "compiler/rustc_middle/src/ty/impls_ty.rs"
     ],
     "class": [],
     "hand": ["rustc_type_ir::sty::Region", "rustc_type_ir::sty::consts::Const", "rustc_middle::ty::generic_args::GenericArg", "rustc_middle::ty::predicate::Predicate", "rustc_middle::ty::predicate::Clause"],
@@ -1172,6 +1196,13 @@
     "derive_type_fold": true,
     "derive_decodable": true,
     "decodable_import_gen": ["rustc_middle/ty/assoc.ts", "rustc_middle/ty/consts.ts", "rustc_middle/ty/sty.ts"],
+    "derive_stable_hash": true,
+    "stable_hash_module": "ty_stable_hash",
+    "stable_hash_access": {
+      "rustc_type_ir::sty::Region::0": { "expr": "$v.internee" },
+      "rustc_type_ir::sty::consts::Const::0": { "expr": "$v" }
+    },
+    "stable_hash_types": ["TyKind", "Binder", "FnSigTys", "FnHeader", "UnsafeBinderInner", "IsRigid", "Alias", "AliasTyKind", "BoundVarIndexKind", "BoundTy", "Placeholder", "ParamTy", "DebruijnIndex", "UniverseIndex", "BoundVar", "BoundTyKind", "FnSigKind", "Const", "Region", "ConstKind", "ParamConst", "BoundConst", "UnevaluatedConst", "ValTreeKind", "ExprKind", "EarlyParamRegion", "LateParamRegionKind", "LateParamRegion", "BoundRegion", "BoundRegionKind", "GenericArgKind", "TermKind", "PatternKind", "ExistentialPredicate", "ExistentialTraitRef", "ExistentialProjection", "BoundVariableKind", "FnSig", "Expr", "AliasConstKind"],
     "decoders": {
       "Decodable_NoContext": { "type": "TyDecoder", "import": "src/rustc_middle/ty/codec.ts", "note": "lane rmeta-ty: upstream `impl<I: Interner, D: Decoder> Decodable<D>` with `where I::Ty: Decodable<D>, ..` bounds that only a `TyDecoder` meets (codec.rs); every caller decodes with a TyDecoder" }
     }

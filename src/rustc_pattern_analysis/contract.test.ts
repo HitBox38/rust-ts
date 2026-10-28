@@ -169,16 +169,16 @@ test("Slice: the doc's splitting example, arrays and `Slice::new`", () => {
   const fixed = (n: number) => Slice.new(undefined, { $: "FixedLen", _0: n });
   expect(varlen(0, 0).split([fixed(2)]).map(([p, s]) => `${p} ${s.arity()}`)).toEqual(["Unseen 0", "Unseen 1", "Seen 2", "Unseen 3"]);
   // On an array there is one output slice: `max_slice` (`[_, ..]` here), capped at the array length when it reaches it.
-  const array3 = Slice.new(3, { $: "VarLen", _0: 0, _1: 0 });
+  const array3 = Slice.new(3n, { $: "VarLen", _0: 0, _1: 0 });
   expect(array3.split([]).map(([p, s]) => `${p} ${debug_Slice(s, PLAIN)}`)).toEqual([
     "Unseen Slice { array_len: Some(3), kind: VarLen(1, 0) }",
   ]);
-  expect(array3.split([Slice.new(3, { $: "FixedLen", _0: 3 })]).map(([p, s]) => `${p} ${debug_Slice(s, PLAIN)}`)).toEqual([
+  expect(array3.split([Slice.new(3n, { $: "FixedLen", _0: 3 })]).map(([p, s]) => `${p} ${debug_Slice(s, PLAIN)}`)).toEqual([
     "Seen Slice { array_len: Some(3), kind: FixedLen(3) }",
   ]);
   // A `..` of length 0 in an array is fixed-length; a longer pattern than the array is a bug.
-  expect(debug_Slice(Slice.new(2, { $: "VarLen", _0: 1, _1: 1 }), PLAIN)).toBe("Slice { array_len: Some(2), kind: FixedLen(2) }");
-  expect(() => Slice.new(1, { $: "VarLen", _0: 1, _1: 1 })).toThrow("Slice pattern of length 2 longer than its array length 1");
+  expect(debug_Slice(Slice.new(2n, { $: "VarLen", _0: 1, _1: 1 }), PLAIN)).toBe("Slice { array_len: Some(2), kind: FixedLen(2) }");
+  expect(() => Slice.new(1n, { $: "VarLen", _0: 1, _1: 1 })).toThrow("Slice pattern of length 2 longer than its array length 1");
   expect(varlen(1, 1).is_covered_by(varlen(0, 0))).toBe(true);
   expect(varlen(0, 0).is_covered_by(varlen(1, 1))).toBe(false);
 });
@@ -218,8 +218,8 @@ test("ConstructorSet::split: present / missing / missing_empty", () => {
   s = ConstructorSet.split<CxTypes>({ $: "NoConstructors" }, []);
   expect(show(s.missing_empty)).toEqual(["Never"]);
   // `all_empty`
-  expect(ConstructorSet.all_empty({ $: "Slice", array_len: 1, subtype_is_empty: true })).toBe(true);
-  expect(ConstructorSet.all_empty({ $: "Slice", array_len: 0, subtype_is_empty: true })).toBe(false);
+  expect(ConstructorSet.all_empty({ $: "Slice", array_len: 1n, subtype_is_empty: true })).toBe(true);
+  expect(ConstructorSet.all_empty({ $: "Slice", array_len: 0n, subtype_is_empty: true })).toBe(false);
   expect(ConstructorSet.all_empty({ $: "Variants", variants: ["Empty"], non_exhaustive: false })).toBe(true);
 });
 
