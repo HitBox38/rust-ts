@@ -1055,7 +1055,7 @@ export class ValidityVisitor<M extends Machine = Machine> extends ValueVisitor_p
     for (const [offset, size] of data_bytes._0) {
       assert(
         offset.bytes() >= padding_cleared_until.bytes(),
-        `reset_padding on ${display_Ty(mplace.layout.ty)}: previous field ended at offset ${padding_cleared_until.sub(start_offset).bytes()}, next field starts at ${offset.sub(start_offset).bytes()} (and has a size of ${size.bytes()} bytes)`,
+        () => `reset_padding on ${display_Ty(mplace.layout.ty)}: previous field ended at offset ${padding_cleared_until.sub(start_offset).bytes()}, next field starts at ${offset.sub(start_offset).bytes()} (and has a size of ${size.bytes()} bytes)`,
       );
       if (offset.bytes() > padding_cleared_until.bytes()) {
         // We found padding. Adjust the range to be relative to `alloc`, and make it uninit.
@@ -1246,7 +1246,7 @@ export class ValidityVisitor<M extends Machine = Machine> extends ValueVisitor_p
   // rustc: compiler/rustc_const_eval/src/interpret/validity.rs:1337 visit_variantless
   override visit_variantless(val: PlaceTy): InterpResult {
     const ty = val.layout.ty;
-    assert(ty.is_enum(), `encountered non-enum variantless type \`${display_Ty(ty)}\``);
+    assert(ty.is_enum(), () => `encountered non-enum variantless type \`${display_Ty(ty)}\``);
     return throw_validation_failure(
       this.path,
       `encountered a value of zero-variant enum \`${display_Ty(ty)}\``,

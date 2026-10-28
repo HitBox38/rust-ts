@@ -1379,7 +1379,7 @@ function bool_to_simd_element(b: boolean, size: Size): Scalar {
 // rustc: compiler/rustc_const_eval/src/interpret/intrinsics/simd.rs:890 simd_element_to_bool
 function simd_element_to_bool(elem: ImmTy): InterpResult<boolean> {
   const k = elem.layout.ty.kind().$;
-  assert(k === "Int" || k === "Uint", `SIMD mask element type must be an integer, but this is \`${display_Ty(elem.layout.ty)}\``);
+  assert(k === "Int" || k === "Uint", () => `SIMD mask element type must be an integer, but this is \`${display_Ty(elem.layout.ty)}\``);
   const val = Scalar.to_int(Immediate.to_scalar(elem.imm), elem.layout.size);
   if (val.$ === "Err") return val;
   switch (val._0) {

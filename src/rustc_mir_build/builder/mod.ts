@@ -1228,7 +1228,7 @@ export function parse_float_into_scalar(num_: Symbol, float_ty: FloatTy, neg: bo
 
       assert(
         rust_f === f.to_bits(),
-        rust_f === f.to_bits()
+        () => rust_f === f.to_bits()
           ? ""
           : `apfloat::ieee::Double gave different result for \`${display_f64(f64_from_bits(rust_f))}\`: ${f.fmt()}(0x${f.to_bits().toString(16)}) vs Rust's ${Double.from_bits(rust_f).fmt()}(0x${rust_f.toString(16)})`,
       );

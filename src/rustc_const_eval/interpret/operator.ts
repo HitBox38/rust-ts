@@ -655,7 +655,7 @@ InterpCx.prototype.binary_op = function (this: InterpCx, bin_op: BinOp, left: Im
     // the RHS type can be different, e.g. for shifts -- but it has to be integral, too
     assert(
       right.layout.ty.is_integral(),
-      `Unexpected types for BinOp: ${display_Ty(left.layout.ty)} ${debug_BinOp(bin_op, PLAIN)} ${display_Ty(right.layout.ty)}`,
+      () => `Unexpected types for BinOp: ${display_Ty(left.layout.ty)} ${debug_BinOp(bin_op, PLAIN)} ${display_Ty(right.layout.ty)}`,
     );
 
     return this.binary_int_op(bin_op, left, right);
@@ -665,7 +665,7 @@ InterpCx.prototype.binary_op = function (this: InterpCx, bin_op: BinOp, left: Im
     // (Even when both sides are pointers, their type might differ, see issue #91636)
     assert(
       right.layout.ty.is_any_ptr() || right.layout.ty.is_integral(),
-      `Unexpected types for BinOp: ${display_Ty(left.layout.ty)} ${debug_BinOp(bin_op, PLAIN)} ${display_Ty(right.layout.ty)}`,
+      () => `Unexpected types for BinOp: ${display_Ty(left.layout.ty)} ${debug_BinOp(bin_op, PLAIN)} ${display_Ty(right.layout.ty)}`,
     );
 
     return this.binary_ptr_op(bin_op, left, right);

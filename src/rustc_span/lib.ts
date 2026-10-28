@@ -450,7 +450,7 @@ export class RealFileName {
   path(scope: RemapPathScopeComponents): PathBuf {
     assert(
       RemapPathScopeComponents.count_ones(scope) === 1,
-      `one and only one scope should be passed to \`RealFileName::path\`: ${debug_RemapPathScopeComponents(scope, { alternate: false })}`,
+      () => `one and only one scope should be passed to \`RealFileName::path\`: ${debug_RemapPathScopeComponents(scope, { alternate: false })}`,
     );
     const local_name = this.local;
     if (!RemapPathScopeComponents.contains(this.scopes, scope) && local_name !== undefined) {
@@ -474,7 +474,7 @@ export class RealFileName {
   embeddable_name(scope: RemapPathScopeComponents): [PathBuf, PathBuf] {
     assert(
       RemapPathScopeComponents.count_ones(scope) === 1,
-      `one and only one scope should be passed to \`RealFileName::embeddable_path\`: ${debug_RemapPathScopeComponents(scope, { alternate: false })}`,
+      () => `one and only one scope should be passed to \`RealFileName::embeddable_path\`: ${debug_RemapPathScopeComponents(scope, { alternate: false })}`,
     );
     const local_name = this.local;
     if (!RemapPathScopeComponents.contains(this.scopes, scope) && local_name !== undefined) {

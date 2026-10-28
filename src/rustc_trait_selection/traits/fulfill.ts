@@ -799,7 +799,7 @@ FulfillProcessor.prototype.process_obligation = function (
         const c1 = pred._0;
         const c2 = pred._1;
         const tcx = this.selcx.tcx();
-        assert(tcx.features().generic_const_exprs(), `\`ConstEquate\` without a feature gate: ${debug_Const_plain(c1)} ${debug_Const_plain(c2)}`);
+        assert(tcx.features().generic_const_exprs(), () => `\`ConstEquate\` without a feature gate: ${debug_Const_plain(c1)} ${debug_Const_plain(c2)}`);
         // FIXME: we probably should only try to unify abstract constants
         // if the constants depend on generic parameters.
         //

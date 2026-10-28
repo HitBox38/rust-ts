@@ -425,7 +425,7 @@ export class Dominators<Node extends number> {
         const a = kind._0.time[a0]!;
         const b = kind._0.time[b0]!;
         // PORT: `{b:?}` is the shadowing `Time` binding, as upstream.
-        assert(b.start !== 0, `node ${debug_Time(b)} is not reachable`);
+        assert(b.start !== 0, () => `node ${debug_Time(b)} is not reachable`);
         return a.start <= b.start && b.finish <= a.finish;
       }
     }
@@ -445,7 +445,7 @@ export class Dominators<Node extends number> {
       case "General": {
         const a = kind._0.time[a0]!;
         const b = kind._0.time[b0]!;
-        assert(b.start !== 0, `node ${debug_Time(b)} is not reachable`);
+        assert(b.start !== 0, () => `node ${debug_Time(b)} is not reachable`);
         return a.start < b.start && b.finish < a.finish;
       }
     }

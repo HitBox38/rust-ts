@@ -217,7 +217,7 @@ export class CoroutineSavedLocals {
   // rustc: compiler/rustc_mir_transform/src/coroutine/layout.rs:203 renumber_bitset
   renumber_bitset(input: DenseBitSet<Local>): DenseBitSet<CoroutineSavedLocal> {
     if (!this.deref().superset(input)) {
-      assert(false, `${debug_DenseBitSet(this._0, PLAIN, debug_Local)} not a superset of ${debug_DenseBitSet(input, PLAIN, debug_Local)}`);
+      assert(false, () => `${debug_DenseBitSet(this._0, PLAIN, debug_Local)} not a superset of ${debug_DenseBitSet(input, PLAIN, debug_Local)}`);
     }
     const out = DenseBitSet.new_empty<CoroutineSavedLocal>(this.deref().count());
     for (const [saved_local, local] of this.iter_enumerated()) {
