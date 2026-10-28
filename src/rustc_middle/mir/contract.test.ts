@@ -1,6 +1,6 @@
 // The MIR contract (lane mir-contract, docs/handoff/mir-contract.md; plan-m4 D3 / D4) against upstream:
 // - every fn of rustc_middle mir/{mod, basic_blocks, traversal, statement, terminator, consts, query, coverage, syntax,
-//   visit, pretty}.rs and mir/interpret/{mod, allocation, allocation/init_mask, allocation/provenance_map, value, pointer,
+//   visit, pretty, graphviz, generic_graph}.rs and mir/interpret/{mod, allocation, allocation/init_mask, allocation/provenance_map, value, pointer,
 //   error, queries}.rs is ported (`// rustc:` / `// rustc-skip:` marker) or declared as a stub (`// stub: <path>:<line>
 //   <name> (lane <lane>)` over a declaration whose body calls `unported(..)` with a path in the fn's own module), never
 //   both; visit.rs's `make_mir_visitor!` fns are declared once per expansion (`Visitor`, `MutVisitor`; D4);
@@ -52,6 +52,9 @@ const FILES: [string, string][] = [
   ["syntax.rs", "rustc_middle::mir::syntax::"],
   ["visit.rs", "rustc_middle::mir::visit::"],
   ["pretty.rs", "rustc_middle::mir::pretty::"],
+  // lane driver-m4 (wave 25): `-Zunpretty=mir-cfg`
+  ["graphviz.rs", "rustc_middle::mir::graphviz::"],
+  ["generic_graph.rs", "rustc_middle::mir::generic_graph::"],
   ["interpret/mod.rs", "rustc_middle::mir::interpret::"],
   ["interpret/allocation.rs", "rustc_middle::mir::interpret::allocation::"],
   ["interpret/allocation/init_mask.rs", "rustc_middle::mir::interpret::allocation::init_mask::"],
@@ -125,7 +128,7 @@ test("every fn of the mir files is ported or declared as a stub (visit.rs: once 
     }
   }
   for (const d of decls) expect(FILES.some(([f]) => f === d.path)).toBe(true);
-  expect(total).toBe(715);
+  expect(total).toBe(723); // 715 + graphviz.rs 4 + generic_graph.rs 4 (lane driver-m4)
 });
 
 test("stubs per fill lane (the split table of docs/handoff/mir-contract.md)", () => {
@@ -148,6 +151,7 @@ const ENTRIES = [
   "src/rustc_middle/mir/traversal.ts",
   "src/rustc_middle/mir/visit.ts",
   "src/rustc_middle/mir/pretty.ts",
+  "src/rustc_middle/mir/graphviz.ts",
   "src/rustc_middle/mir/coverage.ts",
   "src/rustc_middle/mir/interpret/mod.ts",
   "src/rustc_middle/mir/interpret/allocation.ts",
