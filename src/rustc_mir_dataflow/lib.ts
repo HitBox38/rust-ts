@@ -1,7 +1,7 @@
 // Port of compiler/rustc_mir_dataflow/src/lib.rs (lane dataflow-contract, plan-m4 D5). The framework (framework/*),
 // move_paths / drop_flag_effects / points / un_derefer / debuginfo (dataflow-move-paths), impls/*, rustc_peek and
-// pretty (dataflow-impls) are ported; framework/graphviz.rs (dataflow-graphviz) and value_analysis.rs (mt-opt2-a) are
-// still declared with `unported` stubs naming their fill lanes (docs/handoff/dataflow-contract.md). `provide` is called
+// pretty (dataflow-impls) and value_analysis.rs (mt-opt2-b) are ported; framework/graphviz.rs (dataflow-graphviz) is
+// still declared with `unported` stubs naming its fill lane (docs/handoff/dataflow-contract.md). `provide` is called
 // from rustc_interface passes.ts `default_query_providers`.
 //
 // `mod diagnostics;` (diagnostics.rs: `#[derive(Diagnostic)]` structs for rustc_peek) has no fns: the derives are

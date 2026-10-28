@@ -741,7 +741,8 @@
       "compiler/rustc_middle/src/middle/resolve_bound_vars.rs",
       "compiler/rustc_middle/src/ty/consts/valtree.rs",
       "compiler/rustc_middle/src/ty/intrinsic.rs",
-      "compiler/rustc_middle/src/ty/predicate.rs"
+      "compiler/rustc_middle/src/ty/predicate.rs",
+      "compiler/rustc_middle/src/middle/deduced_param_attrs.rs"
     ],
     "class": [],
     "hand": [],
@@ -779,7 +780,9 @@
       "rustc_middle::middle::resolve_bound_vars::ObjectLifetimeDefault",
       "rustc_middle::ty::ImplTraitHeader",
       "rustc_middle::ty::consts::valtree::Value",
-      "rustc_middle::ty::intrinsic::IntrinsicDef"
+      "rustc_middle::ty::intrinsic::IntrinsicDef",
+      "rustc_middle::middle::deduced_param_attrs::UsageSummary",
+      "rustc_middle::middle::deduced_param_attrs::DeducedParamAttrs"
     ],
     "decodable_construct": {
       "rustc_middle::ty::generics::Generics": { "expr": "Generics.from_decoded($0, $1, $2, $3, $4, $5)", "import": ["Generics"] },
@@ -788,12 +791,13 @@
       "rustc_middle::ty::FieldDef": { "expr": "new FieldDef($0, $1, $2, $3, $4, $5)", "import": ["FieldDef"] },
       "rustc_middle::ty::VariantDef": { "expr": "new VariantDef($0, $1, $2, $3, $4, $5, $6)", "import": ["VariantDef"] },
       "rustc_middle::ty::adt::AdtFlags": { "expr": "$0 as AdtFlags" },
+      "rustc_middle::middle::deduced_param_attrs::UsageSummary": { "expr": "$0 as UsageSummary" },
       "rustc_middle::ty::adt::AdtDefData": { "expr": "new AdtDefData($0, $1, $2, $3)", "import": ["AdtDefData"] },
       "rustc_middle::ty::ImplTraitHeader": { "expr": "new ImplTraitHeader($0, $1, $2, $3)", "import": ["ImplTraitHeader"] }
     },
     "hand_notes": {
       "*": "rustc_middle's types are hand-written; this set only generates rustc_middle/stable_hash.gen.ts (derive(StableHash)) for the ported query value types listed in stable_hash_types (re-fed queries, calls.rs query_feed).",
-      "decodable_types": "crate metadata's visibility and mut_restriction tables (rmeta decoder.rs `CrateMetadata::get_visibility` / `print_item`, lane rmeta-decoder-a; `get_mut_restriction`, merge-w15b), RPITIT data (`get_associated_item`) and the `adt_destructor` / `adt_async_destructor` tables (merge-w15b), module children (`CrateMetadata::get_module_children` reexports / `get_ambig_module_children`) and `ty::Generics` (the `generics_of` extern provider; lane decode-elems), `ty::ImplTraitHeader` (the `impl_trait_header` extern provider, old-solver candidate assembly over extern impls; merge-w18c); generates rustc_middle/decodable.gen.ts"
+      "decodable_types": "crate metadata's visibility and mut_restriction tables (rmeta decoder.rs `CrateMetadata::get_visibility` / `print_item`, lane rmeta-decoder-a; `get_mut_restriction`, merge-w15b), RPITIT data (`get_associated_item`) and the `adt_destructor` / `adt_async_destructor` tables (merge-w15b), module children (`CrateMetadata::get_module_children` reexports / `get_ambig_module_children`) and `ty::Generics` (the `generics_of` extern provider; lane decode-elems), `ty::ImplTraitHeader` (the `impl_trait_header` extern provider, old-solver candidate assembly over extern impls; merge-w18c), `DeducedParamAttrs` / `UsageSummary` (the `deduced_param_attrs` extern provider, rmeta cstore_impl.rs; lane mt-opt2-b); generates rustc_middle/decodable.gen.ts"
     }
   },
   "rustc_middle_stability": {

@@ -72,6 +72,8 @@ const PORTED = [
   "move_paths/mod.rs",
   "points.rs",
   "un_derefer.rs",
+  // lane mt-opt2-b (wave 27)
+  "value_analysis.rs",
 ];
 
 function walk(dir: string, out: string[] = []): string[] {
@@ -153,8 +155,8 @@ test("every fn of rustc_mir_dataflow is ported or declared as a stub, never both
   // nothing outside the crate's files
   for (const d of [...stubs, ...markers]) expect(FILES.some((f) => `${CRATE}/${f}` === d.path)).toBe(true);
   expect(total).toBe(378);
-  expect(markers.length).toBe(288);
-  expect(stubs.length).toBe(90);
+  expect(markers.length).toBe(348);
+  expect(stubs.length).toBe(30);
 });
 
 test("the crate root loads and re-exports the framework", () => {
