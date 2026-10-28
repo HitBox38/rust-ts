@@ -1,0 +1,19 @@
+# Template: scripts/probes.ts substitutes @SRC@ and builds this in $RUST_TS_DATA/probes.
+#
+# A rustc-dev probe (lane polonius-legacy): drives the oracle toolchain's own polonius-engine 0.13.0 and
+# datafrog 2.0.1 (the copies linked into librustc_driver), so the outputs it prints are exactly what
+# rustc's legacy Polonius (`-Zpolonius=legacy`) computes from the same facts.
+[package]
+name = "polonius"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata.rust-ts]
+rustc_dev = true
+
+[[bin]]
+name = "polonius"
+path = "@SRC@/main.rs"
+
+[workspace]
