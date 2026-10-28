@@ -967,10 +967,10 @@ SUITES.push(
 //   under `build/`, which the upstream-checkout check ignores). No case of these corpora passes its own `-o`,
 //   `--emit=dep-info` or `-Zdump-mir` (checked when the case list is made: `assertNoOwnOutput`; 3 cases pass
 //   `--emit=link` / `--emit=mir`, which the `-Zunpretty` path never produces), so nothing is written into the upstream
-//   checkout. Own `-Zunpretty` flags: the thir-print tests
-//   (kept, see `thir-tree`) and 4 minicore tests (tests/ui/hygiene/unpretty-debug*.rs, `-Zunpretty=expanded,hygiene`),
-//   where the appended `-Zunpretty=mir` comes last and wins (options.rs `parse_unpretty` overwrites the slot), so their
-//   argv stays compiletest's and they are MIR cases like the rest of the corpus.
+//   checkout. Own `-Zunpretty` flags: the thir-print tests (kept, see `thir-tree`) and 4 minicore tests
+//   (tests/ui/hygiene/unpretty-debug*.rs, `-Zunpretty=expanded,hygiene`), where the appended `-Zunpretty=mir` comes last
+//   and wins (options.rs `parse_unpretty` overwrites the slot), so their argv stays compiletest's and they are MIR cases
+//   like the rest of the corpus.
 // - Env NOCORE_ENV (+ the case's own), session variables pinned (`pinSessionEnv`), one process per case, subject 60 s,
 //   oracle 300 s (+ the 4x retry), as the suites each corpus comes from.
 // Suites:
@@ -1012,15 +1012,14 @@ function dropHarnessOutFile(c: Case): Case {
  * `mir`, `metadata`) are never produced (lib.rs:281 returns before `emit_mir` / codegen). Flags that write files during
  * `analysis` (`-Zdump-mir`, `-Zself-profile`, ...) are rejected too.
  */
-const WRITES_FILES = /^(?:-Z\s*)?(?:dump-mir|self-profile|dump-dep-graph|temps-dir|dump-mono-stats|llvm-time-trace|metrics-dir|nll-facts|polonius|dump-proof-tree)/;
-function assertNoOwnOutput(c: Case, allowUnpretty: boolean): void {
+const WRITES_FILES = /^(?:dump-mir|self-profile|dump-dep-graph|temps-dir|dump-mono-stats|llvm-time-trace|metrics-dir|nll-facts|dump-proof-tree)/;
+function assertNoOwnOutput(c: Case): void {
   const bad = c.args.find((a, i) => {
     const prev = c.args[i - 1];
     if (a.startsWith("-o")) return true;
     const emit = a.startsWith("--emit=") ? a.slice("--emit=".length) : prev === "--emit" ? a : undefined;
     if (emit !== undefined && (emit.includes("dep-info") || emit.includes("="))) return true;
-    if (WRITES_FILES.test(a) || (prev === "-Z" && WRITES_FILES.test(a))) return true;
-    return !allowUnpretty && (/^-Zunpretty=/.test(a) || (prev === "-Z" && a.startsWith("unpretty=")));
+    return (a.startsWith("-Z") && WRITES_FILES.test(a.slice(2).trimStart())) || (prev === "-Z" && WRITES_FILES.test(a));
   });
   if (bad !== undefined) throw new Error(`ERROR: ${c.id}: argv has \`${bad}\`, which would write outside stdout/--out-dir in a real-CLI -Zunpretty case`);
 }
@@ -1029,7 +1028,7 @@ const mirMinicoreCases = (extra: string[]): Case[] =>
     const c = dropHarnessOutFile(c0);
     // The 4 tests/ui/hygiene/unpretty-debug*.rs cases pass their own `-Zunpretty=expanded,hygiene`; ours comes after it
     // and wins (rustc_session options.rs `parse_unpretty` overwrites the slot), see above.
-    assertNoOwnOutput(c, true);
+    assertNoOwnOutput(c);
     return { ...c, args: [...c.args, "-Zunpretty=mir", ...extra] };
   });
 const MINICORE_CG_CLIF = (c: Case) => c.file.startsWith(`${CG_CLIF_EXAMPLE}/`);
@@ -1038,8 +1037,9 @@ const MINICORE_CG_CLIF = (c: Case) => c.file.startsWith(`${CG_CLIF_EXAMPLE}/`);
 // (182 s for hir-tree), print no `{:#?}` tree here and finish in < 2 s (issue-93775.rs, expr-stack-overflow.rs and
 // survive-peano-lesson-queue.rs print MIR; deep-try-chain-issue-153583.rs and fn-to-method-deeply-nested.rs exit 1 with
 // diagnostics). The slowest case, tests/ui/closures/supertrait-hint-cycle.rs (E0275 overflow), takes ~120 s of CPU
-// (90-100 s wall with 4 jobs, 323 s wall alone at load average 67): within the oracle's 300 s + 4 x 300 s, cached once per
-// oracle build, so it stays (as fn-to-method-deeply-nested.rs in hir-tree). Every other case takes < 6 s.
+// (90-100 s wall with 4 jobs; 323 s wall alone at load average 67; one pass at load average 125-144 hit 300 s): within the
+// oracle's 300 s + 4 x 300 s, cached once per oracle build, so it stays (as fn-to-method-deeply-nested.rs in hir-tree).
+// Every other case took < 6 s wall at load average ~10 (< 15 s at ~100).
 const MIR_SKIPPED: SkippedCase[] = [];
 // Unstable cases of `mir` (lane harness-w25): the oracle was run twice on every case (and these a third and fourth time);
 // these 14 differed, each only in `thread 'rustc' (<tid>) panicked`: rustc ICEs on them with this argv (no compiletest
@@ -1084,7 +1084,7 @@ function thirTreeCases(): Case[] {
     const c = dropHarnessOutFile(c0);
     const own = hasUnpretty(c.args);
     if (own && !c.file.startsWith("tests/ui/thir-print/")) throw new Error(`ERROR: ${c.id}: own -Zunpretty outside tests/ui/thir-print`);
-    assertNoOwnOutput(c, own);
+    assertNoOwnOutput(c);
     return own ? c : { ...c, args: [...c.args, "-Zunpretty=thir-tree"] };
   }));
 }
