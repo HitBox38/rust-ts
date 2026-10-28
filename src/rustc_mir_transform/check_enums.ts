@@ -14,6 +14,8 @@ import {
   BasicBlockData,
   type Body,
   CastKind,
+  clone_Place,
+  clone_SourceInfo,
   ConstOperand,
   ConstValue,
   type Local,
@@ -75,7 +77,9 @@ export class CheckEnums extends MirPass {
       for (let statement_index = basic_blocks[block]!.statements.length - 1; statement_index >= 0; statement_index--) {
         const location = new Location(block, statement_index);
         const statement = basic_blocks[block]!.statements[statement_index]!;
-        const source_info = statement.source_info;
+        // PORT: MIR aliasing (lane fix-ubchecks-alias): `SourceInfo` is `Copy`; this is the copy (each statement, local
+        // decl and terminator built from it gets its own, as do the places reused below).
+        const source_info = clone_SourceInfo(statement.source_info);
 
         const finder = EnumFinder.new(tcx, local_decls, typing_env);
         finder.visit_statement(statement, location);
@@ -88,7 +92,7 @@ export class CheckEnums extends MirPass {
             // It is never valid to use a ZST as a discriminant for an inhabited enum, but that will
             // have been caught by the type checker. Do nothing but ensure that a bug has been signaled.
             tcx.dcx().span_delayed_bug(source_info.span, "cannot build enum discriminant from zero-sized type");
-            basic_blocks[block]!.terminator = new Terminator(source_info, TerminatorKind.goto(new_block));
+            basic_blocks[block]!.terminator = new Terminator(clone_SourceInfo(source_info), TerminatorKind.goto(new_block));
           } else if (check.$ === "Direct") {
             const { source_op, discr, op_size, valid_discrs } = check;
             insert_direct_enum_check(
@@ -269,9 +273,10 @@ function split_block(basic_blocks: BasicBlockData[], location: Location): BasicB
   return IndexVec.push<BasicBlock, BasicBlockData>(basic_blocks, new_block);
 }
 
-// PORT: `local_decls.push(LocalDecl::with_source_info(ty, source_info)).into()` (not an upstream fn).
+// PORT: `local_decls.push(LocalDecl::with_source_info(ty, source_info)).into()` (not an upstream fn). `source_info` is
+// `Copy`: the decl gets its own copy (MIR aliasing, see `run_pass`).
 function push_local_place(local_decls: LocalDecl[], ty: Ty, source_info: SourceInfo): Place {
-  return Place_from_Local(IndexVec.push<Local, LocalDecl>(local_decls, LocalDeclC.with_source_info(ty, source_info)));
+  return Place_from_Local(IndexVec.push<Local, LocalDecl>(local_decls, LocalDeclC.with_source_info(ty, clone_SourceInfo(source_info))));
 }
 
 /// Inserts the cast of an operand (any type) to a u128 value that holds the discriminant value.
@@ -314,7 +319,7 @@ function insert_discr_cast_to_u128(
     const mu_array_ty = Ty.new_array(tcx, mu, array_len);
     const mu_array = push_local_place(local_decls, mu_array_ty, source_info);
     const rvalue: Rvalue = { $: "Cast", _0: CastKind.Transmute, _1: source_op, _2: mu_array_ty };
-    block_data.statements.push(Statement.new(source_info, { $: "Assign", _0: [mu_array, rvalue] }));
+    block_data.statements.push(Statement.new(clone_SourceInfo(source_info), { $: "Assign", _0: [mu_array, rvalue] }));
 
     // Index into the array of MaybeUninit to get something that is actually
     // as wide as the discriminant.
@@ -332,28 +337,28 @@ function insert_discr_cast_to_u128(
     );
 
     cast_kind = CastKind.Transmute;
-    discr_ty_bits = { $: "Copy", _0: smaller_mu_array };
+    discr_ty_bits = { $: "Copy", _0: clone_Place(smaller_mu_array) };
   } else {
     const operand_int_ty = get_ty_for_size(tcx, op_size);
 
     const op_as_int = push_local_place(local_decls, operand_int_ty, source_info);
     const rvalue: Rvalue = { $: "Cast", _0: CastKind.Transmute, _1: source_op, _2: operand_int_ty };
-    block_data.statements.push(Statement.new(source_info, { $: "Assign", _0: [op_as_int, rvalue] }));
+    block_data.statements.push(Statement.new(clone_SourceInfo(source_info), { $: "Assign", _0: [op_as_int, rvalue] }));
 
     cast_kind = CastKind.IntToInt;
-    discr_ty_bits = { $: "Copy", _0: op_as_int };
+    discr_ty_bits = { $: "Copy", _0: clone_Place(op_as_int) };
   }
 
   // Cast the resulting value to the actual discriminant integer type.
   let rvalue: Rvalue = { $: "Cast", _0: cast_kind, _1: discr_ty_bits, _2: discr.ty };
   const discr_in_discr_ty = push_local_place(local_decls, discr.ty, source_info);
-  block_data.statements.push(Statement.new(source_info, { $: "Assign", _0: [discr_in_discr_ty, rvalue] }));
+  block_data.statements.push(Statement.new(clone_SourceInfo(source_info), { $: "Assign", _0: [discr_in_discr_ty, rvalue] }));
 
   // Cast the discriminant to a u128 (base for comparisons of enum discriminants).
   const const_u128 = Ty.new_uint(tcx, UintTy.U128);
-  rvalue = { $: "Cast", _0: CastKind.IntToInt, _1: { $: "Copy", _0: discr_in_discr_ty }, _2: const_u128 };
+  rvalue = { $: "Cast", _0: CastKind.IntToInt, _1: { $: "Copy", _0: clone_Place(discr_in_discr_ty) }, _2: const_u128 };
   const discr_ = push_local_place(local_decls, const_u128, source_info);
-  block_data.statements.push(Statement.new(source_info, { $: "Assign", _0: [discr_, rvalue] }));
+  block_data.statements.push(Statement.new(clone_SourceInfo(source_info), { $: "Assign", _0: [discr_, rvalue] }));
 
   return discr_;
 }
@@ -393,7 +398,7 @@ function insert_direct_enum_check(
     $: "BinaryOp",
     _0: "BitAnd",
     _1: [
-      { $: "Copy", _0: discr_place },
+      { $: "Copy", _0: clone_Place(discr_place) },
       {
         $: "Constant",
         _0: new ConstOperand(source_info.span, undefined, {
@@ -404,12 +409,12 @@ function insert_direct_enum_check(
       },
     ],
   };
-  block_data.statements.push(Statement.new(source_info, { $: "Assign", _0: [discr_masked, rvalue] }));
+  block_data.statements.push(Statement.new(clone_SourceInfo(source_info), { $: "Assign", _0: [discr_masked, rvalue] }));
 
   // Branch based on the discriminant value.
-  block_data.terminator = new Terminator(source_info, {
+  block_data.terminator = new Terminator(clone_SourceInfo(source_info), {
     $: "SwitchInt",
-    discr: { $: "Copy", _0: discr_masked },
+    discr: { $: "Copy", _0: clone_Place(discr_masked) },
     targets: SwitchTargets.new(
       discriminants.map((discr_val): [bigint, BasicBlock] => [discr.size.truncate(discr_val), new_block]),
       invalid_discr_block,
@@ -417,7 +422,7 @@ function insert_direct_enum_check(
   });
 
   // Abort in case of an invalid enum discriminant.
-  basic_blocks[invalid_discr_block]!.terminator = new Terminator(source_info, {
+  basic_blocks[invalid_discr_block]!.terminator = new Terminator(clone_SourceInfo(source_info), {
     $: "Assert",
     cond: {
       $: "Constant",
@@ -429,7 +434,7 @@ function insert_direct_enum_check(
     },
     expected: true,
     target: new_block,
-    msg: { $: "InvalidEnumConstruction", _0: { $: "Copy", _0: discr_masked } },
+    msg: { $: "InvalidEnumConstruction", _0: { $: "Copy", _0: clone_Place(discr_masked) } },
     // This calls panic_invalid_enum_construction, which is #[rustc_nounwind].
     // We never want to insert an unwind into unsafe code, because unwinding could
     // make a failing UB check turn into much worse UB when we start unwinding.
@@ -447,7 +452,7 @@ function insert_uninhabited_enum_check(
 ): void {
   const is_ok: Place = push_local_place(local_decls, tcx.types.bool, source_info);
   block_data.statements.push(
-    Statement.new(source_info, {
+    Statement.new(clone_SourceInfo(source_info), {
       $: "Assign",
       _0: [
         is_ok,
@@ -467,9 +472,9 @@ function insert_uninhabited_enum_check(
     }),
   );
 
-  block_data.terminator = new Terminator(source_info, {
+  block_data.terminator = new Terminator(clone_SourceInfo(source_info), {
     $: "Assert",
-    cond: { $: "Copy", _0: is_ok },
+    cond: { $: "Copy", _0: clone_Place(is_ok) },
     expected: true,
     target: new_block,
     msg: {
@@ -526,15 +531,15 @@ function insert_niche_check(
 
   const discr_diff: Place = push_local_place(local_decls, tcx.types.u128, source_info);
   block_data.statements.push(
-    Statement.new(source_info, {
+    Statement.new(clone_SourceInfo(source_info), {
       $: "Assign",
-      _0: [discr_diff, { $: "BinaryOp", _0: "Sub", _1: [{ $: "Copy", _0: discr }, start_const] }],
+      _0: [discr_diff, { $: "BinaryOp", _0: "Sub", _1: [{ $: "Copy", _0: clone_Place(discr) }, start_const] }],
     }),
   );
 
   const is_ok: Place = push_local_place(local_decls, tcx.types.bool, source_info);
   block_data.statements.push(
-    Statement.new(source_info, {
+    Statement.new(clone_SourceInfo(source_info), {
       $: "Assign",
       _0: [
         is_ok,
@@ -542,18 +547,18 @@ function insert_niche_check(
           $: "BinaryOp",
           // This is a `WrappingRange`, so make sure to get the wrapping right.
           _0: "Le",
-          _1: [{ $: "Copy", _0: discr_diff }, end_start_diff_const],
+          _1: [{ $: "Copy", _0: clone_Place(discr_diff) }, end_start_diff_const],
         },
       ],
     }),
   );
 
-  block_data.terminator = new Terminator(source_info, {
+  block_data.terminator = new Terminator(clone_SourceInfo(source_info), {
     $: "Assert",
-    cond: { $: "Copy", _0: is_ok },
+    cond: { $: "Copy", _0: clone_Place(is_ok) },
     expected: true,
     target: new_block,
-    msg: { $: "InvalidEnumConstruction", _0: { $: "Copy", _0: discr } },
+    msg: { $: "InvalidEnumConstruction", _0: { $: "Copy", _0: clone_Place(discr) } },
     // This calls panic_invalid_enum_construction, which is #[rustc_nounwind].
     // We never want to insert an unwind into unsafe code, because unwinding could
     // make a failing UB check turn into much worse UB when we start unwinding.

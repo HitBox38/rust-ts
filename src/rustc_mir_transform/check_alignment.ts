@@ -7,6 +7,8 @@ import {
   type Body,
   CastKind,
   clone_Operand,
+  clone_Place,
+  clone_SourceInfo,
   ConstOperand,
   type Local,
   type LocalDecl,
@@ -54,13 +56,18 @@ export class CheckAlignment extends MirPass {
   }
 }
 
-// PORT: `local_decls.push(LocalDecl::with_source_info(ty, source_info)).into()` (not an upstream fn).
+// PORT: `local_decls.push(LocalDecl::with_source_info(ty, source_info)).into()` (not an upstream fn). `source_info` is
+// `Copy`: the decl gets its own copy (MIR aliasing, see `insert_*_check`).
 function push_local_place(local_decls: LocalDecl[], ty: Ty, source_info: SourceInfo): Place {
-  return Place_from_Local(IndexVec.push<Local, LocalDecl>(local_decls, LocalDeclC.with_source_info(ty, source_info)));
+  return Place_from_Local(IndexVec.push<Local, LocalDecl>(local_decls, LocalDeclC.with_source_info(ty, clone_SourceInfo(source_info))));
 }
 
 /// Inserts the actual alignment check's logic. Returns a
 /// [AssertKind::MisalignedPointerDereference] on failure.
+// PORT: MIR aliasing (decision 2026-10-22 "MIR build aliasing"; lane fix-ubchecks-alias): `Place` and `SourceInfo` are
+// `Copy`, so every statement, local decl and operand built here gets its own copy (`clone_Place` at each use of a place
+// after the first, `clone_SourceInfo` at each use of `source_info`). Later passes edit them in place (`SimplifyLocals`
+// renames locals, the inliner remaps scopes); a shared object would be edited twice.
 // rustc: compiler/rustc_mir_transform/src/check_alignment.rs:39 insert_alignment_check
 function insert_alignment_check(
   tcx: TyCtxt,
@@ -75,12 +82,12 @@ function insert_alignment_check(
   const const_raw_ptr = Ty.new_imm_ptr(tcx, tcx.types.unit);
   let rvalue: Rvalue = { $: "Cast", _0: CastKind.PtrToPtr, _1: { $: "Copy", _0: pointer }, _2: const_raw_ptr };
   const thin_ptr = push_local_place(local_decls, const_raw_ptr, source_info);
-  stmts.push(Statement.new(source_info, { $: "Assign", _0: [thin_ptr, rvalue] }));
+  stmts.push(Statement.new(clone_SourceInfo(source_info), { $: "Assign", _0: [thin_ptr, rvalue] }));
 
   // Transmute the pointer to a usize (equivalent to `ptr.addr()`).
-  rvalue = { $: "Cast", _0: CastKind.Transmute, _1: { $: "Copy", _0: thin_ptr }, _2: tcx.types.usize };
+  rvalue = { $: "Cast", _0: CastKind.Transmute, _1: { $: "Copy", _0: clone_Place(thin_ptr) }, _2: tcx.types.usize };
   const addr = push_local_place(local_decls, tcx.types.usize, source_info);
-  stmts.push(Statement.new(source_info, { $: "Assign", _0: [addr, rvalue] }));
+  stmts.push(Statement.new(clone_SourceInfo(source_info), { $: "Assign", _0: [addr, rvalue] }));
 
   // Get the alignment of the pointee
   const align_def_id = tcx.require_lang_item(LangItem.AlignOf, source_info.span);
@@ -97,7 +104,7 @@ function insert_alignment_check(
     }),
   };
   stmts.push(
-    Statement.new(source_info, {
+    Statement.new(clone_SourceInfo(source_info), {
       $: "Assign",
       _0: [alignment_mask, { $: "BinaryOp", _0: "Sub", _1: [clone_Operand(alignment), one] }],
     }),
@@ -118,9 +125,9 @@ function insert_alignment_check(
       }),
     };
     stmts.push(
-      Statement.new(source_info, {
+      Statement.new(clone_SourceInfo(source_info), {
         $: "Assign",
-        _0: [alignment_mask, { $: "BinaryOp", _0: "BitAnd", _1: [{ $: "Copy", _0: alignment_mask }, max_mask] }],
+        _0: [clone_Place(alignment_mask), { $: "BinaryOp", _0: "BitAnd", _1: [{ $: "Copy", _0: clone_Place(alignment_mask) }, max_mask] }],
       }),
     );
   }
@@ -128,11 +135,11 @@ function insert_alignment_check(
   // BitAnd the alignment mask with the pointer
   const alignment_bits = push_local_place(local_decls, tcx.types.usize, source_info);
   stmts.push(
-    Statement.new(source_info, {
+    Statement.new(clone_SourceInfo(source_info), {
       $: "Assign",
       _0: [
         alignment_bits,
-        { $: "BinaryOp", _0: "BitAnd", _1: [{ $: "Copy", _0: addr }, { $: "Copy", _0: alignment_mask }] },
+        { $: "BinaryOp", _0: "BitAnd", _1: [{ $: "Copy", _0: clone_Place(addr) }, { $: "Copy", _0: clone_Place(alignment_mask) }] },
       ],
     }),
   );
@@ -148,16 +155,16 @@ function insert_alignment_check(
     }),
   };
   stmts.push(
-    Statement.new(source_info, {
+    Statement.new(clone_SourceInfo(source_info), {
       $: "Assign",
-      _0: [is_ok, { $: "BinaryOp", _0: "Eq", _1: [{ $: "Copy", _0: alignment_bits }, clone_Operand(zero)] }],
+      _0: [is_ok, { $: "BinaryOp", _0: "Eq", _1: [{ $: "Copy", _0: clone_Place(alignment_bits) }, clone_Operand(zero)] }],
     }),
   );
 
   // Emit a check that asserts on the alignment and otherwise triggers a
   // AssertKind::MisalignedPointerDereference.
   return {
-    cond: { $: "Copy", _0: is_ok },
-    assert_kind: { $: "MisalignedPointerDereference", required: alignment, found: { $: "Copy", _0: addr } },
+    cond: { $: "Copy", _0: clone_Place(is_ok) },
+    assert_kind: { $: "MisalignedPointerDereference", required: alignment, found: { $: "Copy", _0: clone_Place(addr) } },
   };
 }
