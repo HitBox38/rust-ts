@@ -14,6 +14,7 @@
 // `f.debug_tuple(..)` / `f.write_str` keep `f`.
 import { debug_ExternAbi, ExternAbi } from "../rustc_abi/extern_abi.ts";
 import { debug_FloatTy, debug_IntTy, debug_UintTy, Mutability } from "../rustc_ast_ir/lib.ts";
+import { stable_hash_Discriminant, stable_hash_u32, type StableHashCtxt, type StableHasher } from "../rustc_data_structures/stable_hash.ts";
 import { Safety } from "../rustc_hir/lib.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import { debug_GenericArg, debug_GenericArgs, fold_GenericArgs, GenericArg, type GenericArgs } from "../rustc_middle/ty/generic_args.ts";
@@ -587,7 +588,24 @@ export const UnifyKey_FloatVid: UnifyKey<FloatVid, FloatVarValue, NoError> = {
   order_roots: UnifyKey_provided.order_roots,
 };
 
-// rustc-skip: compiler/rustc_type_ir/src/ty_kind.rs:858 stable_hash StableHash impl (incremental, M5)
+// PORT: `mem::discriminant(self)`: the variant index in declaration order (ty_kind.rs:756).
+const InferTy__discriminant = { TyVar: 0, IntVar: 1, FloatVar: 2, FreshTy: 3, FreshIntTy: 4, FreshFloatTy: 5 } as const;
+// rustc: compiler/rustc_type_ir/src/ty_kind.rs:858 stable_hash
+export function stable_hash_InferTy(self: InferTy, hcx: StableHashCtxt, hasher: StableHasher): void {
+  stable_hash_Discriminant(InferTy__discriminant[self.$], hcx, hasher);
+  switch (self.$) {
+    case "TyVar":
+    case "IntVar":
+    case "FloatVar":
+      panic(`type variables should not be hashed: ${debug_InferTy(self, PLAIN)}`);
+      break;
+    case "FreshTy":
+    case "FreshIntTy":
+    case "FreshFloatTy":
+      stable_hash_u32(self._0, hcx, hasher);
+      break;
+  }
+}
 
 // ---- InferTy -------------------------------------------------------------------------------------------------------
 

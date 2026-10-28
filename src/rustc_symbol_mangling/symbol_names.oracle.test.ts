@@ -37,19 +37,10 @@ for (const [k, v] of Object.entries(process.env)) {
 // loads its MIR (`load_mir` -> `mir_for_ctfe`). A local const's body now borrow-checks and evaluates (impl2.rs and
 // const-generics-structural-demangling.rs equal the oracle since fix-w24-bck); `i8::MIN` & co. (const-generics.rs) are
 // `core`'s associated consts, whose `mir_for_ctfe` is decoded from crate metadata (equal to the oracle since lane
-// meta-mir). A trivial const (`types.rs`'s `ZERO`) evaluates; the legacy manglings then stop hashing the type
-// (`STOP_TY_HASH`), while v0 matches the oracle.
-const STOP_TY_HASH = "StableHash for Ty";
+// meta-mir). A trivial const (`types.rs`'s `ZERO`) evaluates. The legacy manglings hash the item type, its signature and
+// its args (`Ty: StableHash`, lane misc-blockers) and equal the oracle, hashes included.
 /** The `unported` stop each case reaches instead of the oracle's output (exit 70). */
-const STOPS: Record<string, string> = {
-  "tests/ui/symbol-names/basic.rs#legacy": STOP_TY_HASH,
-  "tests/ui/symbol-names/const-generics-demangling.rs#legacy": STOP_TY_HASH,
-  "tests/ui/symbol-names/impl1.rs#legacy": STOP_TY_HASH,
-  "tests/ui/symbol-names/issue-60925.rs#legacy": STOP_TY_HASH,
-  "tests/ui/symbol-names/issue-75326.rs#legacy": STOP_TY_HASH,
-  "tests/ui/symbol-names/types.rs#legacy": STOP_TY_HASH,
-  "tests/ui/symbol-names/types.rs#verbose-legacy": STOP_TY_HASH,
-};
+const STOPS: Record<string, string> = {};
 
 const DIR = "tests/ui/symbol-names";
 const files = readdirSync(join(UPSTREAM, DIR))

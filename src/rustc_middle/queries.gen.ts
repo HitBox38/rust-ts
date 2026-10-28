@@ -35,7 +35,7 @@ import { describe_as_module } from "./queries.ts";
 import { into_query_key_DefId, into_query_key_LocalDefId, into_query_key_identity } from "./query/into_query_key.ts";
 import { KEY_AliasTyKind, KEY_CanonicalAliasGoal, KEY_CanonicalDropckOutlivesGoal, KEY_CanonicalImpliedOutlivesBoundsGoal_bool, KEY_CanonicalInput_usize, KEY_CanonicalMethodAutoderefStepsGoal, KEY_CanonicalPredicateGoal, KEY_CanonicalTypeOpAscribeUserTypeGoal, KEY_CanonicalTypeOpNormalizeGoal_Clause, KEY_CanonicalTypeOpNormalizeGoal_FnSig, KEY_CanonicalTypeOpNormalizeGoal_PolyFnSig, KEY_CanonicalTypeOpNormalizeGoal_Ty, KEY_CanonicalTypeOpProvePredicateGoal, KEY_Clauses, KEY_CrateNum, KEY_CrateNum_DefId, KEY_CrateNum_SimplifiedType, KEY_DefId, KEY_DefId_DefId, KEY_DefId_GenericArgsRef, KEY_DefId_Ident, KEY_DefId_SizedTraitKind, KEY_GenericArgsRef, KEY_Instance, KEY_InstanceKind, KEY_LitToConstInput, KEY_LocalDefId, KEY_LocalDefId_LocalDefId_Ident, KEY_LocalModId, KEY_ModId, KEY_Option_Symbol, KEY_OsStr, KEY_OwnerId, KEY_Predicate_WellFormedLoc, KEY_PseudoCanonicalInput_AdtDef_GenericArgsRef, KEY_PseudoCanonicalInput_DefId_GenericArgsRef, KEY_PseudoCanonicalInput_GenericArg, KEY_PseudoCanonicalInput_GlobalId, KEY_PseudoCanonicalInput_Instance_List_Ty, KEY_PseudoCanonicalInput_PolyFnSig_List_Ty, KEY_PseudoCanonicalInput_TraitRef, KEY_PseudoCanonicalInput_Ty, KEY_ShimKind, KEY_SimplifiedType, KEY_Symbol, KEY_TraitRef, KEY_Ty, KEY_Ty_Option_ExistentialTraitRef, KEY_Ty_Ty, KEY_Value, KEY_unit, type LocalQueryKeyOf, key_unported } from "./query/keys.ts";
 import { type QueryDecl } from "./query/query_api.ts";
-import { stable_hash_Visibility } from "./stable_hash.gen.ts";
+import { stable_hash_Ty, stable_hash_Visibility } from "./stable_hash.gen.ts";
 import { type CodegenObligationError, type DynCompatibilityViolation, type ObligationCause, type WellFormedLoc, debug_DynCompatibilityViolation, debug_ObligationCause, debug_WellFormedLoc } from "./traits/mod.ts";
 import { type CanonicalAliasGoal, type CanonicalDropckOutlivesGoal, type CanonicalImpliedOutlivesBoundsGoal, type CanonicalMethodAutoderefStepsGoal, type CanonicalPredicateGoal, type CanonicalTypeOpAscribeUserTypeGoal, type CanonicalTypeOpNormalizeGoal, type CanonicalTypeOpProvePredicateGoal, type DropckConstraint, type DropckOutlivesResult, type MethodAutoderefStepsResult, type MirBorrowckImpliedOutlivesBounds, type NormalizationResult, type OutlivesBound, debug_DropckConstraint, debug_MethodAutoderefStepsResult } from "./traits/query.ts";
 import { type CanonicalInput } from "./traits/solve.ts";
@@ -44,6 +44,7 @@ import { type CoerceUnsizedInfo, debug_CoerceUnsizedInfo } from "./ty/adjustment
 import { type LitToConstInput } from "./ty/consts/lit.ts";
 import { type Limits, type TyCtxt } from "./ty/context.ts";
 import { type SimplifiedType, debug_SimplifiedType } from "./ty/fast_reject.ts";
+import { stable_hash_RawList } from "./ty/impls_ty.ts";
 import { type InhabitedPredicate, debug_InhabitedPredicate } from "./ty/inhabitedness/inhabited_predicate.ts";
 import { type Instance, type InstanceKind, type ShimKind, debug_Instance, display_Instance } from "./ty/instance.ts";
 import { type FnAbiError, type LayoutError, type TyAndLayout, type ValidityRequirement } from "./ty/layout.ts";
@@ -55,7 +56,7 @@ import { type VtblEntry, debug_VtblEntry } from "./ty/vtable.ts";
 import { type CrateNum, type DefId, type DefIdMap, type LocalDefId, type LocalModId, type ModId, debug_CrateNum, debug_DefId, debug_LocalDefId, debug_ModId, display_CrateNum, stable_hash_CrateNum, stable_hash_DefId, stable_hash_LocalDefId } from "../rustc_span/def_id.ts";
 import { type ExpnId, type LocalExpnId, debug_ExpnId, stable_hash_ExpnId } from "../rustc_span/hygiene.ts";
 import { type ErrorGuaranteed, type Span, type Spanned, debug_ErrorGuaranteed, debug_Span, stable_hash_Span } from "../rustc_span/lib.ts";
-import { stable_hash_Ident, stable_hash_ModId } from "../rustc_span/stable_hash.gen.ts";
+import { stable_hash_ErrorGuaranteed, stable_hash_Ident, stable_hash_ModId } from "../rustc_span/stable_hash.gen.ts";
 import { type Ident, type Symbol, debug_Ident, debug_Symbol, display_Ident, display_Symbol, stable_hash_Symbol } from "../rustc_span/symbol.ts";
 import { type FnAbi } from "../rustc_target/callconv/mod.ts";
 import { type PanicStrategy } from "../rustc_target/spec/mod.ts";
@@ -2344,7 +2345,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `opaque_types_defined_by` (method `.to_def_id()` on a non-tcx receiver)"),
     debug_value: (v, f) => debug_RawList(v, f, ((x, f) => debug_LocalDefId(x, f))),
-    stable_hash_value: undefined,
+    stable_hash_value: (v, hcx, h) => stable_hash_RawList(v, hcx, h, stable_hash_LocalDefId),
   },
   nested_bodies_within: {
     name: "nested_bodies_within",
@@ -2362,7 +2363,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `nested_bodies_within` (method `.to_def_id()` on a non-tcx receiver)"),
     debug_value: (v, f) => debug_RawList(v, f, ((x, f) => debug_LocalDefId(x, f))),
-    stable_hash_value: undefined,
+    stable_hash_value: (v, hcx, h) => stable_hash_RawList(v, hcx, h, stable_hash_LocalDefId),
   },
   explicit_item_bounds: {
     name: "explicit_item_bounds",
@@ -2848,7 +2849,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: true,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `verify auto trait bounds for coroutine interior type \`${__0}\``; },
     debug_value: (v, f) => debug_result(v, f, ((x, f) => "()"), ((x, f) => debug_ErrorGuaranteed(x, f))),
-    stable_hash_value: undefined,
+    stable_hash_value: (v, hcx, h) => stable_hash_Result(v, hcx, h, stable_hash_unit, stable_hash_ErrorGuaranteed),
   },
   check_potentially_region_dependent_goals: {
     name: "check_potentially_region_dependent_goals",
@@ -2866,7 +2867,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: true,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `reproving potentially region dependent HIR typeck goals for \`${__0}`; },
     debug_value: (v, f) => debug_result(v, f, ((x, f) => "()"), ((x, f) => debug_ErrorGuaranteed(x, f))),
-    stable_hash_value: undefined,
+    stable_hash_value: (v, hcx, h) => stable_hash_Result(v, hcx, h, stable_hash_unit, stable_hash_ErrorGuaranteed),
   },
   optimized_mir: {
     name: "optimized_mir",
@@ -3640,7 +3641,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: true,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `check transmute calls inside \`${__0}\``; },
     debug_value: (v, f) => debug_result(v, f, ((x, f) => "()"), ((x, f) => debug_ErrorGuaranteed(x, f))),
-    stable_hash_value: undefined,
+    stable_hash_value: (v, hcx, h) => stable_hash_Result(v, hcx, h, stable_hash_unit, stable_hash_ErrorGuaranteed),
   },
   check_offloads: {
     name: "check_offloads",
@@ -3658,7 +3659,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: true,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `check offload calls inside \`${__0}\``; },
     debug_value: (v, f) => debug_result(v, f, ((x, f) => "()"), ((x, f) => debug_ErrorGuaranteed(x, f))),
-    stable_hash_value: undefined,
+    stable_hash_value: (v, hcx, h) => stable_hash_Result(v, hcx, h, stable_hash_unit, stable_hash_ErrorGuaranteed),
   },
   check_unsafety: {
     name: "check_unsafety",
@@ -3694,7 +3695,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: true,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `tail-call-checking \`${__0}\``; },
     debug_value: (v, f) => debug_result(v, f, ((x, f) => "()"), ((x, f) => debug_ErrorGuaranteed(x, f))),
-    stable_hash_value: undefined,
+    stable_hash_value: (v, hcx, h) => stable_hash_Result(v, hcx, h, stable_hash_unit, stable_hash_ErrorGuaranteed),
   },
   assumed_wf_types: {
     name: "assumed_wf_types",
@@ -3712,7 +3713,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `computing the implied bounds of \`${__0}\``; },
     debug_value: (v, f) => debug_vec(v, f, (x, f) => debug_tuple(f, "", [debug_Ty(x[0], f), debug_Span(x[1], f)])),
-    stable_hash_value: undefined,
+    stable_hash_value: (v, hcx, h) => stable_hash_slice(v, hcx, h, (v, hcx, h) => stable_hash_tuple2(v, hcx, h, stable_hash_Ty, stable_hash_Span)),
   },
   assumed_wf_types_for_rpitit: {
     name: "assumed_wf_types_for_rpitit",
@@ -3730,7 +3731,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `computing the implied bounds of \`${__0}\``; },
     debug_value: (v, f) => debug_vec(v, f, (x, f) => debug_tuple(f, "", [debug_Ty(x[0], f), debug_Span(x[1], f)])),
-    stable_hash_value: undefined,
+    stable_hash_value: (v, hcx, h) => stable_hash_slice(v, hcx, h, (v, hcx, h) => stable_hash_tuple2(v, hcx, h, stable_hash_Ty, stable_hash_Span)),
   },
   fn_sig: {
     name: "fn_sig",
@@ -3910,7 +3911,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: true,
     desc: (_tcx, _key) => `checking that types are well-formed`,
     debug_value: (v, f) => debug_result(v, f, ((x, f) => "()"), ((x, f) => debug_ErrorGuaranteed(x, f))),
-    stable_hash_value: undefined,
+    stable_hash_value: (v, hcx, h) => stable_hash_Result(v, hcx, h, stable_hash_unit, stable_hash_ErrorGuaranteed),
   },
   coerce_unsized_info: {
     name: "coerce_unsized_info",
@@ -3982,7 +3983,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: true,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `coherence checking all impls of trait \`${__0}\``; },
     debug_value: (v, f) => debug_result(v, f, ((x, f) => "()"), ((x, f) => debug_ErrorGuaranteed(x, f))),
-    stable_hash_value: undefined,
+    stable_hash_value: (v, hcx, h) => stable_hash_Result(v, hcx, h, stable_hash_unit, stable_hash_ErrorGuaranteed),
   },
   mir_borrowck: {
     name: "mir_borrowck",
@@ -4036,7 +4037,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: true,
     desc: (_tcx, _key) => `check for inherent impls that should not be defined in crate`,
     debug_value: (v, f) => debug_result(v, f, ((x, f) => "()"), ((x, f) => debug_ErrorGuaranteed(x, f))),
-    stable_hash_value: undefined,
+    stable_hash_value: (v, hcx, h) => stable_hash_Result(v, hcx, h, stable_hash_unit, stable_hash_ErrorGuaranteed),
   },
   crate_inherent_impls_overlap_check: {
     name: "crate_inherent_impls_overlap_check",
@@ -4054,7 +4055,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: true,
     desc: (_tcx, _key) => `check for overlap between inherent impls defined in this crate`,
     debug_value: (v, f) => debug_result(v, f, ((x, f) => "()"), ((x, f) => debug_ErrorGuaranteed(x, f))),
-    stable_hash_value: undefined,
+    stable_hash_value: (v, hcx, h) => stable_hash_Result(v, hcx, h, stable_hash_unit, stable_hash_ErrorGuaranteed),
   },
   orphan_check_impl: {
     name: "orphan_check_impl",
@@ -4072,7 +4073,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: true,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `checking whether impl \`${__0}\` follows the orphan rules`; },
     debug_value: (v, f) => debug_result(v, f, ((x, f) => "()"), ((x, f) => debug_ErrorGuaranteed(x, f))),
-    stable_hash_value: undefined,
+    stable_hash_value: (v, hcx, h) => stable_hash_Result(v, hcx, h, stable_hash_unit, stable_hash_ErrorGuaranteed),
   },
   mir_callgraph_cyclic: {
     name: "mir_callgraph_cyclic",
@@ -4252,7 +4253,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: true,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `match-checking \`${__0}\``; },
     debug_value: (v, f) => debug_result(v, f, ((x, f) => "()"), ((x, f) => debug_ErrorGuaranteed(x, f))),
-    stable_hash_value: undefined,
+    stable_hash_value: (v, hcx, h) => stable_hash_Result(v, hcx, h, stable_hash_unit, stable_hash_ErrorGuaranteed),
   },
   effective_visibilities: {
     name: "effective_visibilities",
@@ -5242,7 +5243,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `list_significant_drop_tys` (field `.value`)"),
     debug_value: (v, f) => debug_RawList(v, f, ((x, f) => debug_Ty(x, f))),
-    stable_hash_value: undefined,
+    stable_hash_value: (v, hcx, h) => stable_hash_RawList(v, hcx, h, stable_hash_Ty),
   },
   layout_of: {
     name: "layout_of",
@@ -5638,7 +5639,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: true,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `checking that \`${__0}\` is well-formed`; },
     debug_value: (v, f) => debug_result(v, f, ((x, f) => "()"), ((x, f) => debug_ErrorGuaranteed(x, f))),
-    stable_hash_value: undefined,
+    stable_hash_value: (v, hcx, h) => stable_hash_Result(v, hcx, h, stable_hash_unit, stable_hash_ErrorGuaranteed),
   },
   enforce_impl_non_lifetime_params_are_constrained: {
     name: "enforce_impl_non_lifetime_params_are_constrained",
@@ -5656,7 +5657,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: true,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `checking that \`${__0}\`'s generics are constrained by the impl header`; },
     debug_value: (v, f) => debug_result(v, f, ((x, f) => "()"), ((x, f) => debug_ErrorGuaranteed(x, f))),
-    stable_hash_value: undefined,
+    stable_hash_value: (v, hcx, h) => stable_hash_Result(v, hcx, h, stable_hash_unit, stable_hash_ErrorGuaranteed),
   },
   reachable_non_generics: {
     name: "reachable_non_generics",
@@ -5998,7 +5999,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _def_id) => `inheriting delegation signature`,
     debug_value: (v, f) => debug_vec(v, f, (x, f) => debug_Ty(x, f)),
-    stable_hash_value: undefined,
+    stable_hash_value: (v, hcx, h) => stable_hash_slice(v, hcx, h, stable_hash_Ty),
   },
   delegation_user_specified_args: {
     name: "delegation_user_specified_args",
@@ -7420,7 +7421,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: true,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `checking assoc item \`${__0}\` is compatible with trait definition`; },
     debug_value: (v, f) => debug_result(v, f, ((x, f) => "()"), ((x, f) => debug_ErrorGuaranteed(x, f))),
-    stable_hash_value: undefined,
+    stable_hash_value: (v, hcx, h) => stable_hash_Result(v, hcx, h, stable_hash_unit, stable_hash_ErrorGuaranteed),
   },
   deduced_param_attrs: {
     name: "deduced_param_attrs",

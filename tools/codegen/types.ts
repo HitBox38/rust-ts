@@ -236,6 +236,11 @@ export interface SetConfig {
    */
   stable_hash_types?: string[];
   /**
+   * Base name of the per-crate derive(StableHash) module (default `stable_hash`: `<crate>/stable_hash.gen.ts`). For a
+   * second set over a crate that another set already writes `stable_hash.gen.ts` for (rustc_ty: `ty_stable_hash`).
+   */
+  stable_hash_module?: string;
+  /**
    * derive(StableHash) field reads of hand types whose TS value is not a `{ field }` object, keyed
    * `<type key>::<field name or index>`: `expr` with `$v` = the value, `import` = values it needs from
    * the type's hand module (e.g. a branded newtype `ExpnHash(Fingerprint)`: `ExpnHash._0($v)`).
@@ -1207,10 +1212,11 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
 
   // `#[derive(StableHash)]` impls: one generated module per crate, `<crate>/stable_hash.gen.ts`.
   const shMfs: (ModFile & { sh: true })[] = [];
+  const shGenBase = set.stable_hash_module ?? "stable_hash";
   if (set.derive_stable_hash)
     for (const crate of [...new Set([...items.values()].filter((r) => deriveStableHash.has(r.key)).map((r) => r.mf.crate))]) {
       const file: PFile = { path: `compiler/${crate}/src/lib.rs`, attrs: [], items: [], uses: [], impls: [], macros: [], mods: [] };
-      shMfs.push({ file, crate, mod: [crate, "stable_hash"], gen: `${crate}/stable_hash.gen.ts`, hand: `${crate}/lib.ts`, sh: true });
+      shMfs.push({ file, crate, mod: [crate, shGenBase], gen: `${crate}/${shGenBase}.gen.ts`, hand: `${crate}/lib.ts`, sh: true });
     }
 
   // `derive_only` sets: the derive(Decodable)/(Encodable) impls of the (hand-written) types go into one generated
@@ -1871,10 +1877,10 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       if (deriveStableHash.has(r.key)) {
         const exported = shExportName(r);
         if (exported !== name) {
-          if (r.mf.crate !== mf.crate) imp(`gen:${r.mf.crate}/stable_hash.gen.ts`, "values", exported, exported);
+          if (r.mf.crate !== mf.crate) imp(`gen:${r.mf.crate}/${shGenBase}.gen.ts`, "values", exported, exported);
           return exported;
         }
-        if (r.mf.crate !== mf.crate) imp(`gen:${r.mf.crate}/stable_hash.gen.ts`, "values", name, alias);
+        if (r.mf.crate !== mf.crate) imp(`gen:${r.mf.crate}/${shGenBase}.gen.ts`, "values", name, alias);
         else if (alias !== name) report.errors.push(`${at}: two derive(StableHash) types named ${r.item.name} in ${mf.crate}`);
         return alias;
       }
@@ -3697,7 +3703,8 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
     for (const [t, { types }] of imports) if (t.startsWith(ownCrate) || t.startsWith("gen:")) for (const a of types.values()) ownTypes.add(a);
     for (const t of sortedTargets) {
       const { types, values } = imports.get(t)!;
-      if (t === `gen:${mf.gen}`) continue;
+      // (`src:` = a stable_hash.json / serialize.json template naming a fn of this very generated module)
+      if (t === `gen:${mf.gen}` || t === `src:${mf.gen}`) continue;
       if (!t.startsWith(ownCrate) && !t.startsWith("gen:")) for (const [n, a] of [...types]) if (ownTypes.has(a) && values.get(n) !== a) types.delete(n);
       const abs = t.startsWith("gen:") ? join(opts.out, t.slice(4)) : join(opts.srcRoot, t.slice(4));
       const spec = relImport(outFile, abs);

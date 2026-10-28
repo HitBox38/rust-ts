@@ -17,12 +17,14 @@
 // the file (`const_eval_poly` / `ErrorHandled`: mir/interpret, lane mir-interp-b) (lane repr-options: `ReprOptions` is rustc_abi's). (merge-w15b: `VariantDef`,
 // `FieldDef`, `Destructor` are ty/mod.ts's, `Discr` / `IntTypeExt` ty/util.ts's, `ty::Value` / `ScalarInt`
 // ty/consts/*.ts's; ty/mod.ts / util.ts / valtree.ts are reached lazily.)
+import { Fingerprint } from "../../rustc_data_structures/fingerprint.ts";
 import { Interned } from "../../rustc_data_structures/intern.ts";
+import { type StableHashCtxt, StableHasher, stable_hash_Fingerprint, stable_hash_IndexVec } from "../../rustc_data_structures/stable_hash.ts";
 import { find_attr, type Attribute as Attribute_ } from "../../rustc_attr_ir/lib.ts";
 import { type CtorKind, debug_Res, type DefKind, type Res } from "../../rustc_hir/def.ts";
 import type { Constness } from "../../rustc_hir/hir.ts";
 import { debug_HirId, type HirId } from "../../rustc_hir_id/lib.ts";
-import { type DefId, DefId_eq } from "../../rustc_span/def_id.ts";
+import { type DefId, DefId_eq, stable_hash_DefId } from "../../rustc_span/def_id.ts";
 import type { ErrorGuaranteed, Span } from "../../rustc_span/lib.ts";
 import { bug } from "../../rustc_span/macros.ts";
 import { type Symbol, sym } from "../../rustc_span/symbol.ts";
@@ -214,7 +216,7 @@ export class AdtDefData {
     return intern_key(this.did);
   }
 
-  // rustc-skip: compiler/rustc_middle/src/ty/adt.rs:160 stable_hash hand-written StableHash impl (thread-local fingerprint cache; incremental query hashing, M5), not a codegen'd metadata/hygiene impl (PORTING §3)
+  // PORT: `impl StableHash for AdtDefData` (adt.rs:160) is the free fn `stable_hash_AdtDefData` after the class.
 
   /// Creates a new `AdtDefData`.
   // PORT: from the later `impl AdtDefData` block (adt.rs:353), in the class body (PORTING §8).
@@ -287,6 +289,47 @@ export class AdtDefData {
 
     return new AdtDefData(did, variants, flags, repr);
   }
+}
+
+// PORT (init order): the generated StableHash module reaches most of rustc_middle at load, so it is required lazily
+// (the precedent of the `tyir_*` accessors in rustc_middle ty/mod.ts).
+function middle_stable_hash(): typeof import("../stable_hash.gen.ts") {
+  return (middle_stable_hash__m ??= require("../stable_hash.gen.ts") as typeof import("../stable_hash.gen.ts"));
+}
+var middle_stable_hash__m: typeof import("../stable_hash.gen.ts") | undefined;
+function abi_stable_hash(): typeof import("../../rustc_abi/stable_hash.gen.ts") {
+  return (abi_stable_hash__m ??= require("../../rustc_abi/stable_hash.gen.ts") as typeof import("../../rustc_abi/stable_hash.gen.ts"));
+}
+var abi_stable_hash__m: typeof import("../../rustc_abi/stable_hash.gen.ts") | undefined;
+// PORT: `thread_local! static CACHE: RefCell<FxHashMap<(usize, StableHashControls), Fingerprint>>`: keyed by the
+// `AdtDefData` object (its address), then by `StableHashControls` (its one field, `hash_spans`).
+const AdtDefData_stable_hash_CACHE = new Map<AdtDefData, Map<boolean, Fingerprint>>();
+
+// rustc: compiler/rustc_middle/src/ty/adt.rs:160 stable_hash
+export function stable_hash_AdtDefData(self: AdtDefData, hcx: StableHashCtxt, hasher: StableHasher): void {
+  const hash: Fingerprint = ((): Fingerprint => {
+    const stable_hash_controls = hcx.stable_hash_controls();
+    let by_controls = AdtDefData_stable_hash_CACHE.get(self);
+    if (by_controls === undefined) {
+      by_controls = new Map();
+      AdtDefData_stable_hash_CACHE.set(self, by_controls);
+    }
+    const cached = by_controls.get(stable_hash_controls.hash_spans);
+    if (cached !== undefined) return cached;
+    const { did, variants, flags, repr } = self;
+
+    const hasher = StableHasher.new();
+    stable_hash_DefId(did, hcx, hasher);
+    stable_hash_IndexVec(variants, hcx, hasher, middle_stable_hash().stable_hash_VariantDef);
+    middle_stable_hash().stable_hash_AdtFlags(flags, hcx, hasher);
+    abi_stable_hash().stable_hash_ReprOptions(repr, hcx, hasher);
+
+    const h = hasher.finish(Fingerprint);
+    by_controls.set(stable_hash_controls.hash_spans, h);
+    return h;
+  })();
+
+  stable_hash_Fingerprint(hash, hcx, hasher);
 }
 
 // ---- AdtDef --------------------------------------------------------------------------------------------------------

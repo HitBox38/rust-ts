@@ -5,9 +5,9 @@
 // on every module through `late_lint_mod` (`--late-pass`), `check_expectations(None)`. The oracle compiles the same
 // file as a lib with std (`--emit=metadata`); each case only has diagnostics the listed passes produce, so stderr and
 // the exit code must be identical.
-// PENDING cases pin where the subject stops today (exit 70, `rust-ts: unported: ..`) on code that is not this lane's:
-// `Ty: StableHash` (`type_id_hash`, the `ImproperCTypesLint` cache key of every `extern "C"` signature) and
-// rustc_apfloat (float literals). When one of them is ported, the pin fails: turn the case into a normal one.
+// PENDING cases pin where the subject stops today (exit 70, `rust-ts: unported: ..`) on code that is not this lane's
+// (rustc_apfloat float literals; `Ty: StableHash`, the `ImproperCTypesLint` cache key of every `extern "C"` signature,
+// is ported since lane misc-blockers). When one of them is ported, the pin fails: turn the case into a normal one.
 // Not covered: `uses_power_alignment` (AIX only; the `powerpc64-ibm-aix` target spec is not ported).
 // Skips (visibly) if rustc is unavailable; fails instead under RUST_TS_REQUIRE_PROBES=1.
 import { expect, test } from "bun:test";
@@ -226,11 +226,16 @@ const CASES: Case[] = [
     expect: ["`extern` fn uses type `str`, which is not FFI-safe"],
   },
   {
-    name: "PENDING ImproperCTypesLint: an extern \"C\" signature stops at the cache key (Ty: StableHash)",
+    name: "ImproperCTypesLint: an extern \"C\" signature (the cache key is `type_id_hash`, Ty: StableHash)",
     passes: [ICT],
     src: ['unsafe extern "C" { pub fn f(x: i32) -> i32; }'],
     expect: [],
-    pending: "rust-ts: unported: rustc_middle::ty::Ty: StableHash (ty/impls_ty.rs) under StableHashState::while_hashing_spans\n",
+  },
+  {
+    name: "ImproperCTypesLint: FFI-unsafe types in an extern \"C\" block, the same signature twice (cache hit)",
+    passes: [ICT],
+    src: ['unsafe extern "C" { pub fn f(x: &str) -> i32; pub fn g(x: &str) -> i32; pub fn h(x: [u8; 4], y: Option<&u32>); }'],
+    expect: ["which is not FFI-safe"],
   },
   {
     name: "all four passes combined (lib.rs order): diagnostic order across passes",
