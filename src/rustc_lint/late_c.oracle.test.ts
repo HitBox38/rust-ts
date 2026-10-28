@@ -221,15 +221,16 @@ const CASES: Case[] = [
     ],
     expect: ["unused return value of `r` that must be used"],
   },
+  {
+    // was BLOCKED at borrowck (`UniverseInfo::relate`) until fix-w24-bck: the RPIT's hidden type comes from mir_borrowck.
+    // `pub` (as every case): the driver does not run dead-code analysis, so a private `f` would miss the oracle's dead_code
+    name: "impl_trait_overcaptures fires (RPIT with a body)",
+    src: ["#![warn(impl_trait_overcaptures)]", "pub fn f<'a>(x: &'a ()) -> impl Sized { *x }"],
+    expect: ["`impl Sized` will capture more lifetimes than possibly intended in edition 2024"],
+  },
 ];
 
 const BLOCKED: BlockedCase[] = [
-  {
-    name: "impl_trait_overcaptures fires (RPIT with a body)",
-    src: ["#![warn(impl_trait_overcaptures)]", "fn f<'a>(x: &'a ()) -> impl Sized { *x }"],
-    expect: ["`impl Sized` will capture more lifetimes than possibly intended in edition 2024"],
-    blocked_by: "rustc_borrowck::diagnostics::bound_region_errors::UniverseInfo::relate",
-  },
   {
     name: "if_let_rescope fires",
     src: [

@@ -306,7 +306,8 @@ const CASES: Case[] = [
     expect: [],
   },
   {
-    name: "opaque_hidden_inferred_bound: TAIT (tests/ui/impl-trait/nested-return-type3-tait3.rs) (stop: mir_borrowck, reached by the typeck prefix)",
+    // was pinned to a stop in mir_borrowck (reached by the typeck prefix) until fix-w24-bck
+    name: "opaque_hidden_inferred_bound: TAIT (tests/ui/impl-trait/nested-return-type3-tait3.rs)",
     passes: ["OpaqueHiddenInferredBound"],
     src: [
       "#![feature(type_alias_impl_trait)]",
@@ -326,7 +327,6 @@ const CASES: Case[] = [
       "}",
     ],
     expect: ["opaque type `Traitable` does not satisfy its associated type bounds", "impl Send + Duh"],
-    stop: "rustc_borrowck::diagnostics::bound_region_errors::UniverseInfo::relate",
   },
 ];
 

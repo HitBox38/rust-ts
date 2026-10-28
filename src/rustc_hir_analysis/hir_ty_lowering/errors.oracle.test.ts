@@ -30,13 +30,11 @@ const CASES = readdirSync(CASES_DIR)
   .sort();
 
 /**
- * Where the port's driver stops today (main.ts), re-pinned by passes-analysis (the real `analysis`): cases with a fn body
- * stop at `mir_borrowck` (MIR_borrow_checking loop of `run_required_analyses`, not ported yet), after printing the
- * oracle's own diagnostics; the others now run `analysis` through and equal the oracle.
+ * Where the port's driver stops today (main.ts). Empty: every case runs `analysis` through (e0109_kinds, the case with a
+ * fn body, since borrowck and the post-borrowck MIR passes are ported) and equals the oracle. A case that stops again must
+ * be listed with its exact `rust-ts: unported: ..` line.
  */
-const PENDING: Record<string, string> = Object.fromEntries(
-  ["e0109_kinds"].map((c) => [c, "rustc_mir_transform::cleanup_post_borrowck::CleanupPostBorrowck (pass not ported)"]),
-);
+const PENDING: Record<string, string> = {};
 
 const ENV: Record<string, string> = {};
 for (const [k, v] of Object.entries(process.env)) {

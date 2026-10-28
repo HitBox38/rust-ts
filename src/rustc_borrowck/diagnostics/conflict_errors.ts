@@ -1,9 +1,9 @@
 // Port of compiler/rustc_borrowck/src/diagnostics/conflict_errors.rs (lane borrowck-contract: declarations; fill lanes
 // bck-diag-a (lines < 2469) and bck-diag-b (lines >= 2469), plan-m4 wave 23).
 // Conventions: docs/handoff/borrowck-contract.md ("Conventions"; lib.ts's header repeats them).
-// PORT: the fn-local types of upstream's methods (hir / mir / type visitors) are module-level classes until their fill lane
-// moves them inside (contract convention "fn-local items"); a name used by two fn-local types gets the upstream line of
-// its `struct` as suffix (`ExpressionFinder_366` / `ExpressionFinder_2833`, `ExprFinder_2481` / `ExprFinder_4730`).
+// PORT: the fn-local types of upstream's methods (hir / mir / type visitors) are classes declared inside the method that
+// declares them upstream (contract convention "fn-local items"), under their upstream names: the two `ExpressionFinder`s
+// (conflict_errors.rs:366 and :2833) and the two `ExprFinder`s (:2481 and :4730) are separate fn-local classes.
 // PORT: tuple parameters destructured upstream (`(place, span): (Place<'tcx>, Span)`) are destructured tuple parameters.
 import { ControlFlow, VisitorResult as VisitorResultC, type VisitorResult } from "../../rustc_ast_ir/visit.ts";
 import type { Mutability } from "../../rustc_ast_ir/lib.ts";

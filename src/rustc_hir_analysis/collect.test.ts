@@ -56,7 +56,7 @@ function facts(out: string): { order: string[]; by: Map<string, Map<string, stri
 const CRATES: [string, number][] = [
   // [file, number of computed facts that must match the probe]
   ["generics.rs", 72],
-  ["misc.rs", 40],
+  ["misc.rs", 41],
 ];
 
 for (const [file, min_matched] of CRATES) {

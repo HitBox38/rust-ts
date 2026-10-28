@@ -129,7 +129,9 @@ export function mangle(tcx: TyCtxt, instance: Instance, instantiating_crate: Cra
 
 /** `FxHashMap::default()` of `V0SymbolMangler::paths` */
 function new_paths(): KeyedMap<readonly [DefId, readonly GenericArg[]], number> {
-  return new KeyedMap<readonly [DefId, readonly GenericArg[]], number>(intern_key);
+  // PORT: the args are keyed element-wise even when they are an interned `List` (whose own `intern_key` is its `#id`):
+  // `&[GenericArg]`'s `Eq` compares contents, so an interned empty list and the `&[]` literal are the same key.
+  return new KeyedMap<readonly [DefId, readonly GenericArg[]], number>(([def_id, args]) => intern_key([def_id, [...args]]));
 }
 
 /** `Result<(), fmt::Error>::unwrap()` */
