@@ -66,7 +66,7 @@ import { CStore, type LoadedMacro } from "../../creader.ts";
 import type { CrateMetadata, DecodeIterator, MetadataDecodeContext, SimplifiedType } from "../decoder.ts";
 import { decode_Deprecation, type Deprecation } from "../../../rustc_attr_ir/data_structures.ts";
 import { DeprecationEntry } from "../../../rustc_middle/middle/stability.ts";
-import { decode_AsyncDestructor, decode_ConstConditions, decode_Destructor, decode_GenericClauses, decode_Generics, decode_ImplTraitHeader, decode_ObjectLifetimeDefault, decode_TraitDef } from "../../../rustc_middle/decodable.gen.ts";
+import { decode_AsyncDestructor, decode_ConstConditions, decode_DeducedParamAttrs, decode_Destructor, decode_GenericClauses, decode_Generics, decode_ImplTraitHeader, decode_ObjectLifetimeDefault, decode_TraitDef } from "../../../rustc_middle/decodable.gen.ts";
 import { decode_ConstStability, decode_DefaultBodyStability, decode_Stability } from "../../../rustc_attr_ir/stability.ts";
 import { AttrFlags, type LazyArray, type LazyTable, type LazyTables, type LazyValue, type RawDefId } from "../mod.ts";
 import {
@@ -528,7 +528,7 @@ export const PROVIDE_EXTERN: { readonly [N in ExternQuery]?: ProvideEntry<N> } =
       // and not incremental (see `encoder.rs`). I don't think this is right!
       const lazy = cdata.root.tables.deduced_param_attrs.get(fse_Option_LazyArray, cdata, def_id.index);
       if (lazy === undefined) return [];
-      return [...lazy.decode([cdata, tcx], decode_unported("DeducedParamAttrs"))];
+      return [...lazy.decode([cdata, tcx], decode_DeducedParamAttrs)];
     },
   ],
   opaque_ty_origin: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("hir::OpaqueTyOrigin<DefId>", decode_unported("hir::OpaqueTyOrigin<DefId>")), ProcessQueryValue_Option_T)],
