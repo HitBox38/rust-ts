@@ -541,7 +541,7 @@ export const PROVIDE_EXTERN: { readonly [N in ExternQuery]?: ProvideEntry<N> } =
       return Ok(
         ProcessQueryValue_Option_ref_T.process_decoded(lazy === undefined ? undefined : lazy.decode([cdata, tcx], (d) => decode_DefIdMap(d, (d) => decode_EarlyBinder(d, decode_Ty))), tcx, () =>
           panic(`${debug_DefId(def_id, PLAIN)} does not have collect_return_position_impl_trait_in_trait_tys`),
-        ) as DefIdMap<unknown>,
+        ) as DefIdMap<EarlyBinder<Ty>>,
       );
     },
   ],

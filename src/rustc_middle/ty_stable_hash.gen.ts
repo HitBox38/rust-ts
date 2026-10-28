@@ -3,13 +3,17 @@
 // (the `isize` discriminant, or the `#[repr]` integer), then the fields of the variant / struct in declaration order,
 // skipping `#[stable_hash(ignore)]` and hashing `field.name` for `#[stable_hash(project(name))]`.
 // Only `export function` declarations: hand modules may import from here inside an import cycle.
+import { stable_hash_Binder, stable_hash_PredicateKind } from "../rustc_type_ir/ty_stable_hash.gen.ts";
+import { stable_hash_Interned } from "../rustc_data_structures/intern.ts";
 import { stable_hash_Discriminant, stable_hash_u32, type StableHash, type StableHashCtxt, type StableHasher } from "../rustc_data_structures/stable_hash.ts";
 import { type Expr, type ExprKind } from "./ty/consts/kind.ts";
 import { stable_hash_GenericArg, stable_hash_RawList } from "./ty/impls_ty.ts";
+import { type Clause, type Predicate } from "./ty/predicate.ts";
 import { type EarlyParamRegion, type LateParamRegionKind } from "./ty/region.ts";
 import { type ParamConst, type ParamTy } from "./ty/sty.ts";
 import { stable_hash_DefId } from "../rustc_span/def_id.ts";
 import { stable_hash_Symbol } from "../rustc_span/symbol.ts";
+import { stable_hash_WithCachedTypeInfo } from "../rustc_type_ir/ty_info.ts";
 import { unported } from "../std/panic.ts";
 function unported_stable_hash(..._a: unknown[]): void {
   unported("StableHash without a TS impl (see types report)");
@@ -51,6 +55,16 @@ export function stable_hash_LateParamRegionKind(self: LateParamRegionKind, __hcx
     case "ClosureEnv":
       break;
   }
+}
+
+// rustc-derive: compiler/rustc_middle/src/ty/predicate.rs:46 StableHash for Predicate
+export function stable_hash_Predicate(self: Predicate, __hcx: StableHashCtxt, __hasher: StableHasher): void {
+  stable_hash_Interned(self, __hcx, __hasher, (__v, __hcx, __hasher) => stable_hash_WithCachedTypeInfo(__v, __hcx, __hasher, (__v, __hcx, __hasher) => stable_hash_Binder(__v, __hcx, __hasher, (__v, __hcx, __hasher) => stable_hash_PredicateKind(__v, __hcx, __hasher))));
+}
+
+// rustc-derive: compiler/rustc_middle/src/ty/predicate.rs:136 StableHash for Clause
+export function stable_hash_Clause(self: Clause, __hcx: StableHashCtxt, __hasher: StableHasher): void {
+  stable_hash_Interned(self, __hcx, __hasher, (__v, __hcx, __hasher) => stable_hash_WithCachedTypeInfo(__v, __hcx, __hasher, (__v, __hcx, __hasher) => stable_hash_Binder(__v, __hcx, __hasher, (__v, __hcx, __hasher) => stable_hash_PredicateKind(__v, __hcx, __hasher))));
 }
 
 // rustc-derive: compiler/rustc_middle/src/ty/consts/kind.rs:13 StableHash for ExprKind

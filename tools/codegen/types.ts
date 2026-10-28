@@ -1890,6 +1890,14 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
         addStub(implMf.hand, name, `export declare function ${name}(v: any, hcx: any, hasher: any, ...s: any[]): void;`);
         return alias;
       }
+      // An item of this set whose impl another set generates (stable_hash.json, keyed by the item's path): only a
+      // plain `stable_hash_<T>($v, $hcx, $h, $s0, ..)` call, so the type arguments' impls are passed in order.
+      const ext = shIndex.get(r.key);
+      const params = tsParams(r.item).map((_, i) => `, $s${i}`).join("");
+      const plain = ext?.stable_hash !== undefined ? /^(stable_hash_\w+)\(\$v, \$hcx, \$h(.*)\)$/.exec(ext.stable_hash) : null;
+      if (ext !== undefined && plain !== null && plain[2] === params) {
+        return shUse(plain[1]!, ext.import ? `src:${ext.import.replace(/^src\//, "")}` : shModule);
+      }
       push(report.missing_stable_hash, r.key, at);
       return "unported_stable_hash";
     };
