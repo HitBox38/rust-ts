@@ -3,7 +3,7 @@
 // PORT: `ctx.emit_lifetime_markers()` is `Session::emit_lifetime_markers` (rustc_session/src/session.rs:883) through
 // `PassCtx`'s `Deref<Target = Session>`. session.ts (not this lane's file) has not ported it yet, so
 // `emit_lifetime_markers` below is a module-local stand-in with the same body and no marker; root should move it to
-// session.ts and repoint (see docs/handoff/mt-opt1.md).
+// session.ts and repoint (see docs/handoff/mt-opt1.md). copy_prop.ts imports it from here.
 //! This pass removes storage markers if they won't be emitted during codegen.
 import type { Body } from "../rustc_middle/mir/mod.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
@@ -12,7 +12,7 @@ import { SanitizerSet } from "../rustc_target/spec/mod.ts";
 import { MirPass, type PassCtx, PassPolicy } from "./pass_manager.ts";
 
 /** PORT: stand-in for `Session::emit_lifetime_markers` (session.rs:883; see the header). */
-function emit_lifetime_markers(self: Session): boolean {
+export function emit_lifetime_markers(self: Session): boolean {
   /// Checks if LLVM lifetime markers should be emitted.
   return (
     self.opts.optimize !== "No" ||
