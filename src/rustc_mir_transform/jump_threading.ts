@@ -1,21 +1,25 @@
-// Stub module (lane mt-opt2): compiler/rustc_mir_transform/src/jump_threading.rs is not ported yet.
-// Lane mt-skeleton declared only what lib.rs / pass_manager.rs reference (docs/handoff/mt-skeleton.md, "Module
-// layout"); the porting lane replaces this file with the whole port, keeping these names and shapes. Every stub stops
-// as UNPORTED with its upstream path.
+// Port of compiler/rustc_mir_transform/src/jump_threading.rs (lane mt-opt2-c). In progress: the policy is ported, the pass
+// body stops as UNPORTED.
 import { unported } from "../std/panic.ts";
 import type { Body } from "../rustc_middle/mir/mod.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
-import { MirPass, type PassCtx, type PassPolicy } from "./pass_manager.ts";
+import { MirPass, type PassCtx, PassPolicy } from "./pass_manager.ts";
 
-// stub: compiler/rustc_mir_transform/src/jump_threading.rs:73 JumpThreading (lane mt-opt2)
+// rustc-type: compiler/rustc_mir_transform/src/jump_threading.rs:73 JumpThreading
 export class JumpThreading extends MirPass {
   readonly type_name = "rustc_mir_transform::jump_threading::JumpThreading";
 
-  policy(_ctx: PassCtx): PassPolicy {
-    return unported("rustc_mir_transform::jump_threading::JumpThreading (pass not ported)");
+  // rustc: compiler/rustc_mir_transform/src/jump_threading.rs:78 policy
+  policy(ctx: PassCtx): PassPolicy {
+    // Jump threading can duplicate calls in control-flow.
+    // This leads to incorrect code when done for so called "convergent" operations on GPU
+    // targets, similar to how inline assembly cannot be duplicated on all targets.
+    // Conservatively prevent this by disabling the pass.
+    // See also issue #137086.
+    return PassPolicy.optional(ctx.mir_opt_level() >= 2 && !ctx.deref().target.is_like_gpu);
   }
 
   run_pass(_tcx: TyCtxt, _body: Body): void {
-    return unported("rustc_mir_transform::jump_threading::JumpThreading (pass not ported)");
+    return unported("rustc_mir_transform::jump_threading::JumpThreading::run_pass");
   }
 }
