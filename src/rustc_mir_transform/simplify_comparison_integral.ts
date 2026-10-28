@@ -5,14 +5,15 @@
 import { unported } from "../std/panic.ts";
 import type { Body } from "../rustc_middle/mir/mod.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
-import { MirPass, type PassCtx, type PassPolicy } from "./pass_manager.ts";
+import { MirPass, type PassCtx, PassPolicy } from "./pass_manager.ts";
 
 // stub: compiler/rustc_mir_transform/src/simplify_comparison_integral.rs:27 SimplifyComparisonIntegral (lane mt-opt2)
 export class SimplifyComparisonIntegral extends MirPass {
   readonly type_name = "rustc_mir_transform::simplify_comparison_integral::SimplifyComparisonIntegral";
 
-  policy(_ctx: PassCtx): PassPolicy {
-    return unported("rustc_mir_transform::simplify_comparison_integral::SimplifyComparisonIntegral (pass not ported)");
+  // rustc: compiler/rustc_mir_transform/src/simplify_comparison_integral.rs:30 policy
+  policy(ctx: PassCtx): PassPolicy {
+    return PassPolicy.optional(ctx.mir_opt_level() >= 2);
   }
 
   run_pass(_tcx: TyCtxt, _body: Body): void {
