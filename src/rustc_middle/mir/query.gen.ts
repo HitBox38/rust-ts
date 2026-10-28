@@ -2,17 +2,21 @@
 // Hand-written additions (methods, manual Debug impls) go in query.ts next to this file.
 import { try_visit } from "../../rustc_ast_ir/visit.ts";
 import { type BitMatrix } from "../../rustc_index/bit_set.ts";
+import { decode_BitMatrix } from "../../rustc_index/decodable.gen.ts";
 import { newtype_index } from "../../rustc_index/newtype_index.ts";
 import { type ConstValue, debug_ConstValue } from "./consts.ts";
-import { clone_SourceInfo, debug_SourceInfo, type SourceInfo } from "./mod.ts";
-import { type FieldIdx, type VariantIdx } from "../ty/decls.ts";
+import { clone_SourceInfo, debug_SourceInfo, decode_SourceInfo, type SourceInfo } from "./mod.ts";
+import { decode_Ty, type TyDecoder } from "../ty/codec.ts";
+import { FieldIdx, type VariantIdx } from "../ty/decls.ts";
 import { debug_Ty, fold_with_Ty, try_fold_with_Ty, type Ty, visit_with_Ty } from "../ty/mod.ts";
+import { decode_bool, decode_Option, decode_Vec, type Decoder } from "../../rustc_serialize/serialize.ts";
 import { debug_DefId, type DefId } from "../../rustc_span/def_id.ts";
-import { debug_ErrorGuaranteed, debug_Span, type ErrorGuaranteed, type Span } from "../../rustc_span/lib.ts";
+import { debug_ErrorGuaranteed, debug_Span, decode_ErrorGuaranteed, type ErrorGuaranteed, type Span } from "../../rustc_span/lib.ts";
 import { debug_Symbol, type Symbol } from "../../rustc_span/symbol.ts";
 import { type FallibleTypeFolder, fold_with_Option, fold_with_trivial, fold_with_Vec, type FoldWith, try_fold_with_Option, try_fold_with_trivial, try_fold_with_Vec, type TryFoldWith, type TypeFolder, type TypeVisitor, visit_with_Option, visit_with_trivial, visit_with_Vec, type VisitWith } from "../../rustc_type_ir/fold.ts";
-import { debug_RegionVid, type RegionVid } from "../../rustc_type_ir/region_kind.ts";
+import { debug_RegionVid, decode_RegionVid, type RegionVid } from "../../rustc_type_ir/region_kind.ts";
 import { type Debug, debug_bool, debug_int, debug_option, debug_struct, debug_tuple, debug_vec } from "../../std/fmt.ts";
+import { panic } from "../../std/panic.ts";
 import { Ok, type Result } from "../../std/result.ts";
 
 // rustc-type: compiler/rustc_middle/src/mir/query.rs:16 CoroutineSavedLocal
@@ -20,6 +24,10 @@ import { Ok, type Result } from "../../std/result.ts";
 export type CoroutineSavedLocal = number & { readonly __brand: "CoroutineSavedLocal" };
 export const CoroutineSavedLocal = newtype_index<CoroutineSavedLocal>((n) => `_s${n}`);
 export const debug_CoroutineSavedLocal: Debug<CoroutineSavedLocal> = CoroutineSavedLocal.debug;
+// rustc-derive: compiler/rustc_middle/src/mir/query.rs:16 newtype_index! #[encodable] Decodable for CoroutineSavedLocal
+export function decode_CoroutineSavedLocal(__decoder: Decoder): CoroutineSavedLocal {
+  return CoroutineSavedLocal.from_u32(__decoder.read_u32());
+}
 
 // rustc-type: compiler/rustc_middle/src/mir/query.rs:25 CoroutineSavedTy
 export interface CoroutineSavedTy {
@@ -44,6 +52,15 @@ export function clone_CoroutineSavedTy(v: CoroutineSavedTy): CoroutineSavedTy {
     source_info: clone_SourceInfo(v.source_info),
     ignore_for_traits: v.ignore_for_traits,
     debuginfo_name: v.debuginfo_name,
+  };
+}
+// rustc-derive: compiler/rustc_middle/src/mir/query.rs:25 TyDecodable for CoroutineSavedTy
+export function decode_CoroutineSavedTy(__decoder: TyDecoder): CoroutineSavedTy {
+  return {
+    ty: decode_Ty(__decoder),
+    source_info: decode_SourceInfo(__decoder),
+    ignore_for_traits: decode_bool(__decoder),
+    debuginfo_name: decode_Option(__decoder, (__decoder) => __decoder.decode_symbol()),
   };
 }
 // rustc-derive: compiler/rustc_middle/src/mir/query.rs:25 TypeVisitable for CoroutineSavedTy
@@ -88,6 +105,15 @@ export function clone_CoroutineLayout(v: CoroutineLayout): CoroutineLayout {
     variant_fields: v.variant_fields.map((x) => x.slice()),
     variant_source_info: v.variant_source_info.map(clone_SourceInfo),
     storage_conflicts: v.storage_conflicts.clone(),
+  };
+}
+// rustc-derive: compiler/rustc_middle/src/mir/query.rs:38 TyDecodable for CoroutineLayout
+export function decode_CoroutineLayout(__decoder: TyDecoder): CoroutineLayout {
+  return {
+    field_tys: decode_Vec(__decoder, decode_CoroutineSavedTy),
+    variant_fields: decode_Vec(__decoder, (__decoder) => decode_Vec(__decoder, decode_CoroutineSavedLocal)),
+    variant_source_info: decode_Vec(__decoder, decode_SourceInfo),
+    storage_conflicts: (decode_BitMatrix(__decoder) as never),
   };
 }
 // rustc-derive: compiler/rustc_middle/src/mir/query.rs:38 TypeVisitable for CoroutineLayout
@@ -138,6 +164,15 @@ export function clone_ConstQualifs(v: ConstQualifs): ConstQualifs {
     needs_drop: v.needs_drop,
     needs_non_const_drop: v.needs_non_const_drop,
     tainted_by_errors: v.tainted_by_errors,
+  };
+}
+// rustc-derive: compiler/rustc_middle/src/mir/query.rs:91 TyDecodable for ConstQualifs
+export function decode_ConstQualifs(__decoder: TyDecoder): ConstQualifs {
+  return {
+    has_mut_interior: decode_bool(__decoder),
+    needs_drop: decode_bool(__decoder),
+    needs_non_const_drop: decode_bool(__decoder),
+    tainted_by_errors: decode_Option(__decoder, decode_ErrorGuaranteed),
   };
 }
 
@@ -261,6 +296,52 @@ export function clone_ConstraintCategory(v: ConstraintCategory): ConstraintCateg
     case "BoringNoLocation":
     case "Internal":
       return v;
+  }
+}
+// rustc-derive: compiler/rustc_middle/src/mir/query.rs:104 TyDecodable for ConstraintCategory
+export function decode_ConstraintCategory(__decoder: TyDecoder): ConstraintCategory {
+  const __tag = __decoder.read_u8();
+  switch (__tag) {
+    case 0:
+      return { $: "Return", _0: decode_ReturnConstraint(__decoder) };
+    case 1:
+      return ConstraintCategory.Yield;
+    case 2:
+      return ConstraintCategory.UseAsConst;
+    case 3:
+      return ConstraintCategory.UseAsStatic;
+    case 4:
+      return { $: "TypeAnnotation", _0: decode_AnnotationSource(__decoder) };
+    case 5:
+      return { $: "Cast", is_raw_ptr_dyn_type_cast: decode_bool(__decoder), is_implicit_coercion: decode_bool(__decoder), unsize_to: decode_Option(__decoder, decode_Ty) };
+    case 6:
+      return { $: "CallArgument", _0: decode_Option(__decoder, decode_Ty) };
+    case 7:
+      return ConstraintCategory.CopyBound;
+    case 8:
+      return ConstraintCategory.SizedBound;
+    case 9:
+      return ConstraintCategory.Assignment;
+    case 10:
+      return ConstraintCategory.Usage;
+    case 11:
+      return ConstraintCategory.OpaqueType;
+    case 12:
+      return { $: "ClosureUpvar", _0: FieldIdx.from_u32(__decoder.read_u32()) };
+    case 13:
+      return { $: "Predicate", _0: __decoder.decode_span(), _1: __decoder.decode_def_id() };
+    case 14:
+      return ConstraintCategory.Boring;
+    case 15:
+      return ConstraintCategory.BoringNoLocation;
+    case 16:
+      return ConstraintCategory.Internal;
+    case 17:
+      return { $: "OutlivesUnnameablePlaceholder", _0: decode_RegionVid(__decoder) };
+    case 18:
+      return { $: "SolverRegionConstraint", _0: __decoder.decode_span() };
+    default:
+      return panic(`invalid enum variant tag while decoding \`ConstraintCategory\`, expected 0..19, actual ${__tag}`);
   }
 }
 // rustc-derive: compiler/rustc_middle/src/mir/query.rs:104 TypeVisitable for ConstraintCategory
@@ -397,6 +478,18 @@ export function clone_ReturnConstraint(v: ReturnConstraint): ReturnConstraint {
       return v;
   }
 }
+// rustc-derive: compiler/rustc_middle/src/mir/query.rs:162 TyDecodable for ReturnConstraint
+export function decode_ReturnConstraint(__decoder: TyDecoder): ReturnConstraint {
+  const __tag = __decoder.read_u8();
+  switch (__tag) {
+    case 0:
+      return ReturnConstraint.Normal;
+    case 1:
+      return { $: "ClosureUpvar", _0: FieldIdx.from_u32(__decoder.read_u32()) };
+    default:
+      return panic(`invalid enum variant tag while decoding \`ReturnConstraint\`, expected 0..2, actual ${__tag}`);
+  }
+}
 // rustc-derive: compiler/rustc_middle/src/mir/query.rs:162 TypeVisitable for ReturnConstraint
 export function visit_with_ReturnConstraint<R>(_self: ReturnConstraint, __visitor: TypeVisitor<R>): R {
   return __visitor.Result.output();
@@ -432,6 +525,22 @@ export const AnnotationSource = { Ascription: "Ascription", Declaration: "Declar
 export const debug_AnnotationSource: Debug<AnnotationSource> = (v) => v;
 export function clone_AnnotationSource(v: AnnotationSource): AnnotationSource {
   return v;
+}
+// rustc-derive: compiler/rustc_middle/src/mir/query.rs:169 TyDecodable for AnnotationSource
+export function decode_AnnotationSource(__decoder: TyDecoder): AnnotationSource {
+  const __tag = __decoder.read_u8();
+  switch (__tag) {
+    case 0:
+      return "Ascription";
+    case 1:
+      return "Declaration";
+    case 2:
+      return "OpaqueCast";
+    case 3:
+      return "GenericArg";
+    default:
+      return panic(`invalid enum variant tag while decoding \`AnnotationSource\`, expected 0..4, actual ${__tag}`);
+  }
 }
 // rustc-derive: compiler/rustc_middle/src/mir/query.rs:169 TypeVisitable for AnnotationSource
 export function visit_with_AnnotationSource<R>(_self: AnnotationSource, __visitor: TypeVisitor<R>): R {

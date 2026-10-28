@@ -1512,7 +1512,7 @@ export function debug_GrowableBitSet<T extends number>(self: GrowableBitSet<T>, 
 /// All operations that involve a row and/or column index will panic if the
 /// index exceeds the relevant bound.
 // rustc-type: compiler/rustc_index/src/bit_set.rs:1310 BitMatrix
-export class BitMatrix<R extends number, C extends number> {
+export class BitMatrix<R extends number = number, C extends number = number> {
   /** `marker: PhantomData<(R, C)>` (erased). */
   declare readonly __rc?: [R, C];
 

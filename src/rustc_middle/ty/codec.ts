@@ -50,16 +50,12 @@ export {
   decode_ListWithCachedTypeInfo_Clause,
 } from "./codec/ref_decodable.ts";
 
-// mir / mir::interpret are not ported (M4): their shapes stay opaque here. (`ty::SymbolName` is ty/mod.ts's.)
+// mir / mir::interpret types (read lazily, module comment). (`ty::SymbolName` is ty/mod.ts's.)
 type AllocId = import("../mir/interpret/mod.ts").AllocId;
 type CtfeProvenance = import("../mir/interpret/pointer.ts").CtfeProvenance;
 type SymbolName = import("./mod.ts").SymbolName;
-type Local = number & { readonly __brand: "mir::Local" };
-/** `mir::Place<'tcx> { local, projection: &'tcx List<PlaceElem<'tcx>> }` (mir/syntax.rs, M4) */
-interface Place {
-  local: Local;
-  projection: List<PlaceElem>;
-}
+type Local = import("../mir/mod.ts").Local;
+type Place = import("../mir/syntax.ts").Place;
 
 // ---- lazily loaded callees (module comment) ----
 /** mir/interpret/pointer.ts (`CtfeProvenance::from_parts`), read lazily. */
@@ -112,6 +108,19 @@ function mod_(): typeof import("./mod.ts") {
   return (mod___m ??= require("./mod.ts") as typeof import("./mod.ts"));
 }
 var mod___m: typeof import("./mod.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
+/** mir/syntax.ts (`mir::Place`, the derived `ProjectionElem` decoder) and mir/mod.ts (`Local`), read lazily (lane meta-mir). */
+function mir_syntax_(): typeof import("../mir/syntax.ts") {
+  return (mir_syntax___m ??= require("../mir/syntax.ts") as typeof import("../mir/syntax.ts"));
+}
+var mir_syntax___m: typeof import("../mir/syntax.ts") | undefined;
+function mir_mod_(): typeof import("../mir/mod.ts") {
+  return (mir_mod___m ??= require("../mir/mod.ts") as typeof import("../mir/mod.ts"));
+}
+var mir_mod___m: typeof import("../mir/mod.ts") | undefined;
+function type_ir_serialize_(): typeof import("../../rustc_type_ir/serialize.ts") {
+  return (type_ir_serialize___m ??= require("../../rustc_type_ir/serialize.ts") as typeof import("../../rustc_type_ir/serialize.ts"));
+}
+var type_ir_serialize___m: typeof import("../../rustc_type_ir/serialize.ts") | undefined;
 function ref_decodable_(): typeof import("./codec/ref_decodable.ts") {
   return (ref_decodable___m ??= require("./codec/ref_decodable.ts") as typeof import("./codec/ref_decodable.ts"));
 }
@@ -266,15 +275,14 @@ export function decode_GenericArgs<D extends TyDecoder>(decoder: D): GenericArgs
 // impl<'tcx, D: TyDecoder<'tcx>> Decodable<D> for mir::Place<'tcx>
 // rustc: compiler/rustc_middle/src/ty/codec.rs:244 decode
 export function decode_Place<D extends TyDecoder>(decoder: D): Place {
-  // `mir::Local` is a `newtype_index!` (`#[encodable]`: `Self::from_u32(d.read_u32())`).
-  const local = decoder.read_u32() as Local;
+  const local: Local = mir_mod_().decode_Local(decoder);
   const len = decoder.read_usize();
   const projection = decoder.interner().mk_place_elems_from_iter(
     (function* (): Generator<PlaceElem> {
       for (let i = 0; i < len; i++) yield decode_PlaceElem(decoder);
     })(),
   );
-  return { local, projection };
+  return new (mir_syntax_().Place)(local, projection);
 }
 
 // impl<'tcx, D: TyDecoder<'tcx>> Decodable<D> for CanonicalVarKinds<'tcx>
@@ -431,11 +439,19 @@ export function decode_Term_TyDecoder<D extends TyDecoder>(d: D): Term {
   return mod_().decode_Term(d, term_kind_().decode_TermKind);
 }
 
-// ---- not ported yet: the types these impls construct ----
+/** PORT (lane meta-mir): `ty::Const`'s `Decodable` (rustc_type_ir serialize.rs:130) with the derived `ConstKind` decoder, as a
+ *  one-argument decoder for the generated decoders of the MIR set (tools/codegen serialize.json `rustc_middle::ty::Const`),
+ *  named apart from mir's own `decode_Const` (`mir::Const`, consts.rs). Not a marker. */
+export function decode_ty_Const<D extends TyDecoder>(d: D): import("./consts.ts").Const {
+  return type_ir_serialize_().decode_Const(d, const_kind_().decode_ConstKind) as import("./consts.ts").Const;
+}
 
-/** `Decodable for mir::PlaceElem` (`ProjectionElem<Local, Ty>`, derive(TyDecodable) in mir/syntax.rs; M4). */
-function decode_PlaceElem(_d: TyDecoder): PlaceElem {
-  return unported("Decodable for rustc_middle::mir::PlaceElem (mir/syntax.rs, M4)");
+// ---- the element types these impls decode ----
+
+/** `Decodable for mir::PlaceElem` (`ProjectionElem<Local, Ty>`): the derived `decode_ProjectionElem` of mir/syntax.rs (lane
+ *  meta-mir), read lazily (init order). */
+function decode_PlaceElem(d: TyDecoder): PlaceElem {
+  return mir_syntax_().decode_ProjectionElem(d, mir_mod_().decode_Local, decode_Ty);
 }
 /** `Decodable for mir::interpret::Allocation` (`Allocation<CtfeProvenance, (), Box<[u8]>>`): allocation.rs:213's generic
  *  impl with `CtfeProvenance`'s decoder (above) and `()`'s; mir/interpret/allocation.ts read lazily (init order). */

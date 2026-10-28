@@ -16,7 +16,7 @@ import { type RangeBounds, range, SortedMap } from "../../../../rustc_data_struc
 import { range_from, range_to } from "../../../../rustc_index/idx.ts";
 import { assert, panic, unported, unwrap } from "../../../../std/panic.ts";
 import { Err, Ok } from "../../../../std/result.ts";
-import type { Decoder } from "../../../../rustc_serialize/serialize.ts";
+import { type Decoder, decode_tuple, decode_u64, decode_Vec } from "../../../../rustc_serialize/serialize.ts";
 import type { Range } from "../../../ty/decls.ts";
 import { type AllocRange, type AllocResult, alloc_range } from "../allocation.ts";
 import { type CtfeProvenance, type Provenance, Provenance_CtfeProvenance, provenance_of } from "../pointer.ts";
@@ -123,9 +123,13 @@ export function decode_ProvenanceMap<D extends Decoder, Prov>(d: D, decode_Prov:
   // `bytes` is not in the serialized format
   return new ProvenanceMap(decode_SortedMap_Size(d, decode_Prov), undefined);
 }
-/** PORT: the derived `Decodable` of `SortedMap<Size, Prov>` (`Size` / `SortedMap` have no codegen decoder entry). */
-function decode_SortedMap_Size<D extends Decoder, V>(_d: D, _decode_V: (d: D) => V): SortedMap<Size, V> {
-  return unported("Decodable for rustc_data_structures::sorted_map::SortedMap<rustc_abi::Size, _> (derive(Decodable_NoContext) not generated)");
+/** PORT (lane meta-mir): `derive(Decodable_NoContext)` of `SortedMap<K, V> { data: Vec<(K, V)> }` (rustc_data_structures
+ *  sorted_map.rs:24) at `K = Size`, hand-expanded (no codegen set covers sorted_map.rs): the `Vec<(Size, V)>` field, with
+ *  `Size`'s derived decoder (`Size { raw: u64 }`, rustc_abi lib.rs:864; tools/codegen serialize.json `rustc_abi::Size`).
+ *  The TS `SortedMap` carries its key comparator (`cmp_Size`). */
+function decode_SortedMap_Size<D extends Decoder, V>(d: D, decode_V: (d: D) => V): SortedMap<Size, V> {
+  const data = decode_Vec(d, (d: D): [Size, V] => decode_tuple(d, (d: D) => Size.from_bytes(decode_u64(d)), decode_V));
+  return new SortedMap(data, cmp_Size);
 }
 
 // rustc-skip: compiler/rustc_middle/src/mir/interpret/allocation/provenance_map.rs:53 encode Encodable (metadata encoding, M5)

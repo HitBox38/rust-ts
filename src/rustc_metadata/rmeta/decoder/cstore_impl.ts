@@ -32,7 +32,7 @@ import type { ExternProviders, ExternQuery, QueryTypes } from "../../../rustc_mi
 import { DefId_hash_key } from "../../../rustc_middle/query/caches.ts";
 import type { LocalCrate } from "../../../rustc_middle/query/keys.ts";
 import type { TyCtxt } from "../../../rustc_middle/ty/context.ts";
-import { Visibility } from "../../../rustc_middle/ty/mod.ts";
+import { type Ty, Visibility } from "../../../rustc_middle/ty/mod.ts";
 import { InstanceKind as InstanceKindC, type InstanceKind } from "../../../rustc_middle/ty/instance.ts";
 import type { Providers } from "../../../rustc_middle/util/mod.ts";
 import { type Decodable, decode_HashMap, decode_Option, decode_String, decode_Vec } from "../../../rustc_serialize/serialize.ts";
@@ -51,6 +51,7 @@ import { decode_Clause, decode_ConstAllocation, decode_List_BoundVariableKind, d
 import { type CoerceUnsizedInfo, decode_CoerceUnsizedInfo } from "../../../rustc_middle/ty/adjustment.ts";
 import type { Clause } from "../../../rustc_middle/ty/predicate.ts";
 import { decode_tuple, decode_usize } from "../../../rustc_serialize/serialize.ts";
+import { type Body, type ConstValue, decode_Body, decode_ConstQualifs, decode_ConstValue, decode_CoroutineLayout } from "../../../rustc_middle/mir/mod.ts";
 import { decode_DenseBitSet } from "../../../rustc_index/decodable.gen.ts";
 import { decode_CodegenFnAttrs } from "../../../rustc_middle/middle/codegen_fn_attrs.ts";
 import { type Binder, decode_EarlyBinder, EarlyBinder } from "../../../rustc_type_ir/binder.ts";
@@ -255,6 +256,12 @@ function decode_DefIdMap<T>(d: MetadataDecodeContext, decode_T: Decodable<T, Met
   return new DefIdMap(decode_HashMap(d, (d: MetadataDecodeContext) => d.decode_def_id(), decode_T));
 }
 
+/** `(ConstValue, Ty<'static>)` (`trivial_const`): the tuple impl over the derived `ConstValue` (mir/consts.rs) and
+ *  `Decodable for Ty` (rustc_middle ty/codec.rs:187); lane meta-mir. */
+const decode_ConstValue_Ty: Decodable<[ConstValue, Ty], MetadataDecodeContext> = (d) => decode_tuple(d, decode_ConstValue, decode_Ty);
+/** `IndexVec<mir::Promoted, mir::Body<'static>>` (`promoted_mir`): rustc_index vec.rs `IndexVec::from_raw(Vec::decode(d))`
+ *  over the derived `Body` (mir/mod.rs:206); IndexVec is `T[]` (PORTING §5); lane meta-mir. */
+const decode_IndexVec_Promoted_Body: Decodable<Body[], MetadataDecodeContext> = (d) => decode_Vec(d, decode_Body);
 /** `(ty::Clause<'static>, Span)`: the tuple impl over `Decodable for Clause` (rustc_middle ty/codec.rs:226) and `Span`. */
 const decode_Clause_Span: Decodable<[Clause, Span], MetadataDecodeContext> = (d) => decode_tuple(d, decode_Clause, decode_Span);
 /** `ty::PolyFnSig` = `Binder<FnSig>`: rustc_type_ir serialize.rs `impl_binder_encode_decode!`. */
@@ -462,16 +469,16 @@ export const PROVIDE_EXTERN: { readonly [N in ExternQuery]?: ProvideEntry<N> } =
   const_param_default: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ty::EarlyBinder<'static, rustc_middle::ty::Const<'static>>", (d) => decode_EarlyBinder(d, decode_Const_)), ProcessQueryValue_Option_T)],
   object_lifetime_default: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ObjectLifetimeDefault", decode_ObjectLifetimeDefault), ProcessQueryValue_Option_T)],
   thir_abstract_const: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ty::EarlyBinder<'static, ty::Const<'static>>", (d) => decode_EarlyBinder(d, decode_Const_)), ProcessQueryValue_Option_Result)],
-  optimized_mir: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("mir::Body<'static>", decode_unported("mir::Body<'static>")), ProcessQueryValue_Option_ref_T)],
-  mir_for_ctfe: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("mir::Body<'static>", decode_unported("mir::Body<'static>")), ProcessQueryValue_Option_ref_T)],
-  trivial_const: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("(ConstValue, Ty<'static>)", decode_unported("(ConstValue, Ty<'static>)")), ProcessQueryValue_T)],
+  optimized_mir: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("mir::Body<'static>", decode_Body), ProcessQueryValue_Option_ref_T)],
+  mir_for_ctfe: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("mir::Body<'static>", decode_Body), ProcessQueryValue_Option_ref_T)],
+  trivial_const: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("(ConstValue, Ty<'static>)", decode_ConstValue_Ty), ProcessQueryValue_T)],
   closure_saved_names_of_captured_variables: [
     IntoArgs_DefId,
     // `IndexVec<FieldIdx, Symbol>` decodes as `Vec<Symbol>` (`IndexVec::from_raw`)
     table(fse_Option_LazyValue, lazy_value("IndexVec<FieldIdx, Symbol>", (d) => decode_Vec(d, decode_Symbol)), ProcessQueryValue_Option_T),
   ],
-  mir_coroutine_witnesses: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("mir::CoroutineLayout<'static>", decode_unported("mir::CoroutineLayout<'static>")), ProcessQueryValue_T)],
-  promoted_mir: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("IndexVec<mir::Promoted, mir::Body<'static>>", decode_unported("IndexVec<mir::Promoted, mir::Body<'static>>")), ProcessQueryValue_Option_ref_T)],
+  mir_coroutine_witnesses: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("mir::CoroutineLayout<'static>", decode_CoroutineLayout), ProcessQueryValue_T)],
+  promoted_mir: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("IndexVec<mir::Promoted, mir::Body<'static>>", decode_IndexVec_Promoted_Body), ProcessQueryValue_Option_ref_T)],
   def_span: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("Span", decode_Span), ProcessQueryValue_Option_T)],
   def_ident_span: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("Span", decode_Span), ProcessQueryValue_T)],
   lookup_stability: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("Stability", decode_Stability), ProcessQueryValue_T)],
@@ -496,7 +503,7 @@ export const PROVIDE_EXTERN: { readonly [N in ExternQuery]?: ProvideEntry<N> } =
       );
     },
   ],
-  mir_const_qualif: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("mir::ConstQualifs", decode_unported("mir::ConstQualifs")), ProcessQueryValue_Option_T)],
+  mir_const_qualif: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("mir::ConstQualifs", decode_ConstQualifs), ProcessQueryValue_Option_T)],
   rendered_const: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("String", decode_String), ProcessQueryValue_Option_T)],
   rendered_precise_capturing_args: [IntoArgs_DefId, table(fse_Option_LazyArray, lazy_array("PreciseCapturingArgKind<Symbol, Symbol>", decode_unported("PreciseCapturingArgKind<Symbol, Symbol>")), ProcessQueryValue_DecodeIterator_Option_slice)],
   asyncness: [IntoArgs_DefId, table_direct(fse_Asyncness, ProcessQueryValue_T)],
