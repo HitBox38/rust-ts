@@ -6,12 +6,10 @@
 // `Diag<'diag>` / `Diag<'_>` are rustc_errors `Diag` (the lifetimes are erased).
 // PORT: `suggest_constrain_dyn_trait_in_impl`'s `found_dids: &FxIndexSet<DefId>` is a `DefIdSet` (insertion-ordered, the
 // set `TraitObjectVisitor` fills). `category: &ConstraintCategory` of `maybe_suggest_constrain_dyn_trait_impl` is the value.
-// `LIMITATION_NOTE` (diagnostics/mod.rs:1650, a `const`, not a fn) is declared here because diagnostics/mod.ts (bck-diag-d)
-// does not export it at the base; root may move it there.
-// Init order: universal_regions.ts / borrowck_errors.ts / bound_region_errors.ts are hand modules; they are required lazily
-// (`universal_regions()`, ...), the rest of the runtime imports are `.gen.ts` modules and other crates.
+// Init order: universal_regions.ts / borrowck_errors.ts / bound_region_errors.ts / mod.ts are hand modules; they are
+// required lazily (`universal_regions()`, ...; mod.ts for `LIMITATION_NOTE`), the rest of the runtime imports are `.gen.ts`
+// modules and other crates.
 import { MultiSpan } from "../../rustc_error_messages/lib.ts";
-import type { DiagMessage } from "../../rustc_error_messages/lib.ts";
 import type { Diag } from "../../rustc_errors/lib.ts";
 import * as hir from "../../rustc_hir/lib.ts";
 import { type HirId, HirId_eq } from "../../rustc_hir_id/lib.ts";
@@ -96,9 +94,10 @@ function bound_region_errors(): typeof import("./bound_region_errors.ts") {
   return (bound_region_errors__m ??= require("./bound_region_errors.ts") as typeof import("./bound_region_errors.ts"));
 }
 var bound_region_errors__m: typeof import("./bound_region_errors.ts") | undefined;
-
-// ref: compiler/rustc_borrowck/src/diagnostics/mod.rs:1650 LIMITATION_NOTE (a `const`; see the module header)
-const LIMITATION_NOTE: DiagMessage = { $: "Inline", _0: "due to a current limitation of the type system, this implies a `'static` lifetime" };
+function diagnostics_mod(): typeof import("./mod.ts") {
+  return (diagnostics_mod__m ??= require("./mod.ts") as typeof import("./mod.ts"));
+}
+var diagnostics_mod__m: typeof import("./mod.ts") | undefined;
 
 declare module "./region_errors.gen.ts" {
   interface RegionErrors {
@@ -366,7 +365,7 @@ MirBorrowckCtxt.prototype.suggest_static_lifetime_for_gat_from_hrtb = function (
       continue;
     }
     const { trait_ref, span: trait_span } = bound._0;
-    diag.span_note(trait_span, LIMITATION_NOTE);
+    diag.span_note(trait_span, diagnostics_mod().LIMITATION_NOTE);
     const generics_fn = tcx.hir_get_generics(this.body.source.def_id().expect_local());
     if (generics_fn === undefined) {
       continue;

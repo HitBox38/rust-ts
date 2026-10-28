@@ -30,15 +30,14 @@ const CASES = readdirSync(CASES_DIR)
   .sort();
 
 /**
- * Where the port's driver stops today (main.ts), re-pinned by passes-analysis (the real `analysis`): cases with a fn body
- * stop at `mir_borrowck` (MIR_borrow_checking loop of `run_required_analyses`, not ported yet), after printing the
- * oracle's own diagnostics; the others now run `analysis` through and equal the oracle. Since merge-w23 (fix-w23-bck)
- * `mir_borrowck` runs into `type_check`, whose first `Assign` relates the types and stops at `UniverseInfo::relate`
- * (bck-diag-f).
+ * Where the port's driver stops today (main.ts). Since fix-w24-bck the cases with a fn body, which stopped in
+ * `mir_borrowck` (last at `UniverseInfo::relate`, bck-diag-f), run borrowck through: the error cases equal the oracle;
+ * refine_rpitit (only a warning, so `analysis` succeeds) goes on to codegen, which is not ported (after printing the
+ * oracle's warning).
  */
-const PENDING: Record<string, string> = Object.fromEntries(
-  ["e0049_fn", "e0049_fn_fewer", "e0049_impl_trait", "e0050", "e0053_kinds_fn", "e0053_sig", "e0185", "e0186", "e0195", "e0643", "refine_rpitit"].map((c) => [c, "rustc_borrowck::diagnostics::bound_region_errors::UniverseInfo::relate"]),
-);
+const PENDING: Record<string, string> = {
+  refine_rpitit: "rustc_interface::queue::Linker::codegen_and_build_linker (analysis, codegen; M3+)",
+};
 
 /**
  * In-process stops (re-pinned by merge-w17; e0050 / e0185 / e0186 / e0643 now equal the oracle, e0195 since small-gaps-18

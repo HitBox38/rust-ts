@@ -1771,4 +1771,5 @@ MirBorrowckCtxt.prototype.local_excluded_from_unused_mut_lint = function (this: 
   return name === undefined || Symbol.as_str(name).startsWith("_");
 };
 
-const LIMITATION_NOTE: DiagMessage = { $: "Inline", _0: "due to a current limitation of the type system, this implies a `'static` lifetime" };
+// ref: compiler/rustc_borrowck/src/diagnostics/mod.rs:1650 LIMITATION_NOTE (a `const`; exported for region_errors.ts)
+export const LIMITATION_NOTE: DiagMessage = { $: "Inline", _0: "due to a current limitation of the type system, this implies a `'static` lifetime" };

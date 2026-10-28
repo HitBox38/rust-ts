@@ -4,7 +4,8 @@
 // The runtime path of `mir_borrowck` stops before these fns (in type_check), so this test drives them directly, as
 // bck_core.test.ts does: a no_core crate is compiled up to MIR building, `MoveData` / `BorrowSet` are built for each body,
 // and the fns run on a `MirBorrowckCtxt` whose other lanes' methods that they call (`access_place`, `borrows_in_scope`,
-// the `report_*` builders, `retrieve_borrow_spans`, `local_excluded_from_unused_mut_lint`) are replaced on the instance by
+// the `report_*` builders, `retrieve_borrow_spans`, `local_excluded_from_unused_mut_lint`, `cannot_borrow_across_coroutine_yield`,
+// `buffer_error`, `explain_why_borrow_contains_point`) are replaced on the instance by
 // recorders. Calls that reach another lane's still-unported fn are recorded as `UNPORTED <path>` (where the path stops).
 // The expected values are worked out by hand from upstream over the MIR shown next to each body (statement indices as
 // `-Zdump-mir=built` prints them).
@@ -39,6 +40,7 @@ import "../rustc_mir_build/lib.ts";
 import { debug_Init, MoveData, type MovePathIndex } from "../rustc_mir_dataflow/move_paths/mod.ts";
 import { LocalDefId } from "../rustc_span/def_id.ts";
 import type { Span } from "../rustc_span/lib.ts";
+import { debug_MoveError } from "./diagnostics/move_errors.gen.ts";
 import type { RegionVid } from "../rustc_type_ir/region_kind.ts";
 import { Region } from "../rustc_type_ir/sty/mod.ts";
 import { PLAIN } from "../std/fmt.ts";
@@ -227,6 +229,20 @@ run_compiler(config_from_args(["--crate-type", "lib", "--edition", "2024", FILE]
           log.push(`local_excluded_from_unused_mut_lint _${local}`);
           return true;
         },
+        // borrowck_errors.rs's builder unwraps `body.coroutine` (it is only reached from a coroutine's `Yield`), which
+        // these plain fn bodies don't have: record the call and hand back a marker that `buffer_error` records.
+        cannot_borrow_across_coroutine_yield(span: Span, yield_span: Span) {
+          log.push(`cannot_borrow_across_coroutine_yield span=body:${span === body.span} yield_span=body:${yield_span === body.span}`);
+          return "E0626";
+        },
+        buffer_error(diag: unknown) {
+          log.push(`buffer_error ${diag}`);
+        },
+        // explain_borrow.rs needs the region inference context, which this test does not build.
+        explain_why_borrow_contains_point(location: Location, borrow: { borrowed_place: Place }, kind_place: [string, Place] | undefined) {
+          log.push(`explain_why_borrow_contains_point ${L(location)} ${P(borrow.borrowed_place)} ${kind_place === undefined ? "None" : `(${(kind_place[0] as unknown as { $: string }).$}, ${P(kind_place[1])})`}`);
+          return { $: "Unexplained" };
+        },
       });
       /** A `BorrowckDomain`: the move paths of `uninit` (places) maybe-uninitialized, `ever_init` locals ever initialized. */
       const state = (uninit: Place[], ever_init: number[]): BorrowckDomain => {
@@ -378,7 +394,7 @@ run_compiler(config_from_args(["--crate-type", "lib", "--edition", "2024", FILE]
       const go = (name: string, p: Place) => {
         const m = mk(name);
         run(m.log, () => m.mbcx.check_movable_place(loc(0, 1), p));
-        out.push(`${name} ${P(p)}: ${m.log.join(" | ")} errors=${m.mbcx.move_errors.length}`);
+        out.push(`${name} ${P(p)}: ${m.log.join(" | ")} errors=[${m.mbcx.move_errors.map((e) => debug_MoveError(e, PLAIN)).join(", ")}]`);
       };
       go("mutb", place(2, [deref]));
       go("moves", place(2, [field(0)]));
@@ -561,10 +577,12 @@ test("check_if_assigned_path_is_moved, check_parent_of_field, mutate_place", () 
 
 test("check_movable_place", () => {
   expect(R.get("movable")).toEqual([
-    "mutb (*_2): UNPORTED rustc_borrowck::diagnostics::move_errors::MoveError::new errors=0",
-    "moves (_2.0: u8): UNPORTED rustc_borrowck::diagnostics::move_errors::MoveError::new errors=0",
-    "moves (_1.0: u8):  errors=0",
-    "shared _1:  errors=0",
+    // `r: &mut u8`: a move out of `*r` is a move out of borrowed content
+    "mutb (*_2):  errors=[MoveError { place: (*_2), location: bb0[1], kind: BorrowedContent { target_place: (*_2) } }]",
+    // `d: D` with `impl Drop for D`
+    "moves (_2.0: u8):  errors=[MoveError { place: (_2.0: u8), location: bb0[1], kind: InteriorOfTypeWithDestructor { container_ty: D } }]",
+    "moves (_1.0: u8):  errors=[]",
+    "shared _1:  errors=[]",
   ]);
 });
 
@@ -599,9 +617,11 @@ test("check_for_invalidation_at_exit / check_for_local_borrow / check_backward_i
     "exit shared (_1.0: u8): report_borrowed_value_does_not_live_long_enough bb0[4] (_1.0: u8) (_1.0: u8) None",
     "exit reb (*_1): ",
     "local_borrow reb (*_1): ",
-    "local_borrow shared (_1.0: u8): retrieve_borrow_spans (_1.0: u8) | UNPORTED rustc_borrowck::diagnostics::UseSpans::var_or_use",
+    // `OtherUse(body.span).var_or_use()` is `body.span`
+    "local_borrow shared (_1.0: u8): retrieve_borrow_spans (_1.0: u8) | cannot_borrow_across_coroutine_yield span=body:true yield_span=body:true | buffer_error E0626",
     "backward_incompatible_drop in_scope=[]: borrows_in_scope bb0[3]",
-    "backward_incompatible_drop in_scope=[bw0]: borrows_in_scope bb0[3] | retrieve_borrow_spans (_1.0: u8) | UNPORTED rustc_borrowck::diagnostics::UseSpans::var_or_use_path_span",
+    // then `tail_expr_drop_order` (allow by default) is emitted at `CRATE_HIR_ID` and the decorator does not run
+    "backward_incompatible_drop in_scope=[bw0]: borrows_in_scope bb0[3] | retrieve_borrow_spans (_1.0: u8) | explain_why_borrow_contains_point bb0[3] (_1.0: u8) (StorageDeadOrDrop, _1)",
   ]);
 });
 

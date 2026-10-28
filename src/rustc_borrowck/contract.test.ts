@@ -202,17 +202,6 @@ function config_from_args(args: string[]): Config {
   return config;
 }
 
-function stops(f: () => unknown, what: string): void {
-  let err: unknown;
-  try {
-    f();
-  } catch (e) {
-    err = e;
-  }
-  expect(err).toBeInstanceOf(Unported);
-  expect((err as Unported).what).toBe(what);
-}
-
 // A no_core crate: a trivial const (no borrowck), a body whose typeck is tainted (E0308: `mir_built` is
 // `construct_error`'s body, `mir_borrowck` returns its `ErrorGuaranteed`), and a real fn.
 const SRC = [
@@ -229,7 +218,7 @@ const SRC = [
   "pub fn f(x: u8) -> u8 { x }",
 ].join("\n");
 
-test("mir_borrowck: trivial const and tainted body return early; a real body reaches the first stub", () => {
+test("mir_borrowck: trivial const and tainted body return early; a real body is checked to completion", () => {
   mkdirSync(WORK, { recursive: true });
   const file = join(WORK, "borrowck_contract.rs");
   writeFileSync(file, SRC);
@@ -261,9 +250,13 @@ test("mir_borrowck: trivial const and tainted body return early; a real body rea
         // `BorrowckInferCtxt`, the promoted MIR, `replace_regions_in_mir` (universal regions + renumbering, bck-nll),
         // `PoloniusLocationTable::new`, `MoveData::gather_moves`, `BorrowSet::build` (bck-core), then `type_check`
         // (bck-tc-a: `free_region_relations::create`, `check_user_type_annotations`, `visit_body`), whose first
-        // `Assign` (`_0 = copy _1`) relates the types (`sub_types` -> `relate_types`, bck-tc-b) and reaches the first
-        // stub (lane bck-diag-f)
-        stops(() => tcx.mir_borrowck(items.get("f")!), "rustc_borrowck::diagnostics::bound_region_errors::UniverseInfo::relate");
+        // `Assign` (`_0 = copy _1`) relates the types (`sub_types` -> `relate_types`, bck-tc-b), then region inference,
+        // the dataflow-driven checks and the error reporting run to completion: `Ok` with no hidden types, and no
+        // borrowck error (rustc reports only the E0308 for this crate)
+        const f = tcx.mir_borrowck(items.get("f")!);
+        expect(f.$).toBe("Ok");
+        expect(f.$ === "Ok" && f._0.size).toBe(0);
+        expect(tcx.dcx().err_count()).toBe(1);
         ran = true;
       });
     });
