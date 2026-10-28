@@ -65,7 +65,8 @@ const CASES: Case[] = [
     file: "abi/debug.rs",
     args: ["--edition", "2015", "-O", ...MINICORE],
     expect: ["fn_abi_of(test) ="],
-    pending: "rustc_mir_transform::deduce_param_attrs::deduced_param_attrs",
+    // `deduced_param_attrs` (lane mt-opt2-b) runs `optimized_mir` at mir-opt-level 2; with every level-2 pass ported
+    // (mt-opt2-a..d) the `-O` output is compared with the oracle's.
   },
   {
     name: "c_zst",

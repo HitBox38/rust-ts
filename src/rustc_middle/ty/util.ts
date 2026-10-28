@@ -16,7 +16,8 @@ import { IntegerExt } from "./layout.ts";
 import type { FloatTy, IntTy, Mutability, UintTy } from "../../rustc_ast_ir/lib.ts";
 import { find_attr, type Attribute } from "../../rustc_attr_ir/lib.ts";
 import type { ExternCrate } from "../../rustc_crate_store/cstore.ts";
-import type { Hash128 } from "../../rustc_hashes/lib.ts";
+import { StableHasher } from "../../rustc_data_structures/stable_hash.ts";
+import { Hash128 } from "../../rustc_hashes/lib.ts";
 import { DefKind, type Res } from "../../rustc_hir/def.ts";
 import { Safety } from "../../rustc_hir/lib.ts";
 import type { CoroutineKind } from "../../rustc_hir/hir.ts";
@@ -188,6 +189,13 @@ export const IntTypeExt = {
   },
 };
 
+// PORT (init order): the generated StableHash module reaches most of rustc_middle at load, so it is required lazily
+// (the precedent of the `tyir_*` accessors in rustc_middle ty/mod.ts).
+function middle_stable_hash(): typeof import("../stable_hash.gen.ts") {
+  return (middle_stable_hash__m ??= require("../stable_hash.gen.ts") as typeof import("../stable_hash.gen.ts"));
+}
+var middle_stable_hash__m: typeof import("../stable_hash.gen.ts") | undefined;
+
 /// Creates a hash of the type `Ty` which will be the same no matter what crate
 /// context it's calculated within. This is used by the `type_id` intrinsic.
 // rustc: compiler/rustc_middle/src/ty/util.rs:136 type_id_hash
@@ -196,12 +204,10 @@ TyCtxt.prototype.type_id_hash = function (this: TyCtxt, ty: Ty): Hash128 {
   // must have the same `TypeId`, so we must anonymize all bound regions as well.
   const ty_ = this.erase_and_anonymize_regions(ty, fold_Ty);
 
-  return this.with_stable_hashing_context((_hcx) => {
-    // let mut hasher = StableHasher::new();
-    // hcx.while_hashing_spans(false, |hcx| ty.stable_hash(hcx, &mut hasher));
-    // hasher.finish()
-    void ty_;
-    return unported("rustc_middle::ty::Ty: StableHash (ty/impls_ty.rs) under StableHashState::while_hashing_spans");
+  return this.with_stable_hashing_context((hcx) => {
+    const hasher = StableHasher.new();
+    hcx.while_hashing_spans(false, (hcx) => middle_stable_hash().stable_hash_Ty(ty_, hcx, hasher));
+    return hasher.finish(Hash128);
   });
 };
 

@@ -40,6 +40,7 @@ import {
   type Lto,
   NATIVE_CPU,
   type CoverageOptions,
+  CoverageLevel_discriminant,
   type ErrorOutputType,
   Input,
   type LtoCli,
@@ -467,6 +468,25 @@ export class Session {
     return this.opts.cg.instrument_coverage_() !== "No";
   }
 
+  // rustc: compiler/rustc_session/src/session.rs:711 instrument_coverage_branch
+  instrument_coverage_branch(): boolean {
+    return (
+      this.instrument_coverage() &&
+      CoverageLevel_discriminant[this.opts.unstable_opts.coverage_options.level] >= CoverageLevel_discriminant.Branch
+    );
+  }
+
+  // rustc: compiler/rustc_session/src/session.rs:716 instrument_coverage_condition
+  instrument_coverage_condition(): boolean {
+    return (
+      this.instrument_coverage() &&
+      CoverageLevel_discriminant[this.opts.unstable_opts.coverage_options.level] >= CoverageLevel_discriminant.Condition
+    );
+  }
+
+  /// Provides direct access to the `CoverageOptions` struct, so that
+  /// individual flags for debugging/testing coverage instrumetation don't
+  /// need separate accessors.
   // rustc: compiler/rustc_session/src/session.rs:724 coverage_options
   coverage_options(): CoverageOptions {
     return this.opts.unstable_opts.coverage_options;

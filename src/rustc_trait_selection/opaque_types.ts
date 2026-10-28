@@ -6,7 +6,7 @@
 // - `FxIndexMap<GenericArg, Vec<usize>>` is a `Map` keyed by the interned `GenericArg` (insertion-ordered).
 // - `std::cell::OnceCell<GenericArgsRef>` is a `GenericArgs | undefined` field.
 // - `crate::diagnostics::NonGenericOpaqueTypeParam` (`#[derive(Diagnostic)]`, rustc_trait_selection diagnostics.rs:2085) is
-//   not generated yet (diagnostics.rs has no codegen set): the `NotAParam` arm of `report` stops `unported`.
+//   generated into diagnostics.gen.ts (set rustc_trait_selection_error_reporting); diagnostics.ts is required lazily.
 // Init order: top-level code defines only; other modules' bindings (e.g. regions.ts's extension static
 // `OutlivesEnvironment.new`) are read inside function bodies.
 import type { OpaqueTyOrigin } from "../rustc_hir/hir.ts";
@@ -29,9 +29,12 @@ import type { Region } from "../rustc_type_ir/sty/mod.ts";
 import { Unnormalized } from "../rustc_type_ir/unnormalized.ts";
 import { TypeVisitableExt } from "../rustc_type_ir/visit.ts";
 import { type Debug, debug_int, debug_struct, debug_tuple, debug_vec } from "../std/fmt.ts";
-import { unported } from "../std/panic.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
 import { ObligationCtxt } from "./traits/engine.ts";
+
+function diagnostics(): typeof import("./diagnostics.ts") {
+  return require("./diagnostics.ts");
+}
 
 // rustc-type: compiler/rustc_trait_selection/src/opaque_types.rs:17 NonDefiningUseReason
 export type NonDefiningUseReason =
@@ -77,10 +80,14 @@ export const NonDefiningUseReason = {
         const opaque_generics = tcx.generics_of(LocalDefId.to_def_id(opaque_type_key.def_id)) as Generics;
         const opaque_param = opaque_generics.param_at(param_index, tcx);
         const kind = GenericParamDefKind.descr(opaque_param.kind);
-        // infcx.dcx().emit_err(NonGenericOpaqueTypeParam { arg: opaque_type_key.args[param_index], kind, span,
-        //   param_span: tcx.def_span(opaque_param.def_id) })
-        void [kind, span];
-        return unported("#[derive(Diagnostic)] rustc_trait_selection::diagnostics::NonGenericOpaqueTypeParam (diagnostics.rs not generated)");
+        return infcx.dcx().emit_err(
+          diagnostics().NonGenericOpaqueTypeParam_diagnostic({
+            arg: opaque_type_key.args[param_index]!,
+            kind,
+            span,
+            param_span: tcx.def_span(opaque_param.def_id),
+          }),
+        );
       }
       case "DuplicateParam": {
         const { opaque_type_key, param_indices, span } = self;

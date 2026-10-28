@@ -35,7 +35,7 @@ import { describe_as_module } from "./queries.ts";
 import { into_query_key_DefId, into_query_key_LocalDefId, into_query_key_identity } from "./query/into_query_key.ts";
 import { KEY_AliasTyKind, KEY_CanonicalAliasGoal, KEY_CanonicalDropckOutlivesGoal, KEY_CanonicalImpliedOutlivesBoundsGoal_bool, KEY_CanonicalInput_usize, KEY_CanonicalMethodAutoderefStepsGoal, KEY_CanonicalPredicateGoal, KEY_CanonicalTypeOpAscribeUserTypeGoal, KEY_CanonicalTypeOpNormalizeGoal_Clause, KEY_CanonicalTypeOpNormalizeGoal_FnSig, KEY_CanonicalTypeOpNormalizeGoal_PolyFnSig, KEY_CanonicalTypeOpNormalizeGoal_Ty, KEY_CanonicalTypeOpProvePredicateGoal, KEY_Clauses, KEY_CrateNum, KEY_CrateNum_DefId, KEY_CrateNum_SimplifiedType, KEY_DefId, KEY_DefId_DefId, KEY_DefId_GenericArgsRef, KEY_DefId_Ident, KEY_DefId_SizedTraitKind, KEY_GenericArgsRef, KEY_Instance, KEY_InstanceKind, KEY_LitToConstInput, KEY_LocalDefId, KEY_LocalDefId_LocalDefId_Ident, KEY_LocalModId, KEY_ModId, KEY_Option_Symbol, KEY_OsStr, KEY_OwnerId, KEY_Predicate_WellFormedLoc, KEY_PseudoCanonicalInput_AdtDef_GenericArgsRef, KEY_PseudoCanonicalInput_DefId_GenericArgsRef, KEY_PseudoCanonicalInput_GenericArg, KEY_PseudoCanonicalInput_GlobalId, KEY_PseudoCanonicalInput_Instance_List_Ty, KEY_PseudoCanonicalInput_PolyFnSig_List_Ty, KEY_PseudoCanonicalInput_TraitRef, KEY_PseudoCanonicalInput_Ty, KEY_ShimKind, KEY_SimplifiedType, KEY_Symbol, KEY_TraitRef, KEY_Ty, KEY_Ty_Option_ExistentialTraitRef, KEY_Ty_Ty, KEY_Value, KEY_unit, type LocalQueryKeyOf, key_unported } from "./query/keys.ts";
 import { type QueryDecl } from "./query/query_api.ts";
-import { stable_hash_Visibility } from "./stable_hash.gen.ts";
+import { stable_hash_GenericClauses, stable_hash_Ty, stable_hash_Visibility } from "./stable_hash.gen.ts";
 import { type CodegenObligationError, type DynCompatibilityViolation, type ObligationCause, type WellFormedLoc, debug_DynCompatibilityViolation, debug_ObligationCause, debug_WellFormedLoc } from "./traits/mod.ts";
 import { type CanonicalAliasGoal, type CanonicalDropckOutlivesGoal, type CanonicalImpliedOutlivesBoundsGoal, type CanonicalMethodAutoderefStepsGoal, type CanonicalPredicateGoal, type CanonicalTypeOpAscribeUserTypeGoal, type CanonicalTypeOpNormalizeGoal, type CanonicalTypeOpProvePredicateGoal, type DropckConstraint, type DropckOutlivesResult, type MethodAutoderefStepsResult, type MirBorrowckImpliedOutlivesBounds, type NormalizationResult, type OutlivesBound, debug_DropckConstraint, debug_MethodAutoderefStepsResult } from "./traits/query.ts";
 import { type CanonicalInput } from "./traits/solve.ts";
@@ -44,6 +44,8 @@ import { type CoerceUnsizedInfo, debug_CoerceUnsizedInfo } from "./ty/adjustment
 import { type LitToConstInput } from "./ty/consts/lit.ts";
 import { type Limits, type TyCtxt } from "./ty/context.ts";
 import { type SimplifiedType, debug_SimplifiedType } from "./ty/fast_reject.ts";
+import { type GenericClauses, debug_GenericClauses } from "./ty/generics.ts";
+import { stable_hash_RawList } from "./ty/impls_ty.ts";
 import { type InhabitedPredicate, debug_InhabitedPredicate } from "./ty/inhabitedness/inhabited_predicate.ts";
 import { type Instance, type InstanceKind, type ShimKind, debug_Instance, display_Instance } from "./ty/instance.ts";
 import { type FnAbiError, type LayoutError, type TyAndLayout, type ValidityRequirement } from "./ty/layout.ts";
@@ -52,14 +54,17 @@ import { type PseudoCanonicalInput, type Ty, type Visibility, debug_Ty, debug_Vi
 import { type Clause, type Predicate, debug_Clause, debug_Predicate } from "./ty/predicate.ts";
 import { display_Ty } from "./ty/print/pretty.ts";
 import { type VtblEntry, debug_VtblEntry } from "./ty/vtable.ts";
+import { stable_hash_Clause } from "./ty_stable_hash.gen.ts";
 import { type CrateNum, type DefId, type DefIdMap, type LocalDefId, type LocalModId, type ModId, debug_CrateNum, debug_DefId, debug_LocalDefId, debug_ModId, display_CrateNum, stable_hash_CrateNum, stable_hash_DefId, stable_hash_LocalDefId } from "../rustc_span/def_id.ts";
 import { type ExpnId, type LocalExpnId, debug_ExpnId, stable_hash_ExpnId } from "../rustc_span/hygiene.ts";
 import { type ErrorGuaranteed, type Span, type Spanned, debug_ErrorGuaranteed, debug_Span, stable_hash_Span } from "../rustc_span/lib.ts";
-import { stable_hash_Ident, stable_hash_ModId } from "../rustc_span/stable_hash.gen.ts";
+import { stable_hash_ErrorGuaranteed, stable_hash_Ident, stable_hash_ModId } from "../rustc_span/stable_hash.gen.ts";
 import { type Ident, type Symbol, debug_Ident, debug_Symbol, display_Ident, display_Symbol, stable_hash_Symbol } from "../rustc_span/symbol.ts";
 import { type FnAbi } from "../rustc_target/callconv/mod.ts";
 import { type PanicStrategy } from "../rustc_target/spec/mod.ts";
+import { type EarlyBinder, debug_EarlyBinder } from "../rustc_type_ir/binder.ts";
 import { type PolyFnSig } from "../rustc_type_ir/decls.ts";
+import { stable_hash_EarlyBinder } from "../rustc_type_ir/ty_stable_hash.gen.ts";
 import { PLAIN, debug_bool, debug_int, debug_map, debug_option, debug_set, debug_str, debug_tuple, debug_vec } from "../std/fmt.ts";
 import { unported } from "../std/panic.ts";
 import { type Result, debug_result } from "../std/result.ts";
@@ -157,7 +162,7 @@ export interface QueryTypes {
    * E.g., given `struct Ty<const N: usize = 3>;` this returns `3` for `N`.
    */
   // PORT: value `ty::EarlyBinder<'tcx, ty::Const<'tcx>>` not ported (`unknown`)
-  const_param_default: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: unknown; ProvidedValue: unknown };
+  const_param_default: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: EarlyBinder<unknown>; ProvidedValue: EarlyBinder<unknown> };
   /**
    * Returns the const of the RHS of a (free or assoc) const item, if it is a `type const`, or if
    * it is a directly represented `const` (i.e. a const with a `gca!` RHS, or a const that
@@ -176,7 +181,7 @@ export interface QueryTypes {
    * This query will panic if the given definition isn't a const item (free or associated const).
    */
   // PORT: value `Option<ty::EarlyBinder<'tcx, ty::Const<'tcx>>>` not ported (`unknown`)
-  const_of_item: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: unknown | undefined; ProvidedValue: unknown | undefined };
+  const_of_item: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: EarlyBinder<unknown> | undefined; ProvidedValue: EarlyBinder<unknown> | undefined };
   /**
    * Returns the *type* of the definition given by `DefId`.
    *
@@ -197,8 +202,7 @@ export interface QueryTypes {
    *
    * [alias type]: rustc_middle::ty::AliasTy
    */
-  // PORT: value `ty::EarlyBinder<'tcx, Ty<'tcx>>` not ported (`unknown`)
-  type_of: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: unknown; ProvidedValue: unknown };
+  type_of: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: EarlyBinder<Ty>; ProvidedValue: EarlyBinder<Ty> };
   /**
    * Returns the *hidden type* of the opaque type given by `DefId`.
    *
@@ -206,10 +210,8 @@ export interface QueryTypes {
    *
    * This query will panic if the given definition is not an opaque type.
    */
-  // PORT: value `ty::EarlyBinder<'tcx, Ty<'tcx>>` not ported (`unknown`)
-  type_of_opaque: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: DefId; Value: unknown; ProvidedValue: unknown };
-  // PORT: value `ty::EarlyBinder<'tcx, Ty<'tcx>>` not ported (`unknown`)
-  type_of_opaque_hir_typeck: { Key: LocalDefId; KeyArg: Parameters<typeof into_query_key_LocalDefId>[0]; LocalKey: LocalDefId; Value: unknown; ProvidedValue: unknown };
+  type_of_opaque: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: DefId; Value: EarlyBinder<Ty>; ProvidedValue: EarlyBinder<Ty> };
+  type_of_opaque_hir_typeck: { Key: LocalDefId; KeyArg: Parameters<typeof into_query_key_LocalDefId>[0]; LocalKey: LocalDefId; Value: EarlyBinder<Ty>; ProvidedValue: EarlyBinder<Ty> };
   /**
    * Returns whether the type alias given by `DefId` is checked.
    *
@@ -226,8 +228,7 @@ export interface QueryTypes {
    * [alias type]: rustc_middle::ty::AliasTy
    */
   type_alias_is_checked: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: boolean; ProvidedValue: boolean };
-  // PORT: value `Result<&'tcx DefIdMap<ty::EarlyBinder<'tcx, Ty<'tcx>>>, ErrorGuaranteed>` not ported (`unknown`)
-  collect_return_position_impl_trait_in_trait_tys: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: Result<DefIdMap<unknown>, ErrorGuaranteed>; ProvidedValue: Result<DefIdMap<unknown>, ErrorGuaranteed> };
+  collect_return_position_impl_trait_in_trait_tys: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: Result<DefIdMap<EarlyBinder<Ty>>, ErrorGuaranteed>; ProvidedValue: Result<DefIdMap<EarlyBinder<Ty>>, ErrorGuaranteed> };
   // PORT: value `hir::OpaqueTyOrigin<DefId>` not ported (`unknown`)
   opaque_ty_origin: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: unknown; ProvidedValue: unknown };
   // PORT: value `&'tcx rustc_index::bit_set::DenseBitSet<u32>` not ported (`unknown`)
@@ -267,8 +268,7 @@ export interface QueryTypes {
    * **Tip**: You can use `#[rustc_dump_clauses]` on an item to basically print
    * the result of this query for use in UI tests or for debugging purposes.
    */
-  // PORT: value `ty::GenericClauses<'tcx>` not ported (`unknown`)
-  clauses_of: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: DefId; Value: unknown; ProvidedValue: unknown };
+  clauses_of: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: DefId; Value: GenericClauses; ProvidedValue: GenericClauses };
   opaque_types_defined_by: { Key: LocalDefId; KeyArg: Parameters<typeof into_query_key_LocalDefId>[0]; LocalKey: LocalDefId; Value: List<LocalDefId>; ProvidedValue: List<LocalDefId> };
   /**
    * A list of all bodies inside of `key`, nested bodies are always stored
@@ -295,8 +295,7 @@ export interface QueryTypes {
    * //                    ^^^^^^^^^^^^^^^
    * ```
    */
-  // PORT: value `ty::EarlyBinder<'tcx, &'tcx [(ty::Clause<'tcx>, Span)]>` not ported (`unknown`)
-  explicit_item_bounds: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: unknown; ProvidedValue: unknown };
+  explicit_item_bounds: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: EarlyBinder<readonly [Clause, Span][]>; ProvidedValue: EarlyBinder<readonly [Clause, Span][]> };
   /**
    * Returns the explicitly user-written *bounds* that share the `Self` type of the item.
    *
@@ -305,8 +304,7 @@ export interface QueryTypes {
    *
    * [explicit item bounds]: Self::explicit_item_bounds
    */
-  // PORT: value `ty::EarlyBinder<'tcx, &'tcx [(ty::Clause<'tcx>, Span)]>` not ported (`unknown`)
-  explicit_item_self_bounds: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: unknown; ProvidedValue: unknown };
+  explicit_item_self_bounds: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: EarlyBinder<readonly [Clause, Span][]>; ProvidedValue: EarlyBinder<readonly [Clause, Span][]> };
   /**
    * Returns the (elaborated) *bounds* on the associated or opaque type given by `DefId`
    * that must be proven true at definition site (and which can be assumed at usage sites).
@@ -333,13 +331,13 @@ export interface QueryTypes {
    * ```
    */
   // PORT: value `ty::EarlyBinder<'tcx, ty::Clauses<'tcx>>` not ported (`unknown`)
-  item_bounds: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: DefId; Value: unknown; ProvidedValue: unknown };
+  item_bounds: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: DefId; Value: EarlyBinder<unknown>; ProvidedValue: EarlyBinder<unknown> };
   // PORT: value `ty::EarlyBinder<'tcx, ty::Clauses<'tcx>>` not ported (`unknown`)
-  item_self_bounds: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: DefId; Value: unknown; ProvidedValue: unknown };
+  item_self_bounds: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: DefId; Value: EarlyBinder<unknown>; ProvidedValue: EarlyBinder<unknown> };
   // PORT: value `ty::EarlyBinder<'tcx, ty::Clauses<'tcx>>` not ported (`unknown`)
-  item_non_self_bounds: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: DefId; Value: unknown; ProvidedValue: unknown };
+  item_non_self_bounds: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: DefId; Value: EarlyBinder<unknown>; ProvidedValue: EarlyBinder<unknown> };
   // PORT: value `ty::EarlyBinder<'tcx, ty::Clauses<'tcx>>` not ported (`unknown`)
-  impl_super_outlives: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: DefId; Value: unknown; ProvidedValue: unknown };
+  impl_super_outlives: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: DefId; Value: EarlyBinder<unknown>; ProvidedValue: EarlyBinder<unknown> };
   /**
    * Look up all native libraries this crate depends on.
    * These are assembled from the following places:
@@ -399,7 +397,7 @@ export interface QueryTypes {
    * Try to build an abstract representation of the given constant.
    */
   // PORT: value `Result<Option<ty::EarlyBinder<'tcx, ty::Const<'tcx>>>, ErrorGuaranteed>` not ported (`unknown`)
-  thir_abstract_const: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: Result<unknown | undefined, ErrorGuaranteed>; ProvidedValue: Result<unknown | undefined, ErrorGuaranteed> };
+  thir_abstract_const: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: Result<EarlyBinder<unknown> | undefined, ErrorGuaranteed>; ProvidedValue: Result<EarlyBinder<unknown> | undefined, ErrorGuaranteed> };
   mir_drops_elaborated_and_const_checked: { Key: LocalDefId; KeyArg: Parameters<typeof into_query_key_LocalDefId>[0]; LocalKey: LocalDefId; Value: Steal<Body>; ProvidedValue: Steal<Body> };
   mir_for_ctfe: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: Body; ProvidedValue: Body };
   mir_promoted: { Key: LocalDefId; KeyArg: Parameters<typeof into_query_key_LocalDefId>[0]; LocalKey: LocalDefId; Value: [Steal<Body>, Steal<Body[]>]; ProvidedValue: [Steal<Body>, Steal<Body[]>] };
@@ -499,8 +497,7 @@ export interface QueryTypes {
    *
    * This query will panic if the given definition is not a trait.
    */
-  // PORT: value `ty::GenericClauses<'tcx>` not ported (`unknown`)
-  trait_explicit_clauses_and_bounds: { Key: LocalDefId; KeyArg: Parameters<typeof into_query_key_LocalDefId>[0]; LocalKey: LocalDefId; Value: unknown; ProvidedValue: unknown };
+  trait_explicit_clauses_and_bounds: { Key: LocalDefId; KeyArg: Parameters<typeof into_query_key_LocalDefId>[0]; LocalKey: LocalDefId; Value: GenericClauses; ProvidedValue: GenericClauses };
   /**
    * Returns the explicitly user-written *clauses* of the definition given by `DefId`
    * that must be proven true at usage sites (and which can be assumed at definition site).
@@ -508,8 +505,7 @@ export interface QueryTypes {
    * You should probably use [`TyCtxt::clauses_of`] unless you're looking for
    * clauses with explicit spans for diagnostics purposes.
    */
-  // PORT: value `ty::GenericClauses<'tcx>` not ported (`unknown`)
-  explicit_clauses_of: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: unknown; ProvidedValue: unknown };
+  explicit_clauses_of: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: GenericClauses; ProvidedValue: GenericClauses };
   /**
    * Returns the *inferred outlives-clauses* of the item given by `DefId`.
    *
@@ -528,8 +524,7 @@ export interface QueryTypes {
    * because we must evaluate them even during type conversion, often before the full
    * clauses are available (note that super-clauses must not be cyclic).
    */
-  // PORT: value `ty::EarlyBinder<'tcx, &'tcx [(ty::Clause<'tcx>, Span)]>` not ported (`unknown`)
-  explicit_super_clauses_of: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: unknown; ProvidedValue: unknown };
+  explicit_super_clauses_of: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: EarlyBinder<readonly [Clause, Span][]>; ProvidedValue: EarlyBinder<readonly [Clause, Span][]> };
   /**
    * The clauses of the trait that are implied during elaboration.
    *
@@ -538,15 +533,13 @@ export interface QueryTypes {
    * associated type bounds. For trait aliases, currently, this includes all of the
    * clauses of the trait alias.
    */
-  // PORT: value `ty::EarlyBinder<'tcx, &'tcx [(ty::Clause<'tcx>, Span)]>` not ported (`unknown`)
-  explicit_implied_clauses_of: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: unknown; ProvidedValue: unknown };
+  explicit_implied_clauses_of: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: EarlyBinder<readonly [Clause, Span][]>; ProvidedValue: EarlyBinder<readonly [Clause, Span][]> };
   /**
    * The Ident is the name of an associated type.The query returns only the subset
    * of supertraits that define the given associated type. This is used to avoid
    * cycles in resolving type-dependent associated item paths like `T::Item`.
    */
-  // PORT: value `ty::EarlyBinder<'tcx, &'tcx [(ty::Clause<'tcx>, Span)]>` not ported (`unknown`)
-  explicit_supertraits_containing_assoc_item: { Key: [DefId, Ident]; KeyArg: [DefId, Ident]; LocalKey: [DefId, Ident]; Value: unknown; ProvidedValue: unknown };
+  explicit_supertraits_containing_assoc_item: { Key: [DefId, Ident]; KeyArg: [DefId, Ident]; LocalKey: [DefId, Ident]; Value: EarlyBinder<readonly [Clause, Span][]>; ProvidedValue: EarlyBinder<readonly [Clause, Span][]> };
   /**
    * Compute the conditions that need to hold for a conditionally-const item to be const.
    * That is, compute the set of `[const]` where clauses for a given item.
@@ -568,13 +561,12 @@ export interface QueryTypes {
    * usage sites.
    */
   // PORT: value `ty::EarlyBinder<'tcx, &'tcx [(ty::PolyTraitRef<'tcx>, Span)]>` not ported (`unknown`)
-  explicit_implied_const_bounds: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: unknown; ProvidedValue: unknown };
+  explicit_implied_const_bounds: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: EarlyBinder<readonly [unknown, Span][]>; ProvidedValue: EarlyBinder<readonly [unknown, Span][]> };
   /**
    * To avoid cycles within the clauses of a single item we compute
    * per-type-parameter clauses for resolving `T::AssocTy`.
    */
-  // PORT: value `ty::EarlyBinder<'tcx, &'tcx [(ty::Clause<'tcx>, Span)]>` not ported (`unknown`)
-  type_param_clauses: { Key: [LocalDefId, LocalDefId, Ident]; KeyArg: [LocalDefId, LocalDefId, Ident]; LocalKey: [LocalDefId, LocalDefId, Ident]; Value: unknown; ProvidedValue: unknown };
+  type_param_clauses: { Key: [LocalDefId, LocalDefId, Ident]; KeyArg: [LocalDefId, LocalDefId, Ident]; LocalKey: [LocalDefId, LocalDefId, Ident]; Value: EarlyBinder<readonly [Clause, Span][]>; ProvidedValue: EarlyBinder<readonly [Clause, Span][]> };
   // PORT: value `&'tcx ty::TraitDef` not ported (`unknown`)
   trait_def: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: unknown; ProvidedValue: unknown };
   // PORT: value `ty::AdtDef<'tcx>` not ported (`unknown`)
@@ -583,8 +575,8 @@ export interface QueryTypes {
   adt_destructor: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: unknown | undefined; ProvidedValue: unknown | undefined };
   // PORT: value `Option<ty::AsyncDestructor>` not ported (`unknown`)
   adt_async_destructor: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: unknown | undefined; ProvidedValue: unknown | undefined };
-  // PORT: key `(DefId, SizedTraitKind)` not ported; value `Option<ty::EarlyBinder<'tcx, Ty<'tcx>>>` not ported (`unknown`)
-  adt_sizedness_constraint: { Key: [DefId, unknown]; KeyArg: [DefId, unknown]; LocalKey: [DefId, unknown]; Value: unknown | undefined; ProvidedValue: unknown | undefined };
+  // PORT: key `(DefId, SizedTraitKind)` not ported (`unknown`)
+  adt_sizedness_constraint: { Key: [DefId, unknown]; KeyArg: [DefId, unknown]; LocalKey: [DefId, unknown]; Value: EarlyBinder<Ty> | undefined; ProvidedValue: EarlyBinder<Ty> | undefined };
   adt_dtorck_constraint: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: DefId; Value: DropckConstraint; ProvidedValue: DropckConstraint };
   /**
    * Returns the constness of the function-like[^1] definition given by `DefId`.
@@ -639,7 +631,7 @@ export interface QueryTypes {
   coroutine_kind: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: unknown | undefined; ProvidedValue: unknown | undefined };
   coroutine_for_closure: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: DefId; ProvidedValue: DefId };
   // PORT: value `ty::EarlyBinder<'tcx, ty::Binder<'tcx, ty::CoroutineWitnessTypes<TyCtxt<'tcx>>>>` not ported (`unknown`)
-  coroutine_hidden_types: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: DefId; Value: unknown; ProvidedValue: unknown };
+  coroutine_hidden_types: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: DefId; Value: EarlyBinder<unknown>; ProvidedValue: EarlyBinder<unknown> };
   /**
    * Gets a map with the variances of every item in the local crate.
    *
@@ -772,8 +764,7 @@ export interface QueryTypes {
   /**
    * Computes the signature of the function.
    */
-  // PORT: value `ty::EarlyBinder<'tcx, ty::PolyFnSig<'tcx>>` not ported (`unknown`)
-  fn_sig: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: unknown; ProvidedValue: unknown };
+  fn_sig: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: EarlyBinder<PolyFnSig>; ProvidedValue: EarlyBinder<PolyFnSig> };
   /**
    * Performs lint checking for the module.
    */
@@ -2145,8 +2136,8 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: true,
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = (() => { const __m = tcx.def_kind(key); if (__m.$ === "TyAlias") return "expanding type alias"; if (__m.$ === "TraitAlias") return "expanding trait alias"; return "computing type of"; })(); const __1 = tcx.def_path_str(key); return `${__0} \`${__1}\``; },
-    debug_value: undefined,
-    stable_hash_value: undefined,
+    debug_value: (v, f) => debug_EarlyBinder(v, f, ((x, f) => debug_Ty(x, f))),
+    stable_hash_value: (v, hcx, h) => stable_hash_EarlyBinder(v, hcx, h, stable_hash_Ty),
   },
   type_of_opaque: {
     name: "type_of_opaque",
@@ -2163,8 +2154,8 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: false,
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `computing type of opaque \`${__0}\``; },
-    debug_value: undefined,
-    stable_hash_value: undefined,
+    debug_value: (v, f) => debug_EarlyBinder(v, f, ((x, f) => debug_Ty(x, f))),
+    stable_hash_value: (v, hcx, h) => stable_hash_EarlyBinder(v, hcx, h, stable_hash_Ty),
   },
   type_of_opaque_hir_typeck: {
     name: "type_of_opaque_hir_typeck",
@@ -2181,8 +2172,8 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: false,
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `computing type of opaque \`${__0}\` via HIR typeck`; },
-    debug_value: undefined,
-    stable_hash_value: undefined,
+    debug_value: (v, f) => debug_EarlyBinder(v, f, ((x, f) => debug_Ty(x, f))),
+    stable_hash_value: (v, hcx, h) => stable_hash_EarlyBinder(v, hcx, h, stable_hash_Ty),
   },
   type_alias_is_checked: {
     name: "type_alias_is_checked",
@@ -2325,8 +2316,8 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: false,
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `computing clauses of \`${__0}\``; },
-    debug_value: undefined,
-    stable_hash_value: undefined,
+    debug_value: (v, f) => debug_GenericClauses(v, f),
+    stable_hash_value: stable_hash_GenericClauses,
   },
   opaque_types_defined_by: {
     name: "opaque_types_defined_by",
@@ -2344,7 +2335,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `opaque_types_defined_by` (method `.to_def_id()` on a non-tcx receiver)"),
     debug_value: (v, f) => debug_RawList(v, f, ((x, f) => debug_LocalDefId(x, f))),
-    stable_hash_value: undefined,
+    stable_hash_value: (v, hcx, h) => stable_hash_RawList(v, hcx, h, stable_hash_LocalDefId),
   },
   nested_bodies_within: {
     name: "nested_bodies_within",
@@ -2362,7 +2353,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `nested_bodies_within` (method `.to_def_id()` on a non-tcx receiver)"),
     debug_value: (v, f) => debug_RawList(v, f, ((x, f) => debug_LocalDefId(x, f))),
-    stable_hash_value: undefined,
+    stable_hash_value: (v, hcx, h) => stable_hash_RawList(v, hcx, h, stable_hash_LocalDefId),
   },
   explicit_item_bounds: {
     name: "explicit_item_bounds",
@@ -2379,8 +2370,8 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: true,
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `finding item bounds for \`${__0}\``; },
-    debug_value: undefined,
-    stable_hash_value: undefined,
+    debug_value: (v, f) => debug_EarlyBinder(v, f, ((x, f) => debug_vec(x, f, (x, f) => debug_tuple(f, "", [debug_Clause(x[0], f), debug_Span(x[1], f)])))),
+    stable_hash_value: (v, hcx, h) => stable_hash_EarlyBinder(v, hcx, h, (v, hcx, h) => stable_hash_slice(v, hcx, h, (v, hcx, h) => stable_hash_tuple2(v, hcx, h, stable_hash_Clause, stable_hash_Span))),
   },
   explicit_item_self_bounds: {
     name: "explicit_item_self_bounds",
@@ -2397,8 +2388,8 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: true,
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `finding item bounds for \`${__0}\``; },
-    debug_value: undefined,
-    stable_hash_value: undefined,
+    debug_value: (v, f) => debug_EarlyBinder(v, f, ((x, f) => debug_vec(x, f, (x, f) => debug_tuple(f, "", [debug_Clause(x[0], f), debug_Span(x[1], f)])))),
+    stable_hash_value: (v, hcx, h) => stable_hash_EarlyBinder(v, hcx, h, (v, hcx, h) => stable_hash_slice(v, hcx, h, (v, hcx, h) => stable_hash_tuple2(v, hcx, h, stable_hash_Clause, stable_hash_Span))),
   },
   item_bounds: {
     name: "item_bounds",
@@ -2848,7 +2839,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: true,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `verify auto trait bounds for coroutine interior type \`${__0}\``; },
     debug_value: (v, f) => debug_result(v, f, ((x, f) => "()"), ((x, f) => debug_ErrorGuaranteed(x, f))),
-    stable_hash_value: undefined,
+    stable_hash_value: (v, hcx, h) => stable_hash_Result(v, hcx, h, stable_hash_unit, stable_hash_ErrorGuaranteed),
   },
   check_potentially_region_dependent_goals: {
     name: "check_potentially_region_dependent_goals",
@@ -2866,7 +2857,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: true,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `reproving potentially region dependent HIR typeck goals for \`${__0}`; },
     debug_value: (v, f) => debug_result(v, f, ((x, f) => "()"), ((x, f) => debug_ErrorGuaranteed(x, f))),
-    stable_hash_value: undefined,
+    stable_hash_value: (v, hcx, h) => stable_hash_Result(v, hcx, h, stable_hash_unit, stable_hash_ErrorGuaranteed),
   },
   optimized_mir: {
     name: "optimized_mir",
@@ -3009,8 +3000,8 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: false,
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `computing explicit clauses of trait \`${__0}\``; },
-    debug_value: undefined,
-    stable_hash_value: undefined,
+    debug_value: (v, f) => debug_GenericClauses(v, f),
+    stable_hash_value: stable_hash_GenericClauses,
   },
   explicit_clauses_of: {
     name: "explicit_clauses_of",
@@ -3027,8 +3018,8 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: true,
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `computing explicit predicates of \`${__0}\``; },
-    debug_value: undefined,
-    stable_hash_value: undefined,
+    debug_value: (v, f) => debug_GenericClauses(v, f),
+    stable_hash_value: stable_hash_GenericClauses,
   },
   inferred_outlives_of: {
     name: "inferred_outlives_of",
@@ -3046,7 +3037,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `computing inferred outlives-clauses of \`${__0}\``; },
     debug_value: (v, f) => debug_vec(v, f, (x, f) => debug_tuple(f, "", [debug_Clause(x[0], f), debug_Span(x[1], f)])),
-    stable_hash_value: undefined,
+    stable_hash_value: (v, hcx, h) => stable_hash_slice(v, hcx, h, (v, hcx, h) => stable_hash_tuple2(v, hcx, h, stable_hash_Clause, stable_hash_Span)),
   },
   explicit_super_clauses_of: {
     name: "explicit_super_clauses_of",
@@ -3063,8 +3054,8 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: true,
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `computing the super clauses of \`${__0}\``; },
-    debug_value: undefined,
-    stable_hash_value: undefined,
+    debug_value: (v, f) => debug_EarlyBinder(v, f, ((x, f) => debug_vec(x, f, (x, f) => debug_tuple(f, "", [debug_Clause(x[0], f), debug_Span(x[1], f)])))),
+    stable_hash_value: (v, hcx, h) => stable_hash_EarlyBinder(v, hcx, h, (v, hcx, h) => stable_hash_slice(v, hcx, h, (v, hcx, h) => stable_hash_tuple2(v, hcx, h, stable_hash_Clause, stable_hash_Span))),
   },
   explicit_implied_clauses_of: {
     name: "explicit_implied_clauses_of",
@@ -3081,8 +3072,8 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: true,
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `computing the implied clauses of \`${__0}\``; },
-    debug_value: undefined,
-    stable_hash_value: undefined,
+    debug_value: (v, f) => debug_EarlyBinder(v, f, ((x, f) => debug_vec(x, f, (x, f) => debug_tuple(f, "", [debug_Clause(x[0], f), debug_Span(x[1], f)])))),
+    stable_hash_value: (v, hcx, h) => stable_hash_EarlyBinder(v, hcx, h, (v, hcx, h) => stable_hash_slice(v, hcx, h, (v, hcx, h) => stable_hash_tuple2(v, hcx, h, stable_hash_Clause, stable_hash_Span))),
   },
   explicit_supertraits_containing_assoc_item: {
     name: "explicit_supertraits_containing_assoc_item",
@@ -3099,8 +3090,8 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: false,
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key[0]); const __1 = key[1]; return `computing the super traits of \`${__0}\` with associated type name \`${display_Ident(__1)}\``; },
-    debug_value: undefined,
-    stable_hash_value: undefined,
+    debug_value: (v, f) => debug_EarlyBinder(v, f, ((x, f) => debug_vec(x, f, (x, f) => debug_tuple(f, "", [debug_Clause(x[0], f), debug_Span(x[1], f)])))),
+    stable_hash_value: (v, hcx, h) => stable_hash_EarlyBinder(v, hcx, h, (v, hcx, h) => stable_hash_slice(v, hcx, h, (v, hcx, h) => stable_hash_tuple2(v, hcx, h, stable_hash_Clause, stable_hash_Span))),
   },
   const_conditions: {
     name: "const_conditions",
@@ -3153,8 +3144,8 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: false,
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.hir_ty_param_name(key[1]); return `computing the bounds for type parameter \`${display_Symbol(__0)}\``; },
-    debug_value: undefined,
-    stable_hash_value: undefined,
+    debug_value: (v, f) => debug_EarlyBinder(v, f, ((x, f) => debug_vec(x, f, (x, f) => debug_tuple(f, "", [debug_Clause(x[0], f), debug_Span(x[1], f)])))),
+    stable_hash_value: (v, hcx, h) => stable_hash_EarlyBinder(v, hcx, h, (v, hcx, h) => stable_hash_slice(v, hcx, h, (v, hcx, h) => stable_hash_tuple2(v, hcx, h, stable_hash_Clause, stable_hash_Span))),
   },
   trait_def: {
     name: "trait_def",
@@ -3243,8 +3234,8 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: false,
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key[0]); return `computing the sizedness constraint for \`${__0}\``; },
-    debug_value: undefined,
-    stable_hash_value: undefined,
+    debug_value: (v, f) => debug_option(v, f, ((x, f) => debug_EarlyBinder(x, f, ((x, f) => debug_Ty(x, f))))),
+    stable_hash_value: (v, hcx, h) => stable_hash_Option(v, hcx, h, (v, hcx, h) => stable_hash_EarlyBinder(v, hcx, h, stable_hash_Ty)),
   },
   adt_dtorck_constraint: {
     name: "adt_dtorck_constraint",
@@ -3640,7 +3631,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: true,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `check transmute calls inside \`${__0}\``; },
     debug_value: (v, f) => debug_result(v, f, ((x, f) => "()"), ((x, f) => debug_ErrorGuaranteed(x, f))),
-    stable_hash_value: undefined,
+    stable_hash_value: (v, hcx, h) => stable_hash_Result(v, hcx, h, stable_hash_unit, stable_hash_ErrorGuaranteed),
   },
   check_offloads: {
     name: "check_offloads",
@@ -3658,7 +3649,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: true,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `check offload calls inside \`${__0}\``; },
     debug_value: (v, f) => debug_result(v, f, ((x, f) => "()"), ((x, f) => debug_ErrorGuaranteed(x, f))),
-    stable_hash_value: undefined,
+    stable_hash_value: (v, hcx, h) => stable_hash_Result(v, hcx, h, stable_hash_unit, stable_hash_ErrorGuaranteed),
   },
   check_unsafety: {
     name: "check_unsafety",
@@ -3694,7 +3685,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: true,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `tail-call-checking \`${__0}\``; },
     debug_value: (v, f) => debug_result(v, f, ((x, f) => "()"), ((x, f) => debug_ErrorGuaranteed(x, f))),
-    stable_hash_value: undefined,
+    stable_hash_value: (v, hcx, h) => stable_hash_Result(v, hcx, h, stable_hash_unit, stable_hash_ErrorGuaranteed),
   },
   assumed_wf_types: {
     name: "assumed_wf_types",
@@ -3712,7 +3703,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `computing the implied bounds of \`${__0}\``; },
     debug_value: (v, f) => debug_vec(v, f, (x, f) => debug_tuple(f, "", [debug_Ty(x[0], f), debug_Span(x[1], f)])),
-    stable_hash_value: undefined,
+    stable_hash_value: (v, hcx, h) => stable_hash_slice(v, hcx, h, (v, hcx, h) => stable_hash_tuple2(v, hcx, h, stable_hash_Ty, stable_hash_Span)),
   },
   assumed_wf_types_for_rpitit: {
     name: "assumed_wf_types_for_rpitit",
@@ -3730,7 +3721,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `computing the implied bounds of \`${__0}\``; },
     debug_value: (v, f) => debug_vec(v, f, (x, f) => debug_tuple(f, "", [debug_Ty(x[0], f), debug_Span(x[1], f)])),
-    stable_hash_value: undefined,
+    stable_hash_value: (v, hcx, h) => stable_hash_slice(v, hcx, h, (v, hcx, h) => stable_hash_tuple2(v, hcx, h, stable_hash_Ty, stable_hash_Span)),
   },
   fn_sig: {
     name: "fn_sig",
@@ -3910,7 +3901,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: true,
     desc: (_tcx, _key) => `checking that types are well-formed`,
     debug_value: (v, f) => debug_result(v, f, ((x, f) => "()"), ((x, f) => debug_ErrorGuaranteed(x, f))),
-    stable_hash_value: undefined,
+    stable_hash_value: (v, hcx, h) => stable_hash_Result(v, hcx, h, stable_hash_unit, stable_hash_ErrorGuaranteed),
   },
   coerce_unsized_info: {
     name: "coerce_unsized_info",
@@ -3982,7 +3973,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: true,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `coherence checking all impls of trait \`${__0}\``; },
     debug_value: (v, f) => debug_result(v, f, ((x, f) => "()"), ((x, f) => debug_ErrorGuaranteed(x, f))),
-    stable_hash_value: undefined,
+    stable_hash_value: (v, hcx, h) => stable_hash_Result(v, hcx, h, stable_hash_unit, stable_hash_ErrorGuaranteed),
   },
   mir_borrowck: {
     name: "mir_borrowck",
@@ -4036,7 +4027,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: true,
     desc: (_tcx, _key) => `check for inherent impls that should not be defined in crate`,
     debug_value: (v, f) => debug_result(v, f, ((x, f) => "()"), ((x, f) => debug_ErrorGuaranteed(x, f))),
-    stable_hash_value: undefined,
+    stable_hash_value: (v, hcx, h) => stable_hash_Result(v, hcx, h, stable_hash_unit, stable_hash_ErrorGuaranteed),
   },
   crate_inherent_impls_overlap_check: {
     name: "crate_inherent_impls_overlap_check",
@@ -4054,7 +4045,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: true,
     desc: (_tcx, _key) => `check for overlap between inherent impls defined in this crate`,
     debug_value: (v, f) => debug_result(v, f, ((x, f) => "()"), ((x, f) => debug_ErrorGuaranteed(x, f))),
-    stable_hash_value: undefined,
+    stable_hash_value: (v, hcx, h) => stable_hash_Result(v, hcx, h, stable_hash_unit, stable_hash_ErrorGuaranteed),
   },
   orphan_check_impl: {
     name: "orphan_check_impl",
@@ -4072,7 +4063,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: true,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `checking whether impl \`${__0}\` follows the orphan rules`; },
     debug_value: (v, f) => debug_result(v, f, ((x, f) => "()"), ((x, f) => debug_ErrorGuaranteed(x, f))),
-    stable_hash_value: undefined,
+    stable_hash_value: (v, hcx, h) => stable_hash_Result(v, hcx, h, stable_hash_unit, stable_hash_ErrorGuaranteed),
   },
   mir_callgraph_cyclic: {
     name: "mir_callgraph_cyclic",
@@ -4252,7 +4243,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: true,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `match-checking \`${__0}\``; },
     debug_value: (v, f) => debug_result(v, f, ((x, f) => "()"), ((x, f) => debug_ErrorGuaranteed(x, f))),
-    stable_hash_value: undefined,
+    stable_hash_value: (v, hcx, h) => stable_hash_Result(v, hcx, h, stable_hash_unit, stable_hash_ErrorGuaranteed),
   },
   effective_visibilities: {
     name: "effective_visibilities",
@@ -5242,7 +5233,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `list_significant_drop_tys` (field `.value`)"),
     debug_value: (v, f) => debug_RawList(v, f, ((x, f) => debug_Ty(x, f))),
-    stable_hash_value: undefined,
+    stable_hash_value: (v, hcx, h) => stable_hash_RawList(v, hcx, h, stable_hash_Ty),
   },
   layout_of: {
     name: "layout_of",
@@ -5638,7 +5629,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: true,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `checking that \`${__0}\` is well-formed`; },
     debug_value: (v, f) => debug_result(v, f, ((x, f) => "()"), ((x, f) => debug_ErrorGuaranteed(x, f))),
-    stable_hash_value: undefined,
+    stable_hash_value: (v, hcx, h) => stable_hash_Result(v, hcx, h, stable_hash_unit, stable_hash_ErrorGuaranteed),
   },
   enforce_impl_non_lifetime_params_are_constrained: {
     name: "enforce_impl_non_lifetime_params_are_constrained",
@@ -5656,7 +5647,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: true,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `checking that \`${__0}\`'s generics are constrained by the impl header`; },
     debug_value: (v, f) => debug_result(v, f, ((x, f) => "()"), ((x, f) => debug_ErrorGuaranteed(x, f))),
-    stable_hash_value: undefined,
+    stable_hash_value: (v, hcx, h) => stable_hash_Result(v, hcx, h, stable_hash_unit, stable_hash_ErrorGuaranteed),
   },
   reachable_non_generics: {
     name: "reachable_non_generics",
@@ -5998,7 +5989,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _def_id) => `inheriting delegation signature`,
     debug_value: (v, f) => debug_vec(v, f, (x, f) => debug_Ty(x, f)),
-    stable_hash_value: undefined,
+    stable_hash_value: (v, hcx, h) => stable_hash_slice(v, hcx, h, stable_hash_Ty),
   },
   delegation_user_specified_args: {
     name: "delegation_user_specified_args",
@@ -7420,7 +7411,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: true,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `checking assoc item \`${__0}\` is compatible with trait definition`; },
     debug_value: (v, f) => debug_result(v, f, ((x, f) => "()"), ((x, f) => debug_ErrorGuaranteed(x, f))),
-    stable_hash_value: undefined,
+    stable_hash_value: (v, hcx, h) => stable_hash_Result(v, hcx, h, stable_hash_unit, stable_hash_ErrorGuaranteed),
   },
   deduced_param_attrs: {
     name: "deduced_param_attrs",

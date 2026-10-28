@@ -4,6 +4,7 @@
 // PORT (D3): `I: Interner` is erased (see ty_kind.ts). Methods of the generated enums live on their companion const
 // (`ValTreeKind.to_leaf(v)`); the impl on `AliasConst` (= `Alias<AliasConstKind>`) is the companion `AliasConst`.
 // PORT: `write!(f, "{:?}", x)` formats `x` with fresh options (no `{:#?}`), so those operands use `PLAIN`.
+import { type StableHashCtxt, type StableHasher, stable_hash_u32 } from "../rustc_data_structures/stable_hash.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import type { Consts, ScalarInt } from "../rustc_middle/ty/decls.ts";
 import type { GenericArgs } from "../rustc_middle/ty/generic_args.ts";
@@ -122,7 +123,17 @@ export const debug_InferConst: Debug<InferConst> = (self, _f) => {
   }
 };
 
-// rustc-skip: compiler/rustc_type_ir/src/const_kind.rs:195 stable_hash StableHash impl (incremental, M5)
+// rustc: compiler/rustc_type_ir/src/const_kind.rs:195 stable_hash
+export function stable_hash_InferConst(self: InferConst, hcx: StableHashCtxt, hasher: StableHasher): void {
+  switch (self.$) {
+    case "Var":
+      panic(`const variables should not be hashed: ${debug_InferConst(self, PLAIN)}`);
+      break;
+    case "Fresh":
+      stable_hash_u32(self._0, hcx, hasher);
+      break;
+  }
+}
 
 export type ValTreeKind = gen.ValTreeKind;
 export const ValTreeKind = {

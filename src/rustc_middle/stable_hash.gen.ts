@@ -3,8 +3,21 @@
 // (the `isize` discriminant, or the `#[repr]` integer), then the fields of the variant / struct in declaration order,
 // skipping `#[stable_hash(ignore)]` and hashing `field.name` for `#[stable_hash(project(name))]`.
 // Only `export function` declarations: hand modules may import from here inside an import cycle.
-import { stable_hash_Discriminant, type StableHash, type StableHashCtxt, type StableHasher } from "../rustc_data_structures/stable_hash.ts";
-import { type Visibility } from "./ty/mod.ts";
+import { stable_hash_Interned } from "../rustc_data_structures/intern.ts";
+import { stable_hash_Discriminant, stable_hash_IndexVec, stable_hash_Option, stable_hash_slice, stable_hash_tuple2, stable_hash_u16, stable_hash_u32, stable_hash_u8, type StableHash, type StableHashCtxt, type StableHasher } from "../rustc_data_structures/stable_hash.ts";
+import { stable_hash_CtorKind, stable_hash_Safety } from "../rustc_hir/stable_hash.gen.ts";
+import { type AdtDef, type AdtFlags, stable_hash_AdtDefData } from "./ty/adt.ts";
+import { type ValTree, type Value } from "./ty/consts/valtree.ts";
+import { type GenericClauses } from "./ty/generics.ts";
+import { type FieldDef, type RestrictionKind, type Ty, type VariantDef, type VariantDiscr, type VariantFlags, type Visibility } from "./ty/mod.ts";
+import { type Pattern } from "./ty/pattern.ts";
+import { stable_hash_Clause } from "./ty_stable_hash.gen.ts";
+import { stable_hash_DefId } from "../rustc_span/def_id.ts";
+import { stable_hash_Span } from "../rustc_span/lib.ts";
+import { stable_hash_ErrorGuaranteed, stable_hash_ModId } from "../rustc_span/stable_hash.gen.ts";
+import { stable_hash_Symbol } from "../rustc_span/symbol.ts";
+import { stable_hash_WithCachedTypeInfo } from "../rustc_type_ir/ty_info.ts";
+import { stable_hash_PatternKind, stable_hash_TyKind, stable_hash_ValTreeKind } from "../rustc_type_ir/ty_stable_hash.gen.ts";
 
 // rustc-derive: compiler/rustc_middle/src/ty/mod.rs:249 StableHash for Visibility
 const Visibility__discriminant = { Public: 0, Restricted: 1 } as const;
@@ -17,4 +30,95 @@ export function stable_hash_Visibility<Id>(self: Visibility<Id>, __hcx: StableHa
       stable_hash_Id(self._0, __hcx, __hasher);
       break;
   }
+}
+
+// rustc-derive: compiler/rustc_middle/src/ty/mod.rs:277 StableHash for RestrictionKind
+const RestrictionKind__discriminant = { Unrestricted: 0, Restricted: 1 } as const;
+export function stable_hash_RestrictionKind(self: RestrictionKind, __hcx: StableHashCtxt, __hasher: StableHasher): void {
+  stable_hash_Discriminant(RestrictionKind__discriminant[self.$], __hcx, __hasher);
+  switch (self.$) {
+    case "Unrestricted":
+      break;
+    case "Restricted":
+      stable_hash_DefId(self._0, __hcx, __hasher);
+      stable_hash_Span(self._1, __hcx, __hasher);
+      break;
+  }
+}
+
+// rustc-derive: compiler/rustc_middle/src/ty/mod.rs:517 StableHash for Ty
+export function stable_hash_Ty(self: Ty, __hcx: StableHashCtxt, __hasher: StableHasher): void {
+  stable_hash_Interned(self, __hcx, __hasher, (__v, __hcx, __hasher) => stable_hash_WithCachedTypeInfo(__v, __hcx, __hasher, stable_hash_TyKind));
+}
+
+// rustc-derive: compiler/rustc_middle/src/ty/mod.rs:1266 StableHash for VariantFlags
+export function stable_hash_VariantFlags(self: VariantFlags, __hcx: StableHashCtxt, __hasher: StableHasher): void {
+  stable_hash_u8(self, __hcx, __hasher);
+}
+
+// rustc-derive: compiler/rustc_middle/src/ty/mod.rs:1278 StableHash for VariantDef
+export function stable_hash_VariantDef(self: VariantDef, __hcx: StableHashCtxt, __hasher: StableHasher): void {
+  stable_hash_DefId(self.def_id, __hcx, __hasher);
+  stable_hash_Option(self.ctor, __hcx, __hasher, (__v, __hcx, __hasher) => stable_hash_tuple2(__v, __hcx, __hasher, stable_hash_CtorKind, stable_hash_DefId));
+  stable_hash_Symbol(self.name, __hcx, __hasher);
+  stable_hash_VariantDiscr(self.discr, __hcx, __hasher);
+  stable_hash_IndexVec(self.fields, __hcx, __hasher, stable_hash_FieldDef);
+  stable_hash_Option(self.tainted, __hcx, __hasher, stable_hash_ErrorGuaranteed);
+  stable_hash_VariantFlags(self.flags, __hcx, __hasher);
+}
+
+// rustc-derive: compiler/rustc_middle/src/ty/mod.rs:1474 StableHash for VariantDiscr
+const VariantDiscr__discriminant = { Explicit: 0, Relative: 1 } as const;
+export function stable_hash_VariantDiscr(self: VariantDiscr, __hcx: StableHashCtxt, __hasher: StableHasher): void {
+  stable_hash_Discriminant(VariantDiscr__discriminant[self.$], __hcx, __hasher);
+  switch (self.$) {
+    case "Explicit":
+      stable_hash_DefId(self._0, __hcx, __hasher);
+      break;
+    case "Relative":
+      stable_hash_u32(self._0, __hcx, __hasher);
+      break;
+  }
+}
+
+// rustc-derive: compiler/rustc_middle/src/ty/mod.rs:1487 StableHash for FieldDef
+export function stable_hash_FieldDef(self: FieldDef, __hcx: StableHashCtxt, __hasher: StableHasher): void {
+  stable_hash_DefId(self.did, __hcx, __hasher);
+  stable_hash_Symbol(self.name, __hcx, __hasher);
+  stable_hash_Visibility(self.vis, __hcx, __hasher, stable_hash_ModId);
+  stable_hash_RestrictionKind(self.mut_restriction, __hcx, __hasher);
+  stable_hash_Safety(self.safety, __hcx, __hasher);
+  stable_hash_Option(self.value, __hcx, __hasher, stable_hash_DefId);
+}
+
+// rustc-derive: compiler/rustc_middle/src/ty/generics.rs:388 StableHash for GenericClauses
+export function stable_hash_GenericClauses(self: GenericClauses, __hcx: StableHashCtxt, __hasher: StableHasher): void {
+  stable_hash_Option(self.parent, __hcx, __hasher, stable_hash_DefId);
+  stable_hash_slice(self.clauses, __hcx, __hasher, (__v, __hcx, __hasher) => stable_hash_tuple2(__v, __hcx, __hasher, stable_hash_Clause, stable_hash_Span));
+}
+
+// rustc-derive: compiler/rustc_middle/src/ty/adt.rs:35 StableHash for AdtFlags
+export function stable_hash_AdtFlags(self: AdtFlags, __hcx: StableHashCtxt, __hasher: StableHasher): void {
+  stable_hash_u16(self, __hcx, __hasher);
+}
+
+// rustc-derive: compiler/rustc_middle/src/ty/adt.rs:187 StableHash for AdtDef
+export function stable_hash_AdtDef(self: AdtDef, __hcx: StableHashCtxt, __hasher: StableHasher): void {
+  stable_hash_Interned(self.internee, __hcx, __hasher, stable_hash_AdtDefData);
+}
+
+// rustc-derive: compiler/rustc_middle/src/ty/consts/valtree.rs:34 StableHash for ValTree
+export function stable_hash_ValTree(self: ValTree, __hcx: StableHashCtxt, __hasher: StableHasher): void {
+  stable_hash_Interned(self.internee, __hcx, __hasher, stable_hash_ValTreeKind);
+}
+
+// rustc-derive: compiler/rustc_middle/src/ty/consts/valtree.rs:103 StableHash for Value
+export function stable_hash_Value(self: Value, __hcx: StableHashCtxt, __hasher: StableHasher): void {
+  stable_hash_Ty(self.ty, __hcx, __hasher);
+  stable_hash_ValTree(self.valtree, __hcx, __hasher);
+}
+
+// rustc-derive: compiler/rustc_middle/src/ty/pattern.rs:16 StableHash for Pattern
+export function stable_hash_Pattern(self: Pattern, __hcx: StableHashCtxt, __hasher: StableHasher): void {
+  stable_hash_Interned(self.internee, __hcx, __hasher, (__v, __hcx, __hasher) => stable_hash_PatternKind(__v, __hcx, __hasher));
 }

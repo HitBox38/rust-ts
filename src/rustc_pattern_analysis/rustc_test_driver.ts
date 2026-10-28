@@ -157,14 +157,14 @@ function witness(tcx: TyCtxt): void {
         ? new IntRange(MaybeInfiniteInt.NegInfinity, MaybeInfiniteInt.plus_one(MaybeInfiniteInt.new_finite_int(hi, size))!)
         : IntRange.from_range(MaybeInfiniteInt.new_finite_int(lo, size), MaybeInfiniteInt.new_finite_int(hi, size), "Included");
   const range = (r: IntRange) => (t: RevealedTy) => mk({ $: "IntRange", _0: r }, t);
-  const slice = (len: number | undefined, kind: Slice["kind"]): Constructor => ({ $: "Slice", _0: Slice.new(len, kind) });
+  const slice = (len: bigint | undefined, kind: Slice["kind"]): Constructor => ({ $: "Slice", _0: Slice.new(len, kind) });
   const cases: [string, () => WitnessPat][] = [
     ["w1", () => mk({ $: "Variant", _0: 0 as never }, ty("w1"))],
     ["w2", () => mk(Constructor.Struct, ty("w2"), b(false))],
     ["w3", () => mk(Constructor.Struct, ty("w3"), b(false))],
     ["w4", () => mk(Constructor.Ref, ty("w4"), (t) => mk({ $: "Variant", _0: 0 as never }, t))],
     ["w5", () => mk(Constructor.Ref, ty("w5"), (t) => mk(slice(undefined, { $: "VarLen", _0: 1, _1: 0 }), t, b(false)))],
-    ["w6", () => mk(slice(4, { $: "VarLen", _0: 1, _1: 1 }), ty("w6"), b(false))],
+    ["w6", () => mk(slice(4n, { $: "VarLen", _0: 1, _1: 1 }), ty("w6"), b(false))],
     ["w7", () => mk(Constructor.Struct, ty("w7"), b(false))],
     ["w8", () => range(int(0x80n, 0xffn, 8))(ty("w8"))],
     ["w8", () => range(int(11n, 0x7fn, 8))(ty("w8"))],
@@ -186,8 +186,8 @@ function witness(tcx: TyCtxt): void {
     ["hidden", () => WitnessPat.new<RustcPatCtxtTypes>(Constructor.Hidden, [], ty("w1"))],
     ["private_uninhabited", () => WitnessPat.new<RustcPatCtxtTypes>(Constructor.PrivateUninhabited, [], ty("w1"))],
     ["deref", () => WitnessPat.new<RustcPatCtxtTypes>({ $: "DerefPattern", _0: ty("w2") }, [WitnessPat.wildcard(cx, ty("w2"))], ty("w4"))],
-    ["slice_merge", () => mk(slice(6, { $: "VarLen", _0: 2, _1: 2 }), ty("w15"), b(true), undefined, undefined, b(false))],
-    ["slice_fixed", () => mk(slice(4, { $: "VarLen", _0: 2, _1: 2 }), ty("w6"), b(true), undefined, undefined, b(false))],
+    ["slice_merge", () => mk(slice(6n, { $: "VarLen", _0: 2, _1: 2 }), ty("w15"), b(true), undefined, undefined, b(false))],
+    ["slice_fixed", () => mk(slice(4n, { $: "VarLen", _0: 2, _1: 2 }), ty("w6"), b(true), undefined, undefined, b(false))],
     ["slice_no_merge", () => mk(Constructor.Ref, ty("w5"), (t) => mk(slice(undefined, { $: "VarLen", _0: 2, _1: 2 }), t, b(true), undefined, undefined, b(false)))],
     ["str", () => bs.get("s")!.matches[0]!.arms[0]!.iter_fields().map((ip) => WitnessPat.new(ip.pat.ctor(), [], ip.pat.ty()))[0]!],
     ["missing", () => WitnessPat.new<RustcPatCtxtTypes>(Constructor.Missing, [], ty("w1"))],

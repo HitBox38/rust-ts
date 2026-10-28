@@ -3,7 +3,7 @@
 // PORT: the trait impls over `T` take `T`'s impl fn last (PORTING §5 "pass function tables"): `eq_T`, `cmp_T`, `hash_T`.
 // The interned classes (`Ty`, `Const`, `Predicate`) embed this struct's fields (ty-contract "Representation" 1), so
 // these fns serve code that handles a `WithCachedTypeInfo` value directly.
-import type { Ordering } from "../rustc_data_structures/stable_hash.ts";
+import type { Ordering, StableHash, StableHashCtxt, StableHasher } from "../rustc_data_structures/stable_hash.ts";
 import type { WithCachedTypeInfo } from "./ty_info.gen.ts";
 
 export * from "./ty_info.gen.ts";
@@ -33,4 +33,14 @@ export function hash_WithCachedTypeInfo<T, H>(self: WithCachedTypeInfo<T>, s: H,
   hash_T(self.internee, s);
 }
 
-// rustc-skip: compiler/rustc_type_ir/src/ty_info.rs:87 stable_hash StableHash impl (incremental, M5)
+// rustc: compiler/rustc_type_ir/src/ty_info.rs:87 stable_hash
+/** `impl<T: StableHash> StableHash for WithCachedTypeInfo<T>`: only the internee (an interned `Ty` / `Const` object is its
+ * own `WithCachedTypeInfo`, see the header). */
+export function stable_hash_WithCachedTypeInfo<T>(
+  self: Pick<WithCachedTypeInfo<T>, "internee">,
+  hcx: StableHashCtxt,
+  hasher: StableHasher,
+  stable_hash_T: StableHash<T>,
+): void {
+  stable_hash_T(self.internee, hcx, hasher);
+}

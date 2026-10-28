@@ -6,6 +6,7 @@ import { decode_ReprOptions } from "../rustc_abi/decodable.gen.ts";
 import { decode_CtorKind, decode_Res, decode_Safety } from "../rustc_hir/def.ts";
 import { decode_Constness } from "../rustc_hir/hir.ts";
 import { decode_RefDecodable_slice_into_arena } from "./arena.ts";
+import { type DeducedParamAttrs, type UsageSummary } from "./middle/deduced_param_attrs.ts";
 import { type FeatureStability } from "./middle/mod.ts";
 import { type AmbigModChild, type ModChild, Reexport } from "./middle/resolve.ts";
 import { ObjectLifetimeDefault } from "./middle/resolve_bound_vars.ts";
@@ -310,5 +311,17 @@ export function decode_IntrinsicDef(__decoder: SpanDecoder): IntrinsicDef {
     name: __decoder.decode_symbol(),
     must_be_overridden: decode_bool(__decoder),
     const_stable_indirect: decode_bool(__decoder),
+  };
+}
+
+// rustc-derive: compiler/rustc_middle/src/middle/deduced_param_attrs.rs:9 Decodable for UsageSummary
+export function decode_UsageSummary(__decoder: SpanDecoder): UsageSummary {
+  return decode_u8(__decoder) as UsageSummary;
+}
+
+// rustc-derive: compiler/rustc_middle/src/middle/deduced_param_attrs.rs:32 Decodable for DeducedParamAttrs
+export function decode_DeducedParamAttrs(__decoder: SpanDecoder): DeducedParamAttrs {
+  return {
+    usage: decode_UsageSummary(__decoder),
   };
 }

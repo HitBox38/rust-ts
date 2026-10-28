@@ -354,13 +354,13 @@ describe("provide_extern", () => {
     expect(ext.inferred_outlives_of!(f.tcx, did(1, 1))).toEqual([]);
   });
 
-  test("unported element types stop at unported(..) naming the type", () => {
-    const lazy = { decode: (_m: unknown, decode_T: (d: unknown) => unknown) => decode_T({}) };
-    // (`generics_of` decodes since lane decode-elems, `trait_def` since lane small-gaps-18, `mir::ConstQualifs` since
-    // lane meta-mir; `hir::OpaqueTyOrigin` has no TS decoder yet)
-    const f = fake({ 1: tables({ opaque_ty_origin: lazy }) });
-    expect(() => ext.opaque_ty_origin!(f.tcx, did(1, 1))).toThrow(Unported);
-    expect(() => ext.opaque_ty_origin!(f.tcx, did(1, 1))).toThrow("Decodable for hir::OpaqueTyOrigin<DefId>");
+  test("every table element type has a TS decoder (no table decodes through decode_unported)", () => {
+    // `generics_of` decodes since lane decode-elems, `trait_def` since lane small-gaps-18, `mir::ConstQualifs` since
+    // lane meta-mir, `hir::OpaqueTyOrigin` / `PreciseCapturingArgKind` since lane misc-blockers and `DeducedParamAttrs`
+    // since lane mt-opt2-b: the last `decode_unported(..)` table entry is gone. A new one must name its type here.
+    const src = readFileSync(join(import.meta.dir, "cstore_impl.ts"), "utf8");
+    const uses = [...src.matchAll(/decode_unported\("([^"]+)"\)/g)].map((m) => m[1]);
+    expect(uses).toEqual([]);
   });
 });
 

@@ -546,21 +546,24 @@ export const SliceKind = {
 export class Slice {
   constructor(
     /// `None` if the matched value is a slice, `Some(n)` if it is an array of size `n`.
-    readonly array_len: number | undefined,
+    // PORT: `Option<usize>` as `bigint | undefined`: an array length can exceed 2^53 (tests/ui/limits/issue-15919-64.rs,
+    // `[0usize; 0xffff_ffff_ffff_ffff]`). The `SliceKind` lengths stay `number`s: they are pattern lengths, or an array
+    // length no larger than one (`Slice::new` / `split` only make `FixedLen(array_len)` then).
+    readonly array_len: bigint | undefined,
     /// The kind of pattern it is: fixed-length `[x, y]` or variable length `[x, .., y]`.
     readonly kind: SliceKind,
   ) {}
 
   // rustc: compiler/rustc_pattern_analysis/src/constructor.rs:474 new
-  static new(array_len: number | undefined, kind: SliceKind): Slice {
+  static new(array_len: bigint | undefined, kind: SliceKind): Slice {
     if (array_len !== undefined && kind.$ === "VarLen") {
       const len = array_len;
       const prefix = kind._0;
       const suffix = kind._1;
       // If the middle `..` has length 0, we effectively have a fixed-length pattern.
-      if (prefix + suffix === len) {
-        kind = { $: "FixedLen", _0: len };
-      } else if (prefix + suffix > len) {
+      if (BigInt(prefix + suffix) === len) {
+        kind = { $: "FixedLen", _0: prefix + suffix }; // PORT: `FixedLen(len)`, `len == prefix + suffix`
+      } else if (BigInt(prefix + suffix) > len) {
         panic(`Slice pattern of length ${prefix + suffix} longer than its array length ${len}`);
       }
     }
@@ -581,7 +584,7 @@ export class Slice {
   // Getters. They are used by rust-analyzer.
   // PORT: `array_len()` / `kind()` are `array_len_()` / `kind_()`: the class has fields of the same names.
   // rustc: compiler/rustc_pattern_analysis/src/constructor.rs:497 array_len
-  array_len_(): number | undefined {
+  array_len_(): bigint | undefined {
     return this.array_len;
   }
 
@@ -711,8 +714,9 @@ export class Slice {
         max_slice = { $: "VarLen", _0: max_prefix_len, _1: max_suffix_len };
 
         // We cap the arity of `max_slice` at the array size.
-        if (this.array_len !== undefined && SliceKind.arity(max_slice) >= this.array_len) {
-          max_slice = { $: "FixedLen", _0: this.array_len };
+        if (this.array_len !== undefined && BigInt(SliceKind.arity(max_slice)) >= this.array_len) {
+          // PORT: `FixedLen(len)`: `len <= max_slice.arity()`, a `number`
+          max_slice = { $: "FixedLen", _0: Number(this.array_len) };
         }
 
         smaller_lengths =
@@ -1234,7 +1238,7 @@ export type ConstructorSet<_Cx extends PatCxTypes = PatCxTypes> =
   /// The type is matched by slices. `array_len` is the compile-time length of the array, if
   /// known. If `subtype_is_empty`, all constructors are empty except possibly the zero-length
   /// slice `[]`.
-  | { readonly $: "Slice"; readonly array_len: number | undefined; readonly subtype_is_empty: boolean }
+  | { readonly $: "Slice"; readonly array_len: bigint | undefined; readonly subtype_is_empty: boolean } // PORT: `Option<usize>` as `bigint` (see `Slice`)
   /// The constructors cannot be listed, and the type cannot be matched exhaustively. E.g. `str`,
   /// floats.
   | { readonly $: "Unlistable" }
@@ -1535,7 +1539,7 @@ export const ConstructorSet = {
         return !self.non_exhaustive && self.variants.every((visibility) => visibility === VariantVisibility.Empty);
       case "Slice":
         // `matches!(array_len, Some(1..))`
-        return self.subtype_is_empty && self.array_len !== undefined && self.array_len >= 1;
+        return self.subtype_is_empty && self.array_len !== undefined && self.array_len >= 1n;
     }
   },
 };

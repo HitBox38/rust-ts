@@ -8,6 +8,7 @@
 // PORT: the float conversions (`to_float`, `From<Half/Single/Double/Quad>`) use the vendored rustc_apfloat
 // (src/vendor/rustc_apfloat); `to_float::<F>` takes the float type's dictionary `F` (`Half`, `Single`, ...).
 import { Size } from "../../../rustc_abi/lib.ts";
+import { type StableHashCtxt, type StableHasher, stable_hash_u128, stable_hash_u8 } from "../../../rustc_data_structures/stable_hash.ts";
 import type { Decoder } from "../../../rustc_serialize/serialize.ts";
 import { bug } from "../../../rustc_span/macros.ts";
 import { type Debug, type Fmt, PLAIN } from "../../../std/fmt.ts";
@@ -774,7 +775,15 @@ export function ScalarInt_eq(a: ScalarInt, b: ScalarInt): boolean {
 
 // Cannot derive these, as the derives take references to the fields, and we
 // can't take references to fields of packed structs.
-// rustc-skip: compiler/rustc_middle/src/ty/consts/int.rs:157 stable_hash StableHash impl (incremental, M5)
+// rustc: compiler/rustc_middle/src/ty/consts/int.rs:157 stable_hash
+export function stable_hash_ScalarInt(self: ScalarInt, hcx: StableHashCtxt, hasher: StableHasher): void {
+  // Using a block `{self.data}` here to force a copy instead of using `self.data`
+  // directly, because `stable_hash` takes `&self` and would thus borrow `self.data`.
+  // Since `Self` is a packed struct, that would create a possibly unaligned reference,
+  // which is UB.
+  stable_hash_u128(self.data, hcx, hasher);
+  stable_hash_u8(self.size_, hcx, hasher);
+}
 
 // rustc-skip: compiler/rustc_middle/src/ty/consts/int.rs:172 encode Encodable (metadata encoding, M5)
 
