@@ -111,8 +111,8 @@ test("every fn of rustc_borrowck is ported or declared as a stub, never both", (
     }
   }
   expect(total).toBe(901);
-  expect(markers.length).toBe(630);
-  expect(stubs.length).toBe(271);
+  expect(markers.length).toBe(664);
+  expect(stubs.length).toBe(237);
 });
 
 test("the stubs per fill lane are the handoff's split table", () => {
@@ -128,7 +128,7 @@ test("the stubs per fill lane are the handoff's split table", () => {
     // "bck-nll": 0 (filled, wave 23)
     // "bck-polonius": 0 (filled, wave 23 second batch)
     // "bck-regions-b": 0 (filled, wave 23)
-    "bck-diag-a": 34,
+    // "bck-diag-a": 0 (filled, wave 25: conflict_errors.rs lines < 2469, 34 stubs -> markers)
     "bck-diag-b": 42,
     "bck-diag-c": 37,
     // "bck-diag-d": 0 (filled, wave 23: diagnostics/{mod, move_errors}.rs 70 stubs -> markers)
