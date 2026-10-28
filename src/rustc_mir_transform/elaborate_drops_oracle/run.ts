@@ -6,23 +6,16 @@
 // part of the `MIR_borrow_checking` loop that the ported driver reaches (`check_unsafety`, `has_ffi_unwind_calls`,
 // `check_liveness`, as liveness_oracle/run.ts), aborts on errors as `analysis` does, and then, for every fn / assoc fn
 // / closure body of `mir_keys`, takes a copy of the real `mir_promoted` body and runs:
-// 1. `run_passes([CleanupPostBorrowck, RemoveNoopLandingPads, SimplifyCfg::PostAnalysis], Analysis(PostCleanup))`:
-//    rustc's `run_analysis_cleanup_passes` minus `ImpossibleClauses` and `Derefer` (no-ops on the fixtures: no
-//    impossible predicates, no derefs of non-local places). `CleanupPostBorrowck` and `RemoveNoopLandingPads` are still
-//    stubs (lane mt-cleanup), so this driver uses TEST-ONLY STAND-INS below that do what the upstream passes do on these
-//    fixtures (cleanup_post_borrowck.rs: statements to `Nop`, `FalseEdge`/`FalseUnwind` to `Goto`, user types cleared;
-//    remove_noop_landing_pads.rs with `extra = None`). mt-cleanup / root: replace them with the real passes when they
-//    land. `SimplifyCfg::PostAnalysis` is the real pass.
-// 2. `run_passes([ElaborateDrops], Runtime(Initial))` (the real pass), so that the pass manager's `-Zdump-mir` hooks write
-//    `<crate>.<item>.ElaborateDrops.{before,after}.mir` as rustc does. The rustc-side passes before `ElaborateDrops`
-//    (`CriticalCallEdges`, `PostAnalysisNormalize`, `Subtyper`) are no-ops on the fixtures; the test checks this by
-//    comparing the `before` dumps too.
+// 1. lib.ts's `run_analysis_cleanup_passes` (the real `ImpossibleClauses`, `CleanupPostBorrowck`,
+//    `RemoveNoopLandingPads`, `SimplifyCfg::PostAnalysis`, `Derefer`; phase `Analysis(PostCleanup)`).
+// 2. `run_passes([CriticalCallEdges, PostAnalysisNormalize, Subtyper, ElaborateDrops], Runtime(Initial))`: the head of
+//    `run_runtime_lowering_passes` up to and including `ElaborateDrops` (all real passes), so that the pass manager's
+//    `-Zdump-mir` hooks write `<crate>.<item>.ElaborateDrops.{before,after}.mir` as rustc does; the `before` dumps check
+//    the input those passes give `ElaborateDrops`.
 //
 // Exit codes as src/rust_ts/main.ts: rustc's own, plus 70 = reached unported code, 101 = ICE.
 import type { Compiler, Config } from "../../rustc_interface/interface.ts";
-import type { Body } from "../../rustc_middle/mir/mod.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
-import type { PassPolicy } from "../pass_manager.ts";
 import { Panic, Unported } from "../../std/panic.ts";
 import { ensure_stack } from "../../rust_ts/stack.ts";
 
@@ -37,98 +30,12 @@ async function main(): Promise<number> {
   const { run_required_analyses_prefix } = await import("../../rust_ts/tydump_dump.ts");
   const { LocalDefId } = await import("../../rustc_span/def_id.ts");
   const { clone_Body } = await import("../../rustc_middle/mir/mod.ts");
-  const { TerminatorKind } = await import("../../rustc_middle/mir/syntax.ts");
-  const { CoverageKind } = await import("../../rustc_middle/mir/coverage.ts");
-  const { postorder } = await import("../../rustc_middle/mir/traversal.ts");
-  const { DenseBitSet } = await import("../../rustc_index/bit_set.ts");
   const pm = await import("../pass_manager.ts");
-  const { MirPatch } = await import("../patch.ts");
-  const { SimplifyCfg } = await import("../simplify.ts");
+  const { run_analysis_cleanup_passes } = await import("../lib.ts");
+  const { AddCallGuards } = await import("../add_call_guards.ts");
+  const { PostAnalysisNormalize } = await import("../post_analysis_normalize.ts");
+  const { Subtyper } = await import("../add_subtyping_projections.ts");
   const { ElaborateDrops } = await import("../elaborate_drops.ts");
-
-  /** TEST-ONLY stand-in for cleanup_post_borrowck.rs `CleanupPostBorrowck` (see the header). */
-  class CleanupPostBorrowckStandIn extends pm.MirPass {
-    readonly type_name = "rustc_mir_transform::cleanup_post_borrowck::CleanupPostBorrowck";
-    policy(): PassPolicy {
-      return pm.PassPolicy.Required;
-    }
-    run_pass(_tcx: TyCtxt, body: Body): void {
-      let invalidate_cfg = false;
-      for (const basic_block of body.basic_blocks.as_mut_preserves_cfg()) {
-        for (const statement of basic_block.statements) {
-          const k = statement.kind;
-          if (
-            k.$ === "AscribeUserType" ||
-            (k.$ === "Assign" && k._0[1].$ === "Ref" && k._0[1]._1.$ === "Fake") ||
-            k.$ === "FakeRead" ||
-            k.$ === "BackwardIncompatibleDropHint" ||
-            (k.$ === "Coverage" && CoverageKind.is_removed_after_analysis(k._0))
-          ) {
-            statement.make_nop(true);
-          } else if (
-            k.$ === "Assign" &&
-            k._0[1].$ === "Cast" &&
-            k._0[1]._0.$ === "PointerCoercion" &&
-            (k._0[1]._0._0.$ === "ArrayToPointer" || k._0[1]._0._0.$ === "MutToConstPointer")
-          ) {
-            k._0[1]._0 = { $: "PtrToPtr" };
-          }
-        }
-        const terminator = basic_block.terminator_();
-        if (terminator.kind.$ === "FalseEdge" || terminator.kind.$ === "FalseUnwind") {
-          invalidate_cfg = true;
-          terminator.kind = TerminatorKind.goto(terminator.kind.real_target);
-        }
-      }
-      if (invalidate_cfg) body.basic_blocks.invalidate_cfg_cache();
-      body.user_type_annotations.length = 0;
-      for (const decl of body.local_decls) decl.user_ty = undefined;
-    }
-  }
-
-  /** TEST-ONLY stand-in for remove_noop_landing_pads.rs `RemoveNoopLandingPads` (`extra = None`; see the header). */
-  class RemoveNoopLandingPadsStandIn extends pm.MirPass {
-    readonly type_name = "rustc_mir_transform::remove_noop_landing_pads::RemoveNoopLandingPads";
-    policy(): PassPolicy {
-      return pm.PassPolicy.optional(true);
-    }
-    run_pass(_tcx: TyCtxt, body: Body): void {
-      const blocks = body.basic_blocks.deref();
-      if (!blocks.some((b) => b.terminator_().kind.$ === "UnwindResume")) return;
-      const nop_landing_pads = DenseBitSet.new_empty<number>(blocks.length);
-      const ignored = ["FakeRead", "StorageLive", "StorageDead", "PlaceMention", "AscribeUserType", "Coverage", "ConstEvalCounter", "BackwardIncompatibleDropHint", "Nop"];
-      for (const [bb, bbdata] of postorder(body)) {
-        let is_nop = true;
-        for (const stmt of bbdata.statements) {
-          const k = stmt.kind;
-          if (ignored.includes(k.$)) continue;
-          if (k.$ === "Assign" && (k._0[1].$ === "Use" || k._0[1].$ === "Discriminant") && k._0[0].as_local() !== undefined) continue;
-          is_nop = false;
-          break;
-        }
-        if (is_nop) {
-          const kind = bbdata.terminator_().kind;
-          is_nop =
-            ["Goto", "UnwindResume", "SwitchInt", "FalseEdge", "FalseUnwind"].includes(kind.$) &&
-            [...TerminatorKind.successors(kind)].every((succ) => nop_landing_pads.contains(succ));
-        }
-        if (is_nop) nop_landing_pads.insert(bb);
-      }
-      if (nop_landing_pads.is_empty()) return;
-      const patch = MirPatch.new(body);
-      const resume_block = patch.resume_block_();
-      patch.apply(body);
-      for (const bbdata of body.basic_blocks.as_mut()) {
-        const unwind = bbdata.terminator_().unwind_mut();
-        if (unwind !== undefined && unwind.value.$ === "Cleanup" && nop_landing_pads.contains(unwind.value._0)) {
-          unwind.value = { $: "Continue" };
-        }
-        bbdata.terminator_().successors_mut((target) => {
-          if (target.value !== resume_block && nop_landing_pads.contains(target.value)) target.value = resume_block;
-        });
-      }
-    }
-  }
 
   const callbacks = {
     // As rustc's `TimePassesCallbacks::config` (rustc_driver_impl/src/lib.rs), minus time-passes.
@@ -161,11 +68,13 @@ async function main(): Promise<number> {
         const kind = tcx.def_kind(did);
         if (!(kind.$ === "Fn" || kind.$ === "AssocFn" || kind.$ === "Closure")) continue;
         const body = clone_Body(tcx.mir_promoted(def_id)[0].borrow());
-        pm.run_passes(tcx, body, [new CleanupPostBorrowckStandIn(), new RemoveNoopLandingPadsStandIn(), SimplifyCfg.PostAnalysis], {
-          $: "Analysis",
-          _0: "PostCleanup",
-        });
-        pm.run_passes(tcx, body, [new ElaborateDrops()], { $: "Runtime", _0: "Initial" });
+        run_analysis_cleanup_passes(tcx, body);
+        pm.run_passes(
+          tcx,
+          body,
+          [AddCallGuards.CriticalCallEdges, new PostAnalysisNormalize(), new Subtyper(), new ElaborateDrops()],
+          { $: "Runtime", _0: "Initial" },
+        );
       }
       return "Stop";
     },

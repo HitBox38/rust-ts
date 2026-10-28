@@ -3,9 +3,8 @@
 //
 // PORT: `use super::*;` reaches coroutine/mod.rs (lane mt-coroutine-a, wave 24), whose items this file imports from
 // mod.ts (`TransformVisitor`, `Operation`, `SELF_ARG`, `create_cases`, `insert_switch`, ...). `deref_separator::deref_finder`
-// is imported from its port (lane mt-cleanup) and `elaborate_drop::Unwind` from elaborate_drop.ts (lane mt-drops);
-// `elaborate_drop::elaborate_drop` is called through a local adapter until `DropShimElaborator` (lane mt-shim) implements
-// `DropElaborator<null>`; `shim::DropShimElaborator` is shim.ts's class (lane mt-shim).
+// is imported from its port (lane mt-cleanup), `elaborate_drop::{Unwind, elaborate_drop}` from elaborate_drop.ts (lane
+// mt-drops) and `shim::DropShimElaborator` (a `DropElaborator<null>`) from shim.ts (lane mt-shim).
 // PORT: `FixReturnPendingVisitor` `extends MutVisitor` (mir/visit.ts, D4). `*rvalue = ..` replaces the caller's `Rvalue`
 // object in place (`replace_in_place`); `*args = ..` writes the `Adt` aggregate's `_2` field.
 // PORT: `body.clone()` is the generated `clone_Body`; `Option::take` of `body.coroutine` sets it to `undefined`.
@@ -44,7 +43,7 @@ import { Ty, type TypingEnv } from "../../rustc_middle/ty/mod.ts";
 import { CoroutineArgsExt } from "../../rustc_middle/ty/sty.ts";
 import { DefId_eq } from "../../rustc_span/def_id.ts";
 import { replace_in_place } from "../../std/mut_ref.ts";
-import { unported, unwrap } from "../../std/panic.ts";
+import { unwrap } from "../../std/panic.ts";
 
 // use super::*; (coroutine/mod.rs, lane mt-coroutine-a; mod.ts imports this module back, neither reads the other at load)
 import {
@@ -66,7 +65,7 @@ import * as abort_unwinding_calls from "../abort_unwinding_calls.ts";
 import { deref_finder } from "../deref_separator.ts";
 import * as pm from "../pass_manager.ts";
 import { MirPatch } from "../patch.ts";
-import { Unwind } from "../elaborate_drop.ts";
+import { elaborate_drop, Unwind } from "../elaborate_drop.ts";
 import * as simplify from "../simplify.ts";
 import { DropShimElaborator } from "../shim.ts";
 
@@ -204,20 +203,20 @@ export function elaborate_coroutine_drops(tcx: TyCtxt, body: Body): void {
           tgt = unwind_._0;
           break;
         case "Continue":
-          tgt = elaborator.patch.resume_block_();
+          tgt = elaborator.patch_.resume_block_();
           break;
         case "Unreachable":
-          tgt = elaborator.patch.unreachable_cleanup_block_();
+          tgt = elaborator.patch_.unreachable_cleanup_block_();
           break;
         case "Terminate":
-          tgt = elaborator.patch.terminate_block_(unwind_._0);
+          tgt = elaborator.patch_.terminate_block_(unwind_._0);
           break;
       }
       unwind = { $: "To", _0: tgt };
     }
     elaborate_drop(elaborator, clone_SourceInfo(source_info), Place_from_Local(SELF_ARG), null, target, unwind, block, dropline);
   }
-  elaborator.patch.apply(body);
+  elaborator.patch_.apply(body);
 }
 
 // #[tracing::instrument(level = "trace", skip(tcx, body), ret)]
@@ -455,27 +454,4 @@ export function create_coroutine_drop_shim_proxy_async(tcx: TyCtxt, body_: Body,
   }
 
   return body;
-}
-
-// ---- PORT stand-ins for items of other files that are not ported yet ----------------------------------------------
-// Not markers. Each calls `unported`; the owning lanes repoint them at the real ports (see the header).
-
-
-/**
- * PORT: adapter for `elaborate_drop::elaborate_drop` (elaborate_drop.ts, ported by lane mt-drops): the real fn takes a
- * `DropElaborator<()>`, which shim.ts's `DropShimElaborator` does not implement yet, so the call stops here until lane mt-shim
- * ports `DropShimElaborator` (shim.rs, `impl DropElaborator`). delete this adapter and
- * import `elaborate_drop` from ../elaborate_drop.ts (`path` is `()` = `null`).
- */
-function elaborate_drop(
-  _elaborator: DropShimElaborator,
-  _source_info: SourceInfo,
-  _place: Place,
-  _path: null,
-  _succ: BasicBlock,
-  _unwind: Unwind,
-  _bb: BasicBlock,
-  _dropline: BasicBlock | undefined,
-): void {
-  return unported("rustc_mir_transform::shim::DropShimElaborator (lane mt-shim)");
 }

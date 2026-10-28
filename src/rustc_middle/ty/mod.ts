@@ -20,6 +20,7 @@ import { type DefPath, debug_DefPath } from "../../rustc_hir_id/definitions.ts";
 import { DefId, type DefId as DefIdT, debug_DefId, debug_LocalModId, debug_ModId, LocalDefId, LocalModId, ModId, ModId_eq } from "../../rustc_span/def_id.ts";
 import type { Ident, Symbol } from "../../rustc_span/symbol.ts";
 import type { Span } from "../../rustc_span/lib.ts";
+import type { ShimKind } from "./instance.ts";
 import type { DefKind, Res } from "../../rustc_hir/def.ts";
 import { type Debug, debug_list, debug_tuple, type Fmt, PLAIN } from "../../std/fmt.ts";
 import { panic } from "../../std/panic.ts";
@@ -2277,7 +2278,7 @@ export function TyCtxt_instance_mir(tcx: TyCtxt, instance_: InstanceKind): Body 
     case "Virtual":
       return panic("virtual dispatches have no instance MIR");
     case "Shim":
-      body = tcx.mir_shims(instance._0) as BodyView;
+      body = tcx.mir_shims(instance._0 as ShimKind) as BodyView;
       break;
     default:
       // PORT: the other `InstanceKind` variants are not in `InstanceKindView` (M4); upstream's match has no other arm.
@@ -2407,7 +2408,7 @@ export function TyCtxt_ordinary_coroutine_layout(tcx: TyCtxt, def_id: DefIdT, ar
 /// Returns layout of a `async_drop_in_place::{closure}` coroutine
 ///   (returned from `async fn async_drop_in_place<T>(..)`).
 /// Layout might be unavailable if the coroutine is tainted by errors.
-// PORT: MIR (M4): `ShimKind::AsyncDropGlue` is built in its PORTING §5 shape; the `mir_shims` value is `unknown`.
+// PORT: MIR (M4): `ShimKind::AsyncDropGlue` is built in its PORTING §5 shape.
 // rustc: compiler/rustc_middle/src/ty/mod.rs:1982 async_drop_coroutine_layout
 export function TyCtxt_async_drop_coroutine_layout(tcx: TyCtxt, def_id: DefIdT, args: GenericArgs): Result<CoroutineLayout, LayoutError> {
   const ty = (): Ty => Ty.new_coroutine(tcx, def_id, args);
@@ -2415,7 +2416,7 @@ export function TyCtxt_async_drop_coroutine_layout(tcx: TyCtxt, def_id: DefIdT, 
   if (visit().TypeVisitableExt.has_placeholders(arg0, generic_args().fold_GenericArg) || visit().TypeVisitableExt.has_non_region_param(arg0, generic_args().fold_GenericArg)) {
     return Err(tcx.layout_error(to_pending<LayoutError>({ $: "TooGeneric", _0: ty() })));
   }
-  const instance = { $: "AsyncDropGlue", _0: def_id, _1: Ty.new_coroutine(tcx, def_id, args) };
+  const instance: ShimKind = { $: "AsyncDropGlue", _0: def_id, _1: Ty.new_coroutine(tcx, def_id, args) };
   return ok_or_else(tcx.mir_shims(instance).coroutine_layout_raw(), () =>
     tcx.layout_error(to_pending<LayoutError>({ $: "Unknown", _0: ty() })),
   );

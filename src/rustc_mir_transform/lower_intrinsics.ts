@@ -1,8 +1,8 @@
 // Port of compiler/rustc_mir_transform/src/lower_intrinsics.rs (lane mt-cleanup).
 //
-// PORT: `crate::take_array` (lib.rs:318) is lib.ts's private `take_array`; pass modules must not import lib.ts (the
-// mt-skeleton init-order contract), so `take_array` below is a module-local stand-in with the same body (the const
-// generic `N` is the parameter `n`), no marker. `&mut args` is `field_mut(kind, "args")`. The copies of the `Copy` MIR
+// PORT: `crate::take_array` (lib.rs:318) is lib.ts's exported `take_array`; pass modules must not import lib.ts at load
+// (the mt-skeleton init-order contract), so `take_array` below `require`s it lazily (precedent shim.ts's
+// `run_optimization_passes`, pass_manager.ts's `PASS_NAMES`). `&mut args` is `field_mut(kind, "args")`. The copies of the `Copy` MIR
 // objects `*destination` / `terminator.source_info` are `clone_*` (PORTING §8).
 //! Lowers intrinsic calls
 import {
@@ -30,15 +30,12 @@ import { Binder } from "../rustc_type_ir/binder.ts";
 import { PLAIN } from "../std/fmt.ts";
 import { field_mut, type MutRef } from "../std/mut_ref.ts";
 import { assert, unreachable, unwrap } from "../std/panic.ts";
-import { Err, Ok, type Result } from "../std/result.ts";
+import type { Result } from "../std/result.ts";
 import { MirPass, type PassCtx, PassPolicy } from "./pass_manager.ts";
 
-/** PORT: stand-in for `crate::take_array` (lib.rs:318; see the header). */
+/** PORT: `crate::take_array` (lib.rs:318), `require`d lazily (see the header). */
 function take_array<T>(b: MutRef<T[]>, n: number): Result<T[], T[]> {
-  const taken = b.value;
-  b.value = [];
-  if (taken.length !== n) return Err(taken);
-  return Ok(taken);
+  return (require("./lib.ts") as typeof import("./lib.ts")).take_array(b, n);
 }
 
 // rustc-type: compiler/rustc_mir_transform/src/lower_intrinsics.rs:9 LowerIntrinsics

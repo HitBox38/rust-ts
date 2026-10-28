@@ -9,8 +9,8 @@
 // new `DropCtxt` sharing the elaborator object.
 // PORT: `Place`, `SourceInfo` and `Operand` are `Copy`/`Clone` but edited in place by MIR `MutVisitor`s, so every copy
 // stored into a new statement / terminator is `clone_Place` / `clone_SourceInfo` / `clone_Operand` (PORTING §8).
-// PORT: `use crate::coroutine::CTX_ARG` is coroutine/mod.rs:161 (`Local::arg(1)`, lane mt-coroutine-a; a stub at this
-// lane's base), declared here with the same value.
+// Init order: `crate::coroutine::CTX_ARG` is imported from coroutine/mod.ts, which reaches this module back through
+// coroutine/drop.ts; `CTX_ARG` is only read inside fns, never at load.
 // PORT: `#[instrument]` / `debug!` are comments (compiled out of release rustc).
 import { FIRST_VARIANT, FieldIdx, type VariantIdx } from "../rustc_abi/layout.ts";
 import { LangItem } from "../rustc_attr_ir/lang_items.ts";
@@ -59,9 +59,7 @@ import { Unnormalized } from "../rustc_type_ir/unnormalized.ts";
 import { type Debug, PLAIN } from "../std/fmt.ts";
 import { assert, panic, unwrap } from "../std/panic.ts";
 import type { MirPatch } from "./patch.ts";
-
-// PORT: coroutine/mod.rs:161 `pub(crate) const CTX_ARG: Local = Local::arg(1);` (see the header).
-const CTX_ARG: Local = Local.arg(1);
+import { CTX_ARG } from "./coroutine/mod.ts";
 
 /// Describes how/if a value should be dropped.
 // #[derive(Debug)]

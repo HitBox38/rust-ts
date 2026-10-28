@@ -137,7 +137,7 @@ import type { ModuleItems } from "../rustc_middle/hir/mod.ts";
 // #[macro_use]
 // mod pass_manager;            (pass_manager.ts, imported first)
 //
-// mod check_pointers;          (not referenced here: lane mt-kpl-ubchecks adds check_pointers.ts)
+// mod check_pointers;          (check_pointers.ts; not referenced here: check_alignment / check_null / check_enums import it)
 // mod cost_checker;            (not referenced here: lane mt-inline adds cost_checker.ts)
 // mod cross_crate_inline;      (stub, lane mt-inline)
 // mod deduce_param_attrs;      (stub, lane mt-opt2)
@@ -474,8 +474,9 @@ function fn_def_id(ty: Ty): DefId | undefined {
 }
 
 // PORT: the const generic `N` is the parameter `n`; `Box<[T; N]>::try_from(Box<[T]>)` succeeds iff the length is `n`.
+// PORT: exported for lower_intrinsics.ts (`crate::take_array`), which `require`s it lazily (init order, see the header).
 // rustc: compiler/rustc_mir_transform/src/lib.rs:318 take_array
-function take_array<T>(b: MutRef<T[]>, n: number): Result<T[], T[]> {
+export function take_array<T>(b: MutRef<T[]>, n: number): Result<T[], T[]> {
   const taken = b.value;
   b.value = [];
   if (taken.length !== n) return Err(taken);
@@ -829,8 +830,9 @@ export function run_analysis_to_runtime_passes(tcx: TyCtxt, body: Body): void {
 // FIXME(JakobDegen): Can we make these lists of passes consts?
 
 /// After this series of passes, no lifetime analysis based on borrowing can be done.
+// PORT: exported (private upstream) for the test driver elaborate_drops_oracle/run.ts.
 // rustc: compiler/rustc_mir_transform/src/lib.rs:638 run_analysis_cleanup_passes
-function run_analysis_cleanup_passes(tcx: TyCtxt, body: Body): void {
+export function run_analysis_cleanup_passes(tcx: TyCtxt, body: Body): void {
   const passes: MirPass[] = [
     new impossible_clauses.ImpossibleClauses(),
     new cleanup_post_borrowck.CleanupPostBorrowck(),
