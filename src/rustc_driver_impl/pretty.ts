@@ -1,7 +1,8 @@
 //! The various pretty-printing routines.
 // Partial port of compiler/rustc_driver_impl/src/pretty.rs: the AST modes (`normal`, `ast-tree`, and the
 // `NeedsAstMap` ones: `expanded`, `expanded,identified`, `expanded,hygiene`, `ast-tree,expanded`), `hir` and
-// `hir-tree`. `hir,identified` / `hir,typed` (the HIR annotators), MIR and THIR modes call `unported`.
+// `hir-tree`, `mir`, `mir-cfg`, `thir-tree`, `thir-flat`, and `emit_mir`. `hir,identified` / `hir,typed` (the HIR
+// annotators) and `stable-mir` (rustc_public is excluded) call `unported`.
 import "../rustc_session/options.ts"; // LOAD ORDER: see rustc_session/config.ts
 import type { Crate } from "../rustc_ast/ast.gen.ts";
 import { debug_Crate } from "../rustc_ast/ast.gen.ts";
@@ -16,12 +17,21 @@ import { debug_OwnerId } from "../rustc_hir_id/lib.ts";
 import { debug_hygiene_data, debug_SyntaxContext } from "../rustc_span/hygiene.ts";
 import { Span } from "../rustc_span/lib.ts";
 import { Symbol } from "../rustc_span/symbol.ts";
-import { Input, OutFileName, type PpMode, PpMode as PpModeC } from "../rustc_session/config.ts";
+import { Input, OutFileName, type OutputFilenames, type PpMode, PpMode as PpModeC } from "../rustc_session/config.ts";
 import type { Session } from "../rustc_session/session.ts";
 import type { FileName } from "../rustc_span/lib.ts";
 import { format_debug, PLAIN, PRETTY } from "../std/fmt.ts";
 import { panic, unported } from "../std/panic.ts";
-import type { Str } from "../std/str.ts";
+import { from_utf8, type Str } from "../std/str.ts";
+import { debug_IoError, io_error_from_node, type IoResult } from "../std/io.ts";
+import { closeSync, openSync, writeSync } from "node:fs";
+import { Err, Ok, unwrap_result } from "../std/result.ts";
+import { stdout, VecU8 } from "../vendor/anstream/stream.ts";
+import { write_mir_pretty } from "../rustc_middle/mir/pretty.ts";
+import { write_mir_graphviz } from "../rustc_middle/mir/graphviz.ts";
+import { thir_flat, thir_tree } from "../rustc_mir_build/thir/print.ts";
+import * as rustc_hir_analysis from "../rustc_hir_analysis/lib.ts";
+import { debug_LocalDefId } from "../rustc_span/def_id.ts";
 
 // pub use self::PpMode::*; pub use self::PpSourceMode::*;
 
@@ -233,15 +243,88 @@ export function print(sess: Session, ppm: PpMode, ex: PrintExtra): void {
       out = s;
       break;
     }
-    case "Mir":
-    case "MirCFG":
+    case "Mir": {
+      const out_ = new VecU8();
+      unwrap_result(write_mir_pretty(PrintExtra.tcx(ex), out_), debug_IoError);
+      out = unwrap_result(from_utf8(out_.bytes())); // `String::from_utf8(out).unwrap()`
+      break;
+    }
+    case "MirCFG": {
+      const out_ = new VecU8();
+      unwrap_result(write_mir_graphviz(PrintExtra.tcx(ex), out_), debug_IoError);
+      out = unwrap_result(from_utf8(out_.bytes())); // `String::from_utf8(out).unwrap()`
+      break;
+    }
     case "StableMir":
-    case "ThirTree":
-    case "ThirFlat":
-      return unported(`rustc_driver_impl::pretty::print (${ppm.$}: needs a TyCtxt)`);
+      // PORT: `rustc_public::rustc_internal::pretty::write_smir_pretty`: rustc_public is excluded
+      // (harness/scope.json).
+      return unported("rustc_public::rustc_internal::pretty::write_smir_pretty (-Zunpretty=stable-mir)");
+    case "ThirTree": {
+      const tcx = PrintExtra.tcx(ex);
+      let out_ = "";
+      rustc_hir_analysis.check_crate(tcx);
+      tcx.dcx().abort_if_errors();
+      // debug!("pretty printing THIR tree");
+      for (const did of tcx.hir_body_owners()) {
+        out_ += `${format_debug(did, debug_LocalDefId, PLAIN)}:\n${thir_tree(tcx, did)}\n\n`;
+      }
+      out = out_;
+      break;
+    }
+    case "ThirFlat": {
+      const tcx = PrintExtra.tcx(ex);
+      let out_ = "";
+      rustc_hir_analysis.check_crate(tcx);
+      tcx.dcx().abort_if_errors();
+      // debug!("pretty printing THIR flat");
+      for (const did of tcx.hir_body_owners()) {
+        out_ += `${format_debug(did, debug_LocalDefId, PLAIN)}:\n${thir_flat(tcx, did)}\n\n`;
+      }
+      out = out_;
+      break;
+    }
   }
 
   write_or_print(out, sess);
 }
 
-// `emit_mir` (pretty.rs:343): not ported (rustc_middle).
+/// Implementation of `--emit=mir`.
+// rustc: compiler/rustc_driver_impl/src/pretty.rs:349 emit_mir
+export function emit_mir(tcx: TyCtxt): IoResult<void> {
+  let r: IoResult<void>;
+  const path = (tcx.output_filenames(null) as OutputFilenames).path("Mir");
+  switch (path.$) {
+    case "Stdout": {
+      // PORT: `io::stdout()` is vendor/anstream's unbuffered `Stdout` (fd 1); `print!` output of the driver
+      // (`std_print`) is buffered until exit, so it would follow this text instead of preceding it.
+      const f = stdout();
+      if ((r = write_mir_pretty(tcx, f)).$ === "Err") return r;
+      break;
+    }
+    case "Real": {
+      const p = path._0;
+      // PORT: `File::create_buffered(&path)?`: the text is collected and written when the `BufWriter` is
+      // dropped (its `Drop` flushes and ignores errors), after `write_mir_pretty` returned.
+      let fd: number;
+      try {
+        fd = openSync(p, "w");
+      } catch (e) {
+        return Err(io_error_from_node(e));
+      }
+      const f = new VecU8();
+      r = write_mir_pretty(tcx, f);
+      try {
+        writeSync(fd, f.bytes());
+      } catch {
+        // ignored, as `BufWriter`'s `Drop`
+      }
+      closeSync(fd);
+      if (r.$ === "Err") return r;
+      if (tcx.sess.opts.json_artifact_notifications) {
+        tcx.dcx().emit_artifact_notification(p, "mir");
+      }
+      break;
+    }
+  }
+  return Ok(undefined);
+}
