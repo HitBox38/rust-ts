@@ -174,9 +174,9 @@ import { Span as SpanC } from "../../rustc_span/lib.ts";
 import { display_Ident, display_Symbol, kw, Symbol as SymbolC, sym } from "../../rustc_span/symbol.ts";
 import { SyntaxContext } from "../../rustc_span/hygiene.ts";
 import { Binder as BinderC, EarlyBinder } from "../../rustc_type_ir/binder.ts";
-import { as_interner, PolyTraitClause, TraitClause, TraitRef } from "../../rustc_type_ir/predicate.ts";
+import type { TypeFoldable } from "../../rustc_type_ir/fold.ts";
+import { as_interner, fold_with_TraitRef, PolyTraitClause, TraitClause, TraitRef, try_fold_with_TraitRef, visit_with_TraitRef } from "../../rustc_type_ir/predicate.ts";
 import { FnSig } from "../../rustc_type_ir/ty_kind.ts";
-import { d_TraitRef } from "../../rustc_hir_analysis/constrained_generic_params.ts";
 import { Unnormalized, UnnormalizedClause, UnnormalizedPolyTraitClause } from "../../rustc_type_ir/unnormalized.ts";
 import { supertrait_def_ids } from "../../rustc_type_ir/elaborate.ts";
 import { ObligationCtxt } from "../../rustc_trait_selection/traits/engine.ts";
@@ -321,6 +321,9 @@ function find_on_move(tcx: TyCtxt, did: DefId) {
 // PORT: `InitializationRequiringAction`'s methods are attached to the generated companion by lib.ts (a type-only import
 // here keeps lib.ts out of this module's load graph).
 const InitializationRequiringActionC = InitializationRequiringActionG as typeof InitializationRequiringActionG & InitializationRequiringAction_methods;
+
+/** `TypeFoldable` for `TraitRef` (the `Binder::dummy` proxy). */
+const d_TraitRef: TypeFoldable<TraitRef> = { visit_with: visit_with_TraitRef, try_fold_with: try_fold_with_TraitRef, fold_with: fold_with_TraitRef };
 
 const DESCRIBE_PLACE_OPT_ALL: DescribePlaceOpt = { including_downcast: true, including_tuple_field: true };
 
