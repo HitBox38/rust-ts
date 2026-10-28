@@ -8,6 +8,11 @@
 // - Lazy iterator chains whose closures are pure are collected eagerly (`.peekable()` + `peek().is_some()` = non-empty).
 // - The fn-local items (`FindLocalAssignmentVisitor`, `SuggestIndexOperatorAlternativeVisitor` with its nested
 //   `count_ty_refs` / `strip_n_refs`, `Finder`) live inside their fns again, as upstream has them.
+// - Query values that queries.gen.ts types `unknown` (`typeck`, `associated_items`, `fn_sig`, `clauses_of`) are cast to
+//   their upstream types (`TypeckResults`, `AssocItems`, `EarlyBinder<PolyFnSig>`, `GenericClauses`).
+// - ty/closure.ts's `CAPTURE_STRUCT_LOCAL` has its own `Local` brand: compared as numbers (precedent
+//   rustc_mir_transform/lint_tail_expr_drop_order.ts).
+// - `Option::expect` / `unwrap` / `checked_sub(..).expect(..)` panic with core's / upstream's text.
 import type { FieldIdx } from "../../rustc_abi/lib.ts";
 import { ControlFlow, VisitorResult } from "../../rustc_ast_ir/visit.ts";
 import { BindingMode, BindingMode_eq } from "../../rustc_ast/lib.ts";
