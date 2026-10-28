@@ -11,7 +11,7 @@ import { Builder, type CFG } from "./mod.ts";
 import { type LocalDefId } from "../../rustc_span/def_id.ts";
 import { PLAIN } from "../../std/fmt.ts";
 import { type MutRef } from "../../std/mut_ref.ts";
-import { assert, assert_matches, unported } from "../../std/panic.ts";
+import { assert, assert_matches } from "../../std/panic.ts";
 export * from "./coverageinfo.gen.ts";
 
 declare module "./coverageinfo.gen.ts" {
@@ -71,9 +71,8 @@ BlockMarkerGen.prototype.inject_block_marker = function (this: BlockMarkerGen, c
     new Map(),
     // `BlockMarkerGen::default()` (derive(Default))
     new BlockMarkerGen(0),
-    // PORT: `Session::instrument_coverage_branch` (rustc_session) is not ported; reached only under
-    // `-Cinstrument-coverage` for a body that is eligible for coverage.
-    unported("rustc_session::session::Session::instrument_coverage_branch"),
+    // `.then(BranchInfo::default)` (derive(Default))
+    tcx.sess.instrument_coverage_branch() ? { branch_spans: [] } : undefined,
   );
 };
 
@@ -237,9 +236,7 @@ Builder.prototype.visit_coverage_standalone_condition = function (
   // Bail out if condition coverage is not enabled for this function.
   const coverage_info = this.coverage_info;
   if (coverage_info === undefined) return;
-  // PORT: `Session::instrument_coverage_condition` (rustc_session) is not ported; reached only under
-  // `-Cinstrument-coverage` for a body that is eligible for coverage.
-  if (!(unported("rustc_session::session::Session::instrument_coverage_condition") as boolean)) {
+  if (!this.tcx.sess.instrument_coverage_condition()) {
     return;
   }
 
