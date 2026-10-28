@@ -14,6 +14,8 @@ import "./discriminant.ts";
 import "./intern.ts";
 // mod intrinsics;
 import "./intrinsics.ts";
+import "./intrinsics/atomic.ts";
+import "./intrinsics/simd.ts";
 // mod machine;
 import "./machine.ts";
 // mod memory;
