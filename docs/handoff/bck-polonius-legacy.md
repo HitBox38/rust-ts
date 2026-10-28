@@ -97,3 +97,12 @@ Inline asm with `-Znll-facts` stops before borrowck at `StableHash without a TS 
   were updated as described above.
 - The 31 legacy-polonius / nll-facts borrowck-ui cases should now be MATCH in the gate (12 in the root-f5de sample).
 - Decision to record: the typemap mapping for polonius-engine's `AllFacts`/`Output`, and the type_check cast removal.
+
+## Sample runs
+**Not yet run.** Root's gate has held `.data/tmp/GATE_RUNNING` since 21:33 and was still running at 23:52, and the
+common rules forbid sample difftests during a gate. A detached waiter, `.data/tmp/bpl/samples.sh` (nohup, PID 16885),
+runs the five assigned samples one after another as `RUST_TS_AGENT=root-f5de` once the file disappears. It writes
+their summary lines to `.data/tmp/bpl/samples.log`. **Root:** read that log, or the run dirs it names under
+`.data/runs/`, and compare case by case with the base runs before merging. Expected borrowck-ui result: the 12
+`-Zpolonius*` cases of the 300-case sample turn from UNPORTED into MATCH, and nothing else changes. The full unit
+suite was not run either, for the same reason; `bun test src/rustc_borrowck` passes.
