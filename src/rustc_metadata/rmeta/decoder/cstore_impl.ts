@@ -24,6 +24,7 @@ import * as eii from "../../eii.ts";
 import type { DiagnosticItems } from "../../../rustc_attr_ir/diagnostic_items.ts";
 import { clone_ExternCrate, ExternCrate, type ForeignModule, type NativeLib } from "../../../rustc_crate_store/lib.ts";
 import { Res } from "../../../rustc_hir/def.ts";
+import { decode_OpaqueTyOrigin, decode_PreciseCapturingArgKind } from "../../../rustc_hir/hir.gen.ts";
 import type { CtorKind, DefKind } from "../../../rustc_hir/def.ts";
 import type { DefKey, DefPath, DefPathHash } from "../../../rustc_hir_id/definitions.ts";
 import type { AmbigModChild, ModChild } from "../../../rustc_middle/middle/resolve.ts";
@@ -505,7 +506,7 @@ export const PROVIDE_EXTERN: { readonly [N in ExternQuery]?: ProvideEntry<N> } =
   ],
   mir_const_qualif: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("mir::ConstQualifs", decode_ConstQualifs), ProcessQueryValue_Option_T)],
   rendered_const: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("String", decode_String), ProcessQueryValue_Option_T)],
-  rendered_precise_capturing_args: [IntoArgs_DefId, table(fse_Option_LazyArray, lazy_array("PreciseCapturingArgKind<Symbol, Symbol>", decode_unported("PreciseCapturingArgKind<Symbol, Symbol>")), ProcessQueryValue_DecodeIterator_Option_slice)],
+  rendered_precise_capturing_args: [IntoArgs_DefId, table(fse_Option_LazyArray, lazy_array("PreciseCapturingArgKind<Symbol, Symbol>", (d) => decode_PreciseCapturingArgKind(d, decode_Symbol, decode_Symbol)), ProcessQueryValue_DecodeIterator_Option_slice)],
   asyncness: [IntoArgs_DefId, table_direct(fse_Asyncness, ProcessQueryValue_T)],
   fn_arg_idents: [IntoArgs_DefId, table(fse_Option_LazyArray, lazy_array("Option<Ident>", (d) => decode_Option(d, decode_Ident)), ProcessQueryValue_DecodeIterator_slice)],
   coroutine_kind: [IntoArgs_DefId, table_direct(fse_Option_CoroutineKind, ProcessQueryValue_T)],
@@ -531,7 +532,7 @@ export const PROVIDE_EXTERN: { readonly [N in ExternQuery]?: ProvideEntry<N> } =
       return [...lazy.decode([cdata, tcx], decode_unported("DeducedParamAttrs"))];
     },
   ],
-  opaque_ty_origin: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("hir::OpaqueTyOrigin<DefId>", decode_unported("hir::OpaqueTyOrigin<DefId>")), ProcessQueryValue_Option_T)],
+  opaque_ty_origin: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("hir::OpaqueTyOrigin<DefId>", (d) => decode_OpaqueTyOrigin(d, (d: MetadataDecodeContext) => d.decode_def_id())), ProcessQueryValue_Option_T)],
   assumed_wf_types_for_rpitit: [IntoArgs_DefId, table(fse_Option_LazyArray, lazy_array("(Ty<'static>, Span)", (d) => decode_tuple(d, decode_Ty, decode_Span)), ProcessQueryValue_DecodeIterator_slice)],
   collect_return_position_impl_trait_in_trait_tys: [
     IntoArgs_DefId,

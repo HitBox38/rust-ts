@@ -311,7 +311,10 @@
       "rustc_hir::hir::CoroutineKind",
       "rustc_hir::hir::CoroutineSource",
       "rustc_hir::hir::CoroutineDesugaring",
-      "rustc_hir::hir::ImplicitSelfKind"
+      "rustc_hir::hir::ImplicitSelfKind",
+      "rustc_hir::hir::PreciseCapturingArgKind",
+      "rustc_hir::hir::OpaqueTyOrigin",
+      "rustc_hir::hir::RpitContext"
     ],
     "hand_notes": {
       "decodable_types": "crate metadata's def_keys table (rmeta decoder.rs `CrateMetadata::def_key`, lane rmeta-decoder-b)",

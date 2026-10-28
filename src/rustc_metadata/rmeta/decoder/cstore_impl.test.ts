@@ -357,10 +357,11 @@ describe("provide_extern", () => {
   test("unported element types stop at unported(..) naming the type", () => {
     const lazy = { decode: (_m: unknown, decode_T: (d: unknown) => unknown) => decode_T({}) };
     // (`generics_of` decodes since lane decode-elems, `trait_def` since lane small-gaps-18, `mir::ConstQualifs` since
-    // lane meta-mir; `hir::OpaqueTyOrigin` has no TS decoder yet)
-    const f = fake({ 1: tables({ opaque_ty_origin: lazy }) });
-    expect(() => ext.opaque_ty_origin!(f.tcx, did(1, 1))).toThrow(Unported);
-    expect(() => ext.opaque_ty_origin!(f.tcx, did(1, 1))).toThrow("Decodable for hir::OpaqueTyOrigin<DefId>");
+    // lane meta-mir, `hir::OpaqueTyOrigin` / `PreciseCapturingArgKind` since lane misc-blockers; `DeducedParamAttrs`
+    // has no TS decoder yet)
+    const f = fake({ 1: tables({ deduced_param_attrs: lazy }) });
+    expect(() => ext.deduced_param_attrs!(f.tcx, did(1, 1))).toThrow(Unported);
+    expect(() => ext.deduced_param_attrs!(f.tcx, did(1, 1))).toThrow("Decodable for DeducedParamAttrs");
   });
 });
 
