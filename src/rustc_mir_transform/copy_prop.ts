@@ -1,7 +1,6 @@
 // Port of compiler/rustc_mir_transform/src/copy_prop.rs (lane mt-opt1).
 //
-// PORT: `tcx.sess.emit_lifetime_markers()` is remove_storage_markers.ts's stand-in for `Session::emit_lifetime_markers`
-// (session.rs:883; session.ts has not ported it yet). `*operand = Operand::Copy(place)` replaces the visited operand
+// PORT: `*operand = Operand::Copy(place)` replaces the visited operand
 // object in place (`replace_in_place`), keeping the same `Place` object; `*local = new_local` writes the `MutRef`. The
 // derived `PartialEq` of `mir::Place` (`lhs == rhs`) compares `local` and the interned `projection` list.
 import { DenseBitSet } from "../rustc_index/bit_set.ts";
@@ -12,7 +11,6 @@ import type { ResultsCursor } from "../rustc_mir_dataflow/framework/cursor.ts";
 import type { MutRef } from "../std/mut_ref.ts";
 import { replace_in_place } from "../std/mut_ref.ts";
 import { MirPass, type PassCtx, PassPolicy } from "./pass_manager.ts";
-import { emit_lifetime_markers } from "./remove_storage_markers.ts";
 import { remove_unused_definitions } from "./simplify.ts";
 import { MaybeUninitializedLocals, SsaLocals } from "./ssa.ts";
 
@@ -72,7 +70,7 @@ export class CopyProp extends MirPass {
     // only if the head might be uninitialized at that point, or if the local is borrowed
     // (since we cannot easily determine when it's used).
     let storage_to_remove_: DenseBitSet<Local> | undefined;
-    if (emit_lifetime_markers(tcx.sess)) {
+    if (tcx.sess.emit_lifetime_markers()) {
       const storage_to_remove = DenseBitSet.new_empty<Local>(body.local_decls.length);
 
       // If the local is borrowed, we cannot easily determine if it is used, so we have to remove the storage statements.
