@@ -467,6 +467,269 @@
       "decodable_types": "`DenseBitSet`: crate metadata's `params_in_repr` / `args_known_to_outlive_alias_params` (rustc_metadata cstore_impl.rs; lane small-gaps-20)"
     }
   },
+  "rustc_target_asm": {
+    "files": [
+      "compiler/rustc_target/src/asm/mod.rs"
+    ],
+    "class": [],
+    "hand": [],
+    "discriminant": [],
+    "skip": [],
+    "derive_only": true,
+    "derive_decodable": true,
+    "decodable_types": [
+      "rustc_target::asm::InlineAsmReg",
+      "rustc_target::asm::InlineAsmRegClass",
+      "rustc_target::asm::InlineAsmRegOrRegClass"
+    ],
+    "decodable_construct": {
+      "rustc_target::asm::InlineAsmReg::X86": {
+        "expr": "InlineAsmReg.X86($0)",
+        "import": [
+          "InlineAsmReg"
+        ]
+      },
+      "rustc_target::asm::InlineAsmReg::Arm": {
+        "expr": "InlineAsmReg.Arm($0)",
+        "import": [
+          "InlineAsmReg"
+        ]
+      },
+      "rustc_target::asm::InlineAsmReg::Amdgpu": {
+        "expr": "InlineAsmReg.Amdgpu($0)",
+        "import": [
+          "InlineAsmReg"
+        ]
+      },
+      "rustc_target::asm::InlineAsmReg::AArch64": {
+        "expr": "InlineAsmReg.AArch64($0)",
+        "import": [
+          "InlineAsmReg"
+        ]
+      },
+      "rustc_target::asm::InlineAsmReg::RiscV": {
+        "expr": "InlineAsmReg.RiscV($0)",
+        "import": [
+          "InlineAsmReg"
+        ]
+      },
+      "rustc_target::asm::InlineAsmReg::Nvptx": {
+        "expr": "InlineAsmReg.Nvptx($0)",
+        "import": [
+          "InlineAsmReg"
+        ]
+      },
+      "rustc_target::asm::InlineAsmReg::PowerPC": {
+        "expr": "InlineAsmReg.PowerPC($0)",
+        "import": [
+          "InlineAsmReg"
+        ]
+      },
+      "rustc_target::asm::InlineAsmReg::Hexagon": {
+        "expr": "InlineAsmReg.Hexagon($0)",
+        "import": [
+          "InlineAsmReg"
+        ]
+      },
+      "rustc_target::asm::InlineAsmReg::LoongArch": {
+        "expr": "InlineAsmReg.LoongArch($0)",
+        "import": [
+          "InlineAsmReg"
+        ]
+      },
+      "rustc_target::asm::InlineAsmReg::Mips": {
+        "expr": "InlineAsmReg.Mips($0)",
+        "import": [
+          "InlineAsmReg"
+        ]
+      },
+      "rustc_target::asm::InlineAsmReg::S390x": {
+        "expr": "InlineAsmReg.S390x($0)",
+        "import": [
+          "InlineAsmReg"
+        ]
+      },
+      "rustc_target::asm::InlineAsmReg::Sparc": {
+        "expr": "InlineAsmReg.Sparc($0)",
+        "import": [
+          "InlineAsmReg"
+        ]
+      },
+      "rustc_target::asm::InlineAsmReg::SpirV": {
+        "expr": "InlineAsmReg.SpirV($0)",
+        "import": [
+          "InlineAsmReg"
+        ]
+      },
+      "rustc_target::asm::InlineAsmReg::Wasm": {
+        "expr": "InlineAsmReg.Wasm($0)",
+        "import": [
+          "InlineAsmReg"
+        ]
+      },
+      "rustc_target::asm::InlineAsmReg::Xtensa": {
+        "expr": "InlineAsmReg.Xtensa($0)",
+        "import": [
+          "InlineAsmReg"
+        ]
+      },
+      "rustc_target::asm::InlineAsmReg::Bpf": {
+        "expr": "InlineAsmReg.Bpf($0)",
+        "import": [
+          "InlineAsmReg"
+        ]
+      },
+      "rustc_target::asm::InlineAsmReg::Avr": {
+        "expr": "InlineAsmReg.Avr($0)",
+        "import": [
+          "InlineAsmReg"
+        ]
+      },
+      "rustc_target::asm::InlineAsmReg::Msp430": {
+        "expr": "InlineAsmReg.Msp430($0)",
+        "import": [
+          "InlineAsmReg"
+        ]
+      },
+      "rustc_target::asm::InlineAsmReg::M68k": {
+        "expr": "InlineAsmReg.M68k($0)",
+        "import": [
+          "InlineAsmReg"
+        ]
+      },
+      "rustc_target::asm::InlineAsmReg::CSKY": {
+        "expr": "InlineAsmReg.CSKY($0)",
+        "import": [
+          "InlineAsmReg"
+        ]
+      },
+      "rustc_target::asm::InlineAsmRegClass::X86": {
+        "expr": "InlineAsmRegClass.X86($0)",
+        "import": [
+          "InlineAsmRegClass"
+        ]
+      },
+      "rustc_target::asm::InlineAsmRegClass::Arm": {
+        "expr": "InlineAsmRegClass.Arm($0)",
+        "import": [
+          "InlineAsmRegClass"
+        ]
+      },
+      "rustc_target::asm::InlineAsmRegClass::AArch64": {
+        "expr": "InlineAsmRegClass.AArch64($0)",
+        "import": [
+          "InlineAsmRegClass"
+        ]
+      },
+      "rustc_target::asm::InlineAsmRegClass::Amdgpu": {
+        "expr": "InlineAsmRegClass.Amdgpu($0)",
+        "import": [
+          "InlineAsmRegClass"
+        ]
+      },
+      "rustc_target::asm::InlineAsmRegClass::RiscV": {
+        "expr": "InlineAsmRegClass.RiscV($0)",
+        "import": [
+          "InlineAsmRegClass"
+        ]
+      },
+      "rustc_target::asm::InlineAsmRegClass::Nvptx": {
+        "expr": "InlineAsmRegClass.Nvptx($0)",
+        "import": [
+          "InlineAsmRegClass"
+        ]
+      },
+      "rustc_target::asm::InlineAsmRegClass::PowerPC": {
+        "expr": "InlineAsmRegClass.PowerPC($0)",
+        "import": [
+          "InlineAsmRegClass"
+        ]
+      },
+      "rustc_target::asm::InlineAsmRegClass::Hexagon": {
+        "expr": "InlineAsmRegClass.Hexagon($0)",
+        "import": [
+          "InlineAsmRegClass"
+        ]
+      },
+      "rustc_target::asm::InlineAsmRegClass::LoongArch": {
+        "expr": "InlineAsmRegClass.LoongArch($0)",
+        "import": [
+          "InlineAsmRegClass"
+        ]
+      },
+      "rustc_target::asm::InlineAsmRegClass::Mips": {
+        "expr": "InlineAsmRegClass.Mips($0)",
+        "import": [
+          "InlineAsmRegClass"
+        ]
+      },
+      "rustc_target::asm::InlineAsmRegClass::S390x": {
+        "expr": "InlineAsmRegClass.S390x($0)",
+        "import": [
+          "InlineAsmRegClass"
+        ]
+      },
+      "rustc_target::asm::InlineAsmRegClass::Sparc": {
+        "expr": "InlineAsmRegClass.Sparc($0)",
+        "import": [
+          "InlineAsmRegClass"
+        ]
+      },
+      "rustc_target::asm::InlineAsmRegClass::SpirV": {
+        "expr": "InlineAsmRegClass.SpirV($0)",
+        "import": [
+          "InlineAsmRegClass"
+        ]
+      },
+      "rustc_target::asm::InlineAsmRegClass::Wasm": {
+        "expr": "InlineAsmRegClass.Wasm($0)",
+        "import": [
+          "InlineAsmRegClass"
+        ]
+      },
+      "rustc_target::asm::InlineAsmRegClass::Xtensa": {
+        "expr": "InlineAsmRegClass.Xtensa($0)",
+        "import": [
+          "InlineAsmRegClass"
+        ]
+      },
+      "rustc_target::asm::InlineAsmRegClass::Bpf": {
+        "expr": "InlineAsmRegClass.Bpf($0)",
+        "import": [
+          "InlineAsmRegClass"
+        ]
+      },
+      "rustc_target::asm::InlineAsmRegClass::Avr": {
+        "expr": "InlineAsmRegClass.Avr($0)",
+        "import": [
+          "InlineAsmRegClass"
+        ]
+      },
+      "rustc_target::asm::InlineAsmRegClass::Msp430": {
+        "expr": "InlineAsmRegClass.Msp430($0)",
+        "import": [
+          "InlineAsmRegClass"
+        ]
+      },
+      "rustc_target::asm::InlineAsmRegClass::M68k": {
+        "expr": "InlineAsmRegClass.M68k($0)",
+        "import": [
+          "InlineAsmRegClass"
+        ]
+      },
+      "rustc_target::asm::InlineAsmRegClass::CSKY": {
+        "expr": "InlineAsmRegClass.CSKY($0)",
+        "import": [
+          "InlineAsmRegClass"
+        ]
+      }
+    },
+    "hand_notes": {
+      "*": "rustc_target asm's types are hand-written (src/rustc_target/asm/mod.ts); this set only generates rustc_target/decodable.gen.ts.",
+      "decodable_types": "`InlineAsmOperand::{In, Out, InOut}.reg` of MIR bodies decoded from crate metadata (lane key-value)",
+      "decodable_construct": "`InlineAsmReg` / `InlineAsmRegClass` values are interned (asm/mod.ts header): each payload variant is built by the companion's variant function. The per-arch payload enums are macro-generated (`def_reg_class!` / `def_regs!`, invisible to the probe); their derive(Decodable) is the `decode` of the def_reg_class / def_regs helpers (serialize.json)."
+    }
+  },
   "rustc_middle": {
     "files": [
       "compiler/rustc_middle/src/ty/mod.rs",

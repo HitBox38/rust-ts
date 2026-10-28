@@ -16,7 +16,8 @@
 import { type KeyType, FxHashMap, type Layout } from "../../rust_ts/hash_map.ts";
 import { Symbol, sym } from "../../rustc_span/symbol.ts";
 import { type Debug, debug_char, debug_str, debug_tuple, debug_vec } from "../../std/fmt.ts";
-import { unported, unreachable } from "../../std/panic.ts";
+import { panic, unported, unreachable } from "../../std/panic.ts";
+import type { SpanDecoder } from "../../rustc_span/lib.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
 import type { Arch, RelocModel, Target } from "../spec/mod.ts";
 
@@ -103,6 +104,8 @@ export interface DefRegClass<C extends string> {
   name(self: C): Symbol;
   parse(name: Symbol): Result<C, readonly Symbol[]>;
   regclass_map(): RegClassMap;
+  /** `#[derive(Decodable)]` (`__D: SpanDecoder`). */
+  decode(__decoder: SpanDecoder): C;
 }
 
 /**
@@ -138,7 +141,27 @@ export function def_reg_class<C extends string>(arch: InlineAsmArchVariant, clas
       }
       return map;
     },
+
+    // rustc-derive: compiler/rustc_target/src/asm/mod.rs:28 Decodable for $arch_regclass
+    decode(__decoder: SpanDecoder): C {
+      return decode_fieldless_enum(__decoder, `${arch}InlineAsmRegClass`, classes);
+    },
   };
+}
+
+/**
+ * The `#[derive(Decodable)]` body (rustc_macros serialize.rs `decodable_body`) of a fieldless enum whose variants are
+ * `variants`, in declaration order (the arch enums of `def_reg_class!` / `def_regs!`).
+ */
+function decode_fieldless_enum<T>(__decoder: SpanDecoder, ty_name: string, variants: readonly T[]): T {
+  if (variants.length === 0) return panic(`\`${ty_name}\` has no variants to decode`);
+  if (variants.length === 1) return variants[0]!;
+  const tag = variants.length < 255 ? __decoder.read_u8() : __decoder.read_usize();
+  const v = variants[tag];
+  if (v === undefined) {
+    return panic(`invalid enum variant tag while decoding \`${ty_name}\`, expected 0..${variants.length}, actual ${tag}`);
+  }
+  return v;
 }
 
 // ---- `def_regs!` ----
@@ -186,6 +209,8 @@ export interface DefRegs<R extends string, C extends string> {
     _target: Target,
     _map: RegClassMap,
   ): void;
+  /** `#[derive(Decodable)]` (`__D: SpanDecoder`). */
+  decode(__decoder: SpanDecoder): R;
 }
 
 /**
@@ -257,6 +282,11 @@ export function def_regs<R extends string, C extends string>(
         }
       }
     },
+
+    // rustc-derive: compiler/rustc_target/src/asm/mod.rs:77 Decodable for $arch_reg
+    decode(__decoder: SpanDecoder): R {
+      return decode_fieldless_enum(__decoder, `${arch}InlineAsmReg`, ALL);
+    },
   };
 }
 
@@ -289,6 +319,7 @@ export interface StubRegClass<C> {
   suggest_modifier(self: C, arch: InlineAsmArch, ty: InlineAsmType): ModifierInfo | undefined;
   default_modifier(self: C, arch: InlineAsmArch): ModifierInfo | undefined;
   supported_types(self: C, arch: InlineAsmArch, allow_experimental_reg?: boolean): readonly SupportedType[];
+  decode(__decoder: SpanDecoder): C;
 }
 
 /** The impls of an arch module's register enum that are not ported (stub modules). */
@@ -306,6 +337,7 @@ export interface StubReg<R, C> {
   ): Result<null, string>;
   emit(self: R, out: FmtWrite, arch: InlineAsmArch, modifier: char | undefined): FmtResult;
   overlapping_regs(self: R, cb: (r: R) => void): void;
+  decode(__decoder: SpanDecoder): R;
 }
 
 /** PORT: stub for an arch module rust-ts has no target for: every fn of `$Type` calls `unported`. */
