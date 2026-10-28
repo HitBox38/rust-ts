@@ -1,8 +1,8 @@
 //! The various pretty-printing routines.
 // Partial port of compiler/rustc_driver_impl/src/pretty.rs: the AST modes (`normal`, `ast-tree`, and the
 // `NeedsAstMap` ones: `expanded`, `expanded,identified`, `expanded,hygiene`, `ast-tree,expanded`), `hir` and
-// `hir-tree`, `mir`, `mir-cfg`, `thir-tree`, `thir-flat`, and `emit_mir`. `hir,identified` / `hir,typed` (the HIR
-// annotators) and `stable-mir` (rustc_public is excluded) call `unported`.
+// `hir,identified`, `hir,typed`, `hir-tree`, `mir`, `mir-cfg`, `thir-tree`, `thir-flat`, and `emit_mir`.
+// `stable-mir` (rustc_public is excluded) calls `unported`.
 import "../rustc_session/options.ts"; // LOAD ORDER: see rustc_session/config.ts
 import type { Crate } from "../rustc_ast/ast.gen.ts";
 import { debug_Crate } from "../rustc_ast/ast.gen.ts";
@@ -11,7 +11,10 @@ import type { AnnNode, State } from "../rustc_ast_pretty/pprust/state.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import { hir } from "../rustc_middle/lib.ts";
 import { debug_OwnerNodes } from "../rustc_hir/hir.ts";
-import type { HirId } from "../rustc_hir_id/lib.ts";
+import { display_HirId, type HirId } from "../rustc_hir_id/lib.ts";
+import type { TypeckResults } from "../rustc_middle/ty/typeck_results.ts";
+import type { BodyId as MiddleBodyId } from "../rustc_middle/ty/decls.ts";
+import { display_Ty } from "../rustc_middle/ty/print/pretty.ts";
 import * as pprust_hir from "../rustc_hir_pretty/lib.ts";
 import { debug_OwnerId } from "../rustc_hir_id/lib.ts";
 import { debug_hygiene_data, debug_SyntaxContext } from "../rustc_span/hygiene.ts";
@@ -88,7 +91,75 @@ class AstIdentifiedAnn extends PpAnn {
   }
 }
 
-// `HirIdentifiedAnn` (pretty.rs:68): not ported (HIR, M3).
+class HirIdentifiedAnn extends pprust_hir.PpAnn {
+  constructor(public tcx: TyCtxt) {
+    super();
+  }
+
+  // rustc: compiler/rustc_driver_impl/src/pretty.rs:74 nested
+  override nested(state: pprust_hir.State, nested: pprust_hir.Nested): void {
+    const this_ = pprust_hir.HirTyCtxt_as_PpAnn(hir.map.TyCtxt_as_HirTyCtxt(this.tcx));
+    this_.nested(state, nested);
+  }
+
+  // rustc: compiler/rustc_driver_impl/src/pretty.rs:79 pre
+  override pre(s: pprust_hir.State, node: pprust_hir.AnnNode): void {
+    if (node.$ === "Expr") {
+      s.s.popen();
+    }
+  }
+
+  // rustc: compiler/rustc_driver_impl/src/pretty.rs:85 post
+  override post(s: pprust_hir.State, node: pprust_hir.AnnNode): void {
+    switch (node.$) {
+      case "Name":
+        break;
+      case "Item": {
+        const item = node._0;
+        s.s.space();
+        s.s.synth_comment(`hir_id: ${display_HirId(item.hir_id())}`);
+        break;
+      }
+      case "SubItem": {
+        const id = node._0;
+        s.s.space();
+        s.s.synth_comment(display_HirId(id));
+        break;
+      }
+      case "Block": {
+        const blk = node._0;
+        s.s.space();
+        s.s.synth_comment(`block hir_id: ${display_HirId(blk.hir_id)}`);
+        break;
+      }
+      case "Expr": {
+        const expr = node._0;
+        s.s.space();
+        s.s.synth_comment(`expr hir_id: ${display_HirId(expr.hir_id)}`);
+        s.s.pclose();
+        break;
+      }
+      case "Pat": {
+        const pat = node._0;
+        s.s.space();
+        s.s.synth_comment(`pat hir_id: ${display_HirId(pat.hir_id)}`);
+        break;
+      }
+      case "TyPat": {
+        const pat = node._0;
+        s.s.space();
+        s.s.synth_comment(`ty pat hir_id: ${display_HirId(pat.hir_id)}`);
+        break;
+      }
+      case "Arm": {
+        const arm = node._0;
+        s.s.space();
+        s.s.synth_comment(`arm hir_id: ${display_HirId(arm.hir_id)}`);
+        break;
+      }
+    }
+  }
+}
 
 class AstHygieneAnn extends PpAnn {
   constructor(public sess: Session) {
@@ -123,7 +194,56 @@ class AstHygieneAnn extends PpAnn {
   }
 }
 
-// `HirTypedAnn` (pretty.rs:149): not ported (HIR, M3).
+class HirTypedAnn extends pprust_hir.PpAnn {
+  constructor(
+    public tcx: TyCtxt,
+    // PORT: `Cell<Option<&TypeckResults>>` is the field itself (PORTING §5).
+    public maybe_typeck_results: TypeckResults | undefined,
+  ) {
+    super();
+  }
+
+  // rustc: compiler/rustc_driver_impl/src/pretty.rs:153 nested
+  override nested(state: pprust_hir.State, nested: pprust_hir.Nested): void {
+    const this_ = pprust_hir.HirTyCtxt_as_PpAnn(hir.map.TyCtxt_as_HirTyCtxt(this.tcx));
+    const old_maybe_typeck_results = this.maybe_typeck_results;
+    if (nested.$ === "Body") {
+      const id = nested._0;
+      // PORT: `ty::decls`'s `BodyId` is still a `Pending` placeholder for `hir::BodyId` (as rustc_privacy / rustc_lint).
+      this.maybe_typeck_results = this.tcx.typeck_body(id as unknown as MiddleBodyId);
+    }
+    this_.nested(state, nested);
+    this.maybe_typeck_results = old_maybe_typeck_results;
+  }
+
+  // rustc: compiler/rustc_driver_impl/src/pretty.rs:163 pre
+  override pre(s: pprust_hir.State, node: pprust_hir.AnnNode): void {
+    if (node.$ === "Expr") {
+      s.s.popen();
+    }
+  }
+
+  // rustc: compiler/rustc_driver_impl/src/pretty.rs:169 post
+  override post(s: pprust_hir.State, node: pprust_hir.AnnNode): void {
+    if (node.$ === "Expr") {
+      const expr = node._0;
+      let typeck_results = this.maybe_typeck_results;
+      if (typeck_results === undefined) {
+        const body_id = this.tcx.hir_maybe_body_owned_by(expr.hir_id.owner.def_id);
+        typeck_results = body_id === undefined ? undefined : this.tcx.typeck_body(body_id.id() as unknown as MiddleBodyId);
+      }
+
+      if (typeck_results !== undefined) {
+        s.s.space();
+        s.s.word("as");
+        s.s.space();
+        s.s.word(display_Ty(typeck_results.expr_ty(expr)));
+      }
+
+      s.s.pclose();
+    }
+  }
+}
 
 // rustc: compiler/rustc_driver_impl/src/pretty.rs:189 get_source
 function get_source(sess: Session): [Str, FileName] {
@@ -222,12 +342,16 @@ export function print(sess: Session, ppm: PpMode, ex: PrintExtra): void {
           // `f(&(&tcx as &dyn intravisit::HirTyCtxt<'_>) as &dyn PpAnn)`
           out = f(pprust_hir.HirTyCtxt_as_PpAnn(hir.map.TyCtxt_as_HirTyCtxt(tcx)));
           break;
-        case "Identified":
-          // PORT: `HirIdentifiedAnn` (pretty.rs:88) is not ported yet.
-          return unported(`rustc_driver_impl::pretty::HirIdentifiedAnn`);
-        case "Typed":
-          // PORT: `HirTypedAnn` (pretty.rs:149) is not ported yet (typeck, M3).
-          return unported(`rustc_driver_impl::pretty::HirTypedAnn`);
+        case "Identified": {
+          const annotation = new HirIdentifiedAnn(tcx);
+          out = f(annotation);
+          break;
+        }
+        case "Typed": {
+          const annotation = new HirTypedAnn(tcx, undefined);
+          out = tcx.dep_graph.with_ignore(() => f(annotation));
+          break;
+        }
       }
       break;
     }
