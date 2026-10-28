@@ -72,7 +72,7 @@ function trivially_zst(ty: Ty, tcx: TyCtxt): boolean | undefined {
       if (k._0.length === 0) return true;
       return undefined;
     case "Array":
-      if (k._1.try_to_target_usize(tcx) === 0) return true;
+      if (k._1.try_to_target_usize(tcx) === 0n) return true;
       return undefined;
     // clearly not ZST
     case "Bool":

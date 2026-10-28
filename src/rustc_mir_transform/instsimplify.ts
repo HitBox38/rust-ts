@@ -310,7 +310,7 @@ class InstSimplifyContext {
   // rustc: compiler/rustc_mir_transform/src/instsimplify.rs:206 simplify_repeat_once
   simplify_repeat_once(rvalue: MutRef<Rvalue>): void {
     const rv = rvalue.value;
-    if (rv.$ === "Repeat" && rv._1.try_to_target_usize(this.tcx) === 1) {
+    if (rv.$ === "Repeat" && rv._1.try_to_target_usize(this.tcx) === 1n) {
       const operand = rv._0;
       rvalue.value = {
         $: "Aggregate",
