@@ -185,7 +185,7 @@ import type { RegionVid } from "../rustc_type_ir/region_kind.gen.ts";
 import { register_deref, install_derefs } from "../rust_ts/deref.ts";
 import { intern_key } from "../rust_ts/intern_key.ts";
 import { KeyedSet } from "../rust_ts/keyed.ts";
-import { assert, unported } from "../std/panic.ts";
+import { assert } from "../std/panic.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
 import { type BorrowData, BorrowSet } from "./borrow_set.ts";
 import { BorrowckDiagnosticsBuffer } from "./diagnostics/mod.gen.ts";
@@ -208,7 +208,8 @@ import type { PoloniusFacts } from "./polonius/legacy/facts.gen.ts";
 import * as nll from "./nll.ts";
 import * as polonius from "./polonius/mod.ts";
 import { PoloniusLocationTable } from "./polonius/legacy/location.ts";
-import { PoloniusFactsExt } from "./polonius/legacy/facts.ts";
+import { PoloniusFactsExt, type RustcFactTypes } from "./polonius/legacy/facts.ts";
+import { AllFacts } from "../vendor/polonius_engine/lib.ts";
 import { mir_borrowck_implied_outlives_bounds } from "./implied_bounds.ts";
 import type { RegionCtxt } from "./renumber.gen.ts";
 import { BorrowCheckRootCtxt } from "./root_cx.gen.ts";
@@ -286,8 +287,6 @@ import * as region_kind_gen from "../rustc_type_ir/region_kind.gen.ts";
 import * as sty from "../rustc_type_ir/sty/mod.ts";
 import { format_debug, PLAIN } from "../std/fmt.ts";
 import { each_borrow_involving_path, is_active } from "./path_utils.ts";
-import type { PoloniusOutput } from "./polonius/legacy/facts.gen.ts";
-import type { LocationIndex } from "./polonius/legacy/location.gen.ts";
 
 declare module "./lib.gen.ts" {
   namespace ClosureOutlivesSubjectTy {
@@ -346,12 +345,6 @@ gen.ClosureOutlivesSubjectTy.prototype.instantiate = function (this: ClosureOutl
   );
 };
 
-/** `PoloniusFacts::default()` (`AllFacts::<RustcFacts>::default()`): vendor polonius-engine 0.13.0 is not ported (plan-m4 D7,
- * wave 26); only `-Znll-facts` / `-Zpolonius=legacy` (or a consumer asking for polonius input) reach it. */
-function PoloniusFacts_default(): PoloniusFacts {
-  return unported("polonius_engine::AllFacts::default (vendor polonius-engine, plan-m4 D7, wave 26)");
-}
-
 /// Start borrow checking by collecting the region constraints for
 /// the current body. This initializes the relevant data structures
 /// and then type checks the MIR body.
@@ -387,9 +380,9 @@ export function borrowck_collect_region_constraints(root_cx: BorrowCheckRootCtxt
   const polonius_input =
     (root_cx.consumer !== undefined && root_cx.consumer.polonius_input()) || Polonius.is_legacy_enabled(infcx.tcx.sess.opts.unstable_opts.polonius);
   // PORT: `Option<PoloniusFacts>` is a `MutRef` slot (`&mut polonius_facts` is handed to `type_check`);
-  // `PoloniusFacts::default()` is `unknown` until vendor polonius-engine is ported (plan-m4 D7, wave 26).
+  // `PoloniusFacts::default()` is vendor polonius-engine's `AllFacts::default()`.
   const polonius_facts: { value: PoloniusFacts | undefined } = {
-    value: polonius_input || PoloniusFactsExt.enabled(infcx.tcx) ? PoloniusFacts_default() : undefined,
+    value: polonius_input || PoloniusFactsExt.enabled(infcx.tcx) ? AllFacts.default<RustcFactTypes>() : undefined,
   };
 
   // Run the MIR type-checker.
@@ -1169,12 +1162,6 @@ MirBorrowckCtxt.prototype.access_place = function (this: MirBorrowckCtxt, locati
   }
 };
 
-/** `polonius_engine::Output::errors_at` (the `-Zpolonius=legacy` output): vendor polonius-engine 0.13.0 is not ported
- * (plan-m4 D7, wave 26); `polonius_output` is only `Some` under `-Zpolonius=legacy`. */
-function PoloniusOutput_errors_at(_self: PoloniusOutput, _location: LocationIndex): readonly BorrowIndex[] {
-  return unported("polonius_engine::Output::errors_at (vendor polonius-engine, plan-m4 D7, wave 26)");
-}
-
 // PORT: `Cow<'s, MixedBitSet<BorrowIndex>>` is the set itself (borrowed or owned); callers only read it.
 // rustc: compiler/rustc_borrowck/src/lib.rs:1249 borrows_in_scope
 MirBorrowckCtxt.prototype.borrows_in_scope = function (this: MirBorrowckCtxt, location: Location, state: BorrowckDomain): MixedBitSet<BorrowIndex> {
@@ -1183,7 +1170,7 @@ MirBorrowckCtxt.prototype.borrows_in_scope = function (this: MirBorrowckCtxt, lo
     // Use polonius output if it has been enabled.
     const location_ = this.location_table.start_index(location);
     const polonius_output = bit_set.MixedBitSet.new_empty<BorrowIndex>(this.borrow_set.len());
-    for (const idx of PoloniusOutput_errors_at(polonius, location_)) {
+    for (const idx of polonius.errors_at(location_)) {
       bit_set.MixedBitSet.insert(polonius_output, idx);
     }
     return polonius_output;

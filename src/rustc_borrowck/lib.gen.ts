@@ -14,6 +14,7 @@ import { type BorrowCheckRootCtxt } from "./root_cx.gen.ts";
 import { type UniversalRegionRelations } from "./type_check/free_region_relations.gen.ts";
 import { type Locations, type MirTypeckRegionConstraints } from "./type_check/mod.gen.ts";
 import { type RegionName } from "./diagnostics/region_name.ts";
+import { type AllFacts, type RustcFactTypes } from "./polonius/legacy/facts.ts";
 import { type InferCtxt } from "../rustc_infer/decls.ts";
 import { type RegionBoundPairs } from "../rustc_infer/infer/outlives/env.ts";
 import { type Body, type BorrowKind, debug_BorrowKind, debug_Local, debug_ProjectionElem, type Local, type Place, type PlaceElem } from "../rustc_middle/mir/mod.ts";
@@ -206,7 +207,7 @@ export interface CollectRegionConstraintsResult {
   constraints: MirTypeckRegionConstraints;
   deferred_closure_requirements: DeferredClosureRequirements;
   deferred_opaque_type_errors: DeferredOpaqueTypeError[];
-  polonius_facts: unknown | undefined;
+  polonius_facts: AllFacts<RustcFactTypes> | undefined;
   polonius_context: PoloniusContext | undefined;
 }
 

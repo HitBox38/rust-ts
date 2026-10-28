@@ -68,7 +68,7 @@ import { KeyedSet } from "../../rust_ts/keyed.ts";
 import { register_deref } from "../../rust_ts/deref.ts";
 import { PLAIN } from "../../std/fmt.ts";
 import type { MutRef } from "../../std/mut_ref.ts";
-import { assert, panic, unported, unreachable, unwrap } from "../../std/panic.ts";
+import { assert, panic, unreachable, unwrap } from "../../std/panic.ts";
 import { RegionInferenceContext, RegionInferenceContextInner, UnsolvedRegionInferenceContext } from "./region_context.gen.ts";
 
 export * from "./region_context.gen.ts";
@@ -1650,9 +1650,9 @@ UnsolvedRegionInferenceContext.prototype.check_polonius_subset_errors = function
   // duplicated. The polonius subset errors are deduplicated here, while keeping the
   // CFG-location ordering.
   // We can iterate the HashMap here because the result is sorted afterwards.
-  const subset_errors_: [PoloniusRegionVid, PoloniusRegionVid][] = [];
-  for (const [_location, subset_errors] of PoloniusOutput_subset_errors(polonius_output)) {
-    for (const e of subset_errors) subset_errors_.push(e);
+  const subset_errors_: (readonly [PoloniusRegionVid, PoloniusRegionVid])[] = [];
+  for (const [_location, subset_errors] of polonius_output.subset_errors) {
+    for (const e of subset_errors.iter()) subset_errors_.push(e);
   }
   // `sort` + `dedup` on `(Origin, Origin)` tuples (lexicographic `Ord`).
   subset_errors_.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
@@ -1705,13 +1705,6 @@ UnsolvedRegionInferenceContext.prototype.check_polonius_subset_errors = function
     }
   }
 };
-
-// PORT: `PoloniusOutput` (polonius-engine 0.13.0's `Output<RustcFacts>`) is `unknown` until vendor polonius-engine is
-// ported (D7, wave 26, lane bck-polonius-legacy); its `subset_errors: FxHashMap<Location, BTreeSet<(Origin, Origin)>>`
-// field is read through this accessor. Only `-Zpolonius=legacy` reaches it.
-function PoloniusOutput_subset_errors(_polonius_output: PoloniusOutput): Iterable<[Location, Iterable<[PoloniusRegionVid, PoloniusRegionVid]>]> {
-  return unported("polonius_engine::Output::subset_errors");
-}
 
 /// Checks the final value for the free region `fr` to see if it
 /// grew too large. In particular, examine what `end(X)` points

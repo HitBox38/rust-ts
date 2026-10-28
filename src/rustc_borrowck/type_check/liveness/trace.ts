@@ -32,7 +32,6 @@ import { relate_Ty } from "../../../rustc_type_ir/relate.ts";
 import { assert } from "../../../std/panic.ts";
 import type { BorrowckInferCtxt } from "../../lib.gen.ts";
 import * as polonius_legacy from "../../polonius/legacy/mod.ts";
-import type { LocationIndex } from "../../polonius/legacy/location.gen.ts";
 import { DeferredRegionLiveness } from "../../polonius/liveness.gen.ts";
 import { record_live_region_variance } from "../../polonius/liveness_constraints.ts";
 import type { LiveRegionVariances } from "../../polonius/mod.gen.ts";
@@ -294,9 +293,7 @@ LivenessResults.prototype.record_legacy_polonius_drop_facts = function (
   {
     const nll_relevant_locals_ = new Set<Local>(nll_relevant_locals);
 
-    // PORT: `PoloniusFacts` (polonius-engine's `AllFacts<RustcFacts>`) is `unknown` until vendor polonius-engine is
-    // ported (D7, wave 26); `var_dropped_at` is its `Vec<(T::Variable, T::Point)>` field (polonius-engine 0.13.0 facts.rs:43).
-    for (const [local, location_index] of (facts as { var_dropped_at: [Local, LocationIndex][] }).var_dropped_at) {
+    for (const [local, location_index] of facts.var_dropped_at) {
       const local_ty = this.comp.body.local_decls[local]!.ty;
       if (nll_relevant_locals_.has(local) || deferred_polonius_relevant_locals.has(local) || !TypeVisitableExt.has_free_regions(local_ty, fold_Ty)) {
         continue;

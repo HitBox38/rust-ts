@@ -138,9 +138,7 @@ import { ToUniverseInfo_never } from "../diagnostics/bound_region_errors.ts";
 import type { BorrowckInferCtxt, DeferredClosureRequirements } from "../lib.gen.ts";
 import { PoloniusContext } from "../polonius/mod.gen.ts";
 import { DeferredRegionLiveness } from "../polonius/liveness.gen.ts";
-import type { PoloniusFacts, PoloniusRegionVid } from "../polonius/legacy/facts.gen.ts";
-import type { BorrowIndex } from "../dataflow.gen.ts";
-import type { LocationIndex } from "../polonius/legacy/location.gen.ts";
+import type { PoloniusFacts } from "../polonius/legacy/facts.gen.ts";
 import type { PoloniusLocationTable } from "../polonius/legacy/location.gen.ts";
 import { LivenessValues } from "../region_infer/values.gen.ts";
 import { default_PlaceholderIndices } from "../region_infer/values.ts";
@@ -227,12 +225,6 @@ function* map_iter<T, U>(it: Iterable<T>, f: (t: T) => U): Iterable<U> {
 /** `TraitRef: TypeVisitable` (for `ty::Binder::dummy`). */
 const d_TraitRef: TypeVisitable<TraitRef> = { visit_with: visit_with_TraitRef };
 
-/** The `loan_issued_at` relation of polonius-engine's `AllFacts` (`PoloniusFacts` is opaque until wave 26, D7). */
-// PORT: only reached with `polonius_facts = Some(..)` (`-Znll-facts` / `-Zpolonius=legacy`), whose construction
-// (`PoloniusFacts::default()`) stops `unported` in lib.ts.
-interface PoloniusFactsLoanIssuedAt {
-  loan_issued_at: [PoloniusRegionVid, BorrowIndex, LocationIndex][];
-}
 let facts_mod__m: typeof import("../polonius/legacy/facts.ts") | undefined;
 function facts_mod(): typeof import("../polonius/legacy/facts.ts") {
   return (facts_mod__m ??= require("../polonius/legacy/facts.ts") as typeof import("../polonius/legacy/facts.ts"));
@@ -2259,7 +2251,7 @@ export class TypeChecker extends Visitor {
     // that occurs when we are borrowing an unsafe place, for
     // example).
     if (polonius_facts.value !== undefined) {
-      const facts = polonius_facts.value as PoloniusFactsLoanIssuedAt;
+      const facts = polonius_facts.value;
       // let _prof_timer = self.infcx.tcx.prof.generic_activity("polonius_fact_generation");
       const idxs = borrow_set.borrows_at_location(location);
       if (idxs !== undefined) {
@@ -2389,7 +2381,7 @@ export class TypeChecker extends Visitor {
     // In Polonius mode, we also push a `loan_issued_at` fact
     // linking the loan to the region.
     if (polonius_facts.value !== undefined) {
-      const facts = polonius_facts.value as PoloniusFactsLoanIssuedAt;
+      const facts = polonius_facts.value;
       // let _prof_timer = infcx.tcx.prof.generic_activity("polonius_fact_generation");
       const borrows = borrow_set.borrows_at_location(location);
       if (borrows !== undefined) {
