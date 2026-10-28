@@ -83,7 +83,7 @@ export class UnreachablePropagation extends MirPass {
 }
 
 /// Return whether the current terminator is fully unreachable.
-// rustc: compiler/rustc_mir_transform/src/unreachable_prop.rs:61 remove_successors_from_switch
+// rustc: compiler/rustc_mir_transform/src/unreachable_prop.rs:62 remove_successors_from_switch
 export function remove_successors_from_switch(
   tcx: TyCtxt,
   bb: BasicBlock,
