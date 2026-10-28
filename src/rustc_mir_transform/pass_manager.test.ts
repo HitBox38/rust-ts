@@ -437,7 +437,7 @@ describe("module layout", () => {
         expect(m[1]).toBe(`compiler/rustc_mir_transform/src/${rel}`);
       }
     }
-    expect(stubs).toBe(39);
+    expect(stubs).toBe(35);
   });
 });
 
