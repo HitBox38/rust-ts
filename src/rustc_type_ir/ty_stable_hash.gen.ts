@@ -6,7 +6,7 @@
 import { stable_hash_Expr, stable_hash_LateParamRegionKind, stable_hash_ParamConst, stable_hash_ParamTy } from "../rustc_middle/ty_stable_hash.gen.ts";
 import { stable_hash_FloatTy, stable_hash_IntTy, stable_hash_Mutability, stable_hash_UintTy } from "../rustc_ast_ir/stable_hash.gen.ts";
 import { stable_hash_Interned } from "../rustc_data_structures/intern.ts";
-import { stable_hash_Discriminant, stable_hash_PhantomData, stable_hash_u32, stable_hash_u8, stable_hash_unit, type StableHash, type StableHashCtxt, type StableHasher } from "../rustc_data_structures/stable_hash.ts";
+import { stable_hash_bool, stable_hash_Discriminant, stable_hash_PhantomData, stable_hash_u32, stable_hash_u8, stable_hash_unit, type StableHash, type StableHashCtxt, type StableHasher } from "../rustc_data_structures/stable_hash.ts";
 import { newtype_index } from "../rustc_index/newtype_index.ts";
 import { stable_hash_AdtDef, stable_hash_Pattern, stable_hash_Ty, stable_hash_Value } from "../rustc_middle/stable_hash.gen.ts";
 import { stable_hash_ScalarInt } from "../rustc_middle/ty/consts/int.ts";
@@ -15,16 +15,17 @@ import { stable_hash_Term } from "../rustc_middle/ty/mod.ts";
 import { stable_hash_DefId } from "../rustc_span/def_id.ts";
 import { stable_hash_ErrorGuaranteed } from "../rustc_span/stable_hash.gen.ts";
 import { stable_hash_Symbol } from "../rustc_span/symbol.ts";
-import { type Binder, type BoundConst, type BoundRegion, type BoundRegionKind, type BoundTy, type BoundTyKind, type BoundVariableKind, type BoundVarIndexKind, type Placeholder } from "./binder.ts";
+import { type Binder, type BoundConst, type BoundRegion, type BoundRegionKind, type BoundTy, type BoundTyKind, type BoundVariableKind, type BoundVarIndexKind, type EarlyBinder, type Placeholder } from "./binder.ts";
 import { type AliasConstKind, type ConstKind, stable_hash_InferConst, type ValTreeKind } from "./const_kind.ts";
 import { type GenericArgKind } from "./generic_arg.ts";
 import { type BoundVar, type DebruijnIndex, type UniverseIndex } from "./lib.ts";
 import { type PatternKind } from "./pattern.ts";
-import { type ExistentialPredicate, type ExistentialProjection, type ExistentialTraitRef } from "./predicate.ts";
+import { type BoundConstness, type ClausePolarity, type CoercePredicate, type ExistentialPredicate, type ExistentialProjection, type ExistentialTraitRef, type HostEffectClause, type ImplPolarity, type NormalizesTo, type OutlivesClause, type ProjectionClause, type RegionConstraint, type RegionEqPredicate, type SubtypePredicate, type TraitClause, type TraitRef } from "./predicate.ts";
+import { type ClauseKind, type PredicateKind } from "./predicate_kind.ts";
 import { stable_hash_RegionKind } from "./region_kind.ts";
 import { type Const } from "./sty/consts.ts";
 import { type LateParamRegion, type Region } from "./sty/mod.ts";
-import { type TermKind } from "./term_kind.ts";
+import { type AliasTermKind, type TermKind } from "./term_kind.ts";
 import { type Alias } from "./ty/alias.ts";
 import { stable_hash_WithCachedTypeInfo } from "./ty_info.ts";
 import { type AliasTyKind, type FnHeader, type FnSig, type FnSigKind, type FnSigTys, type IsRigid, stable_hash_InferTy, type TyKind, type UnsafeBinderInner } from "./ty_kind.ts";
@@ -48,6 +49,12 @@ export function stable_hash_BoundVar(self: BoundVar, __hcx: StableHashCtxt, __ha
 export function stable_hash_Binder<T>(self: Binder<T>, __hcx: StableHashCtxt, __hasher: StableHasher, stable_hash_T: StableHash<T>): void {
   stable_hash_T(self.value, __hcx, __hasher);
   stable_hash_RawList(self.bound_vars, __hcx, __hasher, stable_hash_BoundVariableKind);
+}
+
+// rustc-derive: compiler/rustc_type_ir/src/binder.rs:325 StableHash for EarlyBinder
+export function stable_hash_EarlyBinder<T>(self: EarlyBinder<T>, __hcx: StableHashCtxt, __hasher: StableHasher, stable_hash_T: StableHash<T>): void {
+  stable_hash_T(self.value, __hcx, __hasher);
+  stable_hash_PhantomData(self._tcx, __hcx, __hasher);
 }
 
 // rustc-derive: compiler/rustc_type_ir/src/binder.rs:965 StableHash for BoundVarIndexKind
@@ -240,6 +247,57 @@ export function stable_hash_PatternKind(self: PatternKind, __hcx: StableHashCtxt
   }
 }
 
+// rustc-derive: compiler/rustc_type_ir/src/predicate.rs:24 StableHash for OutlivesClause
+export function stable_hash_OutlivesClause<A>(self: OutlivesClause<A>, __hcx: StableHashCtxt, __hasher: StableHasher, stable_hash_A: StableHash<A>): void {
+  stable_hash_A(self._0, __hcx, __hasher);
+  stable_hash_Region(self._1, __hcx, __hasher);
+}
+
+// rustc-derive: compiler/rustc_type_ir/src/predicate.rs:38 StableHash for RegionEqPredicate
+export function stable_hash_RegionEqPredicate(self: RegionEqPredicate, __hcx: StableHashCtxt, __hasher: StableHasher): void {
+  stable_hash_Region(self._0, __hcx, __hasher);
+  stable_hash_Region(self._1, __hcx, __hasher);
+}
+
+// rustc-derive: compiler/rustc_type_ir/src/predicate.rs:53 StableHash for RegionConstraint
+const RegionConstraint__discriminant = { Outlives: 0, Eq: 1 } as const;
+export function stable_hash_RegionConstraint(self: RegionConstraint, __hcx: StableHashCtxt, __hasher: StableHasher): void {
+  stable_hash_Discriminant(RegionConstraint__discriminant[self.$], __hcx, __hasher);
+  switch (self.$) {
+    case "Outlives":
+      stable_hash_OutlivesClause(self._0, __hcx, __hasher, stable_hash_GenericArg);
+      break;
+    case "Eq":
+      stable_hash_RegionEqPredicate(self._0, __hcx, __hasher);
+      break;
+  }
+}
+
+// rustc-derive: compiler/rustc_type_ir/src/predicate.rs:113 StableHash for TraitRef
+export function stable_hash_TraitRef(self: TraitRef, __hcx: StableHashCtxt, __hasher: StableHasher): void {
+  stable_hash_DefId(self.def_id, __hcx, __hasher);
+  stable_hash_RawList(self.args, __hcx, __hasher, stable_hash_GenericArg);
+  stable_hash_unit(self._use_trait_ref_new_instead, __hcx, __hasher);
+}
+
+// rustc-derive: compiler/rustc_type_ir/src/predicate.rs:196 StableHash for TraitClause
+export function stable_hash_TraitClause(self: TraitClause, __hcx: StableHashCtxt, __hasher: StableHasher): void {
+  stable_hash_TraitRef(self.trait_ref, __hcx, __hasher);
+  stable_hash_ClausePolarity(self.polarity, __hcx, __hasher);
+}
+
+// rustc-derive: compiler/rustc_type_ir/src/predicate.rs:266 StableHash for ImplPolarity
+const ImplPolarity__discriminant = { Positive: 0, Negative: 1 } as const;
+export function stable_hash_ImplPolarity(self: ImplPolarity, __hcx: StableHashCtxt, __hasher: StableHasher): void {
+  stable_hash_Discriminant(ImplPolarity__discriminant[self], __hcx, __hasher);
+}
+
+// rustc-derive: compiler/rustc_type_ir/src/predicate.rs:299 StableHash for ClausePolarity
+const ClausePolarity__discriminant = { Positive: 0, Negative: 1 } as const;
+export function stable_hash_ClausePolarity(self: ClausePolarity, __hcx: StableHashCtxt, __hasher: StableHasher): void {
+  stable_hash_Discriminant(ClausePolarity__discriminant[self], __hcx, __hasher);
+}
+
 // rustc-derive: compiler/rustc_type_ir/src/predicate.rs:331 StableHash for ExistentialPredicate
 const ExistentialPredicate__discriminant = { Trait: 0, Projection: 1, AutoTrait: 2 } as const;
 export function stable_hash_ExistentialPredicate(self: ExistentialPredicate, __hcx: StableHashCtxt, __hasher: StableHasher): void {
@@ -272,6 +330,108 @@ export function stable_hash_ExistentialProjection(self: ExistentialProjection, _
   stable_hash_unit(self.use_existential_projection_new_instead, __hcx, __hasher);
 }
 
+// rustc-derive: compiler/rustc_type_ir/src/predicate.rs:567 StableHash for ProjectionClause
+export function stable_hash_ProjectionClause(self: ProjectionClause, __hcx: StableHashCtxt, __hasher: StableHasher): void {
+  stable_hash_Alias(self.projection_term, __hcx, __hasher, stable_hash_AliasTermKind);
+  stable_hash_Term(self.term, __hcx, __hasher);
+}
+
+// rustc-derive: compiler/rustc_type_ir/src/predicate.rs:630 StableHash for NormalizesTo
+export function stable_hash_NormalizesTo<K>(self: NormalizesTo<K>, __hcx: StableHashCtxt, __hasher: StableHasher, stable_hash_K: StableHash<K>): void {
+  stable_hash_Alias(self.alias, __hcx, __hasher, stable_hash_K);
+  stable_hash_Term(self.term, __hcx, __hasher);
+}
+
+// rustc-derive: compiler/rustc_type_ir/src/predicate.rs:667 StableHash for HostEffectClause
+export function stable_hash_HostEffectClause(self: HostEffectClause, __hcx: StableHashCtxt, __hasher: StableHasher): void {
+  stable_hash_TraitRef(self.trait_ref, __hcx, __hasher);
+  stable_hash_BoundConstness(self.constness, __hcx, __hasher);
+}
+
+// rustc-derive: compiler/rustc_type_ir/src/predicate.rs:714 StableHash for SubtypePredicate
+export function stable_hash_SubtypePredicate(self: SubtypePredicate, __hcx: StableHashCtxt, __hasher: StableHasher): void {
+  stable_hash_bool(self.a_is_expected, __hcx, __hasher);
+  stable_hash_Ty(self.a, __hcx, __hasher);
+  stable_hash_Ty(self.b, __hcx, __hasher);
+}
+
+// rustc-derive: compiler/rustc_type_ir/src/predicate.rs:730 StableHash for CoercePredicate
+export function stable_hash_CoercePredicate(self: CoercePredicate, __hcx: StableHashCtxt, __hasher: StableHasher): void {
+  stable_hash_Ty(self.a, __hcx, __hasher);
+  stable_hash_Ty(self.b, __hcx, __hasher);
+}
+
+// rustc-derive: compiler/rustc_type_ir/src/predicate.rs:739 StableHash for BoundConstness
+const BoundConstness__discriminant = { Const: 0, Maybe: 1 } as const;
+export function stable_hash_BoundConstness(self: BoundConstness, __hcx: StableHashCtxt, __hasher: StableHasher): void {
+  stable_hash_Discriminant(BoundConstness__discriminant[self], __hcx, __hasher);
+}
+
+// rustc-derive: compiler/rustc_type_ir/src/predicate_kind.rs:18 StableHash for ClauseKind
+const ClauseKind__discriminant = { Trait: 0, RegionOutlives: 1, TypeOutlives: 2, Projection: 3, ConstArgHasType: 4, WellFormed: 5, ConstEvaluatable: 6, HostEffect: 7, UnstableFeature: 8 } as const;
+export function stable_hash_ClauseKind(self: ClauseKind, __hcx: StableHashCtxt, __hasher: StableHasher): void {
+  stable_hash_Discriminant(ClauseKind__discriminant[self.$], __hcx, __hasher);
+  switch (self.$) {
+    case "Trait":
+      stable_hash_TraitClause(self._0, __hcx, __hasher);
+      break;
+    case "RegionOutlives":
+      stable_hash_OutlivesClause(self._0, __hcx, __hasher, stable_hash_Region);
+      break;
+    case "TypeOutlives":
+      stable_hash_OutlivesClause(self._0, __hcx, __hasher, stable_hash_Ty);
+      break;
+    case "Projection":
+      stable_hash_ProjectionClause(self._0, __hcx, __hasher);
+      break;
+    case "ConstArgHasType":
+      stable_hash_Const(self._0, __hcx, __hasher);
+      stable_hash_Ty(self._1, __hcx, __hasher);
+      break;
+    case "WellFormed":
+      stable_hash_Term(self._0, __hcx, __hasher);
+      break;
+    case "ConstEvaluatable":
+      stable_hash_Const(self._0, __hcx, __hasher);
+      break;
+    case "HostEffect":
+      stable_hash_HostEffectClause(self._0, __hcx, __hasher);
+      break;
+    case "UnstableFeature":
+      stable_hash_Symbol(self._0, __hcx, __hasher);
+      break;
+  }
+}
+
+// rustc-derive: compiler/rustc_type_ir/src/predicate_kind.rs:66 StableHash for PredicateKind
+const PredicateKind__discriminant = { Clause: 0, DynCompatible: 1, Subtype: 2, Coerce: 3, ConstEquate: 4, Ambiguous: 5, NormalizesTo: 6 } as const;
+export function stable_hash_PredicateKind(self: PredicateKind, __hcx: StableHashCtxt, __hasher: StableHasher): void {
+  stable_hash_Discriminant(PredicateKind__discriminant[self.$], __hcx, __hasher);
+  switch (self.$) {
+    case "Clause":
+      stable_hash_ClauseKind(self._0, __hcx, __hasher);
+      break;
+    case "DynCompatible":
+      stable_hash_DefId(self._0, __hcx, __hasher);
+      break;
+    case "Subtype":
+      stable_hash_SubtypePredicate(self._0, __hcx, __hasher);
+      break;
+    case "Coerce":
+      stable_hash_CoercePredicate(self._0, __hcx, __hasher);
+      break;
+    case "ConstEquate":
+      stable_hash_Const(self._0, __hcx, __hasher);
+      stable_hash_Const(self._1, __hcx, __hasher);
+      break;
+    case "Ambiguous":
+      break;
+    case "NormalizesTo":
+      stable_hash_NormalizesTo(self._0, __hcx, __hasher, stable_hash_AliasTermKind);
+      break;
+  }
+}
+
 // rustc-derive: compiler/rustc_type_ir/src/sty/mod.rs:26 StableHash for Region
 export function stable_hash_Region(self: Region, __hcx: StableHashCtxt, __hasher: StableHasher): void {
   stable_hash_Interned(self.internee, __hcx, __hasher, stable_hash_RegionKind);
@@ -298,6 +458,41 @@ export function stable_hash_TermKind(self: TermKind, __hcx: StableHashCtxt, __ha
       break;
     case "Const":
       stable_hash_Const(self._0, __hcx, __hasher);
+      break;
+  }
+}
+
+// rustc-derive: compiler/rustc_type_ir/src/term_kind.rs:32 StableHash for AliasTermKind
+const AliasTermKind__discriminant = { ProjectionTy: 0, InherentTy: 1, OpaqueTy: 2, FreeTy: 3, AnonConst: 4, ProjectionConst: 5, FreeConst: 6, InherentConstSelf: 7, InherentConstImpl: 8 } as const;
+export function stable_hash_AliasTermKind(self: AliasTermKind, __hcx: StableHashCtxt, __hasher: StableHasher): void {
+  stable_hash_Discriminant(AliasTermKind__discriminant[self.$], __hcx, __hasher);
+  switch (self.$) {
+    case "ProjectionTy":
+      stable_hash_DefId(self.def_id, __hcx, __hasher);
+      break;
+    case "InherentTy":
+      stable_hash_DefId(self.def_id, __hcx, __hasher);
+      break;
+    case "OpaqueTy":
+      stable_hash_DefId(self.def_id, __hcx, __hasher);
+      break;
+    case "FreeTy":
+      stable_hash_DefId(self.def_id, __hcx, __hasher);
+      break;
+    case "AnonConst":
+      stable_hash_DefId(self.def_id, __hcx, __hasher);
+      break;
+    case "ProjectionConst":
+      stable_hash_DefId(self.def_id, __hcx, __hasher);
+      break;
+    case "FreeConst":
+      stable_hash_DefId(self.def_id, __hcx, __hasher);
+      break;
+    case "InherentConstSelf":
+      stable_hash_DefId(self.def_id, __hcx, __hasher);
+      break;
+    case "InherentConstImpl":
+      stable_hash_DefId(self.def_id, __hcx, __hasher);
       break;
   }
 }

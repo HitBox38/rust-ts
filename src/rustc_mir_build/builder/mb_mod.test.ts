@@ -26,23 +26,12 @@ import { EarlyBinder } from "../../rustc_type_ir/binder.ts";
 import { TypingMode } from "../../rustc_type_ir/infer_ctxt.ts";
 import { FnSig } from "../../rustc_type_ir/ty_kind.ts";
 import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
-import { Unported } from "../../std/panic.ts";
 import "../lib.ts";
 import { BlockMarkerGen, CoverageInfoBuilder } from "./coverageinfo.ts";
 import { Builder } from "./mod.ts";
 
 const WORK = join(DATA, "tmp", "mb-mod", process.env.RUST_TS_AGENT ?? "default");
 
-function stops(f: () => unknown, what: string): void {
-  let err: unknown;
-  try {
-    f();
-  } catch (e) {
-    err = e;
-  }
-  expect(err).toBeInstanceOf(Unported);
-  expect((err as Unported).what).toBe(what);
-}
 
 class CaptureConfig extends Error {}
 function config_from_args(args: string[]): Config {
@@ -291,7 +280,14 @@ test("coverageinfo.rs: markers, `!` info, two-way branches, done infos; Builder 
     // flipped: the true marker went to `f`
     expect(b2.cfg.basic_blocks[f]!.statements[0]!.kind).toEqual({ $: "Coverage", _0: { $: "BlockMarker", id: BlockMarkerId.from_usize(0) } });
     expect(b2.cfg.basic_blocks[t]!.statements[0]!.kind).toEqual({ $: "Coverage", _0: { $: "BlockMarker", id: BlockMarkerId.from_usize(1) } });
-    // the condition-coverage path needs `Session::instrument_coverage_condition` (rustc_session, not ported)
-    stops(() => b2.visit_coverage_standalone_condition(0 as ExprId, Place.return_place(), block), "rustc_session::session::Session::instrument_coverage_condition");
+    // with a coverage builder but without `-Zcoverage-options=condition` (this session has no
+    // `-Cinstrument-coverage`), `Session::instrument_coverage_condition` is false: nothing is injected
+    const n_blocks2 = b2.cfg.basic_blocks.length;
+    const n_markers = b2.coverage_info.markers.num_block_markers;
+    expect(b2.tcx.sess.instrument_coverage_condition()).toBe(false);
+    b2.visit_coverage_standalone_condition(0 as ExprId, Place.return_place(), block);
+    expect(block.value).toBe(START_BLOCK);
+    expect(b2.cfg.basic_blocks.length).toBe(n_blocks2);
+    expect(b2.coverage_info.markers.num_block_markers).toBe(n_markers);
   });
 });

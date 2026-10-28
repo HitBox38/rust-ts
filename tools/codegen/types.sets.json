@@ -768,7 +768,8 @@
       "rustc_middle::ty::VariantDiscr",
       "rustc_middle::ty::VariantFlags",
       "rustc_middle::ty::adt::AdtFlags",
-      "rustc_middle::ty::RestrictionKind"
+      "rustc_middle::ty::RestrictionKind",
+      "rustc_middle::ty::generics::GenericClauses"
     ],
     "stable_hash_access": {
       "rustc_middle::ty::Ty::0": { "expr": "$v" },
@@ -1200,9 +1201,11 @@
     "stable_hash_module": "ty_stable_hash",
     "stable_hash_access": {
       "rustc_type_ir::sty::Region::0": { "expr": "$v.internee" },
-      "rustc_type_ir::sty::consts::Const::0": { "expr": "$v" }
+      "rustc_type_ir::sty::consts::Const::0": { "expr": "$v" },
+      "rustc_middle::ty::predicate::Predicate::0": { "expr": "$v" },
+      "rustc_middle::ty::predicate::Clause::0": { "expr": "$v" }
     },
-    "stable_hash_types": ["TyKind", "Binder", "FnSigTys", "FnHeader", "UnsafeBinderInner", "IsRigid", "Alias", "AliasTyKind", "BoundVarIndexKind", "BoundTy", "Placeholder", "ParamTy", "DebruijnIndex", "UniverseIndex", "BoundVar", "BoundTyKind", "FnSigKind", "Const", "Region", "ConstKind", "ParamConst", "BoundConst", "UnevaluatedConst", "ValTreeKind", "ExprKind", "EarlyParamRegion", "LateParamRegionKind", "LateParamRegion", "BoundRegion", "BoundRegionKind", "GenericArgKind", "TermKind", "PatternKind", "ExistentialPredicate", "ExistentialTraitRef", "ExistentialProjection", "BoundVariableKind", "FnSig", "Expr", "AliasConstKind"],
+    "stable_hash_types": ["TyKind", "Binder", "FnSigTys", "FnHeader", "UnsafeBinderInner", "IsRigid", "Alias", "AliasTyKind", "BoundVarIndexKind", "BoundTy", "Placeholder", "ParamTy", "DebruijnIndex", "UniverseIndex", "BoundVar", "BoundTyKind", "FnSigKind", "Const", "Region", "ConstKind", "ParamConst", "BoundConst", "UnevaluatedConst", "ValTreeKind", "ExprKind", "EarlyParamRegion", "LateParamRegionKind", "LateParamRegion", "BoundRegion", "BoundRegionKind", "GenericArgKind", "TermKind", "PatternKind", "ExistentialPredicate", "ExistentialTraitRef", "ExistentialProjection", "BoundVariableKind", "FnSig", "Expr", "AliasConstKind", "EarlyBinder", "PredicateKind", "ClauseKind", "OutlivesClause", "RegionEqPredicate", "rustc_type_ir::predicate::RegionConstraint", "TraitRef", "TraitClause", "ImplPolarity", "ClausePolarity", "ProjectionClause", "NormalizesTo", "HostEffectClause", "SubtypePredicate", "CoercePredicate", "BoundConstness", "AliasTermKind", "Predicate", "Clause"],
     "decoders": {
       "Decodable_NoContext": { "type": "TyDecoder", "import": "src/rustc_middle/ty/codec.ts", "note": "lane rmeta-ty: upstream `impl<I: Interner, D: Decoder> Decodable<D>` with `where I::Ty: Decodable<D>, ..` bounds that only a `TyDecoder` meets (codec.rs); every caller decodes with a TyDecoder" }
     }

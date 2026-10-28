@@ -58,8 +58,9 @@ test.skipIf(!HAVE_UPSTREAM && !REQUIRE_PROBES)("golden: the rustc_ty set reprodu
   expect(Object.keys(res.report.missing_stable_hash).sort()).toEqual(["rustc_middle::mir::BinOp", "rustc_middle::mir::UnOp", "rustc_middle::ty::abstract_const::CastKind"]);
   const sum = (k: "types" | "debug_fns" | "type_fold" | "decodable" | "stable_hash") => res.report.files.reduce((a, f) => a + f[k], 0);
   // lane rmeta-ty: CoerceUnsizedInfo is generated (+1 type, +1 Debug); 94 Decodable impls; lane misc-blockers: 39 StableHash
-  // impls in two more files (rustc_type_ir/ty_stable_hash.gen.ts, rustc_middle/ty_stable_hash.gen.ts)
-  expect([res.files.size, sum("types"), sum("debug_fns"), sum("type_fold"), sum("decodable"), sum("stable_hash")]).toEqual([37, 255, 128, 204, 94, 39]);
+  // impls in two more files (rustc_type_ir/ty_stable_hash.gen.ts, rustc_middle/ty_stable_hash.gen.ts); lane misc-blockers-2:
+  // +19 (`EarlyBinder`, `PredicateKind` / `ClauseKind` and the 14 predicate types they hold, `Predicate`, `Clause`)
+  expect([res.files.size, sum("types"), sum("debug_fns"), sum("type_fold"), sum("decodable"), sum("stable_hash")]).toEqual([37, 255, 128, 204, 94, 58]);
   for (const [file, content] of res.files) expect(content).toBe(readFileSync(file, "utf8"));
   // no stale generated file of the set left on disk (fast_reject.gen.ts / stable_hash.gen.ts belong to set rustc_type_ir,
   // typeck_results.gen.ts to set rustc_middle_typeck_results, mod.gen.ts to set rustc_middle_ty_mod, print/pretty.gen.ts to set

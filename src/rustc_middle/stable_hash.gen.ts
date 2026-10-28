@@ -4,12 +4,14 @@
 // skipping `#[stable_hash(ignore)]` and hashing `field.name` for `#[stable_hash(project(name))]`.
 // Only `export function` declarations: hand modules may import from here inside an import cycle.
 import { stable_hash_Interned } from "../rustc_data_structures/intern.ts";
-import { stable_hash_Discriminant, stable_hash_IndexVec, stable_hash_Option, stable_hash_tuple2, stable_hash_u16, stable_hash_u32, stable_hash_u8, type StableHash, type StableHashCtxt, type StableHasher } from "../rustc_data_structures/stable_hash.ts";
+import { stable_hash_Discriminant, stable_hash_IndexVec, stable_hash_Option, stable_hash_slice, stable_hash_tuple2, stable_hash_u16, stable_hash_u32, stable_hash_u8, type StableHash, type StableHashCtxt, type StableHasher } from "../rustc_data_structures/stable_hash.ts";
 import { stable_hash_CtorKind, stable_hash_Safety } from "../rustc_hir/stable_hash.gen.ts";
 import { type AdtDef, type AdtFlags, stable_hash_AdtDefData } from "./ty/adt.ts";
 import { type ValTree, type Value } from "./ty/consts/valtree.ts";
+import { type GenericClauses } from "./ty/generics.ts";
 import { type FieldDef, type RestrictionKind, type Ty, type VariantDef, type VariantDiscr, type VariantFlags, type Visibility } from "./ty/mod.ts";
 import { type Pattern } from "./ty/pattern.ts";
+import { stable_hash_Clause } from "./ty_stable_hash.gen.ts";
 import { stable_hash_DefId } from "../rustc_span/def_id.ts";
 import { stable_hash_Span } from "../rustc_span/lib.ts";
 import { stable_hash_ErrorGuaranteed, stable_hash_ModId } from "../rustc_span/stable_hash.gen.ts";
@@ -87,6 +89,12 @@ export function stable_hash_FieldDef(self: FieldDef, __hcx: StableHashCtxt, __ha
   stable_hash_RestrictionKind(self.mut_restriction, __hcx, __hasher);
   stable_hash_Safety(self.safety, __hcx, __hasher);
   stable_hash_Option(self.value, __hcx, __hasher, stable_hash_DefId);
+}
+
+// rustc-derive: compiler/rustc_middle/src/ty/generics.rs:388 StableHash for GenericClauses
+export function stable_hash_GenericClauses(self: GenericClauses, __hcx: StableHashCtxt, __hasher: StableHasher): void {
+  stable_hash_Option(self.parent, __hcx, __hasher, stable_hash_DefId);
+  stable_hash_slice(self.clauses, __hcx, __hasher, (__v, __hcx, __hasher) => stable_hash_tuple2(__v, __hcx, __hasher, stable_hash_Clause, stable_hash_Span));
 }
 
 // rustc-derive: compiler/rustc_middle/src/ty/adt.rs:35 StableHash for AdtFlags
