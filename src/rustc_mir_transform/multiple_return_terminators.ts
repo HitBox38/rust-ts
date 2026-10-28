@@ -1,21 +1,40 @@
-// Stub module (lane mt-opt1): compiler/rustc_mir_transform/src/multiple_return_terminators.rs is not ported yet.
-// Lane mt-skeleton declared only what lib.rs / pass_manager.rs reference (docs/handoff/mt-skeleton.md, "Module
-// layout"); the porting lane replaces this file with the whole port, keeping these names and shapes. Every stub stops
-// as UNPORTED with its upstream path.
-import { unported } from "../std/panic.ts";
-import type { Body } from "../rustc_middle/mir/mod.ts";
+// Port of compiler/rustc_mir_transform/src/multiple_return_terminators.rs (lane mt-opt1).
+//! This pass removes jumps to basic blocks containing only a return, and replaces them with a
+//! return instead.
+import { DenseBitSet } from "../rustc_index/bit_set.ts";
+import { type BasicBlock, type Body, TerminatorKind } from "../rustc_middle/mir/mod.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
-import { MirPass, type PassCtx, type PassPolicy } from "./pass_manager.ts";
+import { MirPass, type PassCtx, PassPolicy } from "./pass_manager.ts";
+import { remove_dead_blocks } from "./simplify.ts";
 
-// stub: compiler/rustc_mir_transform/src/multiple_return_terminators.rs:10 MultipleReturnTerminators (lane mt-opt1)
+// rustc-type: compiler/rustc_mir_transform/src/multiple_return_terminators.rs:10 MultipleReturnTerminators
 export class MultipleReturnTerminators extends MirPass {
   readonly type_name = "rustc_mir_transform::multiple_return_terminators::MultipleReturnTerminators";
 
-  policy(_ctx: PassCtx): PassPolicy {
-    return unported("rustc_mir_transform::multiple_return_terminators::MultipleReturnTerminators (pass not ported)");
+  // rustc: compiler/rustc_mir_transform/src/multiple_return_terminators.rs:13 policy
+  policy(ctx: PassCtx): PassPolicy {
+    return PassPolicy.optional(ctx.mir_opt_level() >= 4);
   }
 
-  run_pass(_tcx: TyCtxt, _body: Body): void {
-    return unported("rustc_mir_transform::multiple_return_terminators::MultipleReturnTerminators (pass not ported)");
+  // rustc: compiler/rustc_mir_transform/src/multiple_return_terminators.rs:17 run_pass
+  run_pass(_: TyCtxt, body: Body): void {
+    // find basic blocks with no statement and a return terminator
+    const bbs_simple_returns = DenseBitSet.new_empty<BasicBlock>(body.basic_blocks.deref().length);
+    const bbs = body.basic_blocks_mut();
+    for (let idx = 0 as BasicBlock; idx < bbs.length; idx = (idx + 1) as BasicBlock) {
+      const bb = bbs[idx]!;
+      if (bb.statements.length === 0 && bb.terminator_().kind.$ === "Return") {
+        bbs_simple_returns.insert(idx);
+      }
+    }
+
+    for (const bb of bbs) {
+      const kind = bb.terminator_().kind;
+      if (kind.$ === "Goto" && bbs_simple_returns.contains(kind.target)) {
+        bb.terminator_mut().kind = TerminatorKind.Return;
+      }
+    }
+
+    remove_dead_blocks(body);
   }
 }
