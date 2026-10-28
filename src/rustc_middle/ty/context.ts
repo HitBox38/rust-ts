@@ -2685,12 +2685,12 @@ export class TyCtxt {
   needs_coroutine_by_move_body_def_id(def_id: DefId): boolean {
     const k = this.coroutine_kind(def_id) as CoroutineKind | undefined;
     if (k !== undefined && k.$ === "Desugared" && k._1 === "Closure") {
-      // && let ty::Coroutine(_, args) = self.type_of(def_id).instantiate_identity().skip_norm_wip().kind()
-      // && args.as_coroutine().kind_ty().to_opt_closure_kind() != Some(ty::ClosureKind::FnOnce)
-      return unported("rustc_type_ir::binder::EarlyBinder::instantiate_identity (binder.rs, lane tyir-binder)");
-    } else {
-      return false;
+      const ty_kind = Unnormalized.skip_norm_wip(EarlyBinder.instantiate_identity(this.type_of(def_id) as EarlyBinder<Ty>)).kind();
+      if (ty_kind.$ === "Coroutine" && closure_ty_kind().CoroutineArgs.kind_ty(ty_kind._1.as_coroutine()).to_opt_closure_kind() !== "FnOnce") {
+        return true;
+      }
     }
+    return false;
   }
 
   /// Whether this is a trait implementation that has `#[diagnostic::do_not_recommend]`
@@ -3105,6 +3105,12 @@ function middle_assoc(): typeof import("./assoc.ts") {
   return (middle_assoc__m ??= require("./assoc.ts") as typeof import("./assoc.ts"));
 }
 var middle_assoc__m: typeof import("./assoc.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
+
+/** rustc_type_ir ty_kind/closure.ts (`CoroutineArgs`), read lazily (it imports ty/mod.ts, in this module's import closure). */
+function closure_ty_kind(): typeof import("../../rustc_type_ir/ty_kind/closure.ts") {
+  return (closure_ty_kind__m ??= require("../../rustc_type_ir/ty_kind/closure.ts") as typeof import("../../rustc_type_ir/ty_kind/closure.ts"));
+}
+var closure_ty_kind__m: typeof import("../../rustc_type_ir/ty_kind/closure.ts") | undefined;
 
 // ---- stand-ins for fns of other upstream files that are not ported yet (not markers; repoint when they land) ----
 

@@ -5,14 +5,16 @@
 // PORT: `u64` / `i64` / `u128` / `i128` values are `bigint`s (they exceed 2^53); `impl Into<u128>` is a bigint. `Prov` stays a
 // type parameter (`Scalar<Prov = CtfeProvenance>`); the generated `debug_Scalar(v, f, debug_Prov)` call shape is kept
 // (pointer.ts `provenance_of` gives the `Provenance` impl). The rustc_apfloat types (`Half`, `Single`, `Double`, `Quad`,
-// `Float`; plan-m4 D9, lanes vendor-apfloat-a/-b) are placeholders here until the vendored crate lands.
+// `Float`; plan-m4 D9) are the vendored crate's (src/vendor/rustc_apfloat); `F: Float` is passed as its `FloatType`
+// dictionary (as ty/consts/int.ts's `ScalarInt::to_float`).
 import "../mod.ts";
 import { type HasDataLayout, Size } from "../../../rustc_abi/lib.ts";
 import { bug } from "../../../rustc_span/macros.ts";
-import type { Pending } from "../../../rustc_type_ir/decls.ts";
+import { Double, Half, Quad, Single } from "../../../vendor/rustc_apfloat/ieee.ts";
+import type { Float, FloatType } from "../../../vendor/rustc_apfloat/lib.ts";
 import { type Debug, type Fmt, PLAIN, PRETTY } from "../../../std/fmt.ts";
 import type { MutRef } from "../../../std/mut_ref.ts";
-import { panic, unported, unwrap } from "../../../std/panic.ts";
+import { panic, unwrap } from "../../../std/panic.ts";
 import { Err, expect_result, Ok, type Result } from "../../../std/result.ts";
 import { debug_ScalarInt, display_ScalarInt, lower_hex_ScalarInt, ScalarInt } from "../../ty/consts/int.ts";
 import type { Either } from "../mod.ts";
@@ -30,14 +32,8 @@ import {
 import * as gen from "./value.gen.ts";
 export * from "./value.gen.ts";
 
-/** PORT: rustc_apfloat::ieee::Half (vendor-apfloat lanes, plan-m4 D9): a placeholder until the crate is vendored. */
-export type Half = Pending<"rustc_apfloat::ieee::Half">;
-/** PORT: rustc_apfloat::ieee::Single (placeholder, see `Half`). */
-export type Single = Pending<"rustc_apfloat::ieee::Single">;
-/** PORT: rustc_apfloat::ieee::Double (placeholder, see `Half`). */
-export type Double = Pending<"rustc_apfloat::ieee::Double">;
-/** PORT: rustc_apfloat::ieee::Quad (placeholder, see `Half`). */
-export type Quad = Pending<"rustc_apfloat::ieee::Quad">;
+/** rustc_apfloat::ieee::{Half, Single, Double, Quad} (the vendored crate, plan-m4 D9). */
+export type { Half, Single, Double, Quad };
 
 export interface Scalar_methods {
     // interpret/value.rs:106 (lane mir-interp-b)
@@ -135,7 +131,7 @@ export interface Scalar_methods {
     // interpret/value.rs:425 (lane mir-interp-b)
     to_target_isize<Prov>(self: Scalar<Prov>, cx: HasDataLayout): InterpResult<bigint>;
     // interpret/value.rs:431 (lane mir-interp-b)
-    to_float<Prov, F>(self: Scalar<Prov>): InterpResult<F>;
+    to_float<Prov, F extends Float<F>>(self: Scalar<Prov>, F: FloatType<F>): InterpResult<F>;
     // interpret/value.rs:437 (lane mir-interp-b)
     to_f16<Prov>(self: Scalar<Prov>): InterpResult<Half>;
     // interpret/value.rs:442 (lane mir-interp-b)
@@ -363,31 +359,30 @@ Scalar.from_target_isize = function <Prov>(i: bigint, cx: HasDataLayout): Scalar
   return Scalar.from_int(i, cx.data_layout().pointer_offset());
 };
 
-// PORT (D9): `f.into()` is `ScalarInt`'s `From<Half / Single / Double / Quad>` (ty/consts/int.ts), which stops `unported`
-// until rustc_apfloat is vendored.
+// `f.into()` is `ScalarInt`'s `From<Half / Single / Double / Quad>` (ty/consts/int.ts).
 
 // #[inline]
 // rustc: compiler/rustc_middle/src/mir/interpret/value.rs:214 from_f16
 Scalar.from_f16 = function <Prov>(f: Half): Scalar<Prov> {
-  return { $: "Int", _0: ScalarInt.from_Half(f as never) };
+  return { $: "Int", _0: ScalarInt.from_Half(f) };
 };
 
 // #[inline]
 // rustc: compiler/rustc_middle/src/mir/interpret/value.rs:219 from_f32
 Scalar.from_f32 = function <Prov>(f: Single): Scalar<Prov> {
-  return { $: "Int", _0: ScalarInt.from_Single(f as never) };
+  return { $: "Int", _0: ScalarInt.from_Single(f) };
 };
 
 // #[inline]
 // rustc: compiler/rustc_middle/src/mir/interpret/value.rs:224 from_f64
 Scalar.from_f64 = function <Prov>(f: Double): Scalar<Prov> {
-  return { $: "Int", _0: ScalarInt.from_Double(f as never) };
+  return { $: "Int", _0: ScalarInt.from_Double(f) };
 };
 
 // #[inline]
 // rustc: compiler/rustc_middle/src/mir/interpret/value.rs:229 from_f128
 Scalar.from_f128 = function <Prov>(f: Quad): Scalar<Prov> {
-  return { $: "Int", _0: ScalarInt.from_Quad(f as never) };
+  return { $: "Int", _0: ScalarInt.from_Quad(f) };
 };
 
 /// This is almost certainly not the method you want!  You should dispatch on the type
@@ -652,35 +647,36 @@ Scalar.to_target_isize = function <Prov>(self: Scalar<Prov>, cx: HasDataLayout):
   return interp_ok(try_from_unwrap(b, -(1n << 63n), (1n << 63n) - 1n));
 };
 
+// PORT: `F: Float` is passed as its `FloatType` dictionary.
 // #[inline]
 // rustc: compiler/rustc_middle/src/mir/interpret/value.rs:431 to_float
-Scalar.to_float = function <Prov, F>(self: Scalar<Prov>): InterpResult<F> {
+Scalar.to_float = function <Prov, F extends Float<F>>(self: Scalar<Prov>, F: FloatType<F>): InterpResult<F> {
   // Going through `to_bits` to check size and truncation.
-  // `interp_ok(F::from_bits(self.to_bits(Size::from_bits(F::BITS))?))`
-  void self;
-  return unported("rustc_apfloat::Float::BITS / Float::from_bits (Scalar::to_float; vendor-apfloat lanes, D9)");
+  const r = Scalar.to_bits(self, Size.from_bits(F.BITS));
+  if (r.$ === "Err") return r;
+  return interp_ok(F.from_bits(r._0));
 };
 
 // #[inline]
 // rustc: compiler/rustc_middle/src/mir/interpret/value.rs:437 to_f16
 Scalar.to_f16 = function <Prov>(self: Scalar<Prov>): InterpResult<Half> {
-  return Scalar.to_float<Prov, Half>(self);
+  return Scalar.to_float(self, Half);
 };
 
 // #[inline]
 // rustc: compiler/rustc_middle/src/mir/interpret/value.rs:442 to_f32
 Scalar.to_f32 = function <Prov>(self: Scalar<Prov>): InterpResult<Single> {
-  return Scalar.to_float<Prov, Single>(self);
+  return Scalar.to_float(self, Single);
 };
 
 // #[inline]
 // rustc: compiler/rustc_middle/src/mir/interpret/value.rs:447 to_f64
 Scalar.to_f64 = function <Prov>(self: Scalar<Prov>): InterpResult<Double> {
-  return Scalar.to_float<Prov, Double>(self);
+  return Scalar.to_float(self, Double);
 };
 
 // #[inline]
 // rustc: compiler/rustc_middle/src/mir/interpret/value.rs:452 to_f128
 Scalar.to_f128 = function <Prov>(self: Scalar<Prov>): InterpResult<Quad> {
-  return Scalar.to_float<Prov, Quad>(self);
+  return Scalar.to_float(self, Quad);
 };

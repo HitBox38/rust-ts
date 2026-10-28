@@ -536,7 +536,10 @@ export class InterpCx<M extends Machine = Machine>
         );
 
         // Check if this brought us over the size limit.
-        if (full_size.bytes() > PointerArithmetic_provided.max_size_of_val(this).bytes()) {
+        // PORT: `max_size_of_val()` is `Size::from_bytes(isize::MAX)`, beyond 2^53 on 64-bit targets (a `Size` is a
+        // number, recorded decision): the comparison is on the bytes, as `bigint`s, against `target_isize_max` (as
+        // operator.ts `compute_size_in_bytes` and memory.ts `insert_allocation`).
+        if (BigInt(full_size.bytes()) > PointerArithmetic_provided.target_isize_max(this)) {
           // throw_ub!(InvalidMeta(InvalidMetaKind::TooBig))
           return Err(InterpErrorInfo_from_InterpErrorKind({ $: "UndefinedBehavior", _0: { $: "InvalidMeta", _0: "TooBig" } }));
         }
@@ -561,7 +564,8 @@ export class InterpCx<M extends Machine = Machine>
         // Make sure the slice is not too big.
         // we rely on `max_size_of_val` being smaller than `u64::MAX`.
         const size_ = saturating_mul_u64(BigInt(elem.size.bytes()), len);
-        if (size_ > BigInt(PointerArithmetic_provided.max_size_of_val(this).bytes())) {
+        // PORT: compared with `target_isize_max` (`max_size_of_val()`'s bytes) as above.
+        if (size_ > PointerArithmetic_provided.target_isize_max(this)) {
           // throw_ub!(InvalidMeta(InvalidMetaKind::SliceTooBig))
           return Err(InterpErrorInfo_from_InterpErrorKind({ $: "UndefinedBehavior", _0: { $: "InvalidMeta", _0: "SliceTooBig" } }));
         }

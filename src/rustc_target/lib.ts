@@ -14,7 +14,6 @@ import { unreachable } from "../std/panic.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
 import type { Json } from "./json.ts";
 
-// pub mod callconv; (not ported)
 // PORT: import rustc_target through this file only: `target_features.ts` attaches `impl Target` methods
 // to the class defined in `spec/mod.ts`, so the spec must be evaluated first (see PORTING §8).
 // `spec/mod.ts` imports this file back for `target_spec_enum!` (a function declaration, so usable
@@ -22,6 +21,8 @@ import type { Json } from "./json.ts";
 export * as asm from "./asm/mod.ts";
 export * as json from "./json.ts";
 export * as spec from "./spec/mod.ts";
+// pub mod callconv; (lane fn-abi: mod.rs and x86_64.rs; after the spec, whose `AbiMap` / `Arch` it reads)
+export * as callconv from "./callconv/mod.ts";
 // `spec::json` (`impl ToJson for Target`); after the spec, whose values its tables read at load time.
 export { Target_to_json } from "./spec/json.ts";
 export * as target_features from "./target_features.ts";

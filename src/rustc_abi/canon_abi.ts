@@ -1,4 +1,5 @@
 // compiler/rustc_abi/src/canon_abi.rs (types; `Display` needs `ExternAbi`, which is not ported).
+import { type Debug, debug_tuple } from "../std/fmt.ts";
 import { unported } from "../std/panic.ts";
 
 /// Calling convention to determine codegen
@@ -74,6 +75,23 @@ export const CanonAbi = {
     }
   },
 } as const;
+
+// derive(Debug) (lane fn-abi: `FnAbi`'s Debug prints `conv`)
+export const debug_CanonAbi: Debug<CanonAbi> = (v, f) => {
+  switch (v.$) {
+    case "Arm":
+    case "Interrupt":
+    case "X86":
+      return debug_tuple(f, v.$, [v._0]);
+    default:
+      return v.$;
+  }
+};
+
+/** derive(PartialEq) (lane fn-abi: rustc_passes abi_test.rs `test_abi_eq`) */
+export function CanonAbi_eq(a: CanonAbi, b: CanonAbi): boolean {
+  return a.$ === b.$ && (a as { _0?: string })._0 === (b as { _0?: string })._0;
+}
 
 // impl fmt::Display for CanonAbi
 // PORT: not ported (no marker; canon_abi.rs:79 fmt): it prints through `ExternAbi::as_str` (extern_abi.rs, not ported).

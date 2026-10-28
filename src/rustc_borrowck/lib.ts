@@ -137,10 +137,10 @@ import "./universal_regions.ts";
 import "./used_muts.ts";
 import "./consumers.ts";
 
-import type { FieldIdx } from "../rustc_abi/layout.ts";
+import { FieldIdx } from "../rustc_abi/layout.ts";
 import type { Dominators } from "../rustc_data_structures/graph/dominators/mod.ts";
 import { BodyOwnerKind } from "../rustc_hir/hir.ts";
-import type { MixedBitSet } from "../rustc_index/bit_set.ts";
+import { MixedBitSet } from "../rustc_index/bit_set.ts";
 import { InferCtxt } from "../rustc_infer/decls.ts";
 import type { NllRegionVariableOrigin, RegionVariableOrigin } from "../rustc_infer/infer/mod.ts";
 import {
@@ -150,7 +150,7 @@ import {
   type Location,
   type Operand,
   type Place,
-  type PlaceRef,
+  PlaceRef,
   type Promoted,
   type Rvalue,
   type Statement,
@@ -176,7 +176,7 @@ import { Results } from "../rustc_mir_dataflow/framework/results.ts";
 import { visit_results } from "../rustc_mir_dataflow/framework/visitor.ts";
 import { ResultsVisitor_provided } from "../rustc_mir_dataflow/framework/visitor.ts";
 import { LocalDefId } from "../rustc_span/def_id.ts";
-import type { ErrorGuaranteed, Span } from "../rustc_span/lib.ts";
+import { type ErrorGuaranteed, Span } from "../rustc_span/lib.ts";
 import type { QueryTypeOp, TypeOpOutput } from "../rustc_trait_selection/traits/query/type_op/mod.ts";
 import { TypeOp_ParamEnvAnd } from "../rustc_trait_selection/traits/query/type_op/mod.ts";
 import type { ParamEnvAnd } from "../rustc_middle/ty/mod.ts";
@@ -271,6 +271,24 @@ function mir_borrowck(tcx: TyCtxt, def: LocalDefId): Result<Map<LocalDefId, Defi
   }
 }
 
+// ---- lane bck-lib-a imports (lib.rs lines < 1400) ----
+// PORT: kept next to the lane's code (bck-lib-b fills the same file in parallel); names that the crate root already
+// imports as types only (`Region`, `RegionVid`, `MixedBitSet`) are reached through namespace imports.
+import { BorrowKind, Place_from_Local } from "../rustc_middle/mir/mod.ts";
+import { fold_Ty } from "../rustc_middle/ty/structural_impls.ts";
+import { ControlFlow } from "../rustc_ast_ir/visit.ts";
+import * as bit_set from "../rustc_index/bit_set.ts";
+import { bug, span_bug } from "../rustc_span/macros.ts";
+import { type BoundRegion, BoundRegionKind } from "../rustc_type_ir/binder.ts";
+import { fold_regions } from "../rustc_type_ir/fold.ts";
+import { BoundVar } from "../rustc_type_ir/lib.ts";
+import * as region_kind_gen from "../rustc_type_ir/region_kind.gen.ts";
+import * as sty from "../rustc_type_ir/sty/mod.ts";
+import { format_debug, PLAIN } from "../std/fmt.ts";
+import { each_borrow_involving_path, is_active } from "./path_utils.ts";
+import type { PoloniusOutput } from "./polonius/legacy/facts.gen.ts";
+import type { LocationIndex } from "./polonius/legacy/location.gen.ts";
+
 declare module "./lib.gen.ts" {
   namespace ClosureOutlivesSubjectTy {
     // lib.rs:267 (lane bck-lib-a)
@@ -284,14 +302,48 @@ declare module "./lib.gen.ts" {
 
 /// All regions of `ty` must be of kind `ReVar` and must represent
 /// universal regions *external* to the closure.
-// stub: compiler/rustc_borrowck/src/lib.rs:267 bind (lane bck-lib-a)
+// rustc: compiler/rustc_borrowck/src/lib.rs:267 bind
 (gen.ClosureOutlivesSubjectTy as unknown as { bind: typeof gen.ClosureOutlivesSubjectTy.bind }).bind = function (tcx: TyCtxt, ty: Ty): ClosureOutlivesSubjectTy {
-  return unported("rustc_borrowck::ClosureOutlivesSubjectTy::bind");
+  const inner = fold_regions(
+    tcx,
+    ty,
+    (r, depth) => {
+      const k = r.kind();
+      switch (k.$) {
+        case "ReVar": {
+          const vid = k._0;
+          const br: BoundRegion = {
+            var: BoundVar.from_usize(region_kind_gen.RegionVid.index(vid)),
+            kind: BoundRegionKind.Anon,
+          };
+          return sty.Region.new_bound(tcx, depth, br);
+        }
+        default:
+          return bug(`unexpected region in ClosureOutlivesSubjectTy: ${format_debug(r, sty.debug_Region, PLAIN)}`);
+      }
+    },
+    fold_Ty,
+  );
+
+  return new gen.ClosureOutlivesSubjectTy(inner);
 };
 
-// stub: compiler/rustc_borrowck/src/lib.rs:282 instantiate (lane bck-lib-a)
+// rustc: compiler/rustc_borrowck/src/lib.rs:282 instantiate
 gen.ClosureOutlivesSubjectTy.prototype.instantiate = function (this: ClosureOutlivesSubjectTy, tcx: TyCtxt, map: (a0: RegionVid) => Region): Ty {
-  return unported("rustc_borrowck::ClosureOutlivesSubjectTy::instantiate");
+  return fold_regions(
+    tcx,
+    this.inner,
+    (r, depth) => {
+      const k = r.kind();
+      if (k.$ === "ReBound" && k._0.$ === "Bound") {
+        const [_debruijn, br] = [k._0._0, k._1];
+        // debug_assert_eq!(debruijn, depth);
+        return map(region_kind_gen.RegionVid.from_usize(BoundVar.index(br.var)));
+      }
+      return bug(`unexpected region ${format_debug(r, sty.debug_Region, PLAIN)}`);
+    },
+    fold_Ty,
+  );
 };
 
 /** `PoloniusFacts::default()` (`AllFacts::<RustcFacts>::default()`): vendor polonius-engine 0.13.0 is not ported (plan-m4 D7,
@@ -690,23 +742,252 @@ MirBorrowckCtxt.prototype.visit_block_exit = function (this: MirBorrowckCtxt, st
   ResultsVisitor_provided.visit_block_exit(this, state, block);
 };
 
-// stub: compiler/rustc_borrowck/src/lib.rs:808 visit_after_early_statement_effect (lane bck-lib-a)
+// rustc: compiler/rustc_borrowck/src/lib.rs:808 visit_after_early_statement_effect
 MirBorrowckCtxt.prototype.visit_after_early_statement_effect = function (this: MirBorrowckCtxt, state: BorrowckDomain, stmt: Statement, location: Location): void {
-  return unported("rustc_borrowck::MirBorrowckCtxt::visit_after_early_statement_effect");
+  // debug!("MirBorrowckCtxt::process_statement({:?}, {:?}): {:?}", location, stmt, state);
+  const span = stmt.source_info.span;
+
+  this.check_activations(location, span, state);
+
+  const kind = stmt.kind;
+  switch (kind.$) {
+    case "Assign": {
+      const [lhs, rhs] = kind._0;
+      this.consume_rvalue(location, [rhs, span], state);
+
+      this.mutate_place(location, [lhs, span], { $: "Shallow", _0: undefined }, state);
+      break;
+    }
+    case "FakeRead": {
+      const place = kind._0[1];
+      // Read for match doesn't access any memory and is used to
+      // assert that a place is safe and live. So we don't have to
+      // do any checks here.
+      //
+      // FIXME: Remove check that the place is initialized. This is
+      // needed for now because matches don't have never patterns yet.
+      // So this is the only place we prevent
+      //      let x: !;
+      //      match x {};
+      // from compiling.
+      this.check_if_path_or_subpath_is_moved(location, "Use", [place.as_ref(), span], state);
+      break;
+    }
+    case "Intrinsic": {
+      const intrinsic = kind._0;
+      switch (intrinsic.$) {
+        case "Assume": {
+          const op = intrinsic._0;
+          this.consume_operand(location, [op, span], state);
+          break;
+        }
+        case "CopyNonOverlapping":
+          span_bug(span, "Unexpected CopyNonOverlapping, should only appear after lower_intrinsics");
+      }
+      break;
+    }
+    // Only relevant for mir typeck
+    case "AscribeUserType":
+      break;
+    // Only relevant for liveness and unsafeck
+    case "PlaceMention":
+      break;
+    // Doesn't have any language semantics
+    case "Coverage":
+      break;
+    // These do not actually affect borrowck
+    case "ConstEvalCounter":
+    case "StorageLive":
+      break;
+    // This does not affect borrowck
+    case "BackwardIncompatibleDropHint": {
+      // `reason: BackwardIncompatibleDropReason::Edition2024` (the only variant)
+      const place = kind.place;
+      this.check_backward_incompatible_drop(location, place, state);
+      break;
+    }
+    case "StorageDead": {
+      const local = kind._0;
+      this.access_place(
+        location,
+        [Place_from_Local(local), span],
+        [{ $: "Shallow", _0: undefined }, { $: "Write", _0: gen.WriteKind.StorageDeadOrDrop }],
+        gen.LocalMutationIsAllowed.Yes,
+        state,
+      );
+      break;
+    }
+    case "Nop":
+    case "SetDiscriminant":
+      bug("Statement not allowed in this MIR phase");
+  }
 };
 
 MirBorrowckCtxt.prototype.visit_after_primary_statement_effect = function (this: MirBorrowckCtxt, state: BorrowckDomain, statement: Statement, location: Location): void {
   ResultsVisitor_provided.visit_after_primary_statement_effect(this, state, statement, location);
 };
 
-// stub: compiler/rustc_borrowck/src/lib.rs:882 visit_after_early_terminator_effect (lane bck-lib-a)
+// rustc: compiler/rustc_borrowck/src/lib.rs:882 visit_after_early_terminator_effect
 MirBorrowckCtxt.prototype.visit_after_early_terminator_effect = function (this: MirBorrowckCtxt, state: BorrowckDomain, term: Terminator, loc: Location): void {
-  return unported("rustc_borrowck::MirBorrowckCtxt::visit_after_early_terminator_effect");
+  // debug!("MirBorrowckCtxt::process_terminator({:?}, {:?}): {:?}", loc, term, state);
+  const span = term.source_info.span;
+
+  this.check_activations(loc, span, state);
+
+  const kind = term.kind;
+  switch (kind.$) {
+    case "SwitchInt": {
+      const discr = kind.discr;
+      this.consume_operand(loc, [discr, span], state);
+      break;
+    }
+    case "Drop": {
+      const { place, replace } = kind;
+      // debug!(
+      //     "visit_terminator_drop \
+      //      loc: {:?} term: {:?} place: {:?} span: {:?}",
+      //     loc, term, place, span
+      // );
+
+      const write_kind = replace ? gen.WriteKind.Replace : gen.WriteKind.StorageDeadOrDrop;
+      this.access_place(loc, [place, span], [gen.AccessDepth.Drop, { $: "Write", _0: write_kind }], gen.LocalMutationIsAllowed.Yes, state);
+      break;
+    }
+    case "Call": {
+      const { func, args, destination } = kind;
+      this.consume_operand(loc, [func, span], state);
+      for (const arg of args) {
+        this.consume_operand(loc, [arg.node, arg.span], state);
+      }
+      this.mutate_place(loc, [destination, span], gen.AccessDepth.Deep, state);
+      break;
+    }
+    case "TailCall": {
+      const { func, args } = kind;
+      this.consume_operand(loc, [func, span], state);
+      for (const arg of args) {
+        this.consume_operand(loc, [arg.node, arg.span], state);
+      }
+      break;
+    }
+    case "Assert": {
+      const { cond, msg } = kind;
+      this.consume_operand(loc, [cond, span], state);
+      if (msg.$ === "BoundsCheck") {
+        const { len, index } = msg;
+        this.consume_operand(loc, [len, span], state);
+        this.consume_operand(loc, [index, span], state);
+      }
+      break;
+    }
+
+    case "Yield": {
+      const { value, resume_arg } = kind;
+      this.consume_operand(loc, [value, span], state);
+      this.mutate_place(loc, [resume_arg, span], gen.AccessDepth.Deep, state);
+      break;
+    }
+
+    case "InlineAsm": {
+      const operands = kind.operands;
+      for (const op of operands) {
+        switch (op.$) {
+          case "In": {
+            const value = op.value;
+            this.consume_operand(loc, [value, span], state);
+            break;
+          }
+          case "Out": {
+            const place = op.place;
+            if (place !== undefined) {
+              this.mutate_place(loc, [place, span], { $: "Shallow", _0: undefined }, state);
+            }
+            break;
+          }
+          case "InOut": {
+            const { in_value, out_place } = op;
+            this.consume_operand(loc, [in_value, span], state);
+            if (out_place !== undefined) {
+              this.mutate_place(loc, [out_place, span], { $: "Shallow", _0: undefined }, state);
+            }
+            break;
+          }
+          case "Const":
+          case "SymFn":
+          case "SymStatic":
+          case "Label":
+            break;
+        }
+      }
+      break;
+    }
+
+    case "Goto":
+    case "UnwindTerminate":
+    case "Unreachable":
+    case "UnwindResume":
+    case "Return":
+    case "CoroutineDrop":
+    case "FalseEdge":
+    case "FalseUnwind":
+      // no data used, thus irrelevant to borrowck
+      break;
+  }
 };
 
-// stub: compiler/rustc_borrowck/src/lib.rs:994 visit_after_primary_terminator_effect (lane bck-lib-a)
+// rustc: compiler/rustc_borrowck/src/lib.rs:994 visit_after_primary_terminator_effect
 MirBorrowckCtxt.prototype.visit_after_primary_terminator_effect = function (this: MirBorrowckCtxt, state: BorrowckDomain, term: Terminator, loc: Location): void {
-  return unported("rustc_borrowck::MirBorrowckCtxt::visit_after_primary_terminator_effect");
+  const span = term.source_info.span;
+
+  switch (term.kind.$) {
+    case "Yield": {
+      if (this.movable_coroutine) {
+        // Look for any active borrows to locals
+        for (const i of bit_set.MixedBitSet.iter(state.borrows)) {
+          const borrow = this.borrow_set.index(i);
+          this.check_for_local_borrow(borrow, span);
+        }
+      }
+      break;
+    }
+
+    case "UnwindResume":
+    case "Return":
+    case "TailCall":
+    case "CoroutineDrop": {
+      const locals_state_at_exit = this.borrow_set.locals_state_at_exit_();
+      switch (locals_state_at_exit.$) {
+        case "AllAreInvalidated": {
+          // Returning from the function implicitly kills storage for all locals and statics.
+          // Often, the storage will already have been killed by an explicit
+          // StorageDead, but we don't always emit those (notably on unwind paths),
+          // so this "extra check" serves as a kind of backup.
+          for (const i of bit_set.MixedBitSet.iter(state.borrows)) {
+            const borrow = this.borrow_set.index(i);
+            this.check_for_invalidation_at_exit(loc, borrow, span);
+          }
+          break;
+        }
+        // If we do not implicitly invalidate all locals on exit,
+        // we check for conflicts when dropping or moving this local.
+        case "SomeAreInvalidated":
+          break;
+      }
+      break;
+    }
+
+    case "UnwindTerminate":
+    case "Assert":
+    case "Call":
+    case "Drop":
+    case "FalseEdge":
+    case "FalseUnwind":
+    case "Goto":
+    case "SwitchInt":
+    case "Unreachable":
+    case "InlineAsm":
+      break;
+  }
 };
 
 export interface InitializationRequiringAction_methods {
@@ -802,8 +1083,8 @@ declare module "./lib.gen.ts" {
       desired_action: InitializationRequiringAction,
       place_span: [PlaceRef, Span],
       maybe_uninits: MixedBitSet<MovePathIndex>,
-      from: bigint,
-      to: bigint,
+      from: number,
+      to: number,
     ): void;
     // lib.rs:2137 (lane bck-lib-b)
     check_if_path_or_subpath_is_moved(location: Location, desired_action: InitializationRequiringAction, place_span: [PlaceRef, Span], state: BorrowckDomain): void;
@@ -841,95 +1122,954 @@ MirBorrowckCtxt.prototype.body_ = function (this: MirBorrowckCtxt): Body {
 /// access.
 ///
 /// Returns `true` if an error is reported.
-// stub: compiler/rustc_borrowck/src/lib.rs:1190 access_place (lane bck-lib-a)
+// rustc: compiler/rustc_borrowck/src/lib.rs:1190 access_place
 MirBorrowckCtxt.prototype.access_place = function (this: MirBorrowckCtxt, location: Location, place_span: [Place, Span], kind: [AccessDepth, ReadOrWrite], is_local_mutation_allowed: LocalMutationIsAllowed, state: BorrowckDomain): void {
-  return unported("rustc_borrowck::MirBorrowckCtxt::access_place");
+  const [sd, rw] = kind;
+
+  if (rw.$ === "Activation") {
+    const _borrow_index = rw._1;
+    if (this.reservation_error_reported.has(place_span[0])) {
+      // debug!(
+      //     "skipping access_place for activation of invalid reservation \
+      //      place: {:?} borrow_index: {:?}",
+      //     place_span.0, borrow_index
+      // );
+      return;
+    }
+  }
+
+  // Check is_empty() first because it's the common case, and doing that
+  // way we avoid the clone() call.
+  if (this.access_place_error_reported.size !== 0 && this.access_place_error_reported.has([place_span[0], place_span[1]])) {
+    // debug!(
+    //     "access_place: suppressing error place_span=`{:?}` kind=`{:?}`",
+    //     place_span, kind
+    // );
+
+    // If the place is being mutated, then mark it as such anyway in order to suppress the
+    // `unused_mut` lint, which is likely incorrect once the access place error has been
+    // resolved.
+    if (rw.$ === "Write" && rw._0.$ === "Mutate") {
+      const r = this.is_mutable(place_span[0].as_ref(), is_local_mutation_allowed);
+      if (r.$ === "Ok") {
+        const root_place = r._0;
+        this.add_used_mut(root_place, state);
+      }
+    }
+
+    return;
+  }
+
+  const mutability_error = this.check_access_permissions(place_span, rw, is_local_mutation_allowed, state, location);
+  const conflict_error = this.check_access_for_conflict(location, place_span, sd, rw, state);
+
+  if (conflict_error || mutability_error) {
+    // debug!("access_place: logging error place_span=`{:?}` kind=`{:?}`", place_span, kind);
+    this.access_place_error_reported.add([place_span[0], place_span[1]]);
+  }
 };
+
+/** `polonius_engine::Output::errors_at` (the `-Zpolonius=legacy` output): vendor polonius-engine 0.13.0 is not ported
+ * (plan-m4 D7, wave 26); `polonius_output` is only `Some` under `-Zpolonius=legacy`. */
+function PoloniusOutput_errors_at(_self: PoloniusOutput, _location: LocationIndex): readonly BorrowIndex[] {
+  return unported("polonius_engine::Output::errors_at (vendor polonius-engine, plan-m4 D7, wave 26)");
+}
 
 // PORT: `Cow<'s, MixedBitSet<BorrowIndex>>` is the set itself (borrowed or owned); callers only read it.
-// stub: compiler/rustc_borrowck/src/lib.rs:1249 borrows_in_scope (lane bck-lib-a)
+// rustc: compiler/rustc_borrowck/src/lib.rs:1249 borrows_in_scope
 MirBorrowckCtxt.prototype.borrows_in_scope = function (this: MirBorrowckCtxt, location: Location, state: BorrowckDomain): MixedBitSet<BorrowIndex> {
-  return unported("rustc_borrowck::MirBorrowckCtxt::borrows_in_scope");
+  const polonius = this.polonius_output;
+  if (polonius !== undefined) {
+    // Use polonius output if it has been enabled.
+    const location_ = this.location_table.start_index(location);
+    const polonius_output = bit_set.MixedBitSet.new_empty<BorrowIndex>(this.borrow_set.len());
+    for (const idx of PoloniusOutput_errors_at(polonius, location_)) {
+      bit_set.MixedBitSet.insert(polonius_output, idx);
+    }
+    return polonius_output;
+  } else {
+    return state.borrows;
+  }
 };
 
-// stub: compiler/rustc_borrowck/src/lib.rs:1268 check_access_for_conflict (lane bck-lib-a)
+// #[instrument(level = "debug", skip(self, state))]
+// rustc: compiler/rustc_borrowck/src/lib.rs:1268 check_access_for_conflict
 MirBorrowckCtxt.prototype.check_access_for_conflict = function (this: MirBorrowckCtxt, location: Location, place_span: [Place, Span], sd: AccessDepth, rw: ReadOrWrite, state: BorrowckDomain): boolean {
-  return unported("rustc_borrowck::MirBorrowckCtxt::check_access_for_conflict");
+  let error_reported = false;
+
+  const borrows_in_scope = this.borrows_in_scope(location, state);
+  // debug!(?borrows_in_scope, ?location);
+
+  each_borrow_involving_path(
+    this,
+    this.infcx.tcx,
+    this.body,
+    [sd, place_span[0]],
+    this.borrow_set,
+    (borrow_index) => bit_set.MixedBitSet.contains(borrows_in_scope, borrow_index),
+    (this_, borrow_index, borrow): ControlFlow<null> => {
+      // PORT: `match (rw, borrow.kind)`: an if-chain in upstream arm order.
+      const borrow_kind = borrow.kind;
+      // Obviously an activation is compatible with its own
+      // reservation (or even prior activating uses of same
+      // borrow); so don't check if they interfere.
+      //
+      // NOTE: *reservations* do conflict with themselves;
+      // thus aren't injecting unsoundness w/ this check.)
+      if (rw.$ === "Activation" && rw._1 === borrow_index) {
+        // debug!(
+        //     "check_access_for_conflict place_span: {:?} sd: {:?} rw: {:?} \
+        //      skipping {:?} b/c activation of same borrow_index",
+        //     place_span,
+        //     sd,
+        //     rw,
+        //     (borrow_index, borrow),
+        // );
+        return ControlFlow.CONTINUE;
+      }
+
+      if (
+        (rw.$ === "Read" && (borrow_kind.$ === "Shared" || borrow_kind.$ === "Fake")) ||
+        (rw.$ === "Read" && rw._0.$ === "Borrow" && rw._0._0.$ === "Fake" && rw._0._0._0 === "Shallow" && borrow_kind.$ === "Mut")
+      ) {
+        return ControlFlow.CONTINUE;
+      }
+
+      if (rw.$ === "Reservation" && (borrow_kind.$ === "Fake" || borrow_kind.$ === "Shared")) {
+        // This used to be a future compatibility warning (to be
+        // disallowed on NLL). See rust-lang/rust#56254
+        return ControlFlow.CONTINUE;
+      }
+
+      if (rw.$ === "Write" && rw._0.$ === "Move" && borrow_kind.$ === "Fake" && borrow_kind._0 === "Shallow") {
+        // Handled by initialization checks.
+        return ControlFlow.CONTINUE;
+      }
+
+      if (rw.$ === "Read" && borrow_kind.$ === "Mut") {
+        const kind = rw._0;
+        // Reading from mere reservations of mutable-borrows is OK.
+        if (!is_active(this_.dominators(), borrow, location)) {
+          assert(BorrowKind.is_two_phase_borrow(borrow.kind), "assertion failed: borrow.kind.is_two_phase_borrow()");
+          return ControlFlow.CONTINUE;
+        }
+
+        error_reported = true;
+        switch (kind.$) {
+          case "Copy": {
+            const err = this_.report_use_while_mutably_borrowed(location, place_span, borrow);
+            this_.buffer_error(err);
+            break;
+          }
+          case "Borrow": {
+            const bk = kind._0;
+            const err = this_.report_conflicting_borrow(location, place_span, bk, borrow);
+            this_.buffer_error(err);
+            break;
+          }
+        }
+        return ControlFlow.Break(null);
+      }
+
+      // `(Reservation(kind) | Activation(kind, _) | Write(kind), _)`: every `Read` was matched above (`Shared` /
+      // `Fake` by the second arm, `Mut` by the previous one).
+      const rw_ = rw as Exclude<ReadOrWrite, { $: "Read" }>;
+      const kind = rw_._0;
+      switch (rw_.$) {
+        case "Reservation":
+          // debug!(
+          //     "recording invalid reservation of \
+          //      place: {:?}",
+          //     place_span.0
+          // );
+          this_.reservation_error_reported.add(place_span[0]);
+          break;
+        case "Activation": {
+          const _activating = rw_._1;
+          // debug!(
+          //     "observing check_place for activation of \
+          //      borrow_index: {:?}",
+          //     activating
+          // );
+          break;
+        }
+        case "Write":
+          break;
+      }
+
+      error_reported = true;
+      switch (kind.$) {
+        case "MutableBorrow": {
+          const bk = kind._0;
+          const err = this_.report_conflicting_borrow(location, place_span, bk, borrow);
+          this_.buffer_error(err);
+          break;
+        }
+        case "StorageDeadOrDrop":
+          this_.report_borrowed_value_does_not_live_long_enough(location, borrow, place_span, gen.WriteKind.StorageDeadOrDrop);
+          break;
+        case "Mutate":
+          this_.report_illegal_mutation_of_borrowed(location, place_span, borrow);
+          break;
+        case "Move":
+          this_.report_move_out_while_borrowed(location, place_span, borrow);
+          break;
+        case "Replace":
+          this_.report_illegal_mutation_of_borrowed(location, place_span, borrow);
+          break;
+      }
+      return ControlFlow.Break(null);
+    },
+  );
+
+  return error_reported;
 };
 
 // ==== lane bck-lib-b ====
+// PORT: lane bck-lib-b's value imports sit here (ES imports are hoisted) so the parallel bck-lib-a edits of the import
+// block above merge cleanly; companions of names imported as types above are reached through `gen.` (lib.gen.ts).
+import { debug_Local, debug_Location, debug_Place, debug_PlaceTy, type PlaceElem, PlaceTy, ProjectionElem } from "../rustc_middle/mir/mod.ts";
+import { debug_Ty } from "../rustc_middle/ty/structural_impls.ts";
+import { CRATE_HIR_ID } from "../rustc_hir_id/lib.ts";
+import { TAIL_EXPR_DROP_ORDER, UNUSED_MUT } from "../rustc_lint_defs/builtin.ts";
+import { PRETTY } from "../std/fmt.ts";
+import { panic } from "../std/panic.ts";
+import type { AccessKind } from "./diagnostics/mutability_errors.gen.ts";
+import { MoveError } from "./diagnostics/move_errors.gen.ts";
+import { UseSpans } from "./diagnostics/mod.ts";
+import { BorrowExplanation } from "./diagnostics/explain_borrow.ts";
+import * as path_utils from "./path_utils.ts";
+import { borrow_of_local_data } from "./path_utils.ts";
+import * as places_conflict from "./places_conflict.ts";
+import { Iterator_Prefixes } from "./prefixes.ts";
+import { PrefixSet } from "./prefixes.gen.ts";
+import { TailExprDropOrder_diagnostic } from "./session_diagnostics.ts";
+import { VarNeedNotMut_diagnostic } from "./session_diagnostics.gen.ts";
+import { Init } from "../rustc_mir_dataflow/move_paths/mod.ts";
+import type { AdtDef } from "../rustc_middle/ty/adt.ts";
 
-// stub: compiler/rustc_borrowck/src/lib.rs:1402 check_backward_incompatible_drop (lane bck-lib-b)
+/// Through #123739, `BackwardIncompatibleDropHint`s (BIDs) are introduced.
+/// We would like to emit lints whether borrow checking fails at these future drop locations.
+// #[instrument(level = "debug", skip(self, state))]
+// rustc: compiler/rustc_borrowck/src/lib.rs:1402 check_backward_incompatible_drop
 MirBorrowckCtxt.prototype.check_backward_incompatible_drop = function (this: MirBorrowckCtxt, location: Location, place: Place, state: BorrowckDomain): void {
-  return unported("rustc_borrowck::MirBorrowckCtxt::check_backward_incompatible_drop");
+  const tcx = this.infcx.tcx;
+  // If this type does not need `Drop`, then treat it like a `StorageDead`.
+  // This is needed because we track the borrows of refs to thread locals,
+  // and we'll ICE because we don't track borrows behind shared references.
+  const sd: AccessDepth = place.ty(this.body, tcx).ty.needs_drop(tcx, this.body.typing_env(tcx))
+    ? gen.AccessDepth.Drop
+    : { $: "Shallow", _0: undefined };
+
+  const borrows_in_scope = this.borrows_in_scope(location, state);
+
+  // This is a very simplified version of `Self::check_access_for_conflict`.
+  // We are here checking on BIDs and specifically still-live borrows of data involving the BIDs.
+  each_borrow_involving_path(
+    this,
+    this.infcx.tcx,
+    this.body,
+    [sd, place],
+    this.borrow_set,
+    (borrow_index) => MixedBitSet.contains(borrows_in_scope, borrow_index),
+    (this_, _borrow_index, borrow) => {
+      if (borrow.kind.$ === "Fake") {
+        return ControlFlow.CONTINUE;
+      }
+      const borrowed = UseSpans.var_or_use_path_span(this_.retrieve_borrow_spans(borrow));
+      const explain = this_.explain_why_borrow_contains_point(location, borrow, [gen.WriteKind.StorageDeadOrDrop, place]);
+      this_.infcx.tcx.emit_node_span_lint(
+        TAIL_EXPR_DROP_ORDER,
+        CRATE_HIR_ID,
+        borrowed,
+        TailExprDropOrder_diagnostic({
+          borrowed,
+          callback: (diag) => {
+            BorrowExplanation.add_explanation_to_diagnostic(explain, this_, diag, "", undefined, undefined);
+          },
+        }),
+      );
+      // We may stop at the first case
+      return ControlFlow.Break(null);
+    },
+  );
 };
 
-// stub: compiler/rustc_borrowck/src/lib.rs:1456 mutate_place (lane bck-lib-b)
+// rustc: compiler/rustc_borrowck/src/lib.rs:1456 mutate_place
 MirBorrowckCtxt.prototype.mutate_place = function (this: MirBorrowckCtxt, location: Location, place_span: [Place, Span], kind: AccessDepth, state: BorrowckDomain): void {
-  return unported("rustc_borrowck::MirBorrowckCtxt::mutate_place");
+  // Write of P[i] or *P requires P init'd.
+  this.check_if_assigned_path_is_moved(location, place_span, state);
+
+  this.access_place(location, place_span, [kind, { $: "Write", _0: gen.WriteKind.Mutate }], "No", state);
 };
 
-// stub: compiler/rustc_borrowck/src/lib.rs:1475 consume_rvalue (lane bck-lib-b)
-MirBorrowckCtxt.prototype.consume_rvalue = function (this: MirBorrowckCtxt, location: Location, rvalue_span: [Rvalue, Span], state: BorrowckDomain): void {
-  return unported("rustc_borrowck::MirBorrowckCtxt::consume_rvalue");
+// rustc: compiler/rustc_borrowck/src/lib.rs:1475 consume_rvalue
+MirBorrowckCtxt.prototype.consume_rvalue = function (this: MirBorrowckCtxt, location: Location, [rvalue, span]: [Rvalue, Span], state: BorrowckDomain): void {
+  switch (rvalue.$) {
+    case "Ref": {
+      const bk = rvalue._1;
+      const place = rvalue._2;
+      let access_kind: [AccessDepth, ReadOrWrite];
+      if (bk.$ === "Fake" && bk._0 === "Shallow") {
+        access_kind = [{ $: "Shallow", _0: "FakeBorrow" }, { $: "Read", _0: { $: "Borrow", _0: bk } }];
+      } else if (bk.$ === "Shared" || (bk.$ === "Fake" && bk._0 === "Deep")) {
+        access_kind = [gen.AccessDepth.Deep, { $: "Read", _0: { $: "Borrow", _0: bk } }];
+      } else {
+        // BorrowKind::Mut { .. }
+        const wk: gen.WriteKind = { $: "MutableBorrow", _0: bk };
+        if (BorrowKind.is_two_phase_borrow(bk)) {
+          access_kind = [gen.AccessDepth.Deep, { $: "Reservation", _0: wk }];
+        } else {
+          access_kind = [gen.AccessDepth.Deep, { $: "Write", _0: wk }];
+        }
+      }
+
+      this.access_place(location, [place, span], access_kind, "No", state);
+
+      const action: InitializationRequiringAction = bk.$ === "Fake" && bk._0 === "Shallow" ? "MatchOn" : "Borrow";
+
+      this.check_if_path_or_subpath_is_moved(location, action, [place.as_ref(), span], state);
+      break;
+    }
+
+    case "Reborrow": {
+      const mutability = rvalue._1;
+      const place = rvalue._2;
+      const access_kind: [AccessDepth, ReadOrWrite] = [
+        gen.AccessDepth.Deep,
+        mutability === "Mut"
+          ? { $: "Write", _0: { $: "MutableBorrow", _0: { $: "Mut", kind: "Default" } } }
+          : { $: "Read", _0: { $: "Borrow", _0: BorrowKind.Shared } },
+      ];
+
+      this.access_place(location, [place, span], access_kind, "Yes", state);
+
+      const action: InitializationRequiringAction = "Borrow";
+
+      this.check_if_path_or_subpath_is_moved(location, action, [place.as_ref(), span], state);
+      break;
+    }
+
+    case "RawPtr": {
+      const kind = rvalue._0;
+      const place = rvalue._1;
+      let access_kind: [AccessDepth, ReadOrWrite];
+      switch (kind) {
+        case "Mut":
+          access_kind = [gen.AccessDepth.Deep, { $: "Write", _0: { $: "MutableBorrow", _0: { $: "Mut", kind: "Default" } } }];
+          break;
+        case "Const":
+          access_kind = [gen.AccessDepth.Deep, { $: "Read", _0: { $: "Borrow", _0: BorrowKind.Shared } }];
+          break;
+        case "FakeForPtrMetadata":
+          access_kind = [{ $: "Shallow", _0: "ArrayLength" }, { $: "Read", _0: gen.ReadKind.Copy }];
+          break;
+      }
+
+      this.access_place(location, [place, span], access_kind, "No", state);
+
+      this.check_if_path_or_subpath_is_moved(location, "Borrow", [place.as_ref(), span], state);
+      break;
+    }
+
+    case "ThreadLocalRef":
+      break;
+
+    case "Use":
+    case "Repeat": {
+      const operand = rvalue._0;
+      this.consume_operand(location, [operand, span], state);
+      break;
+    }
+    case "UnaryOp":
+    case "Cast": {
+      const operand = rvalue._1;
+      this.consume_operand(location, [operand, span], state);
+      break;
+    }
+
+    case "Discriminant": {
+      const place = rvalue._0;
+      // `match *rvalue { Rvalue::Discriminant(..) => None, _ => unreachable!() }`
+      const af: gen.ArtificialField | undefined = undefined;
+      this.access_place(location, [place, span], [{ $: "Shallow", _0: af }, { $: "Read", _0: gen.ReadKind.Copy }], "No", state);
+      this.check_if_path_or_subpath_is_moved(location, "Use", [place.as_ref(), span], state);
+      break;
+    }
+
+    case "BinaryOp": {
+      const [operand1, operand2] = rvalue._1;
+      this.consume_operand(location, [operand1, span], state);
+      this.consume_operand(location, [operand2, span], state);
+      break;
+    }
+
+    case "Aggregate": {
+      const aggregate_kind = rvalue._0;
+      const operands = rvalue._1;
+      // We need to report back the list of mutable upvars that were
+      // moved into the closure and subsequently used by the closure,
+      // in order to populate our used_mut set.
+      switch (aggregate_kind.$) {
+        case "Closure":
+        case "CoroutineClosure":
+        case "Coroutine": {
+          const def_id = aggregate_kind._0.expect_local();
+          const used_mut_upvars = this.root_cx.used_mut_upvars(def_id);
+          // debug!("{:?} used_mut_upvars={:?}", def_id, used_mut_upvars);
+          // FIXME: We're cloning the `SmallVec` here to avoid borrowing `root_cx`
+          // when calling `propagate_closure_used_mut_upvar`. This should ideally
+          // be unnecessary.
+          for (const field of [...used_mut_upvars]) {
+            this.propagate_closure_used_mut_upvar(operands[field]!);
+          }
+          break;
+        }
+        case "Adt":
+        case "Array":
+        case "Tuple":
+        case "RawPtr":
+          break;
+      }
+
+      for (const operand of operands) {
+        this.consume_operand(location, [operand, span], state);
+      }
+      break;
+    }
+
+    case "WrapUnsafeBinder": {
+      const op = rvalue._0;
+      this.consume_operand(location, [op, span], state);
+      break;
+    }
+
+    case "CopyForDeref":
+      bug("`CopyForDeref` in borrowck");
+  }
 };
 
-// stub: compiler/rustc_borrowck/src/lib.rs:1653 propagate_closure_used_mut_upvar (lane bck-lib-b)
+// rustc: compiler/rustc_borrowck/src/lib.rs:1653 propagate_closure_used_mut_upvar
 MirBorrowckCtxt.prototype.propagate_closure_used_mut_upvar = function (this: MirBorrowckCtxt, operand: Operand): void {
-  return unported("rustc_borrowck::MirBorrowckCtxt::propagate_closure_used_mut_upvar");
+  const propagate_closure_used_mut_place = (this_: MirBorrowckCtxt, place: Place): void => {
+    // We have three possibilities here:
+    // a. We are modifying something through a mut-ref
+    // b. We are modifying something that is local to our parent
+    // c. Current body is a nested closure, and we are modifying path starting from
+    //    a Place captured by our parent closure.
+
+    // Handle (c), the path being modified is exactly the path captured by our parent
+    const field = this_.is_upvar_field_projection(place.as_ref());
+    if (field !== undefined) {
+      this_.used_mut_upvars.push(field);
+      return;
+    }
+
+    const projections = place.iter_projections();
+    for (let i = projections.length - 1; i >= 0; i--) {
+      const [place_ref, proj] = projections[i]!;
+      // Handle (a)
+      if (proj.$ === "Deref") {
+        const kind = place_ref.ty(this_.body_(), this_.infcx.tcx).ty.kind();
+        // We aren't modifying a variable directly
+        if (kind.$ === "Ref" && kind._2 === "Mut") return;
+      }
+
+      // Handle (c)
+      const field = this_.is_upvar_field_projection(place_ref);
+      if (field !== undefined) {
+        this_.used_mut_upvars.push(field);
+        return;
+      }
+    }
+
+    // Handle(b)
+    this_.used_mut.add(place.local);
+  };
+
+  // This relies on the current way that by-value
+  // captures of a closure are copied/moved directly
+  // when generating MIR.
+  switch (operand.$) {
+    case "Move":
+    case "Copy": {
+      const place = operand._0;
+      const local = place.as_local();
+      if (local !== undefined && !this.body.local_decls[local]!.is_user_variable()) {
+        if (this.body.local_decls[local]!.ty.is_mutable_ptr()) {
+          // The variable will be marked as mutable by the borrow.
+          return;
+        }
+        // This is an edge case where we have a `move` closure
+        // inside a non-move closure, and the inner closure
+        // contains a mutation:
+        //
+        // let mut i = 0;
+        // || { move || { i += 1; }; };
+        //
+        // In this case our usual strategy of assuming that the
+        // variable will be captured by mutable reference is
+        // wrong, since `i` can be copied into the inner
+        // closure from a shared reference.
+        //
+        // As such we have to search for the local that this
+        // capture comes from and mark it as being used as mut.
+
+        const temp_mpi = this.move_data.rev_lookup.find_local(local);
+        if (temp_mpi === undefined) {
+          bug("temporary should be tracked");
+        }
+        const init_indices = this.move_data.init_path_map[temp_mpi]!;
+        let init;
+        if (init_indices.length === 1) {
+          const init_index = init_indices[0]!;
+          init = this.move_data.inits[init_index]!;
+        } else {
+          bug("temporary should be initialized exactly once");
+        }
+
+        if (init.location.$ !== "Statement") {
+          bug("temporary initialized in arguments");
+        }
+        const loc = init.location._0;
+
+        const body = this.body;
+        const bbd = body.basic_blocks.deref()[loc.block]!;
+        const stmt = bbd.statements[loc.statement_index]!;
+        // debug!("temporary assigned in: stmt={:?}", stmt);
+
+        const kind = stmt.kind;
+        if (kind.$ === "Assign" && kind._0[1].$ === "Ref") {
+          const source = kind._0[1]._2;
+          propagate_closure_used_mut_place(this, source);
+        } else if (kind.$ === "Assign" && kind._0[1].$ === "Use" && (kind._0[1]._0.$ === "Copy" || kind._0[1]._0.$ === "Move")) {
+          const source = kind._0[1]._0._0;
+          propagate_closure_used_mut_place(this, source);
+        } else {
+          bug("closures should only capture user variables or references to user variables");
+        }
+      } else {
+        propagate_closure_used_mut_place(this, place);
+      }
+      break;
+    }
+    case "Constant":
+    case "RuntimeChecks":
+      break;
+  }
 };
 
-// stub: compiler/rustc_borrowck/src/lib.rs:1756 consume_operand (lane bck-lib-b)
-MirBorrowckCtxt.prototype.consume_operand = function (this: MirBorrowckCtxt, location: Location, operand_span: [Operand, Span], state: BorrowckDomain): void {
-  return unported("rustc_borrowck::MirBorrowckCtxt::consume_operand");
+// rustc: compiler/rustc_borrowck/src/lib.rs:1756 consume_operand
+MirBorrowckCtxt.prototype.consume_operand = function (this: MirBorrowckCtxt, location: Location, [operand, span]: [Operand, Span], state: BorrowckDomain): void {
+  switch (operand.$) {
+    case "Copy": {
+      const place = operand._0;
+      // copy of place: check if this is "copy of frozen path"
+      // (FIXME: see check_loans.rs)
+      this.access_place(location, [place, span], [gen.AccessDepth.Deep, { $: "Read", _0: gen.ReadKind.Copy }], "No", state);
+
+      // Finally, check if path was already moved.
+      this.check_if_path_or_subpath_is_moved(location, "Use", [place.as_ref(), span], state);
+      break;
+    }
+    case "Move": {
+      const place = operand._0;
+      // Check if moving from this place makes sense.
+      this.check_movable_place(location, place);
+
+      // move of place: check if this is move of already borrowed path
+      this.access_place(location, [place, span], [gen.AccessDepth.Deep, { $: "Write", _0: gen.WriteKind.Move }], "Yes", state);
+
+      // Finally, check if path was already moved.
+      this.check_if_path_or_subpath_is_moved(location, "Use", [place.as_ref(), span], state);
+      break;
+    }
+    case "Constant":
+    case "RuntimeChecks":
+      break;
+  }
 };
 
 /// Checks whether a borrow of this place is invalidated when the function
 /// exits
-// stub: compiler/rustc_borrowck/src/lib.rs:1810 check_for_invalidation_at_exit (lane bck-lib-b)
+// #[instrument(level = "debug", skip(self))]
+// rustc: compiler/rustc_borrowck/src/lib.rs:1810 check_for_invalidation_at_exit
 MirBorrowckCtxt.prototype.check_for_invalidation_at_exit = function (this: MirBorrowckCtxt, location: Location, borrow: BorrowData, span: Span): void {
-  return unported("rustc_borrowck::MirBorrowckCtxt::check_for_invalidation_at_exit");
+  const place = borrow.borrowed_place;
+  const root_place = new PlaceRef(place.local, []);
+
+  // FIXME(nll-rfc#40): do more precise destructor tracking here. For now
+  // we just know that all locals are dropped at function exit (otherwise
+  // we'll have a memory leak) and assume that all statics have a destructor.
+  //
+  // FIXME: allow thread-locals to borrow other thread locals?
+  let might_be_alive: boolean;
+  if (this.body.local_decls[root_place.local]!.is_ref_to_thread_local()) {
+    // Thread-locals might be dropped after the function exits
+    // We have to dereference the outer reference because
+    // borrows don't conflict behind shared references.
+    root_place.projection = TyCtxtConsts_DEREF_PROJECTION;
+    might_be_alive = true;
+  } else {
+    might_be_alive = false;
+  }
+
+  const sd: AccessDepth = might_be_alive ? gen.AccessDepth.Deep : { $: "Shallow", _0: undefined };
+
+  if (
+    places_conflict.borrow_conflicts_with_place(
+      this.infcx.tcx,
+      this.body,
+      place,
+      borrow.kind,
+      root_place,
+      sd,
+      places_conflict.PlaceConflictBias.Overlap,
+    )
+  ) {
+    // debug!("check_for_invalidation_at_exit({:?}): INVALID", place);
+    // FIXME: should be talking about the region lifetime instead
+    // of just a span here.
+    const span_ = this.infcx.tcx.sess.source_map().end_point(span);
+    this.report_borrowed_value_does_not_live_long_enough(location, borrow, [place, span_], undefined);
+  }
 };
+
+/** `TyCtxtConsts::DEREF_PROJECTION` (`&[ProjectionElem::Deref]`, a constant of `impl TyCtxtConsts`). */
+const TyCtxtConsts_DEREF_PROJECTION: readonly PlaceElem[] = Object.freeze([ProjectionElem.Deref]);
 
 /// Reports an error if this is a borrow of local data.
 /// This is called for all Yield expressions on movable coroutines
-// stub: compiler/rustc_borrowck/src/lib.rs:1860 check_for_local_borrow (lane bck-lib-b)
+// rustc: compiler/rustc_borrowck/src/lib.rs:1860 check_for_local_borrow
 MirBorrowckCtxt.prototype.check_for_local_borrow = function (this: MirBorrowckCtxt, borrow: BorrowData, yield_span: Span): void {
-  return unported("rustc_borrowck::MirBorrowckCtxt::check_for_local_borrow");
+  // debug!("check_for_local_borrow({:?})", borrow);
+
+  if (borrow_of_local_data(borrow.borrowed_place)) {
+    const err = this.cannot_borrow_across_coroutine_yield(UseSpans.var_or_use(this.retrieve_borrow_spans(borrow)), yield_span);
+
+    this.buffer_error(err);
+  }
 };
 
-// stub: compiler/rustc_borrowck/src/lib.rs:1873 check_activations (lane bck-lib-b)
+// rustc: compiler/rustc_borrowck/src/lib.rs:1873 check_activations
 MirBorrowckCtxt.prototype.check_activations = function (this: MirBorrowckCtxt, location: Location, span: Span, state: BorrowckDomain): void {
-  return unported("rustc_borrowck::MirBorrowckCtxt::check_activations");
+  // Two-phase borrow support: For each activation that is newly
+  // generated at this statement, check if it interferes with
+  // another borrow.
+  for (const borrow_index of this.borrow_set.activations_at_location(location)) {
+    const borrow = this.borrow_set.index(borrow_index);
+
+    // only mutable borrows should be 2-phase
+    let is_mut: boolean;
+    switch (borrow.kind.$) {
+      case "Shared":
+      case "Fake":
+        is_mut = false;
+        break;
+      case "Mut":
+        is_mut = true;
+        break;
+    }
+    assert(
+      is_mut,
+      "assertion failed: match borrow.kind {\n    BorrowKind::Shared | BorrowKind::Fake(_) => false,\n    BorrowKind::Mut { .. } => true,\n}",
+    );
+
+    this.access_place(
+      location,
+      [borrow.borrowed_place, span],
+      [gen.AccessDepth.Deep, { $: "Activation", _0: { $: "MutableBorrow", _0: borrow.kind }, _1: borrow_index }],
+      "No",
+      state,
+    );
+    // We do not need to call `check_if_path_or_subpath_is_moved`
+    // again, as we already called it when we made the
+    // initial reservation.
+  }
 };
 
-// stub: compiler/rustc_borrowck/src/lib.rs:1899 check_movable_place (lane bck-lib-b)
+// rustc: compiler/rustc_borrowck/src/lib.rs:1899 check_movable_place
 MirBorrowckCtxt.prototype.check_movable_place = function (this: MirBorrowckCtxt, location: Location, place: Place): void {
-  return unported("rustc_borrowck::MirBorrowckCtxt::check_movable_place");
+  // use IllegalMoveOriginKind::*;
+
+  const body = this.body;
+  const tcx = this.infcx.tcx;
+  let place_ty = PlaceTy.from_ty(body.local_decls[place.local]!.ty);
+  for (const [place_ref, elem] of place.iter_projections()) {
+    switch (elem.$) {
+      case "Deref": {
+        const kind = place_ty.ty.kind();
+        switch (kind.$) {
+          case "Ref":
+          case "RawPtr":
+            this.move_errors.push(MoveError.new(place, location, { $: "BorrowedContent", target_place: place_ref.project_deeper([elem], tcx) }));
+            return;
+          case "Adt": {
+            const adt = kind._0;
+            if (!adt.is_box()) {
+              bug("Adt should be a box type when Place is deref");
+            }
+            break;
+          }
+          case "Bool":
+          case "Char":
+          case "Int":
+          case "Uint":
+          case "Float":
+          case "Foreign":
+          case "Str":
+          case "Array":
+          case "Pat":
+          case "Slice":
+          case "FnDef":
+          case "FnPtr":
+          case "Dynamic":
+          case "Closure":
+          case "CoroutineClosure":
+          case "Coroutine":
+          case "CoroutineWitness":
+          case "Never":
+          case "Tuple":
+          case "UnsafeBinder":
+          case "Alias":
+          case "Param":
+          case "Bound":
+          case "Infer":
+          case "Error":
+          case "Placeholder":
+            bug(`When Place is Deref it's type shouldn't be ${debug_PlaceTy(place_ty, PRETTY)}`);
+        }
+        break;
+      }
+      case "Field": {
+        const kind = place_ty.ty.kind();
+        switch (kind.$) {
+          case "Adt": {
+            const adt = kind._0;
+            if (adt.has_dtor(tcx)) {
+              this.move_errors.push(MoveError.new(place, location, { $: "InteriorOfTypeWithDestructor", container_ty: place_ty.ty }));
+              return;
+            }
+            break;
+          }
+          case "Closure":
+          case "CoroutineClosure":
+          case "Coroutine":
+          case "Tuple":
+            break;
+          case "Bool":
+          case "Char":
+          case "Int":
+          case "Uint":
+          case "Float":
+          case "Foreign":
+          case "Str":
+          case "Array":
+          case "Pat":
+          case "Slice":
+          case "RawPtr":
+          case "Ref":
+          case "FnDef":
+          case "FnPtr":
+          case "Dynamic":
+          case "CoroutineWitness":
+          case "Never":
+          case "UnsafeBinder":
+          case "Alias":
+          case "Param":
+          case "Bound":
+          case "Infer":
+          case "Error":
+          case "Placeholder":
+            bug(`When Place contains ProjectionElem::Field it's type shouldn't be ${debug_PlaceTy(place_ty, PRETTY)}`);
+        }
+        break;
+      }
+      case "ConstantIndex":
+      case "Subslice": {
+        const kind = place_ty.ty.kind();
+        switch (kind.$) {
+          case "Slice":
+            this.move_errors.push(MoveError.new(place, location, { $: "InteriorOfSliceOrArray", ty: place_ty.ty, is_index: false }));
+            return;
+          case "Array":
+            break;
+          default:
+            bug(`Unexpected type ${debug_Ty(place_ty.ty, PRETTY)}`);
+        }
+        break;
+      }
+      case "Index": {
+        const kind = place_ty.ty.kind();
+        switch (kind.$) {
+          case "Array":
+          case "Slice":
+            this.move_errors.push(MoveError.new(place, location, { $: "InteriorOfSliceOrArray", ty: place_ty.ty, is_index: true }));
+            return;
+          default:
+            bug(`Unexpected type ${debug_PlaceTy(place_ty, PRETTY)}`);
+        }
+      }
+      // `OpaqueCast`: only transmutes the type, so no moves there.
+      // `Downcast`  : only changes information about a `Place` without moving.
+      // So it's safe to skip these.
+      case "OpaqueCast":
+      case "Downcast":
+      case "UnwrapUnsafeBinder":
+      case "PhantomDeref":
+        break;
+    }
+
+    place_ty = place_ty.projection_ty(tcx, elem, debug_Local);
+  }
 };
 
-// stub: compiler/rustc_borrowck/src/lib.rs:2032 check_if_full_path_is_moved (lane bck-lib-b)
+// rustc: compiler/rustc_borrowck/src/lib.rs:2032 check_if_full_path_is_moved
 MirBorrowckCtxt.prototype.check_if_full_path_is_moved = function (this: MirBorrowckCtxt, location: Location, desired_action: InitializationRequiringAction, place_span: [PlaceRef, Span], state: BorrowckDomain): void {
-  return unported("rustc_borrowck::MirBorrowckCtxt::check_if_full_path_is_moved");
+  const maybe_uninits = state.uninits;
+
+  // Bad scenarios:
+  //
+  // 1. Move of `a.b.c`, use of `a.b.c`
+  // 2. Move of `a.b.c`, use of `a.b.c.d` (without first reinitializing `a.b.c.d`)
+  // 3. Uninitialized `(a.b.c: &_)`, use of `*a.b.c`; note that with
+  //    partial initialization support, one might have `a.x`
+  //    initialized but not `a.b`.
+  //
+  // OK scenarios:
+  //
+  // 4. Move of `a.b.c`, use of `a.b.d`
+  // 5. Uninitialized `a.x`, initialized `a.b`, use of `a.b`
+  // 6. Copied `(a.b: &_)`, use of `*(a.b).c`; note that `a.b`
+  //    must have been initialized for the use to be sound.
+  // 7. Move of `a.b.c` then reinit of `a.b.c.d`, use of `a.b.c.d`
+
+  // The dataflow tracks shallow prefixes distinctly (that is,
+  // field-accesses on P distinctly from P itself), in order to
+  // track substructure initialization separately from the whole
+  // structure.
+  //
+  // E.g., when looking at (*a.b.c).d, if the closest prefix for
+  // which we have a MovePath is `a.b`, then that means that the
+  // initialization state of `a.b` is all we need to inspect to
+  // know if `a.b.c` is valid (and from that we infer that the
+  // dereference and `.d` access is also valid, since we assume
+  // `a.b.c` is assigned a reference to an initialized and
+  // well-formed record structure.)
+
+  // Therefore, if we seek out the *closest* prefix for which we
+  // have a MovePath, that should capture the initialization
+  // state for the place scenario.
+  //
+  // This code covers scenarios 1, 2, and 3.
+
+  // debug!("check_if_full_path_is_moved place: {:?}", place_span.0);
+  const [prefix, mpi] = this.move_path_closest_to(place_span[0]);
+  if (MixedBitSet.contains(maybe_uninits, mpi)) {
+    this.report_use_of_moved_or_uninitialized(location, desired_action, [prefix, place_span[0], place_span[1]], mpi);
+  } // Only query longest prefix with a MovePath, not further
+  // ancestors; dataflow recurs on children when parents
+  // move (to support partial (re)inits).
+  //
+  // (I.e., querying parents breaks scenario 7; but may want
+  // to do such a query based on partial-init feature-gate.)
 };
 
-// PORT: `from: u64, to: u64` (`ProjectionElem::Subslice` bounds) are `bigint`, as in rustc_middle's `ProjectionElem`.
-// stub: compiler/rustc_borrowck/src/lib.rs:2098 check_if_subslice_element_is_moved (lane bck-lib-b)
+/// Subslices correspond to multiple move paths, so we iterate through the
+/// elements of the base array. For each element we check
+///
+/// * Does this element overlap with our slice.
+/// * Is any part of it uninitialized.
+// PORT: `from: u64, to: u64` are `number`, as `ProjectionElem::Subslice`'s fields in rustc_middle (array lengths, < 2^53).
+// rustc: compiler/rustc_borrowck/src/lib.rs:2098 check_if_subslice_element_is_moved
 MirBorrowckCtxt.prototype.check_if_subslice_element_is_moved = function (
   this: MirBorrowckCtxt,
   location: Location,
   desired_action: InitializationRequiringAction,
   place_span: [PlaceRef, Span],
   maybe_uninits: MixedBitSet<MovePathIndex>,
-  from: bigint,
-  to: bigint,
+  from: number,
+  to: number,
 ): void {
-  return unported("rustc_borrowck::MirBorrowckCtxt::check_if_subslice_element_is_moved");
+  const mpi = this.move_path_for_place(place_span[0]);
+  if (mpi !== undefined) {
+    const move_paths = this.move_data.move_paths;
+
+    const root_path = move_paths[mpi]!;
+    for (const [child_mpi, child_move_path] of root_path.children(move_paths)) {
+      const projection = child_move_path.place.projection;
+      if (projection.length === 0) panic("called `Option::unwrap()` on a `None` value");
+      const last_proj = projection[projection.length - 1]!;
+      if (last_proj.$ === "ConstantIndex") {
+        const offset = last_proj.offset;
+        // debug_assert!(!from_end, "Array constant indexing shouldn't be `from_end`.");
+
+        if (from <= offset && offset < to) {
+          const uninit_child = this.move_data.find_in_move_path_or_its_descendants(child_mpi, (mpi) => MixedBitSet.contains(maybe_uninits, mpi));
+
+          if (uninit_child !== undefined) {
+            this.report_use_of_moved_or_uninitialized(location, desired_action, [place_span[0], place_span[0], place_span[1]], uninit_child);
+            return; // don't bother finding other problems.
+          }
+        }
+      }
+    }
+  }
 };
 
-// stub: compiler/rustc_borrowck/src/lib.rs:2137 check_if_path_or_subpath_is_moved (lane bck-lib-b)
+// rustc: compiler/rustc_borrowck/src/lib.rs:2137 check_if_path_or_subpath_is_moved
 MirBorrowckCtxt.prototype.check_if_path_or_subpath_is_moved = function (this: MirBorrowckCtxt, location: Location, desired_action: InitializationRequiringAction, place_span: [PlaceRef, Span], state: BorrowckDomain): void {
-  return unported("rustc_borrowck::MirBorrowckCtxt::check_if_path_or_subpath_is_moved");
+  const maybe_uninits = state.uninits;
+
+  // Bad scenarios:
+  //
+  // 1. Move of `a.b.c`, use of `a` or `a.b`
+  //    partial initialization support, one might have `a.x`
+  //    initialized but not `a.b`.
+  // 2. All bad scenarios from `check_if_full_path_is_moved`
+  //
+  // OK scenarios:
+  //
+  // 3. Move of `a.b.c`, use of `a.b.d`
+  // 4. Uninitialized `a.x`, initialized `a.b`, use of `a.b`
+  // 5. Copied `(a.b: &_)`, use of `*(a.b).c`; note that `a.b`
+  //    must have been initialized for the use to be sound.
+  // 6. Move of `a.b.c` then reinit of `a.b.c.d`, use of `a.b.c.d`
+
+  this.check_if_full_path_is_moved(location, desired_action, place_span, state);
+
+  const last = place_span[0].last_projection();
+  if (last !== undefined) {
+    const [place_base, elem] = last;
+    if (elem.$ === "Subslice" && elem.from_end === false) {
+      const { from, to } = elem;
+      const place_ty = place_base.ty(this.body_(), this.infcx.tcx);
+      if (place_ty.ty.kind().$ === "Array") {
+        this.check_if_subslice_element_is_moved(location, desired_action, [place_base, place_span[1]], maybe_uninits, from, to);
+        return;
+      }
+    }
+  }
+
+  // A move of any shallow suffix of `place` also interferes
+  // with an attempt to use `place`. This is scenario 3 above.
+  //
+  // (Distinct from handling of scenarios 1+2+4 above because
+  // `place` does not interfere with suffixes of its prefixes,
+  // e.g., `a.b.c` does not interfere with `a.b.d`)
+  //
+  // This code covers scenario 1.
+
+  // debug!("check_if_path_or_subpath_is_moved place: {:?}", place_span.0);
+  const mpi = this.move_path_for_place(place_span[0]);
+  if (mpi !== undefined) {
+    const uninit_mpi = this.move_data.find_in_move_path_or_its_descendants(mpi, (mpi) => MixedBitSet.contains(maybe_uninits, mpi));
+
+    if (uninit_mpi !== undefined) {
+      this.report_use_of_moved_or_uninitialized(location, desired_action, [place_span[0], place_span[0], place_span[1]], uninit_mpi);
+      return; // don't bother finding other problems.
+    }
+  }
 };
 
 /// Currently MoveData does not store entries for all places in
@@ -942,78 +2082,478 @@ MirBorrowckCtxt.prototype.check_if_path_or_subpath_is_moved = function (this: Mi
 /// An Err result includes a tag indicated why the search failed.
 /// Currently this can only occur if the place is built off of a
 /// static variable, as we do not track those in the MoveData.
-// stub: compiler/rustc_borrowck/src/lib.rs:2217 move_path_closest_to (lane bck-lib-b)
+// rustc: compiler/rustc_borrowck/src/lib.rs:2217 move_path_closest_to
 MirBorrowckCtxt.prototype.move_path_closest_to = function (this: MirBorrowckCtxt, place: PlaceRef): [PlaceRef, MovePathIndex] {
-  return unported("rustc_borrowck::MirBorrowckCtxt::move_path_closest_to");
+  const r = this.move_data.rev_lookup.find(place);
+  if ((r.$ === "Parent" && r._0 !== undefined) || r.$ === "Exact") {
+    const mpi = r._0!;
+    return [this.move_data.move_paths[mpi]!.place.as_ref(), mpi];
+  } else {
+    // LookupResult::Parent(None)
+    panic("should have move path for every Local");
+  }
 };
 
-// stub: compiler/rustc_borrowck/src/lib.rs:2226 move_path_for_place (lane bck-lib-b)
+// rustc: compiler/rustc_borrowck/src/lib.rs:2226 move_path_for_place
 MirBorrowckCtxt.prototype.move_path_for_place = function (this: MirBorrowckCtxt, place: PlaceRef): MovePathIndex | undefined {
-  return unported("rustc_borrowck::MirBorrowckCtxt::move_path_for_place");
+  // If returns None, then there is no move path corresponding
+  // to a direct owner of `place` (which means there is nothing
+  // that borrowck tracks for its analysis).
+
+  const r = this.move_data.rev_lookup.find(place);
+  switch (r.$) {
+    case "Parent":
+      return undefined;
+    case "Exact":
+      return r._0;
+  }
 };
 
-// stub: compiler/rustc_borrowck/src/lib.rs:2237 check_if_assigned_path_is_moved (lane bck-lib-b)
-MirBorrowckCtxt.prototype.check_if_assigned_path_is_moved = function (this: MirBorrowckCtxt, location: Location, place_span: [Place, Span], state: BorrowckDomain): void {
-  return unported("rustc_borrowck::MirBorrowckCtxt::check_if_assigned_path_is_moved");
-};
+// rustc: compiler/rustc_borrowck/src/lib.rs:2237 check_if_assigned_path_is_moved
+MirBorrowckCtxt.prototype.check_if_assigned_path_is_moved = function (this: MirBorrowckCtxt, location: Location, [place, span]: [Place, Span], state: BorrowckDomain): void {
+  // debug!("check_if_assigned_path_is_moved place: {:?}", place);
 
-// PORT: fn-local to `check_if_assigned_path_is_moved` (module level until lane bck-lib-b moves it inside).
-// stub: compiler/rustc_borrowck/src/lib.rs:2315 check_parent_of_field (lane bck-lib-b)
-export function check_parent_of_field(this_: MirBorrowckCtxt, location: Location, base: PlaceRef, span: Span, state: BorrowckDomain): void {
-  return unported("rustc_borrowck::MirBorrowckCtxt::check_if_assigned_path_is_moved::check_parent_of_field");
-}
+  // None case => assigning to `x` does not require `x` be initialized.
+  const projections = place.iter_projections();
+  loop: for (let i = projections.length - 1; i >= 0; i--) {
+    const [place_base, elem] = projections[i]!;
+    switch (elem.$) {
+      case "Index":
+      case "OpaqueCast":
+      // assigning to P[i] requires P to be valid.
+      case "ConstantIndex":
+      // assigning to (P->variant) is okay if assigning to `P` is okay
+      //
+      // FIXME: is this true even if P is an adt with a dtor?
+      case "Downcast":
+        break;
+
+      case "UnwrapUnsafeBinder":
+        check_parent_of_field(this, location, place_base, span, state);
+        break;
+
+      // assigning to (*P) requires P to be initialized
+      case "Deref":
+        this.check_if_full_path_is_moved(location, "Use", [place_base, span], state);
+        // (base initialized; no need to
+        // recur further)
+        break loop;
+
+      case "PhantomDeref":
+        panic(`we don't allow assignments to PhantomDeref, location ${debug_Location(location, PLAIN)}`);
+
+      case "Subslice":
+        panic(`we don't allow assignments to subslices, location: ${debug_Location(location, PLAIN)}`);
+
+      case "Field": {
+        // if type of `P` has a dtor, then
+        // assigning to `P.f` requires `P` itself
+        // be already initialized
+        const tcx = this.infcx.tcx;
+        const base_ty = place_base.ty(this.body_(), tcx).ty;
+        const kind = base_ty.kind();
+        if (kind.$ === "Adt" && kind._0.has_dtor(tcx)) {
+          this.check_if_path_or_subpath_is_moved(location, "Assignment", [place_base, span], state);
+
+          // (base initialized; no need to
+          // recur further)
+          break loop;
+        } else if (kind.$ === "Adt" || kind.$ === "Tuple") {
+          // Once `let s; s.x = V; read(s.x);`,
+          // is allowed, remove this match arm.
+          check_parent_of_field(this, location, place_base, span, state);
+        } else {
+          // _ => {}
+        }
+        break;
+      }
+    }
+  }
+
+  // rustc: compiler/rustc_borrowck/src/lib.rs:2315 check_parent_of_field
+  function check_parent_of_field(this_: MirBorrowckCtxt, location: Location, base: PlaceRef, span: Span, state: BorrowckDomain): void {
+    // rust-lang/rust#21232: Until Rust allows reads from the
+    // initialized parts of partially initialized structs, we
+    // will, starting with the 2018 edition, reject attempts
+    // to write to structs that are not fully initialized.
+    //
+    // In other words, *until* we allow this:
+    //
+    // 1. `let mut s; s.x = Val; read(s.x);`
+    //
+    // we will for now disallow this:
+    //
+    // 2. `let mut s; s.x = Val;`
+    //
+    // and also this:
+    //
+    // 3. `let mut s = ...; drop(s); s.x=Val;`
+    //
+    // This does not use check_if_path_or_subpath_is_moved,
+    // because we want to *allow* reinitializations of fields:
+    // e.g., want to allow
+    //
+    // `let mut s = ...; drop(s.x); s.x=Val;`
+    //
+    // This does not use check_if_full_path_is_moved on
+    // `base`, because that would report an error about the
+    // `base` as a whole, but in this scenario we *really*
+    // want to report an error about the actual thing that was
+    // moved, which may be some prefix of `base`.
+
+    // Shallow so that we'll stop at any dereference; we'll
+    // report errors about issues with such bases elsewhere.
+    const maybe_uninits = state.uninits;
+
+    // Find the shortest uninitialized prefix you can reach
+    // without going over a Deref.
+    let shortest_uninit_seen: [PlaceRef, MovePathIndex] | undefined = undefined;
+    const prefixes = this_.prefixes(base, PrefixSet.Shallow);
+    for (let prefix = Iterator_Prefixes.next(prefixes); prefix !== undefined; prefix = Iterator_Prefixes.next(prefixes)) {
+      const mpi = this_.move_path_for_place(prefix);
+      if (mpi === undefined) continue;
+
+      if (MixedBitSet.contains(maybe_uninits, mpi)) {
+        // debug!("check_parent_of_field updating shortest_uninit_seen from {:?} to {:?}", shortest_uninit_seen, Some((prefix, mpi)));
+        shortest_uninit_seen = [prefix, mpi];
+      } else {
+        // debug!("check_parent_of_field {:?} is definitely initialized", (prefix, mpi));
+      }
+    }
+
+    if (shortest_uninit_seen !== undefined) {
+      const [prefix, mpi] = shortest_uninit_seen;
+      // Check for a reassignment into an uninitialized field of a union (for example,
+      // after a move out). In this case, do not report an error here. There is an
+      // exception, if this is the first assignment into the union (that is, there is
+      // no move out from an earlier location) then this is an attempt at initialization
+      // of the union - we should error in that case.
+      const tcx = this_.infcx.tcx;
+      if (
+        base.ty(this_.body_(), tcx).ty.is_union() &&
+        this_.move_data.move_out_path_map[mpi]!.some((moi) => this_.move_data.move_outs[moi]!.source.is_predecessor_of(location, this_.body))
+      ) {
+        return;
+      }
+
+      this_.report_use_of_moved_or_uninitialized(location, "PartialAssignment", [prefix, base, span], mpi);
+
+      // rust-lang/rust#21232, #54499, #54986: during period where we reject
+      // partial initialization, do not complain about unnecessary `mut` on
+      // an attempt to do a partial initialization.
+      this_.used_mut.add(base.local);
+    }
+  }
+};
 
 /// Checks the permissions for the given place and read or write kind
 ///
 /// Returns `true` if an error is reported.
-// stub: compiler/rustc_borrowck/src/lib.rs:2406 check_access_permissions (lane bck-lib-b)
+// rustc: compiler/rustc_borrowck/src/lib.rs:2406 check_access_permissions
 MirBorrowckCtxt.prototype.check_access_permissions = function (
   this: MirBorrowckCtxt,
-  place_span: [Place, Span],
+  [place, span]: [Place, Span],
   kind: ReadOrWrite,
   is_local_mutation_allowed: LocalMutationIsAllowed,
   state: BorrowckDomain,
   location: Location,
 ): boolean {
-  return unported("rustc_borrowck::MirBorrowckCtxt::check_access_permissions");
+  // debug!("check_access_permissions({:?}, {:?}, is_local_mutation_allowed: {:?})", place, kind, is_local_mutation_allowed);
+
+  let error_access: AccessKind;
+  let the_place_err: PlaceRef;
+
+  // PORT: the `match kind` arms in upstream order: `Reservation(wk) | Write(wk)` split on `wk`, then `Activation`, `Read`.
+  switch (kind.$) {
+    case "Reservation":
+    case "Write": {
+      const wk = kind._0;
+      if (wk.$ === "MutableBorrow" && wk._0.$ === "Mut") {
+        const mut_borrow_kind = wk._0.kind;
+        let is_local_mutation_allowed_: LocalMutationIsAllowed;
+        switch (mut_borrow_kind) {
+          // `ClosureCapture` is used for mutable variable with an immutable binding.
+          // This is only behaviour difference between `ClosureCapture` and mutable
+          // borrows.
+          case "ClosureCapture":
+            is_local_mutation_allowed_ = "Yes";
+            break;
+          case "Default":
+          case "TwoPhaseBorrow":
+            is_local_mutation_allowed_ = is_local_mutation_allowed;
+            break;
+        }
+        const r = this.is_mutable(place.as_ref(), is_local_mutation_allowed_);
+        if (r.$ === "Ok") {
+          const root_place = r._0;
+          this.add_used_mut(root_place, state);
+          return false;
+        } else {
+          const place_err = r._0;
+          error_access = "MutableBorrow";
+          the_place_err = place_err;
+        }
+      } else if (wk.$ === "Mutate") {
+        const r = this.is_mutable(place.as_ref(), is_local_mutation_allowed);
+        if (r.$ === "Ok") {
+          const root_place = r._0;
+          this.add_used_mut(root_place, state);
+          return false;
+        } else {
+          const place_err = r._0;
+          error_access = "Mutate";
+          the_place_err = place_err;
+        }
+      } else {
+        // Move | Replace | StorageDeadOrDrop | MutableBorrow(BorrowKind::Shared) | MutableBorrow(BorrowKind::Fake(_))
+        if (this.is_mutable(place.as_ref(), is_local_mutation_allowed).$ === "Err" && !this.has_buffered_diags()) {
+          // rust-lang/rust#46908: In pure NLL mode this code path should be
+          // unreachable, but we use `span_delayed_bug` because we can hit this when
+          // dereferencing a non-Copy raw pointer *and* have `-Ztreat-err-as-bug`
+          // enabled. We don't want to ICE for that case, as other errors will have
+          // been emitted (#52262).
+          this.dcx().span_delayed_bug(
+            span,
+            `Accessing \`${debug_Place(place, PLAIN)}\` with the kind \`${gen.debug_ReadOrWrite(kind, PLAIN)}\` shouldn't be possible`,
+          );
+        }
+        return false;
+      }
+      break;
+    }
+    case "Activation":
+      // permission checks are done at Reservation point.
+      return false;
+    case "Read":
+      // Access authorized
+      return false;
+  }
+
+  // rust-lang/rust#21232, #54986: during period where we reject
+  // partial initialization, do not complain about mutability
+  // errors except for actual mutation (as opposed to an attempt
+  // to do a partial initialization).
+  const previously_initialized = state.ever_inits.contains(place.local);
+
+  // at this point, we have set up the error reporting state.
+  if (previously_initialized) {
+    if (error_access === "Mutate" && place.as_local() !== undefined) {
+      // If this is a mutate access to an immutable local variable with no projections
+      // report the error as an illegal reassignment
+      const init_index = this.first_reaching_init(place.local, location);
+      if (init_index === undefined) panic("called `Option::unwrap()` on a `None` value");
+      const init = this.move_data.inits[init_index]!;
+      const assigned_span = Init.span(init, this.body);
+      this.report_illegal_reassignment([place, span], assigned_span, place);
+    } else {
+      this.report_mutability_error(place, span, the_place_err, error_access, location);
+    }
+    return true;
+  } else {
+    return false;
+  }
 };
 
-// stub: compiler/rustc_borrowck/src/lib.rs:2528 first_reaching_init (lane bck-lib-b)
+/// Returns the first init of `local` (in gather order) that may have executed on some path
+/// reaching `location` without an intervening `StorageDead(local)`.
+// rustc: compiler/rustc_borrowck/src/lib.rs:2528 first_reaching_init
 MirBorrowckCtxt.prototype.first_reaching_init = function (this: MirBorrowckCtxt, local: Local, location: Location): InitIndex | undefined {
-  return unported("rustc_borrowck::MirBorrowckCtxt::first_reaching_init");
+  const mpi = this.move_data.rev_lookup.find_local(local);
+  if (mpi === undefined) return undefined;
+  return this.move_data.init_path_map[mpi]!.find((ii) => {
+    const init = this.move_data.inits[ii]!;
+    return EverInitializedPlaces.init_reaches_location(this.body, local, init, location);
+  });
 };
 
 /// Adds the place into the used mutable variables set
-// stub: compiler/rustc_borrowck/src/lib.rs:2537 add_used_mut (lane bck-lib-b)
+// rustc: compiler/rustc_borrowck/src/lib.rs:2537 add_used_mut
 MirBorrowckCtxt.prototype.add_used_mut = function (this: MirBorrowckCtxt, root_place: RootPlace, state: BorrowckDomain): void {
-  return unported("rustc_borrowck::MirBorrowckCtxt::add_used_mut");
+  if (root_place.place_projection.length === 0) {
+    const local = root_place.place_local;
+    const is_local_mutation_allowed = root_place.is_local_mutation_allowed;
+    // If the local may have been initialized, and it is now currently being
+    // mutated, then it is justified to be annotated with the `mut`
+    // keyword, since the mutation may be a possible reassignment.
+    if (is_local_mutation_allowed !== "Yes" && state.ever_inits.contains(local)) {
+      this.used_mut.add(local);
+    }
+  } else if (root_place.is_local_mutation_allowed === "Yes") {
+    // RootPlace { place_local: _, place_projection: _, is_local_mutation_allowed: LocalMutationIsAllowed::Yes } => {}
+  } else {
+    // RootPlace { place_local, place_projection: place_projection @ [.., _], is_local_mutation_allowed: _ }
+    const field = this.is_upvar_field_projection(new PlaceRef(root_place.place_local, root_place.place_projection));
+    if (field !== undefined) {
+      this.used_mut_upvars.push(field);
+    }
+  }
 };
 
 /// Whether this value can be written or borrowed mutably.
 /// Returns the root place if the place passed in is a projection.
-// stub: compiler/rustc_borrowck/src/lib.rs:2571 is_mutable (lane bck-lib-b)
+// rustc: compiler/rustc_borrowck/src/lib.rs:2571 is_mutable
 MirBorrowckCtxt.prototype.is_mutable = function (this: MirBorrowckCtxt, place: PlaceRef, is_local_mutation_allowed: LocalMutationIsAllowed): Result<RootPlace, PlaceRef> {
-  return unported("rustc_borrowck::MirBorrowckCtxt::is_mutable");
+  // debug!("is_mutable: place={:?}, is_local...={:?}", place, is_local_mutation_allowed);
+  const last = place.last_projection();
+  if (last === undefined) {
+    const local = this.body.local_decls[place.local]!;
+    if (local.mutability === "Not") {
+      switch (is_local_mutation_allowed) {
+        case "Yes":
+          return Ok({ place_local: place.local, place_projection: place.projection, is_local_mutation_allowed: "Yes" });
+        case "ExceptUpvars":
+          return Ok({ place_local: place.local, place_projection: place.projection, is_local_mutation_allowed: "ExceptUpvars" });
+        case "No":
+          return Err(place);
+      }
+    } else {
+      // Mutability::Mut
+      return Ok({ place_local: place.local, place_projection: place.projection, is_local_mutation_allowed });
+    }
+  } else {
+    const [place_base, elem] = last;
+    // PORT: the `match elem` arms are an if-chain in upstream order (the `Field(FieldIdx::ZERO, _) if let ..` guard).
+    let pin_adt: AdtDef | undefined;
+    if (elem.$ === "Deref") {
+      const base_ty = place_base.ty(this.body_(), this.infcx.tcx).ty;
+
+      // Check the kind of deref to decide
+      const kind = base_ty.kind();
+      if (kind.$ === "Ref") {
+        const mutbl = kind._2;
+        switch (mutbl) {
+          // Shared borrowed data is never mutable
+          case "Not":
+            return Err(place);
+          // Mutably borrowed data is mutable, but only if we have a
+          // unique path to the `&mut`
+          case "Mut": {
+            let mode: LocalMutationIsAllowed;
+            const field = this.is_upvar_field_projection(place);
+            if (field !== undefined && this.upvars[field]!.is_by_ref()) {
+              mode = is_local_mutation_allowed;
+            } else {
+              mode = "Yes";
+            }
+
+            return this.is_mutable(place_base, mode);
+          }
+        }
+      } else if (kind.$ === "RawPtr") {
+        const mutbl = kind._1;
+        switch (mutbl) {
+          // `*const` raw pointers are not mutable
+          case "Not":
+            return Err(place);
+          // `*mut` raw pointers are always mutable, regardless of
+          // context. The users have to check by themselves.
+          case "Mut":
+            return Ok({ place_local: place.local, place_projection: place.projection, is_local_mutation_allowed });
+        }
+      } else if (base_ty.is_box()) {
+        // `Box<T>` owns its content, so mutable if its location is mutable
+        return this.is_mutable(place_base, is_local_mutation_allowed);
+      } else {
+        // Deref should only be for reference, pointers or boxes
+        bug(`Deref of unexpected type: ${debug_Ty(base_ty, PLAIN)}`);
+      }
+    } else if (elem.$ === "PhantomDeref") {
+      bug("encountered PhantomDeref in is_mutable");
+    } else if (
+      // Check as the inner reference type if it is a field projection
+      // from the `&pin` pattern
+      elem.$ === "Field" &&
+      elem._0 === FieldIdx.ZERO &&
+      (pin_adt = place_base.ty(this.body_(), this.infcx.tcx).ty.ty_adt_def()) !== undefined &&
+      pin_adt.is_pin() &&
+      this.infcx.tcx.features().pin_ergonomics()
+    ) {
+      return this.is_mutable(place_base, is_local_mutation_allowed);
+    } else {
+      // All other projections are owned by their base path, so mutable if
+      // base path is mutable
+      // ProjectionElem::Field(..) | Index(..) | ConstantIndex { .. } | Subslice { .. } | OpaqueCast { .. }
+      // | Downcast(..) | UnwrapUnsafeBinder(_)
+      const upvar_field_projection = this.is_upvar_field_projection(place);
+      if (upvar_field_projection !== undefined) {
+        const field = upvar_field_projection;
+        const upvar = this.upvars[field]!;
+        // debug!("is_mutable: upvar.mutability={:?} local_mutation_is_allowed={:?} place={:?}, place_base={:?}", upvar, is_local_mutation_allowed, place, place_base);
+        if (upvar.mutability === "Not" && (is_local_mutation_allowed === "No" || is_local_mutation_allowed === "ExceptUpvars")) {
+          return Err(place);
+        } else {
+          // (Mutability::Not, LocalMutationIsAllowed::Yes) | (Mutability::Mut, _)
+          // Subtle: this is an upvar reference, so it looks like
+          // `self.foo` -- we want to double check that the location
+          // `*self` is mutable (i.e., this is not a `Fn` closure). But
+          // if that check succeeds, we want to *blame* the mutability on
+          // `place` (that is, `self.foo`). This is used to propagate the
+          // info about whether mutability declarations are used
+          // outwards, so that we register the outer variable as mutable.
+          // Otherwise a test like this fails to record the `mut` as
+          // needed:
+          // ```
+          // fn foo<F: FnOnce()>(_f: F) { }
+          // fn main() {
+          //     let var = Vec::new();
+          //     foo(move || {
+          //         var.push(1);
+          //     });
+          // }
+          // ```
+          const r = this.is_mutable(place_base, is_local_mutation_allowed);
+          if (r.$ === "Err") return r;
+          return Ok({ place_local: place.local, place_projection: place.projection, is_local_mutation_allowed });
+        }
+      } else {
+        return this.is_mutable(place_base, is_local_mutation_allowed);
+      }
+    }
+  }
 };
 
 /// If `place` is a field projection, and the field is being projected from a closure type,
 /// then returns the index of the field being projected. Note that this closure will always
 /// be `self` in the current MIR, because that is the only time we directly access the fields
 /// of a closure type.
-// stub: compiler/rustc_borrowck/src/lib.rs:2727 is_upvar_field_projection (lane bck-lib-b)
+// rustc: compiler/rustc_borrowck/src/lib.rs:2727 is_upvar_field_projection
 MirBorrowckCtxt.prototype.is_upvar_field_projection = function (this: MirBorrowckCtxt, place_ref: PlaceRef): FieldIdx | undefined {
-  return unported("rustc_borrowck::MirBorrowckCtxt::is_upvar_field_projection");
+  return path_utils.is_upvar_field_projection(this.infcx.tcx, this.upvars, place_ref, this.body_());
 };
-
 // rustc: compiler/rustc_borrowck/src/lib.rs:2731 dominators
 MirBorrowckCtxt.prototype.dominators = function (this: MirBorrowckCtxt): Dominators<BasicBlock> {
   // `BasicBlocks` computes dominators on-demand and caches them.
   return this.body.basic_blocks.dominators();
 };
 
-// stub: compiler/rustc_borrowck/src/lib.rs:2736 lint_unused_mut (lane bck-lib-b)
+// rustc: compiler/rustc_borrowck/src/lib.rs:2736 lint_unused_mut
 MirBorrowckCtxt.prototype.lint_unused_mut = function (this: MirBorrowckCtxt): void {
-  return unported("rustc_borrowck::MirBorrowckCtxt::lint_unused_mut");
+  const tcx = this.infcx.tcx;
+  const body = this.body;
+  for (const local of body.mut_vars_and_args_iter()) {
+    if (this.used_mut.has(local)) continue;
+    const local_decl = body.local_decls[local]!;
+    const local_data = body.source_scopes[local_decl.source_info.scope]!.local_data;
+    if (local_data.$ !== "Set") {
+      continue;
+    }
+    const lint_root = local_data._0.lint_root;
+
+    // Skip over locals that begin with an underscore or have no name
+    if (this.local_excluded_from_unused_mut_lint(local)) {
+      continue;
+    }
+
+    const span = local_decl.source_info.span;
+    if (Span.desugaring_kind(span) !== undefined) {
+      // If the `mut` arises as part of a desugaring, we should ignore it.
+      continue;
+    }
+
+    const mut_span = tcx.sess.source_map().span_until_non_whitespace(span);
+
+    tcx.emit_node_span_lint(UNUSED_MUT, lint_root, span, VarNeedNotMut_diagnostic({ span: mut_span }));
+  }
 };
 
 // Every module (and so every prototype method of the inner types) is loaded: install the `Deref` forwarders.

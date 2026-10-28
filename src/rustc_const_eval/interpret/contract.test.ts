@@ -123,8 +123,8 @@ test("every fn of interpret/**, const_eval/**, util/** and lib.rs is ported or d
     }
   }
   expect(total).toBe(657);
-  expect(markers.length).toBe(623);
-  expect(stubs.length).toBe(34);
+  expect(markers.length).toBe(657);
+  expect(stubs.length).toBe(0);
 });
 
 test("the stubs per fill lane are the handoff's split table", () => {
@@ -137,10 +137,10 @@ test("the stubs per fill lane are the handoff's split table", () => {
     // wave 24
     // interp-step-call: done (0)
     // interp-ops: done (lane interp-ops, wave 23c)
-    "interp-intrinsics": 28,
+    // interp-intrinsics: done (wave 24)
     // interp-validity-intern: done (wave 23c)
     // ctfe-util: done (wave 23c)
-    "interp-simd": 6,
+    // interp-simd: done (0)
   });
 });
 

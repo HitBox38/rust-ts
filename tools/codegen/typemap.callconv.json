@@ -1,0 +1,14 @@
+{
+  "//": [
+    "Type-map additions of lane fn-abi (read by tools/codegen/types.ts loadTypeMap and tools/codegen/queries.ts), merged after",
+    "typemap.json: the `fn_abi_of_*` query keys / values. `FnAbi` is hand-written in src/rustc_target/callconv/mod.ts (type-only",
+    "import; Debug needs `Ty: Display`, so none here). `List` is the same entry as tyir.typemap.json's (sets that merge that",
+    "file see the identical template)."
+  ],
+  "cfg": { "true": [], "false": [] },
+  "helpers": {},
+  "types": [
+    { "paths": ["rustc_target::callconv::FnAbi"], "ts": "FnAbi<$0>", "import": "src/rustc_target/callconv/mod.ts", "types": ["FnAbi"], "debug": null, "clone": "share", "note": "`&'tcx FnAbi<'tcx, Ty<'tcx>>` (arena reference: shared); Debug: callconv/mod.ts `debug_FnAbi` (takes `Ty: Display`)" },
+    { "paths": ["rustc_middle::ty::List", "rustc_middle::ty::list::List"], "ts": "List<$0>", "import": "src/rustc_middle/ty/list.ts", "types": ["List"], "values": ["debug_RawList"], "debug": "debug_RawList($v, $f, $d0)", "clone": "copy", "note": "`&'tcx List<T>` (rustc_middle ty/list.ts, D2: a frozen RawList); Debug list.rs:192 (as tyir.typemap.json)" }
+  ]
+}

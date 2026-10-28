@@ -1,15 +1,10 @@
 //! Drops and async drops related logic for coroutine transformation pass
 // Port of compiler/rustc_mir_transform/src/coroutine/drop.rs (lane mt-coroutine-b, wave 23).
 //
-// PORT: `use super::*;` reaches coroutine/mod.rs (lane mt-coroutine-a, wave 24; a stub at this lane's base), whose
-// items this file uses (`TransformVisitor`, `Operation`, `create_cases`, `insert_switch`, `insert_term_block`,
-// `insert_poll_ready_block`, `insert_panic_block`, `return_poll_ready_assign`, `make_coroutine_state_argument_indirect`,
-// `make_coroutine_state_argument_pinned`, `generate_poison_block_and_redirect_unwinds_there`, `transform_async_context`)
-// as do `elaborate_drop::{Unwind, elaborate_drop}` (lane mt-drops) and `shim::DropShimElaborator` (lane mt-shim),
-// `deref_separator::deref_finder` (lane mt-cleanup). They are module-local stand-ins at the end of this file (not
-// markers; each stops UNPORTED with its upstream path) that those lanes repoint at their ports. `SELF_ARG` is mod.rs's
-// constant (`Local::arg(0)`, mod.rs:160), declared here with the same value. Nothing imports this module yet:
-// coroutine/mod.ts (`mod drop;` + the `use drop::{..}` list) is mt-coroutine-a's.
+// PORT: `use super::*;` reaches coroutine/mod.rs (lane mt-coroutine-a, wave 24), whose items this file imports from
+// mod.ts (`TransformVisitor`, `Operation`, `SELF_ARG`, `create_cases`, `insert_switch`, ...). `deref_separator::deref_finder`
+// is imported from its port (lane mt-cleanup), `elaborate_drop::{Unwind, elaborate_drop}` from elaborate_drop.ts (lane
+// mt-drops) and `shim::DropShimElaborator` (a `DropElaborator<null>`) from shim.ts (lane mt-shim).
 // PORT: `FixReturnPendingVisitor` `extends MutVisitor` (mir/visit.ts, D4). `*rvalue = ..` replaces the caller's `Rvalue`
 // object in place (`replace_in_place`); `*args = ..` writes the `Adt` aggregate's `_2` field.
 // PORT: `body.clone()` is the generated `clone_Body`; `Option::take` of `body.coroutine` sets it to `undefined`.
@@ -48,15 +43,32 @@ import { Ty, type TypingEnv } from "../../rustc_middle/ty/mod.ts";
 import { CoroutineArgsExt } from "../../rustc_middle/ty/sty.ts";
 import { DefId_eq } from "../../rustc_span/def_id.ts";
 import { replace_in_place } from "../../std/mut_ref.ts";
-import { unported, unwrap } from "../../std/panic.ts";
+import { unwrap } from "../../std/panic.ts";
 
+// use super::*; (coroutine/mod.rs, lane mt-coroutine-a; mod.ts imports this module back, neither reads the other at load)
+import {
+  create_cases,
+  generate_poison_block_and_redirect_unwinds_there,
+  insert_panic_block,
+  insert_poll_ready_block,
+  insert_switch,
+  insert_term_block,
+  make_coroutine_state_argument_indirect,
+  make_coroutine_state_argument_pinned,
+  Operation,
+  return_poll_ready_assign,
+  SELF_ARG,
+  transform_async_context,
+  type TransformVisitor,
+} from "./mod.ts";
 import * as abort_unwinding_calls from "../abort_unwinding_calls.ts";
+import { deref_finder } from "../deref_separator.ts";
 import * as pm from "../pass_manager.ts";
 import { MirPatch } from "../patch.ts";
+import { elaborate_drop, Unwind } from "../elaborate_drop.ts";
 import * as simplify from "../simplify.ts";
+import { DropShimElaborator } from "../shim.ts";
 
-// PORT: coroutine/mod.rs:160 `const SELF_ARG: Local = Local::arg(0);` (see the header).
-const SELF_ARG: Local = Local.arg(0);
 
 // Fix return Poll<Rv>::Pending statement into Poll<()>::Pending for async drop function
 // rustc-type: compiler/rustc_mir_transform/src/coroutine/drop.rs:6 FixReturnPendingVisitor
@@ -157,16 +169,16 @@ export function elaborate_coroutine_drops(tcx: TyCtxt, body: Body): void {
   // coroutine's resume function.
   const typing_env = body.typing_env(tcx);
 
-  const elaborator: DropShimElaborator = {
+  const elaborator = new DropShimElaborator(
     body,
-    patch: MirPatch.new(body),
+    MirPatch.new(body),
     tcx,
     typing_env,
     // FIXME(async_drop): Drops, produced by insert_clean_drop + elaborate_coroutine_drops, are
     // currently sync only. To allow async for them, flip this flag and fix the related
     // problems.
-    produce_async_drops: false,
-  };
+    /* produce_async_drops */ false,
+  );
 
   const blocks = body.basic_blocks.deref();
   for (let i = 0; i < blocks.length; i++) {
@@ -191,20 +203,20 @@ export function elaborate_coroutine_drops(tcx: TyCtxt, body: Body): void {
           tgt = unwind_._0;
           break;
         case "Continue":
-          tgt = elaborator.patch.resume_block_();
+          tgt = elaborator.patch_.resume_block_();
           break;
         case "Unreachable":
-          tgt = elaborator.patch.unreachable_cleanup_block_();
+          tgt = elaborator.patch_.unreachable_cleanup_block_();
           break;
         case "Terminate":
-          tgt = elaborator.patch.terminate_block_(unwind_._0);
+          tgt = elaborator.patch_.terminate_block_(unwind_._0);
           break;
       }
       unwind = { $: "To", _0: tgt };
     }
     elaborate_drop(elaborator, clone_SourceInfo(source_info), Place_from_Local(SELF_ARG), null, target, unwind, block, dropline);
   }
-  elaborator.patch.apply(body);
+  elaborator.patch_.apply(body);
 }
 
 // #[tracing::instrument(level = "trace", skip(tcx, body), ret)]
@@ -442,89 +454,4 @@ export function create_coroutine_drop_shim_proxy_async(tcx: TyCtxt, body_: Body,
   }
 
   return body;
-}
-
-// ---- PORT stand-ins for items of other files that are not ported yet ----------------------------------------------
-// Not markers. Each calls `unported`; the owning lanes repoint them at the real ports (see the header).
-
-/** PORT: stand-in for `TransformVisitor` (coroutine/mod.rs:177, lane mt-coroutine-a): the one field read here. */
-interface TransformVisitor {
-  readonly coroutine_kind: CoroutineKind;
-}
-
-/** PORT: stand-in for `Operation` (coroutine/mod.rs:934, lane mt-coroutine-a). */
-type Operation = "Resume" | "Drop" | "AsyncDrop";
-const Operation = { Resume: "Resume", Drop: "Drop", AsyncDrop: "AsyncDrop" } as const;
-
-/** PORT: stand-in for `create_cases` (coroutine/mod.rs:957, lane mt-coroutine-a). */
-function create_cases(_body: Body, _transform: TransformVisitor, _operation: Operation): [number, BasicBlock][] {
-  return unported("rustc_mir_transform::coroutine::create_cases (lane mt-coroutine-a)");
-}
-/** PORT: stand-in for `insert_switch` (coroutine/mod.rs:706, lane mt-coroutine-a). */
-function insert_switch(_body: Body, _cases: [number, BasicBlock][], _transform: TransformVisitor, _default_block: BasicBlock): void {
-  return unported("rustc_mir_transform::coroutine::insert_switch (lane mt-coroutine-a)");
-}
-/** PORT: stand-in for `insert_term_block` (coroutine/mod.rs:743, lane mt-coroutine-a). */
-function insert_term_block(_body: Body, _kind: TerminatorKind): BasicBlock {
-  return unported("rustc_mir_transform::coroutine::insert_term_block (lane mt-coroutine-a)");
-}
-/** PORT: stand-in for `return_poll_ready_assign` (coroutine/mod.rs:748, lane mt-coroutine-a). */
-function return_poll_ready_assign(_tcx: TyCtxt, _source_info: SourceInfo): Statement {
-  return unported("rustc_mir_transform::coroutine::return_poll_ready_assign (lane mt-coroutine-a)");
-}
-/** PORT: stand-in for `insert_poll_ready_block` (coroutine/mod.rs:764, lane mt-coroutine-a). */
-function insert_poll_ready_block(_tcx: TyCtxt, _body: Body): BasicBlock {
-  return unported("rustc_mir_transform::coroutine::insert_poll_ready_block (lane mt-coroutine-a)");
-}
-/** PORT: stand-in for `insert_panic_block` (coroutine/mod.rs:773, lane mt-coroutine-a). */
-function insert_panic_block(_tcx: TyCtxt, _body: Body, _message: AssertKind<Operand>): BasicBlock {
-  return unported("rustc_mir_transform::coroutine::insert_panic_block (lane mt-coroutine-a)");
-}
-/** PORT: stand-in for `make_coroutine_state_argument_indirect` (coroutine/mod.rs:551, lane mt-coroutine-a). */
-function make_coroutine_state_argument_indirect(_tcx: TyCtxt, _body: Body): void {
-  return unported("rustc_mir_transform::coroutine::make_coroutine_state_argument_indirect (lane mt-coroutine-a)");
-}
-/** PORT: stand-in for `make_coroutine_state_argument_pinned` (coroutine/mod.rs:564, lane mt-coroutine-a). */
-function make_coroutine_state_argument_pinned(_tcx: TyCtxt, _body: Body): void {
-  return unported("rustc_mir_transform::coroutine::make_coroutine_state_argument_pinned (lane mt-coroutine-a)");
-}
-/** PORT: stand-in for `transform_async_context` (coroutine/mod.rs:616, lane mt-coroutine-a). */
-function transform_async_context(_tcx: TyCtxt, _body: Body): void {
-  return unported("rustc_mir_transform::coroutine::transform_async_context (lane mt-coroutine-a)");
-}
-/** PORT: stand-in for `generate_poison_block_and_redirect_unwinds_there` (coroutine/mod.rs:816, lane mt-coroutine-a). */
-function generate_poison_block_and_redirect_unwinds_there(_transform: TransformVisitor, _body: Body): void {
-  return unported("rustc_mir_transform::coroutine::generate_poison_block_and_redirect_unwinds_there (lane mt-coroutine-a)");
-}
-
-/** PORT: stand-in for `deref_separator::deref_finder` (deref_separator.rs, lane mt-cleanup). */
-function deref_finder(_tcx: TyCtxt, _body: Body, _storage_to_remove: boolean): void {
-  return unported("rustc_mir_transform::deref_separator::deref_finder (lane mt-cleanup)");
-}
-
-/** PORT: stand-in for `shim::DropShimElaborator` (shim.rs, lane mt-shim): its fields, as built here. */
-interface DropShimElaborator {
-  body: Body;
-  patch: MirPatch;
-  tcx: TyCtxt;
-  typing_env: TypingEnv;
-  produce_async_drops: boolean;
-}
-
-/** PORT: stand-in for `elaborate_drop::Unwind` (elaborate_drop.rs, lane mt-drops). */
-type Unwind = { readonly $: "To"; _0: BasicBlock } | { readonly $: "InCleanup" };
-const Unwind = { InCleanup: Object.freeze({ $: "InCleanup" as const }) };
-
-/** PORT: stand-in for `elaborate_drop::elaborate_drop` (elaborate_drop.rs, lane mt-drops); `path` is `()` (`null`). */
-function elaborate_drop(
-  _elaborator: DropShimElaborator,
-  _source_info: SourceInfo,
-  _place: Place,
-  _path: null,
-  _succ: BasicBlock,
-  _unwind: Unwind,
-  _bb: BasicBlock,
-  _dropline: BasicBlock | undefined,
-): void {
-  return unported("rustc_mir_transform::elaborate_drop::elaborate_drop (lane mt-drops)");
 }

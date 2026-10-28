@@ -528,8 +528,9 @@ InterpCx.prototype.compute_size_in_bytes = function (this: InterpCx, elem_size: 
   // would be wrong here.)
   const total_bytes = BigInt(elem_size.bytes()) * count;
   if (total_bytes > U64_MAX) return undefined;
-  const total = Size.from_bytes(total_bytes);
-  return total.bytes() <= PointerArithmetic_provided.max_size_of_val(this).bytes() ? total : undefined;
+  // PORT: `max_size_of_val()` is `Size::from_bytes(isize::MAX)`, beyond 2^53 for 64-bit targets (unported under the
+  // Size rule), so the comparison is done in bigint against `target_isize_max` (the same value) before building the Size.
+  return total_bytes <= PointerArithmetic_provided.target_isize_max(this) ? Size.from_bytes(total_bytes) : undefined;
 };
 
 // rustc: compiler/rustc_const_eval/src/interpret/operator.rs:316 binary_ptr_op
