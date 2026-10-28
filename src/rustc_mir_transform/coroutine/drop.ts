@@ -5,10 +5,10 @@
 // items this file uses (`TransformVisitor`, `Operation`, `create_cases`, `insert_switch`, `insert_term_block`,
 // `insert_poll_ready_block`, `insert_panic_block`, `return_poll_ready_assign`, `make_coroutine_state_argument_indirect`,
 // `make_coroutine_state_argument_pinned`, `generate_poison_block_and_redirect_unwinds_there`, `transform_async_context`)
-// as do `elaborate_drop::{Unwind, elaborate_drop}` (lane mt-drops) and `shim::DropShimElaborator` (lane mt-shim)
-// (`deref_separator::deref_finder` is imported from its port, lane mt-cleanup). They are module-local stand-ins at the
-// end of this file (not
-// markers; each stops UNPORTED with its upstream path) that those lanes repoint at their ports. `SELF_ARG` is mod.rs's
+// as does `shim::DropShimElaborator` (lane mt-shim): a module-local stand-in at the end of this file (not a marker;
+// it stops UNPORTED with its upstream path) that mt-shim repoints at its port. `deref_separator::deref_finder` is
+// imported from its port (lane mt-cleanup) and `elaborate_drop::Unwind` from elaborate_drop.ts (lane mt-drops);
+// `elaborate_drop::elaborate_drop` is called through a local adapter until `DropShimElaborator` is ported. `SELF_ARG` is mod.rs's
 // constant (`Local::arg(0)`, mod.rs:160), declared here with the same value. Nothing imports this module yet:
 // coroutine/mod.ts (`mod drop;` + the `use drop::{..}` list) is mt-coroutine-a's.
 // PORT: `FixReturnPendingVisitor` `extends MutVisitor` (mir/visit.ts, D4). `*rvalue = ..` replaces the caller's `Rvalue`
@@ -55,6 +55,7 @@ import * as abort_unwinding_calls from "../abort_unwinding_calls.ts";
 import { deref_finder } from "../deref_separator.ts";
 import * as pm from "../pass_manager.ts";
 import { MirPatch } from "../patch.ts";
+import { Unwind } from "../elaborate_drop.ts";
 import * as simplify from "../simplify.ts";
 
 // PORT: coroutine/mod.rs:160 `const SELF_ARG: Local = Local::arg(0);` (see the header).
@@ -509,11 +510,12 @@ interface DropShimElaborator {
   produce_async_drops: boolean;
 }
 
-/** PORT: stand-in for `elaborate_drop::Unwind` (elaborate_drop.rs, lane mt-drops). */
-type Unwind = { readonly $: "To"; _0: BasicBlock } | { readonly $: "InCleanup" };
-const Unwind = { InCleanup: Object.freeze({ $: "InCleanup" as const }) };
-
-/** PORT: stand-in for `elaborate_drop::elaborate_drop` (elaborate_drop.rs, lane mt-drops); `path` is `()` (`null`). */
+/**
+ * PORT: adapter for `elaborate_drop::elaborate_drop` (elaborate_drop.ts, ported by lane mt-drops): the real fn takes a
+ * `DropElaborator<()>`, which the `DropShimElaborator` stand-in above is not, so the call stops here until lane mt-shim
+ * ports `DropShimElaborator` (shim.rs, `impl DropElaborator`). mt-shim: delete this adapter and the stand-in interface and
+ * import `elaborate_drop` from ../elaborate_drop.ts (`path` is `()` = `null`).
+ */
 function elaborate_drop(
   _elaborator: DropShimElaborator,
   _source_info: SourceInfo,
@@ -524,5 +526,5 @@ function elaborate_drop(
   _bb: BasicBlock,
   _dropline: BasicBlock | undefined,
 ): void {
-  return unported("rustc_mir_transform::elaborate_drop::elaborate_drop (lane mt-drops)");
+  return unported("rustc_mir_transform::shim::DropShimElaborator (lane mt-shim)");
 }
