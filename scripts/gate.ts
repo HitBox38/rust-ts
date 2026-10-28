@@ -292,6 +292,11 @@ async function gateRun(suites: string[], skipStatic: boolean): Promise<void> {
     for (const id of lost.slice(0, 20)) console.log(`  lost: ${id}${why(id)}`);
     if (oracleTimeouts.length) console.log(`note: ${suite}: ${oracleTimeouts.length} case(s) ORACLE_TIMEOUT (the oracle timed out twice; not compared)`);
     if (unstable.length) console.log(`note: ${suite}: ${unstable.length} case(s) UNSTABLE (the oracle's output is not reproducible; not compared, never protected)`);
+    const retried = results.filter((r) => r.retried);
+    if (retried.length) {
+      const still = retried.filter((r) => r.status === "TIMEOUT").length;
+      console.log(`note: ${suite}: ${retried.length} subject TIMEOUT(s) in the pool re-run alone: ${retried.length - still} finished, ${still} timed out again`);
+    }
     if (stats.batchOnlyFailures || stats.batchOnlyTimeouts) {
       console.log(`note: ${suite}: ${stats.batchOnlyFailures} batch-only failure(s), ${stats.batchOnlyTimeouts} batch-only timeout(s) (a batch process failed at a case that passes alone; see ${suite}.summary.json)`);
     }
