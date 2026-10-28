@@ -310,8 +310,15 @@ export function compiler_entrypoint(at_args0: readonly string[], callbacks: Call
         return undefined;
       }
 
-      // `pretty::emit_mir` (`--emit=mir`), `Linker::codegen_and_build_linker`, `dump_feature_usage_metrics`,
-      // `tcx.report_unused_features()`: after analysis (M3+).
+      if (sess.opts.output_types.contains_key("Mir")) {
+        const r = pretty.emit_mir(tcx);
+        if (r.$ === "Err") {
+          // `tcx.dcx().emit_fatal(CantEmitMIR { error })` (diagnostics.rs: a `#[derive(Diagnostic)]`, generated).
+          return unported("rustc_driver_impl::diagnostics::CantEmitMIR (--emit=mir write error)");
+        }
+      }
+
+      // `Linker::codegen_and_build_linker`, `dump_feature_usage_metrics`, `tcx.report_unused_features()`: codegen.
       return unported("rustc_interface::queue::Linker::codegen_and_build_linker (analysis, codegen; M3+)");
     });
 
