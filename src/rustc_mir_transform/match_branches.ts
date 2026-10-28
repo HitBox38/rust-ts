@@ -4,9 +4,7 @@
 // (rust_ts/intern_key.ts `intern_key_eq`, precedent known_panics_lint.ts); `Place == Place` compares `local` and the
 // interned `projection` list. `Itertools::all_equal` / `try_collect` are local loops. `SimplifyMatch` borrows `body`
 // while the caller still reads it (`&'a Body` beside `&mut Body`): both are the same object here.
-// PORT: unreachable_prop.rs's `remove_successors_from_switch` is not declared by the unreachable_prop.ts stub at this
-// base (lane mt-opt2-a ports that file): `remove_successors_from_switch` below is a local stand-in that stops as
-// UNPORTED; at integration it is replaced by `import { remove_successors_from_switch } from "./unreachable_prop.ts"`.
+import { remove_successors_from_switch } from "./unreachable_prop.ts";
 import { Integer, type Size } from "../rustc_abi/lib.ts";
 import type { VariantIdx } from "../rustc_abi/layout.ts";
 import { mk_eval_cx_for_const_val } from "../rustc_const_eval/const_eval/eval_queries.ts";
@@ -47,17 +45,6 @@ import { simplify_cfg } from "./simplify.ts";
 /** PORT: derived `PartialEq` of `mir::Place` (header). */
 function place_eq(a: Place, b: Place): boolean {
   return a.local === b.local && a.projection === b.projection;
-}
-
-/** PORT: stand-in for unreachable_prop.rs:62 `remove_successors_from_switch` (header). */
-function remove_successors_from_switch(
-  _tcx: TyCtxt,
-  _bb: BasicBlock,
-  _body: Body,
-  _patch: MirPatch,
-  _is_unreachable_block: (bb: BasicBlock) => boolean,
-): boolean {
-  return unported("rustc_mir_transform::unreachable_prop::remove_successors_from_switch (lane mt-opt2-a)");
 }
 
 /// Unifies all targets into one basic block if each statement can have the same statement.
