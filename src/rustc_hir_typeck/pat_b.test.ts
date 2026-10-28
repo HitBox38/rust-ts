@@ -108,7 +108,7 @@ test_("pat.rs:3200/3219/3241: array length errors (messages, codes, labels)", ()
 test_("pat.rs:3152 check_array_pat_len: known length, with and without a rest pattern", () => {
   const tcx = mk_tcx();
   const { em, dcx } = mk_dcx();
-  let len: number | undefined = 3;
+  let len: bigint | undefined = 3n; // `Const::try_to_target_usize`: the `u64` is a `bigint`
   const demanded: [Ty, Ty][] = [];
   const fcx = {
     tcx,

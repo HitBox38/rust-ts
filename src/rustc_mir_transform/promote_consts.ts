@@ -597,7 +597,7 @@ class Validator {
         const k = ty.kind();
         if (k.$ !== "Array") return Err(Unpromotable);
         const len = k._1;
-        if (len.try_to_target_usize(this.ccx.tcx) !== 0) return Err(Unpromotable);
+        if (len.try_to_target_usize(this.ccx.tcx) !== 0n) return Err(Unpromotable);
         break;
       }
     }

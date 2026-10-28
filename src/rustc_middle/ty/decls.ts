@@ -962,7 +962,7 @@ declare module "../../rustc_type_ir/sty/consts.ts" {
     // ty/consts.rs:122
     try_to_branch(): readonly Const[] | undefined;
     // ty/consts.rs:131
-    try_to_target_usize(tcx: TyCtxt): number | undefined;
+    try_to_target_usize(tcx: TyCtxt): bigint | undefined;
     // ty/consts.rs:145
     walk(): TypeWalker;
 

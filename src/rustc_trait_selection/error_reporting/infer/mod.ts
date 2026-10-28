@@ -153,6 +153,7 @@ import type { ObligationCauseFailureCode, TypeErrorAdditionalDiags } from "../..
 import { TypeErrCtxt } from "../../decls.ts";
 import type { FailureCode } from "./mod.gen.ts";
 import { TyCategory } from "./mod.gen.ts";
+import { u64_to_number } from "../../../rust_ts/u64.ts";
 
 /** Lazy access to the crate modules this file uses (init order: module header). */
 function crate_() {
@@ -2133,10 +2134,10 @@ TypeErrCtxt.prototype.suggest_specify_actual_length = function (this: TypeErrCtx
   } else {
     tykind = undefined;
   }
-  let length_val: number | undefined;
+  let length_val: bigint | undefined;
   if (tykind !== undefined && tykind.$ === "Array" && (length_val = sz.found.try_to_target_usize(this.tcx)) !== undefined) {
     const length_arg = tykind._1;
-    return { $: "ConsiderSpecifyingLength", span: length_arg.span, length: length_val };
+    return { $: "ConsiderSpecifyingLength", span: length_arg.span, length: u64_to_number(length_val, "ConsiderSpecifyingLength") };
   } else {
     return undefined;
   }

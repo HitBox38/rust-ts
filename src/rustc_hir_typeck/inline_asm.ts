@@ -40,6 +40,7 @@ import { Err, Ok, type Result } from "../std/result.ts";
 import type { FnCtxt } from "./decls.ts";
 import { AsmConstPtrUnstable_diagnostic, RegisterTypeUnstable_diagnostic } from "./diagnostics.gen.ts";
 import { InlineAsmCtxt, type NonAsmTypeReason } from "./inline_asm.gen.ts";
+import { u64_to_number } from "../rust_ts/u64.ts";
 
 export * from "./inline_asm.gen.ts";
 
@@ -177,7 +178,7 @@ InlineAsmCtxt.prototype.get_asm_ty = function (this: InlineAsmCtxt, span: Span, 
       if (len_usize === undefined) {
         return Err({ $: "UnevaluatedSIMDArrayLength", _0: field.did, _1: len });
       }
-      [size, ty_] = [len_usize, ty__];
+      [size, ty_] = [u64_to_number(len_usize, "InlineAsmCtxt::get_asm_ty"), ty__];
     } else {
       [size, ty_] = [fields.length, elem_ty];
     }

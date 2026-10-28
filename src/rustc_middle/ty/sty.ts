@@ -56,6 +56,7 @@ import { fold_Ty } from "./structural_impls.ts";
 import { ValTree } from "./consts/valtree.ts";
 import { ScalarInt } from "./consts/int.ts";
 import { debug_ParamConst } from "./structural_impls.ts";
+import { u64_to_number } from "../../rust_ts/u64.ts";
 
 // The types of this file with their derived Debug / TypeVisitable / TypeFoldable impls are generated into sty.gen.ts
 // (set rustc_ty of tools/codegen/types.ts, lane codegen-tyir); merged with the contract stub by merge-w13.
@@ -1121,7 +1122,7 @@ Ty.prototype.simd_size_and_type = function (this: Ty, tcx: TyCtxt): [number, Ty]
   // The way we evaluate the `N` in `[T; N]` here only works since we use
   // `simd_size_and_type` post-monomorphization. It will probably start to ICE
   // if we use it in generic code. See the `simd-array-trait` ui test.
-  return [unwrap(f0_len.try_to_target_usize(tcx), "expected SIMD field to have definite array size"), f0_elem_ty];
+  return [u64_to_number(unwrap(f0_len.try_to_target_usize(tcx), "expected SIMD field to have definite array size"), "simd_size_and_type"), f0_elem_ty];
 };
 
 // rustc: compiler/rustc_middle/src/ty/sty.rs:1341 is_mutable_ptr

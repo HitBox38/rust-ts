@@ -15,6 +15,7 @@ import { Builder } from "../mod.ts";
 import { span_bug } from "../../../rustc_span/macros.ts";
 import { PLAIN } from "../../../std/fmt.ts";
 import { assert_eq, panic } from "../../../std/panic.ts";
+import { u64_to_number } from "../../../rust_ts/u64.ts";
 export * from "./match_pair.gen.ts";
 
 declare module "./mod.gen.ts" {
@@ -324,7 +325,7 @@ export function squash_inter_pat(
 
       const subpats: InterPat[] = [];
       if (array_len !== undefined) {
-        for (const [subplace, subpat] of prefix_slice_suffix(place_builder, array_len, prefix, slice, suffix)) {
+        for (const [subplace, subpat] of prefix_slice_suffix(place_builder, u64_to_number(array_len, "prefix_slice_suffix"), prefix, slice, suffix)) {
           subpats.push(InterPat.lower_thir_pat(cx, subplace, subpat));
         }
       } else {

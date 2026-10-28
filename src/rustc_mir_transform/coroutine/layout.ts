@@ -57,6 +57,7 @@ import { assert, assert_eq } from "../../std/panic.ts";
 
 import { MustNotSupend_diagnostic } from "../diagnostics.ts";
 import type { MustNotSuspendReason } from "../diagnostics.gen.ts";
+import { u64_to_number } from "../../rust_ts/u64.ts";
 
 // PORT: `ty::CAPTURE_STRUCT_LOCAL` (ty/closure.ts declares its own `Local` brand) as a mir `Local` (decision #15).
 const CAPTURE_STRUCT_LOCAL = ty_CAPTURE_STRUCT_LOCAL as unknown as Local;
@@ -702,7 +703,7 @@ function check_must_not_suspend_ty(tcx: TyCtxt, ty: Ty, hir_id: HirId, data: Sus
         ...data,
         descr_pre,
         // FIXME(must_not_suspend): This is wrong. We should handle printing unevaluated consts.
-        plural_len: (len.try_to_target_usize(tcx) ?? 0) + 1,
+        plural_len: u64_to_number(len.try_to_target_usize(tcx) ?? 0n, "check_must_not_suspend_ty") + 1,
       });
     }
     // If drop tracking is enabled, we want to look through references, since the referent

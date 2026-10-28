@@ -1515,6 +1515,7 @@ import { DefKind } from "../../../rustc_hir/def.ts";
 import { AliasConst as AliasConstC } from "../../../rustc_type_ir/const_kind.ts";
 import type { ClosureKindMismatch } from "../../diagnostics.gen.ts";
 import { unreachable } from "../../../std/panic.ts";
+import { u64_to_number } from "../../../rust_ts/u64.ts";
 
 // impl<'a, 'tcx> TypeErrCtxt<'a, 'tcx> (fulfillment_errors.rs:1530)
 
@@ -2692,7 +2693,8 @@ TypeErrCtxt.prototype.report_similar_impl_candidates = function (
       if (ak !== undefined && ak.$ === "Array") {
         // Deprioritize suggestions for parameterized arrays.
         // PORT: `u64::MAX` is `Infinity` (only compared).
-        len = ak._1.try_to_target_usize(this.tcx) ?? Infinity;
+        const n = ak._1.try_to_target_usize(this.tcx);
+        len = n === undefined ? Infinity : u64_to_number(n, "report_similar_impl_candidates");
       } else {
         len = 0;
       }

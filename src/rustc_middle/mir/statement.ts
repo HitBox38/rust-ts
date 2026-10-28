@@ -53,6 +53,7 @@ import {
   StatementKind,
   UnOp,
 } from "./syntax.ts";
+import { u64_to_number } from "../../rust_ts/u64.ts";
 export * from "./statement.gen.ts";
 
 /** pretty.ts (the manual `Debug` impls of statement.rs types live in pretty.rs), read lazily (init order). */
@@ -532,8 +533,8 @@ PlaceTy.prototype.projection_ty_core = function <V, T>(this: PlaceTy, tcx: TyCtx
         ty = Ty.new_array(tcx, k._0, to - from);
       } else if (k.$ === "Array" && from_end) {
         const size = unwrap(k._1.try_to_target_usize(tcx), "expected subslice projection on fixed-size array");
-        const len = size - from - to;
-        ty = Ty.new_array(tcx, k._0, len);
+        const len = size - BigInt(from) - BigInt(to);
+        ty = Ty.new_array(tcx, k._0, u64_to_number(len, "Ty::new_array"));
       } else {
         ty = bug(`cannot subslice non-array type: \`${debug_PlaceTy(this, PLAIN)}\``);
       }

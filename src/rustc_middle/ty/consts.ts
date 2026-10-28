@@ -166,17 +166,14 @@ Const.prototype.try_to_branch = function (this: Const): readonly Const[] | undef
 /// useful to get the length of an array type.
 ///
 /// Note that this does not evaluate the constant.
-// PORT: the `u64` is declared `number` in decls.ts; `Value::try_to_target_usize` keeps the `bigint`, converted here
-// (an ICE above 2^53, which no array length reaching the printer has; handoff asks root to retype the decl).
+// PORT: the `u64` is a `bigint` (PORTING §5: an array length can exceed 2^53, tests/ui/limits/huge-static.rs); callers
+// whose callee still takes a `number` convert with rust_ts/u64.ts `u64_to_number` (lane key-value).
 // #[inline]
 // rustc: compiler/rustc_middle/src/ty/consts.rs:131 try_to_target_usize
-Const.prototype.try_to_target_usize = function (this: Const, tcx: TyCtxt): number | undefined {
+Const.prototype.try_to_target_usize = function (this: Const, tcx: TyCtxt): bigint | undefined {
   const v = this.try_to_value();
   if (v === undefined) return undefined;
-  const n = Value.try_to_target_usize(v, tcx);
-  if (n === undefined) return undefined;
-  if (n > BigInt(Number.MAX_SAFE_INTEGER)) panic(`rust-ts: target usize ${n} exceeds 2^53 (Const::try_to_target_usize)`);
-  return Number(n);
+  return Value.try_to_target_usize(v, tcx);
 };
 
 /// Iterator that walks `self` and any types reachable from

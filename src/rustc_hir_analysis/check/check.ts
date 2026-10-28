@@ -1683,7 +1683,7 @@ function check_simd(tcx: TyCtxt, sp: Span, def_id: LocalDefId): void {
     // The consequence is that the error is, in general, only observable post-mono.
     const len = len_const.try_to_target_usize(tcx);
     if (len !== undefined) {
-      if (len === 0) {
+      if (len === 0n) {
         struct_span_code_err(tcx.dcx(), sp, E0075, "SIMD vector cannot be empty").emit();
         return;
       } else if (len > MAX_SIMD_LANES) {

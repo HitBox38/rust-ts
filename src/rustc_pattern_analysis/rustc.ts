@@ -64,6 +64,7 @@ import { type Debug, debug_str, debug_struct, type Fmt, PLAIN } from "../std/fmt
 import type { MutRef } from "../std/mut_ref.ts";
 import { assert, unwrap } from "../std/panic.ts";
 import { Err, Ok, type Result, unwrap_result } from "../std/result.ts";
+import { u64_to_number } from "../rust_ts/u64.ts";
 
 // mod print;
 // PORT: `mod print;` is the `print` namespace import above.
@@ -478,9 +479,10 @@ export class RustcPatCtxt implements PatCx<RustcPatCtxtTypes> {
       case "Array": {
         const [sub_ty, len] = [kind._0, kind._1];
         // We treat arrays of a constant but unknown length like slices.
+        const array_len = len.try_to_target_usize(cx.tcx);
         set = {
           $: "Slice",
-          array_len: len.try_to_target_usize(cx.tcx),
+          array_len: array_len === undefined ? undefined : u64_to_number(array_len, "ConstructorSet::Slice"),
           subtype_is_empty: cx.is_uninhabited(sub_ty),
         };
         break;
@@ -848,7 +850,7 @@ export class RustcPatCtxt implements PatCx<RustcPatCtxtTypes> {
         switch (kind.$) {
           case "Array": {
             const length = kind._1;
-            array_len = unwrap(length.try_to_target_usize(cx.tcx), "expected len of array pat to be definite");
+            array_len = u64_to_number(unwrap(length.try_to_target_usize(cx.tcx), "expected len of array pat to be definite"), "Slice::new");
             break;
           }
           case "Slice":
