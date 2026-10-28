@@ -3,9 +3,9 @@
 //
 // The fixture elaborate_drops_oracle/drops.rs (std crate) is compiled by the oracle with
 //   --crate-type=lib --edition=2021 -Zdump-mir=ElaborateDrops -Zdump-mir-exclude-pass-number --emit=mir
-// and by the test driver elaborate_drops_oracle/run.ts (see its header: the real `mir_promoted` bodies, test-only
-// stand-ins for the still-stubbed analysis cleanup passes, the real `SimplifyCfg::PostAnalysis` and `ElaborateDrops`
-// run through the pass manager, whose dump hooks write the files). Both directories must hold the same files with the
+// and by the test driver elaborate_drops_oracle/run.ts (see its header: the real `mir_promoted` bodies, the real
+// analysis cleanup passes and runtime lowering passes up to `ElaborateDrops` run through the pass manager, whose dump
+// hooks write the files). Both directories must hold the same files with the
 // same bytes: the `before` files check that the driver feeds `ElaborateDrops` the oracle's input, the `after` files
 // check the pass (drop flags, static / dead / conditional / open drops, drop ladders for structs, tuples, enums,
 // closures, boxes, arrays and slices, cleanup-block drops, replace-drops, the patch's resume / terminate blocks).

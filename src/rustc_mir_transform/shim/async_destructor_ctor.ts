@@ -1,8 +1,8 @@
 // Port of compiler/rustc_mir_transform/src/shim/async_destructor_ctor.rs (lane mt-shim, wave 24).
 //
-// PORT: `use super::*;` reaches shim.ts (`new_body`, `local_decls_for_sig`, `DropShimElaborator`, `Body_foldable`, and
-// the stand-ins `elaborate_drop` / `deref_finder` of the elaborate_drop.rs / deref_separator.rs items shim.rs imports;
-// see shim.ts's header). `crate::deref_separator::deref_finder` is shim.ts's stand-in as well.
+// PORT: `use super::*;` reaches shim.ts (`new_body`, `local_decls_for_sig`, `DropShimElaborator`, `Body_foldable`) and
+// the `crate::elaborate_drop::elaborate_drop` shim.rs imports, which is imported from elaborate_drop.ts here.
+// `crate::deref_separator::deref_finder` is imported from deref_separator.ts.
 // PORT: `FixProxyFutureDropVisitor` (a fn-local struct of `build_adrop_for_coroutine_shim`) `extends MutVisitor`
 // (mir/visit.ts, D4) at module level; `*place = ..` writes the caller's `Place` object in place.
 // PORT: a `SourceInfo` (`Copy`) used by value more than once is copied with `clone_SourceInfo` (PORTING §8).
@@ -58,7 +58,9 @@ import * as add_call_guards from "../add_call_guards.ts";
 import * as pm from "../pass_manager.ts";
 import { MirPatch } from "../patch.ts";
 import * as simplify from "../simplify.ts";
-import { Body_foldable, deref_finder, DropShimElaborator, elaborate_drop, local_decls_for_sig, new_body } from "../shim.ts";
+import { deref_finder } from "../deref_separator.ts";
+import { elaborate_drop } from "../elaborate_drop.ts";
+import { Body_foldable, DropShimElaborator, local_decls_for_sig, new_body } from "../shim.ts";
 
 const SELF_ARG: Local = Local.arg(0);
 
@@ -174,7 +176,7 @@ export function build_async_drop_shim(tcx: TyCtxt, def_id: DefId, ty: Ty): Body 
     {
       const elaborator = new DropShimElaborator(body, MirPatch.new(body), tcx, typing_env, true);
       const dropee = tcx.mk_place_deref(dropee_ptr);
-      const resume_block = elaborator.patch.resume_block_();
+      const resume_block = elaborator.patch_.resume_block_();
       elaborate_drop(
         elaborator,
         clone_SourceInfo(source_info),
@@ -185,7 +187,7 @@ export function build_async_drop_shim(tcx: TyCtxt, def_id: DefId, ty: Ty): Body 
         START_BLOCK,
         dropline,
       );
-      patch = elaborator.patch;
+      patch = elaborator.patch_;
     }
     patch.apply(body);
   }

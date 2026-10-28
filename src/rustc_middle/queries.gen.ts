@@ -33,7 +33,7 @@ import { type Body, type Promoted, debug_Body, debug_Promoted } from "./mir/mod.
 import { type ConstQualifs, type CoroutineLayout, debug_ConstQualifs, debug_CoroutineLayout } from "./mir/query.ts";
 import { describe_as_module } from "./queries.ts";
 import { into_query_key_DefId, into_query_key_LocalDefId, into_query_key_identity } from "./query/into_query_key.ts";
-import { KEY_AliasTyKind, KEY_CanonicalAliasGoal, KEY_CanonicalDropckOutlivesGoal, KEY_CanonicalImpliedOutlivesBoundsGoal_bool, KEY_CanonicalInput_usize, KEY_CanonicalMethodAutoderefStepsGoal, KEY_CanonicalPredicateGoal, KEY_CanonicalTypeOpAscribeUserTypeGoal, KEY_CanonicalTypeOpNormalizeGoal_Clause, KEY_CanonicalTypeOpNormalizeGoal_FnSig, KEY_CanonicalTypeOpNormalizeGoal_PolyFnSig, KEY_CanonicalTypeOpNormalizeGoal_Ty, KEY_CanonicalTypeOpProvePredicateGoal, KEY_Clauses, KEY_CrateNum, KEY_CrateNum_DefId, KEY_CrateNum_SimplifiedType, KEY_DefId, KEY_DefId_DefId, KEY_DefId_GenericArgsRef, KEY_DefId_Ident, KEY_DefId_SizedTraitKind, KEY_GenericArgsRef, KEY_Instance, KEY_InstanceKind, KEY_LitToConstInput, KEY_LocalDefId, KEY_LocalDefId_LocalDefId_Ident, KEY_LocalModId, KEY_ModId, KEY_Option_Symbol, KEY_OsStr, KEY_OwnerId, KEY_Predicate_WellFormedLoc, KEY_PseudoCanonicalInput_AdtDef_GenericArgsRef, KEY_PseudoCanonicalInput_DefId_GenericArgsRef, KEY_PseudoCanonicalInput_GenericArg, KEY_PseudoCanonicalInput_GlobalId, KEY_PseudoCanonicalInput_Instance_List_Ty, KEY_PseudoCanonicalInput_PolyFnSig_List_Ty, KEY_PseudoCanonicalInput_TraitRef, KEY_PseudoCanonicalInput_Ty, KEY_SimplifiedType, KEY_Symbol, KEY_TraitRef, KEY_Ty, KEY_Ty_Option_ExistentialTraitRef, KEY_Ty_Ty, KEY_unit, type LocalQueryKeyOf, key_unported } from "./query/keys.ts";
+import { KEY_AliasTyKind, KEY_CanonicalAliasGoal, KEY_CanonicalDropckOutlivesGoal, KEY_CanonicalImpliedOutlivesBoundsGoal_bool, KEY_CanonicalInput_usize, KEY_CanonicalMethodAutoderefStepsGoal, KEY_CanonicalPredicateGoal, KEY_CanonicalTypeOpAscribeUserTypeGoal, KEY_CanonicalTypeOpNormalizeGoal_Clause, KEY_CanonicalTypeOpNormalizeGoal_FnSig, KEY_CanonicalTypeOpNormalizeGoal_PolyFnSig, KEY_CanonicalTypeOpNormalizeGoal_Ty, KEY_CanonicalTypeOpProvePredicateGoal, KEY_Clauses, KEY_CrateNum, KEY_CrateNum_DefId, KEY_CrateNum_SimplifiedType, KEY_DefId, KEY_DefId_DefId, KEY_DefId_GenericArgsRef, KEY_DefId_Ident, KEY_DefId_SizedTraitKind, KEY_GenericArgsRef, KEY_Instance, KEY_InstanceKind, KEY_LitToConstInput, KEY_LocalDefId, KEY_LocalDefId_LocalDefId_Ident, KEY_LocalModId, KEY_ModId, KEY_Option_Symbol, KEY_OsStr, KEY_OwnerId, KEY_Predicate_WellFormedLoc, KEY_PseudoCanonicalInput_AdtDef_GenericArgsRef, KEY_PseudoCanonicalInput_DefId_GenericArgsRef, KEY_PseudoCanonicalInput_GenericArg, KEY_PseudoCanonicalInput_GlobalId, KEY_PseudoCanonicalInput_Instance_List_Ty, KEY_PseudoCanonicalInput_PolyFnSig_List_Ty, KEY_PseudoCanonicalInput_TraitRef, KEY_PseudoCanonicalInput_Ty, KEY_ShimKind, KEY_SimplifiedType, KEY_Symbol, KEY_TraitRef, KEY_Ty, KEY_Ty_Option_ExistentialTraitRef, KEY_Ty_Ty, KEY_unit, type LocalQueryKeyOf, key_unported } from "./query/keys.ts";
 import { type QueryDecl } from "./query/query_api.ts";
 import { stable_hash_Visibility } from "./stable_hash.gen.ts";
 import { type CodegenObligationError, type DynCompatibilityViolation, type ObligationCause, type WellFormedLoc, debug_DynCompatibilityViolation, debug_ObligationCause, debug_WellFormedLoc } from "./traits/mod.ts";
@@ -45,7 +45,7 @@ import { type LitToConstInput } from "./ty/consts/lit.ts";
 import { type Limits, type TyCtxt } from "./ty/context.ts";
 import { type SimplifiedType, debug_SimplifiedType } from "./ty/fast_reject.ts";
 import { type InhabitedPredicate, debug_InhabitedPredicate } from "./ty/inhabitedness/inhabited_predicate.ts";
-import { type Instance, type InstanceKind, debug_Instance, display_Instance } from "./ty/instance.ts";
+import { type Instance, type InstanceKind, type ShimKind, debug_Instance, display_Instance } from "./ty/instance.ts";
 import { type FnAbiError, type LayoutError, type TyAndLayout, type ValidityRequirement } from "./ty/layout.ts";
 import { type List, debug_RawList } from "./ty/list.ts";
 import { type PseudoCanonicalInput, type Ty, type Visibility, debug_Ty, debug_Visibility } from "./ty/mod.ts";
@@ -926,8 +926,7 @@ export interface QueryTypes {
   /**
    * Generates a MIR body for the shim.
    */
-  // PORT: key `ty::ShimKind<'tcx>` not ported (`unknown`)
-  mir_shims: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: Body; ProvidedValue: Body };
+  mir_shims: { Key: ShimKind; KeyArg: ShimKind; LocalKey: ShimKind; Value: Body; ProvidedValue: Body };
   /**
    * The `symbol_name` query provides the symbol name for calling a
    * given instance from the local crate. In particular, it will also
@@ -4329,7 +4328,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
   },
   mir_shims: {
     name: "mir_shims",
-    key: key_unported("ty::ShimKind<'tcx>"),
+    key: KEY_ShimKind,
     into_key: into_query_key_identity,
     arena_cache: false,
     cache_on_disk: false,

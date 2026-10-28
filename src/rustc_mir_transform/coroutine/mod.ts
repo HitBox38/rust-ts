@@ -57,8 +57,7 @@
 // out of bounds. `IndexVec::push` returns the old length.
 // PORT: `Place` / `SourceInfo` / `Operand` values that upstream copies (`Copy` / `.clone()`) are `clone_Place` /
 // `clone_SourceInfo` / `clone_Operand` where the copy is stored in the MIR (PORTING §8; MutVisitors edit in place).
-// PORT: `deref_separator::deref_finder` (lane mt-cleanup) is not exported by its stub module yet: a module-local
-// stand-in at the end of this file (not a marker; stops UNPORTED with its upstream path), as coroutine/drop.ts does.
+// PORT: `deref_separator::deref_finder` is imported from its port (deref_separator.ts, lane mt-cleanup).
 // PORT: `impl MirPass for StateTransform` (mod.rs:1008) sits in the class body (PORTING §8); `Operation`'s methods are
 // on its companion const. Items drop.rs reaches through `use super::*` (`SELF_ARG`, `TransformVisitor`, `Operation`,
 // `create_cases`, `insert_switch`, ...) are exported. `IndexVec::swap` of `local_decls` is an inline swap; the
@@ -120,9 +119,10 @@ import { bug, span_bug } from "../../rustc_span/macros.ts";
 import { PanicStrategy } from "../../rustc_target/spec/mod.ts";
 import { PLAIN } from "../../std/fmt.ts";
 import type { MutRef } from "../../std/mut_ref.ts";
-import { assert, panic, unported, unwrap } from "../../std/panic.ts";
+import { assert, panic, unwrap } from "../../std/panic.ts";
 
 import * as abort_unwinding_calls from "../abort_unwinding_calls.ts";
+import { deref_finder } from "../deref_separator.ts";
 import { MirPass, type PassCtx, PassPolicy } from "../pass_manager.ts";
 import * as pm from "../pass_manager.ts";
 import { MirPatch } from "../patch.ts";
@@ -1434,12 +1434,4 @@ class EnsureCoroutineFieldAssignmentsNeverAlias extends Visitor {
       // | Unreachable | Drop | Assert | CoroutineDrop | FalseEdge | FalseUnwind => {}
     }
   }
-}
-
-// ---- PORT stand-ins for items of other files that are not ported yet ----------------------------------------------
-// Not markers. Each calls `unported`; the owning lanes repoint them at the real ports (see the header).
-
-/** PORT: stand-in for `deref_separator::deref_finder` (deref_separator.rs, lane mt-cleanup). */
-function deref_finder(_tcx: TyCtxt, _body: Body, _storage_to_remove: boolean): void {
-  return unported("rustc_mir_transform::deref_separator::deref_finder (lane mt-cleanup)");
 }

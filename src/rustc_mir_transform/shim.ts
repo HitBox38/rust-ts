@@ -3,19 +3,18 @@
 // `as_ptr` / `from_ptr`, coroutine-closure by-move constructors, thread-local accessors).
 // (`build_adt_ctor` with `local_decls_for_sig` / `new_body` was ported ahead of the lane by merge-w22b.)
 //
-// PORT: `crate::elaborate_drop::{DropElaborator, DropFlagMode, DropStyle, Unwind, elaborate_drop}` (lane mt-drops) and
-// `crate::deref_separator::deref_finder` (lane mt-cleanup) are not ported at this lane's base: they are module-local
-// stand-ins at the end of this file (not markers; `elaborate_drop` / `deref_finder` stop UNPORTED with their upstream
-// path) that those lanes repoint at their ports. shim/async_destructor_ctor.ts (`use super::*;`) imports them from here.
-// PORT: `DropShimElaborator` is a class (struct with a trait impl, PORTING §5). Its trait methods whose names are also
-// fields (`patch`, `body`, `tcx`, `typing_env`) get a trailing `_` (`patch_()`, `body_()`, `tcx_()`, `typing_env_()`;
-// precedent mir/mod.ts "names", `HasTyCtxt::tcx_()`). `type Path = ()` is `null`; `Option<()>`'s `Some(())` is `null`
-// and `None` is `undefined`.
+// PORT: `crate::elaborate_drop::{DropElaborator, DropFlagMode, DropStyle, Unwind, elaborate_drop}` and
+// `crate::deref_separator::deref_finder` are imported from their ports (elaborate_drop.ts, deref_separator.ts);
+// shim/async_destructor_ctor.ts (`use super::*;`) imports them from there too.
+// PORT: `DropShimElaborator` is a class (struct with a trait impl, PORTING §5) that `implements DropElaborator<null>`.
+// Its fields whose names are also trait accessors get a trailing `_` (`body_`, `patch_`, `tcx_`, `typing_env_`), as
+// elaborate_drops.ts's `ElaborateDropsCtxt` does, so the accessors keep the trait's names. `type Path = ()` is `null`;
+// `Option<()>`'s `Some(())` is `null` and `None` is `undefined`.
 // PORT: `crate::run_optimization_passes` (lib.rs) is `require`d inside `make_shim`: pass modules must not import lib.ts
 // (pass_manager.ts header; precedent `pass_manager.ts` `PASS_NAMES`).
 // PORT: a `SourceInfo` (`Copy`) used by value more than once is copied with `clone_SourceInfo` (PORTING §8).
 // PORT: `debug!` / `#[instrument]` are comments (no tracing subscriber for debug).
-import { panic, unported, unreachable, unwrap, assert, assert_eq } from "../std/panic.ts";
+import { panic, unreachable, unwrap, assert, assert_eq } from "../std/panic.ts";
 import type { Providers } from "../rustc_middle/util/mod.ts";
 import { type DefId, DefId_eq, debug_DefId } from "../rustc_span/def_id.ts";
 import type { Ty } from "../rustc_middle/ty/decls.ts";
@@ -92,6 +91,8 @@ import { run_passes_no_validate } from "./pass_manager.ts";
 import * as remove_noop_landing_pads from "./remove_noop_landing_pads.ts";
 import * as simplify from "./simplify.ts";
 import * as coroutine from "./coroutine/mod.ts";
+import { deref_finder } from "./deref_separator.ts";
+import { type DropElaborator, type DropFlagMode, type DropStyle, elaborate_drop } from "./elaborate_drop.ts";
 
 // mod async_destructor_ctor;
 import * as async_destructor_ctor from "./shim/async_destructor_ctor.ts";
@@ -106,8 +107,8 @@ export { Body_foldable };
 
 // rustc: compiler/rustc_mir_transform/src/shim.rs:28 provide
 export function provide(providers: Providers["queries"]): void {
-  // PORT: the `mir_shims` key is `unknown` in queries.gen.ts (`ty::ShimKind`); the arena allocation is the value.
-  providers.mir_shims = (tcx: TyCtxt, shim: unknown) => make_shim(tcx, shim as ShimKind);
+  // PORT: the arena allocation is the value.
+  providers.mir_shims = (tcx: TyCtxt, shim: ShimKind) => make_shim(tcx, shim);
 }
 
 // rustc: compiler/rustc_mir_transform/src/shim.rs:32 make_shim
@@ -449,7 +450,7 @@ export function build_drop_shim(tcx: TyCtxt, def_id: DefId, ty: Ty | undefined, 
     {
       const elaborator = new DropShimElaborator(body, MirPatch.new(body), tcx, typing_env, false);
       const dropee = tcx.mk_place_deref(dropee_ptr);
-      const resume_block = elaborator.patch.resume_block_();
+      const resume_block = elaborator.patch_.resume_block_();
       elaborate_drop(
         elaborator,
         clone_SourceInfo(source_info),
@@ -460,7 +461,7 @@ export function build_drop_shim(tcx: TyCtxt, def_id: DefId, ty: Ty | undefined, 
         START_BLOCK,
         undefined,
       );
-      patch = elaborator.patch;
+      patch = elaborator.patch_;
     }
     patch.apply(body);
   }
@@ -489,12 +490,12 @@ export function new_body(source: MirSource, basic_blocks: BasicBlockData[], loca
 }
 
 // rustc-type: compiler/rustc_mir_transform/src/shim.rs:401 DropShimElaborator
-export class DropShimElaborator {
+export class DropShimElaborator implements DropElaborator<null> {
   constructor(
-    public body: Body,
-    public patch: MirPatchT,
-    public tcx: TyCtxt,
-    public typing_env: TypingEnv,
+    public body_: Body,
+    public patch_: MirPatchT,
+    public tcx_: TyCtxt,
+    public typing_env_: TypingEnv,
     public produce_async_drops: boolean,
   ) {}
 
@@ -503,23 +504,23 @@ export class DropShimElaborator {
 
   // rustc: compiler/rustc_mir_transform/src/shim.rs:418 patch_ref
   patch_ref(): MirPatchT {
-    return this.patch;
+    return this.patch_;
   }
   // rustc: compiler/rustc_mir_transform/src/shim.rs:421 patch
-  patch_(): MirPatchT {
-    return this.patch;
+  patch(): MirPatchT {
+    return this.patch_;
   }
   // rustc: compiler/rustc_mir_transform/src/shim.rs:424 body
-  body_(): Body {
-    return this.body;
+  body(): Body {
+    return this.body_;
   }
   // rustc: compiler/rustc_mir_transform/src/shim.rs:427 tcx
-  tcx_(): TyCtxt {
-    return this.tcx;
+  tcx(): TyCtxt {
+    return this.tcx_;
   }
   // rustc: compiler/rustc_mir_transform/src/shim.rs:430 typing_env
-  typing_env_(): TypingEnv {
-    return this.typing_env;
+  typing_env(): TypingEnv {
+    return this.typing_env_;
   }
 
   // rustc: compiler/rustc_mir_transform/src/shim.rs:434 allow_async_drops
@@ -1364,33 +1365,4 @@ function build_construct_coroutine_by_move_shim(tcx: TyCtxt, coroutine_closure_d
   }
 
   return body;
-}
-
-// ---- PORT stand-ins for items of other files that are not ported yet ----------------------------------------------
-// Not markers. The owning lanes repoint them at their ports (see the header).
-
-/** PORT: stand-in for `elaborate_drop::DropFlagMode` (elaborate_drop.rs:43, lane mt-drops). */
-export type DropFlagMode = "Shallow" | "Deep";
-/** PORT: stand-in for `elaborate_drop::DropStyle` (elaborate_drop.rs:22, lane mt-drops). */
-export type DropStyle = "Dead" | "Static" | "Conditional" | "Open";
-/** PORT: stand-in for `elaborate_drop::Unwind` (elaborate_drop.rs:52, lane mt-drops). */
-export type Unwind = { readonly $: "To"; _0: BasicBlock } | { readonly $: "InCleanup" };
-
-/** PORT: stand-in for `elaborate_drop::elaborate_drop` (elaborate_drop.rs:166, lane mt-drops); `path` is `()` (`null`). */
-export function elaborate_drop(
-  _elaborator: DropShimElaborator,
-  _source_info: SourceInfo,
-  _place: Place,
-  _path: null,
-  _succ: BasicBlock,
-  _unwind: Unwind,
-  _bb: BasicBlock,
-  _dropline: BasicBlock | undefined,
-): void {
-  return unported("rustc_mir_transform::elaborate_drop::elaborate_drop (lane mt-drops)");
-}
-
-/** PORT: stand-in for `deref_separator::deref_finder` (deref_separator.rs, lane mt-cleanup). */
-export function deref_finder(_tcx: TyCtxt, _body: Body, _storage_to_remove: boolean): void {
-  return unported("rustc_mir_transform::deref_separator::deref_finder (lane mt-cleanup)");
 }
