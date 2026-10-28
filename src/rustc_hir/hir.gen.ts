@@ -2,7 +2,7 @@
 // Hand-written additions (methods, manual Debug impls) go in hir.ts next to this file.
 import { debug_ExternAbi, type ExternAbi } from "../rustc_abi/extern_abi.ts";
 import { type AsmMacro, type AssignOp, type BindingMode, type BinOp, type BorrowKind, type BoundConstness, type BoundPolarity, type CaptureBy, clone_AsmMacro, clone_AssignOpKind, clone_BindingMode, clone_BinOpKind, clone_BorrowKind, clone_BoundConstness, clone_BoundPolarity, clone_CaptureBy, clone_ImplPolarity, clone_InlineAsmTemplatePiece, clone_IsAuto, clone_Label, clone_LitKind, clone_MacroDef, clone_Recovered, clone_TraitObjectSyntax, clone_UnOp, clone_UnsafeBinderCastKind, debug_AsmMacro, debug_AssignOpKind, debug_BindingMode, debug_BinOpKind, debug_BorrowKind, debug_BoundConstness, debug_BoundPolarity, debug_CaptureBy, debug_ImplPolarity, debug_InlineAsmOptions, debug_InlineAsmTemplatePiece, debug_IsAuto, debug_Label, debug_LitKind, debug_MacroDef, debug_Recovered, debug_TraitObjectSyntax, debug_UnOp, debug_UnsafeBinderCastKind, type ImplPolarity, type InlineAsmOptions, type InlineAsmTemplatePiece, type IsAuto, type Label, type LitKind, type MacroDef, type Recovered, type TraitObjectSyntax, type UnOp, type UnsafeBinderCastKind } from "../rustc_ast/lib.ts";
-import { debug_FloatTy, debug_IntTy, debug_Movability, debug_Mutability, debug_Pinnedness, debug_UintTy, decode_FloatTy, decode_IntTy, decode_UintTy, type FloatTy, type IntTy, type Movability, type Mutability, type Pinnedness, type UintTy } from "../rustc_ast_ir/lib.ts";
+import { debug_FloatTy, debug_IntTy, debug_Movability, debug_Mutability, debug_Pinnedness, debug_UintTy, decode_FloatTy, decode_IntTy, decode_Movability, decode_UintTy, type FloatTy, type IntTy, type Movability, type Mutability, type Pinnedness, type UintTy } from "../rustc_ast_ir/lib.ts";
 import { type Attribute, clone_Attribute, debug_Attribute } from "../rustc_attr_ir/lib.ts";
 import { debug_Fingerprint, type Fingerprint } from "../rustc_data_structures/fingerprint.ts";
 import { debug_SortedMap, type SortedMap } from "../rustc_data_structures/sorted_map.ts";
@@ -1833,6 +1833,18 @@ export function clone_CoroutineKind(v: CoroutineKind): CoroutineKind {
       return { $: "Coroutine", _0: v._0 };
   }
 }
+// rustc-derive: compiler/rustc_hir/src/hir.rs:1971 Decodable for CoroutineKind
+export function decode_CoroutineKind(__decoder: SpanDecoder): CoroutineKind {
+  const __tag = __decoder.read_u8();
+  switch (__tag) {
+    case 0:
+      return { $: "Desugared", _0: decode_CoroutineDesugaring(__decoder), _1: decode_CoroutineSource(__decoder) };
+    case 1:
+      return { $: "Coroutine", _0: decode_Movability(__decoder) };
+    default:
+      return panic(`invalid enum variant tag while decoding \`CoroutineKind\`, expected 0..2, actual ${__tag}`);
+  }
+}
 
 // rustc-type: compiler/rustc_hir/src/hir.rs:2028 CoroutineSource
 /// In the case of a coroutine created as part of an async/gen construct,
@@ -1852,6 +1864,20 @@ export const debug_CoroutineSource: Debug<CoroutineSource> = (v) => v;
 export function clone_CoroutineSource(v: CoroutineSource): CoroutineSource {
   return v;
 }
+// rustc-derive: compiler/rustc_hir/src/hir.rs:2028 Decodable for CoroutineSource
+export function decode_CoroutineSource(__decoder: SpanDecoder): CoroutineSource {
+  const __tag = __decoder.read_u8();
+  switch (__tag) {
+    case 0:
+      return "Block";
+    case 1:
+      return "Closure";
+    case 2:
+      return "Fn";
+    default:
+      return panic(`invalid enum variant tag while decoding \`CoroutineSource\`, expected 0..3, actual ${__tag}`);
+  }
+}
 
 // rustc-type: compiler/rustc_hir/src/hir.rs:2051 CoroutineDesugaring
 export type CoroutineDesugaring =
@@ -1866,6 +1892,20 @@ export const CoroutineDesugaring = { Async: "Async", Gen: "Gen", AsyncGen: "Asyn
 export const debug_CoroutineDesugaring: Debug<CoroutineDesugaring> = (v) => v;
 export function clone_CoroutineDesugaring(v: CoroutineDesugaring): CoroutineDesugaring {
   return v;
+}
+// rustc-derive: compiler/rustc_hir/src/hir.rs:2051 Decodable for CoroutineDesugaring
+export function decode_CoroutineDesugaring(__decoder: SpanDecoder): CoroutineDesugaring {
+  const __tag = __decoder.read_u8();
+  switch (__tag) {
+    case 0:
+      return "Async";
+    case 1:
+      return "Gen";
+    case 2:
+      return "AsyncGen";
+    default:
+      return panic(`invalid enum variant tag while decoding \`CoroutineDesugaring\`, expected 0..3, actual ${__tag}`);
+  }
 }
 
 // rustc-type: compiler/rustc_hir/src/hir.rs:2094 BodyOwnerKind
@@ -3598,6 +3638,24 @@ export const ImplicitSelfKind = { Imm: "Imm", Mut: "Mut", RefImm: "RefImm", RefM
 export const debug_ImplicitSelfKind: Debug<ImplicitSelfKind> = (v) => v;
 export function clone_ImplicitSelfKind(v: ImplicitSelfKind): ImplicitSelfKind {
   return v;
+}
+// rustc-derive: compiler/rustc_hir/src/hir.rs:3977 Decodable for ImplicitSelfKind
+export function decode_ImplicitSelfKind(__decoder: SpanDecoder): ImplicitSelfKind {
+  const __tag = __decoder.read_u8();
+  switch (__tag) {
+    case 0:
+      return "Imm";
+    case 1:
+      return "Mut";
+    case 2:
+      return "RefImm";
+    case 3:
+      return "RefMut";
+    case 4:
+      return "None";
+    default:
+      return panic(`invalid enum variant tag while decoding \`ImplicitSelfKind\`, expected 0..5, actual ${__tag}`);
+  }
 }
 
 // rustc-type: compiler/rustc_hir/src/hir.rs:3999 IsAsync

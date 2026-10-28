@@ -4,7 +4,7 @@ import { debug_Mutability, decode_Mutability, type Mutability } from "../../rust
 import { try_visit } from "../../rustc_ast_ir/visit.ts";
 import { debug_Safety, decode_Safety, type Safety } from "../../rustc_hir/def.ts";
 import { decode_Ty, type TyDecoder } from "./codec.ts";
-import { type FieldIdx } from "./decls.ts";
+import { FieldIdx } from "./decls.ts";
 import { fold_with_Ty, try_fold_with_Ty, type Ty, visit_with_Ty } from "./mod.ts";
 import { decode_Option } from "../../rustc_serialize/serialize.ts";
 import { debug_Span, type Span } from "../../rustc_span/lib.ts";
@@ -14,9 +14,6 @@ import { panic } from "../../std/panic.ts";
 import { Ok, type Result } from "../../std/result.ts";
 import { unported } from "../../std/panic.ts";
 const unported_debug = (_v: unknown): string => unported("Debug without a TS impl (see types report)");
-function unported_decodable(..._a: unknown[]): never {
-  return unported("Decodable without a TS impl (see types report)");
-}
 
 // rustc-type: compiler/rustc_middle/src/ty/adjustment.rs:11 PointerCoercion
 export type PointerCoercion =
@@ -532,7 +529,7 @@ export const debug_CustomCoerceUnsized: Debug<CustomCoerceUnsized> = (v, f) => {
 };
 // rustc-derive: compiler/rustc_middle/src/ty/adjustment.rs:226 TyDecodable for CustomCoerceUnsized
 export function decode_CustomCoerceUnsized(__decoder: TyDecoder): CustomCoerceUnsized {
-  return { $: "Struct", _0: unported_decodable(__decoder) };
+  return { $: "Struct", _0: FieldIdx.from_u32(__decoder.read_u32()) };
 }
 
 // rustc-type: compiler/rustc_middle/src/ty/adjustment.rs:234 PatAdjustment

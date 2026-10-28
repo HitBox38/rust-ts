@@ -304,7 +304,14 @@
       "rustc_hir::def::Namespace",
       "rustc_hir::hir::PrimTy",
       "rustc_hir::hir::Safety",
-      "rustc_hir::hir::Constness"
+      "rustc_hir::hir::Constness",
+      "rustc_hir_id::OwnerId",
+      "rustc_hir_id::HirId",
+      "rustc_hir_id::ItemLocalId",
+      "rustc_hir::hir::CoroutineKind",
+      "rustc_hir::hir::CoroutineSource",
+      "rustc_hir::hir::CoroutineDesugaring",
+      "rustc_hir::hir::ImplicitSelfKind"
     ],
     "hand_notes": {
       "decodable_types": "crate metadata's def_keys table (rmeta decoder.rs `CrateMetadata::def_key`, lane rmeta-decoder-b)",
@@ -445,12 +452,14 @@
     "derive_only": true,
     "derive_decodable": true,
     "decodable_types": [
-      "rustc_index::bit_set::DenseBitSet"
+      "rustc_index::bit_set::DenseBitSet",
+      "rustc_index::bit_set::BitMatrix"
     ],
     "decodable_construct": {
-      "rustc_index::bit_set::DenseBitSet": { "expr": "DenseBitSet.from_u64_words($0, $1)", "import": ["DenseBitSet"] }
+      "rustc_index::bit_set::DenseBitSet": { "expr": "DenseBitSet.from_u64_words($0, $1)", "import": ["DenseBitSet"] },
+      "rustc_index::bit_set::BitMatrix": { "expr": "BitMatrix.from_u64_words($0, $1, $2)", "import": ["BitMatrix"] }
     },
-    "erase_params": ["T"],
+    "erase_params": ["T", "R", "C"],
     "hand_notes": {
       "erase_params": "`DenseBitSet<T>`'s `T: Idx` is a number-like index in bit_set.ts (`T extends number = number`); the decoded set is a `DenseBitSet<number>` (metadata only holds `DenseBitSet<u32>`)",
       "*": "rustc_index's types are hand-written (src/rustc_index/bit_set.ts); this set only generates rustc_index/decodable.gen.ts.",
@@ -1039,6 +1048,14 @@
       "rustc_middle::ty::typeck_results::Rust2024IncompatiblePatInfo": "hand-written in typeck_results.ts (lane ty-results)"
     },
     "derive_type_fold": true,
+    "derive_decodable": true,
+    "decodable_types": [
+      "rustc_middle::ty::typeck_results::CanonicalUserTypeAnnotation",
+      "rustc_middle::ty::typeck_results::UserType",
+      "rustc_middle::ty::typeck_results::UserTypeKind",
+      "rustc_middle::ty::typeck_results::UserArgs",
+      "rustc_middle::ty::typeck_results::UserSelfTy"
+    ],
     "resolve_files": [
       "compiler/rustc_middle/src/ty/mod.rs"
     ],
@@ -1830,6 +1847,8 @@
     "discriminant": [],
     "skip": [],
     "derive_type_fold": true,
+    "derive_decodable": true,
+    "decodable_types": ["rustc_middle::ty::instance::Instance", "rustc_middle::ty::instance::ReifyReason", "rustc_middle::ty::instance::InstanceKind", "rustc_middle::ty::instance::ShimKind"],
     "resolve_files": ["compiler/rustc_middle/src/ty/mod.rs"],
     "typemap_extra": ["tyir.typemap.json", "middle_traits_thir.typemap.json"]
   },
@@ -1896,6 +1915,7 @@
     "auto_class": true,
     "derive_clone": true,
     "derive_type_fold": true,
+    "derive_decodable": true,
     "resolve_files": [
       "compiler/rustc_middle/src/ty/mod.rs"
     ],

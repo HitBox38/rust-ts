@@ -11,7 +11,7 @@
 import "../../mod.ts";
 import { Size } from "../../../../rustc_abi/lib.ts";
 import { bug } from "../../../../rustc_span/macros.ts";
-import { assert, panic, unported } from "../../../../std/panic.ts";
+import { assert, panic } from "../../../../std/panic.ts";
 import { Err, Ok, type Result } from "../../../../std/result.ts";
 import type { Hasher } from "../../../../vendor/rustc_stable_hash/lib.ts";
 import type { Decoder } from "../../../../rustc_serialize/serialize.ts";
@@ -300,11 +300,8 @@ InitMask.prototype.get = function (this: InitMask, idx: Size): boolean {
   }
 };
 
-// `impl Decodable for InitMask` / `InitMaskBlocks`: derive(Decodable_NoContext) (init_mask.rs:22 / :28)
-/** PORT: the derived `Decodable` of `InitMask` (the codegen set rustc_middle_mir has no `derive_decodable`). */
-export function decode_InitMask<D extends Decoder>(_d: D): InitMask {
-  return unported("Decodable for rustc_middle::mir::interpret::allocation::init_mask::InitMask (derive(Decodable_NoContext) not generated)");
-}
+// `impl Decodable for InitMask` / `InitMaskBlocks`: derive(Decodable_NoContext) (init_mask.rs:22 / :28), generated in
+// init_mask.gen.ts (set rustc_middle_mir, lane meta-mir) and re-exported above.
 
 // rustc-skip: compiler/rustc_middle/src/mir/interpret/allocation/init_mask.rs:198 encode Encodable (metadata encoding, M5)
 

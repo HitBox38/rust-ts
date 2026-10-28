@@ -8,18 +8,21 @@ import { debug_LayoutError_lazy, type MachineStopType } from "./error.ts";
 import { type AllocId, debug_AllocId } from "./mod.ts";
 import { debug_Pointer, type Pointer } from "./pointer.ts";
 import { debug_Scalar, type Scalar } from "./value.ts";
+import { decode_Ty, type TyDecoder } from "../../ty/codec.ts";
 import { type ValTree } from "../../ty/consts/valtree.ts";
 import { type VariantIdx } from "../../ty/decls.ts";
 import { type LayoutError } from "../../ty/layout.ts";
 import { debug_RawList, type List } from "../../ty/list.ts";
 import { debug_Ty, type Ty } from "../../ty/mod.ts";
 import { type PolyExistentialPredicate } from "../../ty/predicate.ts";
+import { decode_bool } from "../../../rustc_serialize/serialize.ts";
 import { debug_DefId, type DefId } from "../../../rustc_span/def_id.ts";
-import { debug_ErrorGuaranteed, debug_Span, type ErrorGuaranteed, type Span } from "../../../rustc_span/lib.ts";
+import { debug_ErrorGuaranteed, debug_Span, decode_ErrorGuaranteed, type ErrorGuaranteed, type Span } from "../../../rustc_span/lib.ts";
 import { debug_Symbol, type Symbol } from "../../../rustc_span/symbol.ts";
 import { debug_Binder } from "../../../rustc_type_ir/binder.ts";
 import { debug_ExistentialPredicate } from "../../../rustc_type_ir/predicate.gen.ts";
 import { type Debug, debug_bool, debug_int, debug_option, debug_str, debug_struct, debug_tuple } from "../../../std/fmt.ts";
+import { panic } from "../../../std/panic.ts";
 import { type Result } from "../../../std/result.ts";
 import { type Utf8Error } from "../../../std/str.ts";
 import { unported } from "../../../std/panic.ts";
@@ -49,6 +52,18 @@ export function clone_ErrorHandled(v: ErrorHandled): ErrorHandled {
       return { $: "TooGeneric", _0: v._0 };
   }
 }
+// rustc-derive: compiler/rustc_middle/src/mir/interpret/error.rs:22 TyDecodable for ErrorHandled
+export function decode_ErrorHandled(__decoder: TyDecoder): ErrorHandled {
+  const __tag = __decoder.read_u8();
+  switch (__tag) {
+    case 0:
+      return { $: "Reported", _0: decode_ReportedErrorInfo(__decoder), _1: __decoder.decode_span() };
+    case 1:
+      return { $: "TooGeneric", _0: __decoder.decode_span() };
+    default:
+      return panic(`invalid enum variant tag while decoding \`ErrorHandled\`, expected 0..2, actual ${__tag}`);
+  }
+}
 
 // rustc-type: compiler/rustc_middle/src/mir/interpret/error.rs:59 ReportedErrorInfo
 export class ReportedErrorInfo {
@@ -66,6 +81,10 @@ export const debug_ReportedErrorInfo: Debug<ReportedErrorInfo> = (v, f) =>
   ]);
 export function clone_ReportedErrorInfo(v: ReportedErrorInfo): ReportedErrorInfo {
   return new ReportedErrorInfo(v.error, v.allowed_in_infallible);
+}
+// rustc-derive: compiler/rustc_middle/src/mir/interpret/error.rs:59 TyDecodable for ReportedErrorInfo
+export function decode_ReportedErrorInfo(__decoder: TyDecoder): ReportedErrorInfo {
+  return new ReportedErrorInfo(decode_ErrorGuaranteed(__decoder), decode_bool(__decoder));
 }
 
 // rustc-type: compiler/rustc_middle/src/mir/interpret/error.rs:101 ValTreeCreationError
@@ -110,6 +129,24 @@ export function clone_ValTreeCreationError(v: ValTreeCreationError): ValTreeCrea
     case "InvalidConst":
     case "CyclicConst":
       return v;
+  }
+}
+// rustc-derive: compiler/rustc_middle/src/mir/interpret/error.rs:101 TyDecodable for ValTreeCreationError
+export function decode_ValTreeCreationError(__decoder: TyDecoder): ValTreeCreationError {
+  const __tag = __decoder.read_u8();
+  switch (__tag) {
+    case 0:
+      return ValTreeCreationError.NodesOverflow;
+    case 1:
+      return ValTreeCreationError.InvalidConst;
+    case 2:
+      return { $: "NonSupportedType", _0: decode_Ty(__decoder) };
+    case 3:
+      return ValTreeCreationError.CyclicConst;
+    case 4:
+      return { $: "ErrorHandled", _0: decode_ErrorHandled(__decoder) };
+    default:
+      return panic(`invalid enum variant tag while decoding \`ValTreeCreationError\`, expected 0..5, actual ${__tag}`);
   }
 }
 
