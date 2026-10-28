@@ -5,10 +5,10 @@
     "lex": 25780,
     "symbols": 10,
     "emit": 1466,
-    "tydump-nocore": 21480,
+    "tydump-nocore": 21489,
     "parse-ui": 991,
     "hir-tree": 21482,
-    "mirdump-ui": 1190,
+    "mirdump-ui": 1314,
     "escape-synthetic": 11,
     "tokens": 25780,
     "mirdump-minicore": 45,
@@ -24,18 +24,18 @@
     "escape": 25780,
     "unpretty-hir": 21486,
     "expanded": 21469,
-    "borrowck-ui": 2,
+    "borrowck-ui": 827,
     "unpretty-expanded": 21469,
-    "thirdump-ui": 1640,
+    "thirdump-ui": 1804,
     "expanded-nocore": 21479,
-    "borrowck-ui-report": 64,
+    "borrowck-ui-report": 665,
     "thirdump-minicore": 46,
-    "tydump-ui": 1642
+    "tydump-ui": 1805
   },
-  "updated": "2026-10-28T01:36:29.975Z",
+  "updated": "2026-10-28T13:18:45.790Z",
   "open_stops": [],
   "coverage": {
-    "ported": 21360,
+    "ported": 21769,
     "total": 25518
   }
 }

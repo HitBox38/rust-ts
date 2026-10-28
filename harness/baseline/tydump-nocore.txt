@@ -4166,6 +4166,7 @@ tests/ui/const-generics/issues/cg-in-dyn-issue-128176.rs
 tests/ui/const-generics/issues/index_array_bad_type.rs
 tests/ui/const-generics/issues/issue-100313.rs
 tests/ui/const-generics/issues/issue-105037.rs
+tests/ui/const-generics/issues/issue-56445-1.rs
 tests/ui/const-generics/issues/issue-56445-2.rs
 tests/ui/const-generics/issues/issue-56445-3.rs
 tests/ui/const-generics/issues/issue-60818-struct-constructors.rs
@@ -6776,6 +6777,9 @@ tests/ui/enum-discriminant/issue-46519.rs
 tests/ui/enum-discriminant/issue-50689.rs
 tests/ui/enum-discriminant/issue-51582.rs
 tests/ui/enum-discriminant/issue-61696.rs
+tests/ui/enum-discriminant/issue-70453-generics-in-discr-ice-2.rs
+tests/ui/enum-discriminant/issue-70453-generics-in-discr-ice.rs
+tests/ui/enum-discriminant/issue-70453-polymorphic-ctfe.rs
 tests/ui/enum-discriminant/issue-70509-partial_eq.rs
 tests/ui/enum-discriminant/issue-72554.rs
 tests/ui/enum-discriminant/issue-90038.rs
@@ -7909,6 +7913,7 @@ tests/ui/force-inlining/deny.rs
 tests/ui/force-inlining/early-deny.rs
 tests/ui/force-inlining/gate.rs
 tests/ui/force-inlining/inherent.rs
+tests/ui/force-inlining/invalid.rs
 tests/ui/force-inlining/shims.rs
 tests/ui/foreign/auxiliary/fn-abi.rs
 tests/ui/foreign/extern-rust-ffi-warning-64593.rs
@@ -16747,6 +16752,7 @@ tests/ui/scalable-vectors/illformed-element-type.rs
 tests/ui/scalable-vectors/illformed-tuples-of-scalable-vectors.rs
 tests/ui/scalable-vectors/illformed-within-types.rs
 tests/ui/scalable-vectors/illformed.rs
+tests/ui/scalable-vectors/invalid.rs
 tests/ui/scalable-vectors/layout.rs
 tests/ui/scalable-vectors/project-into-field-extern.rs
 tests/ui/scalable-vectors/project-into-field-okay.rs
@@ -17658,6 +17664,8 @@ tests/ui/structs/btree-struct-usage-8044.rs
 tests/ui/structs/cross-crate-newtype-struct-pat.rs
 tests/ui/structs/default-field-values-non_exhaustive.rs
 tests/ui/structs/default-field-values/auxiliary/struct_field_default.rs
+tests/ui/structs/default-field-values/const-trait-default-field-value.rs
+tests/ui/structs/default-field-values/do-not-ice-on-invalid-lifetime.rs
 tests/ui/structs/default-field-values/empty-struct.rs
 tests/ui/structs/default-field-values/failures.rs
 tests/ui/structs/default-field-values/field-references-param.rs
@@ -18709,6 +18717,7 @@ tests/ui/traits/const-traits/assoc-type.rs
 tests/ui/traits/const-traits/associated-const-stability.rs
 tests/ui/traits/const-traits/auxiliary/associated-const-stability.rs
 tests/ui/traits/const-traits/auxiliary/cross-crate.rs
+tests/ui/traits/const-traits/auxiliary/minicore.rs
 tests/ui/traits/const-traits/auxiliary/staged-api.rs
 tests/ui/traits/const-traits/call-const-closure.rs
 tests/ui/traits/const-traits/call-const-in-conditionally-const.rs
