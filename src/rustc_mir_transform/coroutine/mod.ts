@@ -59,6 +59,10 @@
 // `clone_SourceInfo` / `clone_Operand` where the copy is stored in the MIR (PORTING §8; MutVisitors edit in place).
 // PORT: `deref_separator::deref_finder` (lane mt-cleanup) is not exported by its stub module yet: a module-local
 // stand-in at the end of this file (not a marker; stops UNPORTED with its upstream path), as coroutine/drop.ts does.
+// PORT: `impl MirPass for StateTransform` (mod.rs:1008) sits in the class body (PORTING §8); `Operation`'s methods are
+// on its companion const. Items drop.rs reaches through `use super::*` (`SELF_ARG`, `TransformVisitor`, `Operation`,
+// `create_cases`, `insert_switch`, ...) are exported. `IndexVec::swap` of `local_decls` is an inline swap; the
+// `(usize, BasicBlock)` cases become `SwitchTargets::new`'s `u128` values as `bigint`.
 // PORT: `#[tracing::instrument]` / `debug!` / `trace!` are comments (no tracing subscriber).
 // Init order: drop.ts imports this module back (`use super::*`); neither reads the other at load time.
 import { FieldIdx, VariantIdx } from "../../rustc_abi/layout.ts";
