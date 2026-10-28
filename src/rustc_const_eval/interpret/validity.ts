@@ -40,7 +40,7 @@ import { bug } from "../../rustc_span/macros.ts";
 import { display_Symbol, sym, type Symbol } from "../../rustc_span/symbol.ts";
 import { type Fmt, PLAIN } from "../../std/fmt.ts";
 import { type MutRef } from "../../std/mut_ref.ts";
-import { assert, assert_eq, panic, unwrap } from "../../std/panic.ts";
+import { assert, assert_eq, Panic, panic, unwrap } from "../../std/panic.ts";
 import { Err } from "../../std/result.ts";
 import { Immediate, type ImmTy } from "./operand.ts";
 import { type MPlaceTy, type PlaceTy } from "./place.gen.ts";
@@ -1520,10 +1520,11 @@ export class ValidityVisitor<M extends Machine = Machine> extends ValueVisitor_p
 
     // Assert that we checked everything there is to check about this type.
     // `is_opsem_inhabited` implies that the layout is inhabited (checked by layout invariants).
-    assert(
-      val.layout.ty.is_opsem_inhabited(this.ecx.tcx.deref(), this.ecx.typing_env),
-      `a value of type \`${display_Ty(val.layout.ty)}\` passed validation but that type is uninhabited`,
-    );
+    // PORT: `assert!`'s message is only formatted on failure; building it eagerly would print a type path and trip
+    // rustc's `trimmed_def_paths` delayed check at exit.
+    if (!val.layout.ty.is_opsem_inhabited(this.ecx.tcx.deref(), this.ecx.typing_env)) {
+      throw new Panic(`a value of type \`${display_Ty(val.layout.ty)}\` passed validation but that type is uninhabited`);
+    }
     // PORT: the `if cfg!(debug_assertions) { .. }` re-check of the scalar ranges is skipped (rustc ships without
     // debug assertions; interpret/eval_context.ts header).
 
