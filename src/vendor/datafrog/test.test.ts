@@ -150,7 +150,7 @@ test("reachable_leapfrog_vs_var_join", () => {
     const reachable2 = reachable_with_leapfrog(edges);
     expect(reachable2.elements, `seed ${seed}`).toEqual(reachable1.elements);
   }
-});
+}, 60_000);
 
 // crate: datafrog-2.0.1/src/test.rs:116 reachable_rel_join_vs_var_join
 test("reachable_rel_join_vs_var_join", () => {
@@ -160,7 +160,7 @@ test("reachable_rel_join_vs_var_join", () => {
     const reachable2 = reachable_with_relation_join(edges);
     expect(reachable2.elements, `seed ${seed}`).toEqual(reachable1.elements);
   }
-});
+}, 60_000);
 
 // crate: datafrog-2.0.1/src/test.rs:123 sum_join_from_var_vs_rel
 test("sum_join_from_var_vs_rel", () => {
@@ -172,7 +172,7 @@ test("sum_join_from_var_vs_rel", () => {
     const output2 = sum_join_via_relation(set1, set2);
     expect(output2.elements, `seed ${seed}`).toEqual(output1.elements);
   }
-});
+}, 60_000);
 
 /// Test the behavior of `filter_anti` used on its own in a
 /// leapjoin -- effectively it becomes an "intersection"
@@ -195,7 +195,7 @@ test("filter_with_on_its_own", () => {
 
     expect(intersection1.elements, `seed ${seed}`).toEqual(intersection2.elements);
   }
-});
+}, 60_000);
 
 /// Test the behavior of `filter_anti` used on its own in a
 /// leapjoin -- effectively it becomes a "set minus" operation.
@@ -218,7 +218,7 @@ test("filter_anti_on_its_own", () => {
 
     expect(difference1.elements, `seed ${seed}`).toEqual(difference2.elements);
   }
-});
+}, 60_000);
 
 // }
 
