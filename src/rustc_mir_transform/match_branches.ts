@@ -33,7 +33,7 @@ import {
 } from "../rustc_middle/mir/mod.ts";
 import { ScalarInt, ScalarInt_eq } from "../rustc_middle/ty/consts/int.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
-import { IntegerExt, type TyAndLayout } from "../rustc_middle/ty/layout.ts";
+import { debug_LayoutError, IntegerExt, type TyAndLayout } from "../rustc_middle/ty/layout.ts";
 import type { Ty, TypingEnv } from "../rustc_middle/ty/mod.ts";
 import { borrowed_locals } from "../rustc_mir_dataflow/impls/borrowed_locals.ts";
 import { intern_key_eq } from "../rust_ts/intern_key.ts";
@@ -182,7 +182,7 @@ class SimplifyMatch {
     if (first_bool === undefined) return undefined;
     if (others.every((const_) => Const.try_eval_bool(const_.const_, this.tcx, this.typing_env) === !first_bool)) {
       // Make value conditional on switch condition.
-      const size = unwrap_result(this.tcx.layout_of(this.typing_env.as_query_input(this.discr_ty))).size;
+      const size = unwrap_result(this.tcx.layout_of(this.typing_env.as_query_input(this.discr_ty)), debug_LayoutError).size;
       const const_cmp = Operand.const_from_scalar(this.tcx, this.discr_ty, Scalar.from_uint(first_case, size), DUMMY_SP);
       const op = first_bool ? "Eq" : "Ne";
       const rval: Rvalue = { $: "BinaryOp", _0: op, _1: [{ $: "Copy", _0: Place_from_Local(this.discr_local()) }, const_cmp] };
@@ -235,7 +235,7 @@ class SimplifyMatch {
     if (!first_const.ty().is_integral()) {
       return undefined;
     }
-    const discr_layout = unwrap_result(this.tcx.layout_of(this.typing_env.as_query_input(this.discr_ty)));
+    const discr_layout = unwrap_result(this.tcx.layout_of(this.typing_env.as_query_input(this.discr_ty)), debug_LayoutError);
     if (
       consts.every(([case_, const_]) => {
         const scalar_int = Const.try_eval_scalar_int(const_.const_, this.tcx, this.typing_env);

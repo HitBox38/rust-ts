@@ -71,7 +71,7 @@ import { type ImmTy, type InterpCx, type OpTy } from "../rustc_const_eval/interp
 import { OpTy_from_ImmTy, OpTy_from_MPlaceTy } from "../rustc_const_eval/interpret/operand.ts";
 import { DenseBitSet, GrowableBitSet } from "../rustc_index/bit_set.ts";
 import { newtype_index } from "../rustc_index/newtype_index.ts";
-import { InterpResult } from "../rustc_middle/mir/interpret/mod.ts";
+import { debug_InterpErrorKind, InterpResult } from "../rustc_middle/mir/interpret/mod.ts";
 import {
   type BasicBlock,
   type BasicBlockData,
@@ -372,7 +372,7 @@ class TOFinder {
             const op_: OpTy = OpTy_from_MPlaceTy(mplace);
             const len_usize = InterpResult.discard_err(op_.len(this.ecx));
             if (len_usize === undefined) return undefined;
-            const layout = unwrap_result(this.ecx.layout_of(this.tcx.types.usize));
+            const layout = unwrap_result(this.ecx.layout_of(this.tcx.types.usize), debug_InterpErrorKind);
             return OpTy_from_ImmTy(interpret.ImmTy.from_uint(len_usize, layout));
           }
         }
@@ -486,7 +486,7 @@ class TOFinder {
       case "UnaryOp": {
         if (!(rvalue._0 === "Not" && (rvalue._1.$ === "Move" || rvalue._1.$ === "Copy"))) return;
         const operand_ = rvalue._1._0;
-        const layout = unwrap_result(this.ecx.layout_of(operand_.ty(this.body, this.tcx).ty));
+        const layout = unwrap_result(this.ecx.layout_of(operand_.ty(this.body, this.tcx).ty), debug_InterpErrorKind);
         const lhs_ = this.value(lhs);
         if (lhs_ === undefined) return;
         const operand = this.place_value(operand_, undefined);
