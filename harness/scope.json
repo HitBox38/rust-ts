@@ -66,6 +66,8 @@
     "ena": "=0.14.4",
     "punycode": "=0.4.1",
     "rustc-demangle": "=0.1.28",
-    "gsgdt": "=0.1.2"
+    "gsgdt": "=0.1.2",
+    "datafrog": "=2.0.1",
+    "polonius-engine": "=0.13.0"
   }
 }

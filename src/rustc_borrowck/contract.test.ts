@@ -111,8 +111,8 @@ test("every fn of rustc_borrowck is ported or declared as a stub, never both", (
     }
   }
   expect(total).toBe(901);
-  expect(markers.length).toBe(861);
-  expect(stubs.length).toBe(40);
+  expect(markers.length).toBe(901);
+  expect(stubs.length).toBe(0);
 });
 
 test("the stubs per fill lane are the handoff's split table", () => {
@@ -134,7 +134,7 @@ test("the stubs per fill lane are the handoff's split table", () => {
     // "bck-diag-b": 0 (filled, wave 25: conflict_errors.rs lines >= 2469, 42 stubs -> markers)
     // "bck-diag-e": 0 (filled, wave 25: diagnostics/{region_errors, region_name}, 48 stubs -> markers)
     // "bck-diag-f": 0 (filled, wave 24)
-    "bck-polonius-legacy": 40,
+    // "bck-polonius-legacy": 0 (filled, wave 29: polonius/legacy/* 40 stubs -> markers)
   });
   // lib.rs is split at line 1400 (bck-lib-a / bck-lib-b), conflict_errors.rs at line 2469 (bck-diag-a / bck-diag-b)
   for (const d of stubs.filter((d) => d.path === `${CRATE}lib.rs`)) {
