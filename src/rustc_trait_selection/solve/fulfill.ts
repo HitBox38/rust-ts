@@ -4,8 +4,8 @@
 // methods it does not override forward to `TraitEngine_provided`. The bound `E: FromSolverError<'tcx, NextSolverError>`
 // of the `TraitEngine` impl is the D4 descriptor `from_solver_error_E`, held in place of the `_errors: PhantomData<E>`
 // field (so `FulfillmentCtxt::new(infcx)` takes it too).
-// PORT: `ThinVec::retain_mut` keeps the elements in order and mutates them in place; it is a loop that rebuilds
-// `pending` from the kept entries.
+// PORT: `ThinVec::retain_mut` keeps the elements in order and mutates them in place; `try_evaluate_obligations` does it
+// in place on `pending` (swap-back + truncate, thin-vec-0.2.21 lib.rs:1416).
 // PORT: `PendingObligations` entries are `[obligation, stalled_on]` pairs; `obligation.predicate = ..` /
 // `obligation.recursion_depth += 1` write to the `Obligation` object (the pair owns it).
 // `FulfillmentError` is traits/mod.gen.ts's generated type (re-exported by decls.ts).
@@ -128,36 +128,35 @@ export class FulfillmentCtxt<E> implements TraitEngine<E> {
       let any_changed = false;
 
       // `self.obligations.pending.retain_mut(|(obligation, opt_stalled_on)| { .. })`
-      // PORT: (perf) in place like `Vec::retain_mut` (no new array per pass), and the `any_changed = true` closure is
-      // made once per pass, not once per pending obligation.
+      // PORT: (perf) `ThinVec::retain_mut` (thin-vec-0.2.21 lib.rs:1416) in place: count the removed entries (`del`), swap
+      // each kept one back by `del`, truncate after the loop. No drop guard, as there: if the closure panics, every
+      // entry is still there (the truncate never runs). The `any_changed = true` closure is made once per pass.
       const set_any_changed = (): void => {
         any_changed = true;
       };
       const pending = this.obligations.pending;
-      let kept = 0;
-      let i = 0;
-      try {
-        for (; i < pending.length; i++) {
-          const entry = pending[i]!;
-          // Common case: still stalled; keep the obligation. This path is extremely hot in
-          // some cases; there can be thousands of pending obligations.
-          // PORT: (perf) this first statement of the closure runs here in the loop, so the common case does not call
-          // `retain_pending` (the rest of the closure).
-          const opt_stalled_on = entry[1];
-          if (opt_stalled_on !== undefined && solve.SolverDelegateEvalExt_for_D.goal_remains_stalled(delegate, opt_stalled_on)) {
-            pending[kept++] = entry;
-            continue;
-          }
-          if (this.retain_pending(infcx, delegate, entry, errors_cell, set_any_changed)) {
-            pending[kept++] = entry;
-          }
+      const len = pending.length;
+      let del = 0;
+      for (let i = 0; i < len; i++) {
+        const entry = pending[i]!;
+        // Common case: still stalled; keep the obligation. This path is extremely hot in
+        // some cases; there can be thousands of pending obligations.
+        // PORT: (perf) this first statement of the closure runs here in the loop, so the common case does not call
+        // `retain_pending` (the rest of the closure).
+        const opt_stalled_on = entry[1];
+        const keep =
+          (opt_stalled_on !== undefined && solve.SolverDelegateEvalExt_for_D.goal_remains_stalled(delegate, opt_stalled_on)) ||
+          this.retain_pending(infcx, delegate, entry, errors_cell, set_any_changed);
+        if (!keep) {
+          del += 1;
+        } else if (del > 0) {
+          // `v.swap(i - del, i)`
+          pending[i] = pending[i - del]!;
+          pending[i - del] = entry;
         }
-      } finally {
-        // `retain_mut`'s backshift guard: on unwind the unprocessed entries (from the current one on) stay after the
-        // kept ones; on completion `i == len`, so only the kept ones remain.
-        const len = pending.length;
-        pending.copyWithin(kept, i, len);
-        pending.length = kept + (len - i);
+      }
+      if (del > 0) {
+        pending.length = len - del;
       }
 
       if (!any_changed) {
