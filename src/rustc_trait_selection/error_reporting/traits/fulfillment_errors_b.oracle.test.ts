@@ -6,7 +6,7 @@
 //   arguments both ways) and the closure-signature notes of `report_selection_error` (E0277 "expected an `Fn(..)`
 //   closure", a fn item with the wrong parameter type).
 // Not covered here: `note_adt_version_mismatch` / `check_same_name_different_path` (need several versions of one
-// crate), the safe-transmute reasons (stop at `rustc_transmute`), `report_closure_error` (E0525 is reported after
+// crate), the safe-transmute reasons (covered by the mir suite's tests/ui/transmutability cases), `report_closure_error` (E0525 is reported after
 // type checking).
 import { join } from "node:path";
 import { typeck_oracle_fixture_tests } from "../../../rust_ts/typeck_oracle_fixtures.ts";
