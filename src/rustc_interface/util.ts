@@ -14,8 +14,25 @@ import { Symbol, sym } from "../rustc_span/symbol.ts";
 import type { Edition } from "../rustc_span/edition.ts";
 import { create_session_globals_then } from "../rustc_span/lib.ts";
 import type { SourceMapInputs } from "../rustc_span/source_map.ts";
-import { assert, unported } from "../std/panic.ts";
-import { type CodegenBackend, CurrentGcx, LlvmCodegenBackend, type TargetConfig } from "./stand_ins.ts";
+import { assert, panic, unported } from "../std/panic.ts";
+import { display_CrateType } from "../rustc_structures/crate_type.ts";
+import {
+  type CodegenBackend,
+  CodegenBackend_provided,
+  CurrentGcx,
+  type EncodedMetadata,
+  type IncrCompSession,
+  type TargetConfig,
+  type WorkProductMap,
+} from "./stand_ins.ts";
+import { LlvmCodegenBackend } from "../rust_ts/codegen_backend.ts";
+import type { CodegenBackendInit, EarlySession } from "../rustc_session/session.ts";
+import type { CrateType } from "../rustc_structures/crate_type.ts";
+import type { TyCtxt } from "../rustc_middle/ty/context.ts";
+import type { MetadataLoaderDyn } from "../rustc_metadata/creader.ts";
+import { internal_target_features } from "../rustc_codegen_ssa/target_features.ts";
+import { type ArchiveBuilderBuilder, link_binary } from "../rustc_codegen_ssa/back/link.ts";
+import { CompiledModules, type CrateInfo } from "../rustc_codegen_ssa/lib.ts";
 import * as diagnostics from "./diagnostics.gen.ts";
 
 export { DEFAULT_STACK_SIZE };
@@ -212,7 +229,7 @@ export function get_codegen_backend(
       void early_dcx;
       LOAD = () => unported(`rustc_interface::util::load_backend_from_dylib (${backend})`);
     } else if (backend === "dummy") {
-      LOAD = () => unported("rustc_interface::util::DummyCodegenBackend");
+      LOAD = () => new DummyCodegenBackend();
     } else if (backend === "llvm") {
       LOAD = LlvmCodegenBackend.new;
     } else {
@@ -229,6 +246,119 @@ let LOAD: (() => CodegenBackend) | undefined;
 
 /** PORT: `option_env!("CFG_DEFAULT_CODEGEN_BACKEND")` of the oracle build (official nightlies: `llvm`). */
 const CFG_DEFAULT_CODEGEN_BACKEND: string | undefined = "llvm";
+
+export class DummyCodegenBackend implements CodegenBackend {
+  // rustc: compiler/rustc_interface/src/util.rs:403 name
+  name(): string {
+    return "dummy";
+  }
+
+  init(sess: EarlySession): CodegenBackendInit {
+    return CodegenBackend_provided.init(this, sess);
+  }
+
+  // rustc: compiler/rustc_interface/src/util.rs:407 target_config
+  target_config(sess: EarlySession): TargetConfig {
+    const abi_required_features = sess.target.abi_required_features();
+    const internal_target_features_ = internal_target_features(
+      sess,
+      (_feature) => [],
+      (feature) => {
+        // This is a standin for the list of features a backend is expected to enable.
+        // It would be better to parse target.features instead and handle implied features,
+        // but target.features doesn't contain features that are enabled by default for an
+        // architecture or target cpu.
+        return abi_required_features.required.includes(feature);
+      },
+    );
+
+    return {
+      internal_target_features: internal_target_features_,
+      has_reliable_f16: true,
+      has_reliable_f16_math: true,
+      has_reliable_f16b: true,
+      has_reliable_f128: true,
+      has_reliable_f128_math: true,
+    };
+  }
+
+  // rustc: compiler/rustc_interface/src/util.rs:431 supported_crate_types
+  supported_crate_types(_sess: Session): CrateType[] {
+    // This includes bin despite failing on the link step to ensure that you
+    // can still get the frontend handling for binaries. For all library
+    // like crate types cargo will fallback to rlib unless you specifically
+    // say that only a different crate type must be used.
+    return ["Rlib", "Executable"];
+  }
+
+  print_passes(): void {
+    CodegenBackend_provided.print_passes(this);
+  }
+
+  print_version(): void {
+    CodegenBackend_provided.print_version(this);
+  }
+
+  metadata_loader(): MetadataLoaderDyn {
+    return CodegenBackend_provided.metadata_loader(this);
+  }
+
+  // rustc: compiler/rustc_interface/src/util.rs:439 target_cpu
+  target_cpu(_sess: Session): string {
+    return "";
+  }
+
+  // rustc: compiler/rustc_interface/src/util.rs:443 codegen_crate
+  codegen_crate(_tcx: TyCtxt): unknown {
+    return new CompiledModules([], undefined);
+  }
+
+  // rustc: compiler/rustc_interface/src/util.rs:447 join_codegen
+  join_codegen(
+    ongoing_codegen: unknown,
+    _sess: Session,
+    _incr_comp_session: IncrCompSession | undefined,
+    _outputs: OutputFilenames,
+    _crate_info: CrateInfo,
+  ): [CompiledModules, WorkProductMap] {
+    // (*ongoing_codegen.downcast().unwrap(), WorkProductMap::default())
+    if (!(ongoing_codegen instanceof CompiledModules)) {
+      return panic("called `Result::unwrap()` on an `Err` value: Any { .. }");
+    }
+    return [ongoing_codegen, new Map()];
+  }
+
+  print_pass_timings(): void {
+    CodegenBackend_provided.print_pass_timings(this);
+  }
+
+  print_statistics(): void {
+    CodegenBackend_provided.print_statistics(this);
+  }
+
+  print_statistics_json(): string {
+    return CodegenBackend_provided.print_statistics_json(this);
+  }
+
+  // rustc: compiler/rustc_interface/src/util.rs:458 link
+  link(sess: Session, compiled_modules: CompiledModules, crate_info: CrateInfo, metadata: EncodedMetadata, outputs: OutputFilenames): void {
+    // JUSTIFICATION: TyCtxt no longer available here
+    // #[allow(rustc::bad_opt_access)]
+    const crate_type = crate_info.crate_types.find((crate_type) => crate_type !== "Rlib");
+    if (crate_type !== undefined && outputs.outputs.should_link()) {
+      sess.dcx().fatal(`crate type ${display_CrateType(crate_type)} not supported by the dummy codegen backend`);
+    }
+
+    link_binary(sess, DummyArchiveBuilderBuilder, compiled_modules, crate_info, metadata, outputs, this.name());
+  }
+}
+
+/**
+ * PORT: `struct DummyArchiveBuilderBuilder` (util.rs:489): its `new_archive_builder` (:492) and
+ * `create_dll_import_lib` (:499) build archives with `ArArchiveBuilderBuilder` (codegen_ssa back/archive.rs, M7),
+ * which only the linking steps of `link_binary` reach; opaque here (see `ArchiveBuilderBuilder`).
+ */
+const DummyArchiveBuilderBuilder: ArchiveBuilderBuilder = { __archive_builder_builder: "DummyArchiveBuilderBuilder" };
 
 // rustc: compiler/rustc_interface/src/util.rs:617 multiple_output_types_to_stdout
 function multiple_output_types_to_stdout(output_types: OutputTypes, single_output_file_is_stdout: boolean): boolean {

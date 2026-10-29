@@ -6,7 +6,7 @@ export { setup_callbacks } from "./callbacks.ts";
 export * as interface_ from "./interface.ts";
 // mod limits;  (not ported)
 export * as passes from "./passes.ts";
-// mod queries;  (not ported: `Linker`)
+export { Linker } from "./queries.ts";
 export * as util from "./util.ts";
 
 export { type Config, run_compiler } from "./interface.ts";
