@@ -23,6 +23,7 @@ import { DUMMY_SP } from "../rustc_span/lib.ts";
 import { path_file_name } from "../std/path.ts";
 import type { CodegenBackend } from "../rustc_interface/stand_ins.ts";
 import { get_codegen_backend } from "../rustc_interface/util.ts";
+import { Linker } from "../rustc_interface/queries.ts";
 import {
   ErrorOutputType,
   Input,
@@ -284,7 +285,7 @@ export function compiler_entrypoint(at_args0: readonly string[], callbacks: Call
       return;
     }
 
-    const [linker, incr_comp_session] = passes.create_and_enter_global_ctxt(compiler, krate, (tcx): undefined => {
+    const [linker, incr_comp_session] = passes.create_and_enter_global_ctxt(compiler, krate, (tcx): Linker | undefined => {
       // Make sure name resolution and macro expansion is run.
       void tcx.resolver_for_lowering();
 
@@ -318,15 +319,23 @@ export function compiler_entrypoint(at_args0: readonly string[], callbacks: Call
         }
       }
 
-      // `Linker::codegen_and_build_linker`, `dump_feature_usage_metrics`, `tcx.report_unused_features()`: codegen.
-      return unported("rustc_interface::queue::Linker::codegen_and_build_linker (analysis, codegen; M3+)");
+      const linker = Linker.codegen_and_build_linker(tcx, codegen_backend);
+
+      const metrics_dir = sess.opts.unstable_opts.metrics_dir;
+      if (metrics_dir !== undefined) {
+        // dump_feature_usage_metrics(tcx, metrics_dir);
+        unported("rustc_driver_impl::dump_feature_usage_metrics (-Z metrics-dir)");
+      }
+
+      tcx.report_unused_features();
+
+      return linker;
     });
 
     // Linking is done outside the `compiler.enter()` so that the
     // `GlobalCtxt` within `Queries` can be freed as early as possible.
     if (linker !== undefined) {
-      void incr_comp_session;
-      unported("rustc_interface::queue::Linker::link");
+      linker.link(sess, incr_comp_session, codegen_backend);
     }
   });
 }
