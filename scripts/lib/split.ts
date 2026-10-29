@@ -40,9 +40,12 @@ export function splitHashes(out: SplitOutput): SplitHashes {
 }
 
 /**
- * Ids from keys, in order: the first occurrence of a key is the key itself, the k-th (k >= 2) is `<key> @k`. So an id
- * depends only on the earlier sections with the same key: a missing or extra section with another key shifts nothing.
- * (Should `<key> @k` itself be another section's key, the occurrence index skips ahead until the id is unused.)
+ * Ids from keys, in order: the first occurrence of a key is the key itself, the k-th (k >= 2) is `<key> @k`. So a
+ * missing or extra section with another key shifts nothing, unless that key itself has the form `<key> @k`: should
+ * `<key> @k` be another section's key in the same output, the occurrence index skips ahead until the id is unused. So
+ * an id depends on the earlier sections with the same key and on whether the same side's output has a section keyed
+ * `<key> @k` (e.g. a subject with an extra section keyed literally `X @2` numbers its own second `X` `X @3`, and its `X
+ * @2` is compared with the oracle's second `X`). No MIR header ends in ` @<n>`, so for `splitMirPretty` it is the former.
  */
 export function uniqueIds(keys: readonly string[]): string[] {
   const keySet = new Set(keys);
@@ -67,7 +70,7 @@ export function uniqueIds(keys: readonly string[]): string[] {
  * consts have no keyword) without the trailing ` {` / ` = {`, or for a trivial const's one line (`const <path>: <ty> =
  * const <val>;`) without its value, so a wrong value is a differing section, not a missing one. The whole header and not just the def path: core prints
  * many bodies whose def paths are equal (impls from one macro call site print as the same `<impl at <span>>`), and the
- * signature tells most of them apart (measured on core: 17,704 repeated def paths, 1,001 repeated headers), so fewer
+ * signature tells most of them apart (measured on core: 17,704 repeated def paths; 1,107 bodies repeat an earlier header, among 135 distinct headers), so fewer
  * ids depend on an occurrence index.
  */
 export function mirBodyKey(header: string): string {

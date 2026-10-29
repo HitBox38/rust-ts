@@ -18,7 +18,7 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { suite as getSuite } from "../harness/suites.ts";
-import { difftest, heavyLine, overBudgetLine, unstableOf, type HeavyRun } from "./difftest.ts";
+import { difftest, heavyErrorLines, heavyLine, unstableOf, type HeavyRun, type OracleRerun } from "./difftest.ts";
 import { REPO, RUNS, UPSTREAM, die, ensureDir, nowId, parseArgs, run } from "./lib/common.ts";
 import { upstreamError, upstreamStatus } from "./lib/upstream.ts";
 import { oracleTestProbes, probeBinary } from "./probes.ts";
@@ -54,6 +54,18 @@ interface SuiteGate {
   upstreamChanges?: string[];
   /** Heavy suites: each run's wall/user time and max RSS (informational; an RSS over budget never fails the run). */
   heavy?: HeavyRun[];
+  /**
+   * Heavy suites: the `ERROR:` lines of `heavyErrorLines` (a subject over its RSS budget, an unavailable resource usage).
+   * Reported and recorded, but by root's decision (lane harness-m5b; plan-m5 D11) they do not by themselves fail the gate.
+   */
+  heavyErrors?: string[];
+  /** Split suites: how many sections only the subject printed (not cases; listed in the run's `<suite>.extra.jsonl`). */
+  extra?: number;
+  /**
+   * Split suites: each run's oracle re-run for its diff files (difftest.ts header). One that did not reproduce the
+   * cached entry made the cases it would have scored UNSTABLE, so a protected one among them is lost.
+   */
+  oracleReruns?: OracleRerun[];
 }
 
 /** Protected ids of `suite` that its `Suite.unstable` lists: an unstable case can never be protected. */
@@ -282,7 +294,7 @@ async function gateRun(requested: string[], skipStatic: boolean, skipHeavy: bool
   const staticOk = st.ok;
   const out: SuiteGate[] = [];
   for (const suite of suites) {
-    const { results, stats, upstreamChanges, heavy } = await difftest({ suite, runId, quiet: true });
+    const { results, stats, upstreamChanges, heavy, extra, oracleReruns } = await difftest({ suite, runId, quiet: true });
     const base = readBaseline(suite);
     const match = new Set(results.filter((r) => r.status === "MATCH").map((r) => r.id));
     const lost = [...base].filter((id) => !match.has(id));
@@ -293,11 +305,17 @@ async function gateRun(requested: string[], skipStatic: boolean, skipHeavy: bool
     const lostSkipped = lost.filter((id) => skippedWhy.has(id)).map((id) => ({ id, reason: skippedWhy.get(id)! }));
     const unstable = results.filter((r) => r.status === "UNSTABLE").map((r) => r.id);
     const retried = results.filter((r) => r.retried).map((r) => r.id);
-    out.push({ suite, baseline: base.size, match: match.size, total: results.length, lost, gained, batchOnlyFailures: stats.batchOnlyFailures, batchOnlyTimeouts: stats.batchOnlyTimeouts, oracleTimeouts, lostSkipped, unstable, retried, upstreamChanges, ...(heavy ? { heavy } : {}) });
+    const heavyErrors = (heavy ?? []).flatMap((h) => heavyErrorLines(suite, h));
+    out.push({ suite, baseline: base.size, match: match.size, total: results.length, lost, gained, batchOnlyFailures: stats.batchOnlyFailures, batchOnlyTimeouts: stats.batchOnlyTimeouts, oracleTimeouts, lostSkipped, unstable, retried, upstreamChanges, ...(heavy ? { heavy, heavyErrors } : {}), ...(extra !== undefined ? { extra, oracleReruns } : {}) });
     console.log(`${lost.length ? "ERROR:" : "ok   "} ${suite}: protected=${base.size} match=${match.size}/${results.length} lost=${lost.length} gained=${gained.length}`);
-    for (const h of heavy ?? []) {
-      console.log(`  ${heavyLine(suite, h)}`);
-      if (h.overBudget) console.log(overBudgetLine(suite, h));
+    for (const h of heavy ?? []) console.log(`  ${heavyLine(suite, h)}`);
+    // (Reported, recorded in gate.json, but not a gate failure by themselves: see `SuiteGate.heavyErrors`.)
+    for (const l of heavyErrors) console.log(l);
+    if (extra) console.log(`note: ${suite}: ${extra} section(s) only the subject printed (not cases; listed in ${suite}.extra.jsonl)`);
+    if (oracleReruns?.length) {
+      const n = (o: OracleRerun["outcome"]) => oracleReruns.filter((x) => x.outcome === o).length;
+      const bad = n("not reproduced");
+      console.log(`${bad ? "ERROR:" : "note:"} ${suite}: oracle re-runs for diff files: ${n("reproduced")} reproduced, ${n("timed out")} timed out, ${bad} did not reproduce (their cases UNSTABLE; see \`oracleReruns\` in gate.json)`);
     }
     const why = (id: string): string => {
       const r = byId.get(id);

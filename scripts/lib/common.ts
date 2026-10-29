@@ -60,7 +60,10 @@ export interface ProcResult {
   /**
    * The process's resource usage as `wait4` reports it (Bun `Subprocess.resourceUsage()`; it includes the
    * descendants the process waited for): user/system CPU and max resident set size, in bytes (on macOS the
-   * same number `/usr/bin/time -l` prints). Recorded by the heavy suites (harness/suites.ts `Suite.heavy`).
+   * same number `/usr/bin/time -l` prints). Bun 1.4.3 converts `ru_maxrss` to bytes on every platform (it is KiB on
+   * Linux: src/spawn_sys/spawn_process.rs `RusageFields::maxrss`); common.test.ts checks the unit on the host.
+   * `undefined` when Bun reports none. Recorded by the heavy suites (harness/suites.ts `Suite.heavy`; difftest.ts
+   * `usageOf` records a missing or implausible one as unavailable).
    */
   usage?: { userMs: number; sysMs: number; maxRssBytes: number };
 }

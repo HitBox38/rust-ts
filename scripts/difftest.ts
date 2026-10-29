@@ -35,12 +35,18 @@
 // which reports only the run case: there are no sections). Sections only the subject prints are counted (summary
 // `extra`) and listed in `<suite>.extra.jsonl`. The oracle cache keeps per-section hashes, never the text (core's MIR
 // is 47 MB); when a DIFF needs the oracle's text for its diff file, the oracle is run again, and it must reproduce the
-// cached hashes (else an `ERROR:` line, and the fresh output is used). `--filter`/`--sample` select among the reported
-// cases; every run still runs. Diff files are named by a cut id plus a hash of it.
+// cached entry (lane harness-m5b). If it does not, the cached hashes are known not to be reproducible and nothing is
+// scored against them: a differing exit code, stderr or skeleton makes every case of the run UNSTABLE, differing
+// section hashes make those sections UNSTABLE; the entry is removed and the event gets an `ERROR:` line (summary and
+// gate.json `oracleReruns`, which also lists re-runs that reproduced or timed out). `--filter`/`--sample` select among
+// the reported cases; every run still runs. Diff files are named by a cut id plus a hash of it.
 //
 // Heavy suites (`Suite.heavy`, plan-m5 §4.2, D11): one process at a time (jobs = 1, the oracle before the subject), no
 // re-run of a subject TIMEOUT (it already ran alone), and per run the wall/user time and max RSS of each process
-// (summary `heavy`, printed); a subject over the suite's RSS budget gets a `note:` line, which is not a status.
+// (summary `heavy`, printed; a split run's oracle re-run too). A subject over the suite's RSS budget, and a process
+// whose resource usage is unavailable (so its budget cannot be checked), get an `ERROR:` line (`heavyErrorLines`),
+// which is not a status: root's decision (lane harness-m5b, plan-m5 D11 "fail loudly" but "a reported regression, not
+// a timeout") is that it is reported and recorded in gate.json, but does not by itself fail the gate.
 //
 // `--report blessed` (report only; it never changes a status): for every case of a suite with
 // `Suite.blessed` (the UI-test suites of M3), the oracle's stderr is normalized as compiletest would
@@ -120,9 +126,12 @@ export interface Usage {
   exit: number;
   timedOut: boolean;
   wallS: number;
-  userS: number;
-  sysS: number;
-  maxRssMb: number;
+  /** `null`: unavailable (see `unavailable`), never a made-up number. */
+  userS: number | null;
+  sysS: number | null;
+  maxRssMb: number | null;
+  /** Why `userS`/`sysS`/`maxRssMb` are `null`: Bun reported no usage, or an implausible one (`usageOf`). */
+  unavailable?: string;
 }
 
 /** Resources of one run of a heavy suite (summary `heavy`); `oracle` is "cached" when the oracle did not run. */
@@ -130,31 +139,59 @@ export interface HeavyRun {
   id: string;
   oracle: Usage | "cached";
   subject: Usage;
+  /** A split run's second oracle process (run for the diff files' text; see the header), if there was one. */
+  oracleRerun?: Usage;
   rssBudgetMb: number;
-  /** The subject's max RSS exceeds the budget: reported (plan-m5 D11), never a status. */
+  /** The subject's max RSS exceeds the budget: an `ERROR:` line (plan-m5 D11), never a status. False when unavailable. */
   overBudget: boolean;
 }
 
-function usageOf(r: ProcResult): Usage {
+/**
+ * Below this, a max RSS reported for a process that used at least `PLAUSIBLE_RSS_AFTER_MS` of CPU is taken as a unit
+ * error, not a measurement: every process a heavy suite runs (the Bun subject, rustc) has a far larger RSS. Bun 1.4.3
+ * reports bytes on every platform (src/spawn_sys/spawn_process.rs `RusageFields::maxrss`: `ru_maxrss` as is on Apple,
+ * times 1024 on Linux/BSD, `PeakWorkingSetSize` on Windows), so this guards against a Bun that passes the KiB through.
+ */
+export const MIN_PLAUSIBLE_RSS_BYTES = 16 * 2 ** 20;
+export const PLAUSIBLE_RSS_AFTER_MS = 1000;
+
+export function usageOf(r: ProcResult): Usage {
   const u = r.usage;
   const tenths = (ms: number) => Math.round(ms / 100) / 10;
-  return { exit: r.code, timedOut: r.timedOut, wallS: tenths(r.ms), userS: tenths(u?.userMs ?? NaN), sysS: tenths(u?.sysMs ?? NaN), maxRssMb: Math.round((u?.maxRssBytes ?? NaN) / 2 ** 20) };
+  const base = { exit: r.code, timedOut: r.timedOut, wallS: tenths(r.ms) };
+  const none = (unavailable: string): Usage => ({ ...base, userS: null, sysS: null, maxRssMb: null, unavailable });
+  if (!u) return none("Bun reported no resource usage for the process");
+  if (![u.userMs, u.sysMs, u.maxRssBytes].every(Number.isFinite)) return none(`Bun reported a non-finite resource usage (${JSON.stringify(u)})`);
+  const cpuMs = u.userMs + u.sysMs;
+  if (cpuMs >= PLAUSIBLE_RSS_AFTER_MS && u.maxRssBytes < MIN_PLAUSIBLE_RSS_BYTES) return none(`implausible max RSS ${u.maxRssBytes} after ${Math.round(cpuMs)} ms of CPU (KiB read as bytes?)`);
+  return { ...base, userS: tenths(u.userMs), sysS: tenths(u.sysMs), maxRssMb: Math.round(u.maxRssBytes / 2 ** 20) };
 }
 
-function heavyRun(s: Suite, id: string, oracle: Usage | "cached", subject: Usage): HeavyRun {
+function heavyRun(s: Suite, id: string, oracle: Usage | "cached", subject: Usage, oracleRerun?: Usage): HeavyRun {
   const budget = s.heavy!.rssBudgetMb;
-  return { id, oracle, subject, rssBudgetMb: budget, overBudget: subject.maxRssMb > budget };
+  return { id, oracle, subject, ...(oracleRerun ? { oracleRerun } : {}), rssBudgetMb: budget, overBudget: subject.maxRssMb !== null && subject.maxRssMb > budget };
 }
 
 /** One line per heavy run (difftest's CLI and the gate print it). */
 export function heavyLine(suite: string, h: HeavyRun): string {
-  const u = (x: Usage) => `${x.wallS} s wall, ${x.userS} s user, ${x.maxRssMb} MB max RSS, exit ${x.exit}${x.timedOut ? " (timed out)" : ""}`;
-  return `heavy ${suite} ${h.id}: subject ${u(h.subject)} (budget ${h.rssBudgetMb} MB); oracle ${h.oracle === "cached" ? "cached" : u(h.oracle)}`;
+  const u = (x: Usage) => `${x.wallS} s wall, ${x.userS ?? "?"} s user, ${x.maxRssMb ?? "?"} MB max RSS, exit ${x.exit}${x.timedOut ? " (timed out)" : ""}`;
+  return `heavy ${suite} ${h.id}: subject ${u(h.subject)} (budget ${h.rssBudgetMb} MB); oracle ${h.oracle === "cached" ? "cached" : u(h.oracle)}${h.oracleRerun ? `; oracle re-run ${u(h.oracleRerun)}` : ""}`;
 }
 
-/** The `note:` line of a heavy run over its RSS budget. */
-export function overBudgetLine(suite: string, h: HeavyRun): string {
-  return `note: ${suite} ${h.id}: subject max RSS ${h.subject.maxRssMb} MB is over the suite's budget of ${h.rssBudgetMb} MB (plan-m5 D11: reported, not a status)`;
+/**
+ * The `ERROR:` lines of a heavy run: its subject over the RSS budget, and every process whose usage is unavailable (its
+ * budget is then unchecked). Reported, never a status, and by root's decision (lane harness-m5b) they do not by
+ * themselves fail the gate: gate.json records them (`heavyErrors`, and `heavy` per run).
+ */
+export function heavyErrorLines(suite: string, h: HeavyRun): string[] {
+  const out: string[] = [];
+  if (h.overBudget) out.push(`ERROR: ${suite} ${h.id}: subject max RSS ${h.subject.maxRssMb} MB is over the suite's budget of ${h.rssBudgetMb} MB (plan-m5 D11: reported, not a status; does not fail the gate)`);
+  const procs: [string, Usage | "cached" | undefined][] = [["subject", h.subject], ["oracle", h.oracle], ["oracle re-run", h.oracleRerun]];
+  for (const [what, u] of procs) {
+    if (u === undefined || u === "cached" || u.unavailable === undefined) continue;
+    out.push(`ERROR: ${suite} ${h.id}: the ${what}'s resource usage is unavailable (${u.unavailable})${what === "subject" ? "; its RSS budget is unchecked" : ""} (reported, not a status; does not fail the gate)`);
+  }
+  return out;
 }
 
 function render(r: { stdout: string; stderr: string; code: number }): string {
@@ -604,6 +641,19 @@ interface SplitRunResult {
   /** Ids (`<run id>|<section id>`) of the sections only the subject printed, in its order. */
   extra: string[];
   heavy?: HeavyRun;
+  /** The oracle's re-run for the diff files' text, if there was one (see the header). */
+  oracleRerun?: OracleRerun;
+}
+
+/** A split run's second oracle process (see the header): summary and gate.json `oracleReruns`. */
+export interface OracleRerun {
+  run: string;
+  /**
+   * `reproduced`: the cached entry, exactly; `timed out`: no oracle text for the diff files (the statuses stand);
+   * `not reproduced`: the entry is removed and the cases it would have scored are UNSTABLE (`detail`).
+   */
+  outcome: "reproduced" | "timed out" | "not reproduced";
+  detail?: string;
 }
 
 /** The text the run case compares (see the header): the skeleton, then stderr and exit code as `render` lays them out. */
@@ -626,7 +676,7 @@ const MISSING = "missing from the subject's output";
  * One run of a split suite (see the header): the oracle (cached as hashes, or run) and the subject, concurrently, or
  * one after the other for a heavy suite, then the statuses of the run case and of every oracle section.
  */
-async function runSplit(s: Suite, c: Case, impl: string, stats: SubjectStats): Promise<SplitRunResult> {
+export async function runSplit(s: Suite, c: Case, impl: string, stats: SubjectStats): Promise<SplitRunResult> {
   const splitter = SPLITTERS[s.split!]!;
   const listed = unstableOf(s);
   const cwd = cwdOf(s);
@@ -664,16 +714,19 @@ async function runSplit(s: Suite, c: Case, impl: string, stats: SubjectStats): P
     return run(s.subject([c]), { cwd, timeoutMs: s.timeoutMs, env: { ...caseEnv(c.env), RUST_TS_IMPL: impl } });
   };
   const [o, r] = s.heavy ? [await oracleSide(), await subjectSide()] : await Promise.all([oracleSide(), subjectSide()]);
-  const heavy = s.heavy ? heavyRun(s, c.id, fresh.usage ?? "cached", usageOf(r)) : undefined;
+  /** The heavy run's resources, once every process of the run has run (the oracle's re-run, if any, comes last). */
+  const heavyOf = (rerun?: ProcResult) => (s.heavy ? heavyRun(s, c.id, fresh.usage ?? "cached", usageOf(r), rerun && usageOf(rerun)) : undefined);
   const secId = (id: string) => `${c.id}|${id}`;
   const diffs = new Map<string, string>();
-  if (!o) return { results: [{ id: c.id, status: "ORACLE_TIMEOUT", subject: subjectEnd(r) }], diffs, extra: [], heavy };
+  if (!o) return { results: [{ id: c.id, status: "ORACLE_TIMEOUT", subject: subjectEnd(r) }], diffs, extra: [], heavy: heavyOf() };
 
   /** Every case of the run with one status; the run case carries the details. */
   const all = (o: SplitOracle, head: CaseResult): CaseResult[] => [head, ...o.hashes.sections.map(([id]): CaseResult => ({ id: secId(id), status: head.status }))];
   const runLevel: Status | undefined = r.timedOut ? "TIMEOUT" : r.code !== o.code ? (r.code === EXIT_UNPORTED ? "UNPORTED" : r.code === 101 && o.code !== 101 ? "CRASH" : "DIFF") : undefined;
   let results: CaseResult[];
   let extra: string[] = [];
+  let r2: ProcResult | undefined;
+  let oracleRerun: OracleRerun | undefined;
   if (fresh.unstable) results = all(o, { id: c.id, status: "UNSTABLE", unstable: fresh.unstable, subject: subjectEnd(r) });
   else if (runLevel) {
     const head: CaseResult = { id: c.id, status: runLevel };
@@ -700,38 +753,48 @@ async function runSplit(s: Suite, c: Case, impl: string, stats: SubjectStats): P
     };
     ({ rs: results, extra } = score(o));
     if (results.some((x) => x.status === "DIFF")) {
-      // The diff files and `first` need the oracle's text; a cached oracle is run again for it.
-      let oText = fresh.out;
+      // The diff files and `first` need the oracle's text; a cached oracle is run again for it, and that run must
+      // reproduce the cached entry: otherwise the entry is known not to be reproducible, and nothing is scored against
+      // it (see the header).
+      let oText: { out: SplitOutput; stderr: string; code: number } | undefined = fresh.out && { out: fresh.out, stderr: o.stderr, code: o.code };
       if (!oText) {
-        const r2 = await oracleProc();
-        if (!r2.timedOut) {
-          oText = splitter(r2.stdout);
-          const o2: SplitOracle = { code: r2.code, stderr: r2.stderr, hashes: splitHashes(oText) };
-          if (JSON.stringify(o2) !== JSON.stringify(o)) {
-            console.log(`ERROR: ${s.name} ${c.id}: a fresh oracle run differs from its cached hashes (not reproducible?); the entry is replaced and the fresh output scored`);
-            if (r2.code === r.code && !unstableOracleReason(r2.stderr)) {
-              writeCached(p, o2);
-              ({ rs: results, extra } = score(o2));
-            } else {
-              rmSync(p, { force: true });
-              oText = undefined;
-            }
+        r2 = await oracleProc();
+        if (r2.timedOut) oracleRerun = { run: c.id, outcome: "timed out" };
+        else {
+          const out2 = splitter(r2.stdout);
+          const h2 = splitHashes(out2);
+          // An equal skeleton has the same section ids in the same order, so the hash lists line up.
+          const whole =
+            r2.code !== o.code ? `exit code (${o.code} cached, ${r2.code} now)` : r2.stderr !== o.stderr ? "stderr" : h2.skeleton !== o.hashes.skeleton || h2.sections.length !== o.hashes.sections.length ? "skeleton" : undefined;
+          const changed = whole ? [] : o.hashes.sections.filter(([id, h], k) => h2.sections[k]![0] !== id || h2.sections[k]![1] !== h).map(([id]) => secId(id));
+          if (whole !== undefined || changed.length) {
+            rmSync(p, { force: true });
+            const why = `detected: the oracle's re-run did not reproduce its cached ${whole ?? `text of ${changed.length} section(s)`}`;
+            oracleRerun = { run: c.id, outcome: "not reproduced", detail: whole !== undefined ? `${whole} differs: every case of the run is UNSTABLE` : `${changed.length} section(s) differ and are UNSTABLE` };
+            console.log(`ERROR: ${s.name} ${c.id}: the oracle's re-run did not reproduce its cached entry (${oracleRerun.detail}); the entry is removed`);
+            const hit = new Set(whole !== undefined ? results.map((x) => x.id) : changed);
+            results = results.map((x): CaseResult => (hit.has(x.id) ? { id: x.id, status: "UNSTABLE", unstable: why, ...(x.id === c.id ? { subject: subjectEnd(r) } : {}) } : x));
+            // (The sections that did reproduce keep their statuses; their text is the fresh run's.)
+            if (whole === undefined) oText = { out: out2, stderr: r2.stderr, code: r2.code };
+          } else {
+            oracleRerun = { run: c.id, outcome: "reproduced" };
+            oText = { out: out2, stderr: r2.stderr, code: r2.code };
           }
         }
       }
-      const oSec = new Map(oText?.sections.map((x) => [x.id, x.text]));
+      const oSec = new Map(oText?.out.sections.map((x) => [x.id, x.text]));
       const sSec = new Map(sub.sections.map((x) => [x.id, x.text]));
       for (const x of results) {
         if (x.status !== "DIFF") continue;
         if (!oText) {
-          x.first ??= "(the oracle's text is not available: its re-run timed out or did not reproduce)";
+          x.first ??= "(the oracle's text is not available: its re-run timed out)";
           continue;
         }
         const isRun = x.id === c.id;
-        const ot = isRun ? runCaseText(oText.skeleton, o.stderr, o.code) : oSec.get(x.id.slice(c.id.length + 1))!;
+        const ot = isRun ? runCaseText(oText.out.skeleton, oText.stderr, oText.code) : oSec.get(x.id.slice(c.id.length + 1))!;
         const st = isRun ? runCaseText(sub.skeleton, r.stderr, r.code) : (sSec.get(x.id.slice(c.id.length + 1)) ?? "");
         if (x.first !== MISSING) x.first = firstDiffLine(ot, st);
-        diffs.set(x.id, diffText(x.id, "DIFF", c, ot, o.code, x.first === MISSING ? `<${MISSING}>` : st, r.code));
+        diffs.set(x.id, diffText(x.id, "DIFF", c, ot, oText.code, x.first === MISSING ? `<${MISSING}>` : st, r.code));
       }
     }
   }
@@ -742,7 +805,7 @@ async function runSplit(s: Suite, c: Case, impl: string, stats: SubjectStats): P
     diffs.delete(x.id);
     return { id: x.id, status: "UNSTABLE", unstable: why };
   });
-  return { results, diffs, extra: extra.map(secId), heavy };
+  return { results, diffs, extra: extra.map(secId), heavy: heavyOf(r2), ...(oracleRerun ? { oracleRerun } : {}) };
 }
 
 export interface RunOptions {
@@ -778,6 +841,8 @@ export async function difftest(
   extra?: number;
   /** Heavy suites: each run's resources. */
   heavy?: HeavyRun[];
+  /** Split suites: each run's oracle re-run (see the header), if it had one. */
+  oracleReruns?: OracleRerun[];
 }> {
   requireUpstream();
   await verifyOraclePin();
@@ -899,6 +964,7 @@ export async function difftest(
   if (!opts.quiet && retries.retried) process.stderr.write("\n");
   /** Split suites: ids of the sections only the subject printed (see the header). */
   const extra: { run: string; id: string }[] = [];
+  const oracleReruns: OracleRerun[] = [];
   if (split) {
     const reported: CaseResult[] = [];
     const diffTexts = new Map<string, string>();
@@ -906,6 +972,7 @@ export async function difftest(
       if (!opts.quiet) process.stderr.write(`${s.name}: run ${c.id}${s.heavy ? " (heavy: one process at a time)" : ""}\n`);
       const sr = await runSplit(s, c, impl, stats);
       if (sr.heavy) heavyRuns.push(sr.heavy);
+      if (sr.oracleRerun) oracleReruns.push(sr.oracleRerun);
       for (const id of sr.extra) extra.push({ run: c.id, id });
       for (const x of sr.results) if (!opts.filter || x.id.includes(opts.filter)) reported.push(x);
       for (const [id, t] of sr.diffs) diffTexts.set(id, t);
@@ -969,7 +1036,7 @@ export async function difftest(
     ...(blessed ? { blessed } : {}),
     ...(upstreamBefore.length ? { upstreamDirty: upstreamBefore } : {}),
     ...(changed.length ? { upstreamChanges: changed } : {}),
-    ...(split ? { extra: extra.length } : {}),
+    ...(split ? { extra: extra.length, oracleReruns } : {}),
     ...(s.heavy ? { heavy: heavyRuns } : {}),
   };
   writeFileSync(join(dir, `${s.name}.summary.json`), JSON.stringify(summary, null, 2));
@@ -984,7 +1051,7 @@ export async function difftest(
     blessed,
     upstreamDirty: upstreamBefore,
     upstreamChanges: changed,
-    ...(split ? { extra: extra.length } : {}),
+    ...(split ? { extra: extra.length, oracleReruns } : {}),
     ...(s.heavy ? { heavy: heavyRuns } : {}),
   };
 }
@@ -997,7 +1064,7 @@ if (import.meta.main) {
     process.exit(0);
   }
   const num = (k: string) => (typeof a[k] === "string" ? Number(a[k]) : undefined);
-  const { dir, counts, results, stats, skipped, oracleTimeoutSubjects: ots, subsets, blessed, extra, heavy } = await difftest({
+  const { dir, counts, results, stats, skipped, oracleTimeoutSubjects: ots, subsets, blessed, extra, heavy, oracleReruns } = await difftest({
     suite: String(a.suite),
     sample: num("sample"),
     seed: typeof a.seed === "string" ? a.seed : undefined,
@@ -1031,9 +1098,11 @@ if (import.meta.main) {
     console.log(`note: ${counts.ORACLE_TIMEOUT} ORACLE_TIMEOUT case(s); the subject on them: ok=${ots.ok} TIMEOUT=${ots.TIMEOUT} ICE=${ots.ICE} UNPORTED=${ots.UNPORTED} (per case: \`subject\` in ${a.suite}.jsonl)`);
   }
   if (extra) console.log(`note: ${extra} section(s) only the subject printed (not cases; listed in ${a.suite}.extra.jsonl)`);
+  // (A re-run that did not reproduce already printed its `ERROR:` line.)
+  for (const x of oracleReruns ?? []) if (x.outcome === "timed out") console.log(`note: ${a.suite} ${x.run}: the oracle's re-run for the diff files timed out (no oracle text in them)`);
   for (const h of heavy ?? []) {
     console.log(heavyLine(String(a.suite), h));
-    if (h.overBudget) console.log(overBudgetLine(String(a.suite), h));
+    for (const l of heavyErrorLines(String(a.suite), h)) console.log(l);
   }
   console.log(`details: ${dir}`);
 }
