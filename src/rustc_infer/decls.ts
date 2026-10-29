@@ -48,6 +48,7 @@
 // rustc_infer module at runtime. lib.ts (the crate root) imports this file first, then every module.
 
 import type { DiagCtxtHandle } from "../rustc_errors/lib.ts";
+import type { Debug } from "../std/fmt.ts";
 import type * as hir from "../rustc_hir/lib.ts";
 import type { HirId } from "../rustc_hir_id/lib.ts";
 import type { CanonicalParamEnvCache, OriginalQueryValues, QueryRegionConstraints, QueryResponse } from "../rustc_middle/infer/canonical.ts";
@@ -561,7 +562,7 @@ export interface InferCtxt {
   // infer/mod.rs:1493
   try_resolve_const_var(vid: ConstVid): Result<Const, UniverseIndex>;
   // infer/mod.rs:1510
-  deeply_resolve_via_region_graph<T>(value: T, d_T: TypeFoldable<T>): FixupResult<T>;
+  deeply_resolve_via_region_graph<T>(value: T, d_T: TypeFoldable<T>, debug_T?: Debug<T>): FixupResult<T>;
   // infer/mod.rs:1539
   instantiate_binder_with_fresh_vars<T>(span: Span, lbrct: BoundRegionConversionTime, value: Binder<T>, d_T: TypeFoldable<T>): T;
   // infer/mod.rs:1585
