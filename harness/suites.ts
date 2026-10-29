@@ -46,8 +46,26 @@ export interface Suite {
   /**
    * batch: both sides take many files in one process and print a `file: <path>` header
    * before each file's output. single: one process per case.
+   * split (plan-m5 D6, §4.1): one process per case on each side, a *run* whose stdout is cut into many cases by
+   * `split` (scripts/lib/split.ts): the run's own case (`<id>`: everything outside the sections, stderr and exit code)
+   * and one case per section (`<id>|<section id>`). scripts/difftest.ts has the statuses.
    */
-  mode: "batch" | "single";
+  mode: "batch" | "single" | "split";
+  /** Split mode: the splitter, a key of scripts/lib/split.ts `SPLITTERS`. */
+  split?: string;
+  /**
+   * The heavy resource class (plan-m5 §4.2, D11), for core-scale runs: difftest runs one process at a time (never
+   * alongside other jobs, the oracle before the subject), never re-runs a subject TIMEOUT (it already ran alone), and
+   * records each process's wall/user time and max RSS; a subject whose max RSS exceeds `rssBudgetMb` is reported
+   * (summary `heavy`, a `note:` line), which is not a status. The gate runs heavy suites after the others.
+   */
+  heavy?: { rssBudgetMb: number };
+  /**
+   * Directories (relative to the cwd) holding every file a case may read: the oracle cache key hashes all their
+   * files (paths and contents) instead of scanning the case's dependencies (scripts/lib/deps.ts), which does not
+   * scale to a whole library crate (library/core: 2.2M probed paths, 22 s).
+   */
+  inputDirs?: string[];
   oracle(cases: Case[]): string[];
   subject(cases: Case[]): string[];
   timeoutMs: number;
@@ -1145,6 +1163,71 @@ SUITES.push(
     subsets: { "typeck+traits": inDirs(M3_UI_DIRS), rustc_dump: (c) => uiDumpTests().has(c.file), "thir-print": inDirs(["tests/ui/thir-print"]) },
     blessed: (c) => uiBlessed(c.id, c.args),
     unstable: () => THIR_TREE_UNSTABLE,
+  },
+);
+
+// M5 (plan-m5 §4, D1, D6, D11; lane harness-m5a): core-scale suites, rustc against src/rust_ts/main.ts through the
+// CLI, with D1's argv (the minimal bootstrap-faithful one of plan-m5 §1b), run from the upstream checkout:
+// `--crate-name core --edition=2024 library/core/src/lib.rs --crate-type lib --target x86_64-unknown-linux-gnu
+// -Zforce-unstable-if-unmarked --emit=metadata`. No `--sysroot`: core loads no crate. Env NOCORE_ENV (`RUSTC_ICE=0
+// RUST_BACKTRACE=0`, as the plan measured). core reads no environment variable (its `--emit=dep-info` has no `# env-dep`
+// line), so no session variables are pinned (`pinSessionEnv` would scan core's dependencies). Neither suite writes into
+// the upstream checkout: a bin crate with `--emit=metadata` writes no rmeta (`needs_metadata()` is false,
+// rustc_middle ty/context.rs:1132), and `-Zunpretty` returns before any output but dep-info (not asked for).
+// - Files read (`inputDirs`): core's `--emit=dep-info` lists 418 files, all under library/core/src,
+//   library/stdarch/crates/core_arch and library/portable-simd/crates/core_simd (`#[path]`s from core).
+// - Heavy class: one process at a time, subject timeout 1,800 s, oracle 300 s (+ the 4x retry), RSS budget 12 GB
+//   (D10's M5a target for a core check). Oracle (measured, macOS arm64): check-core-bin 5.1 s user / 1.05 GB,
+//   mir-core 6.4 s user / 1.2 GB.
+// Suites (unprotected until root accepts a run):
+// - `check-core-bin`: core as `--crate-type bin -Zcrate-attr=no_main --emit=metadata` (plan-m5 §2's row): the full
+//   `analysis` of core without the metadata encoder; stdout + stderr + exit, single mode (1 case).
+// - `mir-core`: `-Zunpretty=mir` of core with D1's argv, split per MIR body (scripts/lib/split.ts `splitMirPretty`,
+//   ids `core|<body header>[ [ctfe]][ @k]`; 47,733 bodies at the pin) plus the run case `core`.
+const M5_TARGET = "x86_64-unknown-linux-gnu";
+const CORE_ARGS = (crateType: string[]): string[] => [
+  "--crate-name",
+  "core",
+  "--edition=2024",
+  "library/core/src/lib.rs",
+  "--crate-type",
+  ...crateType,
+  "--target",
+  M5_TARGET,
+  "-Zforce-unstable-if-unmarked",
+  "--emit=metadata",
+];
+const CORE_INPUT_DIRS = ["library/core/src", "library/stdarch/crates/core_arch", "library/portable-simd/crates/core_simd"];
+const M5_HEAVY = { rssBudgetMb: 12 * 1024 };
+SUITES.push(
+  {
+    name: "check-core-bin",
+    milestone: "M5",
+    description:
+      "rustc on library/core as `--crate-type bin -Zcrate-attr=no_main --emit=metadata` with plan-m5 D1's argv (the full analysis of core, no metadata encoder; stdout + stderr + exit); heavy",
+    mode: "single",
+    timeoutMs: 1_800_000,
+    oracleTimeoutMs: 300_000,
+    heavy: M5_HEAVY,
+    inputDirs: CORE_INPUT_DIRS,
+    cases: () => [{ id: "core", file: "library/core/src/lib.rs", args: CORE_ARGS(["bin", "-Zcrate-attr=no_main"]), env: NOCORE_ENV }],
+    oracle: ([c]) => oracleRustcCmd(c!.args),
+    subject: ([c]) => [...bunCmd("src/rust_ts/main.ts"), ...c!.args],
+  },
+  {
+    name: "mir-core",
+    milestone: "M5",
+    description:
+      "rustc -Zunpretty=mir on library/core with plan-m5 D1's argv (the whole analysis, then every MIR body), split into one case per body (`core|<header>`) plus the run case `core` (stderr, exit, everything outside the bodies); heavy",
+    mode: "split",
+    split: "mir-pretty",
+    timeoutMs: 1_800_000,
+    oracleTimeoutMs: 300_000,
+    heavy: M5_HEAVY,
+    inputDirs: CORE_INPUT_DIRS,
+    cases: () => [{ id: "core", file: "library/core/src/lib.rs", args: [...CORE_ARGS(["lib"]), "-Zunpretty=mir"], env: NOCORE_ENV }],
+    oracle: ([c]) => oracleRustcCmd(c!.args),
+    subject: ([c]) => [...bunCmd("src/rust_ts/main.ts"), ...c!.args],
   },
 );
 
