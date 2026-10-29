@@ -11,7 +11,7 @@
 //     --list            list suites
 //
 // Statuses: MATCH | DIFF | UNPORTED (exit 70) | CRASH (subject ICE/exit mismatch with no output) |
-// TIMEOUT (the subject timed out) | ORACLE_TIMEOUT (the oracle timed out twice, the second time with
+// TIMEOUT (the subject timed out, in the parallel pool and again in its serial re-run) | ORACLE_TIMEOUT (the oracle timed out twice, the second time with
 // ORACLE_RETRY_FACTOR x its timeout; never cached, never compared, never MATCH) | UNSTABLE (the oracle's output
 // is not reproducible: the case is listed in `Suite.unstable`, or its oracle stderr matches one of
 // `UNSTABLE_ORACLE_PATTERNS`; never cached, never compared, never MATCH, and the gate never protects it)
@@ -52,6 +52,11 @@ export { UNSTABLE_ORACLE_PATTERNS, unstableOracleReason };
 
 /** An oracle process that times out is run once more with this many times its timeout (scripts/lib/oracle.ts). */
 export { ORACLE_RETRY_FACTOR };
+/**
+ * At most this many subject TIMEOUTs from the parallel pool are re-run alone (serially, so each can
+ * cost the whole timeout); the rest keep their TIMEOUT unretried. A gate run sees a handful.
+ */
+export const SUBJECT_TIMEOUT_RETRY_CAP = 50;
 
 export interface CaseResult {
   id: string;
@@ -67,6 +72,11 @@ export interface CaseResult {
   subject?: string;
   /** UNSTABLE: why (the `Suite.unstable` reason, or `detected: <pattern reason>`). */
   unstable?: string;
+  /**
+   * The subject timed out in the parallel pool and this status is from its one serial re-run, alone,
+   * with the same timeout, after the pool (see `difftest`).
+   */
+  retried?: true;
 }
 
 /** ORACLE_TIMEOUT cases by what the subject did (see `CaseResult.subject`). */
@@ -540,6 +550,38 @@ export async function difftest(
   const oracleTimeoutSubjects: OracleTimeoutSubjects = { ok: 0, TIMEOUT: 0, ICE: 0, UNPORTED: 0 };
   let diffsWritten = 0;
   const started = performance.now();
+  /** Records a case's status (and its blessed result and diff file) from its oracle and subject outputs. */
+  const record = (c: Case, oc: Output, sc: Output, retried: boolean) => {
+    const status = classify(oc, sc);
+    const r: CaseResult = { id: c.id, status };
+    if (retried) r.retried = true;
+    if (status === "UNPORTED") {
+      const m = /^rust-ts: unported: (.*)$/m.exec(sc.text);
+      if (m) r.unported = m[1]!.slice(0, 300);
+    } else if (status === "DIFF" || status === "CRASH") r.first = firstDiffLine(oc.text, sc.text);
+    else if (status === "UNSTABLE") {
+      const m = /^rust-ts: unported: (.*)$/m.exec(sc.text);
+      r.unstable = oc.unstable!;
+      r.subject = sc.timedOut ? "TIMEOUT" : sc.code === 101 ? "ICE" : sc.code === EXIT_UNPORTED ? `UNPORTED: ${(m?.[1] ?? "").slice(0, 300)}` : `exit ${sc.code}`;
+    } else if (status === "ORACLE_TIMEOUT") {
+      const m = /^rust-ts: unported: (.*)$/m.exec(sc.text);
+      r.subject = sc.timedOut ? "TIMEOUT" : sc.code === 101 ? "ICE" : sc.code === EXIT_UNPORTED ? `UNPORTED: ${(m?.[1] ?? "").slice(0, 300)}` : `exit ${sc.code}`;
+      const k = sc.timedOut ? "TIMEOUT" : sc.code === 101 ? "ICE" : sc.code === EXIT_UNPORTED ? "UNPORTED" : "ok";
+      oracleTimeoutSubjects[k]++;
+    }
+    results.push(r);
+    if (blessedFor) blessedResults.push(blessedResult(c.id, blessedFor(c), oc, sc));
+    if (status !== "MATCH" && status !== "UNPORTED" && diffsWritten < 500) {
+      diffsWritten++;
+      const name = c.id.replace(/[\\/:]/g, "__");
+      writeFileSync(
+        join(diffDir, name + ".txt"),
+        `case: ${c.id}\nstatus: ${status}\nargs: ${c.args.join(" ")}\nfirst difference at ${firstDiff(oc.text, sc.text)}\n\n=== oracle (exit ${oc.code}) ===\n${oc.text.slice(0, 20000)}\n=== subject (exit ${sc.code}) ===\n${sc.text.slice(0, 20000)}\n`,
+      );
+    }
+  };
+  /** Cases whose subject timed out in the parallel pool (with their oracle output). */
+  const timedOut: { c: Case; oc: Output }[] = [];
   await pool(
     chunks,
     opts.jobs ?? availableParallelism(),
@@ -548,32 +590,8 @@ export async function difftest(
       for (const c of chunk) {
         const oc = o.get(c.id)!;
         const sc = sub.get(c.id)!;
-        const status = classify(oc, sc);
-        const r: CaseResult = { id: c.id, status };
-        if (status === "UNPORTED") {
-          const m = /^rust-ts: unported: (.*)$/m.exec(sc.text);
-          if (m) r.unported = m[1]!.slice(0, 300);
-        } else if (status === "DIFF" || status === "CRASH") r.first = firstDiffLine(oc.text, sc.text);
-        else if (status === "UNSTABLE") {
-          const m = /^rust-ts: unported: (.*)$/m.exec(sc.text);
-          r.unstable = oc.unstable!;
-          r.subject = sc.timedOut ? "TIMEOUT" : sc.code === 101 ? "ICE" : sc.code === EXIT_UNPORTED ? `UNPORTED: ${(m?.[1] ?? "").slice(0, 300)}` : `exit ${sc.code}`;
-        } else if (status === "ORACLE_TIMEOUT") {
-          const m = /^rust-ts: unported: (.*)$/m.exec(sc.text);
-          r.subject = sc.timedOut ? "TIMEOUT" : sc.code === 101 ? "ICE" : sc.code === EXIT_UNPORTED ? `UNPORTED: ${(m?.[1] ?? "").slice(0, 300)}` : `exit ${sc.code}`;
-          const k = sc.timedOut ? "TIMEOUT" : sc.code === 101 ? "ICE" : sc.code === EXIT_UNPORTED ? "UNPORTED" : "ok";
-          oracleTimeoutSubjects[k]++;
-        }
-        results.push(r);
-        if (blessedFor) blessedResults.push(blessedResult(c.id, blessedFor(c), oc, sc));
-        if (status !== "MATCH" && status !== "UNPORTED" && diffsWritten < 500) {
-          diffsWritten++;
-          const name = c.id.replace(/[\\/:]/g, "__");
-          writeFileSync(
-            join(diffDir, name + ".txt"),
-            `case: ${c.id}\nstatus: ${status}\nargs: ${c.args.join(" ")}\nfirst difference at ${firstDiff(oc.text, sc.text)}\n\n=== oracle (exit ${oc.code}) ===\n${oc.text.slice(0, 20000)}\n=== subject (exit ${sc.code}) ===\n${sc.text.slice(0, 20000)}\n`,
-          );
-        }
+        if (classify(oc, sc) === "TIMEOUT") timedOut.push({ c, oc });
+        else record(c, oc, sc, false);
       }
     },
     opts.quiet
@@ -583,6 +601,24 @@ export async function difftest(
         },
   );
   if (!opts.quiet) process.stderr.write("\n");
+  // A subject that timed out in the pool is re-run once, alone, with the same timeout, once the pool is
+  // done: a timeout from contention with the pool's other jobs (or a concurrent process) is not the
+  // case's, but a subject slower than the limit on its own still times out. Past the cap the rest keep
+  // their TIMEOUT unretried (a hang on a common path would otherwise cost a timeout per case, serially).
+  const retries = { retried: 0, finished: 0, notRetried: 0 };
+  for (const { c, oc } of timedOut) {
+    if (retries.retried >= SUBJECT_TIMEOUT_RETRY_CAP) {
+      retries.notRetried++;
+      record(c, oc, { text: "", code: 0, timedOut: true }, false);
+      continue;
+    }
+    if (!opts.quiet) process.stderr.write(`\r${s.name}: re-running subject timeout ${retries.retried + 1}/${Math.min(timedOut.length, SUBJECT_TIMEOUT_RETRY_CAP)} alone`);
+    retries.retried++;
+    const sc = (await runSubject(s, [c], impl, stats)).get(c.id)!;
+    if (!sc.timedOut) retries.finished++;
+    record(c, oc, sc, true);
+  }
+  if (!opts.quiet && retries.retried) process.stderr.write("\n");
   results.sort((a, b) => (a.id < b.id ? -1 : 1));
   const counts = Object.fromEntries(STATUSES.map((st) => [st, 0])) as Record<Status, number>;
   for (const r of results) counts[r.status]++;
@@ -624,6 +660,7 @@ export async function difftest(
     filter: opts.filter ?? null,
     seconds: Math.round((performance.now() - started) / 1000),
     ...stats,
+    ...(timedOut.length ? { subjectTimeoutRetries: retries } : {}),
     ...(s.skipped ? { skipped: skipped.length } : {}),
     ...(counts.ORACLE_TIMEOUT ? { oracleTimeoutSubjects } : {}),
     ...(subsets ? { subsets } : {}),
@@ -663,6 +700,13 @@ if (import.meta.main) {
   if (stats.batchOnlyFailures || stats.batchOnlyTimeouts) {
     console.log(`note: ${stats.batchOnlyFailures} batch-only failure(s), ${stats.batchOnlyTimeouts} batch-only timeout(s): a batch process failed at a case that passes alone (see ${a.suite}.summary.json)`);
   }
+  const retried = results.filter((r) => r.retried);
+  if (retried.length) {
+    const still = retried.filter((r) => r.status === "TIMEOUT").length;
+    console.log(`note: ${retried.length} subject TIMEOUT(s) in the pool re-run alone: ${retried.length - still} finished, ${still} timed out again (per case: \`retried\` in ${a.suite}.jsonl)`);
+  }
+  const notRetried = results.filter((r) => r.status === "TIMEOUT" && !r.retried).length;
+  if (notRetried) console.log(`note: ${notRetried} subject TIMEOUT(s) not re-run (over the cap of ${SUBJECT_TIMEOUT_RETRY_CAP})`);
   if (counts.UNSTABLE) {
     console.log(`note: ${counts.UNSTABLE} UNSTABLE case(s): the oracle's output is not reproducible (listed in the suite or detected); never cached, never MATCH (per case: \`unstable\`, \`subject\` in ${a.suite}.jsonl)`);
   }
