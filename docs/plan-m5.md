@@ -304,7 +304,7 @@ not regress while encoder-side code lands (Encodable codegen touches every type 
 
 **Wave 31: unblock and measure (parallel)**
 - `stablehash-gaps`: D9 (codegen + rustc_target asm reg StableHash). Target: core lib check passes HIR hashing.
-- `query-keys`: the 7 missing `QueryKey` impls of rustc_middle query/keys.rs (incl. `(ValidityRequirement, PseudoCanonicalInput<Ty>)`, the bin check's stop).
+- `query-keys`: the 7 unported fns of rustc_middle query/keys.rs and the missing `QueryKey` impls behind them (incl. `(ValidityRequirement, PseudoCanonicalInput<Ty>)`, the bin check's stop).
 - `perf-core-a`: profile `-Zunpretty=expanded` of core (46 s → ?), fix hot spots without logic changes; report.
 - `perf-core-b`: memory census of a core run (what holds the 5.3 GB), proposals needing decisions.
 - `harness-m5a`: split mode + heavy class (D6), suites `check-core-bin`, `mir-core` (unprotected); aux chain for
