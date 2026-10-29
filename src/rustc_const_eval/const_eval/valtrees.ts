@@ -325,8 +325,10 @@ export function eval_to_valtree(tcx: TyCtxt, typing_env: TypingEnv, cid: GlobalI
 
 /** Lazy `crate::assert_typing_mode` (lib.ts imports this module). */
 function crate(): typeof import("../lib.ts") {
-  return require("../lib.ts") as typeof import("../lib.ts");
+  return (crate_cache ??= require("../lib.ts") as typeof import("../lib.ts"));
 }
+// PORT: cached (`require` per call was ~30% of CTFE time); `var` is hoisted, as cycles may call this early.
+var crate_cache: typeof import("../lib.ts") | undefined;
 
 /// Converts a `ValTree` to a `ConstValue`, which is needed after mir
 /// construction has finished.
