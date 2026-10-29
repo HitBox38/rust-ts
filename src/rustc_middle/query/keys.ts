@@ -29,6 +29,7 @@ import { intern_key } from "../../rust_ts/intern_key.ts";
 import { debug_str } from "../../std/fmt.ts";
 import { debug_ParamEnvAnd, debug_PseudoCanonicalInput, debug_Ty, type ParamEnvAnd, type PseudoCanonicalInput, type Ty } from "../ty/mod.ts";
 import type { AdtDef } from "../ty/decls.ts";
+import type { VariantIdx } from "../../rustc_abi/layout.ts";
 import { debug_AdtDef } from "../ty/structural_impls.ts";
 import { debug_LitToConstInput, type LitToConstInput } from "../ty/consts/lit.ts";
 import { debug_Value, type Value } from "../ty/consts/valtree.ts";
@@ -763,6 +764,21 @@ export const KEY_CanonicalInput_usize: QueryKey<[CanonicalInput, number]> = {
   hash_key: intern_key,
 };
 
+export const KEY_Ty_VariantIdx: QueryKey<[Ty, VariantIdx]> = {
+  make_cache: default_cache<[Ty, VariantIdx]>(intern_key),
+  // rustc: compiler/rustc_middle/src/query/keys.rs:374 default_span
+  default_span(_self: [Ty, VariantIdx], _tcx: TyCtxt): Span {
+    return DUMMY_SP;
+  },
+  key_as_def_id: QueryKey_provided.key_as_def_id,
+  as_local_key: QueryKey_provided.as_local_key,
+  debug: (v, f) => debug_tuple(f, "", [debug_Ty(v[0], f), `${v[1]}`]),
+  debug_local: no_local_key,
+  hash_key: intern_key,
+};
+/** `PseudoCanonicalInput<(Ty, VariantIdx)>` (`tag_for_variant`; lane transmute). */
+export const KEY_PseudoCanonicalInput_Ty_VariantIdx: QueryKey<PseudoCanonicalInput<[Ty, VariantIdx]>> = pseudo_canonical_input_key(KEY_Ty_VariantIdx);
+
 export const KEY_Predicate_WellFormedLoc: QueryKey<[Predicate, WellFormedLoc]> = {
   make_cache: default_cache<[Predicate, WellFormedLoc]>(intern_key),
   // rustc: compiler/rustc_middle/src/query/keys.rs:380 default_span
@@ -823,7 +839,7 @@ export const KEY_Value: QueryKey<Value> = {
   hash_key: intern_key,
 };
 
-// PORT: the other canonical inputs (keys.rs:355-366), `(Ty, VariantIdx)`, `(LocalExpnId, &TokenStream)`,
+// PORT: the other canonical inputs (keys.rs:355-366), `(LocalExpnId, &TokenStream)`,
 // `(ValidityRequirement, PseudoCanonicalInput<Ty>)` and `(Instance, CollectionMode)` (:378-422) are not ported yet
 // (`key_unported`).
 
