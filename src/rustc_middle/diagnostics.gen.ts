@@ -8,6 +8,12 @@ import { display_Symbol, type Symbol } from "../rustc_span/symbol.ts";
 import { display_Limit, type Limit, Limit_into_diag_arg } from "../rustc_structures/limit.ts";
 import { unported } from "../std/panic.ts";
 const unported_into_diag_arg = (_v: unknown, _path: unknown): never => unported("IntoDiagArg without a TS impl (see types report)");
+// PORT (init order, diag_args_lazy): ./ty/diagnostics.ts is required lazily, at call time (a static import would evaluate modules
+// that read this module's importer's bindings at load: TDZ).
+function lazy_rustc_middle_ty_diagnostics(): typeof import("./ty/diagnostics.ts") {
+  return (lazy_rustc_middle_ty_diagnostics__m ??= require("./ty/diagnostics.ts") as typeof import("./ty/diagnostics.ts"));
+}
+var lazy_rustc_middle_ty_diagnostics__m: typeof import("./ty/diagnostics.ts") | undefined;
 
 // rustc-type: compiler/rustc_middle/src/diagnostics.rs:13 DropCheckOverflow
 export interface DropCheckOverflow {
@@ -22,8 +28,8 @@ export function DropCheckOverflow_into_diag(self: DropCheckOverflow, dcx: DiagCt
   const diag = Diag.new(dcx, level, { $: "Inline", _0: "overflow while adding drop-check rules for `{$ty}`" });
   diag.code(E0320);
   diag.note({ $: "Inline", _0: "overflowed on `{$overflow_ty}`" });
-  diag.arg("ty", IntoDiagArg.of(__binding_1, unported_into_diag_arg));
-  diag.arg("overflow_ty", IntoDiagArg.of(__binding_2, unported_into_diag_arg));
+  diag.arg("ty", IntoDiagArg.of(__binding_1, lazy_rustc_middle_ty_diagnostics().Ty_into_diag_arg));
+  diag.arg("overflow_ty", IntoDiagArg.of(__binding_2, lazy_rustc_middle_ty_diagnostics().Ty_into_diag_arg));
   diag.span(__binding_0);
   return diag;
 }
@@ -63,8 +69,8 @@ export interface OpaqueHiddenTypeMismatch {
 export function OpaqueHiddenTypeMismatch_into_diag(self: OpaqueHiddenTypeMismatch, dcx: DiagCtxtHandle, level: Level): Diag {
   const { self_ty: __binding_0, other_ty: __binding_1, other_span: __binding_2, sub: __binding_3 } = self;
   const diag = Diag.new(dcx, level, { $: "Inline", _0: "concrete type differs from previous defining opaque type use" });
-  diag.arg("self_ty", IntoDiagArg.of(__binding_0, unported_into_diag_arg));
-  diag.arg("other_ty", IntoDiagArg.of(__binding_1, unported_into_diag_arg));
+  diag.arg("self_ty", IntoDiagArg.of(__binding_0, lazy_rustc_middle_ty_diagnostics().Ty_into_diag_arg));
+  diag.arg("other_ty", IntoDiagArg.of(__binding_1, lazy_rustc_middle_ty_diagnostics().Ty_into_diag_arg));
   diag.span(__binding_2);
   diag.span_label(__binding_2, { $: "Inline", _0: "expected `{$self_ty}`, got `{$other_ty}`" });
   diag.subdiagnostic(TypeMismatchReason_subdiagnostic(__binding_3));
@@ -116,7 +122,7 @@ export function RecursionLimitReached_into_diag(self: RecursionLimitReached, dcx
   const { span: __binding_0, ty: __binding_1, suggested_limit: __binding_2 } = self;
   const diag = Diag.new(dcx, level, { $: "Inline", _0: "reached the recursion limit finding the struct tail for `{$ty}`" });
   diag.help({ $: "Inline", _0: "consider increasing the recursion limit by adding a `#![recursion_limit = \"{$suggested_limit}\"]`" });
-  diag.arg("ty", IntoDiagArg.of(__binding_1, unported_into_diag_arg));
+  diag.arg("ty", IntoDiagArg.of(__binding_1, lazy_rustc_middle_ty_diagnostics().Ty_into_diag_arg));
   diag.arg("suggested_limit", IntoDiagArg.of(__binding_2, Limit_into_diag_arg));
   diag.span(__binding_0);
   return diag;
@@ -138,7 +144,7 @@ export function RecursionLimitReachedSizeSkeleton_into_diag(self: RecursionLimit
   const { span: __binding_0, ty: __binding_1, suggested_limit: __binding_2 } = self;
   const diag = Diag.new(dcx, level, { $: "Inline", _0: "reached the recursion limit while computing the size of `{$ty}`" });
   diag.help({ $: "Inline", _0: "consider increasing the recursion limit by adding a `#![recursion_limit = \"{$suggested_limit}\"]`" });
-  diag.arg("ty", IntoDiagArg.of(__binding_1, unported_into_diag_arg));
+  diag.arg("ty", IntoDiagArg.of(__binding_1, lazy_rustc_middle_ty_diagnostics().Ty_into_diag_arg));
   diag.arg("suggested_limit", IntoDiagArg.of(__binding_2, Limit_into_diag_arg));
   diag.span(__binding_0);
   return diag;
@@ -251,7 +257,7 @@ export function TypeLengthLimit_into_diag(self: TypeLengthLimit, dcx: DiagCtxtHa
   const { span: __binding_0, instance: __binding_1, type_length: __binding_2 } = self;
   const diag = Diag.new(dcx, level, { $: "Inline", _0: "reached the type-length limit while instantiating `{$instance}`" });
   diag.help({ $: "Inline", _0: "consider adding a `#![type_length_limit=\"{$type_length}\"]` attribute to your crate" });
-  diag.arg("instance", IntoDiagArg.of(__binding_1, unported_into_diag_arg));
+  diag.arg("instance", IntoDiagArg.of(__binding_1, lazy_rustc_middle_ty_diagnostics().Instance_into_diag_arg));
   diag.arg("type_length", IntoDiagArg.of(__binding_2, number_into_diag_arg));
   diag.span(__binding_0);
   return diag;

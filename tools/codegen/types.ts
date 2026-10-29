@@ -324,6 +324,12 @@ export interface SetConfig {
    * entry's import would evaluate modules that read that defining module's bindings at load (init order, TDZ).
    */
   diag_args_skip?: string[];
+  /**
+   * Rust paths whose diag_args.json entries this set uses through a lazy `require` of the entry's modules at call time
+   * (`<accessor>().<name>`) instead of a static import: the init-order alternative to `diag_args_skip` (same situation),
+   * as hand modules do (rustc_type_ir sty/mod.ts `region_kind()`).
+   */
+  diag_args_lazy?: string[];
 }
 
 /** tools/codegen/type_fold.json: `TypeVisitable` / `TypeFoldable` impls of external types and the trait shapes. */
@@ -1241,6 +1247,8 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       if (!imports.has(target)) imports.set(target, { types: new Map(), values: new Map() });
       imports.get(target)![kind].set(name, alias);
     };
+    /** src-relative module -> accessor name, for modules required lazily (`diag_args_lazy`) */
+    const lazyMods = new Map<string, string>();
     let fileTypes = 0;
     let fileDebug = 0;
     let fileClone = 0;
@@ -3206,6 +3214,15 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
           const m = /^([\w.]+)\(\$v\)$/.exec(d);
           expr = expr.replaceAll("$display0", m ? m[1]! : `(x) => ${d.replaceAll("$v", "x")}`);
         }
+        if (e.paths.some((p) => set.diag_args_lazy?.includes(p))) {
+          for (const [m, names] of Object.entries(e.imports ?? {})) {
+            const rel = m.replace(/^src\//, "");
+            let acc = lazyMods.get(rel);
+            if (acc === undefined) lazyMods.set(rel, (acc = `lazy_${rel.replace(/\.ts$/, "").replace(/\W+/g, "_")}`));
+            for (const n of names) expr = expr.replace(new RegExp(`(?<![\\w.])${n}\\b`, "g"), `${acc}().${n}`);
+          }
+          return expr;
+        }
         for (const [m, names] of Object.entries(e.imports ?? {})) for (const n of names) imp(`src:${m.replace(/^src\//, "")}`, "values", n, n);
         return expr;
       }
@@ -3745,6 +3762,18 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       if (/\bunported_type_fold\b/.test(text))
         extra.push(`function unported_type_fold(..._a: unknown[]): never {\n  return unported("TypeVisitable/TypeFoldable without a TS impl (see types report)");\n}`);
       importLines.push(...extra);
+    }
+    for (const [rel, acc] of [...lazyMods].sort(([a], [b]) => a.localeCompare(b))) {
+      if (!new RegExp(`\\b${acc}\\(`).test(text)) continue;
+      const spec = relImport(outFile, join(opts.srcRoot, rel));
+      importLines.push(
+        `// PORT (init order, diag_args_lazy): ${spec} is required lazily, at call time (a static import would evaluate modules`,
+        `// that read this module's importer's bindings at load: TDZ).`,
+        `function ${acc}(): typeof import("${spec}") {`,
+        `  return (${acc}__m ??= require("${spec}") as typeof import("${spec}"));`,
+        `}`,
+        `var ${acc}__m: typeof import("${spec}") | undefined;`,
+      );
     }
     if (fileTypes === 0 && !walk && !sh && !ser) {
       report.notes.push(`${mf.file.path}: no types; ${mf.gen} not written`);

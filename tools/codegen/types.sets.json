@@ -1072,8 +1072,8 @@
   },
   "rustc_middle_diagnostics": {
     "files": ["compiler/rustc_middle/src/diagnostics.rs"],
-    "diag_args_skip": ["rustc_middle::ty::Ty"],
-    "diag_args_skip_note": "merge-w16a: rustc_middle/ty/mod.ts imports this set's diagnostics.gen.ts, so the .gen.ts must not import ty/diagnostics.ts (Ty_into_diag_arg) or ty/print/pretty.ts: loading them reads ty/mod.ts bindings before they are initialised (TDZ). The Ty args stay unported_into_diag_arg until the init order allows it.",
+    "diag_args_lazy": ["rustc_middle::ty::Ty", "rustc_middle::ty::Instance"],
+    "diag_args_lazy_note": "merge-w16a/gaps-30b: rustc_middle/ty/mod.ts imports this set's diagnostics.gen.ts, so a static import of ty/diagnostics.ts (Ty_into_diag_arg) or ty/print/pretty.ts would evaluate modules that read ty/mod.ts bindings before they are initialised (TDZ: rustc_type_ir relate.ts `fold_Term`). They are required lazily at call time.",
     "class": [],
     "hand": [],
     "discriminant": [],
