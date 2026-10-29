@@ -412,6 +412,9 @@ interface Config {
   display: Record<string, { ts: string; imports?: Record<string, string[]> }>;
   methods: Record<string, string>;
   fns: Record<string, { ts: string; module: string; ret: string }>;
+  consts: Record<string, { ts: string; module: string; ty: string }>;
+  structs: Record<string, { params: string[]; alias?: string; fields?: Record<string, string> }>;
+  rust_methods: Record<string, Record<string, { ts: string; ret: string }>>;
   tagged_enums: string[];
 }
 
@@ -947,6 +950,11 @@ class DescTranslator {
       case "path": {
         if (e.segs.length === 1 && e.segs[0] === "tcx") return ["tcx", { k: "tcx" }];
         if (e.segs.length === 1 && env.has(e.segs[0]!)) return [e.segs[0]!, { k: "rust", t: env.get(e.segs[0]!)! }];
+        const c = this.cfg.consts[this.mapper.resolve(e.segs, false)];
+        if (c !== undefined) {
+          this.imports.add(c.module, c.ts);
+          return [c.ts, this.retTy(c.ty)];
+        }
         return unsupported(`path \`${e.segs.join("::")}\``);
       }
       case "field": {
@@ -955,10 +963,23 @@ class DescTranslator {
           const t = ty.t.k === "ref" ? ty.t.elem : ty.t;
           if (t.k === "tuple" && Number(e.name) < t.elems.length) return [`${ts}[${e.name}]`, { k: "rust", t: t.elems[Number(e.name)]! }];
         }
+        if (ty.k === "rust") {
+          const ft = this.fieldTy(ty.t, e.name);
+          if (ft !== undefined) return [`${ts}.${e.name}`, { k: "rust", t: ft }];
+        }
         return unsupported(`field \`.${e.name}\``);
       }
       case "method": {
         const [recv, rty] = this.expr(e.e, env);
+        if (rty.k === "rust") {
+          const t = rty.t.k === "ref" ? rty.t.elem : rty.t;
+          const m = t.k === "path" ? this.cfg.rust_methods[this.mapper.resolve(t.segs.map((s) => s.name), t.global)]?.[e.name] : undefined;
+          if (m === undefined) return unsupported(`method \`.${e.name}()\` on a non-tcx receiver`);
+          let out = m.ts.replaceAll("$v", recv);
+          const args = e.args.map((a) => this.expr(a, env)[0]);
+          for (let i = args.length - 1; i >= 0; i--) out = out.replaceAll(`$${i}`, args[i]!);
+          return [out, this.retTy(m.ret)];
+        }
         if (rty.k !== "tcx") return unsupported(`method \`.${e.name}()\` on a non-tcx receiver`);
         const args = e.args.map((a) => this.expr(a, env)[0]);
         const q = this.queries.get(e.name);
@@ -1002,6 +1023,52 @@ class DescTranslator {
         if (!e.arms.some((a) => a.pats === "wild")) return unsupported("match without a wildcard arm");
         return [`(() => { ${body} })()`, resTy!];
       }
+    }
+  }
+
+  /**
+   * Type of field `name` of a value of Rust type `t`, from queries.config.json's `structs` (type aliases are expanded
+   * first; the struct's type parameters are substituted with `t`'s type arguments).
+   */
+  fieldTy(t: RType, name: string): RType | undefined {
+    for (;;) {
+      if (t.k === "ref") t = t.elem;
+      if (t.k !== "path") return undefined;
+      const path = this.mapper.resolve(
+        t.segs.map((s) => s.name),
+        t.global,
+      );
+      const s = this.cfg.structs[path];
+      if (s === undefined) return undefined;
+      const args = t.segs[t.segs.length - 1]!.args;
+      if (args.length !== s.params.length) return unsupported(`\`${path}\` with ${args.length} type arguments`);
+      const subst = (r: RType): RType => {
+        switch (r.k) {
+          case "path": {
+            const i = !r.global && r.segs.length === 1 && r.segs[0]!.args.length === 0 ? s.params.indexOf(r.segs[0]!.name) : -1;
+            if (i >= 0) return args[i]!;
+            return { ...r, segs: r.segs.map((g) => ({ name: g.name, args: g.args.map(subst) })) };
+          }
+          case "ref":
+          case "slice":
+          case "array":
+            return { ...r, elem: subst(r.elem) };
+          case "tuple":
+            return { k: "tuple", elems: r.elems.map(subst) };
+          case "never":
+            return r;
+        }
+      };
+      const parse = (rust: string): RType => {
+        const toks = lex(rust);
+        return parseType(new Cursor(toks, 0, toks.length));
+      };
+      if (s.alias !== undefined) {
+        t = subst(parse(s.alias));
+        continue;
+      }
+      const f = s.fields?.[name];
+      return f === undefined ? undefined : subst(parse(f));
     }
   }
 

@@ -93,3 +93,27 @@ test.skipIf(SKIP)("golden: declarations, desc translation (format args, named ar
   expect(t).toContain('export type ExternQuery = "k";');
   expect(t).toContain("    key: KEY_CrateNum,");
 });
+
+test.skipIf(SKIP)("golden: desc fields of structs and type aliases, methods on non-tcx receivers, constants", () => {
+  const t = gen(`
+    query l(key: ty::PseudoCanonicalInput<'tcx, ty::Ty<'tcx>>) -> Symbol { desc { "computing layout of \`{}\`", key.value } }
+    query e(key: ty::PseudoCanonicalInput<'tcx, crate::mir::interpret::GlobalId<'tcx>>) -> Symbol {
+        desc { "simplifying constant for the type system \`{}\`", key.value.display(tcx) }
+    }
+    query o(goal: crate::traits::query::CanonicalPredicateGoal<'tcx>) -> Symbol {
+        desc { "evaluating trait selection obligation \`{}\`", goal.canonical.value.value }
+    }
+    query a(key: ()) -> Symbol { desc { "running analysis passes on crate \`{}\`", tcx.crate_name(rustc_hir::def_id::LOCAL_CRATE) } }
+    query crate_name(_: CrateNum) -> Symbol { desc { "crate name" } }
+    query x(key: ty::PseudoCanonicalInput<'tcx, ty::Ty<'tcx>>) -> Symbol { desc { "{}", key.typing_env } }
+    query y(key: ty::PseudoCanonicalInput<'tcx, ty::Ty<'tcx>>) -> Symbol { desc { "{}", key.value.kind() } }
+  `);
+  expect(t).toContain("    desc: (_tcx, key) => { const __0 = key.value; return `computing layout of \\`${display_Ty(__0)}\\``; },");
+  expect(t).toContain("    desc: (tcx, key) => { const __0 = key.value.display(tcx); return `simplifying constant for the type system \\`${__0}\\``; },");
+  expect(t).toContain(
+    "    desc: (_tcx, goal) => { const __0 = goal.canonical.value.value; return `evaluating trait selection obligation \\`${display_Predicate(__0)}\\``; },",
+  );
+  expect(t).toContain("    desc: (tcx, _key) => { const __0 = tcx.crate_name(LOCAL_CRATE); return `running analysis passes on crate \\`${display_Symbol(__0)}\\``; },");
+  expect(t).toContain('    desc: () => unported("desc of query `x` (field `.typing_env`)"),');
+  expect(t).toContain('    desc: () => unported("desc of query `y` (method `.kind()` on a non-tcx receiver)"),');
+});
