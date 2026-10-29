@@ -120,7 +120,9 @@
       "rustc_ast::attr::data_structures::CfgEntry",
       "rustc_ast::ast::MetaItemLit",
       "rustc_ast::token::DocFragmentKind",
-      "rustc_ast::visit::AssocCtxt"
+      "rustc_ast::visit::AssocCtxt",
+      "rustc_ast::expand::autodiff_attrs::DiffMode",
+      "rustc_ast::expand::autodiff_attrs::DiffActivity"
     ],
     "derive_decodable": true
   },

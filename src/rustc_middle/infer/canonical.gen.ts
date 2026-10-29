@@ -10,12 +10,10 @@ import { type ArgOutlivesClause, fold_with_ArgOutlivesClause, type RegionConstra
 import { type FallibleTypeFolder, fold_with_Vec, type FoldWith, try_fold_with_Vec, type TryFoldWith, type TypeFolder, type TypeVisitor, visit_with_Vec, type VisitWith } from "../../rustc_type_ir/fold.ts";
 import { debug_UniverseIndex, type UniverseIndex } from "../../rustc_type_ir/lib.ts";
 import { debug_OpaqueTypeKey, type OpaqueTypeKey } from "../../rustc_type_ir/opaque_ty.ts";
-import { debug_OutlivesClause, fold_with_RegionConstraint, try_fold_with_RegionConstraint, visit_with_RegionConstraint } from "../../rustc_type_ir/predicate.ts";
+import { debug_OutlivesClause, debug_RegionConstraint, fold_with_RegionConstraint, try_fold_with_RegionConstraint, visit_with_RegionConstraint } from "../../rustc_type_ir/predicate.ts";
 import { debug_VisibleForLeakCheck, type VisibleForLeakCheck } from "../../rustc_type_ir/solve/mod.ts";
 import { type Debug, debug_struct, debug_tuple, debug_vec, type Fmt } from "../../std/fmt.ts";
 import { Ok, type Result } from "../../std/result.ts";
-import { unported } from "../../std/panic.ts";
-const unported_debug = (_v: unknown): string => unported("Debug without a TS impl (see types report)");
 
 // rustc-type: compiler/rustc_middle/src/infer/canonical.rs:35 CanonicalQueryInput
 export type { CanonicalQueryInput } from "./canonical.ts";
@@ -159,7 +157,7 @@ export interface QueryRegionConstraint {
 }
 export const debug_QueryRegionConstraint: Debug<QueryRegionConstraint> = (v, f) =>
   debug_struct(f, "QueryRegionConstraint", [
-    ["constraint", unported_debug(v.constraint)],
+    ["constraint", debug_RegionConstraint(v.constraint, f)],
     ["category", debug_ConstraintCategory(v.category, f)],
     ["visible_for_leak_check", debug_VisibleForLeakCheck(v.visible_for_leak_check, f)],
   ]);

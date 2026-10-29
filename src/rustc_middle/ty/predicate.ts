@@ -21,13 +21,28 @@ import { Interned } from "../../rustc_data_structures/intern.ts";
 import type { DiagArgValue, PathBuf } from "../../rustc_error_messages/lib.ts";
 import type { DefId } from "../../rustc_span/def_id.ts";
 import { bug } from "../../rustc_span/macros.ts";
-import { Binder, EarlyBinder } from "../../rustc_type_ir/binder.ts";
+import { Binder, EarlyBinder, fold_with_Binder, try_fold_with_Binder, visit_with_Binder } from "../../rustc_type_ir/binder.ts";
 import type { ClauseKind, DebruijnIndex, ExistentialPredicate, ExistentialProjection, ExistentialTraitRef, HostEffectClause, NormalizesTo, PolyExistentialPredicate, PolyTraitRef, PredicateKind, ProjectionClause, RegionOutlivesClause, TraitClause, TraitRef, TypeFlags, TypeOutlivesClause } from "../../rustc_type_ir/decls.ts";
 import type { TypeFoldable } from "../../rustc_type_ir/fold.ts";
 import { Predicate_provided } from "../../rustc_type_ir/inherent.ts";
 import { fold_with_ClauseKind, try_fold_with_ClauseKind, visit_with_ClauseKind, visit_with_PredicateKind } from "../../rustc_type_ir/predicate_kind.gen.ts";
-import { fold_with_OutlivesClause, try_fold_with_OutlivesClause, visit_with_OutlivesClause, visit_with_TraitRef } from "../../rustc_type_ir/predicate.gen.ts";
+import {
+  fold_with_ExistentialProjection,
+  fold_with_ExistentialTraitRef,
+  fold_with_OutlivesClause,
+  try_fold_with_ExistentialProjection,
+  try_fold_with_ExistentialTraitRef,
+  try_fold_with_OutlivesClause,
+  visit_with_ExistentialProjection,
+  visit_with_ExistentialTraitRef,
+  visit_with_OutlivesClause,
+  visit_with_TraitRef,
+} from "../../rustc_type_ir/predicate.gen.ts";
+import { type AliasTerm, fold_with_Alias, try_fold_with_Alias, visit_with_Alias } from "../../rustc_type_ir/ty/alias.ts";
+import { fold_with_AliasTermKind, try_fold_with_AliasTermKind, visit_with_AliasTermKind } from "../../rustc_type_ir/term_kind.ts";
 import { fold_with_GenericArg, try_fold_with_GenericArg, visit_with_GenericArg } from "./generic_args.ts";
+import { fold_with_Ty, try_fold_with_Ty, visit_with_Ty } from "./mod.ts";
+import { fold_with_Region, try_fold_with_Region, visit_with_Region } from "../../rustc_type_ir/sty/mod.ts";
 import type { ArgOutlivesClause } from "./predicate.gen.ts";
 import { ClausePolarity, PolyTraitClause } from "../../rustc_type_ir/predicate.ts";
 import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
@@ -787,4 +802,59 @@ export function try_fold_with_ArgOutlivesClause<E>(self: ArgOutlivesClause, fold
 }
 export function fold_with_ArgOutlivesClause(self: ArgOutlivesClause, folder: TypeFolder): ArgOutlivesClause {
   return fold_with_OutlivesClause(self, folder, fold_with_GenericArg);
+}
+
+// PORT: `ty::RegionOutlivesClause<'tcx> = OutlivesClause<'tcx, Region<'tcx>>` and `ty::PolyTypeOutlivesClause<'tcx> =
+// Binder<'tcx, OutlivesClause<'tcx, Ty<'tcx>>>` (predicate.rs:26/:33) are type aliases too: rustc_type_ir's derived
+// `OutlivesClause<A>` impls (and the `Binder` ones), named here for generated folds of fields of these types (wfcheck.rs
+// `WithWhereClauses`; lane gaps-30c).
+export function visit_with_RegionOutlivesClause<R>(self: RegionOutlivesClause, visitor: TypeVisitor<R>): R {
+  return visit_with_OutlivesClause(self, visitor, visit_with_Region);
+}
+export function try_fold_with_RegionOutlivesClause<E>(self: RegionOutlivesClause, folder: FallibleTypeFolder<E>): Result<RegionOutlivesClause, E> {
+  return try_fold_with_OutlivesClause(self, folder, try_fold_with_Region);
+}
+export function fold_with_RegionOutlivesClause(self: RegionOutlivesClause, folder: TypeFolder): RegionOutlivesClause {
+  return fold_with_OutlivesClause(self, folder, fold_with_Region);
+}
+export function visit_with_PolyTypeOutlivesClause<R>(self: Binder<TypeOutlivesClause>, visitor: TypeVisitor<R>): R {
+  return visit_with_Binder(self, visitor, (v, visitor) => visit_with_OutlivesClause(v, visitor, visit_with_Ty));
+}
+export function try_fold_with_PolyTypeOutlivesClause<E>(self: Binder<TypeOutlivesClause>, folder: FallibleTypeFolder<E>): Result<Binder<TypeOutlivesClause>, E> {
+  return try_fold_with_Binder(self, folder, (v, folder) => try_fold_with_OutlivesClause(v, folder, try_fold_with_Ty));
+}
+export function fold_with_PolyTypeOutlivesClause(self: Binder<TypeOutlivesClause>, folder: TypeFolder): Binder<TypeOutlivesClause> {
+  return fold_with_Binder(self, folder, (v, folder) => fold_with_OutlivesClause(v, folder, fold_with_Ty));
+}
+
+// PORT: `ty::AliasTerm<'tcx> = ir::AliasTerm<TyCtxt<'tcx>>` (= `Alias<AliasTermKind>`), `ty::PolyExistentialTraitRef<'tcx>
+// = Binder<'tcx, ExistentialTraitRef<'tcx>>` and `ty::PolyExistentialProjection<'tcx> = Binder<'tcx,
+// ExistentialProjection<'tcx>>` (predicate.rs:16/:19/:20): rustc_type_ir's derived impls (and the `Binder` ones), named
+// here for generated folds of fields of these types (rustc_infer mod.rs `ValuePairs`; lane gaps-30c).
+export function visit_with_AliasTerm<R>(self: AliasTerm, visitor: TypeVisitor<R>): R {
+  return visit_with_Alias(self, visitor, visit_with_AliasTermKind);
+}
+export function try_fold_with_AliasTerm<E>(self: AliasTerm, folder: FallibleTypeFolder<E>): Result<AliasTerm, E> {
+  return try_fold_with_Alias(self, folder, try_fold_with_AliasTermKind);
+}
+export function fold_with_AliasTerm(self: AliasTerm, folder: TypeFolder): AliasTerm {
+  return fold_with_Alias(self, folder, fold_with_AliasTermKind);
+}
+export function visit_with_PolyExistentialTraitRef<R>(self: Binder<ExistentialTraitRef>, visitor: TypeVisitor<R>): R {
+  return visit_with_Binder(self, visitor, visit_with_ExistentialTraitRef);
+}
+export function try_fold_with_PolyExistentialTraitRef<E>(self: Binder<ExistentialTraitRef>, folder: FallibleTypeFolder<E>): Result<Binder<ExistentialTraitRef>, E> {
+  return try_fold_with_Binder(self, folder, try_fold_with_ExistentialTraitRef);
+}
+export function fold_with_PolyExistentialTraitRef(self: Binder<ExistentialTraitRef>, folder: TypeFolder): Binder<ExistentialTraitRef> {
+  return fold_with_Binder(self, folder, fold_with_ExistentialTraitRef);
+}
+export function visit_with_PolyExistentialProjection<R>(self: Binder<ExistentialProjection>, visitor: TypeVisitor<R>): R {
+  return visit_with_Binder(self, visitor, visit_with_ExistentialProjection);
+}
+export function try_fold_with_PolyExistentialProjection<E>(self: Binder<ExistentialProjection>, folder: FallibleTypeFolder<E>): Result<Binder<ExistentialProjection>, E> {
+  return try_fold_with_Binder(self, folder, try_fold_with_ExistentialProjection);
+}
+export function fold_with_PolyExistentialProjection(self: Binder<ExistentialProjection>, folder: TypeFolder): Binder<ExistentialProjection> {
+  return fold_with_Binder(self, folder, fold_with_ExistentialProjection);
 }

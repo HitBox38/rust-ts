@@ -31,6 +31,7 @@ import { CrateNum, debug_DefId, DefId, DefId_eq, DefId_key, DefIdMap, DefIdSet, 
 import { RemapPathScopeComponents, Span } from "../../../rustc_span/lib.ts";
 import { bug } from "../../../rustc_span/macros.ts";
 import { display_Ident, display_Symbol, Ident, kw, sym, Symbol } from "../../../rustc_span/symbol.ts";
+import { fold_with_OutlivesClause, try_fold_with_OutlivesClause, visit_with_OutlivesClause } from "../../../rustc_type_ir/predicate.gen.ts";
 import { Binder, BoundRegionKind, debug_BoundConst, debug_BoundTy, debug_Placeholder, EarlyBinder, fold_Binder, visit_with_Binder } from "../../../rustc_type_ir/binder.ts";
 import { type AliasConst, type AliasTy, type BoundRegion, type ClauseKind, type ClosureArgs, type ConstVid, type ExistentialPredicate, type HostEffectClause, INNERMOST, type NormalizesTo, type OutlivesClause, type Pending, type PlaceholderType, type PolyExistentialPredicate, type PolyFnSig, type PolyTraitClause, type PolyTraitRef, type PredicateKind, type ProjectionClause, type RegionVid, type TyVid, type ValTreeKind } from "../../../rustc_type_ir/decls.ts";
 import { Elaboratable_Clause, elaborate } from "../../../rustc_type_ir/elaborate.ts";
@@ -2043,6 +2044,13 @@ const fold_ListTy_Ty_: TypeFoldable<[List<Ty>, Ty]> = descriptor<[List<Ty>, Ty]>
   (self, v) => visit_with_tuple2(self, v, visit_with_Tys, visit_with_Ty),
   (self, f) => try_fold_with_tuple2(self, f, try_fold_with_Tys, try_fold_with_Ty),
   (self, f) => fold_with_tuple2(self, f, fold_with_Tys, fold_with_Ty),
+);
+
+/** `OutlivesClause<'tcx, Ty<'tcx>>: TypeFoldable` (rustc_type_ir's derived impl at `A = Ty`). */
+const fold_TypeOutlivesClause_: TypeFoldable<OutlivesClause<Ty>> = descriptor<OutlivesClause<Ty>>(
+  (self, v) => visit_with_OutlivesClause(self, v, visit_with_Ty),
+  (self, f) => try_fold_with_OutlivesClause(self, f, try_fold_with_Ty),
+  (self, f) => fold_with_OutlivesClause(self, f, fold_with_Ty),
 );
 
 // -- rustc_middle ty/generics.rs, ty/assoc.rs, ty/adt.rs, ty/pattern.rs, ty/consts/kind.rs, mir --
@@ -4169,6 +4177,16 @@ export function display_GenericArg(self: GenericArg): string {
  */
 export function display_PolyFnSig(self: Binder<FnSig>): string {
   return forward_display_to_print(self, (v: Binder<FnSig>, p: FmtPrinter) => print_Binder(v, p, print_FnSig, fold_FnSig_));
+}
+
+/**
+ * `impl Display for ty::Binder<'tcx, ty::TypeOutlivesClause<'tcx>>` (`ty::PolyTypeOutlivesClause`): as
+ * `display_PolyFnSig`, rustc_type_ir ir_print.rs's `Display for Binder` over `Print for ty::Binder<'tcx, T>`.
+ */
+export function display_PolyTypeOutlivesClause(self: Binder<OutlivesClause<Ty>>): string {
+  return forward_display_to_print(self, (v: Binder<OutlivesClause<Ty>>, p: FmtPrinter) =>
+    print_Binder(v, p, (x: OutlivesClause<Ty>, p: FmtPrinter) => print_OutlivesClause(x, p, print_Ty), fold_TypeOutlivesClause_),
+  );
 }
 
 // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3448 for_each_def

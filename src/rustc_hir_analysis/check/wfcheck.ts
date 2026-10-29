@@ -50,7 +50,7 @@ import { Region as RegionC } from "../../rustc_type_ir/sty/mod.ts";
 import type { Interner } from "../../rustc_type_ir/interner.ts";
 import type { ClauseKind } from "../../rustc_type_ir/predicate_kind.ts";
 import { type Clause, Clause_upcast_from_ClauseKind, Predicate_upcast_from_ClauseKind } from "../../rustc_middle/ty/predicate.ts";
-import { display_Clause, display_Ty } from "../../rustc_middle/ty/print/pretty.ts";
+import { display_Clause, display_PolyTypeOutlivesClause, display_Ty } from "../../rustc_middle/ty/print/pretty.ts";
 import { fold_Clause, fold_Span, fold_Ty } from "../../rustc_middle/ty/structural_impls.ts";
 import type { TraitDef } from "../../rustc_middle/ty/trait_def.ts";
 import type { LocalDefId } from "../../rustc_span/def_id.ts";
@@ -2945,10 +2945,6 @@ var cgp__m: typeof import("../constrained_generic_params.ts") | undefined; // PO
 
 
 
-/** PORT(stand-in): `Display for ty::Binder<'tcx, ty::TypeOutlivesClause<'tcx>>` (rustc_middle ty/print/pretty.rs `forward_display_to_print!`, not ported). */
-function display_PolyTypeOutlivesClause(_clause: PolyTypeOutlivesClause): string {
-  return unported("rustc_middle::ty::print::pretty: Display for Binder<TypeOutlivesClause>");
-}
 
 // ---- D4 descriptors of this file's generated types (wfcheck.gen.ts) -------------------------------------------------
 
