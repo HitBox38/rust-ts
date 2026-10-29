@@ -57,6 +57,12 @@ export interface ProcResult {
   code: number;
   timedOut: boolean;
   ms: number;
+  /**
+   * The process's resource usage as `wait4` reports it (Bun `Subprocess.resourceUsage()`; it includes the
+   * descendants the process waited for): user/system CPU and max resident set size, in bytes (on macOS the
+   * same number `/usr/bin/time -l` prints). Recorded by the heavy suites (harness/suites.ts `Suite.heavy`).
+   */
+  usage?: { userMs: number; sysMs: number; maxRssBytes: number };
 }
 
 /**
@@ -83,7 +89,9 @@ export async function run(cmd: string[], opts: { cwd?: string; timeoutMs?: numbe
     : undefined;
   const [stdout, stderr, code] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text(), proc.exited]);
   if (timer) clearTimeout(timer);
-  return { stdout, stderr, code, timedOut, ms: performance.now() - start };
+  const ru = proc.resourceUsage();
+  const usage = ru ? { userMs: Number(ru.cpuTime.user) / 1000, sysMs: Number(ru.cpuTime.system) / 1000, maxRssBytes: ru.maxRSS } : undefined;
+  return { stdout, stderr, code, timedOut, ms: performance.now() - start, usage };
 }
 
 /** Run an async fn over items with bounded concurrency, preserving result order. */

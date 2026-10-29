@@ -1,9 +1,13 @@
 // The ratchet. The protected set (harness/baseline/<suite>.txt) lists every case that has
 // ever been accepted as MATCH. A revision is acceptable only if it loses none of them.
 //
-//   bun scripts/gate.ts run [--suites lex,parse] [--skip-static]
+//   bun scripts/gate.ts run [--suites lex,parse] [--skip-static] [--skip-heavy]
 //       probe check + typecheck + unit tests (RUST_TS_REQUIRE_PROBES=1; any skipped test not in
-//       ALLOWED_SKIPS fails) + marker check + full difftest of each suite; prints lost/gained
+//       ALLOWED_SKIPS fails) + marker check + full difftest of each suite; prints lost/gained.
+//       Heavy suites (`Suite.heavy`, plan-m5 §4.2: core-scale runs, one process at a time) run after all the
+//       others, one after another, and print each run's wall/user time and max RSS (an RSS over the suite's budget
+//       is a `note:`, not a failure: D11). `--skip-heavy` leaves them out: they are listed as not run (`notRun` in
+//       gate.json), none of their cases counts as lost, and the run cannot be accepted if one of them is protected.
 //   bun scripts/gate.ts accept --run <run-id>
 //       grow the protected set with that gate run's new MATCHes. Refused if the run lost anything,
 //       skipped static checks, skipped a protected suite, ran on a dirty tree, or HEAD has moved since.
@@ -14,7 +18,7 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { suite as getSuite } from "../harness/suites.ts";
-import { difftest, unstableOf } from "./difftest.ts";
+import { difftest, heavyLine, overBudgetLine, unstableOf, type HeavyRun } from "./difftest.ts";
 import { REPO, RUNS, UPSTREAM, die, ensureDir, nowId, parseArgs, run } from "./lib/common.ts";
 import { upstreamError, upstreamStatus } from "./lib/upstream.ts";
 import { oracleTestProbes, probeBinary } from "./probes.ts";
@@ -48,6 +52,8 @@ interface SuiteGate {
   retried?: string[];
   /** Paths of the upstream checkout this suite's run changed (scripts/lib/upstream.ts); any fails the run. */
   upstreamChanges?: string[];
+  /** Heavy suites: each run's wall/user time and max RSS (informational; an RSS over budget never fails the run). */
+  heavy?: HeavyRun[];
 }
 
 /** Protected ids of `suite` that its `Suite.unstable` lists: an unstable case can never be protected. */
@@ -247,8 +253,13 @@ function protectedSuites(): string[] {
     .map((f) => f.slice(0, -4));
 }
 
-async function gateRun(suites: string[], skipStatic: boolean): Promise<void> {
-  for (const name of suites) getSuite(name); // unknown suite names fail here
+async function gateRun(requested: string[], skipStatic: boolean, skipHeavy: boolean): Promise<void> {
+  for (const name of requested) getSuite(name); // unknown suite names fail here
+  // Heavy suites last, in their given order (plan-m5 §4.2); `--skip-heavy` leaves them out, as not run.
+  const isHeavy = (name: string) => getSuite(name).heavy !== undefined;
+  const notRun = skipHeavy ? requested.filter(isHeavy).map((suite) => ({ suite, reason: "--skip-heavy" })) : [];
+  const suites = [...requested.filter((n) => !isHeavy(n)), ...(skipHeavy ? [] : requested.filter(isHeavy))];
+  for (const { suite } of notRun) console.log(`note: heavy suite ${suite} not run (--skip-heavy): none of its cases counts as lost, and a run that skips a protected suite cannot be accepted`);
   const runId = `gate-${nowId()}`;
   const prov = await provenance();
   if (prov.dirty.length) console.log(`note: tree is dirty (${prov.dirty.length} paths); this run cannot be accepted`);
@@ -271,7 +282,7 @@ async function gateRun(suites: string[], skipStatic: boolean): Promise<void> {
   const staticOk = st.ok;
   const out: SuiteGate[] = [];
   for (const suite of suites) {
-    const { results, stats, upstreamChanges } = await difftest({ suite, runId, quiet: true });
+    const { results, stats, upstreamChanges, heavy } = await difftest({ suite, runId, quiet: true });
     const base = readBaseline(suite);
     const match = new Set(results.filter((r) => r.status === "MATCH").map((r) => r.id));
     const lost = [...base].filter((id) => !match.has(id));
@@ -282,8 +293,12 @@ async function gateRun(suites: string[], skipStatic: boolean): Promise<void> {
     const lostSkipped = lost.filter((id) => skippedWhy.has(id)).map((id) => ({ id, reason: skippedWhy.get(id)! }));
     const unstable = results.filter((r) => r.status === "UNSTABLE").map((r) => r.id);
     const retried = results.filter((r) => r.retried).map((r) => r.id);
-    out.push({ suite, baseline: base.size, match: match.size, total: results.length, lost, gained, batchOnlyFailures: stats.batchOnlyFailures, batchOnlyTimeouts: stats.batchOnlyTimeouts, oracleTimeouts, lostSkipped, unstable, retried, upstreamChanges });
+    out.push({ suite, baseline: base.size, match: match.size, total: results.length, lost, gained, batchOnlyFailures: stats.batchOnlyFailures, batchOnlyTimeouts: stats.batchOnlyTimeouts, oracleTimeouts, lostSkipped, unstable, retried, upstreamChanges, ...(heavy ? { heavy } : {}) });
     console.log(`${lost.length ? "ERROR:" : "ok   "} ${suite}: protected=${base.size} match=${match.size}/${results.length} lost=${lost.length} gained=${gained.length}`);
+    for (const h of heavy ?? []) {
+      console.log(`  ${heavyLine(suite, h)}`);
+      if (h.overBudget) console.log(overBudgetLine(suite, h));
+    }
     const why = (id: string): string => {
       const r = byId.get(id);
       if (r?.status === "ORACLE_TIMEOUT") return ` (ORACLE_TIMEOUT; subject: ${r.subject})`;
@@ -311,7 +326,7 @@ async function gateRun(suites: string[], skipStatic: boolean): Promise<void> {
   const upstreamOk = out.every((s) => !s.upstreamChanges?.length);
   if (!upstreamOk) console.log("ERROR: a suite changed the upstream checkout (see `upstreamChanges` in gate.json)");
   const pass = staticOk && unchanged && unstableOk && upstreamOk && out.every((s) => s.lost.length === 0);
-  writeFileSync(join(RUNS, runId, "gate.json"), JSON.stringify({ runId, pass, staticOk, skipStatic, unitTestSkips: st.skips ?? null, head: prov.head, dirty: prov.dirty, unstableOk, upstreamOk, suites: out }, null, 1));
+  writeFileSync(join(RUNS, runId, "gate.json"), JSON.stringify({ runId, pass, staticOk, skipStatic, unitTestSkips: st.skips ?? null, head: prov.head, dirty: prov.dirty, unstableOk, upstreamOk, suites: out, ...(notRun.length ? { notRun } : {}) }, null, 1));
   console.log(`gate ${pass ? "PASS" : "FAIL"} run=${runId}`);
   if (!pass) process.exit(1);
 }
@@ -375,10 +390,10 @@ if (import.meta.main) {
       typeof a.suites === "string"
         ? a.suites.split(",")
         : protectedSuites();
-    await gateRun(suites, Boolean(a["skip-static"]));
+    await gateRun(suites, Boolean(a["skip-static"]), Boolean(a["skip-heavy"]));
   } else if (cmd === "accept" && typeof a.run === "string") {
     await gateAccept(a.run);
   } else {
-    console.log("usage: bun scripts/gate.ts run [--suites a,b] [--skip-static] | accept --run <run-id>");
+    console.log("usage: bun scripts/gate.ts run [--suites a,b] [--skip-static] [--skip-heavy] | accept --run <run-id>");
   }
 }
