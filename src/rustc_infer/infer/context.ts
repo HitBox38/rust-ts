@@ -38,7 +38,6 @@ import { panic, unwrap } from "../../std/panic.ts";
 import type { Result } from "../../std/result.ts";
 import { InferCtxt } from "../decls.ts";
 import type { OpaqueTypeStorageEntries } from "./opaque_types/table.ts";
-import { TyVidSubKey_from } from "./type_variable.ts";
 import { ConstVidKey_from } from "./unify_key.ts";
 import type { LowerUniverseFolder } from "./context.gen.ts";
 import { BoundRegionConversionTime, type RegionVariableOrigin, type SubregionOrigin } from "./mod.ts";
@@ -141,7 +140,9 @@ InferCtxt.prototype.root_ty_var = function (this: InferCtxt, var_: TyVid): TyVid
 // #[inline]
 // rustc: compiler/rustc_infer/src/infer/context.rs:114 is_sub_unification_table_root_var
 InferCtxt.prototype.is_sub_unification_table_root_var = function (this: InferCtxt, vid: TyVid): boolean {
-  return this.inner.type_variable_storage.sub_unification_table_ref().try_probe_value(TyVidSubKey_from(vid)) !== undefined;
+  // PORT: (perf) `sub_unification_table_ref().try_probe_value(TyVidSubKey::from(vid)).is_some()` via the direct
+  // read-only method.
+  return this.inner.type_variable_storage.is_sub_unification_table_root(vid);
 };
 
 // rustc: compiler/rustc_infer/src/infer/context.rs:123 root_const_var
@@ -305,7 +306,10 @@ InferCtxt.prototype.register_ty_outlives = function (this: InferCtxt, ty: Ty, r:
 // #[inline]
 // rustc: compiler/rustc_infer/src/infer/context.rs:343 opaque_types_storage_num_entries
 InferCtxt.prototype.opaque_types_storage_num_entries = function (this: InferCtxt): OpaqueTypeStorageEntries {
-  return this.inner.opaque_types().deref().num_entries();
+  // PORT: (perf) `self.inner.borrow_mut().opaque_types().num_entries()`: `opaque_types()` builds an
+  // `OpaqueTypeTable` view whose `Deref` is the storage itself; read the storage directly (hot: every stalled-goal
+  // check).
+  return this.inner.opaque_type_storage.num_entries();
 };
 
 // rustc: compiler/rustc_infer/src/infer/context.rs:346 clone_opaque_types_lookup_table

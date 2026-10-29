@@ -57,7 +57,8 @@ export interface Suite {
    * The heavy resource class (plan-m5 §4.2, D11), for core-scale runs: difftest runs one process at a time (never
    * alongside other jobs, the oracle before the subject), never re-runs a subject TIMEOUT (it already ran alone), and
    * records each process's wall/user time and max RSS; a subject whose max RSS exceeds `rssBudgetMb` is reported
-   * (summary `heavy`, a `note:` line), which is not a status. The gate runs heavy suites after the others.
+   * (summary `heavy`, an `ERROR:` line that is not a status and by itself does not fail the gate: lane harness-m5b).
+   * The gate runs heavy suites after the others.
    */
   heavy?: { rssBudgetMb: number };
   /**

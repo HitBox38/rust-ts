@@ -65,16 +65,24 @@ export function inlined_rerunning_stalled_goal_may_make_progress(
   }
   const { opaques, stalled_vars, sub_roots, stalled_maybe_info } = stalled_on;
 
+  // PORT: (perf) the `iter().any(..)` closures are plain loops (no closure per call: this is the hot path of
+  // `goal_remains_stalled`), and the `Deref` of `delegate` is read once.
+  const infcx = delegate.deref();
+
   // If any of the stalled goal's generic arguments changed,
   // rerunning might make progress so we should rerun.
-  if (stalled_vars.some((value) => delegate.deref().ty_or_const_infer_var_changed(value))) {
-    return RerunStalled.MayMakeProgress;
+  for (let i = 0; i < stalled_vars.length; i++) {
+    if (infcx.ty_or_const_infer_var_changed(stalled_vars[i]!)) {
+      return RerunStalled.MayMakeProgress;
+    }
   }
 
   // If some inference took place in any of the sub roots,
   // rerunning might make progress so we should rerun.
-  if (sub_roots.some((vid) => !delegate.deref().is_sub_unification_table_root_var(vid))) {
-    return RerunStalled.MayMakeProgress;
+  for (let i = 0; i < sub_roots.length; i++) {
+    if (!infcx.is_sub_unification_table_root_var(sub_roots[i]!)) {
+      return RerunStalled.MayMakeProgress;
+    }
   }
 
   switch (opaques.$) {

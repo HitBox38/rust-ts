@@ -6,6 +6,8 @@
 import { stable_hash_Binder, stable_hash_PredicateKind } from "../rustc_type_ir/ty_stable_hash.gen.ts";
 import { stable_hash_Interned } from "../rustc_data_structures/intern.ts";
 import { stable_hash_Discriminant, stable_hash_u32, type StableHash, type StableHashCtxt, type StableHasher } from "../rustc_data_structures/stable_hash.ts";
+import { stable_hash_BinOp, stable_hash_UnOp } from "./mir_stable_hash.gen.ts";
+import { stable_hash_CastKind } from "./stable_hash.gen.ts";
 import { type Expr, type ExprKind } from "./ty/consts/kind.ts";
 import { stable_hash_GenericArg, stable_hash_RawList } from "./ty/impls_ty.ts";
 import { type Clause, type Predicate } from "./ty/predicate.ts";
@@ -14,10 +16,6 @@ import { type ParamConst, type ParamTy } from "./ty/sty.ts";
 import { stable_hash_DefId } from "../rustc_span/def_id.ts";
 import { stable_hash_Symbol } from "../rustc_span/symbol.ts";
 import { stable_hash_WithCachedTypeInfo } from "../rustc_type_ir/ty_info.ts";
-import { unported } from "../std/panic.ts";
-function unported_stable_hash(..._a: unknown[]): void {
-  unported("StableHash without a TS impl (see types report)");
-}
 
 // rustc-derive: compiler/rustc_middle/src/ty/sty.rs:275 StableHash for ParamTy
 export function stable_hash_ParamTy(self: ParamTy, __hcx: StableHashCtxt, __hasher: StableHasher): void {
@@ -73,15 +71,15 @@ export function stable_hash_ExprKind(self: ExprKind, __hcx: StableHashCtxt, __ha
   stable_hash_Discriminant(ExprKind__discriminant[self.$], __hcx, __hasher);
   switch (self.$) {
     case "Binop":
-      unported_stable_hash(self._0);
+      stable_hash_BinOp(self._0, __hcx, __hasher);
       break;
     case "UnOp":
-      unported_stable_hash(self._0);
+      stable_hash_UnOp(self._0, __hcx, __hasher);
       break;
     case "FunctionCall":
       break;
     case "Cast":
-      unported_stable_hash(self._0);
+      stable_hash_CastKind(self._0, __hcx, __hasher);
       break;
   }
 }
