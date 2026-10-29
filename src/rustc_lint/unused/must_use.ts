@@ -31,7 +31,6 @@ import {
 import { UnusedDef_diagnostic } from "../diagnostics.ts";
 import type { LateLintPass } from "../passes.ts";
 import { UNUSED_MUST_USE, UNUSED_RESULTS, UnusedResults } from "./must_use.lints.gen.ts";
-import { u64_to_number } from "../../rust_ts/u64.ts";
 
 export * from "./must_use.lints.gen.ts";
 
@@ -82,7 +81,7 @@ export type MustUsePath =
   /// `ControlFlow<Uninhabited, T>`
   | { readonly $: "ControlFlow"; _0: MustUsePath }
   // PORT: the `u64` length is a `number` (converted from `Const::try_to_target_usize`'s `bigint`, rust_ts/u64.ts).
-  | { readonly $: "Array"; _0: MustUsePath; _1: number }
+  | { readonly $: "Array"; _0: MustUsePath; _1: bigint }
   /// The root of the unused_closures lint.
   | { readonly $: "Closure"; _0: Span }
   /// The root of the unused_coroutines lint.
@@ -265,7 +264,7 @@ export function is_ty_must_use(cx: LateContext, ty: Ty, expr: hir.Expr): IsTyMus
       // If the array is empty we don't lint, to avoid false positives
       if (len === 0n || len === undefined) return IsTyMustUse.No;
       // If the array is definitely non-empty, we can do `#[must_use]` checking.
-      return IsTyMustUse.map(is_ty_must_use(cx, ty, expr), (inner) => ({ $: "Array", _0: inner, _1: u64_to_number(len, "MustUsePath::Array") }));
+      return IsTyMustUse.map(is_ty_must_use(cx, ty, expr), (inner) => ({ $: "Array", _0: inner, _1: len }));
     }
     case "Closure":
     case "CoroutineClosure":
@@ -345,7 +344,7 @@ UnusedResults.prototype.check_stmt = function (this: UnusedResults, cx: LateCont
   switch (must_use_result.$) {
     case "Yes": {
       const path = must_use_result._0;
-      emit_must_use_untranslated(cx, path, "", "", 1, false, expr_is_from_block, needs_binding);
+      emit_must_use_untranslated(cx, path, "", "", 1n, false, expr_is_from_block, needs_binding);
       type_lint_emitted_or_trivial = true;
       break;
     }
@@ -502,23 +501,28 @@ function check_must_use_def(
 ): boolean {
   const must_use_path = is_def_must_use(cx, def_id, span);
   if (must_use_path === undefined) return false;
-  emit_must_use_untranslated(cx, must_use_path, descr_pre_path, descr_post_path, 1, false, expr_is_from_block, needs_binding);
+  emit_must_use_untranslated(cx, must_use_path, descr_pre_path, descr_post_path, 1n, false, expr_is_from_block, needs_binding);
   return true;
 }
 
 // #[instrument(skip(cx), level = "debug")]
+// PORT: the host `usize::MAX`, for `saturating_add` below.
+const USIZE_MAX = (1n << 64n) - 1n;
+
 // rustc: compiler/rustc_lint/src/unused/must_use.rs:499 emit_must_use_untranslated
 function emit_must_use_untranslated(
   cx: LateContext,
   path: MustUsePath,
   descr_pre: string,
   descr_post: string,
-  plural_len: number,
+  // PORT: `usize` as a `bigint`: an array length can be `usize::MAX` (tests/ui/lint/unused/must_use-array.rs).
+  plural_len: bigint,
   is_inner: boolean,
   expr_is_from_block: boolean,
   needs_binding: boolean,
 ): void {
-  const plural_suffix = pluralize(plural_len);
+  // PORT: `pluralize!` only tests `== 1`, which `Number` keeps exact.
+  const plural_suffix = pluralize(Number(plural_len));
 
   switch (path.$) {
     case "Boxed": {
@@ -562,19 +566,21 @@ function emit_must_use_untranslated(
     case "Array": {
       const len = path._1;
       const descr_pre_ = `${descr_pre}array${plural_suffix} of `;
-      // PORT: `plural_len.saturating_add(usize::try_from(*len).unwrap_or(usize::MAX))`: both are `number`s below 2^53
-      // (MustUsePath::Array), so the sum never saturates.
-      emit_must_use_untranslated(cx, path._0, descr_pre_, descr_post, plural_len + len, true, expr_is_from_block, needs_binding);
+      // PORT: `usize::try_from(*len)` never fails: the host `usize` is 64 bits, like the target `u64`.
+      const sum = plural_len + len;
+      emit_must_use_untranslated(cx, path._0, descr_pre_, descr_post, sum > USIZE_MAX ? USIZE_MAX : sum, true, expr_is_from_block, needs_binding);
       break;
     }
     case "Closure": {
       const span = path._0;
-      cx.emit_span_lint(UNUSED_MUST_USE, span, UnusedClosure_diagnostic({ count: plural_len, pre: descr_pre, post: descr_post }));
+      // PORT: the generated `count` is a `number`; above 2^53 the arg is a string either way (an
+      // `i32` overflow), which the message only plural-selects (`*[other]`), so the rounding never shows.
+      cx.emit_span_lint(UNUSED_MUST_USE, span, UnusedClosure_diagnostic({ count: Number(plural_len), pre: descr_pre, post: descr_post }));
       break;
     }
     case "Coroutine": {
       const span = path._0;
-      cx.emit_span_lint(UNUSED_MUST_USE, span, UnusedCoroutine_diagnostic({ count: plural_len, pre: descr_pre, post: descr_post }));
+      cx.emit_span_lint(UNUSED_MUST_USE, span, UnusedCoroutine_diagnostic({ count: Number(plural_len), pre: descr_pre, post: descr_post }));
       break;
     }
     case "Def": {
