@@ -228,10 +228,8 @@ const CASES: Case[] = [
     src: ["#![warn(impl_trait_overcaptures)]", "pub fn f<'a>(x: &'a ()) -> impl Sized { *x }"],
     expect: ["`impl Sized` will capture more lifetimes than possibly intended in edition 2024"],
   },
-];
-
-const BLOCKED: BlockedCase[] = [
   {
+    // was BLOCKED at `significant_drop_order::extract_component_with_significant_dtor` until gaps-30c.
     name: "if_let_rescope fires",
     src: [
       "#![warn(if_let_rescope)]",
@@ -241,9 +239,10 @@ const BLOCKED: BlockedCase[] = [
       "pub fn f() -> u8 { if let Some(x) = D.get() { x } else { 0 } }",
     ],
     expect: ["`if let` assigns a shorter lifetime since Edition 2024"],
-    blocked_by: "rustc_middle::ty::significant_drop_order::extract_component_with_significant_dtor",
   },
 ];
+
+const BLOCKED: BlockedCase[] = [];
 
 function compile(i: string, c: Case): { oracle: Out; ours: Out } {
   const file = `case${i}.rs`;
