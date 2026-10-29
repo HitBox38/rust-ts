@@ -8,10 +8,11 @@ import { type AsmMacro, type AssignOpKind, type AttrStyle, type BindingMode, typ
 import { type CfgEntry } from "./attr/data_structures.ts";
 import { type RustcVersion } from "./attr/version.ts";
 import { type DiffActivity, type DiffMode } from "./expand/autodiff_attrs.ts";
+import { type Kind, type Type, type TypeTree } from "./expand/typetree.ts";
 import { type CommentKind, type Delimiter, type DocFragmentKind, type IdentKind, type InvisibleOrigin, type Lit, type LitKind as token_LitKind, type MetaVarKind, type NtExprKind, type NtPatKind, type Token, type TokenKind } from "./token.ts";
 import { type DelimSpacing, type DelimSpan, type Spacing, stable_hash_TokenStream, type TokenTree } from "./tokenstream.ts";
 import { type AssocCtxt } from "./visit.ts";
-import { stable_hash_bool, stable_hash_char, stable_hash_Discriminant, stable_hash_Option, stable_hash_str, stable_hash_ThinVec, stable_hash_u128, stable_hash_u16, stable_hash_u32, stable_hash_u8, stable_hash_usize, type StableHash, type StableHashCtxt, type StableHasher } from "../rustc_data_structures/stable_hash.ts";
+import { stable_hash_bool, stable_hash_char, stable_hash_Discriminant, stable_hash_isize, stable_hash_Option, stable_hash_str, stable_hash_ThinVec, stable_hash_u128, stable_hash_u16, stable_hash_u32, stable_hash_u8, stable_hash_usize, stable_hash_Vec, type StableHash, type StableHashCtxt, type StableHasher } from "../rustc_data_structures/stable_hash.ts";
 import { stable_hash_Span } from "../rustc_span/lib.ts";
 import { stable_hash_ErrorGuaranteed, stable_hash_Ident } from "../rustc_span/stable_hash.gen.ts";
 import { stable_hash_ByteSymbol, stable_hash_Symbol } from "../rustc_span/symbol.ts";
@@ -375,6 +376,25 @@ export function stable_hash_DiffActivity(self: DiffActivity, __hcx: StableHashCt
       stable_hash_Option(self._0, __hcx, __hasher, stable_hash_u32);
       break;
   }
+}
+
+// rustc-derive: compiler/rustc_ast/src/expand/typetree.rs:27 StableHash for Kind
+const Kind__discriminant = { Anything: 0, Integer: 1, Pointer: 2, RustSlice: 3, Half: 4, Float: 5, Double: 6, F128: 7, Unknown: 8 } as const;
+export function stable_hash_Kind(self: Kind, __hcx: StableHashCtxt, __hasher: StableHasher): void {
+  stable_hash_Discriminant(Kind__discriminant[self], __hcx, __hasher);
+}
+
+// rustc-derive: compiler/rustc_ast/src/expand/typetree.rs:42 StableHash for TypeTree
+export function stable_hash_TypeTree(self: TypeTree, __hcx: StableHashCtxt, __hasher: StableHasher): void {
+  stable_hash_Vec(self._0, __hcx, __hasher, stable_hash_Type);
+}
+
+// rustc-derive: compiler/rustc_ast/src/expand/typetree.rs:75 StableHash for Type
+export function stable_hash_Type(self: Type, __hcx: StableHashCtxt, __hasher: StableHasher): void {
+  stable_hash_isize(self.offset, __hcx, __hasher);
+  stable_hash_usize(self.size, __hcx, __hasher);
+  stable_hash_Kind(self.kind, __hcx, __hasher);
+  stable_hash_TypeTree(self.child, __hcx, __hasher);
 }
 
 // rustc-derive: compiler/rustc_ast/src/token.rs:18 StableHash for DocFragmentKind

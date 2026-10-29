@@ -122,7 +122,10 @@
       "rustc_ast::token::DocFragmentKind",
       "rustc_ast::visit::AssocCtxt",
       "rustc_ast::expand::autodiff_attrs::DiffMode",
-      "rustc_ast::expand::autodiff_attrs::DiffActivity"
+      "rustc_ast::expand::autodiff_attrs::DiffActivity",
+      "rustc_ast::expand::typetree::Kind",
+      "rustc_ast::expand::typetree::TypeTree",
+      "rustc_ast::expand::typetree::Type"
     ],
     "derive_decodable": true
   },
@@ -483,6 +486,11 @@
     "discriminant": [],
     "skip": [],
     "derive_only": true,
+    "derive_stable_hash": true,
+    "stable_hash_types": [
+      "rustc_target::asm::InlineAsmReg",
+      "rustc_target::asm::InlineAsmRegClass"
+    ],
     "derive_decodable": true,
     "decodable_types": [
       "rustc_target::asm::InlineAsmReg",
@@ -732,7 +740,8 @@
       }
     },
     "hand_notes": {
-      "*": "rustc_target asm's types are hand-written (src/rustc_target/asm/mod.ts); this set only generates rustc_target/decodable.gen.ts.",
+      "*": "rustc_target asm's types are hand-written (src/rustc_target/asm/mod.ts); this set only generates rustc_target/decodable.gen.ts and rustc_target/stable_hash.gen.ts.",
+      "stable_hash_types": "`InlineAsmRegOrRegClass` of HIR inline asm operands, hashed for every lib crate (plan-m5 D9, lane stablehash-gaps); the per-arch payload enums' derive(StableHash) is the `stable_hash` of the def_reg_class / def_regs helpers (stable_hash.json), as for Decodable.",
       "decodable_types": "`InlineAsmOperand::{In, Out, InOut}.reg` of MIR bodies decoded from crate metadata (lane key-value)",
       "decodable_construct": "`InlineAsmReg` / `InlineAsmRegClass` values are interned (asm/mod.ts header): each payload variant is built by the companion's variant function. The per-arch payload enums are macro-generated (`def_reg_class!` / `def_regs!`, invisible to the probe); their derive(Decodable) is the `decode` of the def_reg_class / def_regs helpers (serialize.json)."
     }
@@ -750,7 +759,8 @@
       "compiler/rustc_middle/src/ty/intrinsic.rs",
       "compiler/rustc_middle/src/ty/predicate.rs",
       "compiler/rustc_middle/src/middle/deduced_param_attrs.rs",
-      "compiler/rustc_middle/src/ty/pattern.rs"
+      "compiler/rustc_middle/src/ty/pattern.rs",
+      "compiler/rustc_middle/src/ty/abstract_const.rs"
     ],
     "class": [],
     "hand": [],
@@ -771,7 +781,8 @@
       "rustc_middle::ty::VariantFlags",
       "rustc_middle::ty::adt::AdtFlags",
       "rustc_middle::ty::RestrictionKind",
-      "rustc_middle::ty::generics::GenericClauses"
+      "rustc_middle::ty::generics::GenericClauses",
+      "rustc_middle::ty::abstract_const::CastKind"
     ],
     "stable_hash_access": {
       "rustc_middle::ty::Ty::0": { "expr": "$v" },
@@ -2220,6 +2231,13 @@
     "derive_clone": true,
     "derive_type_fold": true,
     "derive_decodable": true,
+    "derive_stable_hash": true,
+    "stable_hash_module": "mir_stable_hash",
+    "stable_hash_types": [
+      "rustc_middle::mir::syntax::UnOp",
+      "rustc_middle::mir::syntax::BinOp"
+    ],
+    "stable_hash_types_note": "the operators of `ty::ExprKind` (rustc_middle ty/consts/kind.rs, set rustc_ty), hashed with every const expression (plan-m5 D9, lane stablehash-gaps); rustc_middle/stable_hash.gen.ts and ty_stable_hash.gen.ts belong to the rustc_middle / rustc_ty sets",
     "resolve_files": [
       "compiler/rustc_middle/src/ty/mod.rs"
     ],

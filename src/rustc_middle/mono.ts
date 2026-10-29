@@ -5,6 +5,7 @@
 //
 // PORT: `InstantiationMode` / `MonoItem` are tagged unions; `MonoItem`'s methods live on the companion const
 // (PORTING §8). `#[derive(PartialEq)]` on `InstantiationMode` is `InstantiationMode_eq`.
+// Lane query-keys: `CollectionMode` (the key of `items_of_instance`), as a fieldless enum (PORTING §5).
 import { InlineAttr } from "../rustc_attr_ir/data_structures.ts";
 import type { ItemId } from "../rustc_hir/hir.ts";
 import { type CrateNum, type DefId, LOCAL_CRATE } from "../rustc_span/def_id.ts";
@@ -12,6 +13,7 @@ import { CodegenFnAttrFlags, CodegenFnAttrs, TyCtxt_codegen_instance_attrs } fro
 import type { TyCtxt } from "./ty/context.ts";
 import { Instance, InstanceKind } from "./ty/instance.ts";
 import type { SymbolName, Ty } from "./ty/mod.ts";
+import type { Debug } from "../std/fmt.ts";
 
 /// Describes how a monomorphization will be instantiated in object files.
 // #[derive(PartialEq)]
@@ -276,3 +278,24 @@ export const MonoItem = {
     }
   },
 } as const;
+
+/// See module-level docs of `rustc_monomorphize::collector` on some context for "mentioned" items.
+// rustc-type: compiler/rustc_middle/src/mono.rs:712 CollectionMode
+// #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, StableHash)]
+export type CollectionMode =
+  /// Collect items that are used, i.e., actually needed for codegen.
+  ///
+  /// Which items are used can depend on optimization levels, as MIR optimizations can remove
+  /// uses.
+  | "UsedItems"
+  /// Collect items that are mentioned. The goal of this mode is that it is independent of
+  /// optimizations: the set of "mentioned" items is computed before optimizations are run.
+  ///
+  /// The exact contents of this set are *not* a stable guarantee. (For instance, it is currently
+  /// computed after drop-elaboration. If we ever do some optimizations even in debug builds, we
+  /// might decide to run them before computing mentioned items.) The key property of this set is
+  /// that it is optimization-independent.
+  | "MentionedItems";
+export const CollectionMode = { UsedItems: "UsedItems", MentionedItems: "MentionedItems" } as const;
+/** `#[derive(Debug)]`: the variant name. */
+export const debug_CollectionMode: Debug<CollectionMode> = (v) => v;

@@ -18,6 +18,7 @@ import { Symbol, sym } from "../../rustc_span/symbol.ts";
 import { type Debug, debug_char, debug_str, debug_tuple, debug_vec } from "../../std/fmt.ts";
 import { panic, unported, unreachable } from "../../std/panic.ts";
 import type { SpanDecoder } from "../../rustc_span/lib.ts";
+import { type StableHashCtxt, type StableHasher, stable_hash_Discriminant } from "../../rustc_data_structures/stable_hash.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
 import type { Arch, RelocModel, Target } from "../spec/mod.ts";
 
@@ -106,6 +107,8 @@ export interface DefRegClass<C extends string> {
   regclass_map(): RegClassMap;
   /** `#[derive(Decodable)]` (`__D: SpanDecoder`). */
   decode(__decoder: SpanDecoder): C;
+  /** `#[derive(StableHash)]`. */
+  stable_hash(self: C, __hcx: StableHashCtxt, __hasher: StableHasher): void;
 }
 
 /**
@@ -145,6 +148,12 @@ export function def_reg_class<C extends string>(arch: InlineAsmArchVariant, clas
     // rustc-derive: compiler/rustc_target/src/asm/mod.rs:28 Decodable for $arch_regclass
     decode(__decoder: SpanDecoder): C {
       return decode_fieldless_enum(__decoder, `${arch}InlineAsmRegClass`, classes);
+    },
+
+    // rustc-derive: compiler/rustc_target/src/asm/mod.rs:28 StableHash for $arch_regclass
+    stable_hash(self: C, __hcx: StableHashCtxt, __hasher: StableHasher): void {
+      // `::std::mem::discriminant(self).stable_hash(__hcx, __hasher);` (no `#[repr]`: `isize`); no variant has fields
+      stable_hash_Discriminant(classes.indexOf(self), __hcx, __hasher);
     },
   };
 }
@@ -211,6 +220,8 @@ export interface DefRegs<R extends string, C extends string> {
   ): void;
   /** `#[derive(Decodable)]` (`__D: SpanDecoder`). */
   decode(__decoder: SpanDecoder): R;
+  /** `#[derive(StableHash)]`. */
+  stable_hash(self: R, __hcx: StableHashCtxt, __hasher: StableHasher): void;
 }
 
 /**
@@ -287,6 +298,12 @@ export function def_regs<R extends string, C extends string>(
     decode(__decoder: SpanDecoder): R {
       return decode_fieldless_enum(__decoder, `${arch}InlineAsmReg`, ALL);
     },
+
+    // rustc-derive: compiler/rustc_target/src/asm/mod.rs:77 StableHash for $arch_reg
+    stable_hash(self: R, __hcx: StableHashCtxt, __hasher: StableHasher): void {
+      // `::std::mem::discriminant(self).stable_hash(__hcx, __hasher);` (no `#[repr]`: `isize`); no variant has fields
+      stable_hash_Discriminant(by_reg.get(self)![1], __hcx, __hasher);
+    },
   };
 }
 
@@ -320,6 +337,7 @@ export interface StubRegClass<C> {
   default_modifier(self: C, arch: InlineAsmArch): ModifierInfo | undefined;
   supported_types(self: C, arch: InlineAsmArch, allow_experimental_reg?: boolean): readonly SupportedType[];
   decode(__decoder: SpanDecoder): C;
+  stable_hash(self: C, __hcx: StableHashCtxt, __hasher: StableHasher): void;
 }
 
 /** The impls of an arch module's register enum that are not ported (stub modules). */
@@ -338,6 +356,7 @@ export interface StubReg<R, C> {
   emit(self: R, out: FmtWrite, arch: InlineAsmArch, modifier: char | undefined): FmtResult;
   overlapping_regs(self: R, cb: (r: R) => void): void;
   decode(__decoder: SpanDecoder): R;
+  stable_hash(self: R, __hcx: StableHashCtxt, __hasher: StableHasher): void;
 }
 
 /** PORT: stub for an arch module rust-ts has no target for: every fn of `$Type` calls `unported`. */
