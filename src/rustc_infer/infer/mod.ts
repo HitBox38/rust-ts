@@ -110,7 +110,6 @@ import {
   type TypeVariableOrigin,
   TypeVariableStorage,
   TypeVariableValue,
-  TyVidEqKey_from,
 } from "./type_variable.ts";
 import { type ConstVariableOrigin, ConstVariableValue, ConstVidKey_from, UnifyKey_ConstVidKey } from "./unify_key.ts";
 import { ConstraintCategory } from "../../rustc_middle/mir/query.ts";
@@ -200,8 +199,8 @@ InferCtxtInner.prototype.projection_cache = function (this: InferCtxtInner) {
 InferCtxtInner.prototype.try_type_variables_probe_ref = function (this: InferCtxtInner, vid): TypeVariableValue | undefined {
   // Uses a read-only view of the unification table, this way we don't
   // need an undo log.
-  const value = this.type_variable_storage.eq_relations_ref().try_probe_value(TyVidEqKey_from(vid));
-  return value === undefined ? undefined : value._0;
+  // PORT: (perf) `eq_relations_ref().try_probe_value(TyVidEqKey::from(vid))` via the direct read-only method.
+  return this.type_variable_storage.try_probe_eq_relations_value(vid);
 };
 
 // rustc: compiler/rustc_infer/src/infer/mod.rs:217 type_variables

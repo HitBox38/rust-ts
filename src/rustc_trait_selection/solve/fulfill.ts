@@ -128,13 +128,37 @@ export class FulfillmentCtxt<E> implements TraitEngine<E> {
       let any_changed = false;
 
       // `self.obligations.pending.retain_mut(|(obligation, opt_stalled_on)| { .. })`
-      const kept: PendingObligations = [];
-      for (const entry of this.obligations.pending) {
-        if (this.retain_pending(infcx, delegate, entry, errors_cell, () => (any_changed = true))) {
-          kept.push(entry);
+      // PORT: (perf) in place like `Vec::retain_mut` (no new array per pass), and the `any_changed = true` closure is
+      // made once per pass, not once per pending obligation.
+      const set_any_changed = (): void => {
+        any_changed = true;
+      };
+      const pending = this.obligations.pending;
+      let kept = 0;
+      let i = 0;
+      try {
+        for (; i < pending.length; i++) {
+          const entry = pending[i]!;
+          // Common case: still stalled; keep the obligation. This path is extremely hot in
+          // some cases; there can be thousands of pending obligations.
+          // PORT: (perf) this first statement of the closure runs here in the loop, so the common case does not call
+          // `retain_pending` (the rest of the closure).
+          const opt_stalled_on = entry[1];
+          if (opt_stalled_on !== undefined && solve.SolverDelegateEvalExt_for_D.goal_remains_stalled(delegate, opt_stalled_on)) {
+            pending[kept++] = entry;
+            continue;
+          }
+          if (this.retain_pending(infcx, delegate, entry, errors_cell, set_any_changed)) {
+            pending[kept++] = entry;
+          }
         }
+      } finally {
+        // `retain_mut`'s backshift guard: on unwind the unprocessed entries (from the current one on) stay after the
+        // kept ones; on completion `i == len`, so only the kept ones remain.
+        const len = pending.length;
+        pending.copyWithin(kept, i, len);
+        pending.length = kept + (len - i);
       }
-      this.obligations.pending = kept;
 
       if (!any_changed) {
         break;
@@ -144,7 +168,10 @@ export class FulfillmentCtxt<E> implements TraitEngine<E> {
     return errors_cell.value;
   }
 
-  /** PORT: the `retain_mut` closure of `try_evaluate_obligations` (fulfill.rs:171-255); `true` keeps the entry. */
+  /**
+   * PORT: the `retain_mut` closure of `try_evaluate_obligations` (fulfill.rs:171-255) after its first statement (the
+   * still-stalled check, which the loop does); `true` keeps the entry.
+   */
   private retain_pending(
     infcx: InferCtxt,
     delegate: SolverDelegate,
@@ -154,11 +181,6 @@ export class FulfillmentCtxt<E> implements TraitEngine<E> {
   ): boolean {
     const obligation = entry[0];
     const opt_stalled_on = entry[1];
-    // Common case: still stalled; keep the obligation. This path is extremely hot in
-    // some cases; there can be thousands of pending obligations.
-    if (opt_stalled_on !== undefined && solve.SolverDelegateEvalExt_for_D.goal_remains_stalled(delegate, opt_stalled_on)) {
-      return true;
-    }
 
     // `opt_stalled_on.take()`
     entry[1] = undefined;
