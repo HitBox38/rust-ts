@@ -263,4 +263,14 @@ thir-tree 1823; 354,775 protected cases in 33 suites; 22,219/25,518 fns (87.1%).
 | driver-m5 | Linker, start_codegen, DummyCodegenBackend + D7 stand-in backend, CrateInfo::new, link_binary metadata path, symbol_export providers | running |
 | vendor-twox-hash | twox-hash 2.1.2 XXH3-128 scalar path (D8) + oracle probe | running |
 Queued after wave 30 merges: stablehash-gaps (D9), query-keys, perf-core-a/-b (serial: 5–7 GB each on a 24 GB host).
+Also queued: harness-m5b (harness-m5a review fixes), crateinfo-symbols (wave 33, after the encoder: linker exported_symbols, linked_symbols, exported_symbols_for_lto, metadata_symbol_name), middle dependency_format types file (before metadata-deps), codegen fn-local #[derive(Diagnostic)], fixer for gaps-30a's 3 new CRASH/DIFF cases (simplify.ts:810 unwrap; false E0433 for `use core::` in edition 2015), Size > 2^53 representation (gaps-30b design; plan-m5 D10).
 Left after these: proc-macro `quote!` (30, M6), `Location::caller` (decision: unported). Rule: no lane work while a gate runs.
+
+## Gate on wave 30 (main 5a542fbf): FAILED, 1 loss (gate-20261029-114054-root-6z8e)
+Only loss: mir tests/ui/try-trait/deep-try-chain-issue-153583.rs TIMEOUT (68 s user, limit 60 s; oracle 1.65 s; not a
+wave-30 regression). Gains otherwise: borrowck-ui-report 1276/1276 (+103), mir 21444 (+477), tydump-ui +13, unpretty-hir +10, ...
+| lane | scope | status |
+|---|---|---|
+| perf-stalled-goals | next-solver fulfillment loop constant factors (stalled-goal checks); target <= 30 s user on that case | running |
+Then: re-gate, accept, and wave 31 proper (stablehash-gaps, query-keys, harness-m5b, perf-core-a/-b).
+
