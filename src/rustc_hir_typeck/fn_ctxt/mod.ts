@@ -16,20 +16,24 @@ import type * as hir from "../../rustc_hir/lib.ts";
 import { HirTyLowerer_provided } from "../../rustc_hir_analysis/hir_ty_lowering/mod.ts";
 import type { HirTyLowerer, HirTyLowererImpl } from "../../rustc_hir_analysis/lib.ts";
 import type { InherentAssocCandidate, RegionInferReason } from "../../rustc_hir_analysis/hir_ty_lowering/mod.gen.ts";
+import { fold_with_InherentAssocCandidate, try_fold_with_InherentAssocCandidate, visit_with_InherentAssocCandidate } from "../../rustc_hir_analysis/hir_ty_lowering/mod.gen.ts";
 import { HirTyCtxt_as_PpAnn, PpAnn, type Nested, type State } from "../../rustc_hir_pretty/lib.ts";
 import type { HirId } from "../../rustc_hir_id/lib.ts";
 import { HirIdMap } from "../../rustc_hir_id/lib.ts";
 import type { InferCtxt } from "../../rustc_infer/decls.ts";
 import type { RegionVariableOrigin } from "../../rustc_infer/infer/mod.ts";
+import { ToTrace_Ty } from "../../rustc_infer/infer/at.ts";
 import { Obligation, type PredicateObligations } from "../../rustc_infer/traits/mod.ts";
 import type { FulfillmentError } from "../../rustc_trait_selection/traits/mod.gen.ts";
+import { ObligationCtxt } from "../../rustc_trait_selection/traits/engine.ts";
+import { predicates_for_generics, with_replaced_escaping_bound_vars } from "../../rustc_trait_selection/traits/mod.ts";
 import { TyCtxt_as_HirTyCtxt } from "../../rustc_middle/hir/map.ts";
 import { type DynCompatibilityViolation, ObligationCause, type ObligationCauseCode } from "../../rustc_middle/traits/mod.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import type { Const, Region } from "../../rustc_middle/ty/decls.ts";
 import type { AdtDef } from "../../rustc_middle/ty/adt.ts";
 import { GenericArg, type GenericArgs } from "../../rustc_middle/ty/generic_args.ts";
-import type { GenericParamDef, Generics } from "../../rustc_middle/ty/generics.ts";
+import { GenericClauses, type GenericClauses as GenericClausesT, type GenericParamDef, type Generics } from "../../rustc_middle/ty/generics.ts";
 import type { ParamEnv, Ty } from "../../rustc_middle/ty/mod.ts";
 import { type Clause, Predicate_upcast_from_Clause } from "../../rustc_middle/ty/predicate.ts";
 import { fold_Clause, fold_Ty } from "../../rustc_middle/ty/structural_impls.ts";
@@ -42,7 +46,8 @@ import { TypeErrCtxt } from "../../rustc_trait_selection/decls.ts";
 import { Binder, EarlyBinder } from "../../rustc_type_ir/binder.ts";
 import type { PolyTraitRef, TraitRef } from "../../rustc_type_ir/decls.ts";
 import { fold_with_TraitRef, TraitClause, try_fold_with_TraitRef, visit_with_TraitRef } from "../../rustc_type_ir/predicate.ts";
-import type { TypeFoldable } from "../../rustc_type_ir/fold.ts";
+import { fold_Vec, type TypeFoldable } from "../../rustc_type_ir/fold.ts";
+import { DebruijnIndex, type UniverseIndex } from "../../rustc_type_ir/lib.ts";
 import { set_aliases_to_non_rigid } from "../../rustc_type_ir/fold.ts";
 import { TypingMode, type CantBeErased } from "../../rustc_type_ir/infer_ctxt.ts";
 import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
@@ -256,11 +261,58 @@ export const HirTyLowerer_FnCtxt: HirTyLowererImpl<FnCtxt> = {
   },
 
   // rustc: compiler/rustc_hir_typeck/src/fn_ctxt/mod.rs:319 select_inherent_assoc_candidates
-  select_inherent_assoc_candidates(this: FnCtxt, _span: Span, _self_ty: Ty, _candidates: InherentAssocCandidate[]): [InherentAssocCandidate[], FulfillmentError[]] {
-    // PORT: needs `traits::with_replaced_escaping_bound_vars` with a `TypeFoldable` descriptor of
-    // `Vec<InherentAssocCandidate>` and `traits::predicates_for_generics` (neither available yet); reached only by
-    // `#![feature(inherent_associated_types)]` code.
-    return unported("rustc_hir_typeck::fn_ctxt::<FnCtxt as HirTyLowerer>::select_inherent_assoc_candidates (inherent assoc types)");
+  select_inherent_assoc_candidates(this: FnCtxt, span: Span, self_ty: Ty, candidates: InherentAssocCandidate[]): [InherentAssocCandidate[], FulfillmentError[]] {
+    const tcx = this.tcx;
+    const infcx = this.infcx;
+    const fulfillment_errors: FulfillmentError[] = [];
+
+    const filter_iat_candidate = (self_ty_: Ty, impl_: DefId): boolean => {
+      const ocx = ObligationCtxt.new_with_diagnostics(this.infcx);
+      const self_ty = ocx.normalize(ObligationCause.dummy(), this.param_env, Unnormalized.new_wip(self_ty_), fold_Ty);
+
+      const impl_args = infcx.fresh_args_for_item(span, impl_);
+      const impl_ty_ = EarlyBinder.instantiate(tcx.type_of(impl_) as EarlyBinder<Ty>, tcx, impl_args, fold_Ty);
+      const impl_ty = ocx.normalize(ObligationCause.dummy(), this.param_env, impl_ty_, fold_Ty);
+
+      // Check that the self types can be related.
+      if (ocx.eq(ObligationCause.dummy(), this.param_env, impl_ty, self_ty, ToTrace_Ty).$ === "Err") {
+        return false;
+      }
+
+      // Check whether the impl imposes obligations we have to worry about.
+      // PORT: the `clauses_of` query value is `unknown` in queries.gen.ts: it is a `GenericClauses`.
+      const impl_bounds = GenericClauses.instantiate(tcx.clauses_of(impl_) as GenericClausesT, tcx, impl_args);
+      const impl_obligations = predicates_for_generics(
+        (_, _1) => ObligationCause.dummy(),
+        (clause) => ocx.normalize(ObligationCause.dummy(), this.param_env, clause, fold_Clause),
+        this.param_env,
+        impl_bounds,
+      );
+      ocx.register_obligations(impl_obligations);
+
+      const errors = ocx.try_evaluate_obligations();
+      if (errors.$ === "HasErrors") {
+        fulfillment_errors.push(...errors._0);
+        return false;
+      }
+
+      return true;
+    };
+
+    const universes: (UniverseIndex | undefined)[] = TypeVisitableExt.has_escaping_bound_vars(self_ty, fold_Ty)
+      ? new Array<UniverseIndex | undefined>(DebruijnIndex.as_usize(self_ty.outer_exclusive_binder())).fill(undefined)
+      : [];
+
+    const candidates_ = with_replaced_escaping_bound_vars(
+      infcx,
+      universes,
+      self_ty,
+      (self_ty) => candidates.filter(({ impl_ }) => infcx.probe((_) => filter_iat_candidate(self_ty, impl_))),
+      fold_Ty,
+      fold_Vec(d_InherentAssocCandidate_foldable),
+    );
+
+    return [candidates_ as InherentAssocCandidate[], fulfillment_errors];
   },
 
   // rustc: compiler/rustc_hir_typeck/src/fn_ctxt/mod.rs:384 lower_assoc_item_path
@@ -341,6 +393,11 @@ export const HirTyLowerer_FnCtxt: HirTyLowererImpl<FnCtxt> = {
 
 /** PORT: the generated `TypeFoldable` impl fns of `TraitRef` as a D4 descriptor (as collect.ts). */
 const d_TraitRef_foldable: TypeFoldable<TraitRef> = { visit_with: visit_with_TraitRef, try_fold_with: try_fold_with_TraitRef, fold_with: fold_with_TraitRef };
+const d_InherentAssocCandidate_foldable: TypeFoldable<InherentAssocCandidate> = {
+  visit_with: visit_with_InherentAssocCandidate,
+  try_fold_with: try_fold_with_InherentAssocCandidate,
+  fold_with: fold_with_InherentAssocCandidate,
+};
 
 // impl<'tcx> LoweredTy<'tcx> {
 // rustc: compiler/rustc_hir_typeck/src/fn_ctxt/mod.rs:487 from_raw

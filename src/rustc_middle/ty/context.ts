@@ -105,7 +105,9 @@ import type { EarlyParamRegion, LateParamRegionKind, TypingEnv, VariantIdx } fro
 import { debug_GenericArg, debug_GenericArgs } from "./generic_args.ts";
 import { GenericParamDef, type Generics } from "./generics.ts";
 import type { ListWithCachedTypeInfo } from "./list.ts";
-import { fold_Ty } from "./structural_impls.ts";
+import { fold_Clause, fold_Span, fold_Ty } from "./structural_impls.ts";
+import { fold_Option, fold_tuple2 } from "../../rustc_type_ir/fold.ts";
+import { ProjectionClause } from "../../rustc_type_ir/predicate.ts";
 import { CodegenFnAttrs as CodegenFnAttrsC } from "../middle/codegen_fn_attrs.ts";
 
 /**
@@ -2022,9 +2024,16 @@ export class TyCtxt {
     const def_id = kind._1.kind.def_id;
     const future_trait = this.require_lang_item("Future", DUMMY_SP);
 
-    void [def_id, future_trait];
-    // self.explicit_item_self_bounds(def_id).skip_binder().iter().any(|&(predicate, _)| { .. })
-    return unported("rustc_type_ir::binder::EarlyBinder::skip_binder (explicit_item_self_bounds; binder.rs, lane tyir-binder)");
+    // PORT: the `explicit_item_self_bounds` query value is `unknown` in queries.gen.ts: it is an
+    // `EarlyBinder<&[(Clause, Span)]>`.
+    return EarlyBinder.skip_binder(this.explicit_item_self_bounds(def_id) as EarlyBinder<readonly [Clause, Span][]>).some(([predicate, _]) => {
+      const k = Binder.skip_binder(predicate.kind());
+      if (k.$ !== "Trait") {
+        return false;
+      }
+      const trait_predicate = k._0;
+      return DefId_eq(trait_predicate.trait_ref.def_id, future_trait) && trait_predicate.polarity === "Positive";
+    });
   }
 
   /// Given a closure signature, returns an equivalent fn signature. Detuples
@@ -2644,10 +2653,24 @@ export class TyCtxt {
     const future_trait = this.require_lang_item("Future", DUMMY_SP);
     const item_def_id = this.associated_item_def_ids(future_trait)[0]!;
 
-    void [def_id, args, item_def_id];
-    // self.explicit_item_self_bounds(def_id).iter_instantiated_copied(self, args).map(Unnormalized::skip_norm_wip)
-    //     .find_map(|(predicate, _)| predicate.kind().map_bound(..).no_bound_vars().flatten())
-    return unported("rustc_type_ir::binder::EarlyBinder::iter_instantiated_copied (binder.rs, lane tyir-binder)");
+    // PORT: the `explicit_item_self_bounds` query value is `unknown` in queries.gen.ts: it is an
+    // `EarlyBinder<&[(Clause, Span)]>`.
+    for (const item of EarlyBinder.iter_instantiated_copied(this.explicit_item_self_bounds(def_id) as EarlyBinder<readonly [Clause, Span][]>, this, args, fold_tuple2(fold_Clause, fold_Span))) {
+      const [predicate, _] = Unnormalized.skip_norm_wip(item);
+      // PORT: `Option<Option<Ty>>::flatten`: both `None`s are `undefined`.
+      const found = Binder.no_bound_vars(
+        Binder.map_bound(predicate.kind(), (kind): Ty | undefined => {
+          if (kind.$ === "Projection" && DefId_eq(ProjectionClause.def_id(kind._0), item_def_id)) {
+            const projection_predicate = kind._0;
+            return ty_mod.Term.as_type(projection_predicate.term);
+          }
+          return undefined;
+        }),
+        fold_Option(fold_Ty),
+      );
+      if (found !== undefined) return found;
+    }
+    return undefined;
   }
 
   /// In addition to regular items this list also includes struct and variant constructors, and

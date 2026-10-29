@@ -119,13 +119,13 @@ export function try_fold_with_TestBinderBody<E>(self: TestBinderBody, __folder: 
   if (__1.$ === "Err") return __1;
   const __2 = try_fold_with_SolverRegionConstraint(self.constraints, __folder);
   if (__2.$ === "Err") return __2;
-  const __3 = try_fold_with_Vec<[Binder<ClauseKind>, Span], E>(self.predicates, __folder, <E>(__v: [Binder<ClauseKind>, Span], __folder: FallibleTypeFolder<E>): Result<[Binder<ClauseKind>, Span], E> => try_fold_with_tuple2<Binder<ClauseKind>, Span, E>(__v, __folder, <E>(__v: Binder<ClauseKind>, __folder: FallibleTypeFolder<E>): Result<Binder<ClauseKind>, E> => try_fold_with_Binder<ClauseKind, E>(__v, __folder, try_fold_with_ClauseKind), try_fold_with_trivial));
+  const __3 = try_fold_with_Vec<[Binder<ClauseKind>, Span], E>(self.predicates, __folder, <E>(__v: [Binder<ClauseKind>, Span], __folder: FallibleTypeFolder<E>): Result<[Binder<ClauseKind>, Span], E> => try_fold_with_tuple2<Binder<ClauseKind>, Span, E>(__v, __folder, <E>(__v: Binder<ClauseKind>, __folder: FallibleTypeFolder<E>): Result<Binder<ClauseKind>, E> => try_fold_with_Binder<ClauseKind, E>(__v, __folder, try_fold_with_ClauseKind, visit_with_ClauseKind), try_fold_with_trivial));
   if (__3.$ === "Err") return __3;
   return Ok({ foralls: __0._0, exists: __1._0, constraints: __2._0, predicates: __3._0 });
 }
 // rustc-derive: compiler/rustc_hir_analysis/src/check/wfcheck.rs:2776 TypeFoldable for TestBinderBody (fold_with)
 export function fold_with_TestBinderBody(self: TestBinderBody, __folder: TypeFolder): TestBinderBody {
-  return { foralls: fold_with_Vec<TestBinderForall>(self.foralls, __folder, fold_with_TestBinderForall), exists: fold_with_Vec<TestBinderExists>(self.exists, __folder, fold_with_TestBinderExists), constraints: fold_with_SolverRegionConstraint(self.constraints, __folder), predicates: fold_with_Vec<[Binder<ClauseKind>, Span]>(self.predicates, __folder, (__v: [Binder<ClauseKind>, Span], __folder: TypeFolder): [Binder<ClauseKind>, Span] => fold_with_tuple2<Binder<ClauseKind>, Span>(__v, __folder, (__v: Binder<ClauseKind>, __folder: TypeFolder): Binder<ClauseKind> => fold_with_Binder<ClauseKind>(__v, __folder, fold_with_ClauseKind), fold_with_trivial)) };
+  return { foralls: fold_with_Vec<TestBinderForall>(self.foralls, __folder, fold_with_TestBinderForall), exists: fold_with_Vec<TestBinderExists>(self.exists, __folder, fold_with_TestBinderExists), constraints: fold_with_SolverRegionConstraint(self.constraints, __folder), predicates: fold_with_Vec<[Binder<ClauseKind>, Span]>(self.predicates, __folder, (__v: [Binder<ClauseKind>, Span], __folder: TypeFolder): [Binder<ClauseKind>, Span] => fold_with_tuple2<Binder<ClauseKind>, Span>(__v, __folder, (__v: Binder<ClauseKind>, __folder: TypeFolder): Binder<ClauseKind> => fold_with_Binder<ClauseKind>(__v, __folder, fold_with_ClauseKind, visit_with_ClauseKind), fold_with_trivial)) };
 }
 
 // rustc-type: compiler/rustc_hir_analysis/src/check/wfcheck.rs:2786 TestBinderForall
@@ -156,7 +156,7 @@ export function visit_with_TestBinderForall<R>(self: TestBinderForall, __visitor
 }
 // rustc-derive: compiler/rustc_hir_analysis/src/check/wfcheck.rs:2786 TypeFoldable for TestBinderForall (try_fold_with)
 export function try_fold_with_TestBinderForall<E>(self: TestBinderForall, __folder: FallibleTypeFolder<E>): Result<TestBinderForall, E> {
-  const __1 = try_fold_with_Binder<WithWhereClauses<TestBinderBody>, E>(self.binder, __folder, <E>(__v: WithWhereClauses<TestBinderBody>, __folder: FallibleTypeFolder<E>): Result<WithWhereClauses<TestBinderBody>, E> => try_fold_with_WithWhereClauses<TestBinderBody, E>(__v, __folder, try_fold_with_TestBinderBody));
+  const __1 = try_fold_with_Binder<WithWhereClauses<TestBinderBody>, E>(self.binder, __folder, <E>(__v: WithWhereClauses<TestBinderBody>, __folder: FallibleTypeFolder<E>): Result<WithWhereClauses<TestBinderBody>, E> => try_fold_with_WithWhereClauses<TestBinderBody, E>(__v, __folder, try_fold_with_TestBinderBody), <R>(__v: WithWhereClauses<TestBinderBody>, __visitor: TypeVisitor<R>): R => visit_with_WithWhereClauses<TestBinderBody, R>(__v, __visitor, visit_with_TestBinderBody));
   if (__1.$ === "Err") return __1;
   const __2 = try_fold_with_Option<SolverRegionConstraint, E>(self.assert_on_exit, __folder, try_fold_with_SolverRegionConstraint);
   if (__2.$ === "Err") return __2;
@@ -164,7 +164,7 @@ export function try_fold_with_TestBinderForall<E>(self: TestBinderForall, __fold
 }
 // rustc-derive: compiler/rustc_hir_analysis/src/check/wfcheck.rs:2786 TypeFoldable for TestBinderForall (fold_with)
 export function fold_with_TestBinderForall(self: TestBinderForall, __folder: TypeFolder): TestBinderForall {
-  return { span: self.span, binder: fold_with_Binder<WithWhereClauses<TestBinderBody>>(self.binder, __folder, (__v: WithWhereClauses<TestBinderBody>, __folder: TypeFolder): WithWhereClauses<TestBinderBody> => fold_with_WithWhereClauses<TestBinderBody>(__v, __folder, fold_with_TestBinderBody)), assert_on_exit: fold_with_Option<SolverRegionConstraint>(self.assert_on_exit, __folder, fold_with_SolverRegionConstraint) };
+  return { span: self.span, binder: fold_with_Binder<WithWhereClauses<TestBinderBody>>(self.binder, __folder, (__v: WithWhereClauses<TestBinderBody>, __folder: TypeFolder): WithWhereClauses<TestBinderBody> => fold_with_WithWhereClauses<TestBinderBody>(__v, __folder, fold_with_TestBinderBody), <R>(__v: WithWhereClauses<TestBinderBody>, __visitor: TypeVisitor<R>): R => visit_with_WithWhereClauses<TestBinderBody, R>(__v, __visitor, visit_with_TestBinderBody)), assert_on_exit: fold_with_Option<SolverRegionConstraint>(self.assert_on_exit, __folder, fold_with_SolverRegionConstraint) };
 }
 
 // rustc-type: compiler/rustc_hir_analysis/src/check/wfcheck.rs:2793 TestBinderExists
@@ -191,13 +191,13 @@ export function visit_with_TestBinderExists<R>(self: TestBinderExists, __visitor
 }
 // rustc-derive: compiler/rustc_hir_analysis/src/check/wfcheck.rs:2793 TypeFoldable for TestBinderExists (try_fold_with)
 export function try_fold_with_TestBinderExists<E>(self: TestBinderExists, __folder: FallibleTypeFolder<E>): Result<TestBinderExists, E> {
-  const __1 = try_fold_with_Binder<TestBinderBody, E>(self.binder, __folder, try_fold_with_TestBinderBody);
+  const __1 = try_fold_with_Binder<TestBinderBody, E>(self.binder, __folder, try_fold_with_TestBinderBody, visit_with_TestBinderBody);
   if (__1.$ === "Err") return __1;
   return Ok({ span: self.span, binder: __1._0 });
 }
 // rustc-derive: compiler/rustc_hir_analysis/src/check/wfcheck.rs:2793 TypeFoldable for TestBinderExists (fold_with)
 export function fold_with_TestBinderExists(self: TestBinderExists, __folder: TypeFolder): TestBinderExists {
-  return { span: self.span, binder: fold_with_Binder<TestBinderBody>(self.binder, __folder, fold_with_TestBinderBody) };
+  return { span: self.span, binder: fold_with_Binder<TestBinderBody>(self.binder, __folder, fold_with_TestBinderBody, visit_with_TestBinderBody) };
 }
 
 // rustc-type: compiler/rustc_hir_analysis/src/check/wfcheck.rs:2799 WithWhereClauses
