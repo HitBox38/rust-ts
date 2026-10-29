@@ -9,15 +9,15 @@ The mirror image of [ts-rust](https://github.com/pingdotgg/ts-rust).
 |---|---|
 | Upstream pin | `rust-lang/rust@6f5da406b` = `rustc 1.101.0-nightly (2026-10-10)` |
 | Milestone | M0–M3 done (harness; lexer/parser; expansion + name resolution; typeck + trait solving). M4 (MIR build, borrowck, MIR transforms, const eval) in progress |
-| Protected parity | **329,279** cases across 29 suites that match the real compiler byte-for-byte and can never regress |
-| Ported | 20,657 / 25,518 in-scope upstream functions (81.0%) |
+| Protected parity | **354,775** cases across 33 suites that match the real compiler byte-for-byte and can never regress |
+| Ported | 22,219 / 25,518 in-scope upstream functions (87.1%) |
 
 At 100%: the front end (`rustc_lexer`, `rustc_span`, `rustc_ast`, `rustc_ast_lowering`, `rustc_ast_passes`,
 `rustc_builtin_macros`, `rustc_attr_parsing`, `rustc_resolve`), type checking (`rustc_hir_typeck`,
 `rustc_hir_analysis`, `rustc_infer`, `rustc_type_ir`, `rustc_next_trait_solver`, `rustc_traits`), plus
-`rustc_mir_build`, `rustc_pattern_analysis` and `rustc_symbol_mangling`. Nearly done: `rustc_parse`,
-`rustc_expand`, `rustc_lint`, `rustc_trait_selection`, `rustc_middle` (90%), `rustc_const_eval` (96%).
-Still in progress: `rustc_borrowck` (44%), `rustc_mir_dataflow` (76%) and `rustc_mir_transform` (26%).
+`rustc_mir_build`, `rustc_pattern_analysis`, `rustc_symbol_mangling`, and now the borrow checker (`rustc_borrowck`,
+including legacy Polonius), `rustc_mir_transform` and `rustc_const_eval`. Nearly done: `rustc_parse`, `rustc_expand`,
+`rustc_lint`, `rustc_trait_selection`, `rustc_mir_dataflow` (92%) and `rustc_middle` (91%).
 
 | suite (milestone) | what it compares against the oracle | protected |
 |---|---|---|
@@ -25,9 +25,10 @@ Still in progress: `rustc_borrowck` (44%), `rustc_mir_dataflow` (76%) and `rustc
 | `parse`, `parse-ui` (M1) | `-Zunpretty=ast-tree` on tests/ui; ui/parser diagnostics | 21,523 / 991 |
 | `expanded`, `unpretty-expanded`, `resdump` (M2) | macro expansion and name resolution | ~21,470 each |
 | `hir-tree`, `unpretty-hir`, `tydump-nocore` (M3) | HIR and type checking | ~21,480 each |
-| `tydump-ui`, `thirdump-ui` (M3) | types and THIR on tests/ui | 1,642 / 1,640 |
-| `mirdump-ui`, `mirdump-minicore` (M4) | MIR built and checked by the compiler | 1,190 / 45 |
-| `borrowck-ui-report` (M4) | borrow-check results on tests/ui | 64 |
+| `tydump-ui`, `thirdump-ui` (M3) | types and THIR on tests/ui | 1,827 / 1,838 |
+| `mirdump-ui`, `mirdump-minicore` (M4) | MIR built and checked by the compiler | 1,340 / 46 |
+| `borrowck-ui`, `borrowck-ui-report` (M4) | borrow-check results on ui/borrowck + ui/nll (all 960), and five more ui dirs | 960 / 1,173 |
+| `mir`, `thir-tree` (M4) | the real `-Zunpretty=mir` (optimized MIR) and `-Zunpretty=thir-tree` | 20,968 / 1,823 |
 
 Start here: [PLAN.md](PLAN.md) · [AGENTS.md](AGENTS.md) · [PORTING.md](PORTING.md) · [docs/next.md](docs/next.md)
 
