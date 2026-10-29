@@ -28,8 +28,10 @@ type GenericArgsRef = GenericArgs;
 
 /** PORT: `crate::inline` (see the header). */
 function inline_(): typeof import("../inline.ts") {
-  return require("../inline.ts") as typeof import("../inline.ts");
+  return (inline__cache ??= require("../inline.ts") as typeof import("../inline.ts"));
 }
+// PORT: cached (`require` per call was ~30% of CTFE time); `var` is hoisted, as cycles may call this early.
+var inline__cache: typeof import("../inline.ts") | undefined;
 
 // #[instrument(level = "debug", skip(tcx), ret)]
 // rustc: compiler/rustc_mir_transform/src/inline/cycle.rs:11 should_recurse

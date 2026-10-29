@@ -703,8 +703,10 @@ function gen_clone(): typeof import("../../rustc_middle/mir/mod.ts") & typeof im
 
 /** builder/expr/as_place.ts (an extension module: read lazily, see "init order" above). */
 function as_place(): typeof import("./expr/as_place.ts") {
-  return require("./expr/as_place.ts") as typeof import("./expr/as_place.ts");
+  return (as_place_cache ??= require("./expr/as_place.ts") as typeof import("./expr/as_place.ts"));
 }
+// PORT: cached (`require` per call was ~30% of CTFE time); `var` is hoisted, as cycles may call this early.
+var as_place_cache: typeof import("./expr/as_place.ts") | undefined;
 
 /** `CaptureMap::new()` (`SortedIndexMultiMap<usize, ItemLocalId, Capture>`; `ItemLocalId: Ord` is the numeric order). */
 export function CaptureMap_new(): CaptureMap {

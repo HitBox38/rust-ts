@@ -55,8 +55,10 @@ import type { Subdiagnostic } from "../../rustc_errors/lib.ts";
 
 /** Lazy util/mod.ts (`crate::util::context_spans`). */
 function crate_util(): typeof import("../util/mod.ts") {
-  return require("../util/mod.ts") as typeof import("../util/mod.ts");
+  return (crate_util_cache ??= require("../util/mod.ts") as typeof import("../util/mod.ts"));
 }
+// PORT: cached (`require` per call was ~30% of CTFE time); `var` is hoisted, as cycles may call this early.
+var crate_util_cache: typeof import("../util/mod.ts") | undefined;
 
 /** `impl Subdiagnostic for FrameNote` (diagnostics.rs) as a trait object. */
 function FrameNote_subdiagnostic(self: FrameNote): Subdiagnostic {
@@ -76,8 +78,10 @@ export interface InterpretationResult<R> {
 
 /** Lazy `crate::assert_typing_mode` (lib.ts imports this module). */
 function crate(): typeof import("../lib.ts") {
-  return require("../lib.ts") as typeof import("../lib.ts");
+  return (crate_cache ??= require("../lib.ts") as typeof import("../lib.ts"));
 }
+// PORT: cached (`require` per call was ~30% of CTFE time); `var` is hoisted, as cycles may call this early.
+var crate_cache: typeof import("../lib.ts") | undefined;
 
 // rustc: compiler/rustc_const_eval/src/const_eval/eval_queries.rs:26 retry_codegen_mode_with_postanalysis
 export function retry_codegen_mode_with_postanalysis<K, V>(
@@ -450,8 +454,10 @@ export function eval_static_initializer_provider(tcx: TyCtxt, def_id: LocalDefId
 /** Lazy interpret/util.ts (`impl InterpretationResult for ConstAllocation`, `create_static_alloc`,
  *  `ensure_monomorphic_enough`). */
 function interpret_util(): typeof import("../interpret/util.ts") {
-  return require("../interpret/util.ts") as typeof import("../interpret/util.ts");
+  return (interpret_util_cache ??= require("../interpret/util.ts") as typeof import("../interpret/util.ts"));
 }
+// PORT: cached (`require` per call was ~30% of CTFE time); `var` is hoisted, as cycles may call this early.
+var interpret_util_cache: typeof import("../interpret/util.ts") | undefined;
 
 // impl<'tcx> InterpretationResult<'tcx> for ConstAlloc<'tcx>
 export const InterpretationResult_ConstAlloc: InterpretationResult<ConstAlloc> = {

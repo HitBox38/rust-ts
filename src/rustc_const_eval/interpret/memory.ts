@@ -264,20 +264,28 @@ export class Memory {
 /** Lazy const_eval/machine.ts (`impl AllocMap for FxIndexMap`, the CTFE `MemoryKind`'s `Display` / `MayLeak`,
  * `swap_remove`; init order, eval_context.ts header). */
 function const_eval_machine(): typeof import("../const_eval/machine.ts") {
-  return require("../const_eval/machine.ts") as typeof import("../const_eval/machine.ts");
+  return (const_eval_machine_cache ??= require("../const_eval/machine.ts") as typeof import("../const_eval/machine.ts"));
 }
+// PORT: cached (`require` per call was ~30% of CTFE time); `var` is hoisted, as cycles may call this early.
+var const_eval_machine_cache: typeof import("../const_eval/machine.ts") | undefined;
 /** Lazy const_eval/error.ts (`ConstEvalErrKind` into `InterpErrorInfo`). */
 function const_eval_error(): typeof import("../const_eval/error.ts") {
-  return require("../const_eval/error.ts") as typeof import("../const_eval/error.ts");
+  return (const_eval_error_cache ??= require("../const_eval/error.ts") as typeof import("../const_eval/error.ts"));
 }
+// PORT: cached (`require` per call was ~30% of CTFE time); `var` is hoisted, as cycles may call this early.
+var const_eval_error_cache: typeof import("../const_eval/error.ts") | undefined;
 /** Lazy rustc_middle mir/pretty.ts (`display_allocation`, `write_allocation_bytes`). */
 function mir_pretty(): typeof import("../../rustc_middle/mir/pretty.ts") {
-  return require("../../rustc_middle/mir/pretty.ts") as typeof import("../../rustc_middle/mir/pretty.ts");
+  return (mir_pretty_cache ??= require("../../rustc_middle/mir/pretty.ts") as typeof import("../../rustc_middle/mir/pretty.ts"));
 }
+// PORT: cached (`require` per call was ~30% of CTFE time); `var` is hoisted, as cycles may call this early.
+var mir_pretty_cache: typeof import("../../rustc_middle/mir/pretty.ts") | undefined;
 /** Lazy rustc_middle ty/print/pretty.ts (`Display` of `Ty` and of the existential predicates). */
 function ty_print_pretty(): typeof import("../../rustc_middle/ty/print/pretty.ts") {
-  return require("../../rustc_middle/ty/print/pretty.ts") as typeof import("../../rustc_middle/ty/print/pretty.ts");
+  return (ty_print_pretty_cache ??= require("../../rustc_middle/ty/print/pretty.ts") as typeof import("../../rustc_middle/ty/print/pretty.ts"));
 }
+// PORT: cached (`require` per call was ~30% of CTFE time); `var` is hoisted, as cycles may call this early.
+var ty_print_pretty_cache: typeof import("../../rustc_middle/ty/print/pretty.ts") | undefined;
 
 /// A reference to some allocation that was already bounds-checked for the given region
 /// and had the on-access machine hooks run.

@@ -804,7 +804,9 @@ export function check_assoc_const_binding_type(cx: HirTyLowerer, assoc_const: Id
   for (const index of collector.params) {
     const param = generics.param_at(index, tcx);
     const is_self_param = param.name === kw.SelfUpper;
-    guar ??= cx.dcx().emit_err(
+    // PORT: `guar.get_or_insert(cx.dcx().emit_err(..))` evaluates (emits) its argument on every iteration; `??=`
+    // would skip it once `guar` is set.
+    const e = cx.dcx().emit_err(
       ParamInTyOfAssocConstBinding_diagnostic({
         span: assoc_const.span,
         assoc_const,
@@ -815,9 +817,10 @@ export function check_assoc_const_binding_type(cx: HirTyLowerer, assoc_const: Id
         ty_note,
       }),
     );
+    guar ??= e;
   }
   for (const var_def_id of collector.vars) {
-    guar ??= cx.dcx().emit_err(
+    const e = cx.dcx().emit_err(
       EscapingBoundVarInTyOfAssocConstBinding_diagnostic({
         span: assoc_const.span,
         assoc_const,
@@ -827,6 +830,7 @@ export function check_assoc_const_binding_type(cx: HirTyLowerer, assoc_const: Id
         ty_note,
       }),
     );
+    guar ??= e;
   }
 
   const guar_ = guar !== undefined ? guar : bug("failed to find gen params or bound vars in ty");

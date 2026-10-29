@@ -6,6 +6,7 @@ import {
   type BasicBlock,
   type Body,
   CastKind,
+  clone_Place,
   clone_Rvalue,
   type LocalDecl,
   type Location,
@@ -85,7 +86,9 @@ class SubTypeChecker extends MutVisitor {
       const temp = this.patcher.new_temp(rval_ty, this.local_decls[place.as_ref().local]!.source_info.span);
       const new_place = Place_from_Local(temp);
       this.patcher.add_assign(location, new_place, clone_Rvalue(rvalue));
-      replace_in_place<Rvalue>(rvalue, { $: "Cast", _0: CastKind.Subtype, _1: { $: "Move", _0: new_place }, _2: place_ty });
+      // PORT: `new_place` is `Copy`: the operand gets its own copy (the assignment above holds the first), so
+      // passes that edit places in place (SimplifyLocals' renaming) never see one `Place` twice.
+      replace_in_place<Rvalue>(rvalue, { $: "Cast", _0: CastKind.Subtype, _1: { $: "Move", _0: clone_Place(new_place) }, _2: place_ty });
     }
   }
 }

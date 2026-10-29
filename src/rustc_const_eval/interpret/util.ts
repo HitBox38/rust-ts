@@ -42,12 +42,16 @@ import { MPlaceTy } from "./place.gen.ts";
 
 /** Lazy `crate::const_eval::machine` (read at call time; init order, eval_context.ts header). */
 function const_eval_machine(): typeof import("../const_eval/machine.ts") {
-  return require("../const_eval/machine.ts") as typeof import("../const_eval/machine.ts");
+  return (const_eval_machine_cache ??= require("../const_eval/machine.ts") as typeof import("../const_eval/machine.ts"));
 }
+// PORT: cached (`require` per call was ~30% of CTFE time); `var` is hoisted, as cycles may call this early.
+var const_eval_machine_cache: typeof import("../const_eval/machine.ts") | undefined;
 /** Lazy `super::MemoryKind` (memory.ts). */
 function memory(): typeof import("./memory.ts") {
-  return require("./memory.ts") as typeof import("./memory.ts");
+  return (memory_cache ??= require("./memory.ts") as typeof import("./memory.ts"));
 }
+// PORT: cached (`require` per call was ~30% of CTFE time); `var` is hoisted, as cycles may call this early.
+var memory_cache: typeof import("./memory.ts") | undefined;
 
 /// A marker trait returned by [crate::interpret::Machine::enter_trace_span], identifying either a
 /// real [tracing::span::EnteredSpan] in case tracing is enabled, or the dummy type `()` when
