@@ -698,13 +698,13 @@ export function visit_with_UnsafeBinderInner<R>(self: UnsafeBinderInner, __visit
 }
 // rustc-derive: compiler/rustc_type_ir/src/ty_kind.rs:1288 TypeFoldable_Generic for UnsafeBinderInner (try_fold_with)
 export function try_fold_with_UnsafeBinderInner<E>(self: UnsafeBinderInner, __folder: FallibleTypeFolder<E>): Result<UnsafeBinderInner, E> {
-  const __0 = try_fold_with_Binder<Ty, E>(self._0, __folder, try_fold_with_Ty);
+  const __0 = try_fold_with_Binder<Ty, E>(self._0, __folder, try_fold_with_Ty, visit_with_Ty);
   if (__0.$ === "Err") return __0;
   return Ok({ _0: __0._0 });
 }
 // rustc-derive: compiler/rustc_type_ir/src/ty_kind.rs:1288 TypeFoldable_Generic for UnsafeBinderInner (fold_with)
 export function fold_with_UnsafeBinderInner(self: UnsafeBinderInner, __folder: TypeFolder): UnsafeBinderInner {
-  return { _0: fold_with_Binder<Ty>(self._0, __folder, fold_with_Ty) };
+  return { _0: fold_with_Binder<Ty>(self._0, __folder, fold_with_Ty, visit_with_Ty) };
 }
 
 // rustc-type: compiler/rustc_type_ir/src/ty_kind.rs:1325 FnSigTys

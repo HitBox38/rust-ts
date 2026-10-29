@@ -1308,7 +1308,7 @@ export function visit_with_DerivedHostCause<R>(self: DerivedHostCause, __visitor
 }
 // rustc-derive: compiler/rustc_middle/src/traits/mod.rs:604 TypeFoldable for DerivedHostCause (try_fold_with)
 export function try_fold_with_DerivedHostCause<E>(self: DerivedHostCause, __folder: FallibleTypeFolder<E>): Result<DerivedHostCause, E> {
-  const __0 = try_fold_with_Binder<HostEffectClause, E>(self.parent_host_clause, __folder, try_fold_with_HostEffectClause);
+  const __0 = try_fold_with_Binder<HostEffectClause, E>(self.parent_host_clause, __folder, try_fold_with_HostEffectClause, visit_with_HostEffectClause);
   if (__0.$ === "Err") return __0;
   const __1 = try_fold_with_ObligationCauseCodeHandle(self.parent_code, __folder);
   if (__1.$ === "Err") return __1;
@@ -1316,7 +1316,7 @@ export function try_fold_with_DerivedHostCause<E>(self: DerivedHostCause, __fold
 }
 // rustc-derive: compiler/rustc_middle/src/traits/mod.rs:604 TypeFoldable for DerivedHostCause (fold_with)
 export function fold_with_DerivedHostCause(self: DerivedHostCause, __folder: TypeFolder): DerivedHostCause {
-  return { parent_host_clause: fold_with_Binder<HostEffectClause>(self.parent_host_clause, __folder, fold_with_HostEffectClause), parent_code: fold_with_ObligationCauseCodeHandle(self.parent_code, __folder) };
+  return { parent_host_clause: fold_with_Binder<HostEffectClause>(self.parent_host_clause, __folder, fold_with_HostEffectClause, visit_with_HostEffectClause), parent_code: fold_with_ObligationCauseCodeHandle(self.parent_code, __folder) };
 }
 
 // rustc-type: compiler/rustc_middle/src/traits/mod.rs:617 ImplDerivedHostCause

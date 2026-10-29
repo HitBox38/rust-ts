@@ -333,7 +333,8 @@ export interface TypeFoldMapEntry {
   trivial?: boolean;
   /** `&T`, `Box<T>`, `Arc<T>`, ...: the impl of the type argument */
   transparent?: boolean;
-  /** fn names (`$0..` = impls of the type arguments, passed after the visitor / folder) */
+  /** fn names (`$0..` = impls of the type arguments, passed after the visitor / folder; in `try_fold` / `fold`,
+   *  `$v0..` = the `visit` impls of the type arguments, for impls whose folder methods also visit the value) */
   visit?: string;
   try_fold?: string;
   fold?: string;
@@ -350,6 +351,9 @@ export interface TypeFoldMap {
   trivial_fns: { visit: string; try_fold: string; fold: string };
   /** item keys or paths of trivially traversable types of the generated sets (`TrivialTypeTraversalImpls!`) */
   trivial: string[];
+  /** item keys of hand-written impls whose `try_fold` / `fold` fns also take the `visit` impls of their type arguments,
+   *  after their own (`Binder`: a folder's `fold_binder` may visit the bound value; the `$v0` of `types` entries) */
+  fold_also_visit?: string[];
   types: TypeFoldMapEntry[];
 }
 /** `"Name as Alias"` (an import alias in a type map / type-fold map entry) -> `[Name, Alias]`; a plain name is its own alias. */
@@ -1132,6 +1136,7 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       for (const e of extra.type_fold ?? []) for (const p of e.paths) tfIndex.set(p, e);
     }
   const tfTrivial = new Set(tfMap.trivial);
+  const tfFoldAlsoVisit = new Set(tfMap.fold_also_visit ?? []);
   /** `export function <name>` / `export const <name>` / `export { .. <name> .. }` in a hand module (under --src-root). */
   const handExports = new Map<string, string>();
   const handExports_ = (hand: string, name: string): boolean => {
@@ -2669,11 +2674,17 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       const name = tfUse(fn.replace(/\(.*$/s, ""), e.import ? `src:${e.import.replace(/^src\//, "")}` : tfModule);
       const fns: string[] = [];
       const tys: string[] = [];
-      for (const m of fn.matchAll(/\$(\d)/g)) {
-        const a = args[Number(m[1])];
+      for (const m of fn.matchAll(/\$(v?)(\d)/g)) {
+        const a = args[Number(m[2])];
         if (!a) {
-          report.errors.push(`${at}: ${display} needs type arg ${m[1]} for ${kind}`);
+          report.errors.push(`${at}: ${display} needs type arg ${m[2]} for ${kind}`);
           return `unported_type_fold(${v})`;
+        }
+        if (m[1]) {
+          // `$vN`: the visit impl of arg N (no type argument of its own); left out when it is not in scope
+          const vf = kind === "visit" ? undefined : tfVisitFn(a, sc, at);
+          if (vf !== undefined) fns.push(vf);
+          continue;
         }
         fns.push(tfFn(kind, a, sc, at));
         tys.push(tsType(a, sc, at));
@@ -2732,6 +2743,11 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
               tys.push("never");
               return "unported_type_fold";
             });
+            // `fold_also_visit`: the visit impls of the type arguments too, when all are in scope
+            if (kind !== "visit" && tfFoldAlsoVisit.has(r.ref.key)) {
+              const vfs = tsParams(it).map((_, i) => (args[i] ? tfVisitFn(args[i]!, sc, at) : undefined));
+              if (vfs.every((f) => f !== undefined)) fns.push(...(vfs as string[]));
+            }
             const targs = tys.length ? tfTypeArgs(kind, tys) : "";
             return `${fn}${targs}(${v}, ${tfHolder(kind)}${fns.map((f) => `, ${f}`).join("")})`;
           }
@@ -2790,6 +2806,13 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
         return `<E>(__v: ${T}, __folder: ${tfType(tfMap.names.fallible_folder)}<E>): Result<${T}, E> => ${e}`;
       }
       return `(__v: ${T}, __folder: ${tfType(tfMap.names.folder)}): ${T} => ${e}`;
+    };
+    /** The visit impl of a type as a value inside a `try_fold` / `fold` fn (`fold_also_visit`, `$vN`); `undefined` when it
+     *  needs the visit impl of a type parameter of the enclosing item, which a fold fn is not passed. */
+    const tfVisitFn = (ty: PType, sc: Scope, at: string): string | undefined => {
+      const f = tfFn("visit", ty, sc, at);
+      for (const p of sc.params) if (!sc.subst?.has(p) && new RegExp(`\\b${TF_PREFIX.visit}_${p}\\b`).test(f)) return undefined;
+      return f;
     };
     /** `#[type_visitable(ignore)]` / `#[type_foldable(identity)]` of a field (`has_ignore_attr`). */
     const tfAttr = (fl: PField, name: string, meta: string, at: string): boolean =>
