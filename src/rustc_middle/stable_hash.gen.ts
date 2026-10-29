@@ -6,6 +6,7 @@
 import { stable_hash_Interned } from "../rustc_data_structures/intern.ts";
 import { stable_hash_Discriminant, stable_hash_IndexVec, stable_hash_Option, stable_hash_slice, stable_hash_tuple2, stable_hash_u16, stable_hash_u32, stable_hash_u8, type StableHash, type StableHashCtxt, type StableHasher } from "../rustc_data_structures/stable_hash.ts";
 import { stable_hash_CtorKind, stable_hash_Safety } from "../rustc_hir/stable_hash.gen.ts";
+import { type CastKind } from "./ty/abstract_const.ts";
 import { type AdtDef, type AdtFlags, stable_hash_AdtDefData } from "./ty/adt.ts";
 import { type ValTree, type Value } from "./ty/consts/valtree.ts";
 import { type GenericClauses } from "./ty/generics.ts";
@@ -121,4 +122,10 @@ export function stable_hash_Value(self: Value, __hcx: StableHashCtxt, __hasher: 
 // rustc-derive: compiler/rustc_middle/src/ty/pattern.rs:16 StableHash for Pattern
 export function stable_hash_Pattern(self: Pattern, __hcx: StableHashCtxt, __hasher: StableHasher): void {
   stable_hash_Interned(self.internee, __hcx, __hasher, (__v, __hcx, __hasher) => stable_hash_PatternKind(__v, __hcx, __hasher));
+}
+
+// rustc-derive: compiler/rustc_middle/src/ty/abstract_const.rs:13 StableHash for CastKind
+const CastKind__discriminant = { As: 0, Use: 1 } as const;
+export function stable_hash_CastKind(self: CastKind, __hcx: StableHashCtxt, __hasher: StableHasher): void {
+  stable_hash_Discriminant(CastKind__discriminant[self], __hcx, __hasher);
 }

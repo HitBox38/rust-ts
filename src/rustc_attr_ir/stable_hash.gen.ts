@@ -4,7 +4,7 @@
 // skipping `#[stable_hash(ignore)]` and hashing `field.name` for `#[stable_hash(project(name))]`.
 // Only `export function` declarations: hand modules may import from here inside an import cycle.
 import { stable_hash_Path } from "../rustc_ast/lib.ts";
-import { stable_hash_AssocCtxt, stable_hash_AttrStyle, stable_hash_CfgEntry, stable_hash_DelimArgs, stable_hash_DiffActivity, stable_hash_DiffMode, stable_hash_DocFragmentKind, stable_hash_MetaItemLit, stable_hash_RustcVersion } from "../rustc_ast/stable_hash.gen.ts";
+import { stable_hash_AssocCtxt, stable_hash_AttrStyle, stable_hash_CfgEntry, stable_hash_DelimArgs, stable_hash_DiffActivity, stable_hash_DiffMode, stable_hash_DocFragmentKind, stable_hash_MetaItemLit, stable_hash_RustcVersion, stable_hash_TypeTree } from "../rustc_ast/stable_hash.gen.ts";
 import { stable_hash_IntTy, stable_hash_UintTy } from "../rustc_ast_ir/stable_hash.gen.ts";
 import { type AttrArgs, type Attribute, type AttrItem, type AttrPath, stable_hash_HashIgnoredAttrId } from "./attr.ts";
 import { type CanonicalSymbol, type CanonicalSymbols } from "./canonical_symbols.ts";
@@ -20,10 +20,6 @@ import { stable_hash_Span } from "../rustc_span/lib.ts";
 import { stable_hash_ErrorGuaranteed, stable_hash_Ident, stable_hash_Transparency } from "../rustc_span/stable_hash.gen.ts";
 import { stable_hash_Symbol } from "../rustc_span/symbol.ts";
 import { stable_hash_CollapseMacroDebuginfo, stable_hash_CrateType, stable_hash_Limit, stable_hash_NativeLibKind, stable_hash_SanitizerSet } from "../rustc_structures/stable_hash.gen.ts";
-import { unported } from "../std/panic.ts";
-function unported_stable_hash(..._a: unknown[]): void {
-  unported("StableHash without a TS impl (see types report)");
-}
 
 // rustc-derive: compiler/rustc_attr_ir/src/attr.rs:16 StableHash for AttrArgs
 const AttrArgs__discriminant = { Empty: 0, Delimited: 1, Eq: 2 } as const;
@@ -502,8 +498,8 @@ export function stable_hash_AutoDiffItem(self: AutoDiffItem, __hcx: StableHashCt
   stable_hash_String(self.source, __hcx, __hasher);
   stable_hash_String(self.target, __hcx, __hasher);
   stable_hash_RustcAutodiff(self.attrs, __hcx, __hasher);
-  stable_hash_Vec(self.inputs, __hcx, __hasher, (__v, __hcx, __hasher) => unported_stable_hash(__v));
-  unported_stable_hash(self.output);
+  stable_hash_Vec(self.inputs, __hcx, __hasher, stable_hash_TypeTree);
+  stable_hash_TypeTree(self.output, __hcx, __hasher);
 }
 
 // rustc-derive: compiler/rustc_attr_ir/src/data_structures.rs:722 StableHash for UnstableRemovedFeature
