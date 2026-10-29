@@ -714,7 +714,7 @@ export function collect_return_position_impl_trait_in_trait_tys(tcx: TyCtxt, imp
 
   const remapped_types = new DefIdMap<EarlyBinder<Ty>>();
   for (const [def_id, [ty_, args]] of collected_types) {
-    const resolved = infcx.deeply_resolve_via_region_graph(ty_, fold_Ty);
+    const resolved = infcx.deeply_resolve_via_region_graph(ty_, fold_Ty, debug_Ty);
     switch (resolved.$) {
       case "Ok": {
         let ty = resolved._0;

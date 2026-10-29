@@ -4,7 +4,7 @@
 // skipping `#[stable_hash(ignore)]` and hashing `field.name` for `#[stable_hash(project(name))]`.
 // Only `export function` declarations: hand modules may import from here inside an import cycle.
 import { stable_hash_Path } from "../rustc_ast/lib.ts";
-import { stable_hash_AssocCtxt, stable_hash_AttrStyle, stable_hash_CfgEntry, stable_hash_DelimArgs, stable_hash_DocFragmentKind, stable_hash_MetaItemLit, stable_hash_RustcVersion } from "../rustc_ast/stable_hash.gen.ts";
+import { stable_hash_AssocCtxt, stable_hash_AttrStyle, stable_hash_CfgEntry, stable_hash_DelimArgs, stable_hash_DiffActivity, stable_hash_DiffMode, stable_hash_DocFragmentKind, stable_hash_MetaItemLit, stable_hash_RustcVersion } from "../rustc_ast/stable_hash.gen.ts";
 import { stable_hash_IntTy, stable_hash_UintTy } from "../rustc_ast_ir/stable_hash.gen.ts";
 import { type AttrArgs, type Attribute, type AttrItem, type AttrPath, stable_hash_HashIgnoredAttrId } from "./attr.ts";
 import { type CanonicalSymbol, type CanonicalSymbols } from "./canonical_symbols.ts";
@@ -491,10 +491,10 @@ export function stable_hash_RustcCleanQueries(self: RustcCleanQueries, __hcx: St
 
 // rustc-derive: compiler/rustc_attr_ir/src/data_structures.rs:626 StableHash for RustcAutodiff
 export function stable_hash_RustcAutodiff(self: RustcAutodiff, __hcx: StableHashCtxt, __hasher: StableHasher): void {
-  unported_stable_hash(self.mode);
+  stable_hash_DiffMode(self.mode, __hcx, __hasher);
   stable_hash_u32(self.width, __hcx, __hasher);
-  stable_hash_ThinVec(self.input_activity, __hcx, __hasher, (__v, __hcx, __hasher) => unported_stable_hash(__v));
-  unported_stable_hash(self.ret_activity);
+  stable_hash_ThinVec(self.input_activity, __hcx, __hasher, stable_hash_DiffActivity);
+  stable_hash_DiffActivity(self.ret_activity, __hcx, __hasher);
 }
 
 // rustc-derive: compiler/rustc_attr_ir/src/data_structures.rs:702 StableHash for AutoDiffItem

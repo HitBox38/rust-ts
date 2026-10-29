@@ -16,7 +16,8 @@
       "debug_BoundTy"
     ],
     "src/rustc_type_ir/predicate.ts": [
-      "debug_OutlivesClause"
+      "debug_OutlivesClause",
+      "debug_RegionConstraint"
     ],
     "src/rustc_middle/ty/mod.ts": [
       "debug_Ty"
@@ -331,9 +332,9 @@
       "types": [
         "RegionConstraint"
       ],
-      "debug": null,
+      "debug": "debug_RegionConstraint($v, $f)",
       "clone": "copy",
-      "note": "`ty::RegionConstraint<'tcx> = ir::RegionConstraint<TyCtxt<'tcx>>` (predicate.rs; Debug is ir_print's)"
+      "note": "`ty::RegionConstraint<'tcx> = ir::RegionConstraint<TyCtxt<'tcx>>` (predicate.rs); Debug is rustc_type_ir's derive_where(Debug) (predicate.rs:47), a helper (gaps-30c)"
     },
     {
       "paths": [

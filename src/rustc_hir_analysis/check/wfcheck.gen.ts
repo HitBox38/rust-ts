@@ -5,7 +5,7 @@ import { Diag, type DiagCtxtHandle, type Diagnostic, IntoDiagArg, type Level } f
 import { type CollectUsageSpans, type GATArgsCollector, type HasErrorDeep, type IsProbablyCyclical, type WfCheckingCtxt } from "./wfcheck.ts";
 import { debug_SolverRegionConstraint, fold_with_SolverRegionConstraint, type SolverRegionConstraint, try_fold_with_SolverRegionConstraint, visit_with_SolverRegionConstraint } from "../../rustc_infer/infer/solver_region_constraints.ts";
 import { debug_Ty } from "../../rustc_middle/ty/mod.ts";
-import { type PolyTypeOutlivesClause, type RegionOutlivesClause } from "../../rustc_middle/ty/predicate.ts";
+import { fold_with_PolyTypeOutlivesClause, fold_with_RegionOutlivesClause, type PolyTypeOutlivesClause, type RegionOutlivesClause, try_fold_with_PolyTypeOutlivesClause, try_fold_with_RegionOutlivesClause, visit_with_PolyTypeOutlivesClause, visit_with_RegionOutlivesClause } from "../../rustc_middle/ty/predicate.ts";
 import { debug_Span, type Span } from "../../rustc_span/lib.ts";
 import { type Binder, debug_Binder, fold_with_Binder, try_fold_with_Binder, visit_with_Binder } from "../../rustc_type_ir/binder.ts";
 import { type FallibleTypeFolder, fold_with_Option, fold_with_trivial, fold_with_tuple2, fold_with_Vec, type FoldWith, try_fold_with_Option, try_fold_with_trivial, try_fold_with_tuple2, try_fold_with_Vec, type TryFoldWith, type TypeFolder, type TypeVisitor, visit_with_Option, visit_with_trivial, visit_with_tuple2, visit_with_Vec, type VisitWith } from "../../rustc_type_ir/fold.ts";
@@ -15,10 +15,6 @@ import { type ClauseKind, debug_ClauseKind, fold_with_ClauseKind, try_fold_with_
 import { debug_Region, type Region } from "../../rustc_type_ir/sty/mod.ts";
 import { type Debug, debug_option, debug_struct, debug_tuple, debug_vec, type Fmt } from "../../std/fmt.ts";
 import { Ok, type Result } from "../../std/result.ts";
-import { unported } from "../../std/panic.ts";
-function unported_type_fold(..._a: unknown[]): never {
-  return unported("TypeVisitable/TypeFoldable without a TS impl (see types report)");
-}
 
 // rustc-type: compiler/rustc_hir_analysis/src/check/wfcheck.rs:52 WfCheckingCtxt
 export type { WfCheckingCtxt } from "./wfcheck.ts";
@@ -224,21 +220,21 @@ export function clone_WithWhereClauses<T>(v: WithWhereClauses<T>, clone_T: (v: T
 export function visit_with_WithWhereClauses<T, R>(self: WithWhereClauses<T>, __visitor: TypeVisitor<R>, visit_with_T: VisitWith<T>): R {
   let r: R | undefined;
   if ((r = try_visit(__visitor.Result, visit_with_T(self.value, __visitor))) !== undefined) return r;
-  if ((r = try_visit(__visitor.Result, visit_with_Vec<PolyTypeOutlivesClause, R>(self.type_outlives, __visitor, <R>(__v: PolyTypeOutlivesClause, __visitor: TypeVisitor<R>): R => unported_type_fold(__v)))) !== undefined) return r;
-  if ((r = try_visit(__visitor.Result, visit_with_Vec<RegionOutlivesClause, R>(self.region_outlives, __visitor, <R>(__v: RegionOutlivesClause, __visitor: TypeVisitor<R>): R => unported_type_fold(__v)))) !== undefined) return r;
+  if ((r = try_visit(__visitor.Result, visit_with_Vec<PolyTypeOutlivesClause, R>(self.type_outlives, __visitor, visit_with_PolyTypeOutlivesClause))) !== undefined) return r;
+  if ((r = try_visit(__visitor.Result, visit_with_Vec<RegionOutlivesClause, R>(self.region_outlives, __visitor, visit_with_RegionOutlivesClause))) !== undefined) return r;
   return __visitor.Result.output();
 }
 // rustc-derive: compiler/rustc_hir_analysis/src/check/wfcheck.rs:2799 TypeFoldable for WithWhereClauses (try_fold_with)
 export function try_fold_with_WithWhereClauses<T, E>(self: WithWhereClauses<T>, __folder: FallibleTypeFolder<E>, try_fold_with_T: TryFoldWith<T>): Result<WithWhereClauses<T>, E> {
   const __0 = try_fold_with_T(self.value, __folder);
   if (__0.$ === "Err") return __0;
-  const __1 = try_fold_with_Vec<PolyTypeOutlivesClause, E>(self.type_outlives, __folder, <E>(__v: PolyTypeOutlivesClause, __folder: FallibleTypeFolder<E>): Result<PolyTypeOutlivesClause, E> => unported_type_fold(__v));
+  const __1 = try_fold_with_Vec<PolyTypeOutlivesClause, E>(self.type_outlives, __folder, try_fold_with_PolyTypeOutlivesClause);
   if (__1.$ === "Err") return __1;
-  const __2 = try_fold_with_Vec<RegionOutlivesClause, E>(self.region_outlives, __folder, <E>(__v: RegionOutlivesClause, __folder: FallibleTypeFolder<E>): Result<RegionOutlivesClause, E> => unported_type_fold(__v));
+  const __2 = try_fold_with_Vec<RegionOutlivesClause, E>(self.region_outlives, __folder, try_fold_with_RegionOutlivesClause);
   if (__2.$ === "Err") return __2;
   return Ok({ value: __0._0, type_outlives: __1._0, region_outlives: __2._0 });
 }
 // rustc-derive: compiler/rustc_hir_analysis/src/check/wfcheck.rs:2799 TypeFoldable for WithWhereClauses (fold_with)
 export function fold_with_WithWhereClauses<T>(self: WithWhereClauses<T>, __folder: TypeFolder, fold_with_T: FoldWith<T>): WithWhereClauses<T> {
-  return { value: fold_with_T(self.value, __folder), type_outlives: fold_with_Vec<PolyTypeOutlivesClause>(self.type_outlives, __folder, (__v: PolyTypeOutlivesClause, __folder: TypeFolder): PolyTypeOutlivesClause => unported_type_fold(__v)), region_outlives: fold_with_Vec<RegionOutlivesClause>(self.region_outlives, __folder, (__v: RegionOutlivesClause, __folder: TypeFolder): RegionOutlivesClause => unported_type_fold(__v)) };
+  return { value: fold_with_T(self.value, __folder), type_outlives: fold_with_Vec<PolyTypeOutlivesClause>(self.type_outlives, __folder, fold_with_PolyTypeOutlivesClause), region_outlives: fold_with_Vec<RegionOutlivesClause>(self.region_outlives, __folder, fold_with_RegionOutlivesClause) };
 }

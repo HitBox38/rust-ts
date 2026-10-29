@@ -11,8 +11,7 @@
 // - `hooks` / `complexity`: the lint hooks (`lint_overlapping_range_endpoints`, `lint_non_contiguous_range_endpoints`)
 //   and `complexity_exceeded` called as usefulness calls them: stderr must equal the oracle's for the same source.
 //
-// Known gap: printing a range starting at `usize::MAX + 1` needs `Ty::numeric_max_val`, whose `mir::Const::from_bits`
-// is unported (rustc_middle ty/util.ts); the `usize_max_plus_one` case pins that `unported`.
+// `usize_max_plus_one`: a range starting at `usize::MAX + 1` prints as `usize::MAX..` (`Ty::numeric_max_val`).
 import { expect, test } from "bun:test";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -250,7 +249,7 @@ e_c: E::C { x: 3_u8..=5_u8, y: (true, _) } (wildcard: false)
 e_c_wild: E::C { .. } (wildcard: false)
 e_b: E::B(true) (wildcard: false)
 full_range: _ (wildcard: true)
-usize_max_plus_one: <unported: rustc_middle::mir::Const::from_bits (mir/consts.rs, M4)>
+usize_max_plus_one: usize::MAX.. (wildcard: false)
 never: _ (wildcard: true)
 non_exhaustive: _ (wildcard: true)
 hidden: _ (wildcard: true)

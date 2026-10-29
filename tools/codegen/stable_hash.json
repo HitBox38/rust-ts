@@ -87,6 +87,8 @@
     {"paths": ["rustc_data_structures::packed::Pu128"], "stable_hash": "stable_hash_u128($v, $hcx, $h)", "note": "packed.rs `impl StableHash for Pu128`: `{ self.0 }.stable_hash(..)` (the TS value is the u128 bigint)"},
     {"paths": ["Cow", "std::borrow::Cow"], "transparent": true, "note": "no own impl: `Cow<str>` hashes through Deref / the borrowed impl (`&str`)"},
     {"paths": ["rustc_ast::LitKind", "rustc_ast::ast::LitKind"], "stable_hash": "stable_hash_ast_LitKind($v, $hcx, $h)", "import": "src/rustc_ast/stable_hash.gen.ts"},
+    {"paths": ["rustc_ast::expand::autodiff_attrs::DiffMode"], "stable_hash": "stable_hash_DiffMode($v, $hcx, $h)", "import": "src/rustc_ast/stable_hash.gen.ts"},
+    {"paths": ["rustc_ast::expand::autodiff_attrs::DiffActivity"], "stable_hash": "stable_hash_DiffActivity($v, $hcx, $h)", "import": "src/rustc_ast/stable_hash.gen.ts"},
     {"paths": ["rustc_ast::BoundConstness", "rustc_ast::ast::BoundConstness"], "stable_hash": "stable_hash_BoundConstness($v, $hcx, $h)", "import": "src/rustc_ast/stable_hash.gen.ts"},
     {"paths": ["rustc_ast::BoundPolarity", "rustc_ast::ast::BoundPolarity"], "stable_hash": "stable_hash_BoundPolarity($v, $hcx, $h)", "import": "src/rustc_ast/stable_hash.gen.ts"},
     {"paths": ["rustc_ast::CaptureBy", "rustc_ast::ast::CaptureBy"], "stable_hash": "stable_hash_CaptureBy($v, $hcx, $h)", "import": "src/rustc_ast/stable_hash.gen.ts"},

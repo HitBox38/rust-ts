@@ -67,7 +67,7 @@ import {
 } from "../rustc_middle/middle/resolve.ts";
 import type { TyCtxt, TyCtxtFeed } from "../rustc_middle/ty/context.ts";
 import type { Generics } from "../rustc_middle/ty/generics.ts";
-import { Visibility } from "../rustc_middle/ty/mod.ts";
+import { HasAttrs_DefId, Visibility } from "../rustc_middle/ty/mod.ts";
 import { CRATE_DEF_ID, CrateNum, type DefId, DefIdMap, debug_LocalDefId, LOCAL_CRATE, LocalDefId, type LocalModId, ModId, ModId_eq } from "../rustc_span/def_id.ts";
 import { debug_SyntaxContext, ExpnId, ExpnId_eq, LocalExpnId, type MacroKind, SyntaxContext } from "../rustc_span/hygiene.ts";
 import { FatalError } from "../rustc_span/fatal_error.ts";
@@ -197,12 +197,12 @@ export function PrimTy_name(self: PrimTy): Symbol {
 }
 
 /**
- * PORT: `impl HasAttrs for DefId` (rustc_middle/src/ty/mod.rs:2349, not ported): the attribute list
- * `find_attr!(tcx, def_id, ..)` searches.
+ * `impl HasAttrs for DefId` (rustc_middle/src/ty/mod.rs:2349, `HasAttrs_DefId`): the attribute list
+ * `find_attr!(tcx, def_id, ..)` searches. For a local `DefId` this asks `hir_attrs`, which during resolution is a
+ * query cycle through `resolver_for_lowering`, as upstream.
  */
 export function DefId_get_attrs(self: DefId, tcx: TyCtxt): readonly HirAttribute[] {
-  if (self.as_local() !== undefined) return unported("tcx.hir_attrs(tcx.local_def_id_to_hir_id(did)) (HIR, M3)");
-  return tcx.attrs_for_def(self) as readonly HirAttribute[];
+  return HasAttrs_DefId.get_attrs(self, tcx);
 }
 
 /**

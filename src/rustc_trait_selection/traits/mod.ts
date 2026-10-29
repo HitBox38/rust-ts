@@ -196,7 +196,7 @@ import { debug_Obligation } from "../../rustc_infer/traits/mod.ts";
 import { debug_SelectionError, type ObligationCauseCode } from "../../rustc_middle/traits/mod.ts";
 import { debug_MismatchedProjectionTypes } from "../../rustc_infer/traits/project.ts";
 import { debug_ExpectedFound, debug_TypeError } from "../../rustc_type_ir/error.ts";
-import { debug_Ty } from "../../rustc_middle/ty/structural_impls.ts";
+import { debug_Clause, debug_Ty } from "../../rustc_middle/ty/structural_impls.ts";
 import { debug_Const } from "../../rustc_type_ir/sty/consts.ts";
 import { debug_Predicate } from "../../rustc_middle/ty/predicate.ts";
 import type { BoundTy, BoundTyKind } from "../../rustc_type_ir/decls.ts";
@@ -536,7 +536,7 @@ function do_normalize_clauses(tcx: TyCtxt, cause: ObligationCause, elaborated_en
   // caller sites. We should also avoid cloning if possible.
   const normalized_env = ParamEnvC.new(tcx, clauses);
   const _errors = infcx.resolve_regions(cause.body_def_id, normalized_env, []);
-  const r = infcx.deeply_resolve_via_region_graph([...clauses], d_clauses);
+  const r = infcx.deeply_resolve_via_region_graph([...clauses], d_clauses, (v, f) => debug_vec(v, f, debug_Clause));
   if (r.$ === "Ok") {
     return r._0;
   } else {
