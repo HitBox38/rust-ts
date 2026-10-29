@@ -1171,17 +1171,24 @@ SUITES.push(
 // `--crate-name core --edition=2024 library/core/src/lib.rs --crate-type lib --target x86_64-unknown-linux-gnu
 // -Zforce-unstable-if-unmarked --emit=metadata`. No `--sysroot`: core loads no crate. Env NOCORE_ENV (`RUSTC_ICE=0
 // RUST_BACKTRACE=0`, as the plan measured). core reads no environment variable (its `--emit=dep-info` has no `# env-dep`
-// line), so no session variables are pinned (`pinSessionEnv` would scan core's dependencies). Neither suite writes into
-// the upstream checkout: a bin crate with `--emit=metadata` writes no rmeta (`needs_metadata()` is false,
-// rustc_middle ty/context.rs:1132), and `-Zunpretty` returns before any output but dep-info (not asked for).
+// line), so no session variables are pinned (`pinSessionEnv` would scan core's dependencies). Nothing is written into
+// the tracked upstream checkout:
+// - `-Zunpretty` returns before any output but dep-info (not asked for).
+// - A bin crate with `--emit=metadata` encodes no metadata (`needs_metadata()` is false, rustc_middle
+//   ty/context.rs:1132), but `encode_and_write_metadata` always creates the file (rustc_metadata fs.rs:62), so the
+//   oracle writes an empty `libcore.rmeta` into its output directory (measured: into the cwd without `--out-dir`). So
+//   check-core-bin adds `--out-dir build/rust-ts/check-core-bin` (rustc creates it). `build/` is ignored by the
+//   upstream-checkout check, as compiletest's out dirs are. `--out-dir` is an untracked option: it changes no
+//   diagnostic. Heavy suites run one process at a time, so the two sides never write the file concurrently.
 // - Files read (`inputDirs`): core's `--emit=dep-info` lists 418 files, all under library/core/src,
 //   library/stdarch/crates/core_arch and library/portable-simd/crates/core_simd (`#[path]`s from core).
 // - Heavy class: one process at a time, subject timeout 1,800 s, oracle 300 s (+ the 4x retry), RSS budget 12 GB
 //   (D10's M5a target for a core check). Oracle (measured, macOS arm64): check-core-bin 5.1 s user / 1.05 GB,
 //   mir-core 6.4 s user / 1.2 GB.
 // Suites (unprotected until root accepts a run):
-// - `check-core-bin`: core as `--crate-type bin -Zcrate-attr=no_main --emit=metadata` (plan-m5 §2's row): the full
-//   `analysis` of core without the metadata encoder; stdout + stderr + exit, single mode (1 case).
+// - `check-core-bin`: core as `--crate-type bin -Zcrate-attr=no_main --emit=metadata` (plan-m5 §2's row) plus the
+//   `--out-dir` above: the full `analysis` of core without the metadata encoder; stdout + stderr + exit, single mode
+//   (1 case).
 // - `mir-core`: `-Zunpretty=mir` of core with D1's argv, split per MIR body (scripts/lib/split.ts `splitMirPretty`,
 //   ids `core|<body header>[ [ctfe]][ @k]`; 47,733 bodies at the pin) plus the run case `core`.
 const M5_TARGET = "x86_64-unknown-linux-gnu";
@@ -1210,7 +1217,9 @@ SUITES.push(
     oracleTimeoutMs: 300_000,
     heavy: M5_HEAVY,
     inputDirs: CORE_INPUT_DIRS,
-    cases: () => [{ id: "core", file: "library/core/src/lib.rs", args: CORE_ARGS(["bin", "-Zcrate-attr=no_main"]), env: NOCORE_ENV }],
+    cases: () => [
+      { id: "core", file: "library/core/src/lib.rs", args: [...CORE_ARGS(["bin", "-Zcrate-attr=no_main"]), "--out-dir", "build/rust-ts/check-core-bin"], env: NOCORE_ENV },
+    ],
     oracle: ([c]) => oracleRustcCmd(c!.args),
     subject: ([c]) => [...bunCmd("src/rust_ts/main.ts"), ...c!.args],
   },
