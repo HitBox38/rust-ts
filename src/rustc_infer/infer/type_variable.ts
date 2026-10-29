@@ -10,7 +10,7 @@
 //   are `UnifyKey_TyVidEqKey` / `UnifyKey_TyVidSubKey` and compare keys by `vid`.
 // - `TypeVariableTable<'a, 'tcx>` (generated class) holds the storage and the shared undo log.
 // - `IndexVec<TyVid, TypeVariableData>` is an array indexed by `TyVid.as_usize`.
-import { unreachable } from "../../std/panic.ts";
+import { panic, unreachable } from "../../std/panic.ts";
 import { type Result, Ok } from "../../std/result.ts";
 import { clone_UndoLog as clone_SvUndoLog, type UndoLog as SvUndoLog } from "../../vendor/ena/snapshot_vec.ts";
 import type { Rollback } from "../../vendor/ena/undo_log.ts";
@@ -153,6 +153,24 @@ export class TypeVariableStorage implements Rollback<UndoLog> {
     return this.eq_relations;
   }
 
+  /**
+   * PORT: (perf) `self.eq_relations_ref().try_probe_value(TyVidEqKey::from(vid))` for the read-only hot path
+   * (`InferCtxtInner::try_type_variables_probe_ref`, ~10^9 calls from `goal_remains_stalled` on deep `?` chains).
+   * The same reads as ena's `UnificationTable::value` + `try_probe_value` (index the `VarValue`s, root iff `parent ==
+   * key`), without the `TyVidEqKey` newtype, the `Some` wrapper and the generic `UnifyKey` dictionary calls that Rust
+   * monomorphises away. `TypeVariableValue` is never `undefined`, so `undefined` is `None`.
+   */
+  try_probe_eq_relations_value(vid: TyVid): TypeVariableValue | undefined {
+    const values = this.eq_relations.values.values.values;
+    const index = vid as number;
+    // `values[index]`: slice indexing's bounds check (ena snapshot_vec `get`).
+    if (!(index < values.length)) {
+      return panic(`index out of bounds: the len is ${values.length} but the index is ${index}`);
+    }
+    const v = values[index]!;
+    return v.parent.vid === vid ? v.value : undefined;
+  }
+
   // rustc: compiler/rustc_infer/src/infer/type_variable.rs:155 finalize_rollback
   finalize_rollback(): void {
     // debug_assert!(self.values.len() >= self.eq_relations.len());
@@ -162,6 +180,20 @@ export class TypeVariableStorage implements Rollback<UndoLog> {
   // rustc: compiler/rustc_infer/src/infer/type_variable.rs:160 sub_unification_table_ref
   sub_unification_table_ref(): UnificationTableStorage<TyVidSubKey, undefined, NoError> {
     return this.sub_unification_table;
+  }
+
+  /**
+   * PORT: (perf) `self.sub_unification_table_ref().try_probe_value(TyVidSubKey::from(vid)).is_some()` for the
+   * read-only hot path (`is_sub_unification_table_root_var`); see `try_probe_eq_relations_value`.
+   */
+  is_sub_unification_table_root(vid: TyVid): boolean {
+    const values = this.sub_unification_table.values.values.values;
+    const index = vid as number;
+    // `values[index]`: slice indexing's bounds check (ena snapshot_vec `get`).
+    if (!(index < values.length)) {
+      return panic(`index out of bounds: the len is ${values.length} but the index is ${index}`);
+    }
+    return values[index]!.parent.vid === vid;
   }
 }
 
