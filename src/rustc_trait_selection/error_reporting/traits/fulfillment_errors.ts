@@ -4166,5 +4166,5 @@ const DefId_String_key: KeyType<[DefId, string]> = {
 };
 
 /** `size_of::<(DefId, String)>()` = 32; no `UnsafeCell`. */
-const LAYOUT_DefId_String: SortLayout = { size_of: 32, freeze: true };
+const LAYOUT_DefId_String: SortLayout = { size_of: 32, freeze: true, copy: false };
 

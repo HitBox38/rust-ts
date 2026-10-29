@@ -1204,7 +1204,7 @@ function cmp_lo_hi([alo, ahi]: [BytePos, BytePos], [blo, bhi]: [BytePos, BytePos
 }
 
 /** PORT: the layout of `(Span, String, String)` for `sort_unstable_by_key` (`slice_sort_unstable_by`). */
-const LAYOUT_Span_String_String: SortLayout = { size_of: 56, freeze: true };
+const LAYOUT_Span_String_String: SortLayout = { size_of: 56, freeze: true, copy: false };
 
 // rustc: compiler/rustc_borrowck/src/diagnostics/move_errors.rs:1218 add_move_error_details
 MirBorrowckCtxt.prototype.add_move_error_details = function (this: MirBorrowckCtxt, err: Diag, binds_to: readonly Local[], desugar_spans: readonly Span[]): void {
