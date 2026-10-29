@@ -1,0 +1,24 @@
+# Template: scripts/probes.ts substitutes @SRC@ and builds this in $RUST_TS_DATA/probes.
+#
+# Oracle probe for src/vendor/twox_hash (lane vendor-twox-hash): drives twox-hash 2.1.2, the version and
+# features compiler/rustc_metadata depends on (`XxHash3_128`, the metadata hasher of rmeta/encoder.rs).
+# A registry dependency rather than a rustc-dev probe: the sysroot holds two `twox_hash` crates (1.6.3 for
+# rustc_sanitizers, 2.1.2 for rustc_metadata), so `extern crate twox_hash` is ambiguous there (E0464).
+# Built for the host, it takes the same SIMD path (neon / avx2 / sse2) as the oracle's copy.
+[package]
+name = "xxh3"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata.rust-ts]
+lockfile = "upstream"
+
+[[bin]]
+name = "xxh3"
+path = "@SRC@/main.rs"
+
+[dependencies]
+twox-hash = { version = "=2.1.2", default-features = false, features = ["xxhash3_128", "std"] }
+
+[workspace]
