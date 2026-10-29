@@ -53,7 +53,7 @@ narrow measurable milestones; a ratchet that never goes backwards.
 | M1 | Lexer, parser, AST, error emitter | `lex` 100%; `parse` (`-Zunpretty=ast-tree`) on tests/ui; ui/parser stderr | **done** 2026-10-13: lex 25,780/25,780; parse 21,523/21,526 (3 oracle timeouts); parse-ui 991/991 |
 | M2 | Expansion + name resolution | `ast-tree,expanded` parity; ui/macros, ui/resolve | **done** 2026-10-14: expanded 21460, unpretty-expanded 21460, resdump 21470 (M2b) |
 | M3 | Typeck + trait solving on `#![no_core]` (cg_clif's mini_core.rs) | hir-tree / thir-tree; ui/typeck, ui/traits | **done** 2026-10-22: tydump-nocore 21116, tydump/thirdump-minicore 45/46, tydump-ui 1603, thirdump-ui 1596 (rustc_dump subset → M4c, plan-m4 D1) |
-| M4 | MIR build, borrowck, MIR transforms | `-Zunpretty=mir`; ui/borrowck, ui/nll | in progress (gate 2026-10-29: mir 20968, thir-tree 1823, borrowck-ui 960/960, borrowck-ui-report 1173, mirdump-ui 1340, mirdump-minicore 46/46) |
+| M4 | MIR build, borrowck, MIR transforms | `-Zunpretty=mir`; ui/borrowck, ui/nll | **done** 2026-10-29: mir 20968/21526 (97.4%), mir-minicore 46/46, borrowck-ui 960/960, rustc_dump subset 118/119, mirdump-ui 1340, thir-tree 1823 |
 | M5 | Check core → alloc → std | zero diagnostics, matching metadata-level behaviour |
 | M6 | Interpreter (const eval + shims) | std hello world runs; run-pass tests; proc macros |
 | M7 | Text LLVM IR → clang | run-pass parity; ripgrep builds |

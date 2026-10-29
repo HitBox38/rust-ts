@@ -8,7 +8,7 @@ The mirror image of [ts-rust](https://github.com/pingdotgg/ts-rust).
 | | |
 |---|---|
 | Upstream pin | `rust-lang/rust@6f5da406b` = `rustc 1.101.0-nightly (2026-10-10)` |
-| Milestone | M0–M3 done (harness; lexer/parser; expansion + name resolution; typeck + trait solving). M4 (MIR build, borrowck, MIR transforms, const eval) in progress |
+| Milestone | M0–M4 done (harness; lexer/parser; expansion + name resolution; typeck + trait solving; MIR build, borrowck, MIR transforms, const eval). Next: M5 (check core → alloc → std) |
 | Protected parity | **354,775** cases across 33 suites that match the real compiler byte-for-byte and can never regress |
 | Ported | 22,219 / 25,518 in-scope upstream functions (87.1%) |
 

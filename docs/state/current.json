@@ -1,5 +1,5 @@
 {
-  "milestone": "M3",
+  "milestone": "M4",
   "pin": "6f5da406b56c2db6607202b63daee73aa8c61297",
   "protected": {
     "lex": 25780,
@@ -36,10 +36,10 @@
     "thirdump-minicore": 46,
     "tydump-ui": 1827
   },
-  "updated": "2026-10-29T09:33:42.441Z",
+  "updated": "2026-10-29T09:35:19.473Z",
   "open_stops": [],
   "coverage": {
-    "ported": 21769,
+    "ported": 22219,
     "total": 25518
   }
 }
