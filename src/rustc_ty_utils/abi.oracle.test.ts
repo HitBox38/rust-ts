@@ -105,7 +105,6 @@ const CASES: Case[] = [
     file: "c-variadic/pass-by-value-abi.rs",
     args: ["--edition", "2015", "--cfg", "x86_64", "-O"],
     expect: ["fn_abi_of(take_va_list) ="],
-    pending: "rustc_target::callconv::x86_win64::compute_abi_info (lane fn-abi: x86_64 SysV only)",
   },
   {
     name: "synthetic",
