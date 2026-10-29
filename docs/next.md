@@ -235,3 +235,22 @@ Wave-18b follow-ups found by lanes (for a `typeck-gaps` lane after the 13 lanes 
 - rustc_lint/context.ts:693 LateContext::data_layout still unported (data_layout is ported).
 - probe_op's two fn-local lint diagnostics need the typedefs probe to look inside fn bodies.
 - CapturedPlace TypeFoldable (ty/closure.rs derive) still unported in writeback.ts.
+
+## Waves 19–29 (2026-10-15 … 2026-10-29): M3 → M4
+Typeck/old-solver fill (18b–20), M3 gate 2026-10-22; M4 per docs/plan-m4.md §5: MIR contracts + build (21–22), borrowck
+(23, incl. legacy Polonius on vendored datafrog/polonius-engine in 29), CTFE (23b–24), runtime lowering + level-1/2 MIR
+passes, driver `-Zunpretty=mir`/`mir-cfg`, metadata MIR decoding, coverage (24–26); harness: mir/mir-minicore/mir-o0/
+thir-tree suites (25), serial re-run of pool subject timeouts (harness-timeout-retry, reviewed).
+
+## M4 — DONE 2026-10-29 (gate-20261029-001428-root-june, main b3c8b27a)
+mir 20968/21526 (97.4%), mir-minicore 46/46, borrowck-ui 960/960, rustc_dump subset 118/119, mirdump-ui 1340,
+thir-tree 1823; 354,775 protected cases in 33 suites; 22,219/25,518 fns (87.1%).
+
+## Wave 30 (started 2026-10-29) — M4 tail + M5 planning
+| lane | scope | status |
+|---|---|---|
+| gaps-30a | `ty_is_opaque_future` skip_binder (163 mir / 91 borrowck-ui-report), iter_instantiated_copied, Relate for ty::Expr (62), select_inherent_assoc_candidates (30), Binder visit caller (13) | running |
+| gaps-30b | query descs layout_of / eval_to_const_value_raw / evaluate_obligation, IntoDiagArg impls (22), asm `const` operand (13), Size > 2^53 (32) | running |
+| transmute | port rustc_transmute (2.8k; 71 mir cases) | running |
+| plan-m5 | docs/plan-m5.md: check core → alloc → std (oracle commands, suites, decisions, waves) | running |
+Remaining mir non-MATCH after these: proc-macro `quote!` (30, M6), 6 TIMEOUT, 2 DIFF, 3 CRASH. Rule: no lane work while a gate runs.
