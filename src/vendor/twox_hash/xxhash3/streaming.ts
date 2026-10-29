@@ -159,7 +159,8 @@ export class SecretBuffer<S extends FixedBuffer = FixedBuffer> {
   /// and secret buffer.
   // crate: twox-hash-2.1.2/src/xxhash3/streaming.rs:410 allocate_with_seed_and_secret
   static allocate_with_seed_and_secret(seed: bigint, secret: Uint8Array): Result<SecretBuffer<Uint8Array>, SecretTooShortError<Uint8Array>> {
-    return SecretBuffer.new(seed, secret);
+    // PORT: `secret.into()` takes ownership (`Into<Box<[u8]>>`): copy, so later writes by the caller cannot reach the hasher.
+    return SecretBuffer.new(seed, secret.slice());
   }
 }
 
