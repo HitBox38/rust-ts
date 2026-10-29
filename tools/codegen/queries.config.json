@@ -9,6 +9,11 @@
     "display: `{}` formatting of a resolved type in a `desc` (template, $v = value) + imports (module -> names).",
     "methods: return types (Rust text, resolved in queries.rs's scope) of non-query `TyCtxt` methods a `desc` may call.",
     "fns: free functions a `desc` may call: TS name, module, Rust return type.",
+    "consts: constants a `desc` may name (resolved path): TS name, module, Rust type.",
+    "structs: field types (Rust text over the struct's type parameters `params`) of structs whose fields a `desc`",
+    "  reads, by resolved path; `alias` expands a type alias instead. Paths in the Rust text are absolute.",
+    "rust_methods: methods a `desc` may call on a non-tcx receiver, by the receiver's resolved type: TS template",
+    "  ($v = receiver, $0.. = arguments), Rust return type over the receiver's type parameters `params`, imports.",
     "tagged_enums: enums whose TS shape is the `$`-tagged object union (match arms test `x.$`); other enums",
     "  matched by a `desc` are string unions (match arms test `x ===`).",
     "Anything a `desc` uses that is not covered here makes that description `unported(..)` (reported)."
@@ -104,7 +109,13 @@
     "rustc_span::Ident": { "ts": "display_Ident($v)", "imports": { "src/rustc_span/symbol.ts": ["display_Ident"] } },
     "rustc_span::def_id::CrateNum": { "ts": "display_CrateNum($v)", "imports": { "src/rustc_span/def_id.ts": ["display_CrateNum"] } },
     "rustc_middle::ty::Ty": { "ts": "display_Ty($v)", "imports": { "src/rustc_middle/ty/print/pretty.ts": ["display_Ty"] } },
-    "rustc_middle::ty::instance::Instance": { "ts": "display_Instance($v)", "imports": { "src/rustc_middle/ty/instance.ts": ["display_Instance"] } }
+    "rustc_middle::ty::instance::Instance": { "ts": "display_Instance($v)", "imports": { "src/rustc_middle/ty/instance.ts": ["display_Instance"] } },
+    "rustc_middle::ty::Predicate": { "ts": "display_Predicate($v)", "imports": { "src/rustc_middle/ty/print/pretty.ts": ["display_Predicate"] } },
+    "rustc_middle::ty::Clause": { "ts": "display_Clause($v)", "imports": { "src/rustc_middle/ty/print/pretty.ts": ["display_Clause"] } },
+    "rustc_middle::ty::GenericArg": { "ts": "display_GenericArg($v)", "imports": { "src/rustc_middle/ty/print/pretty.ts": ["display_GenericArg"] } },
+    "rustc_middle::ty::PolyFnSig": { "ts": "display_PolyFnSig($v)", "imports": { "src/rustc_middle/ty/print/pretty.ts": ["display_PolyFnSig"] } },
+    "rustc_middle::ty::TraitRef": { "ts": "display_TraitRef($v)", "imports": { "src/rustc_type_ir/ir_print.ts": ["display_TraitRef"] } },
+    "rustc_middle::ty::AliasTerm": { "ts": "display_AliasTerm($v)", "imports": { "src/rustc_type_ir/ir_print.ts": ["display_AliasTerm"] } }
   },
   "methods": {
     "def_path_str": "String",
@@ -113,5 +124,60 @@
   "fns": {
     "describe_as_module": { "ts": "describe_as_module", "module": "src/rustc_middle/queries.ts", "ret": "String" }
   },
+  "consts": {
+    "rustc_span::def_id::LOCAL_CRATE": { "ts": "LOCAL_CRATE", "module": "src/rustc_span/def_id.ts", "ty": "rustc_span::def_id::CrateNum" }
+  },
+  "structs": {
+    "rustc_middle::ty::PseudoCanonicalInput": { "params": ["T"], "fields": { "value": "T" } },
+    "rustc_middle::ty::ParamEnvAnd": { "params": ["T"], "fields": { "value": "T" } },
+    "rustc_middle::infer::canonical::CanonicalQueryInput": { "params": ["V"], "fields": { "canonical": "rustc_middle::infer::canonical::Canonical<V>" } },
+    "rustc_middle::infer::canonical::Canonical": { "params": ["V"], "fields": { "value": "V" } },
+    "rustc_middle::traits::query::CanonicalPredicateGoal": {
+      "params": [],
+      "alias": "rustc_middle::infer::canonical::CanonicalQueryInput<rustc_middle::ty::ParamEnvAnd<rustc_middle::ty::Predicate>>"
+    },
+    "rustc_middle::traits::query::CanonicalAliasGoal": {
+      "params": [],
+      "alias": "rustc_middle::infer::canonical::CanonicalQueryInput<rustc_middle::ty::ParamEnvAnd<rustc_middle::ty::AliasTerm>>"
+    },
+    "rustc_middle::traits::query::CanonicalMethodAutoderefStepsGoal": {
+      "params": [],
+      "alias": "rustc_middle::infer::canonical::CanonicalQueryInput<rustc_middle::ty::ParamEnvAnd<rustc_middle::traits::query::MethodAutoderefSteps>>"
+    },
+    "rustc_middle::traits::query::CanonicalTypeOpAscribeUserTypeGoal": {
+      "params": [],
+      "alias": "rustc_middle::infer::canonical::CanonicalQueryInput<rustc_middle::ty::ParamEnvAnd<rustc_middle::traits::query::type_op::AscribeUserType>>"
+    },
+    "rustc_middle::traits::query::CanonicalTypeOpProvePredicateGoal": {
+      "params": [],
+      "alias": "rustc_middle::infer::canonical::CanonicalQueryInput<rustc_middle::ty::ParamEnvAnd<rustc_middle::traits::query::type_op::ProvePredicate>>"
+    },
+    "rustc_middle::traits::query::CanonicalTypeOpNormalizeGoal": {
+      "params": ["T"],
+      "alias": "rustc_middle::infer::canonical::CanonicalQueryInput<rustc_middle::ty::ParamEnvAnd<rustc_middle::traits::query::type_op::Normalize<T>>>"
+    },
+    "rustc_middle::traits::query::CanonicalImpliedOutlivesBoundsGoal": {
+      "params": [],
+      "alias": "rustc_middle::infer::canonical::CanonicalQueryInput<rustc_middle::ty::ParamEnvAnd<rustc_middle::traits::query::type_op::ImpliedOutlivesBounds>>"
+    },
+    "rustc_middle::traits::query::CanonicalDropckOutlivesGoal": {
+      "params": [],
+      "alias": "rustc_middle::infer::canonical::CanonicalQueryInput<rustc_middle::ty::ParamEnvAnd<rustc_middle::traits::query::type_op::DropckOutlives>>"
+    },
+    "rustc_middle::traits::query::MethodAutoderefSteps": { "params": [], "fields": { "self_ty": "rustc_middle::ty::Ty" } },
+    "rustc_middle::traits::query::type_op::Normalize": { "params": ["T"], "fields": { "value": "rustc_middle::ty::Unnormalized<T>" } },
+    "rustc_middle::traits::query::type_op::ImpliedOutlivesBounds": { "params": [], "fields": { "ty": "rustc_middle::ty::Ty" } },
+    "rustc_middle::traits::query::type_op::DropckOutlives": { "params": [], "fields": { "dropped_ty": "rustc_middle::ty::Ty" } }
+  },
+  "rust_methods": {
+    "rustc_middle::mir::interpret::GlobalId": { "display": { "ts": "$v.display($0)", "ret": "String" } },
+    "rustc_middle::ty::Unnormalized": {
+      "skip_normalization": { "ts": "Unnormalized.skip_normalization($v)", "ret": "T", "params": ["T"], "imports": { "src/rustc_type_ir/unnormalized.ts": ["Unnormalized"] } }
+    }
+  },
+  "types": [
+    {"paths": ["rustc_middle::ty::GenericArg"], "ts": "GenericArg", "import": "src/rustc_middle/ty/generic_args.ts", "types": ["GenericArg"], "values": ["debug_GenericArg"], "debug": "debug_GenericArg($v, $f)", "note": "as tyir.typemap.json (gaps-30b: try_normalize_generic_arg_after_erasing_regions desc)"},
+    {"paths": ["rustc_middle::ty::TraitRef"], "ts": "TraitRef", "import": "src/rustc_type_ir/predicate.ts", "types": ["TraitRef"], "debug": "debug_TraitRef($v, $f)", "note": "as middle_traits_thir.typemap.json (gaps-30b: codegen_select_candidate desc)"}
+  ],
   "tagged_enums": ["rustc_hir::def::DefKind"]
 }
