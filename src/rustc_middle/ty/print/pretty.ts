@@ -31,7 +31,6 @@ import { CrateNum, debug_DefId, DefId, DefId_eq, DefId_key, DefIdMap, DefIdSet, 
 import { RemapPathScopeComponents, Span } from "../../../rustc_span/lib.ts";
 import { bug } from "../../../rustc_span/macros.ts";
 import { display_Ident, display_Symbol, Ident, kw, sym, Symbol } from "../../../rustc_span/symbol.ts";
-import { fold_with_OutlivesClause, try_fold_with_OutlivesClause, visit_with_OutlivesClause } from "../../../rustc_type_ir/predicate.gen.ts";
 import { Binder, BoundRegionKind, debug_BoundConst, debug_BoundTy, debug_Placeholder, EarlyBinder, fold_Binder, visit_with_Binder } from "../../../rustc_type_ir/binder.ts";
 import { type AliasConst, type AliasTy, type BoundRegion, type ClauseKind, type ClosureArgs, type ConstVid, type ExistentialPredicate, type HostEffectClause, INNERMOST, type NormalizesTo, type OutlivesClause, type Pending, type PlaceholderType, type PolyExistentialPredicate, type PolyFnSig, type PolyTraitClause, type PolyTraitRef, type PredicateKind, type ProjectionClause, type RegionVid, type TyVid, type ValTreeKind } from "../../../rustc_type_ir/decls.ts";
 import { Elaboratable_Clause, elaborate } from "../../../rustc_type_ir/elaborate.ts";
@@ -2048,10 +2047,16 @@ const fold_ListTy_Ty_: TypeFoldable<[List<Ty>, Ty]> = descriptor<[List<Ty>, Ty]>
 
 /** `OutlivesClause<'tcx, Ty<'tcx>>: TypeFoldable` (rustc_type_ir's derived impl at `A = Ty`). */
 const fold_TypeOutlivesClause_: TypeFoldable<OutlivesClause<Ty>> = descriptor<OutlivesClause<Ty>>(
-  (self, v) => visit_with_OutlivesClause(self, v, visit_with_Ty),
-  (self, f) => try_fold_with_OutlivesClause(self, f, try_fold_with_Ty),
-  (self, f) => fold_with_OutlivesClause(self, f, fold_with_Ty),
+  (self, v) => tyir_predicate_gen().visit_with_OutlivesClause(self, v, visit_with_Ty),
+  (self, f) => tyir_predicate_gen().try_fold_with_OutlivesClause(self, f, try_fold_with_Ty),
+  (self, f) => tyir_predicate_gen().fold_with_OutlivesClause(self, f, fold_with_Ty),
 );
+/** PORT (init order): a static import of rustc_type_ir predicate.gen.ts from here changes the evaluation order of
+ * rustc_type_ir/predicate.ts (rustc_borrowck contract test): read lazily. */
+function tyir_predicate_gen(): typeof import("../../../rustc_type_ir/predicate.gen.ts") {
+  return (tyir_predicate_gen__m ??= require("../../../rustc_type_ir/predicate.gen.ts") as typeof import("../../../rustc_type_ir/predicate.gen.ts"));
+}
+var tyir_predicate_gen__m: typeof import("../../../rustc_type_ir/predicate.gen.ts") | undefined;
 
 // -- rustc_middle ty/generics.rs, ty/assoc.rs, ty/adt.rs, ty/pattern.rs, ty/consts/kind.rs, mir --
 /** `Expr::binop_args` / `unop_args` / `call_args` / `cast_args` (ty/consts/kind.rs, lane ty-results). */
