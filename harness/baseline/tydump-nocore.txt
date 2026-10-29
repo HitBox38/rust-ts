@@ -3895,6 +3895,7 @@ tests/ui/const-generics/deref-into-array-generic.rs
 tests/ui/const-generics/different_generic_args.rs
 tests/ui/const-generics/different_generic_args_array.rs
 tests/ui/const-generics/dont-evaluate-array-len-on-err-1.rs
+tests/ui/const-generics/dyn-supertraits.rs
 tests/ui/const-generics/dyn-trait-ill-typed.rs
 tests/ui/const-generics/early/closing-args-token.rs
 tests/ui/const-generics/early/const-expression-parameter.rs
@@ -4166,6 +4167,7 @@ tests/ui/const-generics/issues/cg-in-dyn-issue-128176.rs
 tests/ui/const-generics/issues/index_array_bad_type.rs
 tests/ui/const-generics/issues/issue-100313.rs
 tests/ui/const-generics/issues/issue-105037.rs
+tests/ui/const-generics/issues/issue-105821.rs
 tests/ui/const-generics/issues/issue-56445-1.rs
 tests/ui/const-generics/issues/issue-56445-2.rs
 tests/ui/const-generics/issues/issue-56445-3.rs
@@ -18609,6 +18611,7 @@ tests/ui/traits/alias/object-wf.rs
 tests/ui/traits/alias/object.rs
 tests/ui/traits/alias/only-require-assocs-from-supertraits.rs
 tests/ui/traits/alias/relaxed-bounds.rs
+tests/ui/traits/alias/self-in-const-generics.rs
 tests/ui/traits/alias/self-in-generics.rs
 tests/ui/traits/alias/style_lint.rs
 tests/ui/traits/alias/suggest-trait-alias-instead-of-type.rs

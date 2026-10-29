@@ -109,6 +109,8 @@ tests/ui/borrowck/borrowck-break-uninit.rs
 tests/ui/borrowck/borrowck-closures-mut-and-imm.rs
 tests/ui/borrowck/borrowck-closures-mut-of-imm.rs
 tests/ui/borrowck/borrowck-closures-mut-of-mut.rs
+tests/ui/borrowck/borrowck-closures-slice-patterns-ok.rs
+tests/ui/borrowck/borrowck-closures-slice-patterns.rs
 tests/ui/borrowck/borrowck-closures-two-imm.rs
 tests/ui/borrowck/borrowck-closures-two-mut-fail.rs
 tests/ui/borrowck/borrowck-closures-two-mut.rs
@@ -178,6 +180,14 @@ tests/ui/borrowck/borrowck-move-from-unsafe-ptr.rs
 tests/ui/borrowck/borrowck-move-in-irrefut-pat.rs
 tests/ui/borrowck/borrowck-move-moved-value-into-closure.rs
 tests/ui/borrowck/borrowck-move-mut-base-ptr.rs
+tests/ui/borrowck/borrowck-move-out-from-array-match.rs
+tests/ui/borrowck/borrowck-move-out-from-array-no-overlap-match.rs
+tests/ui/borrowck/borrowck-move-out-from-array-no-overlap.rs
+tests/ui/borrowck/borrowck-move-out-from-array-use-match.rs
+tests/ui/borrowck/borrowck-move-out-from-array-use-no-overlap-match.rs
+tests/ui/borrowck/borrowck-move-out-from-array-use-no-overlap.rs
+tests/ui/borrowck/borrowck-move-out-from-array-use.rs
+tests/ui/borrowck/borrowck-move-out-from-array.rs
 tests/ui/borrowck/borrowck-move-out-of-overloaded-auto-deref.rs
 tests/ui/borrowck/borrowck-move-out-of-overloaded-deref.rs
 tests/ui/borrowck/borrowck-move-out-of-static-item.rs
@@ -369,6 +379,7 @@ tests/ui/borrowck/issue-62007-assign-field.rs
 tests/ui/borrowck/issue-62107-match-arm-scopes.rs
 tests/ui/borrowck/issue-62387-suggest-iter-mut-2.rs
 tests/ui/borrowck/issue-62387-suggest-iter-mut.rs
+tests/ui/borrowck/issue-64453.rs
 tests/ui/borrowck/issue-69789-iterator-mut-suggestion.rs
 tests/ui/borrowck/issue-70919-drop-in-loop.rs
 tests/ui/borrowck/issue-71546.rs
@@ -410,6 +421,7 @@ tests/ui/borrowck/many-mutable-borrows.rs
 tests/ui/borrowck/mismatched-pointer-type-in-self-7061.rs
 tests/ui/borrowck/move-error-in-promoted-2.rs
 tests/ui/borrowck/move-error-in-promoted.rs
+tests/ui/borrowck/move-error-snippets.rs
 tests/ui/borrowck/move-error-suggest-clone-panic-issue-127915.rs
 tests/ui/borrowck/move-from-union-field-issue-66500.rs
 tests/ui/borrowck/move-in-pattern-mut-in-loop.rs
@@ -437,6 +449,7 @@ tests/ui/borrowck/opaque-types-patterns-subtyping-ice-104779.rs#current
 tests/ui/borrowck/opaque-types-patterns-subtyping-ice-104779.rs#next
 tests/ui/borrowck/option-inspect-mutation.rs
 tests/ui/borrowck/or-patterns.rs
+tests/ui/borrowck/overwrite-anon-late-param-regions.rs
 tests/ui/borrowck/ownership-struct-update-moved-error.rs
 tests/ui/borrowck/pointer-reassignment-after-deref-78192.rs
 tests/ui/borrowck/promote-ref-mut-in-let-issue-46557.rs
@@ -476,6 +489,7 @@ tests/ui/borrowck/suggest-mut-iterator.rs
 tests/ui/borrowck/suggest-ref-mut-issue-118596.rs
 tests/ui/borrowck/suggest-storing-local-var-for-vector.rs
 tests/ui/borrowck/suggestions/overloaded-index-not-mut-but-should-be-mut.rs
+tests/ui/borrowck/suggestions/overloaded-index-without-indexmut.rs
 tests/ui/borrowck/super-let-lifetime-and-drop.rs#borrowck
 tests/ui/borrowck/super-let-lifetime-and-drop.rs#runtime
 tests/ui/borrowck/tainted-promoteds.rs
@@ -553,6 +567,7 @@ tests/ui/mir/clone-canonicalization-miscompile-132353.rs#release
 tests/ui/mir/const_eval_select_cycle.rs
 tests/ui/mir/debug-ref-undef.rs
 tests/ui/mir/dont-use-operand-as-place-for-zst.rs
+tests/ui/mir/drop-elaboration-after-borrowck-error.rs
 tests/ui/mir/dyn_metadata_sroa.rs
 tests/ui/mir/early-otherwise-branch-ice.rs
 tests/ui/mir/enable_passes_validation.rs#all_known
@@ -567,6 +582,7 @@ tests/ui/mir/enum/convert_non_integer_niche_break.rs
 tests/ui/mir/enum/convert_non_integer_niche_ok.rs
 tests/ui/mir/enum/convert_non_integer_ok.rs
 tests/ui/mir/enum/negative_discr_break.rs
+tests/ui/mir/enum/negative_discr_ok.rs
 tests/ui/mir/enum/niche_option_tuple_break.rs
 tests/ui/mir/enum/niche_option_tuple_ok.rs
 tests/ui/mir/enum/numbered_variants_break.rs
@@ -584,6 +600,8 @@ tests/ui/mir/enum/with_niche_ptr_ok.rs
 tests/ui/mir/enum/wrap_break.rs
 tests/ui/mir/enum/wrap_ok.rs
 tests/ui/mir/field-projection-invariant.rs
+tests/ui/mir/field-projection-mutating-context.rs
+tests/ui/mir/field-projection-mutating-context2.rs
 tests/ui/mir/field-ty-ascription-enums.rs
 tests/ui/mir/field-ty-ascription.rs
 tests/ui/mir/gvn-intern-ice-160750.rs
@@ -616,6 +634,7 @@ tests/ui/mir/issue-66930.rs
 tests/ui/mir/issue-67639-normalization-ice.rs
 tests/ui/mir/issue-67710-inline-projection.rs
 tests/ui/mir/issue-67947.rs
+tests/ui/mir/issue-68841.rs
 tests/ui/mir/issue-71793-inline-args-storage.rs
 tests/ui/mir/issue-73914.rs
 tests/ui/mir/issue-74739.rs
@@ -625,6 +644,7 @@ tests/ui/mir/issue-76248.rs
 tests/ui/mir/issue-76375.rs
 tests/ui/mir/issue-76740-copy-propagation.rs
 tests/ui/mir/issue-76803-branches-not-same.rs
+tests/ui/mir/issue-77002.rs
 tests/ui/mir/issue-77359-simplify-arm-identity.rs
 tests/ui/mir/issue-77911.rs
 tests/ui/mir/issue-78496.rs
@@ -641,6 +661,7 @@ tests/ui/mir/lint/call-overlap.rs
 tests/ui/mir/meaningless-bound.rs
 tests/ui/mir/mir-build-2021-closure-capture-ice-110453-1.rs
 tests/ui/mir/mir-build-2021-closure-capture-ice-110453-2.rs
+tests/ui/mir/mir-cfg-unpretty-no-panic-81918.rs
 tests/ui/mir/mir-inlining/always-encode-mirs.rs
 tests/ui/mir/mir-inlining/array-clone-with-generic-size.rs
 tests/ui/mir/mir-inlining/ice-issue-100550-unnormalized-projection.rs
@@ -683,6 +704,7 @@ tests/ui/mir/mir_dynamic_drops_1.rs
 tests/ui/mir/mir_dynamic_drops_2.rs
 tests/ui/mir/mir_early_return_scope.rs
 tests/ui/mir/mir_fat_ptr.rs
+tests/ui/mir/mir_fat_ptr_drop.rs
 tests/ui/mir/mir_heavy_promoted.rs
 tests/ui/mir/mir_indexing_oob_1.rs
 tests/ui/mir/mir_indexing_oob_2.rs
@@ -718,9 +740,11 @@ tests/ui/mir/ssa-analysis-regression-50041.rs
 tests/ui/mir/ssa-range-prop-bb-self-domination.rs
 tests/ui/mir/static-by-value-slice.rs
 tests/ui/mir/static-by-value-str.rs
+tests/ui/mir/static_fnptr.rs
 tests/ui/mir/thir-constparam-temp.rs
 tests/ui/mir/unsize-trait.rs
 tests/ui/mir/unsized-extern-static.rs
+tests/ui/mir/validate-various-comparison-behavior.rs
 tests/ui/mir/validate/critical-edge.rs
 tests/ui/mir/validate/error-body.rs
 tests/ui/mir/validate/ice-zst-as-discr-145786.rs
@@ -1195,6 +1219,8 @@ tests/ui/pattern/usefulness/floats.rs
 tests/ui/pattern/usefulness/guards.rs
 tests/ui/pattern/usefulness/impl-trait.rs#next
 tests/ui/pattern/usefulness/impl-trait.rs#old
+tests/ui/pattern/usefulness/integer-ranges/exhaustiveness.rs
+tests/ui/pattern/usefulness/integer-ranges/gap_between_ranges.rs
 tests/ui/pattern/usefulness/integer-ranges/issue-117648-overlapping_range_endpoints-false-positive.rs
 tests/ui/pattern/usefulness/integer-ranges/overlapping_range_endpoints.rs
 tests/ui/pattern/usefulness/integer-ranges/reachability.rs

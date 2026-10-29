@@ -36,6 +36,7 @@ tests/ui/impl-trait/variance.rs#e2024
 tests/ui/impl-trait/variance.rs#old
 tests/ui/layout/debug.rs
 tests/ui/layout/enum-scalar-pair-int-ptr.rs
+tests/ui/layout/enum-signedness.rs
 tests/ui/layout/enum-unusual-variants.rs
 tests/ui/layout/enum.rs
 tests/ui/layout/homogeneous-aggr-transparent.rs
@@ -75,6 +76,7 @@ tests/ui/symbol-names/basic.rs#v0
 tests/ui/symbol-names/const-generics-demangling.rs#legacy
 tests/ui/symbol-names/const-generics-demangling.rs#v0
 tests/ui/symbol-names/const-generics-str-demangling.rs
+tests/ui/symbol-names/const-generics-structural-demangling.rs
 tests/ui/symbol-names/foreign-types.rs
 tests/ui/symbol-names/impl1.rs#legacy
 tests/ui/symbol-names/impl1.rs#v0
@@ -87,6 +89,17 @@ tests/ui/symbol-names/trait-objects.rs#v0
 tests/ui/symbol-names/types.rs#legacy
 tests/ui/symbol-names/types.rs#v0
 tests/ui/symbol-names/types.rs#verbose-legacy
+tests/ui/thir-print/c-variadic.rs
+tests/ui/thir-print/offset_of.rs
+tests/ui/thir-print/str-patterns.rs
+tests/ui/thir-print/thir-flat-const-variant.rs
+tests/ui/thir-print/thir-flat.rs
+tests/ui/thir-print/thir-tree-array-index.rs
+tests/ui/thir-print/thir-tree-field-expr-index.rs
+tests/ui/thir-print/thir-tree-loop-match.rs
+tests/ui/thir-print/thir-tree-match-for.rs
+tests/ui/thir-print/thir-tree-match.rs
+tests/ui/thir-print/thir-tree.rs
 tests/ui/traits/alias/ambiguous.rs
 tests/ui/traits/alias/basic.rs
 tests/ui/traits/alias/bounds.rs
@@ -120,6 +133,7 @@ tests/ui/traits/alias/object-wf.rs
 tests/ui/traits/alias/object.rs
 tests/ui/traits/alias/only-require-assocs-from-supertraits.rs
 tests/ui/traits/alias/relaxed-bounds.rs
+tests/ui/traits/alias/self-in-const-generics.rs
 tests/ui/traits/alias/self-in-generics.rs
 tests/ui/traits/alias/style_lint.rs
 tests/ui/traits/alias/suggest-trait-alias-instead-of-type.rs
@@ -229,6 +243,7 @@ tests/ui/traits/const-traits/call.rs#next
 tests/ui/traits/const-traits/call.rs#old
 tests/ui/traits/const-traits/conditionally-const-and-const-params.rs
 tests/ui/traits/const-traits/conditionally-const-assoc-fn-in-trait-impl.rs
+tests/ui/traits/const-traits/conditionally-const-in-anon-const.rs
 tests/ui/traits/const-traits/conditionally-const-inherent-assoc-const-fn.rs
 tests/ui/traits/const-traits/conditionally-const-invalid-places.rs
 tests/ui/traits/const-traits/conditionally-const-trait-bound-assoc-tys.rs
@@ -369,6 +384,7 @@ tests/ui/traits/const-traits/minicore-fn-fail.rs
 tests/ui/traits/const-traits/minicore-works.rs
 tests/ui/traits/const-traits/mismatched_generic_args.rs
 tests/ui/traits/const-traits/mutually-exclusive-trait-bound-modifiers.rs
+tests/ui/traits/const-traits/nested-closure.rs
 tests/ui/traits/const-traits/no-explicit-const-params.rs
 tests/ui/traits/const-traits/non-const-op-const-closure-non-const-outer.rs
 tests/ui/traits/const-traits/non-const-op-in-closure-in-const.rs
@@ -377,6 +393,7 @@ tests/ui/traits/const-traits/overlap-const-with-nonconst.rs#spec
 tests/ui/traits/const-traits/parse-const-unsafe-trait.rs
 tests/ui/traits/const-traits/partial/attr-gate.rs
 tests/ui/traits/const-traits/partial/no-const-callers.rs
+tests/ui/traits/const-traits/pattern-custom-partial-eq.rs
 tests/ui/traits/const-traits/predicate-entailment-fails.rs
 tests/ui/traits/const-traits/predicate-entailment-passes.rs
 tests/ui/traits/const-traits/project.rs
@@ -674,6 +691,7 @@ tests/ui/traits/issue-78632.rs
 tests/ui/traits/issue-79458.rs
 tests/ui/traits/issue-8153.rs
 tests/ui/traits/issue-82830.rs
+tests/ui/traits/issue-83538-tainted-cache-after-cycle.rs
 tests/ui/traits/issue-84399-bad-fresh-caching.rs
 tests/ui/traits/issue-85360-eval-obligation-ice.rs
 tests/ui/traits/issue-85735.rs
@@ -719,6 +737,7 @@ tests/ui/traits/monad.rs
 tests/ui/traits/monomorphized-callees-with-ty-params-3314.rs
 tests/ui/traits/multidispatch-bad.rs
 tests/ui/traits/multidispatch-conditional-impl-not-considered.rs
+tests/ui/traits/multidispatch-convert-ambig-dest.rs
 tests/ui/traits/multidispatch-infer-convert-target.rs
 tests/ui/traits/multidispatch1.rs
 tests/ui/traits/multidispatch2.rs
@@ -778,6 +797,7 @@ tests/ui/traits/next-solver/alias-relate/transitive-inference.rs#old
 tests/ui/traits/next-solver/alias-sub.rs
 tests/ui/traits/next-solver/ambiguous-impl-in-resolve.rs#next
 tests/ui/traits/next-solver/ambiguous-impl-in-resolve.rs#old
+tests/ui/traits/next-solver/array-default.rs
 tests/ui/traits/next-solver/assembly/ambig-projection-self-is-ambig.rs
 tests/ui/traits/next-solver/assembly/ambiguity-due-to-uniquification-1.rs#current
 tests/ui/traits/next-solver/assembly/ambiguity-due-to-uniquification-1.rs#next
@@ -885,6 +905,7 @@ tests/ui/traits/next-solver/cycles/unproductive-in-coherence.rs
 tests/ui/traits/next-solver/cycles/use-impl-to-normalize-own-self-ty-ice.rs#next
 tests/ui/traits/next-solver/deduce-ty-from-object.rs
 tests/ui/traits/next-solver/dedup-regions.rs
+tests/ui/traits/next-solver/deeply-nested-stalled-on-coroutines.rs
 tests/ui/traits/next-solver/deferred-closure-call-recovery-issue-157951.rs
 tests/ui/traits/next-solver/destruct.rs
 tests/ui/traits/next-solver/diagnostics/alias_relate_error_uses_structurally_normalize.rs
@@ -973,6 +994,7 @@ tests/ui/traits/next-solver/nested-alias-bound.rs
 tests/ui/traits/next-solver/nested-obligations-with-bound-vars-gat.rs
 tests/ui/traits/next-solver/nested-rerun-not-erased-in-normalizes-to.rs
 tests/ui/traits/next-solver/no-dedup-universes.rs
+tests/ui/traits/next-solver/no-param-env-const-fold.rs
 tests/ui/traits/next-solver/non-wf-candidate-behind-stalled-coroutine-1.rs#current
 tests/ui/traits/next-solver/non-wf-candidate-behind-stalled-coroutine-1.rs#next
 tests/ui/traits/next-solver/non-wf-candidate-behind-stalled-coroutine-2.rs#current
@@ -1103,6 +1125,7 @@ tests/ui/traits/next-solver/opaques/trivial-const-defines-opaque.rs#current
 tests/ui/traits/next-solver/opaques/trivial-const-defines-opaque.rs#next
 tests/ui/traits/next-solver/opaques/universal-args-non-defining.rs#current
 tests/ui/traits/next-solver/opaques/universal-args-non-defining.rs#next
+tests/ui/traits/next-solver/opaques/wrong-typing-mode-ice-1.rs
 tests/ui/traits/next-solver/opaques/wrong-typing-mode-ice-2.rs
 tests/ui/traits/next-solver/opportunistic-region-resolve.rs
 tests/ui/traits/next-solver/outlives-goal-error-due-to-normalization-failure-no-ice.rs
@@ -1162,6 +1185,7 @@ tests/ui/traits/next-solver/specialization-unconstrained.rs
 tests/ui/traits/next-solver/stall-num-var-auto-trait.rs#constrain
 tests/ui/traits/next-solver/stall-num-var-auto-trait.rs#fallback
 tests/ui/traits/next-solver/stalled-coroutine-obligations.rs
+tests/ui/traits/next-solver/structural-resolve-field.rs
 tests/ui/traits/next-solver/structurally-normalize-in-borrowck-field-projection.rs
 tests/ui/traits/next-solver/successful-goal-during-ambiguity-reporting.rs
 tests/ui/traits/next-solver/supertrait-alias-1.rs
@@ -1169,6 +1193,8 @@ tests/ui/traits/next-solver/supertrait-alias-2.rs
 tests/ui/traits/next-solver/supertrait-alias-3.rs
 tests/ui/traits/next-solver/supertrait-alias-4.rs
 tests/ui/traits/next-solver/supertrait-static-lifetime-object-bound.rs
+tests/ui/traits/next-solver/transmute-from-async-closure.rs
+tests/ui/traits/next-solver/transmute-from-unconstrained.rs
 tests/ui/traits/next-solver/try-example.rs
 tests/ui/traits/next-solver/typeck/guide-ctors.rs
 tests/ui/traits/next-solver/typeck/index-of-projection.rs
@@ -1181,6 +1207,7 @@ tests/ui/traits/next-solver/typeck/structurally-resolve-in-probe_adt.rs
 tests/ui/traits/next-solver/typeck/structurally-resolve-in-resolve_for_branch.rs
 tests/ui/traits/next-solver/unevaluated-const-impl-trait-ref.rs#fails
 tests/ui/traits/next-solver/unevaluated-const-impl-trait-ref.rs#works
+tests/ui/traits/next-solver/unevaluated_const_query_cycle.rs
 tests/ui/traits/next-solver/unexpected-pointer-deref-issue-154568.rs
 tests/ui/traits/next-solver/unsafe-auto-trait-impl.rs
 tests/ui/traits/next-solver/unsize-although-ambiguous.rs
@@ -1545,6 +1572,8 @@ tests/ui/traits/wrong-mul-method-signature.rs
 tests/ui/traits/wrong-multiple-different-versions-of-a-crate.rs
 tests/ui/type-alias-impl-trait/variance.rs
 tests/ui/type/pattern_types/non_null.rs
+tests/ui/type/pattern_types/or_patterns.rs
+tests/ui/type/pattern_types/range_patterns.rs
 tests/ui/typeck/apit-with-error-type-in-sig.rs
 tests/ui/typeck/assign-non-lval-derefmut.rs
 tests/ui/typeck/assign-non-lval-mut-ref.rs
@@ -1577,12 +1606,14 @@ tests/ui/typeck/derive-sugg-arg-arity.rs
 tests/ui/typeck/do-not-suggest-adding-missing-zero-to-floating-point-number.rs
 tests/ui/typeck/do-not-suggest-placeholder-to-const-static-without-type.rs
 tests/ui/typeck/dont-record-adjustments-when-pointing-at-arg.rs
+tests/ui/typeck/dont-suggest-private-dependencies.rs
 tests/ui/typeck/escaping_bound_vars.rs
 tests/ui/typeck/explain_clone_autoref.rs
 tests/ui/typeck/for-in-const-eval.rs
 tests/ui/typeck/foreign_struct_trait_unimplemented.rs
 tests/ui/typeck/function-in-pattern-error-12863.rs
 tests/ui/typeck/gather-locals-twice.rs
+tests/ui/typeck/ice-self-mismatch-const-generics.rs
 tests/ui/typeck/ice-unexpected-region-123863.rs
 tests/ui/typeck/ice-with-expr-not-struct-127332.rs
 tests/ui/typeck/impl-for-nonexistent-type-error-8767.rs
@@ -1737,6 +1768,9 @@ tests/ui/typeck/return-dyn-type-mismatch.rs
 tests/ui/typeck/return-expression-invalid-callee.rs
 tests/ui/typeck/return-unsized-coercion.rs
 tests/ui/typeck/return_type_containing_closure.rs
+tests/ui/typeck/rhs-ty-hint-134162.rs#e2018
+tests/ui/typeck/rhs-ty-hint-134162.rs#e2021
+tests/ui/typeck/rhs-ty-hint-134162.rs#e2024
 tests/ui/typeck/self-constructor-type-args-not-allowed-57924.rs
 tests/ui/typeck/self-constructor-type-error-56199.rs
 tests/ui/typeck/self-param-in-fn-item-cast-to-fn-trait.rs

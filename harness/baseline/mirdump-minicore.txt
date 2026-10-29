@@ -1,4 +1,5 @@
 compiler/rustc_codegen_cranelift/example/mini_core.rs
+compiler/rustc_codegen_cranelift/example/mini_core_hello_world.rs
 tests/ui/attributes/export/lang-item.rs
 tests/ui/attributes/link-foreign-mod-abi.rs
 tests/ui/attributes/link-invalid-abi.rs
