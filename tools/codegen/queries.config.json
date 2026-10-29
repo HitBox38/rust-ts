@@ -79,6 +79,7 @@
     "(rustc_middle::ty::AdtDef, rustc_middle::ty::GenericArgsRef)": "AdtDef_GenericArgsRef",
     "rustc_middle::ty::PseudoCanonicalInput<(rustc_middle::ty::AdtDef, rustc_middle::ty::GenericArgsRef)>": "PseudoCanonicalInput_AdtDef_GenericArgsRef",
     "rustc_middle::ty::PseudoCanonicalInput<rustc_middle::mir::interpret::GlobalId>": "PseudoCanonicalInput_GlobalId",
+    "rustc_middle::ty::PseudoCanonicalInput<(rustc_middle::ty::Ty, rustc_abi::VariantIdx)>": "PseudoCanonicalInput_Ty_VariantIdx",
     "rustc_middle::ty::PseudoCanonicalInput<(rustc_middle::ty::PolyFnSig, rustc_middle::ty::List<rustc_middle::ty::Ty>)>": "PseudoCanonicalInput_PolyFnSig_List_Ty",
     "rustc_middle::ty::PseudoCanonicalInput<(rustc_middle::ty::instance::Instance, rustc_middle::ty::List<rustc_middle::ty::Ty>)>": "PseudoCanonicalInput_Instance_List_Ty",
     "rustc_middle::traits::query::CanonicalPredicateGoal": "CanonicalPredicateGoal",
