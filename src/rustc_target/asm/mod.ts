@@ -153,7 +153,9 @@ export function def_reg_class<C extends string>(arch: InlineAsmArchVariant, clas
     // rustc-derive: compiler/rustc_target/src/asm/mod.rs:28 StableHash for $arch_regclass
     stable_hash(self: C, __hcx: StableHashCtxt, __hasher: StableHasher): void {
       // `::std::mem::discriminant(self).stable_hash(__hcx, __hasher);` (no `#[repr]`: `isize`); no variant has fields
-      stable_hash_Discriminant(classes.indexOf(self), __hcx, __hasher);
+      const discriminant = classes.indexOf(self);
+      if (discriminant < 0) panic(`${arch}InlineAsmRegClass: not a variant`);
+      stable_hash_Discriminant(discriminant, __hcx, __hasher);
     },
   };
 }
