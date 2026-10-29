@@ -44,15 +44,16 @@ import { type CoerceUnsizedInfo, debug_CoerceUnsizedInfo } from "./ty/adjustment
 import { type LitToConstInput } from "./ty/consts/lit.ts";
 import { type Limits, type TyCtxt } from "./ty/context.ts";
 import { type SimplifiedType, debug_SimplifiedType } from "./ty/fast_reject.ts";
+import { type GenericArg, debug_GenericArg } from "./ty/generic_args.ts";
 import { type GenericClauses, debug_GenericClauses } from "./ty/generics.ts";
-import { stable_hash_RawList } from "./ty/impls_ty.ts";
+import { stable_hash_GenericArg, stable_hash_RawList } from "./ty/impls_ty.ts";
 import { type InhabitedPredicate, debug_InhabitedPredicate } from "./ty/inhabitedness/inhabited_predicate.ts";
 import { type Instance, type InstanceKind, type ShimKind, debug_Instance, display_Instance } from "./ty/instance.ts";
 import { type FnAbiError, type LayoutError, type TyAndLayout, type ValidityRequirement } from "./ty/layout.ts";
 import { type List, debug_RawList } from "./ty/list.ts";
 import { type PseudoCanonicalInput, type Ty, type Visibility, debug_Ty, debug_Visibility } from "./ty/mod.ts";
 import { type Clause, type Predicate, debug_Clause, debug_Predicate } from "./ty/predicate.ts";
-import { display_Predicate, display_Ty } from "./ty/print/pretty.ts";
+import { display_GenericArg, display_PolyFnSig, display_Predicate, display_Ty } from "./ty/print/pretty.ts";
 import { type VtblEntry, debug_VtblEntry } from "./ty/vtable.ts";
 import { stable_hash_Clause } from "./ty_stable_hash.gen.ts";
 import { type CrateNum, type DefId, type DefIdMap, LOCAL_CRATE, type LocalDefId, type LocalModId, type ModId, debug_CrateNum, debug_DefId, debug_LocalDefId, debug_ModId, display_CrateNum, stable_hash_CrateNum, stable_hash_DefId, stable_hash_LocalDefId } from "../rustc_span/def_id.ts";
@@ -64,7 +65,10 @@ import { type FnAbi } from "../rustc_target/callconv/mod.ts";
 import { type PanicStrategy } from "../rustc_target/spec/mod.ts";
 import { type EarlyBinder, debug_EarlyBinder } from "../rustc_type_ir/binder.ts";
 import { type PolyFnSig } from "../rustc_type_ir/decls.ts";
+import { display_AliasTerm, display_TraitRef } from "../rustc_type_ir/ir_print.ts";
+import { type TraitRef } from "../rustc_type_ir/predicate.ts";
 import { stable_hash_EarlyBinder } from "../rustc_type_ir/ty_stable_hash.gen.ts";
+import { Unnormalized } from "../rustc_type_ir/unnormalized.ts";
 import { PLAIN, debug_bool, debug_int, debug_map, debug_option, debug_set, debug_str, debug_tuple, debug_vec } from "../std/fmt.ts";
 import { unported } from "../std/panic.ts";
 import { type Result, debug_result } from "../std/result.ts";
@@ -994,15 +998,13 @@ export interface QueryTypes {
   impl_parent: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: DefId | undefined; ProvidedValue: DefId | undefined };
   is_mir_available: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: boolean; ProvidedValue: boolean };
   own_existential_vtable_entries: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: DefId; Value: readonly DefId[]; ProvidedValue: readonly DefId[] };
-  // PORT: key `ty::TraitRef<'tcx>` not ported (`unknown`)
-  vtable_entries: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: readonly VtblEntry[]; ProvidedValue: readonly VtblEntry[] };
-  // PORT: key `ty::TraitRef<'tcx>` not ported (`unknown`)
-  first_method_vtable_slot: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: number; ProvidedValue: number };
+  vtable_entries: { Key: TraitRef; KeyArg: TraitRef; LocalKey: TraitRef; Value: readonly VtblEntry[]; ProvidedValue: readonly VtblEntry[] };
+  first_method_vtable_slot: { Key: TraitRef; KeyArg: TraitRef; LocalKey: TraitRef; Value: number; ProvidedValue: number };
   supertrait_vtable_slot: { Key: [Ty, Ty]; KeyArg: [Ty, Ty]; LocalKey: [Ty, Ty]; Value: number | undefined; ProvidedValue: number | undefined };
   // PORT: key `(Ty<'tcx>, Option<ty::ExistentialTraitRef<'tcx>>)` not ported (`unknown`)
   vtable_allocation: { Key: [Ty, unknown | undefined]; KeyArg: [Ty, unknown | undefined]; LocalKey: [Ty, unknown | undefined]; Value: AllocId; ProvidedValue: AllocId };
-  // PORT: key `PseudoCanonicalInput<'tcx, ty::TraitRef<'tcx>>` not ported; value `Result<&'tcx ImplSource<'tcx, ()>, CodegenObligationError>` not ported (`unknown`)
-  codegen_select_candidate: { Key: PseudoCanonicalInput<unknown>; KeyArg: PseudoCanonicalInput<unknown>; LocalKey: PseudoCanonicalInput<unknown>; Value: Result<unknown, CodegenObligationError>; ProvidedValue: Result<unknown, CodegenObligationError> };
+  // PORT: value `Result<&'tcx ImplSource<'tcx, ()>, CodegenObligationError>` not ported (`unknown`)
+  codegen_select_candidate: { Key: PseudoCanonicalInput<TraitRef>; KeyArg: PseudoCanonicalInput<TraitRef>; LocalKey: PseudoCanonicalInput<TraitRef>; Value: Result<unknown, CodegenObligationError>; ProvidedValue: Result<unknown, CodegenObligationError> };
   /**
    * Return all `impl` blocks in the current crate.
    */
@@ -1323,8 +1325,7 @@ export interface QueryTypes {
   // PORT: value `Option<&'tcx NativeLib>` not ported (`unknown`)
   native_library: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: DefId; Value: unknown | undefined; ProvidedValue: unknown | undefined };
   inherit_sig_for_delegation_item: { Key: LocalDefId; KeyArg: Parameters<typeof into_query_key_LocalDefId>[0]; LocalKey: LocalDefId; Value: readonly Ty[]; ProvidedValue: readonly Ty[] };
-  // PORT: value `(&'tcx [GenericArg<'tcx>], &'tcx [GenericArg<'tcx>])` not ported (`unknown`)
-  delegation_user_specified_args: { Key: LocalDefId; KeyArg: Parameters<typeof into_query_key_LocalDefId>[0]; LocalKey: LocalDefId; Value: [readonly unknown[], readonly unknown[]]; ProvidedValue: [readonly unknown[], readonly unknown[]] };
+  delegation_user_specified_args: { Key: LocalDefId; KeyArg: Parameters<typeof into_query_key_LocalDefId>[0]; LocalKey: LocalDefId; Value: [readonly GenericArg[], readonly GenericArg[]]; ProvidedValue: [readonly GenericArg[], readonly GenericArg[]] };
   /**
    * Does lifetime resolution on items. Importantly, we can't resolve
    * lifetimes directly on things like trait methods, because of trait params.
@@ -1624,8 +1625,8 @@ export interface QueryTypes {
   /**
    * Do not call this query directly: invoke `try_normalize_erasing_regions` instead.
    */
-  // PORT: key `PseudoCanonicalInput<'tcx, GenericArg<'tcx>>` not ported; value `Result<GenericArg<'tcx>, NoSolution>` not ported (`unknown`)
-  try_normalize_generic_arg_after_erasing_regions: { Key: PseudoCanonicalInput<unknown>; KeyArg: PseudoCanonicalInput<unknown>; LocalKey: PseudoCanonicalInput<unknown>; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
+  // PORT: value `Result<GenericArg<'tcx>, NoSolution>` not ported (`unknown`)
+  try_normalize_generic_arg_after_erasing_regions: { Key: PseudoCanonicalInput<GenericArg>; KeyArg: PseudoCanonicalInput<GenericArg>; LocalKey: PseudoCanonicalInput<GenericArg>; Value: Result<GenericArg, unknown>; ProvidedValue: Result<GenericArg, unknown> };
   // PORT: value `Result<&'tcx Canonical<'tcx, canonical::QueryResponse<'tcx, Vec<OutlivesBound<'tcx>>>>, NoSolution,>` not ported (`unknown`)
   implied_outlives_bounds: { Key: [CanonicalImpliedOutlivesBoundsGoal, boolean]; KeyArg: [CanonicalImpliedOutlivesBoundsGoal, boolean]; LocalKey: [CanonicalImpliedOutlivesBoundsGoal, boolean]; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
   // PORT: value `Result<&'tcx Canonical<'tcx, canonical::QueryResponse<'tcx, MirBorrowckImpliedOutlivesBounds<'tcx>>>, NoSolution,>` not ported (`unknown`)
@@ -4817,7 +4818,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     no_hash: false,
     separate_provide_extern: false,
     returns_error_guaranteed: false,
-    desc: () => unported("desc of query `codegen_select_candidate` (Display of `rustc_middle::ty::TraitRef`)"),
+    desc: (_tcx, key) => { const __0 = key.value; return `computing candidate for \`${display_TraitRef(__0)}\``; },
     debug_value: undefined,
     stable_hash_value: undefined,
   },
@@ -5267,7 +5268,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     no_hash: false,
     separate_provide_extern: false,
     returns_error_guaranteed: false,
-    desc: () => unported("desc of query `fn_abi_of_fn_ptr` (Display of `rustc_middle::ty::PolyFnSig`)"),
+    desc: (_tcx, key) => { const __0 = key.value[0]; return `computing call ABI of \`${display_PolyFnSig(__0)}\` function pointers`; },
     debug_value: undefined,
     stable_hash_value: undefined,
   },
@@ -6006,8 +6007,8 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: false,
     returns_error_guaranteed: false,
     desc: (_tcx, _def_id) => `getting delegation user-specified args`,
-    debug_value: undefined,
-    stable_hash_value: undefined,
+    debug_value: (v, f) => debug_tuple(f, "", [debug_vec(v[0], f, (x, f) => debug_GenericArg(x, f)), debug_vec(v[1], f, (x, f) => debug_GenericArg(x, f))]),
+    stable_hash_value: (v, hcx, h) => stable_hash_tuple2(v, hcx, h, (v, hcx, h) => stable_hash_slice(v, hcx, h, stable_hash_GenericArg), (v, hcx, h) => stable_hash_slice(v, hcx, h, stable_hash_GenericArg)),
   },
   resolve_bound_vars: {
     name: "resolve_bound_vars",
@@ -6923,7 +6924,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     no_hash: false,
     separate_provide_extern: false,
     returns_error_guaranteed: false,
-    desc: () => unported("desc of query `normalize_canonicalized_projection` (field `.canonical`)"),
+    desc: (_tcx, goal) => { const __0 = goal.canonical.value.value; return `normalizing \`${display_AliasTerm(__0)}\``; },
     debug_value: undefined,
     stable_hash_value: undefined,
   },
@@ -6941,7 +6942,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     no_hash: false,
     separate_provide_extern: false,
     returns_error_guaranteed: false,
-    desc: () => unported("desc of query `normalize_canonicalized_free_alias` (field `.canonical`)"),
+    desc: (_tcx, goal) => { const __0 = goal.canonical.value.value; return `normalizing \`${display_AliasTerm(__0)}\``; },
     debug_value: undefined,
     stable_hash_value: undefined,
   },
@@ -6959,7 +6960,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     no_hash: false,
     separate_provide_extern: false,
     returns_error_guaranteed: false,
-    desc: () => unported("desc of query `normalize_canonicalized_inherent_projection` (field `.canonical`)"),
+    desc: (_tcx, goal) => { const __0 = goal.canonical.value.value; return `normalizing \`${display_AliasTerm(__0)}\``; },
     debug_value: undefined,
     stable_hash_value: undefined,
   },
@@ -6977,7 +6978,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     no_hash: false,
     separate_provide_extern: false,
     returns_error_guaranteed: false,
-    desc: () => unported("desc of query `try_normalize_generic_arg_after_erasing_regions` (Display of `rustc_middle::ty::GenericArg`)"),
+    desc: (_tcx, goal) => { const __0 = goal.value; return `normalizing \`${display_GenericArg(__0)}\``; },
     debug_value: undefined,
     stable_hash_value: undefined,
   },
@@ -6995,7 +6996,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     no_hash: false,
     separate_provide_extern: false,
     returns_error_guaranteed: false,
-    desc: () => unported("desc of query `implied_outlives_bounds` (field `.canonical`)"),
+    desc: (_tcx, key) => { const __0 = key[0].canonical.value.value.ty; const __1 = key[1]; return `computing implied outlives bounds for \`${display_Ty(__0)}\` (hack disabled = ${debug_bool(__1, PLAIN)})`; },
     debug_value: undefined,
     stable_hash_value: undefined,
   },
@@ -7031,7 +7032,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     no_hash: false,
     separate_provide_extern: false,
     returns_error_guaranteed: false,
-    desc: () => unported("desc of query `dropck_outlives` (field `.canonical`)"),
+    desc: (_tcx, goal) => { const __0 = goal.canonical.value.value.dropped_ty; return `computing dropck types for \`${display_Ty(__0)}\``; },
     debug_value: undefined,
     stable_hash_value: undefined,
   },
@@ -7067,7 +7068,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     no_hash: false,
     separate_provide_extern: false,
     returns_error_guaranteed: false,
-    desc: () => unported("desc of query `type_op_ascribe_user_type` (field `.canonical`)"),
+    desc: () => unported("desc of query `type_op_ascribe_user_type` (Debug of `rustc_middle::traits::query::type_op::AscribeUserType`)"),
     debug_value: undefined,
     stable_hash_value: undefined,
   },
@@ -7085,7 +7086,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     no_hash: false,
     separate_provide_extern: false,
     returns_error_guaranteed: false,
-    desc: () => unported("desc of query `type_op_prove_predicate` (field `.canonical`)"),
+    desc: () => unported("desc of query `type_op_prove_predicate` (Debug of `rustc_middle::traits::query::type_op::ProvePredicate`)"),
     debug_value: undefined,
     stable_hash_value: undefined,
   },
@@ -7103,7 +7104,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     no_hash: false,
     separate_provide_extern: false,
     returns_error_guaranteed: false,
-    desc: () => unported("desc of query `type_op_normalize_ty` (field `.canonical`)"),
+    desc: (_tcx, goal) => { const __0 = Unnormalized.skip_normalization(goal.canonical.value.value.value); return `normalizing \`${display_Ty(__0)}\``; },
     debug_value: undefined,
     stable_hash_value: undefined,
   },
@@ -7121,7 +7122,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     no_hash: false,
     separate_provide_extern: false,
     returns_error_guaranteed: false,
-    desc: () => unported("desc of query `type_op_normalize_clause` (field `.canonical`)"),
+    desc: (_tcx, goal) => { const __0 = Unnormalized.skip_normalization(goal.canonical.value.value.value); return `normalizing \`${debug_Clause(__0, PLAIN)}\``; },
     debug_value: undefined,
     stable_hash_value: undefined,
   },
@@ -7139,7 +7140,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     no_hash: false,
     separate_provide_extern: false,
     returns_error_guaranteed: false,
-    desc: () => unported("desc of query `type_op_normalize_poly_fn_sig` (field `.canonical`)"),
+    desc: () => unported("desc of query `type_op_normalize_poly_fn_sig` (Debug of `rustc_middle::ty::PolyFnSig`)"),
     debug_value: undefined,
     stable_hash_value: undefined,
   },
@@ -7157,7 +7158,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     no_hash: false,
     separate_provide_extern: false,
     returns_error_guaranteed: false,
-    desc: () => unported("desc of query `type_op_normalize_fn_sig` (field `.canonical`)"),
+    desc: () => unported("desc of query `type_op_normalize_fn_sig` (Debug of `rustc_middle::ty::FnSig`)"),
     debug_value: undefined,
     stable_hash_value: undefined,
   },
@@ -7211,7 +7212,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     no_hash: false,
     separate_provide_extern: false,
     returns_error_guaranteed: false,
-    desc: () => unported("desc of query `method_autoderef_steps` (field `.canonical`)"),
+    desc: (_tcx, goal) => { const __0 = goal.canonical.value.value.self_ty; return `computing autoderef types for \`${display_Ty(__0)}\``; },
     debug_value: (v, f) => debug_MethodAutoderefStepsResult(v, f),
     stable_hash_value: undefined,
   },

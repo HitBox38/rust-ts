@@ -414,8 +414,9 @@ interface Config {
   fns: Record<string, { ts: string; module: string; ret: string }>;
   consts: Record<string, { ts: string; module: string; ty: string }>;
   structs: Record<string, { params: string[]; alias?: string; fields?: Record<string, string> }>;
-  rust_methods: Record<string, Record<string, { ts: string; ret: string }>>;
+  rust_methods: Record<string, Record<string, { ts: string; ret: string; params?: string[]; imports?: Record<string, string[]> }>>;
   tagged_enums: string[];
+  types?: TypeMapEntry[];
 }
 
 /** A generated type found through a `// rustc-type:` marker. */
@@ -866,6 +867,30 @@ function parseFormat(fmt: string): ({ lit: string } | { arg: string; spec: "" | 
 
 const tsTemplate = (s: string): string => s.replaceAll("\\", "\\\\").replaceAll("`", "\\`").replaceAll("${", "\\${");
 
+function parseRust(rust: string): RType {
+  const toks = lex(rust);
+  return parseType(new Cursor(toks, 0, toks.length));
+}
+
+/** `r` with the type parameters `params` (single-segment paths) replaced by `args`. */
+function substParams(params: string[], args: RType[], r: RType): RType {
+  switch (r.k) {
+    case "path": {
+      const i = !r.global && r.segs.length === 1 && r.segs[0]!.args.length === 0 ? params.indexOf(r.segs[0]!.name) : -1;
+      if (i >= 0) return args[i]!;
+      return { ...r, segs: r.segs.map((g) => ({ name: g.name, args: g.args.map((a) => substParams(params, args, a)) })) };
+    }
+    case "ref":
+    case "slice":
+    case "array":
+      return { ...r, elem: substParams(params, args, r.elem) };
+    case "tuple":
+      return { k: "tuple", elems: r.elems.map((e) => substParams(params, args, e)) };
+    case "never":
+      return r;
+  }
+}
+
 class DescTranslator {
   constructor(
     readonly mapper: TypeMapper,
@@ -974,11 +999,16 @@ class DescTranslator {
         if (rty.k === "rust") {
           const t = rty.t.k === "ref" ? rty.t.elem : rty.t;
           const m = t.k === "path" ? this.cfg.rust_methods[this.mapper.resolve(t.segs.map((s) => s.name), t.global)]?.[e.name] : undefined;
-          if (m === undefined) return unsupported(`method \`.${e.name}()\` on a non-tcx receiver`);
+          if (m === undefined || t.k !== "path") return unsupported(`method \`.${e.name}()\` on a non-tcx receiver`);
+          for (const [mod, names] of Object.entries(m.imports ?? {})) for (const n of names) this.imports.add(mod, n);
           let out = m.ts.replaceAll("$v", recv);
           const args = e.args.map((a) => this.expr(a, env)[0]);
           for (let i = args.length - 1; i >= 0; i--) out = out.replaceAll(`$${i}`, args[i]!);
-          return [out, this.retTy(m.ret)];
+          if (m.ret === "String" || m.ret === "str") return [out, { k: "string" }];
+          const targs = t.segs[t.segs.length - 1]!.args;
+          const params = m.params ?? [];
+          if (targs.length !== params.length) return unsupported(`method \`.${e.name}()\` of a receiver with ${targs.length} type arguments`);
+          return [out, { k: "rust", t: substParams(params, targs, parseRust(m.ret)) }];
         }
         if (rty.k !== "tcx") return unsupported(`method \`.${e.name}()\` on a non-tcx receiver`);
         const args = e.args.map((a) => this.expr(a, env)[0]);
@@ -1042,33 +1072,12 @@ class DescTranslator {
       if (s === undefined) return undefined;
       const args = t.segs[t.segs.length - 1]!.args;
       if (args.length !== s.params.length) return unsupported(`\`${path}\` with ${args.length} type arguments`);
-      const subst = (r: RType): RType => {
-        switch (r.k) {
-          case "path": {
-            const i = !r.global && r.segs.length === 1 && r.segs[0]!.args.length === 0 ? s.params.indexOf(r.segs[0]!.name) : -1;
-            if (i >= 0) return args[i]!;
-            return { ...r, segs: r.segs.map((g) => ({ name: g.name, args: g.args.map(subst) })) };
-          }
-          case "ref":
-          case "slice":
-          case "array":
-            return { ...r, elem: subst(r.elem) };
-          case "tuple":
-            return { k: "tuple", elems: r.elems.map(subst) };
-          case "never":
-            return r;
-        }
-      };
-      const parse = (rust: string): RType => {
-        const toks = lex(rust);
-        return parseType(new Cursor(toks, 0, toks.length));
-      };
       if (s.alias !== undefined) {
-        t = subst(parse(s.alias));
+        t = substParams(s.params, args, parseRust(s.alias));
         continue;
       }
       const f = s.fields?.[name];
-      return f === undefined ? undefined : subst(parse(f));
+      return f === undefined ? undefined : substParams(s.params, args, parseRust(f));
     }
   }
 
@@ -1110,7 +1119,9 @@ export function generate(src: string, macros: string, queryApi: string, srcRoot 
   const { queries, nonQueries, scope } = parseQueries(src);
   const report: Report = { unknown_types: {}, unported_desc: {}, unported_keys: {}, missing_debug: {}, missing_stable_hash: {} };
   const imports = new Imports();
-  const mapper = new TypeMapper(loadTypeMap(), genTypeIndex(srcRoot), cfg, scope, imports, report);
+  const tm = loadTypeMap();
+  tm.types.unshift(...(cfg.types ?? []));
+  const mapper = new TypeMapper(tm, genTypeIndex(srcRoot), cfg, scope, imports, report);
   const byName = new Map(queries.map((q) => [q.name, q]));
   const desc = new DescTranslator(mapper, cfg, byName, imports);
   const OUT = OUT_PATH;

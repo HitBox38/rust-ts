@@ -107,7 +107,13 @@ test.skipIf(SKIP)("golden: desc fields of structs and type aliases, methods on n
     query crate_name(_: CrateNum) -> Symbol { desc { "crate name" } }
     query x(key: ty::PseudoCanonicalInput<'tcx, ty::Ty<'tcx>>) -> Symbol { desc { "{}", key.typing_env } }
     query y(key: ty::PseudoCanonicalInput<'tcx, ty::Ty<'tcx>>) -> Symbol { desc { "{}", key.value.kind() } }
+    query n(goal: crate::traits::query::CanonicalTypeOpNormalizeGoal<'tcx, ty::Ty<'tcx>>) -> Symbol {
+        desc { "normalizing \`{}\`", goal.canonical.value.value.value.skip_normalization() }
+    }
   `);
+  expect(t).toContain(
+    "    desc: (_tcx, goal) => { const __0 = Unnormalized.skip_normalization(goal.canonical.value.value.value); return `normalizing \\`${display_Ty(__0)}\\``; },",
+  );
   expect(t).toContain("    desc: (_tcx, key) => { const __0 = key.value; return `computing layout of \\`${display_Ty(__0)}\\``; },");
   expect(t).toContain("    desc: (tcx, key) => { const __0 = key.value.display(tcx); return `simplifying constant for the type system \\`${__0}\\``; },");
   expect(t).toContain(
