@@ -1821,8 +1821,8 @@ function cmp_lo_hi(a: Span, b: Span): number {
   const [blo, bhi] = Span.lo_hi(b);
   return alo !== blo ? alo - blo : ahi - bhi;
 }
-// PORT: `size_of::<Span>()` is 8 and `Span: Freeze` (the `SortLayout` of std/slice_sort.ts).
-const LAYOUT_Span: SortLayout = { size_of: 8, freeze: true };
+// PORT: `size_of::<Span>()` is 8, `Span: Freeze` and `Span: Copy` (the `SortLayout` of std/slice_sort.ts).
+const LAYOUT_Span: SortLayout = { size_of: 8, freeze: true, copy: true };
 
 /** `spans.dedup_by_key(|span| span.lo_hi())`: keeps the first of each run of consecutive equal keys. */
 function dedup_by_key_lo_hi(spans: Span[]): void {

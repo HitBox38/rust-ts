@@ -29,8 +29,10 @@ import { PassCtx, should_run_pass } from "./pass_manager.ts";
 
 /** PORT: `crate::inline` (see the header). */
 function inline_(): typeof import("./inline.ts") {
-  return require("./inline.ts") as typeof import("./inline.ts");
+  return (inline__cache ??= require("./inline.ts") as typeof import("./inline.ts"));
 }
+// PORT: cached (`require` per call was ~30% of CTFE time); `var` is hoisted, as cycles may call this early.
+var inline__cache: typeof import("./inline.ts") | undefined;
 
 // rustc: compiler/rustc_mir_transform/src/cross_crate_inline.rs:14 provide
 export function provide(providers: Providers["queries"]): void {

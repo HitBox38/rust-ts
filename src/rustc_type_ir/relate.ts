@@ -24,8 +24,7 @@ import { Mutability } from "../rustc_ast_ir/lib.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import type { AdtDef, BoundExistentialPredicates, Pattern } from "../rustc_middle/ty/decls.ts";
 import { Value as ValueC } from "../rustc_middle/ty/consts/valtree.ts";
-import type { Expr } from "../rustc_middle/ty/consts/kind.ts";
-import { fold_with_Expr, try_fold_with_Expr, visit_with_Expr } from "../rustc_middle/ty/consts/kind.ts";
+import { Expr, fold_with_Expr, try_fold_with_Expr, visit_with_Expr } from "../rustc_middle/ty/consts/kind.ts";
 import { debug_GenericArg, fold_GenericArg, fold_GenericArgs, GenericArg, type GenericArgs } from "../rustc_middle/ty/generic_args.ts";
 import { bug } from "../rustc_span/macros.ts";
 import { fold_Term, fold_with_Ty, Term, try_fold_with_Ty, Ty, visit_with_Ty } from "../rustc_middle/ty/mod.ts";
@@ -286,14 +285,34 @@ export const relate_BoundExistentialPredicates: Relate<BoundExistentialPredicate
   },
 };
 
-/** PORT: stand-in for `impl Relate for ty::Expr` (rustc_middle ty/relate.rs:102). */
+/** `impl Relate for ty::Expr` (rustc_middle ty/relate.rs:101), kept beside the other rustc_middle stand-ins of this
+ *  module. */
 export const relate_Expr: Relate<Expr> = {
   visit_with: visit_with_Expr,
   try_fold_with: try_fold_with_Expr,
   fold_with: fold_with_Expr,
   eq: eq_by_key,
-  relate(_relation, _a, _b) {
-    return unported("rustc_middle::ty::relate: Relate for ty::Expr");
+  // rustc: compiler/rustc_middle/src/ty/relate.rs:102 relate
+  relate(relation, ae, be) {
+    // FIXME(generic_const_exprs): is it possible to relate two consts which are not identical
+    // exprs? Should we care about that?
+    // FIXME(generic_const_exprs): relating the `ty()`s is a little weird since it is supposed to
+    // ICE If they mismatch. Unfortunately `ConstKind::Expr` is a little special and can be thought
+    // of as being generic over the argument types, however this is implicit so these types don't get
+    // related when we relate the args of the item this const arg is for.
+    const ak = ae.kind;
+    const bk = be.kind;
+    if (ak.$ === "Binop" && bk.$ === "Binop" && ak._0 === bk._0) {
+    } else if (ak.$ === "UnOp" && bk.$ === "UnOp" && ak._0 === bk._0) {
+    } else if (ak.$ === "FunctionCall" && bk.$ === "FunctionCall") {
+    } else if (ak.$ === "Cast" && bk.$ === "Cast" && ak._0 === bk._0) {
+    } else {
+      return Err(TypeError.Mismatch);
+    }
+
+    const args = relation.relate(Expr.args(ae), Expr.args(be), relate_GenericArgs);
+    if (args.$ === "Err") return args;
+    return Ok(Expr.new(ae.kind, args._0));
   },
 };
 
@@ -932,8 +951,8 @@ export function structurally_relate_consts(relation: TypeRelation, a: Const, b: 
 export function relate_Binder<T>(d: Relate<T>): Relate<Binder<T>> {
   return {
     visit_with: (self, visitor) => visit_with_Binder(self, visitor, d.visit_with),
-    try_fold_with: (self, folder) => try_fold_with_Binder(self, folder, d.try_fold_with),
-    fold_with: (self, folder) => fold_with_Binder(self, folder, d.fold_with),
+    try_fold_with: (self, folder) => try_fold_with_Binder(self, folder, d.try_fold_with, d.visit_with),
+    fold_with: (self, folder) => fold_with_Binder(self, folder, d.fold_with, d.visit_with),
     // PORT: derived `PartialEq` of `Binder` (binder.rs): the value by `T`'s `eq`, the interned `bound_vars` by pointer.
     eq: (a, b) => d.eq(a.value, b.value) && a.bound_vars === b.bound_vars,
     // rustc: compiler/rustc_type_ir/src/relate.rs:631 relate

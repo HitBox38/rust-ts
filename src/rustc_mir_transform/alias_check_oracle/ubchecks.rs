@@ -28,3 +28,12 @@ pub enum E { A(u8), B { x: u16 } }
 pub fn ctors() -> (fn(u32) -> D, fn(u8) -> E) { (D, E::A) }
 pub fn mk(x: u16) -> E { E::B { x } }
 pub fn drops(v: Vec<D>, d: D) -> usize { let n = v.len(); drop(d); n }
+
+// Subtyper (lane mir-tail-30): a higher-ranked fn pointer assigned at a less general type gets a temp and a
+// `Subtype` cast; the temp's place sat both in the new assignment and in the cast's operand.
+pub struct Foo<'a>(pub &'a ());
+pub fn subtype(f: for<'a, 'b> fn(Foo<'a>, &'b ())) -> for<'a, 'b> fn(Foo<'a>, &'b ()) {
+    let g: for<'a> fn(Foo<'a>, &'a ()) = f;
+    let h: for<'a, 'b> fn(Foo<'a>, &'b ()) = g;
+    h
+}

@@ -243,19 +243,21 @@ export function visit_Binder<T>(d: TypeVisitable<T>): TypeSuperVisitable<Binder<
 
 // PORT (merge-w13): the impls of `fold_Binder` as tools/codegen's generated code calls them (type_fold.json shape:
 // one impl fn of `T`). The folder / visitor methods take `T`'s whole descriptor; the parts not passed by the caller
-// stop as UNPORTED if a folder / visitor reaches them (D4 gap, see the handoff: the generator should pass descriptors).
+// stop as UNPORTED if a folder / visitor reaches them (D4 gap). A folder's `fold_binder` may visit the bound value
+// (`anonymize_bound_vars` of erase_regions), so the fold impls also take `T`'s visit impl (type_fold.json
+// `fold_also_visit` / `$v0`, lane gaps-30a); callers with a type parameter `T` cannot pass it and omit it.
 export function visit_with_Binder<T, R>(self: Binder<T>, visitor: TypeVisitor<R>, visit_with_T: VisitWith<T>): R {
   return fold_Binder(partial_descriptor<T>({ visit_with: visit_with_T })).visit_with(self, visitor);
 }
-export function try_fold_with_Binder<T, E>(self: Binder<T>, folder: FallibleTypeFolder<E>, try_fold_with_T: TryFoldWith<T>): Result<Binder<T>, E> {
-  return fold_Binder(partial_descriptor<T>({ try_fold_with: try_fold_with_T })).try_fold_with(self, folder);
+export function try_fold_with_Binder<T, E>(self: Binder<T>, folder: FallibleTypeFolder<E>, try_fold_with_T: TryFoldWith<T>, visit_with_T?: VisitWith<T>): Result<Binder<T>, E> {
+  return fold_Binder(partial_descriptor<T>({ try_fold_with: try_fold_with_T, visit_with: visit_with_T })).try_fold_with(self, folder);
 }
-export function fold_with_Binder<T>(self: Binder<T>, folder: TypeFolder, fold_with_T: FoldWith<T>): Binder<T> {
-  return fold_Binder(partial_descriptor<T>({ fold_with: fold_with_T })).fold_with(self, folder);
+export function fold_with_Binder<T>(self: Binder<T>, folder: TypeFolder, fold_with_T: FoldWith<T>, visit_with_T?: VisitWith<T>): Binder<T> {
+  return fold_Binder(partial_descriptor<T>({ fold_with: fold_with_T, visit_with: visit_with_T })).fold_with(self, folder);
 }
 
 /** PORT: a `TypeFoldable<T>` from the impl fns a generated caller has; the missing ones call `unported`. */
-function partial_descriptor<T>(fns: Partial<TypeFoldable<T>>): TypeFoldable<T> {
+function partial_descriptor<T>(fns: { [K in keyof TypeFoldable<T>]?: TypeFoldable<T>[K] | undefined }): TypeFoldable<T> {
   return {
     visit_with: fns.visit_with ?? (() => unported("rustc_type_ir::binder: TypeVisitable::visit_with of a Binder's value (generated caller passed no visit impl)")),
     try_fold_with: fns.try_fold_with ?? (() => unported("rustc_type_ir::binder: TypeFoldable::try_fold_with of a Binder's value (generated caller passed no try_fold impl)")),

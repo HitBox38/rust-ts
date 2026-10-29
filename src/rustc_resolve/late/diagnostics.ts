@@ -881,7 +881,7 @@ LateResolutionVisitor.prototype.suggest_named_format_argument = function (this: 
   // Local diagnostic items are not available before HIR lowering.
   const source_macro: Symbol | undefined =
     macro_def_id !== undefined && !macro_def_id.is_local()
-      ? unported("rustc_middle::ty::TyCtxt::get_diagnostic_name (diagnostic items of extern crates, wave 11)")
+      ? this.r.tcx_.get_diagnostic_name(macro_def_id)
       : undefined;
   if (
     source_macro !== undefined &&

@@ -309,7 +309,7 @@ export function visit_with_VerifyBound<R>(self: VerifyBound, __visitor: TypeVisi
 export function try_fold_with_VerifyBound<E>(self: VerifyBound, __folder: FallibleTypeFolder<E>): Result<VerifyBound, E> {
   switch (self.$) {
     case "IfEq": {
-      const __0 = try_fold_with_Binder<VerifyIfEq, E>(self._0, __folder, try_fold_with_VerifyIfEq);
+      const __0 = try_fold_with_Binder<VerifyIfEq, E>(self._0, __folder, try_fold_with_VerifyIfEq, visit_with_VerifyIfEq);
       if (__0.$ === "Err") return __0;
       return Ok({ $: "IfEq" as const, _0: __0._0 });
     }
@@ -336,7 +336,7 @@ export function try_fold_with_VerifyBound<E>(self: VerifyBound, __folder: Fallib
 export function fold_with_VerifyBound(self: VerifyBound, __folder: TypeFolder): VerifyBound {
   switch (self.$) {
     case "IfEq": {
-      return { $: "IfEq" as const, _0: fold_with_Binder<VerifyIfEq>(self._0, __folder, fold_with_VerifyIfEq) };
+      return { $: "IfEq" as const, _0: fold_with_Binder<VerifyIfEq>(self._0, __folder, fold_with_VerifyIfEq, visit_with_VerifyIfEq) };
     }
     case "OutlivedBy": {
       return { $: "OutlivedBy" as const, _0: fold_with_Region(self._0, __folder) };

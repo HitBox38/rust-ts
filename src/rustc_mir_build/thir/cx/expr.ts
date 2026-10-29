@@ -41,7 +41,7 @@ import { type Adjustment, OverloadedDeref } from "../../../rustc_middle/ty/adjus
 import type { AutoBorrowMutability } from "../../../rustc_middle/ty/adjustment.gen.ts";
 import { ScalarInt } from "../../../rustc_middle/ty/consts/int.ts";
 import type { AdtDef, FieldIdx, HirPlace, VariantIdx } from "../../../rustc_middle/ty/decls.ts";
-import { type AssignOp, BinOp, type BorrowKind, type FakeReadCause, type MutBorrowKind, UnOp } from "../../../rustc_middle/mir/mod.ts";
+import { type AssignOp, BinOp, type BorrowKind, type Const as MirConst, type FakeReadCause, type MutBorrowKind, UnOp, UnevaluatedConst } from "../../../rustc_middle/mir/mod.ts";
 import type { CanonicalUserType } from "../../../rustc_middle/ty/typeck_results.ts";
 import { fold_GenericArgs } from "../../../rustc_middle/ty/generic_args.ts";
 import { RawList } from "../../../rustc_middle/ty/list.ts";
@@ -67,7 +67,7 @@ import { EarlyBinder } from "../../../rustc_type_ir/binder.ts";
 import { Unnormalized } from "../../../rustc_type_ir/unnormalized.ts";
 import { SplattedDef } from "../../../rustc_middle/ty/typeck_results.ts";
 import { debug_int, debug_struct, debug_vec, type Fmt, PLAIN } from "../../../std/fmt.ts";
-import { assert, assert_matches, panic, unported } from "../../../std/panic.ts";
+import { assert, assert_matches, panic } from "../../../std/panic.ts";
 import { push_idx, ThirBuildCx } from "./mod.ts";
 
 // ---- PORT stand-ins for pending upstream types (see the module comment; not markers) -------------------------------
@@ -1016,10 +1016,10 @@ ThirBuildCx.prototype.make_mirror_unadjusted = function (this: ThirBuildCx, expr
             const parent_args = tcx.erase_and_anonymize_regions(RawList.identity_for_item(tcx, LocalDefId.to_def_id(typeck_root_def_id)), fold_GenericArgs);
             const args = InlineConstArgs.new(tcx, { parent_args, ty }).args;
 
-            void args;
-            // `let uneval = mir::UnevaluatedConst::new(did.to_def_id(), args);`
-            // `let value = mir::Const::Unevaluated(uneval, ty);`
-            return unported("rustc_middle::mir::Const::Unevaluated (mir/consts.rs not ported): asm `const` operand");
+            const uneval = UnevaluatedConst.new(LocalDefId.to_def_id(did), args);
+            const value: MirConst = { $: "Unevaluated", _0: uneval, _1: ty };
+            o = { $: "Const", value, span: tcx.def_span(did) };
+            break;
           }
           case "SymFn":
             o = { $: "SymFn", value: this.mirror_expr(op.expr) };

@@ -1029,5 +1029,7 @@ export abstract class compile_time_machine extends Machine_provided {
 /** Lazy operand.ts (the `Immediate` companion): this module value-imports no interpret hand module, because the CTFE
  * machine classes extend `compile_time_machine` at load (eval_context.ts header: init order). */
 function operand_mod(): typeof import("./operand.ts") {
-  return require("./operand.ts") as typeof import("./operand.ts");
+  return (operand_mod_cache ??= require("./operand.ts") as typeof import("./operand.ts"));
 }
+// PORT: cached (`require` per call was ~30% of CTFE time); `var` is hoisted, as cycles may call this early.
+var operand_mod_cache: typeof import("./operand.ts") | undefined;

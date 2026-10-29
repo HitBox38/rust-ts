@@ -90,7 +90,7 @@ export function try_fold_with_LeafRegionConstraint<S, E>(self: LeafRegionConstra
       return Ok({ $: "RegionOutlives" as const, _0: __0._0, _1: __1._0, _2: __2._0 });
     }
     case "AliasTyOutlivesViaEnv": {
-      const __0 = try_fold_with_Binder<[AliasTy, Region], E>(self._0, __folder, <E>(__v: [AliasTy, Region], __folder: FallibleTypeFolder<E>): Result<[AliasTy, Region], E> => try_fold_with_tuple2<AliasTy, Region, E>(__v, __folder, <E>(__v: AliasTy, __folder: FallibleTypeFolder<E>): Result<AliasTy, E> => try_fold_with_Alias<AliasTyKind, E>(__v, __folder, try_fold_with_AliasTyKind), try_fold_with_Region));
+      const __0 = try_fold_with_Binder<[AliasTy, Region], E>(self._0, __folder, <E>(__v: [AliasTy, Region], __folder: FallibleTypeFolder<E>): Result<[AliasTy, Region], E> => try_fold_with_tuple2<AliasTy, Region, E>(__v, __folder, <E>(__v: AliasTy, __folder: FallibleTypeFolder<E>): Result<AliasTy, E> => try_fold_with_Alias<AliasTyKind, E>(__v, __folder, try_fold_with_AliasTyKind), try_fold_with_Region), <R>(__v: [AliasTy, Region], __visitor: TypeVisitor<R>): R => visit_with_tuple2<AliasTy, Region, R>(__v, __visitor, <R>(__v: AliasTy, __visitor: TypeVisitor<R>): R => visit_with_Alias<AliasTyKind, R>(__v, __visitor, visit_with_AliasTyKind), visit_with_Region));
       if (__0.$ === "Err") return __0;
       const __1 = try_fold_with_S(self._1, __folder);
       if (__1.$ === "Err") return __1;
@@ -117,7 +117,7 @@ export function fold_with_LeafRegionConstraint<S>(self: LeafRegionConstraint<S>,
       return { $: "RegionOutlives" as const, _0: fold_with_Region(self._0, __folder), _1: fold_with_Region(self._1, __folder), _2: fold_with_S(self._2, __folder) };
     }
     case "AliasTyOutlivesViaEnv": {
-      return { $: "AliasTyOutlivesViaEnv" as const, _0: fold_with_Binder<[AliasTy, Region]>(self._0, __folder, (__v: [AliasTy, Region], __folder: TypeFolder): [AliasTy, Region] => fold_with_tuple2<AliasTy, Region>(__v, __folder, (__v: AliasTy, __folder: TypeFolder): AliasTy => fold_with_Alias<AliasTyKind>(__v, __folder, fold_with_AliasTyKind), fold_with_Region)), _1: fold_with_S(self._1, __folder) };
+      return { $: "AliasTyOutlivesViaEnv" as const, _0: fold_with_Binder<[AliasTy, Region]>(self._0, __folder, (__v: [AliasTy, Region], __folder: TypeFolder): [AliasTy, Region] => fold_with_tuple2<AliasTy, Region>(__v, __folder, (__v: AliasTy, __folder: TypeFolder): AliasTy => fold_with_Alias<AliasTyKind>(__v, __folder, fold_with_AliasTyKind), fold_with_Region), <R>(__v: [AliasTy, Region], __visitor: TypeVisitor<R>): R => visit_with_tuple2<AliasTy, Region, R>(__v, __visitor, <R>(__v: AliasTy, __visitor: TypeVisitor<R>): R => visit_with_Alias<AliasTyKind, R>(__v, __visitor, visit_with_AliasTyKind), visit_with_Region)), _1: fold_with_S(self._1, __folder) };
     }
     case "PlaceholderTyOutlives": {
       return { $: "PlaceholderTyOutlives" as const, _0: fold_with_Ty(self._0, __folder), _1: fold_with_Region(self._1, __folder), _2: fold_with_S(self._2, __folder) };

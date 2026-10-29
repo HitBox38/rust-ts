@@ -1,7 +1,7 @@
 // Partial port of compiler/rustc_interface/src/passes.rs: `parse`, expansion and resolution
 // (`configure_and_expand`, `resolver_for_lowering_raw`, `early_lint_checks`), dep-info output
-// (`write_dep_info`), `create_and_enter_global_ctxt` with its helpers, `run_required_analyses` and `analysis`.
-// Codegen (`start_codegen`) is unported.
+// (`write_dep_info`), `create_and_enter_global_ctxt` with its helpers, `run_required_analyses`, `analysis` and
+// `start_codegen` (metadata-only, plan-m5 D5: codegen itself is the backend's, unported).
 //
 // PORT: the crates that the path calls into and that other lanes are porting are reached through local
 // shims below ("Pending-lane shims"), named and typed as upstream, whose bodies call `unported` with the
@@ -42,6 +42,9 @@ import type { Features } from "../rustc_feature/unstable.ts";
 import { Definitions } from "../rustc_hir_id/definitions.ts";
 import type { LintId, RegisteredTools } from "../rustc_lint_defs/lib.ts";
 import * as rustc_codegen_ssa from "../rustc_codegen_ssa/lib.ts";
+import { CompiledModules, type CrateInfo } from "../rustc_codegen_ssa/lib.ts";
+import { CrateInfo_new } from "../rustc_codegen_ssa/base.ts";
+import type { CodegenBackend, EncodedMetadata } from "./stand_ins.ts";
 import * as rustc_lint from "../rustc_lint/lib.ts";
 import * as rustc_ty_utils from "../rustc_ty_utils/lib.ts";
 import * as rustc_privacy from "../rustc_privacy/lib.ts";
@@ -60,7 +63,9 @@ import * as rustc_hir_typeck from "../rustc_hir_typeck/lib.ts";
 import * as rustc_trait_selection from "../rustc_trait_selection/lib.ts";
 import type { ResolverAstLowering, ResolverGlobalCtxt } from "../rustc_middle/middle/resolve.ts";
 import { type GlobalCtxt, TyCtxt } from "../rustc_middle/ty/context.ts";
-import { provide as ty_provide, type Ty, TypingEnv } from "../rustc_middle/ty/mod.ts";
+import { HasAttrs_DefId, provide as ty_provide, type Ty, TypingEnv } from "../rustc_middle/ty/mod.ts";
+import { find_attr } from "../rustc_attr_ir/lib.ts";
+import type { Result } from "../std/result.ts";
 import { clone_ExternProviders, clone_Providers, ExternProviders_default, Providers_default } from "../rustc_middle/query/query_api.ts";
 import { type Providers as QueryProviders, QUERY_DECLS, QUERY_NAMES } from "../rustc_middle/queries.gen.ts";
 import type { Providers as MiddleProviders } from "../rustc_middle/util/mod.ts";
@@ -78,7 +83,7 @@ import { feature_err } from "../rustc_session/diagnostics.ts";
 import { filename_for_input, invalid_output_for_target, validate_crate_name } from "../rustc_session/output.ts";
 import { LOCAL_CRATE, LocalDefId, StableCrateId, type StableCrateIdMap } from "../rustc_span/def_id.ts";
 import { FatalErrorMarker } from "../rustc_span/fatal_error.ts";
-import { DUMMY_SP, display_SourceFileHash, FileName, type SourceFileHash, type SourceFileHashAlgorithm, Span as SpanC, type Span } from "../rustc_span/lib.ts";
+import { DUMMY_SP, type ErrorGuaranteed, display_SourceFileHash, FileName, type SourceFileHash, type SourceFileHashAlgorithm, Span as SpanC, type Span } from "../rustc_span/lib.ts";
 import { utf8 } from "../std/str.ts";
 import { Symbol, sym } from "../rustc_span/symbol.ts";
 import { CrateType_discriminant, type CrateType } from "../rustc_structures/lib.ts";
@@ -1340,6 +1345,75 @@ function analysis(tcx: TyCtxt, _: null): null {
   return null;
 }
 
+/// Runs the codegen backend, after which the AST and analysis can
+/// be discarded.
+// rustc: compiler/rustc_interface/src/passes.rs:1295 start_codegen
+export function start_codegen(codegen_backend: CodegenBackend, tcx: TyCtxt): [unknown, CrateInfo, EncodedMetadata] {
+  tcx.sess.timings.start_section(tcx.sess.dcx(), "Codegen");
+
+  // Hook for tests.
+  const entry = tcx.entry_fn(null);
+  if (entry !== undefined) {
+    const [def_id] = entry;
+    if (find_attr(HasAttrs_DefId.get_attrs(def_id, tcx), (k) => (k.$ === "RustcDelayedBugFromInsideQuery" ? null : undefined)) !== undefined) {
+      tcx.ensure_ok().trigger_delayed_bug(def_id);
+    }
+  }
+
+  // Don't run this test assertions when not doing codegen. Compiletest tries to build
+  // build-fail tests in check mode first and expects it to not give an error in that case.
+  if (tcx.sess.opts.output_types.should_codegen()) {
+    rustc_symbol_mangling.test.dump_symbol_names_and_def_paths(tcx);
+  }
+
+  // Don't do code generation if there were any errors. Likewise if
+  // there were any delayed bugs, because codegen will likely cause
+  // more ICEs, obscuring the original problem.
+  const guar = tcx.sess.dcx().has_errors_or_delayed_bugs();
+  if (guar !== undefined) {
+    guar.raise_fatal();
+  }
+
+  // info!("Pre-codegen\n{:?}", tcx.debug_stats());
+
+  const r = rustc_metadata_fs_encode_and_write_metadata(tcx);
+  if (r.$ === "Err") {
+    return r._0.raise_fatal();
+  }
+  const metadata = r._0;
+
+  const is_host_metadata = tcx.sess.opts.unstable_opts.offload.some((o) => o.$ === "HostMetadata");
+
+  const codegen = tcx.sess.time("codegen_crate", (): unknown => {
+    if (tcx.sess.opts.unstable_opts.no_codegen || !tcx.sess.opts.output_types.should_codegen() || is_host_metadata) {
+      tcx.sess.dcx().abort_if_errors();
+
+      if (is_host_metadata) {
+        // rustc_monomorphize::write_host_metadata_offload_manifest(tcx);
+        return unported("rustc_monomorphize::write_host_metadata_offload_manifest (-Z offload=HostMetadata)");
+      }
+
+      // Linker::link will skip join_codegen in case of a `CompiledModules` Any value.
+      return new CompiledModules([], undefined);
+    } else {
+      return codegen_backend.codegen_crate(tcx);
+    }
+  });
+
+  // info!("Post-codegen\n{:?}", tcx.debug_stats());
+
+  // This must run after monomorphization so that all generic types
+  // have been instantiated.
+  if (tcx.sess.opts.unstable_opts.print_type_sizes) {
+    // tcx.sess.code_stats.print_type_sizes();
+    unported("rustc_session::code_stats::CodeStats::print_type_sizes (-Z print-type-sizes)");
+  }
+
+  const crate_info = CrateInfo_new(tcx, codegen_backend.target_cpu(tcx.sess));
+
+  return [codegen, crate_info, metadata];
+}
+
 /// Compute and validate the crate name.
 // rustc: compiler/rustc_interface/src/passes.rs:1368 get_crate_name
 export function get_crate_name(sess: Session, krate_attrs: readonly Attribute[]): Symbol {
@@ -1492,6 +1566,14 @@ function clone_MiddleProviders(p: MiddleProviders): MiddleProviders {
 // ---- Pending-lane shims ------------------------------------------------------------------------------------
 // Each is named and typed as upstream; its body calls `unported` with the upstream path and the lane that
 // ports it. Root replaces each by the import when the lane lands (handoff driver-m2).
+
+/**
+ * `rustc_metadata::fs::encode_and_write_metadata` (fs.rs:38). PORT: lane metadata-deps (plan-m5 wave 32); it calls
+ * `rustc_metadata::rmeta::encoder::encode_metadata` (encoder lanes, wave 33).
+ */
+function rustc_metadata_fs_encode_and_write_metadata(_tcx: TyCtxt): Result<EncodedMetadata, ErrorGuaranteed> {
+  return unported("rustc_metadata::fs::encode_and_write_metadata (metadata encoding; plan-m5 waves 32-33)");
+}
 
 /** `rustc_passes::input_stats::print_ast_stats` (input_stats.rs:71). PORT: no lane yet (-Zinput-stats). */
 function rustc_passes_input_stats_print_ast_stats(_tcx: TyCtxt, _krate: Crate): void {

@@ -2045,6 +2045,19 @@ const fold_ListTy_Ty_: TypeFoldable<[List<Ty>, Ty]> = descriptor<[List<Ty>, Ty]>
   (self, f) => fold_with_tuple2(self, f, fold_with_Tys, fold_with_Ty),
 );
 
+/** `OutlivesClause<'tcx, Ty<'tcx>>: TypeFoldable` (rustc_type_ir's derived impl at `A = Ty`). */
+const fold_TypeOutlivesClause_: TypeFoldable<OutlivesClause<Ty>> = descriptor<OutlivesClause<Ty>>(
+  (self, v) => tyir_predicate_gen().visit_with_OutlivesClause(self, v, visit_with_Ty),
+  (self, f) => tyir_predicate_gen().try_fold_with_OutlivesClause(self, f, try_fold_with_Ty),
+  (self, f) => tyir_predicate_gen().fold_with_OutlivesClause(self, f, fold_with_Ty),
+);
+/** PORT (init order): a static import of rustc_type_ir predicate.gen.ts from here changes the evaluation order of
+ * rustc_type_ir/predicate.ts (rustc_borrowck contract test): read lazily. */
+function tyir_predicate_gen(): typeof import("../../../rustc_type_ir/predicate.gen.ts") {
+  return (tyir_predicate_gen__m ??= require("../../../rustc_type_ir/predicate.gen.ts") as typeof import("../../../rustc_type_ir/predicate.gen.ts"));
+}
+var tyir_predicate_gen__m: typeof import("../../../rustc_type_ir/predicate.gen.ts") | undefined;
+
 // -- rustc_middle ty/generics.rs, ty/assoc.rs, ty/adt.rs, ty/pattern.rs, ty/consts/kind.rs, mir --
 /** `Expr::binop_args` / `unop_args` / `call_args` / `cast_args` (ty/consts/kind.rs, lane ty-results). */
 const Expr_binop_args = (self: Expr): [Ty, Ty, Const, Const] => ExprC.binop_args(self);
@@ -4169,6 +4182,16 @@ export function display_GenericArg(self: GenericArg): string {
  */
 export function display_PolyFnSig(self: Binder<FnSig>): string {
   return forward_display_to_print(self, (v: Binder<FnSig>, p: FmtPrinter) => print_Binder(v, p, print_FnSig, fold_FnSig_));
+}
+
+/**
+ * `impl Display for ty::Binder<'tcx, ty::TypeOutlivesClause<'tcx>>` (`ty::PolyTypeOutlivesClause`): as
+ * `display_PolyFnSig`, rustc_type_ir ir_print.rs's `Display for Binder` over `Print for ty::Binder<'tcx, T>`.
+ */
+export function display_PolyTypeOutlivesClause(self: Binder<OutlivesClause<Ty>>): string {
+  return forward_display_to_print(self, (v: Binder<OutlivesClause<Ty>>, p: FmtPrinter) =>
+    print_Binder(v, p, (x: OutlivesClause<Ty>, p: FmtPrinter) => print_OutlivesClause(x, p, print_Ty), fold_TypeOutlivesClause_),
+  );
 }
 
 // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3448 for_each_def

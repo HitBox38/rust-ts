@@ -2,8 +2,10 @@
 // sorts the same inputs with `<[T]>::sort_by` for element types of different layouts (`size_of` 24 / 16 / 8, `Freeze` or
 // not) and two comparators: a total order and the non-transitive "tuple arity" comparator of
 // rustc_trait_selection fulfillment_errors.rs `report_similar_impl_candidates` (`Equal` unless both are "tuples"). The
-// resulting orders (or std's "does not correctly implement a total order" panic) must be identical. The same inputs up to
-// 20 elements also go through `<[T]>::sort_unstable_by` (`slice_sort_unstable_by`: the insertion-sort path).
+// resulting orders (or std's "does not correctly implement a total order" panic) must be identical. The same inputs also
+// go through `<[T]>::sort_unstable_by` (`slice_sort_unstable_by`: insertion sort up to 20 elements, then ipnsort), whose
+// small-sort and partition choices depend on `size_of`, `Freeze` and `Copy`: two more layouts cover a `Freeze` non-`Copy`
+// element (`Box`) and a 104-byte `Copy` one (the Hoare partition, the fallback small-sort).
 //
 // Without the pinned toolchain this is a visible skip; RUST_TS_REQUIRE_PROBES=1 makes that a failure.
 import { beforeAll, expect, test } from "bun:test";
@@ -26,6 +28,12 @@ fn cmp_kk(k1: u64, a: u64, k2: u64, b: u64, arity: bool) -> Ordering {
     if k1 == 1 && k2 == 1 { a.cmp(&b) } else { Ordering::Equal }
 }
 
+fn go<T>(mut v: Vec<T>, unstable: bool, arity: bool, kk: impl Fn(&T) -> (u64, u64), id: impl Fn(&T) -> u64) -> Vec<u64> {
+    let c = |x: &T, y: &T| { let (k1, a) = kk(x); let (k2, b) = kk(y); cmp_kk(k1, a, k2, b, arity) };
+    if unstable { v.sort_unstable_by(c) } else { v.sort_by(c) }
+    v.iter().map(id).collect()
+}
+
 fn main() {
     let mut s = String::new();
     std::io::stdin().read_to_string(&mut s).unwrap();
@@ -36,14 +44,17 @@ fn main() {
         let el: Vec<(u64, u64, u64)> = (0..n).map(|i| (i as u64, f[3 + 2 * i], f[4 + 2 * i])).collect();
         let r = std::panic::catch_unwind(move || -> Vec<u64> {
             match layout {
-                24 if unstable => { let mut v = el.clone(); v.sort_unstable_by(|x, y| cmp_kk(x.1, x.2, y.1, y.2, arity)); v.iter().map(|x| x.0).collect() }
-                24 => { let mut v = el.clone(); v.sort_by(|x, y| cmp_kk(x.1, x.2, y.1, y.2, arity)); v.iter().map(|x| x.0).collect() }
-                16 => { let mut v: Vec<(u64, u64)> = el.iter().map(|x| (x.0, x.1 << 32 | x.2)).collect();
-                        v.sort_by(|x, y| cmp_kk(x.1 >> 32, x.1 & 0xffff_ffff, y.1 >> 32, y.1 & 0xffff_ffff, arity)); v.iter().map(|x| x.0).collect() }
-                8 => { let mut v: Vec<(u32, u16, u16)> = el.iter().map(|x| (x.0 as u32, x.1 as u16, x.2 as u16)).collect();
-                       v.sort_by(|x, y| cmp_kk(x.1 as u64, x.2 as u64, y.1 as u64, y.2 as u64, arity)); v.iter().map(|x| x.0 as u64).collect() }
-                _ => { let mut v: Vec<(Cell<u64>, u64, u64)> = el.iter().map(|x| (Cell::new(x.0), x.1, x.2)).collect();
-                       v.sort_by(|x, y| cmp_kk(x.1, x.2, y.1, y.2, arity)); v.iter().map(|x| x.0.get()).collect() }
+                24 => go(el.clone(), unstable, arity, |x| (x.1, x.2), |x| x.0),
+                16 => go(el.iter().map(|x| (x.0, x.1 << 32 | x.2)).collect::<Vec<(u64, u64)>>(), unstable, arity,
+                         |x| (x.1 >> 32, x.1 & 0xffff_ffff), |x| x.0),
+                8 => go(el.iter().map(|x| (x.0 as u32, x.1 as u16, x.2 as u16)).collect::<Vec<(u32, u16, u16)>>(), unstable, arity,
+                        |x| (x.1 as u64, x.2 as u64), |x| x.0 as u64),
+                1 => go(el.iter().map(|x| (Box::new(x.0), x.1, x.2)).collect::<Vec<(Box<u64>, u64, u64)>>(), unstable, arity,
+                        |x| (x.1, x.2), |x| *x.0),
+                2 => go(el.iter().map(|x| (x.0, x.1, x.2, [0u64; 10])).collect::<Vec<(u64, u64, u64, [u64; 10])>>(), unstable, arity,
+                        |x| (x.1, x.2), |x| x.0),
+                _ => go(el.iter().map(|x| (Cell::new(x.0), x.1, x.2)).collect::<Vec<(Cell<u64>, u64, u64)>>(), unstable, arity,
+                        |x| (x.1, x.2), |x| x.0.get()),
             }
         });
         match r {
@@ -55,10 +66,12 @@ fn main() {
 `;
 
 const LAYOUTS: Record<number, SortLayout> = {
-  24: { size_of: 24, freeze: true },
-  16: { size_of: 16, freeze: true },
-  8: { size_of: 8, freeze: true },
-  0: { size_of: 24, freeze: false }, // `(Cell<u64>, u64, u64)`
+  24: { size_of: 24, freeze: true, copy: true },
+  16: { size_of: 16, freeze: true, copy: true },
+  8: { size_of: 8, freeze: true, copy: true },
+  1: { size_of: 24, freeze: true, copy: false }, // `(Box<u64>, u64, u64)`
+  2: { size_of: 104, freeze: true, copy: true }, // `(u64, u64, u64, [u64; 10])`
+  0: { size_of: 24, freeze: false, copy: false }, // `(Cell<u64>, u64, u64)`
 };
 
 /** Deterministic inputs: [layout, arity comparator, kinds, keys]. */
@@ -70,9 +83,9 @@ function cases(unstable = false): [number, boolean, number[], number[]][] {
   };
   const lens = [0, 1, 2, 7, 8, 15, 16, 17, 20, 21, 22, 31, 32, 33, 40, 47, 48, 63, 64, 65, 100, 127, 128, 129, 170, 171, 200, 255, 300, 513, 1000, 4097, 5000];
   const out: [number, boolean, number[], number[]][] = [];
-  for (const layout of unstable ? [24] : [24, 16, 8, 0]) {
+  for (const layout of unstable ? [24, 16, 8, 1, 2, 0] : [24, 16, 8, 0]) {
     for (const arity of [false, true]) {
-      for (const n of unstable ? lens.filter((n) => n <= 20) : lens) {
+      for (const n of lens) {
         for (const shape of ["random", "few", "sorted", "reversed", "tuples_only"] as const) {
           const kinds: number[] = [];
           const keys: number[] = [];
@@ -158,12 +171,12 @@ test("slice_sort_by equals the pinned std's sort_by (layouts x comparators x sha
   expect(CASES.some((c, i) => c[1] && oracle![i] !== "PANIC" && oracle![i] !== js(c))).toBe(true);
 });
 
-test("slice_sort_unstable_by equals the pinned std's sort_unstable_by (up to 20 elements)", () => {
+test("slice_sort_unstable_by equals the pinned std's sort_unstable_by (layouts x comparators x shapes)", () => {
   if (oracle_unstable === undefined) return;
   expect(oracle_unstable.length).toBe(CASES_UNSTABLE.length);
   const bad: string[] = [];
   CASES_UNSTABLE.forEach((c, i) => {
-    if (ours(c, slice_sort_unstable_by) !== oracle_unstable![i]) bad.push(`arity ${c[1]} n ${c[2].length} (#${i})`);
+    if (ours(c, slice_sort_unstable_by) !== oracle_unstable![i]) bad.push(`layout ${c[0]} arity ${c[1]} n ${c[2].length} (#${i})`);
   });
   expect(bad).toEqual([]);
 });

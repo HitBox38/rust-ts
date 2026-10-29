@@ -7,10 +7,11 @@ import { stable_hash_FloatTy, stable_hash_IntTy, stable_hash_Mutability, stable_
 import { type AsmMacro, type AssignOpKind, type AttrStyle, type BindingMode, type BinOpKind, type BorrowKind, type BoundConstness, type BoundPolarity, type ByRef, type CaptureBy, type DelimArgs, type EiiDecl, type ImplPolarity, type InlineAsmOptions, type InlineAsmTemplatePiece, type IsAuto, type Label, type LitFloatType, type LitIntType, type LitKind, type MacroDef, type MetaItemLit, type Recovered, stable_hash_Path, type StrStyle, type TraitObjectSyntax, type UnOp, type UnsafeBinderCastKind } from "./ast.ts";
 import { type CfgEntry } from "./attr/data_structures.ts";
 import { type RustcVersion } from "./attr/version.ts";
+import { type DiffActivity, type DiffMode } from "./expand/autodiff_attrs.ts";
 import { type CommentKind, type Delimiter, type DocFragmentKind, type IdentKind, type InvisibleOrigin, type Lit, type LitKind as token_LitKind, type MetaVarKind, type NtExprKind, type NtPatKind, type Token, type TokenKind } from "./token.ts";
 import { type DelimSpacing, type DelimSpan, type Spacing, stable_hash_TokenStream, type TokenTree } from "./tokenstream.ts";
 import { type AssocCtxt } from "./visit.ts";
-import { stable_hash_bool, stable_hash_char, stable_hash_Discriminant, stable_hash_Option, stable_hash_str, stable_hash_ThinVec, stable_hash_u128, stable_hash_u16, stable_hash_u8, stable_hash_usize, type StableHash, type StableHashCtxt, type StableHasher } from "../rustc_data_structures/stable_hash.ts";
+import { stable_hash_bool, stable_hash_char, stable_hash_Discriminant, stable_hash_Option, stable_hash_str, stable_hash_ThinVec, stable_hash_u128, stable_hash_u16, stable_hash_u32, stable_hash_u8, stable_hash_usize, type StableHash, type StableHashCtxt, type StableHasher } from "../rustc_data_structures/stable_hash.ts";
 import { stable_hash_Span } from "../rustc_span/lib.ts";
 import { stable_hash_ErrorGuaranteed, stable_hash_Ident } from "../rustc_span/stable_hash.gen.ts";
 import { stable_hash_ByteSymbol, stable_hash_Symbol } from "../rustc_span/symbol.ts";
@@ -337,6 +338,43 @@ export function stable_hash_RustcVersion(self: RustcVersion, __hcx: StableHashCt
   stable_hash_u16(self.major, __hcx, __hasher);
   stable_hash_u16(self.minor, __hcx, __hasher);
   stable_hash_u16(self.patch, __hcx, __hasher);
+}
+
+// rustc-derive: compiler/rustc_ast/src/expand/autodiff_attrs.rs:24 StableHash for DiffMode
+const DiffMode__discriminant = { Error: 0, Source: 1, Forward: 2, Reverse: 3 } as const;
+export function stable_hash_DiffMode(self: DiffMode, __hcx: StableHashCtxt, __hasher: StableHasher): void {
+  stable_hash_Discriminant(DiffMode__discriminant[self], __hcx, __hasher);
+}
+
+// rustc-derive: compiler/rustc_ast/src/expand/autodiff_attrs.rs:46 StableHash for DiffActivity
+const DiffActivity__discriminant = { None: 0, Const: 1, Active: 2, ActiveOnly: 3, Dual: 4, Dualv: 5, DualOnly: 6, DualvOnly: 7, Duplicated: 8, DuplicatedOnly: 9, FakeActivitySize: 10 } as const;
+export function stable_hash_DiffActivity(self: DiffActivity, __hcx: StableHashCtxt, __hasher: StableHasher): void {
+  stable_hash_Discriminant(DiffActivity__discriminant[self.$], __hcx, __hasher);
+  switch (self.$) {
+    case "None":
+      break;
+    case "Const":
+      break;
+    case "Active":
+      break;
+    case "ActiveOnly":
+      break;
+    case "Dual":
+      break;
+    case "Dualv":
+      break;
+    case "DualOnly":
+      break;
+    case "DualvOnly":
+      break;
+    case "Duplicated":
+      break;
+    case "DuplicatedOnly":
+      break;
+    case "FakeActivitySize":
+      stable_hash_Option(self._0, __hcx, __hasher, stable_hash_u32);
+      break;
+  }
 }
 
 // rustc-derive: compiler/rustc_ast/src/token.rs:18 StableHash for DocFragmentKind

@@ -1427,13 +1427,12 @@ var select_mod__m: typeof import("../../traits/select/mod.ts") | undefined; // P
 // region (separate from lane errrep-traits-a's) to keep the two lanes' edits apart.
 // - Same-crate modules (traits/engine.ts, traits/select/mod.ts, traits/specialize/specialization_graph.ts,
 //   error_reporting/traits/mod.ts, diagnostics.gen.ts) are read lazily (`lazy_*()` at the end): init order.
-// - `rustc_transmute` is not ported (no lane yet): `Assume::from_const` / `TransmuteTypeEnv` are `unported(..)` with
-//   local structural stand-ins (precedent traits/select/confirmation.ts).
 // - `TyCategory::from_ty` (error_reporting/infer/mod.rs:2738, lane errrep-infer-a) is read lazily from infer/mod.ts.
 // - The `TypeFoldable` derives of rustc_middle's printing wrappers (`TraitClausePrintWithBoundConstness`,
 //   `TraitClausePrintModifiersAndPath`), needed to print them inside a `Binder`, are local descriptors (pretty.ts has
 //   none yet).
 import { Applicability, DiagMessage, E0059, E0271, E0593, MultiSpan, msg, pluralize, StringPart } from "../../../rustc_errors/lib.ts";
+import * as rustc_transmute from "../../../rustc_transmute/lib.ts";
 import { LangItem } from "../../../rustc_attr_ir/lang_items.ts";
 import { PolyTraitClause as PolyTraitClauseV } from "../../../rustc_type_ir/predicate.ts";
 import { expr_needs_parens } from "../../../rustc_hir/hir.ts";
@@ -3203,17 +3202,13 @@ TypeErrCtxt.prototype.select_transmute_obligation_for_reporting = function (
 
   const assume_ct = ocx.normalize(obligation.cause, obligation.param_env, Unnormalized.new_wip(trait_ref.args.const_at(2)), fold_Const);
 
-  // PORT: rustc_transmute is not ported (no lane yet).
-  void assume_ct;
-  const assume = unported("rustc_transmute::Assume::from_const") as TransmuteAssume | undefined;
+  const assume = rustc_transmute.Assume.from_const(this.tcx, assume_ct);
   if (assume === undefined) {
     return [clone_Obligation(obligation, (p) => p), trait_predicate];
   }
 
-  // let is_normalized_yes = matches!(rustc_transmute::TransmuteTypeEnv::new(self.tcx).is_transmutable(
-  //     trait_ref.args.type_at(1), trait_ref.args.type_at(0), assume), rustc_transmute::Answer::Yes);
-  void [trait_ref.args.type_at(1), trait_ref.args.type_at(0)];
-  const is_normalized_yes = (unported("rustc_transmute::TransmuteTypeEnv::is_transmutable") as TransmuteAnswer).$ === "Yes";
+  const is_normalized_yes =
+    rustc_transmute.TransmuteTypeEnv.new(this.tcx).is_transmutable(trait_ref.args.type_at(1), trait_ref.args.type_at(0), assume).$ === "Yes";
 
   // If the normalized check unexpectedly passes, fall back to root obligation for reporting.
   if (is_normalized_yes) {
@@ -3250,9 +3245,7 @@ TypeErrCtxt.prototype.get_safe_transmute_error_and_reason = function (
     const ocx = lazy_engine().ObligationCtxt.new(this.infcx);
     const assume_ct = ocx.normalize(obligation.cause, obligation.param_env, Unnormalized.new_wip(trait_pred.trait_ref.args.const_at(2)), fold_Const);
 
-    // PORT: rustc_transmute is not ported (no lane yet).
-    void assume_ct;
-    const assume = unported("rustc_transmute::Assume::from_const") as TransmuteAssume | undefined;
+    const assume = rustc_transmute.Assume.from_const(this.infcx.tcx, assume_ct);
     if (assume === undefined) {
       this.dcx().span_delayed_bug(span, "Unable to construct rustc_transmute::Assume where it was previously possible");
       return GetSafeTransmuteErrorAndReason.Silent;
@@ -3262,7 +3255,7 @@ TypeErrCtxt.prototype.get_safe_transmute_error_and_reason = function (
     const src = trait_pred.trait_ref.args.type_at(1);
     const err_msg = `\`${display_Ty(src)}\` cannot be safely transmuted into \`${display_Ty(dst)}\``;
 
-    const answer = unported("rustc_transmute::TransmuteTypeEnv::is_transmutable") as TransmuteAnswer;
+    const answer = rustc_transmute.TransmuteTypeEnv.new(this.infcx.tcx).is_transmutable(src, dst, assume);
     switch (answer.$) {
       case "No": {
         const reason = answer._0;
@@ -4092,32 +4085,6 @@ function hir_id_map_entry_or_default(map: Map<HirId, Set<Predicate>>, hir_id: Hi
   return v;
 }
 
-/** PORT: stand-in for `rustc_transmute::Assume` (crate not ported; as traits/select/confirmation.ts). */
-interface TransmuteAssume {
-  alignment: boolean;
-  lifetimes: boolean;
-  safety: boolean;
-  validity: boolean;
-}
-/** PORT: stand-in for `rustc_transmute::Reason<Ty>` (crate not ported), in PORTING's enum representation. */
-type TransmuteReason =
-  | { readonly $: "SrcIsNotYetSupported" }
-  | { readonly $: "DstIsNotYetSupported" }
-  | { readonly $: "DstIsBitIncompatible" }
-  | { readonly $: "DstUninhabited" }
-  | { readonly $: "DstMayHaveSafetyInvariants" }
-  | { readonly $: "DstIsTooBig" }
-  | { readonly $: "DstRefIsTooBig"; src: Ty; src_size: number; dst: Ty; dst_size: number }
-  | { readonly $: "SrcSizeOverflow" }
-  | { readonly $: "DstSizeOverflow" }
-  | { readonly $: "DstHasStricterAlignment"; src_min_align: number; dst_min_align: number }
-  | { readonly $: "DstIsMoreUnique" }
-  | { readonly $: "TypeError" }
-  | { readonly $: "SrcLayoutUnknown" }
-  | { readonly $: "DstLayoutUnknown" };
-/** PORT: stand-in for `rustc_transmute::Answer<Region, Ty>` (crate not ported). */
-type TransmuteAnswer = { readonly $: "Yes" } | { readonly $: "No"; _0: TransmuteReason } | { readonly $: "If"; _0: unknown };
-
 /** The crate's traits/engine.ts (`ObligationCtxt`), read lazily (init order). */
 function lazy_engine(): typeof import("../../traits/engine.ts") {
   return (lazy_engine__m ??= require("../../traits/engine.ts") as typeof import("../../traits/engine.ts"));
@@ -4166,5 +4133,5 @@ const DefId_String_key: KeyType<[DefId, string]> = {
 };
 
 /** `size_of::<(DefId, String)>()` = 32; no `UnsafeCell`. */
-const LAYOUT_DefId_String: SortLayout = { size_of: 32, freeze: true };
+const LAYOUT_DefId_String: SortLayout = { size_of: 32, freeze: true, copy: false };
 

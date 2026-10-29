@@ -95,22 +95,32 @@ export * from "./eval_context.gen.ts";
 
 /** Lazy `crate::assert_typing_mode` (lib.ts; the crate root imports this module). */
 function crate(): typeof import("../lib.ts") {
-  return require("../lib.ts") as typeof import("../lib.ts");
+  return (crate_cache ??= require("../lib.ts") as typeof import("../lib.ts"));
 }
+// PORT: cached (`require` per call was ~30% of CTFE time); `var` is hoisted, as cycles may call this early.
+var crate_cache: typeof import("../lib.ts") | undefined;
 /** Lazy `crate::util` (util/mod.ts, lane ctfe-util). */
 function util(): typeof import("../util/mod.ts") {
-  return require("../util/mod.ts") as typeof import("../util/mod.ts");
+  return (util_cache ??= require("../util/mod.ts") as typeof import("../util/mod.ts"));
 }
+// PORT: cached (`require` per call was ~30% of CTFE time); `var` is hoisted, as cycles may call this early.
+var util_cache: typeof import("../util/mod.ts") | undefined;
 /** Lazy interpret hand modules read at call time (init order, header). */
 function memory(): typeof import("./memory.ts") {
-  return require("./memory.ts") as typeof import("./memory.ts");
+  return (memory_cache ??= require("./memory.ts") as typeof import("./memory.ts"));
 }
+// PORT: cached (`require` per call was ~30% of CTFE time); `var` is hoisted, as cycles may call this early.
+var memory_cache: typeof import("./memory.ts") | undefined;
 function stack(): typeof import("./stack.ts") {
-  return require("./stack.ts") as typeof import("./stack.ts");
+  return (stack_cache ??= require("./stack.ts") as typeof import("./stack.ts"));
 }
+// PORT: cached (`require` per call was ~30% of CTFE time); `var` is hoisted, as cycles may call this early.
+var stack_cache: typeof import("./stack.ts") | undefined;
 function place(): typeof import("./place.ts") {
-  return require("./place.ts") as typeof import("./place.ts");
+  return (place_cache ??= require("./place.ts") as typeof import("./place.ts"));
 }
+// PORT: cached (`require` per call was ~30% of CTFE time); `var` is hoisted, as cycles may call this early.
+var place_cache: typeof import("./place.ts") | undefined;
 
 // rustc-type: compiler/rustc_const_eval/src/interpret/eval_context.rs:30 InterpCx
 // PORT: the impls of `HasDataLayout` / `HasTyCtxt` / `HasTypingEnv` / `LayoutOfHelpers` / `FnAbiOfHelpers` (and the blanket

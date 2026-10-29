@@ -1258,20 +1258,23 @@ InferCtxt.prototype.try_resolve_const_var = function (this: InferCtxt, vid: Cons
 /// This method is idempotent, but it not typically not invoked
 /// except during the writeback phase.
 // rustc: compiler/rustc_infer/src/infer/mod.rs:1510 deeply_resolve_via_region_graph
-InferCtxt.prototype.deeply_resolve_via_region_graph = function <T>(this: InferCtxt, value: T, d_T: TypeFoldable<T>): FixupResult<T> {
+InferCtxt.prototype.deeply_resolve_via_region_graph = function <T>(this: InferCtxt, value: T, d_T: TypeFoldable<T>, debug_T?: Debug<T>): FixupResult<T> {
   const r = resolve_deeply_resolve_via_region_graph(this, value, d_T);
   switch (r.$) {
     case "Ok": {
       const value = r._0;
       if (TypeVisitableExt.has_non_region_infer(value, d_T)) {
-        // bug!("`{value:?}` is not fully resolved")
-        // PORT: the D4 descriptor `d_T` has no `Debug` of `T`, so the message cannot be formatted.
-        return unported("rustc_infer::infer::InferCtxt::deeply_resolve_via_region_graph: bug! message needs `Debug` of `T`");
+        // PORT: `debug_T` is the `T: Debug` the messages format with; callers that pass none stay unported here.
+        if (debug_T === undefined) {
+          return unported("rustc_infer::infer::InferCtxt::deeply_resolve_via_region_graph: bug! message needs `Debug` of `T`");
+        }
+        bug(`\`${format_debug(value, debug_T, PLAIN)}\` is not fully resolved`);
       }
       if (TypeVisitableExt.has_infer_regions(value, d_T)) {
-        // let guar = self.dcx().delayed_bug(format!("`{value:?}` is not fully resolved"));
-        // PORT: as above, the delayed bug's message needs `Debug` of `T`.
-        const guar: ErrorGuaranteed = unported("rustc_infer::infer::InferCtxt::deeply_resolve_via_region_graph: delayed_bug message needs `Debug` of `T`");
+        if (debug_T === undefined) {
+          return unported("rustc_infer::infer::InferCtxt::deeply_resolve_via_region_graph: delayed_bug message needs `Debug` of `T`");
+        }
+        const guar: ErrorGuaranteed = this.dcx().delayed_bug(`\`${format_debug(value, debug_T, PLAIN)}\` is not fully resolved`);
         return Ok(fold_regions(this.tcx, value, (re, _) => (re.is_var() ? Region.new_error(this.tcx, guar) : re), d_T));
       } else {
         return Ok(value);

@@ -30,9 +30,10 @@ import { type Clause, visit_with_Clause } from "../../../rustc_middle/ty/predica
 import { display_GenericArg, display_Ty, with_no_trimmed_paths, with_types_for_signature } from "../../../rustc_middle/ty/print/pretty.ts";
 import { Elaboratable_Clause_Span } from "../../../rustc_middle/ty/elaborate_impl.ts";
 import { LateParamRegionKind } from "../../../rustc_middle/ty/region.ts";
-import { fold_Clause, fold_Span, fold_Ty } from "../../../rustc_middle/ty/structural_impls.ts";
+import { type Debug, debug_tuple, debug_vec } from "../../../std/fmt.ts";
+import { debug_Clause, fold_Clause, fold_Span, fold_Ty } from "../../../rustc_middle/ty/structural_impls.ts";
 import { type DefId, type DefIdMap, type LocalDefId, type ModId } from "../../../rustc_span/def_id.ts";
-import type { Span } from "../../../rustc_span/lib.ts";
+import { debug_Span, type Span } from "../../../rustc_span/lib.ts";
 import { span_bug } from "../../../rustc_span/macros.ts";
 import { Binder, EarlyBinder } from "../../../rustc_type_ir/binder.ts";
 import { elaborate } from "../../../rustc_type_ir/elaborate.ts";
@@ -212,7 +213,7 @@ export function check_refining_return_position_impl_trait_in_trait(tcx: TyCtxt, 
     return;
   }
   // Resolve any lifetime variables that may have been introduced during normalization.
-  const resolved = infcx.deeply_resolve_via_region_graph([trait_bounds_n, impl_bounds_n] as Bounds, d_Bounds);
+  const resolved = infcx.deeply_resolve_via_region_graph([trait_bounds_n, impl_bounds_n] as Bounds, d_Bounds, debug_Bounds);
   if (resolved.$ !== "Ok") {
     // If resolution didn't fully complete, we cannot continue checking RPITIT refinement, and
     // delay a bug as the original code contains load-bearing errors.
@@ -618,5 +619,8 @@ type Bounds = [readonly Clause[], readonly [Clause, Span][]];
 const d_Bounds_0: TypeFoldable<readonly Clause[]> = fold_Vec(fold_Clause);
 const d_Bounds_1 = fold_Vec(fold_tuple2(fold_Clause, fold_Span)) as TypeFoldable<readonly [Clause, Span][]>;
 const d_Bounds = fold_tuple2(d_Bounds_0, d_Bounds_1) as TypeFoldable<Bounds>;
+/** `<(Vec<Clause>, Vec<(Clause, Span)>) as Debug>` (the derived tuple / `Vec` impls). */
+const debug_Bounds: Debug<Bounds> = (v, f) =>
+  debug_tuple(f, "", [debug_vec(v[0], f, debug_Clause), debug_vec(v[1], f, (x, f) => debug_tuple(f, "", [debug_Clause(x[0], f), debug_Span(x[1], f)]))]);
 /** `TypeVisitable for ClauseKind` (generated) as a D4 descriptor (only `visit_with` is used by `no_bound_vars`). */
 const d_ClauseKind: TypeVisitable<import("../../../rustc_type_ir/predicate_kind.gen.ts").ClauseKind> = { visit_with: visit_with_ClauseKind };

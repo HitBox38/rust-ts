@@ -13,7 +13,8 @@
 //   the registered table (rustc_abi layout/ty.ts), reached through `TyAndLayout`'s methods.
 // - `impl fmt::Debug for ArgAbi / FnAbi` need `Ty: Display`: `debug_ArgAbi` / `debug_FnAbi` take the `Display` fn (as
 //   rustc_abi's `debug_TyAndLayout`).
-// - Only the x86_64 SysV lowering (`x86_64::compute_abi_info`) is ported; the other targets' modules
+// - Only the x86_64 lowerings (`x86_64::compute_abi_info`, SysV, and `x86_win64::compute_abi_info`, lane gaps-30c) are
+//   ported; the other targets' modules
 //   (`mod aarch64; .. mod xtensa;`) are not, and their arms of `adjust_for_foreign_abi` / `adjust_for_rust_abi` stop
 //   with `unported(..)`.
 import { CanonAbi, debug_CanonAbi } from "../../rustc_abi/canon_abi.ts";
@@ -42,10 +43,11 @@ import { to_writer } from "../../vendor/bitflags/parser.ts";
 import { flags_companion } from "../../vendor/bitflags/traits.ts";
 import { Arch, type HasTargetSpec, type HasX86AbiOpt } from "../spec/mod.ts";
 import * as x86_64 from "./x86_64.ts";
+import * as x86_win64 from "./x86_win64.ts";
 
 export { AbiMap } from "../spec/abi_map.ts";
 
-// mod aarch64; .. mod xtensa;  PORT: only `mod x86_64;` is ported (header).
+// mod aarch64; .. mod xtensa;  PORT: only `mod x86_64;` and `mod x86_win64;` are ported (header).
 
 /// Different modes in which indirect arguments can be passed.
 // #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, StableHash)]
@@ -859,10 +861,10 @@ export class FnAbi<Ty> {
             return x86_64.compute_abi_info(cx, this);
           case "Win64":
           case "Vectorcall":
-            return unported("rustc_target::callconv::x86_win64::compute_abi_info (lane fn-abi: x86_64 SysV only)");
+            return x86_win64.compute_abi_info(cx, this);
           default:
             if (cx.target_spec().is_like_windows) {
-              return unported("rustc_target::callconv::x86_win64::compute_abi_info (lane fn-abi: x86_64 SysV only)");
+              return x86_win64.compute_abi_info(cx, this);
             } else {
               return x86_64.compute_abi_info(cx, this);
             }

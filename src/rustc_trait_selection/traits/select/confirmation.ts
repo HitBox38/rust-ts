@@ -10,9 +10,6 @@
 // - `?` on a `Result<_, SelectionError>` returns the `Err` unchanged; `.map_err(|_| SelectionError::Unimplemented)?` returns
 //   `Err(SelectionError::Unimplemented)`.
 // - `ThinVec` / `PredicateObligations` are arrays; `thin_vec![x]` is `[x]`.
-// - `rustc_transmute` is not ported (no lane yet): `Assume::from_const` / `TransmuteTypeEnv::is_transmutable` are
-//   `unported(..)`; `Condition` / `Assume` are local structural stand-ins (`TransmuteCondition`, `TransmuteAssume`) in
-//   PORTING's enum representation so that `flatten_answer_tree` is ported as written.
 //
 // Init order: top-level code here touches only ./mod.gen.ts and other crates; other rustc_trait_selection modules are
 // read inside function bodies only (lazy `require`). ../../lib.ts imports this file after ./mod.ts.
@@ -98,8 +95,9 @@ import { PolyFnSig, FnSig } from "../../../rustc_type_ir/ty_kind.ts";
 import { ClosureArgs, CoroutineArgs, CoroutineClosureArgs } from "../../../rustc_type_ir/ty_kind/closure.ts";
 import { Unnormalized } from "../../../rustc_type_ir/unnormalized.ts";
 import { debug_option, PLAIN } from "../../../std/fmt.ts";
-import { assert_eq, panic, unported, unreachable, unwrap } from "../../../std/panic.ts";
+import { assert_eq, panic, unreachable, unwrap } from "../../../std/panic.ts";
 import { Err, Ok, type Result } from "../../../std/result.ts";
+import * as rustc_transmute from "../../../rustc_transmute/lib.ts";
 import { type AutoImplConstituents, fold_with_AutoImplConstituents, SelectionContext, try_fold_with_AutoImplConstituents, visit_with_AutoImplConstituents } from "./mod.gen.ts";
 
 // ---- D4 descriptors / upcasts ---------------------------------------------------------------------------------------
@@ -456,21 +454,6 @@ SelectionContext.prototype.confirm_builtin_candidate = function (this: Selection
   return this.collect_predicates_for_types(obligation.param_env, cause, obligation.recursion_depth + 1, trait_def, types);
 };
 
-/** PORT: stand-in for `rustc_transmute::Condition<Region, Ty>` (crate not ported), in PORTING's enum representation. */
-type TransmuteCondition =
-  | { readonly $: "Transmutable"; src: Ty; dst: Ty }
-  | { readonly $: "Outlives"; long: Region; short: Region }
-  | { readonly $: "Immutable"; ty: Ty }
-  | { readonly $: "IfAll"; _0: TransmuteCondition[] }
-  | { readonly $: "IfAny"; _0: TransmuteCondition[] };
-/** PORT: stand-in for `rustc_transmute::Assume` (crate not ported). */
-interface TransmuteAssume {
-  alignment: boolean;
-  lifetimes: boolean;
-  safety: boolean;
-  validity: boolean;
-}
-
 // #[instrument(level = "debug", skip(self))]
 // rustc: compiler/rustc_trait_selection/src/traits/select/confirmation.rs:284 confirm_transmutability_candidate
 SelectionContext.prototype.confirm_transmutability_candidate = function (
@@ -478,11 +461,13 @@ SelectionContext.prototype.confirm_transmutability_candidate = function (
   obligation: PolyTraitObligation,
 ): Result<PredicateObligations, SelectionError> {
   // use rustc_transmute::{Answer, Assume, Condition};
+  type Assume = rustc_transmute.Assume;
+  type Condition = rustc_transmute.Condition<Region, Ty>;
 
   /// Flatten the `Condition` tree into a conjunction of obligations.
   // #[instrument(level = "debug", skip(tcx, obligation))]
   // rustc: compiler/rustc_trait_selection/src/traits/select/confirmation.rs:292 flatten_answer_tree
-  function flatten_answer_tree(tcx: TyCtxt, obligation: PolyTraitObligation, cond: TransmuteCondition, assume_: TransmuteAssume): PredicateObligations {
+  function flatten_answer_tree(tcx: TyCtxt, obligation: PolyTraitObligation, cond: Condition, assume_: Assume): PredicateObligations {
     switch (cond.$) {
       // FIXME(bryangarza): Add separate `IfAny` case, instead of treating as `IfAll`
       // Not possible until the trait solver supports disjunctions of obligations
@@ -533,9 +518,7 @@ SelectionContext.prototype.confirm_transmutability_candidate = function (
     const traits_mod = require("../mod.ts") as typeof import("../mod.ts");
     assume = traits_mod.evaluate_const(this.infcx, assume, obligation.param_env);
   }
-  // PORT: rustc_transmute is not ported (no lane yet).
-  void assume;
-  const assume_ = unported("rustc_transmute::Assume::from_const") as TransmuteAssume | undefined;
+  const assume_ = rustc_transmute.Assume.from_const(this.infcx.tcx, assume);
   if (assume_ === undefined) {
     return Err({ $: "Unimplemented" });
   }
@@ -544,12 +527,8 @@ SelectionContext.prototype.confirm_transmutability_candidate = function (
   const src = predicate.trait_ref.args.type_at(1);
 
   // debug!(?src, ?dst);
-  // let mut transmute_env = rustc_transmute::TransmuteTypeEnv::new(self.infcx.tcx);
-  void [src, dst];
-  const maybe_transmutable = unported("rustc_transmute::TransmuteTypeEnv::is_transmutable") as
-    | { $: "Yes" }
-    | { $: "No"; _0: unknown }
-    | { $: "If"; _0: TransmuteCondition };
+  const transmute_env = rustc_transmute.TransmuteTypeEnv.new(this.infcx.tcx);
+  const maybe_transmutable = transmute_env.is_transmutable(src, dst, assume_);
 
   let fully_flattened: PredicateObligations;
   switch (maybe_transmutable.$) {

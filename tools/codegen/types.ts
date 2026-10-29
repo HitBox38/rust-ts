@@ -324,6 +324,12 @@ export interface SetConfig {
    * entry's import would evaluate modules that read that defining module's bindings at load (init order, TDZ).
    */
   diag_args_skip?: string[];
+  /**
+   * Rust paths whose diag_args.json entries this set uses through a lazy `require` of the entry's modules at call time
+   * (`<accessor>().<name>`) instead of a static import: the init-order alternative to `diag_args_skip` (same situation),
+   * as hand modules do (rustc_type_ir sty/mod.ts `region_kind()`).
+   */
+  diag_args_lazy?: string[];
 }
 
 /** tools/codegen/type_fold.json: `TypeVisitable` / `TypeFoldable` impls of external types and the trait shapes. */
@@ -333,7 +339,8 @@ export interface TypeFoldMapEntry {
   trivial?: boolean;
   /** `&T`, `Box<T>`, `Arc<T>`, ...: the impl of the type argument */
   transparent?: boolean;
-  /** fn names (`$0..` = impls of the type arguments, passed after the visitor / folder) */
+  /** fn names (`$0..` = impls of the type arguments, passed after the visitor / folder; in `try_fold` / `fold`,
+   *  `$v0..` = the `visit` impls of the type arguments, for impls whose folder methods also visit the value) */
   visit?: string;
   try_fold?: string;
   fold?: string;
@@ -350,6 +357,9 @@ export interface TypeFoldMap {
   trivial_fns: { visit: string; try_fold: string; fold: string };
   /** item keys or paths of trivially traversable types of the generated sets (`TrivialTypeTraversalImpls!`) */
   trivial: string[];
+  /** item keys of hand-written impls whose `try_fold` / `fold` fns also take the `visit` impls of their type arguments,
+   *  after their own (`Binder`: a folder's `fold_binder` may visit the bound value; the `$v0` of `types` entries) */
+  fold_also_visit?: string[];
   types: TypeFoldMapEntry[];
 }
 /** `"Name as Alias"` (an import alias in a type map / type-fold map entry) -> `[Name, Alias]`; a plain name is its own alias. */
@@ -1132,6 +1142,7 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       for (const e of extra.type_fold ?? []) for (const p of e.paths) tfIndex.set(p, e);
     }
   const tfTrivial = new Set(tfMap.trivial);
+  const tfFoldAlsoVisit = new Set(tfMap.fold_also_visit ?? []);
   /** `export function <name>` / `export const <name>` / `export { .. <name> .. }` in a hand module (under --src-root). */
   const handExports = new Map<string, string>();
   const handExports_ = (hand: string, name: string): boolean => {
@@ -1241,6 +1252,8 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       if (!imports.has(target)) imports.set(target, { types: new Map(), values: new Map() });
       imports.get(target)![kind].set(name, alias);
     };
+    /** src-relative module -> accessor name, for modules required lazily (`diag_args_lazy`) */
+    const lazyMods = new Map<string, string>();
     let fileTypes = 0;
     let fileDebug = 0;
     let fileClone = 0;
@@ -2669,11 +2682,17 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       const name = tfUse(fn.replace(/\(.*$/s, ""), e.import ? `src:${e.import.replace(/^src\//, "")}` : tfModule);
       const fns: string[] = [];
       const tys: string[] = [];
-      for (const m of fn.matchAll(/\$(\d)/g)) {
-        const a = args[Number(m[1])];
+      for (const m of fn.matchAll(/\$(v?)(\d)/g)) {
+        const a = args[Number(m[2])];
         if (!a) {
-          report.errors.push(`${at}: ${display} needs type arg ${m[1]} for ${kind}`);
+          report.errors.push(`${at}: ${display} needs type arg ${m[2]} for ${kind}`);
           return `unported_type_fold(${v})`;
+        }
+        if (m[1]) {
+          // `$vN`: the visit impl of arg N (no type argument of its own); left out when it is not in scope
+          const vf = kind === "visit" ? undefined : tfVisitFn(a, sc, at);
+          if (vf !== undefined) fns.push(vf);
+          continue;
         }
         fns.push(tfFn(kind, a, sc, at));
         tys.push(tsType(a, sc, at));
@@ -2732,6 +2751,11 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
               tys.push("never");
               return "unported_type_fold";
             });
+            // `fold_also_visit`: the visit impls of the type arguments too, when all are in scope
+            if (kind !== "visit" && tfFoldAlsoVisit.has(r.ref.key)) {
+              const vfs = tsParams(it).map((_, i) => (args[i] ? tfVisitFn(args[i]!, sc, at) : undefined));
+              if (vfs.every((f) => f !== undefined)) fns.push(...(vfs as string[]));
+            }
             const targs = tys.length ? tfTypeArgs(kind, tys) : "";
             return `${fn}${targs}(${v}, ${tfHolder(kind)}${fns.map((f) => `, ${f}`).join("")})`;
           }
@@ -2777,7 +2801,7 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
         if (r.k === "ext" && !r.keys.some((k) => tfTrivial.has(k))) {
           const e = tfEntry(r.keys);
           const fn = e?.[kind];
-          if (e && fn && !e.trivial && !e.transparent && !/\$\d/.test(fn)) return tfUse(fn.replace(/\(.*$/s, ""), e.import ? `src:${e.import.replace(/^src\//, "")}` : tfModule);
+          if (e && fn && !e.trivial && !e.transparent && !/\$v?\d/.test(fn)) return tfUse(fn.replace(/\(.*$/s, ""), e.import ? `src:${e.import.replace(/^src\//, "")}` : tfModule);
         }
       }
       const e = tfExpr(kind, ty, "__v", sc, at);
@@ -2790,6 +2814,13 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
         return `<E>(__v: ${T}, __folder: ${tfType(tfMap.names.fallible_folder)}<E>): Result<${T}, E> => ${e}`;
       }
       return `(__v: ${T}, __folder: ${tfType(tfMap.names.folder)}): ${T} => ${e}`;
+    };
+    /** The visit impl of a type as a value inside a `try_fold` / `fold` fn (`fold_also_visit`, `$vN`); `undefined` when it
+     *  needs the visit impl of a type parameter of the enclosing item, which a fold fn is not passed. */
+    const tfVisitFn = (ty: PType, sc: Scope, at: string): string | undefined => {
+      const f = tfFn("visit", ty, sc, at);
+      for (const p of sc.params) if (!sc.subst?.has(p) && new RegExp(`\\b${TF_PREFIX.visit}_${p}\\b`).test(f)) return undefined;
+      return f;
     };
     /** `#[type_visitable(ignore)]` / `#[type_foldable(identity)]` of a field (`has_ignore_attr`). */
     const tfAttr = (fl: PField, name: string, meta: string, at: string): boolean =>
@@ -3205,6 +3236,15 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
           if (d === undefined) return undefined;
           const m = /^([\w.]+)\(\$v\)$/.exec(d);
           expr = expr.replaceAll("$display0", m ? m[1]! : `(x) => ${d.replaceAll("$v", "x")}`);
+        }
+        if (e.paths.some((p) => set.diag_args_lazy?.includes(p))) {
+          for (const [m, names] of Object.entries(e.imports ?? {})) {
+            const rel = m.replace(/^src\//, "");
+            let acc = lazyMods.get(rel);
+            if (acc === undefined) lazyMods.set(rel, (acc = `lazy_${rel.replace(/\.ts$/, "").replace(/\W+/g, "_")}`));
+            for (const n of names) expr = expr.replace(new RegExp(`(?<![\\w.])${n}\\b`, "g"), `${acc}().${n}`);
+          }
+          return expr;
         }
         for (const [m, names] of Object.entries(e.imports ?? {})) for (const n of names) imp(`src:${m.replace(/^src\//, "")}`, "values", n, n);
         return expr;
@@ -3745,6 +3785,18 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       if (/\bunported_type_fold\b/.test(text))
         extra.push(`function unported_type_fold(..._a: unknown[]): never {\n  return unported("TypeVisitable/TypeFoldable without a TS impl (see types report)");\n}`);
       importLines.push(...extra);
+    }
+    for (const [rel, acc] of [...lazyMods].sort(([a], [b]) => a.localeCompare(b))) {
+      if (!new RegExp(`\\b${acc}\\(`).test(text)) continue;
+      const spec = relImport(outFile, join(opts.srcRoot, rel));
+      importLines.push(
+        `// PORT (init order, diag_args_lazy): ${spec} is required lazily, at call time (a static import would evaluate modules`,
+        `// that read this module's importer's bindings at load: TDZ).`,
+        `function ${acc}(): typeof import("${spec}") {`,
+        `  return (${acc}__m ??= require("${spec}") as typeof import("${spec}"));`,
+        `}`,
+        `var ${acc}__m: typeof import("${spec}") | undefined;`,
+      );
     }
     if (fileTypes === 0 && !walk && !sh && !ser) {
       report.notes.push(`${mf.file.path}: no types; ${mf.gen} not written`);

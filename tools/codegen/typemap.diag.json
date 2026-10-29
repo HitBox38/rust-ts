@@ -11,6 +11,7 @@
     { "paths": ["rustc_errors::Applicability"], "ts": "Applicability", "import": "src/rustc_lint_defs/lib.ts", "types": ["Applicability"], "values": ["debug_Applicability"], "debug": "debug_Applicability($v, $f)", "note": "rustc_errors re-exports rustc_lint_defs::Applicability" },
     { "paths": ["rustc_errors::MultiSpan"], "ts": "MultiSpan", "import": "src/rustc_error_messages/lib.ts", "types": ["MultiSpan"], "values": ["debug_MultiSpan"], "debug": "debug_MultiSpan($v, $f)", "note": "rustc_errors re-exports rustc_error_messages::MultiSpan" },
     { "paths": ["rustc_errors::DiagMessage"], "ts": "DiagMessage", "import": "src/rustc_error_messages/lib.ts", "types": ["DiagMessage"], "values": ["debug_DiagMessage"], "debug": "debug_DiagMessage($v, $f)", "note": "rustc_errors re-exports rustc_error_messages::DiagMessage" },
-    { "paths": ["std::path::Path"], "ts": "string", "debug": "debug_str($v)", "note": "PORT: Path as a UTF-8 string (like PathBuf in typemap.errors.json)" }
+    { "paths": ["std::path::Path"], "ts": "string", "debug": "debug_str($v)", "note": "PORT: Path as a UTF-8 string (like PathBuf in typemap.errors.json)" },
+    { "paths": ["std::io::Error"], "ts": "IoError", "import": "src/std/io.ts", "types": ["IoError"], "values": ["debug_IoError"], "debug": "debug_IoError($v, $f)", "note": "gaps-30b: io::Error fields of diagnostics (DebugVisualizerUnreadable.error, ...)" }
   ]
 }

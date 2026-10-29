@@ -44,6 +44,7 @@ import { PolyTraitClause, type RegionConstraint } from "../../rustc_type_ir/pred
 import { fold_with_TraitRef, type OutlivesClause, try_fold_with_TraitRef, visit_with_OutlivesClause, visit_with_TraitRef } from "../../rustc_type_ir/predicate.ts";
 import {
   type Certainty,
+  Certainty as CertaintyC,
   ComputeGoalFastPathOutcome,
   FetchEligibleAssocItemResponse,
   type Goal,
@@ -60,6 +61,7 @@ import { fold_Region, type Region } from "../../rustc_type_ir/sty/mod.ts";
 import type { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
 import { type TypeVisitable, type TypeVisitor, TypeVisitor_provided, TypeVisitableExt } from "../../rustc_type_ir/visit.ts";
 import { solve } from "../../rustc_next_trait_solver/lib.ts";
+import * as rustc_transmute from "../../rustc_transmute/lib.ts";
 import type { PredicateProxy } from "../../rustc_type_ir/fold.ts";
 import type { Clauses } from "../../rustc_middle/ty/list.ts";
 import { intern_key } from "../../rust_ts/intern_key.ts";
@@ -395,13 +397,24 @@ export class SolverDelegate implements SolverDelegateTrait {
   // FIXME: This actually should destructure the `Result` we get from transmutability and
   // register candidates. We probably need to register >1 since we may have an OR of ANDs.
   // rustc: compiler/rustc_trait_selection/src/solve/delegate.rs:489 is_transmutable
-  is_transmutable(src: Ty, dst: Ty, _assume: Const): Result<Certainty, NoSolution> {
+  is_transmutable(src_: Ty, dst_: Ty, assume_: Const): Result<Certainty, NoSolution> {
     // Erase regions because we compute layouts in `rustc_transmute`,
     // which will ICE for region vars.
-    const [_dst, _src] = this._0.tcx.erase_and_anonymize_regions<[Ty, Ty]>([dst, src], fold_Ty_Ty());
+    const [dst, src] = this._0.tcx.erase_and_anonymize_regions<[Ty, Ty]>([dst_, src_], fold_Ty_Ty());
 
-    // PORT: rustc_transmute (`Assume::from_const`, `TransmuteTypeEnv::is_transmutable`) is not ported (no lane yet).
-    return unported("rustc_transmute::Assume::from_const / TransmuteTypeEnv::is_transmutable");
+    const assume = rustc_transmute.Assume.from_const(this._0.tcx, assume_);
+    if (assume === undefined) {
+      return Err(solve.NO_SOLUTION);
+    }
+
+    // FIXME(transmutability): This really should be returning nested goals for `Answer::If*`
+    switch (rustc_transmute.TransmuteTypeEnv.new(this._0.tcx).is_transmutable(src, dst, assume).$) {
+      case "Yes":
+        return Ok(CertaintyC.Yes);
+      case "No":
+      case "If":
+        return Err(solve.NO_SOLUTION);
+    }
   }
 
   // rustc: compiler/rustc_trait_selection/src/solve/delegate.rs:510 obtain_canonicalizer_state

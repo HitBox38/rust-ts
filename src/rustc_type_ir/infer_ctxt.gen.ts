@@ -2,11 +2,12 @@
 // Hand-written additions (methods, manual Debug impls) go in infer_ctxt.ts next to this file.
 import { type TyDecoder } from "../rustc_middle/ty/codec.ts";
 import { type LocalDefIds } from "../rustc_middle/ty/decls.ts";
+import { debug_RawList } from "../rustc_middle/ty/list.ts";
 import { type Decodable } from "../rustc_serialize/serialize.ts";
+import { debug_LocalDefId } from "../rustc_span/def_id.ts";
 import { type Debug, debug_struct, debug_tuple, type Fmt } from "../std/fmt.ts";
 import { panic } from "../std/panic.ts";
 import { unported } from "../std/panic.ts";
-const unported_debug = (_v: unknown): string => unported("Debug without a TS impl (see types report)");
 function unported_decodable(..._a: unknown[]): never {
   return unported("Decodable without a TS impl (see types report)");
 }
@@ -155,15 +156,15 @@ export function debug_TypingMode<S>(v: TypingMode<S>, f: Fmt, debug_S: Debug<S>)
   switch (v.$) {
     case "Typeck":
       return debug_struct(f, "Typeck", [
-        ["defining_opaque_types_and_generators", unported_debug(v.defining_opaque_types_and_generators)],
+        ["defining_opaque_types_and_generators", debug_RawList(v.defining_opaque_types_and_generators, f, debug_LocalDefId)],
       ]);
     case "PostTypeckUntilBorrowck":
       return debug_struct(f, "PostTypeckUntilBorrowck", [
-        ["defining_opaque_types", unported_debug(v.defining_opaque_types)],
+        ["defining_opaque_types", debug_RawList(v.defining_opaque_types, f, debug_LocalDefId)],
       ]);
     case "PostBorrowck":
       return debug_struct(f, "PostBorrowck", [
-        ["defined_opaque_types", unported_debug(v.defined_opaque_types)],
+        ["defined_opaque_types", debug_RawList(v.defined_opaque_types, f, debug_LocalDefId)],
       ]);
     case "ErasedNotCoherence":
       return debug_tuple(f, "ErasedNotCoherence", [debug_S(v._0, f)]);

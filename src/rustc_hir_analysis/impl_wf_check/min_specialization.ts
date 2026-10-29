@@ -82,7 +82,7 @@
 import type { InferCtxt } from "../../rustc_infer/infer/mod.ts";
 import type { PredicateObligation } from "../../rustc_infer/traits/mod.ts";
 import { Elaboratable_PredicateObligation } from "../../rustc_infer/traits/util.ts";
-import { fold_GenericArgs } from "../../rustc_middle/ty/generic_args.ts";
+import { debug_GenericArgs, fold_GenericArgs } from "../../rustc_middle/ty/generic_args.ts";
 import { ObligationCtxt } from "../../rustc_trait_selection/traits/engine.ts";
 import { translate_args_with_cause } from "../../rustc_trait_selection/traits/specialize/mod.ts";
 import * as wf from "../../rustc_trait_selection/traits/wf.ts";
@@ -220,7 +220,7 @@ function get_impl_args(tcx: TyCtxt, impl1_def_id: LocalDefId, impl2_node: Node):
   if (assumed_wf_types.$ === "Err") return assumed_wf_types;
   const r = ocx.resolve_regions_and_report_errors(impl1_def_id, param_env, assumed_wf_types._0);
   if (r.$ === "Err") return r;
-  const impl2_args = infcx.deeply_resolve_via_region_graph(impl2_args_, fold_GenericArgs);
+  const impl2_args = infcx.deeply_resolve_via_region_graph(impl2_args_, fold_GenericArgs, debug_GenericArgs);
   if (impl2_args.$ === "Err") {
     const span = tcx.def_span(impl1_def_id);
     const guar = tcx.dcx().emit_err(GenericArgsOnOverriddenImpl_diagnostic({ span }));

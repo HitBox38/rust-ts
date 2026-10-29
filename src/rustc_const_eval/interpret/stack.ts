@@ -50,12 +50,16 @@ import { MPlaceTy, PlaceTy } from "./place.gen.ts";
 
 /** Lazy interpret hand module read at call time (init order, eval_context.ts header). */
 function call(): typeof import("./call.ts") {
-  return require("./call.ts") as typeof import("./call.ts");
+  return (call_cache ??= require("./call.ts") as typeof import("./call.ts"));
 }
+// PORT: cached (`require` per call was ~30% of CTFE time); `var` is hoisted, as cycles may call this early.
+var call_cache: typeof import("./call.ts") | undefined;
 /** Lazy `crate::util` (util/mod.ts, lane ctfe-util). */
 function util(): typeof import("../util/mod.ts") {
-  return require("../util/mod.ts") as typeof import("../util/mod.ts");
+  return (util_cache ??= require("../util/mod.ts") as typeof import("../util/mod.ts"));
 }
+// PORT: cached (`require` per call was ~30% of CTFE time); `var` is hoisted, as cycles may call this early.
+var util_cache: typeof import("../util/mod.ts") | undefined;
 
 export * from "./stack.gen.ts";
 

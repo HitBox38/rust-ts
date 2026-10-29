@@ -61,8 +61,10 @@ export * from "./step.gen.ts";
 
 /** Lazy `crate::util` (util/mod.ts, lane ctfe-util; read at call time, init order). */
 function util(): typeof import("../util/mod.ts") {
-  return require("../util/mod.ts") as typeof import("../util/mod.ts");
+  return (util_cache ??= require("../util/mod.ts") as typeof import("../util/mod.ts"));
 }
+// PORT: cached (`require` per call was ~30% of CTFE time); `var` is hoisted, as cycles may call this early.
+var util_cache: typeof import("../util/mod.ts") | undefined;
 
 declare module "./eval_context.ts" {
   interface InterpCx<M extends Machine = Machine> {
