@@ -41,9 +41,7 @@ class DebuggerVisualizerCollector extends visit.Visitor {
           this.visualizers.push(DebuggerVisualizerFile.new(source, visualizer_type, file));
         } else {
           const error = loaded._0;
-          // PORT: the generated `error` field is typed `Error` (no TS `io::Error` in the codegen typemap); the value
-          // is the `IoError` itself.
-          this.sess.dcx().emit_err(DebugVisualizerUnreadable_diagnostic({ span, file, error: error as unknown as Error }));
+          this.sess.dcx().emit_err(DebugVisualizerUnreadable_diagnostic({ span, file, error }));
         }
       }
     }

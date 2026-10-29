@@ -12,8 +12,7 @@ import { type ProcMacroKind, ProcMacroKind_into_diag_arg } from "./check_attr.ts
 import { type Duplicate } from "./lang_items.ts";
 import { type Span } from "../rustc_span/lib.ts";
 import { display_Ident, display_Symbol, type Ident, type Symbol } from "../rustc_span/symbol.ts";
-import { unported } from "../std/panic.ts";
-const unported_into_diag_arg = (_v: unknown, _path: unknown): never => unported("IntoDiagArg without a TS impl (see types report)");
+import { display_IoError, type IoError } from "../std/io.ts";
 
 // rustc-type: compiler/rustc_passes/src/diagnostics.rs:16 MixedExportNameAndNoMangle
 export interface MixedExportNameAndNoMangle {
@@ -244,7 +243,7 @@ export function ReprConflictingLint_diagnostic(self: ReprConflictingLint): Diagn
 export interface DebugVisualizerUnreadable {
   span: Span;
   file: string;
-  error: Error;
+  error: IoError;
 }
 /** `#[derive(Diagnostic)]`: `impl<'_sess> Diagnostic<'_sess> for DebugVisualizerUnreadable` */
 // rustc-derive: compiler/rustc_passes/src/diagnostics.rs:122 Diagnostic DebugVisualizerUnreadable
@@ -252,7 +251,7 @@ export function DebugVisualizerUnreadable_into_diag(self: DebugVisualizerUnreada
   const { span: __binding_0, file: __binding_1, error: __binding_2 } = self;
   const diag = Diag.new(dcx, level, { $: "Inline", _0: "couldn't read {$file}: {$error}" });
   diag.arg("file", IntoDiagArg.of(__binding_1, Path_into_diag_arg));
-  diag.arg("error", IntoDiagArg.of(__binding_2, unported_into_diag_arg));
+  diag.arg("error", IntoDiagArg.of(__binding_2, into_diag_arg_using_display(display_IoError)));
   diag.span(__binding_0);
   return diag;
 }
