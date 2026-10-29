@@ -44,6 +44,8 @@ interface SuiteGate {
   lostSkipped?: { id: string; reason: string }[];
   /** Cases whose oracle output is not reproducible (UNSTABLE: listed in `Suite.unstable` or detected); never protected. */
   unstable?: string[];
+  /** Cases whose subject timed out in difftest's parallel pool and were re-run alone (their status is the re-run's). */
+  retried?: string[];
   /** Paths of the upstream checkout this suite's run changed (scripts/lib/upstream.ts); any fails the run. */
   upstreamChanges?: string[];
 }
@@ -279,7 +281,8 @@ async function gateRun(suites: string[], skipStatic: boolean): Promise<void> {
     const skippedWhy = new Map((getSuite(suite).skipped?.() ?? []).map((k) => [k.id, k.reason]));
     const lostSkipped = lost.filter((id) => skippedWhy.has(id)).map((id) => ({ id, reason: skippedWhy.get(id)! }));
     const unstable = results.filter((r) => r.status === "UNSTABLE").map((r) => r.id);
-    out.push({ suite, baseline: base.size, match: match.size, total: results.length, lost, gained, batchOnlyFailures: stats.batchOnlyFailures, batchOnlyTimeouts: stats.batchOnlyTimeouts, oracleTimeouts, lostSkipped, unstable, upstreamChanges });
+    const retried = results.filter((r) => r.retried).map((r) => r.id);
+    out.push({ suite, baseline: base.size, match: match.size, total: results.length, lost, gained, batchOnlyFailures: stats.batchOnlyFailures, batchOnlyTimeouts: stats.batchOnlyTimeouts, oracleTimeouts, lostSkipped, unstable, retried, upstreamChanges });
     console.log(`${lost.length ? "ERROR:" : "ok   "} ${suite}: protected=${base.size} match=${match.size}/${results.length} lost=${lost.length} gained=${gained.length}`);
     const why = (id: string): string => {
       const r = byId.get(id);
@@ -287,14 +290,14 @@ async function gateRun(suites: string[], skipStatic: boolean): Promise<void> {
       if (r?.status === "UNSTABLE") return ` (UNSTABLE: ${r.unstable}; subject: ${r.subject})`;
       if (skippedWhy.has(id)) return ` (not applicable on this host: ${skippedWhy.get(id)})`;
       if (!r) return " (no longer a case of this suite)";
+      if (r.retried) return ` (${r.status}, after a pool TIMEOUT and a re-run alone)`;
       return ` (${r.status})`;
     };
     for (const id of lost.slice(0, 20)) console.log(`  lost: ${id}${why(id)}`);
     if (oracleTimeouts.length) console.log(`note: ${suite}: ${oracleTimeouts.length} case(s) ORACLE_TIMEOUT (the oracle timed out twice; not compared)`);
     if (unstable.length) console.log(`note: ${suite}: ${unstable.length} case(s) UNSTABLE (the oracle's output is not reproducible; not compared, never protected)`);
-    const retried = results.filter((r) => r.retried);
     if (retried.length) {
-      const still = retried.filter((r) => r.status === "TIMEOUT").length;
+      const still = retried.filter((id) => byId.get(id)!.status === "TIMEOUT").length;
       console.log(`note: ${suite}: ${retried.length} subject TIMEOUT(s) in the pool re-run alone: ${retried.length - still} finished, ${still} timed out again`);
     }
     if (stats.batchOnlyFailures || stats.batchOnlyTimeouts) {

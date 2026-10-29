@@ -52,6 +52,11 @@ export { UNSTABLE_ORACLE_PATTERNS, unstableOracleReason };
 
 /** An oracle process that times out is run once more with this many times its timeout (scripts/lib/oracle.ts). */
 export { ORACLE_RETRY_FACTOR };
+/**
+ * At most this many subject TIMEOUTs from the parallel pool are re-run alone (serially, so each can
+ * cost the whole timeout); the rest keep their TIMEOUT unretried. A gate run sees a handful.
+ */
+export const SUBJECT_TIMEOUT_RETRY_CAP = 50;
 
 export interface CaseResult {
   id: string;
@@ -598,13 +603,22 @@ export async function difftest(
   if (!opts.quiet) process.stderr.write("\n");
   // A subject that timed out in the pool is re-run once, alone, with the same timeout, once the pool is
   // done: a timeout from contention with the pool's other jobs (or a concurrent process) is not the
-  // case's, but a subject slower than the limit on its own still times out.
-  const retries = { retried: timedOut.length, recovered: 0 };
+  // case's, but a subject slower than the limit on its own still times out. Past the cap the rest keep
+  // their TIMEOUT unretried (a hang on a common path would otherwise cost a timeout per case, serially).
+  const retries = { retried: 0, finished: 0, notRetried: 0 };
   for (const { c, oc } of timedOut) {
+    if (retries.retried >= SUBJECT_TIMEOUT_RETRY_CAP) {
+      retries.notRetried++;
+      record(c, oc, { text: "", code: 0, timedOut: true }, false);
+      continue;
+    }
+    if (!opts.quiet) process.stderr.write(`\r${s.name}: re-running subject timeout ${retries.retried + 1}/${Math.min(timedOut.length, SUBJECT_TIMEOUT_RETRY_CAP)} alone`);
+    retries.retried++;
     const sc = (await runSubject(s, [c], impl, stats)).get(c.id)!;
-    if (!sc.timedOut) retries.recovered++;
+    if (!sc.timedOut) retries.finished++;
     record(c, oc, sc, true);
   }
+  if (!opts.quiet && retries.retried) process.stderr.write("\n");
   results.sort((a, b) => (a.id < b.id ? -1 : 1));
   const counts = Object.fromEntries(STATUSES.map((st) => [st, 0])) as Record<Status, number>;
   for (const r of results) counts[r.status]++;
@@ -646,7 +660,7 @@ export async function difftest(
     filter: opts.filter ?? null,
     seconds: Math.round((performance.now() - started) / 1000),
     ...stats,
-    ...(retries.retried ? { subjectTimeoutRetries: retries } : {}),
+    ...(timedOut.length ? { subjectTimeoutRetries: retries } : {}),
     ...(s.skipped ? { skipped: skipped.length } : {}),
     ...(counts.ORACLE_TIMEOUT ? { oracleTimeoutSubjects } : {}),
     ...(subsets ? { subsets } : {}),
@@ -691,6 +705,8 @@ if (import.meta.main) {
     const still = retried.filter((r) => r.status === "TIMEOUT").length;
     console.log(`note: ${retried.length} subject TIMEOUT(s) in the pool re-run alone: ${retried.length - still} finished, ${still} timed out again (per case: \`retried\` in ${a.suite}.jsonl)`);
   }
+  const notRetried = results.filter((r) => r.status === "TIMEOUT" && !r.retried).length;
+  if (notRetried) console.log(`note: ${notRetried} subject TIMEOUT(s) not re-run (over the cap of ${SUBJECT_TIMEOUT_RETRY_CAP})`);
   if (counts.UNSTABLE) {
     console.log(`note: ${counts.UNSTABLE} UNSTABLE case(s): the oracle's output is not reproducible (listed in the suite or detected); never cached, never MATCH (per case: \`unstable\`, \`subject\` in ${a.suite}.jsonl)`);
   }
