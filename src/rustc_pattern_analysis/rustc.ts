@@ -951,9 +951,7 @@ export class RustcPatCtxt implements PatCx<RustcPatCtxtTypes> {
         // fictitious values after `{u,i}size::MAX` (see [`IntRange::split`] for why we do
         // this). We show this to the user as `usize::MAX..` which is slightly incorrect but
         // probably clear enough.
-        // PORT: upstream's `numeric_max_val` returns a `mir::Const` (util.rs:1152); rustc_middle ty/decls.ts declares
-        // it with `ty::Const` (its body, `mir::Const::from_bits`, is still unported): cast to the upstream type.
-        const max = unwrap(ty.numeric_max_val(cx.tcx)) as unknown as MirConst;
+        const max = unwrap(ty.numeric_max_val(cx.tcx));
         const max_ = ValTree.from_scalar_int(cx.tcx, unwrap(MirConst.try_to_scalar_int(max)));
         lo = { $: "Finite", _0: max_ };
       }

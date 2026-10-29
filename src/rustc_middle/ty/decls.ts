@@ -457,9 +457,9 @@ declare module "./mod.ts" {
     // ty/util.rs:1127
     numeric_min_and_max_as_bits(tcx: TyCtxt): [bigint, bigint] | undefined;
     // ty/util.rs:1152
-    numeric_max_val(tcx: TyCtxt): Const | undefined;
+    numeric_max_val(tcx: TyCtxt): import("../mir/consts.ts").Const | undefined;
     // ty/util.rs:1160
-    numeric_min_val(tcx: TyCtxt): Const | undefined;
+    numeric_min_val(tcx: TyCtxt): import("../mir/consts.ts").Const | undefined;
     // ty/util.rs:1172
     is_sized(tcx: TyCtxt, typing_env: TypingEnv): boolean;
     // ty/util.rs:1184

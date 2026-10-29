@@ -1334,7 +1334,7 @@ Ty.prototype.numeric_min_and_max_as_bits = function (this: Ty, tcx: TyCtxt): [bi
 /// Returns the maximum value for the given numeric type (including `char`s)
 /// or returns `None` if the type is not numeric.
 // rustc: compiler/rustc_middle/src/ty/util.rs:1152 numeric_max_val
-Ty.prototype.numeric_max_val = function (this: Ty, tcx: TyCtxt): Const | undefined {
+Ty.prototype.numeric_max_val = function (this: Ty, tcx: TyCtxt): MirConst | undefined {
   const typing_env = TypingEnvC.fully_monomorphized();
   const r = this.numeric_min_and_max_as_bits(tcx);
   if (r === undefined) return undefined;
@@ -1345,7 +1345,7 @@ Ty.prototype.numeric_max_val = function (this: Ty, tcx: TyCtxt): Const | undefin
 /// Returns the minimum value for the given numeric type (including `char`s)
 /// or returns `None` if the type is not numeric.
 // rustc: compiler/rustc_middle/src/ty/util.rs:1160 numeric_min_val
-Ty.prototype.numeric_min_val = function (this: Ty, tcx: TyCtxt): Const | undefined {
+Ty.prototype.numeric_min_val = function (this: Ty, tcx: TyCtxt): MirConst | undefined {
   const typing_env = TypingEnvC.fully_monomorphized();
   const r = this.numeric_min_and_max_as_bits(tcx);
   if (r === undefined) return undefined;
@@ -2125,10 +2125,15 @@ function Size_unsigned_int_max(self: Size): bigint {
 }
 
 // ---- rustc_middle mir (M4) ----
-/** PORT: pending mir/consts.rs (M4): `mir::Const::from_bits`. */
-function mir_Const_from_bits(_tcx: TyCtxt, _bits: bigint, _typing_env: TypingEnv, _ty: Ty): Const {
-  return unported("rustc_middle::mir::Const::from_bits (mir/consts.rs, M4)");
+type MirConst = import("../mir/consts.ts").Const;
+/** `mir::Const::from_bits` (mir/consts.rs:430), read lazily (mir/ is in ty/context.ts's import closure). */
+function mir_Const_from_bits(tcx: TyCtxt, bits: bigint, typing_env: TypingEnv, ty: Ty): MirConst {
+  return mir_consts().Const.from_bits(tcx, bits, typing_env, ty);
 }
+function mir_consts(): typeof import("../mir/consts.ts") {
+  return (mir_consts__m ??= require("../mir/consts.ts") as typeof import("../mir/consts.ts"));
+}
+var mir_consts__m: typeof import("../mir/consts.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 // ---- rustc_middle middle/codegen_fn_attrs.rs ----
 /** `codegen_fn_attrs(def_id).flags.contains(CodegenFnAttrFlags::THREAD_LOCAL)` (the query value is `unknown` in queries.gen.ts). */
