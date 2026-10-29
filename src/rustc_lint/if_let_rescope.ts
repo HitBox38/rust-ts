@@ -9,12 +9,12 @@ import { HirId_eq, HirIdSet } from "../rustc_hir_id/lib.ts";
 import { Visitor, walk_expr } from "../rustc_hir/intravisit.ts";
 import { type LintPass, type LintVec, LintId } from "../rustc_lint_defs/lib.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
+import { extract_component_with_significant_dtor, ty_dtor_span } from "../rustc_middle/ty/significant_drop_order.ts";
 import type { Ty } from "../rustc_middle/ty/mod.ts";
 import type { TypeckResults } from "../rustc_middle/ty/typeck_results.ts";
 import { Edition } from "../rustc_span/edition.ts";
 import { DUMMY_SP, Span } from "../rustc_span/lib.ts";
 import { is_whitespace } from "../std/char.ts";
-import { unported } from "../std/panic.ts";
 import type { LateContext } from "./context.ts";
 import { type DestructorLabel, IfLetRescopeLint_diagnostic } from "./if_let_rescope.gen.ts";
 import { IF_LET_RESCOPE, IfLetRescope_impl_lint_pass } from "./if_let_rescope.lints.gen.ts";
@@ -332,11 +332,6 @@ export interface ClosingBrackets {
 }
 export type SingleArmMatchBegin = { readonly $: "WithOpenBracket"; _0: Span } | { readonly $: "WithoutOpenBracket"; _0: Span };
 
-/** `rustc_middle::ty::significant_drop_order::ty_dtor_span` (not ported). */
-function ty_dtor_span(_tcx: TyCtxt, _ty: Ty): Span | undefined {
-  return unported("rustc_middle::ty::significant_drop_order::ty_dtor_span");
-}
-
 /** The `Break` value of `FindSignificantDropper`'s visitor: `(Span, SmallVec<[Ty<'tcx>; 4]>)`. */
 type DropperBreak = [Span, Ty[]];
 
@@ -452,9 +447,4 @@ export class FindSignificantDropper extends Visitor<ControlFlow<DropperBreak>> {
         return walk_expr(this, expr);
     }
   }
-}
-
-/** `rustc_middle::ty::significant_drop_order::extract_component_with_significant_dtor` (not ported). */
-function extract_component_with_significant_dtor(_tcx: TyCtxt, _typing_env: unknown, _ty: Ty): Ty[] {
-  return unported("rustc_middle::ty::significant_drop_order::extract_component_with_significant_dtor");
 }
