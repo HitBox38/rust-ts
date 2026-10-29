@@ -252,5 +252,7 @@ thir-tree 1823; 354,775 protected cases in 33 suites; 22,219/25,518 fns (87.1%).
 | gaps-30a | `ty_is_opaque_future` skip_binder (163 mir / 91 borrowck-ui-report), iter_instantiated_copied, Relate for ty::Expr (62), select_inherent_assoc_candidates (30), Binder visit caller (13) | running |
 | gaps-30b | query descs layout_of / eval_to_const_value_raw / evaluate_obligation, IntoDiagArg impls (22), asm `const` operand (13), Size > 2^53 (32) | running |
 | transmute | port rustc_transmute (2.8k; 71 mir cases) | running |
+| mir-tail-30 | mir DIFF 2 / CRASH 3 / persistent TIMEOUT 6 | running |
+| gaps-30c | the long tail (58 stops: NumScalableVectors, Const::from_bits, extern diagnostic items, ValidityRequirement QueryKey, probe_op diagnostics, ...) | running |
 | plan-m5 | docs/plan-m5.md: check core → alloc → std (oracle commands, suites, decisions, waves) | running |
-Remaining mir non-MATCH after these: proc-macro `quote!` (30, M6), 6 TIMEOUT, 2 DIFF, 3 CRASH. Rule: no lane work while a gate runs.
+Left after these: proc-macro `quote!` (30, M6), `Location::caller` (decision: unported). Rule: no lane work while a gate runs.
