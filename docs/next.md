@@ -254,5 +254,13 @@ thir-tree 1823; 354,775 protected cases in 33 suites; 22,219/25,518 fns (87.1%).
 | transmute | port rustc_transmute (2.8k; 71 mir cases) | running |
 | mir-tail-30 | mir DIFF 2 / CRASH 3 / persistent TIMEOUT 6 | running |
 | gaps-30c | the long tail (58 stops: NumScalableVectors, Const::from_bits, extern diagnostic items, ValidityRequirement QueryKey, probe_op diagnostics, ...) | running |
-| plan-m5 | docs/plan-m5.md: check core → alloc → std (oracle commands, suites, decisions, waves) | running |
+| plan-m5 | docs/plan-m5.md: check core → alloc → std (oracle commands, suites, D1–D13, waves 31–34) | **merged into integ-w30**; D1–D13 recorded |
+
+## Wave 31 (started early, 2026-10-29; plan-m5 §5) — lanes with no overlap with wave 30
+| lane | scope | status |
+|---|---|---|
+| harness-m5a | split mode + heavy class (D6, D11), suites check-core-bin / mir-core (unprotected) | running (harness batch: needs independent review) |
+| driver-m5 | Linker, start_codegen, DummyCodegenBackend + D7 stand-in backend, CrateInfo::new, link_binary metadata path, symbol_export providers | running |
+| vendor-twox-hash | twox-hash 2.1.2 XXH3-128 scalar path (D8) + oracle probe | running |
+Queued after wave 30 merges: stablehash-gaps (D9), query-keys, perf-core-a/-b (serial: 5–7 GB each on a 24 GB host).
 Left after these: proc-macro `quote!` (30, M6), `Location::caller` (decision: unported). Rule: no lane work while a gate runs.
