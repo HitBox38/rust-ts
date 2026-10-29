@@ -32,11 +32,11 @@ const CASES = readdirSync(CASES_DIR)
 /**
  * Where the port's driver stops today (main.ts). Since fix-w24-bck the cases with a fn body, which stopped in
  * `mir_borrowck` (last at `UniverseInfo::relate`, bck-diag-f), run borrowck through: the error cases equal the oracle;
- * refine_rpitit (only a warning, so `analysis` succeeds) goes on to codegen, which is not ported (after printing the
- * oracle's warning).
+ * refine_rpitit (only a warning, so `analysis` succeeds) goes on to codegen (after printing the oracle's warning).
+ * Re-pinned by driver-m5: `Linker` and `start_codegen` are ported; the stop is metadata encoding.
  */
 const PENDING: Record<string, string> = {
-  refine_rpitit: "rustc_interface::queue::Linker::codegen_and_build_linker (analysis, codegen; M3+)",
+  refine_rpitit: "rustc_metadata::fs::encode_and_write_metadata (metadata encoding; plan-m5 waves 32-33)",
 };
 
 /**
