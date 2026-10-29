@@ -67,6 +67,9 @@ import { debug_CanonicalInput } from "../traits/solve.gen.ts";
 import type { TyCtxt } from "../ty/context.ts";
 import type { GlobalId } from "../mir/interpret/mod.ts";
 import type { ValidityRequirement } from "../ty/layout.ts";
+import type { CollectionMode } from "../mono.ts";
+import type { tokenstream } from "../../rustc_ast/lib.ts";
+import { debug_LocalExpnId, LocalExpnId } from "../../rustc_span/hygiene.ts";
 import { DefaultCache, DefId_hash_key, DefIdCache, type QueryCache, SingleCache, VecCache } from "./caches.ts";
 
 /// Placeholder for `CrateNum`'s "local" counterpart
@@ -655,7 +658,8 @@ export const KEY_OsStr: QueryKey<string> = {
 // (its `Debug` is the instance's), built by `canonical_query_input_key` / `canonical_query_input_bool_key` (lane
 // selcx-contract: `CanonicalPredicateGoal` and `(CanonicalImpliedOutlivesBoundsGoal, bool)`; merge-w18c: `CanonicalAliasGoal`,
 // `CanonicalDropckOutlivesGoal`, `CanonicalTypeOp{AscribeUserType,ProvePredicate,Normalize<T>}Goal`; typeck-gaps:
-// `CanonicalMethodAutoderefStepsGoal`). `(CanonicalQueryInput<T>, usize)` (:349) is not wired yet (`key_unported`).
+// `CanonicalMethodAutoderefStepsGoal`). `(CanonicalQueryInput<T>, usize)` (:349) is `canonical_query_input_usize_key`
+// (lane query-keys; no query uses it at the pin).
 
 /// Canonical query goals correspond to abstract trait operations that
 /// are not tied to any crate in particular.
@@ -684,6 +688,21 @@ function canonical_query_input_bool_key<V>(debug_V: Debug<V>): QueryKey<[Canonic
     key_as_def_id: QueryKey_provided.key_as_def_id,
     as_local_key: QueryKey_provided.as_local_key,
     debug: (v, f) => debug_tuple(f, "", [debug_CanonicalQueryInput(v[0], f, debug_V), v[1] ? "true" : "false"]),
+    debug_local: no_local_key,
+    hash_key: intern_key,
+  };
+}
+
+function canonical_query_input_usize_key<V>(debug_V: Debug<V>): QueryKey<[CanonicalQueryInput<V>, number]> {
+  return {
+    make_cache: default_cache<[CanonicalQueryInput<V>, number]>(intern_key),
+    // rustc: compiler/rustc_middle/src/query/keys.rs:350 default_span
+    default_span(_self: [CanonicalQueryInput<V>, number], _tcx: TyCtxt): Span {
+      return DUMMY_SP;
+    },
+    key_as_def_id: QueryKey_provided.key_as_def_id,
+    as_local_key: QueryKey_provided.as_local_key,
+    debug: (v, f) => debug_tuple(f, "", [debug_CanonicalQueryInput(v[0], f, debug_V), `${v[1]}`]),
     debug_local: no_local_key,
     hash_key: intern_key,
   };
@@ -751,6 +770,32 @@ export const KEY_CanonicalTypeOpNormalizeGoal_FnSig: QueryKey<CanonicalTypeOpNor
 export const KEY_CanonicalMethodAutoderefStepsGoal: QueryKey<CanonicalMethodAutoderefStepsGoal> = canonical_query_input_key<
   ParamEnvAnd<MethodAutoderefSteps>
 >((v, f) => debug_ParamEnvAnd(v, f, (x, f) => (require("../traits/query.ts") as typeof import("../traits/query.ts")).debug_MethodAutoderefSteps(x, f)));
+
+export const KEY_CanonicalInput: QueryKey<CanonicalInput> = {
+  make_cache: default_cache<CanonicalInput>(intern_key),
+  // rustc: compiler/rustc_middle/src/query/keys.rs:356 default_span
+  default_span(_self: CanonicalInput, _tcx: TyCtxt): Span {
+    return DUMMY_SP;
+  },
+  key_as_def_id: QueryKey_provided.key_as_def_id,
+  as_local_key: QueryKey_provided.as_local_key,
+  debug: (v, f) => debug_CanonicalInput(v, f),
+  debug_local: no_local_key,
+  hash_key: intern_key,
+};
+
+export const KEY_CanonicalInput_bool: QueryKey<[CanonicalInput, boolean]> = {
+  make_cache: default_cache<[CanonicalInput, boolean]>(intern_key),
+  // rustc: compiler/rustc_middle/src/query/keys.rs:362 default_span
+  default_span(_self: [CanonicalInput, boolean], _tcx: TyCtxt): Span {
+    return DUMMY_SP;
+  },
+  key_as_def_id: QueryKey_provided.key_as_def_id,
+  as_local_key: QueryKey_provided.as_local_key,
+  debug: (v, f) => debug_tuple(f, "", [debug_CanonicalInput(v[0], f), v[1] ? "true" : "false"]),
+  debug_local: no_local_key,
+  hash_key: intern_key,
+};
 
 export const KEY_CanonicalInput_usize: QueryKey<[CanonicalInput, number]> = {
   make_cache: default_cache<[CanonicalInput, number]>(intern_key),
@@ -840,6 +885,22 @@ export const KEY_Value: QueryKey<Value> = {
   hash_key: intern_key,
 };
 
+// PORT: `&TokenStream` is the `TokenStream` object; its derived `Hash` + `Eq` compare the token trees by value,
+// which is what `intern_key` does (the trees hold no interned values).
+export const KEY_LocalExpnId_TokenStream: QueryKey<[LocalExpnId, tokenstream.TokenStream]> = {
+  make_cache: default_cache<[LocalExpnId, tokenstream.TokenStream]>(intern_key),
+  // rustc: compiler/rustc_middle/src/query/keys.rs:404 default_span
+  default_span(self: [LocalExpnId, tokenstream.TokenStream], _tcx: TyCtxt): Span {
+    return LocalExpnId.expn_data(self[0]).call_site;
+  },
+  key_as_def_id: QueryKey_provided.key_as_def_id,
+  as_local_key: QueryKey_provided.as_local_key,
+  debug: (v, f) =>
+    debug_tuple(f, "", [debug_LocalExpnId(v[0], f), (require("../../rustc_ast/lib.ts") as typeof import("../../rustc_ast/lib.ts")).tokenstream.debug_TokenStream(v[1], f)]),
+  debug_local: no_local_key,
+  hash_key: intern_key,
+};
+
 export const KEY_ValidityRequirement_PseudoCanonicalInput_Ty: QueryKey<[ValidityRequirement, PseudoCanonicalInput<Ty>]> = {
   make_cache: default_cache<[ValidityRequirement, PseudoCanonicalInput<Ty>]>(intern_key),
   // Just forward to `Ty<'tcx>`
@@ -860,8 +921,19 @@ function ty_layout(): typeof import("../ty/layout.ts") {
 }
 var ty_layout__m: typeof import("../ty/layout.ts") | undefined;
 
-// PORT: the other canonical inputs (keys.rs:355-366), `(LocalExpnId, &TokenStream)` and `(Instance, CollectionMode)`
-// (:378-422) are not ported yet (`key_unported`).
+export const KEY_Instance_CollectionMode: QueryKey<[Instance, CollectionMode]> = {
+  make_cache: default_cache<[Instance, CollectionMode]>(intern_key),
+  // rustc: compiler/rustc_middle/src/query/keys.rs:418 default_span
+  default_span(self: [Instance, CollectionMode], tcx: TyCtxt): Span {
+    return KEY_Instance.default_span(self[0], tcx);
+  },
+  key_as_def_id: QueryKey_provided.key_as_def_id,
+  as_local_key: QueryKey_provided.as_local_key,
+  debug: (v, f) =>
+    debug_tuple(f, "", [ty_instance().debug_Instance(v[0], f), (require("../mono.ts") as typeof import("../mono.ts")).debug_CollectionMode(v[1], f)]),
+  debug_local: no_local_key,
+  hash_key: intern_key,
+};
 
 /// Gets a `DefId` associated with a type
 ///

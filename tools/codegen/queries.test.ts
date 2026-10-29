@@ -123,3 +123,15 @@ test.skipIf(SKIP)("golden: desc fields of structs and type aliases, methods on n
   expect(t).toContain('    desc: () => unported("desc of query `x` (field `.typing_env`)"),');
   expect(t).toContain('    desc: () => unported("desc of query `y` (method `.kind()` on a non-tcx receiver)"),');
 });
+
+test.skipIf(SKIP)("key impls: every query key has a `QueryKey` impl (lane query-keys)", () => {
+  const g = generate(read(join(UPSTREAM, SRC_PATH)), read(MACROS), read(QUERY_API));
+  expect(g.report.unported_keys).toEqual({});
+  expect(g.text).not.toContain("key_unported(");
+  expect(g.text).toContain("    key: KEY_LocalExpnId_TokenStream,");
+  expect(g.text).toContain("    key: KEY_Instance_CollectionMode,");
+  expect(g.text).toContain("  items_of_instance: { Key: [Instance, CollectionMode]; KeyArg: [Instance, CollectionMode]; LocalKey: [Instance, CollectionMode];");
+  // a key type with no entry in queries.config.json `keys` still falls back to `key_unported(..)`
+  const t = gen(`query z(key: (DefId, CrateNum, Symbol)) -> Symbol { desc { "z" } }`);
+  expect(t).toContain('    key: key_unported("(DefId, CrateNum, Symbol)"),');
+});

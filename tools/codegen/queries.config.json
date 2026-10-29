@@ -77,6 +77,8 @@
     "(rustc_middle::traits::solve::CanonicalInput, usize)": "CanonicalInput_usize",
     "rustc_middle::ty::LitToConstInput": "LitToConstInput",
     "rustc_middle::ty::Value": "Value",
+    "(rustc_span::hygiene::LocalExpnId, rustc_ast::tokenstream::TokenStream)": "LocalExpnId_TokenStream",
+    "(rustc_middle::ty::instance::Instance, rustc_middle::mono::CollectionMode)": "Instance_CollectionMode",
     "rustc_middle::ty::PseudoCanonicalInput<rustc_middle::ty::Ty>": "PseudoCanonicalInput_Ty",
     "rustc_middle::ty::PseudoCanonicalInput<rustc_middle::ty::GenericArg>": "PseudoCanonicalInput_GenericArg",
     "rustc_middle::ty::PseudoCanonicalInput<rustc_middle::ty::TraitRef>": "PseudoCanonicalInput_TraitRef",
@@ -179,7 +181,8 @@
   },
   "types": [
     {"paths": ["rustc_middle::ty::GenericArg"], "ts": "GenericArg", "import": "src/rustc_middle/ty/generic_args.ts", "types": ["GenericArg"], "values": ["debug_GenericArg"], "debug": "debug_GenericArg($v, $f)", "note": "as tyir.typemap.json (gaps-30b: try_normalize_generic_arg_after_erasing_regions desc)"},
-    {"paths": ["rustc_middle::ty::TraitRef"], "ts": "TraitRef", "import": "src/rustc_type_ir/predicate.ts", "types": ["TraitRef"], "debug": "debug_TraitRef($v, $f)", "note": "as middle_traits_thir.typemap.json (gaps-30b: codegen_select_candidate desc)"}
+    {"paths": ["rustc_middle::ty::TraitRef"], "ts": "TraitRef", "import": "src/rustc_type_ir/predicate.ts", "types": ["TraitRef"], "debug": "debug_TraitRef($v, $f)", "note": "as middle_traits_thir.typemap.json (gaps-30b: codegen_select_candidate desc)"},
+    {"paths": ["rustc_middle::mono::CollectionMode"], "ts": "CollectionMode", "import": "src/rustc_middle/mono.ts", "types": ["CollectionMode"], "values": ["debug_CollectionMode"], "debug": "debug_CollectionMode($v, $f)", "note": "hand-written fieldless enum in mono.ts (query-keys: items_of_instance key)"}
   ],
   "tagged_enums": ["rustc_hir::def::DefKind"]
 }
