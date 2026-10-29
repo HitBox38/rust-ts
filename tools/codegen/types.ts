@@ -2801,7 +2801,7 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
         if (r.k === "ext" && !r.keys.some((k) => tfTrivial.has(k))) {
           const e = tfEntry(r.keys);
           const fn = e?.[kind];
-          if (e && fn && !e.trivial && !e.transparent && !/\$\d/.test(fn)) return tfUse(fn.replace(/\(.*$/s, ""), e.import ? `src:${e.import.replace(/^src\//, "")}` : tfModule);
+          if (e && fn && !e.trivial && !e.transparent && !/\$v?\d/.test(fn)) return tfUse(fn.replace(/\(.*$/s, ""), e.import ? `src:${e.import.replace(/^src\//, "")}` : tfModule);
         }
       }
       const e = tfExpr(kind, ty, "__v", sc, at);
