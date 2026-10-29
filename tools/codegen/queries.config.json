@@ -81,6 +81,7 @@
     "rustc_middle::ty::PseudoCanonicalInput<rustc_middle::mir::interpret::GlobalId>": "PseudoCanonicalInput_GlobalId",
     "rustc_middle::ty::PseudoCanonicalInput<(rustc_middle::ty::PolyFnSig, rustc_middle::ty::List<rustc_middle::ty::Ty>)>": "PseudoCanonicalInput_PolyFnSig_List_Ty",
     "rustc_middle::ty::PseudoCanonicalInput<(rustc_middle::ty::instance::Instance, rustc_middle::ty::List<rustc_middle::ty::Ty>)>": "PseudoCanonicalInput_Instance_List_Ty",
+    "(rustc_middle::ty::layout::ValidityRequirement, rustc_middle::ty::PseudoCanonicalInput<rustc_middle::ty::Ty>)": "ValidityRequirement_PseudoCanonicalInput_Ty",
     "rustc_middle::traits::query::CanonicalPredicateGoal": "CanonicalPredicateGoal",
     "(rustc_middle::traits::query::CanonicalImpliedOutlivesBoundsGoal, bool)": "CanonicalImpliedOutlivesBoundsGoal_bool",
     "rustc_middle::traits::query::CanonicalMethodAutoderefStepsGoal": "CanonicalMethodAutoderefStepsGoal",
