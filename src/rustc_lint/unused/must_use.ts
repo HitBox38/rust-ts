@@ -80,7 +80,7 @@ export type MustUsePath =
   | { readonly $: "Result"; _0: MustUsePath }
   /// `ControlFlow<Uninhabited, T>`
   | { readonly $: "ControlFlow"; _0: MustUsePath }
-  // PORT: the `u64` length is a `number` (converted from `Const::try_to_target_usize`'s `bigint`, rust_ts/u64.ts).
+  // PORT: the `u64` length is a `bigint` (as `Const::try_to_target_usize` returns it; `[S; usize::MAX]` exceeds 2^53).
   | { readonly $: "Array"; _0: MustUsePath; _1: bigint }
   /// The root of the unused_closures lint.
   | { readonly $: "Closure"; _0: Span }

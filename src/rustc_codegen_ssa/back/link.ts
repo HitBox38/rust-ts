@@ -140,7 +140,7 @@ export function link_binary(
     }
 
     if (invalid_output_for_target(sess, crate_type)) {
-      bug(`invalid output type \`${crate_type}\` for target \`${TargetTuple.tuple(sess.opts.target_triple)}\``);
+      bug(`invalid output type \`${crate_type}\` for target \`${TargetTuple.display(sess.opts.target_triple)}\``);
     }
 
     sess.time("link_binary_check_files_are_writeable", () => {
