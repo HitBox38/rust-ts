@@ -18,7 +18,9 @@ are not applicable; the plan's measurements are in its §1c and §2 (scripts und
   (hir-tree).
 - Port core lib check: exit 70 at `stable_hash_InlineAsmRegOrRegClass` (src/rustc_hir/stable_hash.gen.ts:1494), HIR
   hashing of a lib crate, after ~55 s user / 4.6–5.6 GB.
-- Port core as a no_main bin, `--emit=metadata` (full analysis, no encoder): see plan §2 (`check-core-bin` row).
+- Port core as a no_main bin, `--emit=metadata` (full analysis, no encoder): exit 70 in CTFE, missing `QueryKey` for
+  `(ValidityRequirement, PseudoCanonicalInput<Ty>)` (`check_validity_requirement`, via const_eval/machine.ts:408
+  `call_intrinsic`), after 294 s user (838 s wall under load) and 8.1 GB RSS. Oracle: 5.1 s user, 1.05 GB, exit 0.
 
 ## Decisions for root to record (plan §5)
 - D1 M5 command = minimal bootstrap-faithful argv (1b), `--emit=metadata`, default opt; dist flags only as a report.

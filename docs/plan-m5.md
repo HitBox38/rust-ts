@@ -147,7 +147,7 @@ alloc, std), with the probe dump and the split MIR suites as the ratcheting prog
 | core `-Zunpretty=expanded` | **byte-identical** (22,521,493 B, sha c9a1cadb503a) | 46.2 s (29.8 s wall) | 5.3 GB | 34× user, 9× RSS |
 | core (bin, no_main) `-Zunpretty=hir-tree` | **byte-identical** (1,560,663,349 B, sha d35801f7aa9e) | 56.6 s (59 s wall) | 6.7 GB | 2.4× user (oracle time is mostly printing) |
 | core `--crate-type lib --emit=metadata` (×2) | exit 70 `StableHash without a TS impl` at `stable_hash_InlineAsmRegOrRegClass` (src/rustc_hir/stable_hash.gen.ts:1494, from `stable_hash_InlineAsm` ← `ExprKind` ← HIR hashing of a lib crate, 1d) | 54–58 s (39–116 s wall) | 4.6–5.6 GB | |
-| core (bin, no_main) `--emit=metadata` | CKBIN_RESULT | | | oracle 5.1 s, 1.05 GB |
+| core (bin, no_main) `--emit=metadata` | exit 70 inside `analysis`, in CTFE: `rustc_middle::query::keys: QueryKey for (ValidityRequirement, PseudoCanonicalInput<Ty>) (cache)` from `call_intrinsic` (src/rustc_const_eval/const_eval/machine.ts:408; the `check_validity_requirement` query of the `assert_inhabited`/`assert_zero_valid`/`assert_mem_uninitialized_valid` intrinsics; keys.rs is 56/63) | 294 s (838 s wall under load) | 8.1 GB | 58× user, 7.7× RSS — and not finished |
 
 So parsing, expansion, name resolution and AST→HIR lowering of all of core already match byte for byte. The first stop
 of the lib check is a codegen gap (StableHash of `rustc_target::asm` register types; there are 13 such
@@ -156,7 +156,7 @@ they need a port-loadable core rmeta from the oracle (they decode it like the sy
 
 **Performance is the main blocker.** Expansion alone is 34× the oracle's CPU and 5.3 GB; on the oracle, expansion is 13%
 of a core check and typeck + borrowck 57%. If the port keeps its 3–40× ratio over the rest of `analysis` (thirdump of
-mini_core.rs was ~3.2 s vs well under 1 s, plan-m4 §6), a core check will cost minutes of CPU and well over 8 GB, against
+mini_core.rs was ~3.2 s vs well under 1 s, plan-m4 §6), a core check will cost minutes of CPU and well over 8 GB (measured: the bin check had spent 294 s user and reached 8.1 GB when it stopped in CTFE), against
 the suites' 60 s per-case timeout and 12 parallel workers (12 × 6+ GB does not fit in 24 GB).
 
 ## 3. Inventory (what is unported on the check path)
@@ -178,6 +178,7 @@ the suites' 60 s per-case timeout and 12 parallel workers (12 × 6+ GB does not 
 | rustc_middle dep_graph/* | graph.rs 12/62, serialized 0/39, dep_node 0/16 | — | `with_task`/`assert_ignored`/`metadata_dep_node` on a disabled graph only (non-incremental) |
 | rustc_query_impl | 90 fns | 47 | nothing new (execution/job leftovers are incremental/parallel) |
 | HIR/attr/ty `StableHash` codegen gaps | 13 `unported_stable_hash` sites | — | yes, first (D9) |
+| rustc_middle query/keys.rs | — | 56 / 63 | the `QueryKey` for `check_validity_requirement`'s key (second stop, §2) and any other missing key core reaches |
 
 About 12–14k upstream lines in all (encoder 2.9k, fs/deps/native/reachable 1.5k, codegen_ssa subset ~1.2k, twox-hash
 ~2.3k, ~4–5k of hand `Encodable` impls and encoder-side codec in rustc_middle/rustc_span), plus the Encodable codegen and
@@ -303,6 +304,7 @@ not regress while encoder-side code lands (Encodable codegen touches every type 
 
 **Wave 31: unblock and measure (parallel)**
 - `stablehash-gaps`: D9 (codegen + rustc_target asm reg StableHash). Target: core lib check passes HIR hashing.
+- `query-keys`: the 7 missing `QueryKey` impls of rustc_middle query/keys.rs (incl. `(ValidityRequirement, PseudoCanonicalInput<Ty>)`, the bin check's stop).
 - `perf-core-a`: profile `-Zunpretty=expanded` of core (46 s → ?), fix hot spots without logic changes; report.
 - `perf-core-b`: memory census of a core run (what holds the 5.3 GB), proposals needing decisions.
 - `harness-m5a`: split mode + heavy class (D6), suites `check-core-bin`, `mir-core` (unprotected); aux chain for
