@@ -18,10 +18,7 @@ import { stable_hash_LocalExpnId } from "../rustc_span/hygiene.ts";
 import { stable_hash_Span } from "../rustc_span/lib.ts";
 import { stable_hash_ErrorGuaranteed, stable_hash_Ident, stable_hash_Spanned } from "../rustc_span/stable_hash.gen.ts";
 import { stable_hash_Symbol } from "../rustc_span/symbol.ts";
-import { unported } from "../std/panic.ts";
-function unported_stable_hash(..._a: unknown[]): void {
-  unported("StableHash without a TS impl (see types report)");
-}
+import { stable_hash_InlineAsmReg, stable_hash_InlineAsmRegClass } from "../rustc_target/stable_hash.gen.ts";
 
 // rustc-derive: compiler/rustc_hir/src/def.rs:19 StableHash for CtorOf
 const CtorOf__discriminant = { Struct: 0, Variant: 1 } as const;
@@ -1487,11 +1484,11 @@ export function stable_hash_InlineAsmRegOrRegClass(self: InlineAsmRegOrRegClass,
   stable_hash_Discriminant(InlineAsmRegOrRegClass__discriminant[self.$], __hcx, __hasher);
   switch (self.$) {
     case "Reg":
-      unported_stable_hash(self.reg);
+      stable_hash_InlineAsmReg(self.reg, __hcx, __hasher);
       stable_hash_Option(self.source_name, __hcx, __hasher, stable_hash_Symbol);
       break;
     case "RegClass":
-      unported_stable_hash(self._0);
+      stable_hash_InlineAsmRegClass(self._0, __hcx, __hasher);
       break;
   }
 }

@@ -53,9 +53,10 @@ test.skipIf(!HAVE_UPSTREAM && !REQUIRE_PROBES)("golden: the rustc_ty set reprodu
     "rustc_middle::ty::ImplTraitInTraitData",
     "rustc_middle::ty::abstract_const::CastKind",
   ]);
-  // derive(StableHash_NoContext / StableHash) of the `stable_hash_types` (lane misc-blockers: `Ty: StableHash`): only
-  // `ty::Expr`'s operator kinds lack an impl
-  expect(Object.keys(res.report.missing_stable_hash).sort()).toEqual(["rustc_middle::mir::BinOp", "rustc_middle::mir::UnOp", "rustc_middle::ty::abstract_const::CastKind"]);
+  // derive(StableHash_NoContext / StableHash) of the `stable_hash_types` (lane misc-blockers: `Ty: StableHash`): every
+  // field has an impl (lane stablehash-gaps: `ty::Expr`'s operator kinds `mir::BinOp` / `mir::UnOp` (set rustc_middle_mir)
+  // and `abstract_const::CastKind` (set rustc_middle) are generated, stable_hash.json)
+  expect(res.report.missing_stable_hash).toEqual({});
   const sum = (k: "types" | "debug_fns" | "type_fold" | "decodable" | "stable_hash") => res.report.files.reduce((a, f) => a + f[k], 0);
   // lane rmeta-ty: CoerceUnsizedInfo is generated (+1 type, +1 Debug); 94 Decodable impls; lane misc-blockers: 39 StableHash
   // impls in two more files (rustc_type_ir/ty_stable_hash.gen.ts, rustc_middle/ty_stable_hash.gen.ts); lane misc-blockers-2:
