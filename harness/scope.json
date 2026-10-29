@@ -68,6 +68,7 @@
     "rustc-demangle": "=0.1.28",
     "gsgdt": "=0.1.2",
     "datafrog": "=2.0.1",
-    "polonius-engine": "=0.13.0"
+    "polonius-engine": "=0.13.0",
+    "twox-hash": "=2.1.2"
   }
 }
