@@ -338,6 +338,10 @@ export class Session {
   source_map(): SourceMap {
     return this.early_sess.source_map();
   }
+  /** `EarlySession::tls_model` through `Deref`. */
+  tls_model(): TlsModel {
+    return this.early_sess.tls_model();
+  }
   /** `EarlySession::panic_strategy` through `Deref`. */
   panic_strategy(): PanicStrategy {
     return this.early_sess.panic_strategy();

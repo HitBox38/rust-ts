@@ -44,7 +44,8 @@ import type { LintId, RegisteredTools } from "../rustc_lint_defs/lib.ts";
 import * as rustc_codegen_ssa from "../rustc_codegen_ssa/lib.ts";
 import { CompiledModules, type CrateInfo } from "../rustc_codegen_ssa/lib.ts";
 import { CrateInfo_new } from "../rustc_codegen_ssa/base.ts";
-import type { CodegenBackend, EncodedMetadata } from "./stand_ins.ts";
+import type { EncodedMetadata } from "../rustc_metadata/lib.ts";
+import type { CodegenBackend } from "./stand_ins.ts";
 import * as rustc_lint from "../rustc_lint/lib.ts";
 import * as rustc_ty_utils from "../rustc_ty_utils/lib.ts";
 import * as rustc_privacy from "../rustc_privacy/lib.ts";
@@ -989,8 +990,6 @@ function default_query_providers(): MiddleProviders {
   rustc_passes_provide(providers.queries);
   rustc_traits_provide(providers.queries);
   rustc_ty_utils.provide(providers.queries);
-  // PORT: `rustc_metadata::provide` is `rmeta::provide`, i.e. `encoder::provide` (metadata encoding, M5, not
-  // ported) then `decoder::provide`; rustc_metadata/lib.ts exports `cstore_impl::provide` (the decoder half).
   rustc_metadata_provide(providers);
   rustc_lint.provide(providers.queries);
   rustc_symbol_mangling.provide(providers.queries);

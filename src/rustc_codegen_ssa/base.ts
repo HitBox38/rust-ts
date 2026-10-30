@@ -1,5 +1,6 @@
 // Partial port of compiler/rustc_codegen_ssa/src/base.rs: what the metadata-only driver path reaches
-// (`collect_eii_linkage`, `eii_linkage_needed`, `CrateInfo::new`, `provide`). Codegen proper (comparisons,
+// (`wants_wasm_eh`, `allocator_kind_for_codegen`, `needs_allocator_shim_for_linking`, `allocator_shim_contents`,
+// `collect_eii_linkage`, `eii_linkage_needed`, `CrateInfo::new`, `provide`). Codegen proper (comparisons,
 // unsizing, `codegen_instance`, entry wrappers, allocator shims, `codegen_crate`, `determine_cgu_reuse`, ...) is
 // M7 and not ported.
 import type { EiiDecl, EiiImpl } from "../rustc_attr_ir/data_structures.gen.ts";
@@ -18,18 +19,87 @@ import type { CrateType } from "../rustc_structures/crate_type.ts";
 import { mangle_internal_symbol } from "../rustc_symbol_mangling/v0.ts";
 import { PLAIN } from "../std/fmt.ts";
 import { bug } from "../rustc_span/macros.ts";
-import { unported } from "../std/panic.ts";
+import { panic, unported, unwrap } from "../std/panic.ts";
 import { str_cmp } from "../rustc_session/options.ts";
 import type { Dependencies } from "../rustc_middle/middle/dependency_format.ts";
+import { metadata_symbol_name, type SymbolExportKind } from "../rustc_middle/middle/exported_symbols.ts";
+import type { AllocatorKind, AllocatorMethod } from "../rustc_ast/expand/allocator.gen.ts";
+import { ALLOC_ERROR_HANDLER, ALLOCATOR_METHODS } from "../rustc_ast/expand/allocator.ts";
+import type { Target as TargetSpec } from "../rustc_target/spec/mod.ts";
 import { are_upstream_rust_objects_already_included } from "./back/link.ts";
+import { exported_symbols as linker_exported_symbols, linked_symbols as linker_linked_symbols } from "./back/linker.ts";
+import { exported_symbols_for_lto as lto_exported_symbols_for_lto } from "./back/lto.ts";
 import {
   CodegenLintLevelSpecs,
   type CrateInfo,
   type EiiLinkageImplInfo,
   type EiiLinkageInfo,
   NativeLib_from,
-  type SymbolExportKind,
 } from "./lib.ts";
+
+// Returns `true` if this session's target will use native wasm
+// exceptions. This means that the VM does the unwinding for
+// us
+// rustc: compiler/rustc_codegen_ssa/src/base.rs:376 wants_wasm_eh
+export function wants_wasm_eh(target: TargetSpec): boolean {
+  return target.is_like_wasm;
+}
+
+// rustc: compiler/rustc_codegen_ssa/src/base.rs:665 allocator_kind_for_codegen
+export function allocator_kind_for_codegen(tcx: TyCtxt): AllocatorKind | undefined {
+  // If the crate doesn't have an `allocator_kind` set then there's definitely
+  // no shim to generate. Otherwise we also check our dependency graph for all
+  // our output crate types. If anything there looks like its a `Dynamic`
+  // linkage for all crate types we may link as, then it's already got an
+  // allocator shim and we'll be using that one instead. If nothing exists
+  // then it's our job to generate the allocator! If crate types disagree
+  // about whether an allocator shim is necessary or not, we generate one
+  // and let needs_allocator_shim_for_linking decide at link time whether or
+  // not to use it for any particular linker invocation.
+  const all_crate_types_any_dynamic_crate = [...(tcx.dependency_formats(null) as Dependencies)].every(([, list]) => {
+    // use rustc_middle::middle::dependency_format::Linkage;
+    return list.some((linkage) => linkage === "Dynamic");
+  });
+  if (all_crate_types_any_dynamic_crate) {
+    return undefined;
+  } else {
+    return tcx.allocator_kind(null) as AllocatorKind | undefined;
+  }
+}
+
+/// Decide if this particular crate type needs an allocator shim linked in.
+/// This may return true even when allocator_kind_for_codegen returns false. In
+/// this case no allocator shim shall be linked.
+// rustc: compiler/rustc_codegen_ssa/src/base.rs:685 needs_allocator_shim_for_linking
+export function needs_allocator_shim_for_linking(dependency_formats: Dependencies, crate_type: CrateType): boolean {
+  // use rustc_middle::middle::dependency_format::Linkage;
+  const list = dependency_formats.get(crate_type);
+  if (list === undefined) return panic("IndexMap: key not found");
+  const any_dynamic_crate = list.some((linkage) => linkage === "Dynamic");
+  return !any_dynamic_crate;
+}
+
+// rustc: compiler/rustc_codegen_ssa/src/base.rs:695 allocator_shim_contents
+export function allocator_shim_contents(tcx: TyCtxt, kind: AllocatorKind): AllocatorMethod[] {
+  const methods: AllocatorMethod[] = [];
+
+  if (kind === "Default") {
+    methods.push(...ALLOCATOR_METHODS);
+  }
+
+  // If the return value of allocator_kind_for_codegen is Some then
+  // alloc_error_handler_kind must also be Some.
+  if (unwrap(tcx.alloc_error_handler_kind(null) as AllocatorKind | undefined) === "Default") {
+    methods.push({
+      name: ALLOC_ERROR_HANDLER,
+      special: undefined,
+      inputs: [{ name: "layout", ty: "Layout" }],
+      output: "Never",
+    });
+  }
+
+  return methods;
+}
 
 // rustc: compiler/rustc_codegen_ssa/src/base.rs:954 collect_eii_linkage
 function collect_eii_linkage(tcx: TyCtxt): EiiLinkageInfo[] {
@@ -96,8 +166,8 @@ function eii_linkage_needed(dependency_formats: Dependencies): boolean {
 // rustc: compiler/rustc_codegen_ssa/src/base.rs:1020 new
 export function CrateInfo_new(tcx: TyCtxt, target_cpu: string): CrateInfo {
   const crate_types = [...tcx.crate_types()];
-  const exported_symbols = new Map(crate_types.map((c) => [c, back_linker_exported_symbols(tcx, c)] as const));
-  const linked_symbols = new Map(crate_types.map((c) => [c, back_linker_linked_symbols(tcx, c)] as const));
+  const exported_symbols = new Map(crate_types.map((c) => [c, linker_exported_symbols(tcx, c)] as const));
+  const linked_symbols = new Map(crate_types.map((c) => [c, linker_linked_symbols(tcx, c)] as const));
   const local_crate_name = tcx.crate_name(LOCAL_CRATE);
   const windows_subsystem = find_attr(tcx.hir_krate_attrs(), (k) => (k.$ === "WindowsSubsystem" ? k._0 : undefined));
   const dependency_formats = tcx.dependency_formats(null) as Dependencies;
@@ -145,7 +215,7 @@ export function CrateInfo_new(tcx: TyCtxt, target_cpu: string): CrateInfo {
     windows_subsystem,
     natvis_debugger_visualizers: [],
     lint_level_specs: CodegenLintLevelSpecs.from_tcx(tcx),
-    metadata_symbol: exported_symbols_metadata_symbol_name(tcx),
+    metadata_symbol: metadata_symbol_name(tcx),
     symbol_rename_suffix: `.rs${lower_hex_StableCrateId(tcx.stable_crate_id(LOCAL_CRATE), PLAIN)}`,
     each_linked_rlib_file_for_lto: [],
     exported_symbols_for_lto: [],
@@ -231,7 +301,7 @@ export function CrateInfo_new(tcx: TyCtxt, target_cpu: string): CrateInfo {
 
   // FIXME move to -Zlink-only half such that each_linked_rlib_file_for_lto can be moved there too
   // Compute the set of symbols we need to retain when doing LTO (if we need to)
-  info.exported_symbols_for_lto = back_lto_exported_symbols_for_lto(tcx, each_linked_rlib_for_lto);
+  info.exported_symbols_for_lto = lto_exported_symbols_for_lto(tcx, each_linked_rlib_for_lto);
 
   const embed_visualizers = tcx.crate_types().some((crate_type) => {
     switch (crate_type) {
@@ -308,28 +378,4 @@ export function provide(providers: Providers): void {
 
     return tcx.sess.opts.optimize;
   };
-}
-
-// ---- Pending-file shims ------------------------------------------------------------------------------------
-// Named and typed as upstream; each body calls `unported` with the upstream path. Replace by the import when the
-// file is ported (handoff driver-m5).
-
-/** `crate::back::linker::exported_symbols` (back/linker.rs:1669). PORT: back/linker.rs is not ported. */
-function back_linker_exported_symbols(_tcx: TyCtxt, _crate_type: CrateType): never {
-  return unported("rustc_codegen_ssa::back::linker::exported_symbols (CrateInfo::new)");
-}
-
-/** `crate::back::linker::linked_symbols` (back/linker.rs:1752). PORT: back/linker.rs is not ported. */
-function back_linker_linked_symbols(_tcx: TyCtxt, _crate_type: CrateType): never {
-  return unported("rustc_codegen_ssa::back::linker::linked_symbols (CrateInfo::new)");
-}
-
-/** `rustc_middle::middle::exported_symbols::metadata_symbol_name` (middle/exported_symbols.rs:86). PORT: not ported. */
-function exported_symbols_metadata_symbol_name(_tcx: TyCtxt): never {
-  return unported("rustc_middle::middle::exported_symbols::metadata_symbol_name (CrateInfo::new)");
-}
-
-/** `crate::back::lto::exported_symbols_for_lto` (back/lto.rs:89). PORT: back/lto.rs is not ported. */
-function back_lto_exported_symbols_for_lto(_tcx: TyCtxt, _each_linked_rlib_for_lto: readonly CrateNum[]): never {
-  return unported("rustc_codegen_ssa::back::lto::exported_symbols_for_lto (CrateInfo::new)");
 }

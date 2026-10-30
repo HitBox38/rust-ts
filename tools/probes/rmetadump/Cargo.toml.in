@@ -1,0 +1,21 @@
+# Template: scripts/probes.ts substitutes @SRC@ and builds this in $RUST_TS_DATA/probes.
+#
+# A rustc-dev probe (lane probe-rmetadump, plan-m5 §4): prints one `.rmeta` file (the oracle's or the port's)
+# section by section, as stable text, through the pinned nightly's own metadata decoder: the crate root field by
+# field (mirrored as tools/probes/rmetaroot does), the crate-level lists, and every DefIndex's table entries
+# (decoded by the oracle's queries over a session that loads the file with `--extern`). The `rmeta-*` suites split
+# its output into one case per section (scripts/lib/split.ts `splitRmetaDump`).
+[package]
+name = "rmetadump"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata.rust-ts]
+rustc_dev = true
+
+[[bin]]
+name = "rmetadump"
+path = "@SRC@/main.rs"
+
+[workspace]

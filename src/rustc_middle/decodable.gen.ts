@@ -10,6 +10,7 @@ import { type DeducedParamAttrs, type UsageSummary } from "./middle/deduced_para
 import { type FeatureStability } from "./middle/mod.ts";
 import { type AmbigModChild, type ModChild, Reexport } from "./middle/resolve.ts";
 import { ObjectLifetimeDefault } from "./middle/resolve_bound_vars.ts";
+import { type CastKind } from "./ty/abstract_const.ts";
 import { AdtDefData, type AdtFlags } from "./ty/adt.ts";
 import { decode_Clause, decode_List_BoundVariableKind, decode_Ty, decode_ValTree, encode_Clause, encode_List_BoundVariableKind, encode_Ty, encode_ValTree, type TyDecoder, type TyEncoder } from "./ty/codec.ts";
 import { type Value } from "./ty/consts/valtree.ts";
@@ -657,4 +658,30 @@ export function decode_DeducedParamAttrs(__decoder: SpanDecoder): DeducedParamAt
 // rustc-derive: compiler/rustc_middle/src/middle/deduced_param_attrs.rs:32 Encodable for DeducedParamAttrs
 export function encode_DeducedParamAttrs(self: DeducedParamAttrs, __encoder: SpanEncoder): void {
   encode_UsageSummary(self.usage, __encoder);
+}
+
+// rustc-derive: compiler/rustc_middle/src/ty/abstract_const.rs:13 TyDecodable for CastKind
+export function decode_CastKind(__decoder: TyDecoder): CastKind {
+  const __tag = __decoder.read_u8();
+  switch (__tag) {
+    case 0:
+      return "As";
+    case 1:
+      return "Use";
+    default:
+      return panic(`invalid enum variant tag while decoding \`CastKind\`, expected 0..2, actual ${__tag}`);
+  }
+}
+function CastKind__variant_index(tag: CastKind): number {
+  switch (tag) {
+    case "As":
+      return 0;
+    case "Use":
+      return 1;
+  }
+}
+// rustc-derive: compiler/rustc_middle/src/ty/abstract_const.rs:13 TyEncodable for CastKind
+export function encode_CastKind(self: CastKind, __encoder: TyEncoder): void {
+  const disc = CastKind__variant_index(self);
+  __encoder.emit_u8(disc);
 }

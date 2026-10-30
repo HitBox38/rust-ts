@@ -36,7 +36,7 @@ import type { Pending } from "../../rustc_type_ir/decls.ts";
 import type { List } from "./list.ts";
 import { assert, unported } from "../../std/panic.ts";
 import type { TyCtxt } from "./context.ts";
-import type { AdtDef, Allocation, CanonicalVarKinds, ConstAllocation, ParamEnv, Pattern, PlaceElem, ValTree, Value } from "./decls.ts";
+import type { AdtDef, Allocation, BinOp, CanonicalVarKinds, CastKind, ConstAllocation, ParamEnv, Pattern, PlaceElem, UnOp, ValTree, Value } from "./decls.ts";
 import type { GenericArg, GenericArgs } from "./generic_args.ts";
 import type { Term, Ty } from "./mod.ts";
 import type { Clause, Predicate } from "./predicate.ts";
@@ -679,6 +679,30 @@ function decode_Allocation(d: TyDecoder): Allocation {
 function encode_Allocation(v: Allocation, e: TyEncoder): void {
   const allocation = require("../mir/interpret/allocation.ts") as typeof import("../mir/interpret/allocation.ts");
   allocation.encode_Allocation(v, e, encode_CtfeProvenance, encode_unit);
+}
+
+/** `TyDecodable` / `TyEncodable` of `ty::ExprKind`'s operands, read lazily (init order: ty/consts/kind.gen.ts would
+ *  otherwise load mir/ or rustc_middle/decodable.gen.ts before `TyCtxt` exists). The tools/codegen serialize.json
+ *  entries of `mir::BinOp`, `mir::UnOp` and `ty::abstract_const::CastKind` name these (lane rmeta-gaps-a).
+ *  `mir::BinOp` / `mir::UnOp`: the derives generated into mir/syntax.gen.ts (set rustc_middle_mir). */
+export function decode_mir_BinOp(d: TyDecoder): BinOp {
+  return mir_mod_().decode_BinOp(d);
+}
+export function encode_mir_BinOp(v: BinOp, e: TyEncoder): void {
+  mir_mod_().encode_BinOp(v, e);
+}
+export function decode_mir_UnOp(d: TyDecoder): UnOp {
+  return mir_mod_().decode_UnOp(d);
+}
+export function encode_mir_UnOp(v: UnOp, e: TyEncoder): void {
+  mir_mod_().encode_UnOp(v, e);
+}
+/** `ty::abstract_const::CastKind`: the derive generated into rustc_middle/decodable.gen.ts (set rustc_middle). */
+export function decode_abstract_const_CastKind(d: TyDecoder): CastKind {
+  return decodable_().decode_CastKind(d);
+}
+export function encode_abstract_const_CastKind(v: CastKind, e: TyEncoder): void {
+  decodable_().encode_CastKind(v, e);
 }
 
 export type { BoundVariableKind };

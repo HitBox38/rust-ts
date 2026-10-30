@@ -351,11 +351,16 @@
     "derive_encodable": true,
     "decodable_types": [
       "rustc_crate_store::cstore::CrateDepKind",
-      "rustc_crate_store::cstore::LinkagePreference"
+      "rustc_crate_store::cstore::LinkagePreference",
+      "rustc_crate_store::cstore::NativeLib",
+      "rustc_crate_store::cstore::DllImport",
+      "rustc_crate_store::cstore::DllImportSymbolType",
+      "rustc_crate_store::cstore::DllCallingConvention",
+      "rustc_crate_store::cstore::ForeignModule"
     ],
     "hand_notes": {
       "rustc_crate_store::cstore::CrateStoreDyn": "`dyn CrateStore + DynSync + DynSend`: the trait object is the hand-written CrateStore interface (cstore.ts)",
-      "decodable_types": "the types crate metadata's eagerly decoded parts contain (rmeta CrateDep, dylib_dependency_formats)"
+      "decodable_types": "the types crate metadata's eagerly decoded parts contain (rmeta CrateDep, dylib_dependency_formats); `NativeLib` / `ForeignModule` and their field types: the crate root's `native_libraries` / `foreign_modules` (rmeta encoder.rs `encode_native_libraries` / `encode_foreign_modules`, decoder.rs `get_native_libraries` / `get_foreign_modules`; lane rmeta-gaps-a)"
     }
   },
   "rustc_attr_ir": {
@@ -430,7 +435,8 @@
   },
   "rustc_abi": {
     "files": [
-      "compiler/rustc_abi/src/lib.rs"
+      "compiler/rustc_abi/src/lib.rs",
+      "compiler/rustc_abi/src/extern_abi.rs"
     ],
     "class": [],
     "hand": [],
@@ -446,7 +452,8 @@
       "rustc_abi::IntegerType",
       "rustc_abi::ScalableElt",
       "rustc_abi::ReprFlags",
-      "rustc_abi::ReprOptions"
+      "rustc_abi::ReprOptions",
+      "rustc_abi::extern_abi::ExternAbi"
     ],
     "decodable_construct": {
       "rustc_abi::ReprFlags": { "expr": "$0 as ReprFlags" },
@@ -454,7 +461,7 @@
     },
     "hand_notes": {
       "*": "rustc_abi's types are hand-written (src/rustc_abi/lib.ts, a subset); this set only generates rustc_abi/decodable.gen.ts.",
-      "decodable_types": "`ReprOptions` and its field types: crate metadata's `AdtDefData.repr` (rustc_middle ty/codec.rs `Decodable for AdtDef`; lane small-gaps-18)"
+      "decodable_types": "`ReprOptions` and its field types: crate metadata's `AdtDefData.repr` (rustc_middle ty/codec.rs `Decodable for AdtDef`; lane small-gaps-18); `ExternAbi` (extern_abi.rs, hand-written in rustc_abi/extern_abi.ts): `ForeignModule.abi` (lane rmeta-gaps-a)"
     }
   },
   "rustc_index": {
@@ -836,7 +843,8 @@
       "rustc_middle::ty::consts::valtree::Value",
       "rustc_middle::ty::intrinsic::IntrinsicDef",
       "rustc_middle::middle::deduced_param_attrs::UsageSummary",
-      "rustc_middle::middle::deduced_param_attrs::DeducedParamAttrs"
+      "rustc_middle::middle::deduced_param_attrs::DeducedParamAttrs",
+      "rustc_middle::ty::abstract_const::CastKind"
     ],
     "decodable_construct": {
       "rustc_middle::ty::generics::Generics": { "expr": "Generics.from_decoded($0, $1, $2, $3, $4, $5)", "import": ["Generics"] },
@@ -851,7 +859,7 @@
     },
     "hand_notes": {
       "*": "rustc_middle's types are hand-written; this set only generates rustc_middle/stable_hash.gen.ts (derive(StableHash)) for the ported query value types listed in stable_hash_types (re-fed queries, calls.rs query_feed).",
-      "decodable_types": "crate metadata's visibility and mut_restriction tables (rmeta decoder.rs `CrateMetadata::get_visibility` / `print_item`, lane rmeta-decoder-a; `get_mut_restriction`, merge-w15b), RPITIT data (`get_associated_item`) and the `adt_destructor` / `adt_async_destructor` tables (merge-w15b), module children (`CrateMetadata::get_module_children` reexports / `get_ambig_module_children`) and `ty::Generics` (the `generics_of` extern provider; lane decode-elems), `ty::ImplTraitHeader` (the `impl_trait_header` extern provider, old-solver candidate assembly over extern impls; merge-w18c), `DeducedParamAttrs` / `UsageSummary` (the `deduced_param_attrs` extern provider, rmeta cstore_impl.rs; lane mt-opt2-b); generates rustc_middle/decodable.gen.ts"
+      "decodable_types": "crate metadata's visibility and mut_restriction tables (rmeta decoder.rs `CrateMetadata::get_visibility` / `print_item`, lane rmeta-decoder-a; `get_mut_restriction`, merge-w15b), RPITIT data (`get_associated_item`) and the `adt_destructor` / `adt_async_destructor` tables (merge-w15b), module children (`CrateMetadata::get_module_children` reexports / `get_ambig_module_children`) and `ty::Generics` (the `generics_of` extern provider; lane decode-elems), `ty::ImplTraitHeader` (the `impl_trait_header` extern provider, old-solver candidate assembly over extern impls; merge-w18c), `DeducedParamAttrs` / `UsageSummary` (the `deduced_param_attrs` extern provider, rmeta cstore_impl.rs; lane mt-opt2-b), `abstract_const::CastKind` (`ty::ExprKind::Cast` of a const expression's `TyEncodable`; lane rmeta-gaps-a); generates rustc_middle/decodable.gen.ts"
     }
   },
   "rustc_middle_stability": {

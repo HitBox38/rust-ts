@@ -43,15 +43,13 @@ test.skipIf(!HAVE_UPSTREAM && !REQUIRE_PROBES)("golden: the rustc_ty set reprodu
     "rustc_type_ir::solve::NoSolution (TypeVisitable)",
   ]);
   // derive(Decodable_NoContext / TyDecodable) (lane rmeta-ty): the fields whose Decodable impl is not ported yet
-  // (lane meta-mir: `rustc_abi::FieldIdx` has a serialize.json entry now)
+  // (lane meta-mir: `rustc_abi::FieldIdx` has a serialize.json entry now; lane rmeta-gaps-a: so do `ty::ExprKind`'s
+  // operands `mir::BinOp` / `mir::UnOp` / `abstract_const::CastKind`, through ty/codec.ts's lazy wrappers)
   expect(Object.keys(res.report.missing_decodable).sort()).toEqual([
     "I::LocalDefIds",
     "I::PredefinedOpaques",
     "I::RegionAssumptions",
-    "rustc_middle::mir::BinOp",
-    "rustc_middle::mir::UnOp",
     "rustc_middle::ty::ImplTraitInTraitData",
-    "rustc_middle::ty::abstract_const::CastKind",
   ]);
   // derive(StableHash_NoContext / StableHash) of the `stable_hash_types` (lane misc-blockers: `Ty: StableHash`): every
   // field has an impl (lane stablehash-gaps: `ty::Expr`'s operator kinds `mir::BinOp` / `mir::UnOp` (set rustc_middle_mir)

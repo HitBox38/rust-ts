@@ -6,7 +6,7 @@ import type { PathBuf } from "../rustc_error_messages/lib.ts";
 import { try_canonicalize } from "../rustc_fs_util/lib.ts";
 import { type Debug, debug_bool, debug_option, debug_str, debug_struct } from "../std/fmt.ts";
 import { args_os } from "../std/env.ts";
-import { unported } from "../std/panic.ts";
+import { debug_NativeLibKind, NativeLibKind } from "../rustc_structures/lib.ts";
 // LOAD ORDER: options.ts before config.ts (see config.ts header).
 import "./options.ts";
 import { CanonicalizedPath_new_hook } from "./config.ts";
@@ -34,10 +34,6 @@ Session.prototype.time = function <R>(this: Session, what: string, f: () => R): 
   return this.prof.verbose_generic_activity(what).run(f);
 };
 
-/** PORT: opaque stand-in for `rustc_structures::NativeLibKind` (rustc_structures is not ported). */
-export type NativeLibKind = { readonly __standin: "rustc_structures::NativeLibKind" };
-const debug_NativeLibKind: Debug<NativeLibKind> = () => unported("rustc_structures::NativeLibKind Debug");
-
 // #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Encodable, Decodable)]
 // #[derive(StableHash)]
 export class NativeLib {
@@ -50,7 +46,7 @@ export class NativeLib {
 
   // rustc: compiler/rustc_session/src/utils.rs:31 has_modifiers
   has_modifiers(): boolean {
-    return this.verbatim !== undefined || unported("rustc_structures::NativeLibKind::has_modifiers");
+    return this.verbatim !== undefined || NativeLibKind.has_modifiers(this.kind);
   }
 }
 export const debug_NativeLib: Debug<NativeLib> = (v, f) =>

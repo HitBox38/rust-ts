@@ -34,10 +34,12 @@ const CASES = readdirSync(CASES_DIR)
  * `mir_borrowck` (last at `UniverseInfo::relate`, bck-diag-f), run borrowck through: the error cases equal the oracle;
  * refine_rpitit (only a warning, so `analysis` succeeds) goes on to codegen (after printing the oracle's warning).
  * Re-pinned by driver-m5: `Linker` and `start_codegen` are ported; the stop is metadata encoding. Re-pinned by
- * metadata-deps: `encode_and_write_metadata` is ported; the stop is its call of the encoder.
+ * metadata-deps: `encode_and_write_metadata` is ported; the stop is its call of the encoder. Re-pinned by
+ * symbol-export-metadata: `exported_non_generic_symbols_helper` is ported; the stop is the encoder's
+ * `encode_exported_symbols`, whose element encoder `(ExportedSymbol, SymbolExportInfo)` is not ported.
  */
 const PENDING: Record<string, string> = {
-  refine_rpitit: "rustc_metadata::rmeta::encoder::encode_metadata (lanes encoder-a..d)",
+  refine_rpitit: "rustc_middle::middle::exported_symbols: Encodable for (ExportedSymbol, SymbolExportInfo) (codegen, M7)",
 };
 
 /**

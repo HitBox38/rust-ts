@@ -40,7 +40,7 @@ import type { MacroDef } from "../../rustc_ast/lib.ts";
 import type { Attribute } from "../../rustc_attr_ir/attr.ts";
 import type { LangItem } from "../../rustc_attr_ir/lang_items.ts";
 import type { CrateDepKind, CrateSource, ExternCrate, ForeignModule, LinkagePreference, NativeLib } from "../../rustc_crate_store/lib.ts";
-import { debug_CrateDepKind, debug_LinkagePreference, decode_LinkagePreference as decode_LinkagePreference_ } from "../../rustc_crate_store/lib.ts";
+import { debug_CrateDepKind, debug_LinkagePreference, decode_ForeignModule, decode_LinkagePreference as decode_LinkagePreference_, decode_NativeLib } from "../../rustc_crate_store/lib.ts";
 import { debug_Fingerprint, decode_Fingerprint, encode_Fingerprint, Fingerprint } from "../../rustc_data_structures/fingerprint.ts";
 import type { OwnedSlice } from "../../rustc_data_structures/owned_slice.ts";
 import type { SyntaxExtension } from "../../rustc_expand/base.ts";
@@ -1789,14 +1789,6 @@ CrateMetadata.prototype.get_fake_doc_items = function (this: CrateMetadata, tcx:
 /** `<SimplifiedType<DefId> as Decodable<DecodeContext>>::decode`: the generated derive(Decodable_NoContext) at `DefId`. */
 function decode_SimplifiedType(d: MetadataDecodeContext): SimplifiedType {
   return decode_SimplifiedType_(d, decode_DefId);
-}
-/** `#[derive(Decodable)]` of `rustc_crate_store::NativeLib`. */
-function decode_NativeLib(_d: MetadataDecodeContext): NativeLib {
-  return unported("Decodable for rustc_crate_store::NativeLib (derive(Decodable) not generated)");
-}
-/** `#[derive(Decodable)]` of `rustc_crate_store::ForeignModule`. */
-function decode_ForeignModule(_d: MetadataDecodeContext): ForeignModule {
-  return unported("Decodable for rustc_crate_store::ForeignModule (derive(Decodable) not generated)");
 }
 /** `Decodable` of `EiiMapEncodedKeyValue` (rmeta encoder.rs type alias of a tuple; `EiiDecl` / `EiiImpl`). */
 function decode_EiiMapEncodedKeyValue(_d: MetadataDecodeContext): unknown {

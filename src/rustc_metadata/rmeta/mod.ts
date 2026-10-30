@@ -14,8 +14,8 @@
 // - Struct fields that clash with a method of the same name get `_` (`CrateRoot.stable_crate_id_`).
 //
 // `pub(crate) use decoder::{CrateMetadata, CrateNumMap, MetadataBlob, TargetModifiers};` is a type-only
-// re-export (see above). `pub use encoder::{EncodedMetadata, encode_metadata, rendered_const};`: encoder.ts (lane
-// encode-contract skeleton, filled by lanes encoder-a..d); ../lib.ts does not load it until `encode_metadata` is reached.
+// re-export (see above). `pub use encoder::{EncodedMetadata, encode_metadata, rendered_const};`: encoder.ts, which
+// imports this module, so `provide` loads encoder.ts and decoder/cstore_impl.ts lazily (../lib.ts re-exports them).
 import type { DelimArgs } from "../../rustc_ast/lib.ts";
 import type { Attribute } from "../../rustc_attr_ir/attr.ts";
 import type { Deprecation } from "../../rustc_attr_ir/data_structures.gen.ts";
@@ -1228,11 +1228,11 @@ export const SYMBOL_OFFSET = 1;
 export const SYMBOL_PREDEFINED = 2;
 
 // rustc: compiler/rustc_metadata/src/rmeta/mod.rs:631 provide
-export function provide(_providers: Providers): void {
-  // encoder::provide(&mut providers.queries);
-  unported("rustc_metadata::rmeta::encoder::provide (metadata encoding, M5)");
-  // decoder::provide(providers);
-  // PORT: not reached (above); `decoder::provide` is `cstore_impl::provide` (../lib.ts exports it directly).
+export function provide(providers: Providers): void {
+  // PORT: lazy requires (see the header): this module is loaded before encoder.ts and cstore_impl.ts.
+  (require("./encoder.ts") as typeof import("./encoder.ts")).provide(providers.queries);
+  // `decoder::provide` is `cstore_impl::provide` (`pub(super) use cstore_impl::provide;`).
+  (require("./decoder/cstore_impl.ts") as typeof import("./decoder/cstore_impl.ts")).provide(providers);
 }
 
 // ---- impl Decodable for LazyValue / LazyArray / LazyTable (decoder.rs) ---------------------------------------
