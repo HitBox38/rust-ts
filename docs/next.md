@@ -289,3 +289,21 @@ thir-tree 1,849. check-core-bin completes core's analysis and stops at the metad
 After encode-contract: encode-span-hygiene, encode-middle; probe-rmetadump + harness-m5c (rmeta-* suites, check-core binary
 compare, compiler_builtins aux chain); vendor-twox-hash wiring (wave 33); crateinfo-symbols (wave 33).
 
+## Wave 32 ACCEPTED 2026-10-31 (gate-20261030-102229-root-fsro, main 937edef8)
+Encoder foundations merged and reviewed (encode-contract, encode-span-hygiene, encode-middle incl. hashbrown-order
+FxHashMap encoding, metadata-deps, passes-reachable: D1 core dep_tracking_hash == oracle) + perf-core-a; protected set
+unchanged (403,191, encoder not yet reachable); mir-core 145.6 s user / 8.0 GB. Root fix: options codegen POLONIUS_HELP
+lazy (config.ts/options.gen.ts cycle safe in either order).
+
+## Wave 33 (started 2026-10-31) — the encoder (plan-m5 §5)
+| lane | scope | status |
+|---|---|---|
+| encoder-a | encoder.rs :1–:650 (contract-owned: [u8], def-path table/hash map, lazy machinery) | running |
+| encoder-b | :651–:1480 (encode_crate_root, crate-level lists, should_encode_*) | running |
+| encoder-c | :1482–:2040 (encode_def_ids, ADTs, mir_for_ctfe/promoted, stability, native libs) | running |
+| encoder-d | :2040–:2909 (impls, items, exported symbols, encode_metadata, header, SVH via XXH3-128, EncodedMetadata switch-over) | running |
+| crateinfo-symbols | linker exported_symbols/linked_symbols, lto exported_symbols_for_lto, metadata_symbol_name, global_backend_features | running |
+| probe-rmetadump | rmeta dump probe + rmeta-core / small-crate rmeta suites / check-core binary compare (harness batch) | running |
+Queued: representation decisions from perf-core-a (numeric interning hash, GenericArg.kind, SpanData columns, GC/closures);
+std io::stdout EBADF; harness: instructions-retired for heavy runs; harness-m5c (compiler_builtins aux chain, check-alloc/std).
+
