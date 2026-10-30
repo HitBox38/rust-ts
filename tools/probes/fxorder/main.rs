@@ -12,12 +12,15 @@
 //!   su32   FxHashSet<u32>                      decimal
 //!   su8    FxHashSet<u8>                       decimal
 //!   ssym   FxHashSet<Symbol>                   hex, interned
+//!   def    FxHashMap<DefId, u32>               `<krate>.<index>` (decimal; lane encode-middle:
+//!          `Generics::param_def_id_to_index`, whose order crate metadata encodes)
 //! Ops (`<k>` a key token, `<ks>` comma-separated key tokens, `<n>` a decimal):
-//!   +<k>   insert(k, i)  (maps: the value is the op's index i; sets: insert(k))
+//!   +<k>   insert(k, i)  (maps: the value is the op's index i (`as u32` for `def`); sets: insert(k))
 //!   -<k>   remove(&k)
 //!   r<n>   reserve(n)            s<n>  shrink_to(n)        S  shrink_to_fit()
 //!   x      clear()               C     *self = self.clone()
-//!   R<n>   retain(|k, ..| keynum(k) % n != 0)  (keynum: the integer key, or the sum of the key's bytes)
+//!   R<n>   retain(|k, ..| keynum(k) % n != 0)  (keynum: the integer key, or the sum of the key's bytes;
+//!          `def`: krate + index)
 //!   E<ks>  extend(Vec<K>.into_iter())        (exact size hint)
 //!   e<ks>  extend(Vec<K>.into_iter().filter(|_| true))   (size hint lower bound 0)
 //!   F<ks>  *self = Vec<K>.into_iter().collect()            (std FromIterator)
@@ -38,6 +41,7 @@ use std::io::{BufRead, Write};
 
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
 use rustc_span::Symbol;
+use rustc_span::def_id::{CrateNum, DefId, DefIndex};
 
 fn unhex(s: &str) -> String {
     if s == "_" {
@@ -108,6 +112,19 @@ impl Key for Symbol {
     }
 }
 
+impl Key for DefId {
+    fn parse(tok: &str) -> Self {
+        let (krate, index) = tok.split_once('.').unwrap();
+        DefId { krate: CrateNum::from_u32(krate.parse().unwrap()), index: DefIndex::from_u32(index.parse().unwrap()) }
+    }
+    fn token(&self) -> String {
+        format!("{}.{}", self.krate.as_u32(), self.index.as_u32())
+    }
+    fn keynum(&self) -> u64 {
+        self.krate.as_u32() as u64 + self.index.as_u32() as u64
+    }
+}
+
 fn keys<K: Key>(list: &str) -> Vec<K> {
     if list.is_empty() { Vec::new() } else { list.split(',').map(K::parse).collect() }
 }
@@ -117,14 +134,14 @@ fn state<'a, K: Key + 'a>(cap: usize, it: impl Iterator<Item = &'a K>) -> String
     format!("{cap}:{}", ks.join(","))
 }
 
-fn run_map<K: Key>(ops: &[&str]) -> String {
-    let mut m: FxHashMap<K, usize> = FxHashMap::default();
+fn run_map<K: Key, V: Clone>(ops: &[&str], val: fn(usize) -> V) -> String {
+    let mut m: FxHashMap<K, V> = FxHashMap::default();
     let mut out = Vec::new();
     for (i, op) in ops.iter().enumerate() {
         let (c, rest) = op.split_at(1);
         match c {
             "+" => {
-                m.insert(K::parse(rest), i);
+                m.insert(K::parse(rest), val(i));
             }
             "-" => {
                 m.remove(&K::parse(rest));
@@ -138,9 +155,9 @@ fn run_map<K: Key>(ops: &[&str]) -> String {
                 let n: u64 = rest.parse().unwrap();
                 m.retain(|k, _| k.keynum() % n != 0);
             }
-            "E" => m.extend(keys::<K>(rest).into_iter().map(|k| (k, i))),
-            "e" => m.extend(keys::<K>(rest).into_iter().filter(|_| true).map(|k| (k, i))),
-            "F" => m = keys::<K>(rest).into_iter().map(|k| (k, i)).collect(),
+            "E" => m.extend(keys::<K>(rest).into_iter().map(|k| (k, val(i)))),
+            "e" => m.extend(keys::<K>(rest).into_iter().filter(|_| true).map(|k| (k, val(i)))),
+            "F" => m = keys::<K>(rest).into_iter().map(|k| (k, val(i))).collect(),
             "W" => m = FxHashMap::with_capacity_and_hasher(rest.parse().unwrap(), Default::default()),
             "p" => out.push(state(m.capacity(), m.keys())),
             _ => panic!("bad op {op}"),
@@ -194,9 +211,10 @@ fn main() {
             let kind = toks.next().unwrap();
             let ops: Vec<&str> = toks.filter(|t| !t.is_empty()).collect();
             let r = match kind {
-                "u32" => run_map::<u32>(&ops),
-                "str" => run_map::<String>(&ops),
-                "sym" => run_map::<Symbol>(&ops),
+                "u32" => run_map::<u32, usize>(&ops, |i| i),
+                "str" => run_map::<String, usize>(&ops, |i| i),
+                "sym" => run_map::<Symbol, usize>(&ops, |i| i),
+                "def" => run_map::<DefId, u32>(&ops, |i| i as u32),
                 "su32" => run_set::<u32>(&ops),
                 "su8" => run_set::<u8>(&ops),
                 "ssym" => run_set::<Symbol>(&ops),

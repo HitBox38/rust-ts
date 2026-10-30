@@ -6,7 +6,7 @@ import { type AllocId, clone_AllocId, debug_AllocId } from "./interpret/mod.ts";
 import { clone_CtfeProvenance, type CtfeProvenance, debug_CtfeProvenance } from "./interpret/pointer.ts";
 import { clone_Scalar, debug_Scalar, decode_Scalar, encode_Scalar, type Scalar } from "./interpret/value.ts";
 import { debug_Promoted, decode_Promoted, encode_Promoted, type Promoted } from "./mod.ts";
-import { decode_AllocId, decode_CtfeProvenance, decode_GenericArgs, decode_Ty, decode_ty_Const, encode_AllocId, encode_CtfeProvenance, encode_Ty, type TyDecoder, type TyEncoder } from "../ty/codec.ts";
+import { decode_AllocId, decode_CtfeProvenance, decode_GenericArgs, decode_Ty, decode_ty_Const, encode_AllocId, encode_CtfeProvenance, encode_GenericArgs, encode_Ty, encode_ty_Const, type TyDecoder, type TyEncoder } from "../ty/codec.ts";
 import { debug_GenericArgs, fold_with_GenericArgs, type GenericArgs, try_fold_with_GenericArgs, visit_with_GenericArgs } from "../ty/generic_args.ts";
 import { debug_Ty, fold_with_Ty, try_fold_with_Ty, type Ty, visit_with_Ty } from "../ty/mod.ts";
 import { decode_Option, decode_u64, encode_Option, encode_u64 } from "../../rustc_serialize/serialize.ts";
@@ -16,10 +16,6 @@ import { type Const as ty_Const, debug_Const as debug_ty_Const, fold_with_Const 
 import { type Debug, debug_int, debug_option, debug_struct, debug_tuple } from "../../std/fmt.ts";
 import { panic } from "../../std/panic.ts";
 import { Ok, type Result } from "../../std/result.ts";
-import { unported } from "../../std/panic.ts";
-function unported_encodable(..._a: unknown[]): void {
-  unported("Encodable without a TS impl (see types report)");
-}
 
 // rustc-type: compiler/rustc_middle/src/mir/consts.rs:24 ConstAlloc
 /// Evaluated Constants
@@ -233,7 +229,7 @@ export function encode_Const(self: Const, __encoder: TyEncoder): void {
   switch (self.$) {
     case "Ty":
       encode_Ty(self._0, __encoder);
-      unported_encodable(self._1);
+      encode_ty_Const(self._1, __encoder);
       break;
     case "Unevaluated":
       encode_UnevaluatedConst(self._0, __encoder);
@@ -327,7 +323,7 @@ export function decode_UnevaluatedConst(__decoder: TyDecoder): UnevaluatedConst 
 // rustc-derive: compiler/rustc_middle/src/mir/consts.rs:473 TyEncodable for UnevaluatedConst
 export function encode_UnevaluatedConst(self: UnevaluatedConst, __encoder: TyEncoder): void {
   __encoder.encode_def_id(self.def);
-  unported_encodable(self.args);
+  encode_GenericArgs(self.args, __encoder);
   encode_Option(self.promoted, __encoder, encode_Promoted);
 }
 // rustc-derive: compiler/rustc_middle/src/mir/consts.rs:473 TypeVisitable for UnevaluatedConst

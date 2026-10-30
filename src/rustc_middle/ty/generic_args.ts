@@ -353,9 +353,9 @@ export const fold_GenericArg: TypeFoldable<GenericArg> = {
 
 // impl<'tcx, E: TyEncoder<'tcx>> Encodable<E> for GenericArg<'tcx>
 // PORT: `GenericArgKind: Encodable<E>` is `encode_GenericArgKind` (derived; tools/codegen), as for `decode_GenericArg`.
-// stub: compiler/rustc_middle/src/ty/generic_args.rs:366 encode (lane encode-middle)
-export function encode_GenericArg<E extends TyEncoder>(_self: GenericArg, _e: E, _encode_GenericArgKind: Encodable<GenericArgKind, E>): void {
-  unported("rustc_middle::ty::generic_args::encode GenericArg (lane encode-middle)");
+// rustc: compiler/rustc_middle/src/ty/generic_args.rs:366 encode
+export function encode_GenericArg<E extends TyEncoder>(self: GenericArg, e: E, encode_GenericArgKind: Encodable<GenericArgKind, E>): void {
+  encode_GenericArgKind(GenericArg.kind(self), e);
 }
 
 /** `impl<D: TyDecoder> Decodable<D> for GenericArg`: `GenericArgKind::decode(d).pack()`.

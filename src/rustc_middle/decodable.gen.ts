@@ -11,7 +11,7 @@ import { type FeatureStability } from "./middle/mod.ts";
 import { type AmbigModChild, type ModChild, Reexport } from "./middle/resolve.ts";
 import { ObjectLifetimeDefault } from "./middle/resolve_bound_vars.ts";
 import { AdtDefData, type AdtFlags } from "./ty/adt.ts";
-import { decode_Clause, decode_List_BoundVariableKind, decode_Ty, decode_ValTree, encode_Clause, encode_Ty, encode_ValTree, type TyDecoder, type TyEncoder } from "./ty/codec.ts";
+import { decode_Clause, decode_List_BoundVariableKind, decode_Ty, decode_ValTree, encode_Clause, encode_List_BoundVariableKind, encode_Ty, encode_ValTree, type TyDecoder, type TyEncoder } from "./ty/codec.ts";
 import { type Value } from "./ty/consts/valtree.ts";
 import { type ConstConditions, type GenericClauses, type GenericParamDef, GenericParamDefKind, Generics } from "./ty/generics.ts";
 import { type IntrinsicDef } from "./ty/intrinsic.ts";
@@ -22,12 +22,8 @@ import { decode_Ident, decode_ModId, encode_Ident, encode_ModId } from "../rustc
 import { type BlobDecoder, decode_ErrorGuaranteed, encode_ErrorGuaranteed, type SpanDecoder, type SpanEncoder } from "../rustc_span/lib.ts";
 import { decode_EarlyBinder, encode_EarlyBinder } from "../rustc_type_ir/binder.ts";
 import { decode_ImplPolarity, decode_TraitRef, encode_ImplPolarity, encode_TraitRef } from "../rustc_type_ir/predicate.ts";
-import { decode_Binder } from "../rustc_type_ir/serialize.ts";
+import { decode_Binder, encode_Binder } from "../rustc_type_ir/serialize.ts";
 import { panic } from "../std/panic.ts";
-import { unported } from "../std/panic.ts";
-function unported_encodable(..._a: unknown[]): void {
-  unported("Encodable without a TS impl (see types report)");
-}
 
 // rustc-derive: compiler/rustc_middle/src/ty/mod.rs:169 TyDecodable for ImplTraitHeader
 export function decode_ImplTraitHeader(__decoder: TyDecoder): ImplTraitHeader {
@@ -357,7 +353,7 @@ export function decode_ConstConditions(__decoder: TyDecoder): ConstConditions {
 // rustc-derive: compiler/rustc_middle/src/ty/generics.rs:540 TyEncodable for ConstConditions
 export function encode_ConstConditions(self: ConstConditions, __encoder: TyEncoder): void {
   encode_Option(self.parent, __encoder, (__v, __encoder) => __encoder.encode_def_id(__v));
-  encode_slice(self.clauses, __encoder, (__v, __encoder) => encode_tuple(__v, __encoder, (__v, __encoder) => unported_encodable(__v), (__v, __encoder) => __encoder.encode_span(__v)));
+  encode_slice(self.clauses, __encoder, (__v, __encoder) => encode_tuple(__v, __encoder, (__v, __encoder) => encode_Binder(__v, __encoder, encode_TraitRef, encode_List_BoundVariableKind), (__v, __encoder) => __encoder.encode_span(__v)));
 }
 
 // rustc-derive: compiler/rustc_middle/src/middle/resolve.rs:120 TyDecodable for Reexport

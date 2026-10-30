@@ -4,7 +4,7 @@ import { try_visit } from "../../../rustc_ast_ir/visit.ts";
 import { clone_ConstAllocation, type ConstAllocation, debug_ConstAllocation } from "./allocation.ts";
 import { type AllocId, type AllocMap, clone_AllocId } from "./mod.ts";
 import { debug_Promoted, decode_Promoted, encode_Promoted, type Promoted } from "../mod.ts";
-import { decode_ConstAllocation, decode_List_PolyExistentialPredicate, decode_Ty, encode_ConstAllocation, encode_Ty, type TyDecoder, type TyEncoder } from "../../ty/codec.ts";
+import { decode_ConstAllocation, decode_List_PolyExistentialPredicate, decode_Ty, encode_ConstAllocation, encode_List, encode_PolyExistentialPredicate, encode_Ty, type TyDecoder, type TyEncoder } from "../../ty/codec.ts";
 import { debug_Instance, decode_Instance, encode_Instance, fold_with_Instance, type Instance, try_fold_with_Instance, visit_with_Instance } from "../../ty/instance.ts";
 import { debug_RawList, type List } from "../../ty/list.ts";
 import { debug_Ty, type Ty } from "../../ty/mod.ts";
@@ -17,10 +17,6 @@ import { debug_ExistentialPredicate } from "../../../rustc_type_ir/predicate.gen
 import { type Debug, debug_option, debug_struct, debug_tuple } from "../../../std/fmt.ts";
 import { panic } from "../../../std/panic.ts";
 import { Ok, type Result } from "../../../std/result.ts";
-import { unported } from "../../../std/panic.ts";
-function unported_encodable(..._a: unknown[]): void {
-  unported("Encodable without a TS impl (see types report)");
-}
 
 // rustc-type: compiler/rustc_middle/src/mir/interpret/mod.rs:56 GlobalId
 /// Uniquely identifies one of the following:
@@ -249,7 +245,7 @@ export function encode_GlobalAlloc(self: GlobalAlloc, __encoder: TyEncoder): voi
       break;
     case "VTable":
       encode_Ty(self._0, __encoder);
-      unported_encodable(self._1);
+      encode_List(self._1, __encoder, encode_PolyExistentialPredicate);
       break;
     case "Static":
       __encoder.encode_def_id(self._0);

@@ -309,9 +309,18 @@ InitMask.prototype.get = function (this: InitMask, idx: Size): boolean {
 // Note: There is probably a remaining optimization for masks that do not use an entire
 // `Block`.
 // impl<E: Encoder> Encodable<E> for InitMaskMaterialized
-// stub: compiler/rustc_middle/src/mir/interpret/allocation/init_mask.rs:198 encode (lane encode-middle)
-export function encode_InitMaskMaterialized<E extends Encoder>(_self: InitMaskMaterialized, _encoder: E): void {
-  unported("rustc_middle::mir::interpret::allocation::init_mask::encode InitMaskMaterialized (lane encode-middle)");
+// rustc: compiler/rustc_middle/src/mir/interpret/allocation/init_mask.rs:198 encode
+export function encode_InitMaskMaterialized<E extends Encoder>(self: InitMaskMaterialized, encoder: E): void {
+  // PORT (D6): `self.blocks.len()` is the number of upstream (u64) blocks, two words each
+  encoder.emit_usize(self.blocks.length / 2);
+  for (let block = 0; block < self.blocks.length / 2; block++) {
+    // `block.to_le_bytes()`: the low word, then the high word, each little-endian
+    const lo = self.blocks[2 * block]!;
+    const hi = self.blocks[2 * block + 1]!;
+    encoder.emit_raw_bytes(
+      new Uint8Array([lo & 0xff, (lo >>> 8) & 0xff, (lo >>> 16) & 0xff, lo >>> 24, hi & 0xff, (hi >>> 8) & 0xff, (hi >>> 16) & 0xff, hi >>> 24]),
+    );
+  }
 }
 
 // This implementation is deliberately not derived, see the matching `Encodable` impl.

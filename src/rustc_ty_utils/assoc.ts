@@ -12,9 +12,7 @@ import type { Providers } from "../rustc_middle/queries.gen.ts";
 import { type AssocContainer, AssocItem, AssocItems, type AssocKind } from "../rustc_middle/ty/assoc.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import type { ImplTraitInTraitData } from "../rustc_middle/ty/decls.ts";
-import { type GenericParamDef, Generics } from "../rustc_middle/ty/generics.ts";
-import { DefId_hash_key } from "../rustc_middle/query/caches.ts";
-import { KeyedMap } from "../rust_ts/keyed.ts";
+import { FxHashMap_DefId_u32, type GenericParamDef, Generics } from "../rustc_middle/ty/generics.ts";
 import { type DefId, DefIdMap, LocalDefId, debug_LocalDefId } from "../rustc_span/def_id.ts";
 import { bug, span_bug } from "../rustc_span/macros.ts";
 import { kw } from "../rustc_span/symbol.ts";
@@ -407,10 +405,10 @@ function associated_type_for_impl_trait_in_impl(
         param.index = param.index + parent_count - trait_assoc_parent_count;
       }
 
-      // PORT: `FxHashMap<DefId, u32>` keyed by `DefId` value, as `Generics::from_decoded` does.
-      const param_def_id_to_index = new KeyedMap<DefId, number>(
-        DefId_hash_key,
+      // PORT: `FxHashMap<DefId, u32>` keyed by `DefId` value, in rustc's bucket order (rustc_middle ty/generics.ts).
+      const param_def_id_to_index = FxHashMap_DefId_u32.from_iter(
         own_params.map((param) => [param.def_id, param.index] as const),
+        own_params.length,
       );
 
       return new Generics(

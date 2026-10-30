@@ -842,9 +842,9 @@ export const fold_Term: TypeFoldable<Term> = {
 
 // impl<'tcx, E: TyEncoder<'tcx>> Encodable<E> for Term<'tcx>
 // PORT: `TermKind: Encodable<E>` is `encode_TermKind` (derived; tools/codegen), as for `decode_Term`.
-// stub: compiler/rustc_middle/src/ty/mod.rs:634 encode (lane encode-middle)
-export function encode_Term<E extends TyEncoder>(_self: Term, _e: E, _encode_TermKind: Encodable<TermKind, E>): void {
-  unported("rustc_middle::ty::encode Term (lane encode-middle)");
+// rustc: compiler/rustc_middle/src/ty/mod.rs:634 encode
+export function encode_Term<E extends TyEncoder>(self: Term, e: E, encode_TermKind: Encodable<TermKind, E>): void {
+  encode_TermKind(Term.kind(self), e);
 }
 
 // PORT: `impl<D: TyDecoder> Decodable<D> for Term` is hand-written upstream, so it is ported (the precedent of

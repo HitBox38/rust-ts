@@ -4,7 +4,7 @@ import { decode_ParamTy, encode_ParamTy } from "../rustc_middle/ty/sty.gen.ts";
 import { debug_FloatTy, debug_IntTy, debug_Mutability, debug_UintTy, decode_FloatTy, decode_IntTy, decode_Mutability, decode_UintTy, encode_FloatTy, encode_IntTy, encode_Mutability, encode_UintTy, type FloatTy, type IntTy, type Mutability, type UintTy } from "../rustc_ast_ir/lib.ts";
 import { try_visit } from "../rustc_ast_ir/visit.ts";
 import { newtype_index } from "../rustc_index/newtype_index.ts";
-import { decode_AdtDef, decode_GenericArgs, decode_List_BoundVariableKind, decode_List_PolyExistentialPredicate, decode_List_Ty, decode_Pattern, decode_Ty, encode_AdtDef, encode_Pattern, encode_Ty, type TyDecoder, type TyEncoder } from "../rustc_middle/ty/codec.ts";
+import { decode_AdtDef, decode_GenericArgs, decode_List_BoundVariableKind, decode_List_PolyExistentialPredicate, decode_List_Ty, decode_Pattern, decode_Ty, encode_AdtDef, encode_GenericArgs, encode_List_BoundVariableKind, encode_List_PolyExistentialPredicate, encode_List_Ty, encode_Pattern, encode_Ty, type TyDecoder, type TyEncoder } from "../rustc_middle/ty/codec.ts";
 import { type AdtDef, type BoundExistentialPredicates, type Pattern, type RegionAssumptions } from "../rustc_middle/ty/decls.ts";
 import { debug_Tys, fold_with_Tys, type GenericArgs, try_fold_with_Tys, type Tys, visit_with_Tys } from "../rustc_middle/ty/generic_args.ts";
 import { debug_Ty, fold_with_Ty, try_fold_with_Ty, type Ty, visit_with_Ty } from "../rustc_middle/ty/mod.ts";
@@ -17,7 +17,7 @@ import { type Binder, type BoundTy, type BoundVarIndexKind, decode_BoundTy, deco
 import { decode_ConstKind, encode_ConstKind } from "./const_kind.ts";
 import { type FallibleTypeFolder, type FoldWith, type TryFoldWith, type TypeFolder, type TypeVisitor, type VisitWith } from "./fold.ts";
 import { decode_RegionKind, encode_RegionKind } from "./region_kind.ts";
-import { decode_Binder, decode_Const, decode_Region, decode_UnsafeBinderInner, encode_Const, encode_Region } from "./serialize.ts";
+import { decode_Binder, decode_Const, decode_Region, decode_UnsafeBinderInner, encode_Binder, encode_Const, encode_Region, encode_UnsafeBinderInner } from "./serialize.ts";
 import { type Const } from "./sty/consts.ts";
 import { type Region } from "./sty/mod.ts";
 import { type AliasTy, decode_Alias, encode_Alias } from "./ty/alias.ts";
@@ -570,7 +570,7 @@ export function encode_TyKind(self: TyKind, __encoder: TyEncoder): void {
       break;
     case "Adt":
       encode_AdtDef(self._0, __encoder);
-      unported_encodable(self._1);
+      encode_GenericArgs(self._1, __encoder);
       break;
     case "Foreign":
       __encoder.encode_def_id(self._0);
@@ -599,39 +599,39 @@ export function encode_TyKind(self: TyKind, __encoder: TyEncoder): void {
       break;
     case "FnDef":
       __encoder.encode_def_id(self._0);
-      unported_encodable(self._1);
+      encode_Binder(self._1, __encoder, encode_GenericArgs, encode_List_BoundVariableKind);
       break;
     case "FnPtr":
-      unported_encodable(self._0);
+      encode_Binder(self._0, __encoder, encode_FnSigTys, encode_List_BoundVariableKind);
       encode_FnHeader(self._1, __encoder);
       break;
     case "UnsafeBinder":
-      unported_encodable(self._0);
+      encode_UnsafeBinderInner(self._0, __encoder, encode_Ty, encode_List_BoundVariableKind);
       break;
     case "Dynamic":
-      unported_encodable(self._0);
+      encode_List_PolyExistentialPredicate(self._0, __encoder);
       encode_Region(self._1, __encoder, encode_RegionKind);
       break;
     case "Closure":
       __encoder.encode_def_id(self._0);
-      unported_encodable(self._1);
+      encode_GenericArgs(self._1, __encoder);
       break;
     case "CoroutineClosure":
       __encoder.encode_def_id(self._0);
-      unported_encodable(self._1);
+      encode_GenericArgs(self._1, __encoder);
       break;
     case "Coroutine":
       __encoder.encode_def_id(self._0);
-      unported_encodable(self._1);
+      encode_GenericArgs(self._1, __encoder);
       break;
     case "CoroutineWitness":
       __encoder.encode_def_id(self._0);
-      unported_encodable(self._1);
+      encode_GenericArgs(self._1, __encoder);
       break;
     case "Never":
       break;
     case "Tuple":
-      unported_encodable(self._0);
+      encode_List_Ty(self._0, __encoder);
       break;
     case "Alias":
       encode_IsRigid(self._0, __encoder);
@@ -949,7 +949,7 @@ export function decode_FnSig(__decoder: TyDecoder): FnSig {
 }
 // rustc-derive: compiler/rustc_type_ir/src/ty_kind.rs:1131 Encodable_NoContext for FnSig
 export function encode_FnSig(self: FnSig, __encoder: TyEncoder): void {
-  unported_encodable(self.inputs_and_output);
+  encode_List_Ty(self.inputs_and_output, __encoder);
   encode_FnSigKind(self.fn_sig_kind, __encoder);
 }
 // rustc-derive: compiler/rustc_type_ir/src/ty_kind.rs:1131 TypeVisitable_Generic for FnSig
@@ -1006,7 +1006,7 @@ export function decode_FnSigTys(__decoder: TyDecoder): FnSigTys {
 }
 // rustc-derive: compiler/rustc_type_ir/src/ty_kind.rs:1325 Encodable_NoContext for FnSigTys
 export function encode_FnSigTys(self: FnSigTys, __encoder: TyEncoder): void {
-  unported_encodable(self.inputs_and_output);
+  encode_List_Ty(self.inputs_and_output, __encoder);
 }
 // rustc-derive: compiler/rustc_type_ir/src/ty_kind.rs:1325 TypeVisitable_Generic for FnSigTys
 export function visit_with_FnSigTys<R>(self: FnSigTys, __visitor: TypeVisitor<R>): R {
@@ -1075,7 +1075,7 @@ export function decode_CoroutineWitnessTypes(__decoder: TyDecoder): CoroutineWit
 }
 // rustc-derive: compiler/rustc_type_ir/src/ty_kind.rs:1414 Encodable_NoContext for CoroutineWitnessTypes
 export function encode_CoroutineWitnessTypes(self: CoroutineWitnessTypes, __encoder: TyEncoder): void {
-  unported_encodable(self.types);
+  encode_List_Ty(self.types, __encoder);
   unported_encodable(self.assumptions);
 }
 // rustc-derive: compiler/rustc_type_ir/src/ty_kind.rs:1414 TypeVisitable_Generic for CoroutineWitnessTypes

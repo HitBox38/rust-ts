@@ -179,10 +179,8 @@ BasicBlocks.prototype.predecessors = function (this: BasicBlocks, node?: BasicBl
 
 // impl<S: Encoder> Encodable<S> for Cache
 // #[inline]
-// stub: compiler/rustc_middle/src/mir/basic_blocks.rs:156 encode (lane encode-middle)
-export function encode_Cache(_self: Cache, _s: Encoder): void {
-  unported("rustc_middle::mir::basic_blocks::encode Cache (lane encode-middle)");
-}
+// rustc: compiler/rustc_middle/src/mir/basic_blocks.rs:156 encode
+export function encode_Cache(_self: Cache, _s: Encoder): void {}
 
 // impl<D: Decoder> Decodable<D> for Cache
 // rustc: compiler/rustc_middle/src/mir/basic_blocks.rs:161 decode

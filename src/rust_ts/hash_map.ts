@@ -197,6 +197,118 @@ export class FxHashMap<K, V> extends Map<K, V> {
 }
 
 /**
+ * `FxHashMap<K, V>` whose Rust key is a struct compared by value (`DefId`, ...): `FxHashMap`'s bucket order with
+ * rust_ts/keyed.ts `KeyedMap`'s key canonicalization. `canon(k)` is a string or number equal exactly when the Rust
+ * keys are `==`; the first key object inserted for each canonical key is stored, and the hashbrown table holds the
+ * stored objects (so its `===` is the keys' `Eq`) hashed by `key.hash` (the keys' `Hash`).
+ */
+export class FxKeyedMap<K, V> extends FxHashMap<K, V> {
+  /** canonical key -> the stored key object */
+  readonly #canon = new Map<string | number, K>();
+
+  constructor(
+    key: KeyType<K>,
+    value: Layout,
+    readonly canon: (k: K) => string | number,
+    capacity = 0,
+  ) {
+    super(key, value, capacity);
+  }
+
+  /** `FxHashMap::with_capacity_and_hasher(capacity, Default::default())` */
+  static with_capacity_keyed<K, V>(capacity: number, key: KeyType<K>, value: Layout, canon: (k: K) => string | number): FxKeyedMap<K, V> {
+    return new FxKeyedMap<K, V>(key, value, canon, capacity);
+  }
+
+  /** std's `FromIterator` (`iter.collect()`), see `FxHashMap.from_iter`. */
+  static from_iter_keyed<K, V>(
+    iter: Iterable<readonly [K, V]>,
+    size_hint_lower: number,
+    key: KeyType<K>,
+    value: Layout,
+    canon: (k: K) => string | number,
+  ): FxKeyedMap<K, V> {
+    const m = new FxKeyedMap<K, V>(key, value, canon);
+    m.extend(iter, size_hint_lower);
+    return m;
+  }
+
+  /** The stored key object equal to `k`, if any. */
+  stored_key(k: K): K | undefined {
+    return this.#canon.get(this.canon(k));
+  }
+
+  /** The stored key object equal to `k`, storing `k` if there is none. */
+  #store(k: K): K {
+    const c = this.canon(k);
+    const s = this.#canon.get(c);
+    if (s !== undefined) return s;
+    this.#canon.set(c, k);
+    return k;
+  }
+
+  override get(k: K): V | undefined {
+    const s = this.stored_key(k);
+    return s === undefined ? undefined : super.get(s);
+  }
+
+  override has(k: K): boolean {
+    return this.#canon.has(this.canon(k));
+  }
+
+  /** `insert(k, v)` */
+  override set(k: K, v: V): this {
+    return super.set(this.#store(k), v);
+  }
+
+  /** `remove(&k).is_some()` */
+  override delete(k: K): boolean {
+    const c = this.canon(k);
+    const s = this.#canon.get(c);
+    if (s === undefined) return false;
+    this.#canon.delete(c);
+    return super.delete(s);
+  }
+
+  /** `clear()` */
+  override clear(): void {
+    this.#canon.clear();
+    super.clear();
+  }
+
+  /** `Extend<(K, V)>`, see `FxHashMap.extend`. */
+  override extend(iter: Iterable<readonly [K, V]>, size_hint_lower: number): void {
+    const self = this;
+    super.extend(
+      (function* (): Generator<[K, V]> {
+        for (const [k, v] of iter) yield [self.#store(k), v];
+      })(),
+      size_hint_lower,
+    );
+  }
+
+  /** `retain(|k, v| f(k, v))`, visiting entries in bucket order. */
+  override retain(f: (k: K, v: V) => boolean): void {
+    super.retain((k, v) => {
+      if (f(k, v)) return true;
+      this.#canon.delete(this.canon(k));
+      return false;
+    });
+  }
+
+  /** `Clone`: the same buckets, holding `clone_K(k)` / `clone_V(v)` (identity by default). */
+  override clone(clone_K: (k: K) => K = (k) => k, clone_V: (v: V) => V = (v) => v): FxKeyedMap<K, V> {
+    const m = new FxKeyedMap<K, V>(this.key, this.value, this.canon);
+    m.base = this.base.clone(clone_K, clone_V);
+    for (const [k, v] of m.base.iter()) {
+      Map.prototype.set.call(m, k, v);
+      m.#canon.set(m.canon(k), k);
+    }
+    return m;
+  }
+}
+
+/**
  * `FxHashSet<T>`: a JS `Set` that iterates in rustc's order (see `FxHashMap`).
  */
 export class FxHashSet<T> extends Set<T> {
