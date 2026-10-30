@@ -95,7 +95,7 @@ import type { TargetModifier } from "../../rustc_session/options.ts";
 import { encode_ExpnData, encode_ExpnHash, encode_Ident, encode_Transparency } from "../../rustc_span/decodable.gen.ts";
 import { CrateNum, type DefId, DefIndex, DefPathHash, debug_CrateNum, encode_LocalDefId, LOCAL_CRATE, LocalDefId, LocalModId } from "../../rustc_span/def_id.ts";
 import { type ExpnData, type ExpnHash, type ExpnId, ExpnIndex, HygieneEncodeContext, LocalExpnId, SyntaxContext, type SyntaxContextKey } from "../../rustc_span/hygiene.ts";
-import { BytePos, debug_ExternalSource, encode_BytePos, encode_CrateNum, encode_DefId, encode_ExpnId, encode_SourceFile, encode_Span, encode_Symbol, encode_SyntaxContext, RealFileName, type SourceFile, Span, type SpanData, StableSourceFileId } from "../../rustc_span/lib.ts";
+import { debug_ErrorGuaranteed, BytePos, debug_ExternalSource, encode_BytePos, encode_CrateNum, encode_DefId, encode_ExpnId, encode_SourceFile, encode_Span, encode_Symbol, encode_SyntaxContext, RealFileName, type SourceFile, Span, type SpanData, StableSourceFileId } from "../../rustc_span/lib.ts";
 import { bug, span_bug } from "../../rustc_span/macros.ts";
 import { ByteSymbol, type Ident, Symbol } from "../../rustc_span/symbol.ts";
 import { assert, assert_eq, panic, unported, unwrap } from "../../std/panic.ts";
@@ -1855,7 +1855,7 @@ export class EncodeContext implements TyEncoder {
         // if this is an impl of `CoerceUnsized`, create its
         // "unsized info", else just store None
         if (tcx.is_lang_item(trait_ref.def_id, "CoerceUnsized")) {
-          const coerce_unsized_info = unwrap_result(tcx.coerce_unsized_info(local_id));
+          const coerce_unsized_info = unwrap_result(tcx.coerce_unsized_info(local_id), debug_ErrorGuaranteed);
           // record_some_lazy!(self.tables.coerce_unsized_info[local_id] <- coerce_unsized_info);
           this.tables.coerce_unsized_info.set_some(local_id, this.lazy(coerce_unsized_info, encode_CoerceUnsizedInfo as Encodable<CoerceUnsizedInfo, EncodeContext>));
         }

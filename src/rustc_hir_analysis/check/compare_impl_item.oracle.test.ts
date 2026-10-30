@@ -37,7 +37,7 @@ const CASES = readdirSync(CASES_DIR)
  * metadata-deps: `encode_and_write_metadata` is ported; the stop is its call of the encoder.
  */
 const PENDING: Record<string, string> = {
-  refine_rpitit: "rustc_metadata::rmeta::encoder::encode_metadata (lanes encoder-a..d)",
+  refine_rpitit: "rustc_codegen_ssa::back::symbol_export::exported_non_generic_symbols_helper (codegen; M7)",
 };
 
 /**
