@@ -250,6 +250,7 @@ export class EncodeContext implements TyEncoder {
       if (offset < last_location) {
         const needed = bytes_needed(offset);
         encode_SpanTag(SpanTag.indirect(true, needed), this);
+        // PORT: `write_with::<8>` writes `offset.to_le_bytes()` and keeps the first `needed` bytes (usize as 8 LE bytes).
         this.opaque.write_with(8, (dest) => {
           dest.set(usize_to_le_bytes(offset));
           return needed;
@@ -490,7 +491,7 @@ export class EncodeContext implements TyEncoder {
       // crate graph during downstream compilation sessions.
       adapted_source_file.stable_id = StableSourceFileId.from_filename_for_export(adapted_source_file.name, local_crate_stable_id);
 
-      // `on_disk_index.try_into().expect("cannot export more than U32_MAX files")`
+      // PORT: `on_disk_index.try_into().expect("cannot export more than U32_MAX files")` — the `u32` conversion's panic, as a range check.
       if (on_disk_index > 0xffff_ffff) panic("cannot export more than U32_MAX files: TryFromIntError(())");
       adapted.set_some(on_disk_index, this.lazy(adapted_source_file, encode_SourceFile));
     }
@@ -879,7 +880,7 @@ export function encode_SpanData(self: SpanData, s: EncodeContext): void {
       index = source_files.size;
       source_files.set(source_file_index, index);
     }
-    // `metadata_index.try_into().expect("cannot export more than U32_MAX files")`
+    // PORT: `metadata_index.try_into().expect("cannot export more than U32_MAX files")` — the `u32` conversion's panic, as a range check.
     if (index > 0xffff_ffff) return panic("cannot export more than U32_MAX files: TryFromIntError(())");
     metadata_index = index;
 
