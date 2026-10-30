@@ -786,9 +786,18 @@ export function stable_hash_ScalarInt(self: ScalarInt, hcx: StableHashCtxt, hash
 }
 
 /** `impl<S: Encoder> Encodable<S> for ScalarInt` */
-// stub: compiler/rustc_middle/src/ty/consts/int.rs:172 encode (lane encode-middle)
-export function encode_ScalarInt(_self: ScalarInt, _s: Encoder): void {
-  unported("rustc_middle::ty::consts::int::encode ScalarInt (lane encode-middle)");
+// rustc: compiler/rustc_middle/src/ty/consts/int.rs:172 encode
+export function encode_ScalarInt(self: ScalarInt, s: Encoder): void {
+  const size = self.size_;
+  s.emit_u8(size);
+  // `&self.data.to_le_bytes()[..size as usize]`
+  const bytes = new Uint8Array(size);
+  let data = self.data;
+  for (let i = 0; i < size; i++) {
+    bytes[i] = Number(data & 0xffn);
+    data >>= 8n;
+  }
+  s.emit_raw_bytes(bytes);
 }
 
 /** `impl<D: Decoder> Decodable<D> for ScalarInt` */

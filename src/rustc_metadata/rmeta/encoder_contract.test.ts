@@ -142,29 +142,7 @@ test("the hand Encodable impls outside encoder.rs left for later lanes are stubs
   expect(stubs.map((d) => `${d.path.replace(/^compiler\//, "")}:${d.line} ${d.name} (${d.lane})`).sort()).toEqual([
     "rustc_hir_id/src/definitions.rs:118 encode (encoder-a)",
     "rustc_metadata/src/rmeta/def_path_hash_map.rs:36 encode (encoder-a)",
-    "rustc_middle/src/mir/basic_blocks.rs:156 encode (encode-middle)",
-    "rustc_middle/src/mir/interpret/allocation.rs:129 encode (encode-middle)",
-    "rustc_middle/src/mir/interpret/allocation.rs:194 encode (encode-middle)",
-    "rustc_middle/src/mir/interpret/allocation/init_mask.rs:198 encode (encode-middle)",
-    "rustc_middle/src/mir/interpret/allocation/provenance_map.rs:53 encode (encode-middle)",
-    "rustc_middle/src/mir/interpret/mod.rs:104 specialized_encode_alloc_id (encode-middle)",
-    "rustc_middle/src/mir/mod.rs:806 encode (encode-middle)",
-    "rustc_middle/src/ty/codec.rs:126 encode (encode-middle)",
-    "rustc_middle/src/ty/codec.rs:132 encode (encode-middle)",
-    "rustc_middle/src/ty/codec.rs:140 encode (encode-middle)",
-    "rustc_middle/src/ty/codec.rs:146 encode (encode-middle)",
-    "rustc_middle/src/ty/codec.rs:152 encode (encode-middle)",
-    "rustc_middle/src/ty/codec.rs:158 encode (encode-middle)",
-    "rustc_middle/src/ty/codec.rs:164 encode (encode-middle)",
-    "rustc_middle/src/ty/codec.rs:176 encode (encode-middle)",
-    "rustc_middle/src/ty/codec.rs:182 encode (encode-middle)",
-    "rustc_middle/src/ty/codec.rs:72 variant (encode-middle)",
-    "rustc_middle/src/ty/codec.rs:81 variant (encode-middle)",
-    "rustc_middle/src/ty/codec.rs:87 encode_with_shorthand (encode-middle)",
-    "rustc_middle/src/ty/consts/int.rs:172 encode (encode-middle)",
-    "rustc_middle/src/ty/generic_args.rs:366 encode (encode-middle)",
-    "rustc_middle/src/ty/list.rs:199 encode (encode-middle)",
-    "rustc_middle/src/ty/mod.rs:634 encode (encode-middle)",
+    // encode-middle's 23 (rustc_middle ty/codec.rs, ty/, mir/) are ported (lane encode-middle)
   ]);
 });
 

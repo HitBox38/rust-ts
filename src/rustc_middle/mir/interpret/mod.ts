@@ -199,9 +199,51 @@ function decode_AllocDiscriminant(d: TyDecoder): AllocDiscriminant {
   }
 }
 
-// stub: compiler/rustc_middle/src/mir/interpret/mod.rs:104 specialized_encode_alloc_id (lane encode-middle)
-export function specialized_encode_alloc_id<E extends TyEncoder>(_encoder: E, _tcx: TyCtxt, _alloc_id: AllocId): void {
-  unported("rustc_middle::mir::interpret::specialized_encode_alloc_id (lane encode-middle)");
+// rustc: compiler/rustc_middle/src/mir/interpret/mod.rs:104 specialized_encode_alloc_id
+export function specialized_encode_alloc_id<E extends TyEncoder>(encoder: E, tcx: TyCtxt, alloc_id: AllocId): void {
+  const ga = tcx.global_alloc(alloc_id);
+  switch (ga.$) {
+    case "Memory": {
+      const alloc = ga._0;
+      // trace!("encoding {:?} with {:#?}", alloc_id, alloc);
+      gen.encode_AllocDiscriminant("Alloc", encoder);
+      ty_codec().encode_ConstAllocation(alloc, encoder);
+      break;
+    }
+    case "Function": {
+      const instance = ga.instance;
+      // trace!("encoding {:?} with {:#?}", alloc_id, instance);
+      gen.encode_AllocDiscriminant("Fn", encoder);
+      ty_instance().encode_Instance(instance, encoder);
+      break;
+    }
+    case "VTable": {
+      const [ty, poly_trait_ref] = [ga._0, ga._1];
+      // trace!("encoding {:?} with {ty:#?}, {poly_trait_ref:#?}", alloc_id);
+      gen.encode_AllocDiscriminant("VTable", encoder);
+      ty_codec().encode_Ty(ty, encoder);
+      ty_codec().encode_List_PolyExistentialPredicate(poly_trait_ref, encoder);
+      break;
+    }
+    case "TypeId": {
+      const ty = ga.ty;
+      // trace!("encoding {alloc_id:?} with {ty:#?}");
+      gen.encode_AllocDiscriminant("Type", encoder);
+      ty_codec().encode_Ty(ty, encoder);
+      break;
+    }
+    case "Static": {
+      const did = ga._0;
+      assert(!tcx.is_thread_local_static(did), "assertion failed: !tcx.is_thread_local_static(did)");
+      // References to statics doesn't need to know about their allocations,
+      // just about its `DefId`.
+      gen.encode_AllocDiscriminant("Static", encoder);
+      // Cannot use `did.encode(encoder)` because of a bug around
+      // specializations and method calls.
+      encoder.encode_def_id(did);
+      break;
+    }
+  }
 }
 
 // #[inline]

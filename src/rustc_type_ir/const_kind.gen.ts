@@ -3,7 +3,7 @@
 import { decode_ParamConst, encode_ParamConst } from "../rustc_middle/ty/sty.gen.ts";
 import { try_visit } from "../rustc_ast_ir/visit.ts";
 import { newtype_index } from "../rustc_index/newtype_index.ts";
-import { decode_List_Const, decode_Value, type TyDecoder, type TyEncoder } from "../rustc_middle/ty/codec.ts";
+import { decode_List_Const, decode_Value, encode_List_Const, encode_Value, type TyDecoder, type TyEncoder } from "../rustc_middle/ty/codec.ts";
 import { debug_ScalarInt, decode_ScalarInt, encode_ScalarInt, type ScalarInt } from "../rustc_middle/ty/consts/int.ts";
 import { decode_Expr, encode_Expr, type Expr } from "../rustc_middle/ty/consts/kind.ts";
 import { type Value } from "../rustc_middle/ty/consts/valtree.ts";
@@ -22,9 +22,6 @@ import { panic } from "../std/panic.ts";
 import { Ok, type Result } from "../std/result.ts";
 import { unported } from "../std/panic.ts";
 const unported_debug = (_v: unknown): string => unported("Debug without a TS impl (see types report)");
-function unported_encodable(..._a: unknown[]): void {
-  unported("Encodable without a TS impl (see types report)");
-}
 
 // rustc-type: compiler/rustc_type_ir/src/const_kind.rs:21 ConstKind
 /// Represents a constant in Rust.
@@ -116,7 +113,7 @@ export function encode_ConstKind(self: ConstKind, __encoder: TyEncoder): void {
       encode_Alias(self._1, __encoder, encode_AliasConstKind);
       break;
     case "Value":
-      unported_encodable(self._0);
+      encode_Value(self._0, __encoder);
       break;
     case "Error":
       encode_ErrorGuaranteed(self._0, __encoder);
@@ -414,7 +411,7 @@ export function encode_ValTreeKind(self: ValTreeKind, __encoder: TyEncoder): voi
       encode_ScalarInt(self._0, __encoder);
       break;
     case "Branch":
-      unported_encodable(self._0);
+      encode_List_Const(self._0, __encoder);
       break;
   }
 }

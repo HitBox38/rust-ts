@@ -13,7 +13,7 @@ import { type BasicBlock, clone_UserTypeProjection, debug_BasicBlock, decode_Bas
 import { debug_ConstOperand, debug_Operand, debug_Place } from "./syntax.ts";
 import { debug_PointerCoercion, type PointerCoercion } from "../ty/adjustment.gen.ts";
 import { decode_PointerCoercion, encode_PointerCoercion } from "../ty/adjustment.ts";
-import { decode_GenericArgs, decode_Place, decode_Ty, decode_ty_Const, encode_Ty, type TyDecoder, type TyEncoder } from "../ty/codec.ts";
+import { decode_GenericArgs, decode_Place, decode_Ty, decode_ty_Const, encode_GenericArgs, encode_List, encode_Ty, encode_ty_Const, type TyDecoder, type TyEncoder } from "../ty/codec.ts";
 import { FieldIdx, VariantIdx } from "../ty/decls.ts";
 import { debug_GenericArgs, fold_with_GenericArgs, type GenericArgs, try_fold_with_GenericArgs, visit_with_GenericArgs } from "../ty/generic_args.ts";
 import { type List } from "../ty/list.ts";
@@ -36,10 +36,6 @@ import { fold_with_Region, type Region, try_fold_with_Region, visit_with_Region 
 import { type Debug, debug_bool, debug_int, debug_option, debug_struct, debug_tuple, debug_vec, type Fmt } from "../../std/fmt.ts";
 import { panic } from "../../std/panic.ts";
 import { Ok, type Result } from "../../std/result.ts";
-import { unported } from "../../std/panic.ts";
-function unported_encodable(..._a: unknown[]): void {
-  unported("Encodable without a TS impl (see types report)");
-}
 
 // rustc-type: compiler/rustc_middle/src/mir/syntax.rs:44 MirPhase
 /// Represents the "flavors" of MIR.
@@ -2934,7 +2930,7 @@ export function clone_Place(v: Place): Place {
 // rustc-derive: compiler/rustc_middle/src/mir/syntax.rs:1165 TyEncodable for Place
 export function encode_Place(self: Place, __encoder: TyEncoder): void {
   encode_Local(self.local, __encoder);
-  unported_encodable(self.projection);
+  encode_List(self.projection, __encoder, (__v, __encoder) => encode_ProjectionElem(__v, __encoder, encode_Local, encode_Ty));
 }
 // rustc-derive: compiler/rustc_middle/src/mir/syntax.rs:1165 TypeVisitable for Place
 export function visit_with_Place<R>(self: Place, __visitor: TypeVisitor<R>): R {
@@ -3703,7 +3699,7 @@ export function encode_Rvalue(self: Rvalue, __encoder: TyEncoder): void {
       break;
     case "Repeat":
       encode_Operand(self._0, __encoder);
-      unported_encodable(self._1);
+      encode_ty_Const(self._1, __encoder);
       break;
     case "Ref":
       encode_Region(self._0, __encoder, encode_RegionKind);
@@ -4284,21 +4280,21 @@ export function encode_AggregateKind(self: AggregateKind, __encoder: TyEncoder):
     case "Adt":
       __encoder.encode_def_id(self._0);
       __encoder.emit_u32(VariantIdx.as_u32(self._1));
-      unported_encodable(self._2);
+      encode_GenericArgs(self._2, __encoder);
       encode_Option(self._3, __encoder, (__v, __encoder) => __encoder.emit_u32(UserTypeAnnotationIndex.as_u32(__v)));
       encode_Option(self._4, __encoder, (__v, __encoder) => __encoder.emit_u32(FieldIdx.as_u32(__v)));
       break;
     case "Closure":
       __encoder.encode_def_id(self._0);
-      unported_encodable(self._1);
+      encode_GenericArgs(self._1, __encoder);
       break;
     case "Coroutine":
       __encoder.encode_def_id(self._0);
-      unported_encodable(self._1);
+      encode_GenericArgs(self._1, __encoder);
       break;
     case "CoroutineClosure":
       __encoder.encode_def_id(self._0);
-      unported_encodable(self._1);
+      encode_GenericArgs(self._1, __encoder);
       break;
     case "RawPtr":
       encode_Ty(self._0, __encoder);

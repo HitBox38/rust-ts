@@ -22,7 +22,7 @@ import { AnalysisPhase_discriminant, debug_Place, MirPhase, MirPhase_cmp, type P
 import { Mutability } from "../../rustc_ast_ir/lib.ts";
 import type { Dominators } from "../../rustc_data_structures/graph/dominators/mod.ts";
 import type { CoroutineKind, HirId } from "../../rustc_hir/lib.ts";
-import { decode_u8 } from "../../rustc_serialize/serialize.ts";
+import { decode_u8, encode_u8 } from "../../rustc_serialize/serialize.ts";
 import { CRATE_DEF_ID, debug_DefId, type DefId, LocalDefId } from "../../rustc_span/def_id.ts";
 import { DUMMY_SP, type ErrorGuaranteed, Span, type Spanned } from "../../rustc_span/lib.ts";
 import { bug } from "../../rustc_span/macros.ts";
@@ -903,9 +903,34 @@ const TAG_CLEAR_CROSS_CRATE_SET = 1;
 
 // impl<'tcx, E: TyEncoder<'tcx>, T: Encodable<E>> Encodable<E> for ClearCrossCrate<T>
 // #[inline]
-// stub: compiler/rustc_middle/src/mir/mod.rs:806 encode (lane encode-middle)
-export function encode_ClearCrossCrate<T, E extends TyEncoder>(_self: ClearCrossCrate<T>, _e: E, _encode_T: Encodable<T, E>): void {
-  unported("rustc_middle::mir::encode ClearCrossCrate (lane encode-middle)");
+// rustc: compiler/rustc_middle/src/mir/mod.rs:806 encode
+export function encode_ClearCrossCrate<T, E extends TyEncoder>(self: ClearCrossCrate<T>, e: E, encode_T: Encodable<T, E>): void {
+  if (CLEAR_CROSS_CRATE_E(e)) {
+    return;
+  }
+
+  switch (self.$) {
+    case "Clear":
+      encode_u8(TAG_CLEAR_CROSS_CRATE_CLEAR, e);
+      break;
+    case "Set": {
+      const val = self._0;
+      encode_u8(TAG_CLEAR_CROSS_CRATE_SET, e);
+      encode_T(val, e);
+      break;
+    }
+  }
+}
+
+/**
+ * `E::CLEAR_CROSS_CRATE` (ty/codec.ts: each `TyEncoder` implementor exports `<Impl>_CLEAR_CROSS_CRATE`).
+ * PORT: the only `TyEncoder` ported is rustc_metadata's `EncodeContext` (`true`), loaded lazily (rustc_middle sits below
+ * rustc_metadata; encoder.ts is loaded only by its users); the incremental `CacheEncoder` (`false`) is not ported.
+ */
+function CLEAR_CROSS_CRATE_E(e: TyEncoder): boolean {
+  const rmeta = require("../../rustc_metadata/rmeta/encoder.ts") as typeof import("../../rustc_metadata/rmeta/encoder.ts");
+  if (e instanceof rmeta.EncodeContext) return rmeta.EncodeContext_CLEAR_CROSS_CRATE;
+  return unported("rustc_middle::query::on_disk_cache::CacheEncoder (TyEncoder::CLEAR_CROSS_CRATE)");
 }
 
 /**

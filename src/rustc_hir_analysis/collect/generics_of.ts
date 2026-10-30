@@ -9,15 +9,13 @@ import { debug_Node } from "../../rustc_hir/lib.ts";
 import { type HirId, HirId_eq } from "../../rustc_hir_id/lib.ts";
 import { INVALID_TYPE_PARAM_DEFAULT } from "../../rustc_lint_defs/builtin.gen.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
-import { type GenericParamDef, Generics } from "../../rustc_middle/ty/generics.ts";
-import { DefId_hash_key } from "../../rustc_middle/query/caches.ts";
+import { FxHashMap_DefId_u32, type GenericParamDef, Generics } from "../../rustc_middle/ty/generics.ts";
 import { type DefId, debug_DefId, LocalDefId } from "../../rustc_span/def_id.ts";
 import type { Span } from "../../rustc_span/lib.ts";
 import { span_bug } from "../../rustc_span/macros.ts";
 import { kw, sym } from "../../rustc_span/symbol.ts";
 import { DebruijnIndex, INNERMOST } from "../../rustc_type_ir/lib.ts";
 import type { AnonConstKind } from "../../rustc_type_ir/decls.ts";
-import { KeyedMap } from "../../rust_ts/keyed.ts";
 import { field_mut } from "../../std/mut_ref.ts";
 import { assert, panic } from "../../std/panic.ts";
 import { PLAIN } from "../../std/fmt.ts";
@@ -67,9 +65,9 @@ export function generics_of(tcx: TyCtxt, def_id: LocalDefId): Generics {
     trait_fn_params.push(...own_params);
     own_params = trait_fn_params;
 
-    const param_def_id_to_index = new KeyedMap<DefId, number>(
-      DefId_hash_key,
+    const param_def_id_to_index = FxHashMap_DefId_u32.from_iter(
       own_params.map((param) => [param.def_id, param.index] as const),
+      own_params.length,
     );
 
     return new Generics(
@@ -166,9 +164,9 @@ export function generics_of(tcx: TyCtxt, def_id: LocalDefId): Generics {
         if (param_def_idx === undefined) return panic("key not found");
         // In the above example this would be .params[..N#0]
         const own_params = generics.params_to(param_def_idx, tcx).map(clone_GenericParamDef);
-        const param_def_id_to_index = new KeyedMap<DefId, number>(
-          DefId_hash_key,
+        const param_def_id_to_index = FxHashMap_DefId_u32.from_iter(
           own_params.map((param) => [param.def_id, param.index] as const),
+          own_params.length,
         );
 
         return new Generics(
@@ -451,9 +449,9 @@ export function generics_of(tcx: TyCtxt, def_id: LocalDefId): Generics {
     }
   }
 
-  const param_def_id_to_index = new KeyedMap<DefId, number>(
-    DefId_hash_key,
+  const param_def_id_to_index = FxHashMap_DefId_u32.from_iter(
     own_params.map((param) => [param.def_id, param.index] as const),
+    own_params.length,
   );
 
   return new Generics(

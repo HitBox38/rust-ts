@@ -2,7 +2,7 @@
 // Hand-written additions (methods, manual Debug impls) go in canonical.ts next to this file.
 import { debug_HashMap } from "../rust_ts/hash_map.ts";
 import { try_visit } from "../rustc_ast_ir/visit.ts";
-import { decode_CanonicalVarKinds, decode_GenericArgs, type TyDecoder, type TyEncoder } from "../rustc_middle/ty/codec.ts";
+import { decode_CanonicalVarKinds, decode_GenericArgs, encode_CanonicalVarKinds, encode_GenericArgs, type TyDecoder, type TyEncoder } from "../rustc_middle/ty/codec.ts";
 import { type CanonicalVarKinds } from "../rustc_middle/ty/decls.ts";
 import { debug_GenericArg, debug_GenericArgs, fold_with_GenericArgs, type GenericArg, type GenericArgs, try_fold_with_GenericArgs, visit_with_GenericArgs } from "../rustc_middle/ty/generic_args.ts";
 import { debug_CanonicalVarKinds } from "../rustc_middle/ty/list.ts";
@@ -15,10 +15,6 @@ import { type BoundVar, debug_BoundVar, debug_UniverseIndex, decode_BoundVar, de
 import { type Debug, debug_int, debug_struct, debug_tuple, debug_vec, type Fmt } from "../std/fmt.ts";
 import { panic } from "../std/panic.ts";
 import { Ok, type Result } from "../std/result.ts";
-import { unported } from "../std/panic.ts";
-function unported_encodable(..._a: unknown[]): void {
-  unported("Encodable without a TS impl (see types report)");
-}
 
 // rustc-type: compiler/rustc_type_ir/src/canonical.rs:22 CanonicalQueryInput
 export interface CanonicalQueryInput<V> {
@@ -72,7 +68,7 @@ export function decode_Canonical<V, __D extends TyDecoder = TyDecoder>(__decoder
 export function encode_Canonical<V, __E extends TyEncoder = TyEncoder>(self: Canonical<V>, __encoder: __E, encode_V: Encodable<V, __E>): void {
   encode_V(self.value, __encoder);
   encode_UniverseIndex(self.max_universe, __encoder);
-  unported_encodable(self.var_kinds);
+  encode_CanonicalVarKinds(self.var_kinds, __encoder);
 }
 
 // rustc-type: compiler/rustc_type_ir/src/canonical.rs:96 CanonicalVarKind
@@ -230,7 +226,7 @@ export function decode_CanonicalVarValues(__decoder: TyDecoder): CanonicalVarVal
 }
 // rustc-derive: compiler/rustc_type_ir/src/canonical.rs:226 Encodable_NoContext for CanonicalVarValues
 export function encode_CanonicalVarValues(self: CanonicalVarValues, __encoder: TyEncoder): void {
-  unported_encodable(self.var_values);
+  encode_GenericArgs(self.var_values, __encoder);
 }
 // rustc-derive: compiler/rustc_type_ir/src/canonical.rs:226 TypeVisitable_Generic for CanonicalVarValues
 export function visit_with_CanonicalVarValues<R>(self: CanonicalVarValues, __visitor: TypeVisitor<R>): R {
