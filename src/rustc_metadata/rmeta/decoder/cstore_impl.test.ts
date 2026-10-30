@@ -23,6 +23,8 @@ import { Ident, kw, Symbol } from "../../../rustc_span/symbol.ts";
 import { PLAIN } from "../../../std/fmt.ts";
 import { Panic, Unported } from "../../../std/panic.ts";
 import { CStore } from "../../creader.ts";
+import * as foreign_modules from "../../foreign_modules.ts";
+import * as native_libs from "../../native_libs.ts";
 import { provide } from "../../lib.ts";
 import type { CrateMetadata } from "../decoder.ts";
 import * as table_mod from "../table.ts";
@@ -409,9 +411,15 @@ describe("provide (local providers) and provide_cstore_hooks", () => {
       void root;
     }));
 
-  test("unported local providers stop at unported(..)", () => {
-    expect(() => q.dependency_formats!({} as TyCtxt, null)).toThrow("rustc_metadata::dependency_format::calculate");
-    expect(() => q.native_libraries!({} as TyCtxt, "LocalCrate")).toThrow("rustc_metadata::native_libs::collect");
+  test("native_libraries / foreign_modules / dependency_formats are the ported local providers", () => {
+    expect(q.native_libraries).toBe(native_libs.collect);
+    expect(q.foreign_modules).toBe(foreign_modules.collect);
+    // No linking (`--emit=metadata`): every crate type gets an empty dependency list (`calculate_type`'s early return).
+    const tcx = { crate_types: () => ["Rlib", "Executable"], sess: { opts: { output_types: { should_link: () => false } } } } as unknown as TyCtxt;
+    expect([...q.dependency_formats!(tcx, null)]).toEqual([
+      ["Rlib", []],
+      ["Executable", []],
+    ]);
   });
 
   test("hooks: def_path_hash_to_def_id_extern maps through the crate's DefPathHash table", () => {
