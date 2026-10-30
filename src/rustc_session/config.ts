@@ -7,11 +7,10 @@
 // `dep_tracking`, `CrateType`/`Cfg` helpers of config/cfg.rs, and every fn that needs
 // rustc_target beyond the stand-ins (see `bun scripts/coverage.ts --missing`).
 //
-// PORT: upstream `pub use crate::options::*;` is not mirrored: options.gen.ts reads `Polonius`
-// from this module while it is evaluated (POLONIUS_HELP), so the options modules must be evaluated
-// before this one. LOAD ORDER: import `./options.ts` before `./config.ts` (lib.ts and session.ts do);
-// importing this module first fails at load with a TDZ error on `Polonius` in options.gen.ts. Use a
-// bare `import "./options.ts";` for the ordering: Bun elides imports whose bindings are only used as types.
+// PORT: upstream `pub use crate::options::*;` is not mirrored. options.gen.ts and this module import each other;
+// options.gen.ts reads this module's enums only lazily (POLONIUS_HELP is a function read through a getter), so
+// either module may be evaluated first. (Before integ-w32, POLONIUS_HELP was an eager const and importing this
+// module first failed with a TDZ error on `Polonius`.)
 import { lstatSync, readFileSync, readlinkSync, statSync, writeFileSync, writeSync } from "node:fs";
 import { availableParallelism } from "node:os";
 import type { PathBuf } from "../rustc_error_messages/lib.ts";

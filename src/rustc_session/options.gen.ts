@@ -1489,7 +1489,9 @@ export const CG_OPTIONS: OptionDescrs<CodegenOptions> = [
 ];
 
 // ---- POLONIUS_HELP (compiler/rustc_session/src/options.rs:2371) ----
-const POLONIUS_HELP: string = ((): string => {
+// PORT: a function, not an eager `const`: this module and config.ts import each other, so the scrutinee
+// (a config.ts enum) is read only when the description is asked for; either module may be evaluated first.
+function POLONIUS_HELP(): string {
   switch (Polonius.DEFAULT) {
     case "Off":
       return "enable polonius-based borrow-checker (default: no)";
@@ -1498,7 +1500,7 @@ const POLONIUS_HELP: string = ((): string => {
     case "Legacy":
       return panic("Polonius::Legacy is not a valid default value");
   }
-})();
+}
 
 // ---- options! { UnstableOptions, UnstableOptionsTargetModifiers, Z_OPTIONS, dbopts, "Z", "unstable", .. } (compiler/rustc_session/src/options.rs:2377) ----
 
@@ -5236,7 +5238,7 @@ export const Z_OPTIONS: OptionDescrs<UnstableOptions> = [
     name: "polonius",
     setter: dbopts.polonius,
     type_desc: desc.parse_polonius,
-    desc: POLONIUS_HELP,
+    get desc(): string { return POLONIUS_HELP(); },
     removed: undefined,
     tmod: undefined,
     mitigation: undefined,

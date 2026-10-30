@@ -1224,7 +1224,9 @@ function genOptions(): Map<string, string> {
       if (!n) fail(path, undefined, `\`${a}\` is not in the type table`);
       v(n.mod, a);
       body.push(`// ---- ${e.desc.name} (${path}:${c.line}) ----`);
-      body.push(`const ${e.desc.name}: string = ((): string => {`);
+      body.push("// PORT: a function, not an eager `const`: this module and config.ts import each other, so the scrutinee");
+      body.push("// (a config.ts enum) is read only when the description is asked for; either module may be evaluated first.");
+      body.push(`function ${e.desc.name}(): string {`);
       body.push(`  switch (${a}.${b}) {`);
       for (const arm of c.arms) {
         body.push(`    case ${lit(arm.variant)}:`);
@@ -1235,7 +1237,7 @@ function genOptions(): Map<string, string> {
         }
       }
       body.push("  }");
-      body.push("})();");
+      body.push("}");
       body.push("");
       emittedConsts.add(e.desc.name);
       consts.set(e.desc.name, c.line);
@@ -1426,7 +1428,8 @@ function genOptionsGroup(
     body.push(`    name: ${lit(e.name)},`);
     body.push(`    setter: ${g.optmod}.${e.name},`);
     body.push(`    type_desc: desc.${e.parse},`);
-    body.push(`    desc: ${d},`);
+    // A const description is a function (see the const emission above): read through a getter.
+    body.push(e.desc!.k === "str" ? `    desc: ${d},` : `    get desc(): string { return ${d}(); },`);
     body.push(`    removed: ${removed},`);
     body.push(`    tmod: ${tmod},`);
     body.push(`    mitigation: ${mit},`);
