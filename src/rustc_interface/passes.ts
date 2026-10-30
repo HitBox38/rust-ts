@@ -49,7 +49,7 @@ import * as rustc_lint from "../rustc_lint/lib.ts";
 import * as rustc_ty_utils from "../rustc_ty_utils/lib.ts";
 import * as rustc_privacy from "../rustc_privacy/lib.ts";
 import * as rustc_symbol_mangling from "../rustc_symbol_mangling/lib.ts";
-import { creader, provide as rustc_metadata_provide } from "../rustc_metadata/lib.ts";
+import { creader, fs as rustc_metadata_fs, provide as rustc_metadata_provide } from "../rustc_metadata/lib.ts";
 import type { EarlyCheckNode, LintStore } from "../rustc_lint/lib.ts";
 import { DepGraph } from "../rustc_middle/dep_graph/graph.ts";
 import { clone_Providers as clone_HookProviders, Providers_default as HookProviders_default } from "../rustc_middle/hooks.ts";
@@ -65,7 +65,6 @@ import type { ResolverAstLowering, ResolverGlobalCtxt } from "../rustc_middle/mi
 import { type GlobalCtxt, TyCtxt } from "../rustc_middle/ty/context.ts";
 import { HasAttrs_DefId, provide as ty_provide, type Ty, TypingEnv } from "../rustc_middle/ty/mod.ts";
 import { find_attr } from "../rustc_attr_ir/lib.ts";
-import type { Result } from "../std/result.ts";
 import { clone_ExternProviders, clone_Providers, ExternProviders_default, Providers_default } from "../rustc_middle/query/query_api.ts";
 import { type Providers as QueryProviders, QUERY_DECLS, QUERY_NAMES } from "../rustc_middle/queries.gen.ts";
 import type { Providers as MiddleProviders } from "../rustc_middle/util/mod.ts";
@@ -1376,7 +1375,7 @@ export function start_codegen(codegen_backend: CodegenBackend, tcx: TyCtxt): [un
 
   // info!("Pre-codegen\n{:?}", tcx.debug_stats());
 
-  const r = rustc_metadata_fs_encode_and_write_metadata(tcx);
+  const r = rustc_metadata_fs.encode_and_write_metadata(tcx);
   if (r.$ === "Err") {
     return r._0.raise_fatal();
   }
@@ -1566,14 +1565,6 @@ function clone_MiddleProviders(p: MiddleProviders): MiddleProviders {
 // ---- Pending-lane shims ------------------------------------------------------------------------------------
 // Each is named and typed as upstream; its body calls `unported` with the upstream path and the lane that
 // ports it. Root replaces each by the import when the lane lands (handoff driver-m2).
-
-/**
- * `rustc_metadata::fs::encode_and_write_metadata` (fs.rs:38). PORT: lane metadata-deps (plan-m5 wave 32); it calls
- * `rustc_metadata::rmeta::encoder::encode_metadata` (encoder lanes, wave 33).
- */
-function rustc_metadata_fs_encode_and_write_metadata(_tcx: TyCtxt): Result<EncodedMetadata, ErrorGuaranteed> {
-  return unported("rustc_metadata::fs::encode_and_write_metadata (metadata encoding; plan-m5 waves 32-33)");
-}
 
 /** `rustc_passes::input_stats::print_ast_stats` (input_stats.rs:71). PORT: no lane yet (-Zinput-stats). */
 function rustc_passes_input_stats_print_ast_stats(_tcx: TyCtxt, _krate: Crate): void {
