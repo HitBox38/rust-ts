@@ -1,6 +1,6 @@
 // Partial port of compiler/rustc_codegen_ssa/src/base.rs: what the metadata-only driver path reaches
-// (`wants_wasm_eh`, `allocator_kind_for_codegen`, `needs_allocator_shim_for_linking`, `collect_eii_linkage`,
-// `eii_linkage_needed`, `CrateInfo::new`, `provide`). Codegen proper (comparisons,
+// (`wants_wasm_eh`, `allocator_kind_for_codegen`, `needs_allocator_shim_for_linking`, `allocator_shim_contents`,
+// `collect_eii_linkage`, `eii_linkage_needed`, `CrateInfo::new`, `provide`). Codegen proper (comparisons,
 // unsizing, `codegen_instance`, entry wrappers, allocator shims, `codegen_crate`, `determine_cgu_reuse`, ...) is
 // M7 and not ported.
 import type { EiiDecl, EiiImpl } from "../rustc_attr_ir/data_structures.gen.ts";
@@ -19,11 +19,12 @@ import type { CrateType } from "../rustc_structures/crate_type.ts";
 import { mangle_internal_symbol } from "../rustc_symbol_mangling/v0.ts";
 import { PLAIN } from "../std/fmt.ts";
 import { bug } from "../rustc_span/macros.ts";
-import { panic, unported } from "../std/panic.ts";
+import { panic, unported, unwrap } from "../std/panic.ts";
 import { str_cmp } from "../rustc_session/options.ts";
 import type { Dependencies } from "../rustc_middle/middle/dependency_format.ts";
 import { metadata_symbol_name, type SymbolExportKind } from "../rustc_middle/middle/exported_symbols.ts";
-import type { AllocatorKind } from "../rustc_ast/expand/allocator.gen.ts";
+import type { AllocatorKind, AllocatorMethod } from "../rustc_ast/expand/allocator.gen.ts";
+import { ALLOC_ERROR_HANDLER, ALLOCATOR_METHODS } from "../rustc_ast/expand/allocator.ts";
 import type { Target as TargetSpec } from "../rustc_target/spec/mod.ts";
 import { are_upstream_rust_objects_already_included } from "./back/link.ts";
 import { exported_symbols as linker_exported_symbols, linked_symbols as linker_linked_symbols } from "./back/linker.ts";
@@ -76,6 +77,28 @@ export function needs_allocator_shim_for_linking(dependency_formats: Dependencie
   if (list === undefined) return panic("IndexMap: key not found");
   const any_dynamic_crate = list.some((linkage) => linkage === "Dynamic");
   return !any_dynamic_crate;
+}
+
+// rustc: compiler/rustc_codegen_ssa/src/base.rs:695 allocator_shim_contents
+export function allocator_shim_contents(tcx: TyCtxt, kind: AllocatorKind): AllocatorMethod[] {
+  const methods: AllocatorMethod[] = [];
+
+  if (kind === "Default") {
+    methods.push(...ALLOCATOR_METHODS);
+  }
+
+  // If the return value of allocator_kind_for_codegen is Some then
+  // alloc_error_handler_kind must also be Some.
+  if (unwrap(tcx.alloc_error_handler_kind(null) as AllocatorKind | undefined) === "Default") {
+    methods.push({
+      name: ALLOC_ERROR_HANDLER,
+      special: undefined,
+      inputs: [{ name: "layout", ty: "Layout" }],
+      output: "Never",
+    });
+  }
+
+  return methods;
 }
 
 // rustc: compiler/rustc_codegen_ssa/src/base.rs:954 collect_eii_linkage
