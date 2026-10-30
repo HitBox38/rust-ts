@@ -1,6 +1,6 @@
 // Lane encoder-c (plan-m5 wave 33): encoder.rs:1482-2030 (`encode_def_ids` .. `encode_foreign_modules`).
-// A small no_core lib crate is compiled in process (as `--crate-type lib --emit=metadata`, with
-// `-Zforce-unstable-if-unmarked` so the stability encoders write), then the ported fns run on an `EncodeContext` over a
+// A small no_core lib crate is compiled in process (as `--crate-type lib --emit=metadata` for x86_64-unknown-linux-gnu,
+// with `-Zforce-unstable-if-unmarked` so the stability encoders write), then the ported fns run on an `EncodeContext` over a
 // `MemEncoder` with the real `TyCtxt`, as `encode_crate_root` (encoder.rs:651, lane encoder-b) calls them. The tables
 // they fill are read back from the `TableBuilder`s and their lazy values decoded with the port's own decoders
 // (decoder.ts `MetadataDecodeContext` over a stand-in `CrateMetadata`, as in encoder_span_hygiene.test.ts).
@@ -19,7 +19,7 @@ import "../../rustc_middle/lib.ts";
 import "../../rustc_mir_build/lib.ts";
 import "../lib.ts";
 import { type CodegenFnAttrs, debug_CodegenFnAttrs, decode_CodegenFnAttrs, encode_CodegenFnAttrs } from "../../rustc_middle/middle/codegen_fn_attrs.ts";
-import { decode_ModChild } from "../../rustc_middle/decodable.gen.ts";
+import { decode_ImplTraitInTraitData, decode_ModChild } from "../../rustc_middle/decodable.gen.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import { decode_ReprOptions } from "../../rustc_abi/decodable.gen.ts";
 import { debug_ReprOptions } from "../../rustc_abi/lib.ts";
@@ -83,6 +83,20 @@ const SRC = [
   '#[deprecated(since = "1.0.0", note = "old")] pub fn old() {}',
   "#[inline] pub fn inl() {}",
   "pub const K: u8 = 3;",
+  '#[lang = "sync"] pub unsafe trait Sync {}',
+  "unsafe impl Sync for u8 {}",
+  "pub static ST: u8 = 4;",
+  "pub type Al = S;",
+  "impl S { pub fn new() -> u8 { 1 } pub const KK: u8 = 2; }",
+  "pub struct G<const N: usize = 3>;",
+  "pub struct W<'a, T: PointeeSized>(pub &'a T);",
+  "pub fn op() -> impl Tr<A = u8> { S { a: 1, b: 2 } }",
+  "/// see [S] and [Tr]",
+  "pub fn documented() {}",
+  "pub trait Tr2 { fn r(&self) -> impl Tr; }",
+  "impl Tr2 for S { fn r(&self) -> impl Tr { S { a: 1, b: 2 } } }",
+  "pub const fn cf(x: u8) -> u8 { x }",
+  "pub const C2: [u8; 2] = [cf(1), 2];",
 ].join("\n");
 
 /** An `EncodeContext` as `encode_metadata` builds it (encoder.rs:2716), over a `MemEncoder`. */
@@ -155,7 +169,7 @@ test("encoder-c fns on a real lib crate: tables written and decoded back with th
   mkdirSync(WORK, { recursive: true });
   const file = join(WORK, "encc.rs");
   writeFileSync(file, SRC);
-  const args = ["--crate-type", "lib", "--edition", "2024", "--emit=metadata", "-Zforce-unstable-if-unmarked", "--out-dir", WORK, file];
+  const args = ["--crate-type", "lib", "--edition", "2024", "--target", "x86_64-unknown-linux-gnu", "--emit=metadata", "-Zforce-unstable-if-unmarked", "--out-dir", WORK, file];
   const out: string[] = [];
   const stops: string[] = [];
   run_compiler(config_from_args(args), (compiler) => {
@@ -165,8 +179,8 @@ test("encoder-c fns on a real lib crate: tables written and decoded back with th
       tcx.analysis(null);
       const e = ecx(tcx);
       const by_name = new Map<string, LocalDefId>();
-      // (a ctor shares its struct's / variant's path; the map keeps the item)
-      for (const id of tcx.iter_local_def_id()) if (tcx.def_kind(id).$ !== "Ctor") by_name.set(tcx.def_path_str(LocalDefId.to_def_id(id)), id);
+      // (a ctor or an inherent impl shares its struct's / variant's path; the map keeps the first def, the item)
+      for (const id of tcx.iter_local_def_id()) if (!by_name.has(tcx.def_path_str(LocalDefId.to_def_id(id)))) by_name.set(tcx.def_path_str(LocalDefId.to_def_id(id)), id);
       const id = (n: string): LocalDefId => {
         const d = by_name.get(n);
         if (d === undefined) throw new Error(`ERROR: no def ${n} in ${[...by_name.keys()].join(", ")}`);
@@ -182,6 +196,9 @@ test("encoder-c fns on a real lib crate: tables written and decoded back with th
       e.encode_info_for_mod(id("m"));
       for (const n of ["S", "T", "U", "E", "Un"]) e.encode_info_for_adt(id(n));
       for (const n of ["Tr::A", "Tr::C", "Tr::f", "<S as Tr>::A", "<S as Tr>::C"]) e.encode_info_for_assoc_item(id(n));
+      // the RPITITs of `Tr2::r` and `<S as Tr2>::r` (synthetic assoc types)
+      const rpitits = ["Tr2", "<S as Tr2>"].flatMap((n) => tcx.associated_item_def_ids(LocalDefId.to_def_id(id(n))).map((d) => d.expect_local()));
+      for (const d of rpitits) e.encode_info_for_assoc_item(d);
       e.encode_info_for_macro(id("mac"));
       for (const n of ["S", "old", "K"]) {
         e.encode_stability(id(n));
@@ -224,6 +241,13 @@ test("encoder-c fns on a real lib crate: tables written and decoded back with th
           `${n}: defaultness ${JSON.stringify(entry(t.defaultness, d))}; container ${entry(t.assoc_container, d) !== undefined}; item bounds ${entry(t.explicit_item_bounds, d).num_elems}/${entry(t.explicit_item_self_bounds, d).num_elems}`,
         );
       }
+      for (const d of rpitits) {
+        const info = entry(t.opt_rpitit_info, d)?.decode(m, decode_ImplTraitInTraitData);
+        const wf = entry(t.assumed_wf_types_for_rpitit, d);
+        out.push(
+          `${tcx.def_path_str(LocalDefId.to_def_id(d))}: rpitit ${info?.$ ?? "-"} fn ${info === undefined ? "-" : DefIndex.as_u32(info.fn_def_id.index)}; assumed_wf ${wf?.num_elems ?? "-"}; defaultness ${JSON.stringify(entry(t.defaultness, d))}; precise capturing ${entry(t.rendered_precise_capturing_args, d)?.num_elems ?? "-"}`,
+        );
+      }
       out.push(`mac: macro_rules ${entry(t.is_macro_rules, id("mac"))}; definition ${entry(t.macro_definition, id("mac")) !== undefined}`);
       for (const n of ["S", "old", "K"]) {
         const d = id(n);
@@ -243,7 +267,7 @@ test("encoder-c fns on a real lib crate: tables written and decoded back with th
     });
   });
   expect(out).toEqual([
-    "crate root children: PointeeSized, MetaSized, Sized, Copy, LegacyReceiver, S, T, T, U, U, E, Un, Tr, m, ext, old, inl, K",
+    "crate root children: PointeeSized, MetaSized, Sized, Copy, LegacyReceiver, S, T, T, U, U, E, Un, Tr, m, ext, old, inl, K, Sync, ST, Al, G, G, W, W, op, documented, Tr2, cf, C2",
     "crate root reexports: h (chain 1, res Def index 38), mac (chain 1, res Def index 40)",
     "m children: m::g",
     "S: repr ReprOptions { int: None, align: None, pack: None, flags: , scalable: None, field_shuffle_seed: 11539551434680059190 }; children -",
@@ -264,6 +288,10 @@ test("encoder-c fns on a real lib crate: tables written and decoded back with th
     "Tr::f: defaultness {\"$\":\"Default\",\"has_value\":true}; container true; item bounds 0/0",
     "<S as Tr>::A: defaultness {\"$\":\"Final\"}; container true; item bounds 0/0",
     "<S as Tr>::C: defaultness {\"$\":\"Final\"}; container true; item bounds 0/0",
+    "Tr2::r: rpitit - fn -; assumed_wf -; defaultness {\"$\":\"Default\",\"has_value\":false}; precise capturing -",
+    "Tr2::r::{anon_assoc#0}: rpitit Trait fn 66; assumed_wf 2; defaultness {\"$\":\"Default\",\"has_value\":false}; precise capturing -",
+    "<S as Tr2>::r: rpitit - fn -; assumed_wf -; defaultness {\"$\":\"Final\"}; precise capturing -",
+    "<S as Tr2>::r::{anon_assoc#0}: rpitit Impl fn 69; assumed_wf -; defaultness {\"$\":\"Final\"}; precise capturing -",
     "mac: macro_rules true; definition true",
     "S: stability true const false body false deprecation false",
     "old: stability true const false body false deprecation true",
