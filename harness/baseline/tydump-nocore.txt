@@ -1534,6 +1534,7 @@ tests/ui/attributes/check-builtin-attr-ice.rs
 tests/ui/attributes/check-cfg_attr-ice.rs
 tests/ui/attributes/codegen_attr_on_required_trait_method.rs
 tests/ui/attributes/cold-attribute-application-54044.rs
+tests/ui/attributes/collapse-debuginfo-invalid.rs
 tests/ui/attributes/const-stability-on-macro.rs
 tests/ui/attributes/crate-name-attr-validation.rs
 tests/ui/attributes/crate-name-empty.rs
@@ -1606,6 +1607,7 @@ tests/ui/attributes/inner-attrs-impl-cfg.rs
 tests/ui/attributes/instruction-set.rs
 tests/ui/attributes/instrument_fn.rs
 tests/ui/attributes/invalid-crate-type.rs
+tests/ui/attributes/invalid-debugger-visualizer-option.rs
 tests/ui/attributes/invalid-debugger-visualizer-target.rs
 tests/ui/attributes/invalid-export-name.rs
 tests/ui/attributes/invalid-instruction-set-target.rs

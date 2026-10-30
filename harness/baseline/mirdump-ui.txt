@@ -1223,6 +1223,8 @@ tests/ui/pattern/usefulness/integer-ranges/exhaustiveness.rs
 tests/ui/pattern/usefulness/integer-ranges/gap_between_ranges.rs
 tests/ui/pattern/usefulness/integer-ranges/issue-117648-overlapping_range_endpoints-false-positive.rs
 tests/ui/pattern/usefulness/integer-ranges/overlapping_range_endpoints.rs
+tests/ui/pattern/usefulness/integer-ranges/pointer-sized-int.rs#deny
+tests/ui/pattern/usefulness/integer-ranges/precise_pointer_matching-message.rs
 tests/ui/pattern/usefulness/integer-ranges/reachability.rs
 tests/ui/pattern/usefulness/integer-ranges/regression-switchint-sorting-with-ranges.rs
 tests/ui/pattern/usefulness/irrefutable-let-patterns.rs
@@ -1261,6 +1263,7 @@ tests/ui/pattern/usefulness/issue-78123-non-exhaustive-reference.rs
 tests/ui/pattern/usefulness/issue-78549-ref-pat-and-str.rs
 tests/ui/pattern/usefulness/issue-80501-or-pat-and-macro.rs
 tests/ui/pattern/usefulness/issue-82772-match-box-as-struct.rs
+tests/ui/pattern/usefulness/issue-85222-types-containing-non-exhaustive-types.rs
 tests/ui/pattern/usefulness/issue-88747.rs
 tests/ui/pattern/usefulness/match-arm-statics-2.rs
 tests/ui/pattern/usefulness/match-arm-statics.rs

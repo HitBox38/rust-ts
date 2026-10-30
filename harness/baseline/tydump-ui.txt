@@ -514,6 +514,7 @@ tests/ui/traits/error-reporting/cow-slice-missing-clone-issue-141241.rs#next
 tests/ui/traits/error-reporting/cow-slice-missing-clone-issue-141241.rs#with_clone
 tests/ui/traits/error-reporting/incompatible-method-multiline.rs
 tests/ui/traits/error-reporting/incomplete-partial-ord-impl.rs
+tests/ui/traits/error-reporting/leaking-vars-in-cause-code-1.rs
 tests/ui/traits/error-reporting/leaking-vars-in-cause-code-2.rs
 tests/ui/traits/error-reporting/trait-bound-holds-for-ty-error-140303.rs#next
 tests/ui/traits/error-reporting/trait-bound-holds-for-ty-error-140303.rs#old
@@ -1024,6 +1025,8 @@ tests/ui/traits/next-solver/normalize/indirectly-constrained-term.rs
 tests/ui/traits/next-solver/normalize/normalize-allow-too-many-vars.rs
 tests/ui/traits/next-solver/normalize/normalize-assoc-ty-expected-int-var-no-ice-1.rs#current
 tests/ui/traits/next-solver/normalize/normalize-assoc-ty-expected-int-var-no-ice-1.rs#next
+tests/ui/traits/next-solver/normalize/normalize-assoc-ty-expected-int-var-no-ice-2.rs#current
+tests/ui/traits/next-solver/normalize/normalize-assoc-ty-expected-int-var-no-ice-2.rs#next
 tests/ui/traits/next-solver/normalize/normalize-async-closure-in-trait.rs
 tests/ui/traits/next-solver/normalize/normalize-const-in-async-body.rs
 tests/ui/traits/next-solver/normalize/normalize-param-env-1.rs
@@ -1070,6 +1073,7 @@ tests/ui/traits/next-solver/object-projection-with-unsatisfied-bound-1.rs#next
 tests/ui/traits/next-solver/object-soundness-requires-generalization.rs#next
 tests/ui/traits/next-solver/object-soundness-requires-generalization.rs#old
 tests/ui/traits/next-solver/opaques/ambig-in-mir-typeck.rs
+tests/ui/traits/next-solver/opaques/different-bound-vars.rs#current
 tests/ui/traits/next-solver/opaques/different-bound-vars.rs#next
 tests/ui/traits/next-solver/opaques/dont-ice-replacing-non-rigid-opaque.rs
 tests/ui/traits/next-solver/opaques/dont-remap-tait-substs.rs
@@ -1346,6 +1350,7 @@ tests/ui/traits/param-without-lifetime-constraint.rs
 tests/ui/traits/parameterized-with-bounds.rs
 tests/ui/traits/partialeq-ref-mismatch-diagnostic.rs
 tests/ui/traits/pointee-deduction.rs
+tests/ui/traits/pointee-tail-is-generic-errors.rs
 tests/ui/traits/pointee-tail-is-generic.rs
 tests/ui/traits/polymorphic-trait-creation-7673.rs
 tests/ui/traits/pred-known-to-hold-modulo-regions-unsized-tail.rs
@@ -1377,6 +1382,10 @@ tests/ui/traits/solver-cycles/100347-recursive-enum-cow-slice.rs
 tests/ui/traits/solver-cycles/107481-self-referential-struct-cow-as-last-field.rs
 tests/ui/traits/solver-cycles/129541-recursive-enum-and-array-impl.rs#current
 tests/ui/traits/solver-cycles/129541-recursive-enum-and-array-impl.rs#next
+tests/ui/traits/solver-cycles/129541-recursive-struct.rs#multiple_curr
+tests/ui/traits/solver-cycles/129541-recursive-struct.rs#multiple_next
+tests/ui/traits/solver-cycles/129541-recursive-struct.rs#unique_curr
+tests/ui/traits/solver-cycles/129541-recursive-struct.rs#unique_next
 tests/ui/traits/solver-cycles/assoc-equality-cycle.rs
 tests/ui/traits/solver-cycles/cycle-via-builtin-auto-trait-impl.rs
 tests/ui/traits/solver-cycles/inductive-canonical-cycle.rs
@@ -1513,6 +1522,7 @@ tests/ui/traits/typeclasses-eq-example-static.rs
 tests/ui/traits/typeclasses-eq-example.rs
 tests/ui/traits/ufcs-object.rs
 tests/ui/traits/unhandled-crate-mod-issue-144888.rs
+tests/ui/traits/unsend-future.rs
 tests/ui/traits/unsize-goal-escaping-bounds.rs#current
 tests/ui/traits/unsize-goal-escaping-bounds.rs#next
 tests/ui/traits/unspecified-self-in-trait-ref.rs
@@ -1573,6 +1583,7 @@ tests/ui/typeck/autoderef-with-param-env-error.rs
 tests/ui/typeck/bad-index-due-to-nested.rs#current
 tests/ui/typeck/bad-index-due-to-nested.rs#next
 tests/ui/typeck/bad-index-modulo-higher-ranked-regions.rs
+tests/ui/typeck/bad-recursive-type-sig-infer.rs
 tests/ui/typeck/bad-type-in-vec-contains.rs
 tests/ui/typeck/bad-type-in-vec-push.rs
 tests/ui/typeck/call-block.rs
@@ -1703,6 +1714,7 @@ tests/ui/typeck/issue-89275.rs
 tests/ui/typeck/issue-89806.rs
 tests/ui/typeck/issue-89856.rs
 tests/ui/typeck/issue-89935.rs
+tests/ui/typeck/issue-90027-async-fn-return-suggestion.rs
 tests/ui/typeck/issue-90101.rs
 tests/ui/typeck/issue-90164.rs
 tests/ui/typeck/issue-90319.rs
@@ -1776,6 +1788,7 @@ tests/ui/typeck/suggestions/macro-shorthand-issue-140659.rs
 tests/ui/typeck/suggestions/suggest-add-wrapper-issue-145294.rs
 tests/ui/typeck/suggestions/suggest-adding-missing-zero-to-floating-point-number.rs
 tests/ui/typeck/suggestions/suggest-arg-comma-delete-ice.rs
+tests/ui/typeck/suggestions/suggest-box-on-divergent-if-else-arms.rs
 tests/ui/typeck/suggestions/suggest-clone-in-macro-issue-139253.rs
 tests/ui/typeck/suggestions/suggest-compatible-variants-macro-issue-142359.rs
 tests/ui/typeck/suggestions/suggest-similar-impls-for-root-obligation.rs

@@ -13342,6 +13342,7 @@ tests/ui/panics/while-panic.rs
 tests/ui/parallel-rustc/assert-found_cycle-issue-115223.rs
 tests/ui/parallel-rustc/cache-after-waiting-issue-111528.rs
 tests/ui/parallel-rustc/cycle_crash-issue-135870.rs
+tests/ui/parallel-rustc/default-trait-shadow-cycle-issue-151358.rs
 tests/ui/parallel-rustc/dyn-trait-ice-153366.rs
 tests/ui/parallel-rustc/export-symbols-deadlock-issue-118205-2.rs
 tests/ui/parallel-rustc/export-symbols-deadlock-issue-118205.rs
@@ -15352,6 +15353,7 @@ tests/ui/query-system/fn-sig-cycle-arity.rs
 tests/ui/query-system/issue-83479.rs
 tests/ui/query-system/no-query-in-printing-during-query-descr.rs
 tests/ui/query-system/query-cycle-printing-issue-151226.rs
+tests/ui/query-system/query-cycle-printing-issue-151358.rs
 tests/ui/query-system/query_depth.rs
 tests/ui/range/exclusive-range-patterns-2021.rs
 tests/ui/range/impossible_range.rs
@@ -16048,6 +16050,7 @@ tests/ui/resolve/privacy-struct-ctor.rs
 tests/ui/resolve/private-constructor-self-issue-147343.rs
 tests/ui/resolve/proc_macro_generated_packed.rs
 tests/ui/resolve/pub-in-path-153848.rs
+tests/ui/resolve/query-cycle-issue-124901.rs
 tests/ui/resolve/raw-ident-in-path.rs
 tests/ui/resolve/reference-clone-nonclone-11820.rs
 tests/ui/resolve/regression-struct-called-as-function-148919.rs
@@ -16092,6 +16095,10 @@ tests/ui/resolve/struct-shorthand-typo.rs
 tests/ui/resolve/suggest-import-before-outer-attrs-issue-69733.rs
 tests/ui/resolve/suggest-range-struct-destructuring.rs
 tests/ui/resolve/suggestions/auxiliary/suggest-constructor-cycle-error.rs
+tests/ui/resolve/suggestions/format-captured-field-issue-105520.rs
+tests/ui/resolve/suggestions/format-captured-non-values.rs
+tests/ui/resolve/suggestions/format-captured-standard-macros.rs
+tests/ui/resolve/suggestions/sugg-field-in-format-string-issue-141136.rs
 tests/ui/resolve/suggestions/suggest-builder-fn.rs
 tests/ui/resolve/suggestions/suggest-constructor-cycle-error.rs
 tests/ui/resolve/suggestions/suggest-import-without-clobbering-attrs.rs
@@ -16109,6 +16116,7 @@ tests/ui/resolve/trailing-super-import.rs
 tests/ui/resolve/trait-impl-cant-capture-env.rs
 tests/ui/resolve/tuple-struct-alias.rs
 tests/ui/resolve/type-param-local-var-shadowing.rs
+tests/ui/resolve/typo-suggestion-for-variable-with-name-similar-to-struct-field.rs
 tests/ui/resolve/typo-suggestion-mistyped-in-path.rs
 tests/ui/resolve/typo-suggestion-named-underscore.rs
 tests/ui/resolve/unboxed-closure-sugar-nonexistent-trait.rs

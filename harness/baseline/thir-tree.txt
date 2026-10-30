@@ -220,6 +220,7 @@ tests/ui/traits/conditional-model-fn.rs
 tests/ui/traits/conservative_impl_trait.rs
 tests/ui/traits/const-traits/assoc-type-const-bound-usage-0.rs#current
 tests/ui/traits/const-traits/assoc-type-const-bound-usage-0.rs#next
+tests/ui/traits/const-traits/assoc-type-const-bound-usage-1.rs
 tests/ui/traits/const-traits/assoc-type-const-bound-usage-fail-2.rs#current
 tests/ui/traits/const-traits/assoc-type-const-bound-usage-fail-2.rs#next
 tests/ui/traits/const-traits/assoc-type-const-bound-usage-fail.rs#current
@@ -525,6 +526,7 @@ tests/ui/traits/error-reporting/cow-slice-missing-clone-issue-141241.rs#next
 tests/ui/traits/error-reporting/cow-slice-missing-clone-issue-141241.rs#with_clone
 tests/ui/traits/error-reporting/incompatible-method-multiline.rs
 tests/ui/traits/error-reporting/incomplete-partial-ord-impl.rs
+tests/ui/traits/error-reporting/leaking-vars-in-cause-code-1.rs
 tests/ui/traits/error-reporting/leaking-vars-in-cause-code-2.rs
 tests/ui/traits/error-reporting/trait-bound-holds-for-ty-error-140303.rs#next
 tests/ui/traits/error-reporting/where-clause-with-bad-path.rs
@@ -819,6 +821,7 @@ tests/ui/traits/next-solver/assoc-type-static-lifetime-object-bound.rs
 tests/ui/traits/next-solver/async.rs#fail
 tests/ui/traits/next-solver/async.rs#pass
 tests/ui/traits/next-solver/auto-with-drop_tracking_mir.rs#fail
+tests/ui/traits/next-solver/auto-with-drop_tracking_mir.rs#pass
 tests/ui/traits/next-solver/borrowck-error.rs
 tests/ui/traits/next-solver/borrowck-normalization.rs
 tests/ui/traits/next-solver/builtin-fn-must-return-sized.rs
@@ -867,6 +870,7 @@ tests/ui/traits/next-solver/constrain-alias-goals-in-unsize.rs
 tests/ui/traits/next-solver/coroutine-yield-unnormalized-alias.rs
 tests/ui/traits/next-solver/coroutine.rs#fail
 tests/ui/traits/next-solver/coroutine.rs#pass
+tests/ui/traits/next-solver/coroutine_query_cycle.rs
 tests/ui/traits/next-solver/cycles/coinduction/fixpoint-exponential-growth.rs
 tests/ui/traits/next-solver/cycles/coinduction/incompleteness-unstable-result.rs#with
 tests/ui/traits/next-solver/cycles/coinduction/incompleteness-unstable-result.rs#without
@@ -991,6 +995,10 @@ tests/ui/traits/next-solver/nested-obligations-with-bound-vars-gat.rs
 tests/ui/traits/next-solver/nested-rerun-not-erased-in-normalizes-to.rs
 tests/ui/traits/next-solver/no-dedup-universes.rs
 tests/ui/traits/next-solver/no-param-env-const-fold.rs
+tests/ui/traits/next-solver/non-wf-candidate-behind-stalled-coroutine-1.rs#current
+tests/ui/traits/next-solver/non-wf-candidate-behind-stalled-coroutine-1.rs#next
+tests/ui/traits/next-solver/non-wf-candidate-behind-stalled-coroutine-2.rs#current
+tests/ui/traits/next-solver/non-wf-candidate-behind-stalled-coroutine-2.rs#next
 tests/ui/traits/next-solver/non-wf-candidate-behind-stalled-coroutine-3.rs#current
 tests/ui/traits/next-solver/non-wf-candidate-behind-stalled-coroutine-3.rs#next
 tests/ui/traits/next-solver/non-wf-ret.rs
@@ -1016,6 +1024,7 @@ tests/ui/traits/next-solver/normalize-const-item-type.rs
 tests/ui/traits/next-solver/normalize-erased-async-handler-141850.rs
 tests/ui/traits/next-solver/normalize-erased-closure-in-async-151299.rs
 tests/ui/traits/next-solver/normalize-in-implied_outlives_bounds.rs
+tests/ui/traits/next-solver/normalize/always_rerun_normalizing_opaques.rs
 tests/ui/traits/next-solver/normalize/ambig-goal-infer-in-type-oulives.rs
 tests/ui/traits/next-solver/normalize/deeply-normalize-env-in-compare-impl-item.rs
 tests/ui/traits/next-solver/normalize/dont-ice-on-normalization-failure.rs
@@ -1026,6 +1035,8 @@ tests/ui/traits/next-solver/normalize/indirectly-constrained-term.rs
 tests/ui/traits/next-solver/normalize/normalize-allow-too-many-vars.rs
 tests/ui/traits/next-solver/normalize/normalize-assoc-ty-expected-int-var-no-ice-1.rs#current
 tests/ui/traits/next-solver/normalize/normalize-assoc-ty-expected-int-var-no-ice-1.rs#next
+tests/ui/traits/next-solver/normalize/normalize-assoc-ty-expected-int-var-no-ice-2.rs#current
+tests/ui/traits/next-solver/normalize/normalize-assoc-ty-expected-int-var-no-ice-2.rs#next
 tests/ui/traits/next-solver/normalize/normalize-async-closure-in-trait.rs
 tests/ui/traits/next-solver/normalize/normalize-const-in-async-body.rs
 tests/ui/traits/next-solver/normalize/normalize-param-env-1.rs
@@ -1058,6 +1069,7 @@ tests/ui/traits/next-solver/normalize/param-env-trait-candidate-1.rs
 tests/ui/traits/next-solver/normalize/param-env-trait-candidate-2.rs
 tests/ui/traits/next-solver/normalize/param_env-region-constraints-ambiguity.rs#current
 tests/ui/traits/next-solver/normalize/param_env-region-constraints-ambiguity.rs#next
+tests/ui/traits/next-solver/normalize/skip-supertraits-in-object-candidate.rs
 tests/ui/traits/next-solver/normalize/success-results-in-unconstrained-infer.rs#next
 tests/ui/traits/next-solver/normalize/two-projection-param-candidates-are-ambiguous.rs
 tests/ui/traits/next-solver/object-projection-const-bound-rerun.rs
@@ -1070,6 +1082,7 @@ tests/ui/traits/next-solver/object-projection-with-unsatisfied-bound-1.rs#next
 tests/ui/traits/next-solver/object-soundness-requires-generalization.rs#next
 tests/ui/traits/next-solver/object-soundness-requires-generalization.rs#old
 tests/ui/traits/next-solver/opaques/ambig-in-mir-typeck.rs
+tests/ui/traits/next-solver/opaques/different-bound-vars.rs#current
 tests/ui/traits/next-solver/opaques/different-bound-vars.rs#next
 tests/ui/traits/next-solver/opaques/dont-ice-replacing-non-rigid-opaque.rs
 tests/ui/traits/next-solver/opaques/dont-remap-tait-substs.rs
@@ -1266,6 +1279,7 @@ tests/ui/traits/normalize/assoc-type-hrtb-normalization-30472.rs
 tests/ui/traits/normalize/copy-impl-cannot-normalize.rs
 tests/ui/traits/normalize/deep-norm-pending.rs
 tests/ui/traits/normalize/normalize-associated-type-in-where-clause.rs
+tests/ui/traits/normalize/normalize-conflicting-impls.rs
 tests/ui/traits/normalize/normalize-diverging-alias-in-defaulted-type-parameter.rs#current
 tests/ui/traits/normalize/normalize-diverging-alias-in-defaulted-type-parameter.rs#next
 tests/ui/traits/normalize/normalize-diverging-alias-in-struct.rs#current
@@ -1345,6 +1359,7 @@ tests/ui/traits/param-without-lifetime-constraint.rs
 tests/ui/traits/parameterized-with-bounds.rs
 tests/ui/traits/partialeq-ref-mismatch-diagnostic.rs
 tests/ui/traits/pointee-deduction.rs
+tests/ui/traits/pointee-tail-is-generic-errors.rs
 tests/ui/traits/pointee-tail-is-generic.rs
 tests/ui/traits/polymorphic-trait-creation-7673.rs
 tests/ui/traits/pred-known-to-hold-modulo-regions-unsized-tail.rs
@@ -1374,6 +1389,12 @@ tests/ui/traits/send-trait-objects-basic.rs
 tests/ui/traits/similarly_named_trait.rs
 tests/ui/traits/solver-cycles/100347-recursive-enum-cow-slice.rs
 tests/ui/traits/solver-cycles/107481-self-referential-struct-cow-as-last-field.rs
+tests/ui/traits/solver-cycles/129541-recursive-enum-and-array-impl.rs#current
+tests/ui/traits/solver-cycles/129541-recursive-enum-and-array-impl.rs#next
+tests/ui/traits/solver-cycles/129541-recursive-struct.rs#multiple_curr
+tests/ui/traits/solver-cycles/129541-recursive-struct.rs#multiple_next
+tests/ui/traits/solver-cycles/129541-recursive-struct.rs#unique_curr
+tests/ui/traits/solver-cycles/129541-recursive-struct.rs#unique_next
 tests/ui/traits/solver-cycles/assoc-equality-cycle.rs
 tests/ui/traits/solver-cycles/cycle-via-builtin-auto-trait-impl.rs
 tests/ui/traits/solver-cycles/inductive-canonical-cycle.rs
@@ -1445,6 +1466,7 @@ tests/ui/traits/trait-upcasting/fewer-associated.rs#current
 tests/ui/traits/trait-upcasting/fewer-associated.rs#next
 tests/ui/traits/trait-upcasting/higher-ranked-upcasting-ok.rs#current
 tests/ui/traits/trait-upcasting/higher-ranked-upcasting-ok.rs#next
+tests/ui/traits/trait-upcasting/higher-ranked-upcasting-ub.rs#current
 tests/ui/traits/trait-upcasting/higher-ranked-upcasting-ub.rs#next
 tests/ui/traits/trait-upcasting/illegal-upcast-from-impl.rs#current
 tests/ui/traits/trait-upcasting/illegal-upcast-from-impl.rs#next
@@ -1509,6 +1531,7 @@ tests/ui/traits/typeclasses-eq-example-static.rs
 tests/ui/traits/typeclasses-eq-example.rs
 tests/ui/traits/ufcs-object.rs
 tests/ui/traits/unhandled-crate-mod-issue-144888.rs
+tests/ui/traits/unsend-future.rs
 tests/ui/traits/unsize-goal-escaping-bounds.rs#current
 tests/ui/traits/unsize-goal-escaping-bounds.rs#next
 tests/ui/traits/unspecified-self-in-trait-ref.rs
@@ -1569,6 +1592,7 @@ tests/ui/typeck/autoderef-with-param-env-error.rs
 tests/ui/typeck/bad-index-due-to-nested.rs#current
 tests/ui/typeck/bad-index-due-to-nested.rs#next
 tests/ui/typeck/bad-index-modulo-higher-ranked-regions.rs
+tests/ui/typeck/bad-recursive-type-sig-infer.rs
 tests/ui/typeck/bad-type-in-vec-contains.rs
 tests/ui/typeck/bad-type-in-vec-push.rs
 tests/ui/typeck/call-block.rs
@@ -1699,6 +1723,7 @@ tests/ui/typeck/issue-89275.rs
 tests/ui/typeck/issue-89806.rs
 tests/ui/typeck/issue-89856.rs
 tests/ui/typeck/issue-89935.rs
+tests/ui/typeck/issue-90027-async-fn-return-suggestion.rs
 tests/ui/typeck/issue-90101.rs
 tests/ui/typeck/issue-90164.rs
 tests/ui/typeck/issue-90319.rs
@@ -1772,6 +1797,7 @@ tests/ui/typeck/suggestions/macro-shorthand-issue-140659.rs
 tests/ui/typeck/suggestions/suggest-add-wrapper-issue-145294.rs
 tests/ui/typeck/suggestions/suggest-adding-missing-zero-to-floating-point-number.rs
 tests/ui/typeck/suggestions/suggest-arg-comma-delete-ice.rs
+tests/ui/typeck/suggestions/suggest-box-on-divergent-if-else-arms.rs
 tests/ui/typeck/suggestions/suggest-clone-in-macro-issue-139253.rs
 tests/ui/typeck/suggestions/suggest-compatible-variants-macro-issue-142359.rs
 tests/ui/typeck/suggestions/suggest-similar-impls-for-root-obligation.rs

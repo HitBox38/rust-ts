@@ -1607,6 +1607,7 @@ tests/ui/attributes/inner-attrs-impl-cfg.rs
 tests/ui/attributes/instruction-set.rs
 tests/ui/attributes/instrument_fn.rs
 tests/ui/attributes/invalid-crate-type.rs
+tests/ui/attributes/invalid-debugger-visualizer-option.rs
 tests/ui/attributes/invalid-debugger-visualizer-target.rs
 tests/ui/attributes/invalid-export-name.rs
 tests/ui/attributes/invalid-instruction-set-target.rs
