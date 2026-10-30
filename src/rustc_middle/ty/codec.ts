@@ -699,12 +699,10 @@ export function encode_mir_UnOp(v: UnOp, e: TyEncoder): void {
 }
 /** `ty::abstract_const::CastKind`: the derive generated into rustc_middle/decodable.gen.ts (set rustc_middle). */
 export function decode_abstract_const_CastKind(d: TyDecoder): CastKind {
-  const decodable = require("../decodable.gen.ts") as typeof import("../decodable.gen.ts");
-  return decodable.decode_CastKind(d);
+  return decodable_().decode_CastKind(d);
 }
 export function encode_abstract_const_CastKind(v: CastKind, e: TyEncoder): void {
-  const decodable = require("../decodable.gen.ts") as typeof import("../decodable.gen.ts");
-  decodable.encode_CastKind(v, e);
+  decodable_().encode_CastKind(v, e);
 }
 
 export type { BoundVariableKind };

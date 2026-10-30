@@ -362,15 +362,20 @@ function exported_generic_symbols_provider_local(tcx: TyCtxt, _: unknown): reado
     };
 
     const is_instantiable_downstream = (did: DefId | undefined, generic_args: GenericArgs): boolean => {
-      return [
-        ...generic_args.types(),
-        ...(did === undefined ? [] : [EarlyBinderC.skip_binder(tcx.type_of(did) as EarlyBinder<Ty>)]),
-      ].every((arg) => {
-        return [...arg.walk()].every((ty) => {
+      // PORT: the iterator chain is lazy and `all` short-circuits, so `type_of(did)` runs only if every generic type
+      // argument passes, and each `walk` stops at the first local type.
+      const all_ok = (arg: Ty): boolean => {
+        for (const ty of arg.walk()) {
           const t = GenericArg.as_type(ty);
-          return t === undefined || !is_local_to_current_crate(t);
-        });
-      });
+          if (t !== undefined && is_local_to_current_crate(t)) return false;
+        }
+        return true;
+      };
+      for (const arg of generic_args.types()) {
+        if (!all_ok(arg)) return false;
+      }
+      if (did !== undefined && !all_ok(EarlyBinderC.skip_binder(tcx.type_of(did) as EarlyBinder<Ty>))) return false;
+      return true;
     };
 
     const is_offload_instance = (mono_item: MonoItem): boolean => {
@@ -904,8 +909,7 @@ export function extend_exported_symbols(symbols: SymbolExport[], tcx: TyCtxt, sy
 
 // rustc: compiler/rustc_codegen_ssa/src/back/symbol_export.rs:902 maybe_emutls_symbol_name
 function maybe_emutls_symbol_name(tcx: TyCtxt, symbol: ExportedSymbol, undecorated: string): string | undefined {
-  // PORT: `Session` derefs to `EarlySession`, whose `tls_model` session.ts does not forward.
-  if (tcx.sess.early_sess.tls_model() === "Emulated" && symbol.$ === "NonGeneric" && tcx.is_thread_local_static(symbol._0)) {
+  if (tcx.sess.tls_model() === "Emulated" && symbol.$ === "NonGeneric" && tcx.is_thread_local_static(symbol._0)) {
     // When using emutls, LLVM will add the `__emutls_v.` prefix to thread local symbols,
     // and exported symbol name need to match this.
     return `__emutls_v.${undecorated}`;
