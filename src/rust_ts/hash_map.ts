@@ -61,6 +61,10 @@ export const LAYOUT_UNIT: Layout = { size: 0, align: 1 };
 export const LAYOUT_U8: Layout = { size: 1, align: 1 };
 export const LAYOUT_U32: Layout = { size: 4, align: 4 };
 export const LAYOUT_USIZE: Layout = { size: 8, align: 8 };
+/** A reference or interned pointer (`&T`, `Ty<'tcx>`, ...). */
+export const LAYOUT_PTR: Layout = { size: 8, align: 8 };
+/** `Vec<T>` / `String` (ptr, capacity, length). */
+export const LAYOUT_VEC: Layout = { size: 24, align: 8 };
 
 /** `Layout::new::<(K, V)>()`: two fields whose sizes are multiples of their alignments need no
  * padding between them (rustc orders them), only at the end. */
@@ -429,13 +433,26 @@ export class FxHashSet<T> extends Set<T> {
 }
 
 /**
+ * A map that is no `FxHashMap` itself (its class is fixed by its type elsewhere) but keeps one in `fx` and iterates in
+ * its order: rustc_span def_id.ts `FxDefIdMap`, a `DefIdMap` whose upstream `UnordMap` order crate metadata encodes.
+ */
+export interface FxOrdered<K, V> {
+  readonly fx: FxHashMap<K, V>;
+}
+
+/** Whether `v` iterates in rustc's hashbrown order: an `FxHashMap`, or an `FxOrdered` map. */
+export function iterates_in_fx_order<K, V>(v: ReadonlyMap<K, V>): boolean {
+  return v instanceof FxHashMap || ("fx" in v && (v as Partial<FxOrdered<K, V>>).fx instanceof FxHashMap);
+}
+
+/**
  * `<HashMap<K, V, S> as Debug>::fmt`: `f.debug_map().entries(self.iter()).finish()`.
- * Exact for an `FxHashMap` (bucket order) and for any map of at most one entry. A plain `Map`
+ * Exact for an `FxHashMap` (bucket order), an `FxOrdered` map, and any map of at most one entry. A plain `Map`
  * with more entries has lost the history that decides rustc's order (its upstream map must be
  * created as an `FxHashMap`), so it stays unported.
  */
 export function debug_HashMap<K, V>(v: Map<K, V>, f: Fmt, debug_K: Debug<K>, debug_V: Debug<V>): string {
-  if (!(v instanceof FxHashMap) && v.size > 1) {
+  if (!iterates_in_fx_order(v) && v.size > 1) {
     unported("std::collections::HashMap Debug iteration order (hashbrown + FxHasher)");
   }
   return debug_map(

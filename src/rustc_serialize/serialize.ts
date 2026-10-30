@@ -15,7 +15,7 @@
 // - `impl_*` macro expansions are one TS fn each, marked `// rustc:` on the macro's `fn` line.
 import { Hash128, Hash64 } from "../rustc_hashes/lib.ts";
 import { assert, panic, unported, unreachable, unwrap } from "../std/panic.ts";
-import { FxHashMap, FxHashSet } from "../rust_ts/hash_map.ts";
+import { FxHashSet, iterates_in_fx_order } from "../rust_ts/hash_map.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
 import { utf8 } from "../std/str.ts";
 
@@ -795,12 +795,13 @@ export function decode_BTreeSet<T, D extends Decoder>(d: D, decode_T: Decodable<
 
 /** `impl<E: Encoder, K, V, S> Encodable<E> for HashMap<K, V, S>`.
  *  PORT: the encoded order is the map's iteration order: hashbrown's bucket order for an `FxHashMap` (rust_ts/hash_map.ts,
- *  which iterates in rustc's order; rmeta exposes it, e.g. `Generics.param_def_id_to_index`). A plain `Map` with more
+ *  which iterates in rustc's order; rmeta exposes it, e.g. `Generics.param_def_id_to_index`) or an `FxOrdered` map
+ *  (rustc_span def_id.ts `FxDefIdMap`). A plain `Map` with more
  *  than one entry has lost the history that decides that order (its upstream map must be created as an `FxHashMap`), so
  *  it stops as unported, as rust_ts/hash_map.ts `debug_HashMap` does. */
 // rustc: compiler/rustc_serialize/src/serialize.rs:615 encode
 export function encode_HashMap<K, V, S extends Encoder = Encoder>(v: ReadonlyMap<K, V>, e: S, encode_K: Encodable<K, S>, encode_V: Encodable<V, S>): void {
-  if (!(v instanceof FxHashMap) && v.size > 1) {
+  if (!iterates_in_fx_order(v) && v.size > 1) {
     unported("std::collections::HashMap Encodable iteration order (hashbrown + FxHasher; not an FxHashMap)");
   }
   e.emit_usize(v.size);

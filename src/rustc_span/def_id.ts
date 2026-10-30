@@ -1,5 +1,6 @@
 // Port of compiler/rustc_span/src/def_id.rs
 import { AtomicRef } from "../rustc_data_structures/atomic_ref.ts";
+import { FxKeyedMap, type FxOrdered, type KeyType, type Layout } from "../rust_ts/hash_map.ts";
 import { KeyedMap, KeyedSet } from "../rust_ts/keyed.ts";
 import { debug_Fingerprint, Fingerprint } from "../rustc_data_structures/fingerprint.ts";
 import { debug_Hash64, Hash64 } from "../rustc_hashes/lib.ts";
@@ -310,6 +311,93 @@ export function DefId_key(d: DefId): number {
 export class DefIdMap<T> extends KeyedMap<DefId, T> {
   constructor(entries?: Iterable<readonly [DefId, T]>) {
     super(DefId_key, entries);
+  }
+}
+
+/** PORT: `impl Hash for DefId` (`DefId.hash`, one `u64`) as an `FxHashMap` key type; `DefId` is `#[repr(C)]` of two
+ *  `u32`s (size 8, align 4). */
+export const DefId_fx_key: KeyType<DefId> = { hash: (k, state) => k.hash(state), size: 8, align: 4 };
+
+/**
+ * PORT (lane rmeta-fxmap): a `DefIdMap<T>` built where upstream's `UnordMap` order is observable (crate metadata encodes
+ * the `UnordMap`'s inner `FxHashMap` in hashbrown order: `collect_return_position_impl_trait_in_trait_tys`,
+ * `associated_types_for_impl_traits_in_trait_or_impl`). It is a `DefIdMap` (so it stays the value type of those
+ * queries, whose extern values decode to plain `DefIdMap`s) that also drives an `FxKeyedMap` (`fx`) through every
+ * mutation and iterates in its order (rust_ts/hash_map.ts `FxOrdered`). Constructing one is `DefIdMap::default()`;
+ * `from_iter` is `collect()`. `value` is `Layout::new::<T>()`; with an 8-byte key it never changes the bucket count
+ * (hashbrown's small-table minimum only depends on element sizes up to 3 bytes), only `capacity()` stays exact.
+ */
+export class FxDefIdMap<T> extends DefIdMap<T> implements FxOrdered<DefId, T> {
+  readonly fx: FxKeyedMap<DefId, T>;
+
+  constructor(value: Layout) {
+    super();
+    this.fx = new FxKeyedMap<DefId, T>(DefId_fx_key, value, DefId_key);
+  }
+
+  /** std's `FromIterator` (`iter.collect()`); `size_hint_lower` is the iterator's `size_hint().0`. */
+  static from_iter<T>(iter: Iterable<readonly [DefId, T]>, size_hint_lower: number, value: Layout): FxDefIdMap<T> {
+    const m = new FxDefIdMap<T>(value);
+    m.extend(iter, size_hint_lower);
+    return m;
+  }
+
+  /** `insert(k, v)` */
+  override set(k: DefId, v: T): this {
+    super.set(k, v);
+    // `super()` calls no `set` (no entries), so `fx` always exists here; it stores the same key object.
+    this.fx.set(k, v);
+    return this;
+  }
+
+  /** `remove(&k).is_some()` */
+  override delete(k: DefId): boolean {
+    this.fx.delete(k);
+    return super.delete(k);
+  }
+
+  /** `clear()` */
+  override clear(): void {
+    this.fx.clear();
+    super.clear();
+  }
+
+  /** `Extend<(DefId, T)>` (`reserve`s from `size_hint_lower`, see rust_ts/hash_map.ts `FxHashMap.from_iter`). */
+  extend(iter: Iterable<readonly [DefId, T]>, size_hint_lower: number): void {
+    const self = this;
+    this.fx.extend(
+      (function* (): Generator<readonly [DefId, T]> {
+        for (const [k, v] of iter) {
+          DefIdMap.prototype.set.call(self, k, v);
+          yield [k, v];
+        }
+      })(),
+      size_hint_lower,
+    );
+  }
+
+  capacity(): number {
+    return this.fx.capacity();
+  }
+
+  override entries(): MapIterator<[DefId, T]> {
+    return this.fx.entries();
+  }
+
+  override keys(): MapIterator<DefId> {
+    return this.fx.keys();
+  }
+
+  override values(): MapIterator<T> {
+    return this.fx.values();
+  }
+
+  override [globalThis.Symbol.iterator](): MapIterator<[DefId, T]> {
+    return this.fx.entries();
+  }
+
+  override forEach(callbackfn: (value: T, key: DefId, map: Map<DefId, T>) => void, thisArg?: unknown): void {
+    for (const [k, v] of this.fx) callbackfn.call(thisArg, v, k, this);
   }
 }
 
