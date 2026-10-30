@@ -367,7 +367,7 @@ export function type_check(
 
 /** `infcx.tcx.sess.opts.unstable_opts.polonius.is_next_enabled()` (mod.rs:140). */
 function Polonius_is_next_enabled(tcx: TyCtxt): boolean {
-  const config = require("../../rustc_session/config.ts") as typeof import("../../rustc_session/config.ts");
+  const config = (session_config__m ??= require("../../rustc_session/config.ts") as typeof import("../../rustc_session/config.ts"));
   return config.Polonius.is_next_enabled(tcx.sess.opts.unstable_opts.polonius);
 }
 
@@ -2652,3 +2652,5 @@ export const TypeOp_InstantiateOpaqueType: TypeOp<InstantiateOpaqueType, null, I
     return Ok(output);
   },
 };
+
+var session_config__m: typeof import("../../rustc_session/config.ts") | undefined; // PORT: (perf) lazy-require memo (precedent: perf-intern)

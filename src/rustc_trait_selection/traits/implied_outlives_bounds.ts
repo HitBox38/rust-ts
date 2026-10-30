@@ -109,7 +109,7 @@ export function compute_implied_outlives_bounds_inner(
   normalized_ty: Ty,
   span: Span,
 ): Result<OutlivesBound[], NoSolution> {
-  const wf = require("./wf.ts") as typeof import("./wf.ts");
+  const wf = (wf__m ??= require("./wf.ts") as typeof import("./wf.ts"));
   const tcx = ocx.infcx.tcx;
   // Sometimes when we ask what it takes for T: WF, we get back that
   // U: WF is required; in that case, we push U onto this stack and
@@ -358,3 +358,5 @@ function implied_bounds_from_components(_tcx: TyCtxt, sub_region: Region, sup_co
   }
   return out;
 }
+
+var wf__m: typeof import("./wf.ts") | undefined; // PORT: (perf) lazy-require memo (precedent: perf-intern)

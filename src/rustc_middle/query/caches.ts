@@ -53,8 +53,11 @@ export function QueryCache_without_track_present<C>(default_: () => C): C {
 /// In-memory cache for queries whose keys aren't suitable for any of the
 /// more specialized kinds of cache. Backed by a sharded hashmap.
 export class DefaultCache<K, V> implements QueryCache<K, V> {
-  /** PORT: `ShardedHashMap<K, (V, DepNodeIndex)>`, keyed by `hash_key(key)` (see the module comment). */
-  private cache = new Map<string | number | bigint, [K, V, DepNodeIndex]>();
+  /**
+   * PORT: `ShardedHashMap<K, (V, DepNodeIndex)>`, keyed by `hash_key(key)` (see the module comment). (perf) An entry
+   * is `[value, index, key]`, so `lookup` returns it as the `CacheEntry` without copying.
+   */
+  private cache = new Map<string | number | bigint, readonly [V, DepNodeIndex, K]>();
 
   constructor(readonly hash_key: (key: K) => string | number | bigint) {}
 
@@ -65,21 +68,20 @@ export class DefaultCache<K, V> implements QueryCache<K, V> {
 
   // rustc: compiler/rustc_middle/src/query/caches.rs:73 lookup
   lookup(key: K): CacheEntry<V> | undefined {
-    const e = this.cache.get(this.hash_key(key));
-    return e === undefined ? undefined : [e[1], e[2]];
+    return this.cache.get(this.hash_key(key)) as unknown as CacheEntry<V> | undefined;
   }
 
   // rustc: compiler/rustc_middle/src/query/caches.rs:78 complete
   complete(key: K, value: V, index: DepNodeIndex): void {
     // `insert_unique`
-    this.cache.set(this.hash_key(key), [key, value, index]);
+    this.cache.set(this.hash_key(key), [value, index, key]);
   }
 
   // rustc: compiler/rustc_middle/src/query/caches.rs:82 for_each
   for_each(f: (key: K, value: V, index: DepNodeIndex) => void): void {
     // PORT: one shard; iteration in insertion order (upstream: hash order per shard; only used for
     // self-profiling / incremental encoding, which rust-ts does not do).
-    for (const [k, v, i] of this.cache.values()) {
+    for (const [v, i, k] of this.cache.values()) {
       f(k, v, i);
     }
   }
@@ -155,7 +157,11 @@ export class VecCache<K extends number, V> implements QueryCache<K, V> {
     // vec_cache.rs `complete`: a slot is written once (a second completion of the same key is a bug
     // upstream: "caller raced calls to put()"); the query system never completes a key twice.
     if (this.slots[key] === undefined) this.present++;
-    this.slots[key] = [value, index];
+    // PORT: (perf) the array is filled densely up to `key` (explicit `undefined`s): a store past the end leaves holes,
+    // which makes the engine fall back to a slow sparse representation for every later `lookup`.
+    const slots = this.slots;
+    while (slots.length < key) slots.push(undefined);
+    slots[key] = [value, index];
   }
 
   // rustc: compiler/rustc_middle/src/query/caches.rs:215 for_each

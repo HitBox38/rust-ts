@@ -43,7 +43,10 @@ export function unwrap<T>(v: T | undefined, message = "called `Option::unwrap()`
  * `assert_failed_inner`, `AssertKind::Eq`, no args) when `eq(left, right)` is false.
  * `debug` renders each side with `{:?}`. `eq` defaults to `===`.
  */
-export function assert_eq<T>(left: T, right: T, debug: (v: T) => string, eq: (a: T, b: T) => boolean = (a, b) => a === b): void {
+// PORT: (perf) the default `eq` is one shared function, not a closure allocated per call.
+const strict_eq = (a: unknown, b: unknown): boolean => a === b;
+
+export function assert_eq<T>(left: T, right: T, debug: (v: T) => string, eq: (a: T, b: T) => boolean = strict_eq): void {
   if (!eq(left, right)) {
     throw new Panic(`assertion \`left == right\` failed\n  left: ${debug(left)}\n right: ${debug(right)}`);
   }

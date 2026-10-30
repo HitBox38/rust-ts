@@ -49,14 +49,20 @@ export const MirPhase = gen.MirPhase as typeof gen.MirPhase & MirPhase_methods;
  * PORT: `#[derive(PartialOrd, Ord)]` of `MirPhase` (syntax.rs:43): the variants in declaration order (`Built`,
  * `Analysis`, `Runtime`), then the phase's discriminant (`AnalysisPhase` / `RuntimePhase` derive `Ord` too).
  */
+// PORT: (perf) the helpers are module functions and the pairs plain locals (no closures or arrays per call).
 export function MirPhase_cmp(a: MirPhase, b: MirPhase): -1 | 0 | 1 {
-  const variant = (p: MirPhase): number => (p.$ === "Built" ? 0 : p.$ === "Analysis" ? 1 : 2);
-  const inner = (p: MirPhase): number =>
-    p.$ === "Analysis" ? gen.AnalysisPhase_discriminant[p._0] : p.$ === "Runtime" ? gen.RuntimePhase_discriminant[p._0] : 0;
-  const [va, vb] = [variant(a), variant(b)];
+  const va = MirPhase_variant(a);
+  const vb = MirPhase_variant(b);
   if (va !== vb) return va < vb ? -1 : 1;
-  const [ia, ib] = [inner(a), inner(b)];
+  const ia = MirPhase_inner(a);
+  const ib = MirPhase_inner(b);
   return ia === ib ? 0 : ia < ib ? -1 : 1;
+}
+function MirPhase_variant(p: MirPhase): number {
+  return p.$ === "Built" ? 0 : p.$ === "Analysis" ? 1 : 2;
+}
+function MirPhase_inner(p: MirPhase): number {
+  return p.$ === "Analysis" ? gen.AnalysisPhase_discriminant[p._0] : p.$ === "Runtime" ? gen.RuntimePhase_discriminant[p._0] : 0;
 }
 // mir/statement.rs
 export interface BorrowKind_methods {}

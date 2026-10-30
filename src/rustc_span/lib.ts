@@ -209,6 +209,14 @@ const SESSION_GLOBALS = {
   },
 };
 
+/** PORT: (perf) `SESSION_GLOBALS.with(|g| g)` for hot paths: the same check and panic, without a closure per call. */
+export function session_globals_get(): SessionGlobals {
+  if (SESSION_GLOBALS_SLOT === undefined) {
+    panic("cannot access a scoped thread local variable without calling `set` first");
+  }
+  return SESSION_GLOBALS_SLOT;
+}
+
 export class MetavarSpansMap {
   constructor(readonly _0: FreezeLock<Map<Span, [Span, boolean]>>) {}
 

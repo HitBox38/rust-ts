@@ -1717,8 +1717,15 @@ export abstract class MutVisitor {
 
   // rustc: compiler/rustc_middle/src/mir/visit.rs:967 super_source_info
   super_source_info(source_info: SourceInfo): void {
-    this.visit_span(field_mut(source_info, "span"));
-    this.visit_source_scope(field_mut(source_info, "scope"));
+    // PORT: (perf) the default `visit_span` / `visit_source_scope` (-> empty `super_*`) do nothing: the `&mut` views
+    // are made only for a visitor that overrides one of them.
+    const proto = MutVisitor.prototype;
+    if (this.visit_span !== proto.visit_span || this.super_span !== proto.super_span) {
+      this.visit_span(field_mut(source_info, "span"));
+    }
+    if (this.visit_source_scope !== proto.visit_source_scope || this.super_source_scope !== proto.super_source_scope) {
+      this.visit_source_scope(field_mut(source_info, "scope"));
+    }
   }
 
   // rustc: compiler/rustc_middle/src/mir/visit.rs:974 super_user_type_projection

@@ -313,6 +313,8 @@ export function stderr(): Stderr {
 // Vec<u8> (library/alloc/src/io/impls.rs:396)
 // ---------------------------------------------------------------------------------------------
 
+const VEC_U8_ENCODER = new TextEncoder();
+
 /** `Vec<u8>` as a writer. */
 export class VecU8 implements RawStream, AsLockedWrite {
   private buf: Uint8Array = new Uint8Array(64);
@@ -342,7 +344,28 @@ export class VecU8 implements RawStream, AsLockedWrite {
   }
 
   write_fmt(args: FmtArguments): IoResult<void> {
-    return Write_default.write_fmt(this, args);
+    // PORT: (perf) `Write_default.write_fmt` (the `write_all(utf8(piece))` shim) with each piece UTF-8-encoded
+    // straight into the buffer: `Vec<u8>`'s `write_all` cannot fail, so the result is always `Ok`.
+    for (let i = 0; i < args.length; i++) this.push_str(args[i]!);
+    return Ok(undefined);
+  }
+
+  /** PORT: (perf) `write_all(s.as_bytes())` without the intermediate `Uint8Array`. */
+  private push_str(s: string): void {
+    const n = s.length;
+    // A UTF-16 code unit takes at most 3 UTF-8 bytes (a surrogate pair: 4 bytes for 2 units).
+    this.reserve(3 * n);
+    const buf = this.buf;
+    let len = this.len;
+    for (let i = 0; i < n; i++) {
+      const c = s.charCodeAt(i);
+      if (c >= 0x80) {
+        len += VEC_U8_ENCODER.encodeInto(s.slice(i), buf.subarray(len)).written;
+        break;
+      }
+      buf[len++] = c;
+    }
+    this.len = len;
   }
 
   flush(): IoResult<void> {

@@ -109,8 +109,10 @@ export class Str {
     const last = this.hi - pat.length;
     let i = this.lo;
     while (i <= last) {
-      i = this.b.indexOf(first, i);
-      if (i < 0 || i > last) return undefined;
+      // PORT: (perf) bounded scan: `Uint8Array.indexOf` searched to the end of the whole backing buffer (the
+      // source file), not of this slice.
+      while (i <= last && this.b[i] !== first) i++;
+      if (i > last) return undefined;
       let k = 1;
       while (k < pat.length && this.b[i + k] === pat[k]) k++;
       if (k === pat.length) return i - this.lo;
@@ -137,8 +139,10 @@ export class Str {
   *lines(): Generator<Str> {
     let start = this.lo;
     while (start < this.hi) {
-      let nl = this.b.indexOf(0x0a, start);
-      const has_nl = nl >= 0 && nl < this.hi;
+      // PORT: (perf) bounded scan (see `find`).
+      let nl = start;
+      while (nl < this.hi && this.b[nl] !== 0x0a) nl++;
+      const has_nl = nl < this.hi;
       if (!has_nl) nl = this.hi;
       let end = nl;
       if (has_nl && end > start && this.b[end - 1] === 0x0d) end--;

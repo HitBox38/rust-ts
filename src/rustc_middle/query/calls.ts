@@ -149,9 +149,12 @@ function try_get_cached<K, V>(tcx: TyCtxt, cache: QueryCache<K, V>, key: K): { _
 /// for all queries.
 // rustc: compiler/rustc_middle/src/query/calls.rs:143 query_get_at
 export function query_get_at<K, V>(tcx: TyCtxt, span: Span, query: QueryVTable<K, V>, key: K): V {
-  const cached = try_get_cached(tcx, query.cache, key);
-  if (cached !== undefined) {
-    return cached._0;
+  // PORT: (perf) `try_get_cached` inlined, without its `Some(value)` box.
+  const r: CacheEntry<V> | undefined = query.cache.lookup(key);
+  if (r !== undefined) {
+    // tcx.prof.query_cache_hit(index.into());
+    tcx.dep_graph.read_index(r[1]);
+    return r[0];
   } else {
     return unwrap(query.execute_query_fn(tcx, span, key, QueryMode.Get))._0;
   }
@@ -160,8 +163,10 @@ export function query_get_at<K, V>(tcx: TyCtxt, span: Span, query: QueryVTable<K
 /// Implementation of `tcx.ensure_ok().$query(..)` for all queries.
 // rustc: compiler/rustc_middle/src/query/calls.rs:160 query_ensure_ok
 export function query_ensure_ok<K, V>(tcx: TyCtxt, query: QueryVTable<K, V>, key: K): void {
-  const cached = try_get_cached(tcx, query.cache, key);
-  if (cached !== undefined) {
+  // PORT: (perf) `try_get_cached` inlined, without its `Some(value)` box.
+  const r: CacheEntry<V> | undefined = query.cache.lookup(key);
+  if (r !== undefined) {
+    tcx.dep_graph.read_index(r[1]);
     // Some(_value) => {}
   } else {
     query.execute_query_fn(tcx, DUMMY_SP, key, QueryMode.EnsureOk);
