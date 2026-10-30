@@ -25,15 +25,16 @@ import {
   EDITION_NAME_LIST,
   EDITION_NAME_LIST_STABLE,
   Edition,
+  Edition_discriminant,
   LATEST_STABLE_EDITION,
   display_Edition,
 } from "../rustc_span/edition.ts";
-import { type FileName, RealFileName, RemapPathScopeComponents, SourceFileHashAlgorithm } from "../rustc_span/lib.ts";
+import { type FileName, RealFileName, RemapPathScopeComponents, SourceFileHashAlgorithm, type SpanEncoder } from "../rustc_span/lib.ts";
 import { FilePathMapping } from "../rustc_span/source_map.ts";
 import { type Symbol, sym } from "../rustc_span/symbol.ts";
 import { type Debug, debug_bool, debug_int, debug_map, debug_option, debug_str, debug_struct, debug_tuple, debug_vec } from "../std/fmt.ts";
 import { type IoError, debug_IoError, display_IoError, io_error_from_node } from "../std/io.ts";
-import { path_file_name, path_file_stem, path_join, path_parent } from "../std/path.ts";
+import { path_file_name, path_file_stem, path_hash, path_join, path_parent } from "../std/path.ts";
 import { assert_eq, panic, unported, unwrap } from "../std/panic.ts";
 import type { Decoder } from "../rustc_serialize/serialize.ts";
 import { Err, Ok, type Result, unwrap_result } from "../std/result.ts";
@@ -62,11 +63,32 @@ import {
   type LinkerFeatures,
   LinkerFeatures as LF,
   CrateType,
+  type SanitizerSet,
   Target,
   TargetTuple,
   default_sysroot,
 } from "./stand_ins.ts";
-import type { CanonicalizedPath } from "./utils.ts";
+import type { CanonicalizedPath, NativeLib } from "./utils.ts";
+import type { Align } from "../rustc_abi/lib.ts";
+import type { RustcVersion } from "../rustc_ast/attr/version.ts";
+import { type StableHasher, path_hasher } from "../rustc_data_structures/stable_hash.ts";
+import { Hash64 } from "../rustc_hashes/lib.ts";
+import { Level_discriminant } from "../rustc_lint_defs/lib.ts";
+import { type CollapseMacroDebuginfo, CollapseMacroDebuginfo_discriminant } from "../rustc_structures/collapse_macro_debug_info.gen.ts";
+import { CrateType_discriminant } from "../rustc_structures/crate_type.gen.ts";
+import type {
+  CodeModel,
+  FramePointer,
+  MergeFunctions,
+  OnBrokenPipe,
+  PanicStrategy,
+  RelocModel,
+  RelroLevel,
+  SplitDebuginfo,
+  StackProtector,
+  SymbolVisibility,
+  TlsModel,
+} from "../rustc_target/spec/mod.ts";
 
 /** `getopts::Matches` (the real type; `stand_ins.Matches` is the subset `build_options` uses). */
 type Matches = getopts.Matches;
@@ -777,6 +799,25 @@ export function decode_SymbolManglingVersion(__decoder: Decoder): SymbolMangling
     default:
       return panic(`invalid enum variant tag while decoding \`SymbolManglingVersion\`, expected 0..3, actual ${__tag}`);
   }
+}
+/**
+ * `#[derive(Encodable)]` of `SymbolManglingVersion` (rustc_macros serialize.rs `encodable_body`: the variant index as `emit_u8`).
+ * PORT (lane encode-contract): hand-expanded like `decode_SymbolManglingVersion` (syn cannot parse config.rs).
+ */
+export function encode_SymbolManglingVersion(self: SymbolManglingVersion, __encoder: SpanEncoder): void {
+  let disc: number;
+  switch (self) {
+    case "Legacy":
+      disc = 0;
+      break;
+    case "V0":
+      disc = 1;
+      break;
+    case "Hashed":
+      disc = 2;
+      break;
+  }
+  __encoder.emit_u8(disc);
 }
 export const debug_SymbolManglingVersion: Debug<SymbolManglingVersion> = (v) => v;
 
@@ -3563,6 +3604,527 @@ export const debug_PpMode: Debug<PpMode> = (v, f) => {
 export type WasiExecModel = "Command" | "Reactor";
 export const WasiExecModel = { Command: "Command", Reactor: "Reactor" } as const;
 export const debug_WasiExecModel: Debug<WasiExecModel> = (v) => v;
+
+/// Command-line arguments passed to the compiler have to be incorporated with
+/// the dependency tracking system for incremental compilation. This module
+/// provides some utilities to make this more convenient.
+///
+/// The values of all command-line arguments that are relevant for dependency
+/// tracking are hashed into a single value that determines whether the
+/// incremental compilation cache can be re-used or not. This hashing is done
+/// via the `DepTrackingHash` trait defined below, since the standard `Hash`
+/// implementation might not be suitable (e.g., arguments are stored in a `Vec`,
+/// the hash of which is order dependent, but we might not want the order of
+/// arguments to make a difference for the hash).
+///
+/// However, since the value provided by `Hash::hash` often *is* suitable,
+/// especially for primitive types, there is the
+/// `impl_dep_tracking_hash_via_hash!()` macro that allows to simply reuse the
+/// `Hash` implementation for `DepTrackingHash`. It's important though that
+/// we have an opt-in scheme here, so one is hopefully forced to think about
+/// how the hash should be calculated when adding a new command-line argument.
+// PORT: `pub(crate) mod dep_tracking` is the `dep_tracking` namespace object below (options.gen.ts reaches it as
+// `dep_tracking.*`, as options.rs does through `crate::config::*`). A `DepTrackingHash` impl for `T` is a
+// `DepTrackingHash<T>` function; `&dyn DepTrackingHash` is a `DynDepTrackingHash` (the value bound to its impl). The
+// hasher is always rustc_data_structures' `StableHasher` (the only one the trait is used with).
+// rustc: compiler/rustc_session/src/config.rs:3400 hash
+export type DepTrackingHash<T> = (self: T, hasher: StableHasher, error_format: ErrorOutputType, for_crate_hash: boolean) => void;
+/** `&dyn DepTrackingHash`: a value with its `DepTrackingHash` impl. */
+export interface DynDepTrackingHash {
+  hash(hasher: StableHasher, error_format: ErrorOutputType, for_crate_hash: boolean): void;
+}
+
+// -- The std `Hash::hash` impls `impl_dep_tracking_hash_via_hash!` reuses --
+// PORT: there is no derive(Hash) codegen; the derived (and the few hand-written) `Hash` impls of the types in the
+// via-hash list are spelled out here, as rustc_span does for `InnerRealFileName`. The derived `Hash` of an enum with
+// two or more variants hashes its `isize` discriminant (`write_isize`) then the fields of the variant; a struct hashes
+// its fields in order. Fieldless enums without a `_discriminant` table get their variant order from the upstream
+// definition (cited at each table).
+type HashFn<T> = (self: T, state: StableHasher) => void;
+/** `impl Hash for bool`: `write_u8(*self as u8)`. */
+const hash_bool: HashFn<boolean> = (self, state) => state.write_u8(self ? 1 : 0);
+/** `impl Hash for u8` */
+const hash_u8: HashFn<number> = (self, state) => state.write_u8(self);
+/** `impl Hash for u16` */
+const hash_u16: HashFn<number> = (self, state) => state.write_u16(self);
+/** `impl Hash for u32` */
+const hash_u32: HashFn<number> = (self, state) => state.write_u32(self);
+/** `impl Hash for u64` */
+const hash_u64: HashFn<bigint> = (self, state) => state.write_u64(self);
+/** `impl Hash for usize` (and `NonZero<usize>`, whose `Hash` is its value's) */
+const hash_usize: HashFn<number> = (self, state) => state.write_usize(self);
+/** `impl Hash for str` / `String`: `state.write_str(self)`. */
+const hash_str: HashFn<string> = (self, state) => state.write_str(utf8_bytes(self));
+/** `impl Hash for PathBuf`: `self.as_path().hash(h)` (std's `impl Hash for Path`, src/std/path.ts). */
+const hash_PathBuf: HashFn<PathBuf> = (self, state) => path_hash(self, path_hasher(state));
+/** The derived `Hash` of `Option<T>`: the `isize` discriminant (`None` 0, `Some` 1), then the value. */
+function hash_Option<T>(hash_T: HashFn<T>): HashFn<T | undefined> {
+  return (self, state) => {
+    if (self === undefined) state.write_isize(0);
+    else {
+      state.write_isize(1);
+      hash_T(self, state);
+    }
+  };
+}
+/** The derived `Hash` of a fieldless enum: its `isize` discriminant. */
+function hash_fieldless<T extends string>(discriminant: Record<T, number>): HashFn<T> {
+  return (self, state) => state.write_isize(discriminant[self]);
+}
+// compiler/rustc_session/src/config.rs:3341 `enum WasiExecModel`
+const WasiExecModel_discriminant: Record<WasiExecModel, number> = { Command: 0, Reactor: 1 };
+// compiler/rustc_session/src/config.rs:3677 `enum Polonius`
+const Polonius_discriminant: Record<Polonius, number> = { Off: 0, Legacy: 1, Next: 2 };
+// compiler/rustc_session/src/config.rs:3724 `enum FunctionReturn`
+const FunctionReturn_discriminant: Record<FunctionReturn, number> = { Keep: 0, ThunkExtern: 1 };
+// compiler/rustc_session/src/config.rs:1044 `enum NextSolverConfig`
+const NextSolverConfig_discriminant: Record<NextSolverConfig, number> = { Coherence: 0, Globally: 1 };
+// compiler/rustc_session/src/config.rs:631 `enum MirStripDebugInfo`
+const MirStripDebugInfo_discriminant: Record<MirStripDebugInfo, number> = { None: 0, LocalsInTinyFunctions: 1, AllLocals: 2 };
+// compiler/rustc_session/src/config.rs:153 `enum LtoCli`
+const LtoCli_discriminant: Record<LtoCli, number> = { No: 0, Yes: 1, NoParam: 2, Thin: 3, Fat: 4, Unspecified: 5 };
+// compiler/rustc_session/src/config.rs:170 `enum InstrumentCoverage`
+const InstrumentCoverage_discriminant: Record<InstrumentCoverage, number> = { No: 0, Yes: 1 };
+// compiler/rustc_session/src/config.rs:576 `enum FmtDebug`
+const FmtDebug_discriminant: Record<FmtDebug, number> = { Full: 0, Shallow: 1, None: 2 };
+// compiler/rustc_session/src/config.rs:615 `enum DebugInfo`
+const DebugInfo_discriminant: Record<DebugInfo, number> = { None: 0, LineDirectivesOnly: 1, LineTablesOnly: 2, Limited: 3, Full: 4 };
+// compiler/rustc_session/src/config.rs:624 `enum DebugInfoCompression`
+const DebugInfoCompression_discriminant: Record<DebugInfoCompression, number> = { None: 0, Zlib: 1, Zstd: 2 };
+// compiler/rustc_session/src/config.rs:647 `enum SplitDwarfKind`
+const SplitDwarfKind_discriminant: Record<SplitDwarfKind, number> = { Single: 0, Split: 1 };
+// compiler/rustc_session/src/config.rs:77 `enum CFGuard`
+const CFGuard_discriminant: Record<CFGuard, number> = { Disabled: 0, NoChecks: 1, Checks: 2 };
+// compiler/rustc_session/src/config.rs:90 `enum CFProtection`
+const CFProtection_discriminant: Record<CFProtection, number> = { None: 0, Branch: 1, Return: 2, Full: 3 };
+// compiler/rustc_session/src/config.rs:105 `enum OptLevel`
+const OptLevel_discriminant: Record<OptLevel, number> = { No: 0, Less: 1, More: 2, Aggressive: 3, Size: 4, SizeMin: 5 };
+// compiler/rustc_session/src/config.rs:878 `enum ResolveDocLinks`
+const ResolveDocLinks_discriminant: Record<ResolveDocLinks, number> = { None: 0, ExportedMetadata: 1, Exported: 2, All: 3 };
+// compiler/rustc_session/src/config.rs:1652 `enum PAuthKey`
+const PAuthKey_discriminant: Record<PAuthKey, number> = { A: 0, B: 1 };
+// compiler/rustc_feature/src/lib.rs:38 `enum UnstableFeatures`
+const UnstableFeatures_discriminant: Record<UnstableFeatures, number> = { Disallow: 0, Allow: 1, Cheat: 2 };
+// compiler/rustc_span/src/lib.rs:1726 `enum SourceFileHashAlgorithm`
+const SourceFileHashAlgorithm_discriminant: Record<SourceFileHashAlgorithm, number> = { Md5: 0, Sha1: 1, Sha256: 2, Blake3: 3 };
+// `crate::target_spec_enum!` enums of compiler/rustc_target/src/spec/mod.rs (`#[derive(.., Hash, ..)]`, rustc_target lib.rs:83)
+// spec/mod.rs:820 `enum PanicStrategy`
+const PanicStrategy_discriminant: Record<PanicStrategy, number> = { Unwind: 0, Abort: 1, ImmediateAbort: 2 };
+// spec/mod.rs:830 `enum OnBrokenPipe` (a plain `#[derive(Hash)]` enum)
+const OnBrokenPipe_discriminant: Record<OnBrokenPipe, number> = { Default: 0, Kill: 1, Error: 2, Inherit: 3 };
+// spec/mod.rs:852 `enum RelroLevel`
+const RelroLevel_discriminant: Record<RelroLevel, number> = { Full: 0, Partial: 1, Off: 2, None: 3 };
+// spec/mod.rs:869 `enum SymbolVisibility`
+const SymbolVisibility_discriminant: Record<SymbolVisibility, number> = { Hidden: 0, Protected: 1, Interposable: 2 };
+// spec/mod.rs:929 `enum MergeFunctions`
+const MergeFunctions_discriminant: Record<MergeFunctions, number> = { Disabled: 0, Trampolines: 1, Aliases: 2 };
+// spec/mod.rs:946 `enum RelocModel`
+const RelocModel_discriminant: Record<RelocModel, number> = { Static: 0, Pic: 1, Pie: 2, DynamicNoPic: 3, Ropi: 4, Rwpi: 5, RopiRwpi: 6 };
+// spec/mod.rs:974 `enum CodeModel`
+const CodeModel_discriminant: Record<CodeModel, number> = { Tiny: 0, Small: 1, Kernel: 2, Medium: 3, Large: 4 };
+// spec/mod.rs:1012 `enum TlsModel`
+const TlsModel_discriminant: Record<TlsModel, number> = { GeneralDynamic: 0, LocalDynamic: 1, InitialExec: 2, LocalExec: 3, Emulated: 4 };
+// spec/mod.rs:1082 `enum SplitDebuginfo`
+const SplitDebuginfo_discriminant: Record<SplitDebuginfo, number> = { Off: 0, Packed: 1, Unpacked: 2 };
+// spec/mod.rs:1171 `enum FramePointer`
+const FramePointer_discriminant: Record<FramePointer, number> = { Always: 0, NonLeaf: 1, MayOmit: 2 };
+// spec/mod.rs:1203 `enum StackProtector`
+const StackProtector_discriminant: Record<StackProtector, number> = { None: 0, Basic: 1, Strong: 2, All: 3 };
+/** `#[derive(Hash)] enum AnnotateMoves { Disabled, Enabled(Option<u64>) }` (config.rs:282) */
+const hash_AnnotateMoves: HashFn<AnnotateMoves> = (self, state) => {
+  switch (self.$) {
+    case "Disabled":
+      state.write_isize(0);
+      return;
+    case "Enabled":
+      state.write_isize(1);
+      hash_Option(hash_u64)(self._0, state);
+      return;
+  }
+};
+// compiler/rustc_session/src/config.rs:246 `enum AutoDiff`
+const AutoDiff_discriminant: Record<AutoDiff["$"], number> = {
+  Enable: 0,
+  PrintTA: 1,
+  PrintTAFn: 2,
+  PrintAA: 3,
+  PrintPerf: 4,
+  PrintSteps: 5,
+  PrintModBefore: 6,
+  PrintModAfter: 7,
+  PrintModFinal: 8,
+  PrintPasses: 9,
+  NoPostopt: 10,
+  LooseTypes: 11,
+  Inline: 12,
+  NoTT: 13,
+};
+/** `#[derive(Hash)] enum AutoDiff` (config.rs:246): `PrintTAFn(String)` is the one variant with a field. */
+const hash_AutoDiff: HashFn<AutoDiff> = (self, state) => {
+  state.write_isize(AutoDiff_discriminant[self.$]);
+  if (self.$ === "PrintTAFn") hash_str(self._0, state);
+};
+// compiler/rustc_session/src/config.rs:218 `enum Offload`
+const Offload_discriminant: Record<Offload["$"], number> = { Device: 0, Host: 1, Test: 2, HostMetadata: 3 };
+/** `#[derive(Hash)] enum Offload { Device(String), Host(String), Test, HostMetadata(String) }` (config.rs:218) */
+const hash_Offload: HashFn<Offload> = (self, state) => {
+  state.write_isize(Offload_discriminant[self.$]);
+  if (self.$ !== "Test") hash_str(self._0, state);
+};
+/** `#[derive(Hash)] struct CoverageOptions { level: CoverageLevel, discard_all_spans_in_codegen: bool }` (config.rs:179) */
+const hash_CoverageOptions: HashFn<CoverageOptions> = (self, state) => {
+  hash_fieldless(CoverageLevel_discriminant)(self.level, state);
+  hash_bool(self.discard_all_spans_in_codegen, state);
+};
+/** `#[derive(Hash)] struct InstrumentMcountOpts { no_call: bool, record: bool }` (config.rs:291) */
+const hash_InstrumentMcountOpts: HashFn<InstrumentMcountOpts> = (self, state) => {
+  hash_bool(self.no_call, state);
+  hash_bool(self.record, state);
+};
+/** `#[derive(Hash)] enum InstrumentMcount { Disabled, Mcount(InstrumentMcountOpts), Fentry(InstrumentMcountOpts) }` (config.rs:300) */
+const hash_InstrumentMcount: HashFn<InstrumentMcount> = (self, state) => {
+  switch (self.$) {
+    case "Disabled":
+      state.write_isize(0);
+      return;
+    case "Mcount":
+      state.write_isize(1);
+      hash_InstrumentMcountOpts(self._0, state);
+      return;
+    case "Fentry":
+      state.write_isize(2);
+      hash_InstrumentMcountOpts(self._0, state);
+      return;
+  }
+};
+/** `#[derive(Hash)] struct InstrumentXRay` (config.rs:311), fields in declaration order. */
+const hash_InstrumentXRay: HashFn<InstrumentXRay> = (self, state) => {
+  hash_bool(self.always, state);
+  hash_bool(self.never, state);
+  hash_bool(self.ignore_loops, state);
+  hash_Option(hash_usize)(self.instruction_threshold, state);
+  hash_bool(self.skip_entry, state);
+  hash_bool(self.skip_exit, state);
+};
+/** `#[derive(Hash)] struct NativeLib { name, new_name, kind, verbatim }` (compiler/rustc_session/src/utils.rs:23) */
+const hash_NativeLib: HashFn<NativeLib> = (self, state) => {
+  hash_str(self.name, state);
+  hash_Option(hash_str)(self.new_name, state);
+  // `kind: NativeLibKind` (compiler/rustc_structures/src/native_lib_kind.rs:6)
+  // PORT: `NativeLib.kind` is an opaque stand-in (utils.ts); only reached with `-l`.
+  void self.kind;
+  unported("Hash for rustc_structures::NativeLibKind (stand-in in rustc_session/utils.ts)");
+  hash_Option(hash_bool)(self.verbatim, state);
+};
+/** `#[derive(Hash)] enum LinkerPluginLto { LinkerPlugin(PathBuf), LinkerPluginAuto, Disabled }` (config.rs:329) */
+const hash_LinkerPluginLto: HashFn<LinkerPluginLto> = (self, state) => {
+  switch (self.$) {
+    case "LinkerPlugin":
+      state.write_isize(0);
+      hash_PathBuf(self._0, state);
+      return;
+    case "LinkerPluginAuto":
+      state.write_isize(1);
+      return;
+    case "Disabled":
+      state.write_isize(2);
+      return;
+  }
+};
+/** `impl Hash for TargetTuple` (compiler/rustc_target/src/spec/tuple.rs:37): a `u8` tag, then the tuple (and the
+ * contents of a target JSON; `path_for_rustdoc` is not hashed). */
+const hash_TargetTuple: HashFn<TargetTuple> = (self, state) => {
+  switch (self.$) {
+    case "TargetTuple":
+      hash_u8(0, state);
+      hash_str(self._0, state);
+      return;
+    case "TargetJson":
+      hash_u8(1, state);
+      hash_str(self.tuple, state);
+      hash_str(self.contents, state);
+      return;
+  }
+};
+/** `#[derive(Hash)] enum SwitchWithOptPath { Enabled(Option<PathBuf>), Disabled }` (config.rs:592) */
+const hash_SwitchWithOptPath: HashFn<SwitchWithOptPath> = (self, state) => {
+  switch (self.$) {
+    case "Enabled":
+      state.write_isize(0);
+      hash_Option(hash_PathBuf)(self._0, state);
+      return;
+    case "Disabled":
+      state.write_isize(1);
+      return;
+  }
+};
+/** `#[derive(Hash)] enum OutFileName { Real(PathBuf), Stdout }` (config.rs:1136) */
+const hash_OutFileName: HashFn<OutFileName> = (self, state) => {
+  switch (self.$) {
+    case "Real":
+      state.write_isize(0);
+      hash_PathBuf(self._0, state);
+      return;
+    case "Stdout":
+      state.write_isize(1);
+      return;
+  }
+};
+/** `#[derive(Hash)] struct LocationDetail { file, line, column }` (config.rs:562) */
+const hash_LocationDetail: HashFn<LocationDetail> = (self, state) => {
+  hash_bool(self.file, state);
+  hash_bool(self.line, state);
+  hash_bool(self.column, state);
+};
+/** `#[derive(Hash)] struct PacRet { leaf: bool, pc: bool, key: PAuthKey }` (config.rs:1658) */
+const hash_PacRet: HashFn<PacRet> = (self, state) => {
+  hash_bool(self.leaf, state);
+  hash_bool(self.pc, state);
+  hash_fieldless(PAuthKey_discriminant)(self.key, state);
+};
+/** `#[derive(Hash)] struct BranchProtection { bti: bool, pac_ret: Option<PacRet>, gcs: bool }` (config.rs:1665) */
+const hash_BranchProtection: HashFn<BranchProtection> = (self, state) => {
+  hash_bool(self.bti, state);
+  hash_Option(hash_PacRet)(self.pac_ret, state);
+  hash_bool(self.gcs, state);
+};
+/** `#[derive(Hash)] struct PatchableFunctionEntry { prefix: u8, entry: u8, section: Option<String> }` (config.rs:3639) */
+const hash_PatchableFunctionEntry: HashFn<PatchableFunctionEntry> = (self, state) => {
+  hash_u8(self.prefix_, state);
+  hash_u8(self.entry_, state);
+  hash_Option(hash_str)(self.section_, state);
+};
+/** `#[derive(Hash)] enum InliningThreshold { Always, Sometimes(usize), Never }` (config.rs:3710) */
+const hash_InliningThreshold: HashFn<InliningThreshold> = (self, state) => {
+  switch (self.$) {
+    case "Always":
+      state.write_isize(0);
+      return;
+    case "Sometimes":
+      state.write_isize(1);
+      hash_usize(self._0, state);
+      return;
+    case "Never":
+      state.write_isize(2);
+      return;
+  }
+};
+/** `#[derive(Hash)] struct CodegenRetagOptions { no_precise_im: bool, no_precise_pin: bool }` (config.rs:237) */
+const hash_CodegenRetagOptions: HashFn<CodegenRetagOptions> = (self, state) => {
+  hash_bool(self.no_precise_im, state);
+  hash_bool(self.no_precise_pin, state);
+};
+/** `#[derive(Hash)] struct RustcVersion { major: u16, minor: u16, patch: u16 }` (compiler/rustc_ast/src/attr/version.rs:8) */
+const hash_RustcVersion: HashFn<RustcVersion> = (self, state) => {
+  hash_u16(self.major, state);
+  hash_u16(self.minor, state);
+  hash_u16(self.patch, state);
+};
+
+// rustc: compiler/rustc_session/src/config.rs:3411 hash
+/** `macro_rules! impl_dep_tracking_hash_via_hash`: `DepTrackingHash` through `Hash::hash(self, hasher)`. */
+function impl_dep_tracking_hash_via_hash<T>(hash: HashFn<T>): DepTrackingHash<T> {
+  return (self, hasher, _, _for_crate_hash) => {
+    hash(self, hasher);
+  };
+}
+
+// rustc: compiler/rustc_session/src/config.rs:3419 hash
+/** `impl<T: DepTrackingHash> DepTrackingHash for Option<T>` */
+function DepTrackingHash_Option<T>(T_: DepTrackingHash<T>): DepTrackingHash<T | undefined> {
+  return (self, hasher, error_format, for_crate_hash) => {
+    if (self !== undefined) {
+      // `Hash::hash(&1, hasher)`: an `i32` literal
+      hasher.write_i32(1);
+      T_(self, hasher, error_format, for_crate_hash);
+    } else {
+      hasher.write_i32(0);
+    }
+  };
+}
+
+/** `impl_dep_tracking_hash_via_hash!(...)` (config.rs:3436), keyed by the Rust type (`()` is `unit`,
+ * `NonZero<usize>` is `NonZero_usize`, `lint::Level` is `Level`). */
+const via_hash = {
+  unit: impl_dep_tracking_hash_via_hash<undefined>(() => {}),
+  AnnotateMoves: impl_dep_tracking_hash_via_hash(hash_AnnotateMoves),
+  AutoDiff: impl_dep_tracking_hash_via_hash(hash_AutoDiff),
+  Offload: impl_dep_tracking_hash_via_hash(hash_Offload),
+  bool: impl_dep_tracking_hash_via_hash(hash_bool),
+  usize: impl_dep_tracking_hash_via_hash(hash_usize),
+  NonZero_usize: impl_dep_tracking_hash_via_hash(hash_usize),
+  u64: impl_dep_tracking_hash_via_hash(hash_u64),
+  Hash64: impl_dep_tracking_hash_via_hash<Hash64>((self, state) => Hash64.hash(self, state)),
+  String: impl_dep_tracking_hash_via_hash(hash_str),
+  PathBuf: impl_dep_tracking_hash_via_hash(hash_PathBuf),
+  Level: impl_dep_tracking_hash_via_hash(hash_fieldless(Level_discriminant)),
+  WasiExecModel: impl_dep_tracking_hash_via_hash(hash_fieldless(WasiExecModel_discriminant)),
+  u32: impl_dep_tracking_hash_via_hash(hash_u32),
+  FramePointer: impl_dep_tracking_hash_via_hash(hash_fieldless(FramePointer_discriminant)),
+  RelocModel: impl_dep_tracking_hash_via_hash(hash_fieldless(RelocModel_discriminant)),
+  CodeModel: impl_dep_tracking_hash_via_hash(hash_fieldless(CodeModel_discriminant)),
+  TlsModel: impl_dep_tracking_hash_via_hash(hash_fieldless(TlsModel_discriminant)),
+  InstrumentCoverage: impl_dep_tracking_hash_via_hash(hash_fieldless(InstrumentCoverage_discriminant)),
+  CoverageOptions: impl_dep_tracking_hash_via_hash(hash_CoverageOptions),
+  InstrumentMcount: impl_dep_tracking_hash_via_hash(hash_InstrumentMcount),
+  InstrumentMcountOpts: impl_dep_tracking_hash_via_hash(hash_InstrumentMcountOpts),
+  InstrumentXRay: impl_dep_tracking_hash_via_hash(hash_InstrumentXRay),
+  CrateType: impl_dep_tracking_hash_via_hash<CrateType>(hash_fieldless(CrateType_discriminant)),
+  MergeFunctions: impl_dep_tracking_hash_via_hash(hash_fieldless(MergeFunctions_discriminant)),
+  OnBrokenPipe: impl_dep_tracking_hash_via_hash(hash_fieldless(OnBrokenPipe_discriminant)),
+  PanicStrategy: impl_dep_tracking_hash_via_hash(hash_fieldless(PanicStrategy_discriminant)),
+  RelroLevel: impl_dep_tracking_hash_via_hash(hash_fieldless(RelroLevel_discriminant)),
+  OptLevel: impl_dep_tracking_hash_via_hash(hash_fieldless(OptLevel_discriminant)),
+  LtoCli: impl_dep_tracking_hash_via_hash(hash_fieldless(LtoCli_discriminant)),
+  DebugInfo: impl_dep_tracking_hash_via_hash(hash_fieldless(DebugInfo_discriminant)),
+  DebugInfoCompression: impl_dep_tracking_hash_via_hash(hash_fieldless(DebugInfoCompression_discriminant)),
+  MirStripDebugInfo: impl_dep_tracking_hash_via_hash(hash_fieldless(MirStripDebugInfo_discriminant)),
+  // `#[derive(Hash)]` with explicit discriminants `No = 0` .. `Yes = 3` (rustc_structures collapse_macro_debug_info.rs:13)
+  CollapseMacroDebuginfo: impl_dep_tracking_hash_via_hash<CollapseMacroDebuginfo>(hash_fieldless(CollapseMacroDebuginfo_discriminant)),
+  UnstableFeatures: impl_dep_tracking_hash_via_hash(hash_fieldless(UnstableFeatures_discriminant)),
+  NativeLib: impl_dep_tracking_hash_via_hash(hash_NativeLib),
+  // `#[derive(Hash)] struct SanitizerSet(u16)` (rustc_structures sanitizer_set.rs:9): its bits.
+  SanitizerSet: impl_dep_tracking_hash_via_hash<SanitizerSet>(hash_u16),
+  CFGuard: impl_dep_tracking_hash_via_hash(hash_fieldless(CFGuard_discriminant)),
+  CFProtection: impl_dep_tracking_hash_via_hash(hash_fieldless(CFProtection_discriminant)),
+  TargetTuple: impl_dep_tracking_hash_via_hash(hash_TargetTuple),
+  Edition: impl_dep_tracking_hash_via_hash(hash_fieldless(Edition_discriminant)),
+  LinkerPluginLto: impl_dep_tracking_hash_via_hash(hash_LinkerPluginLto),
+  ResolveDocLinks: impl_dep_tracking_hash_via_hash(hash_fieldless(ResolveDocLinks_discriminant)),
+  SplitDebuginfo: impl_dep_tracking_hash_via_hash(hash_fieldless(SplitDebuginfo_discriminant)),
+  SplitDwarfKind: impl_dep_tracking_hash_via_hash(hash_fieldless(SplitDwarfKind_discriminant)),
+  StackProtector: impl_dep_tracking_hash_via_hash(hash_fieldless(StackProtector_discriminant)),
+  SwitchWithOptPath: impl_dep_tracking_hash_via_hash(hash_SwitchWithOptPath),
+  SymbolManglingVersion: impl_dep_tracking_hash_via_hash(hash_fieldless(SymbolManglingVersion_discriminant)),
+  SymbolVisibility: impl_dep_tracking_hash_via_hash(hash_fieldless(SymbolVisibility_discriminant)),
+  // `#[derive(Hash)]` of a `bitflags!` `u8` struct: its bits (rustc_span lib.rs:241).
+  RemapPathScopeComponents: impl_dep_tracking_hash_via_hash<RemapPathScopeComponents>(hash_u8),
+  SourceFileHashAlgorithm: impl_dep_tracking_hash_via_hash(hash_fieldless(SourceFileHashAlgorithm_discriminant)),
+  OutFileName: impl_dep_tracking_hash_via_hash(hash_OutFileName),
+  OutputType: impl_dep_tracking_hash_via_hash(hash_fieldless(OutputType_discriminant)),
+  // `impl Hash for RealFileName` (rustc_span lib.rs:330)
+  RealFileName: impl_dep_tracking_hash_via_hash<RealFileName>((self, state) => self.hash(state)),
+  LocationDetail: impl_dep_tracking_hash_via_hash(hash_LocationDetail),
+  FmtDebug: impl_dep_tracking_hash_via_hash(hash_fieldless(FmtDebug_discriminant)),
+  BranchProtection: impl_dep_tracking_hash_via_hash(hash_BranchProtection),
+  // PORT: `unic_langid::LanguageIdentifier` (`-Ztranslate-lang`, an untracked option) is not ported.
+  LanguageIdentifier: impl_dep_tracking_hash_via_hash<unknown>(() => unported("Hash for unic_langid::LanguageIdentifier")),
+  NextSolverConfig: impl_dep_tracking_hash_via_hash(hash_fieldless(NextSolverConfig_discriminant)),
+  PatchableFunctionEntry: impl_dep_tracking_hash_via_hash(hash_PatchableFunctionEntry),
+  Polonius: impl_dep_tracking_hash_via_hash(hash_fieldless(Polonius_discriminant)),
+  InliningThreshold: impl_dep_tracking_hash_via_hash(hash_InliningThreshold),
+  FunctionReturn: impl_dep_tracking_hash_via_hash(hash_fieldless(FunctionReturn_discriminant)),
+  // `#[derive(Hash)] struct Align { pow2: u8 }` (rustc_abi lib.rs:1102)
+  Align: impl_dep_tracking_hash_via_hash<Align>((self, state) => hash_u8(self.pow2, state)),
+  CodegenRetagOptions: impl_dep_tracking_hash_via_hash(hash_CodegenRetagOptions),
+  RustcVersion: impl_dep_tracking_hash_via_hash(hash_RustcVersion),
+  PointerAuthOption: impl_dep_tracking_hash_via_hash(hash_fieldless(PointerAuthOption_discriminant)),
+} as const;
+
+// rustc: compiler/rustc_session/src/config.rs:3510 hash
+/** `impl<T1: DepTrackingHash, T2: DepTrackingHash> DepTrackingHash for (T1, T2)` */
+function DepTrackingHash_tuple2<T1, T2>(T1_: DepTrackingHash<T1>, T2_: DepTrackingHash<T2>): DepTrackingHash<readonly [T1, T2]> {
+  return (self, hasher, error_format, for_crate_hash) => {
+    // `Hash::hash(&0, hasher)` etc.: `i32` literals
+    hasher.write_i32(0);
+    T1_(self[0], hasher, error_format, for_crate_hash);
+    hasher.write_i32(1);
+    T2_(self[1], hasher, error_format, for_crate_hash);
+  };
+}
+
+// rustc: compiler/rustc_session/src/config.rs:3529 hash
+/** `impl<T1, T2, T3> DepTrackingHash for (T1, T2, T3)` */
+function DepTrackingHash_tuple3<T1, T2, T3>(
+  T1_: DepTrackingHash<T1>,
+  T2_: DepTrackingHash<T2>,
+  T3_: DepTrackingHash<T3>,
+): DepTrackingHash<readonly [T1, T2, T3]> {
+  return (self, hasher, error_format, for_crate_hash) => {
+    hasher.write_i32(0);
+    T1_(self[0], hasher, error_format, for_crate_hash);
+    hasher.write_i32(1);
+    T2_(self[1], hasher, error_format, for_crate_hash);
+    hasher.write_i32(2);
+    T3_(self[2], hasher, error_format, for_crate_hash);
+  };
+}
+
+// rustc: compiler/rustc_session/src/config.rs:3545 hash
+/** `impl<T: DepTrackingHash> DepTrackingHash for Vec<T>` */
+function DepTrackingHash_Vec<T>(T_: DepTrackingHash<T>): DepTrackingHash<readonly T[]> {
+  return (self, hasher, error_format, for_crate_hash) => {
+    hasher.write_usize(self.length);
+    for (let index = 0; index < self.length; index++) {
+      hasher.write_usize(index);
+      T_(self[index]!, hasher, error_format, for_crate_hash);
+    }
+  };
+}
+
+// rustc: compiler/rustc_session/src/config.rs:3560 hash
+/** `impl<T: DepTrackingHash, V: DepTrackingHash> DepTrackingHash for FxIndexMap<T, V>` (`FxIndexMap` is a `Map`,
+ * iterated in insertion order). */
+function DepTrackingHash_FxIndexMap<T, V>(T_: DepTrackingHash<T>, V_: DepTrackingHash<V>): DepTrackingHash<ReadonlyMap<T, V>> {
+  return (self, hasher, error_format, for_crate_hash) => {
+    hasher.write_usize(self.size);
+    for (const [key, value] of self) {
+      T_(key, hasher, error_format, for_crate_hash);
+      V_(value, hasher, error_format, for_crate_hash);
+    }
+  };
+}
+
+// rustc: compiler/rustc_session/src/config.rs:3575 hash
+/** `impl DepTrackingHash for OutputTypes`. PORT: `OutputTypes.0` is a `Map` kept in key order (`sorted_output_types`),
+ * so iterating it is the `BTreeMap`'s order. */
+const DepTrackingHash_OutputTypes: DepTrackingHash<OutputTypes> = (self, hasher, error_format, for_crate_hash) => {
+  hasher.write_usize(self._0.size);
+  for (const [key, val] of self._0) {
+    via_hash.OutputType(key, hasher, error_format, for_crate_hash);
+    if (!for_crate_hash) {
+      DepTrackingHash_Option(via_hash.OutFileName)(val, hasher, error_format, for_crate_hash);
+    }
+  }
+};
+
+// This is a stable hash because BTreeMap is a sorted container
+// rustc: compiler/rustc_session/src/config.rs:3592 stable_hash
+/** PORT: the `BTreeMap<&'static str, &dyn DepTrackingHash>` is a `Map` iterated in key order (the keys are ASCII
+ * option names, so JS string order is byte order). */
+function stable_hash(
+  sub_hashes: ReadonlyMap<string, DynDepTrackingHash>,
+  hasher: StableHasher,
+  error_format: ErrorOutputType,
+  for_crate_hash: boolean,
+): void {
+  for (const key of [...sub_hashes.keys()].sort()) {
+    const sub_hash = sub_hashes.get(key)!;
+    // Using Hash::hash() instead of DepTrackingHash::hash() is fine for
+    // the keys, as they are just plain strings
+    hasher.write_usize(utf8_len(key));
+    hash_str(key, hasher);
+    sub_hash.hash(hasher, error_format, for_crate_hash);
+  }
+}
+
+/** `$opt_expr as &dyn dep_tracking::DepTrackingHash` (options.rs `insert!`). */
+function dyn_DepTrackingHash<T>(self: T, T_: DepTrackingHash<T>): DynDepTrackingHash {
+  return { hash: (hasher, error_format, for_crate_hash) => T_(self, hasher, error_format, for_crate_hash) };
+}
+
+/** `pub(crate) mod dep_tracking` */
+export const dep_tracking = {
+  via_hash,
+  Option: DepTrackingHash_Option,
+  tuple2: DepTrackingHash_tuple2,
+  tuple3: DepTrackingHash_tuple3,
+  Vec: DepTrackingHash_Vec,
+  FxIndexMap: DepTrackingHash_FxIndexMap,
+  OutputTypes: DepTrackingHash_OutputTypes,
+  stable_hash,
+  dyn: dyn_DepTrackingHash,
+} as const;
 
 /// How to run proc-macro code when building this crate
 export type ProcMacroExecutionStrategy =

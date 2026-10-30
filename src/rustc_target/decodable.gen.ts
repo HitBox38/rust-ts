@@ -2,7 +2,7 @@
 // `decode_<T>(__decoder[, decode_<P>...])`: a struct decodes its fields in declaration order; an enum reads the variant
 // index (`read_u8`, or `read_usize` from 255 variants on), then that variant's fields. `encode_<T>` writes the same.
 // Only function declarations: hand modules may import from here inside an import cycle.
-import { type SpanDecoder } from "../rustc_span/lib.ts";
+import { type SpanDecoder, type SpanEncoder } from "../rustc_span/lib.ts";
 import { AArch64InlineAsmReg, AArch64InlineAsmRegClass, AmdgpuInlineAsmReg, AmdgpuInlineAsmRegClass, ArmInlineAsmReg, ArmInlineAsmRegClass, AvrInlineAsmReg, AvrInlineAsmRegClass, BpfInlineAsmReg, BpfInlineAsmRegClass, CSKYInlineAsmReg, CSKYInlineAsmRegClass, HexagonInlineAsmReg, HexagonInlineAsmRegClass, InlineAsmReg, InlineAsmRegClass, type InlineAsmRegOrRegClass, LoongArchInlineAsmReg, LoongArchInlineAsmRegClass, M68kInlineAsmReg, M68kInlineAsmRegClass, MipsInlineAsmReg, MipsInlineAsmRegClass, Msp430InlineAsmReg, Msp430InlineAsmRegClass, NvptxInlineAsmReg, NvptxInlineAsmRegClass, PowerPCInlineAsmReg, PowerPCInlineAsmRegClass, RiscVInlineAsmReg, RiscVInlineAsmRegClass, S390xInlineAsmReg, S390xInlineAsmRegClass, SparcInlineAsmReg, SparcInlineAsmRegClass, SpirVInlineAsmReg, SpirVInlineAsmRegClass, WasmInlineAsmReg, WasmInlineAsmRegClass, X86InlineAsmReg, X86InlineAsmRegClass, XtensaInlineAsmReg, XtensaInlineAsmRegClass } from "./asm/mod.ts";
 import { panic } from "../std/panic.ts";
 
@@ -116,6 +116,121 @@ export function decode_InlineAsmReg(__decoder: SpanDecoder): InlineAsmReg {
       return panic(`invalid enum variant tag while decoding \`InlineAsmReg\`, expected 0..21, actual ${__tag}`);
   }
 }
+function InlineAsmReg__variant_index(tag: InlineAsmReg["$"]): number {
+  switch (tag) {
+    case "X86":
+      return 0;
+    case "Arm":
+      return 1;
+    case "Amdgpu":
+      return 2;
+    case "AArch64":
+      return 3;
+    case "RiscV":
+      return 4;
+    case "Nvptx":
+      return 5;
+    case "PowerPC":
+      return 6;
+    case "Hexagon":
+      return 7;
+    case "LoongArch":
+      return 8;
+    case "Mips":
+      return 9;
+    case "S390x":
+      return 10;
+    case "Sparc":
+      return 11;
+    case "SpirV":
+      return 12;
+    case "Wasm":
+      return 13;
+    case "Xtensa":
+      return 14;
+    case "Bpf":
+      return 15;
+    case "Avr":
+      return 16;
+    case "Msp430":
+      return 17;
+    case "M68k":
+      return 18;
+    case "CSKY":
+      return 19;
+    case "Err":
+      return 20;
+  }
+}
+// rustc-derive: compiler/rustc_target/src/asm/mod.rs:291 Encodable for InlineAsmReg
+export function encode_InlineAsmReg(self: InlineAsmReg, __encoder: SpanEncoder): void {
+  const disc = InlineAsmReg__variant_index(self.$);
+  __encoder.emit_u8(disc);
+  switch (self.$) {
+    case "X86":
+      X86InlineAsmReg.encode(self._0, __encoder);
+      break;
+    case "Arm":
+      ArmInlineAsmReg.encode(self._0, __encoder);
+      break;
+    case "Amdgpu":
+      AmdgpuInlineAsmReg.encode(self._0, __encoder);
+      break;
+    case "AArch64":
+      AArch64InlineAsmReg.encode(self._0, __encoder);
+      break;
+    case "RiscV":
+      RiscVInlineAsmReg.encode(self._0, __encoder);
+      break;
+    case "Nvptx":
+      NvptxInlineAsmReg.encode(self._0, __encoder);
+      break;
+    case "PowerPC":
+      PowerPCInlineAsmReg.encode(self._0, __encoder);
+      break;
+    case "Hexagon":
+      HexagonInlineAsmReg.encode(self._0, __encoder);
+      break;
+    case "LoongArch":
+      LoongArchInlineAsmReg.encode(self._0, __encoder);
+      break;
+    case "Mips":
+      MipsInlineAsmReg.encode(self._0, __encoder);
+      break;
+    case "S390x":
+      S390xInlineAsmReg.encode(self._0, __encoder);
+      break;
+    case "Sparc":
+      SparcInlineAsmReg.encode(self._0, __encoder);
+      break;
+    case "SpirV":
+      SpirVInlineAsmReg.encode(self._0, __encoder);
+      break;
+    case "Wasm":
+      WasmInlineAsmReg.encode(self._0, __encoder);
+      break;
+    case "Xtensa":
+      XtensaInlineAsmReg.encode(self._0, __encoder);
+      break;
+    case "Bpf":
+      BpfInlineAsmReg.encode(self._0, __encoder);
+      break;
+    case "Avr":
+      AvrInlineAsmReg.encode(self._0, __encoder);
+      break;
+    case "Msp430":
+      Msp430InlineAsmReg.encode(self._0, __encoder);
+      break;
+    case "M68k":
+      M68kInlineAsmReg.encode(self._0, __encoder);
+      break;
+    case "CSKY":
+      CSKYInlineAsmReg.encode(self._0, __encoder);
+      break;
+    case "Err":
+      break;
+  }
+}
 
 // rustc-derive: compiler/rustc_target/src/asm/mod.rs:493 Decodable for InlineAsmRegClass
 export function decode_InlineAsmRegClass(__decoder: SpanDecoder): InlineAsmRegClass {
@@ -227,6 +342,121 @@ export function decode_InlineAsmRegClass(__decoder: SpanDecoder): InlineAsmRegCl
       return panic(`invalid enum variant tag while decoding \`InlineAsmRegClass\`, expected 0..21, actual ${__tag}`);
   }
 }
+function InlineAsmRegClass__variant_index(tag: InlineAsmRegClass["$"]): number {
+  switch (tag) {
+    case "X86":
+      return 0;
+    case "Arm":
+      return 1;
+    case "AArch64":
+      return 2;
+    case "Amdgpu":
+      return 3;
+    case "RiscV":
+      return 4;
+    case "Nvptx":
+      return 5;
+    case "PowerPC":
+      return 6;
+    case "Hexagon":
+      return 7;
+    case "LoongArch":
+      return 8;
+    case "Mips":
+      return 9;
+    case "S390x":
+      return 10;
+    case "Sparc":
+      return 11;
+    case "SpirV":
+      return 12;
+    case "Wasm":
+      return 13;
+    case "Xtensa":
+      return 14;
+    case "Bpf":
+      return 15;
+    case "Avr":
+      return 16;
+    case "Msp430":
+      return 17;
+    case "M68k":
+      return 18;
+    case "CSKY":
+      return 19;
+    case "Err":
+      return 20;
+  }
+}
+// rustc-derive: compiler/rustc_target/src/asm/mod.rs:493 Encodable for InlineAsmRegClass
+export function encode_InlineAsmRegClass(self: InlineAsmRegClass, __encoder: SpanEncoder): void {
+  const disc = InlineAsmRegClass__variant_index(self.$);
+  __encoder.emit_u8(disc);
+  switch (self.$) {
+    case "X86":
+      X86InlineAsmRegClass.encode(self._0, __encoder);
+      break;
+    case "Arm":
+      ArmInlineAsmRegClass.encode(self._0, __encoder);
+      break;
+    case "AArch64":
+      AArch64InlineAsmRegClass.encode(self._0, __encoder);
+      break;
+    case "Amdgpu":
+      AmdgpuInlineAsmRegClass.encode(self._0, __encoder);
+      break;
+    case "RiscV":
+      RiscVInlineAsmRegClass.encode(self._0, __encoder);
+      break;
+    case "Nvptx":
+      NvptxInlineAsmRegClass.encode(self._0, __encoder);
+      break;
+    case "PowerPC":
+      PowerPCInlineAsmRegClass.encode(self._0, __encoder);
+      break;
+    case "Hexagon":
+      HexagonInlineAsmRegClass.encode(self._0, __encoder);
+      break;
+    case "LoongArch":
+      LoongArchInlineAsmRegClass.encode(self._0, __encoder);
+      break;
+    case "Mips":
+      MipsInlineAsmRegClass.encode(self._0, __encoder);
+      break;
+    case "S390x":
+      S390xInlineAsmRegClass.encode(self._0, __encoder);
+      break;
+    case "Sparc":
+      SparcInlineAsmRegClass.encode(self._0, __encoder);
+      break;
+    case "SpirV":
+      SpirVInlineAsmRegClass.encode(self._0, __encoder);
+      break;
+    case "Wasm":
+      WasmInlineAsmRegClass.encode(self._0, __encoder);
+      break;
+    case "Xtensa":
+      XtensaInlineAsmRegClass.encode(self._0, __encoder);
+      break;
+    case "Bpf":
+      BpfInlineAsmRegClass.encode(self._0, __encoder);
+      break;
+    case "Avr":
+      AvrInlineAsmRegClass.encode(self._0, __encoder);
+      break;
+    case "Msp430":
+      Msp430InlineAsmRegClass.encode(self._0, __encoder);
+      break;
+    case "M68k":
+      M68kInlineAsmRegClass.encode(self._0, __encoder);
+      break;
+    case "CSKY":
+      CSKYInlineAsmRegClass.encode(self._0, __encoder);
+      break;
+    case "Err":
+      break;
+  }
+}
 
 // rustc-derive: compiler/rustc_target/src/asm/mod.rs:754 Decodable for InlineAsmRegOrRegClass
 export function decode_InlineAsmRegOrRegClass(__decoder: SpanDecoder): InlineAsmRegOrRegClass {
@@ -238,5 +468,26 @@ export function decode_InlineAsmRegOrRegClass(__decoder: SpanDecoder): InlineAsm
       return { $: "RegClass", _0: decode_InlineAsmRegClass(__decoder) };
     default:
       return panic(`invalid enum variant tag while decoding \`InlineAsmRegOrRegClass\`, expected 0..2, actual ${__tag}`);
+  }
+}
+function InlineAsmRegOrRegClass__variant_index(tag: InlineAsmRegOrRegClass["$"]): number {
+  switch (tag) {
+    case "Reg":
+      return 0;
+    case "RegClass":
+      return 1;
+  }
+}
+// rustc-derive: compiler/rustc_target/src/asm/mod.rs:754 Encodable for InlineAsmRegOrRegClass
+export function encode_InlineAsmRegOrRegClass(self: InlineAsmRegOrRegClass, __encoder: SpanEncoder): void {
+  const disc = InlineAsmRegOrRegClass__variant_index(self.$);
+  __encoder.emit_u8(disc);
+  switch (self.$) {
+    case "Reg":
+      encode_InlineAsmReg(self._0, __encoder);
+      break;
+    case "RegClass":
+      encode_InlineAsmRegClass(self._0, __encoder);
+      break;
   }
 }

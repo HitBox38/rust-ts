@@ -3,7 +3,7 @@
 //     `top_level_options!`   -> `Options`, `OptionsTargetModifiers`             (options.gen.ts)
 //     `mod desc`             -> `desc` (the type descriptions of the parsers)   (options.gen.ts)
 //     `options!` x2          -> `CodegenOptions`/`UnstableOptions` (fields, defaults, build,
-//                               gather_target_modifiers), `*TargetModifiers`, the setter modules
+//                               dep_tracking_hash, gather_target_modifiers), `*TargetModifiers`, the setter modules
 //                               `cgopts`/`dbopts`, the `CG_OPTIONS`/`Z_OPTIONS` tables (options.gen.ts)
 //     `POLONIUS_HELP`        -> the `const .. = match .. { .. }` used as a description (options.gen.ts)
 //   compiler/rustc_session/src/options/mitigation_coverage.rs
@@ -16,7 +16,8 @@
 // anything else is an ERROR, never a guess. Default value expressions are translated mechanically
 // (literals, `None`/`Some`, `String::new()`, `"..".to_string()`, `Vec::new()`, `vec![]`, `A::B`,
 // `A::B(..)` variants and `A::f(..)` associated fns); a Rust type the type table below does not know
-// is an ERROR.
+// is an ERROR. `dep_tracking_hash` expands `hash_opt!`/`insert!`/`hash_substruct!` with each option's
+// `DepTrackingHash` impl from config.ts `dep_tracking` (by the option's Rust type; a type without one is an ERROR).
 //
 //   bun tools/codegen/options.ts           write the files
 //   bun tools/codegen/options.ts --check   ERROR if a committed file is stale
@@ -395,6 +396,43 @@ class Imports {
 }
 
 const LOCAL_TYPES = new Set(["CodegenOptions", "UnstableOptions"]);
+/** The Rust types of `impl_dep_tracking_hash_via_hash!` (config.rs), the keys of config.ts `dep_tracking.via_hash`
+ * (by last path segment). */
+const DTH_VIA_HASH = new Set([
+  "AnnotateMoves", "AutoDiff", "Offload", "bool", "usize", "u64", "Hash64", "String", "PathBuf", "Level", "WasiExecModel", "u32",
+  "FramePointer", "RelocModel", "CodeModel", "TlsModel", "InstrumentCoverage", "CoverageOptions", "InstrumentMcount",
+  "InstrumentMcountOpts", "InstrumentXRay", "CrateType", "MergeFunctions", "OnBrokenPipe", "PanicStrategy", "RelroLevel",
+  "OptLevel", "LtoCli", "DebugInfo", "DebugInfoCompression", "MirStripDebugInfo", "CollapseMacroDebuginfo", "UnstableFeatures",
+  "NativeLib", "SanitizerSet", "CFGuard", "CFProtection", "TargetTuple", "Edition", "LinkerPluginLto", "ResolveDocLinks",
+  "SplitDebuginfo", "SplitDwarfKind", "StackProtector", "SwitchWithOptPath", "SymbolManglingVersion", "SymbolVisibility",
+  "RemapPathScopeComponents", "SourceFileHashAlgorithm", "OutFileName", "OutputType", "RealFileName", "LocationDetail",
+  "FmtDebug", "BranchProtection", "LanguageIdentifier", "NextSolverConfig", "PatchableFunctionEntry", "Polonius",
+  "InliningThreshold", "FunctionReturn", "Align", "CodegenRetagOptions", "RustcVersion", "PointerAuthOption",
+]);
+
+/** `hash_opt!($opt, &self.$opt, &mut sub_hashes, for_crate_hash, [$marker])` (options.rs:40) for each entry, then the
+ * `StableHasher` over `dep_tracking::stable_hash`; the shared body of both `dep_tracking_hash` fns. */
+function genHashOpts(tc: TyCtx, entries: Entry[], body: string[], indent: string): void {
+  tc.imp.add(CONFIG, "DynDepTrackingHash", false);
+  body.push(`${indent}const sub_hashes = new Map<string, DynDepTrackingHash>();`);
+  for (const e of entries) {
+    switch (e.marker) {
+      case "UNTRACKED":
+      case "SUBSTRUCT":
+        break;
+      case "TRACKED":
+        body.push(`${indent}insert(${lit(e.name)}, dep_tracking.dyn(this.${e.name}, ${tc.dth(e.ty)}), sub_hashes);`);
+        break;
+      case "TRACKED_NO_CRATE_HASH":
+        body.push(`${indent}if (!for_crate_hash) {`);
+        body.push(`${indent}  insert(${lit(e.name)}, dep_tracking.dyn(this.${e.name}, ${tc.dth(e.ty)}), sub_hashes);`);
+        body.push(`${indent}}`);
+        break;
+      default:
+        fail(OPTIONS_RS, undefined, `unknown dep-tracking marker [${e.marker}] on ${e.name}`);
+    }
+  }
+}
 
 class TyCtx {
   constructor(
@@ -511,6 +549,32 @@ class TyCtx {
     if (n.default === undefined) fail(this.path, undefined, `no Default for \`${ty.text}\` in the type table`);
     this.imp.add(n.mod, ty.name, true);
     return n.default;
+  }
+  /** The `DepTrackingHash` impl of `ty` (config.ts `dep_tracking`), as a TS expression. */
+  dth(ty: Ty): string {
+    this.imp.add(CONFIG, "dep_tracking", true);
+    if (ty.k === "tuple") {
+      if (ty.elems.length === 0) return "dep_tracking.via_hash.unit";
+      if (ty.elems.length !== 2 && ty.elems.length !== 3) fail(this.path, undefined, `no DepTrackingHash for a ${ty.elems.length}-tuple`);
+      return `dep_tracking.tuple${ty.elems.length}(${ty.elems.map((e) => this.dth(e)).join(", ")})`;
+    }
+    const a = ty.args;
+    switch (ty.name) {
+      case "Option":
+        return `dep_tracking.Option(${this.dth(a[0]!)})`;
+      case "Vec":
+        return `dep_tracking.Vec(${this.dth(a[0]!)})`;
+      case "FxIndexMap":
+        return `dep_tracking.FxIndexMap(${this.dth(a[0]!)}, ${this.dth(a[1]!)})`;
+      case "OutputTypes":
+        return "dep_tracking.OutputTypes";
+      case "NonZero":
+        if (a[0]?.k !== "path" || a[0].name !== "usize") fail(this.path, undefined, "only NonZero<usize> is supported");
+        return "dep_tracking.via_hash.NonZero_usize";
+    }
+    if (ty.args.length) fail(this.path, undefined, `no DepTrackingHash for generic type \`${ty.text}\``);
+    if (!DTH_VIA_HASH.has(ty.name)) fail(this.path, undefined, `type \`${ty.text}\` has no DepTrackingHash in config.ts \`dep_tracking.via_hash\``);
+    return `dep_tracking.via_hash.${ty.name}`;
   }
   /** The `FromStr` fn of `T` for `parse_number::<T>` (or of the `Option<T>` inner for `parse_opt_number`). */
   fromStr(ty: Ty): string {
@@ -1005,6 +1069,20 @@ function genOptions(): Map<string, string> {
   }
 
   // -- top_level_options! --
+  // -- macro_rules! insert --
+  const insertTok = toks.find((tk, i) => tk.text === "insert" && toks[i - 1]?.text === "!" && toks[i - 2]?.text === "macro_rules");
+  if (!insertTok) fail(path, undefined, "`macro_rules! insert` not found");
+  t(CONFIG, "DynDepTrackingHash");
+  v("../std/panic.ts", "panic");
+  body.push(`// \`macro_rules! insert\` (${path}:${insertTok.line}), used by \`hash_opt!\` of the \`dep_tracking_hash\` fns.`);
+  body.push("function insert(opt_name: string, opt_expr: DynDepTrackingHash, sub_hashes: Map<string, DynDepTrackingHash>): void {");
+  body.push("  const prev = sub_hashes.get(opt_name);");
+  body.push("  sub_hashes.set(opt_name, opt_expr);");
+  body.push("  if (prev !== undefined) {");
+  body.push("    panic(`duplicate key in CLI DepTrackingHash: ${opt_name}`);");
+  body.push("  }");
+  body.push("}");
+  body.push("");
   body.push(`// ---- top_level_options! (${path}:${toks[tl[0]![0]]!.line}) ----`);
   body.push("");
   body.push("/** `#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Copy, Clone)]` */");
@@ -1073,12 +1151,19 @@ function genOptions(): Map<string, string> {
   body.push("    public mitigation_coverage_map: MitigationCoverageMap,");
   body.push("  ) {}");
   body.push("");
-  t("../rustc_hashes/lib.ts", "Hash64");
-  v("../std/panic.ts", "unported");
+  v("../rustc_hashes/lib.ts", "Hash64");
+  v("../rustc_data_structures/stable_hash.ts", "StableHasher");
   body.push(`  ${marker(path, tlLines.dep_tracking_hash!, "dep_tracking_hash")}`);
-  body.push("  dep_tracking_hash(_for_crate_hash: boolean): Hash64 {");
-  body.push("    // PORT: dependency tracking (incremental compilation) is out of scope.");
-  body.push('    return unported("rustc_session::options::Options::dep_tracking_hash");');
+  body.push("  dep_tracking_hash(for_crate_hash: boolean): Hash64 {");
+  genHashOpts(tc, top.entries, body, "    ");
+  body.push("    const hasher = StableHasher.new();");
+  body.push("    dep_tracking.stable_hash(sub_hashes, hasher, this.error_format, for_crate_hash);");
+  for (const e of top.entries) {
+    if (e.marker !== "SUBSTRUCT") continue;
+    // hash_substruct! (options.rs:51): `$opt_expr.dep_tracking_hash(..).hash(hasher, error_format, for_crate_hash)`
+    body.push(`    dep_tracking.via_hash.Hash64(this.${e.name}.dep_tracking_hash(for_crate_hash, this.error_format), hasher, this.error_format, for_crate_hash);`);
+  }
+  body.push("    return hasher.finish(Hash64);");
   body.push("  }");
   body.push("");
   t("./options.ts", "TargetModifier");
@@ -1239,9 +1324,11 @@ function genOptionsGroup(
   body.push("");
   t("./config.ts", "ErrorOutputType");
   body.push(`  ${marker(path, ctx.opLines.dep_tracking_hash!, "dep_tracking_hash")}`);
-  body.push("  dep_tracking_hash(_for_crate_hash: boolean, _error_format: ErrorOutputType): Hash64 {");
-  body.push("    // PORT: dependency tracking (incremental compilation) is out of scope.");
-  body.push(`    return unported("rustc_session::options::${S}::dep_tracking_hash");`);
+  body.push("  dep_tracking_hash(for_crate_hash: boolean, error_format: ErrorOutputType): Hash64 {");
+  genHashOpts(tc, g.entries, body, "    ");
+  body.push("    const hasher = StableHasher.new();");
+  body.push("    dep_tracking.stable_hash(sub_hashes, hasher, error_format, for_crate_hash);");
+  body.push("    return hasher.finish(Hash64);");
   body.push("  }");
   body.push("");
   v("./options.ts", "tmod_push_impl");

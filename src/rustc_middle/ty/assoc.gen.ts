@@ -2,9 +2,9 @@
 // Hand-written additions (methods, manual Debug impls) go in assoc.ts next to this file.
 import { debug_SortedIndexMultiMap, type SortedIndexMultiMap } from "../../rustc_data_structures/sorted_map/index_map.ts";
 import { debug_ImplTraitInTraitData, type ImplTraitInTraitData } from "./mod.ts";
-import { decode_bool, decode_Result } from "../../rustc_serialize/serialize.ts";
+import { decode_bool, decode_Result, encode_bool, encode_Result } from "../../rustc_serialize/serialize.ts";
 import { debug_DefId, type DefId } from "../../rustc_span/def_id.ts";
-import { debug_ErrorGuaranteed, decode_ErrorGuaranteed, type ErrorGuaranteed, type SpanDecoder } from "../../rustc_span/lib.ts";
+import { debug_ErrorGuaranteed, decode_ErrorGuaranteed, encode_ErrorGuaranteed, type ErrorGuaranteed, type SpanDecoder, type SpanEncoder } from "../../rustc_span/lib.ts";
 import { debug_Symbol, type Symbol } from "../../rustc_span/symbol.ts";
 import { type Debug, debug_bool, debug_option, debug_struct, debug_tuple } from "../../std/fmt.ts";
 import { panic } from "../../std/panic.ts";
@@ -12,6 +12,9 @@ import { debug_result, type Result } from "../../std/result.ts";
 import { unported } from "../../std/panic.ts";
 function unported_decodable(..._a: unknown[]): never {
   return unported("Decodable without a TS impl (see types report)");
+}
+function unported_encodable(..._a: unknown[]): void {
+  unported("Encodable without a TS impl (see types report)");
 }
 
 // rustc-type: compiler/rustc_middle/src/ty/assoc.rs:13 AssocContainer
@@ -48,6 +51,30 @@ export function decode_AssocContainer(__decoder: SpanDecoder): AssocContainer {
       return panic(`invalid enum variant tag while decoding \`AssocContainer\`, expected 0..3, actual ${__tag}`);
   }
 }
+function AssocContainer__variant_index(tag: AssocContainer["$"]): number {
+  switch (tag) {
+    case "Trait":
+      return 0;
+    case "InherentImpl":
+      return 1;
+    case "TraitImpl":
+      return 2;
+  }
+}
+// rustc-derive: compiler/rustc_middle/src/ty/assoc.rs:13 Encodable for AssocContainer
+export function encode_AssocContainer(self: AssocContainer, __encoder: SpanEncoder): void {
+  const disc = AssocContainer__variant_index(self.$);
+  __encoder.emit_u8(disc);
+  switch (self.$) {
+    case "Trait":
+      break;
+    case "InherentImpl":
+      break;
+    case "TraitImpl":
+      encode_Result(self._0, __encoder, (__v, __encoder) => __encoder.encode_def_id(__v), encode_ErrorGuaranteed);
+      break;
+  }
+}
 
 // rustc-type: compiler/rustc_middle/src/ty/assoc.rs:22 AssocItem
 /// Information about an associated item
@@ -69,6 +96,12 @@ export function decode_AssocItem(__decoder: SpanDecoder): AssocItem {
     kind: decode_AssocKind(__decoder),
     container: decode_AssocContainer(__decoder),
   };
+}
+// rustc-derive: compiler/rustc_middle/src/ty/assoc.rs:22 Encodable for AssocItem
+export function encode_AssocItem(self: AssocItem, __encoder: SpanEncoder): void {
+  __encoder.encode_def_id(self.def_id);
+  encode_AssocKind(self.kind, __encoder);
+  encode_AssocContainer(self.container, __encoder);
 }
 
 // rustc-type: compiler/rustc_middle/src/ty/assoc.rs:174 AssocTypeData
@@ -96,6 +129,27 @@ export function decode_AssocTypeData(__decoder: SpanDecoder): AssocTypeData {
       return { $: "Rpitit", _0: unported_decodable(__decoder) };
     default:
       return panic(`invalid enum variant tag while decoding \`AssocTypeData\`, expected 0..2, actual ${__tag}`);
+  }
+}
+function AssocTypeData__variant_index(tag: AssocTypeData["$"]): number {
+  switch (tag) {
+    case "Normal":
+      return 0;
+    case "Rpitit":
+      return 1;
+  }
+}
+// rustc-derive: compiler/rustc_middle/src/ty/assoc.rs:174 Encodable for AssocTypeData
+export function encode_AssocTypeData(self: AssocTypeData, __encoder: SpanEncoder): void {
+  const disc = AssocTypeData__variant_index(self.$);
+  __encoder.emit_u8(disc);
+  switch (self.$) {
+    case "Normal":
+      __encoder.encode_symbol(self._0);
+      break;
+    case "Rpitit":
+      unported_encodable(self._0);
+      break;
   }
 }
 
@@ -133,6 +187,33 @@ export function decode_AssocKind(__decoder: SpanDecoder): AssocKind {
       return { $: "Type", data: decode_AssocTypeData(__decoder) };
     default:
       return panic(`invalid enum variant tag while decoding \`AssocKind\`, expected 0..3, actual ${__tag}`);
+  }
+}
+function AssocKind__variant_index(tag: AssocKind["$"]): number {
+  switch (tag) {
+    case "Const":
+      return 0;
+    case "Fn":
+      return 1;
+    case "Type":
+      return 2;
+  }
+}
+// rustc-derive: compiler/rustc_middle/src/ty/assoc.rs:183 Encodable for AssocKind
+export function encode_AssocKind(self: AssocKind, __encoder: SpanEncoder): void {
+  const disc = AssocKind__variant_index(self.$);
+  __encoder.emit_u8(disc);
+  switch (self.$) {
+    case "Const":
+      __encoder.encode_symbol(self.name);
+      break;
+    case "Fn":
+      __encoder.encode_symbol(self.name);
+      encode_bool(self.has_self, __encoder);
+      break;
+    case "Type":
+      encode_AssocTypeData(self.data, __encoder);
+      break;
   }
 }
 

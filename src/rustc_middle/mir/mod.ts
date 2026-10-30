@@ -33,7 +33,8 @@ import type { TypeVisitable } from "../../rustc_type_ir/visit.ts";
 import { type Debug, PLAIN } from "../../std/fmt.ts";
 import { assert_eq, panic, unported, unreachable, unwrap } from "../../std/panic.ts";
 import type { TyCtxt } from "../ty/context.ts";
-import type { TyDecoder } from "../ty/codec.ts";
+import type { TyDecoder, TyEncoder } from "../ty/codec.ts";
+import type { Encodable } from "../../rustc_serialize/serialize.ts";
 import type { Instance, Ty, TypingEnv } from "../ty/decls.ts";
 import type { GenericArgsRef } from "../ty/generic_args.ts";
 import type { ShimKind } from "../ty/instance.ts";
@@ -900,7 +901,12 @@ ClearCrossCrate.unwrap_crate_local = function <T>(self: ClearCrossCrate<T>): T {
 const TAG_CLEAR_CROSS_CRATE_CLEAR = 0;
 const TAG_CLEAR_CROSS_CRATE_SET = 1;
 
-// rustc-skip: compiler/rustc_middle/src/mir/mod.rs:806 encode Encodable (metadata encoding, M5)
+// impl<'tcx, E: TyEncoder<'tcx>, T: Encodable<E>> Encodable<E> for ClearCrossCrate<T>
+// #[inline]
+// stub: compiler/rustc_middle/src/mir/mod.rs:806 encode (lane encode-middle)
+export function encode_ClearCrossCrate<T, E extends TyEncoder>(_self: ClearCrossCrate<T>, _e: E, _encode_T: Encodable<T, E>): void {
+  unported("rustc_middle::mir::encode ClearCrossCrate (lane encode-middle)");
+}
 
 /**
  * `D::CLEAR_CROSS_CRATE` (ty/codec.ts: each `TyDecoder` implementor exports `<Impl>_CLEAR_CROSS_CRATE`).

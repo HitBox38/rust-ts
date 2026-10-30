@@ -12,15 +12,18 @@ import { type DiagnosticItems, debug_DiagnosticItems } from "../rustc_attr_ir/di
 import { type LangItem, type LanguageItems, debug_LangItem, debug_LanguageItems, stable_hash_LangItem } from "../rustc_attr_ir/lang_items.ts";
 import { type Attribute, clone_Attribute, debug_Attribute } from "../rustc_attr_ir/lib.ts";
 import { stable_hash_Attribute, stable_hash_DiagnosticItems, stable_hash_LanguageItems } from "../rustc_attr_ir/stable_hash.gen.ts";
+import { type CrateDepKind, type CrateSource, type ForeignModule, type LinkagePreference, type NativeLib, debug_CrateDepKind, debug_CrateSource, debug_ForeignModule, debug_LinkagePreference, debug_NativeLib } from "../rustc_crate_store/lib.ts";
 import { type SortedMap } from "../rustc_data_structures/sorted_map.ts";
 import { stable_hash_IndexMap, stable_hash_IndexSet, stable_hash_Option, stable_hash_Path, stable_hash_Result, stable_hash_String, stable_hash_Vec, stable_hash_bool, stable_hash_slice, stable_hash_str, stable_hash_tuple2, stable_hash_u8, stable_hash_unit, stable_hash_usize } from "../rustc_data_structures/stable_hash.ts";
 import { type Steal, debug_Steal } from "../rustc_data_structures/steal.ts";
+import { type Svh, debug_Svh, stable_hash_Svh } from "../rustc_data_structures/svh.ts";
 import { type Features } from "../rustc_feature/unstable.ts";
 import { type DefKind, debug_DefKind } from "../rustc_hir/def.ts";
 import { stable_hash_DefKind } from "../rustc_hir/stable_hash.gen.ts";
 import { type ItemLocalId, type OwnerId, debug_ItemLocalId } from "../rustc_hir_id/lib.ts";
 import { stable_hash_ItemLocalId } from "../rustc_hir_id/stable_hash.gen.ts";
 import { type HirId, type LintId, type StableLintExpectationId, debug_HirId } from "../rustc_lint_defs/lib.ts";
+import { type Dependencies } from "./middle/dependency_format.ts";
 import { type EffectiveVisibilities, debug_EffectiveVisibilities, stable_hash_EffectiveVisibilities } from "./middle/privacy.ts";
 import { type ScopeTree, debug_ScopeTree } from "./middle/region.ts";
 import { type AstOwner, type DocLinkResMap, type ModChild, type ResolverAstLowering, type ResolverGlobalCtxt, debug_DocLinkResMap, debug_ModChild, debug_ResolverAstLowering, debug_ResolverGlobalCtxt } from "./middle/resolve.ts";
@@ -349,8 +352,7 @@ export interface QueryTypes {
    * - `extern` blocks (depending on their `link` attributes)
    * - the `libs` (`-l`) option
    */
-  // PORT: value `&'tcx Vec<NativeLib>` not ported (`unknown`)
-  native_libraries: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: unknown[]; ProvidedValue: unknown[] };
+  native_libraries: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: NativeLib[]; ProvidedValue: NativeLib[] };
   // PORT: value `&'tcx rustc_middle::lint::ShallowLintLevelMap` not ported (`unknown`)
   shallow_lint_levels_on: { Key: OwnerId; KeyArg: OwnerId; LocalKey: OwnerId; Value: unknown; ProvidedValue: unknown };
   // PORT: value `&'tcx Vec<(StableLintExpectationId, LintExpectation)>` not ported (`unknown`)
@@ -1177,10 +1179,8 @@ export interface QueryTypes {
    *   `InstanceKind::Virtual` instance (of `<dyn Trait as Trait>::fn`).
    */
   fn_abi_of_instance_raw: { Key: PseudoCanonicalInput<[Instance, List<Ty>]>; KeyArg: PseudoCanonicalInput<[Instance, List<Ty>]>; LocalKey: PseudoCanonicalInput<[Instance, List<Ty>]>; Value: Result<FnAbi<Ty>, FnAbiError>; ProvidedValue: Result<FnAbi<Ty>, FnAbiError> };
-  // PORT: value `&'tcx [(CrateNum, LinkagePreference)]` not ported (`unknown`)
-  dylib_dependency_formats: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: readonly [CrateNum, unknown][]; ProvidedValue: readonly [CrateNum, unknown][] };
-  // PORT: value `&'tcx Arc<crate::middle::dependency_format::Dependencies>` not ported (`unknown`)
-  dependency_formats: { Key: null; KeyArg: null; LocalKey: null; Value: unknown; ProvidedValue: unknown };
+  dylib_dependency_formats: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: readonly [CrateNum, LinkagePreference][]; ProvidedValue: readonly [CrateNum, LinkagePreference][] };
+  dependency_formats: { Key: null; KeyArg: null; LocalKey: null; Value: Dependencies; ProvidedValue: Dependencies };
   is_compiler_builtins: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: boolean; ProvidedValue: boolean };
   has_global_allocator: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: boolean; ProvidedValue: boolean };
   has_alloc_error_handler: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: boolean; ProvidedValue: boolean };
@@ -1276,8 +1276,7 @@ export interface QueryTypes {
   /**
    * Returns a list of all `extern` blocks of a crate.
    */
-  // PORT: value `&'tcx FxIndexMap<DefId, ForeignModule>` not ported (`unknown`)
-  foreign_modules: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: Map<DefId, unknown>; ProvidedValue: Map<DefId, unknown> };
+  foreign_modules: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: Map<DefId, ForeignModule>; ProvidedValue: Map<DefId, ForeignModule> };
   /**
    * Lint against `extern fn` declarations having incompatible types.
    */
@@ -1292,13 +1291,11 @@ export interface QueryTypes {
    * Finds the `rustc_proc_macro_decls` item of a crate.
    */
   proc_macro_decls_static: { Key: null; KeyArg: null; LocalKey: null; Value: LocalDefId | undefined; ProvidedValue: LocalDefId | undefined };
-  // PORT: value `Svh` not ported (`unknown`)
-  crate_hash: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: unknown; ProvidedValue: unknown };
+  crate_hash: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: Svh; ProvidedValue: Svh };
   /**
    * Gets the hash for the host proc macro. Used to support -Z dual-proc-macro.
    */
-  // PORT: value `Option<Svh>` not ported (`unknown`)
-  crate_host_hash: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: unknown | undefined; ProvidedValue: unknown | undefined };
+  crate_host_hash: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: Svh | undefined; ProvidedValue: Svh | undefined };
   /**
    * Gets the extra data to put in each output filename for a crate.
    * For example, compiling the `foo` crate with `extra-filename=-a` creates a `libfoo-b.rlib` file.
@@ -1323,8 +1320,7 @@ export interface QueryTypes {
   /**
    * Get the corresponding native library from the `native_libraries` query
    */
-  // PORT: value `Option<&'tcx NativeLib>` not ported (`unknown`)
-  native_library: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: DefId; Value: unknown | undefined; ProvidedValue: unknown | undefined };
+  native_library: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: DefId; Value: NativeLib | undefined; ProvidedValue: NativeLib | undefined };
   inherit_sig_for_delegation_item: { Key: LocalDefId; KeyArg: Parameters<typeof into_query_key_LocalDefId>[0]; LocalKey: LocalDefId; Value: readonly Ty[]; ProvidedValue: readonly Ty[] };
   delegation_user_specified_args: { Key: LocalDefId; KeyArg: Parameters<typeof into_query_key_LocalDefId>[0]; LocalKey: LocalDefId; Value: [readonly GenericArg[], readonly GenericArg[]]; ProvidedValue: [readonly GenericArg[], readonly GenericArg[]] };
   /**
@@ -1427,8 +1423,7 @@ export interface QueryTypes {
    */
   // PORT: key `ty::PseudoCanonicalInput<'tcx, (ty::AdtDef<'tcx>, ty::GenericArgsRef<'tcx>)>` not ported (`unknown`)
   is_opsem_inhabited_adt_cached: { Key: PseudoCanonicalInput<[unknown, unknown]>; KeyArg: PseudoCanonicalInput<[unknown, unknown]>; LocalKey: PseudoCanonicalInput<[unknown, unknown]>; Value: boolean; ProvidedValue: boolean };
-  // PORT: value `CrateDepKind` not ported (`unknown`)
-  crate_dep_kind: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: unknown; ProvidedValue: unknown };
+  crate_dep_kind: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: CrateDepKind; ProvidedValue: CrateDepKind };
   /**
    * Gets the name of the crate.
    */
@@ -1515,8 +1510,7 @@ export interface QueryTypes {
    */
   trimmed_def_paths: { Key: null; KeyArg: null; LocalKey: null; Value: DefIdMap<Symbol>; ProvidedValue: DefIdMap<Symbol> };
   missing_extern_crate_item: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: boolean; ProvidedValue: boolean };
-  // PORT: value `&'tcx Arc<CrateSource>` not ported (`unknown`)
-  used_crate_source: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: unknown; ProvidedValue: unknown };
+  used_crate_source: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: CrateSource; ProvidedValue: CrateSource };
   /**
    * Returns the debugger visualizers defined for this crate.
    * NOTE: This query has to be marked `eval_always` because it reads data
@@ -2480,7 +2474,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: true,
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `looking up the native libraries of a linked crate`,
-    debug_value: undefined,
+    debug_value: (v, f) => debug_vec(v, f, ((x, f) => debug_NativeLib(x, f))),
     stable_hash_value: undefined,
   },
   shallow_lint_levels_on: {
@@ -5324,7 +5318,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: true,
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `getting dylib dependency formats of crate`,
-    debug_value: undefined,
+    debug_value: (v, f) => debug_vec(v, f, (x, f) => debug_tuple(f, "", [debug_CrateNum(x[0], f), debug_LinkagePreference(x[1], f)])),
     stable_hash_value: undefined,
   },
   dependency_formats: {
@@ -5792,7 +5786,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: true,
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `looking up the foreign modules of a linked crate`,
-    debug_value: undefined,
+    debug_value: (v, f) => debug_map(f, [...v].map(([k, x]) => [((x, f) => debug_DefId(x, f))(k, f), ((x, f) => debug_ForeignModule(x, f))(x, f)])),
     stable_hash_value: undefined,
   },
   clashing_extern_declarations: {
@@ -5864,8 +5858,8 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: true,
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `looking up the hash of a crate`,
-    debug_value: undefined,
-    stable_hash_value: undefined,
+    debug_value: (v, f) => debug_Svh(v, f),
+    stable_hash_value: stable_hash_Svh,
   },
   crate_host_hash: {
     name: "crate_host_hash",
@@ -5882,8 +5876,8 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: true,
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `looking up the hash of a host version of a crate`,
-    debug_value: undefined,
-    stable_hash_value: undefined,
+    debug_value: (v, f) => debug_option(v, f, ((x, f) => debug_Svh(x, f))),
+    stable_hash_value: (v, hcx, h) => stable_hash_Option(v, hcx, h, stable_hash_Svh),
   },
   extra_filename: {
     name: "extra_filename",
@@ -5972,7 +5966,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: false,
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `getting the native library for \`${__0}\``; },
-    debug_value: undefined,
+    debug_value: (v, f) => debug_option(v, f, ((x, f) => debug_NativeLib(x, f))),
     stable_hash_value: undefined,
   },
   inherit_sig_for_delegation_item: {
@@ -6242,7 +6236,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: true,
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `fetching what a dependency looks like`,
-    debug_value: undefined,
+    debug_value: (v, f) => debug_CrateDepKind(v, f),
     stable_hash_value: undefined,
   },
   crate_name: {
@@ -6548,7 +6542,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: true,
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `looking at the source for a crate`,
-    debug_value: undefined,
+    debug_value: (v, f) => debug_CrateSource(v, f),
     stable_hash_value: undefined,
   },
   debugger_visualizers: {

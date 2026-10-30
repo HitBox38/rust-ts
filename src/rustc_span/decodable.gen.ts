@@ -2,12 +2,12 @@
 // `decode_<T>(__decoder[, decode_<P>...])`: a struct decodes its fields in declaration order; an enum reads the variant
 // index (`read_u8`, or `read_usize` from 255 variants on), then that variant's fields. `encode_<T>` writes the same.
 // Only function declarations: hand modules may import from here inside an import cycle.
-import { decode_Fingerprint, Fingerprint } from "../rustc_data_structures/fingerprint.ts";
-import { type Decodable, decode_array, decode_bool, decode_Hash128, decode_Hash64, decode_isize, decode_Option, decode_PathBuf, decode_String, decode_u32, decode_u8, decode_Vec, type Encodable, encode_array, encode_bool, encode_Hash128, encode_Hash64, encode_isize, encode_Option, encode_PathBuf, encode_slice, encode_String, encode_u32, encode_u8, type Encoder } from "../rustc_serialize/serialize.ts";
+import { decode_Fingerprint, encode_Fingerprint } from "../rustc_data_structures/fingerprint.ts";
+import { type Decodable, decode_array, decode_bool, decode_Hash128, decode_Hash64, decode_isize, decode_Option, decode_PathBuf, decode_String, decode_u32, decode_u8, decode_Vec, type Encodable, encode_array, encode_bool, encode_Hash128, encode_Hash64, encode_isize, encode_Option, encode_PathBuf, encode_slice, encode_String, encode_u32, encode_u8 } from "../rustc_serialize/serialize.ts";
 import { decode_LocalDefId, DefPathHash, encode_LocalDefId, LocalModId, ModId, StableCrateId } from "./def_id.ts";
 import { type Edition } from "./edition.ts";
 import { type AstPass, DesugaringKind, ExpnData, ExpnHash, ExpnKind, type MacroKind, type Transparency } from "./hygiene.ts";
-import { type BlobDecoder, decode_DefId, decode_ExpnId, decode_RelativeBytePos, decode_RemapPathScopeComponents, decode_Span, decode_Symbol, encode_DefId, encode_ExpnId, encode_RelativeBytePos, encode_RemapPathScopeComponents, encode_Span, encode_Symbol, type FileName, type InnerRealFileName, type MultiByteChar, type NormalizedPos, RealFileName, SourceFileHash, type SourceFileHashAlgorithm, type SpanDecoder, type Spanned, StableSourceFileId } from "./lib.ts";
+import { type BlobDecoder, decode_DefId, decode_ExpnId, decode_RelativeBytePos, decode_RemapPathScopeComponents, decode_Span, decode_Symbol, encode_DefId, encode_ExpnId, encode_RelativeBytePos, encode_RemapPathScopeComponents, encode_Span, encode_Symbol, type FileName, type InnerRealFileName, type MultiByteChar, type NormalizedPos, RealFileName, SourceFileHash, type SourceFileHashAlgorithm, type SpanDecoder, type SpanEncoder, type Spanned, StableSourceFileId } from "./lib.ts";
 import { Ident } from "./symbol.ts";
 import { panic } from "../std/panic.ts";
 
@@ -19,7 +19,7 @@ export function decode_Spanned<T, __D extends SpanDecoder = SpanDecoder>(__decod
   };
 }
 // rustc-derive: compiler/rustc_span/src/lib.rs:98 Encodable for Spanned
-export function encode_Spanned<T>(self: Spanned<T>, __encoder: Encoder, encode_T: Encodable<T, Encoder>): void {
+export function encode_Spanned<T, __E extends SpanEncoder = SpanEncoder>(self: Spanned<T>, __encoder: __E, encode_T: Encodable<T, __E>): void {
   encode_T(self.node, __encoder);
   encode_Span(self.span, __encoder);
 }
@@ -32,7 +32,7 @@ export function decode_RealFileName(__decoder: SpanDecoder): RealFileName {
   return new RealFileName(__0, __1, __2);
 }
 // rustc-derive: compiler/rustc_span/src/lib.rs:306 Encodable for RealFileName
-export function encode_RealFileName(self: RealFileName, __encoder: Encoder): void {
+export function encode_RealFileName(self: RealFileName, __encoder: SpanEncoder): void {
   encode_Option(self.local, __encoder, encode_InnerRealFileName);
   encode_InnerRealFileName(self.maybe_remapped, __encoder);
   encode_RemapPathScopeComponents(self.scopes, __encoder);
@@ -47,7 +47,7 @@ export function decode_InnerRealFileName(__decoder: SpanDecoder): InnerRealFileN
   };
 }
 // rustc-derive: compiler/rustc_span/src/lib.rs:319 Encodable for InnerRealFileName
-export function encode_InnerRealFileName(self: InnerRealFileName, __encoder: Encoder): void {
+export function encode_InnerRealFileName(self: InnerRealFileName, __encoder: SpanEncoder): void {
   encode_PathBuf(self.name, __encoder);
   encode_PathBuf(self.working_directory, __encoder);
   encode_PathBuf(self.embeddable_name, __encoder);
@@ -102,7 +102,7 @@ function FileName__variant_index(tag: FileName["$"]): number {
   }
 }
 // rustc-derive: compiler/rustc_span/src/lib.rs:509 Encodable for FileName
-export function encode_FileName(self: FileName, __encoder: Encoder): void {
+export function encode_FileName(self: FileName, __encoder: SpanEncoder): void {
   const disc = FileName__variant_index(self.$);
   __encoder.emit_u8(disc);
   switch (self.$) {
@@ -145,7 +145,7 @@ export function decode_MultiByteChar(__decoder: SpanDecoder): MultiByteChar {
   };
 }
 // rustc-derive: compiler/rustc_span/src/lib.rs:1674 Encodable for MultiByteChar
-export function encode_MultiByteChar(self: MultiByteChar, __encoder: Encoder): void {
+export function encode_MultiByteChar(self: MultiByteChar, __encoder: SpanEncoder): void {
   encode_RelativeBytePos(self.pos, __encoder);
   encode_u8(self.bytes, __encoder);
 }
@@ -158,7 +158,7 @@ export function decode_NormalizedPos(__decoder: SpanDecoder): NormalizedPos {
   };
 }
 // rustc-derive: compiler/rustc_span/src/lib.rs:1683 Encodable for NormalizedPos
-export function encode_NormalizedPos(self: NormalizedPos, __encoder: Encoder): void {
+export function encode_NormalizedPos(self: NormalizedPos, __encoder: SpanEncoder): void {
   encode_RelativeBytePos(self.pos, __encoder);
   encode_u32(self.diff, __encoder);
 }
@@ -192,7 +192,7 @@ function SourceFileHashAlgorithm__variant_index(tag: SourceFileHashAlgorithm): n
   }
 }
 // rustc-derive: compiler/rustc_span/src/lib.rs:1726 Encodable for SourceFileHashAlgorithm
-export function encode_SourceFileHashAlgorithm(self: SourceFileHashAlgorithm, __encoder: Encoder): void {
+export function encode_SourceFileHashAlgorithm(self: SourceFileHashAlgorithm, __encoder: SpanEncoder): void {
   const disc = SourceFileHashAlgorithm__variant_index(self);
   __encoder.emit_u8(disc);
 }
@@ -204,7 +204,7 @@ export function decode_SourceFileHash(__decoder: SpanDecoder): SourceFileHash {
   return new SourceFileHash(__0, Uint8Array.from(__1));
 }
 // rustc-derive: compiler/rustc_span/src/lib.rs:1761 Encodable for SourceFileHash
-export function encode_SourceFileHash(self: SourceFileHash, __encoder: Encoder): void {
+export function encode_SourceFileHash(self: SourceFileHash, __encoder: SpanEncoder): void {
   encode_SourceFileHashAlgorithm(self.kind, __encoder);
   encode_array(self.value, __encoder, encode_u8);
 }
@@ -215,7 +215,7 @@ export function decode_StableSourceFileId(__decoder: SpanDecoder): StableSourceF
   return StableSourceFileId.of(__0);
 }
 // rustc-derive: compiler/rustc_span/src/lib.rs:2144 Encodable for StableSourceFileId
-export function encode_StableSourceFileId(self: StableSourceFileId, __encoder: Encoder): void {
+export function encode_StableSourceFileId(self: StableSourceFileId, __encoder: SpanEncoder): void {
   encode_Hash128(self.hash(), __encoder);
 }
 
@@ -225,8 +225,8 @@ export function decode_ExpnHash(__decoder: SpanDecoder): ExpnHash {
   return ExpnHash.of(__0);
 }
 // rustc-derive: compiler/rustc_span/src/hygiene.rs:134 Encodable for ExpnHash
-export function encode_ExpnHash(self: ExpnHash, __encoder: Encoder): void {
-  __encoder.emit_raw_bytes(Fingerprint.to_le_bytes(ExpnHash._0(self)));
+export function encode_ExpnHash(self: ExpnHash, __encoder: SpanEncoder): void {
+  encode_Fingerprint(ExpnHash._0(self), __encoder);
 }
 
 // rustc-derive: compiler/rustc_span/src/hygiene.rs:168 Decodable for Transparency
@@ -254,7 +254,7 @@ function Transparency__variant_index(tag: Transparency): number {
   }
 }
 // rustc-derive: compiler/rustc_span/src/hygiene.rs:168 Encodable for Transparency
-export function encode_Transparency(self: Transparency, __encoder: Encoder): void {
+export function encode_Transparency(self: Transparency, __encoder: SpanEncoder): void {
   const disc = Transparency__variant_index(self);
   __encoder.emit_u8(disc);
 }
@@ -277,7 +277,7 @@ export function decode_ExpnData(__decoder: SpanDecoder): ExpnData {
   return new ExpnData(__0, __1, __2, __3, __4, __5, __6, __7, __8, __9, __10, __11, __12);
 }
 // rustc-derive: compiler/rustc_span/src/hygiene.rs:983 Encodable for ExpnData
-export function encode_ExpnData(self: ExpnData, __encoder: Encoder): void {
+export function encode_ExpnData(self: ExpnData, __encoder: SpanEncoder): void {
   encode_ExpnKind(self.kind, __encoder);
   encode_ExpnId(self.parent, __encoder);
   encode_Span(self.call_site, __encoder);
@@ -322,7 +322,7 @@ function ExpnKind__variant_index(tag: ExpnKind["$"]): number {
   }
 }
 // rustc-derive: compiler/rustc_span/src/hygiene.rs:1131 Encodable for ExpnKind
-export function encode_ExpnKind(self: ExpnKind, __encoder: Encoder): void {
+export function encode_ExpnKind(self: ExpnKind, __encoder: SpanEncoder): void {
   const disc = ExpnKind__variant_index(self.$);
   __encoder.emit_u8(disc);
   switch (self.$) {
@@ -366,7 +366,7 @@ function MacroKind__variant_index(tag: MacroKind): number {
   }
 }
 // rustc-derive: compiler/rustc_span/src/hygiene.rs:1160 Encodable for MacroKind
-export function encode_MacroKind(self: MacroKind, __encoder: Encoder): void {
+export function encode_MacroKind(self: MacroKind, __encoder: SpanEncoder): void {
   const disc = MacroKind__variant_index(self);
   __encoder.emit_u8(disc);
 }
@@ -396,7 +396,7 @@ function AstPass__variant_index(tag: AstPass): number {
   }
 }
 // rustc-derive: compiler/rustc_span/src/hygiene.rs:1195 Encodable for AstPass
-export function encode_AstPass(self: AstPass, __encoder: Encoder): void {
+export function encode_AstPass(self: AstPass, __encoder: SpanEncoder): void {
   const disc = AstPass__variant_index(self);
   __encoder.emit_u8(disc);
 }
@@ -466,7 +466,7 @@ function DesugaringKind__variant_index(tag: DesugaringKind["$"]): number {
   }
 }
 // rustc-derive: compiler/rustc_span/src/hygiene.rs:1213 Encodable for DesugaringKind
-export function encode_DesugaringKind(self: DesugaringKind, __encoder: Encoder): void {
+export function encode_DesugaringKind(self: DesugaringKind, __encoder: SpanEncoder): void {
   const disc = DesugaringKind__variant_index(self.$);
   __encoder.emit_u8(disc);
   switch (self.$) {
@@ -506,8 +506,8 @@ export function decode_DefPathHash(__decoder: SpanDecoder): DefPathHash {
   return DefPathHash.of(__0);
 }
 // rustc-derive: compiler/rustc_span/src/def_id.rs:97 Encodable for DefPathHash
-export function encode_DefPathHash(self: DefPathHash, __encoder: Encoder): void {
-  __encoder.emit_raw_bytes(Fingerprint.to_le_bytes(DefPathHash._0(self)));
+export function encode_DefPathHash(self: DefPathHash, __encoder: SpanEncoder): void {
+  encode_Fingerprint(DefPathHash._0(self), __encoder);
 }
 
 // rustc-derive: compiler/rustc_span/src/def_id.rs:147 BlobDecodable for StableCrateId
@@ -516,7 +516,7 @@ export function decode_StableCrateId(__decoder: BlobDecoder): StableCrateId {
   return StableCrateId.of(__0);
 }
 // rustc-derive: compiler/rustc_span/src/def_id.rs:147 Encodable for StableCrateId
-export function encode_StableCrateId(self: StableCrateId, __encoder: Encoder): void {
+export function encode_StableCrateId(self: StableCrateId, __encoder: SpanEncoder): void {
   encode_Hash64(StableCrateId._0(self), __encoder);
 }
 
@@ -526,7 +526,7 @@ export function decode_ModId(__decoder: SpanDecoder): ModId {
   return new ModId(__0);
 }
 // rustc-derive: compiler/rustc_span/src/def_id.rs:460 Encodable for ModId
-export function encode_ModId(self: ModId, __encoder: Encoder): void {
+export function encode_ModId(self: ModId, __encoder: SpanEncoder): void {
   encode_DefId(self._0, __encoder);
 }
 
@@ -536,7 +536,7 @@ export function decode_LocalModId(__decoder: SpanDecoder): LocalModId {
   return LocalModId.new_unchecked(__0);
 }
 // rustc-derive: compiler/rustc_span/src/def_id.rs:511 Encodable for LocalModId
-export function encode_LocalModId(self: LocalModId, __encoder: Encoder): void {
+export function encode_LocalModId(self: LocalModId, __encoder: SpanEncoder): void {
   encode_LocalDefId(LocalModId.to_local_def_id(self), __encoder);
 }
 
@@ -573,7 +573,7 @@ function Edition__variant_index(tag: Edition): number {
   }
 }
 // rustc-derive: compiler/rustc_span/src/edition.rs:9 Encodable for Edition
-export function encode_Edition(self: Edition, __encoder: Encoder): void {
+export function encode_Edition(self: Edition, __encoder: SpanEncoder): void {
   const disc = Edition__variant_index(self);
   __encoder.emit_u8(disc);
 }
@@ -585,7 +585,7 @@ export function decode_Ident(__decoder: SpanDecoder): Ident {
   return new Ident(__0, __1);
 }
 // rustc-derive: compiler/rustc_span/src/symbol.rs:2484 Encodable for Ident
-export function encode_Ident(self: Ident, __encoder: Encoder): void {
+export function encode_Ident(self: Ident, __encoder: SpanEncoder): void {
   encode_Symbol(self.name, __encoder);
   encode_Span(self.span, __encoder);
 }

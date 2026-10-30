@@ -128,6 +128,11 @@ export class DenseBitSet<T extends number = number> {
     return new DenseBitSet<T>(domain_size, words);
   }
 
+  /** PORT (D6, lane encode-contract): `Encodable for DenseBitSet` writes upstream's u64 words: the inverse of `from_u64_words`. */
+  to_u64_words(): bigint[] {
+    return words_to_u64(this.words);
+  }
+
   /// Gets the domain size.
   // rustc: compiler/rustc_index/src/bit_set.rs:87 domain_size
   domain_size(): number {
@@ -1535,6 +1540,14 @@ export class BitMatrix<R extends number = number, C extends number = number> {
       words_from_u64(words64.slice(r * wpr64, (r + 1) * wpr64), m.words.subarray(r * wpr, (r + 1) * wpr));
     }
     return m;
+  }
+
+  /** PORT (D6, lane encode-contract): `Encodable for BitMatrix` writes upstream's u64 words, row by row: the inverse of `from_u64_words`. */
+  to_u64_words(): bigint[] {
+    const wpr = num_words(this.num_columns);
+    const out: bigint[] = [];
+    for (let r = 0; r < this.num_rows; r++) out.push(...words_to_u64(this.words.subarray(r * wpr, (r + 1) * wpr)));
+    return out;
   }
 
   /// Creates a new `rows x columns` matrix, initially empty.

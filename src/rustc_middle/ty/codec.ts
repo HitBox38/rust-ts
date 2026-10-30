@@ -16,8 +16,9 @@
 // - The `Decodable` impls are `decode_<T>(decoder)` fns, the names tools/codegen's serialize.json entries call from
 //   the generated `derive(TyDecodable)` / `derive(Decodable_NoContext)` of the type sets (lane rmeta-ty). `T::decode`
 //   arguments of generic code are those fns.
-// - The encoding half (`TyEncoder`, `EncodableWithShorthand`, `encode_with_shorthand`, the `Encodable` impls) is
-//   metadata encoding (M5, PORTING §3): the traits are declared, the fns are `rustc-skip`ped.
+// - The encoding half (`TyEncoder`, `EncodableWithShorthand`, `encode_with_shorthand`, the `Encodable` impls; plan-m5 D3):
+//   the traits are declared (lane encode-contract) and the fns are stubs for lane encode-middle (`encode_<T>`, the names
+//   tools/codegen's serialize.json `encode` templates call), except `AllocId`'s one-line impl.
 // - `(0..len).map(|_| Decodable::decode(decoder))` fed to a `mk_*_from_iter` is a lazy generator: the interner
 //   collects it, so the elements are decoded in order, inside the call, as upstream.
 // - Every generated `.gen.ts` of the rustc_ty set imports this module (its derive(Decodable) fields call these fns),
@@ -26,10 +27,10 @@
 // - `mod ref_decodable;` + `pub use self::ref_decodable::RefDecodable;`: ./codec/ref_decodable.ts; its decoders are
 //   re-exported here (the `Decodable for &'tcx List<..>` impls of `impl_decodable_via_ref_decodable_for_local_types!`
 //   are the `RefDecodable` impls themselves).
-import type { BoundVariableKind, PredicateKind } from "../../rustc_type_ir/decls.ts";
+import type { BoundVariableKind, PredicateKind, TyKind } from "../../rustc_type_ir/decls.ts";
 import type { InternerDecoder } from "../../rustc_type_ir/serialize.ts";
 import { type Decoder, decode_unit } from "../../rustc_serialize/serialize.ts";
-import type { SpanDecoder } from "../../rustc_span/lib.ts";
+import type { SpanDecoder, SpanEncoder } from "../../rustc_span/lib.ts";
 import type { Pending } from "../../rustc_type_ir/decls.ts";
 import type { List } from "./list.ts";
 import { assert, unported } from "../../std/panic.ts";
@@ -131,8 +132,9 @@ var ref_decodable___m: typeof import("./codec/ref_decodable.ts") | undefined; //
 /// This offset is also chosen so that the first byte is never < 0x80.
 export const SHORTHAND_OFFSET = 0x80;
 
-/** `pub trait TyEncoder<'tcx>: SpanEncoder` (encoding half, M5: declared only; `const CLEAR_CROSS_CRATE: bool`). */
-export interface TyEncoder {
+/** `pub trait TyEncoder<'tcx>: SpanEncoder` (`const CLEAR_CROSS_CRATE: bool`: each implementor exports `<Impl>_CLEAR_CROSS_CRATE`,
+ *  like `TyDecoder`; rmeta encoder.ts `EncodeContext_CLEAR_CROSS_CRATE`). */
+export interface TyEncoder extends SpanEncoder {
   // rustc: compiler/rustc_middle/src/ty/codec.rs:33 position
   position(): number;
 
@@ -179,43 +181,86 @@ export interface EncodableWithShorthand<Variant> {
 
 // #[allow(rustc::usage_of_ty_tykind)]
 // impl<'tcx, E: TyEncoder<'tcx>> EncodableWithShorthand<'tcx, E> for Ty<'tcx> { type Variant = ty::TyKind<'tcx>; .. }
-// rustc-skip: compiler/rustc_middle/src/ty/codec.rs:72 variant metadata encoding (M5)
+// #[inline]
+// stub: compiler/rustc_middle/src/ty/codec.rs:72 variant (lane encode-middle)
+export function variant_Ty(_self: Ty): TyKind {
+  unported("rustc_middle::ty::codec::variant Ty (lane encode-middle)");
+}
 
 // impl<'tcx, E: TyEncoder<'tcx>> EncodableWithShorthand<'tcx, E> for ty::PredicateKind<'tcx> { type Variant = ty::PredicateKind<'tcx>; .. }
-// rustc-skip: compiler/rustc_middle/src/ty/codec.rs:81 variant metadata encoding (M5)
+// #[inline]
+// stub: compiler/rustc_middle/src/ty/codec.rs:81 variant (lane encode-middle)
+export function variant_PredicateKind(_self: PredicateKind): PredicateKind {
+  unported("rustc_middle::ty::codec::variant PredicateKind (lane encode-middle)");
+}
 
 /// Encode the given value or a previously cached shorthand.
-// rustc-skip: compiler/rustc_middle/src/ty/codec.rs:87 encode_with_shorthand metadata encoding (M5)
+// PORT: `T: EncodableWithShorthand<'tcx, E>` (its `variant` and the variant's `Encodable` / discriminant) is a
+// function table the lane adds; `cache` is `TyEncoder::type_shorthands` / `predicate_shorthands`.
+// stub: compiler/rustc_middle/src/ty/codec.rs:87 encode_with_shorthand (lane encode-middle)
+export function encode_with_shorthand<E extends TyEncoder, T, K>(_encoder: E, _value: T, _cache: (encoder: E) => Map<K, number>): void {
+  unported("rustc_middle::ty::codec::encode_with_shorthand (lane encode-middle)");
+}
 
 // impl<'tcx, E: TyEncoder<'tcx>> Encodable<E> for Ty<'tcx>
-// rustc-skip: compiler/rustc_middle/src/ty/codec.rs:126 encode Encodable impl (metadata encoding, M5)
+// stub: compiler/rustc_middle/src/ty/codec.rs:126 encode (lane encode-middle)
+export function encode_Ty<E extends TyEncoder>(_self: Ty, _e: E): void {
+  unported("rustc_middle::ty::codec::encode Ty (lane encode-middle)");
+}
 
 // impl<'tcx, E: TyEncoder<'tcx>> Encodable<E> for ty::Predicate<'tcx>
-// rustc-skip: compiler/rustc_middle/src/ty/codec.rs:132 encode Encodable impl (metadata encoding, M5)
+// stub: compiler/rustc_middle/src/ty/codec.rs:132 encode (lane encode-middle)
+export function encode_Predicate<E extends TyEncoder>(_self: Predicate, _e: E): void {
+  unported("rustc_middle::ty::codec::encode Predicate (lane encode-middle)");
+}
 
 // impl<'tcx, E: TyEncoder<'tcx>> Encodable<E> for ty::Clause<'tcx>
-// rustc-skip: compiler/rustc_middle/src/ty/codec.rs:140 encode Encodable impl (metadata encoding, M5)
+// stub: compiler/rustc_middle/src/ty/codec.rs:140 encode (lane encode-middle)
+export function encode_Clause<E extends TyEncoder>(_self: Clause, _e: E): void {
+  unported("rustc_middle::ty::codec::encode Clause (lane encode-middle)");
+}
 
 // impl<'tcx, E: TyEncoder<'tcx>> Encodable<E> for ty::Pattern<'tcx>
-// rustc-skip: compiler/rustc_middle/src/ty/codec.rs:146 encode Encodable impl (metadata encoding, M5)
+// stub: compiler/rustc_middle/src/ty/codec.rs:146 encode (lane encode-middle)
+export function encode_Pattern<E extends TyEncoder>(_self: Pattern, _e: E): void {
+  unported("rustc_middle::ty::codec::encode Pattern (lane encode-middle)");
+}
 
 // impl<'tcx, E: TyEncoder<'tcx>> Encodable<E> for ty::ValTree<'tcx>
-// rustc-skip: compiler/rustc_middle/src/ty/codec.rs:152 encode Encodable impl (metadata encoding, M5)
+// stub: compiler/rustc_middle/src/ty/codec.rs:152 encode (lane encode-middle)
+export function encode_ValTree<E extends TyEncoder>(_self: ValTree, _e: E): void {
+  unported("rustc_middle::ty::codec::encode ValTree (lane encode-middle)");
+}
 
 // impl<'tcx, E: TyEncoder<'tcx>> Encodable<E> for ConstAllocation<'tcx>
-// rustc-skip: compiler/rustc_middle/src/ty/codec.rs:158 encode Encodable impl (metadata encoding, M5)
+// stub: compiler/rustc_middle/src/ty/codec.rs:158 encode (lane encode-middle)
+export function encode_ConstAllocation<E extends TyEncoder>(_self: ConstAllocation, _e: E): void {
+  unported("rustc_middle::ty::codec::encode ConstAllocation (lane encode-middle)");
+}
 
 // impl<'tcx, E: TyEncoder<'tcx>> Encodable<E> for AdtDef<'tcx>
-// rustc-skip: compiler/rustc_middle/src/ty/codec.rs:164 encode Encodable impl (metadata encoding, M5)
+// stub: compiler/rustc_middle/src/ty/codec.rs:164 encode (lane encode-middle)
+export function encode_AdtDef<E extends TyEncoder>(_self: AdtDef, _e: E): void {
+  unported("rustc_middle::ty::codec::encode AdtDef (lane encode-middle)");
+}
 
 // impl<'tcx, E: TyEncoder<'tcx>> Encodable<E> for AllocId
-// rustc-skip: compiler/rustc_middle/src/ty/codec.rs:170 encode Encodable impl (metadata encoding, M5)
+// rustc: compiler/rustc_middle/src/ty/codec.rs:170 encode
+export function encode_AllocId<E extends TyEncoder>(self: AllocId, e: E): void {
+  e.encode_alloc_id(self);
+}
 
 // impl<'tcx, E: TyEncoder<'tcx>> Encodable<E> for CtfeProvenance
-// rustc-skip: compiler/rustc_middle/src/ty/codec.rs:176 encode Encodable impl (metadata encoding, M5)
+// stub: compiler/rustc_middle/src/ty/codec.rs:176 encode (lane encode-middle)
+export function encode_CtfeProvenance<E extends TyEncoder>(_self: CtfeProvenance, _e: E): void {
+  unported("rustc_middle::ty::codec::encode CtfeProvenance (lane encode-middle)");
+}
 
 // impl<'tcx, E: TyEncoder<'tcx>> Encodable<E> for ty::ParamEnv<'tcx>
-// rustc-skip: compiler/rustc_middle/src/ty/codec.rs:182 encode Encodable impl (metadata encoding, M5)
+// stub: compiler/rustc_middle/src/ty/codec.rs:182 encode (lane encode-middle)
+export function encode_ParamEnv<E extends TyEncoder>(_self: ParamEnv, _e: E): void {
+  unported("rustc_middle::ty::codec::encode ParamEnv (lane encode-middle)");
+}
 
 // impl<'tcx, D: TyDecoder<'tcx>> Decodable<D> for Ty<'tcx>
 // #[allow(rustc::usage_of_ty_tykind)]

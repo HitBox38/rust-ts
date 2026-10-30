@@ -2,13 +2,13 @@
 // Hand-written additions (methods, manual Debug impls) go in mod.ts next to this file.
 import { try_visit } from "../../rustc_ast_ir/visit.ts";
 import { fold_with_ExternalConstraints, try_fold_with_ExternalConstraints, visit_with_ExternalConstraints } from "../../rustc_middle/traits/solve.ts";
-import { decode_ParamEnv, type TyDecoder } from "../../rustc_middle/ty/codec.ts";
+import { decode_ParamEnv, encode_ParamEnv, type TyDecoder, type TyEncoder } from "../../rustc_middle/ty/codec.ts";
 import { type ExternalConstraints, type PredefinedOpaques } from "../../rustc_middle/ty/decls.ts";
 import { debug_GenericArgs, fold_with_GenericArgs, type GenericArgs, try_fold_with_GenericArgs, visit_with_GenericArgs } from "../../rustc_middle/ty/generic_args.ts";
 import { debug_ParamEnv, debug_Ty, fold_with_ParamEnv, fold_with_Ty, type ParamEnv, try_fold_with_ParamEnv, try_fold_with_Ty, type Ty, visit_with_ParamEnv, visit_with_Ty } from "../../rustc_middle/ty/mod.ts";
 import { debug_Predicate, fold_with_Predicate, type Predicate, try_fold_with_Predicate, visit_with_Predicate } from "../../rustc_middle/ty/predicate.ts";
 import { fold_with_PredefinedOpaques, try_fold_with_PredefinedOpaques, visit_with_PredefinedOpaques } from "../../rustc_middle/ty/structural_impls.ts";
-import { type Decodable, decode_usize } from "../../rustc_serialize/serialize.ts";
+import { type Decodable, decode_usize, type Encodable, encode_usize } from "../../rustc_serialize/serialize.ts";
 import { debug_DefId, debug_LocalDefId, type DefId, type LocalDefId } from "../../rustc_span/def_id.ts";
 import { debug_ErrorGuaranteed, type ErrorGuaranteed } from "../../rustc_span/lib.ts";
 import { type Canonical, type CanonicalQueryInput } from "../canonical.ts";
@@ -26,6 +26,9 @@ import { unported } from "../../std/panic.ts";
 const unported_debug = (_v: unknown): string => unported("Debug without a TS impl (see types report)");
 function unported_decodable(..._a: unknown[]): never {
   return unported("Decodable without a TS impl (see types report)");
+}
+function unported_encodable(..._a: unknown[]): void {
+  unported("Encodable without a TS impl (see types report)");
 }
 function unported_type_fold(..._a: unknown[]): never {
   return unported("TypeVisitable/TypeFoldable without a TS impl (see types report)");
@@ -322,6 +325,11 @@ export function decode_Goal<P, __D extends TyDecoder = TyDecoder>(__decoder: __D
     predicate: decode_P(__decoder),
   };
 }
+// rustc-derive: compiler/rustc_type_ir/src/solve/mod.rs:393 Encodable_NoContext for Goal
+export function encode_Goal<P, __E extends TyEncoder = TyEncoder>(self: Goal<P>, __encoder: __E, encode_P: Encodable<P, __E>): void {
+  encode_ParamEnv(self.param_env, __encoder);
+  encode_P(self.predicate, __encoder);
+}
 // rustc-derive: compiler/rustc_type_ir/src/solve/mod.rs:393 TypeVisitable_Generic for Goal
 export function visit_with_Goal<P, R>(self: Goal<P>, __visitor: TypeVisitor<R>, visit_with_P: VisitWith<P>): R {
   let r: R | undefined;
@@ -385,6 +393,11 @@ export function decode_QueryInput<P, __D extends TyDecoder = TyDecoder>(__decode
     goal: decode_Goal(__decoder, decode_P),
     predefined_opaques_in_body: unported_decodable(__decoder),
   };
+}
+// rustc-derive: compiler/rustc_type_ir/src/solve/mod.rs:444 Encodable_NoContext for QueryInput
+export function encode_QueryInput<P, __E extends TyEncoder = TyEncoder>(self: QueryInput<P>, __encoder: __E, encode_P: Encodable<P, __E>): void {
+  encode_Goal(self.goal, __encoder, encode_P);
+  unported_encodable(self.predefined_opaques_in_body);
 }
 // rustc-derive: compiler/rustc_type_ir/src/solve/mod.rs:444 TypeVisitable_Generic for QueryInput
 export function visit_with_QueryInput<P, R>(self: QueryInput<P>, __visitor: TypeVisitor<R>, visit_with_P: VisitWith<P>): R {
@@ -569,6 +582,35 @@ export function decode_BuiltinImplSource(__decoder: TyDecoder): BuiltinImplSourc
       return { $: "TraitUpcasting", _0: decode_usize(__decoder) };
     default:
       return panic(`invalid enum variant tag while decoding \`BuiltinImplSource\`, expected 0..4, actual ${__tag}`);
+  }
+}
+function BuiltinImplSource__variant_index(tag: BuiltinImplSource["$"]): number {
+  switch (tag) {
+    case "Trivial":
+      return 0;
+    case "Misc":
+      return 1;
+    case "Object":
+      return 2;
+    case "TraitUpcasting":
+      return 3;
+  }
+}
+// rustc-derive: compiler/rustc_type_ir/src/solve/mod.rs:560 Encodable_NoContext for BuiltinImplSource
+export function encode_BuiltinImplSource(self: BuiltinImplSource, __encoder: TyEncoder): void {
+  const disc = BuiltinImplSource__variant_index(self.$);
+  __encoder.emit_u8(disc);
+  switch (self.$) {
+    case "Trivial":
+      break;
+    case "Misc":
+      break;
+    case "Object":
+      encode_usize(self._0, __encoder);
+      break;
+    case "TraitUpcasting":
+      encode_usize(self._0, __encoder);
+      break;
   }
 }
 
