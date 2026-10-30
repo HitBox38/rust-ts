@@ -80,10 +80,21 @@ const LANES = ["encoder-a", "encoder-b", "encoder-c", "encoder-d", "encode-span-
 /** The fns ported by this lane: the `Encoder` / `TyEncoder` impls, the lazy machinery and the `Lazy*` / `ExpnIndex` writers. */
 const PORTED = new Set([122, 128, 137, 145, 411, 415, 419, 423, 472, 494, 510]);
 
+/** Lane encode-span-hygiene (wave 32, all ported): the `SpanEncoder` impl (:151-:244), `bytes_needed` (:254), `SpanData`
+ * (:259), `encode_symbol_or_byte_symbol` (:529), `encode_source_map` (:581), `encode_hygiene` (:2036). */
+const SPAN_HYGIENE = new Set([151, 162, 166, 171, 176, 188, 222, 226, 237, 244, 254, 259, 529, 581, 2036]);
+
+/** The lane whose `// rustc:` marker a ported fn may carry. */
+function ported_by(line: number): string | undefined {
+  if (PORTED.has(line)) return "encode-contract";
+  if (SPAN_HYGIENE.has(line)) return "encode-span-hygiene";
+  return undefined;
+}
+
 /** The split of encoder.rs (plan-m5 wave 32/33; the module comment of encoder.ts). */
 function owner(line: number): string {
   if (PORTED.has(line)) return "encode-contract";
-  if (line === 581 || line === 2036) return "encode-span-hygiene"; // encode_source_map, encode_hygiene
+  if (SPAN_HYGIENE.has(line)) return "encode-span-hygiene";
   if (line < 651) return "encoder-a";
   if (line < 1482) return "encoder-b";
   if (line < 2064) return "encoder-c";
@@ -99,7 +110,7 @@ test("every encoder.rs fn is ported or a stub of its owning lane, never both", (
     const ds = decls.filter((d) => d.path === ENCODER && d.line === fn.line && d.name === fn.name);
     expect(`${key}: ${ds.length}`).toBe(`${key}: 1`);
     const d = ds[0]!;
-    const lane = d.kind === "rustc" ? "encode-contract" : d.lane;
+    const lane = d.kind === "rustc" ? ported_by(fn.line) : d.lane;
     expect(`${key}: ${lane}`).toBe(`${key}: ${owner(fn.line)}`);
     if (d.kind === "stub") {
       expect(`${key}: ${d.unported?.startsWith("rustc_metadata::rmeta::encoder::")} ${d.unported?.endsWith(`(lane ${d.lane})`)}`).toBe(`${key}: true true`);
@@ -112,8 +123,8 @@ test("every encoder.rs fn is ported or a stub of its owning lane, never both", (
   }
   expect(per_lane).toEqual({
     "encode-contract": 11,
-    "encoder-a": 16,
-    "encode-span-hygiene": 2,
+    "encoder-a": 3,
+    "encode-span-hygiene": 15,
     "encoder-b": 15,
     "encoder-c": 16,
     "encoder-d": 35,
@@ -203,12 +214,10 @@ test("stubs stop with their lane", () => {
     }
     return "returned";
   };
-  expect(lane(() => e.encode_span(0 as never))).toBe("encoder-a");
-  expect(lane(() => e.encode_source_map())).toBe("encode-span-hygiene");
+  expect(lane(() => e.encode_def_path_table())).toBe("encoder-a");
   expect(lane(() => e.encode_crate_root())).toBe("encoder-b");
   expect(lane(() => should_encode_span("Mod" as never))).toBe("encoder-b");
   expect(lane(() => e.encode_mir())).toBe("encoder-c");
-  expect(lane(() => e.encode_hygiene())).toBe("encode-span-hygiene");
   expect(lane(() => encode_metadata(undefined as never, "x.rmeta", undefined))).toBe("encoder-d");
 });
 

@@ -5,9 +5,9 @@
 // <lane>)` comment directly above a declaration with its final signature whose body is
 // `unported("rustc_metadata::rmeta::encoder::.. (lane <lane>)")`. A lane replaces each of its stubs in place with the
 // body and a `// rustc:` marker (contract.test.ts pins who owns what, so lanes cannot drift):
-// - encoder-a: :1–:580 (the `SpanEncoder` impl, `bytes_needed`, `SpanData` / `[u8]` encoding,
-//   `encode_symbol_or_byte_symbol`, the def-path tables);
-// - encode-span-hygiene (wave 32): `encode_source_map` (:581) and `encode_hygiene` (:2036);
+// - encoder-a: :1–:580 except encode-span-hygiene's (`[u8]` encoding :402, the def-path tables :556/:577);
+// - encode-span-hygiene (wave 32): the `SpanEncoder` impl (:151–:244), `bytes_needed` (:254), `SpanData`'s encoding
+//   (:259), `encode_symbol_or_byte_symbol` (:529), `encode_source_map` (:581) and `encode_hygiene` (:2036);
 // - encoder-b: :651–:1481 (`encode_crate_root`, `analyze_attr`, the `should_encode_*` predicates, `encode_attrs`);
 // - encoder-c: :1482–:2035 (`encode_def_ids` .. `encode_foreign_modules`);
 // - encoder-d: :2064–end (`encode_proc_macros` .. `encode_dylib_dependency_formats`, `prefetch_mir`,
@@ -48,18 +48,20 @@ import type { TyEncoder } from "../../rustc_middle/ty/codec.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import type { Ty } from "../../rustc_middle/ty/mod.ts";
 import type { FileEncoder } from "../../rustc_serialize/opaque.ts";
-import { type Encodable, type Encoder, Encoder_provided, encode_usize } from "../../rustc_serialize/serialize.ts";
+import { type Encodable, type Encoder, Encoder_provided, encode_Option, encode_tuple, encode_u32, encode_usize } from "../../rustc_serialize/serialize.ts";
 import type { DeniedPartialMitigation } from "../../rustc_session/options/mitigation_coverage.ts";
 import type { TargetModifier } from "../../rustc_session/options.ts";
-import type { CrateNum, DefId, DefIndex, LocalDefId } from "../../rustc_span/def_id.ts";
-import { type ExpnId, ExpnIndex, type HygieneEncodeContext, type SyntaxContext } from "../../rustc_span/hygiene.ts";
-import type { SourceFile, Span, SpanData } from "../../rustc_span/lib.ts";
+import { encode_ExpnData, encode_ExpnHash, encode_Transparency } from "../../rustc_span/decodable.gen.ts";
+import { CrateNum, type DefId, DefIndex, debug_CrateNum, encode_LocalDefId, LOCAL_CRATE, LocalDefId } from "../../rustc_span/def_id.ts";
+import { type ExpnData, type ExpnHash, type ExpnId, ExpnIndex, HygieneEncodeContext, LocalExpnId, SyntaxContext, type SyntaxContextKey } from "../../rustc_span/hygiene.ts";
+import { BytePos, debug_ExternalSource, encode_BytePos, encode_CrateNum, encode_ExpnId, encode_SourceFile, encode_SyntaxContext, RealFileName, type SourceFile, Span, type SpanData, StableSourceFileId } from "../../rustc_span/lib.ts";
 import { bug } from "../../rustc_span/macros.ts";
-import type { ByteSymbol, Symbol } from "../../rustc_span/symbol.ts";
-import { assert, assert_eq, unported, unwrap } from "../../std/panic.ts";
+import { ByteSymbol, Symbol } from "../../rustc_span/symbol.ts";
+import { assert, assert_eq, panic, unported, unwrap } from "../../std/panic.ts";
 import { PLAIN } from "../../std/fmt.ts";
 import type { Result } from "../../std/result.ts";
 import type { XxHash3_128 } from "../../vendor/twox_hash/lib.ts";
+import { encode_SpanTag } from "../decodable.gen.ts";
 import type { EiiMapEncodedKeyValue } from "../eii.ts";
 import type { Svh } from "./decoder.ts";
 import type { DefPathHashMapRef } from "./def_path_hash_map.ts";
@@ -76,10 +78,16 @@ import {
   type LazyTable,
   LazyValue,
   type ProcMacroData,
+  SpanTag,
+  type SpanKind,
+  SYMBOL_OFFSET,
+  SYMBOL_PREDEFINED,
+  SYMBOL_STR,
   type SyntaxContextTable,
   type TableBuilders,
   type TraitImpls,
 } from "./mod.ts";
+import { fse_Option_LazyValue, TableBuilder } from "./table.ts";
 
 // rustc-type: compiler/rustc_metadata/src/rmeta/encoder.rs:52 EncodeContext
 export class EncodeContext implements TyEncoder {
@@ -186,48 +194,93 @@ export class EncodeContext implements TyEncoder {
 
   // ---- impl<'a, 'tcx> SpanEncoder for EncodeContext<'a, 'tcx> ----
 
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:151 encode_crate_num (lane encoder-a)
-  encode_crate_num(_crate_num: CrateNum): void {
-    unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_crate_num (lane encoder-a)");
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:151 encode_crate_num
+  encode_crate_num(crate_num: CrateNum): void {
+    if (crate_num !== LOCAL_CRATE && this.is_proc_macro) {
+      panic(`Attempted to encode non-local CrateNum ${debug_CrateNum(crate_num, PLAIN)} for proc-macro crate`);
+    }
+    this.emit_u32(CrateNum.as_u32(crate_num));
   }
 
   /// This function panics as we need to remap only local def indices, however
   /// we can not determine if the def index is local given only def index.
   /// In metadata `LocalDefId` is used instead of `DefIndex` as with this wrapper
   /// around def index we certainly know that it came from local crate.
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:162 encode_def_index (lane encoder-a)
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:162 encode_def_index
   encode_def_index(_: DefIndex): void {
-    unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_def_index (lane encoder-a)");
+    panic("use LocalDefId or DefId or encode DefIndex manually");
   }
 
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:166 encode_def_id (lane encoder-a)
-  encode_def_id(_def_id: DefId): void {
-    unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_def_id (lane encoder-a)");
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:166 encode_def_id
+  encode_def_id(def_id: DefId): void {
+    encode_CrateNum(def_id.krate, this);
+    this.emit_u32(DefIndex.as_u32(def_id.index));
   }
 
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:171 encode_syntax_context (lane encoder-a)
-  encode_syntax_context(_syntax_context: SyntaxContext): void {
-    unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_syntax_context (lane encoder-a)");
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:171 encode_syntax_context
+  encode_syntax_context(syntax_context: SyntaxContext): void {
+    const idx = this.hygiene_ctxt.get_syntax_ctxt_encoding_index(syntax_context);
+    encode_u32(idx, this);
   }
 
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:176 encode_expn_id (lane encoder-a)
-  encode_expn_id(_expn_id: ExpnId): void {
-    unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_expn_id (lane encoder-a)");
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:176 encode_expn_id
+  encode_expn_id(expn_id: ExpnId): void {
+    if (expn_id.krate === LOCAL_CRATE) {
+      // We will only write details for local expansions. Non-local expansions will fetch
+      // data from the corresponding crate's metadata.
+      // FIXME(#43047) FIXME(#74731) We may eventually want to avoid relying on external
+      // metadata from proc-macro crates.
+      this.hygiene_ctxt.schedule_expn_data_for_encoding(expn_id);
+    }
+    encode_CrateNum(expn_id.krate, this);
+    encode_ExpnIndex(expn_id.local_id, this);
   }
 
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:188 encode_span (lane encoder-a)
-  encode_span(_span: Span): void {
-    unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_span (lane encoder-a)");
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:188 encode_span
+  encode_span(span: Span): void {
+    // `match self.span_shorthands.entry(span)`
+    const last_location = this.span_shorthands.get(span);
+    if (last_location !== undefined) {
+      // Entry::Occupied
+      // If an offset is smaller than the absolute position, we encode with the offset.
+      // This saves space since smaller numbers encode in less bits.
+      // This cannot underflow. Metadata is written with increasing position(), so any
+      // previously saved offset must be smaller than the current position.
+      const offset = this.opaque.position() - last_location;
+      if (offset < last_location) {
+        const needed = bytes_needed(offset);
+        encode_SpanTag(SpanTag.indirect(true, needed), this);
+        this.opaque.write_with(8, (dest) => {
+          dest.set(usize_to_le_bytes(offset));
+          return needed;
+        });
+      } else {
+        const needed = bytes_needed(last_location);
+        encode_SpanTag(SpanTag.indirect(false, needed), this);
+        this.opaque.write_with(8, (dest) => {
+          dest.set(usize_to_le_bytes(last_location));
+          return needed;
+        });
+      }
+    } else {
+      // Entry::Vacant
+      const position = this.opaque.position();
+      this.span_shorthands.set(span, position);
+      // Data is encoded with a SpanTag prefix (see below).
+      encode_SpanData(Span.data(span), this);
+    }
   }
 
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:222 encode_symbol (lane encoder-a)
-  encode_symbol(_sym: Symbol): void {
-    unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_symbol (lane encoder-a)");
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:222 encode_symbol
+  encode_symbol(sym: Symbol): void {
+    this.encode_symbol_or_byte_symbol(Symbol.as_u32(sym), (this_) => this_.emit_str(Symbol.as_str(sym)));
   }
 
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:226 encode_byte_symbol (lane encoder-a)
-  encode_byte_symbol(_byte_sym: ByteSymbol): void {
-    unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_byte_symbol (lane encoder-a)");
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:226 encode_byte_symbol
+  encode_byte_symbol(byte_sym: ByteSymbol): void {
+    this.encode_symbol_or_byte_symbol(ByteSymbol.as_u32(byte_sym), (this_) => {
+      this_.emit_byte_str(ByteSymbol.as_byte_str(byte_sym));
+    });
   }
 
   /// We override `encode` function for `LocalDefId` as its default
@@ -235,17 +288,18 @@ export class EncodeContext implements TyEncoder {
   /// meaning that the crate num will also be encoded, however as in metadata we use
   /// `LocalDefId` as a wrapper around def index we want to encode
   /// def index only, so we override the encode implementation.
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:237 encode_local_def_id (lane encoder-a)
-  encode_local_def_id(_def_id: LocalDefId): void {
-    unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_local_def_id (lane encoder-a)");
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:237 encode_local_def_id
+  encode_local_def_id(def_id: LocalDefId): void {
+    this.emit_u32(DefIndex.as_u32(LocalDefId.local_def_index(def_id)));
   }
 
   /// We override encoding logic for `DefKey` during metadata encoding,
   /// as `DefKey` has a field `parent` of type `Option<DefIndex>` whose encoding will
   /// cause panic. So we remap it to `LocalDefId` as def keys during metadata encoding are all local.
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:244 encode_def_key (lane encoder-a)
-  encode_def_key<T>(_parent: DefIndex | undefined, _disambiguated_data: T, _encode_T: Encodable<T, EncodeContext>): void {
-    unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_def_key (lane encoder-a)");
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:244 encode_def_key
+  encode_def_key<T>(parent: DefIndex | undefined, disambiguated_data: T, encode_T: Encodable<T, EncodeContext>): void {
+    encode_Option(parent === undefined ? undefined : LocalDefId.of(parent), this, encode_LocalDefId);
+    encode_T(disambiguated_data, this);
   }
 
   // ---- impl<'a, 'tcx> TyEncoder<'tcx> for EncodeContext<'a, 'tcx> ----
@@ -338,9 +392,28 @@ export class EncodeContext implements TyEncoder {
     return LazyArray.from_position_and_num_elems<T>(pos, len);
   }
 
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:529 encode_symbol_or_byte_symbol (lane encoder-a)
-  encode_symbol_or_byte_symbol(_index: number, _emit_str_or_byte_str: (this_: EncodeContext) => void): void {
-    unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_symbol_or_byte_symbol (lane encoder-a)");
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:529 encode_symbol_or_byte_symbol
+  encode_symbol_or_byte_symbol(index: number, emit_str_or_byte_str: (this_: EncodeContext) => void): void {
+    // if symbol/byte symbol is predefined, emit tag and symbol index
+    if (Symbol.is_predefined(index)) {
+      this.opaque.emit_u8(SYMBOL_PREDEFINED);
+      this.opaque.emit_u32(index);
+    } else {
+      // otherwise write it as string or as offset to it
+      // `match self.symbol_index_table.entry(index)`
+      const x = this.symbol_index_table.get(index);
+      if (x === undefined) {
+        // Entry::Vacant
+        this.opaque.emit_u8(SYMBOL_STR);
+        const pos = this.opaque.position();
+        this.symbol_index_table.set(index, pos);
+        emit_str_or_byte_str(this);
+      } else {
+        // Entry::Occupied
+        this.emit_u8(SYMBOL_OFFSET);
+        this.emit_usize(x);
+      }
+    }
   }
 
   // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:556 encode_def_path_table (lane encoder-a)
@@ -353,9 +426,76 @@ export class EncodeContext implements TyEncoder {
     return unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_def_path_hash_map (lane encoder-a)");
   }
 
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:581 encode_source_map (lane encode-span-hygiene)
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:581 encode_source_map
   encode_source_map(): LazyTable<number, number, LazyValue<SourceFile> | undefined> {
-    return unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_source_map (lane encode-span-hygiene)");
+    const source_map = this.tcx.sess.source_map();
+    const all_source_files = source_map.files().deref();
+
+    // By replacing the `Option` with `None`, we ensure that we can't
+    // accidentally serialize any more `Span`s after the source map encoding
+    // is done.
+    const required_source_files = unwrap(this.required_source_files);
+    this.required_source_files = undefined;
+
+    const adapted = TableBuilder.default<number, number, LazyValue<SourceFile> | undefined>(fse_Option_LazyValue);
+
+    const local_crate_stable_id = this.tcx.stable_crate_id(LOCAL_CRATE);
+
+    // Only serialize `SourceFile`s that were used during the encoding of a `Span`.
+    //
+    // The order in which we encode source files is important here: the on-disk format for
+    // `Span` contains the index of the corresponding `SourceFile`.
+    // PORT: `required_source_files.iter().enumerate()`: the `Map` iterates in insertion order and its value is the
+    // insertion index (`insert_full`), i.e. `on_disk_index`.
+    for (const [source_file_index, on_disk_index] of required_source_files) {
+      const source_file = all_source_files[source_file_index]!;
+      // Don't serialize imported `SourceFile`s, unless we're in a proc-macro crate.
+      assert(!source_file.is_imported() || this.is_proc_macro, "assertion failed: !source_file.is_imported() || self.is_proc_macro");
+
+      // At export time we expand all source file paths to absolute paths because
+      // downstream compilation sessions can have a different compiler working
+      // directory, so relative paths from this or any other upstream crate
+      // won't be valid anymore.
+      //
+      // At this point we also erase the actual on-disk path and only keep
+      // the remapped version -- as is necessary for reproducible builds.
+      const adapted_source_file = source_file.clone();
+
+      switch (source_file.name.$) {
+        case "Real": {
+          const original_file_name = source_file.name._0;
+          // PORT: `original_file_name.clone()` (`#[derive(Clone)]`; the `InnerRealFileName`s are never mutated).
+          const adapted_file_name = new RealFileName(original_file_name.local, original_file_name.maybe_remapped, original_file_name.scopes);
+          adapted_file_name.update_for_crate_metadata();
+          adapted_source_file.name = { $: "Real", _0: adapted_file_name };
+          break;
+        }
+        default: {
+          // expanded code, not from a file
+        }
+      }
+
+      // We're serializing this `SourceFile` into our crate metadata,
+      // so mark it as coming from this crate.
+      // This also ensures that we don't try to deserialize the
+      // `CrateNum` for a proc-macro dependency - since proc macro
+      // dependencies aren't loaded when we deserialize a proc-macro,
+      // trying to remap the `CrateNum` would fail.
+      if (this.is_proc_macro) {
+        adapted_source_file.cnum = LOCAL_CRATE;
+      }
+
+      // Update the `StableSourceFileId` to make sure it incorporates the
+      // id of the current crate. This way it will be unique within the
+      // crate graph during downstream compilation sessions.
+      adapted_source_file.stable_id = StableSourceFileId.from_filename_for_export(adapted_source_file.name, local_crate_stable_id);
+
+      // `on_disk_index.try_into().expect("cannot export more than U32_MAX files")`
+      if (on_disk_index > 0xffff_ffff) panic("cannot export more than U32_MAX files: TryFromIntError(())");
+      adapted.set_some(on_disk_index, this.lazy(adapted_source_file, encode_SourceFile));
+    }
+
+    return adapted.encode(this.opaque);
   }
 
   // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:651 encode_crate_root (lane encoder-b)
@@ -450,9 +590,29 @@ export class EncodeContext implements TyEncoder {
     return unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_foreign_modules (lane encoder-c)");
   }
 
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:2036 encode_hygiene (lane encode-span-hygiene)
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:2036 encode_hygiene
   encode_hygiene(): [SyntaxContextTable, ExpnDataTable, ExpnHashTable] {
-    return unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_hygiene (lane encode-span-hygiene)");
+    const syntax_contexts = TableBuilder.default<number, number, LazyValue<SyntaxContextKey> | undefined>(fse_Option_LazyValue);
+    const expn_data_table = TableBuilder.default<ExpnIndex, ExpnIndex, LazyValue<ExpnData> | undefined>(fse_Option_LazyValue);
+    const expn_hash_table = TableBuilder.default<ExpnIndex, ExpnIndex, LazyValue<ExpnHash> | undefined>(fse_Option_LazyValue);
+
+    HygieneEncodeContext.encode(
+      this.hygiene_ctxt,
+      [this, syntax_contexts, expn_data_table, expn_hash_table] as const,
+      ([this_, syntax_contexts], index, ctxt_data) => {
+        syntax_contexts.set_some(index, this_.lazy(ctxt_data, encode_SyntaxContextKey));
+      },
+      ([this_, , expn_data_table, expn_hash_table], index, expn_data, hash) => {
+        const index_ = index.as_local();
+        if (index_ !== undefined) {
+          expn_data_table.set_some(LocalExpnId.as_raw(index_), this_.lazy(unwrap(expn_data, "local expn"), encode_ExpnData));
+
+          expn_hash_table.set_some(LocalExpnId.as_raw(index_), this_.lazy(hash, encode_ExpnHash));
+        }
+      },
+    );
+
+    return [syntax_contexts.encode(this.opaque), expn_data_table.encode(this.opaque), expn_hash_table.encode(this.opaque)];
   }
 
   // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:2064 encode_proc_macros (lane encoder-d)
@@ -585,15 +745,174 @@ export function encode_ExpnIndex(self: ExpnIndex, s: EncodeContext): void {
   s.emit_u32(ExpnIndex.as_u32(self));
 }
 
-// stub: compiler/rustc_metadata/src/rmeta/encoder.rs:254 bytes_needed (lane encoder-a)
-export function bytes_needed(_n: number): number {
-  return unported("rustc_metadata::rmeta::encoder::bytes_needed (lane encoder-a)");
+// rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:254 bytes_needed
+export function bytes_needed(n: number): number {
+  // `(usize::BITS - n.leading_zeros()).div_ceil(u8::BITS)`
+  let bits = 0;
+  for (let m = n; m > 0; m = Math.floor(m / 2)) bits++;
+  return Math.ceil(bits / 8);
+}
+
+/** `n.to_le_bytes()` of a `usize` (8 bytes; `n` < 2^53). */
+function usize_to_le_bytes(n: number): Uint8Array {
+  const out = new Uint8Array(8);
+  for (let i = 0, m = n; i < 8; i++, m = Math.floor(m / 256)) out[i] = m % 256;
+  return out;
+}
+
+/** `SyntaxContextKey`'s `Encodable` (a tuple `(SyntaxContext, ExpnId, Transparency)`), the inverse of decoder.ts's
+ * `decode_tuple_(d, decode_SyntaxContext, decode_ExpnId, decode_Transparency)`. */
+function encode_SyntaxContextKey(v: SyntaxContextKey, e: EncodeContext): void {
+  encode_tuple(v, e, encode_SyntaxContext, encode_ExpnId, encode_Transparency);
 }
 
 // impl<'a, 'tcx> Encodable<EncodeContext<'a, 'tcx>> for SpanData
-// stub: compiler/rustc_metadata/src/rmeta/encoder.rs:259 encode (lane encoder-a)
-export function encode_SpanData(_self: SpanData, _s: EncodeContext): void {
-  unported("rustc_metadata::rmeta::encoder::encode SpanData (lane encoder-a)");
+// rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:259 encode
+export function encode_SpanData(self: SpanData, s: EncodeContext): void {
+  // Don't serialize any `SyntaxContext`s from a proc-macro crate,
+  // since we don't load proc-macro dependencies during serialization.
+  // This means that any hygiene information from macros used *within*
+  // a proc-macro crate (e.g. invoking a macro that expands to a proc-macro
+  // definition) will be lost.
+  //
+  // This can show up in two ways:
+  //
+  // 1. Any hygiene information associated with identifier of
+  // a proc macro (e.g. `#[proc_macro] pub fn $name`) will be lost.
+  // Since proc-macros can only be invoked from a different crate,
+  // real code should never need to care about this.
+  //
+  // 2. Using `Span::def_site` or `Span::mixed_site` will not
+  // include any hygiene information associated with the definition
+  // site. This means that a proc-macro cannot emit a `$crate`
+  // identifier which resolves to one of its dependencies,
+  // which also should never come up in practice.
+  //
+  // Additionally, this affects `Span::parent`, and any other
+  // span inspection APIs that would otherwise allow traversing
+  // the `SyntaxContexts` associated with a span.
+  //
+  // None of these user-visible effects should result in any
+  // cross-crate inconsistencies (getting one behavior in the same
+  // crate, and a different behavior in another crate) due to the
+  // limited surface that proc-macros can expose.
+  //
+  // IMPORTANT: If this is ever changed, be sure to update
+  // `rustc_span::hygiene::raw_encode_expn_id` to handle
+  // encoding `ExpnData` for proc-macro crates.
+  const ctxt = s.is_proc_macro ? SyntaxContext.root() : self.ctxt;
+
+  if (self.is_dummy()) {
+    const tag = SpanTag.new("Partial", ctxt, 0);
+    encode_SpanTag(tag, s);
+    if (tag.context() === undefined) {
+      encode_SyntaxContext(ctxt, s);
+    }
+    return;
+  }
+
+  // The Span infrastructure should make sure that this invariant holds:
+  // debug_assert!(self.lo <= self.hi);
+
+  if (!s.source_file_cache[0].contains(self.lo)) {
+    const source_map = s.tcx.sess.source_map();
+    const source_file_index = source_map.lookup_source_file_idx(self.lo);
+    s.source_file_cache = [source_map.files().deref()[source_file_index]!, source_file_index];
+  }
+  const [source_file, source_file_index] = s.source_file_cache;
+  // debug_assert!(source_file.contains(self.lo));
+
+  if (!source_file.contains(self.hi)) {
+    // Unfortunately, macro expansion still sometimes generates Spans
+    // that malformed in this way.
+    const tag = SpanTag.new("Partial", ctxt, 0);
+    encode_SpanTag(tag, s);
+    if (tag.context() === undefined) {
+      encode_SyntaxContext(ctxt, s);
+    }
+    return;
+  }
+
+  // There are two possible cases here:
+  // 1. This span comes from a 'foreign' crate - e.g. some crate upstream of the
+  // crate we are writing metadata for. When the metadata for *this* crate gets
+  // deserialized, the deserializer will need to know which crate it originally came
+  // from. We use `TAG_VALID_SPAN_FOREIGN` to indicate that a `CrateNum` should
+  // be deserialized after the rest of the span data, which tells the deserializer
+  // which crate contains the source map information.
+  // 2. This span comes from our own crate. No special handling is needed - we just
+  // write `TAG_VALID_SPAN_LOCAL` to let the deserializer know that it should use
+  // our own source map information.
+  //
+  // If we're a proc-macro crate, we always treat this as a local `Span`.
+  // In `encode_source_map`, we serialize foreign `SourceFile`s into our metadata
+  // if we're a proc-macro crate.
+  // This allows us to avoid loading the dependencies of proc-macro crates: all of
+  // the information we need to decode `Span`s is stored in the proc-macro crate.
+  let kind: SpanKind;
+  let metadata_index: number;
+  if (source_file.is_imported() && !s.is_proc_macro) {
+    // To simplify deserialization, we 'rebase' this span onto the crate it originally came
+    // from (the crate that 'owns' the file it references. These rebased 'lo' and 'hi'
+    // values are relative to the source map information for the 'foreign' crate whose
+    // CrateNum we write into the metadata. This allows `imported_source_files` to binary
+    // search through the 'foreign' crate's source map information, using the
+    // deserialized 'lo' and 'hi' values directly.
+    //
+    // All of this logic ensures that the final result of deserialization is a 'normal'
+    // Span that can be used without any additional trouble.
+    // Introduce a new scope so that we drop the 'read()' temporary
+    const src = source_file.external_src.read();
+    if (src.$ === "Foreign") {
+      metadata_index = src.metadata_index;
+    } else {
+      return panic(`Unexpected external source ${debug_ExternalSource(src, PLAIN)}`);
+    }
+
+    kind = "Foreign";
+  } else {
+    // Record the fact that we need to encode the data for this `SourceFile`
+    const source_files = unwrap(s.required_source_files, "Already encoded SourceMap!");
+    // `let (metadata_index, _) = source_files.insert_full(source_file_index);`
+    let index = source_files.get(source_file_index);
+    if (index === undefined) {
+      index = source_files.size;
+      source_files.set(source_file_index, index);
+    }
+    // `metadata_index.try_into().expect("cannot export more than U32_MAX files")`
+    if (index > 0xffff_ffff) return panic("cannot export more than U32_MAX files: TryFromIntError(())");
+    metadata_index = index;
+
+    kind = "Local";
+  }
+
+  // Encode the start position relative to the file start, so we profit more from the
+  // variable-length integer encoding.
+  const lo = BytePos.sub(self.lo, source_file.start_pos);
+
+  // Encode length which is usually less than span.hi and profits more
+  // from the variable-length integer encoding that we use.
+  const len = BytePos.sub(self.hi, self.lo);
+
+  const tag = SpanTag.new(kind, ctxt, len);
+  encode_SpanTag(tag, s);
+  if (tag.context() === undefined) {
+    encode_SyntaxContext(ctxt, s);
+  }
+  encode_BytePos(lo, s);
+  if (tag.length() === undefined) {
+    encode_BytePos(len, s);
+  }
+
+  // Encode the index of the `SourceFile` for the span, in order to make decoding faster.
+  encode_u32(metadata_index, s);
+
+  if (kind === "Foreign") {
+    // This needs to be two lines to avoid holding the `s.source_file_cache`
+    // while calling `cnum.encode(s)`
+    const cnum = s.source_file_cache[0].cnum;
+    encode_CrateNum(cnum, s);
+  }
 }
 
 // impl<'a, 'tcx> Encodable<EncodeContext<'a, 'tcx>> for [u8]
