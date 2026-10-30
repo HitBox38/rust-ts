@@ -35,7 +35,7 @@
 import type { Attribute } from "../../rustc_attr_ir/attr.ts";
 import type { StrippedCfgItem } from "../../rustc_attr_ir/data_structures.ts";
 import type { LangItem } from "../../rustc_attr_ir/lang_items.ts";
-import type { ExportedSymbol, SymbolExportInfo } from "../../rustc_codegen_ssa/back/symbol_export.ts";
+import type { ExportedSymbol, SymbolExportInfo } from "../../rustc_middle/middle/exported_symbols.ts";
 import type { ForeignModule, LinkagePreference, NativeLib } from "../../rustc_crate_store/lib.ts";
 import type { Features } from "../../rustc_feature/unstable.ts";
 import type { DefKind } from "../../rustc_hir/def.ts";
