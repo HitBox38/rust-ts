@@ -16,6 +16,8 @@
 // `Id: Into<ModId>` / `impl Into<DefId>` dispatch on the runtime shape (`into_ModId`,
 // `into_query_key_DefId`). `Option<Ordering>` is `Ordering | undefined` with
 // `Ordering = "Less" | "Equal" | "Greater"`.
+import type { Encodable } from "../../rustc_serialize/serialize.ts";
+import type { TyEncoder } from "./codec.ts";
 import { type DefPath, debug_DefPath } from "../../rustc_hir_id/definitions.ts";
 import { DefId, type DefId as DefIdT, debug_DefId, debug_LocalModId, debug_ModId, LocalDefId, LocalModId, ModId, ModId_eq } from "../../rustc_span/def_id.ts";
 import type { Ident, Symbol } from "../../rustc_span/symbol.ts";
@@ -838,7 +840,12 @@ export const fold_Term: TypeFoldable<Term> = {
   },
 };
 
-// rustc-skip: compiler/rustc_middle/src/ty/mod.rs:634 encode Encodable impl (metadata encoding, M5)
+// impl<'tcx, E: TyEncoder<'tcx>> Encodable<E> for Term<'tcx>
+// PORT: `TermKind: Encodable<E>` is `encode_TermKind` (derived; tools/codegen), as for `decode_Term`.
+// stub: compiler/rustc_middle/src/ty/mod.rs:634 encode (lane encode-middle)
+export function encode_Term<E extends TyEncoder>(_self: Term, _e: E, _encode_TermKind: Encodable<TermKind, E>): void {
+  unported("rustc_middle::ty::encode Term (lane encode-middle)");
+}
 
 // PORT: `impl<D: TyDecoder> Decodable<D> for Term` is hand-written upstream, so it is ported (the precedent of
 // rustc_type_ir/serialize.ts); `TermKind: Decodable<D>` is the derived impl tools/codegen generates, passed as a fn.

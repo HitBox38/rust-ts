@@ -131,7 +131,7 @@ export interface Case<T = unknown> {
   encode: (v: T, e: MemEncoder | FileEncoder) => void;
   decode: Decodable<T, MemDecoder>;
 }
-const c = <T>(name: string, values: T[], encode: Encodable<T>, decode: Decodable<T, MemDecoder>): Case => ({ name, values, encode, decode }) as Case;
+const c = <T>(name: string, values: T[], encode: Encodable<T, MemEncoder>, decode: Decodable<T, MemDecoder>): Case => ({ name, values, encode, decode }) as Case;
 const range = (a: number, b: number): number[] => Array.from({ length: b - a }, (_, i) => a + i);
 
 const U64_MAX = (1n << 64n) - 1n;

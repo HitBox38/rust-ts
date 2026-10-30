@@ -16,7 +16,7 @@ import { type RangeBounds, range, SortedMap } from "../../../../rustc_data_struc
 import { range_from, range_to } from "../../../../rustc_index/idx.ts";
 import { assert, panic, unported, unwrap } from "../../../../std/panic.ts";
 import { Err, Ok } from "../../../../std/result.ts";
-import { type Decoder, decode_tuple, decode_u64, decode_Vec } from "../../../../rustc_serialize/serialize.ts";
+import { type Decoder, decode_tuple, decode_u64, decode_Vec, type Encodable, type Encoder } from "../../../../rustc_serialize/serialize.ts";
 import type { Range } from "../../../ty/decls.ts";
 import { type AllocRange, type AllocResult, alloc_range } from "../allocation.ts";
 import { type CtfeProvenance, type Provenance, Provenance_CtfeProvenance, provenance_of } from "../pointer.ts";
@@ -132,7 +132,11 @@ function decode_SortedMap_Size<D extends Decoder, V>(d: D, decode_V: (d: D) => V
   return new SortedMap(data, cmp_Size);
 }
 
-// rustc-skip: compiler/rustc_middle/src/mir/interpret/allocation/provenance_map.rs:53 encode Encodable (metadata encoding, M5)
+// impl<Prov: Provenance, S: Encoder> Encodable<S> for ProvenanceMap<Prov>
+// stub: compiler/rustc_middle/src/mir/interpret/allocation/provenance_map.rs:53 encode (lane encode-middle)
+export function encode_ProvenanceMap<Prov, S extends Encoder>(_self: ProvenanceMap<Prov>, _s: S, _encode_Prov: Encodable<Prov, S>): void {
+  unported("rustc_middle::mir::interpret::allocation::provenance_map::encode ProvenanceMap (lane encode-middle)");
+}
 
 // rustc: compiler/rustc_middle/src/mir/interpret/allocation/provenance_map.rs:61 new
 (ProvenanceMap as unknown as { new: typeof ProvenanceMap.new }).new = function <Prov>(): ProvenanceMap<Prov> {

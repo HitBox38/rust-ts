@@ -4,7 +4,7 @@ import { debug_ExternAbi, type ExternAbi } from "../rustc_abi/extern_abi.ts";
 import { type CrateStoreDyn } from "./cstore.ts";
 import { type Definitions } from "../rustc_hir_id/definitions.ts";
 import { type CrateNum, debug_CrateNum, debug_DefId, type DefId, type StableCrateIdMap } from "../rustc_span/def_id.ts";
-import { type BlobDecoder, debug_Span, type Span } from "../rustc_span/lib.ts";
+import { type BlobDecoder, debug_Span, type Span, type SpanEncoder } from "../rustc_span/lib.ts";
 import { debug_Symbol, type Symbol } from "../rustc_span/symbol.ts";
 import { clone_NativeLibKind, debug_NativeLibKind, type NativeLibKind } from "../rustc_structures/lib.ts";
 import { type Debug, debug_bool, debug_int, debug_option, debug_str, debug_struct, debug_tuple, debug_vec } from "../std/fmt.ts";
@@ -66,6 +66,21 @@ export function decode_CrateDepKind(__decoder: BlobDecoder): CrateDepKind {
       return panic(`invalid enum variant tag while decoding \`CrateDepKind\`, expected 0..3, actual ${__tag}`);
   }
 }
+function CrateDepKind__variant_index(tag: CrateDepKind): number {
+  switch (tag) {
+    case "MacrosOnly":
+      return 0;
+    case "Conditional":
+      return 1;
+    case "Unconditional":
+      return 2;
+  }
+}
+// rustc-derive: compiler/rustc_crate_store/src/cstore.rs:40 Encodable for CrateDepKind
+export function encode_CrateDepKind(self: CrateDepKind, __encoder: SpanEncoder): void {
+  const disc = CrateDepKind__variant_index(self);
+  __encoder.emit_u8(disc);
+}
 
 // rustc-type: compiler/rustc_crate_store/src/cstore.rs:63 LinkagePreference
 export type LinkagePreference =
@@ -87,6 +102,19 @@ export function decode_LinkagePreference(__decoder: BlobDecoder): LinkagePrefere
     default:
       return panic(`invalid enum variant tag while decoding \`LinkagePreference\`, expected 0..2, actual ${__tag}`);
   }
+}
+function LinkagePreference__variant_index(tag: LinkagePreference): number {
+  switch (tag) {
+    case "RequireDynamic":
+      return 0;
+    case "RequireStatic":
+      return 1;
+  }
+}
+// rustc-derive: compiler/rustc_crate_store/src/cstore.rs:63 Encodable for LinkagePreference
+export function encode_LinkagePreference(self: LinkagePreference, __encoder: SpanEncoder): void {
+  const disc = LinkagePreference__variant_index(self);
+  __encoder.emit_u8(disc);
 }
 
 // rustc-type: compiler/rustc_crate_store/src/cstore.rs:69 NativeLib

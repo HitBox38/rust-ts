@@ -19,7 +19,7 @@ import { Ok, type Result, unwrap_result } from "../../../std/result.ts";
 import { EarlyBinder } from "../../../rustc_type_ir/binder.ts";
 import { debug_Promoted } from "../mod.ts";
 import { TyCtxt } from "../../ty/context.ts";
-import type { TyDecoder } from "../../ty/codec.ts";
+import type { TyDecoder, TyEncoder } from "../../ty/codec.ts";
 import type { Instance, Ty, TypingEnv } from "../../ty/decls.ts";
 import type { List } from "../../ty/list.ts";
 import type { PolyExistentialPredicate, PolyExistentialTraitRef } from "../../ty/predicate.ts";
@@ -199,7 +199,10 @@ function decode_AllocDiscriminant(d: TyDecoder): AllocDiscriminant {
   }
 }
 
-// rustc-skip: compiler/rustc_middle/src/mir/interpret/mod.rs:104 specialized_encode_alloc_id Encodable (metadata encoding, M5)
+// stub: compiler/rustc_middle/src/mir/interpret/mod.rs:104 specialized_encode_alloc_id (lane encode-middle)
+export function specialized_encode_alloc_id<E extends TyEncoder>(_encoder: E, _tcx: TyCtxt, _alloc_id: AllocId): void {
+  unported("rustc_middle::mir::interpret::specialized_encode_alloc_id (lane encode-middle)");
+}
 
 // #[inline]
 // rustc: compiler/rustc_middle/src/mir/interpret/mod.rs:158 new_decoding_session

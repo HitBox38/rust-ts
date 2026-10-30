@@ -14,7 +14,8 @@
 // - Struct fields that clash with a method of the same name get `_` (`CrateRoot.stable_crate_id_`).
 //
 // `pub(crate) use decoder::{CrateMetadata, CrateNumMap, MetadataBlob, TargetModifiers};` is a type-only
-// re-export (see above). `pub use encoder::{EncodedMetadata, encode_metadata, rendered_const};` is M5.
+// re-export (see above). `pub use encoder::{EncodedMetadata, encode_metadata, rendered_const};`: encoder.ts (lane
+// encode-contract skeleton, filled by lanes encoder-a..d); ../lib.ts does not load it until `encode_metadata` is reached.
 import type { DelimArgs } from "../../rustc_ast/lib.ts";
 import type { Attribute } from "../../rustc_attr_ir/attr.ts";
 import type { Deprecation } from "../../rustc_attr_ir/data_structures.gen.ts";
@@ -44,6 +45,7 @@ import { assert, panic, unported, unreachable } from "../../std/panic.ts";
 import { flags_companion } from "../../vendor/bitflags/traits.ts";
 import type { CrateMetadata, LazyDecoder, MetaBlob, Svh } from "./decoder.ts";
 import type { DefPathHashMapRef } from "./def_path_hash_map.ts";
+import type { EncodeContext } from "./encoder.ts";
 import {
   type Asyncness,
   type Constness,
@@ -737,6 +739,96 @@ export function decode_LazyTables(__decoder: LazyDecoder): LazyTables {
   };
 }
 
+/**
+ * `#[derive(MetadataEncodable)]` of `LazyTables` (rustc_macros serialize.rs `encodable_body`: the fields in order).
+ * PORT (lane encode-contract): hand-expanded like `decode_LazyTables`; reached from the generated `encode_CrateRoot`
+ * through tools/codegen/serialize.json.
+ */
+export function encode_LazyTables(self: LazyTables, __encoder: EncodeContext): void {
+  encode_LazyTable(self.intrinsic, __encoder);
+  encode_LazyTable(self.is_macro_rules, __encoder);
+  encode_LazyTable(self.type_alias_is_checked, __encoder);
+  encode_LazyTable(self.attr_flags, __encoder);
+  encode_LazyTable(self.def_path_hashes, __encoder);
+  encode_LazyTable(self.explicit_item_bounds, __encoder);
+  encode_LazyTable(self.explicit_item_self_bounds, __encoder);
+  encode_LazyTable(self.inferred_outlives_of, __encoder);
+  encode_LazyTable(self.explicit_super_clauses_of, __encoder);
+  encode_LazyTable(self.explicit_implied_clauses_of, __encoder);
+  encode_LazyTable(self.explicit_implied_const_bounds, __encoder);
+  encode_LazyTable(self.inherent_impls, __encoder);
+  encode_LazyTable(self.opt_rpitit_info, __encoder);
+  encode_LazyTable(self.module_children_reexports, __encoder);
+  encode_LazyTable(self.ambig_module_children, __encoder);
+  encode_LazyTable(self.cross_crate_inlinable, __encoder);
+  encode_LazyTable(self.asyncness, __encoder);
+  encode_LazyTable(self.constness, __encoder);
+  encode_LazyTable(self.safety, __encoder);
+  encode_LazyTable(self.defaultness, __encoder);
+  encode_LazyTable(self.impl_is_fully_generic_for_reflection, __encoder);
+  encode_LazyTable(self.attributes, __encoder);
+  encode_LazyTable(self.module_children_non_reexports, __encoder);
+  encode_LazyTable(self.associated_item_or_field_def_ids, __encoder);
+  encode_LazyTable(self.def_kind, __encoder);
+  encode_LazyTable(self.visibility, __encoder);
+  encode_LazyTable(self.def_span, __encoder);
+  encode_LazyTable(self.def_ident_span, __encoder);
+  encode_LazyTable(self.lookup_stability, __encoder);
+  encode_LazyTable(self.lookup_const_stability, __encoder);
+  encode_LazyTable(self.lookup_default_body_stability, __encoder);
+  encode_LazyTable(self.lookup_deprecation_entry, __encoder);
+  encode_LazyTable(self.explicit_clauses_of, __encoder);
+  encode_LazyTable(self.generics_of, __encoder);
+  encode_LazyTable(self.type_of, __encoder);
+  encode_LazyTable(self.variances_of, __encoder);
+  encode_LazyTable(self.fn_sig, __encoder);
+  encode_LazyTable(self.codegen_fn_attrs, __encoder);
+  encode_LazyTable(self.impl_trait_header, __encoder);
+  encode_LazyTable(self.const_param_default, __encoder);
+  encode_LazyTable(self.object_lifetime_default, __encoder);
+  encode_LazyTable(self.optimized_mir, __encoder);
+  encode_LazyTable(self.mir_for_ctfe, __encoder);
+  encode_LazyTable(self.trivial_const, __encoder);
+  encode_LazyTable(self.closure_saved_names_of_captured_variables, __encoder);
+  encode_LazyTable(self.mir_coroutine_witnesses, __encoder);
+  encode_LazyTable(self.promoted_mir, __encoder);
+  encode_LazyTable(self.thir_abstract_const, __encoder);
+  encode_LazyTable(self.impl_parent, __encoder);
+  encode_LazyTable(self.const_conditions, __encoder);
+  encode_LazyTable(self.coerce_unsized_info, __encoder);
+  encode_LazyTable(self.mir_const_qualif, __encoder);
+  encode_LazyTable(self.rendered_const, __encoder);
+  encode_LazyTable(self.rendered_precise_capturing_args, __encoder);
+  encode_LazyTable(self.fn_arg_idents, __encoder);
+  encode_LazyTable(self.coroutine_kind, __encoder);
+  encode_LazyTable(self.coroutine_for_closure, __encoder);
+  encode_LazyTable(self.adt_destructor, __encoder);
+  encode_LazyTable(self.adt_async_destructor, __encoder);
+  encode_LazyTable(self.coroutine_by_move_body_def_id, __encoder);
+  encode_LazyTable(self.eval_static_initializer, __encoder);
+  encode_LazyTable(self.trait_def, __encoder);
+  encode_LazyTable(self.expn_that_defined, __encoder);
+  encode_LazyTable(self.default_fields, __encoder);
+  encode_LazyTable(self.params_in_repr, __encoder);
+  encode_LazyTable(self.repr_options, __encoder);
+  encode_LazyTable(self.def_keys, __encoder);
+  encode_LazyTable(self.variant_data, __encoder);
+  encode_LazyTable(self.assoc_container, __encoder);
+  encode_LazyTable(self.macro_definition, __encoder);
+  encode_LazyTable(self.deduced_param_attrs, __encoder);
+  encode_LazyTable(self.collect_return_position_impl_trait_in_trait_tys, __encoder);
+  encode_LazyTable(self.doc_link_resolutions, __encoder);
+  encode_LazyTable(self.doc_link_traits_in_scope, __encoder);
+  encode_LazyTable(self.assumed_wf_types_for_rpitit, __encoder);
+  encode_LazyTable(self.opaque_ty_origin, __encoder);
+  encode_LazyTable(self.anon_const_kind, __encoder);
+  encode_LazyTable(self.const_of_item, __encoder);
+  encode_LazyTable(self.associated_types_for_impl_traits_in_trait_or_impl, __encoder);
+  encode_LazyTable(self.live_args_for_alias_from_outlives_bounds, __encoder);
+  encode_LazyTable(self.args_known_to_outlive_alias_params, __encoder);
+  encode_LazyTable(self.mut_restriction, __encoder);
+}
+
 // #[derive(Default)]
 export interface TableBuilders {
   // - defaulted:
@@ -1177,6 +1269,37 @@ export function decode_LazyTable<Ie, Id, T>(decoder: LazyDecoder, _decode_Ie?: P
   const width = decoder.read_usize();
   const len = decoder.read_usize();
   return decoder.read_lazy_table<Ie, Id, T>(width, len);
+}
+
+// ---- impl Encodable<EncodeContext> for LazyValue / LazyArray / LazyTable (encoder.rs) ------------------------------
+// PORT (lane encode-contract): placed here like their `Decodable` impls (see the header): the generated encoders import
+// them from the types' module. `EncodeContext` is a type-only import (encoder.ts imports this module).
+
+/** PORT: the `Encodable` fns tools/codegen passes for the phantom type parameters (never called), as `PhantomDecodable`. */
+// biome-ignore lint/suspicious/noExplicitAny: phantom encode fns, see above
+export type PhantomEncodable = (v: any, e: any) => void;
+
+// impl<'a, 'tcx, T> Encodable<EncodeContext<'a, 'tcx>> for LazyValue<T>
+// rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:122 encode
+export function encode_LazyValue<T>(self: LazyValue<T>, e: EncodeContext, _encode_T?: PhantomEncodable): void {
+  e.emit_lazy_distance(self.position);
+}
+
+// impl<'a, 'tcx, T> Encodable<EncodeContext<'a, 'tcx>> for LazyArray<T>
+// rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:128 encode
+export function encode_LazyArray<T>(self: LazyArray<T>, e: EncodeContext, _encode_T?: PhantomEncodable): void {
+  e.emit_usize(self.num_elems);
+  if (self.num_elems > 0) {
+    e.emit_lazy_distance(self.position);
+  }
+}
+
+// impl<'a, 'tcx, Ie, Id, T> Encodable<EncodeContext<'a, 'tcx>> for LazyTable<Ie, Id, T>
+// rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:137 encode
+export function encode_LazyTable<Ie, Id, T>(self: LazyTable<Ie, Id, T>, e: EncodeContext, _encode_Ie?: PhantomEncodable, _encode_Id?: PhantomEncodable, _encode_T?: PhantomEncodable): void {
+  e.emit_usize(self.width);
+  e.emit_usize(self.len);
+  e.emit_lazy_distance(self.position);
 }
 
 // Element types re-exported for the decoder lanes (the tables' `T`s that have a TS type).

@@ -2,25 +2,29 @@
 // `decode_<T>(__decoder[, decode_<P>...])`: a struct decodes its fields in declaration order; an enum reads the variant
 // index (`read_u8`, or `read_usize` from 255 variants on), then that variant's fields. `encode_<T>` writes the same.
 // Only function declarations: hand modules may import from here inside an import cycle.
-import { decode_LangItem } from "../rustc_attr_ir/lang_items.ts";
-import { decode_CrateDepKind, decode_LinkagePreference } from "../rustc_crate_store/lib.ts";
-import { decode_CtorKind } from "../rustc_hir/def.ts";
-import { decode_Svh, type LazyDecoder } from "./rmeta/decoder.ts";
-import { decode_DefPathHashMapRef } from "./rmeta/def_path_hash_map.ts";
-import { type CrateDep, type CrateHeader, CrateRoot, type CrateRootUnhashed, decode_LazyArray, decode_LazyTable, decode_LazyTables, decode_LazyValue, type IncoherentImpls, type ProcMacroData, type ProcMacroKind, RawDefId, SpanTag, type TraitImpls, type VariantData } from "./rmeta/mod.ts";
-import { decode_VariantDiscr } from "../rustc_middle/decodable.gen.ts";
-import { type TyDecoder } from "../rustc_middle/ty/codec.ts";
+import { decode_LangItem, encode_LangItem } from "../rustc_attr_ir/lang_items.ts";
+import { decode_CrateDepKind, decode_LinkagePreference, encode_CrateDepKind, encode_LinkagePreference } from "../rustc_crate_store/lib.ts";
+import { decode_CtorKind, encode_CtorKind } from "../rustc_hir/def.ts";
+import { decode_Svh, encode_Svh, type LazyDecoder } from "./rmeta/decoder.ts";
+import { decode_DefPathHashMapRef, encode_DefPathHashMapRef } from "./rmeta/def_path_hash_map.ts";
+import { type EncodeContext } from "./rmeta/encoder.ts";
+import { type CrateDep, type CrateHeader, CrateRoot, type CrateRootUnhashed, decode_LazyArray, decode_LazyTable, decode_LazyTables, decode_LazyValue, encode_LazyArray, encode_LazyTable, encode_LazyTables, encode_LazyValue, type IncoherentImpls, type ProcMacroData, type ProcMacroKind, RawDefId, SpanTag, type TraitImpls, type VariantData } from "./rmeta/mod.ts";
+import { decode_VariantDiscr, encode_VariantDiscr } from "../rustc_middle/decodable.gen.ts";
+import { type TyDecoder, type TyEncoder } from "../rustc_middle/ty/codec.ts";
 import { VariantIdx } from "../rustc_middle/ty/decls.ts";
-import { decode_bool, decode_Option, decode_String, decode_tuple, decode_u32, decode_u64, decode_u8, decode_usize, decode_Vec } from "../rustc_serialize/serialize.ts";
-import { decode_SymbolManglingVersion } from "../rustc_session/config.ts";
-import { decode_Edition, decode_StableCrateId } from "../rustc_span/decodable.gen.ts";
-import { type BlobDecoder, type SpanDecoder } from "../rustc_span/lib.ts";
-import { decode_PanicStrategy } from "../rustc_target/spec/mod.ts";
-import { decode_TargetTuple } from "../rustc_target/spec/tuple.ts";
+import { decode_bool, decode_Option, decode_String, decode_tuple, decode_u32, decode_u64, decode_u8, decode_usize, decode_Vec, encode_bool, encode_Option, encode_String, encode_tuple, encode_u32, encode_u64, encode_u8, encode_usize, encode_Vec } from "../rustc_serialize/serialize.ts";
+import { decode_SymbolManglingVersion, encode_SymbolManglingVersion } from "../rustc_session/config.ts";
+import { decode_Edition, decode_StableCrateId, encode_Edition, encode_StableCrateId } from "../rustc_span/decodable.gen.ts";
+import { type BlobDecoder, type SpanDecoder, type SpanEncoder } from "../rustc_span/lib.ts";
+import { decode_PanicStrategy, encode_PanicStrategy } from "../rustc_target/spec/mod.ts";
+import { decode_TargetTuple, encode_TargetTuple } from "../rustc_target/spec/tuple.ts";
 import { panic } from "../std/panic.ts";
 import { unported } from "../std/panic.ts";
 function unported_decodable(..._a: unknown[]): never {
   return unported("Decodable without a TS impl (see types report)");
+}
+function unported_encodable(..._a: unknown[]): void {
+  unported("Encodable without a TS impl (see types report)");
 }
 
 // rustc-derive: compiler/rustc_metadata/src/rmeta/mod.rs:214 LazyDecodable for ProcMacroData
@@ -31,6 +35,13 @@ export function decode_ProcMacroData(__decoder: LazyDecoder): ProcMacroData {
     macros: decode_LazyArray(__decoder, (__decoder) => decode_tuple(__decoder, (__decoder) => __decoder.decode_local_def_id(), (__decoder) => decode_LazyValue(__decoder, decode_ProcMacroKind))),
     proc_macro_quoted_spans: decode_LazyTable(__decoder, decode_usize, decode_usize, (__decoder) => decode_Option(__decoder, (__decoder) => decode_LazyValue(__decoder, (__decoder) => __decoder.decode_span()))),
   };
+}
+// rustc-derive: compiler/rustc_metadata/src/rmeta/mod.rs:214 MetadataEncodable for ProcMacroData
+export function encode_ProcMacroData(self: ProcMacroData, __encoder: EncodeContext): void {
+  encode_LazyValue(self.proc_macro_decls_static, __encoder, (__v, __encoder) => __encoder.encode_local_def_id(__v));
+  encode_Option(self.stability, __encoder, (__v, __encoder) => unported_encodable(__v));
+  encode_LazyArray(self.macros, __encoder, (__v, __encoder) => encode_tuple(__v, __encoder, (__v, __encoder) => __encoder.encode_local_def_id(__v), (__v, __encoder) => encode_LazyValue(__v, __encoder, encode_ProcMacroKind)));
+  encode_LazyTable(self.proc_macro_quoted_spans, __encoder, encode_usize, encode_usize, (__v, __encoder) => encode_Option(__v, __encoder, (__v, __encoder) => encode_LazyValue(__v, __encoder, (__v, __encoder) => __encoder.encode_span(__v))));
 }
 
 // rustc-derive: compiler/rustc_metadata/src/rmeta/mod.rs:222 LazyDecodable for ProcMacroKind
@@ -47,6 +58,33 @@ export function decode_ProcMacroKind(__decoder: LazyDecoder): ProcMacroKind {
       return panic(`invalid enum variant tag while decoding \`ProcMacroKind\`, expected 0..3, actual ${__tag}`);
   }
 }
+function ProcMacroKind__variant_index(tag: ProcMacroKind["$"]): number {
+  switch (tag) {
+    case "CustomDerive":
+      return 0;
+    case "Attr":
+      return 1;
+    case "Bang":
+      return 2;
+  }
+}
+// rustc-derive: compiler/rustc_metadata/src/rmeta/mod.rs:222 MetadataEncodable for ProcMacroKind
+export function encode_ProcMacroKind(self: ProcMacroKind, __encoder: EncodeContext): void {
+  const disc = ProcMacroKind__variant_index(self.$);
+  __encoder.emit_u8(disc);
+  switch (self.$) {
+    case "CustomDerive":
+      encode_String(self.trait_name, __encoder);
+      encode_Vec(self.attributes, __encoder, encode_String);
+      break;
+    case "Attr":
+      encode_String(self.name, __encoder);
+      break;
+    case "Bang":
+      encode_String(self.name, __encoder);
+      break;
+  }
+}
 
 // rustc-derive: compiler/rustc_metadata/src/rmeta/mod.rs:236 BlobDecodable for CrateHeader
 export function decode_CrateHeader(__decoder: BlobDecoder): CrateHeader {
@@ -57,10 +95,68 @@ export function decode_CrateHeader(__decoder: BlobDecoder): CrateHeader {
     is_stub: decode_bool(__decoder),
   };
 }
+// rustc-derive: compiler/rustc_metadata/src/rmeta/mod.rs:236 MetadataEncodable for CrateHeader
+export function encode_CrateHeader(self: CrateHeader, __encoder: EncodeContext): void {
+  encode_TargetTuple(self.triple, __encoder);
+  __encoder.encode_symbol(self.name);
+  encode_bool(self.is_proc_macro_crate, __encoder);
+  encode_bool(self.is_stub, __encoder);
+}
 
 // rustc-derive: compiler/rustc_metadata/src/rmeta/mod.rs:270 LazyDecodable for CrateRoot
 export function decode_CrateRoot(__decoder: LazyDecoder): CrateRoot {
   return new CrateRoot(decode_CrateHeader(__decoder), decode_StableCrateId(__decoder), decode_Option(__decoder, decode_PanicStrategy), decode_PanicStrategy(__decoder), decode_Edition(__decoder), decode_bool(__decoder), decode_bool(__decoder), decode_bool(__decoder), decode_bool(__decoder), decode_LazyArray(__decoder, (__decoder) => unported_decodable(__decoder)), decode_LazyArray(__decoder, decode_CrateDep), decode_LazyArray(__decoder, (__decoder) => decode_Option(__decoder, decode_LinkagePreference)), decode_LazyArray(__decoder, (__decoder) => decode_tuple(__decoder, (__decoder) => __decoder.decode_symbol(), (__decoder) => unported_decodable(__decoder))), decode_LazyArray(__decoder, (__decoder) => decode_tuple(__decoder, (__decoder) => __decoder.decode_symbol(), (__decoder) => __decoder.decode_symbol())), decode_LazyArray(__decoder, (__decoder) => decode_tuple(__decoder, (__decoder) => __decoder.decode_local_def_id(), decode_LangItem)), decode_LazyArray(__decoder, decode_LangItem), decode_LazyArray(__decoder, (__decoder) => unported_decodable(__decoder)), decode_LazyArray(__decoder, (__decoder) => decode_tuple(__decoder, (__decoder) => __decoder.decode_symbol(), (__decoder) => __decoder.decode_local_def_id())), decode_LazyArray(__decoder, (__decoder) => decode_tuple(__decoder, (__decoder) => __decoder.decode_symbol(), (__decoder) => __decoder.decode_local_def_id())), decode_LazyArray(__decoder, (__decoder) => __decoder.decode_local_def_id()), decode_LazyArray(__decoder, (__decoder) => unported_decodable(__decoder)), decode_LazyArray(__decoder, (__decoder) => unported_decodable(__decoder)), decode_LazyArray(__decoder, (__decoder) => __decoder.decode_local_def_id()), decode_LazyArray(__decoder, decode_TraitImpls), decode_LazyArray(__decoder, decode_IncoherentImpls), decode_LazyArray(__decoder, (__decoder) => Number(decode_u64(__decoder))), decode_Option(__decoder, decode_ProcMacroData), decode_LazyTables(__decoder), decode_LazyArray(__decoder, (__decoder) => unported_decodable(__decoder)), decode_LazyArray(__decoder, (__decoder) => __decoder.decode_local_def_id()), decode_LazyArray(__decoder, (__decoder) => decode_tuple(__decoder, (__decoder) => __decoder.decode_local_def_id(), decode_usize)), decode_LazyArray(__decoder, (__decoder) => decode_tuple(__decoder, (__decoder) => unported_decodable(__decoder), (__decoder) => unported_decodable(__decoder))), decode_LazyArray(__decoder, (__decoder) => decode_tuple(__decoder, (__decoder) => unported_decodable(__decoder), (__decoder) => unported_decodable(__decoder))), decode_LazyTable(__decoder, decode_u32, decode_u32, (__decoder) => decode_Option(__decoder, (__decoder) => decode_LazyValue(__decoder, (__decoder) => unported_decodable(__decoder)))), decode_LazyTable(__decoder, (__decoder) => unported_decodable(__decoder), (__decoder) => unported_decodable(__decoder), (__decoder) => decode_Option(__decoder, (__decoder) => decode_LazyValue(__decoder, (__decoder) => unported_decodable(__decoder)))), decode_LazyTable(__decoder, (__decoder) => unported_decodable(__decoder), (__decoder) => unported_decodable(__decoder), (__decoder) => decode_Option(__decoder, (__decoder) => decode_LazyValue(__decoder, (__decoder) => unported_decodable(__decoder)))), decode_LazyValue(__decoder, decode_DefPathHashMapRef), decode_LazyTable(__decoder, decode_u32, decode_u32, (__decoder) => decode_Option(__decoder, (__decoder) => decode_LazyValue(__decoder, (__decoder) => unported_decodable(__decoder)))), decode_LazyArray(__decoder, (__decoder) => unported_decodable(__decoder)), decode_LazyArray(__decoder, (__decoder) => unported_decodable(__decoder)), decode_bool(__decoder), decode_bool(__decoder), decode_bool(__decoder), decode_bool(__decoder), decode_bool(__decoder), decode_bool(__decoder), decode_SymbolManglingVersion(__decoder), decode_bool(__decoder));
+}
+// rustc-derive: compiler/rustc_metadata/src/rmeta/mod.rs:270 MetadataEncodable for CrateRoot
+export function encode_CrateRoot(self: CrateRoot, __encoder: EncodeContext): void {
+  encode_CrateHeader(self.header, __encoder);
+  encode_StableCrateId(self.stable_crate_id_, __encoder);
+  encode_Option(self.required_panic_strategy, __encoder, encode_PanicStrategy);
+  encode_PanicStrategy(self.panic_in_drop_strategy, __encoder);
+  encode_Edition(self.edition, __encoder);
+  encode_bool(self.has_global_allocator, __encoder);
+  encode_bool(self.has_alloc_error_handler, __encoder);
+  encode_bool(self.has_panic_handler, __encoder);
+  encode_bool(self.has_default_lib_allocator, __encoder);
+  encode_LazyArray(self.externally_implementable_items, __encoder, (__v, __encoder) => unported_encodable(__v));
+  encode_LazyArray(self.crate_deps, __encoder, encode_CrateDep);
+  encode_LazyArray(self.dylib_dependency_formats, __encoder, (__v, __encoder) => encode_Option(__v, __encoder, encode_LinkagePreference));
+  encode_LazyArray(self.lib_features, __encoder, (__v, __encoder) => encode_tuple(__v, __encoder, (__v, __encoder) => __encoder.encode_symbol(__v), (__v, __encoder) => unported_encodable(__v)));
+  encode_LazyArray(self.stability_implications, __encoder, (__v, __encoder) => encode_tuple(__v, __encoder, (__v, __encoder) => __encoder.encode_symbol(__v), (__v, __encoder) => __encoder.encode_symbol(__v)));
+  encode_LazyArray(self.lang_items, __encoder, (__v, __encoder) => encode_tuple(__v, __encoder, (__v, __encoder) => __encoder.encode_local_def_id(__v), encode_LangItem));
+  encode_LazyArray(self.lang_items_missing, __encoder, encode_LangItem);
+  encode_LazyArray(self.stripped_cfg_items, __encoder, (__v, __encoder) => unported_encodable(__v));
+  encode_LazyArray(self.diagnostic_items, __encoder, (__v, __encoder) => encode_tuple(__v, __encoder, (__v, __encoder) => __encoder.encode_symbol(__v), (__v, __encoder) => __encoder.encode_local_def_id(__v)));
+  encode_LazyArray(self.canonical_symbols, __encoder, (__v, __encoder) => encode_tuple(__v, __encoder, (__v, __encoder) => __encoder.encode_symbol(__v), (__v, __encoder) => __encoder.encode_local_def_id(__v)));
+  encode_LazyArray(self.fake_doc_items, __encoder, (__v, __encoder) => __encoder.encode_local_def_id(__v));
+  encode_LazyArray(self.native_libraries, __encoder, (__v, __encoder) => unported_encodable(__v));
+  encode_LazyArray(self.foreign_modules, __encoder, (__v, __encoder) => unported_encodable(__v));
+  encode_LazyArray(self.traits, __encoder, (__v, __encoder) => __encoder.encode_local_def_id(__v));
+  encode_LazyArray(self.impls, __encoder, encode_TraitImpls);
+  encode_LazyArray(self.incoherent_impls, __encoder, encode_IncoherentImpls);
+  encode_LazyArray(self.interpret_alloc_index, __encoder, (__v, __encoder) => encode_u64(BigInt(__v), __encoder));
+  encode_Option(self.proc_macro_data, __encoder, encode_ProcMacroData);
+  encode_LazyTables(self.tables, __encoder);
+  encode_LazyArray(self.debugger_visualizers, __encoder, (__v, __encoder) => unported_encodable(__v));
+  encode_LazyArray(self.exportable_items, __encoder, (__v, __encoder) => __encoder.encode_local_def_id(__v));
+  encode_LazyArray(self.stable_order_of_exportable_impls, __encoder, (__v, __encoder) => encode_tuple(__v, __encoder, (__v, __encoder) => __encoder.encode_local_def_id(__v), encode_usize));
+  encode_LazyArray(self.exported_non_generic_symbols, __encoder, (__v, __encoder) => encode_tuple(__v, __encoder, (__v, __encoder) => unported_encodable(__v), (__v, __encoder) => unported_encodable(__v)));
+  encode_LazyArray(self.exported_generic_symbols, __encoder, (__v, __encoder) => encode_tuple(__v, __encoder, (__v, __encoder) => unported_encodable(__v), (__v, __encoder) => unported_encodable(__v)));
+  encode_LazyTable(self.syntax_contexts, __encoder, encode_u32, encode_u32, (__v, __encoder) => encode_Option(__v, __encoder, (__v, __encoder) => encode_LazyValue(__v, __encoder, (__v, __encoder) => unported_encodable(__v))));
+  encode_LazyTable(self.expn_data, __encoder, (__v, __encoder) => unported_encodable(__v), (__v, __encoder) => unported_encodable(__v), (__v, __encoder) => encode_Option(__v, __encoder, (__v, __encoder) => encode_LazyValue(__v, __encoder, (__v, __encoder) => unported_encodable(__v))));
+  encode_LazyTable(self.expn_hashes, __encoder, (__v, __encoder) => unported_encodable(__v), (__v, __encoder) => unported_encodable(__v), (__v, __encoder) => encode_Option(__v, __encoder, (__v, __encoder) => encode_LazyValue(__v, __encoder, (__v, __encoder) => unported_encodable(__v))));
+  encode_LazyValue(self.def_path_hash_map, __encoder, encode_DefPathHashMapRef);
+  encode_LazyTable(self.source_map, __encoder, encode_u32, encode_u32, (__v, __encoder) => encode_Option(__v, __encoder, (__v, __encoder) => encode_LazyValue(__v, __encoder, (__v, __encoder) => unported_encodable(__v))));
+  encode_LazyArray(self.target_modifiers, __encoder, (__v, __encoder) => unported_encodable(__v));
+  encode_LazyArray(self.denied_partial_mitigations, __encoder, (__v, __encoder) => unported_encodable(__v));
+  encode_bool(self.compiler_builtins, __encoder);
+  encode_bool(self.needs_allocator, __encoder);
+  encode_bool(self.needs_panic_runtime, __encoder);
+  encode_bool(self.no_builtins, __encoder);
+  encode_bool(self.panic_runtime, __encoder);
+  encode_bool(self.profiler_runtime, __encoder);
+  encode_SymbolManglingVersion(self.symbol_mangling_version, __encoder);
+  encode_bool(self.specialization_enabled_in, __encoder);
 }
 
 // rustc-derive: compiler/rustc_metadata/src/rmeta/mod.rs:334 LazyDecodable for CrateRootUnhashed
@@ -70,10 +166,20 @@ export function decode_CrateRootUnhashed(__decoder: LazyDecoder): CrateRootUnhas
     dep_extra_filenames: decode_Vec(__decoder, decode_String),
   };
 }
+// rustc-derive: compiler/rustc_metadata/src/rmeta/mod.rs:334 MetadataEncodable for CrateRootUnhashed
+export function encode_CrateRootUnhashed(self: CrateRootUnhashed, __encoder: EncodeContext): void {
+  encode_String(self.extra_filename, __encoder);
+  encode_Vec(self.dep_extra_filenames, __encoder, encode_String);
+}
 
 // rustc-derive: compiler/rustc_metadata/src/rmeta/mod.rs:347 BlobDecodable for RawDefId
 export function decode_RawDefId(__decoder: BlobDecoder): RawDefId {
   return new RawDefId(decode_u32(__decoder), decode_u32(__decoder));
+}
+// rustc-derive: compiler/rustc_metadata/src/rmeta/mod.rs:347 Encodable for RawDefId
+export function encode_RawDefId(self: RawDefId, __encoder: SpanEncoder): void {
+  encode_u32(self.krate, __encoder);
+  encode_u32(self.index, __encoder);
 }
 
 // rustc-derive: compiler/rustc_metadata/src/rmeta/mod.rs:372 BlobDecodable for CrateDep
@@ -86,6 +192,14 @@ export function decode_CrateDep(__decoder: BlobDecoder): CrateDep {
     is_private: decode_bool(__decoder),
   };
 }
+// rustc-derive: compiler/rustc_metadata/src/rmeta/mod.rs:372 Encodable for CrateDep
+export function encode_CrateDep(self: CrateDep, __encoder: SpanEncoder): void {
+  __encoder.encode_symbol(self.name);
+  encode_Svh(self.hash, __encoder);
+  encode_Option(self.host_hash, __encoder, encode_Svh);
+  encode_CrateDepKind(self.kind, __encoder);
+  encode_bool(self.is_private, __encoder);
+}
 
 // rustc-derive: compiler/rustc_metadata/src/rmeta/mod.rs:381 LazyDecodable for TraitImpls
 export function decode_TraitImpls(__decoder: LazyDecoder): TraitImpls {
@@ -94,6 +208,11 @@ export function decode_TraitImpls(__decoder: LazyDecoder): TraitImpls {
     impls: decode_LazyArray(__decoder, (__decoder) => decode_tuple(__decoder, (__decoder) => __decoder.decode_local_def_id(), (__decoder) => decode_Option(__decoder, (__decoder) => unported_decodable(__decoder)))),
   };
 }
+// rustc-derive: compiler/rustc_metadata/src/rmeta/mod.rs:381 MetadataEncodable for TraitImpls
+export function encode_TraitImpls(self: TraitImpls, __encoder: EncodeContext): void {
+  encode_RawDefId(self.trait_id, __encoder);
+  encode_LazyArray(self.impls, __encoder, (__v, __encoder) => encode_tuple(__v, __encoder, (__v, __encoder) => __encoder.encode_local_def_id(__v), (__v, __encoder) => encode_Option(__v, __encoder, (__v, __encoder) => unported_encodable(__v))));
+}
 
 // rustc-derive: compiler/rustc_metadata/src/rmeta/mod.rs:387 LazyDecodable for IncoherentImpls
 export function decode_IncoherentImpls(__decoder: LazyDecoder): IncoherentImpls {
@@ -101,6 +220,11 @@ export function decode_IncoherentImpls(__decoder: LazyDecoder): IncoherentImpls 
     self_ty: decode_LazyValue(__decoder, (__decoder) => unported_decodable(__decoder)),
     impls: decode_LazyArray(__decoder, (__decoder) => __decoder.decode_local_def_id()),
   };
+}
+// rustc-derive: compiler/rustc_metadata/src/rmeta/mod.rs:387 MetadataEncodable for IncoherentImpls
+export function encode_IncoherentImpls(self: IncoherentImpls, __encoder: EncodeContext): void {
+  encode_LazyValue(self.self_ty, __encoder, (__v, __encoder) => unported_encodable(__v));
+  encode_LazyArray(self.impls, __encoder, (__v, __encoder) => __encoder.encode_local_def_id(__v));
 }
 
 // rustc-derive: compiler/rustc_metadata/src/rmeta/mod.rs:526 TyDecodable for VariantData
@@ -112,8 +236,19 @@ export function decode_VariantData(__decoder: TyDecoder): VariantData {
     is_non_exhaustive: decode_bool(__decoder),
   };
 }
+// rustc-derive: compiler/rustc_metadata/src/rmeta/mod.rs:526 TyEncodable for VariantData
+export function encode_VariantData(self: VariantData, __encoder: TyEncoder): void {
+  __encoder.emit_u32(VariantIdx.as_u32(self.idx));
+  encode_VariantDiscr(self.discr, __encoder);
+  encode_Option(self.ctor, __encoder, (__v, __encoder) => encode_tuple(__v, __encoder, encode_CtorKind, (__v, __encoder) => __encoder.encode_local_def_id(__v)));
+  encode_bool(self.is_non_exhaustive, __encoder);
+}
 
 // rustc-derive: compiler/rustc_metadata/src/rmeta/mod.rs:558 Decodable for SpanTag
 export function decode_SpanTag(__decoder: SpanDecoder): SpanTag {
   return new SpanTag(decode_u8(__decoder));
+}
+// rustc-derive: compiler/rustc_metadata/src/rmeta/mod.rs:558 Encodable for SpanTag
+export function encode_SpanTag(self: SpanTag, __encoder: SpanEncoder): void {
+  encode_u8(self._0, __encoder);
 }

@@ -41,7 +41,7 @@ import type { Attribute } from "../../rustc_attr_ir/attr.ts";
 import type { LangItem } from "../../rustc_attr_ir/lang_items.ts";
 import type { CrateDepKind, CrateSource, ExternCrate, ForeignModule, LinkagePreference, NativeLib } from "../../rustc_crate_store/lib.ts";
 import { debug_CrateDepKind, debug_LinkagePreference, decode_LinkagePreference as decode_LinkagePreference_ } from "../../rustc_crate_store/lib.ts";
-import { debug_Fingerprint, decode_Fingerprint, Fingerprint } from "../../rustc_data_structures/fingerprint.ts";
+import { debug_Fingerprint, decode_Fingerprint, encode_Fingerprint, Fingerprint } from "../../rustc_data_structures/fingerprint.ts";
 import type { OwnedSlice } from "../../rustc_data_structures/owned_slice.ts";
 import type { SyntaxExtension } from "../../rustc_expand/base.ts";
 import type { CtorKind, DefKind, Safety } from "../../rustc_hir/def.ts";
@@ -51,7 +51,7 @@ import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import { AllocDecodingSession, AllocDecodingState, type AllocId } from "../../rustc_middle/mir/interpret/mod.ts";
 import type { Visibility } from "../../rustc_middle/ty/mod.ts";
 import { MemDecoder } from "../../rustc_serialize/opaque.ts";
-import { type Decodable, type Decoder, Decoder_provided, decode_Option as decode_Option_, decode_String, decode_tuple as decode_tuple_ } from "../../rustc_serialize/serialize.ts";
+import { type Decodable, type Decoder, Decoder_provided, decode_Option as decode_Option_, decode_String, decode_tuple as decode_tuple_, type Encoder } from "../../rustc_serialize/serialize.ts";
 import type { TargetModifier } from "../../rustc_session/options.ts";
 import type { DeniedPartialMitigation } from "../../rustc_session/options/mitigation_coverage.ts";
 import { CrateNum, DefId, DefIndex, LOCAL_CRATE, LocalDefId, type ModId, type StableCrateId, debug_StableCrateId } from "../../rustc_span/def_id.ts";
@@ -182,6 +182,10 @@ export function Svh_as_fingerprint(self: Svh): Fingerprint {
 /** `#[derive(Decodable_NoContext)]` of `Svh { hash: Fingerprint }` (svh.rs:15). */
 export function decode_Svh(d: Decoder): Svh {
   return Svh_new(decode_Fingerprint(d));
+}
+/** `#[derive(Encodable_NoContext)]` of `Svh { hash: Fingerprint }` (svh.rs:15). */
+export function encode_Svh(self: Svh, __encoder: Encoder): void {
+  encode_Fingerprint(Svh_as_fingerprint(self), __encoder);
 }
 /** `#[derive(Debug)]` of `Svh { hash: Fingerprint }`. */
 export function debug_Svh(v: Svh, f = PLAIN): string {

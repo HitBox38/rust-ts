@@ -2,7 +2,7 @@
 // Hand-written additions (methods, manual Debug impls) go in hir.ts next to this file.
 import { debug_ExternAbi, type ExternAbi } from "../rustc_abi/extern_abi.ts";
 import { type AsmMacro, type AssignOp, type BindingMode, type BinOp, type BorrowKind, type BoundConstness, type BoundPolarity, type CaptureBy, clone_AsmMacro, clone_AssignOpKind, clone_BindingMode, clone_BinOpKind, clone_BorrowKind, clone_BoundConstness, clone_BoundPolarity, clone_CaptureBy, clone_ImplPolarity, clone_InlineAsmTemplatePiece, clone_IsAuto, clone_Label, clone_LitKind, clone_MacroDef, clone_Recovered, clone_TraitObjectSyntax, clone_UnOp, clone_UnsafeBinderCastKind, debug_AsmMacro, debug_AssignOpKind, debug_BindingMode, debug_BinOpKind, debug_BorrowKind, debug_BoundConstness, debug_BoundPolarity, debug_CaptureBy, debug_ImplPolarity, debug_InlineAsmOptions, debug_InlineAsmTemplatePiece, debug_IsAuto, debug_Label, debug_LitKind, debug_MacroDef, debug_Recovered, debug_TraitObjectSyntax, debug_UnOp, debug_UnsafeBinderCastKind, type ImplPolarity, type InlineAsmOptions, type InlineAsmTemplatePiece, type IsAuto, type Label, type LitKind, type MacroDef, type Recovered, type TraitObjectSyntax, type UnOp, type UnsafeBinderCastKind } from "../rustc_ast/lib.ts";
-import { debug_FloatTy, debug_IntTy, debug_Movability, debug_Mutability, debug_Pinnedness, debug_UintTy, decode_FloatTy, decode_IntTy, decode_Movability, decode_UintTy, type FloatTy, type IntTy, type Movability, type Mutability, type Pinnedness, type UintTy } from "../rustc_ast_ir/lib.ts";
+import { debug_FloatTy, debug_IntTy, debug_Movability, debug_Mutability, debug_Pinnedness, debug_UintTy, decode_FloatTy, decode_IntTy, decode_Movability, decode_UintTy, encode_FloatTy, encode_IntTy, encode_Movability, encode_UintTy, type FloatTy, type IntTy, type Movability, type Mutability, type Pinnedness, type UintTy } from "../rustc_ast_ir/lib.ts";
 import { type Attribute, clone_Attribute, debug_Attribute } from "../rustc_attr_ir/lib.ts";
 import { debug_Fingerprint, type Fingerprint } from "../rustc_data_structures/fingerprint.ts";
 import { debug_SortedMap, type SortedMap } from "../rustc_data_structures/sorted_map.ts";
@@ -11,10 +11,10 @@ import { debug_TaggedRef, type TaggedRef } from "../rustc_data_structures/tagged
 import { clone_Res, debug_MacroKinds, debug_PerNS, debug_Res, type MacroKinds, type PerNS, type Res } from "./def.ts";
 import { debug_DotDotPos, debug_FnDeclFlags, debug_OwnerNodes } from "./hir.ts";
 import { clone_HirId, clone_OwnerId, debug_HirId, debug_ItemLocalId, debug_OwnerId, type HirId, type ItemLocalId, type OwnerId } from "../rustc_hir_id/lib.ts";
-import { type Decodable, decode_bool, decode_Option } from "../rustc_serialize/serialize.ts";
+import { type Decodable, decode_bool, decode_Option, type Encodable, encode_bool, encode_Option } from "../rustc_serialize/serialize.ts";
 import { debug_DefId, debug_LocalDefId, type DefId, type LocalDefId } from "../rustc_span/def_id.ts";
 import { debug_LocalExpnId, type LocalExpnId } from "../rustc_span/hygiene.ts";
-import { debug_ErrorGuaranteed, debug_Span, debug_Spanned, type ErrorGuaranteed, type Span, type SpanDecoder, type Spanned } from "../rustc_span/lib.ts";
+import { debug_ErrorGuaranteed, debug_Span, debug_Spanned, type ErrorGuaranteed, type Span, type SpanDecoder, type SpanEncoder, type Spanned } from "../rustc_span/lib.ts";
 import { debug_Ident, debug_Symbol, type Ident, type Symbol } from "../rustc_span/symbol.ts";
 import { debug_InlineAsmReg, debug_InlineAsmRegClass, type InlineAsmReg, type InlineAsmRegClass } from "../rustc_target/asm/mod.ts";
 import { type Debug, debug_bool, debug_int, debug_option, debug_set, debug_struct, debug_tuple, debug_vec, type Fmt } from "../std/fmt.ts";
@@ -1845,6 +1845,28 @@ export function decode_CoroutineKind(__decoder: SpanDecoder): CoroutineKind {
       return panic(`invalid enum variant tag while decoding \`CoroutineKind\`, expected 0..2, actual ${__tag}`);
   }
 }
+function CoroutineKind__variant_index(tag: CoroutineKind["$"]): number {
+  switch (tag) {
+    case "Desugared":
+      return 0;
+    case "Coroutine":
+      return 1;
+  }
+}
+// rustc-derive: compiler/rustc_hir/src/hir.rs:1971 Encodable for CoroutineKind
+export function encode_CoroutineKind(self: CoroutineKind, __encoder: SpanEncoder): void {
+  const disc = CoroutineKind__variant_index(self.$);
+  __encoder.emit_u8(disc);
+  switch (self.$) {
+    case "Desugared":
+      encode_CoroutineDesugaring(self._0, __encoder);
+      encode_CoroutineSource(self._1, __encoder);
+      break;
+    case "Coroutine":
+      encode_Movability(self._0, __encoder);
+      break;
+  }
+}
 
 // rustc-type: compiler/rustc_hir/src/hir.rs:2028 CoroutineSource
 /// In the case of a coroutine created as part of an async/gen construct,
@@ -1878,6 +1900,21 @@ export function decode_CoroutineSource(__decoder: SpanDecoder): CoroutineSource 
       return panic(`invalid enum variant tag while decoding \`CoroutineSource\`, expected 0..3, actual ${__tag}`);
   }
 }
+function CoroutineSource__variant_index(tag: CoroutineSource): number {
+  switch (tag) {
+    case "Block":
+      return 0;
+    case "Closure":
+      return 1;
+    case "Fn":
+      return 2;
+  }
+}
+// rustc-derive: compiler/rustc_hir/src/hir.rs:2028 Encodable for CoroutineSource
+export function encode_CoroutineSource(self: CoroutineSource, __encoder: SpanEncoder): void {
+  const disc = CoroutineSource__variant_index(self);
+  __encoder.emit_u8(disc);
+}
 
 // rustc-type: compiler/rustc_hir/src/hir.rs:2051 CoroutineDesugaring
 export type CoroutineDesugaring =
@@ -1906,6 +1943,21 @@ export function decode_CoroutineDesugaring(__decoder: SpanDecoder): CoroutineDes
     default:
       return panic(`invalid enum variant tag while decoding \`CoroutineDesugaring\`, expected 0..3, actual ${__tag}`);
   }
+}
+function CoroutineDesugaring__variant_index(tag: CoroutineDesugaring): number {
+  switch (tag) {
+    case "Async":
+      return 0;
+    case "Gen":
+      return 1;
+    case "AsyncGen":
+      return 2;
+  }
+}
+// rustc-derive: compiler/rustc_hir/src/hir.rs:2051 Encodable for CoroutineDesugaring
+export function encode_CoroutineDesugaring(self: CoroutineDesugaring, __encoder: SpanEncoder): void {
+  const disc = CoroutineDesugaring__variant_index(self);
+  __encoder.emit_u8(disc);
 }
 
 // rustc-type: compiler/rustc_hir/src/hir.rs:2094 BodyOwnerKind
@@ -2988,6 +3040,44 @@ export function decode_PrimTy(__decoder: SpanDecoder): PrimTy {
       return panic(`invalid enum variant tag while decoding \`PrimTy\`, expected 0..6, actual ${__tag}`);
   }
 }
+function PrimTy__variant_index(tag: PrimTy["$"]): number {
+  switch (tag) {
+    case "Int":
+      return 0;
+    case "Uint":
+      return 1;
+    case "Float":
+      return 2;
+    case "Str":
+      return 3;
+    case "Bool":
+      return 4;
+    case "Char":
+      return 5;
+  }
+}
+// rustc-derive: compiler/rustc_hir/src/hir.rs:3320 Encodable for PrimTy
+export function encode_PrimTy(self: PrimTy, __encoder: SpanEncoder): void {
+  const disc = PrimTy__variant_index(self.$);
+  __encoder.emit_u8(disc);
+  switch (self.$) {
+    case "Int":
+      encode_IntTy(self._0, __encoder);
+      break;
+    case "Uint":
+      encode_UintTy(self._0, __encoder);
+      break;
+    case "Float":
+      encode_FloatTy(self._0, __encoder);
+      break;
+    case "Str":
+      break;
+    case "Bool":
+      break;
+    case "Char":
+      break;
+  }
+}
 
 // rustc-type: compiler/rustc_hir/src/hir.rs:3410 FnPtrTy
 export interface FnPtrTy {
@@ -3091,6 +3181,27 @@ export function decode_PreciseCapturingArgKind<T, U, __D extends SpanDecoder = S
       return panic(`invalid enum variant tag while decoding \`PreciseCapturingArgKind\`, expected 0..2, actual ${__tag}`);
   }
 }
+function PreciseCapturingArgKind__variant_index<T, U>(tag: PreciseCapturingArgKind<T, U>["$"]): number {
+  switch (tag) {
+    case "Lifetime":
+      return 0;
+    case "Param":
+      return 1;
+  }
+}
+// rustc-derive: compiler/rustc_hir/src/hir.rs:3437 Encodable for PreciseCapturingArgKind
+export function encode_PreciseCapturingArgKind<T, U, __E extends SpanEncoder = SpanEncoder>(self: PreciseCapturingArgKind<T, U>, __encoder: __E, encode_T: Encodable<T, __E>, encode_U: Encodable<U, __E>): void {
+  const disc = PreciseCapturingArgKind__variant_index(self.$);
+  __encoder.emit_u8(disc);
+  switch (self.$) {
+    case "Lifetime":
+      encode_T(self._0, __encoder);
+      break;
+    case "Param":
+      encode_U(self._0, __encoder);
+      break;
+  }
+}
 
 // rustc-type: compiler/rustc_hir/src/hir.rs:3443 PreciseCapturingArg
 export type PreciseCapturingArg = PreciseCapturingArgKind<Lifetime, PreciseCapturingNonLifetimeArg>;
@@ -3139,6 +3250,19 @@ export function decode_RpitContext(__decoder: SpanDecoder): RpitContext {
     default:
       return panic(`invalid enum variant tag while decoding \`RpitContext\`, expected 0..2, actual ${__tag}`);
   }
+}
+function RpitContext__variant_index(tag: RpitContext): number {
+  switch (tag) {
+    case "Trait":
+      return 0;
+    case "TraitImpl":
+      return 1;
+  }
+}
+// rustc-derive: compiler/rustc_hir/src/hir.rs:3476 Encodable for RpitContext
+export function encode_RpitContext(self: RpitContext, __encoder: SpanEncoder): void {
+  const disc = RpitContext__variant_index(self);
+  __encoder.emit_u8(disc);
 }
 
 // rustc-type: compiler/rustc_hir/src/hir.rs:3484 OpaqueTyOrigin
@@ -3191,6 +3315,35 @@ export function decode_OpaqueTyOrigin<D, __D extends SpanDecoder = SpanDecoder>(
       return { $: "TyAlias", parent: decode_D(__decoder), in_assoc_ty: decode_bool(__decoder) };
     default:
       return panic(`invalid enum variant tag while decoding \`OpaqueTyOrigin\`, expected 0..3, actual ${__tag}`);
+  }
+}
+function OpaqueTyOrigin__variant_index<D>(tag: OpaqueTyOrigin<D>["$"]): number {
+  switch (tag) {
+    case "FnReturn":
+      return 0;
+    case "AsyncFn":
+      return 1;
+    case "TyAlias":
+      return 2;
+  }
+}
+// rustc-derive: compiler/rustc_hir/src/hir.rs:3484 Encodable for OpaqueTyOrigin
+export function encode_OpaqueTyOrigin<D, __E extends SpanEncoder = SpanEncoder>(self: OpaqueTyOrigin<D>, __encoder: __E, encode_D: Encodable<D, __E>): void {
+  const disc = OpaqueTyOrigin__variant_index(self.$);
+  __encoder.emit_u8(disc);
+  switch (self.$) {
+    case "FnReturn":
+      encode_D(self.parent, __encoder);
+      encode_Option(self.in_trait_or_impl, __encoder, encode_RpitContext);
+      break;
+    case "AsyncFn":
+      encode_D(self.parent, __encoder);
+      encode_Option(self.in_trait_or_impl, __encoder, encode_RpitContext);
+      break;
+    case "TyAlias":
+      encode_D(self.parent, __encoder);
+      encode_bool(self.in_assoc_ty, __encoder);
+      break;
   }
 }
 
@@ -3695,6 +3848,25 @@ export function decode_ImplicitSelfKind(__decoder: SpanDecoder): ImplicitSelfKin
       return panic(`invalid enum variant tag while decoding \`ImplicitSelfKind\`, expected 0..5, actual ${__tag}`);
   }
 }
+function ImplicitSelfKind__variant_index(tag: ImplicitSelfKind): number {
+  switch (tag) {
+    case "Imm":
+      return 0;
+    case "Mut":
+      return 1;
+    case "RefImm":
+      return 2;
+    case "RefMut":
+      return 3;
+    case "None":
+      return 4;
+  }
+}
+// rustc-derive: compiler/rustc_hir/src/hir.rs:3977 Encodable for ImplicitSelfKind
+export function encode_ImplicitSelfKind(self: ImplicitSelfKind, __encoder: SpanEncoder): void {
+  const disc = ImplicitSelfKind__variant_index(self);
+  __encoder.emit_u8(disc);
+}
 
 // rustc-type: compiler/rustc_hir/src/hir.rs:3999 IsAsync
 export type IsAsync =
@@ -4149,6 +4321,19 @@ export function decode_Safety(__decoder: SpanDecoder): Safety {
       return panic(`invalid enum variant tag while decoding \`Safety\`, expected 0..2, actual ${__tag}`);
   }
 }
+function Safety__variant_index(tag: Safety): number {
+  switch (tag) {
+    case "Unsafe":
+      return 0;
+    case "Safe":
+      return 1;
+  }
+}
+// rustc-derive: compiler/rustc_hir/src/hir.rs:4391 Encodable for Safety
+export function encode_Safety(self: Safety, __encoder: SpanEncoder): void {
+  const disc = Safety__variant_index(self);
+  __encoder.emit_u8(disc);
+}
 
 // rustc-type: compiler/rustc_hir/src/hir.rs:4433 Constness
 export type Constness =
@@ -4186,6 +4371,26 @@ export function decode_Constness(__decoder: SpanDecoder): Constness {
       return Constness.NotConst;
     default:
       return panic(`invalid enum variant tag while decoding \`Constness\`, expected 0..2, actual ${__tag}`);
+  }
+}
+function Constness__variant_index(tag: Constness["$"]): number {
+  switch (tag) {
+    case "Const":
+      return 0;
+    case "NotConst":
+      return 1;
+  }
+}
+// rustc-derive: compiler/rustc_hir/src/hir.rs:4433 Encodable for Constness
+export function encode_Constness(self: Constness, __encoder: SpanEncoder): void {
+  const disc = Constness__variant_index(self.$);
+  __encoder.emit_u8(disc);
+  switch (self.$) {
+    case "Const":
+      encode_bool(self.always, __encoder);
+      break;
+    case "NotConst":
+      break;
   }
 }
 

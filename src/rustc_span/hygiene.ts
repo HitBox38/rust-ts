@@ -48,8 +48,8 @@ import {
   StableCrateId,
 } from "./def_id.ts";
 import { debug_Edition, type Edition } from "./edition.ts";
-import { debug_Span, decode_ExpnId, encode_ExpnId, type SpanDecoder, with_session_globals } from "./lib.ts";
-import { decode_u32, type Decoder, type Encoder } from "../rustc_serialize/serialize.ts";
+import { debug_Span, decode_ExpnId, encode_ExpnId, type SpanDecoder, type SpanEncoder, with_session_globals } from "./lib.ts";
+import { decode_u32, type Decoder } from "../rustc_serialize/serialize.ts";
 import type { SourceMap } from "./source_map.ts";
 import { DUMMY_SP, Span } from "./span_encoding.ts";
 import { debug_Symbol, display_Symbol, kw, sym, type Symbol } from "./symbol.ts";
@@ -1928,9 +1928,8 @@ export function decode_syntax_context<D extends Decoder>(
 }
 
 /** `impl<E: SpanEncoder> Encodable<E> for LocalExpnId` */
-// PORT: takes an `Encoder` (see `span_encoder` in lib.ts).
 // rustc: compiler/rustc_span/src/hygiene.rs:1532 encode
-export function encode_LocalExpnId(self: LocalExpnId, e: Encoder): void {
+export function encode_LocalExpnId(self: LocalExpnId, e: SpanEncoder): void {
   encode_ExpnId(LocalExpnId.to_expn_id(self), e);
 }
 

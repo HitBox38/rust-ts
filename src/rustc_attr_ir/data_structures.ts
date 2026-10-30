@@ -11,11 +11,13 @@ import { DiffActivity, DiffMode } from "../rustc_ast/expand/autodiff_attrs.ts";
 import { debug_TypeTree, type TypeTree } from "../rustc_ast/expand/typetree.ts";
 import type { DiagArgValue, PathBuf } from "../rustc_error_messages/lib.ts";
 import type { DefId } from "../rustc_span/def_id.ts";
-import type { Span } from "../rustc_span/lib.ts";
+import type { Span, SpanEncoder } from "../rustc_span/lib.ts";
 import type { Symbol } from "../rustc_span/symbol.ts";
 import { debug_vec, PLAIN } from "../std/fmt.ts";
 import type { MutRef } from "../std/mut_ref.ts";
 import * as gen from "./data_structures.gen.ts";
+import { encode_CfgEntry } from "../rustc_ast/attr/data_structures.ts";
+import { encode_bool, encode_IndexMap, encode_Option, encode_ThinVec, encode_tuple } from "../rustc_serialize/serialize.ts";
 import { type AutoDiffItem, debug_RustcAutodiff, DocCfgHideShowValue as DocCfgHideShowValueC, RustcAutodiff as RustcAutodiffC } from "./data_structures.gen.ts";
 import { encode_cross_crate, is_extern_indicator } from "./encode_cross_crate.ts";
 
@@ -242,7 +244,65 @@ export const DocCfgHideShow = {
 };
 
 // impl<E: rustc_span::SpanEncoder> rustc_serialize::Encodable<E> for DocAttribute
-// rustc-skip: compiler/rustc_attr_ir/src/data_structures.rs:523 encode Encodable impl (metadata encoding is M5, PORTING §3)
+// PORT (lane encode-contract): `rustc_serialize::Encodable::<E>::encode(x, encoder)` of each field is the derived /
+// rustc_span impl of its type (`Span` / `Symbol`: the `SpanEncoder` methods).
+// rustc: compiler/rustc_attr_ir/src/data_structures.rs:523 encode
+export function encode_DocAttribute(self: gen.DocAttribute, encoder: SpanEncoder): void {
+  const {
+    first_span,
+    aliases,
+    hidden,
+    inline,
+    cfg,
+    auto_cfg,
+    auto_cfg_change,
+    fake_variadic,
+    keyword,
+    attribute,
+    masked,
+    notable_trait,
+    search_unbox,
+    html_favicon_url,
+    html_logo_url,
+    html_playground_url,
+    html_root_url,
+    html_no_source,
+    issue_tracker_base_url,
+    rust_logo,
+    test_attrs,
+    no_crate_inject,
+  } = self;
+  const span = (v: Span, e: SpanEncoder): void => e.encode_span(v);
+  const symbol_span = (v: readonly [Symbol, Span], e: SpanEncoder): void => encode_tuple(v, e, (s, e) => e.encode_symbol(s), span);
+  span(first_span, encoder);
+  encode_IndexMap(aliases, encoder, (s, e) => e.encode_symbol(s), span);
+  encode_Option(hidden, encoder, span);
+
+  // FIXME: The `doc(inline)` attribute is never encoded, but is it actually the right thing
+  // to do? I suspect the condition was broken, should maybe instead not encode anything if we
+  // have `doc(no_inline)`.
+  const inline_ = inline !== undefined && inline[0] !== gen.DocInline.Inline ? inline : undefined;
+  encode_Option(inline_, encoder, (v, e) => encode_tuple(v, e, gen.encode_DocInline, span));
+
+  encode_ThinVec(cfg, encoder, encode_CfgEntry);
+  encode_ThinVec(auto_cfg, encoder, (v, e) => encode_tuple(v, e, gen.encode_CfgHideShow, span));
+  encode_ThinVec(auto_cfg_change, encoder, (v, e) => encode_tuple(v, e, encode_bool, span));
+  encode_Option(fake_variadic, encoder, span);
+  encode_Option(keyword, encoder, symbol_span);
+  encode_Option(attribute, encoder, symbol_span);
+  encode_Option(masked, encoder, span);
+  encode_Option(notable_trait, encoder, span);
+  encode_Option(search_unbox, encoder, span);
+  encode_Option(html_favicon_url, encoder, symbol_span);
+  encode_Option(html_logo_url, encoder, symbol_span);
+  encode_Option(html_playground_url, encoder, symbol_span);
+  encode_Option(html_root_url, encoder, symbol_span);
+  encode_Option(html_no_source, encoder, span);
+  encode_Option(issue_tracker_base_url, encoder, symbol_span);
+  encode_Option(rust_logo, encoder, span);
+  encode_ThinVec(test_attrs, encoder, span);
+  encode_Option(no_crate_inject, encoder, span);
+}
 
 export type RustcAutodiff = gen.RustcAutodiff;
 export const RustcAutodiff = RustcAutodiffC as typeof RustcAutodiffC & {

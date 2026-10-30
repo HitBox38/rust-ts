@@ -5,9 +5,9 @@ import { debug_SortedMap, type SortedMap } from "../rustc_data_structures/sorted
 import { debug_Hash64, type Hash64 } from "../rustc_hashes/lib.ts";
 import { debug_HashTableOwned, type DefPathHashMap, type HashTableOwned } from "./def_path_hash_map.ts";
 import { type PerParentDisambiguatorState } from "./definitions.ts";
-import { decode_Option, decode_u32 } from "../rustc_serialize/serialize.ts";
+import { decode_Option, decode_u32, encode_u32 } from "../rustc_serialize/serialize.ts";
 import { type CrateNum, debug_CrateNum, debug_DefIndex, debug_LocalDefId, debug_StableCrateId, type DefIndex, type LocalDefId, type StableCrateId } from "../rustc_span/def_id.ts";
-import { type BlobDecoder } from "../rustc_span/lib.ts";
+import { type BlobDecoder, type SpanEncoder } from "../rustc_span/lib.ts";
 import { debug_Symbol, type Symbol } from "../rustc_span/symbol.ts";
 import { type Debug, debug_int, debug_option, debug_struct, debug_tuple, debug_vec } from "../std/fmt.ts";
 import { panic } from "../std/panic.ts";
@@ -106,6 +106,11 @@ export function clone_DisambiguatedDefPathData(v: DisambiguatedDefPathData): Dis
 // rustc-derive: compiler/rustc_hir_id/src/definitions.rs:164 BlobDecodable for DisambiguatedDefPathData
 export function decode_DisambiguatedDefPathData(__decoder: BlobDecoder): DisambiguatedDefPathData {
   return new DisambiguatedDefPathData(decode_DefPathData(__decoder), decode_u32(__decoder));
+}
+// rustc-derive: compiler/rustc_hir_id/src/definitions.rs:164 Encodable for DisambiguatedDefPathData
+export function encode_DisambiguatedDefPathData(self: DisambiguatedDefPathData, __encoder: SpanEncoder): void {
+  encode_DefPathData(self.data, __encoder);
+  encode_u32(self.disambiguator, __encoder);
 }
 
 // rustc-type: compiler/rustc_hir_id/src/definitions.rs:191 DefPath
@@ -281,6 +286,95 @@ export function decode_DefPathData(__decoder: BlobDecoder): DefPathData {
       return DefPathData.NestedStatic;
     default:
       return panic(`invalid enum variant tag while decoding \`DefPathData\`, expected 0..18, actual ${__tag}`);
+  }
+}
+function DefPathData__variant_index(tag: DefPathData["$"]): number {
+  switch (tag) {
+    case "CrateRoot":
+      return 0;
+    case "Impl":
+      return 1;
+    case "ForeignMod":
+      return 2;
+    case "Use":
+      return 3;
+    case "GlobalAsm":
+      return 4;
+    case "TypeNs":
+      return 5;
+    case "ValueNs":
+      return 6;
+    case "MacroNs":
+      return 7;
+    case "LifetimeNs":
+      return 8;
+    case "Closure":
+      return 9;
+    case "TestBinderConstraints":
+      return 10;
+    case "Ctor":
+      return 11;
+    case "AnonConst":
+      return 12;
+    case "OpaqueTy":
+      return 13;
+    case "OpaqueLifetime":
+      return 14;
+    case "AnonAssocTy":
+      return 15;
+    case "SyntheticCoroutineBody":
+      return 16;
+    case "NestedStatic":
+      return 17;
+  }
+}
+// rustc-derive: compiler/rustc_hir_id/src/definitions.rs:258 Encodable for DefPathData
+export function encode_DefPathData(self: DefPathData, __encoder: SpanEncoder): void {
+  const disc = DefPathData__variant_index(self.$);
+  __encoder.emit_u8(disc);
+  switch (self.$) {
+    case "CrateRoot":
+      break;
+    case "Impl":
+      break;
+    case "ForeignMod":
+      break;
+    case "Use":
+      break;
+    case "GlobalAsm":
+      break;
+    case "TypeNs":
+      __encoder.encode_symbol(self._0);
+      break;
+    case "ValueNs":
+      __encoder.encode_symbol(self._0);
+      break;
+    case "MacroNs":
+      __encoder.encode_symbol(self._0);
+      break;
+    case "LifetimeNs":
+      __encoder.encode_symbol(self._0);
+      break;
+    case "Closure":
+      break;
+    case "TestBinderConstraints":
+      break;
+    case "Ctor":
+      break;
+    case "AnonConst":
+      break;
+    case "OpaqueTy":
+      break;
+    case "OpaqueLifetime":
+      __encoder.encode_symbol(self._0);
+      break;
+    case "AnonAssocTy":
+      __encoder.encode_symbol(self._0);
+      break;
+    case "SyntheticCoroutineBody":
+      break;
+    case "NestedStatic":
+      break;
   }
 }
 

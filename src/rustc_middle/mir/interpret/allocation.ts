@@ -24,7 +24,7 @@ import { debug_IoError } from "../../../std/io.ts";
 import { assert, assert_eq, panic, unported } from "../../../std/panic.ts";
 import { Err, Ok, type Result, unwrap_result } from "../../../std/result.ts";
 import type { Hasher } from "../../../vendor/rustc_stable_hash/lib.ts";
-import type { Decoder } from "../../../rustc_serialize/serialize.ts";
+import type { Decoder, Encodable, Encoder } from "../../../rustc_serialize/serialize.ts";
 import type { Range } from "../../ty/decls.ts";
 import * as gen from "./allocation.gen.ts";
 import { AllocRange, type AllocFlags, type AllocInit, type AllocResult } from "./allocation.gen.ts";
@@ -565,7 +565,11 @@ export function clone_Allocation<Prov, Extra, Bytes>(v: Allocation<Prov, Extra, 
   return new Allocation(clone_Bytes(v.bytes), clone_ProvenanceMap(v.provenance, clone_Prov), clone_InitMask(v.init_mask), v.align, v.mutability, clone_Extra(v.extra));
 }
 
-// rustc-skip: compiler/rustc_middle/src/mir/interpret/allocation.rs:129 encode Encodable (metadata encoding, M5)
+// impl<E: Encoder> Encodable<E> for AllocFlags
+// stub: compiler/rustc_middle/src/mir/interpret/allocation.rs:129 encode (lane encode-middle)
+export function encode_AllocFlags<E extends Encoder>(_self: AllocFlags, _encoder: E): void {
+  unported("rustc_middle::mir::interpret::allocation::encode AllocFlags (lane encode-middle)");
+}
 
 // impl<D: Decoder> Decodable<D> for AllocFlags
 // rustc: compiler/rustc_middle/src/mir/interpret/allocation.rs:148 decode
@@ -618,7 +622,16 @@ export function all_zero(buf: Uint8Array): boolean {
 }
 
 /// Custom encoder for [`Allocation`] to more efficiently represent the case where all bytes are 0.
-// rustc-skip: compiler/rustc_middle/src/mir/interpret/allocation.rs:194 encode Encodable (metadata encoding, M5)
+// impl<Prov: Provenance, Extra, E: Encoder> Encodable<E> for Allocation<Prov, Extra, Box<[u8]>>
+// stub: compiler/rustc_middle/src/mir/interpret/allocation.rs:194 encode (lane encode-middle)
+export function encode_Allocation<E extends Encoder, Prov, Extra>(
+  _self: Allocation<Prov, Extra, Uint8Array>,
+  _encoder: E,
+  _encode_Prov: Encodable<Prov, E>,
+  _encode_Extra: Encodable<Extra, E>,
+): void {
+  unported("rustc_middle::mir::interpret::allocation::encode Allocation (lane encode-middle)");
+}
 
 // impl<Prov: Provenance, Extra, D: Decoder> Decodable<D> for Allocation<Prov, Extra, Box<[u8]>>
 // rustc: compiler/rustc_middle/src/mir/interpret/allocation.rs:213 decode

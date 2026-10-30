@@ -10,9 +10,10 @@ import { Config as HashMapConfig } from "../../rustc_hir_id/def_path_hash_map.ts
 import type { DefPathToIndexMap } from "../../rustc_hir_id/definitions.ts";
 import { decode_Hash64, decode_tuple, decode_Vec } from "../../rustc_serialize/serialize.ts";
 import { DefPathHash, type DefIndex } from "../../rustc_span/def_id.ts";
-import { panic } from "../../std/panic.ts";
+import { panic, unported } from "../../std/panic.ts";
 import * as odht from "../../vendor/odht/lib.ts";
 import type { BlobDecodeContext } from "./decoder.ts";
+import type { EncodeContext } from "./encoder.ts";
 
 export type DefPathHashMapRef =
   | { readonly $: "OwnedFromMetadata"; readonly _0: odht.HashTable<Hash64, DefIndex>; readonly _1: SortedMap<Hash64, DefIndex> }
@@ -37,7 +38,11 @@ export const DefPathHashMapRef = {
   },
 };
 
-// rustc-skip: compiler/rustc_metadata/src/rmeta/def_path_hash_map.rs:36 encode Encodable impl (metadata encoding, M5)
+// impl<'a, 'tcx> Encodable<EncodeContext<'a, 'tcx>> for DefPathHashMapRef<'tcx>
+// stub: compiler/rustc_metadata/src/rmeta/def_path_hash_map.rs:36 encode (lane encoder-a)
+export function encode_DefPathHashMapRef(_self: DefPathHashMapRef, _e: EncodeContext, ..._phantom: unknown[]): void {
+  unported("rustc_metadata::rmeta::def_path_hash_map::encode DefPathHashMapRef (lane encoder-a)");
+}
 
 // impl<'a> Decodable<BlobDecodeContext<'a>> for DefPathHashMapRef<'static>
 // rustc: compiler/rustc_metadata/src/rmeta/def_path_hash_map.rs:57 decode
