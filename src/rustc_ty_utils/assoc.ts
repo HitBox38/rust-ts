@@ -13,7 +13,8 @@ import { type AssocContainer, AssocItem, AssocItems, type AssocKind } from "../r
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import type { ImplTraitInTraitData } from "../rustc_middle/ty/decls.ts";
 import { FxHashMap_DefId_u32, type GenericParamDef, Generics } from "../rustc_middle/ty/generics.ts";
-import { type DefId, DefIdMap, LocalDefId, debug_LocalDefId } from "../rustc_span/def_id.ts";
+import { type DefId, DefIdMap, FxDefIdMap, LocalDefId, debug_LocalDefId } from "../rustc_span/def_id.ts";
+import { LAYOUT_VEC } from "../rust_ts/hash_map.ts";
 import { bug, span_bug } from "../rustc_span/macros.ts";
 import { kw } from "../rustc_span/symbol.ts";
 import { PLAIN } from "../std/fmt.ts";
@@ -186,7 +187,9 @@ function associated_types_for_impl_traits_in_trait_or_impl(tcx: TyCtxt, def_id: 
   const kind = item.kind;
   if (kind.$ === "Trait") {
     const trait_item_refs = kind.items;
-    const out = new DefIdMap<DefId[]>();
+    // PORT: `.filter_map(..).collect()` into the `UnordMap` (`FxHashMap::from_iter`, size hint 0: no reserve) is
+    // `default()` + one `insert` per kept item, in item order; crate metadata encodes its hashbrown order (`FxDefIdMap`).
+    const out = new FxDefIdMap<DefId[]>(LAYOUT_VEC);
     for (const item of trait_item_refs) {
       if (!(tcx.def_kind(item.owner_id).$ === "AssocFn")) {
         continue;
@@ -216,7 +219,8 @@ function associated_types_for_impl_traits_in_trait_or_impl(tcx: TyCtxt, def_id: 
       return new DefIdMap();
     }
     const in_trait_def = tcx.associated_types_for_impl_traits_in_trait_or_impl(trait_def_id);
-    const out = new DefIdMap<DefId[]>();
+    // PORT: `.collect()` as in the `Trait` arm.
+    const out = new FxDefIdMap<DefId[]>(LAYOUT_VEC);
     for (const item_id of impl_.items) {
       if (!(tcx.def_kind(item_id.owner_id).$ === "AssocFn")) {
         continue;

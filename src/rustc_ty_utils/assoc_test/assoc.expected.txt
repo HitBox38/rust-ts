@@ -1,5 +1,5 @@
 trait Tr: associated_item_def_ids = [C, T, by_ref, by_val, assoc_fn, provided]
-  rpitit = {by_ref: [0], by_val: [0], assoc_fn: [0], provided: [0]}
+  rpitit = {provided: [0], by_val: [0], assoc_fn: [0], by_ref: [0]}
   C: Const { name: C }, Trait, def_id matches: true
   T: Type { data: Normal(T) }, Trait, def_id matches: true
   by_ref: Fn { name: by_ref, has_self: true }, Trait, def_id matches: true
@@ -7,7 +7,7 @@ trait Tr: associated_item_def_ids = [C, T, by_ref, by_val, assoc_fn, provided]
   assoc_fn: Fn { name: assoc_fn, has_self: false }, Trait, def_id matches: true
   provided: Fn { name: provided, has_self: true }, Trait, def_id matches: true
 impl (trait): associated_item_def_ids = [C, T, by_ref, by_val, assoc_fn]
-  rpitit = {by_ref: [0], by_val: [0], assoc_fn: [0]}
+  rpitit = {by_val: [0], assoc_fn: [0], by_ref: [0]}
   C: Const { name: C }, TraitImpl(Ok(C)), def_id matches: true
   T: Type { data: Normal(T) }, TraitImpl(Ok(T)), def_id matches: true
   by_ref: Fn { name: by_ref, has_self: true }, TraitImpl(Ok(by_ref)), def_id matches: true

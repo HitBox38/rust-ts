@@ -63,7 +63,8 @@ import { format_debug, PLAIN } from "../../std/fmt.ts";
 import "../../rustc_trait_selection/lib.ts";
 import { BottomUpFolder } from "../../rustc_middle/ty/fold.ts";
 import type { EarlyParamRegion, LateParamRegionKind } from "../../rustc_middle/ty/region.gen.ts";
-import { type DefId, DefId_eq, DefIdMap, LocalDefId } from "../../rustc_span/def_id.ts";
+import { type DefId, DefId_eq, DefIdMap, FxDefIdMap, LocalDefId } from "../../rustc_span/def_id.ts";
+import { LAYOUT_PTR } from "../../rust_ts/hash_map.ts";
 import { BytePos, DUMMY_SP, Span } from "../../rustc_span/lib.ts";
 import { bug, span_bug } from "../../rustc_span/macros.ts";
 import { display_Ident, display_Symbol } from "../../rustc_span/symbol.ts";
@@ -712,7 +713,8 @@ export function collect_return_position_impl_trait_in_trait_tys(tcx: TyCtxt, imp
   const rr = ocx.resolve_regions_and_report_errors(impl_m_def_id, param_env, wf_tys);
   if (rr.$ === "Err") return rr;
 
-  const remapped_types = new DefIdMap<EarlyBinder<Ty>>();
+  // PORT: an `FxDefIdMap`: crate metadata encodes this `UnordMap` in its hashbrown order.
+  const remapped_types = new FxDefIdMap<EarlyBinder<Ty>>(LAYOUT_PTR);
   for (const [def_id, [ty_, args]] of collected_types) {
     const resolved = infcx.deeply_resolve_via_region_graph(ty_, fold_Ty, debug_Ty);
     switch (resolved.$) {
