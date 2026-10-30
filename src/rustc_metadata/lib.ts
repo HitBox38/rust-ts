@@ -5,11 +5,10 @@
 // defining module (PORTING section 5): rmeta/decoder/cstore_impl.ts attaches `impl CStore` /
 // `impl CrateStore for CStore` to creader.ts's `CStore`. Consumers import this module.
 //
-// Not ported yet: the rmeta encoder (M5);
 // host_dylib is a stub; rmeta/decoder.ts is a contract (stubs for lanes rmeta-decoder-a/-b).
 
 // pub use rmeta::provide;
-export { provide } from "./rmeta/decoder/cstore_impl.ts";
+export { provide } from "./rmeta/mod.ts";
 
 // mod dependency_format;
 // mod eii;
@@ -18,11 +17,12 @@ export * as host_dylib from "./host_dylib.ts";
 // mod native_libs;
 // mod rmeta;
 // PORT: rmeta/mod.ts first (decoder.ts extends its classes at load time), then table.ts / def_path_hash_map.ts
-// / decoder.ts (parameterized.rs is type-level only).
+// / decoder.ts / encoder.ts (parameterized.rs is type-level only).
 import "./rmeta/mod.ts";
 import "./rmeta/table.ts";
 import "./rmeta/def_path_hash_map.ts";
 import "./rmeta/decoder.ts";
+import "./rmeta/encoder.ts";
 
 export * as creader from "./creader.ts";
 import "./rmeta/decoder/cstore_impl.ts";
@@ -35,5 +35,5 @@ export { METADATA_FILENAME, emit_wrapper_file } from "./fs.ts";
 // pub use host_dylib::{DylibError, load_symbol_from_dylib};
 export type { DylibError } from "./host_dylib.ts";
 // pub use rmeta::{EncodedMetadata, METADATA_HEADER, ProcMacroKind, encode_metadata, rendered_const};
-// PORT: only `METADATA_HEADER` exists so far (lane locator); the rest is wave 11 rmeta-types / M5.
-export { METADATA_HEADER } from "./rmeta/mod.ts";
+export { METADATA_HEADER, type ProcMacroKind } from "./rmeta/mod.ts";
+export { EncodedMetadata, encode_metadata, rendered_const } from "./rmeta/encoder.ts";

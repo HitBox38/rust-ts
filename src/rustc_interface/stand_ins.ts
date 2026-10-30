@@ -1,6 +1,6 @@
 // Not an upstream mirror. PORT: stand-ins for crates the driver path reaches but that are not ported:
 //   rustc_codegen_ssa::traits::CodegenBackend (the trait and its provided methods; the LLVM backend stand-in is
-//   src/rust_ts/codegen_backend.ts), rustc_metadata::EncodedMetadata, rustc_data_structures::jobserver::initialize
+//   src/rust_ts/codegen_backend.ts), rustc_data_structures::jobserver::initialize
 // Each keeps only what can be copied verbatim or is observable-free on the paths the port runs; everything
 // else calls `unported(...)`. Replace by the real modules when those crates are ported.
 import type { CodegenBackendInit, EarlySession, Session } from "../rustc_session/session.ts";
@@ -8,6 +8,7 @@ import type { OutputFilenames } from "../rustc_session/config.ts";
 import type { CrateType } from "../rustc_structures/crate_type.ts";
 import { unported } from "../std/panic.ts";
 import type { MetadataLoaderDyn } from "../rustc_metadata/creader.ts";
+import type { EncodedMetadata } from "../rustc_metadata/lib.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import type { Symbol } from "../rustc_span/symbol.ts";
 import { DefaultMetadataLoader } from "../rustc_codegen_ssa/back/metadata.ts";
@@ -124,14 +125,6 @@ export const CodegenBackend_provided = {
 
 /** PORT: `rustc_codegen_ssa::back::archive::ArArchiveBuilderBuilder` (back/archive.rs, M7): opaque, see `ArchiveBuilderBuilder`. */
 export const ArArchiveBuilderBuilder: ArchiveBuilderBuilder = { __archive_builder_builder: "ArArchiveBuilderBuilder" };
-
-/**
- * PORT: `rustc_metadata::EncodedMetadata` (rmeta/encoder.rs, not ported yet), made by `encode_and_write_metadata`
- * (rustc_metadata fs.rs); only what the driver path reads of it.
- */
-export interface EncodedMetadata {
-  path(): string | undefined;
-}
 
 /** PORT: `rustc_session::IncrCompSession` (session.rs): no incremental compilation (D3), so never constructed. */
 export type IncrCompSession = never;

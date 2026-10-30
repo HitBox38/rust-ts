@@ -12,6 +12,7 @@ import { LINKER_INFO, LINKER_MESSAGES } from "../rustc_lint_defs/builtin.gen.ts"
 import type { StableLevelSpec } from "../rustc_middle/lint.ts";
 import type { DebuggerVisualizerFile } from "../rustc_middle/middle/debugger_visualizer.ts";
 import type { Dependencies } from "../rustc_middle/middle/dependency_format.ts";
+import type { SymbolExportKind } from "../rustc_middle/middle/exported_symbols.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import type { Providers } from "../rustc_middle/util/mod.ts";
 import type { CrateNum } from "../rustc_span/def_id.ts";
@@ -26,12 +27,6 @@ import * as target_features from "./target_features.ts";
 
 export * as codegen_attrs from "./codegen_attrs.ts";
 export * as target_features from "./target_features.ts";
-
-// PORT: `rustc_middle::middle::exported_symbols::SymbolExportKind` (middle/exported_symbols.rs:25) is not
-// ported; declared here as upstream defines it.
-/// Kind of exported symbols.
-export type SymbolExportKind = "Text" | "Data" | "Tls";
-export const SymbolExportKind = { Text: "Text", Data: "Data", Tls: "Tls" } as const;
 
 // #[derive(Debug, Encodable, Decodable)]
 export interface CompiledModule {

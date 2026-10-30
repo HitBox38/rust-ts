@@ -11,6 +11,7 @@ import * as check_export from "./check_export.ts";
 import * as dead from "./dead.ts";
 import * as debugger_visualizer from "./debugger_visualizer.ts";
 import * as diagnostic_items from "./diagnostic_items.ts";
+import * as fake_doc_items from "./fake_doc_items.ts";
 import * as eii from "./eii.ts";
 import * as entry from "./entry.ts";
 import * as lang_items from "./lang_items.ts";
@@ -33,7 +34,7 @@ export * as delegation from "./delegation.ts";
 export * as diagnostics from "./diagnostics.ts";
 // mod eii;                    (private: imported above for `provide`)
 export * as entry from "./entry.ts";
-// mod fake_doc_items;          (not ported)
+// mod fake_doc_items;        (private: imported above for `provide`)
 // pub mod hir_id_validator;    (not ported)
 // pub mod input_stats;         (not ported)
 export * as lang_items from "./lang_items.ts";
@@ -60,6 +61,6 @@ export function provide(providers: Providers): void {
   stability.provide(providers);
   upvars.provide(providers);
   check_export.provide(providers);
-  // fake_doc_items::provide(providers);
+  fake_doc_items.provide(providers);
   providers.check_externally_implementable_items = eii.check_externally_implementable_items;
 }

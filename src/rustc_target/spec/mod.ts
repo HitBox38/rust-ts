@@ -1647,6 +1647,29 @@ export function decode_StackProtector(__decoder: Decoder): StackProtector {
   }
 }
 
+/**
+ * `#[derive(Encodable)]` of `StackProtector` (rustc_macros serialize.rs `encodable_body`: the variant index as `emit_u8`).
+ * PORT (lane encoder-d): hand-expanded like `decode_StackProtector` (the enum is defined inside `target_spec_enum!`).
+ */
+export function encode_StackProtector(self: StackProtector, __encoder: SpanEncoder): void {
+  let disc: number;
+  switch (self) {
+    case "None":
+      disc = 0;
+      break;
+    case "Basic":
+      disc = 1;
+      break;
+    case "Strong":
+      disc = 2;
+      break;
+    case "All":
+      disc = 3;
+      break;
+  }
+  __encoder.emit_u8(disc);
+}
+
 // crate::target_spec_enum! { pub enum BinaryFormat { .. } parse_error_type = "binary format"; }
 export type BinaryFormat = "Coff" | "Elf" | "MachO" | "Wasm" | "Xcoff";
 export const BinaryFormat = {
