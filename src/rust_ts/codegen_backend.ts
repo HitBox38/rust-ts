@@ -17,10 +17,10 @@ import type { MetadataLoaderDyn } from "../rustc_metadata/creader.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import { link_binary, type ArchiveBuilderBuilder } from "../rustc_codegen_ssa/back/link.ts";
 import type { CompiledModules, CrateInfo } from "../rustc_codegen_ssa/lib.ts";
+import type { EncodedMetadata } from "../rustc_metadata/lib.ts";
 import {
   type CodegenBackend,
   CodegenBackend_provided,
-  type EncodedMetadata,
   type IncrCompSession,
   type TargetConfig,
   type WorkProductMap,

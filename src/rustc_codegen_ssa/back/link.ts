@@ -15,7 +15,7 @@ import { type CrateNum, LOCAL_CRATE } from "../../rustc_span/def_id.ts";
 import type { Symbol } from "../../rustc_span/symbol.ts";
 import { bug } from "../../rustc_span/macros.ts";
 import { TargetTuple } from "../../rustc_target/spec/tuple.ts";
-import type { EncodedMetadata } from "../../rustc_interface/stand_ins.ts";
+import type { EncodedMetadata } from "../../rustc_metadata/lib.ts";
 import { unported } from "../../std/panic.ts";
 import type { CompiledModule, CompiledModules, CrateInfo } from "../lib.ts";
 

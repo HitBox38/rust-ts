@@ -38,7 +38,7 @@ import type { LangItem } from "../../rustc_attr_ir/lang_items.ts";
 import type { ExportedSymbol, SymbolExportInfo } from "../../rustc_codegen_ssa/back/symbol_export.ts";
 import type { ForeignModule, LinkagePreference, NativeLib } from "../../rustc_crate_store/lib.ts";
 import type { Features } from "../../rustc_feature/unstable.ts";
-import type { DefKind } from "../../rustc_hir/def.ts";
+import { DefKind } from "../../rustc_hir/def.ts";
 import type { Body, Expr } from "../../rustc_hir/hir.ts";
 import type { DebuggerVisualizerFile } from "../../rustc_middle/middle/debugger_visualizer.ts";
 import type { FeatureStability } from "../../rustc_middle/middle/mod.ts";
@@ -47,7 +47,7 @@ import type { Providers } from "../../rustc_middle/queries.gen.ts";
 import type { TyEncoder } from "../../rustc_middle/ty/codec.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import type { Ty } from "../../rustc_middle/ty/mod.ts";
-import type { FileEncoder } from "../../rustc_serialize/opaque.ts";
+import { FileEncoder } from "../../rustc_serialize/opaque.ts";
 import { type Encodable, type Encoder, Encoder_provided, encode_Option, encode_tuple, encode_u32, encode_usize } from "../../rustc_serialize/serialize.ts";
 import type { DeniedPartialMitigation } from "../../rustc_session/options/mitigation_coverage.ts";
 import type { TargetModifier } from "../../rustc_session/options.ts";
@@ -60,10 +60,9 @@ import { ByteSymbol, Symbol } from "../../rustc_span/symbol.ts";
 import { assert, assert_eq, panic, unported, unwrap } from "../../std/panic.ts";
 import { PLAIN } from "../../std/fmt.ts";
 import type { Result } from "../../std/result.ts";
-import type { XxHash3_128 } from "../../vendor/twox_hash/lib.ts";
+import { XxHash3_128 } from "../../vendor/twox_hash/lib.ts";
 import { encode_SpanTag } from "../decodable.gen.ts";
 import type { EiiMapEncodedKeyValue } from "../eii.ts";
-import type { Svh } from "./decoder.ts";
 import type { DefPathHashMapRef } from "./def_path_hash_map.ts";
 import {
   type CrateDep,
@@ -88,6 +87,60 @@ import {
   type TraitImpls,
 } from "./mod.ts";
 import { fse_Option_LazyValue, TableBuilder } from "./table.ts";
+// lane encoder-d
+import { closeSync, fstatSync, openSync, readFileSync, readSync, writeSync } from "node:fs";
+import { find_attr } from "../../rustc_attr_ir/lib.ts";
+import type { CanonicalSymbols } from "../../rustc_attr_ir/canonical_symbols.ts";
+import { clone_StrippedCfgItem, encode_StrippedCfgItem } from "../../rustc_attr_ir/data_structures.gen.ts";
+import { encode_LangItem } from "../../rustc_attr_ir/lang_items.gen.ts";
+import { encode_Stability } from "../../rustc_attr_ir/stability.gen.ts";
+import type { Stability } from "../../rustc_attr_ir/stability.ts";
+import { encode_LinkagePreference } from "../../rustc_crate_store/cstore.gen.ts";
+import { Fingerprint } from "../../rustc_data_structures/fingerprint.ts";
+import { StableHasher, stable_hash_Fingerprint, stable_hash_Hash64 } from "../../rustc_data_structures/stable_hash.ts";
+import { Svh } from "../../rustc_data_structures/svh.ts";
+import { MacroKinds } from "../../rustc_hir/def.ts";
+import { id_to_string } from "../../rustc_hir_pretty/lib.ts";
+import { type DefPathData, encode_DefKey } from "../../rustc_hir_id/definitions.ts";
+import { clone_DefKey } from "../../rustc_hir_id/definitions.gen.ts";
+import { encode_FeatureStability, encode_ImplTraitHeader, encode_Visibility } from "../../rustc_middle/decodable.gen.ts";
+import { compute_hir_hash, TyCtxt_as_HirTyCtxt } from "../../rustc_middle/hir/map.ts";
+import type { CrateInherentImpls, ImplTraitHeader } from "../../rustc_middle/ty/mod.ts";
+import { lib_features as middle_lib_features } from "../../rustc_middle/middle/mod.ts";
+import type { DocLinkResMap } from "../../rustc_middle/middle/resolve.ts";
+import { type CoerceUnsizedInfo, encode_CoerceUnsizedInfo } from "../../rustc_middle/ty/adjustment.gen.ts";
+import type { SimplifiedType } from "../../rustc_middle/ty/fast_reject.ts";
+import { Visibility } from "../../rustc_middle/ty/mod.ts";
+import type { TraitDef } from "../../rustc_middle/ty/trait_def.ts";
+import { type Decoder, decode_Option, decode_u8, decode_Vec, encode_String, encode_u8, encode_Vec } from "../../rustc_serialize/serialize.ts";
+import { encode_DeniedPartialMitigation, gather_enabled_denied_partial_mitigations } from "../../rustc_session/options/mitigation_coverage.ts";
+import { CRATE_DEF_ID, CRATE_MOD_ID, DefIdMap, debug_LocalDefId, LocalModId } from "../../rustc_span/def_id.ts";
+import type { MacroKind } from "../../rustc_span/hygiene.ts";
+import { encode_DefId, encode_Span, encode_Symbol } from "../../rustc_span/lib.ts";
+import { span_bug } from "../../rustc_span/macros.ts";
+import { EarlyBinder } from "../../rustc_type_ir/binder.ts";
+import { encode_SimplifiedType } from "../../rustc_type_ir/fast_reject.gen.ts";
+import { simplify_type, TreatParams } from "../../rustc_type_ir/fast_reject.ts";
+import { as_interner, TraitRef } from "../../rustc_type_ir/predicate.ts";
+import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
+import { io_error_from_node, type IoResult } from "../../std/io.ts";
+import { Err, Ok, unwrap_result } from "../../std/result.ts";
+import { encode_CrateDep, encode_CrateHeader, encode_IncoherentImpls, encode_ProcMacroKind, encode_TraitImpls } from "../decodable.gen.ts";
+import { FailCreateFileEncoder_diagnostic, FailWriteFile_diagnostic } from "../diagnostics.ts";
+import type { MaybeTempDir } from "../fs.ts";
+import type { Defaultness } from "./table.ts";
+import {
+  type CrateHeader,
+  CRATE_HASH_OFFSET,
+  encode_LazyValue,
+  METADATA_HEADER,
+  type ProcMacroKind,
+  RawDefId,
+  ROOT_POS_OFFSET,
+  rustc_version,
+  TableBuilders_default,
+  UNHASHED_POS_OFFSET,
+} from "./mod.ts";
 
 // rustc-type: compiler/rustc_metadata/src/rmeta/encoder.rs:52 EncodeContext
 export class EncodeContext implements TyEncoder {
@@ -616,95 +669,385 @@ export class EncodeContext implements TyEncoder {
     return [syntax_contexts.encode(this.opaque), expn_data_table.encode(this.opaque), expn_hash_table.encode(this.opaque)];
   }
 
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:2064 encode_proc_macros (lane encoder-d)
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:2064 encode_proc_macros
   encode_proc_macros(): ProcMacroData | undefined {
-    return unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_proc_macros (lane encoder-d)");
+    const is_proc_macro = this.tcx.crate_types().includes("ProcMacro");
+    if (is_proc_macro) {
+      const tcx = this.tcx;
+      const proc_macro_decls_static_ = unwrap(tcx.proc_macro_decls_static(null), "called `Option::unwrap()` on a `None` value");
+      const proc_macro_decls_static = this.lazy(proc_macro_decls_static_, encode_LocalDefId);
+
+      const stability = tcx.lookup_stability(CRATE_DEF_ID) as Stability | undefined;
+
+      // record_some!(self.tables.def_kind[CRATE_DEF_ID] <- DefKind::Mod);
+      this.tables.def_kind.set_some(CRATE_DEF_ID, DefKind.Mod);
+      // record_some_lazy!(self.tables.def_span[CRATE_DEF_ID] <- tcx.def_span(CRATE_DEF_ID.to_def_id()));
+      {
+        const value = tcx.def_span(LocalDefId.to_def_id(CRATE_DEF_ID));
+        const lazy = this.lazy(value, encode_Span);
+        this.tables.def_span.set_some(CRATE_DEF_ID, lazy);
+      }
+      this.encode_attrs(CRATE_DEF_ID);
+      const vis = Visibility.map_id(tcx.local_visibility(CRATE_DEF_ID), (mod_id) => LocalModId.to_local_def_id(mod_id));
+      // record_some_lazy!(self.tables.visibility[CRATE_DEF_ID] <- vis);
+      {
+        const lazy = this.lazy(vis, encode_Visibility_LocalDefId);
+        this.tables.visibility.set_some(CRATE_DEF_ID, lazy);
+      }
+      if (stability !== undefined) {
+        // record_some_lazy!(self.tables.lookup_stability[CRATE_DEF_ID] <- stability);
+        const lazy = this.lazy(stability, encode_Stability);
+        this.tables.lookup_stability.set_some(CRATE_DEF_ID, lazy);
+      }
+      this.encode_deprecation(CRATE_DEF_ID);
+      const res_map = tcx.resolutions(null).doc_link_resolutions.get(CRATE_MOD_ID);
+      if (res_map !== undefined) {
+        // record_some_lazy!(self.tables.doc_link_resolutions[CRATE_DEF_ID] <- res_map);
+        const lazy = this.lazy(res_map, encode_DocLinkResMap);
+        this.tables.doc_link_resolutions.set_some(CRATE_DEF_ID, lazy);
+      }
+      const traits = tcx.resolutions(null).doc_link_traits_in_scope.get(CRATE_MOD_ID);
+      if (traits !== undefined) {
+        // record_array!(self.tables.doc_link_traits_in_scope[CRATE_DEF_ID] <- traits);
+        const lazy = this.lazy_array(traits, encode_DefId);
+        this.tables.doc_link_traits_in_scope.set_some(CRATE_DEF_ID, lazy);
+      }
+
+      const macros: [LocalDefId, LazyValue<ProcMacroKind>][] = [];
+
+      // Normally, this information is encoded when we walk the items
+      // defined in this crate. However, we skip doing that for proc-macro crates,
+      // so we manually encode just the information that we need
+      for (const proc_macro_ of tcx.resolutions(null).proc_macros) {
+        const id = proc_macro_;
+        const proc_macro = tcx.local_def_id_to_hir_id(proc_macro_);
+        let name = tcx.hir_name(proc_macro);
+        const span = tcx.hir_span(proc_macro);
+        // Proc-macros may have attributes like `#[allow_internal_unstable]`,
+        // so downstream crates need access to them.
+        const attrs = tcx.hir_attrs(proc_macro);
+        let macro_kind: MacroKind;
+        let kind: ProcMacroKind;
+        let derive: [Symbol, readonly Symbol[]] | undefined;
+        if (find_attr(attrs, (k) => (k.$ === "ProcMacro" ? true : undefined)) !== undefined) {
+          [macro_kind, kind] = ["Bang", { $: "Bang", name: Symbol.as_str(name) }];
+        } else if (find_attr(attrs, (k) => (k.$ === "ProcMacroAttribute" ? true : undefined)) !== undefined) {
+          [macro_kind, kind] = ["Attr", { $: "Attr", name: Symbol.as_str(name) }];
+        } else if ((derive = find_attr(attrs, (k) => (k.$ === "ProcMacroDerive" ? ([k.trait_name, k.helper_attrs] as [Symbol, readonly Symbol[]]) : undefined))) !== undefined) {
+          const [trait_name, helper_attrs] = derive;
+          name = trait_name;
+          [macro_kind, kind] = [
+            "Derive",
+            {
+              $: "CustomDerive",
+              trait_name: Symbol.as_str(name),
+              attributes: helper_attrs.map((attr) => Symbol.as_str(attr)),
+            },
+          ];
+        } else {
+          return bug(`Unknown proc-macro type for item ${debug_LocalDefId(id, PLAIN)}`);
+        }
+
+        macros.push([id, this.lazy(kind, encode_ProcMacroKind)]);
+
+        // PORT: `let mut def_key = ..` is a copy (`DefKey: Copy`), so the mutation stays local: `clone_DefKey`.
+        const def_key = clone_DefKey(this.tcx.hir_def_key(id));
+        def_key.disambiguated_data.data = { $: "MacroNs", _0: name } as DefPathData;
+
+        // record_some!(self.tables.def_kind[id] <- DefKind::Macro(macro_kind.into()));
+        this.tables.def_kind.set_some(id, { $: "Macro", _0: MacroKinds.from_MacroKind(macro_kind) });
+
+        this.encode_attrs(id);
+        // record_some_lazy!(self.tables.def_keys[id] <- def_key);
+        this.tables.def_keys.set_some(id, this.lazy(def_key, encode_DefKey));
+        // record_some_lazy!(self.tables.def_ident_span[id] <- span);
+        this.tables.def_ident_span.set_some(id, this.lazy(span, encode_Span));
+        // record_some_lazy!(self.tables.def_span[id] <- span);
+        this.tables.def_span.set_some(id, this.lazy(span, encode_Span));
+        // record_some_lazy!(self.tables.visibility[id] <- ty::Visibility::Public);
+        this.tables.visibility.set_some(id, this.lazy(Visibility.Public as Visibility<LocalDefId>, encode_Visibility_LocalDefId));
+        if (stability !== undefined) {
+          // record_some_lazy!(self.tables.lookup_stability[id] <- stability);
+          this.tables.lookup_stability.set_some(id, this.lazy(stability, encode_Stability));
+        }
+      }
+
+      const macros_ = this.lazy_array(macros, encode_LocalDefId_LazyValue);
+
+      const proc_macro_quoted_spans = TableBuilder.default<number, number, LazyValue<Span> | undefined>(fse_Option_LazyValue);
+      for (const [i, span] of this.tcx.sess.proc_macro_quoted_spans()) {
+        proc_macro_quoted_spans.set_some(i, this.lazy(span, encode_Span));
+      }
+
+      const proc_macro_quoted_spans_ = proc_macro_quoted_spans.encode(this.opaque);
+
+      return {
+        proc_macro_decls_static,
+        stability,
+        macros: macros_,
+        proc_macro_quoted_spans: proc_macro_quoted_spans_,
+      };
+    } else {
+      return undefined;
+    }
   }
 
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:2161 encode_debugger_visualizers (lane encoder-d)
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:2161 encode_debugger_visualizers
   encode_debugger_visualizers(): LazyArray<DebuggerVisualizerFile> {
-    return unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_debugger_visualizers (lane encoder-d)");
+    if (this.is_proc_macro) return LazyArray.default(); // empty_proc_macro!(self);
+    return this.lazy_array(
+      (this.tcx.debugger_visualizers(LOCAL_CRATE) as DebuggerVisualizerFile[])
+        // Erase the path since it may contain privacy sensitive data
+        // that we don't want to end up in crate metadata.
+        // The path is only needed for the local crate because of
+        // `--emit dep-info`.
+        .map((v) => v.path_erased()),
+      encode_DebuggerVisualizerFile,
+    );
   }
 
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:2175 encode_crate_deps (lane encoder-d)
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:2175 encode_crate_deps
   encode_crate_deps(): LazyArray<CrateDep> {
-    return unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_crate_deps (lane encoder-d)");
+    if (this.is_proc_macro) return LazyArray.default(); // empty_proc_macro!(self);
+
+    const deps: [CrateNum, CrateDep][] = this.tcx.crates(null).map((cnum) => {
+      const dep: CrateDep = {
+        name: this.tcx.crate_name(cnum),
+        hash: this.tcx.crate_hash(cnum),
+        host_hash: this.tcx.crate_host_hash(cnum),
+        kind: this.tcx.crate_dep_kind(cnum),
+        is_private: this.tcx.is_private_dep(cnum),
+      };
+      return [cnum, dep];
+    });
+
+    {
+      // Sanity-check the crate numbers
+      let expected_cnum = 1;
+      for (const [n] of deps) {
+        assert_eq(n, CrateNum.new(expected_cnum), (v) => debug_CrateNum(v, PLAIN));
+        expected_cnum += 1;
+      }
+    }
+
+    // We're just going to write a list of crate 'name-hash-version's, with
+    // the assumption that they are numbered 1 to n.
+    // FIXME (#2166): This is not nearly enough to support correct versioning
+    // but is enough to get transitive crate dependencies working.
+    return this.lazy_array(
+      deps.map(([, dep]) => dep),
+      encode_CrateDep,
+    );
   }
 
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:2210 encode_target_modifiers (lane encoder-d)
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:2210 encode_target_modifiers
   encode_target_modifiers(): LazyArray<TargetModifier> {
-    return unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_target_modifiers (lane encoder-d)");
+    if (this.is_proc_macro) return LazyArray.default(); // empty_proc_macro!(self);
+    const tcx = this.tcx;
+    return this.lazy_array(tcx.sess.opts.gather_target_modifiers(), encode_TargetModifier);
   }
 
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:2216 encode_enabled_denied_partial_mitigations (lane encoder-d)
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:2216 encode_enabled_denied_partial_mitigations
   encode_enabled_denied_partial_mitigations(): LazyArray<DeniedPartialMitigation> {
-    return unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_enabled_denied_partial_mitigations (lane encoder-d)");
+    if (this.is_proc_macro) return LazyArray.default(); // empty_proc_macro!(self);
+    const tcx = this.tcx;
+    // PORT: `Session::gather_enabled_denied_partial_mitigations` is the generated free fn (as in creader.ts).
+    return this.lazy_array(gather_enabled_denied_partial_mitigations(tcx.sess), encode_DeniedPartialMitigation);
   }
 
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:2222 encode_lib_features (lane encoder-d)
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:2222 encode_lib_features
   encode_lib_features(): LazyArray<[Symbol, FeatureStability]> {
-    return unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_lib_features (lane encoder-d)");
+    if (this.is_proc_macro) return LazyArray.default(); // empty_proc_macro!(self);
+    const tcx = this.tcx;
+    const lib_features = tcx.lib_features(LOCAL_CRATE) as middle_lib_features.LibFeatures;
+    return this.lazy_array(middle_lib_features.LibFeatures.to_sorted_vec(lib_features), encode_Symbol_FeatureStability);
   }
 
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:2229 encode_stability_implications (lane encoder-d)
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:2229 encode_stability_implications
   encode_stability_implications(): LazyArray<[Symbol, Symbol]> {
-    return unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_stability_implications (lane encoder-d)");
+    if (this.is_proc_macro) return LazyArray.default(); // empty_proc_macro!(self);
+    const tcx = this.tcx;
+    const implications = tcx.stability_implications(LOCAL_CRATE);
+    // PORT: `UnordMap::to_sorted_stable_ord()` sorts by the key's `StableCompare` (`Symbol::stable_cmp`); keys are
+    // unique.
+    const sorted = [...implications].sort(([a], [b]) => Symbol.stable_cmp(a, b));
+    return this.lazy_array(
+      sorted.map(([k, v]): [Symbol, Symbol] => [k, v]),
+      encode_Symbol_Symbol,
+    );
   }
 
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:2237 encode_canonical_symbols (lane encoder-d)
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:2237 encode_canonical_symbols
   encode_canonical_symbols(): LazyArray<[Symbol, LocalDefId]> {
-    return unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_canonical_symbols (lane encoder-d)");
+    if (this.is_proc_macro) return LazyArray.default(); // empty_proc_macro!(self);
+    const tcx = this.tcx;
+    const canonical_symbols = tcx.canonical_symbols(LOCAL_CRATE) as CanonicalSymbols;
+    return this.lazy_array(
+      [...canonical_symbols.iter()].map((cs): [Symbol, LocalDefId] => [cs.symbol, cs.def_id.expect_local()]),
+      encode_Symbol_LocalDefId,
+    );
   }
 
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:2244 encode_diagnostic_items (lane encoder-d)
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:2244 encode_diagnostic_items
   encode_diagnostic_items(): LazyArray<[Symbol, LocalDefId]> {
-    return unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_diagnostic_items (lane encoder-d)");
+    if (this.is_proc_macro) return LazyArray.default(); // empty_proc_macro!(self);
+    const tcx = this.tcx;
+    const diagnostic_items = tcx.diagnostic_items(LOCAL_CRATE).name_to_id;
+    return this.lazy_array(
+      [...diagnostic_items].map(([name, def_id]): [Symbol, LocalDefId] => [name, def_id.expect_local()]),
+      encode_Symbol_LocalDefId,
+    );
   }
 
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:2253 encode_fake_doc_items (lane encoder-d)
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:2253 encode_fake_doc_items
   encode_fake_doc_items(): LazyArray<LocalDefId> {
-    return unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_fake_doc_items (lane encoder-d)");
+    if (this.is_proc_macro) return LazyArray.default(); // empty_proc_macro!(self);
+    const tcx = this.tcx;
+    const fake_doc_items = tcx.fake_doc_items(LOCAL_CRATE);
+    return this.lazy_array(
+      fake_doc_items.map((cs) => cs.expect_local()),
+      encode_LocalDefId,
+    );
   }
 
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:2260 encode_lang_items (lane encoder-d)
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:2260 encode_lang_items
   encode_lang_items(): LazyArray<[LocalDefId, LangItem]> {
-    return unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_lang_items (lane encoder-d)");
+    if (this.is_proc_macro) return LazyArray.default(); // empty_proc_macro!(self);
+    const lang_items = this.tcx.lang_items().iter();
+    // `.filter_map(|(lang_item, def_id)| def_id.as_local().map(|id| (id, lang_item)))`
+    const items: [LocalDefId, LangItem][] = [];
+    for (const [lang_item, def_id] of lang_items) {
+      const id = def_id.as_local();
+      if (id !== undefined) items.push([id, lang_item]);
+    }
+    return this.lazy_array(items, encode_LocalDefId_LangItem);
   }
 
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:2269 encode_lang_items_missing (lane encoder-d)
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:2269 encode_lang_items_missing
   encode_lang_items_missing(): LazyArray<LangItem> {
-    return unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_lang_items_missing (lane encoder-d)");
+    if (this.is_proc_macro) return LazyArray.default(); // empty_proc_macro!(self);
+    const tcx = this.tcx;
+    return this.lazy_array(tcx.lang_items().missing, encode_LangItem);
   }
 
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:2275 encode_stripped_cfg_items (lane encoder-d)
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:2275 encode_stripped_cfg_items
   encode_stripped_cfg_items(): LazyArray<StrippedCfgItem<LocalDefId>> {
-    return unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_stripped_cfg_items (lane encoder-d)");
+    return this.lazy_array(
+      (this.tcx.stripped_cfg_items(LOCAL_CRATE) as readonly StrippedCfgItem<DefId>[]).map((item) => clone_StrippedCfgItem(item, (def_id) => def_id).map_scope_id((def_id) => def_id.expect_local())),
+      encode_StrippedCfgItem_LocalDefId,
+    );
   }
 
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:2284 encode_traits (lane encoder-d)
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:2284 encode_traits
   encode_traits(): LazyArray<LocalDefId> {
-    return unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_traits (lane encoder-d)");
+    if (this.is_proc_macro) return LazyArray.default(); // empty_proc_macro!(self);
+    return this.lazy_array(
+      this.tcx.traits(LOCAL_CRATE).map((def_id) => def_id.expect_local()),
+      encode_LocalDefId,
+    );
   }
 
   /// Encodes an index, mapping each trait to its (local) implementations.
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:2291 encode_impls (lane encoder-d)
+  // #[instrument(level = "debug", skip(self))]
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:2291 encode_impls
   encode_impls(): LazyArray<TraitImpls> {
-    return unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_impls (lane encoder-d)");
+    if (this.is_proc_macro) return LazyArray.default(); // empty_proc_macro!(self);
+    const tcx = this.tcx;
+    const trait_impls = new DefIdMap<[LocalDefId, SimplifiedType | undefined][]>();
+
+    for (const id of tcx.hir_free_items()) {
+      const def_kind = tcx.def_kind(id.owner_id);
+      if (def_kind.$ !== "Impl") {
+        continue;
+      }
+      const of_trait = def_kind.of_trait;
+      const local_id = id.owner_id.def_id;
+
+      if (of_trait) {
+        const header = tcx.impl_trait_header(local_id) as ImplTraitHeader;
+        // record_some_lazy!(self.tables.impl_trait_header[local_id] <- header);
+        this.tables.impl_trait_header.set_some(local_id, this.lazy(header, encode_ImplTraitHeader as Encodable<ImplTraitHeader, EncodeContext>));
+
+        const impl_is_fully_generic_for_reflection = tcx.impl_is_fully_generic_for_reflection(local_id);
+
+        // record_value!(self.tables.impl_is_fully_generic_for_reflection[local_id] <- impl_is_fully_generic_for_reflection);
+        this.tables.impl_is_fully_generic_for_reflection.set(local_id, impl_is_fully_generic_for_reflection);
+        // record_value!(self.tables.defaultness[local_id] <- tcx.defaultness(local_id));
+        this.tables.defaultness.set(local_id, tcx.defaultness(local_id) as Defaultness);
+
+        const trait_ref = Unnormalized.skip_norm_wip(EarlyBinder.instantiate_identity(header.trait_ref));
+        const simplified_self_ty = simplify_type(as_interner(this.tcx), TraitRef.self_ty(trait_ref), TreatParams.InstantiateWithInfer);
+        // `trait_impls.entry(trait_ref.def_id).or_default().push((local_id, simplified_self_ty))`
+        let entry = trait_impls.get(trait_ref.def_id);
+        if (entry === undefined) {
+          entry = [];
+          trait_impls.set(trait_ref.def_id, entry);
+        }
+        entry.push([local_id, simplified_self_ty]);
+
+        const trait_def = tcx.trait_def(trait_ref.def_id) as TraitDef;
+        const an = trait_def.ancestors(tcx, LocalDefId.to_def_id(local_id));
+        if (an.$ === "Ok") {
+          // `an.nth(1)`
+          const parent = an._0.next() === undefined ? undefined : an._0.next();
+          if (parent !== undefined && parent.$ === "Impl") {
+            // record_some!(self.tables.impl_parent[local_id] <- parent.into());
+            this.tables.impl_parent.set_some(local_id, RawDefId.from(parent._0));
+          }
+        }
+
+        // if this is an impl of `CoerceUnsized`, create its
+        // "unsized info", else just store None
+        if (tcx.is_lang_item(trait_ref.def_id, "CoerceUnsized")) {
+          const coerce_unsized_info = unwrap_result(tcx.coerce_unsized_info(local_id));
+          // record_some_lazy!(self.tables.coerce_unsized_info[local_id] <- coerce_unsized_info);
+          this.tables.coerce_unsized_info.set_some(local_id, this.lazy(coerce_unsized_info, encode_CoerceUnsizedInfo as Encodable<CoerceUnsizedInfo, EncodeContext>));
+        }
+      }
+    }
+
+    const trait_impls_: TraitImpls[] = [...trait_impls].map(([trait_def_id, impls]) => ({
+      trait_id: RawDefId.from(trait_def_id),
+      impls: this.lazy_array(impls, encode_LocalDefId_Option_SimplifiedType),
+    }));
+
+    return this.lazy_array(trait_impls_, encode_TraitImpls);
   }
 
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:2352 encode_incoherent_impls (lane encoder-d)
+  // #[instrument(level = "debug", skip(self))]
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:2352 encode_incoherent_impls
   encode_incoherent_impls(): LazyArray<IncoherentImpls> {
-    return unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_incoherent_impls (lane encoder-d)");
+    if (this.is_proc_macro) return LazyArray.default(); // empty_proc_macro!(self);
+    const tcx = this.tcx;
+
+    const all_impls: IncoherentImpls[] = [...(tcx.crate_inherent_impls(null)[0] as CrateInherentImpls).incoherent_impls].map(([simp, impls]) => ({
+      self_ty: this.lazy(simp, encode_SimplifiedType_DefId),
+      impls: this.lazy_array(
+        impls.map((def_id) => def_id),
+        encode_LocalDefId,
+      ),
+    }));
+
+    return this.lazy_array(all_impls, encode_IncoherentImpls);
   }
 
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:2370 encode_exportable_items (lane encoder-d)
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:2370 encode_exportable_items
   encode_exportable_items(): LazyArray<LocalDefId> {
-    return unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_exportable_items (lane encoder-d)");
+    if (this.is_proc_macro) return LazyArray.default(); // empty_proc_macro!(self);
+    return this.lazy_array(
+      this.tcx.exportable_items(LOCAL_CRATE).map((def_id) => def_id.expect_local()),
+      encode_LocalDefId,
+    );
   }
 
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:2377 encode_stable_order_of_exportable_impls (lane encoder-d)
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:2377 encode_stable_order_of_exportable_impls
   encode_stable_order_of_exportable_impls(): LazyArray<[LocalDefId, number]> {
-    return unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_stable_order_of_exportable_impls (lane encoder-d)");
+    if (this.is_proc_macro) return LazyArray.default(); // empty_proc_macro!(self);
+    const stable_order_of_exportable_impls = this.tcx.stable_order_of_exportable_impls(LOCAL_CRATE);
+    return this.lazy_array(
+      [...stable_order_of_exportable_impls].map(([def_id, idx]): [LocalDefId, number] => [def_id.expect_local(), idx]),
+      encode_LocalDefId_usize,
+    );
   }
 
   // Encodes all symbols exported from this crate into the metadata.
@@ -713,14 +1056,37 @@ export class EncodeContext implements TyEncoder {
   // middle::reachable module but filters out items that either don't have a
   // symbol associated with them (they weren't translated) or if they're an FFI
   // definition (as that's not defined in this crate).
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:2394 encode_exported_symbols (lane encoder-d)
-  encode_exported_symbols(_exported_symbols: readonly [ExportedSymbol, SymbolExportInfo][]): LazyArray<[ExportedSymbol, SymbolExportInfo]> {
-    return unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_exported_symbols (lane encoder-d)");
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:2394 encode_exported_symbols
+  encode_exported_symbols(exported_symbols: readonly [ExportedSymbol, SymbolExportInfo][]): LazyArray<[ExportedSymbol, SymbolExportInfo]> {
+    if (this.is_proc_macro) return LazyArray.default(); // empty_proc_macro!(self);
+
+    // `exported_symbols.iter().cloned()`
+    return this.lazy_array(exported_symbols, encode_ExportedSymbol_SymbolExportInfo);
   }
 
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:2403 encode_dylib_dependency_formats (lane encoder-d)
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:2403 encode_dylib_dependency_formats
   encode_dylib_dependency_formats(): LazyArray<LinkagePreference | undefined> {
-    return unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_dylib_dependency_formats (lane encoder-d)");
+    if (this.is_proc_macro) return LazyArray.default(); // empty_proc_macro!(self);
+    const formats = this.tcx.dependency_formats(null);
+    const arr = formats.get("Dylib");
+    if (arr !== undefined) {
+      return this.lazy_array(
+        arr.slice(1 /* skip LOCAL_CRATE */).map((slot): LinkagePreference | undefined => {
+          switch (slot) {
+            case "NotLinked":
+            case "IncludedFromDylib":
+              return undefined;
+
+            case "Dynamic":
+              return "RequireDynamic";
+            case "Static":
+              return "RequireStatic";
+          }
+        }),
+        encode_Option_LinkagePreference,
+      );
+    }
+    return LazyArray.default();
   }
 }
 
@@ -1023,11 +1389,107 @@ export function should_encode_const(_def_kind: DefKind): boolean {
   return unported("rustc_metadata::rmeta::encoder::should_encode_const (lane encoder-b)");
 }
 
+// ---- encoder-d: the element encoders of the `lazy` / `lazy_array` calls above ----------------------------------
+// PORT: `lazy`/`lazy_array` take the element's `Encodable` fn (see the header); these spell the tuple, generic and
+// `Option` instances, and stop as UNPORTED for element types whose `Encodable` is not ported yet (each is reached
+// only for a non-empty list).
+
+/** `(LocalDefId, LazyValue<ProcMacroKind>)` */
+function encode_LocalDefId_LazyValue(v: [LocalDefId, LazyValue<ProcMacroKind>], e: EncodeContext): void {
+  encode_tuple(v, e, encode_LocalDefId, encode_LazyValue);
+}
+/** `ty::Visibility<LocalDefId>` */
+function encode_Visibility_LocalDefId(v: Visibility<LocalDefId>, e: EncodeContext): void {
+  encode_Visibility(v, e, encode_LocalDefId);
+}
+/** `(Symbol, FeatureStability)` */
+function encode_Symbol_FeatureStability(v: [Symbol, FeatureStability], e: EncodeContext): void {
+  encode_tuple(v, e, encode_Symbol, encode_FeatureStability);
+}
+/** `(Symbol, Symbol)` */
+function encode_Symbol_Symbol(v: [Symbol, Symbol], e: EncodeContext): void {
+  encode_tuple(v, e, encode_Symbol, encode_Symbol);
+}
+/** `(Symbol, LocalDefId)` */
+function encode_Symbol_LocalDefId(v: [Symbol, LocalDefId], e: EncodeContext): void {
+  encode_tuple(v, e, encode_Symbol, encode_LocalDefId);
+}
+/** `(LocalDefId, LangItem)` */
+function encode_LocalDefId_LangItem(v: [LocalDefId, LangItem], e: EncodeContext): void {
+  encode_tuple(v, e, encode_LocalDefId, encode_LangItem);
+}
+/** `(LocalDefId, usize)` */
+function encode_LocalDefId_usize(v: [LocalDefId, number], e: EncodeContext): void {
+  encode_tuple(v, e, encode_LocalDefId, encode_usize);
+}
+/** `SimplifiedType<DefId>` */
+function encode_SimplifiedType_DefId(v: SimplifiedType, e: EncodeContext): void {
+  encode_SimplifiedType(v, e, encode_DefId);
+}
+/** `(LocalDefId, Option<SimplifiedType>)` */
+function encode_LocalDefId_Option_SimplifiedType(v: [LocalDefId, SimplifiedType | undefined], e: EncodeContext): void {
+  encode_tuple(v, e, encode_LocalDefId, (x, e) => encode_Option(x, e, encode_SimplifiedType_DefId));
+}
+/** `StrippedCfgItem<LocalDefId>` */
+function encode_StrippedCfgItem_LocalDefId(v: StrippedCfgItem<LocalDefId>, e: EncodeContext): void {
+  encode_StrippedCfgItem(v, e, encode_LocalDefId);
+}
+/** `Option<LinkagePreference>` */
+function encode_Option_LinkagePreference(v: LinkagePreference | undefined, e: EncodeContext): void {
+  encode_Option(v, e, encode_LinkagePreference);
+}
+/** `Vec<u8>` / `[u8]` over any `Encoder` (the generic `[T]` impl; the `FileEncoder` specialization writes the same bytes). */
+function encode_Vec_u8(v: Uint8Array, s: Encoder): void {
+  encode_Vec(v, s, encode_u8);
+}
+/** `Vec<u8>` over any `Decoder` (the generic impl). */
+function decode_Vec_u8(d: Decoder): Uint8Array {
+  return Uint8Array.from(decode_Vec(d, decode_u8));
+}
+/** `DocLinkResMap` (`UnordMap<(Symbol, Namespace), Option<Res<NodeId>>>`): not ported. */
+function encode_DocLinkResMap(_v: DocLinkResMap, _e: EncodeContext): void {
+  unported("rustc_metadata::rmeta::encoder: Encodable for DocLinkResMap (proc-macro crate doc links)");
+}
+/** `DebuggerVisualizerFile`'s derived `Encodable`: not generated (rustc_middle middle/debugger_visualizer.rs). */
+function encode_DebuggerVisualizerFile(_v: DebuggerVisualizerFile, _e: EncodeContext): void {
+  unported("rustc_middle::middle::debugger_visualizer: Encodable for DebuggerVisualizerFile (#[debugger_visualizer])");
+}
+/** `TargetModifier`'s derived `Encodable`: not generated (rustc_session options.rs; decoder.ts's decoder is unported too). */
+function encode_TargetModifier(_v: TargetModifier, _e: EncodeContext): void {
+  unported("rustc_session::options: Encodable for TargetModifier (target-modifier flags)");
+}
+/** `(ExportedSymbol<'static>, SymbolExportInfo)`: not ported (exported symbols are empty without codegen, plan-m5 D5). */
+function encode_ExportedSymbol_SymbolExportInfo(_v: [ExportedSymbol, SymbolExportInfo], _e: EncodeContext): void {
+  unported("rustc_middle::middle::exported_symbols: Encodable for (ExportedSymbol, SymbolExportInfo) (codegen, M7)");
+}
+
 /// Used to prefetch queries which will be needed later by metadata encoding.
 /// Only a subset of the queries are actually prefetched to keep this code smaller.
-// stub: compiler/rustc_metadata/src/rmeta/encoder.rs:2422 prefetch_mir (lane encoder-d)
-export function prefetch_mir(_tcx: TyCtxt): void {
-  unported("rustc_metadata::rmeta::encoder::prefetch_mir (lane encoder-d)");
+// rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:2422 prefetch_mir
+export function prefetch_mir(tcx: TyCtxt): void {
+  if (!tcx.sess.opts.output_types.should_codegen()) {
+    // We won't emit MIR, so don't prefetch it.
+    return;
+  }
+
+  const reachable_set = tcx.reachable_set(null) as ReadonlySet<LocalDefId>;
+  // PORT: `par_for_each_in` runs the closure for each key in order (no `-Zthreads` parallelism here).
+  for (const def_id of tcx.mir_keys(null)) {
+    if (tcx.is_trivial_const(def_id)) {
+      continue;
+    }
+    const [encode_const, encode_opt] = should_encode_mir(tcx, reachable_set, def_id);
+
+    if (encode_const) {
+      tcx.ensure_done().mir_for_ctfe(def_id);
+    }
+    if (encode_opt) {
+      tcx.ensure_done().optimized_mir(def_id);
+    }
+    if (encode_opt || encode_const) {
+      tcx.ensure_done().promoted_mir(def_id);
+    }
+  }
 }
 
 // NOTE(eddyb) The following comment was preserved for posterity, even
@@ -1054,9 +1516,9 @@ export function prefetch_mir(_tcx: TyCtxt): void {
 // generated regardless of trailing bytes that end up in it.
 
 // pub struct EncodedMetadata
-// PORT: `full_metadata: Option<Mmap>` is the file's bytes; `_temp_dir: Option<MaybeTempDir>` the directory's path
-// (dropping it, which deletes a temporary directory, is the owner's job). rustc_interface's stand_ins.ts declares the
-// part of it the driver reads until lane encoder-d ports `encode_metadata`.
+// PORT: `full_metadata: Option<Mmap>` holds the file's bytes (read whole, as locator.ts's `get_rmeta_metadata_section`
+// does for `Mmap::map`); `_temp_dir: Option<MaybeTempDir>` is fs.ts's `MaybeTempDir` stand-in. Rust drops the struct
+// (and so the temp dir) when its owner goes away; here the owner calls `drop()` (rustc_interface's `Linker::link`).
 export class EncodedMetadata {
   constructor(
     // The declaration order matters because `full_metadata` should be dropped
@@ -1069,76 +1531,355 @@ export class EncodedMetadata {
     public path_: string | undefined,
     // We need to carry MaybeTempDir to avoid deleting the temporary
     // directory while accessing the Mmap.
-    public _temp_dir: string | undefined,
+    public _temp_dir: MaybeTempDir | undefined,
   ) {}
 
   // #[inline]
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:2486 from_path (lane encoder-d)
-  static from_path(_path: string, _stub_path: string | undefined, _temp_dir: string | undefined): Result<EncodedMetadata, string> {
-    return unported("rustc_metadata::rmeta::encoder::EncodedMetadata::from_path (lane encoder-d)");
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:2486 from_path
+  static from_path(path: string, stub_path: string | undefined, temp_dir: MaybeTempDir | undefined): IoResult<EncodedMetadata> {
+    // PORT: `temp_dir` is taken by value: every return but the last drops it (which removes the directory unless
+    // `-C save-temps`), as leaving the fn drops an unmoved argument.
+    let file: number;
+    try {
+      file = openSync(path, "r");
+    } catch (e) {
+      temp_dir?.drop();
+      return Err(io_error_from_node(e));
+    }
+    let full_mmap: Uint8Array | undefined;
+    try {
+      let len: number;
+      try {
+        len = fstatSync(file).size; // `file.metadata()?`
+      } catch (e) {
+        temp_dir?.drop();
+        return Err(io_error_from_node(e));
+      }
+      if (len === 0) {
+        temp_dir?.drop();
+        return Ok(new EncodedMetadata(undefined, undefined, undefined, undefined));
+      }
+      // `unsafe { Some(Mmap::map(file)?) }`
+      try {
+        const buf = new Uint8Array(len);
+        let off = 0;
+        while (off < len) {
+          const n = readSync(file, buf, off, len - off, off);
+          if (n === 0) break;
+          off += n;
+        }
+        full_mmap = buf.subarray(0, off);
+      } catch (e) {
+        temp_dir?.drop();
+        return Err(io_error_from_node(e));
+      }
+    } finally {
+      closeSync(file);
+    }
+
+    let stub: Uint8Array | undefined;
+    if (stub_path !== undefined) {
+      try {
+        stub = readFileSync(stub_path);
+      } catch (e) {
+        temp_dir?.drop();
+        return Err(io_error_from_node(e));
+      }
+    } else {
+      stub = undefined;
+    }
+
+    return Ok(new EncodedMetadata(full_mmap, stub, path, temp_dir));
   }
 
   // #[inline]
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:2515 full (lane encoder-d)
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:2515 full
   full(): Uint8Array {
-    return unported("rustc_metadata::rmeta::encoder::EncodedMetadata::full (lane encoder-d)");
+    return this.full_metadata ?? new Uint8Array(0);
   }
 
   // #[inline]
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:2520 stub_or_full (lane encoder-d)
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:2520 stub_or_full
   stub_or_full(): Uint8Array {
-    return unported("rustc_metadata::rmeta::encoder::EncodedMetadata::stub_or_full (lane encoder-d)");
+    return this.stub_metadata ?? this.full();
   }
 
   // #[inline]
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:2525 path (lane encoder-d)
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:2525 path
   path(): string | undefined {
-    return unported("rustc_metadata::rmeta::encoder::EncodedMetadata::path (lane encoder-d)");
+    return this.path_;
+  }
+
+  /** PORT: the drop glue (fields in declaration order: the bytes, then `_temp_dir`, whose drop removes the dir). */
+  drop(): void {
+    this.full_metadata = undefined;
+    this._temp_dir?.drop();
+    this._temp_dir = undefined;
   }
 }
 
 // impl<S: Encoder> Encodable<S> for EncodedMetadata
-// stub: compiler/rustc_metadata/src/rmeta/encoder.rs:2531 encode (lane encoder-d)
-export function encode_EncodedMetadata(_self: EncodedMetadata, _s: Encoder): void {
-  unported("rustc_metadata::rmeta::encoder::encode EncodedMetadata (lane encoder-d)");
+// rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:2531 encode
+export function encode_EncodedMetadata(self: EncodedMetadata, s: Encoder): void {
+  encode_Option(self.stub_metadata, s, encode_Vec_u8);
+
+  const slice = self.full();
+  encode_Vec_u8(slice, s);
 }
 
 // impl<D: Decoder> Decodable<D> for EncodedMetadata
-// stub: compiler/rustc_metadata/src/rmeta/encoder.rs:2540 decode (lane encoder-d)
-export function decode_EncodedMetadata(_d: import("../../rustc_serialize/serialize.ts").Decoder): EncodedMetadata {
-  return unported("rustc_metadata::rmeta::encoder::decode EncodedMetadata (lane encoder-d)");
+// rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:2540 decode
+export function decode_EncodedMetadata(d: Decoder): EncodedMetadata {
+  const stub = decode_Option(d, decode_Vec_u8);
+
+  const len = d.read_usize();
+  let full_metadata: Uint8Array | undefined;
+  if (len > 0) {
+    // `MmapMut::map_anon(len)` + `copy_from_slice` + `make_read_only`: a copy of the bytes.
+    const mmap = new Uint8Array(len);
+    mmap.set(d.read_raw_bytes(len));
+    full_metadata = mmap;
+  } else {
+    full_metadata = undefined;
+  }
+
+  return new EncodedMetadata(full_metadata, stub, undefined, undefined);
 }
 
 // #[instrument(level = "trace", skip(tcx))]
-// stub: compiler/rustc_metadata/src/rmeta/encoder.rs:2557 encode_metadata (lane encoder-d)
-export function encode_metadata(_tcx: TyCtxt, _path: string, _ref_path: string | undefined): void {
-  unported("rustc_metadata::rmeta::encoder::encode_metadata (lane encoder-d)");
+// rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:2557 encode_metadata
+export function encode_metadata(tcx: TyCtxt, path: string, ref_path: string | undefined): void {
+  // Since encoding metadata is not in a query, and nothing is cached,
+  // there's no need to do dep-graph tracking for any of it.
+  tcx.dep_graph.assert_ignored();
+
+  const _prof_timer = tcx.prof.verbose_generic_activity("generate_crate_metadata");
+
+  // PORT: no dep graph (D3): `DepNode` is not ported (`DepGraph::with_task` takes `undefined`), and building the
+  // metadata `DepNode` has no observable effect, so it is built only when the dep graph is enabled (which is
+  // unported).
+  const dep_node = tcx.dep_graph.is_fully_enabled() ? tcx.metadata_dep_node() : undefined;
+
+  // If the metadata dep-node is green, try to reuse the saved work product.
+  if (tcx.dep_graph.is_fully_enabled()) {
+    // `let incr_comp_session = tcx.incr_comp_session.unwrap() && let Some(old_incr_comp_session_dir) = .. &&
+    // let Some(work_product) = tcx.dep_graph.previous_work_product(..) && tcx.dep_graph.try_mark_green(..)`:
+    // copy the saved metadata, read its SVH, and write the stub.
+    void dep_node;
+    return unported("rustc_metadata::rmeta::encoder::encode_metadata: reuse of the saved metadata work product (-C incremental; D3)");
+  }
+
+  if (tcx.sess.opts.jobs.frontend !== undefined) {
+    // Prefetch some queries used by metadata encoding.
+    // This is not necessary for correctness, but is only done for performance reasons.
+    // It can be removed if it turns out to cause trouble or be detrimental to performance.
+    // PORT: `par_join(a, b)` runs `a` then `b` (no `-Zthreads` parallelism here).
+    prefetch_mir(tcx);
+    void tcx.exported_non_generic_symbols(LOCAL_CRATE);
+    void tcx.exported_generic_symbols(LOCAL_CRATE);
+  }
+
+  // Perform metadata encoding inside a task, so the dep-graph can check if any encoded
+  // information changes, and maybe reuse the work product.
+  tcx.dep_graph.with_task(
+    dep_node as undefined,
+    tcx,
+    () => {
+      with_encode_metadata_header(tcx, path, (ecx) => {
+        // Encode all the entries and extra information in the crate,
+        // culminating in the `CrateRoot` which points to all of it.
+        const [root, unhashed] = ecx.encode_crate_root();
+
+        // Flush buffer to ensure backing file has the correct size.
+        ecx.opaque.flush();
+        // Record metadata size for self-profiling
+        // PORT: `tcx.prof.artifact_size("crate_metadata", "crate_metadata", ecx.opaque.file().metadata().unwrap().len())`:
+        // the stand-in `SelfProfilerRef` has no profiler (`-Z self-profile` is unported), so `artifact_size` records
+        // nothing; its size argument (an `fstat`) is still read.
+        void fstatSync(ecx.opaque.file()).size;
+
+        return [root.position, unhashed.position];
+      });
+    },
+    undefined,
+  );
+
+  // Generate the metadata stub manually, as that is a small file compared to full metadata.
+  if (ref_path !== undefined) {
+    const _prof_timer = tcx.prof.verbose_generic_activity("generate_crate_metadata_stub");
+
+    with_encode_metadata_header(tcx, ref_path, (ecx) => {
+      const header: LazyValue<CrateHeader> = ecx.lazy<CrateHeader>(
+        {
+          name: tcx.crate_name(LOCAL_CRATE),
+          triple: tcx.sess.opts.target_triple,
+          is_proc_macro_crate: false,
+          is_stub: true,
+        },
+        encode_CrateHeader,
+      );
+      return [header.position, 0];
+    });
+  }
 }
 
-// stub: compiler/rustc_metadata/src/rmeta/encoder.rs:2664 with_encode_metadata_header (lane encoder-d)
-export function with_encode_metadata_header(_tcx: TyCtxt, _path: string, _f: (ecx: EncodeContext) => [number, number]): void {
-  unported("rustc_metadata::rmeta::encoder::with_encode_metadata_header (lane encoder-d)");
+// rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:2664 with_encode_metadata_header
+export function with_encode_metadata_header(tcx: TyCtxt, path: string, f: (ecx: EncodeContext) => [number, number]): void {
+  // By default the crate hash (SVH) is computed from the bytes of the encoded metadata,
+  // Under `-Z metadata-crate-hash=no` the SVH comes from the legacy `crate_hash` query instead and
+  // this hasher is never consulted, so we skip seeding it and feeding metadata bytes into it.
+  const metadata_crate_hash = tcx.sess.opts.unstable_opts.metadata_crate_hash;
+  // The SVH is an XXH3-128 digest of the encoded metadata bytes. XXH3 is a fast, non-cryptographic
+  // hash; that is sufficient here because the SVH is only a change detector, is never keyed
+  // secretly (it must be reproducible), and compiling a crate already runs its build scripts and
+  // proc-macros, so the crate author is trusted regardless.
+  const metadata_hasher = XxHash3_128.new();
+  if (metadata_crate_hash) {
+    // Fold in inputs that are not part of the encoded metadata bytes, reduced to a single
+    // fingerprint via the stable hasher and then mixed into the byte digest.
+    const hir_body_hash = compute_hir_hash(tcx);
+    const supplement: Fingerprint = tcx.with_stable_hashing_context((hcx) => {
+      const hasher = StableHasher.new();
+      // Add dep_tracking_hash to ensure the SVH changes when any tracked flag changes.
+      stable_hash_Hash64(tcx.sess.opts.dep_tracking_hash(true), hcx, hasher);
+      // Add HIR hash for untracked elements, e.g. DefKind::GlobalAsm.
+      stable_hash_Fingerprint(hir_body_hash, hcx, hasher);
+      return hasher.finish(Fingerprint);
+    });
+    metadata_hasher.write(Fingerprint.to_le_bytes(supplement));
+  }
+
+  // Feed every flushed byte into `metadata_hasher` so the SVH covers the entire encoded metadata.
+  const flush_strategy = (bytes: Uint8Array): void => metadata_hasher.write(bytes);
+
+  const encoder_r = metadata_crate_hash ? FileEncoder.with_flush_strategy(path, flush_strategy) : FileEncoder.new(path);
+  const encoder = encoder_r.$ === "Ok" ? encoder_r._0 : tcx.dcx().emit_fatal(FailCreateFileEncoder_diagnostic({ err: encoder_r._0 }));
+  encoder.emit_raw_bytes(METADATA_HEADER);
+
+  // Will be filled with the root position after encoding everything.
+  encoder.emit_raw_bytes(usize_to_le_bytes(0)); // `0u64.to_le_bytes()`
+
+  // Same with unhashed_position.
+  encoder.emit_raw_bytes(usize_to_le_bytes(0)); // `0u64.to_le_bytes()`
+
+  // Same with crate_hash.
+  encoder.emit_raw_bytes(Fingerprint.to_le_bytes(Fingerprint.ZERO));
+
+  const source_map_files = tcx.sess.source_map().files();
+  const source_file_cache: [SourceFile, number] = [source_map_files.deref()[0]!, 0];
+  const required_source_files = new Map<number, number>();
+
+  const ecx = new EncodeContext(
+    /* opaque */ encoder,
+    /* metadata_hasher */ metadata_hasher,
+    tcx,
+    /* feat */ tcx.features(),
+    /* tables */ TableBuilders_default(),
+    /* lazy_state */ LazyState.NoNode,
+    /* span_shorthands */ new Map(),
+    /* type_shorthands */ new Map(),
+    /* predicate_shorthands */ new Map(),
+    /* interpret_allocs */ new Map(),
+    source_file_cache,
+    required_source_files,
+    /* is_proc_macro */ tcx.crate_types().includes("ProcMacro"),
+    /* hygiene_ctxt */ HygieneEncodeContext.default(),
+    /* symbol_index_table */ new Map(),
+  );
+  // PORT: dropping `ecx` at the end (or on unwinding) closes the file (`FileEncoder`'s `File`).
+  try {
+    // Encode the rustc version string in a predictable location.
+    encode_String(rustc_version(tcx.sess.cfg_version), ecx);
+
+    const [root_position, unhashed_position] = f(ecx);
+
+    // Make sure we report any errors from writing to the file.
+    // If we forget this, compilation can succeed with an incomplete rmeta file,
+    // causing an ICE when the rmeta file is read by another compilation.
+    const finished = ecx.opaque.finish();
+    if (finished.$ === "Err") {
+      const [path, err] = finished._0;
+      tcx.dcx().emit_fatal(FailWriteFile_diagnostic({ path, err }));
+    }
+
+    const file = ecx.opaque.file();
+    // We will return to this position after writing the root position and crate hash.
+    // PORT: the header writers below are positional writes (`pwrite`), which leave the descriptor's offset where
+    // it is, so `file.stream_position()` and the final `file.seek(SeekFrom::Start(pos_before_seek))` (which
+    // cannot fail on a regular file) have nothing to do.
+
+    const r1 = encode_root_position(file, root_position);
+    if (r1.$ === "Err") {
+      tcx.dcx().emit_fatal(FailWriteFile_diagnostic({ path: ecx.opaque.path(), err: r1._0 }));
+    }
+
+    const r2 = encode_unhashed_position(file, unhashed_position);
+    if (r2.$ === "Err") {
+      tcx.dcx().emit_fatal(FailWriteFile_diagnostic({ path: ecx.opaque.path(), err: r2._0 }));
+    }
+
+    const hash = tcx.untracked().local_crate_hash;
+    if (hash === undefined) {
+      return panic("local_crate_hash set during encoding");
+    }
+    const r3 = encode_crate_hash(file, hash);
+    if (r3.$ === "Err") {
+      tcx.dcx().emit_fatal(FailWriteFile_diagnostic({ path: ecx.opaque.path(), err: r3._0 }));
+    }
+  } finally {
+    ecx.opaque.drop();
+  }
 }
 
-// PORT: `file: &File` is the open file's descriptor; `std::io::Error` its message.
-// stub: compiler/rustc_metadata/src/rmeta/encoder.rs:2778 encode_root_position (lane encoder-d)
-export function encode_root_position(_file: number, _pos: number): Result<null, string> {
-  return unported("rustc_metadata::rmeta::encoder::encode_root_position (lane encoder-d)");
+/** PORT: `file.seek(SeekFrom::Start(offset))?; file.write_all(bytes)?;` as one positional write (`pwrite`). */
+function file_write_all_at(file: number, offset: number, bytes: Uint8Array): IoResult<null> {
+  try {
+    let off = 0;
+    while (off < bytes.length) {
+      const n = writeSync(file, bytes, off, bytes.length - off, offset + off);
+      if (n === 0) return Err({ $: "SimpleMessage", kind: "WriteZero", message: "failed to write whole buffer" });
+      off += n;
+    }
+  } catch (e) {
+    return Err(io_error_from_node(e));
+  }
+  return Ok(null);
 }
 
-// stub: compiler/rustc_metadata/src/rmeta/encoder.rs:2784 encode_unhashed_position (lane encoder-d)
-export function encode_unhashed_position(_file: number, _pos: number): Result<null, string> {
-  return unported("rustc_metadata::rmeta::encoder::encode_unhashed_position (lane encoder-d)");
+// PORT: `file: &File` is the open file's descriptor.
+// rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:2778 encode_root_position
+export function encode_root_position(file: number, pos: number): IoResult<null> {
+  const r = file_write_all_at(file, ROOT_POS_OFFSET, usize_to_le_bytes(pos));
+  if (r.$ === "Err") return r;
+  return Ok(null);
 }
 
-// stub: compiler/rustc_metadata/src/rmeta/encoder.rs:2790 encode_crate_hash (lane encoder-d)
-export function encode_crate_hash(_file: number, _hash: Svh): Result<null, string> {
-  return unported("rustc_metadata::rmeta::encoder::encode_crate_hash (lane encoder-d)");
+// rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:2784 encode_unhashed_position
+export function encode_unhashed_position(file: number, pos: number): IoResult<null> {
+  const r = file_write_all_at(file, UNHASHED_POS_OFFSET, usize_to_le_bytes(pos));
+  if (r.$ === "Err") return r;
+  return Ok(null);
 }
 
-// stub: compiler/rustc_metadata/src/rmeta/encoder.rs:2796 provide (lane encoder-d)
-export function provide(_providers: Providers): void {
-  unported("rustc_metadata::rmeta::encoder::provide (lane encoder-d)");
+// rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:2790 encode_crate_hash
+export function encode_crate_hash(file: number, hash: Svh): IoResult<null> {
+  const r = file_write_all_at(file, CRATE_HASH_OFFSET, Fingerprint.to_le_bytes(Svh.as_fingerprint(hash)));
+  if (r.$ === "Err") return r;
+  return Ok(null);
+}
+
+// rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:2796 provide
+export function provide(providers: Providers): void {
+  Object.assign(providers, {
+    doc_link_resolutions: (tcx: TyCtxt, def_id: LocalModId): DocLinkResMap => {
+      const r = tcx.resolutions(null).doc_link_resolutions.get(def_id);
+      return r !== undefined ? r : span_bug(tcx.def_span(LocalModId.to_def_id(def_id)), "no resolutions for a doc link");
+    },
+    doc_link_traits_in_scope: (tcx: TyCtxt, def_id: LocalModId): readonly DefId[] => {
+      const r = tcx.resolutions(null).doc_link_traits_in_scope.get(def_id);
+      return r !== undefined ? r : span_bug(tcx.def_span(LocalModId.to_def_id(def_id)), "no traits in scope for a doc link");
+    },
+  } satisfies Partial<Providers>);
 }
 
 /// Build a textual representation of an unevaluated constant expression.
@@ -1168,15 +1909,104 @@ export function provide(_providers: Providers): void {
 /// Whenever possible, prefer to evaluate the constant first and try to
 /// use a different method for pretty-printing. Ideally this function
 /// should only ever be used as a fallback.
-// stub: compiler/rustc_metadata/src/rmeta/encoder.rs:2841 rendered_const (lane encoder-d)
-export function rendered_const(_tcx: TyCtxt, _body: Body, _def_id: LocalDefId): string {
-  return unported("rustc_metadata::rmeta::encoder::rendered_const (lane encoder-d)");
+// rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:2841 rendered_const
+export function rendered_const(tcx: TyCtxt, body: Body, def_id: LocalDefId): string {
+  const value = body.value;
+
+  switch (classify(value)) {
+    // For non-macro literals, we avoid invoking the pretty-printer and use the source snippet
+    // instead to preserve certain stylistic choices the user likely made for the sake of
+    // legibility, like:
+    //
+    // * hexadecimal notation
+    // * underscores
+    // * character escapes
+    //
+    // FIXME: This passes through `-/*spacer*/0` verbatim.
+    case "Literal": {
+      if (!Span.from_expansion(value.span)) {
+        const snippet = tcx.sess.source_map().span_to_snippet(value.span);
+        if (snippet.$ === "Ok") {
+          return snippet._0.toString();
+        }
+      }
+      // Otherwise we prefer pretty-printing to get rid of extraneous whitespace, comments and
+      // other formatting artifacts.
+      return id_to_string(TyCtxt_as_HirTyCtxt(tcx), body.id().hir_id);
+    }
+
+    // Otherwise we prefer pretty-printing to get rid of extraneous whitespace, comments and
+    // other formatting artifacts.
+    case "Simple":
+      return id_to_string(TyCtxt_as_HirTyCtxt(tcx), body.id().hir_id);
+
+    // FIXME: Omit the curly braces if the enclosing expression is an array literal
+    //        with a repeated element (an `ExprKind::Repeat`) as in such case it
+    //        would not actually need any disambiguation.
+    case "Complex": {
+      const def_kind = tcx.def_kind(def_id);
+      if (def_kind.$ === "AnonConst") {
+        return "{ _ }";
+      } else {
+        return "_";
+      }
+    }
+  }
 }
 
 // PORT: `rendered_const`'s local `enum Classification { Literal, Simple, Complex }` and `fn classify`, at module level.
 type Classification = "Literal" | "Simple" | "Complex";
 
-// stub: compiler/rustc_metadata/src/rmeta/encoder.rs:2853 classify (lane encoder-d)
-export function classify(_expr: Expr): Classification {
-  return unported("rustc_metadata::rmeta::encoder::rendered_const::classify (lane encoder-d)");
+// rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:2853 classify
+export function classify(expr: Expr): Classification {
+  const kind = expr.kind;
+  switch (kind.$) {
+    case "Unary": {
+      if (kind._0 === "Neg") {
+        const expr_ = kind._1;
+        if (expr_.kind.$ === "Lit") {
+          return "Literal";
+        } else {
+          return "Complex";
+        }
+      }
+      return "Complex";
+    }
+    case "Lit":
+      return "Literal";
+    case "Tup":
+      if (kind._0.length === 0) return "Simple";
+      return "Complex";
+    case "Block": {
+      const block = kind._0;
+      if (block.stmts.length === 0 && block.expr !== undefined) {
+        if (classify(block.expr) === "Complex") {
+          return "Complex";
+        } else {
+          return "Simple";
+        }
+      }
+      return "Complex";
+    }
+    // Paths with a self-type or arguments are too “complex” following our measure since
+    // they may leak private fields of structs (with feature `adt_const_params`).
+    // Consider: `<Self as Trait<{ Struct { private: () } }>>::CONSTANT`.
+    // Paths without arguments are definitely harmless though.
+    case "Path": {
+      const qpath = kind._0;
+      if (qpath.$ === "Resolved") {
+        const segments = qpath._1.segments;
+        if (segments.every((segment) => segment.args === undefined)) {
+          return "Simple";
+        } else {
+          return "Complex";
+        }
+      }
+      // FIXME: Claiming that those kinds of QPaths are simple is probably not true if the Ty
+      //        contains const arguments. Is there a *concise* way to check for this?
+      return "Simple";
+    }
+    default:
+      return "Complex";
+  }
 }

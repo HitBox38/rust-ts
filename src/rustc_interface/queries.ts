@@ -11,7 +11,8 @@ import { CodegenUnits, type Session } from "../rustc_session/session.ts";
 import { LOCAL_CRATE } from "../rustc_span/def_id.ts";
 import { assert, unported } from "../std/panic.ts";
 import { start_codegen } from "./passes.ts";
-import type { CodegenBackend, EncodedMetadata, IncrCompSession, WorkProductMap } from "./stand_ins.ts";
+import type { EncodedMetadata } from "../rustc_metadata/lib.ts";
+import type { CodegenBackend, IncrCompSession, WorkProductMap } from "./stand_ins.ts";
 
 export class Linker {
   constructor(
@@ -40,104 +41,110 @@ export class Linker {
 
   // rustc: compiler/rustc_interface/src/queries.rs:49 link
   link(sess: Session, incr_comp_session: IncrCompSession | undefined, codegen_backend: CodegenBackend): void {
-    const [compiled_modules, work_products] = sess.time("finish_ongoing_codegen", (): [CompiledModules, WorkProductMap] => {
-      // match self.ongoing_codegen.downcast::<CompiledModules>()
-      if (this.ongoing_codegen instanceof CompiledModules) {
-        // This was a check only build
-        return [this.ongoing_codegen, new Map()];
-      } else {
-        return codegen_backend.join_codegen(this.ongoing_codegen, sess, incr_comp_session, this.output_filenames, this.crate_info);
-      }
-    });
-
-    if (CodegenUnits.as_usize(sess.codegen_units()) === 1 && sess.opts.unstable_opts.time_llvm_passes) {
-      codegen_backend.print_pass_timings();
-    }
-
-    if (sess.early_sess.print_llvm_stats()) {
-      codegen_backend.print_statistics();
-    }
-
-    const out_path = sess.early_sess.print_llvm_stats_json();
-    if (out_path !== undefined) {
-      const llvm_stats_json = codegen_backend.print_statistics_json();
-
-      if (llvm_stats_json.length !== 0) {
-        try {
-          writeFileSync(out_path, llvm_stats_json);
-        } catch (e) {
-          // sess.dcx().err(format!("failed to write stats to {}: {}", out_path, e));
-          // PORT: `{e}` is the io::Error's Display, which is not modelled for arbitrary errnos.
-          unported(`std::io::Error Display (failed to write stats to ${out_path}: ${(e as NodeJS.ErrnoException).code})`);
-        }
-      } else {
-        sess
-          .dcx()
-          .warn(
-            `requested to print LLVM statistics to JSON file ${out_path}, but the codegen backend ` + `did not provide any statistics`,
-          );
-      }
-    }
-
-    sess.timings.end_section(sess.dcx(), "Codegen");
-
-    if (sess.opts.incremental !== undefined) {
-      const path = this.metadata.path();
-      if (path !== undefined) {
-        // let (id, product) = rustc_incremental::copy_cgu_workproduct_to_incr_comp_cache_dir(
-        //     sess, incr_comp_session.as_ref().unwrap(), WorkProduct::METADATA_WORKPRODUCT_CGU_NAME,
-        //     &[(OutputType::Metadata.extension(), path)]);
-        // work_products.insert(id, product);
-        void work_products;
-        unported("rustc_incremental::copy_cgu_workproduct_to_incr_comp_cache_dir (-C incremental; D3)");
-      }
-    }
-
-    const guar = sess.dcx().has_errors_or_delayed_bugs();
-    if (guar !== undefined) {
-      guar.raise_fatal();
-    }
-
-    const _timer = sess.timer("link");
-
-    sess.time("serialize_work_products", () => {
-      rustc_incremental_save_work_product_index(sess, incr_comp_session, this.dep_graph, work_products);
-    });
-
-    const prof = sess.prof;
-    prof.generic_activity("drop_dep_graph").run(() => {
-      // drop(self.dep_graph)
-    });
-
-    // Now that we won't touch anything in the incremental compilation directory
-    // any more, we can finalize it (which involves renaming it)
-    rustc_incremental_finalize_session_directory(sess, incr_comp_session, this.crate_hash);
-
-    // The `HostMetadata` offload pass only writes the kernel manifest.
-    // Codegen was already skipped so there are no files to link.
-    if (sess.opts.unstable_opts.offload.some((o) => o.$ === "HostMetadata")) {
-      return;
-    }
-
-    if (![...sess.opts.output_types.keys()].some((i) => i === "Exe" || i === "Metadata")) {
-      return;
-    }
-
-    if (sess.opts.unstable_opts.no_link) {
-      // let rlink_file = self.output_filenames.with_extension(config::RLINK_EXT);
-      // CompiledModules::serialize_rlink(sess, &rlink_file, &compiled_modules, &self.crate_info, &self.metadata,
-      //     &self.output_filenames).unwrap_or_else(|error| sess.dcx().emit_fatal(FailedWritingFile { .. }));
-      unported("rustc_codegen_ssa::CompiledModules::serialize_rlink (-Z no-link)");
-      return;
-    }
-
-    const _timer2 = sess.prof.verbose_generic_activity("link_crate");
-    const _timing = sess.timings.section_guard(sess.dcx(), "Linking");
+    // PORT: `link(self, ..)` consumes the `Linker`: its fields drop when the body returns or unwinds, and dropping
+    // `metadata` (an `EncodedMetadata`) removes its temporary directory.
     try {
-      codegen_backend.link(sess, compiled_modules, this.crate_info, this.metadata, this.output_filenames);
+      const [compiled_modules, work_products] = sess.time("finish_ongoing_codegen", (): [CompiledModules, WorkProductMap] => {
+        // match self.ongoing_codegen.downcast::<CompiledModules>()
+        if (this.ongoing_codegen instanceof CompiledModules) {
+          // This was a check only build
+          return [this.ongoing_codegen, new Map()];
+        } else {
+          return codegen_backend.join_codegen(this.ongoing_codegen, sess, incr_comp_session, this.output_filenames, this.crate_info);
+        }
+      });
+
+      if (CodegenUnits.as_usize(sess.codegen_units()) === 1 && sess.opts.unstable_opts.time_llvm_passes) {
+        codegen_backend.print_pass_timings();
+      }
+
+      if (sess.early_sess.print_llvm_stats()) {
+        codegen_backend.print_statistics();
+      }
+
+      const out_path = sess.early_sess.print_llvm_stats_json();
+      if (out_path !== undefined) {
+        const llvm_stats_json = codegen_backend.print_statistics_json();
+
+        if (llvm_stats_json.length !== 0) {
+          try {
+            writeFileSync(out_path, llvm_stats_json);
+          } catch (e) {
+            // sess.dcx().err(format!("failed to write stats to {}: {}", out_path, e));
+            // PORT: `{e}` is the io::Error's Display, which is not modelled for arbitrary errnos.
+            unported(`std::io::Error Display (failed to write stats to ${out_path}: ${(e as NodeJS.ErrnoException).code})`);
+          }
+        } else {
+          sess
+            .dcx()
+            .warn(
+              `requested to print LLVM statistics to JSON file ${out_path}, but the codegen backend ` + `did not provide any statistics`,
+            );
+        }
+      }
+
+      sess.timings.end_section(sess.dcx(), "Codegen");
+
+      if (sess.opts.incremental !== undefined) {
+        const path = this.metadata.path();
+        if (path !== undefined) {
+          // let (id, product) = rustc_incremental::copy_cgu_workproduct_to_incr_comp_cache_dir(
+          //     sess, incr_comp_session.as_ref().unwrap(), WorkProduct::METADATA_WORKPRODUCT_CGU_NAME,
+          //     &[(OutputType::Metadata.extension(), path)]);
+          // work_products.insert(id, product);
+          void work_products;
+          unported("rustc_incremental::copy_cgu_workproduct_to_incr_comp_cache_dir (-C incremental; D3)");
+        }
+      }
+
+      const guar = sess.dcx().has_errors_or_delayed_bugs();
+      if (guar !== undefined) {
+        guar.raise_fatal();
+      }
+
+      const _timer = sess.timer("link");
+
+      sess.time("serialize_work_products", () => {
+        rustc_incremental_save_work_product_index(sess, incr_comp_session, this.dep_graph, work_products);
+      });
+
+      const prof = sess.prof;
+      prof.generic_activity("drop_dep_graph").run(() => {
+        // drop(self.dep_graph)
+      });
+
+      // Now that we won't touch anything in the incremental compilation directory
+      // any more, we can finalize it (which involves renaming it)
+      rustc_incremental_finalize_session_directory(sess, incr_comp_session, this.crate_hash);
+
+      // The `HostMetadata` offload pass only writes the kernel manifest.
+      // Codegen was already skipped so there are no files to link.
+      if (sess.opts.unstable_opts.offload.some((o) => o.$ === "HostMetadata")) {
+        return;
+      }
+
+      if (![...sess.opts.output_types.keys()].some((i) => i === "Exe" || i === "Metadata")) {
+        return;
+      }
+
+      if (sess.opts.unstable_opts.no_link) {
+        // let rlink_file = self.output_filenames.with_extension(config::RLINK_EXT);
+        // CompiledModules::serialize_rlink(sess, &rlink_file, &compiled_modules, &self.crate_info, &self.metadata,
+        //     &self.output_filenames).unwrap_or_else(|error| sess.dcx().emit_fatal(FailedWritingFile { .. }));
+        unported("rustc_codegen_ssa::CompiledModules::serialize_rlink (-Z no-link)");
+        return;
+      }
+
+      const _timer2 = sess.prof.verbose_generic_activity("link_crate");
+      const _timing = sess.timings.section_guard(sess.dcx(), "Linking");
+      try {
+        codegen_backend.link(sess, compiled_modules, this.crate_info, this.metadata, this.output_filenames);
+      } finally {
+        // PORT: `_timing` is a drop guard (`TimingSectionGuard`): it ends the section when `link` returns or unwinds.
+        _timing.drop();
+      }
     } finally {
-      // PORT: `_timing` is a drop guard (`TimingSectionGuard`): it ends the section when `link` returns or unwinds.
-      _timing.drop();
+      this.metadata.drop();
     }
   }
 }

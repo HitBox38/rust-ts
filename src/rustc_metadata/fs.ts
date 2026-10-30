@@ -9,19 +9,16 @@
 //   those are ported.
 // - Drops are explicit. In `encode_and_write_metadata` an unwinding exit (a fatal error, an ICE or an `unported`
 //   stop) drops the `MaybeTempDir` before it reaches `EncodedMetadata` (so the temp dir is removed unless
-//   `-C save-temps`), as Rust's unwinding drop does. On success the dir moves into the `EncodedMetadata`.
-// - `encode_metadata` and `EncodedMetadata::from_path` (rmeta/encoder.rs) are pending-lane shims at the end of the
-//   file; `EncodedMetadata` is the driver's stand-in type (rustc_interface/stand_ins.ts) until the encoder lanes
-//   replace both.
+//   `-C save-temps`), as Rust's unwinding drop does. Then the dir moves into `EncodedMetadata::from_path`, which
+//   drops it on an empty file or its own error and otherwise keeps it in the `EncodedMetadata` (whose `drop()` the
+//   driver calls when `Linker::link` ends).
 import { closeSync, mkdtempSync, openSync, readSync, renameSync, rmSync, unlinkSync, writeFileSync, writeSync } from "node:fs";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
-import type { EncodedMetadata } from "../rustc_interface/stand_ins.ts";
 import { OutFileName, type OutputFilenames } from "../rustc_session/config.ts";
 import { filename_for_metadata } from "../rustc_session/output.ts";
 import type { Session } from "../rustc_session/session.ts";
 import type { ErrorGuaranteed } from "../rustc_span/lib.ts";
 import { io_error_from_node, type IoResult } from "../std/io.ts";
-import { unported } from "../std/panic.ts";
 import { path_is_absolute, path_join } from "../std/path.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
 import {
@@ -32,6 +29,7 @@ import {
   FailedCreateTempdir_diagnostic,
   FailedWriteError_diagnostic,
 } from "./diagnostics.ts";
+import { EncodedMetadata, encode_metadata } from "./rmeta/encoder.ts";
 
 // FIXME(eddyb) maybe include the crate name in this?
 export const METADATA_FILENAME = "lib.rmeta";
@@ -148,13 +146,14 @@ export function encode_and_write_metadata(tcx: TyCtxt): Result<EncodedMetadata, 
     }
 
     // Load metadata back to memory: codegen may need to include it in object files.
-    const r = EncodedMetadata_from_path(metadata_filename_, metadata_stub_filename, metadata_tmpdir_out);
-    if (r.$ === "Ok") moved = true;
+    // PORT: the dir moves into `from_path`, which drops it on an empty file and on its own errors.
+    moved = true;
+    const r = EncodedMetadata.from_path(metadata_filename_, metadata_stub_filename, metadata_tmpdir_out);
     const metadata = r.$ === "Ok" ? r._0 : tcx.dcx().emit_fatal(FailedCreateEncodedMetadata_diagnostic({ err: r._0 }));
 
     return Ok(metadata);
   } finally {
-    // PORT: an unwinding exit and the early `return Err(guar)` drop the dir; `from_path` drops it when it fails.
+    // PORT: an unwinding exit and the early `return Err(guar)` drop the dir; after `from_path` it is not ours.
     if (!moved) metadata_tmpdir.drop();
   }
 }
@@ -313,16 +312,4 @@ export class MaybeTempDir {
       this.dir.drop();
     }
   }
-}
-
-// ---- Pending-lane shims (rmeta/encoder.rs) -------------------------------------------------------------------
-
-/** `rustc_metadata::rmeta::encoder::encode_metadata` (encoder.rs). PORT: lanes encoder-a..d (plan-m5 wave 33). */
-function encode_metadata(_tcx: TyCtxt, _path: string, _ref_path: string | undefined): void {
-  unported("rustc_metadata::rmeta::encoder::encode_metadata (lanes encoder-a..d)");
-}
-
-/** `rustc_metadata::rmeta::encoder::EncodedMetadata::from_path` (encoder.rs). PORT: lanes encoder-a..d (plan-m5 wave 33). */
-function EncodedMetadata_from_path(_path: string, _stub_path: string | undefined, _temp_dir: MaybeTempDir | undefined): IoResult<EncodedMetadata> {
-  return unported("rustc_metadata::rmeta::encoder::EncodedMetadata::from_path (lanes encoder-a..d)");
 }
