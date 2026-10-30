@@ -88,6 +88,8 @@ const SPAN_HYGIENE = new Set([151, 162, 166, 171, 176, 188, 222, 226, 237, 244, 
 function ported_by(line: number): string | undefined {
   if (PORTED.has(line)) return "encode-contract";
   if (SPAN_HYGIENE.has(line)) return "encode-span-hygiene";
+  // lane encoder-c (wave 33, all ported): :1482-:2030 (`encode_def_ids` .. `encode_foreign_modules`)
+  if (line >= 1482 && line < 2064) return "encoder-c";
   return undefined;
 }
 
@@ -195,7 +197,6 @@ test("stubs stop with their lane", () => {
   expect(lane(() => e.encode_def_path_table())).toBe("encoder-a");
   expect(lane(() => e.encode_crate_root())).toBe("encoder-b");
   expect(lane(() => should_encode_span("Mod" as never))).toBe("encoder-b");
-  expect(lane(() => e.encode_mir())).toBe("encoder-c");
   expect(lane(() => encode_metadata(undefined as never, "x.rmeta", undefined))).toBe("encoder-d");
 });
 
