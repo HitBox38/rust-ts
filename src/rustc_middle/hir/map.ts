@@ -17,6 +17,7 @@ import { type Attribute, find_attr } from "../../rustc_attr_ir/lib.ts";
 import { Fingerprint } from "../../rustc_data_structures/fingerprint.ts";
 import { type StableHashCtxt, StableHasher, stable_hash_Fingerprint, stable_hash_Hash64, stable_hash_tuple2, stable_hash_Vec } from "../../rustc_data_structures/stable_hash.ts";
 import type { Steal } from "../../rustc_data_structures/steal.ts";
+import { Svh, stable_hash_Svh } from "../../rustc_data_structures/svh.ts";
 import { par_for_each_in, try_par_for_each_in } from "../../rustc_data_structures/sync/parallel.ts";
 import { debug_DefKind, Res } from "../../rustc_hir/def.ts";
 import {
@@ -1633,16 +1634,6 @@ export function TyCtxt_as_HirTyCtxt(self: TyCtxt): HirTyCtxt {
   };
 }
 
-/** `rustc_data_structures::svh::Svh` (svh.rs, not ported; `Svh` is `unknown` in queries.gen.ts and cstore.ts). */
-type Svh = unknown;
-/** `Svh::new(hash)`. PORT: pending-lane shim (svh.rs). */
-function Svh_new(_hash: Fingerprint): Svh {
-  return unported("rustc_data_structures::svh::Svh::new (pending svh.rs)");
-}
-/** `impl StableHash for Svh` (svh.rs). PORT: pending-lane shim. */
-function stable_hash_Svh(_self: Svh, _hcx: StableHashCtxt, _hasher: StableHasher): void {
-  return unported("rustc_data_structures::svh::Svh::stable_hash (pending svh.rs)");
-}
 /** `DebuggerVisualizerFile::path_erased` (rustc_middle middle/debugger_visualizer.rs, not ported). PORT: shim. */
 function DebuggerVisualizerFile_path_erased(_self: unknown): unknown {
   return unported("rustc_middle::middle::debugger_visualizer::DebuggerVisualizerFile::path_erased (pending)");
@@ -1691,7 +1682,7 @@ export function crate_hash(tcx: TyCtxt, _: "LocalCrate"): Svh {
       return stable_hasher.finish(Fingerprint);
     });
 
-    return Svh_new(crate_hash);
+    return Svh.new(crate_hash);
   }
 }
 
@@ -1774,7 +1765,7 @@ function legacy_crate_hash(tcx: TyCtxt): Svh {
     return stable_hasher.finish(Fingerprint);
   });
 
-  return Svh_new(crate_hash);
+  return Svh.new(crate_hash);
 }
 
 /// Compute the new, metadata-oriented HIR hash for the full crate.

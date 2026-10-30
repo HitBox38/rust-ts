@@ -4,8 +4,9 @@
 // Only function declarations: hand modules may import from here inside an import cycle.
 import { decode_LangItem } from "../rustc_attr_ir/lang_items.ts";
 import { decode_CrateDepKind, decode_LinkagePreference } from "../rustc_crate_store/lib.ts";
+import { decode_Svh } from "../rustc_data_structures/svh.ts";
 import { decode_CtorKind } from "../rustc_hir/def.ts";
-import { decode_Svh, type LazyDecoder } from "./rmeta/decoder.ts";
+import { type LazyDecoder } from "./rmeta/decoder.ts";
 import { decode_DefPathHashMapRef } from "./rmeta/def_path_hash_map.ts";
 import { type CrateDep, type CrateHeader, CrateRoot, type CrateRootUnhashed, decode_LazyArray, decode_LazyTable, decode_LazyTables, decode_LazyValue, type IncoherentImpls, type ProcMacroData, type ProcMacroKind, RawDefId, SpanTag, type TraitImpls, type VariantData } from "./rmeta/mod.ts";
 import { decode_VariantDiscr } from "../rustc_middle/decodable.gen.ts";

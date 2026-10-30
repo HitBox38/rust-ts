@@ -15,6 +15,7 @@ import { stable_hash_Attribute, stable_hash_DiagnosticItems, stable_hash_Languag
 import { type SortedMap } from "../rustc_data_structures/sorted_map.ts";
 import { stable_hash_IndexMap, stable_hash_IndexSet, stable_hash_Option, stable_hash_Path, stable_hash_Result, stable_hash_String, stable_hash_Vec, stable_hash_bool, stable_hash_slice, stable_hash_str, stable_hash_tuple2, stable_hash_u8, stable_hash_unit, stable_hash_usize } from "../rustc_data_structures/stable_hash.ts";
 import { type Steal, debug_Steal } from "../rustc_data_structures/steal.ts";
+import { type Svh, debug_Svh, stable_hash_Svh } from "../rustc_data_structures/svh.ts";
 import { type Features } from "../rustc_feature/unstable.ts";
 import { type DefKind, debug_DefKind } from "../rustc_hir/def.ts";
 import { stable_hash_DefKind } from "../rustc_hir/stable_hash.gen.ts";
@@ -1292,13 +1293,11 @@ export interface QueryTypes {
    * Finds the `rustc_proc_macro_decls` item of a crate.
    */
   proc_macro_decls_static: { Key: null; KeyArg: null; LocalKey: null; Value: LocalDefId | undefined; ProvidedValue: LocalDefId | undefined };
-  // PORT: value `Svh` not ported (`unknown`)
-  crate_hash: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: unknown; ProvidedValue: unknown };
+  crate_hash: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: Svh; ProvidedValue: Svh };
   /**
    * Gets the hash for the host proc macro. Used to support -Z dual-proc-macro.
    */
-  // PORT: value `Option<Svh>` not ported (`unknown`)
-  crate_host_hash: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: unknown | undefined; ProvidedValue: unknown | undefined };
+  crate_host_hash: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: Svh | undefined; ProvidedValue: Svh | undefined };
   /**
    * Gets the extra data to put in each output filename for a crate.
    * For example, compiling the `foo` crate with `extra-filename=-a` creates a `libfoo-b.rlib` file.
@@ -5864,8 +5863,8 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: true,
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `looking up the hash of a crate`,
-    debug_value: undefined,
-    stable_hash_value: undefined,
+    debug_value: (v, f) => debug_Svh(v, f),
+    stable_hash_value: stable_hash_Svh,
   },
   crate_host_hash: {
     name: "crate_host_hash",
@@ -5882,8 +5881,8 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: true,
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `looking up the hash of a host version of a crate`,
-    debug_value: undefined,
-    stable_hash_value: undefined,
+    debug_value: (v, f) => debug_option(v, f, ((x, f) => debug_Svh(x, f))),
+    stable_hash_value: (v, hcx, h) => stable_hash_Option(v, hcx, h, stable_hash_Svh),
   },
   extra_filename: {
     name: "extra_filename",
