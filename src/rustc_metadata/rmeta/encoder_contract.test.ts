@@ -94,6 +94,8 @@ function ported_by(line: number): string | undefined {
   if (ENCODER_A.has(line)) return "encoder-a";
   // lane encoder-d (wave 33): all of :2064-end
   if (line >= 2064) return "encoder-d";
+  // lane encoder-c (wave 33, all ported): :1482-:2030 (`encode_def_ids` .. `encode_foreign_modules`)
+  if (line >= 1482 && line < 2064) return "encoder-c";
   return undefined;
 }
 
@@ -199,8 +201,7 @@ test("stubs stop with their lane", () => {
   };
   expect(lane(() => e.encode_crate_root())).toBe("encoder-b");
   expect(lane(() => should_encode_span("Mod" as never))).toBe("encoder-b");
-  expect(lane(() => e.encode_mir())).toBe("encoder-c");
-  // encoder-d (wave 33) has no stubs left
+  // encoder-c and encoder-d (wave 33) have no stubs left
 });
 
 test("the Encoder impl forwards to opaque; the TyEncoder impl", () => {

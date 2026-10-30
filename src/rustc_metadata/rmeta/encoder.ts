@@ -38,7 +38,38 @@ import type { LangItem } from "../../rustc_attr_ir/lang_items.ts";
 import type { ExportedSymbol, SymbolExportInfo } from "../../rustc_middle/middle/exported_symbols.ts";
 import type { ForeignModule, LinkagePreference, NativeLib } from "../../rustc_crate_store/lib.ts";
 import type { Features } from "../../rustc_feature/unstable.ts";
-import { DefKind } from "../../rustc_hir/def.ts";
+import { DefKind, encode_Namespace, encode_Res, Res } from "../../rustc_hir/def.ts";
+import { encode_OpaqueTyOrigin, encode_PreciseCapturingArgKind, type OpaqueTyOrigin, type PreciseCapturingArgKind } from "../../rustc_hir/hir.ts";
+import { ast, node_id } from "../../rustc_ast/lib.ts";
+import type { ExternAbi } from "../../rustc_abi/extern_abi.ts";
+import { encode_ReprOptions } from "../../rustc_abi/decodable.gen.ts";
+import { encode_ConstStability, encode_DefaultBodyStability, encode_Stability, type ConstStability, type DefaultBodyStability, type Stability } from "../../rustc_attr_ir/stability.ts";
+import { encode_Deprecation, encode_EiiDecl, encode_EiiImpl, type EiiImpl } from "../../rustc_attr_ir/data_structures.ts";
+import { encode_DenseBitSet } from "../../rustc_index/decodable.gen.ts";
+import type { DenseBitSet } from "../../rustc_index/bit_set.ts";
+import { type CodegenFnAttrs, encode_CodegenFnAttrs } from "../../rustc_middle/middle/codegen_fn_attrs.ts";
+import type { DeducedParamAttrs } from "../../rustc_middle/middle/deduced_param_attrs.ts";
+import type { ObjectLifetimeDefault } from "../../rustc_middle/middle/resolve_bound_vars.ts";
+import type { AmbigModChild, DocLinkResMap } from "../../rustc_middle/middle/resolve.ts";
+import { encode_AmbigModChild, encode_AsyncDestructor, encode_ConstConditions, encode_DeducedParamAttrs, encode_Destructor, encode_GenericClauses, encode_Generics, encode_ImplTraitInTraitData, encode_IntrinsicDef, encode_ModChild, encode_ObjectLifetimeDefault, encode_RestrictionKind, encode_TraitDef, encode_Visibility as encode_ty_Visibility } from "../../rustc_middle/decodable.gen.ts";
+import { type Body as MirBody, type ConstValue, encode_Body, encode_ConstQualifs, encode_ConstValue, encode_CoroutineLayout } from "../../rustc_middle/mir/mod.ts";
+import type { AdtDef } from "../../rustc_middle/ty/adt.ts";
+import { AssocItem, type AssocItem as AssocItemT, encode_AssocContainer } from "../../rustc_middle/ty/assoc.ts";
+import { encode_Clause, encode_ConstAllocation, encode_List_BoundVariableKind, encode_Ty, encode_ty_Const } from "../../rustc_middle/ty/codec.ts";
+import type { Const } from "../../rustc_middle/ty/consts.ts";
+import { VariantIdx } from "../../rustc_middle/ty/decls.ts";
+import type { ConstConditions, Generics } from "../../rustc_middle/ty/generics.ts";
+import { type AsyncDestructor, type CrateInherentImpls, type Destructor, Visibility } from "../../rustc_middle/ty/mod.ts";
+import type { Clause } from "../../rustc_middle/ty/predicate.ts";
+import type { TraitDef } from "../../rustc_middle/ty/trait_def.ts";
+import { type Binder, EarlyBinder, encode_EarlyBinder } from "../../rustc_type_ir/binder.ts";
+import { type AnonConstKind, encode_AnonConstKind } from "../../rustc_type_ir/const_kind.ts";
+import { encode_Variance, type Variance } from "../../rustc_type_ir/lib.ts";
+import { encode_TraitRef, TraitRef } from "../../rustc_type_ir/predicate.ts";
+import { encode_Binder } from "../../rustc_type_ir/serialize.ts";
+import { encode_FnSig, type FnSig } from "../../rustc_type_ir/ty_kind.ts";
+import type { EiiMap } from "../eii.ts";
+import { encode_VariantData } from "../decodable.gen.ts";
 import { Hash64 } from "../../rustc_hashes/lib.ts";
 import type { Body, Expr } from "../../rustc_hir/hir.ts";
 import type { DebuggerVisualizerFile } from "../../rustc_middle/middle/debugger_visualizer.ts";
@@ -49,15 +80,15 @@ import type { TyEncoder } from "../../rustc_middle/ty/codec.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import type { Ty } from "../../rustc_middle/ty/mod.ts";
 import { FileEncoder } from "../../rustc_serialize/opaque.ts";
-import { type Encodable, type Encoder, Encoder_provided, encode_Option, encode_tuple, encode_u32, encode_usize } from "../../rustc_serialize/serialize.ts";
+import { type Encodable, type Encoder, Encoder_provided, encode_bool, encode_HashMap, encode_Option, encode_String, encode_tuple, encode_u32, encode_usize, encode_Vec } from "../../rustc_serialize/serialize.ts";
 import type { DeniedPartialMitigation } from "../../rustc_session/options/mitigation_coverage.ts";
 import type { TargetModifier } from "../../rustc_session/options.ts";
-import { encode_ExpnData, encode_ExpnHash, encode_Transparency } from "../../rustc_span/decodable.gen.ts";
-import { CrateNum, type DefId, DefIndex, DefPathHash, debug_CrateNum, encode_LocalDefId, LOCAL_CRATE, LocalDefId } from "../../rustc_span/def_id.ts";
+import { encode_ExpnData, encode_ExpnHash, encode_Ident, encode_Transparency } from "../../rustc_span/decodable.gen.ts";
+import { CrateNum, type DefId, DefIndex, DefPathHash, debug_CrateNum, encode_LocalDefId, LOCAL_CRATE, LocalDefId, LocalModId } from "../../rustc_span/def_id.ts";
 import { type ExpnData, type ExpnHash, type ExpnId, ExpnIndex, HygieneEncodeContext, LocalExpnId, SyntaxContext, type SyntaxContextKey } from "../../rustc_span/hygiene.ts";
-import { BytePos, debug_ExternalSource, encode_BytePos, encode_CrateNum, encode_ExpnId, encode_SourceFile, encode_SyntaxContext, RealFileName, type SourceFile, Span, type SpanData, StableSourceFileId } from "../../rustc_span/lib.ts";
-import { bug } from "../../rustc_span/macros.ts";
-import { ByteSymbol, Symbol } from "../../rustc_span/symbol.ts";
+import { BytePos, debug_ExternalSource, encode_BytePos, encode_CrateNum, encode_DefId, encode_ExpnId, encode_SourceFile, encode_Span, encode_Symbol, encode_SyntaxContext, RealFileName, type SourceFile, Span, type SpanData, StableSourceFileId } from "../../rustc_span/lib.ts";
+import { bug, span_bug } from "../../rustc_span/macros.ts";
+import { ByteSymbol, type Ident, Symbol } from "../../rustc_span/symbol.ts";
 import { assert, assert_eq, panic, unported, unwrap } from "../../std/panic.ts";
 import { PLAIN } from "../../std/fmt.ts";
 import type { Result } from "../../std/result.ts";
@@ -65,37 +96,14 @@ import { XxHash3_128 } from "../../vendor/twox_hash/lib.ts";
 import { encode_SpanTag } from "../decodable.gen.ts";
 import type { EiiMapEncodedKeyValue } from "../eii.ts";
 import { type DefPathHashMapRef, encode_DefPathHashMapRef } from "./def_path_hash_map.ts";
-import {
-  type CrateDep,
-  type CrateRoot,
-  type CrateRootUnhashed,
-  debug_LazyState,
-  type ExpnDataTable,
-  type ExpnHashTable,
-  type IncoherentImpls,
-  LazyArray,
-  LazyState,
-  type LazyTable,
-  LazyValue,
-  type ProcMacroData,
-  SpanTag,
-  type SpanKind,
-  SYMBOL_OFFSET,
-  SYMBOL_PREDEFINED,
-  SYMBOL_STR,
-  type SyntaxContextTable,
-  type TableBuilders,
-  type TraitImpls,
-} from "./mod.ts";
-import { fse_Option_LazyValue, TableBuilder } from "./table.ts";
+import { type CrateDep, type CrateRoot, type CrateRootUnhashed, debug_LazyState, type ExpnDataTable, type ExpnHashTable, type IncoherentImpls, LazyArray, LazyState, type LazyTable, LazyValue, type ProcMacroData, SpanTag, type SpanKind, SYMBOL_OFFSET, SYMBOL_PREDEFINED, SYMBOL_STR, type SyntaxContextTable, type TableBuilders, type TraitImpls, RawDefId, type VariantData } from "./mod.ts";
+import { type Asyncness, type Constness, type CoroutineKind, fse_Option_LazyValue, TableBuilder } from "./table.ts";
 // lane encoder-d
 import { closeSync, fstatSync, openSync, readFileSync, readSync, writeSync } from "node:fs";
 import { find_attr } from "../../rustc_attr_ir/lib.ts";
 import type { CanonicalSymbols } from "../../rustc_attr_ir/canonical_symbols.ts";
 import { clone_StrippedCfgItem, encode_StrippedCfgItem } from "../../rustc_attr_ir/data_structures.gen.ts";
 import { encode_LangItem } from "../../rustc_attr_ir/lang_items.gen.ts";
-import { encode_Stability } from "../../rustc_attr_ir/stability.gen.ts";
-import type { Stability } from "../../rustc_attr_ir/stability.ts";
 import { encode_LinkagePreference } from "../../rustc_crate_store/cstore.gen.ts";
 import { Fingerprint } from "../../rustc_data_structures/fingerprint.ts";
 import { StableHasher, stable_hash_Fingerprint, stable_hash_Hash64 } from "../../rustc_data_structures/stable_hash.ts";
@@ -106,23 +114,17 @@ import { type DefPathData, encode_DefKey } from "../../rustc_hir_id/definitions.
 import { clone_DefKey } from "../../rustc_hir_id/definitions.gen.ts";
 import { encode_FeatureStability, encode_ImplTraitHeader, encode_Visibility } from "../../rustc_middle/decodable.gen.ts";
 import { compute_hir_hash, TyCtxt_as_HirTyCtxt } from "../../rustc_middle/hir/map.ts";
-import type { CrateInherentImpls, ImplTraitHeader } from "../../rustc_middle/ty/mod.ts";
+import type { ImplTraitHeader } from "../../rustc_middle/ty/mod.ts";
 import { lib_features as middle_lib_features } from "../../rustc_middle/middle/mod.ts";
-import type { DocLinkResMap } from "../../rustc_middle/middle/resolve.ts";
 import { type CoerceUnsizedInfo, encode_CoerceUnsizedInfo } from "../../rustc_middle/ty/adjustment.gen.ts";
 import type { SimplifiedType } from "../../rustc_middle/ty/fast_reject.ts";
-import { Visibility } from "../../rustc_middle/ty/mod.ts";
-import type { TraitDef } from "../../rustc_middle/ty/trait_def.ts";
-import { type Decoder, decode_Option, decode_u8, decode_Vec, encode_String, encode_u8, encode_Vec } from "../../rustc_serialize/serialize.ts";
+import { type Decoder, decode_Option, decode_u8, decode_Vec, encode_u8 } from "../../rustc_serialize/serialize.ts";
 import { encode_DeniedPartialMitigation, gather_enabled_denied_partial_mitigations } from "../../rustc_session/options/mitigation_coverage.ts";
-import { CRATE_DEF_ID, CRATE_MOD_ID, DefIdMap, debug_LocalDefId, LocalModId } from "../../rustc_span/def_id.ts";
+import { CRATE_DEF_ID, CRATE_MOD_ID, DefIdMap, debug_LocalDefId } from "../../rustc_span/def_id.ts";
 import type { MacroKind } from "../../rustc_span/hygiene.ts";
-import { encode_DefId, encode_Span, encode_Symbol } from "../../rustc_span/lib.ts";
-import { span_bug } from "../../rustc_span/macros.ts";
-import { EarlyBinder } from "../../rustc_type_ir/binder.ts";
 import { encode_SimplifiedType } from "../../rustc_type_ir/fast_reject.gen.ts";
 import { simplify_type, TreatParams } from "../../rustc_type_ir/fast_reject.ts";
-import { as_interner, TraitRef } from "../../rustc_type_ir/predicate.ts";
+import { as_interner } from "../../rustc_type_ir/predicate.ts";
 import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
 import { io_error_from_node, type IoResult } from "../../std/io.ts";
 import { Err, Ok, unwrap_result } from "../../std/result.ts";
@@ -130,18 +132,7 @@ import { encode_CrateDep, encode_CrateHeader, encode_IncoherentImpls, encode_Pro
 import { FailCreateFileEncoder_diagnostic, FailWriteFile_diagnostic } from "../diagnostics.ts";
 import type { MaybeTempDir } from "../fs.ts";
 import type { Defaultness } from "./table.ts";
-import {
-  type CrateHeader,
-  CRATE_HASH_OFFSET,
-  encode_LazyValue,
-  METADATA_HEADER,
-  type ProcMacroKind,
-  RawDefId,
-  ROOT_POS_OFFSET,
-  rustc_version,
-  TableBuilders_default,
-  UNHASHED_POS_OFFSET,
-} from "./mod.ts";
+import { type CrateHeader, CRATE_HASH_OFFSET, encode_LazyValue, METADATA_HEADER, type ProcMacroKind, ROOT_POS_OFFSET, rustc_version, TableBuilders_default, UNHASHED_POS_OFFSET } from "./mod.ts";
 
 // rustc-type: compiler/rustc_metadata/src/rmeta/encoder.rs:52 EncodeContext
 export class EncodeContext implements TyEncoder {
@@ -592,84 +583,646 @@ export class EncodeContext implements TyEncoder {
     unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_attrs (lane encoder-b)");
   }
 
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:1482 encode_def_ids (lane encoder-c)
+  // PORT: the table macros (encoder.rs:430-468) are expanded in place, keeping their evaluation order (the value, then
+  // `lazy`/`lazy_array`, then the table write):
+  // - `record_some_lazy!(t[i] <- v)` -> `this.tables.t.set_some(i, this.lazy(v, encode_T))`;
+  // - `record_some!(t[i] <- v)` -> `this.tables.t.set_some(i, v)`; `record_value!(t[i] <- v)` -> `this.tables.t.set(i, v)`;
+  // - `record_array!(t[i] <- v)` -> `this.tables.t.set_some(i, this.lazy_array(v, encode_T))`;
+  // - `record_defaulted_array!(t[i] <- v)` -> `this.tables.t.set(i, this.lazy_array(v, encode_T))`.
+  // `encode_T` is the `Encodable` impl of the table's element type (the decode side is rmeta/decoder/cstore_impl.ts).
+
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:1482 encode_def_ids
   encode_def_ids(): void {
-    unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_def_ids (lane encoder-c)");
+    this.encode_info_for_mod(CRATE_DEF_ID);
+
+    // Proc-macro crates only export proc-macro items, which are looked
+    // up using `proc_macro_data`
+    if (this.is_proc_macro) {
+      return;
+    }
+
+    const tcx = this.tcx;
+
+    for (const local_id of tcx.iter_local_def_id()) {
+      const def_id = LocalDefId.to_def_id(local_id);
+      const def_kind = tcx.def_kind(local_id);
+      this.tables.def_kind.set_some(local_id, def_kind);
+
+      // The `DefCollector` will sometimes create unnecessary `DefId`s
+      // for trivial const arguments which are directly lowered to
+      // `ConstArgKind::Path`. We never actually access this `DefId`
+      // anywhere so we don't need to encode it for other crates.
+      // FIXME(mgca): This probably isn't true, they probably are accessed, but, test case?
+      if (def_kind.$ === "AnonConst") {
+        const node = tcx.hir_node_by_def_id(local_id);
+        if (node.$ === "ConstArg" || (node.$ === "Infer" && node._0.kind === "Const")) {
+          continue;
+        }
+      }
+
+      if (def_kind.$ === "Field") {
+        const node = tcx.hir_node_by_def_id(local_id);
+        if (node.$ === "Field") {
+          const anon = node._0.default;
+          if (anon !== undefined) {
+            this.tables.default_fields.set_some(local_id, this.lazy(LocalDefId.to_def_id(anon.def_id), encode_DefId));
+          }
+        }
+      }
+
+      if (should_encode_span(def_kind)) {
+        const def_span = tcx.def_span(local_id);
+        this.tables.def_span.set_some(local_id, this.lazy(def_span, encode_Span));
+      }
+      if (should_encode_attrs(def_kind)) {
+        this.encode_attrs(local_id);
+      }
+      if (should_encode_expn_that_defined(def_kind)) {
+        this.tables.expn_that_defined.set_some(local_id, this.lazy(this.tcx.expn_that_defined(def_id), encode_ExpnId));
+      }
+      if (should_encode_span(def_kind)) {
+        const ident_span = tcx.def_ident_span(def_id);
+        if (ident_span !== undefined) {
+          this.tables.def_ident_span.set_some(local_id, this.lazy(ident_span, encode_Span));
+        }
+      }
+      if (DefKind.has_codegen_attrs(def_kind)) {
+        this.tables.codegen_fn_attrs.set_some(local_id, this.lazy(this.tcx.codegen_fn_attrs(def_id) as CodegenFnAttrs, encode_CodegenFnAttrs));
+      }
+      if (should_encode_visibility(def_kind)) {
+        const vis = Visibility.map_id(this.tcx.local_visibility(local_id), (mod_id) => LocalModId.to_local_def_id(mod_id));
+        this.tables.visibility.set_some(local_id, this.lazy(vis, encode_Visibility_LocalDefId));
+      }
+      if (should_encode_stability(def_kind)) {
+        this.encode_stability(local_id);
+        this.encode_const_stability(local_id);
+        this.encode_default_body_stability(local_id);
+        this.encode_deprecation(local_id);
+      }
+      if (should_encode_variances(tcx, def_id, def_kind)) {
+        const v = this.tcx.variances_of(def_id) as readonly Variance[];
+        this.tables.variances_of.set_some(local_id, this.lazy_array(v, encode_Variance));
+      }
+      if (should_encode_fn_sig(def_kind)) {
+        this.tables.fn_sig.set_some(local_id, this.lazy(tcx.fn_sig(def_id), encode_EarlyBinder_PolyFnSig));
+      }
+      if (should_encode_generics(def_kind)) {
+        const g = tcx.generics_of(def_id) as Generics;
+        this.tables.generics_of.set_some(local_id, this.lazy(g, encode_Generics));
+        this.tables.explicit_clauses_of.set_some(local_id, this.lazy(this.tcx.explicit_clauses_of(def_id), encode_GenericClauses));
+        const inferred_outlives = this.tcx.inferred_outlives_of(def_id);
+        this.tables.inferred_outlives_of.set(local_id, this.lazy_array(inferred_outlives, encode_Clause_Span));
+
+        for (const param of g.own_params) {
+          if (param.kind.$ === "Const" && param.kind.has_default) {
+            const default_ = this.tcx.const_param_default(param.def_id) as EarlyBinder<Const>;
+            this.tables.const_param_default.set_some(param.def_id.expect_local(), this.lazy(default_, encode_EarlyBinder_Const));
+          }
+        }
+      }
+      if (tcx.is_conditionally_const(def_id)) {
+        this.tables.const_conditions.set_some(local_id, this.lazy(this.tcx.const_conditions(def_id) as ConstConditions, encode_ConstConditions));
+      }
+      if (should_encode_type(tcx, local_id, def_kind)) {
+        this.tables.type_of.set_some(local_id, this.lazy(this.tcx.type_of(def_id), encode_EarlyBinder_Ty));
+      }
+      if (should_encode_constness(def_kind)) {
+        const constness = this.tcx.constness(def_id) as Constness;
+        this.tables.constness.set(local_id, constness);
+      }
+      if (def_kind.$ === "Fn" || def_kind.$ === "AssocFn") {
+        const asyncness = tcx.asyncness(def_id) as Asyncness;
+        this.tables.asyncness.set(local_id, asyncness);
+        this.tables.fn_arg_idents.set_some(local_id, this.lazy_array(tcx.fn_arg_idents(def_id), encode_Option_Ident));
+      }
+      const name = tcx.intrinsic(def_id);
+      if (name !== undefined) {
+        this.tables.intrinsic.set_some(local_id, this.lazy(name, encode_IntrinsicDef));
+      }
+      if (def_kind.$ === "TyParam" || def_kind.$ === "Trait") {
+        const default_ = this.tcx.object_lifetime_default(def_id) as ObjectLifetimeDefault;
+        this.tables.object_lifetime_default.set_some(local_id, this.lazy(default_, encode_ObjectLifetimeDefault));
+      }
+      if (def_kind.$ === "Trait") {
+        this.tables.trait_def.set_some(local_id, this.lazy(this.tcx.trait_def(def_id) as TraitDef, encode_TraitDef));
+        this.tables.explicit_super_clauses_of.set(local_id, this.lazy_array(EarlyBinder.skip_binder(this.tcx.explicit_super_clauses_of(def_id)), encode_Clause_Span));
+        this.tables.explicit_implied_clauses_of.set(local_id, this.lazy_array(EarlyBinder.skip_binder(this.tcx.explicit_implied_clauses_of(def_id)), encode_Clause_Span));
+        const module_children = this.tcx.module_children_local(local_id);
+        this.tables.module_children_non_reexports.set_some(
+          local_id,
+          this.lazy_array(
+            module_children.map((child) => Res.def_id(child.res, debug_never).expect_local()),
+            encode_LocalDefId,
+          ),
+        );
+        if (this.tcx.is_const_trait(def_id)) {
+          this.tables.explicit_implied_const_bounds.set(
+            local_id,
+            this.lazy_array(EarlyBinder.skip_binder(this.tcx.explicit_implied_const_bounds(def_id)) as readonly [Binder<TraitRef>, Span][], encode_PolyTraitRef_Span),
+          );
+        }
+      }
+      if (def_kind.$ === "TraitAlias") {
+        this.tables.trait_def.set_some(local_id, this.lazy(this.tcx.trait_def(def_id) as TraitDef, encode_TraitDef));
+        this.tables.explicit_super_clauses_of.set(local_id, this.lazy_array(EarlyBinder.skip_binder(this.tcx.explicit_super_clauses_of(def_id)), encode_Clause_Span));
+        this.tables.explicit_implied_clauses_of.set(local_id, this.lazy_array(EarlyBinder.skip_binder(this.tcx.explicit_implied_clauses_of(def_id)), encode_Clause_Span));
+      }
+      if (def_kind.$ === "Trait" || def_kind.$ === "Impl") {
+        const associated_item_def_ids = this.tcx.associated_item_def_ids(def_id);
+        this.tables.associated_item_or_field_def_ids.set_some(
+          local_id,
+          this.lazy_array(
+            associated_item_def_ids.map((def_id) => {
+              return def_id.expect_local();
+            }),
+            encode_LocalDefId,
+          ),
+        );
+        for (const def_id of associated_item_def_ids) {
+          this.encode_info_for_assoc_item(def_id.expect_local());
+        }
+      }
+      if (def_kind.$ === "Closure" || def_kind.$ === "SyntheticCoroutineBody") {
+        const coroutine_kind = this.tcx.coroutine_kind(def_id) as CoroutineKind | undefined;
+        if (coroutine_kind !== undefined) {
+          this.tables.coroutine_kind.set(local_id, coroutine_kind);
+        }
+      }
+      if (def_kind.$ === "Closure" && EarlyBinder.skip_binder(tcx.type_of(def_id)).is_coroutine_closure()) {
+        const coroutine_for_closure = this.tcx.coroutine_for_closure(def_id);
+        this.tables.coroutine_for_closure.set_some(local_id, RawDefId.from(coroutine_for_closure));
+
+        // If this async closure has a by-move body, record it too.
+        if (tcx.needs_coroutine_by_move_body_def_id(coroutine_for_closure)) {
+          const id = this.tcx.coroutine_by_move_body_def_id(coroutine_for_closure);
+          this.tables.coroutine_by_move_body_def_id.set_some(coroutine_for_closure.expect_local(), RawDefId.from(id));
+        }
+      }
+      if (def_kind.$ === "Static") {
+        if (!this.tcx.is_foreign_item(def_id)) {
+          const r = this.tcx.eval_static_initializer(def_id);
+          switch (r.$) {
+            case "Ok": {
+              const data = r._0;
+              this.tables.eval_static_initializer.set_some(local_id, this.lazy(data, encode_ConstAllocation));
+              break;
+            }
+            case "Err": {
+              const err = r._0;
+              switch (err.$) {
+                case "Reported":
+                  this.tcx.dcx().delayed_bug(`eval_static_initializer returned an error in metadata emission`);
+                  break;
+                case "TooGeneric": {
+                  const span = err._0;
+                  span_bug(span, "generic static???");
+                }
+              }
+              break;
+            }
+          }
+        }
+      }
+      if (def_kind.$ === "Enum" || def_kind.$ === "Struct" || def_kind.$ === "Union") {
+        this.encode_info_for_adt(local_id);
+      }
+      if (def_kind.$ === "Mod") {
+        this.encode_info_for_mod(local_id);
+      }
+      if (def_kind.$ === "Macro") {
+        this.encode_info_for_macro(local_id);
+      }
+      if (def_kind.$ === "TyAlias") {
+        this.tables.type_alias_is_checked.set(local_id, this.tcx.type_alias_is_checked(def_id));
+
+        if (this.tcx.type_alias_is_checked(def_id)) {
+          this.tables.args_known_to_outlive_alias_params.set_some(
+            local_id,
+            this.lazy(tcx.args_known_to_outlive_alias_params(def_id) as [number, DenseBitSet][], encode_Vec_usize_DenseBitSet),
+          );
+        }
+      }
+      if (def_kind.$ === "OpaqueTy") {
+        this.encode_explicit_item_bounds(local_id);
+        this.encode_explicit_item_self_bounds(local_id);
+        this.tables.opaque_ty_origin.set_some(local_id, this.lazy(this.tcx.opaque_ty_origin(def_id) as OpaqueTyOrigin<DefId>, encode_OpaqueTyOrigin_DefId));
+        this.encode_precise_capturing_args(local_id);
+        if (tcx.is_conditionally_const(def_id)) {
+          this.tables.explicit_implied_const_bounds.set(
+            local_id,
+            this.lazy_array(EarlyBinder.skip_binder(tcx.explicit_implied_const_bounds(def_id)) as readonly [Binder<TraitRef>, Span][], encode_PolyTraitRef_Span),
+          );
+        }
+        this.tables.args_known_to_outlive_alias_params.set_some(
+          local_id,
+          this.lazy(tcx.args_known_to_outlive_alias_params(def_id) as [number, DenseBitSet][], encode_Vec_usize_DenseBitSet),
+        );
+      }
+      if (def_kind.$ === "AssocTy") {
+        const assoc_item = tcx.associated_item(def_id) as AssocItemT;
+        switch (assoc_item.container.$) {
+          case "Trait": {
+            this.tables.args_known_to_outlive_alias_params.set_some(
+              local_id,
+              this.lazy(tcx.args_known_to_outlive_alias_params(def_id) as [number, DenseBitSet][], encode_Vec_usize_DenseBitSet),
+            );
+            break;
+          }
+          case "InherentImpl": {
+            this.tables.args_known_to_outlive_alias_params.set_some(
+              local_id,
+              this.lazy(tcx.args_known_to_outlive_alias_params(def_id) as [number, DenseBitSet][], encode_Vec_usize_DenseBitSet),
+            );
+            break;
+          }
+          case "TraitImpl":
+            break;
+        }
+      }
+      if (def_kind.$ === "AnonConst") {
+        this.tables.anon_const_kind.set_some(local_id, this.lazy(this.tcx.anon_const_kind(def_id) as AnonConstKind, encode_AnonConstKind));
+      }
+      if (def_kind.$ === "Const" || def_kind.$ === "AssocConst") {
+        this.tables.const_of_item.set_some(local_id, this.lazy(this.tcx.const_of_item(def_id) as EarlyBinder<Const> | undefined, encode_Option_EarlyBinder_Const));
+      }
+      if (tcx.impl_method_has_trait_impl_trait_tys(def_id)) {
+        const r = this.tcx.collect_return_position_impl_trait_in_trait_tys(def_id);
+        if (r.$ === "Ok") {
+          const table = r._0;
+          this.tables.collect_return_position_impl_trait_in_trait_tys.set_some(local_id, this.lazy(table, encode_DefIdMap_EarlyBinder_Ty));
+        }
+      }
+      if (def_kind.$ === "Impl" || def_kind.$ === "Trait") {
+        const table = tcx.associated_types_for_impl_traits_in_trait_or_impl(def_id);
+        this.tables.associated_types_for_impl_traits_in_trait_or_impl.set_some(local_id, this.lazy(table, encode_DefIdMap_Vec_DefId));
+      }
+    }
+
+    for (const [def_id, impls] of (tcx.crate_inherent_impls(null)[0] as CrateInherentImpls).inherent_impls) {
+      this.tables.inherent_impls.set(
+        def_id,
+        this.lazy_array(
+          impls.map((def_id) => {
+            return def_id.expect_local();
+          }),
+          encode_LocalDefId,
+        ),
+      );
+    }
+
+    for (const [def_id, res_map] of tcx.resolutions(null).doc_link_resolutions) {
+      this.tables.doc_link_resolutions.set_some(LocalModId.to_local_def_id(def_id), this.lazy(res_map, encode_DocLinkResMap));
+    }
+
+    for (const [def_id, traits] of tcx.resolutions(null).doc_link_traits_in_scope) {
+      this.tables.doc_link_traits_in_scope.set_some(LocalModId.to_local_def_id(def_id), this.lazy_array(traits, encode_DefId));
+    }
   }
 
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:1733 encode_externally_implementable_items (lane encoder-c)
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:1733 encode_externally_implementable_items
   encode_externally_implementable_items(): LazyArray<EiiMapEncodedKeyValue> {
-    return unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_externally_implementable_items (lane encoder-c)");
+    if (this.is_proc_macro) return LazyArray.default(); // empty_proc_macro!(self)
+    const externally_implementable_items = this.tcx.externally_implementable_items(LOCAL_CRATE) as EiiMap;
+
+    return this.lazy_array(
+      [...externally_implementable_items].map(([foreign_item, [decl, impls]]): EiiMapEncodedKeyValue => {
+        // PORT: `decl.clone()`: the encoder only reads it.
+        return [foreign_item, [decl, [...impls].map(([impl_did, i]): [DefId, EiiImpl] => [impl_did, i])]];
+      }),
+      encode_EiiMapEncodedKeyValue,
+    );
   }
 
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:1748 encode_info_for_adt (lane encoder-c)
-  encode_info_for_adt(_local_def_id: LocalDefId): void {
-    unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_info_for_adt (lane encoder-c)");
+  // #[instrument(level = "trace", skip(self))]
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:1748 encode_info_for_adt
+  encode_info_for_adt(local_def_id: LocalDefId): void {
+    const def_id = LocalDefId.to_def_id(local_def_id);
+    const tcx = this.tcx;
+    const adt_def = tcx.adt_def(def_id) as AdtDef;
+    this.tables.repr_options.set_some(local_def_id, this.lazy(adt_def.repr(), encode_ReprOptions));
+
+    const params_in_repr = this.tcx.params_in_repr(def_id) as DenseBitSet;
+    this.tables.params_in_repr.set_some(local_def_id, this.lazy(params_in_repr, encode_DenseBitSet));
+
+    if (adt_def.is_enum()) {
+      const module_children = tcx.module_children_local(local_def_id);
+      this.tables.module_children_non_reexports.set_some(
+        local_def_id,
+        this.lazy_array(
+          module_children.map((child) => Res.def_id(child.res, debug_never).expect_local()),
+          encode_LocalDefId,
+        ),
+      );
+    } else {
+      // For non-enum, there is only one variant, and its def_id is the adt's.
+      // debug_assert_eq!(adt_def.variants().len(), 1);
+      // debug_assert_eq!(adt_def.non_enum_variant().def_id, def_id);
+      // Therefore, the loop over variants will encode its fields as the adt's children.
+    }
+
+    const variants = adt_def.variants();
+    for (let i = 0; i < variants.length; i++) {
+      const idx = VariantIdx.from_usize(i);
+      const variant = variants[i]!;
+      const variant_id = variant.def_id.expect_local();
+
+      const data: VariantData = {
+        discr: variant.discr,
+        idx,
+        ctor: variant.ctor === undefined ? undefined : [variant.ctor[0], variant.ctor[1].expect_local()],
+        is_non_exhaustive: variant.is_field_list_non_exhaustive(),
+      };
+      this.tables.variant_data.set_some(variant_id, this.lazy(data, encode_VariantData));
+
+      this.tables.associated_item_or_field_def_ids.set_some(
+        variant_id,
+        this.lazy_array(
+          variant.fields.map((f) => {
+            return f.did.expect_local();
+          }),
+          encode_LocalDefId,
+        ),
+      );
+
+      for (const field of variant.fields) {
+        const field_id = field.did.expect_local();
+        this.tables.safety.set(field_id, field.safety);
+        this.tables.mut_restriction.set_some(field_id, this.lazy(field.mut_restriction, encode_RestrictionKind));
+      }
+
+      if (variant.ctor !== undefined && variant.ctor[0] === "Fn") {
+        const ctor_def_id = variant.ctor[1];
+        const fn_sig = tcx.fn_sig(ctor_def_id);
+        // FIXME only encode signature for ctor_def_id
+        this.tables.fn_sig.set_some(variant_id, this.lazy(fn_sig, encode_EarlyBinder_PolyFnSig));
+      }
+    }
+
+    const destructor = tcx.adt_destructor(local_def_id) as Destructor | undefined;
+    if (destructor !== undefined) {
+      this.tables.adt_destructor.set_some(local_def_id, this.lazy(destructor, encode_Destructor));
+    }
+
+    const async_destructor = tcx.adt_async_destructor(local_def_id) as AsyncDestructor | undefined;
+    if (async_destructor !== undefined) {
+      this.tables.adt_async_destructor.set_some(local_def_id, this.lazy(async_destructor, encode_AsyncDestructor));
+    }
   }
 
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:1808 encode_info_for_mod (lane encoder-c)
-  encode_info_for_mod(_local_def_id: LocalDefId): void {
-    unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_info_for_mod (lane encoder-c)");
+  // #[instrument(level = "debug", skip(self))]
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:1808 encode_info_for_mod
+  encode_info_for_mod(local_def_id: LocalDefId): void {
+    const tcx = this.tcx;
+
+    // If we are encoding a proc-macro crates, `encode_info_for_mod` will
+    // only ever get called for the crate root. We still want to encode
+    // the crate root for consistency with other crates (some of the resolver
+    // code uses it). However, we skip encoding anything relating to child
+    // items - we encode information about proc-macros later on.
+    if (this.is_proc_macro) {
+      // Encode this here because we don't do it in encode_def_ids.
+      this.tables.expn_that_defined.set_some(local_def_id, this.lazy(tcx.expn_that_defined(local_def_id), encode_ExpnId));
+    } else {
+      const module_children = tcx.module_children_local(local_def_id);
+
+      this.tables.module_children_non_reexports.set_some(
+        local_def_id,
+        this.lazy_array(
+          module_children.filter((child) => child.reexport_chain.length === 0).map((child) => Res.def_id(child.res, debug_never).expect_local()),
+          encode_LocalDefId,
+        ),
+      );
+
+      this.tables.module_children_reexports.set(
+        local_def_id,
+        this.lazy_array(
+          module_children.filter((child) => child.reexport_chain.length !== 0),
+          encode_ModChild,
+        ),
+      );
+
+      const ambig_module_children: readonly AmbigModChild[] = tcx.resolutions(null).ambig_module_children.get(local_def_id) ?? [];
+      this.tables.ambig_module_children.set(local_def_id, this.lazy_array(ambig_module_children, encode_AmbigModChild));
+    }
   }
 
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:1839 encode_explicit_item_bounds (lane encoder-c)
-  encode_explicit_item_bounds(_def_id: LocalDefId): void {
-    unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_explicit_item_bounds (lane encoder-c)");
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:1839 encode_explicit_item_bounds
+  encode_explicit_item_bounds(def_id: LocalDefId): void {
+    // debug!("EncodeContext::encode_explicit_item_bounds({:?})", def_id);
+    const bounds = EarlyBinder.skip_binder(this.tcx.explicit_item_bounds(def_id));
+    this.tables.explicit_item_bounds.set(def_id, this.lazy_array(bounds, encode_Clause_Span));
   }
 
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:1845 encode_explicit_item_self_bounds (lane encoder-c)
-  encode_explicit_item_self_bounds(_def_id: LocalDefId): void {
-    unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_explicit_item_self_bounds (lane encoder-c)");
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:1845 encode_explicit_item_self_bounds
+  encode_explicit_item_self_bounds(def_id: LocalDefId): void {
+    // debug!("EncodeContext::encode_explicit_item_self_bounds({:?})", def_id);
+    const bounds = EarlyBinder.skip_binder(this.tcx.explicit_item_self_bounds(def_id));
+    this.tables.explicit_item_self_bounds.set(def_id, this.lazy_array(bounds, encode_Clause_Span));
   }
 
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:1852 encode_info_for_assoc_item (lane encoder-c)
-  encode_info_for_assoc_item(_def_id: LocalDefId): void {
-    unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_info_for_assoc_item (lane encoder-c)");
+  // #[instrument(level = "debug", skip(self))]
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:1852 encode_info_for_assoc_item
+  encode_info_for_assoc_item(def_id: LocalDefId): void {
+    const tcx = this.tcx;
+    const item = tcx.associated_item(def_id) as AssocItemT;
+
+    if (item.container.$ === "Trait" || item.container.$ === "TraitImpl") {
+      this.tables.defaultness.set(def_id, AssocItem.defaultness(item, tcx));
+    }
+
+    this.tables.assoc_container.set_some(def_id, this.lazy(item.container, encode_AssocContainer));
+
+    if (item.container.$ === "Trait" && AssocItem.is_type(item)) {
+      this.encode_explicit_item_bounds(def_id);
+      this.encode_explicit_item_self_bounds(def_id);
+      if (tcx.is_conditionally_const(LocalDefId.to_def_id(def_id))) {
+        this.tables.explicit_implied_const_bounds.set(
+          def_id,
+          this.lazy_array(EarlyBinder.skip_binder(this.tcx.explicit_implied_const_bounds(def_id)) as readonly [Binder<TraitRef>, Span][], encode_PolyTraitRef_Span),
+        );
+      }
+    }
+    if (item.kind.$ === "Type" && item.kind.data.$ === "Rpitit") {
+      const rpitit_info = item.kind.data._0;
+      this.tables.opt_rpitit_info.set_some(def_id, this.lazy(rpitit_info, encode_ImplTraitInTraitData));
+      if (rpitit_info.$ === "Trait") {
+        this.tables.assumed_wf_types_for_rpitit.set_some(def_id, this.lazy_array(this.tcx.assumed_wf_types_for_rpitit(def_id), encode_Ty_Span));
+        this.encode_precise_capturing_args(def_id);
+      }
+    }
   }
 
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:1884 encode_precise_capturing_args (lane encoder-c)
-  encode_precise_capturing_args(_def_id: LocalDefId): void {
-    unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_precise_capturing_args (lane encoder-c)");
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:1884 encode_precise_capturing_args
+  encode_precise_capturing_args(def_id: LocalDefId): void {
+    const precise_capturing_args = this.tcx.rendered_precise_capturing_args(def_id) as readonly PreciseCapturingArgKind<Symbol, Symbol>[] | undefined;
+    if (precise_capturing_args === undefined) {
+      return;
+    }
+
+    this.tables.rendered_precise_capturing_args.set_some(def_id, this.lazy_array(precise_capturing_args, encode_PreciseCapturingArgKind_Symbol));
   }
 
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:1892 encode_mir (lane encoder-c)
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:1892 encode_mir
   encode_mir(): void {
-    unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_mir (lane encoder-c)");
+    if (this.is_proc_macro) {
+      return;
+    }
+
+    const tcx = this.tcx;
+    const reachable_set = tcx.reachable_set(null) as ReadonlySet<LocalDefId>;
+
+    // PORT: `filter_map` is lazy: `should_encode_mir` runs for each key just before that key's body is encoded.
+    const keys_and_jobs = (function* (): Generator<[LocalDefId, boolean, boolean]> {
+      for (const def_id of tcx.mir_keys(null)) {
+        const [encode_const, encode_opt] = should_encode_mir(tcx, reachable_set, def_id);
+        if (encode_const || encode_opt) yield [def_id, encode_const, encode_opt];
+      }
+    })();
+    for (const [def_id, encode_const, encode_opt] of keys_and_jobs) {
+      // debug_assert!(encode_const || encode_opt);
+
+      // debug!("EntryBuilder::encode_mir({:?})", def_id);
+      if (encode_opt) {
+        this.tables.optimized_mir.set_some(def_id, this.lazy(tcx.optimized_mir(def_id), encode_Body));
+
+        this.tables.cross_crate_inlinable.set(def_id, this.tcx.cross_crate_inlinable(def_id));
+
+        this.tables.closure_saved_names_of_captured_variables.set_some(def_id, this.lazy(tcx.closure_saved_names_of_captured_variables(def_id), encode_Vec_Symbol));
+
+        if (this.tcx.is_coroutine(LocalDefId.to_def_id(def_id))) {
+          const witnesses = tcx.mir_coroutine_witnesses(def_id);
+          if (witnesses !== undefined) {
+            this.tables.mir_coroutine_witnesses.set_some(def_id, this.lazy(witnesses, encode_CoroutineLayout));
+          }
+        }
+      }
+      let is_trivial = false;
+      if (encode_const) {
+        const trivial = tcx.trivial_const(def_id);
+        if (trivial !== undefined) {
+          const [val, ty] = trivial;
+          is_trivial = true;
+          this.tables.trivial_const.set_some(def_id, this.lazy([val, ty] as [ConstValue, Ty], encode_ConstValue_Ty));
+        } else {
+          is_trivial = false;
+          this.tables.mir_for_ctfe.set_some(def_id, this.lazy(tcx.mir_for_ctfe(def_id), encode_Body));
+        }
+
+        // FIXME(generic_const_exprs): this feels wrong to have in `encode_mir`
+        const abstract_const = tcx.thir_abstract_const(def_id);
+        if (abstract_const.$ === "Ok" && abstract_const._0 !== undefined) {
+          this.tables.thir_abstract_const.set_some(def_id, this.lazy(abstract_const._0 as EarlyBinder<Const>, encode_EarlyBinder_Const));
+        }
+
+        if (should_encode_const(tcx.def_kind(def_id))) {
+          const qualifs = tcx.mir_const_qualif(def_id);
+          this.tables.mir_const_qualif.set_some(def_id, this.lazy(qualifs, encode_ConstQualifs));
+          const body = tcx.hir_maybe_body_owned_by(def_id);
+          if (body !== undefined) {
+            const const_data = rendered_const(this.tcx, body, def_id);
+            this.tables.rendered_const.set_some(def_id, this.lazy(const_data, encode_String));
+          }
+        }
+      }
+      if (!is_trivial) {
+        this.tables.promoted_mir.set_some(def_id, this.lazy(tcx.promoted_mir(def_id), encode_IndexVec_Promoted_Body));
+      }
+
+      if (this.tcx.is_coroutine(LocalDefId.to_def_id(def_id))) {
+        const witnesses = tcx.mir_coroutine_witnesses(def_id);
+        if (witnesses !== undefined) {
+          this.tables.mir_coroutine_witnesses.set_some(def_id, this.lazy(witnesses, encode_CoroutineLayout));
+        }
+      }
+    }
+
+    // Encode all the deduced parameter attributes for everything that has MIR, even for items
+    // that can't be inlined. But don't if we aren't optimizing in non-incremental mode, to
+    // save the query traffic.
+    if (tcx.sess.opts.output_types.should_codegen() && tcx.sess.opts.optimize !== "No" && tcx.sess.opts.incremental === undefined) {
+      for (const local_def_id of tcx.mir_keys(null)) {
+        const k = tcx.def_kind(local_def_id);
+        if (k.$ === "AssocFn" || k.$ === "Fn") {
+          this.tables.deduced_param_attrs.set_some(
+            local_def_id,
+            this.lazy_array(this.tcx.deduced_param_attrs(LocalDefId.to_def_id(local_def_id)) as readonly DeducedParamAttrs[], encode_DeducedParamAttrs),
+          );
+        }
+      }
+    }
   }
 
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:1976 encode_stability (lane encoder-c)
-  encode_stability(_def_id: LocalDefId): void {
-    unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_stability (lane encoder-c)");
+  // #[instrument(level = "debug", skip(self))]
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:1976 encode_stability
+  encode_stability(def_id: LocalDefId): void {
+    // The query lookup can take a measurable amount of time in crates with many items. Check if
+    // the stability attributes are even enabled before using their queries.
+    if (this.feat.staged_api() || this.tcx.sess.opts.unstable_opts.force_unstable_if_unmarked) {
+      const stab = this.tcx.lookup_stability(def_id) as Stability | undefined;
+      if (stab !== undefined) {
+        this.tables.lookup_stability.set_some(def_id, this.lazy(stab, encode_Stability));
+      }
+    }
   }
 
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:1987 encode_const_stability (lane encoder-c)
-  encode_const_stability(_def_id: LocalDefId): void {
-    unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_const_stability (lane encoder-c)");
+  // #[instrument(level = "debug", skip(self))]
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:1987 encode_const_stability
+  encode_const_stability(def_id: LocalDefId): void {
+    // The query lookup can take a measurable amount of time in crates with many items. Check if
+    // the stability attributes are even enabled before using their queries.
+    if (this.feat.staged_api() || this.tcx.sess.opts.unstable_opts.force_unstable_if_unmarked) {
+      const stab = this.tcx.lookup_const_stability(def_id) as ConstStability | undefined;
+      if (stab !== undefined) {
+        this.tables.lookup_const_stability.set_some(def_id, this.lazy(stab, encode_ConstStability));
+      }
+    }
   }
 
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:1998 encode_default_body_stability (lane encoder-c)
-  encode_default_body_stability(_def_id: LocalDefId): void {
-    unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_default_body_stability (lane encoder-c)");
+  // #[instrument(level = "debug", skip(self))]
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:1998 encode_default_body_stability
+  encode_default_body_stability(def_id: LocalDefId): void {
+    // The query lookup can take a measurable amount of time in crates with many items. Check if
+    // the stability attributes are even enabled before using their queries.
+    if (this.feat.staged_api() || this.tcx.sess.opts.unstable_opts.force_unstable_if_unmarked) {
+      const stab = this.tcx.lookup_default_body_stability(def_id) as DefaultBodyStability | undefined;
+      if (stab !== undefined) {
+        this.tables.lookup_default_body_stability.set_some(def_id, this.lazy(stab, encode_DefaultBodyStability));
+      }
+    }
   }
 
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:2009 encode_deprecation (lane encoder-c)
-  encode_deprecation(_def_id: LocalDefId): void {
-    unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_deprecation (lane encoder-c)");
+  // #[instrument(level = "debug", skip(self))]
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:2009 encode_deprecation
+  encode_deprecation(def_id: LocalDefId): void {
+    const depr = this.tcx.lookup_deprecation(LocalDefId.to_def_id(def_id));
+    if (depr !== undefined) {
+      this.tables.lookup_deprecation_entry.set_some(def_id, this.lazy(depr, encode_Deprecation));
+    }
   }
 
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:2016 encode_info_for_macro (lane encoder-c)
-  encode_info_for_macro(_def_id: LocalDefId): void {
-    unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_info_for_macro (lane encoder-c)");
+  // #[instrument(level = "debug", skip(self))]
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:2016 encode_info_for_macro
+  encode_info_for_macro(def_id: LocalDefId): void {
+    const tcx = this.tcx;
+
+    const [, macro_def] = tcx.hir_expect_item(def_id).expect_macro();
+    this.tables.is_macro_rules.set(def_id, macro_def.macro_rules);
+    this.tables.macro_definition.set_some(def_id, this.lazy(macro_def.body, ast.encode_DelimArgs));
   }
 
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:2024 encode_native_libraries (lane encoder-c)
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:2024 encode_native_libraries
   encode_native_libraries(): LazyArray<NativeLib> {
-    return unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_native_libraries (lane encoder-c)");
+    if (this.is_proc_macro) return LazyArray.default(); // empty_proc_macro!(self)
+    const used_libraries = this.tcx.native_libraries(LOCAL_CRATE);
+    return this.lazy_array(used_libraries, encode_NativeLib);
   }
 
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:2030 encode_foreign_modules (lane encoder-c)
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:2030 encode_foreign_modules
   encode_foreign_modules(): LazyArray<ForeignModule> {
-    return unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_foreign_modules (lane encoder-c)");
+    if (this.is_proc_macro) return LazyArray.default(); // empty_proc_macro!(self)
+    const foreign_modules = this.tcx.foreign_modules(LOCAL_CRATE);
+    // PORT: `.cloned()`: the encoder only reads the modules.
+    return this.lazy_array(foreign_modules.values(), encode_ForeignModule);
   }
 
   // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:2036 encode_hygiene
@@ -1161,6 +1714,152 @@ function encode_SyntaxContextKey(v: SyntaxContextKey, e: EncodeContext): void {
   encode_tuple(v, e, encode_SyntaxContext, encode_ExpnId, encode_Transparency);
 }
 
+// ---- lane encoder-c: the `Encodable` impls of the table element types of encoder.rs:1482-2035 (not markers) ----
+// PORT: each is the `T: Encodable<EncodeContext>` that `lazy` / `lazy_array` take for one table (PORTING §5: generic
+// bounds become function tables), composed from the generated / hand-ported encoders; the decode side is
+// rmeta/decoder/cstore_impl.ts. Element types with no TS `Encodable` yet stop as UNPORTED naming the impl, like
+// decoder.ts's `decode_NativeLib`.
+
+/** `Debug` of `!` (the `Id` of `ModChild::res: Res<!>`, for `Res::def_id`'s panic message; never called). */
+const debug_never = (x: never): never => x;
+
+/** `ty::Visibility<LocalDefId>` */
+function encode_Visibility_LocalDefId(v: Visibility<LocalDefId>, e: EncodeContext): void {
+  encode_ty_Visibility(v, e, encode_LocalDefId);
+}
+/** `ty::EarlyBinder<'tcx, ty::PolyFnSig<'tcx>>` */
+function encode_EarlyBinder_PolyFnSig(v: EarlyBinder<Binder<FnSig>>, e: EncodeContext): void {
+  encode_EarlyBinder(v, e, (v, e) => encode_Binder(v, e, encode_FnSig, encode_List_BoundVariableKind));
+}
+/** `ty::EarlyBinder<'tcx, Ty<'tcx>>` */
+function encode_EarlyBinder_Ty(v: EarlyBinder<Ty>, e: EncodeContext): void {
+  encode_EarlyBinder(v, e, encode_Ty);
+}
+/** `ty::EarlyBinder<'tcx, ty::Const<'tcx>>` */
+function encode_EarlyBinder_Const(v: EarlyBinder<Const>, e: EncodeContext): void {
+  encode_EarlyBinder(v, e, encode_ty_Const);
+}
+/** `Option<ty::EarlyBinder<'tcx, ty::Const<'tcx>>>` */
+function encode_Option_EarlyBinder_Const(v: EarlyBinder<Const> | undefined, e: EncodeContext): void {
+  encode_Option(v, e, encode_EarlyBinder_Const);
+}
+/** `(ty::Clause<'tcx>, Span)` */
+function encode_Clause_Span(v: readonly [Clause, Span], e: EncodeContext): void {
+  encode_tuple(v, e, encode_Clause, encode_Span);
+}
+/** `(ty::PolyTraitRef<'tcx>, Span)` */
+function encode_PolyTraitRef_Span(v: readonly [Binder<TraitRef>, Span], e: EncodeContext): void {
+  encode_tuple(v, e, (v, e) => encode_Binder(v, e, encode_TraitRef, encode_List_BoundVariableKind), encode_Span);
+}
+/** `(Ty<'tcx>, Span)` */
+function encode_Ty_Span(v: readonly [Ty, Span], e: EncodeContext): void {
+  encode_tuple(v, e, encode_Ty, encode_Span);
+}
+/** `Option<Ident>` */
+function encode_Option_Ident(v: Ident | undefined, e: EncodeContext): void {
+  encode_Option(v, e, encode_Ident);
+}
+/** `Vec<(usize, DenseBitSet<u32>)>` */
+function encode_Vec_usize_DenseBitSet(v: readonly [number, DenseBitSet][], e: EncodeContext): void {
+  encode_Vec(v, e, (v, e) => encode_tuple(v, e, encode_usize, encode_DenseBitSet));
+}
+/** `hir::OpaqueTyOrigin<DefId>` */
+function encode_OpaqueTyOrigin_DefId(v: OpaqueTyOrigin<DefId>, e: EncodeContext): void {
+  encode_OpaqueTyOrigin(v, e, encode_DefId);
+}
+/** `PreciseCapturingArgKind<Symbol, Symbol>` */
+function encode_PreciseCapturingArgKind_Symbol(v: PreciseCapturingArgKind<Symbol, Symbol>, e: EncodeContext): void {
+  encode_PreciseCapturingArgKind(v, e, encode_Symbol, encode_Symbol);
+}
+/** `DefIdMap<ty::EarlyBinder<'tcx, Ty<'tcx>>>`: `UnordMap`'s derived `Encodable_NoContext` is its `FxHashMap`'s
+ *  (hashbrown order: `encode_HashMap` stops on a non-`FxHashMap` with more than one entry). */
+function encode_DefIdMap_EarlyBinder_Ty(v: ReadonlyMap<DefId, EarlyBinder<Ty>>, e: EncodeContext): void {
+  encode_HashMap(v, e, encode_DefId, encode_EarlyBinder_Ty);
+}
+/** `DefIdMap<Vec<DefId>>` (see `encode_DefIdMap_EarlyBinder_Ty`) */
+function encode_DefIdMap_Vec_DefId(v: ReadonlyMap<DefId, readonly DefId[]>, e: EncodeContext): void {
+  encode_HashMap(v, e, encode_DefId, (v, e) => encode_Vec(v, e, encode_DefId));
+}
+/** `IndexVec<FieldIdx, Symbol>` (`IndexVec`'s `Encodable` is its `Vec`'s) */
+function encode_Vec_Symbol(v: readonly Symbol[], e: EncodeContext): void {
+  encode_Vec(v, e, encode_Symbol);
+}
+/** `(ConstValue, Ty<'tcx>)` */
+function encode_ConstValue_Ty(v: readonly [ConstValue, Ty], e: EncodeContext): void {
+  encode_tuple(v, e, encode_ConstValue, encode_Ty);
+}
+/** `IndexVec<mir::Promoted, mir::Body<'tcx>>` */
+function encode_IndexVec_Promoted_Body(v: readonly MirBody[], e: EncodeContext): void {
+  encode_Vec(v, e, encode_Body);
+}
+/** `DocLinkResMap` = `FxIndexMap<(Symbol, Namespace), Option<Res<NodeId>>>`: `impl Encodable for IndexMap`
+ *  (rustc_serialize serialize.rs:666: the length, then each key and value in order).
+ *  PORT: the TS map is keyed by `DocLinkResMap_key` and stores `[key, value]` (rustc_middle middle/resolve.ts). */
+function encode_DocLinkResMap(v: DocLinkResMap, e: EncodeContext): void {
+  e.emit_usize(v.size);
+  for (const [key, val] of v.values()) {
+    encode_tuple(key, e, encode_Symbol, encode_Namespace);
+    encode_Option(val, e, (v, e) => encode_Res(v, e, node_id.encode_NodeId));
+  }
+}
+/** `EiiMapEncodedKeyValue` = `(DefId, (EiiDecl, Vec<(DefId, EiiImpl)>))` */
+function encode_EiiMapEncodedKeyValue(v: EiiMapEncodedKeyValue, e: EncodeContext): void {
+  encode_tuple(v, e, encode_DefId, (v, e) => encode_tuple(v, e, encode_EiiDecl, (v, e) => encode_Vec(v, e, (v, e) => encode_tuple(v, e, encode_DefId, encode_EiiImpl))));
+}
+/** `#[derive(Encodable)]` of `rustc_crate_store::NativeLib` (its `cfg` / `DllImport` fields have no TS `Encodable`). */
+function encode_NativeLib(_v: NativeLib, _e: EncodeContext): void {
+  unported("Encodable for rustc_crate_store::NativeLib (derive(Encodable) not generated)");
+}
+/** `#[derive(Encodable)]` of `rustc_crate_store::ForeignModule` (cstore.rs:138: fields in declaration order).
+ *  PORT: hand-expanded (rustc_crate_store is not a tools/codegen serialize set). */
+function encode_ForeignModule(v: ForeignModule, e: EncodeContext): void {
+  encode_Vec(v.foreign_items, e, encode_DefId);
+  encode_DefId(v.def_id, e);
+  encode_ExternAbi(v.abi, e);
+}
+/** `#[cfg_attr(feature = "nightly", derive(Encodable))]` of `rustc_abi::ExternAbi` (extern_abi.rs:19): the variant
+ *  index in declaration order as a `u8`, then the `unwind` field of the variants that have one.
+ *  PORT: hand-expanded (tools/codegen does not generate rustc_abi's `ExternAbi` derive). */
+function encode_ExternAbi(v: ExternAbi, e: Encoder): void {
+  const disc = EXTERN_ABI_VARIANTS.indexOf(v.$);
+  assert(disc >= 0, "ExternAbi variant");
+  e.emit_u8(disc);
+  if ("unwind" in v) encode_bool(v.unwind, e);
+}
+/** `ExternAbi`'s variants in declaration order (extern_abi.rs:19-127). */
+const EXTERN_ABI_VARIANTS: readonly ExternAbi["$"][] = [
+  "C",
+  "System",
+  "Rust",
+  "RustCall",
+  "RustCold",
+  "RustInvalid",
+  "RustPreserveNone",
+  "RustTail",
+  "LlvmIntrinsic",
+  "Custom",
+  "EfiApi",
+  "Swift",
+  "Aapcs",
+  "CmseNonSecureCall",
+  "CmseNonSecureEntry",
+  "GpuKernel",
+  "PtxKernel",
+  "AvrInterrupt",
+  "AvrNonBlockingInterrupt",
+  "Msp430Interrupt",
+  "RiscvInterruptM",
+  "RiscvInterruptS",
+  "X86Interrupt",
+  "Cdecl",
+  "Stdcall",
+  "Fastcall",
+  "Thiscall",
+  "Vectorcall",
+  "SysV64",
+  "Win64",
+];
+
 // impl<'a, 'tcx> Encodable<EncodeContext<'a, 'tcx>> for SpanData
 // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:259 encode
 export function encode_SpanData(self: SpanData, s: EncodeContext): void {
@@ -1428,10 +2127,6 @@ export function should_encode_const(_def_kind: DefKind): boolean {
 function encode_LocalDefId_LazyValue(v: [LocalDefId, LazyValue<ProcMacroKind>], e: EncodeContext): void {
   encode_tuple(v, e, encode_LocalDefId, encode_LazyValue);
 }
-/** `ty::Visibility<LocalDefId>` */
-function encode_Visibility_LocalDefId(v: Visibility<LocalDefId>, e: EncodeContext): void {
-  encode_Visibility(v, e, encode_LocalDefId);
-}
 /** `(Symbol, FeatureStability)` */
 function encode_Symbol_FeatureStability(v: [Symbol, FeatureStability], e: EncodeContext): void {
   encode_tuple(v, e, encode_Symbol, encode_FeatureStability);
@@ -1475,10 +2170,6 @@ function encode_Vec_u8(v: Uint8Array, s: Encoder): void {
 /** `Vec<u8>` over any `Decoder` (the generic impl). */
 function decode_Vec_u8(d: Decoder): Uint8Array {
   return Uint8Array.from(decode_Vec(d, decode_u8));
-}
-/** `DocLinkResMap` (`UnordMap<(Symbol, Namespace), Option<Res<NodeId>>>`): not ported. */
-function encode_DocLinkResMap(_v: DocLinkResMap, _e: EncodeContext): void {
-  unported("rustc_metadata::rmeta::encoder: Encodable for DocLinkResMap (proc-macro crate doc links)");
 }
 /** `DebuggerVisualizerFile`'s derived `Encodable`: not generated (rustc_middle middle/debugger_visualizer.rs). */
 function encode_DebuggerVisualizerFile(_v: DebuggerVisualizerFile, _e: EncodeContext): void {
