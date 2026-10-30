@@ -29,7 +29,7 @@ import { decode_TargetTuple, encode_TargetTuple, type TargetTuple } from "../../
 import { Unported } from "../../std/panic.ts";
 import { unwrap_result } from "../../std/result.ts";
 import { decode_Svh, encode_Svh, Svh } from "./decoder.ts";
-import { EncodeContext, EncodeContext_CLEAR_CROSS_CRATE, encode_ExpnIndex, encode_metadata, should_encode_span } from "./encoder.ts";
+import { EncodeContext, EncodeContext_CLEAR_CROSS_CRATE, encode_ExpnIndex, encode_metadata } from "./encoder.ts";
 import { encode_LazyArray, encode_LazyTable, encode_LazyValue, LazyState, LazyTable } from "./mod.ts";
 import type { ExpnIndex } from "../../rustc_span/hygiene.ts";
 
@@ -88,6 +88,8 @@ const SPAN_HYGIENE = new Set([151, 162, 166, 171, 176, 188, 222, 226, 237, 244, 
 function ported_by(line: number): string | undefined {
   if (PORTED.has(line)) return "encode-contract";
   if (SPAN_HYGIENE.has(line)) return "encode-span-hygiene";
+  // lane encoder-b (wave 33) ported all of :651–:1481
+  if (line >= 651 && line < 1482) return "encoder-b";
   return undefined;
 }
 
@@ -193,8 +195,9 @@ test("stubs stop with their lane", () => {
     return "returned";
   };
   expect(lane(() => e.encode_def_path_table())).toBe("encoder-a");
-  expect(lane(() => e.encode_crate_root())).toBe("encoder-b");
-  expect(lane(() => should_encode_span("Mod" as never))).toBe("encoder-b");
+  // encoder-b's fns are ported: `encode_crate_root` stops at its first callee, encoder-c's
+  // `encode_externally_implementable_items`
+  expect(lane(() => e.encode_crate_root())).toBe("encoder-c");
   expect(lane(() => e.encode_mir())).toBe("encoder-c");
   expect(lane(() => encode_metadata(undefined as never, "x.rmeta", undefined))).toBe("encoder-d");
 });
