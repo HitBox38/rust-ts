@@ -8,9 +8,10 @@ import { SortedMap } from "../../rustc_data_structures/sorted_map.ts";
 import { Hash64 } from "../../rustc_hashes/lib.ts";
 import { Config as HashMapConfig } from "../../rustc_hir_id/def_path_hash_map.ts";
 import type { DefPathToIndexMap } from "../../rustc_hir_id/definitions.ts";
-import { decode_Hash64, decode_tuple, decode_Vec } from "../../rustc_serialize/serialize.ts";
-import { DefPathHash, type DefIndex } from "../../rustc_span/def_id.ts";
-import { panic, unported } from "../../std/panic.ts";
+import { range_full } from "../../rustc_index/idx.ts";
+import { decode_Hash64, decode_tuple, decode_Vec, encode_Hash64, encode_slice, encode_tuple } from "../../rustc_serialize/serialize.ts";
+import { DefPathHash, type DefIndex, encode_LocalDefId } from "../../rustc_span/def_id.ts";
+import { panic, unwrap } from "../../std/panic.ts";
 import * as odht from "../../vendor/odht/lib.ts";
 import type { BlobDecodeContext } from "./decoder.ts";
 import type { EncodeContext } from "./encoder.ts";
@@ -39,9 +40,26 @@ export const DefPathHashMapRef = {
 };
 
 // impl<'a, 'tcx> Encodable<EncodeContext<'a, 'tcx>> for DefPathHashMapRef<'tcx>
-// stub: compiler/rustc_metadata/src/rmeta/def_path_hash_map.rs:36 encode (lane encoder-a)
-export function encode_DefPathHashMapRef(_self: DefPathHashMapRef, _e: EncodeContext, ..._phantom: unknown[]): void {
-  unported("rustc_metadata::rmeta::def_path_hash_map::encode DefPathHashMapRef (lane encoder-a)");
+// rustc: compiler/rustc_metadata/src/rmeta/def_path_hash_map.rs:36 encode
+export function encode_DefPathHashMapRef(self: DefPathHashMapRef, e: EncodeContext, ..._phantom: unknown[]): void {
+  switch (self.$) {
+    case "BorrowedFromTcx": {
+      const map = self._0;
+      const bytes = map.before_parallel_alloc.raw_bytes();
+      e.emit_usize(bytes.length);
+      e.emit_raw_bytes(bytes);
+
+      // `.range(..).encode(e)`: `[(Hash64, LocalDefId)]`
+      encode_slice(
+        unwrap(map.after_parallel_alloc, "must be set before metadata encoding").range(range_full()),
+        e,
+        (v, e) => encode_tuple(v, e, encode_Hash64, encode_LocalDefId),
+      );
+      break;
+    }
+    case "OwnedFromMetadata":
+      panic("DefPathHashMap::OwnedFromMetadata variant only exists for deserialization");
+  }
 }
 
 // impl<'a> Decodable<BlobDecodeContext<'a>> for DefPathHashMapRef<'static>

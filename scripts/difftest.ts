@@ -330,6 +330,7 @@ export function cachePath(s: Suite, c: Case, fileHash: string, deps: Dep[]): str
   // (Only suites with these fields get the extra parts, so every other key is unchanged.)
   if (s.inputDirs) parts.push({ inputDirs: inputDirsHash(s) });
   if (s.mode === "split") parts.push(splitKey(s));
+  if (s.oracleKey) parts.push({ oracleKey: s.oracleKey() });
   const key = hash(JSON.stringify(parts));
   return join(ensureDir(join(ORACLE_CACHE, key.slice(0, 2))), key);
 }

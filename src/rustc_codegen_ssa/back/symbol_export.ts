@@ -10,55 +10,14 @@ import "../../rustc_crate_store/lib.ts"; // `NativeLib::wasm_import_module`
 import type { CrateDepKind } from "../../rustc_crate_store/cstore.gen.ts";
 import type { Providers } from "../../rustc_middle/util/mod.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
-import type { Ty } from "../../rustc_middle/ty/mod.ts";
 import type { GenericArgs } from "../../rustc_middle/ty/generic_args.ts";
 import { type CrateNum, type DefId, DefIdMap, debug_CrateNum, LOCAL_CRATE, type LocalDefId, LocalDefId as LocalDefIdC } from "../../rustc_span/def_id.ts";
 import { Symbol } from "../../rustc_span/symbol.ts";
 import type { CrateType } from "../../rustc_structures/crate_type.ts";
 import { PLAIN } from "../../std/fmt.ts";
-import type { SymbolExportKind } from "../lib.ts";
-
-// PORT: `rustc_middle::middle::exported_symbols` (middle/exported_symbols.rs) is not ported; the types this file
-// matches on are declared here as upstream defines them.
-
-/// The SymbolExportLevel of a symbols specifies from which kinds of crates
-/// the symbol will be exported. `C` symbols will be exported from any
-/// kind of crate, including cdylibs which export very few things.
-/// `Rust` will only be exported if the crate produced is a Rust
-/// dylib.
-export type SymbolExportLevel = "C" | "Rust";
-export const SymbolExportLevel = {
-  C: "C",
-  Rust: "Rust",
-  // rustc: compiler/rustc_middle/src/middle/exported_symbols.rs:18 is_below_threshold
-  is_below_threshold(self: SymbolExportLevel, threshold: SymbolExportLevel): boolean {
-    return (
-      threshold === "Rust" || // export everything from Rust dylibs
-      self === "C"
-    );
-  },
-} as const;
-
-/// The `SymbolExportInfo` of a symbols specifies symbol-related information
-/// that is relevant to code generation and linking.
-export interface SymbolExportInfo {
-  level: SymbolExportLevel;
-  kind: SymbolExportKind;
-  /// Was the symbol marked as `#[used(compiler)]` or `#[used(linker)]`?
-  used: boolean;
-  /// Was the symbol marked as `#[rustc_std_internal_symbol]`?
-  /// We also use this for externally implementable items.
-  rustc_std_internal_symbol: boolean;
-}
-
-export type ExportedSymbol =
-  | { readonly $: "NonGeneric"; readonly _0: DefId }
-  | { readonly $: "Generic"; readonly _0: DefId; readonly _1: GenericArgs }
-  | { readonly $: "DropGlue"; readonly _0: Ty }
-  | { readonly $: "AsyncDropGlueCtorShim"; readonly _0: Ty }
-  | { readonly $: "AsyncDropGlue"; readonly _0: DefId; readonly _1: Ty }
-  | { readonly $: "ThreadLocalShim"; readonly _0: DefId }
-  | { readonly $: "NoDefId"; readonly _0: unknown /* ty::SymbolName<'tcx> */ };
+import { type ExportedSymbol, type SymbolExportInfo, type SymbolExportKind, SymbolExportLevel } from "../../rustc_middle/middle/exported_symbols.ts";
+import type { AllocatorKind } from "../../rustc_ast/expand/allocator.gen.ts";
+import type { SymbolExport } from "../lib.ts";
 
 // rustc: compiler/rustc_codegen_ssa/src/back/symbol_export.rs:31 threshold
 function threshold(tcx: TyCtxt): SymbolExportLevel {
@@ -262,6 +221,39 @@ export function provide(providers: Providers): void {
   providers.queries.wasm_import_module_map = wasm_import_module_map;
   providers.extern_queries.is_reachable_non_generic = is_reachable_non_generic_provider_extern;
   providers.extern_queries.upstream_monomorphizations_for = upstream_monomorphizations_for_provider;
+}
+
+// PORT: the symbol naming/decoration functions below are codegen/linking (M7). Each is a named shim, typed as
+// upstream, whose body calls `unported`; back/linker.ts and back/lto.ts call them (crateinfo-symbols).
+
+/** `allocator_shim_symbols` (symbol_export.rs:603). */
+export function allocator_shim_symbols(_tcx: TyCtxt, _kind: AllocatorKind): Iterable<[string, SymbolExportKind]> {
+  return unported("rustc_codegen_ssa::back::symbol_export::allocator_shim_symbols (allocator shim; M7)");
+}
+
+/** `symbol_name_for_instance_in_crate` (symbol_export.rs:654). */
+export function symbol_name_for_instance_in_crate(_tcx: TyCtxt, _symbol: ExportedSymbol, _instantiating_crate: CrateNum): string {
+  return unported("rustc_codegen_ssa::back::symbol_export::symbol_name_for_instance_in_crate (symbol names; M7)");
+}
+
+/** `linking_symbol_name_for_instance_in_crate` (symbol_export.rs:755). */
+export function linking_symbol_name_for_instance_in_crate(
+  _tcx: TyCtxt,
+  _symbol: ExportedSymbol,
+  _export_kind: SymbolExportKind,
+  _instantiating_crate: CrateNum,
+): string {
+  return unported("rustc_codegen_ssa::back::symbol_export::linking_symbol_name_for_instance_in_crate (symbol names; M7)");
+}
+
+/** `exporting_symbol_name_for_instance_in_crate` (symbol_export.rs:808). */
+export function exporting_symbol_name_for_instance_in_crate(_tcx: TyCtxt, _symbol: ExportedSymbol, _cnum: CrateNum): string {
+  return unported("rustc_codegen_ssa::back::symbol_export::exporting_symbol_name_for_instance_in_crate (symbol names; M7)");
+}
+
+/** `extend_exported_symbols` (symbol_export.rs:882). */
+export function extend_exported_symbols(_symbols: SymbolExport[], _tcx: TyCtxt, _symbol: ExportedSymbol, _instantiating_crate: CrateNum): void {
+  unported("rustc_codegen_ssa::back::symbol_export::extend_exported_symbols (symbol names; M7)");
 }
 
 // rustc: compiler/rustc_codegen_ssa/src/back/symbol_export.rs:919 wasm_import_module_map

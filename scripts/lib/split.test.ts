@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { compareSections, mirBodyKey, splitHashes, splitMirPretty, uniqueIds, type SplitOutput } from "./split.ts";
+import { compareSections, mirBodyKey, splitHashes, splitMirPretty, splitRmetaDump, uniqueIds, type SplitOutput } from "./split.ts";
 
 const PREAMBLE = [
   "// WARNING: This output format is intended for human consumers only",
@@ -64,6 +64,47 @@ describe("splitMirPretty", () => {
     const p = splitMirPretty(PREAMBLE.join("\n") + "\n");
     expect(p.sections).toEqual([]);
     expect(p.skeleton).toBe(PREAMBLE.join("\n") + "\n");
+  });
+});
+
+describe("splitRmetaDump", () => {
+  // As tools/probes/rmetadump prints it (rows indented, a multi-line value's lines by 4), after the wrapper's lines.
+  const text = [
+    "rmeta: 120 bytes, sha256 ab",
+    "rmetadump foo",
+    "== root",
+    "  version \"rustc\"",
+    "== crate_deps",
+    "== def <crate root>",
+    "  index 0",
+    "  mir_for_ctfe",
+    "    fn f() -> () {",
+    "",
+    "    }",
+    "== def ::Clone",
+    "  index 1",
+    "== def ::Clone",
+    "  index 2",
+    "",
+    "",
+  ].join("\n");
+  const out = splitRmetaDump(text);
+
+  test("one section per == line, repeated keys numbered, empty sections kept", () => {
+    expect(out.sections.map((s) => s.id)).toEqual(["root", "crate_deps", "def <crate root>", "def ::Clone", "def ::Clone @2"]);
+    expect(out.sections[1]!.text).toBe("== crate_deps");
+    expect(out.sections[2]!.text).toBe("== def <crate root>\n  index 0\n  mir_for_ctfe\n    fn f() -> () {\n\n    }");
+  });
+
+  test("the skeleton holds the lines outside sections and trailing empty lines", () => {
+    expect(out.skeleton).toBe(["rmeta: 120 bytes, sha256 ab", "rmetadump foo", "<<root>>", "<<crate_deps>>", "<<def <crate root>>>", "<<def ::Clone>>", "<<def ::Clone @2>>", "", ""].join("\n"));
+    expect(rebuild(out)).toBe(text);
+  });
+
+  test("no sections: everything is skeleton", () => {
+    const o = splitRmetaDump("error: x\n");
+    expect(o.sections).toEqual([]);
+    expect(o.skeleton).toBe("error: x\n");
   });
 });
 
