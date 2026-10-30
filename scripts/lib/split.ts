@@ -137,8 +137,49 @@ export function splitMirPretty(stdout: string): SplitOutput {
   return { sections, skeleton: skel.join("\n") };
 }
 
+/** The line that starts a section of tools/probes/rmetadump's output: `== <key>`. */
+const RMETA_SECTION = "== ";
+
+/**
+ * Splits tools/probes/rmetadump's output (lane probe-rmetadump; its header has the layout) into one section per `== <key>`
+ * line: `root`, `root.layout`, `root.hash`, `crate_deps`, the crate-level lists, `def <def path>` per DefIndex,
+ * `source_files`. A section runs from its `== ` line up to the next one, without the empty lines before it; every
+ * other line (the `rmetadump <crate>` line, anything printed before it, trailing empty lines) is the skeleton. The
+ * probe indents every row, so a value never starts a section. Key: the text after `== `; ids: `uniqueIds` (a few
+ * def paths repeat: a trait and its derive macro, e.g. `def ::clone::Clone`, `def ::clone::Clone @2`).
+ */
+export function splitRmetaDump(stdout: string): SplitOutput {
+  const lines = stdout.split("\n");
+  /** [first line, end line (exclusive, trailing empty lines dropped), key] of every section. */
+  const spans: [number, number, string][] = [];
+  for (let i = 0; i < lines.length; ) {
+    if (!lines[i]!.startsWith(RMETA_SECTION)) {
+      i++;
+      continue;
+    }
+    let j = i + 1;
+    while (j < lines.length && !lines[j]!.startsWith(RMETA_SECTION)) j++;
+    let end = j;
+    while (end > i + 1 && lines[end - 1] === "") end--;
+    spans.push([i, end, lines[i]!.slice(RMETA_SECTION.length)]);
+    i = j;
+  }
+  const ids = uniqueIds(spans.map((s) => s[2]));
+  const sections: Section[] = [];
+  const skel: string[] = [];
+  let at = 0;
+  spans.forEach(([start, end], k) => {
+    for (; at < start; at++) skel.push(lines[at]!);
+    skel.push(`<<${ids[k]}>>`);
+    sections.push({ id: ids[k]!, text: lines.slice(start, end).join("\n") });
+    at = end;
+  });
+  for (; at < lines.length; at++) skel.push(lines[at]!);
+  return { sections, skeleton: skel.join("\n") };
+}
+
 /** Splitters by name (`Suite.split`); the name is part of a split suite's oracle cache key, with this file's source. */
-export const SPLITTERS: Record<string, Splitter> = { "mir-pretty": splitMirPretty };
+export const SPLITTERS: Record<string, Splitter> = { "mir-pretty": splitMirPretty, rmetadump: splitRmetaDump };
 
 /** A section's outcome against the oracle's: same hash, a different one, or absent from the subject's output. */
 export type SectionOutcome = "match" | "differs" | "missing";
