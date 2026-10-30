@@ -2268,16 +2268,19 @@ export class EncodedMetadata {
       return Err(io_error_from_node(e));
     }
     let full_mmap: Uint8Array | undefined;
+    // PORT: an early return drops `file` (a local) before `temp_dir` (an argument), as Rust drops locals first: the
+    // directory is removed only after the file is closed (on Windows an open file blocks the removal).
+    let drop_temp_dir = false;
     try {
       let len: number;
       try {
         len = fstatSync(file).size; // `file.metadata()?`
       } catch (e) {
-        temp_dir?.drop();
+        drop_temp_dir = true;
         return Err(io_error_from_node(e));
       }
       if (len === 0) {
-        temp_dir?.drop();
+        drop_temp_dir = true;
         return Ok(new EncodedMetadata(undefined, undefined, undefined, undefined));
       }
       // `unsafe { Some(Mmap::map(file)?) }`
@@ -2291,11 +2294,12 @@ export class EncodedMetadata {
         }
         full_mmap = buf.subarray(0, off);
       } catch (e) {
-        temp_dir?.drop();
+        drop_temp_dir = true;
         return Err(io_error_from_node(e));
       }
     } finally {
       closeSync(file);
+      if (drop_temp_dir) temp_dir?.drop();
     }
 
     let stub: Uint8Array | undefined;
