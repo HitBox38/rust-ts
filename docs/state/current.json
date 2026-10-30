@@ -37,10 +37,10 @@
     "thirdump-minicore": 46,
     "tydump-ui": 1840
   },
-  "updated": "2026-10-30T08:56:19.266Z",
+  "updated": "2026-10-30T09:07:38.365Z",
   "open_stops": [],
   "coverage": {
-    "ported": 22399,
+    "ported": 22447,
     "total": 25518
   }
 }
