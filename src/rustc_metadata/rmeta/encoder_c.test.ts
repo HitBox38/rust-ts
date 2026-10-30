@@ -128,7 +128,7 @@ function meta(e: EncodeContext, tcx: TyCtxt): [CrateMetadata, TyCtxt] {
     root: { name: () => Symbol.intern("enc"), is_proc_macro_crate: () => false },
     imported_source_file: (_tcx: TyCtxt, index: number) => {
       const f = by_disk_index.get(index)!;
-      return { original_start_pos: f.start_pos, original_end_pos: f.end_pos, translated_source_file: f };
+      return { original_start_pos: f.start_pos, original_end_pos: f.end_position(), translated_source_file: f };
     },
   };
   return [cdata as unknown as CrateMetadata, {} as TyCtxt];
