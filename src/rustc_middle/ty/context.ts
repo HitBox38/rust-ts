@@ -1810,10 +1810,23 @@ export class TyCtxt {
           f !== sym.doc_cfg,
       );
 
+    // PORT: `UnusedFeature` is local to this fn, which tools/codegen's diagnostics pass does not see into: its derive is
+    // written by hand as the generated ones look (decision: fn-local #[derive(Diagnostic)], gaps-30c). The modules it
+    // needs are read lazily (this module is central to the import graph).
+    const { Diag, IntoDiagArg } = require("../../rustc_errors/lib.ts") as typeof import("../../rustc_errors/lib.ts");
+    const { Symbol_into_diag_arg } = require("../../rustc_error_messages/diagnostic_impls.ts") as typeof import("../../rustc_error_messages/diagnostic_impls.ts");
+    const { UNUSED_FEATURES } = require("../../rustc_lint_defs/builtin.gen.ts") as typeof import("../../rustc_lint_defs/builtin.gen.ts");
+    /** `#[derive(Diagnostic)]`: `impl<'_sess> Diagnostic<'_sess> for UnusedFeature` */
+    const UnusedFeature = (feature: Symbol): Diagnostic => ({
+      into_diag: (dcx, level) => {
+        const diag = Diag.new(dcx, level, { $: "Inline", _0: "feature `{$feature}` is declared but not used" });
+        diag.arg("feature", IntoDiagArg.of(feature, Symbol_into_diag_arg));
+        return diag;
+      },
+    });
+
     for (const [feature, span] of unused_features) {
-      void [feature, span];
-      // self.emit_node_span_lint(UNUSED_FEATURES, CRATE_HIR_ID, span, UnusedFeature { feature });
-      unported("rustc_middle::ty::context::report_unused_features::UnusedFeature (#[derive(Diagnostic)], tools/codegen)");
+      this.emit_node_span_lint(UNUSED_FEATURES, CRATE_HIR_ID, span, UnusedFeature(feature));
     }
   }
 
