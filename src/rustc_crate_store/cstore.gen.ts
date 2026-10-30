@@ -2,6 +2,7 @@
 // Hand-written additions (methods, manual Debug impls) go in cstore.ts next to this file.
 import { debug_ExternAbi, type ExternAbi } from "../rustc_abi/extern_abi.ts";
 import { type CrateStoreDyn } from "./cstore.ts";
+import { type Svh } from "../rustc_data_structures/svh.ts";
 import { type Definitions } from "../rustc_hir_id/definitions.ts";
 import { type CrateNum, debug_CrateNum, debug_DefId, type DefId, type StableCrateIdMap } from "../rustc_span/def_id.ts";
 import { type BlobDecoder, debug_Span, type Span, type SpanEncoder } from "../rustc_span/lib.ts";
@@ -301,6 +302,6 @@ export class Untracked {
     /// The interned [StableCrateId]s.
     public stable_crate_ids: StableCrateIdMap,
     /// The hash of the local crate as computed in metadata encoding.
-    public local_crate_hash: unknown | undefined,
+    public local_crate_hash: Svh | undefined,
   ) {}
 }
