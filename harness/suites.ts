@@ -83,6 +83,12 @@ export interface Suite {
   /** Probes (tools/probes/<name>) the oracle command runs; the gate checks they are built. */
   probes?: string[];
   /**
+   * An extra part of the oracle cache key, for a suite whose oracle command is a wrapper script (scripts/rmeta-run.ts):
+   * the cache key's `oracleVersion` covers only the command's first word (here Bun), so this covers what the wrapper
+   * runs (its own source, the oracle rustc build, the probe binary). Unset: the key is as before.
+   */
+  oracleKey?(): string;
+  /**
    * The suite's tools read no file but the case files (a lexer, an escaper, a token-tree dump, ...: no
    * module loading, no include macros), so the oracle cache key hashes only those. Unset: the key also
    * covers every other file a case may make rustc read (scripts/lib/deps.ts).
@@ -1239,6 +1245,146 @@ SUITES.push(
     oracle: ([c]) => oracleRustcCmd(c!.args),
     subject: ([c]) => [...bunCmd("src/rust_ts/main.ts"), ...c!.args],
   },
+);
+
+// M5 metadata (plan-m5 §4, D4; lane probe-rmetadump): the `.rmeta` each side writes. Both sides run
+// scripts/rmeta-run.ts, which runs the compiler (rustc / src/rust_ts/main.ts) with the case's argv plus `-o <file>`
+// (stdout, stderr and exit code passed through), then reports the file (see its header):
+// - `--bytes`: `rmeta: <size> bytes, sha256 <hex>` (and on the subject side where it first differs from the
+//   oracle's file, which the wrapper keeps): byte identity, D4's gate criterion;
+// - `--dump`: tools/probes/rmetadump's text of the file, read by the oracle's decoder in a session with the case's
+//   target and the oracle sysroot (`RMETADUMP_ARGS`): the progress signal. A port rmeta the decoder cannot read is an
+//   ICE of the probe, so a CRASH (or `!panic` rows, where the decoder fails inside one query).
+// The files live in `$RUST_TS_DATA/rmeta/<suite>/<hash of the case id>/{oracle,subject}.rmeta`, outside the upstream
+// checkout. The oracle cache key adds the wrapper's source, the oracle rustc build and the probe binary
+// (`Suite.oracleKey`): the command's first word is Bun, which is all `oracleVersion` would hash.
+// Suites (all unprotected until root accepts a run):
+// - `rmeta-core`: core with D1's argv (`CORE_ARGS(["lib"])`, the `mir-core` setup without `-Zunpretty`), dumped and
+//   split per section (scripts/lib/split.ts `splitRmetaDump`: ids `core|root`, `core|root.layout`, `core|root.hash`,
+//   `core|crate_deps`, `core|<crate-level list>`, `core|def <def path>[ @k]`, `core|source_files`; 82,337 sections
+//   at the pin, 82,313 of them DefIndexes) plus the run case `core` (stderr, exit, the section ids in order); heavy.
+//   Oracle (measured): rustc 5.8 s user, the probe 1.9 s user / 0.66 GB, a 276 MB dump.
+// - `check-core`: the same compilation, `--bytes` only (stderr + exit + the rmeta's size and sha256); heavy, single.
+//   **The M5 gate's core case** (D4).
+// - `rmeta-ui`: `RMETA_UI_CORPUS` (below), one case per crate (single mode, so `--sample` cuts runs), `--dump` with
+//   the probe's `--content` (no `root.layout` / `root.hash`: positions, widths and the SVH, which `check-ui` covers).
+// - `check-ui`: the same crates, `--bytes` only.
+const RMETA_RUN = join(REPO, "scripts", "rmeta-run.ts");
+/** The wrapper's directory for one case's two files. */
+const rmetaOut = (suite: string, c: Case): string => join(DATA, "rmeta", suite, hash(c.id).slice(0, 16));
+/** The probe's options and rustc arguments (`--dump-arg`s; see scripts/rmeta-run.ts). */
+const RMETADUMP_ARGS = (content: boolean): string[] => [...(content ? ["--content"] : []), "--", "--target", M5_TARGET, "--sysroot", oracleSysroot()];
+/** One side's command: the wrapper, then `compiler`. `dump`: the probe's options (`RMETADUMP_ARGS`), if it runs. */
+const rmetaRun = (suite: string, side: "oracle" | "subject", c: Case, bytes: boolean, dump: string[] | undefined, compiler: string[]): string[] => [
+  process.execPath,
+  RMETA_RUN,
+  "--out",
+  rmetaOut(suite, c),
+  "--side",
+  side,
+  ...(bytes ? ["--bytes"] : []),
+  ...(dump ? ["--dump", probePath("rmetadump"), ...dump.flatMap((a) => ["--dump-arg", a])] : []),
+  "--",
+  ...compiler,
+];
+const rmetaKeyMemo = new Map<boolean, string>();
+/** `Suite.oracleKey` of the rmeta suites: the wrapper's source, the oracle rustc build, and the probe if it runs. */
+const rmetaOracleKey = (dump: boolean): string => {
+  let k = rmetaKeyMemo.get(dump);
+  if (k === undefined) {
+    const parts = [hash(readFileSync(RMETA_RUN)), rustcDriverHash(), dump ? hash(readFileSync(probePath("rmetadump"))) : ""];
+    rmetaKeyMemo.set(dump, (k = hash(parts.join("\0"))));
+  }
+  return k;
+};
+/**
+ * The small lib crates of `rmeta-ui` / `check-ui`: every `tests/ui/**\/auxiliary/*.rs` (aux crates are lib crates
+ * written to be loaded through their metadata by other tests: what an rmeta is for) that builds alone as a plain
+ * `--crate-type lib`, judged from its source: no compiletest directive other than `edition` and `no-prefer-dynamic`
+ * (which only matters for a dylib), no `extern crate` of anything but std/core/alloc (another aux crate would need
+ * building first), no `proc_macro` anywhere (proc-macro crates and their helpers), no `crate_type` attribute other
+ * than lib/rlib. 730 of 1,063 at the pin. Argv: expanded's (`stdArgs`: target, oracle sysroot, edition from the
+ * directive) + `--crate-type lib --emit=metadata`; env NOCORE_ENV with the session variables pinned (`pinSessionEnv`).
+ * A crate the oracle rejects stays a case (stderr + exit, no rmeta).
+ */
+let rmetaUiMemo: Case[] | undefined;
+const RMETA_UI_CORPUS = (): Case[] =>
+  (rmetaUiMemo ??= corpus("tests/ui")
+    .filter((f) => f.includes("/auxiliary/"))
+    .filter((f) => {
+      const src = readFileSync(join(UPSTREAM, f), "utf8");
+      if ([...src.matchAll(/^\s*\/\/@\s*([\w-]+)/gm)].some((m) => m[1] !== "edition" && m[1] !== "no-prefer-dynamic")) return false;
+      if (/proc_macro/.test(src)) return false;
+      if ([...src.matchAll(/extern\s+crate\s+(\w+)/g)].some((m) => !["std", "core", "alloc"].includes(m[1]!))) return false;
+      return [...src.matchAll(/crate_type\s*=\s*"(\w+)"/g)].every((m) => m[1] === "lib" || m[1] === "rlib");
+    })
+    .map((f) => pinSessionEnv({ id: f, file: f, args: [...stdArgs(f), "--crate-type", "lib", "--emit=metadata", f], env: NOCORE_ENV })));
+/** An rmeta suite: `dump` = run the probe (`content`: with `--content`); `bytes` = the byte line. */
+const rmetaSuite = (s: Omit<Suite, "oracle" | "subject" | "oracleKey" | "milestone">, bytes: boolean, dump: { content: boolean } | undefined): Suite => ({
+  ...s,
+  milestone: "M5",
+  ...(dump ? { probes: ["rmetadump"] } : {}),
+  oracleKey: () => rmetaOracleKey(dump !== undefined),
+  oracle: ([c]) => rmetaRun(s.name, "oracle", c!, bytes, dump && RMETADUMP_ARGS(dump.content), oracleRustcCmd(c!.args)),
+  subject: ([c]) => rmetaRun(s.name, "subject", c!, bytes, dump && RMETADUMP_ARGS(dump.content), [...bunCmd("src/rust_ts/main.ts"), ...c!.args]),
+});
+const CORE_RMETA_CASE = (): Case => ({ id: "core", file: "library/core/src/lib.rs", args: CORE_ARGS(["lib"]), env: NOCORE_ENV });
+SUITES.push(
+  rmetaSuite(
+    {
+      name: "rmeta-core",
+      description:
+        "library/core's .rmeta (plan-m5 D1's argv, --emit=metadata) through tools/probes/rmetadump (the oracle's decoder: crate root, crate-level lists, every DefIndex's table entries), split per section (`core|<section>`) plus the run case `core`; heavy",
+      mode: "split",
+      split: "rmetadump",
+      timeoutMs: 1_800_000,
+      oracleTimeoutMs: 300_000,
+      heavy: M5_HEAVY,
+      inputDirs: CORE_INPUT_DIRS,
+      cases: () => [CORE_RMETA_CASE()],
+    },
+    false,
+    { content: false },
+  ),
+  rmetaSuite(
+    {
+      name: "check-core",
+      description: "library/core checked with plan-m5 D1's argv: stderr + exit + the .rmeta's size and sha256 (byte identity; plan-m5 D4's gate criterion); heavy",
+      mode: "single",
+      timeoutMs: 1_800_000,
+      oracleTimeoutMs: 300_000,
+      heavy: M5_HEAVY,
+      inputDirs: CORE_INPUT_DIRS,
+      cases: () => [CORE_RMETA_CASE()],
+    },
+    true,
+    undefined,
+  ),
+  rmetaSuite(
+    {
+      name: "rmeta-ui",
+      description:
+        "the .rmeta of 730 tests/ui auxiliary lib crates (`--crate-type lib --emit=metadata`, expanded's argv) through tools/probes/rmetadump --content (what the decoder reads, without positions and the SVH), one case per crate",
+      mode: "single",
+      timeoutMs: 60_000,
+      oracleTimeoutMs: 300_000,
+      cases: RMETA_UI_CORPUS,
+    },
+    false,
+    { content: true },
+  ),
+  rmetaSuite(
+    {
+      name: "check-ui",
+      description: "rmeta-ui's crates: stderr + exit + the .rmeta's size and sha256 (byte identity, plan-m5 D4)",
+      mode: "single",
+      timeoutMs: 60_000,
+      oracleTimeoutMs: 300_000,
+      cases: RMETA_UI_CORPUS,
+    },
+    true,
+    undefined,
+  ),
 );
 
 export function suite(name: string): Suite {
