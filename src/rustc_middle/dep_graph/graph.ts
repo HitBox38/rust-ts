@@ -15,10 +15,23 @@ import type { HashValueFn } from "../query/system.ts";
 import type { TyCtxt } from "../ty/context.ts";
 import type { Symbol } from "../../rustc_span/symbol.ts";
 
-/// Side effects of a query: re-applied when the query is marked green.
+/// Tracks 'side effects' for a particular query.
+/// This struct is saved to disk along with the query result,
+/// and loaded from disk if we mark the query as green.
+/// This allows us to 'replay' changes to global state
+/// that would otherwise only occur if we actually
+/// executed the query method.
+///
+/// Each side effect gets an unique dep node index which is added
+/// as a dependency of the query which had the effect.
 // rustc-type: compiler/rustc_middle/src/dep_graph/graph.rs:44 QuerySideEffect
 // PORT: `Diagnostic(DiagInner)` is not declared yet (`track_diagnostic` is incremental-only and not ported).
-export type QuerySideEffect = { readonly $: "CheckFeature"; symbol: Symbol };
+export type QuerySideEffect =
+  /// Records the feature used during query execution.
+  /// This feature will be inserted into `query_system.used_features`
+  /// if we mark the query as green, as that query will have
+  /// the side effect dep node as a dependency.
+  { readonly $: "CheckFeature"; symbol: Symbol };
 
 /** PORT: the `R: StableHash` bound is passed as `stable_hash_R` (stable-hash handoff, decision 4). */
 // rustc: compiler/rustc_middle/src/dep_graph/graph.rs:165 hash_result
@@ -108,6 +121,15 @@ export class DepGraph {
     }
   }
 
+  // rustc: compiler/rustc_middle/src/dep_graph/graph.rs:574 encode_side_effect
+  encode_side_effect(_tcx: TyCtxt, _side_effect: QuerySideEffect): DepNodeIndex {
+    if (this.data_ !== undefined) {
+      return unported("rustc_middle::dep_graph::DepGraph::encode_side_effect with a dep graph (D3)");
+    } else {
+      return this.next_virtual_depnode_index();
+    }
+  }
+
   /// Create a node when we force-feed a value into the query cache.
   /// This is used to remove cycles during type-checking const generic parameters.
   ///
@@ -123,15 +145,6 @@ export class DepGraph {
   /// FIXME: If the code is changed enough for this node to be marked before requiring the
   /// caller's node, we suppose that those changes will be enough to mark this node red and
   /// force a recomputation using the "normal" way.
-  // rustc: compiler/rustc_middle/src/dep_graph/graph.rs:574 encode_side_effect
-  encode_side_effect(_tcx: TyCtxt, _side_effect: QuerySideEffect): DepNodeIndex {
-    if (this.data_ !== undefined) {
-      return unported("rustc_middle::dep_graph::DepGraph::encode_side_effect with a dep graph (D3)");
-    } else {
-      return this.next_virtual_depnode_index();
-    }
-  }
-
   // rustc: compiler/rustc_middle/src/dep_graph/graph.rs:601 with_feed_task
   with_feed_task<R>(_node: undefined, _tcx: TyCtxt, _result: R, _hash_result: HashValueFn<R> | undefined, _format_value_fn: (v: R) => string): DepNodeIndex {
     if (this.data_ !== undefined) {

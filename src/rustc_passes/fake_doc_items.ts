@@ -40,11 +40,15 @@ function all_fake_doc_items(tcx: TyCtxt, _: null): DefId[] {
   const fake_doc_items: DefId[] = [];
 
   // Collect fake doc items in visible crates.
-  const cnums: CrateNum[] = [...tcx.crates(null)].filter((cnum) => tcx.is_user_visible_dep(cnum));
-  cnums.push(LOCAL_CRATE);
-  for (const cnum of cnums) {
+  // (the iterator chain `crates().filter(is_user_visible_dep).chain(once(LOCAL_CRATE))` is lazy: each crate's
+  // visibility check runs right before its `fake_doc_items` query, as here)
+  const visit = (cnum: CrateNum): void => {
     fake_doc_items.push(...tcx.fake_doc_items(cnum));
+  };
+  for (const cnum of tcx.crates(null)) {
+    if (tcx.is_user_visible_dep(cnum)) visit(cnum);
   }
+  visit(LOCAL_CRATE);
 
   return fake_doc_items;
 }
