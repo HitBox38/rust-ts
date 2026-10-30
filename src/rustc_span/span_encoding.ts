@@ -33,7 +33,7 @@ import { Err, type Result } from "../std/result.ts";
 import { unreachable } from "../std/panic.ts";
 import type { LocalDefId } from "./def_id.ts";
 import { SyntaxContext } from "./hygiene.ts";
-import { debug_Span, SPAN_TRACK, SpanData, with_session_globals, type BytePos } from "./lib.ts";
+import { debug_Span, session_globals_get, SPAN_TRACK, SpanData, with_session_globals, type BytePos } from "./lib.ts";
 
 /// A compressed span.
 ///
@@ -90,10 +90,8 @@ class Interned {
 
   // rustc: compiler/rustc_span/src/span_encoding.rs:205 data
   data(): SpanData {
-    // PORT: the dummy span (index 0) is answered without the session globals, like upstream's
-    // inline `DUMMY_SP`.
-    if (this.index === 0) return dummy_span_data();
-    return with_span_interner((interner) => interner.spans[this.index]!);
+    // PORT: the dummy span (index 0) is answered without the session globals (see `interned_data`).
+    return interned_data(this.index);
   }
   // rustc: compiler/rustc_span/src/span_encoding.rs:209 span
   static span(index: number): Span {
@@ -103,6 +101,17 @@ class Interned {
   static from_span(span: Span): Interned {
     return new Interned(span);
   }
+}
+
+/**
+ * PORT: (perf) `Interned::from_span(span).data()` / `Interned(index).data()` without the `Interned` view object and the
+ * `with_span_interner` closure: the hot `Span` accessors call this directly.
+ */
+function interned_data(index: number): SpanData {
+  // PORT: the dummy span (index 0) is answered without the session globals, like upstream's
+  // inline `DUMMY_SP`.
+  if (index === 0) return dummy_span_data();
+  return session_globals_get().span_interner.spans[index]!;
 }
 
 // `MAX_LEN`, `PARENT_TAG`, `LEN_INTERNED_MARKER`, `MAX_CTXT_OR_PARENT` and `CTXT_INTERNED_MARKER`
@@ -127,7 +136,8 @@ export const DUMMY_SP = 0 as Span;
   if (lo === 0 && hi === 0 && ctxt === SyntaxContext.root() && parent === undefined) {
     return DUMMY_SP;
   }
-  const index = with_span_interner((interner) => interner.intern(new SpanData(lo, hi, ctxt, parent)));
+  // PORT: (perf) `with_span_interner(|interner| ..)` without the closure.
+  const index = session_globals_get().span_interner.intern_parts(lo, hi, ctxt, parent);
   return Interned.span(index);
 };
 
@@ -144,13 +154,13 @@ Span.data = function (self: Span): SpanData {
 /// This function must not be used outside the incremental engine.
 // rustc: compiler/rustc_span/src/span_encoding.rs:318 data_untracked
 Span.data_untracked = function (self: Span): SpanData {
-  return Interned.from_span(self).data();
+  return interned_data(self);
 };
 
 /// Returns `true` if this span comes from any kind of macro, desugaring or inlining.
 // rustc: compiler/rustc_span/src/span_encoding.rs:330 from_expansion
 Span.from_expansion = function (self: Span): boolean {
-  const ctxt = Interned.from_span(self).data().ctxt;
+  const ctxt = interned_data(self).ctxt;
   return !SyntaxContext.is_root(ctxt);
 };
 
@@ -158,13 +168,13 @@ Span.from_expansion = function (self: Span): boolean {
 // rustc: compiler/rustc_span/src/span_encoding.rs:350 is_dummy
 Span.is_dummy = function (self: Span): boolean {
   // Fully-interned or partially-interned format.
-  const data = Interned.from_span(self).data();
+  const data = interned_data(self);
   return data.lo === 0 && data.hi === 0;
 };
 
 // rustc: compiler/rustc_span/src/span_encoding.rs:366 map_ctxt
 Span.map_ctxt = function (self: Span, map: (ctxt: SyntaxContext) => SyntaxContext): Span {
-  const data = Interned.from_span(self).data();
+  const data = interned_data(self);
 
   return data.with_ctxt(map(data.ctxt));
 };
@@ -182,26 +192,25 @@ function inline_ctxt(self: Span): Result<SyntaxContext, number> {
 /// It's a cut-down version of `data_untracked`.
 // rustc: compiler/rustc_span/src/span_encoding.rs:406 ctxt
 Span.ctxt = function (self: Span): SyntaxContext {
-  const r = inline_ctxt(self);
-  return r.$ === "Ok" ? r._0 : new Interned(r._0).data().ctxt;
+  // PORT: (perf) `inline_ctxt` always answers `Err(index)` (every span is interned), so its `Result` is not
+  // allocated: this is the `Err(index) => Interned(index).data().ctxt` arm.
+  return interned_data(self).ctxt;
 };
 
 // rustc: compiler/rustc_span/src/span_encoding.rs:412 eq_ctxt
 Span.eq_ctxt = function (self: Span, other: Span): boolean {
-  const a = inline_ctxt(self);
-  const b = inline_ctxt(other);
-  if (a.$ === "Ok" && b.$ === "Ok") return a._0 === b._0;
+  // PORT: (perf) `inline_ctxt` always answers `Err(index)` (every span is interned), so its `Result`s are not
+  // allocated: this is the `(Err(a), Err(b))` arm.
   // If `inline_ctxt` returns `Ok` the context is <= MAX_CTXT_OR_PARENT.
   // If it returns `Err` the span is fully interned and the context
   // is > MAX_CTXT_OR_PARENT. As these do not overlap an `Ok` and `Err` result cannot
   // have an equal context.
-  if (a.$ === "Ok" || b.$ === "Ok") return false;
-  return new Interned(a._0).data().ctxt === new Interned(b._0).data().ctxt;
+  return interned_data(self).ctxt === interned_data(other).ctxt;
 };
 
 // rustc: compiler/rustc_span/src/span_encoding.rs:427 with_parent
 Span.with_parent = function (self: Span, parent: LocalDefId | undefined): Span {
-  const data = Interned.from_span(self).data();
+  const data = interned_data(self);
 
   if (data.parent !== undefined) {
     SPAN_TRACK.f(data.parent);
@@ -211,7 +220,7 @@ Span.with_parent = function (self: Span, parent: LocalDefId | undefined): Span {
 
 // rustc: compiler/rustc_span/src/span_encoding.rs:457 parent
 Span.parent = function (self: Span): LocalDefId | undefined {
-  return Interned.from_span(self).data().parent;
+  return interned_data(self).parent;
 };
 
 // rustc-skip: compiler/rustc_span/src/span_encoding.rs:470 to_raw_span RawSpan only feeds StableHash (HashStable), out of scope until M5
@@ -254,8 +263,12 @@ export const debug_OrdSpan = (v: OrdSpan, f: Fmt): string => debug_tuple(f, "Ord
 
 /** `FxIndexSet<SpanData>`: insertion-ordered set of `SpanData`, hashed on all four fields. */
 export class SpanInterner {
-  /** PORT: open-addressing index over `spans` (slot = index + 1, 0 = empty). */
-  private table: Int32Array = new Int32Array(1024);
+  /**
+   * PORT: open-addressing index over `spans`: slot `s` is `table[2 * s]` (index + 1, 0 = empty) and
+   * `table[2 * s + 1]` (the entry's hash, `| 0`). (perf) The stored hash filters probes and rehashing without
+   * reading the `SpanData` objects.
+   */
+  private table: Int32Array = new Int32Array(2 * 1024);
 
   constructor(readonly spans: SpanData[]) {}
 
@@ -269,28 +282,63 @@ export class SpanInterner {
   // rustc: compiler/rustc_span/src/span_encoding.rs:520 intern
   intern(span_data: SpanData): number {
     // `let (index, _) = self.spans.insert_full(*span_data);`
-    const mask = this.table.length - 1;
-    let slot = hash_span_data(span_data) & mask;
+    const table = this.table;
+    const mask = (table.length >> 1) - 1;
+    const h = hash_span_data(span_data) | 0;
+    let slot = h & mask;
     for (;;) {
-      const entry = this.table[slot]!;
+      const entry = table[2 * slot]!;
       if (entry === 0) break;
-      if (SpanData_eq(this.spans[entry - 1]!, span_data)) return entry - 1;
+      if (table[2 * slot + 1] === h && SpanData_eq(this.spans[entry - 1]!, span_data)) return entry - 1;
       slot = (slot + 1) & mask;
     }
     const index = this.spans.length;
     this.spans.push(span_data);
-    this.table[slot] = index + 1;
-    if (this.spans.length * 2 > this.table.length) this.grow();
+    table[2 * slot] = index + 1;
+    table[2 * slot + 1] = h;
+    if (this.spans.length * 4 > table.length) this.grow();
+    return index;
+  }
+
+  /**
+   * PORT: (perf) `intern(&SpanData { lo, hi, ctxt, parent })` that looks the fields up first and allocates the
+   * `SpanData` only when it is new (most `Span::new` calls find an existing entry).
+   */
+  intern_parts(lo: BytePos, hi: BytePos, ctxt: SyntaxContext, parent: LocalDefId | undefined): number {
+    const table = this.table;
+    const mask = (table.length >> 1) - 1;
+    const p = parent_index(parent);
+    const h = hash_span_parts(lo, hi, ctxt, p) | 0;
+    let slot = h & mask;
+    for (;;) {
+      const entry = table[2 * slot]!;
+      if (entry === 0) break;
+      if (table[2 * slot + 1] === h) {
+        const d = this.spans[entry - 1]!;
+        if (d.lo === lo && d.hi === hi && d.ctxt === ctxt && parent_index(d.parent) === p) return entry - 1;
+      }
+      slot = (slot + 1) & mask;
+    }
+    const index = this.spans.length;
+    this.spans.push(new SpanData(lo, hi, ctxt, parent));
+    table[2 * slot] = index + 1;
+    table[2 * slot + 1] = h;
+    if (this.spans.length * 4 > table.length) this.grow();
     return index;
   }
 
   private grow(): void {
-    const table = new Int32Array(this.table.length * 2);
-    const mask = table.length - 1;
-    for (let i = 0; i < this.spans.length; i++) {
-      let slot = hash_span_data(this.spans[i]!) & mask;
-      while (table[slot] !== 0) slot = (slot + 1) & mask;
-      table[slot] = i + 1;
+    const old = this.table;
+    const table = new Int32Array(old.length * 2);
+    const mask = (table.length >> 1) - 1;
+    for (let s = 0; s < old.length; s += 2) {
+      const entry = old[s]!;
+      if (entry === 0) continue;
+      const h = old[s + 1]!;
+      let slot = h & mask;
+      while (table[2 * slot] !== 0) slot = (slot + 1) & mask;
+      table[2 * slot] = entry;
+      table[2 * slot + 1] = h;
     }
     this.table = table;
   }
@@ -302,10 +350,14 @@ function parent_index(parent: LocalDefId | undefined): number {
 }
 
 function hash_span_data(d: SpanData): number {
-  let h = Math.imul(d.lo ^ 0x9e3779b9, 0x85ebca6b);
-  h = Math.imul(h ^ (h >>> 13) ^ d.hi, 0xc2b2ae35);
-  h = Math.imul(h ^ (h >>> 16) ^ d.ctxt, 0x27d4eb2f);
-  h = Math.imul(h ^ (h >>> 15) ^ parent_index(d.parent), 0x165667b1);
+  return hash_span_parts(d.lo, d.hi, d.ctxt, parent_index(d.parent));
+}
+
+function hash_span_parts(lo: number, hi: number, ctxt: number, parent: number): number {
+  let h = Math.imul(lo ^ 0x9e3779b9, 0x85ebca6b);
+  h = Math.imul(h ^ (h >>> 13) ^ hi, 0xc2b2ae35);
+  h = Math.imul(h ^ (h >>> 16) ^ ctxt, 0x27d4eb2f);
+  h = Math.imul(h ^ (h >>> 15) ^ parent, 0x165667b1);
   return (h ^ (h >>> 16)) >>> 0;
 }
 

@@ -65,3 +65,10 @@ test("rust-ts: AutoStream over a dyn writer", () => {
   expect(never.write_all(new TextEncoder().encode("\x1b[1mx\x1b[0m")).$).toBe("Ok");
   expect(new TextDecoder().decode(inner2.bytes())).toBe("x");
 });
+
+test("VecU8.write_fmt encodes pieces as UTF-8 (ASCII, multi-byte, surrogate pairs, lone surrogates)", () => {
+  const pieces = ["abc", "", "é→", "x😀y", "\ud800z", "tail"];
+  const v = new VecU8();
+  expect(v.write_fmt(pieces).$).toBe("Ok");
+  expect(Array.from(v.bytes())).toEqual(Array.from(new TextEncoder().encode(pieces.join(""))));
+});

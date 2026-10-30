@@ -1007,12 +1007,14 @@ class TypeChecker extends Visitor {
     }
 
     // Ensure all downcast projections are followed by field projections.
-    const projections_iter = place.projection[Symbol.iterator]();
-    for (let it = projections_iter.next(); !it.done; it = projections_iter.next()) {
-      const proj = it.value;
+    // PORT: (perf) the `projections_iter` iterator is an index (`next()` consumes the following element).
+    const projection = place.projection;
+    for (let i = 0; i < projection.length; i++) {
+      const proj = projection[i]!;
       if (proj.$ === "Downcast") {
-        const next = projections_iter.next();
-        if (!(!next.done && next.value.$ === "Field")) {
+        i++;
+        const next = i < projection.length ? projection[i] : undefined;
+        if (!(next !== undefined && next.$ === "Field")) {
           this.fail(location, `place ${debug_Place(place, PLAIN)} has \`Downcast\` projection not followed by \`Field\``);
         }
       }

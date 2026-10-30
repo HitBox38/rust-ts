@@ -7,15 +7,23 @@ export interface MutRef<T> {
 }
 
 /** `&mut o.<k>`: a `MutRef` view whose reads and writes go to `o[k]`. */
+// PORT: (perf) the view is a `FieldMut` instance (accessors on the prototype), not an object literal with its own
+// accessor closures: the literal allocated two closures per call.
 export function field_mut<O, K extends keyof O>(o: O, k: K): MutRef<O[K]> {
-  return {
-    get value(): O[K] {
-      return o[k];
-    },
-    set value(v: O[K]) {
-      o[k] = v;
-    },
-  };
+  return new FieldMut(o, k);
+}
+
+class FieldMut<O, K extends keyof O> implements MutRef<O[K]> {
+  constructor(
+    private readonly o: O,
+    private readonly k: K,
+  ) {}
+  get value(): O[K] {
+    return this.o[this.k];
+  }
+  set value(v: O[K]) {
+    this.o[this.k] = v;
+  }
 }
 
 /**

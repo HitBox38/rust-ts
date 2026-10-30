@@ -233,6 +233,43 @@ export interface PassEntry<P> {
   readonly constructor_: () => P;
 }
 
+/**
+ * PORT: (perf) the body of a combined `check_*` method (`$($self.$pass.$name $params;)*`): calls `provided` on every
+ * field in order. Specialized by arity so that a call allocates no rest/spread array; the `provided` methods take
+ * plain parameters (no defaults, no rest), so `provided.length` is their arity.
+ */
+function combined_method<P>(
+  provided: (self: P, ...args: unknown[]) => void,
+): (this: { field_list: readonly P[] }, ...args: unknown[]) => void {
+  switch (provided.length) {
+    case 2:
+      return function (this: { field_list: readonly P[] }, cx: unknown): void {
+        const fs = this.field_list;
+        for (let i = 0; i < fs.length; i++) provided(fs[i]!, cx);
+      };
+    case 3:
+      return function (this: { field_list: readonly P[] }, cx: unknown, a: unknown): void {
+        const fs = this.field_list;
+        for (let i = 0; i < fs.length; i++) provided(fs[i]!, cx, a);
+      };
+    case 4:
+      return function (this: { field_list: readonly P[] }, cx: unknown, a: unknown, b: unknown): void {
+        const fs = this.field_list;
+        for (let i = 0; i < fs.length; i++) provided(fs[i]!, cx, a, b);
+      };
+    case 5:
+      return function (this: { field_list: readonly P[] }, cx: unknown, a: unknown, b: unknown, c: unknown): void {
+        const fs = this.field_list;
+        for (let i = 0; i < fs.length; i++) provided(fs[i]!, cx, a, b, c);
+      };
+    default:
+      return function (this: { field_list: readonly P[] }, ...args: unknown[]): void {
+        const fs = this.field_list;
+        for (let i = 0; i < fs.length; i++) provided(fs[i]!, ...args);
+      };
+  }
+}
+
 /// Combines multiple lints passes into a single lint pass, at compile time,
 /// for maximum speed. Each `check_foo` method in `$methods` within this pass
 /// simply calls `check_foo` once per `$pass`. Compare with
@@ -247,8 +284,11 @@ export function declare_combined_late_lint_pass(
   const names = Object.keys(passes);
   class Combined implements LateLintPass {
     readonly fields: Record<string, LateLintPass>;
+    /** PORT: (perf) the fields in declaration order, for the combined `check_*` methods. */
+    readonly field_list: LateLintPass[];
     constructor(fields: Record<string, LateLintPass>) {
       this.fields = fields;
+      this.field_list = names.map((pass) => fields[pass]!);
     }
 
     // rustc: compiler/rustc_lint/src/passes.rs:101 new
@@ -278,10 +318,8 @@ export function declare_combined_late_lint_pass(
   // `$crate::expand_combined_late_lint_pass_methods!([$($pass),*], $methods)`
   for (const method of LATE_LINT_METHODS) {
     const provided = LateLintPass_provided[method] as (self: LateLintPass, ...args: unknown[]) => void;
-    (Combined.prototype as unknown as Record<string, unknown>)[method] = function (this: Combined, ...args: unknown[]): void {
-      // `expand_combined_late_lint_pass_method!`: `$($self.$pass.$name $params;)*`
-      for (const pass of names) provided(this.fields[pass]!, ...args);
-    };
+    // `expand_combined_late_lint_pass_method!`: `$($self.$pass.$name $params;)*`
+    (Combined.prototype as unknown as Record<string, unknown>)[method] = combined_method(provided);
   }
   return { new: () => Combined.new(), lint_vec: () => Combined.lint_vec() };
 }
@@ -506,8 +544,11 @@ export function declare_combined_early_lint_pass(
   const names = Object.keys(passes);
   class Combined implements EarlyLintPass {
     readonly fields: Record<string, EarlyLintPass>;
+    /** PORT: (perf) the fields in declaration order, for the combined `check_*` methods. */
+    readonly field_list: EarlyLintPass[];
     constructor(fields: Record<string, EarlyLintPass>) {
       this.fields = fields;
+      this.field_list = names.map((pass) => fields[pass]!);
     }
 
     // rustc: compiler/rustc_lint/src/passes.rs:216 new
@@ -537,10 +578,8 @@ export function declare_combined_early_lint_pass(
   // `$crate::expand_combined_early_lint_pass_methods!([$($pass),*], $methods)`
   for (const method of EARLY_LINT_METHODS) {
     const provided = EarlyLintPass_provided[method] as (self: EarlyLintPass, ...args: unknown[]) => void;
-    (Combined.prototype as unknown as Record<string, unknown>)[method] = function (this: Combined, ...args: unknown[]): void {
-      // `expand_combined_early_lint_pass_method!`: `$($self.$pass.$name $params;)*`
-      for (const pass of names) provided(this.fields[pass]!, ...args);
-    };
+    // `expand_combined_early_lint_pass_method!`: `$($self.$pass.$name $params;)*`
+    (Combined.prototype as unknown as Record<string, unknown>)[method] = combined_method(provided);
   }
   return { new: () => Combined.new(), lint_vec: () => Combined.lint_vec() };
 }

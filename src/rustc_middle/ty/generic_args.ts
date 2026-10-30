@@ -743,8 +743,20 @@ export const fold_List_Ty: TypeFoldable<List<Ty>> = {
   },
 };
 
+/** PORT: (perf) `visit_List(d_T)` per `d_T`: the descriptor is stateless, so it is built once per element descriptor. */
+const VISIT_LIST_CACHE = new Map<TypeVisitable<unknown>, TypeVisitable<List<unknown>>>();
+
 /** D4 descriptor: `impl<T: TypeVisitable> TypeVisitable for &List<T>`, given the descriptor of `T`. */
 export function visit_List<T>(d_T: TypeVisitable<T>): TypeVisitable<List<T>> {
+  let d = VISIT_LIST_CACHE.get(d_T as TypeVisitable<unknown>) as TypeVisitable<List<T>> | undefined;
+  if (d === undefined) {
+    d = make_visit_List(d_T);
+    VISIT_LIST_CACHE.set(d_T as TypeVisitable<unknown>, d as TypeVisitable<List<unknown>>);
+  }
+  return d;
+}
+
+function make_visit_List<T>(d_T: TypeVisitable<T>): TypeVisitable<List<T>> {
   return {
     // #[inline]
     // rustc: compiler/rustc_middle/src/ty/generic_args.rs:716 visit_with

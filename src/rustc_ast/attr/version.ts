@@ -41,7 +41,10 @@ function u16_from_str(s: string): number | undefined {
 }
 
 // PORT: `str::splitn(n, '.')` iterator (yields at most `n` pieces; the last holds the rest).
-function* splitn(s: string, n: number, sep: string): Generator<string, undefined> {
+// PORT: (perf) the pieces are split eagerly into an array (splitting has no side effects) and iterated with the
+// array iterator: a generator was slow on this hot path (every `#[stable(since = ..)]`).
+function splitn(s: string, n: number, sep: string): Iterator<string, undefined> {
+  const pieces: string[] = [];
   let rest = s;
   let count = 0;
   while (count < n - 1) {
@@ -49,12 +52,12 @@ function* splitn(s: string, n: number, sep: string): Generator<string, undefined
     if (i < 0) {
       break;
     }
-    yield rest.slice(0, i);
+    pieces.push(rest.slice(0, i));
     rest = rest.slice(i + sep.length);
     count++;
   }
-  yield rest;
-  return undefined;
+  pieces.push(rest);
+  return pieces[Symbol.iterator]() as Iterator<string, undefined>;
 }
 
 /// Parse a [`RustcVersion`] with an optional patch version, ignoring suffixes such as `-dev` or `-nightly`.

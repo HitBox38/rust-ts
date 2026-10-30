@@ -197,11 +197,24 @@ export function define_query_api(): void {
   };
   for (const name of QUERY_NAMES) {
     const d = decl_of(name);
-    const vtable = (tcx: TyCtxt): QueryVTable<unknown, unknown> => tcx.query_system.query_vtables[name] as unknown as QueryVTable<unknown, unknown>;
+    // PORT: (perf) the vtable of the last `query_system` seen is remembered: one keyed lookup by query name per
+    // query system instead of per call.
+    let last_query_system: unknown;
+    let last_vtable: QueryVTable<unknown, unknown> | undefined;
+    const vtable = (tcx: TyCtxt): QueryVTable<unknown, unknown> => {
+      const qs = tcx.query_system;
+      if (qs !== last_query_system || last_vtable === undefined) {
+        last_vtable = qs.query_vtables[name] as unknown as QueryVTable<unknown, unknown>;
+        last_query_system = qs;
+      }
+      return last_vtable;
+    };
 
     // impl TyCtxt { pub fn $name(self, key) -> $V { self.at(DUMMY_SP).$name(key) } }
+    // PORT: (perf) `self.at(DUMMY_SP).$name(key)` inlined (the `TyCtxtAt` method below with `span = DUMMY_SP`),
+    // without allocating the `TyCtxtAt`.
     install(TyCtxt.prototype, name, function (this: TyCtxt, key: unknown): unknown {
-      return (this.at(DUMMY_SP) as unknown as Record<string, (k: unknown) => unknown>)[name]!(key);
+      return query_get_at(this, DUMMY_SP, vtable(this), into_key(d, key));
     });
 
     // impl TyCtxtAt { pub fn $name(self, key) -> $V { restore_val(query_get_at(..)) } }

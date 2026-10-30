@@ -75,7 +75,7 @@ import { fold_Const } from "../../../rustc_type_ir/sty/consts.ts";
 import { upcast_from_self, type UpcastFrom } from "../../../rustc_type_ir/upcast.ts";
 import { Unnormalized } from "../../../rustc_type_ir/unnormalized.ts";
 import { type TypeVisitable, TypeVisitableExt, type TypeVisitor, TypeVisitor_provided } from "../../../rustc_type_ir/visit.ts";
-import { intern_key } from "../../../rust_ts/intern_key.ts";
+import { intern_key, intern_key_eq } from "../../../rust_ts/intern_key.ts";
 import { type Debug, debug_struct, type Fmt, PLAIN } from "../../../std/fmt.ts";
 import { panic, unported, unreachable } from "../../../std/panic.ts";
 import { Err, Ok, type Result } from "../../../std/result.ts";
@@ -1267,8 +1267,9 @@ EvalCtxt.prototype.filter_specialized_impls = function (
       if (
         allow_inference_constraints === "Yes" ||
         has_only_region_constraints(c.result) ||
-        // PORT: derived `PartialEq` of `Canonical<Response>` (contract rule 4).
-        intern_key(c.result) === intern_key(candidates[i]!.result)
+        // PORT: derived `PartialEq` of `Canonical<Response>` (contract rule 4). (perf) `intern_key_eq`: the same
+        // relation without building both keys.
+        intern_key_eq(c.result, candidates[i]!.result)
       ) {
         if (as_interner(this.cx()).impl_specializes(other_def_id, victim_def_id)) {
           candidates.splice(i, 1);
