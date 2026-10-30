@@ -680,7 +680,8 @@ export const fold_GenericArgs: TypeFoldable<GenericArgs> = {
   },
 
   visit_with<R>(self: GenericArgs, visitor: TypeVisitor<R>): R {
-    return visit_List(fold_GenericArg).visit_with(self, visitor);
+    // PORT: (perf) the descriptor is made once (`visit_List` is stateless).
+    return (visit_List_GenericArg ??= visit_List(fold_GenericArg)).visit_with(self, visitor);
   },
 };
 
@@ -739,9 +740,13 @@ export const fold_List_Ty: TypeFoldable<List<Ty>> = {
   },
 
   visit_with<R>(self: List<Ty>, visitor: TypeVisitor<R>): R {
-    return visit_List(fold_Ty).visit_with(self, visitor);
+    // PORT: (perf) the descriptor is made once (`visit_List` is stateless).
+    return (visit_List_Ty ??= visit_List(fold_Ty)).visit_with(self, visitor);
   },
 };
+
+var visit_List_GenericArg: TypeVisitable<List<GenericArg>> | undefined;
+var visit_List_Ty: TypeVisitable<List<Ty>> | undefined;
 
 /** PORT: (perf) `visit_List(d_T)` per `d_T`: the descriptor is stateless, so it is built once per element descriptor. */
 const VISIT_LIST_CACHE = new Map<TypeVisitable<unknown>, TypeVisitable<List<unknown>>>();
