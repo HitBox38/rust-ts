@@ -990,8 +990,6 @@ function default_query_providers(): MiddleProviders {
   rustc_passes_provide(providers.queries);
   rustc_traits_provide(providers.queries);
   rustc_ty_utils.provide(providers.queries);
-  // PORT: `rustc_metadata::provide` is `rmeta::provide`, i.e. `encoder::provide` (metadata encoding, M5, not
-  // ported) then `decoder::provide`; rustc_metadata/lib.ts exports `cstore_impl::provide` (the decoder half).
   rustc_metadata_provide(providers);
   rustc_lint.provide(providers.queries);
   rustc_symbol_mangling.provide(providers.queries);
