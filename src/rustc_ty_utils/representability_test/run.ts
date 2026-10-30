@@ -40,7 +40,7 @@ const fields_of = (data: VariantData): readonly import("../../rustc_hir/lib.ts")
 async function main(args: string[]): Promise<number> {
   const { catch_with_exit_code, compiler_entrypoint } = await import("../../rustc_driver_impl/lib.ts");
   const mod = await import("../../rustc_middle/ty/mod.ts");
-  const { Generics } = await import("../../rustc_middle/ty/generics.ts");
+  const { FxHashMap_DefId_u32, Generics } = await import("../../rustc_middle/ty/generics.ts");
   const { RawList } = await import("../../rustc_middle/ty/list.ts");
   const { LocalDefId: LocalDefIdC } = await import("../../rustc_span/def_id.ts");
   const { Ty: TyC, FieldDef, VariantDef, Visibility, RestrictionKind } = mod;
@@ -147,7 +147,7 @@ async function main(args: string[]): Promise<number> {
         if (node.$ === "Item" && node._0.kind.$ === "TyAlias") return EarlyBinder.bind(tcx, lower(tcx, node._0.kind._2), fold_Ty);
         return fail(`type_of(${node.$})`);
       };
-      p.generics_of = (_tcx, _def_id: LocalDefId) => new Generics(undefined, 0, [], new Map(), false, undefined);
+      p.generics_of = (_tcx, _def_id: LocalDefId) => new Generics(undefined, 0, [], FxHashMap_DefId_u32.with_capacity(0), false, undefined);
     };
   };
 

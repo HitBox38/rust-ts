@@ -64,7 +64,7 @@ import {
   type TargetDataLayoutError,
 } from "../../rustc_abi/lib.ts";
 import type { DiagArgValue } from "../../rustc_error_messages/lib.ts";
-import type { PathBuf } from "../../rustc_span/lib.ts";
+import type { PathBuf, SpanEncoder } from "../../rustc_span/lib.ts";
 import { kw, Symbol, sym } from "../../rustc_span/symbol.ts";
 import { SanitizerSet } from "../stand_ins.ts";
 import { is_numeric } from "../../std/char.ts";
@@ -1073,6 +1073,25 @@ export function decode_PanicStrategy(__decoder: Decoder): PanicStrategy {
     default:
       return panic(`invalid enum variant tag while decoding \`PanicStrategy\`, expected 0..3, actual ${__tag}`);
   }
+}
+/**
+ * `#[derive(Encodable)]` of `PanicStrategy` (rustc_macros serialize.rs `encodable_body`: the variant index as `emit_u8`).
+ * PORT (lane encode-contract): hand-expanded like `decode_PanicStrategy` (the enum is defined inside `target_spec_enum!`).
+ */
+export function encode_PanicStrategy(self: PanicStrategy, __encoder: SpanEncoder): void {
+  let disc: number;
+  switch (self) {
+    case "Unwind":
+      disc = 0;
+      break;
+    case "Abort":
+      disc = 1;
+      break;
+    case "ImmediateAbort":
+      disc = 2;
+      break;
+  }
+  __encoder.emit_u8(disc);
 }
 
 // #[derive(Clone, Copy, Debug, PartialEq, Hash, Encodable, BlobDecodable, StableHash)]

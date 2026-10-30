@@ -16,8 +16,9 @@
 // - The `Decodable` impls are `decode_<T>(decoder)` fns, the names tools/codegen's serialize.json entries call from
 //   the generated `derive(TyDecodable)` / `derive(Decodable_NoContext)` of the type sets (lane rmeta-ty). `T::decode`
 //   arguments of generic code are those fns.
-// - The encoding half (`TyEncoder`, `EncodableWithShorthand`, `encode_with_shorthand`, the `Encodable` impls) is
-//   metadata encoding (M5, PORTING §3): the traits are declared, the fns are `rustc-skip`ped.
+// - The encoding half (`TyEncoder`, `EncodableWithShorthand`, `encode_with_shorthand`, the `Encodable` impls; plan-m5 D3):
+//   the traits are declared (lane encode-contract) and the fns are stubs for lane encode-middle (`encode_<T>`, the names
+//   tools/codegen's serialize.json `encode` templates call), except `AllocId`'s one-line impl.
 // - `(0..len).map(|_| Decodable::decode(decoder))` fed to a `mk_*_from_iter` is a lazy generator: the interner
 //   collects it, so the elements are decoded in order, inside the call, as upstream.
 // - Every generated `.gen.ts` of the rustc_ty set imports this module (its derive(Decodable) fields call these fns),
@@ -26,10 +27,11 @@
 // - `mod ref_decodable;` + `pub use self::ref_decodable::RefDecodable;`: ./codec/ref_decodable.ts; its decoders are
 //   re-exported here (the `Decodable for &'tcx List<..>` impls of `impl_decodable_via_ref_decodable_for_local_types!`
 //   are the `RefDecodable` impls themselves).
-import type { BoundVariableKind, PredicateKind } from "../../rustc_type_ir/decls.ts";
+import type { Binder, BoundVariableKind, ExistentialPredicate, PredicateKind, TyKind } from "../../rustc_type_ir/decls.ts";
+import { intern_key } from "../../rust_ts/intern_key.ts";
 import type { InternerDecoder } from "../../rustc_type_ir/serialize.ts";
-import { type Decoder, decode_unit } from "../../rustc_serialize/serialize.ts";
-import type { SpanDecoder } from "../../rustc_span/lib.ts";
+import { type Decoder, decode_unit, type Encodable, encode_unit } from "../../rustc_serialize/serialize.ts";
+import type { SpanDecoder, SpanEncoder } from "../../rustc_span/lib.ts";
 import type { Pending } from "../../rustc_type_ir/decls.ts";
 import type { List } from "./list.ts";
 import { assert, unported } from "../../std/panic.ts";
@@ -121,6 +123,14 @@ function type_ir_serialize_(): typeof import("../../rustc_type_ir/serialize.ts")
   return (type_ir_serialize___m ??= require("../../rustc_type_ir/serialize.ts") as typeof import("../../rustc_type_ir/serialize.ts"));
 }
 var type_ir_serialize___m: typeof import("../../rustc_type_ir/serialize.ts") | undefined;
+function list_(): typeof import("./list.ts") {
+  return (list___m ??= require("./list.ts") as typeof import("./list.ts"));
+}
+var list___m: typeof import("./list.ts") | undefined;
+function predicate_ir_(): typeof import("../../rustc_type_ir/predicate.ts") {
+  return (predicate_ir___m ??= require("../../rustc_type_ir/predicate.ts") as typeof import("../../rustc_type_ir/predicate.ts"));
+}
+var predicate_ir___m: typeof import("../../rustc_type_ir/predicate.ts") | undefined;
 function ref_decodable_(): typeof import("./codec/ref_decodable.ts") {
   return (ref_decodable___m ??= require("./codec/ref_decodable.ts") as typeof import("./codec/ref_decodable.ts"));
 }
@@ -131,8 +141,9 @@ var ref_decodable___m: typeof import("./codec/ref_decodable.ts") | undefined; //
 /// This offset is also chosen so that the first byte is never < 0x80.
 export const SHORTHAND_OFFSET = 0x80;
 
-/** `pub trait TyEncoder<'tcx>: SpanEncoder` (encoding half, M5: declared only; `const CLEAR_CROSS_CRATE: bool`). */
-export interface TyEncoder {
+/** `pub trait TyEncoder<'tcx>: SpanEncoder` (`const CLEAR_CROSS_CRATE: bool`: each implementor exports `<Impl>_CLEAR_CROSS_CRATE`,
+ *  like `TyDecoder`; rmeta encoder.ts `EncodeContext_CLEAR_CROSS_CRATE`). */
+export interface TyEncoder extends SpanEncoder {
   // rustc: compiler/rustc_middle/src/ty/codec.rs:33 position
   position(): number;
 
@@ -171,51 +182,200 @@ export const TyDecoder_provided = {
   },
 };
 
-/** `pub trait EncodableWithShorthand<'tcx, E: TyEncoder<'tcx>>: Copy + Eq + Hash { type Variant: Encodable<E>; .. }` */
-export interface EncodableWithShorthand<Variant> {
+/** `pub trait EncodableWithShorthand<'tcx, E: TyEncoder<'tcx>>: Copy + Eq + Hash { type Variant: Encodable<E>; .. }`
+ *  PORT: a function table per implementor (`EncodableWithShorthand_Ty`, `EncodableWithShorthand_PredicateKind`):
+ *  - `variant` is the trait method;
+ *  - `encode_variant` is `Self::Variant: Encodable<E>` (the derived encoder);
+ *  - `discriminant` is `intrinsics::discriminant_value` of the variant (`T::Variant: DiscriminantKind<Discriminant = isize>`);
+ *  - `key` is `Eq + Hash`: the key `self` has in the shorthand cache (`Ty`: the interned object; `PredicateKind`: its
+ *    intern key, `TyEncoder.predicate_shorthands`'s key type). */
+export interface EncodableWithShorthand<T, Variant, K> {
   // rustc: compiler/rustc_middle/src/ty/codec.rs:64 variant
-  variant(): Variant;
+  variant(self: T): Variant;
+  encode_variant(variant: Variant, e: TyEncoder): void;
+  discriminant(variant: Variant): number;
+  key(self: T): K;
 }
 
 // #[allow(rustc::usage_of_ty_tykind)]
 // impl<'tcx, E: TyEncoder<'tcx>> EncodableWithShorthand<'tcx, E> for Ty<'tcx> { type Variant = ty::TyKind<'tcx>; .. }
-// rustc-skip: compiler/rustc_middle/src/ty/codec.rs:72 variant metadata encoding (M5)
+// #[inline]
+// rustc: compiler/rustc_middle/src/ty/codec.rs:72 variant
+export function variant_Ty(self: Ty): TyKind {
+  return self.kind();
+}
 
 // impl<'tcx, E: TyEncoder<'tcx>> EncodableWithShorthand<'tcx, E> for ty::PredicateKind<'tcx> { type Variant = ty::PredicateKind<'tcx>; .. }
-// rustc-skip: compiler/rustc_middle/src/ty/codec.rs:81 variant metadata encoding (M5)
+// #[inline]
+// rustc: compiler/rustc_middle/src/ty/codec.rs:81 variant
+export function variant_PredicateKind(self: PredicateKind): PredicateKind {
+  return self;
+}
+
+/** PORT: `discriminant_value` of a `TyKind` / `PredicateKind`: neither has explicit discriminants, so it is the variant
+ *  index in declaration order (rustc_type_ir ty_kind.rs:75 / predicate_kind.rs:63; the derived encoders' `disc`). */
+const TyKind__discriminant: { readonly [K in TyKind["$"]]: number } = {
+  Bool: 0,
+  Char: 1,
+  Int: 2,
+  Uint: 3,
+  Float: 4,
+  Adt: 5,
+  Foreign: 6,
+  Str: 7,
+  Array: 8,
+  Pat: 9,
+  Slice: 10,
+  RawPtr: 11,
+  Ref: 12,
+  FnDef: 13,
+  FnPtr: 14,
+  UnsafeBinder: 15,
+  Dynamic: 16,
+  Closure: 17,
+  CoroutineClosure: 18,
+  Coroutine: 19,
+  CoroutineWitness: 20,
+  Never: 21,
+  Tuple: 22,
+  Alias: 23,
+  Param: 24,
+  Bound: 25,
+  Placeholder: 26,
+  Infer: 27,
+  Error: 28,
+};
+const PredicateKind__discriminant: { readonly [K in PredicateKind["$"]]: number } = {
+  Clause: 0,
+  DynCompatible: 1,
+  Subtype: 2,
+  Coerce: 3,
+  ConstEquate: 4,
+  Ambiguous: 5,
+  NormalizesTo: 6,
+};
+
+/** `impl EncodableWithShorthand for Ty` (module comment: the function table). */
+export const EncodableWithShorthand_Ty: EncodableWithShorthand<Ty, TyKind, Ty> = {
+  variant: variant_Ty,
+  encode_variant: (variant, e) => ty_kind_().encode_TyKind(variant, e),
+  discriminant: (variant) => TyKind__discriminant[variant.$],
+  key: (self) => self,
+};
+
+/** `impl EncodableWithShorthand for ty::PredicateKind` (module comment: the function table). */
+export const EncodableWithShorthand_PredicateKind: EncodableWithShorthand<PredicateKind, PredicateKind, string> = {
+  variant: variant_PredicateKind,
+  encode_variant: (variant, e) => predicate_kind_().encode_PredicateKind(variant, e),
+  discriminant: (variant) => PredicateKind__discriminant[variant.$],
+  key: (self) => intern_key(self),
+};
 
 /// Encode the given value or a previously cached shorthand.
-// rustc-skip: compiler/rustc_middle/src/ty/codec.rs:87 encode_with_shorthand metadata encoding (M5)
+// PORT: `T: EncodableWithShorthand<'tcx, E>` is the function table `T_` (above); `cache` is `TyEncoder::type_shorthands` /
+// `predicate_shorthands`, keyed by `T_.key(value)`.
+// rustc: compiler/rustc_middle/src/ty/codec.rs:87 encode_with_shorthand
+export function encode_with_shorthand<E extends TyEncoder, T, V, K>(
+  encoder: E,
+  value: T,
+  cache: (encoder: E) => Map<K, number>,
+  T_: EncodableWithShorthand<T, V, K>,
+): void {
+  const existing_shorthand = cache(encoder).get(T_.key(value));
+  if (existing_shorthand !== undefined) {
+    encoder.emit_usize(existing_shorthand);
+    return;
+  }
+
+  const variant = T_.variant(value);
+
+  const start = encoder.position();
+  T_.encode_variant(variant, encoder);
+  const len = encoder.position() - start;
+
+  // The shorthand encoding uses the same usize as the
+  // discriminant, with an offset so they can't conflict.
+  const discriminant = T_.discriminant(variant);
+  assert(SHORTHAND_OFFSET > discriminant, "assertion failed: SHORTHAND_OFFSET > discriminant as usize");
+
+  const shorthand = start + SHORTHAND_OFFSET;
+
+  // Get the number of bits that leb128 could fit
+  // in the same space as the fully encoded type.
+  const leb128_bits = len * 7;
+
+  // Check that the shorthand is a not longer than the
+  // full encoding itself, i.e., it's an obvious win.
+  if (leb128_bits >= 64 || shorthand < 2 ** leb128_bits) {
+    cache(encoder).set(T_.key(value), shorthand);
+  }
+}
 
 // impl<'tcx, E: TyEncoder<'tcx>> Encodable<E> for Ty<'tcx>
-// rustc-skip: compiler/rustc_middle/src/ty/codec.rs:126 encode Encodable impl (metadata encoding, M5)
+// rustc: compiler/rustc_middle/src/ty/codec.rs:126 encode
+export function encode_Ty<E extends TyEncoder>(self: Ty, e: E): void {
+  encode_with_shorthand(e, self, (e) => e.type_shorthands(), EncodableWithShorthand_Ty);
+}
 
 // impl<'tcx, E: TyEncoder<'tcx>> Encodable<E> for ty::Predicate<'tcx>
-// rustc-skip: compiler/rustc_middle/src/ty/codec.rs:132 encode Encodable impl (metadata encoding, M5)
+// rustc: compiler/rustc_middle/src/ty/codec.rs:132 encode
+export function encode_Predicate<E extends TyEncoder>(self: Predicate, e: E): void {
+  const kind = self.kind();
+  encode_List_BoundVariableKind(binder_().Binder.bound_vars(kind), e);
+  encode_with_shorthand(e, binder_().Binder.skip_binder(kind), (e) => e.predicate_shorthands(), EncodableWithShorthand_PredicateKind);
+}
 
 // impl<'tcx, E: TyEncoder<'tcx>> Encodable<E> for ty::Clause<'tcx>
-// rustc-skip: compiler/rustc_middle/src/ty/codec.rs:140 encode Encodable impl (metadata encoding, M5)
+// rustc: compiler/rustc_middle/src/ty/codec.rs:140 encode
+export function encode_Clause<E extends TyEncoder>(self: Clause, e: E): void {
+  encode_Predicate(self.as_predicate(), e);
+}
 
 // impl<'tcx, E: TyEncoder<'tcx>> Encodable<E> for ty::Pattern<'tcx>
-// rustc-skip: compiler/rustc_middle/src/ty/codec.rs:146 encode Encodable impl (metadata encoding, M5)
+// rustc: compiler/rustc_middle/src/ty/codec.rs:146 encode
+export function encode_Pattern<E extends TyEncoder>(self: Pattern, e: E): void {
+  pattern_().encode_PatternKind(self.internee, e);
+}
 
 // impl<'tcx, E: TyEncoder<'tcx>> Encodable<E> for ty::ValTree<'tcx>
-// rustc-skip: compiler/rustc_middle/src/ty/codec.rs:152 encode Encodable impl (metadata encoding, M5)
+// rustc: compiler/rustc_middle/src/ty/codec.rs:152 encode
+export function encode_ValTree<E extends TyEncoder>(self: ValTree, e: E): void {
+  const_kind_().encode_ValTreeKind(self.internee, e);
+}
 
 // impl<'tcx, E: TyEncoder<'tcx>> Encodable<E> for ConstAllocation<'tcx>
-// rustc-skip: compiler/rustc_middle/src/ty/codec.rs:158 encode Encodable impl (metadata encoding, M5)
+// rustc: compiler/rustc_middle/src/ty/codec.rs:158 encode
+export function encode_ConstAllocation<E extends TyEncoder>(self: ConstAllocation, e: E): void {
+  encode_Allocation(self.inner(), e);
+}
 
 // impl<'tcx, E: TyEncoder<'tcx>> Encodable<E> for AdtDef<'tcx>
-// rustc-skip: compiler/rustc_middle/src/ty/codec.rs:164 encode Encodable impl (metadata encoding, M5)
+// rustc: compiler/rustc_middle/src/ty/codec.rs:164 encode
+export function encode_AdtDef<E extends TyEncoder>(self: AdtDef, e: E): void {
+  decodable_().encode_AdtDefData(self.internee, e);
+}
 
 // impl<'tcx, E: TyEncoder<'tcx>> Encodable<E> for AllocId
-// rustc-skip: compiler/rustc_middle/src/ty/codec.rs:170 encode Encodable impl (metadata encoding, M5)
+// rustc: compiler/rustc_middle/src/ty/codec.rs:170 encode
+export function encode_AllocId<E extends TyEncoder>(self: AllocId, e: E): void {
+  e.encode_alloc_id(self);
+}
 
 // impl<'tcx, E: TyEncoder<'tcx>> Encodable<E> for CtfeProvenance
-// rustc-skip: compiler/rustc_middle/src/ty/codec.rs:176 encode Encodable impl (metadata encoding, M5)
+// rustc: compiler/rustc_middle/src/ty/codec.rs:176 encode
+export function encode_CtfeProvenance<E extends TyEncoder>(self: CtfeProvenance, e: E): void {
+  // `self.into_parts().encode(e)`: `(AllocId, bool, bool)`
+  const parts = mir_interpret_pointer_().CtfeProvenance.into_parts(self);
+  encode_AllocId(parts[0], e);
+  e.emit_bool(parts[1]);
+  e.emit_bool(parts[2]);
+}
 
 // impl<'tcx, E: TyEncoder<'tcx>> Encodable<E> for ty::ParamEnv<'tcx>
-// rustc-skip: compiler/rustc_middle/src/ty/codec.rs:182 encode Encodable impl (metadata encoding, M5)
+// rustc: compiler/rustc_middle/src/ty/codec.rs:182 encode
+export function encode_ParamEnv<E extends TyEncoder>(self: ParamEnv, e: E): void {
+  encode_ListWithCachedTypeInfo_Clause(self.caller_bounds_, e);
+}
 
 // impl<'tcx, D: TyDecoder<'tcx>> Decodable<D> for Ty<'tcx>
 // #[allow(rustc::usage_of_ty_tykind)]
@@ -446,6 +606,60 @@ export function decode_ty_Const<D extends TyDecoder>(d: D): import("./consts.ts"
   return type_ir_serialize_().decode_Const(d, const_kind_().decode_ConstKind) as import("./consts.ts").Const;
 }
 
+/** The encode halves of the adapters above (`Encodable for GenericArg` / `Term`: generic_args.rs:366, mod.rs:634, with
+ *  the derived kind encoders; `ty::Const`: rustc_type_ir serialize.rs:125 with the derived `ConstKind` encoder; `ty::Value`:
+ *  the generated `derive(TyEncodable)`, reached lazily). Not markers. */
+export function encode_GenericArg_TyEncoder<E extends TyEncoder>(v: GenericArg, e: E): void {
+  generic_args_().encode_GenericArg(v, e, generic_arg_ir_().encode_GenericArgKind);
+}
+export function encode_Term_TyEncoder<E extends TyEncoder>(v: Term, e: E): void {
+  mod_().encode_Term(v, e, term_kind_().encode_TermKind);
+}
+export function encode_ty_Const<E extends TyEncoder>(v: import("./consts.ts").Const, e: E): void {
+  type_ir_serialize_().encode_Const(v, e, const_kind_().encode_ConstKind);
+}
+export function encode_Value(v: Value, e: TyEncoder): void {
+  decodable_().encode_Value(v, e);
+}
+
+// ---- the `Encodable` impls of the interned lists (the encode half of ./codec/ref_decodable.ts) ----
+// PORT: `&'tcx List<T>` encodes through `impl<T: Encodable> Encodable for &T` and `RawList`'s impl (list.rs:199, the
+// slice); `GenericArgsRef`, `Clauses` (`ListWithCachedTypeInfo`) and `CanonicalVarKinds` likewise. These adapters pass
+// the element's `Encodable` impl, for codec.rs and the generated encoders (tools/codegen serialize.json `I::Tys`, ...).
+// Not markers.
+export function encode_List<T, E extends TyEncoder>(v: List<T>, e: E, encode_T: Encodable<T, E>): void {
+  list_().encode_RawList(v, e, encode_T);
+}
+export function encode_List_Ty(v: List<Ty>, e: TyEncoder): void {
+  list_().encode_RawList(v, e, encode_Ty);
+}
+export function encode_List_PolyExistentialPredicate(v: List<Binder<ExistentialPredicate>>, e: TyEncoder): void {
+  list_().encode_RawList(v, e, encode_PolyExistentialPredicate);
+}
+/** `ty::PolyExistentialPredicate` (`Binder<ExistentialPredicate>`): rustc_type_ir serialize.rs:28 with the derived
+ *  `ExistentialPredicate` encoder. */
+export function encode_PolyExistentialPredicate(v: Binder<ExistentialPredicate>, e: TyEncoder): void {
+  type_ir_serialize_().encode_Binder(v, e, predicate_ir_().encode_ExistentialPredicate, encode_List_BoundVariableKind);
+}
+export function encode_List_BoundVariableKind(v: List<BoundVariableKind>, e: TyEncoder): void {
+  list_().encode_RawList(v, e, binder_().encode_BoundVariableKind);
+}
+export function encode_List_Pattern(v: List<Pattern>, e: TyEncoder): void {
+  list_().encode_RawList(v, e, encode_Pattern);
+}
+export function encode_List_Const(v: List<import("./consts.ts").Const>, e: TyEncoder): void {
+  list_().encode_RawList(v, e, encode_ty_Const);
+}
+export function encode_ListWithCachedTypeInfo_Clause(v: Clauses, e: TyEncoder): void {
+  list_().encode_RawList(v, e, encode_Clause);
+}
+export function encode_GenericArgs(v: GenericArgs, e: TyEncoder): void {
+  list_().encode_RawList(v, e, encode_GenericArg_TyEncoder);
+}
+export function encode_CanonicalVarKinds(v: CanonicalVarKinds, e: TyEncoder): void {
+  list_().encode_RawList(v, e, canonical_().encode_CanonicalVarKind);
+}
+
 // ---- the element types these impls decode ----
 
 /** `Decodable for mir::PlaceElem` (`ProjectionElem<Local, Ty>`): the derived `decode_ProjectionElem` of mir/syntax.rs (lane
@@ -458,6 +672,13 @@ function decode_PlaceElem(d: TyDecoder): PlaceElem {
 function decode_Allocation(d: TyDecoder): Allocation {
   const allocation = require("../mir/interpret/allocation.ts") as typeof import("../mir/interpret/allocation.ts");
   return allocation.decode_Allocation(d, decode_CtfeProvenance, decode_unit);
+}
+
+/** `Encodable for mir::interpret::Allocation` (`Allocation<CtfeProvenance, (), Box<[u8]>>`): allocation.rs:194's generic
+ *  impl with `CtfeProvenance`'s encoder (above) and `()`'s; mir/interpret/allocation.ts read lazily (init order). */
+function encode_Allocation(v: Allocation, e: TyEncoder): void {
+  const allocation = require("../mir/interpret/allocation.ts") as typeof import("../mir/interpret/allocation.ts");
+  allocation.encode_Allocation(v, e, encode_CtfeProvenance, encode_unit);
 }
 
 export type { BoundVariableKind };

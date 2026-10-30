@@ -8,7 +8,7 @@ import type { PathBuf } from "../../rustc_span/lib.ts";
 import type { MutRef } from "../../std/mut_ref.ts";
 import { type Debug, debug_str, debug_struct, debug_tuple as debug_tuple_fmt } from "../../std/fmt.ts";
 import { panic, unported } from "../../std/panic.ts";
-import type { Decoder } from "../../rustc_serialize/serialize.ts";
+import type { Decoder, Encoder } from "../../rustc_serialize/serialize.ts";
 import type { Result } from "../../std/result.ts";
 
 /// Either a target tuple string or a path to a JSON file.
@@ -25,7 +25,25 @@ export type TargetTuple =
     };
 
 // Use a manual implementation to prevent encoding the target json file path in the crate metadata
-// rustc-skip: compiler/rustc_target/src/spec/tuple.rs:55 encode Encodable (metadata encoding is M5)
+// impl<S: Encoder> Encodable<S> for TargetTuple
+// rustc: compiler/rustc_target/src/spec/tuple.rs:55 encode
+export function encode_TargetTuple(self: TargetTuple, s: Encoder): void {
+  switch (self.$) {
+    case "TargetTuple": {
+      const tuple = self._0;
+      s.emit_u8(0);
+      s.emit_str(tuple);
+      break;
+    }
+    case "TargetJson": {
+      const { tuple, contents } = self;
+      s.emit_u8(1);
+      s.emit_str(tuple);
+      s.emit_str(contents);
+      break;
+    }
+  }
+}
 
 // impl<D: Decoder> Decodable<D> for TargetTuple
 // rustc: compiler/rustc_target/src/spec/tuple.rs:71 decode

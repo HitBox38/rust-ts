@@ -26,7 +26,7 @@ export * from "./def.gen.ts";
 
 // PORT: `hir::PrimTy` and `hir::Safety` (hir.rs) are generated into hir.gen.ts (set `rustc_hir`); def.rs names
 // them through `crate::hir`. Re-exported here for this module's existing importers (rustc_resolve).
-export { debug_PrimTy, debug_Safety, decode_PrimTy, decode_Safety, type PrimTy, type Safety } from "./hir.ts";
+export { debug_PrimTy, debug_Safety, decode_PrimTy, decode_Safety, encode_PrimTy, encode_Safety, type PrimTy, type Safety } from "./hir.ts";
 
 // ---- def.rs -------------------------------------------------------------------------------------
 

@@ -324,8 +324,9 @@ export function should_run_pass(pass: MirPass, ctx: PassCtx): boolean {
 
 /** `crate::PASS_NAMES` (lib.ts; read lazily, see the header). */
 function PASS_NAMES(): Set<string> {
-  return (require("./lib.ts") as typeof import("./lib.ts")).PASS_NAMES();
+  return (lib__m ??= require("./lib.ts") as typeof import("./lib.ts")).PASS_NAMES();
 }
+var lib__m: typeof import("./lib.ts") | undefined; // PORT: (perf) lazy-require memo (precedent: perf-intern)
 
 /** `body.phase == phase` (`#[derive(PartialEq)]` of `MirPhase`). */
 function phase_eq(a: MirPhase, b: MirPhase): boolean {

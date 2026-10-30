@@ -3,15 +3,16 @@
 // derive(TyDecodable) is generated into rustc_middle/decodable.gen.ts), `GenericClauses` and `ConstConditions`, their
 // derived / manual Debug, and their methods (the type-level ones by lane ty-args).
 //
-// PORT: `param_def_id_to_index: FxHashMap<DefId, u32>` is a `KeyedMap` keyed by `DefId_hash_key` (a JS `Map` would
-// compare the decoded `DefId` objects by identity).
+// PORT: `param_def_id_to_index: FxHashMap<DefId, u32>` is an `FxKeyedMap` (rust_ts/hash_map.ts; `FxHashMap_DefId_u32`
+// below): keyed by `DefId_hash_key` (a JS `Map` would compare the decoded `DefId` objects by identity), iterating in
+// rustc's hashbrown order (crate metadata encodes the map in that order; lane encode-middle).
 // PORT: the queries `generics_of`, `type_of`, `const_param_default`, `clauses_of` and `const_conditions` are typed
 // `unknown` by queries.gen.ts until their value types are generated; their values are cast to the upstream types here.
 // PORT: `&'tcx [(Clause, Span)]` is `readonly [Clause, Span][]`; `impl Iterator + DoubleEndedIterator +
 // ExactSizeIterator + Clone` results are `MapUnzipIter` (lazy, like upstream: instantiation happens per `next`).
 import { ParamKindOrd } from "../../rustc_ast/lib.ts";
 import { ControlFlow, VisitorResult as VisitorResultC, type VisitorResult } from "../../rustc_ast_ir/visit.ts";
-import { KeyedMap } from "../../rust_ts/keyed.ts";
+import { FxKeyedMap, type KeyType, LAYOUT_U32 } from "../../rust_ts/hash_map.ts";
 import { debug_DefId, type DefId } from "../../rustc_span/def_id.ts";
 import { debug_Span, type ErrorGuaranteed, type Span } from "../../rustc_span/lib.ts";
 import { bug } from "../../rustc_span/macros.ts";
@@ -222,6 +223,22 @@ export function default_GenericParamCount(): GenericParamCount {
   return { lifetimes: 0, types: 0, consts: 0 };
 }
 
+/** PORT: `impl Hash for DefId` (rustc_span def_id.rs:269, one `u64`) as an `FxHashMap` key type; `DefId` is `#[repr(C)]`
+ *  of two `u32`s (size 8, align 4). */
+const DefId_fx_key: KeyType<DefId> = { hash: (k, state) => k.hash(state), size: 8, align: 4 };
+
+/** PORT: `FxHashMap<DefId, u32>` (`Generics.param_def_id_to_index`, module comment): its constructors. */
+export const FxHashMap_DefId_u32 = {
+  /** `FxHashMap::with_capacity_and_hasher(capacity, Default::default())` */
+  with_capacity(capacity: number): FxKeyedMap<DefId, number> {
+    return FxKeyedMap.with_capacity_keyed<DefId, number>(capacity, DefId_fx_key, LAYOUT_U32, DefId_hash_key);
+  },
+  /** `iter.collect()` (`size_hint_lower`: the iterator's `size_hint().0`) */
+  from_iter(iter: Iterable<readonly [DefId, number]>, size_hint_lower: number): FxKeyedMap<DefId, number> {
+    return FxKeyedMap.from_iter_keyed<DefId, number>(iter, size_hint_lower, DefId_fx_key, LAYOUT_U32, DefId_hash_key);
+  },
+};
+
 /// Information about the formal type/lifetime parameters associated
 /// with an item or method. Analogous to `hir::Generics`.
 ///
@@ -235,7 +252,7 @@ export class Generics {
 
     /// Reverse map to the `index` field of each `GenericParamDef`.
     // #[stable_hash(ignore)]
-    public param_def_id_to_index: Map<DefId, number>,
+    public param_def_id_to_index: FxKeyedMap<DefId, number>,
 
     public has_self: boolean,
     public has_late_bound_regions: Span | undefined,
@@ -250,7 +267,11 @@ export class Generics {
     has_self: boolean,
     has_late_bound_regions: Span | undefined,
   ): Generics {
-    return new Generics(parent, parent_count, own_params, new KeyedMap(DefId_hash_key, param_def_id_to_index), has_self, has_late_bound_regions);
+    // `HashMap::decode`: `with_capacity_and_hasher(len, ..)`, then `insert` in the encoded order (rustc_serialize
+    // serialize.rs:630), here from the decoded `Map`
+    const map = FxHashMap_DefId_u32.with_capacity(param_def_id_to_index.size);
+    for (const [k, v] of param_def_id_to_index) map.set(k, v);
+    return new Generics(parent, parent_count, own_params, map, has_self, has_late_bound_regions);
   }
 
   // PORT: `impl inherent::GenericsOf for &Generics` (generics.rs:150): `count` is the inherent `count` below.

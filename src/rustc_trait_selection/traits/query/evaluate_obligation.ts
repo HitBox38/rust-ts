@@ -51,8 +51,8 @@ InferCtxt.prototype.predicate_may_hold_opaque_types_jank = function (this: Infer
 // rustc: compiler/rustc_trait_selection/src/traits/query/evaluate_obligation.rs:38 goal_may_hold_opaque_types_jank
 InferCtxt.prototype.goal_may_hold_opaque_types_jank = function (this: InferCtxt, goal: GoalT<Predicate>): boolean {
   assert(this.next_trait_solver(), "assertion failed: self.next_trait_solver()");
-  const { SolverDelegate } = require("../../solve/delegate.ts") as typeof import("../../solve/delegate.ts");
-  const { solve } = require("../../../rustc_next_trait_solver/lib.ts") as typeof import("../../../rustc_next_trait_solver/lib.ts");
+  const { SolverDelegate } = (delegate__m ??= require("../../solve/delegate.ts") as typeof import("../../solve/delegate.ts"));
+  const { solve } = (next_trait_solver__m ??= require("../../../rustc_next_trait_solver/lib.ts") as typeof import("../../../rustc_next_trait_solver/lib.ts"));
   return solve.SolverDelegateEvalExt_for_D.root_goal_may_hold_opaque_types_jank(SolverDelegate.from(this), goal);
 };
 
@@ -107,7 +107,7 @@ InferCtxt.prototype.evaluate_obligation = function (this: InferCtxt, obligation:
 
   if (this.next_trait_solver()) {
     return this.probe((snapshot) => {
-      const { ObligationCtxt } = require("../engine.ts") as typeof import("../engine.ts");
+      const { ObligationCtxt } = (engine__m ??= require("../engine.ts") as typeof import("../engine.ts"));
       const ocx = ObligationCtxt.new(this);
       ocx.register_obligation(clone_Obligation(obligation, (p) => p));
       let result: EvaluationResult = "EvaluatedToOk";
@@ -165,3 +165,7 @@ InferCtxt.prototype.evaluate_obligation_no_overflow = function (this: InferCtxt,
       return "EvaluatedToErr";
   }
 };
+
+var engine__m: typeof import("../engine.ts") | undefined; // PORT: (perf) lazy-require memo (precedent: perf-intern)
+var delegate__m: typeof import("../../solve/delegate.ts") | undefined; // PORT: (perf) lazy-require memo (precedent: perf-intern)
+var next_trait_solver__m: typeof import("../../../rustc_next_trait_solver/lib.ts") | undefined; // PORT: (perf) lazy-require memo (precedent: perf-intern)

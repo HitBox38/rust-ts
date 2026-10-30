@@ -271,6 +271,8 @@ export interface SetConfig {
    * sets' callers still pass a plain `MemDecoder`).
    */
   decoders?: Record<string, { type: string; import: string; note?: string }>;
+  /** derive(Encodable*): per-set override of serialize.json `encoders`, mirroring `decoders`. */
+  encoders?: Record<string, { type: string; import: string; note?: string }>;
   /**
    * derive(Decodable*) of a per-file set: hand modules (src-relative paths) through which the generated `decode_<T>` of
    * their `.gen.ts` is *not* imported; it is imported from the `.gen.ts` itself (lane rmeta-ty: extension modules, which
@@ -2221,13 +2223,13 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
      * item's key. A type alias's entry (`GenericArgsRef`: the alias hides a reference) is used before the alias is
      * expanded.
      */
-    const serItemEntry = (r: ItemRef): SerializeMapEntry | undefined => {
-      if (serGenerated("decode", r)) return undefined;
+    const serItemEntry = (r: ItemRef, kind: "decode" | "encode" = "decode"): SerializeMapEntry | undefined => {
+      if (serGenerated(kind, r)) return undefined;
       const e = serIndex.get(r.key);
       if (e === undefined || r.item.kind === "type") return e;
-      const implMf = manualSer.Decodable.get(r.key);
+      const implMf = manualSer[kind === "decode" ? "Decodable" : "Encodable"].get(r.key);
       const hand = implMf?.hand ?? r.mf.hand;
-      if ((implMf || matches(set.hand, r)) && handExports_(hand, `decode_${r.item.name}`)) return undefined;
+      if ((implMf || matches(set.hand, r)) && handExports_(hand, `${kind}_${r.item.name}`)) return undefined;
       return e;
     };
     const serEntryModule = (e: SerializeMapEntry) => (e.import ? `src:${e.import.replace(/^src\//, "")}` : serModule);
@@ -2362,8 +2364,12 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
           }
           if (r.k === "item") {
             const it = r.ref.item;
+            const ie = serItemEntry(r.ref, "encode");
+            if (ie) return encTemplate(ie, r.ref.key, args, v, sc, at);
             if (it.kind === "type") return encExpr(it.ty!, v, aliasScope(r.ref, args, sc), at);
             const fn = serItemName("encode", r.ref, at);
+            // no encoder for the item: its type arguments' encoders would be untyped closures
+            if (fn === "unported_encodable") return `unported_encodable(${v})`;
             const fns = tsParams(it).map((p, i) => {
               const a = args[i];
               if (a) return encFn(a, sc, at);
@@ -2378,39 +2384,43 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
             push(report.missing_encodable, r.display, at);
             return `unported_encodable(${v})`;
           }
-          if (e.transparent) return encExpr(args[0]!, v, sc, at);
-          const tmpl = e.encode_nullable !== undefined && args[0] && nullable(args[0], sc) ? e.encode_nullable : e.encode;
-          if (tmpl === undefined) {
-            push(report.missing_encodable, `${r.display} (${e.note ?? "no encode in serialize.json"})`, at);
-            return `unported_encodable(${v})`;
-          }
-          const mod = serEntryModule(e);
-          for (const m of tmpl.matchAll(/(?<![.\w])(encode_\w+)\(/g)) serUse(m[1]!, mod);
-          for (const x of e.values ?? []) if (tmpl.includes(x)) serUse(x, e.values_import ? `src:${e.values_import.replace(/^src\//, "")}` : mod);
-          let out = tmpl.replaceAll("$E", () => ENC).replaceAll("$v", () => v);
-          for (const n of new Set(tmpl.match(/\$e\d/g) ?? [])) {
-            const a = args[Number(n.slice(2))];
-            if (!a) {
-              report.errors.push(`${at}: ${r.display} needs type arg ${n.slice(2)} for Encodable`);
-              return `unported_encodable(${v})`;
-            }
-            const f = encFn(a, sc, at);
-            out = out.replaceAll(n, () => f);
-          }
-          return out;
+          return encTemplate(e, r.display, args, v, sc, at);
         }
       }
       push(report.missing_encodable, `${ty.kind}: ${ty.text}`, at);
       return `unported_encodable(${v})`;
+    };
+    /** A serialize.json entry `e` applied to `v` and type arguments `args` (`$E` the encoder, `$e<k>` their Encodable fns). */
+    const encTemplate = (e: SerializeMapEntry, display: string, args: PType[], v: string, sc: Scope, at: string): string => {
+      if (e.transparent) return encExpr(args[0]!, v, sc, at);
+      const tmpl = e.encode_nullable !== undefined && args[0] && nullable(args[0], sc) ? e.encode_nullable : e.encode;
+      if (tmpl === undefined) {
+        push(report.missing_encodable, `${display} (${e.note ?? "no encode in serialize.json"})`, at);
+        return `unported_encodable(${v})`;
+      }
+      const mod = serEntryModule(e);
+      for (const m of tmpl.matchAll(/(?<![.\w])(encode_\w+)\(/g)) serUse(m[1]!, mod);
+      for (const x of e.values ?? []) if (tmpl.includes(x)) serUse(x, e.values_import ? `src:${e.values_import.replace(/^src\//, "")}` : mod);
+      let out = tmpl.replaceAll("$E", () => ENC).replaceAll("$v", () => v);
+      for (const n of new Set(tmpl.match(/\$e\d/g) ?? [])) {
+        const a = args[Number(n.slice(2))];
+        if (!a) {
+          report.errors.push(`${at}: ${display} needs type arg ${n.slice(2)} for Encodable`);
+          return `unported_encodable(${v})`;
+        }
+        const f = encFn(a, sc, at);
+        out = out.replaceAll(n, () => f);
+      }
+      return out;
     };
     /** The Encodable impl of a type as a value (`Encodable<T, E>`). */
     const encFn = (ty: PType, sc: Scope, at: string): string => {
       if (ty.kind === "path" && !ty.qself) {
         const r = resolvePath(ty.path!, sc);
         if (r.k === "param" && !sc.subst?.has(r.name)) return `encode_${r.name}`;
-        if (r.k === "item" && r.ref.item.kind !== "type" && tsParams(r.ref.item).length === 0) return serItemName("encode", r.ref, at);
-        if (r.k === "ext") {
-          const e = serEntry(r.keys);
+        if (r.k === "item" && r.ref.item.kind !== "type" && tsParams(r.ref.item).length === 0 && !serItemEntry(r.ref, "encode")) return serItemName("encode", r.ref, at);
+        if (r.k === "ext" || (r.k === "item" && serItemEntry(r.ref, "encode"))) {
+          const e = r.k === "ext" ? serEntry(r.keys) : serItemEntry(r.ref, "encode");
           const m = e?.encode && /^(encode_\w+)\(\$v, \$E\)$/.exec(e.encode);
           if (e && m && !e.transparent) return serUse(m[1]!, serEntryModule(e));
         }
@@ -2426,7 +2436,7 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
     };
     /** The decoder / encoder type of a derive (serialize.json `decoders` / `encoders`), imported. */
     const serTraitType = (kind: "decode" | "encode", derive: string, at: string): string => {
-      const t = (kind === "decode" ? (set.decoders?.[derive] ?? serMap.decoders[derive]) : serMap.encoders[derive]);
+      const t = kind === "decode" ? (set.decoders?.[derive] ?? serMap.decoders[derive]) : (set.encoders?.[derive] ?? serMap.encoders[derive]);
       if (!t) {
         report.errors.push(`${at}: no ${kind === "decode" ? "decoder" : "encoder"} type for derive(${derive}) in serialize.json`);
         return kind === "decode" ? "unknown" : "unknown";
@@ -2469,8 +2479,11 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       const decHead = ps.length
         ? `export function ${decName}<${ps.join(", ")}, __D extends ${DT} = ${DT}>(${DEC}: __D${ps.map((p) => `, decode_${p}: Decodable<${p}, __D>`).join("")}): ${self} {`
         : `export function ${decName}(${DEC}: ${DT}): ${self} {`;
+      // Likewise `impl<__E: SpanEncoder, T: Encodable<__E>> Encodable<__E>`: a generic type's impl is generic over the encoder.
       const encHead = (used: boolean) =>
-        `export function ${encName}${gen}(${used ? "self" : "_self"}: ${self}, ${ENC}: ${ET}${ps.map((p) => `, encode_${p}: Encodable<${p}, ${ET}>`).join("")}): void {`;
+        ps.length
+          ? `export function ${encName}<${ps.join(", ")}, __E extends ${ET} = ${ET}>(${used ? "self" : "_self"}: ${self}, ${ENC}: __E${ps.map((p) => `, encode_${p}: Encodable<${p}, __E>`).join("")}): void {`
+          : `export function ${encName}(${used ? "self" : "_self"}: ${self}, ${ENC}: ${ET}): void {`;
       if (flagsStruct) {
         // `#[derive(Decodable, Encodable)] struct X(uN);` + `bitflags! { impl X: uN { .. } }`: the derive sees a
         // plain tuple struct, so it decodes / encodes the bits field (e.g. rustc_hir::def::MacroKinds). The TS value

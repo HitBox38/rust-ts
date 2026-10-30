@@ -769,6 +769,9 @@ export class MutVisitor {
   // rustc: compiler/rustc_ast/src/visit.rs:634 visit_ident
   visit_ident(ident: MutRef<Ident>): void {
     // `Ident { name: _, span }: &mut Ident`
+    // PORT: (perf) visiting the span only calls `visit_span`, whose default does nothing: the views are made only
+    // for an overriding visitor.
+    if (this.visit_span === MutVisitor.prototype.visit_span) return;
     // PORT: `Ident` is `Copy` and a TS `Ident` object may be shared, so a write to `span` stores a new
     // `Ident` into the visited slot instead of mutating the object.
     const span: MutRef<Span> = {
@@ -1300,11 +1303,15 @@ const mut_visitable_misc = {
 
   // rustc: compiler/rustc_ast/src/mut_visit.rs:165 visit_mut
   NodeId: <K extends PropertyKey>(o: Place<NodeId, K>, k: K, visitor: MutVisitor, _extra: undefined): void => {
+    // PORT: (perf) the default `visit_id` does nothing: the `&mut` view is made only for an overriding visitor.
+    if (visitor.visit_id === MutVisitor.prototype.visit_id) return;
     visitor.visit_id(field_mut(o, k));
   },
 
   // rustc: compiler/rustc_ast/src/mut_visit.rs:165 visit_mut
   Span: <K extends PropertyKey>(o: Place<Span, K>, k: K, visitor: MutVisitor, _extra: undefined): void => {
+    // PORT: (perf) the default `visit_span` does nothing: the `&mut` view is made only for an overriding visitor.
+    if (visitor.visit_span === MutVisitor.prototype.visit_span) return;
     visitor.visit_span(field_mut(o, k));
   },
 

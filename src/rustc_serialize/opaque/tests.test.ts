@@ -9,6 +9,7 @@
 // are the largest exact values instead (leb128/tests.test.ts checks that wider ones are refused).
 // The generated types map `u64`/`i64` fields to `number` (typemap.json); the bare `u64`/`i64`
 // values are `bigint`.
+import { FxHashMap, LAYOUT_USIZE } from "../../rust_ts/hash_map.ts";
 import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -288,13 +289,15 @@ test("test_sequence", () => {
 });
 
 // rustc: compiler/rustc_serialize/src/opaque/tests.rs:240 test_hash_map
+// PORT: `HashMap::new()` (std's `RandomState`, randomly seeded) has no reproducible order and is not modeled
+// (rust_ts/hash_map.ts); `encode_HashMap` takes the order of an `FxHashMap` (`i64` keys: `write_i64`, 8 bytes).
 test("test_hash_map", () => {
-  const map = new Map<bigint, bigint>();
+  const map = FxHashMap.default<bigint, bigint>({ hash: (k, state) => state.write_i64(k), size: 8, align: 8 }, LAYOUT_USIZE);
   for (let i = -100n; i < 100n; i++) {
     map.set(i * 100000n, i * 10000n);
   }
 
-  check_round_trip(
+  check_round_trip<Map<bigint, bigint>>(
     [map],
     (v, s) => encode_HashMap(v, s, encode_i64, encode_i64),
     (d) => decode_HashMap(d, decode_i64, decode_i64),

@@ -20,11 +20,11 @@ import { PLAIN } from "../std/fmt.ts";
 import { bug } from "../rustc_span/macros.ts";
 import { unported } from "../std/panic.ts";
 import { str_cmp } from "../rustc_session/options.ts";
+import type { Dependencies } from "../rustc_middle/middle/dependency_format.ts";
 import { are_upstream_rust_objects_already_included } from "./back/link.ts";
 import {
   CodegenLintLevelSpecs,
   type CrateInfo,
-  type Dependencies,
   type EiiLinkageImplInfo,
   type EiiLinkageInfo,
   NativeLib_from,

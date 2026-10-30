@@ -12,6 +12,7 @@
 import { SortedMap } from "../rustc_data_structures/sorted_map.ts";
 import { StableHasher } from "../rustc_data_structures/stable_hash.ts";
 import { utf8 } from "../std/str.ts";
+import type { SpanEncoder } from "../rustc_span/lib.ts";
 import { Hash64 } from "../rustc_hashes/lib.ts";
 import { CRATE_DEF_INDEX, type CrateNum, type DefIndex, debug_DefIndex, DefPathHash, LOCAL_CRATE, LocalDefId, StableCrateId } from "../rustc_span/def_id.ts";
 import { display_Symbol, kw, sym, Symbol } from "../rustc_span/symbol.ts";
@@ -188,7 +189,13 @@ DefPathToIndexMap.prototype.insert = function (this: DefPathToIndexMap, hash: Ha
   }
 };
 
-// rustc-skip: compiler/rustc_hir_id/src/definitions.rs:118 encode Encodable impl (metadata encoding, M5)
+// impl<E: SpanEncoder> Encodable<E> for DefKey
+// #[inline]
+// PORT: needs `DisambiguatedDefPathData`'s derive(Encodable) (rustc_hir_id is not a tools/codegen serialize set yet).
+// stub: compiler/rustc_hir_id/src/definitions.rs:118 encode (lane encoder-a)
+export function encode_DefKey(_self: DefKey, _e: SpanEncoder): void {
+  unported("rustc_hir_id::definitions::encode DefKey (lane encoder-a)");
+}
 
 // rustc: compiler/rustc_hir_id/src/definitions.rs:124 compute_stable_hash
 gen.DefKey.prototype.compute_stable_hash = function (this: DefKey, parent: DefPathHash): DefPathHash {

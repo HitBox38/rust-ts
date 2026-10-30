@@ -17,7 +17,8 @@ import type { MutRef } from "../../std/mut_ref.ts";
 import type { DiagArgValue, PathBuf } from "../../rustc_error_messages/lib.ts";
 import { String_into_diag_arg } from "../../rustc_error_messages/diagnostic_impls.ts";
 import type { DefId } from "../../rustc_span/def_id.ts";
-import type { Decoder } from "../../rustc_serialize/serialize.ts";
+import type { Decoder, Encodable } from "../../rustc_serialize/serialize.ts";
+import type { TyEncoder } from "./codec.ts";
 import type { ClosureArgs, ClosureArgsParts, CoroutineArgs, CoroutineArgsParts, CoroutineClosureArgs, CoroutineClosureArgsParts, GenericArgKind } from "../../rustc_type_ir/decls.ts";
 import { type TypeFoldable } from "../../rustc_type_ir/fold.ts";
 import { Const, fold_Const, fold_Region, Region } from "../../rustc_type_ir/sty/mod.ts";
@@ -350,7 +351,12 @@ export const fold_GenericArg: TypeFoldable<GenericArg> = {
   },
 };
 
-// rustc-skip: compiler/rustc_middle/src/ty/generic_args.rs:366 encode Encodable impl (metadata encoding, M5)
+// impl<'tcx, E: TyEncoder<'tcx>> Encodable<E> for GenericArg<'tcx>
+// PORT: `GenericArgKind: Encodable<E>` is `encode_GenericArgKind` (derived; tools/codegen), as for `decode_GenericArg`.
+// rustc: compiler/rustc_middle/src/ty/generic_args.rs:366 encode
+export function encode_GenericArg<E extends TyEncoder>(self: GenericArg, e: E, encode_GenericArgKind: Encodable<GenericArgKind, E>): void {
+  encode_GenericArgKind(GenericArg.kind(self), e);
+}
 
 /** `impl<D: TyDecoder> Decodable<D> for GenericArg`: `GenericArgKind::decode(d).pack()`.
  *  PORT: `GenericArgKind: Decodable<D>` is `decode_GenericArgKind` (derived; tools/codegen). */
@@ -680,7 +686,8 @@ export const fold_GenericArgs: TypeFoldable<GenericArgs> = {
   },
 
   visit_with<R>(self: GenericArgs, visitor: TypeVisitor<R>): R {
-    return visit_List(fold_GenericArg).visit_with(self, visitor);
+    // PORT: (perf) the descriptor is made once (`visit_List` is stateless).
+    return (visit_List_GenericArg ??= visit_List(fold_GenericArg)).visit_with(self, visitor);
   },
 };
 
@@ -739,12 +746,30 @@ export const fold_List_Ty: TypeFoldable<List<Ty>> = {
   },
 
   visit_with<R>(self: List<Ty>, visitor: TypeVisitor<R>): R {
-    return visit_List(fold_Ty).visit_with(self, visitor);
+    // PORT: (perf) the descriptor is made once (`visit_List` is stateless).
+    return (visit_List_Ty ??= visit_List(fold_Ty)).visit_with(self, visitor);
   },
 };
 
+var visit_List_GenericArg: TypeVisitable<List<GenericArg>> | undefined;
+var visit_List_Ty: TypeVisitable<List<Ty>> | undefined;
+
+/** PORT: (perf) `visit_List(d_T)` per `d_T`: the descriptor is stateless, so it is built once per element descriptor. */
+// PORT: (perf) a `WeakMap`: some callers (structural_impls.ts `list_fold`) build a fresh element descriptor per visit,
+// so a strong map would grow without bound; entries die with their descriptor.
+const VISIT_LIST_CACHE = new WeakMap<TypeVisitable<unknown>, TypeVisitable<List<unknown>>>();
+
 /** D4 descriptor: `impl<T: TypeVisitable> TypeVisitable for &List<T>`, given the descriptor of `T`. */
 export function visit_List<T>(d_T: TypeVisitable<T>): TypeVisitable<List<T>> {
+  let d = VISIT_LIST_CACHE.get(d_T as TypeVisitable<unknown>) as TypeVisitable<List<T>> | undefined;
+  if (d === undefined) {
+    d = make_visit_List(d_T);
+    VISIT_LIST_CACHE.set(d_T as TypeVisitable<unknown>, d as TypeVisitable<List<unknown>>);
+  }
+  return d;
+}
+
+function make_visit_List<T>(d_T: TypeVisitable<T>): TypeVisitable<List<T>> {
   return {
     // #[inline]
     // rustc: compiler/rustc_middle/src/ty/generic_args.rs:716 visit_with

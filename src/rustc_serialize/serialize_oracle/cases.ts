@@ -131,7 +131,7 @@ export interface Case<T = unknown> {
   encode: (v: T, e: MemEncoder | FileEncoder) => void;
   decode: Decodable<T, MemDecoder>;
 }
-const c = <T>(name: string, values: T[], encode: Encodable<T>, decode: Decodable<T, MemDecoder>): Case => ({ name, values, encode, decode }) as Case;
+const c = <T>(name: string, values: T[], encode: Encodable<T, MemEncoder>, decode: Decodable<T, MemDecoder>): Case => ({ name, values, encode, decode }) as Case;
 const range = (a: number, b: number): number[] => Array.from({ length: b - a }, (_, i) => a + i);
 
 const U64_MAX = (1n << 64n) - 1n;
@@ -241,10 +241,23 @@ export const CASES: Case[] = [
     // `FxHashMap::default()` + 50 inserts: the oracle's (hashbrown) iteration order
     [fx_map()],
     (v, e) => encode_HashMap(v, e, encode_u32, encode_u64),
-    (d) => decode_HashMap(d, decode_u32, decode_u64),
+    // `HashMap::decode` into an `FxHashMap` (serialize.rs:630: `with_capacity_and_hasher(len, ..)`, then `insert` in the
+    // stream's order); `decode_HashMap` gives the entries in that order (encode_HashMap refuses plain `Map`s)
+    (d) => {
+      const m = decode_HashMap(d, decode_u32, decode_u64);
+      const fx = FxHashMap.with_capacity<number, bigint>(m.size, u32_key, LAYOUT_USIZE);
+      for (const [k, v] of m) fx.set(k, v);
+      return fx;
+    },
   ),
   // `(0..40).map(..).collect::<FxHashSet<_>>()` (exact size hint 40)
-  c("FxHashSet_u32", [FxHashSet.from_iter(range(0, 40).map((i) => i * 31), 40, u32_key) as Set<number>], (v, e) => encode_HashSet(v, e, encode_u32), (d) => decode_HashSet(d, decode_u32)),
+  c("FxHashSet_u32", [FxHashSet.from_iter(range(0, 40).map((i) => i * 31), 40, u32_key) as Set<number>], (v, e) => encode_HashSet(v, e, encode_u32), (d) => {
+    // `HashSet::decode` into an `FxHashSet` (serialize.rs:654), see `FxHashMap_u32_u64`
+    const s = decode_HashSet(d, decode_u32);
+    const fx = FxHashSet.with_capacity<number>(s.size, u32_key);
+    for (const t of s) fx.add(t);
+    return fx;
+  }),
   c(
     "FxIndexMap_String_u32",
     [new Map<string, number>([["b", 1], ["a", 1], ["c", 1], ["ä", 2]])],

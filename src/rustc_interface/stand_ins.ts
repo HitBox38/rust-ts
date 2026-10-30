@@ -126,8 +126,8 @@ export const CodegenBackend_provided = {
 export const ArArchiveBuilderBuilder: ArchiveBuilderBuilder = { __archive_builder_builder: "ArArchiveBuilderBuilder" };
 
 /**
- * PORT: `rustc_metadata::EncodedMetadata` (rmeta/encoder.rs), made by `encode_and_write_metadata` (rustc_metadata
- * fs.rs, not ported yet); only what the driver path reads of it.
+ * PORT: `rustc_metadata::EncodedMetadata` (rmeta/encoder.rs, not ported yet), made by `encode_and_write_metadata`
+ * (rustc_metadata fs.rs); only what the driver path reads of it.
  */
 export interface EncodedMetadata {
   path(): string | undefined;

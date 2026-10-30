@@ -4,12 +4,12 @@ import { debug_Size, Size } from "../../rustc_abi/lib.ts";
 import { try_visit } from "../../rustc_ast_ir/visit.ts";
 import { type AllocId, clone_AllocId, debug_AllocId } from "./interpret/mod.ts";
 import { clone_CtfeProvenance, type CtfeProvenance, debug_CtfeProvenance } from "./interpret/pointer.ts";
-import { clone_Scalar, debug_Scalar, decode_Scalar, type Scalar } from "./interpret/value.ts";
-import { debug_Promoted, decode_Promoted, type Promoted } from "./mod.ts";
-import { decode_AllocId, decode_CtfeProvenance, decode_GenericArgs, decode_Ty, decode_ty_Const, type TyDecoder } from "../ty/codec.ts";
+import { clone_Scalar, debug_Scalar, decode_Scalar, encode_Scalar, type Scalar } from "./interpret/value.ts";
+import { debug_Promoted, decode_Promoted, encode_Promoted, type Promoted } from "./mod.ts";
+import { decode_AllocId, decode_CtfeProvenance, decode_GenericArgs, decode_Ty, decode_ty_Const, encode_AllocId, encode_CtfeProvenance, encode_GenericArgs, encode_Ty, encode_ty_Const, type TyDecoder, type TyEncoder } from "../ty/codec.ts";
 import { debug_GenericArgs, fold_with_GenericArgs, type GenericArgs, try_fold_with_GenericArgs, visit_with_GenericArgs } from "../ty/generic_args.ts";
 import { debug_Ty, fold_with_Ty, try_fold_with_Ty, type Ty, visit_with_Ty } from "../ty/mod.ts";
-import { decode_Option, decode_u64 } from "../../rustc_serialize/serialize.ts";
+import { decode_Option, decode_u64, encode_Option, encode_u64 } from "../../rustc_serialize/serialize.ts";
 import { debug_DefId, type DefId } from "../../rustc_span/def_id.ts";
 import { type FallibleTypeFolder, fold_with_Option, fold_with_trivial, type FoldWith, try_fold_with_Option, try_fold_with_trivial, type TryFoldWith, type TypeFolder, type TypeVisitor, visit_with_Option, visit_with_trivial, type VisitWith } from "../../rustc_type_ir/fold.ts";
 import { type Const as ty_Const, debug_Const as debug_ty_Const, fold_with_Const as fold_with_ty_Const, try_fold_with_Const as try_fold_with_ty_Const, visit_with_Const as visit_with_ty_Const } from "../../rustc_type_ir/sty/consts.ts";
@@ -46,6 +46,11 @@ export function decode_ConstAlloc(__decoder: TyDecoder): ConstAlloc {
     alloc_id: decode_AllocId(__decoder),
     ty: decode_Ty(__decoder),
   };
+}
+// rustc-derive: compiler/rustc_middle/src/mir/consts.rs:24 TyEncodable for ConstAlloc
+export function encode_ConstAlloc(self: ConstAlloc, __encoder: TyEncoder): void {
+  encode_AllocId(self.alloc_id, __encoder);
+  encode_Ty(self.ty, __encoder);
 }
 
 // rustc-type: compiler/rustc_middle/src/mir/consts.rs:35 ConstValue
@@ -119,6 +124,38 @@ export function decode_ConstValue(__decoder: TyDecoder): ConstValue {
       return panic(`invalid enum variant tag while decoding \`ConstValue\`, expected 0..4, actual ${__tag}`);
   }
 }
+function ConstValue__variant_index(tag: ConstValue["$"]): number {
+  switch (tag) {
+    case "Scalar":
+      return 0;
+    case "ZeroSized":
+      return 1;
+    case "Slice":
+      return 2;
+    case "Indirect":
+      return 3;
+  }
+}
+// rustc-derive: compiler/rustc_middle/src/mir/consts.rs:35 TyEncodable for ConstValue
+export function encode_ConstValue(self: ConstValue, __encoder: TyEncoder): void {
+  const disc = ConstValue__variant_index(self.$);
+  __encoder.emit_u8(disc);
+  switch (self.$) {
+    case "Scalar":
+      encode_Scalar(self._0, __encoder, encode_CtfeProvenance);
+      break;
+    case "ZeroSized":
+      break;
+    case "Slice":
+      encode_AllocId(self.alloc_id, __encoder);
+      encode_u64(BigInt(self.meta), __encoder);
+      break;
+    case "Indirect":
+      encode_AllocId(self.alloc_id, __encoder);
+      encode_u64(BigInt(self.offset.raw), __encoder);
+      break;
+  }
+}
 
 // rustc-type: compiler/rustc_middle/src/mir/consts.rs:214 Const
 /// Constants
@@ -173,6 +210,35 @@ export function decode_Const(__decoder: TyDecoder): Const {
       return { $: "Val", _0: decode_ConstValue(__decoder), _1: decode_Ty(__decoder) };
     default:
       return panic(`invalid enum variant tag while decoding \`Const\`, expected 0..3, actual ${__tag}`);
+  }
+}
+function Const__variant_index(tag: Const["$"]): number {
+  switch (tag) {
+    case "Ty":
+      return 0;
+    case "Unevaluated":
+      return 1;
+    case "Val":
+      return 2;
+  }
+}
+// rustc-derive: compiler/rustc_middle/src/mir/consts.rs:214 TyEncodable for Const
+export function encode_Const(self: Const, __encoder: TyEncoder): void {
+  const disc = Const__variant_index(self.$);
+  __encoder.emit_u8(disc);
+  switch (self.$) {
+    case "Ty":
+      encode_Ty(self._0, __encoder);
+      encode_ty_Const(self._1, __encoder);
+      break;
+    case "Unevaluated":
+      encode_UnevaluatedConst(self._0, __encoder);
+      encode_Ty(self._1, __encoder);
+      break;
+    case "Val":
+      encode_ConstValue(self._0, __encoder);
+      encode_Ty(self._1, __encoder);
+      break;
   }
 }
 // rustc-derive: compiler/rustc_middle/src/mir/consts.rs:214 TypeVisitable for Const
@@ -253,6 +319,12 @@ export function clone_UnevaluatedConst(v: UnevaluatedConst): UnevaluatedConst {
 // rustc-derive: compiler/rustc_middle/src/mir/consts.rs:473 TyDecodable for UnevaluatedConst
 export function decode_UnevaluatedConst(__decoder: TyDecoder): UnevaluatedConst {
   return new UnevaluatedConst(__decoder.decode_def_id(), decode_GenericArgs(__decoder), decode_Option(__decoder, decode_Promoted));
+}
+// rustc-derive: compiler/rustc_middle/src/mir/consts.rs:473 TyEncodable for UnevaluatedConst
+export function encode_UnevaluatedConst(self: UnevaluatedConst, __encoder: TyEncoder): void {
+  __encoder.encode_def_id(self.def);
+  encode_GenericArgs(self.args, __encoder);
+  encode_Option(self.promoted, __encoder, encode_Promoted);
 }
 // rustc-derive: compiler/rustc_middle/src/mir/consts.rs:473 TypeVisitable for UnevaluatedConst
 export function visit_with_UnevaluatedConst<R>(self: UnevaluatedConst, __visitor: TypeVisitor<R>): R {

@@ -15,6 +15,7 @@ import * as eii from "./eii.ts";
 import * as entry from "./entry.ts";
 import * as lang_items from "./lang_items.ts";
 import * as lib_features from "./lib_features.ts";
+import * as reachable from "./reachable.ts";
 import * as stability from "./stability.ts";
 import * as upvars from "./upvars.ts";
 
@@ -39,7 +40,7 @@ export * as lang_items from "./lang_items.ts";
 // pub mod layout_test;
 export * as layout_test from "./layout_test.ts";
 // mod lib_features;           (private: imported above for `provide`)
-// mod reachable;               (not ported, M4)
+// mod reachable;             (private: imported above for `provide`)
 export * as stability from "./stability.ts";
 // mod upvars;                 (private: imported above for `provide`)
 export * as weak_lang_items from "./weak_lang_items.ts";
@@ -55,7 +56,7 @@ export function provide(providers: Providers): void {
   entry.provide(providers);
   lang_items.provide(providers);
   lib_features.provide(providers);
-  // reachable::provide(providers);
+  reachable.provide(providers);
   stability.provide(providers);
   upvars.provide(providers);
   check_export.provide(providers);

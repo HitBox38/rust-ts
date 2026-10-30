@@ -11,10 +11,10 @@
 import "../../mod.ts";
 import { Size } from "../../../../rustc_abi/lib.ts";
 import { bug } from "../../../../rustc_span/macros.ts";
-import { assert, panic } from "../../../../std/panic.ts";
+import { assert, panic, unported } from "../../../../std/panic.ts";
 import { Err, Ok, type Result } from "../../../../std/result.ts";
 import type { Hasher } from "../../../../vendor/rustc_stable_hash/lib.ts";
-import type { Decoder } from "../../../../rustc_serialize/serialize.ts";
+import type { Decoder, Encoder } from "../../../../rustc_serialize/serialize.ts";
 import type { Range } from "../../../ty/decls.ts";
 import { AllocRange_from_Range_Size, type AllocRange, MAX_BYTES_TO_HASH, MAX_HASHED_BUFFER_LEN } from "../allocation.ts";
 import * as gen from "./init_mask.gen.ts";
@@ -303,7 +303,25 @@ InitMask.prototype.get = function (this: InitMask, idx: Size): boolean {
 // `impl Decodable for InitMask` / `InitMaskBlocks`: derive(Decodable_NoContext) (init_mask.rs:22 / :28), generated in
 // init_mask.gen.ts (set rustc_middle_mir, lane meta-mir) and re-exported above.
 
-// rustc-skip: compiler/rustc_middle/src/mir/interpret/allocation/init_mask.rs:198 encode Encodable (metadata encoding, M5)
+// `Block` is a `u64`, but it is a bitmask not a numeric value. If we were to just derive
+// Encodable and Decodable we would apply varint encoding to the bitmasks, which is slower
+// and also produces more output when the high bits of each `u64` are occupied.
+// Note: There is probably a remaining optimization for masks that do not use an entire
+// `Block`.
+// impl<E: Encoder> Encodable<E> for InitMaskMaterialized
+// rustc: compiler/rustc_middle/src/mir/interpret/allocation/init_mask.rs:198 encode
+export function encode_InitMaskMaterialized<E extends Encoder>(self: InitMaskMaterialized, encoder: E): void {
+  // PORT (D6): `self.blocks.len()` is the number of upstream (u64) blocks, two words each
+  encoder.emit_usize(self.blocks.length / 2);
+  for (let block = 0; block < self.blocks.length / 2; block++) {
+    // `block.to_le_bytes()`: the low word, then the high word, each little-endian
+    const lo = self.blocks[2 * block]!;
+    const hi = self.blocks[2 * block + 1]!;
+    encoder.emit_raw_bytes(
+      new Uint8Array([lo & 0xff, (lo >>> 8) & 0xff, (lo >>> 16) & 0xff, lo >>> 24, hi & 0xff, (hi >>> 8) & 0xff, (hi >>> 16) & 0xff, hi >>> 24]),
+    );
+  }
+}
 
 // This implementation is deliberately not derived, see the matching `Encodable` impl.
 // rustc: compiler/rustc_middle/src/mir/interpret/allocation/init_mask.rs:208 decode

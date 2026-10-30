@@ -3,13 +3,13 @@
 import { try_visit } from "../../../rustc_ast_ir/visit.ts";
 import { clone_ConstAllocation, type ConstAllocation, debug_ConstAllocation } from "./allocation.ts";
 import { type AllocId, type AllocMap, clone_AllocId } from "./mod.ts";
-import { debug_Promoted, decode_Promoted, type Promoted } from "../mod.ts";
-import { decode_ConstAllocation, decode_List_PolyExistentialPredicate, decode_Ty, type TyDecoder } from "../../ty/codec.ts";
-import { debug_Instance, decode_Instance, fold_with_Instance, type Instance, try_fold_with_Instance, visit_with_Instance } from "../../ty/instance.ts";
+import { debug_Promoted, decode_Promoted, encode_Promoted, type Promoted } from "../mod.ts";
+import { decode_ConstAllocation, decode_List_PolyExistentialPredicate, decode_Ty, encode_ConstAllocation, encode_List, encode_PolyExistentialPredicate, encode_Ty, type TyDecoder, type TyEncoder } from "../../ty/codec.ts";
+import { debug_Instance, decode_Instance, encode_Instance, fold_with_Instance, type Instance, try_fold_with_Instance, visit_with_Instance } from "../../ty/instance.ts";
 import { debug_RawList, type List } from "../../ty/list.ts";
 import { debug_Ty, type Ty } from "../../ty/mod.ts";
 import { type PolyExistentialPredicate } from "../../ty/predicate.ts";
-import { decode_Option } from "../../../rustc_serialize/serialize.ts";
+import { decode_Option, encode_Option } from "../../../rustc_serialize/serialize.ts";
 import { debug_DefId, type DefId } from "../../../rustc_span/def_id.ts";
 import { debug_Binder } from "../../../rustc_type_ir/binder.ts";
 import { type FallibleTypeFolder, fold_with_Option, fold_with_trivial, type FoldWith, try_fold_with_Option, try_fold_with_trivial, type TryFoldWith, type TypeFolder, type TypeVisitor, visit_with_Option, visit_with_trivial, type VisitWith } from "../../../rustc_type_ir/fold.ts";
@@ -42,6 +42,11 @@ export function clone_GlobalId(v: GlobalId): GlobalId {
 // rustc-derive: compiler/rustc_middle/src/mir/interpret/mod.rs:56 TyDecodable for GlobalId
 export function decode_GlobalId(__decoder: TyDecoder): GlobalId {
   return new GlobalId(decode_Instance(__decoder), decode_Option(__decoder, decode_Promoted));
+}
+// rustc-derive: compiler/rustc_middle/src/mir/interpret/mod.rs:56 TyEncodable for GlobalId
+export function encode_GlobalId(self: GlobalId, __encoder: TyEncoder): void {
+  encode_Instance(self.instance, __encoder);
+  encode_Option(self.promoted, __encoder, encode_Promoted);
 }
 // rustc-derive: compiler/rustc_middle/src/mir/interpret/mod.rs:56 TypeVisitable for GlobalId
 export function visit_with_GlobalId<R>(self: GlobalId, __visitor: TypeVisitor<R>): R {
@@ -91,6 +96,25 @@ export function decode_AllocDiscriminant(__decoder: TyDecoder): AllocDiscriminan
     default:
       return panic(`invalid enum variant tag while decoding \`AllocDiscriminant\`, expected 0..5, actual ${__tag}`);
   }
+}
+function AllocDiscriminant__variant_index(tag: AllocDiscriminant): number {
+  switch (tag) {
+    case "Alloc":
+      return 0;
+    case "Fn":
+      return 1;
+    case "VTable":
+      return 2;
+    case "Static":
+      return 3;
+    case "Type":
+      return 4;
+  }
+}
+// rustc-derive: compiler/rustc_middle/src/mir/interpret/mod.rs:96 TyEncodable for AllocDiscriminant
+export function encode_AllocDiscriminant(self: AllocDiscriminant, __encoder: TyEncoder): void {
+  const disc = AllocDiscriminant__variant_index(self);
+  __encoder.emit_u8(disc);
 }
 
 // rustc-type: compiler/rustc_middle/src/mir/interpret/mod.rs:144 State
@@ -195,6 +219,43 @@ export function decode_GlobalAlloc(__decoder: TyDecoder): GlobalAlloc {
       return { $: "TypeId", ty: decode_Ty(__decoder) };
     default:
       return panic(`invalid enum variant tag while decoding \`GlobalAlloc\`, expected 0..5, actual ${__tag}`);
+  }
+}
+function GlobalAlloc__variant_index(tag: GlobalAlloc["$"]): number {
+  switch (tag) {
+    case "Function":
+      return 0;
+    case "VTable":
+      return 1;
+    case "Static":
+      return 2;
+    case "Memory":
+      return 3;
+    case "TypeId":
+      return 4;
+  }
+}
+// rustc-derive: compiler/rustc_middle/src/mir/interpret/mod.rs:255 TyEncodable for GlobalAlloc
+export function encode_GlobalAlloc(self: GlobalAlloc, __encoder: TyEncoder): void {
+  const disc = GlobalAlloc__variant_index(self.$);
+  __encoder.emit_u8(disc);
+  switch (self.$) {
+    case "Function":
+      encode_Instance(self.instance, __encoder);
+      break;
+    case "VTable":
+      encode_Ty(self._0, __encoder);
+      encode_List(self._1, __encoder, encode_PolyExistentialPredicate);
+      break;
+    case "Static":
+      __encoder.encode_def_id(self._0);
+      break;
+    case "Memory":
+      encode_ConstAllocation(self._0, __encoder);
+      break;
+    case "TypeId":
+      encode_Ty(self.ty, __encoder);
+      break;
   }
 }
 

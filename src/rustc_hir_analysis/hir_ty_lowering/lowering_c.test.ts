@@ -20,7 +20,7 @@ import type { Res } from "../../rustc_hir/def.ts";
 import { HirId_make_owner } from "../../rustc_hir_id/lib.ts";
 import { CommonLifetimes, CommonTypes, CtxtInterners, type GlobalCtxt, TyCtxt } from "../../rustc_middle/ty/context.ts";
 import type { GenericArg } from "../../rustc_middle/ty/generic_args.ts";
-import { type GenericParamDef, Generics } from "../../rustc_middle/ty/generics.ts";
+import { type GenericParamDef, FxHashMap_DefId_u32, Generics } from "../../rustc_middle/ty/generics.ts";
 import { Ty } from "../../rustc_middle/ty/mod.ts";
 import type { Clause } from "../../rustc_middle/ty/predicate.ts";
 import { DefId, DefIndex, LOCAL_CRATE, LocalDefId } from "../../rustc_span/def_id.ts";
@@ -85,7 +85,7 @@ const TY: GenericParamDef["kind"] = { $: "Type", has_default: false, synthetic: 
 const CT: GenericParamDef["kind"] = { $: "Const", has_default: false };
 
 function generics(own_params: GenericParamDef[], has_late_bound_regions: Span | undefined = undefined): Generics {
-  return new Generics(undefined, 0, own_params, new Map(), false, has_late_bound_regions);
+  return new Generics(undefined, 0, own_params, FxHashMap_DefId_u32.with_capacity(0), false, has_late_bound_regions);
 }
 
 /** A trait object over a test vtable: `tcx()` / `dcx()` answer, every other trait method stops. */
@@ -251,8 +251,8 @@ describe("generics.rs", () => {
 
   test_("lower_generic_args: parent args, Self and inference", () => {
     const { sm, dcx } = setup("x.rs", "\n");
-    const parent = new Generics(undefined, 0, [param("Self", 0, TY), param("P", 1, TY)], new Map(), true, undefined);
-    const child = new Generics(did(1), 2, [param("'c", 2, LT), param("C", 3, TY)], new Map(), false, undefined);
+    const parent = new Generics(undefined, 0, [param("Self", 0, TY), param("P", 1, TY)], FxHashMap_DefId_u32.with_capacity(0), true, undefined);
+    const child = new Generics(did(1), 2, [param("'c", 2, LT), param("C", 3, TY)], FxHashMap_DefId_u32.with_capacity(0), false, undefined);
     const tcx = fake_tcx(sm, child, { generics_of: (d: DefId) => (d.index === did(1).index ? parent : child) });
     const cx = lowerer(tcx, dcx);
     // parent args cover `Self` and `P`; `'c` is inferred (no lifetime given), `C` provided.

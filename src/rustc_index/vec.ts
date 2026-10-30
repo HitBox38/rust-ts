@@ -8,7 +8,7 @@
 // `&mut T` results (`ensure_contains_elem`, `get_or_insert_with`) are the element itself (see slice.ts).
 import { type Debug, debug_map, type Fmt } from "../std/fmt.ts";
 import { assert } from "../std/panic.ts";
-import { type Decoder, decode_Vec, type Decodable } from "../rustc_serialize/serialize.ts";
+import { type Decoder, decode_Vec, type Decodable, type Encodable, type Encoder, encode_Vec } from "../rustc_serialize/serialize.ts";
 import type { RangeBounds } from "./idx.ts";
 import { IndexSlice } from "./slice.ts";
 
@@ -349,7 +349,11 @@ export const IndexVec = {
     return IndexVec.from_raw(array.slice());
   },
 
-  // rustc-skip: compiler/rustc_index/src/vec.rs:372 encode Encodable (metadata encoding is M5)
+  // impl<S: Encoder, I: Idx, T: Encodable<S>> Encodable<S> for IndexVec<I, T>
+  // rustc: compiler/rustc_index/src/vec.rs:372 encode
+  encode<T, S extends Encoder>(self: readonly T[], s: S, encode_T: Encodable<T, S>): void {
+    encode_Vec(self, s, encode_T);
+  },
 
   // impl<D: Decoder, I: Idx, T: Decodable<D>> Decodable<D> for IndexVec<I, T>
   // rustc: compiler/rustc_index/src/vec.rs:379 decode

@@ -16,6 +16,8 @@ import { dominators, type Dominators } from "../../rustc_data_structures/graph/d
 import type { ControlFlowGraph } from "../../rustc_data_structures/graph/mod.ts";
 import type { StableHashCtxt, StableHasher } from "../../rustc_data_structures/stable_hash.ts";
 import type { TyDecoder } from "../ty/codec.ts";
+import type { Encoder } from "../../rustc_serialize/serialize.ts";
+import { unported } from "../../std/panic.ts";
 import { BasicBlocks, type Cache, type Predecessors } from "./basic_blocks.gen.ts";
 import { type BasicBlock, type BasicBlockData, START_BLOCK } from "./mod.gen.ts";
 import { Postorder } from "./traversal.ts";
@@ -175,7 +177,10 @@ BasicBlocks.prototype.predecessors = function (this: BasicBlocks, node?: BasicBl
 // Done here instead of in `structural_impls.rs` because `Cache` is private, as is `basic_blocks`.
 // TrivialTypeTraversalImpls! { Cache } (tools/codegen/type_fold.json `trivial`)
 
-// rustc-skip: compiler/rustc_middle/src/mir/basic_blocks.rs:156 encode Encodable (metadata encoding, M5)
+// impl<S: Encoder> Encodable<S> for Cache
+// #[inline]
+// rustc: compiler/rustc_middle/src/mir/basic_blocks.rs:156 encode
+export function encode_Cache(_self: Cache, _s: Encoder): void {}
 
 // impl<D: Decoder> Decodable<D> for Cache
 // rustc: compiler/rustc_middle/src/mir/basic_blocks.rs:161 decode

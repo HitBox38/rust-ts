@@ -140,6 +140,9 @@ export const VisitorResult = {
 //     let r: R | undefined;
 //     if ((r = try_visit(visitor.Result, e)) !== undefined) return r;
 export function try_visit<R, Residual>(R_: VisitorResult<R, Residual>, e: R): R | undefined {
+  // PORT: (perf) `()` is by far the most common `VisitorResult`; its `branch` is answered inline (same check, same
+  // panic) instead of through the megamorphic `R_.branch` call.
+  if ((R_ as unknown) === VisitorResult_unit && e === undefined) return undefined;
   const b = R_.branch(e);
   if (b.$ === "Break") return R_.from_residual(b._0);
   return undefined;

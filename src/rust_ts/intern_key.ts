@@ -192,7 +192,9 @@ function eq_obj(a: object | null, b: object | null): boolean {
   const ia = (a as { readonly [INTERNED]?: true })[INTERNED] === true;
   const ib = (b as { readonly [INTERNED]?: true })[INTERNED] === true;
   if (ia || ib) {
-    if (ia && ib) return "" + (a as { readonly id?: number }).id === "" + (b as { readonly id?: number }).id;
+    // PORT: (perf) ids are integers, on which `String` is injective: `===` gives the same answer as comparing the
+    // `#<id>` key texts, without building them.
+    if (ia && ib) return (a as { readonly id?: number }).id === (b as { readonly id?: number }).id;
     walk(a);
     walk(b);
     return false;
@@ -219,6 +221,29 @@ function eq_obj(a: object | null, b: object | null): boolean {
   const ka = Object.keys(a);
   const kb = Object.keys(b);
   let eq = true;
+  if (same_names(ka, kb)) {
+    // PORT: (perf) the usual case, both objects with the same field names in the same order: the two loops below
+    // pair up field by field. Same result and the same nodes visited (only `FALLBACK` can be thrown, so the
+    // visiting order does not matter).
+    for (let i = 0; i < ka.length; i++) {
+      const k = ka[i]!;
+      check_name(k);
+      const fa = ra[k];
+      const fb = rb[k];
+      if (fa === undefined) {
+        if (fb !== undefined) {
+          walk(fb);
+          eq = false;
+        }
+      } else if (fb === undefined) {
+        walk(fa);
+        eq = false;
+      } else {
+        eq = eq_rec(fa, fb) && eq;
+      }
+    }
+    return eq;
+  }
   for (let i = 0; i < ka.length; i++) {
     const k = ka[i]!;
     check_name(k);
@@ -244,6 +269,12 @@ function eq_obj(a: object | null, b: object | null): boolean {
     }
   }
   return eq;
+}
+
+function same_names(ka: readonly string[], kb: readonly string[]): boolean {
+  if (ka.length !== kb.length) return false;
+  for (let i = 0; i < ka.length; i++) if (ka[i] !== kb[i]) return false;
+  return true;
 }
 
 /** `intern_key(a) === intern_key(b)` (same result, same panics), without building the keys (comment above). */

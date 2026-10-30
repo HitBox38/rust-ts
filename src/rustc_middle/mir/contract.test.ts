@@ -134,8 +134,9 @@ test("every fn of the mir files is ported or declared as a stub (visit.rs: once 
 test("stubs per fill lane (the split table of docs/handoff/mir-contract.md)", () => {
   const per = new Map<string, number>();
   for (const d of decls.filter((d) => d.kind === "stub")) per.set(d.lane!, (per.get(d.lane!) ?? 0) + 1);
-  expect(Object.fromEntries([...per].sort())).toEqual({
-  });
+  // the 7 hand `Encodable` impls of mir/ (former `rustc-skip:` markers; lane encode-contract, plan-m5 D3) are ported (lane
+  // encode-middle): no stubs left
+  expect(Object.fromEntries([...per].sort())).toEqual({});
 });
 
 /** Modules that may be imported from outside mir/ (mir/mod.ts header): each loads as a fresh entry point. */

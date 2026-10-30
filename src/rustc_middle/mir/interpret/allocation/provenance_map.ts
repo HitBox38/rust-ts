@@ -16,7 +16,7 @@ import { type RangeBounds, range, SortedMap } from "../../../../rustc_data_struc
 import { range_from, range_to } from "../../../../rustc_index/idx.ts";
 import { assert, panic, unported, unwrap } from "../../../../std/panic.ts";
 import { Err, Ok } from "../../../../std/result.ts";
-import { type Decoder, decode_tuple, decode_u64, decode_Vec } from "../../../../rustc_serialize/serialize.ts";
+import { type Decoder, decode_tuple, decode_u64, decode_Vec, type Encodable, type Encoder, encode_tuple, encode_u64, encode_Vec } from "../../../../rustc_serialize/serialize.ts";
 import type { Range } from "../../../ty/decls.ts";
 import { type AllocRange, type AllocResult, alloc_range } from "../allocation.ts";
 import { type CtfeProvenance, type Provenance, Provenance_CtfeProvenance, provenance_of } from "../pointer.ts";
@@ -132,7 +132,18 @@ function decode_SortedMap_Size<D extends Decoder, V>(d: D, decode_V: (d: D) => V
   return new SortedMap(data, cmp_Size);
 }
 
-// rustc-skip: compiler/rustc_middle/src/mir/interpret/allocation/provenance_map.rs:53 encode Encodable (metadata encoding, M5)
+// impl<Prov: Provenance, S: Encoder> Encodable<S> for ProvenanceMap<Prov>
+// rustc: compiler/rustc_middle/src/mir/interpret/allocation/provenance_map.rs:53 encode
+export function encode_ProvenanceMap<Prov, S extends Encoder>(self: ProvenanceMap<Prov>, s: S, encode_Prov: Encodable<Prov, S>): void {
+  const { ptrs, bytes } = self;
+  assert(bytes === undefined, "assertion failed: bytes.is_none()"); // interning refuses allocations with pointer fragments
+  encode_SortedMap_Size(ptrs, s, encode_Prov);
+}
+/** PORT: the encode half of `decode_SortedMap_Size`: `derive(Encodable_NoContext)` of `SortedMap<K, V> { data: Vec<(K, V)> }`
+ *  at `K = Size` (`Size { raw: u64 }`), hand-expanded. */
+function encode_SortedMap_Size<S extends Encoder, V>(self: SortedMap<Size, V>, s: S, encode_V: Encodable<V, S>): void {
+  encode_Vec(self.data, s, (v: [Size, V], s: S) => encode_tuple(v, s, (sz: Size, s: S) => encode_u64(BigInt(sz.raw), s), encode_V));
+}
 
 // rustc: compiler/rustc_middle/src/mir/interpret/allocation/provenance_map.rs:61 new
 (ProvenanceMap as unknown as { new: typeof ProvenanceMap.new }).new = function <Prov>(): ProvenanceMap<Prov> {

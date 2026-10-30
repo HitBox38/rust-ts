@@ -3,7 +3,7 @@
 // index (`read_u8`, or `read_usize` from 255 variants on), then that variant's fields. `encode_<T>` writes the same.
 // Only function declarations: hand modules may import from here inside an import cycle.
 import { BitMatrix, DenseBitSet } from "./bit_set.ts";
-import { decode_PhantomData, decode_u64, decode_usize, decode_Vec, type Decoder } from "../rustc_serialize/serialize.ts";
+import { decode_PhantomData, decode_u64, decode_usize, decode_Vec, type Decoder, encode_PhantomData, encode_slice, encode_u64, encode_usize, encode_Vec, type Encoder } from "../rustc_serialize/serialize.ts";
 
 // rustc-derive: compiler/rustc_index/src/bit_set.rs:79 Decodable_NoContext for DenseBitSet
 export function decode_DenseBitSet(__decoder: Decoder): DenseBitSet {
@@ -11,6 +11,12 @@ export function decode_DenseBitSet(__decoder: Decoder): DenseBitSet {
   const __1 = decode_Vec(__decoder, decode_u64);
   const __2 = decode_PhantomData(__decoder);
   return DenseBitSet.from_u64_words(__0, __1);
+}
+// rustc-derive: compiler/rustc_index/src/bit_set.rs:79 Encodable_NoContext for DenseBitSet
+export function encode_DenseBitSet(self: DenseBitSet, __encoder: Encoder): void {
+  encode_usize(self.domain_size_, __encoder);
+  encode_slice(self.to_u64_words(), __encoder, encode_u64);
+  encode_PhantomData(undefined, __encoder);
 }
 
 // rustc-derive: compiler/rustc_index/src/bit_set.rs:1310 Decodable_NoContext for BitMatrix
@@ -20,4 +26,11 @@ export function decode_BitMatrix(__decoder: Decoder): BitMatrix {
   const __2 = decode_Vec(__decoder, decode_u64);
   const __3 = decode_PhantomData(__decoder);
   return BitMatrix.from_u64_words(__0, __1, __2);
+}
+// rustc-derive: compiler/rustc_index/src/bit_set.rs:1310 Encodable_NoContext for BitMatrix
+export function encode_BitMatrix(self: BitMatrix, __encoder: Encoder): void {
+  encode_usize(self.num_rows, __encoder);
+  encode_usize(self.num_columns, __encoder);
+  encode_Vec(self.to_u64_words(), __encoder, encode_u64);
+  encode_PhantomData(undefined, __encoder);
 }

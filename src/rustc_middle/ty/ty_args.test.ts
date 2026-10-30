@@ -14,17 +14,15 @@ import type { BoundVar, BoundVariableKind, ClauseKind, ExistentialPredicate, Pol
 import { TypeVisitableExt } from "../../rustc_type_ir/visit.ts";
 import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
 import { Const, Region } from "../../rustc_type_ir/sty/mod.ts";
-import { KeyedMap } from "../../rust_ts/keyed.ts";
 import { Panic } from "../../std/panic.ts";
 import { INNERMOST } from "../../rustc_type_ir/decls.ts";
 import { CommonLifetimes, CommonTypes, CtxtInterners, type GlobalCtxt, TyCtxt } from "./context.ts";
 import type { DefPathHash } from "../../rustc_span/def_id.ts";
 import { fold_GenericArg, fold_GenericArgs, fold_List_Ty, GenericArg, type GenericArgs } from "./generic_args.ts";
-import { ConstConditions, GenericClauses, type GenericParamDef, GenericParamDef as GenericParamDefC, Generics } from "./generics.ts";
+import { ConstConditions, GenericClauses, type GenericParamDef, GenericParamDef as GenericParamDefC, FxHashMap_DefId_u32, Generics } from "./generics.ts";
 import { cmp_RawList, hash_RawList, partial_cmp_RawList, RawList } from "./list.ts";
 import { Term, Ty } from "./mod.ts";
 import { Clause, Clause_upcast_from_PolyTraitRef, ExistentialPredicate_stable_cmp, Predicate, Predicate_upcast_from_ClauseKind, Predicate_upcast_from_PredicateKind, Predicate_upcast_from_TraitRef, Clause_upcast_from_TraitRef, Predicate_upcast_from_Clause } from "./predicate.ts";
-import { DefId_hash_key } from "../query/caches.ts";
 
 function mk_tcx(): TyCtxt {
   const interners = CtxtInterners.new(undefined);
@@ -50,7 +48,7 @@ function mock_query(tcx: TyCtxt, name: string, f: (def_id: DefId) => unknown): v
 }
 
 function mk_generics(parent: DefId | undefined, parent_count: number, own_params: GenericParamDef[], has_self = false): Generics {
-  const m = new KeyedMap<DefId, number>(DefId_hash_key);
+  const m = FxHashMap_DefId_u32.with_capacity(own_params.length);
   for (const p of own_params) m.set(p.def_id, p.index);
   return new Generics(parent, parent_count, own_params, m, has_self, undefined);
 }

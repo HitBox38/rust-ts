@@ -14,8 +14,9 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { PLAIN, PRETTY, debug_int, debug_str } from "../std/fmt.ts";
 import { Unported } from "../std/panic.ts";
-import { clone_HashMap, FxHashMap, FxHashSet, LAYOUT_USIZE, String_key, debug_HashMap, debug_HashSet, u32_key } from "./hash_map.ts";
-import { FIXTURE_COUNT, FIXTURE_SEED, PROBE, digest, gen, probe, replay } from "./hash_map_oracle/scripts.ts";
+import { CrateNum, DefId, DefId_key, DefIndex } from "../rustc_span/def_id.ts";
+import { clone_HashMap, FxHashMap, FxHashSet, FxKeyedMap, LAYOUT_U32, LAYOUT_USIZE, String_key, debug_HashMap, debug_HashSet, u32_key } from "./hash_map.ts";
+import { FIXTURE_COUNT, FIXTURE_SEED, PROBE, digest, gen, gen_def, probe, replay } from "./hash_map_oracle/scripts.ts";
 
 const REQUIRE_PROBES = process.env.RUST_TS_REQUIRE_PROBES === "1";
 const SKIP = !existsSync(PROBE) && !REQUIRE_PROBES;
@@ -49,6 +50,56 @@ for (const seed of [2, 3]) {
     expect(first_mismatch(scripts, want, replay(scripts))).toBeUndefined();
   }, 120_000);
 }
+
+// `FxHashMap<DefId, u32>` as an `FxKeyedMap` (lane encode-middle: `Generics::param_def_id_to_index`, encoded in rmeta).
+test("fixture: FxKeyedMap<DefId, u32> iteration orders hash to the probe's (fx_order_def.txt)", () => {
+  const lines = readFileSync(join(import.meta.dir, "hash_map_oracle", "fx_order_def.txt"), "utf8")
+    .split("\n")
+    .filter((l) => l !== "" && !l.startsWith("#"));
+  expect(lines.length).toBe(1500);
+  const scripts = gen_def(FIXTURE_SEED, 1500);
+  const got = replay(scripts).map(digest);
+  const bad: string[] = [];
+  for (let i = 0; i < scripts.length; i++) if (got[i] !== lines[i] && bad.length < 3) bad.push(`script ${i}: ${scripts[i]!.slice(0, 200)}`);
+  expect(bad).toEqual([]);
+}, 120_000);
+
+test.skipIf(SKIP)("live probe: 2000 def scripts (seed 2) match the oracle", () => {
+  const scripts = gen_def(2, 2000);
+  const want = probe(scripts);
+  expect(want.length).toBe(scripts.length);
+  expect(first_mismatch(scripts, want, replay(scripts))).toBeUndefined();
+}, 120_000);
+
+test("FxKeyedMap keys by value and keeps the Map API in sync with the table", () => {
+  const def = (krate: number, index: number) => new DefId(DefIndex.from_u32(index), CrateNum.from_u32(krate));
+  const key = { hash: (k: DefId, state: Parameters<typeof u32_key.hash>[1]) => k.hash(state), size: 8, align: 4 };
+  const m = FxKeyedMap.from_iter_keyed(
+    Array.from({ length: 40 }, (_, i) => [def(i % 3, i * 7), i] as const),
+    40,
+    key,
+    LAYOUT_U32,
+    DefId_key,
+  );
+  const first = def(1, 7);
+  expect(m.stored_key(def(1, 7))).not.toBe(first);
+  m.set(def(1, 7), 100); // an equal key object: the stored one is kept
+  expect(m.size).toBe(40);
+  expect(m.get(def(1, 7))).toBe(100);
+  expect(m.has(def(2, 7 * 41))).toBe(false);
+  expect(m.delete(def(0, 0))).toBe(true);
+  expect(m.delete(def(0, 0))).toBe(false);
+  m.retain((k) => k.index % 2 === 0);
+  expect(m.size).toBe(m.base.len());
+  expect(m.has(def(1, 7))).toBe(false);
+  for (const [k, v] of m) expect(m.get(def(k.krate, k.index))).toBe(v);
+  const c = m.clone();
+  expect(c instanceof FxKeyedMap).toBe(true);
+  expect([...c]).toEqual([...m]);
+  expect(c.get(def(2, 14))).toBe(2);
+  m.clear();
+  expect([m.size, m.get(def(2, 14))]).toEqual([0, undefined]);
+});
 
 test("FxHashMap keeps the Map API in sync with the table", () => {
   const m = FxHashMap.default<string, number>(String_key, LAYOUT_USIZE);

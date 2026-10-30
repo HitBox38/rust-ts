@@ -24,12 +24,12 @@ import { debug_IoError } from "../../../std/io.ts";
 import { assert, assert_eq, panic, unported } from "../../../std/panic.ts";
 import { Err, Ok, type Result, unwrap_result } from "../../../std/result.ts";
 import type { Hasher } from "../../../vendor/rustc_stable_hash/lib.ts";
-import type { Decoder } from "../../../rustc_serialize/serialize.ts";
+import { type Decoder, type Encodable, type Encoder, encode_u8 } from "../../../rustc_serialize/serialize.ts";
 import type { Range } from "../../ty/decls.ts";
 import * as gen from "./allocation.gen.ts";
 import { AllocRange, type AllocFlags, type AllocInit, type AllocResult } from "./allocation.gen.ts";
-import { clone_InitMask, decode_InitMask, type InitCopy, InitMask } from "./allocation/init_mask.ts";
-import { clone_ProvenanceMap, decode_ProvenanceMap, type ProvenanceCopy, ProvenanceMap } from "./allocation/provenance_map.ts";
+import { clone_InitMask, decode_InitMask, encode_InitMask, type InitCopy, InitMask } from "./allocation/init_mask.ts";
+import { clone_ProvenanceMap, decode_ProvenanceMap, encode_ProvenanceMap, type ProvenanceCopy, ProvenanceMap } from "./allocation/provenance_map.ts";
 import { InterpErrorInfo_from_InterpErrorKind, type InterpErrorKind, InterpResult, interp_ok } from "./error.ts";
 import { type AllocId, read_target_uint, write_target_uint } from "./mod.ts";
 import { type CtfeProvenance, Pointer, type Provenance, Provenance_CtfeProvenance } from "./pointer.ts";
@@ -565,7 +565,30 @@ export function clone_Allocation<Prov, Extra, Bytes>(v: Allocation<Prov, Extra, 
   return new Allocation(clone_Bytes(v.bytes), clone_ProvenanceMap(v.provenance, clone_Prov), clone_InitMask(v.init_mask), v.align, v.mutability, clone_Extra(v.extra));
 }
 
-// rustc-skip: compiler/rustc_middle/src/mir/interpret/allocation.rs:129 encode Encodable (metadata encoding, M5)
+// impl<E: Encoder> Encodable<E> for AllocFlags
+// rustc: compiler/rustc_middle/src/mir/interpret/allocation.rs:129 encode
+export function encode_AllocFlags<E extends Encoder>(self: AllocFlags, encoder: E): void {
+  // Make sure Align::MAX can be stored with the high 2 bits unset.
+  // const {
+  //     let max_supported_align_repr = u8::MAX >> 2;
+  //     let max_supported_align = 1 << max_supported_align_repr;
+  //     assert!(Align::MAX.bytes() <= max_supported_align)
+  // }
+  // (a compile-time assertion: `Align::MAX` is 2^29 <= 2^63)
+
+  // `self.align.bytes().trailing_zeros() as u8`
+  let flags = 31 - Math.clz32(self.align.bytes() & -self.align.bytes());
+  switch (self.mutability) {
+    case "Not":
+      flags |= 0;
+      break;
+    case "Mut":
+      flags |= 1 << 6;
+      break;
+  }
+  flags |= (self.all_zero ? 1 : 0) << 7;
+  encode_u8(flags, encoder);
+}
 
 // impl<D: Decoder> Decodable<D> for AllocFlags
 // rustc: compiler/rustc_middle/src/mir/interpret/allocation.rs:148 decode
@@ -596,7 +619,6 @@ export function decode_AllocFlags<D extends Decoder>(decoder: D): AllocFlags {
 /// optimized a little, because for many allocations the encoding of the actual bytes does not
 /// dominate runtime.
 // #[inline]
-// PORT: only used by the (skipped) `Encodable` impl.
 // rustc: compiler/rustc_middle/src/mir/interpret/allocation.rs:171 all_zero
 export function all_zero(buf: Uint8Array): boolean {
   // In the empty case we wouldn't encode any contents even without this system where we
@@ -618,7 +640,27 @@ export function all_zero(buf: Uint8Array): boolean {
 }
 
 /// Custom encoder for [`Allocation`] to more efficiently represent the case where all bytes are 0.
-// rustc-skip: compiler/rustc_middle/src/mir/interpret/allocation.rs:194 encode Encodable (metadata encoding, M5)
+// impl<Prov: Provenance, Extra, E: Encoder> Encodable<E> for Allocation<Prov, Extra, Box<[u8]>>
+// PORT: `ProvenanceMap<Prov>: Encodable<E>` is `encode_ProvenanceMap` with `encode_Prov`; `Extra: Encodable<E>` is
+// `encode_Extra`.
+// rustc: compiler/rustc_middle/src/mir/interpret/allocation.rs:194 encode
+export function encode_Allocation<E extends Encoder, Prov, Extra>(
+  self: Allocation<Prov, Extra, Uint8Array>,
+  encoder: E,
+  encode_Prov: Encodable<Prov, E>,
+  encode_Extra: Encodable<Extra, E>,
+): void {
+  const all_zero_ = all_zero(self.bytes);
+  encode_AllocFlags({ align: self.align, mutability: self.mutability, all_zero: all_zero_ }, encoder);
+
+  encoder.emit_usize(self.bytes.length);
+  if (!all_zero_) {
+    encoder.emit_raw_bytes(self.bytes);
+  }
+  encode_ProvenanceMap(self.provenance, encoder, encode_Prov);
+  encode_InitMask(self.init_mask, encoder);
+  encode_Extra(self.extra, encoder);
+}
 
 // impl<Prov: Provenance, Extra, D: Decoder> Decodable<D> for Allocation<Prov, Extra, Box<[u8]>>
 // rustc: compiler/rustc_middle/src/mir/interpret/allocation.rs:213 decode

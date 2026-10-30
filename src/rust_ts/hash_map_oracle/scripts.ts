@@ -11,13 +11,18 @@
 // must not change without regenerating the fixture with the probe built
 // (`bun scripts/probes.ts build fxorder`):
 //   bun src/rust_ts/hash_map_oracle/scripts.ts fixture 1 6000 > src/rust_ts/hash_map_oracle/fx_order.txt
+//
+// The `def` kind (`FxHashMap<DefId, u32>`, `Generics::param_def_id_to_index`; lane encode-middle) has its own scripts
+// (`gen_def`: `gen`'s generator with the kind forced, so `gen` is unchanged) and fixture, fx_order_def.txt:
+//   bun src/rust_ts/hash_map_oracle/scripts.ts fixture-def 1 1500 > src/rust_ts/hash_map_oracle/fx_order_def.txt
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { DATA } from "../../../scripts/lib/common.ts";
+import { CrateNum, DefId, DefId_key, DefIndex } from "../../rustc_span/def_id.ts";
 import { create_default_session_globals_then } from "../../rustc_span/lib.ts";
 import { Symbol } from "../../rustc_span/symbol.ts";
-import { FxHashMap, FxHashSet, type KeyType, LAYOUT_USIZE, String_key, u32_key, u8_key } from "../hash_map.ts";
+import { FxHashMap, FxHashSet, FxKeyedMap, type KeyType, LAYOUT_U32, LAYOUT_USIZE, type Layout, String_key, u32_key, u8_key } from "../hash_map.ts";
 
 export const PROBE = join(DATA, "target", "probes", "release", "fxorder" + (process.platform === "win32" ? ".exe" : ""));
 
@@ -40,15 +45,17 @@ const unhex = (t: string): string => (t === "_" ? "" : dec.decode(new Uint8Array
 const bytesum = (s: string): number => enc.encode(s).reduce((a, b) => a + b, 0);
 
 const KINDS = ["u32", "str", "sym", "su32", "su8", "ssym"] as const;
-type Kind = (typeof KINDS)[number];
+/** `def` is not drawn by `gen` (its fixture predates it): `gen_def` forces it. */
+type Kind = (typeof KINDS)[number] | "def";
 
 // Symbols the oracle pre-interns (keywords and `sym::` names) mixed with fresh ones.
 const PREDEFINED = ["fn", "self", "Self", "u8", "u32", "values", "hide", "show", "doc", "cfg", "test", "unix", "windows", "feature", "x", "y", "a", "b", "_", "crate", "super", "main", "std", "core"];
 const CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-.é✓日𝔘";
 
 /** One random script `<kind> <op> ...`. */
-function script(r: () => number): string {
-  const kind = KINDS[Math.floor(r() * KINDS.length)]!;
+function script(r: () => number, force?: Kind): string {
+  const drawn = KINDS[Math.floor(r() * KINDS.length)]!;
+  const kind = force ?? drawn;
   const int = (n: number) => Math.floor(r() * n);
   // Key universe of this script.
   const mode = int(4);
@@ -79,6 +86,18 @@ function script(r: () => number): string {
       }
       case "ssym":
         return hex(r() < 0.3 ? PREDEFINED[int(PREDEFINED.length)]! : "s" + int(mode === 0 ? 40 : 3000));
+      case "def":
+        // `<krate>.<index>`; `DefIndex` / `CrateNum` stay <= 0xFFFF_FF00
+        switch (mode) {
+          case 0:
+            return `0.${int(64)}`;
+          case 1:
+            return `${int(3)}.${int(4096)}`;
+          case 2:
+            return `${int(2)}.${(int(512) * 0x10000) >>> 0}`; // equal low bits
+          default:
+            return `${int(1000)}.${Math.floor(r() * 0xffff_ff00)}`;
+        }
     }
   };
   const live: string[] = [];
@@ -195,11 +214,21 @@ export function gen(seed: number, count: number): string[] {
   return Array.from({ length: count }, () => script(r));
 }
 
+/** `gen`'s scripts with every kind forced to `def`. */
+export function gen_def(seed: number, count: number): string[] {
+  const r = rng(seed);
+  return Array.from({ length: count }, () => script(r, "def"));
+}
+
 interface Ops<K> {
   parse(tok: string): K;
   token(k: K): string;
   keynum(k: K): number;
   key: KeyType<K>;
+  /** maps: the value's layout (default `usize`) */
+  value?: Layout;
+  /** maps keyed by value (`FxKeyedMap`): the canonical key */
+  canon?: (k: K) => string | number;
 }
 
 const U32: Ops<number> = { parse: (t) => Number(t), token: String, keynum: (k) => k, key: u32_key };
@@ -212,11 +241,28 @@ const SYM: Ops<Symbol> = {
   key: u32_key,
 };
 
+/** `DefId` (`Hash`: one `u64`, def_id.rs:269; `#[repr(C)]` of two `u32`s), in an `FxHashMap<DefId, u32>`. */
+const DEF: Ops<DefId> = {
+  parse: (t) => {
+    const [krate, index] = t.split(".");
+    return new DefId(DefIndex.from_u32(Number(index)), CrateNum.from_u32(Number(krate)));
+  },
+  token: (k) => `${k.krate}.${k.index}`,
+  keynum: (k) => k.krate + k.index,
+  key: { hash: (k, state) => k.hash(state), size: 8, align: 4 },
+  value: LAYOUT_U32,
+  canon: DefId_key,
+};
+
 const list = <K>(o: Ops<K>, s: string): K[] => (s === "" ? [] : s.split(",").map(o.parse));
 const state = <K>(cap: number, ks: Iterable<K>, o: Ops<K>): string => `${cap}:${[...ks].map(o.token).join(",")}`;
 
 function run_map<K>(o: Ops<K>, ops: string[]): string {
-  let m = FxHashMap.default<K, number>(o.key, LAYOUT_USIZE);
+  const value = o.value ?? LAYOUT_USIZE;
+  const canon = o.canon;
+  const with_capacity = (n: number): FxHashMap<K, number> =>
+    canon ? FxKeyedMap.with_capacity_keyed<K, number>(n, o.key, value, canon) : FxHashMap.with_capacity<K, number>(n, o.key, value);
+  let m = canon ? new FxKeyedMap<K, number>(o.key, value, canon) : FxHashMap.default<K, number>(o.key, value);
   const out: string[] = [];
   ops.forEach((op, i) => {
     const c = op[0]!;
@@ -258,11 +304,13 @@ function run_map<K>(o: Ops<K>, ops: string[]): string {
         break;
       case "F": {
         const ks = list(o, rest);
-        m = FxHashMap.from_iter(ks.map((k) => [k, i] as const), ks.length, o.key, LAYOUT_USIZE);
+        m = canon
+          ? FxKeyedMap.from_iter_keyed(ks.map((k) => [k, i] as const), ks.length, o.key, value, canon)
+          : FxHashMap.from_iter(ks.map((k) => [k, i] as const), ks.length, o.key, value);
         break;
       }
       case "W":
-        m = FxHashMap.with_capacity<K, number>(Number(rest), o.key, LAYOUT_USIZE);
+        m = with_capacity(Number(rest));
         break;
       case "p":
         out.push(state(m.capacity(), m.keys(), o));
@@ -353,6 +401,8 @@ export function replay(scripts: readonly string[]): string[] {
           return run_set(U8, ops);
         case "ssym":
           return run_set(SYM, ops);
+        case "def":
+          return run_map(DEF, ops);
       }
     }),
   );
@@ -378,16 +428,16 @@ export function probe(scripts: readonly string[]): string[] {
 
 if (import.meta.main) {
   const [cmd, seed, count] = process.argv.slice(2);
-  const scripts = gen(Number(seed), Number(count));
+  const scripts = (cmd === "fixture-def" ? gen_def : gen)(Number(seed), Number(count));
   if (cmd === "gen") {
     process.stdout.write(scripts.map((s) => s + "\n").join(""));
-  } else if (cmd === "fixture") {
+  } else if (cmd === "fixture" || cmd === "fixture-def") {
     const answers = probe(scripts);
     if (answers.length !== scripts.length) throw new Error("ERROR: fxorder answered a different number of scripts");
-    process.stdout.write(`# fxorder answers (SHA-256 prefixes) to scripts.ts gen(${seed}, ${count}); see scripts.ts\n`);
+    process.stdout.write(`# fxorder answers (SHA-256 prefixes) to scripts.ts ${cmd === "fixture" ? "gen" : "gen_def"}(${seed}, ${count}); see scripts.ts\n`);
     process.stdout.write(answers.map((a) => digest(a) + "\n").join(""));
   } else {
-    console.log("ERROR: usage: scripts.ts gen|fixture <seed> <count>");
+    console.log("ERROR: usage: scripts.ts gen|fixture|fixture-def <seed> <count>");
     process.exit(2);
   }
 }

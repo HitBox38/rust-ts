@@ -207,9 +207,11 @@ declare module "./syntax.ts" {
  * crate to load, config.ts stops in options.gen.ts's TDZ).
  */
 function session_config(): typeof import("../../rustc_session/config.ts") {
+  if (session_config__m !== undefined) return session_config__m;
   require("../../rustc_session/lib.ts");
-  return require("../../rustc_session/config.ts") as typeof import("../../rustc_session/config.ts");
+  return (session_config__m = require("../../rustc_session/config.ts") as typeof import("../../rustc_session/config.ts"));
 }
+var session_config__m: typeof import("../../rustc_session/config.ts") | undefined; // PORT: (perf) lazy-require memo (precedent: perf-intern)
 
 /// Create the default set of MIR pretty-printing options from the CLI flags.
 // rustc: compiler/rustc_middle/src/mir/pretty.rs:60 from_cli
