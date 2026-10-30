@@ -32,11 +32,16 @@
 //   of `TyEncoder.predicate_shorthands` (rustc_middle ty/codec.ts).
 // - Generic `T: Encodable<EncodeContext>` arguments (`lazy`, `lazy_array`) take the element's `Encodable` fn
 //   (PORTING §5: generic trait bounds become function tables); `B: Borrow<T::Value>` is the value itself.
-import type { Attribute } from "../../rustc_attr_ir/attr.ts";
+import { Attribute, encode_Attribute } from "../../rustc_attr_ir/attr.ts";
+import { AttributeKind } from "../../rustc_attr_ir/data_structures.ts";
+import { EncodeCrossCrate } from "../../rustc_attr_ir/encode_cross_crate.ts";
+import { find_attr } from "../../rustc_attr_ir/lib.ts";
 import type { StrippedCfgItem } from "../../rustc_attr_ir/data_structures.ts";
 import type { LangItem } from "../../rustc_attr_ir/lang_items.ts";
 import type { ExportedSymbol, SymbolExportInfo } from "../../rustc_middle/middle/exported_symbols.ts";
 import type { ForeignModule, LinkagePreference, NativeLib } from "../../rustc_crate_store/lib.ts";
+import { Fingerprint } from "../../rustc_data_structures/fingerprint.ts";
+import { debug_Svh, Svh } from "../../rustc_data_structures/svh.ts";
 import type { Features } from "../../rustc_feature/unstable.ts";
 import { DefKind, encode_Namespace, encode_Res, Res } from "../../rustc_hir/def.ts";
 import { encode_OpaqueTyOrigin, encode_PreciseCapturingArgKind, type OpaqueTyOrigin, type PreciseCapturingArgKind } from "../../rustc_hir/hir.ts";
@@ -72,16 +77,20 @@ import type { EiiMap } from "../eii.ts";
 import { encode_VariantData } from "../decodable.gen.ts";
 import { Hash64 } from "../../rustc_hashes/lib.ts";
 import type { Body, Expr } from "../../rustc_hir/hir.ts";
+import { type Constness, Defaultness } from "../../rustc_hir/hir.ts";
 import type { DebuggerVisualizerFile } from "../../rustc_middle/middle/debugger_visualizer.ts";
 import type { FeatureStability } from "../../rustc_middle/middle/mod.ts";
-import type { AllocId } from "../../rustc_middle/mir/interpret/mod.ts";
+import type { EffectiveVisibilities } from "../../rustc_middle/middle/privacy.ts";
+import { type AllocId, specialized_encode_alloc_id } from "../../rustc_middle/mir/interpret/mod.ts";
 import type { Providers } from "../../rustc_middle/queries.gen.ts";
 import type { TyEncoder } from "../../rustc_middle/ty/codec.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import type { Ty } from "../../rustc_middle/ty/mod.ts";
 import { FileEncoder } from "../../rustc_serialize/opaque.ts";
 import { type Encodable, type Encoder, Encoder_provided, encode_bool, encode_HashMap, encode_Option, encode_String, encode_tuple, encode_u32, encode_usize, encode_Vec } from "../../rustc_serialize/serialize.ts";
+import { encode_u64 } from "../../rustc_serialize/serialize.ts";
 import type { DeniedPartialMitigation } from "../../rustc_session/options/mitigation_coverage.ts";
+import { Options_impl } from "../../rustc_session/config.ts";
 import type { TargetModifier } from "../../rustc_session/options.ts";
 import { encode_ExpnData, encode_ExpnHash, encode_Ident, encode_Transparency } from "../../rustc_span/decodable.gen.ts";
 import { CrateNum, type DefId, DefIndex, DefPathHash, debug_CrateNum, encode_LocalDefId, LOCAL_CRATE, LocalDefId, LocalModId } from "../../rustc_span/def_id.ts";
@@ -96,18 +105,15 @@ import { XxHash3_128 } from "../../vendor/twox_hash/lib.ts";
 import { encode_SpanTag } from "../decodable.gen.ts";
 import type { EiiMapEncodedKeyValue } from "../eii.ts";
 import { type DefPathHashMapRef, encode_DefPathHashMapRef } from "./def_path_hash_map.ts";
-import { type CrateDep, type CrateRoot, type CrateRootUnhashed, debug_LazyState, type ExpnDataTable, type ExpnHashTable, type IncoherentImpls, LazyArray, LazyState, type LazyTable, LazyValue, type ProcMacroData, SpanTag, type SpanKind, SYMBOL_OFFSET, SYMBOL_PREDEFINED, SYMBOL_STR, type SyntaxContextTable, type TableBuilders, type TraitImpls, RawDefId, type VariantData } from "./mod.ts";
-import { type Asyncness, type Constness, type CoroutineKind, fse_Option_LazyValue, TableBuilder } from "./table.ts";
+import { type CrateDep, CrateRoot, type CrateRootUnhashed, debug_LazyState, type ExpnDataTable, type ExpnHashTable, type IncoherentImpls, LazyArray, LazyState, type LazyTable, LazyValue, type ProcMacroData, SpanTag, type SpanKind, SYMBOL_OFFSET, SYMBOL_PREDEFINED, SYMBOL_STR, type SyntaxContextTable, type TableBuilders, type TraitImpls, RawDefId, type VariantData } from "./mod.ts";
+import { type Asyncness, type CoroutineKind, fse_Option_LazyValue, TableBuilder } from "./table.ts";
 // lane encoder-d
 import { closeSync, fstatSync, openSync, readFileSync, readSync, writeSync } from "node:fs";
-import { find_attr } from "../../rustc_attr_ir/lib.ts";
 import type { CanonicalSymbols } from "../../rustc_attr_ir/canonical_symbols.ts";
 import { clone_StrippedCfgItem, encode_StrippedCfgItem } from "../../rustc_attr_ir/data_structures.gen.ts";
 import { encode_LangItem } from "../../rustc_attr_ir/lang_items.gen.ts";
 import { encode_LinkagePreference } from "../../rustc_crate_store/cstore.gen.ts";
-import { Fingerprint } from "../../rustc_data_structures/fingerprint.ts";
 import { StableHasher, stable_hash_Fingerprint, stable_hash_Hash64 } from "../../rustc_data_structures/stable_hash.ts";
-import { Svh } from "../../rustc_data_structures/svh.ts";
 import { MacroKinds } from "../../rustc_hir/def.ts";
 import { id_to_string } from "../../rustc_hir_pretty/lib.ts";
 import { type DefPathData, encode_DefKey } from "../../rustc_hir_id/definitions.ts";
@@ -131,8 +137,10 @@ import { Err, Ok, unwrap_result } from "../../std/result.ts";
 import { encode_CrateDep, encode_CrateHeader, encode_IncoherentImpls, encode_ProcMacroKind, encode_TraitImpls } from "../decodable.gen.ts";
 import { FailCreateFileEncoder_diagnostic, FailWriteFile_diagnostic } from "../diagnostics.ts";
 import type { MaybeTempDir } from "../fs.ts";
-import type { Defaultness } from "./table.ts";
 import { type CrateHeader, CRATE_HASH_OFFSET, encode_LazyValue, METADATA_HEADER, type ProcMacroKind, ROOT_POS_OFFSET, rustc_version, TableBuilders_default, UNHASHED_POS_OFFSET } from "./mod.ts";
+import { sym } from "../../rustc_span/symbol.ts";
+import { encode_CrateRoot, encode_CrateRootUnhashed } from "../decodable.gen.ts";
+import { AttrFlags, TableBuilders_encode } from "./mod.ts";
 
 // rustc-type: compiler/rustc_metadata/src/rmeta/encoder.rs:52 EncodeContext
 export class EncodeContext implements TyEncoder {
@@ -571,16 +579,283 @@ export class EncodeContext implements TyEncoder {
     return adapted.encode(this.opaque);
   }
 
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:651 encode_crate_root (lane encoder-b)
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:651 encode_crate_root
   encode_crate_root(): [LazyValue<CrateRoot>, LazyValue<CrateRootUnhashed>] {
-    return unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_crate_root (lane encoder-b)");
+    const tcx = this.tcx;
+    const stats: [string, number][] = [];
+
+    // PORT: `macro_rules! stat { ($label, $f) => { let orig_pos = self.position(); let res = $f(); stats.push(($label,
+    // self.position() - orig_pos)); res } }` as a local closure.
+    const stat = <R>(label: string, f: () => R): R => {
+      const orig_pos = this.position();
+      const res = f();
+      stats.push([label, this.position() - orig_pos]);
+      return res;
+    };
+
+    // We have already encoded some things. Get their combined size from the current position.
+    stats.push(["preamble", this.position()]);
+
+    const externally_implementable_items = stat("externally-implementable-items", () => this.encode_externally_implementable_items());
+
+    const [crate_deps, dylib_dependency_formats] = stat("dep", () => [this.encode_crate_deps(), this.encode_dylib_dependency_formats()] as const);
+
+    const lib_features = stat("lib-features", () => this.encode_lib_features());
+
+    const stability_implications = stat("stability-implications", () => this.encode_stability_implications());
+
+    const [lang_items, lang_items_missing] = stat("lang-items", () => [this.encode_lang_items(), this.encode_lang_items_missing()] as const);
+
+    const stripped_cfg_items = stat("stripped-cfg-items", () => this.encode_stripped_cfg_items());
+
+    const diagnostic_items = stat("diagnostic-items", () => this.encode_diagnostic_items());
+
+    const canonical_symbols = stat("canonical-symbols", () => this.encode_canonical_symbols());
+
+    const fake_doc_items = stat("fake-doc-items", () => this.encode_fake_doc_items());
+
+    const native_libraries = stat("native-libs", () => this.encode_native_libraries());
+
+    const foreign_modules = stat("foreign-modules", () => this.encode_foreign_modules());
+
+    stat("def-path-table", () => this.encode_def_path_table());
+
+    // Encode the def IDs of traits, for rustdoc and diagnostics.
+    const traits = stat("traits", () => this.encode_traits());
+
+    // Encode the def IDs of impls, for coherence checking.
+    const impls = stat("impls", () => this.encode_impls());
+
+    const incoherent_impls = stat("incoherent-impls", () => this.encode_incoherent_impls());
+
+    stat("mir", () => this.encode_mir());
+
+    stat("def-ids", () => this.encode_def_ids());
+
+    const interpret_alloc_index = stat("interpret-alloc-index", () => {
+      const interpret_alloc_index: number[] = [];
+      let n = 0;
+      // trace!("beginning to encode alloc ids");
+      for (;;) {
+        const new_n = this.interpret_allocs.size;
+        // if we have found new ids, serialize those, too
+        if (n === new_n) {
+          // otherwise, abort
+          break;
+        }
+        // trace!("encoding {} further alloc ids", new_n - n);
+        // PORT: `self.interpret_allocs[idx]` indexes the `FxIndexSet`; the `Map`'s keys in insertion order are the
+        // set's elements by index (taken once per round: encoding only appends, past `new_n`).
+        const interpret_allocs = [...this.interpret_allocs.keys()];
+        for (let idx = n; idx < new_n; idx++) {
+          const id = interpret_allocs[idx]!;
+          const pos = this.position(); // `as u64`
+          interpret_alloc_index.push(pos);
+          specialized_encode_alloc_id(this, tcx, id);
+        }
+        n = new_n;
+      }
+      return this.lazy_array(interpret_alloc_index, (v, e) => encode_u64(BigInt(v), e));
+    });
+
+    // Encode the proc macro data. This affects `tables`, so we need to do this before we
+    // encode the tables. This overwrites def_keys, so it must happen after
+    // encode_def_path_table.
+    const proc_macro_data = stat("proc-macro-data", () => this.encode_proc_macros());
+
+    const tables = stat("tables", () => TableBuilders_encode(this.tables, this.opaque));
+
+    const debugger_visualizers = stat("debugger-visualizers", () => this.encode_debugger_visualizers());
+
+    const exportable_items = stat("exportable-items", () => this.encode_exportable_items());
+
+    const stable_order_of_exportable_impls = stat("exportable-items", () => this.encode_stable_order_of_exportable_impls());
+
+    // Encode exported symbols info. This is prefetched in `encode_metadata`.
+    const [exported_non_generic_symbols, exported_generic_symbols] = stat(
+      "exported-symbols",
+      () =>
+        [
+          this.encode_exported_symbols(tcx.exported_non_generic_symbols(LOCAL_CRATE) as readonly [ExportedSymbol, SymbolExportInfo][]),
+          this.encode_exported_symbols(tcx.exported_generic_symbols(LOCAL_CRATE) as readonly [ExportedSymbol, SymbolExportInfo][]),
+        ] as const,
+    );
+
+    // Encode the hygiene data.
+    // IMPORTANT: this *must* be the last thing that we encode (other than `SourceMap`). The
+    // process of encoding other items (e.g. `optimized_mir`) may cause us to load data from
+    // the incremental cache. If this causes us to deserialize a `Span`, then we may load
+    // additional `SyntaxContext`s into the global `HygieneData`. Therefore, we need to encode
+    // the hygiene data last to ensure that we encode any `SyntaxContext`s that might be used.
+    const [syntax_contexts, expn_data, expn_hashes] = stat("hygiene", () => this.encode_hygiene());
+
+    const def_path_hash_map = stat("def-path-hash-map", () => this.encode_def_path_hash_map());
+
+    // Encode source_map. This needs to be done last, because encoding `Span`s tells us which
+    // `SourceFiles` we actually need to encode.
+    const source_map = stat("source-map", () => this.encode_source_map());
+    const target_modifiers = stat("target-modifiers", () => this.encode_target_modifiers());
+    const denied_partial_mitigations = stat("denied-partial-mitigations", () => this.encode_enabled_denied_partial_mitigations());
+
+    const root = stat("crate-root", () => {
+      const attrs = tcx.hir_krate_attrs();
+      // PORT: `find_attr!(attrs, Kind)` (the boolean form, rustc_attr_ir lib.ts).
+      const has_attr = (kind: AttributeKind["$"]): boolean => find_attr(attrs, (k) => (k.$ === kind ? null : undefined)) !== undefined;
+      return this.lazy(
+        new CrateRoot(
+          /* header */ {
+            name: tcx.crate_name(LOCAL_CRATE),
+            triple: tcx.sess.opts.target_triple,
+            is_proc_macro_crate: proc_macro_data !== undefined,
+            is_stub: false,
+          },
+
+          /* stable_crate_id */ tcx.stable_crate_id(LOCAL_CRATE),
+          /* required_panic_strategy */ tcx.required_panic_strategy(LOCAL_CRATE),
+          /* panic_in_drop_strategy */ tcx.sess.opts.unstable_opts.panic_in_drop,
+          /* edition */ tcx.sess.edition(),
+          /* has_global_allocator */ tcx.has_global_allocator(LOCAL_CRATE),
+          /* has_alloc_error_handler */ tcx.has_alloc_error_handler(LOCAL_CRATE),
+          /* has_panic_handler */ tcx.has_panic_handler(LOCAL_CRATE),
+          /* has_default_lib_allocator */ has_attr("DefaultLibAllocator"),
+          externally_implementable_items,
+
+          crate_deps,
+          dylib_dependency_formats,
+          lib_features,
+          stability_implications,
+          lang_items,
+          lang_items_missing,
+          stripped_cfg_items,
+          diagnostic_items,
+          canonical_symbols,
+          fake_doc_items,
+          native_libraries,
+          foreign_modules,
+          traits,
+          impls,
+          incoherent_impls,
+          interpret_alloc_index,
+          proc_macro_data,
+
+          tables,
+          debugger_visualizers,
+
+          exportable_items,
+          stable_order_of_exportable_impls,
+          exported_non_generic_symbols,
+          exported_generic_symbols,
+
+          syntax_contexts,
+          expn_data,
+          expn_hashes,
+
+          def_path_hash_map,
+
+          source_map,
+          target_modifiers,
+          denied_partial_mitigations,
+
+          /* compiler_builtins */ has_attr("CompilerBuiltins"),
+          /* needs_allocator */ has_attr("NeedsAllocator"),
+          /* needs_panic_runtime */ has_attr("NeedsPanicRuntime"),
+          /* no_builtins */ has_attr("NoBuiltins"),
+          /* panic_runtime */ has_attr("PanicRuntime"),
+          /* profiler_runtime */ has_attr("ProfilerRuntime"),
+          /* symbol_mangling_version */ Options_impl.get_symbol_mangling_version(tcx.sess.opts),
+
+          /* specialization_enabled_in */ tcx.specialization_enabled_in(LOCAL_CRATE),
+        ),
+        encode_CrateRoot,
+      );
+    });
+
+    // By default the crate hash (SVH) is derived from the encoded metadata bytes. With
+    // `-Z metadata-crate-hash=no` we instead store the legacy HIR-based hash, which the
+    // `crate_hash` query computes directly without consulting `local_crate_hash`.
+    let hash: Svh;
+    if (tcx.sess.opts.unstable_opts.metadata_crate_hash) {
+      this.opaque.flush();
+      hash = Svh.new(Fingerprint.from_le_bytes(u128_to_le_bytes(this.metadata_hasher.finish_128())));
+    } else {
+      hash = tcx.crate_hash(LOCAL_CRATE);
+    }
+    // `tcx.untracked().local_crate_hash.set(hash).expect("local_crate_hash set twice")` (a `OnceLock`)
+    const untracked = tcx.untracked();
+    if (untracked.local_crate_hash !== undefined) {
+      panic(`local_crate_hash set twice: ${debug_Svh(hash, PLAIN)}`);
+    }
+    untracked.local_crate_hash = hash;
+
+    const unhashed = stat("final", () => {
+      // Indexed by dependency `CrateNum`, matching the numbering `encode_crate_deps` uses.
+      // Slot 0 (`LOCAL_CRATE`) is filler; this crate's own value is `extra_filename`.
+      const dep_extra_filenames: string[] = [""]; // `IndexVec::from_elem_n(String::new(), 1)`
+      if (!this.is_proc_macro) {
+        for (const cnum of this.tcx.crates(null)) {
+          const idx = dep_extra_filenames.push(this.tcx.extra_filename(cnum)) - 1;
+          // `assert_eq!(idx, cnum, "dep_extra_filenames must be indexed by CrateNum")`
+          if (idx !== CrateNum.as_usize(cnum)) {
+            panic(`assertion \`left == right\` failed: dep_extra_filenames must be indexed by CrateNum\n  left: ${debug_CrateNum(CrateNum.from_usize(idx), PLAIN)}\n right: ${debug_CrateNum(cnum, PLAIN)}`);
+          }
+        }
+      }
+
+      return this.lazy(
+        {
+          extra_filename: this.tcx.sess.opts.cg.extra_filename,
+          dep_extra_filenames,
+        },
+        encode_CrateRootUnhashed,
+      );
+    });
+
+    const total_bytes = this.position();
+
+    let computed_total_bytes = 0;
+    for (const [, size] of stats) computed_total_bytes += size;
+    assert_eq(total_bytes, computed_total_bytes, String);
+
+    if (tcx.sess.opts.unstable_opts.meta_stats) {
+      // PORT: `-Zmeta-stats` rewinds the metadata file to count its zero bytes and prints the table with
+      // `usize_with_underscores` (rustc_data_structures thousands.rs, not ported) and `{:4.1}` float formatting.
+      unported("rustc_metadata::rmeta::encoder::encode_crate_root: -Zmeta-stats (rustc_data_structures::thousands::usize_with_underscores)");
+    }
+
+    return [root, unhashed];
   }
 
   // ---- impl<'a, 'tcx> EncodeContext<'a, 'tcx> (second block, encoder.rs:1460) ----
 
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:1461 encode_attrs (lane encoder-b)
-  encode_attrs(_def_id: LocalDefId): void {
-    unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_attrs (lane encoder-b)");
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:1461 encode_attrs
+  encode_attrs(def_id: LocalDefId): void {
+    const tcx = this.tcx;
+    const state: AnalyzeAttrState = {
+      is_exported: (tcx.effective_visibilities(null) as EffectiveVisibilities<LocalDefId>).is_exported(def_id),
+      is_doc_hidden: false,
+    };
+    // PORT: `.iter().filter(|attr| analyze_attr(*attr, &mut state))` is lazy: `lazy_array` drives it, so `state` is
+    // updated while the attributes are encoded (a generator keeps that order).
+    const attr_iter = (function* () {
+      for (const attr of tcx.hir_attrs(tcx.local_def_id_to_hir_id(def_id))) {
+        if (analyze_attr(attr, state)) yield attr;
+      }
+    })();
+
+    // `record_array!(self.tables.attributes[def_id] <- attr_iter)`
+    {
+      const value = attr_iter;
+      const lazy = this.lazy_array(value, encode_Attribute);
+      this.tables.attributes.set_some(def_id, lazy);
+    }
+
+    let attr_flags = AttrFlags.empty();
+    if (state.is_doc_hidden) {
+      attr_flags = AttrFlags.union(attr_flags, AttrFlags.IS_DOC_HIDDEN);
+    }
+
+    // `record_value!(self.tables.attr_flags[def_id] <- attr_flags)`
+    this.tables.attr_flags.set(def_id, attr_flags);
   }
 
   // PORT: the table macros (encoder.rs:430-468) are expanded in place, keeping their evaluation order (the value, then
@@ -1708,6 +1983,13 @@ function usize_to_le_bytes(n: number): Uint8Array {
   return out;
 }
 
+/** `n.to_le_bytes()` of a `u128`. */
+function u128_to_le_bytes(n: bigint): Uint8Array {
+  const out = new Uint8Array(16);
+  for (let i = 0, m = n; i < 16; i++, m >>= 8n) out[i] = Number(m & 0xffn);
+  return out;
+}
+
 /** `SyntaxContextKey`'s `Encodable` (a tuple `(SyntaxContext, ExpnId, Transparency)`), the inverse of decoder.ts's
  * `decode_tuple_(d, decode_SyntaxContext, decode_ExpnId, decode_Transparency)`. */
 function encode_SyntaxContextKey(v: SyntaxContextKey, e: EncodeContext): void {
@@ -2033,34 +2315,241 @@ export interface AnalyzeAttrState {
 /// visibility: this is a piece of data that can be computed once per defid, and not once per
 /// attribute. Some attributes would only be usable downstream if they are public.
 // #[inline]
-// stub: compiler/rustc_metadata/src/rmeta/encoder.rs:945 analyze_attr (lane encoder-b)
-export function analyze_attr(_attr: Attribute, _state: AnalyzeAttrState): boolean {
-  return unported("rustc_metadata::rmeta::encoder::analyze_attr (lane encoder-b)");
+// rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:945 analyze_attr
+export function analyze_attr(attr: Attribute, state: AnalyzeAttrState): boolean {
+  let should_encode = false;
+  let name: Symbol | undefined;
+  if (attr.$ === "Parsed" && AttributeKind.encode_cross_crate(attr._0) === EncodeCrossCrate.No) {
+    // Attributes not marked encode-cross-crate don't need to be encoded for downstream crates.
+  } else if ((name = Attribute.name(attr)) !== undefined && [sym.warn, sym.allow, sym.expect, sym.forbid, sym.deny].includes(name)) {
+    // Lint attributes don't need to be encoded for downstream crates.
+    // FIXME remove this when #152369 is re-merged
+  } else if (attr.$ === "Parsed" && attr._0.$ === "DocComment") {
+    // We keep all doc comments reachable to rustdoc because they might be "imported" into
+    // downstream crates if they use `#[doc(inline)]` to copy an item's documentation into
+    // their own.
+    if (state.is_exported) {
+      should_encode = true;
+    }
+  } else if (attr.$ === "Parsed" && attr._0.$ === "Doc") {
+    const d = attr._0._0;
+    should_encode = true;
+    if (d.hidden !== undefined) {
+      state.is_doc_hidden = true;
+    }
+  } else {
+    should_encode = true;
+  }
+  return should_encode;
 }
 
-// stub: compiler/rustc_metadata/src/rmeta/encoder.rs:974 should_encode_span (lane encoder-b)
-export function should_encode_span(_def_kind: DefKind): boolean {
-  return unported("rustc_metadata::rmeta::encoder::should_encode_span (lane encoder-b)");
+// rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:974 should_encode_span
+export function should_encode_span(def_kind: DefKind): boolean {
+  switch (def_kind.$) {
+    case "Mod":
+    case "Struct":
+    case "Union":
+    case "Enum":
+    case "Variant":
+    case "Trait":
+    case "TyAlias":
+    case "ForeignTy":
+    case "TraitAlias":
+    case "AssocTy":
+    case "TyParam":
+    case "ConstParam":
+    case "LifetimeParam":
+    case "Fn":
+    case "Const":
+    case "Static":
+    case "Ctor":
+    case "AssocFn":
+    case "AssocConst":
+    case "Macro":
+    case "ExternCrate":
+    case "Use":
+    case "AnonConst":
+    case "OpaqueTy":
+    case "Field":
+    case "Impl":
+    case "Closure":
+    case "SyntheticCoroutineBody":
+      return true;
+    case "ForeignMod":
+    case "GlobalAsm":
+    case "TestBinderConstraints":
+      return false;
+  }
 }
 
-// stub: compiler/rustc_metadata/src/rmeta/encoder.rs:1008 should_encode_attrs (lane encoder-b)
-export function should_encode_attrs(_def_kind: DefKind): boolean {
-  return unported("rustc_metadata::rmeta::encoder::should_encode_attrs (lane encoder-b)");
+// rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:1008 should_encode_attrs
+export function should_encode_attrs(def_kind: DefKind): boolean {
+  switch (def_kind.$) {
+    case "Mod":
+    case "Struct":
+    case "Union":
+    case "Enum":
+    case "Variant":
+    case "Trait":
+    case "TyAlias":
+    case "ForeignTy":
+    case "TraitAlias":
+    case "AssocTy":
+    case "Fn":
+    case "Const":
+    case "AssocFn":
+    case "AssocConst":
+    case "Macro":
+    case "Field":
+    case "ConstParam":
+    case "Impl":
+      return true;
+    // `DefKind::Static { nested: false, .. } => true`, `DefKind::Static { nested: true, .. } => false`
+    case "Static":
+      return !def_kind.nested;
+    // Encoding attrs for `Use` items allows `#[doc(hidden)]` on re-exports
+    // to be read cross-crate, which is needed for diagnostic path selection
+    // in `visible_parent_map`. See #153477.
+    case "Use":
+      return true;
+    // Tools may want to be able to detect their tool lints on
+    // closures from upstream crates, too. This is used by
+    // https://github.com/model-checking/kani and is not a performance
+    // or maintenance issue for us.
+    case "Closure":
+      return true;
+    case "SyntheticCoroutineBody":
+      return false;
+    case "TyParam":
+    case "Ctor":
+    case "ExternCrate":
+    case "ForeignMod":
+    case "AnonConst":
+    case "OpaqueTy":
+    case "LifetimeParam":
+    case "GlobalAsm":
+    case "TestBinderConstraints":
+      return false;
+  }
 }
 
-// stub: compiler/rustc_metadata/src/rmeta/encoder.rs:1052 should_encode_expn_that_defined (lane encoder-b)
-export function should_encode_expn_that_defined(_def_kind: DefKind): boolean {
-  return unported("rustc_metadata::rmeta::encoder::should_encode_expn_that_defined (lane encoder-b)");
+// rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:1052 should_encode_expn_that_defined
+export function should_encode_expn_that_defined(def_kind: DefKind): boolean {
+  switch (def_kind.$) {
+    case "Mod":
+    case "Struct":
+    case "Union":
+    case "Enum":
+    case "Variant":
+    case "Trait":
+    case "Impl":
+      return true;
+    case "TyAlias":
+    case "ForeignTy":
+    case "TraitAlias":
+    case "AssocTy":
+    case "TyParam":
+    case "Fn":
+    case "Const":
+    case "ConstParam":
+    case "Static":
+    case "Ctor":
+    case "AssocFn":
+    case "AssocConst":
+    case "Macro":
+    case "ExternCrate":
+    case "Use":
+    case "ForeignMod":
+    case "AnonConst":
+    case "OpaqueTy":
+    case "Field":
+    case "LifetimeParam":
+    case "GlobalAsm":
+    case "Closure":
+    case "SyntheticCoroutineBody":
+    case "TestBinderConstraints":
+      return false;
+  }
 }
 
-// stub: compiler/rustc_metadata/src/rmeta/encoder.rs:1088 should_encode_visibility (lane encoder-b)
-export function should_encode_visibility(_def_kind: DefKind): boolean {
-  return unported("rustc_metadata::rmeta::encoder::should_encode_visibility (lane encoder-b)");
+// rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:1088 should_encode_visibility
+export function should_encode_visibility(def_kind: DefKind): boolean {
+  switch (def_kind.$) {
+    case "Mod":
+    case "Struct":
+    case "Union":
+    case "Enum":
+    case "Variant":
+    case "Trait":
+    case "TyAlias":
+    case "ForeignTy":
+    case "TraitAlias":
+    case "AssocTy":
+    case "Fn":
+    case "Const":
+    case "Ctor":
+    case "AssocFn":
+    case "AssocConst":
+    case "Macro":
+    case "Field":
+      return true;
+    // `DefKind::Static { nested: false, .. } => true`, `DefKind::Static { nested: true, .. } => false`
+    case "Static":
+      return !def_kind.nested;
+    case "Use":
+    case "ForeignMod":
+    case "TyParam":
+    case "ConstParam":
+    case "LifetimeParam":
+    case "AnonConst":
+    case "OpaqueTy":
+    case "GlobalAsm":
+    case "Impl":
+    case "Closure":
+    case "ExternCrate":
+    case "SyntheticCoroutineBody":
+    case "TestBinderConstraints":
+      return false;
+  }
 }
 
-// stub: compiler/rustc_metadata/src/rmeta/encoder.rs:1125 should_encode_stability (lane encoder-b)
-export function should_encode_stability(_def_kind: DefKind): boolean {
-  return unported("rustc_metadata::rmeta::encoder::should_encode_stability (lane encoder-b)");
+// rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:1125 should_encode_stability
+export function should_encode_stability(def_kind: DefKind): boolean {
+  switch (def_kind.$) {
+    case "Mod":
+    case "Ctor":
+    case "Variant":
+    case "Field":
+    case "Struct":
+    case "AssocTy":
+    case "AssocFn":
+    case "AssocConst":
+    case "TyParam":
+    case "ConstParam":
+    case "Static":
+    case "Const":
+    case "Fn":
+    case "ForeignMod":
+    case "TyAlias":
+    case "OpaqueTy":
+    case "Enum":
+    case "Union":
+    case "Impl":
+    case "Trait":
+    case "TraitAlias":
+    case "Macro":
+    case "ForeignTy":
+      return true;
+    case "Use":
+    case "LifetimeParam":
+    case "AnonConst":
+    case "GlobalAsm":
+    case "Closure":
+    case "ExternCrate":
+    case "SyntheticCoroutineBody":
+    case "TestBinderConstraints":
+      return false;
+  }
 }
 
 /// Whether we should encode MIR. Return a pair, resp. for CTFE and for LLVM.
@@ -2083,39 +2572,312 @@ export function should_encode_stability(_def_kind: DefKind): boolean {
 /// const fn f() -> usize { 0 }
 /// pub struct S { pub a: [usize; f()] }
 /// ```
-// stub: compiler/rustc_metadata/src/rmeta/encoder.rs:1181 should_encode_mir (lane encoder-b)
-export function should_encode_mir(_tcx: TyCtxt, _reachable_set: ReadonlySet<LocalDefId>, _def_id: LocalDefId): [boolean, boolean] {
-  return unported("rustc_metadata::rmeta::encoder::should_encode_mir (lane encoder-b)");
+// rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:1181 should_encode_mir
+export function should_encode_mir(tcx: TyCtxt, reachable_set: ReadonlySet<LocalDefId>, def_id: LocalDefId): [boolean, boolean] {
+  // `match tcx.def_kind(def_id)`: the arms in order (one has a guard).
+  const def_kind = tcx.def_kind(def_id);
+  // instance_mir uses mir_for_ctfe rather than optimized_mir for constructors
+  if (def_kind.$ === "Ctor") return [true, false];
+  // Constants
+  if (def_kind.$ === "AnonConst" || def_kind.$ === "AssocConst" || def_kind.$ === "Const") return [true, false];
+  // Coroutines require optimized MIR to compute layout.
+  if (def_kind.$ === "Closure" && tcx.is_coroutine(LocalDefId.to_def_id(def_id))) return [false, true];
+  if (def_kind.$ === "SyntheticCoroutineBody") return [false, true];
+  // Full-fledged functions + closures
+  if (def_kind.$ === "AssocFn" || def_kind.$ === "Fn" || def_kind.$ === "Closure") {
+    let opt =
+      tcx.sess.opts.unstable_opts.always_encode_mir ||
+      (tcx.sess.opts.output_types.should_codegen() &&
+        reachable_set.has(def_id) &&
+        ((tcx.generics_of(def_id) as Generics).requires_monomorphization(tcx) || tcx.cross_crate_inlinable(def_id)));
+    // Comptime fns do not have optimized MIR at all.
+    const constness = tcx.constness(def_id) as Constness; // PORT: the query value is `unknown` in queries.gen.ts
+    opt = opt && !(constness.$ === "Const" && constness.always);
+    // The function has a `const` modifier or is in a `const trait`.
+    const is_const_fn = tcx.is_const_fn(LocalDefId.to_def_id(def_id));
+    return [is_const_fn, opt];
+  }
+  // The others don't have MIR.
+  return [false, false];
 }
 
-// stub: compiler/rustc_metadata/src/rmeta/encoder.rs:1213 should_encode_variances (lane encoder-b)
-export function should_encode_variances(_tcx: TyCtxt, _def_id: DefId, _def_kind: DefKind): boolean {
-  return unported("rustc_metadata::rmeta::encoder::should_encode_variances (lane encoder-b)");
+// rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:1213 should_encode_variances
+export function should_encode_variances(tcx: TyCtxt, def_id: DefId, def_kind: DefKind): boolean {
+  switch (def_kind.$) {
+    case "Struct":
+    case "Union":
+    case "Enum":
+    case "OpaqueTy":
+    case "Fn":
+    case "Ctor":
+    case "AssocFn":
+      return true;
+    case "AssocTy": {
+      // Only encode variances for RPITITs (for traits)
+      const info = tcx.opt_rpitit_info(def_id);
+      return info !== undefined && info.$ === "Trait";
+    }
+    case "Mod":
+    case "Variant":
+    case "Field":
+    case "AssocConst":
+    case "TyParam":
+    case "ConstParam":
+    case "Static":
+    case "Const":
+    case "ForeignMod":
+    case "TyAlias":
+    case "Impl":
+    case "Trait":
+    case "TraitAlias":
+    case "Macro":
+    case "ForeignTy":
+    case "Use":
+    case "LifetimeParam":
+    case "AnonConst":
+    case "GlobalAsm":
+    case "Closure":
+    case "ExternCrate":
+    case "SyntheticCoroutineBody":
+    case "TestBinderConstraints":
+      return false;
+  }
 }
 
-// stub: compiler/rustc_metadata/src/rmeta/encoder.rs:1252 should_encode_generics (lane encoder-b)
-export function should_encode_generics(_def_kind: DefKind): boolean {
-  return unported("rustc_metadata::rmeta::encoder::should_encode_generics (lane encoder-b)");
+// rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:1252 should_encode_generics
+export function should_encode_generics(def_kind: DefKind): boolean {
+  switch (def_kind.$) {
+    case "Struct":
+    case "Union":
+    case "Enum":
+    case "Variant":
+    case "Trait":
+    case "TyAlias":
+    case "ForeignTy":
+    case "TraitAlias":
+    case "AssocTy":
+    case "Fn":
+    case "Const":
+    case "Static":
+    case "Ctor":
+    case "AssocFn":
+    case "AssocConst":
+    case "AnonConst":
+    case "OpaqueTy":
+    case "Impl":
+    case "Field":
+    case "TyParam":
+    case "Closure":
+    case "SyntheticCoroutineBody":
+      return true;
+    case "Mod":
+    case "ForeignMod":
+    case "ConstParam":
+    case "Macro":
+    case "Use":
+    case "LifetimeParam":
+    case "GlobalAsm":
+    case "ExternCrate":
+    case "TestBinderConstraints":
+      return false;
+  }
 }
 
-// stub: compiler/rustc_metadata/src/rmeta/encoder.rs:1288 should_encode_type (lane encoder-b)
-export function should_encode_type(_tcx: TyCtxt, _def_id: LocalDefId, _def_kind: DefKind): boolean {
-  return unported("rustc_metadata::rmeta::encoder::should_encode_type (lane encoder-b)");
+// rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:1288 should_encode_type
+export function should_encode_type(tcx: TyCtxt, def_id: LocalDefId, def_kind: DefKind): boolean {
+  switch (def_kind.$) {
+    case "Struct":
+    case "Union":
+    case "Enum":
+    case "Variant":
+    case "Ctor":
+    case "Field":
+    case "Fn":
+    case "Const":
+    case "TyAlias":
+    case "ForeignTy":
+    case "Impl":
+    case "AssocFn":
+    case "AssocConst":
+    case "Closure":
+    case "ConstParam":
+    case "AnonConst":
+    case "SyntheticCoroutineBody":
+      return true;
+    // `DefKind::Static { nested: false, .. } => true`, `DefKind::Static { nested: true, .. } => false`
+    case "Static":
+      return !def_kind.nested;
+
+    case "OpaqueTy": {
+      const origin = tcx.local_opaque_ty_origin(def_id);
+      if (origin.$ === "FnReturn" || origin.$ === "AsyncFn") {
+        const parent = origin.parent;
+        const node = tcx.hir_node_by_def_id(parent);
+        if (node.$ === "TraitItem") {
+          const trait_item = node._0;
+          if (trait_item.expect_fn()[1].$ === "Required") {
+            return false;
+          }
+        }
+      }
+      return true;
+    }
+
+    case "AssocTy": {
+      const assoc_item = tcx.associated_item(def_id) as AssocItem; // PORT: the query value is `unknown` in queries.gen.ts
+      const container = assoc_item.container;
+      if (container.$ === "InherentImpl" || container.$ === "TraitImpl") return true;
+      // ty::AssocContainer::Trait
+      return Defaultness.has_value(AssocItem.defaultness(assoc_item, tcx));
+    }
+    case "TyParam": {
+      const node = tcx.hir_node_by_def_id(def_id);
+      if (node.$ !== "GenericParam") return bug();
+      const param = node._0;
+      if (param.kind.$ !== "Type") return bug();
+      const default_ = param.kind.default;
+      return default_ !== undefined;
+    }
+
+    case "Trait":
+    case "TraitAlias":
+    case "Mod":
+    case "ForeignMod":
+    case "Macro":
+    case "Use":
+    case "LifetimeParam":
+    case "GlobalAsm":
+    case "ExternCrate":
+    case "TestBinderConstraints":
+      return false;
+  }
 }
 
-// stub: compiler/rustc_metadata/src/rmeta/encoder.rs:1349 should_encode_fn_sig (lane encoder-b)
-export function should_encode_fn_sig(_def_kind: DefKind): boolean {
-  return unported("rustc_metadata::rmeta::encoder::should_encode_fn_sig (lane encoder-b)");
+// rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:1349 should_encode_fn_sig
+export function should_encode_fn_sig(def_kind: DefKind): boolean {
+  switch (def_kind.$) {
+    case "Fn":
+    case "AssocFn":
+      return true;
+    // `DefKind::Ctor(_, CtorKind::Fn) => true`, `DefKind::Ctor(..) => false`
+    case "Ctor":
+      return def_kind._1 === "Fn";
+
+    case "Struct":
+    case "Union":
+    case "Enum":
+    case "Variant":
+    case "Field":
+    case "Const":
+    case "Static":
+    case "TyAlias":
+    case "OpaqueTy":
+    case "ForeignTy":
+    case "Impl":
+    case "AssocConst":
+    case "Closure":
+    case "ConstParam":
+    case "AnonConst":
+    case "AssocTy":
+    case "TyParam":
+    case "Trait":
+    case "TraitAlias":
+    case "Mod":
+    case "ForeignMod":
+    case "Macro":
+    case "Use":
+    case "LifetimeParam":
+    case "GlobalAsm":
+    case "ExternCrate":
+    case "SyntheticCoroutineBody":
+    case "TestBinderConstraints":
+      return false;
+  }
 }
 
-// stub: compiler/rustc_metadata/src/rmeta/encoder.rs:1385 should_encode_constness (lane encoder-b)
-export function should_encode_constness(_def_kind: DefKind): boolean {
-  return unported("rustc_metadata::rmeta::encoder::should_encode_constness (lane encoder-b)");
+// rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:1385 should_encode_constness
+export function should_encode_constness(def_kind: DefKind): boolean {
+  switch (def_kind.$) {
+    case "Fn":
+    case "AssocFn":
+    case "Closure":
+      return true;
+    // `DefKind::Ctor(_, CtorKind::Fn) => true`, `DefKind::Ctor(_, CtorKind::Const) => false`
+    case "Ctor":
+      return def_kind._1 === "Fn";
+    // `DefKind::Impl { of_trait: false } => true`, `DefKind::Impl { .. } => false`
+    case "Impl":
+      return !def_kind.of_trait;
+
+    case "Struct":
+    case "Union":
+    case "Enum":
+    case "Field":
+    case "Const":
+    case "AssocConst":
+    case "AnonConst":
+    case "Static":
+    case "TyAlias":
+    case "OpaqueTy":
+    case "ForeignTy":
+    case "ConstParam":
+    case "AssocTy":
+    case "TyParam":
+    case "Trait":
+    case "TraitAlias":
+    case "Mod":
+    case "ForeignMod":
+    case "Macro":
+    case "Use":
+    case "LifetimeParam":
+    case "GlobalAsm":
+    case "ExternCrate":
+    case "Variant":
+    case "SyntheticCoroutineBody":
+    case "TestBinderConstraints":
+      return false;
+  }
 }
 
-// stub: compiler/rustc_metadata/src/rmeta/encoder.rs:1424 should_encode_const (lane encoder-b)
-export function should_encode_const(_def_kind: DefKind): boolean {
-  return unported("rustc_metadata::rmeta::encoder::should_encode_const (lane encoder-b)");
+// rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:1424 should_encode_const
+export function should_encode_const(def_kind: DefKind): boolean {
+  switch (def_kind.$) {
+    // FIXME(mgca): should we remove Const and AssocConst here?
+    case "Const":
+    case "AssocConst":
+    case "AnonConst":
+      return true;
+
+    case "Struct":
+    case "Union":
+    case "Enum":
+    case "Variant":
+    case "Ctor":
+    case "Field":
+    case "Fn":
+    case "Static":
+    case "TyAlias":
+    case "OpaqueTy":
+    case "ForeignTy":
+    case "Impl":
+    case "AssocFn":
+    case "Closure":
+    case "ConstParam":
+    case "AssocTy":
+    case "TyParam":
+    case "Trait":
+    case "TraitAlias":
+    case "Mod":
+    case "ForeignMod":
+    case "Macro":
+    case "Use":
+    case "LifetimeParam":
+    case "GlobalAsm":
+    case "ExternCrate":
+    case "SyntheticCoroutineBody":
+    case "TestBinderConstraints":
+      return false;
+  }
 }
 
 // ---- encoder-d: the element encoders of the `lazy` / `lazy_array` calls above ----------------------------------
