@@ -3,9 +3,8 @@
 // PORT:
 // - `struct Collector<'tcx>` with its `impl` is a class (PORTING section 5).
 // - `find_attr!(self.tcx, def_id, Pat => e)` is `find_attr(HasAttrs_<Id>.get_attrs(id, tcx), ..)` (rustc_attr_ir/lib.ts).
-// - `sess.opts.libs` holds `rustc_session::utils::NativeLib`, whose `kind` is still an opaque stand-in for
-//   `rustc_structures::NativeLibKind` (rustc_session/utils.ts); `-l` parsing (`parse_native_lib`) is unported, so
-//   the list is always empty when this runs. The kind is read through `session_lib_kind` (a cast).
+// - `sess.opts.libs` holds `rustc_session::utils::NativeLib`; `-l` parsing (`parse_native_lib`) is unported, so
+//   the list is always empty when this runs.
 import type { ExternAbi } from "../rustc_abi/extern_abi.ts";
 import { Size } from "../rustc_abi/lib.ts";
 import { type LinkEntry, type PeImportNameType, find_attr } from "../rustc_attr_ir/lib.ts";
@@ -19,7 +18,6 @@ import { fold_List_Ty } from "../rustc_middle/ty/generic_args.ts";
 import { HasAttrs_DefId, HasAttrs_LocalDefId, type Ty, TypingEnv } from "../rustc_middle/ty/mod.ts";
 import type { List } from "../rustc_middle/ty/list.ts";
 import type { Session } from "../rustc_session/session.ts";
-import type { NativeLib as SessionNativeLib } from "../rustc_session/utils.ts";
 import { type DefId, LOCAL_CRATE, LocalDefId } from "../rustc_span/def_id.ts";
 import { bug } from "../rustc_span/macros.ts";
 import { Symbol } from "../rustc_span/symbol.ts";
@@ -82,11 +80,6 @@ export function relevant_lib(sess: Session, lib: NativeLib): boolean {
   }
 }
 
-/** PORT: see the header; `passed_lib.kind` as the `rustc_structures::NativeLibKind` it is upstream. */
-function session_lib_kind(lib: SessionNativeLib): NativeLibKind {
-  return lib.kind as unknown as NativeLibKind;
-}
-
 /** `HashSet::insert`: whether the value was newly inserted. */
 function set_insert<T>(set: Set<T>, value: T): boolean {
   if (set.has(value)) return false;
@@ -141,7 +134,7 @@ class Collector {
     // First, check for errors
     const renames = new Set<string>();
     for (const lib of this.tcx.sess.opts.libs) {
-      if (session_lib_kind(lib).$ === "Framework" && !this.tcx.sess.target.is_like_darwin) {
+      if (lib.kind.$ === "Framework" && !this.tcx.sess.target.is_like_darwin) {
         // Cannot check this when parsing options because the target is not yet available.
         this.tcx.dcx().emit_err(diagnostics.LibFrameworkApple_diagnostic({}));
       }
@@ -191,8 +184,8 @@ class Collector {
                 this.tcx.dcx().emit_err(diagnostics.NoLinkModOverride_diagnostic({ span: undefined }));
               }
             }
-            if (!NativeLibKind_eq(session_lib_kind(passed_lib), NativeLibKind.Unspecified)) {
-              lib.kind = session_lib_kind(passed_lib);
+            if (!NativeLibKind_eq(passed_lib.kind, NativeLibKind.Unspecified)) {
+              lib.kind = passed_lib.kind;
             }
             const new_name = passed_lib.new_name;
             if (new_name !== undefined) {
@@ -210,7 +203,7 @@ class Collector {
         // Add if not found
         const new_name: string | undefined = passed_lib.new_name;
         const name = Symbol.intern(new_name ?? passed_lib.name);
-        this.libs.push(new NativeLib(session_lib_kind(passed_lib), name, undefined, undefined, passed_lib.verbatim, []));
+        this.libs.push(new NativeLib(passed_lib.kind, name, undefined, undefined, passed_lib.verbatim, []));
       } else {
         // Move all existing libraries with the same name to the
         // end of the command line.

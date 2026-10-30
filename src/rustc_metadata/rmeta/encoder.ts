@@ -46,7 +46,6 @@ import type { Features } from "../../rustc_feature/unstable.ts";
 import { DefKind, encode_Namespace, encode_Res, Res } from "../../rustc_hir/def.ts";
 import { encode_OpaqueTyOrigin, encode_PreciseCapturingArgKind, type OpaqueTyOrigin, type PreciseCapturingArgKind } from "../../rustc_hir/hir.ts";
 import { ast, node_id } from "../../rustc_ast/lib.ts";
-import type { ExternAbi } from "../../rustc_abi/extern_abi.ts";
 import { encode_ReprOptions } from "../../rustc_abi/decodable.gen.ts";
 import { encode_ConstStability, encode_DefaultBodyStability, encode_Stability, type ConstStability, type DefaultBodyStability, type Stability } from "../../rustc_attr_ir/stability.ts";
 import { encode_Deprecation, encode_EiiDecl, encode_EiiImpl, type EiiImpl } from "../../rustc_attr_ir/data_structures.ts";
@@ -87,7 +86,7 @@ import type { TyEncoder } from "../../rustc_middle/ty/codec.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import type { Ty } from "../../rustc_middle/ty/mod.ts";
 import { FileEncoder } from "../../rustc_serialize/opaque.ts";
-import { type Encodable, type Encoder, Encoder_provided, encode_bool, encode_HashMap, encode_Option, encode_String, encode_tuple, encode_u32, encode_usize, encode_Vec } from "../../rustc_serialize/serialize.ts";
+import { type Encodable, type Encoder, Encoder_provided, encode_HashMap, encode_Option, encode_String, encode_tuple, encode_u32, encode_usize, encode_Vec } from "../../rustc_serialize/serialize.ts";
 import { encode_u64 } from "../../rustc_serialize/serialize.ts";
 import type { DeniedPartialMitigation } from "../../rustc_session/options/mitigation_coverage.ts";
 import { Options_impl } from "../../rustc_session/config.ts";
@@ -112,7 +111,7 @@ import { closeSync, fstatSync, openSync, readFileSync, readSync, writeSync } fro
 import type { CanonicalSymbols } from "../../rustc_attr_ir/canonical_symbols.ts";
 import { clone_StrippedCfgItem, encode_StrippedCfgItem } from "../../rustc_attr_ir/data_structures.gen.ts";
 import { encode_LangItem } from "../../rustc_attr_ir/lang_items.gen.ts";
-import { encode_LinkagePreference } from "../../rustc_crate_store/cstore.gen.ts";
+import { encode_ForeignModule, encode_LinkagePreference, encode_NativeLib } from "../../rustc_crate_store/cstore.gen.ts";
 import { StableHasher, stable_hash_Fingerprint, stable_hash_Hash64 } from "../../rustc_data_structures/stable_hash.ts";
 import { MacroKinds } from "../../rustc_hir/def.ts";
 import { id_to_string } from "../../rustc_hir_pretty/lib.ts";
@@ -1999,8 +1998,8 @@ function encode_SyntaxContextKey(v: SyntaxContextKey, e: EncodeContext): void {
 // ---- lane encoder-c: the `Encodable` impls of the table element types of encoder.rs:1482-2035 (not markers) ----
 // PORT: each is the `T: Encodable<EncodeContext>` that `lazy` / `lazy_array` take for one table (PORTING §5: generic
 // bounds become function tables), composed from the generated / hand-ported encoders; the decode side is
-// rmeta/decoder/cstore_impl.ts. Element types with no TS `Encodable` yet stop as UNPORTED naming the impl, like
-// decoder.ts's `decode_NativeLib`.
+// rmeta/decoder/cstore_impl.ts. Element types with no TS `Encodable` yet stop as UNPORTED naming the impl.
+// `NativeLib`, `ForeignModule` and `ExternAbi` are generated (rustc_crate_store/cstore.gen.ts, rustc_abi/decodable.gen.ts).
 
 /** `Debug` of `!` (the `Id` of `ModChild::res: Res<!>`, for `Res::def_id`'s panic message; never called). */
 const debug_never = (x: never): never => x;
@@ -2088,59 +2087,6 @@ function encode_DocLinkResMap(v: DocLinkResMap, e: EncodeContext): void {
 function encode_EiiMapEncodedKeyValue(v: EiiMapEncodedKeyValue, e: EncodeContext): void {
   encode_tuple(v, e, encode_DefId, (v, e) => encode_tuple(v, e, encode_EiiDecl, (v, e) => encode_Vec(v, e, (v, e) => encode_tuple(v, e, encode_DefId, encode_EiiImpl))));
 }
-/** `#[derive(Encodable)]` of `rustc_crate_store::NativeLib` (its `cfg` / `DllImport` fields have no TS `Encodable`). */
-function encode_NativeLib(_v: NativeLib, _e: EncodeContext): void {
-  unported("Encodable for rustc_crate_store::NativeLib (derive(Encodable) not generated)");
-}
-/** `#[derive(Encodable)]` of `rustc_crate_store::ForeignModule` (cstore.rs:138: fields in declaration order).
- *  PORT: hand-expanded (rustc_crate_store is not a tools/codegen serialize set). */
-function encode_ForeignModule(v: ForeignModule, e: EncodeContext): void {
-  encode_Vec(v.foreign_items, e, encode_DefId);
-  encode_DefId(v.def_id, e);
-  encode_ExternAbi(v.abi, e);
-}
-/** `#[cfg_attr(feature = "nightly", derive(Encodable))]` of `rustc_abi::ExternAbi` (extern_abi.rs:19): the variant
- *  index in declaration order as a `u8`, then the `unwind` field of the variants that have one.
- *  PORT: hand-expanded (tools/codegen does not generate rustc_abi's `ExternAbi` derive). */
-function encode_ExternAbi(v: ExternAbi, e: Encoder): void {
-  const disc = EXTERN_ABI_VARIANTS.indexOf(v.$);
-  assert(disc >= 0, "ExternAbi variant");
-  e.emit_u8(disc);
-  if ("unwind" in v) encode_bool(v.unwind, e);
-}
-/** `ExternAbi`'s variants in declaration order (extern_abi.rs:19-127). */
-const EXTERN_ABI_VARIANTS: readonly ExternAbi["$"][] = [
-  "C",
-  "System",
-  "Rust",
-  "RustCall",
-  "RustCold",
-  "RustInvalid",
-  "RustPreserveNone",
-  "RustTail",
-  "LlvmIntrinsic",
-  "Custom",
-  "EfiApi",
-  "Swift",
-  "Aapcs",
-  "CmseNonSecureCall",
-  "CmseNonSecureEntry",
-  "GpuKernel",
-  "PtxKernel",
-  "AvrInterrupt",
-  "AvrNonBlockingInterrupt",
-  "Msp430Interrupt",
-  "RiscvInterruptM",
-  "RiscvInterruptS",
-  "X86Interrupt",
-  "Cdecl",
-  "Stdcall",
-  "Fastcall",
-  "Thiscall",
-  "Vectorcall",
-  "SysV64",
-  "Win64",
-];
 
 // impl<'a, 'tcx> Encodable<EncodeContext<'a, 'tcx>> for SpanData
 // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:259 encode

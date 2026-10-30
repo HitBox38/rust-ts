@@ -2,8 +2,10 @@
 // `decode_<T>(__decoder[, decode_<P>...])`: a struct decodes its fields in declaration order; an enum reads the variant
 // index (`read_u8`, or `read_usize` from 255 variants on), then that variant's fields. `encode_<T>` writes the same.
 // Only function declarations: hand modules may import from here inside an import cycle.
+import { ExternAbi } from "./extern_abi.ts";
 import { Align, type Integer, type IntegerType, type ReprFlags, ReprOptions, ScalableElt } from "./lib.ts";
 import { decode_bool, decode_Hash64, decode_Option, decode_u16, decode_u8, type Decoder, encode_bool, encode_Hash64, encode_Option, encode_u16, encode_u8, type Encoder } from "../rustc_serialize/serialize.ts";
+import { type SpanDecoder, type SpanEncoder } from "../rustc_span/lib.ts";
 import { panic } from "../std/panic.ts";
 
 // rustc-derive: compiler/rustc_abi/src/lib.rs:84 Decodable_NoContext for ReprFlags
@@ -139,4 +141,214 @@ function Integer__variant_index(tag: Integer): number {
 export function encode_Integer(self: Integer, __encoder: Encoder): void {
   const disc = Integer__variant_index(self);
   __encoder.emit_u8(disc);
+}
+
+// rustc-derive: compiler/rustc_abi/src/extern_abi.rs:20 Decodable for ExternAbi
+export function decode_ExternAbi(__decoder: SpanDecoder): ExternAbi {
+  const __tag = __decoder.read_u8();
+  switch (__tag) {
+    case 0:
+      return { $: "C", unwind: decode_bool(__decoder) };
+    case 1:
+      return { $: "System", unwind: decode_bool(__decoder) };
+    case 2:
+      return ExternAbi.Rust;
+    case 3:
+      return ExternAbi.RustCall;
+    case 4:
+      return ExternAbi.RustCold;
+    case 5:
+      return ExternAbi.RustInvalid;
+    case 6:
+      return ExternAbi.RustPreserveNone;
+    case 7:
+      return ExternAbi.RustTail;
+    case 8:
+      return ExternAbi.LlvmIntrinsic;
+    case 9:
+      return ExternAbi.Custom;
+    case 10:
+      return ExternAbi.EfiApi;
+    case 11:
+      return ExternAbi.Swift;
+    case 12:
+      return { $: "Aapcs", unwind: decode_bool(__decoder) };
+    case 13:
+      return ExternAbi.CmseNonSecureCall;
+    case 14:
+      return ExternAbi.CmseNonSecureEntry;
+    case 15:
+      return ExternAbi.GpuKernel;
+    case 16:
+      return ExternAbi.PtxKernel;
+    case 17:
+      return ExternAbi.AvrInterrupt;
+    case 18:
+      return ExternAbi.AvrNonBlockingInterrupt;
+    case 19:
+      return ExternAbi.Msp430Interrupt;
+    case 20:
+      return ExternAbi.RiscvInterruptM;
+    case 21:
+      return ExternAbi.RiscvInterruptS;
+    case 22:
+      return ExternAbi.X86Interrupt;
+    case 23:
+      return { $: "Cdecl", unwind: decode_bool(__decoder) };
+    case 24:
+      return { $: "Stdcall", unwind: decode_bool(__decoder) };
+    case 25:
+      return { $: "Fastcall", unwind: decode_bool(__decoder) };
+    case 26:
+      return { $: "Thiscall", unwind: decode_bool(__decoder) };
+    case 27:
+      return { $: "Vectorcall", unwind: decode_bool(__decoder) };
+    case 28:
+      return { $: "SysV64", unwind: decode_bool(__decoder) };
+    case 29:
+      return { $: "Win64", unwind: decode_bool(__decoder) };
+    default:
+      return panic(`invalid enum variant tag while decoding \`ExternAbi\`, expected 0..30, actual ${__tag}`);
+  }
+}
+function ExternAbi__variant_index(tag: ExternAbi["$"]): number {
+  switch (tag) {
+    case "C":
+      return 0;
+    case "System":
+      return 1;
+    case "Rust":
+      return 2;
+    case "RustCall":
+      return 3;
+    case "RustCold":
+      return 4;
+    case "RustInvalid":
+      return 5;
+    case "RustPreserveNone":
+      return 6;
+    case "RustTail":
+      return 7;
+    case "LlvmIntrinsic":
+      return 8;
+    case "Custom":
+      return 9;
+    case "EfiApi":
+      return 10;
+    case "Swift":
+      return 11;
+    case "Aapcs":
+      return 12;
+    case "CmseNonSecureCall":
+      return 13;
+    case "CmseNonSecureEntry":
+      return 14;
+    case "GpuKernel":
+      return 15;
+    case "PtxKernel":
+      return 16;
+    case "AvrInterrupt":
+      return 17;
+    case "AvrNonBlockingInterrupt":
+      return 18;
+    case "Msp430Interrupt":
+      return 19;
+    case "RiscvInterruptM":
+      return 20;
+    case "RiscvInterruptS":
+      return 21;
+    case "X86Interrupt":
+      return 22;
+    case "Cdecl":
+      return 23;
+    case "Stdcall":
+      return 24;
+    case "Fastcall":
+      return 25;
+    case "Thiscall":
+      return 26;
+    case "Vectorcall":
+      return 27;
+    case "SysV64":
+      return 28;
+    case "Win64":
+      return 29;
+  }
+}
+// rustc-derive: compiler/rustc_abi/src/extern_abi.rs:20 Encodable for ExternAbi
+export function encode_ExternAbi(self: ExternAbi, __encoder: SpanEncoder): void {
+  const disc = ExternAbi__variant_index(self.$);
+  __encoder.emit_u8(disc);
+  switch (self.$) {
+    case "C":
+      encode_bool(self.unwind, __encoder);
+      break;
+    case "System":
+      encode_bool(self.unwind, __encoder);
+      break;
+    case "Rust":
+      break;
+    case "RustCall":
+      break;
+    case "RustCold":
+      break;
+    case "RustInvalid":
+      break;
+    case "RustPreserveNone":
+      break;
+    case "RustTail":
+      break;
+    case "LlvmIntrinsic":
+      break;
+    case "Custom":
+      break;
+    case "EfiApi":
+      break;
+    case "Swift":
+      break;
+    case "Aapcs":
+      encode_bool(self.unwind, __encoder);
+      break;
+    case "CmseNonSecureCall":
+      break;
+    case "CmseNonSecureEntry":
+      break;
+    case "GpuKernel":
+      break;
+    case "PtxKernel":
+      break;
+    case "AvrInterrupt":
+      break;
+    case "AvrNonBlockingInterrupt":
+      break;
+    case "Msp430Interrupt":
+      break;
+    case "RiscvInterruptM":
+      break;
+    case "RiscvInterruptS":
+      break;
+    case "X86Interrupt":
+      break;
+    case "Cdecl":
+      encode_bool(self.unwind, __encoder);
+      break;
+    case "Stdcall":
+      encode_bool(self.unwind, __encoder);
+      break;
+    case "Fastcall":
+      encode_bool(self.unwind, __encoder);
+      break;
+    case "Thiscall":
+      encode_bool(self.unwind, __encoder);
+      break;
+    case "Vectorcall":
+      encode_bool(self.unwind, __encoder);
+      break;
+    case "SysV64":
+      encode_bool(self.unwind, __encoder);
+      break;
+    case "Win64":
+      encode_bool(self.unwind, __encoder);
+      break;
+  }
 }

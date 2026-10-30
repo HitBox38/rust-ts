@@ -75,6 +75,7 @@ import { Hash64 } from "../rustc_hashes/lib.ts";
 import { Level_discriminant } from "../rustc_lint_defs/lib.ts";
 import { type CollapseMacroDebuginfo, CollapseMacroDebuginfo_discriminant } from "../rustc_structures/collapse_macro_debug_info.gen.ts";
 import { CrateType_discriminant } from "../rustc_structures/crate_type.gen.ts";
+import type { NativeLibKind } from "../rustc_structures/native_lib_kind.gen.ts";
 import type {
   CodeModel,
   FramePointer,
@@ -3809,11 +3810,41 @@ const hash_InstrumentXRay: HashFn<InstrumentXRay> = (self, state) => {
 const hash_NativeLib: HashFn<NativeLib> = (self, state) => {
   hash_str(self.name, state);
   hash_Option(hash_str)(self.new_name, state);
-  // `kind: NativeLibKind` (compiler/rustc_structures/src/native_lib_kind.rs:6)
-  // PORT: `NativeLib.kind` is an opaque stand-in (utils.ts); only reached with `-l`.
-  void self.kind;
-  unported("Hash for rustc_structures::NativeLibKind (stand-in in rustc_session/utils.ts)");
+  hash_NativeLibKind(self.kind, state);
   hash_Option(hash_bool)(self.verbatim, state);
+};
+/** `#[derive(Hash)] enum NativeLibKind` (compiler/rustc_structures/src/native_lib_kind.rs:6): the discriminant in
+ *  declaration order (`Static` = 0 .. `Unspecified` = 6), then the variant's fields. */
+const hash_NativeLibKind: HashFn<NativeLibKind> = (self, state) => {
+  switch (self.$) {
+    case "Static":
+      state.write_isize(0);
+      hash_Option(hash_bool)(self.bundle, state);
+      hash_Option(hash_bool)(self.whole_archive, state);
+      hash_Option(hash_bool)(self.export_symbols, state);
+      return;
+    case "Dylib":
+      state.write_isize(1);
+      hash_Option(hash_bool)(self.as_needed, state);
+      return;
+    case "RawDylib":
+      state.write_isize(2);
+      hash_Option(hash_bool)(self.as_needed, state);
+      return;
+    case "Framework":
+      state.write_isize(3);
+      hash_Option(hash_bool)(self.as_needed, state);
+      return;
+    case "LinkArg":
+      state.write_isize(4);
+      return;
+    case "WasmImportModule":
+      state.write_isize(5);
+      return;
+    case "Unspecified":
+      state.write_isize(6);
+      return;
+  }
 };
 /** `#[derive(Hash)] enum LinkerPluginLto { LinkerPlugin(PathBuf), LinkerPluginAuto, Disabled }` (config.rs:329) */
 const hash_LinkerPluginLto: HashFn<LinkerPluginLto> = (self, state) => {
