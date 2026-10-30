@@ -755,7 +755,9 @@ var visit_List_GenericArg: TypeVisitable<List<GenericArg>> | undefined;
 var visit_List_Ty: TypeVisitable<List<Ty>> | undefined;
 
 /** PORT: (perf) `visit_List(d_T)` per `d_T`: the descriptor is stateless, so it is built once per element descriptor. */
-const VISIT_LIST_CACHE = new Map<TypeVisitable<unknown>, TypeVisitable<List<unknown>>>();
+// PORT: (perf) a `WeakMap`: some callers (structural_impls.ts `list_fold`) build a fresh element descriptor per visit,
+// so a strong map would grow without bound; entries die with their descriptor.
+const VISIT_LIST_CACHE = new WeakMap<TypeVisitable<unknown>, TypeVisitable<List<unknown>>>();
 
 /** D4 descriptor: `impl<T: TypeVisitable> TypeVisitable for &List<T>`, given the descriptor of `T`. */
 export function visit_List<T>(d_T: TypeVisitable<T>): TypeVisitable<List<T>> {
