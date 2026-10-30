@@ -162,31 +162,10 @@ import type { ImplTraitInTraitData } from "../../rustc_middle/ty/decls.ts";
 
 // ---- stand-ins ------------------------------------------------------------------------------------------------
 
-/**
- * PORT: stand-in for `rustc_data_structures::svh::Svh` (svh.rs is not ported): the hash as its `Display` text
- * (`Svh::to_hex`, `format!("{:032x}", self.hash.as_u128())`), so it can key a `Map` (`hash_to_cnum`).
- */
-export type Svh = string & { readonly __brand: "Svh" };
-/** `Svh::new(hash)` of the stand-in. */
-export function Svh_new(hash: Fingerprint): Svh {
-  // `Fingerprint::as_u128`: `u128::from(self.1) << 64 | u128::from(self.0)`
-  const [a, b] = Fingerprint.split(hash);
-  const as_u128 = (BigInt(b) << 64n) | BigInt(a);
-  return as_u128.toString(16).padStart(32, "0") as Svh;
-}
-/** `Svh::as_fingerprint` of the stand-in. */
-export function Svh_as_fingerprint(self: Svh): Fingerprint {
-  const v = BigInt(`0x${self}`);
-  return Fingerprint.new(v & 0xffff_ffff_ffff_ffffn, v >> 64n);
-}
-/** `#[derive(Decodable_NoContext)]` of `Svh { hash: Fingerprint }` (svh.rs:15). */
-export function decode_Svh(d: Decoder): Svh {
-  return Svh_new(decode_Fingerprint(d));
-}
-/** `#[derive(Debug)]` of `Svh { hash: Fingerprint }`. */
-export function debug_Svh(v: Svh, f = PLAIN): string {
-  return `Svh { hash: ${debug_Fingerprint(Svh_as_fingerprint(v), f)} }`;
-}
+// `rustc_data_structures::svh::Svh` (svh.ts, lane passes-reachable; was a stand-in here), re-exported for the
+// modules that import it from here.
+import { Svh, debug_Svh, decode_Svh } from "../../rustc_data_structures/svh.ts";
+export { Svh, debug_Svh, decode_Svh };
 
 // `rustc_span::{BlobDecoder, SpanDecoder}` (lib.rs:1501 / 1528, lane span-decode); re-exported for the modules
 // that imported the contract's structural declarations from here.
@@ -1248,7 +1227,7 @@ MetadataBlob.prototype.get_dep_extra_filenames = function (this: MetadataBlob): 
 // rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:757 get_crate_hash
 MetadataBlob.prototype.get_crate_hash = function (this: MetadataBlob): Svh {
   const bytes = blob_range(this.deref(), CRATE_HASH_OFFSET, CRATE_HASH_LEN);
-  return Svh_new(Fingerprint.from_le_bytes(bytes));
+  return Svh.new(Fingerprint.from_le_bytes(bytes));
 };
 
 /** `writeln!(out, ..)?` / `write!(out, ..)?` */
