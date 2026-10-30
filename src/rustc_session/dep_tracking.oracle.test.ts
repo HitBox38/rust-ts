@@ -92,6 +92,7 @@ const CASES: Record<string, string[]> = {
     "-Cdlltool=x", "-Clinker-plugin-lto=foo", "-Zverbose-internals", "-Zno-codegen", "--emit=metadata=out.rmeta,dep-info",
   ],
   "target-aarch64": ["--target", "aarch64-unknown-linux-gnu", "-Zbranch-protection=bti,pac-ret,leaf,b-key"],
+  "patchable-entry": ["-Zpatchable-function-entry=4,1"],
   "codegen-misc": [
     "-Zunstable-options", "-Cprofile-generate=/tmp/p", "-Zoffload=Host=/tmp/x", "-Zcodegen-emit-retag=no-precise-im",
     "-Zdwarf-version=4", "-Zmin-function-alignment=16", "-Zllvm-module-flag=a:u32:1:max", "-Zshare-generics=yes",
