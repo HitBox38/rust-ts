@@ -412,11 +412,11 @@ describe("provide (local providers) and provide_cstore_hooks", () => {
     }));
 
   test("native_libraries / foreign_modules / dependency_formats are the ported local providers", () => {
-    expect(q.native_libraries).toBe(native_libs.collect);
-    expect(q.foreign_modules).toBe(foreign_modules.collect);
+    expect(q.native_libraries as unknown).toBe(native_libs.collect);
+    expect(q.foreign_modules as unknown).toBe(foreign_modules.collect);
     // No linking (`--emit=metadata`): every crate type gets an empty dependency list (`calculate_type`'s early return).
     const tcx = { crate_types: () => ["Rlib", "Executable"], sess: { opts: { output_types: { should_link: () => false } } } } as unknown as TyCtxt;
-    expect([...q.dependency_formats!(tcx, null)]).toEqual([
+    expect([...(q.dependency_formats!(tcx, null) as Iterable<unknown>)]).toEqual([
       ["Rlib", []],
       ["Executable", []],
     ]);
