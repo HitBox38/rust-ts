@@ -39,6 +39,8 @@ import type { ExportedSymbol, SymbolExportInfo } from "../../rustc_codegen_ssa/b
 import type { ForeignModule, LinkagePreference, NativeLib } from "../../rustc_crate_store/lib.ts";
 import type { Features } from "../../rustc_feature/unstable.ts";
 import type { DefKind } from "../../rustc_hir/def.ts";
+import { encode_DefKey } from "../../rustc_hir_id/definitions.ts";
+import { Hash64 } from "../../rustc_hashes/lib.ts";
 import type { Body, Expr } from "../../rustc_hir/hir.ts";
 import type { DebuggerVisualizerFile } from "../../rustc_middle/middle/debugger_visualizer.ts";
 import type { FeatureStability } from "../../rustc_middle/middle/mod.ts";
@@ -52,7 +54,7 @@ import { type Encodable, type Encoder, Encoder_provided, encode_Option, encode_t
 import type { DeniedPartialMitigation } from "../../rustc_session/options/mitigation_coverage.ts";
 import type { TargetModifier } from "../../rustc_session/options.ts";
 import { encode_ExpnData, encode_ExpnHash, encode_Transparency } from "../../rustc_span/decodable.gen.ts";
-import { CrateNum, type DefId, DefIndex, debug_CrateNum, encode_LocalDefId, LOCAL_CRATE, LocalDefId } from "../../rustc_span/def_id.ts";
+import { CRATE_DEF_ID, CrateNum, type DefId, DefIndex, DefPathHash, debug_CrateNum, encode_LocalDefId, LOCAL_CRATE, LocalDefId } from "../../rustc_span/def_id.ts";
 import { type ExpnData, type ExpnHash, type ExpnId, ExpnIndex, HygieneEncodeContext, LocalExpnId, SyntaxContext, type SyntaxContextKey } from "../../rustc_span/hygiene.ts";
 import { BytePos, debug_ExternalSource, encode_BytePos, encode_CrateNum, encode_ExpnId, encode_SourceFile, encode_SyntaxContext, RealFileName, type SourceFile, Span, type SpanData, StableSourceFileId } from "../../rustc_span/lib.ts";
 import { bug } from "../../rustc_span/macros.ts";
@@ -64,7 +66,7 @@ import type { XxHash3_128 } from "../../vendor/twox_hash/lib.ts";
 import { encode_SpanTag } from "../decodable.gen.ts";
 import type { EiiMapEncodedKeyValue } from "../eii.ts";
 import type { Svh } from "./decoder.ts";
-import type { DefPathHashMapRef } from "./def_path_hash_map.ts";
+import { type DefPathHashMapRef, encode_DefPathHashMapRef } from "./def_path_hash_map.ts";
 import {
   type CrateDep,
   type CrateRoot,
@@ -417,14 +419,41 @@ export class EncodeContext implements TyEncoder {
     }
   }
 
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:556 encode_def_path_table (lane encoder-a)
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:556 encode_def_path_table
   encode_def_path_table(): void {
-    unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_def_path_table (lane encoder-a)");
+    const defs = this.tcx.definitions();
+    if (this.is_proc_macro) {
+      for (const def_id of [CRATE_DEF_ID, ...this.tcx.resolutions(null).proc_macros]) {
+        const def_key = defs.def_key(def_id);
+        const def_path_hash = defs.def_path_hash(def_id);
+
+        // record_some_lazy!(self.tables.def_keys[def_id] <- def_key);
+        {
+          const value = def_key;
+          const lazy = this.lazy(value, encode_DefKey);
+          this.tables.def_keys.set_some(def_id, lazy);
+        }
+        // record_value!(self.tables.def_path_hashes[def_id] <- def_path_hash.local_hash().as_u64())
+        this.tables.def_path_hashes.set(def_id, Hash64.as_u64(DefPathHash.local_hash(def_path_hash)));
+      }
+    } else {
+      for (const [def_index, def_key, def_path_hash] of defs.enumerated_keys_and_path_hashes()) {
+        const def_id = LocalDefId.of(def_index);
+        // record_some_lazy!(self.tables.def_keys[def_id] <- def_key);
+        {
+          const value = def_key;
+          const lazy = this.lazy(value, encode_DefKey);
+          this.tables.def_keys.set_some(def_id, lazy);
+        }
+        // record_value!(self.tables.def_path_hashes[def_id] <- def_path_hash.local_hash().as_u64())
+        this.tables.def_path_hashes.set(def_id, Hash64.as_u64(DefPathHash.local_hash(def_path_hash)));
+      }
+    }
   }
 
-  // stub: compiler/rustc_metadata/src/rmeta/encoder.rs:577 encode_def_path_hash_map (lane encoder-a)
+  // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:577 encode_def_path_hash_map
   encode_def_path_hash_map(): LazyValue<DefPathHashMapRef> {
-    return unported("rustc_metadata::rmeta::encoder::EncodeContext::encode_def_path_hash_map (lane encoder-a)");
+    return this.lazy<DefPathHashMapRef>({ $: "BorrowedFromTcx", _0: this.tcx.def_path_hash_to_def_index_map() }, encode_DefPathHashMapRef);
   }
 
   // rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:581 encode_source_map
@@ -917,9 +946,11 @@ export function encode_SpanData(self: SpanData, s: EncodeContext): void {
 }
 
 // impl<'a, 'tcx> Encodable<EncodeContext<'a, 'tcx>> for [u8]
-// stub: compiler/rustc_metadata/src/rmeta/encoder.rs:402 encode (lane encoder-a)
-export function encode_slice_u8(_self: Uint8Array, _e: EncodeContext): void {
-  unported("rustc_metadata::rmeta::encoder::encode [u8] (lane encoder-a)");
+// rustc: compiler/rustc_metadata/src/rmeta/encoder.rs:402 encode
+export function encode_slice_u8(self: Uint8Array, e: EncodeContext): void {
+  // `Encoder::emit_usize(e, self.len())`
+  e.emit_usize(self.length);
+  e.emit_raw_bytes(self);
 }
 
 // struct AnalyzeAttrState
