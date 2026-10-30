@@ -274,3 +274,18 @@ wave-30 regression). Gains otherwise: borrowck-ui-report 1276/1276 (+103), mir 2
 | perf-stalled-goals | next-solver fulfillment loop constant factors (stalled-goal checks); target <= 30 s user on that case | running |
 Then: re-gate, accept, and wave 31 proper (stablehash-gaps, query-keys, harness-m5b, perf-core-a/-b).
 
+## Waves 30–31 ACCEPTED 2026-10-30 (gate-20261029-224808-root-f2r5, main 61086b63)
+403,191 protected in 34 suites (+48,416): mir-core 47,734 (all of core's MIR), mir 21,445, borrowck-ui-report 1,276/1,276,
+thir-tree 1,849. check-core-bin completes core's analysis and stops at the metadata encoder. 22,413/25,518 fns (87.8%).
+
+## Wave 32 (started 2026-10-30) — encoder foundations (plan-m5 §5)
+| lane | scope | status |
+|---|---|---|
+| encode-contract ✱ | Encodable codegen (D3), Encoder interface, EncodeContext skeleton, Lazy* writers, contract test | running |
+| metadata-deps | dependency_format/native_libs/foreign_modules/fs.rs; middle dependency_format types file | running |
+| passes-reachable | reachable.rs, svh, config DepTrackingHash | running |
+| perf-core-a | profile core expanded + check-core-bin; constant-factor fixes (D10) | running |
+| fixer-30 | remaining mir CRASH/DIFF cases (simplify.ts:810 unwrap, false E0433) | running |
+After encode-contract: encode-span-hygiene, encode-middle; probe-rmetadump + harness-m5c (rmeta-* suites, check-core binary
+compare, compiler_builtins aux chain); vendor-twox-hash wiring (wave 33); crateinfo-symbols (wave 33).
+
