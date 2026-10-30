@@ -20,12 +20,12 @@ import {
   type CodegenBackend,
   CodegenBackend_provided,
   CurrentGcx,
-  type EncodedMetadata,
   type IncrCompSession,
   type TargetConfig,
   type WorkProductMap,
 } from "./stand_ins.ts";
 import { LlvmCodegenBackend } from "../rust_ts/codegen_backend.ts";
+import type { EncodedMetadata } from "../rustc_metadata/lib.ts";
 import type { CodegenBackendInit, EarlySession } from "../rustc_session/session.ts";
 import type { CrateType } from "../rustc_structures/crate_type.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";

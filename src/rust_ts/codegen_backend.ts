@@ -20,10 +20,10 @@ import { wants_wasm_eh } from "../rustc_codegen_ssa/base.ts";
 import * as target_features from "../rustc_codegen_ssa/target_features.ts";
 import type { Target } from "../rustc_target/spec/mod.ts";
 import type { CompiledModules, CrateInfo } from "../rustc_codegen_ssa/lib.ts";
+import type { EncodedMetadata } from "../rustc_metadata/lib.ts";
 import {
   type CodegenBackend,
   CodegenBackend_provided,
-  type EncodedMetadata,
   type IncrCompSession,
   type TargetConfig,
   type WorkProductMap,

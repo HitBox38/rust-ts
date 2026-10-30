@@ -29,7 +29,7 @@ import { decode_TargetTuple, encode_TargetTuple, type TargetTuple } from "../../
 import { Unported } from "../../std/panic.ts";
 import { unwrap_result } from "../../std/result.ts";
 import { decode_Svh, encode_Svh, Svh } from "./decoder.ts";
-import { EncodeContext, EncodeContext_CLEAR_CROSS_CRATE, encode_ExpnIndex, encode_metadata, should_encode_span } from "./encoder.ts";
+import { EncodeContext, EncodeContext_CLEAR_CROSS_CRATE, encode_ExpnIndex, should_encode_span } from "./encoder.ts";
 import { encode_LazyArray, encode_LazyTable, encode_LazyValue, LazyState, LazyTable } from "./mod.ts";
 import type { ExpnIndex } from "../../rustc_span/hygiene.ts";
 
@@ -92,6 +92,8 @@ function ported_by(line: number): string | undefined {
   if (PORTED.has(line)) return "encode-contract";
   if (SPAN_HYGIENE.has(line)) return "encode-span-hygiene";
   if (ENCODER_A.has(line)) return "encoder-a";
+  // lane encoder-d (wave 33): all of :2064-end
+  if (line >= 2064) return "encoder-d";
   return undefined;
 }
 
@@ -198,7 +200,7 @@ test("stubs stop with their lane", () => {
   expect(lane(() => e.encode_crate_root())).toBe("encoder-b");
   expect(lane(() => should_encode_span("Mod" as never))).toBe("encoder-b");
   expect(lane(() => e.encode_mir())).toBe("encoder-c");
-  expect(lane(() => encode_metadata(undefined as never, "x.rmeta", undefined))).toBe("encoder-d");
+  // encoder-d (wave 33) has no stubs left
 });
 
 test("the Encoder impl forwards to opaque; the TyEncoder impl", () => {
