@@ -1664,7 +1664,9 @@ export function crate_hash(tcx: TyCtxt, _: "LocalCrate"): Svh {
   // metadata encoding.
   if (tcx.needs_metadata()) {
     // `*tcx.untracked().local_crate_hash.get().expect("crate_hash(LOCAL_CRATE) called before metadata encoding")`
-    return unported("rustc_middle::hir::map::crate_hash: Untracked::local_crate_hash (metadata encoding, M5)");
+    const hash = tcx.untracked().local_crate_hash;
+    if (hash === undefined) return panic("crate_hash(LOCAL_CRATE) called before metadata encoding");
+    return hash;
   } else {
     // When metadata isn't encoded, use an HIR based approximation. Encoding metadata for a
     // dylib/binary is expensive and fragile. These fields are enough to identify the session.

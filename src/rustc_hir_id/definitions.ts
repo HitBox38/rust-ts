@@ -12,12 +12,13 @@
 import { SortedMap } from "../rustc_data_structures/sorted_map.ts";
 import { StableHasher } from "../rustc_data_structures/stable_hash.ts";
 import { utf8 } from "../std/str.ts";
+import type { Encodable } from "../rustc_serialize/serialize.ts";
 import type { SpanEncoder } from "../rustc_span/lib.ts";
 import { Hash64 } from "../rustc_hashes/lib.ts";
 import { CRATE_DEF_INDEX, type CrateNum, type DefIndex, debug_DefIndex, DefPathHash, LOCAL_CRATE, LocalDefId, StableCrateId } from "../rustc_span/def_id.ts";
 import { display_Symbol, kw, sym, Symbol } from "../rustc_span/symbol.ts";
 import { type Debug, debug_struct, debug_tuple, debug_vec, type Fmt, PLAIN, PRETTY } from "../std/fmt.ts";
-import { assert, assert_eq, panic, unported, unwrap } from "../std/panic.ts";
+import { assert, assert_eq, panic, unwrap } from "../std/panic.ts";
 import { Config, HashTableOwned } from "./def_path_hash_map.ts";
 import * as gen from "./definitions.gen.ts";
 import { debug_DefPath, type DefKey, DefPathToIndexMap, DisambiguatedDefPathData } from "./definitions.gen.ts";
@@ -191,10 +192,12 @@ DefPathToIndexMap.prototype.insert = function (this: DefPathToIndexMap, hash: Ha
 
 // impl<E: SpanEncoder> Encodable<E> for DefKey
 // #[inline]
-// PORT: needs `DisambiguatedDefPathData`'s derive(Encodable) (rustc_hir_id is not a tools/codegen serialize set yet).
-// stub: compiler/rustc_hir_id/src/definitions.rs:118 encode (lane encoder-a)
-export function encode_DefKey(_self: DefKey, _e: SpanEncoder): void {
-  unported("rustc_hir_id::definitions::encode DefKey (lane encoder-a)");
+// PORT: `impl Encodable<Self>` of `encode_def_key` is the generated `encode_DisambiguatedDefPathData` (PORTING §5).
+// rustc_span's `SpanEncoder.encode_def_key` types it as `Encodable<T>` (over `Encoder`), but every implementation
+// calls it with `self`, a `SpanEncoder`, so the cast is sound.
+// rustc: compiler/rustc_hir_id/src/definitions.rs:118 encode
+export function encode_DefKey(self: DefKey, e: SpanEncoder): void {
+  e.encode_def_key(self.parent, self.disambiguated_data, gen.encode_DisambiguatedDefPathData as Encodable<DisambiguatedDefPathData>);
 }
 
 // rustc: compiler/rustc_hir_id/src/definitions.rs:124 compute_stable_hash

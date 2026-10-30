@@ -17,11 +17,12 @@
 // when a run starts (or it stops with `ERROR:`), and a run fails if a suite changes it (scripts/lib/upstream.ts).
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { suite as getSuite } from "../harness/suites.ts";
+import { RMETA_RUN, suite as getSuite, type Suite } from "../harness/suites.ts";
 import { difftest, heavyErrorLines, heavyLine, unstableOf, type HeavyRun, type OracleRerun } from "./difftest.ts";
 import { REPO, RUNS, UPSTREAM, die, ensureDir, nowId, parseArgs, run } from "./lib/common.ts";
 import { upstreamError, upstreamStatus } from "./lib/upstream.ts";
 import { oracleTestProbes, probeBinary } from "./probes.ts";
+import { parseRmetaRunArgs } from "./rmeta-run.ts";
 import { record } from "./state.ts";
 
 const BASELINE = join(REPO, "harness", "baseline");
@@ -77,8 +78,9 @@ export function protectedUnstable(suite: string, base: Set<string> = readBaselin
  * Every probe the gate needs must be built before anything runs: the oracle probes of the suites
  * it runs (`Suite.probes`) and, unless static checks are skipped, the probes the oracle unit tests
  * read (they run with RUST_TS_REQUIRE_PROBES=1, so a missing probe fails them). One `ERROR:` line
- * per missing probe, with its build command. Also checks that each suite's oracle command runs one
- * of its declared probes (or `rustc`), so `Suite.probes` cannot drift from `Suite.oracle`.
+ * per missing probe, with its build command. Also checks that every program each suite's oracle
+ * command runs (`oracleRuns`) is `rustc` or one of its declared probes, so `Suite.probes` cannot
+ * drift from `Suite.oracle` (`undeclaredRuns`).
  */
 export function checkProbes(suites: string[], unitTests: boolean): boolean {
   const need = new Map<string, string[]>();
@@ -94,15 +96,37 @@ export function checkProbes(suites: string[], unitTests: boolean): boolean {
   }
   if (!ok) return false;
   for (const name of suites) {
-    const s = getSuite(name);
-    const cmd0 = s.oracle([{ id: "", file: "", args: [] }])[0]!;
-    const declared = (s.probes ?? []).map(probeBinary);
-    if (cmd0 !== "rustc" && !declared.includes(cmd0)) {
-      console.log(`ERROR: suite ${name} runs ${cmd0} but declares probes [${(s.probes ?? []).join(", ")}]`);
+    for (const e of undeclaredRuns(getSuite(name))) {
+      console.log(`ERROR: ${e}`);
       ok = false;
     }
   }
   return ok;
+}
+
+/**
+ * The programs an oracle command runs: its first word, except for scripts/rmeta-run.ts under Bun (the rmeta suites),
+ * where it is the wrapper's compiler (the first word after its `--`) and, with `--dump`, its probe. Throws on a
+ * malformed wrapper command line (`parseRmetaRunArgs`).
+ */
+export function oracleRuns(cmd: string[]): string[] {
+  if (cmd[0] === process.execPath && cmd[1] === RMETA_RUN) {
+    const a = parseRmetaRunArgs(cmd.slice(2));
+    return [a.compiler[0]!, ...(a.dump !== undefined ? [a.dump] : [])];
+  }
+  return [cmd[0]!];
+}
+
+/** One message per program a suite's oracle command runs (`oracleRuns`) that is neither `rustc` nor a declared probe. */
+export function undeclaredRuns(s: Suite): string[] {
+  const declared = (s.probes ?? []).map(probeBinary);
+  let runs: string[];
+  try {
+    runs = oracleRuns(s.oracle([{ id: "", file: "", args: [] }]));
+  } catch (e) {
+    return [`suite ${s.name}: ${e instanceof Error ? e.message : String(e)}`];
+  }
+  return runs.filter((p) => p !== "rustc" && !declared.includes(p)).map((p) => `suite ${s.name} runs ${p} but declares probes [${(s.probes ?? []).join(", ")}]`);
 }
 
 /**

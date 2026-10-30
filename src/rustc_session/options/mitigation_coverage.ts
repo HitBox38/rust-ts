@@ -12,8 +12,9 @@ import type { Edition } from "../../rustc_span/edition.ts";
 import { type Debug, debug_bool, debug_struct, debug_tuple } from "../../std/fmt.ts";
 import { type StackProtector, debug_StackProtector } from "../stand_ins.ts";
 import { Options } from "../options.ts";
-import { type Decoder, decode_bool } from "../../rustc_serialize/serialize.ts";
-import { decode_StackProtector } from "../../rustc_target/spec/mod.ts";
+import { type Decoder, decode_bool, encode_bool } from "../../rustc_serialize/serialize.ts";
+import type { SpanEncoder } from "../../rustc_span/lib.ts";
+import { decode_StackProtector, encode_StackProtector } from "../../rustc_target/spec/mod.ts";
 import { panic } from "../../std/panic.ts";
 import {
   DeniedPartialMitigationKind,
@@ -169,6 +170,35 @@ export function decode_DeniedPartialMitigation(__decoder: Decoder): DeniedPartia
     kind: decode_DeniedPartialMitigationKind(__decoder),
     level: decode_DeniedPartialMitigationLevel(__decoder),
   };
+}
+// PORT (lane encoder-d): the `#[derive(Encodable)]` halves of the same three types, hand-expanded likewise
+// (rustc_macros serialize.rs `encodable_body`: an enum emits its variant index with `emit_u8`, then the variant's
+// fields; a struct emits its fields in order). Crate metadata encodes them (rmeta
+// `EncodeContext::encode_enabled_denied_partial_mitigations`).
+
+/** `#[derive(Encodable)]` of `DeniedPartialMitigationLevel` (mitigation_coverage.rs:12). */
+export function encode_DeniedPartialMitigationLevel(self: DeniedPartialMitigationLevel, __encoder: SpanEncoder): void {
+  switch (self.$) {
+    case "Enabled":
+      __encoder.emit_u8(0);
+      encode_bool(self._0, __encoder);
+      break;
+    case "StackProtector":
+      __encoder.emit_u8(1);
+      encode_StackProtector(self._0, __encoder);
+      break;
+  }
+}
+
+/** `#[derive(Encodable)]` of `DeniedPartialMitigationKind` (inside `denied_partial_mitigations!`, mitigation_coverage.rs:136). */
+export function encode_DeniedPartialMitigationKind(self: DeniedPartialMitigationKind, __encoder: SpanEncoder): void {
+  __encoder.emit_u8(DeniedPartialMitigationKind_discriminant[self]);
+}
+
+/** `#[derive(Encodable)]` of `DeniedPartialMitigation` (mitigation_coverage.rs:216). */
+export function encode_DeniedPartialMitigation(self: DeniedPartialMitigation, __encoder: SpanEncoder): void {
+  encode_DeniedPartialMitigationKind(self.kind, __encoder);
+  encode_DeniedPartialMitigationLevel(self.level, __encoder);
 }
 /** `#[derive(Debug)]` */
 export const debug_DeniedPartialMitigation: Debug<DeniedPartialMitigation> = (v, f) =>
