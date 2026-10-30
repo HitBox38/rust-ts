@@ -5,7 +5,8 @@
 //! mismatches where we have two versions of the same crate that were
 //! compiled from distinct sources.
 import { type Debug, debug_struct } from "../std/fmt.ts";
-import { debug_Fingerprint, decode_Fingerprint, Fingerprint, type RawBytesDecoder } from "./fingerprint.ts";
+import type { Encoder } from "../rustc_serialize/serialize.ts";
+import { debug_Fingerprint, decode_Fingerprint, encode_Fingerprint, Fingerprint, type RawBytesDecoder } from "./fingerprint.ts";
 import type { StableHashCtxt, StableHasher } from "./stable_hash.ts";
 import { stable_hash_Fingerprint } from "./stable_hash.ts";
 
@@ -57,6 +58,11 @@ export const debug_Svh: Debug<Svh> = (v, f) => debug_struct(f, "Svh", [["hash", 
 /** `#[derive(Decodable_NoContext)]`: the one field, `hash: Fingerprint`. */
 export function decode_Svh(d: RawBytesDecoder): Svh {
   return Svh.new(decode_Fingerprint(d));
+}
+
+/** `#[derive(Encodable_NoContext)]`: the one field, `hash: Fingerprint`. */
+export function encode_Svh(self: Svh, s: Encoder): void {
+  encode_Fingerprint(Svh.as_fingerprint(self), s);
 }
 
 /** `#[derive(StableHash)]`: the one field, `hash: Fingerprint`. */

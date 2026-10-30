@@ -4,6 +4,7 @@
 // the companion const. `PackedFingerprint` (`#[repr(packed)]`) is the same value, branded apart.
 import { debug_tuple, type Debug } from "../std/fmt.ts";
 import { Hash64 } from "../rustc_hashes/lib.ts";
+import type { Encoder } from "../rustc_serialize/serialize.ts";
 import type { Hasher, SipHasher128Hash as StableHasherHash } from "../vendor/rustc_stable_hash/lib.ts";
 
 const U64_MASK = (1n << 64n) - 1n;
@@ -176,7 +177,12 @@ export function write_fingerprint_unhasher(self: Hasher, fingerprint: Fingerprin
 // `impl_stable_traits_for_trivial_type!(Fingerprint);` -> `stable_hash_Fingerprint` in
 // stable_hash.ts (`Hash::hash(self, hasher)`), and `StableOrd` (unstable sort allowed).
 
-// rustc-skip: compiler/rustc_data_structures/src/fingerprint.rs:172 encode Encodable impl (metadata encoding, M5)
+// #[inline]
+// rustc: compiler/rustc_data_structures/src/fingerprint.rs:172 encode
+/** `impl<E: Encoder> Encodable<E> for Fingerprint` */
+export function encode_Fingerprint(self: Fingerprint, s: Encoder): void {
+  s.emit_raw_bytes(Fingerprint.to_le_bytes(self));
+}
 
 /// PORT: stand-in for the `rustc_serialize::Decoder` method this file calls (rustc_serialize is
 /// not ported yet; the serialize lane provides the real trait).
@@ -222,7 +228,14 @@ export const display_PackedFingerprint = (v: PackedFingerprint): string => {
   return display_Fingerprint(copy);
 };
 
-// rustc-skip: compiler/rustc_data_structures/src/fingerprint.rs:216 encode Encodable impl (metadata encoding, M5)
+// #[inline]
+// rustc: compiler/rustc_data_structures/src/fingerprint.rs:216 encode
+/** `impl<E: Encoder> Encodable<E> for PackedFingerprint` */
+export function encode_PackedFingerprint(self: PackedFingerprint, s: Encoder): void {
+  // Copy to avoid taking reference to packed field.
+  const copy = self as bigint as Fingerprint;
+  encode_Fingerprint(copy, s);
+}
 
 // rustc: compiler/rustc_data_structures/src/fingerprint.rs:225 decode
 /** `impl<D: Decoder> Decodable<D> for PackedFingerprint` */

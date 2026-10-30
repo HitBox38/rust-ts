@@ -29,7 +29,7 @@ import {
   LATEST_STABLE_EDITION,
   display_Edition,
 } from "../rustc_span/edition.ts";
-import { type FileName, RealFileName, RemapPathScopeComponents, SourceFileHashAlgorithm } from "../rustc_span/lib.ts";
+import { type FileName, RealFileName, RemapPathScopeComponents, SourceFileHashAlgorithm, type SpanEncoder } from "../rustc_span/lib.ts";
 import { FilePathMapping } from "../rustc_span/source_map.ts";
 import { type Symbol, sym } from "../rustc_span/symbol.ts";
 import { type Debug, debug_bool, debug_int, debug_map, debug_option, debug_str, debug_struct, debug_tuple, debug_vec } from "../std/fmt.ts";
@@ -799,6 +799,25 @@ export function decode_SymbolManglingVersion(__decoder: Decoder): SymbolMangling
     default:
       return panic(`invalid enum variant tag while decoding \`SymbolManglingVersion\`, expected 0..3, actual ${__tag}`);
   }
+}
+/**
+ * `#[derive(Encodable)]` of `SymbolManglingVersion` (rustc_macros serialize.rs `encodable_body`: the variant index as `emit_u8`).
+ * PORT (lane encode-contract): hand-expanded like `decode_SymbolManglingVersion` (syn cannot parse config.rs).
+ */
+export function encode_SymbolManglingVersion(self: SymbolManglingVersion, __encoder: SpanEncoder): void {
+  let disc: number;
+  switch (self) {
+    case "Legacy":
+      disc = 0;
+      break;
+    case "V0":
+      disc = 1;
+      break;
+    case "Hashed":
+      disc = 2;
+      break;
+  }
+  __encoder.emit_u8(disc);
 }
 export const debug_SymbolManglingVersion: Debug<SymbolManglingVersion> = (v) => v;
 

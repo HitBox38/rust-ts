@@ -135,6 +135,8 @@ test("stubs per fill lane (the split table of docs/handoff/mir-contract.md)", ()
   const per = new Map<string, number>();
   for (const d of decls.filter((d) => d.kind === "stub")) per.set(d.lane!, (per.get(d.lane!) ?? 0) + 1);
   expect(Object.fromEntries([...per].sort())).toEqual({
+    // the hand `Encodable` impls of mir/ (former `rustc-skip:` markers; lane encode-contract, plan-m5 D3)
+    "encode-middle": 7,
   });
 });
 

@@ -2,19 +2,19 @@
 // Hand-written additions (methods, manual Debug impls) go in query.ts next to this file.
 import { try_visit } from "../../rustc_ast_ir/visit.ts";
 import { type BitMatrix } from "../../rustc_index/bit_set.ts";
-import { decode_BitMatrix } from "../../rustc_index/decodable.gen.ts";
+import { decode_BitMatrix, encode_BitMatrix } from "../../rustc_index/decodable.gen.ts";
 import { newtype_index } from "../../rustc_index/newtype_index.ts";
 import { type ConstValue, debug_ConstValue } from "./consts.ts";
-import { clone_SourceInfo, debug_SourceInfo, decode_SourceInfo, type SourceInfo } from "./mod.ts";
-import { decode_Ty, type TyDecoder } from "../ty/codec.ts";
+import { clone_SourceInfo, debug_SourceInfo, decode_SourceInfo, encode_SourceInfo, type SourceInfo } from "./mod.ts";
+import { decode_Ty, encode_Ty, type TyDecoder, type TyEncoder } from "../ty/codec.ts";
 import { FieldIdx, type VariantIdx } from "../ty/decls.ts";
 import { debug_Ty, fold_with_Ty, try_fold_with_Ty, type Ty, visit_with_Ty } from "../ty/mod.ts";
-import { decode_bool, decode_Option, decode_Vec, type Decoder } from "../../rustc_serialize/serialize.ts";
+import { decode_bool, decode_Option, decode_Vec, type Decoder, encode_bool, encode_Option, encode_Vec, type Encoder } from "../../rustc_serialize/serialize.ts";
 import { debug_DefId, type DefId } from "../../rustc_span/def_id.ts";
-import { debug_ErrorGuaranteed, debug_Span, decode_ErrorGuaranteed, type ErrorGuaranteed, type Span } from "../../rustc_span/lib.ts";
+import { debug_ErrorGuaranteed, debug_Span, decode_ErrorGuaranteed, encode_ErrorGuaranteed, type ErrorGuaranteed, type Span } from "../../rustc_span/lib.ts";
 import { debug_Symbol, type Symbol } from "../../rustc_span/symbol.ts";
 import { type FallibleTypeFolder, fold_with_Option, fold_with_trivial, fold_with_Vec, type FoldWith, try_fold_with_Option, try_fold_with_trivial, try_fold_with_Vec, type TryFoldWith, type TypeFolder, type TypeVisitor, visit_with_Option, visit_with_trivial, visit_with_Vec, type VisitWith } from "../../rustc_type_ir/fold.ts";
-import { debug_RegionVid, decode_RegionVid, type RegionVid } from "../../rustc_type_ir/region_kind.ts";
+import { debug_RegionVid, decode_RegionVid, encode_RegionVid, type RegionVid } from "../../rustc_type_ir/region_kind.ts";
 import { type Debug, debug_bool, debug_int, debug_option, debug_struct, debug_tuple, debug_vec } from "../../std/fmt.ts";
 import { panic } from "../../std/panic.ts";
 import { Ok, type Result } from "../../std/result.ts";
@@ -27,6 +27,10 @@ export const debug_CoroutineSavedLocal: Debug<CoroutineSavedLocal> = CoroutineSa
 // rustc-derive: compiler/rustc_middle/src/mir/query.rs:16 newtype_index! #[encodable] Decodable for CoroutineSavedLocal
 export function decode_CoroutineSavedLocal(__decoder: Decoder): CoroutineSavedLocal {
   return CoroutineSavedLocal.from_u32(__decoder.read_u32());
+}
+// rustc-derive: compiler/rustc_middle/src/mir/query.rs:16 newtype_index! #[encodable] Encodable for CoroutineSavedLocal
+export function encode_CoroutineSavedLocal(self: CoroutineSavedLocal, __encoder: Encoder): void {
+  __encoder.emit_u32(CoroutineSavedLocal.as_u32(self));
 }
 
 // rustc-type: compiler/rustc_middle/src/mir/query.rs:25 CoroutineSavedTy
@@ -62,6 +66,13 @@ export function decode_CoroutineSavedTy(__decoder: TyDecoder): CoroutineSavedTy 
     ignore_for_traits: decode_bool(__decoder),
     debuginfo_name: decode_Option(__decoder, (__decoder) => __decoder.decode_symbol()),
   };
+}
+// rustc-derive: compiler/rustc_middle/src/mir/query.rs:25 TyEncodable for CoroutineSavedTy
+export function encode_CoroutineSavedTy(self: CoroutineSavedTy, __encoder: TyEncoder): void {
+  encode_Ty(self.ty, __encoder);
+  encode_SourceInfo(self.source_info, __encoder);
+  encode_bool(self.ignore_for_traits, __encoder);
+  encode_Option(self.debuginfo_name, __encoder, (__v, __encoder) => __encoder.encode_symbol(__v));
 }
 // rustc-derive: compiler/rustc_middle/src/mir/query.rs:25 TypeVisitable for CoroutineSavedTy
 export function visit_with_CoroutineSavedTy<R>(self: CoroutineSavedTy, __visitor: TypeVisitor<R>): R {
@@ -115,6 +126,13 @@ export function decode_CoroutineLayout(__decoder: TyDecoder): CoroutineLayout {
     variant_source_info: decode_Vec(__decoder, decode_SourceInfo),
     storage_conflicts: (decode_BitMatrix(__decoder) as never),
   };
+}
+// rustc-derive: compiler/rustc_middle/src/mir/query.rs:38 TyEncodable for CoroutineLayout
+export function encode_CoroutineLayout(self: CoroutineLayout, __encoder: TyEncoder): void {
+  encode_Vec(self.field_tys, __encoder, encode_CoroutineSavedTy);
+  encode_Vec(self.variant_fields, __encoder, (__v, __encoder) => encode_Vec(__v, __encoder, encode_CoroutineSavedLocal));
+  encode_Vec(self.variant_source_info, __encoder, encode_SourceInfo);
+  encode_BitMatrix(self.storage_conflicts as never, __encoder);
 }
 // rustc-derive: compiler/rustc_middle/src/mir/query.rs:38 TypeVisitable for CoroutineLayout
 export function visit_with_CoroutineLayout<R>(self: CoroutineLayout, __visitor: TypeVisitor<R>): R {
@@ -174,6 +192,13 @@ export function decode_ConstQualifs(__decoder: TyDecoder): ConstQualifs {
     needs_non_const_drop: decode_bool(__decoder),
     tainted_by_errors: decode_Option(__decoder, decode_ErrorGuaranteed),
   };
+}
+// rustc-derive: compiler/rustc_middle/src/mir/query.rs:91 TyEncodable for ConstQualifs
+export function encode_ConstQualifs(self: ConstQualifs, __encoder: TyEncoder): void {
+  encode_bool(self.has_mut_interior, __encoder);
+  encode_bool(self.needs_drop, __encoder);
+  encode_bool(self.needs_non_const_drop, __encoder);
+  encode_Option(self.tainted_by_errors, __encoder, encode_ErrorGuaranteed);
 }
 
 // rustc-type: compiler/rustc_middle/src/mir/query.rs:104 ConstraintCategory
@@ -344,6 +369,104 @@ export function decode_ConstraintCategory(__decoder: TyDecoder): ConstraintCateg
       return panic(`invalid enum variant tag while decoding \`ConstraintCategory\`, expected 0..19, actual ${__tag}`);
   }
 }
+function ConstraintCategory__variant_index(tag: ConstraintCategory["$"]): number {
+  switch (tag) {
+    case "Return":
+      return 0;
+    case "Yield":
+      return 1;
+    case "UseAsConst":
+      return 2;
+    case "UseAsStatic":
+      return 3;
+    case "TypeAnnotation":
+      return 4;
+    case "Cast":
+      return 5;
+    case "CallArgument":
+      return 6;
+    case "CopyBound":
+      return 7;
+    case "SizedBound":
+      return 8;
+    case "Assignment":
+      return 9;
+    case "Usage":
+      return 10;
+    case "OpaqueType":
+      return 11;
+    case "ClosureUpvar":
+      return 12;
+    case "Predicate":
+      return 13;
+    case "Boring":
+      return 14;
+    case "BoringNoLocation":
+      return 15;
+    case "Internal":
+      return 16;
+    case "OutlivesUnnameablePlaceholder":
+      return 17;
+    case "SolverRegionConstraint":
+      return 18;
+  }
+}
+// rustc-derive: compiler/rustc_middle/src/mir/query.rs:104 TyEncodable for ConstraintCategory
+export function encode_ConstraintCategory(self: ConstraintCategory, __encoder: TyEncoder): void {
+  const disc = ConstraintCategory__variant_index(self.$);
+  __encoder.emit_u8(disc);
+  switch (self.$) {
+    case "Return":
+      encode_ReturnConstraint(self._0, __encoder);
+      break;
+    case "Yield":
+      break;
+    case "UseAsConst":
+      break;
+    case "UseAsStatic":
+      break;
+    case "TypeAnnotation":
+      encode_AnnotationSource(self._0, __encoder);
+      break;
+    case "Cast":
+      encode_bool(self.is_raw_ptr_dyn_type_cast, __encoder);
+      encode_bool(self.is_implicit_coercion, __encoder);
+      encode_Option(self.unsize_to, __encoder, encode_Ty);
+      break;
+    case "CallArgument":
+      encode_Option(self._0, __encoder, encode_Ty);
+      break;
+    case "CopyBound":
+      break;
+    case "SizedBound":
+      break;
+    case "Assignment":
+      break;
+    case "Usage":
+      break;
+    case "OpaqueType":
+      break;
+    case "ClosureUpvar":
+      __encoder.emit_u32(FieldIdx.as_u32(self._0));
+      break;
+    case "Predicate":
+      __encoder.encode_span(self._0);
+      __encoder.encode_def_id(self._1);
+      break;
+    case "Boring":
+      break;
+    case "BoringNoLocation":
+      break;
+    case "Internal":
+      break;
+    case "OutlivesUnnameablePlaceholder":
+      encode_RegionVid(self._0, __encoder);
+      break;
+    case "SolverRegionConstraint":
+      __encoder.encode_span(self._0);
+      break;
+  }
+}
 // rustc-derive: compiler/rustc_middle/src/mir/query.rs:104 TypeVisitable for ConstraintCategory
 export function visit_with_ConstraintCategory<R>(self: ConstraintCategory, __visitor: TypeVisitor<R>): R {
   let r: R | undefined;
@@ -490,6 +613,26 @@ export function decode_ReturnConstraint(__decoder: TyDecoder): ReturnConstraint 
       return panic(`invalid enum variant tag while decoding \`ReturnConstraint\`, expected 0..2, actual ${__tag}`);
   }
 }
+function ReturnConstraint__variant_index(tag: ReturnConstraint["$"]): number {
+  switch (tag) {
+    case "Normal":
+      return 0;
+    case "ClosureUpvar":
+      return 1;
+  }
+}
+// rustc-derive: compiler/rustc_middle/src/mir/query.rs:162 TyEncodable for ReturnConstraint
+export function encode_ReturnConstraint(self: ReturnConstraint, __encoder: TyEncoder): void {
+  const disc = ReturnConstraint__variant_index(self.$);
+  __encoder.emit_u8(disc);
+  switch (self.$) {
+    case "Normal":
+      break;
+    case "ClosureUpvar":
+      __encoder.emit_u32(FieldIdx.as_u32(self._0));
+      break;
+  }
+}
 // rustc-derive: compiler/rustc_middle/src/mir/query.rs:162 TypeVisitable for ReturnConstraint
 export function visit_with_ReturnConstraint<R>(_self: ReturnConstraint, __visitor: TypeVisitor<R>): R {
   return __visitor.Result.output();
@@ -541,6 +684,23 @@ export function decode_AnnotationSource(__decoder: TyDecoder): AnnotationSource 
     default:
       return panic(`invalid enum variant tag while decoding \`AnnotationSource\`, expected 0..4, actual ${__tag}`);
   }
+}
+function AnnotationSource__variant_index(tag: AnnotationSource): number {
+  switch (tag) {
+    case "Ascription":
+      return 0;
+    case "Declaration":
+      return 1;
+    case "OpaqueCast":
+      return 2;
+    case "GenericArg":
+      return 3;
+  }
+}
+// rustc-derive: compiler/rustc_middle/src/mir/query.rs:169 TyEncodable for AnnotationSource
+export function encode_AnnotationSource(self: AnnotationSource, __encoder: TyEncoder): void {
+  const disc = AnnotationSource__variant_index(self);
+  __encoder.emit_u8(disc);
 }
 // rustc-derive: compiler/rustc_middle/src/mir/query.rs:169 TypeVisitable for AnnotationSource
 export function visit_with_AnnotationSource<R>(_self: AnnotationSource, __visitor: TypeVisitor<R>): R {

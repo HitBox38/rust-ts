@@ -1765,64 +1765,57 @@ MemEncoder.prototype.encode_def_key = function <T>(this: MemEncoder, parent: Def
   SpanEncoder_provided.encode_def_key(this, parent, disambiguated_data, encode_T);
 };
 
-// PORT: rustc_serialize's `Encodable<T>` is `(v: T, s: Encoder) => void`, not generic over the
-// encoder (src/rustc_serialize/serialize.ts), so the `impl<E: SpanEncoder> Encodable<E>` impls
-// take an `Encoder` and use it as the `SpanEncoder` upstream's bound guarantees.
-function span_encoder(s: Encoder): SpanEncoder {
-  return s as SpanEncoder;
-}
-
 /** `impl<E: SpanEncoder> Encodable<E> for Span` */
 // rustc: compiler/rustc_span/src/lib.rs:1448 encode
-export function encode_Span(self: Span, s: Encoder): void {
-  span_encoder(s).encode_span(self);
+export function encode_Span(self: Span, s: SpanEncoder): void {
+  s.encode_span(self);
 }
 
 /** `impl<E: SpanEncoder> Encodable<E> for Symbol` */
 // rustc: compiler/rustc_span/src/lib.rs:1454 encode
-export function encode_Symbol(self: Symbol, s: Encoder): void {
-  span_encoder(s).encode_symbol(self);
+export function encode_Symbol(self: Symbol, s: SpanEncoder): void {
+  s.encode_symbol(self);
 }
 
 /** `impl<E: SpanEncoder> Encodable<E> for ByteSymbol` */
 // rustc: compiler/rustc_span/src/lib.rs:1460 encode
-export function encode_ByteSymbol(self: ByteSymbol, s: Encoder): void {
-  span_encoder(s).encode_byte_symbol(self);
+export function encode_ByteSymbol(self: ByteSymbol, s: SpanEncoder): void {
+  s.encode_byte_symbol(self);
 }
 
 /** `impl<E: SpanEncoder> Encodable<E> for ExpnId` */
 // rustc: compiler/rustc_span/src/lib.rs:1466 encode
-export function encode_ExpnId(self: ExpnId, s: Encoder): void {
-  span_encoder(s).encode_expn_id(self);
+export function encode_ExpnId(self: ExpnId, s: SpanEncoder): void {
+  s.encode_expn_id(self);
 }
 
 /** `impl<E: SpanEncoder> Encodable<E> for SyntaxContext` */
 // rustc: compiler/rustc_span/src/lib.rs:1472 encode
-export function encode_SyntaxContext(self: SyntaxContext, s: Encoder): void {
-  span_encoder(s).encode_syntax_context(self);
+export function encode_SyntaxContext(self: SyntaxContext, s: SpanEncoder): void {
+  s.encode_syntax_context(self);
 }
 
 /** `impl<E: SpanEncoder> Encodable<E> for CrateNum` */
 // rustc: compiler/rustc_span/src/lib.rs:1478 encode
-export function encode_CrateNum(self: CrateNum, s: Encoder): void {
-  span_encoder(s).encode_crate_num(self);
+export function encode_CrateNum(self: CrateNum, s: SpanEncoder): void {
+  s.encode_crate_num(self);
 }
 
 /** `impl<E: SpanEncoder> Encodable<E> for DefIndex` */
 // rustc: compiler/rustc_span/src/lib.rs:1484 encode
-export function encode_DefIndex(self: DefIndex, s: Encoder): void {
-  span_encoder(s).encode_def_index(self);
+export function encode_DefIndex(self: DefIndex, s: SpanEncoder): void {
+  s.encode_def_index(self);
 }
 
 /** `impl<E: SpanEncoder> Encodable<E> for DefId` */
 // rustc: compiler/rustc_span/src/lib.rs:1490 encode
-export function encode_DefId(self: DefId, s: Encoder): void {
-  span_encoder(s).encode_def_id(self);
+export function encode_DefId(self: DefId, s: SpanEncoder): void {
+  s.encode_def_id(self);
 }
 
 /** `impl<E: SpanEncoder> Encodable<E> for AttrId` */
 // rustc: compiler/rustc_span/src/lib.rs:1496 encode
-export function encode_AttrId(_self: AttrId, _s: Encoder): void {
+export function encode_AttrId(_self: AttrId, _s: SpanEncoder): void {
   // A fresh id will be generated when decoding
 }
 
@@ -2731,7 +2724,7 @@ export class SourceFile {
 
 /** `impl<S: SpanEncoder> Encodable<S> for SourceFile` */
 // rustc: compiler/rustc_span/src/lib.rs:1996 encode
-export function encode_SourceFile(self: SourceFile, s: Encoder): void {
+export function encode_SourceFile(self: SourceFile, s: SpanEncoder): void {
   encode_FileName(self.name, s);
   encode_SourceFileHash(self.src_hash, s);
   encode_Option(self.checksum_hash, s, encode_SourceFileHash);

@@ -2,10 +2,10 @@
 // Hand-written additions (methods, manual Debug impls) go in basic_blocks.ts next to this file.
 import { try_visit } from "../../rustc_ast_ir/visit.ts";
 import { debug_Dominators, type Dominators } from "../../rustc_data_structures/graph/dominators/mod.ts";
-import { decode_Cache } from "./basic_blocks.ts";
-import { type BasicBlock, type BasicBlockData, clone_BasicBlockData, debug_BasicBlock, debug_BasicBlockData, decode_BasicBlockData, fold_with_BasicBlockData, try_fold_with_BasicBlockData, visit_with_BasicBlockData } from "./mod.ts";
-import { type TyDecoder } from "../ty/codec.ts";
-import { decode_Vec } from "../../rustc_serialize/serialize.ts";
+import { decode_Cache, encode_Cache } from "./basic_blocks.ts";
+import { type BasicBlock, type BasicBlockData, clone_BasicBlockData, debug_BasicBlock, debug_BasicBlockData, decode_BasicBlockData, encode_BasicBlockData, fold_with_BasicBlockData, try_fold_with_BasicBlockData, visit_with_BasicBlockData } from "./mod.ts";
+import { type TyDecoder, type TyEncoder } from "../ty/codec.ts";
+import { decode_Vec, encode_Vec } from "../../rustc_serialize/serialize.ts";
 import { type FallibleTypeFolder, fold_with_Vec, type FoldWith, try_fold_with_Vec, type TryFoldWith, type TypeFolder, type TypeVisitor, visit_with_Vec, type VisitWith } from "../../rustc_type_ir/fold.ts";
 import { type Debug, debug_struct, debug_tuple, debug_vec } from "../../std/fmt.ts";
 import { Ok, type Result } from "../../std/result.ts";
@@ -29,6 +29,11 @@ export function clone_BasicBlocks(v: BasicBlocks): BasicBlocks {
 // rustc-derive: compiler/rustc_middle/src/mir/basic_blocks.rs:15 TyDecodable for BasicBlocks
 export function decode_BasicBlocks(__decoder: TyDecoder): BasicBlocks {
   return new BasicBlocks(decode_Vec(__decoder, decode_BasicBlockData), decode_Cache(__decoder));
+}
+// rustc-derive: compiler/rustc_middle/src/mir/basic_blocks.rs:15 TyEncodable for BasicBlocks
+export function encode_BasicBlocks(self: BasicBlocks, __encoder: TyEncoder): void {
+  encode_Vec(self.basic_blocks, __encoder, encode_BasicBlockData);
+  encode_Cache(self.cache, __encoder);
 }
 // rustc-derive: compiler/rustc_middle/src/mir/basic_blocks.rs:15 TypeVisitable for BasicBlocks
 export function visit_with_BasicBlocks<R>(self: BasicBlocks, __visitor: TypeVisitor<R>): R {

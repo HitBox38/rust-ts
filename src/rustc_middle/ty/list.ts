@@ -19,7 +19,8 @@ import type { CanonicalVarKind } from "../../rustc_type_ir/canonical.gen.ts";
 import { INNERMOST, TypeFlags_empty } from "../../rustc_type_ir/decls.ts";
 import type { FlagComputation } from "../../rustc_type_ir/flags.ts";
 import { type Debug, debug_list, type Fmt } from "../../std/fmt.ts";
-import { assert } from "../../std/panic.ts";
+import { assert, unported } from "../../std/panic.ts";
+import type { Encodable, Encoder } from "../../rustc_serialize/serialize.ts";
 import type { FxHasher } from "../../vendor/rustc_hash/lib.ts";
 import type { TyCtxt } from "./context.ts";
 import type { Arena } from "./decls.ts";
@@ -203,7 +204,12 @@ export function debug_RawList<H, T>(v: RawList<H, T>, f: Fmt, debug_T: Debug<T>)
   return debug_list(f, v.map((x) => debug_T(x, f)));
 }
 
-// rustc-skip: compiler/rustc_middle/src/ty/list.rs:199 encode Encodable impl (metadata encoding, M5)
+// impl<H, S: Encoder, T: Encodable<S>> Encodable<S> for RawList<H, T>
+// #[inline]
+// stub: compiler/rustc_middle/src/ty/list.rs:199 encode (lane encode-middle)
+export function encode_RawList<H, T, S extends Encoder>(_self: RawList<H, T>, _s: S, _encode_T: Encodable<T, S>): void {
+  unported("rustc_middle::ty::list::encode RawList (lane encode-middle)");
+}
 
 /** `impl<H, T: Ord> Ord for RawList<H, T>`.
  *  PORT: `T: Ord` is `cmp_T` (PORTING §5 "pass function tables"); `<[T] as Ord>::cmp` is the lexicographic slice order

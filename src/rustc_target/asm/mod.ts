@@ -17,7 +17,7 @@ import { type KeyType, FxHashMap, type Layout } from "../../rust_ts/hash_map.ts"
 import { Symbol, sym } from "../../rustc_span/symbol.ts";
 import { type Debug, debug_char, debug_str, debug_tuple, debug_vec } from "../../std/fmt.ts";
 import { panic, unported, unreachable } from "../../std/panic.ts";
-import type { SpanDecoder } from "../../rustc_span/lib.ts";
+import type { SpanDecoder, SpanEncoder } from "../../rustc_span/lib.ts";
 import { type StableHashCtxt, type StableHasher, stable_hash_Discriminant } from "../../rustc_data_structures/stable_hash.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
 import type { Arch, RelocModel, Target } from "../spec/mod.ts";
@@ -107,6 +107,8 @@ export interface DefRegClass<C extends string> {
   regclass_map(): RegClassMap;
   /** `#[derive(Decodable)]` (`__D: SpanDecoder`). */
   decode(__decoder: SpanDecoder): C;
+  /** `#[derive(Encodable)]` (`__E: SpanEncoder`). */
+  encode(self: C, __encoder: SpanEncoder): void;
   /** `#[derive(StableHash)]`. */
   stable_hash(self: C, __hcx: StableHashCtxt, __hasher: StableHasher): void;
 }
@@ -150,6 +152,11 @@ export function def_reg_class<C extends string>(arch: InlineAsmArchVariant, clas
       return decode_fieldless_enum(__decoder, `${arch}InlineAsmRegClass`, classes);
     },
 
+    // rustc-derive: compiler/rustc_target/src/asm/mod.rs:28 Encodable for $arch_regclass
+    encode(self: C, __encoder: SpanEncoder): void {
+      encode_fieldless_enum(self, __encoder, `${arch}InlineAsmRegClass`, classes.indexOf(self), classes.length);
+    },
+
     // rustc-derive: compiler/rustc_target/src/asm/mod.rs:28 StableHash for $arch_regclass
     stable_hash(self: C, __hcx: StableHashCtxt, __hasher: StableHasher): void {
       // `::std::mem::discriminant(self).stable_hash(__hcx, __hasher);` (no `#[repr]`: `isize`); no variant has fields
@@ -173,6 +180,14 @@ function decode_fieldless_enum<T>(__decoder: SpanDecoder, ty_name: string, varia
     return panic(`invalid enum variant tag while decoding \`${ty_name}\`, expected 0..${variants.length}, actual ${tag}`);
   }
   return v;
+}
+
+/** `encodable_body` of a fieldless enum: nothing for one variant, else the variant index (`emit_u8` below 255 variants). */
+function encode_fieldless_enum<T>(self: T, __encoder: SpanEncoder, ty_name: string, disc: number, len: number): void {
+  if (disc < 0) panic(`${ty_name}: not a variant`);
+  if (len === 1) return;
+  if (len < 255) __encoder.emit_u8(disc);
+  else __encoder.emit_usize(disc);
 }
 
 // ---- `def_regs!` ----
@@ -222,6 +237,8 @@ export interface DefRegs<R extends string, C extends string> {
   ): void;
   /** `#[derive(Decodable)]` (`__D: SpanDecoder`). */
   decode(__decoder: SpanDecoder): R;
+  /** `#[derive(Encodable)]` (`__E: SpanEncoder`). */
+  encode(self: R, __encoder: SpanEncoder): void;
   /** `#[derive(StableHash)]`. */
   stable_hash(self: R, __hcx: StableHashCtxt, __hasher: StableHasher): void;
 }
@@ -301,6 +318,11 @@ export function def_regs<R extends string, C extends string>(
       return decode_fieldless_enum(__decoder, `${arch}InlineAsmReg`, ALL);
     },
 
+    // rustc-derive: compiler/rustc_target/src/asm/mod.rs:77 Encodable for $arch_reg
+    encode(self: R, __encoder: SpanEncoder): void {
+      encode_fieldless_enum(self, __encoder, `${arch}InlineAsmReg`, by_reg.get(self)?.[1] ?? -1, ALL.length);
+    },
+
     // rustc-derive: compiler/rustc_target/src/asm/mod.rs:77 StableHash for $arch_reg
     stable_hash(self: R, __hcx: StableHashCtxt, __hasher: StableHasher): void {
       // `::std::mem::discriminant(self).stable_hash(__hcx, __hasher);` (no `#[repr]`: `isize`); no variant has fields
@@ -339,6 +361,8 @@ export interface StubRegClass<C> {
   default_modifier(self: C, arch: InlineAsmArch): ModifierInfo | undefined;
   supported_types(self: C, arch: InlineAsmArch, allow_experimental_reg?: boolean): readonly SupportedType[];
   decode(__decoder: SpanDecoder): C;
+  /** `#[derive(Encodable)]` (`__E: SpanEncoder`). */
+  encode(self: C, __encoder: SpanEncoder): void;
   stable_hash(self: C, __hcx: StableHashCtxt, __hasher: StableHasher): void;
 }
 
@@ -358,6 +382,8 @@ export interface StubReg<R, C> {
   emit(self: R, out: FmtWrite, arch: InlineAsmArch, modifier: char | undefined): FmtResult;
   overlapping_regs(self: R, cb: (r: R) => void): void;
   decode(__decoder: SpanDecoder): R;
+  /** `#[derive(Encodable)]` (`__E: SpanEncoder`). */
+  encode(self: R, __encoder: SpanEncoder): void;
   stable_hash(self: R, __hcx: StableHashCtxt, __hasher: StableHasher): void;
 }
 

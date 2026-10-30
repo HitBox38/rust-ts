@@ -17,7 +17,8 @@ import type { MutRef } from "../../std/mut_ref.ts";
 import type { DiagArgValue, PathBuf } from "../../rustc_error_messages/lib.ts";
 import { String_into_diag_arg } from "../../rustc_error_messages/diagnostic_impls.ts";
 import type { DefId } from "../../rustc_span/def_id.ts";
-import type { Decoder } from "../../rustc_serialize/serialize.ts";
+import type { Decoder, Encodable } from "../../rustc_serialize/serialize.ts";
+import type { TyEncoder } from "./codec.ts";
 import type { ClosureArgs, ClosureArgsParts, CoroutineArgs, CoroutineArgsParts, CoroutineClosureArgs, CoroutineClosureArgsParts, GenericArgKind } from "../../rustc_type_ir/decls.ts";
 import { type TypeFoldable } from "../../rustc_type_ir/fold.ts";
 import { Const, fold_Const, fold_Region, Region } from "../../rustc_type_ir/sty/mod.ts";
@@ -350,7 +351,12 @@ export const fold_GenericArg: TypeFoldable<GenericArg> = {
   },
 };
 
-// rustc-skip: compiler/rustc_middle/src/ty/generic_args.rs:366 encode Encodable impl (metadata encoding, M5)
+// impl<'tcx, E: TyEncoder<'tcx>> Encodable<E> for GenericArg<'tcx>
+// PORT: `GenericArgKind: Encodable<E>` is `encode_GenericArgKind` (derived; tools/codegen), as for `decode_GenericArg`.
+// stub: compiler/rustc_middle/src/ty/generic_args.rs:366 encode (lane encode-middle)
+export function encode_GenericArg<E extends TyEncoder>(_self: GenericArg, _e: E, _encode_GenericArgKind: Encodable<GenericArgKind, E>): void {
+  unported("rustc_middle::ty::generic_args::encode GenericArg (lane encode-middle)");
+}
 
 /** `impl<D: TyDecoder> Decodable<D> for GenericArg`: `GenericArgKind::decode(d).pack()`.
  *  PORT: `GenericArgKind: Decodable<D>` is `decode_GenericArgKind` (derived; tools/codegen). */
