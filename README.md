@@ -8,9 +8,9 @@ The mirror image of [ts-rust](https://github.com/pingdotgg/ts-rust).
 | | |
 |---|---|
 | Upstream pin | `rust-lang/rust@6f5da406b` = `rustc 1.101.0-nightly (2026-10-10)` |
-| Milestone | M0–M4 done (harness; lexer/parser; expansion + name resolution; typeck + trait solving; MIR build, borrowck, MIR transforms, const eval). Next: M5 (check core → alloc → std) |
-| Protected parity | **354,775** cases across 33 suites that match the real compiler byte-for-byte and can never regress |
-| Ported | 22,219 / 25,518 in-scope upstream functions (87.1%) |
+| Milestone | M0–M4 done (harness; lexer/parser; expansion + name resolution; typeck + trait solving; MIR build, borrowck, MIR transforms, const eval). M5 (check core → alloc → std) in progress: core's whole analysis and all 47,734 MIR bodies already match |
+| Protected parity | **403,191** cases across 34 suites that match the real compiler byte-for-byte and can never regress |
+| Ported | 22,413 / 25,518 in-scope upstream functions (87.8%) |
 
 At 100%: the front end (`rustc_lexer`, `rustc_span`, `rustc_ast`, `rustc_ast_lowering`, `rustc_ast_passes`,
 `rustc_builtin_macros`, `rustc_attr_parsing`, `rustc_resolve`), type checking (`rustc_hir_typeck`,
@@ -25,10 +25,11 @@ including legacy Polonius), `rustc_mir_transform` and `rustc_const_eval`. Nearly
 | `parse`, `parse-ui` (M1) | `-Zunpretty=ast-tree` on tests/ui; ui/parser diagnostics | 21,523 / 991 |
 | `expanded`, `unpretty-expanded`, `resdump` (M2) | macro expansion and name resolution | ~21,470 each |
 | `hir-tree`, `unpretty-hir`, `tydump-nocore` (M3) | HIR and type checking | ~21,480 each |
-| `tydump-ui`, `thirdump-ui` (M3) | types and THIR on tests/ui | 1,827 / 1,838 |
-| `mirdump-ui`, `mirdump-minicore` (M4) | MIR built and checked by the compiler | 1,340 / 46 |
-| `borrowck-ui`, `borrowck-ui-report` (M4) | borrow-check results on ui/borrowck + ui/nll (all 960), and five more ui dirs | 960 / 1,173 |
-| `mir`, `thir-tree` (M4) | the real `-Zunpretty=mir` (optimized MIR) and `-Zunpretty=thir-tree` | 20,968 / 1,823 |
+| `tydump-ui`, `thirdump-ui` (M3) | types and THIR on tests/ui | 1,840 / 1,851 |
+| `mirdump-ui`, `mirdump-minicore` (M4) | MIR built and checked by the compiler | 1,343 / 46 |
+| `borrowck-ui`, `borrowck-ui-report` (M4) | borrow-check results on ui/borrowck + ui/nll (all 960), and five more ui dirs | 960 / 1,276 |
+| `mir`, `thir-tree` (M4) | the real `-Zunpretty=mir` (optimized MIR) and `-Zunpretty=thir-tree` | 21,445 / 1,849 |
+| `mir-core` (M5) | `-Zunpretty=mir` of all of libcore, one case per MIR body | 47,734 |
 
 Start here: [PLAN.md](PLAN.md) · [AGENTS.md](AGENTS.md) · [PORTING.md](PORTING.md) · [docs/next.md](docs/next.md)
 
