@@ -229,7 +229,7 @@ test("derive(Decodable)/(Encodable) of hand types: decodable_construct, field ac
   );
   expect(text).toContain("export function encode_Hash(self: Hash, __encoder: Encoder): void {\n  encode_Hash64(Hash._0(self), __encoder);\n}");
   // the manual `decode_Manual` and the construct / access names come from the hand module (under --src-root)
-  expect(text).toMatch(/^import \{ decode_Manual, Hash, type U, type User \} from "[^"]*\/tmp\/codegen-serialize-[^"]*\/fake\/lib\.ts";$/m);
+  expect(text).toMatch(/^import \{ decode_Manual, Hash, type U, type User \} from "[^"]*codegen-serialize-[^"]*\/fake\/lib\.ts";$/m);
   expect(text).toContain(
     [
       "export function decode_User(__decoder: Decoder): User {",

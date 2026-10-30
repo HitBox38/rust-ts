@@ -252,7 +252,7 @@ export class Generics {
 
     /// Reverse map to the `index` field of each `GenericParamDef`.
     // #[stable_hash(ignore)]
-    public param_def_id_to_index: Map<DefId, number>,
+    public param_def_id_to_index: FxKeyedMap<DefId, number>,
 
     public has_self: boolean,
     public has_late_bound_regions: Span | undefined,
