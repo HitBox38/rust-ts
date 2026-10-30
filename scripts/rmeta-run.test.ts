@@ -81,16 +81,21 @@ process.exit(Number(process.env.FAKE_PROBE_EXIT ?? 0));`,
   };
   const dump = ["--dump", process.execPath, "--dump-arg", probe, "--dump-arg", "--content", "--dump-arg", "--", "--dump-arg", "--target", "--dump-arg", "t"];
 
-  test("bytes: the oracle's line; the subject's adds where it differs from the oracle's file", () => {
+  test("bytes: the same line on both sides; where the subject differs from the oracle's file goes to a side file", () => {
     const out = join(TMP, "bytes");
     const o = go(out, "oracle", ["--bytes"], "aaaa");
     expect(o).toEqual({ code: 0, stdout: `rmeta: 4 bytes, sha256 ${new Bun.CryptoHasher("sha256").update("aaaa").digest("hex")}\n`, stderr: "warning: compiled aaaa\n", files: ["oracle.rmeta"] });
     const same = go(out, "subject", ["--bytes"], "aaaa");
     expect(same.stdout).toBe(o.stdout);
+    expect(same.files).toEqual(["oracle.rmeta", "subject.rmeta"]);
     const s = go(out, "subject", ["--bytes"], "aaba");
-    expect(s.stdout.split("\n")[1]).toMatch(/^rmeta: differs from oracle\.rmeta \(4 bytes, sha256 [0-9a-f]{64}\) first at byte 2$/);
-    expect(s.files).toEqual(["oracle.rmeta", "subject.rmeta"]);
+    // The compared output is the byte line only: a stale oracle.rmeta can never change it.
+    expect(s.stdout).toBe(`rmeta: 4 bytes, sha256 ${new Bun.CryptoHasher("sha256").update("aaba").digest("hex")}\n`);
+    expect(s.files).toEqual(["oracle.rmeta", "subject.differs", "subject.rmeta"]);
+    expect(readFileSync(join(out, "subject.differs"), "utf8")).toMatch(/^rmeta: differs from oracle\.rmeta \(4 bytes, sha256 [0-9a-f]{64}\) first at byte 2\n$/);
     expect(readFileSync(join(out, "subject.rmeta"), "utf8")).toBe("aaba");
+    // The side file always describes the subject's last run.
+    expect(go(out, "subject", ["--bytes"], "aaaa").files).toEqual(["oracle.rmeta", "subject.rmeta"]);
   });
 
   test("dump: the probe's options before the file, its rustc arguments after; no byte line without --bytes", () => {

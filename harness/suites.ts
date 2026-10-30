@@ -1250,8 +1250,9 @@ SUITES.push(
 // M5 metadata (plan-m5 §4, D4; lane probe-rmetadump): the `.rmeta` each side writes. Both sides run
 // scripts/rmeta-run.ts, which runs the compiler (rustc / src/rust_ts/main.ts) with the case's argv plus `-o <file>`
 // (stdout, stderr and exit code passed through), then reports the file (see its header):
-// - `--bytes`: `rmeta: <size> bytes, sha256 <hex>` (and on the subject side where it first differs from the
-//   oracle's file, which the wrapper keeps): byte identity, D4's gate criterion;
+// - `--bytes`: `rmeta: <size> bytes, sha256 <hex>`: byte identity, D4's gate criterion (where the subject's file
+//   first differs from the oracle's, which the wrapper keeps, goes to the side file `subject.differs`, never to the
+//   compared output);
 // - `--dump`: tools/probes/rmetadump's text of the file, read by the oracle's decoder in a session with the case's
 //   target and the oracle sysroot (`RMETADUMP_ARGS`): the progress signal. A port rmeta the decoder cannot read is an
 //   ICE of the probe, so a CRASH (or `!panic` rows, where the decoder fails inside one query).
@@ -1269,7 +1270,8 @@ SUITES.push(
 // - `rmeta-ui`: `RMETA_UI_CORPUS` (below), one case per crate (single mode, so `--sample` cuts runs), `--dump` with
 //   the probe's `--content` (no `root.layout` / `root.hash`: positions, widths and the SVH, which `check-ui` covers).
 // - `check-ui`: the same crates, `--bytes` only.
-const RMETA_RUN = join(REPO, "scripts", "rmeta-run.ts");
+/** The wrapper both sides run (under Bun); scripts/gate.ts `oracleRuns` reads its command line for the probe check. */
+export const RMETA_RUN = join(REPO, "scripts", "rmeta-run.ts");
 /** The wrapper's directory for one case's two files. */
 const rmetaOut = (suite: string, c: Case): string => join(DATA, "rmeta", suite, hash(c.id).slice(0, 16));
 /** The probe's options and rustc arguments (`--dump-arg`s; see scripts/rmeta-run.ts). */
@@ -1288,7 +1290,10 @@ const rmetaRun = (suite: string, side: "oracle" | "subject", c: Case, bytes: boo
   ...compiler,
 ];
 const rmetaKeyMemo = new Map<boolean, string>();
-/** `Suite.oracleKey` of the rmeta suites: the wrapper's source, the oracle rustc build, and the probe if it runs. */
+/**
+ * `Suite.oracleKey` of the rmeta suites: the wrapper's source, the oracle rustc build, and the probe if it runs. A probe
+ * that is not built ends the process with `ERROR: probe 'rmetadump' not built; run: ...` (`probePath`), not an exception.
+ */
 const rmetaOracleKey = (dump: boolean): string => {
   let k = rmetaKeyMemo.get(dump);
   if (k === undefined) {

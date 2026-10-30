@@ -25,7 +25,9 @@
 //!    - one section per crate-level list (`lang_items`, `diagnostic_items`, `traits`, `impls`, ...), in the
 //!      `CrateRoot`'s field order;
 //!    - `== def <def path>` for every DefIndex, in index order (`to_string_no_crate_verbose`: the path with every
-//!      disambiguator, unique per crate, so a missing or extra def shifts no other id): `index <i>`, then one row per
+//!      disambiguator; not always unique: 18 paths repeat in core at the pin, e.g. a trait and its derive macro
+//!      `def ::clone::Clone`, and scripts/lib/split.ts `uniqueIds` gives a repeat `@2`, `@3`, ...; so a missing or
+//!      extra def shifts no other def's id, except among the repeats of its own path): `index <i>`, then one row per
 //!      table that has an entry for it, in `define_tables!` order. Whether a table has an entry is read from the
 //!      raw table (any nonzero byte: a default entry is all zeros, table.rs `FixedSizeEncoding`), so no query is
 //!      asked for an entry that is not there. A fixed-size table's row is its raw entry bytes (`raw <hex>`, trailing
@@ -40,6 +42,10 @@
 //! every ` (#<n>)` after a span is rewritten to its context's marks (` (#[<crate>:<expn>/<Transparency>, ..])`, `#[]`
 //! for the root context, as tools/probes/rmetadefs); and `allocN` (interpreter allocation ids, numbered in decoding
 //! order too) is renumbered within each section, by first occurrence.
+//!
+//! Blank lines: a row's multi-line value (`Out::row`; MIR text, multi-line `{:?}`) drops its empty lines, on both
+//! sides, so that no line of a section is unindented. A difference made only of blank lines inside a value is
+//! therefore invisible to the `rmeta-*` suites; the `check-*` suites (byte identity) still see it.
 #![feature(rustc_private)]
 
 extern crate rustc_data_structures;
@@ -652,7 +658,8 @@ impl<'tcx> Out<'tcx> {
         self.end();
         writeln!(self.text, "== {key}").unwrap();
     }
-    /// A row: `  <name> <value>`, a multi-line value's later lines indented by 4.
+    /// A row: `  <name> <value>`, a multi-line value's later lines indented by 4; its empty lines are dropped (see
+    /// the header: a blank-line-only difference is invisible here).
     fn row(&mut self, name: &str, value: &str) {
         let mut lines = value.split('\n');
         let first = lines.next().unwrap_or("");

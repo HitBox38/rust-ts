@@ -5,20 +5,24 @@
 //   bun scripts/rmeta-run.ts --out <dir> --side oracle|subject [--bytes] [--dump <probe> [--dump-arg <a>]...] -- <compiler argv...>
 //
 // - The compiler runs with this process's cwd, environment and stdout/stderr (inherited, so its diagnostics are passed
-//   through byte for byte), writing `<dir>/lib<side>-<pid>.rmeta`. A compiler that fails (or writes no file) ends the
-//   run: its exit code is this process's, and the file is removed. SIGTERM/SIGINT (difftest's timeout) are passed on.
-// - `--bytes` (the check-* suites: byte identity, plan-m5 D4) prints `rmeta: <size> bytes, sha256 <hex>`, and on the
-//   subject side, when `<dir>/oracle.rmeta` (the oracle's file from its last run) exists and differs, a second line
-//   `rmeta: differs from oracle.rmeta (<size> bytes, sha256 <hex>) first at byte <offset>`, so the diff file shows
-//   where the bytes part. (The oracle's output may come from difftest's cache; the sha256 tells whether the file is the
-//   one it describes.) Large files are never printed.
+//   through byte for byte), writing `<dir>/lib<side>-<pid>.rmeta`. A compiler that fails ends the run: its exit code
+//   is this process's, and the file is removed. A compiler that exits 0 but writes no file prints `rmeta: none` (and
+//   nothing else) and exits 0. SIGTERM/SIGINT (difftest's timeout) are passed on.
+// - `--bytes` (the check-* suites: byte identity, plan-m5 D4) prints `rmeta: <size> bytes, sha256 <hex>`. On the
+//   subject side, when `<dir>/oracle.rmeta` (the oracle's file from the oracle's last *run*) exists and differs, the
+//   side file `<dir>/subject.differs` gets `rmeta: differs from oracle.rmeta (<size> bytes, sha256 <hex>) first at
+//   byte <offset>`, for diagnosis (it is removed first, so it always describes the subject's last run). It is never
+//   printed: the oracle's output may come from difftest's cache under another key than the run that last wrote
+//   `oracle.rmeta` (the directory is keyed by suite and case id only), so a stale file must not change the compared
+//   output; the sha256 tells whether `oracle.rmeta` is the file the cached output describes. Large files are never
+//   printed.
 // - `--dump` runs `<probe> [<dump-arg>...] <file> ...`: tools/probes/rmetadump `[--content] <file> <rustc args>`
 //   (the `--dump-arg`s before the file are the probe's options, the ones after it its rustc arguments: `--dump-arg`
 //   values up to a literal `--` go first, the rest after the file). Its stdout and stderr are inherited; a probe that
 //   fails (e.g. an ICE on an rmeta the oracle's decoder cannot read) makes this process exit with its code.
 // - The file is then kept as `<dir>/<side>.rmeta` (renamed: atomic), for the subject's comparison and for diagnosis.
 // No ERROR lines of its own: what it prints is part of the compared output.
-import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, renameSync, rmSync, statSync, writeSync } from "node:fs";
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, renameSync, rmSync, statSync, writeFileSync, writeSync } from "node:fs";
 import { join } from "node:path";
 
 export interface RmetaRunArgs {
@@ -92,7 +96,7 @@ const sha256 = (p: string): string => new Bun.CryptoHasher("sha256").update(read
 /** `rmeta: <size> bytes, sha256 <hex>` of a file. */
 export const bytesLine = (p: string): string => `rmeta: ${statSync(p).size} bytes, sha256 ${sha256(p)}`;
 
-/** The subject's comparison line against the oracle's file, or `undefined` when there is none or they are equal. */
+/** The subject's comparison line against the oracle's file (`subject.differs`), or `undefined` when there is none or they are equal. */
 export function differsLine(subject: string, oracle: string): string | undefined {
   if (!existsSync(oracle)) return undefined;
   const off = firstDifference(subject, oracle);
@@ -124,7 +128,9 @@ export async function rmetaRun(a: RmetaRunArgs): Promise<number> {
   // `lib*.rmeta`: rustc takes an `--extern` file only by that name (rustc_metadata locator.rs).
   const tmp = join(a.out, `lib${a.side}-${process.pid}.rmeta`);
   const kept = join(a.out, `${a.side}.rmeta`);
+  const differs = join(a.out, "subject.differs");
   rmSync(tmp, { force: true });
+  if (a.side === "subject") rmSync(differs, { force: true });
   try {
     const code = await child([...a.compiler, "-o", tmp]);
     if (code !== 0) return code;
@@ -136,7 +142,7 @@ export async function rmetaRun(a: RmetaRunArgs): Promise<number> {
       writeSync(1, bytesLine(tmp) + "\n");
       if (a.side === "subject") {
         const d = differsLine(tmp, join(a.out, "oracle.rmeta"));
-        if (d) writeSync(1, d + "\n");
+        if (d) writeFileSync(differs, d + "\n");
       }
     }
     if (a.dump !== undefined) {
