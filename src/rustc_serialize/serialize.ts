@@ -374,7 +374,7 @@ export function decode_char(d: Decoder): number {
 
 /** `impl<S: Encoder, T: ?Sized + PointeeSized> Encodable<S> for &T` */
 // rustc: compiler/rustc_serialize/src/serialize.rs:227 encode
-export function encode_ref<T>(v: T, s: Encoder, encode_T: Encodable<T>): void {
+export function encode_ref<T, S extends Encoder = Encoder>(v: T, s: S, encode_T: Encodable<T, S>): void {
   encode_T(v, s);
 }
 
@@ -392,7 +392,7 @@ export function decode_never(_d: Decoder): never {
 
 /** `impl<T: ZeroablePrimitive + Encodable<S>, S: Encoder> Encodable<S> for NonZero<T>` (the TS value is the integer) */
 // rustc: compiler/rustc_serialize/src/serialize.rs:245 encode
-export function encode_NonZero<T extends number | bigint>(v: T, s: Encoder, encode_T: Encodable<T>): void {
+export function encode_NonZero<T extends number | bigint, S extends Encoder = Encoder>(v: T, s: S, encode_T: Encodable<T, S>): void {
   encode_T(v, s);
 }
 
@@ -451,7 +451,7 @@ export function decode_Box_slice<T, D extends Decoder>(d: D, decode_T: Decodable
 
 /** `impl<S: Encoder, T: Encodable<S>> Encodable<S> for Rc<T>` */
 // rustc: compiler/rustc_serialize/src/serialize.rs:300 encode
-export function encode_Rc<T>(v: T, s: Encoder, encode_T: Encodable<T>): void {
+export function encode_Rc<T, S extends Encoder = Encoder>(v: T, s: S, encode_T: Encodable<T, S>): void {
   encode_T(v, s);
 }
 
@@ -463,7 +463,7 @@ export function decode_Rc<T, D extends Decoder>(d: D, decode_T: Decodable<T, D>)
 
 /** `impl<S: Encoder, T: Encodable<S>> Encodable<S> for [T]` (the `default fn`; see opaque.ts for `[u8]`) */
 // rustc: compiler/rustc_serialize/src/serialize.rs:312 encode
-export function encode_slice<T>(v: ArrayLike<T>, s: Encoder, encode_T: Encodable<T>): void {
+export function encode_slice<T, S extends Encoder = Encoder>(v: ArrayLike<T>, s: S, encode_T: Encodable<T, S>): void {
   s.emit_usize(v.length);
   for (let i = 0; i < v.length; i++) {
     encode_T(v[i]!, s);
@@ -472,7 +472,7 @@ export function encode_slice<T>(v: ArrayLike<T>, s: Encoder, encode_T: Encodable
 
 /** `impl<S: Encoder, T: Encodable<S>> Encodable<S> for Vec<T>` */
 // rustc: compiler/rustc_serialize/src/serialize.rs:321 encode
-export function encode_Vec<T>(v: ArrayLike<T>, s: Encoder, encode_T: Encodable<T>): void {
+export function encode_Vec<T, S extends Encoder = Encoder>(v: ArrayLike<T>, s: S, encode_T: Encodable<T, S>): void {
   encode_slice(v, s, encode_T);
 }
 
@@ -487,7 +487,7 @@ export function decode_Vec<T, D extends Decoder>(d: D, decode_T: Decodable<T, D>
 
 /** `impl<S: Encoder, T: Encodable<S>, const N: usize> Encodable<S> for [T; N]` */
 // rustc: compiler/rustc_serialize/src/serialize.rs:334 encode
-export function encode_array<T>(v: ArrayLike<T>, s: Encoder, encode_T: Encodable<T>): void {
+export function encode_array<T, S extends Encoder = Encoder>(v: ArrayLike<T>, s: S, encode_T: Encodable<T, S>): void {
   encode_slice(v, s, encode_T);
 }
 
@@ -504,7 +504,7 @@ export function decode_array<T, D extends Decoder>(d: D, N: number, decode_T: De
 
 /** `impl<S: Encoder, T: Encodable<S>> Encodable<S> for Cow<'_, [T]>` */
 // rustc: compiler/rustc_serialize/src/serialize.rs:351 encode
-export function encode_Cow_slice<T>(v: ArrayLike<T>, s: Encoder, encode_T: Encodable<T>): void {
+export function encode_Cow_slice<T, S extends Encoder = Encoder>(v: ArrayLike<T>, s: S, encode_T: Encodable<T, S>): void {
   const slice: ArrayLike<T> = v;
   encode_slice(slice, s, encode_T);
 }
@@ -534,7 +534,7 @@ export function decode_Cow_str(d: Decoder): string {
 
 /** `impl<S: Encoder, T: Encodable<S>> Encodable<S> for Option<T>` */
 // rustc: compiler/rustc_serialize/src/serialize.rs:382 encode
-export function encode_Option<T>(v: T | undefined, s: Encoder, encode_T: Encodable<T>): void {
+export function encode_Option<T, S extends Encoder = Encoder>(v: T | undefined, s: S, encode_T: Encodable<T, S>): void {
   if (v === undefined) s.emit_u8(0);
   else {
     s.emit_u8(1);
@@ -556,7 +556,7 @@ export function decode_Option<T, D extends Decoder>(d: D, decode_T: Decodable<T,
 }
 
 /** PORT: `Option<T>` whose `T` can itself be `undefined` (PORTING §5: `{ $: "Some", _0 } | undefined`); as `encode_Option`. */
-export function encode_Option_some<T>(v: { $: "Some"; _0: T } | undefined, s: Encoder, encode_T: Encodable<T>): void {
+export function encode_Option_some<T, S extends Encoder = Encoder>(v: { $: "Some"; _0: T } | undefined, s: S, encode_T: Encodable<T, S>): void {
   if (v === undefined) s.emit_u8(0);
   else {
     s.emit_u8(1);
@@ -578,7 +578,7 @@ export function decode_Option_some<T, D extends Decoder>(d: D, decode_T: Decodab
 
 /** `impl<S: Encoder, T1: Encodable<S>, T2: Encodable<S>> Encodable<S> for Result<T1, T2>` */
 // rustc: compiler/rustc_serialize/src/serialize.rs:404 encode
-export function encode_Result<T1, T2>(v: Result<T1, T2>, s: Encoder, encode_T1: Encodable<T1>, encode_T2: Encodable<T2>): void {
+export function encode_Result<T1, T2, S extends Encoder = Encoder>(v: Result<T1, T2>, s: S, encode_T1: Encodable<T1, S>, encode_T2: Encodable<T2, S>): void {
   switch (v.$) {
     case "Ok":
       s.emit_u8(0);
@@ -607,7 +607,7 @@ export function decode_Result<T1, T2, D extends Decoder>(d: D, decode_T1: Decoda
 // ---- tuple! { T0, T1, ..., T11, } (one impl per arity 1..=12) ----
 
 type Decodables<T extends unknown[], D extends Decoder> = { [K in keyof T]: Decodable<T[K], D> };
-type Encodables<T extends unknown[]> = { [K in keyof T]: Encodable<T[K]> };
+type Encodables<T extends readonly unknown[], S extends Encoder> = { [K in keyof T]: Encodable<T[K], S> };
 
 /** `impl<D: Decoder, T0: Decodable<D>, ..> Decodable<D> for (T0, ..)`: the elements in order. */
 // rustc: compiler/rustc_serialize/src/serialize.rs:436 decode
@@ -622,7 +622,7 @@ export function decode_tuple<T extends unknown[], D extends Decoder>(d: D, ...de
 
 /** `impl<S: Encoder, T0: Encodable<S>, ..> Encodable<S> for (T0, ..)`: the elements in order. */
 // rustc: compiler/rustc_serialize/src/serialize.rs:442 encode
-export function encode_tuple<T extends unknown[]>(v: T, s: Encoder, ...encode_Ts: Encodables<T>): void {
+export function encode_tuple<T extends readonly unknown[], S extends Encoder = Encoder>(v: T, s: S, ...encode_Ts: Encodables<T, S>): void {
   const fs = encode_Ts as Encodable<unknown>[];
   for (let i = 0; i < fs.length; i++) fs[i]!(v[i], s);
 }
@@ -650,7 +650,7 @@ export function decode_PathBuf(d: Decoder): string {
 
 /** `impl<S: Encoder, T: Encodable<S> + Copy> Encodable<S> for Cell<T>` (the TS value is the cell's content) */
 // rustc: compiler/rustc_serialize/src/serialize.rs:473 encode
-export function encode_Cell<T>(v: T, s: Encoder, encode_T: Encodable<T>): void {
+export function encode_Cell<T, S extends Encoder = Encoder>(v: T, s: S, encode_T: Encodable<T, S>): void {
   encode_T(v, s);
 }
 
@@ -662,7 +662,7 @@ export function decode_Cell<T, D extends Decoder>(d: D, decode_T: Decodable<T, D
 
 /** `impl<S: Encoder, T: Encodable<S>> Encodable<S> for RefCell<T>` */
 // rustc: compiler/rustc_serialize/src/serialize.rs:485 encode
-export function encode_RefCell<T>(v: T, s: Encoder, encode_T: Encodable<T>): void {
+export function encode_RefCell<T, S extends Encoder = Encoder>(v: T, s: S, encode_T: Encodable<T, S>): void {
   encode_T(v, s);
 }
 
@@ -674,7 +674,7 @@ export function decode_RefCell<T, D extends Decoder>(d: D, decode_T: Decodable<T
 
 /** `impl<S: Encoder, T: Encodable<S>> Encodable<S> for Arc<T>` */
 // rustc: compiler/rustc_serialize/src/serialize.rs:497 encode
-export function encode_Arc<T>(v: T, s: Encoder, encode_T: Encodable<T>): void {
+export function encode_Arc<T, S extends Encoder = Encoder>(v: T, s: S, encode_T: Encodable<T, S>): void {
   encode_T(v, s);
 }
 
@@ -686,7 +686,7 @@ export function decode_Arc<T, D extends Decoder>(d: D, decode_T: Decodable<T, D>
 
 /** `impl<S: Encoder, T: ?Sized + Encodable<S>> Encodable<S> for Box<T>` */
 // rustc: compiler/rustc_serialize/src/serialize.rs:509 encode
-export function encode_Box<T>(v: T, s: Encoder, encode_T: Encodable<T>): void {
+export function encode_Box<T, S extends Encoder = Encoder>(v: T, s: S, encode_T: Encodable<T, S>): void {
   encode_T(v, s);
 }
 
@@ -698,7 +698,7 @@ export function decode_Box<T, D extends Decoder>(d: D, decode_T: Decodable<T, D>
 
 /** `impl<S: Encoder, A: Array<Item: Encodable<S>>> Encodable<S> for SmallVec<A>` */
 // rustc: compiler/rustc_serialize/src/serialize.rs:521 encode
-export function encode_SmallVec<T>(v: ArrayLike<T>, s: Encoder, encode_T: Encodable<T>): void {
+export function encode_SmallVec<T, S extends Encoder = Encoder>(v: ArrayLike<T>, s: S, encode_T: Encodable<T, S>): void {
   encode_slice(v, s, encode_T);
 }
 
@@ -713,7 +713,7 @@ export function decode_SmallVec<T, D extends Decoder>(d: D, decode_T: Decodable<
 
 /** `impl<S: Encoder, T: Encodable<S>> Encodable<S> for ThinVec<T>` */
 // rustc: compiler/rustc_serialize/src/serialize.rs:534 encode
-export function encode_ThinVec<T>(v: ArrayLike<T>, s: Encoder, encode_T: Encodable<T>): void {
+export function encode_ThinVec<T, S extends Encoder = Encoder>(v: ArrayLike<T>, s: S, encode_T: Encodable<T, S>): void {
   encode_slice(v, s, encode_T);
 }
 
@@ -728,7 +728,7 @@ export function decode_ThinVec<T, D extends Decoder>(d: D, decode_T: Decodable<T
 
 /** `impl<S: Encoder, T: Encodable<S>> Encodable<S> for VecDeque<T>` */
 // rustc: compiler/rustc_serialize/src/serialize.rs:547 encode
-export function encode_VecDeque<T>(v: ArrayLike<T>, s: Encoder, encode_T: Encodable<T>): void {
+export function encode_VecDeque<T, S extends Encoder = Encoder>(v: ArrayLike<T>, s: S, encode_T: Encodable<T, S>): void {
   s.emit_usize(v.length);
   for (let i = 0; i < v.length; i++) {
     encode_T(v[i]!, s);
@@ -749,7 +749,7 @@ export function decode_VecDeque<T, D extends Decoder>(d: D, decode_T: Decodable<
  * PORT: a `BTreeMap` is a `Map` kept in key order by its builders; iteration is insertion order.
  */
 // rustc: compiler/rustc_serialize/src/serialize.rs:567 encode
-export function encode_BTreeMap<K, V>(v: ReadonlyMap<K, V>, e: Encoder, encode_K: Encodable<K>, encode_V: Encodable<V>): void {
+export function encode_BTreeMap<K, V, S extends Encoder = Encoder>(v: ReadonlyMap<K, V>, e: S, encode_K: Encodable<K, S>, encode_V: Encodable<V, S>): void {
   e.emit_usize(v.size);
   for (const [key, val] of v) {
     encode_K(key, e);
@@ -776,7 +776,7 @@ export function decode_BTreeMap<K, V, D extends Decoder>(d: D, decode_K: Decodab
 
 /** `impl<S: Encoder, T> Encodable<S> for BTreeSet<T>` (see `encode_BTreeMap`) */
 // rustc: compiler/rustc_serialize/src/serialize.rs:591 encode
-export function encode_BTreeSet<T>(v: ReadonlySet<T>, s: Encoder, encode_T: Encodable<T>): void {
+export function encode_BTreeSet<T, S extends Encoder = Encoder>(v: ReadonlySet<T>, s: S, encode_T: Encodable<T, S>): void {
   s.emit_usize(v.size);
   for (const e of v) {
     encode_T(e, s);
@@ -794,7 +794,7 @@ export function decode_BTreeSet<T, D extends Decoder>(d: D, decode_T: Decodable<
 
 /** `impl<E: Encoder, K, V, S> Encodable<E> for HashMap<K, V, S>` (iteration order: the `Map`'s) */
 // rustc: compiler/rustc_serialize/src/serialize.rs:615 encode
-export function encode_HashMap<K, V>(v: ReadonlyMap<K, V>, e: Encoder, encode_K: Encodable<K>, encode_V: Encodable<V>): void {
+export function encode_HashMap<K, V, S extends Encoder = Encoder>(v: ReadonlyMap<K, V>, e: S, encode_K: Encodable<K, S>, encode_V: Encodable<V, S>): void {
   e.emit_usize(v.size);
   for (const [key, val] of v) {
     encode_K(key, e);
@@ -817,7 +817,7 @@ export function decode_HashMap<K, V, D extends Decoder>(d: D, decode_K: Decodabl
 
 /** `impl<E: Encoder, T, S> Encodable<E> for HashSet<T, S>` */
 // rustc: compiler/rustc_serialize/src/serialize.rs:641 encode
-export function encode_HashSet<T>(v: ReadonlySet<T>, s: Encoder, encode_T: Encodable<T>): void {
+export function encode_HashSet<T, S extends Encoder = Encoder>(v: ReadonlySet<T>, s: S, encode_T: Encodable<T, S>): void {
   s.emit_usize(v.size);
   for (const e of v) {
     encode_T(e, s);
@@ -835,7 +835,7 @@ export function decode_HashSet<T, D extends Decoder>(d: D, decode_T: Decodable<T
 
 /** `impl<E: Encoder, K, V, S> Encodable<E> for indexmap::IndexMap<K, V, S>` */
 // rustc: compiler/rustc_serialize/src/serialize.rs:666 encode
-export function encode_IndexMap<K, V>(v: ReadonlyMap<K, V>, e: Encoder, encode_K: Encodable<K>, encode_V: Encodable<V>): void {
+export function encode_IndexMap<K, V, S extends Encoder = Encoder>(v: ReadonlyMap<K, V>, e: S, encode_K: Encodable<K, S>, encode_V: Encodable<V, S>): void {
   e.emit_usize(v.size);
   for (const [key, val] of v) {
     encode_K(key, e);
@@ -858,7 +858,7 @@ export function decode_IndexMap<K, V, D extends Decoder>(d: D, decode_K: Decodab
 
 /** `impl<E: Encoder, T, S> Encodable<E> for indexmap::IndexSet<T, S>` */
 // rustc: compiler/rustc_serialize/src/serialize.rs:692 encode
-export function encode_IndexSet<T>(v: ReadonlySet<T>, s: Encoder, encode_T: Encodable<T>): void {
+export function encode_IndexSet<T, S extends Encoder = Encoder>(v: ReadonlySet<T>, s: S, encode_T: Encodable<T, S>): void {
   s.emit_usize(v.size);
   for (const e of v) {
     encode_T(e, s);
@@ -876,7 +876,7 @@ export function decode_IndexSet<T, D extends Decoder>(d: D, decode_T: Decodable<
 
 /** `impl<E: Encoder, T: Encodable<E>> Encodable<E> for Rc<[T]>` */
 // rustc: compiler/rustc_serialize/src/serialize.rs:712 encode
-export function encode_Rc_slice<T>(v: ArrayLike<T>, s: Encoder, encode_T: Encodable<T>): void {
+export function encode_Rc_slice<T, S extends Encoder = Encoder>(v: ArrayLike<T>, s: S, encode_T: Encodable<T, S>): void {
   const slice: ArrayLike<T> = v;
   encode_slice(slice, s, encode_T);
 }
@@ -890,7 +890,7 @@ export function decode_Rc_slice<T, D extends Decoder>(d: D, decode_T: Decodable<
 
 /** `impl<E: Encoder, T: Encodable<E>> Encodable<E> for Arc<[T]>` */
 // rustc: compiler/rustc_serialize/src/serialize.rs:726 encode
-export function encode_Arc_slice<T>(v: ArrayLike<T>, s: Encoder, encode_T: Encodable<T>): void {
+export function encode_Arc_slice<T, S extends Encoder = Encoder>(v: ArrayLike<T>, s: S, encode_T: Encodable<T, S>): void {
   const slice: ArrayLike<T> = v;
   encode_slice(slice, s, encode_T);
 }

@@ -4,19 +4,29 @@ import type { RustcVersion } from "../rustc_ast/attr/version.ts";
 import type { ColorConfig } from "../rustc_errors/emitter.ts";
 import { TerminalUrl } from "../rustc_errors/lib.ts";
 import type { UnstableFeatures } from "../rustc_feature/lib.ts";
-import type { Hash64 } from "../rustc_hashes/lib.ts";
+import { Hash64 } from "../rustc_hashes/lib.ts";
 import type { Level } from "../rustc_lint_defs/lib.ts";
 import type { Edition } from "../rustc_span/edition.ts";
 import type { MutRef } from "../rustc_span/hygiene.ts";
 import type { RealFileName, RemapPathScopeComponents, SourceFileHashAlgorithm } from "../rustc_span/lib.ts";
 import { type Debug, PLAIN, debug_bool, debug_int, debug_option, debug_str, debug_tuple, debug_vec } from "../std/fmt.ts";
-import { panic, unported } from "../std/panic.ts";
-import { AnnotateMoves, type AutoDiff, type BranchProtection, BranchProtection_eq, CFGuard, CFProtection, type CodegenRetagOptions, CoverageOptions, DebugInfo, DebugInfoCompression, DumpMonoStatsFormat, type ErrorOutputType, FmtDebug, FunctionReturn, type IncrementalStateAssertion, InliningThreshold, InstrumentCoverage, InstrumentMcount, type InstrumentXRay, type JsonUnusedExterns, LinkSelfContained, LinkerFeaturesCli, LinkerPluginLto, LocationDetail, LtoCli, MirIncludeSpans, MirStripDebugInfo, NextSolverConfig, type Offload, type OptLevel, Passes, PatchableFunctionEntry, type PointerAuthOption, Polonius, ProcMacroExecutionStrategy, type ResolveDocLinks, SplitDwarfKind, Strip, SwitchWithOptPath, type SymbolManglingVersion, type WasiExecModel, debug_BranchProtection, debug_PointerAuthOption } from "./config.ts";
+import { panic } from "../std/panic.ts";
+import { AnnotateMoves, type AutoDiff, type BranchProtection, BranchProtection_eq, CFGuard, CFProtection, type CodegenRetagOptions, CoverageOptions, DebugInfo, DebugInfoCompression, DumpMonoStatsFormat, type DynDepTrackingHash, type ErrorOutputType, FmtDebug, FunctionReturn, type IncrementalStateAssertion, InliningThreshold, InstrumentCoverage, InstrumentMcount, type InstrumentXRay, type JsonUnusedExterns, LinkSelfContained, LinkerFeaturesCli, LinkerPluginLto, LocationDetail, LtoCli, MirIncludeSpans, MirStripDebugInfo, NextSolverConfig, type Offload, type OptLevel, Passes, PatchableFunctionEntry, type PointerAuthOption, Polonius, ProcMacroExecutionStrategy, type ResolveDocLinks, SplitDwarfKind, Strip, SwitchWithOptPath, type SymbolManglingVersion, type WasiExecModel, debug_BranchProtection, debug_PointerAuthOption, dep_tracking } from "./config.ts";
 import { type Align, type CodeModel, CollapseMacroDebuginfo, type CrateType, type EarlyDiagCtxt, type Externs, FramePointer, type Jobs, type LinkerFlavorCli, type Matches, type MergeFunctions, OnBrokenPipe, type OutputTypes, PanicStrategy, type PpMode, type PrintRequest, type RelocModel, type RelroLevel, SanitizerSet, type SearchPath, type SplitDebuginfo, StackProtector, type SymbolVisibility, type Sysroot, type TargetTuple, TimePassesFormat, type TlsModel, debug_SanitizerSet } from "./stand_ins.ts";
 import type { NativeLib } from "./utils.ts";
 import { type CollectedOptions, type ExtendedTargetModifierInfo, type OptionDescrs, type TargetModifier, build_options, option_eq, parse_align, parse_annotate_moves, parse_assert_incr_state, parse_autodiff, parse_bool, parse_branch_protection, parse_cargo_src_file_hash, parse_cfguard, parse_cfprotection, parse_code_model, parse_codegen_retag_options, parse_collapse_macro_debuginfo, parse_comma_list, parse_coverage_options, parse_debuginfo, parse_debuginfo_compression, parse_dump_mono_stats, parse_fmt_debug, parse_frame_pointer, parse_function_return, parse_ignore, parse_inlining_threshold, parse_instrument_coverage, parse_instrument_mcount, parse_instrument_xray, parse_link_self_contained, parse_linker_features, parse_linker_flavor, parse_linker_plugin_lto, parse_list, parse_list_with_polarity, parse_llvm_module_flag, parse_location_detail, parse_lto, parse_merge_functions, parse_mir_include_spans, parse_mir_strip_debuginfo, parse_next_solver_config, parse_no_value, parse_number, parse_offload, parse_on_broken_pipe, parse_opt_bool, parse_opt_comma_list, parse_opt_number, parse_opt_panic_strategy, parse_opt_pathbuf, parse_opt_string, parse_opt_symbol_visibility, parse_panic_strategy, parse_passes, parse_patchable_function_entry, parse_pointer_authentication_list_with_polarity, parse_polonius, parse_proc_macro_execution_strategy, parse_relocation_model, parse_relro_level, parse_rust_version, parse_sanitizer_memory_track_origins, parse_sanitizers, parse_split_debuginfo, parse_split_dwarf_kind, parse_src_file_hash, parse_stack_protector, parse_string, parse_string_push, parse_strip, parse_switch_with_opt_path, parse_symbol_mangling_version, parse_target_feature, parse_terminal_url, parse_time_passes_format, parse_tls_model, parse_treat_err_as_bug, parse_unpretty, parse_wasi_exec_model, parse_wasm_c_abi, tmod_push_impl, u32_from_str, u64_from_str, usize_from_str, vec_eq } from "./options.ts";
 import { DeniedPartialMitigationKind } from "./options/mitigation_coverage.gen.ts";
 import type { MitigationCoverageMap } from "./options/mitigation_coverage.ts";
+import { StableHasher } from "../rustc_data_structures/stable_hash.ts";
+
+// `macro_rules! insert` (compiler/rustc_session/src/options.rs:29), used by `hash_opt!` of the `dep_tracking_hash` fns.
+function insert(opt_name: string, opt_expr: DynDepTrackingHash, sub_hashes: Map<string, DynDepTrackingHash>): void {
+  const prev = sub_hashes.get(opt_name);
+  sub_hashes.set(opt_name, opt_expr);
+  if (prev !== undefined) {
+    panic(`duplicate key in CLI DepTrackingHash: ${opt_name}`);
+  }
+}
 
 // ---- top_level_options! (compiler/rustc_session/src/options.rs:332) ----
 
@@ -190,9 +200,51 @@ export class Options {
   ) {}
 
   // rustc: compiler/rustc_session/src/options.rs:285 dep_tracking_hash
-  dep_tracking_hash(_for_crate_hash: boolean): Hash64 {
-    // PORT: dependency tracking (incremental compilation) is out of scope.
-    return unported("rustc_session::options::Options::dep_tracking_hash");
+  dep_tracking_hash(for_crate_hash: boolean): Hash64 {
+    const sub_hashes = new Map<string, DynDepTrackingHash>();
+    insert("crate_types", dep_tracking.dyn(this.crate_types, dep_tracking.Vec(dep_tracking.via_hash.CrateType)), sub_hashes);
+    insert("optimize", dep_tracking.dyn(this.optimize, dep_tracking.via_hash.OptLevel), sub_hashes);
+    insert("debug_assertions", dep_tracking.dyn(this.debug_assertions, dep_tracking.via_hash.bool), sub_hashes);
+    insert("debuginfo", dep_tracking.dyn(this.debuginfo, dep_tracking.via_hash.DebugInfo), sub_hashes);
+    if (!for_crate_hash) {
+      insert("lint_opts", dep_tracking.dyn(this.lint_opts, dep_tracking.Vec(dep_tracking.tuple2(dep_tracking.via_hash.String, dep_tracking.via_hash.Level))), sub_hashes);
+    }
+    if (!for_crate_hash) {
+      insert("lint_cap", dep_tracking.dyn(this.lint_cap, dep_tracking.Option(dep_tracking.via_hash.Level)), sub_hashes);
+    }
+    insert("output_types", dep_tracking.dyn(this.output_types, dep_tracking.OutputTypes), sub_hashes);
+    insert("libs", dep_tracking.dyn(this.libs, dep_tracking.Vec(dep_tracking.via_hash.NativeLib)), sub_hashes);
+    insert("target_triple", dep_tracking.dyn(this.target_triple, dep_tracking.via_hash.TargetTuple), sub_hashes);
+    insert("test", dep_tracking.dyn(this.test, dep_tracking.via_hash.bool), sub_hashes);
+    insert("crate_name", dep_tracking.dyn(this.crate_name, dep_tracking.Option(dep_tracking.via_hash.String)), sub_hashes);
+    insert("unstable_features", dep_tracking.dyn(this.unstable_features, dep_tracking.via_hash.UnstableFeatures), sub_hashes);
+    insert("actually_rustdoc", dep_tracking.dyn(this.actually_rustdoc, dep_tracking.via_hash.bool), sub_hashes);
+    insert("resolve_doc_links", dep_tracking.dyn(this.resolve_doc_links, dep_tracking.via_hash.ResolveDocLinks), sub_hashes);
+    insert("trimmed_def_paths", dep_tracking.dyn(this.trimmed_def_paths, dep_tracking.via_hash.bool), sub_hashes);
+    if (!for_crate_hash) {
+      insert("remap_path_prefix", dep_tracking.dyn(this.remap_path_prefix, dep_tracking.Vec(dep_tracking.tuple2(dep_tracking.via_hash.PathBuf, dep_tracking.via_hash.PathBuf))), sub_hashes);
+    }
+    if (!for_crate_hash) {
+      insert("remap_path_scope", dep_tracking.dyn(this.remap_path_scope, dep_tracking.via_hash.RemapPathScopeComponents), sub_hashes);
+    }
+    if (!for_crate_hash) {
+      insert("real_rust_source_base_dir", dep_tracking.dyn(this.real_rust_source_base_dir, dep_tracking.Option(dep_tracking.via_hash.PathBuf)), sub_hashes);
+    }
+    if (!for_crate_hash) {
+      insert("real_rustc_dev_source_base_dir", dep_tracking.dyn(this.real_rustc_dev_source_base_dir, dep_tracking.Option(dep_tracking.via_hash.PathBuf)), sub_hashes);
+    }
+    insert("edition", dep_tracking.dyn(this.edition, dep_tracking.via_hash.Edition), sub_hashes);
+    insert("json_artifact_notifications", dep_tracking.dyn(this.json_artifact_notifications, dep_tracking.via_hash.bool), sub_hashes);
+    insert("json_future_incompat", dep_tracking.dyn(this.json_future_incompat, dep_tracking.via_hash.bool), sub_hashes);
+    insert("working_dir", dep_tracking.dyn(this.working_dir, dep_tracking.via_hash.RealFileName), sub_hashes);
+    if (!for_crate_hash) {
+      insert("verbose", dep_tracking.dyn(this.verbose, dep_tracking.via_hash.bool), sub_hashes);
+    }
+    const hasher = StableHasher.new();
+    dep_tracking.stable_hash(sub_hashes, hasher, this.error_format, for_crate_hash);
+    dep_tracking.via_hash.Hash64(this.unstable_opts.dep_tracking_hash(for_crate_hash, this.error_format), hasher, this.error_format, for_crate_hash);
+    dep_tracking.via_hash.Hash64(this.cg.dep_tracking_hash(for_crate_hash, this.error_format), hasher, this.error_format, for_crate_hash);
+    return hasher.finish(Hash64);
   }
 
   // rustc: compiler/rustc_session/src/options.rs:316 gather_target_modifiers
@@ -517,9 +569,45 @@ export class CodegenOptions {
   }
 
   // rustc: compiler/rustc_session/src/options.rs:609 dep_tracking_hash
-  dep_tracking_hash(_for_crate_hash: boolean, _error_format: ErrorOutputType): Hash64 {
-    // PORT: dependency tracking (incremental compilation) is out of scope.
-    return unported("rustc_session::options::CodegenOptions::dep_tracking_hash");
+  dep_tracking_hash(for_crate_hash: boolean, error_format: ErrorOutputType): Hash64 {
+    const sub_hashes = new Map<string, DynDepTrackingHash>();
+    insert("code_model", dep_tracking.dyn(this.code_model, dep_tracking.Option(dep_tracking.via_hash.CodeModel)), sub_hashes);
+    insert("collapse_macro_debuginfo", dep_tracking.dyn(this.collapse_macro_debuginfo, dep_tracking.via_hash.CollapseMacroDebuginfo), sub_hashes);
+    insert("control_flow_guard", dep_tracking.dyn(this.control_flow_guard, dep_tracking.via_hash.CFGuard), sub_hashes);
+    insert("debug_assertions", dep_tracking.dyn(this.debug_assertions, dep_tracking.Option(dep_tracking.via_hash.bool)), sub_hashes);
+    insert("debuginfo", dep_tracking.dyn(this.debuginfo, dep_tracking.via_hash.DebugInfo), sub_hashes);
+    insert("dwarf_version", dep_tracking.dyn(this.dwarf_version, dep_tracking.Option(dep_tracking.via_hash.u32)), sub_hashes);
+    insert("embed_bitcode", dep_tracking.dyn(this.embed_bitcode, dep_tracking.via_hash.bool), sub_hashes);
+    insert("force_frame_pointers", dep_tracking.dyn(this.force_frame_pointers, dep_tracking.via_hash.FramePointer), sub_hashes);
+    insert("force_unwind_tables", dep_tracking.dyn(this.force_unwind_tables, dep_tracking.Option(dep_tracking.via_hash.bool)), sub_hashes);
+    insert("instrument_coverage", dep_tracking.dyn(this.instrument_coverage, dep_tracking.via_hash.InstrumentCoverage), sub_hashes);
+    insert("jump_tables", dep_tracking.dyn(this.jump_tables, dep_tracking.via_hash.bool), sub_hashes);
+    insert("link_dead_code", dep_tracking.dyn(this.link_dead_code, dep_tracking.Option(dep_tracking.via_hash.bool)), sub_hashes);
+    insert("linker_plugin_lto", dep_tracking.dyn(this.linker_plugin_lto, dep_tracking.via_hash.LinkerPluginLto), sub_hashes);
+    insert("llvm_args", dep_tracking.dyn(this.llvm_args, dep_tracking.Vec(dep_tracking.via_hash.String)), sub_hashes);
+    insert("lto", dep_tracking.dyn(this.lto, dep_tracking.via_hash.LtoCli), sub_hashes);
+    insert("metadata", dep_tracking.dyn(this.metadata, dep_tracking.Vec(dep_tracking.via_hash.String)), sub_hashes);
+    insert("no_prepopulate_passes", dep_tracking.dyn(this.no_prepopulate_passes, dep_tracking.via_hash.bool), sub_hashes);
+    insert("no_redzone", dep_tracking.dyn(this.no_redzone, dep_tracking.Option(dep_tracking.via_hash.bool)), sub_hashes);
+    insert("no_vectorize_loops", dep_tracking.dyn(this.no_vectorize_loops, dep_tracking.via_hash.bool), sub_hashes);
+    insert("no_vectorize_slp", dep_tracking.dyn(this.no_vectorize_slp, dep_tracking.via_hash.bool), sub_hashes);
+    insert("opt_level", dep_tracking.dyn(this.opt_level, dep_tracking.via_hash.String), sub_hashes);
+    insert("overflow_checks", dep_tracking.dyn(this.overflow_checks, dep_tracking.Option(dep_tracking.via_hash.bool)), sub_hashes);
+    insert("panic", dep_tracking.dyn(this.panic, dep_tracking.Option(dep_tracking.via_hash.PanicStrategy)), sub_hashes);
+    insert("passes", dep_tracking.dyn(this.passes, dep_tracking.Vec(dep_tracking.via_hash.String)), sub_hashes);
+    insert("prefer_dynamic", dep_tracking.dyn(this.prefer_dynamic, dep_tracking.via_hash.bool), sub_hashes);
+    insert("profile_generate", dep_tracking.dyn(this.profile_generate, dep_tracking.via_hash.SwitchWithOptPath), sub_hashes);
+    insert("profile_sample_use", dep_tracking.dyn(this.profile_sample_use, dep_tracking.Option(dep_tracking.via_hash.PathBuf)), sub_hashes);
+    insert("profile_use", dep_tracking.dyn(this.profile_use, dep_tracking.Option(dep_tracking.via_hash.PathBuf)), sub_hashes);
+    insert("relocation_model", dep_tracking.dyn(this.relocation_model, dep_tracking.Option(dep_tracking.via_hash.RelocModel)), sub_hashes);
+    insert("relro_level", dep_tracking.dyn(this.relro_level, dep_tracking.Option(dep_tracking.via_hash.RelroLevel)), sub_hashes);
+    insert("split_debuginfo", dep_tracking.dyn(this.split_debuginfo, dep_tracking.Option(dep_tracking.via_hash.SplitDebuginfo)), sub_hashes);
+    insert("symbol_mangling_version", dep_tracking.dyn(this.symbol_mangling_version, dep_tracking.Option(dep_tracking.via_hash.SymbolManglingVersion)), sub_hashes);
+    insert("target_cpu", dep_tracking.dyn(this.target_cpu, dep_tracking.Option(dep_tracking.via_hash.String)), sub_hashes);
+    insert("target_feature", dep_tracking.dyn(this.target_feature, dep_tracking.via_hash.String), sub_hashes);
+    const hasher = StableHasher.new();
+    dep_tracking.stable_hash(sub_hashes, hasher, error_format, for_crate_hash);
+    return hasher.finish(Hash64);
   }
 
   // rustc: compiler/rustc_session/src/options.rs:634 gather_target_modifiers
@@ -1955,9 +2043,178 @@ export class UnstableOptions {
   }
 
   // rustc: compiler/rustc_session/src/options.rs:609 dep_tracking_hash
-  dep_tracking_hash(_for_crate_hash: boolean, _error_format: ErrorOutputType): Hash64 {
-    // PORT: dependency tracking (incremental compilation) is out of scope.
-    return unported("rustc_session::options::UnstableOptions::dep_tracking_hash");
+  dep_tracking_hash(for_crate_hash: boolean, error_format: ErrorOutputType): Hash64 {
+    const sub_hashes = new Map<string, DynDepTrackingHash>();
+    insert("allow_features", dep_tracking.dyn(this.allow_features, dep_tracking.Option(dep_tracking.Vec(dep_tracking.via_hash.String))), sub_hashes);
+    insert("always_encode_mir", dep_tracking.dyn(this.always_encode_mir, dep_tracking.via_hash.bool), sub_hashes);
+    insert("annotate_moves", dep_tracking.dyn(this.annotate_moves, dep_tracking.via_hash.AnnotateMoves), sub_hashes);
+    insert("assume_incomplete_release", dep_tracking.dyn(this.assume_incomplete_release, dep_tracking.via_hash.bool), sub_hashes);
+    insert("assumptions_on_binders", dep_tracking.dyn(this.assumptions_on_binders, dep_tracking.via_hash.bool), sub_hashes);
+    insert("autodiff", dep_tracking.dyn(this.autodiff, dep_tracking.Vec(dep_tracking.via_hash.AutoDiff)), sub_hashes);
+    insert("autodiff_post_passes", dep_tracking.dyn(this.autodiff_post_passes, dep_tracking.Option(dep_tracking.via_hash.String)), sub_hashes);
+    insert("binary_dep_depinfo", dep_tracking.dyn(this.binary_dep_depinfo, dep_tracking.via_hash.bool), sub_hashes);
+    insert("box_noalias", dep_tracking.dyn(this.box_noalias, dep_tracking.via_hash.bool), sub_hashes);
+    insert("branch_protection", dep_tracking.dyn(this.branch_protection, dep_tracking.Option(dep_tracking.via_hash.BranchProtection)), sub_hashes);
+    insert("cache_proc_macros", dep_tracking.dyn(this.cache_proc_macros, dep_tracking.via_hash.bool), sub_hashes);
+    insert("cf_protection", dep_tracking.dyn(this.cf_protection, dep_tracking.via_hash.CFProtection), sub_hashes);
+    insert("checksum_hash_algorithm", dep_tracking.dyn(this.checksum_hash_algorithm, dep_tracking.Option(dep_tracking.via_hash.SourceFileHashAlgorithm)), sub_hashes);
+    insert("codegen_backend", dep_tracking.dyn(this.codegen_backend, dep_tracking.Option(dep_tracking.via_hash.String)), sub_hashes);
+    insert("codegen_emit_retag", dep_tracking.dyn(this.codegen_emit_retag, dep_tracking.Option(dep_tracking.via_hash.CodegenRetagOptions)), sub_hashes);
+    insert("contract_checks", dep_tracking.dyn(this.contract_checks, dep_tracking.Option(dep_tracking.via_hash.bool)), sub_hashes);
+    insert("coverage_options", dep_tracking.dyn(this.coverage_options, dep_tracking.via_hash.CoverageOptions), sub_hashes);
+    insert("crate_attr", dep_tracking.dyn(this.crate_attr, dep_tracking.Vec(dep_tracking.via_hash.String)), sub_hashes);
+    insert("cross_crate_inline_threshold", dep_tracking.dyn(this.cross_crate_inline_threshold, dep_tracking.via_hash.InliningThreshold), sub_hashes);
+    insert("debug_info_type_line_numbers", dep_tracking.dyn(this.debug_info_type_line_numbers, dep_tracking.via_hash.bool), sub_hashes);
+    insert("debuginfo_compression", dep_tracking.dyn(this.debuginfo_compression, dep_tracking.via_hash.DebugInfoCompression), sub_hashes);
+    insert("debuginfo_for_profiling", dep_tracking.dyn(this.debuginfo_for_profiling, dep_tracking.via_hash.bool), sub_hashes);
+    insert("default_visibility", dep_tracking.dyn(this.default_visibility, dep_tracking.Option(dep_tracking.via_hash.SymbolVisibility)), sub_hashes);
+    insert("dep_info_omit_d_target", dep_tracking.dyn(this.dep_info_omit_d_target, dep_tracking.via_hash.bool), sub_hashes);
+    insert("direct_access_external_data", dep_tracking.dyn(this.direct_access_external_data, dep_tracking.Option(dep_tracking.via_hash.bool)), sub_hashes);
+    insert("disable_fast_paths", dep_tracking.dyn(this.disable_fast_paths, dep_tracking.via_hash.bool), sub_hashes);
+    insert("disable_incr_comp_backend_caching", dep_tracking.dyn(this.disable_incr_comp_backend_caching, dep_tracking.via_hash.bool), sub_hashes);
+    insert("disable_param_env_normalization_hack", dep_tracking.dyn(this.disable_param_env_normalization_hack, dep_tracking.via_hash.bool), sub_hashes);
+    insert("dual_proc_macros", dep_tracking.dyn(this.dual_proc_macros, dep_tracking.via_hash.bool), sub_hashes);
+    insert("dwarf_version", dep_tracking.dyn(this.dwarf_version, dep_tracking.Option(dep_tracking.via_hash.u32)), sub_hashes);
+    insert("ehcont_guard", dep_tracking.dyn(this.ehcont_guard, dep_tracking.via_hash.bool), sub_hashes);
+    insert("embed_metadata", dep_tracking.dyn(this.embed_metadata, dep_tracking.via_hash.bool), sub_hashes);
+    insert("embed_source", dep_tracking.dyn(this.embed_source, dep_tracking.via_hash.bool), sub_hashes);
+    insert("enforce_type_length_limit", dep_tracking.dyn(this.enforce_type_length_limit, dep_tracking.via_hash.bool), sub_hashes);
+    insert("experimental_default_bounds", dep_tracking.dyn(this.experimental_default_bounds, dep_tracking.via_hash.bool), sub_hashes);
+    insert("export_executable_symbols", dep_tracking.dyn(this.export_executable_symbols, dep_tracking.via_hash.bool), sub_hashes);
+    insert("extra_const_ub_checks", dep_tracking.dyn(this.extra_const_ub_checks, dep_tracking.via_hash.bool), sub_hashes);
+    insert("fewer_names", dep_tracking.dyn(this.fewer_names, dep_tracking.Option(dep_tracking.via_hash.bool)), sub_hashes);
+    insert("fixed_x18", dep_tracking.dyn(this.fixed_x18, dep_tracking.via_hash.bool), sub_hashes);
+    insert("flatten_format_args", dep_tracking.dyn(this.flatten_format_args, dep_tracking.via_hash.bool), sub_hashes);
+    insert("fmt_debug", dep_tracking.dyn(this.fmt_debug, dep_tracking.via_hash.FmtDebug), sub_hashes);
+    insert("force_intrinsic_fallback", dep_tracking.dyn(this.force_intrinsic_fallback, dep_tracking.via_hash.bool), sub_hashes);
+    insert("force_unstable_if_unmarked", dep_tracking.dyn(this.force_unstable_if_unmarked, dep_tracking.via_hash.bool), sub_hashes);
+    insert("function_return", dep_tracking.dyn(this.function_return, dep_tracking.via_hash.FunctionReturn), sub_hashes);
+    insert("function_sections", dep_tracking.dyn(this.function_sections, dep_tracking.Option(dep_tracking.via_hash.bool)), sub_hashes);
+    insert("has_thread_local", dep_tracking.dyn(this.has_thread_local, dep_tracking.Option(dep_tracking.via_hash.bool)), sub_hashes);
+    insert("higher_ranked_assumptions", dep_tracking.dyn(this.higher_ranked_assumptions, dep_tracking.via_hash.bool), sub_hashes);
+    insert("hint_mostly_unused", dep_tracking.dyn(this.hint_mostly_unused, dep_tracking.via_hash.bool), sub_hashes);
+    insert("hint_msrv", dep_tracking.dyn(this.hint_msrv, dep_tracking.Option(dep_tracking.via_hash.RustcVersion)), sub_hashes);
+    insert("human_readable_cgu_names", dep_tracking.dyn(this.human_readable_cgu_names, dep_tracking.via_hash.bool), sub_hashes);
+    insert("implicit_sysroot_deps", dep_tracking.dyn(this.implicit_sysroot_deps, dep_tracking.via_hash.bool), sub_hashes);
+    insert("incremental_ignore_spans", dep_tracking.dyn(this.incremental_ignore_spans, dep_tracking.via_hash.bool), sub_hashes);
+    insert("indirect_branch_cs_prefix", dep_tracking.dyn(this.indirect_branch_cs_prefix, dep_tracking.via_hash.bool), sub_hashes);
+    insert("inline_llvm", dep_tracking.dyn(this.inline_llvm, dep_tracking.via_hash.bool), sub_hashes);
+    insert("inline_mir", dep_tracking.dyn(this.inline_mir, dep_tracking.Option(dep_tracking.via_hash.bool)), sub_hashes);
+    insert("inline_mir_forwarder_threshold", dep_tracking.dyn(this.inline_mir_forwarder_threshold, dep_tracking.Option(dep_tracking.via_hash.usize)), sub_hashes);
+    insert("inline_mir_hint_threshold", dep_tracking.dyn(this.inline_mir_hint_threshold, dep_tracking.Option(dep_tracking.via_hash.usize)), sub_hashes);
+    insert("inline_mir_preserve_debug", dep_tracking.dyn(this.inline_mir_preserve_debug, dep_tracking.Option(dep_tracking.via_hash.bool)), sub_hashes);
+    insert("inline_mir_threshold", dep_tracking.dyn(this.inline_mir_threshold, dep_tracking.Option(dep_tracking.via_hash.usize)), sub_hashes);
+    insert("instrument_mcount", dep_tracking.dyn(this.instrument_mcount, dep_tracking.via_hash.InstrumentMcount), sub_hashes);
+    insert("instrument_xray", dep_tracking.dyn(this.instrument_xray, dep_tracking.Option(dep_tracking.via_hash.InstrumentXRay)), sub_hashes);
+    insert("internal_testing_features", dep_tracking.dyn(this.internal_testing_features, dep_tracking.via_hash.bool), sub_hashes);
+    insert("large_data_threshold", dep_tracking.dyn(this.large_data_threshold, dep_tracking.Option(dep_tracking.via_hash.u64)), sub_hashes);
+    insert("layout_seed", dep_tracking.dyn(this.layout_seed, dep_tracking.Option(dep_tracking.via_hash.u64)), sub_hashes);
+    insert("link_directives", dep_tracking.dyn(this.link_directives, dep_tracking.via_hash.bool), sub_hashes);
+    insert("link_only", dep_tracking.dyn(this.link_only, dep_tracking.via_hash.bool), sub_hashes);
+    insert("lint_llvm_ir", dep_tracking.dyn(this.lint_llvm_ir, dep_tracking.via_hash.bool), sub_hashes);
+    insert("llvm_module_flag", dep_tracking.dyn(this.llvm_module_flag, dep_tracking.Vec(dep_tracking.tuple3(dep_tracking.via_hash.String, dep_tracking.via_hash.u32, dep_tracking.via_hash.String))), sub_hashes);
+    insert("llvm_plugins", dep_tracking.dyn(this.llvm_plugins, dep_tracking.Vec(dep_tracking.via_hash.String)), sub_hashes);
+    insert("llvm_target_feature", dep_tracking.dyn(this.llvm_target_feature, dep_tracking.via_hash.String), sub_hashes);
+    insert("llvm_writable", dep_tracking.dyn(this.llvm_writable, dep_tracking.via_hash.bool), sub_hashes);
+    insert("location_detail", dep_tracking.dyn(this.location_detail, dep_tracking.via_hash.LocationDetail), sub_hashes);
+    insert("maximal_hir_to_mir_coverage", dep_tracking.dyn(this.maximal_hir_to_mir_coverage, dep_tracking.via_hash.bool), sub_hashes);
+    insert("merge_functions", dep_tracking.dyn(this.merge_functions, dep_tracking.Option(dep_tracking.via_hash.MergeFunctions)), sub_hashes);
+    insert("metadata_crate_hash", dep_tracking.dyn(this.metadata_crate_hash, dep_tracking.via_hash.bool), sub_hashes);
+    insert("min_function_alignment", dep_tracking.dyn(this.min_function_alignment, dep_tracking.Option(dep_tracking.via_hash.Align)), sub_hashes);
+    insert("min_recursion_limit", dep_tracking.dyn(this.min_recursion_limit, dep_tracking.Option(dep_tracking.via_hash.usize)), sub_hashes);
+    insert("mir_enable_passes", dep_tracking.dyn(this.mir_enable_passes, dep_tracking.Vec(dep_tracking.tuple2(dep_tracking.via_hash.String, dep_tracking.via_hash.bool))), sub_hashes);
+    insert("mir_move_elimination", dep_tracking.dyn(this.mir_move_elimination, dep_tracking.via_hash.bool), sub_hashes);
+    insert("mir_opt_bisect_limit", dep_tracking.dyn(this.mir_opt_bisect_limit, dep_tracking.Option(dep_tracking.via_hash.usize)), sub_hashes);
+    insert("mir_opt_level", dep_tracking.dyn(this.mir_opt_level, dep_tracking.Option(dep_tracking.via_hash.usize)), sub_hashes);
+    insert("mir_preserve_ub", dep_tracking.dyn(this.mir_preserve_ub, dep_tracking.via_hash.bool), sub_hashes);
+    insert("mir_strip_debuginfo", dep_tracking.dyn(this.mir_strip_debuginfo, dep_tracking.via_hash.MirStripDebugInfo), sub_hashes);
+    insert("move_size_limit", dep_tracking.dyn(this.move_size_limit, dep_tracking.Option(dep_tracking.via_hash.usize)), sub_hashes);
+    insert("namespaced_crates", dep_tracking.dyn(this.namespaced_crates, dep_tracking.via_hash.bool), sub_hashes);
+    insert("next_solver", dep_tracking.dyn(this.next_solver, dep_tracking.via_hash.NextSolverConfig), sub_hashes);
+    if (!for_crate_hash) {
+      insert("no_codegen", dep_tracking.dyn(this.no_codegen, dep_tracking.via_hash.bool), sub_hashes);
+    }
+    insert("no_generate_arange_section", dep_tracking.dyn(this.no_generate_arange_section, dep_tracking.via_hash.bool), sub_hashes);
+    insert("no_implied_bounds_compat", dep_tracking.dyn(this.no_implied_bounds_compat, dep_tracking.via_hash.bool), sub_hashes);
+    insert("no_link", dep_tracking.dyn(this.no_link, dep_tracking.via_hash.bool), sub_hashes);
+    insert("no_profiler_runtime", dep_tracking.dyn(this.no_profiler_runtime, dep_tracking.via_hash.bool), sub_hashes);
+    insert("no_trait_vptr", dep_tracking.dyn(this.no_trait_vptr, dep_tracking.via_hash.bool), sub_hashes);
+    insert("no_unique_section_names", dep_tracking.dyn(this.no_unique_section_names, dep_tracking.via_hash.bool), sub_hashes);
+    insert("normalize_docs", dep_tracking.dyn(this.normalize_docs, dep_tracking.via_hash.bool), sub_hashes);
+    insert("offload", dep_tracking.dyn(this.offload, dep_tracking.Vec(dep_tracking.via_hash.Offload)), sub_hashes);
+    insert("on_broken_pipe", dep_tracking.dyn(this.on_broken_pipe, dep_tracking.via_hash.OnBrokenPipe), sub_hashes);
+    insert("osx_rpath_install_name", dep_tracking.dyn(this.osx_rpath_install_name, dep_tracking.via_hash.bool), sub_hashes);
+    insert("packed_bundled_libs", dep_tracking.dyn(this.packed_bundled_libs, dep_tracking.via_hash.bool), sub_hashes);
+    insert("packed_stack", dep_tracking.dyn(this.packed_stack, dep_tracking.via_hash.bool), sub_hashes);
+    insert("panic_abort_tests", dep_tracking.dyn(this.panic_abort_tests, dep_tracking.via_hash.bool), sub_hashes);
+    insert("panic_in_drop", dep_tracking.dyn(this.panic_in_drop, dep_tracking.via_hash.PanicStrategy), sub_hashes);
+    insert("patchable_function_entry", dep_tracking.dyn(this.patchable_function_entry, dep_tracking.via_hash.PatchableFunctionEntry), sub_hashes);
+    insert("plt", dep_tracking.dyn(this.plt, dep_tracking.Option(dep_tracking.via_hash.bool)), sub_hashes);
+    insert("pointer_authentication", dep_tracking.dyn(this.pointer_authentication, dep_tracking.Vec(dep_tracking.tuple2(dep_tracking.via_hash.PointerAuthOption, dep_tracking.via_hash.bool))), sub_hashes);
+    insert("polonius", dep_tracking.dyn(this.polonius, dep_tracking.via_hash.Polonius), sub_hashes);
+    insert("precise_enum_drop_elaboration", dep_tracking.dyn(this.precise_enum_drop_elaboration, dep_tracking.via_hash.bool), sub_hashes);
+    insert("profiler_runtime", dep_tracking.dyn(this.profiler_runtime, dep_tracking.via_hash.String), sub_hashes);
+    insert("randomize_layout", dep_tracking.dyn(this.randomize_layout, dep_tracking.via_hash.bool), sub_hashes);
+    insert("reg_struct_return", dep_tracking.dyn(this.reg_struct_return, dep_tracking.via_hash.bool), sub_hashes);
+    insert("regparm", dep_tracking.dyn(this.regparm, dep_tracking.Option(dep_tracking.via_hash.u32)), sub_hashes);
+    insert("relax_elf_relocations", dep_tracking.dyn(this.relax_elf_relocations, dep_tracking.Option(dep_tracking.via_hash.bool)), sub_hashes);
+    insert("remap_cwd_prefix", dep_tracking.dyn(this.remap_cwd_prefix, dep_tracking.Option(dep_tracking.via_hash.PathBuf)), sub_hashes);
+    insert("renormalize_rigid_aliases", dep_tracking.dyn(this.renormalize_rigid_aliases, dep_tracking.via_hash.bool), sub_hashes);
+    insert("retpoline", dep_tracking.dyn(this.retpoline, dep_tracking.via_hash.bool), sub_hashes);
+    insert("retpoline_external_thunk", dep_tracking.dyn(this.retpoline_external_thunk, dep_tracking.via_hash.bool), sub_hashes);
+    insert("sanitizer", dep_tracking.dyn(this.sanitizer, dep_tracking.via_hash.SanitizerSet), sub_hashes);
+    insert("sanitizer_ignorelist", dep_tracking.dyn(this.sanitizer_ignorelist, dep_tracking.Vec(dep_tracking.via_hash.String)), sub_hashes);
+    insert("sanitizer_cfi_canonical_jump_tables", dep_tracking.dyn(this.sanitizer_cfi_canonical_jump_tables, dep_tracking.Option(dep_tracking.via_hash.bool)), sub_hashes);
+    insert("sanitizer_cfi_generalize_pointers", dep_tracking.dyn(this.sanitizer_cfi_generalize_pointers, dep_tracking.Option(dep_tracking.via_hash.bool)), sub_hashes);
+    insert("sanitizer_cfi_normalize_integers", dep_tracking.dyn(this.sanitizer_cfi_normalize_integers, dep_tracking.Option(dep_tracking.via_hash.bool)), sub_hashes);
+    insert("sanitizer_cfi_diag", dep_tracking.dyn(this.sanitizer_cfi_diag, dep_tracking.Option(dep_tracking.via_hash.bool)), sub_hashes);
+    insert("sanitizer_cfi_recover", dep_tracking.dyn(this.sanitizer_cfi_recover, dep_tracking.Option(dep_tracking.via_hash.bool)), sub_hashes);
+    insert("sanitizer_cfi_minimal_runtime", dep_tracking.dyn(this.sanitizer_cfi_minimal_runtime, dep_tracking.Option(dep_tracking.via_hash.bool)), sub_hashes);
+    insert("sanitizer_dataflow_abilist", dep_tracking.dyn(this.sanitizer_dataflow_abilist, dep_tracking.Vec(dep_tracking.via_hash.String)), sub_hashes);
+    insert("sanitizer_kcfi_arity", dep_tracking.dyn(this.sanitizer_kcfi_arity, dep_tracking.Option(dep_tracking.via_hash.bool)), sub_hashes);
+    insert("sanitizer_memory_track_origins", dep_tracking.dyn(this.sanitizer_memory_track_origins, dep_tracking.via_hash.usize), sub_hashes);
+    insert("sanitizer_recover", dep_tracking.dyn(this.sanitizer_recover, dep_tracking.via_hash.SanitizerSet), sub_hashes);
+    insert("share_generics", dep_tracking.dyn(this.share_generics, dep_tracking.Option(dep_tracking.via_hash.bool)), sub_hashes);
+    insert("simulate_remapped_rust_src_base", dep_tracking.dyn(this.simulate_remapped_rust_src_base, dep_tracking.Option(dep_tracking.via_hash.PathBuf)), sub_hashes);
+    insert("small_data_threshold", dep_tracking.dyn(this.small_data_threshold, dep_tracking.Option(dep_tracking.via_hash.usize)), sub_hashes);
+    insert("split_dwarf_inlining", dep_tracking.dyn(this.split_dwarf_inlining, dep_tracking.via_hash.bool), sub_hashes);
+    insert("split_dwarf_kind", dep_tracking.dyn(this.split_dwarf_kind, dep_tracking.via_hash.SplitDwarfKind), sub_hashes);
+    insert("split_dwarf_out_dir", dep_tracking.dyn(this.split_dwarf_out_dir, dep_tracking.Option(dep_tracking.via_hash.PathBuf)), sub_hashes);
+    insert("split_lto_unit", dep_tracking.dyn(this.split_lto_unit, dep_tracking.Option(dep_tracking.via_hash.bool)), sub_hashes);
+    insert("src_hash_algorithm", dep_tracking.dyn(this.src_hash_algorithm, dep_tracking.Option(dep_tracking.via_hash.SourceFileHashAlgorithm)), sub_hashes);
+    insert("stack_protector", dep_tracking.dyn(this.stack_protector, dep_tracking.via_hash.StackProtector), sub_hashes);
+    insert("staticlib_allow_rdylib_deps", dep_tracking.dyn(this.staticlib_allow_rdylib_deps, dep_tracking.via_hash.bool), sub_hashes);
+    insert("staticlib_hide_internal_symbols", dep_tracking.dyn(this.staticlib_hide_internal_symbols, dep_tracking.via_hash.bool), sub_hashes);
+    insert("staticlib_rename_internal_symbols", dep_tracking.dyn(this.staticlib_rename_internal_symbols, dep_tracking.via_hash.bool), sub_hashes);
+    insert("staticlib_prefer_dynamic", dep_tracking.dyn(this.staticlib_prefer_dynamic, dep_tracking.via_hash.bool), sub_hashes);
+    insert("strict_init_checks", dep_tracking.dyn(this.strict_init_checks, dep_tracking.via_hash.bool), sub_hashes);
+    insert("teach", dep_tracking.dyn(this.teach, dep_tracking.via_hash.bool), sub_hashes);
+    insert("thinlto", dep_tracking.dyn(this.thinlto, dep_tracking.Option(dep_tracking.via_hash.bool)), sub_hashes);
+    insert("tiny_const_eval_limit", dep_tracking.dyn(this.tiny_const_eval_limit, dep_tracking.via_hash.bool), sub_hashes);
+    insert("tls_model", dep_tracking.dyn(this.tls_model, dep_tracking.Option(dep_tracking.via_hash.TlsModel)), sub_hashes);
+    insert("translate_remapped_path_to_local_path", dep_tracking.dyn(this.translate_remapped_path_to_local_path, dep_tracking.via_hash.bool), sub_hashes);
+    insert("trap_unreachable", dep_tracking.dyn(this.trap_unreachable, dep_tracking.Option(dep_tracking.via_hash.bool)), sub_hashes);
+    insert("treat_err_as_bug", dep_tracking.dyn(this.treat_err_as_bug, dep_tracking.Option(dep_tracking.via_hash.NonZero_usize)), sub_hashes);
+    insert("tune_cpu", dep_tracking.dyn(this.tune_cpu, dep_tracking.Option(dep_tracking.via_hash.String)), sub_hashes);
+    insert("typing_mode_post_typeck_until_borrowck", dep_tracking.dyn(this.typing_mode_post_typeck_until_borrowck, dep_tracking.via_hash.bool), sub_hashes);
+    insert("ub_checks", dep_tracking.dyn(this.ub_checks, dep_tracking.Option(dep_tracking.via_hash.bool)), sub_hashes);
+    insert("uninit_const_chunk_threshold", dep_tracking.dyn(this.uninit_const_chunk_threshold, dep_tracking.via_hash.usize), sub_hashes);
+    insert("unleash_the_miri_inside_of_you", dep_tracking.dyn(this.unleash_the_miri_inside_of_you, dep_tracking.via_hash.bool), sub_hashes);
+    insert("unsound_mir_opts", dep_tracking.dyn(this.unsound_mir_opts, dep_tracking.via_hash.bool), sub_hashes);
+    insert("use_ctors_section", dep_tracking.dyn(this.use_ctors_section, dep_tracking.Option(dep_tracking.via_hash.bool)), sub_hashes);
+    insert("use_sync_unwind", dep_tracking.dyn(this.use_sync_unwind, dep_tracking.Option(dep_tracking.via_hash.bool)), sub_hashes);
+    insert("verbose_asm", dep_tracking.dyn(this.verbose_asm, dep_tracking.via_hash.bool), sub_hashes);
+    if (!for_crate_hash) {
+      insert("verbose_internals", dep_tracking.dyn(this.verbose_internals, dep_tracking.via_hash.bool), sub_hashes);
+    }
+    insert("verify_llvm_ir", dep_tracking.dyn(this.verify_llvm_ir, dep_tracking.via_hash.bool), sub_hashes);
+    insert("virtual_function_elimination", dep_tracking.dyn(this.virtual_function_elimination, dep_tracking.via_hash.bool), sub_hashes);
+    insert("wasi_exec_model", dep_tracking.dyn(this.wasi_exec_model, dep_tracking.Option(dep_tracking.via_hash.WasiExecModel)), sub_hashes);
+    insert("wasm_c_abi", dep_tracking.dyn(this.wasm_c_abi, dep_tracking.via_hash.unit), sub_hashes);
+    insert("wasm_proc_macros", dep_tracking.dyn(this.wasm_proc_macros, dep_tracking.via_hash.bool), sub_hashes);
+    const hasher = StableHasher.new();
+    dep_tracking.stable_hash(sub_hashes, hasher, error_format, for_crate_hash);
+    return hasher.finish(Hash64);
   }
 
   // rustc: compiler/rustc_session/src/options.rs:634 gather_target_modifiers

@@ -108,7 +108,7 @@ test("derive(Decodable)/(Encodable): structs, generics, Option<Option<_>>, array
   );
   expect(text).toContain(
     [
-      "export function encode_Outer<T>(self: Outer<T>, __encoder: Encoder, encode_T: Encodable<T, Encoder>): void {",
+      "export function encode_Outer<T, __E extends Encoder = Encoder>(self: Outer<T>, __encoder: __E, encode_T: Encodable<T, __E>): void {",
       "  encode_T(self.x, __encoder);",
       "  encode_Option_some(self.o, __encoder, (__v, __encoder) => encode_Option(__v, __encoder, encode_u8));",
       "  encode_array(self.arr, __encoder, encode_u8);",
@@ -266,4 +266,35 @@ test("derive(Decodable): off unless the set opts in, and decodable_types limits 
   expect(some.text).not.toContain("decode_A");
   expect(some.text).toContain("export function decode_B(");
   expect(some.text).toContain("export function encode_B(");
+});
+
+test("derive(Encodable*): the encoder type of each derive (serialize.json `encoders`, plan-m5 D3) and the per-set override", () => {
+  const items = [
+    item({ kind: "struct", name: "NoCtx", line: 1, fields: { style: "named", fields: [field("a", 0, u8)] } }),
+    item({ kind: "struct", name: "Span_", line: 2, attrs: [derive("Decodable", "Encodable")], fields: { style: "named", fields: [field("a", 0, u8)] } }),
+    item({ kind: "struct", name: "Ty_", line: 3, attrs: [derive("TyDecodable", "TyEncodable")], fields: { style: "named", fields: [field("a", 0, u8)] } }),
+    item({ kind: "struct", name: "Meta", line: 4, attrs: [derive("MetadataEncodable", "LazyDecodable")], fields: { style: "named", fields: [field("a", 0, u8)] } }),
+    item({
+      kind: "struct",
+      name: "Gen",
+      line: 5,
+      attrs: [derive("TyDecodable", "TyEncodable")],
+      generics: { params: [{ kind: "type", name: "T" }], where: [] },
+      fields: { style: "named", fields: [field("x", 0, path("T"))] },
+    }),
+  ];
+  const { res, text } = synth(items);
+  expect(res.report.errors).toEqual([]);
+  expect(text).toContain("export function encode_NoCtx(self: NoCtx, __encoder: Encoder): void {");
+  expect(text).toContain("export function encode_Span_(self: Span_, __encoder: SpanEncoder): void {");
+  expect(text).toContain("export function encode_Ty_(self: Ty_, __encoder: TyEncoder): void {");
+  expect(text).toContain("export function encode_Meta(self: Meta, __encoder: EncodeContext): void {");
+  // a generic type's encoder is generic over the encoder, like its decoder
+  expect(text).toContain("export function encode_Gen<T, __E extends TyEncoder = TyEncoder>(self: Gen<T>, __encoder: __E, encode_T: Encodable<T, __E>): void {");
+  expect(text).toMatch(/import \{[^}]*type SpanEncoder[^}]*\} from "\.\.\/rustc_span\/lib\.ts";/);
+  expect(text).toMatch(/import \{[^}]*type TyEncoder[^}]*\} from "\.\.\/rustc_middle\/ty\/codec\.ts";/);
+  expect(text).toMatch(/import \{[^}]*type EncodeContext[^}]*\} from "\.\.\/rustc_metadata\/rmeta\/encoder\.ts";/);
+  // `encoders` overrides serialize.json per set (rustc_ty: `Encodable_NoContext` takes a TyEncoder)
+  const over = synth(items.slice(0, 1), { encoders: { Encodable_NoContext: { type: "TyEncoder", import: "src/rustc_middle/ty/codec.ts" } } });
+  expect(over.text).toContain("export function encode_NoCtx(self: NoCtx, __encoder: TyEncoder): void {");
 });

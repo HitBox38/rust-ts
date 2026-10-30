@@ -44,7 +44,7 @@ import {
   Spacing,
   type TokenTree as TokenTreeT,
 } from "./tokenstream.gen.ts";
-import { BytePos, DUMMY_SP, Span, type SpanDecoder, debug_Span } from "../rustc_span/lib.ts";
+import { BytePos, DUMMY_SP, Span, type SpanDecoder, type SpanEncoder, debug_Span } from "../rustc_span/lib.ts";
 import { Symbol, sym } from "../rustc_span/symbol.ts";
 import { type StableHashCtxt, type StableHasher, stable_hash_slice } from "../rustc_data_structures/stable_hash.ts";
 import { stable_hash_TokenTree } from "./stable_hash.gen.ts";
@@ -242,7 +242,11 @@ gen.LazyAttrTokenStream.prototype.to_attr_token_stream = function (this: LazyAtt
 export const debug_LazyAttrTokenStream: Debug<LazyAttrTokenStream> = (v, _f) =>
   `LazyAttrTokenStream(${gen.debug_AttrTokenStream(v.to_attr_token_stream(), PLAIN)})`;
 
-// rustc-skip: compiler/rustc_ast/src/tokenstream.rs:149 encode Encodable (metadata, out of scope until M5)
+// impl<S: SpanEncoder> Encodable<S> for LazyAttrTokenStream
+// rustc: compiler/rustc_ast/src/tokenstream.rs:149 encode
+export function encode_LazyAttrTokenStream(_self: LazyAttrTokenStream, _s: SpanEncoder): void {
+  panic("Attempted to encode LazyAttrTokenStream");
+}
 // rustc: compiler/rustc_ast/src/tokenstream.rs:155 decode
 export function decode_LazyAttrTokenStream(_d: SpanDecoder): LazyAttrTokenStream {
   return panic("Attempted to decode LazyAttrTokenStream");

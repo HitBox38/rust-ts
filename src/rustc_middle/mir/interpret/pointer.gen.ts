@@ -2,8 +2,8 @@
 // Hand-written additions (methods, manual Debug impls) go in pointer.ts next to this file.
 import { Size } from "../../../rustc_abi/lib.ts";
 import { type CtfeProvenance } from "./pointer.ts";
-import { type TyDecoder } from "../../ty/codec.ts";
-import { type Decodable, decode_u64 } from "../../../rustc_serialize/serialize.ts";
+import { type TyDecoder, type TyEncoder } from "../../ty/codec.ts";
+import { type Decodable, decode_u64, type Encodable, encode_u64 } from "../../../rustc_serialize/serialize.ts";
 
 // rustc-type: compiler/rustc_middle/src/mir/interpret/pointer.rs:91 CtfeProvenance
 export type { CtfeProvenance } from "./pointer.ts";
@@ -24,4 +24,9 @@ export function clone_Pointer<Prov>(v: Pointer<Prov>, clone_Prov: (v: Prov) => P
 // rustc-derive: compiler/rustc_middle/src/mir/interpret/pointer.rs:226 TyDecodable for Pointer
 export function decode_Pointer<Prov, __D extends TyDecoder = TyDecoder>(__decoder: __D, decode_Prov: Decodable<Prov, __D>): Pointer<Prov> {
   return new Pointer(Size.from_bytes(decode_u64(__decoder)), decode_Prov(__decoder));
+}
+// rustc-derive: compiler/rustc_middle/src/mir/interpret/pointer.rs:226 TyEncodable for Pointer
+export function encode_Pointer<Prov, __E extends TyEncoder = TyEncoder>(self: Pointer<Prov>, __encoder: __E, encode_Prov: Encodable<Prov, __E>): void {
+  encode_u64(BigInt(self.offset.raw), __encoder);
+  encode_Prov(self.provenance, __encoder);
 }

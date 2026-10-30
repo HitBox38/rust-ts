@@ -11,6 +11,7 @@ import { CRATE_HIR_ID } from "../rustc_hir_id/lib.ts";
 import { LINKER_INFO, LINKER_MESSAGES } from "../rustc_lint_defs/builtin.gen.ts";
 import type { StableLevelSpec } from "../rustc_middle/lint.ts";
 import type { DebuggerVisualizerFile } from "../rustc_middle/middle/debugger_visualizer.ts";
+import type { Dependencies } from "../rustc_middle/middle/dependency_format.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import type { Providers } from "../rustc_middle/util/mod.ts";
 import type { CrateNum } from "../rustc_span/def_id.ts";
@@ -25,17 +26,6 @@ import * as target_features from "./target_features.ts";
 
 export * as codegen_attrs from "./codegen_attrs.ts";
 export * as target_features from "./target_features.ts";
-
-// PORT: `rustc_middle::middle::dependency_format` (types only, middle/dependency_format.rs) is not ported; its
-// `Linkage`, `DependencyList` and `Dependencies` are declared here, as upstream defines them, until it is.
-/// A list of dependencies for a certain crate type.
-export type DependencyList = Linkage[];
-/// A mapping of all required dependencies for a particular flavor of output.
-///
-/// This is local to the tcx, and is generally relevant to one session.
-export type Dependencies = Map<CrateType, DependencyList>;
-export type Linkage = "NotLinked" | "IncludedFromDylib" | "Static" | "Dynamic";
-export const Linkage = { NotLinked: "NotLinked", IncludedFromDylib: "IncludedFromDylib", Static: "Static", Dynamic: "Dynamic" } as const;
 
 // PORT: `rustc_middle::middle::exported_symbols::SymbolExportKind` (middle/exported_symbols.rs:25) is not
 // ported; declared here as upstream defines it.

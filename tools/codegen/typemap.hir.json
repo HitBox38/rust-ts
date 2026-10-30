@@ -27,7 +27,7 @@
     { "paths": ["rustc_hir_id::definitions::Definitions"], "ts": "Definitions", "import": "src/rustc_hir_id/definitions.ts", "types": ["Definitions"], "values": ["debug_Definitions"], "debug": "debug_Definitions($v, $f)", "clone": null },
     { "paths": ["rustc_hir_id::definitions::DefKey"], "ts": "DefKey", "import": "src/rustc_hir_id/definitions.ts", "types": ["DefKey"], "values": ["debug_DefKey", "clone_DefKey"], "debug": "debug_DefKey($v, $f)", "clone": "clone_DefKey($v)" },
     { "paths": ["rustc_hir_id::definitions::DefPath"], "ts": "DefPath", "import": "src/rustc_hir_id/definitions.ts", "types": ["DefPath"], "values": ["debug_DefPath", "clone_DefPath"], "debug": "debug_DefPath($v, $f)", "clone": "clone_DefPath($v)" },
-    { "paths": ["rustc_data_structures::svh::Svh"], "ts": "unknown", "debug": "unported_debug($v)", "clone": "copy", "note": "PORT: pending rustc_data_structures::svh (metadata); replace with the ported type" },
+    { "paths": ["rustc_data_structures::svh::Svh"], "ts": "Svh", "import": "src/rustc_data_structures/svh.ts", "types": ["Svh"], "values": ["debug_Svh"], "debug": "debug_Svh($v, $f)", "clone": "copy", "note": "its to_hex text (svh.ts)" },
     { "paths": ["rustc_attr_ir::CfgEntry"], "ts": "unknown", "debug": "unported_debug($v)", "clone": null, "note": "PORT: pending attr-ir-gen (rustc_attr_ir types); replace with the generated type" },
     { "paths": ["rustc_attr_ir::PeImportNameType"], "ts": "unknown", "debug": "unported_debug($v)", "clone": "copy", "note": "PORT: pending attr-ir-gen (rustc_attr_ir types); replace with the generated type" },
     { "paths": ["rustc_abi::Size"], "ts": "unknown", "debug": "unported_debug($v)", "clone": "copy", "note": "PORT: pending a rustc_abi lane; replace with the ported type" },

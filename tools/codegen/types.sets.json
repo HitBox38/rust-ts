@@ -127,7 +127,8 @@
       "rustc_ast::expand::typetree::TypeTree",
       "rustc_ast::expand::typetree::Type"
     ],
-    "derive_decodable": true
+    "derive_decodable": true,
+    "derive_encodable": true
   },
   "rustc_errors": {
     "files": [
@@ -269,7 +270,8 @@
     "auto_class": true,
     "derive_stable_hash": true,
     "derive_clone": true,
-    "derive_decodable": true
+    "derive_decodable": true,
+    "derive_encodable": true
   },
   "rustc_hir": {
     "files": [
@@ -296,6 +298,7 @@
     "derive_clone": true,
     "derive_stable_hash": true,
     "derive_decodable": true,
+    "derive_encodable": true,
     "decodable_types": [
       "rustc_hir_id::definitions::DefKey",
       "rustc_hir_id::definitions::DisambiguatedDefPathData",
@@ -345,6 +348,7 @@
     "auto_class": true,
     "derive_clone": true,
     "derive_decodable": true,
+    "derive_encodable": true,
     "decodable_types": [
       "rustc_crate_store::cstore::CrateDepKind",
       "rustc_crate_store::cstore::LinkagePreference"
@@ -379,7 +383,8 @@
     "derive_clone": true,
     "derive_stable_hash": true,
     "derive_default": true,
-    "derive_decodable": true
+    "derive_decodable": true,
+    "derive_encodable": true
   },
   "rustc_span": {
     "files": [
@@ -435,6 +440,7 @@
     "derive_stable_hash": true,
     "stable_hash_types": ["rustc_abi::Align", "rustc_abi::Integer", "rustc_abi::IntegerType", "rustc_abi::ScalableElt", "rustc_abi::ReprFlags", "rustc_abi::ReprOptions"],
     "derive_decodable": true,
+    "derive_encodable": true,
     "decodable_types": [
       "rustc_abi::Integer",
       "rustc_abi::IntegerType",
@@ -461,6 +467,7 @@
     "skip": [],
     "derive_only": true,
     "derive_decodable": true,
+    "derive_encodable": true,
     "decodable_types": [
       "rustc_index::bit_set::DenseBitSet",
       "rustc_index::bit_set::BitMatrix"
@@ -469,12 +476,20 @@
       "rustc_index::bit_set::DenseBitSet": { "expr": "DenseBitSet.from_u64_words($0, $1)", "import": ["DenseBitSet"] },
       "rustc_index::bit_set::BitMatrix": { "expr": "BitMatrix.from_u64_words($0, $1, $2)", "import": ["BitMatrix"] }
     },
+    "stable_hash_access": {
+      "rustc_index::bit_set::DenseBitSet::domain_size": { "expr": "$v.domain_size_" },
+      "rustc_index::bit_set::DenseBitSet::words": { "expr": "$v.to_u64_words()" },
+      "rustc_index::bit_set::DenseBitSet::marker": { "expr": "undefined" },
+      "rustc_index::bit_set::BitMatrix::words": { "expr": "$v.to_u64_words()" },
+      "rustc_index::bit_set::BitMatrix::marker": { "expr": "undefined" }
+    },
     "erase_params": ["T", "R", "C"],
     "hand_notes": {
       "erase_params": "`DenseBitSet<T>`'s `T: Idx` is a number-like index in bit_set.ts (`T extends number = number`); the decoded set is a `DenseBitSet<number>` (metadata only holds `DenseBitSet<u32>`)",
       "*": "rustc_index's types are hand-written (src/rustc_index/bit_set.ts); this set only generates rustc_index/decodable.gen.ts.",
       "decodable_construct": "plan-m4 D6 (lane index-ds): bit set words are u32 in bit_set.ts; `DenseBitSet::from_u64_words` splits the decoded u64 words (`rustc_index::bit_set::Word` still decodes as `decode_u64`, serialize.json)",
-      "decodable_types": "`DenseBitSet`: crate metadata's `params_in_repr` / `args_known_to_outlive_alias_params` (rustc_metadata cstore_impl.rs; lane small-gaps-20)"
+      "decodable_types": "`DenseBitSet`: crate metadata's `params_in_repr` / `args_known_to_outlive_alias_params` (rustc_metadata cstore_impl.rs; lane small-gaps-20)",
+      "stable_hash_access": "the encoders' field reads (no StableHash is derived here): bit_set.ts keeps u32 words, `to_u64_words` gives upstream's u64 words (lane encode-contract); `marker: PhantomData` is erased"
     }
   },
   "rustc_target_asm": {
@@ -492,6 +507,7 @@
       "rustc_target::asm::InlineAsmRegClass"
     ],
     "derive_decodable": true,
+    "derive_encodable": true,
     "decodable_types": [
       "rustc_target::asm::InlineAsmReg",
       "rustc_target::asm::InlineAsmRegClass",
@@ -791,6 +807,7 @@
       "rustc_middle::ty::consts::valtree::ValTree::0": { "expr": "$v.internee" }
     },
     "derive_decodable": true,
+    "derive_encodable": true,
     "decodable_types": [
       "rustc_middle::ty::Visibility",
       "rustc_middle::ty::RestrictionKind",
@@ -867,6 +884,7 @@
     "derive_clone": true,
     "derive_stable_hash": true,
     "derive_decodable": true,
+    "derive_encodable": true,
     "hand_notes": {
       "*": "rustc_type_ir::fast_reject::SimplifiedType<DefId>: the keys of crate metadata's incoherent_impls / trait_impls (rmeta decoder.rs `CrateMetadata::new`, lane decode-elems); simplify_type itself is M3"
     }
@@ -1120,6 +1138,10 @@
     "skip": [],
     "derive_only": true,
     "derive_decodable": true,
+    "derive_encodable": true,
+    "stable_hash_access": {
+      "rustc_metadata::rmeta::CrateRoot::stable_crate_id": { "expr": "$v.stable_crate_id_" }
+    },
     "decodable_types": [
       "rustc_metadata::rmeta::ProcMacroData",
       "rustc_metadata::rmeta::ProcMacroKind",
@@ -1210,6 +1232,7 @@
     "bitflags_debug": true,
     "derive_type_fold": true,
     "derive_decodable": true,
+    "derive_encodable": true,
     "decodable_import_gen": ["rustc_middle/ty/assoc.ts", "rustc_middle/ty/consts.ts", "rustc_middle/ty/sty.ts"],
     "derive_stable_hash": true,
     "stable_hash_module": "ty_stable_hash",
@@ -1222,6 +1245,9 @@
     "stable_hash_types": ["TyKind", "Binder", "FnSigTys", "FnHeader", "UnsafeBinderInner", "IsRigid", "Alias", "AliasTyKind", "BoundVarIndexKind", "BoundTy", "Placeholder", "ParamTy", "DebruijnIndex", "UniverseIndex", "BoundVar", "BoundTyKind", "FnSigKind", "Const", "Region", "ConstKind", "ParamConst", "BoundConst", "UnevaluatedConst", "ValTreeKind", "ExprKind", "EarlyParamRegion", "LateParamRegionKind", "LateParamRegion", "BoundRegion", "BoundRegionKind", "GenericArgKind", "TermKind", "PatternKind", "ExistentialPredicate", "ExistentialTraitRef", "ExistentialProjection", "BoundVariableKind", "FnSig", "Expr", "AliasConstKind", "EarlyBinder", "PredicateKind", "ClauseKind", "OutlivesClause", "RegionEqPredicate", "rustc_type_ir::predicate::RegionConstraint", "TraitRef", "TraitClause", "ImplPolarity", "ClausePolarity", "ProjectionClause", "NormalizesTo", "HostEffectClause", "SubtypePredicate", "CoercePredicate", "BoundConstness", "AliasTermKind", "Predicate", "Clause"],
     "decoders": {
       "Decodable_NoContext": { "type": "TyDecoder", "import": "src/rustc_middle/ty/codec.ts", "note": "lane rmeta-ty: upstream `impl<I: Interner, D: Decoder> Decodable<D>` with `where I::Ty: Decodable<D>, ..` bounds that only a `TyDecoder` meets (codec.rs); every caller decodes with a TyDecoder" }
+    },
+    "encoders": {
+      "Encodable_NoContext": { "type": "TyEncoder", "import": "src/rustc_middle/ty/codec.ts", "note": "lane encode-contract, mirrors `decoders`: upstream `impl<I: Interner, E: Encoder> Encodable<E>` with `where I::Ty: Encodable<E>, ..` bounds that only a `TyEncoder` meets (codec.rs)" }
     }
   },
   "rustc_ast_lowering": {
@@ -1364,6 +1390,7 @@
     },
     "derive_type_fold": true,
     "derive_decodable": true,
+    "derive_encodable": true,
     "decodable_types": [
       "rustc_middle::ty::typeck_results::CanonicalUserTypeAnnotation",
       "rustc_middle::ty::typeck_results::UserType",
@@ -2163,6 +2190,7 @@
     "skip": [],
     "derive_type_fold": true,
     "derive_decodable": true,
+    "derive_encodable": true,
     "decodable_types": ["rustc_middle::ty::instance::Instance", "rustc_middle::ty::instance::ReifyReason", "rustc_middle::ty::instance::InstanceKind", "rustc_middle::ty::instance::ShimKind"],
     "resolve_files": ["compiler/rustc_middle/src/ty/mod.rs"],
     "typemap_extra": ["tyir.typemap.json", "middle_traits_thir.typemap.json"]
@@ -2231,6 +2259,7 @@
     "derive_clone": true,
     "derive_type_fold": true,
     "derive_decodable": true,
+    "derive_encodable": true,
     "derive_stable_hash": true,
     "stable_hash_module": "mir_stable_hash",
     "stable_hash_types": [

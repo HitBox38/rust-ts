@@ -20,7 +20,10 @@
 //   `CStore.prototype` (PORTING section 5, "Methods defined in another file"; loaded by ../../lib.ts after
 //   creader.ts).
 import type { AllocatorKind } from "../../../rustc_ast/expand/allocator.ts";
+import * as dependency_format from "../../dependency_format.ts";
 import * as eii from "../../eii.ts";
+import * as foreign_modules from "../../foreign_modules.ts";
+import * as native_libs from "../../native_libs.ts";
 import type { DiagnosticItems } from "../../../rustc_attr_ir/diagnostic_items.ts";
 import { clone_ExternCrate, ExternCrate, type ForeignModule, type NativeLib } from "../../../rustc_crate_store/lib.ts";
 import { Res } from "../../../rustc_hir/def.ts";
@@ -675,11 +678,6 @@ export const PROVIDE_EXTERN: { readonly [N in ExternQuery]?: ProvideEntry<N> } =
 
 // ---- provide -------------------------------------------------------------------------------------------------
 
-/** `native_libs::relevant_lib` (native_libs.rs, not ported). */
-function native_libs_relevant_lib(..._args: unknown[]): boolean {
-  return unported("rustc_metadata::native_libs::relevant_lib");
-}
-
 // rustc: compiler/rustc_metadata/src/rmeta/decoder/cstore_impl.rs:436 provide
 export function provide(providers: Providers): void {
   provide_cstore_hooks(providers);
@@ -690,7 +688,7 @@ export function provide(providers: Providers): void {
     is_private_dep: (_tcx, _: LocalCrate) => false,
     native_library: (tcx, id) => {
       for (const lib of tcx.native_libraries(id.krate) as NativeLib[]) {
-        if (!native_libs_relevant_lib(tcx.sess, lib)) continue;
+        if (!native_libs.relevant_lib(tcx.sess, lib)) continue;
         const found = ((): boolean => {
           const fm_id = lib.foreign_module;
           if (fm_id === undefined) {
@@ -705,8 +703,8 @@ export function provide(providers: Providers): void {
       }
       return undefined;
     },
-    native_libraries: (_tcx, _) => unported("rustc_metadata::native_libs::collect"),
-    foreign_modules: (_tcx, _) => unported("rustc_metadata::foreign_modules::collect"),
+    native_libraries: native_libs.collect,
+    foreign_modules: foreign_modules.collect,
     externally_implementable_items: eii.collect,
 
     // Returns a map from a sufficiently visible external item (i.e., an
@@ -839,7 +837,8 @@ export function provide(providers: Providers): void {
       return visible_parent_map;
     },
 
-    dependency_formats: (_tcx, _: null) => unported("rustc_metadata::dependency_format::calculate"),
+    // PORT: `Arc::new(..)` is the value itself.
+    dependency_formats: (tcx, _: null) => dependency_format.calculate(tcx),
     has_global_allocator: (tcx, _: LocalCrate) => CStore.from_tcx(tcx).has_global_allocator(),
     has_alloc_error_handler: (tcx, _: LocalCrate) => CStore.from_tcx(tcx).has_alloc_error_handler(),
     postorder_cnums: (tcx, _: null) => {

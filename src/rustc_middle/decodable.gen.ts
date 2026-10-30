@@ -2,28 +2,32 @@
 // `decode_<T>(__decoder[, decode_<P>...])`: a struct decodes its fields in declaration order; an enum reads the variant
 // index (`read_u8`, or `read_usize` from 255 variants on), then that variant's fields. `encode_<T>` writes the same.
 // Only function declarations: hand modules may import from here inside an import cycle.
-import { decode_ReprOptions } from "../rustc_abi/decodable.gen.ts";
-import { decode_CtorKind, decode_Res, decode_Safety } from "../rustc_hir/def.ts";
-import { decode_Constness } from "../rustc_hir/hir.ts";
+import { decode_ReprOptions, encode_ReprOptions } from "../rustc_abi/decodable.gen.ts";
+import { decode_CtorKind, decode_Res, decode_Safety, encode_CtorKind, encode_Res, encode_Safety } from "../rustc_hir/def.ts";
+import { decode_Constness, encode_Constness } from "../rustc_hir/hir.ts";
 import { decode_RefDecodable_slice_into_arena } from "./arena.ts";
 import { type DeducedParamAttrs, type UsageSummary } from "./middle/deduced_param_attrs.ts";
 import { type FeatureStability } from "./middle/mod.ts";
 import { type AmbigModChild, type ModChild, Reexport } from "./middle/resolve.ts";
 import { ObjectLifetimeDefault } from "./middle/resolve_bound_vars.ts";
 import { AdtDefData, type AdtFlags } from "./ty/adt.ts";
-import { decode_Clause, decode_List_BoundVariableKind, decode_Ty, decode_ValTree, type TyDecoder } from "./ty/codec.ts";
+import { decode_Clause, decode_List_BoundVariableKind, decode_Ty, decode_ValTree, encode_Clause, encode_Ty, encode_ValTree, type TyDecoder, type TyEncoder } from "./ty/codec.ts";
 import { type Value } from "./ty/consts/valtree.ts";
 import { type ConstConditions, type GenericClauses, type GenericParamDef, GenericParamDefKind, Generics } from "./ty/generics.ts";
 import { type IntrinsicDef } from "./ty/intrinsic.ts";
 import { type AsyncDestructor, type Destructor, FieldDef, ImplTraitHeader, type ImplTraitInTraitData, RestrictionKind, VariantDef, type VariantDiscr, type VariantFlags, Visibility } from "./ty/mod.ts";
 import { TraitDef, type TraitSpecializationKind } from "./ty/trait_def.ts";
-import { type Decodable, decode_bool, decode_HashMap, decode_never, decode_Option, decode_SmallVec, decode_tuple, decode_u16, decode_u32, decode_u8, decode_usize, decode_Vec } from "../rustc_serialize/serialize.ts";
-import { decode_Ident, decode_ModId } from "../rustc_span/decodable.gen.ts";
-import { type BlobDecoder, decode_ErrorGuaranteed, type SpanDecoder } from "../rustc_span/lib.ts";
-import { decode_EarlyBinder } from "../rustc_type_ir/binder.ts";
-import { decode_ImplPolarity, decode_TraitRef } from "../rustc_type_ir/predicate.ts";
+import { type Decodable, decode_bool, decode_HashMap, decode_never, decode_Option, decode_SmallVec, decode_tuple, decode_u16, decode_u32, decode_u8, decode_usize, decode_Vec, type Encodable, encode_bool, encode_HashMap, encode_never, encode_Option, encode_slice, encode_SmallVec, encode_tuple, encode_u16, encode_u32, encode_u8, encode_usize, encode_Vec } from "../rustc_serialize/serialize.ts";
+import { decode_Ident, decode_ModId, encode_Ident, encode_ModId } from "../rustc_span/decodable.gen.ts";
+import { type BlobDecoder, decode_ErrorGuaranteed, encode_ErrorGuaranteed, type SpanDecoder, type SpanEncoder } from "../rustc_span/lib.ts";
+import { decode_EarlyBinder, encode_EarlyBinder } from "../rustc_type_ir/binder.ts";
+import { decode_ImplPolarity, decode_TraitRef, encode_ImplPolarity, encode_TraitRef } from "../rustc_type_ir/predicate.ts";
 import { decode_Binder } from "../rustc_type_ir/serialize.ts";
 import { panic } from "../std/panic.ts";
+import { unported } from "../std/panic.ts";
+function unported_encodable(..._a: unknown[]): void {
+  unported("Encodable without a TS impl (see types report)");
+}
 
 // rustc-derive: compiler/rustc_middle/src/ty/mod.rs:169 TyDecodable for ImplTraitHeader
 export function decode_ImplTraitHeader(__decoder: TyDecoder): ImplTraitHeader {
@@ -32,6 +36,13 @@ export function decode_ImplTraitHeader(__decoder: TyDecoder): ImplTraitHeader {
   const __2 = decode_Safety(__decoder);
   const __3 = decode_Constness(__decoder);
   return new ImplTraitHeader(__0, __1, __2, __3);
+}
+// rustc-derive: compiler/rustc_middle/src/ty/mod.rs:169 TyEncodable for ImplTraitHeader
+export function encode_ImplTraitHeader(self: ImplTraitHeader, __encoder: TyEncoder): void {
+  encode_EarlyBinder(self.trait_ref, __encoder, encode_TraitRef);
+  encode_ImplPolarity(self.polarity, __encoder);
+  encode_Safety(self.safety, __encoder);
+  encode_Constness(self.constness, __encoder);
 }
 
 // rustc-derive: compiler/rustc_middle/src/ty/mod.rs:249 BlobDecodable for Visibility
@@ -44,6 +55,26 @@ export function decode_Visibility<Id, __D extends BlobDecoder = BlobDecoder>(__d
       return { $: "Restricted", _0: decode_Id(__decoder) };
     default:
       return panic(`invalid enum variant tag while decoding \`Visibility\`, expected 0..2, actual ${__tag}`);
+  }
+}
+function Visibility__variant_index<Id>(tag: Visibility<Id>["$"]): number {
+  switch (tag) {
+    case "Public":
+      return 0;
+    case "Restricted":
+      return 1;
+  }
+}
+// rustc-derive: compiler/rustc_middle/src/ty/mod.rs:249 Encodable for Visibility
+export function encode_Visibility<Id, __E extends SpanEncoder = SpanEncoder>(self: Visibility<Id>, __encoder: __E, encode_Id: Encodable<Id, __E>): void {
+  const disc = Visibility__variant_index(self.$);
+  __encoder.emit_u8(disc);
+  switch (self.$) {
+    case "Public":
+      break;
+    case "Restricted":
+      encode_Id(self._0, __encoder);
+      break;
   }
 }
 
@@ -59,12 +90,37 @@ export function decode_RestrictionKind(__decoder: SpanDecoder): RestrictionKind 
       return panic(`invalid enum variant tag while decoding \`RestrictionKind\`, expected 0..2, actual ${__tag}`);
   }
 }
+function RestrictionKind__variant_index(tag: RestrictionKind["$"]): number {
+  switch (tag) {
+    case "Unrestricted":
+      return 0;
+    case "Restricted":
+      return 1;
+  }
+}
+// rustc-derive: compiler/rustc_middle/src/ty/mod.rs:277 Encodable for RestrictionKind
+export function encode_RestrictionKind(self: RestrictionKind, __encoder: SpanEncoder): void {
+  const disc = RestrictionKind__variant_index(self.$);
+  __encoder.emit_u8(disc);
+  switch (self.$) {
+    case "Unrestricted":
+      break;
+    case "Restricted":
+      __encoder.encode_def_id(self._0);
+      __encoder.encode_span(self._1);
+      break;
+  }
+}
 
 // rustc-derive: compiler/rustc_middle/src/ty/mod.rs:1253 Decodable for Destructor
 export function decode_Destructor(__decoder: SpanDecoder): Destructor {
   return {
     did: __decoder.decode_def_id(),
   };
+}
+// rustc-derive: compiler/rustc_middle/src/ty/mod.rs:1253 Encodable for Destructor
+export function encode_Destructor(self: Destructor, __encoder: SpanEncoder): void {
+  __encoder.encode_def_id(self.did);
 }
 
 // rustc-derive: compiler/rustc_middle/src/ty/mod.rs:1260 Decodable for AsyncDestructor
@@ -73,10 +129,18 @@ export function decode_AsyncDestructor(__decoder: SpanDecoder): AsyncDestructor 
     impl_did: __decoder.decode_def_id(),
   };
 }
+// rustc-derive: compiler/rustc_middle/src/ty/mod.rs:1260 Encodable for AsyncDestructor
+export function encode_AsyncDestructor(self: AsyncDestructor, __encoder: SpanEncoder): void {
+  __encoder.encode_def_id(self.impl_did);
+}
 
 // rustc-derive: compiler/rustc_middle/src/ty/mod.rs:1267 TyDecodable for VariantFlags
 export function decode_VariantFlags(__decoder: TyDecoder): VariantFlags {
   return decode_u8(__decoder) as VariantFlags;
+}
+// rustc-derive: compiler/rustc_middle/src/ty/mod.rs:1267 TyEncodable for VariantFlags
+export function encode_VariantFlags(self: VariantFlags, __encoder: TyEncoder): void {
+  encode_u8(self, __encoder);
 }
 
 // rustc-derive: compiler/rustc_middle/src/ty/mod.rs:1278 TyDecodable for VariantDef
@@ -89,6 +153,16 @@ export function decode_VariantDef(__decoder: TyDecoder): VariantDef {
   const __5 = decode_Option(__decoder, decode_ErrorGuaranteed);
   const __6 = decode_VariantFlags(__decoder);
   return new VariantDef(__0, __1, __2, __3, __4, __5, __6);
+}
+// rustc-derive: compiler/rustc_middle/src/ty/mod.rs:1278 TyEncodable for VariantDef
+export function encode_VariantDef(self: VariantDef, __encoder: TyEncoder): void {
+  __encoder.encode_def_id(self.def_id);
+  encode_Option(self.ctor, __encoder, (__v, __encoder) => encode_tuple(__v, __encoder, encode_CtorKind, (__v, __encoder) => __encoder.encode_def_id(__v)));
+  __encoder.encode_symbol(self.name);
+  encode_VariantDiscr(self.discr, __encoder);
+  encode_Vec(self.fields, __encoder, encode_FieldDef);
+  encode_Option(self.tainted, __encoder, encode_ErrorGuaranteed);
+  encode_VariantFlags(self.flags, __encoder);
 }
 
 // rustc-derive: compiler/rustc_middle/src/ty/mod.rs:1474 TyDecodable for VariantDiscr
@@ -103,6 +177,27 @@ export function decode_VariantDiscr(__decoder: TyDecoder): VariantDiscr {
       return panic(`invalid enum variant tag while decoding \`VariantDiscr\`, expected 0..2, actual ${__tag}`);
   }
 }
+function VariantDiscr__variant_index(tag: VariantDiscr["$"]): number {
+  switch (tag) {
+    case "Explicit":
+      return 0;
+    case "Relative":
+      return 1;
+  }
+}
+// rustc-derive: compiler/rustc_middle/src/ty/mod.rs:1474 TyEncodable for VariantDiscr
+export function encode_VariantDiscr(self: VariantDiscr, __encoder: TyEncoder): void {
+  const disc = VariantDiscr__variant_index(self.$);
+  __encoder.emit_u8(disc);
+  switch (self.$) {
+    case "Explicit":
+      __encoder.encode_def_id(self._0);
+      break;
+    case "Relative":
+      encode_u32(self._0, __encoder);
+      break;
+  }
+}
 
 // rustc-derive: compiler/rustc_middle/src/ty/mod.rs:1487 TyDecodable for FieldDef
 export function decode_FieldDef(__decoder: TyDecoder): FieldDef {
@@ -113,6 +208,15 @@ export function decode_FieldDef(__decoder: TyDecoder): FieldDef {
   const __4 = decode_Safety(__decoder);
   const __5 = decode_Option(__decoder, (__decoder) => __decoder.decode_def_id());
   return new FieldDef(__0, __1, __2, __3, __4, __5);
+}
+// rustc-derive: compiler/rustc_middle/src/ty/mod.rs:1487 TyEncodable for FieldDef
+export function encode_FieldDef(self: FieldDef, __encoder: TyEncoder): void {
+  __encoder.encode_def_id(self.did);
+  __encoder.encode_symbol(self.name);
+  encode_Visibility(self.vis, __encoder, encode_ModId);
+  encode_RestrictionKind(self.mut_restriction, __encoder);
+  encode_Safety(self.safety, __encoder);
+  encode_Option(self.value, __encoder, (__v, __encoder) => __encoder.encode_def_id(__v));
 }
 
 // rustc-derive: compiler/rustc_middle/src/ty/mod.rs:1572 Decodable for ImplTraitInTraitData
@@ -125,6 +229,28 @@ export function decode_ImplTraitInTraitData(__decoder: SpanDecoder): ImplTraitIn
       return { $: "Impl", fn_def_id: __decoder.decode_def_id() };
     default:
       return panic(`invalid enum variant tag while decoding \`ImplTraitInTraitData\`, expected 0..2, actual ${__tag}`);
+  }
+}
+function ImplTraitInTraitData__variant_index(tag: ImplTraitInTraitData["$"]): number {
+  switch (tag) {
+    case "Trait":
+      return 0;
+    case "Impl":
+      return 1;
+  }
+}
+// rustc-derive: compiler/rustc_middle/src/ty/mod.rs:1572 Encodable for ImplTraitInTraitData
+export function encode_ImplTraitInTraitData(self: ImplTraitInTraitData, __encoder: SpanEncoder): void {
+  const disc = ImplTraitInTraitData__variant_index(self.$);
+  __encoder.emit_u8(disc);
+  switch (self.$) {
+    case "Trait":
+      __encoder.encode_def_id(self.fn_def_id);
+      __encoder.encode_def_id(self.opaque_def_id);
+      break;
+    case "Impl":
+      __encoder.encode_def_id(self.fn_def_id);
+      break;
   }
 }
 
@@ -142,6 +268,32 @@ export function decode_GenericParamDefKind(__decoder: TyDecoder): GenericParamDe
       return panic(`invalid enum variant tag while decoding \`GenericParamDefKind\`, expected 0..3, actual ${__tag}`);
   }
 }
+function GenericParamDefKind__variant_index(tag: GenericParamDefKind["$"]): number {
+  switch (tag) {
+    case "Lifetime":
+      return 0;
+    case "Type":
+      return 1;
+    case "Const":
+      return 2;
+  }
+}
+// rustc-derive: compiler/rustc_middle/src/ty/generics.rs:15 TyEncodable for GenericParamDefKind
+export function encode_GenericParamDefKind(self: GenericParamDefKind, __encoder: TyEncoder): void {
+  const disc = GenericParamDefKind__variant_index(self.$);
+  __encoder.emit_u8(disc);
+  switch (self.$) {
+    case "Lifetime":
+      break;
+    case "Type":
+      encode_bool(self.has_default, __encoder);
+      encode_bool(self.synthetic, __encoder);
+      break;
+    case "Const":
+      encode_bool(self.has_default, __encoder);
+      break;
+  }
+}
 
 // rustc-derive: compiler/rustc_middle/src/ty/generics.rs:54 TyDecodable for GenericParamDef
 export function decode_GenericParamDef(__decoder: TyDecoder): GenericParamDef {
@@ -152,6 +304,14 @@ export function decode_GenericParamDef(__decoder: TyDecoder): GenericParamDef {
     pure_wrt_drop: decode_bool(__decoder),
     kind: decode_GenericParamDefKind(__decoder),
   };
+}
+// rustc-derive: compiler/rustc_middle/src/ty/generics.rs:54 TyEncodable for GenericParamDef
+export function encode_GenericParamDef(self: GenericParamDef, __encoder: TyEncoder): void {
+  __encoder.encode_symbol(self.name);
+  __encoder.encode_def_id(self.def_id);
+  encode_u32(self.index, __encoder);
+  encode_bool(self.pure_wrt_drop, __encoder);
+  encode_GenericParamDefKind(self.kind, __encoder);
 }
 
 // rustc-derive: compiler/rustc_middle/src/ty/generics.rs:120 TyDecodable for Generics
@@ -164,6 +324,15 @@ export function decode_Generics(__decoder: TyDecoder): Generics {
   const __5 = decode_Option(__decoder, (__decoder) => __decoder.decode_span());
   return Generics.from_decoded(__0, __1, __2, __3, __4, __5);
 }
+// rustc-derive: compiler/rustc_middle/src/ty/generics.rs:120 TyEncodable for Generics
+export function encode_Generics(self: Generics, __encoder: TyEncoder): void {
+  encode_Option(self.parent, __encoder, (__v, __encoder) => __encoder.encode_def_id(__v));
+  encode_usize(self.parent_count, __encoder);
+  encode_Vec(self.own_params, __encoder, encode_GenericParamDef);
+  encode_HashMap(self.param_def_id_to_index, __encoder, (__v, __encoder) => __encoder.encode_def_id(__v), encode_u32);
+  encode_bool(self.has_self, __encoder);
+  encode_Option(self.has_late_bound_regions, __encoder, (__v, __encoder) => __encoder.encode_span(__v));
+}
 
 // rustc-derive: compiler/rustc_middle/src/ty/generics.rs:388 TyDecodable for GenericClauses
 export function decode_GenericClauses(__decoder: TyDecoder): GenericClauses {
@@ -172,6 +341,11 @@ export function decode_GenericClauses(__decoder: TyDecoder): GenericClauses {
     clauses: decode_RefDecodable_slice_into_arena(__decoder, (__decoder) => decode_tuple(__decoder, decode_Clause, (__decoder) => __decoder.decode_span())),
   };
 }
+// rustc-derive: compiler/rustc_middle/src/ty/generics.rs:388 TyEncodable for GenericClauses
+export function encode_GenericClauses(self: GenericClauses, __encoder: TyEncoder): void {
+  encode_Option(self.parent, __encoder, (__v, __encoder) => __encoder.encode_def_id(__v));
+  encode_slice(self.clauses, __encoder, (__v, __encoder) => encode_tuple(__v, __encoder, encode_Clause, (__v, __encoder) => __encoder.encode_span(__v)));
+}
 
 // rustc-derive: compiler/rustc_middle/src/ty/generics.rs:540 TyDecodable for ConstConditions
 export function decode_ConstConditions(__decoder: TyDecoder): ConstConditions {
@@ -179,6 +353,11 @@ export function decode_ConstConditions(__decoder: TyDecoder): ConstConditions {
     parent: decode_Option(__decoder, (__decoder) => __decoder.decode_def_id()),
     clauses: decode_RefDecodable_slice_into_arena(__decoder, (__decoder) => decode_tuple(__decoder, (__decoder) => decode_Binder(__decoder, decode_TraitRef, decode_List_BoundVariableKind), (__decoder) => __decoder.decode_span())),
   };
+}
+// rustc-derive: compiler/rustc_middle/src/ty/generics.rs:540 TyEncodable for ConstConditions
+export function encode_ConstConditions(self: ConstConditions, __encoder: TyEncoder): void {
+  encode_Option(self.parent, __encoder, (__v, __encoder) => __encoder.encode_def_id(__v));
+  encode_slice(self.clauses, __encoder, (__v, __encoder) => encode_tuple(__v, __encoder, (__v, __encoder) => unported_encodable(__v), (__v, __encoder) => __encoder.encode_span(__v)));
 }
 
 // rustc-derive: compiler/rustc_middle/src/middle/resolve.rs:120 TyDecodable for Reexport
@@ -199,6 +378,40 @@ export function decode_Reexport(__decoder: TyDecoder): Reexport {
       return panic(`invalid enum variant tag while decoding \`Reexport\`, expected 0..5, actual ${__tag}`);
   }
 }
+function Reexport__variant_index(tag: Reexport["$"]): number {
+  switch (tag) {
+    case "Single":
+      return 0;
+    case "Glob":
+      return 1;
+    case "ExternCrate":
+      return 2;
+    case "MacroUse":
+      return 3;
+    case "MacroExport":
+      return 4;
+  }
+}
+// rustc-derive: compiler/rustc_middle/src/middle/resolve.rs:120 TyEncodable for Reexport
+export function encode_Reexport(self: Reexport, __encoder: TyEncoder): void {
+  const disc = Reexport__variant_index(self.$);
+  __encoder.emit_u8(disc);
+  switch (self.$) {
+    case "Single":
+      __encoder.encode_def_id(self._0);
+      break;
+    case "Glob":
+      __encoder.encode_def_id(self._0);
+      break;
+    case "ExternCrate":
+      __encoder.encode_def_id(self._0);
+      break;
+    case "MacroUse":
+      break;
+    case "MacroExport":
+      break;
+  }
+}
 
 // rustc-derive: compiler/rustc_middle/src/middle/resolve.rs:143 TyDecodable for ModChild
 export function decode_ModChild(__decoder: TyDecoder): ModChild {
@@ -209,6 +422,13 @@ export function decode_ModChild(__decoder: TyDecoder): ModChild {
     reexport_chain: decode_SmallVec(__decoder, decode_Reexport),
   };
 }
+// rustc-derive: compiler/rustc_middle/src/middle/resolve.rs:143 TyEncodable for ModChild
+export function encode_ModChild(self: ModChild, __encoder: TyEncoder): void {
+  encode_Ident(self.ident, __encoder);
+  encode_Res(self.res, __encoder, (__v, __encoder) => encode_never(__v, __encoder));
+  encode_Visibility(self.vis, __encoder, encode_ModId);
+  encode_SmallVec(self.reexport_chain, __encoder, encode_Reexport);
+}
 
 // rustc-derive: compiler/rustc_middle/src/middle/resolve.rs:158 TyDecodable for AmbigModChild
 export function decode_AmbigModChild(__decoder: TyDecoder): AmbigModChild {
@@ -216,6 +436,11 @@ export function decode_AmbigModChild(__decoder: TyDecoder): AmbigModChild {
     main: decode_ModChild(__decoder),
     second: decode_ModChild(__decoder),
   };
+}
+// rustc-derive: compiler/rustc_middle/src/middle/resolve.rs:158 TyEncodable for AmbigModChild
+export function encode_AmbigModChild(self: AmbigModChild, __encoder: TyEncoder): void {
+  encode_ModChild(self.main, __encoder);
+  encode_ModChild(self.second, __encoder);
 }
 
 // rustc-derive: compiler/rustc_middle/src/ty/trait_def.rs:20 Decodable for TraitDef
@@ -237,6 +462,24 @@ export function decode_TraitDef(__decoder: SpanDecoder): TraitDef {
   const __14 = decode_bool(__decoder);
   return new TraitDef(__0, __1, __2, __3, __4, __5, __6, __7, __8, __9, __10, __11, __12, __13, __14);
 }
+// rustc-derive: compiler/rustc_middle/src/ty/trait_def.rs:20 Encodable for TraitDef
+export function encode_TraitDef(self: TraitDef, __encoder: SpanEncoder): void {
+  __encoder.encode_def_id(self.def_id);
+  encode_RestrictionKind(self.impl_restriction, __encoder);
+  encode_Safety(self.safety, __encoder);
+  encode_Constness(self.constness, __encoder);
+  encode_bool(self.paren_sugar, __encoder);
+  encode_bool(self.has_auto_impl, __encoder);
+  encode_bool(self.is_marker, __encoder);
+  encode_bool(self.is_coinductive, __encoder);
+  encode_bool(self.is_fundamental, __encoder);
+  encode_bool(self.skip_array_during_method_dispatch, __encoder);
+  encode_bool(self.skip_boxed_slice_during_method_dispatch, __encoder);
+  encode_TraitSpecializationKind(self.specialization_kind, __encoder);
+  encode_Option(self.must_implement_one_of, __encoder, (__v, __encoder) => encode_slice(__v, __encoder, encode_Ident));
+  encode_Option(self.force_dyn_incompatible, __encoder, (__v, __encoder) => __encoder.encode_span(__v));
+  encode_bool(self.deny_explicit_impl, __encoder);
+}
 
 // rustc-derive: compiler/rustc_middle/src/ty/trait_def.rs:89 Decodable for TraitSpecializationKind
 export function decode_TraitSpecializationKind(__decoder: SpanDecoder): TraitSpecializationKind {
@@ -252,10 +495,29 @@ export function decode_TraitSpecializationKind(__decoder: SpanDecoder): TraitSpe
       return panic(`invalid enum variant tag while decoding \`TraitSpecializationKind\`, expected 0..3, actual ${__tag}`);
   }
 }
+function TraitSpecializationKind__variant_index(tag: TraitSpecializationKind): number {
+  switch (tag) {
+    case "None":
+      return 0;
+    case "Marker":
+      return 1;
+    case "AlwaysApplicable":
+      return 2;
+  }
+}
+// rustc-derive: compiler/rustc_middle/src/ty/trait_def.rs:89 Encodable for TraitSpecializationKind
+export function encode_TraitSpecializationKind(self: TraitSpecializationKind, __encoder: SpanEncoder): void {
+  const disc = TraitSpecializationKind__variant_index(self);
+  __encoder.emit_u8(disc);
+}
 
 // rustc-derive: compiler/rustc_middle/src/ty/adt.rs:36 TyDecodable for AdtFlags
 export function decode_AdtFlags(__decoder: TyDecoder): AdtFlags {
   return decode_u16(__decoder) as AdtFlags;
+}
+// rustc-derive: compiler/rustc_middle/src/ty/adt.rs:36 TyEncodable for AdtFlags
+export function encode_AdtFlags(self: AdtFlags, __encoder: TyEncoder): void {
+  encode_u16(self, __encoder);
 }
 
 // rustc-derive: compiler/rustc_middle/src/ty/adt.rs:110 TyDecodable for AdtDefData
@@ -265,6 +527,13 @@ export function decode_AdtDefData(__decoder: TyDecoder): AdtDefData {
   const __2 = decode_AdtFlags(__decoder);
   const __3 = decode_ReprOptions(__decoder);
   return new AdtDefData(__0, __1, __2, __3);
+}
+// rustc-derive: compiler/rustc_middle/src/ty/adt.rs:110 TyEncodable for AdtDefData
+export function encode_AdtDefData(self: AdtDefData, __encoder: TyEncoder): void {
+  __encoder.encode_def_id(self.did);
+  encode_Vec(self.variants, __encoder, encode_VariantDef);
+  encode_AdtFlags(self.flags, __encoder);
+  encode_ReprOptions(self.repr, __encoder);
 }
 
 // rustc-derive: compiler/rustc_middle/src/middle/mod.rs:15 BlobDecodable for FeatureStability
@@ -277,6 +546,27 @@ export function decode_FeatureStability(__decoder: BlobDecoder): FeatureStabilit
       return { $: "Unstable", old_name: decode_Option(__decoder, (__decoder) => __decoder.decode_symbol()) };
     default:
       return panic(`invalid enum variant tag while decoding \`FeatureStability\`, expected 0..2, actual ${__tag}`);
+  }
+}
+function FeatureStability__variant_index(tag: FeatureStability["$"]): number {
+  switch (tag) {
+    case "AcceptedSince":
+      return 0;
+    case "Unstable":
+      return 1;
+  }
+}
+// rustc-derive: compiler/rustc_middle/src/middle/mod.rs:15 Encodable for FeatureStability
+export function encode_FeatureStability(self: FeatureStability, __encoder: SpanEncoder): void {
+  const disc = FeatureStability__variant_index(self.$);
+  __encoder.emit_u8(disc);
+  switch (self.$) {
+    case "AcceptedSince":
+      __encoder.encode_symbol(self._0);
+      break;
+    case "Unstable":
+      encode_Option(self.old_name, __encoder, (__v, __encoder) => __encoder.encode_symbol(__v));
+      break;
   }
 }
 
@@ -296,6 +586,34 @@ export function decode_ObjectLifetimeDefault(__decoder: SpanDecoder): ObjectLife
       return panic(`invalid enum variant tag while decoding \`ObjectLifetimeDefault\`, expected 0..4, actual ${__tag}`);
   }
 }
+function ObjectLifetimeDefault__variant_index(tag: ObjectLifetimeDefault["$"]): number {
+  switch (tag) {
+    case "Empty":
+      return 0;
+    case "Static":
+      return 1;
+    case "Ambiguous":
+      return 2;
+    case "Param":
+      return 3;
+  }
+}
+// rustc-derive: compiler/rustc_middle/src/middle/resolve_bound_vars.rs:42 Encodable for ObjectLifetimeDefault
+export function encode_ObjectLifetimeDefault(self: ObjectLifetimeDefault, __encoder: SpanEncoder): void {
+  const disc = ObjectLifetimeDefault__variant_index(self.$);
+  __encoder.emit_u8(disc);
+  switch (self.$) {
+    case "Empty":
+      break;
+    case "Static":
+      break;
+    case "Ambiguous":
+      break;
+    case "Param":
+      __encoder.encode_def_id(self._0);
+      break;
+  }
+}
 
 // rustc-derive: compiler/rustc_middle/src/ty/consts/valtree.rs:103 TyDecodable for Value
 export function decode_Value(__decoder: TyDecoder): Value {
@@ -303,6 +621,11 @@ export function decode_Value(__decoder: TyDecoder): Value {
     ty: decode_Ty(__decoder),
     valtree: decode_ValTree(__decoder),
   };
+}
+// rustc-derive: compiler/rustc_middle/src/ty/consts/valtree.rs:103 TyEncodable for Value
+export function encode_Value(self: Value, __encoder: TyEncoder): void {
+  encode_Ty(self.ty, __encoder);
+  encode_ValTree(self.valtree, __encoder);
 }
 
 // rustc-derive: compiler/rustc_middle/src/ty/intrinsic.rs:8 Decodable for IntrinsicDef
@@ -313,10 +636,20 @@ export function decode_IntrinsicDef(__decoder: SpanDecoder): IntrinsicDef {
     const_stable_indirect: decode_bool(__decoder),
   };
 }
+// rustc-derive: compiler/rustc_middle/src/ty/intrinsic.rs:8 Encodable for IntrinsicDef
+export function encode_IntrinsicDef(self: IntrinsicDef, __encoder: SpanEncoder): void {
+  __encoder.encode_symbol(self.name);
+  encode_bool(self.must_be_overridden, __encoder);
+  encode_bool(self.const_stable_indirect, __encoder);
+}
 
 // rustc-derive: compiler/rustc_middle/src/middle/deduced_param_attrs.rs:9 Decodable for UsageSummary
 export function decode_UsageSummary(__decoder: SpanDecoder): UsageSummary {
   return decode_u8(__decoder) as UsageSummary;
+}
+// rustc-derive: compiler/rustc_middle/src/middle/deduced_param_attrs.rs:9 Encodable for UsageSummary
+export function encode_UsageSummary(self: UsageSummary, __encoder: SpanEncoder): void {
+  encode_u8(self, __encoder);
 }
 
 // rustc-derive: compiler/rustc_middle/src/middle/deduced_param_attrs.rs:32 Decodable for DeducedParamAttrs
@@ -324,4 +657,8 @@ export function decode_DeducedParamAttrs(__decoder: SpanDecoder): DeducedParamAt
   return {
     usage: decode_UsageSummary(__decoder),
   };
+}
+// rustc-derive: compiler/rustc_middle/src/middle/deduced_param_attrs.rs:32 Encodable for DeducedParamAttrs
+export function encode_DeducedParamAttrs(self: DeducedParamAttrs, __encoder: SpanEncoder): void {
+  encode_UsageSummary(self.usage, __encoder);
 }

@@ -5,7 +5,7 @@
 // defining module (PORTING section 5): rmeta/decoder/cstore_impl.ts attaches `impl CStore` /
 // `impl CrateStore for CStore` to creader.ts's `CStore`. Consumers import this module.
 //
-// Not ported yet: dependency_format, eii, foreign_modules, native_libs, the write path of fs, the rmeta encoder (M5);
+// Not ported yet: the rmeta encoder (M5);
 // host_dylib is a stub; rmeta/decoder.ts is a contract (stubs for lanes rmeta-decoder-a/-b).
 
 // pub use rmeta::provide;
@@ -31,8 +31,7 @@ export * as fs from "./fs.ts";
 export * as locator from "./locator.ts";
 
 // pub use fs::{METADATA_FILENAME, emit_wrapper_file};
-// PORT: `emit_wrapper_file` is not ported (metadata writing, M5).
-export { METADATA_FILENAME } from "./fs.ts";
+export { METADATA_FILENAME, emit_wrapper_file } from "./fs.ts";
 // pub use host_dylib::{DylibError, load_symbol_from_dylib};
 export type { DylibError } from "./host_dylib.ts";
 // pub use rmeta::{EncodedMetadata, METADATA_HEADER, ProcMacroKind, encode_metadata, rendered_const};

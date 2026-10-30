@@ -3,12 +3,16 @@
 // index (`read_u8`, or `read_usize` from 255 variants on), then that variant's fields. `encode_<T>` writes the same.
 // Only function declarations: hand modules may import from here inside an import cycle.
 import { Align, type Integer, type IntegerType, type ReprFlags, ReprOptions, ScalableElt } from "./lib.ts";
-import { decode_bool, decode_Hash64, decode_Option, decode_u16, decode_u8, type Decoder } from "../rustc_serialize/serialize.ts";
+import { decode_bool, decode_Hash64, decode_Option, decode_u16, decode_u8, type Decoder, encode_bool, encode_Hash64, encode_Option, encode_u16, encode_u8, type Encoder } from "../rustc_serialize/serialize.ts";
 import { panic } from "../std/panic.ts";
 
 // rustc-derive: compiler/rustc_abi/src/lib.rs:84 Decodable_NoContext for ReprFlags
 export function decode_ReprFlags(__decoder: Decoder): ReprFlags {
   return decode_u8(__decoder) as ReprFlags;
+}
+// rustc-derive: compiler/rustc_abi/src/lib.rs:84 Encodable_NoContext for ReprFlags
+export function encode_ReprFlags(self: ReprFlags, __encoder: Encoder): void {
+  encode_u8(self, __encoder);
 }
 
 // rustc-derive: compiler/rustc_abi/src/lib.rs:123 Decodable_NoContext for IntegerType
@@ -21,6 +25,28 @@ export function decode_IntegerType(__decoder: Decoder): IntegerType {
       return { $: "Fixed", _0: decode_Integer(__decoder), _1: decode_bool(__decoder) };
     default:
       return panic(`invalid enum variant tag while decoding \`IntegerType\`, expected 0..2, actual ${__tag}`);
+  }
+}
+function IntegerType__variant_index(tag: IntegerType["$"]): number {
+  switch (tag) {
+    case "Pointer":
+      return 0;
+    case "Fixed":
+      return 1;
+  }
+}
+// rustc-derive: compiler/rustc_abi/src/lib.rs:123 Encodable_NoContext for IntegerType
+export function encode_IntegerType(self: IntegerType, __encoder: Encoder): void {
+  const disc = IntegerType__variant_index(self.$);
+  __encoder.emit_u8(disc);
+  switch (self.$) {
+    case "Pointer":
+      encode_bool(self._0, __encoder);
+      break;
+    case "Fixed":
+      encode_Integer(self._0, __encoder);
+      encode_bool(self._1, __encoder);
+      break;
   }
 }
 
@@ -36,6 +62,26 @@ export function decode_ScalableElt(__decoder: Decoder): ScalableElt {
       return panic(`invalid enum variant tag while decoding \`ScalableElt\`, expected 0..2, actual ${__tag}`);
   }
 }
+function ScalableElt__variant_index(tag: ScalableElt["$"]): number {
+  switch (tag) {
+    case "ElementCount":
+      return 0;
+    case "Container":
+      return 1;
+  }
+}
+// rustc-derive: compiler/rustc_abi/src/lib.rs:143 Encodable_NoContext for ScalableElt
+export function encode_ScalableElt(self: ScalableElt, __encoder: Encoder): void {
+  const disc = ScalableElt__variant_index(self.$);
+  __encoder.emit_u8(disc);
+  switch (self.$) {
+    case "ElementCount":
+      encode_u16(self._0, __encoder);
+      break;
+    case "Container":
+      break;
+  }
+}
 
 // rustc-derive: compiler/rustc_abi/src/lib.rs:154 Decodable_NoContext for ReprOptions
 export function decode_ReprOptions(__decoder: Decoder): ReprOptions {
@@ -46,6 +92,15 @@ export function decode_ReprOptions(__decoder: Decoder): ReprOptions {
   const __4 = decode_Option(__decoder, decode_ScalableElt);
   const __5 = decode_Hash64(__decoder);
   return new ReprOptions(__0, __1, __2, __3, __4, __5);
+}
+// rustc-derive: compiler/rustc_abi/src/lib.rs:154 Encodable_NoContext for ReprOptions
+export function encode_ReprOptions(self: ReprOptions, __encoder: Encoder): void {
+  encode_Option(self.int, __encoder, encode_IntegerType);
+  encode_Option(self.align, __encoder, (__v, __encoder) => encode_u8(__v.pow2, __encoder));
+  encode_Option(self.pack, __encoder, (__v, __encoder) => encode_u8(__v.pow2, __encoder));
+  encode_ReprFlags(self.flags, __encoder);
+  encode_Option(self.scalable, __encoder, encode_ScalableElt);
+  encode_Hash64(self.field_shuffle_seed, __encoder);
 }
 
 // rustc-derive: compiler/rustc_abi/src/lib.rs:1261 Decodable_NoContext for Integer
@@ -65,4 +120,23 @@ export function decode_Integer(__decoder: Decoder): Integer {
     default:
       return panic(`invalid enum variant tag while decoding \`Integer\`, expected 0..5, actual ${__tag}`);
   }
+}
+function Integer__variant_index(tag: Integer): number {
+  switch (tag) {
+    case "I8":
+      return 0;
+    case "I16":
+      return 1;
+    case "I32":
+      return 2;
+    case "I64":
+      return 3;
+    case "I128":
+      return 4;
+  }
+}
+// rustc-derive: compiler/rustc_abi/src/lib.rs:1261 Encodable_NoContext for Integer
+export function encode_Integer(self: Integer, __encoder: Encoder): void {
+  const disc = Integer__variant_index(self);
+  __encoder.emit_u8(disc);
 }

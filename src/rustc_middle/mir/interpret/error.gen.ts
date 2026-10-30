@@ -8,16 +8,16 @@ import { debug_LayoutError_lazy, type MachineStopType } from "./error.ts";
 import { type AllocId, debug_AllocId } from "./mod.ts";
 import { debug_Pointer, type Pointer } from "./pointer.ts";
 import { debug_Scalar, type Scalar } from "./value.ts";
-import { decode_Ty, type TyDecoder } from "../../ty/codec.ts";
+import { decode_Ty, encode_Ty, type TyDecoder, type TyEncoder } from "../../ty/codec.ts";
 import { type ValTree } from "../../ty/consts/valtree.ts";
 import { type VariantIdx } from "../../ty/decls.ts";
 import { type LayoutError } from "../../ty/layout.ts";
 import { debug_RawList, type List } from "../../ty/list.ts";
 import { debug_Ty, type Ty } from "../../ty/mod.ts";
 import { type PolyExistentialPredicate } from "../../ty/predicate.ts";
-import { decode_bool } from "../../../rustc_serialize/serialize.ts";
+import { decode_bool, encode_bool } from "../../../rustc_serialize/serialize.ts";
 import { debug_DefId, type DefId } from "../../../rustc_span/def_id.ts";
-import { debug_ErrorGuaranteed, debug_Span, decode_ErrorGuaranteed, type ErrorGuaranteed, type Span } from "../../../rustc_span/lib.ts";
+import { debug_ErrorGuaranteed, debug_Span, decode_ErrorGuaranteed, encode_ErrorGuaranteed, type ErrorGuaranteed, type Span } from "../../../rustc_span/lib.ts";
 import { debug_Symbol, type Symbol } from "../../../rustc_span/symbol.ts";
 import { debug_Binder } from "../../../rustc_type_ir/binder.ts";
 import { debug_ExistentialPredicate } from "../../../rustc_type_ir/predicate.gen.ts";
@@ -64,6 +64,28 @@ export function decode_ErrorHandled(__decoder: TyDecoder): ErrorHandled {
       return panic(`invalid enum variant tag while decoding \`ErrorHandled\`, expected 0..2, actual ${__tag}`);
   }
 }
+function ErrorHandled__variant_index(tag: ErrorHandled["$"]): number {
+  switch (tag) {
+    case "Reported":
+      return 0;
+    case "TooGeneric":
+      return 1;
+  }
+}
+// rustc-derive: compiler/rustc_middle/src/mir/interpret/error.rs:22 TyEncodable for ErrorHandled
+export function encode_ErrorHandled(self: ErrorHandled, __encoder: TyEncoder): void {
+  const disc = ErrorHandled__variant_index(self.$);
+  __encoder.emit_u8(disc);
+  switch (self.$) {
+    case "Reported":
+      encode_ReportedErrorInfo(self._0, __encoder);
+      __encoder.encode_span(self._1);
+      break;
+    case "TooGeneric":
+      __encoder.encode_span(self._0);
+      break;
+  }
+}
 
 // rustc-type: compiler/rustc_middle/src/mir/interpret/error.rs:59 ReportedErrorInfo
 export class ReportedErrorInfo {
@@ -85,6 +107,11 @@ export function clone_ReportedErrorInfo(v: ReportedErrorInfo): ReportedErrorInfo
 // rustc-derive: compiler/rustc_middle/src/mir/interpret/error.rs:59 TyDecodable for ReportedErrorInfo
 export function decode_ReportedErrorInfo(__decoder: TyDecoder): ReportedErrorInfo {
   return new ReportedErrorInfo(decode_ErrorGuaranteed(__decoder), decode_bool(__decoder));
+}
+// rustc-derive: compiler/rustc_middle/src/mir/interpret/error.rs:59 TyEncodable for ReportedErrorInfo
+export function encode_ReportedErrorInfo(self: ReportedErrorInfo, __encoder: TyEncoder): void {
+  encode_ErrorGuaranteed(self.error, __encoder);
+  encode_bool(self.allowed_in_infallible, __encoder);
 }
 
 // rustc-type: compiler/rustc_middle/src/mir/interpret/error.rs:101 ValTreeCreationError
@@ -147,6 +174,39 @@ export function decode_ValTreeCreationError(__decoder: TyDecoder): ValTreeCreati
       return { $: "ErrorHandled", _0: decode_ErrorHandled(__decoder) };
     default:
       return panic(`invalid enum variant tag while decoding \`ValTreeCreationError\`, expected 0..5, actual ${__tag}`);
+  }
+}
+function ValTreeCreationError__variant_index(tag: ValTreeCreationError["$"]): number {
+  switch (tag) {
+    case "NodesOverflow":
+      return 0;
+    case "InvalidConst":
+      return 1;
+    case "NonSupportedType":
+      return 2;
+    case "CyclicConst":
+      return 3;
+    case "ErrorHandled":
+      return 4;
+  }
+}
+// rustc-derive: compiler/rustc_middle/src/mir/interpret/error.rs:101 TyEncodable for ValTreeCreationError
+export function encode_ValTreeCreationError(self: ValTreeCreationError, __encoder: TyEncoder): void {
+  const disc = ValTreeCreationError__variant_index(self.$);
+  __encoder.emit_u8(disc);
+  switch (self.$) {
+    case "NodesOverflow":
+      break;
+    case "InvalidConst":
+      break;
+    case "NonSupportedType":
+      encode_Ty(self._0, __encoder);
+      break;
+    case "CyclicConst":
+      break;
+    case "ErrorHandled":
+      encode_ErrorHandled(self._0, __encoder);
+      break;
   }
 }
 
