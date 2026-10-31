@@ -67,7 +67,7 @@ import { isAbsolute, join, resolve } from "node:path";
 import { DATA, PIN, UPSTREAM, hash } from "../scripts/lib/common.ts";
 import { caseDeps } from "../scripts/lib/deps.ts";
 import { getEnv } from "../scripts/lib/env.ts";
-import { ORACLE_RETRY_FACTOR, oraclePinnedPathEnv, oracleRustcCmd, oracleSysroot, rustcDriverHash } from "../scripts/lib/oracle.ts";
+import { ORACLE_RETRY_FACTOR, oraclePinnedPathEnv, oracleRustcCmd, oracleSysroot, rustcDriverHash, verifyOracleToolchain } from "../scripts/lib/oracle.ts";
 
 /** The host and target compiletest is run as (see "Host independence" above). */
 export const COMPILETEST_TARGET = "x86_64-unknown-linux-gnu";
@@ -731,6 +731,7 @@ function buildAux(id: string, steps: AuxStep[], timeoutMs: number): string {
   cleanStaleAuxTmps(root);
   const dir = join(root, key);
   if (existsSync(join(dir, ".ok"))) return dir;
+  verifyOracleToolchain();
   const tmp = `${dir}.tmp-${process.pid}`;
   rmSync(tmp, { recursive: true, force: true });
   mkdirSync(tmp, { recursive: true });
