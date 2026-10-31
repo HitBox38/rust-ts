@@ -1,7 +1,8 @@
 // Tests of the oracle cache key's dependency part (scripts/lib/deps.ts, scripts/difftest.ts `cachePath`).
 // Every case lives in a fresh temp dir; RUST_TS_DATA points at a temp dir too, so the shared oracle
-// cache is never touched. The old RUST_TS_DATA comes back after the file: `bun test` runs every file in one
-// process, so the test files after this one would otherwise look for their probes under the deleted temp dir.
+// cache is never touched. The old RUST_TS_DATA comes back after the file (environment hygiene). Modules
+// already loaded keep the temp path (scripts/lib/common.ts reads it once, at import), which is why the gate
+// runs the scripts/harness tests in a process of their own (gate.ts `staticChecks`).
 import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
