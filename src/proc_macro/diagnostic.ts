@@ -8,7 +8,10 @@
 
 import { type Debug, debug_str, debug_struct, debug_tuple, debug_vec, type Fmt } from "../std/fmt.ts";
 import type { Diagnostic as BridgeDiagnostic } from "./bridge/mod.ts";
-import { BridgeMethods, type client_Span, debug_Span, type Span } from "./lib.ts";
+// PORT: value imports come from bridge/client.ts, not lib.ts: client.ts → bridge/mod.ts → diagnostic.ts would
+// otherwise evaluate lib.ts before client.ts finishes (lib.ts installs client.ts's `crate_TokenStream.new_` at load).
+import { debug_Span as debug_client_Span, Methods as BridgeMethods, type Span as client_Span } from "./bridge/client.ts";
+import type { Span } from "./lib.ts";
 
 /// An enum representing a diagnostic level.
 // std-type: library/proc_macro/src/diagnostic.rs:7 Level
@@ -209,7 +212,7 @@ export const debug_Diagnostic: Debug<Diagnostic> = (v, f) => {
   return debug_struct(f, "Diagnostic", [
     ["level", debug_Level(d.level, f)],
     ["message", debug_str(d.message)],
-    ["spans", debug_vec(d.spans, f, debug_Span)],
+    ["spans", debug_vec(d.spans, f, (v: Span, f: Fmt) => debug_client_Span(v._0, f))], // lib.ts `debug_Span`
     ["children", debug_vec(d.children, f, debug_Diagnostic)],
   ]);
 };

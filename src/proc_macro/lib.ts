@@ -68,7 +68,6 @@ import { Diagnostic, Level } from "./diagnostic.ts";
 import { escape_bytes, type EscapeOptions } from "./escape.ts";
 
 import "./bridge/mod.ts";
-import "./bridge/client.ts";
 import "./bridge/server.ts";
 
 // ---------------------------------------------------------------------------------------------------------------

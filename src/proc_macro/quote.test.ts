@@ -9,7 +9,7 @@
 // rustc hands it to a proc macro (spacing `Joint` iff a punct is directly followed by a punct, or `'` by a
 // lifetime's ident), runs the port's `quote` against the mock bridge, and prints the result without whitespace.
 //
-// PORT(test): the mock stands in for pm-bridge's client (the `PORT(contract)` block in lib.ts): token streams are
+// PORT(test): the mock stands in for pm-bridge's client (bridge/client.ts's `Methods`): token streams are
 // arrays of client trees in a handle store, symbols a string table, spans numbers, `span_save_span` a counter.
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
