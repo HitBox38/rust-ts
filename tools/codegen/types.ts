@@ -767,9 +767,11 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
   }
   // set-local per-field types (`fields` of a `typemap_extra` file, shared by several sets): the field's type becomes the given path
   if (fieldTypes.size) {
+    const used = new Set<string>();
     const retype = (k: string, fl: PField) => {
       const p = fieldTypes.get(k);
       if (p === undefined) return;
+      used.add(k);
       const global = p.startsWith("::");
       const segs = (global ? p.slice(2) : p).split("::");
       fl.ty = { kind: "path", text: p, path: { global, segments: segs.map((name) => ({ name, args: [] })) } };
@@ -777,6 +779,14 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
     for (const r of items.values()) {
       for (const fl of r.item.fields?.fields ?? []) retype(`${r.key}::${fl.name ?? fl.index}`, fl);
       for (const v of r.item.variants ?? []) for (const fl of v.fields.fields) retype(`${r.key}::${v.name}::${fl.name ?? fl.index}`, fl);
+    }
+    // A key whose item is in this set but names no field (a typo, or a field renamed upstream) would silently keep the
+    // field's default type (a `u64` as a rounding `number`): an error. Keys of items in other sets of the typemap pass.
+    for (const k of fieldTypes.keys()) {
+      if (used.has(k)) continue;
+      for (const r of items.values()) {
+        if (k.startsWith(`${r.key}::`)) throw new Error(`typemap fields: '${k}' names no field of ${r.key}`);
+      }
     }
   }
   // item macros expanded here: `newtype_index!` (new types) and `bitflags!` (flags of a struct)

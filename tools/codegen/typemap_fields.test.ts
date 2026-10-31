@@ -53,3 +53,13 @@ test("typemap `fields`: per-field types (struct, tuple and enum fields), other f
   expect(text).toContain(`{ readonly $: "A"; addr: bigint; len: number }`);
   expect(text).toContain(`{ readonly $: "B"; addr: number }`);
 });
+
+test("typemap `fields`: a key naming no field of an item of the set is an error", () => {
+  const dir = test_scratch_dir("typemap-fields-typo");
+  const tm = join(dir, "fields.typemap.json");
+  writeFileSync(tm, JSON.stringify({ types: [{ paths: ["rust_ts::u64_exact"], ts: "bigint", debug: "debug_int($v, $f)", clone: "copy" }], fields: { "fake::S::bgi": "::rust_ts::u64_exact" } }));
+  const items: PItem[] = [item({ kind: "struct", name: "S", line: 1, fields: { style: "named", fields: [field("big", 0, path("u64"))] } })];
+  const probe: ProbeJson = { files: [{ path: "compiler/fake/src/lib.rs", attrs: [], items, uses: [], impls: [], macros: [], mods: [] }] };
+  const set: SetConfig = { files: ["compiler/fake/src/lib.rs"], class: [], hand: [], discriminant: [], skip: [], typemap_extra: [relative(import.meta.dir, tm)] };
+  expect(() => generate(probe, set, loadTypeMap(), { set: "fake", out: SRC, srcRoot: SRC })).toThrow("typemap fields: 'fake::S::bgi' names no field of fake::S");
+});
