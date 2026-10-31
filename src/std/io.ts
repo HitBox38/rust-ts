@@ -289,7 +289,7 @@ export const debug_IoError: Debug<IoError> = (e, f) => {
 
 // ---- stdout (library/std/src/io/stdio.rs) ----
 
-/** `io::Error::WRITE_ALL_EOF` (library/std/src/io/mod.rs), the error of `Write::write_all` on a zero-length write. */
+/** `io::Error::WRITE_ALL_EOF` (library/core/src/io/error.rs:125), the error of `Write::write_all` (core/src/io/write.rs:214) on a zero-length write. */
 const WRITE_ALL_EOF: IoError = { $: "SimpleMessage", kind: "WriteZero", message: "failed to write whole buffer" };
 
 /** `std::sys::stdio::unix::is_ebadf` (library/std/src/sys/stdio/unix.rs:92).
