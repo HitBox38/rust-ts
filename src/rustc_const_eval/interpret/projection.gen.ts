@@ -19,7 +19,7 @@ export function clone_OffsetMode(v: OffsetMode): OffsetMode {
 
 // rustc-type: compiler/rustc_const_eval/src/interpret/projection.rs:109 ArrayIterator
 /// A type representing iteration over the elements of an array.
-export class ArrayIterator<P> {
+export class ArrayIterator<Prov, P> {
   constructor(
     public base: P,
     public range: { start: number; end: number },

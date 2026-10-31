@@ -11,7 +11,7 @@
 import { debug_BackendRepr, type Endian, type Size } from "../../../rustc_abi/lib.ts";
 import { InterpCx } from "../eval_context.ts";
 import { MinMax, MulAddType } from "../intrinsics.gen.ts";
-import { type Machine } from "../machine.ts";
+import { type AnyMachine, type ProvOf, type Machine } from "../machine.ts";
 import { assert_eq_msg, display_ImmTy, Immediate } from "../operand.ts";
 import {
   type CtfeProvenance,
@@ -41,13 +41,13 @@ import { ImmTy, type OpTy } from "../operand.gen.ts";
 import { type MPlaceTy, type PlaceTy } from "../place.gen.ts";
 
 declare module "../eval_context.ts" {
-  interface InterpCx<M extends Machine = Machine> {
+  interface InterpCx<M extends AnyMachine = Machine> {
     // simd.rs:22
-    eval_simd_intrinsic(intrinsic_name: Symbol, generic_args: GenericArgsRef, args: readonly OpTy[], dest: PlaceTy, ret: BasicBlock | undefined): InterpResult<boolean>;
+    eval_simd_intrinsic(intrinsic_name: Symbol, generic_args: GenericArgsRef, args: readonly OpTy<ProvOf<M>>[], dest: PlaceTy<ProvOf<M>>, ret: BasicBlock | undefined): InterpResult<boolean>;
     // simd.rs:815
-    fminmax_op(op: MinMax, left: ImmTy, right: ImmTy): InterpResult<Scalar>;
+    fminmax_op(op: MinMax, left: ImmTy<ProvOf<M>>, right: ImmTy<ProvOf<M>>): InterpResult<Scalar<ProvOf<M>>>;
     // simd.rs:835
-    check_simd_ptr_alignment(ptr: Pointer<CtfeProvenance | undefined>, vector_layout: TyAndLayout, alignment: SimdAlign): InterpResult;
+    check_simd_ptr_alignment(ptr: Pointer<ProvOf<M> | undefined>, vector_layout: TyAndLayout, alignment: SimdAlign): InterpResult;
   }
 }
 

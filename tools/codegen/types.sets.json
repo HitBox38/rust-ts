@@ -2472,10 +2472,6 @@
     "discriminant": [],
     "skip": [],
     "skip_notes": {},
-    "erase_params": [
-      "Prov"
-    ],
-    "erase_params_note": "plan-m4 D8: `Prov: Provenance` is `CtfeProvenance` (const_eval_interpret.typemap.json maps `Prov`)",
     "auto_class": true,
     "derive_clone": true,
     "typemap_extra": [

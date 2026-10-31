@@ -4,7 +4,7 @@ import { type AllocId, type CtfeProvenance, debug_AllocId, debug_CtfeProvenance,
 import { type AssertKind, clone_AssertKind, debug_AssertKind } from "../../rustc_middle/mir/mod.ts";
 import { type ConstInt, debug_ConstInt } from "../../rustc_middle/ty/consts/int.ts";
 import { debug_Symbol, type Symbol } from "../../rustc_span/symbol.ts";
-import { type Debug, debug_int, debug_struct, debug_tuple } from "../../std/fmt.ts";
+import { type Debug, debug_int, debug_option, debug_struct, debug_tuple } from "../../std/fmt.ts";
 
 // rustc-type: compiler/rustc_const_eval/src/const_eval/error.rs:22 ConstEvalErrKind
 /// The CTFE machine has some custom error kinds.
@@ -47,11 +47,11 @@ export const debug_ConstEvalErrKind: Debug<ConstEvalErrKind> = (v, f) => {
     case "ConstMakeGlobalPtrAlreadyMadeGlobal":
       return debug_tuple(f, "ConstMakeGlobalPtrAlreadyMadeGlobal", [debug_AllocId(v._0, f)]);
     case "ConstMakeGlobalPtrIsNonHeap":
-      return debug_tuple(f, "ConstMakeGlobalPtrIsNonHeap", [debug_Pointer_Option(v._0, f, debug_CtfeProvenance)]);
+      return debug_tuple(f, "ConstMakeGlobalPtrIsNonHeap", [debug_Pointer_Option(v._0, f, ((x, f) => debug_option(x, f, debug_CtfeProvenance)))]);
     case "ConstMakeGlobalWithDanglingPtr":
-      return debug_tuple(f, "ConstMakeGlobalWithDanglingPtr", [debug_Pointer_Option(v._0, f, debug_CtfeProvenance)]);
+      return debug_tuple(f, "ConstMakeGlobalWithDanglingPtr", [debug_Pointer_Option(v._0, f, ((x, f) => debug_option(x, f, debug_CtfeProvenance)))]);
     case "ConstMakeGlobalWithOffset":
-      return debug_tuple(f, "ConstMakeGlobalWithOffset", [debug_Pointer_Option(v._0, f, debug_CtfeProvenance)]);
+      return debug_tuple(f, "ConstMakeGlobalWithOffset", [debug_Pointer_Option(v._0, f, ((x, f) => debug_option(x, f, debug_CtfeProvenance)))]);
     case "ConstAccessesMutGlobal":
     case "ModifiedGlobal":
     case "RecursiveStatic":

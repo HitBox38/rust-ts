@@ -1,7 +1,7 @@
 // Port of compiler/rustc_const_eval/src/interpret/traits.rs (declared by lane interp-contract, filled by lane interp-ops).
 import { type Align, Size } from "../../rustc_abi/lib.ts";
 import { InterpCx } from "./eval_context.ts";
-import { type Machine } from "./machine.ts";
+import { type AnyMachine, type ProvOf, type Machine } from "./machine.ts";
 import {
   type CtfeProvenance,
   InterpErrorInfo_from_InterpErrorKind,
@@ -37,17 +37,17 @@ import { OffsetMode } from "./projection.gen.ts";
 import { ensure_monomorphic_enough } from "./util.ts";
 
 declare module "./eval_context.ts" {
-  interface InterpCx<M extends Machine = Machine> {
+  interface InterpCx<M extends AnyMachine = Machine> {
     // traits.rs:19 (lane interp-ops)
-    get_vtable_ptr(ty: Ty, dyn_ty: List<PolyExistentialPredicate>): InterpResult<Pointer<CtfeProvenance | undefined>>;
+    get_vtable_ptr(ty: Ty, dyn_ty: List<PolyExistentialPredicate>): InterpResult<Pointer<ProvOf<M> | undefined>>;
     // traits.rs:38 (lane interp-ops)
-    get_vtable_size_and_align(vtable: Pointer<CtfeProvenance | undefined>, expected_trait: List<PolyExistentialPredicate> | undefined): InterpResult<[Size, Align]>;
+    get_vtable_size_and_align(vtable: Pointer<ProvOf<M> | undefined>, expected_trait: List<PolyExistentialPredicate> | undefined): InterpResult<[Size, Align]>;
     // traits.rs:49 (lane interp-ops)
     vtable_entries(trait_: PolyExistentialTraitRef | undefined, dyn_ty: Ty): readonly VtblEntry[];
     // traits.rs:67 (lane interp-ops)
     check_vtable_for_type(vtable_dyn_type: List<PolyExistentialPredicate>, expected_dyn_type: List<PolyExistentialPredicate>): InterpResult;
     // traits.rs:106 (lane interp-ops)
-    unpack_dyn_trait(mplace: MPlaceTy, expected_trait: List<PolyExistentialPredicate>): InterpResult<MPlaceTy>;
+    unpack_dyn_trait(mplace: MPlaceTy<ProvOf<M>>, expected_trait: List<PolyExistentialPredicate>): InterpResult<MPlaceTy<ProvOf<M>>>;
   }
 }
 

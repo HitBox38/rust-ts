@@ -9,10 +9,13 @@
 //   assigns `InterpCx.prototype.<name>`; eval_context.rs's own methods (and its trait impls) are in the class body.
 //   `CompileTimeInterpCx` (`InterpCx<CompileTimeMachine>`, const_eval/machine.ts) and `InterpCx<DummyMachine>` methods
 //   (const_eval/*, intern.rs) are prototype methods of `InterpCx` too, with `this: CompileTimeInterpCx`.
-// - The machine (interpret/machine.ts header): `M::f(self, ..)` is `this.machine.f(this, ..)`; associated types are erased
-//   to the CTFE machines' (`M::Provenance` = `CtfeProvenance`, so `MPlaceTy<'tcx, M::Provenance>` is `MPlaceTy`, ...).
-// - `Prov` of the value types is erased (D8; set `erase_params`): `Immediate`, `ImmTy`, `Operand`, `OpTy`, `MemPlace`,
-//   `MPlaceTy`, `Place`, `PlaceTy`, `MemPlaceMeta`, `LocalState`, `LocalValue`, `FnArg`, `Frame` are over `CtfeProvenance`.
+// - The machine (interpret/machine.ts header): `M::f(self, ..)` is `this.machine.f(this, ..)`; its associated types are
+//   the record `MachineTypesOf<M>` (plan-m6 D3), `M::Provenance` is `ProvOf<M>`, so `MPlaceTy<'tcx, M::Provenance>` is
+//   `MPlaceTy<ProvOf<M>>` in the `interface InterpCx<M>` declarations; the method bodies are typed with the CTFE
+//   defaults and dispatch through the machine (`this.machine.Provenance`, ...).
+// - `Prov` of the value types is a type parameter defaulting to `CtfeProvenance` (plan-m6 D3; set `erase_params` no
+//   longer erases it): `Immediate`, `ImmTy`, `Operand`, `OpTy`, `MemPlace`, `MPlaceTy`, `Place`, `PlaceTy`,
+//   `MemPlaceMeta`, `LocalState`, `LocalValue`, `FnArg`, `Frame<Prov, Extra>`.
 //   They are immutable values once built (`Copy`/`Clone` types are shared, never mutated in place; `clone_X` where
 //   upstream clones and then mutates). `LocalState.value` and `Frame.loc` are the mutable fields.
 // - Methods whose name clashes with a field get `_` (precedent `tcx_()`): `ImmTy` / `OpTy` / `MPlaceTy` / `PlaceTy`'s
@@ -80,14 +83,14 @@ import type { Float, FloatType } from "../../vendor/rustc_apfloat/lib.ts";
 import { type Debug, debug_int, PLAIN } from "../../std/fmt.ts";
 import { assert, unwrap } from "../../std/panic.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
-import type { Machine } from "./machine.ts";
+import type { AnyMachine, Machine } from "./machine.ts";
 import type { Memory } from "./memory.ts";
 import type { MPlaceTy, Place, PlaceTy } from "./place.gen.ts";
 import type { OpTy } from "./operand.gen.ts";
 import type { Frame, FrameInfo } from "./stack.gen.ts";
 import type { Projectable } from "./projection.ts";
 import { debug_Const, debug_Local } from "../../rustc_middle/mir/mod.ts";
-import { type AllocId, debug_Pointer_Option, debug_CtfeProvenance, Provenance_CtfeProvenance } from "../../rustc_middle/mir/interpret/mod.ts";
+import { type AllocId, debug_Pointer_Option, debug_provenance } from "../../rustc_middle/mir/interpret/mod.ts";
 import { TypeVisitableExt } from "../../rustc_type_ir/visit.ts";
 import { fold_Ty } from "../../rustc_middle/ty/structural_impls.ts";
 
@@ -126,7 +129,7 @@ var place_cache: typeof import("./place.ts") | undefined;
 // PORT: the impls of `HasDataLayout` / `HasTyCtxt` / `HasTypingEnv` / `LayoutOfHelpers` / `FnAbiOfHelpers` (and the blanket
 // `LayoutOf` / `FnAbiOf`) are methods of the class (PORTING §8); the trait methods `tcx()` / `typing_env()` are `tcx_()` /
 // `typing_env_()` (rustc_middle ty/layout.ts header), the fields keep their names.
-export class InterpCx<M extends Machine = Machine>
+export class InterpCx<M extends AnyMachine = Machine>
   implements
     LayoutOf<Result<TyAndLayout<Ty>, InterpErrorKind>, InterpErrorKind>,
     FnAbiOf<Result<TyAndLayout<Ty>, InterpErrorKind>, InterpErrorKind, Result<FnAbi<Ty>, InterpErrorKind>, InterpErrorKind>
@@ -150,7 +153,7 @@ export class InterpCx<M extends Machine = Machine>
     public layout_cache: Map<Ty, Layout>,
 
     /// The virtual memory system.
-    public memory: Memory,
+    public memory: Memory<M>,
 
     /// The recursion limit (cached from `tcx.recursion_limit(())`)
     public recursion_limit: Limit,
@@ -290,7 +293,7 @@ export class InterpCx<M extends Machine = Machine>
   // ---- impl<'tcx, M: Machine<'tcx>> InterpCx<'tcx, M> ----
 
   // rustc: compiler/rustc_const_eval/src/interpret/eval_context.rs:243 new
-  static new<M extends Machine>(tcx: TyCtxt, root_span: Span, typing_env: TypingEnv, machine: M): InterpCx<M> {
+  static new<M extends AnyMachine>(tcx: TyCtxt, root_span: Span, typing_env: TypingEnv, machine: M): InterpCx<M> {
     crate().assert_typing_mode(typing_env.typing_mode());
 
     return new InterpCx<M>(
@@ -298,7 +301,7 @@ export class InterpCx<M extends Machine = Machine>
       tcx.at(root_span),
       typing_env,
       /* RefCell::new( */ new Map() /* ) */,
-      memory().Memory.new(),
+      memory().Memory.new(machine),
       tcx.recursion_limit(),
     );
   }
@@ -792,7 +795,7 @@ export function from_known_layout(
 // #[doc(hidden)]
 /// Helper struct for the `dump_place` function.
 // rustc-type: compiler/rustc_const_eval/src/interpret/eval_context.rs:647 PlacePrinter
-export class PlacePrinter<M extends Machine = Machine> {
+export class PlacePrinter<M extends AnyMachine = Machine> {
   constructor(
     public ecx: InterpCx<M>,
     public place: Place,
@@ -822,9 +825,9 @@ export const debug_PlacePrinter: Debug<PlacePrinter> = (self, fmt) => {
     case "Ptr": {
       const mplace = p._0;
       const prov = mplace.ptr.provenance;
-      const alloc_id = prov === undefined ? undefined : Provenance_CtfeProvenance.get_alloc_id(prov);
+      const alloc_id = prov === undefined ? undefined : self.ecx.machine.Provenance.get_alloc_id(prov);
       if (alloc_id !== undefined) {
-        return `by ref ${debug_Pointer_Option(mplace.ptr, fmt, debug_CtfeProvenance)}: ${memory().debug_DumpAllocs(self.ecx.dump_alloc(alloc_id), fmt)}`;
+        return `by ref ${debug_Pointer_Option(mplace.ptr, fmt, debug_provenance)}: ${memory().debug_DumpAllocs(self.ecx.dump_alloc(alloc_id), fmt)}`;
       } else {
         const ptr = alloc_id;
         return ` integral by ref: ${ptr === undefined ? "None" : debug_int(ptr, fmt)}`;

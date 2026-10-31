@@ -4,8 +4,13 @@
 // PORT (D8): `CtfeProvenance(NonZero<u64>)` packs the `AllocId` with two flag bits (62, 63): a branded `bigint` (PORTING §5
 // `u64`); `AllocId` is a branded number. The two `Provenance` impls are the descriptors `Provenance_CtfeProvenance` /
 // `Provenance_AllocId`; generic code over `Prov: Provenance` gets its descriptor from the value's representation
-// (`provenance_of(prov)`: a bigint is a `CtfeProvenance`, a number an `AllocId`), so the generated `debug_Pointer(v, f,
-// debug_Prov)` keeps the generated call shape. Miri's provenance (M6) re-generalises this.
+// (`provenance_of(prov)`: a bigint is a `CtfeProvenance`, a number an `AllocId`, an object a registered impl), so the
+// generated `debug_Pointer(v, f, debug_Prov)` keeps the generated call shape.
+// PORT (plan-m6 D3/A1): a machine whose provenance is an object (Miri's `Provenance::Concrete { .. } | Wildcard`)
+// registers its descriptor with `register_object_provenance` (with `owns`); where upstream reads `Prov::OFFSET_IS_ADDR` /
+// `Prov::WILDCARD` with no provenance value at hand, the descriptor is passed in (the machine's `M::Provenance`,
+// interpret/machine.ts `Machine.Provenance`). The supertraits `PartialEq` and `Debug` of `Provenance` are the descriptor's
+// `eq` / `debug`.
 // PORT: `Pointer<Option<Prov>>` is a `Pointer<Prov | undefined>`: a `Some(prov)` pointer has the same representation as a
 // `Pointer<Prov>` (and prints the same through either impl), a `None` one has `provenance === undefined`.
 // PORT: `u64` / `i64` values that can exceed 2^53 (target `usize` / `isize` bounds, raw addresses) are `bigint`s; `Size`
@@ -120,18 +125,57 @@ export interface Provenance<P> {
   /// (Identifying the offset in that allocation, however, is harder -- use `Memory::ptr_get_alloc` for that.)
   // rustc: compiler/rustc_middle/src/mir/interpret/pointer.rs:79 get_alloc_id
   get_alloc_id(self: P): AllocId | undefined;
+  /** PORT: the supertrait `PartialEq` (`==` of two provenance values). */
+  eq(a: P, b: P): boolean;
+  /** PORT: the supertrait `fmt::Debug` (bare provenance). */
+  debug: Debug<P>;
+}
+
+/**
+ * PORT (plan-m6 D3): a `Provenance` impl whose values are objects (not a bigint `CtfeProvenance` / number `AllocId`);
+ * `owns(prov)` says whether a provenance object is one of its values.
+ */
+export interface ObjectProvenance<P> extends Provenance<P> {
+  owns(prov: object): boolean;
+}
+/** The registered object-valued `Provenance` impls (`register_object_provenance`), in registration order. */
+const object_provenances: ObjectProvenance<unknown>[] = [];
+
+/** PORT (plan-m6 D3): makes `provenance_of` find the impl of an object-valued provenance (once per impl, at load). */
+export function register_object_provenance<P>(impl: ObjectProvenance<P>): void {
+  if (!object_provenances.includes(impl as ObjectProvenance<unknown>)) object_provenances.push(impl as ObjectProvenance<unknown>);
 }
 
 /** PORT: the `Provenance` impl of a provenance value, by its representation (see the header). */
 export function provenance_of<P>(prov: P): Provenance<P> {
-  return (typeof prov === "bigint" ? Provenance_CtfeProvenance : Provenance_AllocId) as unknown as Provenance<P>;
+  if (typeof prov === "bigint") return Provenance_CtfeProvenance as unknown as Provenance<P>;
+  if (typeof prov === "number") return Provenance_AllocId as unknown as Provenance<P>;
+  return object_provenance_of(prov);
+}
+/** `provenance_of` of an object (cold: only machines with object provenance reach it). */
+function object_provenance_of<P>(prov: P): Provenance<P> {
+  if (typeof prov === "object" && prov !== null) {
+    for (const impl of object_provenances) {
+      if (impl.owns(prov)) return impl as unknown as Provenance<P>;
+    }
+  }
+  return panic("PORT: a provenance value of no registered `Provenance` impl (register_object_provenance)");
 }
 
-/**
- * PORT: `Prov::OFFSET_IS_ADDR` where the pointer has no provenance value to dispatch on (`Pointer<Option<Prov>>::addr`):
- * every `Provenance` impl of the port (`CtfeProvenance`, `AllocId`; Miri's is M6) has `OFFSET_IS_ADDR == false`.
- */
-const OFFSET_IS_ADDR_OF_EVERY_PROVENANCE = false;
+/** PORT (plan-m6 D3): `Debug` of a `Prov: Provenance` value (the supertrait), by its representation (`provenance_of`). */
+export function debug_provenance<P>(prov: P, f: Fmt): string {
+  return provenance_of(prov).debug(prov, f);
+}
+
+/** PORT (plan-m6 D3): `Clone` of a `Prov: Provenance` value (`Provenance: Copy`). */
+export function clone_provenance<P>(prov: P): P {
+  return prov;
+}
+
+/** PORT: `a == b` on two `Prov: Provenance` values (`PartialEq`): identity first (the CTFE values are primitives). */
+export function provenance_eq<P>(a: P, b: P): boolean {
+  return a === b || (typeof a === "object" && a !== null && provenance_of<P>(a).eq(a, b));
+}
 
 /// The type of provenance in the compile-time interpreter.
 /// This is a packed representation of:
@@ -253,6 +297,9 @@ export const Provenance_CtfeProvenance: Provenance<CtfeProvenance> = {
   // `CtfeProvenance` does not implement wildcard provenance.
   WILDCARD: undefined,
 
+  eq: (a, b) => a === b,
+  debug: (v, f) => debug_CtfeProvenance(v, f),
+
   // rustc: compiler/rustc_middle/src/mir/interpret/pointer.rs:174 fmt
   fmt(ptr: Pointer<CtfeProvenance>, f: Fmt): string {
     // Print AllocId.
@@ -284,6 +331,9 @@ export const Provenance_AllocId: Provenance<AllocId> = {
   // `AllocId` does not implement wildcard provenance.
   WILDCARD: undefined,
 
+  eq: (a, b) => a === b,
+  debug: (v, f) => debug_AllocId(v, f),
+
   // rustc: compiler/rustc_middle/src/mir/interpret/pointer.rs:202 fmt
   fmt(ptr: Pointer<AllocId>, f: Fmt): string {
     let out: string;
@@ -311,7 +361,7 @@ declare module "./pointer.gen.ts" {
     // pointer.rs:296 (`impl<Prov> Pointer<Option<Prov>>`)
     into_pointer_or_addr<P>(this: Pointer<P | undefined>): Result<Pointer<P>, Size>;
     // pointer.rs:305
-    addr<P>(this: Pointer<P | undefined>): Size;
+    addr<P>(this: Pointer<P | undefined>, Prov: Provenance<P>): Size;
     // pointer.rs:336 (`impl<Prov> Pointer<Prov>`)
     into_raw_parts(): [Prov, Size];
     // pointer.rs:340
@@ -416,9 +466,10 @@ Pointer.prototype.into_pointer_or_addr = function <P>(this: Pointer<P | undefine
 
 /// Returns the absolute address the pointer points to.
 /// Only works if Prov::OFFSET_IS_ADDR is true!
+// PORT (plan-m6 A1): `Prov` (no provenance value to dispatch on when it is `None`) is the `Provenance` impl passed in.
 // rustc: compiler/rustc_middle/src/mir/interpret/pointer.rs:305 addr
-Pointer.prototype.addr = function <P>(this: Pointer<P | undefined>): Size {
-  assert(OFFSET_IS_ADDR_OF_EVERY_PROVENANCE, "assertion failed: Prov::OFFSET_IS_ADDR");
+Pointer.prototype.addr = function <P>(this: Pointer<P | undefined>, Prov: Provenance<P>): Size {
+  assert(Prov.OFFSET_IS_ADDR, "assertion failed: Prov::OFFSET_IS_ADDR");
   return this.offset;
 };
 

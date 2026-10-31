@@ -5,7 +5,7 @@
 //! For handling of argument passing and return values, see the `call` module.
 import { type FrameNote } from "../diagnostics.ts";
 import { InterpCx, from_known_layout } from "./eval_context.ts";
-import { ReturnAction, type Machine } from "./machine.ts";
+import { ReturnAction, type AnyMachine, type ProvOf, type MachineTypesOf, type Machine } from "./machine.ts";
 import { Immediate, type Operand } from "./operand.ts";
 import { MemPlaceMeta } from "./place.ts";
 import { Frame, FrameInfo, LocalState, LocalValue, debug_LocalValue, type ReturnContinuation } from "./stack.gen.ts";
@@ -25,7 +25,8 @@ import {
   type InterpResult,
   interp_ok,
   type Pointer,
-  Provenance_CtfeProvenance,
+  provenance_of,
+  debug_provenance,
   UndefinedBehaviorInfo,
   UnsupportedOpInfo,
 } from "../../rustc_middle/mir/interpret/mod.ts";
@@ -42,7 +43,7 @@ import { bug } from "../../rustc_span/macros.ts";
 import { Span } from "../../rustc_span/lib.ts";
 import { Binder } from "../../rustc_type_ir/binder.ts";
 import { UnsafeBinderInner } from "../../rustc_type_ir/ty_kind.ts";
-import { debug_option, debug_struct, type Fmt } from "../../std/fmt.ts";
+import { type Debug, debug_option, debug_struct, type Fmt } from "../../std/fmt.ts";
 import { assert, panic, unwrap } from "../../std/panic.ts";
 import { Err } from "../../std/result.ts";
 import { MPlaceTy, PlaceTy } from "./place.gen.ts";
@@ -64,15 +65,15 @@ var util_cache: typeof import("../util/mod.ts") | undefined;
 export * from "./stack.gen.ts";
 
 declare module "./stack.gen.ts" {
-  interface LocalState {
+  interface LocalState<Prov = CtfeProvenance> {
     // stack.rs:165 (lane interp-step-call)
     make_live_uninit(): void;
     // stack.rs:173 (lane interp-step-call)
-    as_mplace_or_imm_ghost(): Either<[Pointer<CtfeProvenance | undefined>, MemPlaceMeta], Immediate> | undefined;
+    as_mplace_or_imm_ghost(): Either<[Pointer<Prov | undefined>, MemPlaceMeta<Prov>], Immediate<Prov>> | undefined;
     // stack.rs:185 (lane interp-step-call)
-    access(): InterpResult<Operand>;
+    access(): InterpResult<Operand<Prov>>;
     // stack.rs:195 (lane interp-step-call)
-    access_mut(): InterpResult<Operand>;
+    access_mut(): InterpResult<Operand<Prov>>;
     // stack.rs:701 (lane interp-step-call)
     print(allocs: (AllocId | undefined)[], fmt: Fmt): string;
   }
@@ -86,9 +87,9 @@ declare module "./stack.gen.ts" {
 }
 
 declare module "./stack.gen.ts" {
-  interface Frame {
+  interface Frame<Prov = CtfeProvenance, Extra = null> {
     // stack.rs:257 (lane interp-step-call)
-    with_extra<Extra>(extra: Extra): Frame<Extra>;
+    with_extra<Extra>(extra: Extra): Frame<Prov, Extra>;
     // stack.rs:280 (lane interp-step-call)
     current_loc(): Either<Location, Span>;
     // stack.rs:284 (lane interp-step-call)
@@ -96,11 +97,11 @@ declare module "./stack.gen.ts" {
     // stack.rs:288 (lane interp-step-call)
     instance_(): Instance;
     // stack.rs:292 (lane interp-step-call)
-    return_place_(): PlaceTy;
+    return_place_(): PlaceTy<Prov>;
     // stack.rs:296 (lane interp-step-call)
     return_cont_(): ReturnContinuation;
     // stack.rs:300 (lane interp-step-call)
-    locals_(): LocalState[];
+    locals_(): LocalState<Prov>[];
     // stack.rs:305 (lane interp-step-call)
     current_source_info(): SourceInfo | undefined;
     // stack.rs:309 (lane interp-step-call)
@@ -120,30 +121,30 @@ declare module "./stack.gen.ts" {
 }
 
 declare module "./eval_context.ts" {
-  interface InterpCx<M extends Machine = Machine> {
+  interface InterpCx<M extends AnyMachine = Machine> {
     // stack.rs:377 (lane interp-step-call)
-    push_stack_frame_raw(instance: Instance, body: Body, return_place: PlaceTy, return_cont: ReturnContinuation): InterpResult;
+    push_stack_frame_raw(instance: Instance, body: Body, return_place: PlaceTy<ProvOf<M>>, return_cont: ReturnContinuation): InterpResult;
     // stack.rs:439 (lane interp-step-call)
-    pop_stack_frame_raw(): InterpResult<Frame>;
+    pop_stack_frame_raw(): InterpResult<Frame<ProvOf<M>, MachineTypesOf<M>["FrameExtra"]>>;
     // stack.rs:449 (lane interp-step-call)
-    cleanup_stack_frame(unwinding: boolean, frame: Frame): InterpResult<ReturnAction>;
+    cleanup_stack_frame(unwinding: boolean, frame: Frame<ProvOf<M>, MachineTypesOf<M>["FrameExtra"]>): InterpResult<ReturnAction>;
     // stack.rs:484 (lane interp-step-call)
     push_stack_frame_done(): InterpResult;
     // stack.rs:503 (lane interp-step-call)
-    storage_live_dyn(local: Local, meta: MemPlaceMeta): InterpResult;
+    storage_live_dyn(local: Local, meta: MemPlaceMeta<ProvOf<M>>): InterpResult;
     // stack.rs:592 (lane interp-step-call)
     storage_live(local: Local): InterpResult;
     // stack.rs:596 (lane interp-step-call)
     storage_dead(local: Local): InterpResult;
     // stack.rs:606 (lane interp-step-call)
-    deallocate_local(local: LocalValue): InterpResult;
+    deallocate_local(local: LocalValue<ProvOf<M>>): InterpResult;
     // stack.rs:624 (lane interp-step-call)
-    layout_of_local(frame: Frame, local: Local, layout: TyAndLayout | undefined): InterpResult<TyAndLayout>;
+    layout_of_local(frame: Frame<ProvOf<M>, MachineTypesOf<M>["FrameExtra"]>, local: Local, layout: TyAndLayout | undefined): InterpResult<TyAndLayout>;
     // stack.rs:651 (lane interp-step-call)
-    // PORT: `I: Iterator<Item = (&FnArg, &ArgAbi)>`, `J: Iterator<Item = (usize, &ArgAbi)>` (taken `&mut` by the caller).
-    allocate_varargs(caller_args: Iterator<[FnArg, ArgAbi<Ty>]>, callee_abis: Iterator<[number, ArgAbi<Ty>]>): InterpResult<MPlaceTy[]>;
+    // PORT: `I: Iterator<Item = (&FnArg<ProvOf<M>>, &ArgAbi)>`, `J: Iterator<Item = (usize, &ArgAbi)>` (taken `&mut` by the caller).
+    allocate_varargs(caller_args: Iterator<[FnArg<ProvOf<M>>, ArgAbi<Ty>]>, callee_abis: Iterator<[number, ArgAbi<Ty>]>): InterpResult<MPlaceTy<ProvOf<M>>[]>;
     // stack.rs:680 (lane interp-step-call)
-    deallocate_varargs(varargs: readonly MPlaceTy[]): InterpResult;
+    deallocate_varargs(varargs: readonly MPlaceTy<ProvOf<M>>[]): InterpResult;
   }
 }
 
@@ -191,9 +192,9 @@ export class SpanGuard {
 
 // impl Debug for LocalState
 // rustc: compiler/rustc_const_eval/src/interpret/stack.rs:140 fmt
-export function debug_LocalState(self: LocalState, f: Fmt): string {
+export function debug_LocalState<Prov>(self: LocalState<Prov>, f: Fmt, debug_Prov: Debug<Prov>): string {
   return debug_struct(f, "LocalState", [
-    ["value", debug_LocalValue(self.value, f)],
+    ["value", debug_LocalValue(self.value, f, debug_Prov)],
     ["ty", debug_option(self.layout === undefined ? undefined : self.layout.ty, f, debug_Ty)],
   ]);
 }
@@ -309,8 +310,8 @@ FrameInfo.prototype.as_note = function (this: FrameInfo, tcx: TyCtxt): FrameNote
 };
 
 // rustc: compiler/rustc_const_eval/src/interpret/stack.rs:257 with_extra
-Frame.prototype.with_extra = function <Extra>(this: Frame, extra: Extra): Frame<Extra> {
-  return new Frame<Extra>(
+Frame.prototype.with_extra = function <Prov, Extra>(this: Frame<Prov, null>, extra: Extra): Frame<Prov, Extra> {
+  return new Frame<Prov, Extra>(
     this.body,
     this.instance,
     extra,
@@ -478,7 +479,7 @@ InterpCx.prototype.push_stack_frame_raw = function (this: InterpCx, instance: In
   // PORT: `IndexVec::from_elem(dead_local, ..)` clones `dead_local` per local (`LocalState` is mutable).
   const locals = body.local_decls.map(() => new LocalState(LocalValue.Dead, /* Cell::new(None) */ undefined));
   // PORT: `extra: ()` is `null` (the CTFE machines' `FrameExtra`, interp-contract decision 2).
-  const pre_frame = new Frame<null>(
+  const pre_frame = new Frame<CtfeProvenance, null>(
     body,
     instance,
     null,
@@ -839,8 +840,10 @@ InterpCx.prototype.deallocate_varargs = function (this: InterpCx, varargs: reado
   return interp_ok(undefined);
 };
 
+// PORT (plan-m6 D3): generic over `Prov` (upstream `impl<Prov: Provenance> LocalState<Prov>`): `prov.get_alloc_id()` and
+// the provenance `Debug` dispatch on the value (`provenance_of`, `debug_provenance`).
 // rustc: compiler/rustc_const_eval/src/interpret/stack.rs:701 print
-LocalState.prototype.print = function (this: LocalState, allocs: (AllocId | undefined)[], fmt: Fmt): string {
+LocalState.prototype.print = function <Prov>(this: LocalState<Prov>, allocs: (AllocId | undefined)[], fmt: Fmt): string {
   let out = "";
   const value = this.value;
   if (value.$ === "Dead") {
@@ -848,9 +851,9 @@ LocalState.prototype.print = function (this: LocalState, allocs: (AllocId | unde
   } else if (value._0.$ === "Indirect") {
     const mplace = value._0._0;
     const meta = mplace.meta;
-    out += ` by ${meta.$ === "Meta" ? ` meta(${debug_Scalar(meta._0, fmt, debug_CtfeProvenance)})` : ""} ref ${debug_Pointer_Option(mplace.ptr, fmt, debug_CtfeProvenance)}:`;
+    out += ` by ${meta.$ === "Meta" ? ` meta(${debug_Scalar(meta._0, fmt, debug_provenance)})` : ""} ref ${debug_Pointer_Option(mplace.ptr, fmt, debug_provenance)}:`;
     const prov = mplace.ptr.provenance;
-    if (prov !== undefined) allocs.push(Provenance_CtfeProvenance.get_alloc_id(prov));
+    if (prov !== undefined) allocs.push(provenance_of(prov).get_alloc_id(prov));
   } else {
     const imm = value._0._0;
     switch (imm.$) {
@@ -859,24 +862,24 @@ LocalState.prototype.print = function (this: LocalState, allocs: (AllocId | unde
         break;
       case "Scalar": {
         const val = imm._0;
-        out += ` ${debug_Scalar(val, fmt, debug_CtfeProvenance)}`;
+        out += ` ${debug_Scalar(val, fmt, debug_provenance)}`;
         if (val.$ === "Ptr") {
           const ptr = val._0;
-          allocs.push(Provenance_CtfeProvenance.get_alloc_id(ptr.provenance));
+          allocs.push(provenance_of(ptr.provenance).get_alloc_id(ptr.provenance));
         }
         break;
       }
       case "ScalarPair": {
         const val1 = imm._0;
         const val2 = imm._1;
-        out += ` (${debug_Scalar(val1, fmt, debug_CtfeProvenance)}, ${debug_Scalar(val2, fmt, debug_CtfeProvenance)})`;
+        out += ` (${debug_Scalar(val1, fmt, debug_provenance)}, ${debug_Scalar(val2, fmt, debug_provenance)})`;
         if (val1.$ === "Ptr") {
           const ptr = val1._0;
-          allocs.push(Provenance_CtfeProvenance.get_alloc_id(ptr.provenance));
+          allocs.push(provenance_of(ptr.provenance).get_alloc_id(ptr.provenance));
         }
         if (val2.$ === "Ptr") {
           const ptr = val2._0;
-          allocs.push(Provenance_CtfeProvenance.get_alloc_id(ptr.provenance));
+          allocs.push(provenance_of(ptr.provenance).get_alloc_id(ptr.provenance));
         }
         break;
       }

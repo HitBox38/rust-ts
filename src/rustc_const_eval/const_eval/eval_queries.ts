@@ -47,6 +47,7 @@ import { FrameNote_add_to_diag, type FrameNote } from "../diagnostics.ts";
 import { ImmTy, OpTy } from "../interpret/operand.gen.ts";
 import { OpTy_from_MPlaceTy } from "../interpret/operand.ts";
 import { MPlaceTy, clone_MPlaceTy } from "../interpret/place.gen.ts";
+import { clone_provenance } from "../../rustc_middle/mir/interpret/mod.ts";
 import { key_MPlaceTy, PlaceTy_from_MPlaceTy } from "../interpret/place.ts";
 import { MemoryKind } from "../interpret/memory.ts";
 import { CtfeValidationMode, RefTracking } from "../interpret/validity.ts";
@@ -177,7 +178,7 @@ export function eval_body_using_ecx<R>(R_: InterpretationResult<R>, ecx: Compile
 
   // This can't use `init_stack_frame` since `body` is not a function,
   // so computing its ABI would fail. It's also not worth it since there are no arguments to pass.
-  const r1 = ecx.push_stack_frame_raw(cid.instance, body, PlaceTy_from_MPlaceTy(clone_MPlaceTy(ret)), { $: "Stop", cleanup: false });
+  const r1 = ecx.push_stack_frame_raw(cid.instance, body, PlaceTy_from_MPlaceTy(clone_MPlaceTy(ret, clone_provenance)), { $: "Stop", cleanup: false });
   if (r1.$ === "Err") return r1;
   const r2 = ecx.push_stack_frame_done();
   if (r2.$ === "Err") return r2;
@@ -524,7 +525,7 @@ export function eval_in_interpreter<R>(R_: InterpretationResult<R>, tcx: TyCtxt,
 // rustc: compiler/rustc_const_eval/src/const_eval/eval_queries.rs:473 const_validate_mplace
 export function const_validate_mplace(ecx: CompileTimeInterpCx, mplace: MPlaceTy, cid: GlobalId): Result<undefined, ErrorHandled> {
   const alloc_id = CtfeProvenance.alloc_id(unwrap(mplace.ptr().provenance));
-  const ref_tracking = RefTracking.new(clone_MPlaceTy(mplace), mplace.layout.ty, key_MPlaceTy);
+  const ref_tracking = RefTracking.new(clone_MPlaceTy(mplace, clone_provenance), mplace.layout.ty, key_MPlaceTy);
   let inner = false;
   for (;;) {
     const next = ref_tracking.next();

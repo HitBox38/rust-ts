@@ -2,7 +2,7 @@
 // plan-m4 wave 23c). The conventions are interpret/eval_context.ts's header (docs/handoff/interp-contract.md).
 import { type CompileTimeInterpCx } from "./machine.ts";
 import { InterpCx } from "../interpret/eval_context.ts";
-import { type Machine } from "../interpret/machine.ts";
+import { type AnyMachine, type Machine } from "../interpret/machine.ts";
 import { type Writeable } from "../interpret/place.ts";
 import { Immediate } from "../interpret/operand.ts";
 import { MemoryKind } from "../interpret/memory.gen.ts";
@@ -22,7 +22,7 @@ import { Binder } from "../../rustc_type_ir/binder.ts";
 import { MPlaceTy } from "../interpret/place.gen.ts";
 
 declare module "../interpret/eval_context.ts" {
-  interface InterpCx<M extends Machine = Machine> {
+  interface InterpCx<M extends AnyMachine = Machine> {
     // dyn_trait.rs:10 (lane ctfe-b)
     write_dyn_trait_type_info<P extends Writeable<P>>(dyn_place: P, data: List<Binder<ExistentialPredicate>>, region: Region): InterpResult;
     // dyn_trait.rs:64 (lane ctfe-b)

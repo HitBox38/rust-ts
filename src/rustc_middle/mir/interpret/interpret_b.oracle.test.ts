@@ -36,6 +36,7 @@ import {
   interp_ok,
   lower_hex_Scalar,
   Pointer,
+  Provenance_AllocId,
   Pointer_from_AllocId,
   read_target_uint,
   Scalar,
@@ -187,7 +188,7 @@ test("Pointer Debug / Display (`const {alloc1: &i32}` in -Zunpretty=mir)", () =>
   expect(debug_Pointer(Pointer.without_provenance<AllocId>(1n), PLAIN, () => "")).toBe("0x1[noalloc]");
   expect(p.into_pointer_or_addr()).toEqual(Ok(p));
   expect(Pointer.without_provenance<AllocId>(16n).into_pointer_or_addr()).toEqual(Err(Size.from_bytes(16)));
-  expect(() => Pointer.null<AllocId>().addr()).toThrow("Prov::OFFSET_IS_ADDR");
+  expect(() => Pointer.null<AllocId>().addr(Provenance_AllocId)).toThrow("Prov::OFFSET_IS_ADDR");
 });
 
 /** A `HasDataLayout` for 64-bit and 32-bit targets (only `pointer_size` / `pointer_offset` are read). */
