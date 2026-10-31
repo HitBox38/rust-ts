@@ -1,7 +1,8 @@
 # M6 plan — interpreter (const eval + Miri shims), run-pass, proc macros
 
-Source: the plan-m6 planner (design lane; it ports no code). Status: **proposed**. Root accepts or amends decisions
-D1–D14 and records them with `bun scripts/state.ts record decision`.
+Source: the plan-m6 planner (design lane; it ports no code). Status: **accepted with amendments A1–A11** (root,
+2026-11-01, after the independent review `docs/reviews/plan-m6.md`; the amendments, at the end of §5, take precedence over
+the text they amend). Decisions D1–D14 are recorded with `bun scripts/state.ts record decision`.
 Pin `6f5da406b56c` (1.101.0-nightly). Paths are relative to the upstream checkout (`compiler/…`, `library/…`,
 `src/tools/miri/…`). `src/tools/miri/tests` and `src/tools/miri/cargo-miri` are not in the sparse checkout; they were read
 with `git show HEAD:<path>` / exported with `git archive HEAD` into `$RUST_TS_DATA/tmp/plan-m6/miri-tests/`. Line counts are
@@ -325,6 +326,36 @@ rustc_monomorphize ≈ 4.2k + mono.rs 0.7k, codegen_ssa archive/rmeta_link/link_
 
 About 4 waves and ~30 lanes of porting, plus fixers. The open-ended part is the shim / fixer tail on 3.5k run-pass cases and
 interpreter speed.
+
+### Amendments (root, 2026-11-01; from docs/reviews/plan-m6.md)
+
+- **A1 (D3, review B1).** `interp-generic` is not "typing only". The port hard-codes CTFE's `OFFSET_IS_ADDR = false` and
+  dropped upstream's branches for `true` (intrinsics.ts:598, place.ts, memory.ts, validity.ts, pointer.ts:131,
+  allocation.ts); Miri's provenance needs them. The lane re-ports those branches from upstream (reviewed against upstream,
+  not only by unchanged suites) while the protected mir / const-eval suites stay byte-identical. Still contract-first.
+- **A2 (waves, review B2; AGENTS.md §2).** No lane mixes porting with harness/scripts work: `pm-host` (port) and
+  `harness-m6b` (harness batch) are separate lanes; `miri-sysroot` (port) and `harness-m6d` (the `miri-sysroot-*` report
+  suites) are separate; D10's `scripts/miri-diff.ts` is its own harness lane `miri-diff`, apart from `miri-driver`.
+- **A3 (D2).** Sockets are not excluded wholesale: the isolation-error paths of shims/unix/socket.rs (socket.rs:172) that
+  run-pass cases reach are ported (in `miri-shims-d`); the rest of socket.rs stays unported.
+- **A4 (D7).** Accepted: proc macros load oracle-built host dylibs (rustc's own path). PLAN.md §4 is amended accordingly.
+  M9 consequence: rust-ts must eventually build host proc-macro dylibs itself (M7 output), so Ouroboros does not depend
+  on the oracle. Before `pm-host` starts, check that Bun's FFI (dlopen + TinyCC callbacks) works on the Windows host.
+- **A5 (D9).** Gated suites run Miri's defaults (Stacked Borrows). Tree Borrows lanes may land in wave 38, but no gate
+  depends on them; TB cases are a report suite until after M6.
+- **A6 (D10).** Port only the `info!`-level events (the release oracle compiles `debug!`/`trace!` out); `miri-diff`
+  compares normalised event lines, not raw indentation. Separate lanes: `miri-log` (port) and `miri-diff` (harness).
+- **A7 (D11).** The heavy-case list comes from the full run-pass oracle timing, not the 300 sample: 2 cases hit the 60 s
+  ORACLE_TIMEOUT and 4 more take 5–19 s on the oracle. `harness-m6a` measures and records it.
+- **A8 (D13).** `miri-pass` / `miri-fail` cases expand `//@revisions` and honour `only-target` / `ignore-target` (109 of
+  389 files use them); `harness-m6c` defines them before any threshold applies.
+- **A9 (thresholds and the ratchet).** The protected sets only grow, as always: every MATCH accepted by a gate is protected.
+  The ≥ 90% / ≥ 80% / ≥ 95% figures are milestone-completion criteria over each suite's cases, with ORACLE_TIMEOUT cases
+  out of the denominator; 90% for run-pass is set against the oracle exiting 0 on 94.0% of cases.
+- **A10 (scope).** Miri does not cover what M7 must: `-O` codegen, FFI, inline asm, the real unwinder, linking.
+- **A11 (cost).** The Miri oracle output contains absolute local paths, so its cache is bound to this machine (rebuild it on
+  another host). Each protected Miri suite adds to every gate's ~10 h: the harness lanes mark the large ones heavy/serial
+  and keep slow cases out of the per-batch path.
 
 ## 6. Risks
 
