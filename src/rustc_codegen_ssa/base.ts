@@ -45,6 +45,9 @@ export function wants_wasm_eh(target: TargetSpec): boolean {
   return target.is_like_wasm;
 }
 
+/// Decide allocator kind to codegen. If `Some(_)` this will be the same as
+/// `tcx.allocator_kind`, but it may be `None` in more cases (e.g. if using
+/// allocator definitions from a dylib dependency).
 // rustc: compiler/rustc_codegen_ssa/src/base.rs:665 allocator_kind_for_codegen
 export function allocator_kind_for_codegen(tcx: TyCtxt): AllocatorKind | undefined {
   // If the crate doesn't have an `allocator_kind` set then there's definitely
