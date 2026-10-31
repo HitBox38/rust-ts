@@ -12,13 +12,13 @@
 //   `-C save-temps`), as Rust's unwinding drop does. Then the dir moves into `EncodedMetadata::from_path`, which
 //   drops it on an empty file or its own error and otherwise keeps it in the `EncodedMetadata` (whose `drop()` the
 //   driver calls when `Linker::link` ends).
-import { closeSync, mkdtempSync, openSync, readSync, renameSync, rmSync, unlinkSync, writeFileSync, writeSync } from "node:fs";
+import { closeSync, mkdtempSync, openSync, readSync, renameSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import { OutFileName, type OutputFilenames } from "../rustc_session/config.ts";
 import { filename_for_metadata } from "../rustc_session/output.ts";
 import type { Session } from "../rustc_session/session.ts";
 import type { ErrorGuaranteed } from "../rustc_span/lib.ts";
-import { io_error_from_node, type IoResult } from "../std/io.ts";
+import { io_error_from_node, type IoResult, stdout_write_all } from "../std/io.ts";
 import { path_is_absolute, path_join } from "../std/path.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
 import {
@@ -212,8 +212,9 @@ export function copy_to_stdout(from: string): IoResult<null> {
     for (;;) {
       const n = readSync(fd, buf, 0, buf.length, null);
       if (n === 0) break;
-      let off = 0;
-      while (off < n) off += writeSync(1, buf, off, n - off);
+      // `io::copy` writes each chunk with `<Stdout as Write>::write_all`, which swallows `EBADF` (std `handle_ebadf`).
+      const w = stdout_write_all(buf.subarray(0, n));
+      if (w.$ === "Err") return w;
     }
   } catch (e) {
     return Err(io_error_from_node(e));

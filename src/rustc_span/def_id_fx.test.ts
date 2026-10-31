@@ -22,6 +22,9 @@ test("FxDefIdMap is a DefIdMap iterating in FxKeyedMap<DefId, _> order through i
   expect(m instanceof DefIdMap).toBe(true);
   expect(iterates_in_fx_order(m)).toBe(true);
   expect(iterates_in_fx_order(new DefIdMap<number>([[def(0, 1), 1], [def(0, 2), 2]]))).toBe(false);
+  // A map that merely carries an `fx` property is not an `FxOrdered` class instance.
+  const lookalike = Object.assign(new DefIdMap<number>([[def(0, 1), 1], [def(0, 2), 2]]), { fx });
+  expect(iterates_in_fx_order(lookalike)).toBe(false);
   const order = (it: Iterable<readonly [DefId, number]>) => [...it].map(([k, v]) => `${k.krate}.${k.index}=${v}`);
   expect(order(m)).toEqual(order(fx));
   expect(order(m.entries())).toEqual(order(fx));

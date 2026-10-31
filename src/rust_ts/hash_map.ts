@@ -435,14 +435,24 @@ export class FxHashSet<T> extends Set<T> {
 /**
  * A map that is no `FxHashMap` itself (its class is fixed by its type elsewhere) but keeps one in `fx` and iterates in
  * its order: rustc_span def_id.ts `FxDefIdMap`, a `DefIdMap` whose upstream `UnordMap` order crate metadata encodes.
+ * Such a class registers itself with `register_fx_ordered` when its module is evaluated (before any instance exists),
+ * so `iterates_in_fx_order` recognises its instances by class, not by the shape of the object.
  */
 export interface FxOrdered<K, V> {
   readonly fx: FxHashMap<K, V>;
 }
 
-/** Whether `v` iterates in rustc's hashbrown order: an `FxHashMap`, or an `FxOrdered` map. */
+/** The registered `FxOrdered` classes (this module cannot import them: they import it). */
+const FX_ORDERED_CLASSES: Function[] = [];
+
+/** Registers `cls` (and its subclasses) as iterating in its `fx` map's hashbrown order. */
+export function register_fx_ordered<K, V>(cls: abstract new (...args: never[]) => FxOrdered<K, V> & ReadonlyMap<K, V>): void {
+  if (!FX_ORDERED_CLASSES.includes(cls)) FX_ORDERED_CLASSES.push(cls);
+}
+
+/** Whether `v` iterates in rustc's hashbrown order: an `FxHashMap`, or an instance of a registered `FxOrdered` class. */
 export function iterates_in_fx_order<K, V>(v: ReadonlyMap<K, V>): boolean {
-  return v instanceof FxHashMap || ("fx" in v && (v as Partial<FxOrdered<K, V>>).fx instanceof FxHashMap);
+  return v instanceof FxHashMap || FX_ORDERED_CLASSES.some((cls) => v instanceof cls);
 }
 
 /**

@@ -30,6 +30,7 @@ import { Res } from "../../../rustc_hir/def.ts";
 import { decode_OpaqueTyOrigin, decode_PreciseCapturingArgKind } from "../../../rustc_hir/hir.gen.ts";
 import type { CtorKind, DefKind } from "../../../rustc_hir/def.ts";
 import type { DefKey, DefPath, DefPathHash } from "../../../rustc_hir_id/definitions.ts";
+import type { ExportedSymbol, SymbolExportInfo } from "../../../rustc_middle/middle/exported_symbols.ts";
 import type { AmbigModChild, ModChild } from "../../../rustc_middle/middle/resolve.ts";
 import { Reexport } from "../../../rustc_middle/middle/resolve.ts";
 import type { ExternProviders, ExternQuery, QueryTypes } from "../../../rustc_middle/queries.gen.ts";
@@ -451,9 +452,6 @@ export const IntoArgs_CrateNum_SimplifiedType: IntoArgs<[CrateNum, SimplifiedTyp
 
 // ---- provide! { tcx, def_id, other, cdata, .. } (cstore_impl.rs:230) -------------------------------------------
 
-/** PORT: `ExportedSymbol<'tcx>` (rustc_middle middle/exported_symbols.rs, M3): only the variant this file matches. */
-type ExportedSymbol = { readonly $: "NonGeneric"; readonly _0: DefId } | { readonly $: "Generic" | "DropGlue" | "AsyncDropGlueCtorShim" | "AsyncDropGlue" | "ThreadLocalShim" | "NoDefId" };
-
 /** The `provide!` invocation (cstore_impl.rs:230), in upstream order. Exported for cstore_impl.test.ts. */
 export const PROVIDE_EXTERN: { readonly [N in ExternQuery]?: ProvideEntry<N> } = {
   explicit_item_bounds: [IntoArgs_DefId, table_defaulted_array(lazy_array("(ty::Clause<'static>, Span)", decode_Clause_Span), ProcessQueryValue_EarlyBinder)],
@@ -599,7 +597,7 @@ export const PROVIDE_EXTERN: { readonly [N in ExternQuery]?: ProvideEntry<N> } =
     IntoArgs_CrateNum,
     (tcx, _def_id, _other, cdata) => {
       const reachable_non_generics = new KeyedMap<DefId, unknown>(DefId_hash_key);
-      for (const [exported_symbol, export_info] of tcx.exported_non_generic_symbols(cdata.cnum) as [ExportedSymbol, unknown][]) {
+      for (const [exported_symbol, export_info] of tcx.exported_non_generic_symbols(cdata.cnum) as [ExportedSymbol, SymbolExportInfo][]) {
         if (exported_symbol.$ === "NonGeneric") {
           const def_id = exported_symbol._0;
           reachable_non_generics.set(def_id, export_info);
@@ -661,8 +659,8 @@ export const PROVIDE_EXTERN: { readonly [N in ExternQuery]?: ProvideEntry<N> } =
 
   exportable_items: [IntoArgs_CrateNum, (tcx, _def_id, _other, cdata) => [...cdata.get_exportable_items(tcx)]],
   stable_order_of_exportable_impls: [IntoArgs_CrateNum, (tcx, _def_id, _other, cdata) => new KeyedMap<DefId, number>(DefId_hash_key, cdata.get_stable_order_of_exportable_impls(tcx))],
-  exported_non_generic_symbols: [IntoArgs_CrateNum, (tcx, _def_id, _other, cdata) => cdata.exported_non_generic_symbols(tcx) as [ExportedSymbol, unknown][]],
-  exported_generic_symbols: [IntoArgs_CrateNum, (tcx, _def_id, _other, cdata) => cdata.exported_generic_symbols(tcx) as [ExportedSymbol, unknown][]],
+  exported_non_generic_symbols: [IntoArgs_CrateNum, (tcx, _def_id, _other, cdata) => cdata.exported_non_generic_symbols(tcx) as [ExportedSymbol, SymbolExportInfo][]],
+  exported_generic_symbols: [IntoArgs_CrateNum, (tcx, _def_id, _other, cdata) => cdata.exported_generic_symbols(tcx) as [ExportedSymbol, SymbolExportInfo][]],
 
   // PORT: `tcx.arena.alloc_path(p)` is the path itself.
   crate_extern_paths: [IntoArgs_CrateNum, (_tcx, _def_id, _other, cdata) => [...cdata.source().paths()]],

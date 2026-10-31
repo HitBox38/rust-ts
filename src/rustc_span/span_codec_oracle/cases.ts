@@ -227,7 +227,7 @@ export class ProbeEncoder implements SpanEncoder {
   encode_local_def_id(def_id: LocalDefId): void {
     this.emit_u32(DefIndex.as_u32(LocalDefId.local_def_index(def_id)));
   }
-  encode_def_key<T>(parent: DefIndex | undefined, disambiguated_data: T, encode_T: Encodable<T>): void {
+  encode_def_key<T>(parent: DefIndex | undefined, disambiguated_data: T, encode_T: Encodable<T, SpanEncoder>): void {
     SpanEncoder_provided.encode_def_key(this, parent, disambiguated_data, encode_T);
   }
 }

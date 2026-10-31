@@ -1798,9 +1798,11 @@ function decode_EiiMapEncodedKeyValue(_d: MetadataDecodeContext): unknown {
 function decode_ExportedSymbol_SymbolExportInfo(_d: MetadataDecodeContext): unknown {
   return unported("Decodable for (rustc_middle::middle::exported_symbols::ExportedSymbol, SymbolExportInfo) (M3)");
 }
-/** `Decodable` of `DocLinkResMap` (`UnordMap<(Symbol, Namespace), Option<Res<NodeId>>>`). */
+/** `Decodable` of `DocLinkResMap` (`FxIndexMap<(Symbol, Namespace), Option<Res<NodeId>>>`). */
 function decode_DocLinkResMap(_d: MetadataDecodeContext): DocLinkResMap {
-  return unported("Decodable for rustc_hir::def::DocLinkResMap (derive(Decodable) of Res / Namespace not generated)");
+  // PORT: only rustdoc reads an extern crate's `doc_link_resolutions` (`get_doc_link_resolutions`); the element codecs
+  // (`decode_Res`, `decode_Namespace`) exist, the `IndexMap` decode into a `DocLinkResMap` is not ported yet.
+  return unported("Decodable for rustc_middle::middle::resolve::DocLinkResMap (IndexMap decode; rustdoc-only path)");
 }
 
 /** `Iterator::map` over an iterator that is already created (the `.decode(..)` ran eagerly, as upstream). */

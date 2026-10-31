@@ -1,6 +1,6 @@
 // Port of compiler/rustc_span/src/def_id.rs
 import { AtomicRef } from "../rustc_data_structures/atomic_ref.ts";
-import { FxKeyedMap, type FxOrdered, type KeyType, type Layout } from "../rust_ts/hash_map.ts";
+import { FxKeyedMap, type FxOrdered, type KeyType, type Layout, register_fx_ordered } from "../rust_ts/hash_map.ts";
 import { KeyedMap, KeyedSet } from "../rust_ts/keyed.ts";
 import { debug_Fingerprint, Fingerprint } from "../rustc_data_structures/fingerprint.ts";
 import { debug_Hash64, Hash64 } from "../rustc_hashes/lib.ts";
@@ -400,6 +400,7 @@ export class FxDefIdMap<T> extends DefIdMap<T> implements FxOrdered<DefId, T> {
     for (const [k, v] of this.fx) callbackfn.call(thisArg, v, k, this);
   }
 }
+register_fx_ordered(FxDefIdMap);
 
 export class DefIdSet extends KeyedSet<DefId> {
   constructor(values?: Iterable<DefId>) {
