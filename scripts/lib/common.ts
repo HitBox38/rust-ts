@@ -15,6 +15,11 @@ export interface UpstreamPin {
   toolchain: string;
   nightlyName: string;
   sparse: string[];
+  /**
+   * Git submodules of the checkout that are initialized (shallow, at the commit the pin records) by `bun
+   * scripts/upstream.ts fetch`: `library/backtrace`, which std `#[path]`s into (plan-m5 D2, lane harness-m5c).
+   */
+  submodules?: string[];
 }
 
 export const PIN: UpstreamPin = JSON.parse(readFileSync(join(REPO, "UPSTREAM.json"), "utf8")).rust;

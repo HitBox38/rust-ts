@@ -50,12 +50,17 @@ test("checkProbes over every suite; the rmeta wrapper's compiler and probe", () 
   if (process.env.RUST_TS_REQUIRE_PROBES === "1") expect(j.unbuilt).toEqual([]);
   if (j.unbuilt.length === 0) expect({ all: j.all, lines: j.lines }).toEqual({ all: true, lines: [] });
   expect(j.errors).toEqual([]);
-  // The four suites that run the wrapper run the oracle rustc, and the dump suites the probe.
+  // The suites that run the wrapper run the oracle rustc, and the dump suites the probe.
   expect(j.rmetaRuns).toEqual([
     ["rmeta-core", ["rustc", j.probe]],
     ["check-core", ["rustc"]],
     ["rmeta-ui", ["rustc", j.probe]],
     ["check-ui", ["rustc"]],
+    ["check-alloc", ["rustc"]],
+    ["rmeta-alloc", ["rustc", j.probe]],
+    ["check-std", ["rustc"]],
+    ["rmeta-std", ["rustc", j.probe]],
+    ["check-chain", ["rustc"]],
   ]);
   expect(j.runsPlain).toEqual(["rustc"]);
   expect(j.runsBytes).toEqual(["rustc"]);
