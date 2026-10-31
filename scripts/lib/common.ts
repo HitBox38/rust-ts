@@ -20,6 +20,11 @@ export interface UpstreamPin {
    * scripts/upstream.ts fetch`: `library/backtrace`, which std `#[path]`s into (plan-m5 D2, lane harness-m5c).
    */
   submodules?: string[];
+  /**
+   * The oracle toolchain's installed rustup components, exactly (`{host}` = its host tuple), as its
+   * `lib/rustlib/components` names them (scripts/lib/toolchain.ts; decision 2026-10-31: the oracle is immutable).
+   */
+  components: string[];
 }
 
 export const PIN: UpstreamPin = JSON.parse(readFileSync(join(REPO, "UPSTREAM.json"), "utf8")).rust;

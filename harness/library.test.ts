@@ -12,7 +12,8 @@ const CHILD = `
 const L = await import(${JSON.stringify(join(REPO, "harness/library.ts"))});
 const S = await import(${JSON.stringify(join(REPO, "harness/suites.ts"))});
 const { UPSTREAM } = await import(${JSON.stringify(join(REPO, "scripts/lib/common.ts"))});
-const { existsSync, readFileSync } = await import("node:fs");
+const { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, utimesSync } = await import("node:fs");
+const { tmpdir } = await import("node:os");
 const { dirname, join } = await import("node:path");
 const fake = (c) => "/aux/" + c + "/lib" + c + ".rmeta";
 const manifest = (root) => {
@@ -49,7 +50,22 @@ console.log(JSON.stringify({
   heavy: ["check-alloc", "rmeta-alloc", "mir-alloc", "check-std", "rmeta-std", "mir-std", "check-chain"].map((n) => [n, S.suite(n).mode, !!S.suite(n).heavy, S.suite(n).inputDirs]),
   EMPTY: L.EMPTY_SYSROOT,
   CHAIN_RUN: S.CHAIN_RUN,
+  prune: prune(),
 }));
+// pruneStaleAux on a temp aux dir: dirs of crate "std" other than the kept one, by age.
+function prune() {
+  const aux = mkdtempSync(join(tmpdir(), "rust-ts-aux-"));
+  const k = (c) => c.repeat(16);
+  const now = Date.now();
+  const old = (now - L.AUX_STALE_MS - 60_000) / 1000;
+  const dirs = { ["m5-std-" + k("a")]: old, ["m5-std-" + k("b")]: old, ["m5-std-" + k("c")]: now / 1000, ["m5-std-" + k("d") + ".tmp-123"]: old,
+    ["m5-std_detect-" + k("e")]: old, ["m5-empty-sysroot"]: old, ["m5-std-xyz"]: old, ["mini_core-" + k("f")]: old };
+  for (const [n, t] of Object.entries(dirs)) { mkdirSync(join(aux, n, "sub"), { recursive: true }); utimesSync(join(aux, n), t, t); }
+  const removed = L.pruneStaleAux(aux, "std", "m5-std-" + k("a"), now).sort();
+  const left = readdirSync(aux).sort();
+  rmSync(aux, { recursive: true, force: true });
+  return { removed, left };
+}
 `;
 
 const j = (() => {
@@ -135,4 +151,10 @@ test("the suites: rmetadump gets the case's empty sysroot and -L dirs; mir runs 
     ["mir-std", "split", true, expect.arrayContaining(["library/std/src", "library/backtrace/src"])],
     ["check-chain", "single", true, ["library/alloc/src"]],
   ]);
+});
+
+test("pruneStaleAux: only the crate's own stale key dirs and temp leftovers, never the kept or a recent one", () => {
+  const k = (c: string) => c.repeat(16);
+  expect(j.prune.removed).toEqual([`m5-std-${k("b")}`, `m5-std-${k("d")}.tmp-123`]);
+  expect(j.prune.left).toEqual([`m5-empty-sysroot`, `m5-std-${k("a")}`, `m5-std-${k("c")}`, `m5-std-xyz`, `m5-std_detect-${k("e")}`, `mini_core-${k("f")}`]);
 });

@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { DATA, REPO, UPSTREAM, hash } from "../scripts/lib/common.ts";
 import { caseDeps } from "../scripts/lib/deps.ts";
 import { caseEnv, mergeEnv } from "../scripts/lib/env.ts";
-import { oraclePinnedPathEnv, oracleRustcCmd, oracleSysroot, rustcDriverHash } from "../scripts/lib/oracle.ts";
+import { oraclePinnedPathEnv, oracleRustcCmd, oracleSysroot, rustcDriverHash, verifyOracleToolchain } from "../scripts/lib/oracle.ts";
 import { probePath } from "../scripts/probes.ts";
 import { COMPILETEST_TARGET, collectUiTests, uiBlessed, uiCases, uiFileCases, type Blessed, type ErrorFormat } from "./compiletest.ts";
 import { EMPTY_SYSROOT, M5_TARGET, libArgs, libCrate, libEnv, oracleLibRmeta } from "./library.ts";
@@ -608,6 +608,7 @@ function oracleAuxRmeta(file: string, crate: string, args: string[]): string {
   const dir = join(DATA, "aux", `${crate}-${key}`);
   const out = join(dir, `lib${crate}.rmeta`);
   if (!existsSync(out)) {
+    verifyOracleToolchain();
     mkdirSync(dir, { recursive: true });
     const r = Bun.spawnSync(oracleRustcCmd([...args, file, "--crate-type", "lib", "--emit=metadata", "--out-dir", dir]), {
       cwd: UPSTREAM,
@@ -1428,6 +1429,8 @@ SUITES.push(
 //   check-alloc's. Subject side (scripts/chain-run.ts under scripts/rmeta-run.ts --bytes): the port builds core
 //   (`CORE_ARGS(["lib"])`, so it costs a core run) into `<rmeta dir>/port-core/libcore.rmeta`, then the oracle runs
 //   alloc's argv with that file as `core` (its `--extern` and `-L dependency=`; the other deps stay the oracle's).
+//   The port's core output is kept aside (`port-core/first.stdout`, `first.stderr`) unless core fails, so the compared
+//   output is alloc's, as on the oracle side (core's own diagnostics are check-core's; lane harness-w35).
 //   compiler_builtins was built against the oracle's core, so a port core with any other SVH fails to load (E0460
 //   style): MATCH iff the port's core rmeta is accepted in place of the oracle's and alloc's rmeta comes out the same.
 /** A library crate's case (see above). */

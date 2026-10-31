@@ -2,7 +2,7 @@
 // ever been accepted as MATCH. A revision is acceptable only if it loses none of them.
 //
 //   bun scripts/gate.ts run [--suites lex,parse] [--skip-static] [--skip-heavy]
-//       probe check + typecheck + unit tests (src/tools, then scripts/harness in a second process;
+//       oracle check (pinned commit and components, scripts/lib/toolchain.ts) + probe check + typecheck + unit tests (src/tools, then scripts/harness in a second process;
 //       RUST_TS_REQUIRE_PROBES=1; any skipped test not in ALLOWED_SKIPS fails) + marker check + full difftest of each suite; prints lost/gained.
 //       Heavy suites (`Suite.heavy`, plan-m5 §4.2: core-scale runs, one process at a time) run after all the
 //       others, one after another, and print each run's wall/user time and max RSS (an RSS over the suite's budget
@@ -17,9 +17,11 @@
 // when a run starts (or it stops with `ERROR:`), and a run fails if a suite changes it (scripts/lib/upstream.ts).
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { RMETA_RUN, suite as getSuite, type Suite } from "../harness/suites.ts";
+import { RMETA_RUN, SUITES, suite as getSuite, type Suite } from "../harness/suites.ts";
 import { difftest, heavyErrorLines, heavyLine, unstableOf, type HeavyRun, type OracleRerun } from "./difftest.ts";
 import { REPO, RUNS, UPSTREAM, die, ensureDir, nowId, parseArgs, run } from "./lib/common.ts";
+import { verifyOraclePin } from "./lib/oracle.ts";
+import { UNIT_STEPS } from "./lib/unit-steps.ts";
 import { upstreamError, upstreamStatus } from "./lib/upstream.ts";
 import { oracleTestProbes, probeBinary } from "./probes.ts";
 import { parseRmetaRunArgs } from "./rmeta-run.ts";
@@ -76,17 +78,25 @@ export function protectedUnstable(suite: string, base: Set<string> = readBaselin
 
 /**
  * Every probe the gate needs must be built before anything runs: the oracle probes of the suites
- * it runs (`Suite.probes`) and, unless static checks are skipped, the probes the oracle unit tests
- * read (they run with RUST_TS_REQUIRE_PROBES=1, so a missing probe fails them). One `ERROR:` line
- * per missing probe, with its build command. Also checks that every program each suite's oracle
- * command runs (`oracleRuns`) is `rustc` or one of its declared probes, so `Suite.probes` cannot
- * drift from `Suite.oracle` (`undeclaredRuns`).
+ * it runs (`Suite.probes`) and, unless static checks are skipped, the probes the unit tests read
+ * (they run with RUST_TS_REQUIRE_PROBES=1, so a missing probe fails them): the ones named in test
+ * files (`oracleTestProbes`) and every registered suite's, which scripts/gate-probes.test.ts needs
+ * to check every suite's oracle command. One `ERROR:` line per missing probe, with its build
+ * command. Also checks that every program each suite's oracle command runs (`oracleRuns`) is
+ * `rustc` or one of its declared probes, so `Suite.probes` cannot drift from `Suite.oracle`
+ * (`undeclaredRuns`).
  */
 export function checkProbes(suites: string[], unitTests: boolean): boolean {
   const need = new Map<string, string[]>();
-  const add = (probe: string, by: string) => need.set(probe, [...(need.get(probe) ?? []), by]);
+  const add = (probe: string, by: string) => {
+    const b = need.get(probe) ?? [];
+    if (!b.includes(by)) need.set(probe, [...b, by]);
+  };
   for (const name of suites) for (const p of getSuite(name).probes ?? []) add(p, `suite ${name}`);
-  if (unitTests) for (const p of oracleTestProbes()) add(p, "unit tests");
+  if (unitTests) {
+    for (const p of oracleTestProbes(UNIT_STEPS.flatMap((u) => u.roots))) add(p, "unit tests");
+    for (const s of SUITES) for (const p of s.probes ?? []) add(p, "runner unit tests (scripts/gate-probes.test.ts)");
+  }
   let ok = true;
   for (const [probe, by] of [...need].sort()) {
     if (!existsSync(probeBinary(probe))) {
@@ -226,26 +236,31 @@ interface SkipReport {
 }
 
 export async function staticChecks(runDir: string): Promise<{ ok: boolean; skips?: SkipReport }> {
-  const junit = join(runDir, "unit-tests.junit.xml");
-  const runnerJunit = join(runDir, "runner-unit-tests.junit.xml");
-  const steps: [string, string[], Record<string, string>][] = [
-    ["typecheck", ["bunx", "tsc", "--noEmit", "-p", "."], {}],
-    // Oracle unit tests fail (instead of skipping) when their probe is missing; the junit report
-    // lists the tests that skipped anyway (checked below against ALLOWED_SKIPS).
+  // `junit`: the step writes that junit report, whose skipped tests are checked below. The unit-test steps are
+  // UNIT_STEPS (scripts/lib/unit-steps.ts): disjoint roots, each passed as a path.
+  const steps: { name: string; cmd: string[]; env: Record<string, string>; junit?: string }[] = [
+    { name: "typecheck", cmd: ["bunx", "tsc", "--noEmit", "-p", "."], env: {} },
+    // RUST_TS_REQUIRE_PROBES=1: a missing probe fails a test instead of skipping it; the junit report lists the
+    // tests that skipped anyway (checked below against ALLOWED_SKIPS).
     // CI=true: Bun fails the run on a leftover `.only` (which would otherwise drop the other tests
     // of its file from the run, and from the report, without counting them as skipped).
     // --timeout: Bun's 5 s per-test default flakes under load (seen: options oracle, unicode_width
     // all-scalar, termize pty); a hung test still fails, after 60 s.
-    ["unit tests", [process.execPath, "test", "src", "tools", "--timeout=60000", "--reporter=junit", `--reporter-outfile=${junit}`], { RUST_TS_REQUIRE_PROBES: "1", CI: "true" }],
-    // The runner's own tests (scripts/, harness/) in a process of their own: they point RUST_TS_DATA and the
-    // modules that read it (scripts/lib/common.ts) at temp dirs, which the src/tools tests must not see.
-    ["runner unit tests", [process.execPath, "test", "scripts", "harness", "--timeout=60000", "--reporter=junit", `--reporter-outfile=${runnerJunit}`], { RUST_TS_REQUIRE_PROBES: "1", CI: "true" }],
+    ...UNIT_STEPS.map((u) => {
+      const junit = join(runDir, u.junit);
+      return {
+        name: u.name,
+        cmd: [process.execPath, "test", ...u.roots.map((r) => `./${r}`), "--timeout=60000", "--reporter=junit", `--reporter-outfile=${junit}`],
+        env: { RUST_TS_REQUIRE_PROBES: "1", CI: "true" },
+        junit,
+      };
+    }),
     // --offline: a vendor crate missing from cargo's cache is an ERROR, never network I/O.
-    ["markers", [process.execPath, "scripts/coverage.ts", "--check", "--offline"], {}],
+    { name: "markers", cmd: [process.execPath, "scripts/coverage.ts", "--check", "--offline"], env: {} },
   ];
   let ok = true;
   let skips: SkipReport | undefined;
-  for (const [name, cmd, env] of steps) {
+  for (const { name, cmd, env, junit: report } of steps) {
     const r = await run(cmd, { timeoutMs: 1_800_000, env });
     const pass = r.code === 0;
     console.log(`${pass ? "ok   " : "ERROR:"} ${name}`);
@@ -253,7 +268,6 @@ export async function staticChecks(runDir: string): Promise<{ ok: boolean; skips
       ok = false;
       console.log((r.stdout + r.stderr).split("\n").filter(Boolean).slice(-15).join("\n"));
     }
-    const report = name === "unit tests" ? junit : name === "runner unit tests" ? runnerJunit : undefined;
     if (report !== undefined) {
       if (!existsSync(report)) {
         console.log(`ERROR: ${name} wrote no junit report (${report}); cannot check for skipped tests`);
@@ -309,6 +323,8 @@ async function gateRun(requested: string[], skipStatic: boolean, skipHeavy: bool
   const runId = `gate-${nowId()}`;
   const prov = await provenance();
   if (prov.dirty.length) console.log(`note: tree is dirty (${prov.dirty.length} paths); this run cannot be accepted`);
+  // Before anything runs the oracle (unit tests, aux builds, suites): the pinned commit and components.
+  await verifyOraclePin();
   if (!checkProbes(suites, !skipStatic)) die("missing probes; build them and re-run the gate");
   const dirtyUpstream = upstreamStatus(UPSTREAM);
   if (dirtyUpstream.length) {
