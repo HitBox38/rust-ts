@@ -101,7 +101,7 @@ import type { StrippedCfgItem } from "../../rustc_attr_ir/data_structures.ts";
 import type { DiagnosticItems } from "../../rustc_attr_ir/diagnostic_items.ts";
 import { debug_DefKind } from "../../rustc_hir/def.ts";
 import { DefPath as DefPath_, DefPathData } from "../../rustc_hir_id/definitions.ts";
-import { decode_FeatureStability, decode_ImplTraitInTraitData, decode_IntrinsicDef, decode_RestrictionKind, decode_Visibility } from "../../rustc_middle/decodable.gen.ts";
+import { decode_ExportedSymbol, decode_FeatureStability, decode_ImplTraitInTraitData, decode_IntrinsicDef, decode_RestrictionKind, decode_SymbolExportInfo, decode_Visibility } from "../../rustc_middle/decodable.gen.ts";
 import type { IntrinsicDef } from "../../rustc_middle/ty/intrinsic.ts";
 import type { FeatureStability } from "../../rustc_middle/middle/mod.ts";
 import type { RestrictionKind } from "../../rustc_middle/ty/mod.ts";
@@ -114,7 +114,7 @@ import { type BlobDecoder, type SpanDecoder, BytePos, DUMMY_SP, decode_BytePos, 
 import { debug_Symbol, Ident as Ident_, kw } from "../../rustc_span/symbol.ts";
 import { debug_str } from "../../std/fmt.ts";
 import { unwrap } from "../../std/panic.ts";
-import { decode_ExportedSymbol, decode_SymbolExportInfo, type ExportedSymbol, type SymbolExportInfo } from "../../rustc_middle/middle/exported_symbols.ts";
+import type { ExportedSymbol, SymbolExportInfo } from "../../rustc_middle/middle/exported_symbols.ts";
 import { CStore } from "../creader.ts";
 import { decode_SpanTag, decode_VariantData } from "../decodable.gen.ts";
 import type { AdtDef, AdtKind } from "../../rustc_middle/ty/adt.ts";

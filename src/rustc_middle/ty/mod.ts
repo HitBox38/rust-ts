@@ -2929,11 +2929,6 @@ export class SymbolName {
   }
 }
 
-// PORT: the derived `TyEncodable` (`#[derive(.., TyEncodable, ..)]` above): the one field, `&str`'s `emit_str`.
-export function encode_SymbolName(self: SymbolName, __encoder: TyEncoder): void {
-  __encoder.emit_str(self.name);
-}
-
 // PORT: `fmt::Display::fmt(&self.name, fmt)`: `Fmt` carries no width / precision, so it is the string.
 // rustc: compiler/rustc_middle/src/ty/mod.rs:2419 fmt
 export function display_SymbolName(self: SymbolName): string {
