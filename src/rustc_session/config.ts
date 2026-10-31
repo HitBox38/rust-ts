@@ -32,7 +32,7 @@ import { type FileName, RealFileName, RemapPathScopeComponents, SourceFileHashAl
 import { FilePathMapping } from "../rustc_span/source_map.ts";
 import { type Symbol, sym } from "../rustc_span/symbol.ts";
 import { type Debug, debug_bool, debug_int, debug_map, debug_option, debug_str, debug_struct, debug_tuple, debug_vec } from "../std/fmt.ts";
-import { type IoError, debug_IoError, display_IoError, io_error_from_node } from "../std/io.ts";
+import { type IoError, debug_IoError, display_IoError, io_error_from_node, stdout_write_all } from "../std/io.ts";
 import { path_file_name, path_file_stem, path_hash, path_join, path_parent } from "../std/path.ts";
 import { assert_eq, panic, unported, unwrap } from "../std/panic.ts";
 import type { Decoder } from "../rustc_serialize/serialize.ts";
@@ -118,9 +118,11 @@ function write_fd(fd: number, s: string): void {
     }
   }
 }
-/** `print!("{s}")` */
+/** `print!("{s}")`: `io::stdout().write_fmt(..)`, which swallows `EBADF` (std `handle_ebadf`, std io.ts
+ *  `stdout_write_all`); any other error panics "failed printing to stdout: {e}" (std `print_to`). */
 export function std_print(s: string): void {
-  write_fd(1, s);
+  const r = stdout_write_all(utf8_bytes(s));
+  if (r.$ === "Err") panic(`failed printing to stdout: ${display_IoError(r._0)}`);
 }
 /** `eprintln!("{s}")` */
 function eprintln(s: string): void {
