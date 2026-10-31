@@ -8,7 +8,7 @@ import { FIRST_VARIANT, FieldIdx, type VariantIdx } from "../../rustc_abi/lib.ts
 import { Mutability } from "../../rustc_ast_ir/lib.ts";
 import { FnArg } from "./call.ts";
 import { InterpCx } from "./eval_context.ts";
-import { type Machine } from "./machine.ts";
+import { type AnyMachine, type ProvOf, type Machine } from "./machine.ts";
 import { RetagMode } from "./machine.gen.ts";
 import { type EvaluatedCalleeAndArgs } from "./step.gen.ts";
 import { type FnVal } from "./memory.gen.ts";
@@ -67,7 +67,7 @@ function util(): typeof import("../util/mod.ts") {
 var util_cache: typeof import("../util/mod.ts") | undefined;
 
 declare module "./eval_context.ts" {
-  interface InterpCx<M extends Machine = Machine> {
+  interface InterpCx<M extends AnyMachine = Machine> {
     // step.rs:41 (lane interp-step-call)
     step(): InterpResult<boolean>;
     // step.rs:81 (lane interp-step-call)
@@ -75,11 +75,11 @@ declare module "./eval_context.ts" {
     // step.rs:160 (lane interp-step-call)
     eval_rvalue_into_place(rvalue: Rvalue, place: mir_Place): InterpResult;
     // step.rs:306 (lane interp-step-call)
-    write_aggregate(kind: AggregateKind, operands: readonly mir_Operand[], dest: PlaceTy): InterpResult;
+    write_aggregate(kind: AggregateKind, operands: readonly mir_Operand[], dest: PlaceTy<ProvOf<M>>): InterpResult;
     // step.rs:365 (lane interp-step-call)
-    write_repeat(operand: mir_Operand, dest: PlaceTy): InterpResult;
+    write_repeat(operand: mir_Operand, dest: PlaceTy<ProvOf<M>>): InterpResult;
     // step.rs:403 (lane interp-step-call)
-    eval_fn_call_argument(op: mir_Operand, move_definitely_disjoint: boolean): InterpResult<FnArg>;
+    eval_fn_call_argument(op: mir_Operand, move_definitely_disjoint: boolean): InterpResult<FnArg<ProvOf<M>>>;
     // step.rs:438 (lane interp-step-call)
     eval_callee_and_args(terminator: Terminator, func: mir_Operand, args: readonly Spanned<mir_Operand>[], dest: mir_Place): InterpResult<EvaluatedCalleeAndArgs<M>>;
     // step.rs:519 (lane interp-step-call)

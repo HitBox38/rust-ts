@@ -44,6 +44,7 @@ import { KeyedMap, KeyedSet } from "../../rust_ts/keyed.ts";
 import { DUMMY_SP } from "../../rustc_span/lib.ts";
 import { key_MPlaceTy } from "../interpret/place.ts";
 import { clone_MPlaceTy, MPlaceTy } from "../interpret/place.gen.ts";
+import { clone_provenance, debug_provenance } from "../../rustc_middle/mir/interpret/mod.ts";
 
 // #[instrument(skip(ecx, visited, settled), level = "debug")]
 // rustc: compiler/rustc_const_eval/src/const_eval/valtrees.rs:22 branches
@@ -52,7 +53,7 @@ export function branches(ecx: CompileTimeInterpCx, place: MPlaceTy, field_count:
   if (variant !== undefined) {
     place_ = InterpResult.unwrap(ecx.project_downcast(place, variant));
   } else {
-    place_ = clone_MPlaceTy(place);
+    place_ = clone_MPlaceTy(place, clone_provenance);
   }
   // debug!(?place);
 
@@ -82,7 +83,7 @@ export function branches(ecx: CompileTimeInterpCx, place: MPlaceTy, field_count:
 // #[instrument(skip(ecx, visited, settled), level = "debug")]
 // rustc: compiler/rustc_const_eval/src/const_eval/valtrees.rs:64 slice_branches
 export function slice_branches(ecx: CompileTimeInterpCx, place: MPlaceTy, num_nodes: MutRef<number>, visited: KeyedSet<MPlaceTy>, settled: KeyedMap<MPlaceTy, EvalToValTreeResult>): EvalToValTreeResult {
-  const n = InterpResult.unwrap_or_else(place.len(ecx), (_) => panic(`expected to use len of place ${debug_MPlaceTy(place, PLAIN)}`));
+  const n = InterpResult.unwrap_or_else(place.len(ecx), (_) => panic(`expected to use len of place ${debug_MPlaceTy(place, PLAIN, debug_provenance)}`));
 
   const elems: Const[] = [];
   for (let i = 0n; i < n; i++) {
@@ -115,7 +116,7 @@ export function const_to_valtree_inner(ecx: CompileTimeInterpCx, place: MPlaceTy
     return Err(ValTreeCreationError.NodesOverflow);
   }
 
-  visited.add(clone_MPlaceTy(place));
+  visited.add(clone_MPlaceTy(place, clone_provenance));
 
   let result: EvalToValTreeResult;
   const k = ty.kind();
@@ -144,7 +145,7 @@ export function const_to_valtree_inner(ecx: CompileTimeInterpCx, place: MPlaceTy
       // The valtree of the base type is the same as the valtree of the pattern type.
       // Since the returned valtree does not contain the type or layout, we can just
       // switch to the base type.
-      const place_ = new MPlaceTy(clone_MPlaceTy(place).mplace, unwrap_result(ecx.layout_of(base), debug_InterpErrorKind));
+      const place_ = new MPlaceTy(clone_MPlaceTy(place, clone_provenance).mplace, unwrap_result(ecx.layout_of(base), debug_InterpErrorKind));
       result = const_to_valtree_inner(ecx, place_, num_nodes, visited, settled);
       break;
     }
@@ -253,7 +254,7 @@ export function const_to_valtree_inner(ecx: CompileTimeInterpCx, place: MPlaceTy
   }
 
   visited.delete(place);
-  settled.set(clone_MPlaceTy(place), result);
+  settled.set(clone_MPlaceTy(place, clone_provenance), result);
   return result;
 }
 
@@ -493,7 +494,7 @@ export function valtree_into_mplace(ecx: CompileTimeInterpCx, place: MPlaceTy, v
         branches_ = branches.slice(1);
         variant_idx = variant_idx_;
       } else {
-        place_adjusted = clone_MPlaceTy(place);
+        place_adjusted = clone_MPlaceTy(place, clone_provenance);
         branches_ = branches;
         variant_idx = undefined;
       }

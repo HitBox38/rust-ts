@@ -2,7 +2,7 @@
 //! Functions for reading and writing discriminants of multi-variant layouts (enums and coroutines).
 import { BackendRepr, type FieldIdx, Scalar as abi_Scalar, debug_Size, VariantIdx } from "../../rustc_abi/lib.ts";
 import { InterpCx } from "./eval_context.ts";
-import { type Machine } from "./machine.ts";
+import { type AnyMachine, type ProvOf, type Machine } from "./machine.ts";
 import { type Writeable } from "./place.ts";
 import { type Projectable } from "./projection.ts";
 import {
@@ -28,13 +28,13 @@ import { ImmTy } from "./operand.gen.ts";
 import { Immediate } from "./operand.ts";
 
 declare module "./eval_context.ts" {
-  interface InterpCx<M extends Machine = Machine> {
+  interface InterpCx<M extends AnyMachine = Machine> {
     // discriminant.rs:20 (lane interp-ops)
-    write_discriminant(variant_index: VariantIdx, dest: Writeable): InterpResult;
+    write_discriminant(variant_index: VariantIdx, dest: Writeable<unknown, ProvOf<M>>): InterpResult;
     // discriminant.rs:53 (lane interp-ops)
-    read_discriminant(op: Projectable): InterpResult<VariantIdx>;
+    read_discriminant(op: Projectable<unknown, ProvOf<M>>): InterpResult<VariantIdx>;
     // discriminant.rs:222 (lane interp-ops)
-    discriminant_for_variant(ty: Ty, variant: VariantIdx): InterpResult<ImmTy>;
+    discriminant_for_variant(ty: Ty, variant: VariantIdx): InterpResult<ImmTy<ProvOf<M>>>;
     // discriminant.rs:247 (lane interp-ops)
     tag_for_variant(layout: TyAndLayout, variant_index: VariantIdx): InterpResult<[ScalarInt, FieldIdx] | undefined>;
   }

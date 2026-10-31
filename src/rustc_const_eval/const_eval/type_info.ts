@@ -3,7 +3,7 @@
 // `mod adt;` is type_info/adt.ts (loaded by const_eval/mod.ts).
 import { type CompileTimeInterpCx } from "./machine.ts";
 import { InterpCx } from "../interpret/eval_context.ts";
-import { type Machine } from "../interpret/machine.ts";
+import { type AnyMachine, type Machine } from "../interpret/machine.ts";
 import { type Writeable } from "../interpret/place.ts";
 import { type InterpResult } from "../../rustc_middle/mir/interpret/mod.ts";
 import { type TyCtxt } from "../../rustc_middle/ty/context.ts";
@@ -32,7 +32,7 @@ import { FnSigKind, FnSigTys, UnsafeBinderInner_deref } from "../../rustc_type_i
 import { MPlaceTy } from "../interpret/place.gen.ts";
 
 declare module "../interpret/eval_context.ts" {
-  interface InterpCx<M extends Machine = Machine> {
+  interface InterpCx<M extends AnyMachine = Machine> {
     // type_info.rs:19 (lane ctfe-b)
     allocate_fill_and_write_slice_ptr(slice_place: Writeable, len: bigint, writer: (a0: CompileTimeInterpCx, a1: bigint, a2: MPlaceTy) => InterpResult): InterpResult;
     // type_info.rs:50 (lane ctfe-b)

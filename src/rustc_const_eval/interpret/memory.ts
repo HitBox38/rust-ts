@@ -12,9 +12,9 @@
 // - `throw_ub!(X)` / `throw_ub_format!(..)` / `throw_unsup!(X)` / `throw_unsup_format!(..)` are
 //   `return Err(InterpErrorInfo_from_InterpErrorKind(err_ub(..) / err_ub_format(..) / err_unsup(..) / err_unsup_format(..)))`
 //   with the macro kept as a comment (the `err_*` helpers at the end of the file are the macros' expansions).
-// - `Cow<'tcx, Allocation>` (`get_global_alloc`, `M::adjust_global_allocation`) is the `Allocation`: the CTFE machines'
-//   `adjust_global_allocation` always returns `Cow::Borrowed` (interpret/machine.rs:810), so `get_alloc_raw` takes the
-//   borrowed arm and `into_owned()` is a clone.
+// - `Cow<'tcx, Allocation>` (`get_global_alloc`, `M::adjust_global_allocation`) is interpret/machine.ts `Cow` (plan-m6
+//   A1: both arms of `get_alloc_raw` are ported; the CTFE machines' `adjust_global_allocation` returns `Cow::Borrowed`,
+//   interpret/machine.rs:810); `Cow::into_owned()` of a borrowed allocation is a clone (`Cow_into_owned_Allocation`).
 // - The `u64` / `i64` fields of `UndefinedBehaviorInfo::{DanglingIntPointer, PointerOutOfBounds}` (`addr`,
 //   `inbounds_size`, `ptr_offset`) are exact `bigint`s in error.gen.ts (mir.typemap.json `fields`, lane followups-34).
 // - `i64::try_from(size.bytes()).unwrap()` is `i64_try_from_size(size)` (exact, panics above `i64::MAX` as the `unwrap`).
@@ -23,7 +23,7 @@
 import { type Align, Align as AlignC, Align_eq, debug_AlignFromBytesError, Size, Size_cmp } from "../../rustc_abi/lib.ts";
 import { Mutability } from "../../rustc_ast_ir/lib.ts";
 import { InterpCx } from "./eval_context.ts";
-import { type CtfeMemoryKind, type CtfeMemoryMap, type Machine, type MayLeak } from "./machine.ts";
+import { type CtfeMemoryKind, type AnyMachine, type Cow, type Machine, type MachineAllocation, type MachineTypesOf, type MayLeak, type ProvOf } from "./machine.ts";
 import * as gen from "./memory.gen.ts";
 import { AllocInfo, AllocKind } from "./memory.gen.ts";
 import {
@@ -53,7 +53,8 @@ import {
   PointerArithmetic_provided,
   Pointer_from_AllocId,
   Pointer_Option_from_Pointer,
-  Provenance_CtfeProvenance,
+  type Provenance,
+  provenance_of,
   Scalar,
   type UndefinedBehaviorInfo,
   GlobalAlloc,
@@ -81,61 +82,61 @@ declare module "./memory.gen.ts" {
 }
 
 declare module "./eval_context.ts" {
-  interface InterpCx<M extends Machine = Machine> {
+  interface InterpCx<M extends AnyMachine = Machine> {
     // memory.rs:190 (lane interp-memory)
-    global_root_pointer(ptr: Pointer): InterpResult<Pointer>;
+    global_root_pointer(ptr: Pointer<ProvOf<M>>): InterpResult<Pointer<ProvOf<M>>>;
     // memory.rs:219 (lane interp-memory)
-    fn_ptr(fn_val: FnVal<never>): Pointer;
+    fn_ptr(fn_val: FnVal<MachineTypesOf<M>["ExtraFnVal"]>): Pointer<ProvOf<M>>;
     // memory.rs:239 (lane interp-memory)
-    va_list_ptr(varargs: MPlaceTy[]): Pointer;
+    va_list_ptr(varargs: MPlaceTy<ProvOf<M>>[]): Pointer<ProvOf<M>>;
     // memory.rs:251 (lane interp-memory)
-    allocate_ptr(size: Size, align: Align, kind: MemoryKind<CtfeMemoryKind>, init: AllocInit): InterpResult<Pointer>;
+    allocate_ptr(size: Size, align: Align, kind: MemoryKind<MachineTypesOf<M>["MemoryKind"]>, init: AllocInit): InterpResult<Pointer<ProvOf<M>>>;
     // memory.rs:267 (lane interp-memory)
-    allocate_bytes_ptr(bytes: Uint8Array, align: Align, kind: MemoryKind<CtfeMemoryKind>, mutability: Mutability): InterpResult<Pointer>;
+    allocate_bytes_ptr(bytes: Uint8Array, align: Align, kind: MemoryKind<MachineTypesOf<M>["MemoryKind"]>, mutability: Mutability): InterpResult<Pointer<ProvOf<M>>>;
     // memory.rs:279 (lane interp-memory)
-    insert_allocation(alloc: Allocation, kind: MemoryKind<CtfeMemoryKind>): InterpResult<Pointer>;
+    insert_allocation(alloc: MachineAllocation<MachineTypesOf<M>>, kind: MemoryKind<MachineTypesOf<M>["MemoryKind"]>): InterpResult<Pointer<ProvOf<M>>>;
     // memory.rs:301 (lane interp-memory)
-    reallocate_ptr(ptr: Pointer<CtfeProvenance | undefined>, old_size_and_align: [Size, Align] | undefined, new_size: Size, new_align: Align, kind: MemoryKind<CtfeMemoryKind>, init_growth: AllocInit): InterpResult<Pointer>;
+    reallocate_ptr(ptr: Pointer<ProvOf<M> | undefined>, old_size_and_align: [Size, Align] | undefined, new_size: Size, new_align: Align, kind: MemoryKind<MachineTypesOf<M>["MemoryKind"]>, init_growth: AllocInit): InterpResult<Pointer<ProvOf<M>>>;
     // memory.rs:335 (lane interp-memory)
-    make_const_heap_ptr_global(ptr: Pointer<CtfeProvenance | undefined>): InterpResult;
+    make_const_heap_ptr_global(ptr: Pointer<ProvOf<M> | undefined>): InterpResult;
     // memory.rs:380 (lane interp-memory)
-    deallocate_ptr(ptr: Pointer<CtfeProvenance | undefined>, old_size_and_align: [Size, Align] | undefined, kind: MemoryKind<CtfeMemoryKind>): InterpResult;
+    deallocate_ptr(ptr: Pointer<ProvOf<M> | undefined>, old_size_and_align: [Size, Align] | undefined, kind: MemoryKind<MachineTypesOf<M>["MemoryKind"]>): InterpResult;
     // memory.rs:459 (lane interp-memory)
-    get_ptr_access(ptr: Pointer<CtfeProvenance | undefined>, size: Size): InterpResult<[AllocId, Size, boolean] | undefined>;
+    get_ptr_access(ptr: Pointer<ProvOf<M> | undefined>, size: Size): InterpResult<[AllocId, Size, MachineTypesOf<M>["ProvenanceExtra"]] | undefined>;
     // memory.rs:481 (lane interp-memory)
-    check_ptr_access(ptr: Pointer<CtfeProvenance | undefined>, size: Size, msg: CheckInAllocMsg): InterpResult;
+    check_ptr_access(ptr: Pointer<ProvOf<M> | undefined>, size: Size, msg: CheckInAllocMsg): InterpResult;
     // memory.rs:498 (lane interp-memory)
-    check_ptr_access_signed(ptr: Pointer<CtfeProvenance | undefined>, size: bigint, msg: CheckInAllocMsg): InterpResult;
+    check_ptr_access_signed(ptr: Pointer<ProvOf<M> | undefined>, size: bigint, msg: CheckInAllocMsg): InterpResult;
     // memory.rs:519 (lane interp-memory)
-    check_and_deref_ptr<T, R>(this_: R, ptr: Pointer<CtfeProvenance | undefined>, size: bigint, msg: CheckInAllocMsg, alloc_size: (a0: R, a1: AllocId, a2: Size, a3: boolean) => InterpResult<[Size, Align, T]>): InterpResult<T | undefined>;
+    check_and_deref_ptr<T, R>(this_: R, ptr: Pointer<ProvOf<M> | undefined>, size: bigint, msg: CheckInAllocMsg, alloc_size: (a0: R, a1: AllocId, a2: Size, a3: MachineTypesOf<M>["ProvenanceExtra"]) => InterpResult<[Size, Align, T]>): InterpResult<T | undefined>;
     // memory.rs:568 (lane interp-memory)
     check_misalign(misaligned: Misalignment | undefined, msg: CheckAlignMsg): InterpResult;
     // memory.rs:579 (lane interp-memory)
-    is_ptr_misaligned(ptr: Pointer<CtfeProvenance | undefined>, align: Align): Misalignment | undefined;
+    is_ptr_misaligned(ptr: Pointer<ProvOf<M> | undefined>, align: Align): Misalignment | undefined;
     // memory.rs:629 (lane interp-memory)
-    check_ptr_align(ptr: Pointer<CtfeProvenance | undefined>, align: Align): InterpResult;
+    check_ptr_align(ptr: Pointer<ProvOf<M> | undefined>, align: Align): InterpResult;
     // memory.rs:640 (lane interp-memory)
     remove_unreachable_allocs(reachable_allocs: Set<AllocId>): void;
     // memory.rs:655 (lane interp-memory)
-    get_global_alloc(id: AllocId, is_write: boolean): InterpResult<Allocation>;
+    get_global_alloc(id: AllocId, is_write: boolean): InterpResult<Cow<MachineAllocation<MachineTypesOf<M>>>>;
     // memory.rs:708 (lane interp-memory)
-    get_alloc_raw(id: AllocId): InterpResult<Allocation>;
+    get_alloc_raw(id: AllocId): InterpResult<MachineAllocation<MachineTypesOf<M>>>;
     // memory.rs:745 (lane interp-memory)
     get_alloc_bytes_unchecked_raw(id: AllocId): InterpResult<Uint8Array>;
     // memory.rs:751 (lane interp-memory)
-    get_ptr_alloc(ptr: Pointer<CtfeProvenance | undefined>, size: Size): InterpResult<AllocRef | undefined>;
+    get_ptr_alloc(ptr: Pointer<ProvOf<M> | undefined>, size: Size): InterpResult<AllocRef<ProvOf<M>, MachineTypesOf<M>["AllocExtra"], MachineTypesOf<M>["Bytes"]> | undefined>;
     // memory.rs:796 (lane interp-memory)
-    get_alloc_extra(id: AllocId): InterpResult<null>;
+    get_alloc_extra(id: AllocId): InterpResult<MachineTypesOf<M>["AllocExtra"]>;
     // memory.rs:801 (lane interp-memory)
     get_alloc_mutability(id: AllocId): InterpResult<Mutability>;
     // memory.rs:812 (lane interp-memory)
-    get_alloc_raw_mut(id: AllocId): InterpResult<[Allocation, M]>;
+    get_alloc_raw_mut(id: AllocId): InterpResult<[MachineAllocation<MachineTypesOf<M>>, M]>;
     // memory.rs:843 (lane interp-memory)
     get_alloc_bytes_unchecked_raw_mut(id: AllocId): InterpResult<Uint8Array>;
     // memory.rs:852 (lane interp-memory)
-    get_ptr_alloc_mut(ptr: Pointer<CtfeProvenance | undefined>, size: Size): InterpResult<AllocRefMut | undefined>;
+    get_ptr_alloc_mut(ptr: Pointer<ProvOf<M> | undefined>, size: Size): InterpResult<AllocRefMut<ProvOf<M>, MachineTypesOf<M>["AllocExtra"], MachineTypesOf<M>["Bytes"]> | undefined>;
     // memory.rs:895 (lane interp-memory)
-    get_alloc_extra_mut(id: AllocId): InterpResult<[null, M]>;
+    get_alloc_extra_mut(id: AllocId): InterpResult<[MachineTypesOf<M>["AllocExtra"], M]>;
     // memory.rs:906 (lane interp-memory)
     is_alloc_live(id: AllocId): boolean;
     // memory.rs:916 (lane interp-memory)
@@ -145,17 +146,17 @@ declare module "./eval_context.ts" {
     // memory.rs:984 (lane interp-memory)
     get_live_alloc_size_and_align(id: AllocId, msg: CheckInAllocMsg): InterpResult<[Size, Align]>;
     // memory.rs:996 (lane interp-memory)
-    get_fn_alloc(id: AllocId): FnVal<never> | undefined;
+    get_fn_alloc(id: AllocId): FnVal<MachineTypesOf<M>["ExtraFnVal"]> | undefined;
     // memory.rs:1009 (lane interp-memory)
-    get_ptr_type_id(ptr: Pointer<CtfeProvenance | undefined>): InterpResult<[Ty, bigint]>;
+    get_ptr_type_id(ptr: Pointer<ProvOf<M> | undefined>): InterpResult<[Ty, bigint]>;
     // memory.rs:1020 (lane interp-memory)
-    get_ptr_fn(ptr: Pointer<CtfeProvenance | undefined>): InterpResult<FnVal<never>>;
+    get_ptr_fn(ptr: Pointer<ProvOf<M> | undefined>): InterpResult<FnVal<MachineTypesOf<M>["ExtraFnVal"]>>;
     // memory.rs:1034 (lane interp-memory)
-    get_ptr_va_list(ptr: Pointer<CtfeProvenance | undefined>): InterpResult<MPlaceTy[]>;
+    get_ptr_va_list(ptr: Pointer<ProvOf<M> | undefined>): InterpResult<MPlaceTy<ProvOf<M>>[]>;
     // memory.rs:1053 (lane interp-memory)
-    deallocate_va_list(ptr: Pointer<CtfeProvenance | undefined>): InterpResult<MPlaceTy[]>;
+    deallocate_va_list(ptr: Pointer<ProvOf<M> | undefined>): InterpResult<MPlaceTy<ProvOf<M>>[]>;
     // memory.rs:1073 (lane interp-memory)
-    get_ptr_vtable_ty(ptr: Pointer<CtfeProvenance | undefined>, expected_trait: List<PolyExistentialPredicate> | undefined): InterpResult<Ty>;
+    get_ptr_vtable_ty(ptr: Pointer<ProvOf<M> | undefined>, expected_trait: List<PolyExistentialPredicate> | undefined): InterpResult<Ty>;
     // memory.rs:1097 (lane interp-memory)
     alloc_mark_immutable(id: AllocId): InterpResult;
     // memory.rs:1104 (lane interp-memory)
@@ -167,7 +168,7 @@ declare module "./eval_context.ts" {
     // memory.rs:1153 (lane interp-memory)
     print_alloc_bytes_for_diagnostics(id: AllocId): string;
     // memory.rs:1172 (lane interp-memory)
-    take_leaked_allocations(static_roots: (a0: InterpCx) => readonly AllocId[]): ([AllocId, MemoryKind<CtfeMemoryKind>, Allocation])[];
+    take_leaked_allocations(static_roots: (a0: InterpCx) => readonly AllocId[]): ([AllocId, MemoryKind<MachineTypesOf<M>["MemoryKind"]>, MachineAllocation<MachineTypesOf<M>>])[];
     // memory.rs:1219 (lane interp-memory)
     ghost_run_mut<R>(f: (a0: InterpCx) => R): R;
     // memory.rs:1237 (lane interp-memory)
@@ -175,19 +176,19 @@ declare module "./eval_context.ts" {
     // memory.rs:1249 (lane interp-memory)
     validation_in_progress(): boolean;
     // memory.rs:1423 (lane interp-memory)
-    read_bytes_ptr_strip_provenance(ptr: Pointer<CtfeProvenance | undefined>, size: Size): InterpResult<Uint8Array>;
+    read_bytes_ptr_strip_provenance(ptr: Pointer<ProvOf<M> | undefined>, size: Size): InterpResult<Uint8Array>;
     // memory.rs:1445 (lane interp-memory)
-    write_bytes_ptr(ptr: Pointer<CtfeProvenance | undefined>, src: IterableIterator<number>): InterpResult;
+    write_bytes_ptr(ptr: Pointer<ProvOf<M> | undefined>, src: IterableIterator<number>): InterpResult;
     // memory.rs:1475 (lane interp-memory)
-    mem_copy(src: Pointer<CtfeProvenance | undefined>, dest: Pointer<CtfeProvenance | undefined>, size: Size, nonoverlapping: boolean): InterpResult;
+    mem_copy(src: Pointer<ProvOf<M> | undefined>, dest: Pointer<ProvOf<M> | undefined>, size: Size, nonoverlapping: boolean): InterpResult;
     // memory.rs:1490 (lane interp-memory)
-    mem_copy_repeatedly(src: Pointer<CtfeProvenance | undefined>, dest: Pointer<CtfeProvenance | undefined>, size: Size, num_copies: bigint, nonoverlapping: boolean): InterpResult;
+    mem_copy_repeatedly(src: Pointer<ProvOf<M> | undefined>, dest: Pointer<ProvOf<M> | undefined>, size: Size, num_copies: bigint, nonoverlapping: boolean): InterpResult;
     // memory.rs:1641 (lane interp-memory)
-    scalar_may_be_null(scalar: Scalar): InterpResult<boolean>;
+    scalar_may_be_null(scalar: Scalar<ProvOf<M>>): InterpResult<boolean>;
     // memory.rs:1689 (lane interp-memory)
-    ptr_try_get_alloc_id(ptr: Pointer<CtfeProvenance | undefined>, size: bigint): Result<[AllocId, Size, boolean], bigint>;
+    ptr_try_get_alloc_id(ptr: Pointer<ProvOf<M> | undefined>, size: bigint): Result<[AllocId, Size, MachineTypesOf<M>["ProvenanceExtra"]], bigint>;
     // memory.rs:1721 (lane interp-memory)
-    ptr_get_alloc_id(ptr: Pointer<CtfeProvenance | undefined>, size: bigint): InterpResult<[AllocId, Size, boolean]>;
+    ptr_get_alloc_id(ptr: Pointer<ProvOf<M> | undefined>, size: bigint): InterpResult<[AllocId, Size, MachineTypesOf<M>["ProvenanceExtra"]]>;
   }
 }
 
@@ -209,8 +210,8 @@ export const FnVal = {} as FnVal_methods;
 // `Memory` has to depend on the `Machine` because some of its operations
 // (e.g., `get`) call a `Machine` hook.
 // rustc-type: compiler/rustc_const_eval/src/interpret/memory.rs:113 Memory
-// PORT (D8): `M::MemoryMap` is the CTFE machines' `CtfeMemoryMap` (interpret/machine.ts header); `Cell<bool>` is the field.
-export class Memory {
+// PORT (D8): `Cell<bool>` is the field. PORT (plan-m6 D3): `M::X` is `MachineTypesOf<M>["X"]` (interpret/machine.ts header).
+export class Memory<M extends AnyMachine = Machine> {
   constructor(
     /// Allocations local to this instance of the interpreter. The kind
     /// helps ensure that the same mechanism is used for allocation and
@@ -222,13 +223,13 @@ export class Memory {
     /// Either way, if the machine allows writing to a global, doing so will
     /// create a copy of the global allocation here.
     // FIXME: this should not be public, but interning currently needs access to it
-    public alloc_map: CtfeMemoryMap,
+    public alloc_map: MachineTypesOf<M>["MemoryMap"],
 
     /// Map for "extra" function pointers.
-    public extra_fn_ptr_map: Map<AllocId, never>,
+    public extra_fn_ptr_map: Map<AllocId, MachineTypesOf<M>["ExtraFnVal"]>,
 
     /// Map storing variable argument lists.
-    public va_list_map: Map<AllocId, MPlaceTy[]>,
+    public va_list_map: Map<AllocId, MPlaceTy<ProvOf<M>>[]>,
 
     /// To be able to compare pointers with null, and to check alignment for accesses
     /// to ZSTs (where pointers may dangle), we keep track of the size even for allocations
@@ -242,12 +243,14 @@ export class Memory {
     public ghost_mode: boolean,
   ) {}
 
+  // PORT (plan-m6 D3): `M::MemoryMap::default()` is the machine's `MemoryMap_default` (the impl of `Self::MemoryMap:
+  // Default`), so the machine is passed in.
   // rustc: compiler/rustc_const_eval/src/interpret/memory.rs:163 new
-  static new(): Memory {
-    return new Memory(
-      /* M::MemoryMap::default() */ const_eval_machine().FxIndexMap_AllocMap.default_<AllocId, [MemoryKind<CtfeMemoryKind>, Allocation]>(),
-      /* FxIndexMap::default() */ new Map<AllocId, never>(),
-      /* FxIndexMap::default() */ new Map<AllocId, MPlaceTy[]>(),
+  static new<M extends AnyMachine>(machine: M): Memory<M> {
+    return new Memory<M>(
+      /* M::MemoryMap::default() */ machine.MemoryMap_default(),
+      /* FxIndexMap::default() */ new Map<AllocId, MachineTypesOf<M>["ExtraFnVal"]>(),
+      /* FxIndexMap::default() */ new Map<AllocId, MPlaceTy<ProvOf<M>>[]>(),
       /* FxIndexMap::default() */ new Map<AllocId, [Size, Align]>(),
       /* Cell::new( */ false /* ) */,
     );
@@ -256,7 +259,7 @@ export class Memory {
   /// This is used by [priroda](https://github.com/oli-obk/priroda)
   // rustc: compiler/rustc_const_eval/src/interpret/memory.rs:174 alloc_map
   // PORT: the method is `alloc_map_()` (clash with the field).
-  alloc_map_(): CtfeMemoryMap {
+  alloc_map_(): MachineTypesOf<M>["MemoryMap"] {
     return this.alloc_map;
   }
 }
@@ -291,23 +294,26 @@ var ty_print_pretty_cache: typeof import("../../rustc_middle/ty/print/pretty.ts"
 /// and had the on-access machine hooks run.
 // rustc-type: compiler/rustc_const_eval/src/interpret/memory.rs:155 AllocRefMut
 // PORT (D8): `&'a mut Allocation<Prov, Extra, Bytes>` is the (mutable) `Allocation` object.
-export class AllocRefMut {
+// PORT (plan-m6 D3/A1): the last field `Prov` is the `Provenance` impl of `Prov` (static dispatch on the type parameter,
+// interpret/machine.ts header), set from the machine's `M::Provenance` where the reference is made.
+export class AllocRefMut<Prov = CtfeProvenance, Extra = null, Bytes = Uint8Array> {
   constructor(
-    public alloc: Allocation,
+    public alloc: Allocation<Prov, Extra, Bytes>,
     public range: AllocRange,
     public tcx: TyCtxt,
     public alloc_id: AllocId,
+    public Prov: Provenance<Prov>,
   ) {}
 
   // ---- Reading and writing. (impl AllocRefMut) ----
   // rustc: compiler/rustc_const_eval/src/interpret/memory.rs:1339 as_ref
-  as_ref(): AllocRef {
-    return new AllocRef(this.alloc, this.range, this.tcx, this.alloc_id);
+  as_ref(): AllocRef<Prov, Extra, Bytes> {
+    return new AllocRef(this.alloc, this.range, this.tcx, this.alloc_id, this.Prov);
   }
 
   /// `range` is relative to this allocation reference, not the base of the allocation.
   // rustc: compiler/rustc_const_eval/src/interpret/memory.rs:1344 write_scalar
-  write_scalar(range: AllocRange, val: Scalar): InterpResult {
+  write_scalar(range: AllocRange, val: Scalar<Prov>): InterpResult {
     const range_ = this.range.subrange(range);
     // debug!("write_scalar at {:?}{range:?}: {val:?}", self.alloc_id);
 
@@ -316,7 +322,7 @@ export class AllocRefMut {
 
   /// `offset` is relative to this allocation reference, not the base of the allocation.
   // rustc: compiler/rustc_const_eval/src/interpret/memory.rs:1355 write_ptr_sized
-  write_ptr_sized(offset: Size, val: Scalar): InterpResult {
+  write_ptr_sized(offset: Size, val: Scalar<Prov>): InterpResult {
     return this.write_scalar(alloc_range(offset, this.tcx.data_layout().pointer_size()), val);
   }
 
@@ -345,37 +351,39 @@ export class AllocRefMut {
 /// and had the on-access machine hooks run.
 // #[derive(Copy, Clone)]
 // rustc-type: compiler/rustc_const_eval/src/interpret/memory.rs:147 AllocRef
-export class AllocRef {
+// PORT (plan-m6 D3/A1): the last field `Prov` as in `AllocRefMut`.
+export class AllocRef<Prov = CtfeProvenance, Extra = null, Bytes = Uint8Array> {
   constructor(
-    public alloc: Allocation,
+    public alloc: Allocation<Prov, Extra, Bytes>,
     public range: AllocRange,
     public tcx: TyCtxt,
     public alloc_id: AllocId,
+    public Prov: Provenance<Prov>,
   ) {}
 
   /// `range` is relative to this allocation reference, not the base of the allocation.
   // rustc: compiler/rustc_const_eval/src/interpret/memory.rs:1379 read_scalar
-  read_scalar(range: AllocRange, read_provenance: boolean): InterpResult<Scalar> {
+  read_scalar(range: AllocRange, read_provenance: boolean): InterpResult<Scalar<Prov>> {
     const range_ = this.range.subrange(range);
-    return alloc_result_into(this.alloc.read_scalar(this.tcx, range_, read_provenance), this.alloc_id);
+    return alloc_result_into(this.alloc.read_scalar(this.tcx, range_, read_provenance, this.Prov), this.alloc_id);
   }
 
   /// `range` is relative to this allocation reference, not the base of the allocation.
   // rustc: compiler/rustc_const_eval/src/interpret/memory.rs:1392 read_integer
-  read_integer(range: AllocRange): InterpResult<Scalar> {
+  read_integer(range: AllocRange): InterpResult<Scalar<Prov>> {
     return this.read_scalar(range, /*read_provenance*/ false);
   }
 
   /// `offset` is relative to this allocation reference, not the base of the allocation.
   // rustc: compiler/rustc_const_eval/src/interpret/memory.rs:1397 read_pointer
-  read_pointer(offset: Size): InterpResult<Scalar> {
+  read_pointer(offset: Size): InterpResult<Scalar<Prov>> {
     return this.read_scalar(alloc_range(offset, this.tcx.data_layout().pointer_size()), /*read_provenance*/ true);
   }
 
   /// `range` is relative to this allocation reference, not the base of the allocation.
   // rustc: compiler/rustc_const_eval/src/interpret/memory.rs:1405 get_bytes_strip_provenance
   get_bytes_strip_provenance(): InterpResult<Uint8Array> {
-    return alloc_result_into(this.alloc.get_bytes_strip_provenance(this.tcx, this.range), this.alloc_id);
+    return alloc_result_into(this.alloc.get_bytes_strip_provenance(this.tcx, this.range, this.Prov), this.alloc_id);
   }
 
   /// Returns whether the allocation has provenance anywhere in the range of the `AllocRef`.
@@ -531,9 +539,9 @@ InterpCx.prototype.allocate_ptr = function (this: InterpCx, size: Size, align: A
   const params = this.machine.get_default_alloc_params();
   let alloc: Allocation;
   if (this.machine.PANIC_ON_ALLOC_FAIL) {
-    alloc = Allocation.new(size, align, init, params);
+    alloc = Allocation.new(size, align, init, params, this.machine.Bytes);
   } else {
-    const r = Allocation.try_new(size, align, init, params);
+    const r = Allocation.try_new(size, align, init, params, this.machine.Bytes);
     if (r.$ === "Err") return r;
     alloc = r._0;
   }
@@ -543,7 +551,7 @@ InterpCx.prototype.allocate_ptr = function (this: InterpCx, size: Size, align: A
 // rustc: compiler/rustc_const_eval/src/interpret/memory.rs:267 allocate_bytes_ptr
 InterpCx.prototype.allocate_bytes_ptr = function (this: InterpCx, bytes: Uint8Array, align: Align, kind: MemoryKind<CtfeMemoryKind>, mutability: Mutability): InterpResult<Pointer> {
   const params = this.machine.get_default_alloc_params();
-  const alloc = Allocation.from_bytes(bytes, align, mutability, params);
+  const alloc = Allocation.from_bytes(bytes, align, mutability, params, this.machine.Bytes);
   return this.insert_allocation(alloc, kind);
 };
 
@@ -875,8 +883,8 @@ InterpCx.prototype.is_ptr_misaligned = function (this: InterpCx, ptr: Pointer<Ct
     const misalign = this.machine.alignment_check(this, alloc_id, alloc_info.align, alloc_info.kind, offset, align);
     if (misalign !== undefined) {
       return misalign;
-    } else if (Provenance_CtfeProvenance.OFFSET_IS_ADDR) {
-      return is_offset_misaligned(ptr.addr().bytes_u64(), align);
+    } else if (this.machine.Provenance.OFFSET_IS_ADDR) {
+      return is_offset_misaligned(ptr.addr(this.machine.Provenance).bytes_u64(), align);
     } else {
       // Check allocation alignment and offset alignment.
       if (alloc_info.align.bytes() < align.bytes()) {
@@ -917,7 +925,7 @@ InterpCx.prototype.remove_unreachable_allocs = function (this: InterpCx, reachab
 /// this machine use the same pointer provenance, so it is indirected through
 /// `M::adjust_allocation`.
 // rustc: compiler/rustc_const_eval/src/interpret/memory.rs:655 get_global_alloc
-InterpCx.prototype.get_global_alloc = function (this: InterpCx, id: AllocId, is_write: boolean): InterpResult<Allocation> {
+InterpCx.prototype.get_global_alloc = function (this: InterpCx, id: AllocId, is_write: boolean): InterpResult<Cow<Allocation>> {
   const g = this.tcx.deref().try_get_global_alloc(id);
   let alloc: ConstAllocation;
   let def_id: DefId | undefined;
@@ -997,11 +1005,20 @@ InterpCx.prototype.get_alloc_raw = function (this: InterpCx, id: AllocId): Inter
     const r = InterpResult.report_err(this.get_global_alloc(id, /*is_write*/ false));
     if (r.$ === "Err") return Err(r);
     const alloc = r._0;
-    // PORT: `Cow::Borrowed(alloc)`: the CTFE machines' `adjust_global_allocation` always borrows (header), so
-    // the `Cow::Owned` arm (`M::GLOBAL_KIND.expect(..)`, `Ok((MemoryKind::Machine(kind), alloc))`) is not taken.
-    // We got a ref, cheaply return that as an "error" so that the
-    // map does not get mutated.
-    return Err(Ok(alloc));
+    switch (alloc.$) {
+      case "Borrowed": {
+        const alloc_ = alloc._0;
+        // We got a ref, cheaply return that as an "error" so that the
+        // map does not get mutated.
+        return Err(Ok(alloc_));
+      }
+      case "Owned": {
+        const alloc_ = alloc._0;
+        // Need to put it into the map and return a ref to that
+        const kind = unwrap(this.machine.GLOBAL_KIND, "I got a global allocation that I have to copy but the machine does not expect that to happen");
+        return Ok<[MemoryKind<CtfeMemoryKind>, Allocation]>([{ $: "Machine", _0: kind }, alloc_]);
+      }
+    }
   });
   // Now unpack that funny error type
   if (a.$ === "Ok") {
@@ -1050,7 +1067,7 @@ InterpCx.prototype.get_ptr_alloc = function (this: InterpCx, ptr: Pointer<CtfePr
       const h = this.machine.before_memory_read(this.tcx, this.machine, alloc.extra, ptr, [alloc_id, prov], range);
       if (h.$ === "Err") return h;
     }
-    return interp_ok(new AllocRef(alloc, range, this.tcx.deref(), alloc_id));
+    return interp_ok(new AllocRef(alloc, range, this.tcx.deref(), alloc_id, this.machine.Provenance));
   } else {
     return interp_ok(undefined);
   }
@@ -1094,8 +1111,7 @@ InterpCx.prototype.get_alloc_raw_mut = function (this: InterpCx, id: AllocId): I
     const alloc = this.get_global_alloc(id, /*is_write*/ true);
     if (alloc.$ === "Err") return alloc;
     const kind = unwrap(this.machine.GLOBAL_KIND, "I got a global allocation that I have to copy but the machine does not expect that to happen");
-    // PORT: `alloc.into_owned()` of the borrowed global allocation is a clone (header).
-    this.memory.alloc_map.insert(id, [{ $: "Machine", _0: kind }, clone_Allocation(alloc._0, (p) => p, (e) => e, (b) => b.slice())]);
+    this.memory.alloc_map.insert(id, [{ $: "Machine", _0: kind }, Cow_into_owned_Allocation(alloc._0)]);
   }
 
   const [_kind, alloc] = unwrap(this.memory.alloc_map.get_mut(id));
@@ -1143,7 +1159,7 @@ InterpCx.prototype.get_ptr_alloc_mut = function (this: InterpCx, ptr: Pointer<Ct
       const w = machine.before_memory_write(tcx, machine, alloc.extra, ptr, [alloc_id, prov], range);
       if (w.$ === "Err") return w;
     }
-    return interp_ok(new AllocRefMut(alloc, range, tcx.deref(), alloc_id));
+    return interp_ok(new AllocRefMut(alloc, range, tcx.deref(), alloc_id, machine.Provenance));
   } else {
     return interp_ok(undefined);
   }
@@ -1416,7 +1432,7 @@ InterpCx.prototype.visit_reachable_allocs = function (this: InterpCx, start: All
       if (a.$ === "Err") return a;
       const alloc = a._0;
       for (const prov of alloc.provenance_().provenances()) {
-        const id_ = Provenance_CtfeProvenance.get_alloc_id(prov);
+        const id_ = this.machine.Provenance.get_alloc_id(prov);
         if (id_ !== undefined) {
           todo.push(id_);
         }
@@ -1494,7 +1510,7 @@ InterpCx.prototype.take_leaked_allocations = function (this: InterpCx, static_ro
         if (local !== undefined) {
           const [_1, alloc] = local;
           for (const prov of alloc.provenance_().provenances()) {
-            const id_ = Provenance_CtfeProvenance.get_alloc_id(prov);
+            const id_ = this.machine.Provenance.get_alloc_id(prov);
             if (id_ !== undefined) todo.push(id_);
           }
         }
@@ -1563,7 +1579,7 @@ InterpCx.prototype.validation_in_progress = function (this: InterpCx): boolean {
 // #[doc(hidden)]
 /// There's no way to use this directly, it's just a helper struct for the `dump_alloc(s)` methods.
 // rustc-type: compiler/rustc_const_eval/src/interpret/memory.rs:1256 DumpAllocs
-export class DumpAllocs<M extends Machine = Machine> {
+export class DumpAllocs<M extends AnyMachine = Machine> {
   constructor(
     public ecx: InterpCx<M>,
     public allocs: AllocId[],
@@ -1578,7 +1594,8 @@ export function debug_DumpAllocs(self: DumpAllocs, fmt: Fmt): string {
   function write_allocation_track_relocs<Prov, Extra, Bytes>(fmt: Fmt, tcx: TyCtxt, allocs_to_print: AllocId[], alloc: Allocation<Prov, Extra, Bytes>): string {
     void fmt;
     for (const prov of alloc.provenance_().provenances()) {
-      const alloc_id = Provenance_CtfeProvenance.get_alloc_id(prov as unknown as CtfeProvenance);
+      // PORT (plan-m6 D3): `prov.get_alloc_id()` of a generic `Prov` dispatches on the value (`provenance_of`).
+      const alloc_id = provenance_of(prov).get_alloc_id(prov);
       if (alloc_id !== undefined) {
         allocs_to_print.push(alloc_id);
       }
@@ -1667,7 +1684,7 @@ InterpCx.prototype.read_bytes_ptr_strip_provenance = function (this: InterpCx, p
   }
   // Side-step AllocRef and directly access the underlying bytes more efficiently.
   // (We are staying inside the bounds here so all is good.)
-  const b = alloc_result_into(alloc_ref.alloc.get_bytes_strip_provenance(alloc_ref.tcx, alloc_ref.range), alloc_ref.alloc_id);
+  const b = alloc_result_into(alloc_ref.alloc.get_bytes_strip_provenance(alloc_ref.tcx, alloc_ref.range, alloc_ref.Prov), alloc_ref.alloc_id);
   if (b.$ === "Err") return b;
   return interp_ok(b._0);
 };
@@ -1922,7 +1939,7 @@ InterpCx.prototype.ptr_try_get_alloc_id = function (this: InterpCx, ptr: Pointer
       const [alloc_id, offset, extra] = r;
       return Ok<[AllocId, Size, boolean]>([alloc_id, offset, extra]);
     } else {
-      assert(Provenance_CtfeProvenance.OFFSET_IS_ADDR, "assertion failed: M::Provenance::OFFSET_IS_ADDR");
+      assert(this.machine.Provenance.OFFSET_IS_ADDR, "assertion failed: M::Provenance::OFFSET_IS_ADDR");
       // Offset is absolute, as we just asserted.
       const [_1, addr] = ptr_.into_raw_parts();
       return Err(addr.bytes_u64());
@@ -1966,6 +1983,17 @@ const U64_MAX = (1n << 64n) - 1n;
 const I64_MAX = (1n << 63n) - 1n;
 
 /** `err_ub!(X)` */
+/** `Cow::<Allocation>::into_owned`: a borrowed allocation is cloned (derive(Clone): `Prov` / `Extra` are copied, the bytes
+ *  copied), an owned one moved out. */
+function Cow_into_owned_Allocation<Prov, Extra>(cow: Cow<Allocation<Prov, Extra, Uint8Array>>): Allocation<Prov, Extra, Uint8Array> {
+  switch (cow.$) {
+    case "Borrowed":
+      return clone_Allocation(cow._0, (p) => p, (e) => e, (b) => b.slice());
+    case "Owned":
+      return cow._0;
+  }
+}
+
 function err_ub(info: UndefinedBehaviorInfo): InterpErrorKind {
   return { $: "UndefinedBehavior", _0: info };
 }

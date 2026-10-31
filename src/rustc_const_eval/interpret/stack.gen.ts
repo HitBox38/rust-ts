@@ -3,18 +3,19 @@
 import { clone_Operand, debug_Operand, type Operand } from "./operand.gen.ts";
 import { type MPlaceTy, type PlaceTy } from "./place.gen.ts";
 import { type SpanGuard } from "./stack.ts";
+import { type CtfeProvenance } from "../../rustc_middle/mir/interpret/mod.ts";
 import { type BasicBlock, type Body, debug_BasicBlock, debug_UnwindAction, type Location, type UnwindAction } from "../../rustc_middle/mir/mod.ts";
 import { debug_Instance, type Instance } from "../../rustc_middle/ty/instance.ts";
 import { type TyAndLayout } from "../../rustc_middle/ty/layout.ts";
 import { debug_Span, type Span } from "../../rustc_span/lib.ts";
-import { type Debug, debug_bool, debug_option, debug_struct, debug_tuple } from "../../std/fmt.ts";
+import { type Debug, debug_bool, debug_option, debug_struct, debug_tuple, type Fmt } from "../../std/fmt.ts";
 
 // rustc-type: compiler/rustc_const_eval/src/interpret/stack.rs:28 SpanGuard
 export type { SpanGuard } from "./stack.ts";
 
 // rustc-type: compiler/rustc_const_eval/src/interpret/stack.rs:61 Frame
 /// A stack frame.
-export class Frame<Extra = null> {
+export class Frame<Prov = CtfeProvenance, Extra = null> {
   constructor(
     /// The MIR for the function called on this frame.
     public body: Body,
@@ -28,7 +29,7 @@ export class Frame<Extra = null> {
     /// and its layout in the caller. This place is to be interpreted relative to the
     /// *caller's* stack frame. We use a `PlaceTy` instead of an `MPlaceTy` since this
     /// avoids having to move *all* return places into Miri's memory.
-    public return_place: PlaceTy,
+    public return_place: PlaceTy<Prov>,
     /// The list of locals for this stack frame, stored in order as
     /// `[return_ptr, arguments..., variables..., temporaries...]`.
     /// The locals are stored as `Option<Value>`s.
@@ -36,10 +37,10 @@ export class Frame<Extra = null> {
     /// can either directly contain `Scalar` or refer to some part of an `Allocation`.
     ///
     /// Do *not* access this directly; always go through the machine hook!
-    public locals: LocalState[],
+    public locals: LocalState<Prov>[],
     /// The complete variable argument list of this frame. Its elements must be dropped when the
     /// frame is popped.
-    public va_list: MPlaceTy[],
+    public va_list: MPlaceTy<Prov>[],
     /// The span of the `tracing` crate is stored here.
     /// When the guard is dropped, the span is exited. This gives us
     /// a full stack trace on all tracing statements.
@@ -90,16 +91,16 @@ export function clone_ReturnContinuation(v: ReturnContinuation): ReturnContinuat
 
 // rustc-type: compiler/rustc_const_eval/src/interpret/stack.rs:132 LocalState
 /// State of a local variable including a memoized layout
-export class LocalState {
+export class LocalState<Prov = CtfeProvenance> {
   constructor(
-    public value: LocalValue,
+    public value: LocalValue<Prov>,
     /// Don't modify if `Some`, this is only used to prevent computing the layout twice.
     /// Avoids computing the layout of locals that are never actually initialized.
     public layout: TyAndLayout | undefined,
   ) {}
 }
-export function clone_LocalState(v: LocalState): LocalState {
-  return new LocalState(clone_LocalValue(v.value), v.layout);
+export function clone_LocalState<Prov>(v: LocalState<Prov>, clone_Prov: (v: Prov) => Prov): LocalState<Prov> {
+  return new LocalState(clone_LocalValue(v.value, clone_Prov), v.layout);
 }
 
 // rustc-type: compiler/rustc_const_eval/src/interpret/stack.rs:153 LocalValue
@@ -107,7 +108,7 @@ export function clone_LocalState(v: LocalState): LocalState {
 ///
 /// This does not store the type of the local; the type is given by `body.local_decls` and can never
 /// change, so by not storing here we avoid having to maintain that as an invariant.
-export type LocalValue =
+export type LocalValue<Prov = CtfeProvenance> =
   /// This local is not currently alive, and cannot be used at all.
   | { readonly $: "Dead" }
   /// A normal, live local.
@@ -115,23 +116,23 @@ export type LocalValue =
   /// This is an optimization over just always having a pointer here;
   /// we can thus avoid doing an allocation when the local just stores
   /// immediate values *and* never has its address taken.
-  | { readonly $: "Live"; _0: Operand };
+  | { readonly $: "Live"; _0: Operand<Prov> };
 /** Unit variants of `LocalValue`, shared frozen singletons. */
 export const LocalValue = {
   Dead: Object.freeze({ $: "Dead" as const }),
 };
-export const debug_LocalValue: Debug<LocalValue> = (v, f) => {
+export function debug_LocalValue<Prov>(v: LocalValue<Prov>, f: Fmt, debug_Prov: Debug<Prov>): string {
   switch (v.$) {
     case "Live":
-      return debug_tuple(f, "Live", [debug_Operand(v._0, f)]);
+      return debug_tuple(f, "Live", [debug_Operand(v._0, f, debug_Prov)]);
     case "Dead":
       return v.$;
   }
-};
-export function clone_LocalValue(v: LocalValue): LocalValue {
+}
+export function clone_LocalValue<Prov>(v: LocalValue<Prov>, clone_Prov: (v: Prov) => Prov): LocalValue<Prov> {
   switch (v.$) {
     case "Live":
-      return { $: "Live", _0: clone_Operand(v._0) };
+      return { $: "Live", _0: clone_Operand(v._0, clone_Prov) };
     case "Dead":
       return v;
   }

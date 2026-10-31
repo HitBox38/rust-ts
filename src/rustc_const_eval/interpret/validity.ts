@@ -13,7 +13,7 @@
 //! to be const-safe.
 import { type Align, BackendRepr, type FieldsShape, Size, Size_cmp, Size_eq, type VariantIdx, VariantIdx as VariantIdxC, type WrappingRange } from "../../rustc_abi/lib.ts";
 import { InterpCx } from "./eval_context.ts";
-import { type Machine } from "./machine.ts";
+import { type AnyMachine, type ProvOf, type Machine } from "./machine.ts";
 import { key_MPlaceTy, MemPlaceMeta, PlaceTy_from_MPlaceTy } from "./place.ts";
 import { type ExpectedKind, Path, PathElem, PtrKind, type RangeSet } from "./validity.gen.ts";
 import {
@@ -61,13 +61,13 @@ declare module "./validity.gen.ts" {
 }
 
 declare module "./eval_context.ts" {
-  interface InterpCx<M extends Machine = Machine> {
+  interface InterpCx<M extends AnyMachine = Machine> {
     // validity.rs:1597
-    validate_place_internal(val: PlaceTy, path: Path, ref_tracking: RefTracking<MPlaceTy, Path> | undefined, ctfe_mode: CtfeValidationMode | undefined, reset_provenance_and_padding: boolean, start_in_may_dangle: boolean): InterpResult;
+    validate_place_internal(val: PlaceTy<ProvOf<M>>, path: Path, ref_tracking: RefTracking<MPlaceTy<ProvOf<M>>, Path> | undefined, ctfe_mode: CtfeValidationMode | undefined, reset_provenance_and_padding: boolean, start_in_may_dangle: boolean): InterpResult;
     // validity.rs:1654
-    const_validate_place(val: PlaceTy, path: Path, ref_tracking: RefTracking<MPlaceTy, Path>, ctfe_mode: CtfeValidationMode): InterpResult;
+    const_validate_place(val: PlaceTy<ProvOf<M>>, path: Path, ref_tracking: RefTracking<MPlaceTy<ProvOf<M>>, Path>, ctfe_mode: CtfeValidationMode): InterpResult;
     // validity.rs:1675
-    validate_place(val: PlaceTy, recursive: boolean, reset_provenance_and_padding: boolean): InterpResult;
+    validate_place(val: PlaceTy<ProvOf<M>>, recursive: boolean, reset_provenance_and_padding: boolean): InterpResult;
   }
 }
 
@@ -202,7 +202,7 @@ export class RefTracking<T, PATH = null> {
 // rustc-type: compiler/rustc_const_eval/src/interpret/validity.rs:348 ValidityVisitor
 // PORT: `impl ValueVisitor for ValidityVisitor` (`type V = PlaceTy`) is in the class body (base class
 // `ValueVisitor_provided`); `ref_tracking: Option<&'rt mut RefTracking<..>>` is the shared object.
-export class ValidityVisitor<M extends Machine = Machine> extends ValueVisitor_provided<PlaceTy> {
+export class ValidityVisitor<M extends AnyMachine = Machine> extends ValueVisitor_provided<PlaceTy> {
   constructor(
     /// The `path` may be pushed to, but the part that is present when a function
     /// starts must not be changed!  `with_elem` relies on this stack discipline.
@@ -572,7 +572,7 @@ export class ValidityVisitor<M extends Machine = Machine> extends ValueVisitor_p
     const null_r = this.ecx.scalar_may_be_null(scalar);
     if (null_r.$ === "Err") return null_r;
     if (null_r._0) {
-      const maybe = !Provenance_CtfeProvenance.OFFSET_IS_ADDR && scalar.$ === "Ptr";
+      const maybe = !this.ecx.machine.Provenance.OFFSET_IS_ADDR && scalar.$ === "Ptr";
       return throw_validation_failure(
         this.path,
         `encountered a ${maybe ? "maybe-" : ""}null ${display_PtrKind(ptr_kind, PLAIN)}`,
@@ -840,7 +840,7 @@ export class ValidityVisitor<M extends Machine = Machine> extends ValueVisitor_p
           const null_r = this.ecx.scalar_may_be_null(scalar);
           if (null_r.$ === "Err") return null_r;
           if (null_r._0) {
-            const maybe = !Provenance_CtfeProvenance.OFFSET_IS_ADDR && scalar.$ === "Ptr";
+            const maybe = !this.ecx.machine.Provenance.OFFSET_IS_ADDR && scalar.$ === "Ptr";
             return throw_validation_failure(
               this.path,
               `encountered a ${maybe ? "maybe-" : ""}null function pointer`,
@@ -951,7 +951,7 @@ export class ValidityVisitor<M extends Machine = Machine> extends ValueVisitor_p
     if (e.$ === "Left") {
       const mplace = e._0;
       const p = mplace.ptr().provenance;
-      const alloc_id = p !== undefined ? Provenance_CtfeProvenance.get_alloc_id(p) : undefined;
+      const alloc_id = p !== undefined ? this.ecx.machine.Provenance.get_alloc_id(p) : undefined;
       if (alloc_id !== undefined) {
         const tcx = this.ecx.tcx.deref();
         // Everything must be already interned.
