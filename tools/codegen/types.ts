@@ -211,6 +211,12 @@ export interface TypeMap {
   cfg: { true: string[]; false: string[] };
   helpers: Record<string, string[]>;
   types: TypeMapEntry[];
+  /**
+   * Set-local type maps (`typemap_extra`) only: the type of one field read as another type-map path, keyed
+   * `<item key>::<field>` (struct) or `<item key>::<Variant>::<field>` (enum; tuple fields by index). For a `u64`/`i64`
+   * field whose values reach 2^53 (PORTING §5 "else bigint per field"): `"::rust_ts::u64_exact"` maps it to `bigint`.
+   */
+  fields?: Record<string, string>;
 }
 export interface SetConfig {
   files: string[];
@@ -722,10 +728,12 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
   for (const e of tm.types) for (const p of e.paths) tmIndex.set(p, e);
   const helperModule = new Map<string, string>();
   for (const [m, names] of Object.entries(tm.helpers)) for (const n of names) helperModule.set(n, m);
+  const fieldTypes = new Map<string, string>();
   for (const name of set.typemap_extra ?? []) {
     const extra: Partial<TypeMap> = JSON.parse(readFileSync(join(HERE, name), "utf8"));
     for (const e of extra.types ?? []) for (const p of e.paths) tmIndex.set(p, e);
     for (const [m, names] of Object.entries(extra.helpers ?? {})) for (const n of names) helperModule.set(n, m);
+    for (const [k, p] of Object.entries(extra.fields ?? {})) fieldTypes.set(k, p);
   }
 
   // modules and items
@@ -755,6 +763,20 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       const imod = [...mod, ...item.module];
       const key = [...imod, item.name].join("::");
       items.set(key, { item, mf, mod: imod, key });
+    }
+  }
+  // set-local per-field types (`fields` of a `typemap_extra` file, shared by several sets): the field's type becomes the given path
+  if (fieldTypes.size) {
+    const retype = (k: string, fl: PField) => {
+      const p = fieldTypes.get(k);
+      if (p === undefined) return;
+      const global = p.startsWith("::");
+      const segs = (global ? p.slice(2) : p).split("::");
+      fl.ty = { kind: "path", text: p, path: { global, segments: segs.map((name) => ({ name, args: [] })) } };
+    };
+    for (const r of items.values()) {
+      for (const fl of r.item.fields?.fields ?? []) retype(`${r.key}::${fl.name ?? fl.index}`, fl);
+      for (const v of r.item.variants ?? []) for (const fl of v.fields.fields) retype(`${r.key}::${v.name}::${fl.name ?? fl.index}`, fl);
     }
   }
   // item macros expanded here: `newtype_index!` (new types) and `bitflags!` (flags of a struct)

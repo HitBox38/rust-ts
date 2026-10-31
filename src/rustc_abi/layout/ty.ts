@@ -52,10 +52,10 @@ export interface Range<Idx> {
   readonly end: Idx;
 }
 /** PORT (abi-layout-b): the `T: Copy + Ord + Default + Add + Sub` table of `RangeSet<Size>` (rustc_data_structures
- * range_set.ts module comment); `Size`'s derived `Ord` compares the byte count. */
+ * range_set.ts module comment); `Size`'s derived `Ord` is `Size_cmp`. */
 const SIZE_RANGE_SET_OPS: RangeSetOps<Size> = {
   default_: () => Size.ZERO,
-  cmp: (a, b) => (a.bytes() < b.bytes() ? -1 : a.bytes() > b.bytes() ? 1 : 0),
+  cmp: Size_cmp,
   add: (a, b) => a.add(b),
   sub: (a, b) => a.sub(b),
 };
