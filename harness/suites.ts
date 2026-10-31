@@ -7,7 +7,8 @@ import { caseDeps } from "../scripts/lib/deps.ts";
 import { caseEnv, mergeEnv } from "../scripts/lib/env.ts";
 import { oraclePinnedPathEnv, oracleRustcCmd, oracleSysroot, rustcDriverHash, verifyOracleToolchain } from "../scripts/lib/oracle.ts";
 import { probePath } from "../scripts/probes.ts";
-import { COMPILETEST_TARGET, collectUiTests, uiBlessed, uiCases, uiFileCases, type Blessed, type ErrorFormat } from "./compiletest.ts";
+import { MIRI_CASE_ENV, MIRI_DEFAULT_ARGS, MIRI_SYSROOT, miriBinary, miriOracleKey, miriPin } from "../scripts/lib/miri.ts";
+import { COMPILETEST_TARGET, collectUiTests, uiBlessed, uiCases, uiFileCases, type Blessed, type ErrorFormat, type UiCase } from "./compiletest.ts";
 import { EMPTY_SYSROOT, M5_TARGET, libArgs, libCrate, libEnv, oracleLibRmeta } from "./library.ts";
 
 export interface Case {
@@ -114,6 +115,18 @@ export interface Suite {
    * UNSTABLE when its oracle stderr shows a known nondeterministic pattern (difftest `UNSTABLE_ORACLE_PATTERNS`).
    */
   unstable?(): UnstableCase[];
+  /**
+   * The oracle is the isolated Miri (plan-m6 D1; scripts/lib/miri.ts): difftest verifies its toolchain and sysroot
+   * (`verifyMiriOracle`) before it makes any case, and the gate's probe check accepts the Miri binary as the oracle
+   * command.
+   */
+  miri?: boolean;
+  /**
+   * A milestone-completion criterion over the suite's cases (plan-m6 A9): MATCH over every case but the ORACLE_TIMEOUT
+   * ones must reach `percent`. Report only (difftest prints it and records it in `<suite>.summary.json`): never a
+   * status, never a gate failure; the protected set still only grows.
+   */
+  criterion?: { percent: number; what: string };
 }
 
 function walk(dir: string, out: string[] = []): string[] {
@@ -1517,6 +1530,199 @@ SUITES.push(
       return [process.execPath, CHAIN_RUN, "--fresh", portCore, "--first", String(core.length), "--", ...core, ...alloc];
     },
   ),
+);
+
+// M6 (plan-m6 §4, D1, D4, D6, D11, D14, A7, A9, A11; lane harness-m6a): programs run under the Miri oracle.
+// - Oracle: the pinned nightly's Miri from the isolated toolchain (scripts/lib/miri.ts), by absolute path, on the
+//   oracle-built Miri sysroot (`--sysroot $RUST_TS_DATA/miri-sysroot`, D4) for x86_64-unknown-linux-gnu. difftest checks
+//   the toolchain and sysroot first (`Suite.miri`); the cache key adds `miriOracleKey()` (toolchain identity, every
+//   sysroot file, the target), on top of the case's argv, env, file and dependencies. Miri's output names the sysroot's
+//   std sources by absolute local paths, so the cache is bound to this $RUST_TS_DATA (A11).
+// - Run mode: one process per case, which compiles *and runs* the program; compared as every single-mode suite is:
+//   stdout + stderr + exit code, byte for byte, with no normalisation (D14: the port runs with the same argv, cwd and
+//   env, so paths in diagnostics and backtraces are the same on both sides).
+// - Env (both sides): the case's own (compiletest's `rustc-env`: `RUSTC_ICE=0`, `RUST_BACKTRACE=short`, ...) plus
+//   `MIRI_CASE_ENV` (the isolated RUSTUP_HOME / CARGO_HOME; Miri's own `MIRI_*` variables removed), session variables
+//   pinned as in the other tests/ui suites (`pinSessionEnv`). Isolation stays on (Miri's default, D14), so the
+//   interpreted program sees no host variable, file, clock or cwd; `unset-exec-env` is therefore a no-op.
+// - Subject: until the port of Miri's driver (src/tools/miri/src/bin/miri.rs, lane miri-driver) exists, the port's
+//   rustc driver as Miri would run rustc (`miriSubject`): `MIRI_DEFAULT_ARGS` first, then the case's argv without
+//   Miri's own `-Zmiri-*` flags and the program's arguments after `--`. It compiles the program and stops UNPORTED at
+//   codegen (exit 70). A harness batch switches the subject to `src/miri/bin/miri.ts` with the oracle's exact argv
+//   when that exists.
+// Suites (all unprotected, milestone M6; their `criterion` is reported, never enforced, A9):
+// - `miri-hello`: std's hello world (harness/corpus/miri/hello.rs) with Miri's plain argv (plan-m6 §1b), cwd the
+//   repo. Gate M6a.
+// - `run-pass-miri`, `run-fail-miri`: every tests/ui test whose mode (per revision) is `run-pass`, resp. `run-fail` /
+//   `run-crash` / `run-fail-or-crash`, without aux crates, with compiletest's argv for its main compile
+//   (harness/compiletest.ts `uiFileCases(.., { run: true })`, human error format, cwd the upstream checkout) turned
+//   into Miri's by D6 (`miriRunArgs`). Tests compiletest would skip on x86_64-unknown-linux-gnu, aux tests (the later
+//   `run-pass-aux-miri`) and the heavy cases are listed as skipped. Gate M6b's share.
+// - `run-pass-miri-heavy`: the run-pass cases the full oracle timing (A7, `bun scripts/miri.ts time`) found slow
+//   (`MIRI_HEAVY`), in the heavy class: one process at a time, run after the other suites, long timeouts.
+/** The pass/fail modes of the run suites. */
+const RUN_PASS_MODES = ["run-pass"];
+const RUN_FAIL_MODES = ["run-fail", "run-crash", "run-fail-or-crash"];
+/** A pass/fail directive (compiletest's `PASS_FAIL_MODES`), with its revision. */
+const MODE_DIRECTIVE = /^\s*\/\/@\s*(?:\[([^\]]*)\])?\s*(check-fail|check-pass|build-fail|build-pass|run-fail-or-crash|run-fail|run-crash|run-pass)\b/gm;
+/** The modes a test file declares for revision `rev` (undefined: any revision). */
+function declaredModes(file: string, rev: string | undefined): string[] {
+  const src = readFileSync(join(UPSTREAM, file), "utf8");
+  return [...src.matchAll(MODE_DIRECTIVE)].filter((m) => rev === undefined || m[1] === undefined || m[1] === rev).map((m) => m[2]!);
+}
+let runFilesMemo: string[] | undefined;
+/** Every tests/ui test that declares a run mode in any revision. */
+const runModeFiles = (): string[] =>
+  (runFilesMemo ??= collectUiTests("tests/ui")
+    .sort()
+    .filter((f) => declaredModes(f, undefined).some((m) => m.startsWith("run-"))));
+let runCorpusMemo: { cases: UiCase[]; skipped: SkippedCase[] } | undefined;
+/** compiletest's cases of `runModeFiles` (no aux crates), with their mode and run props. */
+const runCorpus = (): { cases: UiCase[]; skipped: SkippedCase[] } => (runCorpusMemo ??= uiFileCases(runModeFiles(), "human", { run: true }));
+
+/**
+ * plan-m6 D6: the Miri argv of a compiletest run-mode case (`c.args`, its main compile): every `-o <path>` dropped
+ * (Miri writes no output), the oracle sysroot that compiletest's argv names replaced by the Miri sysroot (the
+ * `--target=x86_64-unknown-linux-gnu`, `-O`, `-Zui-testing` and remap flags stay), each `exec-env` `K=V` as
+ * `-Zmiri-env-set=K=V` unless an `unset-exec-env` removes it (compiletest sets, then removes; other removals are
+ * no-ops: with isolation on the program sees no host variable), and the `run-flags` after `--` (the interpreted
+ * program's arguments). Throws (a skip) if the
+ * argv names the oracle sysroot anywhere else (a test's own `--sysroot` or `{{sysroot-base}}`).
+ */
+export function miriRunArgs(c: Pick<UiCase, "id" | "args" | "run">, oracleSysrootPath: string, miriSysroot: string): string[] {
+  const out: string[] = [];
+  let sysroots = 0;
+  for (let i = 0; i < c.args.length; i++) {
+    const a = c.args[i]!;
+    if (a === "-o") {
+      i++;
+      continue;
+    }
+    if (a === "--sysroot" && c.args[i + 1] === oracleSysrootPath) {
+      out.push(a, miriSysroot);
+      i++;
+      sysroots++;
+      continue;
+    }
+    if (a.includes(oracleSysrootPath)) throw new Error(`names the oracle sysroot in \`${a}\` (not the Miri sysroot)`);
+    out.push(a);
+  }
+  if (sysroots !== 1) throw new Error(`has ${sysroots} \`--sysroot <oracle sysroot>\` arguments, not 1 (a test's own --sysroot)`);
+  // runtest.rs `exec_compiled_test_general`: the `exec-env` variables are set, then the `unset-exec-env` ones removed.
+  for (const [k, v] of c.run?.env ?? []) if (!c.run!.unsetEnv.includes(k)) out.push(`-Zmiri-env-set=${k}=${v}`);
+  if (c.run?.flags.length) out.push("--", ...c.run.flags);
+  return out;
+}
+
+/**
+ * The full-run oracle timing of plan-m6 A7 (`bun scripts/miri.ts time --suite run-pass-miri`, docs/handoff/harness-m6a.md;
+ * macOS arm64, 8 jobs, 300 s cap, the two capped ones re-timed alone without it): the run-pass cases over 5 s of user
+ * time under the Miri oracle (the next slowest took 3.4 s); id -> what was measured. Every other run-pass case took
+ * under 3.5 s (p99 0.31 s).
+ */
+const MIRI_HEAVY: Record<string, string> = {
+  "tests/ui/collections/hashset-connected-border-12860.rs": "Miri oracle 451 s user, exit 0",
+  "tests/ui/generics/issue-94923.rs": "Miri oracle 10.6 s user, exit 0",
+  "tests/ui/impl-trait/example-calendar.rs": "Miri oracle 8.6 s user, exit 0",
+  "tests/ui/range/step_overflowing.rs": "Miri oracle 282 s user, exit 0",
+  "tests/ui/threads-sendsync/task-comm-5.rs": "Miri oracle 5.1 s user, exit 0",
+  "tests/ui/threads-sendsync/task-comm-6.rs": "Miri oracle 18.5 s user, exit 0",
+};
+const heavyReason = (id: string) => `heavy (plan-m6 A7: ${MIRI_HEAVY[id]}): in run-pass-miri-heavy`;
+
+const runMemo = new Map<string, { cases: Case[]; skipped: SkippedCase[] }>();
+/** The Miri cases of the run modes `modes` (see above), with the skips of those modes' tests. */
+function miriRunCorpus(modes: string[]): { cases: Case[]; skipped: SkippedCase[] } {
+  const key = modes.join(",");
+  const m = runMemo.get(key);
+  if (m) return m;
+  const ui = runCorpus();
+  const sysroot = oracleSysroot();
+  const cases: Case[] = [];
+  const skipped: SkippedCase[] = [];
+  for (const c of ui.cases) {
+    if (!modes.includes(c.mode!)) continue;
+    try {
+      cases.push(pinSessionEnv({ id: c.id, file: c.file, args: miriRunArgs(c, sysroot, MIRI_SYSROOT), env: { ...c.env, ...MIRI_CASE_ENV } }));
+    } catch (e) {
+      skipped.push({ id: c.id, reason: `not run under Miri: ${e instanceof Error ? e.message : String(e)}` });
+    }
+  }
+  // A skipped test (id `<file>` or `<file>#<rev>`) belongs to the suites of the modes it declares for that revision.
+  for (const k of ui.skipped) {
+    const hash_ = k.id.indexOf("#");
+    const declared = declaredModes(hash_ < 0 ? k.id : k.id.slice(0, hash_), hash_ < 0 ? undefined : k.id.slice(hash_ + 1));
+    if (declared.some((d) => modes.includes(d))) skipped.push(k);
+  }
+  const r = { cases, skipped: skipped.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)) };
+  runMemo.set(key, r);
+  return r;
+}
+
+/**
+ * The subject of a Miri case (see above): the port's rustc driver with Miri's rustc argv, until the port of Miri's
+ * driver exists.
+ */
+export function miriSubject(args: string[]): string[] {
+  const dd = args.indexOf("--");
+  const rustc = (dd < 0 ? args : args.slice(0, dd)).filter((a) => !a.startsWith("-Zmiri-"));
+  return [...bunCmd("src/rust_ts/main.ts"), ...MIRI_DEFAULT_ARGS, ...rustc];
+}
+
+const MIRI_HELLO = "harness/corpus/miri/hello.rs";
+/** The fields every Miri suite shares. */
+const miriSuite = (s: Omit<Suite, "milestone" | "mode" | "miri" | "oracle" | "subject" | "oracleKey">): Suite => ({
+  ...s,
+  milestone: "M6",
+  mode: "single",
+  miri: true,
+  oracleKey: miriOracleKey,
+  oracle: ([c]) => [miriBinary(), ...c!.args],
+  subject: ([c]) => miriSubject(c!.args),
+});
+const M6B = "plan-m6 gate M6b: run-pass-miri + run-pass-miri-heavy + run-fail-miri >= 90% MATCH, ORACLE_TIMEOUT excluded";
+const MIRI_HEAVY_CLASS = { rssBudgetMb: 12 * 1024 };
+SUITES.push(
+  miriSuite({
+    name: "miri-hello",
+    description:
+      "Miri (the pinned nightly's, isolated toolchain) runs std's hello world on the oracle-built Miri sysroot for x86_64-unknown-linux-gnu (`miri hello.rs --sysroot <miri-sysroot> --target x86_64-unknown-linux-gnu`): stdout + stderr + exit; gate M6a",
+    timeoutMs: 60_000,
+    cwd: REPO,
+    cases: () => [{ id: MIRI_HELLO, file: MIRI_HELLO, args: [MIRI_HELLO, "--sysroot", MIRI_SYSROOT, "--target", miriPin().target], env: { ...NOCORE_ENV, ...MIRI_CASE_ENV } }],
+    criterion: { percent: 100, what: "plan-m6 gate M6a: miri-hello MATCH" },
+  }),
+  miriSuite({
+    name: "run-pass-miri",
+    description:
+      "tests/ui run-pass tests (no aux crates) run under Miri with compiletest's argv for x86_64-unknown-linux-gnu on the Miri sysroot (plan-m6 D6: no -o, exec-env as -Zmiri-env-set, run-flags after --): stdout + stderr + exit; heavy cases in run-pass-miri-heavy",
+    timeoutMs: 60_000,
+    cases: () => miriRunCorpus(RUN_PASS_MODES).cases.filter((c) => !Object.hasOwn(MIRI_HEAVY, c.id)),
+    skipped: () =>
+      [...miriRunCorpus(RUN_PASS_MODES).skipped, ...miriRunCorpus(RUN_PASS_MODES).cases.filter((c) => Object.hasOwn(MIRI_HEAVY, c.id)).map((c) => ({ id: c.id, reason: heavyReason(c.id) }))].sort((a, b) =>
+        a.id < b.id ? -1 : a.id > b.id ? 1 : 0,
+      ),
+    criterion: { percent: 90, what: M6B },
+  }),
+  miriSuite({
+    name: "run-pass-miri-heavy",
+    description: "run-pass-miri's slow cases (the full oracle timing of plan-m6 A7: over 5 s user or timed out under the Miri oracle), heavy class: one process at a time, long timeouts",
+    timeoutMs: 1_800_000,
+    // The slowest oracle run is 451 s (`MIRI_HEAVY`); a finished one is cached.
+    oracleTimeoutMs: 900_000,
+    heavy: MIRI_HEAVY_CLASS,
+    cases: () => miriRunCorpus(RUN_PASS_MODES).cases.filter((c) => Object.hasOwn(MIRI_HEAVY, c.id)),
+    criterion: { percent: 90, what: M6B },
+  }),
+  miriSuite({
+    name: "run-fail-miri",
+    description:
+      "tests/ui run-fail / run-crash / run-fail-or-crash tests (no aux crates) run under Miri, argv as run-pass-miri: stdout + stderr + exit (Miri's panic / abort / UB output is the oracle)",
+    timeoutMs: 60_000,
+    cases: () => miriRunCorpus(RUN_FAIL_MODES).cases,
+    skipped: () => miriRunCorpus(RUN_FAIL_MODES).skipped,
+    criterion: { percent: 90, what: M6B },
+  }),
 );
 
 export function suite(name: string): Suite {
