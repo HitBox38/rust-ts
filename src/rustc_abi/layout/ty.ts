@@ -37,6 +37,8 @@ import {
   type PointeeInfo,
   Scalar,
   Size,
+  Size_cmp,
+  Size_eq,
   type Variants,
 } from "../lib.ts";
 import type { Hash64 } from "../../rustc_hashes/lib.ts";
@@ -727,7 +729,7 @@ export class TyAndLayout<Ty> {
             }
             case "Array": {
               const count = fields.count;
-              assert_eq(start, Size.ZERO, (v) => debug_Size(v, PLAIN), (a, b) => a.raw === b.raw);
+              assert_eq(start, Size.ZERO, (v) => debug_Size(v, PLAIN), Size_eq);
 
               let result: HomogeneousAggregate;
               if (count > 0n) {
@@ -758,7 +760,7 @@ export class TyAndLayout<Ty> {
               continue;
             }
 
-            if (!is_union && total.raw !== FieldsShape.offset(layout.fields, i).raw) {
+            if (!is_union && !Size_eq(total, FieldsShape.offset(layout.fields, i))) {
               // This field isn't just after the previous one we considered, abort.
               return Err(Heterogeneous);
             }
@@ -819,17 +821,17 @@ export class TyAndLayout<Ty> {
         }
 
         // There needs to be no padding.
-        if (total.raw !== this.size.raw) {
+        if (!Size_eq(total, this.size)) {
           return Err(Heterogeneous);
         } else {
           switch (result.$) {
             case "Homogeneous":
-              if (total.raw === Size.ZERO.raw) {
+              if (Size_eq(total, Size.ZERO)) {
                 return panic(`assertion \`left != right\` failed\n  left: ${debug_Size(total, PLAIN)}\n right: ${debug_Size(Size.ZERO, PLAIN)}`);
               }
               break;
             case "NoData":
-              assert_eq(total, Size.ZERO, (v) => debug_Size(v, PLAIN), (a, b) => a.raw === b.raw);
+              assert_eq(total, Size.ZERO, (v) => debug_Size(v, PLAIN), Size_eq);
               break;
           }
           return Ok(result);
@@ -846,7 +848,7 @@ export function TyAndLayout_eq<Ty>(a: TyAndLayout<Ty>, b: TyAndLayout<Ty>): bool
 
 /** PORT (abi-lib): `Ord::max` of two `Size`s (callconv.rs `homogeneous_aggregate`); the second on a tie, as `Ord::max`. */
 function size_max(a: Size, b: Size): Size {
-  return a.raw > b.raw ? a : b;
+  return Size_cmp(a, b) > 0 ? a : b;
 }
 
 // impl<'a, Ty: fmt::Display> fmt::Debug for TyAndLayout<'a, Ty>

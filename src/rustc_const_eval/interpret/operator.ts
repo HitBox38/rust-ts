@@ -526,7 +526,7 @@ InterpCx.prototype.compute_size_in_bytes = function (this: InterpCx, elem_size: 
   // subsequent check for `max_size_of_val` means we also handle 32bit targets correctly.
   // (We cannot use `Size::checked_mul` as that enforces `obj_size_bound` as the limit, which
   // would be wrong here.)
-  const total_bytes = BigInt(elem_size.bytes()) * count;
+  const total_bytes = elem_size.bytes_u64() * count;
   if (total_bytes > U64_MAX) return undefined;
   // PORT: `max_size_of_val()` is `Size::from_bytes(isize::MAX)`, beyond 2^53 for 64-bit targets (unported under the
   // Size rule), so the comparison is done in bigint against `target_isize_max` (the same value) before building the Size.
@@ -548,7 +548,7 @@ InterpCx.prototype.binary_ptr_op = function (this: InterpCx, bin_op: BinOp, left
       assert(pointee_layout.is_sized(), "assertion failed: pointee_layout.is_sized()");
 
       // The size always fits in `i64` as it can be at most `isize::MAX`.
-      const pointee_size_ = BigInt(pointee_layout.size.bytes());
+      const pointee_size_ = pointee_layout.size.bytes_u64();
       // This uses the same type as `right`, which can be `isize` or `usize`.
       // `pointee_size` is guaranteed to fit into both types.
       const pointee_size = ImmTy.from_int(pointee_size_, right.layout);

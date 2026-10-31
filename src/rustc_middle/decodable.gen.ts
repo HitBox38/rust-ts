@@ -7,18 +7,19 @@ import { decode_CtorKind, decode_Res, decode_Safety, encode_CtorKind, encode_Res
 import { decode_Constness, encode_Constness } from "../rustc_hir/hir.ts";
 import { decode_RefDecodable_slice_into_arena } from "./arena.ts";
 import { type DeducedParamAttrs, type UsageSummary } from "./middle/deduced_param_attrs.ts";
+import { type ExportedSymbol, type SymbolExportInfo, type SymbolExportKind, type SymbolExportLevel } from "./middle/exported_symbols.ts";
 import { type FeatureStability } from "./middle/mod.ts";
 import { type AmbigModChild, type ModChild, Reexport } from "./middle/resolve.ts";
 import { ObjectLifetimeDefault } from "./middle/resolve_bound_vars.ts";
 import { type CastKind } from "./ty/abstract_const.ts";
 import { AdtDefData, type AdtFlags } from "./ty/adt.ts";
-import { decode_Clause, decode_List_BoundVariableKind, decode_Ty, decode_ValTree, encode_Clause, encode_List_BoundVariableKind, encode_Ty, encode_ValTree, type TyDecoder, type TyEncoder } from "./ty/codec.ts";
+import { decode_Clause, decode_GenericArgs, decode_List_BoundVariableKind, decode_SymbolName, decode_Ty, decode_ValTree, encode_Clause, encode_GenericArgs, encode_List_BoundVariableKind, encode_Ty, encode_ValTree, type TyDecoder, type TyEncoder } from "./ty/codec.ts";
 import { type Value } from "./ty/consts/valtree.ts";
 import { type ConstConditions, type GenericClauses, type GenericParamDef, GenericParamDefKind, Generics } from "./ty/generics.ts";
 import { type IntrinsicDef } from "./ty/intrinsic.ts";
-import { type AsyncDestructor, type Destructor, FieldDef, ImplTraitHeader, type ImplTraitInTraitData, RestrictionKind, VariantDef, type VariantDiscr, type VariantFlags, Visibility } from "./ty/mod.ts";
+import { type AsyncDestructor, type Destructor, FieldDef, ImplTraitHeader, type ImplTraitInTraitData, RestrictionKind, type SymbolName, VariantDef, type VariantDiscr, type VariantFlags, Visibility } from "./ty/mod.ts";
 import { TraitDef, type TraitSpecializationKind } from "./ty/trait_def.ts";
-import { type Decodable, decode_bool, decode_HashMap, decode_never, decode_Option, decode_SmallVec, decode_tuple, decode_u16, decode_u32, decode_u8, decode_usize, decode_Vec, type Encodable, encode_bool, encode_HashMap, encode_never, encode_Option, encode_slice, encode_SmallVec, encode_tuple, encode_u16, encode_u32, encode_u8, encode_usize, encode_Vec } from "../rustc_serialize/serialize.ts";
+import { type Decodable, decode_bool, decode_HashMap, decode_never, decode_Option, decode_SmallVec, decode_tuple, decode_u16, decode_u32, decode_u8, decode_usize, decode_Vec, type Encodable, encode_bool, encode_HashMap, encode_never, encode_Option, encode_slice, encode_SmallVec, encode_str, encode_tuple, encode_u16, encode_u32, encode_u8, encode_usize, encode_Vec } from "../rustc_serialize/serialize.ts";
 import { decode_Ident, decode_ModId, encode_Ident, encode_ModId } from "../rustc_span/decodable.gen.ts";
 import { type BlobDecoder, decode_ErrorGuaranteed, encode_ErrorGuaranteed, type SpanDecoder, type SpanEncoder } from "../rustc_span/lib.ts";
 import { decode_EarlyBinder, encode_EarlyBinder } from "../rustc_type_ir/binder.ts";
@@ -249,6 +250,11 @@ export function encode_ImplTraitInTraitData(self: ImplTraitInTraitData, __encode
       __encoder.encode_def_id(self.fn_def_id);
       break;
   }
+}
+
+// rustc-derive: compiler/rustc_middle/src/ty/mod.rs:2407 TyEncodable for SymbolName
+export function encode_SymbolName(self: SymbolName, __encoder: TyEncoder): void {
+  encode_str(self.name, __encoder);
 }
 
 // rustc-derive: compiler/rustc_middle/src/ty/generics.rs:15 TyDecodable for GenericParamDefKind
@@ -684,4 +690,148 @@ function CastKind__variant_index(tag: CastKind): number {
 export function encode_CastKind(self: CastKind, __encoder: TyEncoder): void {
   const disc = CastKind__variant_index(self);
   __encoder.emit_u8(disc);
+}
+
+// rustc-derive: compiler/rustc_middle/src/middle/exported_symbols.rs:12 TyDecodable for SymbolExportLevel
+export function decode_SymbolExportLevel(__decoder: TyDecoder): SymbolExportLevel {
+  const __tag = __decoder.read_u8();
+  switch (__tag) {
+    case 0:
+      return "C";
+    case 1:
+      return "Rust";
+    default:
+      return panic(`invalid enum variant tag while decoding \`SymbolExportLevel\`, expected 0..2, actual ${__tag}`);
+  }
+}
+function SymbolExportLevel__variant_index(tag: SymbolExportLevel): number {
+  switch (tag) {
+    case "C":
+      return 0;
+    case "Rust":
+      return 1;
+  }
+}
+// rustc-derive: compiler/rustc_middle/src/middle/exported_symbols.rs:12 TyEncodable for SymbolExportLevel
+export function encode_SymbolExportLevel(self: SymbolExportLevel, __encoder: TyEncoder): void {
+  const disc = SymbolExportLevel__variant_index(self);
+  __encoder.emit_u8(disc);
+}
+
+// rustc-derive: compiler/rustc_middle/src/middle/exported_symbols.rs:26 Decodable for SymbolExportKind
+export function decode_SymbolExportKind(__decoder: SpanDecoder): SymbolExportKind {
+  const __tag = __decoder.read_u8();
+  switch (__tag) {
+    case 0:
+      return "Text";
+    case 1:
+      return "Data";
+    case 2:
+      return "Tls";
+    default:
+      return panic(`invalid enum variant tag while decoding \`SymbolExportKind\`, expected 0..3, actual ${__tag}`);
+  }
+}
+function SymbolExportKind__variant_index(tag: SymbolExportKind): number {
+  switch (tag) {
+    case "Text":
+      return 0;
+    case "Data":
+      return 1;
+    case "Tls":
+      return 2;
+  }
+}
+// rustc-derive: compiler/rustc_middle/src/middle/exported_symbols.rs:26 Encodable for SymbolExportKind
+export function encode_SymbolExportKind(self: SymbolExportKind, __encoder: SpanEncoder): void {
+  const disc = SymbolExportKind__variant_index(self);
+  __encoder.emit_u8(disc);
+}
+
+// rustc-derive: compiler/rustc_middle/src/middle/exported_symbols.rs:38 TyDecodable for SymbolExportInfo
+export function decode_SymbolExportInfo(__decoder: TyDecoder): SymbolExportInfo {
+  return {
+    level: decode_SymbolExportLevel(__decoder),
+    kind: decode_SymbolExportKind(__decoder),
+    used: decode_bool(__decoder),
+    rustc_std_internal_symbol: decode_bool(__decoder),
+  };
+}
+// rustc-derive: compiler/rustc_middle/src/middle/exported_symbols.rs:38 TyEncodable for SymbolExportInfo
+export function encode_SymbolExportInfo(self: SymbolExportInfo, __encoder: TyEncoder): void {
+  encode_SymbolExportLevel(self.level, __encoder);
+  encode_SymbolExportKind(self.kind, __encoder);
+  encode_bool(self.used, __encoder);
+  encode_bool(self.rustc_std_internal_symbol, __encoder);
+}
+
+// rustc-derive: compiler/rustc_middle/src/middle/exported_symbols.rs:49 TyDecodable for ExportedSymbol
+export function decode_ExportedSymbol(__decoder: TyDecoder): ExportedSymbol {
+  const __tag = __decoder.read_u8();
+  switch (__tag) {
+    case 0:
+      return { $: "NonGeneric", _0: __decoder.decode_def_id() };
+    case 1:
+      return { $: "Generic", _0: __decoder.decode_def_id(), _1: decode_GenericArgs(__decoder) };
+    case 2:
+      return { $: "DropGlue", _0: decode_Ty(__decoder) };
+    case 3:
+      return { $: "AsyncDropGlueCtorShim", _0: decode_Ty(__decoder) };
+    case 4:
+      return { $: "AsyncDropGlue", _0: __decoder.decode_def_id(), _1: decode_Ty(__decoder) };
+    case 5:
+      return { $: "ThreadLocalShim", _0: __decoder.decode_def_id() };
+    case 6:
+      return { $: "NoDefId", _0: decode_SymbolName(__decoder) };
+    default:
+      return panic(`invalid enum variant tag while decoding \`ExportedSymbol\`, expected 0..7, actual ${__tag}`);
+  }
+}
+function ExportedSymbol__variant_index(tag: ExportedSymbol["$"]): number {
+  switch (tag) {
+    case "NonGeneric":
+      return 0;
+    case "Generic":
+      return 1;
+    case "DropGlue":
+      return 2;
+    case "AsyncDropGlueCtorShim":
+      return 3;
+    case "AsyncDropGlue":
+      return 4;
+    case "ThreadLocalShim":
+      return 5;
+    case "NoDefId":
+      return 6;
+  }
+}
+// rustc-derive: compiler/rustc_middle/src/middle/exported_symbols.rs:49 TyEncodable for ExportedSymbol
+export function encode_ExportedSymbol(self: ExportedSymbol, __encoder: TyEncoder): void {
+  const disc = ExportedSymbol__variant_index(self.$);
+  __encoder.emit_u8(disc);
+  switch (self.$) {
+    case "NonGeneric":
+      __encoder.encode_def_id(self._0);
+      break;
+    case "Generic":
+      __encoder.encode_def_id(self._0);
+      encode_GenericArgs(self._1, __encoder);
+      break;
+    case "DropGlue":
+      encode_Ty(self._0, __encoder);
+      break;
+    case "AsyncDropGlueCtorShim":
+      encode_Ty(self._0, __encoder);
+      break;
+    case "AsyncDropGlue":
+      __encoder.encode_def_id(self._0);
+      encode_Ty(self._1, __encoder);
+      break;
+    case "ThreadLocalShim":
+      __encoder.encode_def_id(self._0);
+      break;
+    case "NoDefId":
+      encode_SymbolName(self._0, __encoder);
+      break;
+  }
 }

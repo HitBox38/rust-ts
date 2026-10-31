@@ -738,7 +738,7 @@ export class TargetDataLayout {
         if (v_size.$ === "Err") return v_size;
         const a = parse_align_seq(spec_parts.slice(1), s);
         if (a.$ === "Err") return a;
-        const v = dl.vector_align.find((v) => v[0].raw === v_size._0.raw);
+        const v = dl.vector_align.find((v) => Size_eq(v[0], v_size._0));
         if (v !== undefined) {
           v[1] = a._0;
           continue;
@@ -1092,15 +1092,33 @@ export const debug_Endian: Debug<Endian> = (v) => Endian.as_str(v);
 
 /// Size of a type in bytes.
 // #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
-// PORT: `raw: u64` is a `number`. PORT (abi-lib, root decision): `Size` stays a plain `number`; every value that enters
-// or leaves a `Size` goes through the helpers below (`size_raw`, `u64_arg`), so a byte count (or a bit count from
-// `bits()`) beyond `Number.MAX_SAFE_INTEGER` (2^53 - 1) stops with `unported(SIZE_BEYOND_2_53)` instead of being
-// rounded. The arithmetic itself is exact (`bigint`): `checked_add` / `checked_mul` keep upstream's `None` for every
-// result at or above `obj_size_bound` (a power of two, exact), and the panicking ops keep their `u64` overflow panics.
+// PORT (size-bigint, root decision 2026-10-31 "Size representation"): `raw: u64` has two forms. A value below 2^53
+// (every size in practice, the fast path of the ~390 `bytes()` callers) is the `number` `small` (`big` undefined); a
+// value of 2^53 or more (TypeId fragments and integer addresses used as pointer offsets, valid layouts up to
+// `obj_size_bound`) is the exact `bigint` `big` (`small` NaN). `bytes_u64()` is always exact; `bytes()` / `bits()` /
+// the `raw` getter stop with `unported(SIZE_BEYOND_2_53)` on a value they cannot return exactly, so a caller not
+// converted to `bytes_u64()` stops and never rounds. Equality / order are `Size_eq` / `Size_cmp` (both forms).
+// The arithmetic is exact (`bigint`): `checked_add` / `checked_mul` keep upstream's `None` for every result at or
+// above `obj_size_bound`, and the panicking ops keep their `u64` overflow panics. `big` is only ever set for a value
+// above `Number.MAX_SAFE_INTEGER`, so each value has one representation (and one `intern_key`).
 export class Size {
-  constructor(readonly raw: number) {}
+  private constructor(
+    readonly small: number,
+    readonly big: bigint | undefined,
+  ) {}
 
-  static readonly ZERO: Size = new Size(0);
+  /** PORT (size-bigint): `Size { raw }` for an exact `u64`, in the form its value needs. */
+  private static of(raw: bigint): Size {
+    return raw > MAX_SAFE ? new Size(NaN, raw) : new Size(Number(raw), undefined);
+  }
+
+  /** PORT (size-bigint): the field `raw` as a `number` (`bytes()`): stops on a value beyond 2^53 - 1. */
+  get raw(): number {
+    if (this.big !== undefined) return unported(SIZE_BEYOND_2_53);
+    return this.small;
+  }
+
+  static readonly ZERO: Size = new Size(0, undefined);
 
   /// Rounds `bits` up to the next-higher byte boundary, if `bits` is
   /// not a multiple of 8.
@@ -1109,7 +1127,7 @@ export class Size {
   static from_bits(bits: number | bigint): Size {
     const bits_ = u64_arg(bits);
     // `u64::div_ceil(8)`
-    return new Size(size_raw((bits_ + 7n) / 8n));
+    return Size.of((bits_ + 7n) / 8n);
   }
 
   // #[inline]
@@ -1118,16 +1136,27 @@ export class Size {
   static from_bytes(bytes: number | bigint): Size {
     if (typeof bytes === "number" && Number.isSafeInteger(bytes) && bytes >= 0) {
       // PORT (abi-lib): fast path, the common case (a safe non-negative integer is a valid `raw`).
-      return new Size(bytes);
+      return new Size(bytes, undefined);
     }
     const bytes_: bigint = u64_arg(bytes);
-    return new Size(size_raw(bytes_));
+    return Size.of(bytes_);
   }
 
   // #[inline]
+  // PORT (size-bigint): a `number`, so a value beyond 2^53 - 1 stops (`raw`); exact callers use `bytes_u64()`.
   // rustc: compiler/rustc_abi/src/lib.rs:902 bytes
   bytes(): number {
     return this.raw;
+  }
+
+  /** PORT (size-bigint): `bytes()` as the exact `u64` (a `bigint`), for the paths that handle any `Size`. */
+  bytes_u64(): bigint {
+    return this.big ?? BigInt(this.small);
+  }
+
+  /** PORT (size-bigint): whether `bytes()` would stop (the value is 2^53 or more). */
+  is_big(): boolean {
+    return this.big !== undefined;
   }
 
   // #[inline]
@@ -1141,13 +1170,13 @@ export class Size {
   bits(): number {
     // #[cold]
     // rustc: compiler/rustc_abi/src/lib.rs:914 overflow
-    function overflow(bytes: number): never {
+    function overflow(bytes: bigint): never {
       return panic(`Size::bits: ${bytes} bytes in bits doesn't fit in u64`);
     }
 
     // `self.bytes().checked_mul(8).unwrap_or_else(|| overflow(self.bytes()))`
-    const bits = BigInt(this.bytes()) * 8n;
-    if (bits > U64_MAX) overflow(this.bytes());
+    const bits = this.bytes_u64() * 8n;
+    if (bits > U64_MAX) overflow(this.bytes_u64());
     // PORT (abi-lib): the bit count is a `number` too (`size_raw`'s bound).
     return size_raw(bits);
   }
@@ -1161,17 +1190,18 @@ export class Size {
   // #[inline]
   // rustc: compiler/rustc_abi/src/lib.rs:927 align_to
   align_to(align: Align): Size {
-    // PORT: the mask arithmetic in `bigint` (JS bitwise operators are 32-bit). `self.bytes() + mask` cannot overflow
-    // `u64` (bytes < 2^53, mask < 2^29).
+    // PORT: the mask arithmetic in `bigint` (JS bitwise operators are 32-bit). PORT (size-bigint): upstream's
+    // `self.bytes() + mask` would overflow `u64` (a debug-assertion panic; wrapping in rustc) only for a size within
+    // `mask` of 2^64, which no caller builds; the sum is wrapped as rustc's release build does.
     const mask = BigInt(align.bytes()) - 1n;
-    return Size.from_bytes((BigInt(this.bytes()) + mask) & ~mask);
+    return Size.from_bytes(((this.bytes_u64() + mask) & U64_MAX) & ~mask);
   }
 
   // #[inline]
   // rustc: compiler/rustc_abi/src/lib.rs:933 is_aligned
   is_aligned(align: Align): boolean {
     const mask = BigInt(align.bytes()) - 1n;
-    return (BigInt(this.bytes()) & mask) === 0n;
+    return (this.bytes_u64() & mask) === 0n;
   }
 
   // #[inline]
@@ -1180,11 +1210,10 @@ export class Size {
     const dl = cx.data_layout();
 
     // PORT (abi-lib): `u64::checked_add` in `bigint`.
-    const bytes = BigInt(this.bytes()) + BigInt(offset.bytes());
+    const bytes = this.bytes_u64() + offset.bytes_u64();
     if (bytes > U64_MAX) return undefined;
 
-    // PORT (abi-lib): the comparison is exact (`obj_size_bound` is a power of two); a result below it but beyond 2^53
-    // is `unported` in `from_bytes`.
+    // PORT (abi-lib): the comparison is exact (`obj_size_bound` is a power of two).
     return bytes < BigInt(dl.obj_size_bound()) ? Size.from_bytes(bytes) : undefined;
   }
 
@@ -1195,7 +1224,7 @@ export class Size {
     const dl = cx.data_layout();
 
     // PORT: `u64::checked_mul` in `bigint`; a product of 2^64 or more is `None` as upstream.
-    const bytes = BigInt(this.bytes()) * u64_arg(count);
+    const bytes = this.bytes_u64() * u64_arg(count);
     if (bytes > U64_MAX) return undefined;
     return bytes < BigInt(dl.obj_size_bound()) ? Size.from_bytes(bytes) : undefined;
   }
@@ -1256,10 +1285,16 @@ export class Size {
   // #[inline]
   // rustc: compiler/rustc_abi/src/lib.rs:1006 add
   add(other: Size): Size {
+    if (this.big === undefined && other.big === undefined) {
+      // PORT (size-bigint): fast path: two small values whose sum is still a safe integer (exact); any other sum
+      // takes the `bigint` path below.
+      const sum = this.small + other.small;
+      if (Number.isSafeInteger(sum)) return new Size(sum, undefined);
+    }
     // `self.bytes().checked_add(other.bytes())` (in `bigint`)
-    const bytes = BigInt(this.bytes()) + BigInt(other.bytes());
+    const bytes = this.bytes_u64() + other.bytes_u64();
     if (bytes > U64_MAX) {
-      return panic(`Size::add: ${this.bytes()} + ${other.bytes()} doesn't fit in u64`);
+      return panic(`Size::add: ${this.bytes_u64()} + ${other.bytes_u64()} doesn't fit in u64`);
     }
     return Size.from_bytes(bytes);
   }
@@ -1268,10 +1303,18 @@ export class Size {
   // #[inline]
   // rustc: compiler/rustc_abi/src/lib.rs:1016 sub
   sub(other: Size): Size {
-    // `self.bytes().checked_sub(other.bytes())` (exact: both are safe integers)
-    const bytes = this.bytes() - other.bytes();
-    if (bytes < 0) {
-      return panic(`Size::sub: ${this.bytes()} - ${other.bytes()} would result in negative size`);
+    // `self.bytes().checked_sub(other.bytes())` (in `bigint`; PORT (size-bigint): a `number` when both are small,
+    // where it is exact)
+    if (this.big === undefined && other.big === undefined) {
+      const bytes = this.small - other.small;
+      if (bytes < 0) {
+        return panic(`Size::sub: ${this.small} - ${other.small} would result in negative size`);
+      }
+      return new Size(bytes, undefined);
+    }
+    const bytes = this.bytes_u64() - other.bytes_u64();
+    if (bytes < 0n) {
+      return panic(`Size::sub: ${this.bytes_u64()} - ${other.bytes_u64()} would result in negative size`);
     }
     return Size.from_bytes(bytes);
   }
@@ -1292,11 +1335,11 @@ export class Size {
   mul(count: number | bigint): Size {
     const count_ = u64_arg(count);
     // `self.bytes().checked_mul(count)` (in `bigint`)
-    const bytes = BigInt(this.bytes()) * count_;
+    const bytes = this.bytes_u64() * count_;
     if (bytes <= U64_MAX) {
       return Size.from_bytes(bytes);
     } else {
-      return panic(`Size::mul: ${this.bytes()} * ${count_} doesn't fit in u64`);
+      return panic(`Size::mul: ${this.bytes_u64()} * ${count_} doesn't fit in u64`);
     }
   }
 
@@ -1345,7 +1388,23 @@ function usize_arg(n: number): bigint {
 // This is debug-printed a lot in larger structs, don't waste too much space there
 // impl fmt::Debug for Size
 // rustc: compiler/rustc_abi/src/lib.rs:880 fmt
-export const debug_Size: Debug<Size> = (v) => `Size(${v.bytes()} bytes)`;
+// PORT (size-bigint): the exact value of either form.
+export const debug_Size: Debug<Size> = (v) => `Size(${v.big ?? v.small} bytes)`;
+
+// #[derive(PartialEq, Eq)]
+/** PORT (size-bigint): the derived `==` of `Size` (`raw == raw`), exact for both forms. */
+export function Size_eq(a: Size, b: Size): boolean {
+  return a.big === undefined && b.big === undefined ? a.small === b.small : a.bytes_u64() === b.bytes_u64();
+}
+
+// #[derive(PartialOrd, Ord)]
+/** PORT (size-bigint): the derived `Ord::cmp` of `Size` as -1 / 0 / 1, exact for both forms. */
+export function Size_cmp(a: Size, b: Size): -1 | 0 | 1 {
+  if (a.big === undefined && b.big === undefined) return a.small < b.small ? -1 : a.small > b.small ? 1 : 0;
+  const x = a.bytes_u64();
+  const y = b.bytes_u64();
+  return x < y ? -1 : x > y ? 1 : 0;
+}
 
 // #[cfg(feature = "nightly")]
 // impl Step for Size
@@ -1369,7 +1428,7 @@ export const Step_Size = {
   // rustc: compiler/rustc_abi/src/lib.rs:1057 forward_checked
   forward_checked(start: Size, count: number): Size | undefined {
     // `u64::forward_checked(start.bytes(), count)`: `start.checked_add(n)`
-    const r = BigInt(start.bytes()) + usize_arg(count);
+    const r = start.bytes_u64() + usize_arg(count);
     return r > U64_MAX ? undefined : Size.from_bytes(r);
   },
 
@@ -1377,7 +1436,7 @@ export const Step_Size = {
   // rustc: compiler/rustc_abi/src/lib.rs:1062 forward_overflowing
   forward_overflowing(start: Size, count: number): [Size, boolean] {
     // `u64::forward_overflowing(start.bytes(), count)`: `start.overflowing_add(n)`
-    const r = BigInt(start.bytes()) + usize_arg(count);
+    const r = start.bytes_u64() + usize_arg(count);
     const [s, o] = [r & U64_MAX, r > U64_MAX];
     return [Size.from_bytes(s), o];
   },
@@ -1386,21 +1445,21 @@ export const Step_Size = {
   // PORT (abi-lib): `u64::forward` wraps (`#[rustc_inherit_overflow_checks]`; rustc is built without overflow checks).
   // rustc: compiler/rustc_abi/src/lib.rs:1068 forward
   forward(start: Size, count: number): Size {
-    return Size.from_bytes((BigInt(start.bytes()) + usize_arg(count)) & U64_MAX);
+    return Size.from_bytes((start.bytes_u64() + usize_arg(count)) & U64_MAX);
   },
 
   // #[inline]
   // rustc: compiler/rustc_abi/src/lib.rs:1073 forward_unchecked
   forward_unchecked(start: Size, count: number): Size {
     // SAFETY (upstream): the caller guarantees that `start + n` doesn't overflow.
-    return Size.from_bytes(BigInt(start.bytes()) + usize_arg(count));
+    return Size.from_bytes(start.bytes_u64() + usize_arg(count));
   },
 
   // #[inline]
   // rustc: compiler/rustc_abi/src/lib.rs:1078 backward_checked
   backward_checked(start: Size, count: number): Size | undefined {
     // `u64::backward_checked(start.bytes(), count)`: `start.checked_sub(n)`
-    const r = BigInt(start.bytes()) - usize_arg(count);
+    const r = start.bytes_u64() - usize_arg(count);
     return r < 0n ? undefined : Size.from_bytes(r);
   },
 
@@ -1408,7 +1467,7 @@ export const Step_Size = {
   // rustc: compiler/rustc_abi/src/lib.rs:1083 backward_overflowing
   backward_overflowing(start: Size, count: number): [Size, boolean] {
     // `u64::backward_overflowing(start.bytes(), count)`: `start.overflowing_sub(n)`
-    const r = BigInt(start.bytes()) - usize_arg(count);
+    const r = start.bytes_u64() - usize_arg(count);
     const [s, o] = [r & U64_MAX, r < 0n];
     return [Size.from_bytes(s), o];
   },
@@ -1417,14 +1476,14 @@ export const Step_Size = {
   // PORT (abi-lib): `u64::backward` wraps (as `forward`).
   // rustc: compiler/rustc_abi/src/lib.rs:1089 backward
   backward(start: Size, count: number): Size {
-    return Size.from_bytes((BigInt(start.bytes()) - usize_arg(count)) & U64_MAX);
+    return Size.from_bytes((start.bytes_u64() - usize_arg(count)) & U64_MAX);
   },
 
   // #[inline]
   // rustc: compiler/rustc_abi/src/lib.rs:1094 backward_unchecked
   backward_unchecked(start: Size, count: number): Size {
     // SAFETY (upstream): the caller guarantees that `start - n` doesn't overflow.
-    return Size.from_bytes(BigInt(start.bytes()) - usize_arg(count));
+    return Size.from_bytes(start.bytes_u64() - usize_arg(count));
   },
 } as const;
 
@@ -1517,7 +1576,7 @@ export class Align {
   // rustc: compiler/rustc_abi/src/lib.rs:1207 max_aligned_factor
   static max_aligned_factor(size: Size): Align {
     // `size.bytes().trailing_zeros() as u8` (`u64::trailing_zeros(0)` is 64)
-    let b = BigInt(size.bytes());
+    let b = size.bytes_u64();
     if (b === 0n) return new Align(64);
     let tz = 0;
     while ((b & 1n) === 0n) {
@@ -2614,7 +2673,7 @@ export const BackendRepr = {
       return (
         Primitive_eq(Scalar.primitive(l1), Scalar.primitive(r1)) &&
         Primitive_eq(Scalar.primitive(l2), Scalar.primitive(r2)) &&
-        l_offset.raw === r_offset.raw
+        Size_eq(l_offset, r_offset)
       );
     }
     // Everything else must be strictly identical.
@@ -2912,7 +2971,7 @@ function i128_unsigned_abs(a: bigint): bigint {
 }
 /** derive(PartialEq) */
 export function Niche_eq(a: Niche, b: Niche): boolean {
-  return a.offset.raw === b.offset.raw && Primitive_eq(a.value, b.value) && WrappingRange_eq(a.valid_range, b.valid_range);
+  return Size_eq(a.offset, b.offset) && Primitive_eq(a.value, b.value) && WrappingRange_eq(a.valid_range, b.valid_range);
 }
 // derive(Debug)
 export const debug_Niche: Debug<Niche> = (v, f) =>
@@ -3071,7 +3130,7 @@ export class LayoutData {
   /// Returns `true` if the type is sized and a 1-ZST (meaning it has size 0 and alignment 1).
   // rustc: compiler/rustc_abi/src/lib.rs:2406 is_1zst
   is_1zst(): boolean {
-    return this.is_sized() && this.size.bytes() === 0 && this.align.abi.bytes() === 1;
+    return this.is_sized() && Size_eq(this.size, Size.ZERO) && this.align.abi.bytes() === 1;
   }
 
   /// Returns `true` if the size of the type is only known at runtime.
@@ -3104,7 +3163,7 @@ export class LayoutData {
       case "SimdVector":
         return false;
       case "Memory":
-        return this.backend_repr.sized && this.size.bytes() === 0;
+        return this.backend_repr.sized && Size_eq(this.size, Size.ZERO);
     }
   }
 
@@ -3141,7 +3200,7 @@ export class LayoutData {
     // also have the same ABI, and moreover that the same metadata leads to the same size. The
     // 2nd point is quite hard to check though.
     return (
-      this.size.raw === other.size.raw &&
+      Size_eq(this.size, other.size) &&
       this.is_sized() === other.is_sized() &&
       BackendRepr.eq_up_to_validity(this.backend_repr, other.backend_repr) &&
       BackendRepr.is_bool(this.backend_repr) === BackendRepr.is_bool(other.backend_repr) &&
@@ -3221,7 +3280,7 @@ export class LayoutData {
     }
     const randomization_seed = u64_wrapping_add(
       u64_wrapping_add(
-        u64_wrapping_add(BigInt(size.bytes()), tag << 32n),
+        u64_wrapping_add(size.bytes_u64(), tag << 32n),
         // distinguishes references from pointers
         u64_rotate_right(range.start & U64_MAX, 16n),
       ),

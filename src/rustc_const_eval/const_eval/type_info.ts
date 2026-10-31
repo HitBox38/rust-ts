@@ -284,7 +284,7 @@ InterpCx.prototype.write_field = function (
       }
       case sym.offset: {
         const offset = FieldsShape.offset(layout.fields, Number(idx));
-        const r = this.write_scalar(Scalar_from_ScalarInt(unwrap(ScalarInt.try_from_target_usize(BigInt(offset.bytes()), this.tcx.tcx))), field_place);
+        const r = this.write_scalar(Scalar_from_ScalarInt(unwrap(ScalarInt.try_from_target_usize(offset.bytes_u64(), this.tcx.tcx))), field_place);
         if (r.$ === "Err") return r;
         break;
       }

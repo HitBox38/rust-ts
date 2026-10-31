@@ -1,7 +1,7 @@
 // Port of compiler/rustc_middle/src/middle/exported_symbols.rs.
 // PORT: hand-written types (rustc_middle types are hand-written). The derived `TyEncodable`/`TyDecodable`/`Encodable`/
-// `Decodable` of these types are the metadata codec's (rmeta encoder/decoder lanes); `StableHash` and `Hash` are not
-// ported (no incremental). Moved here from codegen_ssa lib.ts / back/symbol_export.ts (lane crateinfo-symbols).
+// `Decodable` of these types are generated into rustc_middle/decodable.gen.ts (tools/codegen, the rustc_middle set);
+// `StableHash` and `Hash` are not ported (no incremental). Moved here from codegen_ssa lib.ts / back/symbol_export.ts (lane crateinfo-symbols).
 import { type DefId, LOCAL_CRATE, lower_hex_StableCrateId } from "../../rustc_span/def_id.ts";
 import { Symbol } from "../../rustc_span/symbol.ts";
 import { PLAIN } from "../../std/fmt.ts";

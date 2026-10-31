@@ -5,11 +5,12 @@
 // test for one errno). `decode_error_kind` and `format_os_error` are the unix ones from
 // library/std/src/sys/io/error/unix.rs; on Windows (raw codes are `GetLastError` values, which Node
 // does not expose) they call `unported`. `ErrorData::Simple` is not produced yet.
+import { writeSync } from "node:fs";
 import { constants } from "node:os";
 import { dlopen, FFIType, ptr } from "bun:ffi";
 import { debug_str, debug_struct, type Debug } from "./fmt.ts";
 import { panic, unported } from "./panic.ts";
-import type { Result } from "./result.ts";
+import { Err, Ok, type Result } from "./result.ts";
 
 /** `std::io::ErrorKind` (library/core/src/io/error.rs:769), in declaration order. */
 export type ErrorKind =
@@ -285,3 +286,49 @@ export const debug_IoError: Debug<IoError> = (e, f) => {
       ]);
   }
 };
+
+// ---- stdout (library/std/src/io/stdio.rs) ----
+
+/** `io::Error::WRITE_ALL_EOF` (library/core/src/io/error.rs:125), the error of `Write::write_all` (core/src/io/write.rs:214) on a zero-length write. */
+const WRITE_ALL_EOF: IoError = { $: "SimpleMessage", kind: "WriteZero", message: "failed to write whole buffer" };
+
+/** `std::sys::stdio::unix::is_ebadf` (library/std/src/sys/stdio/unix.rs:92).
+ *  PORT: the unix one (`EBADF` is the host's, from `node:os`); on Windows `raw_os_error` is unported. */
+export function is_ebadf(err: IoError): boolean {
+  return IoError_raw_os_error(err) === E.EBADF;
+}
+
+/** `std::io::stdio::handle_ebadf` (library/std/src/io/stdio.rs:224) */
+export function handle_ebadf<T>(r: IoResult<T>, default_: () => IoResult<T>): IoResult<T> {
+  if (r.$ === "Err" && is_ebadf(r._0)) return default_();
+  return r;
+}
+
+/** `<StdoutRaw as Write>::write_all` (library/std/src/io/stdio.rs:179): `handle_ebadf(self.0.write_all(buf), || Ok(()))`,
+ *  so a closed or unwritable fd 1 swallows the output, as rustc's `io::stdout()` does.
+ *  The inner `write_all` is `Write::write_all` (library/core/src/io/write.rs:214) over `write(2)` on fd 1.
+ *  PORT: `Stdout` is line-buffered (`LineWriter<StdoutRaw>`); this writes through unbuffered. For EBADF and for
+ *  normal output the result is the same (EBADF is swallowed either way). For other write errors (ENOSPC, EIO)
+ *  upstream may hold a short write in its buffer and drop the error at the final flush on exit, while this reports
+ *  it at once (as the port did before). `EAGAIN` is retried: Bun may leave a pipe on fd 1 non-blocking, which
+ *  rustc's stdout never is. */
+export function stdout_write_all(buf: Uint8Array): IoResult<null> {
+  const inner = (): IoResult<null> => {
+    let off = 0;
+    while (off < buf.length) {
+      let n: number;
+      try {
+        n = writeSync(1, buf, off, buf.length - off);
+      } catch (e) {
+        const code = (e as { code?: string }).code;
+        // Err(ref e) if e.is_interrupted() => {}
+        if (code === "EINTR" || code === "EAGAIN") continue;
+        return Err(io_error_from_node(e));
+      }
+      if (n === 0) return Err(WRITE_ALL_EOF);
+      off += n;
+    }
+    return Ok(null);
+  };
+  return handle_ebadf(inner(), () => Ok(null));
+}

@@ -258,8 +258,8 @@ export const Provenance_CtfeProvenance: Provenance<CtfeProvenance> = {
     // Print AllocId.
     let out = debug_AllocId(CtfeProvenance.alloc_id(ptr.provenance), f); // propagates `alternate` flag
     // Print offset only if it is non-zero.
-    if (ptr.offset.bytes() > 0) {
-      out += `+${lower_hex_alt(ptr.offset.bytes())}`;
+    if (ptr.offset.bytes_u64() > 0n) {
+      out += `+${lower_hex_alt(ptr.offset.bytes_u64())}`;
     }
     // Print immutable status.
     if (CtfeProvenance.immutable(ptr.provenance)) {
@@ -294,8 +294,8 @@ export const Provenance_AllocId: Provenance<AllocId> = {
       out = debug_AllocId(ptr.provenance, PLAIN);
     }
     // Print offset only if it is non-zero.
-    if (ptr.offset.bytes() > 0) {
-      out += `+${lower_hex_alt(ptr.offset.bytes())}`;
+    if (ptr.offset.bytes_u64() > 0n) {
+      out += `+${lower_hex_alt(ptr.offset.bytes_u64())}`;
     }
     return out;
   },
@@ -361,14 +361,14 @@ export function debug_Pointer_Option<Prov>(self: Pointer<Prov | undefined>, f: F
   if (prov !== undefined) {
     return provenance_of(prov).fmt(Pointer.new(prov, self.offset), f);
   } else {
-    return `${lower_hex_alt(self.offset.bytes())}[noalloc]`;
+    return `${lower_hex_alt(self.offset.bytes_u64())}[noalloc]`;
   }
 }
 
 // impl<Prov: Provenance> fmt::Display for Pointer<Option<Prov>>
 // rustc: compiler/rustc_middle/src/mir/interpret/pointer.rs:260 fmt
 export function display_Pointer_Option<Prov>(self: Pointer<Prov | undefined>, f: Fmt): string {
-  if (self.provenance === undefined && self.offset.bytes() === 0) {
+  if (self.provenance === undefined && self.offset.bytes_u64() === 0n) {
     return "null pointer";
   } else {
     return debug_Pointer_Option(self, f, unused_debug as Debug<Prov>);
@@ -461,7 +461,7 @@ Pointer.prototype.map_provenance = function <Prov>(this: Pointer<Prov>, f: (prov
 Pointer.prototype.wrapping_offset = function <Prov>(this: Pointer<Prov>, i: Size, cx: HasDataLayout): Pointer<Prov> {
   const res = PointerArithmetic_provided.truncate_to_target_usize(
     cx.data_layout(),
-    BigInt.asUintN(64, BigInt(this.offset.bytes()) + BigInt(i.bytes())),
+    BigInt.asUintN(64, this.offset.bytes_u64() + i.bytes_u64()),
   );
   return new Pointer(Size.from_bytes(res), this.provenance);
 };

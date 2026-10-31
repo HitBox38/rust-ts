@@ -243,7 +243,7 @@ Scalar.from_maybe_pointer = function <Prov>(ptr: Pointer<Prov | undefined>, cx: 
   } else {
     return {
       $: "Int",
-      _0: unwrap(ScalarInt.try_from_uint(BigInt(offset.bytes()), PointerArithmetic_provided.pointer_size(cx))),
+      _0: unwrap(ScalarInt.try_from_uint(offset.bytes_u64(), PointerArithmetic_provided.pointer_size(cx))),
     };
   }
 };
@@ -461,7 +461,7 @@ Scalar.try_to_scalar_int = function <Prov>(self: Scalar<Prov>): Result<ScalarInt
       const sz = self._1;
       const prov_impl = provenance_of(ptr.provenance);
       if (prov_impl.OFFSET_IS_ADDR) {
-        return Ok(unwrap(ScalarInt.try_from_uint(BigInt(ptr.offset.bytes()), Size.from_bytes(sz))));
+        return Ok(unwrap(ScalarInt.try_from_uint(ptr.offset.bytes_u64(), Size.from_bytes(sz))));
       } else {
         // We know `offset` is relative, since `OFFSET_IS_ADDR == false`.
         const [prov, offset] = ptr.into_raw_parts();

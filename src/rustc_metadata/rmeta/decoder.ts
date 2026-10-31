@@ -101,7 +101,7 @@ import type { StrippedCfgItem } from "../../rustc_attr_ir/data_structures.ts";
 import type { DiagnosticItems } from "../../rustc_attr_ir/diagnostic_items.ts";
 import { debug_DefKind } from "../../rustc_hir/def.ts";
 import { DefPath as DefPath_, DefPathData } from "../../rustc_hir_id/definitions.ts";
-import { decode_FeatureStability, decode_ImplTraitInTraitData, decode_IntrinsicDef, decode_RestrictionKind, decode_Visibility } from "../../rustc_middle/decodable.gen.ts";
+import { decode_ExportedSymbol, decode_FeatureStability, decode_ImplTraitInTraitData, decode_IntrinsicDef, decode_RestrictionKind, decode_SymbolExportInfo, decode_Visibility } from "../../rustc_middle/decodable.gen.ts";
 import type { IntrinsicDef } from "../../rustc_middle/ty/intrinsic.ts";
 import type { FeatureStability } from "../../rustc_middle/middle/mod.ts";
 import type { RestrictionKind } from "../../rustc_middle/ty/mod.ts";
@@ -114,6 +114,7 @@ import { type BlobDecoder, type SpanDecoder, BytePos, DUMMY_SP, decode_BytePos, 
 import { debug_Symbol, Ident as Ident_, kw } from "../../rustc_span/symbol.ts";
 import { debug_str } from "../../std/fmt.ts";
 import { unwrap } from "../../std/panic.ts";
+import type { ExportedSymbol, SymbolExportInfo } from "../../rustc_middle/middle/exported_symbols.ts";
 import { CStore } from "../creader.ts";
 import { decode_SpanTag, decode_VariantData } from "../decodable.gen.ts";
 import type { AdtDef, AdtKind } from "../../rustc_middle/ty/adt.ts";
@@ -1794,13 +1795,15 @@ function decode_SimplifiedType(d: MetadataDecodeContext): SimplifiedType {
 function decode_EiiMapEncodedKeyValue(_d: MetadataDecodeContext): unknown {
   return unported("Decodable for rustc_metadata::rmeta::EiiMapEncodedKeyValue (rustc_attr_ir EiiDecl/EiiImpl, derive(Decodable) not generated)");
 }
-/** `Decodable` of `(ExportedSymbol<'tcx>, SymbolExportInfo)` (rustc_middle middle/exported_symbols.rs, M3). */
-function decode_ExportedSymbol_SymbolExportInfo(_d: MetadataDecodeContext): unknown {
-  return unported("Decodable for (rustc_middle::middle::exported_symbols::ExportedSymbol, SymbolExportInfo) (M3)");
+/** `Decodable` of `(ExportedSymbol<'tcx>, SymbolExportInfo)` (rustc_middle middle/exported_symbols.rs). */
+function decode_ExportedSymbol_SymbolExportInfo(d: MetadataDecodeContext): [ExportedSymbol, SymbolExportInfo] {
+  return decode_tuple_(d, decode_ExportedSymbol, decode_SymbolExportInfo);
 }
-/** `Decodable` of `DocLinkResMap` (`UnordMap<(Symbol, Namespace), Option<Res<NodeId>>>`). */
+/** `Decodable` of `DocLinkResMap` (`FxIndexMap<(Symbol, Namespace), Option<Res<NodeId>>>`). */
 function decode_DocLinkResMap(_d: MetadataDecodeContext): DocLinkResMap {
-  return unported("Decodable for rustc_hir::def::DocLinkResMap (derive(Decodable) of Res / Namespace not generated)");
+  // PORT: only rustdoc reads an extern crate's `doc_link_resolutions` (`get_doc_link_resolutions`); the element codecs
+  // (`decode_Res`, `decode_Namespace`) exist, the `IndexMap` decode into a `DocLinkResMap` is not ported yet.
+  return unported("Decodable for rustc_middle::middle::resolve::DocLinkResMap (IndexMap decode; rustdoc-only path)");
 }
 
 /** `Iterator::map` over an iterator that is already created (the `.decode(..)` ran eagerly, as upstream). */

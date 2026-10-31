@@ -47,6 +47,8 @@ import {
   type ReprOptions,
   Scalar,
   Size,
+  Size_cmp,
+  Size_eq,
   StructKind,
   TagEncoding,
   type TargetDataLayout,
@@ -643,8 +645,9 @@ export class LayoutCalculator<Cx extends HasDataLayout> {
     // PORT (abi-layout-b): `Ord` of `Option<Align>` (`None < Some`) and `Ord::max` (`other` on ties) / `Ord::cmp` of
     // `Size`; lib.ts has no helpers for them. `Ord` of `Integer` is lib.ts's `Integer_discriminant`.
     const option_align_max = (a: Align | undefined, b: Align | undefined): Align | undefined => (a === undefined ? b : b === undefined ? a : Align_max(a, b));
-    const size_max = (a: Size, b: Size): Size => (b.bytes() >= a.bytes() ? b : a);
-    const size_cmp = (a: Size, b: Size): number => (a.bytes() < b.bytes() ? -1 : a.bytes() > b.bytes() ? 1 : 0);
+    // PORT (size-bigint): on lib.ts's exact `Size_cmp`.
+    const size_max = (a: Size, b: Size): Size => (Size_cmp(b, a) >= 0 ? b : a);
+    const size_cmp = (a: Size, b: Size): number => Size_cmp(a, b);
 
     const calculate_niche_filling_layout = (): LayoutData | undefined => {
       interface VariantLayoutInfo {
@@ -683,10 +686,11 @@ export class LayoutCalculator<Cx extends HasDataLayout> {
 
       // `max_by_key` keeps the last maximal element.
       let largest_variant_index: VariantIdx | undefined = undefined;
-      let largest_variant_key = 0;
+      // PORT (size-bigint): the key `layout.size.bytes()` is compared as the `Size` (`Size_cmp`, exact).
+      let largest_variant_key = Size.ZERO;
       for (let i = 0; i < variant_layouts.length; i++) {
-        const key = variant_layouts[i]!.size.bytes();
-        if (largest_variant_index === undefined || key >= largest_variant_key) {
+        const key = variant_layouts[i]!.size;
+        if (largest_variant_index === undefined || Size_cmp(key, largest_variant_key) >= 0) {
           largest_variant_index = i as VariantIdx;
           largest_variant_key = key;
         }
@@ -720,7 +724,7 @@ export class LayoutCalculator<Cx extends HasDataLayout> {
 
         layout.largest_niche = undefined;
 
-        if (layout.size.bytes() <= niche_offset.bytes()) {
+        if (Size_cmp(layout.size, niche_offset) <= 0) {
           // This variant will fit before the niche.
           return true;
         }
@@ -729,7 +733,7 @@ export class LayoutCalculator<Cx extends HasDataLayout> {
         const this_align = variants_info[i]!.align_abi;
         const this_offset = niche_offset.add(niche_size).align_to(this_align);
 
-        if (this_offset.add(layout.size).bytes() > size.bytes()) {
+        if (Size_cmp(this_offset.add(layout.size), size) > 0) {
           return false;
         }
 
@@ -753,8 +757,8 @@ export class LayoutCalculator<Cx extends HasDataLayout> {
 
       const largest_niche = Niche.from_scalar(dl, niche_offset, niche_scalar);
 
-      const others_zst = variant_layouts.every((layout, i) => i === largest || layout.size.bytes() === Size.ZERO.bytes());
-      const same_size = size.bytes() === variant_layouts[largest]!.size.bytes();
+      const others_zst = variant_layouts.every((layout, i) => i === largest || Size_eq(layout.size, Size.ZERO));
+      const same_size = Size_eq(size, variant_layouts[largest]!.size);
       const same_align = Align_eq(align, variants_info[largest]!.align_abi);
 
       const uninhabited = variant_layouts.every((v) => v.is_uninhabited());
@@ -771,7 +775,7 @@ export class LayoutCalculator<Cx extends HasDataLayout> {
             const { a: first, b: second, b_offset } = largest_repr;
             // Only the niche is guaranteed to be initialised,
             // so use union layouts for the other primitive.
-            if (niche_offset.bytes() === Size.ZERO.bytes()) {
+            if (Size_eq(niche_offset, Size.ZERO)) {
               abi = {
                 $: "ScalarPair",
                 a: niche_scalar,
@@ -916,7 +920,8 @@ export class LayoutCalculator<Cx extends HasDataLayout> {
     size = size.align_to(align);
 
     // FIXME(oli-obk): deduplicate and harden these checks
-    if (size.bytes() >= dl.obj_size_bound()) {
+    // PORT (size-bigint): exact (`bytes_u64()`), as in `univariant_biased`.
+    if (size.bytes_u64() >= BigInt(dl.obj_size_bound())) {
       return Err(LayoutCalculatorError.SizeOverflow);
     }
 
@@ -959,13 +964,13 @@ export class LayoutCalculator<Cx extends HasDataLayout> {
       for (const variant of layout_variants) {
         for (let k = 0; k < variant.field_offsets.length; k++) {
           const i = variant.field_offsets[k]!;
-          if (i.bytes() <= old_ity_size.bytes()) {
-            assert_eq(i, old_ity_size, (v) => debug_Size(v, PLAIN), (a, b) => a.bytes() === b.bytes());
+          if (Size_cmp(i, old_ity_size) <= 0) {
+            assert_eq(i, old_ity_size, (v) => debug_Size(v, PLAIN), Size_eq);
             variant.field_offsets[k] = new_ity_size;
           }
         }
         // We might be making the struct larger.
-        if (variant.size.bytes() <= old_ity_size.bytes()) {
+        if (Size_cmp(variant.size, old_ity_size) <= 0) {
           variant.size = new_ity_size;
         }
       }
@@ -988,7 +993,7 @@ export class LayoutCalculator<Cx extends HasDataLayout> {
     let abi: BackendRepr = { $: "Memory", sized: true };
 
     const uninhabited = layout_variants.every((v) => v.is_uninhabited());
-    if (Scalar.size(tag, dl).bytes() === size.bytes()) {
+    if (Size_eq(Scalar.size(tag, dl), size)) {
       // Make sure we only use scalar layout when the enum is entirely its
       // own tag (i.e. it has no padding nor any non-ZST variant fields).
       abi = { $: "Scalar", _0: tag };
@@ -1039,7 +1044,7 @@ export class LayoutCalculator<Cx extends HasDataLayout> {
         if (common_prim !== undefined) {
           const [old_prim, common_offset]: [Primitive, Size] = common_prim;
           // All variants must be at the same offset
-          if (offset.bytes() !== common_offset.bytes()) {
+          if (!Size_eq(offset, common_offset)) {
             common_prim = undefined;
             break;
           }
@@ -1101,10 +1106,10 @@ export class LayoutCalculator<Cx extends HasDataLayout> {
             return panic("encountered a non-arbitrary layout during enum layout");
         }
         if (
-          pair_offsets[FieldIdx.new(0)]!.bytes() === Size.ZERO.bytes() &&
-          pair_offsets[FieldIdx.new(1)]!.bytes() === offset.bytes() &&
+          Size_eq(pair_offsets[FieldIdx.new(0)]!, Size.ZERO) &&
+          Size_eq(pair_offsets[FieldIdx.new(1)]!, offset) &&
           Align_eq(align, pair.align.abi) &&
-          size.bytes() === pair.size.bytes()
+          Size_eq(size, pair.size)
         ) {
           // We can use `ScalarPair` only when it matches our
           // already computed layout (including `#[repr(C)]`).
@@ -1243,11 +1248,12 @@ export class LayoutCalculator<Cx extends HasDataLayout> {
             // Returns `log2(effective-align)`. The calculation assumes that size is an
             // integer multiple of align, except for ZSTs.
             const align = layout.deref().align.abi.bytes();
-            const size = layout.deref().size.bytes();
+            // PORT (size-bigint): `size` is the `Size` (exact); a big-form size is larger than any `align`.
+            const size = layout.deref().size;
             const largest_niche = layout.deref().largest_niche;
             const niche_size = largest_niche !== undefined ? largest_niche.available(dl) : 0n;
             // Group [u8; 4] with align-4 or [u8; 6] with align-2 fields.
-            const size_as_align0 = u64_trailing_zeros(Math.max(align, size));
+            const size_as_align0 = size.is_big() ? u64_trailing_zeros_u64(size.bytes_u64()) : u64_trailing_zeros(Math.max(align, size.bytes()));
             let size_as_align: number;
             if (largest_niche_size > 0n) {
               if (niche_bias === "Start") {
@@ -1286,7 +1292,8 @@ export class LayoutCalculator<Cx extends HasDataLayout> {
             // padding. This kind of packing can't be achieved by sorting.
             const key = (x: FieldIdx): [number, bigint, bigint] => {
               const f = fields[x];
-              const field_size = f.deref().size.bytes();
+              // PORT (size-bigint): `field_size` is the `Size`, read exactly (`bytes_u64()`) where it is used.
+              const field_size = f.deref().size;
               const n = f.deref().largest_niche;
               const niche_size = n !== undefined ? n.available(dl) : 0n;
               let niche_size_key: bigint;
@@ -1303,10 +1310,10 @@ export class LayoutCalculator<Cx extends HasDataLayout> {
               let inner_niche_offset_key: bigint;
               switch (niche_bias) {
                 case "Start":
-                  inner_niche_offset_key = n !== undefined ? BigInt(n.offset.bytes()) : 0n;
+                  inner_niche_offset_key = n !== undefined ? n.offset.bytes_u64() : 0n;
                   break;
                 case "End":
-                  inner_niche_offset_key = n !== undefined ? U64_MAX ^ BigInt(field_size - Primitive.size(n.value, dl).bytes() - n.offset.bytes()) : 0n;
+                  inner_niche_offset_key = n !== undefined ? U64_MAX ^ (field_size.bytes_u64() - BigInt(Primitive.size(n.value, dl).bytes()) - n.offset.bytes_u64()) : 0n;
                   break;
               }
 
@@ -1434,7 +1441,8 @@ export class LayoutCalculator<Cx extends HasDataLayout> {
     const min_size = offset;
     const size = min_size.align_to(align_);
     // FIXME(oli-obk): deduplicate and harden these checks
-    if (size.bytes() >= dl.obj_size_bound()) {
+    // PORT (size-bigint): exact (`bytes_u64()`): a valid size may be 2^53 bytes or more, up to `obj_size_bound`.
+    if (size.bytes_u64() >= BigInt(dl.obj_size_bound())) {
       return Err(LayoutCalculatorError.SizeOverflow);
     }
     let layout_of_single_non_zst_field: F | undefined = undefined;
@@ -1444,7 +1452,7 @@ export class LayoutCalculator<Cx extends HasDataLayout> {
     const optimize_abi = !repr.inhibit_newtype_abi_optimization();
 
     // Try to make this a Scalar/ScalarPair.
-    if (sized && size.bytes() > 0) {
+    if (sized && !Size_eq(size, Size.ZERO)) {
       // We skip *all* ZST here and later check if we are good in terms of alignment.
       // This lets us handle some cases involving aligned ZST.
       // PORT: the lazy `filter` iterator pulled three times: `is_zst` runs until a third non-ZST field is found.
@@ -1459,7 +1467,7 @@ export class LayoutCalculator<Cx extends HasDataLayout> {
         layout_of_single_non_zst_field = field;
 
         // Field fills the struct and it has a scalar or scalar pair ABI.
-        if (offsets[i].bytes() === 0 && Align_eq(align_, field.deref().align.abi) && size.raw === field.deref().size.raw) {
+        if (Size_eq(offsets[i], Size.ZERO) && Align_eq(align_, field.deref().align.abi) && Size_eq(size, field.deref().size)) {
           const field_repr = field.deref().backend_repr;
           if ((field_repr.$ === "Scalar" || field_repr.$ === "SimdVector") && optimize_abi) {
             // For plain scalars, or vectors of them, we can't unpack
@@ -1480,7 +1488,7 @@ export class LayoutCalculator<Cx extends HasDataLayout> {
         if (a_repr.$ === "Scalar" && b_repr.$ === "Scalar") {
           // Order by the memory placement, not source order.
           const [[i, a], [j, b]]: [[FieldIdx, Scalar], [FieldIdx, Scalar]] =
-            offsets[i0].raw < offsets[j0].raw
+            Size_cmp(offsets[i0], offsets[j0]) < 0
               ? [
                   [i0, a_repr._0],
                   [j0, b_repr._0],
@@ -1502,10 +1510,10 @@ export class LayoutCalculator<Cx extends HasDataLayout> {
               return panic("encountered a non-arbitrary layout during enum layout");
           }
           if (
-            offsets[i].raw === pair_offsets[FieldIdx.new(0)].raw &&
-            offsets[j].raw === pair_offsets[FieldIdx.new(1)].raw &&
+            Size_eq(offsets[i], pair_offsets[FieldIdx.new(0)]) &&
+            Size_eq(offsets[j], pair_offsets[FieldIdx.new(1)]) &&
             Align_eq(align_, pair.align.abi) &&
-            size.raw === pair.size.raw
+            Size_eq(size, pair.size)
           ) {
             // We can use `ScalarPair` only when it matches our
             // already computed layout (including `#[repr(C)]`).
@@ -1653,6 +1661,16 @@ function u64_trailing_zeros(x: number): number {
   }
   return n;
 }
+/** PORT (size-bigint): `u64::trailing_zeros` of an exact `u64` (a big-form `Size`'s bytes). */
+function u64_trailing_zeros_u64(x: bigint): number {
+  if (x === 0n) return 64;
+  let n = 0;
+  while ((x & 1n) === 0n) {
+    x >>= 1n;
+    n++;
+  }
+  return n;
+}
 /** `u128::ilog2` (panics on 0 as core's `int_log10::panic_for_nonpositive_argument`). */
 function u128_ilog2(x: bigint): number {
   if (x <= 0n) panic("argument of integer logarithm must be positive");
@@ -1672,5 +1690,5 @@ function Option_Align_max(a: Align | undefined, b: Align | undefined): Align | u
 }
 /** `cmp::max` of `Size` (ties return the second). */
 function Size_max(a: Size, b: Size): Size {
-  return b.raw >= a.raw ? b : a;
+  return Size_cmp(b, a) >= 0 ? b : a;
 }

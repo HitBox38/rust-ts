@@ -32,6 +32,8 @@ import {
   ReprOptions,
   Scalar,
   Size,
+  Size_cmp,
+  Size_eq,
   StructKind,
   TyAndLayout,
   type VariantIdx,
@@ -1007,11 +1009,11 @@ export function layout_of_uncached(cx: LayoutCxT, ty: Ty): Result<Layout, Layout
         const unsized_tail = unwrap(unsized_offsets[unsized_offsets.length - 1]);
         const unsized_fields = unsized_offsets.slice(0, -1);
 
-        if (!(sized_fields.length === unsized_fields.length && sized_fields.every((s, i) => s.raw === unsized_fields[i]!.raw))) {
+        if (!(sized_fields.length === unsized_fields.length && sized_fields.every((s, i) => Size_eq(s, unsized_fields[i]!)))) {
           return bug(`unsizing ${debug_Ty(ty, PLAIN)} changed field order!\n${debug_LayoutData(layout, PLAIN)}\n${debug_LayoutData(unsized_layout, PLAIN)}`);
         }
 
-        if (sized_tail.raw < unsized_tail.raw) {
+        if (Size_cmp(sized_tail, unsized_tail) < 0) {
           return bug(`unsizing ${debug_Ty(ty, PLAIN)} moved tail backwards!\n${debug_LayoutData(layout, PLAIN)}\n${debug_LayoutData(unsized_layout, PLAIN)}`);
         }
       }
@@ -1097,12 +1099,12 @@ function result_map<T, U, E>(r: Result<T, E>, f: (v: T) => U): Result<U, E> {
 
 /** PORT: the derived `PartialEq` of `Size`. */
 function size_eq(a: Size, b: Size): boolean {
-  return a.raw === b.raw;
+  return Size_eq(a, b);
 }
 
 /** PORT: `Ord::max` of `Size` (`a.max(b)`: `b` when equal). */
 function size_max(a: Size, b: Size): Size {
-  return a.raw > b.raw ? a : b;
+  return Size_cmp(a, b) > 0 ? a : b;
 }
 
 // rustc: compiler/rustc_ty_utils/src/layout.rs:877 record_layout_for_printing
@@ -1267,7 +1269,7 @@ export function variant_info_for_coroutine(cx: LayoutCxT, layout: MiddleTyAndLay
       .concat(upvar_fields.map((f) => ({ ...f })));
 
     // If the variant has no state-specific fields, then it's the size of the upvars.
-    if (variant_size.raw === Size.ZERO.raw) {
+    if (Size_eq(variant_size, Size.ZERO)) {
       variant_size = upvars_size;
     }
 
@@ -1286,7 +1288,7 @@ export function variant_info_for_coroutine(cx: LayoutCxT, layout: MiddleTyAndLay
     // However, if the discriminant is placed past the end of the variant, then we need
     // to factor in the size of the discriminant manually. This really should be refactored
     // better, but this "works" for now.
-    if (FieldsShape.offset(layout.fields, tag_field).raw >= variant_size.raw) {
+    if (Size_cmp(FieldsShape.offset(layout.fields, tag_field), variant_size) >= 0) {
       variant_size = variant_size.add_assign(tag_encoding.$ === "Direct" ? Scalar.size(tag, cx) : Size.ZERO);
     }
 

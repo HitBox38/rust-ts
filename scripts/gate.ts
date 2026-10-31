@@ -2,8 +2,8 @@
 // ever been accepted as MATCH. A revision is acceptable only if it loses none of them.
 //
 //   bun scripts/gate.ts run [--suites lex,parse] [--skip-static] [--skip-heavy]
-//       probe check + typecheck + unit tests (RUST_TS_REQUIRE_PROBES=1; any skipped test not in
-//       ALLOWED_SKIPS fails) + marker check + full difftest of each suite; prints lost/gained.
+//       probe check + typecheck + unit tests (src/tools, then scripts/harness in a second process;
+//       RUST_TS_REQUIRE_PROBES=1; any skipped test not in ALLOWED_SKIPS fails) + marker check + full difftest of each suite; prints lost/gained.
 //       Heavy suites (`Suite.heavy`, plan-m5 §4.2: core-scale runs, one process at a time) run after all the
 //       others, one after another, and print each run's wall/user time and max RSS (an RSS over the suite's budget
 //       is a `note:`, not a failure: D11). `--skip-heavy` leaves them out: they are listed as not run (`notRun` in
@@ -227,6 +227,7 @@ interface SkipReport {
 
 export async function staticChecks(runDir: string): Promise<{ ok: boolean; skips?: SkipReport }> {
   const junit = join(runDir, "unit-tests.junit.xml");
+  const runnerJunit = join(runDir, "runner-unit-tests.junit.xml");
   const steps: [string, string[], Record<string, string>][] = [
     ["typecheck", ["bunx", "tsc", "--noEmit", "-p", "."], {}],
     // Oracle unit tests fail (instead of skipping) when their probe is missing; the junit report
@@ -236,6 +237,9 @@ export async function staticChecks(runDir: string): Promise<{ ok: boolean; skips
     // --timeout: Bun's 5 s per-test default flakes under load (seen: options oracle, unicode_width
     // all-scalar, termize pty); a hung test still fails, after 60 s.
     ["unit tests", [process.execPath, "test", "src", "tools", "--timeout=60000", "--reporter=junit", `--reporter-outfile=${junit}`], { RUST_TS_REQUIRE_PROBES: "1", CI: "true" }],
+    // The runner's own tests (scripts/, harness/) in a process of their own: they point RUST_TS_DATA and the
+    // modules that read it (scripts/lib/common.ts) at temp dirs, which the src/tools tests must not see.
+    ["runner unit tests", [process.execPath, "test", "scripts", "harness", "--timeout=60000", "--reporter=junit", `--reporter-outfile=${runnerJunit}`], { RUST_TS_REQUIRE_PROBES: "1", CI: "true" }],
     // --offline: a vendor crate missing from cargo's cache is an ERROR, never network I/O.
     ["markers", [process.execPath, "scripts/coverage.ts", "--check", "--offline"], {}],
   ];
@@ -249,23 +253,29 @@ export async function staticChecks(runDir: string): Promise<{ ok: boolean; skips
       ok = false;
       console.log((r.stdout + r.stderr).split("\n").filter(Boolean).slice(-15).join("\n"));
     }
-    if (name === "unit tests") {
-      if (!existsSync(junit)) {
-        console.log(`ERROR: unit tests wrote no junit report (${junit}); cannot check for skipped tests`);
+    const report = name === "unit tests" ? junit : name === "runner unit tests" ? runnerJunit : undefined;
+    if (report !== undefined) {
+      if (!existsSync(report)) {
+        console.log(`ERROR: ${name} wrote no junit report (${report}); cannot check for skipped tests`);
         ok = false;
         continue;
       }
       let found: SkippedTest[];
       try {
-        found = junitSkips(readFileSync(junit, "utf8"));
+        found = junitSkips(readFileSync(report, "utf8"));
       } catch (e) {
-        console.log(`ERROR: cannot read the unit tests' junit report ${junit}: ${e instanceof Error ? e.message : String(e)}`);
+        console.log(`ERROR: cannot read the ${name} junit report ${report}: ${e instanceof Error ? e.message : String(e)}`);
         ok = false;
         continue;
       }
       const { allowed, unexpected } = classifySkips(found);
-      skips = { skipped: allowed.length + unexpected.length, allowed: allowed.length, unexpected };
-      console.log(`${unexpected.length ? "ERROR:" : "ok   "} unit test skips: ${skips.skipped} (${allowed.length} allowlisted, ${unexpected.length} not allowed under RUST_TS_REQUIRE_PROBES=1)`);
+      // Both reports add up into one SkipReport (`skips` of the run record).
+      skips = {
+        skipped: (skips?.skipped ?? 0) + allowed.length + unexpected.length,
+        allowed: (skips?.allowed ?? 0) + allowed.length,
+        unexpected: [...(skips?.unexpected ?? []), ...unexpected],
+      };
+      console.log(`${unexpected.length ? "ERROR:" : "ok   "} ${name.replace(/s$/, "")} skips: ${allowed.length + unexpected.length} (${allowed.length} allowlisted, ${unexpected.length} not allowed under RUST_TS_REQUIRE_PROBES=1)`);
       for (const t of unexpected.slice(0, 20)) console.log(`  skipped: ${t.file}: ${t.path.join(" > ")}`);
       if (unexpected.length) ok = false;
     }

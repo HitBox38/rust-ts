@@ -8,6 +8,7 @@ import { caseEnv, mergeEnv } from "../scripts/lib/env.ts";
 import { oraclePinnedPathEnv, oracleRustcCmd, oracleSysroot, rustcDriverHash } from "../scripts/lib/oracle.ts";
 import { probePath } from "../scripts/probes.ts";
 import { COMPILETEST_TARGET, collectUiTests, uiBlessed, uiCases, uiFileCases, type Blessed, type ErrorFormat } from "./compiletest.ts";
+import { EMPTY_SYSROOT, M5_TARGET, libArgs, libCrate, libEnv, oracleLibRmeta } from "./library.ts";
 
 export interface Case {
   /** Stable id; the protected set (harness/baseline) is a list of these. */
@@ -1198,8 +1199,8 @@ SUITES.push(
 //   (1 case).
 // - `mir-core`: `-Zunpretty=mir` of core with D1's argv, split per MIR body (scripts/lib/split.ts `splitMirPretty`,
 //   ids `core|<body header>[ [ctfe]][ @k]`; 47,733 bodies at the pin) plus the run case `core`.
-const M5_TARGET = "x86_64-unknown-linux-gnu";
-const CORE_ARGS = (crateType: string[]): string[] => [
+// (`M5_TARGET` comes from harness/library.ts.)
+export const CORE_ARGS = (crateType: string[]): string[] => [
   "--crate-name",
   "core",
   "--edition=2024",
@@ -1324,15 +1325,27 @@ const RMETA_UI_CORPUS = (): Case[] =>
       return [...src.matchAll(/crate_type\s*=\s*"(\w+)"/g)].every((m) => m[1] === "lib" || m[1] === "rlib");
     })
     .map((f) => pinSessionEnv({ id: f, file: f, args: [...stdArgs(f), "--crate-type", "lib", "--emit=metadata", f], env: NOCORE_ENV })));
-/** An rmeta suite: `dump` = run the probe (`content`: with `--content`); `bytes` = the byte line. */
-const rmetaSuite = (s: Omit<Suite, "oracle" | "subject" | "oracleKey" | "milestone">, bytes: boolean, dump: { content: boolean } | undefined): Suite => ({
-  ...s,
-  milestone: "M5",
-  ...(dump ? { probes: ["rmetadump"] } : {}),
-  oracleKey: () => rmetaOracleKey(dump !== undefined),
-  oracle: ([c]) => rmetaRun(s.name, "oracle", c!, bytes, dump && RMETADUMP_ARGS(dump.content), oracleRustcCmd(c!.args)),
-  subject: ([c]) => rmetaRun(s.name, "subject", c!, bytes, dump && RMETADUMP_ARGS(dump.content), [...bunCmd("src/rust_ts/main.ts"), ...c!.args]),
-});
+/**
+ * An rmeta suite: `dump` = run the probe (`content`: with `--content`; `probeArgs`: the probe's options and rustc
+ * arguments of a case, default `RMETADUMP_ARGS(content)`); `bytes` = the byte line. `subject`: the subject's compiler
+ * command of a case, default src/rust_ts/main.ts with the case's argv.
+ */
+const rmetaSuite = (
+  s: Omit<Suite, "oracle" | "subject" | "oracleKey" | "milestone">,
+  bytes: boolean,
+  dump: { content: boolean; probeArgs?: (c: Case) => string[] } | undefined,
+  subject: (c: Case) => string[] = (c) => [...bunCmd("src/rust_ts/main.ts"), ...c.args],
+): Suite => {
+  const probeArgs = (c: Case) => dump && (dump.probeArgs ? dump.probeArgs(c) : RMETADUMP_ARGS(dump.content));
+  return {
+    ...s,
+    milestone: "M5",
+    ...(dump ? { probes: ["rmetadump"] } : {}),
+    oracleKey: () => rmetaOracleKey(dump !== undefined),
+    oracle: ([c]) => rmetaRun(s.name, "oracle", c!, bytes, probeArgs(c!), oracleRustcCmd(c!.args)),
+    subject: ([c]) => rmetaRun(s.name, "subject", c!, bytes, probeArgs(c!), subject(c!)),
+  };
+};
 const CORE_RMETA_CASE = (): Case => ({ id: "core", file: "library/core/src/lib.rs", args: CORE_ARGS(["lib"]), env: NOCORE_ENV });
 SUITES.push(
   rmetaSuite(
@@ -1389,6 +1402,117 @@ SUITES.push(
     },
     true,
     undefined,
+  ),
+);
+
+// M5 alloc and std (plan-m5 §4, D1, D2, D12; lane harness-m5c): the core suites' setup for library/alloc and
+// library/std. Argv, aux chain and inputs come from harness/library.ts (see its header):
+// - D1's argv (`libArgs`): crate name, edition, root, `--crate-type lib`, target, `-Zforce-unstable-if-unmarked`,
+//   `--emit=metadata`, the crate's features/cfgs, `--sysroot <empty dir>`, its `--extern`s (oracle-built aux rmetas,
+//   cargo's `priv:` marks, `-Zunstable-options`) and `-L dependency=` dirs. Env NOCORE_ENV plus the build script's
+//   (`STD_ENV_ARCH=x86_64` for std). Run from the upstream checkout; nothing is written into it (`-o` into
+//   `$RUST_TS_DATA/rmeta/...` for the rmeta suites; `-Zunpretty` writes nothing).
+// - The aux chain is built by the oracle when a suite's cases are made (once; cached under `$RUST_TS_DATA/aux/m5-*`):
+//   alloc needs core and compiler_builtins; std needs 19 crates (core, compiler_builtins, alloc, the 2 workspace shims,
+//   unwind, panic_abort, panic_unwind, std_detect, and 10 from crates.io). The case's argv holds their paths, which hold their cache keys, so the oracle cache key follows
+//   any change in them; `inputDirs` are the crate's own inputs.
+// - Heavy class like the core suites (the port loads core's 54 MB rmeta; one process at a time).
+// - The rmeta suites' probe (rmetadump) reads each rmeta with the case's empty sysroot and `-L dependency=` dirs
+//   (`libProbeArgs`), so the oracle's decoder resolves the crate's deps to the same aux rmetas, never to the oracle
+//   sysroot's core (a different SVH).
+// Suites (unprotected until root accepts a run):
+// - `check-alloc`, `check-std`: stderr + exit + the rmeta's size and sha256 (D4's gate cases for M5c).
+// - `rmeta-alloc`, `rmeta-std`: the rmetadump sections (`<crate>|<section>`), as rmeta-core.
+// - `mir-alloc`, `mir-std`: `-Zunpretty=mir`, split per body (`<crate>|<header>`), as mir-core.
+// - `check-chain` (D12, report only): the oracle checks alloc against the **port's** core rmeta. Oracle side =
+//   check-alloc's. Subject side (scripts/chain-run.ts under scripts/rmeta-run.ts --bytes): the port builds core
+//   (`CORE_ARGS(["lib"])`, so it costs a core run) into `<rmeta dir>/port-core/libcore.rmeta`, then the oracle runs
+//   alloc's argv with that file as `core` (its `--extern` and `-L dependency=`; the other deps stay the oracle's).
+//   compiler_builtins was built against the oracle's core, so a port core with any other SVH fails to load (E0460
+//   style): MATCH iff the port's core rmeta is accepted in place of the oracle's and alloc's rmeta comes out the same.
+/** A library crate's case (see above). */
+const libCase = (name: string, extra: string[] = []): Case => ({
+  id: name,
+  file: libCrate(name).root,
+  args: [...libArgs(name), ...extra],
+  env: { ...NOCORE_ENV, ...libEnv(name) },
+});
+/** rmetadump's options and rustc arguments for a library crate's rmeta: the empty sysroot and the case's `-L dependency=` dirs. */
+const libProbeArgs =
+  (content: boolean) =>
+  (c: Case): string[] => [
+    ...(content ? ["--content"] : []),
+    "--",
+    "--target",
+    M5_TARGET,
+    "--sysroot",
+    EMPTY_SYSROOT,
+    ...c.args.flatMap((a, i) => (c.args[i - 1] === "-L" && a.startsWith("dependency=") ? ["-L", a] : [])),
+  ];
+const LIB_HEAVY = { timeoutMs: 1_800_000, oracleTimeoutMs: 300_000, heavy: M5_HEAVY };
+for (const name of ["alloc", "std"]) {
+  const inputDirs = libCrate(name).inputs;
+  SUITES.push(
+    rmetaSuite(
+      {
+        name: `check-${name}`,
+        description: `library/${name} checked with plan-m5 D1's argv against oracle-built aux crates (D2): stderr + exit + the .rmeta's size and sha256 (byte identity, D4); heavy`,
+        mode: "single",
+        ...LIB_HEAVY,
+        inputDirs,
+        cases: () => [libCase(name)],
+      },
+      true,
+      undefined,
+    ),
+    rmetaSuite(
+      {
+        name: `rmeta-${name}`,
+        description: `library/${name}'s .rmeta (check-${name}'s compilation) through tools/probes/rmetadump, split per section (\`${name}|<section>\`) plus the run case \`${name}\`; heavy`,
+        mode: "split",
+        split: "rmetadump",
+        ...LIB_HEAVY,
+        inputDirs,
+        cases: () => [libCase(name)],
+      },
+      false,
+      { content: false, probeArgs: libProbeArgs(false) },
+    ),
+    {
+      name: `mir-${name}`,
+      milestone: "M5",
+      description: `rustc -Zunpretty=mir on library/${name} with check-${name}'s argv, split into one case per body (\`${name}|<header>\`) plus the run case \`${name}\`; heavy`,
+      mode: "split",
+      split: "mir-pretty",
+      ...LIB_HEAVY,
+      inputDirs,
+      cases: () => [libCase(name, ["-Zunpretty=mir"])],
+      oracle: ([c]) => oracleRustcCmd(c!.args),
+      subject: ([c]) => [...bunCmd("src/rust_ts/main.ts"), ...c!.args],
+    },
+  );
+}
+/** The subject command of check-chain (see above). */
+export const CHAIN_RUN = join(REPO, "scripts", "chain-run.ts");
+SUITES.push(
+  rmetaSuite(
+    {
+      name: "check-chain",
+      description:
+        "report only (plan-m5 D12): the oracle checks library/alloc (check-alloc's argv) against the port's core rmeta instead of the oracle's: stderr + exit + alloc's .rmeta size and sha256; heavy (one port core run)",
+      mode: "single",
+      ...LIB_HEAVY,
+      inputDirs: libCrate("alloc").inputs,
+      cases: () => [libCase("alloc")],
+    },
+    true,
+    undefined,
+    (c) => {
+      const portCore = join(rmetaOut("check-chain", c), "port-core", "libcore.rmeta");
+      const core = [...bunCmd("src/rust_ts/main.ts"), ...CORE_ARGS(["lib"]), "-o", portCore];
+      const alloc = oracleRustcCmd(libArgs("alloc", (d) => (d === "core" ? portCore : oracleLibRmeta(d))));
+      return [process.execPath, CHAIN_RUN, "--fresh", portCore, "--first", String(core.length), "--", ...core, ...alloc];
+    },
   ),
 );
 

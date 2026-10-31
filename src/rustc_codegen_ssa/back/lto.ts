@@ -1,13 +1,30 @@
-// Partial port of compiler/rustc_codegen_ssa/src/back/lto.rs: `exported_symbols_for_lto`, which `CrateInfo::new`
-// calls. The LTO machinery (`ThinModule`, `ThinShared`, `SerializedModule`, `crate_type_allows_lto`,
+// Partial port of compiler/rustc_codegen_ssa/src/back/lto.rs: `crate_type_allows_lto` and `exported_symbols_for_lto`,
+// which `CrateInfo::new` calls. The LTO machinery (`ThinModule`, `ThinShared`, `SerializedModule`,
 // `check_lto_allowed`, ...) is codegen (M7) and not ported.
 import type { AllocatorKind } from "../../rustc_ast/expand/allocator.gen.ts";
 import { type ExportedSymbol, type SymbolExportInfo, SymbolExportLevel } from "../../rustc_middle/middle/exported_symbols.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import { type CrateNum, LOCAL_CRATE } from "../../rustc_span/def_id.ts";
+import type { CrateType } from "../../rustc_structures/crate_type.ts";
 import { allocator_kind_for_codegen } from "../base.ts";
 import * as symbol_export from "./symbol_export.ts";
 import { allocator_shim_symbols, symbol_name_for_instance_in_crate } from "./symbol_export.ts";
+
+// PORT: exported (private upstream) so the unported `check_lto_allowed` caller can import it when it lands at M7.
+// rustc: compiler/rustc_codegen_ssa/src/back/lto.rs:77 crate_type_allows_lto
+export function crate_type_allows_lto(crate_type: CrateType): boolean {
+  switch (crate_type) {
+    case "Executable":
+    case "Dylib":
+    case "StaticLib":
+    case "Cdylib":
+    case "ProcMacro":
+    case "Sdylib":
+      return true;
+    case "Rlib":
+      return false;
+  }
+}
 
 // rustc: compiler/rustc_codegen_ssa/src/back/lto.rs:89 exported_symbols_for_lto
 export function exported_symbols_for_lto(tcx: TyCtxt, each_linked_rlib_for_lto: readonly CrateNum[]): string[] {

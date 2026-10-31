@@ -37,7 +37,7 @@ export function decode_InitMask(__decoder: Decoder): InitMask {
 // rustc-derive: compiler/rustc_middle/src/mir/interpret/allocation/init_mask.rs:23 Encodable_NoContext for InitMask
 export function encode_InitMask(self: InitMask, __encoder: Encoder): void {
   encode_InitMaskBlocks(self.blocks, __encoder);
-  encode_u64(BigInt(self.len.raw), __encoder);
+  encode_u64(self.len.bytes_u64(), __encoder);
 }
 
 // rustc-type: compiler/rustc_middle/src/mir/interpret/allocation/init_mask.rs:29 InitMaskBlocks
