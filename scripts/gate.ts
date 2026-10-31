@@ -20,6 +20,7 @@ import { join } from "node:path";
 import { RMETA_RUN, SUITES, suite as getSuite, type Suite } from "../harness/suites.ts";
 import { difftest, heavyErrorLines, heavyLine, unstableOf, type HeavyRun, type OracleRerun } from "./difftest.ts";
 import { REPO, RUNS, UPSTREAM, die, ensureDir, nowId, parseArgs, run } from "./lib/common.ts";
+import { miriBinary } from "./lib/miri.ts";
 import { verifyOraclePin } from "./lib/oracle.ts";
 import { UNIT_STEPS } from "./lib/unit-steps.ts";
 import { upstreamError, upstreamStatus } from "./lib/upstream.ts";
@@ -127,7 +128,10 @@ export function oracleRuns(cmd: string[]): string[] {
   return [cmd[0]!];
 }
 
-/** One message per program a suite's oracle command runs (`oracleRuns`) that is neither `rustc` nor a declared probe. */
+/**
+ * One message per program a suite's oracle command runs (`oracleRuns`) that is neither `rustc` nor a declared probe
+ * (nor, for a Miri suite, the isolated Miri binary).
+ */
 export function undeclaredRuns(s: Suite): string[] {
   const declared = (s.probes ?? []).map(probeBinary);
   let runs: string[];
@@ -136,7 +140,9 @@ export function undeclaredRuns(s: Suite): string[] {
   } catch (e) {
     return [`suite ${s.name}: ${e instanceof Error ? e.message : String(e)}`];
   }
-  return runs.filter((p) => p !== "rustc" && !declared.includes(p)).map((p) => `suite ${s.name} runs ${p} but declares probes [${(s.probes ?? []).join(", ")}]`);
+  // A Miri suite's oracle is the isolated toolchain's Miri (scripts/lib/miri.ts; difftest verifies it).
+  const miri = s.miri ? miriBinary() : undefined;
+  return runs.filter((p) => p !== "rustc" && p !== miri && !declared.includes(p)).map((p) => `suite ${s.name} runs ${p} but declares probes [${(s.probes ?? []).join(", ")}]`);
 }
 
 /**

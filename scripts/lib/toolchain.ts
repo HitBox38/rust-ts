@@ -24,6 +24,11 @@ export function pinnedComponents(pinned: string[], host: string): string[] {
   return pinned.map((c) => c.replaceAll("{host}", host));
 }
 
+/** The installed components not in `want` and the wanted ones not installed, each sorted. */
+function componentDiff(installed: string[], want: string[]): { extra: string[]; missing: string[] } {
+  return { extra: installed.filter((c) => !want.includes(c)).sort(), missing: want.filter((c) => !installed.includes(c)).sort() };
+}
+
 /**
  * `undefined` if the toolchain at `sysroot` has exactly the `pinned` components (`{host}` = `host`) and no
  * `lib/rustlib/src`; else one line (no `ERROR:` prefix) naming the extra and missing components and the src dir.
@@ -35,9 +40,7 @@ export function oracleToolchainError(sysroot: string, pinned: string[], host: st
   } catch (e) {
     return `cannot read the oracle toolchain's component list (${join(sysroot, "lib", "rustlib", "components")}): ${e instanceof Error ? e.message : String(e)}`;
   }
-  const want = pinnedComponents(pinned, host);
-  const extra = installed.filter((c) => !want.includes(c)).sort();
-  const missing = want.filter((c) => !installed.includes(c)).sort();
+  const { extra, missing } = componentDiff(installed, pinnedComponents(pinned, host));
   const src = join(sysroot, "lib", "rustlib", "src");
   const hasSrc = existsSync(src);
   if (!extra.length && !missing.length && !hasSrc) return undefined;
@@ -47,4 +50,30 @@ export function oracleToolchainError(sysroot: string, pinned: string[], host: st
     ...(hasSrc ? [`${src} exists`] : []),
   ];
   return `the oracle toolchain ${toolchain} differs from its pinned components (UPSTREAM.json rust.components): ${what.join("; ")}; it is immutable (extra components change rustc's output): restore it with rustup component remove/add --toolchain ${toolchain}, and give tools that need other components their own RUSTUP_HOME`;
+}
+
+/**
+ * The isolated Miri toolchain (plan-m6 D1, lane harness-m6a; scripts/lib/miri.ts): `undefined` if the toolchain at
+ * `sysroot` has exactly the `pinned` components (UPSTREAM.json `rust.miri.components`, `{host}` = `host`) and has
+ * `lib/rustlib/src` (the `rust-src` component: `cargo miri setup` builds the Miri sysroot from it); else one line (no
+ * `ERROR:` prefix). It is a separate toolchain from the oracle's, in its own RUSTUP_HOME (`rustupHome`), so its
+ * components are pinned separately and may include what the oracle's must not (`miri-preview`, `rust-src`).
+ */
+export function miriToolchainError(sysroot: string, pinned: string[], host: string, toolchain: string, rustupHome: string): string | undefined {
+  let installed: string[];
+  try {
+    installed = installedComponents(sysroot);
+  } catch (e) {
+    return `cannot read the Miri toolchain's component list (${join(sysroot, "lib", "rustlib", "components")}): ${e instanceof Error ? e.message : String(e)}; run: bun scripts/miri.ts setup`;
+  }
+  const { extra, missing } = componentDiff(installed, pinnedComponents(pinned, host));
+  const src = join(sysroot, "lib", "rustlib", "src");
+  const hasSrc = existsSync(src);
+  if (!extra.length && !missing.length && hasSrc) return undefined;
+  const what = [
+    ...(extra.length ? [`extra [${extra.join(", ")}]`] : []),
+    ...(missing.length ? [`missing [${missing.join(", ")}]`] : []),
+    ...(hasSrc ? [] : [`${src} is missing`]),
+  ];
+  return `the Miri toolchain ${toolchain} (RUSTUP_HOME=${rustupHome}) differs from its pinned components (UPSTREAM.json rust.miri.components): ${what.join("; ")}; run: bun scripts/miri.ts setup (it only ever installs into that RUSTUP_HOME, never into the oracle's)`;
 }
