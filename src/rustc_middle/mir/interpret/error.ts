@@ -403,8 +403,8 @@ function lower_hex_alt(v: number | bigint): string {
 // rustc: compiler/rustc_middle/src/mir/interpret/error.rs:437 fmt
 export function display_UndefinedBehaviorInfo(self: UndefinedBehaviorInfo): string {
   // rustc: compiler/rustc_middle/src/mir/interpret/error.rs:440 fmt_in_alloc_attempt
-  function fmt_in_alloc_attempt(msg: CheckInAllocMsg, inbounds_size: number): string {
-    const inbounds_size_fmt = inbounds_size === 1 ? "1 byte" : `${inbounds_size} bytes`;
+  function fmt_in_alloc_attempt(msg: CheckInAllocMsg, inbounds_size: bigint): string {
+    const inbounds_size_fmt = inbounds_size === 1n ? "1 byte" : `${inbounds_size} bytes`;
     let out = `${display_CheckInAllocMsg(msg)}: `;
     switch (msg.$) {
       case "MemoryAccess":
@@ -414,7 +414,7 @@ export function display_UndefinedBehaviorInfo(self: UndefinedBehaviorInfo): stri
         out += `attempting to offset pointer by ${inbounds_size_fmt}`;
         break;
       case "Dereferenceable":
-        if (inbounds_size === 0) {
+        if (inbounds_size === 0n) {
           out += `${msg._0} must point to some allocation`;
         } else {
           out += `${msg._0} must be dereferenceable for ${inbounds_size_fmt}`;
@@ -473,31 +473,33 @@ export function display_UndefinedBehaviorInfo(self: UndefinedBehaviorInfo): stri
       // Write pointer. Offset might be negative so we cannot use the normal `impl Display
       // for Pointer`.
       out += display_AllocId(alloc_id);
-      if (ptr_offset > 0) {
+      if (ptr_offset > 0n) {
         out += `+${lower_hex_alt(ptr_offset)}`;
-      } else if (ptr_offset < 0) {
+      } else if (ptr_offset < 0n) {
+        // `ptr_offset.unsigned_abs()`
         out += `-${lower_hex_alt(-ptr_offset)}`;
       }
       // Write why it is invalid.
       out += " which ";
-      if (ptr_offset < 0) {
+      if (ptr_offset < 0n) {
         out += "points to before the beginning of the allocation";
-      } else if (inbounds_size < 0) {
+      } else if (inbounds_size < 0n) {
         // We expected the ptr to have memory to its left, but it does not.
-        if (ptr_offset === 0) {
+        if (ptr_offset === 0n) {
           out += "is at the beginning of the allocation";
         } else {
           out += `is only ${ptr_offset} bytes from the beginning of the allocation`;
         }
       } else {
+        // `ptr_offset as u64` (non-negative here)
         const ptr_offset_ = ptr_offset;
-        const alloc_size_ = alloc_size.bytes();
+        const alloc_size_ = alloc_size.bytes_u64();
         if (ptr_offset_ >= alloc_size_) {
-          const size = alloc_size_ === 1 ? "1 byte" : `${alloc_size_} bytes`;
+          const size = alloc_size_ === 1n ? "1 byte" : `${alloc_size_} bytes`;
           out += `is at or beyond the end of the allocation of size ${size}`;
         } else {
           const dist_to_end = alloc_size_ - ptr_offset_;
-          const dist = dist_to_end === 1 ? "1 byte" : `${dist_to_end} bytes`;
+          const dist = dist_to_end === 1n ? "1 byte" : `${dist_to_end} bytes`;
           out += `is only ${dist} from the end of the allocation`;
         }
       }
@@ -505,10 +507,10 @@ export function display_UndefinedBehaviorInfo(self: UndefinedBehaviorInfo): stri
     }
     case "DanglingIntPointer": {
       const { addr, inbounds_size, msg } = self;
-      if (addr === 0) {
+      if (addr === 0n) {
         return `${fmt_in_alloc_attempt(msg, inbounds_size)}, but got null pointer`;
       }
-      const ptr = Pointer.without_provenance<CtfeProvenance>(BigInt(addr));
+      const ptr = Pointer.without_provenance<CtfeProvenance>(addr);
       return `${fmt_in_alloc_attempt(msg, inbounds_size)}, but got ${display_Pointer_Option(ptr, PLAIN)} which is a dangling pointer (it has no provenance)`;
     }
     case "AlignmentCheckFailed": {

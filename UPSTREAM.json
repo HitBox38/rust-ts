@@ -7,6 +7,7 @@
     "toolchain": "nightly",
     "nightlyName": "nightly-2026-10-11",
     "sparse": ["compiler", "library", "tests/ui", "tests/auxiliary", "src/tools/compiletest", "src/tools/miri/src"],
-    "submodules": ["library/backtrace"]
+    "submodules": ["library/backtrace"],
+    "components": ["cargo-{host}", "llvm-tools-preview-{host}", "rust-std-{host}", "rust-std-x86_64-unknown-linux-gnu", "rustc-{host}", "rustc-dev-{host}"]
   }
 }

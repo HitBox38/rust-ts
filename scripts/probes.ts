@@ -188,11 +188,11 @@ async function build(name: string): Promise<void> {
 }
 
 /**
- * Probes the oracle unit tests (`*.test.ts` under src/ and tools/) read: every test that builds a
- * probe path does it as `join(DATA, "target", "probes", "release", "<name>" ...)` or
- * `probePath("<name>")`.
+ * Probes the unit tests (`*.test.ts` under `roots`, default src/ and tools/) read: every test that
+ * builds a probe path does it as `join(DATA, "target", "probes", "release", "<name>" ...)` or
+ * `probePath("<name>")` / `probeBinary("<name>")`.
  */
-export function oracleTestProbes(): string[] {
+export function oracleTestProbes(roots: string[] = ["src", "tools"]): string[] {
   const names = new Set<string>();
   const re = /"probes",\s*"release",\s*"([\w-]+)"|probe(?:Path|Binary)\("([\w-]+)"\)/g;
   const rec = (dir: string) => {
@@ -205,7 +205,7 @@ export function oracleTestProbes(): string[] {
       }
     }
   };
-  for (const d of ["src", "tools"]) rec(join(REPO, d));
+  for (const d of roots) rec(join(REPO, d));
   return [...names].sort();
 }
 
