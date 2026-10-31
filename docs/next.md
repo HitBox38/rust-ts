@@ -348,7 +348,8 @@ Follow-ups (queued):
 | pm-lib | library/proc_macro lib, diagnostic, escape, to_tokens, quote (~2.9k); the 30 quote! cases | running |
 | vendor-rand | D5: rand/rand_core 0.10.1 + chacha20 0.10.0 subset, byte-checked | running |
 | followups-34 | the size-bigint review nits and the 3 UB-field cases above (all 3 MATCH; codegen per-field typemap override, decision recorded) | APPROVE WITH NITS (N1 fixed by root); merged into integ-w35 |
-| harness-w35 | oracle-toolchain component check (plan-m6 added miri + rust-src to the oracle on 2026-10-31; removed by root), gate-runner-unit nits, check-chain stderr order, chain-run /bin/sh, aux cleanup (harness batch) | running |
+| harness-w35 | oracle-toolchain component check (UPSTREAM.json rust.components), gate-runner-unit nits, check-chain runner (core output only on failure), chain-run without /bin/sh, aux cleanup (harness batch) | APPROVE WITH NITS (nits 1-2 fixed by root); merged into integ-w35 |
 Then: harness-m6a (D1 isolated Miri toolchain + guard, Miri oracle cache, miri-hello / run-pass-miri / run-fail-miri,
-coverage crate `miri`, sparse src/tools/miri/tests) after harness-w35 merges; wave 36 Miri core (plan-m6 §5, with A2's split lanes). Small queue: `BoundsCheckFailed { len, index }` exact (one typemap
+coverage crate `miri`, sparse src/tools/miri/tests) after harness-w35 merges; wave 36 Miri core (plan-m6 §5, with A2's split lanes). Small queue: harness-w35 nits (aux cleanup for mini_core-*/ui/*; disjointness test also for *_test.ts/*.spec.ts; probe
+builds run the toolchain check); `BoundsCheckFailed { len, index }` exact (one typemap
 `fields` entry + machine.ts / projection.ts); stale comment eval_context.ts:27.
