@@ -14,6 +14,8 @@ Rules you will be tempted to break:
 - Edit only the files you were assigned. Everything else goes in your handoff file.
 - Don't run the gate or full suites unless you are root. Use `--sample` runs and `phase-diff`.
 - Never change baselines, oracle outputs, suites or scripts to make something pass.
+- Never modify the oracle toolchain (no `rustup component add/remove`, no reinstall): extra components change its
+  output. Tools that need them (e.g. Miri) get a separate `RUSTUP_HOME` under `$RUST_TS_DATA`.
 - Keep tool output short; read diff files' "first difference" line, not whole files.
 
 When done, write `docs/handoff/<lane>.md`: files touched, coverage numbers
