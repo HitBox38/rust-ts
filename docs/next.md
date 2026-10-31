@@ -338,8 +338,9 @@ Follow-ups (queued):
   the duplicate handle_ebadf; perf representation decisions from perf-core-a (numeric interning hash, GenericArg.kind,
   SpanData columns, GC/closures); expected mir TIMEOUTs (supertrait-hint-cycle, 3 TAIT cases).
 
-## Wave 35 (next) — M6 planning + M5 follow-ups
-1. plan-m6 (design lane, ports no code): interpreter (const eval + shims) toward "std hello world runs; run-pass tests;
-   proc macros" (PLAN.md M6), measured like plan-m5.
-2. followups-34: the size-bigint nits and the 3 UB-field cases above (one lane).
-3. harness: the gate-runner-unit nits; check-chain stderr order.
+## Wave 35 (started 2026-10-31) — M6 planning + M5 follow-ups
+| lane | scope | status |
+|---|---|---|
+| plan-m6 | design lane (ports no code): interpreter (const eval + shims) toward "std hello world runs; run-pass tests; proc macros" (PLAN.md M6), measured like plan-m5 | running |
+| followups-34 | the size-bigint review nits and the 3 UB-field cases above | running |
+Then: harness lane for the gate-runner-unit nits and check-chain stderr order; M6 waves once plan-m6's decisions are accepted.
