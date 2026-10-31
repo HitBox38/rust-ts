@@ -128,6 +128,11 @@ in-scope file has none.
 
 ## Contract for interp-generic (D3 / A1)
 
+Reconciled with interp-generic by lane interp-miri-reconcile (docs/handoff/interp-miri-reconcile.md): items 1-5 below are
+done (`MiriMachineTypes`, `MiriInterpCx = InterpCx<MiriMachine>`, provenance registration, the machine's `MemoryKind`
+impls, the provenance-parameterised typemap entries and aliases).
+
+
 What `impl Machine for MiriMachine` (machine.rs:1133, lane miri-machine) needs from the generic interface:
 
 1. **Associated types as parameters** (or machine-typed members) of `Machine`, `InterpCx`, `Memory`, `Frame`,
@@ -135,6 +140,8 @@ What `impl Machine for MiriMachine` (machine.rs:1133, lane miri-machine) needs f
    (a string union), `ExtraFnVal = DynSym` (shims/foreign_items.gen.ts), `FrameExtra = FrameExtra` (interface),
    `AllocExtra = AllocExtra` (class), `Provenance = Provenance` (`{ $: "Concrete"; alloc_id; tag } | { $: "Wildcard" }`),
    `ProvenanceExtra = ProvenanceExtra` (`{ $: "Concrete"; _0: BorTag } | { $: "Wildcard" }`), `Bytes = MiriAllocBytes`,
+   `AllocParams = MiriAllocParams` (`<MiriAllocBytes as AllocBytes>::AllocParams`, alloc_bytes.rs:109; the
+   `get_default_alloc_params` hook returns it),
    `MemoryMap = MonoHashMap<AllocId, [MemoryKind<MiriMemoryKind>, Allocation<Provenance, AllocExtra, MiriAllocBytes>]>`
    (data_structures/mono_hash_map.ts; it must implement `AllocMap`). `GLOBAL_KIND = "Global"`, `PANIC_ON_ALLOC_FAIL = false`.
    `Frame<Extra>` already takes `Extra`; `Pointer<Prov>` / `Scalar<Prov>` are generic already.
