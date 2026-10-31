@@ -8,13 +8,13 @@ import { type MPlaceTy, type OpTy, type Pointer, type Scalar } from "../lib.ts";
 import { type MiriInterpCx } from "../machine.ts";
 import { stub_methods } from "../../rust_ts/miri_stub.ts";
 import { InterpCx } from "../../rustc_const_eval/interpret/eval_context.ts";
-import { type Machine } from "../../rustc_const_eval/interpret/machine.ts";
+import { type AnyMachine, type Machine } from "../../rustc_const_eval/interpret/machine.ts";
 import { type InterpResult } from "../../rustc_middle/mir/interpret/mod.ts";
 import { type Pending } from "../../rustc_type_ir/decls.ts";
 import { unported } from "../../std/panic.ts";
 
 declare module "../../rustc_const_eval/interpret/eval_context.ts" {
-  interface InterpCx<M extends Machine = Machine> {
+  interface InterpCx<M extends AnyMachine = Machine> {
     // ---- shims/time.rs: `trait EvalContextExt` (impl for `MiriInterpCx`) ----
     // shims/time.rs:21
     parse_clockid(this: MiriInterpCx, clk_id: Scalar): TimeoutClock | undefined;

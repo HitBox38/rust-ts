@@ -4,6 +4,12 @@
 // Until ported, every method declared below is an `unported` placeholder (`stub_*` calls at the end, installed by
 // src/miri/lib.ts) and every free fn stops with `unported`. The declarations were translated mechanically from the
 // upstream signatures (`Pending<"..">` = a type the translation did not map); the fill lane owns and corrects them.
+// PORT (decision miri-contract C5 amendment, lane interp-miri-reconcile): `Item(u64)` is a `number` (`Item._0`, typemap
+// `fields`), not a bigint: the item is scanned on every access. Upstream packs the tag in bits 0-60, the permission in
+// bits 61-62 and the protector flag in bit 63, which a double cannot hold exactly. The packing is private (`Item` derives
+// only `PartialEq`/`Eq`/`Hash`; it is read through `tag()` / `perm()` / `protected()` / Debug), so the fill lane packs it
+// below 2^53 with arithmetic (no 32-bit bitwise ops), e.g. tag in bits 0-49, permission in bits 50-51, protector in bit
+// 52, with `TAG_MASK = 2^50 - 1` (BorTags are handed out sequentially from 1: a run never reaches 2^50). Record it there.
 import { type BorTag } from "../mod.ts";
 import { Item, type Permission } from "./item.gen.ts";
 import { stub_methods, stub_statics } from "../../../rust_ts/miri_stub.ts";

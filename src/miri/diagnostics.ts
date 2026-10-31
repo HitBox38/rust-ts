@@ -6,10 +6,11 @@
 // upstream signatures (`Pending<"..">` = a type the translation did not map); the fill lane owns and corrects them.
 import { type ThreadId } from "./concurrency/thread.ts";
 import { type DiagLevel, type NonHaltingDiagnostic, SpanDedupDiagnostic } from "./diagnostics.gen.ts";
-import { type MemoryKind, type MiriInterpCx, MiriMachine } from "./machine.ts";
+import { type AllocExtra, type MemoryKind, type MiriInterpCx, MiriMachine, type Provenance } from "./machine.ts";
+import type { MiriAllocBytes } from "./alloc/alloc_bytes.ts";
 import { stub_methods, stub_statics } from "../rust_ts/miri_stub.ts";
 import { InterpCx } from "../rustc_const_eval/interpret/eval_context.ts";
-import { type Machine } from "../rustc_const_eval/interpret/machine.ts";
+import { type AnyMachine, type Machine } from "../rustc_const_eval/interpret/machine.ts";
 import { type FrameInfo } from "../rustc_const_eval/interpret/stack.gen.ts";
 import { type Allocation } from "../rustc_middle/mir/interpret/allocation.ts";
 import { type AllocId, type InterpErrorInfo } from "../rustc_middle/mir/interpret/mod.ts";
@@ -18,7 +19,7 @@ import { unported } from "../std/panic.ts";
 export * from "./diagnostics.gen.ts";
 
 declare module "../rustc_const_eval/interpret/eval_context.ts" {
-  interface InterpCx<M extends Machine = Machine> {
+  interface InterpCx<M extends AnyMachine = Machine> {
     // ---- diagnostics.rs: `trait EvalContextExt` (impl for `MiriInterpCx`) ----
     // diagnostics.rs:842
     emit_diagnostic(this: MiriInterpCx, e: NonHaltingDiagnostic): void;
@@ -52,7 +53,7 @@ export function report_result(ecx: MiriInterpCx, res: InterpErrorInfo): [number,
   return unported("miri::diagnostics::report_result (src/tools/miri/src/diagnostics.rs:241; lane miri-driver)");
 }
 // diagnostics.rs:511 (pub)
-export function report_leaks(ecx: MiriInterpCx, leaks: ([AllocId, MemoryKind, Allocation])[]): void {
+export function report_leaks(ecx: MiriInterpCx, leaks: ([AllocId, MemoryKind, Allocation<Provenance, AllocExtra, MiriAllocBytes>])[]): void {
   return unported("miri::diagnostics::report_leaks (src/tools/miri/src/diagnostics.rs:511; lane miri-driver)");
 }
 

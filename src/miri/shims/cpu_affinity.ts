@@ -9,13 +9,13 @@ import { type MiriInterpCx } from "../machine.ts";
 import { CpuAffinityMask } from "./cpu_affinity.gen.ts";
 import { stub_methods, stub_statics } from "../../rust_ts/miri_stub.ts";
 import { InterpCx } from "../../rustc_const_eval/interpret/eval_context.ts";
-import { type Machine } from "../../rustc_const_eval/interpret/machine.ts";
+import { type AnyMachine, type Machine } from "../../rustc_const_eval/interpret/machine.ts";
 import { type InterpResult } from "../../rustc_middle/mir/interpret/mod.ts";
 import { type Pending } from "../../rustc_type_ir/decls.ts";
 export * from "./cpu_affinity.gen.ts";
 
 declare module "../../rustc_const_eval/interpret/eval_context.ts" {
-  interface InterpCx<M extends Machine = Machine> {
+  interface InterpCx<M extends AnyMachine = Machine> {
     // ---- shims/cpu_affinity.rs: `trait EvalContextExt` (impl for `MiriInterpCx`) ----
     // shims/cpu_affinity.rs:96
     sched_getaffinity(this: MiriInterpCx, pid: OpTy, cpusetsize: OpTy, mask: OpTy, dest: MPlaceTy): InterpResult;

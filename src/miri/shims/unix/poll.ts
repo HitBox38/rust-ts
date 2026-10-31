@@ -11,12 +11,12 @@ import { type Readiness, type ReadinessWatcher } from "../readiness.ts";
 import { type PollInterest } from "./poll.gen.ts";
 import { stub_methods } from "../../../rust_ts/miri_stub.ts";
 import { InterpCx } from "../../../rustc_const_eval/interpret/eval_context.ts";
-import { type Machine } from "../../../rustc_const_eval/interpret/machine.ts";
+import { type AnyMachine, type Machine } from "../../../rustc_const_eval/interpret/machine.ts";
 import { type InterpResult } from "../../../rustc_middle/mir/interpret/mod.ts";
 export * from "./poll.gen.ts";
 
 declare module "../../../rustc_const_eval/interpret/eval_context.ts" {
-  interface InterpCx<M extends Machine = Machine> {
+  interface InterpCx<M extends AnyMachine = Machine> {
     // ---- shims/unix/poll.rs: `trait EvalContextExt` (impl for `MiriInterpCx`) ----
     // shims/unix/poll.rs:26
     poll(this: MiriInterpCx, fds: OpTy, nfds: OpTy, timeout: OpTy, dest: MPlaceTy): InterpResult;

@@ -9,7 +9,7 @@ import { stub_methods } from "../../rust_ts/miri_stub.ts";
 import { type Align } from "../../rustc_abi/lib.ts";
 import { type SpecialAllocatorMethod } from "../../rustc_ast/expand/allocator.gen.ts";
 import { InterpCx } from "../../rustc_const_eval/interpret/eval_context.ts";
-import { type Machine } from "../../rustc_const_eval/interpret/machine.ts";
+import { type AnyMachine, type Machine } from "../../rustc_const_eval/interpret/machine.ts";
 import { type AllocInit } from "../../rustc_middle/mir/interpret/allocation.gen.ts";
 import { type InterpResult } from "../../rustc_middle/mir/interpret/mod.ts";
 import { type FnAbi } from "../../rustc_middle/ty/decls.ts";
@@ -17,7 +17,7 @@ import { type Ty } from "../../rustc_middle/ty/mod.ts";
 import { type Symbol } from "../../rustc_span/symbol.ts";
 
 declare module "../../rustc_const_eval/interpret/eval_context.ts" {
-  interface InterpCx<M extends Machine = Machine> {
+  interface InterpCx<M extends AnyMachine = Machine> {
     // ---- shims/alloc.rs: `trait EvalContextExt` (impl for `MiriInterpCx`) ----
     // shims/alloc.rs:13
     malloc_align(this: MiriInterpCx, size: bigint): Align;

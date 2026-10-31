@@ -7,7 +7,7 @@ import { type MPlaceTy, type OpTy } from "../lib.ts";
 import { type MiriInterpCx } from "../machine.ts";
 import { stub_methods } from "../../rust_ts/miri_stub.ts";
 import { InterpCx } from "../../rustc_const_eval/interpret/eval_context.ts";
-import { type Machine } from "../../rustc_const_eval/interpret/machine.ts";
+import { type AnyMachine, type Machine } from "../../rustc_const_eval/interpret/machine.ts";
 import { type InterpResult } from "../../rustc_middle/mir/interpret/mod.ts";
 import { type FnAbi } from "../../rustc_middle/ty/decls.ts";
 import { type Instance } from "../../rustc_middle/ty/instance.ts";
@@ -16,7 +16,7 @@ import { type Loc } from "../../rustc_span/lib.ts";
 import { type Symbol } from "../../rustc_span/symbol.ts";
 
 declare module "../../rustc_const_eval/interpret/eval_context.ts" {
-  interface InterpCx<M extends Machine = Machine> {
+  interface InterpCx<M extends AnyMachine = Machine> {
     // ---- shims/backtrace.rs: `trait EvalContextExt` (impl for `MiriInterpCx`) ----
     // shims/backtrace.rs:10
     handle_miri_backtrace_size(this: MiriInterpCx, abi: FnAbi<Ty>, link_name: Symbol, args: readonly OpTy[], dest: MPlaceTy): InterpResult;

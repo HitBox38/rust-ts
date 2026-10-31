@@ -9,12 +9,12 @@ import { type MiriInterpCx } from "../../machine.ts";
 import { type ThreadNameResult } from "./thread.gen.ts";
 import { stub_methods } from "../../../rust_ts/miri_stub.ts";
 import { InterpCx } from "../../../rustc_const_eval/interpret/eval_context.ts";
-import { type Machine } from "../../../rustc_const_eval/interpret/machine.ts";
+import { type AnyMachine, type Machine } from "../../../rustc_const_eval/interpret/machine.ts";
 import { type InterpResult } from "../../../rustc_middle/mir/interpret/mod.ts";
 export * from "./thread.gen.ts";
 
 declare module "../../../rustc_const_eval/interpret/eval_context.ts" {
-  interface InterpCx<M extends Machine = Machine> {
+  interface InterpCx<M extends AnyMachine = Machine> {
     // ---- shims/unix/thread.rs: `trait EvalContextExt` (impl for `MiriInterpCx`) ----
     // shims/unix/thread.rs:14
     pthread_create(this: MiriInterpCx, thread: OpTy, _attr: OpTy, start_routine: OpTy, arg: OpTy): InterpResult;

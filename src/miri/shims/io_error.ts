@@ -9,14 +9,14 @@ import { type MiriInterpCx } from "../machine.ts";
 import { type IoError } from "./io_error.gen.ts";
 import { stub_methods } from "../../rust_ts/miri_stub.ts";
 import { InterpCx } from "../../rustc_const_eval/interpret/eval_context.ts";
-import { type Machine } from "../../rustc_const_eval/interpret/machine.ts";
+import { type AnyMachine, type Machine } from "../../rustc_const_eval/interpret/machine.ts";
 import { type InterpResult } from "../../rustc_middle/mir/interpret/mod.ts";
 import { type IoError as io_Error } from "../../std/io.ts";
 import { type Result } from "../../std/result.ts";
 export * from "./io_error.gen.ts";
 
 declare module "../../rustc_const_eval/interpret/eval_context.ts" {
-  interface InterpCx<M extends Machine = Machine> {
+  interface InterpCx<M extends AnyMachine = Machine> {
     // ---- shims/io_error.rs: `trait EvalContextExt` (impl for `MiriInterpCx`) ----
     // shims/io_error.rs:273
     last_error_place(this: MiriInterpCx): InterpResult<MPlaceTy>;

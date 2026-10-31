@@ -115,23 +115,23 @@ test("interp-generic: Allocation / ProvenanceMap take the OFFSET_IS_ADDR = true 
 
   // read_scalar without provenance (allocation.rs:719): `Prov::OFFSET_IS_ADDR` strips the provenance
   expect(t.read_scalar(cx, alloc_range(S(0), S(8)), false, Provenance_TestProv)).toEqual({ $: "Ok", _0: Scalar.from_uint<TestProv>(0x1234n, S(8)) });
-  expect(c.read_scalar(cx, alloc_range(S(0), S(8)), false)).toEqual({ $: "Err", _0: { $: "ReadPointerAsInt", _0: undefined } });
+  expect(c.read_scalar(cx, alloc_range(S(0), S(8)), false, Provenance_CtfeProvenance)).toEqual({ $: "Err", _0: { $: "ReadPointerAsInt", _0: undefined } });
 
   // get_bytes_strip_provenance (allocation.rs:597): no `ReadPointerAsInt` with `OFFSET_IS_ADDR`
   const tb = t.get_bytes_strip_provenance(cx, alloc_range(S(0), S(4)), Provenance_TestProv);
   expect(tb.$ === "Ok" ? [...tb._0] : tb).toEqual([0x34, 0x12, 0, 0]);
-  expect(c.get_bytes_strip_provenance(cx, alloc_range(S(0), S(4))).$).toBe("Err");
+  expect(c.get_bytes_strip_provenance(cx, alloc_range(S(0), S(4)), Provenance_CtfeProvenance).$).toBe("Err");
 
   // get_bytes_unchecked_raw(_mut) (allocation.rs:653 / :661): `assert!(Prov::OFFSET_IS_ADDR)`
   expect(t.get_bytes_unchecked_raw(Provenance_TestProv).length).toBe(16);
   expect(t.get_bytes_unchecked_raw_mut(Provenance_TestProv).length).toBe(16);
-  expect(panics(() => c.get_bytes_unchecked_raw())).toBe("assertion failed: Prov::OFFSET_IS_ADDR");
+  expect(panics(() => c.get_bytes_unchecked_raw(Provenance_CtfeProvenance))).toBe("assertion failed: Prov::OFFSET_IS_ADDR");
 
   // A pointer-sized read across the pointer's end (offset 4): per-byte provenance that does not add up
   // (provenance_map.rs:239): with `OFFSET_IS_ADDR` it is no provenance, without it `ReadPartialPointer`.
   const tr = t.read_scalar(cx, alloc_range(S(4), S(8)), true, Provenance_TestProv);
   expect(tr).toEqual({ $: "Ok", _0: Scalar.from_uint<TestProv>(0n, S(8)) });
-  expect(c.read_scalar(cx, alloc_range(S(4), S(8)), true)).toEqual({ $: "Err", _0: { $: "ReadPartialPointer", _0: S(4) } });
+  expect(c.read_scalar(cx, alloc_range(S(4), S(8)), true, Provenance_CtfeProvenance)).toEqual({ $: "Err", _0: { $: "ReadPartialPointer", _0: S(4) } });
 
   // process_native_write / write_wildcards (allocation.rs:779, provenance_map.rs:354): wildcard bytes read back as a
   // pointer with `Prov::WILDCARD` (provenance_map.rs:237).

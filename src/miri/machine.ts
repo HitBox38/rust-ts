@@ -8,11 +8,11 @@
 // (`Pending<"..">` = a type the translation did not map) and the fill lane owns and corrects them.
 //
 // Contract (docs/handoff/miri-contract.md):
-// - `MiriInterpCx` is `InterpCx<'tcx, MiriMachine<'tcx>>`. PORT(contract): until lane interp-generic (plan-m6 D3) makes
-//   `Machine`'s associated types parameters, `MiriMachine` cannot `implements Machine` (the interface is CTFE-typed), so
-//   `MiriInterpCx` is `InterpCx<Machine & MiriMachine>`: `ecx.machine` has Miri's fields, and interpreter methods type-check
-//   with the CTFE types. When interp-generic lands, `MiriMachine` implements `Machine<MiriMachineTypes>` (the
-//   `impl Machine for MiriMachine` block below, lane miri-machine) and this alias becomes `InterpCx<MiriMachine>`.
+// - `MiriInterpCx` is `InterpCx<'tcx, MiriMachine<'tcx>>` = `InterpCx<MiriMachine>`: `MiriMachine` implements
+//   `Machine<MiriMachineTypes>` (lane interp-miri-reconcile: the associated types record, the associated items as prototype
+//   members, the provided defaults; the impl's fns are lane miri-machine's).
+// - PORT (decision miri-contract C5 amendment): `MiriMachine.basic_block_count` (u64, +1 per terminator) is a `number`
+//   (typemap `fields`): it counts executed basic blocks, far below 2^53 for any run that ends.
 // - `trait MiriInterpCxExt` + Miri's `EvalContextExt` traits are `InterpCx` methods (`declare module` augmentations of
 //   rustc_const_eval interpret/eval_context.ts, `this: MiriInterpCx`); `let this = self.eval_context_mut();` is
 //   `const this_ = this.eval_context_mut();`.
@@ -33,8 +33,13 @@ import type { VisitProvenance } from "./provenance_gc.ts";
 import { stub_methods, stub_statics } from "../rust_ts/miri_stub.ts";
 import type { Align, Size } from "../rustc_abi/lib.ts";
 import { InterpCx } from "../rustc_const_eval/interpret/eval_context.ts";
-import type { Machine, MayLeak } from "../rustc_const_eval/interpret/machine.ts";
-import { type AllocId, debug_AllocId, type InterpResult, type Pointer as interpret_Pointer, type Provenance as interpret_Provenance } from "../rustc_middle/mir/interpret/mod.ts";
+import { type AnyMachine, type Machine, type MachineTypes, Machine_provided, type MayLeak } from "../rustc_const_eval/interpret/machine.ts";
+import { define_assoc, provide_defaults } from "../rust_ts/provided.ts";
+import { AllocBytes_MiriAllocBytes, type MiriAllocBytes, type MiriAllocParams } from "./alloc/alloc_bytes.ts";
+import { MonoHashMap } from "./data_structures/mono_hash_map.ts";
+import type { DynSym } from "./shims/foreign_items.ts";
+import type { Allocation } from "../rustc_middle/mir/interpret/allocation.ts";
+import { type AllocId, debug_AllocId, type InterpResult, type ObjectProvenance, type Pointer as interpret_Pointer, register_object_provenance } from "../rustc_middle/mir/interpret/mod.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import type { Instance } from "../rustc_middle/ty/instance.ts";
 import type { LayoutCx, LayoutError, TyAndLayout } from "../rustc_middle/ty/layout.ts";
@@ -180,10 +185,12 @@ export const debug_Provenance: Debug<Provenance> = (self, f) => {
 };
 
 /**
- * `impl interpret::Provenance for Provenance` (the interp-generic contract: rustc_middle's `provenance_of(prov)` must
- * return this table for a Miri provenance value, an object `{ $: "Concrete" | "Wildcard" }`; docs/handoff/miri-contract.md).
+ * `impl interpret::Provenance for Provenance` (the interp-generic contract: rustc_middle's `provenance_of(prov)` returns
+ * this table for a Miri provenance value, an object `{ $: "Concrete" | "Wildcard" }`, through `register_object_provenance`
+ * below; it is also `MiriMachine`'s `Machine.Provenance`). PORT: the supertraits `PartialEq` (derived) and `Debug` are
+ * `eq` / `debug`; `owns` tells a Miri provenance object from another machine's (pointer.ts `ObjectProvenance`).
  */
-export const Provenance_Provenance: interpret_Provenance<Provenance> = {
+export const Provenance_Provenance: ObjectProvenance<Provenance> = {
   /// We use absolute addresses in the `offset` of a `StrictPointer`.
   OFFSET_IS_ADDR: true,
 
@@ -211,7 +218,22 @@ export const Provenance_Provenance: interpret_Provenance<Provenance> = {
     }
     return out;
   },
+
+  /** `#[derive(PartialEq)]`: the same variant, and for `Concrete` the same `alloc_id` and `tag`. */
+  eq(a: Provenance, b: Provenance): boolean {
+    if (a.$ === "Concrete") return b.$ === "Concrete" && a.alloc_id === b.alloc_id && a.tag === b.tag;
+    return b.$ === "Wildcard";
+  },
+
+  debug: debug_Provenance,
+
+  owns(prov: object): boolean {
+    const p = prov as { $?: unknown };
+    return (p.$ === "Concrete" && "alloc_id" in prov && "tag" in prov) || p.$ === "Wildcard";
+  },
 };
+// PORT (plan-m6 D3): `provenance_of` finds the impl of a Miri provenance value (pointer.ts; once, at load).
+register_object_provenance(Provenance_Provenance);
 
 /** PORT: the methods of `impl ProvenanceExtra` on the generated companion (PORTING §8). */
 export interface ProvenanceExtra_methods {
@@ -249,10 +271,86 @@ export function clone_AllocExtra(_self: AllocExtra): AllocExtra {
   return panic("our allocations should never be cloned");
 }
 
+// ---- contract part (lane interp-miri-reconcile, miri-contract review M1/M7): `impl Machine for MiriMachine`'s
+// associated types and consts (machine.rs:1133-1149) ----
+
+/**
+ * PORT (plan-m6 D3): the associated types of `impl Machine<'tcx> for MiriMachine<'tcx>` (machine.rs:1134-1145) as the
+ * interpreter's type-level record (rustc_const_eval interpret/machine.ts `MachineTypes`).
+ */
+export interface MiriMachineTypes extends MachineTypes {
+  MemoryKind: MiriMemoryKind;
+  Provenance: Provenance;
+  ProvenanceExtra: ProvenanceExtra;
+  ExtraFnVal: DynSym;
+  FrameExtra: gen.FrameExtra;
+  AllocExtra: AllocExtra;
+  Bytes: MiriAllocBytes;
+  /** `<MiriAllocBytes as AllocBytes>::AllocParams` (alloc/alloc_bytes.rs:109). */
+  AllocParams: MiriAllocParams;
+  MemoryMap: MonoHashMap<AllocId, [gen.MemoryKind, Allocation<Provenance, AllocExtra, MiriAllocBytes>]>;
+}
+
+// PORT (plan-m6 D3): `MiriMachine` implements `Machine<MiriMachineTypes>` by declaration merging on the generated class.
+// The impl's associated types and consts are prototype members (`define_assoc` below); its fns (machine.rs:1152-2127,
+// the inventory at the end) are `unported` stubs until lane miri-machine ports them on `MiriMachine.prototype` (the hook
+// `stack` is `stack_` in the port); the provided fns it does not override are `Machine_provided`'s (`provide_defaults`).
+declare module "./machine.gen.ts" {
+  interface MiriMachine extends Machine<MiriMachineTypes> {}
+}
+
+define_assoc(
+  MiriMachine.prototype,
+  {
+    // type MemoryKind = MiriMemoryKind;  (its `MayLeak`, `Display` and derived `Eq`)
+    MayLeak_MemoryKind: MayLeak_MiriMemoryKind,
+    display_MemoryKind: (self: MiriMemoryKind, _f: Fmt): string => display_MiriMemoryKind(self),
+    MemoryKind_eq: (a: MiriMemoryKind, b: MiriMemoryKind): boolean => a === b,
+    // type Provenance = Provenance;
+    Provenance: Provenance_Provenance,
+    // type MemoryMap = MonoHashMap<AllocId, (MemoryKind, Allocation<Provenance, Self::AllocExtra, Self::Bytes>)>;
+    MemoryMap_default: (): MiriMachineTypes["MemoryMap"] => MonoHashMap.default(),
+    // const GLOBAL_KIND: Option<MiriMemoryKind> = Some(MiriMemoryKind::Global);
+    GLOBAL_KIND: gen.MiriMemoryKind.Global,
+    // const PANIC_ON_ALLOC_FAIL: bool = false;
+    PANIC_ON_ALLOC_FAIL: false,
+    // (not overridden: the provided `ALL_CONSTS_ARE_PRECHECKED = true`)
+    ALL_CONSTS_ARE_PRECHECKED: true,
+  },
+  {
+    // type Bytes = MiriAllocBytes;  (another module's value: read on use, C10)
+    Bytes: () => AllocBytes_MiriAllocBytes,
+  },
+);
+
+// The provided fns of `trait Machine` that machine.rs:1133 overrides (the rest are the defaults).
+provide_defaults(MiriMachine.prototype, Machine_provided.prototype, [
+  "alignment_check",
+  "enforce_validity_recursively",
+  "generate_nan",
+  "apply_float_nondet",
+  "equal_float_min_max",
+  "thread_local_static_pointer",
+  "before_memory_read",
+  "before_memory_write",
+  "before_memory_deallocation",
+  "retag_ptr_value",
+  "with_retag_mode",
+  "protect_in_place_function_argument",
+  "before_terminator",
+  "after_stack_push",
+  "before_stack_pop",
+  "after_stack_pop",
+  "after_local_read",
+  "after_local_write",
+  "after_local_moved_to_memory",
+  "cached_union_data_range",
+  "enter_trace_span",
+]);
+
 /// A rustc InterpCx for Miri.
 // rustc-type: src/tools/miri/src/machine.rs:1114 MiriInterpCx
-// PORT(contract): `InterpCx<'tcx, MiriMachine<'tcx>>` (header): `InterpCx<MiriMachine>` once interp-generic lands.
-export type MiriInterpCx = InterpCx<Machine & MiriMachine>;
+export type MiriInterpCx = InterpCx<MiriMachine>;
 
 /// A little trait that's useful to be inherited by extension traits.
 // PORT: implemented by `InterpCx` (augmentation below); the TS interface is what an extension method's `this` needs.
@@ -264,7 +362,7 @@ export interface MiriInterpCxExt {
 }
 
 declare module "../rustc_const_eval/interpret/eval_context.ts" {
-  interface InterpCx<M extends Machine = Machine> {
+  interface InterpCx<M extends AnyMachine = Machine> {
     // ---- machine.rs: `impl MiriInterpCxExt for MiriInterpCx` (lane miri-contract) ----
     eval_context_ref(this: MiriInterpCx): MiriInterpCx;
     eval_context_mut(this: MiriInterpCx): MiriInterpCx;
@@ -351,3 +449,16 @@ stub_methods("miri::machine::PrimitiveLayouts", "src/tools/miri/src/machine.rs",
 stub_statics("miri::machine::PrimitiveLayouts", "src/tools/miri/src/machine.rs", "miri-machine", () => PrimitiveLayouts, ["new"]);
 stub_methods("miri::machine::MiriMachine", "src/tools/miri/src/machine.rs", "miri-machine", () => MiriMachine.prototype, ["communicate", "is_local", "handle_abnormal_termination", "page_align", "allocated_span", "deallocated_span"]);
 stub_statics("miri::machine::MiriMachine", "src/tools/miri/src/machine.rs", "miri-machine", () => MiriMachine, ["new", "allocator_shim_symbols", "get_user_relevant_crates", "late_init", "init_allocation"]);
+// `impl Machine<'tcx> for MiriMachine<'tcx>` (machine.rs:1133): every fn it defines, in upstream order (`stack` is `stack_`).
+stub_methods("miri::machine::MiriMachine (impl Machine)", "src/tools/miri/src/machine.rs", "miri-machine", () => MiriMachine.prototype, [
+  "enforce_alignment", "alignment_check", "enforce_validity", "enforce_validity_recursively", "ignore_optional_overflow_checks",
+  "check_fn_target_features", "find_mir_or_eval_fn", "call_extra_fn", "call_intrinsic", "call_llvm_intrinsic", "assert_panic",
+  "panic_nounwind", "unwind_terminate", "binary_ptr_op", "atomic_load", "atomic_store", "atomic_rmw", "atomic_compare_exchange",
+  "atomic_fence", "generate_nan", "apply_float_nondet", "equal_float_min_max", "float_fuse_mul_add", "runtime_checks",
+  "thread_local_static_pointer", "extern_static_pointer", "init_local_allocation", "adjust_alloc_root_pointer",
+  "ptr_from_addr_cast", "expose_provenance", "ptr_get_alloc", "adjust_global_allocation", "before_memory_read",
+  "before_memory_write", "before_memory_deallocation", "retag_ptr_value", "with_retag_mode",
+  "protect_in_place_function_argument", "init_frame", "stack_", "stack_mut", "before_terminator", "after_stack_push",
+  "before_stack_pop", "after_stack_pop", "after_local_read", "after_local_write", "after_local_moved_to_memory",
+  "get_global_alloc_salt", "cached_union_data_range", "get_default_alloc_params", "enter_trace_span",
+]);

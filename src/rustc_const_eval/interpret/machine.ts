@@ -22,7 +22,8 @@
 //   Extra>`, `Allocation<Prov, Extra, Bytes>`; `MachineFrame<T>` / `MachineAllocation<T>` name a machine's), and
 //   `InterpCx<M>` / `Memory<M>` read a machine's record with `MachineTypesOf<M>`. Where upstream dispatches statically on
 //   an associated type, the machine carries the impl as a member (`M::Provenance::OFFSET_IS_ADDR` is
-//   `ecx.machine.Provenance.OFFSET_IS_ADDR`, `M::Bytes: AllocBytes` is `ecx.machine.Bytes`), set by
+//   `ecx.machine.Provenance.OFFSET_IS_ADDR`, `M::Bytes: AllocBytes` is `ecx.machine.Bytes`, `kind.may_leak()` / `{kind}` /
+//   `==` of a `MemoryKind<M::MemoryKind>` use `ecx.machine.MayLeak_MemoryKind` / `display_MemoryKind` / `MemoryKind_eq`), set by
 //   `compile_time_machine` for CTFE. A second machine (Miri) implements `Machine<ItsTypes>`; the interpreter's method
 //   bodies stay typed with the CTFE defaults (their values are dispatched through the machine at run time), so a
 //   generic caller passes its values through the `InterpCx<M>` signatures.
@@ -62,6 +63,7 @@ import {
   Scalar,
   CtfeProvenance_from_AllocId,
 } from "../../rustc_middle/mir/interpret/mod.ts";
+import type { Fmt } from "../../std/fmt.ts";
 import { assert, unreachable } from "../../std/panic.ts";
 import { Err, type Result } from "../../std/result.ts";
 import type { InterpCx } from "./eval_context.ts";
@@ -246,6 +248,16 @@ export abstract class AllocMap_provided<K, V> implements AllocMap<K, V> {
 export interface Machine<T extends MachineTypes = CtfeMachineTypes> {
   /** PORT (plan-m6 D3): type-level only (never set): the machine's associated types, read by `MachineTypesOf<M>`. */
   readonly __types?: T;
+
+  /// Additional memory kinds a machine wishes to distinguish from the builtin ones
+  // type MemoryKind: Debug + std::fmt::Display + MayLeak + Eq + 'static;
+  /** PORT (plan-m6 D3): the `MayLeak` impl of `Self::MemoryKind` (`kind.may_leak()` of a `MemoryKind<M::MemoryKind>`). */
+  readonly MayLeak_MemoryKind: MayLeak<T["MemoryKind"]>;
+  /** PORT (plan-m6 D3): the `Display` impl of `Self::MemoryKind` (`{kind}` of a `MemoryKind<M::MemoryKind>`). */
+  readonly display_MemoryKind: (self: T["MemoryKind"], f: Fmt) => string;
+  /** PORT (plan-m6 D3): the `Eq` impl of `Self::MemoryKind` (`==` on a `MemoryKind<M::MemoryKind>`). Its `Debug` impl is
+   *  not a member: the interpreter prints it only in `trace!` (not ported). */
+  readonly MemoryKind_eq: (a: T["MemoryKind"], b: T["MemoryKind"]) => boolean;
 
   /// Pointers are "tagged" with provenance information; typically the `AllocId` they belong to.
   // type Provenance: Provenance + Eq + Hash + 'static;
@@ -637,6 +649,9 @@ export interface Machine<T extends MachineTypes = CtfeMachineTypes> {
 
 /** PORT: the provided methods (and the defaulted associated const) of `trait Machine` (PORTING §8). */
 export abstract class Machine_provided<T extends MachineTypes = CtfeMachineTypes> implements Machine<T> {
+  abstract readonly MayLeak_MemoryKind: MayLeak<T["MemoryKind"]>;
+  abstract readonly display_MemoryKind: (self: T["MemoryKind"], f: Fmt) => string;
+  abstract readonly MemoryKind_eq: (a: T["MemoryKind"], b: T["MemoryKind"]) => boolean;
   abstract readonly Provenance: Provenance<T["Provenance"]>;
   abstract readonly Bytes: AllocBytes<T["Bytes"], T["AllocParams"]>;
   abstract MemoryMap_default(): T["MemoryMap"];
@@ -980,8 +995,12 @@ export abstract class Machine_provided<T extends MachineTypes = CtfeMachineTypes
 // (`Provenance = CtfeProvenance`, `ProvenanceExtra = bool` (the "immutable" flag), `ExtraFnVal = !`, `MemoryKind =
 // $crate::const_eval::MemoryKind`, `MemoryMap = FxIndexMap<..>`, `AllocExtra = ()`, `FrameExtra = ()`,
 // `Bytes = Box<[u8]>`) are `CtfeMachineTypes` (module header); the impls of the statically dispatched ones
-// (`Provenance`, `Bytes`, `MemoryMap: Default`) are members below.
+// (`MemoryKind: MayLeak + Display + Eq`, `Provenance`, `Bytes`, `MemoryMap: Default`) are members below.
 export abstract class compile_time_machine extends Machine_provided<CtfeMachineTypes> {
+  // type MemoryKind = $crate::const_eval::MemoryKind;
+  readonly MayLeak_MemoryKind: MayLeak<CtfeMemoryKind> = const_eval_machine().MayLeak_MemoryKind;
+  readonly display_MemoryKind: (self: CtfeMemoryKind, f: Fmt) => string = const_eval_machine().display_MemoryKind;
+  readonly MemoryKind_eq: (a: CtfeMemoryKind, b: CtfeMemoryKind) => boolean = const_eval_machine().MemoryKind_eq;
   // type Provenance = CtfeProvenance;
   readonly Provenance: Provenance<CtfeProvenance> = Provenance_CtfeProvenance;
   // type Bytes = Box<[u8]>;

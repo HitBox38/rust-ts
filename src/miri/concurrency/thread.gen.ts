@@ -176,7 +176,7 @@ export class Thread {
     /// Name of the thread.
     public thread_name: number[] | undefined,
     /// The virtual call stack.
-    public stack: Frame<FrameExtra>[],
+    public stack: (Frame<Provenance, FrameExtra>)[],
     /// A span that explains where the thread (or more specifically, its current root
     /// frame) "comes from".
     public origin_span: Span,

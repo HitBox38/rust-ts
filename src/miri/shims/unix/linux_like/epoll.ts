@@ -11,12 +11,12 @@ import { type Readiness } from "../../readiness.ts";
 import { type Epoll } from "./epoll.gen.ts";
 import { stub_methods } from "../../../../rust_ts/miri_stub.ts";
 import { InterpCx } from "../../../../rustc_const_eval/interpret/eval_context.ts";
-import { type Machine } from "../../../../rustc_const_eval/interpret/machine.ts";
+import { type AnyMachine, type Machine } from "../../../../rustc_const_eval/interpret/machine.ts";
 import { type InterpResult } from "../../../../rustc_middle/mir/interpret/mod.ts";
 export * from "./epoll.gen.ts";
 
 declare module "../../../../rustc_const_eval/interpret/eval_context.ts" {
-  interface InterpCx<M extends Machine = Machine> {
+  interface InterpCx<M extends AnyMachine = Machine> {
     // ---- shims/unix/linux_like/epoll.rs: `trait EvalContextExt` (impl for `MiriInterpCx`) ----
     // shims/unix/linux_like/epoll.rs:45
     epoll_create1(this: MiriInterpCx, flags: OpTy): InterpResult<Scalar>;

@@ -10,7 +10,7 @@ import { DynSym } from "./foreign_items.gen.ts";
 import { type EmulateItemResult } from "./mod.ts";
 import { stub_methods, stub_statics } from "../../rust_ts/miri_stub.ts";
 import { InterpCx } from "../../rustc_const_eval/interpret/eval_context.ts";
-import { type Machine } from "../../rustc_const_eval/interpret/machine.ts";
+import { type AnyMachine, type Machine } from "../../rustc_const_eval/interpret/machine.ts";
 import { type InterpResult } from "../../rustc_middle/mir/interpret/mod.ts";
 import { type BasicBlock, type Body, type UnwindAction } from "../../rustc_middle/mir/mod.ts";
 import { type FnAbi } from "../../rustc_middle/ty/decls.ts";
@@ -20,7 +20,7 @@ import { type Symbol } from "../../rustc_span/symbol.ts";
 export * from "./foreign_items.gen.ts";
 
 declare module "../../rustc_const_eval/interpret/eval_context.ts" {
-  interface InterpCx<M extends Machine = Machine> {
+  interface InterpCx<M extends AnyMachine = Machine> {
     // ---- shims/foreign_items.rs: `trait EvalContextExt` (impl for `MiriInterpCx`) ----
     // shims/foreign_items.rs:44
     emulate_foreign_item(this: MiriInterpCx, link_name: Symbol, abi: FnAbi<Ty>, args: readonly OpTy[], dest: PlaceTy, ret: BasicBlock | undefined, unwind: UnwindAction): InterpResult<[Body, Instance] | undefined>;

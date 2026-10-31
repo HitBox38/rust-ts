@@ -8,13 +8,13 @@ import { type SchedulingAction } from "./scheduler.gen.ts";
 import { type MiriInterpCx } from "../machine.ts";
 import { stub_methods } from "../../rust_ts/miri_stub.ts";
 import { InterpCx } from "../../rustc_const_eval/interpret/eval_context.ts";
-import { type Machine } from "../../rustc_const_eval/interpret/machine.ts";
+import { type AnyMachine, type Machine } from "../../rustc_const_eval/interpret/machine.ts";
 import { type InterpResult } from "../../rustc_middle/mir/interpret/mod.ts";
 import { type Pending } from "../../rustc_type_ir/decls.ts";
 export * from "./scheduler.gen.ts";
 
 declare module "../../rustc_const_eval/interpret/eval_context.ts" {
-  interface InterpCx<M extends Machine = Machine> {
+  interface InterpCx<M extends AnyMachine = Machine> {
     // ---- concurrency/scheduler.rs: `trait EvalContextPrivExt` (impl for `MiriInterpCx`) ----
     // concurrency/scheduler.rs:31
     run_on_stack_empty(this: MiriInterpCx): InterpResult<Pending<"Poll<()>">>;

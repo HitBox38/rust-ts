@@ -14,7 +14,7 @@ import { type LiveAllocs } from "../provenance_gc.ts";
 import { stub_methods, stub_statics } from "../../rust_ts/miri_stub.ts";
 import { type Align, type Size } from "../../rustc_abi/lib.ts";
 import { InterpCx } from "../../rustc_const_eval/interpret/eval_context.ts";
-import { type Machine } from "../../rustc_const_eval/interpret/machine.ts";
+import { type AnyMachine, type Machine } from "../../rustc_const_eval/interpret/machine.ts";
 import { type AllocId, type InterpResult, type Pointer as interpret_Pointer } from "../../rustc_middle/mir/interpret/mod.ts";
 import { type CtfeProvenance } from "../../rustc_middle/mir/interpret/pointer.ts";
 import { type TyCtxt } from "../../rustc_middle/ty/context.ts";
@@ -22,7 +22,7 @@ import { type Pending } from "../../rustc_type_ir/decls.ts";
 export * from "./mod.gen.ts";
 
 declare module "../../rustc_const_eval/interpret/eval_context.ts" {
-  interface InterpCx<M extends Machine = Machine> {
+  interface InterpCx<M extends AnyMachine = Machine> {
     // ---- alloc_addresses/mod.rs: `trait EvalContextExtPriv` (impl for `MiriInterpCx`) ----
     // alloc_addresses/mod.rs:108
     addr_from_alloc_id_uncached(this: MiriInterpCx, global_state: GlobalStateInner, alloc_id: AllocId, memory_kind: MemoryKind): InterpResult<bigint>;

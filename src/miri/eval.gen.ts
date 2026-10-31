@@ -4,7 +4,7 @@ import { type ProvenanceMode } from "./alloc_addresses/mod.ts";
 import { type BorrowTrackerMethod, type BorTag, clone_BorrowTrackerMethod, clone_BorTag } from "./borrow_tracker/mod.ts";
 import { clone_GenmcConfig, type GenmcConfig } from "./concurrency/genmc/dummy.gen.ts";
 import { type ImmTy } from "./lib.ts";
-import { type AlignmentCheck, type BacktraceStyle, clone_IsolatedOp, type FloatRoundingErrorMode, type IsolatedOp, type ValidationMode } from "./machine.ts";
+import { type AlignmentCheck, type BacktraceStyle, clone_IsolatedOp, debug_Provenance, type FloatRoundingErrorMode, type IsolatedOp, type Provenance, type ValidationMode } from "./machine.ts";
 import { debug_GlobalCtorState, type GlobalCtorState } from "./shims/global_ctor.ts";
 import { debug_TlsDtorsState, type TlsDtorsState } from "./shims/tls.ts";
 import { clone_HashMap, clone_HashSet } from "../rust_ts/hash_map.ts";
@@ -186,8 +186,8 @@ export const debug_MainThreadState: Debug<MainThreadState> = (v, f) => {
         ["ctor_state", debug_GlobalCtorState(v.ctor_state, f)],
         ["entry_id", debug_DefId(v.entry_id, f)],
         ["entry_type", debug_MiriEntryFnType(v.entry_type, f)],
-        ["argc", debug_ImmTy(v.argc, f)],
-        ["argv", debug_ImmTy(v.argv, f)],
+        ["argc", debug_ImmTy(v.argc, f, debug_Provenance)],
+        ["argv", debug_ImmTy(v.argv, f, debug_Provenance)],
       ]);
     case "TlsDtors":
       return debug_tuple(f, "TlsDtors", [debug_TlsDtorsState(v._0, f)]);

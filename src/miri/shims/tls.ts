@@ -11,7 +11,7 @@ import { type RunningPthreadDtorState, type RunningWindowsDtorState, TlsData, Tl
 import { stub_methods } from "../../rust_ts/miri_stub.ts";
 import { type Size } from "../../rustc_abi/lib.ts";
 import { InterpCx } from "../../rustc_const_eval/interpret/eval_context.ts";
-import { type Machine } from "../../rustc_const_eval/interpret/machine.ts";
+import { type AnyMachine, type Machine } from "../../rustc_const_eval/interpret/machine.ts";
 import { type InterpResult } from "../../rustc_middle/mir/interpret/mod.ts";
 import { type Instance } from "../../rustc_middle/ty/instance.ts";
 import { type Span } from "../../rustc_span/lib.ts";
@@ -19,7 +19,7 @@ import { type Pending } from "../../rustc_type_ir/decls.ts";
 export * from "./tls.gen.ts";
 
 declare module "../../rustc_const_eval/interpret/eval_context.ts" {
-  interface InterpCx<M extends Machine = Machine> {
+  interface InterpCx<M extends AnyMachine = Machine> {
     // ---- shims/tls.rs: `trait EvalContextPrivExt` (impl for `MiriInterpCx`) ----
     // shims/tls.rs:329
     lookup_windows_tls_dtors(this: MiriInterpCx): InterpResult<([ImmTy, Span])[]>;

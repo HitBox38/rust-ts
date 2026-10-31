@@ -3,6 +3,12 @@
 // Until ported, every method declared below is an `unported` placeholder (`stub_*` calls at the end, installed by
 // src/miri/lib.ts) and every free fn stops with `unported`. The declarations were translated mechanically from the
 // upstream signatures (`Pending<"..">` = a type the translation did not map); the fill lane owns and corrects them.
+// PORT (decision miri-contract C4 amendment, recorded by lane interp-miri-reconcile for this fill lane): `BorTag` is a
+// branded number, but `-Zmiri-track-pointer-tag=<u64,..>` (bin/miri.rs:586) parses the user's values as `bigint`s
+// (`parse_comma_list::<u64>`: the same accepted syntax and errors) and never rounds them. `BorTag::new(id)` is `None` for 0
+// (the "requires nonzero arguments" error, checked on the bigint); a value above `Number.MAX_SAFE_INTEGER` names a tag
+// no run can reach (tags are handed out sequentially from 1), so it must not be converted with `Number(..)`: handle it
+// explicitly (it can never fire) and record the choice with a `PORT:`.
 import { type EarlySession } from "../../rustc_session/session.ts";
 import { type Pending } from "../../rustc_type_ir/decls.ts";
 import { type Result } from "../../std/result.ts";

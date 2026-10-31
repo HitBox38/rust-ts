@@ -10,14 +10,14 @@ import { type DynFileDescriptionRef, type FdId, type FdNum } from "./files.ts";
 import { DelayedReadinessUpdates, type Readiness, ReadinessInterest, type ReadinessInterestKey, type ReadinessUpdateFlags, ReadinessWatched, ReadinessWatcher } from "./readiness.gen.ts";
 import { stub_methods, stub_statics } from "../../rust_ts/miri_stub.ts";
 import { InterpCx } from "../../rustc_const_eval/interpret/eval_context.ts";
-import { type Machine } from "../../rustc_const_eval/interpret/machine.ts";
+import { type AnyMachine, type Machine } from "../../rustc_const_eval/interpret/machine.ts";
 import { type InterpResult } from "../../rustc_middle/mir/interpret/mod.ts";
 import { type Pending } from "../../rustc_type_ir/decls.ts";
 import { type Result } from "../../std/result.ts";
 export * from "./readiness.gen.ts";
 
 declare module "../../rustc_const_eval/interpret/eval_context.ts" {
-  interface InterpCx<M extends Machine = Machine> {
+  interface InterpCx<M extends AnyMachine = Machine> {
     // ---- shims/readiness.rs: `trait EvalContextExt` (impl for `MiriInterpCx`) ----
     // shims/readiness.rs:483
     update_fd_readiness(this: MiriInterpCx, fd: DynFileDescriptionRef, flags: ReadinessUpdateFlags): InterpResult;

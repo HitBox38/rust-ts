@@ -58,7 +58,7 @@ export const debug_MonotonicClock: Debug<MonotonicClock> = (v, f) =>
 // rustc-type: src/tools/miri/src/clock.rs:66 MonotonicClockKind
 export type MonotonicClockKind =
   | { readonly $: "Host"; epoch: Pending<"std::time::Instant"> }
-  | { readonly $: "Virtual"; nanoseconds: bigint };
+  | { readonly $: "Virtual"; nanoseconds: number };
 export const debug_MonotonicClockKind: Debug<MonotonicClockKind> = (v, f) => {
   switch (v.$) {
     case "Host":

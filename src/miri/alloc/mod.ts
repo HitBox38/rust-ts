@@ -15,7 +15,7 @@ export type IsolatedAlloc = isolated_alloc.IsolatedAlloc;
 export const debug_IsolatedAlloc = isolated_alloc.debug_IsolatedAlloc;
 
 // pub use self::alloc_bytes::{MiriAllocBytes, MiriAllocParams};
-export { type MiriAllocBytes, MiriAllocParams } from "./alloc_bytes.ts";
+export { MiriAllocBytes, MiriAllocParams } from "./alloc_bytes.ts";
 
 // ---- inventory: the other fns of the file (trait impls, private fns, macros), in upstream order of kind ----
 // impl IsolatedAlloc (inline `mod isolated_alloc`, alloc/mod.rs:12): new (:13), alloc (:17), alloc_zeroed (:21), dealloc (:25)

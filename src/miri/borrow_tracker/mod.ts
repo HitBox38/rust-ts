@@ -8,13 +8,13 @@
 import { type AllocState, type BorrowTrackerMethod, type FrameState, GlobalStateInner } from "./mod.gen.ts";
 import { type ImmTy, type MPlaceTy, type Pointer } from "../lib.ts";
 import { AllocExtra } from "../machine.ts";
-import { type FrameExtra, type MemoryKind, type MiriInterpCx, type MiriMachine } from "../machine.ts";
+import { type FrameExtra, type MemoryKind, type MiriInterpCx, type MiriMachine, type Provenance } from "../machine.ts";
 import { type LiveAllocs } from "../provenance_gc.ts";
 import { stub_methods, stub_statics } from "../../rust_ts/miri_stub.ts";
 import { type Size } from "../../rustc_abi/lib.ts";
 import { InterpCx } from "../../rustc_const_eval/interpret/eval_context.ts";
 import { type RetagMode } from "../../rustc_const_eval/interpret/machine.gen.ts";
-import { type Machine } from "../../rustc_const_eval/interpret/machine.ts";
+import { type AnyMachine, type Machine } from "../../rustc_const_eval/interpret/machine.ts";
 import { type Frame } from "../../rustc_const_eval/interpret/stack.gen.ts";
 import { type AllocId, type InterpResult } from "../../rustc_middle/mir/interpret/mod.ts";
 import { type Ty } from "../../rustc_middle/ty/mod.ts";
@@ -78,7 +78,7 @@ export function clone_BorTag(v: BorTag): BorTag {
 export const debug_BorTag: Debug<BorTag> = (self, _f) => `<${self}>`;
 
 declare module "../../rustc_const_eval/interpret/eval_context.ts" {
-  interface InterpCx<M extends Machine = Machine> {
+  interface InterpCx<M extends AnyMachine = Machine> {
     // ---- borrow_tracker/mod.rs: `trait EvalContextExt` (impl for `MiriInterpCx`) ----
     // borrow_tracker/mod.rs:272
     retag_ptr_value(this: MiriInterpCx, val: ImmTy, ty: Ty): InterpResult<ImmTy | undefined>;
@@ -93,7 +93,7 @@ declare module "../../rustc_const_eval/interpret/eval_context.ts" {
     // borrow_tracker/mod.rs:346
     print_borrow_state(this: MiriInterpCx, alloc_id: AllocId, show_unnamed: boolean): InterpResult;
     // borrow_tracker/mod.rs:359
-    on_stack_pop(this: MiriInterpCx, frame: Frame<FrameExtra>): InterpResult;
+    on_stack_pop(this: MiriInterpCx, frame: Frame<Provenance, FrameExtra>): InterpResult;
   }
 }
 

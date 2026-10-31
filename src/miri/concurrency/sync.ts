@@ -12,7 +12,7 @@ import { AllocExtra, type MiriInterpCx, type MiriMachine } from "../machine.ts";
 import { stub_methods, stub_statics } from "../../rust_ts/miri_stub.ts";
 import { type Size } from "../../rustc_abi/lib.ts";
 import { InterpCx } from "../../rustc_const_eval/interpret/eval_context.ts";
-import { type Machine } from "../../rustc_const_eval/interpret/machine.ts";
+import { type AnyMachine, type Machine } from "../../rustc_const_eval/interpret/machine.ts";
 import { type InterpResult } from "../../rustc_middle/mir/interpret/mod.ts";
 export * from "./sync.gen.ts";
 
@@ -26,7 +26,7 @@ export interface SyncObj {
 }
 
 declare module "../../rustc_const_eval/interpret/eval_context.ts" {
-  interface InterpCx<M extends Machine = Machine> {
+  interface InterpCx<M extends AnyMachine = Machine> {
     // ---- concurrency/sync.rs: `trait EvalContextExtPriv` (impl for `MiriInterpCx`) ----
     // concurrency/sync.rs:251
     condvar_reacquire_mutex(this: MiriInterpCx, mutex_ref: MutexRef, retval: Scalar, dest: MPlaceTy): InterpResult;

@@ -18,7 +18,7 @@ import { Err, Ok } from "../../../../std/result.ts";
 import { type Decoder, decode_tuple, decode_u64, decode_Vec, type Encodable, type Encoder, encode_tuple, encode_u64, encode_Vec } from "../../../../rustc_serialize/serialize.ts";
 import type { Range } from "../../../ty/decls.ts";
 import { type AllocRange, type AllocResult, alloc_range } from "../allocation.ts";
-import { type CtfeProvenance, type Provenance, provenance_eq, provenance_of } from "../pointer.ts";
+import { type CtfeProvenance, type Provenance, provenance_eq } from "../pointer.ts";
 import { clone_PointerFrag, type PointerFrag, type ProvenanceCopy, ProvenanceMap } from "./provenance_map.gen.ts";
 export * from "./provenance_map.gen.ts";
 
@@ -303,7 +303,8 @@ ProvenanceMap.prototype.read_ptr = function <Prov>(this: ProvenanceMap<Prov>, of
         break prov_block;
       }
       // If this is wildcard provenance, ignore this fragment.
-      const wildcard = provenance_of(frag.prov).WILDCARD;
+      // `Some(frag.prov) == Prov::WILDCARD`
+      const wildcard = Prov.WILDCARD;
       if (wildcard !== undefined && provenance_eq(frag.prov, wildcard)) {
         continue;
       }

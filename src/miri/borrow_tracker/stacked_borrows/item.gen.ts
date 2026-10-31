@@ -6,7 +6,7 @@ import { type Debug } from "../../../std/fmt.ts";
 /// An item in the per-location borrow stack.
 export class Item {
   constructor(
-    public _0: bigint,
+    public _0: number,
   ) {}
 }
 export function clone_Item(v: Item): Item {

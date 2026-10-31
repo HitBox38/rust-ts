@@ -9,7 +9,7 @@ import { type MiriInterpCx } from "./machine.ts";
 import { LiveAllocs } from "./provenance_gc.gen.ts";
 import { stub_methods } from "../rust_ts/miri_stub.ts";
 import { InterpCx } from "../rustc_const_eval/interpret/eval_context.ts";
-import { type Machine } from "../rustc_const_eval/interpret/machine.ts";
+import { type AnyMachine, type Machine } from "../rustc_const_eval/interpret/machine.ts";
 import { type AllocId } from "../rustc_middle/mir/interpret/mod.ts";
 export * from "./provenance_gc.gen.ts";
 
@@ -26,7 +26,7 @@ export interface VisitProvenance {
 }
 
 declare module "../rustc_const_eval/interpret/eval_context.ts" {
-  interface InterpCx<M extends Machine = Machine> {
+  interface InterpCx<M extends AnyMachine = Machine> {
     // ---- provenance_gc.rs: `trait EvalContextExt` (impl for `MiriInterpCx`) ----
     // provenance_gc.rs:265
     run_provenance_gc(this: MiriInterpCx): void;

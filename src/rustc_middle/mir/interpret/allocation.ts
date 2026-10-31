@@ -8,8 +8,9 @@
 // PORT (plan-m6 D3/A1): static dispatch on a type parameter is a descriptor passed in, defaulting to the descriptor of the
 // parameter's default type: `Bytes: AllocBytes` in the constructors is `Bytes_: AllocBytes<Bytes, Params>` (default
 // `AllocBytes_Box`, `Bytes = Box<[u8]>`); `Prov::OFFSET_IS_ADDR` / `Prov::WILDCARD` with no provenance value at hand is
-// `Prov: Provenance<Prov>` (the interpreter passes `M::Provenance`, interpret/machine.ts `Machine.Provenance`); the
-// descriptor may be omitted only on an `Allocation<CtfeProvenance>` (overloads), where it is `Provenance_CtfeProvenance`.
+// `Prov: Provenance<Prov>` (the interpreter passes `M::Provenance`, interpret/machine.ts `Machine.Provenance`); it is
+// always required (lane interp-miri-reconcile: no CTFE default, so tsc flags a caller that leaves it out; callers that
+// read tcx allocations pass `Provenance_CtfeProvenance`).
 // Every `AllocBytes` impl's value is a `Uint8Array` (a view of its storage, possibly a subclass): `Deref<Target = [u8]>`
 // is the value itself (`deref`), and `as_ptr` / `as_mut_ptr` return that view for every impl (`AllocBytes_Box`'s).
 // PORT: `Allocation::init_mask()` / `provenance()` are `init_mask_()` / `provenance_()` (the private fields hold the names;
@@ -60,10 +61,6 @@ function AllocBytes_default<Bytes, Params>(): AllocBytes<Bytes, Params> {
 /** PORT (D8): `Deref<Target = [u8]>` of `Bytes: AllocBytes` (see the header). */
 function deref<Bytes>(bytes: Bytes): Uint8Array {
   return bytes as unknown as Uint8Array;
-}
-/** PORT (plan-m6 D3): the descriptor of the default `Prov = CtfeProvenance` (see the header). */
-function Prov_default<Prov>(): Provenance<Prov> {
-  return Provenance_CtfeProvenance as unknown as Provenance<Prov>;
 }
 /** `&bytes[start..end]` as a view, with core's slice index panics (`slice_index_fail`). */
 function slice_bytes(bytes: Uint8Array, start: number, end: number): Uint8Array {
@@ -363,9 +360,7 @@ export class Allocation<Prov = CtfeProvenance, Extra = null, Bytes = Uint8Array>
   /// on `InterpCx` instead.
   // #[inline]
   // rustc: compiler/rustc_middle/src/mir/interpret/allocation.rs:586 get_bytes_strip_provenance
-  get_bytes_strip_provenance(this: Allocation<CtfeProvenance, Extra, Bytes>, cx: HasDataLayout, range: AllocRange): AllocResult<Uint8Array>;
-  get_bytes_strip_provenance(cx: HasDataLayout, range: AllocRange, Prov: Provenance<Prov>): AllocResult<Uint8Array>;
-  get_bytes_strip_provenance(cx: HasDataLayout, range: AllocRange, Prov: Provenance<Prov> = Prov_default<Prov>()): AllocResult<Uint8Array> {
+  get_bytes_strip_provenance(cx: HasDataLayout, range: AllocRange, Prov: Provenance<Prov>): AllocResult<Uint8Array> {
     const init = this.init_mask.is_range_initialized(range);
     if (init.$ === "Err") {
       const uninit_range = init._0;
@@ -419,9 +414,7 @@ export class Allocation<Prov = CtfeProvenance, Extra = null, Bytes = Uint8Array>
   /// without resetting anything. Directly exposes `AllocBytes::as_mut_ptr`. Only works if
   /// `OFFSET_IS_ADDR` is true.
   // rustc: compiler/rustc_middle/src/mir/interpret/allocation.rs:652 get_bytes_unchecked_raw_mut
-  get_bytes_unchecked_raw_mut(this: Allocation<CtfeProvenance, Extra, Bytes>): Uint8Array;
-  get_bytes_unchecked_raw_mut(Prov: Provenance<Prov>): Uint8Array;
-  get_bytes_unchecked_raw_mut(Prov: Provenance<Prov> = Prov_default<Prov>()): Uint8Array {
+  get_bytes_unchecked_raw_mut(Prov: Provenance<Prov>): Uint8Array {
     assert(Prov.OFFSET_IS_ADDR, "assertion failed: Prov::OFFSET_IS_ADDR");
     return AllocBytes_of<Bytes>().as_mut_ptr(this.bytes);
   }
@@ -430,9 +423,7 @@ export class Allocation<Prov = CtfeProvenance, Extra = null, Bytes = Uint8Array>
   /// without resetting anything. Directly exposes `AllocBytes::as_ptr`. Only works if
   /// `OFFSET_IS_ADDR` is true.
   // rustc: compiler/rustc_middle/src/mir/interpret/allocation.rs:660 get_bytes_unchecked_raw
-  get_bytes_unchecked_raw(this: Allocation<CtfeProvenance, Extra, Bytes>): Uint8Array;
-  get_bytes_unchecked_raw(Prov: Provenance<Prov>): Uint8Array;
-  get_bytes_unchecked_raw(Prov: Provenance<Prov> = Prov_default<Prov>()): Uint8Array {
+  get_bytes_unchecked_raw(Prov: Provenance<Prov>): Uint8Array {
     assert(Prov.OFFSET_IS_ADDR, "assertion failed: Prov::OFFSET_IS_ADDR");
     return AllocBytes_of<Bytes>().as_ptr(this.bytes);
   }
@@ -459,9 +450,7 @@ export class Allocation<Prov = CtfeProvenance, Extra = null, Bytes = Uint8Array>
   /// It is the caller's responsibility to check bounds and alignment beforehand.
   /// Most likely, you want to call `InterpCx::read_scalar` instead of this method.
   // rustc: compiler/rustc_middle/src/mir/interpret/allocation.rs:687 read_scalar
-  read_scalar(this: Allocation<CtfeProvenance, Extra, Bytes>, cx: HasDataLayout, range: AllocRange, read_provenance: boolean): AllocResult<Scalar<Prov>>;
-  read_scalar(cx: HasDataLayout, range: AllocRange, read_provenance: boolean, Prov: Provenance<Prov>): AllocResult<Scalar<Prov>>;
-  read_scalar(cx: HasDataLayout, range: AllocRange, read_provenance: boolean, Prov: Provenance<Prov> = Prov_default<Prov>()): AllocResult<Scalar<Prov>> {
+  read_scalar(cx: HasDataLayout, range: AllocRange, read_provenance: boolean, Prov: Provenance<Prov>): AllocResult<Scalar<Prov>> {
     // First and foremost, if anything is uninit, bail.
     const init = this.init_mask.is_range_initialized(range);
     if (init.$ === "Err") {

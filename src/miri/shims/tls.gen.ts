@@ -2,6 +2,7 @@
 // Hand-written additions (methods, manual Debug impls) go in tls.ts next to this file.
 import { type ThreadId } from "../concurrency/thread.ts";
 import { type ImmTy, type Scalar } from "../lib.ts";
+import { debug_Provenance, type Provenance } from "../machine.ts";
 import { debug_ImmTy } from "../../rustc_const_eval/interpret/operand.ts";
 import { debug_Instance, type Instance } from "../../rustc_middle/ty/instance.ts";
 import { debug_Span, type Span } from "../../rustc_span/lib.ts";
@@ -107,7 +108,7 @@ export const debug_TlsDtorsStatePriv: Debug<TlsDtorsStatePriv> = (v, f) => {
     case "PthreadDtors":
       return debug_tuple(f, "PthreadDtors", [debug_RunningPthreadDtorState(v._0, f)]);
     case "WindowsDtors":
-      return debug_tuple(f, "WindowsDtors", [debug_RunningWindowsDtorState(v._0, f), debug_vec(v._1, f, ((x, f) => debug_tuple(f, "", [debug_ImmTy(x[0], f), debug_Span(x[1], f)])))]);
+      return debug_tuple(f, "WindowsDtors", [debug_RunningWindowsDtorState(v._0, f), debug_vec(v._1, f, ((x, f) => debug_tuple(f, "", [debug_ImmTy(x[0], f, debug_Provenance), debug_Span(x[1], f)])))]);
     case "Init":
     case "MacOsDtors":
     case "Done":

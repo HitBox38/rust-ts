@@ -7,7 +7,7 @@
 //   one per file) are `declare module` augmentations of rustc_const_eval's `InterpCx`, assigned on `InterpCx.prototype` by
 //   the file that ports them (PORTING §5 "Methods defined in another file"). The `use crate::X::EvalContextExt as _;`
 //   imports of this file are the side-effect imports below: this module loads every module of the crate.
-// - `MiriInterpCx` is `InterpCx<MiriMachine>` (machine.ts; PORT(contract) until interp-generic, plan-m6 D3).
+// - `MiriInterpCx` is `InterpCx<MiriMachine>` (machine.ts; `MiriMachine` implements `Machine<MiriMachineTypes>`).
 // - The crate-wide prelude (`pub use crate::...::{..}` below) is re-exported by name; `pub use
 //   rustc_const_eval::interpret::*` is not (PORT: TS modules import interpreter items from rustc_const_eval /
 //   rustc_middle directly; a glob re-export would collide with Miri's own `Pointer`, `Scalar`, `MemoryKind`, ...).
@@ -138,9 +138,6 @@ export { bug, span_bug } from "../rustc_span/macros.ts";
 // #[cfg(all(feature = "native-lib", unix))] pub mod native_lib { .. }  (PORT: built without `native-lib`, decision C6)
 
 // Type aliases that set the provenance parameter.
-// PORT(contract): `ImmTy` / `OpTy` / `FnArg` / `PlaceTy` / `MPlaceTy` take no provenance parameter until lane
-// interp-generic (plan-m6 D3) adds it; then they become `interpret.ImmTy<Provenance>` etc. `Pointer` and `Scalar` are
-// generic already.
 // rustc-type: src/tools/miri/src/lib.rs:118 Pointer
 export type Pointer = mir_interpret.Pointer<Provenance | undefined>;
 // rustc-type: src/tools/miri/src/lib.rs:119 StrictPointer
@@ -148,17 +145,17 @@ export type StrictPointer = mir_interpret.Pointer<Provenance>;
 // rustc-type: src/tools/miri/src/lib.rs:120 Scalar
 export type Scalar = mir_interpret.Scalar<Provenance>;
 // rustc-type: src/tools/miri/src/lib.rs:121 ImmTy
-export type ImmTy = interpret.ImmTy;
+export type ImmTy = interpret.ImmTy<Provenance>;
 // rustc-type: src/tools/miri/src/lib.rs:122 OpTy
-export type OpTy = interpret.OpTy;
+export type OpTy = interpret.OpTy<Provenance>;
 // rustc-type: src/tools/miri/src/lib.rs:123 FnArg
-export type FnArg = interpret.FnArg;
+export type FnArg = interpret.FnArg<Provenance>;
 // rustc-type: src/tools/miri/src/lib.rs:124 PlaceTy
-export type PlaceTy = interpret.PlaceTy;
+export type PlaceTy = interpret.PlaceTy<Provenance>;
 // rustc-type: src/tools/miri/src/lib.rs:125 MPlaceTy
-export type MPlaceTy = interpret.MPlaceTy;
+export type MPlaceTy = interpret.MPlaceTy<Provenance>;
 
-export type { MiriAllocBytes } from "./alloc/alloc_bytes.ts";
+export { MiriAllocBytes } from "./alloc/alloc_bytes.ts";
 export { ProvenanceMode } from "./alloc_addresses/mod.ts";
 export { Item, Permission } from "./borrow_tracker/stacked_borrows/item.ts";
 export { Stack } from "./borrow_tracker/stacked_borrows/stack.ts";

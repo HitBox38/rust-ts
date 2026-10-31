@@ -13,7 +13,7 @@ import { type MemoryKind, type MiriInterpCx, type MiriMachine } from "../machine
 import { stub_methods, stub_statics } from "../../rust_ts/miri_stub.ts";
 import { type Size } from "../../rustc_abi/lib.ts";
 import { InterpCx } from "../../rustc_const_eval/interpret/eval_context.ts";
-import { type Machine } from "../../rustc_const_eval/interpret/machine.ts";
+import { type AnyMachine, type Machine } from "../../rustc_const_eval/interpret/machine.ts";
 import { type AtomicRmwOp } from "../../rustc_const_eval/interpret/operator.gen.ts";
 import { type AllocRange } from "../../rustc_middle/mir/interpret/allocation.ts";
 import { type AllocId, type InterpResult, type Pointer as interpret_Pointer } from "../../rustc_middle/mir/interpret/mod.ts";
@@ -25,7 +25,7 @@ import { type Result } from "../../std/result.ts";
 export * from "./data_race.gen.ts";
 
 declare module "../../rustc_const_eval/interpret/eval_context.ts" {
-  interface InterpCx<M extends Machine = Machine> {
+  interface InterpCx<M extends AnyMachine = Machine> {
     // ---- concurrency/data_race.rs: `trait EvalContextExt` (impl for `MiriInterpCx`) ----
     // concurrency/data_race.rs:768
     read_scalar_atomic(this: MiriInterpCx, place: MPlaceTy, atomic: AtomicReadOrd): InterpResult<Scalar>;

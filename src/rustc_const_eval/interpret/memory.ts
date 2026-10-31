@@ -430,15 +430,10 @@ export function display_MemoryKind<T>(self: MemoryKind<T>, f: Fmt, display_T: (v
   }
 }
 
-/** PORT: derived `PartialEq` of `MemoryKind<M::MemoryKind>` (the CTFE `MemoryKind::Heap { was_made_global }`). */
-function MemoryKind_eq(a: MemoryKind<CtfeMemoryKind>, b: MemoryKind<CtfeMemoryKind>): boolean {
-  if (a.$ === "Machine" && b.$ === "Machine") return a._0.$ === b._0.$ && a._0.was_made_global === b._0.was_made_global;
+/** PORT: derived `PartialEq` of `MemoryKind<T>` (`T: PartialEq` is `T_eq`, the machine's `MemoryKind_eq`). */
+function MemoryKind_eq<T>(a: MemoryKind<T>, b: MemoryKind<T>, T_eq: (a: T, b: T) => boolean): boolean {
+  if (a.$ === "Machine" && b.$ === "Machine") return T_eq(a._0, b._0);
   return a.$ === b.$;
-}
-
-/** `Display` of the CTFE machines' `MemoryKind<M::MemoryKind>` (`{kind}`). */
-function display_CtfeMemoryKind(kind: MemoryKind<CtfeMemoryKind>): string {
-  return display_MemoryKind(kind, PLAIN, const_eval_machine().display_MemoryKind);
 }
 
 // rustc: compiler/rustc_const_eval/src/interpret/memory.rs:88 new
@@ -698,12 +693,12 @@ InterpCx.prototype.deallocate_ptr = function (this: InterpCx, ptr: Pointer<CtfeP
     // throw_ub_format!("deallocating immutable allocation {alloc_id}")
     return Err(InterpErrorInfo_from_InterpErrorKind(err_ub_format(`deallocating immutable allocation ${display_AllocId(alloc_id)}`)));
   }
-  if (!MemoryKind_eq(alloc_kind, kind)) {
+  if (!MemoryKind_eq(alloc_kind, kind, this.machine.MemoryKind_eq)) {
     // throw_ub_format!("deallocating {alloc_id}, which is {alloc_kind} memory, using {kind} deallocation operation")
     return Err(
       InterpErrorInfo_from_InterpErrorKind(
         err_ub_format(
-          `deallocating ${display_AllocId(alloc_id)}, which is ${display_CtfeMemoryKind(alloc_kind)} memory, using ${display_CtfeMemoryKind(kind)} deallocation operation`,
+          `deallocating ${display_AllocId(alloc_id)}, which is ${display_MemoryKind(alloc_kind, PLAIN, this.machine.display_MemoryKind)} memory, using ${display_MemoryKind(kind, PLAIN, this.machine.display_MemoryKind)} deallocation operation`,
         ),
       ),
     );
@@ -1034,7 +1029,7 @@ InterpCx.prototype.get_alloc_raw = function (this: InterpCx, id: AllocId): Inter
 InterpCx.prototype.get_alloc_bytes_unchecked_raw = function (this: InterpCx, id: AllocId): InterpResult<Uint8Array> {
   const alloc = this.get_alloc_raw(id);
   if (alloc.$ === "Err") return alloc;
-  return interp_ok(alloc._0.get_bytes_unchecked_raw());
+  return interp_ok(alloc._0.get_bytes_unchecked_raw(this.machine.Provenance));
 };
 
 /// Bounds-checked *but not align-checked* allocation access.
@@ -1129,7 +1124,7 @@ InterpCx.prototype.get_alloc_bytes_unchecked_raw_mut = function (this: InterpCx,
   const a = this.get_alloc_raw_mut(id);
   if (a.$ === "Err") return a;
   const alloc = a._0[0];
-  return interp_ok(alloc.get_bytes_unchecked_raw_mut());
+  return interp_ok(alloc.get_bytes_unchecked_raw_mut(this.machine.Provenance));
 };
 
 /// Bounds-checked *but not align-checked* allocation access.
@@ -1496,7 +1491,7 @@ InterpCx.prototype.take_leaked_allocations = function (this: InterpCx, static_ro
     const reachable = new Set<AllocId>();
     const global_kind: MemoryKind<CtfeMemoryKind> | undefined = this.machine.GLOBAL_KIND === undefined ? undefined : { $: "Machine", _0: this.machine.GLOBAL_KIND };
     const todo: AllocId[] = this.memory.alloc_map.filter_map_collect((id, [kind, _]) => {
-      return global_kind !== undefined && MemoryKind_eq(kind, global_kind) ? id : undefined;
+      return global_kind !== undefined && MemoryKind_eq(kind, global_kind, this.machine.MemoryKind_eq) ? id : undefined;
     });
     todo.push(...static_roots(this));
     let id: AllocId | undefined;
@@ -1520,7 +1515,7 @@ InterpCx.prototype.take_leaked_allocations = function (this: InterpCx, static_ro
   })();
 
   // All allocations that are *not* `reachable` and *not* `may_leak` are considered leaking.
-  const MayLeak_MemoryKind = const_eval_machine().MayLeak_MemoryKind;
+  const MayLeak_MemoryKind = this.machine.MayLeak_MemoryKind;
   const leaked: AllocId[] = this.memory.alloc_map.filter_map_collect((id, [kind, _]) => {
     return MemoryKind.may_leak(kind, MayLeak_MemoryKind) || reachable.has(id) ? undefined : id;
   });
@@ -1623,7 +1618,7 @@ export function debug_DumpAllocs(self: DumpAllocs, fmt: Fmt): string {
     if (local !== undefined) {
       const [kind, alloc] = local;
       // normal alloc
-      out += ` (${display_CtfeMemoryKind(kind)}, `;
+      out += ` (${display_MemoryKind(kind, PLAIN, self.ecx.machine.display_MemoryKind)}, `;
       out += write_allocation_track_relocs(fmt, self.ecx.tcx.deref(), allocs_to_print, alloc);
     } else {
       // global alloc

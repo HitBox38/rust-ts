@@ -12,14 +12,14 @@ import { type MPlaceTy, type Scalar } from "../lib.ts";
 import { type MiriInterpCx } from "../machine.ts";
 import { stub_methods, stub_statics } from "../../rust_ts/miri_stub.ts";
 import { InterpCx } from "../../rustc_const_eval/interpret/eval_context.ts";
-import { type Machine } from "../../rustc_const_eval/interpret/machine.ts";
+import { type AnyMachine, type Machine } from "../../rustc_const_eval/interpret/machine.ts";
 import { type AllocRange } from "../../rustc_middle/mir/interpret/allocation.ts";
 import { type InterpResult } from "../../rustc_middle/mir/interpret/mod.ts";
 import { type Pending } from "../../rustc_type_ir/decls.ts";
 export * from "./weak_memory.gen.ts";
 
 declare module "../../rustc_const_eval/interpret/eval_context.ts" {
-  interface InterpCx<M extends Machine = Machine> {
+  interface InterpCx<M extends AnyMachine = Machine> {
     // ---- concurrency/weak_memory.rs: `trait EvalContextExt` (impl for `MiriInterpCx`) ----
     // concurrency/weak_memory.rs:497
     buffered_atomic_rmw(this: MiriInterpCx, new_val: Scalar, place: MPlaceTy, atomic: AtomicRwOrd, init: Scalar): InterpResult;

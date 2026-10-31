@@ -4,6 +4,9 @@
 // Until ported, every method declared below is an `unported` placeholder (`stub_*` calls at the end, installed by
 // src/miri/lib.ts) and every free fn stops with `unported`. The declarations were translated mechanically from the
 // upstream signatures (`Pending<"..">` = a type the translation did not map); the fill lane owns and corrects them.
+// PORT (decision miri-contract C5 amendment, lane interp-miri-reconcile): `Elem.range: ops::Range<u64>` is
+// `{ start: number; end: number }` (typemap `fields`): the ranges are byte offsets into one allocation, whose size is a
+// `Size` (a number), and every Stacked Borrows / data-race / weak-memory range lookup goes through them.
 import { DedupRangeMap } from "./dedup_range_map.gen.ts";
 import { stub_methods, stub_statics } from "../../rust_ts/miri_stub.ts";
 import { type Size } from "../../rustc_abi/lib.ts";

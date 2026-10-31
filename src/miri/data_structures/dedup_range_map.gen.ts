@@ -5,7 +5,7 @@ import { type Debug, debug_int, debug_struct, debug_vec, type Fmt } from "../../
 // rustc-type: src/tools/miri/src/data_structures/dedup_range_map.rs:13 Elem
 export interface Elem<T> {
   /// The range covered by this element; never empty.
-  range: { start: bigint; end: bigint };
+  range: { start: number; end: number };
   /// The data stored for this element.
   data: T;
 }

@@ -6,13 +6,13 @@
 import { type MiriInterpCx } from "../machine.ts";
 import { stub_methods } from "../../rust_ts/miri_stub.ts";
 import { InterpCx } from "../../rustc_const_eval/interpret/eval_context.ts";
-import { type Machine } from "../../rustc_const_eval/interpret/machine.ts";
+import { type AnyMachine, type Machine } from "../../rustc_const_eval/interpret/machine.ts";
 import { type InterpResult } from "../../rustc_middle/mir/interpret/mod.ts";
 import { type UnwindAction } from "../../rustc_middle/mir/mod.ts";
 import { type AssertMessage } from "../../rustc_middle/mir/syntax.gen.ts";
 
 declare module "../../rustc_const_eval/interpret/eval_context.ts" {
-  interface InterpCx<M extends Machine = Machine> {
+  interface InterpCx<M extends AnyMachine = Machine> {
     // ---- shims/panic.rs: `trait EvalContextExt` (impl for `MiriInterpCx`) ----
     // shims/panic.rs:11
     start_panic(this: MiriInterpCx, msg: string, unwind: UnwindAction): InterpResult;

@@ -14,14 +14,14 @@ import { type Size } from "../../../rustc_abi/lib.ts";
 import { type Mutability } from "../../../rustc_ast_ir/lib.ts";
 import { InterpCx } from "../../../rustc_const_eval/interpret/eval_context.ts";
 import { type RetagMode } from "../../../rustc_const_eval/interpret/machine.gen.ts";
-import { type Machine } from "../../../rustc_const_eval/interpret/machine.ts";
+import { type AnyMachine, type Machine } from "../../../rustc_const_eval/interpret/machine.ts";
 import { type AllocRange } from "../../../rustc_middle/mir/interpret/allocation.ts";
 import { type AllocId, type InterpResult } from "../../../rustc_middle/mir/interpret/mod.ts";
 import { type Ty } from "../../../rustc_middle/ty/mod.ts";
 export * from "./mod.gen.ts";
 
 declare module "../../../rustc_const_eval/interpret/eval_context.ts" {
-  interface InterpCx<M extends Machine = Machine> {
+  interface InterpCx<M extends AnyMachine = Machine> {
     // ---- borrow_tracker/tree_borrows/mod.rs: `trait EvalContextPrivExt` (impl for `MiriInterpCx`) ----
     // borrow_tracker/tree_borrows/mod.rs:231
     get_tree_borrows_params(this: MiriInterpCx): TreeBorrowsParams;

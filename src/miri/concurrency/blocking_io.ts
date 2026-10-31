@@ -11,7 +11,7 @@ import { type MiriInterpCx } from "../machine.ts";
 import { type FdId, type FileDescriptionRef } from "../shims/files.ts";
 import { stub_methods, stub_statics } from "../../rust_ts/miri_stub.ts";
 import { InterpCx } from "../../rustc_const_eval/interpret/eval_context.ts";
-import { type Machine } from "../../rustc_const_eval/interpret/machine.ts";
+import { type AnyMachine, type Machine } from "../../rustc_const_eval/interpret/machine.ts";
 import { type InterpResult } from "../../rustc_middle/mir/interpret/mod.ts";
 import { type Pending } from "../../rustc_type_ir/decls.ts";
 import { type IoError as io_Error } from "../../std/io.ts";
@@ -28,7 +28,7 @@ export interface SourceFileDescription {
 }
 
 declare module "../../rustc_const_eval/interpret/eval_context.ts" {
-  interface InterpCx<M extends Machine = Machine> {
+  interface InterpCx<M extends AnyMachine = Machine> {
     // ---- concurrency/blocking_io.rs: `trait EvalContextExt` (impl for `MiriInterpCx`) ----
     // concurrency/blocking_io.rs:288
     block_thread_for_io(this: MiriInterpCx, source_fd: FileDescriptionRef<SourceFileDescription>, interest: BlockingIoInterest, deadline: Deadline | undefined, callback: DynUnblockCallback): InterpResult;

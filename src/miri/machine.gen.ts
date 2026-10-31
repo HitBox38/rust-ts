@@ -409,7 +409,7 @@ export class MiriMachine {
     public preemption_rate: number,
     /// If `Some`, we will report the current stack every N basic blocks.
     public report_progress: number | undefined,
-    public basic_block_count: bigint,
+    public basic_block_count: number,
     public native_lib: never[],
     /// Run a garbage collector for BorTags every N basic blocks.
     public gc_interval: number,

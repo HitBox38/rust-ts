@@ -9,7 +9,7 @@ import { stub_methods } from "../rust_ts/miri_stub.ts";
 import { type ExternAbi } from "../rustc_abi/extern_abi.ts";
 import { type Align, type Size } from "../rustc_abi/lib.ts";
 import { InterpCx } from "../rustc_const_eval/interpret/eval_context.ts";
-import { type Machine } from "../rustc_const_eval/interpret/machine.ts";
+import { type AnyMachine, type Machine } from "../rustc_const_eval/interpret/machine.ts";
 import { type Writeable } from "../rustc_const_eval/interpret/place.ts";
 import { type Projectable } from "../rustc_const_eval/interpret/projection.ts";
 import { type Frame, type ReturnContinuation } from "../rustc_const_eval/interpret/stack.gen.ts";
@@ -28,7 +28,7 @@ import { type Pending } from "../rustc_type_ir/decls.ts";
 import { unported } from "../std/panic.ts";
 
 declare module "../rustc_const_eval/interpret/eval_context.ts" {
-  interface InterpCx<M extends Machine = Machine> {
+  interface InterpCx<M extends AnyMachine = Machine> {
     // ---- helpers.rs: `trait EvalContextExt` (impl for `MiriInterpCx`) ----
     // helpers.rs:171
     have_module(this: MiriInterpCx, path: readonly string[]): boolean;
@@ -65,13 +65,13 @@ declare module "../rustc_const_eval/interpret/eval_context.ts" {
     // helpers.rs:304
     project_field_named<P>(this: MiriInterpCx, base: P, name: string): InterpResult<P>;
     // helpers.rs:318
-    write_int(this: MiriInterpCx, i: bigint, dest: Writeable): InterpResult;
+    write_int(this: MiriInterpCx, i: bigint, dest: Writeable<unknown, Provenance>): InterpResult;
     // helpers.rs:338
-    write_int_fields(this: MiriInterpCx, values: readonly bigint[], dest: Writeable): InterpResult;
+    write_int_fields(this: MiriInterpCx, values: readonly bigint[], dest: Writeable<unknown, Provenance>): InterpResult;
     // helpers.rs:353
-    write_int_fields_named(this: MiriInterpCx, values: ([string, bigint])[], dest: Writeable): InterpResult;
+    write_int_fields_named(this: MiriInterpCx, values: ([string, bigint])[], dest: Writeable<unknown, Provenance>): InterpResult;
     // helpers.rs:367
-    write_null(this: MiriInterpCx, dest: Writeable): InterpResult;
+    write_null(this: MiriInterpCx, dest: Writeable<unknown, Provenance>): InterpResult;
     // helpers.rs:372
     ptr_is_null(this: MiriInterpCx, ptr: Pointer): InterpResult<boolean>;
     // helpers.rs:377
@@ -95,13 +95,13 @@ declare module "../rustc_const_eval/interpret/eval_context.ts" {
     // helpers.rs:679
     target_os_is_unix(this: MiriInterpCx): boolean;
     // helpers.rs:684
-    deref_pointer_as(this: MiriInterpCx, op: Projectable, layout: TyAndLayout): InterpResult<MPlaceTy>;
+    deref_pointer_as(this: MiriInterpCx, op: Projectable<unknown, Provenance>, layout: TyAndLayout): InterpResult<MPlaceTy>;
     // helpers.rs:695
-    deref_pointer_and_offset(this: MiriInterpCx, op: Projectable, offset: bigint, base_layout: TyAndLayout, value_layout: TyAndLayout): InterpResult<MPlaceTy>;
+    deref_pointer_and_offset(this: MiriInterpCx, op: Projectable<unknown, Provenance>, offset: bigint, base_layout: TyAndLayout, value_layout: TyAndLayout): InterpResult<MPlaceTy>;
     // helpers.rs:712
-    deref_pointer_and_read(this: MiriInterpCx, op: Projectable, offset: bigint, base_layout: TyAndLayout, value_layout: TyAndLayout): InterpResult<Scalar>;
+    deref_pointer_and_read(this: MiriInterpCx, op: Projectable<unknown, Provenance>, offset: bigint, base_layout: TyAndLayout, value_layout: TyAndLayout): InterpResult<Scalar>;
     // helpers.rs:724
-    deref_pointer_and_write(this: MiriInterpCx, op: Projectable, offset: bigint, value: Scalar, base_layout: TyAndLayout, value_layout: TyAndLayout): InterpResult;
+    deref_pointer_and_write(this: MiriInterpCx, op: Projectable<unknown, Provenance>, offset: bigint, value: Scalar, base_layout: TyAndLayout, value_layout: TyAndLayout): InterpResult;
     // helpers.rs:738
     read_byte_slice(this: MiriInterpCx, slice: ImmTy): InterpResult<Uint8Array>;
     // helpers.rs:751
@@ -138,7 +138,7 @@ declare module "./machine.gen.ts" {
     // helpers.rs:1028
     caller_span(): Span;
     // helpers.rs:1036
-    stack(): readonly Frame<FrameExtra>[];
+    stack(): readonly Frame<Provenance, FrameExtra>[];
     // helpers.rs:1040
     top_user_relevant_frame(): number | undefined;
     // helpers.rs:1045

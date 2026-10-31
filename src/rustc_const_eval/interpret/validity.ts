@@ -27,7 +27,6 @@ import {
   lower_hex_Scalar,
   Pointer,
   PointerArithmetic_provided,
-  Provenance_CtfeProvenance,
   Scalar,
   display_Pointer_Option,
   type AllocId,

@@ -4,6 +4,11 @@
 // Until ported, every method declared below is an `unported` placeholder (`stub_*` calls at the end, installed by
 // src/miri/lib.ts) and every free fn stops with `unported`. The declarations were translated mechanically from the
 // upstream signatures (`Pending<"..">` = a type the translation did not map); the fill lane owns and corrects them.
+// PORT (decision miri-contract C5 amendment, lane interp-miri-reconcile): the virtual clock's `Cell<u128>` counter
+// (`MonotonicClockKind::Virtual.nanoseconds`, typemap `fields`) is a `number`: it is ticked per basic block
+// (`NANOSECONDS_PER_BASIC_BLOCK`) and stays far below 2^53 for any run that ends. `InstantKind::Virtual.nanoseconds` stays
+// a `bigint` (an `Instant` adds program-supplied `Duration`s, `saturating_add`): convert with `BigInt(n)` where an `Instant`
+// is made from the clock. The fill lane keeps the counter's arithmetic exact (`unported` past `Number.MAX_SAFE_INTEGER`).
 import { type Deadline, Instant, MonotonicClock, type TimeoutClock, type TimeoutStyle } from "./clock.gen.ts";
 import { MiriMachine } from "./machine.ts";
 import { stub_methods, stub_statics } from "../rust_ts/miri_stub.ts";

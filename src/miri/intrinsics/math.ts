@@ -10,13 +10,13 @@ import { type EmulateItemResult } from "../shims/mod.ts";
 import { stub_methods } from "../../rust_ts/miri_stub.ts";
 import { type FloatTy } from "../../rustc_ast_ir/lib.ts";
 import { InterpCx } from "../../rustc_const_eval/interpret/eval_context.ts";
-import { type Machine } from "../../rustc_const_eval/interpret/machine.ts";
+import { type AnyMachine, type Machine } from "../../rustc_const_eval/interpret/machine.ts";
 import { type InterpResult } from "../../rustc_middle/mir/interpret/mod.ts";
 import { type GenericArgsRef } from "../../rustc_middle/ty/generic_args.ts";
 import { unported } from "../../std/panic.ts";
 
 declare module "../../rustc_const_eval/interpret/eval_context.ts" {
-  interface InterpCx<M extends Machine = Machine> {
+  interface InterpCx<M extends AnyMachine = Machine> {
     // ---- intrinsics/math.rs: `trait EvalContextExt` (impl for `MiriInterpCx`) ----
     // intrinsics/math.rs:92
     emulate_math_intrinsic(this: MiriInterpCx, intrinsic_name: string, generic_args: GenericArgsRef, args: readonly OpTy[], dest: PlaceTy): InterpResult<EmulateItemResult>;

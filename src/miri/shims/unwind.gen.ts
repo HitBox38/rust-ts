@@ -23,7 +23,7 @@ export interface CatchUnwindData {
 export const debug_CatchUnwindData: Debug<CatchUnwindData> = (v, f) =>
   debug_struct(f, "CatchUnwindData", [
     ["catch_fn", debug_Pointer(v.catch_fn, f, ((x, f) => debug_option(x, f, debug_Provenance)))],
-    ["data", debug_ImmTy(v.data, f)],
-    ["dest", debug_MPlaceTy(v.dest, f)],
+    ["data", debug_ImmTy(v.data, f, debug_Provenance)],
+    ["dest", debug_MPlaceTy(v.dest, f, debug_Provenance)],
     ["ret", debug_option(v.ret, f, debug_BasicBlock)],
   ]);

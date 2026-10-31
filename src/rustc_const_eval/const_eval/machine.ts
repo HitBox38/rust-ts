@@ -1408,6 +1408,11 @@ export function display_MemoryKind(self: MemoryKind, f: Fmt): string {
   }
 }
 
+/** PORT: the derived `PartialEq` of `MemoryKind` (`#[derive(PartialEq, Eq)]`; `M::MemoryKind: Eq` of the CTFE machines). */
+export function MemoryKind_eq(a: MemoryKind, b: MemoryKind): boolean {
+  return a.$ === b.$ && a.was_made_global === b.was_made_global;
+}
+
 // impl interpret::MayLeak for MemoryKind
 export const MayLeak_MemoryKind: MayLeak<MemoryKind> = {
   // #[inline(always)]

@@ -8,12 +8,12 @@ import { type MiriInterpCx } from "../../machine.ts";
 import { type EmulateItemResult } from "../../shims/mod.ts";
 import { stub_methods } from "../../../rust_ts/miri_stub.ts";
 import { InterpCx } from "../../../rustc_const_eval/interpret/eval_context.ts";
-import { type Machine } from "../../../rustc_const_eval/interpret/machine.ts";
+import { type AnyMachine, type Machine } from "../../../rustc_const_eval/interpret/machine.ts";
 import { type InterpResult } from "../../../rustc_middle/mir/interpret/mod.ts";
 import { type Symbol } from "../../../rustc_span/symbol.ts";
 
 declare module "../../../rustc_const_eval/interpret/eval_context.ts" {
-  interface InterpCx<M extends Machine = Machine> {
+  interface InterpCx<M extends AnyMachine = Machine> {
     // ---- intrinsics/x86/sse41.rs: `trait EvalContextExt` (impl for `MiriInterpCx`) ----
     // intrinsics/x86/sse41.rs:8
     emulate_x86_sse41_intrinsic(this: MiriInterpCx, link_name: Symbol, args: readonly OpTy[], dest: MPlaceTy): InterpResult<EmulateItemResult>;

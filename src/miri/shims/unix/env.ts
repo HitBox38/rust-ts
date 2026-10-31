@@ -9,12 +9,12 @@ import { type MiriInterpCx } from "../../machine.ts";
 import { UnixEnvVars } from "./env.gen.ts";
 import { stub_methods, stub_statics } from "../../../rust_ts/miri_stub.ts";
 import { InterpCx } from "../../../rustc_const_eval/interpret/eval_context.ts";
-import { type Machine } from "../../../rustc_const_eval/interpret/machine.ts";
+import { type AnyMachine, type Machine } from "../../../rustc_const_eval/interpret/machine.ts";
 import { type InterpResult } from "../../../rustc_middle/mir/interpret/mod.ts";
 export * from "./env.gen.ts";
 
 declare module "../../../rustc_const_eval/interpret/eval_context.ts" {
-  interface InterpCx<M extends Machine = Machine> {
+  interface InterpCx<M extends AnyMachine = Machine> {
     // ---- shims/unix/env.rs: `trait EvalContextExt` (impl for `MiriInterpCx`) ----
     // shims/unix/env.rs:129
     getenv(this: MiriInterpCx, name_op: OpTy): InterpResult<Pointer>;

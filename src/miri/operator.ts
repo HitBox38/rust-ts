@@ -7,12 +7,12 @@ import { type ImmTy } from "./lib.ts";
 import { type MiriInterpCx } from "./machine.ts";
 import { stub_methods } from "../rust_ts/miri_stub.ts";
 import { InterpCx } from "../rustc_const_eval/interpret/eval_context.ts";
-import { type Machine } from "../rustc_const_eval/interpret/machine.ts";
+import { type AnyMachine, type Machine } from "../rustc_const_eval/interpret/machine.ts";
 import { type InterpResult } from "../rustc_middle/mir/interpret/mod.ts";
 import { type BinOp } from "../rustc_middle/mir/syntax.ts";
 
 declare module "../rustc_const_eval/interpret/eval_context.ts" {
-  interface InterpCx<M extends Machine = Machine> {
+  interface InterpCx<M extends AnyMachine = Machine> {
     // ---- operator.rs: `trait EvalContextExt` (impl for `MiriInterpCx`) ----
     // operator.rs:13 (PORT: decision C8, `binary_ptr_op` is also a rustc_const_eval `InterpCx` method)
     binary_ptr_op_(this: MiriInterpCx, bin_op: BinOp, left: ImmTy, right: ImmTy): InterpResult<ImmTy>;

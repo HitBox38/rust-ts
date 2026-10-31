@@ -8,11 +8,11 @@ import { type Deadline } from "../clock.ts";
 import { type BlockReason, type DynUnblockCallback, Thread, ThreadId, type ThreadLookupError, ThreadManager, type TlsAllocAction } from "./thread.gen.ts";
 import { type MiriConfig } from "../eval.ts";
 import { type ImmTy, type MPlaceTy, type Pointer, type Scalar, type StrictPointer } from "../lib.ts";
-import { type FrameExtra, type MiriInterpCx } from "../machine.ts";
+import { type FrameExtra, type MiriInterpCx, type Provenance } from "../machine.ts";
 import { stub_methods, stub_statics } from "../../rust_ts/miri_stub.ts";
 import { type ExternAbi } from "../../rustc_abi/extern_abi.ts";
 import { InterpCx } from "../../rustc_const_eval/interpret/eval_context.ts";
-import { type Machine } from "../../rustc_const_eval/interpret/machine.ts";
+import { type AnyMachine, type Machine } from "../../rustc_const_eval/interpret/machine.ts";
 import { type Frame } from "../../rustc_const_eval/interpret/stack.gen.ts";
 import { type InterpResult } from "../../rustc_middle/mir/interpret/mod.ts";
 import { type TyAndLayout } from "../../rustc_middle/ty/layout.ts";
@@ -33,7 +33,7 @@ export type StackEmptyCallback = (ecx: MiriInterpCx) => InterpResult<Pending<"Po
 export const debug_Thread: Debug<Thread> = (_v, _f) => unported("miri::concurrency::thread::Thread: Debug (src/tools/miri/src/concurrency/thread.rs:293; lane miri-threads)");
 
 declare module "../../rustc_const_eval/interpret/eval_context.ts" {
-  interface InterpCx<M extends Machine = Machine> {
+  interface InterpCx<M extends AnyMachine = Machine> {
     // ---- concurrency/thread.rs: `trait EvalContextExt` (impl for `MiriInterpCx`) ----
     // concurrency/thread.rs:631
     thread_id_try_from(this: MiriInterpCx, id: Pending<"impl TryInto<u32>">): Result<ThreadId, ThreadLookupError>;
@@ -68,9 +68,9 @@ declare module "../../rustc_const_eval/interpret/eval_context.ts" {
     // concurrency/thread.rs:1060
     enable_thread(this: MiriInterpCx, thread_id: ThreadId): void;
     // concurrency/thread.rs:1066
-    active_thread_stack(this: MiriInterpCx): readonly Frame<FrameExtra>[];
+    active_thread_stack(this: MiriInterpCx): readonly Frame<Provenance, FrameExtra>[];
     // concurrency/thread.rs:1072
-    active_thread_stack_mut(this: MiriInterpCx): Frame<FrameExtra>[];
+    active_thread_stack_mut(this: MiriInterpCx): Frame<Provenance, FrameExtra>[];
     // concurrency/thread.rs:1081
     set_thread_name(this: MiriInterpCx, thread: ThreadId, new_thread_name: Uint8Array): void;
     // concurrency/thread.rs:1086
@@ -132,13 +132,13 @@ declare module "./thread.gen.ts" {
     // concurrency/thread.rs:477
     set_thread_local_alloc(def_id: DefId, ptr: StrictPointer): void;
     // concurrency/thread.rs:482
-    active_thread_stack(): readonly Frame<FrameExtra>[];
+    active_thread_stack(): readonly Frame<Provenance, FrameExtra>[];
     // concurrency/thread.rs:487
-    active_thread_stack_mut(): Frame<FrameExtra>[];
+    active_thread_stack_mut(): Frame<Provenance, FrameExtra>[];
     // concurrency/thread.rs:493
     all_threads(): Iterable<[ThreadId, Thread]>;
     // concurrency/thread.rs:497
-    all_blocked_stacks(): Iterable<[ThreadId, readonly Frame<FrameExtra>[]]>;
+    all_blocked_stacks(): Iterable<[ThreadId, readonly Frame<Provenance, FrameExtra>[]]>;
     // concurrency/thread.rs:507
     create_thread(on_stack_empty: StackEmptyCallback): ThreadId;
     // concurrency/thread.rs:514

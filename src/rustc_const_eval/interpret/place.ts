@@ -23,7 +23,6 @@ import {
   Pointer,
   Pointer_from_AllocId,
   Pointer_Option_from_Pointer,
-  Provenance_CtfeProvenance,
   Scalar,
   alloc_range,
   debug_InterpErrorKind,

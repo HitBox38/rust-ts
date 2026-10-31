@@ -12,7 +12,7 @@ import { type Varargs } from "../sig.ts";
 import { type DirEntry, DirStream, DirTable, FileMetadata, type TimeUpdate } from "./fs.gen.ts";
 import { stub_methods, stub_statics } from "../../../rust_ts/miri_stub.ts";
 import { InterpCx } from "../../../rustc_const_eval/interpret/eval_context.ts";
-import { type Machine } from "../../../rustc_const_eval/interpret/machine.ts";
+import { type AnyMachine, type Machine } from "../../../rustc_const_eval/interpret/machine.ts";
 import { type InterpResult } from "../../../rustc_middle/mir/interpret/mod.ts";
 import { type Pending } from "../../../rustc_type_ir/decls.ts";
 import { type IoError as io_Error } from "../../../std/io.ts";
@@ -21,7 +21,7 @@ import { type Metadata } from "../../../vendor/anstyle/effect.ts";
 export * from "./fs.gen.ts";
 
 declare module "../../../rustc_const_eval/interpret/eval_context.ts" {
-  interface InterpCx<M extends Machine = Machine> {
+  interface InterpCx<M extends AnyMachine = Machine> {
     // ---- shims/unix/fs.rs: `trait EvalContextExtPrivate` (impl for `MiriInterpCx`) ----
     // shims/unix/fs.rs:269
     parse_utimens_timespec(this: MiriInterpCx, tp: MPlaceTy): InterpResult<TimeUpdate | undefined>;
