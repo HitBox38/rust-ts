@@ -315,8 +315,12 @@ check-ui/rmeta-ui 730/730. 486,990 protected in 38 suites; 22,589/25,518 fns (88
 ## Wave 34 (started 2026-10-31) — alloc and std (plan-m5 §5)
 | lane | scope | status |
 |---|---|---|
-| harness-m5c | D2 aux chain (compiler_builtins, std's 13 deps, backtrace submodule), check-/rmeta-alloc, check-/rmeta-std, check-chain (harness batch) | running |
-| followups-33 | the small wave-32/33 review follow-ups (ExportedSymbol import, SpanEncoder typing, fx-order type check, rmeta oracle test, typemap, EBADF, ...) | running |
+| harness-m5c | D2 aux chain (compiler_builtins, std's 13 deps, backtrace submodule), check-/rmeta-alloc, check-/rmeta-std, check-chain (harness batch) | reviewed (APPROVE), merged into integ-w34 |
+| followups-33 | the small wave-32/33 review follow-ups (ExportedSymbol import, SpanEncoder typing, fx-order type check, rmeta oracle test, typemap, EBADF, ...) | reviewed, merged into integ-w34 |
+| size-bigint | Size exact form for values >= 2^53 (decision cb7b9a60); unblocks mir-std | running |
+| exported-symbols-codec (root) | (ExportedSymbol, SymbolExportInfo) TyEncodable/TyDecodable; refine_rpitit now stops at mono items (M7) | in review |
+integ-w34 unit suite (b88e18f1): src+tools 6375/0, scripts+harness 86/0 (run separately: scripts tests pollute env).
+Gate plan: the 38 protected suites + check-alloc, check-std, rmeta-alloc, rmeta-std, mir-alloc (+ mir-std if it matches); check-chain report-only.
 Then: fixer lanes from check-alloc / check-std first stops; perf lanes (representation decisions queued from perf-core-a);
 harness: put scripts/harness tests in the gate's unit step.
 
