@@ -35,7 +35,7 @@
 // `InterpCx.prototype` at load; interpret/mod.ts imports them after this module. Reads of the hand modules from here
 // happen at call time only. `crate::assert_typing_mode` (lib.ts) is read lazily.
 import { type Align, type HasDataLayout, Size, type TargetDataLayout } from "../../rustc_abi/lib.ts";
-import { FieldsShape } from "../../rustc_abi/lib.ts";
+import { debug_Size, FieldsShape, Size_cmp, Size_eq } from "../../rustc_abi/lib.ts";
 import { type Layout, TyAndLayout } from "../../rustc_abi/layout/ty.ts";
 import type { Limit } from "../../rustc_structures/limit.ts";
 import {
@@ -541,15 +541,13 @@ export class InterpCx<M extends Machine = Machine>
         // Just for our sanitiy's sake, assert that this is equal to what codegen would compute.
         const codegen_size = unsized_offset_unadjusted.add(unsized_size).align_to(full_align);
         assert(
-          full_size.bytes() === codegen_size.bytes(),
-          `assertion \`left == right\` failed\n  left: ${full_size.bytes()}\n right: ${codegen_size.bytes()}`,
+          Size_eq(full_size, codegen_size),
+          () => `assertion \`left == right\` failed\n  left: ${debug_Size(full_size, PLAIN)}\n right: ${debug_Size(codegen_size, PLAIN)}`,
         );
 
         // Check if this brought us over the size limit.
-        // PORT: `max_size_of_val()` is `Size::from_bytes(isize::MAX)`, beyond 2^53 on 64-bit targets (a `Size` is a
-        // number, recorded decision): the comparison is on the bytes, as `bigint`s, against `target_isize_max` (as
-        // operator.ts `compute_size_in_bytes` and memory.ts `insert_allocation`).
-        if (BigInt(full_size.bytes()) > PointerArithmetic_provided.target_isize_max(this)) {
+        // PORT (size-bigint): `max_size_of_val()` (`isize::MAX` bytes) is a big-form `Size`; `>` is `Size_cmp`.
+        if (Size_cmp(full_size, PointerArithmetic_provided.max_size_of_val(this)) > 0) {
           // throw_ub!(InvalidMeta(InvalidMetaKind::TooBig))
           return Err(InterpErrorInfo_from_InterpErrorKind({ $: "UndefinedBehavior", _0: { $: "InvalidMeta", _0: "TooBig" } }));
         }
@@ -572,14 +570,13 @@ export class InterpCx<M extends Machine = Machine>
         const elem = layout.field(this, 0);
 
         // Make sure the slice is not too big.
-        // we rely on `max_size_of_val` being smaller than `u64::MAX`.
-        const size_ = saturating_mul_u64(BigInt(elem.size.bytes()), len);
-        // PORT: compared with `target_isize_max` (`max_size_of_val()`'s bytes) as above.
-        if (size_ > PointerArithmetic_provided.target_isize_max(this)) {
+        const size_ = saturating_mul_u64(elem.size.bytes_u64(), len); // we rely on `max_size_of_val` being smaller than `u64::MAX`.
+        const size = Size.from_bytes(size_);
+        // PORT (size-bigint): `size > self.max_size_of_val()` (`Size_cmp`).
+        if (Size_cmp(size, PointerArithmetic_provided.max_size_of_val(this)) > 0) {
           // throw_ub!(InvalidMeta(InvalidMetaKind::SliceTooBig))
           return Err(InterpErrorInfo_from_InterpErrorKind({ $: "UndefinedBehavior", _0: { $: "InvalidMeta", _0: "SliceTooBig" } }));
         }
-        const size = Size.from_bytes(size_);
         return interp_ok<[Size, Align] | undefined>([size, elem.align.abi]);
       }
 

@@ -548,7 +548,7 @@ export class ValidityVisitor<M extends Machine = Machine> extends ValueVisitor_p
         // PORT: `Size::from_bytes(x).bytes()` is the identity on a `u64`: kept as the `bigint` (a `Size` past 2^53
         // would be unported, recorded decision), and `checked_add` on `u64` is the sum checked against `u64::MAX`.
         const addr = int_r._0.to_target_usize(this.ecx.tcx.deref());
-        const result = addr + BigInt(size.bytes());
+        const result = addr + size.bytes_u64();
         if (result > U64_MAX || result >= PointerArithmetic_provided.target_usize_max(this.ecx)) {
           return throw_validation_failure(
             this.path,

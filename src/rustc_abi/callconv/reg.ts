@@ -3,7 +3,7 @@
 // Init order: lib.ts re-exports this module (through callconv.ts), so its top-level code must not touch lib.ts's values.
 import { type Debug, debug_struct, PLAIN } from "../../std/fmt.ts";
 import { panic } from "../../std/panic.ts";
-import { type Align, debug_Primitive, debug_Size, type HasDataLayout, type Primitive, Primitive_eq, Size } from "../lib.ts";
+import { type Align, debug_Primitive, debug_Size, type HasDataLayout, type Primitive, Primitive_eq, Size, Size_eq } from "../lib.ts";
 
 // #[cfg_attr(feature = "nightly", derive(StableHash))]
 // #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
@@ -142,7 +142,7 @@ export class Reg {
 }
 /** derive(PartialEq) */
 export function Reg_eq(a: Reg, b: Reg): boolean {
-  return RegKind_eq(a.kind, b.kind) && a.size.raw === b.size.raw;
+  return RegKind_eq(a.kind, b.kind) && Size_eq(a.size, b.size);
 }
 // derive(Debug)
 export const debug_Reg: Debug<Reg> = (v, f) =>

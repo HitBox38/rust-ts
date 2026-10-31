@@ -142,7 +142,7 @@ export function encode_ProvenanceMap<Prov, S extends Encoder>(self: ProvenanceMa
 /** PORT: the encode half of `decode_SortedMap_Size`: `derive(Encodable_NoContext)` of `SortedMap<K, V> { data: Vec<(K, V)> }`
  *  at `K = Size` (`Size { raw: u64 }`), hand-expanded. */
 function encode_SortedMap_Size<S extends Encoder, V>(self: SortedMap<Size, V>, s: S, encode_V: Encodable<V, S>): void {
-  encode_Vec(self.data, s, (v: [Size, V], s: S) => encode_tuple(v, s, (sz: Size, s: S) => encode_u64(BigInt(sz.raw), s), encode_V));
+  encode_Vec(self.data, s, (v: [Size, V], s: S) => encode_tuple(v, s, (sz: Size, s: S) => encode_u64(sz.bytes_u64(), s), encode_V));
 }
 
 // rustc: compiler/rustc_middle/src/mir/interpret/allocation/provenance_map.rs:61 new
