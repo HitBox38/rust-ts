@@ -349,8 +349,11 @@ Follow-ups (queued):
 | vendor-rand | D5: rand/rand_core 0.10.1 + chacha20 0.10.0 subset; 254-line StdRng oracle fixture byte-identical | APPROVE WITH NITS; merged into integ-w35 |
 | followups-34 | the size-bigint review nits and the 3 UB-field cases above (all 3 MATCH; codegen per-field typemap override, decision recorded) | APPROVE WITH NITS (N1 fixed by root); merged into integ-w35 |
 | harness-w35 | oracle-toolchain component check (UPSTREAM.json rust.components), gate-runner-unit nits, check-chain runner (core output only on failure), chain-run without /bin/sh, aux cleanup (harness batch) | APPROVE WITH NITS (nits 1-2 fixed by root); merged into integ-w35 |
-| harness-m6a | D1 isolated Miri toolchain + guard, Miri oracle runner/cache, miri-hello / run-pass-miri / run-fail-miri (report), coverage crate `miri`, sparse src/tools/miri/tests (harness batch, based on integ-w35) | running |
-Then: wave 36 Miri core (plan-m6 §5, with A2's split lanes). Small queue: register tools/probes/randstream (regenerates stdrng.oracle.txt) and crate-src.ts for yanked crates (harness);
+| harness-m6a | D1 isolated Miri toolchain (`bun scripts/miri.ts setup`) + guard, Miri oracle runner/cache, miri-hello 1 / run-pass-miri 3,263 (+6 heavy) / run-fail-miri 263 (report), coverage crate `miri` (0/1,514; total 27,032), sparse src/tools/miri/tests | APPROVE WITH NITS; merged into integ-w35 |
+Then: wave 36 Miri core (plan-m6 §5, with A2's split lanes). Small queue: harness-m6a nits (crash-of-Miri detection via bug! path, unstable.ts pattern-order dependence, reject
+-Zmiri-disable-isolation argv or mark unstable; port side switches to src/miri/bin/miri.ts when miri-driver lands;
+`needs-*` directives evaluated (250 run-pass / 48 run-fail skipped); README `bun scripts/miri.ts setup`; Windows setup);
+register tools/probes/randstream (regenerates stdrng.oracle.txt) and crate-src.ts for yanked crates (harness);
 vendor-rand nits (x86 sampler skip reason, bernoulli.ts const order); coverage.ts counts // std: / // std-skip: markers (harness batch); pm-bridge nits (client.ts fn order,
 unknown-enum 255 encode, panic-hook branch test; pm-host's first test = a real oracle-built proc macro); harness-w35 nits (aux cleanup for mini_core-*/ui/*; disjointness test also for *_test.ts/*.spec.ts; probe
 builds run the toolchain check); `BoundsCheckFailed { len, index }` exact (one typemap
