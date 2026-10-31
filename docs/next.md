@@ -341,8 +341,14 @@ Follow-ups (queued):
 ## Wave 35 (started 2026-10-31) — M6 planning + M5 follow-ups
 | lane | scope | status |
 |---|---|---|
-| plan-m6 | design lane (ports no code): interpreter (const eval + shims) toward "std hello world runs; run-pass tests; proc macros" (PLAN.md M6), measured like plan-m5 | running |
+| plan-m6 | design lane: docs/plan-m6.md (Miri oracle in an isolated toolchain; run-pass; proc macros; D1–D14) | APPROVE WITH AMENDMENTS → accepted with A1–A11 (decision recorded); merged into integ-w35 |
+| interp-generic ✱ | D3/A1: generalise the interpreter's Machine types; re-port the OFFSET_IS_ADDR=true branches | running |
+| miri-contract ✱ | D2: src/miri skeleton, miri codegen set, MiriMachine/Provenance/BorTag/… types, stubs per fill lane | running |
+| pm-bridge | library/proc_macro bridge/* (~2.1k) | running |
+| pm-lib | library/proc_macro lib, diagnostic, escape, to_tokens, quote (~2.9k); the 30 quote! cases | running |
+| vendor-rand | D5: rand/rand_core 0.10.1 + chacha20 0.10.0 subset, byte-checked | running |
 | followups-34 | the size-bigint review nits and the 3 UB-field cases above (all 3 MATCH; codegen per-field typemap override, decision recorded) | APPROVE WITH NITS (N1 fixed by root); merged into integ-w35 |
 | harness-w35 | oracle-toolchain component check (plan-m6 added miri + rust-src to the oracle on 2026-10-31; removed by root), gate-runner-unit nits, check-chain stderr order, chain-run /bin/sh, aux cleanup (harness batch) | running |
-Then: M6 waves once plan-m6's decisions are accepted. Small queue: `BoundsCheckFailed { len, index }` exact (one typemap
+Then: harness-m6a (D1 isolated Miri toolchain + guard, Miri oracle cache, miri-hello / run-pass-miri / run-fail-miri,
+coverage crate `miri`, sparse src/tools/miri/tests) after harness-w35 merges; wave 36 Miri core (plan-m6 §5, with A2's split lanes). Small queue: `BoundsCheckFailed { len, index }` exact (one typemap
 `fields` entry + machine.ts / projection.ts); stale comment eval_context.ts:27.
