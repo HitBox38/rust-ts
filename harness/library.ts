@@ -333,9 +333,13 @@ export function oracleLibRmeta(name: string): string {
     }
     pruneStaleAux(join(DATA, "aux"), name, `m5-${name}-${key}`);
   } else {
-    // In use: keeps it from `pruneStaleAux` for AUX_STALE_MS.
-    const now = new Date();
-    utimesSync(dir, now, now);
+    // In use: keeps it from `pruneStaleAux` for AUX_STALE_MS. Best effort: a failed touch must not fail the case.
+    try {
+      const now = new Date();
+      utimesSync(dir, now, now);
+    } catch {
+      // (read-only data dir, or removed concurrently: the existence check above already passed)
+    }
   }
   rmetaMemo.set(name, out);
   return out;
