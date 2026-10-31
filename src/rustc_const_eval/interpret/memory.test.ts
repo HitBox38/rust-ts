@@ -222,12 +222,12 @@ test("interp-memory: hand-built memory states against upstream semantics", () =>
 
     // ---- bounds, dangling pointers, alignment ----
     const e5 = err(ecx.get_ptr_alloc(at(a, 6), S(4)));
-    expect(e5).toEqual({ $: "UndefinedBehavior", _0: { $: "PointerOutOfBounds", alloc_id: a_id, alloc_size: S(8), ptr_offset: 6, inbounds_size: 4, msg: { $: "MemoryAccess" } } });
+    expect(e5).toEqual({ $: "UndefinedBehavior", _0: { $: "PointerOutOfBounds", alloc_id: a_id, alloc_size: S(8), ptr_offset: 6n, inbounds_size: 4n, msg: { $: "MemoryAccess" } } });
     expect(ok(ecx.check_ptr_access_signed(at(a, 6), -6n, { $: "InboundsPointerArithmetic" }))).toBeUndefined();
     const e6 = err(ecx.check_ptr_access_signed(at(a, 2), -3n, { $: "InboundsPointerArithmetic" }));
-    expect(e6.$ === "UndefinedBehavior" && e6._0.$ === "PointerOutOfBounds" && [e6._0.ptr_offset, e6._0.inbounds_size]).toEqual([2, -3]);
+    expect(e6.$ === "UndefinedBehavior" && e6._0.$ === "PointerOutOfBounds" && [e6._0.ptr_offset, e6._0.inbounds_size]).toEqual([2n, -3n]);
     const e7 = err(ecx.get_ptr_alloc(Pointer.without_provenance<CtfeProvenance>(16n), S(4)));
-    expect(e7).toEqual({ $: "UndefinedBehavior", _0: { $: "DanglingIntPointer", addr: 16, inbounds_size: 4, msg: { $: "MemoryAccess" } } });
+    expect(e7).toEqual({ $: "UndefinedBehavior", _0: { $: "DanglingIntPointer", addr: 16n, inbounds_size: 4n, msg: { $: "MemoryAccess" } } });
     expect(display_InterpErrorKind(err(ecx.ptr_get_alloc_id(Pointer.without_provenance<CtfeProvenance>(0n), 0n)))).toBe(
       "pointer not dereferenceable: pointer must point to some allocation, but got null pointer",
     );

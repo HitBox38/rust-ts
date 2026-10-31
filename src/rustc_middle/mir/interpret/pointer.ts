@@ -8,8 +8,8 @@
 // debug_Prov)` keeps the generated call shape. Miri's provenance (M6) re-generalises this.
 // PORT: `Pointer<Option<Prov>>` is a `Pointer<Prov | undefined>`: a `Some(prov)` pointer has the same representation as a
 // `Pointer<Prov>` (and prints the same through either impl), a `None` one has `provenance === undefined`.
-// PORT: `u64` / `i64` values that can exceed 2^53 (target `usize` / `isize` bounds, raw addresses) are `bigint`s; `Size`
-// stays a number (abi-lib decision: a `Size` past 2^53 stops in `Size::from_bytes`).
+// PORT: `u64` / `i64` values that can exceed 2^53 (target `usize` / `isize` bounds, raw addresses) are `bigint`s; a `Size`
+// is exact at any value (rustc_abi lib.ts: a number below 2^53, a bigint at and above; `bytes_u64()` is always exact).
 // PORT: `PointerArithmetic` (`impl<T: HasDataLayout> PointerArithmetic for T`) is `PointerArithmetic_provided`, its
 // provided methods taking the `HasDataLayout` as `self`.
 import "../mod.ts";

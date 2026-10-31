@@ -274,8 +274,7 @@ export class LayoutCalculator<Cx extends HasDataLayout> {
   ): LayoutCalculatorResult<F> {
     const count = count_if_sized ?? 0n;
     // (merge-layout) the `u64` count goes to `Size::checked_mul` as a `bigint`: its result is exact (`None` for every
-    // product at least `obj_size_bound`, `0 * count` is `0`), and a size below the bound but past 2^53 is
-    // `unported(SIZE_BEYOND_2_53)` there (abi-lib).
+    // product at least `obj_size_bound`, `0 * count` is `0`; a size below the bound but past 2^53 is a big-form `Size`).
     const size = element.size.checked_mul(count, this.cx);
     if (size === undefined) return Err(LayoutCalculatorError.SizeOverflow);
 
