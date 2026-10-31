@@ -6,6 +6,7 @@
     "release": "1.101.0-nightly",
     "toolchain": "nightly",
     "nightlyName": "nightly-2026-10-11",
-    "sparse": ["compiler", "library", "tests/ui", "tests/auxiliary", "src/tools/compiletest", "src/tools/miri/src"]
+    "sparse": ["compiler", "library", "tests/ui", "tests/auxiliary", "src/tools/compiletest", "src/tools/miri/src"],
+    "submodules": ["library/backtrace"]
   }
 }
