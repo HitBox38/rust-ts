@@ -72,143 +72,35 @@ import "./bridge/client.ts";
 import "./bridge/server.ts";
 
 // ---------------------------------------------------------------------------------------------------------------
-// PORT(contract): pending pm-bridge. bridge/client.rs's client-side handles, `Methods` and `is_available`, and
-// bridge/symbol.rs's `Symbol` (re-exported by client.rs), declared with the shapes agreed with pm-bridge until its
-// bridge/client.ts / bridge/symbol.ts land. At merge: delete this block and import
-// `{ TokenStream as client_TokenStream, Span as client_Span, Symbol as client_Symbol, Methods as BridgeMethods,
-// is_available as client_is_available, debug_Span as debug_client_Span, debug_Symbol as debug_client_Symbol,
-// display_Symbol as display_client_Symbol }` from "./bridge/client.ts" (upstream `use crate::bridge::client::...`),
-// and register `crate_TokenStream.new_ = (x) => new TokenStream(x)` (pm-bridge's hook for client.rs:48-60).
-// Everything below calls `unported(..)` until then.
-
-/** `bridge::client::Span` (client.rs:63, `#[derive(Copy, Clone, PartialEq, Eq, Hash)] struct Span { handle }`). */
-export type client_Span = number & { readonly __brand: "proc_macro::bridge::client::Span" };
-export const client_Span = {
-  def_site(): client_Span {
-    return unported("proc_macro::bridge::client::Span::def_site (pending pm-bridge)");
-  },
-  call_site(): client_Span {
-    return unported("proc_macro::bridge::client::Span::call_site (pending pm-bridge)");
-  },
-  mixed_site(): client_Span {
-    return unported("proc_macro::bridge::client::Span::mixed_site (pending pm-bridge)");
-  },
+// `use crate::bridge::client::{..}` (bridge/client.rs's client-side handles, `Methods` and `is_available`, and
+// bridge/symbol.rs's `Symbol`, re-exported by client.rs). Re-exported here because diagnostic.ts and the tests
+// import them through lib.ts.
+import {
+  crate_TokenStream,
+  debug_Span as debug_client_Span,
+  debug_Symbol as debug_client_Symbol,
+  display_Symbol as display_client_Symbol,
+  is_available as client_is_available,
+  Methods as BridgeMethods,
+  Span as client_Span,
+  Symbol as client_Symbol,
+  TokenStream as client_TokenStream,
+} from "./bridge/client.ts";
+export {
+  BridgeMethods,
+  client_is_available,
+  client_Span,
+  client_Symbol,
+  client_TokenStream,
+  debug_client_Span,
+  debug_client_Symbol,
+  display_client_Symbol,
 };
-/** `impl fmt::Debug for bridge::client::Span` (client.rs:103): `Methods::span_debug(*self)`. */
-export const debug_client_Span: Debug<client_Span> = (v) => BridgeMethods.span_debug(v);
-
-/** `bridge::client::TokenStream` (client.rs:13, `struct TokenStream { handle }`; `Clone` = `Methods::ts_clone`). */
-export class client_TokenStream {
-  constructor(public handle: number) {}
-
-  /** `impl Clone for TokenStream` (client.rs:85) */
-  clone(): client_TokenStream {
-    return BridgeMethods.ts_clone(this);
-  }
-}
-
-/** `bridge::symbol::Symbol` (symbol.rs:19, `struct Symbol(NonZero<u32>)`). */
-export type client_Symbol = number & { readonly __brand: "proc_macro::bridge::client::Symbol" };
-export const client_Symbol = {
-  new(_string: string): client_Symbol {
-    return unported("proc_macro::bridge::symbol::Symbol::new (pending pm-bridge)");
-  },
-  new_ident(_string: string, _is_raw: boolean): client_Symbol {
-    return unported("proc_macro::bridge::symbol::Symbol::new_ident (pending pm-bridge)");
-  },
-  with<R>(_self: client_Symbol, _f: (s: string) => R): R {
-    return unported("proc_macro::bridge::symbol::Symbol::with (pending pm-bridge)");
-  },
-};
-/** `impl fmt::Debug for Symbol` (symbol.rs:85) */
-export const debug_client_Symbol: Debug<client_Symbol> = (v) => client_Symbol.with(v, (s) => debug_str(s));
-/** `impl fmt::Display for Symbol` (symbol.rs:91) */
-export const display_client_Symbol = (v: client_Symbol): string => client_Symbol.with(v, (s) => s);
 
 type ClientTree = BridgeTokenTree<client_TokenStream, client_Span, client_Symbol>;
 
-/** `with_api!(define_client_side, TokenStream, Span, Symbol)` (client.rs:110; the list is bridge/mod.rs:33). */
-export interface ClientMethods {
-  track_env_var(var_: string, value: string | undefined): void;
-  track_path(path: string): void;
-  literal_from_str(s: string): Result<BridgeLiteral<client_Span, client_Symbol>, string>;
-  emit_diagnostic(diagnostic: BridgeDiagnostic<client_Span>): void;
-
-  ts_drop(stream: client_TokenStream): void;
-  ts_clone(stream: client_TokenStream): client_TokenStream;
-  ts_is_empty(stream: client_TokenStream): boolean;
-  ts_expand_expr(stream: client_TokenStream): Result<client_TokenStream, undefined>;
-  ts_from_str(src: string): Result<client_TokenStream, string>;
-  ts_to_string(stream: client_TokenStream): string;
-  ts_from_token_tree(tree: ClientTree): client_TokenStream;
-  ts_concat_trees(base: client_TokenStream | undefined, trees: ClientTree[]): client_TokenStream;
-  ts_concat_streams(base: client_TokenStream | undefined, streams: client_TokenStream[]): client_TokenStream;
-  ts_into_trees(stream: client_TokenStream): ClientTree[];
-
-  span_debug(span: client_Span): string;
-  span_parent(span: client_Span): client_Span | undefined;
-  span_source(span: client_Span): client_Span;
-  span_byte_range(span: client_Span): Range;
-  span_start(span: client_Span): client_Span;
-  span_end(span: client_Span): client_Span;
-  span_line(span: client_Span): number;
-  span_column(span: client_Span): number;
-  span_file(span: client_Span): string;
-  span_local_file(span: client_Span): string | undefined;
-  span_join(span: client_Span, other: client_Span): client_Span | undefined;
-  span_subspan(span: client_Span, start: Bound, end: Bound): client_Span | undefined;
-  span_resolved_at(span: client_Span, at: client_Span): client_Span;
-  span_source_text(span: client_Span): string | undefined;
-  span_save_span(span: client_Span): number;
-  span_recover_proc_macro_span(id: number): client_Span;
-
-  symbol_normalize_and_validate_ident(string: string): Result<client_Symbol, undefined>;
-}
-const CLIENT_METHOD_NAMES: readonly (keyof ClientMethods)[] = [
-  "track_env_var",
-  "track_path",
-  "literal_from_str",
-  "emit_diagnostic",
-  "ts_drop",
-  "ts_clone",
-  "ts_is_empty",
-  "ts_expand_expr",
-  "ts_from_str",
-  "ts_to_string",
-  "ts_from_token_tree",
-  "ts_concat_trees",
-  "ts_concat_streams",
-  "ts_into_trees",
-  "span_debug",
-  "span_parent",
-  "span_source",
-  "span_byte_range",
-  "span_start",
-  "span_end",
-  "span_line",
-  "span_column",
-  "span_file",
-  "span_local_file",
-  "span_join",
-  "span_subspan",
-  "span_resolved_at",
-  "span_source_text",
-  "span_save_span",
-  "span_recover_proc_macro_span",
-  "symbol_normalize_and_validate_ident",
-];
-/** `bridge::client::Methods` (`use crate::bridge::client::Methods as BridgeMethods;`). */
-export const BridgeMethods: ClientMethods = Object.fromEntries(
-  CLIENT_METHOD_NAMES.map((name) => [
-    name,
-    () => unported(`proc_macro::bridge::client::Methods::${name} (pending pm-bridge)`),
-  ]),
-) as unknown as ClientMethods;
-/** `bridge::client::is_available` (client.rs:206) */
-export function client_is_available(): boolean {
-  return unported("proc_macro::bridge::client::is_available (pending pm-bridge)");
-}
-// End of PORT(contract) block.
+/** `with_api!(define_client_side, TokenStream, Span, Symbol)` (client.rs:110): the type of `bridge::client::Methods`. */
+export type ClientMethods = typeof BridgeMethods;
 // ---------------------------------------------------------------------------------------------------------------
 
 // pub mod bridge;
@@ -564,6 +456,10 @@ export const debug_TokenStream: Debug<TokenStream> = (v, f) => {
   for (let t = it.next(); t !== undefined; t = it.next()) items.push(debug_TokenTree(t, f));
   return "TokenStream " + debug_list(f, items);
 };
+
+// PORT: bridge/client.rs:48-60 decode/encode `crate::TokenStream` (this class) directly; bridge/client.ts cannot import
+// lib.ts (cycle), so lib.ts installs the constructor it uses.
+crate_TokenStream.new_ = (x) => new TokenStream(x);
 
 /// Error returned from `TokenStream::from_str`.
 ///

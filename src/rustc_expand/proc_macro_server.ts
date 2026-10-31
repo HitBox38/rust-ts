@@ -798,6 +798,12 @@ export class Rustc implements Server<TokenStream, Span, Symbol> {
     return new Rustc(ecx, def_site, call_site, mixed_site, krate, new Map());
   }
 
+  /** `<Self::TokenStream as Default>::default()` (the bridge's server needs `S::TokenStream: Default`; rustc_ast
+   *  tokenstream.rs:857 `impl Default for TokenStream`). */
+  static default_TokenStream(): TokenStream {
+    return tokenstream.TokenStream.default();
+  }
+
   // rustc: compiler/rustc_expand/src/proc_macro_server.rs:479 sess
   sess(): Session {
     return this.ecx.sess;
