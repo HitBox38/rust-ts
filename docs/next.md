@@ -343,6 +343,6 @@ Follow-ups (queued):
 |---|---|---|
 | plan-m6 | design lane (ports no code): interpreter (const eval + shims) toward "std hello world runs; run-pass tests; proc macros" (PLAN.md M6), measured like plan-m5 | running |
 | followups-34 | the size-bigint review nits and the 3 UB-field cases above (all 3 MATCH; codegen per-field typemap override, decision recorded) | APPROVE WITH NITS (N1 fixed by root); merged into integ-w35 |
-Then: harness lane for the gate-runner-unit nits, check-chain stderr order, and an oracle-toolchain check (installed
-components must equal a pinned list: plan-m6 added miri + rust-src to the oracle on 2026-10-31, removed by root); M6
-waves once plan-m6's decisions are accepted.
+| harness-w35 | oracle-toolchain component check (plan-m6 added miri + rust-src to the oracle on 2026-10-31; removed by root), gate-runner-unit nits, check-chain stderr order, chain-run /bin/sh, aux cleanup (harness batch) | running |
+Then: M6 waves once plan-m6's decisions are accepted. Small queue: `BoundsCheckFailed { len, index }` exact (one typemap
+`fields` entry + machine.ts / projection.ts); stale comment eval_context.ts:27.

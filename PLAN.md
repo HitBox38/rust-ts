@@ -38,8 +38,9 @@ narrow measurable milestones; a ratchet that never goes backwards.
 - Port everything from lexer through MIR + const eval. Excluded crates: `harness/scope.json`
   (LLVM/GCC/Cranelift backends, incremental, parallel frontend, stable-MIR, proc-macro crates
   that tools/codegen replaces).
-- Run programs **before** codegen: const eval + Miri-style shims = an interpreter. Proc macros
-  are interpreted too (no dylib loading).
+- Run programs **before** codegen: const eval + Miri-style shims = an interpreter (M6: the pinned nightly's Miri is
+  the oracle, docs/plan-m6.md). Proc macros load host dylibs built by the oracle, as rustc does (plan-m6 D7, amending
+  the earlier "interpreted, no dylib loading"); M9 needs rust-ts to build those dylibs itself.
 - Backend later: textual LLVM IR → system clang. Maybe a direct Wasm backend after.
 - Target `x86_64-unknown-linux-gnu` first. Host-independent phases run on Windows; Linux-only
   behaviour in WSL2.
@@ -55,7 +56,7 @@ narrow measurable milestones; a ratchet that never goes backwards.
 | M3 | Typeck + trait solving on `#![no_core]` (cg_clif's mini_core.rs) | hir-tree / thir-tree; ui/typeck, ui/traits | **done** 2026-10-22: tydump-nocore 21116, tydump/thirdump-minicore 45/46, tydump-ui 1603, thirdump-ui 1596 (rustc_dump subset → M4c, plan-m4 D1) |
 | M4 | MIR build, borrowck, MIR transforms | `-Zunpretty=mir`; ui/borrowck, ui/nll | **done** 2026-10-29: mir 20968/21526 (97.4%), mir-minicore 46/46, borrowck-ui 960/960, rustc_dump subset 118/119, mirdump-ui 1340, thir-tree 1823 |
 | M5 | Check core → alloc → std | zero diagnostics, matching metadata-level behaviour (plan: docs/plan-m5.md) | **done** 2026-10-31 (gate-20261031-111945-root-7u0n): core, alloc and std .rmeta byte-identical (check-core/alloc/std); rmeta-core/alloc/std 82,338 / 14,678 / 18,196; mir-core/alloc/std 47,734 / 3,734 / 5,204; check-ui/rmeta-ui 730/730 |
-| M6 | Interpreter (const eval + shims) | std hello world runs; run-pass tests; proc macros |
+| M6 | Interpreter (const eval + shims) | std hello world runs; run-pass tests; proc macros (plan: docs/plan-m6.md; M6a miri-hello, M6b run-pass ≥ 90% + miri-pass ≥ 80%, M6 + pm-ui ≥ 95%) | planned (plan-m6 accepted 2026-11-01) |
 | M7 | Text LLVM IR → clang | run-pass parity; ripgrep builds |
 | M8 | cargo-ts, rustfmt-ts, clippy-ts | each tool's upstream tests |
 | M9 | Ouroboros | rust-ts compiles tsc-rs; that tsc-rs type-checks rust-ts |
