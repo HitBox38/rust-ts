@@ -307,3 +307,16 @@ lazy (config.ts/options.gen.ts cycle safe in either order).
 Queued: representation decisions from perf-core-a (numeric interning hash, GenericArg.kind, SpanData columns, GC/closures);
 std io::stdout EBADF; harness: instructions-retired for heavy runs; harness-m5c (compiler_builtins aux chain, check-alloc/std).
 
+## Wave 33 ACCEPTED 2026-10-31 (gate-20261030-222147-root-bec4, main 1c555a2e) — M5b on core
+The metadata encoder (encoder.rs 95/95) + crateinfo/symbol-export + NativeLib codec + hashbrown-order DefIdMaps + the
+rmeta probe. libcore's .rmeta is byte-identical to the oracle's (check-core protected); rmeta-core 82,338,
+check-ui/rmeta-ui 730/730. 486,990 protected in 38 suites; 22,589/25,518 fns (88.5%).
+
+## Wave 34 (started 2026-10-31) — alloc and std (plan-m5 §5)
+| lane | scope | status |
+|---|---|---|
+| harness-m5c | D2 aux chain (compiler_builtins, std's 13 deps, backtrace submodule), check-/rmeta-alloc, check-/rmeta-std, check-chain (harness batch) | running |
+| followups-33 | the small wave-32/33 review follow-ups (ExportedSymbol import, SpanEncoder typing, fx-order type check, rmeta oracle test, typemap, EBADF, ...) | running |
+Then: fixer lanes from check-alloc / check-std first stops; perf lanes (representation decisions queued from perf-core-a);
+harness: put scripts/harness tests in the gate's unit step.
+
