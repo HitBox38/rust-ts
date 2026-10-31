@@ -38,7 +38,7 @@ import { EncodeCrossCrate } from "../../rustc_attr_ir/encode_cross_crate.ts";
 import { find_attr } from "../../rustc_attr_ir/lib.ts";
 import type { StrippedCfgItem } from "../../rustc_attr_ir/data_structures.ts";
 import type { LangItem } from "../../rustc_attr_ir/lang_items.ts";
-import type { ExportedSymbol, SymbolExportInfo } from "../../rustc_middle/middle/exported_symbols.ts";
+import { type ExportedSymbol, encode_ExportedSymbol, encode_SymbolExportInfo, type SymbolExportInfo } from "../../rustc_middle/middle/exported_symbols.ts";
 import type { ForeignModule, LinkagePreference, NativeLib } from "../../rustc_crate_store/lib.ts";
 import { Fingerprint } from "../../rustc_data_structures/fingerprint.ts";
 import { debug_Svh, Svh } from "../../rustc_data_structures/svh.ts";
@@ -2887,9 +2887,9 @@ function encode_DebuggerVisualizerFile(_v: DebuggerVisualizerFile, _e: EncodeCon
 function encode_TargetModifier(_v: TargetModifier, _e: EncodeContext): void {
   unported("rustc_session::options: Encodable for TargetModifier (target-modifier flags)");
 }
-/** `(ExportedSymbol<'static>, SymbolExportInfo)`: not ported (exported symbols are empty without codegen, plan-m5 D5). */
-function encode_ExportedSymbol_SymbolExportInfo(_v: [ExportedSymbol, SymbolExportInfo], _e: EncodeContext): void {
-  unported("rustc_middle::middle::exported_symbols: Encodable for (ExportedSymbol, SymbolExportInfo) (codegen, M7)");
+/** `(ExportedSymbol<'static>, SymbolExportInfo)` */
+function encode_ExportedSymbol_SymbolExportInfo(v: [ExportedSymbol, SymbolExportInfo], e: EncodeContext): void {
+  encode_tuple(v, e, encode_ExportedSymbol, encode_SymbolExportInfo);
 }
 
 /// Used to prefetch queries which will be needed later by metadata encoding.

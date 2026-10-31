@@ -114,6 +114,7 @@ import { type BlobDecoder, type SpanDecoder, BytePos, DUMMY_SP, decode_BytePos, 
 import { debug_Symbol, Ident as Ident_, kw } from "../../rustc_span/symbol.ts";
 import { debug_str } from "../../std/fmt.ts";
 import { unwrap } from "../../std/panic.ts";
+import { decode_ExportedSymbol, decode_SymbolExportInfo, type ExportedSymbol, type SymbolExportInfo } from "../../rustc_middle/middle/exported_symbols.ts";
 import { CStore } from "../creader.ts";
 import { decode_SpanTag, decode_VariantData } from "../decodable.gen.ts";
 import type { AdtDef, AdtKind } from "../../rustc_middle/ty/adt.ts";
@@ -1794,9 +1795,9 @@ function decode_SimplifiedType(d: MetadataDecodeContext): SimplifiedType {
 function decode_EiiMapEncodedKeyValue(_d: MetadataDecodeContext): unknown {
   return unported("Decodable for rustc_metadata::rmeta::EiiMapEncodedKeyValue (rustc_attr_ir EiiDecl/EiiImpl, derive(Decodable) not generated)");
 }
-/** `Decodable` of `(ExportedSymbol<'tcx>, SymbolExportInfo)` (rustc_middle middle/exported_symbols.rs, M3). */
-function decode_ExportedSymbol_SymbolExportInfo(_d: MetadataDecodeContext): unknown {
-  return unported("Decodable for (rustc_middle::middle::exported_symbols::ExportedSymbol, SymbolExportInfo) (M3)");
+/** `Decodable` of `(ExportedSymbol<'tcx>, SymbolExportInfo)` (rustc_middle middle/exported_symbols.rs). */
+function decode_ExportedSymbol_SymbolExportInfo(d: MetadataDecodeContext): [ExportedSymbol, SymbolExportInfo] {
+  return decode_tuple_(d, decode_ExportedSymbol, decode_SymbolExportInfo);
 }
 /** `Decodable` of `DocLinkResMap` (`FxIndexMap<(Symbol, Namespace), Option<Res<NodeId>>>`). */
 function decode_DocLinkResMap(_d: MetadataDecodeContext): DocLinkResMap {
