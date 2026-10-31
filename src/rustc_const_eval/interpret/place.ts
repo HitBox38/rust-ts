@@ -261,7 +261,7 @@ MemPlace.prototype.offset_with_meta_ = function (this: MemPlace, offset: Size, m
   switch (mode) {
     case "Inbounds": {
       // `offset.bytes().try_into().unwrap()`: a `Size` (< 2^53) always fits an `i64`.
-      const r = ecx.ptr_offset_inbounds(this.ptr, BigInt(offset.bytes()));
+      const r = ecx.ptr_offset_inbounds(this.ptr, offset.bytes_u64());
       if (r.$ === "Err") return r;
       ptr = r._0;
       break;

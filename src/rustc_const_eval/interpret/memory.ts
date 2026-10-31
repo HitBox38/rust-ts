@@ -551,7 +551,7 @@ InterpCx.prototype.allocate_bytes_ptr = function (this: InterpCx, bytes: Uint8Ar
 InterpCx.prototype.insert_allocation = function (this: InterpCx, alloc: Allocation, kind: MemoryKind<CtfeMemoryKind>): InterpResult<Pointer> {
   // PORT: `self.max_size_of_val()` is `Size::from_bytes(self.target_isize_max())`, beyond 2^53 on 64-bit targets (a
   // `Size` is a number, recorded decision): the comparison is on the bytes, as `bigint`s.
-  assert(BigInt(alloc.size().bytes()) <= PointerArithmetic_provided.target_isize_max(this), "assertion failed: alloc.size() <= self.max_size_of_val()");
+  assert(alloc.size().bytes_u64() <= PointerArithmetic_provided.target_isize_max(this), "assertion failed: alloc.size() <= self.max_size_of_val()");
   const id = this.tcx.deref().reserve_alloc_id();
   // debug_assert_ne!(Some(kind), M::GLOBAL_KIND.map(MemoryKind::Machine), "dynamically allocating global memory");
   // This cannot be merged with the `adjust_global_allocation` code path
@@ -737,7 +737,7 @@ InterpCx.prototype.deallocate_ptr = function (this: InterpCx, ptr: Pointer<CtfeP
 // rustc: compiler/rustc_const_eval/src/interpret/memory.rs:459 get_ptr_access
 InterpCx.prototype.get_ptr_access = function (this: InterpCx, ptr: Pointer<CtfeProvenance | undefined>, size: Size): InterpResult<[AllocId, Size, boolean] | undefined> {
   // PORT: `i64::try_from(size.bytes()).unwrap()`: a `Size` is below 2^53 (recorded decision), so it always fits.
-  const size_ = BigInt(size.bytes()); // it would be an error to even ask for more than isize::MAX bytes
+  const size_ = size.bytes_u64(); // it would be an error to even ask for more than isize::MAX bytes
   return this.check_and_deref_ptr<[AllocId, Size, boolean], InterpCx>(this, ptr, size_, CheckInAllocMsg.MemoryAccess, (this_, alloc_id, offset, prov) => {
     const r = this_.get_live_alloc_size_and_align(alloc_id, CheckInAllocMsg.MemoryAccess);
     if (r.$ === "Err") return r;
@@ -751,7 +751,7 @@ InterpCx.prototype.get_ptr_access = function (this: InterpCx, ptr: Pointer<CtfeP
 // #[inline(always)]
 // rustc: compiler/rustc_const_eval/src/interpret/memory.rs:481 check_ptr_access
 InterpCx.prototype.check_ptr_access = function (this: InterpCx, ptr: Pointer<CtfeProvenance | undefined>, size: Size, msg: CheckInAllocMsg): InterpResult {
-  const size_ = BigInt(size.bytes()); // it would be an error to even ask for more than isize::MAX bytes
+  const size_ = size.bytes_u64(); // it would be an error to even ask for more than isize::MAX bytes
   const r = this.check_and_deref_ptr<undefined, InterpCx>(this, ptr, size_, msg, (this_, alloc_id, _1, _2) => {
     const s = this_.get_live_alloc_size_and_align(alloc_id, msg);
     if (s.$ === "Err") return s;
@@ -806,7 +806,7 @@ InterpCx.prototype.check_and_deref_ptr = function <T, R>(this: InterpCx, this_: 
     const a = alloc_size(this_, alloc_id, offset_, prov);
     if (a.$ === "Err") return a;
     const [alloc_size_, _alloc_align, ret_val] = a._0;
-    const offset = BigInt(offset_.bytes());
+    const offset = offset_.bytes_u64();
     // Compute absolute begin and end of the range.
     let begin: bigint | undefined;
     let end: bigint | undefined;
@@ -820,7 +820,7 @@ InterpCx.prototype.check_and_deref_ptr = function <T, R>(this: InterpCx, this_: 
       end = offset;
     }
     // Ensure both are within bounds.
-    const in_bounds = begin !== undefined && end !== undefined && end <= BigInt(alloc_size_.bytes());
+    const in_bounds = begin !== undefined && end !== undefined && end <= alloc_size_.bytes_u64();
     if (!in_bounds) {
       // throw_ub!(PointerOutOfBounds { alloc_id, alloc_size, ptr_offset: tcx.sign_extend_to_target_isize(offset), inbounds_size: size, msg })
       return Err(
@@ -879,13 +879,13 @@ InterpCx.prototype.is_ptr_misaligned = function (this: InterpCx, ptr: Pointer<Ct
     if (misalign !== undefined) {
       return misalign;
     } else if (Provenance_CtfeProvenance.OFFSET_IS_ADDR) {
-      return is_offset_misaligned(BigInt(ptr.addr().bytes()), align);
+      return is_offset_misaligned(ptr.addr().bytes_u64(), align);
     } else {
       // Check allocation alignment and offset alignment.
       if (alloc_info.align.bytes() < align.bytes()) {
         return { has: alloc_info.align, required: align };
       } else {
-        return is_offset_misaligned(BigInt(offset.bytes()), align);
+        return is_offset_misaligned(offset.bytes_u64(), align);
       }
     }
   }
@@ -1026,7 +1026,7 @@ InterpCx.prototype.get_alloc_bytes_unchecked_raw = function (this: InterpCx, id:
 /// Bounds-checked *but not align-checked* allocation access.
 // rustc: compiler/rustc_const_eval/src/interpret/memory.rs:751 get_ptr_alloc
 InterpCx.prototype.get_ptr_alloc = function (this: InterpCx, ptr: Pointer<CtfeProvenance | undefined>, size: Size): InterpResult<AllocRef | undefined> {
-  const size_i64 = BigInt(size.bytes()); // it would be an error to even ask for more than isize::MAX bytes
+  const size_i64 = size.bytes_u64(); // it would be an error to even ask for more than isize::MAX bytes
   const ptr_and_alloc_r = this.check_and_deref_ptr<[AllocId, Size, boolean, Allocation], InterpCx>(this, ptr, size_i64, CheckInAllocMsg.MemoryAccess, (this_, alloc_id, offset, prov) => {
     const alloc = this_.get_alloc_raw(alloc_id);
     if (alloc.$ === "Err") return alloc;
@@ -1125,7 +1125,7 @@ InterpCx.prototype.get_ptr_alloc_mut = function (this: InterpCx, ptr: Pointer<Ct
   const tcx = this.tcx;
   const validation_in_progress = this.memory.ghost_mode;
 
-  const size_i64 = BigInt(size.bytes()); // it would be an error to even ask for more than isize::MAX bytes
+  const size_i64 = size.bytes_u64(); // it would be an error to even ask for more than isize::MAX bytes
   const ptr_and_alloc_r = this.check_and_deref_ptr<[AllocId, Size, boolean, Allocation, Machine], InterpCx>(this, ptr, size_i64, CheckInAllocMsg.MemoryAccess, (this_, alloc_id, offset, prov) => {
     const a = this_.get_alloc_raw_mut(alloc_id);
     if (a.$ === "Err") return a;
@@ -1295,7 +1295,7 @@ InterpCx.prototype.get_ptr_type_id = function (this: InterpCx, ptr: Pointer<Ctfe
     return Err(InterpErrorInfo_from_InterpErrorKind(err_ub_format("invalid `TypeId` value: not all bytes carry type id metadata")));
   }
   const ty = g.ty;
-  return interp_ok<[Ty, bigint]>([ty, BigInt(offset.bytes())]);
+  return interp_ok<[Ty, bigint]>([ty, offset.bytes_u64()]);
 };
 
 // rustc: compiler/rustc_const_eval/src/interpret/memory.rs:1020 get_ptr_fn
@@ -1731,7 +1731,7 @@ InterpCx.prototype.mem_copy_repeatedly = function (this: InterpCx, src: Pointer<
   // Similar to `get_ptr_alloc`, we need to call `before_alloc_access` even for zero-sized
   // reads. However, just like in `get_ptr_alloc_mut`, the write part is okay to skip for
   // zero-sized writes.
-  const t = this.ptr_try_get_alloc_id(src, BigInt(size.bytes()));
+  const t = this.ptr_try_get_alloc_id(src, size.bytes_u64());
   if (t.$ === "Ok") {
     const [alloc_id] = t._0;
     const h = this.machine.before_alloc_access(tcx, this.machine, alloc_id);
@@ -1928,11 +1928,11 @@ InterpCx.prototype.ptr_try_get_alloc_id = function (this: InterpCx, ptr: Pointer
       assert(Provenance_CtfeProvenance.OFFSET_IS_ADDR, "assertion failed: M::Provenance::OFFSET_IS_ADDR");
       // Offset is absolute, as we just asserted.
       const [_1, addr] = ptr_.into_raw_parts();
-      return Err(BigInt(addr.bytes()));
+      return Err(addr.bytes_u64());
     }
   } else {
     const addr = p._0;
-    return Err(BigInt(addr.bytes()));
+    return Err(addr.bytes_u64());
   }
 };
 

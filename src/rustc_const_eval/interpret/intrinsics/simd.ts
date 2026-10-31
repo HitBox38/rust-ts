@@ -474,7 +474,7 @@ InterpCx.prototype.eval_simd_intrinsic = function (this: InterpCx, intrinsic_nam
             const pointee_layout = this.layout_of(pointee_ty);
             if (pointee_layout.$ === "Err") return Err(InterpErrorInfo_from_InterpErrorKind(pointee_layout._0));
             // `i64::try_from(size.bytes()).unwrap()`: a layout size is below 2^61 bytes.
-            const pointee_size = BigInt(pointee_layout._0.size.bytes());
+            const pointee_size = pointee_layout._0.size.bytes_u64();
             const offset_bytes = BigInt.asIntN(64, offset_count * pointee_size);
             const offset_ptr = ptr.wrapping_signed_offset(offset_bytes, this);
             val = Scalar.from_maybe_pointer(offset_ptr, this);

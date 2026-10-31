@@ -266,7 +266,7 @@ export class Allocation<Prov = CtfeProvenance, Extra = null, Bytes = Uint8Array>
       const adjusted = adjust_ptr(Pointer.new(alloc_id, Size.from_bytes(bits)));
       if (adjusted.$ === "Err") return adjusted;
       const [ptr_prov, ptr_offset] = adjusted._0.into_raw_parts();
-      unwrap_result(write_target_uint(endian, ptr_bytes, BigInt(ptr_offset.bytes())), debug_IoError);
+      unwrap_result(write_target_uint(endian, ptr_bytes, ptr_offset.bytes_u64()), debug_IoError);
       new_provenance.push([offset, ptr_prov]);
     }
     // Create allocation.
@@ -479,7 +479,7 @@ export class Allocation<Prov = CtfeProvenance, Extra = null, Bytes = Uint8Array>
       case "Right": {
         const ptr = e._0;
         const [provenance_, offset] = ptr.into_raw_parts();
-        bytes = BigInt(offset.bytes());
+        bytes = offset.bytes_u64();
         provenance = provenance_;
         break;
       }

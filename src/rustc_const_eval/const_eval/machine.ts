@@ -512,7 +512,7 @@ export class CompileTimeMachine extends compile_time_machine implements HasStati
           const size_field_place = ecx.project_field(variant_place, FieldIdx.ZERO);
           if (size_field_place.$ === "Err") return size_field_place;
           const w = ecx.write_scalar(
-            Scalar_from_ScalarInt(unwrap(ScalarInt.try_from_target_usize(BigInt(layout.size.bytes()), ecx.tcx.tcx))),
+            Scalar_from_ScalarInt(unwrap(ScalarInt.try_from_target_usize(layout.size.bytes_u64(), ecx.tcx.tcx))),
             size_field_place._0,
           );
           if (w.$ === "Err") return w;

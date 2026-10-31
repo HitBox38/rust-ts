@@ -23,6 +23,9 @@ import {
   RegKind,
   Scalar,
   Size,
+  Size_cmp,
+  Size_eq,
+  debug_Size,
   SIZE_BEYOND_2_53,
   Step_Size,
   TargetDataLayout,
@@ -32,6 +35,7 @@ import {
   type HasDataLayout,
 } from "./lib.ts";
 import type { Hash64 } from "../rustc_hashes/lib.ts";
+import { PLAIN } from "../std/fmt.ts";
 import { Panic, Unported } from "../std/panic.ts";
 
 const dl = TargetDataLayout.default(); // 64-bit pointers: obj_size_bound = 2^61
@@ -62,11 +66,30 @@ const panics = (f: () => unknown, msg: string) => {
   expect((e as Panic).message).toBe(msg);
 };
 
-test("Size: exact up to 2^53 - 1, unported beyond, upstream's panics and None", () => {
+test("Size: exact in both forms, bytes() unported beyond 2^53 - 1, upstream's panics and None", () => {
   const MAX = Number.MAX_SAFE_INTEGER;
+  const big = (n: bigint) => Size.from_bytes(n);
   expect(Size.from_bytes(MAX).bytes()).toBe(MAX);
   expect(Size.from_bytes(BigInt(MAX)).bytes()).toBe(MAX);
-  unported_(() => Size.from_bytes(BigInt(MAX) + 1n));
+  expect(Size.from_bytes(BigInt(MAX)).is_big()).toBe(false);
+  // the exact form (size-bigint): built, exact through bytes_u64() / Debug / Size_eq / Size_cmp; bytes() stops
+  expect(big(BigInt(MAX) + 1n).bytes_u64()).toBe(BigInt(MAX) + 1n);
+  expect(big(BigInt(MAX) + 1n).is_big()).toBe(true);
+  unported_(() => big(BigInt(MAX) + 1n).bytes());
+  unported_(() => big(BigInt(MAX) + 1n).raw);
+  expect(debug_Size(big((1n << 64n) - 1n), PLAIN)).toBe("Size(18446744073709551615 bytes)");
+  expect(debug_Size(Size.from_bytes(7), PLAIN)).toBe("Size(7 bytes)");
+  expect(Size_eq(big(1n << 60n), big(1n << 60n))).toBe(true);
+  expect(Size_eq(big(1n << 60n), big((1n << 60n) + 1n))).toBe(false);
+  expect(Size_eq(big(1n << 60n), Size.from_bytes(MAX))).toBe(false);
+  expect(Size_eq(Size.from_bytes(3), Size.from_bytes(3n))).toBe(true);
+  expect(Size_cmp(Size.from_bytes(MAX), big(1n << 60n))).toBe(-1);
+  expect(Size_cmp(big(1n << 61n), big(1n << 60n))).toBe(1);
+  expect(Size_cmp(big(1n << 61n), big(1n << 61n))).toBe(0);
+  expect(Size_cmp(Size.from_bytes(2), Size.from_bytes(1))).toBe(1);
+  // one representation per value: a big-form result that comes back below 2^53 is small again
+  expect(big(1n << 60n).sub(big((1n << 60n) - 5n)).is_big()).toBe(false);
+  expect(big(1n << 60n).sub(big((1n << 60n) - 5n)).bytes()).toBe(5);
   unported_(() => Size.from_bytes(2 ** 53)); // a `number` that may have been rounded
   panics(() => Size.from_bytes(-1), "called `Option::unwrap()` on a `None` value");
   panics(() => Size.from_bytes(1n << 64n), "called `Option::unwrap()` on a `None` value");
@@ -74,21 +97,24 @@ test("Size: exact up to 2^53 - 1, unported beyond, upstream's panics and None", 
   expect(Size.from_bits(1).bytes()).toBe(1);
   expect(Size.from_bits(8).bytes()).toBe(1);
   expect(Size.from_bits(9).bytes()).toBe(2);
-  unported_(() => Size.from_bits((1n << 64n) - 1n)); // 2^61 bytes
+  expect(Size.from_bits((1n << 64n) - 1n).bytes_u64()).toBe(1n << 61n); // 2^61 bytes
   // bits(): the bit count is a number too
   expect(Size.from_bytes(16).bits()).toBe(128);
   unported_(() => Size.from_bytes(2 ** 51).bits());
   // add / sub / mul / add_assign
   expect(Size.from_bytes(3).add(Size.from_bytes(4)).bytes()).toBe(7);
   expect(Size.from_bytes(3).add_assign(Size.from_bytes(4)).bytes()).toBe(7);
-  unported_(() => Size.from_bytes(MAX).add(Size.from_bytes(1)));
+  expect(Size.from_bytes(MAX).add(Size.from_bytes(1)).bytes_u64()).toBe(1n << 53n);
+  panics(() => big((1n << 64n) - 1n).add(Size.from_bytes(1)), "Size::add: 18446744073709551615 + 1 doesn't fit in u64");
+  panics(() => Size.from_bytes(3).sub(big(1n << 60n)), "Size::sub: 3 - 1152921504606846976 would result in negative size");
   expect(Size.from_bytes(7).sub(Size.from_bytes(3)).bytes()).toBe(4);
   panics(() => Size.from_bytes(3).sub(Size.from_bytes(4)), "Size::sub: 3 - 4 would result in negative size");
   expect(Size.from_bytes(6).mul(7).bytes()).toBe(42);
   expect(Size.u64_mul(7n, Size.from_bytes(6)).bytes()).toBe(42);
   expect(Size.ZERO.mul((1n << 64n) - 1n).bytes()).toBe(0);
   panics(() => Size.from_bytes(2).mul(1n << 63n), "Size::mul: 2 * 9223372036854775808 doesn't fit in u64");
-  unported_(() => Size.from_bytes(1).mul(1n << 60n));
+  expect(Size.from_bytes(1).mul(1n << 60n).bytes_u64()).toBe(1n << 60n);
+  panics(() => big(1n << 60n).mul(16), "Size::mul: 1152921504606846976 * 16 doesn't fit in u64");
   // checked_add / checked_mul: `None` at or above obj_size_bound (2^61) is exact; between 2^53 and 2^61 unported
   expect(dl.obj_size_bound()).toBe(2 ** 61);
   expect(Size.from_bytes(8).checked_mul(1000n, cx)!.bytes()).toBe(8000);
@@ -96,9 +122,10 @@ test("Size: exact up to 2^53 - 1, unported beyond, upstream's panics and None", 
   expect(Size.from_bytes(1).checked_mul((1n << 64n) - 1n, cx)).toBeUndefined(); // [u8; usize::MAX]
   expect(Size.from_bytes(2).checked_mul((1n << 64n) - 1n, cx)).toBeUndefined(); // u64 overflow
   expect(Size.ZERO.checked_mul((1n << 64n) - 1n, cx)!.bytes()).toBe(0); // [(); usize::MAX]
-  unported_(() => Size.from_bytes(1).checked_mul((1n << 61n) - 1n, cx)); // [u8; (1 << 61) - 1] fits rustc's bound
+  expect(Size.from_bytes(1).checked_mul((1n << 61n) - 1n, cx)!.bytes_u64()).toBe((1n << 61n) - 1n); // [u8; (1 << 61) - 1] fits rustc's bound
   expect(Size.from_bytes(MAX).checked_add(Size.from_bytes(0), cx)!.bytes()).toBe(MAX);
-  unported_(() => Size.from_bytes(MAX).checked_add(Size.from_bytes(1), cx));
+  expect(Size.from_bytes(MAX).checked_add(Size.from_bytes(1), cx)!.bytes_u64()).toBe(1n << 53n);
+  expect(big((1n << 61n) - 1n).checked_add(Size.from_bytes(1), cx)).toBeUndefined(); // exactly 2^61
   // a 16-bit target: obj_size_bound = 2^15
   const dl16 = TargetDataLayout.parse_from_llvm_datalayout_string("e-m:e-p:16:16-i32:16-i64:16-f32:16-f64:16-a:8-n8:16-S16", AddressSpace.ZERO);
   expect(dl16.$).toBe("Ok");
@@ -112,7 +139,10 @@ test("Size: exact up to 2^53 - 1, unported beyond, upstream's panics and None", 
   expect(Size.from_bytes(5).align_to(new Align(3)).bytes()).toBe(8);
   expect(Size.from_bytes(8).is_aligned(new Align(3))).toBe(true);
   expect(Size.from_bytes(MAX - 7).align_to(new Align(3)).bytes()).toBe(MAX - 7); // 2^53 - 8 is 8-aligned
-  unported_(() => Size.from_bytes(MAX - 6).align_to(new Align(3))); // rounds up to 2^53
+  expect(Size.from_bytes(MAX - 6).align_to(new Align(3)).bytes_u64()).toBe(1n << 53n); // rounds up to 2^53
+  expect(big((1n << 60n) + 1n).align_to(new Align(3)).bytes_u64()).toBe((1n << 60n) + 8n);
+  expect(big((1n << 60n) + 8n).is_aligned(new Align(3))).toBe(true);
+  expect(big((1n << 60n) + 4n).is_aligned(new Align(3))).toBe(false);
 });
 
 test("Step for Size", () => {
@@ -126,9 +156,12 @@ test("Step for Size", () => {
   expect([f.bytes(), o]).toEqual([5, false]);
   expect(Step_Size.forward(s(2), 3).bytes()).toBe(5);
   expect(Step_Size.backward(s(5), 3).bytes()).toBe(2);
-  // wrapping: 2 - 3 wraps to 2^64 - 1 bytes, which is beyond 2^53
-  unported_(() => Step_Size.backward(s(2), 3));
-  unported_(() => Step_Size.backward_overflowing(s(2), 3));
+  // wrapping: 2 - 3 wraps to 2^64 - 1 bytes, which is beyond 2^53 (exact form)
+  expect(Step_Size.backward(s(2), 3).bytes_u64()).toBe((1n << 64n) - 1n);
+  const [b, bo] = Step_Size.backward_overflowing(s(2), 3);
+  expect([b.bytes_u64(), bo]).toEqual([(1n << 64n) - 1n, true]);
+  expect(Step_Size.forward_checked(Size.from_bytes((1n << 64n) - 1n), 1)).toBeUndefined();
+  unported_(() => Step_Size.steps_between(s(0), Size.from_bytes(1n << 60n))); // a `usize` count beyond 2^53
 });
 
 test("BackendLaneCount / NumScalableVectors", () => {

@@ -461,7 +461,7 @@ Pointer.prototype.map_provenance = function <Prov>(this: Pointer<Prov>, f: (prov
 Pointer.prototype.wrapping_offset = function <Prov>(this: Pointer<Prov>, i: Size, cx: HasDataLayout): Pointer<Prov> {
   const res = PointerArithmetic_provided.truncate_to_target_usize(
     cx.data_layout(),
-    BigInt.asUintN(64, BigInt(this.offset.bytes()) + BigInt(i.bytes())),
+    BigInt.asUintN(64, this.offset.bytes_u64() + i.bytes_u64()),
   );
   return new Pointer(Size.from_bytes(res), this.provenance);
 };

@@ -299,7 +299,7 @@ InterpCx.prototype.eval_intrinsic = function (this: InterpCx, instance: Instance
       if (!layout._0.is_sized()) {
         return span_bug(this.cur_span(), "unsized type for `size_of`");
       }
-      const val = BigInt(layout._0.size.bytes());
+      const val = layout._0.size.bytes_u64();
       const w = this.write_scalar(Scalar.from_target_usize(val, this), dest);
       if (w.$ === "Err") return w;
       break;
@@ -565,7 +565,7 @@ InterpCx.prototype.eval_intrinsic = function (this: InterpCx, instance: Instance
       const pl = this.layout_of(pointee_ty);
       if (pl.$ === "Err") return Err(InterpErrorInfo_from_InterpErrorKind(pl._0));
       // `i64::try_from(size.bytes()).unwrap()`: a `Size` (< 2^53) always fits an `i64`.
-      const pointee_size = BigInt(pl._0.size.bytes());
+      const pointee_size = pl._0.size.bytes_u64();
       const offset_bytes = BigInt.asIntN(64, offset_count._0 * pointee_size);
       const offset_ptr = ptr._0.wrapping_signed_offset(offset_bytes, this);
       const w = this.write_pointer(offset_ptr, dest);
@@ -605,7 +605,7 @@ InterpCx.prototype.eval_intrinsic = function (this: InterpCx, instance: Instance
         } else if (ra.$ === "Ok" && rb.$ === "Ok" && ra._0[0] === rb._0[0]) {
           // Found allocation for both, and it's the same.
           // Use these offsets for distance calculation.
-          [a_offset, b_offset, is_addr] = [BigInt(ra._0[1].bytes()), BigInt(rb._0[1].bytes()), /*is_addr*/ false];
+          [a_offset, b_offset, is_addr] = [ra._0[1].bytes_u64(), rb._0[1].bytes_u64(), /*is_addr*/ false];
         } else {
           // Not into the same allocation -- this is UB.
           // throw_ub_format!(..)
@@ -715,7 +715,7 @@ InterpCx.prototype.eval_intrinsic = function (this: InterpCx, instance: Instance
       const pointee_layout = pl._0;
       // If ret_layout is unsigned, we checked that so is the distance, so we are good.
       const val = ImmTy.from_int(dist, ret_layout);
-      const size = ImmTy.from_int(BigInt(pointee_layout.size.bytes()), ret_layout);
+      const size = ImmTy.from_int(pointee_layout.size.bytes_u64(), ret_layout);
       const e = this.exact_div(val, size, dest);
       if (e.$ === "Err") return e;
       break;
@@ -779,7 +779,7 @@ InterpCx.prototype.eval_intrinsic = function (this: InterpCx, instance: Instance
       const sa = this.get_vtable_size_and_align(ptr._0, undefined);
       if (sa.$ === "Err") return sa;
       const [size, _align] = sa._0;
-      const w = this.write_scalar(Scalar.from_target_usize(BigInt(size.bytes()), this), dest);
+      const w = this.write_scalar(Scalar.from_target_usize(size.bytes_u64(), this), dest);
       if (w.$ === "Err") return w;
       break;
     }

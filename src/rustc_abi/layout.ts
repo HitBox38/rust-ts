@@ -1303,7 +1303,7 @@ export class LayoutCalculator<Cx extends HasDataLayout> {
               let inner_niche_offset_key: bigint;
               switch (niche_bias) {
                 case "Start":
-                  inner_niche_offset_key = n !== undefined ? BigInt(n.offset.bytes()) : 0n;
+                  inner_niche_offset_key = n !== undefined ? n.offset.bytes_u64() : 0n;
                   break;
                 case "End":
                   inner_niche_offset_key = n !== undefined ? U64_MAX ^ BigInt(field_size - Primitive.size(n.value, dl).bytes() - n.offset.bytes()) : 0n;
