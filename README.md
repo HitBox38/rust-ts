@@ -8,9 +8,9 @@ The mirror image of [ts-rust](https://github.com/pingdotgg/ts-rust).
 | | |
 |---|---|
 | Upstream pin | `rust-lang/rust@6f5da406b` = `rustc 1.101.0-nightly (2026-10-10)` |
-| Milestone | M0–M4 done (harness; lexer/parser; expansion + name resolution; typeck + trait solving; MIR build, borrowck, MIR transforms, const eval). M5 (check core → alloc → std) in progress: core's whole analysis and all 47,734 MIR bodies already match |
-| Protected parity | **403,191** cases across 34 suites that match the real compiler byte-for-byte and can never regress |
-| Ported | 22,413 / 25,518 in-scope upstream functions (87.8%) |
+| Milestone | M0–M4 done (harness; lexer/parser; expansion + name resolution; typeck + trait solving; MIR build, borrowck, MIR transforms, const eval). M5 (check core → alloc → std) in progress: **core's crate metadata (.rmeta, ~54 MB) is byte-identical to rustc's**; alloc and std next |
+| Protected parity | **486,990** cases across 38 suites that match the real compiler byte-for-byte and can never regress |
+| Ported | 22,589 / 25,518 in-scope upstream functions (88.5%) |
 
 At 100%: the front end (`rustc_lexer`, `rustc_span`, `rustc_ast`, `rustc_ast_lowering`, `rustc_ast_passes`,
 `rustc_builtin_macros`, `rustc_attr_parsing`, `rustc_resolve`), type checking (`rustc_hir_typeck`,
@@ -30,6 +30,8 @@ including legacy Polonius), `rustc_mir_transform` and `rustc_const_eval`. Nearly
 | `borrowck-ui`, `borrowck-ui-report` (M4) | borrow-check results on ui/borrowck + ui/nll (all 960), and five more ui dirs | 960 / 1,276 |
 | `mir`, `thir-tree` (M4) | the real `-Zunpretty=mir` (optimized MIR) and `-Zunpretty=thir-tree` | 21,445 / 1,849 |
 | `mir-core` (M5) | `-Zunpretty=mir` of all of libcore, one case per MIR body | 47,734 |
+| `check-core`, `rmeta-core` (M5) | libcore's `.rmeta` byte for byte (+ stderr/exit), and section by section through an rmeta dump probe | 1 / 82,338 |
+| `check-ui`, `rmeta-ui` (M5) | the same on 730 small lib crates (tests/ui auxiliary crates) | 730 / 730 |
 
 Start here: [PLAN.md](PLAN.md) · [AGENTS.md](AGENTS.md) · [PORTING.md](PORTING.md) · [docs/next.md](docs/next.md)
 
