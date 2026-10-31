@@ -312,15 +312,34 @@ The metadata encoder (encoder.rs 95/95) + crateinfo/symbol-export + NativeLib co
 rmeta probe. libcore's .rmeta is byte-identical to the oracle's (check-core protected); rmeta-core 82,338,
 check-ui/rmeta-ui 730/730. 486,990 protected in 38 suites; 22,589/25,518 fns (88.5%).
 
-## Wave 34 (started 2026-10-31) — alloc and std (plan-m5 §5)
-| lane | scope | status |
+## Wave 34 ACCEPTED 2026-10-31 (gate-20261031-111945-root-7u0n, main 05dba243, accept b89066b4) — **M5 done**
+| lane | scope | review |
 |---|---|---|
-| harness-m5c | D2 aux chain (compiler_builtins, std's 13 deps, backtrace submodule), check-/rmeta-alloc, check-/rmeta-std, check-chain (harness batch) | reviewed (APPROVE), merged into integ-w34 |
-| followups-33 | the small wave-32/33 review follow-ups (ExportedSymbol import, SpanEncoder typing, fx-order type check, rmeta oracle test, typemap, EBADF, ...) | reviewed, merged into integ-w34 |
-| size-bigint | Size exact form for values >= 2^53 (decision cb7b9a60); unblocks mir-std | running |
-| exported-symbols-codec (root) | (ExportedSymbol, SymbolExportInfo) TyEncodable/TyDecodable; refine_rpitit now stops at mono items (M7) | in review |
-integ-w34 unit suite (b88e18f1): src+tools 6375/0, scripts+harness 86/0 (run separately: scripts tests pollute env).
-Gate plan: the 38 protected suites + check-alloc, check-std, rmeta-alloc, rmeta-std, mir-alloc (+ mir-std if it matches); check-chain report-only.
-Then: fixer lanes from check-alloc / check-std first stops; perf lanes (representation decisions queued from perf-core-a);
-harness: put scripts/harness tests in the gate's unit step.
+| harness-m5c | D2 aux chain (compiler_builtins, std's 13 deps, backtrace submodule), check-/rmeta-/mir-alloc, check-/rmeta-/mir-std, check-chain (harness batch) | APPROVE |
+| followups-33 | the small wave-32/33 review follow-ups (ExportedSymbol import, SpanEncoder typing, fx-order type check, rmeta oracle test, typemap, EBADF, ...) | APPROVE |
+| size-bigint | Size exact form for values >= 2^53 (decision cb7b9a60): mir-std 5,204/5,204, mir +30 | APPROVE WITH NITS |
+| exported-symbols-codec (root) | (ExportedSymbol, SymbolExportInfo) derives generated (rustc_middle set); refine_rpitit now stops at mono items (M7) | REQUEST CHANGES → fixed → APPROVE |
+| gate-runner-unit (root, harness batch) | the gate runs the scripts/harness tests in a second unit-test process; deps.test.ts restores RUST_TS_DATA | APPROVE WITH NITS |
+core, alloc and std .rmeta byte-identical to the oracle's (check-core/alloc/std, the plan-m5 gate). 529,020 protected in
+44 suites (+42,030: rmeta-alloc 14,678, rmeta-std 18,196, mir-alloc 3,734, mir-std 5,204, check-alloc/std 1 each,
+escape/lex/tokens +62 each, mir +30); 22,590/25,518 fns (88.5%). Note: a full gate takes ~10 h; run it detached (nohup).
 
+Follow-ups (queued):
+- size-bigint review nits: stale "Size < 2^53" comments (memory.ts:739, operator.ts:531, pointer.ts:11-12); upstream's
+  `i64::try_from(..).unwrap()` panic missing at 4 memory.ts sites + intrinsics.ts:568; local Size comparators
+  (provenance_map.ts, layout/ty.ts, validity.ts) → Size_cmp/Size_eq; compute_size_in_bytes / allocate_bytes_ptr against
+  `max_size_of_val()`; stale Size notes in mir.typemap.json / typemap.hir.json.
+- The 3 mir cases at `UndefinedBehaviorInfo u64/i64 field beyond 2^53` (consts/const_transmute_type_id2, offset_from_ub,
+  offset_ub): DanglingIntPointer / PointerOutOfBounds u64/i64 fields → bigint (typemap + error.ts Display + validity.ts).
+- gate-runner-unit nits: probe pre-check covers only src/tools tests (scripts/gate-probes.test.ts needs every suite's
+  probe); carry the junit path in the step definition; path-filter overlap of `bun test scripts harness`.
+- exported-symbols-codec: unit coverage of the DefId/Ty/GenericArgs variants comes with M7 (oracle).
+- Earlier queue: check-chain stderr order (report-only suite); chain-run.test.ts uses /bin/sh; aux dir cleanup; merge
+  the duplicate handle_ebadf; perf representation decisions from perf-core-a (numeric interning hash, GenericArg.kind,
+  SpanData columns, GC/closures); expected mir TIMEOUTs (supertrait-hint-cycle, 3 TAIT cases).
+
+## Wave 35 (next) — M6 planning + M5 follow-ups
+1. plan-m6 (design lane, ports no code): interpreter (const eval + shims) toward "std hello world runs; run-pass tests;
+   proc macros" (PLAN.md M6), measured like plan-m5.
+2. followups-34: the size-bigint nits and the 3 UB-field cases above (one lane).
+3. harness: the gate-runner-unit nits; check-chain stderr order.
