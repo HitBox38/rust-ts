@@ -69,6 +69,9 @@
     "gsgdt": "=0.1.2",
     "datafrog": "=2.0.1",
     "polonius-engine": "=0.13.0",
-    "twox-hash": "=2.1.2"
+    "twox-hash": "=2.1.2",
+    "rand": "=0.10.1",
+    "rand_core": "=0.10.1",
+    "chacha20": "=0.10.0"
   }
 }
