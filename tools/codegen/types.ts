@@ -555,8 +555,9 @@ interface ItemRef {
 }
 
 function fileModule(upstream: string): { crate: string; mod: string[]; rel: string } {
-  const m = /^compiler\/([^/]+)\/src\/(.+)\.rs$/.exec(upstream);
-  if (!m) throw new Error(`not a compiler/<crate>/src/*.rs path: ${upstream}`);
+  // Miri's library crate (plan-m6 D2): `src/tools/miri/src/<path>.rs` is crate `miri` -> `<out>/miri/<path>.gen.ts`.
+  const m = /^compiler\/([^/]+)\/src\/(.+)\.rs$/.exec(upstream) ?? /^src\/tools\/(miri)\/src\/(.+)\.rs$/.exec(upstream);
+  if (!m) throw new Error(`not a compiler/<crate>/src/*.rs (or src/tools/miri/src/*.rs) path: ${upstream}`);
   const crate = m[1]!;
   const rel = m[2]!;
   const segs = rel.split("/");
