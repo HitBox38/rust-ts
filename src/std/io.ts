@@ -306,10 +306,12 @@ export function handle_ebadf<T>(r: IoResult<T>, default_: () => IoResult<T>): Io
 
 /** `<StdoutRaw as Write>::write_all` (library/std/src/io/stdio.rs:179): `handle_ebadf(self.0.write_all(buf), || Ok(()))`,
  *  so a closed or unwritable fd 1 swallows the output, as rustc's `io::stdout()` does.
- *  The inner `write_all` is `Write::write_all` (library/std/src/io/mod.rs) over `write(2)` on fd 1.
- *  PORT: `Stdout` is line-buffered (`LineWriter<StdoutRaw>`); every byte goes through `StdoutRaw` either way, so the
- *  bytes written and the errors swallowed are the same. `EAGAIN` is retried: Bun may leave a pipe on fd 1
- *  non-blocking, which rustc's stdout never is. */
+ *  The inner `write_all` is `Write::write_all` (library/core/src/io/write.rs:214) over `write(2)` on fd 1.
+ *  PORT: `Stdout` is line-buffered (`LineWriter<StdoutRaw>`); this writes through unbuffered. For EBADF and for
+ *  normal output the result is the same (EBADF is swallowed either way). For other write errors (ENOSPC, EIO)
+ *  upstream may hold a short write in its buffer and drop the error at the final flush on exit, while this reports
+ *  it at once (as the port did before). `EAGAIN` is retried: Bun may leave a pipe on fd 1 non-blocking, which
+ *  rustc's stdout never is. */
 export function stdout_write_all(buf: Uint8Array): IoResult<null> {
   const inner = (): IoResult<null> => {
     let off = 0;
