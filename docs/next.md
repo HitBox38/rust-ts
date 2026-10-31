@@ -347,12 +347,13 @@ Follow-ups (queued):
 | interp-miri-reconcile ✱ | merges both; B1/B2; miri-contract M1–M5, M7 (89 boundary type errors); C5 hot fields → number; nits | running |
 | pm-bridge | library/proc_macro bridge/* (~2.1k; wire format = upstream's with_api! 31 methods; TS-to-TS tested) | APPROVE WITH NITS; merged into integ-w35 (hooks wired with pm-lib) |
 | pm-lib | library/proc_macro lib, diagnostic, escape, to_tokens, quote (~2.9k) | APPROVE WITH NITS; merged into integ-w35 |
-| pm-wiring (root) | lib.ts ↔ bridge/client.ts, quote! = BangProcMacro(Client.expand1(quote)), Rustc.default_TokenStream: the 30 quote! cases 330/330 MATCH on 11 suites through the real bridge | in review |
+| pm-wiring (root) | lib.ts ↔ bridge/client.ts, quote! = BangProcMacro(Client.expand1(quote)), Rustc.default_TokenStream: the 30 quote! cases 330/330 MATCH on 11 suites through the real bridge | APPROVE WITH NITS (F1 init order fixed by root) |
 | vendor-rand | D5: rand/rand_core 0.10.1 + chacha20 0.10.0 subset; 254-line StdRng oracle fixture byte-identical | APPROVE WITH NITS; merged into integ-w35 |
 | followups-34 | the size-bigint review nits and the 3 UB-field cases above (all 3 MATCH; codegen per-field typemap override, decision recorded) | APPROVE WITH NITS (N1 fixed by root); merged into integ-w35 |
 | harness-w35 | oracle-toolchain component check (UPSTREAM.json rust.components), gate-runner-unit nits, check-chain runner (core output only on failure), chain-run without /bin/sh, aux cleanup (harness batch) | APPROVE WITH NITS (nits 1-2 fixed by root); merged into integ-w35 |
 | harness-m6a | D1 isolated Miri toolchain (`bun scripts/miri.ts setup`) + guard, Miri oracle runner/cache, miri-hello 1 / run-pass-miri 3,263 (+6 heavy) / run-fail-miri 263 (report), coverage crate `miri` (0/1,514; total 27,032), sparse src/tools/miri/tests | APPROVE WITH NITS; merged into integ-w35 |
-Then: wave 36 Miri core (plan-m6 §5, with A2's split lanes). Small queue: harness-m6a nits (crash-of-Miri detection via bug! path, unstable.ts pattern-order dependence, reject
+Then: wave 36 Miri core (plan-m6 §5, with A2's split lanes). Small queue: proc_macro load order: importing bridge/client.ts first hits a 'Client' TDZ (pre-existing pm-bridge
+cycle client.ts → … → server.ts); harness-m6a nits (crash-of-Miri detection via bug! path, unstable.ts pattern-order dependence, reject
 -Zmiri-disable-isolation argv or mark unstable; port side switches to src/miri/bin/miri.ts when miri-driver lands;
 `needs-*` directives evaluated (250 run-pass / 48 run-fail skipped); README `bun scripts/miri.ts setup`; Windows setup);
 register tools/probes/randstream (regenerates stdrng.oracle.txt) and crate-src.ts for yanked crates (harness);
