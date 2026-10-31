@@ -428,19 +428,20 @@ InterpCx.prototype.eval_intrinsic = function (this: InterpCx, instance: Instance
       }
       const [size, align] = sa._0;
 
-      let result: number;
+      // PORT (size-bigint): `result: u64` is exact (`bytes_u64()`: the size of an `isize::MAX`-byte slice).
+      let result: bigint;
       switch (intrinsic_name) {
         case sym.align_of_val:
-          result = align.bytes();
+          result = BigInt(align.bytes());
           break;
         case sym.size_of_val:
-          result = size.bytes();
+          result = size.bytes_u64();
           break;
         default:
           return bug();
       }
 
-      const w = this.write_scalar(Scalar.from_target_usize(BigInt(result), this), dest);
+      const w = this.write_scalar(Scalar.from_target_usize(result, this), dest);
       if (w.$ === "Err") return w;
       break;
     }

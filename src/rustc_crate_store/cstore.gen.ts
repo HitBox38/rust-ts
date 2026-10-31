@@ -195,7 +195,7 @@ export function encode_DllImport(self: DllImport, __encoder: SpanEncoder): void 
   encode_DllCallingConvention(self.calling_convention, __encoder);
   __encoder.encode_span(self.span);
   encode_DllImportSymbolType(self.symbol_type, __encoder);
-  encode_u64(BigInt(self.size.raw), __encoder);
+  encode_u64(self.size.bytes_u64(), __encoder);
 }
 
 // rustc-type: compiler/rustc_crate_store/src/cstore.rs:104 DllImportSymbolType

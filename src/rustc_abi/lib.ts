@@ -3130,7 +3130,7 @@ export class LayoutData {
   /// Returns `true` if the type is sized and a 1-ZST (meaning it has size 0 and alignment 1).
   // rustc: compiler/rustc_abi/src/lib.rs:2406 is_1zst
   is_1zst(): boolean {
-    return this.is_sized() && this.size.bytes() === 0 && this.align.abi.bytes() === 1;
+    return this.is_sized() && Size_eq(this.size, Size.ZERO) && this.align.abi.bytes() === 1;
   }
 
   /// Returns `true` if the size of the type is only known at runtime.
@@ -3163,7 +3163,7 @@ export class LayoutData {
       case "SimdVector":
         return false;
       case "Memory":
-        return this.backend_repr.sized && this.size.bytes() === 0;
+        return this.backend_repr.sized && Size_eq(this.size, Size.ZERO);
     }
   }
 

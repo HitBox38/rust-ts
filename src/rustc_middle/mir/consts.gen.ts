@@ -152,7 +152,7 @@ export function encode_ConstValue(self: ConstValue, __encoder: TyEncoder): void 
       break;
     case "Indirect":
       encode_AllocId(self.alloc_id, __encoder);
-      encode_u64(BigInt(self.offset.raw), __encoder);
+      encode_u64(self.offset.bytes_u64(), __encoder);
       break;
   }
 }

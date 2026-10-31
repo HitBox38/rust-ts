@@ -20,6 +20,8 @@ import {
   type Scalar,
   Scalar as ScalarC,
   Size,
+  Size_cmp,
+  Size_eq,
   TyAndLayout as AbiTyAndLayout,
   type VariantIdx,
 } from "../../rustc_abi/lib.ts";
@@ -53,7 +55,7 @@ function assert_matches_msg(matches: boolean, left: () => string, pattern: strin
 
 /** PORT: the derived `PartialEq` of `Size` / `Align` / `AbiAlign`. */
 function size_eq(a: Size, b: Size): boolean {
-  return a.raw === b.raw;
+  return Size_eq(a, b);
 }
 function align_eq(a: Align, b: Align): boolean {
   return a.pow2 === b.pow2;
@@ -68,11 +70,12 @@ const debug_Align_ = (v: Align): string => debug_Align(v, PLAIN);
 export function layout_sanity_check(cx: LayoutCx, layout: TyAndLayout): void {
   const tcx = cx.tcx_();
 
-  // PORT: `u64::is_multiple_of` (the align is never 0); `Size` byte counts are exact `number`s (rustc_abi `Size`).
-  if (!(layout.size.bytes() % layout.align.abi.bytes() === 0)) {
+  // PORT: `u64::is_multiple_of` (the align is never 0). PORT (size-bigint): on the exact `bytes_u64()` (a valid
+  // layout may be 2^53 bytes or more, up to `obj_size_bound`).
+  if (!(layout.size.bytes_u64() % BigInt(layout.align.abi.bytes()) === 0n)) {
     bug(`size is not a multiple of align, in the following layout:\n${debug_TyAndLayout_Ty(layout, PRETTY)}`);
   }
-  if (layout.size.bytes() >= tcx.data_layout().obj_size_bound()) {
+  if (layout.size.bytes_u64() >= BigInt(tcx.data_layout().obj_size_bound())) {
     bug(`size is too large, in the following layout:\n${debug_TyAndLayout_Ty(layout, PRETTY)}`);
   }
   // FIXME(#124403): Once `repr_c_enums_larger_than_int` is a hard error, we could assert
@@ -216,7 +219,7 @@ export function layout_sanity_check(cx: LayoutCx, layout: TyAndLayout): void {
         );
         // `a` is at memory offset zero, so to keep them from overlapping the offset
         // to `b` must be at least as much as the size of `a`.
-        if (!(b_offset.raw >= ScalarC.size(scalar1, cx).raw)) {
+        if (!(Size_cmp(b_offset, ScalarC.size(scalar1, cx)) >= 0)) {
           panic(`\`ScalarPair\` scalars are overlapping in ${debug_TyAndLayout_Ty(layout, PLAIN)}`);
         }
         if (inner.layout.variants().$ === "Multiple") {
@@ -256,7 +259,7 @@ export function layout_sanity_check(cx: LayoutCx, layout: TyAndLayout): void {
           () => `\`ScalarPair\` layout for type with at least three non-ZST fields: ${debug_TyAndLayout_Ty(inner, PRETTY)}`,
         );
         // The fields might be in opposite order.
-        if (!(offset1.raw <= offset2.raw)) {
+        if (!(Size_cmp(offset1, offset2) <= 0)) {
           [offset1, field1, offset2, field2] = [offset2, field2, offset1, field1];
         }
         // The fields should be at the right offset, and match the `scalar` layout.
@@ -353,7 +356,7 @@ export function layout_sanity_check(cx: LayoutCx, layout: TyAndLayout): void {
       }
       for (const variant of variant_layouts) {
         // Variants should have the same or a smaller size as the full thing.
-        if (variant.size.raw > layout.size.raw) {
+        if (Size_cmp(variant.size, layout.size) > 0) {
           bug(`Type with size ${layout.size.bytes()} bytes has variant with size ${variant.size.bytes()} bytes: ${debug_TyAndLayout_Ty(layout, PRETTY)}`);
         }
         // Skip empty variants.

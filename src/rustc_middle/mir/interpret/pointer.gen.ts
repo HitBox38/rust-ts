@@ -27,6 +27,6 @@ export function decode_Pointer<Prov, __D extends TyDecoder = TyDecoder>(__decode
 }
 // rustc-derive: compiler/rustc_middle/src/mir/interpret/pointer.rs:226 TyEncodable for Pointer
 export function encode_Pointer<Prov, __E extends TyEncoder = TyEncoder>(self: Pointer<Prov>, __encoder: __E, encode_Prov: Encodable<Prov, __E>): void {
-  encode_u64(BigInt(self.offset.raw), __encoder);
+  encode_u64(self.offset.bytes_u64(), __encoder);
   encode_Prov(self.provenance, __encoder);
 }

@@ -14,7 +14,7 @@ import { AllocMap_provided, compile_time_machine, type MayLeak, RetagMode, type 
 import type { HasStaticRootDefId } from "../interpret/intern.ts";
 import { Immediate } from "../interpret/operand.ts";
 import { ensure_monomorphic_enough, type_implements_dyn_trait } from "../interpret/util.ts";
-import { Align, display_AlignFromBytesError, FieldIdx, FieldsShape, FIRST_VARIANT, Size, VariantIdx } from "../../rustc_abi/lib.ts";
+import { Align, display_AlignFromBytesError, FieldIdx, FieldsShape, FIRST_VARIANT, Size, Size_cmp, Size_eq, VariantIdx } from "../../rustc_abi/lib.ts";
 import { find_attr } from "../../rustc_attr_ir/lib.ts";
 import { LangItem } from "../../rustc_attr_ir/lang_items.ts";
 import { IntoDiagArg } from "../../rustc_error_messages/lib.ts";
@@ -1532,8 +1532,9 @@ InterpCx.prototype.guaranteed_cmp = function (this: CompileTimeInterpCx, a: Scal
   // Check if the pointers cannot be equal due to alignment
   if (a_info.align.bytes() > Align.ONE.bytes() && b_info.align.bytes() > Align.ONE.bytes()) {
     const min_align = Math.min(a_info.align.bytes(), b_info.align.bytes());
-    const a_residue = a_offset.bytes() % min_align;
-    const b_residue = b_offset.bytes() % min_align;
+    // PORT (size-bigint): exact on `bytes_u64()` (a relative offset may wrap to 2^53 or more).
+    const a_residue = a_offset.bytes_u64() % BigInt(min_align);
+    const b_residue = b_offset.bytes_u64() % BigInt(min_align);
     if (a_residue !== b_residue) {
       // If the two pointers have a different residue modulo their
       // common alignment, they cannot be equal.
@@ -1552,7 +1553,7 @@ InterpCx.prototype.guaranteed_cmp = function (this: CompileTimeInterpCx, a: Scal
       // https://doc.rust-lang.org/nightly/reference/items/static-items.html#r-items.static.intro
       // a static cannot be duplicated, so if two pointers are into the same
       // static, they are equal if and only if their offsets are equal.
-      return interp_ok(a_offset.bytes() === b_offset.bytes() ? 1 : 0);
+      return interp_ok(Size_eq(a_offset, b_offset) ? 1 : 0);
     } else {
       // debug_assert_ne!(a_did, b_did, "same static item DefId had two different AllocIds? {a_allocid:?} != {b_allocid:?}, {a_did:?} == {b_did:?}");
       // Comparing two pointers into the different statics.
@@ -1565,7 +1566,7 @@ InterpCx.prototype.guaranteed_cmp = function (this: CompileTimeInterpCx, a: Scal
       // (non-deduplication), and
       // https://doc.rust-lang.org/nightly/reference/items/static-items.html#r-items.static.storage-disjointness
       // (non-overlapping).
-      if (a_offset.bytes() < a_info.size.bytes() && b_offset.bytes() < b_info.size.bytes()) {
+      if (Size_cmp(a_offset, a_info.size) < 0 && Size_cmp(b_offset, b_info.size) < 0) {
         return interp_ok(0);
       } else {
         // Otherwise, conservatively say we don't know.

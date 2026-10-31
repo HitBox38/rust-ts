@@ -1885,13 +1885,13 @@ InterpCx.prototype.scalar_may_be_null = function (this: InterpCx, scalar: Scalar
         return interp_ok(true);
       }
       // If the pointer is in-bounds (including "at the end"), it is definitely not null.
-      if (offset.bytes() <= info.size.bytes()) {
+      if (offset.bytes_u64() <= info.size.bytes_u64()) {
         return interp_ok(false);
       }
       // If the allocation is N-aligned, and the offset is not divisible by N,
       // then `base + offset` has a non-zero remainder after division by `N`,
       // which means `base + offset` cannot be null.
-      if (offset.bytes() % info.align.bytes() !== 0) {
+      if (offset.bytes_u64() % BigInt(info.align.bytes()) !== 0n) {
         return interp_ok(false);
       }
       // We don't know enough, this might be null.
