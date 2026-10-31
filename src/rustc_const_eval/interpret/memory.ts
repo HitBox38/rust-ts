@@ -15,12 +15,12 @@
 // - `Cow<'tcx, Allocation>` (`get_global_alloc`, `M::adjust_global_allocation`) is the `Allocation`: the CTFE machines'
 //   `adjust_global_allocation` always returns `Cow::Borrowed` (interpret/machine.rs:810), so `get_alloc_raw` takes the
 //   borrowed arm and `into_owned()` is a clone.
-// - The `u64` / `i64` fields of `UndefinedBehaviorInfo` (`addr`, `inbounds_size`, `ptr_offset`) are `number`s in
-//   error.gen.ts; this file computes them as `bigint`s and converts with `i64_number` (beyond 2^53: `unported`, never
-//   rounded).
+// - The `u64` / `i64` fields of `UndefinedBehaviorInfo::{DanglingIntPointer, PointerOutOfBounds}` (`addr`,
+//   `inbounds_size`, `ptr_offset`) are exact `bigint`s in error.gen.ts (mir.typemap.json `fields`, lane followups-34).
+// - `i64::try_from(size.bytes()).unwrap()` is `i64_try_from_size(size)` (exact, panics above `i64::MAX` as the `unwrap`).
 // - `ProvenanceExtra` is `boolean` (`CtfeProvenance::immutable`), `AllocExtra` is `null`, `Bytes` is `Uint8Array`;
 //   `*const u8` / `*mut u8` / `&[u8]` are `Uint8Array` views (`subarray`) into the allocation's bytes.
-import { type Align, Align as AlignC, Align_eq, debug_AlignFromBytesError, Size } from "../../rustc_abi/lib.ts";
+import { type Align, Align as AlignC, Align_eq, debug_AlignFromBytesError, Size, Size_cmp } from "../../rustc_abi/lib.ts";
 import { Mutability } from "../../rustc_ast_ir/lib.ts";
 import { InterpCx } from "./eval_context.ts";
 import { type CtfeMemoryKind, type CtfeMemoryMap, type Machine, type MayLeak } from "./machine.ts";
@@ -66,7 +66,7 @@ import { type PolyExistentialPredicate } from "../../rustc_middle/ty/predicate.t
 import { type DefId } from "../../rustc_span/def_id.ts";
 import { bug } from "../../rustc_span/macros.ts";
 import { type Fmt, PLAIN } from "../../std/fmt.ts";
-import { assert, unported, unwrap } from "../../std/panic.ts";
+import { assert, panic, unwrap } from "../../std/panic.ts";
 import { Err, Ok, type Result, unwrap_result } from "../../std/result.ts";
 import { MPlaceTy } from "./place.gen.ts";
 
@@ -549,9 +549,7 @@ InterpCx.prototype.allocate_bytes_ptr = function (this: InterpCx, bytes: Uint8Ar
 
 // rustc: compiler/rustc_const_eval/src/interpret/memory.rs:279 insert_allocation
 InterpCx.prototype.insert_allocation = function (this: InterpCx, alloc: Allocation, kind: MemoryKind<CtfeMemoryKind>): InterpResult<Pointer> {
-  // PORT: `self.max_size_of_val()` is `Size::from_bytes(self.target_isize_max())`, beyond 2^53 on 64-bit targets (a
-  // `Size` is a number, recorded decision): the comparison is on the bytes, as `bigint`s.
-  assert(alloc.size().bytes_u64() <= PointerArithmetic_provided.target_isize_max(this), "assertion failed: alloc.size() <= self.max_size_of_val()");
+  assert(Size_cmp(alloc.size(), PointerArithmetic_provided.max_size_of_val(this)) <= 0, "assertion failed: alloc.size() <= self.max_size_of_val()");
   const id = this.tcx.deref().reserve_alloc_id();
   // debug_assert_ne!(Some(kind), M::GLOBAL_KIND.map(MemoryKind::Machine), "dynamically allocating global memory");
   // This cannot be merged with the `adjust_global_allocation` code path
@@ -736,8 +734,7 @@ InterpCx.prototype.deallocate_ptr = function (this: InterpCx, ptr: Pointer<CtfeP
 // #[inline(always)]
 // rustc: compiler/rustc_const_eval/src/interpret/memory.rs:459 get_ptr_access
 InterpCx.prototype.get_ptr_access = function (this: InterpCx, ptr: Pointer<CtfeProvenance | undefined>, size: Size): InterpResult<[AllocId, Size, boolean] | undefined> {
-  // PORT: `i64::try_from(size.bytes()).unwrap()`: a `Size` is below 2^53 (recorded decision), so it always fits.
-  const size_ = size.bytes_u64(); // it would be an error to even ask for more than isize::MAX bytes
+  const size_ = i64_try_from_size(size); // it would be an error to even ask for more than isize::MAX bytes
   return this.check_and_deref_ptr<[AllocId, Size, boolean], InterpCx>(this, ptr, size_, CheckInAllocMsg.MemoryAccess, (this_, alloc_id, offset, prov) => {
     const r = this_.get_live_alloc_size_and_align(alloc_id, CheckInAllocMsg.MemoryAccess);
     if (r.$ === "Err") return r;
@@ -751,7 +748,7 @@ InterpCx.prototype.get_ptr_access = function (this: InterpCx, ptr: Pointer<CtfeP
 // #[inline(always)]
 // rustc: compiler/rustc_const_eval/src/interpret/memory.rs:481 check_ptr_access
 InterpCx.prototype.check_ptr_access = function (this: InterpCx, ptr: Pointer<CtfeProvenance | undefined>, size: Size, msg: CheckInAllocMsg): InterpResult {
-  const size_ = size.bytes_u64(); // it would be an error to even ask for more than isize::MAX bytes
+  const size_ = i64_try_from_size(size); // it would be an error to even ask for more than isize::MAX bytes
   const r = this.check_and_deref_ptr<undefined, InterpCx>(this, ptr, size_, msg, (this_, alloc_id, _1, _2) => {
     const s = this_.get_live_alloc_size_and_align(alloc_id, msg);
     if (s.$ === "Err") return s;
@@ -799,7 +796,7 @@ InterpCx.prototype.check_and_deref_ptr = function <T, R>(this: InterpCx, this_: 
     const addr = t._0;
     // We couldn't get a proper allocation.
     // throw_ub!(DanglingIntPointer { addr, inbounds_size: size, msg })
-    return Err(InterpErrorInfo_from_InterpErrorKind(err_ub({ $: "DanglingIntPointer", addr: i64_number(addr), inbounds_size: i64_number(size), msg })));
+    return Err(InterpErrorInfo_from_InterpErrorKind(err_ub({ $: "DanglingIntPointer", addr, inbounds_size: size, msg })));
   } else {
     const [alloc_id, offset_, prov] = t._0;
     const tcx = this.tcx;
@@ -829,8 +826,8 @@ InterpCx.prototype.check_and_deref_ptr = function <T, R>(this: InterpCx, this_: 
             $: "PointerOutOfBounds",
             alloc_id,
             alloc_size: alloc_size_,
-            ptr_offset: i64_number(PointerArithmetic_provided.sign_extend_to_target_isize(tcx, offset)),
-            inbounds_size: i64_number(size),
+            ptr_offset: PointerArithmetic_provided.sign_extend_to_target_isize(tcx, offset),
+            inbounds_size: size,
             msg,
           }),
         ),
@@ -1026,7 +1023,7 @@ InterpCx.prototype.get_alloc_bytes_unchecked_raw = function (this: InterpCx, id:
 /// Bounds-checked *but not align-checked* allocation access.
 // rustc: compiler/rustc_const_eval/src/interpret/memory.rs:751 get_ptr_alloc
 InterpCx.prototype.get_ptr_alloc = function (this: InterpCx, ptr: Pointer<CtfeProvenance | undefined>, size: Size): InterpResult<AllocRef | undefined> {
-  const size_i64 = size.bytes_u64(); // it would be an error to even ask for more than isize::MAX bytes
+  const size_i64 = i64_try_from_size(size); // it would be an error to even ask for more than isize::MAX bytes
   const ptr_and_alloc_r = this.check_and_deref_ptr<[AllocId, Size, boolean, Allocation], InterpCx>(this, ptr, size_i64, CheckInAllocMsg.MemoryAccess, (this_, alloc_id, offset, prov) => {
     const alloc = this_.get_alloc_raw(alloc_id);
     if (alloc.$ === "Err") return alloc;
@@ -1125,7 +1122,7 @@ InterpCx.prototype.get_ptr_alloc_mut = function (this: InterpCx, ptr: Pointer<Ct
   const tcx = this.tcx;
   const validation_in_progress = this.memory.ghost_mode;
 
-  const size_i64 = size.bytes_u64(); // it would be an error to even ask for more than isize::MAX bytes
+  const size_i64 = i64_try_from_size(size); // it would be an error to even ask for more than isize::MAX bytes
   const ptr_and_alloc_r = this.check_and_deref_ptr<[AllocId, Size, boolean, Allocation, Machine], InterpCx>(this, ptr, size_i64, CheckInAllocMsg.MemoryAccess, (this_, alloc_id, offset, prov) => {
     const a = this_.get_alloc_raw_mut(alloc_id);
     if (a.$ === "Err") return a;
@@ -1366,7 +1363,7 @@ InterpCx.prototype.get_ptr_vtable_ty = function (this: InterpCx, ptr: Pointer<Ct
   const p = InterpResult.map_err_kind(this.ptr_get_alloc_id(ptr, 0n), (err) => {
     if (!(err.$ === "UndefinedBehavior" && err._0.$ === "DanglingIntPointer")) return bug();
     const addr = err._0.addr;
-    return err_ub({ $: "InvalidVTablePointer", _0: Pointer.without_provenance<AllocId>(BigInt(addr)) });
+    return err_ub({ $: "InvalidVTablePointer", _0: Pointer.without_provenance<AllocId>(addr) });
   });
   if (p.$ === "Err") return p;
   const [alloc_id, offset, _tag] = p._0;
@@ -1956,7 +1953,7 @@ InterpCx.prototype.ptr_get_alloc_id = function (this: InterpCx, ptr: Pointer<Ctf
     const addr = r._0;
     return Err(
       InterpErrorInfo_from_InterpErrorKind(
-        err_ub({ $: "DanglingIntPointer", addr: i64_number(addr), inbounds_size: i64_number(size), msg: { $: "Dereferenceable", _0: "pointer" } }),
+        err_ub({ $: "DanglingIntPointer", addr, inbounds_size: size, msg: { $: "Dereferenceable", _0: "pointer" } }),
       ),
     );
   }
@@ -1966,6 +1963,7 @@ InterpCx.prototype.ptr_get_alloc_id = function (this: InterpCx, ptr: Pointer<Ctf
 // ---- helpers ----
 
 const U64_MAX = (1n << 64n) - 1n;
+const I64_MAX = (1n << 63n) - 1n;
 
 /** `err_ub!(X)` */
 function err_ub(info: UndefinedBehaviorInfo): InterpErrorKind {
@@ -1980,12 +1978,11 @@ function err_unsup_format(msg: string): InterpErrorKind {
   return { $: "Unsupported", _0: { $: "Unsupported", _0: msg } };
 }
 
-/** PORT: an `u64` / `i64` field of `UndefinedBehaviorInfo` (a `number` in error.gen.ts); never rounded (header). */
-function i64_number(v: bigint): number {
-  if (v > BigInt(Number.MAX_SAFE_INTEGER) || v < -BigInt(Number.MAX_SAFE_INTEGER)) {
-    return unported("rustc_middle::mir::interpret::UndefinedBehaviorInfo u64/i64 field beyond 2^53 (a number in error.gen.ts)");
-  }
-  return Number(v);
+/** `i64::try_from(size.bytes()).unwrap()` (header). */
+function i64_try_from_size(size: Size): bigint {
+  const v = size.bytes_u64();
+  if (v > I64_MAX) return panic("called `Result::unwrap()` on an `Err` value: TryFromIntError(())");
+  return v;
 }
 
 /** `u64::trailing_zeros` (of a non-zero value). */

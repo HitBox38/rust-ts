@@ -391,9 +391,9 @@ export type UndefinedBehaviorInfo =
   /// Using a pointer after it got freed.
   | { readonly $: "PointerUseAfterFree"; _0: AllocId; _1: CheckInAllocMsg }
   /// Used a pointer outside the bounds it is valid for.
-  | { readonly $: "PointerOutOfBounds"; alloc_id: AllocId; alloc_size: Size; ptr_offset: number; inbounds_size: number; msg: CheckInAllocMsg }
+  | { readonly $: "PointerOutOfBounds"; alloc_id: AllocId; alloc_size: Size; ptr_offset: bigint; inbounds_size: bigint; msg: CheckInAllocMsg }
   /// Using an integer as a pointer in the wrong way.
-  | { readonly $: "DanglingIntPointer"; addr: number; inbounds_size: number; msg: CheckInAllocMsg }
+  | { readonly $: "DanglingIntPointer"; addr: bigint; inbounds_size: bigint; msg: CheckInAllocMsg }
   /// Used a pointer with bad alignment.
   | { readonly $: "AlignmentCheckFailed"; _0: Misalignment; _1: CheckAlignMsg }
   /// Writing to read-only memory.

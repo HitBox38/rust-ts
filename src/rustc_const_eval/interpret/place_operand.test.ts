@@ -145,7 +145,7 @@ test("immediates, operands and local places", () => {
       if (dangling.$ !== "Err") throw new Error("ERROR: write through an integer address succeeded");
       expect(dangling._0.kind()).toEqual({
         $: "UndefinedBehavior",
-        _0: { $: "DanglingIntPointer", addr: 16, inbounds_size: 1, msg: { $: "MemoryAccess" } },
+        _0: { $: "DanglingIntPointer", addr: 16n, inbounds_size: 1n, msg: { $: "MemoryAccess" } },
       });
       ran = true;
     });
