@@ -1,12 +1,15 @@
 // Tests of the oracle cache key's dependency part (scripts/lib/deps.ts, scripts/difftest.ts `cachePath`).
 // Every case lives in a fresh temp dir; RUST_TS_DATA points at a temp dir too, so the shared oracle
-// cache is never touched.
+// cache is never touched. The old RUST_TS_DATA comes back after the file (environment hygiene). Modules
+// already loaded keep the temp path (scripts/lib/common.ts reads it once, at import), which is why the gate
+// runs the scripts/harness tests in a process of their own (gate.ts `staticChecks`).
 import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
 const DATA = mkdtempSync(join(tmpdir(), "rust-ts-deps-data-"));
+const OLD_DATA = process.env.RUST_TS_DATA;
 process.env.RUST_TS_DATA = DATA;
 const { caseDeps, scanSource } = await import("./deps.ts");
 const { cachePath } = await import("../difftest.ts");
@@ -16,6 +19,8 @@ import type { Case, Suite } from "../../harness/suites.ts";
 const dirs: string[] = [DATA];
 afterAll(() => {
   for (const d of dirs) rmSync(d, { recursive: true, force: true });
+  if (OLD_DATA === undefined) delete process.env.RUST_TS_DATA;
+  else process.env.RUST_TS_DATA = OLD_DATA;
 });
 
 /** A fresh tree with `files` (path -> text). */
