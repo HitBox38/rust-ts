@@ -117,7 +117,7 @@ import { MacroKinds } from "../../rustc_hir/def.ts";
 import { id_to_string } from "../../rustc_hir_pretty/lib.ts";
 import { type DefPathData, encode_DefKey } from "../../rustc_hir_id/definitions.ts";
 import { clone_DefKey } from "../../rustc_hir_id/definitions.gen.ts";
-import { encode_FeatureStability, encode_ImplTraitHeader, encode_Visibility } from "../../rustc_middle/decodable.gen.ts";
+import { encode_ExportedSymbol, encode_FeatureStability, encode_ImplTraitHeader, encode_SymbolExportInfo, encode_Visibility } from "../../rustc_middle/decodable.gen.ts";
 import { compute_hir_hash, TyCtxt_as_HirTyCtxt } from "../../rustc_middle/hir/map.ts";
 import type { ImplTraitHeader } from "../../rustc_middle/ty/mod.ts";
 import { lib_features as middle_lib_features } from "../../rustc_middle/middle/mod.ts";
@@ -2887,9 +2887,9 @@ function encode_DebuggerVisualizerFile(_v: DebuggerVisualizerFile, _e: EncodeCon
 function encode_TargetModifier(_v: TargetModifier, _e: EncodeContext): void {
   unported("rustc_session::options: Encodable for TargetModifier (target-modifier flags)");
 }
-/** `(ExportedSymbol<'static>, SymbolExportInfo)`: not ported (exported symbols are empty without codegen, plan-m5 D5). */
-function encode_ExportedSymbol_SymbolExportInfo(_v: [ExportedSymbol, SymbolExportInfo], _e: EncodeContext): void {
-  unported("rustc_middle::middle::exported_symbols: Encodable for (ExportedSymbol, SymbolExportInfo) (codegen, M7)");
+/** `(ExportedSymbol<'static>, SymbolExportInfo)` */
+function encode_ExportedSymbol_SymbolExportInfo(v: [ExportedSymbol, SymbolExportInfo], e: EncodeContext): void {
+  encode_tuple(v, e, encode_ExportedSymbol, encode_SymbolExportInfo);
 }
 
 /// Used to prefetch queries which will be needed later by metadata encoding.

@@ -36,10 +36,11 @@ const CASES = readdirSync(CASES_DIR)
  * Re-pinned by driver-m5: `Linker` and `start_codegen` are ported; the stop is metadata encoding. Re-pinned by
  * metadata-deps: `encode_and_write_metadata` is ported; the stop is its call of the encoder. Re-pinned by
  * symbol-export-metadata: `exported_non_generic_symbols_helper` is ported; the stop is the encoder's
- * `encode_exported_symbols`, whose element encoder `(ExportedSymbol, SymbolExportInfo)` is not ported.
+ * `encode_exported_symbols`, whose element encoder `(ExportedSymbol, SymbolExportInfo)` is not ported. Re-pinned by
+ * exported-symbols-codec: that codec is ported, so metadata is written; the stop is codegen's mono item collection.
  */
 const PENDING: Record<string, string> = {
-  refine_rpitit: "rustc_middle::middle::exported_symbols: Encodable for (ExportedSymbol, SymbolExportInfo) (codegen, M7)",
+  refine_rpitit: "collect_and_partition_mono_items provider (not ported)",
 };
 
 /**

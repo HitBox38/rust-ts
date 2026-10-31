@@ -783,7 +783,8 @@
       "compiler/rustc_middle/src/ty/predicate.rs",
       "compiler/rustc_middle/src/middle/deduced_param_attrs.rs",
       "compiler/rustc_middle/src/ty/pattern.rs",
-      "compiler/rustc_middle/src/ty/abstract_const.rs"
+      "compiler/rustc_middle/src/ty/abstract_const.rs",
+      "compiler/rustc_middle/src/middle/exported_symbols.rs"
     ],
     "class": [],
     "hand": [],
@@ -844,7 +845,12 @@
       "rustc_middle::ty::intrinsic::IntrinsicDef",
       "rustc_middle::middle::deduced_param_attrs::UsageSummary",
       "rustc_middle::middle::deduced_param_attrs::DeducedParamAttrs",
-      "rustc_middle::ty::abstract_const::CastKind"
+      "rustc_middle::ty::abstract_const::CastKind",
+      "rustc_middle::middle::exported_symbols::SymbolExportLevel",
+      "rustc_middle::middle::exported_symbols::SymbolExportKind",
+      "rustc_middle::middle::exported_symbols::SymbolExportInfo",
+      "rustc_middle::middle::exported_symbols::ExportedSymbol",
+      "rustc_middle::ty::SymbolName"
     ],
     "decodable_construct": {
       "rustc_middle::ty::generics::Generics": { "expr": "Generics.from_decoded($0, $1, $2, $3, $4, $5)", "import": ["Generics"] },
@@ -859,7 +865,7 @@
     },
     "hand_notes": {
       "*": "rustc_middle's types are hand-written; this set only generates rustc_middle/stable_hash.gen.ts (derive(StableHash)) for the ported query value types listed in stable_hash_types (re-fed queries, calls.rs query_feed).",
-      "decodable_types": "crate metadata's visibility and mut_restriction tables (rmeta decoder.rs `CrateMetadata::get_visibility` / `print_item`, lane rmeta-decoder-a; `get_mut_restriction`, merge-w15b), RPITIT data (`get_associated_item`) and the `adt_destructor` / `adt_async_destructor` tables (merge-w15b), module children (`CrateMetadata::get_module_children` reexports / `get_ambig_module_children`) and `ty::Generics` (the `generics_of` extern provider; lane decode-elems), `ty::ImplTraitHeader` (the `impl_trait_header` extern provider, old-solver candidate assembly over extern impls; merge-w18c), `DeducedParamAttrs` / `UsageSummary` (the `deduced_param_attrs` extern provider, rmeta cstore_impl.rs; lane mt-opt2-b), `abstract_const::CastKind` (`ty::ExprKind::Cast` of a const expression's `TyEncodable`; lane rmeta-gaps-a); generates rustc_middle/decodable.gen.ts"
+      "decodable_types": "crate metadata's visibility and mut_restriction tables (rmeta decoder.rs `CrateMetadata::get_visibility` / `print_item`, lane rmeta-decoder-a; `get_mut_restriction`, merge-w15b), RPITIT data (`get_associated_item`) and the `adt_destructor` / `adt_async_destructor` tables (merge-w15b), module children (`CrateMetadata::get_module_children` reexports / `get_ambig_module_children`) and `ty::Generics` (the `generics_of` extern provider; lane decode-elems), `ty::ImplTraitHeader` (the `impl_trait_header` extern provider, old-solver candidate assembly over extern impls; merge-w18c), `DeducedParamAttrs` / `UsageSummary` (the `deduced_param_attrs` extern provider, rmeta cstore_impl.rs; lane mt-opt2-b), `abstract_const::CastKind` (`ty::ExprKind::Cast` of a const expression's `TyEncodable`; lane rmeta-gaps-a); the exported symbols tables' `(ExportedSymbol, SymbolExportInfo)` (rmeta encoder.rs `encode_exported_symbols`, decoder.rs `exported_non_generic_symbols` / `exported_generic_symbols`) with `SymbolName`'s derived TyEncodable (root exported-symbols-codec); generates rustc_middle/decodable.gen.ts"
     }
   },
   "rustc_middle_stability": {
