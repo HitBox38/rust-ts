@@ -157,11 +157,19 @@ tests/ui/anon-params/anon-params-edition-hygiene.rs
 tests/ui/anon-params/anon-params-trait-method-multiple.rs
 tests/ui/anon-params/auxiliary/anon-params-edition-hygiene.rs
 tests/ui/any/any_static.rs
+tests/ui/any/builtin_bound.rs
+tests/ui/any/hrtb.rs
+tests/ui/any/hrtb2.rs
+tests/ui/any/non_static.rs
 tests/ui/any/reject_manual_impl.rs
 tests/ui/any/static_method_bound.rs
 tests/ui/any/trait_info_of.rs
 tests/ui/any/try_as_dyn.rs
+tests/ui/any/try_as_dyn_assoc_ty_lifetime.rs
 tests/ui/any/try_as_dyn_builtin_impl.rs
+tests/ui/any/try_as_dyn_elaborated_bounds.rs
+tests/ui/any/try_as_dyn_generic_impl.rs
+tests/ui/any/try_as_dyn_generic_trait.rs
 tests/ui/any/try_as_dyn_mut.rs
 tests/ui/any/try_as_dyn_soundness_test1.rs
 tests/ui/any/try_as_dyn_soundness_test2.rs
@@ -2587,6 +2595,7 @@ tests/ui/cast/issue-84213.rs
 tests/ui/cast/issue-85586.rs
 tests/ui/cast/issue-88621.rs
 tests/ui/cast/issue-89497.rs
+tests/ui/cast/negative-integer-cast-to-pointer.rs
 tests/ui/cast/non-primitive-cast-self-to-dyn-index.rs
 tests/ui/cast/non-primitive-cast-suggestion.rs
 tests/ui/cast/non-primitive-isize-ref-cast.rs
@@ -4241,6 +4250,7 @@ tests/ui/const-generics/issues/issue-88997.rs
 tests/ui/const-generics/issues/issue-89146.rs
 tests/ui/const-generics/issues/issue-89320.rs
 tests/ui/const-generics/issues/issue-89334.rs
+tests/ui/const-generics/issues/issue-90318.rs
 tests/ui/const-generics/issues/issue-90364.rs
 tests/ui/const-generics/issues/issue-90455.rs
 tests/ui/const-generics/issues/issue-92186.rs
@@ -4472,6 +4482,7 @@ tests/ui/const-generics/suggest_const_for_array.rs
 tests/ui/const-generics/trait-const-args.rs
 tests/ui/const-generics/trait-resolution-error-with-const-generics-77919.rs
 tests/ui/const-generics/transmute-const-param-static-reference.rs
+tests/ui/const-generics/transmute-fail.rs
 tests/ui/const-generics/transmute.rs
 tests/ui/const-generics/transmute_no_gate.rs
 tests/ui/const-generics/transparent-maybeunit-array-wrapper.rs
@@ -4755,6 +4766,8 @@ tests/ui/consts/const-eval/promoted_const_fn_fail_deny_const_err.rs
 tests/ui/consts/const-eval/promoted_raw_ptr_ops.rs
 tests/ui/consts/const-eval/ptr-to-int-transmute-in-consts-issue-87525.rs
 tests/ui/consts/const-eval/ptr_fragments.rs
+tests/ui/consts/const-eval/ptr_fragments_in_final.rs
+tests/ui/consts/const-eval/ptr_fragments_mixed.rs
 tests/ui/consts/const-eval/raw-bytes.rs
 tests/ui/consts/const-eval/raw-pointer-ub.rs
 tests/ui/consts/const-eval/read_partial_ptr.rs
@@ -4876,6 +4889,7 @@ tests/ui/consts/const-pattern-not-const-evaluable.rs
 tests/ui/consts/const-pattern-rewrite-error-32086.rs
 tests/ui/consts/const-pattern-variant.rs
 tests/ui/consts/const-promoted-opaque.rs
+tests/ui/consts/const-ptr-is-null.rs
 tests/ui/consts/const-ptr-nonnull-rpass.rs
 tests/ui/consts/const-ptr-nonnull.rs
 tests/ui/consts/const-ptr-unique-rpass.rs
@@ -4891,6 +4905,7 @@ tests/ui/consts/const-return-outside-fn.rs
 tests/ui/consts/const-size_of-align_of.rs
 tests/ui/consts/const-size_of-cycle.rs
 tests/ui/consts/const-size_of_val-align_of_val-extern-type.rs
+tests/ui/consts/const-size_of_val-align_of_val.rs
 tests/ui/consts/const-slice-array-deref.rs
 tests/ui/consts/const-slice-oob.rs
 tests/ui/consts/const-static-ref-to-closure.rs
@@ -4903,6 +4918,7 @@ tests/ui/consts/const-try.rs
 tests/ui/consts/const-tup-index-span.rs
 tests/ui/consts/const-tuple-struct.rs
 tests/ui/consts/const-type-mismatch.rs
+tests/ui/consts/const-typeid-of-rpass.rs
 tests/ui/consts/const-unit-struct.rs
 tests/ui/consts/const-unsafe-fn.rs
 tests/ui/consts/const-unsized.rs
@@ -4960,7 +4976,12 @@ tests/ui/consts/const_refs_to_static.rs
 tests/ui/consts/const_refs_to_static_fail.rs
 tests/ui/consts/const_refs_to_static_fail_invalid.rs
 tests/ui/consts/const_short_circuit.rs
+tests/ui/consts/const_transmute_type_id.rs
+tests/ui/consts/const_transmute_type_id3.rs
+tests/ui/consts/const_transmute_type_id4.rs
+tests/ui/consts/const_transmute_type_id5.rs
 tests/ui/consts/const_transmute_type_id6.rs
+tests/ui/consts/const_transmute_type_id7.rs
 tests/ui/consts/const_unsafe_unreachable.rs
 tests/ui/consts/const_unsafe_unreachable_ub.rs
 tests/ui/consts/constifconst-call-in-const-position.rs
@@ -5111,6 +5132,7 @@ tests/ui/consts/issue-69532.rs
 tests/ui/consts/issue-6991.rs
 tests/ui/consts/issue-70773-mir-typeck-lt-norm.rs
 tests/ui/consts/issue-70942-trait-vs-impl-mismatch.rs
+tests/ui/consts/issue-73976-monomorphic.rs
 tests/ui/consts/issue-73976-polymorphic.rs
 tests/ui/consts/issue-76064.rs
 tests/ui/consts/issue-78655.rs
@@ -5200,6 +5222,7 @@ tests/ui/consts/non-constant-value-in-nested-const.rs
 tests/ui/consts/non-scalar-cast.rs
 tests/ui/consts/non-sync-references-in-const.rs
 tests/ui/consts/normalize-before-const-arg-has-type-goal.rs
+tests/ui/consts/offset.rs
 tests/ui/consts/offset_from.rs
 tests/ui/consts/oncecell-const-init-57781.rs
 tests/ui/consts/overflowing-consts.rs
@@ -5231,6 +5254,7 @@ tests/ui/consts/promoted_size_overflow.rs
 tests/ui/consts/promotion-drop-type-static-lifetime-86672.rs
 tests/ui/consts/promotion-mutable-ref.rs
 tests/ui/consts/promotion.rs
+tests/ui/consts/ptr_comparisons.rs
 tests/ui/consts/ptr_is_null.rs
 tests/ui/consts/qualif-indirect-mutation-fail.rs
 tests/ui/consts/qualif-indirect-mutation-pass.rs
@@ -5319,6 +5343,7 @@ tests/ui/consts/value-suggestion-ice-123906.rs
 tests/ui/consts/write-to-static-mut-in-static.rs
 tests/ui/consts/write_to_mut_ref_dest.rs
 tests/ui/consts/write_to_static_via_mut_ref.rs
+tests/ui/consts/zst_no_llvm_alloc.rs
 tests/ui/contracts/associated-item.rs
 tests/ui/contracts/async-fn-contract-ice-145333.rs
 tests/ui/contracts/contract-annotation-limitations.rs
@@ -7328,6 +7353,7 @@ tests/ui/extern/extern-pub.rs
 tests/ui/extern/extern-rust-fn-type-error-10764.rs
 tests/ui/extern/extern-rust-trait-method.rs
 tests/ui/extern/extern-rust.rs
+tests/ui/extern/extern-static-size-overflow.rs
 tests/ui/extern/extern-take-value.rs
 tests/ui/extern/extern-thiscall.rs
 tests/ui/extern/extern-type-diag-not-similar.rs
@@ -10225,7 +10251,9 @@ tests/ui/lifetimes/unusual-rib-combinations.rs
 tests/ui/limits/huge-array-simple-32.rs
 tests/ui/limits/huge-array-simple-64.rs
 tests/ui/limits/huge-array.rs
+tests/ui/limits/huge-enum.rs
 tests/ui/limits/huge-static.rs
+tests/ui/limits/huge-struct.rs
 tests/ui/limits/issue-15919-32.rs
 tests/ui/limits/issue-15919-64.rs
 tests/ui/limits/issue-17913.rs
@@ -15514,6 +15542,8 @@ tests/ui/recursion/recursive-struct-with-raw-pointer-field.rs
 tests/ui/recursion/recursive-types-are-not-uninhabited.rs
 tests/ui/reflection/feature_gate.rs
 tests/ui/reflection/reflection_methods_in_runtime_code.rs
+tests/ui/reflection/trait_info_of_too_big.rs
+tests/ui/reflection/variant_index_out_of_bounds.rs
 tests/ui/regions/account-for-lifetimes-in-closure-suggestion.rs
 tests/ui/regions/auxiliary/rbmtp_cross_crate_lib.rs
 tests/ui/regions/better-blame-constraint-for-outlives-static.rs
