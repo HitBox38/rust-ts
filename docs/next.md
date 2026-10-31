@@ -345,7 +345,8 @@ Follow-ups (queued):
 | interp-generic ✱ | D3/A1: generalise the interpreter's Machine types; re-port the OFFSET_IS_ADDR=true branches | running |
 | miri-contract ✱ | D2: src/miri skeleton, miri codegen set, MiriMachine/Provenance/BorTag/… types, stubs per fill lane | running |
 | pm-bridge | library/proc_macro bridge/* (~2.1k; wire format = upstream's with_api! 31 methods; TS-to-TS tested) | APPROVE WITH NITS; merged into integ-w35 (hooks wired with pm-lib) |
-| pm-lib | library/proc_macro lib, diagnostic, escape, to_tokens, quote (~2.9k); the 30 quote! cases | running |
+| pm-lib | library/proc_macro lib, diagnostic, escape, to_tokens, quote (~2.9k) | APPROVE WITH NITS; merged into integ-w35 |
+| pm-wiring (root) | lib.ts ↔ bridge/client.ts, quote! = BangProcMacro(Client.expand1(quote)), Rustc.default_TokenStream: the 30 quote! cases 330/330 MATCH on 11 suites through the real bridge | in review |
 | vendor-rand | D5: rand/rand_core 0.10.1 + chacha20 0.10.0 subset; 254-line StdRng oracle fixture byte-identical | APPROVE WITH NITS; merged into integ-w35 |
 | followups-34 | the size-bigint review nits and the 3 UB-field cases above (all 3 MATCH; codegen per-field typemap override, decision recorded) | APPROVE WITH NITS (N1 fixed by root); merged into integ-w35 |
 | harness-w35 | oracle-toolchain component check (UPSTREAM.json rust.components), gate-runner-unit nits, check-chain runner (core output only on failure), chain-run without /bin/sh, aux cleanup (harness batch) | APPROVE WITH NITS (nits 1-2 fixed by root); merged into integ-w35 |
