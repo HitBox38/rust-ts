@@ -20,6 +20,21 @@ export interface UpstreamPin {
    * scripts/upstream.ts fetch`: `library/backtrace`, which std `#[path]`s into (plan-m5 D2, lane harness-m5c).
    */
   submodules?: string[];
+  /**
+   * The oracle toolchain's installed rustup components, exactly (`{host}` = its host tuple), as its
+   * `lib/rustlib/components` names them (scripts/lib/toolchain.ts; decision 2026-10-31: the oracle is immutable).
+   */
+  components: string[];
+  /** The isolated Miri toolchain (plan-m6 D1; scripts/lib/miri.ts). */
+  miri?: MiriPin;
+}
+
+/** UPSTREAM.json `rust.miri`. */
+export interface MiriPin {
+  /** The target Miri interprets for (plan-m6 D1). */
+  target: string;
+  /** The isolated toolchain's components, as its `lib/rustlib/components` names them (`{host}` = the host tuple). */
+  components: string[];
 }
 
 export const PIN: UpstreamPin = JSON.parse(readFileSync(join(REPO, "UPSTREAM.json"), "utf8")).rust;

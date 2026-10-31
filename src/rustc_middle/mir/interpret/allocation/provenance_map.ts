@@ -11,7 +11,7 @@
 //! Store the provenance for each byte in the range, with a more efficient
 //! representation for the common case where PTR_SIZE consecutive bytes have the same provenance.
 import "../../mod.ts";
-import { type HasDataLayout, Size } from "../../../../rustc_abi/lib.ts";
+import { type HasDataLayout, Size, Size_cmp } from "../../../../rustc_abi/lib.ts";
 import { type RangeBounds, range, SortedMap } from "../../../../rustc_data_structures/sorted_map.ts";
 import { range_from, range_to } from "../../../../rustc_index/idx.ts";
 import { assert, panic, unported, unwrap } from "../../../../std/panic.ts";
@@ -23,10 +23,8 @@ import { type CtfeProvenance, type Provenance, Provenance_CtfeProvenance, proven
 import { clone_PointerFrag, type PointerFrag, type ProvenanceCopy, ProvenanceMap } from "./provenance_map.gen.ts";
 export * from "./provenance_map.gen.ts";
 
-/** `<Size as Ord>::cmp` (the `SortedMap<Size, _>` comparator). */
-export function cmp_Size(a: Size, b: Size): number {
-  return a.bytes() < b.bytes() ? -1 : a.bytes() > b.bytes() ? 1 : 0;
-}
+/** `<Size as Ord>::cmp` (the `SortedMap<Size, _>` comparator): `Size_cmp`. */
+export const cmp_Size: (a: Size, b: Size) => number = Size_cmp;
 
 /** PORT (D8): `Prov` (its associated consts) where no provenance value is at hand (see the header). */
 function Prov_<Prov>(): Provenance<Prov> {

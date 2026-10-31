@@ -15,7 +15,6 @@ import "../rustc_expand/lib.ts";
 import type { TokenStream } from "../rustc_ast/tokenstream.ts";
 import type { ErrorGuaranteed } from "../rustc_errors/lib.ts";
 import {
-  type BangProcMacro,
   type ExtCtxt,
   MultiItemModifier_from_fn,
   type ResolverExpand,
@@ -24,8 +23,9 @@ import {
 } from "../rustc_expand/base.ts";
 import type { Span } from "../rustc_span/lib.ts";
 import { sym, type Symbol } from "../rustc_span/symbol.ts";
-import { unported } from "../std/panic.ts";
-import type { Result } from "../std/result.ts";
+import { Client } from "../proc_macro/bridge/client.ts";
+import { quote } from "../proc_macro/lib.ts";
+import { BangProcMacro } from "../rustc_expand/proc_macro.ts";
 import * as alloc_error_handler from "./alloc_error_handler.ts";
 import * as asm from "./asm.ts";
 import * as assert from "./assert.ts";
@@ -157,23 +157,12 @@ export function register_builtin_macros(resolver: ResolverExpand): void {
   register_derive(sym.From, from.expand_deriving_from);
   // }
 
-  // `rustc_proc_macro::bridge::client::Client::expand1(rustc_proc_macro::quote)`
-  const client = quote_client;
-  register(sym.quote, { $: "Bang", _0: client });
+  // PORT: `quote` takes lib.rs's `TokenStream`, which is bridge/client.rs's `crate::TokenStream` (client.ts declares
+  // only the `{ _0 }` shape it needs, `CrateTokenStream`, to avoid importing lib.ts); the cast restates that identity.
+  const client = Client.expand1(quote as unknown as Parameters<typeof Client.expand1>[0]);
+  register(sym.quote, { $: "Bang", _0: new BangProcMacro(client) });
   const requires: SyntaxExtensionKind = { $: "Attr", _0: contracts.ExpandRequires };
   register(sym.contracts_requires, requires);
   const ensures: SyntaxExtensionKind = { $: "Attr", _0: contracts.ExpandEnsures };
   register(sym.contracts_ensures, ensures);
 }
-
-/**
- * `SyntaxExtensionKind::Bang(Arc::new(BangProcMacro { client }))` for `quote!`. PORT: the proc-macro
- * bridge (`rustc_proc_macro::bridge::client::Client::expand1(rustc_proc_macro::quote)` and
- * `rustc_expand::proc_macro::BangProcMacro`) is M6; registering the macro is side-effect free, and
- * expanding a `quote!` stops here.
- */
-const quote_client: BangProcMacro = {
-  expand(_ecx: ExtCtxt, _span: Span, _ts: TokenStream): Result<TokenStream, ErrorGuaranteed> {
-    return unported("rustc_expand::proc_macro::BangProcMacro::expand (quote!; proc-macro bridge, M6)");
-  },
-};

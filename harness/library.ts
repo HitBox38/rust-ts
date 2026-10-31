@@ -25,18 +25,21 @@
 //   independent of the port's other cases. Built once into `$RUST_TS_DATA/aux/m5-<crate>-<key>/lib<crate>.rmeta`,
 //   key = the oracle rustc build (`rustcDriverHash`), every file under the crate's `inputs`, its argv (which holds its
 //   deps' rmeta paths, hence their keys) and env. A build goes to a temp dir renamed into place, so concurrent
-//   processes never see half a crate. An oracle that fails throws one `ERROR:` line.
+//   processes never see half a crate. An oracle that fails throws one `ERROR:` line. Each process that uses a crate's
+//   directory touches it; a new build of a crate removes that crate's other directories (and leftover temp dirs)
+//   unused for `AUX_STALE_MS` (`pruneStaleAux`; lane harness-w35: each key change used to leave ~80 MB behind). A
+//   directory in use by a concurrent run (another worktree with another key) was touched when that run started.
 // - **Sources**: in-tree crates from the upstream checkout (`library/backtrace` is a git submodule, initialized by
 //   `bun scripts/upstream.ts fetch` from UPSTREAM.json `submodules`); crates.io crates from the cargo registry at the
 //   single version in library/Cargo.lock (`bun scripts/crate-src.ts <pkg> --version <v>`, which fetches if needed).
 // - **Inputs**: the directories holding every file the crate's `--emit=dep-info` lists at the pin (checked by lane
 //   harness-m5c; a crates.io crate's inputs are its whole package directory). They key the aux cache and are the
 //   alloc/std suites' `inputDirs`.
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, utimesSync } from "node:fs";
 import { join } from "node:path";
 import { DATA, UPSTREAM, hash } from "../scripts/lib/common.ts";
 import { caseEnv, mergeEnv } from "../scripts/lib/env.ts";
-import { oracleRustcCmd, rustcDriverHash } from "../scripts/lib/oracle.ts";
+import { oracleRustcCmd, rustcDriverHash, verifyOracleToolchain } from "../scripts/lib/oracle.ts";
 
 export const M5_TARGET = "x86_64-unknown-linux-gnu";
 
@@ -276,6 +279,30 @@ function dirsHash(base: string, dirs: string[]): string {
   return hash(files.map((f) => `${f}\0${hash(readFileSync(join(base, f)))}`).join("\n"));
 }
 
+/** A crate's aux directory unused (not touched by `oracleLibRmeta`) for this long is removed by its next build. */
+export const AUX_STALE_MS = 3 * 24 * 3600 * 1000;
+
+/**
+ * Removes crate `name`'s aux directories under `auxDir` (`m5-<name>-<key>`, and `.tmp-<pid>` leftovers) other than
+ * `keep` whose mtime is more than `staleMs` before `now`; returns the names removed.
+ */
+export function pruneStaleAux(auxDir: string, name: string, keep: string, now: number = Date.now(), staleMs: number = AUX_STALE_MS): string[] {
+  const re = new RegExp(`^m5-${name}-[0-9a-f]{16}(?:\\.tmp-\\d+)?$`);
+  const removed: string[] = [];
+  for (const n of readdirSync(auxDir)) {
+    if (n === keep || !re.test(n)) continue;
+    const p = join(auxDir, n);
+    try {
+      if (now - statSync(p).mtimeMs <= staleMs) continue;
+      rmSync(p, { recursive: true, force: true });
+      removed.push(n);
+    } catch {
+      // Removed by a concurrent process.
+    }
+  }
+  return removed;
+}
+
 const rmetaMemo = new Map<string, string>();
 /** The oracle's `lib<name>.rmeta` of crate `name` (with `libArgs`), built on first use with its deps (see the header). */
 export function oracleLibRmeta(name: string): string {
@@ -288,6 +315,7 @@ export function oracleLibRmeta(name: string): string {
   const dir = join(DATA, "aux", `m5-${name}-${key}`);
   const out = join(dir, `lib${name}.rmeta`);
   if (!existsSync(out)) {
+    verifyOracleToolchain();
     const tmp = `${dir}.tmp-${process.pid}`;
     rmSync(tmp, { recursive: true, force: true });
     mkdirSync(tmp, { recursive: true });
@@ -302,6 +330,15 @@ export function oracleLibRmeta(name: string): string {
       // Another process built it first.
       rmSync(tmp, { recursive: true, force: true });
       if (!existsSync(out)) throw new Error(`ERROR: could not move the oracle build of aux crate ${name} to ${dir}`);
+    }
+    pruneStaleAux(join(DATA, "aux"), name, `m5-${name}-${key}`);
+  } else {
+    // In use: keeps it from `pruneStaleAux` for AUX_STALE_MS. Best effort: a failed touch must not fail the case.
+    try {
+      const now = new Date();
+      utimesSync(dir, now, now);
+    } catch {
+      // (read-only data dir, or removed concurrently: the existence check above already passed)
     }
   }
   rmetaMemo.set(name, out);

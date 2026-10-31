@@ -3,9 +3,10 @@
 // difftest caches them, keyed by the probe binary or the rustc build (see rustcDriverHash).
 import { readdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { isAbsolute, join, resolve } from "node:path";
+import { basename, isAbsolute, join, resolve } from "node:path";
 import { PIN, UPSTREAM, die, hash, run } from "./common.ts";
 import { pinnedPathEnv } from "./env.ts";
+import { oracleToolchainError } from "./toolchain.ts";
 
 /**
  * An oracle process that times out is run once more with this many times its timeout (difftest's oracle
@@ -15,15 +16,39 @@ export const ORACLE_RETRY_FACTOR = 4;
 
 let verified = false;
 
+/**
+ * Dies (one `ERROR:` line) unless the oracle rustc is the pinned commit and its toolchain has exactly the pinned
+ * components and no `lib/rustlib/src` (scripts/lib/toolchain.ts). Every path that produces or caches oracle output
+ * (difftest, phase-diff, the gate) calls it first.
+ */
 export async function verifyOraclePin(): Promise<void> {
   if (verified) return;
   const r = await run(["rustc", `+${PIN.toolchain}`, "-vV"]);
   const m = /commit-hash: (\w+)/.exec(r.stdout);
-  if (r.code !== 0 || !m) die(`cannot run oracle rustc +${PIN.toolchain}: ${r.stderr.trim()}`);
+  const host = /^host: (\S+)$/m.exec(r.stdout);
+  if (r.code !== 0 || !m || !host) die(`cannot run oracle rustc +${PIN.toolchain}: ${r.stderr.trim()}`);
   if (m[1] !== PIN.commit) {
     die(`oracle toolchain '${PIN.toolchain}' is ${m[1]}, pin is ${PIN.commit}; run: rustup toolchain install ${PIN.nightlyName}`);
   }
+  verifyOracleToolchain(host[1]!);
   verified = true;
+}
+
+let toolchainVerified = false;
+
+/**
+ * Dies (one `ERROR:` line) unless the oracle toolchain has exactly the pinned components (UPSTREAM.json
+ * `rust.components`) and no `lib/rustlib/src` (scripts/lib/toolchain.ts). Part of `verifyOraclePin`; also called
+ * by the oracle builds of aux crates (harness/suites.ts, harness/library.ts, harness/compiletest.ts) right before
+ * they run, since their outputs are cached too. One file read per process (plus `rustc -vV` without `host`).
+ */
+export function verifyOracleToolchain(host?: string): void {
+  if (toolchainVerified) return;
+  if (!Array.isArray(PIN.components)) die("UPSTREAM.json has no rust.components (the oracle toolchain's pinned component list)");
+  const sysroot = oracleSysroot();
+  const bad = oracleToolchainError(sysroot, PIN.components, host ?? oracleHost(), basename(sysroot));
+  if (bad !== undefined) die(bad);
+  toolchainVerified = true;
 }
 
 export function oracleRustcCmd(args: string[]): string[] {

@@ -1,8 +1,8 @@
 // Port of compiler/rustc_expand/src/proc_macro.rs
 //
 // PORT: `rustc_proc_macro as pm` is the `proc_macro` library port in src/proc_macro/. Running a client
-// (`Client::run1` / `run2`) executes a user proc-macro dylib through the RPC bridge: M6 (decision D6); those
-// calls stop with `unported(..)` (bridge/server.ts). Everything around them (server construction, error
+// (`Client::run1` / `run2`, bridge/server.ts) works in-process for the builtin `quote!` client; a user proc-macro
+// dylib needs the FFI edge (plan-m6 D7, lane pm-host). Everything around them (server construction, error
 // reporting, re-parsing derive output) is ported.
 //
 // PORT: `SelfProfilerRef::generic_activity_with_arg_recorder` (rustc_data_structures/profiling.rs) only runs its

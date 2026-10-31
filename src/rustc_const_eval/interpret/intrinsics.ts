@@ -565,8 +565,9 @@ InterpCx.prototype.eval_intrinsic = function (this: InterpCx, instance: Instance
 
       const pl = this.layout_of(pointee_ty);
       if (pl.$ === "Err") return Err(InterpErrorInfo_from_InterpErrorKind(pl._0));
-      // `i64::try_from(size.bytes()).unwrap()`: a `Size` (< 2^53) always fits an `i64`.
+      // `i64::try_from(..size.bytes()).unwrap()`
       const pointee_size = pl._0.size.bytes_u64();
+      if (pointee_size > I64_MAX) return panic("called `Result::unwrap()` on an `Err` value: TryFromIntError(())");
       const offset_bytes = BigInt.asIntN(64, offset_count._0 * pointee_size);
       const offset_ptr = ptr._0.wrapping_signed_offset(offset_bytes, this);
       const w = this.write_pointer(offset_ptr, dest);
@@ -1751,6 +1752,7 @@ function bytes_cmp(a: Uint8Array, b: Uint8Array): -1 | 0 | 1 {
 }
 
 const U128_MASK = (1n << 128n) - 1n;
+const I64_MAX = (1n << 63n) - 1n;
 /** `u128 << n` (n < 128). */
 function u128_shl(v: bigint, n: bigint): bigint {
   return (v << n) & U128_MASK;

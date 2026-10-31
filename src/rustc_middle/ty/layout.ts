@@ -712,14 +712,10 @@ export const SizeSkeleton = {
             if (len_eval !== undefined) {
               const c = len_eval;
               // PORT: `u64::checked_mul` in `bigint`; a product of 2^64 or more is `None` as upstream.
-              const size = BigInt(s.bytes()) * BigInt(c);
+              const size = s.bytes_u64() * BigInt(c);
               if (size > U64_MAX) return Err({ $: "SizeOverflow", _0: ty });
-              // PORT: `Size` is a `number` (root decision): a byte count past 2^53 stops instead of losing precision.
-              if (size > BigInt(Number.MAX_SAFE_INTEGER)) {
-                return unported("Size beyond 2^53 (rustc_middle::ty::layout::SizeSkeleton::compute_inner, array)");
-              }
               // Alignment is unchanged by arrays.
-              return Ok({ $: "Known", _0: Size.from_bytes(Number(size)), _1: a });
+              return Ok({ $: "Known", _0: Size.from_bytes(size), _1: a });
             }
             return Err(err);
           }
