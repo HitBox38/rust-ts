@@ -1644,7 +1644,7 @@ export interface SpanEncoder extends Encoder {
 
   // `rustc_span` does not reference `rustc_hir_id` (`rustc_hir_id` references `rustc_span` instead),
   // so we can't use `DefKey` or `DisambiguatedDefPathData` here.
-  encode_def_key<T>(parent: DefIndex | undefined, disambiguated_data: T, encode_T: Encodable<T>): void; // (provided)
+  encode_def_key<T>(parent: DefIndex | undefined, disambiguated_data: T, encode_T: Encodable<T, SpanEncoder>): void; // (provided)
 }
 
 /** The provided methods of `SpanEncoder`. */
@@ -1655,7 +1655,7 @@ export const SpanEncoder_provided = {
   },
 
   // rustc: compiler/rustc_span/src/lib.rs:1364 encode_def_key
-  encode_def_key<T>(self: SpanEncoder, parent: DefIndex | undefined, disambiguated_data: T, encode_T: Encodable<T>): void {
+  encode_def_key<T>(self: SpanEncoder, parent: DefIndex | undefined, disambiguated_data: T, encode_T: Encodable<T, SpanEncoder>): void {
     encode_Option(parent, self, encode_DefIndex);
     encode_T(disambiguated_data, self);
   },
@@ -1718,7 +1718,7 @@ FileEncoder.prototype.encode_def_id = function (this: FileEncoder, def_id: DefId
 FileEncoder.prototype.encode_local_def_id = function (this: FileEncoder, def_id: LocalDefId): void {
   SpanEncoder_provided.encode_local_def_id(this, def_id);
 };
-FileEncoder.prototype.encode_def_key = function <T>(this: FileEncoder, parent: DefIndex | undefined, disambiguated_data: T, encode_T: Encodable<T>): void {
+FileEncoder.prototype.encode_def_key = function <T>(this: FileEncoder, parent: DefIndex | undefined, disambiguated_data: T, encode_T: Encodable<T, SpanEncoder>): void {
   SpanEncoder_provided.encode_def_key(this, parent, disambiguated_data, encode_T);
 };
 
@@ -1769,7 +1769,7 @@ MemEncoder.prototype.encode_def_id = function (this: MemEncoder, def_id: DefId):
 MemEncoder.prototype.encode_local_def_id = function (this: MemEncoder, def_id: LocalDefId): void {
   SpanEncoder_provided.encode_local_def_id(this, def_id);
 };
-MemEncoder.prototype.encode_def_key = function <T>(this: MemEncoder, parent: DefIndex | undefined, disambiguated_data: T, encode_T: Encodable<T>): void {
+MemEncoder.prototype.encode_def_key = function <T>(this: MemEncoder, parent: DefIndex | undefined, disambiguated_data: T, encode_T: Encodable<T, SpanEncoder>): void {
   SpanEncoder_provided.encode_def_key(this, parent, disambiguated_data, encode_T);
 };
 

@@ -12,7 +12,6 @@
 import { SortedMap } from "../rustc_data_structures/sorted_map.ts";
 import { StableHasher } from "../rustc_data_structures/stable_hash.ts";
 import { utf8 } from "../std/str.ts";
-import type { Encodable } from "../rustc_serialize/serialize.ts";
 import type { SpanEncoder } from "../rustc_span/lib.ts";
 import { Hash64 } from "../rustc_hashes/lib.ts";
 import { CRATE_DEF_INDEX, type CrateNum, type DefIndex, debug_DefIndex, DefPathHash, LOCAL_CRATE, LocalDefId, StableCrateId } from "../rustc_span/def_id.ts";
@@ -193,11 +192,9 @@ DefPathToIndexMap.prototype.insert = function (this: DefPathToIndexMap, hash: Ha
 // impl<E: SpanEncoder> Encodable<E> for DefKey
 // #[inline]
 // PORT: `impl Encodable<Self>` of `encode_def_key` is the generated `encode_DisambiguatedDefPathData` (PORTING §5).
-// rustc_span's `SpanEncoder.encode_def_key` types it as `Encodable<T>` (over `Encoder`), but every implementation
-// calls it with `self`, a `SpanEncoder`, so the cast is sound.
 // rustc: compiler/rustc_hir_id/src/definitions.rs:118 encode
 export function encode_DefKey(self: DefKey, e: SpanEncoder): void {
-  e.encode_def_key(self.parent, self.disambiguated_data, gen.encode_DisambiguatedDefPathData as Encodable<DisambiguatedDefPathData>);
+  e.encode_def_key(self.parent, self.disambiguated_data, gen.encode_DisambiguatedDefPathData);
 }
 
 // rustc: compiler/rustc_hir_id/src/definitions.rs:124 compute_stable_hash
