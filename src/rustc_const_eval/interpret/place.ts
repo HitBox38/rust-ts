@@ -46,6 +46,7 @@ import * as gen from "./place.gen.ts";
 
 export * from "./place.gen.ts";
 
+const I64_MAX = (1n << 63n) - 1n;
 const debug_size = (v: Size): string => debug_Size(v, PLAIN);
 
 /** PORT: the key of `MPlaceTy`'s derived `Hash` + `Eq` (struct-keyed maps and sets of places, e.g. valtrees.rs's
@@ -260,8 +261,11 @@ MemPlace.prototype.offset_with_meta_ = function (this: MemPlace, offset: Size, m
   let ptr: Pointer<CtfeProvenance | undefined>;
   switch (mode) {
     case "Inbounds": {
-      // `offset.bytes().try_into().unwrap()`: a `Size` (< 2^53) always fits an `i64`.
-      const r = ecx.ptr_offset_inbounds(this.ptr, offset.bytes_u64());
+      // `offset.bytes().try_into().unwrap()`: the `u64` as an `i64` (PORT (size-bigint): exact, panics above
+      // `i64::MAX` as upstream's `unwrap`).
+      const offset_bytes = offset.bytes_u64();
+      if (offset_bytes > I64_MAX) return panic("called `Result::unwrap()` on an `Err` value: TryFromIntError(())");
+      const r = ecx.ptr_offset_inbounds(this.ptr, offset_bytes);
       if (r.$ === "Err") return r;
       ptr = r._0;
       break;

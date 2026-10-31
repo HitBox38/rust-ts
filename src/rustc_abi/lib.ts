@@ -1286,8 +1286,8 @@ export class Size {
   // rustc: compiler/rustc_abi/src/lib.rs:1006 add
   add(other: Size): Size {
     if (this.big === undefined && other.big === undefined) {
-      // PORT (size-bigint): fast path, exact (a sum of two safe integers below 2^53 each is a valid `from_bytes`
-      // argument whenever it is itself safe; otherwise the `bigint` path below).
+      // PORT (size-bigint): fast path: two small values whose sum is still a safe integer (exact); any other sum
+      // takes the `bigint` path below.
       const sum = this.small + other.small;
       if (Number.isSafeInteger(sum)) return new Size(sum, undefined);
     }
