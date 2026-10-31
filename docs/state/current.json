@@ -2,6 +2,8 @@
   "milestone": "M4",
   "pin": "6f5da406b56c2db6607202b63daee73aa8c61297",
   "protected": {
+    "check-core": 1,
+    "rmeta-core": 82338,
     "lex": 25780,
     "symbols": 10,
     "emit": 1466,
@@ -10,6 +12,7 @@
     "tydump-nocore": 21494,
     "parse-ui": 991,
     "hir-tree": 21492,
+    "rmeta-ui": 730,
     "mir-core": 47734,
     "mirdump-ui": 1343,
     "escape-synthetic": 11,
@@ -29,6 +32,7 @@
     "unpretty-hir": 21496,
     "expanded": 21477,
     "borrowck-ui": 960,
+    "check-ui": 730,
     "unpretty-expanded": 21477,
     "thirdump-ui": 1851,
     "mir-o0": 46,
@@ -37,7 +41,7 @@
     "thirdump-minicore": 46,
     "tydump-ui": 1840
   },
-  "updated": "2026-10-30T22:01:55.441Z",
+  "updated": "2026-10-31T07:56:17.246Z",
   "open_stops": [],
   "coverage": {
     "ported": 22574,
