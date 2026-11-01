@@ -112,7 +112,8 @@ import type { TyCtxtAt } from "../rustc_middle/query/calls.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import type { AtomicOrdering } from "../rustc_middle/ty/consts/int.ts";
 import { GenericArg } from "../rustc_middle/ty/generic_args.ts";
-import { Instance } from "../rustc_middle/ty/instance.ts";
+import { Instance, display_Instance } from "../rustc_middle/ty/instance.ts";
+import * as tracing from "../rust_ts/tracing.ts";
 import { debug_LayoutError, type LayoutCx, type LayoutError, type TyAndLayout } from "../rustc_middle/ty/layout.ts";
 import { type SymbolName, Ty } from "../rustc_middle/ty/mod.ts";
 import { type CrateNum, type DefId, debug_DefId } from "../rustc_span/def_id.ts";
@@ -1964,7 +1965,7 @@ MiriMachine.prototype.before_stack_pop = function (this: MiriMachine, ecx: MiriI
   // tracing-tree can automatically annotate scope changes, but it gets very confused by our
   // concurrency and what it prints is just plain wrong. So we print our own information
   // instead. (Cc https://github.com/rust-lang/miri/issues/2266)
-  // info!("Leaving {}", ecx.frame().instance());
+  if (tracing.INFO_ENABLED) tracing.info("miri::machine", () => `Leaving ${display_Instance(frame_(ecx).instance_())}`);
   return interp_ok(undefined);
 };
 
@@ -1986,11 +1987,14 @@ MiriMachine.prototype.after_stack_pop = function (
       // profiler.finish_recording_interval_event(timing.unwrap());
       unported(`miri::machine::MiriMachine::after_stack_pop: measureme profiler (${String(timing)})`);
     }
+    // PORT: the end of the sub-scope drops `frame` (`frame.extra` was moved out). Its `tracing_span` exits here
+    // (`impl Drop for SpanGuard`), so `Continuing in` prints one level up.
+    frame.tracing_span.drop();
   }
   // Needs to be done after dropping frame to show up on the right nesting level.
   // (Cc https://github.com/rust-lang/miri/issues/2266)
   if (ecx.active_thread_stack().length !== 0) {
-    // info!("Continuing in {}", ecx.frame().instance());
+    if (tracing.INFO_ENABLED) tracing.info("miri::machine", () => `Continuing in ${display_Instance(frame_(ecx).instance_())}`);
   }
   return res;
 };

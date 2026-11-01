@@ -673,6 +673,50 @@ export class EnvFilter {
   }
 }
 
+// ---- rust-ts: which targets' INFO call sites are live ---------------------------------------------------------------
+
+/**
+ * The targets whose INFO-level call sites (`info!`, `info_span!`, INFO-level `#[instrument]`, the `#[instrument]`
+ * default) are all live in the port. Each entry covers the target itself and the modules under it (`<entry>::..`).
+ * This is the only list of converted targets. Add an entry only when every INFO site under it is converted. A target
+ * with no INFO sites at all counts as converted.
+ * - `rustc_const_eval::interpret`: `call.rs:1110`, `step.rs:71` / `:89` / `:527` (`info!`), `stack.rs:429` (the
+ *   `frame` span). Its `enter_trace_span!` sites are `()` (the `Machine::enter_trace_span` default) and its
+ *   `#[instrument]`s are all `level = "debug"` / `"trace"`.
+ * - `rustc_middle::mir::interpret`: no INFO sites.
+ * - `miri::machine` (`machine.rs:1994`, `:2017`) and `miri::borrow_tracker` (`borrow_tracker/mod.rs:282`). Miri's
+ *   own `#[instrument]`s are all DEBUG/TRACE.
+ *   Not yet `miri` as a whole: `miri::eval` (`eval.rs:571`) and `miri::concurrency::thread` (`thread.rs:516`) are
+ *   still comments. Once both are live, replace the two `miri::` entries with `miri`. `concurrency/scheduler.rs:65`
+ *   and `concurrency/genmc/run.rs` are GenMC only, which is out of scope (plan-m6 D2). So `MIRI_LOG=<level>`
+ *   (`miri=<level>` among its directives, bin/log/setup.rs) stops until then.
+ * Everywhere else (e.g. 27 compiler files with `info!`, and INFO `#[instrument]`s such as rustc_infer's) INFO sites are
+ * still comments, so enabling INFO there would print fewer lines than rustc.
+ */
+export const INFO_CONVERTED_TARGETS: readonly string[] = [
+  "rustc_const_eval::interpret",
+  "rustc_middle::mir::interpret",
+  "miri::machine",
+  "miri::borrow_tracker",
+];
+
+/**
+ * rust-ts (not upstream): the first static directive of `filter` that enables INFO (or a more verbose level) for a
+ * target that may have unconverted INFO sites, if any. It is conservative: a directive is accepted only if its target
+ * lies within an `INFO_CONVERTED_TARGETS` entry (equal to it, or starting with `<entry>::`). A bare level (no target)
+ * enables INFO everywhere. A prefix that is not a whole module path (`rustc_const_eval::interp`) also matches other
+ * modules, so it is rejected too. The caller stops with `unported`, so a filter never prints a partial trace silently.
+ */
+export function unconverted_info_directive(filter: EnvFilter): StaticDirective | undefined {
+  for (const d of filter.statics.directives) {
+    if (VERBOSITY[d.level] < V_INFO) continue;
+    const t = d.target;
+    if (t !== undefined && INFO_CONVERTED_TARGETS.some((c) => t === c || t.startsWith(`${c}::`))) continue;
+    return d;
+  }
+  return undefined;
+}
+
 // ---- tracing-subscriber: Registry, Layer, Context -------------------------------------------------------------------
 
 /** `registry::sharded::DataInner`: a span's metadata, parent, ref count and extensions. */

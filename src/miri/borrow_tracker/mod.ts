@@ -8,8 +8,8 @@
 // - Inherent methods of the enums `BorrowTrackerMethod` and `AllocState` live on their companions (PORTING §8).
 // - `VisitProvenance` (provenance_gc.ts): `GlobalStateInner` is a class, so a prototype method; `FrameState` (an
 //   interface) and `AllocState` (a union) get impl tables `VisitProvenance_FrameState` / `VisitProvenance_AllocState`.
-// - `enter_trace_span!` is a comment (the release oracle has no tracing spans); `info!` / `trace!` are verbatim comments
-//   (lane miri-log converts the `info!` ones).
+// - `enter_trace_span!` is a comment (the release oracle has no tracing spans); `trace!` lines are verbatim comments; the
+//   one `info!` (`retag_ptr_value`) is live (lane miri-log-fix, src/rust_ts/tracing.ts).
 // - Stacked Borrows (lane miri-sb) and Tree Borrows (wave 38) are reached through their skeleton declarations.
 import { type AccessKind, type AllocState as gen_AllocState, BorrowTrackerMethod as gen_BorrowTrackerMethod, type FrameState, GlobalStateInner, type TreeBorrowsParams } from "./mod.gen.ts";
 import { Stacks } from "./stacked_borrows/mod.ts";
@@ -17,17 +17,20 @@ import { Tree } from "./tree_borrows/tree.ts";
 import { type MiriConfig } from "../eval.ts";
 import { type ImmTy, type MPlaceTy, type Pointer } from "../lib.ts";
 import { AllocExtra } from "../machine.ts";
-import { type FrameExtra, type MemoryKind, type MiriInterpCx, type MiriMachine, type Provenance, type ProvenanceExtra } from "../machine.ts";
+import { type FrameExtra, type MemoryKind, type MiriInterpCx, type MiriMachine, type Provenance, type ProvenanceExtra, debug_Provenance } from "../machine.ts";
+import { debug_Immediate } from "../../rustc_const_eval/interpret/operand.gen.ts";
+import { display_Ty } from "../../rustc_middle/ty/print/pretty.ts";
+import * as tracing from "../../rust_ts/tracing.ts";
 import { type LiveAllocs, type VisitWith } from "../provenance_gc.ts";
 import { type Size } from "../../rustc_abi/lib.ts";
 import { InterpCx } from "../../rustc_const_eval/interpret/eval_context.ts";
-import { type RetagMode } from "../../rustc_const_eval/interpret/machine.gen.ts";
+import { type RetagMode, debug_RetagMode } from "../../rustc_const_eval/interpret/machine.gen.ts";
 import { type AnyMachine, type Machine } from "../../rustc_const_eval/interpret/machine.ts";
 import { type Frame } from "../../rustc_const_eval/interpret/stack.gen.ts";
 import { type AllocRange } from "../../rustc_middle/mir/interpret/allocation.ts";
 import { type AllocId, interp_ok, type InterpResult } from "../../rustc_middle/mir/interpret/mod.ts";
 import { type Ty } from "../../rustc_middle/ty/mod.ts";
-import { type Debug } from "../../std/fmt.ts";
+import { type Debug, PLAIN } from "../../std/fmt.ts";
 import { port_methods } from "../../rust_ts/miri_stub.ts";
 import { panic, unwrap } from "../../std/panic.ts";
 import { writeSync } from "node:fs";
@@ -322,7 +325,12 @@ InterpCx.prototype.retag_ptr_value = function (this: MiriInterpCx, val: ImmTy, t
   const state = unwrap(this_.machine.borrow_tracker);
   const method = state.borrow_tracker_method;
   const retag_mode = state.retag_mode;
-  // info!("retag_ptr_value: type={ty}, mode={retag_mode:?}, val={:?}", **val);
+  if (tracing.INFO_ENABLED) {
+    tracing.info(
+      "miri::borrow_tracker",
+      () => `retag_ptr_value: type=${display_Ty(ty)}, mode=${debug_RetagMode(retag_mode, PLAIN)}, val=${debug_Immediate(val.imm, PLAIN, debug_Provenance)}`,
+    );
+  }
   switch (method.$) {
     case "StackedBorrows":
       return this_.sb_retag_ptr_value(val, ty, retag_mode);

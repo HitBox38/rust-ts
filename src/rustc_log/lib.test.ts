@@ -4,13 +4,16 @@
 //   tracing_oracle/gen.ts (expected.json); a second test checks the fixtures are the current oracle output.
 // - Format: the event path of src/rust_ts/tracing_tree.ts on cases the fixture crate does not reach (named fields,
 //   ERROR, multi-line messages, recursion), with the bytes tracing-tree 0.4.1's code produces.
+// - Converted targets: a `RUSTC_LOG` filter that enables INFO outside `INFO_CONVERTED_TARGETS` (src/rust_ts/tracing.ts)
+//   stops with `unported`; within them it runs.
 import { afterEach, expect, test } from "bun:test";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { type Outcome, run_oracle, run_variant, tydump_probe, VARIANTS } from "./tracing_oracle/gen.ts";
 import { LoggerConfig, display_Error, init_logger } from "./lib.ts";
-import { error, reset_global_default_for_tests, set_global_default, LayeredSubscriber, warn } from "../rust_ts/tracing.ts";
+import { INFO_CONVERTED_TARGETS, error, reset_global_default_for_tests, set_global_default, LayeredSubscriber, warn } from "../rust_ts/tracing.ts";
 import { HierarchicalLayer, type Writer } from "../rust_ts/tracing_tree.ts";
+import { Unported } from "../std/panic.ts";
 import { Err, Ok } from "../std/result.ts";
 
 const HERE = import.meta.dir;
@@ -117,4 +120,36 @@ test("rustc_log errors", () => {
   expect(again.$ === "Err" && display_Error(again._0)).toBe("a global default trace dispatcher has already been set");
   const bad = init_logger(cfg({ wrap: "x" }));
   expect(bad.$ === "Err" && display_Error(bad._0)).toBe("invalid log WRAPTREE value 'x': expected a non-negative integer");
+});
+
+test("a filter that enables INFO outside the converted targets stops (unported); inside them it runs", () => {
+  const cfg = (filter: string) => {
+    const no = Err({ $: "NotPresent" as const });
+    return new LoggerConfig(Ok(filter), no, no, no, no, no, no, no, no);
+  };
+  // rustc prints INFO events of these targets that are still comments in the port: a loud stop, not partial output.
+  for (const f of [
+    "rustc_infer=info",
+    "info",
+    "warn,rustc_infer::infer=info",
+    "no_such_target=info",
+    "rustc_const_eval::interp=info", // a string prefix of `rustc_const_eval::interpret`, but not within it
+    "rustc_const_eval=info",
+    // `MIRI_LOG=info` (bin/log/setup.rs): `miri::eval` and `miri::concurrency::thread` are not converted yet.
+    "rustc_middle::mir::interpret=info,rustc_const_eval::interpret=info,miri=info",
+  ]) {
+    expect(() => init_logger(cfg(f))).toThrow(Unported);
+    reset_global_default_for_tests();
+  }
+  for (const f of [
+    "rustc_const_eval::interpret=info",
+    "rustc_const_eval::interpret::step=info,rustc_infer=warn",
+    "rustc_middle::mir::interpret=info,rustc_const_eval::interpret=info,miri::machine=info,miri::borrow_tracker=info",
+    "rustc_infer=warn,error",
+    "off,rustc_infer=off", // no INFO anywhere
+  ]) {
+    expect(init_logger(cfg(f))).toEqual(Ok(null));
+    reset_global_default_for_tests();
+  }
+  expect(INFO_CONVERTED_TARGETS).toEqual(["rustc_const_eval::interpret", "rustc_middle::mir::interpret", "miri::machine", "miri::borrow_tracker"]);
 });

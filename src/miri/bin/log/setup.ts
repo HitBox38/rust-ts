@@ -8,8 +8,10 @@ import { LoggerConfig } from "../../../rustc_log/lib.ts";
 import { type TyCtxt } from "../../../rustc_middle/ty/context.ts";
 import { type CtfeBacktrace, type EarlyDiagCtxt } from "../../../rustc_session/session.ts";
 import { Level_from_str } from "../../../rust_ts/tracing.ts";
-import { unported } from "../../../std/panic.ts";
 import { Ok } from "../../../std/result.ts";
+// PORT: `crate::fatal_error!` is the binary crate's macro (bin/miri.rs). This import is a cycle (miri.ts imports this
+// module); `fatal_error` is only read when `MIRI_TRACING` is set, long after both modules are evaluated.
+import { fatal_error } from "../miri.ts";
 
 /// The tracing layer from `tracing-chrome` starts a thread in the background that saves data to
 /// file and closes the file when stopped. If the thread is not stopped properly, the file will be
@@ -68,12 +70,7 @@ function init_logger_once(early_dcx: EarlyDiagCtxt): void {
     let guard: TracingGuard | undefined;
     if (process.env["MIRI_TRACING"] !== undefined) {
       // #[cfg(not(feature = "tracing"))]
-      // crate::fatal_error!(
-      //     "Cannot enable MIRI_TRACING since Miri was not built with the \"tracing\" feature"
-      // );
-      // PORT(contract): pending miri-driver: `fatal_error_` (bin/miri.rs:349) is not exported yet; call it here
-      // (`fatal error: Cannot enable MIRI_TRACING since Miri was not built with the "tracing" feature`, exit 1).
-      return unported("miri(bin)::fatal_error_ (bin/miri.rs:349; lane miri-driver): MIRI_TRACING without the tracing feature");
+      fatal_error('Cannot enable MIRI_TRACING since Miri was not built with the "tracing" feature');
     } else {
       // initialize the logger without any tracing enabled
       rustc_driver.init_logger(early_dcx, rustc_logger_config());

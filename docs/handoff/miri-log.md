@@ -181,8 +181,12 @@ Mechanically:
 - Replace the `MIRI_TRACING` `unported` (§4).
 
 ### 5c. `rustc_const_eval/const_eval/eval_queries.ts` (not this lane's file; needs an owner)
-Upstream `eval_in_interpreter` takes `ecx` by value and drops it at the end. On a CTFE **error** the frames still on
-the stack are dropped then, which exits their `frame` spans. The port never drops the `InterpCx`, so with a
+(Corrected by lane `miri-log-fix`, which landed the fix; see `docs/handoff/miri-log-fix.md`.) Upstream
+`eval_in_interpreter` does not take an `ecx`: it creates `let mut ecx = InterpCx::new(..)` as a local
+(`eval_queries.rs:452`), and the local is dropped when the function returns, after `report_err().map_err(|error|
+report_eval_error(&ecx, ..))` (`:467-468`) has used it. `InterpCx` has no `Drop` impl; dropping its `machine` drops
+`CompileTimeMachine::stack: Vec<Frame>` front to back. On a CTFE **error** the frames still on the stack are dropped
+then, and each `Frame`'s `SpanGuard` exits its `frame` span. The port never drops the `InterpCx`, so with a
 `RUSTC_LOG` filter that enables `rustc_const_eval::interpret` the next constant's frames nest under the failed one's.
 I confirmed this with a temporary patch, since reverted: 4 of 4 diverging tests/ui/consts files matched after adding,
 at the end of `eval_in_interpreter`, after the result is computed:

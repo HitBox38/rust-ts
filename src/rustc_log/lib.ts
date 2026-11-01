@@ -8,7 +8,8 @@
 // src/rust_ts/tracing_tree.ts (the `HierarchicalLayer` event path). Ported: the default configuration rustc uses
 // when `RUSTC_LOG` is unset (WARN and ERROR events on stderr) and the env options that only change that output.
 // A `RUSTC_LOG` filter is an `EnvFilter` of static directives (src/rust_ts/tracing.ts; span-name and field filters
-// are `unported` there). Not ported (`unported`): `RUSTC_LOG_FORMAT_JSON`, `RUSTC_LOG_BACKTRACE` output and
+// are `unported` there). A filter that enables INFO outside the targets whose INFO sites are live
+// (`INFO_CONVERTED_TARGETS` there) stops with `unported` (it would print fewer lines than rustc). Not ported (`unported`): `RUSTC_LOG_FORMAT_JSON`, `RUSTC_LOG_BACKTRACE` output and
 // `RUSTC_LOG_THREAD_IDS` output.
 import { openSync } from "node:fs";
 import { isatty } from "node:tty";
@@ -16,7 +17,7 @@ import { PLAIN } from "../std/fmt.ts";
 import { debug_IoError, io_error_from_node } from "../std/io.ts";
 import { unported } from "../std/panic.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
-import { Directive, EnvFilter, type Event, type Layer, LayeredSubscriber, type SetGlobalDefaultError, display_SetGlobalDefaultError, set_global_default } from "../rust_ts/tracing.ts";
+import { Directive, EnvFilter, type Event, INFO_CONVERTED_TARGETS, display_LevelFilter, unconverted_info_directive, type Layer, LayeredSubscriber, type SetGlobalDefaultError, display_SetGlobalDefaultError, set_global_default } from "../rust_ts/tracing.ts";
 import { HierarchicalLayer, type Writer, fd_writer, stderr_writer } from "../rust_ts/tracing_tree.ts";
 
 /** `std::env::VarError` */
@@ -87,6 +88,15 @@ export function init_logger_with_additional_layer(cfg: LoggerConfig, build_subsc
   let filter: EnvFilter;
   if (cfg.filter.$ === "Ok") {
     filter = EnvFilter.new(cfg.filter._0);
+    // PORT: not upstream. A filter that enables INFO for a target whose INFO sites are still comments would print
+    // fewer lines than rustc, so it stops (`unported`), as every `RUSTC_LOG` filter did before. The converted targets
+    // are listed once, in `INFO_CONVERTED_TARGETS` (src/rust_ts/tracing.ts).
+    const bad = unconverted_info_directive(filter);
+    if (bad !== undefined) {
+      return unported(
+        `RUSTC_LOG/MIRI_LOG directive \`${bad.target === undefined ? "" : `${bad.target}=`}${display_LevelFilter(bad.level)}\` enables INFO for a target whose INFO events are not converted (live only within: ${INFO_CONVERTED_TARGETS.join(", ")})`,
+      );
+    }
   } else {
     filter = EnvFilter.default().add_directive(Directive.from("WARN"));
   }

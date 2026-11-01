@@ -34,7 +34,9 @@ export const VARIANTS: Record<string, Record<string, string>> = {
   filter_crate: { RUSTC_LOG: "rustc_infer=warn" },
   filter_other_target: { RUSTC_LOG: "rustc_errors=warn" },
   filter_more_specific: { RUSTC_LOG: "warn,rustc_infer::infer::relate=error" },
-  filter_static_max: { RUSTC_LOG: "no_such_target=debug,rustc_infer=warn" },
+  // (The DEBUG directive stays within a converted INFO target, `INFO_CONVERTED_TARGETS` in src/rust_ts/tracing.ts:
+  // elsewhere the port stops with `unported`.)
+  filter_static_max: { RUSTC_LOG: "rustc_const_eval::interpret::no_such_module=debug,rustc_infer=warn" },
 };
 
 export interface Outcome {

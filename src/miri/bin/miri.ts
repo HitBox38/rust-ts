@@ -414,13 +414,13 @@ function exit(exit_code: number): never {
 }
 
 // rustc: src/tools/miri/src/bin/miri.rs:349 fatal_error_
-function fatal_error_(msg: string): never {
+export function fatal_error_(msg: string): never {
   eprintln(`fatal error: ${msg}`);
   return exit(1);
 }
 
 // macro_rules! fatal_error { ($($tt:tt)*) => { $crate::fatal_error_(&format_args!($($tt)*)) }; }
-const fatal_error: (msg: string) => never = fatal_error_;
+export const fatal_error: (msg: string) => never = fatal_error_;
 
 /// Execute a compiler with the given CLI arguments and callbacks.
 // rustc: src/tools/miri/src/bin/miri.rs:361 run_compiler_and_exit
