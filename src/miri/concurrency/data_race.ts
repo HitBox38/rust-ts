@@ -53,11 +53,12 @@
 // concurrency/genmc/dummy.rs and nothing can construct one).
 // PORT: `trace!` lines are kept as comments (A6: only `info!` events are ported, by lane miri-log; this file has none).
 import * as gen from "./data_race.gen.ts";
-import { AtomicAccessType, AtomicMemoryCellClocks, FrameState, GlobalState, type LocalClocks, MemoryCellClocks, ThreadClockSet, type ThreadExtraState, VClockAlloc } from "./data_race.gen.ts";
+import { AtomicAccessType, AtomicMemoryCellClocks, FrameState, GlobalState, type LocalClocks, MemoryCellClocks, ThreadClockSet, type ThreadExtraState, VClockAlloc, clone_MemoryCellClocks } from "./data_race.gen.ts";
 import { GlobalDataRaceHandler, AllocDataRaceHandler } from "./data_race_handler.ts";
 import { ThreadId, type ThreadManager } from "./thread.ts";
-import { VClock, VTimestamp, VectorIdx, VTimestamp_cmp, clone_VClock } from "./vector_clock.ts";
+import { VClock, VClock_eq, VTimestamp, VTimestamp_eq, VectorIdx, VTimestamp_cmp, clone_VClock } from "./vector_clock.ts";
 import { clone_VTimestamp } from "./vector_clock.gen.ts";
+import { type DedupRange } from "../data_structures/dedup_range_map.ts";
 import { DedupRangeMap } from "../data_structures/dedup_range_map.ts";
 import { type RacingOp, type TerminationInfo } from "../diagnostics.ts";
 import { type MiriConfig } from "../eval.ts";
@@ -309,11 +310,31 @@ function canon(idx: VectorIdx): VectorIdx {
 /** `#[derive(Hash)]` of `VectorIdx(u32)`: `write_u32`; `size_of::<VectorIdx>() == 4`. */
 const VectorIdx_key: KeyType<VectorIdx> = { hash: (k, state) => state.write_u32(k._0), size: 4, align: 4 };
 
-/** The start of a `DedupRangeMap` iteration range. PORT(contract): pending miri-driver: `DedupRangeMap::iter*` yield
- * `(ops::Range<u64>, &T)`, declared with a `Pending` range; the stored `Elem.range` is `{ start: number; end: number }`
- * (decision C5 amendment). */
-function range_start(range: Pending<"ops::Range<u64>">): number {
-  return (range as unknown as { start: number }).start;
+/** The start of a `DedupRangeMap` iteration range (`ops::Range<u64>`, a `DedupRange`: decision C5 amendment). */
+function range_start(range: DedupRange): number {
+  return range.start;
+}
+
+/** `#[derive(PartialEq)]` of `AtomicMemoryCellClocks` (data_race.rs:219): every field, in order. */
+function AtomicMemoryCellClocks_eq(a: AtomicMemoryCellClocks, b: AtomicMemoryCellClocks): boolean {
+  return (
+    VClock_eq(a.read_vector, b.read_vector) &&
+    VClock_eq(a.write_vector, b.write_vector) &&
+    VClock_eq(a.sync_vector, b.sync_vector) &&
+    (a.size === undefined ? b.size === undefined : b.size !== undefined && Size_eq(a.size, b.size))
+  );
+}
+
+/** `#[derive(PartialEq)]` of `MemoryCellClocks` (data_race.rs:316), the `T: PartialEq` of its `DedupRangeMap`: every field,
+ * in order (`(VectorIdx, VTimestamp)` elementwise, `Option<Box<_>>` by value). */
+function MemoryCellClocks_eq(a: MemoryCellClocks, b: MemoryCellClocks): boolean {
+  return (
+    a.write[0]._0 === b.write[0]._0 &&
+    VTimestamp_eq(a.write[1], b.write[1]) &&
+    a.write_type === b.write_type &&
+    VClock_eq(a.read, b.read) &&
+    (a.atomic_ops === undefined ? b.atomic_ops === undefined : b.atomic_ops !== undefined && AtomicMemoryCellClocks_eq(a.atomic_ops, b.atomic_ops))
+  );
 }
 
 /** `Immediate::to_scalar` of a Miri immediate. PORT(contract): pending interp-generic: rustc_const_eval's
@@ -1408,7 +1429,7 @@ VClockAlloc.prototype.read_non_atomic = function (
   }
   const [index, thread_clocks] = global.active_thread_state_mut(machine.threads);
   const alloc_ranges = this.alloc_ranges;
-  for (const [mem_clocks_range, mem_clocks] of alloc_ranges.iter_mut(access_range.start, access_range.size)) {
+  for (const [mem_clocks_range, mem_clocks] of alloc_ranges.iter_mut(access_range.start, access_range.size, clone_MemoryCellClocks, MemoryCellClocks_eq)) {
     if (mem_clocks.non_atomic_read_detect(thread_clocks, index, read_type, current_span).$ === "Err") {
       // drop(thread_clocks);
       // Report data-race.
@@ -1446,7 +1467,7 @@ VClockAlloc.prototype.write_non_atomic = function (
     return interp_ok(undefined);
   }
   const [index, thread_clocks] = global.active_thread_state_mut(machine.threads);
-  for (const [mem_clocks_range, mem_clocks] of this.alloc_ranges.iter_mut(access_range.start, access_range.size)) {
+  for (const [mem_clocks_range, mem_clocks] of this.alloc_ranges.iter_mut(access_range.start, access_range.size, clone_MemoryCellClocks, MemoryCellClocks_eq)) {
     if (mem_clocks.non_atomic_write_detect(thread_clocks, index, write_type, current_span).$ === "Err") {
       // drop(thread_clocks);
       // Report data-race
@@ -1776,7 +1797,7 @@ InterpCx.prototype.validate_atomic_op = function <A>(
   const current_span = this_.machine.current_user_relevant_span();
   // Perform the atomic operation.
   const r = data_race.maybe_perform_sync_operation(this_.machine.threads, current_span, (index, thread_clocks) => {
-    for (const [mem_clocks_range, mem_clocks] of alloc_meta.alloc_ranges.iter_mut(base_offset, size)) {
+    for (const [mem_clocks_range, mem_clocks] of alloc_meta.alloc_ranges.iter_mut(base_offset, size, clone_MemoryCellClocks, MemoryCellClocks_eq)) {
       if (op(mem_clocks, thread_clocks, index, atomic).$ === "Err") {
         // mem::drop(thread_clocks);
         const rep = VClockAlloc.report_data_race(
