@@ -279,19 +279,62 @@ function dirsHash(base: string, dirs: string[]): string {
   return hash(files.map((f) => `${f}\0${hash(readFileSync(join(base, f)))}`).join("\n"));
 }
 
-/** A crate's aux directory unused (not touched by `oracleLibRmeta`) for this long is removed by its next build. */
+/**
+ * A crate's aux directory unused (not touched by `oracleLibRmeta`) for this long is removed by its next build. The same
+ * age applies to `mini_core-<key>` (harness/suites.ts `oracleAuxRmeta`) and `aux/ui/<key>` (harness/compiletest.ts
+ * `buildAux`; lane harness-w36).
+ */
 export const AUX_STALE_MS = 3 * 24 * 3600 * 1000;
 
 /**
- * Removes crate `name`'s aux directories under `auxDir` (`m5-<name>-<key>`, and `.tmp-<pid>` leftovers) other than
- * `keep` whose mtime is more than `staleMs` before `now`; returns the names removed.
+ * Removes crate `name`'s aux directories under `auxDir` (`<prefix><name>-<key>`, default prefix `m5-`, and `.tmp-<pid>`
+ * leftovers) other than `keep` whose mtime is more than `staleMs` before `now`; returns the names removed. Also used
+ * for harness/suites.ts's `mini_core-<key>` (prefix `""`; lane harness-w36).
  */
-export function pruneStaleAux(auxDir: string, name: string, keep: string, now: number = Date.now(), staleMs: number = AUX_STALE_MS): string[] {
-  const re = new RegExp(`^m5-${name}-[0-9a-f]{16}(?:\\.tmp-\\d+)?$`);
+export function pruneStaleAux(auxDir: string, name: string, keep: string, now: number = Date.now(), staleMs: number = AUX_STALE_MS, prefix = "m5-"): string[] {
+  const re = new RegExp(`^${prefix}${name}-[0-9a-f]{16}(?:\\.tmp-\\d+)?$`);
   const removed: string[] = [];
   for (const n of readdirSync(auxDir)) {
     if (n === keep || !re.test(n)) continue;
     const p = join(auxDir, n);
+    try {
+      if (now - statSync(p).mtimeMs <= staleMs) continue;
+      rmSync(p, { recursive: true, force: true });
+      removed.push(n);
+    } catch {
+      // Removed by a concurrent process.
+    }
+  }
+  return removed;
+}
+
+/** Marks aux directory `dir` as in use (its mtime), so pruning keeps it for AUX_STALE_MS. Best effort: never fails. */
+export function touchAuxDir(dir: string): void {
+  try {
+    const now = new Date();
+    utimesSync(dir, now, now);
+  } catch {
+    // (read-only data dir, or removed concurrently: the caller's existence check already passed)
+  }
+}
+
+/**
+ * Removes the per-case aux directories of harness/compiletest.ts (`aux/ui/<key>`, keyed by case id and every aux
+ * input, so a key change leaves the old one behind and no directory names its case) other than `keep` that were not
+ * used (touched by `buildAux`) for `staleMs`; returns the names removed (lane harness-w36). A test not run for that
+ * long only costs a rebuild. `.tmp-<pid>` leftovers are compiletest.ts `cleanStaleAuxTmps`'s.
+ */
+export function pruneStaleUiAux(uiDir: string, keep: string, now: number = Date.now(), staleMs: number = AUX_STALE_MS): string[] {
+  const removed: string[] = [];
+  let names: string[];
+  try {
+    names = readdirSync(uiDir);
+  } catch {
+    return removed;
+  }
+  for (const n of names) {
+    if (n === keep || !/^[0-9a-f]{16}$/.test(n)) continue;
+    const p = join(uiDir, n);
     try {
       if (now - statSync(p).mtimeMs <= staleMs) continue;
       rmSync(p, { recursive: true, force: true });
@@ -334,12 +377,7 @@ export function oracleLibRmeta(name: string): string {
     pruneStaleAux(join(DATA, "aux"), name, `m5-${name}-${key}`);
   } else {
     // In use: keeps it from `pruneStaleAux` for AUX_STALE_MS. Best effort: a failed touch must not fail the case.
-    try {
-      const now = new Date();
-      utimesSync(dir, now, now);
-    } catch {
-      // (read-only data dir, or removed concurrently: the existence check above already passed)
-    }
+    touchAuxDir(dir);
   }
   rmetaMemo.set(name, out);
   return out;
