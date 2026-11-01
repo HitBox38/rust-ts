@@ -42,7 +42,12 @@ import {
 import type { Bound, Range } from "./server.ts";
 
 export * as client from "./client.ts";
-export * as server from "./server.ts";
+// PORT: `pub mod server;` is a type-only re-export. server.rs's `impl client::Client { fn run1/run2 }` makes
+// server.ts an extension module of client.ts (PORTING §5 "Methods defined in another file"), and client.ts
+// value-imports this module, so evaluating server.ts from here ran its `Client.prototype.run1 = ..` before client.ts
+// defined `Client` whenever client.ts (or symbol.ts / diagnostic.ts) was the first module loaded. The crate root
+// (lib.ts) imports server.ts for its side effects; other users value-import it directly.
+export type * as server from "./server.ts";
 export { Buffer } from "./buffer.ts";
 export { PanicMessage } from "./panic_message.ts";
 
@@ -792,9 +797,15 @@ export function decode_Range<S>(r: MutRef<Uint8Array>, s: S, decode_T: Decode<nu
   return { start, end };
 }
 
-/** `rpc_encode_decode!(enum ..)` for a fieldless enum: the tag is the variant's index as a `u8`. */
+/**
+ * `rpc_encode_decode!(enum ..)` for a fieldless enum: the tag is the variant's index as a `u8`.
+ * PORT: upstream's `match self` is exhaustive; a value outside `variants` (ill-typed caller) is `unreachable!()`, as
+ * in `decode_tag`, instead of encoding `indexOf`'s -1 as the byte 255.
+ */
 function encode_tag<T, S>(variants: readonly T[], self: T, w: Buffer, s: S): void {
-  encode_u8(variants.indexOf(self), w, s);
+  const tag = variants.indexOf(self);
+  if (tag === -1) return unreachable();
+  encode_u8(tag, w, s);
 }
 
 /** `rpc_encode_decode!(enum ..)` for a fieldless enum: an unknown tag is `unreachable!()`. */

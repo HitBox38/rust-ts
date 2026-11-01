@@ -182,9 +182,9 @@ function unreachable_from(_base: unknown): never {
   return bug("`From<MPlaceTy>` is not implemented for this projectable");
 }
 
-/** `throw_ub!(BoundsCheckFailed { len, index })`. PORT: the error's `u64` fields are numbers (error.gen.ts). */
+/** `throw_ub!(BoundsCheckFailed { len, index })`. PORT: the error's `u64` fields are exact bigints (error.gen.ts, mir.typemap.json `fields`). */
 function bounds_check_failed<T>(len: bigint, index: bigint): InterpResult<T> {
-  return Err(InterpErrorInfo_from_InterpErrorKind({ $: "UndefinedBehavior", _0: { $: "BoundsCheckFailed", len: Number(len), index: Number(index) } }));
+  return Err(InterpErrorInfo_from_InterpErrorKind({ $: "UndefinedBehavior", _0: { $: "BoundsCheckFailed", len, index } }));
 }
 
 const U64_MAX = (1n << 64n) - 1n;
