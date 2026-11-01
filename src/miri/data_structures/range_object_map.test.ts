@@ -7,6 +7,7 @@ import { Err, Ok } from "../../std/result.ts";
 import "../lib.ts";
 import { RangeObjectMap } from "./range_object_map.ts";
 
+// rustc: src/tools/miri/src/data_structures/range_object_map.rs:151 empty_map
 test("empty_map", () => {
   // FIXME: make Size::from_bytes const
   const four = Size.from_bytes(4);
@@ -20,6 +21,7 @@ test("empty_map", () => {
 });
 
 // #[should_panic]
+// rustc: src/tools/miri/src/data_structures/range_object_map.rs:165 no_overlapping_inserts
 test("no_overlapping_inserts", () => {
   const four = Size.from_bytes(4);
 
@@ -33,6 +35,7 @@ test("no_overlapping_inserts", () => {
   expect(() => map.insert_at_pos(0, alloc_range(Size.from_bytes(1), four), "@")).toThrow(Panic);
 });
 
+// rustc: src/tools/miri/src/data_structures/range_object_map.rs:179 boundaries
 test("boundaries", () => {
   const four = Size.from_bytes(4);
 
@@ -60,6 +63,7 @@ test("boundaries", () => {
   expect(map.access_type(alloc_range(four, four))).toEqual({ $: "Empty", _0: 1 });
 });
 
+// rustc: src/tools/miri/src/data_structures/range_object_map.rs:207 perfectly_overlapping
 test("perfectly_overlapping", () => {
   const four = Size.from_bytes(4);
 
@@ -82,6 +86,7 @@ test("perfectly_overlapping", () => {
   expect(map.access_type(alloc_range(four, four))).toEqual({ $: "PerfectlyOverlapping", _0: 1 });
 });
 
+// rustc: src/tools/miri/src/data_structures/range_object_map.rs:233 straddling
 test("straddling", () => {
   const four = Size.from_bytes(4);
 

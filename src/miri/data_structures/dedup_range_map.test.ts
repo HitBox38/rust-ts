@@ -9,6 +9,7 @@ const clone_i32 = (v: number): number => v;
 const eq_i32 = (a: number, b: number): boolean => a === b;
 
 /// Query the map at every offset in the range and collect the results.
+// rustc: src/tools/miri/src/data_structures/dedup_range_map.rs:249 to_vec
 function to_vec(map: DedupRangeMap<number>, offset: number, len: number): number[] {
   const out: number[] = [];
   for (let i = offset; i < offset + len; i++) {
@@ -19,6 +20,7 @@ function to_vec(map: DedupRangeMap<number>, offset: number, len: number): number
   return out;
 }
 
+// rustc: src/tools/miri/src/data_structures/dedup_range_map.rs:258 basic_insert
 test("basic_insert", () => {
   const map = DedupRangeMap.new<number>(Size.from_bytes(20), -1);
   // Insert.
@@ -40,6 +42,7 @@ test("basic_insert", () => {
   expect(map.v.length).toBe(3);
 });
 
+// rustc: src/tools/miri/src/data_structures/dedup_range_map.rs:280 gaps
 test("gaps", () => {
   const map = DedupRangeMap.new<number>(Size.from_bytes(20), -1);
   for (const [, , x] of map.iter_mut(Size.from_bytes(11), Size.from_bytes(1), clone_i32, eq_i32)) {
@@ -75,22 +78,26 @@ test("gaps", () => {
 });
 
 // #[should_panic]
+// rustc: src/tools/miri/src/data_structures/dedup_range_map.rs:321 out_of_range_iter_mut
 test("out_of_range_iter_mut", () => {
   const map = DedupRangeMap.new<number>(Size.from_bytes(20), -1);
   expect(() => map.iter_mut(Size.from_bytes(11), Size.from_bytes(11), clone_i32, eq_i32)).toThrow(Panic);
 });
 
 // #[should_panic]
+// rustc: src/tools/miri/src/data_structures/dedup_range_map.rs:328 out_of_range_iter
 test("out_of_range_iter", () => {
   const map = DedupRangeMap.new<number>(Size.from_bytes(20), -1);
   expect(() => map.iter(Size.from_bytes(11), Size.from_bytes(11))).toThrow(Panic);
 });
 
+// rustc: src/tools/miri/src/data_structures/dedup_range_map.rs:334 empty_map_iter
 test("empty_map_iter", () => {
   const map = DedupRangeMap.new<number>(Size.from_bytes(0), -1);
   map.iter(Size.from_bytes(0), Size.from_bytes(0));
 });
 
+// rustc: src/tools/miri/src/data_structures/dedup_range_map.rs:340 empty_map_iter_mut
 test("empty_map_iter_mut", () => {
   const map = DedupRangeMap.new<number>(Size.from_bytes(0), -1);
   map.iter_mut(Size.from_bytes(0), Size.from_bytes(0), clone_i32, eq_i32);
