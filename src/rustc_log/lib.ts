@@ -7,15 +7,16 @@
 // kept for greppability. The tracing stack it builds is modelled by src/rust_ts/tracing.ts (dispatch, filter) and
 // src/rust_ts/tracing_tree.ts (the `HierarchicalLayer` event path). Ported: the default configuration rustc uses
 // when `RUSTC_LOG` is unset (WARN and ERROR events on stderr) and the env options that only change that output.
-// Not ported (`unported`): a `RUSTC_LOG` filter (EnvFilter directives), `RUSTC_LOG_FORMAT_JSON`,
-// `RUSTC_LOG_BACKTRACE` output and `RUSTC_LOG_THREAD_IDS` output.
+// A `RUSTC_LOG` filter is an `EnvFilter` of static directives (src/rust_ts/tracing.ts; span-name and field filters
+// are `unported` there). Not ported (`unported`): `RUSTC_LOG_FORMAT_JSON`, `RUSTC_LOG_BACKTRACE` output and
+// `RUSTC_LOG_THREAD_IDS` output.
 import { openSync } from "node:fs";
 import { isatty } from "node:tty";
 import { PLAIN } from "../std/fmt.ts";
 import { debug_IoError, io_error_from_node } from "../std/io.ts";
 import { unported } from "../std/panic.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
-import { type Event, type Layer, LayeredSubscriber, type SetGlobalDefaultError, display_SetGlobalDefaultError, set_global_default } from "../rust_ts/tracing.ts";
+import { Directive, EnvFilter, type Event, type Layer, LayeredSubscriber, type SetGlobalDefaultError, display_SetGlobalDefaultError, set_global_default } from "../rust_ts/tracing.ts";
 import { HierarchicalLayer, type Writer, fd_writer, stderr_writer } from "../rust_ts/tracing_tree.ts";
 
 /** `std::env::VarError` */
@@ -83,14 +84,11 @@ function Registry_default(): Layer[] {
 /// for example: `|| Registry::default().with(custom_layer)`.
 // rustc: compiler/rustc_log/src/lib.rs:109 init_logger_with_additional_layer
 export function init_logger_with_additional_layer(cfg: LoggerConfig, build_subscriber: () => Layer[]): Result<null, Error> {
-  // PORT: `EnvFilter` is reduced to the default case's single static directive (a max level).
-  let filter: "WARN";
+  let filter: EnvFilter;
   if (cfg.filter.$ === "Ok") {
-    // `EnvFilter::new(env)`
-    return unported("tracing_subscriber::EnvFilter::new (a RUSTC_LOG filter)");
+    filter = EnvFilter.new(cfg.filter._0);
   } else {
-    // `EnvFilter::default().add_directive(Directive::from(LevelFilter::WARN))`
-    filter = "WARN";
+    filter = EnvFilter.default().add_directive(Directive.from("WARN"));
   }
 
   let color_logs: boolean;
