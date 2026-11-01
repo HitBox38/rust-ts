@@ -5,8 +5,10 @@
 // PORT decisions (docs/handoff/miri-threads.md):
 // - `ThreadId(u32)` is the generated class (`{ _0 }`). Equality is `ThreadId_eq` (derived `PartialEq`), and every
 //   `ThreadId` this module makes (`Idx::new`, `new_unchecked`, `MAIN_THREAD`, `thread_id_try_from`) is the one canonical
-//   instance per id (`thread_id_of`), so a plain JS `Map<ThreadId, _>` keyed by identity (e.g. `MiriMachine.
-//   thread_cpu_affinity`) behaves like the Rust map. Maps this module owns are keyed by value anyway.
+//   instance per id (`thread_id_of`). Maps keyed by `ThreadId` are value-keyed nonetheless (lane miri-threads-fix):
+//   `FxKeyedMap` / `KeyedMap` with `ThreadId_key` / `ThreadId_value_key` (`RwLock.readers`, `BlockingIoSource.
+//   blocked_threads`, `thread_local_allocs`; the generated field types say so through the typemap `fields`). A plain
+//   `Map<ThreadId, _>` (e.g. lane miri-machine's `MiriMachine.thread_cpu_affinity`) relies on the canonical instances.
 // - `IndexVec<ThreadId, Thread>` is `Thread[]` indexed by `id.index()`.
 // - `ThreadManager.thread_local_allocs` (`FxHashMap<(DefId, ThreadId), StrictPointer>`) is an `FxKeyedMap`, so `retain`
 //   in `terminate_active_thread` frees the TLS statics in hashbrown bucket order, as upstream.
@@ -20,8 +22,6 @@
 // - GenMC arms stop with `unported("genmc")` (lane brief; the `GenmcCtx` of genmc/dummy.rs cannot be constructed).
 import * as clock from "../clock.ts";
 import { type Deadline } from "../clock.ts";
-import * as machine from "../machine.ts";
-import * as provenance_gc from "../provenance_gc.ts";
 import * as gen from "./thread.gen.ts";
 import {
   type BlockReason,
@@ -40,8 +40,18 @@ import {
 } from "./thread.gen.ts";
 import { type MiriConfig } from "../eval.ts";
 import { type ImmTy, type MPlaceTy, type PlaceTy, type Pointer, type Scalar, type StrictPointer } from "../lib.ts";
-import { type FrameExtra, type MiriInterpCx, MemoryKind_from_MiriMemoryKind, type Provenance } from "../machine.ts";
-import { type VisitWith } from "../provenance_gc.ts";
+import { type FrameExtra, type MiriInterpCx, MemoryKind_from_MiriMemoryKind, type Provenance, VisitProvenance_FrameExtra } from "../machine.ts";
+import {
+  type VisitWith,
+  VisitProvenance_ImmTy,
+  VisitProvenance_Immediate,
+  VisitProvenance_MPlaceTy,
+  VisitProvenance_MemPlaceMeta,
+  VisitProvenance_PlaceTy,
+  VisitProvenance_Pointer,
+  VisitProvenance_Scalar,
+  VisitProvenance_StrictPointer,
+} from "../provenance_gc.ts";
 import { clone_CpuAffinityMask } from "../shims/cpu_affinity.ts";
 import { TlsDtorsState, TlsDtorsStatePriv } from "../shims/tls.ts";
 import { AllocBytes_MiriAllocBytes, type MiriAllocParams } from "../alloc/alloc_bytes.ts";
@@ -83,29 +93,12 @@ declare module "../clock.ts" {
   };
 }
 
-declare module "../provenance_gc.ts" {
-  /** PORT(contract): pending miri-driver. The `VisitProvenance` impl tables of provenance_gc.rs this lane calls
-   * (contract: values that are not objects get `VisitProvenance_<T>` tables). */
-  export const VisitProvenance_ImmTy: { visit_provenance(self: ImmTy, visit: VisitWith): void };
-  export const VisitProvenance_MPlaceTy: { visit_provenance(self: MPlaceTy, visit: VisitWith): void };
-  export const VisitProvenance_PlaceTy: { visit_provenance(self: PlaceTy, visit: VisitWith): void };
-  export const VisitProvenance_Pointer: { visit_provenance(self: Pointer, visit: VisitWith): void };
-  export const VisitProvenance_StrictPointer: { visit_provenance(self: StrictPointer, visit: VisitWith): void };
-  export const VisitProvenance_Scalar: { visit_provenance(self: Scalar, visit: VisitWith): void };
-  export const VisitProvenance_Immediate: { visit_provenance(self: Immediate<Provenance>, visit: VisitWith): void };
-  export const VisitProvenance_MemPlaceMeta: { visit_provenance(self: MemPlaceMeta<Provenance>, visit: VisitWith): void };
-}
-
-declare module "../machine.ts" {
-  /** PORT(contract): pending miri-machine. `impl VisitProvenance for FrameExtra<'_>` (machine.rs:169); `FrameExtra` is
-   * a generated interface, so its impl is a table. */
-  export const VisitProvenance_FrameExtra: { visit_provenance(self: FrameExtra, visit: VisitWith): void };
-}
-
 /** A value another lane's module does not export yet (read through a namespace import, so a missing export is
  *  `undefined` rather than a link error): stops with `unported` until that lane lands. Our own glue, not a port: it goes
- *  away with the pending items (docs/handoff/miri-threads.md). `PENDING_FOR_TESTS` lets this lane's unit tests supply a
- *  stand-in under the same `what` key; nothing else writes it. */
+ *  away with the pending items (docs/handoff/miri-threads.md). Only miri-eval's `Duration` is still pending (the
+ *  miri-driver / miri-machine / miri-race pieces landed and are called directly). `PENDING_FOR_TESTS` lets
+ *  threads.test.ts supply a `Duration` stand-in under the same `what` key; nothing else writes it. Remove both, and the
+ *  test's stand-in, when clock.ts exports `Duration`. */
 export function pending<T>(v: T, what: string): T {
   if (v !== undefined) return v;
   const t = PENDING_FOR_TESTS.get(what);
@@ -114,10 +107,6 @@ export function pending<T>(v: T, what: string): T {
 }
 export const PENDING_FOR_TESTS = new Map<string, unknown>();
 export const Duration_ = (): (typeof clock)["Duration"] => pending(clock.Duration, "std::time::Duration stand-in (lane miri-eval)");
-export const gc = <K extends keyof typeof provenance_gc>(name: K): (typeof provenance_gc)[K] =>
-  pending(provenance_gc[name], `miri::provenance_gc::${name} (lane miri-driver)`);
-const VisitProvenance_FrameExtra_ = (): (typeof machine)["VisitProvenance_FrameExtra"] =>
-  pending(machine.VisitProvenance_FrameExtra, "miri::machine::VisitProvenance_FrameExtra (lane miri-machine)");
 
 // ---------------------------------------------------------------- helpers (macro expansions) ----
 
@@ -165,6 +154,14 @@ function thread_id_of(id: number): ThreadId {
 /** `#[derive(PartialEq)] struct ThreadId(u32)` */
 export function ThreadId_eq(a: ThreadId, b: ThreadId): boolean {
   return a._0 === b._0;
+}
+
+/** PORT (lane miri-threads-fix): `ThreadId` as an `FxHashMap` key (`#[derive(Hash)] struct ThreadId(u32)`: `write_u32`;
+ *  4 bytes, align 4). Maps keyed by `ThreadId` are value-keyed (`FxKeyedMap` / `KeyedMap` with `ThreadId_value_key`). */
+export const ThreadId_key: KeyType<ThreadId> = { hash: (k, state) => state.write_u32(k._0), size: 4, align: 4 };
+/** The value a `ThreadId` map key compares by (`#[derive(PartialEq, Eq, Ord)]` over the `u32`). */
+export function ThreadId_value_key(t: ThreadId): number {
+  return t._0;
 }
 
 // rustc: src/tools/miri/src/concurrency/thread.rs:50 to_u32
@@ -393,9 +390,9 @@ Thread.prototype.visit_provenance = function (this: Thread, visit: VisitWith): v
   } = this;
 
   for (const payload of panic_payload) {
-    gc("VisitProvenance_ImmTy").visit_provenance(payload, visit);
+    VisitProvenance_ImmTy.visit_provenance(payload, visit);
   }
-  if (last_error !== undefined) gc("VisitProvenance_MPlaceTy").visit_provenance(last_error, visit);
+  if (last_error !== undefined) VisitProvenance_MPlaceTy.visit_provenance(last_error, visit);
   for (const frame of stack) {
     VisitProvenance_Frame.visit_provenance(frame, visit);
   }
@@ -413,7 +410,7 @@ export const VisitProvenance_Frame = {
     } = self;
 
     // Return place.
-    gc("VisitProvenance_PlaceTy").visit_provenance(return_place, visit);
+    VisitProvenance_PlaceTy.visit_provenance(return_place, visit);
     // Locals.
     for (const local of locals) {
       // We only need the provenance so it's good for this to not be a real read.
@@ -421,15 +418,15 @@ export const VisitProvenance_Frame = {
       if (m === undefined) {
       } else if (m.$ === "Left") {
         const [ptr, meta] = m._0;
-        gc("VisitProvenance_Pointer").visit_provenance(ptr, visit);
-        gc("VisitProvenance_MemPlaceMeta").visit_provenance(meta, visit);
+        VisitProvenance_Pointer.visit_provenance(ptr, visit);
+        VisitProvenance_MemPlaceMeta.visit_provenance(meta, visit);
       } else {
         const imm = m._0;
-        gc("VisitProvenance_Immediate").visit_provenance(imm, visit);
+        VisitProvenance_Immediate.visit_provenance(imm, visit);
       }
     }
 
-    VisitProvenance_FrameExtra_().visit_provenance(extra, visit);
+    VisitProvenance_FrameExtra.visit_provenance(extra, visit);
   },
 };
 
@@ -462,7 +459,7 @@ ThreadManager.prototype.visit_provenance = function (this: ThreadManager, visit:
     thread.visit_provenance(visit);
   }
   for (const ptr of thread_local_allocs.values()) {
-    gc("VisitProvenance_StrictPointer").visit_provenance(ptr, visit);
+    VisitProvenance_StrictPointer.visit_provenance(ptr, visit);
   }
 };
 
@@ -1075,8 +1072,8 @@ InterpCx.prototype.join_thread = function (this: MiriInterpCx, joined_thread_id:
         // (callback! expansion, machine.rs:2181 visit_provenance)
         visit_provenance(visit: VisitWith): void {
           // ThreadId: no provenance
-          gc("VisitProvenance_MPlaceTy").visit_provenance(dest, visit);
-          gc("VisitProvenance_Scalar").visit_provenance(success_retval, visit);
+          VisitProvenance_MPlaceTy.visit_provenance(dest, visit);
+          VisitProvenance_Scalar.visit_provenance(success_retval, visit);
         },
         // (callback! expansion, machine.rs:2189 call)
         call(this_: MiriInterpCx, unblock: UnblockKind): InterpResult {
@@ -1213,10 +1210,9 @@ InterpCx.prototype.maybe_preempt_active_thread = function (this: MiriInterpCx): 
   }
 };
 
-/** `this.machine.rng.get_mut()`. PORT(contract): `MiriMachine.rng` (`RefCell<StdRng>`) is still `Pending<"rand::rngs::StdRng">`
- *  in the typemap (vendor-rand landed after the skeleton); the value is the vendored `StdRng`. */
+/** `this.machine.rng.get_mut()` (`RefCell<StdRng>`: the vendored `StdRng`, typemap entry of lane miri-machine). */
 export function machine_rng(ecx: MiriInterpCx): StdRng {
-  return ecx.machine.rng as unknown as StdRng;
+  return ecx.machine.rng;
 }
 
 // ---------------------------------------------------------------- declarations ----

@@ -5,22 +5,22 @@
 // - `XRef(Rc<RefCell<X>>)` is the generated class whose `_0` is the shared `X` (`clone` = `clone_XRef`, same `_0`;
 //   `borrow`/`borrow_mut` are plain field access; the `drop(guard)` calls are kept as comments).
 // - `VecDeque<ThreadId>` is a `ThreadId[]` (`push_back` = `push`, `pop_front` = `shift`); `RwLock.readers`
-//   (`FxHashMap<ThreadId, usize>`, never iterated observably) is a `KeyedMap` keyed by the thread number.
+//   (`FxHashMap<ThreadId, usize>`) is an `FxKeyedMap` keyed by the thread number (typemap `fields`; hashbrown order for
+//   its Debug).
 // - `dyn SyncObj` / `downcast_ref::<T>()`: `T`'s `Any` type test is a trailing type predicate `is_T` (precedent
 //   rustc_middle `MachineStopType_downcast_ref`), so `get_sync::<T>(offset)` is `get_sync(offset, is_T)` and the generic
 //   `EvalContextExt` fns take `is_T` before their closure argument.
 // - `AllocExtra.sync_objs` (`BTreeMap<Size, Box<dyn SyncObj>>`, built by lane miri-machine) is used through `get`/`set`:
 //   it must compare `Size` keys by value.
-// - `VClock::clone_from` (vector_clock.rs:249, lane miri-race) is a pending prototype method (`VClock_clone_from`).
 // - A `callback!` is an inline `MachineCallback` object (thread.ts header).
 import { type Deadline } from "../clock.ts";
 import { type AccessKind, CondvarRef, FutexRef, type FutexWaiter, MutexRef, RwLock, RwLockRef } from "./sync.gen.ts";
-import { assert_eq_UnblockKind, type DynUnblockCallback, gc, type ThreadId, ThreadId_eq, type UnblockKind } from "./thread.ts";
+import { assert_eq_UnblockKind, type DynUnblockCallback, type ThreadId, ThreadId_eq, ThreadId_key, ThreadId_value_key, type UnblockKind } from "./thread.ts";
 import { VClock } from "./vector_clock.ts";
 import { type ImmTy as ImmTy_, type MPlaceTy, type Pointer, type Scalar } from "../lib.ts";
 import { AllocExtra, type MiriInterpCx, type MiriMachine } from "../machine.ts";
-import { type VisitWith } from "../provenance_gc.ts";
-import { KeyedMap } from "../../rust_ts/keyed.ts";
+import { type VisitWith, VisitProvenance_MPlaceTy, VisitProvenance_Scalar } from "../provenance_gc.ts";
+import { FxKeyedMap, LAYOUT_USIZE } from "../../rust_ts/hash_map.ts";
 import { type Size, Size_cmp } from "../../rustc_abi/lib.ts";
 import { InterpCx } from "../../rustc_const_eval/interpret/eval_context.ts";
 import { type AnyMachine, type Machine } from "../../rustc_const_eval/interpret/machine.ts";
@@ -32,17 +32,6 @@ import { assert, panic, unported } from "../../std/panic.ts";
 import { Err } from "../../std/result.ts";
 export * from "./sync.gen.ts";
 
-declare module "./vector_clock.gen.ts" {
-  interface VClock {
-    /** PORT(contract): pending miri-race. `impl Clone for VClock`'s `clone_from` (vector_clock.rs:249). */
-    clone_from(source: VClock): void;
-  }
-}
-/** `dst.clone_from(src)` (pending lane miri-race, see the header). */
-export function VClock_clone_from(dst: VClock, src: VClock): void {
-  if (typeof dst.clone_from !== "function") unported("miri::concurrency::vector_clock::VClock::clone_from (lane miri-race) (pending; docs/handoff/miri-threads.md)");
-  dst.clone_from(src);
-}
 /** `VClock::default()` (derived: the empty clock). */
 function VClock_default(): VClock {
   return new VClock([]);
@@ -143,7 +132,7 @@ MutexRef.prototype.visit_provenance = function (this: MutexRef, _visit: VisitWit
 
 /** `RwLock::default()` (derived). */
 function RwLock_default(): RwLock {
-  return new RwLock(undefined, new KeyedMap<ThreadId, number>((t) => t._0), [], [], VClock_default(), VClock_default());
+  return new RwLock(undefined, new FxKeyedMap<ThreadId, number>(ThreadId_key, LAYOUT_USIZE, ThreadId_value_key), [], [], VClock_default(), VClock_default());
 }
 
 /// Check if locked.
@@ -473,7 +462,7 @@ InterpCx.prototype.mutex_unlock = function (this: MiriInterpCx, mutex_ref: Mutex
       // The mutex is completely unlocked. Try transferring ownership
       // to another thread.
 
-      const r = this_.release_clock((clock) => VClock_clone_from(mutex.clock, clock));
+      const r = this_.release_clock((clock) => mutex.clock.clone_from(clock));
       if (r.$ === "Err") return r;
       const thread_id = mutex.queue.shift();
       // We need to drop our mutex borrow before unblock_thread
@@ -513,8 +502,8 @@ InterpCx.prototype.mutex_enqueue_and_block = function (this: MiriInterpCx, mutex
       visit_provenance(visit: VisitWith): void {
         mutex_ref.visit_provenance(visit);
         if (retval_dest !== undefined) {
-          gc("VisitProvenance_Scalar").visit_provenance(retval_dest[0], visit);
-          gc("VisitProvenance_MPlaceTy").visit_provenance(retval_dest[1], visit);
+          VisitProvenance_Scalar.visit_provenance(retval_dest[0], visit);
+          VisitProvenance_MPlaceTy.visit_provenance(retval_dest[1], visit);
         }
       },
       call(this_: MiriInterpCx, unblock: UnblockKind): InterpResult {
@@ -583,7 +572,7 @@ InterpCx.prototype.rwlock_reader_unlock = function (this: MiriInterpCx, rwlock_r
     // of the union of all reader data race handles, since the set of readers
     // happen-before the writers
     const rwlock_ref_ = rwlock;
-    VClock_clone_from(rwlock_ref_.clock_unlocked, rwlock_ref_.clock_current_readers);
+    rwlock_ref_.clock_unlocked.clone_from(rwlock_ref_.clock_current_readers);
     // See if there is a thread to unblock.
     const writer = rwlock_ref_.writer_queue.shift();
     if (writer !== undefined) {
@@ -614,8 +603,8 @@ InterpCx.prototype.rwlock_enqueue_and_block_reader = function (this: MiriInterpC
     {
       visit_provenance(visit: VisitWith): void {
         rwlock_ref.visit_provenance(visit);
-        gc("VisitProvenance_Scalar").visit_provenance(retval, visit);
-        gc("VisitProvenance_MPlaceTy").visit_provenance(dest, visit);
+        VisitProvenance_Scalar.visit_provenance(retval, visit);
+        VisitProvenance_MPlaceTy.visit_provenance(dest, visit);
       },
       call(this_: MiriInterpCx, unblock: UnblockKind): InterpResult {
         assert_eq_UnblockKind(unblock, "Ready");
@@ -660,7 +649,7 @@ InterpCx.prototype.rwlock_writer_unlock = function (this: MiriInterpCx, rwlock_r
     rwlock.writer = undefined;
     // trace!("rwlock_writer_unlock: unlocked by {:?}", thread);
     // Record release clock for next lock holder.
-    const r = this_.release_clock((clock) => VClock_clone_from(rwlock.clock_unlocked, clock));
+    const r = this_.release_clock((clock) => rwlock.clock_unlocked.clone_from(clock));
     if (r.$ === "Err") return r;
 
     // The thread was a writer.
@@ -708,8 +697,8 @@ InterpCx.prototype.rwlock_enqueue_and_block_writer = function (this: MiriInterpC
     {
       visit_provenance(visit: VisitWith): void {
         rwlock_ref.visit_provenance(visit);
-        gc("VisitProvenance_Scalar").visit_provenance(retval, visit);
-        gc("VisitProvenance_MPlaceTy").visit_provenance(dest, visit);
+        VisitProvenance_Scalar.visit_provenance(retval, visit);
+        VisitProvenance_MPlaceTy.visit_provenance(dest, visit);
       },
       call(this_: MiriInterpCx, unblock: UnblockKind): InterpResult {
         assert_eq_UnblockKind(unblock, "Ready");
@@ -759,9 +748,9 @@ InterpCx.prototype.condvar_wait = function (
       visit_provenance(visit: VisitWith): void {
         condvar_ref.visit_provenance(visit);
         mutex_ref.visit_provenance(visit);
-        gc("VisitProvenance_Scalar").visit_provenance(retval_succ, visit);
-        gc("VisitProvenance_Scalar").visit_provenance(retval_timeout, visit);
-        gc("VisitProvenance_MPlaceTy").visit_provenance(dest, visit);
+        VisitProvenance_Scalar.visit_provenance(retval_succ, visit);
+        VisitProvenance_Scalar.visit_provenance(retval_timeout, visit);
+        VisitProvenance_MPlaceTy.visit_provenance(dest, visit);
       },
       call(this_: MiriInterpCx, unblock: UnblockKind): InterpResult {
         switch (unblock) {
@@ -796,7 +785,7 @@ InterpCx.prototype.condvar_signal = function (this: MiriInterpCx, condvar_ref: C
   const condvar = condvar_ref._0;
 
   // Each condvar signal happens-before the end of the condvar wake
-  const r = this_.release_clock((clock) => VClock_clone_from(condvar.clock, clock));
+  const r = this_.release_clock((clock) => condvar.clock.clone_from(clock));
   if (r.$ === "Err") return r;
   const waiter = condvar.waiters.shift();
   if (waiter === undefined) {
@@ -865,7 +854,7 @@ InterpCx.prototype.futex_wake = function (this: MiriInterpCx, futex_ref: FutexRe
   const futex = futex_ref._0;
 
   // Each futex-wake happens-before the end of the futex wait
-  const r = this_.release_clock((clock) => VClock_clone_from(futex.clock, clock));
+  const r = this_.release_clock((clock) => futex.clock.clone_from(clock));
   if (r.$ === "Err") return r;
 
   // Remove `count` of the threads in the queue that match any of the bits in the bitset.

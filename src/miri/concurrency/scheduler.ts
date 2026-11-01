@@ -8,19 +8,18 @@
 // - `threads_iter` (`all_threads().skip(k).chain(all_threads().take(k)).filter(enabled)`) is a `RustIterator` (vendored
 //   rand) over the rotated thread list with core's `Filter<Chain<Skip, Take>>` size hint `(0, Some(remaining))`, so
 //   `IteratorRandom::choose` draws exactly the words upstream draws.
-// - `throw_machine_stop!(TerminationInfo::X)` goes through `machine_stop` below (the `Box<dyn MachineStopType>` of a
-//   `TerminationInfo` is lane miri-driver's: pending).
+// - `throw_machine_stop!(TerminationInfo::X)` goes through `machine_stop` below (diagnostics.ts
+//   `TerminationInfo_into_machine_stop`, lane miri-driver).
 // - GenMC scheduling stops with `unported("genmc")`.
-import * as diagnostics from "../diagnostics.ts";
-import { type TerminationInfo } from "../diagnostics.ts";
+import { TerminationInfo, TerminationInfo_into_machine_stop } from "../diagnostics.ts";
 import { SchedulingAction } from "./scheduler.gen.ts";
-import { Duration_, machine_rng, pending, type Poll, type Thread, type ThreadId, ThreadId_eq } from "./thread.ts";
+import { Duration_, machine_rng, type Poll, type Thread, type ThreadId, ThreadId_eq } from "./thread.ts";
 import { type MiriInterpCx } from "../machine.ts";
 import { DelayedReadinessUpdates } from "../shims/readiness.ts";
 import { InterpCx } from "../../rustc_const_eval/interpret/eval_context.ts";
 import { type AnyMachine, type Machine } from "../../rustc_const_eval/interpret/machine.ts";
 import { CTRL_C_RECEIVED } from "../../rustc_const_eval/lib.ts";
-import { InterpErrorInfo_from_InterpErrorKind, type InterpResult, interp_ok, type MachineStopType } from "../../rustc_middle/mir/interpret/mod.ts";
+import { InterpErrorInfo_from_InterpErrorKind, type InterpResult, interp_ok } from "../../rustc_middle/mir/interpret/mod.ts";
 import { DUMMY_SP } from "../../rustc_span/lib.ts";
 import { type Pending } from "../../rustc_type_ir/decls.ts";
 import { panic, unported, unreachable } from "../../std/panic.ts";
@@ -28,16 +27,9 @@ import { Err } from "../../std/result.ts";
 import { type RustIterator, IteratorRandom } from "../../vendor/rand/seq/iterator.ts";
 export * from "./scheduler.gen.ts";
 
-declare module "../diagnostics.ts" {
-  /** PORT(contract): pending miri-driver. `impl MachineStopType for TerminationInfo` (diagnostics.rs:113): the
-   *  `Box<dyn MachineStopType>` that `throw_machine_stop!(info)` makes of a `TerminationInfo`. */
-  export function MachineStopType_from_TerminationInfo(info: TerminationInfo): MachineStopType;
-}
-
 /** `throw_machine_stop!(info)` */
 export function machine_stop<T>(info: TerminationInfo): InterpResult<T> {
-  const boxed = pending(diagnostics.MachineStopType_from_TerminationInfo, "miri::diagnostics::MachineStopType_from_TerminationInfo (lane miri-driver)")(info);
-  return Err(InterpErrorInfo_from_InterpErrorKind({ $: "MachineStop", _0: boxed }));
+  return Err(InterpErrorInfo_from_InterpErrorKind(TerminationInfo_into_machine_stop(info)));
 }
 
 // ---------------------------------------------------------------- EvalContextPrivExt ----
@@ -170,7 +162,7 @@ InterpCx.prototype.schedule = function (this: MiriInterpCx): InterpResult<Schedu
     // hope that eventually an I/O event happens.
     return interp_ok({ $: "SleepAndWaitForIo", _0: undefined });
   } else {
-    return machine_stop(diagnostics.TerminationInfo.GlobalDeadlock);
+    return machine_stop(TerminationInfo.GlobalDeadlock);
   }
 };
 
@@ -228,7 +220,7 @@ InterpCx.prototype.run_threads = function (this: MiriInterpCx): InterpResult<nev
   for (;;) {
     if (CTRL_C_RECEIVED.value) {
       this_.machine.handle_abnormal_termination();
-      return machine_stop(diagnostics.TerminationInfo.Interrupted);
+      return machine_stop(TerminationInfo.Interrupted);
     }
     const a = this_.schedule();
     if (a.$ === "Err") return a;

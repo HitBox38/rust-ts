@@ -70,11 +70,13 @@ No other file was edited. No `.gen.ts`, no tools/codegen file, nothing in src/st
    - Equality is `ThreadId_eq` (derived `PartialEq`).
    - Every `ThreadId` this lane makes is the canonical instance for its id, through `thread_id_of`: `Idx::new` (as
      `ThreadId.new`), `new_unchecked`, `MAIN_THREAD`, and the result of `thread_id_try_from`. So a plain JS `Map` keyed by
-     `ThreadId` identity behaves like the Rust map. Examples: `MiriMachine.thread_cpu_affinity` (lane miri-machine) and
-     `BlockingIoSource.blocked_threads`.
+     `ThreadId` identity behaves like the Rust map. Example: `MiriMachine.thread_cpu_affinity` (lane miri-machine).
    - The generated `clone_ThreadId` makes non-canonical copies. Use `ThreadId_eq`, or a by-value map, wherever a value
      might have been cloned.
-   - The maps this lane owns are keyed by value anyway.
+   - **Corrected by miri-threads-fix** (review finding 3): this handoff first said the maps this lane owns were all keyed
+     by value; `BlockingIoSource.blocked_threads` was identity-keyed. Now `RwLock.readers` (`FxKeyedMap`),
+     `BlockingIoSource.blocked_threads` and `AllocExtra.sync_objs` (`KeyedMap`) are value-keyed in their generated types
+     (docs/handoff/miri-threads-fix.md).
 2. **`ThreadManager.thread_local_allocs`** is an `FxKeyedMap` (`rust_ts/hash_map.ts`).
    - Its key type is `(DefId, ThreadId)`: `DefId_fx_key` then `write_u32`, 12 bytes, align 4. The value layout is
      `StrictPointer` (24 / 8).
@@ -173,7 +175,8 @@ different name, adjust the call sites; tsc flags a conflicting re-declaration.
 - **miri-machine:**
   - `VisitProvenance_FrameExtra` (machine.rs:169; `FrameExtra` is an interface, so it gets a table).
   - **`AllocExtra.sync_objs` must compare `Size` keys by value.** It is a `BTreeMap<Size, Box<dyn SyncObj>>` built in
-    `init_allocation`, and sync.ts uses `get` / `set` on it.
+    `init_allocation`, and sync.ts uses `get` / `set` on it. (Done by miri-threads-fix: `KeyedMap<Size, SyncObj>`,
+    machine.ts `new_sync_objs`.)
   - `MiriMachine.new` must build `threads` with `ThreadManager.new(config)` and `blocking_io` with
     `BlockingIoManager.new(communicate)`.
 - **miri-race:**

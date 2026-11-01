@@ -122,6 +122,8 @@ const ORACLE: [string[], string][] = [
   [["-Zmiri-tree-borrows-no-precise-interior-mut"], "fatal error: `-Zmiri-tree-borrows` is required before `-Zmiri-tree-borrows-no-precise-interior-mut`\n"],
   [["-Zmiri-seed=1", "-Zmiri-many-seeds"], "fatal error: Only one of `-Zmiri-seed` and `-Zmiri-many-seeds can be set\n"],
   [["-Zmiri-strict-provenance", "-Zmiri-native-lib=/tmp"], "fatal error: strict provenance is not compatible with calling native functions\n"],
+  // genmc/dummy.rs:226 (lane miri-threads; checked against the oracle Miri by lane miri-threads-fix)
+  [["-Zmiri-genmc"], "fatal error: GenMC is not supported on this target\n"],
 ];
 
 test("bad flags: stderr and exit status equal the oracle Miri's", () => {
@@ -172,15 +174,14 @@ test("flag values reach MiriConfig (every flag kind)", () => {
   expect(c.args).toEqual(["-Zmiri-seed=abc", "x"]); // after `--`: program arguments, not parsed
 });
 
-test("-Zmiri-retag-fields warns and continues; -Zmiri-genmc / -Zmiri-num-cpus stop at their pending dependencies", () => {
+test("-Zmiri-retag-fields warns and continues; -Zmiri-num-cpus stops at its pending dependency", () => {
   const [err, code] = run(["-Zmiri-retag-fields"]);
   // The oracle's stderr starts with this, then rustc's "error: no input filename given" (not captured here, see above).
   expect(err).toBe(
     "warning: `-Zmiri-retag-fields` is a NOP and will be removed in a future version of Miri.\nField retagging has been on-by-default for a long time.\n",
   );
   expect(code).toBe(1);
-  // The oracle: "fatal error: GenMC is not supported on this target" (dummy.rs:226, lane miri-threads) and
-  // "fatal error: -Zmiri-num-cpus must be in the range 1..=1024" (MAX_CPUS, lane miri-shims-b).
-  expect(() => run(["-Zmiri-genmc"])).toThrow("genmc");
+  // The oracle: "fatal error: -Zmiri-num-cpus must be in the range 1..=1024" (MAX_CPUS, lane miri-shims-b). (`-Zmiri-genmc`
+  // is in ORACLE above since genmc/dummy.ts landed.)
   expect(() => run(["-Zmiri-num-cpus=0"])).toThrow("MAX_CPUS");
 });

@@ -5,19 +5,21 @@
 // (a real `ThreadManager`, `BlockingIoManager` and vendored `StdRng`, data race detection off), and whose methods owned by
 // other wave-36 lanes are replaced by their data-race-off behaviour (`acquire_clock` / `release_clock`: data_race.rs:979 /
 // :997 with `GlobalDataRaceHandler::None`), a recording `write_scalar`, and a scripted `step()` (one program per thread).
-// The pending pieces (`std::time::Duration`, `MachineStopType` of `TerminationInfo`) get stand-ins via `PENDING_FOR_TESTS`.
+// The one pending piece (`std::time::Duration`, lane miri-eval) gets a stand-in via `PENDING_FOR_TESTS`; drop it (and the
+// hook in thread.ts) when miri-eval's clock.ts `Duration` lands.
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import "../lib.ts";
 import { type Deadline, type Instant } from "../clock.ts";
+import { TerminationInfoStop, TerminationInfo_into_machine_stop } from "../diagnostics.ts";
 import { type MiriConfig } from "../eval.ts";
 import { type MPlaceTy, type Scalar } from "../lib.ts";
-import { type MiriInterpCx } from "../machine.ts";
+import { AllocExtra, type MiriInterpCx, new_sync_objs } from "../machine.ts";
+import { FdId } from "../shims/files.ts";
 import { DelayedReadinessUpdates } from "../shims/readiness.ts";
-import { BlockingIoManager } from "./blocking_io.ts";
+import { BlockingIoManager, new_blocked_threads } from "./blocking_io.ts";
 import { GlobalDataRaceHandler } from "./data_race_handler.ts";
 import { InitOnceRef } from "./init_once.ts";
-import { CondvarRef, FutexRef, MutexRef, RwLockRef } from "./sync.ts";
-import { VClock } from "./vector_clock.ts";
+import { CondvarRef, FutexRef, MutexRef, RwLockRef, type SyncObj, SyncObj_provided } from "./sync.ts";
 import {
   type DynUnblockCallback,
   PENDING_FOR_TESTS,
@@ -29,6 +31,7 @@ import {
   debug_Thread,
   debug_ThreadState,
 } from "./thread.ts";
+import { Size } from "../../rustc_abi/lib.ts";
 import { InterpCx } from "../../rustc_const_eval/interpret/eval_context.ts";
 import { InterpErrorInfo_from_InterpErrorKind, type InterpResult, interp_ok, type MachineStopType } from "../../rustc_middle/mir/interpret/mod.ts";
 import { DUMMY_SP } from "../../rustc_span/lib.ts";
@@ -56,30 +59,16 @@ const instant = (t: bigint): Instant =>
 const deadline = (t: bigint): Deadline => ({ $: "Monotonic", _0: instant(t) });
 
 const DURATION_KEY = "std::time::Duration stand-in (lane miri-eval)";
-const STOP_KEY = "miri::diagnostics::MachineStopType_from_TerminationInfo (lane miri-driver)";
-interface Stop extends MachineStopType {
-  name: string;
-}
-const stop = (name: string): Stop => ({ name, display: () => name, debug: () => name, with_validation_path() {} });
 
 let orig_process: typeof DelayedReadinessUpdates.process;
-// `impl Clone for VClock`'s `clone_from` (vector_clock.rs:249, lane miri-race), as upstream: clear, then copy the slice.
-const has_clone_from = Object.prototype.hasOwnProperty.call(VClock.prototype, "clone_from");
 beforeAll(() => {
-  if (!has_clone_from) {
-    VClock.prototype.clone_from = function (this: VClock, source: VClock): void {
-      this._0 = source._0.slice();
-    };
-  }
   PENDING_FOR_TESTS.set(DURATION_KEY, DURATION);
-  PENDING_FOR_TESTS.set(STOP_KEY, (info: { $: string }) => stop(info.$));
   orig_process = DelayedReadinessUpdates.process;
   // shims/readiness.rs:465 with no delayed updates (lane miri-shims-c)
   DelayedReadinessUpdates.process = () => interp_ok(undefined);
 });
 afterAll(() => {
-  if (!has_clone_from) delete (VClock.prototype as Partial<VClock>).clone_from;
-  PENDING_FOR_TESTS.clear();
+  PENDING_FOR_TESTS.delete(DURATION_KEY);
   DelayedReadinessUpdates.process = orig_process;
 });
 
@@ -133,7 +122,7 @@ function make_ecx(opts: { fixed?: boolean; preemption_rate?: number; seed?: bigi
   return ecx;
 }
 
-const EXIT: StackEmptyCallback = () => Err(InterpErrorInfo_from_InterpErrorKind({ $: "MachineStop", _0: stop("Exit") }));
+const EXIT: StackEmptyCallback = () => Err(InterpErrorInfo_from_InterpErrorKind(TerminationInfo_into_machine_stop({ $: "Exit", code: 0, leak_check: false })));
 const READY: StackEmptyCallback = () => interp_ok<Poll>("Ready");
 
 /** A program running `steps` (each logged as `<name>:<i>`, calling `at[i]` if present), then an empty stack. */
@@ -148,13 +137,15 @@ function script(name: string, steps: number, at: Record<number, (ecx: Cx) => voi
   };
 }
 
-/** Runs `run_threads` until it returns its error; returns the stop's name. */
+/** Runs `run_threads` until it returns its error; returns the `TerminationInfo` variant it stopped with. */
 function run(ecx: Cx): string {
   const r = ecx.run_threads();
   expect(r.$).toBe("Err");
-  const kind = (r as { _0: { _0: { kind: { $: string; _0: Stop } } } })._0._0.kind;
+  const kind = (r as { _0: { _0: { kind: { $: string; _0: MachineStopType } } } })._0._0.kind;
   expect(kind.$).toBe("MachineStop");
-  return kind._0.name;
+  const info = TerminationInfoStop.downcast_ref(kind._0);
+  expect(info).toBeDefined();
+  return info!.$;
 }
 
 const SCALAR = { $: "Int", _0: "retval" } as unknown as Scalar;
@@ -434,7 +425,10 @@ test("rwlock: writers are preferred; a writer unlock with no queued writer wakes
   expect(rw._0.writer).toBe(ids[2]);
   expect(as(2, () => ecx.rwlock_writer_unlock(rw))).toEqual({ $: "Ok", _0: true });
   expect(rw._0.writer).toBeUndefined();
-  expect([...rw._0.readers].map(([t, n]) => [t.index(), n])).toEqual([[1, 1], [3, 1]]);
+  // `readers` is an FxHashMap: iteration is hashbrown order, so compare as a set.
+  expect([...rw._0.readers].map(([t, n]) => [t.index(), n]).sort((a, b) => a[0]! - b[0]!)).toEqual([[1, 1], [3, 1]]);
+  // Value-keyed (review miri-threads finding 3): a non-canonical `ThreadId` finds the entry.
+  expect(rw._0.readers.get(new ThreadId(3))).toBe(1);
   expect(rw.queue_is_empty()).toBe(true);
   // A queued writer gets the lock when the last reader leaves.
   as(4, () => ecx.rwlock_enqueue_and_block_writer(rw, SCALAR, DEST));
@@ -499,4 +493,32 @@ test("unblock_thread checks the block reason; blocking twice panics", () => {
     "assertion `left == right` failed: unblock_thread: thread was blocked for the wrong reason\n  left: Join(ThreadId(1))\n right: Join(ThreadId(0))",
   );
   expect(() => ecx.unblock_thread(ids[0]!, { $: "Sleep" })).toThrow("unblock_thread: thread was not blocked");
+});
+
+// ---------------------------------------------------------------- value-keyed maps (lane miri-threads-fix) ----
+
+test("AllocExtra.sync_objs is value-keyed: get_sync finds an object with a fresh Size of the same offset", () => {
+  interface Tagged extends SyncObj {
+    tag: string;
+  }
+  const is_tagged = (v: SyncObj): v is Tagged => "tag" in v;
+  const extra = Object.create(AllocExtra.prototype) as AllocExtra;
+  extra.sync_objs = new_sync_objs();
+  const obj: Tagged = { tag: "m8", on_access: SyncObj_provided.on_access, delete_on_write: SyncObj_provided.delete_on_write };
+  extra.sync_objs.set(Size.from_bytes(8), obj);
+  expect(extra.get_sync(Size.from_bytes(8), is_tagged)).toBe(obj);
+  expect(extra.get_sync(Size.from_bytes(16), is_tagged)).toBeUndefined();
+  extra.sync_objs.set(Size.from_bytes(8), obj);
+  expect(extra.sync_objs.size).toBe(1);
+});
+
+test("BlockingIoSource.blocked_threads is value-keyed by ThreadId", () => {
+  const manager = (BlockingIoManager.new(false) as { _0: BlockingIoManager })._0;
+  const fd = new FdId(3);
+  manager.sources.set(fd, { fd: undefined as never, blocked_threads: new_blocked_threads() });
+  manager.add_blocked_thread(new FdId(3), new ThreadId(1), "Read");
+  expect(() => manager.add_blocked_thread(fd, ThreadId.new(1), "Write")).toThrow(Panic);
+  manager.remove_blocked_thread(fd, new ThreadId(1));
+  expect(manager.sources.get(fd)!.blocked_threads.size).toBe(0);
+  expect(() => manager.remove_blocked_thread(fd, ThreadId.new(1))).toThrow("Thread should be blocked on source");
 });

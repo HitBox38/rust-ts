@@ -18,6 +18,7 @@ import {
   type MiriInterpCx,
   MiriMachine,
   MiriMemoryKind,
+  new_sync_objs,
   PrimitiveLayouts,
   type Provenance,
   SIGRTMAX,
@@ -186,12 +187,15 @@ test("before_memory_read / write: sync objects in key order, deleted on write (m
     },
     delete_on_write: () => del,
   });
-  const sync_objs = new Map<Size, SyncObj>([
+  const sync_objs = new_sync_objs();
+  for (const [k, v] of [
     [Size.from_bytes(12), obj("c12", true)],
     [Size.from_bytes(4), obj("a4", false)],
     [Size.from_bytes(8), obj("b8", true)],
     [Size.from_bytes(16), obj("d16", true)],
-  ]);
+  ] as const) {
+    sync_objs.set(k, v);
+  }
   const extra = { borrow_tracker: undefined, data_race: { $: "None" }, backtrace: undefined, sync_objs } as never;
   const m = machine({ track_alloc_accesses: false, tracked_alloc_ids: new Set(), data_race: { $: "None" } });
   const ptr = Pointer.new<Provenance | undefined>(undefined, Size.ZERO);

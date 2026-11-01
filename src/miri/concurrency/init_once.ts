@@ -3,7 +3,6 @@
 // PORT: `InitOnceRef(Rc<RefCell<InitOnce>>)` is the generated class whose `_0` is the shared `InitOnce`; `VecDeque` is an
 // array (sync.ts header).
 import { InitOnce, InitOnceRef, type InitOnceStatus, debug_InitOnceStatus } from "./init_once.gen.ts";
-import { VClock_clone_from } from "./sync.ts";
 import { type DynUnblockCallback } from "./thread.ts";
 import { VClock } from "./vector_clock.ts";
 import { type MiriInterpCx } from "../machine.ts";
@@ -90,7 +89,7 @@ InterpCx.prototype.init_once_complete = function (this: MiriInterpCx, init_once_
   init_once.status = "Complete";
 
   // Each complete happens-before the end of the wait
-  const r = this_.release_clock((clock) => VClock_clone_from(init_once.clock, clock));
+  const r = this_.release_clock((clock) => init_once.clock.clone_from(clock));
   if (r.$ === "Err") return r;
 
   // Wake up everyone.
@@ -116,7 +115,7 @@ InterpCx.prototype.init_once_fail = function (this: MiriInterpCx, init_once_ref:
   init_once.status = "Uninitialized";
 
   // Each complete happens-before the end of the wait
-  const r = this_.release_clock((clock) => VClock_clone_from(init_once.clock, clock));
+  const r = this_.release_clock((clock) => init_once.clock.clone_from(clock));
   if (r.$ === "Err") return r;
 
   // Wake up one waiting thread, so they can go ahead and try to init this.

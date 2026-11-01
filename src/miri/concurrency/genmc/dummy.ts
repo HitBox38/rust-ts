@@ -17,6 +17,7 @@ import { type AtomicRmwOp } from "../../../rustc_const_eval/interpret/operator.t
 import { type AllocId, type InterpResult } from "../../../rustc_middle/mir/interpret/mod.ts";
 import { type TyCtxt } from "../../../rustc_middle/ty/context.ts";
 import { type Instance } from "../../../rustc_middle/ty/instance.ts";
+import { type Pending } from "../../../rustc_type_ir/decls.ts";
 import { unreachable } from "../../../std/panic.ts";
 import { type MutRef } from "../../../std/mut_ref.ts";
 import { Err, Ok, type Result } from "../../../std/result.ts";
@@ -25,8 +26,13 @@ export * from "./dummy.gen.ts";
 // mod run
 
 // rustc: src/tools/miri/src/concurrency/genmc/dummy.rs:31 run_genmc_mode
-export function run_genmc_mode(_tcx: TyCtxt, _config: MiriConfig, _eval_entry: (_0: GenmcCtx) => Result<null, number>): Result<null, number> {
-  // PORT: `NonZeroI32` is a `number` (never 0).
+export function run_genmc_mode(
+  _tcx: TyCtxt,
+  _config: MiriConfig,
+  _eval_entry: (_0: GenmcCtx) => Result<null, Pending<"NonZeroI32">>,
+): Result<null, Pending<"NonZeroI32">> {
+  // PORT(contract): `NonZeroI32` is the contract's `Pending<"NonZeroI32">`, as `eval_entry` declares it (eval.ts, lane
+  // miri-eval); bin/miri.ts reads it as the exit code.
   return unreachable();
 }
 

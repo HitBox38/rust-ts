@@ -9,12 +9,13 @@
 //   result (a host kqueue/epoll handle) is dropped unobserved, so the port does not create one.
 // - `events: Events` is mio's buffer (`never` in the typemap): `undefined`, it is only read by `poll`.
 // - `sources: BTreeMap<FdId, _>` is the generated `Map`; `FdId` is a class (lane miri-shims-b), so lookups compare
-//   `FdId._0` (`source_entry`); `blocked_threads: BTreeMap<ThreadId, _>` is keyed by the canonical `ThreadId`s
-//   (thread.ts).
+//   `FdId._0` (`source_entry`); `blocked_threads: BTreeMap<ThreadId, _>` is a `KeyedMap` keyed by `ThreadId._0`
+//   (typemap `fields`; `new_blocked_threads`). It is insertion-ordered: its iteration (`poll`) must go in `_0` order.
 import { type Deadline } from "../clock.ts";
 import * as gen from "./blocking_io.gen.ts";
 import { BlockingIoManager, type BlockingIoSource } from "./blocking_io.gen.ts";
-import { type DynUnblockCallback, type ThreadId } from "./thread.ts";
+import { type DynUnblockCallback, type ThreadId, ThreadId_value_key } from "./thread.ts";
+import { KeyedMap } from "../../rust_ts/keyed.ts";
 import { type MiriInterpCx } from "../machine.ts";
 import { type FdId, type FileDescription, type FileDescriptionRef } from "../shims/files.ts";
 import { type Readiness } from "../shims/readiness.ts";
@@ -102,7 +103,8 @@ BlockingIoManager.poll = function (ecx: MiriInterpCx, _timeout: Pending<"Duratio
   // Poll for new I/O events from OS and store them in the events buffer.
   // `poll.poll(&mut ecx.machine.blocking_io.events, timeout)`, then each event's fd readiness is updated
   // (`ecx.update_fd_readiness(fd, ReadinessUpdateFlags::NO_RELEASE_CLOCK)`) and the threads whose interest is
-  // fulfilled are unblocked (`ecx.unblock_thread(thread_id, BlockReason::IO)`).
+  // fulfilled are unblocked (`ecx.unblock_thread(thread_id, BlockReason::IO)`), in `blocked_threads`' BTreeMap order
+  // (ascending `ThreadId._0`; the `KeyedMap` is insertion-ordered, so sort).
   return unported("mio::Poll::poll (host I/O, isolation off; plan-m6 D5)");
 };
 
@@ -113,9 +115,15 @@ BlockingIoManager.prototype.register = function (this: BlockingIoManager, _sourc
   if (poll === undefined) panic("Blocking I/O should not be called with isolation enabled");
   // `source_fd.with_source(&mut |source| poll.registry().register(source, Token(id.to_usize()), Interest::READABLE |
   // Interest::WRITABLE)).unwrap()`, then the source is inserted (`try_insert`, panicking "Source should not already be
-  // registered").
+  // registered") with `blocked_threads: BTreeMap::default()` (`new_blocked_threads()`).
   unported("mio::Registry::register (host I/O, isolation off; plan-m6 D5)");
 };
+
+/** `BTreeMap::<ThreadId, BlockingIoInterest>::default()` (`BlockingIoSource.blocked_threads`, built by `register`):
+ *  value-keyed by `ThreadId._0` (see the header). */
+export function new_blocked_threads(): KeyedMap<ThreadId, BlockingIoInterest> {
+  return new KeyedMap<ThreadId, BlockingIoInterest>(ThreadId_value_key);
+}
 
 /** `self.sources.get_mut(&source_id)` (`FdId` compared by value, see the header). */
 function source_entry(sources: Map<FdId, BlockingIoSource>, source_id: FdId): BlockingIoSource | undefined {
@@ -137,7 +145,7 @@ BlockingIoManager.prototype.add_blocked_thread = function (this: BlockingIoManag
   const source = source_entry(this.sources, source_id);
   if (source === undefined) panic("Source should be registered");
 
-  // `.try_insert(thread_id, interest).expect(..)`
+  // `.try_insert(thread_id, interest).expect(..)` (value-keyed: `new_blocked_threads`)
   if (source.blocked_threads.has(thread_id)) {
     panic("Thread cannot be blocked multiple times on the same source: OccupiedError { .. }");
   }

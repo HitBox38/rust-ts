@@ -54,6 +54,8 @@ import type { GenmcCtx } from "./concurrency/genmc/dummy.ts";
 import { type StackEmptyCallback, type ThreadId, ThreadManager } from "./concurrency/thread.ts";
 import { StoreBufferAlloc } from "./concurrency/weak_memory.ts";
 import { MonoHashMap } from "./data_structures/mono_hash_map.ts";
+import { type SyncObj } from "./concurrency/sync.ts";
+import { KeyedMap } from "../rust_ts/keyed.ts";
 import * as diagnostics_ns from "./diagnostics.ts";
 import type { TerminationInfo } from "./diagnostics.ts";
 import type { MiriConfig } from "./eval.ts";
@@ -921,7 +923,8 @@ MiriMachine.init_allocation = function (ecx: MiriInterpCx, id: AllocId, kind: Me
     ecx.machine.allocation_spans.set(id, [ecx.machine.current_user_relevant_span(), undefined]);
   }
 
-  return interp_ok(new AllocExtra(borrow_tracker, data_race, backtrace, new Map()));
+  // `sync_objs: BTreeMap::default()`
+  return interp_ok(new AllocExtra(borrow_tracker, data_race, backtrace, new_sync_objs()));
 };
 
 // impl VisitProvenance for MiriMachine<'_>
@@ -2209,8 +2212,20 @@ function u64_trailing_zeros(v: bigint): number {
 }
 
 /**
+ * `BTreeMap::<Size, Box<dyn SyncObj>>::default()` (`AllocExtra.sync_objs`). PORT (lane miri-threads-fix): `Size` is a
+ * class, so the map is a `KeyedMap` keyed by the offset's value (`Size` has one representation per value, see
+ * rustc_abi `Size`): sync.rs looks offsets up with fresh `Size` objects. Its order is `btree_range`'s.
+ */
+export function new_sync_objs(): KeyedMap<Size, SyncObj> {
+  return new KeyedMap<Size, SyncObj>(Size_value_key);
+}
+function Size_value_key(s: Size): number | string {
+  return s.big === undefined ? s.small : `${s.big}`;
+}
+
+/**
  * `BTreeMap<Size, V>::range(start..end)` (`start`/`end` `undefined`: unbounded, i.e. `iter()`/`values()`): the entries in
- * ascending key order. PORT: `AllocExtra.sync_objs` is a `Map<Size, _>` (generated; insertion-ordered), so the range is
+ * ascending key order. PORT: `AllocExtra.sync_objs` is a `KeyedMap<Size, _>` (generated; insertion-ordered), so the range is
  * filtered and sorted by `Size_cmp`; the keys are the map's own (`remove(&offset)` deletes by them).
  */
 function btree_range<V>(map: Map<Size, V>, start: Size | undefined, end: Size | undefined): [Size, V][] {
