@@ -20,12 +20,12 @@ import { Err, Ok, type Result, unwrap_result } from "../../std/result.ts";
 import { type MiriAllocParams } from "./alloc_bytes.gen.ts";
 export * from "./alloc_bytes.gen.ts";
 
-// ---- `std::alloc::Layout` (the subset this file uses) ----
-/** PORT (lane miri-alloc): `std::alloc::Layout` stand-in, local to this file (src/std has none and is not this lane's;
- * root may move it to src/std). `size` / `align` are host `usize`s (64-bit host), kept exact as `bigint`s (C5). */
 /** `#[derive(Debug)]` of the unit struct `core::alloc::LayoutError` (layout.rs:611): `LayoutError` (stand-in error `null`). */
 const debug_LayoutError = (_e: null): string => "LayoutError";
 
+// ---- `std::alloc::Layout` (the subset this file uses) ----
+/** PORT (lane miri-alloc): `std::alloc::Layout` stand-in, local to this file (src/std has none and is not this lane's;
+ * root may move it to src/std). `size` / `align` are host `usize`s (64-bit host), kept exact as `bigint`s (C5). */
 export class Layout {
   constructor(
     readonly size_: bigint,

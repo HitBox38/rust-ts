@@ -77,6 +77,11 @@ export class Duration {
     return new Duration(secs, subsec_nanos);
   }
 
+  // std: library/core/src/time.rs:566 is_zero
+  is_zero(): boolean {
+    return this.secs === 0n && this.nanos === 0;
+  }
+
   // std: library/core/src/time.rs:594 as_secs
   as_secs(): bigint {
     return this.secs;
@@ -148,6 +153,17 @@ export class Duration {
 /** derive(PartialEq) of `Duration`. */
 export function Duration_eq(a: Duration, b: Duration): boolean {
   return a.secs === b.secs && a.nanos === b.nanos;
+}
+
+/** `#[derive(PartialOrd, Ord)]` of `Duration` (library/core/src/time.rs:79): fields in order, `secs` then `nanos`. */
+export function Duration_cmp(a: Duration, b: Duration): -1 | 0 | 1 {
+  if (a.secs !== b.secs) return a.secs < b.secs ? -1 : 1;
+  return a.nanos === b.nanos ? 0 : a.nanos < b.nanos ? -1 : 1;
+}
+
+/** `Ord::min` (library/core/src/cmp.rs, `min_by`): `self` unless `other < self`. */
+export function Duration_min(self: Duration, other: Duration): Duration {
+  return Duration_cmp(other, self) < 0 ? other : self;
 }
 
 

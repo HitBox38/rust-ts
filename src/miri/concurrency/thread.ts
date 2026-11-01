@@ -77,7 +77,7 @@ import { DUMMY_SP, type Span } from "../../rustc_span/lib.ts";
 import { type Debug, debug_option, debug_struct } from "../../std/fmt.ts";
 import { assert, panic, unported, unreachable } from "../../std/panic.ts";
 import { type Poll } from "../../std/task.ts";
-import { Duration, SystemTime } from "../../std/time.ts";
+import { Duration, Duration_min, SystemTime } from "../../std/time.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
 import { RngExt } from "../../vendor/rand/rng.ts";
 import { type StdRng } from "../../vendor/rand/rngs/std.ts";
@@ -104,17 +104,6 @@ function assert_eq_msg<T>(left: T, right: T, eq: (a: T, b: T) => boolean, debug:
 /** PORT: `String::from_utf8_lossy` (WHATWG decoding replaces maximal invalid subparts with U+FFFD, as std does). */
 function String_from_utf8_lossy(bytes: readonly number[]): string {
   return new TextDecoder("utf-8", { fatal: false, ignoreBOM: true }).decode(Uint8Array.from(bytes));
-}
-/** PORT: `Duration::is_zero` (library/core/src/time.rs:566, `self.secs == 0 && self.nanos.as_inner() == 0`). src/std/time.ts
- *  (lane miri-eval) does not have it; moving it there is queued in docs/handoff/miri-wire.md. */
-function Duration_is_zero(d: Duration): boolean {
-  return d.secs === 0n && d.nanos === 0;
-}
-/** PORT: `Ord::min` of `Duration`'s derived `Ord` (library/core/src/time.rs:79, fields `secs` then `nanos`): `min` returns
- *  `self` unless `other < self` (core::cmp::min_by). Queued for src/std/time.ts with `Duration_is_zero`. */
-function Duration_min(self: Duration, other: Duration): Duration {
-  const other_lt = other.secs < self.secs || (other.secs === self.secs && other.nanos < self.nanos);
-  return other_lt ? other : self;
 }
 
 // ---------------------------------------------------------------- types ----
@@ -966,7 +955,7 @@ InterpCx.prototype.unblock_expired_deadlines = function (this: MiriInterpCx): In
         }
       }
 
-      if (Duration_is_zero(wait_time)) {
+      if (wait_time.is_zero()) {
         // The timeout expired for this thread.
         const old_state = thread.state;
         thread.state = ThreadState.Enabled;
