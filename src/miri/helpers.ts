@@ -17,7 +17,7 @@ import { type FrameExtra, type MiriInterpCx, MiriMachine, type Provenance, type 
 import { type TerminationInfo, TerminationInfo_into_machine_stop } from "./diagnostics.ts";
 import { imm_to_scalar } from "./operator.ts";
 import { type ExternAbi } from "../rustc_abi/extern_abi.ts";
-import { Align, BackendRepr, FieldIdx, Size } from "../rustc_abi/lib.ts";
+import { Align, BackendRepr, debug_AlignFromBytesError, FieldIdx, Size } from "../rustc_abi/lib.ts";
 import { InterpCx } from "../rustc_const_eval/interpret/eval_context.ts";
 import { type AnyMachine, type Machine } from "../rustc_const_eval/interpret/machine.ts";
 import { MPlaceTy as interp_MPlaceTy, PlaceTy_from_MPlaceTy, type Writeable } from "../rustc_const_eval/interpret/place.ts";
@@ -1092,7 +1092,7 @@ InterpCx.prototype.read_c_str_with_char_size = function (this: MiriInterpCx, ptr
 /// Read a sequence of u16 until the first null terminator.
 // rustc: src/tools/miri/src/helpers.rs:835 read_wide_str
 InterpCx.prototype.read_wide_str = function (this: MiriInterpCx, ptr: Pointer): InterpResult<number[]> {
-  const r = this.read_c_str_with_char_size(ptr, Size.from_bytes(2n), unwrap_result(Align.from_bytes(2n)));
+  const r = this.read_c_str_with_char_size(ptr, Size.from_bytes(2n), unwrap_result(Align.from_bytes(2n), debug_AlignFromBytesError));
   if (r.$ === "Err") return r;
   return interp_ok(r._0.map(Number));
 };
@@ -1116,7 +1116,7 @@ InterpCx.prototype.write_wide_str = function (this: MiriInterpCx, wide_str: read
   // Store the UTF-16 string.
   const size2 = Size.from_bytes(2n);
   const this_ = this.eval_context_mut();
-  const a = this_.check_ptr_align(ptr, unwrap_result(Align.from_bytes(2n)));
+  const a = this_.check_ptr_align(ptr, unwrap_result(Align.from_bytes(2n), debug_AlignFromBytesError));
   if (a.$ === "Err") return a;
   const alloc_r = this_.get_ptr_alloc_mut(ptr, size2.mul(string_length));
   if (alloc_r.$ === "Err") return alloc_r;
