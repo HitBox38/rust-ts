@@ -401,7 +401,7 @@ Stack.prototype.insert_cache = function (this: Stack, new_idx: number, new_: Ite
   const items: Item[] = new Array<Item>(CACHE_LEN);
   for (let i = 0; i < CACHE_LEN; i++) items[i] = clone_Item(item);
   return new Stack(
-    [item],
+    [clone_Item(item)],
     undefined,
     // #[cfg(feature = "stack-cache")]
     new StackCache(items, new Array<number>(CACHE_LEN).fill(0)),

@@ -100,6 +100,18 @@ test("Permission::grants", () => {
   expect(Permission_grants("Disabled", "Read")).toBe(false);
 });
 
+test("Stack::new and AllocHistory::new copy the root Item (stack.rs:342, diagnostics.rs:217: `Item` is `Copy`)", () => {
+  const machine = { current_user_relevant_span: () => SPAN } as unknown as MiriMachine;
+  const item = Item.new(T(1), "Unique", false);
+  const stack = Stack.new(item);
+  const history = AllocHistory.new(ALLOC, item, machine);
+  // the caller keeps its copy: changing it touches neither the stack nor the history's root
+  item.set_permission("Disabled");
+  expect(show(stack)).toBe("[Unique for <1>]");
+  expect(debug_Item(history.root[0], PLAIN)).toBe("[Unique for <1>]");
+  expect(stack.borrows[0]).not.toBe(history.root[0]);
+});
+
 test("grant / access sequence on a heap location", () => {
   const c = cx("SharedReadWrite");
   ok(retag(c, 2, C(1), "Unique", "Write"));

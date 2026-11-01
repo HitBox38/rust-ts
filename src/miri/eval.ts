@@ -53,7 +53,7 @@ import { fold_FnSig, PolyFnSig } from "../rustc_type_ir/ty_kind.ts";
 import { fold_Ty } from "../rustc_middle/ty/structural_impls.ts";
 import { type MutRef } from "../std/mut_ref.ts";
 import { Panic, assert, panic, unwrap } from "../std/panic.ts";
-import { Err, Ok, type Result } from "../std/result.ts";
+import { Err, Ok, type Result, unwrap_result } from "../std/result.ts";
 import { Poll } from "../std/task.ts";
 import { PLAIN, debug_vec } from "../std/fmt.ts";
 import * as tracing from "../rust_ts/tracing.ts";
@@ -434,13 +434,12 @@ function call_main(ecx: MiriInterpCx, entry_id: DefId, entry_type: MiriEntryFnTy
       // (This means we are effectively ignoring `-Zon-broken-pipe`.)
       const sigpipe = sigpipe_DEFAULT;
 
-      const fn_ptr_layout = ecx.layout_of(Ty.new_fn_ptr(tcx, entry_sig));
-      if (fn_ptr_layout.$ === "Err") panic("called `Result::unwrap()` on an `Err` value");
+      const fn_ptr_layout = unwrap_result(ecx.layout_of(Ty.new_fn_ptr(tcx, entry_sig)), debug_InterpErrorKind);
       const r = ecx.call_function(
         start_instance,
         ExternAbi.Rust,
         [
-          MiriImmTy.from_scalar(interp_Scalar.from_pointer(main_ptr, ecx), fn_ptr_layout._0),
+          MiriImmTy.from_scalar(interp_Scalar.from_pointer(main_ptr, ecx), fn_ptr_layout),
           argc,
           argv,
           MiriImmTy.from_uint(BigInt(sigpipe), ecx.machine.layouts.u8),

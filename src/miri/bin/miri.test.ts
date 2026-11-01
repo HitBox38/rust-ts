@@ -7,6 +7,7 @@
 // file, recorded below; exit 1 for every one).
 import { expect, mock, spyOn, test } from "bun:test";
 import { set_args_os } from "../../std/env.ts";
+import { Unported } from "../../std/panic.ts";
 import { FxHashMap, FxHashSet, String_key, usize_key } from "../../rust_ts/hash_map.ts";
 import { MiriConfig } from "../eval.ts";
 
@@ -184,14 +185,32 @@ test("flag values reach MiriConfig (every flag kind)", () => {
   expect(c.args).toEqual(["-Zmiri-seed=abc", "x"]); // after `--`: program arguments, not parsed
 });
 
-test("-Zmiri-retag-fields warns and continues; -Zmiri-num-cpus stops at its pending dependency", () => {
+test("-Zmiri-retag-fields warns and continues", () => {
   const [err, code] = run(["-Zmiri-retag-fields"]);
   // The oracle's stderr starts with this, then rustc's "error: no input filename given" (not captured here, see above).
   expect(err).toBe(
     "warning: `-Zmiri-retag-fields` is a NOP and will be removed in a future version of Miri.\nField retagging has been on-by-default for a long time.\n",
   );
   expect(code).toBe(1);
-  // The oracle: "fatal error: -Zmiri-num-cpus must be in the range 1..=1024" (MAX_CPUS, lane miri-shims-b). (`-Zmiri-genmc`
-  // is in ORACLE above since genmc/dummy.ts landed.)
-  expect(() => run(["-Zmiri-num-cpus=0"])).toThrow("MAX_CPUS");
+  // (`-Zmiri-genmc` is in ORACLE above since genmc/dummy.ts landed.)
+});
+
+// PENDING wave 37 (lane miri-shims-b ports `MAX_CPUS`, shims/cpu_affinity.rs): the oracle prints
+// "fatal error: -Zmiri-num-cpus must be in the range 1..=1024" and exits 1. Until then the range check stops unported;
+// this test pins that stop (not the oracle's behaviour) and is replaced by the todo below when wave 37 lands.
+test("-Zmiri-num-cpus range check: stops unported at MAX_CPUS until wave 37 (pending, not the oracle's output)", () => {
+  let stop: unknown;
+  try {
+    run(["-Zmiri-num-cpus=0"]);
+  } catch (e) {
+    stop = e;
+  }
+  expect(stop).toBeInstanceOf(Unported);
+  expect((stop as Unported).what).toBe(
+    "miri::shims::cpu_affinity::MAX_CPUS (src/tools/miri/src/shims/cpu_affinity.rs; lane miri-shims-b, not exported)",
+  );
+});
+test.todo("-Zmiri-num-cpus=0 and =1025: the oracle's range error (wave 37, MAX_CPUS = 1024)", () => {
+  expect(run(["-Zmiri-num-cpus=0"]).slice(0, 2)).toEqual(["fatal error: -Zmiri-num-cpus must be in the range 1..=1024\n", 1]);
+  expect(run(["-Zmiri-num-cpus=1025"]).slice(0, 2)).toEqual(["fatal error: -Zmiri-num-cpus must be in the range 1..=1024\n", 1]);
 });

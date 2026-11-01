@@ -195,7 +195,7 @@ DiagnosticCx.prototype.unbuild = function (this: DiagnosticCx): DiagnosticCxBuil
 // impl AllocHistory
 // rustc: src/tools/miri/src/borrow_tracker/stacked_borrows/diagnostics.rs:217 new
 (AllocHistory as unknown as { new: (id: AllocId, item: Item, machine: MiriMachine) => AllocHistory }).new = function (id: AllocId, item: Item, machine: MiriMachine): AllocHistory {
-  return new AllocHistory(id, [item, machine.current_user_relevant_span()], [], [], []);
+  return new AllocHistory(id, [clone_Item(item), machine.current_user_relevant_span()], [], [], []);
 };
 
 // rustc: src/tools/miri/src/borrow_tracker/stacked_borrows/diagnostics.rs:227 retain

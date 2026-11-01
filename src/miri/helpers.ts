@@ -17,7 +17,7 @@ import { type FrameExtra, type MiriInterpCx, MiriMachine, type Provenance, type 
 import { type TerminationInfo, TerminationInfo_into_machine_stop } from "./diagnostics.ts";
 import { imm_to_scalar } from "./operator.ts";
 import { type ExternAbi } from "../rustc_abi/extern_abi.ts";
-import { Align, BackendRepr, debug_AlignFromBytesError, FieldIdx, Size } from "../rustc_abi/lib.ts";
+import { Align, BackendRepr, debug_AlignFromBytesError, debug_Size, FieldIdx, Size } from "../rustc_abi/lib.ts";
 import { InterpCx } from "../rustc_const_eval/interpret/eval_context.ts";
 import { type AnyMachine, type Machine } from "../rustc_const_eval/interpret/machine.ts";
 import { MPlaceTy as interp_MPlaceTy, PlaceTy_from_MPlaceTy, type Writeable } from "../rustc_const_eval/interpret/place.ts";
@@ -42,6 +42,8 @@ import { type TyCtxt } from "../rustc_middle/ty/context.ts";
 import { Instance, InstanceKind } from "../rustc_middle/ty/instance.ts";
 import { RawList } from "../rustc_middle/ty/list.ts";
 import { debug_Ty } from "../rustc_middle/ty/structural_impls.ts";
+import { debug_InterpErrorKind } from "../rustc_middle/mir/interpret/error.gen.ts";
+import { display_Ty } from "../rustc_middle/ty/print/pretty.ts";
 import { mangle_internal_symbol as rustc_symbol_mangling_mangle_internal_symbol } from "../rustc_symbol_mangling/v0.ts";
 import { Binder } from "../rustc_type_ir/binder.ts";
 import { FnSigKind, fold_FnSig } from "../rustc_type_ir/ty_kind.ts";
@@ -52,7 +54,7 @@ import { CRATE_DEF_INDEX, type CrateNum, DefId, DefId_eq, debug_DefId, LOCAL_CRA
 import { Span } from "../rustc_span/lib.ts";
 import { bug, span_bug } from "../rustc_span/macros.ts";
 import { Symbol } from "../rustc_span/symbol.ts";
-import { spec } from "../rustc_target/lib.ts";
+import { debug_target_spec_other, spec } from "../rustc_target/lib.ts";
 import { type Os } from "../rustc_target/spec/mod.ts";
 import { debug_str, PLAIN } from "../std/fmt.ts";
 import { assert, panic, unported } from "../std/panic.ts";
@@ -500,9 +502,7 @@ InterpCx.prototype.libc_array_ty_layout = function (this: MiriInterpCx, name: st
   const this_ = this.eval_context_ref();
   const elem_ty_layout = this_.libc_ty_layout(name);
   const array_ty = Ty.new_array(this_.tcx.deref(), elem_ty_layout.ty, Number(size));
-  const r = this_.layout_of(array_ty);
-  if (r.$ === "Err") panic("called `Result::unwrap()` on an `Err` value");
-  return r._0;
+  return unwrap_result(this_.layout_of(array_ty), debug_InterpErrorKind);
 };
 
 /// Project to the given *named* field (which must be a struct or union type).
@@ -533,7 +533,7 @@ InterpCx.prototype.project_field_named = function <P extends Projectable<P, Prov
   const r = this.try_project_field_named(base, name);
   if (r.$ === "Err") return r;
   const p = r._0;
-  if (p === undefined) return bug(`no field named ${name} in type ${base.layout_().ty.toString()}`);
+  if (p === undefined) return bug(`no field named ${name} in type ${display_Ty(base.layout_().ty)}`);
   return interp_ok(p);
 };
 
@@ -542,7 +542,7 @@ InterpCx.prototype.project_field_named = function <P extends Projectable<P, Prov
 /// this method is fine for almost all integer types.
 // rustc: src/tools/miri/src/helpers.rs:318 write_int
 InterpCx.prototype.write_int = function (this: MiriInterpCx, i: bigint, dest: Writeable<unknown, Provenance>): InterpResult {
-  assert(BackendRepr.is_scalar(dest.layout_().backend_repr), () => `write_int on non-scalar type ${dest.layout_().ty.toString()}`);
+  assert(BackendRepr.is_scalar(dest.layout_().backend_repr), () => `write_int on non-scalar type ${display_Ty(dest.layout_().ty)}`);
   let val: Scalar;
   if (BackendRepr.is_signed(dest.layout_().backend_repr)) {
     val = interp_Scalar.from_int(i, dest.layout_().size);
@@ -902,7 +902,7 @@ InterpCx.prototype.assert_target_os = function (this: MiriInterpCx, target_os: O
   const left = this.eval_context_ref().tcx.deref().sess.target.os;
   if (!Os_eq(left, target_os)) {
     panic(
-      `assertion \`left == right\` failed: \`${name}\` is only available on the \`${spec.Os.display(target_os)}\` target OS\n  left: ${spec.Os.desc(left)}\n right: ${spec.Os.desc(target_os)}`,
+      `assertion \`left == right\` failed: \`${name}\` is only available on the \`${spec.Os.display(target_os)}\` target OS\n  left: ${debug_target_spec_other(left)}\n right: ${debug_target_spec_other(target_os)}`,
     );
   }
 };
@@ -1180,13 +1180,11 @@ InterpCx.prototype.frame_in_std = function (this: MiriInterpCx): boolean {
 InterpCx.prototype.mark_immutable = function (this: MiriInterpCx, mplace: MPlaceTy): void {
   const this_ = this.eval_context_mut();
   // This got just allocated, so there definitely is a pointer here.
-  const p = mplace.ptr().into_pointer_or_addr();
-  if (p.$ === "Err") panic("called `Result::unwrap()` on an `Err` value");
-  const provenance = p._0.provenance;
+  const provenance = unwrap_result(mplace.ptr().into_pointer_or_addr(), debug_Size).provenance;
   const alloc_id = this_.machine.Provenance.get_alloc_id(provenance);
   if (alloc_id === undefined) panic("called `Option::unwrap()` on a `None` value");
   const r = this_.alloc_mark_immutable(alloc_id);
-  if (r.$ === "Err") panic(`called \`Result::unwrap()\` on an \`Err\` value: ${debug_InterpErrorInfo(r._0, PLAIN)}`);
+  unwrap_result(r, debug_InterpErrorInfo);
 };
 
 /// Returns an integer type that is twice wide as `ty`

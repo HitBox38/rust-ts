@@ -26,6 +26,7 @@ import { RngExt } from "../vendor/rand/rng.ts";
 import { IteratorRandom, type RustIterator } from "../vendor/rand/seq/iterator.ts";
 import type { Float, FloatConvert, FloatType } from "../vendor/rustc_apfloat/lib.ts";
 import { PLAIN } from "../std/fmt.ts";
+import { debug_Ty } from "../rustc_middle/ty/structural_impls.ts";
 import { assert, assert_eq, panic } from "../std/panic.ts";
 
 
@@ -144,7 +145,7 @@ InterpCx.prototype.binary_ptr_op_ = function (this: MiriInterpCx, bin_op: BinOp,
     case "BitAnd":
     case "BitXor": {
       assert(left.layout.ty.is_raw_ptr(), "assertion failed: left.layout.ty.is_raw_ptr()");
-      assert_eq(right.layout.ty, this_.tcx.deref().types.usize, (v) => String(v));
+      assert_eq(right.layout.ty, this_.tcx.deref().types.usize, (v) => debug_Ty(v, PLAIN));
       const ptr = interp_Scalar.to_pointer<Provenance>(imm_to_scalar(left), this_);
       // We do the actual operation with usize-typed scalars.
       const left_ = MiriImmTy.from_uint(ptr.addr(Provenance_Provenance).bytes_u64(), this_.machine.layouts.usize);
