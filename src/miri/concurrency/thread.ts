@@ -516,7 +516,9 @@ ThreadManager.prototype.set_thread_local_alloc = function (this: ThreadManager, 
   // `self.thread_local_allocs.try_insert((def_id, self.active_thread), ptr).unwrap();`
   const key: [DefId, ThreadId] = [def_id, this.active_thread];
   if (this.thread_local_allocs.has(key)) {
-    panic("called `Result::unwrap()` on an `Err` value: OccupiedError { .. }");
+    // `unwrap` prints the `OccupiedError`'s real `Debug` (key `(DefId, ThreadId)`, old and new value); not ported (needs
+    // the DefId formatter; unreachable in M6: a thread-local is initialized once per thread), so stop, don't invent it.
+    unported("ThreadManager::set_thread_local_alloc: `unwrap` panic text (Debug of OccupiedError)");
   }
   this.thread_local_allocs.set(key, ptr);
 };

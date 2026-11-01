@@ -147,7 +147,9 @@ BlockingIoManager.prototype.add_blocked_thread = function (this: BlockingIoManag
 
   // `.try_insert(thread_id, interest).expect(..)` (value-keyed: `new_blocked_threads`)
   if (source.blocked_threads.has(thread_id)) {
-    panic("Thread cannot be blocked multiple times on the same source: OccupiedError { .. }");
+    // The panic text is `<msg>: OccupiedError { .. }` with the entry's real `Debug` fields; that formatting is not ported
+    // (unreachable in M6: no caller blocks a thread twice), so stop rather than print an invented message.
+    unported("BlockingIoManager::add_blocked_thread: `expect` panic text (Debug of BTreeMap OccupiedError)");
   }
   source.blocked_threads.set(thread_id, interest);
 };
