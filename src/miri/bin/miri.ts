@@ -29,14 +29,14 @@ import {
   GenmcConfig,
   type GenmcCtx,
   MIRI_DEFAULT_ARGS,
-  type MiriConfig,
   ProvenanceMode,
   ValidationMode,
   entry_fn,
   eval_entry,
   run_genmc_mode,
 } from "../lib.ts";
-import { clone_MiriConfig } from "../eval.ts";
+import { MiriConfig, clone_MiriConfig } from "../eval.ts";
+import type { Pending } from "../../rustc_type_ir/decls.ts";
 import { EXTRA_SYMBOLS } from "../sym.ts";
 import { deinit_loggers, init_early_loggers, init_late_loggers } from "./log/setup.ts";
 import { TARGET_CONFIGS } from "../../rust_ts/target_config.gen.ts";
@@ -177,7 +177,7 @@ class MiriCompilerCalls implements Callbacks {
     if (config.genmc_config !== undefined) {
       assert(this.many_seeds === undefined, "assertion failed: self.many_seeds.is_none()");
       res = as_exit_result(
-        run_genmc_mode(tcx, config, (genmc_ctx: GenmcCtx) => eval_entry(tcx, entry_def_id, entry_type, config, genmc_ctx)),
+        run_genmc_mode(tcx, config, (genmc_ctx: GenmcCtx) => as_pending_exit_result(eval_entry(tcx, entry_def_id, entry_type, config, genmc_ctx))),
       );
     } else if (this.many_seeds !== undefined) {
       const many_seeds = this.many_seeds;
@@ -187,10 +187,10 @@ class MiriCompilerCalls implements Callbacks {
         const config2 = clone_MiriConfig(config);
         config2.seed = seed;
         eprintln(`Trying seed: ${seed}`);
-        return as_exit_result(eval_entry(tcx, entry_def_id, entry_type, config2, /* genmc_ctx */ undefined));
+        return eval_entry(tcx, entry_def_id, entry_type, config2, /* genmc_ctx */ undefined);
       });
     } else {
-      res = as_exit_result(eval_entry(tcx, entry_def_id, entry_type, config, undefined));
+      res = eval_entry(tcx, entry_def_id, entry_type, config, undefined);
     }
     // Process interpreter result.
     if (res.$ === "Err") {
@@ -205,10 +205,14 @@ class MiriCompilerCalls implements Callbacks {
   }
 }
 
-/** PORT(contract): pending miri-eval: `eval_entry` / `run_genmc_mode` return `Result<(), NonZeroI32>`, declared with
- * `Pending<"NonZeroI32">`; the error is the exit code (a nonzero `i32`, a number). */
-function as_exit_result(r: Result<null, unknown>): Result<null, number> {
-  return r as Result<null, number>;
+/** PORT(contract): pending miri-threads: `run_genmc_mode` (genmc/dummy.ts) still declares `Result<(), NonZeroI32>` with
+ * `Pending<"NonZeroI32">`; miri-eval's `eval_entry` returns the exit code as a nonzero `number`. Both directions of
+ * that boundary convert here until dummy.ts is filled. */
+function as_exit_result(r: Result<null, Pending<"NonZeroI32">>): Result<null, number> {
+  return r as unknown as Result<null, number>;
+}
+function as_pending_exit_result(r: Result<null, number>): Result<null, Pending<"NonZeroI32">> {
+  return r as unknown as Result<null, Pending<"NonZeroI32">>;
 }
 
 /** `Path::canonicalize(p).ok()` (PORT: D14, host file system). */
@@ -525,17 +529,6 @@ function parse_range(val: string): Result<{ start: number; end: number }, string
   return Ok({ start: from, end: to });
 }
 
-/** `MiriConfig::default()` (eval.rs:178, lane miri-eval: `impl Default`, not declared in the skeleton). PORT(contract):
- * pending miri-eval; root replaces the body with a call to that lane's default when it lands. Until then it stops
- * `unported`, unless a test installed the upstream default (`PENDING_MIRI_CONFIG_DEFAULT`, miri.test.ts). */
-function MiriConfig_default(): MiriConfig {
-  const f = PENDING_MIRI_CONFIG_DEFAULT.f;
-  if (f !== undefined) return f();
-  return unported("miri::eval::MiriConfig::default (src/tools/miri/src/eval.rs:178; lane miri-eval, not declared)");
-}
-/** Test hook of the pending `MiriConfig::default()` (removed with it). */
-export const PENDING_MIRI_CONFIG_DEFAULT: { f: (() => MiriConfig) | undefined } = { f: undefined };
-
 /** `miri::MAX_CPUS` (shims/cpu_affinity.rs, lane miri-shims-b, wave 37; not yet exported by lib.ts). PORT(contract):
  * pending miri-shims-b; root replaces this with the re-export when it lands. */
 function MAX_CPUS(): number {
@@ -598,7 +591,7 @@ export function main(): number {
   // Parse our arguments and split them across `rustc` and `miri`.
   let many_seeds: { start: number; end: number } | undefined = undefined;
   let many_seeds_keep_going = false;
-  const miri_config = MiriConfig_default();
+  const miri_config = MiriConfig.default();
   miri_config.env = env_snapshot;
 
   const rustc_args: string[] = [];

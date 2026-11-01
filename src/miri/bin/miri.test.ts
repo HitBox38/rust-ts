@@ -1,15 +1,16 @@
 // Unit tests of the Miri driver's argv parsing (src/miri/bin/miri.ts, lane miri-driver). Not an upstream port.
 //
-// `main()` runs in-process with two not-yet-ported dependencies mocked: bin/log/setup.rs's loggers (lane miri-log; no-ops
-// here, as the release oracle's are with no `MIRI_LOG`) and `MiriConfig::default()` (eval.rs:178, lane miri-eval; built
-// below from the upstream listing and installed through the driver's pending hook). Each case's stderr and exit status are compared with the oracle Miri's (the isolated
-// toolchain, `miri <flag>` with no input file, recorded below; exit 1 for every one).
-import { expect, mock, test } from "bun:test";
+// `main()` runs in-process with bin/log/setup.rs's loggers mocked (lane miri-log; no-ops here, as the release oracle's
+// are with no `MIRI_LOG`). `MiriConfig::default()` (eval.rs:178, lane miri-eval) is the real one, wrapped by a spy that
+// keeps the config `main()` parsed into; `default_config()` below is the upstream listing, checked against it. Each
+// case's stderr and exit status are compared with the oracle Miri's (the isolated toolchain, `miri <flag>` with no input
+// file, recorded below; exit 1 for every one).
+import { expect, mock, spyOn, test } from "bun:test";
 import { set_args_os } from "../../std/env.ts";
 import { FxHashMap, FxHashSet, String_key, usize_key } from "../../rust_ts/hash_map.ts";
-import type { MiriConfig } from "../eval.ts";
+import { MiriConfig } from "../eval.ts";
 
-/** eval.rs:178 `impl Default for MiriConfig` (test data until lane miri-eval lands). */
+/** eval.rs:178 `impl Default for MiriConfig` (the upstream listing). */
 function default_config(): MiriConfig {
   return {
     env: [],
@@ -59,11 +60,20 @@ mock.module("./log/setup.ts", () => ({
   init_late_loggers: () => {},
   deinit_loggers: () => {},
 }));
-const { main, MiriExit, PENDING_MIRI_CONFIG_DEFAULT } = await import("./miri.ts");
-PENDING_MIRI_CONFIG_DEFAULT.f = () => {
-  last_config = default_config();
+const { main, MiriExit } = await import("./miri.ts");
+const real_default = MiriConfig.default.bind(MiriConfig);
+spyOn(MiriConfig, "default").mockImplementation(() => {
+  last_config = real_default();
   return last_config;
-};
+});
+
+test("MiriConfig::default() matches the upstream listing", () => {
+  const c = real_default();
+  expect(c).toEqual(default_config());
+  expect(c.set_env_vars).toBeInstanceOf(FxHashMap);
+  expect(c.tracked_pointer_tags).toBeInstanceOf(FxHashSet);
+  expect(c.tracked_alloc_ids).toBeInstanceOf(FxHashSet);
+});
 
 const enc = new TextEncoder();
 

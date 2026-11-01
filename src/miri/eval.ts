@@ -4,23 +4,26 @@
 // re-exports them.
 //
 // PORT:
-// - `impl Default for MiriConfig` is `MiriConfig.default()` (companion of the generated interface).
+// - `impl Default for MiriConfig` is `MiriConfig.default()` (companion of the generated interface). Its
+//   `FxHashMap` / `FxHashSet` fields are rust_ts/hash_map.ts's hashbrown-ordered `FxHashMap` / `FxHashSet`: shims/env.rs
+//   iterates `set_env_vars`, so its order is observable. `BorTag` / `AllocId` are `NonZero<u64>` (their `Hash` writes
+//   the `u64`, which FxHasher treats as `usize` on the 64-bit hosts): `usize_key`.
 // - `MainThreadState::on_main_stack_empty(&mut self, ..)` takes the state as a `MutRef` (`*self = X` writes `.value`).
 // - `Poll<()>` is src/std/task.ts's `Poll<null>`; the skeleton still types the stack-empty callbacks' result
 //   `Pending<"Poll<()>">` (thread.ts `StackEmptyCallback`, global_ctor.ts / tls.ts `on_stack_empty`): `poll_of` /
 //   `pending_poll` convert at those boundaries (docs/handoff/miri-eval.md asks to retype them).
 // - `#[derive(Default)]` of `GlobalCtorState` / `TlsDtorsState` (both `#[default] Init`) is built here from the generated
 //   types (`GlobalCtorStatePriv.Init` / `TlsDtorsStatePriv.Init`).
-// - `GlobalDataRaceHandler::as_genmc_ref` (data_race_handler.rs:47, lane miri-race) and `ThreadId::MAIN_THREAD`
-//   (thread.rs:59, lane miri-threads) are not declared by the skeleton: `as_genmc_ref` / `MAIN_THREAD` below are
-//   their one-line bodies (PORT(contract): pending; replace with the owners' exports when they land).
+// - `ThreadId::MAIN_THREAD` (thread.rs:59, lane miri-threads) is not declared by the skeleton: `MAIN_THREAD` below is
+//   its one-line body (PORT(contract): pending; replace with the owners' exports when they land).
 // - `panic::catch_unwind(|| ecx.run_threads())` is a `try`/`catch`: a `FatalErrorMarker` (rustc's unwinding
 //   `dcx().fatal`) is rethrown as is, any other throw first runs `handle_ice` (the ICE report).
-import { BorrowTrackerMethod } from "./borrow_tracker/mod.ts";
+import { type BorTag, BorrowTrackerMethod } from "./borrow_tracker/mod.ts";
+import { FxHashMap, FxHashSet, type KeyType, LAYOUT_VEC, String_key, usize_key } from "../rust_ts/hash_map.ts";
 import { type GenmcCtx } from "./concurrency/genmc/dummy.ts";
 import { ThreadId } from "./concurrency/thread.gen.ts";
 import { type StackEmptyCallback } from "./concurrency/thread.ts";
-import { type GlobalDataRaceHandler } from "./concurrency/data_race_handler.ts";
+import { GlobalDataRaceHandler } from "./concurrency/data_race_handler.ts";
 import { report_leaks, report_result } from "./diagnostics.ts";
 import * as gen from "./eval.gen.ts";
 import { type MainThreadState, type MiriEntryFnType } from "./eval.gen.ts";
@@ -35,7 +38,7 @@ import { InterpCx } from "../rustc_const_eval/interpret/eval_context.ts";
 import { check_function_signature } from "../rustc_hir_analysis/check/mod.ts";
 import { ExportedSymbol, type SymbolExportInfo } from "../rustc_middle/middle/exported_symbols.ts";
 import { type EntryFnType } from "../rustc_passes/entry.ts";
-import { InterpErrorInfo_from_InterpErrorKind, InterpResult, interp_ok, Scalar as interp_Scalar } from "../rustc_middle/mir/interpret/mod.ts";
+import { type AllocId, InterpErrorInfo_from_InterpErrorKind, InterpResult, interp_ok, Scalar as interp_Scalar } from "../rustc_middle/mir/interpret/mod.ts";
 import { ObligationCause, ObligationCauseCode } from "../rustc_middle/traits/mod.ts";
 import { type TyCtxt } from "../rustc_middle/ty/context.ts";
 import { GenericArg } from "../rustc_middle/ty/generic_args.ts";
@@ -66,13 +69,6 @@ function pending_poll(p: Poll<null>): Pending<"Poll<()>"> {
   return p as unknown as Pending<"Poll<()>">;
 }
 
-/**
- * `GlobalDataRaceHandler::as_genmc_ref` (data_race_handler.rs:47).
- * PORT(contract): pending miri-race (not declared by the skeleton; module header).
- */
-function as_genmc_ref(self: GlobalDataRaceHandler): GenmcCtx | undefined {
-  return self.$ === "Genmc" ? self._0 : undefined;
-}
 /**
  * `ThreadId::MAIN_THREAD` (thread.rs:59).
  * PORT(contract): pending miri-threads (not declared by the skeleton; module header).
@@ -150,12 +146,12 @@ export const MiriConfig = {
       isolated_op: { $: "Reject", _0: "Abort" },
       ignore_leaks: false,
       forwarded_env_vars: [],
-      set_env_vars: new Map(),
+      set_env_vars: FxHashMap.default<string, string>(String_key, LAYOUT_VEC),
       args: [],
       current_exe: undefined,
       seed: undefined,
-      tracked_pointer_tags: new Set(),
-      tracked_alloc_ids: new Set(),
+      tracked_pointer_tags: FxHashSet.default(usize_key as unknown as KeyType<BorTag>),
+      tracked_alloc_ids: FxHashSet.default(usize_key as unknown as KeyType<AllocId>),
       track_alloc_accesses: false,
       data_race_detector: true,
       weak_memory_emulation: true,
@@ -218,7 +214,7 @@ function on_main_stack_empty(self: MutRef<MainThreadState>, this_: MiriInterpCx)
         case "Pending":
           break; // just keep going
         case "Ready": {
-          if (as_genmc_ref(this_.machine.data_race) !== undefined) {
+          if (GlobalDataRaceHandler.as_genmc_ref(this_.machine.data_race) !== undefined) {
             // In GenMC mode, we don't yield at the end of the main thread.
             // Instead, the `GenmcCtx` will ensure that unfinished threads get a chance to run at this point.
             self.value = gen.MainThreadState.Done;
@@ -268,7 +264,7 @@ function on_main_stack_empty(self: MutRef<MainThreadState>, this_: MiriInterpCx)
       if (t.$ === "Err") return t;
 
       // In GenMC mode, we do not immediately stop execution on main thread exit.
-      const genmc_ctx = as_genmc_ref(this_.machine.data_race);
+      const genmc_ctx = GlobalDataRaceHandler.as_genmc_ref(this_.machine.data_race);
       if (genmc_ctx !== undefined) {
         // If there's no error, execution will continue (on another thread).
         const h = genmc_ctx.handle_exit(MAIN_THREAD(), exit_code, "MainThreadFinish");

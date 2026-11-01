@@ -18,7 +18,7 @@
 import { type ImmTy, type OpTy, type PlaceTy, type Scalar } from "./lib.ts";
 import { type MiriInterpCx } from "./machine.ts";
 import { type HostUnaryFloatOp } from "./math.gen.ts";
-import { MiriImmTy, machine_rng } from "./operator.ts";
+import { MiriImmTy } from "./operator.ts";
 import { type InterpResult, interp_ok, Scalar as interp_Scalar, Scalar_from_Double, Scalar_from_Half, Scalar_from_Quad, Scalar_from_Single } from "../rustc_middle/mir/interpret/mod.ts";
 import { ScalarInt } from "../rustc_middle/ty/consts/int.ts";
 import { bug } from "../rustc_span/macros.ts";
@@ -142,7 +142,7 @@ export function apply_random_float_error<F extends Float<F>>(ecx: MiriInterpCx, 
   ) {
     return val;
   }
-  const rng = machine_rng(ecx.machine.rng);
+  const rng = ecx.machine.rng;
 
   // Generate a random integer in the range [0, 2^PREC).
   // (When read as binary, the position of the first `1` determines the exponent,
@@ -189,7 +189,7 @@ export function apply_random_float_error_ulp<F extends Float<F>>(ecx: MiriInterp
   ) {
     return val;
   }
-  const rng = machine_rng(ecx.machine.rng);
+  const rng = ecx.machine.rng;
 
   const max_error_ = BigInt(max_error);
   let error: bigint;
@@ -423,7 +423,7 @@ export function fixed_float_value<S extends Semantics>(
 
     // 1^y = 1 for any y, even a NaN
     if (name === "pow" && base.eq(one)) {
-      const rng = machine_rng(this_.machine.rng);
+      const rng = this_.machine.rng;
       // SNaN exponents get special treatment: they might return 1, or a NaN.
       // This is non-deterministic because LLVM can treat SNaN as QNaN, and because
       // implementation behavior differs between glibc and musl.
@@ -437,7 +437,7 @@ export function fixed_float_value<S extends Semantics>(
 
     // x^(±0) = 1 for any x, even a NaN
     if (name === "pow" && exp.is_zero()) {
-      const rng = machine_rng(this_.machine.rng);
+      const rng = this_.machine.rng;
       // SNaN bases get special treatment: they might return 1, or a NaN.
       // This is non-deterministic because LLVM can treat SNaN as QNaN, and because
       // implementation behavior differs between glibc and musl.
@@ -463,7 +463,7 @@ export function fixed_powi_value<S extends Semantics>(ecx: MiriInterpCx, base: I
   switch (exp) {
     case 0: {
       const one = IeeeExt.one(F_);
-      const rng = machine_rng(ecx.machine.rng);
+      const rng = ecx.machine.rng;
       // SNaN bases get special treatment: they might return 1, or a NaN.
       // This is non-deterministic because LLVM can treat SNaN as QNaN.
       const return_nan = base.is_signaling() && ecx.machine.float_nondet && RngExt.random(rng, StandardUniform_bool);

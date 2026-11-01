@@ -7,8 +7,6 @@
 // - `generate_nan::<F1, F2>` takes `F2`'s `FloatType` dictionary as a trailing `F2_` (the interpreter's convention,
 //   interpret/machine.ts header: `Machine::generate_nan(ecx, inputs, F2_)`); `F1` values convert themselves
 //   (`FloatConvert`).
-// - `this.machine.rng` is still typed `Pending<"rand::rngs::StdRng">` by the typemap; it is the vendored rand `StdRng`
-//   (`machine_rng`).
 // - `nans.choose(rng)` runs over a hand-built `RustIterator` with core's exact `next` / `size_hint` for
 //   `Once.chain(Map<Filter<slice::Iter>>).chain(FilterMap<Filter<slice::Iter>>)` (rand's `choose` draws depend on
 //   `size_hint`, vendor/rand/seq/iterator.ts).
@@ -30,11 +28,6 @@ import type { Float, FloatConvert, FloatType } from "../vendor/rustc_apfloat/lib
 import { PLAIN } from "../std/fmt.ts";
 import { assert, assert_eq, panic } from "../std/panic.ts";
 
-
-/** PORT: `MiriMachine::rng` (`RefCell<StdRng>`) is the vendored rand `StdRng`; the typemap still says `Pending` (header). */
-export function machine_rng(rng: Pending<"rand::rngs::StdRng">): Rng {
-  return rng as unknown as Rng;
-}
 
 /**
  * PORT: the `ImmTy` constructors of rustc_const_eval are typed with the CTFE provenance; for Miri's provenance they are
@@ -265,7 +258,7 @@ InterpCx.prototype.generate_nan = function <F1 extends Float<F1> & FloatConvert,
     return F2_.NAN;
   }
 
-  const rand = machine_rng(this_.machine.rng);
+  const rand = this_.machine.rng;
   // Assemble an iterator of possible NaNs: preferred, quieting propagation, unchanged propagation.
   // On some targets there are more possibilities; for now we just generate those options that
   // are possible everywhere.
@@ -311,7 +304,7 @@ InterpCx.prototype.equal_float_min_max = function <F>(this: MiriInterpCx, a: F, 
     return a;
   }
   // Return one side non-deterministically.
-  const rand = machine_rng(this_.machine.rng);
+  const rand = this_.machine.rng;
   if (RngExt.random(rand, StandardUniform_bool)) {
     return a;
   } else {

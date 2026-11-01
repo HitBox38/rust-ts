@@ -5,7 +5,8 @@ import "./lib.ts";
 import { bool_to_simd_element, isolation_abort_error, ToU64_usize, ToUsize_u32, windows_check_buffer_size } from "./helpers.ts";
 import { Size } from "../rustc_abi/lib.ts";
 import { Scalar } from "../rustc_middle/mir/interpret/mod.ts";
-import { Panic, Unported } from "../std/panic.ts";
+import { Panic } from "../std/panic.ts";
+import { TerminationInfoStop } from "./diagnostics.ts";
 
 test("bool_to_simd_element: all ones for true, sign-extended/truncated to the size", () => {
   for (const [bytes, all] of [
@@ -33,6 +34,15 @@ test("ToUsize / ToU64", () => {
   expect(ToU64_usize.to_u64(12)).toBe(12n);
 });
 
-test("isolation_abort_error stops until TerminationInfo's MachineStopType lands (lane miri-driver)", () => {
-  expect(() => isolation_abort_error("`open`")).toThrow(Unported);
+test("isolation_abort_error throws TerminationInfo::UnsupportedInIsolation as a MachineStop", () => {
+  const r = isolation_abort_error("`open`");
+  expect(r.$).toBe("Err");
+  if (r.$ !== "Err") return;
+  const kind = r._0.kind();
+  expect(kind.$).toBe("MachineStop");
+  if (kind.$ !== "MachineStop") return;
+  expect(TerminationInfoStop.downcast_ref(kind._0)).toEqual({
+    $: "UnsupportedInIsolation",
+    _0: "`open` not available when isolation is enabled",
+  });
 });

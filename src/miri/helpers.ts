@@ -8,16 +8,14 @@
 // - Interpreter methods defined in rustc_const_eval's class body (`eval_global`, `size_and_align_of_val`, `frame`, ...)
 //   are typed with the CTFE provenance; their Miri values are the same objects (`as unknown as` at those calls, as
 //   operator.ts's `MiriImmTy`).
-// - `throw_machine_stop!(TerminationInfo::..)` needs `impl MachineStopType for TerminationInfo` (diagnostics.rs:113, lane
-//   miri-driver), which is not declared by the skeleton: `throw_machine_stop` below stops with `unported` until
-//   miri-driver exports the boxing (docs/handoff/miri-eval.md).
+// - `throw_machine_stop!(TerminationInfo::..)` boxes through miri-driver's `TerminationInfo_into_machine_stop`
+//   (diagnostics.ts: `impl MachineStopType for TerminationInfo`, diagnostics.rs:113).
 // - `getrandom::fill` (isolation off) is `unported` in M6 (plan-m6 D5).
 // - `static DEDUP: Mutex<FxHashSet<String>>` (reject_in_isolation) is a module-level `Set` (process-global, as upstream).
 import { type ImmTy, type MPlaceTy, type Pointer, type Scalar } from "./lib.ts";
 import { type FrameExtra, type MiriInterpCx, MiriMachine, type Provenance, type RejectOpWith } from "./machine.ts";
-import { type TerminationInfo } from "./diagnostics.ts";
+import { type TerminationInfo, TerminationInfo_into_machine_stop } from "./diagnostics.ts";
 import { imm_to_scalar } from "./operator.ts";
-import { machine_rng } from "./operator.ts";
 import { type ExternAbi } from "../rustc_abi/extern_abi.ts";
 import { Align, BackendRepr, FieldIdx, Size } from "../rustc_abi/lib.ts";
 import { InterpCx } from "../rustc_const_eval/interpret/eval_context.ts";
@@ -83,11 +81,9 @@ function throw_ub_format<T>(msg: string): InterpResult<T> {
 }
 /**
  * `throw_machine_stop!(info)` (`InterpErrorKind::MachineStop(Box::new(info))`).
- * PORT(contract): pending miri-driver (`impl MachineStopType for TerminationInfo`, diagnostics.rs:113; module header).
  */
 export function throw_machine_stop<T>(info: TerminationInfo): InterpResult<T> {
-  void info;
-  const kind: InterpErrorKind = unported("miri::diagnostics::TerminationInfo as MachineStopType (pending lane miri-driver)");
+  const kind: InterpErrorKind = TerminationInfo_into_machine_stop(info);
   return Err(InterpErrorInfo_from_InterpErrorKind(kind));
 }
 
@@ -622,7 +618,7 @@ InterpCx.prototype.gen_random = function (this: MiriInterpCx, ptr: Pointer, len:
     //     .map_err(|err| err_unsup_format!("host getrandom failed: {}", err))?;
     return unported("miri::helpers::gen_random: host getrandom (isolation off; plan-m6 D5)");
   } else {
-    const rng = machine_rng(this_.machine.rng);
+    const rng = this_.machine.rng;
     rng.fill_bytes(data);
   }
 
