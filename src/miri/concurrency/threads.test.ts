@@ -39,6 +39,8 @@ import { Err } from "../../std/result.ts";
 import { Poll } from "../../std/task.ts";
 import { Duration } from "../../std/time.ts";
 import { StdRng } from "../../vendor/rand/rngs/std.ts";
+import { EnvFilter, LayeredSubscriber, reset_global_default_for_tests, set_global_default } from "../../rust_ts/tracing.ts";
+import { HierarchicalLayer, type Writer } from "../../rust_ts/tracing_tree.ts";
 
 // ---------------------------------------------------------------- stand-ins ----
 
@@ -428,6 +430,37 @@ test("callback! sites visit every capture: a blocked thread's callback roots the
   // join_thread: { joined_thread_id, dest, success_retval } (ThreadId has no provenance)
   as(5, () => expect(ecx.join_thread(ids[1]!, ptr_scalar(8, 18), place(9, 19)).$).toBe("Ok"));
   expect(roots(5)).toEqual([[9, 19], [8, 18]]);
+});
+
+test("set_active_thread: the thread-switch info! event (thread.rs:516) under MIRI_LOG=info", () => {
+  const out: string[] = [];
+  const writer: Writer = {
+    write_all(s: string) {
+      out.push(s);
+      return undefined;
+    },
+  };
+  const layer = HierarchicalLayer.default().with_writer(() => writer).with_ansi(false).with_targets(true).with_indent_amount(2);
+  // bin/log/setup.rs: `MIRI_LOG=info`
+  const filter = EnvFilter.new("rustc_middle::mir::interpret=info,rustc_const_eval::interpret=info,miri=info");
+  expect(set_global_default(new LayeredSubscriber([layer], filter)).$).toBe("Ok");
+  try {
+    const { ecx, ids } = threads(1);
+    const old = ecx.machine.threads.set_active_thread(ids[1]!);
+    expect(old).toBe(ids[0]);
+    ecx.machine.threads.set_active_thread(old);
+  } finally {
+    reset_global_default_for_tests();
+  }
+  // `get_thread_display_name`: the main thread is named `main`, others `unnamed-{index}` (thread.rs:226)
+  const dashes = "----------------------------------------";
+  expect(out.join("")).toBe(
+    [
+      ` INFO miri::concurrency::thread ---------- Now executing on thread \`unnamed-1\` (previous: \`main\`) ${dashes}`,
+      ` INFO miri::concurrency::thread ---------- Now executing on thread \`main\` (previous: \`unnamed-1\`) ${dashes}`,
+      "",
+    ].join("\n"),
+  );
 });
 
 test("rwlock: writers are preferred; a writer unlock with no queued writer wakes every queued reader in order", () => {

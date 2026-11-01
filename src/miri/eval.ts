@@ -37,7 +37,7 @@ import { InterpCx } from "../rustc_const_eval/interpret/eval_context.ts";
 import { check_function_signature } from "../rustc_hir_analysis/check/mod.ts";
 import { ExportedSymbol, type SymbolExportInfo } from "../rustc_middle/middle/exported_symbols.ts";
 import { type EntryFnType } from "../rustc_passes/entry.ts";
-import { type AllocId, InterpErrorInfo_from_InterpErrorKind, InterpResult, interp_ok, Scalar as interp_Scalar } from "../rustc_middle/mir/interpret/mod.ts";
+import { type AllocId, debug_AllocId, InterpErrorInfo_from_InterpErrorKind, InterpResult, interp_ok, Scalar as interp_Scalar } from "../rustc_middle/mir/interpret/mod.ts";
 import { ObligationCause, ObligationCauseCode } from "../rustc_middle/traits/mod.ts";
 import { type TyCtxt } from "../rustc_middle/ty/context.ts";
 import { GenericArg } from "../rustc_middle/ty/generic_args.ts";
@@ -55,7 +55,8 @@ import { type MutRef } from "../std/mut_ref.ts";
 import { Panic, assert, panic, unwrap } from "../std/panic.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
 import { Poll } from "../std/task.ts";
-import { PLAIN } from "../std/fmt.ts";
+import { PLAIN, debug_vec } from "../std/fmt.ts";
+import * as tracing from "../rust_ts/tracing.ts";
 import { debug_InterpErrorKind } from "../rustc_middle/mir/interpret/error.gen.ts";
 export * from "./eval.gen.ts";
 
@@ -534,7 +535,7 @@ export function eval_entry(
         break miri_error;
       }
       // Check for memory leaks.
-      // info!("Additional static roots: {:?}", ecx.machine.static_roots);
+      tracing.info("miri::eval", () => `Additional static roots: ${debug_vec(ecx.machine.static_roots, PLAIN, debug_AllocId)}`);
       const leaks = ecx.take_leaked_allocations((ecx) => (ecx as unknown as MiriInterpCx).machine.static_roots);
       if (leaks.length !== 0) {
         report_leaks(ecx, leaks);

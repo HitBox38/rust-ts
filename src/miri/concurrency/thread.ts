@@ -21,6 +21,7 @@
 //   `PORT(contract): pending <lane>` (contract rule 6).
 // - GenMC arms stop with `unported("genmc")` (lane brief; the `GenmcCtx` of genmc/dummy.rs cannot be constructed).
 import * as clock from "../clock.ts";
+import * as tracing from "../../rust_ts/tracing.ts";
 import { type Deadline } from "../clock.ts";
 import * as gen from "./thread.gen.ts";
 import {
@@ -546,11 +547,13 @@ ThreadManager.prototype.create_thread = function (this: ThreadManager, on_stack_
 // rustc: src/tools/miri/src/concurrency/thread.rs:514 set_active_thread
 ThreadManager.prototype.set_active_thread = function (this: ThreadManager, id: ThreadId): ThreadId {
   assert(id.index() < this.threads.length, "assertion failed: id.index() < self.threads.len()");
-  // info!(
-  //     "---------- Now executing on thread `{}` (previous: `{}`) ----------------------------------------",
-  //     self.get_thread_display_name(id),
-  //     self.get_thread_display_name(self.active_thread)
-  // );
+  if (tracing.INFO_ENABLED) {
+    tracing.info(
+      "miri::concurrency::thread",
+      () =>
+        `---------- Now executing on thread \`${this.get_thread_display_name(id)}\` (previous: \`${this.get_thread_display_name(this.active_thread)}\`) ----------------------------------------`,
+    );
+  }
   const old = this.active_thread;
   this.active_thread = id;
   return old;

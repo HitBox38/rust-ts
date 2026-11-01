@@ -1524,11 +1524,8 @@ MiriMachine.prototype.init_local_allocation = function (
   return MiriMachine.init_allocation(ecx, id, kind, size, align);
 };
 
-// PORT(contract): upstream's hook takes the tcx pointer (`ptr: interpret::Pointer<CtfeProvenance>`, interpret/machine.rs:442;
-// memory.ts passes `Pointer_from_AllocId(id)`); the port's `Machine` interface types it `Pointer<Self::Provenance>`, so the
-// assignment is cast (reported for root in docs/handoff/miri-machine.md).
 // rustc: src/tools/miri/src/machine.rs:1597 adjust_alloc_root_pointer
-(MiriMachine.prototype as { adjust_alloc_root_pointer: unknown }).adjust_alloc_root_pointer = function (
+MiriMachine.prototype.adjust_alloc_root_pointer = function (
   this: MiriMachine,
   ecx: MiriInterpCx,
   ptr: interpret_Pointer<CtfeProvenance>,
