@@ -37,7 +37,7 @@ import { InterpErrorInfo_from_InterpErrorKind, type InterpResult, interp_ok, typ
 import { DUMMY_SP } from "../../rustc_span/lib.ts";
 import { type Pending } from "../../rustc_type_ir/decls.ts";
 import { PLAIN } from "../../std/fmt.ts";
-import { Panic } from "../../std/panic.ts";
+import { Panic, Unported } from "../../std/panic.ts";
 import { Err } from "../../std/result.ts";
 import { StdRng } from "../../vendor/rand/rngs/std.ts";
 
@@ -517,7 +517,8 @@ test("BlockingIoSource.blocked_threads is value-keyed by ThreadId", () => {
   const fd = new FdId(3);
   manager.sources.set(fd, { fd: undefined as never, blocked_threads: new_blocked_threads() });
   manager.add_blocked_thread(new FdId(3), new ThreadId(1), "Read");
-  expect(() => manager.add_blocked_thread(fd, ThreadId.new(1), "Write")).toThrow(Panic);
+  // A fresh ThreadId(1) finds the existing entry (value-keyed); the double-block panic text is not ported, so it stops.
+  expect(() => manager.add_blocked_thread(fd, ThreadId.new(1), "Write")).toThrow(Unported);
   manager.remove_blocked_thread(fd, new ThreadId(1));
   expect(manager.sources.get(fd)!.blocked_threads.size).toBe(0);
   expect(() => manager.remove_blocked_thread(fd, ThreadId.new(1))).toThrow("Thread should be blocked on source");
