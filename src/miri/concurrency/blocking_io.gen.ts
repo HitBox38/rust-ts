@@ -3,6 +3,7 @@
 import { type SourceFileDescription } from "./blocking_io.ts";
 import { type ThreadId } from "./thread.ts";
 import { type FdId, type WeakFileDescriptionRef } from "../shims/files.ts";
+import { KeyedMap } from "../../rust_ts/keyed.ts";
 import { type Debug } from "../../std/fmt.ts";
 
 // rustc-type: src/tools/miri/src/concurrency/blocking_io.rs:29 BlockingIoInterest
@@ -30,7 +31,7 @@ export interface BlockingIoSource {
   fd: WeakFileDescriptionRef<SourceFileDescription>;
   /// The threads which are blocked on the I/O source, and the interest indicating
   /// when they should be unblocked.
-  blocked_threads: Map<ThreadId, BlockingIoInterest>;
+  blocked_threads: KeyedMap<ThreadId, BlockingIoInterest>;
 }
 
 // rustc-type: src/tools/miri/src/concurrency/blocking_io.rs:90 BlockingIoManager

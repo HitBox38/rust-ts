@@ -2,7 +2,7 @@
 // Hand-written additions (methods, manual Debug impls) go in sync.ts next to this file.
 import { debug_ThreadId, type ThreadId } from "./thread.ts";
 import { debug_VClock, type VClock } from "./vector_clock.ts";
-import { debug_HashMap } from "../../rust_ts/hash_map.ts";
+import { debug_HashMap, FxKeyedMap } from "../../rust_ts/hash_map.ts";
 import { type Debug, debug_int, debug_option, debug_struct, debug_tuple, debug_vec } from "../../std/fmt.ts";
 
 // rustc-type: src/tools/miri/src/concurrency/sync.rs:18 AccessKind
@@ -57,7 +57,7 @@ export class RwLock {
     public writer: ThreadId | undefined,
     /// The readers that currently own the lock and how many times they acquired
     /// the lock.
-    public readers: Map<ThreadId, number>,
+    public readers: FxKeyedMap<ThreadId, number>,
     /// The queue of writer threads waiting for this lock.
     public writer_queue: ThreadId[],
     /// The queue of reader threads waiting for this lock.

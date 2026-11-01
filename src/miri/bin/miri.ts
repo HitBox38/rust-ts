@@ -727,9 +727,10 @@ export function main(): number {
     } else if (arg === "-Zmiri-many-seeds-keep-going") {
       many_seeds_keep_going = true;
     } else if ((param = strip_prefix(arg, "-Zmiri-genmc")) !== undefined) {
-      // PORT(contract): `GenmcConfig::parse_arg(&mut Option<GenmcConfig>, _)` is declared taking the value (genmc/dummy.ts,
-      // lane miri-threads); the dummy only returns an error, so nothing is written back.
-      const r = GenmcConfig.parse_arg(miri_config.genmc_config, param);
+      // `&mut miri_config.genmc_config` (PORTING §8 `MutRef`; genmc/dummy.ts, lane miri-threads)
+      const genmc_config = { value: miri_config.genmc_config };
+      const r = GenmcConfig.parse_arg(genmc_config, param);
+      miri_config.genmc_config = genmc_config.value;
       if (r.$ === "Err") {
         const msg = r._0;
         fatal_error(`${msg}`);
