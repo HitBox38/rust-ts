@@ -71,7 +71,7 @@
     {"paths": ["mio::Poll"], "ts": "never", "debug": null, "clone": null, "note": "`BlockingIoManager.poll: Option<Poll>` is `None` with isolation on (blocking_io.rs:90); host I/O polling (mio) is unported (D5)"},
     {"paths": ["mio::Events"], "ts": "never", "debug": null, "clone": null, "note": "`BlockingIoManager.events: Option<Events>`, as `poll`"},
     {"paths": ["measureme::Profiler", "measureme::StringId", "measureme::DetachedTiming"], "ts": "never", "debug": null, "clone": null, "note": "`-Zmiri-measureme` profiling is unported: the `Option<..>` fields are always `None`, `string_cache` stays empty"},
-    {"paths": ["rand::rngs::StdRng"], "ts": "Pending<\"rand::rngs::StdRng\">", "import": "src/rustc_type_ir/decls.ts", "types": ["Pending"], "debug": null, "clone": null, "note": "vendor rand 0.10.1 (lane vendor-rand, plan-m6 D5) replaces it"},
+    {"paths": ["rand::rngs::StdRng"], "ts": "StdRng", "import": "src/vendor/rand/rngs/std.ts", "types": ["StdRng"], "values": ["debug_StdRng"], "debug": "debug_StdRng($v, $f)", "clone": null, "note": "vendor rand 0.10.1 (lane vendor-rand, plan-m6 D5); mapped by lane miri-machine (MiriMachine.rng)"},
     {"paths": ["rustc_ast::expand::allocator::SpecialAllocatorMethod"], "ts": "SpecialAllocatorMethod", "import": "src/rustc_ast/expand/allocator.gen.ts", "types": ["SpecialAllocatorMethod"], "debug": null, "clone": "copy", "note": "rustc_ast expand/allocator.rs"}
   ]
 }
