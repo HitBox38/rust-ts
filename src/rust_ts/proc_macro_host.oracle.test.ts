@@ -33,7 +33,9 @@ function rustcAvailable(): boolean {
   }
 }
 const HAVE = rustcAvailable();
-const SKIP = !HAVE && !REQUIRE;
+const SKIP = (!HAVE && !REQUIRE) || process.platform === "win32";
+// The Windows host is unchecked (plan §3 A4): the FFI edge stops `unported` there, so these tests cannot pass. Say so.
+if (process.platform === "win32") console.warn("proc_macro_host.oracle.test.ts: skipped on win32 (the Windows FFI edge is unchecked and stops unported)");
 if (SKIP) console.log(`SKIP: pinned rustc (${PIN.toolchain}, ${PIN.commit.slice(0, 12)}) unavailable; RUST_TS_REQUIRE_PROBES=1 makes this a failure`);
 
 const WORK = test_scratch_dir("pm-host");
@@ -77,14 +79,18 @@ function decls_id(file: string): bigint {
 /** The panic hook's thread id (`thread '<unnamed>' (12345) panicked`) differs per run on both sides. */
 const normalize = (s: string): string => s.replace(/(thread '[^']*') \(\d+\)/g, "$1 (TID)");
 
-function compare(user: string, src: string, externs: [string, string][], extra: string[] = []): void {
+/** Runs the oracle and the port on the same argv; returns the oracle's result. The oracle output must not be empty,
+ * so a case where both sides fail the same way without printing anything cannot pass. */
+function compare(user: string, src: string, externs: [string, string][], extra: string[] = []): { code: number; stdout: string; stderr: string } {
   writeFileSync(join(WORK, user), src);
   const args = ["--edition", "2021", ...extra, "-Zunpretty=expanded", ...externs.flatMap(([n, f]) => ["--extern", `${n}=${f}`]), user];
   const oracle = run([...RUSTC, ...args]);
   const port = run(["bun", join(REPO, "src/rust_ts/main.ts"), "--sysroot", sysroot(), ...args]);
+  expect(oracle.stdout.length + oracle.stderr.length).toBeGreaterThan(0);
   expect(normalize(port.stderr)).toBe(normalize(oracle.stderr));
   expect(port.stdout).toBe(oracle.stdout);
   expect(port.code).toBe(oracle.code);
+  return oracle;
 }
 
 const ECHO_PM = `extern crate proc_macro;
@@ -203,7 +209,7 @@ describe.skipIf(SKIP)("proc-macro host dylibs vs the oracle (-Zunpretty=expanded
   }, 60_000);
 
   test("derive, attribute and bang macros", () => {
-    compare(
+    expect(compare(
       "user_echo.rs",
       `#[macro_use]
 extern crate echo_pm;
@@ -220,11 +226,11 @@ fn main() {
 }
 `,
       [["echo_pm", echo_pm()]],
-    );
+    ).code).toBe(0);
   }, 60_000);
 
   test("token trees, literals, raw and non-ASCII idents, large streams", () => {
-    compare(
+    expect(compare(
       "user_hard.rs",
       `extern crate hard_pm;
 use hard_pm::*;
@@ -240,7 +246,7 @@ fn main() {
 }
 `,
       [["hard_pm", hard_pm()]],
-    );
+    ).code).toBe(0);
   }, 60_000);
 
   const ERRORS = `extern crate hard_pm;

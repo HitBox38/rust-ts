@@ -64,7 +64,7 @@ function native(): Native {
     // PORT: Windows (`LoadLibraryExW` / `GetProcAddress`) is not written yet; TinyCC there needs kernel32 bindings.
     return unported(`rust_ts::proc_macro_host (proc-macro dylibs on ${process.platform})`);
   }
-  // PORT: `cc`'s C ABI is the platform's (AAPCS64 on aarch64-apple-darwin; checked by proc_macro_host.test.ts).
+  // PORT: `cc`'s C ABI is the platform's (AAPCS64 on aarch64-apple-darwin; checked by proc_macro_host.oracle.test.ts on darwin/aarch64).
   const lib = cc({
     source: join(import.meta.dir, "proc_macro_host.c"),
     symbols: {
