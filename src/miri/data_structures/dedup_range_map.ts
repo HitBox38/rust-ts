@@ -4,7 +4,8 @@
 //! necessary (e.g., when [0,5) is first associated with X, and then [1,2) is mutated).
 //! Users must not depend on whether a range is coalesced or not, even though this is observable
 //! via the iteration APIs.
-// Port of src/tools/miri/src/data_structures/dedup_range_map.rs (crate `miri`, plan-m6 D2; lane miri-driver, wave 36).
+// Port of src/tools/miri/src/data_structures/dedup_range_map.rs (crate `miri`, plan-m6 D2).
+// Fill lane: `miri-driver` (plan-m6 wave 36): ported.
 // Its types are generated into dedup_range_map.gen.ts (tools/codegen set `miri`); this module re-exports them.
 // PORT (decision miri-contract C5 amendment, lane interp-miri-reconcile): `Elem.range: ops::Range<u64>` is
 // `{ start: number; end: number }` (typemap `fields`): the ranges are byte offsets into one allocation, whose size is a

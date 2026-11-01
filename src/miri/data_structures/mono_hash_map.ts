@@ -4,7 +4,8 @@
 //! (from being removed) or moved (because they are boxed).
 //! The API is completely tailored to what `memory.rs` needs. It is still in
 //! a separate file to minimize the amount of code that has to care about the unsafety.
-// Port of src/tools/miri/src/data_structures/mono_hash_map.rs (crate `miri`, plan-m6 D2; lane miri-driver, wave 36).
+// Port of src/tools/miri/src/data_structures/mono_hash_map.rs (crate `miri`, plan-m6 D2).
+// Fill lane: `miri-driver` (plan-m6 wave 36): ported.
 // Its types are generated into mono_hash_map.gen.ts (tools/codegen set `miri`); this module re-exports them.
 // PORT (lane miri-driver): `RefCell<FxHashMap<K, Box<V>>>` is an `FxHashMap` (src/rust_ts/hash_map.ts): the iteration
 // order of `filter_map_collect` / `iter` (leak reports, `miri_print_alloc`) is hashbrown's bucket order, as upstream.

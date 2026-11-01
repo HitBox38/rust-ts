@@ -1,7 +1,8 @@
 //! Implements a map from allocation ranges to data. This is somewhat similar to RangeMap, but the
 //! ranges and data are discrete and non-splittable -- they represent distinct "objects". An
 //! allocation in the map will always have the same range until explicitly removed
-// Port of src/tools/miri/src/data_structures/range_object_map.rs (crate `miri`, plan-m6 D2; lane miri-driver, wave 36).
+// Port of src/tools/miri/src/data_structures/range_object_map.rs (crate `miri`, plan-m6 D2).
+// Fill lane: `miri-driver` (plan-m6 wave 36): ported.
 // Its types are generated into range_object_map.gen.ts (tools/codegen set `miri`); this module re-exports them.
 // PORT (lane miri-driver): `impl Index<Position>` / `impl IndexMut<Position>` are the methods `index` / `index_mut`
 // (`map[pos]` → `map.index(pos)`); `index_mut` returns the element's `data` (an object mutated in place: weak memory's
