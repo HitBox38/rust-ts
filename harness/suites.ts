@@ -8,7 +8,7 @@ import { caseEnv, mergeEnv } from "../scripts/lib/env.ts";
 import { oraclePinnedPathEnv, oracleRustcCmd, oracleSysroot, rustcDriverHash, verifyOracleToolchain } from "../scripts/lib/oracle.ts";
 import { probePath } from "../scripts/probes.ts";
 import { MIRI_CASE_ENV, MIRI_DEFAULT_ARGS, MIRI_SYSROOT, miriBinary, miriOracleKey, miriPin } from "../scripts/lib/miri.ts";
-import { COMPILETEST_TARGET, collectUiTests, uiBlessed, uiCases, uiFileCases, type Blessed, type ErrorFormat, type UiCase } from "./compiletest.ts";
+import { COMPILETEST_TARGET, collectUiTests, uiBlessed, uiCases, uiFileCases, uiOutputBaseDir, type Blessed, type ErrorFormat, type UiCase } from "./compiletest.ts";
 import { EMPTY_SYSROOT, M5_TARGET, libArgs, libCrate, libEnv, oracleLibRmeta } from "./library.ts";
 
 export interface Case {
@@ -1723,6 +1723,88 @@ SUITES.push(
     skipped: () => miriRunCorpus(RUN_FAIL_MODES).skipped,
     criterion: { percent: 90, what: M6B },
   }),
+);
+
+// M6 proc macros (plan-m6 §3, §4, D7, A2, A9; lane harness-m6b): tests/ui tests that use a proc-macro crate, with their
+// proc-macro aux crates built by the oracle rustc as real host dylibs (harness/compiletest.ts header, "Proc-macro aux
+// crates": compiletest's `AuxType::ProcMacro` argv with `force_host` = this machine's host tuple, cached under
+// `$RUST_TS_DATA/aux/ui/<key>` like every aux build), passed to both sides as compiletest passes them (`--extern
+// <crate>=<aux dir>/lib<crate>.dylib` (.so / .dll by host), `-L <aux dir>`). The port loads them through its own
+// host_dylib/bridge port (lane pm-host, D7), so until that lands the subject stops UNPORTED.
+// - Case set (`pmCorpus`): every tests/ui test (and revision) whose aux tree holds a proc-macro crate (a `proc-macro:`
+//   crate, an aux crate that is a proc-macro crate by its own crate type, or one in a nested aux crate's tree);
+//   compiletest's ignores and the harness's skips as every compiletest-aware suite (listed as skipped). Tests without a
+//   proc-macro crate are not part of the case set. Argv: compiletest's main compile (human error format,
+//   `-Znext-solver=coherence`, revisions, `-L`/`--extern` of the aux dir; the parse-ui `-Zparse-crate-root-only`
+//   dropped), env NOCORE_ENV + the test's `rustc-env` with the session variables pinned (`pinSessionEnv`, aux sources
+//   included). cwd the upstream checkout. Timeouts as the M3 ui suites (the aux builds get the oracle's 300 s too).
+// - `pm-ui` (gate M6: >= 95% MATCH, A9): the main compile with `--emit=metadata` (compiletest's own `--emit metadata`
+//   for check modes; appended for build/run modes, so nothing reaches codegen): stdout (proc macros print, e.g.
+//   PRINT-ATTR) + stderr + exit. The metadata goes where compiletest's `--out-dir` / `-o` puts it, under the upstream
+//   checkout's `build/` (outside difftest's checkout check, as the thir-print cases' dep-info); making the cases
+//   creates each case's output base dir there, as compiletest's `run` does (runtest.rs:147), or a `-o <dir>/a`
+//   compile fails to make its metadata temp dir (a random name, so a non-reproducible error).
+// - `pm-expanded` (report only, progress for pm-ui): the same cases with `-Zunpretty=expanded` appended (last wins
+//   over a test's own `-Zunpretty`): stdout + stderr + exit; writes nothing.
+// Unprotected until root accepts a run.
+const PM_ORACLE_TIMEOUT_MS = 300_000;
+let pmCorpusMemo: { cases: Case[]; skipped: SkippedCase[] } | undefined;
+/** The proc-macro tests' cases (see above), compiletest's main compile without the parse-ui flag. */
+function pmCorpus(): { cases: Case[]; skipped: SkippedCase[] } {
+  if (pmCorpusMemo) return pmCorpusMemo;
+  const ui = uiFileCases(collectUiTests("tests/ui").sort(), "human", { aux: true, auxTimeoutMs: PM_ORACLE_TIMEOUT_MS, procMacro: true });
+  const cases = ui.cases.map((c) => {
+    if (c.args.at(-1) !== "-Zparse-crate-root-only") throw new Error(`ERROR: ${c.id}: argv does not end with -Zparse-crate-root-only`);
+    // compiletest's `run` creates the output base dir before compiling (a `-o <dir>/a` compile writes its metadata's
+    // temp dir there).
+    mkdirSync(join(UPSTREAM, uiOutputBaseDir(c.id)), { recursive: true });
+    return pinSessionEnv({ id: c.id, file: c.file, args: c.args.slice(0, -1), env: { ...NOCORE_ENV, ...c.env } }, ui.auxFiles.get(c.id));
+  });
+  return (pmCorpusMemo = { cases, skipped: ui.skipped });
+}
+/** pm-ui's argv: `--emit=metadata` unless compiletest already passes `--emit metadata` (check modes). */
+export const pmUiArgs = (args: readonly string[]): string[] => (args.some((a, i) => a === "--emit" && args[i + 1] === "metadata") ? [...args] : [...args, "--emit=metadata"]);
+// Unstable cases of pm-ui (lane harness-m6b): the oracle was run twice on every pm-ui and pm-expanded case (same argv,
+// env, cwd); only this one differed, in `thread 'rustc' (<tid>) panicked` (a `known-bug` test that ICEs by design,
+// `failure-status: 101`, in MIR building, which `-Zunpretty=expanded` never reaches). difftest's detection
+// (scripts/lib/unstable.ts) still applies.
+const PM_UI_UNSTABLE: UnstableCase[] = [
+  {
+    id: "tests/ui/resolve/proc_macro_generated_packed.rs",
+    reason: "ICE by design (`known-bug`, `failure-status: 101`): the panic message names the oracle's OS thread id (`thread 'rustc' (<tid>) panicked`)",
+  },
+];
+const pmSuite = (s: Pick<Suite, "name" | "description" | "criterion" | "unstable">, args: (a: readonly string[]) => string[]): Suite => ({
+  ...s,
+  milestone: "M6",
+  mode: "single",
+  timeoutMs: 60_000,
+  oracleTimeoutMs: PM_ORACLE_TIMEOUT_MS,
+  cases: () => pmCorpus().cases.map((c) => ({ ...c, args: args(c.args) })),
+  skipped: () => pmCorpus().skipped,
+  oracle: ([c]) => oracleRustcCmd(c!.args),
+  subject: ([c]) => [...bunCmd("src/rust_ts/main.ts"), ...c!.args],
+  subsets: { "tests/ui/proc-macro": inDirs(["tests/ui/proc-macro"]) },
+  blessed: (c) => uiBlessed(c.id, c.args),
+});
+SUITES.push(
+  pmSuite(
+    {
+      name: "pm-ui",
+      description:
+        "tests/ui tests using a proc-macro crate (oracle-built host dylib aux, compiletest's force-host argv), compiletest's main-compile argv with --emit=metadata: stdout + stderr + exit; gate M6 (>= 95%)",
+      criterion: { percent: 95, what: "plan-m6 gate M6: pm-ui >= 95% MATCH, ORACLE_TIMEOUT excluded" },
+      unstable: () => PM_UI_UNSTABLE,
+    },
+    pmUiArgs,
+  ),
+  pmSuite(
+    {
+      name: "pm-expanded",
+      description: "pm-ui's cases (compiletest's argv, without pm-ui's appended --emit=metadata) with -Zunpretty=expanded appended (the expanded source after the proc macros ran): stdout + stderr + exit; report only",
+    },
+    (a) => [...a, "-Zunpretty=expanded"],
+  ),
 );
 
 export function suite(name: string): Suite {
