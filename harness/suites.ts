@@ -1638,16 +1638,23 @@ export function miriRunArgs(c: Pick<UiCase, "id" | "args" | "run">, oracleSysroo
  */
 const MIRI_HEAVY: Record<string, string> = {
   "tests/ui/collections/hashset-connected-border-12860.rs": "Miri oracle 451 s user, exit 0",
-  // The next three are run-pass cases since lane harness-w36 evaluates `needs-*` (its full timing of run-pass-miri,
-  // same method, docs/handoff/harness-w36.md).
+  // dynamic-drop-async.rs and panic-handler-flail-wildly.rs are run-pass cases since lane harness-w36 evaluates
+  // `needs-*` (its full timing of run-pass-miri, same method, docs/handoff/harness-w36.md).
   "tests/ui/drop/dynamic-drop-async.rs": "Miri oracle 10.4 s user, exit 0",
   "tests/ui/generics/issue-94923.rs": "Miri oracle 10.6 s user, exit 0",
   "tests/ui/impl-trait/example-calendar.rs": "Miri oracle 8.6 s user, exit 0",
   "tests/ui/panics/panic-handler-flail-wildly.rs": "Miri oracle 5.1 s user, exit 0",
   "tests/ui/range/step_overflowing.rs": "Miri oracle 282 s user, exit 0",
-  "tests/ui/threads-sendsync/mpsc_stress.rs": "Miri oracle MPSC_PENDING",
   "tests/ui/threads-sendsync/task-comm-5.rs": "Miri oracle 5.1 s user, exit 0",
   "tests/ui/threads-sendsync/task-comm-6.rs": "Miri oracle 18.5 s user, exit 0",
+};
+/**
+ * Run-pass cases the Miri oracle does not finish (lane harness-w36, measured alone without a cap, same method as
+ * `MIRI_HEAVY`): skipped in run-pass-miri instead of joining the heavy class, as `NOCORE_SKIPPED` (an ORACLE_TIMEOUT
+ * is never cached, so every heavy run would pay the oracle's 900 s + 4 x 900 s again, at a growing RSS).
+ */
+const MIRI_ORACLE_NO_FINISH: Record<string, string> = {
+  "tests/ui/threads-sendsync/mpsc_stress.rs": "the Miri oracle does not finish: killed after 3,000 s wall (2,738 s user, max RSS 5.9 GB and growing)",
 };
 const heavyReason = (id: string) => `heavy (plan-m6 A7: ${MIRI_HEAVY[id]}): in run-pass-miri-heavy`;
 
@@ -1741,9 +1748,13 @@ SUITES.push(
     description:
       "tests/ui run-pass tests (no aux crates) run under Miri with compiletest's argv for x86_64-unknown-linux-gnu on the Miri sysroot (plan-m6 D6: no -o, exec-env as -Zmiri-env-set, run-flags after --): stdout + stderr + exit; heavy cases in run-pass-miri-heavy",
     timeoutMs: 60_000,
-    cases: () => miriRunCorpus(RUN_PASS_MODES).cases.filter((c) => !Object.hasOwn(MIRI_HEAVY, c.id)),
+    cases: () => miriRunCorpus(RUN_PASS_MODES).cases.filter((c) => !Object.hasOwn(MIRI_HEAVY, c.id) && !Object.hasOwn(MIRI_ORACLE_NO_FINISH, c.id)),
     skipped: () =>
-      [...miriRunCorpus(RUN_PASS_MODES).skipped, ...miriRunCorpus(RUN_PASS_MODES).cases.filter((c) => Object.hasOwn(MIRI_HEAVY, c.id)).map((c) => ({ id: c.id, reason: heavyReason(c.id) }))].sort((a, b) =>
+      [
+        ...miriRunCorpus(RUN_PASS_MODES).skipped,
+        ...miriRunCorpus(RUN_PASS_MODES).cases.filter((c) => Object.hasOwn(MIRI_HEAVY, c.id)).map((c) => ({ id: c.id, reason: heavyReason(c.id) })),
+        ...miriRunCorpus(RUN_PASS_MODES).cases.filter((c) => Object.hasOwn(MIRI_ORACLE_NO_FINISH, c.id)).map((c) => ({ id: c.id, reason: MIRI_ORACLE_NO_FINISH[c.id]! })),
+      ].sort((a, b) =>
         a.id < b.id ? -1 : a.id > b.id ? 1 : 0,
       ),
     criterion: { percent: 90, what: M6B },

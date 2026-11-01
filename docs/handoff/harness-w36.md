@@ -11,7 +11,7 @@ or runner of a protected suite changed (dump below).
 |---|---|---|
 | `harness/suites.ts` | 1 | `pinProcMacroEnv`: variables a proc macro's aux sources read by string literal (`env_var` / `var` / `var_os`) and the case does not set are unset in `Case.env` (both sides, oracle key); applied in `pmCorpus` |
 | `harness/compiletest.ts` | 2 | `uiFileCases(.., { needs: true })`: needs.rs `handle_needs` / `prepare_needs_conditions` for COMPILETEST_TARGET (`needsCfg`, `needsDecision`); `TargetCfg` gains `sanitizers`, `xray`, `relocationModel`, `panic` |
-| `harness/suites.ts` | 2 | `needs: true` for `runCorpus` (Miri suites) and `pmCorpus` (pm suites) only; `MIRI_HEAVY` +3 |
+| `harness/suites.ts` | 2 | `needs: true` for `runCorpus` (Miri suites) and `pmCorpus` (pm suites) only; `MIRI_HEAVY` +2; `MIRI_ORACLE_NO_FINISH` (1 case skipped) |
 | `harness/suites.ts` | 3 | `MIRI_SUBJECT_ENTRY = MIRI_DRIVER_ENTRY`; `miriSubjectOf(entry, args)` (both branches testable), `RUSTC_DRIVER_ENTRY` |
 | `harness/suites.ts` | 4 | `MIRI_ISOLATION_OFF`: `miriRunArgs` rejects (skips) `-Zmiri-disable-isolation` / `-Zmiri-env-forward[=..]` (also `-Z miri-…`) before `--` |
 | `scripts/lib/unstable.ts` | 4 | `isIceStderr` (ICE markers incl. the `bug!` path), `THREAD_ID_PATTERN` named, `unstableMiriOracleReason` compares by identity |
@@ -62,8 +62,8 @@ Counts (from the dump):
 
 | suite | cases before → after | skipped before → after | |
 |---|---|---|---|
-| run-pass-miri | 3,263 → 3,469 | 704 → 498 | +206 cases; 3 more needs-rejected tests are heavy (below) |
-| run-pass-miri-heavy | 6 → 9 | 0 | +3 |
+| run-pass-miri | 3,263 → 3,469 | 704 → 498 | +206 cases; of the other 3 formerly needs-rejected tests, 2 are heavy and 1 is skipped because the oracle does not finish (below) |
+| run-pass-miri-heavy | 6 → 8 | 0 | +2 |
 | run-fail-miri | 263 → 294 | 63 → 32 | +31 |
 | pm-ui, pm-expanded | 272 → 282 | 12 → 2 | +10 (all `needs-unwind`); the 2 left are `ignore-enzyme` |
 
@@ -75,11 +75,15 @@ the Miri oracle runs them (21 exit 0, 3 exit 1).
 **Heavy class (A7 repeated).** `bun scripts/miri.ts time --suite run-pass-miri --jobs 8 --timeout-ms 300000` over all
 3,472 run-pass cases (before the heavy split): exit 0: 3,272, exit 1: 172, exit 101: 27, timeout: 1; p50 22 ms, p99
 397 ms; wall 324 s (`$RUST_TS_DATA/tmp/miri-time/run-pass-miri-20261101-135833-harness-w36-zo5y.jsonl`). Three new
-cases are over 5 s of user time and join `MIRI_HEAVY`:
-- `tests/ui/threads-sendsync/mpsc_stress.rs`: timed out at 300 s (272 s user, 1.4 GB RSS); uncapped alone:
-  MPSC_RESULT
-- `tests/ui/drop/dynamic-drop-async.rs`: 10.4 s user
-- `tests/ui/panics/panic-handler-flail-wildly.rs`: 5.1 s user
+cases are over 5 s of user time:
+- `tests/ui/drop/dynamic-drop-async.rs`: 10.4 s user → `MIRI_HEAVY`
+- `tests/ui/panics/panic-handler-flail-wildly.rs`: 5.1 s user → `MIRI_HEAVY`
+- `tests/ui/threads-sendsync/mpsc_stress.rs`: timed out at 300 s (272 s user, 1.4 GB RSS). Re-timed alone with a
+  3,000 s cap: still killed at 3,000 s wall (2,738 s user, max RSS 5.9 GB and growing;
+  `…/miri-time/run-pass-miri-20261101-144904-harness-w36-bjij.jsonl`). As a heavy case it would be ORACLE_TIMEOUT on
+  every run (never cached), costing up to 900 s + 4 × 900 s each time and over the 12 GB budget at that rate. So it is
+  **skipped** in run-pass-miri with that reason (`MIRI_ORACLE_NO_FINISH`, the `NOCORE_SKIPPED` precedent), not heavy.
+  Decision for root (ORACLE_TIMEOUT is excluded from the M6b criterion either way).
 
 The next slowest is 4.9 s (`drop/dynamic-drop.rs`). run-fail-miri (294): max 4.8 s (`test-attrs/terse.rs`), total 30 s, no heavy case.
 
@@ -183,16 +187,16 @@ packages).
 
 Scratch scripts `$RUST_TS_DATA/tmp/harness-w36/{dump,compare}.ts`; base = a worktree of `0b118d0b`, branch = this tree.
 Per suite: every scalar field, each case's full JSON hash by id, each skip's reason by id, `unstable()`, the
-oracle/subject command of the first case, `oracleKey()`, own keys. 53 suites both sides; 362,668 → 362,928 cases.
+oracle/subject command of the first case, `oracleKey()`, own keys. 53 suites both sides; 362,668 → 362,927 cases.
 
 Differences, all of them:
 - `escape-synthetic`, `fluent-parse`, `fluent-format`, `emit`, `miri-hello`: `cwd` (the repo path: scratch worktree vs
   this worktree). Nothing else.
 - `miri-hello`: subject command (`src/miri/bin/miri.ts` + the oracle's argv).
 - `run-pass-miri`: subject; cases +206 −0, none changed; skipped −206, 44 reasons changed (31 from a `needs-*`
-  rejection to another reason: aux 18, `only-*` 15 … see §2; 3 to `heavy`; 8 to the new "depends on configuration"
-  wording).
-- `run-pass-miri-heavy`: subject; cases +3.
+  rejection to another reason: aux 18, `only-*` 15, see §2; 2 to `heavy`, 1 to "the Miri oracle does not finish";
+  8 to the new "depends on configuration" wording).
+- `run-pass-miri-heavy`: subject; cases +2.
 - `run-fail-miri`: subject; cases +31; skipped −31, 17 reasons changed (all to the new `needs-sanitizer-support`
   wording).
 - `pm-ui`, `pm-expanded`: cases +10, 1 changed (`tests/ui/proc-macro/env.rs`: `ANOTHER: null`); skipped −10.
@@ -212,7 +216,8 @@ No protected suite (or any other suite) differs: its cases, skips, unstable list
 
 1. Decisions to record: (a) `needs-*` evaluated only for the M6 run/pm suites, with the configuration-dependent needs
    still skipped (the list in §2); (b) proc-macro env reads unset (§1); (c) `MIRI_SUBJECT_ENTRY` switched (the Miri
-   suites now stop at `init_early_loggers` until miri-log merges); (d) the 3 new heavy cases; (e) std markers: library
+   suites now stop at `init_early_loggers` until miri-log merges); (d) 2 new heavy cases, and `mpsc_stress.rs`
+   skipped because the Miri oracle does not finish (§2); (e) std markers: library
    table over marked files only, `--check` warns until the 3 port-side markers are fixed (`STD_MARKERS_STRICT`).
 2. Port-side follow-up (src/std owner): the 3 std markers in §5.
 3. pm-ui is ready for its first accept as far as the harness-m6b preconditions in this batch go (ANOTHER pinned,
