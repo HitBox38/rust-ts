@@ -68,6 +68,8 @@ import { Diagnostic, Level } from "./diagnostic.ts";
 import { escape_bytes, type EscapeOptions } from "./escape.ts";
 
 import "./bridge/mod.ts";
+// bridge/server.ts extends bridge/client.ts's `Client` (`run1` / `run2`); bridge/mod.ts re-exports it type-only, so the
+// crate root loads it (PORTING §5 "Methods defined in another file").
 import "./bridge/server.ts";
 
 // ---------------------------------------------------------------------------------------------------------------

@@ -369,7 +369,7 @@ export type UndefinedBehaviorInfo =
   /// Unreachable code was executed.
   | { readonly $: "Unreachable" }
   /// A slice/array index projection went out-of-bounds.
-  | { readonly $: "BoundsCheckFailed"; len: number; index: number }
+  | { readonly $: "BoundsCheckFailed"; len: bigint; index: bigint }
   /// Something was divided by 0 (x / 0).
   | { readonly $: "DivisionByZero" }
   /// Something was "remainded" by 0 (x % 0).

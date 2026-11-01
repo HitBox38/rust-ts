@@ -1,0 +1,24 @@
+# Oracle probe of lane miri-eval-fix (src/miri/math.oracle.txt). Build and run: see docs/handoff/miri-eval-fix.md.
+# Queued for registration as tools/probes/mirimath (a harness batch).
+[package]
+name = "mirimath"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[[bin]]
+name = "mirimath"
+path = "main.rs"
+
+[dependencies]
+# Miri's dependencies at the pin (src/tools/miri/Cargo.toml, upstream Cargo.lock): rand 0.10.1 (chacha20 0.10.0),
+# rustc_apfloat 0.2.3.
+rand = "=0.10.1"
+rustc_apfloat = "=0.2.3"
+
+[profile.release]
+# Host float operations must be the Miri binary's: calls into the host libm and compiler-builtins' `__powi{s,d}f2`
+# with runtime arguments (every input goes through `black_box`).
+opt-level = 3
+
+[workspace]

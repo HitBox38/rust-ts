@@ -42,6 +42,7 @@ import { intern_key_eq } from "../../rust_ts/intern_key.ts";
 import { PLAIN } from "../../std/fmt.ts";
 import { assert, assert_eq, assert_matches, panic, unported, unwrap } from "../../std/panic.ts";
 import { Err } from "../../std/result.ts";
+import * as tracing from "../../rust_ts/tracing.ts";
 import { OpTy, ImmTy } from "./operand.gen.ts";
 import { MPlaceTy, PlaceTy } from "./place.gen.ts";
 import * as gen from "./call.gen.ts";
@@ -1172,7 +1173,8 @@ InterpCx.prototype.init_fn_tail_call = function (
 
   // Now push the new stack frame.
   const r = this.init_fn_call(fn_val, [caller_abi, caller_fn_abi], args_, with_caller_location, frame.return_place_(), ret, unwind);
-  if (r.$ === "Err") return r;
+  // PORT: `?` drops the popped `frame` (its `tracing_span` exits).
+  if (r.$ === "Err") return frame.tracing_span.drop(), r;
 
   // Finally, clear the local variables. Has to be done after pushing to support
   // non-scalar arguments.
@@ -1256,10 +1258,7 @@ InterpCx.prototype.init_drop_in_place_call = function (this: InterpCx, place_: P
 // #[instrument(skip(self), level = "trace")]
 // rustc: compiler/rustc_const_eval/src/interpret/call.rs:1106 return_from_current_stack_frame
 InterpCx.prototype.return_from_current_stack_frame = function (this: InterpCx, unwinding: boolean): InterpResult {
-  // info!(
-  //     "popping stack frame ({})",
-  //     if unwinding { "during unwinding" } else { "returning from function" }
-  // );
+  if (tracing.INFO_ENABLED) tracing.info("rustc_const_eval::interpret::call", () => `popping stack frame (${unwinding ? "during unwinding" : "returning from function"})`);
 
   // Check `unwinding`.
   const loc = this.frame().loc;
@@ -1290,7 +1289,8 @@ InterpCx.prototype.return_from_current_stack_frame = function (this: InterpCx, u
   // Copy the return value and remember the return continuation.
   if (!unwinding) {
     const r = this.copy_op_allow_transmute(return_op, frame.return_place_());
-    if (r.$ === "Err") return r;
+    // PORT: `?` drops the popped `frame` (its `tracing_span` exits).
+    if (r.$ === "Err") return frame.tracing_span.drop(), r;
     // trace!("return value: {:?}", self.dump_place(frame.return_place()));
   }
   const return_cont = frame.return_cont_();

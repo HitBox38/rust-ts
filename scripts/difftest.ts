@@ -237,7 +237,7 @@ function oracleVersion(s: Suite): string {
 }
 
 /** Working directory of every command of a suite (and base of `Case.file`). */
-const cwdOf = (s: Suite): string => s.cwd ?? UPSTREAM;
+export const cwdOf = (s: Suite): string => s.cwd ?? UPSTREAM;
 
 /** Hash of a case's input file; synthetic cases (`file: ""`) have no input. */
 const fileHash = (s: Suite, c: Case): string => (c.file === "" ? "" : hash(readFileSync(join(cwdOf(s), c.file))));
@@ -321,6 +321,15 @@ function writeCached(p: string, o: Output | SplitOracle): void {
 }
 
 export function cachePath(s: Suite, c: Case, fileHash: string, deps: Dep[]): string {
+  const key = oracleCacheKey(s, c, fileHash, deps);
+  return join(ensureDir(join(ORACLE_CACHE, key.slice(0, 2))), key);
+}
+
+/**
+ * The oracle cache key of a case (`cachePath`'s file name). Exported for scripts/miri-diff.ts (lane miri-diff), which
+ * keys its cached oracle traces the same way.
+ */
+export function oracleCacheKey(s: Suite, c: Case, fileHash: string, deps: Dep[]): string {
   // `env` joins the key only when a case has one, so the keys of env-less suites are unchanged. The
   // dependencies (`depsOf`) join it only when there are any, so the keys of cases that can read no other
   // file are unchanged too; a file appearing, disappearing or changing at a path a case may read changes
@@ -332,9 +341,11 @@ export function cachePath(s: Suite, c: Case, fileHash: string, deps: Dep[]): str
   if (s.inputDirs) parts.push({ inputDirs: inputDirsHash(s) });
   if (s.mode === "split") parts.push(splitKey(s));
   if (s.oracleKey) parts.push({ oracleKey: s.oracleKey() });
-  const key = hash(JSON.stringify(parts));
-  return join(ensureDir(join(ORACLE_CACHE, key.slice(0, 2))), key);
+  return hash(JSON.stringify(parts));
 }
+
+/** `oracleCacheKey` of a case, with its file hash and dependencies as difftest computes them. */
+export const caseOracleCacheKey = (s: Suite, c: Case): string => oracleCacheKey(s, c, fileHash(s, c), depsOf(s, c));
 
 /** The detector of unstable oracle stderr for a suite: Miri suites' (scripts/lib/unstable.ts) or everyone else's. */
 export const unstableReasonOf = (s: Suite): ((stderr: string) => string | undefined) => (s.miri ? unstableMiriOracleReason : unstableOracleReason);
@@ -665,7 +676,7 @@ export interface OracleRerun {
 const runCaseText = (skeleton: string, stderr: string, code: number) => render({ stdout: skeleton, stderr, code });
 
 /** What `rust-ts: unported: <what>` a failed subject printed (stderr first: stdout may be a large partial dump). */
-const unportedOf = (r: ProcResult): string | undefined => (/^rust-ts: unported: (.*)$/m.exec(r.stderr) ?? /^rust-ts: unported: (.*)$/m.exec(r.stdout))?.[1]?.slice(0, 300);
+export const unportedOf = (r: ProcResult): string | undefined => (/^rust-ts: unported: (.*)$/m.exec(r.stderr) ?? /^rust-ts: unported: (.*)$/m.exec(r.stdout))?.[1]?.slice(0, 300);
 
 /** How a subject process ended, for an ORACLE_TIMEOUT/UNSTABLE run case (as `record` in `difftest`). */
 const subjectEnd = (r: ProcResult): string =>

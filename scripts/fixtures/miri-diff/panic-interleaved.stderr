@@ -1,0 +1,7 @@
+                                                INFO rustc_const_eval::interpret::step // executing bb4
+                                                INFO rustc_const_eval::interpret::step StorageDead(_13)
+                                                INFO rustc_const_eval::interpret::step _6 = libc::unix::write(move _7, move _9, move _12) -> [return: bb5, unwind unreachable]
+about to panic
+  indented second line
+                                                INFO rustc_const_eval::interpret::step // executing bb5
+                                                INFO rustc_const_eval::interpret::step StorageDead(_12)

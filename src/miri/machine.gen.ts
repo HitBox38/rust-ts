@@ -18,6 +18,7 @@ import { type DelayedReadinessUpdates } from "./shims/readiness.ts";
 import { type TlsData } from "./shims/tls.ts";
 import { type DirTable } from "./shims/unix/fs.ts";
 import { type CatchUnwindData } from "./shims/unwind.ts";
+import { KeyedMap } from "../rust_ts/keyed.ts";
 import { type Align, type Size } from "../rustc_abi/lib.ts";
 import { type SpecialAllocatorMethod } from "../rustc_ast/expand/allocator.gen.ts";
 import { type MemoryKind as interpret_MemoryKind } from "../rustc_const_eval/interpret/memory.gen.ts";
@@ -31,8 +32,8 @@ import { type Ty } from "../rustc_middle/ty/mod.ts";
 import { type CrateNum } from "../rustc_span/def_id.ts";
 import { type Span } from "../rustc_span/lib.ts";
 import { type Symbol } from "../rustc_span/symbol.ts";
-import { type Pending } from "../rustc_type_ir/decls.ts";
 import { type Debug, debug_option, debug_struct, debug_tuple, debug_vec } from "../std/fmt.ts";
+import { type StdRng } from "../vendor/rand/rngs/std.ts";
 import { unported } from "../std/panic.ts";
 const unported_debug = (_v: unknown): string => unported("Debug without a TS impl (see types report)");
 
@@ -275,7 +276,7 @@ export class AllocExtra {
     /// inside the relevant allocation, to ensure that everything is removed when the allocation is
     /// freed.
     /// This maps offsets to synchronization-primitive-specific data.
-    public sync_objs: Map<Size, SyncObj>,
+    public sync_objs: KeyedMap<Size, SyncObj>,
   ) {}
 }
 export const debug_AllocExtra: Debug<AllocExtra> = (v, f) =>
@@ -393,7 +394,7 @@ export class MiriMachine {
     public extern_static_weak_import_default: StrictPointer | undefined,
     /// The random number generator used for resolving non-determinism.
     /// Needs to be queried by ptr_to_int, hence needs interior mutability.
-    public rng: Pending<"rand::rngs::StdRng">,
+    public rng: StdRng,
     /// The allocator used for the machine's `AllocBytes` in native-libs mode.
     public allocator: IsolatedAlloc | undefined,
     /// The allocation IDs to report when they are being allocated

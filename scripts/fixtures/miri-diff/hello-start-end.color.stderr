@@ -1,0 +1,9 @@
+ [2mrustc_const_eval::interpret::stack[0m::[1;32mframe[0m frame=std::rt::lang_start::<()>
+  [1;32m INFO[0m [2mrustc_const_eval::interpret::step[0m StorageLive(_5)
+  [1;32m INFO[0m [2mrustc_const_eval::interpret::step[0m StorageLive(_6)
+  [1;32m INFO[0m [2mrustc_const_eval::interpret::step[0m StorageLive(_7)
+  [1;32m INFO[0m [2mrustc_const_eval::interpret::step[0m StorageLive(_8)
+  [1;32m INFO[0m [2mrustc_const_eval::interpret::step[0m return
+  [1;32m INFO[0m [2mrustc_const_eval::interpret::call[0m popping stack frame (returning from function)
+  [1;32m INFO[0m [2mmiri::machine[0m Leaving std::rt::lang_start::<()>
+ [1;32m INFO[0m [2mmiri::eval[0m Additional static roots: [alloc43]

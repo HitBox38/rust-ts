@@ -142,7 +142,11 @@ test.skipIf(SKIP)("Display of interpreter errors = the pinned rustc's E0080 mess
 test("Display of the other error kinds", () => {
   expect(display_InterpErrorKind(ub({ $: "InvalidBool", _0: 3 }))).toBe("interpreting an invalid 8-bit value as a bool: 0x03");
   expect(display_InterpErrorKind(ub({ $: "InvalidChar", _0: 0xd800 }))).toBe("interpreting an invalid 32-bit value as a char: 0x0000d800");
-  expect(display_InterpErrorKind(ub({ $: "BoundsCheckFailed", len: 3, index: 5 }))).toBe("indexing out of bounds: the len is 3 but the index is 5");
+  expect(display_InterpErrorKind(ub({ $: "BoundsCheckFailed", len: 3n, index: 5n }))).toBe("indexing out of bounds: the len is 3 but the index is 5");
+  // `index: from.saturating_add(to)` (projection.rs) saturates at u64::MAX: printed exactly (lane followups-35)
+  expect(display_InterpErrorKind(ub({ $: "BoundsCheckFailed", len: 2n, index: 18446744073709551615n }))).toBe(
+    "indexing out of bounds: the len is 2 but the index is 18446744073709551615",
+  );
   expect(display_InterpErrorKind(ub({ $: "PointerUseAfterFree", _0: id(4), _1: { $: "Dereferenceable", _0: "pointer" } }))).toBe(
     "pointer not dereferenceable: alloc4 has been freed, so this pointer is dangling",
   );
