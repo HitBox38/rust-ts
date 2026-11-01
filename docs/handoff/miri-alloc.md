@@ -82,9 +82,10 @@ No `.gen.ts` changed, and no tools/codegen, harness or scripts file changed.
 It uses the vendored `StdRng`. `GlobalStateInner::new` is the real constructor, given a 64-bit `tcx` double. Every
 address, every cross-thread `acquire_clock` and the rng tail match: 7 tests, 3107 expects.
 
-**Mutation checks.** Shrinking the slack range from `0..16` to `0..15` makes 5 of the 6 scenarios fail. Disabling the
-`MAX_POOL_SIZE` cap makes `poolfull` fail. The `pos.min(len - 1)` clamp is close to an equivalent mutant with these
-scripts: it only matters when the largest `(size, thread)` group of a full pool has at most 1 entry.
+**Mutation checks.** Shrinking the slack range from `0..16` to `0..15` makes all 6 scenarios fail (review check: 6 of 6, not 5). Disabling the
+`MAX_POOL_SIZE` cap makes `poolfull` fail. The review found the `clamped_pos = 0` mutant is caught by `poolfull`. Removing
+the `pos.min(len - 1)` clamp itself was not checked: the clamp only matters when the largest `(size, thread)` group of a
+full pool has at most 1 entry, so its effect with these scripts is unmeasured.
 
 **Limit.** This is upstream's algorithm with the real rand, not Miri itself. The end-to-end check (addresses in `{:p}`
 and in UB messages from the Miri oracle) needs a running machine. That is for the integration of wave 36/37.

@@ -193,15 +193,17 @@ declare module "./tree_borrows/tree.gen.ts" {
 
 // impl VisitProvenance for GlobalStateInner
 // rustc: src/tools/miri/src/borrow_tracker/mod.rs:124 visit_provenance
-GlobalStateInner.prototype.visit_provenance = function (this: GlobalStateInner, _visit: VisitWith): void {
+port_methods("miri::borrow_tracker::GlobalStateInner", () => GlobalStateInner.prototype, {
+visit_provenance: function (this: GlobalStateInner, _visit: VisitWith): void {
   // All the provenance in protected_tags is also stored in FrameState, and visited there.
   // The only other candidate is base_ptr_tags, and that does not need visiting since we don't ever
   // GC the bottommost/root tag.
-};
+}});
 
 /// Utilities for initialization and ID generation
 // rustc: src/tools/miri/src/borrow_tracker/mod.rs:156 new
-(GlobalStateInner as unknown as { new: (m: BorrowTrackerMethod, t: Set<BorTag>) => GlobalStateInner }).new = function (
+port_methods("miri::borrow_tracker::GlobalStateInner", () => GlobalStateInner, {
+new: function (
   borrow_tracker_method: BorrowTrackerMethod,
   tracked_pointer_tags: Set<BorTag>,
 ): GlobalStateInner {
@@ -213,30 +215,34 @@ GlobalStateInner.prototype.visit_provenance = function (this: GlobalStateInner, 
     /* protected_tags */ new Map(),
     tracked_pointer_tags,
   );
-};
+}});
 
 /// Generates a new pointer tag. Remember to also check track_pointer_tags and log its creation!
 // rustc: src/tools/miri/src/borrow_tracker/mod.rs:171 new_ptr
-GlobalStateInner.prototype.new_ptr = function (this: GlobalStateInner): BorTag {
+port_methods("miri::borrow_tracker::GlobalStateInner", () => GlobalStateInner.prototype, {
+new_ptr: function (this: GlobalStateInner): BorTag {
   const id = this.next_ptr_tag;
   this.next_ptr_tag = unwrap(BorTag.succ(id));
   return id;
-};
+}});
 
 // rustc: src/tools/miri/src/borrow_tracker/mod.rs:177 new_frame
-GlobalStateInner.prototype.new_frame = function (this: GlobalStateInner): FrameState {
+port_methods("miri::borrow_tracker::GlobalStateInner", () => GlobalStateInner.prototype, {
+new_frame: function (this: GlobalStateInner): FrameState {
   return { protected_tags: [] };
-};
+}});
 
 // rustc: src/tools/miri/src/borrow_tracker/mod.rs:181 end_call
-GlobalStateInner.prototype.end_call = function (this: GlobalStateInner, frame: FrameExtra): void {
+port_methods("miri::borrow_tracker::GlobalStateInner", () => GlobalStateInner.prototype, {
+end_call: function (this: GlobalStateInner, frame: FrameExtra): void {
   for (const [_, tag] of unwrap(frame.borrow_tracker, "we should have borrow tracking data").protected_tags) {
     this.protected_tags.delete(tag);
   }
-};
+}});
 
 // rustc: src/tools/miri/src/borrow_tracker/mod.rs:192 root_ptr_tag
-GlobalStateInner.prototype.root_ptr_tag = function (this: GlobalStateInner, id: AllocId, machine: MiriMachine): BorTag {
+port_methods("miri::borrow_tracker::GlobalStateInner", () => GlobalStateInner.prototype, {
+root_ptr_tag: function (this: GlobalStateInner, id: AllocId, machine: MiriMachine): BorTag {
   const existing = this.root_ptr_tags.get(id);
   if (existing !== undefined) return existing;
   const tag = this.new_ptr();
@@ -247,20 +253,22 @@ GlobalStateInner.prototype.root_ptr_tag = function (this: GlobalStateInner, id: 
   // self.root_ptr_tags.try_insert(id, tag).unwrap();  (PORT: `id` is absent, checked above)
   this.root_ptr_tags.set(id, tag);
   return tag;
-};
+}});
 
 // rustc: src/tools/miri/src/borrow_tracker/mod.rs:208 remove_unreachable_allocs
-GlobalStateInner.prototype.remove_unreachable_allocs = function (this: GlobalStateInner, allocs: LiveAllocs): void {
+port_methods("miri::borrow_tracker::GlobalStateInner", () => GlobalStateInner.prototype, {
+remove_unreachable_allocs: function (this: GlobalStateInner, allocs: LiveAllocs): void {
   // self.root_ptr_tags.retain(|id, _| allocs.is_live(*id));
   for (const id of this.root_ptr_tags.keys()) {
     if (!allocs.is_live(id)) this.root_ptr_tags.delete(id);
   }
-};
+}});
 
 // rustc: src/tools/miri/src/borrow_tracker/mod.rs:212 borrow_tracker_method
-GlobalStateInner.prototype.borrow_tracker_method_ = function (this: GlobalStateInner): BorrowTrackerMethod {
+port_methods("miri::borrow_tracker::GlobalStateInner", () => GlobalStateInner.prototype, {
+borrow_tracker_method_: function (this: GlobalStateInner): BorrowTrackerMethod {
   return this.borrow_tracker_method;
-};
+}});
 
 /// Which borrow tracking method to use
 export type BorrowTrackerMethod = import("./mod.gen.ts").BorrowTrackerMethod;
@@ -289,7 +297,8 @@ BorrowTrackerMethod.get_tree_borrows_params = function (self: BorrowTrackerMetho
 };
 
 // rustc: src/tools/miri/src/borrow_tracker/mod.rs:249 new_allocation
-GlobalStateInner.prototype.new_allocation = function (
+port_methods("miri::borrow_tracker::GlobalStateInner", () => GlobalStateInner.prototype, {
+new_allocation: function (
   this: GlobalStateInner,
   id: AllocId,
   alloc_size: Size,
@@ -303,7 +312,7 @@ GlobalStateInner.prototype.new_allocation = function (
     case "TreeBorrows":
       return { $: "TreeBorrows", _0: Tree.new_allocation(id, alloc_size, this, kind, machine) };
   }
-};
+}});
 
 // ---- impl EvalContextExt for MiriInterpCx ----
 // rustc: src/tools/miri/src/borrow_tracker/mod.rs:272 retag_ptr_value
