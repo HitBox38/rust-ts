@@ -36,10 +36,11 @@ import {
 import { TypingEnv } from "../rustc_middle/ty/mod.ts";
 import { DUMMY_SP } from "../rustc_span/lib.ts";
 import { PLAIN } from "../std/fmt.ts";
-import { Unported } from "../std/panic.ts";
 import { AllocBytes_MiriAllocBytes, MiriAllocBytes } from "./alloc/alloc_bytes.ts";
 import type { BorTag } from "./borrow_tracker/mod.ts";
 import { MonoHashMap } from "./data_structures/mono_hash_map.ts";
+import { ThreadManager } from "./concurrency/thread.ts";
+import { type MiriConfig } from "./eval.ts";
 import { type MiriInterpCx, MiriMachine, type MiriMachineTypes, type MiriMemoryKind, Provenance, Provenance_Provenance } from "./machine.ts";
 
 // ---- type-level: `MiriInterpCx` reads Miri's associated types (M1) ----
@@ -90,27 +91,26 @@ test("M1/M7: MiriMachine's associated items, provided defaults and impl stubs; M
   for (const n of ["load_mir", "increment_const_eval_counter", "before_access_global", "before_alloc_access"] as const) {
     expect(m[n]).toBe(Machine_provided.prototype[n]);
   }
-  // overridden (and the required fns): lane miri-machine's, `unported` until ported
-  const unported_msg = (f: () => unknown): string => {
-    try {
-      f();
-    } catch (e) {
-      if (e instanceof Unported) return e.message;
-      throw e;
-    }
-    return "no error";
-  };
+  // overridden (and the required fns): lane miri-machine's (ported)
   expect(m.alignment_check).not.toBe(Machine_provided.prototype.alignment_check);
-  expect(unported_msg(() => (m.enforce_alignment as () => unknown)())).toContain(
-    "miri::machine::MiriMachine (impl Machine)::enforce_alignment (src/tools/miri/src/machine.rs; lane miri-machine)",
-  );
-  expect(unported_msg(() => (m.stack_ as () => unknown)())).toContain("::stack_ (");
-  expect(unported_msg(() => m.MemoryMap_default())).toContain("MonoHashMap::default (");
-  expect(unported_msg(() => AllocBytes_MiriAllocBytes.zeroed(Size.ZERO, Align.ONE, { $: "Global" }))).toContain("MiriAllocBytes::zeroed (");
+  const fake_ecx = Object.assign(Object.create(InterpCx.prototype) as MiriInterpCx, { machine: { check_alignment: "None" } });
+  expect(m.enforce_alignment(fake_ecx)).toBe(false);
+  // `stack` reaches lane miri-threads' `active_thread_stack` (ported): the main thread's (empty) stack.
+  const threads = ThreadManager.new({ fixed_scheduling: false } as MiriConfig);
+  const threads_ecx = Object.assign(Object.create(InterpCx.prototype) as MiriInterpCx, { machine: { threads } });
+  expect(m.stack_(threads_ecx)).toBe(threads.active_thread_stack());
+  // lane miri-driver ported `MonoHashMap` (data_structures/mono_hash_map.rs): `MemoryMap::default()` is an empty map.
+  expect(m.MemoryMap_default()).toBeInstanceOf(MonoHashMap);
+  // `impl AllocBytes for MiriAllocBytes` is ported (lane miri-alloc): a zero-sized allocation is an empty `MiriAllocBytes`
+  const z = AllocBytes_MiriAllocBytes.zeroed(Size.ZERO, Align.ONE, { $: "Global" });
+  expect(z instanceof MiriAllocBytes && z.length === 0).toBe(true);
   // MonoHashMap: `get` is the impl's (machine.rs `impl AllocMap for MonoHashMap` :98), `get_mut` the default
   expect(MonoHashMap.prototype.get_mut).toBe(AllocMap_provided.prototype.get_mut);
   expect(MonoHashMap.prototype.get).not.toBe(AllocMap_provided.prototype.get);
-  expect(unported_msg(() => new MonoHashMap(new Map()).insert(1, 2))).toContain("(impl AllocMap)::insert (");
+  const mm = MonoHashMap.default<number, number>();
+  expect(mm.insert(1, 2)).toBeUndefined();
+  expect(mm.insert(1, 3)).toBe(2);
+  expect(mm.get(1)).toBe(3);
   // N5: `M::Bytes` values are `Uint8Array`s; their views are plain ones
   const b = new MiriAllocBytes(4);
   expect(b).toBeInstanceOf(Uint8Array);

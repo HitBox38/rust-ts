@@ -1,0 +1,23 @@
+        INFO rustc_const_eval::interpret::step StorageLive(_3)
+        INFO rustc_const_eval::interpret::step StorageLive(_4)
+        INFO rustc_const_eval::interpret::step StorageLive(_5)
+        INFO rustc_const_eval::interpret::step _5 = move _1
+        INFO miri::borrow_tracker retag_ptr_value: type=&dyn std::ops::Fn() -> i32 + std::marker::Sync + std::panic::RefUnwindSafe, mode=Default, val=ScalarPair(0x20150[alloc20]<35>, 0x20160[alloc21]<23>)
+        INFO rustc_const_eval::interpret::step _4 = std::mem::ManuallyDrop::<F>::new(move _5) -> [return: bb1, unwind: bb8]
+         rustc_const_eval::interpret::stack::frame frame=std::mem::ManuallyDrop::<{closure@std::rt::lang_start_internal::{closure#0}}>::new
+          INFO miri::borrow_tracker retag_ptr_value: type=&dyn std::ops::Fn() -> i32 + std::marker::Sync + std::panic::RefUnwindSafe, mode=FnEntry, val=ScalarPair(0x20150[alloc20]<38>, 0x20160[alloc21]<23>)
+          INFO rustc_const_eval::interpret::step // executing bb0
+          INFO rustc_const_eval::interpret::step StorageLive(_2)
+          INFO rustc_const_eval::interpret::step _2 = move _1
+          INFO miri::borrow_tracker retag_ptr_value: type=&dyn std::ops::Fn() -> i32 + std::marker::Sync + std::panic::RefUnwindSafe, mode=Default, val=ScalarPair(0x20150[alloc20]<40>, 0x20160[alloc21]<23>)
+          INFO rustc_const_eval::interpret::step _0 = std::mem::ManuallyDrop::<T> { value: move _2 }
+          INFO rustc_const_eval::interpret::step StorageDead(_2)
+          INFO rustc_const_eval::interpret::step return
+          INFO rustc_const_eval::interpret::call popping stack frame (returning from function)
+          INFO miri::machine Leaving std::mem::ManuallyDrop::<{closure@std::rt::lang_start_internal::{closure#0}}>::new
+        INFO miri::machine Continuing in std::panicking::catch_unwind::<isize, {closure@std::rt::lang_start_internal::{closure#0}}>
+        INFO rustc_const_eval::interpret::step // executing bb1
+        INFO rustc_const_eval::interpret::step StorageDead(_5)
+        INFO rustc_const_eval::interpret::step _3 = std::panicking::catch_unwind::Data::<F, R> { f: move _4 }
+        INFO rustc_const_eval::interpret::step StorageDead(_4)
+        INFO rustc_const_eval::interpret::step StorageLive(_6)

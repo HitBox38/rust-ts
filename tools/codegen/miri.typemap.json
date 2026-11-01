@@ -12,14 +12,18 @@
     "Host-only paths (isolation off, D14), measureme profiling and crates.io deps not vendored yet are `never` (a field that is",
     "always `None` / a variant never built on x86_64-unknown-linux-gnu) or `Pending<..>` placeholders with the lane that replaces them."
   ],
-  "helpers": {},
+  "helpers": {"src/rust_ts/hash_map.ts": ["FxKeyedMap", "debug_HashMap"], "src/rust_ts/keyed.ts": ["KeyedMap"]},
   "fields": {
     "miri::diagnostics::TerminationInfo::DataRace::ptr": "::rust_ts::miri_Pointer_AllocId",
     "//": "decision miri-contract C5 amendment (lane interp-miri-reconcile): four hot u64/u128 fields are `number` (values provably < 2^53; each has a PORT note in its hand module)",
     "miri::machine::MiriMachine::basic_block_count": "::rust_ts::miri_u64_number",
     "miri::clock::MonotonicClockKind::Virtual::nanoseconds": "::rust_ts::miri_cell_u128_number",
     "miri::data_structures::dedup_range_map::Elem::range": "::rust_ts::miri_range_u64_number",
-    "miri::borrow_tracker::stacked_borrows::item::Item::0": "::rust_ts::miri_u64_number"
+    "miri::borrow_tracker::stacked_borrows::item::Item::0": "::rust_ts::miri_u64_number",
+    "//value-keyed": "lane miri-threads-fix (review miri-threads findings 2-3): maps keyed by a value type (`ThreadId(u32)`, `Size`) are value-keyed maps, not identity-keyed JS `Map`s",
+    "miri::concurrency::sync::RwLock::readers": "::rust_ts::miri_FxHashMap_ThreadId_usize",
+    "miri::concurrency::blocking_io::BlockingIoSource::blocked_threads": "::rust_ts::miri_BTreeMap_ThreadId_BlockingIoInterest",
+    "miri::machine::AllocExtra::sync_objs": "::rust_ts::miri_BTreeMap_Size_SyncObj"
   },
   "types": [
     {"paths": ["u64", "i64"], "ts": "bigint", "debug": "debug_int($v, $f)", "clone": "copy", "default": "0n", "note": "decision miri-contract C5 (header)"},
@@ -41,6 +45,9 @@
     {"paths": ["rust_ts::miri_cell_u128_number"], "ts": "number", "import": "src/std/fmt.ts", "values": ["debug_struct", "debug_int"], "debug": "debug_struct($f, \"Cell\", [[\"value\", debug_int($v, $f)]])", "clone": "copy", "note": "decision C5 amendment: the virtual clock's `Cell<u128>` nanosecond counter (`MonotonicClockKind::Virtual`, ticked per basic block; `MonotonicClock::sleep` adds program timeouts, so miri-eval stops with `unported` past 2^53 there), `number`; Debug as `Cell { value: n }`"},
     {"paths": ["rust_ts::miri_range_u64_number"], "ts": "{ start: number; end: number }", "import": "src/std/fmt.ts", "values": ["debug_int"], "debug": "debug_int($v.start, $f) + \"..\" + debug_int($v.end, $f)", "clone": "{ start: $v.start, end: $v.end }", "note": "decision C5 amendment: `DedupRangeMap` `Elem.range: ops::Range<u64>` (byte offsets inside one allocation, < isize::MAX of a 64-bit target but bounded by `Size`, a number), `{ start: number; end: number }`"},
     {"paths": ["rust_ts::miri_Pointer_AllocId"], "ts": "interpret_Pointer<AllocId>", "import": "src/rustc_middle/mir/interpret/mod.ts", "types": ["Pointer as interpret_Pointer", "AllocId"], "values": ["debug_Pointer", "debug_AllocId"], "debug": "debug_Pointer($v, $f, debug_AllocId)", "clone": "copy", "note": "`TerminationInfo::DataRace.ptr: interpret::Pointer<AllocId>` (diagnostics.rs; `fields` below): the generator resolves `interpret::Pointer` to lib.rs's `Pointer` alias"},
+    {"paths": ["rust_ts::miri_FxHashMap_ThreadId_usize"], "ts": "FxKeyedMap<ThreadId, number>", "import": "src/miri/concurrency/thread.ts", "types": ["ThreadId"], "values": ["debug_ThreadId"], "debug": "debug_HashMap($v, $f, debug_ThreadId, debug_int)", "clone": null, "note": "`RwLock.readers: FxHashMap<ThreadId, usize>` (sync.rs, `fields` above): value-keyed by `ThreadId._0` (`KeyType` u32, value layout usize), in hashbrown bucket order (rust_ts/hash_map.ts `FxKeyedMap`; `FxKeyedMap` and `debug_HashMap` are `helpers` imports)"},
+    {"paths": ["rust_ts::miri_BTreeMap_ThreadId_BlockingIoInterest"], "ts": "KeyedMap<ThreadId, BlockingIoInterest>", "import": "src/miri/concurrency/thread.ts", "types": ["ThreadId"], "debug": null, "clone": null, "note": "`BlockingIoSource.blocked_threads: BTreeMap<ThreadId, BlockingIoInterest>` (blocking_io.rs, `fields` above): value-keyed by `ThreadId._0` (rust_ts/keyed.ts `KeyedMap`, a `helpers` import); insertion-ordered, so its iteration (`BlockingIoManager::poll`) sorts by `_0` (BTreeMap order)"},
+    {"paths": ["rust_ts::miri_BTreeMap_Size_SyncObj"], "ts": "KeyedMap<Size, SyncObj>", "import": "src/miri/concurrency/sync.ts", "types": ["SyncObj"], "debug": null, "clone": null, "note": "`AllocExtra.sync_objs: BTreeMap<Size, Box<dyn SyncObj>>` (machine.rs, `fields` above): value-keyed by the byte offset (rust_ts/keyed.ts `KeyedMap`, a `helpers` import; `Size` is imported for the other `Size` fields of machine.rs); insertion-ordered, so its users iterate it sorted by `Size_cmp` (machine.ts `btree_range`)"},
     {"paths": ["rustc_const_eval::interpret::Scalar", "interpret::Scalar"], "ts": "Scalar<$0>", "import": "src/rustc_middle/mir/interpret/mod.ts", "types": ["Scalar"], "debug": "debug_Scalar($v, $f, $d0)", "clone": "copy", "note": "mir/interpret/value.rs `Scalar<Prov>` (generic in the port)", "values": ["debug_Scalar"]},
     {"paths": ["rustc_middle::mir::Local"], "ts": "Local", "import": "src/rustc_middle/mir/mod.ts", "types": ["Local"], "values": ["debug_Local"], "debug": "debug_Local($v, $f)", "clone": "copy", "note": "newtype_index (mir/mod.ts)"},
     {"paths": ["rustc_middle::mir::BasicBlock"], "ts": "BasicBlock", "import": "src/rustc_middle/mir/mod.ts", "types": ["BasicBlock"], "values": ["debug_BasicBlock"], "debug": "debug_BasicBlock($v, $f)", "clone": "copy", "note": "newtype_index (mir/mod.ts)"},
@@ -59,9 +66,9 @@
     {"paths": ["std::sync::Mutex"], "ts": "$0", "debug": null, "clone": null, "note": "PORTING §5: sync wrappers are the inner value"},
     {"paths": ["std::rc::Weak"], "ts": "Pending1<\"std::rc::Weak\", $0>", "import": "src/rustc_type_ir/decls.ts", "types": ["Pending1"], "debug": null, "clone": null, "note": "Rc/Weak reference counting of file descriptions (shims/files.rs `FileDescriptionRef`): lane miri-shims-b decides the representation"},
     {"paths": ["std::ffi::OsString"], "ts": "string", "debug": "debug_str($v)", "clone": "copy", "note": "PORT: host OS strings (args, env) are UTF-8 strings; non-UTF-8 host data is unported (D14)"},
-    {"paths": ["std::time::Duration"], "ts": "Pending<\"std::time::Duration\">", "import": "src/rustc_type_ir/decls.ts", "types": ["Pending"], "debug": null, "clone": "copy", "note": "a src/std stand-in (lane miri-eval, clock.rs) replaces it"},
-    {"paths": ["std::time::Instant"], "ts": "Pending<\"std::time::Instant\">", "import": "src/rustc_type_ir/decls.ts", "types": ["Pending"], "debug": null, "clone": "copy", "note": "host monotonic clock (isolation off, D14): a src/std stand-in (lane miri-eval, clock.rs) replaces it"},
-    {"paths": ["std::time::SystemTime"], "ts": "Pending<\"std::time::SystemTime\">", "import": "src/rustc_type_ir/decls.ts", "types": ["Pending"], "debug": null, "clone": "copy", "note": "host real-time clock (isolation off, D14): a src/std stand-in (lane miri-eval, clock.rs) replaces it"},
+    {"paths": ["std::time::Duration"], "ts": "Duration", "import": "src/std/time.ts", "types": ["Duration"], "debug": null, "clone": "copy", "note": "src/std/time.ts `Duration` (lane miri-eval, plan-m6 D14; an immutable value class, Rust `Copy`); retyped by lane miri-wire"},
+    {"paths": ["std::time::Instant"], "ts": "std_Instant", "import": "src/std/time.ts", "types": ["Instant as std_Instant"], "debug": null, "clone": "copy", "note": "host monotonic clock (isolation off, D14): src/std/time.ts `Instant` (lane miri-eval), imported as `std_Instant` (clock.rs has its own `Instant`); retyped by lane miri-wire"},
+    {"paths": ["std::time::SystemTime"], "ts": "SystemTime", "import": "src/std/time.ts", "types": ["SystemTime"], "debug": null, "clone": "copy", "note": "host real-time clock (isolation off, D14): src/std/time.ts `SystemTime` (lane miri-eval); retyped by lane miri-wire"},
     {"paths": ["std::io::Stdin", "io::Stdin"], "ts": "Pending<\"std::io::Stdin\">", "import": "src/rustc_type_ir/decls.ts", "types": ["Pending"], "debug": null, "clone": null, "note": "the host stdin handle (shims/files.rs, lane miri-shims-b; src/std/io.ts stand-in)"},
     {"paths": ["std::io::Stdout", "io::Stdout"], "ts": "Pending<\"std::io::Stdout\">", "import": "src/rustc_type_ir/decls.ts", "types": ["Pending"], "debug": null, "clone": null, "note": "the host stdout handle (shims/files.rs, lane miri-shims-b; src/std/io.ts stand-in)"},
     {"paths": ["std::io::Stderr", "io::Stderr"], "ts": "Pending<\"std::io::Stderr\">", "import": "src/rustc_type_ir/decls.ts", "types": ["Pending"], "debug": null, "clone": null, "note": "the host stderr handle (shims/files.rs, lane miri-shims-b; src/std/io.ts stand-in)"},
@@ -71,7 +78,7 @@
     {"paths": ["mio::Poll"], "ts": "never", "debug": null, "clone": null, "note": "`BlockingIoManager.poll: Option<Poll>` is `None` with isolation on (blocking_io.rs:90); host I/O polling (mio) is unported (D5)"},
     {"paths": ["mio::Events"], "ts": "never", "debug": null, "clone": null, "note": "`BlockingIoManager.events: Option<Events>`, as `poll`"},
     {"paths": ["measureme::Profiler", "measureme::StringId", "measureme::DetachedTiming"], "ts": "never", "debug": null, "clone": null, "note": "`-Zmiri-measureme` profiling is unported: the `Option<..>` fields are always `None`, `string_cache` stays empty"},
-    {"paths": ["rand::rngs::StdRng"], "ts": "Pending<\"rand::rngs::StdRng\">", "import": "src/rustc_type_ir/decls.ts", "types": ["Pending"], "debug": null, "clone": null, "note": "vendor rand 0.10.1 (lane vendor-rand, plan-m6 D5) replaces it"},
+    {"paths": ["rand::rngs::StdRng"], "ts": "StdRng", "import": "src/vendor/rand/rngs/std.ts", "types": ["StdRng"], "values": ["debug_StdRng"], "debug": "debug_StdRng($v, $f)", "clone": null, "note": "vendor rand 0.10.1 (lane vendor-rand, plan-m6 D5); mapped by lane miri-machine (MiriMachine.rng)"},
     {"paths": ["rustc_ast::expand::allocator::SpecialAllocatorMethod"], "ts": "SpecialAllocatorMethod", "import": "src/rustc_ast/expand/allocator.gen.ts", "types": ["SpecialAllocatorMethod"], "debug": null, "clone": "copy", "note": "rustc_ast expand/allocator.rs"}
   ]
 }

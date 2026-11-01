@@ -52,7 +52,8 @@
 //   compilations under test stop after type checking and only read crate metadata, and there is no
 //   linker for COMPILETEST_TARGET on most hosts (a dylib would need one);
 // - so the main compile's `--extern <name>=<aux dir>/lib<name>.{so,rlib}` names `lib<name>.rmeta`.
-// The aux directory is `$RUST_TS_DATA/aux/ui/<key>` instead of `<output base>/auxiliary`, keyed by the
+// The aux directory is `$RUST_TS_DATA/aux/ui/<key>` (a directory unused for harness/library.ts `AUX_STALE_MS` is
+// removed by the next new build, lane harness-w36) instead of `<output base>/auxiliary`, keyed by the
 // oracle build, the case id and every aux command, environment, source file and file the source may pull
 // in (`mod`, `#[path]`, `include!`: scripts/lib/deps.ts `caseDeps`), so the case argv (and so the oracle
 // cache key) changes whenever any of them does. Aux builds run with a fixed environment (`auxEnv`: only
@@ -60,14 +61,40 @@
 // difftest's oracle processes. A failing aux build (compiletest: a fatal test failure) is never a skip:
 // it prints an `ERROR:` line and stops the run (`buildAux`), whether the oracle reported an error, was
 // killed or timed out twice. `proc-macro` aux crates (and aux crates that are proc-macro crates) are
-// skipped before any build: M6 (plan-m2 D6); `aux-codegen-backend` and `add-minicore` are not reproduced.
+// skipped before any build (plan-m2 D6) unless the caller asks for `procMacro` (below); `aux-codegen-backend`
+// and `add-minicore` are not reproduced.
+//
+// Proc-macro aux crates (`uiFileCases(.., { aux: true, procMacro: true })`, lane harness-m6b, plan-m6 §4 item 3, D7):
+// the `pm-ui`/`pm-expanded` case sets are the tests (and revisions) whose aux tree holds a proc-macro crate
+// (`auxTreeHasProcMacro`); every other test is left out of those case sets without a skip entry. A `proc-macro:` crate
+// is built as runtest.rs `build_auxiliary` builds it with `AuxType::ProcMacro` (`force_host`, `--crate-type
+// proc-macro`, `--extern proc_macro`, `-L <aux dir>`; `--extern <crate>=<aux dir>/<DLL_PREFIX><crate>.<DLL_EXTENSION>`
+// for the main compile, compiletest's `get_lib_name` with the consts of the machine it runs on), by the oracle rustc, as
+// a real host dylib (no `--emit=metadata`): the compiler loads and runs it. Differences from compiletest, all forced by
+// running compiletest "as on x86_64-unknown-linux-gnu" (host = target = COMPILETEST_TARGET, above) on another machine:
+// - `force_host`'s `--target=<config.host>` is the oracle's real host tuple (`oracleHost()`), not COMPILETEST_TARGET:
+//   the dylib must be loadable by this machine's rustc (and by the port, plan-m6 D7). bootstrap's `--host-rustcflags`
+//   equal its `--target-rustcflags` here (`-Crpath -Cdebuginfo=<0>`, `-Lnative=` dropped as above), so only the
+//   target differs;
+// - an aux crate that is a proc-macro crate by its own `#![crate_type = "proc-macro"]` / `--crate-type proc-macro`
+//   (compiletest: built for `config.target` unless it says `//@ force-host`; on CI that is the host) and every aux crate
+//   in a proc-macro crate's own aux tree (its dependencies, which it links) are built for the real host too, also
+//   without `--emit=metadata`, and so is an aux crate with its own `//@ force-host` (compiletest: `--target=<host>`;
+//   a proc macro may `extern crate` a sibling force-host aux crate of the test); other aux crates of the test stay
+//   COMPILETEST_TARGET rmetas as before. A host-built
+//   `aux-crate` is named in `--extern` by compiletest's `get_lib_name` (rlib / dylib name), not the rmeta;
+// - host builds link, so their `PATH` (`auxEnv`) is the pinned one plus the directory of the system C compiler driver
+//   (`cc`, rustc's default linker on unix hosts); part of the aux key like the rest of the environment.
+// A host build in the temp directory and its rename keep `-Crpath`'s `@loader_path`/`$ORIGIN`-relative paths valid
+// (same parent directory). Existing callers (no `procMacro`) plan, key and build exactly as before.
 import { existsSync, mkdirSync, readdirSync, readFileSync, readlinkSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { isAbsolute, join, resolve } from "node:path";
+import { delimiter, dirname, isAbsolute, join, resolve } from "node:path";
 import { DATA, PIN, UPSTREAM, hash } from "../scripts/lib/common.ts";
 import { caseDeps } from "../scripts/lib/deps.ts";
 import { getEnv } from "../scripts/lib/env.ts";
-import { ORACLE_RETRY_FACTOR, oraclePinnedPathEnv, oracleRustcCmd, oracleSysroot, rustcDriverHash, verifyOracleToolchain } from "../scripts/lib/oracle.ts";
+import { pruneStaleUiAux, touchAuxDir } from "./library.ts";
+import { ORACLE_RETRY_FACTOR, oracleHost, oraclePinnedPathEnv, oracleRustcCmd, oracleSysroot, rustcDriverHash, verifyOracleToolchain } from "../scripts/lib/oracle.ts";
 
 /** The host and target compiletest is run as (see "Host independence" above). */
 export const COMPILETEST_TARGET = "x86_64-unknown-linux-gnu";
@@ -234,6 +261,14 @@ interface TargetCfg {
   binaryFormat: string;
   dynamicLinking: boolean;
   rustcAbi: string | undefined;
+  /** `supported-sanitizers` (needs.rs; only read by `needsDecision`). */
+  sanitizers: string[];
+  /** `supports-xray`. */
+  xray: boolean;
+  /** `relocation-model` (default `pic`, common.rs `default_reloc_model`). */
+  relocationModel: string;
+  /** `panic-strategy` (default `unwind`); `get_current_target_config` overrides it from `--print=cfg`. */
+  panic: string;
 }
 
 interface Host {
@@ -269,6 +304,10 @@ function targetCfg(spec: Record<string, unknown>): TargetCfg {
     binaryFormat: typeof spec["binary-format"] === "string" ? spec["binary-format"] : "elf",
     dynamicLinking: spec["dynamic-linking"] === true,
     rustcAbi: typeof spec["rustc-abi"] === "string" ? spec["rustc-abi"] : undefined,
+    sanitizers: Array.isArray(spec["supported-sanitizers"]) ? (spec["supported-sanitizers"] as string[]) : [],
+    xray: spec["supports-xray"] === true,
+    relocationModel: typeof spec["relocation-model"] === "string" ? spec["relocation-model"] : "pic",
+    panic: typeof spec["panic-strategy"] === "string" ? spec["panic-strategy"] : "unwind",
   };
 }
 
@@ -347,8 +386,12 @@ function builtinCfgNames(): Set<string> {
   return (builtinCfgMemo = names);
 }
 
-/** Ignore decision of one directive line (`make_test_description`'s `decision!` chain), or undefined to continue. */
-function ignoreDecision(ln: DirectiveLine): string | undefined {
+/**
+ * Ignore decision of one directive line (`make_test_description`'s `decision!` chain), or undefined to continue.
+ * `needs`: evaluate every `needs-*` directive as needs.rs does (`needsDecision`); otherwise only `needs-subprocess`
+ * is, and every other `needs-*` rejects the test (the case sets of the suites built before lane harness-w36).
+ */
+function ignoreDecision(ln: DirectiveLine, needs = false): string | undefined {
   const EXTERNAL_IGNORES = new Set(["ignore-backends", "ignore-cdb", "ignore-gdb", "ignore-gdb-version", "ignore-lldb", "ignore-llvm-version", "ignore-parallel-frontend"]);
   const EXTERNAL_ONLY = new Set(["only-cdb", "only-gdb", "only-lldb"]);
   for (const prefix of ["ignore-", "only-"] as const) {
@@ -361,6 +404,8 @@ function ignoreDecision(ln: DirectiveLine): string | undefined {
     if (prefix === "only-" && !c.value) return `only executed ${c.message}`;
   }
   if (ln.name.startsWith("needs-") && ln.name !== "needs-llvm-components" && ln.name !== "needs-backends") {
+    // `needs`: needs.rs `handle_needs` in full for COMPILETEST_TARGET (`needsDecision`; the M6 run and pm suites).
+    if (needs) return needsDecision(ln);
     // needs.rs `handle_needs`: only `needs-subprocess` is evaluated (`Config::has_subprocess_support`).
     if (ln.name === "needs-subprocess") {
       const c = current();
@@ -382,6 +427,131 @@ function ignoreDecision(ln: DirectiveLine): string | undefined {
   if (ln.name === "only-cdb" || ln.name === "only-gdb" || ln.name === "only-lldb") return `debugger is not ${ln.name.slice(5)}`;
   // ignore_parallel_frontend: the parallel frontend is off.
   return undefined;
+}
+
+// ---- needs-* (needs.rs, lane harness-w36) ----
+//
+// `uiFileCases(.., { needs: true })` (the M6 run-mode and proc-macro suites) evaluates every `needs-*` directive as
+// needs.rs `handle_needs` / `prepare_needs_conditions` does for COMPILETEST_TARGET (x86_64-unknown-linux-gnu, host =
+// target as everywhere in this module), from the oracle's target spec (`--print=all-target-specs-json`) enriched by
+// `--print=cfg --target <target>` (common.rs `get_current_target_config`: `panic`, `target_has_atomic`), its
+// `--print=supported-crate-types` (`needs-crate-type`) and `--print=backend-has-mnemonic:ret` (`needs-asm-ret`).
+// A need that depends on bootstrap/CI configuration this harness does not have (sanitizer runtimes built, profiler
+// runtime, Enzyme/Offload, randomized layouts, rust-lld in the stage sysroot, git hash, debug assertions, a clang or
+// wasmtime runner, LLVM zstd) is not evaluated: the test is skipped with that reason, as for `ignore-<stage>`.
+// Configuration that is the default when bootstrap passes nothing is used: `--run` unset (`run_enabled`: auto, true
+// off Fuchsia). compiletest runs on the (non-Windows) target host, so `has_symlinks()` is true and `find_dlltool`'s
+// windows-gnu condition is false. An `IgnoreDecision::Error` (compiletest poisons the run) rejects the test.
+// Callers without `needs` (every suite built before harness-w36, protected ones included) keep the old rule: only
+// `needs-subprocess` is evaluated and any other `needs-*` rejects the test, so their case sets do not change.
+
+/** common.rs `KNOWN_TARGET_HAS_ATOMIC_WIDTHS`, `KNOWN_CRATE_TYPES`. */
+const KNOWN_TARGET_HAS_ATOMIC_WIDTHS = ["8", "16", "32", "64", "128", "ptr"];
+const KNOWN_CRATE_TYPES = ["bin", "cdylib", "dylib", "lib", "proc-macro", "rlib", "staticlib"];
+/** Rust's `{:?}` of a `Vec<String>` / `&[&str]`. */
+const debugStrs = (xs: readonly string[]) => `[${xs.map((x) => JSON.stringify(x)).join(", ")}]`;
+
+interface NeedsCfg {
+  /** `target_has_atomic` from `--print=cfg` (`get_current_target_config`). */
+  targetHasAtomic: Set<string>;
+  supportedCrateTypes: Set<string>;
+  /** needs.rs `prepare_needs_conditions`: name -> condition (undefined: not reproduced, with why) and ignore reason. */
+  simple: Map<string, { condition: boolean | undefined; why?: string; reason: string }>;
+}
+let needsMemo: NeedsCfg | undefined;
+function needsCfg(): NeedsCfg {
+  if (needsMemo) return needsMemo;
+  const { target } = host();
+  const cur = current();
+  let panic = cur.panic;
+  const targetHasAtomic = new Set<string>();
+  for (const line of rustcPrint(["-Zunstable-options", "--print=cfg", "--target", target]).trim().split("\n")) {
+    const eq = line.indexOf('="');
+    const [name, value] = eq < 0 ? [line, undefined] : [line.slice(0, eq), line.slice(eq + 2, line.endsWith('"') ? -1 : undefined)];
+    if (name === "panic") {
+      if (value !== "abort" && value !== "unwind") throw new Error(`unexpected value for panic cfg: ${value}`);
+      panic = value;
+    } else if (name === "target_has_atomic" && value !== undefined) {
+      if (!KNOWN_TARGET_HAS_ATOMIC_WIDTHS.includes(value)) throw new Error(`unexpected value for \`target_has_atomic\` cfg: ${value}`);
+      targetHasAtomic.add(value);
+    }
+  }
+  const supportedCrateTypes = new Set(rustcPrint(["--target", target, "--print=supported-crate-types", "-Zunstable-options"]).split("\n").filter(Boolean));
+  for (const t of supportedCrateTypes) if (!KNOWN_CRATE_TYPES.includes(t)) throw new Error(`unexpected crate type \`${t}\``);
+  // `has_mnemonic`: the default codegen backend is llvm.
+  const mnemonic = rustcPrint([`--target=${target}`, "-Zunstable-options", "--print=backend-has-mnemonic:ret"]).trim();
+  if (mnemonic !== "true" && mnemonic !== "false") throw new Error(`unexpected output from \`--print=backend-has-mnemonic:ret\`: ${mnemonic}`);
+  const san = (s: string) => cur.sanitizers.includes(s);
+  const CONFIG = "bootstrap/CI configuration this harness does not reproduce";
+  const simple = new Map<string, { condition: boolean | undefined; why?: string; reason: string }>();
+  const need = (name: string, condition: boolean | undefined, reason: string, why?: string) => simple.set(name, { condition, why, reason });
+  need("needs-asm-ret", mnemonic === "true", "ignored on targets without a `ret` assembly instruction");
+  need("needs-asm-support", ["x86", "x86_64", "arm", "aarch64", "arm64ec", "riscv32", "riscv64", "loongarch32", "loongarch64", "s390x"].includes(cur.arch), "ignored on targets without inline assembly support");
+  need("needs-sanitizer-support", undefined, "ignored on targets without sanitizers support", `RUSTC_SANITIZER_SUPPORT: whether bootstrap built the sanitizer runtimes, ${CONFIG}`);
+  need("needs-sanitizer-address", san("address"), "ignored on targets without address sanitizer");
+  need("needs-sanitizer-cfi", san("cfi"), "ignored on targets without CFI sanitizer");
+  need("needs-sanitizer-dataflow", san("dataflow"), "ignored on targets without dataflow sanitizer");
+  need("needs-sanitizer-kcfi", san("kcfi"), "ignored on targets without kernel CFI sanitizer");
+  need("needs-sanitizer-kasan", san("kernel-address"), "ignored on targets without kernel address sanitizer");
+  need("needs-sanitizer-khwasan", san("kernel-hwaddress"), "ignored on targets without kernel hardware-assisted address sanitizer");
+  need("needs-sanitizer-leak", san("leak"), "ignored on targets without leak sanitizer");
+  need("needs-sanitizer-memory", san("memory"), "ignored on targets without memory sanitizer");
+  need("needs-sanitizer-thread", san("thread"), "ignored on targets without thread sanitizer");
+  need("needs-sanitizer-hwaddress", san("hwaddress"), "ignored on targets without hardware-assisted address sanitizer");
+  need("needs-sanitizer-memtag", san("memtag"), "ignored on targets without memory tagging sanitizer");
+  need("needs-sanitizer-realtime", san("realtime"), "ignored on targets without realtime sanitizer");
+  need("needs-sanitizer-shadow-call-stack", san("shadow-call-stack"), "ignored on targets without shadow call stacks");
+  need("needs-sanitizer-safestack", san("safestack"), "ignored on targets without SafeStack support");
+  need("needs-enzyme", undefined, "ignored when LLVM Enzyme is disabled or LLVM is not the default codegen backend", `--has-enzyme (llvm.enzyme), ${CONFIG}`);
+  need("needs-offload", undefined, "ignored when LLVM Offload is disabled or LLVM is not the default codegen backend", `--has-offload (llvm.offload), ${CONFIG}`);
+  need("needs-run-enabled", !target.endsWith("-fuchsia"), "ignored when running the resulting test binaries is disabled");
+  need("needs-threads", target.startsWith("wasm") ? target.includes("threads") : true, "ignored on targets without threading support");
+  need("needs-subprocess", !(cur.env === "sgx" || cur.arch === "wasm32" || cur.arch === "wasm64" || cur.os === "emscripten"), "ignored on targets without subprocess support");
+  need("needs-unwind", panic === "unwind", "ignored on targets without unwinding support");
+  need("needs-profiler-runtime", undefined, "ignored when the profiler runtime is not available", `--profiler-runtime (build.profiler), ${CONFIG}`);
+  need("needs-force-clang-based-tests", undefined, "ignored when RUSTBUILD_FORCE_CLANG_BASED_TESTS is not set", `RUSTBUILD_FORCE_CLANG_BASED_TESTS, ${CONFIG}`);
+  need("needs-xray", cur.xray, "ignored on targets without xray tracing");
+  need("needs-rust-lld", undefined, "ignored on targets without Rust's LLD", `rust-lld in the stage sysroot under test, ${CONFIG}`);
+  need("needs-dlltool", false, "ignored when dlltool for the current architecture is not present");
+  need("needs-git-hash", undefined, "ignored when git hashes have been omitted for building", `--git-hash (rust.omit-git-hash), ${CONFIG}`);
+  need("needs-dynamic-linking", cur.dynamicLinking, "ignored on targets without dynamic linking");
+  need("needs-relocation-model-pic", cur.relocationModel === "pic", "ignored on targets without PIC relocation model");
+  need("needs-deterministic-layouts", undefined, "ignored when randomizing layouts", `--rust-randomized-layout (rust.randomize-layout), ${CONFIG}`);
+  need("needs-wasmtime", undefined, "ignored when wasmtime runner is not available", `the target runner, ${CONFIG}`);
+  need("needs-symlink", true, "ignored if symlinks are unavailable");
+  need("needs-llvm-zstd", undefined, "ignored if LLVM wasn't build with zstd for ELF section compression or LLVM is not the default codegen backend", `LLVM built with zstd (llvm.libzstd), ${CONFIG}`);
+  need("needs-rustc-debug-assertions", undefined, "ignored if rustc wasn't built with debug assertions", `rust.debug-assertions, ${CONFIG}`);
+  need("needs-std-debug-assertions", undefined, "ignored if std wasn't built with debug assertions", `rust.debug-assertions-std, ${CONFIG}`);
+  need("needs-std-remap-debuginfo", undefined, "ignored if std wasn't built with remapping of debuginfo", `rust.remap-debuginfo, ${CONFIG}`);
+  need("needs-target-std", !(target.includes("-none") || target.includes("nvptx") || target.includes("switch")), "ignored if target does not support std");
+  return (needsMemo = { targetHasAtomic, supportedCrateTypes, simple });
+}
+
+/** needs.rs `handle_needs` for a `needs-*` line (not `needs-llvm-components` / `needs-backends`): see above. */
+function needsDecision(ln: DirectiveLine): string | undefined {
+  const cfg = needsCfg();
+  if (ln.name === "needs-target-has-atomic") {
+    const rest = valueAfterColon(ln);
+    if (rest === undefined) throw new Reject("expected `needs-target-has-atomic` to have a comma-separated list of atomic widths");
+    const widths = rest.split(",").map((w) => w.trim());
+    for (const w of widths) if (!KNOWN_TARGET_HAS_ATOMIC_WIDTHS.includes(w)) throw new Reject(`unknown width specified in \`needs-target-has-atomic\`: \`${w}\` is not a known \`target_has_atomic_width\`, known values are \`${debugStrs(KNOWN_TARGET_HAS_ATOMIC_WIDTHS)}\``);
+    if (widths.every((w) => cfg.targetHasAtomic.has(w))) return undefined;
+    return `skipping test as target does not support all of the required \`target_has_atomic\` widths \`${debugStrs(widths)}\``;
+  }
+  if (ln.name === "needs-crate-type") {
+    const rest = valueAfterColon(ln);
+    if (rest === undefined) throw new Reject("expected `needs-crate-type` to have a comma-separated list of crate types");
+    const types = rest.split(",").map((t) => t.trim());
+    for (const t of types) if (!KNOWN_CRATE_TYPES.includes(t)) throw new Reject(`unknown crate type specified in \`needs-crate-type\`: \`${t}\` is not a known crate type, known values are \`${debugStrs(KNOWN_CRATE_TYPES)}\``);
+    if (types.every((t) => cfg.supportedCrateTypes.has(t))) return undefined;
+    return `skipping test as target does not support all of the crate types \`${debugStrs(types)}\``;
+  }
+  const need = cfg.simple.get(ln.name);
+  if (!need) throw new Reject(`invalid needs directive: ${ln.name}`);
+  if (need.condition === undefined) throw new Reject(`\`${ln.name}\` depends on compiletest configuration this harness does not reproduce (${need.why})`);
+  if (need.condition) return undefined;
+  const remark = remarkAfterSpace(ln);
+  return remark !== undefined ? `${need.reason} (${remark.trim()})` : need.reason;
 }
 
 // ---- TestProps (the subset that shapes the compile command) ----
@@ -550,6 +720,8 @@ function testProps(lines: DirectiveLine[], revision: string | undefined, opts: {
 interface CompileKind {
   auxOutDir?: string;
   linkAuxDir?: string;
+  /** `force_host`'s `--target=<config.host>` for a host-built aux crate (the header's proc-macro section). */
+  hostTarget?: string;
 }
 
 /** runtest.rs `make_compile_args` (UI mode, rustc), without the harness's `-Zparse-crate-root-only`. */
@@ -560,7 +732,7 @@ function compileArgs(file: string, relDir: string, stem: string, revision: strin
   a.push("-Z", `ignore-directory-in-diagnostics-source-blocks=${h.cargoHome}`);
   a.push("-Z", `ignore-directory-in-diagnostics-source-blocks=${join(UPSTREAM, "vendor")}`);
   if (!p.compileFlags.some((f) => f.startsWith("--sysroot"))) a.push("--sysroot", h.sysroot);
-  if (!p.compileFlags.some((f) => f.startsWith("--target"))) a.push(`--target=${h.target}`);
+  if (!p.compileFlags.some((f) => f.startsWith("--target"))) a.push(`--target=${kind.hostTarget ?? h.target}`);
   // set_revision_flags
   const norm = (r: string) => r.toLowerCase().replaceAll("-", "_");
   if (revision !== undefined) {
@@ -620,11 +792,25 @@ function compileEnv(p: Props): Record<string, string | null> {
 /** Stands for the case's aux directory in argv until it is known (it is keyed by the commands). */
 const AUX_DIR = "@RUST_TS_AUX_DIR@";
 
-interface AuxStep {
+export interface AuxStep {
   file: string;
   args: string[];
   env: Record<string, string | null>;
+  /** Built for the oracle's real host and linked (the header's proc-macro section); else a COMPILETEST_TARGET rmeta. */
+  host?: boolean;
+  /** A proc-macro crate (`proc-macro:`, or a proc-macro crate by its own crate type). */
+  procMacro?: boolean;
 }
+
+/**
+ * How the aux crates of one tree are planned: `procMacro` = proc-macro aux crates are built (else the test is
+ * rejected, plan-m2 D6); `host` = this tree belongs to a proc-macro crate, so it is built for the real host.
+ */
+interface AuxCtx {
+  procMacro: boolean;
+  host: boolean;
+}
+const NO_PROC_MACRO: AuxCtx = { procMacro: false, host: false };
 
 /** runtest.rs `has_aux_dir` (aux bins alone do not give the main compile `-L`). */
 const hasAuxDir = (p: Props): boolean => p.aux.builds.length > 0 || p.aux.crates.length > 0 || p.aux.procMacros.length > 0;
@@ -636,44 +822,143 @@ function pathToCrateName(path: string): string {
   return n.replaceAll("-", "_");
 }
 
+/** runtest.rs `dylib_name`: `std::env::consts::DLL_PREFIX` / `DLL_EXTENSION` of the machine compiletest runs on. */
+export function dylibName(name: string, platform: string = process.platform): string {
+  if (platform === "win32") return `${name}.dll`;
+  return `lib${name}.${platform === "darwin" ? "dylib" : "so"}`;
+}
+
+/** runtest.rs `get_lib_name` (no wasm proc macros: `wasm-proc-macros` is off). */
+function getLibName(name: string, auxType: "bin" | "lib" | "dylib" | "proc-macro"): string | undefined {
+  if (auxType === "bin") return undefined;
+  if (auxType === "lib") return `lib${name}.rlib`;
+  return dylibName(name);
+}
+
+/** An aux source that is a proc-macro crate by its own compile-flags or `#![crate_type]` attribute. */
+function isProcMacroCrate(src: string, ap: Props): boolean {
+  const crateTypeFlag = ap.compileFlags.some((f, i) => f === "--crate-type=proc-macro" || (f === "--crate-type" && ap.compileFlags[i + 1] === "proc-macro"));
+  return crateTypeFlag || /^\s*#!\[\s*crate_type\s*=\s*"proc-macro"\s*\]/m.test(src);
+}
+
 /**
  * runtest.rs `build_all_auxiliary` for `props` (the root test's, or an aux crate's), planning the aux builds
  * into `steps` (dependencies first) and appending `--extern`s to `cmd`. `root` is the root test: every aux
  * path is resolved against its `auxiliary/` directory, also for nested aux crates.
  */
-function planAllAux(root: string, rev: string | undefined, props: Props, auxDir: string, cmd: string[], steps: AuxStep[], format: ErrorFormat): void {
-  // (compiletest builds proc-macros last; none can be reproduced, so the test is skipped before any build.)
-  if (props.aux.procMacros.length > 0) throw new Reject(`needs a proc-macro auxiliary crate (\`proc-macro: ${props.aux.procMacros[0]!.path}\`): deferred to M6 (plan-m2 D6)`);
-  for (const b of props.aux.builds) planAux(root, rev, b, auxDir, undefined, steps, format);
-  for (const b of props.aux.bins) planAux(root, rev, b, auxDir, "bin", steps, format);
+function planAllAux(root: string, rev: string | undefined, props: Props, auxDir: string, cmd: string[], steps: AuxStep[], format: ErrorFormat, ctx: AuxCtx = NO_PROC_MACRO): void {
+  // (compiletest builds proc-macros last; without `ctx.procMacro` none is reproduced, so the test is skipped before any build.)
+  if (props.aux.procMacros.length > 0 && !ctx.procMacro) throw new Reject(`needs a proc-macro auxiliary crate (\`proc-macro: ${props.aux.procMacros[0]!.path}\`): deferred to M6 (plan-m2 D6)`);
+  for (const b of props.aux.builds) planAux(root, rev, b, auxDir, undefined, steps, format, ctx);
+  for (const b of props.aux.bins) planAux(root, rev, b, auxDir, "bin", steps, format, ctx);
   for (const c of props.aux.crates) {
-    planAux(root, rev, c.path, auxDir, undefined, steps, format);
-    // add_extern: `lib<name>.rlib` / the dylib name, here the rmeta the harness builds instead (header).
-    cmd.push("--extern", `${c.modifiers !== undefined ? `${c.modifiers}:` : ""}${c.name}=${auxDir}/lib${pathToCrateName(c.path)}.rmeta`);
+    const t = planAux(root, rev, c.path, auxDir, undefined, steps, format, ctx);
+    // add_extern: `lib<name>.rlib` / the dylib name, here the rmeta the harness builds instead (header); a host-built
+    // crate (the header's proc-macro section) by compiletest's own `get_lib_name`.
+    const lib = t.host ? getLibName(pathToCrateName(c.path), t.auxType) : `lib${pathToCrateName(c.path)}.rmeta`;
+    if (lib !== undefined) cmd.push("--extern", `${c.modifiers !== undefined ? `${c.modifiers}:` : ""}${c.name}=${auxDir}/${lib}`);
+  }
+  for (const pm of props.aux.procMacros) {
+    planAux(root, rev, pm.path, auxDir, "proc-macro", steps, format, ctx);
+    const crateName = pathToCrateName(pm.path);
+    cmd.push("--extern", `${pm.modifiers !== undefined ? `${pm.modifiers}:` : ""}${crateName}=${auxDir}/${getLibName(crateName, "proc-macro")}`);
   }
 }
 
-/** runtest.rs `build_auxiliary` (aux type `None` = lib/dylib, or `bin`), planned into `steps`. */
-function planAux(root: string, rev: string | undefined, source: string, auxDir: string, type: "bin" | undefined, steps: AuxStep[], format: ErrorFormat): void {
+/**
+ * runtest.rs `build_auxiliary` (aux type `None` = lib/dylib, `bin`, or `proc-macro`), planned into `steps`; returns the
+ * aux type and whether the crate is host-built.
+ */
+function planAux(
+  root: string,
+  rev: string | undefined,
+  source: string,
+  auxDir: string,
+  type: "bin" | "proc-macro" | undefined,
+  steps: AuxStep[],
+  format: ErrorFormat,
+  ctx: AuxCtx,
+): { auxType: "bin" | "lib" | "dylib" | "proc-macro"; host: boolean } {
   // resolve_aux_path
   const auxPath = `${root.slice(0, root.lastIndexOf("/"))}/auxiliary/${source}`;
   if (!existsSync(join(UPSTREAM, auxPath))) throw new Reject(`compiletest fails the test: auxiliary source file \`${source}\` not found at \`${auxPath}\``);
   const src = readFileSync(join(UPSTREAM, auxPath), "utf8");
   const ap = testProps(fileDirectives(src), rev, { auxFile: true, extra: true });
-  const crateTypeFlag = ap.compileFlags.some((f, i) => f === "--crate-type=proc-macro" || (f === "--crate-type" && ap.compileFlags[i + 1] === "proc-macro"));
-  if (crateTypeFlag || /^\s*#!\[\s*crate_type\s*=\s*"proc-macro"\s*\]/m.test(src)) throw new Reject(`auxiliary crate \`${auxPath}\` is a proc-macro crate: deferred to M6 (plan-m2 D6)`);
+  const pmCrate = type === "proc-macro" || isProcMacroCrate(src, ap);
+  if (pmCrate && !ctx.procMacro) throw new Reject(`auxiliary crate \`${auxPath}\` is a proc-macro crate: deferred to M6 (plan-m2 D6)`);
   if (ap.compileFlags.includes("-o")) throw new Reject(`auxiliary crate \`${auxPath}\` sets \`-o\`, which this harness does not reproduce`);
+  // `AuxType::ProcMacro` (not wasm): `force_host`. Host-built here (header): proc-macro crates and their aux trees.
+  if (type === "proc-macro") ap.forceHost = true;
+  // `procMacro` only: an aux crate's own `//@ force-host` builds it for the real host too (a proc macro's
+  // `extern crate` of a sibling `force-host` aux crate needs it; existing callers keep COMPILETEST_TARGET).
+  const host = ctx.host || pmCrate || (ctx.procMacro && ap.forceHost);
   // On unix, bins go to a `bin` subfolder.
   const dir = type === "bin" ? `${auxDir}/bin` : auxDir;
-  const args = compileArgs(auxPath, "", "", rev, ap, format, { auxOutDir: dir });
-  planAllAux(root, rev, ap, dir, args, steps, format);
+  const args = compileArgs(auxPath, "", "", rev, ap, format, { auxOutDir: dir, hostTarget: host ? oracleHost() : undefined });
+  planAllAux(root, rev, ap, dir, args, steps, format, { procMacro: ctx.procMacro, host });
   // COMPILETEST_TARGET is not emscripten/musl/wasm32/nvptx/vxworks/bpf and the mode is not coverage, so
   // dylib unless the target cannot link dynamically.
-  const crateType = type === "bin" ? "bin" : ap.noPreferDynamic ? undefined : current().dynamicLinking ? "dylib" : "lib";
+  const [auxType, crateType] =
+    type === "bin"
+      ? (["bin", "bin"] as const)
+      : type === "proc-macro"
+        ? (["proc-macro", "proc-macro"] as const)
+        : ap.noPreferDynamic
+          ? (["lib", undefined] as const)
+          : current().dynamicLinking
+            ? (["dylib", "dylib"] as const)
+            : (["lib", "lib"] as const);
   if (crateType !== undefined) args.push("--crate-type", crateType);
+  // For convenience, but this only works on 2018.
+  if (auxType === "proc-macro") args.push("--extern", "proc_macro");
   args.push("-L", dir);
-  args.push("--emit=metadata"); // harness: metadata only (header)
-  steps.push({ file: auxPath, args, env: compileEnv(ap) });
+  if (!host) args.push("--emit=metadata"); // harness: metadata only (header)
+  steps.push(host ? { file: auxPath, args, env: compileEnv(ap), host, procMacro: pmCrate } : { file: auxPath, args, env: compileEnv(ap) });
+  return { auxType, host };
+}
+
+/**
+ * Whether the aux tree of a test (its `props`, `root` the test file) holds a proc-macro crate: a `proc-macro:` crate,
+ * or an `aux-build`/`aux-crate`/`aux-bin` crate that is a proc-macro crate or has one in its own tree (the
+ * `procMacro` case sets, see the header). Directives only; never builds. An aux file compiletest would reject counts
+ * by its `proc-macro` directives alone; a missing one counts as nothing (planning rejects the test later).
+ */
+function auxTreeHasProcMacro(root: string, rev: string | undefined, props: Props, depth = 0): boolean {
+  if (props.aux.procMacros.length > 0) return true;
+  if (depth > 16) return false;
+  for (const source of [...props.aux.builds, ...props.aux.bins, ...props.aux.crates.map((c) => c.path)]) {
+    const auxPath = `${root.slice(0, root.lastIndexOf("/"))}/auxiliary/${source}`;
+    if (!existsSync(join(UPSTREAM, auxPath))) continue;
+    const src = readFileSync(join(UPSTREAM, auxPath), "utf8");
+    const lines = fileDirectives(src);
+    let ap: Props;
+    try {
+      ap = testProps(lines, rev, { auxFile: true, extra: true });
+    } catch (e) {
+      if (!(e instanceof Reject)) throw e;
+      if (lines.some((ln) => appliesTo(ln, rev) && ln.name === "proc-macro")) return true;
+      continue;
+    }
+    if (isProcMacroCrate(src, ap) || auxTreeHasProcMacro(root, rev, ap, depth + 1)) return true;
+  }
+  return false;
+}
+
+/**
+ * The system C compiler driver's directory (rustc's default linker on unix hosts: `cc`), added to the `PATH` of
+ * host-built aux crates (the header's proc-macro section). On Windows rustc finds the MSVC linker itself.
+ */
+let linkerDirMemo: string | undefined;
+function linkerDir(): string | undefined {
+  if (process.platform === "win32") return undefined;
+  if (linkerDirMemo !== undefined) return linkerDirMemo;
+  const cc = Bun.which("cc");
+  if (!cc) {
+    const line = "ERROR: no `cc` on PATH: proc-macro aux crates are linked by the oracle rustc, whose default linker it is";
+    console.log(line);
+    throw new Error(line);
+  }
+  return (linkerDirMemo = dirname(cc));
 }
 
 /**
@@ -695,6 +980,9 @@ function auxEnv(step: AuxStep): Record<string, string> {
     if (v !== undefined) env[k] = v;
   }
   Object.assign(env, oraclePinnedPathEnv());
+  // Host builds link (the header's proc-macro section): the pinned PATH plus the linker driver's directory.
+  const ld = step.host ? linkerDir() : undefined;
+  if (ld !== undefined) env.PATH = `${env.PATH}${delimiter}${ld}`;
   env.RUSTC_ICE = "0";
   env.RUST_BACKTRACE = "0";
   for (const [k, v] of Object.entries(step.env)) {
@@ -741,24 +1029,37 @@ function auxBuildError(id: string, msg: string): never {
 }
 
 /**
- * Runs the planned aux builds of case `id` with the oracle (once: the directory is keyed by the oracle build,
- * the case id and every command, environment (`auxEnv`), source and file the source may pull in) and returns
- * the aux directory. Each build gets `timeoutMs` and, if it times out, one retry with `ORACLE_RETRY_FACTOR` times
- * that, as difftest's oracle processes. Any failure (a timeout of the retry, a signal, any non-zero exit) prints
- * an `ERROR:` line and throws: the case list cannot be made, so the run stops instead of skipping the case.
+ * The aux directory's key for case `id`'s planned `steps`: the oracle build, the case id and, per step, its source path,
+ * command, whole environment (`auxEnv`), source hash and every file the source may pull in (scripts/lib/deps.ts).
  */
-function buildAux(id: string, steps: AuxStep[], timeoutMs: number): string {
-  const key = hash(
+export function auxKey(id: string, steps: readonly AuxStep[]): string {
+  return hash(
     JSON.stringify([
       rustcDriverHash(),
       id,
       steps.map((s) => [s.file, s.args, auxEnv(s), hash(readFileSync(join(UPSTREAM, s.file))), caseDeps(UPSTREAM, s.file, s.env)]),
     ]),
   ).slice(0, 16);
+}
+
+/**
+ * Runs the planned aux builds of case `id` with the oracle (once: the directory is keyed by the oracle build,
+ * the case id and every command, environment (`auxEnv`), source and file the source may pull in) and returns
+ * the aux directory. Each build gets `timeoutMs` and, if it times out, one retry with `ORACLE_RETRY_FACTOR` times
+ * that, as difftest's oracle processes. Any failure (a timeout of the retry, a signal, any non-zero exit) prints
+ * an `ERROR:` line and throws: the case list cannot be made, so the run stops instead of skipping the case.
+ */
+let uiPruned = false;
+function buildAux(id: string, steps: AuxStep[], timeoutMs: number): string {
+  const key = auxKey(id, steps);
   const root = join(DATA, "aux", "ui");
   cleanStaleAuxTmps(root);
   const dir = join(root, key);
-  if (existsSync(join(dir, ".ok"))) return dir;
+  if (existsSync(join(dir, ".ok"))) {
+    // In use: keeps it from `pruneStaleUiAux` (lane harness-w36).
+    touchAuxDir(dir);
+    return dir;
+  }
   verifyOracleToolchain();
   const tmp = `${dir}.tmp-${process.pid}`;
   rmSync(tmp, { recursive: true, force: true });
@@ -786,6 +1087,11 @@ function buildAux(id: string, steps: AuxStep[], timeoutMs: number): string {
     }
   } finally {
     rmSync(tmp, { recursive: true, force: true });
+  }
+  // A new build (a new case or a changed key): once per process, remove the case directories unused for AUX_STALE_MS.
+  if (!uiPruned) {
+    uiPruned = true;
+    pruneStaleUiAux(root, key);
   }
   return dir;
 }
@@ -826,20 +1132,28 @@ export function uiCases(dirs: string[], format: ErrorFormat): { cases: UiCase[];
  * directives the blessed-output report needs are read, and `auxFiles` lists the cases' aux sources.
  * With `run` (the run-mode suites of M6, lane harness-m6a), each case is the test's main compile as compiletest runs
  * it, without `-Zparse-crate-root-only`, and carries its pass/fail `mode` and `run` props.
+ * With `procMacro` (needs `aux`; the pm suites of M6, lane harness-m6b), proc-macro aux crates are built too (host
+ * dylibs, see the header) and only the tests whose aux tree holds one are cases (or skips); `auxSteps` lists each
+ * case's aux builds (source, argv with the aux directory filled in, host-built or not), in build order.
+ * With `needs` (the M6 run and pm suites, lane harness-w36), every `needs-*` directive is evaluated as compiletest does
+ * for COMPILETEST_TARGET (see "needs-*" above) instead of rejecting the test.
  */
 export function uiFileCases(
   files: string[],
   format: ErrorFormat,
-  opts: { aux?: boolean; auxTimeoutMs?: number; run?: boolean },
-): { cases: UiCase[]; skipped: Skip[]; auxFiles: Map<string, string[]> } {
+  opts: { aux?: boolean; auxTimeoutMs?: number; run?: boolean; procMacro?: boolean; needs?: boolean },
+): { cases: UiCase[]; skipped: Skip[]; auxFiles: Map<string, string[]>; auxSteps: Map<string, AuxStep[]> } {
   if (opts.aux && opts.auxTimeoutMs === undefined) throw new Error("ERROR: uiFileCases: `aux` needs `auxTimeoutMs`");
+  if (opts.procMacro && !opts.aux) throw new Error("ERROR: uiFileCases: `procMacro` needs `aux`");
+  const ctx: AuxCtx = opts.procMacro ? { procMacro: true, host: false } : NO_PROC_MACRO;
   const auxFiles = new Map<string, string[]>();
+  const auxSteps = new Map<string, AuxStep[]>();
   const cases: UiCase[] = [];
   const skipped: Skip[] = [];
   for (const file of files) {
     const relDir = file.slice("tests/ui/".length, file.lastIndexOf("/")) || ".";
     const stem = file.slice(file.lastIndexOf("/") + 1, -3);
-    let lines: DirectiveLine[];
+    let lines: DirectiveLine[] = [];
     let revisions: string[];
     try {
       lines = fileDirectives(readFileSync(join(UPSTREAM, file), "utf8"));
@@ -855,18 +1169,31 @@ export function uiFileCases(
       }
     } catch (e) {
       if (!(e instanceof Reject)) throw e;
-      skipped.push({ id: file, reason: `compiletest rejects the file: ${e.message}` });
+      // (`procMacro`: only a file that names a proc-macro aux crate is listed.)
+      if (!opts.procMacro || lines.some((ln) => ln.name === "proc-macro")) skipped.push({ id: file, reason: `compiletest rejects the file: ${e.message}` });
       continue;
     }
     for (const rev of revisions.length ? revisions : [undefined]) {
       const id = rev === undefined ? file : `${file}#${rev}`;
+      // `procMacro`: tests without a proc-macro crate in their aux tree are not part of the case set (no skip entry).
+      if (opts.procMacro) {
+        if (!lines.some((ln) => appliesTo(ln, rev) && (ln.name.startsWith("aux-") || ln.name === "proc-macro"))) continue;
+        let member: boolean;
+        try {
+          member = auxTreeHasProcMacro(file, rev, testProps(lines, rev, { extra: true }));
+        } catch (e) {
+          if (!(e instanceof Reject)) throw e;
+          member = lines.some((ln) => appliesTo(ln, rev) && ln.name === "proc-macro");
+        }
+        if (!member) continue;
+      }
       try {
         let ignore: string | undefined;
         let aux: string | undefined;
         for (const ln of lines) {
           if (!appliesTo(ln, rev)) continue;
           if ((ln.name.startsWith("aux-") || ln.name === "proc-macro") && valueAfterColon(ln) !== undefined) aux ??= ln.raw;
-          ignore = ignoreDecision(ln) ?? ignore;
+          ignore = ignoreDecision(ln, opts.needs) ?? ignore;
         }
         if (ignore !== undefined) {
           skipped.push({ id, reason: `ignored by compiletest on ${host().target}: ${ignore}` });
@@ -880,11 +1207,12 @@ export function uiFileCases(
         let args = compileArgs(file, relDir, stem, rev, p, format, { linkAuxDir: opts.aux && hasAuxDir(p) ? AUX_DIR : undefined });
         if (opts.aux) {
           const steps: AuxStep[] = [];
-          planAllAux(file, rev, p, AUX_DIR, args, steps, format);
+          planAllAux(file, rev, p, AUX_DIR, args, steps, format, ctx);
           if (steps.length > 0) {
             const dir = buildAux(id, steps, opts.auxTimeoutMs!);
             args = args.map((a) => a.replaceAll(AUX_DIR, dir));
             auxFiles.set(id, [...new Set(steps.map((s) => s.file))]);
+            auxSteps.set(id, steps.map((s) => ({ ...s, args: s.args.map((a) => a.replaceAll(AUX_DIR, dir)) })));
           }
         }
         if (opts.run) cases.push({ id, file, args, env: compileEnv(p), mode: p.passFailMode, run: p.run });
@@ -898,7 +1226,20 @@ export function uiFileCases(
       }
     }
   }
-  return { cases, skipped, auxFiles };
+  return { cases, skipped, auxFiles, auxSteps };
+}
+
+/**
+ * runtest.rs `output_base_dir` of UI case `id` (`<file>[#<rev>]`), relative to the upstream checkout (the harness's
+ * layout, see the header): `build/<target>/test/ui/<dir>/<stem>[.<rev>]`. compiletest's `run` creates it before any
+ * compile (runtest.rs:147); a `-o <dir>/a` compile (build and run modes) needs it to exist.
+ */
+export function uiOutputBaseDir(id: string): string {
+  const hashAt = id.indexOf("#");
+  const file = hashAt < 0 ? id : id.slice(0, hashAt);
+  const rev = hashAt < 0 ? undefined : id.slice(hashAt + 1);
+  const relDir = file.slice("tests/ui/".length, file.lastIndexOf("/")) || ".";
+  return `build/${host().target}/test/ui/${relDir}/${file.slice(file.lastIndexOf("/") + 1, -3)}${rev !== undefined ? "." + rev : ""}`;
 }
 
 // ---- expected output (the blessed-output report of the M3 suites) ----

@@ -579,7 +579,7 @@ export class CompileTimeMachine extends compile_time_machine implements HasStati
           return Err(
             InterpErrorInfo_from_InterpErrorKind({
               $: "UndefinedBehavior",
-              _0: { $: "BoundsCheckFailed", len: variants_num, index: Number(variant_idx) },
+              _0: { $: "BoundsCheckFailed", len: BigInt(variants_num), index: variant_idx },
             }),
           );
         }
@@ -623,7 +623,7 @@ export class CompileTimeMachine extends compile_time_machine implements HasStati
           return Err(
             InterpErrorInfo_from_InterpErrorKind({
               $: "UndefinedBehavior",
-              _0: { $: "BoundsCheckFailed", len: variants_num, index: Number(variant_idx) },
+              _0: { $: "BoundsCheckFailed", len: BigInt(variants_num), index: variant_idx },
             }),
           );
         }
@@ -647,7 +647,7 @@ export class CompileTimeMachine extends compile_time_machine implements HasStati
           return Err(
             InterpErrorInfo_from_InterpErrorKind({
               $: "UndefinedBehavior",
-              _0: { $: "BoundsCheckFailed", len: fields_num, index: Number(field_idx) },
+              _0: { $: "BoundsCheckFailed", len: BigInt(fields_num), index: field_idx },
             }),
           );
         }
@@ -740,7 +740,7 @@ export class CompileTimeMachine extends compile_time_machine implements HasStati
             return Err(
               InterpErrorInfo_from_InterpErrorKind({
                 $: "UndefinedBehavior",
-                _0: { $: "BoundsCheckFailed", len: def.variants().length, index: Number(variant_idx_) },
+                _0: { $: "BoundsCheckFailed", len: BigInt(def.variants().length), index: variant_idx_ },
               }),
             );
           }
@@ -780,7 +780,7 @@ export class CompileTimeMachine extends compile_time_machine implements HasStati
             return Err(
               InterpErrorInfo_from_InterpErrorKind({
                 $: "UndefinedBehavior",
-                _0: { $: "BoundsCheckFailed", len: def.variants().length, index: Number(variant_idx_) },
+                _0: { $: "BoundsCheckFailed", len: BigInt(def.variants().length), index: variant_idx_ },
               }),
             );
           }

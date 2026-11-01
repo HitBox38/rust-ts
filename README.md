@@ -60,6 +60,9 @@ rustup toolchain install nightly-2026-10-11 --profile minimal --component rustc-
 # the oracle's components must equal UPSTREAM.json rust.components (no rust-src: it changes rustc's diagnostics)
 bun scripts/upstream.ts fetch && bun scripts/upstream.ts status
 bun scripts/probes.ts build
+# M6 Miri oracle: Miri + rust-src in a separate RUSTUP_HOME under $RUST_TS_DATA (never on the oracle toolchain),
+# plus the Miri sysroot for x86_64-unknown-linux-gnu; idempotent, `bun scripts/miri.ts status` checks it
+bun scripts/miri.ts setup
 ```
 
 ## Everyday commands

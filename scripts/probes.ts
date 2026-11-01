@@ -4,6 +4,8 @@
 //
 //   bun scripts/probes.ts build [name...]   build probes (default: all)
 //   bun scripts/probes.ts path <name>       print the probe binary path
+//   bun scripts/probes.ts fixture [name...] rewrite the committed oracle fixtures of `PROBE_FIXTURES` (default: all)
+//                                           from their (built) probes' stdout
 //
 // Each probe is `tools/probes/<name>/Cargo.toml.in` (+ sources). The template's `@UPSTREAM@`,
 // `@SRC@` and `@RELEASE@` are substituted, and its `[package.metadata.rust-ts]` table may set:
@@ -28,12 +30,22 @@
 import { copyFileSync, existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { DATA, PIN, REPO, UPSTREAM, die, ensureDir, parseArgs, requireUpstream, run } from "./lib/common.ts";
-import { oracleHost, oracleSysroot } from "./lib/oracle.ts";
+import { oracleHost, oracleSysroot, verifyOracleToolchain } from "./lib/oracle.ts";
 
 const PROBES_SRC = join(REPO, "tools", "probes");
 const PROBES_OUT = join(DATA, "probes");
 const TARGET = join(DATA, "target", "probes");
 const EXE = process.platform === "win32" ? ".exe" : "";
+
+/**
+ * Probes whose whole stdout is a committed oracle fixture (lane harness-w36): probe name -> repo-relative fixture. The
+ * probe takes no input and its output is deterministic, so `bun scripts/probes.ts fixture <name>` regenerates the
+ * fixture and tools/probes/fixtures.test.ts checks that the committed file equals the probe's output.
+ */
+export const PROBE_FIXTURES: Record<string, string> = {
+  randstream: "src/vendor/rand/stdrng.oracle.txt",
+  miriaddr: "src/miri/alloc_addresses/addresses.oracle.txt",
+};
 
 /** Binary path of a probe, whether or not it is built. */
 export function probeBinary(name: string): string {
@@ -175,6 +187,9 @@ function rustcDevEnv(name: string): Record<string, string> {
 
 async function build(name: string): Promise<void> {
   requireUpstream();
+  // Probes are built with the oracle toolchain: check it has exactly the pinned components first (review harness-w35
+  // N5; lane harness-w36), as every other oracle build does.
+  verifyOracleToolchain();
   const text = manifest(name);
   const meta = probeMeta(name);
   const dir = ensureDir(join(PROBES_OUT, name));
@@ -216,7 +231,17 @@ if (import.meta.main) {
     for (const n of names.length ? names : probeNames()) await build(n);
   } else if (cmd === "path" && names[0]) {
     console.log(probePath(names[0]));
+  } else if (cmd === "fixture") {
+    for (const n of names.length ? names : Object.keys(PROBE_FIXTURES)) {
+      const out = PROBE_FIXTURES[n];
+      if (out === undefined) die(`probe ${n} has no fixture (PROBE_FIXTURES: ${Object.keys(PROBE_FIXTURES).join(", ")})`);
+      const r = await run([probePath(n)], { timeoutMs: 120_000 });
+      if (r.code !== 0 || r.timedOut) die(`probe ${n} failed (exit ${r.code}${r.timedOut ? ", timed out" : ""}): ${r.stderr.trim().slice(0, 300)}`);
+      const before = existsSync(join(REPO, out)) ? readFileSync(join(REPO, out), "utf8") : undefined;
+      writeFileSync(join(REPO, out), r.stdout);
+      console.log(`${n}: ${out} ${before === r.stdout ? "unchanged" : "rewritten"} (${r.stdout.split("\n").length - 1} lines)`);
+    }
   } else {
-    console.log("usage: bun scripts/probes.ts build [name...] | path <name>");
+    console.log("usage: bun scripts/probes.ts build [name...] | path <name> | fixture [name...]");
   }
 }

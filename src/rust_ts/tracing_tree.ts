@@ -1,18 +1,17 @@
-// rust-ts glue (not an upstream mirror): the event path of `tracing_tree::HierarchicalLayer`
-// (tracing-tree 0.4.1 at the pin's Cargo.lock), the layer rustc_log installs for rustc's default logger
+// rust-ts glue (not an upstream mirror): the event and span paths of `tracing_tree::HierarchicalLayer`
+// (tracing-tree 0.4.1 at the pin's Cargo.lock), the layer rustc_log installs for rustc's logger
 // (src/rustc_log/lib.ts), and the `nu_ansi_term` 0.50.3 painting it uses for `RUSTC_LOG_COLOR`.
 //
 // PORT: tracing-tree is not a harness/scope.json vendor crate, so the functions below carry plain
-// `// ref: <crate>-<ver>/<path>:<line> <name>` references instead of `// crate:` markers. Only the event path
-// is here: under rustc's default filter (WARN) no span is ever enabled (rustc has no span at WARN or above),
-// so `ctx.current_span()` / `ctx.event_scope(event)` are always `None`; the span callbacks (`on_new_span`,
-// `on_close`, `on_record`, `write_span_info`, `write_retrace_span`, `write_timestamp`) are not reached.
-// The `tracing-log` feature (default on) only affects events that came from the `log` crate, which rustc
-// never bridges.
+// `// ref: <crate>-<ver>/<path>:<line> <name>` references instead of `// crate:` markers. Ported: `on_new_span`,
+// `on_event`, `on_close` (`on_record` is never reached: no span records values after creation) with the config
+// rustc_log builds. `span_retrace` and `deferred_spans` stay off in that config, so `write_retrace_span` is
+// `unported`. The `tracing-log` feature (default on) only affects events that came from the `log` crate, which
+// rustc never bridges. The timer is `()` (no timestamps).
 import { writeSync } from "node:fs";
 import { isatty } from "node:tty";
 import { panic, unported } from "../std/panic.ts";
-import { type Event, type Layer, type Level, display_Level } from "./tracing.ts";
+import { type Attributes, type Context, type Event, type Layer, type Level, type SpanId, type SpanRef, display_Level } from "./tracing.ts";
 
 // ---- nu_ansi_term (0.50.3) ------------------------------------------------------------------------------------------
 
@@ -89,6 +88,12 @@ export class Config {
 class Buffers {
   current_buf = "";
   indent_buf = "";
+  /// The last seen span of this layer
+  ///
+  /// This serves to serialize spans as two events can be generated in different spans
+  /// without the spans entering and exiting beforehand. This happens for multithreaded code
+  /// and instrumented futures
+  current_span: SpanId | undefined = undefined;
 
   // ref: tracing-tree-0.4.1/src/format.rs:208 flush_current_buf
   flush_current_buf(writer: Writer): void {
@@ -391,8 +396,37 @@ export function fd_writer(fd: number): Writer {
   };
 }
 
+/** The span extension key of tracing-tree's `Data`. */
+const DATA = "tracing_tree::Data";
+
+/** `Data` (lib.rs:34): the span's fields as `(name, {:?})` and whether it was written. (`start` feeds only timers.) */
+class Data {
+  constructor(
+    readonly kvs: (readonly [string, string])[],
+    public written: boolean,
+  ) {}
+
+  // ref: tracing-tree-0.4.1/src/lib.rs:41 new
+  static new(attrs: Attributes, written: boolean): Data {
+    const span = new Data([], written);
+    // `attrs.record(&mut span)`: `impl Visit for Data` (lib.rs:53) `record_debug` pushes `(name, format!("{:?}", value))`
+    for (const f of attrs.fields) span.kvs.push([f.name, f.debug()]);
+    return span;
+  }
+}
+
+// ref: tracing-tree-0.4.1/src/lib.rs:618 scope_path
+function scope_path(span: SpanRef): SpanRef[] {
+  return span.scope_from_root();
+}
+
 /** `RecursiveGuard`'s thread-local `IS_EMPTY` (lib.rs:411). */
 let IS_EMPTY = true;
+
+// ref: tracing-tree-0.4.1/src/lib.rs:434 drop (`impl Drop for RecursiveGuard`)
+function drop_recursive_guard(): void {
+  IS_EMPTY = true;
+}
 
 /** `HierarchicalLayer<W, FT = ()>` (lib.rs:58). The timer is `()`: it writes nothing. */
 export class HierarchicalLayer implements Layer {
@@ -480,19 +514,161 @@ export class HierarchicalLayer implements Layer {
     return styled(this.config.ansi, style, text);
   }
 
-  // ref: tracing-tree-0.4.1/src/lib.rs:485 on_event
-  on_event(event: Event): void {
-    // `let Some(_guard) = Self::is_recursive() else { return; };`
-    if (!IS_EMPTY) return;
-    IS_EMPTY = false;
+  // ref: tracing-tree-0.4.1/src/lib.rs:243 print_kvs
+  print_kvs(buf: string, kvs: readonly (readonly [string, string])[]): string {
+    if (kvs.length !== 0) {
+      const [k, v] = kvs[0]!;
+      if (k === "message") {
+        buf += v;
+      } else {
+        buf += `${k}=${v}`;
+      }
+    }
+    for (const [k, v] of kvs.slice(1)) {
+      buf += `, ${k}=${v}`;
+    }
+    return buf;
+  }
+
+  /// Ensures that `new_span` and all its ancestors are properly printed before an event
+  // ref: tracing-tree-0.4.1/src/lib.rs:263 write_retrace_span
+  write_retrace_span(_new_span: SpanRef, _bufs: Buffers, _ctx: Context, _pre_open: boolean): void {
+    // PORT: only reached with `span_retrace` or `deferred_spans`, which rustc_log never enables.
+    unported("tracing_tree::HierarchicalLayer::write_retrace_span (span_retrace / deferred_spans)");
+  }
+
+  // ref: tracing-tree-0.4.1/src/lib.rs:324 write_span_info
+  write_span_info(span: SpanRef, bufs: Buffers, style: SpanMode): void {
+    const data = span.extensions.get(DATA) as Data | undefined;
+    if (data === undefined) panic("span does not have data");
+
+    if (this.config.span_modes) {
+      unported("tracing_tree::format::write_span_mode (span_modes)");
+    }
+
+    const indent = scope_path(span).length - 1;
+
+    let should_write: boolean;
+    switch (style.$) {
+      case "Open":
+      case "Event":
+        should_write = true;
+        break;
+      // Print the parent of a new span again before entering the child
+      case "PreOpen":
+        should_write = this.config.verbose_entry;
+        break;
+      case "Close":
+        should_write = style.verbose;
+        break;
+      // Generated if `span_retrace` is enabled
+      case "Retrace":
+        should_write = true;
+        break;
+      // Generated if `verbose_exit` is enabled
+      case "PostClose":
+        should_write = true;
+        break;
+    }
+
+    if (should_write) {
+      if (this.config.targets) {
+        const target = span.metadata().target;
+        bufs.current_buf += `${this.styled({ is_bold: false, is_dimmed: true, foreground: undefined }, target)}::`;
+      }
+
+      bufs.current_buf += this.styled({ is_bold: true, is_dimmed: false, foreground: "32" }, span.metadata().name);
+      if (this.config.bracketed_fields) {
+        bufs.current_buf += this.styled({ is_bold: true, is_dimmed: false, foreground: "32" }, "{");
+      } else {
+        bufs.current_buf += " ";
+      }
+      bufs.current_buf = this.print_kvs(bufs.current_buf, data.kvs);
+      if (this.config.bracketed_fields) {
+        bufs.current_buf += this.styled({ is_bold: true, is_dimmed: false, foreground: "32" }, "}");
+      }
+    }
+
+    bufs.indent_current(indent, this.config, style);
+    const writer = this.make_writer();
+    bufs.flush_current_buf(writer);
+  }
+
+  // ref: tracing-tree-0.4.1/src/lib.rs:409 is_recursive
+  /** `Some(guard)` (`true`, IS_EMPTY now false) or `None`; the guard's `Drop` is `drop_recursive_guard()`. */
+  static is_recursive(): boolean {
+    if (IS_EMPTY) {
+      IS_EMPTY = false;
+      return true;
+    }
+    return false;
+  }
+
+  // ref: tracing-tree-0.4.1/src/lib.rs:446 on_new_span
+  on_new_span(attrs: Attributes, id: SpanId, ctx: Context): void {
+    if (!HierarchicalLayer.is_recursive()) return;
     try {
-      // `ctx.current_span()` is `None` (see the header): no retrace, no span timestamp.
+      const span = ctx.span(id);
+      if (span === undefined) panic("in new_span but span does not exist");
+
+      if (span.extensions.get(DATA) === undefined) {
+        const data = Data.new(attrs, !this.config.deferred_spans);
+        span.extensions.set(DATA, data);
+      }
+
+      // Entry will be printed in on_event along with retrace
+      if (this.config.deferred_spans) {
+        return;
+      }
+
       const bufs = this.bufs;
+
+      if (this.config.span_retrace) {
+        this.write_retrace_span(span, bufs, ctx, this.config.verbose_entry);
+      } else {
+        if (this.config.verbose_entry) {
+          const parent = span.parent();
+          if (parent !== undefined) {
+            this.write_span_info(parent, bufs, { $: "PreOpen" });
+          }
+        }
+        // Store the most recently entered span
+        bufs.current_span = span.id;
+        this.write_span_info(span, bufs, { $: "Open", verbose: this.config.verbose_entry });
+      }
+    } finally {
+      drop_recursive_guard();
+    }
+  }
+
+  // ref: tracing-tree-0.4.1/src/lib.rs:485 on_event
+  on_event(event: Event, ctx: Context): void {
+    // `let Some(_guard) = Self::is_recursive() else { return; };`
+    if (!HierarchicalLayer.is_recursive()) return;
+    try {
+      const span = ctx.current_span();
+
+      const bufs = this.bufs;
+
+      if (span !== undefined) {
+        if (this.config.span_retrace || this.config.deferred_spans) {
+          this.write_retrace_span(span, bufs, ctx, this.config.verbose_entry);
+        }
+      }
 
       // Time. (`()` writes nothing, so no padding space.)
 
-      // printing the indentation: `ctx.event_scope(event)` is `None`.
-      const indent = 0;
+      const deindent = this.config.indent_lines ? 0 : 1;
+      // printing the indentation
+      const scope = ctx.event_scope(event);
+      const indent = scope !== undefined ? scope.length - deindent : 0;
+
+      // check if this event occurred in the context of a span.
+      // if it has, get the start time of this span.
+      if (span !== undefined) {
+        // `self.write_timestamp(span, event_buf)`: the `()` timer writes nothing.
+        bufs.current_buf += " ";
+      }
 
       const level = this.config.ansi ? display_ColorLevel(event.level) : display_Level(event.level);
 
@@ -509,8 +685,39 @@ export class HierarchicalLayer implements Layer {
       const writer = this.make_writer();
       bufs.flush_current_buf(writer);
     } finally {
-      // `impl Drop for RecursiveGuard` (lib.rs:434)
-      IS_EMPTY = true;
+      drop_recursive_guard();
+    }
+  }
+
+  // ref: tracing-tree-0.4.1/src/lib.rs:569 on_close
+  on_close(id: SpanId, ctx: Context): void {
+    if (!HierarchicalLayer.is_recursive()) return;
+    try {
+      const bufs = this.bufs;
+
+      const span = ctx.span(id);
+      if (span === undefined) panic("invalid span in on_close");
+
+      // Span was not printed, so don't print an exit
+      if (this.config.deferred_spans && (span.extensions.get(DATA) as Data | undefined)?.written !== true) {
+        return;
+      }
+
+      // self.write_retrace_span(&span, bufs, &ctx);
+
+      this.write_span_info(span, bufs, { $: "Close", verbose: this.config.verbose_exit });
+
+      const parent_span = span.parent();
+      if (parent_span !== undefined) {
+        bufs.current_span = parent_span.id;
+        if (this.config.verbose_exit) {
+          // Consider parent as entered
+
+          this.write_span_info(parent_span, bufs, { $: "PostClose" });
+        }
+      }
+    } finally {
+      drop_recursive_guard();
     }
   }
 

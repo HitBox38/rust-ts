@@ -16,6 +16,7 @@ import { type InterpResult } from "../../rustc_middle/mir/interpret/mod.ts";
 import { type Instance } from "../../rustc_middle/ty/instance.ts";
 import { type Span } from "../../rustc_span/lib.ts";
 import { type Pending } from "../../rustc_type_ir/decls.ts";
+import { type Poll } from "../../std/task.ts";
 export * from "./tls.gen.ts";
 
 declare module "../../rustc_const_eval/interpret/eval_context.ts" {
@@ -28,11 +29,11 @@ declare module "../../rustc_const_eval/interpret/eval_context.ts" {
     // shims/tls.rs:353
     schedule_windows_tls_dtor(this: MiriInterpCx, dtor: ImmTy, span: Span): InterpResult;
     // shims/tls.rs:379
-    schedule_macos_tls_dtor(this: MiriInterpCx): InterpResult<Pending<"Poll<()>">>;
+    schedule_macos_tls_dtor(this: MiriInterpCx): InterpResult<Poll<null>>;
     // shims/tls.rs:405
-    schedule_next_pthread_tls_dtor(this: MiriInterpCx, state: RunningPthreadDtorState): InterpResult<Pending<"Poll<()>">>;
+    schedule_next_pthread_tls_dtor(this: MiriInterpCx, state: RunningPthreadDtorState): InterpResult<Poll<null>>;
     // shims/tls.rs:441
-    schedule_next_windows_fls_dtor(this: MiriInterpCx, state: RunningWindowsDtorState): InterpResult<Pending<"Poll<()>">>;
+    schedule_next_windows_fls_dtor(this: MiriInterpCx, state: RunningWindowsDtorState): InterpResult<Poll<null>>;
   }
 }
 
@@ -57,7 +58,7 @@ declare module "./tls.gen.ts" {
 declare module "./tls.gen.ts" {
   interface TlsDtorsState {
     // shims/tls.rs:242
-    on_stack_empty(this_: MiriInterpCx): InterpResult<Pending<"Poll<()>">>;
+    on_stack_empty(this_: MiriInterpCx): InterpResult<Poll<null>>;
   }
 }
 

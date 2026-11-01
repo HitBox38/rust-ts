@@ -51,7 +51,37 @@ console.log(JSON.stringify({
   EMPTY: L.EMPTY_SYSROOT,
   CHAIN_RUN: S.CHAIN_RUN,
   prune: prune(),
+  pruneMini: pruneMini(),
+  pruneUi: pruneUi(),
 }));
+// The same with prefix "" for harness/suites.ts's mini_core-<key> (lane harness-w36).
+function pruneMini() {
+  const aux = mkdtempSync(join(tmpdir(), "rust-ts-aux-"));
+  const k = (c) => c.repeat(16);
+  const now = Date.now();
+  const old = (now - L.AUX_STALE_MS - 60_000) / 1000;
+  const dirs = { ["mini_core-" + k("a")]: old, ["mini_core-" + k("b")]: old, ["mini_core-" + k("c")]: now / 1000, ["m5-mini_core-" + k("d")]: old, ["m5-std-" + k("e")]: old, ui: old };
+  for (const [n, t] of Object.entries(dirs)) { mkdirSync(join(aux, n, "sub"), { recursive: true }); utimesSync(join(aux, n), t, t); }
+  const removed = L.pruneStaleAux(aux, "mini_core", "mini_core-" + k("a"), now, L.AUX_STALE_MS, "").sort();
+  const left = readdirSync(aux).sort();
+  rmSync(aux, { recursive: true, force: true });
+  return { removed, left };
+}
+// pruneStaleUiAux on a temp aux/ui dir: stale <key> dirs other than the kept one; touchAuxDir keeps one.
+function pruneUi() {
+  const ui = mkdtempSync(join(tmpdir(), "rust-ts-aux-ui-"));
+  const k = (c) => c.repeat(16);
+  const now = Date.now();
+  const old = (now - L.AUX_STALE_MS - 60_000) / 1000;
+  const dirs = { [k("a")]: old, [k("b")]: old, [k("c")]: now / 1000, [k("d")]: old, [k("e") + ".tmp-123"]: old, other: old };
+  for (const [n, t] of Object.entries(dirs)) { mkdirSync(join(ui, n, "sub"), { recursive: true }); utimesSync(join(ui, n), t, t); }
+  L.touchAuxDir(join(ui, k("d")));
+  L.touchAuxDir(join(ui, "missing"));
+  const removed = L.pruneStaleUiAux(ui, k("a"), Date.now()).sort();
+  const left = readdirSync(ui).sort();
+  rmSync(ui, { recursive: true, force: true });
+  return { removed, left };
+}
 // pruneStaleAux on a temp aux dir: dirs of crate "std" other than the kept one, by age.
 function prune() {
   const aux = mkdtempSync(join(tmpdir(), "rust-ts-aux-"));
@@ -151,6 +181,15 @@ test("the suites: rmetadump gets the case's empty sysroot and -L dirs; mir runs 
     ["mir-std", "split", true, expect.arrayContaining(["library/std/src", "library/backtrace/src"])],
     ["check-chain", "single", true, ["library/alloc/src"]],
   ]);
+});
+
+test("pruneStaleAux with prefix \"\" (mini_core-<key>) and pruneStaleUiAux (aux/ui/<key>; lane harness-w36)", () => {
+  const k = (c: string) => c.repeat(16);
+  expect(j.pruneMini.removed).toEqual([`mini_core-${k("b")}`]);
+  expect(j.pruneMini.left).toEqual([`m5-mini_core-${k("d")}`, `m5-std-${k("e")}`, `mini_core-${k("a")}`, `mini_core-${k("c")}`, "ui"]);
+  // b is stale; a is kept; c is recent; d was touched (in use); the .tmp leftover and other names are not this pruner's.
+  expect(j.pruneUi.removed).toEqual([k("b")]);
+  expect(j.pruneUi.left).toEqual([k("a"), k("c"), k("d"), `${k("e")}.tmp-123`, "other"]);
 });
 
 test("pruneStaleAux: only the crate's own stale key dirs and temp leftovers, never the kept or a recent one", () => {
