@@ -156,7 +156,7 @@ export function to_uppercase(c: number): number[] {
   return case_mapping_iter_new(conversions.to_upper(c));
 }
 
-// std: library/core/src/char/mod.rs:542 CaseMappingIter::new
+// std: library/core/src/char/mod.rs:542 new
 function case_mapping_iter_new(chars: conversions.CaseMapping): number[] {
   if (chars[2] === 0) {
     if (chars[1] === 0) {

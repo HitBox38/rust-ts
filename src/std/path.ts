@@ -352,7 +352,7 @@ export class Components {
     return undefined;
   }
 
-  // std: library/std/src/path.rs:977 <Components as DoubleEndedIterator>::next_back
+  // std: library/std/src/path.rs:977 next_back
   next_back(): Component | undefined {
     while (!this.finished()) {
       switch (this.back) {
@@ -644,7 +644,7 @@ function usize_rotate_right(x: bigint, n: bigint): bigint {
 // PORT: works on the path's UTF-8 bytes like upstream's `as_u8_slice`; `prefix_len` (counted in
 // UTF-16 units by the string-based `Prefix`) is converted to a byte length. `chunk_bits` is a
 // 64-bit usize, so it is a bigint here.
-// std: library/std/src/path.rs:3800 <Path as Hash>::hash
+// std: library/std/src/path.rs:3800 hash
 export function path_hash(self_: string, h: Hasher): void {
   let bytes = utf8(self_);
   let prefix_len_ = 0;

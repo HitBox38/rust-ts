@@ -2,7 +2,7 @@
 #
 # Oracle probe for src/miri/alloc_addresses/{address_generator,reuse_pool,mod}.ts (lane miri-alloc; registered by lane
 # harness-w36 from docs/handoff/miri-alloc-probe/): its stdout is src/miri/alloc_addresses/addresses.oracle.txt, byte
-# for byte (scripts/probe-fixtures.test.ts). Miri's address assignment at the pin, driven by Miri's rand (rand 0.10.1
+# for byte (tools/probes/fixtures.test.ts). Miri's address assignment at the pin, driven by Miri's rand (rand 0.10.1
 # through upstream's Cargo.lock, `lockfile = "upstream"`).
 [package]
 name = "miriaddr"

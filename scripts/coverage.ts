@@ -102,11 +102,10 @@ export function stdMarkers(): (Marker & { skip: boolean })[] {
 }
 
 /**
- * Whether `--check` fails on an invalid std marker (lane harness-w36). Off while the std markers that predate the check
- * are wrong (3 at integ-w36: two name the `impl` line, one the line above the `fn`; port files, fixed by their owners):
- * they print `warning:` lines instead. Turn on once `--check` prints none.
+ * Whether `--check` fails on an invalid std marker (lane harness-w36). On: the 3 markers that predated the check named
+ * their fn qualified (`<Path as Hash>::hash`) on the right lines; root renamed them to the bare fn name at integ-w36.
  */
-const STD_MARKERS_STRICT = false;
+const STD_MARKERS_STRICT = true;
 
 /** The library crate (`library/<crate>`) of a std marker path, or undefined if it is not under `library/<crate>/`. */
 export const libraryCrateOf = (path: string): string | undefined => /^(library\/[^/]+)\//.exec(path)?.[1];
