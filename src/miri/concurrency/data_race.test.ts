@@ -223,4 +223,14 @@ test("report_data_race picks the racing access and stops at the pending Terminat
   }
   expect(err).toBeInstanceOf(Unported);
   expect((err as Unported).what).toContain("TerminationInfo: MachineStopType");
+  // The reported race: the earlier non-atomic write by `main` is op1, the racing write by `t1` is op2, and neither is
+  // atomic. Swapping op1/op2 or the branch order changes these fields.
+  expect((err as Unported & { payload?: unknown }).payload).toMatchObject({
+    $: "DataRace",
+    involves_non_atomic: true,
+    retag_explain: false,
+    extra: undefined,
+    op1: { action: "non-atomic write", thread_info: "thread `main`" },
+    op2: { action: "non-atomic write", thread_info: "thread `t1`" },
+  });
 });

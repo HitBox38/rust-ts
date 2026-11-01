@@ -37,8 +37,9 @@ and its `stub_methods` / `stub_statics` registration is deleted.
   - mixed-size atomic stores
   - vector-index reuse after terminate + join + catch-up, with upstream's exact clock values
   - `find_gt_index`
-  - the race-report texts (`AccessType::description`, `print_thread_metadata`)
-  - `report_data_race` reaching the pending machine-stop stand-in (below)
+  - the access descriptions and thread names (`AccessType::description`, `print_thread_metadata`)
+  - `report_data_race` reaching the pending machine-stop stand-in (below); the test checks the reported `DataRace` payload (accesses, threads, non-atomic flag) carried on the stand-in's `Unported`
+  - NOT tested here: the "Data race detected between (1) … and (2) …" text. It is built by miri-driver's `TerminationInfo` Display, which is not in this batch; its test comes with the miri-driver batch.
 
 ## Representation (the lane brief's question)
 

@@ -82,7 +82,7 @@ import { display_Ty } from "../../rustc_middle/ty/print/pretty.ts";
 import { Span } from "../../rustc_span/lib.ts";
 import { type Pending } from "../../rustc_type_ir/decls.ts";
 import { PLAIN } from "../../std/fmt.ts";
-import { assert, panic, unported, unreachable, unwrap } from "../../std/panic.ts";
+import { Unported, assert, panic, unported, unreachable, unwrap } from "../../std/panic.ts";
 import { Err, Ok, expect_result, unwrap_result, type Result } from "../../std/result.ts";
 import { RngExt, type Rng } from "../../vendor/rand/lib.ts";
 export * from "./data_race.gen.ts";
@@ -330,8 +330,12 @@ function err_machine_stop(info: TerminationInfo): InterpErrorInfo {
 /** `Box<dyn MachineStopType>` of a `TerminationInfo`. PORT(contract): pending miri-driver: `impl MachineStopType for
  * TerminationInfo` (diagnostics.rs:113, with its `Display` / `Debug`) is not declared in diagnostics.ts; once it is,
  * this stand-in becomes that function. */
-function TerminationInfo_as_MachineStopType(_info: TerminationInfo): MachineStopType {
-  return unported("miri::diagnostics::TerminationInfo: MachineStopType (src/tools/miri/src/diagnostics.rs:113; lane miri-driver)");
+function TerminationInfo_as_MachineStopType(info: TerminationInfo): MachineStopType {
+  // Throws the stand-in's `Unported`, carrying the payload so that the race-report tests can check what would be reported.
+  throw Object.assign(
+    new Unported("miri::diagnostics::TerminationInfo: MachineStopType (src/tools/miri/src/diagnostics.rs:113; lane miri-driver)"),
+    { payload: info },
+  );
 }
 
 // rustc-type: src/tools/miri/src/concurrency/data_race.rs:63 AllocState (generated)
