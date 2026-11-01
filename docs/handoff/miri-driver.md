@@ -4,9 +4,9 @@ Branch `t3/port-miri-driver` (worktree t3-63912c5e), from main `06fa2c65`. Five 
 
 - `404d728b` data_structures
 - `5ece6278` provenance_gc
-- the diagnostics commit
+- `13798448` diagnostics
 - `b7b97376` bin/miri.rs
-- tests + markers
+- `92b484d3` tests + markers
 
 I did not touch `bin/log/*`: that is lane `miri-log`, even though its stub headers still say "Fill lane: `miri-driver`". The
 driver calls its declared entry points.
