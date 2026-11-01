@@ -518,7 +518,15 @@ export function eval_in_interpreter<R>(R_: InterpretationResult<R>, tcx: TyCtxt,
     result = InterpResult.and_then(ecx.load_mir(cid.instance.def, cid.promoted), (body) => eval_body_using_ecx(R_, ecx, cid, body));
   }
   const r = InterpResult.report_err(result);
-  return r.$ === "Ok" ? r : Err(report_eval_error(ecx, cid, r._0));
+  const out = r.$ === "Ok" ? r : Err(report_eval_error(ecx, cid, r._0));
+  // PORT: the local `ecx` goes out of scope here, after `map_err`'s closure has used it. `InterpCx` has no `Drop` impl.
+  // Its fields drop in declaration order, `machine` first. Of those, only the frames left on the machine's stack
+  // (`CompileTimeMachine::stack: Vec<Frame>`, dropped front to back) have an observable drop: each `Frame`'s
+  // `tracing_span` exits (`impl Drop for SpanGuard`). Frames are still pushed only if evaluation failed. Without this
+  // drop, a `RUSTC_LOG` filter that enables `rustc_const_eval::interpret` nests the next constant's `frame` spans under
+  // the failed constant's frames.
+  for (const frame of ecx.stack()) frame.tracing_span.drop();
+  return out;
 }
 
 // #[inline(always)]

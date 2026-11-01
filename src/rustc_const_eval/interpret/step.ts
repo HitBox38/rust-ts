@@ -28,7 +28,9 @@ import {
   AssertKind,
   BorrowKind,
   debug_AggregateKind,
+  debug_BasicBlock,
   debug_Operand,
+  debug_StatementKind,
   debug_TerminatorKind,
   type Either,
   type Local,
@@ -56,6 +58,7 @@ import { debug_vec, format_debug, PLAIN, PRETTY } from "../../std/fmt.ts";
 import { assert, assert_eq, panic, unwrap } from "../../std/panic.ts";
 import { Err } from "../../std/result.ts";
 import { PlaceTy } from "./place.gen.ts";
+import * as tracing from "../../rust_ts/tracing.ts";
 
 export * from "./step.gen.ts";
 
@@ -146,7 +149,10 @@ InterpCx.prototype.step = function (this: InterpCx): InterpResult<boolean> {
   const r2 = this.eval_terminator(terminator);
   if (r2.$ === "Err") return r2;
   if (!(this.stack().length === 0)) {
-    // if let Either::Left(loc) = self.frame().loc { info!("// executing {:?}", loc.block); }
+    const loc = this.frame().loc;
+    if (loc.$ === "Left") {
+      if (tracing.INFO_ENABLED) tracing.info("rustc_const_eval::interpret::step", () => `// executing ${debug_BasicBlock(loc._0.block, PLAIN)}`);
+    }
   }
   return interp_ok(true);
 };
@@ -165,6 +171,9 @@ InterpCx.prototype.eval_statement = function (this: InterpCx, stmt: Statement): 
   //     tracing_separate_thread = Empty,
   // )
   // .or_if_tracing_disabled(|| info!("{:?}", stmt.kind));
+  // PORT: `enter_trace_span!` is `()` (`Machine::enter_trace_span`'s default; Miri overrides it only with its `tracing`
+  // feature, off in the oracle), so `or_if_tracing_disabled` always runs the closure.
+  if (tracing.INFO_ENABLED) tracing.info("rustc_const_eval::interpret::step", () => debug_StatementKind(stmt.kind, PLAIN));
 
   // use rustc_middle::mir::StatementKind::*;
 
@@ -753,6 +762,8 @@ InterpCx.prototype.eval_terminator = function (this: InterpCx, terminator: Termi
   //     tracing_separate_thread = Empty,
   // )
   // .or_if_tracing_disabled(|| info!("{:?}", terminator.kind));
+  // PORT: `enter_trace_span!` is `()` (see `eval_statement`): the closure always runs.
+  if (tracing.INFO_ENABLED) tracing.info("rustc_const_eval::interpret::step", () => debug_TerminatorKind(terminator.kind, PLAIN));
 
   // use rustc_middle::mir::TerminatorKind::*;
   const kind = terminator.kind;

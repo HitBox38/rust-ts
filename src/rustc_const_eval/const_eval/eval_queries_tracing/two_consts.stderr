@@ -1,0 +1,70 @@
+ rustc_const_eval::interpret::stack::frame frame=A
+  INFO rustc_const_eval::interpret::step ConstEvalCounter
+  INFO rustc_const_eval::interpret::step _0 = f(const 5_u32) -> [return: bb1, unwind continue]
+   rustc_const_eval::interpret::stack::frame frame=f
+    INFO rustc_const_eval::interpret::step // executing bb0
+    INFO rustc_const_eval::interpret::step StorageLive(_2)
+    INFO rustc_const_eval::interpret::step _2 = copy _1
+    INFO rustc_const_eval::interpret::step ConstEvalCounter
+    INFO rustc_const_eval::interpret::step _0 = g(move _2) -> [return: bb1, unwind continue]
+     rustc_const_eval::interpret::stack::frame frame=g
+      INFO rustc_const_eval::interpret::step // executing bb0
+      INFO rustc_const_eval::interpret::step StorageLive(_2)
+      INFO rustc_const_eval::interpret::step StorageLive(_3)
+      INFO rustc_const_eval::interpret::step StorageLive(_4)
+      INFO rustc_const_eval::interpret::step _4 = copy _1
+      INFO rustc_const_eval::interpret::step _3 = Gt(move _4, const 2_u32)
+      INFO rustc_const_eval::interpret::step switchInt(move _3) -> [0: bb2, otherwise: bb1]
+      INFO rustc_const_eval::interpret::step // executing bb1
+      INFO rustc_const_eval::interpret::step StorageDead(_4)
+      INFO rustc_const_eval::interpret::step StorageLive(_6)
+      INFO rustc_const_eval::interpret::step ConstEvalCounter
+      INFO rustc_const_eval::interpret::step _6 = std::rt::begin_panic::<&str>(const "boom") -> unwind continue
+error[E0080]: evaluation panicked: boom
+ --> two_consts.rs:3:16
+  |
+3 | const A: u32 = f(5);
+  |                ^^^^ evaluation of `A` failed inside this call
+  |
+note: inside `f`
+ --> two_consts.rs:2:29
+  |
+2 | const fn f(x: u32) -> u32 { g(x) }
+  |                             ^^^^
+note: inside `g`
+ --> two_consts.rs:1:40
+  |
+1 | const fn g(x: u32) -> u32 { if x > 2 { panic!("boom") } x }
+  |                                        ^^^^^^^^^^^^^^ the failure occurred here
+
+ rustc_const_eval::interpret::stack::frame frame=B
+  INFO rustc_const_eval::interpret::step ConstEvalCounter
+  INFO rustc_const_eval::interpret::step _0 = h(const 1_u32) -> [return: bb1, unwind continue]
+   rustc_const_eval::interpret::stack::frame frame=h
+    INFO rustc_const_eval::interpret::step // executing bb0
+    INFO rustc_const_eval::interpret::step StorageLive(_2)
+    INFO rustc_const_eval::interpret::step _2 = copy _1
+    INFO rustc_const_eval::interpret::step _3 = AddWithOverflow(copy _2, const 1_u32)
+    INFO rustc_const_eval::interpret::step assert(!move (_3.1: bool), "attempt to compute `{} + {}`, which would overflow", move _2, const 1_u32) -> [success: bb1, unwind continue]
+    INFO rustc_const_eval::interpret::step // executing bb1
+    INFO rustc_const_eval::interpret::step _0 = move (_3.0: u32)
+    INFO rustc_const_eval::interpret::step StorageDead(_2)
+    INFO rustc_const_eval::interpret::step return
+    INFO rustc_const_eval::interpret::call popping stack frame (returning from function)
+  INFO rustc_const_eval::interpret::step // executing bb1
+  INFO rustc_const_eval::interpret::step return
+  INFO rustc_const_eval::interpret::call popping stack frame (returning from function)
+ rustc_const_eval::interpret::stack::frame frame=main
+  INFO rustc_const_eval::interpret::step _1 = const B
+  INFO rustc_const_eval::interpret::step _0 = &_1
+  INFO rustc_const_eval::interpret::step return
+  INFO rustc_const_eval::interpret::call popping stack frame (returning from function)
+note: erroneous constant encountered
+ --> two_consts.rs:6:40
+  |
+6 | fn main() { println!("{}", B); let _ = A; }
+  |                                        ^
+
+error: aborting due to 1 previous error
+
+For more information about this error, try `rustc --explain E0080`.

@@ -47,6 +47,7 @@ import { type Debug, debug_option, debug_struct, type Fmt } from "../../std/fmt.
 import { assert, panic, unwrap } from "../../std/panic.ts";
 import { Err } from "../../std/result.ts";
 import { MPlaceTy, PlaceTy } from "./place.gen.ts";
+import * as tracing from "../../rust_ts/tracing.ts";
 
 
 /** Lazy interpret hand module read at call time (init order, eval_context.ts header). */
@@ -151,18 +152,18 @@ declare module "./eval_context.ts" {
 // The Phantomdata exists to prevent this type from being `Send`. If it were sent across a thread
 // boundary and dropped in the other thread, it would exit the span in the other thread.
 // rustc-type: compiler/rustc_const_eval/src/interpret/stack.rs:28 SpanGuard
-// PORT: `tracing::Span` is not ported (no tracing): `_0` holds the span value (`Span::none()` is `undefined`);
-// `impl Drop` is `drop()`, called where upstream drops the guard (frame pop).
+// PORT: `impl Drop` is `drop()`, called where upstream drops the guard (where a popped `Frame` is dropped: the end of
+// `Machine::after_stack_pop`, or `cleanup_stack_frame` when it does not hand the frame on).
 export class SpanGuard {
   constructor(
-    public _0: unknown,
+    public _0: tracing.Span,
     public _1: undefined,
   ) {}
 
   /// By default a `SpanGuard` does nothing.
   // rustc: compiler/rustc_const_eval/src/interpret/stack.rs:32 new
   static new(): SpanGuard {
-    return new SpanGuard(/* tracing::Span::none() */ undefined, /* PhantomData */ undefined);
+    return new SpanGuard(tracing.Span.none(), /* PhantomData */ undefined);
   }
 
   /// If a span is entered, we exit the previous span (if any, normally none) and enter the
@@ -170,8 +171,7 @@ export class SpanGuard {
   /// `Frame` by creating a dummy span to being with and then entering it once the frame has
   /// been pushed.
   // rustc: compiler/rustc_const_eval/src/interpret/stack.rs:40 enter
-  // PORT: `span: tracing::Span` is `unknown` (the field's type).
-  enter(span: unknown): void {
+  enter(span: tracing.Span): void {
     // This executes the destructor on the previous instance of `SpanGuard`, ensuring that
     // we never enter or exit more spans than vice versa. Unless you `mem::leak`, then we
     // can't protect the tracing stack, but that'll just lead to weird logging, no actual
@@ -179,14 +179,20 @@ export class SpanGuard {
     this.drop();
     this._0 = span;
     this._1 = undefined;
-    // PORT: `self.0.with_subscriber(|(id, dispatch)| dispatch.enter(id))`: no tracing subscriber is ported, so a span
-    // has no subscriber and this is a no-op (as for `Span::none()`).
+    this._0.with_subscriber((id, dispatch) => {
+      dispatch.enter(id);
+    });
   }
 
   // impl Drop for SpanGuard
   // rustc: compiler/rustc_const_eval/src/interpret/stack.rs:53 drop
   drop(): void {
-    // PORT: `self.0.with_subscriber(|(id, dispatch)| dispatch.exit(id))`: no subscriber (see `enter`), a no-op.
+    if (this._0.inner === undefined) return; // PORT: a disabled span (`Span::none()`): both drops do nothing.
+    this._0.with_subscriber((id, dispatch) => {
+      dispatch.exit(id);
+    });
+    // (then the field's own drop: `impl Drop for tracing::Span`)
+    this._0.drop();
   }
 }
 
@@ -518,9 +524,9 @@ InterpCx.prototype.push_stack_frame_raw = function (this: InterpCx, instance: In
   // to put the "frame" span on a separate trace thread/line than other spans, to make the
   // visualization in <https://ui.perfetto.dev> easier to interpret. It is set to a value of
   // [tracing::field::Empty] so that other tracing layers (e.g. the logger) will ignore it.
+  // PORT: `tracing_separate_thread = Empty` records nothing (an `Empty` field is skipped by every layer's visitor).
   // let span = info_span!("frame", tracing_separate_thread = Empty, frame = %instance);
-  // PORT: `info_span!` under the default WARN filter is a disabled span (`Span::none()`, `undefined`).
-  const span = undefined;
+  const span = tracing.INFO_ENABLED ? tracing.info_span("rustc_const_eval::interpret::stack", "frame", ["frame", () => display_Instance(instance)]) : tracing.Span.none();
   this.frame_mut().tracing_span.enter(span);
 
   return interp_ok(undefined);
@@ -559,12 +565,13 @@ InterpCx.prototype.cleanup_stack_frame = function (this: InterpCx, unwinding: bo
   if (cleanup) {
     for (const local of frame.locals) {
       const r = this.deallocate_local(local.value);
-      if (r.$ === "Err") return r;
+      // PORT: `?` drops the unmoved `frame` (its `tracing_span` exits).
+      if (r.$ === "Err") return frame.tracing_span.drop(), r;
     }
 
     // Deallocate any c-variadic arguments.
     const r = this.deallocate_varargs(frame.va_list);
-    if (r.$ === "Err") return r;
+    if (r.$ === "Err") return frame.tracing_span.drop(), r;
 
     // Call the machine hook, which determines the next steps.
     const return_action_r = this.machine.after_stack_pop(this, frame, unwinding);
@@ -576,6 +583,7 @@ InterpCx.prototype.cleanup_stack_frame = function (this: InterpCx, unwinding: bo
     return interp_ok(return_action);
   } else {
     // We also skip the machine hook when there's no cleanup. This not a real "pop" anyway.
+    frame.tracing_span.drop(); // PORT: `frame` is dropped at the end of the fn.
     return interp_ok<ReturnAction>(ReturnAction.NoCleanup);
   }
 };

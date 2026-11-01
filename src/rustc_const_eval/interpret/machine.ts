@@ -937,6 +937,7 @@ export abstract class Machine_provided<T extends MachineTypes = CtfeMachineTypes
   after_stack_pop(_ecx: InterpCx<Machine<T>>, _frame: MachineFrame<T>, unwinding: boolean): InterpResult<ReturnAction> {
     // By default, we do not support unwinding from panics
     assert(!unwinding, "assertion failed: !unwinding");
+    _frame.tracing_span.drop(); // PORT: `_frame` is dropped at the end of the fn (its `tracing_span` exits).
     return interp_ok(ReturnAction.Normal);
   }
 
