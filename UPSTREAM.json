@@ -6,7 +6,12 @@
     "release": "1.101.0-nightly",
     "toolchain": "nightly",
     "nightlyName": "nightly-2026-10-11",
-    "sparse": ["compiler", "library", "tests/ui", "tests/auxiliary", "src/tools/compiletest", "src/tools/miri/src"],
-    "submodules": ["library/backtrace"]
+    "sparse": ["compiler", "library", "tests/ui", "tests/auxiliary", "src/tools/compiletest", "src/tools/miri/src", "src/tools/miri/tests"],
+    "submodules": ["library/backtrace"],
+    "components": ["cargo-{host}", "llvm-tools-preview-{host}", "rust-std-{host}", "rust-std-x86_64-unknown-linux-gnu", "rustc-{host}", "rustc-dev-{host}"],
+    "miri": {
+      "target": "x86_64-unknown-linux-gnu",
+      "components": ["cargo-{host}", "miri-preview-{host}", "rust-src", "rust-std-{host}", "rustc-{host}"]
+    }
   }
 }

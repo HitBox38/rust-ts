@@ -1,9 +1,9 @@
 // Port of compiler/rustc_const_eval/src/interpret/operator.rs (declared by lane interp-contract, filled by lane interp-ops).
 // PORT: `i128` / `u128` arithmetic is bigint arithmetic, wrapped to 128 bits where Rust's `overflowing_*` / `checked_sh*`
 // wrap (`BigInt.asIntN` / `asUintN(128, ..)`); floats go through rustc_apfloat (plan-m4 D9).
-import { BackendRepr, Size } from "../../rustc_abi/lib.ts";
+import { BackendRepr, Size, Size_cmp } from "../../rustc_abi/lib.ts";
 import { InterpCx } from "./eval_context.ts";
-import { type Machine } from "./machine.ts";
+import { type AnyMachine, type ProvOf, type Machine } from "./machine.ts";
 import { AtomicRmwOp } from "./operator.gen.ts";
 import {
   type CtfeProvenance,
@@ -18,6 +18,7 @@ import {
   Scalar_from_Quad,
   Scalar_from_ScalarInt,
   Scalar_from_Single,
+  debug_provenance,
 } from "../../rustc_middle/mir/interpret/mod.ts";
 import { BinOp, UnOp, debug_BinOp, debug_UnOp } from "../../rustc_middle/mir/mod.ts";
 import { debug_ScalarInt, ScalarInt } from "../../rustc_middle/ty/consts/int.ts";
@@ -39,27 +40,27 @@ import { MemPlaceMeta } from "./place.ts";
 export * from "./operator.gen.ts";
 
 declare module "./eval_context.ts" {
-  interface InterpCx<M extends Machine = Machine> {
+  interface InterpCx<M extends AnyMachine = Machine> {
     // operator.rs:27 (lane interp-ops)
-    three_way_compare<T>(lhs: T, rhs: T): ImmTy;
+    three_way_compare<T>(lhs: T, rhs: T): ImmTy<ProvOf<M>>;
     // operator.rs:32 (lane interp-ops)
-    binary_char_op(bin_op: BinOp, l: number, r: number): ImmTy;
+    binary_char_op(bin_op: BinOp, l: number, r: number): ImmTy<ProvOf<M>>;
     // operator.rs:51 (lane interp-ops)
-    binary_bool_op(bin_op: BinOp, l: boolean, r: boolean): ImmTy;
+    binary_bool_op(bin_op: BinOp, l: boolean, r: boolean): ImmTy<ProvOf<M>>;
     // operator.rs:69 (lane interp-ops)
-    binary_float_op<F extends Float<F>>(bin_op: BinOp, layout: TyAndLayout, l: F, r: F): ImmTy;
+    binary_float_op<F extends Float<F>>(bin_op: BinOp, layout: TyAndLayout, l: F, r: F): ImmTy<ProvOf<M>>;
     // operator.rs:97 (lane interp-ops)
-    binary_int_op(bin_op: BinOp, left: ImmTy, right: ImmTy): InterpResult<ImmTy>;
+    binary_int_op(bin_op: BinOp, left: ImmTy<ProvOf<M>>, right: ImmTy<ProvOf<M>>): InterpResult<ImmTy<ProvOf<M>>>;
     // operator.rs:304 (lane interp-ops)
     compute_size_in_bytes(elem_size: Size, count: bigint): Size | undefined;
     // operator.rs:316 (lane interp-ops)
-    binary_ptr_op(bin_op: BinOp, left: ImmTy, right: ImmTy): InterpResult<ImmTy>;
+    binary_ptr_op(bin_op: BinOp, left: ImmTy<ProvOf<M>>, right: ImmTy<ProvOf<M>>): InterpResult<ImmTy<ProvOf<M>>>;
     // operator.rs:367 (lane interp-ops)
-    binary_op(bin_op: BinOp, left: ImmTy, right: ImmTy): InterpResult<ImmTy>;
+    binary_op(bin_op: BinOp, left: ImmTy<ProvOf<M>>, right: ImmTy<ProvOf<M>>): InterpResult<ImmTy<ProvOf<M>>>;
     // operator.rs:445 (lane interp-ops)
-    unary_op(un_op: UnOp, val: ImmTy): InterpResult<ImmTy>;
+    unary_op(un_op: UnOp, val: ImmTy<ProvOf<M>>): InterpResult<ImmTy<ProvOf<M>>>;
     // operator.rs:521 (lane interp-ops)
-    atomic_rmw_op(op: AtomicRmwOp, left: ImmTy, right: ImmTy): InterpResult<ImmTy>;
+    atomic_rmw_op(op: AtomicRmwOp, left: ImmTy<ProvOf<M>>, right: ImmTy<ProvOf<M>>): InterpResult<ImmTy<ProvOf<M>>>;
   }
 }
 
@@ -495,7 +496,7 @@ InterpCx.prototype.binary_int_op = function (this: InterpCx, bin_op: BinOp, left
         default:
           return span_bug(
             this.cur_span(),
-            `invalid binary op ${debug_BinOp(bin_op, PLAIN)}: ${debug_ImmTy(left, PLAIN)}, ${debug_ImmTy(right, PLAIN)} (both ${display_Ty(right.layout.ty)})`,
+            `invalid binary op ${debug_BinOp(bin_op, PLAIN)}: ${debug_ImmTy(left, PLAIN, debug_provenance)}, ${debug_ImmTy(right, PLAIN, debug_provenance)} (both ${display_Ty(right.layout.ty)})`,
           );
       }
       const [result_, oflo] = op(lu, ru);
@@ -528,9 +529,8 @@ InterpCx.prototype.compute_size_in_bytes = function (this: InterpCx, elem_size: 
   // would be wrong here.)
   const total_bytes = elem_size.bytes_u64() * count;
   if (total_bytes > U64_MAX) return undefined;
-  // PORT: `max_size_of_val()` is `Size::from_bytes(isize::MAX)`, beyond 2^53 for 64-bit targets (unported under the
-  // Size rule), so the comparison is done in bigint against `target_isize_max` (the same value) before building the Size.
-  return total_bytes <= PointerArithmetic_provided.target_isize_max(this) ? Size.from_bytes(total_bytes) : undefined;
+  const total = Size.from_bytes(total_bytes);
+  return Size_cmp(total, PointerArithmetic_provided.max_size_of_val(this)) <= 0 ? total : undefined;
 };
 
 // rustc: compiler/rustc_const_eval/src/interpret/operator.rs:316 binary_ptr_op
@@ -789,7 +789,7 @@ InterpCx.prototype.unary_op = function (this: InterpCx, un_op: UnOp, val: ImmTy)
     }
     // falls through (unreachable: every arm above returns)
     default:
-      return bug(`Unexpected unary op argument ${debug_ImmTy(val, PLAIN)}`);
+      return bug(`Unexpected unary op argument ${debug_ImmTy(val, PLAIN, debug_provenance)}`);
   }
 };
 

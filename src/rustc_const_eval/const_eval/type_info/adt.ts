@@ -3,7 +3,7 @@
 import { FieldIdx, type VariantIdx } from "../../../rustc_abi/lib.ts";
 import { type CompileTimeInterpCx } from "../machine.ts";
 import { InterpCx } from "../../interpret/eval_context.ts";
-import { type Machine } from "../../interpret/machine.ts";
+import { type AnyMachine, type Machine } from "../../interpret/machine.ts";
 import { type Writeable } from "../../interpret/place.ts";
 import { type InterpResult, interp_ok } from "../../../rustc_middle/mir/interpret/mod.ts";
 import { type AdtDef } from "../../../rustc_middle/ty/adt.ts";
@@ -19,7 +19,7 @@ import { MPlaceTy } from "../../interpret/place.gen.ts";
 import type { Const } from "../../../rustc_middle/ty/consts.gen.ts";
 
 declare module "../../interpret/eval_context.ts" {
-  interface InterpCx<M extends Machine = Machine> {
+  interface InterpCx<M extends AnyMachine = Machine> {
     // adt.rs:14 (lane ctfe-b)
     write_adt_type_info<P extends Writeable<P>>(place: P, adt_def: AdtDef): InterpResult<VariantIdx>;
     // adt.rs:36 (lane ctfe-b)

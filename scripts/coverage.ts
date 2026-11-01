@@ -1,17 +1,19 @@
 // Port coverage: every upstream `fn` in in-scope crates vs `// rustc: <path>:<line> <name>`
-// markers in src/, and every `fn` in the vendored external crates (`harness/scope.json` `vendor`,
+// markers in src/ (the compiler crates, plus Miri as crate `miri`: `harness/scope.json` `miri`, plan-m6 D2), and every
+// `fn` in the vendored external crates (`harness/scope.json` `vendor`,
 // sources from scripts/crate-src.ts) vs `// crate: <crate>-<ver>/<path>:<line> <name>` markers.
 // Functions are found with our own rustc_lexer port, so `fn` inside comments/strings is never
 // counted. `// rustc-skip:` / `// crate-skip:` markers count as covered.
 //
 //   bun scripts/coverage.ts                 per-crate table, compiler then vendor (+ writes $RUST_TS_DATA/coverage.json)
-//   bun scripts/coverage.ts --crate C       per-file table for one crate (compiler crate, or vendor `<crate>` / `<crate>-<ver>`)
-//   bun scripts/coverage.ts --missing PATH  unported functions in one upstream file (`compiler/...` or `<crate>-<ver>/<path>`)
+//   bun scripts/coverage.ts --crate C       per-file table for one crate (compiler crate, `miri`, or vendor `<crate>` / `<crate>-<ver>`)
+//   bun scripts/coverage.ts --missing PATH  unported functions in one upstream file (`compiler/...`, `src/tools/miri/src/...`
+//                                           or `<crate>-<ver>/<path>`)
 //   bun scripts/coverage.ts --check         ERROR on markers that point at no upstream / crate fn
 //   --offline                               fetch missing vendor crate sources only from cargo's local cache
 // Vendor crate sources are resolved lazily: only the crates a mode actually reads (none for a
 // compiler `--missing` / `--crate`; for `--check`, only crates that have markers).
-import { readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { FrontmatterAllowed, strip_shebang, tokenize } from "../src/rustc_lexer/lib.ts";
 import { Str } from "../src/std/str.ts";
@@ -138,6 +140,45 @@ export function inScopeCrates(): string[] {
   return readdirSync(join(UPSTREAM, "compiler")).filter((c) => !(c in scope.excluded));
 }
 
+/** The coverage crate name of Miri (plan-m6 D2). */
+export const MIRI_CRATE = "miri";
+
+/** `harness/scope.json` `miri`: its source root (upstream-relative), excluded paths, and partially in-scope files. */
+export interface MiriScope {
+  root: string;
+  excluded: Record<string, string>;
+  partial: Record<string, { fns: string[]; reason: string }>;
+}
+
+export function miriScope(): MiriScope | undefined {
+  const scope = JSON.parse(readFileSync(join(REPO, "harness", "scope.json"), "utf8"));
+  const m = scope.miri as MiriScope | undefined;
+  return m && typeof m.root === "string" ? { root: m.root, excluded: m.excluded ?? {}, partial: m.partial ?? {} } : undefined;
+}
+
+/** Whether `rel` (relative to Miri's root) is under an excluded path (a file, or a directory and everything in it). */
+export const miriExcluded = (m: MiriScope, rel: string): string | undefined => Object.keys(m.excluded).find((x) => rel === x || rel.startsWith(`${x}/`));
+
+/**
+ * Every `.rs` under Miri's root (`all`) and the in-scope ones (`files`), as sorted upstream-relative paths; empty if the
+ * checkout has no Miri sources (the sparse checkout before src/tools/miri/src was added).
+ */
+export function miriFiles(m: MiriScope, root: string = UPSTREAM): { all: string[]; files: string[] } {
+  const dir = join(root, m.root);
+  if (!existsSync(dir)) return { all: [], files: [] };
+  const all = walk(dir, ".rs")
+    .map((f) => relative(root, f).replaceAll("\\", "/"))
+    .sort();
+  return { all, files: all.filter((f) => miriExcluded(m, f.slice(m.root.length + 1)) === undefined) };
+}
+
+/** The in-scope fns of a Miri file: all of them, or only the listed ones of a `partial` file. */
+export function miriFns(m: MiriScope, path: string, root: string = UPSTREAM): UpstreamFn[] {
+  const fns = upstreamFns(path, root);
+  const part = m.partial[path.slice(m.root.length + 1)];
+  return part ? fns.filter((f) => part.fns.includes(f.name)) : fns;
+}
+
 if (import.meta.main) {
   requireUpstream();
   const a = parseArgs(process.argv.slice(2));
@@ -150,10 +191,18 @@ if (import.meta.main) {
   const vendor = vendorEntries();
   const vendorOf = (path: string) => vendor.find((v) => path.startsWith(`${v.id}/`));
 
+  const ms_ = miriScope();
   if (typeof a.missing === "string") {
     const ve = vendorOf(a.missing);
     const v = ve ? await resolveVendor(ve, { offline }) : undefined;
-    const fns = v ? upstreamFns(a.missing, dirname(v.dir)) : upstreamFns(a.missing);
+    const inMiri = ms_ !== undefined && a.missing.startsWith(`${ms_.root}/`);
+    if (inMiri && miriExcluded(ms_, a.missing.slice(ms_.root.length + 1)) !== undefined) {
+      const x = miriExcluded(ms_, a.missing.slice(ms_.root.length + 1))!;
+      console.log(`note: ${a.missing} is out of scope (harness/scope.json miri.excluded ${x}: ${ms_.excluded[x]})`);
+    }
+    const part = inMiri ? ms_.partial[a.missing.slice(ms_.root.length + 1)] : undefined;
+    if (part) console.log(`note: only ${part.fns.join(", ")} of ${a.missing} are in scope (harness/scope.json miri.partial: ${part.reason})`);
+    const fns = v ? upstreamFns(a.missing, dirname(v.dir)) : inMiri ? miriFns(ms_, a.missing) : upstreamFns(a.missing);
     const miss = fns.filter((f) => !(v ? vmarked : marked).has(key(f.path, f.line)));
     for (const f of miss) console.log(`${f.path}:${f.line} ${f.name}`);
     console.log(`${fns.length - miss.length}/${fns.length} ported`);
@@ -166,7 +215,7 @@ if (import.meta.main) {
   const vneeded = a.check ? vselEntries.filter((v) => vms.some((m) => m.path.startsWith(`${v.id}/`))) : vselEntries;
   const vsel: VendorCrate[] = [];
   for (const v of vneeded) vsel.push(await resolveVendor(v, { offline }));
-  const crates = typeof a.crate === "string" ? (vsel.length ? [] : [a.crate]) : inScopeCrates();
+  const crates = typeof a.crate === "string" ? (vsel.length || a.crate === MIRI_CRATE ? [] : [a.crate]) : inScopeCrates();
   const all = new Map<string, UpstreamFn>();
   const rows: { crate: string; total: number; ported: number; files: { path: string; total: number; ported: number }[] }[] = [];
   for (const c of crates) {
@@ -181,6 +230,24 @@ if (import.meta.main) {
       row.files.push({ path: f, total: fns.length, ported });
     }
     rows.push(row);
+  }
+  // Miri (plan-m6 D2): one crate row over its in-scope files and fns (`miriFiles`, `miriFns`). `--check` validates its
+  // markers against every fn under its root, in scope or not.
+  const miri = ms_ && (typeof a.crate !== "string" || a.crate === MIRI_CRATE) ? miriFiles(ms_) : undefined;
+  if (ms_ && miri) {
+    if (miri.all.length === 0) console.log(`note: no Miri sources in the upstream checkout (${ms_.root}); run: bun scripts/upstream.ts fetch`);
+    else {
+      const row = { crate: MIRI_CRATE, total: 0, ported: 0, files: [] as { path: string; total: number; ported: number }[] };
+      for (const f of miri.all) for (const fn of upstreamFns(f)) all.set(key(fn.path, fn.line), fn);
+      for (const f of miri.files) {
+        const fns = miriFns(ms_, f);
+        const ported = fns.filter((fn) => marked.has(key(fn.path, fn.line))).length;
+        row.total += fns.length;
+        row.ported += ported;
+        row.files.push({ path: f, total: fns.length, ported });
+      }
+      rows.push(row);
+    }
   }
   // Vendor crates: every `.rs` of the published package (src/, tests/, benches/, examples/, build.rs).
   // `ported` counts every covered fn (crate: or crate-skip:); `skipped` the crate-skip: ones among them.
@@ -203,7 +270,8 @@ if (import.meta.main) {
   if (a.check) {
     const bad = ms.filter((m) => {
       const fn = all.get(key(m.path, m.line));
-      return m.path.startsWith("compiler/") && crates.some((c) => m.path.startsWith(`compiler/${c}/`)) && (!fn || fn.name !== m.name);
+      const checked = (m.path.startsWith("compiler/") && crates.some((c) => m.path.startsWith(`compiler/${c}/`))) || (ms_ !== undefined && miri !== undefined && miri.all.length > 0 && m.path.startsWith(`${ms_.root}/`));
+      return checked && (!fn || fn.name !== m.name);
     });
     for (const m of bad) console.log(`ERROR: ${m.file}: marker ${m.path}:${m.line} ${m.name} matches no upstream fn`);
     // Vendor markers: the crate must be a scope.json vendor entry at that exact version, and the
@@ -235,7 +303,7 @@ if (import.meta.main) {
     console.log(`TOTAL ${r.ported}/${r.total} fns ported (${r.total ? ((100 * r.ported) / r.total).toFixed(2) : "0.00"}%) in ${r.crate}`);
     process.exit(0);
   }
-  for (const r of rows.filter((r) => r.ported > 0).sort((x, y) => y.ported - x.ported)) {
+  for (const r of rows.filter((r) => r.ported > 0 || r.crate === MIRI_CRATE).sort((x, y) => y.ported - x.ported)) {
     console.log(`${r.crate.padEnd(28)} ${String(r.ported).padStart(6)}/${String(r.total).padEnd(6)} ${((100 * r.ported) / r.total).toFixed(1)}%`);
   }
   console.log(`TOTAL ${ported}/${total} fns ported (${((100 * ported) / total).toFixed(2)}%) across ${rows.length} crates`);

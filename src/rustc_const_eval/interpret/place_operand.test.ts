@@ -11,7 +11,7 @@ import "../../rustc_hir_analysis/lib.ts";
 import { type Config, run_compiler } from "../../rustc_interface/interface.ts";
 import { create_and_enter_global_ctxt, parse } from "../../rustc_interface/passes.ts";
 import "../../rustc_middle/lib.ts";
-import { Pointer, Scalar, debug_CtfeProvenance, debug_Scalar } from "../../rustc_middle/mir/interpret/mod.ts";
+import { type CtfeProvenance, Pointer, Scalar, debug_CtfeProvenance, debug_Scalar, debug_provenance } from "../../rustc_middle/mir/interpret/mod.ts";
 import { Local } from "../../rustc_middle/mir/mod.ts";
 import { ScalarInt } from "../../rustc_middle/ty/consts/int.ts";
 import { Ty, TypingEnv } from "../../rustc_middle/ty/mod.ts";
@@ -89,7 +89,7 @@ test("immediates, operands and local places", () => {
       expect(seven.to_scalar_int()).toEqual({ $: "Ok", _0: ScalarInt.from_u8(7) });
       expect(seven.to_const_int().int).toEqual(ScalarInt.from_u8(7));
       expect(display_ImmTy(seven, PLAIN)).toBe("7_u8");
-      expect(debug_ImmTy(seven, PLAIN)).toBe(`ImmTy { imm: Scalar(${debug_Scalar(Immediate.to_scalar(seven.imm), PLAIN, debug_CtfeProvenance)}), ty: u8 }`);
+      expect(debug_ImmTy(seven, PLAIN, debug_provenance)).toBe(`ImmTy { imm: Scalar(${debug_Scalar(Immediate.to_scalar(seven.imm), PLAIN, debug_CtfeProvenance)}), ty: u8 }`);
       expect(display_ImmTy(ImmTy.uninit(u8), PLAIN)).toBe("uninit: u8");
       expect(ImmTy.from_bool(true, tcx).layout.ty).toBe(tcx.types.bool);
       expect(() => Immediate.assert_matches_abi(Immediate.Uninit, u8.backend_repr, "m", ecx)).not.toThrow();
@@ -129,7 +129,7 @@ test("immediates, operands and local places", () => {
       expect(zst.ptr().offset.bytes()).toBe(1);
       expect(zst.to_place().as_mplace_or_local().$).toBe("Left");
       expect(PlaceTy_from_MPlaceTy(zst).assert_mem_place().mplace).toBe(zst.mplace);
-      const mp = new MPlaceTy(new MemPlace(ptr, MemPlaceMeta.None, undefined), u8);
+      const mp = new MPlaceTy<CtfeProvenance>(new MemPlace<CtfeProvenance>(ptr, MemPlaceMeta.None, undefined), u8);
       const shifted = mp.offset_with_meta(Size.from_bytes(2), "Wrapping", MemPlaceMeta.None, u8, ecx);
       if (shifted.$ !== "Ok") throw new Error("ERROR: wrapping offset failed");
       expect(shifted._0.ptr().offset.bytes()).toBe(18);
@@ -145,7 +145,7 @@ test("immediates, operands and local places", () => {
       if (dangling.$ !== "Err") throw new Error("ERROR: write through an integer address succeeded");
       expect(dangling._0.kind()).toEqual({
         $: "UndefinedBehavior",
-        _0: { $: "DanglingIntPointer", addr: 16, inbounds_size: 1, msg: { $: "MemoryAccess" } },
+        _0: { $: "DanglingIntPointer", addr: 16n, inbounds_size: 1n, msg: { $: "MemoryAccess" } },
       });
       ran = true;
     });

@@ -56,7 +56,8 @@ Start here: [PLAN.md](PLAN.md) · [AGENTS.md](AGENTS.md) · [PORTING.md](PORTING
 ```sh
 bun install
 echo RUST_TS_DATA=D:/rust-ts-data > .env.local   # big data dir (upstream checkout, caches)
-rustup toolchain install nightly-2026-10-11 --component rust-src
+rustup toolchain install nightly-2026-10-11 --profile minimal --component rustc-dev,llvm-tools --target x86_64-unknown-linux-gnu
+# the oracle's components must equal UPSTREAM.json rust.components (no rust-src: it changes rustc's diagnostics)
 bun scripts/upstream.ts fetch && bun scripts/upstream.ts status
 bun scripts/probes.ts build
 ```

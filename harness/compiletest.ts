@@ -67,7 +67,7 @@ import { isAbsolute, join, resolve } from "node:path";
 import { DATA, PIN, UPSTREAM, hash } from "../scripts/lib/common.ts";
 import { caseDeps } from "../scripts/lib/deps.ts";
 import { getEnv } from "../scripts/lib/env.ts";
-import { ORACLE_RETRY_FACTOR, oraclePinnedPathEnv, oracleRustcCmd, oracleSysroot, rustcDriverHash } from "../scripts/lib/oracle.ts";
+import { ORACLE_RETRY_FACTOR, oraclePinnedPathEnv, oracleRustcCmd, oracleSysroot, rustcDriverHash, verifyOracleToolchain } from "../scripts/lib/oracle.ts";
 
 /** The host and target compiletest is run as (see "Host independence" above). */
 export const COMPILETEST_TARGET = "x86_64-unknown-linux-gnu";
@@ -77,6 +77,21 @@ export interface UiCase {
   file: string;
   args: string[];
   env: Record<string, string | null>;
+  /** `uiFileCases(.., { run: true })` only: the test's pass/fail mode (`run-pass`, `check-fail`, ...). */
+  mode?: string;
+  /** `uiFileCases(.., { run: true })` only: how compiletest runs the built program (`RunProps`). */
+  run?: RunProps;
+}
+
+/**
+ * How compiletest runs a run-mode test's program (runtest.rs `exec_compiled_test_general`): `run-flags` are its
+ * arguments (`make_run_args`), `exec-env` its added environment and `unset-exec-env` the variables it removes
+ * (directives/handlers.rs).
+ */
+export interface RunProps {
+  flags: string[];
+  env: [string, string][];
+  unsetEnv: string[];
 }
 
 export interface Skip {
@@ -389,6 +404,8 @@ interface Props {
   normalizeStderr: [string, string][];
   stderrPerBitwidth: boolean;
   dontCheckCompilerStderr: boolean;
+  /** `run-flags`, `exec-env`, `unset-exec-env` (read only for `uiFileCases(.., { run })`). */
+  run: RunProps;
 }
 
 /** directives/auxiliary.rs `AuxProps`. */
@@ -430,7 +447,7 @@ function parseEnv(nv: string): [string, string] {
  * `TestProps::from_file(testfile, revision)` for a UI test, or (`aux`) `TestProps::from_aux_file`
  * (no pass/fail default: aux crates have no pass/fail mode).
  */
-function testProps(lines: DirectiveLine[], revision: string | undefined, opts: { auxFile?: boolean; extra?: boolean } = {}): Props {
+function testProps(lines: DirectiveLine[], revision: string | undefined, opts: { auxFile?: boolean; extra?: boolean; run?: boolean } = {}): Props {
   const p: Props = {
     edition: undefined,
     compileFlags: [],
@@ -449,6 +466,7 @@ function testProps(lines: DirectiveLine[], revision: string | undefined, opts: {
     normalizeStderr: [],
     stderrPerBitwidth: false,
     dontCheckCompilerStderr: false,
+    run: { flags: [], env: [], unsetEnv: [] },
   };
   for (const ln of lines) {
     if (!appliesTo(ln, revision)) continue;
@@ -478,6 +496,16 @@ function testProps(lines: DirectiveLine[], revision: string | undefined, opts: {
     p.remapSrcBase ||= nameDirective(ln, "remap-src-base");
     p.noAutoCheckCfg ||= nameDirective(ln, "no-auto-check-cfg");
     p.forceHost ||= nameDirective(ln, "force-host");
+    // handlers.rs RUN_FLAGS / EXEC_ENV / UNSET_EXEC_ENV: only for the run-mode callers (`opts.run`), so no other
+    // case set can change (a malformed value rejects the test).
+    if (opts.run) {
+      const rf = nameValueDirective(ln, "run-flags");
+      if (rf !== undefined) p.run.flags.push(...splitFlags(rf));
+      const ee = nameValueDirective(ln, "exec-env");
+      if (ee !== undefined) p.run.env.push(parseEnv(ee));
+      const ue = nameValueDirective(ln, "unset-exec-env");
+      if (ue !== undefined) p.run.unsetEnv.push(ue.trim());
+    }
     if (ln.name === "add-minicore") throw new Reject("`add-minicore` (builds minicore) is not reproduced");
     if (ln.name === "incremental") throw new Reject("`incremental` (incremental directory) is not reproduced");
     if (ln.name === "aux-codegen-backend") throw new Reject("`aux-codegen-backend` is not reproduced");
@@ -731,6 +759,7 @@ function buildAux(id: string, steps: AuxStep[], timeoutMs: number): string {
   cleanStaleAuxTmps(root);
   const dir = join(root, key);
   if (existsSync(join(dir, ".ok"))) return dir;
+  verifyOracleToolchain();
   const tmp = `${dir}.tmp-${process.pid}`;
   rmSync(tmp, { recursive: true, force: true });
   mkdirSync(tmp, { recursive: true });
@@ -795,11 +824,13 @@ export function uiCases(dirs: string[], format: ErrorFormat): { cases: UiCase[];
  * `aux-build`/`aux-crate`/`aux-bin` crates are cases too (their aux crates built by the oracle, see the
  * header, each build with `auxTimeoutMs`, the suite's oracle timeout) instead of being skipped, the
  * directives the blessed-output report needs are read, and `auxFiles` lists the cases' aux sources.
+ * With `run` (the run-mode suites of M6, lane harness-m6a), each case is the test's main compile as compiletest runs
+ * it, without `-Zparse-crate-root-only`, and carries its pass/fail `mode` and `run` props.
  */
 export function uiFileCases(
   files: string[],
   format: ErrorFormat,
-  opts: { aux?: boolean; auxTimeoutMs?: number },
+  opts: { aux?: boolean; auxTimeoutMs?: number; run?: boolean },
 ): { cases: UiCase[]; skipped: Skip[]; auxFiles: Map<string, string[]> } {
   if (opts.aux && opts.auxTimeoutMs === undefined) throw new Error("ERROR: uiFileCases: `aux` needs `auxTimeoutMs`");
   const auxFiles = new Map<string, string[]>();
@@ -845,7 +876,7 @@ export function uiFileCases(
           skipped.push({ id, reason: `needs an auxiliary crate (\`${aux}\`), which this harness does not build` });
           continue;
         }
-        const p = testProps(lines, rev, { extra: opts.aux });
+        const p = testProps(lines, rev, { extra: opts.aux, run: opts.run });
         let args = compileArgs(file, relDir, stem, rev, p, format, { linkAuxDir: opts.aux && hasAuxDir(p) ? AUX_DIR : undefined });
         if (opts.aux) {
           const steps: AuxStep[] = [];
@@ -856,8 +887,11 @@ export function uiFileCases(
             auxFiles.set(id, [...new Set(steps.map((s) => s.file))]);
           }
         }
-        args.push("-Zparse-crate-root-only");
-        cases.push({ id, file, args, env: compileEnv(p) });
+        if (opts.run) cases.push({ id, file, args, env: compileEnv(p), mode: p.passFailMode, run: p.run });
+        else {
+          args.push("-Zparse-crate-root-only");
+          cases.push({ id, file, args, env: compileEnv(p) });
+        }
       } catch (e) {
         if (!(e instanceof Reject)) throw e;
         skipped.push({ id, reason: e.message });

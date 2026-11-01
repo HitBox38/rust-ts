@@ -1,7 +1,7 @@
 // Port of compiler/rustc_const_eval/src/interpret/intrinsics/atomic.rs (declared by lane interp-contract, ported by lane
 // interp-intrinsics, plan-m4 wave 24). docs/handoff/interp-contract.md has the conventions.
 import { InterpCx } from "../eval_context.ts";
-import { type Machine } from "../machine.ts";
+import { type AnyMachine, type ProvOf, type Machine } from "../machine.ts";
 import { Immediate } from "../operand.ts";
 import { type AtomicRmwOp } from "../operator.gen.ts";
 import { type InterpResult, interp_ok, Scalar } from "../../../rustc_middle/mir/interpret/mod.ts";
@@ -16,9 +16,9 @@ import { OpTy } from "../operand.gen.ts";
 import { PlaceTy } from "../place.gen.ts";
 
 declare module "../eval_context.ts" {
-  interface InterpCx<M extends Machine = Machine> {
+  interface InterpCx<M extends AnyMachine = Machine> {
     // atomic.rs:15
-    eval_atomic_intrinsic(intrinsic_name: Symbol, generic_args: GenericArgsRef, args: readonly OpTy[], dest: PlaceTy, ret: BasicBlock | undefined): InterpResult<boolean>;
+    eval_atomic_intrinsic(intrinsic_name: Symbol, generic_args: GenericArgsRef, args: readonly OpTy<ProvOf<M>>[], dest: PlaceTy<ProvOf<M>>, ret: BasicBlock | undefined): InterpResult<boolean>;
   }
 }
 

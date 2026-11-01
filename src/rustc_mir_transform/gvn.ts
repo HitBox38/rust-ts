@@ -123,6 +123,7 @@ import type { DummyMachine } from "../rustc_const_eval/const_eval/dummy_machine.
 import type { InterpCx, OpTy } from "../rustc_const_eval/interpret/mod.ts";
 import { OpTy_from_ImmTy, OpTy_from_MPlaceTy } from "../rustc_const_eval/interpret/operand.ts";
 import { clone_MPlaceTy } from "../rustc_const_eval/interpret/place.gen.ts";
+import { clone_provenance } from "../rustc_middle/mir/interpret/mod.ts";
 import type { Dominators } from "../rustc_data_structures/graph/dominators/mod.ts";
 import { DefKind } from "../rustc_hir/def.ts";
 import { DenseBitSet } from "../rustc_index/bit_set.ts";
@@ -700,7 +701,7 @@ class VnState extends MutVisitor {
             variant_dest = InterpResult.discard_err(this.ecx.project_downcast(dest, variant));
             if (variant_dest === undefined) return undefined;
           } else {
-            variant_dest = clone_MPlaceTy(dest);
+            variant_dest = clone_MPlaceTy(dest, clone_provenance);
           }
           for (let field_index = 0; field_index < fields.length; field_index++) {
             const op = fields[field_index]!;

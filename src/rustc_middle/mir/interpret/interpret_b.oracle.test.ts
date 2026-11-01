@@ -36,6 +36,7 @@ import {
   interp_ok,
   lower_hex_Scalar,
   Pointer,
+  Provenance_AllocId,
   Pointer_from_AllocId,
   read_target_uint,
   Scalar,
@@ -87,17 +88,17 @@ const align = (bytes: number): Align => {
 };
 /** The errors of `PROGRAM`'s consts, in order; the `AllocId`s are the oracle's (its CTFE interns in this order). */
 const ERRORS: InterpErrorKind[] = [
-  ub({ $: "PointerOutOfBounds", alloc_id: id(3), alloc_size: Size.from_bytes(12), ptr_offset: 12, inbounds_size: 4, msg: MEM }),
-  ub({ $: "DanglingIntPointer", addr: 16, inbounds_size: 4, msg: MEM }),
-  ub({ $: "DanglingIntPointer", addr: 0, inbounds_size: 4, msg: MEM }),
+  ub({ $: "PointerOutOfBounds", alloc_id: id(3), alloc_size: Size.from_bytes(12), ptr_offset: 12n, inbounds_size: 4n, msg: MEM }),
+  ub({ $: "DanglingIntPointer", addr: 16n, inbounds_size: 4n, msg: MEM }),
+  ub({ $: "DanglingIntPointer", addr: 0n, inbounds_size: 4n, msg: MEM }),
   ub({ $: "Unreachable" }),
   { $: "Unsupported", _0: { $: "ReadPointerAsInt", _0: undefined } },
-  ub({ $: "PointerOutOfBounds", alloc_id: id(13), alloc_size: Size.from_bytes(8), ptr_offset: 0, inbounds_size: -4, msg: ARITH }),
+  ub({ $: "PointerOutOfBounds", alloc_id: id(13), alloc_size: Size.from_bytes(8), ptr_offset: 0n, inbounds_size: -4n, msg: ARITH }),
   ub({ $: "AlignmentCheckFailed", _0: { has: align(1), required: align(4) }, _1: "BasedOn" }),
-  ub({ $: "PointerOutOfBounds", alloc_id: id(19), alloc_size: Size.from_bytes(3), ptr_offset: 1, inbounds_size: -2, msg: ARITH }),
-  ub({ $: "PointerOutOfBounds", alloc_id: id(22), alloc_size: Size.from_bytes(12), ptr_offset: 8, inbounds_size: 8, msg: MEM }),
-  ub({ $: "PointerOutOfBounds", alloc_id: id(26), alloc_size: Size.from_bytes(1), ptr_offset: 1, inbounds_size: 1, msg: MEM }),
-  ub({ $: "DanglingIntPointer", addr: 8, inbounds_size: 4, msg: MEM }),
+  ub({ $: "PointerOutOfBounds", alloc_id: id(19), alloc_size: Size.from_bytes(3), ptr_offset: 1n, inbounds_size: -2n, msg: ARITH }),
+  ub({ $: "PointerOutOfBounds", alloc_id: id(22), alloc_size: Size.from_bytes(12), ptr_offset: 8n, inbounds_size: 8n, msg: MEM }),
+  ub({ $: "PointerOutOfBounds", alloc_id: id(26), alloc_size: Size.from_bytes(1), ptr_offset: 1n, inbounds_size: 1n, msg: MEM }),
+  ub({ $: "DanglingIntPointer", addr: 8n, inbounds_size: 4n, msg: MEM }),
 ];
 /** The oracle's messages (captured from the pinned rustc; re-checked live below). */
 const EXPECTED = [
@@ -146,7 +147,7 @@ test("Display of the other error kinds", () => {
     "pointer not dereferenceable: alloc4 has been freed, so this pointer is dangling",
   );
   expect(
-    display_InterpErrorKind(ub({ $: "DanglingIntPointer", addr: 16, inbounds_size: 0, msg: { $: "Dereferenceable", _0: "pointer" } })),
+    display_InterpErrorKind(ub({ $: "DanglingIntPointer", addr: 16n, inbounds_size: 0n, msg: { $: "Dereferenceable", _0: "pointer" } })),
   ).toBe("pointer not dereferenceable: pointer must point to some allocation, but got 0x10[noalloc] which is a dangling pointer (it has no provenance)");
   expect(display_InterpErrorKind(ub({ $: "InvalidTag", _0: { $: "Int", _0: ScalarInt.from_u8(7) } }))).toBe("enum value has invalid tag: 0x07");
   expect(display_InterpErrorKind({ $: "ResourceExhaustion", _0: "StackFrameLimitReached" })).toBe(
@@ -187,7 +188,7 @@ test("Pointer Debug / Display (`const {alloc1: &i32}` in -Zunpretty=mir)", () =>
   expect(debug_Pointer(Pointer.without_provenance<AllocId>(1n), PLAIN, () => "")).toBe("0x1[noalloc]");
   expect(p.into_pointer_or_addr()).toEqual(Ok(p));
   expect(Pointer.without_provenance<AllocId>(16n).into_pointer_or_addr()).toEqual(Err(Size.from_bytes(16)));
-  expect(() => Pointer.null<AllocId>().addr()).toThrow("Prov::OFFSET_IS_ADDR");
+  expect(() => Pointer.null<AllocId>().addr(Provenance_AllocId)).toThrow("Prov::OFFSET_IS_ADDR");
 });
 
 /** A `HasDataLayout` for 64-bit and 32-bit targets (only `pointer_size` / `pointer_offset` are read). */

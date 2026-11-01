@@ -17,6 +17,30 @@
     "rustc_sanitizers": "sanitizer instrumentation (later, if ever)",
     "rustc": "binary wrapper around rustc_driver"
   },
+  "miri": {
+    "comment": "Miri, ported like a compiler crate (plan-m6 D2): src/tools/miri/src/<path>.rs -> src/miri/<path>.ts, markers `// rustc: src/tools/miri/src/<path>:<line> <name>`, coverage crate `miri`. `excluded`: paths (files, or directories with everything under them) out of M6's scope, which stop with unported(...). `partial`: files of which only the listed fns are in scope.",
+    "root": "src/tools/miri/src",
+    "excluded": {
+      "concurrency/genmc": "GenMC model checker (plan-m6 D2)",
+      "shims/native_lib": "native-lib FFI (plan-m6 D2)",
+      "shims/windows": "Windows shims; the target is x86_64-unknown-linux-gnu (plan-m6 D2)",
+      "shims/unix/macos": "non-Linux unix shims (plan-m6 D2)",
+      "shims/unix/freebsd": "non-Linux unix shims (plan-m6 D2)",
+      "shims/unix/solarish": "non-Linux unix shims (plan-m6 D2)",
+      "shims/unix/android": "non-Linux unix shims (plan-m6 D2)",
+      "shims/unix/netbsd": "non-Linux unix shims (plan-m6 D2)",
+      "shims/unix/socket_address.rs": "sockets beyond the isolation error (plan-m6 D2, A3)",
+      "shims/unix/virtual_socket.rs": "sockets beyond the isolation error (plan-m6 D2, A3)",
+      "shims/unix/tcp_socket.rs": "sockets beyond the isolation error (plan-m6 D2, A3)",
+      "bin/log/tracing_chrome.rs": "Chrome trace output of MIRI_TRACING (plan-m6 D2)"
+    },
+    "partial": {
+      "shims/unix/socket.rs": {
+        "fns": ["socket"],
+        "reason": "plan-m6 A3: only the isolation-error path that run-pass cases reach (`socket`, socket.rs:172 `reject_in_isolation`); with isolation on no socket fd exists, so the other socket shims are unreachable"
+      }
+    }
+  },
   "vendor": {
     "object": "=0.39.1",
     "wasmparser": "=0.247.0",
@@ -69,6 +93,9 @@
     "gsgdt": "=0.1.2",
     "datafrog": "=2.0.1",
     "polonius-engine": "=0.13.0",
-    "twox-hash": "=2.1.2"
+    "twox-hash": "=2.1.2",
+    "rand": "=0.10.1",
+    "rand_core": "=0.10.1",
+    "chacha20": "=0.10.0"
   }
 }

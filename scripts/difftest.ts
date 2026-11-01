@@ -62,8 +62,9 @@ import type { Blessed } from "../harness/compiletest.ts";
 import { ORACLE_CACHE, PIN, REPO, RUNS, UPSTREAM, die, ensureDir, hash, nowId, parseArgs, pool, requireUpstream, run, type ProcResult } from "./lib/common.ts";
 import { caseDeps, type Dep } from "./lib/deps.ts";
 import { caseEnv } from "./lib/env.ts";
-import { UNSTABLE_ORACLE_PATTERNS, unstableOracleReason } from "./lib/unstable.ts";
+import { UNSTABLE_ORACLE_PATTERNS, unstableMiriOracleReason, unstableOracleReason } from "./lib/unstable.ts";
 import { upstreamChanges, upstreamError, upstreamStatus } from "./lib/upstream.ts";
+import { verifyMiriOracle } from "./lib/miri.ts";
 import { ORACLE_RETRY_FACTOR, rustcDriverHash, verifyOraclePin } from "./lib/oracle.ts";
 import { SPLITTERS, compareSections, splitHashes, type SplitHashes, type SplitOutput } from "./lib/split.ts";
 import { isRustcDevProbe } from "./probes.ts";
@@ -335,6 +336,9 @@ export function cachePath(s: Suite, c: Case, fileHash: string, deps: Dep[]): str
   return join(ensureDir(join(ORACLE_CACHE, key.slice(0, 2))), key);
 }
 
+/** The detector of unstable oracle stderr for a suite: Miri suites' (scripts/lib/unstable.ts) or everyone else's. */
+export const unstableReasonOf = (s: Suite): ((stderr: string) => string | undefined) => (s.miri ? unstableMiriOracleReason : unstableOracleReason);
+
 /** `Suite.unstable` as a map from case id to reason. */
 export function unstableOf(s: Suite): Map<string, string> {
   return new Map((s.unstable?.() ?? []).map((u) => [u.id, u.reason]));
@@ -353,7 +357,7 @@ async function runOracle(s: Suite, cases: Case[], usage?: Map<string, Usage>): P
     let cached = !listed.has(c.id) && existsSync(p) ? readCached(p) : undefined;
     if (cached && s.mode === "single") {
       // An entry written before its pattern was known: never reused, removed.
-      const why = unstableOracleReason(stderrOf(cached));
+      const why = unstableReasonOf(s)(stderrOf(cached));
       if (why) {
         rmSync(p, { force: true });
         cached = undefined;
@@ -407,7 +411,7 @@ async function runOracle(s: Suite, cases: Case[], usage?: Map<string, Usage>): P
         continue;
       }
       const o: Output = { text: render(r), code: r.code, timedOut: false };
-      const why = listed.get(c.id) ?? unstableOracleReason(r.stderr);
+      const why = listed.get(c.id) ?? unstableReasonOf(s)(r.stderr);
       if (why) o.unstable = why;
       out.set(c.id, o);
       if (!why) writeCached(paths.get(c.id)!, o);
@@ -691,7 +695,7 @@ export async function runSplit(s: Suite, c: Case, impl: string, stats: SubjectSt
   /** What the oracle side found: its usage if it ran, its split text if it ran and finished, why it is unstable. */
   const fresh: { usage?: Usage; out?: SplitOutput; unstable?: string; timedOut?: boolean } = {};
   let cached = !listed.has(c.id) && existsSync(p) ? readCachedAs<SplitOracle>(p, (o) => typeof o?.code === "number" && typeof o.stderr === "string" && Array.isArray(o.hashes?.sections)) : undefined;
-  if (cached && unstableOracleReason(cached.stderr)) {
+  if (cached && unstableReasonOf(s)(cached.stderr)) {
     // An entry written before its pattern was known: never reused, removed (as in `runOracle`).
     rmSync(p, { force: true });
     cached = undefined;
@@ -706,7 +710,7 @@ export async function runSplit(s: Suite, c: Case, impl: string, stats: SubjectSt
     }
     fresh.out = splitter(r.stdout);
     const o: SplitOracle = { code: r.code, stderr: r.stderr, hashes: splitHashes(fresh.out) };
-    fresh.unstable = listed.get(c.id) ?? unstableOracleReason(r.stderr);
+    fresh.unstable = listed.get(c.id) ?? unstableReasonOf(s)(r.stderr);
     if (!fresh.unstable) writeCached(p, o);
     return o;
   };
@@ -823,6 +827,30 @@ export interface RunOptions {
   report?: string;
 }
 
+/**
+ * A suite's milestone-completion criterion over this run (`Suite.criterion`; plan-m6 A9): MATCH over every case but
+ * the ORACLE_TIMEOUT ones. Report only: it is never a status and never fails a run or the gate (the protected set
+ * still only grows); on a `--sample` / `--filter` run it describes that subset only.
+ */
+export interface CriterionResult {
+  match: number;
+  /** Cases minus ORACLE_TIMEOUT. */
+  of: number;
+  oracleTimeouts: number;
+  /** MATCH / `of`, in percent (0 when `of` is 0). */
+  percent: number;
+  /** The criterion's percent. */
+  target: number;
+  met: boolean;
+  what: string;
+}
+
+export function criterionOf(c: NonNullable<Suite["criterion"]>, counts: Record<Status, number>, total: number): CriterionResult {
+  const of = total - counts.ORACLE_TIMEOUT;
+  const percent = of ? (100 * counts.MATCH) / of : 0;
+  return { match: counts.MATCH, of, oracleTimeouts: counts.ORACLE_TIMEOUT, percent: Math.round(percent * 100) / 100, target: c.percent, met: of > 0 && percent >= c.percent, what: c.what };
+}
+
 export async function difftest(
   opts: RunOptions,
 ): Promise<{
@@ -844,12 +872,16 @@ export async function difftest(
   heavy?: HeavyRun[];
   /** Split suites: each run's oracle re-run (see the header), if it had one. */
   oracleReruns?: OracleRerun[];
+  /** Suites with `Suite.criterion`: the MATCH share it is measured on (report only). */
+  criterion?: CriterionResult;
 }> {
   requireUpstream();
   await verifyOraclePin();
   const upstreamBefore = upstreamStatus(UPSTREAM);
   if (upstreamBefore.length) console.log(upstreamError("the upstream checkout is not clean before the run", upstreamBefore, UPSTREAM));
   const s = getSuite(opts.suite);
+  // The Miri oracle's isolated toolchain and sysroot (scripts/lib/miri.ts), before any case is made or run.
+  if (s.miri) verifyMiriOracle();
   let cases = s.cases();
   const listedUnstable = unstableOf(s);
   if (!opts.filter && !opts.sample) {
@@ -1040,8 +1072,11 @@ export async function difftest(
     ...(split ? { extra: extra.length, oracleReruns } : {}),
     ...(s.heavy ? { heavy: heavyRuns } : {}),
   };
+  const criterion = s.criterion ? criterionOf(s.criterion, counts, results.length) : undefined;
+  if (criterion) Object.assign(summary, { criterion });
   writeFileSync(join(dir, `${s.name}.summary.json`), JSON.stringify(summary, null, 2));
   return {
+    ...(criterion ? { criterion } : {}),
     results,
     dir,
     counts,
@@ -1065,7 +1100,7 @@ if (import.meta.main) {
     process.exit(0);
   }
   const num = (k: string) => (typeof a[k] === "string" ? Number(a[k]) : undefined);
-  const { dir, counts, results, stats, skipped, oracleTimeoutSubjects: ots, subsets, blessed, extra, heavy, oracleReruns } = await difftest({
+  const { dir, counts, results, stats, skipped, oracleTimeoutSubjects: ots, subsets, blessed, extra, heavy, oracleReruns, criterion } = await difftest({
     suite: String(a.suite),
     sample: num("sample"),
     seed: typeof a.seed === "string" ? a.seed : undefined,
@@ -1080,6 +1115,11 @@ if (import.meta.main) {
   console.log(`suite=${a.suite} total=${results.length} ${STATUSES.map((s) => `${s}=${counts[s]}`).join(" ")} match%=${pct}${skipped !== undefined ? ` skipped=${skipped}` : ""}`);
   for (const [name, sc] of Object.entries(subsets ?? {})) {
     console.log(`subset ${name}: total=${sc.total} ${STATUSES.map((st) => `${st}=${sc[st]}`).join(" ")} match%=${sc.total ? ((100 * sc.MATCH) / sc.total).toFixed(2) : "0"}`);
+  }
+  if (criterion) {
+    console.log(
+      `criterion (report only): MATCH ${criterion.match}/${criterion.of} = ${criterion.percent}% (ORACLE_TIMEOUT excluded: ${criterion.oracleTimeouts}) vs >= ${criterion.target}%: ${criterion.met ? "met" : "not met"} (${criterion.what})${a.sample || a.filter ? " [sample/filter run]" : ""}`,
+    );
   }
   if (blessed) console.log(`blessed (report only): ${BLESSED_STATUSES.map((st) => `${st}=${blessed[st]}`).join(" ")} (per case: ${a.suite}.blessed.jsonl)`);
   if (stats.batchOnlyFailures || stats.batchOnlyTimeouts) {

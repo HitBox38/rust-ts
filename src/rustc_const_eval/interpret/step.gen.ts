@@ -2,6 +2,7 @@
 // Hand-written additions (methods, manual Debug impls) go in step.ts next to this file.
 import { type FnArg } from "./call.gen.ts";
 import { type FnVal } from "./memory.gen.ts";
+import { type CtfeProvenance } from "../../rustc_middle/mir/interpret/mod.ts";
 import { type FnAbi } from "../../rustc_middle/ty/decls.ts";
 import { type Ty } from "../../rustc_middle/ty/mod.ts";
 import { type FnSig } from "../../rustc_type_ir/ty_kind.ts";
@@ -9,7 +10,7 @@ import { type FnSig } from "../../rustc_type_ir/ty_kind.ts";
 // rustc-type: compiler/rustc_const_eval/src/interpret/step.rs:24 EvaluatedCalleeAndArgs
 export interface EvaluatedCalleeAndArgs<M> {
   callee: FnVal<never>;
-  args: FnArg[];
+  args: FnArg<CtfeProvenance>[];
   fn_sig: FnSig;
   /// None if LLVM intrinsic
   fn_abi: FnAbi<Ty> | undefined;

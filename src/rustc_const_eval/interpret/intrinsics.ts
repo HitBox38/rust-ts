@@ -19,7 +19,7 @@ import { TyAndLayout_eq } from "../../rustc_abi/layout/ty.ts";
 import { Hash128 } from "../../rustc_hashes/lib.ts";
 import { InterpCx } from "./eval_context.ts";
 import { MinMax, MulAddType, VarArgCompatible } from "./intrinsics.gen.ts";
-import { type Machine } from "./machine.ts";
+import { type AnyMachine, type ProvOf, type Machine } from "./machine.ts";
 import { MemoryKind } from "./memory.gen.ts";
 import { type Projectable } from "./projection.ts";
 import { PlaceTy_from_MPlaceTy, type Writeable } from "./place.ts";
@@ -75,57 +75,57 @@ interface AnyProjectable extends Projectable<AnyProjectable> {}
 interface AnyWriteable extends Writeable<AnyWriteable> {}
 
 declare module "./eval_context.ts" {
-  interface InterpCx<M extends Machine = Machine> {
+  interface InterpCx<M extends AnyMachine = Machine> {
     // intrinsics.rs:87
-    write_type_id(ty: Ty, dest: Writeable): InterpResult<undefined>;
+    write_type_id(ty: Ty, dest: Writeable<unknown, ProvOf<M>>): InterpResult<undefined>;
     // intrinsics.rs:124
-    read_type_id(op: OpTy): InterpResult<Ty>;
+    read_type_id(op: OpTy<ProvOf<M>>): InterpResult<Ty>;
     // intrinsics.rs:172
-    eval_intrinsic(instance: Instance, args: readonly OpTy[], dest: PlaceTy, ret: BasicBlock | undefined): InterpResult<boolean>;
+    eval_intrinsic(instance: Instance, args: readonly OpTy<ProvOf<M>>[], dest: PlaceTy<ProvOf<M>>, ret: BasicBlock | undefined): InterpResult<boolean>;
     // intrinsics.rs:820
-    validate_c_variadic_argument(arg_mplace: MPlaceTy, callee_type: TyAndLayout): InterpResult;
+    validate_c_variadic_argument(arg_mplace: MPlaceTy<ProvOf<M>>, callee_type: TyAndLayout): InterpResult;
     // intrinsics.rs:868
     validate_c_variadic_compatible_ty(caller_type: Ty, callee_type: Ty): InterpResult<VarArgCompatible>;
     // intrinsics.rs:945
     eval_nondiverging_intrinsic(intrinsic: NonDivergingIntrinsic): InterpResult;
     // intrinsics.rs:971
-    numeric_intrinsic(name: Symbol, val: Scalar, layout: TyAndLayout, ret_layout: TyAndLayout): InterpResult<Scalar>;
+    numeric_intrinsic(name: Symbol, val: Scalar<ProvOf<M>>, layout: TyAndLayout, ret_layout: TyAndLayout): InterpResult<Scalar<ProvOf<M>>>;
     // intrinsics.rs:1001
-    exact_div(a: ImmTy, b: ImmTy, dest: PlaceTy): InterpResult;
+    exact_div(a: ImmTy<ProvOf<M>>, b: ImmTy<ProvOf<M>>, dest: PlaceTy<ProvOf<M>>): InterpResult;
     // intrinsics.rs:1023
-    saturating_arith(mir_op: BinOp, l: ImmTy, r: ImmTy): InterpResult<Scalar>;
+    saturating_arith(mir_op: BinOp, l: ImmTy<ProvOf<M>>, r: ImmTy<ProvOf<M>>): InterpResult<Scalar<ProvOf<M>>>;
     // intrinsics.rs:1069
-    ptr_offset_inbounds(ptr: Pointer<CtfeProvenance | undefined>, offset_bytes: bigint): InterpResult<Pointer<CtfeProvenance | undefined>>;
+    ptr_offset_inbounds(ptr: Pointer<ProvOf<M> | undefined>, offset_bytes: bigint): InterpResult<Pointer<ProvOf<M> | undefined>>;
     // intrinsics.rs:1085
-    copy_intrinsic(src: OpTy, dst: OpTy, count: OpTy, nonoverlapping: boolean): InterpResult;
+    copy_intrinsic(src: OpTy<ProvOf<M>>, dst: OpTy<ProvOf<M>>, count: OpTy<ProvOf<M>>, nonoverlapping: boolean): InterpResult;
     // intrinsics.rs:1113
-    typed_swap_nonoverlapping_intrinsic(left: OpTy, right: OpTy): InterpResult;
+    typed_swap_nonoverlapping_intrinsic(left: OpTy<ProvOf<M>>, right: OpTy<ProvOf<M>>): InterpResult;
     // intrinsics.rs:1146
-    write_bytes_intrinsic(dst: OpTy, byte: OpTy, count: OpTy, name: string): InterpResult;
+    write_bytes_intrinsic(dst: OpTy<ProvOf<M>>, byte: OpTy<ProvOf<M>>, count: OpTy<ProvOf<M>>, name: string): InterpResult;
     // intrinsics.rs:1169
-    compare_bytes_intrinsic(left: OpTy, right: OpTy, byte_count: OpTy): InterpResult<Scalar>;
+    compare_bytes_intrinsic(left: OpTy<ProvOf<M>>, right: OpTy<ProvOf<M>>, byte_count: OpTy<ProvOf<M>>): InterpResult<Scalar<ProvOf<M>>>;
     // intrinsics.rs:1187
-    raw_eq_intrinsic(lhs: OpTy, rhs: OpTy): InterpResult<Scalar>;
+    raw_eq_intrinsic(lhs: OpTy<ProvOf<M>>, rhs: OpTy<ProvOf<M>>): InterpResult<Scalar<ProvOf<M>>>;
     // intrinsics.rs:1212
-    unop_float_intrinsic<F extends Float<F>>(name: Symbol, arg: ImmTy, F_: FloatType<F>): InterpResult<Scalar>;
+    unop_float_intrinsic<F extends Float<F>>(name: Symbol, arg: ImmTy<ProvOf<M>>, F_: FloatType<F>): InterpResult<Scalar<ProvOf<M>>>;
     // intrinsics.rs:1228
-    float_minmax<F extends Float<F>>(a: Scalar, b: Scalar, op: MinMax, F_: FloatType<F>): InterpResult<Scalar>;
+    float_minmax<F extends Float<F>>(a: Scalar<ProvOf<M>>, b: Scalar<ProvOf<M>>, op: MinMax, F_: FloatType<F>): InterpResult<Scalar<ProvOf<M>>>;
     // intrinsics.rs:1256
-    float_minmax_intrinsic<F extends Float<F>>(args: readonly OpTy[], op: MinMax, dest: PlaceTy, F_: FloatType<F>): InterpResult<undefined>;
+    float_minmax_intrinsic<F extends Float<F>>(args: readonly OpTy<ProvOf<M>>[], op: MinMax, dest: PlaceTy<ProvOf<M>>, F_: FloatType<F>): InterpResult<undefined>;
     // intrinsics.rs:1271
-    float_copysign_intrinsic<F extends Float<F>>(args: readonly OpTy[], dest: PlaceTy, F_: FloatType<F>): InterpResult<undefined>;
+    float_copysign_intrinsic<F extends Float<F>>(args: readonly OpTy<ProvOf<M>>[], dest: PlaceTy<ProvOf<M>>, F_: FloatType<F>): InterpResult<undefined>;
     // intrinsics.rs:1286
-    float_round<F extends Float<F>>(x: Scalar, mode: Round, F_: FloatType<F>): InterpResult<Scalar>;
+    float_round<F extends Float<F>>(x: Scalar<ProvOf<M>>, mode: Round, F_: FloatType<F>): InterpResult<Scalar<ProvOf<M>>>;
     // intrinsics.rs:1300
-    float_round_intrinsic<F extends Float<F>>(args: readonly OpTy[], dest: PlaceTy, mode: Round, F_: FloatType<F>): InterpResult<undefined>;
+    float_round_intrinsic<F extends Float<F>>(args: readonly OpTy<ProvOf<M>>[], dest: PlaceTy<ProvOf<M>>, mode: Round, F_: FloatType<F>): InterpResult<undefined>;
     // intrinsics.rs:1314
-    float_muladd<F extends Float<F>>(a: Scalar, b: Scalar, c: Scalar, typ: MulAddType, F_: FloatType<F>): InterpResult<Scalar>;
+    float_muladd<F extends Float<F>>(a: Scalar<ProvOf<M>>, b: Scalar<ProvOf<M>>, c: Scalar<ProvOf<M>>, typ: MulAddType, F_: FloatType<F>): InterpResult<Scalar<ProvOf<M>>>;
     // intrinsics.rs:1335
-    float_muladd_intrinsic<F extends Float<F>>(args: readonly OpTy[], dest: PlaceTy, typ: MulAddType, F_: FloatType<F>): InterpResult<undefined>;
+    float_muladd_intrinsic<F extends Float<F>>(args: readonly OpTy<ProvOf<M>>[], dest: PlaceTy<ProvOf<M>>, typ: MulAddType, F_: FloatType<F>): InterpResult<undefined>;
     // intrinsics.rs:1356
-    float_to_int_checked(src: ImmTy, cast_to: TyAndLayout, round: Round): InterpResult<ImmTy | undefined>;
+    float_to_int_checked(src: ImmTy<ProvOf<M>>, cast_to: TyAndLayout, round: Round): InterpResult<ImmTy<ProvOf<M>> | undefined>;
     // intrinsics.rs:1416
-    va_list_key_field<P extends Projectable<P>>(va_list: P): InterpResult<P>;
+    va_list_key_field<P extends Projectable<P, ProvOf<M>>>(va_list: P): InterpResult<P>;
   }
 }
 
@@ -565,8 +565,9 @@ InterpCx.prototype.eval_intrinsic = function (this: InterpCx, instance: Instance
 
       const pl = this.layout_of(pointee_ty);
       if (pl.$ === "Err") return Err(InterpErrorInfo_from_InterpErrorKind(pl._0));
-      // `i64::try_from(size.bytes()).unwrap()`: a `Size` (< 2^53) always fits an `i64`.
+      // `i64::try_from(..size.bytes()).unwrap()`
       const pointee_size = pl._0.size.bytes_u64();
+      if (pointee_size > I64_MAX) return panic("called `Result::unwrap()` on an `Err` value: TryFromIntError(())");
       const offset_bytes = BigInt.asIntN(64, offset_count._0 * pointee_size);
       const offset_ptr = ptr._0.wrapping_signed_offset(offset_bytes, this);
       const w = this.write_pointer(offset_ptr, dest);
@@ -595,9 +596,9 @@ InterpCx.prototype.eval_intrinsic = function (this: InterpCx, instance: Instance
       let a_offset: bigint;
       let b_offset: bigint;
       let is_addr: boolean;
-      // PORT: `M::Provenance::OFFSET_IS_ADDR` is `CtfeProvenance`'s (false; place.ts precedent), so the `if` arm is not
-      // taken: `(a.addr().bytes(), b.addr().bytes(), /*is_addr*/ true)`.
-      {
+      if (this.machine.Provenance.OFFSET_IS_ADDR) {
+        [a_offset, b_offset, is_addr] = [a.addr(this.machine.Provenance).bytes_u64(), b.addr(this.machine.Provenance).bytes_u64(), /*is_addr*/ true];
+      } else {
         const ra = this.ptr_try_get_alloc_id(a, 0n);
         const rb = this.ptr_try_get_alloc_id(b, 0n);
         if (ra.$ === "Err" && rb.$ === "Err") {
@@ -1751,6 +1752,7 @@ function bytes_cmp(a: Uint8Array, b: Uint8Array): -1 | 0 | 1 {
 }
 
 const U128_MASK = (1n << 128n) - 1n;
+const I64_MAX = (1n << 63n) - 1n;
 /** `u128 << n` (n < 128). */
 function u128_shl(v: bigint, n: bigint): bigint {
   return (v << n) & U128_MASK;

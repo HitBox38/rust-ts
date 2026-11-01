@@ -11,9 +11,9 @@
 //! In const context, this goes even further and tries to approximate const safety.
 //! That's useful because it means other passes (e.g. promotion) can rely on `const`s
 //! to be const-safe.
-import { type Align, BackendRepr, type FieldsShape, Size, type VariantIdx, VariantIdx as VariantIdxC, type WrappingRange } from "../../rustc_abi/lib.ts";
+import { type Align, BackendRepr, type FieldsShape, Size, Size_cmp, Size_eq, type VariantIdx, VariantIdx as VariantIdxC, type WrappingRange } from "../../rustc_abi/lib.ts";
 import { InterpCx } from "./eval_context.ts";
-import { type Machine } from "./machine.ts";
+import { type AnyMachine, type ProvOf, type Machine } from "./machine.ts";
 import { key_MPlaceTy, MemPlaceMeta, PlaceTy_from_MPlaceTy } from "./place.ts";
 import { type ExpectedKind, Path, PathElem, PtrKind, type RangeSet } from "./validity.gen.ts";
 import {
@@ -27,7 +27,6 @@ import {
   lower_hex_Scalar,
   Pointer,
   PointerArithmetic_provided,
-  Provenance_CtfeProvenance,
   Scalar,
   display_Pointer_Option,
   type AllocId,
@@ -61,13 +60,13 @@ declare module "./validity.gen.ts" {
 }
 
 declare module "./eval_context.ts" {
-  interface InterpCx<M extends Machine = Machine> {
+  interface InterpCx<M extends AnyMachine = Machine> {
     // validity.rs:1597
-    validate_place_internal(val: PlaceTy, path: Path, ref_tracking: RefTracking<MPlaceTy, Path> | undefined, ctfe_mode: CtfeValidationMode | undefined, reset_provenance_and_padding: boolean, start_in_may_dangle: boolean): InterpResult;
+    validate_place_internal(val: PlaceTy<ProvOf<M>>, path: Path, ref_tracking: RefTracking<MPlaceTy<ProvOf<M>>, Path> | undefined, ctfe_mode: CtfeValidationMode | undefined, reset_provenance_and_padding: boolean, start_in_may_dangle: boolean): InterpResult;
     // validity.rs:1654
-    const_validate_place(val: PlaceTy, path: Path, ref_tracking: RefTracking<MPlaceTy, Path>, ctfe_mode: CtfeValidationMode): InterpResult;
+    const_validate_place(val: PlaceTy<ProvOf<M>>, path: Path, ref_tracking: RefTracking<MPlaceTy<ProvOf<M>>, Path>, ctfe_mode: CtfeValidationMode): InterpResult;
     // validity.rs:1675
-    validate_place(val: PlaceTy, recursive: boolean, reset_provenance_and_padding: boolean): InterpResult;
+    validate_place(val: PlaceTy<ProvOf<M>>, recursive: boolean, reset_provenance_and_padding: boolean): InterpResult;
   }
 }
 
@@ -151,17 +150,12 @@ function try_validation<T>(e: InterpResult<T>, where_: Path, arms: (e: InterpErr
  * same as rustc_abi layout/ty.ts's, which is not exported): `RangeSet::new()` is `new_RangeSet()`. */
 const SIZE_RANGE_SET_OPS: RangeSetOps<Size> = {
   default_: () => Size.ZERO,
-  cmp: (a, b) => (a.bytes() < b.bytes() ? -1 : a.bytes() > b.bytes() ? 1 : 0),
+  cmp: Size_cmp,
   add: (a, b) => a.add(b),
   sub: (a, b) => a.sub(b),
 };
 function new_RangeSet(): RangeSet {
   return ds_RangeSet.new(SIZE_RANGE_SET_OPS);
-}
-
-/** `Size == Size` (derived `PartialEq`: the byte count). */
-function size_eq(a: Size, b: Size): boolean {
-  return a.bytes() === b.bytes();
 }
 
 /// State for tracking recursive validation of references
@@ -207,7 +201,7 @@ export class RefTracking<T, PATH = null> {
 // rustc-type: compiler/rustc_const_eval/src/interpret/validity.rs:348 ValidityVisitor
 // PORT: `impl ValueVisitor for ValidityVisitor` (`type V = PlaceTy`) is in the class body (base class
 // `ValueVisitor_provided`); `ref_tracking: Option<&'rt mut RefTracking<..>>` is the shared object.
-export class ValidityVisitor<M extends Machine = Machine> extends ValueVisitor_provided<PlaceTy> {
+export class ValidityVisitor<M extends AnyMachine = Machine> extends ValueVisitor_provided<PlaceTy> {
   constructor(
     /// The `path` may be pushed to, but the part that is present when a function
     /// starts must not be changed!  `with_elem` relies on this stack discipline.
@@ -491,12 +485,12 @@ export class ValidityVisitor<M extends Machine = Machine> extends ValueVisitor_p
         (e) => {
           if (e.$ !== "UndefinedBehavior") return undefined;
           const ub = e._0;
-          if (ub.$ === "DanglingIntPointer" && ub.addr === 0) {
+          if (ub.$ === "DanglingIntPointer" && ub.addr === 0n) {
             return `encountered a null ${display_PtrKind(ptr_kind, PLAIN)}`;
           }
           if (ub.$ === "DanglingIntPointer") {
             const i = ub.addr;
-            const ptr = Pointer.without_provenance<AllocId>(BigInt(i));
+            const ptr = Pointer.without_provenance<AllocId>(i);
             return `encountered a dangling ${display_PtrKind(ptr_kind, PLAIN)} (${display_Pointer_Option(ptr, PLAIN)} has no provenance)`;
           }
           if (ub.$ === "PointerOutOfBounds") {
@@ -545,14 +539,14 @@ export class ValidityVisitor<M extends Machine = Machine> extends ValueVisitor_p
       if (int_r.$ === "Ok") {
         // Try to compute the end address. Cannot use `Size` addition as that also applies
         // the "max obj size" bound.
-        // PORT: `Size::from_bytes(x).bytes()` is the identity on a `u64`: kept as the `bigint` (a `Size` past 2^53
-        // would be unported, recorded decision), and `checked_add` on `u64` is the sum checked against `u64::MAX`.
+        // PORT: `Size::from_bytes(x).bytes()` is the identity on a `u64`: kept as the `bigint` (`bytes()` stops on a
+        // `Size` past 2^53; `bytes_u64()` is exact), and `checked_add` on `u64` is the sum checked against `u64::MAX`.
         const addr = int_r._0.to_target_usize(this.ecx.tcx.deref());
         const result = addr + size.bytes_u64();
         if (result > U64_MAX || result >= PointerArithmetic_provided.target_usize_max(this.ecx)) {
           return throw_validation_failure(
             this.path,
-            `encountered a ${display_PtrKind(ptr_kind, PLAIN)} that is too close to the end of the address space for a pointee of ${size.bytes()} bytes`,
+            `encountered a ${display_PtrKind(ptr_kind, PLAIN)} that is too close to the end of the address space for a pointee of ${size.bytes_u64()} bytes`,
           );
         }
       }
@@ -577,7 +571,7 @@ export class ValidityVisitor<M extends Machine = Machine> extends ValueVisitor_p
     const null_r = this.ecx.scalar_may_be_null(scalar);
     if (null_r.$ === "Err") return null_r;
     if (null_r._0) {
-      const maybe = !Provenance_CtfeProvenance.OFFSET_IS_ADDR && scalar.$ === "Ptr";
+      const maybe = !this.ecx.machine.Provenance.OFFSET_IS_ADDR && scalar.$ === "Ptr";
       return throw_validation_failure(
         this.path,
         `encountered a ${maybe ? "maybe-" : ""}null ${display_PtrKind(ptr_kind, PLAIN)}`,
@@ -686,7 +680,7 @@ export class ValidityVisitor<M extends Machine = Machine> extends ValueVisitor_p
           }
 
           // If this allocation has size zero, there is no actual mutability here.
-          if (!size_eq(size, Size.ZERO)) {
+          if (!Size_eq(size, Size.ZERO)) {
             // Determine whether this pointer expects to be pointing to something mutable.
             const ptr_expected_mutbl =
               ptr_kind.$ === "Box"
@@ -845,7 +839,7 @@ export class ValidityVisitor<M extends Machine = Machine> extends ValueVisitor_p
           const null_r = this.ecx.scalar_may_be_null(scalar);
           if (null_r.$ === "Err") return null_r;
           if (null_r._0) {
-            const maybe = !Provenance_CtfeProvenance.OFFSET_IS_ADDR && scalar.$ === "Ptr";
+            const maybe = !this.ecx.machine.Provenance.OFFSET_IS_ADDR && scalar.$ === "Ptr";
             return throw_validation_failure(
               this.path,
               `encountered a ${maybe ? "maybe-" : ""}null function pointer`,
@@ -956,7 +950,7 @@ export class ValidityVisitor<M extends Machine = Machine> extends ValueVisitor_p
     if (e.$ === "Left") {
       const mplace = e._0;
       const p = mplace.ptr().provenance;
-      const alloc_id = p !== undefined ? Provenance_CtfeProvenance.get_alloc_id(p) : undefined;
+      const alloc_id = p !== undefined ? this.ecx.machine.Provenance.get_alloc_id(p) : undefined;
       if (alloc_id !== undefined) {
         const tcx = this.ecx.tcx.deref();
         // Everything must be already interned.
@@ -1032,8 +1026,8 @@ export class ValidityVisitor<M extends Machine = Machine> extends ValueVisitor_p
     // a single data range covering the entire value.
     if (
       data_bytes._0.length === 1 &&
-      size_eq(data_bytes._0[0]![0], start_offset) &&
-      size_eq(data_bytes._0[0]![1], size)
+      Size_eq(data_bytes._0[0]![0], start_offset) &&
+      Size_eq(data_bytes._0[0]![1], size)
     ) {
       return interp_ok(undefined);
     }
@@ -1067,7 +1061,7 @@ export class ValidityVisitor<M extends Machine = Machine> extends ValueVisitor_p
       }
       padding_cleared_until = offset.add(size);
     }
-    assert(size_eq(padding_cleared_until, start_offset.add(size)), "assertion failed: padding_cleared_until == start_offset + size");
+    assert(Size_eq(padding_cleared_until, start_offset.add(size)), "assertion failed: padding_cleared_until == start_offset + size");
     return interp_ok(undefined);
   }
 
@@ -1329,7 +1323,7 @@ export class ValidityVisitor<M extends Machine = Machine> extends ValueVisitor_p
       const size = layout.size.mul(len);
       // If the size is 0, there is nothing to check.
       // (`size` can only be 0 if `len` is 0, and empty arrays are always valid.)
-      if (size_eq(size, Size.ZERO)) {
+      if (Size_eq(size, Size.ZERO)) {
         return interp_ok(undefined);
       }
       // Now that we definitely have a non-ZST array, we know it lives in memory -- except it may

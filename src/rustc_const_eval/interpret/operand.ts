@@ -6,7 +6,7 @@
 import { BackendRepr, type HasDataLayout, Primitive, Scalar as abi_Scalar, Size, debug_BackendRepr, debug_Size } from "../../rustc_abi/lib.ts";
 import { Namespace } from "../../rustc_hir/def.ts";
 import { InterpCx, from_known_layout } from "./eval_context.ts";
-import { type Machine } from "./machine.ts";
+import { type AnyMachine, type ProvOf, type MachineTypesOf, type Machine } from "./machine.ts";
 import { ImmTy, OpTy, type Operand, debug_Immediate, debug_Operand } from "./operand.gen.ts";
 import { MemPlaceMeta } from "./place.ts";
 import { OffsetMode, type Projectable } from "./projection.ts";
@@ -26,6 +26,7 @@ import {
   CtfeProvenance_from_AllocId,
   Pointer_Option_from_Pointer,
   Scalar_from_ScalarInt,
+  debug_provenance,
 } from "../../rustc_middle/mir/interpret/mod.ts";
 import { fold_Const } from "../../rustc_middle/mir/consts.ts";
 import { type ConstValue, type Either, type Local, type Operand as mir_Operand, type Place as mir_Place } from "../../rustc_middle/mir/mod.ts";
@@ -38,7 +39,7 @@ import { FmtPrinter, display_Ty } from "../../rustc_middle/ty/print/pretty.ts";
 import { type PrintResult } from "../../rustc_middle/ty/print/mod.ts";
 import { DUMMY_SP } from "../../rustc_span/lib.ts";
 import { bug, span_bug } from "../../rustc_span/macros.ts";
-import { type Fmt, PLAIN, PRETTY, debug_struct } from "../../std/fmt.ts";
+import { type Debug, type Fmt, PLAIN, PRETTY, debug_struct } from "../../std/fmt.ts";
 import { type MutRef } from "../../std/mut_ref.ts";
 import { Panic, assert, assert_eq, assert_matches, panic, unwrap } from "../../std/panic.ts";
 import { Err, unwrap_result } from "../../std/result.ts";
@@ -66,25 +67,25 @@ const debug_size = (v: Size): string => debug_Size(v, PLAIN);
 const debug_u64 = (v: number): string => String(v);
 
 declare module "./operand.gen.ts" {
-  interface ImmTy {
+  interface ImmTy<Prov = CtfeProvenance> {
     // operand.rs:252 (lane interp-place-operand)
-    deref(): Immediate;
+    deref(): Immediate<Prov>;
     // operand.rs:342 (lane interp-place-operand)
     to_scalar_int(): InterpResult<ScalarInt>;
     // operand.rs:349 (lane interp-place-operand)
     to_const_int(): ConstInt;
     // operand.rs:358 (lane interp-place-operand)
-    to_pair(cx: HasTyCtxt & HasTypingEnv): [ImmTy, ImmTy];
+    to_pair(cx: HasTyCtxt & HasTypingEnv): [ImmTy<Prov>, ImmTy<Prov>];
     // operand.rs:370 (lane interp-place-operand)
-    offset_(offset: Size, layout: TyAndLayout, cx: HasDataLayout): ImmTy;
+    offset_(offset: Size, layout: TyAndLayout, cx: HasDataLayout): ImmTy<Prov>;
     // operand.rs:445 (lane interp-place-operand)
     layout_(): TyAndLayout;
     // operand.rs:450 (lane interp-place-operand)
-    meta(): MemPlaceMeta;
+    meta(): MemPlaceMeta<Prov>;
     // operand.rs:455 (lane interp-place-operand)
-    offset_with_meta(offset: Size, _mode: OffsetMode, meta: MemPlaceMeta, layout: TyAndLayout, ecx: InterpCx): InterpResult<ImmTy>;
+    offset_with_meta(offset: Size, _mode: OffsetMode, meta: MemPlaceMeta<Prov>, layout: TyAndLayout, ecx: InterpCx<AnyMachine>): InterpResult<ImmTy<Prov>>;
     // operand.rs:468 (lane interp-place-operand)
-    to_op(_ecx: InterpCx): InterpResult<OpTy>;
+    to_op(_ecx: InterpCx<AnyMachine>): InterpResult<OpTy<Prov>>;
   }
 }
 
@@ -114,52 +115,52 @@ declare module "./operand.gen.ts" {
 }
 
 declare module "./operand.gen.ts" {
-  interface OpTy {
+  interface OpTy<Prov = CtfeProvenance> {
     // operand.rs:517 (lane interp-place-operand)
-    op_(): Operand;
+    op_(): Operand<Prov>;
     // operand.rs:521 (lane interp-place-operand)
     is_immediate_uninit(): boolean;
     // operand.rs:528 (lane interp-place-operand)
     layout_(): TyAndLayout;
     // operand.rs:533 (lane interp-place-operand)
-    meta(): MemPlaceMeta;
+    meta(): MemPlaceMeta<Prov>;
     // operand.rs:543 (lane interp-place-operand)
-    offset_with_meta(offset: Size, mode: OffsetMode, meta: MemPlaceMeta, layout: TyAndLayout, ecx: InterpCx): InterpResult<OpTy>;
+    offset_with_meta(offset: Size, mode: OffsetMode, meta: MemPlaceMeta<Prov>, layout: TyAndLayout, ecx: InterpCx<AnyMachine>): InterpResult<OpTy<Prov>>;
     // operand.rs:564 (lane interp-place-operand)
-    to_op(_ecx: InterpCx): InterpResult<OpTy>;
+    to_op(_ecx: InterpCx<AnyMachine>): InterpResult<OpTy<Prov>>;
   }
 }
 
 declare module "./eval_context.ts" {
-  interface InterpCx<M extends Machine = Machine> {
+  interface InterpCx<M extends AnyMachine = Machine> {
     // operand.rs:577 (lane interp-place-operand)
-    read_immediate_from_mplace_raw(mplace: MPlaceTy): InterpResult<ImmTy | undefined>;
+    read_immediate_from_mplace_raw(mplace: MPlaceTy<ProvOf<M>>): InterpResult<ImmTy<ProvOf<M>> | undefined>;
     // operand.rs:642 (lane interp-place-operand)
-    read_immediate_raw(src: Projectable): InterpResult<Either<MPlaceTy, ImmTy>>;
+    read_immediate_raw(src: Projectable<unknown, ProvOf<M>>): InterpResult<Either<MPlaceTy<ProvOf<M>>, ImmTy<ProvOf<M>>>>;
     // operand.rs:662 (lane interp-place-operand)
-    read_immediate(op: Projectable): InterpResult<ImmTy>;
+    read_immediate(op: Projectable<unknown, ProvOf<M>>): InterpResult<ImmTy<ProvOf<M>>>;
     // operand.rs:685 (lane interp-place-operand)
-    read_scalar(op: Projectable): InterpResult<Scalar>;
+    read_scalar(op: Projectable<unknown, ProvOf<M>>): InterpResult<Scalar<ProvOf<M>>>;
     // operand.rs:696 (lane interp-place-operand)
-    read_pointer(op: Projectable): InterpResult<Pointer<CtfeProvenance | undefined>>;
+    read_pointer(op: Projectable<unknown, ProvOf<M>>): InterpResult<Pointer<ProvOf<M> | undefined>>;
     // operand.rs:703 (lane interp-place-operand)
-    read_target_usize(op: Projectable): InterpResult<bigint>;
+    read_target_usize(op: Projectable<unknown, ProvOf<M>>): InterpResult<bigint>;
     // operand.rs:710 (lane interp-place-operand)
-    read_target_isize(op: Projectable): InterpResult<bigint>;
+    read_target_isize(op: Projectable<unknown, ProvOf<M>>): InterpResult<bigint>;
     // operand.rs:718 (lane interp-place-operand)
-    read_str(mplace: MPlaceTy): InterpResult<string>;
+    read_str(mplace: MPlaceTy<ProvOf<M>>): InterpResult<string>;
     // operand.rs:727 (lane interp-place-operand)
-    local_to_op(local: Local, layout: TyAndLayout | undefined): InterpResult<OpTy>;
+    local_to_op(local: Local, layout: TyAndLayout | undefined): InterpResult<OpTy<ProvOf<M>>>;
     // operand.rs:750 (lane interp-place-operand)
-    ghost_local_in_frame_to_op(frame: Frame, local: Local): InterpResult<OpTy>;
+    ghost_local_in_frame_to_op(frame: Frame<ProvOf<M>, MachineTypesOf<M>["FrameExtra"]>, local: Local): InterpResult<OpTy<ProvOf<M>>>;
     // operand.rs:763 (lane interp-place-operand)
-    place_to_op(place: PlaceTy): InterpResult<OpTy>;
+    place_to_op(place: PlaceTy<ProvOf<M>>): InterpResult<OpTy<ProvOf<M>>>;
     // operand.rs:787 (lane interp-place-operand)
-    eval_place_to_op(mir_place: mir_Place, layout: TyAndLayout | undefined): InterpResult<OpTy>;
+    eval_place_to_op(mir_place: mir_Place, layout: TyAndLayout | undefined): InterpResult<OpTy<ProvOf<M>>>;
     // operand.rs:837 (lane interp-place-operand)
-    eval_operand(mir_op: mir_Operand, layout: TyAndLayout | undefined): InterpResult<OpTy>;
+    eval_operand(mir_op: mir_Operand, layout: TyAndLayout | undefined): InterpResult<OpTy<ProvOf<M>>>;
     // operand.rs:871 (lane interp-place-operand)
-    const_val_to_op(val_val: ConstValue, ty: Ty, layout: TyAndLayout | undefined): InterpResult<OpTy>;
+    const_val_to_op(val_val: ConstValue, ty: Ty, layout: TyAndLayout | undefined): InterpResult<OpTy<ProvOf<M>>>;
   }
 }
 
@@ -185,7 +186,7 @@ export interface Immediate_methods {
   // operand.rs:181 (lane interp-place-operand)
   has_provenance(self: Immediate): boolean;
 }
-export type Immediate = gen.Immediate;
+export type Immediate<Prov = CtfeProvenance> = gen.Immediate<Prov>;
 export const Immediate = gen.Immediate as typeof gen.Immediate & Immediate_methods;
 
 // impl From<Scalar<Prov>> for Immediate
@@ -287,7 +288,7 @@ Immediate.assert_matches_abi = function (self: Immediate, abi: BackendRepr, msg:
   } else if (self.$ === "Uninit") {
     assert(BackendRepr.is_sized(abi), `${msg}: unsized immediates are not a thing`);
   } else {
-    bug(`${msg}: value ${debug_Immediate(self, PLAIN)} does not match ABI ${debug_BackendRepr(abi, PLAIN)})`);
+    bug(`${msg}: value ${debug_Immediate(self, PLAIN, debug_provenance)} does not match ABI ${debug_BackendRepr(abi, PLAIN)})`);
   }
 };
 
@@ -370,10 +371,10 @@ export function display_ImmTy(self: ImmTy, f: Fmt): string {
 
 // impl Debug for ImmTy
 // rustc: compiler/rustc_const_eval/src/interpret/operand.rs:240 fmt
-export function debug_ImmTy(self: ImmTy, f: Fmt): string {
+export function debug_ImmTy<Prov>(self: ImmTy<Prov>, f: Fmt, debug_Prov: Debug<Prov>): string {
   // Printing `layout` results in too much noise; just print a nice version of the type.
   return debug_struct(f, "ImmTy", [
-    ["imm", debug_Immediate(self.imm, f)],
+    ["imm", debug_Immediate(self.imm, f, debug_Prov)],
     ["ty", display_Ty(self.layout.ty)],
   ]);
 }
@@ -590,7 +591,7 @@ ImmTy.prototype.offset_with_meta = function (this: ImmTy, offset: Size, _mode: O
 
 /** PORT: `assert_matches!(meta, MemPlaceMeta::None)` (place.ts uses it too). Not an upstream fn. */
 export function assert_matches_none(meta: MemPlaceMeta): void {
-  assert_matches(meta, meta.$ === "None", "MemPlaceMeta::None", (v) => debug_MemPlaceMeta(v, PLAIN));
+  assert_matches(meta, meta.$ === "None", "MemPlaceMeta::None", (v) => debug_MemPlaceMeta(v, PLAIN, debug_provenance));
 }
 
 // #[inline(always)]
@@ -601,10 +602,10 @@ ImmTy.prototype.to_op = function (this: ImmTy, _ecx: InterpCx): InterpResult<OpT
 
 // impl Debug for OpTy
 // rustc: compiler/rustc_const_eval/src/interpret/operand.rs:492 fmt
-export function debug_OpTy(self: OpTy, f: Fmt): string {
+export function debug_OpTy<Prov>(self: OpTy<Prov>, f: Fmt, debug_Prov: Debug<Prov>): string {
   // Printing `layout` results in too much noise; just print a nice version of the type.
   return debug_struct(f, "OpTy", [
-    ["op", debug_Operand(self.op, f)],
+    ["op", debug_Operand(self.op, f, debug_Prov)],
     ["ty", display_Ty(self.layout.ty)],
   ]);
 }

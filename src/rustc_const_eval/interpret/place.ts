@@ -6,7 +6,7 @@
 // docs/handoff/interp-contract.md.
 import { type HasDataLayout, Size, Scalar as abi_Scalar, debug_Size } from "../../rustc_abi/lib.ts";
 import { InterpCx, mir_assign_valid_types } from "./eval_context.ts";
-import { type CtfeMemoryKind, type Machine } from "./machine.ts";
+import { type CtfeMemoryKind, type AnyMachine, type ProvOf, type MachineTypesOf, type Machine } from "./machine.ts";
 import { AllocRef, AllocRefMut } from "./memory.ts";
 import { MemoryKind } from "./memory.gen.ts";
 import { Immediate, assert_matches_none, OpTy_from_MPlaceTy, size_eq } from "./operand.ts";
@@ -23,7 +23,6 @@ import {
   Pointer,
   Pointer_from_AllocId,
   Pointer_Option_from_Pointer,
-  Provenance_CtfeProvenance,
   Scalar,
   alloc_range,
   debug_InterpErrorKind,
@@ -35,7 +34,7 @@ import { Ty } from "../../rustc_middle/ty/mod.ts";
 import { display_Ty } from "../../rustc_middle/ty/print/pretty.ts";
 import { debug_Ty } from "../../rustc_middle/ty/structural_impls.ts";
 import { bug, span_bug } from "../../rustc_span/macros.ts";
-import { type Fmt, PLAIN, PRETTY, debug_option, debug_struct } from "../../std/fmt.ts";
+import { type Debug, type Fmt, PLAIN, PRETTY, debug_option, debug_struct } from "../../std/fmt.ts";
 import { type MutRef } from "../../std/mut_ref.ts";
 import { assert, assert_eq, panic } from "../../std/panic.ts";
 import { Err, unwrap_result } from "../../std/result.ts";
@@ -57,13 +56,13 @@ export function key_MPlaceTy(p: MPlaceTy): string {
 }
 
 declare module "./place.gen.ts" {
-  interface MemPlace {
+  interface MemPlace<Prov = CtfeProvenance> {
     // place.rs:67 (lane interp-place-operand)
-    map_provenance(f: (a0: CtfeProvenance) => CtfeProvenance): MemPlace;
+    map_provenance(f: (a0: Prov) => Prov): MemPlace<Prov>;
     // place.rs:73 (lane interp-place-operand)
-    to_ref(cx: HasDataLayout): Immediate;
+    to_ref(cx: HasDataLayout): Immediate<Prov>;
     // place.rs:79 (lane interp-place-operand)
-    offset_with_meta_(offset: Size, mode: OffsetMode, meta: MemPlaceMeta, ecx: InterpCx): InterpResult<MemPlace>;
+    offset_with_meta_(offset: Size, mode: OffsetMode, meta: MemPlaceMeta<Prov>, ecx: InterpCx<AnyMachine>): InterpResult<MemPlace<Prov>>;
   }
 }
 
@@ -75,120 +74,120 @@ declare module "./place.gen.ts" {
 }
 
 declare module "./place.gen.ts" {
-  interface MPlaceTy {
+  interface MPlaceTy<Prov = CtfeProvenance> {
     // place.rs:130 (lane interp-place-operand)
-    map_provenance(f: (a0: CtfeProvenance) => CtfeProvenance): MPlaceTy;
+    map_provenance(f: (a0: Prov) => Prov): MPlaceTy<Prov>;
     // place.rs:135 (lane interp-place-operand)
-    mplace_(): MemPlace;
+    mplace_(): MemPlace<Prov>;
     // place.rs:140 (lane interp-place-operand)
-    ptr(): Pointer<CtfeProvenance | undefined>;
+    ptr(): Pointer<Prov | undefined>;
     // place.rs:145 (lane interp-place-operand)
-    to_ref(cx: HasDataLayout): Immediate;
+    to_ref(cx: HasDataLayout): Immediate<Prov>;
     // place.rs:152 (lane interp-place-operand)
     layout_(): TyAndLayout;
     // place.rs:157 (lane interp-place-operand)
-    meta(): MemPlaceMeta;
+    meta(): MemPlaceMeta<Prov>;
     // place.rs:161 (lane interp-place-operand)
-    offset_with_meta(offset: Size, mode: OffsetMode, meta: MemPlaceMeta, layout: TyAndLayout, ecx: InterpCx): InterpResult<MPlaceTy>;
+    offset_with_meta(offset: Size, mode: OffsetMode, meta: MemPlaceMeta<Prov>, layout: TyAndLayout, ecx: InterpCx<AnyMachine>): InterpResult<MPlaceTy<Prov>>;
     // place.rs:176 (lane interp-place-operand)
-    to_op(_ecx: InterpCx): InterpResult<OpTy>;
+    to_op(_ecx: InterpCx<AnyMachine>): InterpResult<OpTy<Prov>>;
     // place.rs:373 (lane interp-place-operand)
-    to_place(): PlaceTy;
+    to_place(): PlaceTy<Prov>;
     // place.rs:378 (lane interp-place-operand)
-    force_mplace(_ecx: InterpCx): InterpResult<MPlaceTy>;
+    force_mplace(_ecx: InterpCx<AnyMachine>): InterpResult<MPlaceTy<Prov>>;
   }
 }
 
 declare module "./place.gen.ts" {
-  interface PlaceTy extends Writeable<PlaceTy> {
+  interface PlaceTy<Prov = CtfeProvenance> extends Writeable<PlaceTy<Prov>, Prov> {
     // place.rs:234 (lane interp-place-operand)
-    place_(): Place;
+    place_(): Place<Prov>;
     // place.rs:246 (lane interp-place-operand)
-    as_mplace_or_local(): Either<MPlaceTy, [Local, Size | undefined, number, TyAndLayout]>;
+    as_mplace_or_local(): Either<MPlaceTy<Prov>, [Local, Size | undefined, number, TyAndLayout]>;
     // place.rs:259 (lane interp-place-operand)
-    assert_mem_place(): MPlaceTy;
+    assert_mem_place(): MPlaceTy<Prov>;
     // place.rs:271 (lane interp-place-operand)
     layout_(): TyAndLayout;
     // place.rs:276 (lane interp-place-operand)
-    meta(): MemPlaceMeta;
+    meta(): MemPlaceMeta<Prov>;
     // place.rs:286 (lane interp-place-operand)
-    offset_with_meta(offset: Size, mode: OffsetMode, meta: MemPlaceMeta, layout: TyAndLayout, ecx: InterpCx): InterpResult<PlaceTy>;
+    offset_with_meta(offset: Size, mode: OffsetMode, meta: MemPlaceMeta<Prov>, layout: TyAndLayout, ecx: InterpCx<AnyMachine>): InterpResult<PlaceTy<Prov>>;
     // place.rs:316 (lane interp-place-operand)
-    to_op(ecx: InterpCx): InterpResult<OpTy>;
+    to_op(ecx: InterpCx<AnyMachine>): InterpResult<OpTy<Prov>>;
     // place.rs:358 (lane interp-place-operand)
-    to_place(): PlaceTy;
+    to_place(): PlaceTy<Prov>;
     // place.rs:363 (lane interp-place-operand)
-    force_mplace(ecx: InterpCx): InterpResult<MPlaceTy>;
+    force_mplace(ecx: InterpCx<AnyMachine>): InterpResult<MPlaceTy<Prov>>;
   }
 }
 
 declare module "./operand.gen.ts" {
-  interface OpTy {
+  interface OpTy<Prov = CtfeProvenance> {
     // place.rs:327 (lane interp-place-operand)
-    as_mplace_or_imm(): Either<MPlaceTy, ImmTy>;
+    as_mplace_or_imm(): Either<MPlaceTy<Prov>, ImmTy<Prov>>;
     // place.rs:336 (lane interp-place-operand)
-    assert_mem_place(): MPlaceTy;
+    assert_mem_place(): MPlaceTy<Prov>;
   }
 }
 
 declare module "./eval_context.ts" {
-  interface InterpCx<M extends Machine = Machine> {
+  interface InterpCx<M extends AnyMachine = Machine> {
     // place.rs:392 (lane interp-place-operand)
-    ptr_with_meta_to_mplace(ptr: Pointer<CtfeProvenance | undefined>, meta: MemPlaceMeta, layout: TyAndLayout, unaligned: boolean): MPlaceTy;
+    ptr_with_meta_to_mplace(ptr: Pointer<ProvOf<M> | undefined>, meta: MemPlaceMeta<ProvOf<M>>, layout: TyAndLayout, unaligned: boolean): MPlaceTy<ProvOf<M>>;
     // place.rs:404 (lane interp-place-operand)
-    ptr_to_mplace(ptr: Pointer<CtfeProvenance | undefined>, layout: TyAndLayout): MPlaceTy;
+    ptr_to_mplace(ptr: Pointer<ProvOf<M> | undefined>, layout: TyAndLayout): MPlaceTy<ProvOf<M>>;
     // place.rs:413 (lane interp-place-operand)
-    ptr_to_mplace_unaligned(ptr: Pointer<CtfeProvenance | undefined>, layout: TyAndLayout): MPlaceTy;
+    ptr_to_mplace_unaligned(ptr: Pointer<ProvOf<M> | undefined>, layout: TyAndLayout): MPlaceTy<ProvOf<M>>;
     // place.rs:428 (lane interp-place-operand)
-    imm_ptr_to_mplace(val: ImmTy): InterpResult<MPlaceTy>;
+    imm_ptr_to_mplace(val: ImmTy<ProvOf<M>>): InterpResult<MPlaceTy<ProvOf<M>>>;
     // place.rs:450 (lane interp-place-operand)
-    mplace_to_imm_ptr(mplace: MPlaceTy, ptr_ty: Ty | undefined): InterpResult<ImmTy>;
+    mplace_to_imm_ptr(mplace: MPlaceTy<ProvOf<M>>, ptr_ty: Ty | undefined): InterpResult<ImmTy<ProvOf<M>>>;
     // place.rs:469 (lane interp-place-operand)
-    deref_pointer(src: Projectable): InterpResult<MPlaceTy>;
+    deref_pointer(src: Projectable<unknown, ProvOf<M>>): InterpResult<MPlaceTy<ProvOf<M>>>;
     // place.rs:542 (lane interp-place-operand)
-    get_place_alloc(mplace: MPlaceTy): InterpResult<AllocRef | undefined>;
+    get_place_alloc(mplace: MPlaceTy<ProvOf<M>>): InterpResult<AllocRef<ProvOf<M>, MachineTypesOf<M>["AllocExtra"], MachineTypesOf<M>["Bytes"]> | undefined>;
     // place.rs:558 (lane interp-place-operand)
-    get_place_alloc_mut(mplace: MPlaceTy): InterpResult<AllocRefMut | undefined>;
+    get_place_alloc_mut(mplace: MPlaceTy<ProvOf<M>>): InterpResult<AllocRefMut<ProvOf<M>, MachineTypesOf<M>["AllocExtra"], MachineTypesOf<M>["Bytes"]> | undefined>;
     // place.rs:576 (lane interp-place-operand)
-    local_to_place(local: Local): InterpResult<PlaceTy>;
+    local_to_place(local: Local): InterpResult<PlaceTy<ProvOf<M>>>;
     // place.rs:601 (lane interp-place-operand)
-    eval_place(mir_place: mir_Place, skip_validity_for_simple_deref: boolean): InterpResult<PlaceTy>;
+    eval_place(mir_place: mir_Place, skip_validity_for_simple_deref: boolean): InterpResult<PlaceTy<ProvOf<M>>>;
     // place.rs:650 (lane interp-place-operand)
-    as_mplace_or_mutable_local(place: PlaceTy): InterpResult<Either<MPlaceTy, [MutRef<Immediate>, TyAndLayout, Local]>>;
+    as_mplace_or_mutable_local(place: PlaceTy<ProvOf<M>>): InterpResult<Either<MPlaceTy<ProvOf<M>>, [MutRef<Immediate<ProvOf<M>>>, TyAndLayout, Local]>>;
     // place.rs:688 (lane interp-place-operand)
-    write_immediate(src: Immediate, dest: Writeable): InterpResult;
+    write_immediate(src: Immediate<ProvOf<M>>, dest: Writeable<unknown, ProvOf<M>>): InterpResult;
     // place.rs:710 (lane interp-place-operand)
-    write_scalar(val: Scalar, dest: Writeable): InterpResult;
+    write_scalar(val: Scalar<ProvOf<M>>, dest: Writeable<unknown, ProvOf<M>>): InterpResult;
     // place.rs:720 (lane interp-place-operand)
-    write_pointer(ptr: Pointer<CtfeProvenance | undefined>, dest: Writeable): InterpResult;
+    write_pointer(ptr: Pointer<ProvOf<M> | undefined>, dest: Writeable<unknown, ProvOf<M>>): InterpResult;
     // place.rs:731 (lane interp-place-operand)
-    write_immediate_no_validate(src: Immediate, dest: Writeable): InterpResult;
+    write_immediate_no_validate(src: Immediate<ProvOf<M>>, dest: Writeable<unknown, ProvOf<M>>): InterpResult;
     // place.rs:767 (lane interp-place-operand)
-    write_immediate_to_mplace_no_validate(value: Immediate, layout: TyAndLayout, dest: MemPlace): InterpResult;
+    write_immediate_to_mplace_no_validate(value: Immediate<ProvOf<M>>, layout: TyAndLayout, dest: MemPlace<ProvOf<M>>): InterpResult;
     // place.rs:827 (lane interp-place-operand)
-    write_uninit(dest: Writeable): InterpResult;
+    write_uninit(dest: Writeable<unknown, ProvOf<M>>): InterpResult;
     // place.rs:851 (lane interp-place-operand)
-    clear_provenance(dest: Writeable): InterpResult;
+    clear_provenance(dest: Writeable<unknown, ProvOf<M>>): InterpResult;
     // place.rs:884 (lane interp-place-operand)
-    copy_op_allow_transmute(src: Projectable, dest: Writeable): InterpResult;
+    copy_op_allow_transmute(src: Projectable<unknown, ProvOf<M>>, dest: Writeable<unknown, ProvOf<M>>): InterpResult;
     // place.rs:895 (lane interp-place-operand)
-    copy_op(src: Projectable, dest: Writeable): InterpResult;
+    copy_op(src: Projectable<unknown, ProvOf<M>>, dest: Writeable<unknown, ProvOf<M>>): InterpResult;
     // place.rs:912 (lane interp-place-operand)
-    copy_op_inner(src: Projectable, dest: Writeable, allow_transmute: boolean): InterpResult;
+    copy_op_inner(src: Projectable<unknown, ProvOf<M>>, dest: Writeable<unknown, ProvOf<M>>, allow_transmute: boolean): InterpResult;
     // place.rs:951 (lane interp-place-operand)
-    copy_op_no_validate(src: Projectable, dest: Writeable, allow_transmute: boolean): InterpResult;
+    copy_op_no_validate(src: Projectable<unknown, ProvOf<M>>, dest: Writeable<unknown, ProvOf<M>>, allow_transmute: boolean): InterpResult;
     // place.rs:1058 (lane interp-place-operand)
-    force_allocation(place: PlaceTy): InterpResult<MPlaceTy>;
+    force_allocation(place: PlaceTy<ProvOf<M>>): InterpResult<MPlaceTy<ProvOf<M>>>;
     // place.rs:1115 (lane interp-place-operand)
-    allocate_dyn(layout: TyAndLayout, kind: MemoryKind<CtfeMemoryKind>, meta: MemPlaceMeta): InterpResult<MPlaceTy>;
+    allocate_dyn(layout: TyAndLayout, kind: MemoryKind<MachineTypesOf<M>["MemoryKind"]>, meta: MemPlaceMeta<ProvOf<M>>): InterpResult<MPlaceTy<ProvOf<M>>>;
     // place.rs:1128 (lane interp-place-operand)
-    allocate(layout: TyAndLayout, kind: MemoryKind<CtfeMemoryKind>): InterpResult<MPlaceTy>;
+    allocate(layout: TyAndLayout, kind: MemoryKind<MachineTypesOf<M>["MemoryKind"]>): InterpResult<MPlaceTy<ProvOf<M>>>;
     // place.rs:1139 (lane interp-place-operand)
-    allocate_bytes_dedup(bytes: Uint8Array): InterpResult<Pointer>;
+    allocate_bytes_dedup(bytes: Uint8Array): InterpResult<Pointer<ProvOf<M>>>;
     // place.rs:1156 (lane interp-place-operand)
-    allocate_str_dedup(s: string): InterpResult<MPlaceTy>;
+    allocate_str_dedup(s: string): InterpResult<MPlaceTy<ProvOf<M>>>;
     // place.rs:1178 (lane interp-place-operand)
-    raw_const_to_mplace(raw: ConstAlloc): InterpResult<MPlaceTy>;
+    raw_const_to_mplace(raw: ConstAlloc): InterpResult<MPlaceTy<ProvOf<M>>>;
   }
 }
 
@@ -198,17 +197,17 @@ export interface MemPlaceMeta_methods {
   // place.rs:45 (lane interp-place-operand)
   has_meta(self: MemPlaceMeta): boolean;
 }
-export type MemPlaceMeta = gen.MemPlaceMeta;
+export type MemPlaceMeta<Prov = CtfeProvenance> = gen.MemPlaceMeta<Prov>;
 export const MemPlaceMeta = gen.MemPlaceMeta as typeof gen.MemPlaceMeta & MemPlaceMeta_methods;
 
 /// A place that can be written to.
 // pub trait Writeable<'tcx, Prov: Provenance>: Projectable<'tcx, Prov>
 // PORT: an interface implemented by the prototypes of `PlaceTy` and `MPlaceTy` (projection.ts's `Projectable` notes).
-export interface Writeable<Self = unknown> extends Projectable<Self> {
+export interface Writeable<Self = unknown, Prov = CtfeProvenance> extends Projectable<Self, Prov> {
   // rustc: compiler/rustc_const_eval/src/interpret/place.rs:348 to_place
-  to_place(): PlaceTy;
+  to_place(): PlaceTy<Prov>;
   // rustc: compiler/rustc_const_eval/src/interpret/place.rs:350 force_mplace
-  force_mplace(ecx: InterpCx): InterpResult<MPlaceTy>;
+  force_mplace(ecx: InterpCx<AnyMachine>): InterpResult<MPlaceTy<Prov>>;
 }
 
 
@@ -279,10 +278,10 @@ MemPlace.prototype.offset_with_meta_ = function (this: MemPlace, offset: Size, m
 
 // impl Debug for MPlaceTy
 // rustc: compiler/rustc_const_eval/src/interpret/place.rs:108 fmt
-export function debug_MPlaceTy(self: MPlaceTy, f: Fmt): string {
+export function debug_MPlaceTy<Prov>(self: MPlaceTy<Prov>, f: Fmt, debug_Prov: Debug<Prov>): string {
   // Printing `layout` results in too much noise; just print a nice version of the type.
   return debug_struct(f, "MPlaceTy", [
-    ["mplace", debug_MemPlace(self.mplace, f)],
+    ["mplace", debug_MemPlace(self.mplace, f, debug_Prov)],
     ["ty", display_Ty(self.layout.ty)],
   ]);
 }
@@ -351,10 +350,10 @@ MPlaceTy.prototype.to_op = function (this: MPlaceTy, _ecx: InterpCx): InterpResu
 
 // impl Debug for PlaceTy
 // rustc: compiler/rustc_const_eval/src/interpret/place.rs:216 fmt
-export function debug_PlaceTy(self: PlaceTy, f: Fmt): string {
+export function debug_PlaceTy<Prov>(self: PlaceTy<Prov>, f: Fmt, debug_Prov: Debug<Prov>): string {
   // Printing `layout` results in too much noise; just print a nice version of the type.
   return debug_struct(f, "PlaceTy", [
-    ["place", debug_Place(self.place, f)],
+    ["place", debug_Place(self.place, f, debug_Prov)],
     ["ty", display_Ty(self.layout.ty)],
   ]);
 }
@@ -599,7 +598,7 @@ InterpCx.prototype.deref_pointer = function (this: InterpCx, src: Projectable): 
       const nr = this.scalar_may_be_null(scalar_ptr);
       if (nr.$ === "Err") return nr;
       if (nr._0) {
-        const maybe = !Provenance_CtfeProvenance.OFFSET_IS_ADDR && scalar_ptr.$ === "Ptr";
+        const maybe = !this.machine.Provenance.OFFSET_IS_ADDR && scalar_ptr.$ === "Ptr";
         // throw_ub_format!("dereferencing a {maybe}null {kind}", maybe = if maybe { "maybe-" } else { "" })
         return Err(
           InterpErrorInfo_from_InterpErrorKind({
