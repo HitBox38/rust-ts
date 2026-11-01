@@ -31,8 +31,8 @@ import { type Ty } from "../rustc_middle/ty/mod.ts";
 import { type CrateNum } from "../rustc_span/def_id.ts";
 import { type Span } from "../rustc_span/lib.ts";
 import { type Symbol } from "../rustc_span/symbol.ts";
-import { type Pending } from "../rustc_type_ir/decls.ts";
 import { type Debug, debug_option, debug_struct, debug_tuple, debug_vec } from "../std/fmt.ts";
+import { type StdRng } from "../vendor/rand/rngs/std.ts";
 import { unported } from "../std/panic.ts";
 const unported_debug = (_v: unknown): string => unported("Debug without a TS impl (see types report)");
 
@@ -393,7 +393,7 @@ export class MiriMachine {
     public extern_static_weak_import_default: StrictPointer | undefined,
     /// The random number generator used for resolving non-determinism.
     /// Needs to be queried by ptr_to_int, hence needs interior mutability.
-    public rng: Pending<"rand::rngs::StdRng">,
+    public rng: StdRng,
     /// The allocator used for the machine's `AllocBytes` in native-libs mode.
     public allocator: IsolatedAlloc | undefined,
     /// The allocation IDs to report when they are being allocated

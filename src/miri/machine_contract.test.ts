@@ -90,7 +90,7 @@ test("M1/M7: MiriMachine's associated items, provided defaults and impl stubs; M
   for (const n of ["load_mir", "increment_const_eval_counter", "before_access_global", "before_alloc_access"] as const) {
     expect(m[n]).toBe(Machine_provided.prototype[n]);
   }
-  // overridden (and the required fns): lane miri-machine's, `unported` until ported
+  // overridden (and the required fns): lane miri-machine's (ported); a hook reaching another lane's stub stops `unported`
   const unported_msg = (f: () => unknown): string => {
     try {
       f();
@@ -101,10 +101,9 @@ test("M1/M7: MiriMachine's associated items, provided defaults and impl stubs; M
     return "no error";
   };
   expect(m.alignment_check).not.toBe(Machine_provided.prototype.alignment_check);
-  expect(unported_msg(() => (m.enforce_alignment as () => unknown)())).toContain(
-    "miri::machine::MiriMachine (impl Machine)::enforce_alignment (src/tools/miri/src/machine.rs; lane miri-machine)",
-  );
-  expect(unported_msg(() => (m.stack_ as () => unknown)())).toContain("::stack_ (");
+  const fake_ecx = Object.assign(Object.create(InterpCx.prototype) as MiriInterpCx, { machine: { check_alignment: "None" } });
+  expect(m.enforce_alignment(fake_ecx)).toBe(false);
+  expect(unported_msg(() => m.stack_(fake_ecx))).toContain("thread::EvalContextExt::active_thread_stack (");
   expect(unported_msg(() => m.MemoryMap_default())).toContain("MonoHashMap::default (");
   expect(unported_msg(() => AllocBytes_MiriAllocBytes.zeroed(Size.ZERO, Align.ONE, { $: "Global" }))).toContain("MiriAllocBytes::zeroed (");
   // MonoHashMap: `get` is the impl's (machine.rs `impl AllocMap for MonoHashMap` :98), `get_mut` the default
