@@ -22,7 +22,7 @@ import { DiagnosticCxBuilder, type DiagnosticCx, RetagInfo, type RetagCause } fr
 import { AllocHistory } from "./diagnostics.ts";
 import { clone_Item, debug_Permission, Item, Permission } from "./item.ts";
 import { type ItemInvalidationCause, type NewPermission as NewPermission_, Stacks } from "./mod.gen.ts";
-import { Stack } from "./stack.ts";
+import { clone_Stack, Stack, Stack_eq } from "./stack.ts";
 import { type VClockAlloc } from "../../concurrency/data_race.ts";
 import { type AllocDataRaceHandler } from "../../concurrency/data_race_handler.ts";
 import { DedupRangeMap } from "../../data_structures/dedup_range_map.ts";
@@ -483,7 +483,9 @@ Stacks.prototype.for_each = function (
   dcx_builder: DiagnosticCxBuilder,
   f: (_0: Stack, _1: DiagnosticCx, _2: Set<BorTag>) => InterpResult,
 ): InterpResult {
-  for (const [stack_range, stack] of this.stacks.iter_mut(range.start, range.size)) {
+  // `DedupRangeMap::iter_mut` needs `T: Clone + PartialEq` (dedup_range_map.rs:137): `#[derive(Clone)]` of `Stack`
+  // (a deep copy, so the halves of a split never share a stack) and `impl PartialEq for Stack` (stack.rs:136).
+  for (const [stack_range, stack] of this.stacks.iter_mut(range.start, range.size, clone_Stack, Stack_eq)) {
     // PORT: the iterator's `ops::Range<u64>` is `{ start: number; end: number }` (dedup_range_map.ts, C5 amendment).
     const dcx = dcx_builder.build(this.history, Size.from_bytes((stack_range as unknown as { start: number }).start));
     const r = f(stack, dcx, this.exposed_tags);
