@@ -76,7 +76,7 @@ import { DirTable } from "./shims/unix/fs.ts";
 import * as unwind_ns from "./shims/unwind.ts";
 import { debug_CatchUnwindData } from "./shims/unwind.ts";
 import { type ExternAbi, ExternAbi as ExternAbiC } from "../rustc_abi/extern_abi.ts";
-import { Align, debug_Size, Size, Size_cmp, Size_eq } from "../rustc_abi/lib.ts";
+import { Align, debug_AlignFromBytesError, debug_Size, Size, Size_cmp, Size_eq } from "../rustc_abi/lib.ts";
 import type { AllocatorKind, SpecialAllocatorMethod } from "../rustc_ast/expand/allocator.gen.ts";
 import { default_fn_name, global_fn_name } from "../rustc_ast/expand/allocator.ts";
 import { allocator_shim_contents } from "../rustc_codegen_ssa/base.ts";
@@ -863,7 +863,7 @@ MiriMachine.prototype.handle_abnormal_termination = function (this: MiriMachine)
 
 // rustc: src/tools/miri/src/machine.rs:952 page_align
 MiriMachine.prototype.page_align = function (this: MiriMachine): Align {
-  return unwrap_result(Align.from_bytes(this.page_size));
+  return unwrap_result(Align.from_bytes(this.page_size), debug_AlignFromBytesError);
 };
 
 // rustc: src/tools/miri/src/machine.rs:956 allocated_span
@@ -1134,7 +1134,7 @@ MiriMachine.prototype.alignment_check = function (
       // The biggest power of two through which `distance` is divisible.
       const distance_pow2 = 1n << BigInt(u64_trailing_zeros(distance));
       return {
-        has: unwrap_result(Align.from_bytes(distance_pow2)),
+        has: unwrap_result(Align.from_bytes(distance_pow2), debug_AlignFromBytesError),
         required: align,
       };
     }

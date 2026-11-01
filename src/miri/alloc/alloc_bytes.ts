@@ -23,6 +23,9 @@ export * from "./alloc_bytes.gen.ts";
 // ---- `std::alloc::Layout` (the subset this file uses) ----
 /** PORT (lane miri-alloc): `std::alloc::Layout` stand-in, local to this file (src/std has none and is not this lane's;
  * root may move it to src/std). `size` / `align` are host `usize`s (64-bit host), kept exact as `bigint`s (C5). */
+/** `#[derive(Debug)]` of the unit struct `core::alloc::LayoutError` (layout.rs:611): `LayoutError` (stand-in error `null`). */
+const debug_LayoutError = (_e: null): string => "LayoutError";
+
 export class Layout {
   constructor(
     readonly size_: bigint,
@@ -110,7 +113,7 @@ export class MiriAllocBytes extends Uint8Array {
     // We have to reconstruct the actual layout used for allocation.
     // (`Deref` relies on `size` so we can't just always set it to at least 1.)
     const alloc_layout =
-      this.layout.size() === 0n ? unwrap_result(Layout.from_size_align(1n, this.layout.align())) : this.layout;
+      this.layout.size() === 0n ? unwrap_result(Layout.from_size_align(1n, this.layout.align()), debug_LayoutError) : this.layout;
 
     // SAFETY: Invariant, `self.ptr` points to memory allocated with `self.layout`.
     const params = this.params;
@@ -163,7 +166,7 @@ export class MiriAllocBytes extends Uint8Array {
     if (layout_.$ === "Err") return Err(null);
     const layout = layout_._0;
     // When size is 0 we allocate 1 byte anyway, to ensure each allocation has a unique address.
-    const alloc_layout = size === 0n ? unwrap_result(Layout.from_size_align(1n, align)) : layout;
+    const alloc_layout = size === 0n ? unwrap_result(Layout.from_size_align(1n, align), debug_LayoutError) : layout;
     const ptr = alloc_fn(alloc_layout, params);
     if (ptr === undefined) {
       return Err(null);

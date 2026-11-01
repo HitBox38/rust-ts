@@ -22,7 +22,7 @@ import { type MiriConfig } from "../eval.ts";
 import { type Pointer } from "../lib.ts";
 import { type MemoryKind, type MiriInterpCx, MiriMachine, Provenance } from "../machine.ts";
 import { type LiveAllocs, type VisitWith } from "../provenance_gc.ts";
-import { Align, type Size, Size as Size_ } from "../../rustc_abi/lib.ts";
+import { Align, debug_AlignFromBytesError, type Size, Size as Size_ } from "../../rustc_abi/lib.ts";
 import { InterpCx } from "../../rustc_const_eval/interpret/eval_context.ts";
 import { type AnyMachine, type Machine } from "../../rustc_const_eval/interpret/machine.ts";
 import { type AllocId, debug_AllocId, interp_ok, type InterpResult, Pointer as interpret_Pointer } from "../../rustc_middle/mir/interpret/mod.ts";
@@ -213,7 +213,7 @@ InterpCx.prototype.addr_from_alloc_id_uncached = function (
 // rustc: src/tools/miri/src/alloc_addresses/mod.rs:225 dummy_alloc
 export function dummy_alloc(params: MiriAllocParams): Uint8Array {
   // Allocate some dummy memory to get a unique address for this function/vtable.
-  const alloc_bytes = AllocBytes_MiriAllocBytes.from_bytes(new Uint8Array(1), unwrap_result(Align.from_bytes(1)), params);
+  const alloc_bytes = AllocBytes_MiriAllocBytes.from_bytes(new Uint8Array(1), unwrap_result(Align.from_bytes(1), debug_AlignFromBytesError), params);
   const ptr = AllocBytes_MiriAllocBytes.as_ptr(alloc_bytes);
   // Leak the underlying memory to ensure it remains unique.
   // std::mem::forget(alloc_bytes);
