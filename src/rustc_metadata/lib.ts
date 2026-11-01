@@ -5,7 +5,7 @@
 // defining module (PORTING section 5): rmeta/decoder/cstore_impl.ts attaches `impl CStore` /
 // `impl CrateStore for CStore` to creader.ts's `CStore`. Consumers import this module.
 //
-// host_dylib is a stub; rmeta/decoder.ts is a contract (stubs for lanes rmeta-decoder-a/-b).
+// host_dylib is ported (host_dylib.ts); rmeta/decoder.ts is a contract (stubs for lanes rmeta-decoder-a/-b).
 
 // pub use rmeta::provide;
 export { provide } from "./rmeta/mod.ts";
