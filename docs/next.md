@@ -361,3 +361,28 @@ vendor-rand nits (x86 sampler skip reason, bernoulli.ts const order); coverage.t
 unknown-enum 255 encode, panic-hook branch test; pm-host's first test = a real oracle-built proc macro); harness-w35 nits (aux cleanup for mini_core-*/ui/*; disjointness test also for *_test.ts/*.spec.ts; probe
 builds run the toolchain check); `BoundsCheckFailed { len, index }` exact (one typemap
 `fields` entry + machine.ts / projection.ts); stale comment eval_context.ts:27.
+
+## Wave 35 ACCEPTED 2026-11-01 (gate-20261101-002620-root-q9z7, main 1bb74ec6, accept b8305c67) — M6 planned, contracts in
+plan-m6 accepted with A1–A11; the interpreter generalised over Machine types (OFFSET_IS_ADDR=true branches restored) and
+the src/miri skeleton reconciled with it; library/proc_macro bridge + lib ported and `quote!` runs through the real bridge
+(+29/+30 on 11 suites); vendor rand/chacha20; the isolated Miri oracle toolchain and the miri report suites (harness-m6a).
+529,348 protected in 44 suites (+328, 0 lost); 22,614/27,032 fns (83.7%; denominator now includes miri's 1,514).
+Gate note: check-core subject max RSS 12,305 MB, 17 MB over its 12,288 MB budget (report only, plan-m5 D11) → perf watch item.
+
+## Wave 36 (started 2026-11-01) — Miri core (plan-m6 §5, A2 split lanes)
+| lane | scope | status |
+|---|---|---|
+| miri-machine | machine.rs (2,205) | running |
+| miri-eval | eval.rs, helpers.rs, operator.rs, math.rs, clock.rs (~2.8k) | running |
+| miri-driver | bin/miri.rs, diagnostics.rs, provenance_gc.rs, data_structures/* (~2.7k) | running |
+| miri-log | D10/A6: `info!`-level events of rustc_const_eval interpret + Miri behind MIRI_LOG (bin/log/setup.rs, tracing.ts) | running |
+| miri-diff | D10: scripts/miri-diff.ts (normalised event-line compare) (harness batch) | running |
+| miri-alloc | alloc/*, alloc_addresses/*, borrow_tracker/mod.rs (~1.9k) | running |
+| miri-sb | stacked_borrows/* + concurrency/weak_memory.rs (~2.7k; Item repacking per the recorded decision) | running |
+| miri-threads | concurrency thread, scheduler(s), sync, init_once, blocking_io, mod (~2.7k) | running |
+| miri-race | concurrency data_race, data_race_handler, vector_clock (~2.7k) | running |
+| pm-host | D7: host_dylib.rs, the bun:ffi edge (src/rust_ts/proc_macro_host.ts), creader wiring; first test = a real oracle-built proc macro | running |
+| harness-m6b | proc-macro dylib aux builds (oracle), `pm-ui`, `pm-expanded` suites (harness batch) | running |
+| followups-35 | port-side small queue: BoundsCheckFailed exact, eval_context.ts:27 comment, proc_macro bridge/client.ts load-order TDZ, pm-bridge nits, vendor-rand nits | running |
+Queued for wave 37 (after miri-driver): harness-w36 (port side → src/miri/bin/miri.ts; harness-m6a nits; coverage.ts std markers;
+randstream probe registration; crate-src.ts yanked crates; harness-w35 nits). Then the shim lanes (wave 37 → gate M6a).

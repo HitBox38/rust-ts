@@ -8,9 +8,9 @@ The mirror image of [ts-rust](https://github.com/pingdotgg/ts-rust).
 | | |
 |---|---|
 | Upstream pin | `rust-lang/rust@6f5da406b` = `rustc 1.101.0-nightly (2026-10-10)` |
-| Milestone | M0–M5 done (harness; lexer/parser; expansion + name resolution; typeck + trait solving; MIR build, borrowck, MIR transforms, const eval; check core → alloc → std). **The crate metadata (.rmeta) of core, alloc and std is byte-identical to rustc's.** Next: M6 (interpreter) |
-| Protected parity | **529,020** cases across 44 suites that match the real compiler byte-for-byte and can never regress |
-| Ported | 22,590 / 25,518 in-scope upstream functions (88.5%) |
+| Milestone | M0–M5 done (harness; lexer/parser; expansion + name resolution; typeck + trait solving; MIR build, borrowck, MIR transforms, const eval; check core → alloc → std). **The crate metadata (.rmeta) of core, alloc and std is byte-identical to rustc's.** Now: M6 (running programs through a port of the pinned nightly's Miri; proc macros through the real `proc_macro` bridge) |
+| Protected parity | **529,348** cases across 44 suites that match the real compiler byte-for-byte and can never regress |
+| Ported | 22,614 / 27,032 in-scope upstream functions (83.7%; the denominator now includes Miri's 1,514) |
 
 At 100%: the front end (`rustc_lexer`, `rustc_span`, `rustc_ast`, `rustc_ast_lowering`, `rustc_ast_passes`,
 `rustc_builtin_macros`, `rustc_attr_parsing`, `rustc_resolve`), type checking (`rustc_hir_typeck`,
@@ -23,12 +23,12 @@ including legacy Polonius), `rustc_mir_transform` and `rustc_const_eval`. Nearly
 |---|---|---|
 | `lex`, `tokens`, `escape` (M1) | every token and literal of 25,842 files (tests/ui, library, compiler) | 25,842 each |
 | `parse`, `parse-ui` (M1) | `-Zunpretty=ast-tree` on tests/ui; ui/parser diagnostics | 21,523 / 991 |
-| `expanded`, `unpretty-expanded`, `resdump` (M2) | macro expansion and name resolution | ~21,470 each |
-| `hir-tree`, `unpretty-hir`, `tydump-nocore` (M3) | HIR and type checking | ~21,480 each |
+| `expanded`, `unpretty-expanded`, `resdump` (M2) | macro expansion and name resolution | ~21,500 each |
+| `hir-tree`, `unpretty-hir`, `tydump-nocore` (M3) | HIR and type checking | ~21,500 each |
 | `tydump-ui`, `thirdump-ui` (M3) | types and THIR on tests/ui | 1,840 / 1,851 |
 | `mirdump-ui`, `mirdump-minicore` (M4) | MIR built and checked by the compiler | 1,343 / 46 |
 | `borrowck-ui`, `borrowck-ui-report` (M4) | borrow-check results on ui/borrowck + ui/nll (all 960), and five more ui dirs | 960 / 1,276 |
-| `mir`, `thir-tree` (M4) | the real `-Zunpretty=mir` (optimized MIR) and `-Zunpretty=thir-tree` | 21,475 / 1,849 |
+| `mir`, `thir-tree` (M4) | the real `-Zunpretty=mir` (optimized MIR) and `-Zunpretty=thir-tree` | 21,508 / 1,849 |
 | `mir-core` (M5) | `-Zunpretty=mir` of all of libcore, one case per MIR body | 47,734 |
 | `check-core`, `rmeta-core` (M5) | libcore's `.rmeta` byte for byte (+ stderr/exit), and section by section through an rmeta dump probe | 1 / 82,338 |
 | `check-ui`, `rmeta-ui` (M5) | the same on 730 small lib crates (tests/ui auxiliary crates) | 730 / 730 |
