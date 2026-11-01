@@ -344,7 +344,7 @@ Follow-ups (queued):
 | plan-m6 | design lane: docs/plan-m6.md (Miri oracle in an isolated toolchain; run-pass; proc macros; D1–D14) | APPROVE WITH AMENDMENTS → accepted with A1–A11 (decision recorded); merged into integ-w35 |
 | interp-generic ✱ | D3/A1: generalise the interpreter's Machine types; re-port the OFFSET_IS_ADDR=true branches (15 sites verified) | REQUEST CHANGES (B1 provenance at get_bytes_unchecked_raw*, B2 MayLeak/Display of M::MemoryKind) → fixed in interp-miri-reconcile |
 | miri-contract ✱ | D2: src/miri skeleton (60 gen modules, 248 types, 101 stubs), decisions C1–C13 recorded (C4/C5 amended) | APPROVE WITH NITS → lands via interp-miri-reconcile |
-| interp-miri-reconcile ✱ | merges both; B1/B2; miri-contract M1–M5, M7 (89 boundary type errors); C5 hot fields → number; nits | running |
+| interp-miri-reconcile ✱ | merges both; B1/B2 (+ machine-supplied MemoryKind Eq); miri-contract M1–M5, M7 (mixin); C5 hot fields → number; nits | APPROVE WITH NITS (N1 fixed by root; N2/N3 decisions recorded); merged into integ-w35 |
 | pm-bridge | library/proc_macro bridge/* (~2.1k; wire format = upstream's with_api! 31 methods; TS-to-TS tested) | APPROVE WITH NITS; merged into integ-w35 (hooks wired with pm-lib) |
 | pm-lib | library/proc_macro lib, diagnostic, escape, to_tokens, quote (~2.9k) | APPROVE WITH NITS; merged into integ-w35 |
 | pm-wiring (root) | lib.ts ↔ bridge/client.ts, quote! = BangProcMacro(Client.expand1(quote)), Rustc.default_TokenStream: the 30 quote! cases 330/330 MATCH on 11 suites through the real bridge | APPROVE WITH NITS (F1 init order fixed by root) |
