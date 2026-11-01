@@ -93,7 +93,13 @@ let LIBM: HostLibm | undefined;
 /** The host libm, opened on first use (header). */
 export function host_libm(): HostLibm {
   if (LIBM === undefined) {
-    const lib = dlopen(host_libm_path(), SYMBOLS);
+    let lib: ReturnType<typeof dlopen<typeof SYMBOLS>>;
+    try {
+      lib = dlopen(host_libm_path(), SYMBOLS);
+    } catch (e) {
+      // A host without this libm (or without one of the symbols) cannot run Miri's host float ops: stop, don't crash.
+      return unported(`host libm ${host_libm_path()}: ${e instanceof Error ? e.message : String(e)}`);
+    }
     // PORT: bun:ffi types each symbol from its declaration; the shapes are the ones declared in `SYMBOLS`.
     LIBM = lib.symbols as unknown as HostLibm;
   }

@@ -202,6 +202,17 @@ if (HOST_SKIP) {
   );
 }
 
+/** The macOS release the fixture was recorded on (docs/handoff/miri-eval-fix.md). Apple's libm can change with an OS
+ * update; a host-op hash mismatch on a different release is first checked for that (re-run the probe), not a port bug. */
+const FIXTURE_MACOS = "26.7.1 (25G241)";
+if (!HOST_SKIP && process.platform === "darwin") {
+  const sw = (flag: string): string => Bun.spawnSync(["sw_vers", flag]).stdout.toString().trim();
+  const here = `${sw("-productVersion")} (${sw("-buildVersion")})`;
+  if (here !== FIXTURE_MACOS) {
+    console.log(`math.test.ts: NOTE: math.oracle.txt was recorded on macOS ${FIXTURE_MACOS}, this is ${here}; a host-op hash mismatch may be a changed Apple libm (re-run the mirimath probe)`);
+  }
+}
+
 /** The probe's `Gen` (mulberry32) and its input classes. */
 class Gen {
   constructor(private s: number) {}

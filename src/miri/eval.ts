@@ -54,7 +54,7 @@ import { fold_FnSig, PolyFnSig } from "../rustc_type_ir/ty_kind.ts";
 import { fold_Ty } from "../rustc_middle/ty/structural_impls.ts";
 import { type Pending } from "../rustc_type_ir/decls.ts";
 import { type MutRef } from "../std/mut_ref.ts";
-import { assert, panic, unwrap } from "../std/panic.ts";
+import { Panic, assert, panic, unwrap } from "../std/panic.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
 import { Poll } from "../std/task.ts";
 import { PLAIN } from "../std/fmt.ts";
@@ -513,6 +513,9 @@ export function eval_entry(
   try {
     res = ecx.run_threads();
   } catch (panic_payload) {
+    // PORT: `panic::catch_unwind` catches only unwinds (`Panic`, `FatalErrorMarker`); anything else (e.g. `Unported`)
+    // is not an unwind and propagates unchanged, without the ICE report (as rustc_interface's `is_unwind`).
+    if (!(panic_payload instanceof Panic || panic_payload instanceof FatalErrorMarker)) throw panic_payload;
     // rustc "handles" some errors by unwinding with FatalErrorMarker
     // (after emitting suitable diagnostics), so do not treat those as ICEs.
     if (!(panic_payload instanceof FatalErrorMarker)) {
