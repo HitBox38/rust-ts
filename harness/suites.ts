@@ -1659,17 +1659,36 @@ function miriRunCorpus(modes: string[]): { cases: Case[]; skipped: SkippedCase[]
   return r;
 }
 
+/** The port of Miri's driver (src/tools/miri/src/bin/miri.rs; lane miri-driver). */
+export const MIRI_DRIVER_ENTRY = "src/miri/bin/miri.ts";
 /**
- * The subject of a Miri case (see above): the port's rustc driver with Miri's rustc argv, until the port of Miri's
- * driver exists.
+ * The one place that picks the port side of every Miri suite and of scripts/miri-diff.ts (lane miri-diff): the entry
+ * point `miriSubject` runs. Today the port's rustc driver, run as Miri runs rustc (see `miriSubject`); the harness batch
+ * that switches the Miri subject sets it to `MIRI_DRIVER_ENTRY`, which then gets the oracle's exact argv.
+ */
+export const MIRI_SUBJECT_ENTRY: string = "src/rust_ts/main.ts";
+
+/**
+ * The subject of a Miri case (see above): `MIRI_SUBJECT_ENTRY`. While that is the port's rustc driver (until the port
+ * of Miri's driver runs), it gets Miri's rustc argv: `MIRI_DEFAULT_ARGS`, then the case's argv without `-Zmiri-*` and
+ * without the program's arguments after `--`.
  */
 export function miriSubject(args: string[]): string[] {
+  if (MIRI_SUBJECT_ENTRY === MIRI_DRIVER_ENTRY) return [...bunCmd(MIRI_DRIVER_ENTRY), ...args];
   const dd = args.indexOf("--");
   const rustc = (dd < 0 ? args : args.slice(0, dd)).filter((a) => !a.startsWith("-Zmiri-"));
-  return [...bunCmd("src/rust_ts/main.ts"), ...MIRI_DEFAULT_ARGS, ...rustc];
+  return [...bunCmd(MIRI_SUBJECT_ENTRY), ...MIRI_DEFAULT_ARGS, ...rustc];
 }
 
 const MIRI_HELLO = "harness/corpus/miri/hello.rs";
+/**
+ * The Miri case of one program file with Miri's plain argv (plan-m6 §1b): `miri <file> --sysroot <miri-sysroot>
+ * --target <target>`, env `NOCORE_ENV` + `MIRI_CASE_ENV`, run in the repo (`miri-hello`'s cwd); `file` is relative to
+ * the repo or absolute. `miri-hello`'s case, and scripts/miri-diff.ts's case for a file given by path.
+ */
+export function miriFileCase(file: string): Case {
+  return { id: file, file, args: [file, "--sysroot", MIRI_SYSROOT, "--target", miriPin().target], env: { ...NOCORE_ENV, ...MIRI_CASE_ENV } };
+}
 /** The fields every Miri suite shares. */
 const miriSuite = (s: Omit<Suite, "milestone" | "mode" | "miri" | "oracle" | "subject" | "oracleKey">): Suite => ({
   ...s,
@@ -1689,7 +1708,7 @@ SUITES.push(
       "Miri (the pinned nightly's, isolated toolchain) runs std's hello world on the oracle-built Miri sysroot for x86_64-unknown-linux-gnu (`miri hello.rs --sysroot <miri-sysroot> --target x86_64-unknown-linux-gnu`): stdout + stderr + exit; gate M6a",
     timeoutMs: 60_000,
     cwd: REPO,
-    cases: () => [{ id: MIRI_HELLO, file: MIRI_HELLO, args: [MIRI_HELLO, "--sysroot", MIRI_SYSROOT, "--target", miriPin().target], env: { ...NOCORE_ENV, ...MIRI_CASE_ENV } }],
+    cases: () => [miriFileCase(MIRI_HELLO)],
     criterion: { percent: 100, what: "plan-m6 gate M6a: miri-hello MATCH" },
   }),
   miriSuite({
