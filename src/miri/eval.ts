@@ -9,9 +9,8 @@
 //   iterates `set_env_vars`, so its order is observable. `BorTag` / `AllocId` are `NonZero<u64>` (their `Hash` writes
 //   the `u64`, which FxHasher treats as `usize` on the 64-bit hosts): `usize_key`.
 // - `MainThreadState::on_main_stack_empty(&mut self, ..)` takes the state as a `MutRef` (`*self = X` writes `.value`).
-// - `Poll<()>` is src/std/task.ts's `Poll<null>`; the skeleton still types the stack-empty callbacks' result
-//   `Pending<"Poll<()>">` (thread.ts `StackEmptyCallback`, global_ctor.ts / tls.ts `on_stack_empty`): `poll_of` /
-//   `pending_poll` convert at those boundaries (docs/handoff/miri-eval.md asks to retype them).
+// - `Poll<()>` is src/std/task.ts's `Poll<null>` (also the stack-empty callbacks' result type: thread.ts
+//   `StackEmptyCallback`, global_ctor.ts / tls.ts `on_stack_empty`).
 // - `#[derive(Default)]` of `GlobalCtorState` / `TlsDtorsState` (both `#[default] Init`) is built here from the generated
 //   types (`GlobalCtorStatePriv.Init` / `TlsDtorsStatePriv.Init`).
 // - `ThreadId::MAIN_THREAD` (thread.rs:59, lane miri-threads) is not declared by the skeleton: `MAIN_THREAD` below is
@@ -52,7 +51,6 @@ import { FatalErrorMarker } from "../rustc_span/fatal_error.ts";
 import { Binder, EarlyBinder, fold_Binder } from "../rustc_type_ir/binder.ts";
 import { fold_FnSig, PolyFnSig } from "../rustc_type_ir/ty_kind.ts";
 import { fold_Ty } from "../rustc_middle/ty/structural_impls.ts";
-import { type Pending } from "../rustc_type_ir/decls.ts";
 import { type MutRef } from "../std/mut_ref.ts";
 import { Panic, assert, panic, unwrap } from "../std/panic.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
@@ -60,14 +58,6 @@ import { Poll } from "../std/task.ts";
 import { PLAIN } from "../std/fmt.ts";
 import { debug_InterpErrorKind } from "../rustc_middle/mir/interpret/error.gen.ts";
 export * from "./eval.gen.ts";
-
-/** PORT: the skeleton's `Pending<"Poll<()>">` is src/std/task.ts's `Poll<null>` (module header). */
-function poll_of(p: Pending<"Poll<()>">): Poll<null> {
-  return p as unknown as Poll<null>;
-}
-function pending_poll(p: Poll<null>): Pending<"Poll<()>"> {
-  return p as unknown as Pending<"Poll<()>">;
-}
 
 /**
  * `ThreadId::MAIN_THREAD` (thread.rs:59).
@@ -191,7 +181,7 @@ function on_main_stack_empty(self: MutRef<MainThreadState>, this_: MiriInterpCx)
       const { ctor_state, entry_id, entry_type, argc, argv } = state;
       const p = ctor_state.on_stack_empty(this_);
       if (p.$ === "Err") return p;
-      switch (poll_of(p._0).$) {
+      switch (p._0.$) {
         case "Pending":
           break; // just keep going
         case "Ready": {
@@ -210,7 +200,7 @@ function on_main_stack_empty(self: MutRef<MainThreadState>, this_: MiriInterpCx)
     case "TlsDtors": {
       const p = state._0.on_stack_empty(this_);
       if (p.$ === "Err") return p;
-      switch (poll_of(p._0).$) {
+      switch (p._0.$) {
         case "Pending":
           break; // just keep going
         case "Ready": {
@@ -402,11 +392,7 @@ export function create_ecx(
   // Cannot capture anything GC-relevant here.
   // `argc` and `argv` *are* GC_relevant, but they also get stored in `machine.argc` and
   // `machine.argv` so we are good.
-  const on_main_stack_empty_cb: StackEmptyCallback = (m) => {
-    const r = on_main_stack_empty(main_thread_state, m);
-    if (r.$ === "Err") return r;
-    return interp_ok(pending_poll(r._0));
-  };
+  const on_main_stack_empty_cb: StackEmptyCallback = (m) => on_main_stack_empty(main_thread_state, m);
   const li = MiriMachine.late_init(ecx, config, on_main_stack_empty_cb);
   if (li.$ === "Err") return li;
 

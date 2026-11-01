@@ -26,6 +26,7 @@ import { type Pending } from "../../rustc_type_ir/decls.ts";
 import { display_IoError, type IoError as io_Error, IoError_kind } from "../../std/io.ts";
 import { panic, unported } from "../../std/panic.ts";
 import { type Result } from "../../std/result.ts";
+import { type Duration } from "../../std/time.ts";
 export * from "./blocking_io.gen.ts";
 
 /// Capacity of the event queue which can be polled at a time.
@@ -96,7 +97,7 @@ export function Readiness_from_Event(_event: Pending<"mio::event::Event">): Read
 /// The timeout semantics are the same as described in [`Poll::poll`].
 /// The events also immediately get processed: threads get unblocked, and fd readiness gets updated.
 // rustc: src/tools/miri/src/concurrency/blocking_io.rs:118 poll
-BlockingIoManager.poll = function (ecx: MiriInterpCx, _timeout: Pending<"Duration"> | undefined): InterpResult<Result<null, io_Error>> {
+BlockingIoManager.poll = function (ecx: MiriInterpCx, _timeout: Duration | undefined): InterpResult<Result<null, io_Error>> {
   const poll = ecx.machine.blocking_io.poll;
   if (poll === undefined) panic("Blocking I/O should not be called with isolation enabled");
 
@@ -238,7 +239,7 @@ InterpCx.prototype.block_thread_for_io = function (
 /// Unblocks all threads which are blocked on I/O and whose I/O interests
 /// are currently fulfilled.
 // rustc: src/tools/miri/src/concurrency/blocking_io.rs:322 poll_and_unblock
-InterpCx.prototype.poll_and_unblock = function (this: MiriInterpCx, timeout: Pending<"Duration"> | undefined): InterpResult {
+InterpCx.prototype.poll_and_unblock = function (this: MiriInterpCx, timeout: Duration | undefined): InterpResult {
   const this_ = this.eval_context_mut();
 
   const r = BlockingIoManager.poll(this_, timeout);
@@ -279,7 +280,7 @@ declare module "../../rustc_const_eval/interpret/eval_context.ts" {
     // concurrency/blocking_io.rs:288
     block_thread_for_io(this: MiriInterpCx, source_fd: FileDescriptionRef<SourceFileDescription>, interest: BlockingIoInterest, deadline: Deadline | undefined, callback: DynUnblockCallback): InterpResult;
     // concurrency/blocking_io.rs:322
-    poll_and_unblock(this: MiriInterpCx, timeout: Pending<"Duration"> | undefined): InterpResult;
+    poll_and_unblock(this: MiriInterpCx, timeout: Duration | undefined): InterpResult;
     // concurrency/blocking_io.rs:336
     any_thread_blocked_on_host(this: MiriInterpCx): boolean;
   }
@@ -301,6 +302,6 @@ declare module "./blocking_io.gen.ts" {
     function new_(communicate: boolean): Result<BlockingIoManager, io_Error>;
     export { new_ as new };
     // concurrency/blocking_io.rs:118
-    export let poll: (ecx: MiriInterpCx, timeout: Pending<"Duration"> | undefined) => InterpResult<Result<null, io_Error>>;
+    export let poll: (ecx: MiriInterpCx, timeout: Duration | undefined) => InterpResult<Result<null, io_Error>>;
   }
 }

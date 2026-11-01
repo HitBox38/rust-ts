@@ -12,6 +12,7 @@ import { type AnyMachine, type Machine } from "../../rustc_const_eval/interpret/
 import { type InterpResult } from "../../rustc_middle/mir/interpret/mod.ts";
 import { type Pending } from "../../rustc_type_ir/decls.ts";
 import { unported } from "../../std/panic.ts";
+import { type Duration, type SystemTime } from "../../std/time.ts";
 
 declare module "../../rustc_const_eval/interpret/eval_context.ts" {
   interface InterpCx<M extends AnyMachine = Machine> {
@@ -31,9 +32,9 @@ declare module "../../rustc_const_eval/interpret/eval_context.ts" {
     // shims/time.rs:260
     QueryPerformanceFrequency(this: MiriInterpCx, lpFrequency_op: OpTy): InterpResult<Scalar>;
     // shims/time.rs:281
-    system_time_since_windows_epoch(this: MiriInterpCx, time: Pending<"SystemTime">): InterpResult<Pending<"Duration">>;
+    system_time_since_windows_epoch(this: MiriInterpCx, time: SystemTime): InterpResult<Duration>;
     // shims/time.rs:291
-    windows_ticks_for(this: MiriInterpCx, duration: Pending<"Duration">): InterpResult<bigint>;
+    windows_ticks_for(this: MiriInterpCx, duration: Duration): InterpResult<bigint>;
     // shims/time.rs:301
     mach_absolute_time(this: MiriInterpCx): InterpResult<Scalar>;
     // shims/time.rs:316
@@ -47,14 +48,14 @@ declare module "../../rustc_const_eval/interpret/eval_context.ts" {
     // shims/time.rs:440
     Sleep(this: MiriInterpCx, timeout: OpTy): InterpResult;
     // shims/time.rs:467
-    read_timespec(this: MiriInterpCx, tp: MPlaceTy): InterpResult<Pending<"Duration"> | undefined>;
+    read_timespec(this: MiriInterpCx, tp: MPlaceTy): InterpResult<Duration | undefined>;
     // shims/time.rs:490
-    read_timeval(this: MiriInterpCx, tp: MPlaceTy): InterpResult<Pending<"Duration"> | undefined>;
+    read_timeval(this: MiriInterpCx, tp: MPlaceTy): InterpResult<Duration | undefined>;
   }
 }
 
 // shims/time.rs:13 (pub)
-export function system_time_to_duration(time: Pending<"SystemTime">): InterpResult<Pending<"Duration">> {
+export function system_time_to_duration(time: SystemTime): InterpResult<Duration> {
   return unported("miri::shims::time::system_time_to_duration (src/tools/miri/src/shims/time.rs:13; lane miri-shims-b)");
 }
 

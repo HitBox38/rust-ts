@@ -50,13 +50,14 @@ test("Instant::add_lossy saturates (virtual); Deadline::from / add_lossy", () =>
 
   // `RealTime`: `SystemTime` overflow falls back to adding 1h.
   const s = SystemTime.UNIX_EPOCH.checked_add(Duration.from_secs(1000n))!;
-  const d3 = Deadline.add_lossy({ $: "RealTime", _0: s as never }, Duration.from_secs(1n << 63n));
+  const d3 = Deadline.add_lossy({ $: "RealTime", _0: s }, Duration.from_secs(1n << 63n));
   expect(d3.$).toBe("RealTime");
-  const t = d3._0 as unknown as SystemTime;
+  if (d3.$ !== "RealTime") throw new Error("unreachable");
+  const t = d3._0;
   expect(t.duration_since(SystemTime.UNIX_EPOCH)).toEqual({ $: "Ok", _0: Duration.from_secs(4600n) });
   // ... and if adding 1h overflows too, the `unwrap` panics as upstream.
   const far = SystemTime.UNIX_EPOCH.checked_add(Duration.from_secs((1n << 63n) - 2n))!;
-  expect(() => Deadline.add_lossy({ $: "RealTime", _0: far as never }, Duration.from_secs(10n))).toThrow(Panic);
+  expect(() => Deadline.add_lossy({ $: "RealTime", _0: far }, Duration.from_secs(10n))).toThrow(Panic);
 });
 
 test("Instant::duration_since panics on mixed kinds", () => {
@@ -78,7 +79,7 @@ test("MiriMachine::timeout (monotonic, isolation on; real-time needs communicati
   );
   const comm = { monotonic_clock: clock, communicate: () => true } as unknown as MiriMachine;
   const rt = MiriMachine.prototype.timeout.call(comm, "RealTime", "Absolute", Duration.from_secs(7n));
-  expect(rt.$ === "RealTime" && (rt._0 as unknown as SystemTime).duration_since(SystemTime.UNIX_EPOCH)).toEqual({
+  expect(rt.$ === "RealTime" && rt._0.duration_since(SystemTime.UNIX_EPOCH)).toEqual({
     $: "Ok",
     _0: Duration.from_secs(7n),
   });
