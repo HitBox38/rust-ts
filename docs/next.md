@@ -370,19 +370,24 @@ the src/miri skeleton reconciled with it; library/proc_macro bridge + lib ported
 Gate note: check-core subject max RSS 12,305 MB, 17 MB over its 12,288 MB budget (report only, plan-m5 D11) → perf watch item.
 
 ## Wave 36 (started 2026-11-01) — Miri core (plan-m6 §5, A2 split lanes)
+Integration branch `integ-w36` (worktree .data/integ-w36) holds: followups-35, miri-machine, miri-driver, miri-sb,
+harness-m6b, miri-alloc, miri-race, pm-host, miri-diff (+ root integration fixes: DedupRangeMap clone/eq call sites,
+emit_diagnostic via port_methods, placeholder removal). Miri/runtime/proc_macro/metadata/harness/scripts unit tests green.
 | lane | scope | status |
 |---|---|---|
-| miri-machine | machine.rs (2,205) | running |
-| miri-eval | eval.rs, helpers.rs, operator.rs, math.rs, clock.rs (~2.8k) | running |
-| miri-driver | bin/miri.rs, diagnostics.rs, provenance_gc.rs, data_structures/* (~2.7k) | running |
-| miri-log | D10/A6: `info!`-level events of rustc_const_eval interpret + Miri behind MIRI_LOG (bin/log/setup.rs, tracing.ts) | running |
-| miri-diff | D10: scripts/miri-diff.ts (normalised event-line compare) (harness batch) | running |
-| miri-alloc | alloc/*, alloc_addresses/*, borrow_tracker/mod.rs (~1.9k) | running |
-| miri-sb | stacked_borrows/* + concurrency/weak_memory.rs (~2.7k; Item repacking per the recorded decision) | running |
-| miri-threads | concurrency thread, scheduler(s), sync, init_once, blocking_io, mod (~2.7k) | running |
-| miri-race | concurrency data_race, data_race_handler, vector_clock (~2.7k) | running |
-| pm-host | D7: host_dylib.rs, the bun:ffi edge (src/rust_ts/proc_macro_host.ts), creader wiring; first test = a real oracle-built proc macro | running |
-| harness-m6b | proc-macro dylib aux builds (oracle), `pm-ui`, `pm-expanded` suites (harness batch) | running |
-| followups-35 | port-side small queue: BoundsCheckFailed exact, eval_context.ts:27 comment, proc_macro bridge/client.ts load-order TDZ, pm-bridge nits, vendor-rand nits | running |
-Queued for wave 37 (after miri-driver): harness-w36 (port side → src/miri/bin/miri.ts; harness-m6a nits; coverage.ts std markers;
-randstream probe registration; crate-src.ts yanked crates; harness-w35 nits). Then the shim lanes (wave 37 → gate M6a).
+| followups-35 | port-side small queue | APPROVE WITH NITS (nits fixed acfd1e04); on integ-w36 |
+| miri-machine | machine.rs 87/87 | APPROVE WITH NITS (test fix 555f1abb); on integ-w36; callback! API fix queued before first caller |
+| miri-driver | bin/miri.rs 19/21, diagnostics, provenance_gc, data_structures | APPROVE WITH NITS; on integ-w36 |
+| miri-sb | stacked_borrows/* + weak_memory (88 fns) | APPROVE WITH NITS; on integ-w36 |
+| harness-m6b | proc-macro aux dylibs, pm-ui / pm-expanded (272 cases) | APPROVE WITH NITS; on integ-w36; ANOTHER pin + needs-* before pm-ui accept (harness-w36) |
+| miri-alloc | alloc/*, alloc_addresses/*, borrow_tracker/mod.rs | APPROVE WITH NITS (root fixes 7de01997); on integ-w36; re-check running |
+| miri-race | data_race, data_race_handler, vector_clock | REQUEST CHANGES → root fixes 8199a512; on integ-w36; re-check running |
+| pm-host | host_dylib.rs + bun:ffi edge; A4 ok on macOS (Windows unchecked) | REQUEST CHANGES → root fixes d21986ed/a25814af; on integ-w36; re-check running |
+| miri-diff | scripts/miri-diff.ts (harness) | REQUEST CHANGES → root fixes c586df20/ef55bea0; on integ-w36; re-check running |
+| miri-threads | concurrency thread/scheduler/sync/init_once/blocking_io (163 fns) | REQUEST CHANGES → fixer miri-threads-fix running (oracle schedule pin, value-keyed maps, sync_objs) |
+| miri-eval | eval/helpers/operator/math/clock (139 fns) + src/std time/task | REQUEST CHANGES → fixer miri-eval-fix running (f16 powi, f32/f64 host libm fidelity, host guard) |
+| miri-log | tracing INFO + interpret info! + bin/log | REQUEST CHANGES → fixer miri-log-fix running (leak fix, loud stop, driver wiring, honest sample) |
+| harness-w36 | ANOTHER pin, needs-*, port side → src/miri/bin/miri.ts, probes, nits (harness) | running |
+| integ-w36 re-check | independent re-check of all root fixes + integration commits | running |
+Then: miri-wire (swap remaining cross-lane stand-ins, callback! API, adjust_alloc_root_pointer interface, typemap retyping
+std::time / Poll), the wave 36 gate, then wave 37 shims (→ M6a).
