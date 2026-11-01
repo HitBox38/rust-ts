@@ -27,9 +27,10 @@
 //   `if (r.$ === "Err") return r;`, `throw_*!(X)` is `return Err(InterpErrorInfo_from_InterpErrorKind({ .. }))` (the
 //   `throw_ub!(..)` text stays as a comment). `layout_of` returns `Result<TyAndLayout, InterpErrorKind>` as upstream;
 //   its `?` in an `InterpResult` fn converts with `InterpErrorInfo_from_InterpErrorKind`.
-// - `u64` / `i64` / `u128` values are bigints, and so are target `usize` / `isize` values (`read_target_usize`,
-//   `Scalar.to_target_usize`); host `usize` (indices, counts, `VariantIdx` / `FieldIdx`) is a number. Generated `u64` /
-//   `i64` fields follow the type map (`number`, except the exact `bigint` fields listed in mir.typemap.json `fields`).
+// - `u64` / `i64` / `u128` values are bigints, and so are target `usize` / `isize` values (`read_target_usize` /
+//   `read_target_isize`, `Scalar.to_target_usize` / `to_target_isize`); host `usize` (indices, counts, `VariantIdx` /
+//   `FieldIdx`) is a number. Generated `u64` / `i64` fields follow the type map (`number` by default; the exact fields
+//   are bigint, listed in mir.typemap.json `fields`).
 //   `Size` has two forms (rustc_abi/lib.ts, decision "Size representation"): `bytes()` is a number and stops beyond
 //   2^53, `bytes_u64()` is always the exact bigint. `Either<L, R>` is mir/mod.ts's `{ $: "Left" | "Right"; _0 }`.
 // - `enter_trace_span!(..)` / `trace!` / `debug!` (tracing) are comments; `cfg!(debug_assertions)` blocks are skipped

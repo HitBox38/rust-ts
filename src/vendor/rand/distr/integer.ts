@@ -93,7 +93,7 @@ export const StandardUniform_NonZeroI32 = impl_nzint(StandardUniform_i32);
 export const StandardUniform_NonZeroI64 = impl_nzint(StandardUniform_i64);
 export const StandardUniform_NonZeroI128 = impl_nzint(StandardUniform_i128);
 
-// crate-skip: rand-0.10.1/src/distr/integer.rs:112 sample cfg(target_arch = "x86"/"x86_64") `__m128i`: x86 SIMD register type (compiled on x86/x86_64 hosts); Miri never samples it
-// crate-skip: rand-0.10.1/src/distr/integer.rs:129 sample cfg(target_arch = "x86"/"x86_64") `__m256i`: x86 SIMD register type (compiled on x86/x86_64 hosts); Miri never samples it
+// crate-skip: rand-0.10.1/src/distr/integer.rs:112 sample cfg(target_arch = "x86"/"x86_64") `__m128i`: x86 SIMD register type, compiled only on x86/x86_64 hosts; the aarch64 oracle host does not compile it
+// crate-skip: rand-0.10.1/src/distr/integer.rs:129 sample cfg(target_arch = "x86"/"x86_64") `__m256i`: x86 SIMD register type, compiled only on x86/x86_64 hosts; the aarch64 oracle host does not compile it
 // crate-skip: rand-0.10.1/src/distr/integer.rs:145 sample cfg(feature = "simd_support") `__m512i`: off in Miri's rand (default features)
 // crate-skip: rand-0.10.1/src/distr/integer.rs:164 sample cfg(feature = "simd_support"): off in Miri's rand (default features)
