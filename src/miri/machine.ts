@@ -102,7 +102,6 @@ import {
   InterpErrorInfo_from_InterpErrorKind,
   type InterpResult,
   interp_ok,
-  type MachineStopType,
   type Misalignment,
   type ObjectProvenance,
   type Pointer as interpret_Pointer,
@@ -2172,19 +2171,10 @@ function err_unsup_format(msg: string): InterpErrorKind {
   return { $: "Unsupported", _0: { $: "Unsupported", _0: msg } };
 }
 
-/**
- * `throw_machine_stop!(TerminationInfo::..)` (`InterpErrorKind::MachineStop(Box::new(..))`).
- * PORT(contract): pending lane miri-driver. `Box<dyn MachineStopType>` of a `TerminationInfo` needs the
- * `impl MachineStopType for TerminationInfo` (diagnostics.rs:113, with its `Display`/`Debug`), which the skeleton does
- * not declare; until diagnostics.ts provides it (as `MachineStopType_TerminationInfo(info)`), this stops `unported`.
- */
+/** `throw_machine_stop!(TerminationInfo::..)` (`InterpErrorKind::MachineStop(Box::new(..))`): miri-driver's
+ * `TerminationInfo_into_machine_stop` (diagnostics.ts), read through the namespace import at call time (C10). */
 function throw_machine_stop<T>(info: TerminationInfo): InterpResult<T> {
-  const box = pending<(info: TerminationInfo) => MachineStopType>(
-    diagnostics_ns,
-    "MachineStopType_TerminationInfo",
-    "miri::diagnostics::TerminationInfo as MachineStopType (lane miri-driver)",
-  );
-  return Err(InterpErrorInfo_from_InterpErrorKind({ $: "MachineStop", _0: box(info) }));
+  return Err(InterpErrorInfo_from_InterpErrorKind(diagnostics_ns.TerminationInfo_into_machine_stop(info)));
 }
 
 /** PORT (plan-m6 D3): `ecx.frame()` of the Miri machine: the `InterpCx` class body is typed with the CTFE defaults

@@ -17,7 +17,7 @@ import { AddressGenerator } from "./address_generator.ts";
 import { ReusePool } from "./reuse_pool.ts";
 import { type BorTag } from "../borrow_tracker/mod.ts";
 import { clone_VClock, VClock } from "../concurrency/vector_clock.ts";
-import { SpanDedupDiagnostic } from "../diagnostics.ts";
+import { SpanDedupDiagnostic, TerminationInfo, TerminationInfo_into_machine_stop } from "../diagnostics.ts";
 import { type MiriConfig } from "../eval.ts";
 import { type Pointer } from "../lib.ts";
 import { type MemoryKind, type MiriInterpCx, MiriMachine, Provenance } from "../machine.ts";
@@ -25,14 +25,14 @@ import { type LiveAllocs, type VisitWith } from "../provenance_gc.ts";
 import { Align, debug_AlignFromBytesError, type Size, Size as Size_ } from "../../rustc_abi/lib.ts";
 import { InterpCx } from "../../rustc_const_eval/interpret/eval_context.ts";
 import { type AnyMachine, type Machine } from "../../rustc_const_eval/interpret/machine.ts";
-import { type AllocId, debug_AllocId, interp_ok, type InterpResult, Pointer as interpret_Pointer } from "../../rustc_middle/mir/interpret/mod.ts";
+import { type AllocId, debug_AllocId, InterpErrorInfo_from_InterpErrorKind, interp_ok, type InterpResult, Pointer as interpret_Pointer } from "../../rustc_middle/mir/interpret/mod.ts";
 import { CtfeProvenance, PointerArithmetic_provided } from "../../rustc_middle/mir/interpret/pointer.ts";
 import { type TyCtxt } from "../../rustc_middle/ty/context.ts";
 import { debug_int, debug_struct_non_exhaustive, PLAIN } from "../../std/fmt.ts";
 import { assert, assert_eq, panic, unported, unwrap } from "../../std/panic.ts";
 import { port_methods } from "../../rust_ts/miri_stub.ts";
 import { binary_search_by } from "../../std/slice.ts";
-import { unwrap_result } from "../../std/result.ts";
+import { Err, unwrap_result } from "../../std/result.ts";
 import { type Rng } from "../../vendor/rand_core/lib.ts";
 import { type StdRng } from "../../vendor/rand/rngs/std.ts";
 export * from "./mod.gen.ts";
@@ -383,9 +383,7 @@ InterpCx.prototype.ptr_from_addr_cast = function (this: MiriInterpCx, addr: bigi
     }
     case "Strict": {
       // throw_machine_stop!(TerminationInfo::Int2PtrWithStrictProvenance);
-      // PORT(contract): pending miri-driver: `impl MachineStopType for TerminationInfo` (diagnostics.rs:113) has no
-      // TS value yet, so the machine stop cannot be built.
-      return unported("miri::alloc_addresses::ptr_from_addr_cast: throw_machine_stop!(TerminationInfo::Int2PtrWithStrictProvenance) (MachineStopType for TerminationInfo, lane miri-driver)");
+      return Err(InterpErrorInfo_from_InterpErrorKind(TerminationInfo_into_machine_stop(TerminationInfo.Int2PtrWithStrictProvenance)));
     }
     case "Permissive":
       break;

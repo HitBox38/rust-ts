@@ -4,8 +4,8 @@
 import { expect, test } from "bun:test";
 import "../lib.ts";
 import { Size } from "../../rustc_abi/lib.ts";
-import { DUMMY_SP } from "../../rustc_span/lib.ts";
-import { Unported } from "../../std/panic.ts";
+import { BytePos, DUMMY_SP, Span, create_default_session_globals_then } from "../../rustc_span/lib.ts";
+import { TerminationInfoStop, type TerminationInfo, display_TerminationInfo } from "../diagnostics.ts";
 import { AccessType, GlobalState, MemoryCellClocks, NaReadType, NaWriteType, VClockAlloc } from "./data_race.ts";
 import { ThreadId, type ThreadManager } from "./thread.ts";
 import { VClock, VTimestamp, VectorIdx, clone_VClock } from "./vector_clock.ts";
@@ -20,8 +20,10 @@ class FakeThreads {
   active_thread_(): ThreadId {
     return new ThreadId(this.active);
   }
-  active_thread_ref(): { current_user_relevant_span(): typeof DUMMY_SP } {
-    return { current_user_relevant_span: () => DUMMY_SP };
+  /** The span of the active thread's current statement (`DUMMY_SP` unless a test sets per-thread spans). */
+  span: (t: number) => Span = () => DUMMY_SP;
+  active_thread_ref(): { current_user_relevant_span(): Span } {
+    return { current_user_relevant_span: () => this.span(this.active) };
   }
   get_live_thread_count(): number {
     return this.live;
@@ -59,9 +61,9 @@ function alloc_cell(g: GlobalState, mgr: ThreadManager): MemoryCellClocks {
   return MemoryCellClocks.new(clocks.clock.index(idx), idx);
 }
 
-function na_write(g: GlobalState, mgr: ThreadManager, c: MemoryCellClocks): boolean {
+function na_write(g: GlobalState, mgr: ThreadManager, c: MemoryCellClocks, span: Span = DUMMY_SP): boolean {
   const [idx, clocks] = g.active_thread_state_mut(mgr);
-  return c.non_atomic_write_detect(clocks, idx, "Write", DUMMY_SP).$ === "Ok";
+  return c.non_atomic_write_detect(clocks, idx, "Write", span).$ === "Ok";
 }
 function na_read(g: GlobalState, mgr: ThreadManager, c: MemoryCellClocks): boolean {
   const [idx, clocks] = g.active_thread_state_mut(mgr);
@@ -207,30 +209,88 @@ test("AccessType / NaReadType / NaWriteType descriptions (race report text)", ()
   expect(g.print_thread_metadata(mgr, VectorIdx.new(1))).toBe("thread `t1`");
 });
 
-test("report_data_race picks the racing access and stops at the pending TerminationInfo machine-stop (miri-driver)", () => {
-  const { g, tm, mgr } = setup();
-  spawn(g, tm, mgr, 1);
-  const cell = alloc_cell(g, mgr);
-  expect(na_write(g, mgr, cell)).toBe(true);
-  tm.active = 1;
-  expect(na_write(g, mgr, cell)).toBe(false);
-  const ptr = Pointer.new(1n as unknown as AllocId, Size.ZERO);
-  let err: unknown;
-  try {
-    VClockAlloc.report_data_race(g, mgr, cell, { $: "NaWrite", _0: "Write" }, Size.from_bytes(4), ptr, undefined);
-  } catch (e) {
-    err = e;
-  }
-  expect(err).toBeInstanceOf(Unported);
-  expect((err as Unported).what).toContain("TerminationInfo: MachineStopType");
-  // The reported race: the earlier non-atomic write by `main` is op1, the racing write by `t1` is op2, and neither is
-  // atomic. Swapping op1/op2 or the branch order changes these fields.
-  expect((err as Unported & { payload?: unknown }).payload).toMatchObject({
-    $: "DataRace",
-    involves_non_atomic: true,
-    retag_explain: false,
-    extra: undefined,
-    op1: { action: "non-atomic write", thread_info: "thread `main`" },
-    op2: { action: "non-atomic write", thread_info: "thread `t1`" },
+/** Runs `report_data_race` for `access` by the active thread and returns the `TerminationInfo` of its machine stop. */
+function report(g: GlobalState, mgr: ThreadManager, cell: MemoryCellClocks, access: AccessType, ptr: Pointer<AllocId>): TerminationInfo {
+  const r = VClockAlloc.report_data_race(g, mgr, cell, access, Size.from_bytes(4), ptr, undefined);
+  if (r.$ !== "Err") throw new Error("report_data_race must return Err");
+  const kind = r._0.kind();
+  if (kind.$ !== "MachineStop") throw new Error(`expected MachineStop, got ${kind.$}`);
+  const info = TerminationInfoStop.downcast_ref(kind._0);
+  if (info === undefined) throw new Error("the machine stop must be a TerminationInfo");
+  return info;
+}
+
+/** Distinct spans per thread: `current_user_relevant_span()` of the active thread and the span of its accesses. */
+function thread_span(t: number): Span {
+  return Span.with_root_ctxt(BytePos(100 * (t + 1)), BytePos(100 * (t + 1) + 7));
+}
+
+test("report_data_race: an Err(MachineStop(DataRace)) naming both accesses, their threads and spans; upstream Display", () => {
+  create_default_session_globals_then(() => {
+    const { g, tm, mgr } = setup();
+    tm.span = thread_span;
+    spawn(g, tm, mgr, 1);
+    const cell = alloc_cell(g, mgr);
+    expect(na_write(g, mgr, cell, thread_span(0))).toBe(true);
+    tm.active = 1;
+    expect(na_write(g, mgr, cell, thread_span(1))).toBe(false);
+    const ptr = Pointer.new(1 as AllocId, Size.from_bytes(8));
+    const info = report(g, mgr, cell, { $: "NaWrite", _0: "Write" }, ptr);
+    // op1 is the earlier non-atomic write by `main` (its span: main's write), op2 the racing write by `t1` (its span:
+    // t1's clock entry, set by its write before the race check, data_race.rs:724). Swapping op1/op2 or their spans
+    // changes these fields.
+    if (info.$ !== "DataRace") throw new Error(`expected DataRace, got ${info.$}`);
+    expect(info.involves_non_atomic).toBe(true);
+    expect(info.retag_explain).toBe(false);
+    expect(info.extra).toBeUndefined();
+    expect(info.ptr).toBe(ptr);
+    expect(info.op1.action).toBe("non-atomic write");
+    expect(info.op1.thread_info).toBe("thread `main`");
+    expect(info.op1.span).toBe(thread_span(0));
+    expect(info.op2.action).toBe("non-atomic write");
+    expect(info.op2.thread_info).toBe("thread `t1`");
+    expect(info.op2.span).toBe(thread_span(1));
+    // diagnostics.rs:92: "{} detected between (1) {} on {} and (2) {} on {} at {ptr:?}"; `Pointer<AllocId>` Debug is the
+    // `AllocId` (`alloc1`) and, for a non-zero offset, `+{:#x}` (pointer.rs:202).
+    expect(display_TerminationInfo(info)).toBe(
+      "Data race detected between (1) non-atomic write on thread `main` and (2) non-atomic write on thread `t1` at alloc1+0x8",
+    );
+  });
+});
+
+test("report_data_race: branch order (an unsynchronized atomic store is reported before an older non-atomic write)", () => {
+  create_default_session_globals_then(() => {
+    const { g, tm, mgr } = setup();
+    tm.span = thread_span;
+    const cell = alloc_cell(g, mgr);
+    const scratch = alloc_cell(g, mgr);
+    spawn(g, tm, mgr, 1);
+    spawn(g, tm, mgr, 2);
+    // main: a non-atomic write after the spawns (t1 and t2 are not synchronized with it)
+    expect(na_write(g, mgr, cell, thread_span(0))).toBe(true);
+    // t1: a write elsewhere sets its clock entry's span (data_race.rs:724), then an atomic store to `cell` that races
+    // with main's write but is recorded first (atomic_write_detect, data_race.rs:678)
+    tm.active = 1;
+    expect(na_write(g, mgr, scratch, thread_span(1))).toBe(true);
+    expect(atomic(g, mgr, (idx, cl) => cell.store_relaxed(cl, idx, Size.from_bytes(4)).$ === "Ok")).toBe(false);
+    // t2: a non-atomic write races with both. Upstream checks the atomic store first (data_race.rs:1125), so op1 is
+    // t1's atomic store, not main's non-atomic write (the third branch, data_race.rs:1137).
+    tm.active = 2;
+    expect(na_write(g, mgr, cell, thread_span(2))).toBe(false);
+    const ptr = Pointer.new(3 as AllocId, Size.ZERO);
+    const info = report(g, mgr, cell, { $: "NaWrite", _0: "Write" }, ptr);
+    if (info.$ !== "DataRace") throw new Error(`expected DataRace, got ${info.$}`);
+    // `description(None, None)` (data_race.rs:419): no size prefix outside mixed-size races
+    expect(info.op1.action).toBe("atomic store");
+    expect(info.op1.thread_info).toBe("thread `t1`");
+    expect(info.op1.span).toBe(thread_span(1));
+    expect(info.op2.action).toBe("non-atomic write");
+    expect(info.op2.thread_info).toBe("thread `t2`");
+    expect(info.op2.span).toBe(thread_span(2));
+    expect(info.involves_non_atomic).toBe(true);
+    expect(info.extra).toBeUndefined();
+    expect(display_TerminationInfo(info)).toBe(
+      "Data race detected between (1) atomic store on thread `t1` and (2) non-atomic write on thread `t2` at alloc3",
+    );
   });
 });

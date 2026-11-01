@@ -60,7 +60,7 @@ import { VClock, VClock_eq, VTimestamp, VTimestamp_eq, VectorIdx, VTimestamp_cmp
 import { clone_VTimestamp } from "./vector_clock.gen.ts";
 import { type DedupRange } from "../data_structures/dedup_range_map.ts";
 import { DedupRangeMap } from "../data_structures/dedup_range_map.ts";
-import { type RacingOp, type TerminationInfo } from "../diagnostics.ts";
+import { type RacingOp, type TerminationInfo, TerminationInfo_into_machine_stop } from "../diagnostics.ts";
 import { type MiriConfig } from "../eval.ts";
 import { type ImmTy, type MPlaceTy, type Scalar } from "../lib.ts";
 import { type MemoryKind, type MiriInterpCx, type MiriMachine, type Provenance } from "../machine.ts";
@@ -72,7 +72,7 @@ import { type AnyMachine, type Machine } from "../../rustc_const_eval/interpret/
 import { Immediate } from "../../rustc_const_eval/interpret/operand.ts";
 import { type AtomicRmwOp } from "../../rustc_const_eval/interpret/operator.gen.ts";
 import { type AllocRange } from "../../rustc_middle/mir/interpret/allocation.ts";
-import { InterpErrorInfo_from_InterpErrorKind, InterpResult, interp_ok, type InterpErrorInfo, type MachineStopType } from "../../rustc_middle/mir/interpret/error.ts";
+import { InterpErrorInfo_from_InterpErrorKind, InterpResult, interp_ok, type InterpErrorInfo } from "../../rustc_middle/mir/interpret/error.ts";
 import { type AllocId } from "../../rustc_middle/mir/interpret/mod.ts";
 import { Pointer as interpret_Pointer } from "../../rustc_middle/mir/interpret/pointer.ts";
 import { Scalar as interpret_Scalar } from "../../rustc_middle/mir/interpret/value.ts";
@@ -83,7 +83,7 @@ import { display_Ty } from "../../rustc_middle/ty/print/pretty.ts";
 import { Span } from "../../rustc_span/lib.ts";
 import { type Pending } from "../../rustc_type_ir/decls.ts";
 import { PLAIN } from "../../std/fmt.ts";
-import { Unported, assert, panic, unported, unreachable, unwrap } from "../../std/panic.ts";
+import { assert, panic, unported, unreachable, unwrap } from "../../std/panic.ts";
 import { Err, Ok, expect_result, unwrap_result, type Result } from "../../std/result.ts";
 import { RngExt, type Rng } from "../../vendor/rand/lib.ts";
 export * from "./data_race.gen.ts";
@@ -343,20 +343,10 @@ function imm_to_scalar(imm: Immediate<Provenance>): Scalar {
   return Immediate.to_scalar(imm as unknown as Immediate) as unknown as Scalar;
 }
 
-/** `err_machine_stop!(TerminationInfo::..)`: `InterpErrorKind::MachineStop(Box::new(info))`. */
+/** `err_machine_stop!(TerminationInfo::..)`: `InterpErrorKind::MachineStop(Box::new(info))` (miri-driver's
+ * `TerminationInfo_into_machine_stop`, diagnostics.ts). */
 function err_machine_stop(info: TerminationInfo): InterpErrorInfo {
-  return InterpErrorInfo_from_InterpErrorKind({ $: "MachineStop", _0: TerminationInfo_as_MachineStopType(info) });
-}
-
-/** `Box<dyn MachineStopType>` of a `TerminationInfo`. PORT(contract): pending miri-driver: `impl MachineStopType for
- * TerminationInfo` (diagnostics.rs:113, with its `Display` / `Debug`) is not declared in diagnostics.ts; once it is,
- * this stand-in becomes that function. */
-function TerminationInfo_as_MachineStopType(info: TerminationInfo): MachineStopType {
-  // Throws the stand-in's `Unported`, carrying the payload so that the race-report tests can check what would be reported.
-  throw Object.assign(
-    new Unported("miri::diagnostics::TerminationInfo: MachineStopType (src/tools/miri/src/diagnostics.rs:113; lane miri-driver)"),
-    { payload: info },
-  );
+  return InterpErrorInfo_from_InterpErrorKind(TerminationInfo_into_machine_stop(info));
 }
 
 // rustc-type: src/tools/miri/src/concurrency/data_race.rs:63 AllocState (generated)
