@@ -40,6 +40,28 @@ export function stub_statics(path: string, upstream: string, lane: string, targe
   register({ path, upstream, lane, kind: "static", target, names });
 }
 
+/** A ported member set of a class that another module defines (lane miri-alloc, contract fix; see `port_methods`). */
+interface MiriPort {
+  readonly path: string;
+  readonly target: () => object;
+  readonly members: Readonly<Record<string, unknown>>;
+}
+
+/** Every registered port, in registration (module load) order. */
+const MIRI_PORTS: MiriPort[] = [];
+
+/** Registers ported members (prototype methods or associated fns) of a class that *another* module defines, e.g.
+ * `impl MiriMachine` in alloc_addresses/mod.rs or `impl machine::AllocExtra` in borrow_tracker/mod.rs. Assigning them at
+ * load would read the other module's class at top level, which init-order rule C10 (2) forbids (it is in its TDZ when
+ * the ESM cycle through the generated modules enters this module first). `install_miri_stubs()` defines them, before the
+ * placeholders, with the same strict check: a name already defined on its target is an error, and a ported name still
+ * listed in a `stub_*` call makes the placeholder installation throw. `InterpCx.prototype` (rustc_const_eval, loaded
+ * first) and a module's own generated classes need no deferral. */
+export function port_methods(path: string, target: () => object, members: Readonly<Record<string, unknown>>): void {
+  if (installed) throw new Error(`miri port ${path}: registered after install_miri_stubs()`);
+  MIRI_PORTS.push({ path, target, members });
+}
+
 function register(s: MiriStub): void {
   if (installed) throw new Error(`miri stub ${s.path}: registered after install_miri_stubs()`);
   MIRI_STUBS.push(s);
@@ -50,10 +72,20 @@ export function stub_message(s: MiriStub, name: string): string {
   return `${s.path}::${name} (${s.upstream}; lane ${s.lane})`;
 }
 
-/** Defines every registered placeholder (once; src/miri/lib.ts). Throws on a name that is already defined on its target. */
+/** Defines every registered port, then every registered placeholder (once; src/miri/lib.ts). Throws on a name that is
+ * already defined on its target. */
 export function install_miri_stubs(): void {
   if (installed) return;
   installed = true;
+  for (const p of MIRI_PORTS) {
+    const target = p.target();
+    for (const [name, value] of Object.entries(p.members)) {
+      if (Object.prototype.hasOwnProperty.call(target, name)) {
+        throw new Error(`miri port ${p.path}::${name}: \`${name}\` is already defined on its target`);
+      }
+      Object.defineProperty(target, name, { value, writable: true, configurable: true, enumerable: false });
+    }
+  }
   for (const s of MIRI_STUBS) {
     const target = s.target();
     for (const name of s.names) {

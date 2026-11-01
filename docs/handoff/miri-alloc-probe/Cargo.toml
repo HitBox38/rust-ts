@@ -1,0 +1,16 @@
+[package]
+name = "addrprobe"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[[bin]]
+name = "addrprobe"
+path = "src/main.rs"
+
+[dependencies]
+# Miri's dependency (src/tools/miri/Cargo.toml: `rand = "0.10"`, default features), resolved through
+# upstream's Cargo.lock: rand 0.10.1, rand_core 0.10.1, chacha20 0.10.0.
+rand = "=0.10.1"
+
+[workspace]
