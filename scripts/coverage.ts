@@ -4,12 +4,18 @@
 // sources from scripts/crate-src.ts) vs `// crate: <crate>-<ver>/<path>:<line> <name>` markers.
 // Functions are found with our own rustc_lexer port, so `fn` inside comments/strings is never
 // counted. `// rustc-skip:` / `// crate-skip:` markers count as covered.
+// Ported Rust library code (`src/std/`, `src/proc_macro/`, ...) carries `// std: library/<crate>/src/<path>:<line> <name>`
+// markers, `// std-skip: ... <reason>` for fns deliberately not ported (decision 2026-10-31; the library/ counterparts of
+// rustc / rustc-skip): they count as covered for `--missing library/...`, `--check` validates them, and the full run
+// adds a `library` table over the library files that have at least one marker (most of std/core is not ported and
+// never will be file by file, so whole crates would only be noise). The library table is not part of the compiler TOTAL.
 //
 //   bun scripts/coverage.ts                 per-crate table, compiler then vendor (+ writes $RUST_TS_DATA/coverage.json)
-//   bun scripts/coverage.ts --crate C       per-file table for one crate (compiler crate, `miri`, or vendor `<crate>` / `<crate>-<ver>`)
-//   bun scripts/coverage.ts --missing PATH  unported functions in one upstream file (`compiler/...`, `src/tools/miri/src/...`
-//                                           or `<crate>-<ver>/<path>`)
-//   bun scripts/coverage.ts --check         ERROR on markers that point at no upstream / crate fn
+//   bun scripts/coverage.ts --crate C       per-file table for one crate (compiler crate, `miri`, vendor `<crate>` / `<crate>-<ver>`,
+//                                           or `library/<crate>`: its files with std markers)
+//   bun scripts/coverage.ts --missing PATH  unported functions in one upstream file (`compiler/...`, `src/tools/miri/src/...`,
+//                                           `library/...` or `<crate>-<ver>/<path>`)
+//   bun scripts/coverage.ts --check         ERROR on markers that point at no upstream / crate / library fn
 //   --offline                               fetch missing vendor crate sources only from cargo's local cache
 // Vendor crate sources are resolved lazily: only the crates a mode actually reads (none for a
 // compiler `--missing` / `--crate`; for `--check`, only crates that have markers).
@@ -78,6 +84,32 @@ export function markers(): Marker[] {
   }
   return out;
 }
+
+/**
+ * `// std: library/<crate>/src/<path>:<line> <name>` and `// std-skip: ... <reason>` markers (ported Rust library
+ * code; see the header).
+ */
+export function stdMarkers(): (Marker & { skip: boolean })[] {
+  const out: (Marker & { skip: boolean })[] = [];
+  const re = /\/\/ std(-skip)?: (\S+):(\d+) (\S+)/g;
+  for (const f of walk(join(REPO, "src"), ".ts")) {
+    const text = readFileSync(f, "utf8");
+    for (const m of text.matchAll(re)) {
+      out.push({ file: relative(REPO, f).replaceAll("\\", "/"), path: m[2]!, line: Number(m[3]), name: m[4]!, skip: m[1] !== undefined });
+    }
+  }
+  return out;
+}
+
+/**
+ * Whether `--check` fails on an invalid std marker (lane harness-w36). Off while the std markers that predate the check
+ * are wrong (3 at integ-w36: two name the `impl` line, one the line above the `fn`; port files, fixed by their owners):
+ * they print `warning:` lines instead. Turn on once `--check` prints none.
+ */
+const STD_MARKERS_STRICT = false;
+
+/** The library crate (`library/<crate>`) of a std marker path, or undefined if it is not under `library/<crate>/`. */
+export const libraryCrateOf = (path: string): string | undefined => /^(library\/[^/]+)\//.exec(path)?.[1];
 
 /** `// crate: <crate>-<ver>/<path>:<line> <name>` and `// crate-skip: ... <reason>` markers; `path` is `<crate>-<ver>/<path>`. */
 export function vendorMarkers(): (Marker & { skip: boolean })[] {
@@ -184,8 +216,10 @@ if (import.meta.main) {
   const a = parseArgs(process.argv.slice(2));
   const ms = markers();
   const vms = vendorMarkers();
+  const sms = stdMarkers();
   const key = (p: string, l: number) => `${p}:${l}`;
   const marked = new Map(ms.map((m) => [key(m.path, m.line), m]));
+  const smarked = new Map(sms.map((m) => [key(m.path, m.line), m]));
   const vmarked = new Map(vms.map((m) => [key(m.path, m.line), m]));
   const offline = a.offline === true;
   const vendor = vendorEntries();
@@ -203,9 +237,49 @@ if (import.meta.main) {
     const part = inMiri ? ms_.partial[a.missing.slice(ms_.root.length + 1)] : undefined;
     if (part) console.log(`note: only ${part.fns.join(", ")} of ${a.missing} are in scope (harness/scope.json miri.partial: ${part.reason})`);
     const fns = v ? upstreamFns(a.missing, dirname(v.dir)) : inMiri ? miriFns(ms_, a.missing) : upstreamFns(a.missing);
-    const miss = fns.filter((f) => !(v ? vmarked : marked).has(key(f.path, f.line)));
+    const inLibrary = !v && a.missing.startsWith("library/");
+    const miss = fns.filter((f) => !(v ? vmarked : inLibrary ? smarked : marked).has(key(f.path, f.line)));
     for (const f of miss) console.log(`${f.path}:${f.line} ${f.name}`);
     console.log(`${fns.length - miss.length}/${fns.length} ported`);
+    process.exit(0);
+  }
+
+  // Library files with std markers (see the header): `library/<crate>` -> files -> fns.
+  const libSel = typeof a.crate === "string" ? (a.crate.startsWith("library/") ? a.crate : undefined) : "";
+  const lall = new Map<string, UpstreamFn>();
+  const lrows: { crate: string; total: number; ported: number; skipped: number; files: { path: string; total: number; ported: number }[] }[] = [];
+  const lmissing: (Marker & { skip: boolean })[] = [];
+  if (libSel !== undefined || a.check) {
+    const byCrate = new Map<string, Set<string>>();
+    for (const m of sms) {
+      const c = libraryCrateOf(m.path);
+      if (c === undefined || !existsSync(join(UPSTREAM, m.path))) {
+        lmissing.push(m);
+        continue;
+      }
+      if (libSel && c !== libSel && !a.check) continue;
+      if (!byCrate.has(c)) byCrate.set(c, new Set());
+      byCrate.get(c)!.add(m.path);
+    }
+    for (const c of [...byCrate.keys()].sort()) {
+      const row = { crate: c, total: 0, ported: 0, skipped: 0, files: [] as { path: string; total: number; ported: number }[] };
+      for (const f of [...byCrate.get(c)!].sort()) {
+        const fns = upstreamFns(f);
+        for (const fn of fns) lall.set(key(fn.path, fn.line), fn);
+        const covered = fns.map((fn) => smarked.get(key(fn.path, fn.line))).filter((m) => m !== undefined);
+        row.total += fns.length;
+        row.ported += covered.length;
+        row.skipped += covered.filter((m) => m.skip).length;
+        row.files.push({ path: f, total: fns.length, ported: covered.length });
+      }
+      if (!libSel || c === libSel) lrows.push(row);
+    }
+  }
+  if (libSel) {
+    const r = lrows[0];
+    if (!r) die(`no // std: markers in ${libSel}`);
+    for (const f of r.files) console.log(`${String(f.ported).padStart(5)}/${String(f.total).padEnd(5)} ${f.path}`);
+    console.log(`TOTAL ${r.ported}/${r.total} fns covered (${r.total ? ((100 * r.ported) / r.total).toFixed(2) : "0.00"}%) in the marked files of ${r.crate} (${r.skipped} std-skip)`);
     process.exit(0);
   }
 
@@ -287,8 +361,16 @@ if (import.meta.main) {
       const why = vendorOf(m.path) ? "matches no fn in the crate source" : "names no harness/scope.json vendor crate at that version";
       console.log(`ERROR: ${m.file}: marker ${m.path}:${m.line} ${m.name} ${why}`);
     }
-    if (bad.length || vbad.length) process.exit(1);
-    console.log(`markers ok (${ms.length}; vendor ${vms.length})`);
+    // std markers: the file must exist under library/<crate>/ and the marker name a fn at that line.
+    const sbad = sms.filter((m) => {
+      if (lmissing.includes(m)) return true;
+      const fn = lall.get(key(m.path, m.line));
+      return !fn || fn.name !== m.name;
+    });
+    const sev = STD_MARKERS_STRICT ? "ERROR" : "warning";
+    for (const m of sbad) console.log(`${sev}: ${m.file}: marker ${m.path}:${m.line} ${m.name} ${lmissing.includes(m) ? "names no file under library/<crate>/ in the upstream checkout" : "matches no upstream library fn"}`);
+    if (bad.length || vbad.length || (STD_MARKERS_STRICT && sbad.length)) process.exit(1);
+    console.log(`markers ok (${ms.length}; vendor ${vms.length}; library ${sms.length}${sbad.length ? `, ${sbad.length} invalid: warnings above` : ""})`);
     process.exit(0);
   }
 
@@ -314,8 +396,25 @@ if (import.meta.main) {
   const vtotal = vrows.reduce((s, r) => s + r.total, 0);
   const vported = vrows.reduce((s, r) => s + r.ported, 0);
   console.log(`VENDOR ${vported}/${vtotal} fns covered (${vtotal ? ((100 * vported) / vtotal).toFixed(2) : "0.00"}%) across ${vrows.length} crates`);
+  console.log(`library (the library/ files with // std: markers; covered = std: + std-skip:)`);
+  for (const r of lrows) {
+    console.log(`${r.crate.padEnd(28)} ${String(r.ported).padStart(6)}/${String(r.total).padEnd(6)} ${pct(r.ported, r.total).padStart(6)}  (${r.files.length} files, ${r.skipped} skipped)`);
+  }
+  const ltotal = lrows.reduce((s, r) => s + r.total, 0);
+  const lported = lrows.reduce((s, r) => s + r.ported, 0);
+  console.log(`LIBRARY ${lported}/${ltotal} fns covered (${ltotal ? ((100 * lported) / ltotal).toFixed(2) : "0.00"}%) in ${lrows.reduce((s, r) => s + r.files.length, 0)} marked files of ${lrows.length} crates`);
   writeFileSync(
     join(DATA, "coverage.json"),
-    JSON.stringify({ ported, total, crates: rows.map(({ files, ...r }) => r), vendor: { ported: vported, total: vtotal, crates: vrows.map(({ files, ...r }) => r) } }, null, 1),
+    JSON.stringify(
+      {
+        ported,
+        total,
+        crates: rows.map(({ files, ...r }) => r),
+        vendor: { ported: vported, total: vtotal, crates: vrows.map(({ files, ...r }) => r) },
+        library: { ported: lported, total: ltotal, crates: lrows.map(({ files, ...r }) => r) },
+      },
+      null,
+      1,
+    ),
   );
 }

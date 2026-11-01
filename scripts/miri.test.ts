@@ -8,7 +8,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { miriToolchainError, oracleToolchainError } from "./lib/toolchain.ts";
-import { unstableMiriOracleReason, unstableOracleReason } from "./lib/unstable.ts";
+import { THREAD_ID_PATTERN, UNSTABLE_ORACLE_PATTERNS, isIceStderr, unstableMiriOracleReason, unstableOracleReason } from "./lib/unstable.ts";
 
 const REPO = resolve(import.meta.dir, "..");
 const HOST = "aarch64-apple-darwin";
@@ -64,6 +64,36 @@ describe("unstableMiriOracleReason", () => {
   test("a panic of Miri itself (an ICE) names the host's thread id: unstable", () => {
     const ice = "thread 'rustc' (178972394) panicked at compiler/a.rs:1:1:\nboom\nerror: the compiler unexpectedly panicked. This is a bug\n";
     expect(unstableMiriOracleReason(ice)).toContain("thread id");
+  });
+  test("an ICE through bug! (ExplicitBug: no `unexpectedly panicked` line) is still an ICE (review harness-m6a N1)", () => {
+    // report_ice (rustc_driver_impl lib.rs:1539) skips the `Ice` error for an ExplicitBug payload but always prints the
+    // bug-report and version notes; the bug!/span_bug! message itself is an `error: internal compiler error: ...`.
+    const notes = [
+      "note: we would appreciate a bug report: https://github.com/rust-lang/miri/issues/new",
+      "note: please make sure that you have updated to the latest nightly",
+      "note: rustc 1.101.0-nightly (6f5da406b 2026-10-10) running on aarch64-apple-darwin",
+    ];
+    const bug = ["error: internal compiler error: src/tools/miri/src/x.rs:1:1: boom", "", "thread 'rustc' (73787783) panicked at src/tools/miri/src/x.rs:1:1:", "Box<dyn Any>", ...notes, ""].join("\n");
+    expect(isIceStderr(bug)).toBe(true);
+    expect(unstableMiriOracleReason(bug)).toContain("thread id");
+    // Each marker alone (the tid line plus one of them).
+    const tid = "thread 'rustc' (73787783) panicked at a.rs:1:1:\nx\n";
+    for (const n of notes.filter((n) => !n.includes("updated"))) expect(unstableMiriOracleReason(tid + n + "\n")).toContain("thread id");
+    expect(unstableMiriOracleReason(tid + "note: using internal features is not supported and expected to cause internal compiler errors when used incorrectly\n")).toContain("thread id");
+    expect(unstableMiriOracleReason(tid + "error: internal compiler error[E0308]: mismatched types\n")).toContain("thread id");
+    // A program's own panic with Miri's diagnostics is not an ICE.
+    expect(isIceStderr("thread 'main' (1000) panicked at a.rs:1:1:\nboom\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n")).toBe(false);
+  });
+  test("the Miri rule names the thread-id pattern; it does not depend on the pattern order (review harness-m6a N2)", () => {
+    expect(UNSTABLE_ORACLE_PATTERNS).toContain(THREAD_ID_PATTERN);
+    const saved = [...UNSTABLE_ORACLE_PATTERNS];
+    try {
+      UNSTABLE_ORACLE_PATTERNS.reverse();
+      expect(unstableMiriOracleReason("\nthread 'main' (1000) panicked at a.rs:1:1:\n")).toBeUndefined();
+      expect(unstableMiriOracleReason("note: please attach the file at `/u/rustc-ice-2026-10-21T11_18_00-4242.txt` to your bug report\n")).toContain("ICE note");
+    } finally {
+      UNSTABLE_ORACLE_PATTERNS.splice(0, UNSTABLE_ORACLE_PATTERNS.length, ...saved);
+    }
   });
   test("the other patterns apply as everywhere", () => {
     expect(unstableMiriOracleReason("note: please attach the file at `/u/rustc-ice-2026-10-21T11_18_00-4242.txt` to your bug report\n")).toContain("ICE note");
@@ -126,8 +156,18 @@ console.log(JSON.stringify({
     run: s.miriRunArgs(ui(["a.rs", "--sysroot", os], { flags: ["--x", "y"], env: [["K", " v"], ["U", "1"]], unsetEnv: ["U", "Z"] }), os, "/m"),
     ownSysroot: err(() => s.miriRunArgs(ui(["a.rs", "--sysroot", "/own"], undefined), os, "/m")),
     named: err(() => s.miriRunArgs(ui(["a.rs", "--sysroot", os, "-L", os + "/lib"], undefined), os, "/m")),
+    isolation: err(() => s.miriRunArgs(ui(["a.rs", "--sysroot", os, "-Zmiri-disable-isolation"], undefined), os, "/m")),
+    isolationSplit: err(() => s.miriRunArgs(ui(["a.rs", "--sysroot", os, "-Z", "miri-disable-isolation"], undefined), os, "/m")),
+    envForward: err(() => s.miriRunArgs(ui(["a.rs", "--sysroot", os, "-Zmiri-env-forward=HOME"], undefined), os, "/m")),
+    // Program arguments after \`--\` are the program's, not Miri's.
+    programArg: s.miriRunArgs(ui(["a.rs", "--sysroot", os], { flags: ["-Zmiri-disable-isolation"], env: [], unsetEnv: [] }), os, "/m"),
   },
+  subjectEntry: s.MIRI_SUBJECT_ENTRY,
+  driverEntry: s.MIRI_DRIVER_ENTRY,
   subject: s.miriSubject(["a.rs", "--sysroot", "/m", "-Zmiri-disable-isolation", "-O", "--", "-Zmiri-x", "p"]),
+  subjectRustc: s.miriSubjectOf(s.RUSTC_DRIVER_ENTRY, ["a.rs", "--sysroot", "/m", "-Zmiri-disable-isolation", "-O", "--", "-Zmiri-x", "p"]),
+  needsUnwind: byId(rp, "tests/ui/panics/panic-handler-chain.rs") !== undefined,
+  needsSkips: [...runPass.skipped(), ...runFail.skipped()].filter((k) => /\\\`needs-/.test(k.reason)).map((k) => k.reason.slice(0, k.reason.indexOf("\\\`", 1) + 1)),
   criterion: [
     d.criterionOf({ percent: 90, what: "w" }, { MATCH: 9, DIFF: 0, UNPORTED: 0, CRASH: 0, TIMEOUT: 0, ORACLE_TIMEOUT: 2, UNSTABLE: 1 }, 12),
     d.criterionOf({ percent: 100, what: "w" }, { MATCH: 0, DIFF: 0, UNPORTED: 0, CRASH: 0, TIMEOUT: 0, ORACLE_TIMEOUT: 1, UNSTABLE: 0 }, 1),
@@ -158,15 +198,24 @@ test("Miri oracle, suites and argv (child process)", () => {
   expect(j.oracleCmd).toEqual([j.binary, "a.rs"]);
   expect(j.binary.endsWith("/bin/miri") || j.binary.endsWith("\\bin\\miri.exe")).toBe(true);
   expect(j.binary).toContain("rustup-miri");
-  // miri-hello: Miri's plain argv on the Miri sysroot; the subject is the port's rustc driver with Miri's defaults.
+  // miri-hello: Miri's plain argv on the Miri sysroot; the subject is the port of Miri's driver with the oracle's argv
+  // (lane harness-w36).
   expect(j.hello.length).toBe(1);
   expect(j.hello[0].args.slice(0, 2)).toEqual(["harness/corpus/miri/hello.rs", "--sysroot"]);
   expect(j.hello[0].args.slice(3)).toEqual(["--target", "x86_64-unknown-linux-gnu"]);
-  expect(j.helloSubject.slice(1, 10)).toEqual([join(REPO, "src/rust_ts/main.ts"), ...j.ours]);
-  // run-pass / run-fail: the counts measured by this lane (docs/handoff/harness-m6a.md), D6's argv.
-  expect(j.counts.runPass + j.counts.heavy).toBe(3269);
-  expect(j.counts.heavy).toBe(6);
-  expect(j.counts.runFail).toBe(263);
+  expect(j.subjectEntry).toBe(j.driverEntry);
+  expect(j.helloSubject.slice(1)).toEqual([join(REPO, "src/miri/bin/miri.ts"), ...j.hello[0].args]);
+  // run-pass / run-fail: the counts measured by lanes harness-m6a (3,269 / 263) and harness-w36 (needs-* evaluated:
+  // +209 / +31), D6's argv.
+  // 3,478 minus mpsc_stress.rs, which the Miri oracle does not finish (skipped).
+  expect(j.counts.runPass + j.counts.heavy).toBe(3477);
+  // harness-m6a's 6 heavy cases plus 2 among the new ones (harness-w36's full timing).
+  expect(j.counts.heavy).toBe(8);
+  expect(j.counts.runFail).toBe(294);
+  // needs-unwind holds on x86_64-unknown-linux-gnu (compiletest's can_unwind); only needs that depend on bootstrap/CI
+  // configuration are still skipped.
+  expect(j.needsUnwind).toBe(true);
+  expect([...new Set(j.needsSkips)].sort()).toEqual(["`needs-deterministic-layouts`", "`needs-sanitizer-support`"]);
   expect(j.noOut).toEqual([]);
   expect(j.sysroots.length).toBe(1);
   expect(j.sysroots[0]).toContain("miri-sysroot");
@@ -182,14 +231,22 @@ test("Miri oracle, suites and argv (child process)", () => {
   expect(j.revRunPass).toBe(true);
   expect(j.revCheckFail).toBe(false);
   expect(j.ignoredDir).toBe(false);
-  expect(j.skippedRp).toBeGreaterThan(600);
-  expect(j.skippedRf).toBeGreaterThan(40);
+  // harness-w36: 489 (aux 420, only-*/ignore-* 55, needs-* config 8, min-llvm-version 6) + 8 heavy + 1 the oracle
+  // does not finish; run-fail 32.
+  expect(j.skippedRp).toBe(498);
+  expect(j.skippedRf).toBe(32);
   expect(j.skippedOverlap).toEqual([]);
   expect(j.args.plain).toEqual(["a.rs", "--sysroot", "/m", "--target=x", "-O"]);
   expect(j.args.run).toEqual(["a.rs", "--sysroot", "/m", "-Zmiri-env-set=K= v", "--", "--x", "y"]);
   expect(j.args.ownSysroot).toContain("not 1");
   expect(j.args.named).toContain("names the oracle sysroot");
-  expect(j.subject.slice(1)).toEqual([join(REPO, "src/rust_ts/main.ts"), ...j.ours, "a.rs", "--sysroot", "/m", "-O"]);
+  expect(j.args.isolation).toContain("isolation");
+  expect(j.args.isolationSplit).toContain("-Zmiri-disable-isolation");
+  expect(j.args.envForward).toContain("-Zmiri-env-forward=HOME");
+  expect(j.args.programArg).toEqual(["a.rs", "--sysroot", "/m", "--", "-Zmiri-disable-isolation"]);
+  expect(j.subject.slice(1)).toEqual([join(REPO, "src/miri/bin/miri.ts"), "a.rs", "--sysroot", "/m", "-Zmiri-disable-isolation", "-O", "--", "-Zmiri-x", "p"]);
+  // The rustc-driver fallback (before harness-w36): Miri's rustc argv.
+  expect(j.subjectRustc.slice(1)).toEqual([join(REPO, "src/rust_ts/main.ts"), ...j.ours, "a.rs", "--sysroot", "/m", "-O"]);
   expect(j.criterion[0]).toEqual({ match: 9, of: 10, oracleTimeouts: 2, percent: 90, target: 90, met: true, what: "w" });
   expect(j.criterion[1]).toEqual({ match: 0, of: 0, oracleTimeouts: 1, percent: 0, target: 100, met: false, what: "w" });
 });
