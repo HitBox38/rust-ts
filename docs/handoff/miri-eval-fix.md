@@ -105,7 +105,7 @@ worktree t3-228bb9d7).
     - Part 2: three host-op tests (f64 / f32 / f16), each hashing its sample like the probe; `skipIf` on another host.
   - `src/miri/math.oracle.txt`: regenerated from the new probe (125 lines).
   - `docs/handoff/miri-eval-fix-probe/{Cargo.toml,Cargo.lock,main.rs}` (new): the probe source, following the
-    vendor-rand precedent.
+    vendor-rand precedent. `miri-f16-powi/` holds the real-Miri check.
 
 ## Probe (math.oracle.txt)
 
@@ -121,8 +121,8 @@ worktree t3-228bb9d7).
 - **Fidelity check:** its binary takes Miri's code paths. It has the same 16 libm imports, `fcvt`+`sinf`+`fcvt` for
   f16, `bl ___powisf2` / `___powidf2`, and no `fmul h` (f16 multiply) anywhere. All inputs and exponents go through
   `black_box`.
-- **Queued harness item:** register it as `tools/probes/mirimath` (a harness batch). The real-Miri f16 `powi` check is
-  scratch at `$RUST_TS_DATA/tmp/miri-eval-fix/powih.rs`; its output is `powih.miri.txt`.
+- **Queued harness item:** register it as `tools/probes/mirimath` (a harness batch). The real-Miri f16 `powi` check is in
+  `docs/handoff/miri-eval-fix-probe/miri-f16-powi/` (`powih.rs` + `compare.ts`).
 
 ## Verification
 
@@ -136,11 +136,39 @@ worktree t3-228bb9d7).
   - clock.rs 10/10
 - Codegen: `bun tools/codegen/types.ts miri` regenerates with no diff (0 unknown types, missing debug 13 / clone 2,
   as before).
-- `RUST_TS_REQUIRE_PROBES=1 bun test src/miri src/rustc_const_eval src/std` ×3: RESULTS_PLACEHOLDER
-- `bun scripts/difftest.ts --suite mir --sample 200`: DIFFTEST_PLACEHOLDER
+- `RUST_TS_REQUIRE_PROBES=1 bun test src/miri src/rustc_const_eval src/std` ×3, on the final tree: 201 pass,
+  1 fail on each run, the same failure every time (no flake).
+  - The failure is `src/std/result.test.ts` "non-test code never reaches the one-argument unwrap_result". It flags 5
+    lines that exist unchanged on integ-w36, in other lanes' files:
+    - `src/miri/alloc/alloc_bytes.ts:113`
+    - `src/miri/alloc/alloc_bytes.ts:166`
+    - `src/miri/machine.ts:865`
+    - `src/miri/machine.ts:1135`
+    - `src/miri/alloc_addresses/mod.ts:216`
+  - Fix for each: pass `debug_AlignFromBytesError` / the `Layout` error's debug fn. Not edited here (owners' files;
+    root or the owners).
+  - This lane's two hits (`helpers.ts` `read_wide_str` / `read_c_str_with_char_size` call sites) are fixed.
+  - The predecessor's unnamed first-run failure did not recur in 6 runs (3 on an intermediate tree, 3 on the final
+    one). The predecessor ran only `src/std/time.test.ts`, so it never ran this lint.
+- `bun scripts/difftest.ts --suite mir --sample 200` (agent `miri-eval-fix`): MATCH=200 DIFF=0 UNPORTED=0 CRASH=0, run
+  `20261101-141509-miri-eval-fix-pqhz`.
 - Mutation check: the tests fail with the reviewer's two divergences put back (f32 `sin` = `Math.fround(Math.sin)`,
   f64 `exp2` = `2 ** x`). Reverted after the check.
-- Real-Miri f16 `powi`, exhaustive (65,536 inputs per exponent): MIRI_PLACEHOLDER
+- Real-Miri f16 `powi`, exhaustive (65,536 inputs per exponent):
+  - Command: the isolated Miri, `--target x86_64-unknown-linux-gnu -Zmiri-deterministic-floats`, running
+    `docs/handoff/miri-eval-fix-probe/miri-f16-powi/powih.rs` (17 min).
+  - Compared with `compare.ts` in the same directory. Results, as mismatches of the port / of the per-step-f16 model:
+
+    | n | port | per-step-f16 model |
+    |---|---|---|
+    | 3 | 0 | 5,176 |
+    | −3 | 0 | 14,018 |
+    | 2 | 0 | 0 |
+    | 5 | 0 | 6,786 |
+    | −7 | 0 | 8,492 |
+    | 11 | 0 | 4,700 |
+
+  - NaN results are compared as NaN, because Miri's `adjust_nan` regenerates them.
 - `math.test.ts` takes about 20 s (f64 5 s, f32 5 s, f16 10 s), almost all of it apfloat conversions; the FFI is
   about 5 ns per call.
 
