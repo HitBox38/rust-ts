@@ -9,7 +9,7 @@ import { oraclePinnedPathEnv, oracleRustcCmd, oracleSysroot, rustcDriverHash, ve
 import { probePath } from "../scripts/probes.ts";
 import { MIRI_CASE_ENV, MIRI_DEFAULT_ARGS, MIRI_SYSROOT, miriBinary, miriOracleKey, miriPin } from "../scripts/lib/miri.ts";
 import { COMPILETEST_TARGET, collectUiTests, uiBlessed, uiCases, uiFileCases, uiOutputBaseDir, type Blessed, type ErrorFormat, type UiCase } from "./compiletest.ts";
-import { EMPTY_SYSROOT, M5_TARGET, libArgs, libCrate, libEnv, oracleLibRmeta } from "./library.ts";
+import { AUX_STALE_MS, EMPTY_SYSROOT, M5_TARGET, libArgs, libCrate, libEnv, oracleLibRmeta, pruneStaleAux, touchAuxDir } from "./library.ts";
 
 export interface Case {
   /** Stable id; the protected set (harness/baseline) is a list of these. */
@@ -628,7 +628,9 @@ function oracleAuxRmeta(file: string, crate: string, args: string[]): string {
       env: mergeEnv(process.env, caseEnv(NOCORE_ENV)),
     });
     if (r.exitCode !== 0 || !existsSync(out)) throw new Error(`ERROR: oracle build of aux crate ${file} failed: ${r.stderr.toString().trim()}`);
-  }
+    // A new key: remove this crate's other directories unused for AUX_STALE_MS (lane harness-w36, as harness/library.ts).
+    pruneStaleAux(join(DATA, "aux"), crate, `${crate}-${key}`, Date.now(), AUX_STALE_MS, "");
+  } else touchAuxDir(dir);
   return out;
 }
 const minicoreUiFile = (f: string): boolean => {
@@ -812,7 +814,8 @@ function m3UiCorpus(dirs: string[], dumpTests = true): { cases: Case[]; skipped:
   // (tests/ui/traits/const-traits/parse-const-unsafe-trait.rs). (The minicore corpus filters every occurrence.)
   const cases = ui.cases.map((c) => {
     if (c.args.at(-1) !== "-Zparse-crate-root-only") throw new Error(`ERROR: ${c.id}: argv does not end with -Zparse-crate-root-only`);
-    return pinSessionEnv({ id: c.id, file: c.file, args: c.args.slice(0, -1), env: { ...NOCORE_ENV, ...c.env } }, ui.auxFiles.get(c.id));
+    const aux = ui.auxFiles.get(c.id);
+    return pinProcMacroEnv(pinSessionEnv({ id: c.id, file: c.file, args: c.args.slice(0, -1), env: { ...NOCORE_ENV, ...c.env } }, aux), aux);
   });
   const r = { cases, skipped: ui.skipped };
   m3UiMemo.set(key, r);
@@ -1556,7 +1559,8 @@ SUITES.push(
 // - `run-pass-miri`, `run-fail-miri`: every tests/ui test whose mode (per revision) is `run-pass`, resp. `run-fail` /
 //   `run-crash` / `run-fail-or-crash`, without aux crates, with compiletest's argv for its main compile
 //   (harness/compiletest.ts `uiFileCases(.., { run: true })`, human error format, cwd the upstream checkout) turned
-//   into Miri's by D6 (`miriRunArgs`). Tests compiletest would skip on x86_64-unknown-linux-gnu, aux tests (the later
+//   into Miri's by D6 (`miriRunArgs`); `needs-*` directives evaluated as compiletest does for that target
+//   (harness/compiletest.ts "needs-*", lane harness-w36). Tests compiletest would skip on x86_64-unknown-linux-gnu, aux tests (the later
 //   `run-pass-aux-miri`) and the heavy cases are listed as skipped. Gate M6b's share.
 // - `run-pass-miri-heavy`: the run-pass cases the full oracle timing (A7, `bun scripts/miri.ts time`) found slow
 //   (`MIRI_HEAVY`), in the heavy class: one process at a time, run after the other suites, long timeouts.
@@ -1578,8 +1582,16 @@ const runModeFiles = (): string[] =>
     .filter((f) => declaredModes(f, undefined).some((m) => m.startsWith("run-"))));
 let runCorpusMemo: { cases: UiCase[]; skipped: SkippedCase[] } | undefined;
 /** compiletest's cases of `runModeFiles` (no aux crates), with their mode and run props. */
-const runCorpus = (): { cases: UiCase[]; skipped: SkippedCase[] } => (runCorpusMemo ??= uiFileCases(runModeFiles(), "human", { run: true }));
+const runCorpus = (): { cases: UiCase[]; skipped: SkippedCase[] } => (runCorpusMemo ??= uiFileCases(runModeFiles(), "human", { run: true, needs: true }));
 
+/**
+ * Miri flags that turn isolation off (`-Zmiri-disable-isolation`: the program sees the host's clock, files, real pid,
+ * so the `gettid` thread id in a panic message becomes the host's) or pass host variables to the program
+ * (`-Zmiri-env-forward=<var>`). D14 keeps isolation on, and `unstableMiriOracleReason` and `MIRI_CASE_ENV` rely on it,
+ * so a case whose argv has one is skipped (review harness-m6a N3, lane harness-w36). No tests/ui test passes one at the
+ * pin; Miri's own test suites (harness-m6c) do.
+ */
+export const MIRI_ISOLATION_OFF = ["-Zmiri-disable-isolation", "-Zmiri-env-forward"];
 /**
  * plan-m6 D6: the Miri argv of a compiletest run-mode case (`c.args`, its main compile): every `-o <path>` dropped
  * (Miri writes no output), the oracle sysroot that compiletest's argv names replaced by the Miri sysroot (the
@@ -1587,13 +1599,16 @@ const runCorpus = (): { cases: UiCase[]; skipped: SkippedCase[] } => (runCorpusM
  * `-Zmiri-env-set=K=V` unless an `unset-exec-env` removes it (compiletest sets, then removes; other removals are
  * no-ops: with isolation on the program sees no host variable), and the `run-flags` after `--` (the interpreted
  * program's arguments). Throws (a skip) if the
- * argv names the oracle sysroot anywhere else (a test's own `--sysroot` or `{{sysroot-base}}`).
+ * argv names the oracle sysroot anywhere else (a test's own `--sysroot` or `{{sysroot-base}}`), or turns Miri's
+ * isolation off or forwards host variables (`MIRI_ISOLATION_OFF`).
  */
 export function miriRunArgs(c: Pick<UiCase, "id" | "args" | "run">, oracleSysrootPath: string, miriSysroot: string): string[] {
   const out: string[] = [];
   let sysroots = 0;
   for (let i = 0; i < c.args.length; i++) {
     const a = c.args[i]!;
+    const z = a === "-Z" ? `-Z${c.args[i + 1] ?? ""}` : a;
+    if (MIRI_ISOLATION_OFF.some((f) => z === f || z.startsWith(`${f}=`))) throw new Error(`passes \`${z}\`: Miri's isolation would be off or leak host variables (D14: isolation stays on; the thread-id and environment rules of the Miri suites assume it)`);
     if (a === "-o") {
       i++;
       continue;
@@ -1615,18 +1630,31 @@ export function miriRunArgs(c: Pick<UiCase, "id" | "args" | "run">, oracleSysroo
 }
 
 /**
- * The full-run oracle timing of plan-m6 A7 (`bun scripts/miri.ts time --suite run-pass-miri`, docs/handoff/harness-m6a.md;
- * macOS arm64, 8 jobs, 300 s cap, the two capped ones re-timed alone without it): the run-pass cases over 5 s of user
- * time under the Miri oracle (the next slowest took 3.4 s); id -> what was measured. Every other run-pass case took
- * under 3.5 s (p99 0.31 s).
+ * The full-run oracle timing of plan-m6 A7 (`bun scripts/miri.ts time --suite run-pass-miri`, docs/handoff/harness-m6a.md,
+ * repeated by lane harness-w36 over the 3,472 cases with `needs-*` evaluated, docs/handoff/harness-w36.md; macOS arm64,
+ * 8 jobs, 300 s cap, the capped ones re-timed alone without it): the run-pass cases over 5 s of user time under the
+ * Miri oracle; id -> what was measured. Every other run-pass case took under 5 s (harness-w36: the next slowest
+ * 4.9 s, p99 0.40 s).
  */
 const MIRI_HEAVY: Record<string, string> = {
   "tests/ui/collections/hashset-connected-border-12860.rs": "Miri oracle 451 s user, exit 0",
+  // dynamic-drop-async.rs and panic-handler-flail-wildly.rs are run-pass cases since lane harness-w36 evaluates
+  // `needs-*` (its full timing of run-pass-miri, same method, docs/handoff/harness-w36.md).
+  "tests/ui/drop/dynamic-drop-async.rs": "Miri oracle 10.4 s user, exit 0",
   "tests/ui/generics/issue-94923.rs": "Miri oracle 10.6 s user, exit 0",
   "tests/ui/impl-trait/example-calendar.rs": "Miri oracle 8.6 s user, exit 0",
+  "tests/ui/panics/panic-handler-flail-wildly.rs": "Miri oracle 5.1 s user, exit 0",
   "tests/ui/range/step_overflowing.rs": "Miri oracle 282 s user, exit 0",
   "tests/ui/threads-sendsync/task-comm-5.rs": "Miri oracle 5.1 s user, exit 0",
   "tests/ui/threads-sendsync/task-comm-6.rs": "Miri oracle 18.5 s user, exit 0",
+};
+/**
+ * Run-pass cases the Miri oracle does not finish (lane harness-w36, measured alone without a cap, same method as
+ * `MIRI_HEAVY`): skipped in run-pass-miri instead of joining the heavy class, as `NOCORE_SKIPPED` (an ORACLE_TIMEOUT
+ * is never cached, so every heavy run would pay the oracle's 900 s + 4 x 900 s again, at a growing RSS).
+ */
+const MIRI_ORACLE_NO_FINISH: Record<string, string> = {
+  "tests/ui/threads-sendsync/mpsc_stress.rs": "the Miri oracle does not finish: killed after 3,000 s wall (2,738 s user, max RSS 5.9 GB and growing)",
 };
 const heavyReason = (id: string) => `heavy (plan-m6 A7: ${MIRI_HEAVY[id]}): in run-pass-miri-heavy`;
 
@@ -1661,24 +1689,28 @@ function miriRunCorpus(modes: string[]): { cases: Case[]; skipped: SkippedCase[]
 
 /** The port of Miri's driver (src/tools/miri/src/bin/miri.rs; lane miri-driver). */
 export const MIRI_DRIVER_ENTRY = "src/miri/bin/miri.ts";
+/** The port's rustc driver, the Miri subject before lane harness-w36 (see `miriSubjectOf`). */
+export const RUSTC_DRIVER_ENTRY = "src/rust_ts/main.ts";
 /**
  * The one place that picks the port side of every Miri suite and of scripts/miri-diff.ts (lane miri-diff): the entry
- * point `miriSubject` runs. Today the port's rustc driver, run as Miri runs rustc (see `miriSubject`); the harness batch
- * that switches the Miri subject sets it to `MIRI_DRIVER_ENTRY`, which then gets the oracle's exact argv.
+ * point `miriSubject` runs. Lane harness-w36 switched it from the port's rustc driver (`RUSTC_DRIVER_ENTRY`, run as
+ * Miri runs rustc) to the port of Miri's driver (`MIRI_DRIVER_ENTRY`), which gets the oracle's exact argv.
  */
-export const MIRI_SUBJECT_ENTRY: string = "src/rust_ts/main.ts";
+export const MIRI_SUBJECT_ENTRY: string = MIRI_DRIVER_ENTRY;
 
 /**
- * The subject of a Miri case (see above): `MIRI_SUBJECT_ENTRY`. While that is the port's rustc driver (until the port
- * of Miri's driver runs), it gets Miri's rustc argv: `MIRI_DEFAULT_ARGS`, then the case's argv without `-Zmiri-*` and
- * without the program's arguments after `--`.
+ * The subject of a Miri case with entry point `entry` (see above). `MIRI_DRIVER_ENTRY` gets the oracle's argv as is;
+ * any other entry (the port's rustc driver) gets Miri's rustc argv: `MIRI_DEFAULT_ARGS`, then the case's argv without
+ * `-Zmiri-*` and without the program's arguments after `--`.
  */
-export function miriSubject(args: string[]): string[] {
-  if (MIRI_SUBJECT_ENTRY === MIRI_DRIVER_ENTRY) return [...bunCmd(MIRI_DRIVER_ENTRY), ...args];
+export function miriSubjectOf(entry: string, args: string[]): string[] {
+  if (entry === MIRI_DRIVER_ENTRY) return [...bunCmd(MIRI_DRIVER_ENTRY), ...args];
   const dd = args.indexOf("--");
   const rustc = (dd < 0 ? args : args.slice(0, dd)).filter((a) => !a.startsWith("-Zmiri-"));
-  return [...bunCmd(MIRI_SUBJECT_ENTRY), ...MIRI_DEFAULT_ARGS, ...rustc];
+  return [...bunCmd(entry), ...MIRI_DEFAULT_ARGS, ...rustc];
 }
+/** The subject of a Miri case: `miriSubjectOf(MIRI_SUBJECT_ENTRY, args)`. */
+export const miriSubject = (args: string[]): string[] => miriSubjectOf(MIRI_SUBJECT_ENTRY, args);
 
 const MIRI_HELLO = "harness/corpus/miri/hello.rs";
 /**
@@ -1716,9 +1748,13 @@ SUITES.push(
     description:
       "tests/ui run-pass tests (no aux crates) run under Miri with compiletest's argv for x86_64-unknown-linux-gnu on the Miri sysroot (plan-m6 D6: no -o, exec-env as -Zmiri-env-set, run-flags after --): stdout + stderr + exit; heavy cases in run-pass-miri-heavy",
     timeoutMs: 60_000,
-    cases: () => miriRunCorpus(RUN_PASS_MODES).cases.filter((c) => !Object.hasOwn(MIRI_HEAVY, c.id)),
+    cases: () => miriRunCorpus(RUN_PASS_MODES).cases.filter((c) => !Object.hasOwn(MIRI_HEAVY, c.id) && !Object.hasOwn(MIRI_ORACLE_NO_FINISH, c.id)),
     skipped: () =>
-      [...miriRunCorpus(RUN_PASS_MODES).skipped, ...miriRunCorpus(RUN_PASS_MODES).cases.filter((c) => Object.hasOwn(MIRI_HEAVY, c.id)).map((c) => ({ id: c.id, reason: heavyReason(c.id) }))].sort((a, b) =>
+      [
+        ...miriRunCorpus(RUN_PASS_MODES).skipped,
+        ...miriRunCorpus(RUN_PASS_MODES).cases.filter((c) => Object.hasOwn(MIRI_HEAVY, c.id)).map((c) => ({ id: c.id, reason: heavyReason(c.id) })),
+        ...miriRunCorpus(RUN_PASS_MODES).cases.filter((c) => Object.hasOwn(MIRI_ORACLE_NO_FINISH, c.id)).map((c) => ({ id: c.id, reason: MIRI_ORACLE_NO_FINISH[c.id]! })),
+      ].sort((a, b) =>
         a.id < b.id ? -1 : a.id > b.id ? 1 : 0,
       ),
     criterion: { percent: 90, what: M6B },
@@ -1756,7 +1792,8 @@ SUITES.push(
 //   proc-macro crate are not part of the case set. Argv: compiletest's main compile (human error format,
 //   `-Znext-solver=coherence`, revisions, `-L`/`--extern` of the aux dir; the parse-ui `-Zparse-crate-root-only`
 //   dropped), env NOCORE_ENV + the test's `rustc-env` with the session variables pinned (`pinSessionEnv`, aux sources
-//   included). cwd the upstream checkout. Timeouts as the M3 ui suites (the aux builds get the oracle's 300 s too).
+//   included) and the variables the proc macros read unset (`pinProcMacroEnv`). `needs-*` directives are evaluated
+//   as compiletest does for x86_64-unknown-linux-gnu (harness/compiletest.ts "needs-*"). cwd the upstream checkout. Timeouts as the M3 ui suites (the aux builds get the oracle's 300 s too).
 // - `pm-ui` (gate M6: >= 95% MATCH, A9): the main compile with `--emit=metadata` (compiletest's own `--emit metadata`
 //   for check modes; appended for build/run modes, so nothing reaches codegen): stdout (proc macros print, e.g.
 //   PRINT-ATTR) + stderr + exit. The metadata goes where compiletest's `--out-dir` / `-o` puts it, under the upstream
@@ -1767,17 +1804,35 @@ SUITES.push(
 //   over a test's own `-Zunpretty`): stdout + stderr + exit; writes nothing.
 // Unprotected until root accepts a run.
 const PM_ORACLE_TIMEOUT_MS = 300_000;
+// Variables a proc macro reads while it runs (lane harness-w36; review harness-m6b finding 1): a proc-macro crate can read
+// any variable of rustc's environment at expansion time (`proc_macro::tracked::env_var("ANOTHER")`, `std::env::var`,
+// `var_os`), which `pinSessionEnv` (session variables, `env!`/`option_env!`) does not cover, while the oracle cache key
+// covers only `Case.env`. So every variable named by a string literal passed to `env_var` / `var` / `var_os` in a case's
+// aux sources (over-approximated, as `sessionVarsRead`) that the case does not set itself (`rustc-env`) is unset in its
+// env on both sides, and so part of its oracle cache key: a caller's exported `ANOTHER` can neither leak into a run nor
+// make a cached output stale. At the pin this is `tests/ui/proc-macro/env.rs` (aux `env.rs`: `THE_CONST`, set by its
+// `rustc-env`, and `ANOTHER`, unset).
+const PROC_MACRO_ENV_READ = /\b(?:env_var|var|var_os)\s*\(\s*"([^"\\]*)"/g;
+/** `c` with every variable its aux sources may read at expansion time (see above) and it does not set unset. */
+export function pinProcMacroEnv(c: Case, auxFiles: readonly string[] = []): Case {
+  const read = new Set<string>();
+  for (const f of auxFiles) for (const m of readFileSync(join(UPSTREAM, f), "utf8").matchAll(PROC_MACRO_ENV_READ)) read.add(m[1]!);
+  const add = [...read].sort().filter((v) => !Object.hasOwn(c.env ?? {}, v));
+  if (add.length === 0) return c;
+  return { ...c, env: { ...c.env, ...Object.fromEntries(add.map((v) => [v, null])) } };
+}
 let pmCorpusMemo: { cases: Case[]; skipped: SkippedCase[] } | undefined;
 /** The proc-macro tests' cases (see above), compiletest's main compile without the parse-ui flag. */
 function pmCorpus(): { cases: Case[]; skipped: SkippedCase[] } {
   if (pmCorpusMemo) return pmCorpusMemo;
-  const ui = uiFileCases(collectUiTests("tests/ui").sort(), "human", { aux: true, auxTimeoutMs: PM_ORACLE_TIMEOUT_MS, procMacro: true });
+  const ui = uiFileCases(collectUiTests("tests/ui").sort(), "human", { aux: true, auxTimeoutMs: PM_ORACLE_TIMEOUT_MS, procMacro: true, needs: true });
   const cases = ui.cases.map((c) => {
     if (c.args.at(-1) !== "-Zparse-crate-root-only") throw new Error(`ERROR: ${c.id}: argv does not end with -Zparse-crate-root-only`);
     // compiletest's `run` creates the output base dir before compiling (a `-o <dir>/a` compile writes its metadata's
     // temp dir there).
     mkdirSync(join(UPSTREAM, uiOutputBaseDir(c.id)), { recursive: true });
-    return pinSessionEnv({ id: c.id, file: c.file, args: c.args.slice(0, -1), env: { ...NOCORE_ENV, ...c.env } }, ui.auxFiles.get(c.id));
+    const aux = ui.auxFiles.get(c.id);
+    return pinProcMacroEnv(pinSessionEnv({ id: c.id, file: c.file, args: c.args.slice(0, -1), env: { ...NOCORE_ENV, ...c.env } }, aux), aux);
   });
   return (pmCorpusMemo = { cases, skipped: ui.skipped });
 }

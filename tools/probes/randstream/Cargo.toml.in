@@ -1,0 +1,24 @@
+# Template: scripts/probes.ts substitutes @SRC@ and builds this in $RUST_TS_DATA/probes.
+#
+# Oracle probe for src/vendor/{rand_core,rand,chacha20} (lane vendor-rand, plan-m6 D5; registered by lane harness-w36
+# from docs/handoff/vendor-rand-probe/): its stdout is src/vendor/rand/stdrng.oracle.txt, byte for byte
+# (tools/probes/fixtures.test.ts). Miri's dependency (src/tools/miri/Cargo.toml: `rand = "0.10"`, default features),
+# resolved through upstream's Cargo.lock (`lockfile = "upstream"`): rand 0.10.1, rand_core 0.10.1, chacha20 0.10.0
+# (yanked on crates.io; a locked yanked version still resolves).
+[package]
+name = "randstream"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata.rust-ts]
+lockfile = "upstream"
+
+[[bin]]
+name = "randstream"
+path = "@SRC@/main.rs"
+
+[dependencies]
+rand = "=0.10.1"
+
+[workspace]

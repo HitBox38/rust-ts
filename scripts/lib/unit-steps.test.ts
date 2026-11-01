@@ -20,11 +20,21 @@ test("unitStepsOf matches by root path, not substring", () => {
   expect(unitStepsOf("srcx/a.test.ts")).toEqual([]);
 });
 
-test("every test file of the repo (tracked or not ignored) runs in exactly one unit-test process", () => {
-  const r = Bun.spawnSync(["git", "ls-files", "--cached", "--others", "--exclude-standard", "--", "*.test.ts"], { cwd: REPO, stdout: "pipe", stderr: "pipe" });
+// Every name `bun test` discovers as a test file (its default patterns: `*.test.*`, `*_test.*`, `*.spec.*`, `*_spec.*`
+// over js/jsx/ts/tsx; review harness-w35 N4, lane harness-w36). At the pin `src/rustc_passes/{abi,layout}_test.ts`
+// match `*_test.ts` (ported modules named after upstream's abi_test.rs / layout_test.rs, which bun also runs as test
+// files); they are under src/, so in exactly one step.
+const BUN_TEST_PATTERNS = ["test", "spec"].flatMap((w) => [".", "_"].flatMap((sep) => ["js", "jsx", "ts", "tsx"].map((ext) => `*${sep}${w}.${ext}`)));
+
+test("every test file of the repo (tracked or not ignored, any of bun's test-file patterns) runs in exactly one unit-test process", () => {
+  expect(BUN_TEST_PATTERNS).toContain("*_test.ts");
+  expect(BUN_TEST_PATTERNS).toContain("*.spec.ts");
+  expect(BUN_TEST_PATTERNS.length).toBe(16);
+  const r = Bun.spawnSync(["git", "ls-files", "--cached", "--others", "--exclude-standard", "--", ...BUN_TEST_PATTERNS], { cwd: REPO, stdout: "pipe", stderr: "pipe" });
   expect(r.exitCode, r.stderr.toString()).toBe(0);
   const files = r.stdout.toString().split("\n").filter(Boolean);
   expect(files.length).toBeGreaterThan(0);
+  expect(files).toContain("src/rustc_passes/abi_test.ts");
   const bad = files.map((f) => ({ f, steps: unitStepsOf(f) })).filter((x) => x.steps.length !== 1);
   expect(bad).toEqual([]);
 });

@@ -5,7 +5,7 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { readFileSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { compareTraces, firstEventDifference, normaliseTrace, traceLine, traceText } from "./lib/miri-trace.ts";
+import { compareTraces, firstEventDifference, maskAddresses, normaliseTrace, traceLine, traceText } from "./lib/miri-trace.ts";
 
 const REPO = resolve(import.meta.dir, "..");
 const fixture = (name: string) => readFileSync(join(import.meta.dir, "fixtures", "miri-diff", name), "utf8");
@@ -94,6 +94,29 @@ describe("normaliseTrace: tracing-tree's other shapes (constructed after tracing
   });
 });
 
+describe("pointer addresses (lane harness-w36)", () => {
+  test("a pointer's address is masked; its allocation id and tag, and bare integers, stay", () => {
+    const t = normaliseTrace(
+      [
+        "  INFO miri::borrow_tracker retag_ptr_value: type=&u8, mode=Default, val=Scalar(0x20150[alloc27]<20>)",
+        "    INFO miri::borrow_tracker retag_ptr_value: type=&dyn Fn(), mode=FnEntry, val=ScalarPair(0x20150[alloc27]<25>, 0x2a160[alloc28]<23>)",
+        "  INFO miri::x val=Scalar(0x0000002a), p=0xdeadbeef[wildcard]",
+        "",
+      ].join("\n"),
+    );
+    expect(t.events).toEqual([
+      "INFO miri::borrow_tracker retag_ptr_value: type=&u8, mode=Default, val=Scalar(0xADDR[alloc27]<20>)",
+      "INFO miri::borrow_tracker retag_ptr_value: type=&dyn Fn(), mode=FnEntry, val=ScalarPair(0xADDR[alloc27]<25>, 0xADDR[alloc28]<23>)",
+      "INFO miri::x val=Scalar(0x0000002a), p=0xADDR[wildcard]",
+    ]);
+    // Another address of the same pointer matches; another allocation or tag does not.
+    const a = normaliseTrace("  INFO m val=Scalar(0x30150[alloc27]<20>)\n").events;
+    expect(compareTraces(t.events.slice(0, 1).map((e) => e.replace(/^.*val=/, "INFO m val=")), a)).toEqual({ kind: "match" });
+    expect(normaliseTrace("  INFO m val=Scalar(0x30150[alloc26]<20>)\n").events).not.toEqual(a);
+    expect(maskAddresses("x=0x1f")).toBe("x=0x1f");
+  });
+});
+
 describe("comparing traces", () => {
   const o = ["SPAN a::frame frame=main", "INFO a::step x", "INFO a::step y"];
   test("verdicts", () => {
@@ -105,6 +128,21 @@ describe("comparing traces", () => {
     expect(firstEventDifference([], [])).toBe(-1);
   });
 });
+
+/**
+ * Why the isolated Miri oracle cannot run here (scripts/lib/miri.ts `miriOracleProblem`, asked in a child process), or
+ * undefined if it can. The real-run test is a visible skip with this reason (lane harness-w36; review miri-diff 7), and
+ * a failure under RUST_TS_REQUIRE_PROBES=1.
+ */
+const MIRI_ORACLE_PROBLEM: string | undefined = (() => {
+  const r = Bun.spawnSync(
+    [process.execPath, "-e", `const m = await import(${JSON.stringify(join(REPO, "scripts/lib/miri.ts"))}); console.log(JSON.stringify(m.miriOracleProblem({ sysroot: true }) ?? null));`],
+    { cwd: REPO, stdout: "pipe", stderr: "pipe" },
+  );
+  if (r.exitCode !== 0) return `cannot check the Miri oracle: ${r.stderr.toString().trim().split("\n")[0]}`;
+  return JSON.parse(r.stdout.toString().trim().split("\n").at(-1)!) ?? undefined;
+})();
+const REQUIRE = process.env.RUST_TS_REQUIRE_PROBES === "1";
 
 describe("the CLI (child processes)", () => {
   const runIds: string[] = [];
@@ -124,11 +162,12 @@ describe("the CLI (child processes)", () => {
     expect(cli(["--suite", "miri-hello", "--case", "nope.rs"])).toEqual({ code: 2, out: "ERROR: no case nope.rs in miri-hello\n" });
     expect(cli(["no/such/file.rs"]).out).toStartWith("ERROR: no such file: ");
   });
-  test("a real run on miri-hello's program (needs the isolated Miri oracle: bun scripts/miri.ts setup)", () => {
+  const realRun = MIRI_ORACLE_PROBLEM === undefined || REQUIRE ? test : test.skip;
+  realRun(`a real run on miri-hello's program (needs the isolated Miri oracle: bun scripts/miri.ts setup)${MIRI_ORACLE_PROBLEM !== undefined ? ` (skipped: ${MIRI_ORACLE_PROBLEM})` : ""}`, () => {
+    expect(MIRI_ORACLE_PROBLEM).toBeUndefined();
     const id = `miri-diff-test-${process.pid}`;
     runIds.push(id);
     const r = cli(["harness/corpus/miri/hello.rs", "--run-id", id]);
-    if (r.out.includes("bun scripts/miri.ts setup") && process.env.RUST_TS_REQUIRE_PROBES !== "1") return; // not installed here
     const lines = r.out.trimEnd().split("\n");
     expect(lines[0]).toStartWith("miri-diff miri-hello harness/corpus/miri/hello.rs (port ");
     // The oracle's trace of hello world at the pin (plan-m6 D10: 22,954 lines, every one a record).

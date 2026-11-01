@@ -36,7 +36,7 @@ import { verifyMiriOracle } from "./lib/miri.ts";
 import { compareTraces, normaliseTrace, traceLine, traceText, type MiriTrace, type TraceVerdict } from "./lib/miri-trace.ts";
 import { verifyOraclePin } from "./lib/oracle.ts";
 import { upstreamChanges, upstreamError, upstreamStatus } from "./lib/upstream.ts";
-import { caseOracleCacheKey, cwdOf, unportedOf, unstableOf, unstableReasonOf } from "./difftest.ts";
+import { ORACLE_RETRY_FACTOR, caseOracleCacheKey, cwdOf, unportedOf, unstableOf, unstableReasonOf } from "./difftest.ts";
 
 /** The variables miri-diff adds to a case's env on both sides (A6: `info`-level events only). */
 export const MIRI_TRACE_ENV: Readonly<Record<string, string>> = { MIRI_LOG: "info" };
@@ -152,8 +152,12 @@ async function main(): Promise<void> {
   const listedUnstable = unstableOf(s).get(c.id);
   const cached = !a["no-cache"] && listedUnstable === undefined && existsSync(cacheFile) ? readTrace(cacheFile) : undefined;
   const oracleRun = async (): Promise<RawOutput> => {
-    const r = await run(s.oracle([c]), { cwd, timeoutMs: s.oracleTimeoutMs ?? s.timeoutMs, env: caseEnv(c.env) });
-    if (r.timedOut) fail(`the Miri oracle timed out after ${Math.round(r.ms)} ms on ${c.id}`);
+    // As difftest's oracle processes: a timeout is retried once with ORACLE_RETRY_FACTOR times the timeout (MIRI_LOG
+    // makes the oracle slower than in the suite; lane harness-w36, review miri-diff nit).
+    const ms = s.oracleTimeoutMs ?? s.timeoutMs;
+    let r = await run(s.oracle([c]), { cwd, timeoutMs: ms, env: caseEnv(c.env) });
+    if (r.timedOut) r = await run(s.oracle([c]), { cwd, timeoutMs: ms * ORACLE_RETRY_FACTOR, env: caseEnv(c.env) });
+    if (r.timedOut) fail(`the Miri oracle timed out on ${c.id} (${ms} ms, then ${ms * ORACLE_RETRY_FACTOR} ms)`);
     return { stdout: r.stdout, stderr: r.stderr, code: r.code };
   };
   const [o, p] = await Promise.all([
