@@ -1,0 +1,4 @@
+  INFO rustc_const_eval::interpret::step return
+  INFO rustc_const_eval::interpret::call popping stack frame (returning from function)
+  INFO miri::machine Leaving std::rt::lang_start::<()>
+ INFO miri::eval Additional static roots: [alloc43]

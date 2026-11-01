@@ -1,0 +1,5 @@
+ rustc_const_eval::interpret::stack::frame frame=std::rt::lang_start::<()>
+  INFO rustc_const_eval::interpret::step StorageLive(_5)
+  INFO rustc_const_eval::interpret::step StorageLive(_6)
+  INFO rustc_const_eval::interpret::step StorageLive(_7)
+  INFO rustc_const_eval::interpret::step StorageLive(_8)
