@@ -12,14 +12,23 @@
 //   `EvalContextExt` fns take `is_T` before their closure argument.
 // - `AllocExtra.sync_objs` (`BTreeMap<Size, Box<dyn SyncObj>>`, built by lane miri-machine) is used through `get`/`set`:
 //   it must compare `Size` keys by value.
-// - A `callback!` is an inline `MachineCallback` object (thread.ts header).
+// - A `callback!` is machine.ts's `callback` helper (thread.ts header), imported as `callback_`: `futex_wait`'s parameter
+//   `callback` would shadow it.
 import { type Deadline } from "../clock.ts";
 import { type AccessKind, CondvarRef, FutexRef, type FutexWaiter, MutexRef, RwLock, RwLockRef } from "./sync.gen.ts";
 import { assert_eq_UnblockKind, type DynUnblockCallback, type ThreadId, ThreadId_eq, ThreadId_key, ThreadId_value_key, type UnblockKind } from "./thread.ts";
 import { VClock } from "./vector_clock.ts";
 import { type ImmTy as ImmTy_, type MPlaceTy, type Pointer, type Scalar } from "../lib.ts";
-import { AllocExtra, type MiriInterpCx, type MiriMachine } from "../machine.ts";
-import { type VisitWith, VisitProvenance_MPlaceTy, VisitProvenance_Scalar } from "../provenance_gc.ts";
+import { AllocExtra, callback as callback_, type MiriInterpCx, type MiriMachine } from "../machine.ts";
+import {
+  type VisitProvenanceImpl,
+  type VisitWith,
+  VisitProvenance_MPlaceTy,
+  VisitProvenance_Option,
+  VisitProvenance_Scalar,
+  VisitProvenance_object,
+  VisitProvenance_tuple2,
+} from "../provenance_gc.ts";
 import { FxKeyedMap, LAYOUT_USIZE } from "../../rust_ts/hash_map.ts";
 import { type Size, Size_cmp } from "../../rustc_abi/lib.ts";
 import { InterpCx } from "../../rustc_const_eval/interpret/eval_context.ts";
@@ -210,6 +219,16 @@ FutexRef.prototype.waiters = function (this: FutexRef): number {
 // Futex contains no provenance.
 // rustc: src/tools/miri/src/concurrency/sync.rs:236 visit_provenance
 FutexRef.prototype.visit_provenance = function (this: FutexRef, _visit: VisitWith): void {};
+
+/** The `VisitProvenance` impl of `Option<(Scalar, MPlaceTy)>` (provenance_gc.rs:33 over :45), a `callback!` capture of
+ *  `mutex_enqueue_and_block`. */
+const VisitProvenance_Option_Scalar_MPlaceTy: VisitProvenanceImpl<[Scalar, MPlaceTy] | undefined> = {
+  visit_provenance(self: [Scalar, MPlaceTy] | undefined, visit: VisitWith): void {
+    VisitProvenance_Option.visit_provenance(self, visit, {
+      visit_provenance: (t: [Scalar, MPlaceTy], v: VisitWith) => VisitProvenance_tuple2.visit_provenance(t, v, VisitProvenance_Scalar, VisitProvenance_MPlaceTy),
+    });
+  },
+};
 
 // ---------------------------------------------------------------- EvalContextExtPriv ----
 // Private extension trait for local helper methods
@@ -498,15 +517,9 @@ InterpCx.prototype.mutex_enqueue_and_block = function (this: MiriInterpCx, mutex
     undefined,
     // callback!(@capture<'tcx> { mutex_ref: MutexRef, retval_dest: Option<(Scalar, MPlaceTy<'tcx>)> }
     //     |this, unblock: UnblockKind| { .. })
-    {
-      visit_provenance(visit: VisitWith): void {
-        mutex_ref.visit_provenance(visit);
-        if (retval_dest !== undefined) {
-          VisitProvenance_Scalar.visit_provenance(retval_dest[0], visit);
-          VisitProvenance_MPlaceTy.visit_provenance(retval_dest[1], visit);
-        }
-      },
-      call(this_: MiriInterpCx, unblock: UnblockKind): InterpResult {
+    callback_<{ mutex_ref: MutexRef; retval_dest: [Scalar, MPlaceTy] | undefined }, UnblockKind>(
+      { mutex_ref: [mutex_ref, VisitProvenance_object], retval_dest: [retval_dest, VisitProvenance_Option_Scalar_MPlaceTy] },
+      (this_, unblock, { mutex_ref, retval_dest }) => {
         assert_eq_UnblockKind(unblock, "Ready");
 
         assert(mutex_ref.owner() === undefined, "assertion failed: mutex_ref.owner().is_none()");
@@ -521,7 +534,7 @@ InterpCx.prototype.mutex_enqueue_and_block = function (this: MiriInterpCx, mutex
 
         return interp_ok(undefined);
       },
-    },
+    ),
   );
 };
 
@@ -600,13 +613,9 @@ InterpCx.prototype.rwlock_enqueue_and_block_reader = function (this: MiriInterpC
     undefined,
     // callback!(@capture<'tcx> { rwlock_ref: RwLockRef, retval: Scalar, dest: MPlaceTy<'tcx> }
     //     |this, unblock: UnblockKind| { .. })
-    {
-      visit_provenance(visit: VisitWith): void {
-        rwlock_ref.visit_provenance(visit);
-        VisitProvenance_Scalar.visit_provenance(retval, visit);
-        VisitProvenance_MPlaceTy.visit_provenance(dest, visit);
-      },
-      call(this_: MiriInterpCx, unblock: UnblockKind): InterpResult {
+    callback_<{ rwlock_ref: RwLockRef; retval: Scalar; dest: MPlaceTy }, UnblockKind>(
+      { rwlock_ref: [rwlock_ref, VisitProvenance_object], retval: [retval, VisitProvenance_Scalar], dest: [dest, VisitProvenance_MPlaceTy] },
+      (this_, unblock, { rwlock_ref, retval, dest }) => {
         assert_eq_UnblockKind(unblock, "Ready");
         const l = this_.rwlock_reader_lock(rwlock_ref);
         if (l.$ === "Err") return l;
@@ -614,7 +623,7 @@ InterpCx.prototype.rwlock_enqueue_and_block_reader = function (this: MiriInterpC
         if (w.$ === "Err") return w;
         return interp_ok(undefined);
       },
-    },
+    ),
   );
 };
 
@@ -694,13 +703,9 @@ InterpCx.prototype.rwlock_enqueue_and_block_writer = function (this: MiriInterpC
     undefined,
     // callback!(@capture<'tcx> { rwlock_ref: RwLockRef, retval: Scalar, dest: MPlaceTy<'tcx> }
     //     |this, unblock: UnblockKind| { .. })
-    {
-      visit_provenance(visit: VisitWith): void {
-        rwlock_ref.visit_provenance(visit);
-        VisitProvenance_Scalar.visit_provenance(retval, visit);
-        VisitProvenance_MPlaceTy.visit_provenance(dest, visit);
-      },
-      call(this_: MiriInterpCx, unblock: UnblockKind): InterpResult {
+    callback_<{ rwlock_ref: RwLockRef; retval: Scalar; dest: MPlaceTy }, UnblockKind>(
+      { rwlock_ref: [rwlock_ref, VisitProvenance_object], retval: [retval, VisitProvenance_Scalar], dest: [dest, VisitProvenance_MPlaceTy] },
+      (this_, unblock, { rwlock_ref, retval, dest }) => {
         assert_eq_UnblockKind(unblock, "Ready");
         const l = this_.rwlock_writer_lock(rwlock_ref);
         if (l.$ === "Err") return l;
@@ -708,7 +713,7 @@ InterpCx.prototype.rwlock_enqueue_and_block_writer = function (this: MiriInterpC
         if (w.$ === "Err") return w;
         return interp_ok(undefined);
       },
-    },
+    ),
   );
 };
 
@@ -744,15 +749,15 @@ InterpCx.prototype.condvar_wait = function (
     deadline,
     // callback!(@capture<'tcx> { condvar_ref: CondvarRef, mutex_ref: MutexRef, retval_succ: Scalar,
     //     retval_timeout: Scalar, dest: MPlaceTy<'tcx> } |this, unblock: UnblockKind| { .. })
-    {
-      visit_provenance(visit: VisitWith): void {
-        condvar_ref.visit_provenance(visit);
-        mutex_ref.visit_provenance(visit);
-        VisitProvenance_Scalar.visit_provenance(retval_succ, visit);
-        VisitProvenance_Scalar.visit_provenance(retval_timeout, visit);
-        VisitProvenance_MPlaceTy.visit_provenance(dest, visit);
+    callback_<{ condvar_ref: CondvarRef; mutex_ref: MutexRef; retval_succ: Scalar; retval_timeout: Scalar; dest: MPlaceTy }, UnblockKind>(
+      {
+        condvar_ref: [condvar_ref, VisitProvenance_object],
+        mutex_ref: [mutex_ref, VisitProvenance_object],
+        retval_succ: [retval_succ, VisitProvenance_Scalar],
+        retval_timeout: [retval_timeout, VisitProvenance_Scalar],
+        dest: [dest, VisitProvenance_MPlaceTy],
       },
-      call(this_: MiriInterpCx, unblock: UnblockKind): InterpResult {
+      (this_, unblock, { condvar_ref, mutex_ref, retval_succ, retval_timeout, dest }) => {
         switch (unblock) {
           case "Ready": {
             // The condvar was signaled. Make sure we get the clock for that.
@@ -772,7 +777,7 @@ InterpCx.prototype.condvar_wait = function (
           }
         }
       },
-    },
+    ),
   );
   return interp_ok(undefined);
 };
@@ -817,12 +822,9 @@ InterpCx.prototype.futex_wait = function (this: MiriInterpCx, futex_ref: FutexRe
     deadline,
     // callback!(@capture<'tcx> { futex_ref: FutexRef, callback: DynUnblockCallback<'tcx> }
     //     |this, unblock: UnblockKind| { .. })
-    {
-      visit_provenance(visit: VisitWith): void {
-        futex_ref.visit_provenance(visit);
-        callback.visit_provenance(visit);
-      },
-      call(this_: MiriInterpCx, unblock: UnblockKind): InterpResult {
+    callback_<{ futex_ref: FutexRef; callback: DynUnblockCallback }, UnblockKind>(
+      { futex_ref: [futex_ref, VisitProvenance_object], callback: [callback, VisitProvenance_object] },
+      (this_, unblock, { futex_ref, callback }) => {
         switch (unblock) {
           case "Ready": {
             const futex = futex_ref._0;
@@ -842,7 +844,7 @@ InterpCx.prototype.futex_wait = function (this: MiriInterpCx, futex_ref: FutexRe
 
         return callback.call(this_, unblock);
       },
-    },
+    ),
   );
 };
 

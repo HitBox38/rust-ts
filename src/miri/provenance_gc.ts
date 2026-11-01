@@ -13,21 +13,19 @@
 //   has the method. `Box<T>`, `Rc<T>` and `RefCell<T>` are the value itself (PORTING §5), so their tables just forward.
 // - `impl VisitProvenance for MiriInterpCx` is the table `VisitProvenance_MiriInterpCx` (not an `InterpCx.prototype`
 //   method: `InterpCx` is shared with CTFE, and only this file calls it).
-import { type BorTag } from "./borrow_tracker/mod.ts";
-import { type AllocState } from "./borrow_tracker/mod.gen.ts";
+import { AllocState, type BorTag } from "./borrow_tracker/mod.ts";
 import { type IoError } from "./shims/io_error.ts";
 import { type ImmTy, type MPlaceTy, type OpTy, type PlaceTy, type Pointer, type Scalar, type StrictPointer } from "./lib.ts";
 import { AllocExtra, type MiriInterpCx, MiriMachine, type Provenance } from "./machine.ts";
 import { type MiriAllocBytes } from "./alloc/alloc_bytes.ts";
 import { LiveAllocs } from "./provenance_gc.gen.ts";
-import { stub_methods } from "../rust_ts/miri_stub.ts";
 import { InterpCx } from "../rustc_const_eval/interpret/eval_context.ts";
 import { type AnyMachine, type Machine } from "../rustc_const_eval/interpret/machine.ts";
 import { type Immediate } from "../rustc_const_eval/interpret/operand.ts";
 import { type MemPlaceMeta } from "../rustc_const_eval/interpret/place.ts";
 import { type Allocation } from "../rustc_middle/mir/interpret/allocation.ts";
 import { type AllocId } from "../rustc_middle/mir/interpret/mod.ts";
-import { unported, unwrap } from "../std/panic.ts";
+import { unwrap } from "../std/panic.ts";
 export * from "./provenance_gc.gen.ts";
 
 // rustc-type: src/tools/miri/src/provenance_gc.rs:10 VisitWith
@@ -67,19 +65,11 @@ declare module "./provenance_gc.gen.ts" {
   }
 }
 
-// PORT(contract): pending miri-machine. `impl VisitProvenance for AllocExtra` (machine.rs:409) and
-// `impl VisitProvenance for MiriMachine` (machine.rs:1029) are prototype methods of the generated classes; their
-// declarations (and `unported` placeholders, registered at the end of this file) stand in until lane miri-machine
-// ports them (root: delete the two `stub_methods` calls below when it lands, `install_miri_stubs` then reports the clash).
+// `impl VisitProvenance for AllocExtra` (machine.rs:410) and `impl VisitProvenance for MiriMachine` (machine.rs:1030) are
+// prototype methods of the generated classes, ported in machine.ts (lane miri-machine); declared here.
 declare module "./machine.gen.ts" {
   interface AllocExtra extends VisitProvenance {}
   interface MiriMachine extends VisitProvenance {}
-}
-
-/** `AllocState::remove_unreachable_tags` (borrow_tracker/mod.rs:497, lane miri-alloc: an enum method, its companion is not
- * declared yet). PORT(contract): pending miri-alloc; root replaces the call with the companion's when it lands. */
-function AllocState_remove_unreachable_tags(_state: AllocState, _tags: Set<BorTag>): void {
-  return unported("miri::borrow_tracker::AllocState::remove_unreachable_tags (src/tools/miri/src/borrow_tracker/mod.rs:497; lane miri-alloc, companion not declared)");
 }
 
 // Trivial impls for types that do not contain any provenance
@@ -387,7 +377,7 @@ function remove_unreachable_tags(ecx: MiriInterpCx, tags: Set<BorTag>): void {
   if (ecx.machine.borrow_tracker !== undefined) {
     ecx.memory.alloc_map_().iter((it) => {
       for (const [_id, [_kind, alloc]] of it) {
-        AllocState_remove_unreachable_tags(unwrap(alloc.extra.borrow_tracker), tags);
+        AllocState.remove_unreachable_tags(unwrap(alloc.extra.borrow_tracker), tags);
       }
     });
   }

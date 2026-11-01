@@ -63,7 +63,7 @@ import { is_no_core } from "./helpers.ts";
 import type { ImmTy, MPlaceTy, OpTy, PlaceTy, FnArg, Pointer, Scalar, StrictPointer } from "./lib.ts";
 import { apply_random_float_error_to_imm } from "./math.ts";
 import * as provenance_gc_ns from "./provenance_gc.ts";
-import type { VisitProvenance, VisitWith } from "./provenance_gc.ts";
+import type { VisitProvenance, VisitProvenanceImpl, VisitWith } from "./provenance_gc.ts";
 import * as cpu_affinity_ns from "./shims/cpu_affinity.ts";
 import { CpuAffinityMask } from "./shims/cpu_affinity.ts";
 import * as env_ns from "./shims/env.ts";
@@ -2134,28 +2134,39 @@ export type DynMachineCallback<T> = MachineCallback<T>;
 ///
 /// All the argument types must implement `VisitProvenance`.
 // #[macro_export] macro_rules! callback
-// PORT: the macro is this helper. `@capture { name: Ty, .. }` is the object `captures` (moved into the callback, as the
-// macro's struct fields); `visit_captures(captures, visit)` is the generated `VisitProvenance` impl (one
-// `VisitProvenance::visit_provenance(&self.name, visit)` per capture, in capture order: the caller visits each field with
-// its type's impl); `|this, arg: ArgTy| body` is `body(this_, arg, captures)` (the macro's `let Callback { name, .. } =
-// *self;` is the caller destructuring `captures`). A callback is called at most once (`self: Box<Self>`).
-export function callback<C, T>(
-  captures: C,
-  visit_captures: (captures: C, visit: VisitWith) => void,
+// PORT: the macro is this helper. `@capture { name: Ty, .. }` is the object `captures`, one entry per capture in capture
+// order, each `name: [value, <Ty's VisitProvenance impl>]` (`Capture`): the one field list the macro's struct, its
+// `VisitProvenance` impl and its destructuring are all generated from. `visit_provenance` visits every entry in that order
+// (`VisitProvenance::visit_provenance(&self.name, _visit)` per field); `|this, arg: ArgTy| body` is
+// `body(this_, arg, values)` with `values` the captured values by name (the macro's `let Callback { name, .. } = *self;`).
+// `call` consumes the callback (`self: Box<Self>`): a second call is unreachable.
+export type Capture<V> = readonly [value: V, impl: VisitProvenanceImpl<V>];
+export type Captures<C> = { readonly [K in keyof C]: Capture<C[K]> };
+export function callback<C extends object, T>(
+  captures: Captures<C>,
   body: (this_: MiriInterpCx, arg: T, captures: C) => InterpResult,
 ): DynMachineCallback<T> {
+  const fields = Object.entries(captures) as [string, Capture<unknown>][];
+  let consumed = false;
   return {
     // impl VisitProvenance for Callback
     // rustc: src/tools/miri/src/machine.rs:2181 visit_provenance
     visit_provenance(_visit: VisitWith): void {
-      visit_captures(captures, _visit);
+      // $( VisitProvenance::visit_provenance(&self.$name, _visit); )*
+      for (const [, [value, impl]] of fields) {
+        impl.visit_provenance(value, _visit);
+      }
     },
     // impl MachineCallback<$arg_ty> for Callback
     // rustc: src/tools/miri/src/machine.rs:2189 call
     call(this_: MiriInterpCx, arg: T): InterpResult {
+      // `self: Box<Self>` is moved into the call.
+      if (consumed) unreachable("internal error: entered unreachable code: a `callback!` was called after it was consumed (`self: Box<Self>`)");
+      consumed = true;
       // #[allow(unused_variables)]
       // let Callback { $($name,)* _phantom } = *self;
-      return body(this_, arg, captures);
+      const values = Object.fromEntries(fields.map(([name, [value]]) => [name, value])) as C;
+      return body(this_, arg, values);
     },
   };
 }

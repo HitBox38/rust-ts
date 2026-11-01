@@ -14,9 +14,9 @@
 //   in `terminate_active_thread` frees the TLS statics in hashbrown bucket order, as upstream.
 // - `std::task::Poll<()>` is src/std/task.ts's `Poll<null>` (re-exported below).
 // - `DynMachineCallback<'tcx, T>` (`Box<dyn MachineCallback>`, machine.ts) is an object with `call(ecx, arg)` and
-//   `visit_provenance(visit)`. A `callback!(@capture { a: A, b: B } |this, arg: T| body)` is the object literal
-//   `{ visit_provenance(visit) { <visit a>; <visit b> }, call(this_, arg) { body } }` built inline at the use site (the
-//   captures are the closure's variables; `self: Box<Self>` consumption is the callback being called once).
+//   `visit_provenance(visit)`. A `callback!(@capture { a: A, b: B } |this, arg: T| body)` is machine.ts's
+//   `callback({ a: [a, <A's VisitProvenance impl>], b: [b, ..] }, (this_, arg, { a, b }) => body)`: one capture list
+//   gives both the visit and the body's values; `call` consumes the callback (lane miri-wire).
 // - Calls into other lanes' files that their skeleton does not declare go through local `declare module` blocks marked
 //   `PORT(contract): pending <lane>` (contract rule 6).
 // - GenMC arms stop with `unported("genmc")` (lane brief; the `GenmcCtx` of genmc/dummy.rs cannot be constructed).
@@ -40,7 +40,7 @@ import {
 } from "./thread.gen.ts";
 import { type MiriConfig } from "../eval.ts";
 import { type ImmTy, type MPlaceTy, type PlaceTy, type Pointer, type Scalar, type StrictPointer } from "../lib.ts";
-import { type FrameExtra, type MiriInterpCx, MemoryKind_from_MiriMemoryKind, type Provenance, VisitProvenance_FrameExtra } from "../machine.ts";
+import { callback, type FrameExtra, type MiriInterpCx, MemoryKind_from_MiriMemoryKind, type Provenance, VisitProvenance_FrameExtra } from "../machine.ts";
 import {
   type VisitWith,
   VisitProvenance_ImmTy,
@@ -51,6 +51,7 @@ import {
   VisitProvenance_Pointer,
   VisitProvenance_Scalar,
   VisitProvenance_StrictPointer,
+  VisitProvenance_no_provenance,
 } from "../provenance_gc.ts";
 import { clone_CpuAffinityMask } from "../shims/cpu_affinity.ts";
 import { TlsDtorsState, TlsDtorsStatePriv } from "../shims/tls.ts";
@@ -1053,19 +1054,17 @@ InterpCx.prototype.join_thread = function (this: MiriInterpCx, joined_thread_id:
       undefined,
       // callback!(@capture<'tcx> { joined_thread_id: ThreadId, dest: MPlaceTy<'tcx>, success_retval: Scalar }
       //     |this, unblock: UnblockKind| { .. })
-      {
-        // (callback! expansion, machine.rs:2181 visit_provenance)
-        visit_provenance(visit: VisitWith): void {
-          // ThreadId: no provenance
-          VisitProvenance_MPlaceTy.visit_provenance(dest, visit);
-          VisitProvenance_Scalar.visit_provenance(success_retval, visit);
+      callback<{ joined_thread_id: ThreadId; dest: MPlaceTy; success_retval: Scalar }, UnblockKind>(
+        {
+          joined_thread_id: [joined_thread_id, VisitProvenance_no_provenance],
+          dest: [dest, VisitProvenance_MPlaceTy],
+          success_retval: [success_retval, VisitProvenance_Scalar],
         },
-        // (callback! expansion, machine.rs:2189 call)
-        call(this_: MiriInterpCx, unblock: UnblockKind): InterpResult {
+        (this_, unblock, { joined_thread_id, dest, success_retval }) => {
           assert_eq_UnblockKind(unblock, "Ready");
           return after_join(this_, joined_thread_id, success_retval, dest);
         },
-      },
+      ),
     );
   } else {
     // The thread has already terminated - establish happens-before and write the return value.

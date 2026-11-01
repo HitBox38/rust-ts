@@ -397,6 +397,39 @@ test("mutex: recursive lock count, owner-only unlock, FIFO hand-over to queued t
   expect(ecx.mutex_unlock(m)).toEqual({ $: "Ok", _0: undefined });
 });
 
+test("callback! sites visit every capture: a blocked thread's callback roots the provenance it holds (machine.rs:2181)", () => {
+  const { ecx, ids, as } = threads(5);
+  const prov = (a: number, t: number) => ({ $: "Concrete", alloc_id: a, tag: t });
+  const ptr_scalar = (a: number, t: number) => ({ $: "Ptr", _0: { provenance: prov(a, t), offset: Size.ZERO }, _1: 8 }) as unknown as Scalar;
+  const place = (a: number, t: number) => ({ ptr: () => ({ provenance: prov(a, t) }), meta: () => ({ $: "None" }) }) as unknown as MPlaceTy;
+  const roots = (i: number): [unknown, unknown][] => {
+    const state = ecx.machine.threads.thread_ref(ids[i]!).state;
+    if (state.$ !== "Blocked") throw new Error("thread must be blocked");
+    const out: [unknown, unknown][] = [];
+    state.callback.visit_provenance((a, t) => out.push([a, t]));
+    return out;
+  };
+  // mutex_enqueue_and_block: { mutex_ref, retval_dest: Option<(Scalar, MPlaceTy)> }
+  const m = MutexRef.new();
+  expect(ecx.mutex_lock(m).$).toBe("Ok");
+  as(1, () => ecx.mutex_enqueue_and_block(m, [ptr_scalar(1, 11), place(2, 12)]));
+  expect(roots(1)).toEqual([[1, 11], [2, 12]]);
+  // rwlock_enqueue_and_block_reader / _writer: { rwlock_ref, retval, dest }
+  const rw = RwLockRef.new();
+  expect(ecx.rwlock_writer_lock(rw).$).toBe("Ok");
+  as(2, () => ecx.rwlock_enqueue_and_block_reader(rw, ptr_scalar(3, 13), place(4, 14)));
+  as(3, () => ecx.rwlock_enqueue_and_block_writer(rw, ptr_scalar(5, 15), place(6, 16)));
+  expect(roots(2)).toEqual([[3, 13], [4, 14]]);
+  expect(roots(3)).toEqual([[5, 15], [6, 16]]);
+  // futex_wait: { futex_ref, callback } visits the inner callback
+  const inner: DynUnblockCallback = { visit_provenance: (visit) => visit(7 as never, 17 as never), call: () => interp_ok(undefined) };
+  as(4, () => ecx.futex_wait(FutexRef.new(), 0xffff_ffff, undefined, inner));
+  expect(roots(4)).toEqual([[7, 17]]);
+  // join_thread: { joined_thread_id, dest, success_retval } (ThreadId has no provenance)
+  as(5, () => expect(ecx.join_thread(ids[1]!, ptr_scalar(8, 18), place(9, 19)).$).toBe("Ok"));
+  expect(roots(5)).toEqual([[9, 19], [8, 18]]);
+});
+
 test("rwlock: writers are preferred; a writer unlock with no queued writer wakes every queued reader in order", () => {
   const { ecx, ids, as } = threads(4);
   const rw = RwLockRef.new();

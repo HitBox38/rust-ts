@@ -10,7 +10,7 @@ import type { TyAndLayout } from "../rustc_middle/ty/layout.ts";
 import { Panic, Unported } from "../std/panic.ts";
 import { BorTag } from "./borrow_tracker/mod.ts";
 import type { SyncObj } from "./concurrency/sync.ts";
-import type { VisitWith } from "./provenance_gc.ts";
+import type { VisitProvenanceImpl, VisitWith } from "./provenance_gc.ts";
 import {
   callback,
   display_MiriMemoryKind,
@@ -257,20 +257,29 @@ test("float_fuse_mul_add without float non-determinism draws nothing; the anonym
   expect(Array.from({ length: 64 }, () => m3.get_global_alloc_salt(ecx(m3), undefined))).toEqual(salts);
 });
 
-test("callback!: captures are visited and passed to the body (machine.rs:2171)", () => {
+test("callback!: one capture list gives the visit (in capture order) and the body's values; call consumes it (machine.rs:2171)", () => {
   const visited: [AllocId | undefined, BorTag | undefined][] = [];
-  const cb = callback<{ id: AllocId; n: number }, string>(
-    { id: 5 as AllocId, n: 2 },
-    (c, visit) => visit(c.id, undefined),
-    (_this, arg, c) => interp_ok(void visited.push([c.id, arg.length as BorTag])),
+  const visit_id: VisitProvenanceImpl<AllocId> = { visit_provenance: (id, visit) => visit(id, undefined) };
+  const visit_tag: VisitProvenanceImpl<BorTag> = { visit_provenance: (tag, visit) => visit(undefined, tag) };
+  const no_provenance: VisitProvenanceImpl<number> = { visit_provenance: () => {} };
+  const seen: unknown[] = [];
+  const cb = callback<{ id: AllocId; n: number; tag: BorTag }, string>(
+    { id: [5 as AllocId, visit_id], n: [2, no_provenance], tag: [9 as BorTag, visit_tag] },
+    (_this, arg, { id, n, tag }) => interp_ok(void seen.push(id, n, tag, arg)),
   );
   const visit: VisitWith = (a, t) => visited.push([a, t]);
+  // `VisitProvenance::visit_provenance(&self.$name, _visit)` for every capture, in capture order
   cb.visit_provenance(visit);
-  expect(cb.call(undefined as never, "abc")).toEqual(interp_ok(undefined));
   expect(visited).toEqual([
     [5 as AllocId, undefined],
-    [5 as AllocId, 3 as BorTag],
+    [undefined, 9 as BorTag],
   ]);
+  // `let Callback { $($name,)* .. } = *self; $body`
+  expect(cb.call(undefined as never, "abc")).toEqual(interp_ok(undefined));
+  expect(seen).toEqual([5, 2, 9, "abc"]);
+  // `self: Box<Self>`: the callback is moved into its call
+  expect(() => cb.call(undefined as never, "again")).toThrow(Panic);
+  expect(seen).toEqual([5, 2, 9, "abc"]);
 });
 
 test("init_frame builds FrameExtra (machine.rs:1879): data_race FrameState iff data-race detection is on", () => {
