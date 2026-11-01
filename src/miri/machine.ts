@@ -138,6 +138,7 @@ import { StandardUniform_bool } from "../vendor/rand/distr/other.ts";
 import { Range } from "../vendor/rand/distr/uniform.ts";
 import { SampleUniform_usize } from "../vendor/rand/distr/uniform_int.ts";
 import type { Float, FloatType } from "../vendor/rustc_apfloat/lib.ts";
+import type { IeeeFloat } from "../vendor/rustc_apfloat/ieee.ts";
 export * from "./machine.gen.ts";
 
 /// First real-time signal.
@@ -1353,20 +1354,12 @@ MiriMachine.prototype.atomic_fence = function (this: MiriMachine, ecx: MiriInter
   return ecx.atomic_fence(AtomicFenceOrd_().from(ordering));
 };
 
-declare module "../rustc_const_eval/interpret/eval_context.ts" {
-  interface InterpCx<M extends AnyMachine = Machine> {
-    // PORT(contract): pending lane miri-eval. `operator::EvalContextExt::generate_nan::<F1, F2>` (operator.rs) constructs an
-    // `F2`, so it takes `F2`'s `FloatType` dictionary as the trailing parameter (interpret/machine.ts header: `generate_nan(ecx,
-    // inputs, F2_)`); operator.ts declares it without. This overload is the signature the hook calls.
-    generate_nan<F1, F2 extends Float<F2>>(this: MiriInterpCx, inputs: readonly F1[], F2_: FloatType<F2>): F2;
-  }
-}
-
 // #[inline(always)]
 // rustc: src/tools/miri/src/machine.rs:1429 generate_nan
 MiriMachine.prototype.generate_nan = function <F1, F2 extends Float<F2>>(this: MiriMachine, ecx: MiriInterpCx, inputs: readonly F1[], F2_: FloatType<F2>): F2 {
   // PORT: `F2: Float` is the trailing dictionary (interpret/machine.ts header); Miri's `generate_nan` takes it too.
-  return ecx.generate_nan<F1, F2>(inputs, F2_);
+  // interpret/machine.ts declares `F1` without its `Float + FloatConvert<F2>` bound; the inputs are `IeeeFloat`s.
+  return ecx.generate_nan<IeeeFloat, F2>(inputs as unknown as readonly IeeeFloat[], F2_);
 };
 
 // #[inline(always)]
