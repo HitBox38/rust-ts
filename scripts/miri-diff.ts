@@ -81,8 +81,14 @@ export function pickCase(a: ReturnType<typeof parseArgs>, cwd: string = process.
   if (!existsSync(abs)) return { error: `no such file: ${abs}` };
   const rel = relative(REPO, abs);
   const inRepo = rel !== "" && !rel.startsWith("..") && !isAbsolute(rel);
-  return { suite: getSuite("miri-hello"), case: miriFileCase(inRepo ? rel.split("\\").join("/") : abs) };
+  // Suite cases name files relative to the repo (difftest's fileHash joins them onto it), so a file outside the repo
+  // cannot be a case: say so instead of crashing in the hash.
+  if (!inRepo) return { error: `${abs} is outside the repo (${REPO}); give a file inside it` };
+  return { suite: getSuite("miri-hello"), case: miriFileCase(rel.split("\\").join("/")) };
 }
+
+/** Set when a cache entry is unreadable: the run re-ran the oracle, but it still prints an ERROR line, so it exits 2. */
+let corruptCache = false;
 
 function readTrace(p: string): RawOutput | undefined {
   try {
@@ -90,6 +96,7 @@ function readTrace(p: string): RawOutput | undefined {
     if (typeof o.stdout === "string" && typeof o.stderr === "string" && typeof o.code === "number") return o;
   } catch {}
   console.log(`ERROR: unreadable miri-diff cache entry ${p}; re-running the oracle`);
+  corruptCache = true;
   return undefined;
 }
 
@@ -196,7 +203,7 @@ async function main(): Promise<void> {
     ) + "\n",
   );
   for (const l of lines) console.log(l);
-  const error = lines.some((l) => l.startsWith("ERROR:"));
+  const error = corruptCache || lines.some((l) => l.startsWith("ERROR:"));
   process.exit(error ? 2 : v.kind === "match" && o.stdout === p.stdout && o.code === p.code ? 0 : 1);
 }
 

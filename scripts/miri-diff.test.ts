@@ -116,9 +116,10 @@ describe("the CLI (child processes)", () => {
     const r = Bun.spawnSync([process.execPath, join(REPO, "scripts", "miri-diff.ts"), ...args], { cwd: REPO, stdout: "pipe", stderr: "pipe" });
     return { code: r.exitCode, out: r.stdout.toString() };
   };
-  test("usage without a case; ERROR lines for a non-Miri suite, a missing --case, an unknown and a skipped case", () => {
+  test("usage without a case; ERROR lines for a non-Miri suite, a missing --case and an unknown case", () => {
     expect(cli([])).toMatchObject({ code: 0, out: expect.stringContaining("usage: bun scripts/miri-diff.ts") });
     expect(cli(["--suite", "parse", "--case", "x"])).toEqual({ code: 2, out: "ERROR: suite parse is not a Miri suite (Suite.miri)\n" });
+    expect(cli(["/tmp/outside-the-repo.rs"])).toMatchObject({ code: 2, out: expect.stringContaining("ERROR: /tmp/outside-the-repo.rs is outside the repo") });
     expect(cli(["--suite", "miri-hello"])).toEqual({ code: 2, out: "ERROR: --suite miri-hello needs --case <id>\n" });
     expect(cli(["--suite", "miri-hello", "--case", "nope.rs"])).toEqual({ code: 2, out: "ERROR: no case nope.rs in miri-hello\n" });
     expect(cli(["no/such/file.rs"]).out).toStartWith("ERROR: no such file: ");

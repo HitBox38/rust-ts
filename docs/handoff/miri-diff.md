@@ -102,7 +102,7 @@ The fixtures were captured from the isolated oracle with `MIRI_LOG=info`. I left
   plain trace);
 - `panic-interleaved` (a panicking program's own stderr between events, one line of it indented).
 
-No real oracle trace has a multi-line value: across hello (22,954 lines) and the panic program (76,533 lines), every
+No real oracle trace has a multi-line value: across hello (22,954 lines) and the panic program (76,927 lines), every
 line is an INFO event or a frame span, apart from the program's own output. The continuation and no-field shapes are
 therefore tested on constructed lines, and the test says so.
 
