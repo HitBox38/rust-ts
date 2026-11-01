@@ -1,6 +1,6 @@
-// rustc's default logger (rustc_log + tracing-tree, `RUSTC_LOG` unset): the `warn!` / `error!` lines on stderr.
+// rustc's logger (rustc_log + tracing-tree): the `warn!` / `error!` lines on stderr, with `RUSTC_LOG` unset or a filter.
 // - Oracle: tracing_oracle/root_region.rs through the ported tydump driver (src/rust_ts/tydump.ts) must give the
-//   `tydump` probe's stdout, stderr, exit code and log file byte for byte, for each `RUSTC_LOG_*` variant of
+//   `tydump` probe's stdout, stderr, exit code and log file byte for byte, for each `RUSTC_LOG*` variant of
 //   tracing_oracle/gen.ts (expected.json); a second test checks the fixtures are the current oracle output.
 // - Format: the event path of src/rust_ts/tracing_tree.ts on cases the fixture crate does not reach (named fields,
 //   ERROR, multi-line messages, recursion), with the bytes tracing-tree 0.4.1's code produces.
@@ -54,7 +54,7 @@ function capture(opts: { ansi?: boolean; lines?: boolean } = {}): string[] {
     .with_targets(true)
     .with_indent_amount(2)
     .with_indent_lines(opts.lines ?? false);
-  expect(set_global_default(new LayeredSubscriber([layer], "WARN"))).toEqual(Ok(null));
+  expect(set_global_default(LayeredSubscriber.with_level([layer], "WARN"))).toEqual(Ok(null));
   return out;
 }
 
@@ -93,7 +93,7 @@ test("the default filter drops INFO and below; no subscriber drops everything", 
   warn("t", () => ((formatted = true), "m"));
   expect(formatted).toBe(false);
   const out = capture();
-  const sub = new LayeredSubscriber([], "WARN");
+  const sub = LayeredSubscriber.with_level([], "WARN");
   expect(["TRACE", "DEBUG", "INFO", "WARN", "ERROR"].map((l) => sub.enabled(l as "WARN", "t"))).toEqual([false, false, false, true, true]);
   expect(out).toEqual([]);
 });
