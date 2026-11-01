@@ -9,6 +9,34 @@ import type { Rng } from "../../rand_core/lib.ts";
 import type { Distribution } from "./distribution.ts";
 import { StandardUniform_u64 } from "./integer.ts";
 
+// PORT: bernoulli.rs declares `ALWAYS_TRUE` / `SCALE` (lines 72/76) between `struct Bernoulli` and `impl Bernoulli`;
+// the class holds both, so the constants precede it.
+
+// To sample from the Bernoulli distribution we use a method that compares a
+// random `u64` value `v < (p * 2^64)`.
+//
+// If `p == 1.0`, the integer `v` to compare against can not represented as a
+// `u64`. We manually set it to `u64::MAX` instead (2^64 - 1 instead of 2^64).
+// Note that  value of `p < 1.0` can never result in `u64::MAX`, because an
+// `f64` only has 53 bits of precision, and the next largest value of `p` will
+// result in `2^64 - 2048`.
+//
+// Also there is a 100% theoretical concern: if someone consistently wants to
+// generate `true` using the Bernoulli distribution (i.e. by using a probability
+// of `1.0`), just using `u64::MAX` is not enough. On average it would return
+// false once every 2^64 iterations. Some people apparently care about this
+// case.
+//
+// That is why we special-case `u64::MAX` to always return `true`, without using
+// the RNG, and pay the performance price for all uses that *are* reasonable.
+// Luckily, if `new()` and `sample` are close, the compiler can optimize out the
+// extra check.
+const ALWAYS_TRUE = 0xffff_ffff_ffff_ffffn;
+
+// This is just `2.0.powi(64)`, but written this way because it is not available
+// in `no_std` mode.
+const SCALE = 2.0 * 2 ** 63;
+
 /// The [Bernoulli distribution](https://en.wikipedia.org/wiki/Bernoulli_distribution) `Bernoulli(p)`.
 ///
 /// This distribution describes a single boolean random variable, which is true
@@ -90,31 +118,6 @@ export class Bernoulli implements Distribution<boolean> {
     return v < this.p_int;
   }
 }
-
-// To sample from the Bernoulli distribution we use a method that compares a
-// random `u64` value `v < (p * 2^64)`.
-//
-// If `p == 1.0`, the integer `v` to compare against can not represented as a
-// `u64`. We manually set it to `u64::MAX` instead (2^64 - 1 instead of 2^64).
-// Note that  value of `p < 1.0` can never result in `u64::MAX`, because an
-// `f64` only has 53 bits of precision, and the next largest value of `p` will
-// result in `2^64 - 2048`.
-//
-// Also there is a 100% theoretical concern: if someone consistently wants to
-// generate `true` using the Bernoulli distribution (i.e. by using a probability
-// of `1.0`), just using `u64::MAX` is not enough. On average it would return
-// false once every 2^64 iterations. Some people apparently care about this
-// case.
-//
-// That is why we special-case `u64::MAX` to always return `true`, without using
-// the RNG, and pay the performance price for all uses that *are* reasonable.
-// Luckily, if `new()` and `sample` are close, the compiler can optimize out the
-// extra check.
-const ALWAYS_TRUE = 0xffff_ffff_ffff_ffffn;
-
-// This is just `2.0.powi(64)`, but written this way because it is not available
-// in `no_std` mode.
-const SCALE = 2.0 * 2 ** 63;
 
 /// Error type returned from [`Bernoulli::new`].
 export type BernoulliError = "InvalidProbability";

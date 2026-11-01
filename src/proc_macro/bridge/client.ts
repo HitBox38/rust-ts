@@ -71,11 +71,8 @@ export class TokenStream {
     Methods.ts_drop(new TokenStream(this.handle));
   }
 
-  // impl Clone for TokenStream
-  // std: library/proc_macro/src/bridge/client.rs:85 clone
-  clone(): TokenStream {
-    return Methods.ts_clone(this);
-  }
+  // PORT: `impl Clone for TokenStream` (client.rs:84) follows `Span`'s codecs, below.
+  declare clone: () => TokenStream;
 }
 
 // impl<S> Encode<S> for TokenStream
@@ -133,6 +130,12 @@ export function encode_Span<S>(self: Span, w: Buffer, s: S): void {
 export function decode_Span<S>(r: MutRef<Uint8Array>, s: S): Span {
   return decode_NonZero_u32(r, s) as Span;
 }
+
+// impl Clone for TokenStream
+// std: library/proc_macro/src/bridge/client.rs:85 clone
+TokenStream.prototype.clone = function (this: TokenStream): TokenStream {
+  return Methods.ts_clone(this);
+};
 
 export const Span = {
   // std: library/proc_macro/src/bridge/client.rs:91 def_site
@@ -409,22 +412,8 @@ class Bridge {
     public globals: ExpnGlobals<Span>,
   ) {}
 
-  // std: library/proc_macro/src/bridge/client.rs:198 with
-  static with<R>(f: (bridge: Bridge) => R): R {
-    return state.with((st) => {
-      // `state.expect(..)`
-      if (st === undefined) panic("procedural macro API is used outside of a procedural macro");
-      const bridge = st;
-      // `bridge.try_borrow_mut().expect(..)`
-      if (bridge.borrow !== 0) panic("procedural macro API is used while it's already in use: BorrowMutError");
-      bridge.borrow = -1;
-      try {
-        return f(bridge.value);
-      } finally {
-        bridge.borrow = 0;
-      }
-    });
-  }
+  // PORT: `impl Bridge<'_> { fn with }` (client.rs:197) follows `mod state`, below.
+  declare static with: <R>(f: (bridge: Bridge) => R) => R;
 }
 
 /** PORT: `RefCell<Bridge>` with its borrow flag (0 free, -1 mutably borrowed). */
@@ -476,6 +465,24 @@ const state = {
   },
 };
 
+// impl Bridge<'_>
+// std: library/proc_macro/src/bridge/client.rs:198 with
+Bridge.with = function <R>(f: (bridge: Bridge) => R): R {
+  return state.with((st) => {
+    // `state.expect(..)`
+    if (st === undefined) panic("procedural macro API is used outside of a procedural macro");
+    const bridge = st;
+    // `bridge.try_borrow_mut().expect(..)`
+    if (bridge.borrow !== 0) panic("procedural macro API is used while it's already in use: BorrowMutError");
+    bridge.borrow = -1;
+    try {
+      return f(bridge.value);
+    } finally {
+      bridge.borrow = 0;
+    }
+  });
+};
+
 // std: library/proc_macro/src/bridge/client.rs:209 is_available
 export function is_available(): boolean {
   return state.with((s) => s !== undefined);
@@ -493,23 +500,9 @@ export function is_available(): boolean {
 export class Client {
   constructor(public run: (config: BridgeConfig) => Buffer) {}
 
-  // std: library/proc_macro/src/bridge/client.rs:282 expand1
-  static expand1(f: (input: CrateTokenStream) => CrateTokenStream): Client {
-    return new Client(reify_to_extern_c_fn_hrt_bridge((bridge) => run_client(bridge, decode_crate_TokenStream, f)));
-  }
-
-  // std: library/proc_macro/src/bridge/client.rs:290 expand2
-  static expand2(f: (input: CrateTokenStream, input2: CrateTokenStream) => CrateTokenStream): Client {
-    return new Client(
-      reify_to_extern_c_fn_hrt_bridge((bridge) =>
-        run_client(
-          bridge,
-          (r, s) => decode_tuple2(r, s, decode_crate_TokenStream, decode_crate_TokenStream),
-          ([input, input2]) => f(input, input2),
-        ),
-      ),
-    );
-  }
+  // PORT: `impl Client { expand1, expand2 }` (client.rs:281) follows `run_client`, at the end of the file.
+  declare static expand1: (f: (input: CrateTokenStream) => CrateTokenStream) => Client;
+  declare static expand2: (f: (input: CrateTokenStream, input2: CrateTokenStream) => CrateTokenStream) => Client;
 }
 
 /**
@@ -586,3 +579,22 @@ function run_client<A>(config: BridgeConfig, decode_A: Decode<A, S>, f: (input: 
   Symbol.invalidate_all();
   return buf;
 }
+
+// impl Client
+// std: library/proc_macro/src/bridge/client.rs:282 expand1
+Client.expand1 = function (f: (input: CrateTokenStream) => CrateTokenStream): Client {
+  return new Client(reify_to_extern_c_fn_hrt_bridge((bridge) => run_client(bridge, decode_crate_TokenStream, f)));
+};
+
+// std: library/proc_macro/src/bridge/client.rs:290 expand2
+Client.expand2 = function (f: (input: CrateTokenStream, input2: CrateTokenStream) => CrateTokenStream): Client {
+  return new Client(
+    reify_to_extern_c_fn_hrt_bridge((bridge) =>
+      run_client(
+        bridge,
+        (r, s) => decode_tuple2(r, s, decode_crate_TokenStream, decode_crate_TokenStream),
+        ([input, input2]) => f(input, input2),
+      ),
+    ),
+  );
+};
