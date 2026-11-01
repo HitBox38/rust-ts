@@ -289,18 +289,6 @@ function at<T>(v: readonly T[], i: number): T {
   return x;
 }
 
-/** `ThreadId`'s `Idx::index` (concurrency/thread.rs:67: `self.0` as `usize`). PORT(contract): pending miri-threads
- * (`impl Idx for ThreadId` is only in thread.ts's inventory). */
-function thread_idx(thread: ThreadId): number {
-  return thread._0;
-}
-
-/** `ThreadId::MAIN_THREAD` (concurrency/thread.rs:59: `ThreadId(0)`). PORT(contract): pending miri-threads (the
- * associated const is not declared in thread.ts). */
-function main_thread(): ThreadId {
-  return new ThreadId(0);
-}
-
 /** The interned `VectorIdx` equal to `idx` (vector_clock.ts: `===` is `Eq` only for interned instances), for the
  * `FxHashSet<VectorIdx>`. */
 function canon(idx: VectorIdx): VectorIdx {
@@ -1091,9 +1079,7 @@ InterpCx.prototype.atomic_compare_exchange = function (
   const cmpxchg_success =
     eq_bool._0 &&
     (can_fail_spuriously
-      ? // PORT(contract): pending typemap: `MiriMachine.rng` is `Pending<"rand::rngs::StdRng">` (machine.gen.ts); the
-        // vendored `StdRng` is a `Rng` (vendor-rand).
-        RngExt.random_bool(this_.machine.rng as unknown as Rng, success_rate)
+      ? RngExt.random_bool(this_.machine.rng, success_rate)
       : true);
   const res: [Scalar, boolean] = [imm_to_scalar(old.imm), cmpxchg_success];
 
@@ -1231,7 +1217,7 @@ VClockAlloc.new_allocation = function (
     // Other global memory should trace races but be allocated at the 0 timestamp
     // (conceptually they are allocated on the main thread before everything).
     alloc_timestamp = VTimestamp.ZERO;
-    alloc_index = global.thread_index(main_thread());
+    alloc_index = global.thread_index(ThreadId.MAIN_THREAD);
   } else {
     // PORT: the match is exhaustive upstream.
     return unreachable();
@@ -1849,7 +1835,7 @@ InterpCx.prototype.validate_atomic_op = function <A>(
   // `IndexVec::push` returns the index of the new element.
   const index = VectorIdx.new(global_state.vector_clocks.length);
   global_state.vector_clocks.push(ThreadClockSet.default());
-  global_state.vector_info.push(main_thread());
+  global_state.vector_info.push(ThreadId.MAIN_THREAD);
   global_state.thread_info.push({ vector_index: index, termination_vector_clock: undefined });
 
   return global_state;
@@ -1922,7 +1908,7 @@ GlobalState.prototype.thread_created = function (this: GlobalState, thread_mgr: 
   // Load and setup the associated thread metadata
   const thread_info = this.thread_info;
   // `thread_info.ensure_contains_elem(thread, Default::default)`
-  while (thread_info.length <= thread_idx(thread)) {
+  while (thread_info.length <= thread.index()) {
     thread_info.push({ vector_index: undefined, termination_vector_clock: undefined });
   }
 
@@ -1944,7 +1930,7 @@ GlobalState.prototype.thread_created = function (this: GlobalState, thread_mgr: 
 
     // Mark the thread the vector index was associated with as no longer
     // representing a thread index.
-    at(thread_info, thread_idx(old_thread)).vector_index = undefined;
+    at(thread_info, old_thread.index()).vector_index = undefined;
 
     created_index = reuse_index;
   } else {
@@ -1959,7 +1945,7 @@ GlobalState.prototype.thread_created = function (this: GlobalState, thread_mgr: 
   // trace!("Creating thread = {:?} with vector index = {:?}", thread, created_index);
 
   // Mark the chosen vector index as in use by the thread.
-  at(thread_info, thread_idx(thread)).vector_index = created_index;
+  at(thread_info, thread.index()).vector_index = created_index;
 
   // Create a thread clock set if applicable.
   const vector_clocks = this.vector_clocks;
@@ -1989,7 +1975,7 @@ GlobalState.prototype.thread_created = function (this: GlobalState, thread_mgr: 
 // #[inline]
 // rustc: src/tools/miri/src/concurrency/data_race.rs:1786 thread_joined
 GlobalState.prototype.thread_joined = function (this: GlobalState, threads: ThreadManager, joinee: ThreadId): void {
-  const thread_info = at(this.thread_info, thread_idx(joinee));
+  const thread_info = at(this.thread_info, joinee.index());
 
   // Load the associated vector clock for the terminated thread.
   const join_clock = unwrap(thread_info.termination_vector_clock, "joined with thread but thread has not terminated");
@@ -2040,7 +2026,7 @@ GlobalState.prototype.thread_terminated = function (this: GlobalState, thread_mg
 
   // Store the terminaion clock.
   const terminaion_clock = this.release_clock(thread_mgr, (clock) => clone_VClock(clock));
-  at(this.thread_info, thread_idx(current_thread)).termination_vector_clock = terminaion_clock;
+  at(this.thread_info, current_thread.index()).termination_vector_clock = terminaion_clock;
 
   // Add this thread's clock index as a candidate for re-use.
   const reuse = this.reuse_candidates;
@@ -2152,7 +2138,7 @@ GlobalState.prototype.release_clock = function <R>(this: GlobalState, threads: T
 
 // rustc: src/tools/miri/src/concurrency/data_race.rs:1946 thread_index
 GlobalState.prototype.thread_index = function (this: GlobalState, thread: ThreadId): VectorIdx {
-  return unwrap(at(this.thread_info, thread_idx(thread)).vector_index, "thread has no assigned vector");
+  return unwrap(at(this.thread_info, thread.index()).vector_index, "thread has no assigned vector");
 };
 
 /// Load the vector index used by the given thread as well as the set of vector clocks

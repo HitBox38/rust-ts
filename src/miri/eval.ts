@@ -13,8 +13,6 @@
 //   `StackEmptyCallback`, global_ctor.ts / tls.ts `on_stack_empty`).
 // - `#[derive(Default)]` of `GlobalCtorState` / `TlsDtorsState` (both `#[default] Init`) is built here from the generated
 //   types (`GlobalCtorStatePriv.Init` / `TlsDtorsStatePriv.Init`).
-// - `ThreadId::MAIN_THREAD` (thread.rs:59, lane miri-threads) is not declared by the skeleton: `MAIN_THREAD` below is
-//   its one-line body (PORT(contract): pending; replace with the owners' exports when they land).
 // - `panic::catch_unwind(|| ecx.run_threads())` is a `try`/`catch`: a `FatalErrorMarker` (rustc's unwinding
 //   `dcx().fatal`) is rethrown as is, any other throw first runs `handle_ice` (the ICE report).
 import { type BorTag, BorrowTrackerMethod } from "./borrow_tracker/mod.ts";
@@ -59,12 +57,6 @@ import { PLAIN, debug_vec } from "../std/fmt.ts";
 import * as tracing from "../rust_ts/tracing.ts";
 import { debug_InterpErrorKind } from "../rustc_middle/mir/interpret/error.gen.ts";
 export * from "./eval.gen.ts";
-
-/**
- * `ThreadId::MAIN_THREAD` (thread.rs:59).
- * PORT(contract): pending miri-threads (not declared by the skeleton; module header).
- */
-const MAIN_THREAD = (): ThreadId => new ThreadId(0);
 
 /// Finds the entry point Miri should execute.
 ///
@@ -258,7 +250,7 @@ function on_main_stack_empty(self: MutRef<MainThreadState>, this_: MiriInterpCx)
       const genmc_ctx = GlobalDataRaceHandler.as_genmc_ref(this_.machine.data_race);
       if (genmc_ctx !== undefined) {
         // If there's no error, execution will continue (on another thread).
-        const h = genmc_ctx.handle_exit(MAIN_THREAD(), exit_code, "MainThreadFinish");
+        const h = genmc_ctx.handle_exit(ThreadId.MAIN_THREAD, exit_code, "MainThreadFinish");
         if (h.$ === "Err") return h;
       } else {
         // Stop interpreter loop.

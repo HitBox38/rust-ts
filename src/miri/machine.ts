@@ -1714,8 +1714,7 @@ MiriMachine.prototype.before_memory_write = function (
       const r = data_race.write_non_atomic(alloc_id, range, "Write", undefined, machine);
       if (r.$ === "Err") return r;
       if (weak_memory !== undefined) {
-        // PORT(contract): weak_memory.ts declares `global` as `Pending<DataRaceState>` (= `data_race::GlobalState`).
-        weak_memory.non_atomic_write(range, unwrap(GlobalDataRaceHandler_().as_vclocks_ref(machine.data_race)) as unknown as Parameters<StoreBufferAlloc["non_atomic_write"]>[1]);
+        weak_memory.non_atomic_write(range, unwrap(GlobalDataRaceHandler_().as_vclocks_ref(machine.data_race)));
       }
       break;
     }
@@ -2235,9 +2234,9 @@ function btree_range<V>(map: Map<Size, V>, start: Size | undefined, end: Size | 
 }
 
 /**
- * PORT(contract): a fn another wave-36 lane defines on an enum companion / a class (PORTING §8, borrowck-contract
- * rules 4-5) that the skeleton does not declare (so it cannot be imported typed). Read at call time (decision C10:
- * never at load); stops `unported` until that lane has ported it. Root replaces these with direct calls at integration.
+ * PORT(contract): a fn a wave-37 lane defines on an enum companion / a class (PORTING §8, borrowck-contract rules
+ * 4-5) that the skeleton does not declare (so it cannot be imported typed). Read at call time (decision C10: never at
+ * load); stops `unported` until that lane has ported it. Replace with direct calls when the lane lands.
  */
 function pending<F>(owner: object | undefined, name: string, what: string): F {
   const f = owner === undefined ? undefined : (owner as Record<string, unknown>)[name];
@@ -2245,74 +2244,42 @@ function pending<F>(owner: object | undefined, name: string, what: string): F {
   return f.bind(owner) as F;
 }
 
-/** `impl AtomicReadOrd` (concurrency/data_race.rs:96; lane miri-race). */
+/** `impl AtomicReadOrd` / `AtomicWriteOrd` / `AtomicRwOrd` / `AtomicFenceOrd` (concurrency/data_race.rs:96 / :116 / :75 /
+ *  :137; lane miri-race), read on the namespace at call time (C10). */
 function AtomicReadOrd_(): { from(ordering: AtomicOrdering): AtomicReadOrd } {
-  return { from: pending(data_race_ns.AtomicReadOrd, "from", "miri::concurrency::data_race::AtomicReadOrd (lane miri-race)") };
+  return data_race_ns.AtomicReadOrd;
 }
-/** `impl AtomicWriteOrd` (concurrency/data_race.rs:116; lane miri-race). */
 function AtomicWriteOrd_(): { from(ordering: AtomicOrdering): AtomicWriteOrd } {
-  return { from: pending(data_race_ns.AtomicWriteOrd, "from", "miri::concurrency::data_race::AtomicWriteOrd (lane miri-race)") };
+  return data_race_ns.AtomicWriteOrd;
 }
-/** `impl AtomicRwOrd` (concurrency/data_race.rs:75; lane miri-race). */
 function AtomicRwOrd_(): { from(ordering: AtomicOrdering): AtomicRwOrd } {
-  return { from: pending(data_race_ns.AtomicRwOrd, "from", "miri::concurrency::data_race::AtomicRwOrd (lane miri-race)") };
+  return data_race_ns.AtomicRwOrd;
 }
-/** `impl AtomicFenceOrd` (concurrency/data_race.rs:137; lane miri-race). */
 function AtomicFenceOrd_(): { from(ordering: AtomicOrdering): AtomicFenceOrd } {
-  return { from: pending(data_race_ns.AtomicFenceOrd, "from", "miri::concurrency::data_race::AtomicFenceOrd (lane miri-race)") };
+  return data_race_ns.AtomicFenceOrd;
 }
 
-/** `impl GlobalDataRaceHandler` (concurrency/data_race_handler.rs:34; lane miri-race). */
-interface GlobalDataRaceHandler_methods {
+/** `impl GlobalDataRaceHandler` / `impl AllocDataRaceHandler` (concurrency/data_race_handler.rs:34 / :52; lane miri-race). */
+function GlobalDataRaceHandler_(): {
   as_vclocks_ref(self: GlobalDataRaceHandler): data_race_GlobalState | undefined;
   as_genmc_ref(self: GlobalDataRaceHandler): GenmcCtx | undefined;
+} {
+  return data_race_handler_ns.GlobalDataRaceHandler;
 }
-function GlobalDataRaceHandler_(): GlobalDataRaceHandler_methods {
-  const c = data_race_handler_ns.GlobalDataRaceHandler;
-  const what = "miri::concurrency::data_race_handler::GlobalDataRaceHandler (lane miri-race)";
-  return {
-    as_vclocks_ref: (self) => pending<GlobalDataRaceHandler_methods["as_vclocks_ref"]>(c, "as_vclocks_ref", what)(self),
-    as_genmc_ref: (self) => pending<GlobalDataRaceHandler_methods["as_genmc_ref"]>(c, "as_genmc_ref", what)(self),
-  };
-}
-
-/** `impl AllocDataRaceHandler` (concurrency/data_race_handler.rs:52; lane miri-race). */
 function AllocDataRaceHandler_(): { as_vclocks_mut(self: AllocDataRaceHandler): VClockAlloc | undefined } {
-  return {
-    as_vclocks_mut: pending(
-      data_race_handler_ns.AllocDataRaceHandler,
-      "as_vclocks_mut",
-      "miri::concurrency::data_race_handler::AllocDataRaceHandler (lane miri-race)",
-    ),
-  };
+  return data_race_handler_ns.AllocDataRaceHandler;
 }
 
-/** `impl AllocState` (borrow_tracker/mod.rs:435; lane miri-alloc). `AllocState` has no generated companion: the lane adds
- * `export const AllocState` to borrow_tracker/mod.ts (borrowck-contract rule 4). */
-interface AllocState_methods {
+/** `impl AllocState` (borrow_tracker/mod.rs:435) / `impl BorrowTrackerMethod` (borrow_tracker/mod.rs:234); lane miri-alloc. */
+function AllocState_(): {
   before_memory_read(self: AllocState, alloc_id: AllocId, prov_extra: ProvenanceExtra, range: AllocRange, machine: MiriMachine): InterpResult;
   before_memory_write(self: AllocState, alloc_id: AllocId, prov_extra: ProvenanceExtra, range: AllocRange, machine: MiriMachine): InterpResult;
   before_memory_deallocation(self: AllocState, alloc_id: AllocId, prov_extra: ProvenanceExtra, size: Size, machine: MiriMachine): InterpResult;
+} {
+  return borrow_tracker_ns.AllocState;
 }
-function AllocState_(): AllocState_methods {
-  const c = (borrow_tracker_ns as unknown as Record<string, object | undefined>)["AllocState"];
-  const what = "miri::borrow_tracker::AllocState (lane miri-alloc)";
-  return {
-    before_memory_read: (...a) => pending<AllocState_methods["before_memory_read"]>(c, "before_memory_read", what)(...a),
-    before_memory_write: (...a) => pending<AllocState_methods["before_memory_write"]>(c, "before_memory_write", what)(...a),
-    before_memory_deallocation: (...a) => pending<AllocState_methods["before_memory_deallocation"]>(c, "before_memory_deallocation", what)(...a),
-  };
-}
-
-/** `impl BorrowTrackerMethod` (borrow_tracker/mod.rs:234; lane miri-alloc). */
 function BorrowTrackerMethod_(): { instantiate_global_state(self: BorrowTrackerMethod, config: MiriConfig): GlobalState } {
-  return {
-    instantiate_global_state: pending(
-      borrow_tracker_ns.BorrowTrackerMethod,
-      "instantiate_global_state",
-      "miri::borrow_tracker::BorrowTrackerMethod (lane miri-alloc)",
-    ),
-  };
+  return borrow_tracker_ns.BorrowTrackerMethod;
 }
 
 /** `impl EnvVars` (shims/env.rs:29; lane miri-shims-a). */

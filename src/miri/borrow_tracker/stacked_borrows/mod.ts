@@ -11,11 +11,8 @@
 // borrow_tracker/mod.ts -> .. -> this module (the contract test loads every module as a fresh entry point). Upstream they
 // are private to stacked_borrows (stack.rs calls `grants`), so no other lane calls them. The skeleton's declarations of
 // these five `Stack` members are removed.
-// PORT(contract): `AllocExtra::borrow_tracker_sb{,_mut}` (borrow_tracker/mod.rs:411/:419, lane miri-alloc) are declared
-// returning `borrow_tracker::AllocState` (the enum); upstream returns `&RefCell<stacked_borrows::AllocState>` = `Stacks`.
-// `sb_state` below reads them as `Stacks` until miri-alloc corrects the declaration.
-// PORT(contract): `AllocDataRaceHandler::as_vclocks_{ref,mut}` (concurrency/data_race_handler.rs:53/:57, lane miri-race)
-// are not declared by the skeleton (companion fns, "lane decides"); `as_vclocks` below is their one-arm `if let`.
+// `AllocExtra::borrow_tracker_sb{,_mut}` (borrow_tracker/mod.rs:411/:419) return `Stacks`; `AllocDataRaceHandler::
+// as_vclocks_{ref,mut}` (data_race_handler.rs:53/:57) are lane miri-race's companion fns (read at call time, C10).
 // Logging: upstream `trace!` lines are verbatim comments (A6: only `info!` is ported, by lane miri-log; this file has none).
 import { type AccessKind, BorTag, debug_BorTag, type GlobalStateInner, type ProtectorKind } from "../mod.ts";
 import { DiagnosticCxBuilder, type DiagnosticCx, RetagInfo, type RetagCause } from "./diagnostics.ts";
@@ -24,7 +21,7 @@ import { clone_Item, debug_Permission, Item, Permission } from "./item.ts";
 import { type ItemInvalidationCause, type NewPermission as NewPermission_, Stacks } from "./mod.gen.ts";
 import { clone_Stack, Stack, Stack_eq } from "./stack.ts";
 import { type VClockAlloc } from "../../concurrency/data_race.ts";
-import { type AllocDataRaceHandler } from "../../concurrency/data_race_handler.ts";
+import { AllocDataRaceHandler } from "../../concurrency/data_race_handler.ts";
 import { DedupRangeMap } from "../../data_structures/dedup_range_map.ts";
 import { type NonHaltingDiagnostic } from "../../diagnostics.ts";
 import { type ImmTy, type MPlaceTy } from "../../lib.ts";
@@ -497,13 +494,12 @@ Stacks.prototype.for_each = function (
 
 /** PORT(contract, header): `extra.borrow_tracker_sb()` / `_mut().get_mut()` as the `Stacks` upstream returns. */
 function sb_state(extra: AllocExtra, mut: boolean): Stacks {
-  return (mut ? extra.borrow_tracker_sb_mut() : extra.borrow_tracker_sb()) as unknown as Stacks;
+  return mut ? extra.borrow_tracker_sb_mut() : extra.borrow_tracker_sb();
 }
 
-/** PORT(contract, header): `AllocDataRaceHandler::as_vclocks_ref` / `as_vclocks_mut` (data_race_handler.rs:53/:57). */
+/** `AllocDataRaceHandler::as_vclocks_ref` / `as_vclocks_mut` (data_race_handler.rs:53/:57; the same in JS). */
 function as_vclocks(h: AllocDataRaceHandler): VClockAlloc | undefined {
-  // if let Self::Vclocks(data_race, _weak_memory) = self { Some(data_race) } else { None }
-  return h.$ === "Vclocks" ? h._0 : undefined;
+  return AllocDataRaceHandler.as_vclocks_ref(h);
 }
 
 /// Glue code to connect with Miri Machine Hooks

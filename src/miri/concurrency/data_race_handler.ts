@@ -104,10 +104,9 @@ export const VisitProvenance_AllocDataRaceHandler = {
         break;
       case "Vclocks": {
         self._0.visit_provenance(visit);
-        // `weak_memory.visit_provenance(visit)`: `impl<T: VisitProvenance> VisitProvenance for Option<T>` visits `Some`.
-        // PORT(contract): pending miri-sb: `StoreBufferAlloc::visit_provenance` (weak_memory.rs:121) is in weak_memory.ts's
-        // inventory, not declared; the call goes through the `VisitProvenance` method shape (provenance_gc.ts).
-        if (self._1 !== undefined) unported("StoreBufferAlloc::visit_provenance (src/tools/miri/src/concurrency/weak_memory.rs:121; lane miri-sb)");
+        // `weak_memory.visit_provenance(visit)`: `impl<T: VisitProvenance> VisitProvenance for Option<T>` visits `Some`
+        // (`StoreBufferAlloc::visit_provenance`, weak_memory.rs:121, a prototype method in weak_memory.ts).
+        if (self._1 !== undefined) self._1.visit_provenance(visit);
         break;
       }
     }

@@ -180,9 +180,9 @@ declare module "../machine.gen.ts" {
     borrow_tracker_tb(): Tree;
   }
 }
-// PORT(contract): pending miri-sb / miri-tb-b: `impl VisitProvenance for Stacks` (stacked_borrows/mod.rs:456) and
-// `for Tree` (tree_borrows/tree.rs:1201) are not declared by the skeleton; `VisitProvenance_AllocState` calls them as
-// methods (the provenance_gc.ts convention for classes).
+// `impl VisitProvenance for Stacks` (stacked_borrows/mod.rs:456, ported in stacked_borrows/mod.ts) and `for Tree`
+// (tree_borrows/tree.rs:1201; PORT(contract): pending lane miri-tb-b, wave 37) are declared here; `VisitProvenance_AllocState`
+// calls them as methods (the provenance_gc.ts convention for classes).
 declare module "./stacked_borrows/mod.gen.ts" {
   interface Stacks {
     visit_provenance(visit: VisitWith): void;
