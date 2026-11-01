@@ -23,6 +23,7 @@ import {
   SIGRTMAX,
   SIGRTMIN,
 } from "./machine.ts";
+import { FrameState as data_race_FrameState } from "./concurrency/data_race.ts";
 import type { StrictPointer } from "./lib.ts";
 
 const KINDS: MiriMemoryKind[] = ["Rust", "Miri", "C", "WinHeap", "WinLocal", "Machine", "Runtime", "Global", "ExternStatic", "Tls", "Mmap", "SocketAddress"];
@@ -268,11 +269,18 @@ test("callback!: captures are visited and passed to the body (machine.rs:2171)",
   ]);
 });
 
-test("a hook that reaches another lane's unported method stops unported, not with a TypeError", () => {
-  const m = machine({ data_race: { $: "Vclocks", _0: {} } as never, borrow_tracker: undefined, user_relevance: () => 0 } as never);
-  // `GlobalDataRaceHandler::as_vclocks_ref` (lane miri-race) is not ported yet in this lane's tree.
-  const msg = catch_err(() => m.init_frame(ecx(m), { with_extra: (x: unknown) => x } as never));
-  // Pinned to `Unported` once the lane owning `as_vclocks_ref` lands (then the lookup exists and this may succeed).
-  // Until then the failure mode this test names must not appear: a TypeError from a missing method.
-  expect(msg).not.toMatch(/TypeError|ReferenceError/);
+test("init_frame builds FrameExtra (machine.rs:1879): data_race FrameState iff data-race detection is on", () => {
+  const frame_with = (data_race: unknown) => {
+    const m = machine({ data_race, borrow_tracker: undefined, user_relevance: () => 7 } as never);
+    const r = m.init_frame(ecx(m), { with_extra: (x: unknown) => x } as never);
+    expect(r.$).toBe("Ok");
+    return (r as unknown as { $: "Ok"; _0: { borrow_tracker: unknown; catch_unwind: unknown; timing: unknown; user_relevance: number; data_race: unknown } })._0;
+  };
+  // `GlobalDataRaceHandler::Vclocks`: `Some(data_race::FrameState::default())`, an empty local-clocks map.
+  const on = frame_with({ $: "Vclocks", _0: {} });
+  expect(on.data_race).toBeInstanceOf(data_race_FrameState);
+  expect((on.data_race as { local_clocks: Map<unknown, unknown> }).local_clocks.size).toBe(0);
+  expect([on.borrow_tracker, on.catch_unwind, on.timing, on.user_relevance]).toEqual([undefined, undefined, undefined, 7]);
+  // `GlobalDataRaceHandler::None`: no data-race frame state.
+  expect(frame_with({ $: "None" }).data_race).toBeUndefined();
 });

@@ -10,7 +10,7 @@
 // Both sides run exactly as the suite runs them (harness/suites.ts: the suite's `oracle` / `subject` commands, its cwd,
 // the case's env over difftest's scrubbed environment, scripts/lib/env.ts `caseEnv`) plus `MIRI_LOG=info`
 // (`MIRI_TRACE_ENV`). A file path gives `miriFileCase(<file>)` in suite `miri-hello` (Miri's plain argv, cwd the repo;
-// the path is taken relative to the repo when it is inside it, else absolute). The port side is whatever the Miri
+// the path is taken relative to the repo; a file outside the repo is an `ERROR:`). The port side is whatever the Miri
 // suites run (harness/suites.ts `MIRI_SUBJECT_ENTRY`).
 //
 // Each side's stderr is normalised (scripts/lib/miri-trace.ts: event and span-opening records only, without
@@ -25,7 +25,8 @@
 // the port's line; or, when the port stops early, its exit and first `unported`), `ERROR:` lines on failure. Files in
 // $RUST_TS_DATA/runs/<run>/miri-diff/: `oracle.trace.txt`, `port.trace.txt` (one record per line, newlines as `\n`),
 // `oracle.other.txt` (the oracle's non-trace stderr lines), `port.stdout.txt`, `port.stderr.txt` (raw), `report.txt`
-// (the summary plus the records before the difference) and `report.json`. Exit: 0 traces and outputs match, 1 they differ (or the port stops), 2 an `ERROR:`.
+// (the summary plus the records before the difference) and `report.json`. Exit: 0 the trace records, stdout and exit code match (non-trace stderr is not compared), 1 they differ (or the port
+// stops), 2 an `ERROR:`.
 import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import { MIRI_SUBJECT_ENTRY, miriFileCase, suite as getSuite, type Case, type Suite } from "../harness/suites.ts";
