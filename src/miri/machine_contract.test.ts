@@ -104,12 +104,16 @@ test("M1/M7: MiriMachine's associated items, provided defaults and impl stubs; M
   const fake_ecx = Object.assign(Object.create(InterpCx.prototype) as MiriInterpCx, { machine: { check_alignment: "None" } });
   expect(m.enforce_alignment(fake_ecx)).toBe(false);
   expect(unported_msg(() => m.stack_(fake_ecx))).toContain("thread::EvalContextExt::active_thread_stack (");
-  expect(unported_msg(() => m.MemoryMap_default())).toContain("MonoHashMap::default (");
+  // lane miri-driver ported `MonoHashMap` (data_structures/mono_hash_map.rs): `MemoryMap::default()` is an empty map.
+  expect(m.MemoryMap_default()).toBeInstanceOf(MonoHashMap);
   expect(unported_msg(() => AllocBytes_MiriAllocBytes.zeroed(Size.ZERO, Align.ONE, { $: "Global" }))).toContain("MiriAllocBytes::zeroed (");
   // MonoHashMap: `get` is the impl's (machine.rs `impl AllocMap for MonoHashMap` :98), `get_mut` the default
   expect(MonoHashMap.prototype.get_mut).toBe(AllocMap_provided.prototype.get_mut);
   expect(MonoHashMap.prototype.get).not.toBe(AllocMap_provided.prototype.get);
-  expect(unported_msg(() => new MonoHashMap(new Map()).insert(1, 2))).toContain("(impl AllocMap)::insert (");
+  const mm = MonoHashMap.default<number, number>();
+  expect(mm.insert(1, 2)).toBeUndefined();
+  expect(mm.insert(1, 3)).toBe(2);
+  expect(mm.get(1)).toBe(3);
   // N5: `M::Bytes` values are `Uint8Array`s; their views are plain ones
   const b = new MiriAllocBytes(4);
   expect(b).toBeInstanceOf(Uint8Array);

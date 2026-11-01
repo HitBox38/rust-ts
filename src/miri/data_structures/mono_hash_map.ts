@@ -1,43 +1,163 @@
-// Port of src/tools/miri/src/data_structures/mono_hash_map.rs (crate `miri`, plan-m6 D2): STUB by lane miri-contract (wave 35).
-// Fill lane: `miri-driver` (plan-m6 wave 36). Contract and rules: docs/handoff/miri-contract.md ("How to fill a stub").
+//! This is a "monotonic `FxHashMap`": A `FxHashMap` that, when shared, can be pushed to but not
+//! otherwise mutated. We also box items in the map. This means we can safely provide
+//! shared references into existing items in the `FxHashMap`, because they will not be dropped
+//! (from being removed) or moved (because they are boxed).
+//! The API is completely tailored to what `memory.rs` needs. It is still in
+//! a separate file to minimize the amount of code that has to care about the unsafety.
+// Port of src/tools/miri/src/data_structures/mono_hash_map.rs (crate `miri`, plan-m6 D2).
+// Fill lane: `miri-driver` (plan-m6 wave 36): ported.
 // Its types are generated into mono_hash_map.gen.ts (tools/codegen set `miri`); this module re-exports them.
-// Until ported, every method declared below is an `unported` placeholder (`stub_*` calls at the end, installed by
-// src/miri/lib.ts) and every free fn stops with `unported`. The declarations were translated mechanically from the
-// upstream signatures (`Pending<"..">` = a type the translation did not map); the fill lane owns and corrects them.
+// PORT (lane miri-driver): `RefCell<FxHashMap<K, Box<V>>>` is an `FxHashMap` (src/rust_ts/hash_map.ts): the iteration
+// order of `filter_map_collect` / `iter` (leak reports, `miri_print_alloc`) is hashbrown's bucket order, as upstream.
+// The key type's `Hash` is a parameter of `default`; Miri's only `MonoHashMap` is `Machine::MemoryMap` with
+// `K = AllocId` (`NonZero<u64>`: `write_u64`, which FxHasher treats like `write_usize` on 64-bit hosts), so `default()`
+// uses `usize_key`. The value is `Box<V>` (a pointer: `LAYOUT_PTR`). The `RefCell` borrow flags have no TS counterpart
+// (the borrows the unsafe blocks rely on cannot conflict in single-threaded TS); `Box<V>` is the value itself.
 import { MonoHashMap } from "./mono_hash_map.gen.ts";
-import { stub_methods, stub_statics } from "../../rust_ts/miri_stub.ts";
+import { FxHashMap, type KeyType, LAYOUT_PTR, usize_key } from "../../rust_ts/hash_map.ts";
 import { provide_defaults } from "../../rust_ts/provided.ts";
 import { type AllocMap, AllocMap_provided } from "../../rustc_const_eval/interpret/machine.ts";
+import { panic } from "../../std/panic.ts";
+import { Ok, type Result } from "../../std/result.ts";
 export * from "./mono_hash_map.gen.ts";
 
 declare module "./mono_hash_map.gen.ts" {
   interface MonoHashMap<K, V> {
     // data_structures/mono_hash_map.rs:29
-    iter<T>(f: ((_0: Iterable<[K, V]>) => T)): T;
+    iter<T>(f: (_0: Iterable<[K, V]>) => T): T;
   }
 }
 
-// ---- contract part (lane interp-miri-reconcile, miri-contract review M7): `impl AllocMap<K, V> for MonoHashMap<K, V>` ----
+// ---- `impl AllocMap<K, V> for MonoHashMap<K, V>` (lane interp-miri-reconcile, miri-contract review M7) ----
 // `MonoHashMap` is Miri's `Machine::MemoryMap`. PORT: the generated class gets the trait's methods by declaration merging;
-// the impl's own methods (:42-:106, the inventory below) are `unported` stubs until lane miri-driver ports them, and the
-// provided method it does not override (`get_mut`) is copied from `AllocMap_provided` (src/rust_ts/provided.ts).
+// the provided method it does not override (`get_mut`) is copied from `AllocMap_provided` (src/rust_ts/provided.ts).
 // `impl Default` (:35) is the static `default`.
 declare module "./mono_hash_map.gen.ts" {
   interface MonoHashMap<K, V> extends AllocMap<K, V> {}
   namespace MonoHashMap {
     // data_structures/mono_hash_map.rs:35
-    function default_<K, V>(): MonoHashMap<K, V>;
+    function default_<K, V>(key?: KeyType<K>): MonoHashMap<K, V>;
     export { default_ as default };
   }
 }
+
+/** The map inside the `RefCell` (constructed by `default` as an `FxHashMap`). */
+function map_of<K, V>(m: MonoHashMap<K, V>): Map<K, V> {
+  return m._0;
+}
+
+/// This function exists for priroda to be able to iterate over all evaluator memory.
+///
+/// The function is somewhat roundabout with the closure argument because internally the
+/// `MonoHashMap` uses a `RefCell`. When iterating over the `FxHashMap` inside the `RefCell`,
+/// we need to keep a borrow to the `FxHashMap` inside the iterator. The borrow is only alive
+/// as long as the `Ref` returned by `RefCell::borrow()` is alive. So we can't return the
+/// iterator, as that would drop the `Ref`. We can't return both, as it's not possible in Rust
+/// to have a struct/tuple with a field that refers to another field.
+// rustc: src/tools/miri/src/data_structures/mono_hash_map.rs:29 iter
+MonoHashMap.prototype.iter = function <K, V, T>(this: MonoHashMap<K, V>, f: (_0: Iterable<[K, V]>) => T): T {
+  return f(map_of(this).entries());
+};
+
+// rustc: src/tools/miri/src/data_structures/mono_hash_map.rs:35 default
+MonoHashMap.default = function <K, V>(key: KeyType<K> = usize_key as unknown as KeyType<K>): MonoHashMap<K, V> {
+  return new MonoHashMap<K, V>(FxHashMap.default<K, V>(key, LAYOUT_PTR));
+};
+
+// #[inline(always)]
+// rustc: src/tools/miri/src/data_structures/mono_hash_map.rs:42 contains_key
+MonoHashMap.prototype.contains_key = function <K, V>(this: MonoHashMap<K, V>, k: K): boolean {
+  return map_of(this).has(k);
+};
+
+// #[inline(always)]
+// rustc: src/tools/miri/src/data_structures/mono_hash_map.rs:50 contains_key_ref
+MonoHashMap.prototype.contains_key_ref = function <K, V>(this: MonoHashMap<K, V>, k: K): boolean {
+  return map_of(this).has(k);
+};
+
+// #[inline(always)]
+// rustc: src/tools/miri/src/data_structures/mono_hash_map.rs:58 insert
+MonoHashMap.prototype.insert = function <K, V>(this: MonoHashMap<K, V>, k: K, v: V): V | undefined {
+  const m = map_of(this);
+  const old = m.get(k);
+  const had = old !== undefined || m.has(k);
+  m.set(k, v);
+  return had ? old : undefined;
+};
+
+// #[inline(always)]
+// rustc: src/tools/miri/src/data_structures/mono_hash_map.rs:63 remove
+MonoHashMap.prototype.remove = function <K, V>(this: MonoHashMap<K, V>, k: K): V | undefined {
+  const m = map_of(this);
+  const old = m.get(k);
+  if (!m.delete(k)) return undefined;
+  return old;
+};
+
+// #[inline(always)]
+// rustc: src/tools/miri/src/data_structures/mono_hash_map.rs:71 filter_map_collect
+MonoHashMap.prototype.filter_map_collect = function <K, V, T>(this: MonoHashMap<K, V>, f: (k: K, v: V) => T | undefined): T[] {
+  const out: T[] = [];
+  for (const [k, v] of map_of(this)) {
+    const t = f(k, v);
+    if (t !== undefined) out.push(t);
+  }
+  return out;
+};
+
+/// The most interesting method: Providing a shared reference without
+/// holding the `RefCell` open, and inserting new data if the key
+/// is not used yet.
+/// `vacant` is called if the key is not found in the map;
+/// if it returns a reference, that is used directly, if it
+/// returns owned data, that is put into the map and returned.
+// #[inline(always)]
+// rustc: src/tools/miri/src/data_structures/mono_hash_map.rs:82 get_or
+MonoHashMap.prototype.get_or = function <K, V, E>(this: MonoHashMap<K, V>, k: K, vacant: () => Result<V, E>): Result<V, E> {
+  const m = map_of(this);
+  // We cannot hold borrow_mut while calling `vacant`, since that might have to do lookups in this very map.
+  if (m.has(k)) {
+    // This is safe because `val` points into a `Box`, that we know will not move and
+    // will also not be dropped as long as the shared reference `self` is live.
+    return Ok(m.get(k) as V);
+  }
+  const r = vacant();
+  if (r.$ === "Err") return r;
+  const new_val = r._0;
+  // `self.0.borrow_mut().try_insert(k, new_val).ok().unwrap()`
+  if (m.has(k)) panic("called `Option::unwrap()` on a `None` value");
+  m.set(k, new_val);
+  // This is safe because `val` points into a `Box`, that we know will not move and
+  // will also not be dropped as long as the shared reference `self` is live.
+  return Ok(new_val);
+};
+
+/// Read-only lookup (avoid read-acquiring the RefCell).
+// rustc: src/tools/miri/src/data_structures/mono_hash_map.rs:98 get
+MonoHashMap.prototype.get = function <K, V>(this: MonoHashMap<K, V>, k: K): V | undefined {
+  // This is safe because `val` points into a `Box`, that we know will not move and
+  // will also not be dropped as long as the shared reference `self` is live.
+  return map_of(this).get(k);
+};
+
+// #[inline(always)]
+// rustc: src/tools/miri/src/data_structures/mono_hash_map.rs:106 get_mut_or
+MonoHashMap.prototype.get_mut_or = function <K, V, E>(this: MonoHashMap<K, V>, k: K, vacant: () => Result<V, E>): Result<V, E> {
+  const m = map_of(this);
+  if (m.has(k)) {
+    // Entry::Occupied(e) => Ok(e.into_mut()),
+    return Ok(m.get(k) as V);
+  }
+  // Entry::Vacant(e) => { let v = vacant()?; Ok(e.insert(Box::new(v))) }
+  // PORT: std's `entry` (hashbrown `rustc_entry`) reserves room for one element when the key is vacant, before `vacant`
+  // runs (so even when it fails): the same table growth here.
+  if (m instanceof FxHashMap) m.reserve(1);
+  const r = vacant();
+  if (r.$ === "Err") return r;
+  m.set(k, r._0);
+  return Ok(r._0);
+};
+
 // `get` (:98) is the impl's; `get_mut` is the default.
 provide_defaults(MonoHashMap.prototype, AllocMap_provided.prototype, ["get"]);
-
-// ---- inventory: the other fns of the file (trait impls, private fns, macros), in upstream order of kind ----
-// impl Default for MonoHashMap<K, V> (data_structures/mono_hash_map.rs:34): default (:35)
-// impl AllocMap<K, V> for MonoHashMap<K, V> (data_structures/mono_hash_map.rs:40): contains_key (:42), contains_key_ref (:50), insert (:58), remove (:63), filter_map_collect (:71), get_or (:82), get (:98), get_mut_or (:106)
-
-// ---- placeholders (src/rust_ts/miri_stub.ts; the fill lane deletes each name it ports) ----
-stub_methods("miri::data_structures::mono_hash_map::MonoHashMap", "src/tools/miri/src/data_structures/mono_hash_map.rs", "miri-driver", () => MonoHashMap.prototype, ["iter"]);
-stub_statics("miri::data_structures::mono_hash_map::MonoHashMap", "src/tools/miri/src/data_structures/mono_hash_map.rs", "miri-driver", () => MonoHashMap, ["default"]);
-stub_methods("miri::data_structures::mono_hash_map::MonoHashMap (impl AllocMap)", "src/tools/miri/src/data_structures/mono_hash_map.rs", "miri-driver", () => MonoHashMap.prototype, ["contains_key", "contains_key_ref", "insert", "remove", "filter_map_collect", "get_or", "get", "get_mut_or"]);
