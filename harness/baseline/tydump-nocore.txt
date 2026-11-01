@@ -5960,6 +5960,7 @@ tests/ui/derived-errors/issue-31997.rs
 tests/ui/derived-errors/no-spurious-unconstrained-param.rs
 tests/ui/derives/attr-macro-changes-type-kind.rs
 tests/ui/derives/auxiliary/derive-marker-tricky.rs
+tests/ui/derives/auxiliary/derive-no-generics.rs
 tests/ui/derives/auxiliary/derive-no-std.rs
 tests/ui/derives/auxiliary/generated-enum-derive.rs
 tests/ui/derives/auxiliary/struct-to-enum.rs
@@ -5975,6 +5976,7 @@ tests/ui/derives/clone-copy/misbehaving-clone-impl.rs
 tests/ui/derives/clone-debug-dead-code-in-the-same-struct.rs
 tests/ui/derives/clone-debug-dead-code.rs
 tests/ui/derives/clone-include-gat-hrtb.rs
+tests/ui/derives/coercepointee/auxiliary/another-proc-macro.rs
 tests/ui/derives/coercepointee/auxiliary/malicious-macro.rs
 tests/ui/derives/coercepointee/built-in-proc-macro-scope.rs
 tests/ui/derives/coercepointee/coerce-pointee-bounds-issue-127647.rs
@@ -6129,6 +6131,7 @@ tests/ui/diagnostic_namespace/can_use_the_diagnostic_name_in_other_places.rs
 tests/ui/diagnostic_namespace/deny_malformed_attribute.rs
 tests/ui/diagnostic_namespace/do_not_recommend/as_expression.rs
 tests/ui/diagnostic_namespace/do_not_recommend/auxiliary/foreign_blanket_impl.rs
+tests/ui/diagnostic_namespace/do_not_recommend/auxiliary/proc_macro_repro.rs
 tests/ui/diagnostic_namespace/do_not_recommend/does_not_acccept_args.rs
 tests/ui/diagnostic_namespace/do_not_recommend/incorrect-locations.rs
 tests/ui/diagnostic_namespace/do_not_recommend/malformed-diagnostic-attributes-if-expression.rs
@@ -8492,6 +8495,7 @@ tests/ui/hygiene/auxiliary/my_crate.rs
 tests/ui/hygiene/auxiliary/needs_hygiene.rs
 tests/ui/hygiene/auxiliary/nested-dollar-crate.rs
 tests/ui/hygiene/auxiliary/not-libstd.rs
+tests/ui/hygiene/auxiliary/opaque-hygiene.rs
 tests/ui/hygiene/auxiliary/pub_hygiene.rs
 tests/ui/hygiene/auxiliary/stdlib-prelude.rs
 tests/ui/hygiene/auxiliary/transparent-basic.rs
@@ -10981,6 +10985,7 @@ tests/ui/lint/unused/auxiliary/lint_unused_extern_crate5.rs
 tests/ui/lint/unused/auxiliary/must-use-foreign.rs
 tests/ui/lint/unused/auxiliary/must_use_result_unit_uninhabited_extern_crate.rs
 tests/ui/lint/unused/auxiliary/unused-parens-bound-proc-macro.rs
+tests/ui/lint/unused/auxiliary/unused_assignment_proc_macro.rs
 tests/ui/lint/unused/break-label-with-parens-147542.rs
 tests/ui/lint/unused/closure-body-issue-136741.rs
 tests/ui/lint/unused/concat-in-crate-deprecated-issue-137687.rs
@@ -11113,6 +11118,7 @@ tests/ui/lint/warn-path-statement.rs
 tests/ui/lint/warn-unused-inline-on-fn-prototypes.rs
 tests/ui/lint/wide_pointer_comparisons-no_std.rs
 tests/ui/lint/wide_pointer_comparisons.rs
+tests/ui/liveness/auxiliary/aux_issue_147648.rs
 tests/ui/liveness/liveness-asm.rs
 tests/ui/liveness/liveness-assign-imm-local-after-ret.rs
 tests/ui/liveness/liveness-assign/liveness-assign-imm-local-in-loop.rs
@@ -11265,6 +11271,8 @@ tests/ui/macros/auxiliary/dollar-crate-nested-encoding.rs
 tests/ui/macros/auxiliary/expr_2021_implicit.rs
 tests/ui/macros/auxiliary/fancy-panic.rs
 tests/ui/macros/auxiliary/foreign-crate-macro-pat.rs
+tests/ui/macros/auxiliary/hello_macro.rs
+tests/ui/macros/auxiliary/issue-100199.rs
 tests/ui/macros/auxiliary/issue-19163.rs
 tests/ui/macros/auxiliary/issue-40469.rs
 tests/ui/macros/auxiliary/issue-75982.rs
@@ -11282,7 +11290,10 @@ tests/ui/macros/auxiliary/metavar_2018.rs
 tests/ui/macros/auxiliary/nested-macro-rules-definition.rs
 tests/ui/macros/auxiliary/or-pattern.rs
 tests/ui/macros/auxiliary/ping.rs
+tests/ui/macros/auxiliary/proc_macro_def.rs
+tests/ui/macros/auxiliary/proc_macro_sequence.rs
 tests/ui/macros/auxiliary/return_from_external_macro.rs
+tests/ui/macros/auxiliary/serde.rs
 tests/ui/macros/auxiliary/two_macros-rpass.rs
 tests/ui/macros/auxiliary/two_macros.rs
 tests/ui/macros/auxiliary/unstable-macros.rs
@@ -13403,6 +13414,7 @@ tests/ui/parser/attribute/missing-cases.rs
 tests/ui/parser/attribute/multiple-tail-expr-behind-cfg.rs
 tests/ui/parser/attribute/properly-recover-from-trailing-outer-attribute-in-body-1.rs
 tests/ui/parser/attribute/properly-recover-from-trailing-outer-attribute-in-body-2.rs
+tests/ui/parser/auxiliary/tuple-index-suffix-proc-macro-aux.rs
 tests/ui/parser/bad-char-literals.rs
 tests/ui/parser/bad-crate-name.rs
 tests/ui/parser/bad-escape-suggest-raw-string.rs
@@ -14973,6 +14985,7 @@ tests/ui/proc-macro/auxiliary/builtin-attrs.rs
 tests/ui/proc-macro/auxiliary/call-deprecated.rs
 tests/ui/proc-macro/auxiliary/call-site.rs
 tests/ui/proc-macro/auxiliary/closure-hir-span.rs
+tests/ui/proc-macro/auxiliary/cond_plugin.rs
 tests/ui/proc-macro/auxiliary/count_compound_ops.rs
 tests/ui/proc-macro/auxiliary/custom-attr-only-one-derive.rs
 tests/ui/proc-macro/auxiliary/custom-quote.rs
@@ -14994,6 +15007,7 @@ tests/ui/proc-macro/auxiliary/derive-two-attrs.rs
 tests/ui/proc-macro/auxiliary/derive-union.rs
 tests/ui/proc-macro/auxiliary/derive-unstable.rs
 tests/ui/proc-macro/auxiliary/dollar-crate-external.rs
+tests/ui/proc-macro/auxiliary/double.rs
 tests/ui/proc-macro/auxiliary/duplicate.rs
 tests/ui/proc-macro/auxiliary/edition-gated-async-move-syntax.rs
 tests/ui/proc-macro/auxiliary/edition-imports-2015.rs
@@ -15009,9 +15023,11 @@ tests/ui/proc-macro/auxiliary/first-second.rs
 tests/ui/proc-macro/auxiliary/gen-lifetime-token.rs
 tests/ui/proc-macro/auxiliary/gen-macro-rules-hygiene.rs
 tests/ui/proc-macro/auxiliary/gen-macro-rules.rs
+tests/ui/proc-macro/auxiliary/generate-dollar-ident.rs
 tests/ui/proc-macro/auxiliary/generate-mod.rs
 tests/ui/proc-macro/auxiliary/helper-attr.rs
 tests/ui/proc-macro/auxiliary/hygiene_example.rs
+tests/ui/proc-macro/auxiliary/hygiene_example_codegen.rs
 tests/ui/proc-macro/auxiliary/ice-wrong-span-114865.rs
 tests/ui/proc-macro/auxiliary/inner_attr_file_mod_cfg_attr_child.rs
 tests/ui/proc-macro/auxiliary/inner_attr_file_mod_diagnostics_child.rs
@@ -15040,6 +15056,7 @@ tests/ui/proc-macro/auxiliary/make-macro.rs
 tests/ui/proc-macro/auxiliary/match-expander.rs
 tests/ui/proc-macro/auxiliary/meta-delim.rs
 tests/ui/proc-macro/auxiliary/meta-macro.rs
+tests/ui/proc-macro/auxiliary/mixed-site-span.rs
 tests/ui/proc-macro/auxiliary/modify-ast.rs
 tests/ui/proc-macro/auxiliary/multiple-derives.rs
 tests/ui/proc-macro/auxiliary/multispan.rs
@@ -15048,6 +15065,7 @@ tests/ui/proc-macro/auxiliary/nested-empty-proc-macro.rs
 tests/ui/proc-macro/auxiliary/nested-macro-rules.rs
 tests/ui/proc-macro/auxiliary/nonfatal-parsing-body.rs
 tests/ui/proc-macro/auxiliary/nonfatal-parsing.rs
+tests/ui/proc-macro/auxiliary/nonterminal-recollect-attr.rs
 tests/ui/proc-macro/auxiliary/not-joint.rs
 tests/ui/proc-macro/auxiliary/panicking-attribute.rs
 tests/ui/proc-macro/auxiliary/parent-source-spans.rs
@@ -15058,8 +15076,10 @@ tests/ui/proc-macro/auxiliary/quote-issue-137345.rs
 tests/ui/proc-macro/auxiliary/raw-ident.rs
 tests/ui/proc-macro/auxiliary/re-export.rs
 tests/ui/proc-macro/auxiliary/recollect.rs
+tests/ui/proc-macro/auxiliary/resolved-located-at.rs
 tests/ui/proc-macro/auxiliary/span-api-tests.rs
 tests/ui/proc-macro/auxiliary/span-first-token-file-48944.rs
+tests/ui/proc-macro/auxiliary/span-from-proc-macro.rs
 tests/ui/proc-macro/auxiliary/span-test-macros.rs
 tests/ui/proc-macro/auxiliary/sub-error-diag.rs
 tests/ui/proc-macro/auxiliary/subspan.rs
@@ -15254,7 +15274,15 @@ tests/ui/proc-macro/proc-macro-gates2.rs
 tests/ui/proc-macro/proc-macro-sanitizer-attr.rs
 tests/ui/proc-macro/proc-macro-sanitizer.rs
 tests/ui/proc-macro/pub-at-crate-root.rs
+tests/ui/proc-macro/quote/auxiliary/basic.rs
 tests/ui/proc-macro/quote/basic.rs
+tests/ui/proc-macro/quote/debug.rs
+tests/ui/proc-macro/quote/does-not-have-iter-interpolated-dup.rs
+tests/ui/proc-macro/quote/does-not-have-iter-interpolated.rs
+tests/ui/proc-macro/quote/does-not-have-iter-separated.rs
+tests/ui/proc-macro/quote/does-not-have-iter.rs
+tests/ui/proc-macro/quote/not-quotable.rs
+tests/ui/proc-macro/quote/not-repeatable.rs
 tests/ui/proc-macro/raw-ident.rs
 tests/ui/proc-macro/reserved-macro-names.rs
 tests/ui/proc-macro/resolve-error.rs
@@ -17797,6 +17825,7 @@ tests/ui/suggestions/auxiliary/issue-81839.rs
 tests/ui/suggestions/auxiliary/meow.rs
 tests/ui/suggestions/auxiliary/missing-assoc-fn-applicable-suggestions.rs
 tests/ui/suggestions/auxiliary/mut_borrow_macro.rs
+tests/ui/suggestions/auxiliary/proc-macro-type-error.rs
 tests/ui/suggestions/auxiliary/trait-impl-params.rs
 tests/ui/suggestions/bad-hex-float-lit.rs
 tests/ui/suggestions/bad-infer-in-trait-impl.rs
