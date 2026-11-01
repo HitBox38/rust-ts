@@ -21,7 +21,8 @@ import { type MiriInterpCx } from "../machine.ts";
 import { DelayedReadinessUpdates } from "../shims/readiness.ts";
 import { BlockingIoManager } from "./blocking_io.ts";
 import { GlobalDataRaceHandler } from "./data_race_handler.ts";
-import { type DynUnblockCallback, type Poll, type StackEmptyCallback, ThreadId, ThreadManager, TlsAllocAction } from "./thread.ts";
+import { type DynUnblockCallback, type StackEmptyCallback, ThreadId, ThreadManager, TlsAllocAction } from "./thread.ts";
+import { Poll } from "../../std/task.ts";
 import { InterpCx } from "../../rustc_const_eval/interpret/eval_context.ts";
 import { InterpErrorInfo_from_InterpErrorKind, interp_ok, type MachineStopType } from "../../rustc_middle/mir/interpret/mod.ts";
 import { DUMMY_SP } from "../../rustc_span/lib.ts";
@@ -68,7 +69,7 @@ afterAll(() => {
   DelayedReadinessUpdates.process = orig_process;
 });
 
-const READY: StackEmptyCallback = () => interp_ok<Poll>("Ready");
+const READY: StackEmptyCallback = () => interp_ok(Poll.Ready_unit);
 const EXIT: StackEmptyCallback = () => Err(InterpErrorInfo_from_InterpErrorKind(TerminationInfo_into_machine_stop({ $: "Exit", code: 0, leak_check: false })));
 const NOOP: DynUnblockCallback = { visit_provenance() {}, call: () => interp_ok(undefined) };
 

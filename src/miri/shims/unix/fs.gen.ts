@@ -7,6 +7,7 @@ import { debug_HashMap } from "../../../rust_ts/hash_map.ts";
 import { debug_Pointer } from "../../../rustc_middle/mir/interpret/mod.ts";
 import { type Pending } from "../../../rustc_type_ir/decls.ts";
 import { type Debug, debug_int, debug_option, debug_str, debug_struct, debug_tuple, debug_vec } from "../../../std/fmt.ts";
+import { type SystemTime } from "../../../std/time.ts";
 import { unported } from "../../../std/panic.ts";
 const unported_debug = (_v: unknown): string => unported("Debug without a TS impl (see types report)");
 
@@ -55,7 +56,7 @@ export const debug_DirEntry: Debug<DirEntry> = (v, f) =>
 /// What a `futimens` `timespec` asks for: leave the timestamp alone (`UTIME_OMIT`) or set it.
 export type TimeUpdate =
   | { readonly $: "Omit" }
-  | { readonly $: "Set"; _0: Pending<"std::time::SystemTime"> };
+  | { readonly $: "Set"; _0: SystemTime };
 /** Unit variants of `TimeUpdate`, shared frozen singletons. */
 export const TimeUpdate = {
   Omit: Object.freeze({ $: "Omit" as const }),

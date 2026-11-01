@@ -5,11 +5,11 @@
 // (a real `ThreadManager`, `BlockingIoManager` and vendored `StdRng`, data race detection off), and whose methods owned by
 // other wave-36 lanes are replaced by their data-race-off behaviour (`acquire_clock` / `release_clock`: data_race.rs:979 /
 // :997 with `GlobalDataRaceHandler::None`), a recording `write_scalar`, and a scripted `step()` (one program per thread).
-// The one pending piece (`std::time::Duration`, lane miri-eval) gets a stand-in via `PENDING_FOR_TESTS`; drop it (and the
-// hook in thread.ts) when miri-eval's clock.ts `Duration` lands.
+// Time is real: the machine's `monotonic_clock` is clock.ts's virtual `MonotonicClock` (`MonotonicClock::new(false)`),
+// deadlines are virtual `Instant`s and durations src/std/time.ts `Duration`s (lane miri-wire).
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import "../lib.ts";
-import { type Deadline, type Instant } from "../clock.ts";
+import { type Deadline, Instant, MonotonicClock } from "../clock.ts";
 import { TerminationInfoStop, TerminationInfo_into_machine_stop } from "../diagnostics.ts";
 import { type MiriConfig } from "../eval.ts";
 import { type MPlaceTy, type Scalar } from "../lib.ts";
@@ -22,8 +22,6 @@ import { InitOnceRef } from "./init_once.ts";
 import { CondvarRef, FutexRef, MutexRef, RwLockRef, type SyncObj, SyncObj_provided } from "./sync.ts";
 import {
   type DynUnblockCallback,
-  PENDING_FOR_TESTS,
-  type Poll,
   type StackEmptyCallback,
   ThreadId,
   ThreadManager,
@@ -35,40 +33,27 @@ import { Size } from "../../rustc_abi/lib.ts";
 import { InterpCx } from "../../rustc_const_eval/interpret/eval_context.ts";
 import { InterpErrorInfo_from_InterpErrorKind, type InterpResult, interp_ok, type MachineStopType } from "../../rustc_middle/mir/interpret/mod.ts";
 import { DUMMY_SP } from "../../rustc_span/lib.ts";
-import { type Pending } from "../../rustc_type_ir/decls.ts";
 import { PLAIN } from "../../std/fmt.ts";
 import { Panic, Unported } from "../../std/panic.ts";
 import { Err } from "../../std/result.ts";
+import { Poll } from "../../std/task.ts";
+import { Duration } from "../../std/time.ts";
 import { StdRng } from "../../vendor/rand/rngs/std.ts";
+import { EnvFilter, LayeredSubscriber, reset_global_default_for_tests, set_global_default } from "../../rust_ts/tracing.ts";
+import { HierarchicalLayer, type Writer } from "../../rust_ts/tracing_tree.ts";
 
 // ---------------------------------------------------------------- stand-ins ----
 
-interface Dur {
-  ns: bigint;
-}
-const dur = (ns: bigint): Pending<"Duration"> => ({ ns }) as unknown as Pending<"Duration">;
-const ns_of = (d: Pending<"Duration"> | undefined): bigint | undefined => (d === undefined ? undefined : (d as unknown as Dur).ns);
-const DURATION = {
-  ZERO: dur(0n),
-  MAX: dur(2n ** 64n - 1n),
-  is_zero: (d: Pending<"Duration">) => ns_of(d) === 0n,
-  min: (a: Pending<"Duration">, b: Pending<"Duration">) => (ns_of(a)! <= ns_of(b)! ? a : b),
-};
-const instant = (t: bigint): Instant =>
-  ({ t, duration_since: (e: { t: bigint }) => dur(t > e.t ? t - e.t : 0n) }) as unknown as Instant;
-const deadline = (t: bigint): Deadline => ({ $: "Monotonic", _0: instant(t) });
-
-const DURATION_KEY = "std::time::Duration stand-in (lane miri-eval)";
+/** A deadline at virtual time `t` ns (a virtual-clock `Instant`, as `MonotonicClock::now` makes). */
+const deadline = (t: bigint): Deadline => ({ $: "Monotonic", _0: new Instant({ $: "Virtual", nanoseconds: t }) });
 
 let orig_process: typeof DelayedReadinessUpdates.process;
 beforeAll(() => {
-  PENDING_FOR_TESTS.set(DURATION_KEY, DURATION);
   orig_process = DelayedReadinessUpdates.process;
   // shims/readiness.rs:465 with no delayed updates (lane miri-shims-c)
   DelayedReadinessUpdates.process = () => interp_ok(undefined);
 });
 afterAll(() => {
-  PENDING_FOR_TESTS.delete(DURATION_KEY);
   DelayedReadinessUpdates.process = orig_process;
 });
 
@@ -77,22 +62,25 @@ interface Cx extends MiriInterpCx {
   log: string[];
   writes: [Scalar, MPlaceTy][];
   programs: Program[];
-  now: { t: bigint };
+  /** The virtual clock's current time in ns. */
+  now: { readonly t: bigint };
 }
 
 function make_ecx(opts: { fixed?: boolean; preemption_rate?: number; seed?: bigint } = {}): Cx {
-  const now = { t: 0n };
+  const monotonic_clock = MonotonicClock.new(false);
+  const now = {
+    get t(): bigint {
+      const kind = monotonic_clock.kind;
+      if (kind.$ !== "Virtual") throw new Error("virtual clock expected");
+      return BigInt(kind.nanoseconds);
+    },
+  };
   const machine = {
     threads: ThreadManager.new({ fixed_scheduling: opts.fixed ?? true } as MiriConfig),
     data_race: GlobalDataRaceHandler.None,
     rng: StdRng.seed_from_u64(opts.seed ?? 0n),
     preemption_rate: opts.preemption_rate ?? 0,
-    monotonic_clock: {
-      now: () => instant(now.t),
-      sleep: (d: Pending<"Duration">) => {
-        now.t += ns_of(d)!;
-      },
-    },
+    monotonic_clock,
     blocking_io: (BlockingIoManager.new(false) as { _0: BlockingIoManager })._0,
     static_roots: [],
     thread_cpu_affinity: undefined,
@@ -123,7 +111,7 @@ function make_ecx(opts: { fixed?: boolean; preemption_rate?: number; seed?: bigi
 }
 
 const EXIT: StackEmptyCallback = () => Err(InterpErrorInfo_from_InterpErrorKind(TerminationInfo_into_machine_stop({ $: "Exit", code: 0, leak_check: false })));
-const READY: StackEmptyCallback = () => interp_ok<Poll>("Ready");
+const READY: StackEmptyCallback = () => interp_ok(Poll.Ready_unit);
 
 /** A program running `steps` (each logged as `<name>:<i>`, calling `at[i]` if present), then an empty stack. */
 function script(name: string, steps: number, at: Record<number, (ecx: Cx) => void> = {}): Program {
@@ -283,8 +271,7 @@ test("unblock_expired_deadlines: fires expired timeouts and returns the smallest
   });
   t.set_active_thread(ThreadId.MAIN_THREAD);
   const r = ecx.unblock_expired_deadlines();
-  expect(r.$).toBe("Ok");
-  expect(ns_of((r as { _0: Pending<"Duration"> })._0)).toBe(30n);
+  expect(r).toEqual({ $: "Ok", _0: Duration.from_nanos(30n) });
   expect(ecx.log).toEqual(["t2:TimedOut@2"]);
   expect(ecx.active_thread()).toBe(ThreadId.MAIN_THREAD);
 });
@@ -410,6 +397,70 @@ test("mutex: recursive lock count, owner-only unlock, FIFO hand-over to queued t
   expect(m.owner()).toBe(ids[2]);
   expect(m.queue_is_empty()).toBe(true);
   expect(ecx.mutex_unlock(m)).toEqual({ $: "Ok", _0: undefined });
+});
+
+test("callback! sites visit every capture: a blocked thread's callback roots the provenance it holds (machine.rs:2181)", () => {
+  const { ecx, ids, as } = threads(5);
+  const prov = (a: number, t: number) => ({ $: "Concrete", alloc_id: a, tag: t });
+  const ptr_scalar = (a: number, t: number) => ({ $: "Ptr", _0: { provenance: prov(a, t), offset: Size.ZERO }, _1: 8 }) as unknown as Scalar;
+  const place = (a: number, t: number) => ({ ptr: () => ({ provenance: prov(a, t) }), meta: () => ({ $: "None" }) }) as unknown as MPlaceTy;
+  const roots = (i: number): [unknown, unknown][] => {
+    const state = ecx.machine.threads.thread_ref(ids[i]!).state;
+    if (state.$ !== "Blocked") throw new Error("thread must be blocked");
+    const out: [unknown, unknown][] = [];
+    state.callback.visit_provenance((a, t) => out.push([a, t]));
+    return out;
+  };
+  // mutex_enqueue_and_block: { mutex_ref, retval_dest: Option<(Scalar, MPlaceTy)> }
+  const m = MutexRef.new();
+  expect(ecx.mutex_lock(m).$).toBe("Ok");
+  as(1, () => ecx.mutex_enqueue_and_block(m, [ptr_scalar(1, 11), place(2, 12)]));
+  expect(roots(1)).toEqual([[1, 11], [2, 12]]);
+  // rwlock_enqueue_and_block_reader / _writer: { rwlock_ref, retval, dest }
+  const rw = RwLockRef.new();
+  expect(ecx.rwlock_writer_lock(rw).$).toBe("Ok");
+  as(2, () => ecx.rwlock_enqueue_and_block_reader(rw, ptr_scalar(3, 13), place(4, 14)));
+  as(3, () => ecx.rwlock_enqueue_and_block_writer(rw, ptr_scalar(5, 15), place(6, 16)));
+  expect(roots(2)).toEqual([[3, 13], [4, 14]]);
+  expect(roots(3)).toEqual([[5, 15], [6, 16]]);
+  // futex_wait: { futex_ref, callback } visits the inner callback
+  const inner: DynUnblockCallback = { visit_provenance: (visit) => visit(7 as never, 17 as never), call: () => interp_ok(undefined) };
+  as(4, () => ecx.futex_wait(FutexRef.new(), 0xffff_ffff, undefined, inner));
+  expect(roots(4)).toEqual([[7, 17]]);
+  // join_thread: { joined_thread_id, dest, success_retval } (ThreadId has no provenance)
+  as(5, () => expect(ecx.join_thread(ids[1]!, ptr_scalar(8, 18), place(9, 19)).$).toBe("Ok"));
+  expect(roots(5)).toEqual([[9, 19], [8, 18]]);
+});
+
+test("set_active_thread: the thread-switch info! event (thread.rs:516) under MIRI_LOG=info", () => {
+  const out: string[] = [];
+  const writer: Writer = {
+    write_all(s: string) {
+      out.push(s);
+      return undefined;
+    },
+  };
+  const layer = HierarchicalLayer.default().with_writer(() => writer).with_ansi(false).with_targets(true).with_indent_amount(2);
+  // bin/log/setup.rs: `MIRI_LOG=info`
+  const filter = EnvFilter.new("rustc_middle::mir::interpret=info,rustc_const_eval::interpret=info,miri=info");
+  expect(set_global_default(new LayeredSubscriber([layer], filter)).$).toBe("Ok");
+  try {
+    const { ecx, ids } = threads(1);
+    const old = ecx.machine.threads.set_active_thread(ids[1]!);
+    expect(old).toBe(ids[0]);
+    ecx.machine.threads.set_active_thread(old);
+  } finally {
+    reset_global_default_for_tests();
+  }
+  // `get_thread_display_name`: the main thread is named `main`, others `unnamed-{index}` (thread.rs:226)
+  const dashes = "----------------------------------------";
+  expect(out.join("")).toBe(
+    [
+      ` INFO miri::concurrency::thread ---------- Now executing on thread \`unnamed-1\` (previous: \`main\`) ${dashes}`,
+      ` INFO miri::concurrency::thread ---------- Now executing on thread \`main\` (previous: \`unnamed-1\`) ${dashes}`,
+      "",
+    ].join("\n"),
+  );
 });
 
 test("rwlock: writers are preferred; a writer unlock with no queued writer wakes every queued reader in order", () => {

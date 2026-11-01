@@ -494,7 +494,7 @@ export interface Machine<T extends MachineTypes = CtfeMachineTypes> {
   /// `kind` is the kind of the allocation the pointer points to; it can be `None` when
   /// it's a global and `GLOBAL_KIND` is `None`.
   // rustc: compiler/rustc_const_eval/src/interpret/machine.rs:442 adjust_alloc_root_pointer
-  adjust_alloc_root_pointer(ecx: InterpCx<Machine<T>>, ptr: Pointer<T["Provenance"]>, kind: MemoryKind<T["MemoryKind"]> | undefined): InterpResult<Pointer<T["Provenance"]>>;
+  adjust_alloc_root_pointer(ecx: InterpCx<Machine<T>>, ptr: Pointer<CtfeProvenance>, kind: MemoryKind<T["MemoryKind"]> | undefined): InterpResult<Pointer<T["Provenance"]>>;
 
   /// Called to adjust global allocations to the Provenance and AllocExtra of this machine.
   ///
@@ -808,7 +808,7 @@ export abstract class Machine_provided<T extends MachineTypes = CtfeMachineTypes
   abstract ptr_from_addr_cast(ecx: InterpCx<Machine<T>>, addr: bigint): InterpResult<Pointer<T["Provenance"] | undefined>>;
   abstract expose_provenance(ecx: InterpCx<Machine<T>>, provenance: T["Provenance"]): InterpResult;
   abstract ptr_get_alloc(ecx: InterpCx<Machine<T>>, ptr: Pointer<T["Provenance"]>, size: bigint): [AllocId, Size, T["ProvenanceExtra"]] | undefined;
-  abstract adjust_alloc_root_pointer(ecx: InterpCx<Machine<T>>, ptr: Pointer<T["Provenance"]>, kind: MemoryKind<T["MemoryKind"]> | undefined): InterpResult<Pointer<T["Provenance"]>>;
+  abstract adjust_alloc_root_pointer(ecx: InterpCx<Machine<T>>, ptr: Pointer<CtfeProvenance>, kind: MemoryKind<T["MemoryKind"]> | undefined): InterpResult<Pointer<T["Provenance"]>>;
   abstract adjust_global_allocation(ecx: InterpCx<Machine<T>>, id: AllocId, alloc: Allocation): InterpResult<Cow<MachineAllocation<T>>>;
   abstract init_local_allocation(ecx: InterpCx<Machine<T>>, id: AllocId, kind: MemoryKind<T["MemoryKind"]>, size: Size, align: Align): InterpResult<T["AllocExtra"]>;
 

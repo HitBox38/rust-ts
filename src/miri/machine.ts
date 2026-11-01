@@ -63,7 +63,7 @@ import { is_no_core } from "./helpers.ts";
 import type { ImmTy, MPlaceTy, OpTy, PlaceTy, FnArg, Pointer, Scalar, StrictPointer } from "./lib.ts";
 import { apply_random_float_error_to_imm } from "./math.ts";
 import * as provenance_gc_ns from "./provenance_gc.ts";
-import type { VisitProvenance, VisitWith } from "./provenance_gc.ts";
+import type { VisitProvenance, VisitProvenanceImpl, VisitWith } from "./provenance_gc.ts";
 import * as cpu_affinity_ns from "./shims/cpu_affinity.ts";
 import { CpuAffinityMask } from "./shims/cpu_affinity.ts";
 import * as env_ns from "./shims/env.ts";
@@ -102,7 +102,6 @@ import {
   InterpErrorInfo_from_InterpErrorKind,
   type InterpResult,
   interp_ok,
-  type MachineStopType,
   type Misalignment,
   type ObjectProvenance,
   type Pointer as interpret_Pointer,
@@ -1525,11 +1524,8 @@ MiriMachine.prototype.init_local_allocation = function (
   return MiriMachine.init_allocation(ecx, id, kind, size, align);
 };
 
-// PORT(contract): upstream's hook takes the tcx pointer (`ptr: interpret::Pointer<CtfeProvenance>`, interpret/machine.rs:442;
-// memory.ts passes `Pointer_from_AllocId(id)`); the port's `Machine` interface types it `Pointer<Self::Provenance>`, so the
-// assignment is cast (reported for root in docs/handoff/miri-machine.md).
 // rustc: src/tools/miri/src/machine.rs:1597 adjust_alloc_root_pointer
-(MiriMachine.prototype as { adjust_alloc_root_pointer: unknown }).adjust_alloc_root_pointer = function (
+MiriMachine.prototype.adjust_alloc_root_pointer = function (
   this: MiriMachine,
   ecx: MiriInterpCx,
   ptr: interpret_Pointer<CtfeProvenance>,
@@ -1718,8 +1714,7 @@ MiriMachine.prototype.before_memory_write = function (
       const r = data_race.write_non_atomic(alloc_id, range, "Write", undefined, machine);
       if (r.$ === "Err") return r;
       if (weak_memory !== undefined) {
-        // PORT(contract): weak_memory.ts declares `global` as `Pending<DataRaceState>` (= `data_race::GlobalState`).
-        weak_memory.non_atomic_write(range, unwrap(GlobalDataRaceHandler_().as_vclocks_ref(machine.data_race)) as unknown as Parameters<StoreBufferAlloc["non_atomic_write"]>[1]);
+        weak_memory.non_atomic_write(range, unwrap(GlobalDataRaceHandler_().as_vclocks_ref(machine.data_race)));
       }
       break;
     }
@@ -2135,28 +2130,39 @@ export type DynMachineCallback<T> = MachineCallback<T>;
 ///
 /// All the argument types must implement `VisitProvenance`.
 // #[macro_export] macro_rules! callback
-// PORT: the macro is this helper. `@capture { name: Ty, .. }` is the object `captures` (moved into the callback, as the
-// macro's struct fields); `visit_captures(captures, visit)` is the generated `VisitProvenance` impl (one
-// `VisitProvenance::visit_provenance(&self.name, visit)` per capture, in capture order: the caller visits each field with
-// its type's impl); `|this, arg: ArgTy| body` is `body(this_, arg, captures)` (the macro's `let Callback { name, .. } =
-// *self;` is the caller destructuring `captures`). A callback is called at most once (`self: Box<Self>`).
-export function callback<C, T>(
-  captures: C,
-  visit_captures: (captures: C, visit: VisitWith) => void,
+// PORT: the macro is this helper. `@capture { name: Ty, .. }` is the object `captures`, one entry per capture in capture
+// order, each `name: [value, <Ty's VisitProvenance impl>]` (`Capture`): the one field list the macro's struct, its
+// `VisitProvenance` impl and its destructuring are all generated from. `visit_provenance` visits every entry in that order
+// (`VisitProvenance::visit_provenance(&self.name, _visit)` per field); `|this, arg: ArgTy| body` is
+// `body(this_, arg, values)` with `values` the captured values by name (the macro's `let Callback { name, .. } = *self;`).
+// `call` consumes the callback (`self: Box<Self>`): a second call is unreachable.
+export type Capture<V> = readonly [value: V, impl: VisitProvenanceImpl<V>];
+export type Captures<C> = { readonly [K in keyof C]: Capture<C[K]> };
+export function callback<C extends object, T>(
+  captures: Captures<C>,
   body: (this_: MiriInterpCx, arg: T, captures: C) => InterpResult,
 ): DynMachineCallback<T> {
+  const fields = Object.entries(captures) as [string, Capture<unknown>][];
+  let consumed = false;
   return {
     // impl VisitProvenance for Callback
     // rustc: src/tools/miri/src/machine.rs:2181 visit_provenance
     visit_provenance(_visit: VisitWith): void {
-      visit_captures(captures, _visit);
+      // $( VisitProvenance::visit_provenance(&self.$name, _visit); )*
+      for (const [, [value, impl]] of fields) {
+        impl.visit_provenance(value, _visit);
+      }
     },
     // impl MachineCallback<$arg_ty> for Callback
     // rustc: src/tools/miri/src/machine.rs:2189 call
     call(this_: MiriInterpCx, arg: T): InterpResult {
+      // `self: Box<Self>` is moved into the call.
+      if (consumed) unreachable("internal error: entered unreachable code: a `callback!` was called after it was consumed (`self: Box<Self>`)");
+      consumed = true;
       // #[allow(unused_variables)]
       // let Callback { $($name,)* _phantom } = *self;
-      return body(this_, arg, captures);
+      const values = Object.fromEntries(fields.map(([name, [value]]) => [name, value])) as C;
+      return body(this_, arg, values);
     },
   };
 }
@@ -2172,19 +2178,10 @@ function err_unsup_format(msg: string): InterpErrorKind {
   return { $: "Unsupported", _0: { $: "Unsupported", _0: msg } };
 }
 
-/**
- * `throw_machine_stop!(TerminationInfo::..)` (`InterpErrorKind::MachineStop(Box::new(..))`).
- * PORT(contract): pending lane miri-driver. `Box<dyn MachineStopType>` of a `TerminationInfo` needs the
- * `impl MachineStopType for TerminationInfo` (diagnostics.rs:113, with its `Display`/`Debug`), which the skeleton does
- * not declare; until diagnostics.ts provides it (as `MachineStopType_TerminationInfo(info)`), this stops `unported`.
- */
+/** `throw_machine_stop!(TerminationInfo::..)` (`InterpErrorKind::MachineStop(Box::new(..))`): miri-driver's
+ * `TerminationInfo_into_machine_stop` (diagnostics.ts), read through the namespace import at call time (C10). */
 function throw_machine_stop<T>(info: TerminationInfo): InterpResult<T> {
-  const box = pending<(info: TerminationInfo) => MachineStopType>(
-    diagnostics_ns,
-    "MachineStopType_TerminationInfo",
-    "miri::diagnostics::TerminationInfo as MachineStopType (lane miri-driver)",
-  );
-  return Err(InterpErrorInfo_from_InterpErrorKind({ $: "MachineStop", _0: box(info) }));
+  return Err(InterpErrorInfo_from_InterpErrorKind(diagnostics_ns.TerminationInfo_into_machine_stop(info)));
 }
 
 /** PORT (plan-m6 D3): `ecx.frame()` of the Miri machine: the `InterpCx` class body is typed with the CTFE defaults
@@ -2237,9 +2234,9 @@ function btree_range<V>(map: Map<Size, V>, start: Size | undefined, end: Size | 
 }
 
 /**
- * PORT(contract): a fn another wave-36 lane defines on an enum companion / a class (PORTING §8, borrowck-contract
- * rules 4-5) that the skeleton does not declare (so it cannot be imported typed). Read at call time (decision C10:
- * never at load); stops `unported` until that lane has ported it. Root replaces these with direct calls at integration.
+ * PORT(contract): a fn a wave-37 lane defines on an enum companion / a class (PORTING §8, borrowck-contract rules
+ * 4-5) that the skeleton does not declare (so it cannot be imported typed). Read at call time (decision C10: never at
+ * load); stops `unported` until that lane has ported it. Replace with direct calls when the lane lands.
  */
 function pending<F>(owner: object | undefined, name: string, what: string): F {
   const f = owner === undefined ? undefined : (owner as Record<string, unknown>)[name];
@@ -2247,74 +2244,42 @@ function pending<F>(owner: object | undefined, name: string, what: string): F {
   return f.bind(owner) as F;
 }
 
-/** `impl AtomicReadOrd` (concurrency/data_race.rs:96; lane miri-race). */
+/** `impl AtomicReadOrd` / `AtomicWriteOrd` / `AtomicRwOrd` / `AtomicFenceOrd` (concurrency/data_race.rs:96 / :116 / :75 /
+ *  :137; lane miri-race), read on the namespace at call time (C10). */
 function AtomicReadOrd_(): { from(ordering: AtomicOrdering): AtomicReadOrd } {
-  return { from: pending(data_race_ns.AtomicReadOrd, "from", "miri::concurrency::data_race::AtomicReadOrd (lane miri-race)") };
+  return data_race_ns.AtomicReadOrd;
 }
-/** `impl AtomicWriteOrd` (concurrency/data_race.rs:116; lane miri-race). */
 function AtomicWriteOrd_(): { from(ordering: AtomicOrdering): AtomicWriteOrd } {
-  return { from: pending(data_race_ns.AtomicWriteOrd, "from", "miri::concurrency::data_race::AtomicWriteOrd (lane miri-race)") };
+  return data_race_ns.AtomicWriteOrd;
 }
-/** `impl AtomicRwOrd` (concurrency/data_race.rs:75; lane miri-race). */
 function AtomicRwOrd_(): { from(ordering: AtomicOrdering): AtomicRwOrd } {
-  return { from: pending(data_race_ns.AtomicRwOrd, "from", "miri::concurrency::data_race::AtomicRwOrd (lane miri-race)") };
+  return data_race_ns.AtomicRwOrd;
 }
-/** `impl AtomicFenceOrd` (concurrency/data_race.rs:137; lane miri-race). */
 function AtomicFenceOrd_(): { from(ordering: AtomicOrdering): AtomicFenceOrd } {
-  return { from: pending(data_race_ns.AtomicFenceOrd, "from", "miri::concurrency::data_race::AtomicFenceOrd (lane miri-race)") };
+  return data_race_ns.AtomicFenceOrd;
 }
 
-/** `impl GlobalDataRaceHandler` (concurrency/data_race_handler.rs:34; lane miri-race). */
-interface GlobalDataRaceHandler_methods {
+/** `impl GlobalDataRaceHandler` / `impl AllocDataRaceHandler` (concurrency/data_race_handler.rs:34 / :52; lane miri-race). */
+function GlobalDataRaceHandler_(): {
   as_vclocks_ref(self: GlobalDataRaceHandler): data_race_GlobalState | undefined;
   as_genmc_ref(self: GlobalDataRaceHandler): GenmcCtx | undefined;
+} {
+  return data_race_handler_ns.GlobalDataRaceHandler;
 }
-function GlobalDataRaceHandler_(): GlobalDataRaceHandler_methods {
-  const c = data_race_handler_ns.GlobalDataRaceHandler;
-  const what = "miri::concurrency::data_race_handler::GlobalDataRaceHandler (lane miri-race)";
-  return {
-    as_vclocks_ref: (self) => pending<GlobalDataRaceHandler_methods["as_vclocks_ref"]>(c, "as_vclocks_ref", what)(self),
-    as_genmc_ref: (self) => pending<GlobalDataRaceHandler_methods["as_genmc_ref"]>(c, "as_genmc_ref", what)(self),
-  };
-}
-
-/** `impl AllocDataRaceHandler` (concurrency/data_race_handler.rs:52; lane miri-race). */
 function AllocDataRaceHandler_(): { as_vclocks_mut(self: AllocDataRaceHandler): VClockAlloc | undefined } {
-  return {
-    as_vclocks_mut: pending(
-      data_race_handler_ns.AllocDataRaceHandler,
-      "as_vclocks_mut",
-      "miri::concurrency::data_race_handler::AllocDataRaceHandler (lane miri-race)",
-    ),
-  };
+  return data_race_handler_ns.AllocDataRaceHandler;
 }
 
-/** `impl AllocState` (borrow_tracker/mod.rs:435; lane miri-alloc). `AllocState` has no generated companion: the lane adds
- * `export const AllocState` to borrow_tracker/mod.ts (borrowck-contract rule 4). */
-interface AllocState_methods {
+/** `impl AllocState` (borrow_tracker/mod.rs:435) / `impl BorrowTrackerMethod` (borrow_tracker/mod.rs:234); lane miri-alloc. */
+function AllocState_(): {
   before_memory_read(self: AllocState, alloc_id: AllocId, prov_extra: ProvenanceExtra, range: AllocRange, machine: MiriMachine): InterpResult;
   before_memory_write(self: AllocState, alloc_id: AllocId, prov_extra: ProvenanceExtra, range: AllocRange, machine: MiriMachine): InterpResult;
   before_memory_deallocation(self: AllocState, alloc_id: AllocId, prov_extra: ProvenanceExtra, size: Size, machine: MiriMachine): InterpResult;
+} {
+  return borrow_tracker_ns.AllocState;
 }
-function AllocState_(): AllocState_methods {
-  const c = (borrow_tracker_ns as unknown as Record<string, object | undefined>)["AllocState"];
-  const what = "miri::borrow_tracker::AllocState (lane miri-alloc)";
-  return {
-    before_memory_read: (...a) => pending<AllocState_methods["before_memory_read"]>(c, "before_memory_read", what)(...a),
-    before_memory_write: (...a) => pending<AllocState_methods["before_memory_write"]>(c, "before_memory_write", what)(...a),
-    before_memory_deallocation: (...a) => pending<AllocState_methods["before_memory_deallocation"]>(c, "before_memory_deallocation", what)(...a),
-  };
-}
-
-/** `impl BorrowTrackerMethod` (borrow_tracker/mod.rs:234; lane miri-alloc). */
 function BorrowTrackerMethod_(): { instantiate_global_state(self: BorrowTrackerMethod, config: MiriConfig): GlobalState } {
-  return {
-    instantiate_global_state: pending(
-      borrow_tracker_ns.BorrowTrackerMethod,
-      "instantiate_global_state",
-      "miri::borrow_tracker::BorrowTrackerMethod (lane miri-alloc)",
-    ),
-  };
+  return borrow_tracker_ns.BorrowTrackerMethod;
 }
 
 /** `impl EnvVars` (shims/env.rs:29; lane miri-shims-a). */

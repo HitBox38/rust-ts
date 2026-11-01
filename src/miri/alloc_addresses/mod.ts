@@ -5,19 +5,19 @@
 //
 // PORT (lane miri-alloc):
 // - Addresses are `u64` = `bigint` (decision C5). `RefCell` borrows are erased (`borrow()` / `borrow_mut()` / `drop`).
-// - `MiriMachine.rng` is generated as `Pending<"rand::rngs::StdRng">`; it is the vendored `StdRng` (lane vendor-rand),
-//   read through `machine_rng` until the typemap maps the type (handoff, a tools/codegen edit for root).
+// - `MiriMachine.rng` is the vendored `StdRng` (lane vendor-rand; typemap, lane miri-machine), read through `machine_rng`.
 // - Native-lib mode (`!machine.native_lib.is_empty()`) stops `unported` (decision C6: `-Zmiri-native-lib` is rejected
 //   earlier, bin/miri.rs; the branches need host addresses of the bytes).
-// - `GlobalDataRaceHandler::as_genmc_ref` / `as_vclocks_ref` (data_race_handler.rs:47 / :39, lane miri-race, not declared
-//   yet) are read as their match (`PORT(contract): pending miri-race` at each site).
+// - `GlobalDataRaceHandler::as_genmc_ref` / `as_vclocks_ref` (data_race_handler.rs:47 / :39) are lane miri-race's
+//   companion fns.
+import { GlobalDataRaceHandler } from "../concurrency/data_race_handler.ts";
 import { AllocBytes_MiriAllocBytes, type MiriAllocBytes, type MiriAllocParams } from "../alloc/alloc_bytes.ts";
 import { GlobalStateInner, ProvenanceMode } from "./mod.gen.ts";
 import { AddressGenerator } from "./address_generator.ts";
 import { ReusePool } from "./reuse_pool.ts";
 import { type BorTag } from "../borrow_tracker/mod.ts";
 import { clone_VClock, VClock } from "../concurrency/vector_clock.ts";
-import { SpanDedupDiagnostic } from "../diagnostics.ts";
+import { SpanDedupDiagnostic, TerminationInfo, TerminationInfo_into_machine_stop } from "../diagnostics.ts";
 import { type MiriConfig } from "../eval.ts";
 import { type Pointer } from "../lib.ts";
 import { type MemoryKind, type MiriInterpCx, MiriMachine, Provenance } from "../machine.ts";
@@ -25,14 +25,14 @@ import { type LiveAllocs, type VisitWith } from "../provenance_gc.ts";
 import { Align, debug_AlignFromBytesError, type Size, Size as Size_ } from "../../rustc_abi/lib.ts";
 import { InterpCx } from "../../rustc_const_eval/interpret/eval_context.ts";
 import { type AnyMachine, type Machine } from "../../rustc_const_eval/interpret/machine.ts";
-import { type AllocId, debug_AllocId, interp_ok, type InterpResult, Pointer as interpret_Pointer } from "../../rustc_middle/mir/interpret/mod.ts";
+import { type AllocId, debug_AllocId, InterpErrorInfo_from_InterpErrorKind, interp_ok, type InterpResult, Pointer as interpret_Pointer } from "../../rustc_middle/mir/interpret/mod.ts";
 import { CtfeProvenance, PointerArithmetic_provided } from "../../rustc_middle/mir/interpret/pointer.ts";
 import { type TyCtxt } from "../../rustc_middle/ty/context.ts";
 import { debug_int, debug_struct_non_exhaustive, PLAIN } from "../../std/fmt.ts";
 import { assert, assert_eq, panic, unported, unwrap } from "../../std/panic.ts";
 import { port_methods } from "../../rust_ts/miri_stub.ts";
 import { binary_search_by } from "../../std/slice.ts";
-import { unwrap_result } from "../../std/result.ts";
+import { Err, unwrap_result } from "../../std/result.ts";
 import { type Rng } from "../../vendor/rand_core/lib.ts";
 import { type StdRng } from "../../vendor/rand/rngs/std.ts";
 export * from "./mod.gen.ts";
@@ -43,8 +43,8 @@ export * from "./mod.gen.ts";
 export { AddressGenerator } from "./address_generator.ts";
 
 /** PORT: `machine.rng` (a `RefCell<StdRng>`) as the vendored `StdRng` (header). */
-function machine_rng(machine: MiriMachine): StdRng & Rng {
-  return machine.rng as unknown as StdRng & Rng;
+function machine_rng(machine: MiriMachine): StdRng {
+  return machine.rng;
 }
 
 /** `|(addr, _)| *addr` compared with `addr` (the `binary_search_by_key` of `int_to_ptr_map`). */
@@ -164,10 +164,8 @@ InterpCx.prototype.addr_from_alloc_id_uncached = function (
 
   // Miri's address assignment leaks state across thread boundaries, which is incompatible
   // with GenMC execution. So we instead let GenMC assign addresses to allocations.
-  // PORT(contract): pending miri-race: `this.machine.data_race.as_genmc_ref()` (data_race_handler.rs:47).
-  const data_race = this_.machine.data_race;
-  if (data_race.$ === "Genmc") {
-    const genmc_ctx = data_race._0;
+  const genmc_ctx = GlobalDataRaceHandler.as_genmc_ref(this_.machine.data_race);
+  if (genmc_ctx !== undefined) {
     const addr = genmc_ctx.handle_alloc(this_, alloc_id, info.size, info.align, memory_kind);
     if (addr.$ === "Err") return addr;
     return interp_ok(addr._0);
@@ -383,9 +381,7 @@ InterpCx.prototype.ptr_from_addr_cast = function (this: MiriInterpCx, addr: bigi
     }
     case "Strict": {
       // throw_machine_stop!(TerminationInfo::Int2PtrWithStrictProvenance);
-      // PORT(contract): pending miri-driver: `impl MachineStopType for TerminationInfo` (diagnostics.rs:113) has no
-      // TS value yet, so the machine stop cannot be built.
-      return unported("miri::alloc_addresses::ptr_from_addr_cast: throw_machine_stop!(TerminationInfo::Int2PtrWithStrictProvenance) (MachineStopType for TerminationInfo, lane miri-driver)");
+      return Err(InterpErrorInfo_from_InterpErrorKind(TerminationInfo_into_machine_stop(TerminationInfo.Int2PtrWithStrictProvenance)));
     }
     case "Permissive":
       break;
@@ -524,10 +520,9 @@ function free_alloc_id(this: MiriMachine, dead_id: AllocId, size: Size, align: A
     reuse.add_addr(rng, addr, size, align, kind, thread, () => {
       // We cannot be in GenMC mode as then `address_generation` is `None`. We cannot use
       // `self.release_clock` as `self.alloc_addresses` is borrowed.
-      // PORT(contract): pending miri-race: `self.data_race.as_vclocks_ref()` (data_race_handler.rs:39).
-      const data_race = this.data_race;
-      if (data_race.$ === "Vclocks") {
-        return data_race._0.release_clock(this.threads, (clock) => clone_VClock(clock));
+      const data_race = GlobalDataRaceHandler.as_vclocks_ref(this.data_race);
+      if (data_race !== undefined) {
+        return data_race.release_clock(this.threads, (clock) => clone_VClock(clock));
       } else {
         // VClock::default()
         return new VClock([]);

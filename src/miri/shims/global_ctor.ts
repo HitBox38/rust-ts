@@ -8,13 +8,13 @@ import { type MiriInterpCx } from "../machine.ts";
 import { GlobalCtorState } from "./global_ctor.gen.ts";
 import { stub_methods } from "../../rust_ts/miri_stub.ts";
 import { type InterpResult } from "../../rustc_middle/mir/interpret/mod.ts";
-import { type Pending } from "../../rustc_type_ir/decls.ts";
+import { type Poll } from "../../std/task.ts";
 export * from "./global_ctor.gen.ts";
 
 declare module "./global_ctor.gen.ts" {
   interface GlobalCtorState {
     // shims/global_ctor.rs:24
-    on_stack_empty(this_: MiriInterpCx): InterpResult<Pending<"Poll<()>">>;
+    on_stack_empty(this_: MiriInterpCx): InterpResult<Poll<null>>;
   }
 }
 

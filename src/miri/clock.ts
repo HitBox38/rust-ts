@@ -3,10 +3,8 @@
 // clock.gen.ts (tools/codegen set `miri`); this module re-exports them and adds the methods.
 //
 // PORT:
-// - `std::time::{Duration, Instant, SystemTime}` are the src/std/time.ts stand-ins (plan-m6 D14). The generated fields
-//   still carry the typemap's `Pending<"std::time::Instant">` / `Pending<"std::time::SystemTime">` (a tools/codegen
-//   typemap change, asked of root in docs/handoff/miri-eval.md); `host_instant` / `host_system_time` and their inverses
-//   convert at the field boundary.
+// - `std::time::{Duration, Instant, SystemTime}` are the src/std/time.ts stand-ins (plan-m6 D14); the generated fields are
+//   typed with them (typemap, lane miri-wire).
 // - (decision miri-contract C5 amendment, lane interp-miri-reconcile) the virtual clock's `Cell<u128>` counter
 //   (`MonotonicClockKind::Virtual.nanoseconds`, typemap `fields`) is a `number`. It is ticked per basic block
 //   (`NANOSECONDS_PER_BASIC_BLOCK`), but `MonotonicClock::sleep` (called from scheduler.rs:214) adds program-supplied
@@ -18,7 +16,7 @@
 import * as gen from "./clock.gen.ts";
 import { Instant, MonotonicClock, type MonotonicClockKind, type TimeoutClock, type TimeoutStyle } from "./clock.gen.ts";
 import { MiriMachine } from "./machine.ts";
-import { type Pending } from "../rustc_type_ir/decls.ts";
+import { port_methods } from "../rust_ts/miri_stub.ts";
 import { assert, panic, unported } from "../std/panic.ts";
 import { Duration, Instant as StdInstant, SystemTime } from "../std/time.ts";
 export * from "./clock.gen.ts";
@@ -31,21 +29,6 @@ export * from "./clock.gen.ts";
 const NANOSECONDS_PER_BASIC_BLOCK = 5000;
 
 const U128_MAX = (1n << 128n) - 1n;
-
-/** PORT: the generated `Pending<"std::time::Instant">` field is a src/std/time.ts `Instant` (module header). */
-function host_instant(v: Pending<"std::time::Instant">): StdInstant {
-  return v as unknown as StdInstant;
-}
-function pending_instant(v: StdInstant): Pending<"std::time::Instant"> {
-  return v as unknown as Pending<"std::time::Instant">;
-}
-/** PORT: the generated `Pending<"std::time::SystemTime">` field is a src/std/time.ts `SystemTime` (module header). */
-function host_system_time(v: Pending<"std::time::SystemTime">): SystemTime {
-  return v as unknown as SystemTime;
-}
-function pending_system_time(v: SystemTime): Pending<"std::time::SystemTime"> {
-  return v as unknown as Pending<"std::time::SystemTime">;
-}
 
 declare module "./clock.gen.ts" {
   interface Instant {
@@ -85,14 +68,14 @@ Instant.prototype.add_lossy = function (this: Instant, duration: Duration): Inst
   const kind = this.kind;
   switch (kind.$) {
     case "Host": {
-      const instant = host_instant(kind._0);
+      const instant = kind._0;
       // If this overflows, try adding just 1h and assume that will not overflow.
       let i = instant.checked_add(duration);
       if (i === undefined) {
         i = instant.checked_add(Duration.from_secs(3600n));
         if (i === undefined) panic("called `Option::unwrap()` on a `None` value");
       }
-      return new Instant({ $: "Host", _0: pending_instant(i) });
+      return new Instant({ $: "Host", _0: i });
     }
     case "Virtual": {
       const nanoseconds = kind.nanoseconds;
@@ -109,7 +92,7 @@ Instant.prototype.duration_since = function (this: Instant, earlier: Instant): D
   const a = this.kind;
   const b = earlier.kind;
   if (a.$ === "Host" && b.$ === "Host") {
-    return host_instant(a._0).duration_since(host_instant(b._0));
+    return a._0.duration_since(b._0);
   } else if (a.$ === "Virtual" && b.$ === "Virtual") {
     const nanoseconds = a.nanoseconds;
     const earlier_ = b.nanoseconds;
@@ -128,7 +111,7 @@ Instant.prototype.duration_since = function (this: Instant, earlier: Instant): D
 ): MonotonicClock {
   let kind: MonotonicClockKind;
   if (communicate) {
-    kind = { $: "Host", epoch: pending_instant(StdInstant.now()) };
+    kind = { $: "Host", epoch: StdInstant.now() };
   } else {
     kind = { $: "Virtual", nanoseconds: 0 };
   }
@@ -193,7 +176,7 @@ MonotonicClock.prototype.now = function (this: MonotonicClock): Instant {
   const kind = this.kind;
   switch (kind.$) {
     case "Host":
-      return new Instant({ $: "Host", _0: pending_instant(StdInstant.now()) });
+      return new Instant({ $: "Host", _0: StdInstant.now() });
     case "Virtual":
       return new Instant({ $: "Virtual", nanoseconds: BigInt(kind.nanoseconds) });
   }
@@ -219,14 +202,14 @@ export const Deadline: Deadline_methods = {
       case "Monotonic":
         return { $: "Monotonic", _0: self._0.add_lossy(duration) };
       case "RealTime": {
-        const s = host_system_time(self._0);
+        const s = self._0;
         // If this overflows, try adding just 1h and assume that will not overflow.
         let t = s.checked_add(duration);
         if (t === undefined) {
           t = s.checked_add(Duration.from_secs(3600n));
           if (t === undefined) panic("called `Option::unwrap()` on a `None` value");
         }
-        return { $: "RealTime", _0: pending_system_time(t) };
+        return { $: "RealTime", _0: t };
       }
     }
   },
@@ -234,7 +217,9 @@ export const Deadline: Deadline_methods = {
 
 /// Computes the deadline for a given timeout configuration and duration.
 // rustc: src/tools/miri/src/clock.rs:186 timeout
-MiriMachine.prototype.timeout = function (
+port_methods("miri::clock::MiriMachine", () => MiriMachine.prototype, {
+  // Registered, not assigned at load: MiriMachine is in an import cycle with this module (decision: port_methods, C10).
+  timeout: function (
   this: MiriMachine,
   clock: TimeoutClock,
   style: TimeoutStyle,
@@ -254,7 +239,7 @@ MiriMachine.prototype.timeout = function (
           t = SystemTime.now();
           break;
       }
-      zero = { $: "RealTime", _0: pending_system_time(t) };
+      zero = { $: "RealTime", _0: t };
       break;
     }
     case "Monotonic": {
@@ -273,4 +258,5 @@ MiriMachine.prototype.timeout = function (
   }
   // Then add the given duration relative to that "zero".
   return Deadline.add_lossy(zero, duration);
-};
+  },
+});

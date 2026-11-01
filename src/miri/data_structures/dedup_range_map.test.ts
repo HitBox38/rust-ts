@@ -116,3 +116,37 @@ test("merge_adjacent_thorough + yielded ranges are values", () => {
   // The ranges collected before the merge are unchanged.
   expect(ranges).toEqual([{ start: 0, end: 2 }, { start: 2, end: 4 }, { start: 4, end: 8 }]);
 });
+
+// Not upstream (review miri-driver, finding 5): with an object-valued `T`, a split clones the element (`self.v[idx].data
+// .clone()`, dedup_range_map.rs:123), so mutating one half in place leaves the other half untouched.
+test("object-valued data: split halves do not share a value", () => {
+  type Obj = { tags: number[] };
+  const clone_obj = (v: Obj): Obj => ({ tags: [...v.tags] });
+  const eq_obj = (a: Obj, b: Obj): boolean => a.tags.length === b.tags.length && a.tags.every((t, i) => t === b.tags[i]);
+  const map = DedupRangeMap.new<Obj>(Size.from_bytes(20), { tags: [0] });
+  // Mutate [5, 10) in place (as Stacked Borrows mutates a `Stack`): splits at 5 and at 10.
+  for (const [, data] of map.iter_mut(Size.from_bytes(5), Size.from_bytes(5), clone_obj, eq_obj)) {
+    data.tags.push(1);
+  }
+  const at = (i: number): number[] => map.iter(Size.from_bytes(i), Size.from_bytes(1))[0]![1].tags;
+  expect(map.v.length).toBe(3);
+  expect([at(0), at(5), at(9), at(10), at(19)]).toEqual([[0], [0, 1], [0, 1], [0], [0]]);
+  const datas = map.v.map((e) => e.data);
+  expect(new Set(datas).size).toBe(3);
+  // Mutating [10, 20) again in place: the first two parts keep their values.
+  for (const [, data] of map.iter_mut(Size.from_bytes(10), Size.from_bytes(10), clone_obj, eq_obj)) {
+    data.tags.push(2);
+  }
+  expect([at(0), at(5), at(10), at(19)]).toEqual([[0], [0, 1], [0, 2], [0, 2]]);
+  // Equal values (structurally, `eq_T`) of adjacent parts merge again: [5, 20) all become `[0, 1]`.
+  for (const [, , elem] of map.iter_mut(Size.from_bytes(10), Size.from_bytes(10), clone_obj, eq_obj)) {
+    elem.data = { tags: [0, 1] };
+  }
+  for (const _ of map.iter_mut(Size.from_bytes(0), Size.from_bytes(20), clone_obj, eq_obj)) {
+    // `iter_mut` merges equal neighbours as it scans
+  }
+  expect(map.v.map((e) => [e.range.start, e.range.end, e.data.tags])).toEqual([
+    [0, 5, [0]],
+    [5, 20, [0, 1]],
+  ]);
+});

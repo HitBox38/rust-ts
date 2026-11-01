@@ -13,7 +13,7 @@
 // - GenMC scheduling stops with `unported("genmc")`.
 import { TerminationInfo, TerminationInfo_into_machine_stop } from "../diagnostics.ts";
 import { SchedulingAction } from "./scheduler.gen.ts";
-import { Duration_, machine_rng, type Poll, type Thread, type ThreadId, ThreadId_eq } from "./thread.ts";
+import { machine_rng, type Thread, type ThreadId, ThreadId_eq } from "./thread.ts";
 import { type MiriInterpCx } from "../machine.ts";
 import { DelayedReadinessUpdates } from "../shims/readiness.ts";
 import { InterpCx } from "../../rustc_const_eval/interpret/eval_context.ts";
@@ -21,9 +21,10 @@ import { type AnyMachine, type Machine } from "../../rustc_const_eval/interpret/
 import { CTRL_C_RECEIVED } from "../../rustc_const_eval/lib.ts";
 import { InterpErrorInfo_from_InterpErrorKind, type InterpResult, interp_ok } from "../../rustc_middle/mir/interpret/mod.ts";
 import { DUMMY_SP } from "../../rustc_span/lib.ts";
-import { type Pending } from "../../rustc_type_ir/decls.ts";
 import { panic, unported, unreachable } from "../../std/panic.ts";
 import { Err } from "../../std/result.ts";
+import { type Poll } from "../../std/task.ts";
+import { Duration } from "../../std/time.ts";
 import { type RustIterator, IteratorRandom } from "../../vendor/rand/seq/iterator.ts";
 export * from "./scheduler.gen.ts";
 
@@ -36,7 +37,7 @@ export function machine_stop<T>(info: TerminationInfo): InterpResult<T> {
 
 // #[inline]
 // rustc: src/tools/miri/src/concurrency/scheduler.rs:31 run_on_stack_empty
-InterpCx.prototype.run_on_stack_empty = function (this: MiriInterpCx): InterpResult<Poll> {
+InterpCx.prototype.run_on_stack_empty = function (this: MiriInterpCx): InterpResult<Poll<null>> {
   const this_ = this.eval_context_mut();
   const active_thread = this_.active_thread_mut();
   active_thread.origin_span = DUMMY_SP; // reset, the old value no longer applied
@@ -99,7 +100,7 @@ InterpCx.prototype.schedule = function (this: MiriInterpCx): InterpResult<Schedu
     // which received events are available for scheduling afterwards.
 
     // Perform a non-blocking poll for newly available I/O events from the OS.
-    const r = this_.poll_and_unblock(Duration_().ZERO);
+    const r = this_.poll_and_unblock(Duration.ZERO);
     if (r.$ === "Err") return r;
   }
 
@@ -155,7 +156,7 @@ InterpCx.prototype.schedule = function (this: MiriInterpCx): InterpResult<Schedu
     // All threads are currently blocked, but we have unexecuted
     // timeout_callbacks, which may unblock some of the threads. Hence,
     // sleep until the first callback.
-    return interp_ok({ $: "SleepAndWaitForIo", _0: sleep_time as unknown as Pending<"std::time::Duration"> });
+    return interp_ok({ $: "SleepAndWaitForIo", _0: sleep_time });
   } else if (this_.any_thread_blocked_on_host()) {
     // At least one thread doesn't have a timeout set, and is blocked on host I/O or is waiting on an
     // epoll instance which contains a host source interest. Hence, we sleep indefinitely in the
@@ -198,7 +199,7 @@ InterpCx.prototype.step_current_thread = function (this: MiriInterpCx): InterpRe
     // See if this thread can do something else.
     const r = this_.run_on_stack_empty();
     if (r.$ === "Err") return r;
-    switch (r._0) {
+    switch (r._0.$) {
       case "Pending":
         break; // keep going
       case "Ready": {
@@ -232,7 +233,7 @@ InterpCx.prototype.run_threads = function (this: MiriInterpCx): InterpResult<nev
         break;
       }
       case "SleepAndWaitForIo": {
-        const duration = action._0 as unknown as Pending<"Duration"> | undefined;
+        const duration = action._0;
         if (this_.machine.communicate()) {
           // When we're running with isolation disabled, instead of
           // strictly sleeping the duration we allow waking up
@@ -254,7 +255,7 @@ declare module "../../rustc_const_eval/interpret/eval_context.ts" {
   interface InterpCx<M extends AnyMachine = Machine> {
     // ---- concurrency/scheduler.rs: `trait EvalContextPrivExt` (impl for `MiriInterpCx`) ----
     // concurrency/scheduler.rs:31
-    run_on_stack_empty(this: MiriInterpCx): InterpResult<Poll>;
+    run_on_stack_empty(this: MiriInterpCx): InterpResult<Poll<null>>;
     // concurrency/scheduler.rs:52
     schedule(this: MiriInterpCx): InterpResult<SchedulingAction>;
     // ---- concurrency/scheduler.rs: `trait EvalContextExt` (impl for `MiriInterpCx`) ----

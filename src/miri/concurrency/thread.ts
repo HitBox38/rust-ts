@@ -12,15 +12,16 @@
 // - `IndexVec<ThreadId, Thread>` is `Thread[]` indexed by `id.index()`.
 // - `ThreadManager.thread_local_allocs` (`FxHashMap<(DefId, ThreadId), StrictPointer>`) is an `FxKeyedMap`, so `retain`
 //   in `terminate_active_thread` frees the TLS statics in hashbrown bucket order, as upstream.
-// - `std::task::Poll<()>` is `Poll` below (`"Ready" | "Pending"`; no src/std stand-in exists).
+// - `std::task::Poll<()>` is src/std/task.ts's `Poll<null>` (re-exported below).
 // - `DynMachineCallback<'tcx, T>` (`Box<dyn MachineCallback>`, machine.ts) is an object with `call(ecx, arg)` and
-//   `visit_provenance(visit)`. A `callback!(@capture { a: A, b: B } |this, arg: T| body)` is the object literal
-//   `{ visit_provenance(visit) { <visit a>; <visit b> }, call(this_, arg) { body } }` built inline at the use site (the
-//   captures are the closure's variables; `self: Box<Self>` consumption is the callback being called once).
+//   `visit_provenance(visit)`. A `callback!(@capture { a: A, b: B } |this, arg: T| body)` is machine.ts's
+//   `callback({ a: [a, <A's VisitProvenance impl>], b: [b, ..] }, (this_, arg, { a, b }) => body)`: one capture list
+//   gives both the visit and the body's values; `call` consumes the callback (lane miri-wire).
 // - Calls into other lanes' files that their skeleton does not declare go through local `declare module` blocks marked
 //   `PORT(contract): pending <lane>` (contract rule 6).
 // - GenMC arms stop with `unported("genmc")` (lane brief; the `GenmcCtx` of genmc/dummy.rs cannot be constructed).
 import * as clock from "../clock.ts";
+import * as tracing from "../../rust_ts/tracing.ts";
 import { type Deadline } from "../clock.ts";
 import * as gen from "./thread.gen.ts";
 import {
@@ -40,7 +41,7 @@ import {
 } from "./thread.gen.ts";
 import { type MiriConfig } from "../eval.ts";
 import { type ImmTy, type MPlaceTy, type PlaceTy, type Pointer, type Scalar, type StrictPointer } from "../lib.ts";
-import { type FrameExtra, type MiriInterpCx, MemoryKind_from_MiriMemoryKind, type Provenance, VisitProvenance_FrameExtra } from "../machine.ts";
+import { callback, type FrameExtra, type MiriInterpCx, MemoryKind_from_MiriMemoryKind, type Provenance, VisitProvenance_FrameExtra } from "../machine.ts";
 import {
   type VisitWith,
   VisitProvenance_ImmTy,
@@ -51,6 +52,7 @@ import {
   VisitProvenance_Pointer,
   VisitProvenance_Scalar,
   VisitProvenance_StrictPointer,
+  VisitProvenance_no_provenance,
 } from "../provenance_gc.ts";
 import { clone_CpuAffinityMask } from "../shims/cpu_affinity.ts";
 import { TlsDtorsState, TlsDtorsStatePriv } from "../shims/tls.ts";
@@ -72,41 +74,14 @@ import {
 import { type TyAndLayout } from "../../rustc_middle/ty/layout.ts";
 import { DefId, DefId_fx_key } from "../../rustc_span/def_id.ts";
 import { DUMMY_SP, type Span } from "../../rustc_span/lib.ts";
-import { type Pending } from "../../rustc_type_ir/decls.ts";
 import { type Debug, debug_option, debug_struct } from "../../std/fmt.ts";
 import { assert, panic, unported, unreachable } from "../../std/panic.ts";
+import { type Poll } from "../../std/task.ts";
+import { Duration, SystemTime } from "../../std/time.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
 import { RngExt } from "../../vendor/rand/rng.ts";
 import { type StdRng } from "../../vendor/rand/rngs/std.ts";
 export * from "./thread.gen.ts";
-
-// ---------------------------------------------------------------- pending contract pieces of other lanes ----
-
-declare module "../clock.ts" {
-  /** PORT(contract): pending miri-eval. The `std::time::Duration` operations this lane uses (`Duration` is
-   * `Pending<"Duration">` in the skeleton): `Duration::ZERO`, `Duration::MAX`, `Duration::is_zero`, `Ord::min`. */
-  export const Duration: {
-    readonly ZERO: Pending<"Duration">;
-    readonly MAX: Pending<"Duration">;
-    is_zero(self: Pending<"Duration">): boolean;
-    min(self: Pending<"Duration">, other: Pending<"Duration">): Pending<"Duration">;
-  };
-}
-
-/** A value another lane's module does not export yet (read through a namespace import, so a missing export is
- *  `undefined` rather than a link error): stops with `unported` until that lane lands. Our own glue, not a port: it goes
- *  away with the pending items (docs/handoff/miri-threads.md). Only miri-eval's `Duration` is still pending (the
- *  miri-driver / miri-machine / miri-race pieces landed and are called directly). `PENDING_FOR_TESTS` lets
- *  threads.test.ts supply a `Duration` stand-in under the same `what` key; nothing else writes it. Remove both, and the
- *  test's stand-in, when clock.ts exports `Duration`. */
-export function pending<T>(v: T, what: string): T {
-  if (v !== undefined) return v;
-  const t = PENDING_FOR_TESTS.get(what);
-  if (t !== undefined) return t as T;
-  return unported(`${what} (pending; docs/handoff/miri-threads.md)`);
-}
-export const PENDING_FOR_TESTS = new Map<string, unknown>();
-export const Duration_ = (): (typeof clock)["Duration"] => pending(clock.Duration, "std::time::Duration stand-in (lane miri-eval)");
 
 // ---------------------------------------------------------------- helpers (macro expansions) ----
 
@@ -130,15 +105,25 @@ function assert_eq_msg<T>(left: T, right: T, eq: (a: T, b: T) => boolean, debug:
 function String_from_utf8_lossy(bytes: readonly number[]): string {
   return new TextDecoder("utf-8", { fatal: false, ignoreBOM: true }).decode(Uint8Array.from(bytes));
 }
+/** PORT: `Duration::is_zero` (library/core/src/time.rs:566, `self.secs == 0 && self.nanos.as_inner() == 0`). src/std/time.ts
+ *  (lane miri-eval) does not have it; moving it there is queued in docs/handoff/miri-wire.md. */
+function Duration_is_zero(d: Duration): boolean {
+  return d.secs === 0n && d.nanos === 0;
+}
+/** PORT: `Ord::min` of `Duration`'s derived `Ord` (library/core/src/time.rs:79, fields `secs` then `nanos`): `min` returns
+ *  `self` unless `other < self` (core::cmp::min_by). Queued for src/std/time.ts with `Duration_is_zero`. */
+function Duration_min(self: Duration, other: Duration): Duration {
+  const other_lt = other.secs < self.secs || (other.secs === self.secs && other.nanos < self.nanos);
+  return other_lt ? other : self;
+}
 
 // ---------------------------------------------------------------- types ----
 
 /// The argument type for the "unblock" callback, indicating why the thread got unblocked.
 // (generated: `UnblockKind`, `TlsAllocAction`; `DynUnblockCallback` = `DynMachineCallback<UnblockKind>`)
 
-/** PORT: `std::task::Poll<()>` (no src/std stand-in): `Poll::Ready(())` is `"Ready"`, `Poll::Pending` is `"Pending"`. */
-export type Poll = "Ready" | "Pending";
-export const Poll = { Ready: "Ready", Pending: "Pending" } as const;
+/** `std::task::Poll<()>` is src/std/task.ts's `Poll<null>` (`Poll.Ready_unit` / `Poll.Pending`). */
+export { Poll } from "../../std/task.ts";
 
 /** PORT: the canonical `ThreadId` of each id (see the header). */
 const THREAD_IDS: ThreadId[] = [];
@@ -254,7 +239,7 @@ ThreadState.is_blocked_on = function (self: ThreadState, reason: BlockReason): b
 
 // rustc-type: src/tools/miri/src/concurrency/thread.rs:202 StackEmptyCallback
 /** `Box<dyn FnMut(&mut MiriInterpCx<'tcx>) -> InterpResult<'tcx, Poll<()>> + 'tcx>` */
-export type StackEmptyCallback = (ecx: MiriInterpCx) => InterpResult<Poll>;
+export type StackEmptyCallback = (ecx: MiriInterpCx) => InterpResult<Poll<null>>;
 
 /// Get the name of the current thread if it was set.
 // rustc: src/tools/miri/src/concurrency/thread.rs:208 thread_name
@@ -562,11 +547,13 @@ ThreadManager.prototype.create_thread = function (this: ThreadManager, on_stack_
 // rustc: src/tools/miri/src/concurrency/thread.rs:514 set_active_thread
 ThreadManager.prototype.set_active_thread = function (this: ThreadManager, id: ThreadId): ThreadId {
   assert(id.index() < this.threads.length, "assertion failed: id.index() < self.threads.len()");
-  // info!(
-  //     "---------- Now executing on thread `{}` (previous: `{}`) ----------------------------------------",
-  //     self.get_thread_display_name(id),
-  //     self.get_thread_display_name(self.active_thread)
-  // );
+  if (tracing.INFO_ENABLED) {
+    tracing.info(
+      "miri::concurrency::thread",
+      () =>
+        `---------- Now executing on thread \`${this.get_thread_display_name(id)}\` (previous: \`${this.get_thread_display_name(this.active_thread)}\`) ----------------------------------------`,
+    );
+  }
   const old = this.active_thread;
   this.active_thread = id;
   return old;
@@ -767,9 +754,7 @@ InterpCx.prototype.start_regular_thread = function (
   const new_thread_id = this_.machine.threads.create_thread(
     (() => {
       const state = new TlsDtorsState(TlsDtorsStatePriv.Init);
-      // PORT(contract): pending miri-shims-a: `TlsDtorsState::on_stack_empty` returns `Pending<"Poll<()>">` in the skeleton;
-      // it is this module's `Poll`.
-      return (m: MiriInterpCx) => state.on_stack_empty(m) as unknown as InterpResult<Poll>;
+      return (m: MiriInterpCx) => state.on_stack_empty(m);
     })(),
   );
   const data_race = this_.machine.data_race;
@@ -953,11 +938,11 @@ InterpCx.prototype.unblock_thread = function (this: MiriInterpCx, thread: Thread
 /// This method returns the minimum duration until the next thread deadline.
 /// If all ready threads have no deadline set, [`None`] is returned.
 // rustc: src/tools/miri/src/concurrency/thread.rs:865 unblock_expired_deadlines
-InterpCx.prototype.unblock_expired_deadlines = function (this: MiriInterpCx): InterpResult<Pending<"Duration"> | undefined> {
+InterpCx.prototype.unblock_expired_deadlines = function (this: MiriInterpCx): InterpResult<Duration | undefined> {
   const this_ = this.eval_context_mut();
   const communicate = this_.machine.communicate();
 
-  let min_wait_time: Pending<"Duration"> | undefined = undefined;
+  let min_wait_time: Duration | undefined = undefined;
   const callbacks: [ThreadId, DynUnblockCallback][] = [];
 
   this_.machine.threads.threads.forEach((thread, idx) => {
@@ -965,7 +950,7 @@ InterpCx.prototype.unblock_expired_deadlines = function (this: MiriInterpCx): In
     const state = thread.state;
     if (state.$ === "Blocked" && state.deadline !== undefined) {
       const deadline = state.deadline;
-      let wait_time: Pending<"Duration">;
+      let wait_time: Duration;
       switch (deadline.$) {
         case "Monotonic": {
           const instant = deadline._0;
@@ -974,12 +959,14 @@ InterpCx.prototype.unblock_expired_deadlines = function (this: MiriInterpCx): In
         }
         case "RealTime": {
           assert(communicate, "cannot have `RealTime` timeout with isolation");
-          // time.duration_since(SystemTime::now()).unwrap_or(Duration::ZERO)
-          return unported("miri::concurrency::thread::unblock_expired_deadlines: `SystemTime::now()` (host real time, isolation off; D14)");
+          const time = deadline._0;
+          const r = time.duration_since(SystemTime.now());
+          wait_time = r.$ === "Ok" ? r._0 : Duration.ZERO;
+          break;
         }
       }
 
-      if (Duration_().is_zero(wait_time)) {
+      if (Duration_is_zero(wait_time)) {
         // The timeout expired for this thread.
         const old_state = thread.state;
         thread.state = ThreadState.Enabled;
@@ -990,7 +977,7 @@ InterpCx.prototype.unblock_expired_deadlines = function (this: MiriInterpCx): In
       } else {
         // Update `min_wait_time` to contain the smallest duration until
         // the next timeout expires.
-        min_wait_time = Duration_().min(wait_time, min_wait_time ?? Duration_().MAX);
+        min_wait_time = Duration_min(wait_time, min_wait_time ?? Duration.MAX);
       }
     }
   });
@@ -1070,19 +1057,17 @@ InterpCx.prototype.join_thread = function (this: MiriInterpCx, joined_thread_id:
       undefined,
       // callback!(@capture<'tcx> { joined_thread_id: ThreadId, dest: MPlaceTy<'tcx>, success_retval: Scalar }
       //     |this, unblock: UnblockKind| { .. })
-      {
-        // (callback! expansion, machine.rs:2181 visit_provenance)
-        visit_provenance(visit: VisitWith): void {
-          // ThreadId: no provenance
-          VisitProvenance_MPlaceTy.visit_provenance(dest, visit);
-          VisitProvenance_Scalar.visit_provenance(success_retval, visit);
+      callback<{ joined_thread_id: ThreadId; dest: MPlaceTy; success_retval: Scalar }, UnblockKind>(
+        {
+          joined_thread_id: [joined_thread_id, VisitProvenance_no_provenance],
+          dest: [dest, VisitProvenance_MPlaceTy],
+          success_retval: [success_retval, VisitProvenance_Scalar],
         },
-        // (callback! expansion, machine.rs:2189 call)
-        call(this_: MiriInterpCx, unblock: UnblockKind): InterpResult {
+        (this_, unblock, { joined_thread_id, dest, success_retval }) => {
           assert_eq_UnblockKind(unblock, "Ready");
           return after_join(this_, joined_thread_id, success_retval, dest);
         },
-      },
+      ),
     );
   } else {
     // The thread has already terminated - establish happens-before and write the return value.
@@ -1235,7 +1220,7 @@ declare module "../../rustc_const_eval/interpret/eval_context.ts" {
     // concurrency/thread.rs:840
     unblock_thread(this: MiriInterpCx, thread: ThreadId, reason: BlockReason): InterpResult;
     // concurrency/thread.rs:865
-    unblock_expired_deadlines(this: MiriInterpCx): InterpResult<Pending<"Duration"> | undefined>;
+    unblock_expired_deadlines(this: MiriInterpCx): InterpResult<Duration | undefined>;
     // concurrency/thread.rs:918
     detach_thread(this: MiriInterpCx, thread_id: ThreadId, allow_terminated_joined: boolean): InterpResult;
     // concurrency/thread.rs:930

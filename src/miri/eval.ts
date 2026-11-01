@@ -9,13 +9,10 @@
 //   iterates `set_env_vars`, so its order is observable. `BorTag` / `AllocId` are `NonZero<u64>` (their `Hash` writes
 //   the `u64`, which FxHasher treats as `usize` on the 64-bit hosts): `usize_key`.
 // - `MainThreadState::on_main_stack_empty(&mut self, ..)` takes the state as a `MutRef` (`*self = X` writes `.value`).
-// - `Poll<()>` is src/std/task.ts's `Poll<null>`; the skeleton still types the stack-empty callbacks' result
-//   `Pending<"Poll<()>">` (thread.ts `StackEmptyCallback`, global_ctor.ts / tls.ts `on_stack_empty`): `poll_of` /
-//   `pending_poll` convert at those boundaries (docs/handoff/miri-eval.md asks to retype them).
+// - `Poll<()>` is src/std/task.ts's `Poll<null>` (also the stack-empty callbacks' result type: thread.ts
+//   `StackEmptyCallback`, global_ctor.ts / tls.ts `on_stack_empty`).
 // - `#[derive(Default)]` of `GlobalCtorState` / `TlsDtorsState` (both `#[default] Init`) is built here from the generated
 //   types (`GlobalCtorStatePriv.Init` / `TlsDtorsStatePriv.Init`).
-// - `ThreadId::MAIN_THREAD` (thread.rs:59, lane miri-threads) is not declared by the skeleton: `MAIN_THREAD` below is
-//   its one-line body (PORT(contract): pending; replace with the owners' exports when they land).
 // - `panic::catch_unwind(|| ecx.run_threads())` is a `try`/`catch`: a `FatalErrorMarker` (rustc's unwinding
 //   `dcx().fatal`) is rethrown as is, any other throw first runs `handle_ice` (the ICE report).
 import { type BorTag, BorrowTrackerMethod } from "./borrow_tracker/mod.ts";
@@ -38,7 +35,7 @@ import { InterpCx } from "../rustc_const_eval/interpret/eval_context.ts";
 import { check_function_signature } from "../rustc_hir_analysis/check/mod.ts";
 import { ExportedSymbol, type SymbolExportInfo } from "../rustc_middle/middle/exported_symbols.ts";
 import { type EntryFnType } from "../rustc_passes/entry.ts";
-import { type AllocId, InterpErrorInfo_from_InterpErrorKind, InterpResult, interp_ok, Scalar as interp_Scalar } from "../rustc_middle/mir/interpret/mod.ts";
+import { type AllocId, debug_AllocId, InterpErrorInfo_from_InterpErrorKind, InterpResult, interp_ok, Scalar as interp_Scalar } from "../rustc_middle/mir/interpret/mod.ts";
 import { ObligationCause, ObligationCauseCode } from "../rustc_middle/traits/mod.ts";
 import { type TyCtxt } from "../rustc_middle/ty/context.ts";
 import { GenericArg } from "../rustc_middle/ty/generic_args.ts";
@@ -52,28 +49,14 @@ import { FatalErrorMarker } from "../rustc_span/fatal_error.ts";
 import { Binder, EarlyBinder, fold_Binder } from "../rustc_type_ir/binder.ts";
 import { fold_FnSig, PolyFnSig } from "../rustc_type_ir/ty_kind.ts";
 import { fold_Ty } from "../rustc_middle/ty/structural_impls.ts";
-import { type Pending } from "../rustc_type_ir/decls.ts";
 import { type MutRef } from "../std/mut_ref.ts";
 import { Panic, assert, panic, unwrap } from "../std/panic.ts";
-import { Err, Ok, type Result } from "../std/result.ts";
+import { Err, Ok, type Result, unwrap_result } from "../std/result.ts";
 import { Poll } from "../std/task.ts";
-import { PLAIN } from "../std/fmt.ts";
+import { PLAIN, debug_vec } from "../std/fmt.ts";
+import * as tracing from "../rust_ts/tracing.ts";
 import { debug_InterpErrorKind } from "../rustc_middle/mir/interpret/error.gen.ts";
 export * from "./eval.gen.ts";
-
-/** PORT: the skeleton's `Pending<"Poll<()>">` is src/std/task.ts's `Poll<null>` (module header). */
-function poll_of(p: Pending<"Poll<()>">): Poll<null> {
-  return p as unknown as Poll<null>;
-}
-function pending_poll(p: Poll<null>): Pending<"Poll<()>"> {
-  return p as unknown as Pending<"Poll<()>">;
-}
-
-/**
- * `ThreadId::MAIN_THREAD` (thread.rs:59).
- * PORT(contract): pending miri-threads (not declared by the skeleton; module header).
- */
-const MAIN_THREAD = (): ThreadId => new ThreadId(0);
 
 /// Finds the entry point Miri should execute.
 ///
@@ -191,7 +174,7 @@ function on_main_stack_empty(self: MutRef<MainThreadState>, this_: MiriInterpCx)
       const { ctor_state, entry_id, entry_type, argc, argv } = state;
       const p = ctor_state.on_stack_empty(this_);
       if (p.$ === "Err") return p;
-      switch (poll_of(p._0).$) {
+      switch (p._0.$) {
         case "Pending":
           break; // just keep going
         case "Ready": {
@@ -210,7 +193,7 @@ function on_main_stack_empty(self: MutRef<MainThreadState>, this_: MiriInterpCx)
     case "TlsDtors": {
       const p = state._0.on_stack_empty(this_);
       if (p.$ === "Err") return p;
-      switch (poll_of(p._0).$) {
+      switch (p._0.$) {
         case "Pending":
           break; // just keep going
         case "Ready": {
@@ -267,7 +250,7 @@ function on_main_stack_empty(self: MutRef<MainThreadState>, this_: MiriInterpCx)
       const genmc_ctx = GlobalDataRaceHandler.as_genmc_ref(this_.machine.data_race);
       if (genmc_ctx !== undefined) {
         // If there's no error, execution will continue (on another thread).
-        const h = genmc_ctx.handle_exit(MAIN_THREAD(), exit_code, "MainThreadFinish");
+        const h = genmc_ctx.handle_exit(ThreadId.MAIN_THREAD, exit_code, "MainThreadFinish");
         if (h.$ === "Err") return h;
       } else {
         // Stop interpreter loop.
@@ -402,11 +385,7 @@ export function create_ecx(
   // Cannot capture anything GC-relevant here.
   // `argc` and `argv` *are* GC_relevant, but they also get stored in `machine.argc` and
   // `machine.argv` so we are good.
-  const on_main_stack_empty_cb: StackEmptyCallback = (m) => {
-    const r = on_main_stack_empty(main_thread_state, m);
-    if (r.$ === "Err") return r;
-    return interp_ok(pending_poll(r._0));
-  };
+  const on_main_stack_empty_cb: StackEmptyCallback = (m) => on_main_stack_empty(main_thread_state, m);
   const li = MiriMachine.late_init(ecx, config, on_main_stack_empty_cb);
   if (li.$ === "Err") return li;
 
@@ -447,13 +426,12 @@ function call_main(ecx: MiriInterpCx, entry_id: DefId, entry_type: MiriEntryFnTy
       // (This means we are effectively ignoring `-Zon-broken-pipe`.)
       const sigpipe = sigpipe_DEFAULT;
 
-      const fn_ptr_layout = ecx.layout_of(Ty.new_fn_ptr(tcx, entry_sig));
-      if (fn_ptr_layout.$ === "Err") panic("called `Result::unwrap()` on an `Err` value");
+      const fn_ptr_layout = unwrap_result(ecx.layout_of(Ty.new_fn_ptr(tcx, entry_sig)), debug_InterpErrorKind);
       const r = ecx.call_function(
         start_instance,
         ExternAbi.Rust,
         [
-          MiriImmTy.from_scalar(interp_Scalar.from_pointer(main_ptr, ecx), fn_ptr_layout._0),
+          MiriImmTy.from_scalar(interp_Scalar.from_pointer(main_ptr, ecx), fn_ptr_layout),
           argc,
           argv,
           MiriImmTy.from_uint(BigInt(sigpipe), ecx.machine.layouts.u8),
@@ -548,7 +526,7 @@ export function eval_entry(
         break miri_error;
       }
       // Check for memory leaks.
-      // info!("Additional static roots: {:?}", ecx.machine.static_roots);
+      tracing.info("miri::eval", () => `Additional static roots: ${debug_vec(ecx.machine.static_roots, PLAIN, debug_AllocId)}`);
       const leaks = ecx.take_leaked_allocations((ecx) => (ecx as unknown as MiriInterpCx).machine.static_roots);
       if (leaks.length !== 0) {
         report_leaks(ecx, leaks);

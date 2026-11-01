@@ -4,13 +4,9 @@
 //
 // PORT: `AllocRange` is `Copy` and never mutated in place by this crate (a new one is built wherever upstream assigns a
 // field), so copies of it share the object; `RetagOp` / `Creation` / `Item` copies are `clone_*`.
-// PORT(contract): two impls this file needs live in other lanes' files and were not declared by the skeleton; they are
-// looked up on the owning module's namespace at call time (C10: never at load) and stop `unported` until that lane
-// exports them under the expected name:
-// - `impl fmt::Display for AccessKind` (borrow_tracker/mod.rs:21; lane miri-alloc) as `display_AccessKind(kind)`;
-// - `impl MachineStopType for TerminationInfo` (diagnostics.rs:113; lane miri-driver), the boxing of
-//   `err_machine_stop!(TerminationInfo::..)`, as `TerminationInfo_as_MachineStopType(info)` (the rustc_const_eval
-//   precedent `ConstEvalErrKind_as_MachineStopType`).
+// PORT: `err_machine_stop!(TerminationInfo::..)` is miri-driver's `TerminationInfo_into_machine_stop(info)` (diagnostics.ts);
+// `impl fmt::Display for AccessKind` is lane miri-alloc's `display_AccessKind` (borrow_tracker/mod.ts). Both are read
+// through the namespace imports at call time (C10: never at load).
 import * as borrow_tracker from "../mod.ts";
 import { type AccessKind, type BorTag, debug_AccessKind, debug_BorTag, type GlobalStateInner, type ProtectorKind } from "../mod.ts";
 import {
@@ -30,41 +26,20 @@ import {
 import { clone_Item, debug_Item, type Item, Permission } from "./item.ts";
 import { type Stack } from "./stack.ts";
 import * as miri_diagnostics from "../../diagnostics.ts";
-import { type TerminationInfo } from "../../diagnostics.ts";
 import { debug_ProvenanceExtra, type MiriMachine, ProvenanceExtra } from "../../machine.ts";
 import { Size } from "../../../rustc_abi/lib.ts";
 import { alloc_range, type AllocRange, display_AllocRange } from "../../../rustc_middle/mir/interpret/allocation.ts";
-import { type MachineStopType } from "../../../rustc_middle/mir/interpret/error.ts";
 import { type AllocId, display_AllocId, type InterpErrorKind } from "../../../rustc_middle/mir/interpret/mod.ts";
 import { type Span } from "../../../rustc_span/lib.ts";
 import { PLAIN } from "../../../std/fmt.ts";
-import { assert, unported, unreachable } from "../../../std/panic.ts";
+import { assert, unreachable } from "../../../std/panic.ts";
 export * from "./diagnostics.gen.ts";
-
-/** PORT(contract, header): `impl fmt::Display for AccessKind` (borrow_tracker/mod.rs:21), lane miri-alloc's. */
-function display_AccessKind(kind: AccessKind): string {
-  const impl = (borrow_tracker as unknown as { display_AccessKind?: (k: AccessKind) => string }).display_AccessKind;
-  if (impl === undefined) {
-    return unported("miri::borrow_tracker::AccessKind: Display (src/tools/miri/src/borrow_tracker/mod.rs:21; lane miri-alloc; needed by stacked_borrows diagnostics)");
-  }
-  return impl(kind);
-}
-
-/** PORT(contract, header): `Box::new(info)` as a `Box<dyn MachineStopType>` (diagnostics.rs:113), lane miri-driver's. */
-function TerminationInfo_as_MachineStopType(info: TerminationInfo): MachineStopType {
-  const impl = (miri_diagnostics as unknown as { TerminationInfo_as_MachineStopType?: (i: TerminationInfo) => MachineStopType })
-    .TerminationInfo_as_MachineStopType;
-  if (impl === undefined) {
-    return unported("miri::diagnostics::TerminationInfo: MachineStopType (src/tools/miri/src/diagnostics.rs:113; lane miri-driver; needed by stacked_borrows diagnostics)");
-  }
-  return impl(info);
-}
 
 /// Error reporting
 // rustc: src/tools/miri/src/borrow_tracker/stacked_borrows/diagnostics.rs:12 err_sb_ub
 export function err_sb_ub(msg: string, help: string[], history: TagHistory | undefined): InterpErrorKind {
   // err_machine_stop!(TerminationInfo::StackedBorrowsUb { msg, help, history })
-  return { $: "MachineStop", _0: TerminationInfo_as_MachineStopType({ $: "StackedBorrowsUb", msg, help, history }) };
+  return miri_diagnostics.TerminationInfo_into_machine_stop({ $: "StackedBorrowsUb", msg, help, history });
 }
 
 declare module "./diagnostics.gen.ts" {
@@ -174,7 +149,7 @@ Invalidation.prototype.generate_diagnostic = function (this: Invalidation): [str
 export function display_InvalidationCause(self: InvalidationCause): string {
   switch (self.$) {
     case "Access":
-      return display_AccessKind(self._0);
+      return borrow_tracker.display_AccessKind(self._0);
     case "Retag":
       return `${self._0} ${self._1.summary()}`;
   }
@@ -220,7 +195,7 @@ DiagnosticCx.prototype.unbuild = function (this: DiagnosticCx): DiagnosticCxBuil
 // impl AllocHistory
 // rustc: src/tools/miri/src/borrow_tracker/stacked_borrows/diagnostics.rs:217 new
 (AllocHistory as unknown as { new: (id: AllocId, item: Item, machine: MiriMachine) => AllocHistory }).new = function (id: AllocId, item: Item, machine: MiriMachine): AllocHistory {
-  return new AllocHistory(id, [item, machine.current_user_relevant_span()], [], [], []);
+  return new AllocHistory(id, [clone_Item(item), machine.current_user_relevant_span()], [], [], []);
 };
 
 // rustc: src/tools/miri/src/borrow_tracker/stacked_borrows/diagnostics.rs:227 retain
@@ -406,7 +381,7 @@ DiagnosticCx.prototype.access_error = function (this: DiagnosticCx, stack: Stack
     case "Dealloc":
       return this.dealloc_error(stack);
   }
-  const action = `attempting a ${display_AccessKind(op.kind)} using ${debug_ProvenanceExtra(op.tag, PLAIN)} at ${display_AllocId(this.history.id)}[${hex_alt(this.offset.bytes_u64())}]`;
+  const action = `attempting a ${borrow_tracker.display_AccessKind(op.kind)} using ${debug_ProvenanceExtra(op.tag, PLAIN)} at ${display_AllocId(this.history.id)}[${hex_alt(this.offset.bytes_u64())}]`;
   return err_sb_ub(
     `${action}${error_cause(stack, op.tag)}`,
     [operation_summary("an access", this.history.id, op.range)],

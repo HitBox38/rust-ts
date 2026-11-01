@@ -14,6 +14,7 @@ import { type DiagLevel, type NonHaltingDiagnostic, SpanDedupDiagnostic, type Te
 import { port_methods } from "../rust_ts/miri_stub.ts";
 import { type AllocExtra, type MemoryKind, type MiriInterpCx, MiriMachine, type Provenance, debug_ProvenanceExtra, display_MiriMemoryKind } from "./machine.ts";
 import type { MiriAllocBytes } from "./alloc/alloc_bytes.ts";
+import * as borrow_tracker from "./borrow_tracker/mod.ts";
 import { type AccessKind } from "./borrow_tracker/mod.ts";
 import { debug_Item } from "./borrow_tracker/stacked_borrows/item.ts";
 import { type Pointer } from "./lib.ts";
@@ -66,12 +67,6 @@ declare module "./diagnostics.gen.ts" {
     function new_(): SpanDedupDiagnostic;
     export { new_ as new };
   }
-}
-
-/** `impl Display for AccessKind` (borrow_tracker/mod.rs:22, lane miri-alloc). PORT(contract): pending miri-alloc (not
- * declared); root replaces this call with that lane's `display_AccessKind` when it lands. */
-function display_AccessKind(_k: AccessKind): string {
-  return unported("miri::borrow_tracker::AccessKind: Display (src/tools/miri/src/borrow_tracker/mod.rs:22; lane miri-alloc, not declared)");
 }
 
 // impl fmt::Display for TerminationInfo
@@ -693,7 +688,7 @@ port_methods("miri::diagnostics::MiriMachine", () => MiriMachine.prototype, {
     }
     case "AccessedAlloc": {
       const [id, range, access_kind] = [e._0, e._1, e._2];
-      title = `${display_AccessKind(access_kind)} at ${display_AllocId(id)}${display_AllocRange(range)}`;
+      title = `${borrow_tracker.display_AccessKind(access_kind)} at ${display_AllocId(id)}${display_AllocRange(range)}`;
       break;
     }
     case "FreedAlloc":

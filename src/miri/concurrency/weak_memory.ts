@@ -21,8 +21,8 @@
 //   are their one-arm `if let`s; `GlobalState::active_thread_state` returns a `Ref<ThreadClockSet>`, read as the
 //   `ThreadClockSet`.
 // - lane miri-driver: `impl Index<Position> for RangeObjectMap` (range_object_map.rs:133) is `buffers.v[pos].data`, its
-//   body; `impl VisitProvenance for Scalar` (provenance_gc.rs:125) is looked up as `VisitProvenance_Scalar` on
-//   provenance_gc's namespace at call time and stops `unported` until that lane exports it.
+//   body; `impl VisitProvenance for Scalar` (provenance_gc.rs:125) is `VisitProvenance_Scalar`, read on provenance_gc's
+//   namespace at call time (C10).
 // Logging: weak_memory.rs has no `info!` / `trace!` lines.
 import { type AtomicReadOrd, type AtomicRwOrd, type AtomicWriteOrd, type GlobalState as DataRaceState, type ThreadClockSet } from "./data_race.ts";
 import { type AllocDataRaceHandler } from "./data_race_handler.ts";
@@ -156,12 +156,7 @@ StoreBufferAlloc.prototype.visit_provenance = function (this: StoreBufferAlloc, 
       const val = element.val;
       // `impl VisitProvenance for Option<T>`: `if let Some(x) = self { x.visit_provenance(visit) }`
       if (val !== undefined) {
-        const impl = (provenance_gc as unknown as { VisitProvenance_Scalar?: { visit_provenance(self: Scalar, visit: VisitWith): void } })
-          .VisitProvenance_Scalar;
-        if (impl === undefined) {
-          unported("miri::provenance_gc: VisitProvenance for Scalar (src/tools/miri/src/provenance_gc.rs:125; lane miri-driver; needed by weak_memory)");
-        }
-        impl.visit_provenance(val, visit);
+        provenance_gc.VisitProvenance_Scalar.visit_provenance(val, visit);
       }
     }
   }

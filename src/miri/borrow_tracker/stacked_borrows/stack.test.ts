@@ -5,9 +5,9 @@
 // Upstream stack.rs / mod.rs / diagnostics.rs have no `#[cfg(test)]` tests.
 //
 // The machine is a stand-in with the three `MiriMachine` methods the diagnostics call (`current_user_relevant_span`,
-// `caller_span`, `emit_diagnostic`; lanes miri-eval / miri-driver). Error *reports* stop `unported` until lanes miri-alloc
-// (`Display for AccessKind`) and miri-driver (`TerminationInfo` as `MachineStopType`) land, so the error paths assert
-// `Unported` (the decision is made before the report is built).
+// `caller_span`, `emit_diagnostic`; lanes miri-eval / miri-driver). Error paths return the real
+// `Err(MachineStop(TerminationInfo::StackedBorrowsUb))` (lane miri-wire: miri-alloc's `Display for AccessKind` and
+// miri-driver's `TerminationInfo_into_machine_stop` are wired in); `sb_ub` asserts it and returns the message.
 import { expect, test } from "bun:test";
 import { BorrowTrackerMethod, type BorTag, GlobalStateInner, type ProtectorKind } from "../mod.ts";
 import { AllocHistory, type DiagnosticCx, DiagnosticCxBuilder, error_cause, RetagInfo, type RetagCause } from "./diagnostics.ts";
@@ -15,13 +15,13 @@ import { debug_Item, Item, type Permission } from "./item.ts";
 import { Permission_grants, Stack_access, Stack_dealloc, Stack_grant } from "./mod.ts";
 import { Stack } from "./stack.ts";
 import { type MiriMachine, type ProvenanceExtra } from "../../machine.ts";
-import { type NonHaltingDiagnostic } from "../../diagnostics.ts";
+import { type NonHaltingDiagnostic, TerminationInfoStop } from "../../diagnostics.ts";
 import { Size } from "../../../rustc_abi/lib.ts";
 import { alloc_range } from "../../../rustc_middle/mir/interpret/allocation.ts";
 import { type AllocId } from "../../../rustc_middle/mir/interpret/mod.ts";
 import { type Span } from "../../../rustc_span/lib.ts";
 import { PLAIN } from "../../../std/fmt.ts";
-import { Unported } from "../../../std/panic.ts";
+import { type InterpResult } from "../../../rustc_middle/mir/interpret/mod.ts";
 
 const T = (n: number) => n as BorTag;
 const C = (n: number): ProvenanceExtra => ({ $: "Concrete", _0: T(n) });
@@ -79,6 +79,16 @@ function write(c: Cx, tag: ProvenanceExtra) {
   return Stack_access(c.stack, "Write", tag, c.global, dcx_of(c, DiagnosticCxBuilder.write(c.machine, tag, RANGE)), c.exposed);
 }
 
+/** Asserts `Err(MachineStop(TerminationInfo::StackedBorrowsUb { .. }))` and returns its `msg`. */
+function sb_ub(r: InterpResult<unknown>): string {
+  if (r.$ !== "Err") throw new Error("expected a Stacked Borrows error");
+  const kind = r._0.kind();
+  if (kind.$ !== "MachineStop") throw new Error(`expected MachineStop, got ${kind.$}`);
+  const info = TerminationInfoStop.downcast_ref(kind._0);
+  if (info?.$ !== "StackedBorrowsUb") throw new Error(`expected StackedBorrowsUb, got ${info?.$}`);
+  return info.msg;
+}
+
 const show = (s: Stack) => s.borrows.map((i) => debug_Item(i, PLAIN)).join(" ");
 const ok = (r: { $: string }) => expect(r.$).toBe("Ok");
 
@@ -88,6 +98,18 @@ test("Permission::grants", () => {
   expect(Permission_grants("SharedReadOnly", "Write")).toBe(false);
   expect(Permission_grants("SharedReadOnly", "Read")).toBe(true);
   expect(Permission_grants("Disabled", "Read")).toBe(false);
+});
+
+test("Stack::new and AllocHistory::new copy the root Item (stack.rs:342, diagnostics.rs:217: `Item` is `Copy`)", () => {
+  const machine = { current_user_relevant_span: () => SPAN } as unknown as MiriMachine;
+  const item = Item.new(T(1), "Unique", false);
+  const stack = Stack.new(item);
+  const history = AllocHistory.new(ALLOC, item, machine);
+  // the caller keeps its copy: changing it touches neither the stack nor the history's root
+  item.set_permission("Disabled");
+  expect(show(stack)).toBe("[Unique for <1>]");
+  expect(debug_Item(history.root[0], PLAIN)).toBe("[Unique for <1>]");
+  expect(stack.borrows[0]).not.toBe(history.root[0]);
 });
 
 test("grant / access sequence on a heap location", () => {
@@ -122,8 +144,10 @@ test("error_cause texts", () => {
   expect(error_cause(c.stack, C(2))).toBe(", but that tag only grants SharedReadOnly permission for this location");
   expect(error_cause(c.stack, C(9))).toBe(", but that tag does not exist in the borrow stack for this location");
   expect(error_cause(c.stack, WILDCARD)).toBe(", but no exposed tags have suitable permission in the borrow stack for this location");
-  // The failing write itself: the decision is made, the report waits for miri-alloc / miri-driver.
-  expect(() => write(c, C(2))).toThrow(Unported);
+  // The failing write itself (diagnostics.rs:405 `access_error`, with `error_cause`).
+  expect(sb_ub(write(c, C(2)))).toBe(
+    "attempting a write access using <2> at alloc7[0x0], but that tag only grants SharedReadOnly permission for this location",
+  );
   expect(show(c.stack)).toBe("[Unique for <1>] [SharedReadOnly for <2>]");
 });
 
@@ -208,14 +232,20 @@ test("wildcard accesses collapse the stack into an unknown bottom", () => {
 test("protectors: strong ones stop a conflicting write, weak ones allow dealloc through their own tag", () => {
   const strong = cx("SharedReadWrite", [[2, "StrongProtector"]]);
   ok(retag(strong, 2, C(1), "Unique", "Write", true));
-  expect(() => write(strong, C(1))).toThrow(Unported); // protector_error
+  // protector_error (diagnostics.rs:435)
+  expect(sb_ub(write(strong, C(1)))).toBe(
+    "not granting access to tag <1> because that would remove [Unique for <2>] which is strongly protected",
+  );
   const weak = cx("SharedReadWrite", [[2, "WeakProtector"]]);
   ok(retag(weak, 2, C(1), "Unique", "Write", true));
   ok(Stack_dealloc(weak.stack, C(2), weak.global, dcx_of(weak, DiagnosticCxBuilder.dealloc(weak.machine, C(2))), weak.exposed));
   const weak2 = cx("SharedReadWrite", [[2, "WeakProtector"]]);
   ok(retag(weak2, 2, C(1), "Unique", "Write", true));
   // Deallocating through the parent pops the weakly protected item: a Conflict, UB.
-  expect(() => Stack_dealloc(weak2.stack, C(1), weak2.global, dcx_of(weak2, DiagnosticCxBuilder.dealloc(weak2.machine, C(1))), weak2.exposed)).toThrow(Unported);
+  // (protector_error of a `Dealloc` operation, diagnostics.rs:431)
+  expect(sb_ub(Stack_dealloc(weak2.stack, C(1), weak2.global, dcx_of(weak2, DiagnosticCxBuilder.dealloc(weak2.machine, C(1))), weak2.exposed))).toBe(
+    "deallocating while item [Unique for <2>] is weakly protected",
+  );
 });
 
 test("tracked tags report their popping", () => {
@@ -276,7 +306,7 @@ test("random grant / access / GC sequences keep the cache consistent and equal t
       const live = c.stack.borrows.map((i) => i.tag());
       const pick = (): number => (live.length > 0 && rnd() < 0.9 ? live[Math.floor(rnd() * live.length)]! : 1 + Math.floor(rnd() * next));
       let model_ok: boolean;
-      let run: () => { $: string };
+      let run: () => InterpResult<unknown>;
       if (r < 0.55) {
         const from = pick();
         const perm = PERMS[Math.floor(rnd() * 3)]!;
@@ -302,7 +332,7 @@ test("random grant / access / GC sequences keep the cache consistent and equal t
         ok(run());
       } else {
         const before = show(c.stack);
-        expect(run).toThrow(Unported);
+        sb_ub(run());
         expect(show(c.stack)).toBe(before);
       }
       c.stack.verify_cache_consistency();
