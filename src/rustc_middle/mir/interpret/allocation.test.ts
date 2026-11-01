@@ -30,7 +30,7 @@ import {
   ProvenanceMap,
 } from "./allocation.ts";
 import type { AllocId } from "./mod.ts";
-import { type CtfeProvenance, Pointer } from "./pointer.ts";
+import { type CtfeProvenance, Pointer, Provenance_CtfeProvenance } from "./pointer.ts";
 import { Scalar } from "./value.ts";
 
 const S = (n: number): Size => Size.from_bytes(n);
@@ -171,7 +171,7 @@ describe("ProvenanceMap", () => {
     expect(pm.range_empty(rg(12, 12), cx)).toBe(false); // crosses the edge 11|12 of the pointer at 8
     expect([...pm.get_range(rg(10, 30), cx)].map(([r, p]) => `${r_(r)}:${p}`)).toEqual(["8..16:17", "24..32:34"]);
     const rp = (o: number): string => {
-      const r = pm.read_ptr(S(o), cx);
+      const r = pm.read_ptr(S(o), cx, Provenance_CtfeProvenance);
       return r.$ === "Ok" ? `Ok(${r._0})` : `Err(${r._0.$}(${(r._0 as Extract<AllocError, { $: "ReadPartialPointer" }>)._0.bytes()}))`;
     };
     expect(rp(8)).toBe("Ok(17)");
@@ -193,7 +193,7 @@ describe("ProvenanceMap", () => {
       [28, 4, p2, 24], [29, 5, p2, 24], [30, 6, p2, 24], [31, 7, p2, 24],
     ]);
     expect(pm.bytes!.data[0]![1].bytes).toEqual([8, 9, 10, 11, 12, 13, 14, 15]);
-    const r = pm.read_ptr(S(8), cx);
+    const r = pm.read_ptr(S(8), cx, Provenance_CtfeProvenance);
     expect(r.$ === "Err" && r._0.$).toBe("ReadPartialPointer");
     expect(pm.merge_bytes(cx)).toBe(false);
     expect([...pm.provenances()]).toEqual([p1, p1, p1, p1, p2, p2, p2, p2]);
@@ -204,14 +204,14 @@ describe("ProvenanceMap", () => {
     pm2.insert_ptr(S(0), p1, cx);
     pm2.clear(rg(3, 4), data, cx);
     expect(pm2.bytes!.data.map(([o]) => o.bytes())).toEqual([0, 1, 2, 4, 5, 6, 7]);
-    const r2 = pm2.read_ptr(S(0), cx);
+    const r2 = pm2.read_ptr(S(0), cx, Provenance_CtfeProvenance);
     expect(r2.$ === "Err" && r2._0.$).toBe("ReadPartialPointer");
     pm2.bytes!.insert(S(3), { idx: 3, prov: p1, bytes: [0, 1, 2, 3, 4, 5, 6, 7] });
-    expect(pm2.read_ptr(S(0), cx)).toEqual({ $: "Ok", _0: p1 });
+    expect(pm2.read_ptr(S(0), cx, Provenance_CtfeProvenance)).toEqual({ $: "Ok", _0: p1 });
     expect(pm2.merge_bytes(cx)).toBe(true);
     expect([pm2.bytes, pm2.ptrs.data.map(([o, p]) => [o.bytes(), p])]).toEqual([undefined, [[0, p1]]]);
     // CtfeProvenance has no wildcard
-    expect(panics(() => pm2.write_wildcards(cx, data, rg(0, 2)))).toBe("called `Option::unwrap()` on a `None` value");
+    expect(panics(() => pm2.write_wildcards(cx, data, rg(0, 2), Provenance_CtfeProvenance))).toBe("called `Option::unwrap()` on a `None` value");
   });
 
   test("prepare_copy / apply_copy (repeated, with partial pointers at the start)", () => {
@@ -249,7 +249,7 @@ describe("Allocation", () => {
   test("get_bytes_strip_provenance: uninit and pointer bytes are errors with the bad range", () => {
     const a = Allocation.from_bytes(Uint8Array.from({ length: 16 }, (_, i) => i + 1), Align.ONE, "Mut", null);
     const strip = (r: AllocRange): string => {
-      const res = a.get_bytes_strip_provenance(cx, r);
+      const res = a.get_bytes_strip_provenance(cx, r, Provenance_CtfeProvenance);
       if (res.$ === "Ok") return `Ok(${[...res._0]})`;
       const e = res._0;
       return e.$ === "ReadPartialPointer" ? e.$ : `${e.$}(${e._0 === undefined ? "None" : `${r_(e._0.access)} bad ${r_(e._0.bad)}`})`;
@@ -261,7 +261,7 @@ describe("Allocation", () => {
     a.write_uninit(cx, rg(2, 3));
     expect(strip(rg(0, 4))).toBe("InvalidUninitBytes(0..4 bad 2..3)");
     // `read_scalar` checks the init mask first
-    const rs = a.read_scalar(cx, rg(0, 4), false);
+    const rs = a.read_scalar(cx, rg(0, 4), false, Provenance_CtfeProvenance);
     expect(rs.$ === "Err" && rs._0.$ === "InvalidUninitBytes" && r_(rs._0._0!.bad)).toBe("2..3");
     // overwriting part of the pointer keeps its other bytes as fragments; the returned view aliases the bytes
     const view = a.get_bytes_unchecked_for_overwrite(cx, rg(6, 10));
@@ -275,7 +275,7 @@ describe("Allocation", () => {
     a.clear_provenance(cx, rg(0, 16));
     expect(a.provenance.bytes!.data).toEqual([]);
     expect(a.provenance_merge_bytes(cx)).toBe(true);
-    expect(panics(() => a.get_bytes_unchecked_raw())).toBe("assertion failed: Prov::OFFSET_IS_ADDR");
+    expect(panics(() => a.get_bytes_unchecked_raw(Provenance_CtfeProvenance))).toBe("assertion failed: Prov::OFFSET_IS_ADDR");
     const p = a.get_bytes_unchecked_for_overwrite_ptr(cx, rg(14, 16));
     expect(p.length).toBe(2);
     expect(panics(() => a.get_bytes_unchecked_for_overwrite_ptr(cx, rg(14, 17)))).toBe("assertion failed: range.end().bytes_usize() <= self.bytes.len()");
@@ -326,15 +326,15 @@ describe("Allocation scalars", () => {
     expect(a.provenance.ptrs.data.map(([o, p]) => [o.bytes(), p])).toEqual([[0, p1]]);
     expect(a.write_scalar(cx, rg(8, 12), Scalar.from_uint<CtfeProvenance>(0xdead_beefn, S(4))).$).toBe("Ok");
     expect([...a.bytes.subarray(8, 12)]).toEqual([0xef, 0xbe, 0xad, 0xde]);
-    expect(scalar(a.read_scalar(cx, rg(0, 8), true))).toBe("Ptr(17, 16, 8)");
-    expect(scalar(a.read_scalar(cx, rg(0, 8), false))).toBe("Err(ReadPointerAsInt)");
-    expect(scalar(a.read_scalar(cx, rg(4, 8), false))).toBe("Err(ReadPointerAsInt)");
-    expect(scalar(a.read_scalar(cx, rg(8, 12), false))).toBe("Int(deadbeef, 4)");
-    expect(scalar(a.read_scalar(cx, rg(8, 16), true))).toBe("Err(InvalidUninitBytes)");
+    expect(scalar(a.read_scalar(cx, rg(0, 8), true, Provenance_CtfeProvenance))).toBe("Ptr(17, 16, 8)");
+    expect(scalar(a.read_scalar(cx, rg(0, 8), false, Provenance_CtfeProvenance))).toBe("Err(ReadPointerAsInt)");
+    expect(scalar(a.read_scalar(cx, rg(4, 8), false, Provenance_CtfeProvenance))).toBe("Err(ReadPointerAsInt)");
+    expect(scalar(a.read_scalar(cx, rg(8, 12), false, Provenance_CtfeProvenance))).toBe("Int(deadbeef, 4)");
+    expect(scalar(a.read_scalar(cx, rg(8, 16), true, Provenance_CtfeProvenance))).toBe("Err(InvalidUninitBytes)");
     a.write_uninit(cx, rg(12, 24));
     a.mark_init(rg(12, 24), true);
-    expect(scalar(a.read_scalar(cx, rg(8, 16), true))).toBe("Int(deadbeef, 8)");
-    expect(scalar(a.read_scalar(cx, rg(4, 12), true))).toBe("Err(ReadPartialPointer(4))");
+    expect(scalar(a.read_scalar(cx, rg(8, 16), true, Provenance_CtfeProvenance))).toBe("Int(deadbeef, 8)");
+    expect(scalar(a.read_scalar(cx, rg(4, 12), true, Provenance_CtfeProvenance))).toBe("Err(ReadPartialPointer(4))");
     // a pointer copied bytewise (two halves) re-assembles on read
     const b = Allocation.new(S(16), Align.EIGHT, "Zero", null);
     b.bytes.set(a.bytes.subarray(0, 8), 0);
@@ -343,7 +343,7 @@ describe("Allocation scalars", () => {
     b.provenance_apply_copy(copy, rg(0, 4), 1);
     b.provenance_apply_copy(copy2, rg(4, 8), 1);
     expect(b.provenance.bytes!.data.length).toBe(8);
-    expect(scalar(b.read_scalar(cx, rg(0, 8), true))).toBe("Ptr(17, 16, 8)");
+    expect(scalar(b.read_scalar(cx, rg(0, 8), true, Provenance_CtfeProvenance))).toBe("Ptr(17, 16, 8)");
     // a size mismatch of a pointer is an ICE (`to_bits_or_ptr_internal`)
     expect(panics(() => a.write_scalar(cx, rg(16, 20), Scalar.from_pointer(Pointer.new(p2, S(0)), cx)))).toBe("Scalar pointer has size 8 but expected 4");
   });
@@ -353,6 +353,6 @@ describe("Allocation scalars", () => {
     const a = Allocation.new(S(8), Align.ONE, "Zero", null);
     a.write_scalar(cx_big, rg(0, 4), Scalar.from_uint<CtfeProvenance>(0x0102_0304n, S(4)));
     expect([...a.bytes.subarray(0, 4)]).toEqual([1, 2, 3, 4]);
-    expect(scalar(a.read_scalar(cx_big, rg(0, 2), false))).toBe("Int(102, 2)");
+    expect(scalar(a.read_scalar(cx_big, rg(0, 2), false, Provenance_CtfeProvenance))).toBe("Int(102, 2)");
   });
 });

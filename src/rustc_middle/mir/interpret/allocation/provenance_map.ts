@@ -5,9 +5,8 @@
 // `range_to`, `range_from`). `[u8; 8]` (`PointerFrag::bytes`) is a `number[]` of 8 bytes. The iterators returned by
 // `get_range` / `provenances` / `ptr_fragments` are JS generators over the slices upstream borrows at the call.
 // PORT (D8): `Prov::OFFSET_IS_ADDR` / `Prov::WILDCARD` read the `Provenance` descriptor of a provenance value at hand
-// (`provenance_of(prov)`); where upstream reads them without a value, `Prov` is erased to `CtfeProvenance`
-// (`Provenance_CtfeProvenance`; both ported impls, `CtfeProvenance` and `AllocId`, have `OFFSET_IS_ADDR = false` and no
-// wildcard; M6 re-generalises).
+// (`provenance_of(prov)`); where upstream reads them without a value, the descriptor is passed in (`Prov:
+// Provenance<Prov>`, plan-m6 D3/A1; allocation.ts header). `==` on provenance values is `provenance_eq` (`PartialEq`).
 //! Store the provenance for each byte in the range, with a more efficient
 //! representation for the common case where PTR_SIZE consecutive bytes have the same provenance.
 import "../../mod.ts";
@@ -19,17 +18,13 @@ import { Err, Ok } from "../../../../std/result.ts";
 import { type Decoder, decode_tuple, decode_u64, decode_Vec, type Encodable, type Encoder, encode_tuple, encode_u64, encode_Vec } from "../../../../rustc_serialize/serialize.ts";
 import type { Range } from "../../../ty/decls.ts";
 import { type AllocRange, type AllocResult, alloc_range } from "../allocation.ts";
-import { type CtfeProvenance, type Provenance, Provenance_CtfeProvenance, provenance_of } from "../pointer.ts";
+import { type CtfeProvenance, type Provenance, provenance_eq } from "../pointer.ts";
 import { clone_PointerFrag, type PointerFrag, type ProvenanceCopy, ProvenanceMap } from "./provenance_map.gen.ts";
 export * from "./provenance_map.gen.ts";
 
 /** `<Size as Ord>::cmp` (the `SortedMap<Size, _>` comparator): `Size_cmp`. */
 export const cmp_Size: (a: Size, b: Size) => number = Size_cmp;
 
-/** PORT (D8): `Prov` (its associated consts) where no provenance value is at hand (see the header). */
-function Prov_<Prov>(): Provenance<Prov> {
-  return Provenance_CtfeProvenance as unknown as Provenance<Prov>;
-}
 
 /** `RangeBounds::is_empty` (`T: PartialOrd`, library/core ops/range.rs). */
 function range_bounds_is_empty(r: RangeBounds<Size>): boolean {
@@ -96,7 +91,7 @@ declare module "./provenance_map.gen.ts" {
     // interpret/allocation/provenance_map.rs:153 (lane mir-interp-a)
     merge_bytes(cx: HasDataLayout): boolean;
     // interpret/allocation/provenance_map.rs:186 (lane mir-interp-a)
-    read_ptr(offset: Size, cx: HasDataLayout): AllocResult<Prov | undefined>;
+    read_ptr(offset: Size, cx: HasDataLayout, Prov: Provenance<Prov>): AllocResult<Prov | undefined>;
     // interpret/allocation/provenance_map.rs:253 (lane mir-interp-a)
     range_empty(range: AllocRange, cx: HasDataLayout): boolean;
     // interpret/allocation/provenance_map.rs:258 (lane mir-interp-a)
@@ -106,7 +101,7 @@ declare module "./provenance_map.gen.ts" {
     // interpret/allocation/provenance_map.rs:293 (lane mir-interp-a)
     clear(range: AllocRange, data_bytes: Uint8Array, cx: HasDataLayout): void;
     // interpret/allocation/provenance_map.rs:348 (lane mir-interp-a)
-    write_wildcards(cx: HasDataLayout, data_bytes: Uint8Array, range: AllocRange): void;
+    write_wildcards(cx: HasDataLayout, data_bytes: Uint8Array, range: AllocRange, Prov: Provenance<Prov>): void;
     // interpret/allocation/provenance_map.rs:380 (lane mir-interp-a)
     prepare_copy(range: AllocRange, data_bytes: Uint8Array, cx: HasDataLayout): ProvenanceCopy<Prov>;
     // interpret/allocation/provenance_map.rs:460 (lane mir-interp-a)
@@ -257,7 +252,7 @@ ProvenanceMap.prototype.merge_bytes = function <Prov>(this: ProvenanceMap<Prov>,
     }
     for (let idx = 0; idx < frags.length; idx++) {
       const frag = frags[idx]![1];
-      if (!(frag.prov === first_frag.prov && bytes_eq(frag.bytes, first_frag.bytes) && frag.idx === (idx & 0xff))) {
+      if (!(provenance_eq(frag.prov, first_frag.prov) && bytes_eq(frag.bytes, first_frag.bytes) && frag.idx === (idx & 0xff))) {
         return false;
       }
     }
@@ -273,7 +268,8 @@ ProvenanceMap.prototype.merge_bytes = function <Prov>(this: ProvenanceMap<Prov>,
 /// Try to read a pointer from the given location, possibly by loading from many per-byte
 /// provenances.
 // rustc: compiler/rustc_middle/src/mir/interpret/allocation/provenance_map.rs:186 read_ptr
-ProvenanceMap.prototype.read_ptr = function <Prov>(this: ProvenanceMap<Prov>, offset: Size, cx: HasDataLayout): AllocResult<Prov | undefined> {
+// PORT (plan-m6 A1): `Prov` is the `Provenance` impl (header).
+ProvenanceMap.prototype.read_ptr = function <Prov>(this: ProvenanceMap<Prov>, offset: Size, cx: HasDataLayout, Prov: Provenance<Prov>): AllocResult<Prov | undefined> {
   // If there is pointer-sized provenance exactly here, we can just return that.
   const prov_ = this.get_ptr(offset);
   if (prov_ !== undefined) {
@@ -307,8 +303,9 @@ ProvenanceMap.prototype.read_ptr = function <Prov>(this: ProvenanceMap<Prov>, of
         break prov_block;
       }
       // If this is wildcard provenance, ignore this fragment.
-      const wildcard = provenance_of(frag.prov).WILDCARD;
-      if (wildcard !== undefined && frag.prov === wildcard) {
+      // `Some(frag.prov) == Prov::WILDCARD`
+      const wildcard = Prov.WILDCARD;
+      if (wildcard !== undefined && provenance_eq(frag.prov, wildcard)) {
         continue;
       }
       // For non-wildcard fragments, the index must match.
@@ -319,7 +316,7 @@ ProvenanceMap.prototype.read_ptr = function <Prov>(this: ProvenanceMap<Prov>, of
       // If there are expectations registered, check them.
       // If not, record this fragment as setting the expectations.
       if (expected !== undefined) {
-        if (!(frag.prov === expected[0] && bytes_eq(frag.bytes, expected[1]))) {
+        if (!(provenance_eq(frag.prov, expected[0]) && bytes_eq(frag.bytes, expected[1]))) {
           prov = undefined;
           break prov_block;
         }
@@ -329,9 +326,9 @@ ProvenanceMap.prototype.read_ptr = function <Prov>(this: ProvenanceMap<Prov>, of
     }
     // The final provenance is the expected one we found along the way, or wildcard if
     // we didn't find any.
-    prov = unwrap(expected !== undefined ? expected[0] : Prov_<Prov>().WILDCARD);
+    prov = unwrap(expected !== undefined ? expected[0] : Prov.WILDCARD);
   }
-  if (prov === undefined && !Prov_<Prov>().OFFSET_IS_ADDR) {
+  if (prov === undefined && !Prov.OFFSET_IS_ADDR) {
     // There are some bytes with provenance here but overall the provenance does not add up.
     // We need `OFFSET_IS_ADDR` to fall back to no-provenance here; without that option, we
     // must error.
@@ -460,8 +457,9 @@ function range_(start: Size, end: Size): RangeBounds<Size> {
 ///
 /// Provided for usage in Miri and panics otherwise.
 // rustc: compiler/rustc_middle/src/mir/interpret/allocation/provenance_map.rs:348 write_wildcards
-ProvenanceMap.prototype.write_wildcards = function <Prov>(this: ProvenanceMap<Prov>, cx: HasDataLayout, data_bytes: Uint8Array, range: AllocRange): void {
-  const wildcard = unwrap(Prov_<Prov>().WILDCARD);
+// PORT (plan-m6 A1): `Prov` is the `Provenance` impl (header).
+ProvenanceMap.prototype.write_wildcards = function <Prov>(this: ProvenanceMap<Prov>, cx: HasDataLayout, data_bytes: Uint8Array, range: AllocRange, Prov: Provenance<Prov>): void {
+  const wildcard = unwrap(Prov.WILDCARD);
 
   // Clear existing provenance in this range.
   this.clear(range, data_bytes, cx);

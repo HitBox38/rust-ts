@@ -10,7 +10,7 @@ import { ConstEvalErrKind_into_InterpErrorInfo } from "./error.ts";
 import { LongRunning_diagnostic, LongRunningWarn_diagnostic } from "../diagnostics.ts";
 import { FnArg } from "../interpret/call.ts";
 import { InterpCx } from "../interpret/eval_context.ts";
-import { AllocMap_provided, compile_time_machine, type MayLeak, RetagMode, type CtfeMemoryKind, type Machine } from "../interpret/machine.ts";
+import { AllocMap_provided, compile_time_machine, type MayLeak, RetagMode, type CtfeMemoryKind, type AnyMachine, type Machine } from "../interpret/machine.ts";
 import type { HasStaticRootDefId } from "../interpret/intern.ts";
 import { Immediate } from "../interpret/operand.ts";
 import { ensure_monomorphic_enough, type_implements_dyn_trait } from "../interpret/util.ts";
@@ -75,7 +75,7 @@ function is_power_of_two(n: number): boolean {
 }
 
 declare module "../interpret/eval_context.ts" {
-  interface InterpCx<M extends Machine = Machine> {
+  interface InterpCx<M extends AnyMachine = Machine> {
     // machine.rs:215 (lane ctfe-b)
     location_triple_for_span(span: Span): [Symbol, number, number];
     // machine.rs:234 (lane ctfe-b)
@@ -1406,6 +1406,11 @@ export function display_MemoryKind(self: MemoryKind, f: Fmt): string {
       return `heap allocation${was_made_global ? " (made global)" : ""}`;
     }
   }
+}
+
+/** PORT: the derived `PartialEq` of `MemoryKind` (`#[derive(PartialEq, Eq)]`; `M::MemoryKind: Eq` of the CTFE machines). */
+export function MemoryKind_eq(a: MemoryKind, b: MemoryKind): boolean {
+  return a.$ === b.$ && a.was_made_global === b.was_made_global;
 }
 
 // impl interpret::MayLeak for MemoryKind

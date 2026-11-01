@@ -9,7 +9,7 @@
 //! implement the logic on OpTy, and MPlaceTy calls that.
 import { FieldIdx, FieldsShape, Size, type VariantIdx } from "../../rustc_abi/lib.ts";
 import { InterpCx } from "./eval_context.ts";
-import { type Machine } from "./machine.ts";
+import { type AnyMachine, type Machine, type ProvOf } from "./machine.ts";
 import { MemPlaceMeta } from "./place.ts";
 import { ArrayIterator, OffsetMode } from "./projection.gen.ts";
 import { type CtfeProvenance, debug_InterpErrorKind, InterpErrorInfo_from_InterpErrorKind, type InterpResult, interp_ok, Scalar } from "../../rustc_middle/mir/interpret/mod.ts";
@@ -31,36 +31,36 @@ import { PlaceTy_from_MPlaceTy } from "./place.ts";
 export * from "./projection.gen.ts";
 
 declare module "./projection.gen.ts" {
-  interface ArrayIterator<P> {
+  interface ArrayIterator<Prov, P> {
     // projection.rs:119 (lane interp-ops)
     next(ecx: InterpCx): InterpResult<[bigint, P] | undefined>;
   }
 }
 
 declare module "./eval_context.ts" {
-  interface InterpCx<M extends Machine = Machine> {
+  interface InterpCx<M extends AnyMachine = Machine> {
     // projection.rs:150 (lane interp-ops)
-    project_field<P extends Projectable<P>>(base: P, field: FieldIdx): InterpResult<P>;
+    project_field<P extends Projectable<P, ProvOf<M>>>(base: P, field: FieldIdx): InterpResult<P>;
     // projection.rs:204 (lane interp-ops)
-    project_fields<P extends Projectable<P>>(base: P, fields: readonly FieldIdx[]): InterpResult<P[]>;
+    project_fields<P extends Projectable<P, ProvOf<M>>>(base: P, fields: readonly FieldIdx[]): InterpResult<P[]>;
     // projection.rs:213 (lane interp-ops)
-    project_downcast<P extends Projectable<P>>(base: P, variant: VariantIdx): InterpResult<P>;
+    project_downcast<P extends Projectable<P, ProvOf<M>>>(base: P, variant: VariantIdx): InterpResult<P>;
     // projection.rs:232 (lane interp-ops)
-    project_downcast_named<P extends Projectable<P>>(base: P, name: Symbol): InterpResult<[VariantIdx, P]>;
+    project_downcast_named<P extends Projectable<P, ProvOf<M>>>(base: P, name: Symbol): InterpResult<[VariantIdx, P]>;
     // projection.rs:248 (lane interp-ops)
-    project_index<P extends Projectable<P>>(base: P, index: bigint): InterpResult<P>;
+    project_index<P extends Projectable<P, ProvOf<M>>>(base: P, index: bigint): InterpResult<P>;
     // projection.rs:283 (lane interp-ops)
-    project_to_simd<P extends Projectable<P>>(base: P): InterpResult<[P, bigint]>;
+    project_to_simd<P extends Projectable<P, ProvOf<M>>>(base: P): InterpResult<[P, bigint]>;
     // projection.rs:294 (lane interp-ops)
-    project_constant_index<P extends Projectable<P>>(base: P, offset: bigint, min_length: bigint, from_end: boolean): InterpResult<P>;
+    project_constant_index<P extends Projectable<P, ProvOf<M>>>(base: P, offset: bigint, min_length: bigint, from_end: boolean): InterpResult<P>;
     // projection.rs:320 (lane interp-ops)
-    project_array_fields<P extends Projectable<P>>(base: P): InterpResult<ArrayIterator<P>>;
+    project_array_fields<P extends Projectable<P, ProvOf<M>>>(base: P): InterpResult<ArrayIterator<ProvOf<M>, P>>;
     // projection.rs:347 (lane interp-ops)
-    project_subslice<P extends Projectable<P>>(base: P, from: bigint, to: bigint, from_end: boolean): InterpResult<P>;
+    project_subslice<P extends Projectable<P, ProvOf<M>>>(base: P, from: bigint, to: bigint, from_end: boolean): InterpResult<P>;
     // projection.rs:405 (lane interp-ops)
-    project<P extends Projectable<P>>(base: P, proj_elem: PlaceElem): InterpResult<P>;
+    project<P extends Projectable<P, ProvOf<M>>>(base: P, proj_elem: PlaceElem): InterpResult<P>;
     // projection.rs:436 (lane interp-ops)
-    project_to_ptr_in_box<P extends Projectable<P>>(box_: P): InterpResult<[P, P]>;
+    project_to_ptr_in_box<P extends Projectable<P, ProvOf<M>>>(box_: P): InterpResult<[P, P]>;
   }
 }
 
@@ -70,34 +70,34 @@ declare module "./eval_context.ts" {
 // parameter (a generic `P: Projectable` is `P extends Projectable<P>`, an `&impl Projectable` parameter `Projectable`).
 // `layout()` is `layout_()` (clash with the implementors' field `layout`). The provided methods are `Projectable_provided`
 // (PORTING §8); the implementors' prototypes forward to it (installed below).
-export interface Projectable<Self = unknown> {
+export interface Projectable<Self = unknown, Prov = CtfeProvenance> {
   /// Get the layout.
   // rustc: compiler/rustc_const_eval/src/interpret/projection.rs:37 layout
   layout_(): TyAndLayout;
 
   /// Get the metadata of a wide value.
   // rustc: compiler/rustc_const_eval/src/interpret/projection.rs:40 meta
-  meta(): MemPlaceMeta;
+  meta(): MemPlaceMeta<Prov>;
 
   /// Get the length of a slice/string/array stored here.
-  len(ecx: InterpCx): InterpResult<bigint>; // (provided)
+  len(ecx: InterpCx<AnyMachine>): InterpResult<bigint>; // (provided)
 
   /// Offset the value by the given amount, replacing the layout and metadata.
   // rustc: compiler/rustc_const_eval/src/interpret/projection.rs:65 offset_with_meta
-  offset_with_meta(offset: Size, mode: OffsetMode, meta: MemPlaceMeta, layout: TyAndLayout, ecx: InterpCx): InterpResult<Self>;
+  offset_with_meta(offset: Size, mode: OffsetMode, meta: MemPlaceMeta<Prov>, layout: TyAndLayout, ecx: InterpCx<AnyMachine>): InterpResult<Self>;
 
-  offset(offset: Size, layout: TyAndLayout, ecx: InterpCx): InterpResult<Self>; // (provided)
+  offset(offset: Size, layout: TyAndLayout, ecx: InterpCx<AnyMachine>): InterpResult<Self>; // (provided)
 
   /// This does an offset-by-zero, which is effectively a transmute. Note however that
   /// not all transmutes are supported by all projectables -- specifically, if this is an
-  /// `OpTy` or `ImmTy`, the new layout must have almost the same ABI as the old one
+  /// `OpTy<Prov>` or `ImmTy`, the new layout must have almost the same ABI as the old one
   /// (only changing the `valid_range` is allowed and turning integers into pointers).
-  transmute(layout: TyAndLayout, ecx: InterpCx): InterpResult<Self>; // (provided)
+  transmute(layout: TyAndLayout, ecx: InterpCx<AnyMachine>): InterpResult<Self>; // (provided)
 
-  /// Convert this to an `OpTy`. This might be an irreversible transformation, but is useful for
+  /// Convert this to an `OpTy<Prov>`. This might be an irreversible transformation, but is useful for
   /// reading from this thing. This will never actually do a read from memory!
   // rustc: compiler/rustc_const_eval/src/interpret/projection.rs:102 to_op
-  to_op(ecx: InterpCx): InterpResult<OpTy>;
+  to_op(ecx: InterpCx<AnyMachine>): InterpResult<OpTy<Prov>>;
 }
 
 /** PORT: the provided methods of `Projectable` (PORTING §8). */
@@ -151,12 +151,12 @@ export const Projectable_provided = {
 
 // PORT: the provided `Projectable` methods on the implementors' prototypes (forwarders, no logic).
 declare module "./place.gen.ts" {
-  interface MPlaceTy extends Projectable<MPlaceTy> {}
-  interface PlaceTy extends Projectable<PlaceTy> {}
+  interface MPlaceTy<Prov = CtfeProvenance> extends Projectable<MPlaceTy<Prov>, Prov> {}
+  interface PlaceTy<Prov = CtfeProvenance> extends Projectable<PlaceTy<Prov>, Prov> {}
 }
 declare module "./operand.gen.ts" {
-  interface ImmTy extends Projectable<ImmTy> {}
-  interface OpTy extends Projectable<OpTy> {}
+  interface ImmTy<Prov = CtfeProvenance> extends Projectable<ImmTy<Prov>, Prov> {}
+  interface OpTy<Prov = CtfeProvenance> extends Projectable<OpTy<Prov>, Prov> {}
 }
 for (const C of [MPlaceTy, PlaceTy, ImmTy, OpTy] as { prototype: Projectable<unknown> }[]) {
   C.prototype.len = function (this: Projectable<unknown>, ecx: InterpCx): InterpResult<bigint> {
@@ -191,7 +191,7 @@ const U64_MAX = (1n << 64n) - 1n;
 
 /// Should be the same `ecx` on each call, and match the one used to create the iterator.
 // rustc: compiler/rustc_const_eval/src/interpret/projection.rs:119 next
-ArrayIterator.prototype.next = function <P>(this: ArrayIterator<P>, ecx: InterpCx): InterpResult<[bigint, P] | undefined> {
+ArrayIterator.prototype.next = function <P>(this: ArrayIterator<CtfeProvenance, P>, ecx: InterpCx): InterpResult<[bigint, P] | undefined> {
   // `self.range.next()`
   if (!(this.range.start < this.range.end)) return interp_ok(undefined);
   const idx = this.range.start;
@@ -380,7 +380,7 @@ InterpCx.prototype.project_constant_index = function <P extends Projectable<P>>(
 /// Iterates over all fields of an array. Much more efficient than doing the
 /// same by repeatedly calling `project_index`.
 // rustc: compiler/rustc_const_eval/src/interpret/projection.rs:320 project_array_fields
-InterpCx.prototype.project_array_fields = function <P extends Projectable<P>>(this: InterpCx, base: P): InterpResult<ArrayIterator<P>> {
+InterpCx.prototype.project_array_fields = function <P extends Projectable<P>>(this: InterpCx, base: P): InterpResult<ArrayIterator<CtfeProvenance, P>> {
   const fields = base.layout_().fields;
   if (fields.$ !== "Array") {
     return span_bug(this.cur_span(), `project_array_fields: expected an array layout, got ${format_debug(base.layout_(), debug_TyAndLayout_Ty, PRETTY)}`);
@@ -397,7 +397,7 @@ InterpCx.prototype.project_array_fields = function <P extends Projectable<P>>(th
   if (r.$ === "Err") return r;
   // Create the iterator.
   // PORT: `Range<u64>` is `ArrayIterator.range` (numbers, codegen); `len` passed the in-bounds check above.
-  return interp_ok(new ArrayIterator<P>(base, { start: 0, end: Number(len) }, stride, field_layout, undefined));
+  return interp_ok(new ArrayIterator<CtfeProvenance, P>(base, { start: 0, end: Number(len) }, stride, field_layout, undefined));
 };
 
 /// Subslicing

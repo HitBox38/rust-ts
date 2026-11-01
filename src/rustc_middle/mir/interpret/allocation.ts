@@ -4,9 +4,15 @@
 // PORT (D8): `Bytes = Box<[u8]>` is a `Uint8Array` (`AllocBytes_Box`); byte slices handed out (`&[u8]`, `&mut [u8]`,
 // `*mut u8`, `*mut [u8]`) are `Uint8Array` views (`subarray`), so writes go to the allocation. `Prov` stays a type parameter
 // (default `CtfeProvenance`), `Extra = ()` is `null`. `<Bytes as AllocBytes>::AllocParams` (`()` for `Box<[u8]>`) is
-// `null`. `Bytes: AllocBytes` (static dispatch on the type parameter) is `AllocBytes_Box` (`AllocBytes_of`): the only
-// `AllocBytes` impl at the pin outside Miri (M6 re-generalises); `Prov::OFFSET_IS_ADDR` (no provenance value at hand) is
-// `CtfeProvenance`'s (`Prov_`; both ported `Provenance` impls have `OFFSET_IS_ADDR = false`).
+// `null`.
+// PORT (plan-m6 D3/A1): static dispatch on a type parameter is a descriptor passed in, defaulting to the descriptor of the
+// parameter's default type: `Bytes: AllocBytes` in the constructors is `Bytes_: AllocBytes<Bytes, Params>` (default
+// `AllocBytes_Box`, `Bytes = Box<[u8]>`); `Prov::OFFSET_IS_ADDR` / `Prov::WILDCARD` with no provenance value at hand is
+// `Prov: Provenance<Prov>` (the interpreter passes `M::Provenance`, interpret/machine.ts `Machine.Provenance`); it is
+// always required (lane interp-miri-reconcile: no CTFE default, so tsc flags a caller that leaves it out; callers that
+// read tcx allocations pass `Provenance_CtfeProvenance`).
+// Every `AllocBytes` impl's value is a `Uint8Array` (a view of its storage, possibly a subclass): `Deref<Target = [u8]>`
+// is the value itself (`deref`), and `as_ptr` / `as_mut_ptr` return that view for every impl (`AllocBytes_Box`'s).
 // PORT: `Allocation::init_mask()` / `provenance()` are `init_mask_()` / `provenance_()` (the private fields hold the names;
 // mod.ts header). `ConstAllocation(Interned<Allocation>)` is a frozen class extending `Interned` (plan-m3 D2), made only
 // by `TyCtxt::mk_const_alloc` (`internee` = `self.0.0`); the allocation itself is not deep-frozen (typed arrays cannot be).
@@ -44,17 +50,17 @@ function tls(): typeof import("../../ty/context/tls.ts") {
 }
 var tls__m: typeof import("../../ty/context/tls.ts") | undefined;
 
-/** PORT (D8): `Bytes: AllocBytes` (see the header). */
-function AllocBytes_of<Bytes>(): AllocBytes<Bytes> {
-  return AllocBytes_Box as unknown as AllocBytes<Bytes>;
+/** PORT (D8, plan-m6 D3): `as_ptr` / `as_mut_ptr` of `Bytes: AllocBytes` (the identity on the view, see the header). */
+function AllocBytes_of<Bytes>(): AllocBytes<Bytes, unknown> {
+  return AllocBytes_Box as unknown as AllocBytes<Bytes, unknown>;
+}
+/** PORT (plan-m6 D3): the descriptor of the default `Bytes = Box<[u8]>` (see the header). */
+function AllocBytes_default<Bytes, Params>(): AllocBytes<Bytes, Params> {
+  return AllocBytes_Box as unknown as AllocBytes<Bytes, Params>;
 }
 /** PORT (D8): `Deref<Target = [u8]>` of `Bytes: AllocBytes` (see the header). */
 function deref<Bytes>(bytes: Bytes): Uint8Array {
   return bytes as unknown as Uint8Array;
-}
-/** PORT (D8): `Prov::OFFSET_IS_ADDR` / `Prov::WILDCARD` without a provenance value (see the header). */
-function Prov_<Prov>(): Provenance<Prov> {
-  return Provenance_CtfeProvenance as unknown as Provenance<Prov>;
 }
 /** `&bytes[start..end]` as a view, with core's slice index panics (`slice_index_fail`). */
 function slice_bytes(bytes: Uint8Array, start: number, end: number): Uint8Array {
@@ -72,15 +78,15 @@ const debug_size_plain = (v: Size): string => debug_Size(v, PLAIN);
 
 // rustc-trait: compiler/rustc_middle/src/mir/interpret/allocation.rs:30 AllocBytes
 /// Functionality required for the bytes of an `Allocation`.
-/** PORT: the trait as a descriptor over the bytes type `B` (`AllocParams` is `null` for `Box<[u8]>`). */
-export interface AllocBytes<B> {
+/** PORT: the trait as a descriptor over the bytes type `B`; `AllocParams` is the type parameter (`null` for `Box<[u8]>`). */
+export interface AllocBytes<B, AllocParams = null> {
   /// Create an `AllocBytes` from a slice of `u8`.
   // rustc: compiler/rustc_middle/src/mir/interpret/allocation.rs:37 from_bytes
-  from_bytes(slice: Uint8Array, _align: Align, _params: null): B;
+  from_bytes(slice: Uint8Array, _align: Align, _params: AllocParams): B;
   /// Create a zeroed `AllocBytes` of the specified size and alignment.
   /// Returns `None` if we ran out of memory on the host.
   // rustc: compiler/rustc_middle/src/mir/interpret/allocation.rs:45 zeroed
-  zeroed(size: Size, _align: Align, _params: null): B | undefined;
+  zeroed(size: Size, _align: Align, _params: AllocParams): B | undefined;
   /// Gives direct access to the raw underlying storage.
   // rustc: compiler/rustc_middle/src/mir/interpret/allocation.rs:52 as_mut_ptr
   as_mut_ptr(self: B): Uint8Array;
@@ -161,26 +167,37 @@ export class Allocation<Prov = CtfeProvenance, Extra = null, Bytes = Uint8Array>
   // ---- impl<Prov: Provenance, Bytes: AllocBytes> Allocation<Prov, (), Bytes> ----
   /// Creates an allocation initialized by the given bytes
   // rustc: compiler/rustc_middle/src/mir/interpret/allocation.rs:390 from_bytes
-  static from_bytes<Prov = CtfeProvenance, Bytes = Uint8Array>(slice: Uint8Array, align: Align, mutability: Mutability, params: null): Allocation<Prov, null, Bytes> {
-    const bytes = AllocBytes_of<Bytes>().from_bytes(slice, align, params);
+  static from_bytes<Prov = CtfeProvenance, Bytes = Uint8Array, Params = null>(
+    slice: Uint8Array,
+    align: Align,
+    mutability: Mutability,
+    params: Params,
+    Bytes_: AllocBytes<Bytes, Params> = AllocBytes_default<Bytes, Params>(),
+  ): Allocation<Prov, null, Bytes> {
+    const bytes = Bytes_.from_bytes(slice, align, params);
     const size = Size.from_bytes(deref(bytes).length);
     return new Allocation<Prov, null, Bytes>(bytes, ProvenanceMap.new<Prov>(), InitMask.new(size, true), align, mutability, null);
   }
 
   // rustc: compiler/rustc_middle/src/mir/interpret/allocation.rs:408 from_bytes_byte_aligned_immutable
-  static from_bytes_byte_aligned_immutable<Prov = CtfeProvenance, Bytes = Uint8Array>(slice: Uint8Array, params: null): Allocation<Prov, null, Bytes> {
-    return Allocation.from_bytes<Prov, Bytes>(slice, Align.ONE, "Not", params);
+  static from_bytes_byte_aligned_immutable<Prov = CtfeProvenance, Bytes = Uint8Array, Params = null>(
+    slice: Uint8Array,
+    params: Params,
+    Bytes_: AllocBytes<Bytes, Params> = AllocBytes_default<Bytes, Params>(),
+  ): Allocation<Prov, null, Bytes> {
+    return Allocation.from_bytes<Prov, Bytes, Params>(slice, Align.ONE, "Not", params, Bytes_);
   }
 
   // rustc: compiler/rustc_middle/src/mir/interpret/allocation.rs:415 new_inner
-  static new_inner<Prov, Bytes, R>(size: Size, align: Align, init: AllocInit, params: null, fail: () => R): Result<Allocation<Prov, null, Bytes>, R> {
+  // PORT (plan-m6 D3): `Bytes_` (no default: a private helper) is the `Bytes: AllocBytes` impl (header).
+  static new_inner<Prov, Bytes, Params, R>(size: Size, align: Align, init: AllocInit, params: Params, fail: () => R, Bytes_: AllocBytes<Bytes, Params>): Result<Allocation<Prov, null, Bytes>, R> {
     // We raise an error if we cannot create the allocation on the host.
     // This results in an error that can happen non-deterministically, since the memory
     // available to the compiler can change between runs. Normally queries are always
     // deterministic. However, we can be non-deterministic here because all uses of const
     // evaluation (including ConstProp!) will make compilation fail (via hard error
     // or OOM) upon encountering a `MemoryExhausted` error.
-    const bytes = AllocBytes_of<Bytes>().zeroed(size, align, params);
+    const bytes = Bytes_.zeroed(size, align, params);
     if (bytes === undefined) return Err(fail());
 
     return Ok(
@@ -208,12 +225,18 @@ export class Allocation<Prov = CtfeProvenance, Extra = null, Bytes = Uint8Array>
   /// Try to create an Allocation of `size` bytes, failing if there is not enough memory
   /// available to the compiler to do so.
   // rustc: compiler/rustc_middle/src/mir/interpret/allocation.rs:448 try_new
-  static try_new<Prov = CtfeProvenance, Bytes = Uint8Array>(size: Size, align: Align, init: AllocInit, params: null): InterpResult<Allocation<Prov, null, Bytes>> {
+  static try_new<Prov = CtfeProvenance, Bytes = Uint8Array, Params = null>(
+    size: Size,
+    align: Align,
+    init: AllocInit,
+    params: Params,
+    Bytes_: AllocBytes<Bytes, Params> = AllocBytes_default<Bytes, Params>(),
+  ): InterpResult<Allocation<Prov, null, Bytes>> {
     return InterpResult.from_result(
-      Allocation.new_inner<Prov, Bytes, InterpErrorKind>(size, align, init, params, () => {
+      Allocation.new_inner<Prov, Bytes, Params, InterpErrorKind>(size, align, init, params, () => {
         tls().with_((tcx) => tcx.dcx().delayed_bug("exhausted memory during interpretation"));
         return { $: "ResourceExhaustion", _0: "MemoryExhausted" };
-      }),
+      }, Bytes_),
       InterpErrorInfo_from_InterpErrorKind,
     );
   }
@@ -224,14 +247,20 @@ export class Allocation<Prov = CtfeProvenance, Extra = null, Bytes = Uint8Array>
   /// Example use case: To obtain an Allocation filled with specific data,
   /// first call this function and then call write_scalar to fill in the right data.
   // rustc: compiler/rustc_middle/src/mir/interpret/allocation.rs:466 new
-  static new<Prov = CtfeProvenance, Bytes = Uint8Array>(size: Size, align: Align, init: AllocInit, params: null): Allocation<Prov, null, Bytes> {
-    const r = Allocation.new_inner<Prov, Bytes, never>(size, align, init, params, () => {
+  static new<Prov = CtfeProvenance, Bytes = Uint8Array, Params = null>(
+    size: Size,
+    align: Align,
+    init: AllocInit,
+    params: Params,
+    Bytes_: AllocBytes<Bytes, Params> = AllocBytes_default<Bytes, Params>(),
+  ): Allocation<Prov, null, Bytes> {
+    const r = Allocation.new_inner<Prov, Bytes, Params, never>(size, align, init, params, () => {
       // `size` may actually be bigger than isize::MAX since it is a *target* size.
       // Clamp it to isize::MAX to still give a somewhat reasonable error message.
       // `alloc::handle_alloc_error(Layout::from_size_align(size.bytes().min(isize::MAX as u64) as usize, align.bytes_usize()).unwrap())`
       void align;
       return unported(`std::alloc::handle_alloc_error (host allocation of ${size.bytes()} bytes failed: rustc aborts)`);
-    });
+    }, Bytes_);
     switch (r.$) {
       case "Ok":
         return r._0;
@@ -331,13 +360,13 @@ export class Allocation<Prov = CtfeProvenance, Extra = null, Bytes = Uint8Array>
   /// on `InterpCx` instead.
   // #[inline]
   // rustc: compiler/rustc_middle/src/mir/interpret/allocation.rs:586 get_bytes_strip_provenance
-  get_bytes_strip_provenance(cx: HasDataLayout, range: AllocRange): AllocResult<Uint8Array> {
+  get_bytes_strip_provenance(cx: HasDataLayout, range: AllocRange, Prov: Provenance<Prov>): AllocResult<Uint8Array> {
     const init = this.init_mask.is_range_initialized(range);
     if (init.$ === "Err") {
       const uninit_range = init._0;
       return Err({ $: "InvalidUninitBytes", _0: { access: range, bad: uninit_range } });
     }
-    if (!Prov_<Prov>().OFFSET_IS_ADDR && !this.provenance.range_empty(range, cx)) {
+    if (!Prov.OFFSET_IS_ADDR && !this.provenance.range_empty(range, cx)) {
       // Find the provenance.
       const next = this.provenance.get_range(range, cx).next();
       if (next.done) panic("there must be provenance somewhere here");
@@ -385,8 +414,8 @@ export class Allocation<Prov = CtfeProvenance, Extra = null, Bytes = Uint8Array>
   /// without resetting anything. Directly exposes `AllocBytes::as_mut_ptr`. Only works if
   /// `OFFSET_IS_ADDR` is true.
   // rustc: compiler/rustc_middle/src/mir/interpret/allocation.rs:652 get_bytes_unchecked_raw_mut
-  get_bytes_unchecked_raw_mut(): Uint8Array {
-    assert(Prov_<Prov>().OFFSET_IS_ADDR, "assertion failed: Prov::OFFSET_IS_ADDR");
+  get_bytes_unchecked_raw_mut(Prov: Provenance<Prov>): Uint8Array {
+    assert(Prov.OFFSET_IS_ADDR, "assertion failed: Prov::OFFSET_IS_ADDR");
     return AllocBytes_of<Bytes>().as_mut_ptr(this.bytes);
   }
 
@@ -394,8 +423,8 @@ export class Allocation<Prov = CtfeProvenance, Extra = null, Bytes = Uint8Array>
   /// without resetting anything. Directly exposes `AllocBytes::as_ptr`. Only works if
   /// `OFFSET_IS_ADDR` is true.
   // rustc: compiler/rustc_middle/src/mir/interpret/allocation.rs:660 get_bytes_unchecked_raw
-  get_bytes_unchecked_raw(): Uint8Array {
-    assert(Prov_<Prov>().OFFSET_IS_ADDR, "assertion failed: Prov::OFFSET_IS_ADDR");
+  get_bytes_unchecked_raw(Prov: Provenance<Prov>): Uint8Array {
+    assert(Prov.OFFSET_IS_ADDR, "assertion failed: Prov::OFFSET_IS_ADDR");
     return AllocBytes_of<Bytes>().as_ptr(this.bytes);
   }
 
@@ -421,7 +450,7 @@ export class Allocation<Prov = CtfeProvenance, Extra = null, Bytes = Uint8Array>
   /// It is the caller's responsibility to check bounds and alignment beforehand.
   /// Most likely, you want to call `InterpCx::read_scalar` instead of this method.
   // rustc: compiler/rustc_middle/src/mir/interpret/allocation.rs:687 read_scalar
-  read_scalar(cx: HasDataLayout, range: AllocRange, read_provenance: boolean): AllocResult<Scalar<Prov>> {
+  read_scalar(cx: HasDataLayout, range: AllocRange, read_provenance: boolean, Prov: Provenance<Prov>): AllocResult<Scalar<Prov>> {
     // First and foremost, if anything is uninit, bail.
     const init = this.init_mask.is_range_initialized(range);
     if (init.$ === "Err") {
@@ -436,7 +465,7 @@ export class Allocation<Prov = CtfeProvenance, Extra = null, Bytes = Uint8Array>
     if (read_provenance) {
       assert_eq(range.size, cx.data_layout().pointer_size(), debug_size_plain, size_eq);
 
-      const read = this.provenance.read_ptr(range.start, cx);
+      const read = this.provenance.read_ptr(range.start, cx, Prov);
       if (read.$ === "Err") return read;
       const prov = read._0;
       if (prov !== undefined) {
@@ -450,7 +479,7 @@ export class Allocation<Prov = CtfeProvenance, Extra = null, Bytes = Uint8Array>
     } else {
       // We are *not* reading a pointer.
       // If we can just ignore provenance or there is none, that's easy.
-      if (Prov_<Prov>().OFFSET_IS_ADDR || this.provenance.range_empty(range, cx)) {
+      if (Prov.OFFSET_IS_ADDR || this.provenance.range_empty(range, cx)) {
         // We just strip provenance.
         return Ok(Scalar.from_uint<Prov>(bits, range.size));
       }
@@ -519,10 +548,11 @@ export class Allocation<Prov = CtfeProvenance, Extra = null, Bytes = Uint8Array>
   ///
   /// If `range` is `None`, defaults to performing this on the whole allocation.
   // rustc: compiler/rustc_middle/src/mir/interpret/allocation.rs:779 process_native_write
-  process_native_write(cx: HasDataLayout, range: AllocRange | undefined): void {
+  // PORT (plan-m6 A1): `Prov` is the `Provenance` impl (header; Miri-only, so no default).
+  process_native_write(cx: HasDataLayout, range: AllocRange | undefined, Prov: Provenance<Prov>): void {
     const range_ = range ?? new AllocRange(Size.ZERO, Size.from_bytes(this.len()));
     this.mark_init(range_, true);
-    this.provenance.write_wildcards(cx, deref(this.bytes), range_);
+    this.provenance.write_wildcards(cx, deref(this.bytes), range_, Prov);
   }
 
   /// Remove all provenance in the given memory range.

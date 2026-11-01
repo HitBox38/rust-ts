@@ -4557,7 +4557,7 @@ function ConstAllocation_inner(alloc: ConstAllocation): Allocation {
 }
 /** `Ok(bytes)` is the bytes, `Err(_)` is `undefined`. */
 function Allocation_get_bytes_strip_provenance(alloc: Allocation, tcx: TyCtxt, range: AllocRange): Uint8Array | undefined {
-  const r = alloc.get_bytes_strip_provenance(tcx, range);
+  const r = alloc.get_bytes_strip_provenance(tcx, range, mir_interpret_pointer().Provenance_CtfeProvenance);
   return r.$ === "Ok" ? r._0 : undefined;
 }
 /** `Instance::def_id` / the field `instance.args` (ty/instance.rs). */

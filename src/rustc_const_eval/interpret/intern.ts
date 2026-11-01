@@ -20,7 +20,7 @@ import { type FxIndexMap_AllocMap, swap_remove } from "../const_eval/machine.ts"
 import * as diagnostics from "../diagnostics.ts";
 import { InterpCx } from "./eval_context.ts";
 import { debug_InternError, InternError, type InternKind } from "./intern.gen.ts";
-import { type CtfeMemoryKind, type Machine } from "./machine.ts";
+import { type CtfeMemoryKind, type AnyMachine, type ProvOf, type Machine } from "./machine.ts";
 import { MemoryKind } from "./memory.ts";
 import { DefPathData, PerParentDisambiguatorState } from "../../rustc_hir_id/definitions.ts";
 import { CodegenFnAttrs } from "../../rustc_middle/middle/codegen_fn_attrs.ts";
@@ -39,9 +39,9 @@ import { PlaceTy_from_MPlaceTy } from "./place.ts";
 export * from "./intern.gen.ts";
 
 declare module "./eval_context.ts" {
-  interface InterpCx<M extends Machine = Machine> {
+  interface InterpCx<M extends AnyMachine = Machine> {
     // intern.rs:383 (lane interp-validity-intern)
-    intern_with_temp_alloc(layout: TyAndLayout, f: (a0: InterpCx, a1: PlaceTy) => InterpResult<undefined>): InterpResult<AllocId>;
+    intern_with_temp_alloc(layout: TyAndLayout, f: (a0: InterpCx, a1: PlaceTy<ProvOf<M>>) => InterpResult<undefined>): InterpResult<AllocId>;
   }
 }
 

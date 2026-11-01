@@ -2,31 +2,31 @@
 // Hand-written additions (methods, manual Debug impls) go in place.ts next to this file.
 import { debug_Size, type Size } from "../../rustc_abi/lib.ts";
 import { clone_Misalignment, debug_Misalignment, type Misalignment } from "../../rustc_middle/mir/interpret/error.ts";
-import { type CtfeProvenance, debug_CtfeProvenance, debug_Pointer_Option, debug_Scalar, type Pointer, type Scalar } from "../../rustc_middle/mir/interpret/mod.ts";
+import { type CtfeProvenance, debug_Pointer_Option, debug_Scalar, type Pointer, type Scalar } from "../../rustc_middle/mir/interpret/mod.ts";
 import { debug_Local, type Local } from "../../rustc_middle/mir/mod.ts";
 import { type TyAndLayout } from "../../rustc_middle/ty/layout.ts";
-import { type Debug, debug_int, debug_option, debug_struct, debug_tuple } from "../../std/fmt.ts";
+import { type Debug, debug_int, debug_option, debug_struct, debug_tuple, type Fmt } from "../../std/fmt.ts";
 
 // rustc-type: compiler/rustc_const_eval/src/interpret/place.rs:26 MemPlaceMeta
 /// Information required for the sound usage of a `MemPlace`.
-export type MemPlaceMeta =
+export type MemPlaceMeta<Prov = CtfeProvenance> =
   /// The unsized payload (e.g. length for slices or vtable pointer for trait objects).
-  | { readonly $: "Meta"; _0: Scalar }
+  | { readonly $: "Meta"; _0: Scalar<Prov> }
   /// `Sized` types or unsized `extern type`
   | { readonly $: "None" };
 /** Unit variants of `MemPlaceMeta`, shared frozen singletons. */
 export const MemPlaceMeta = {
   None: Object.freeze({ $: "None" as const }),
 };
-export const debug_MemPlaceMeta: Debug<MemPlaceMeta> = (v, f) => {
+export function debug_MemPlaceMeta<Prov>(v: MemPlaceMeta<Prov>, f: Fmt, debug_Prov: Debug<Prov>): string {
   switch (v.$) {
     case "Meta":
-      return debug_tuple(f, "Meta", [debug_Scalar(v._0, f, debug_CtfeProvenance)]);
+      return debug_tuple(f, "Meta", [debug_Scalar(v._0, f, debug_Prov)]);
     case "None":
       return v.$;
   }
-};
-export function clone_MemPlaceMeta(v: MemPlaceMeta): MemPlaceMeta {
+}
+export function clone_MemPlaceMeta<Prov>(v: MemPlaceMeta<Prov>, clone_Prov: (v: Prov) => Prov): MemPlaceMeta<Prov> {
   switch (v.$) {
     case "Meta":
       return { $: "Meta", _0: v._0 };
@@ -36,44 +36,45 @@ export function clone_MemPlaceMeta(v: MemPlaceMeta): MemPlaceMeta {
 }
 
 // rustc-type: compiler/rustc_const_eval/src/interpret/place.rs:54 MemPlace
-export class MemPlace {
+export class MemPlace<Prov = CtfeProvenance> {
   constructor(
     /// The pointer can be a pure integer, with the `None` provenance.
-    public ptr: Pointer<CtfeProvenance | undefined>,
+    public ptr: Pointer<Prov | undefined>,
     /// Metadata for unsized places. Interpretation is up to the type.
     /// Must not be present for sized types, but can be missing for unsized types
     /// (e.g., `extern type`).
-    public meta: MemPlaceMeta,
+    public meta: MemPlaceMeta<Prov>,
     /// Stores whether this place was created based on a sufficiently aligned pointer.
     public misaligned: Misalignment | undefined,
   ) {}
 }
-export const debug_MemPlace: Debug<MemPlace> = (v, f) =>
-  debug_struct(f, "MemPlace", [
-    ["ptr", debug_Pointer_Option(v.ptr, f, debug_CtfeProvenance)],
-    ["meta", debug_MemPlaceMeta(v.meta, f)],
+export function debug_MemPlace<Prov>(v: MemPlace<Prov>, f: Fmt, debug_Prov: Debug<Prov>): string {
+  return debug_struct(f, "MemPlace", [
+    ["ptr", debug_Pointer_Option(v.ptr, f, ((x, f) => debug_option(x, f, debug_Prov)))],
+    ["meta", debug_MemPlaceMeta(v.meta, f, debug_Prov)],
     ["misaligned", debug_option(v.misaligned, f, debug_Misalignment)],
   ]);
-export function clone_MemPlace(v: MemPlace): MemPlace {
-  return new MemPlace(v.ptr, clone_MemPlaceMeta(v.meta), (v.misaligned === undefined ? undefined : clone_Misalignment(v.misaligned)));
+}
+export function clone_MemPlace<Prov>(v: MemPlace<Prov>, clone_Prov: (v: Prov) => Prov): MemPlace<Prov> {
+  return new MemPlace(v.ptr, clone_MemPlaceMeta(v.meta, clone_Prov), (v.misaligned === undefined ? undefined : clone_Misalignment(v.misaligned)));
 }
 
 // rustc-type: compiler/rustc_const_eval/src/interpret/place.rs:102 MPlaceTy
 /// A MemPlace with its layout. Constructing it is only possible in this module.
-export class MPlaceTy {
+export class MPlaceTy<Prov = CtfeProvenance> {
   constructor(
-    public mplace: MemPlace,
+    public mplace: MemPlace<Prov>,
     public layout: TyAndLayout,
   ) {}
 }
-export function clone_MPlaceTy(v: MPlaceTy): MPlaceTy {
-  return new MPlaceTy(clone_MemPlace(v.mplace), v.layout);
+export function clone_MPlaceTy<Prov>(v: MPlaceTy<Prov>, clone_Prov: (v: Prov) => Prov): MPlaceTy<Prov> {
+  return new MPlaceTy(clone_MemPlace(v.mplace, clone_Prov), v.layout);
 }
 
 // rustc-type: compiler/rustc_const_eval/src/interpret/place.rs:185 Place
-export type Place =
+export type Place<Prov = CtfeProvenance> =
   /// A place referring to a value allocated in the `Memory` system.
-  | { readonly $: "Ptr"; _0: MemPlace }
+  | { readonly $: "Ptr"; _0: MemPlace<Prov> }
   /// To support alloc-free locals, we are able to write directly to a local. The offset indicates
   /// where in the local this place is located; if it is `None`, no projection has been applied
   /// and the type of the place is exactly the type of the local.
@@ -86,10 +87,10 @@ export type Place =
   ///
   /// This variant shall not be used for unsized types -- those must always live in memory.
   | { readonly $: "Local"; local: Local; offset: Size | undefined; locals_addr: number };
-export const debug_Place: Debug<Place> = (v, f) => {
+export function debug_Place<Prov>(v: Place<Prov>, f: Fmt, debug_Prov: Debug<Prov>): string {
   switch (v.$) {
     case "Ptr":
-      return debug_tuple(f, "Ptr", [debug_MemPlace(v._0, f)]);
+      return debug_tuple(f, "Ptr", [debug_MemPlace(v._0, f, debug_Prov)]);
     case "Local":
       return debug_struct(f, "Local", [
         ["local", debug_Local(v.local, f)],
@@ -97,11 +98,11 @@ export const debug_Place: Debug<Place> = (v, f) => {
         ["locals_addr", debug_int(v.locals_addr, f)],
       ]);
   }
-};
-export function clone_Place(v: Place): Place {
+}
+export function clone_Place<Prov>(v: Place<Prov>, clone_Prov: (v: Prov) => Prov): Place<Prov> {
   switch (v.$) {
     case "Ptr":
-      return { $: "Ptr", _0: clone_MemPlace(v._0) };
+      return { $: "Ptr", _0: clone_MemPlace(v._0, clone_Prov) };
     case "Local":
       return { $: "Local", local: v.local, offset: v.offset, locals_addr: v.locals_addr };
   }
@@ -114,12 +115,12 @@ export function clone_Place(v: Place): Place {
 /// for longer than a single operation. Popping and then pushing a stack frame can make `PlaceTy`
 /// point to the wrong destination. If the interpreter has multiple stacks, stack switching will
 /// also invalidate a `PlaceTy`.
-export class PlaceTy {
+export class PlaceTy<Prov = CtfeProvenance> {
   constructor(
-    public place: Place,
+    public place: Place<Prov>,
     public layout: TyAndLayout,
   ) {}
 }
-export function clone_PlaceTy(v: PlaceTy): PlaceTy {
-  return new PlaceTy(clone_Place(v.place), v.layout);
+export function clone_PlaceTy<Prov>(v: PlaceTy<Prov>, clone_Prov: (v: Prov) => Prov): PlaceTy<Prov> {
+  return new PlaceTy(clone_Place(v.place, clone_Prov), v.layout);
 }

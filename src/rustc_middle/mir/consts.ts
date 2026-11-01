@@ -236,10 +236,10 @@ ConstValue.try_get_slice_bytes_for_diagnostics = function (self: ConstValue, tcx
         return undefined;
       }
       // Read the wide pointer components.
-      const ptr_r = a.read_scalar(tcx, interp_alloc().alloc_range(offset, ptr_size), /* read_provenance */ true);
+      const ptr_r = a.read_scalar(tcx, interp_alloc().alloc_range(offset, ptr_size), /* read_provenance */ true, interp_pointer().Provenance_CtfeProvenance);
       if (ptr_r.$ === "Err") return undefined;
       const ptr = interp_value().Scalar.to_pointer(ptr_r._0, tcx);
-      const len_r = a.read_scalar(tcx, interp_alloc().alloc_range(offset.add(ptr_size), ptr_size), /* read_provenance */ false);
+      const len_r = a.read_scalar(tcx, interp_alloc().alloc_range(offset.add(ptr_size), ptr_size), /* read_provenance */ false, interp_pointer().Provenance_CtfeProvenance);
       if (len_r.$ === "Err") return undefined;
       const len_ = interp_error().InterpResult.discard_err(interp_value().Scalar.to_target_usize(len_r._0, tcx));
       if (len_ === undefined) return undefined;

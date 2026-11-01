@@ -1,0 +1,17 @@
+{
+  "//": [
+    "cfg truth table of Miri's cargo features (lane miri-contract, plan-m6 D2; set miri). The rustup `miri` component is built",
+    "with Miri's default features (`stack-cache`, `native-lib`; src/tools/miri/Cargo.toml). `native-lib` is out of scope (D2:",
+    "shims/native_lib is an `unported` stop), so the port is generated as built without it (decision miri-contract C6): the",
+    "`#[cfg(not(all(feature = \"native-lib\", unix)))]` items (`native_lib: Vec<!>`) and `-Zmiri-native-lib` stops `unported`.",
+    "Scope: this file is merged into the GLOBAL type map (set-local typemaps have no `cfg`), so these feature names hold for every",
+    "set. At the pin no compiler/ file of any set uses them (only rustc_llvm/build.rs has `check_only`, in no set); a set that",
+    "starts using one of these names must check this table (miri-contract review N6)."
+  ],
+  "cfg": {
+    "true": ["feature = \"stack-cache\""],
+    "false": ["feature = \"native-lib\"", "feature = \"genmc\"", "feature = \"expensive-consistency-checks\"", "feature = \"tracing\"", "feature = \"check_only\""]
+  },
+  "helpers": {},
+  "types": []
+}

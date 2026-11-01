@@ -9,7 +9,7 @@ import { type AddressSpace, FieldIdx, FieldsShape, type Integer, Scalar as abi_S
 import { debug_Layout, TyAndLayout as abi_TyAndLayout } from "../../rustc_abi/layout/ty.ts";
 import { find_attr } from "../../rustc_attr_ir/lib.ts";
 import { InterpCx } from "./eval_context.ts";
-import { type Machine, ReturnAction } from "./machine.ts";
+import { type AnyMachine, type ProvOf, type MachineTypesOf, type Machine, ReturnAction } from "./machine.ts";
 import { RetagMode } from "./machine.gen.ts";
 import { FnVal } from "./memory.ts";
 import { Immediate_from_Scalar, OpTy_from_ImmTy, OpTy_from_MPlaceTy } from "./operand.ts";
@@ -45,6 +45,7 @@ import { Err } from "../../std/result.ts";
 import { OpTy, ImmTy } from "./operand.gen.ts";
 import { MPlaceTy, PlaceTy } from "./place.gen.ts";
 import * as gen from "./call.gen.ts";
+import type { CtfeProvenance as gen_CtfeProvenance } from "../../rustc_middle/mir/interpret/mod.ts";
 
 // PORT: `FnAbi` / `ArgAbi` are rustc_target callconv/mod.ts's classes (lane fn-abi); `ArgAbi<'tcx, Ty<'tcx>>` is
 // `ArgAbi<Ty>`.
@@ -76,11 +77,11 @@ function slice_from<T>(s: readonly T[], n: number): T[] {
 export * from "./call.gen.ts";
 
 declare module "./eval_context.ts" {
-  interface InterpCx<M extends Machine = Machine> {
+  interface InterpCx<M extends AnyMachine = Machine> {
     // call.rs:58 (lane interp-step-call)
-    copy_fn_args(args: readonly FnArg[]): OpTy[];
+    copy_fn_args(args: readonly FnArg<ProvOf<M>>[]): OpTy<ProvOf<M>>[];
     // call.rs:63 (lane interp-step-call)
-    fn_arg_project_field(arg: FnArg, field: FieldIdx): InterpResult<FnArg>;
+    fn_arg_project_field(arg: FnArg<ProvOf<M>>, field: FieldIdx): InterpResult<FnArg<ProvOf<M>>>;
     // call.rs:75 (lane interp-step-call)
     has_trivial_abi(layout: TyAndLayout): InterpResult<boolean>;
     // call.rs:123 (lane interp-step-call)
@@ -94,17 +95,17 @@ declare module "./eval_context.ts" {
     // call.rs:365 (lane interp-step-call)
     check_argument_compat(caller_abi: ArgAbi<Ty>, callee_abi: ArgAbi<Ty>): InterpResult<boolean>;
     // call.rs:387 (lane interp-step-call)
-    pass_argument(caller_args: Iterator<[FnArg, ArgAbi<Ty>]>, callee_args_abis: Iterator<[number, ArgAbi<Ty>]>, callee_arg: mir_Place, callee_ty: Ty, already_live: boolean): InterpResult;
+    pass_argument(caller_args: Iterator<[FnArg<ProvOf<M>>, ArgAbi<Ty>]>, callee_args_abis: Iterator<[number, ArgAbi<Ty>]>, callee_arg: mir_Place, callee_ty: Ty, already_live: boolean): InterpResult;
     // call.rs:452 (lane interp-step-call)
-    init_stack_frame(instance: Instance, body: Body, caller_fn_abi: FnAbi<Ty>, args: readonly FnArg[], with_caller_location: boolean, destination: PlaceTy, cont: ReturnContinuation): InterpResult;
+    init_stack_frame(instance: Instance, body: Body, caller_fn_abi: FnAbi<Ty>, args: readonly FnArg<ProvOf<M>>[], with_caller_location: boolean, destination: PlaceTy<ProvOf<M>>, cont: ReturnContinuation): InterpResult;
     // call.rs:720 (lane interp-step-call)
-    init_fn_call(fn_val: FnVal<never>, _1: [ExternAbi, FnAbi<Ty> | undefined], args: readonly FnArg[], with_caller_location: boolean, destination: PlaceTy, target: BasicBlock | undefined, unwind: UnwindAction): InterpResult;
+    init_fn_call(fn_val: FnVal<MachineTypesOf<M>["ExtraFnVal"]>, _1: [ExternAbi, FnAbi<Ty> | undefined], args: readonly FnArg<ProvOf<M>>[], with_caller_location: boolean, destination: PlaceTy<ProvOf<M>>, target: BasicBlock | undefined, unwind: UnwindAction): InterpResult;
     // call.rs:954 (lane interp-step-call)
     assert_virtual_instance_matches_concrete(dyn_ty: Ty, def_id: DefId, virtual_instance: Instance, concrete_instance: Instance): void;
     // call.rs:983 (lane interp-step-call)
-    init_fn_tail_call(fn_val: FnVal<never>, _1: [ExternAbi, FnAbi<Ty> | undefined], args: readonly FnArg[], with_caller_location: boolean): InterpResult;
+    init_fn_tail_call(fn_val: FnVal<MachineTypesOf<M>["ExtraFnVal"]>, _1: [ExternAbi, FnAbi<Ty> | undefined], args: readonly FnArg<ProvOf<M>>[], with_caller_location: boolean): InterpResult;
     // call.rs:1037 (lane interp-step-call)
-    init_drop_in_place_call(place: PlaceTy, instance: Instance, target: BasicBlock, unwind: UnwindAction): InterpResult;
+    init_drop_in_place_call(place: PlaceTy<ProvOf<M>>, instance: Instance, target: BasicBlock, unwind: UnwindAction): InterpResult;
     // call.rs:1106 (lane interp-step-call)
     return_from_current_stack_frame(unwinding: boolean): InterpResult;
   }
@@ -117,7 +118,7 @@ export interface FnArg_methods {
   // call.rs:47 (lane interp-step-call)
   copy_fn_arg(self: FnArg): OpTy;
 }
-export type FnArg = gen.FnArg;
+export type FnArg<Prov = gen_CtfeProvenance> = gen.FnArg<Prov>;
 export const FnArg = {} as FnArg_methods;
 
 // rustc: compiler/rustc_const_eval/src/interpret/call.rs:38 layout

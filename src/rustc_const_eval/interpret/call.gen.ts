@@ -4,30 +4,31 @@ import { clone_OpTy, type OpTy } from "./operand.gen.ts";
 import { clone_MPlaceTy, type MPlaceTy } from "./place.gen.ts";
 import { debug_OpTy } from "./operand.ts";
 import { debug_MPlaceTy } from "./place.ts";
-import { type Debug, debug_tuple } from "../../std/fmt.ts";
+import { type CtfeProvenance } from "../../rustc_middle/mir/interpret/mod.ts";
+import { type Debug, debug_tuple, type Fmt } from "../../std/fmt.ts";
 
 // rustc-type: compiler/rustc_const_eval/src/interpret/call.rs:28 FnArg
 /// An argument passed to a function.
-export type FnArg =
+export type FnArg<Prov = CtfeProvenance> =
   /// Pass a copy of the given operand.
-  | { readonly $: "Copy"; _0: OpTy }
+  | { readonly $: "Copy"; _0: OpTy<Prov> }
   /// Allow for the argument to be passed in-place: destroy the value originally stored at that
   /// place and make the place inaccessible for the duration of the function call. This *must* be
   /// an in-memory place so that we can do the proper alias checks.
-  | { readonly $: "InPlace"; _0: MPlaceTy };
-export const debug_FnArg: Debug<FnArg> = (v, f) => {
+  | { readonly $: "InPlace"; _0: MPlaceTy<Prov> };
+export function debug_FnArg<Prov>(v: FnArg<Prov>, f: Fmt, debug_Prov: Debug<Prov>): string {
   switch (v.$) {
     case "Copy":
-      return debug_tuple(f, "Copy", [debug_OpTy(v._0, f)]);
+      return debug_tuple(f, "Copy", [debug_OpTy(v._0, f, debug_Prov)]);
     case "InPlace":
-      return debug_tuple(f, "InPlace", [debug_MPlaceTy(v._0, f)]);
+      return debug_tuple(f, "InPlace", [debug_MPlaceTy(v._0, f, debug_Prov)]);
   }
-};
-export function clone_FnArg(v: FnArg): FnArg {
+}
+export function clone_FnArg<Prov>(v: FnArg<Prov>, clone_Prov: (v: Prov) => Prov): FnArg<Prov> {
   switch (v.$) {
     case "Copy":
-      return { $: "Copy", _0: clone_OpTy(v._0) };
+      return { $: "Copy", _0: clone_OpTy(v._0, clone_Prov) };
     case "InPlace":
-      return { $: "InPlace", _0: clone_MPlaceTy(v._0) };
+      return { $: "InPlace", _0: clone_MPlaceTy(v._0, clone_Prov) };
   }
 }

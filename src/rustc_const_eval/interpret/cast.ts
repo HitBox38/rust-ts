@@ -1,7 +1,7 @@
 // Port of compiler/rustc_const_eval/src/interpret/cast.rs (declared by lane interp-contract, filled by lane interp-ops).
 import { BackendRepr, FieldIdx, FieldsShape, Integer, Size } from "../../rustc_abi/lib.ts";
 import { InterpCx } from "./eval_context.ts";
-import { type Machine } from "./machine.ts";
+import { type AnyMachine, type ProvOf, type Machine } from "./machine.ts";
 import { type Writeable } from "./place.ts";
 import {
   type CtfeProvenance,
@@ -12,6 +12,7 @@ import {
   PointerArithmetic_provided,
   Pointer_Option_from_Pointer,
   Scalar,
+  debug_provenance,
 } from "../../rustc_middle/mir/interpret/mod.ts";
 import { type CastKind, debug_CastKind } from "../../rustc_middle/mir/mod.ts";
 import { Instance } from "../../rustc_middle/ty/instance.ts";
@@ -43,27 +44,27 @@ import { PlaceTy } from "./place.gen.ts";
 import { ensure_monomorphic_enough } from "./util.ts";
 
 declare module "./eval_context.ts" {
-  interface InterpCx<M extends Machine = Machine> {
+  interface InterpCx<M extends AnyMachine = Machine> {
     // cast.rs:24 (lane interp-ops)
-    cast(src: OpTy, cast_kind: CastKind, cast_ty: Ty, dest: PlaceTy): InterpResult;
+    cast(src: OpTy<ProvOf<M>>, cast_kind: CastKind, cast_ty: Ty, dest: PlaceTy<ProvOf<M>>): InterpResult;
     // cast.rs:225 (lane interp-ops)
-    int_to_int_or_float(src: ImmTy, cast_to: TyAndLayout): InterpResult<ImmTy>;
+    int_to_int_or_float(src: ImmTy<ProvOf<M>>, cast_to: TyAndLayout): InterpResult<ImmTy<ProvOf<M>>>;
     // cast.rs:240 (lane interp-ops)
-    float_to_float_or_int(src: ImmTy, cast_to: TyAndLayout): InterpResult<ImmTy>;
+    float_to_float_or_int(src: ImmTy<ProvOf<M>>, cast_to: TyAndLayout): InterpResult<ImmTy<ProvOf<M>>>;
     // cast.rs:258 (lane interp-ops)
-    ptr_to_ptr(src: ImmTy, cast_to: TyAndLayout): InterpResult<ImmTy>;
+    ptr_to_ptr(src: ImmTy<ProvOf<M>>, cast_to: TyAndLayout): InterpResult<ImmTy<ProvOf<M>>>;
     // cast.rs:288 (lane interp-ops)
-    pointer_expose_provenance_cast(src: ImmTy, cast_to: TyAndLayout): InterpResult<ImmTy>;
+    pointer_expose_provenance_cast(src: ImmTy<ProvOf<M>>, cast_to: TyAndLayout): InterpResult<ImmTy<ProvOf<M>>>;
     // cast.rs:308 (lane interp-ops)
-    pointer_with_exposed_provenance_cast(src: ImmTy, cast_to: TyAndLayout): InterpResult<ImmTy>;
+    pointer_with_exposed_provenance_cast(src: ImmTy<ProvOf<M>>, cast_to: TyAndLayout): InterpResult<ImmTy<ProvOf<M>>>;
     // cast.rs:328 (lane interp-ops)
-    cast_from_int_like(scalar: Scalar, src_layout: TyAndLayout, cast_ty: Ty): InterpResult<Scalar>;
+    cast_from_int_like(scalar: Scalar<ProvOf<M>>, src_layout: TyAndLayout, cast_ty: Ty): InterpResult<Scalar<ProvOf<M>>>;
     // cast.rs:385 (lane interp-ops)
-    cast_from_float<F extends Float<F> & FloatConvert>(f: F, dest_ty: Ty): Scalar;
+    cast_from_float<F extends Float<F> & FloatConvert>(f: F, dest_ty: Ty): Scalar<ProvOf<M>>;
     // cast.rs:434 (lane interp-ops)
-    unsize_into_ptr(src: OpTy, dest: Writeable, source_ty: Ty, cast_ty: Ty): InterpResult;
+    unsize_into_ptr(src: OpTy<ProvOf<M>>, dest: Writeable<unknown, ProvOf<M>>, source_ty: Ty, cast_ty: Ty): InterpResult;
     // cast.rs:531 (lane interp-ops)
-    unsize_into(src: OpTy, cast_ty: TyAndLayout, dest: Writeable): InterpResult;
+    unsize_into(src: OpTy<ProvOf<M>>, cast_ty: TyAndLayout, dest: Writeable<unknown, ProvOf<M>>): InterpResult;
   }
 }
 
@@ -395,7 +396,7 @@ InterpCx.prototype.ptr_to_ptr = function (this: InterpCx, src: ImmTy, cast_to: T
       case "Scalar":
         return span_bug(
           this.cur_span(),
-          `${debug_Immediate(imm, PLAIN)} input to a fat-to-thin cast (${display_Ty(src.layout.ty)} -> ${display_Ty(cast_to.ty)})`,
+          `${debug_Immediate(imm, PLAIN, debug_provenance)} input to a fat-to-thin cast (${display_Ty(src.layout.ty)} -> ${display_Ty(cast_to.ty)})`,
         );
       case "Uninit":
         return ub({ $: "InvalidUninitBytes", _0: undefined });

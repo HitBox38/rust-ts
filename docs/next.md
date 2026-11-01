@@ -344,12 +344,18 @@ Follow-ups (queued):
 | plan-m6 | design lane: docs/plan-m6.md (Miri oracle in an isolated toolchain; run-pass; proc macros; D1–D14) | APPROVE WITH AMENDMENTS → accepted with A1–A11 (decision recorded); merged into integ-w35 |
 | interp-generic ✱ | D3/A1: generalise the interpreter's Machine types; re-port the OFFSET_IS_ADDR=true branches | running |
 | miri-contract ✱ | D2: src/miri skeleton, miri codegen set, MiriMachine/Provenance/BorTag/… types, stubs per fill lane | running |
-| pm-bridge | library/proc_macro bridge/* (~2.1k) | running |
-| pm-lib | library/proc_macro lib, diagnostic, escape, to_tokens, quote (~2.9k); the 30 quote! cases | running |
-| vendor-rand | D5: rand/rand_core 0.10.1 + chacha20 0.10.0 subset, byte-checked | running |
+| pm-bridge | library/proc_macro bridge/* (~2.1k; wire format = upstream's with_api! 31 methods; TS-to-TS tested) | APPROVE WITH NITS; merged into integ-w35 (hooks wired with pm-lib) |
+| pm-lib | library/proc_macro lib, diagnostic, escape, to_tokens, quote (~2.9k) | APPROVE WITH NITS; merged into integ-w35 |
+| pm-wiring (root) | lib.ts ↔ bridge/client.ts, quote! = BangProcMacro(Client.expand1(quote)), Rustc.default_TokenStream: the 30 quote! cases 330/330 MATCH on 11 suites through the real bridge | in review |
+| vendor-rand | D5: rand/rand_core 0.10.1 + chacha20 0.10.0 subset; 254-line StdRng oracle fixture byte-identical | APPROVE WITH NITS; merged into integ-w35 |
 | followups-34 | the size-bigint review nits and the 3 UB-field cases above (all 3 MATCH; codegen per-field typemap override, decision recorded) | APPROVE WITH NITS (N1 fixed by root); merged into integ-w35 |
 | harness-w35 | oracle-toolchain component check (UPSTREAM.json rust.components), gate-runner-unit nits, check-chain runner (core output only on failure), chain-run without /bin/sh, aux cleanup (harness batch) | APPROVE WITH NITS (nits 1-2 fixed by root); merged into integ-w35 |
-Then: harness-m6a (D1 isolated Miri toolchain + guard, Miri oracle cache, miri-hello / run-pass-miri / run-fail-miri,
-coverage crate `miri`, sparse src/tools/miri/tests) after harness-w35 merges; wave 36 Miri core (plan-m6 §5, with A2's split lanes). Small queue: harness-w35 nits (aux cleanup for mini_core-*/ui/*; disjointness test also for *_test.ts/*.spec.ts; probe
+| harness-m6a | D1 isolated Miri toolchain (`bun scripts/miri.ts setup`) + guard, Miri oracle runner/cache, miri-hello 1 / run-pass-miri 3,263 (+6 heavy) / run-fail-miri 263 (report), coverage crate `miri` (0/1,514; total 27,032), sparse src/tools/miri/tests | APPROVE WITH NITS; merged into integ-w35 |
+Then: wave 36 Miri core (plan-m6 §5, with A2's split lanes). Small queue: harness-m6a nits (crash-of-Miri detection via bug! path, unstable.ts pattern-order dependence, reject
+-Zmiri-disable-isolation argv or mark unstable; port side switches to src/miri/bin/miri.ts when miri-driver lands;
+`needs-*` directives evaluated (250 run-pass / 48 run-fail skipped); README `bun scripts/miri.ts setup`; Windows setup);
+register tools/probes/randstream (regenerates stdrng.oracle.txt) and crate-src.ts for yanked crates (harness);
+vendor-rand nits (x86 sampler skip reason, bernoulli.ts const order); coverage.ts counts // std: / // std-skip: markers (harness batch); pm-bridge nits (client.ts fn order,
+unknown-enum 255 encode, panic-hook branch test; pm-host's first test = a real oracle-built proc macro); harness-w35 nits (aux cleanup for mini_core-*/ui/*; disjointness test also for *_test.ts/*.spec.ts; probe
 builds run the toolchain check); `BoundsCheckFailed { len, index }` exact (one typemap
 `fields` entry + machine.ts / projection.ts); stale comment eval_context.ts:27.

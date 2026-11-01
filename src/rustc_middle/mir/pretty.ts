@@ -76,7 +76,7 @@ import { AllocRange, alloc_range } from "./interpret/allocation.ts";
 import { debug_AllocError } from "./interpret/allocation.gen.ts";
 import type { PointerFrag } from "./interpret/allocation/provenance_map.gen.ts";
 import { debug_AllocId, GlobalAlloc, read_target_uint } from "./interpret/mod.ts";
-import { CtfeProvenance, debug_CtfeProvenance, debug_Pointer, Pointer } from "./interpret/pointer.ts";
+import { CtfeProvenance, debug_CtfeProvenance, debug_Pointer, Pointer, Provenance_CtfeProvenance } from "./interpret/pointer.ts";
 import {
   clone_Location,
   debug_Location,
@@ -2403,7 +2403,7 @@ export function pretty_print_const_value_tcx(tcx: TyCtxt, ct: ConstValue, ty: Ty
     const alloc = GlobalAlloc.unwrap_memory(tcx.global_alloc(alloc_id));
     // cast is ok because we already checked for pointer size (32 or 64 bit) above
     const range = new AllocRange(offset, Size.from_bytes(n));
-    const byte_str = unwrap_result(alloc.inner().get_bytes_strip_provenance(tcx, range), debug_AllocError);
+    const byte_str = unwrap_result(alloc.inner().get_bytes_strip_provenance(tcx, range, Provenance_CtfeProvenance), debug_AllocError);
     let out = "*";
     out += pretty_print_byte_str(fmt, byte_str);
     return out;
