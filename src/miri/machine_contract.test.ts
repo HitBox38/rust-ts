@@ -106,7 +106,9 @@ test("M1/M7: MiriMachine's associated items, provided defaults and impl stubs; M
   expect(unported_msg(() => m.stack_(fake_ecx))).toContain("thread::EvalContextExt::active_thread_stack (");
   // lane miri-driver ported `MonoHashMap` (data_structures/mono_hash_map.rs): `MemoryMap::default()` is an empty map.
   expect(m.MemoryMap_default()).toBeInstanceOf(MonoHashMap);
-  expect(unported_msg(() => AllocBytes_MiriAllocBytes.zeroed(Size.ZERO, Align.ONE, { $: "Global" }))).toContain("MiriAllocBytes::zeroed (");
+  // `impl AllocBytes for MiriAllocBytes` is ported (lane miri-alloc): a zero-sized allocation is an empty `MiriAllocBytes`
+  const z = AllocBytes_MiriAllocBytes.zeroed(Size.ZERO, Align.ONE, { $: "Global" });
+  expect(z instanceof MiriAllocBytes && z.length === 0).toBe(true);
   // MonoHashMap: `get` is the impl's (machine.rs `impl AllocMap for MonoHashMap` :98), `get_mut` the default
   expect(MonoHashMap.prototype.get_mut).toBe(AllocMap_provided.prototype.get_mut);
   expect(MonoHashMap.prototype.get).not.toBe(AllocMap_provided.prototype.get);

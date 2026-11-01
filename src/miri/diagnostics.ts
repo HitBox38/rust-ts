@@ -11,6 +11,7 @@
 // - `trace!` lines stay comments (plan-m6 A6: only `info!` events are ported, by lane miri-log).
 import { type ThreadId } from "./concurrency/thread.ts";
 import { type DiagLevel, type NonHaltingDiagnostic, SpanDedupDiagnostic, type TerminationInfo } from "./diagnostics.gen.ts";
+import { port_methods } from "../rust_ts/miri_stub.ts";
 import { type AllocExtra, type MemoryKind, type MiriInterpCx, MiriMachine, type Provenance, debug_ProvenanceExtra, display_MiriMemoryKind } from "./machine.ts";
 import type { MiriAllocBytes } from "./alloc/alloc_bytes.ts";
 import { type AccessKind } from "./borrow_tracker/mod.ts";
@@ -619,7 +620,9 @@ function report_msg(
 
 // impl<'tcx> MiriMachine<'tcx>
 // rustc: src/tools/miri/src/diagnostics.rs:639 emit_diagnostic
-MiriMachine.prototype.emit_diagnostic = function (this: MiriMachine, e: NonHaltingDiagnostic): void {
+port_methods("miri::diagnostics::MiriMachine", () => MiriMachine.prototype, {
+  // Registered, not assigned at load: MiriMachine is in an import cycle with this module (decision: port_methods, C10).
+  emit_diagnostic: function (this: MiriMachine, e: NonHaltingDiagnostic): void {
   // use NonHaltingDiagnostic::*;
 
   const stacktrace0 = Frame.generate_stacktrace_from_stack(this.threads.active_thread_stack() as unknown as readonly Frame[], this.tcx);
@@ -826,7 +829,7 @@ MiriMachine.prototype.emit_diagnostic = function (this: MiriMachine, e: NonHalti
   }
 
   report_msg(diag_level, title, [label], notes, helps, stacktrace, this.threads.active_thread_(), this);
-};
+}});
 
 // impl<'tcx> EvalContextExt<'tcx> for crate::MiriInterpCx<'tcx> {}
 // rustc: src/tools/miri/src/diagnostics.rs:842 emit_diagnostic
