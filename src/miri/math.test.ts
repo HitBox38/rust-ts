@@ -1,8 +1,9 @@
-// Tests of src/miri/math.ts (lane miri-eval): the port of math.rs's `#[cfg(test)] mod tests` (upstream order), plus
-// oracle checks of the float-error helpers, `generate_nan` (operator.rs) and the host float operations against
-// `math.oracle.txt`: the output of a scratch probe built with the pinned nightly (`nightly-2026-10-11`), rand =0.10.1
-// (chacha20 =0.10.0, Miri's Cargo.lock) and rustc_apfloat =0.2.3, running math.rs / operator.rs's code verbatim over
-// `StdRng::seed_from_u64(0)` (probe source and how to rebuild it: docs/handoff/miri-eval.md).
+// Tests of src/miri/math.ts (lanes miri-eval, miri-eval-fix): the port of math.rs's `#[cfg(test)] mod tests` (upstream
+// order), plus oracle checks of the float-error helpers, `generate_nan` (operator.rs) and the host float operations
+// against `math.oracle.txt`: the output of the probe docs/handoff/miri-eval-fix-probe (built with the pinned nightly
+// `nightly-2026-10-11`, rand =0.10.1 with chacha20 =0.10.0 as in Miri's Cargo.lock, rustc_apfloat =0.2.3; how to
+// rebuild it: docs/handoff/miri-eval-fix.md). Part 1 (RNG helpers) is host-independent; part 2 (host float
+// operations) is the host libm's and runs only on the fixture's host.
 import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -12,6 +13,7 @@ import {
   apply_random_float_error_ulp,
   clamp_float_value,
   fixed_float_value,
+  type HostFloatOperation,
   HostFloatOperation_Double,
   HostFloatOperation_Half,
   HostFloatOperation_Single,
@@ -27,6 +29,7 @@ import { StdRng } from "../vendor/rand/rngs/std.ts";
 import { Double, Half, type IeeeFloat, Quad, type Semantics, Single } from "../vendor/rustc_apfloat/ieee.ts";
 import type { FloatType } from "../vendor/rustc_apfloat/lib.ts";
 import { panic } from "../std/panic.ts";
+import { host_tuple } from "../rustc_session/config.ts";
 
 // rustc: src/tools/miri/src/math.rs:635 test_sqrt
 test("test_sqrt", () => {
@@ -108,40 +111,60 @@ function fake_ecx(mode: "Random" | "Max", rng: StdRng): MiriInterpCx {
   return ecx as unknown as MiriInterpCx;
 }
 
-test("float error helpers and generate_nan match the oracle (one StdRng stream, seed 0)", () => {
+/** The probe's `Counting`: counts the stream's `try_next_u32` / `try_next_u64` / `try_fill_bytes` calls. */
+function counting(rng: StdRng): { n32: number; n64: number; nbytes: number } {
+  const c = { n32: 0, n64: 0, nbytes: 0 };
+  const [u32, u64, bytes] = [rng.try_next_u32.bind(rng), rng.try_next_u64.bind(rng), rng.try_fill_bytes.bind(rng)];
+  rng.try_next_u32 = () => (c.n32++, u32());
+  rng.try_next_u64 = () => (c.n64++, u64());
+  rng.try_fill_bytes = (dst) => (c.nbytes++, bytes(dst));
+  return c;
+}
+
+test("float error helpers and generate_nan match the oracle (one StdRng stream, seed 0, draws checked per line)", () => {
   const rng = StdRng.seed_from_u64(0n);
+  const c = counting(rng);
   const random = fake_ecx("Random", rng);
   const max = fake_ecx("Max", rng);
-
-  for (const [v, want] of lines("are64")) {
-    expect(hex(apply_random_float_error(random, Double.from_bits(BigInt("0x" + v)), -10).to_bits(), 16)).toBe(want!);
-  }
-  for (const [v, want] of lines("are32")) {
-    expect(hex(apply_random_float_error(random, Single.from_bits(BigInt("0x" + v)), -20).to_bits(), 8)).toBe(want!);
-  }
-  for (const [v, want] of lines("aremax64")) {
-    expect(hex(apply_random_float_error(max, Double.from_bits(BigInt("0x" + v)), -10).to_bits(), 16)).toBe(want!);
-  }
-  for (const [v, want] of lines("ulp64")) {
-    expect(hex(apply_random_float_error_ulp(random, Double.from_bits(BigInt("0x" + v)), 4).to_bits(), 16)).toBe(want!);
-  }
-  for (const [v, want] of lines("ulp32")) {
-    expect(hex(apply_random_float_error_ulp(random, Single.from_bits(BigInt("0x" + v)), 16).to_bits(), 8)).toBe(want!);
-  }
-  for (const [v, want] of lines("ulpmax16")) {
-    expect(hex(apply_random_float_error_ulp(max, Half.from_bits(BigInt("0x" + v)), 4).to_bits(), 4)).toBe(want!);
+  /** A line's expected result and draw counts (`@ n32 n64 nbytes`), against the port's. */
+  const check = (l: string[], got: string, n: number): void => {
+    expect(l[n + 1]).toBe("@");
+    expect([got, `${c.n32} ${c.n64} ${c.nbytes}`]).toEqual([l[n]!, l.slice(n + 2, n + 5).join(" ")]);
+  };
+  const cases: [string, (v: bigint) => { to_bits(): bigint }, number][] = [
+    ["are64", (v) => apply_random_float_error(random, Double.from_bits(v), -10), 16],
+    ["are32", (v) => apply_random_float_error(random, Single.from_bits(v), -20), 8],
+    // Production: x86 `rcp` / `rsqrt` (intrinsics/x86/mod.rs) call it on `f32` with `err_scale = -12`.
+    ["are32m12", (v) => apply_random_float_error(random, Single.from_bits(v), -12), 8],
+    ["aremax32m12", (v) => apply_random_float_error(max, Single.from_bits(v), -12), 8],
+    ["aremax64", (v) => apply_random_float_error(max, Double.from_bits(v), -10), 16],
+    ["ulp64", (v) => apply_random_float_error_ulp(random, Double.from_bits(v), 4), 16],
+    ["ulp32", (v) => apply_random_float_error_ulp(random, Single.from_bits(v), 16), 8],
+    ["ulp16", (v) => apply_random_float_error_ulp(random, Half.from_bits(v), 4), 4],
+    ["ulpmax16", (v) => apply_random_float_error_ulp(max, Half.from_bits(v), 4), 4],
+    // `apply_random_float_error_to_imm` (machine.rs `apply_float_nondet`) dispatches `f128` too.
+    ["ulp128", (v) => apply_random_float_error_ulp(random, Quad.from_bits(v), 4), 32],
+    ["ulpmax128", (v) => apply_random_float_error_ulp(max, Quad.from_bits(v), 4), 32],
+  ];
+  for (const [tag, f, w] of cases) {
+    const ls = lines(tag);
+    expect(ls.length).toBeGreaterThan(0);
+    for (const l of ls) check(l, hex(f(BigInt("0x" + l[0])).to_bits(), w), 1);
   }
 
   const snan = Double.snan(5n);
   const qnan = Double.qnan(7n);
   const one = Double.from_bits(0x3ff0000000000000n);
   const nans = lines("nan");
-  const cases = [[one], [qnan], [snan, qnan], [snan]];
-  expect(nans.length).toBe(cases.length);
-  for (let i = 0; i < cases.length; i++) {
-    const r = random.generate_nan(cases[i]!, Single);
-    const r2 = random.generate_nan(cases[i]!, Double);
-    expect([hex(r.to_bits(), 8), hex(r2.to_bits(), 16)]).toEqual(nans[i]!);
+  const inputs = [[one], [qnan], [snan, qnan], [snan]];
+  expect(nans.length).toBe(inputs.length);
+  for (let i = 0; i < inputs.length; i++) {
+    const r = random.generate_nan(inputs[i]!, Single);
+    const r2 = random.generate_nan(inputs[i]!, Double);
+    const r3 = random.generate_nan(inputs[i]!, Half);
+    const r4 = random.generate_nan(inputs[i]!, Quad);
+    expect(nans[i]!.slice(0, 3).join(" ")).toBe(`${hex(r.to_bits(), 8)} ${hex(r2.to_bits(), 16)} ${hex(r3.to_bits(), 4)}`);
+    check(nans[i]!, hex(r4.to_bits(), 32), 3);
   }
   expect(hex(rng.next_u64(), 16)).toBe(lines("next")[0]![0]!);
 });
@@ -153,67 +176,174 @@ test("IeeeExt::pi is core's PI (oracle bits)", () => {
   expect(hex(IeeeExt_Double.pi().to_bits(), 16)).toBe(p64!);
 });
 
-/**
- * Host float operations against the oracle's libm (Rust's `f64::sin` & co. on this host). `f64` must match; `f32` /
- * `f16` are computed in `f64` and rounded (math.ts header) and are reported, not required, where the host `sinf`-family
- * result differs.
- */
-test("host float operations match the oracle's libm (f64 exactly; f32/f16 differences listed)", () => {
-  const ops = ["sin", "cos", "exp", "exp2", "ln", "log10", "log2", "powf", "powi"] as const;
-  const run = <F>(
-    H: typeof HostFloatOperation_Double,
-    F_: FloatType<IeeeFloat<Semantics>>,
-    v: IeeeFloat<Semantics>,
-    op: (typeof ops)[number],
-    powi_exp: number,
-  ): bigint => {
-    const h = H as unknown as typeof HostFloatOperation_Double;
-    const x = v as unknown as Parameters<typeof h.host_sin>[0];
-    const c = F_.from_str("1.37");
-    if (c.$ === "Err") panic("parse");
-    const y = (c._0 as unknown as IeeeFloat<Semantics>).convert(F_, { value: false }).value as unknown as typeof x;
-    switch (op) {
-      case "sin":
-        return h.host_sin(x).to_bits();
-      case "cos":
-        return h.host_cos(x).to_bits();
-      case "exp":
-        return h.host_exp(x).to_bits();
-      case "exp2":
-        return h.host_exp2(x).to_bits();
-      case "ln":
-        return h.host_log(x).to_bits();
-      case "log10":
-        return h.host_log10(x).to_bits();
-      case "log2":
-        return h.host_log2(x).to_bits();
-      case "powf":
-        return h.host_powf(x, y).to_bits();
-      case "powi":
-        return h.host_powi(x, powi_exp).to_bits();
+// ---- host float operations (math.oracle.txt `host` lines) ----
+//
+// The probe's part 2 (docs/handoff/miri-eval-fix-probe/main.rs): every host op of every width over a large
+// deterministic sample (f64 / f32: 200,000 inputs; f16: all 65,536, powf × 8 exponents, powi × 15), outputs folded
+// into an FNV-1a hash (NaN canonical: Miri replaces NaN results, math.rs callers' `adjust_nan`). These are the host
+// libm's results, so they hold only on the host the fixture was recorded on (`tuple` line); elsewhere the test is
+// skipped with the reason printed. To locate a mismatch: `mirimath <tuple> dump <width> <op>` prints the oracle's
+// words in the order of `outputs` below.
+
+/** The fixture's host and this machine's (`RUST_TS_HOST_TUPLE`, as rustc_session `host_tuple()` reads it). */
+const FIXTURE_TUPLE = lines("tuple")[0]![0]!;
+const HOST_TUPLE = ((): string | undefined => {
+  try {
+    return host_tuple();
+  } catch {
+    return undefined;
+  }
+})();
+const HOST_SKIP = HOST_TUPLE !== FIXTURE_TUPLE;
+if (HOST_SKIP) {
+  console.log(
+    `math.test.ts: host float operation checks skipped: math.oracle.txt holds the host libm results of ${FIXTURE_TUPLE}, ` +
+      `this host is ${HOST_TUPLE ?? "unknown (RUST_TS_HOST_TUPLE unset)"}`,
+  );
+}
+
+/** The probe's `Gen` (mulberry32) and its input classes. */
+class Gen {
+  constructor(private s: number) {}
+  next(): number {
+    this.s = (this.s + 0x6d2b79f5) >>> 0;
+    let t = this.s;
+    t = Math.imul(t ^ (t >>> 15), t | 1) >>> 0;
+    t = (t ^ (t + Math.imul(t ^ (t >>> 7), t | 61))) >>> 0;
+    return (t ^ (t >>> 14)) >>> 0;
+  }
+  f32_bits(c: number): number {
+    const u = this.next();
+    let e: number;
+    switch (c) {
+      case 0:
+        return u;
+      case 1:
+        e = 117 + (this.next() % 18);
+        break;
+      case 2:
+        e = 125 + (this.next() % 4);
+        break;
+      default:
+        e = 134 + (this.next() % 30);
     }
-  };
-  const diffs: string[] = [];
-  for (const [tag, H, F_, w, pe] of [
-    ["h64", HostFloatOperation_Double, Double, 16, 7],
-    ["h32", HostFloatOperation_Single, Single, 8, 7],
-    ["h16", HostFloatOperation_Half, Half, 4, 3],
-  ] as const) {
-    for (const l of lines(tag)) {
-      const v = (F_ as unknown as FloatType<IeeeFloat<Semantics>>).from_bits(BigInt("0x" + l[0]));
-      for (let i = 0; i < ops.length; i++) {
-        const op = ops[i]!;
-        expect(l[1 + 2 * i]).toBe(op);
-        const want = l[2 + 2 * i]!;
-        const got = hex(run(H as never, F_ as unknown as FloatType<IeeeFloat<Semantics>>, v, op, pe), w);
-        if (got !== want) diffs.push(`${tag} ${l[0]} ${op}: port ${got} oracle ${want}`);
-      }
+    return ((u & 0x807fffff) | (e << 23)) >>> 0;
+  }
+  f64_bits(c: number): bigint {
+    let hi = this.next();
+    const lo = this.next();
+    switch (c) {
+      case 0:
+        break;
+      case 1:
+        hi = ((hi & 0x800fffff) | ((1013 + (this.next() % 18)) << 20)) >>> 0;
+        break;
+      case 2:
+        hi = ((hi & 0x800fffff) | ((1021 + (this.next() % 4)) << 20)) >>> 0;
+        break;
+      default:
+        hi = ((hi & 0x800fffff) | ((1030 + (this.next() % 60)) << 20)) >>> 0;
+    }
+    return (BigInt(hi) << 32n) | BigInt(lo);
+  }
+  powi_exp(i: number): number {
+    const u = this.next();
+    return i % 16 === 15 ? u | 0 : (u % 67) - 33;
+  }
+}
+
+const N = 200_000;
+const OPS = ["sin", "cos", "exp", "exp2", "ln", "log10", "log2", "powf", "powi"] as const;
+type Op = (typeof OPS)[number];
+const POWF16_Y = [0x3800, 0x3d7b, 0x4000, 0xbc00, 0xc100, 0x2e66, 0x47c0, 0x7c00];
+const POWI16_N = [-3, -2, -1, 1, 2, 3, 5, 7, -7, 11, 16, 31, -31, 2147483647, -2147483648];
+
+interface Soft<T> {
+  to_bits(): bigint;
+  is_nan(): boolean;
+}
+function host_op<T extends Soft<T>>(H: HostFloatOperation<T>, op: Op, x: T, y: T, n: number): T {
+  switch (op) {
+    case "sin":
+      return H.host_sin(x);
+    case "cos":
+      return H.host_cos(x);
+    case "exp":
+      return H.host_exp(x);
+    case "exp2":
+      return H.host_exp2(x);
+    case "ln":
+      return H.host_log(x);
+    case "log10":
+      return H.host_log10(x);
+    case "log2":
+      return H.host_log2(x);
+    case "powf":
+      return H.host_powf(x, y);
+    case "powi":
+      return H.host_powi(x, n);
+  }
+}
+
+/** The probe's `Fnv` (FNV-1a over the little-endian bytes of 32-bit words). */
+class Fnv {
+  h = 0x811c9dc5;
+  count = 0;
+  word(w: number): void {
+    this.count++;
+    for (let i = 0; i < 4; i++) {
+      this.h = Math.imul(this.h ^ ((w >>> (8 * i)) & 0xff), 0x01000193) >>> 0;
     }
   }
-  // f64 must be exact (same host libm through JavaScriptCore).
-  expect(diffs.filter((d) => d.startsWith("h64"))).toEqual([]);
-  if (diffs.length > 0) console.log(`host float op differences (f32/f16, see math.ts header):\n${diffs.join("\n")}`);
-});
+}
+
+/** The port's outputs of one op, hashed (the probe's `outputs` + `part2`). */
+function port_hash(width: "f64" | "f32" | "f16", op: Op): string {
+  const h = new Fnv();
+  if (width === "f64") {
+    const g = new Gen(0x6d697269);
+    for (let i = 0; i < N; i++) {
+      const x = Double.from_bits(g.f64_bits(i % 4));
+      const y = Double.from_bits(g.f64_bits(((i / 4) | 0) % 4));
+      const n = g.powi_exp(i);
+      const r = host_op(HostFloatOperation_Double, op, x, y, n);
+      const b = r.is_nan() ? 0x7ff8000000000000n : r.to_bits();
+      h.word(Number(b >> 32n));
+      h.word(Number(b & 0xffffffffn));
+    }
+  } else if (width === "f32") {
+    const g = new Gen(0x6d697269);
+    for (let i = 0; i < N; i++) {
+      const x = Single.from_bits(BigInt(g.f32_bits(i % 4)));
+      const y = Single.from_bits(BigInt(g.f32_bits(((i / 4) | 0) % 4)));
+      const n = g.powi_exp(i);
+      const r = host_op(HostFloatOperation_Single, op, x, y, n);
+      h.word(r.is_nan() ? 0x7fc00000 : Number(r.to_bits()));
+    }
+  } else {
+    const zero = Half.from_bits(0n);
+    const push = (r: Half): void => h.word(r.is_nan() ? 0x7e00 : Number(r.to_bits()));
+    const xs: Half[] = [];
+    for (let b = 0; b <= 0xffff; b++) xs.push(Half.from_bits(BigInt(b)));
+    if (op === "powf") {
+      for (const y of POWF16_Y) for (const x of xs) push(host_op(HostFloatOperation_Half, op, x, Half.from_bits(BigInt(y)), 0));
+    } else if (op === "powi") {
+      for (const n of POWI16_N) for (const x of xs) push(host_op(HostFloatOperation_Half, op, x, zero, n));
+    } else {
+      for (const x of xs) push(host_op(HostFloatOperation_Half, op, x, zero, 0));
+    }
+  }
+  return `${h.count} ${h.h.toString(16).padStart(8, "0")}`;
+}
+
+for (const width of ["f64", "f32", "f16"] as const) {
+  test.skipIf(HOST_SKIP)(`host float operations (${width}) are the oracle host's, bit for bit (hashed sample)`, () => {
+    const want = new Map(lines("host").filter((l) => l[0] === width).map((l) => [l[1]!, `${l[2]} ${l[3]}`]));
+    expect([...want.keys()]).toEqual([...OPS]);
+    const got = new Map<string, string>(OPS.map((op) => [op, port_hash(width, op)]));
+    expect(got).toEqual(want);
+  }, 120_000);
+}
 
 test("strip_float_suffix / clamp_float_value / fixed_float_value", () => {
   expect(strip_float_suffix("sinf32")).toBe("sin");

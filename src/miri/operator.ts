@@ -165,25 +165,6 @@ InterpCx.prototype.binary_ptr_op_ = function (this: MiriInterpCx, bin_op: BinOp,
   return interp_ok(res_imm);
 };
 
-/// Make the given NaN a signaling NaN.
-/// Returns `None` if this would not result in a NaN.
-// rustc: src/tools/miri/src/operator.rs:82 make_signaling
-function make_signaling<F extends Float<F>>(f: F): F | undefined {
-  const F_ = f.Self();
-  // The quiet/signaling bit is the leftmost bit in the mantissa.
-  // That's position `PRECISION-1`, since `PRECISION` includes the fixed leading 1 bit,
-  // and then we subtract 1 more since this is 0-indexed.
-  const quiet_bit_mask = 1n << BigInt(F_.PRECISION - 2);
-  // Unset the bit. Double-check that this wasn't the last bit set in the payload.
-  // (which would turn the NaN into an infinity).
-  const f2 = F_.from_bits(f.to_bits() & ~quiet_bit_mask & ((1n << 128n) - 1n));
-  if (f2.is_nan()) {
-    return f2;
-  } else {
-    return undefined;
-  }
-}
-
 /**
  * PORT: `iter::once(preferred_nan).chain(quieting).chain(signaling)` (operator.rs:98) as a `RustIterator`: core's
  * `Chain` (fuses its first half only), `Once` (`(n, Some(n))`), `Map<Filter<slice::Iter>>` / `FilterMap<Filter<..>>`
@@ -256,6 +237,25 @@ InterpCx.prototype.generate_nan = function <F1 extends Float<F1> & FloatConvert,
   const this_ = this.eval_context_ref();
   if (!this_.machine.float_nondet) {
     return F2_.NAN;
+  }
+
+  /// Make the given NaN a signaling NaN.
+  /// Returns `None` if this would not result in a NaN.
+  // rustc: src/tools/miri/src/operator.rs:82 make_signaling
+  function make_signaling<F extends Float<F>>(f: F): F | undefined {
+    const F_ = f.Self();
+    // The quiet/signaling bit is the leftmost bit in the mantissa.
+    // That's position `PRECISION-1`, since `PRECISION` includes the fixed leading 1 bit,
+    // and then we subtract 1 more since this is 0-indexed.
+    const quiet_bit_mask = 1n << BigInt(F_.PRECISION - 2);
+    // Unset the bit. Double-check that this wasn't the last bit set in the payload.
+    // (which would turn the NaN into an infinity).
+    const f2 = F_.from_bits(f.to_bits() & ~quiet_bit_mask & ((1n << 128n) - 1n));
+    if (f2.is_nan()) {
+      return f2;
+    } else {
+      return undefined;
+    }
   }
 
   const rand = this_.machine.rng;

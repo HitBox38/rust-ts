@@ -8,13 +8,13 @@
 //   `sqrt_op`, `host_unary_float_op`. `IeeeFloat<S>` with `S: Semantics` is `IeeeFloat<S>` / its dictionary.
 // - `ToHost` / `ToSoft` / `HostFloatOperation` / `IeeeExt` are impl tables (`ToHost_Double`, ...). A host `f64` is a JS
 //   number; a host `f32` / `f16` is a JS number holding a value exactly representable in that format.
-// - Host float operations (`HostFloatOperation`, "do not have guaranteed precision", host_unary_float_op): `f64` uses
-//   the JS `Math` functions, which Bun (JavaScriptCore) computes with the host libm like Rust's `f64::sin` & co.; there
-//   is no `exp2` in JS, so `exp2(x)` is `2 ** x` (libm `pow`). `f32` has no JS operation: it is the `f64` operation
-//   rounded to `f32` (`Math.fround`), where Rust calls the `f32` libm entry (`sinf`, ...); `f16` is LLVM's lowering on
-//   targets without `f16` libcalls (promote to `f32`, round back). These may differ from the oracle's libm in the last
-//   bit for some inputs (recorded in docs/handoff/miri-eval.md). `powi` is compiler-rt's `__powidf2` / `__powisf2`
-//   (repeated multiplication, ported exactly).
+// - Host float operations (`HostFloatOperation`, "do not have guaranteed precision", host_unary_float_op) compute what
+//   the pinned Miri binary computes on this host (established by disassembling it; src/rust_ts/host_libm.ts header):
+//   `sin cos exp exp2 ln log10 log2 powf` call the host libm (`f64`: `sin` ...; `f32`: `sinf` ...) through
+//   src/rust_ts/host_libm.ts (bun:ffi; Apple's libm has no source to port); `f16` widens to `f32`, calls the `f32`
+//   routine and rounds back; `powi` is compiler-builtins' `__powisf2` / `__powidf2` (ported; `f16` uses `__powisf2`).
+//   The results are the host's: src/miri/math.test.ts compares them with oracle values recorded on
+//   aarch64-apple-darwin and skips on other hosts.
 import { type ImmTy, type OpTy, type PlaceTy, type Scalar } from "./lib.ts";
 import { type MiriInterpCx } from "./machine.ts";
 import { type HostUnaryFloatOp } from "./math.gen.ts";
@@ -29,6 +29,7 @@ import { SampleUniform_i64, SampleUniform_u128 } from "../vendor/rand/distr/unif
 import { RngExt } from "../vendor/rand/rng.ts";
 import { Double, Half, type IeeeFloat, Quad, type Semantics, Single } from "../vendor/rustc_apfloat/ieee.ts";
 import { type Float, type FloatType } from "../vendor/rustc_apfloat/lib.ts";
+import { host_libm } from "../rust_ts/host_libm.ts";
 export * from "./math.gen.ts";
 
 
@@ -606,67 +607,132 @@ export interface HostFloatOperation<Self> {
 }
 
 /**
- * PORT: the host float type's operations (`f64::sin`, ...; module header). `round` rounds a JS number to the host type
- * (`f64`: identity, `f32`: `Math.fround`, `f16`: via `f32`).
+ * PORT: the host float type's operations (`f64::sin`, ...), as the pinned Miri binary computes them (module header,
+ * src/rust_ts/host_libm.ts): the host libm for `sin` ... `powf`, compiler-builtins' `__powi{s,d}f2` for `powi`. Each
+ * takes and returns values of the host type (a JS number holding an `f64` / `f32` / `f16`).
  */
 interface HostOps {
-  round(x: number): number;
-  /** compiler-rt `__powidf2` / `__powisf2` (`llvm.powi`). */
-  powi(a: number, b: number): number;
+  sin(x: number): number;
+  cos(x: number): number;
+  exp(x: number): number;
+  exp2(x: number): number;
+  ln(x: number): number;
+  log10(x: number): number;
+  log2(x: number): number;
+  powf(x: number, y: number): number;
+  powi(x: number, n: number): number;
 }
-/** compiler-rt `__powi{d,s}f2` (lib/builtins/powidf2.c): `r *= a` / `a *= a` in the host type. */
-function compiler_rt_powi(round: (x: number) => number, a: number, b: number): number {
+
+/// Returns `a` raised to the power `b`
+// PORT: compiler-builtins `fn pow<F: Float>(a: F, b: i32) -> F` (library/compiler-builtins/compiler-builtins/src/float/
+// pow.rs:4, the pinned upstream), behind `__powisf2` (`F = f32`) / `__powidf2` (`F = f64`). `round` rounds a product or
+// quotient of two host values to `F` (`f64`: none; `f32`: `Math.fround`, exact because the `f64` operation on two `f32`
+// values is correctly rounded with more than twice the precision, so rounding it again to `f32` is correct rounding).
+function compiler_builtins_pow(round: (x: number) => number, a: number, b: number): number {
   const recip = b < 0;
-  let r = 1;
+  let pow = Math.abs(b); // `Int::abs_diff(b, 0)`: a `u32`, up to 2^31
+  let mul = 1; // `F::ONE`
   for (;;) {
-    if (b & 1) r = round(r * a);
-    b = (b / 2) | 0;
-    if (b === 0) break;
+    if ((pow & 1) !== 0) {
+      mul = round(mul * a);
+    }
+    pow >>>= 1;
+    if (pow === 0) {
+      break;
+    }
     a = round(a * a);
   }
-  return recip ? round(1 / r) : r;
+
+  return recip ? round(1 / mul) : mul;
 }
-const HOST_F64: HostOps = { round: (x) => x, powi: (a, b) => compiler_rt_powi((x) => x, a, b) };
-const HOST_F32: HostOps = { round: Math.fround, powi: (a, b) => compiler_rt_powi(Math.fround, a, b) };
-/** `f16`: LLVM promotes `f16` libm calls to `f32` and rounds back (`ToSoft_f16` does the `f16` rounding). */
-const HOST_F16: HostOps = HOST_F32;
+/** compiler-builtins `__powidf2` (float/pow.rs:28). */
+function __powidf2(a: number, b: number): number {
+  return compiler_builtins_pow((x) => x, a, b);
+}
+/** compiler-builtins `__powisf2` (float/pow.rs:24). */
+function __powisf2(a: number, b: number): number {
+  return compiler_builtins_pow(Math.fround, a, b);
+}
+
+/** `f64`: libm `sin cos exp exp2 log log10 log2 pow`, `llvm.powi.f64` → `__powidf2`. */
+const HOST_F64: HostOps = {
+  sin: (x) => host_libm().sin(x),
+  cos: (x) => host_libm().cos(x),
+  exp: (x) => host_libm().exp(x),
+  exp2: (x) => host_libm().exp2(x),
+  ln: (x) => host_libm().log(x),
+  log10: (x) => host_libm().log10(x),
+  log2: (x) => host_libm().log2(x),
+  powf: (x, y) => host_libm().pow(x, y),
+  powi: __powidf2,
+};
+/** `f32`: libm `sinf cosf expf exp2f logf log10f log2f powf`, `llvm.powi.f32` → `__powisf2`. */
+const HOST_F32: HostOps = {
+  sin: (x) => host_libm().sinf(x),
+  cos: (x) => host_libm().cosf(x),
+  exp: (x) => host_libm().expf(x),
+  exp2: (x) => host_libm().exp2f(x),
+  ln: (x) => host_libm().logf(x),
+  log10: (x) => host_libm().log10f(x),
+  log2: (x) => host_libm().log2f(x),
+  powf: (x, y) => host_libm().powf(x, y),
+  powi: __powisf2,
+};
+/** Rounds a host `f32` value to `f16` (`fcvt h0, s0`: round to nearest, ties to even; the `f32` value is exact in an
+ * `f64`, so rounding that `f64` to `f16` is the same single rounding). */
+function f16_round(x: number): number {
+  return ToHost_Half.to_host(Double.from_bits(f64_to_bits(x)).convert(Half, { value: false }).value);
+}
+/** `f16`: LLVM promotes every one of these to the `f32` operation (`fcvt s, h`, exact) and rounds the result back to
+ * `f16` (module header); `powi` too (`__powisf2`, there is no `f16` powi in compiler-builtins). */
+const HOST_F16: HostOps = {
+  sin: (x) => f16_round(HOST_F32.sin(x)),
+  cos: (x) => f16_round(HOST_F32.cos(x)),
+  exp: (x) => f16_round(HOST_F32.exp(x)),
+  exp2: (x) => f16_round(HOST_F32.exp2(x)),
+  ln: (x) => f16_round(HOST_F32.ln(x)),
+  log10: (x) => f16_round(HOST_F32.log10(x)),
+  log2: (x) => f16_round(HOST_F32.log2(x)),
+  powf: (x, y) => f16_round(HOST_F32.powf(x, y)),
+  powi: (x, n) => f16_round(HOST_F32.powi(x, n)),
+};
 
 // macro_rules! impl_float_host_operations: `impl HostFloatOperation for $ty` (expanded once per type below).
 function impl_float_host_operations<T>(ToHost_T: ToHost<T, number>, ToSoft_T: ToSoft<number, T>, host: HostOps): HostFloatOperation<T> {
   const to_host = ToHost_T.to_host;
-  const to_soft = (x: number): T => ToSoft_T.to_soft(host.round(x));
+  const to_soft = ToSoft_T.to_soft;
   return {
     // rustc: src/tools/miri/src/math.rs:489 host_sin
     host_sin(self: T): T {
-      return to_soft(Math.sin(to_host(self)));
+      return to_soft(host.sin(to_host(self)));
     },
     // rustc: src/tools/miri/src/math.rs:492 host_cos
     host_cos(self: T): T {
-      return to_soft(Math.cos(to_host(self)));
+      return to_soft(host.cos(to_host(self)));
     },
     // rustc: src/tools/miri/src/math.rs:495 host_exp
     host_exp(self: T): T {
-      return to_soft(Math.exp(to_host(self)));
+      return to_soft(host.exp(to_host(self)));
     },
     // rustc: src/tools/miri/src/math.rs:498 host_exp2
     host_exp2(self: T): T {
-      return to_soft(2 ** to_host(self));
+      return to_soft(host.exp2(to_host(self)));
     },
     // rustc: src/tools/miri/src/math.rs:501 host_log
     host_log(self: T): T {
-      return to_soft(Math.log(to_host(self)));
+      return to_soft(host.ln(to_host(self)));
     },
     // rustc: src/tools/miri/src/math.rs:504 host_log10
     host_log10(self: T): T {
-      return to_soft(Math.log10(to_host(self)));
+      return to_soft(host.log10(to_host(self)));
     },
     // rustc: src/tools/miri/src/math.rs:507 host_log2
     host_log2(self: T): T {
-      return to_soft(Math.log2(to_host(self)));
+      return to_soft(host.log2(to_host(self)));
     },
     // rustc: src/tools/miri/src/math.rs:510 host_powf
     host_powf(self: T, y: T): T {
-      return to_soft(Math.pow(to_host(self), to_host(y)));
+      return to_soft(host.powf(to_host(self), to_host(y)));
     },
     // rustc: src/tools/miri/src/math.rs:513 host_powi
     host_powi(self: T, y: number): T {
@@ -778,7 +844,8 @@ export function host_unary_float_op<S extends Semantics>(
 /// Extend functionality of `rustc_apfloat` softfloats for IEEE float types.
 // PORT: the provided methods take the type's `FloatType` dictionary (static side) or the value (`clamp`); `pi` is the
 // per-type impl (`IeeeExt_of(F_).pi()`).
-export const IeeeExt = {
+/** PORT: the provided methods of `IeeeExt` before the required `pi` (upstream order; `IeeeExt` below joins them). */
+const IeeeExt_provided_head = {
   // Some values we use:
 
   // #[inline]
@@ -798,12 +865,6 @@ export const IeeeExt = {
   three<F extends Float<F>>(Self: FloatType<F>): F {
     return Self.from_u128(3n).value;
   },
-
-  // #[inline]
-  // rustc: src/tools/miri/src/math.rs:607 clamp
-  clamp<F extends Float<F>>(self: F, min: F, max: F): F {
-    return self.maximum(min).minimum(max);
-  },
 };
 
 /** The required method of `IeeeExt` for one type. */
@@ -811,6 +872,16 @@ export interface IeeeExt_required<F> {
   // rustc: src/tools/miri/src/math.rs:604 pi
   pi(): F;
 }
+
+export const IeeeExt = {
+  ...IeeeExt_provided_head,
+
+  // #[inline]
+  // rustc: src/tools/miri/src/math.rs:607 clamp
+  clamp<F extends Float<F>>(self: F, min: F, max: F): F {
+    return self.maximum(min).minimum(max);
+  },
+};
 
 // macro_rules! impl_ieee_pi: `impl IeeeExt for IeeeFloat<$semantic>` (expanded once per type below).
 function impl_ieee_pi<F extends Float<F>>(Self: FloatType<F>, pi_bits: bigint): IeeeExt_required<F> {
