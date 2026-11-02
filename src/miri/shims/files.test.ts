@@ -131,17 +131,8 @@ test("provided FileDescription methods: upstream's unsupported / panic messages"
   expect(fd.readiness_watched()).toBeUndefined();
 });
 
-test("dropping a stdio description runs ReadinessWatched's Drop (lane miri-shims-c; unported until it lands)", () => {
+test("dropping a stdio description runs ReadinessWatched's Drop (no watchers: it succeeds)", () => {
   const t = FdTable.init(false);
-  let stop: unknown;
-  try {
-    t.remove(1)!.drop();
-  } catch (e) {
-    stop = e;
-  }
-  // Once shims-c ports `impl Drop for ReadinessWatched` as `drop`, the drop succeeds (no watchers).
-  if (stop !== undefined) {
-    expect(stop).toBeInstanceOf(Unported);
-    expect((stop as Unported).what).toBe("miri::shims::readiness::ReadinessWatched: Drop (shims/readiness.rs:379; lane miri-shims-c)");
-  }
+  // shims-c ported `impl Drop for ReadinessWatched` (readiness.rs:379); with no watchers the drop simply succeeds.
+  expect(() => t.remove(1)!.drop()).not.toThrow();
 });

@@ -206,7 +206,7 @@ class MiriCompilerCalls implements Callbacks {
   }
 }
 
-/** PORT(contract): pending miri-threads: `run_genmc_mode` (genmc/dummy.ts) still declares `Result<(), NonZeroI32>` with
+/** PORT(contract): pending a `NonZeroI32` typemap entry: `run_genmc_mode` (genmc/dummy.ts) still declares `Result<(), NonZeroI32>` with
  * `Pending<"NonZeroI32">`; miri-eval's `eval_entry` returns the exit code as a nonzero `number`. Both directions of
  * that boundary convert here until dummy.ts is filled. */
 function as_exit_result(r: Result<null, Pending<"NonZeroI32">>): Result<null, number> {

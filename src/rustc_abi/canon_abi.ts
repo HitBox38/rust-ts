@@ -1,4 +1,4 @@
-// compiler/rustc_abi/src/canon_abi.rs (types; `Display` needs `ExternAbi`, which is not ported).
+// compiler/rustc_abi/src/canon_abi.rs (types and `Display`, via `ExternAbi::as_str`).
 import { type Debug, debug_tuple } from "../std/fmt.ts";
 import { ExternAbi } from "./extern_abi.ts";
 
