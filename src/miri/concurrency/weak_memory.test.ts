@@ -184,3 +184,22 @@ test("fetch_store draws are deterministic for a seed", () => {
   };
   expect(draw()).toBe(draw());
 });
+
+// Regression (lane miri-thread-exit): `VTimestamp` is `Copy`. A store element's `store_timestamp` and a load's
+// `load_info` entry are copies of the thread's clock slot at the time of the access; they must not move when the thread's
+// clock is later incremented in place. With the slot aliased, a joiner's clock no longer covered the joined thread's last
+// `Arc` decrement and std's `JoinInner::join` panicked ("threads should not terminate unexpectedly").
+test("store_impl / load_impl keep a copy of the thread's timestamp, not its live clock slot", () => {
+  const b = StoreBuffer.new(S(2));
+  const t1 = new VectorIdx(1);
+  const c1 = clock(0, 16);
+  b.store_impl(S(1), t1, c1, false, clock());
+  const store = b.buffer[1]!;
+  store.load_impl(t1, clocks(c1), false);
+  c1.increment_index(t1, SP);
+  c1.increment_index(t1, SP);
+  expect(store.store_timestamp.time()).toBe(16);
+  expect(store.load_info.timestamps.get(t1)!.time()).toBe(16);
+  // A load that knows thread 1 up to time 17 (it joined thread 1 after the store) reads only the latest store.
+  expect(readable(b, clocks(clock(2, 17)), false)).toEqual(["1"]);
+});
