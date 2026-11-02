@@ -1,6 +1,12 @@
 # Handoff: miri-shims-d (M6 wave 37: Miri shims, gate M6a)
 
-Branch `t3/port-miri-unix-intrinsics` (worktree t3-c73c94ba), base main `ccf5dc4a`.
+Branch `t3/port-miri-unix-intrinsics` (worktree t3-c73c94ba), base main `ccf5dc4a`: commits `935d69c1` (port) and
+`c4ba1912` (test typing). It builds against the wave-36 skeleton on its own.
+
+**Integration aid:** branch `t3/miri-shims-d-on-shims-b` (`ee5993d6`). It merges miri-shims-b's landed branch
+(`3658f2dc`) and adds one commit that adapts this lane to shims-b's real API. Results there: tsc 0, `bun test src/miri` 188
+pass. With both lanes, miri-hello next stops at shims-a's `TlsData::default`. Use it, or replay its last commit, when
+merging both lanes; see "Cross-lane contract".
 Scope: `shims/unix/fd.rs`, `shims/unix/poll.rs`, `shims/unix/linux/{foreign_items,mem,mod}.rs`, `intrinsics/{mod,math,simd}.rs`,
 and the A3 isolation-error path of `shims/unix/socket.rs`.
 
@@ -23,14 +29,21 @@ and the A3 isolation-error path of `shims/unix/socket.rs`.
   - intrinsics/mod.rs 4/4, intrinsics/math.rs 10/10, intrinsics/simd.rs 1/1
   - socket.rs 1/1 (in-scope part: `socket`; harness/scope.json `miri.partial`)
 - Codegen: `bun tools/codegen/types.ts miri` regenerates with no diff.
-- `RUST_TS_REQUIRE_PROBES=1 bun test ./src ./tools`: see "Unit step" below.
-- `bun test ./scripts ./harness`: see "Unit step" below.
-- `bun scripts/difftest.ts --suite mir --sample 100` (agent `miri-shims-d`): see "Unit step" below.
+- `RUST_TS_REQUIRE_PROBES=1 bun test ./src ./tools`: 6,741 pass, 1 skip, 3 fail (2,125 s), with load average ~21 from
+  the parallel wave-37 sessions.
+  - All 3 failures are in `src/vendor/odht`: `odht.oracle.test.ts` "build: insert results ..." (`probe failed:` with
+    empty stderr, then a 5 s timeout), and `lib.test.ts` quickchecks `k63_v0` `bytes_deterministic` and
+    `from_iterator_vs_manual_insertion` (5 s timeouts).
+  - Re-run alone (`RUST_TS_REQUIRE_PROBES=1 bun test src/vendor/odht`): 140 pass, 0 fail. This lane does not touch odht.
+  - Root's own unit step after the merge is the authority.
+- `bun test ./scripts ./harness`: 136 pass, 0 fail.
+- `bun scripts/difftest.ts --suite mir --sample 100` (agent `miri-shims-d`): MATCH=100 DIFF=0 UNPORTED=0 CRASH=0, run
+  `20261102-121626-miri-shims-d-3u9v`.
 - miri-hello, before (HEAD `ccf5dc4a`, temporary worktree) and after: identical.
   - difftest gives `UNPORTED` at `miri::shims::cpu_affinity::MAX_CPUS (lane miri-shims-b)`, during machine setup and before any code of this lane runs.
   - `bun scripts/miri-diff.ts harness/corpus/miri/hello.rs` gives `port 0 of 22954 records`. The port exits 70 on the queued L2 item: the `MIRI_LOG` directive `miri=info` names a target whose INFO events are not converted yet (wave-36 decision L2).
   - So miri-hello cannot move until shims-a/b/c are integrated and L2 is resolved.
-- Unit tests of this lane: `bun test src/miri/intrinsics src/miri/shims/unix/fd.test.ts` 12 pass. `bun test src/miri` all pass (163).
+- Unit tests of this lane: `bun test src/miri/intrinsics src/miri/shims/unix/fd.test.ts` 12 pass.
 
 ### Unit tests
 
@@ -61,10 +74,6 @@ and the A3 isolation-error path of `shims/unix/socket.rs`.
   - `Reject(NoWarning)` returns -1 with `EACCES`.
   - With isolation off: the flag checks run as upstream, and `TcpSocket::new` stops `unported`.
 
-### Unit step
-
-FILLED IN BELOW after the background run.
-
 ## `unported(...)` left
 
 - `intrinsics/mod.ts` `call_llvm_intrinsic`:
@@ -80,7 +89,12 @@ FILLED IN BELOW after the background run.
 
 ## Cross-lane contract (root: check at integration)
 
-Agreed with miri-shims-b / -e / -c over cross-session messages during wave 37:
+Agreed with miri-shims-b / -e / -c over cross-session messages during wave 37. On `t3/miri-shims-d-on-shims-b`, items 1,
+2 and 5's shims-b part are already applied to shims-b's real API:
+- `fd.deref().read(fd, ..)`, `.as_unix(fd)`, `.drop()`
+- `shim_sig("C", [tokens], ret)` and `shim_varargs("i32")`
+- the trailing `n` of `check_shim_sig_deprecated` / `check_shim_sig_llvm_intrinsic`
+- `try_unwrap_io_result(result, from_i32)`
 
 1. **`self: FileDescriptionRef<Self>` methods take a leading `self_`** (`FileDescription::read`, `write`, `as_unix`; `UnixFileDescription::as_socket`).
    - The skeleton's `FileDescription` (files.ts) still declares them without it, so fd.ts calls them through `fd_read` / `fd_write` / `fd_as_unix` with casts. Drop the casts once shims-b's files.ts is merged.
