@@ -8,9 +8,9 @@ The mirror image of [ts-rust](https://github.com/pingdotgg/ts-rust).
 | | |
 |---|---|
 | Upstream pin | `rust-lang/rust@6f5da406b` = `rustc 1.101.0-nightly (2026-10-10)` |
-| Milestone | M0–M5 done (harness; lexer/parser; expansion + name resolution; typeck + trait solving; MIR build, borrowck, MIR transforms, const eval; check core → alloc → std). **The crate metadata (.rmeta) of core, alloc and std is byte-identical to rustc's.** Now: M6 (running programs through a port of the pinned nightly's Miri; proc macros through the real `proc_macro` bridge) |
-| Protected parity | **529,348** cases across 44 suites that match the real compiler byte-for-byte and can never regress |
-| Ported | 22,614 / 27,032 in-scope upstream functions (83.7%; the denominator now includes Miri's 1,514) |
+| Milestone | M0–M5 done (harness; lexer/parser; expansion + name resolution; typeck + trait solving; MIR build, borrowck, MIR transforms, const eval; check core → alloc → std). **The crate metadata (.rmeta) of core, alloc and std is byte-identical to rustc's.** Now: M6 (running programs through a port of the pinned nightly's Miri). **Proc macros run: oracle-built proc-macro dylibs load into the port and match rustc on 279/282 ui cases.** |
+| Protected parity | **529,907** cases across 46 suites that match the real compiler byte-for-byte and can never regress |
+| Ported | 23,354 / 27,032 in-scope upstream functions (86.4%; Miri 759 / 1,514) |
 
 At 100%: the front end (`rustc_lexer`, `rustc_span`, `rustc_ast`, `rustc_ast_lowering`, `rustc_ast_passes`,
 `rustc_builtin_macros`, `rustc_attr_parsing`, `rustc_resolve`), type checking (`rustc_hir_typeck`,
@@ -34,6 +34,7 @@ including legacy Polonius), `rustc_mir_transform` and `rustc_const_eval`. Nearly
 | `check-ui`, `rmeta-ui` (M5) | the same on 730 small lib crates (tests/ui auxiliary crates) | 730 / 730 |
 | `check-alloc`, `rmeta-alloc`, `mir-alloc` (M5) | liballoc checked against the port's own core: `.rmeta` bytes, its sections, and its MIR | 1 / 14,678 / 3,734 |
 | `check-std`, `rmeta-std`, `mir-std` (M5) | libstd with its 13 dependencies (built by the oracle): the same | 1 / 18,196 / 5,204 |
+| `pm-ui`, `pm-expanded` (M6) | tests/ui proc-macro cases with real proc-macro dylibs (built by the oracle, loaded through `bun:ffi`): diagnostics, and `-Zunpretty=expanded` | 279 / 280 |
 
 Start here: [PLAN.md](PLAN.md) · [AGENTS.md](AGENTS.md) · [PORTING.md](PORTING.md) · [docs/next.md](docs/next.md)
 

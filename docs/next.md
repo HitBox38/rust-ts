@@ -391,3 +391,27 @@ emit_diagnostic via port_methods, placeholder removal). Miri/runtime/proc_macro/
 | integ-w36 re-check | independent re-check of all root fixes + integration commits | running |
 Then: miri-wire (swap remaining cross-lane stand-ins, callback! API, adjust_alloc_root_pointer interface, typemap retyping
 std::time / Poll), the wave 36 gate, then wave 37 shims (→ M6a).
+
+## Wave 36 ACCEPTED 2026-11-02 (gate-20261102-014140-root-96kb, main 30cd90a3, accept 907905cb) — Miri core + proc macros
+All 12 wave-36 lanes reviewed and integrated (three via fixer lanes: miri-threads-fix, miri-eval-fix, miri-log-fix), plus
+miri-wire (cross-lane wiring) and harness-w36. Miri 759/1,514 fns (50.1%): machine, eval/helpers/operator/math/clock (host
+libm via bun:ffi, bit-identical to the oracle), driver, diagnostics, provenance GC, data structures, alloc + addresses (RNG
+pinned by probe), Stacked Borrows, weak memory, threads/scheduler (pinned by probe), data-race detector, MIRI_LOG tracing.
+Proc macros: oracle-built dylibs load through bun:ffi; **pm-ui 279/282 (98.9%, the M6 pm-ui >= 95% criterion), pm-expanded
+280/282**, both new protected suites. 529,907 protected in 46 suites (+559, 0 lost); 23,354/27,032 fns (86.4%).
+A first gate run (gate-20261101-155954-root-xp2f) was clean but failed on a mid-gate `state.ts record` (tree changed);
+rule recorded: nothing writes to the tree during a gate. Per-merge rule: full unit step after every lane merge.
+
+## Wave 37 (started 2026-11-02) — Miri shims (plan-m6 §5 → gate M6a: miri-hello)
+| lane | scope | status |
+|---|---|---|
+| miri-shims-a | shims foreign_items, alloc, env, extern_static, global_ctor, mod, panic, unwind, tls, os_str (~2.9k) | running |
+| miri-shims-b | shims files, io_error, time, math, backtrace, cpu_affinity (MAX_CPUS), sig (~2.85k) | running |
+| miri-shims-c | shims readiness, unix/foreign_items, unix/env, unix/mod, unix/thread, unix/mem (~2.9k) | running |
+| miri-shims-d | unix/fd, unix/poll, linux/*, intrinsics/{mod, math, simd}, socket.rs isolation-error paths (A3) (~2.1k+) | running |
+| miri-shims-e | unix/sync, linux_like/* (epoll, eventfd, sync, syscall, thread) (~2.1k) | running |
+| miri-fs | unix/fs.rs (2,404; isolation errors are on the run-pass path) | running |
+| fixers-36 | do_not_const_check.rs divergence (rustc and port panic on different constants); RealTime arm test; pm-host failure-path tests check the oracle's error text | running |
+| harness-w37 | miri-diff masks the base and keeps offsets; needs-llvm-zstd / needs-deterministic-layouts from the oracle; register the scheduler and mirimath probes; ctfe-sample.ts into scripts (harness batch) | running |
+After the shims: miri-hello first differences via miri-diff → fixer lanes; perf lane (D11: hello world <= 3 s user); then the
+M6a gate (miri-hello protected).
