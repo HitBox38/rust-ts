@@ -8,10 +8,8 @@
 //   `MiriMachine` (`M::f(ecx, ..)` is `ecx.machine.f(ecx, ..)`, interpret/machine.ts header).
 // - `RefCell<T>` / `Cell<T>` / `Rc<T>` / `Box<T>` fields are the value (PORTING §5): `bt.borrow_mut().new_frame()` is
 //   `bt.new_frame()`.
-// - Calls into other wave-36 lanes go through the skeleton's declarations. The few fns the skeleton does not declare (enum
-//   companion methods such as `AtomicReadOrd::from`, `VisitProvenance` impls of other modules' types, `impl Default` of
-//   generated classes) are looked up at call time by the `pending` / `visit_*` glue at the end of the file
-//   (`PORT(contract)`; they stop `unported` until the owning lane has ported them).
+// - Calls into other lanes' modules are typed: their declarations, or (for companions and `VisitProvenance` tables of
+//   modules in an import cycle with this one) their module namespace, read at call time (C10: never at load).
 // - `measureme` (`-Zmiri-measureme`) is not vendored: `MiriMachine::new` stops `unported` when it is requested, so the
 //   profiler and `FrameExtra.timing` are always `None`. `-Zmiri-native-lib` stops `unported` (decision miri-contract C6).
 //
@@ -178,11 +176,11 @@ export const VisitProvenance_FrameExtra = {
 
     // catch_unwind.visit_provenance(visit);  (`Option<T>`, provenance_gc.rs:33)
     if (catch_unwind !== undefined) {
-      visit_table(unwind_ns, "VisitProvenance_CatchUnwindData", catch_unwind, visit, "miri::shims::unwind::CatchUnwindData (lane miri-shims-a)");
+      unwind_ns.VisitProvenance_CatchUnwindData.visit_provenance(catch_unwind, visit);
     }
     // borrow_tracker.visit_provenance(visit);  (`Option<T>`, provenance_gc.rs:33)
     if (borrow_tracker !== undefined) {
-      visit_table(borrow_tracker_ns, "VisitProvenance_FrameState", borrow_tracker, visit, "miri::borrow_tracker::FrameState (lane miri-alloc)");
+      borrow_tracker_ns.VisitProvenance_FrameState.visit_provenance(borrow_tracker, visit);
     }
   },
 };
@@ -401,10 +399,10 @@ AllocExtra.prototype.visit_provenance = function (this: AllocExtra, visit: Visit
 
   // borrow_tracker.visit_provenance(visit);  (`Option<T>`, provenance_gc.rs:33)
   if (borrow_tracker !== undefined) {
-    visit_table(borrow_tracker_ns, "VisitProvenance_AllocState", borrow_tracker, visit, "miri::borrow_tracker::AllocState (lane miri-alloc)");
+    borrow_tracker_ns.VisitProvenance_AllocState.visit_provenance(borrow_tracker, visit);
   }
   // data_race.visit_provenance(visit);
-  visit_table(data_race_handler_ns, "VisitProvenance_AllocDataRaceHandler", data_race, visit, "miri::concurrency::AllocDataRaceHandler (lane miri-race)");
+  data_race_handler_ns.VisitProvenance_AllocDataRaceHandler.visit_provenance(data_race, visit);
 };
 
 declare module "./machine.gen.ts" {
@@ -663,12 +661,12 @@ declare module "./machine.gen.ts" {
   const argv = undefined;
   const cmd_line = undefined;
   const current_exe = config.current_exe;
-  const tls = TlsData_default();
+  const tls = TlsData.default_();
   const isolated_op = config.isolated_op;
   const validation = config.validation;
   const fds = FdTable.init(config.mute_stdout_stderr);
   const delayed_readiness_updates = new DelayedReadinessUpdates([]); // Rc::new(DelayedReadinessUpdates::default())
-  const dirs = DirTable_default(); // Default::default()
+  const dirs = DirTable.default(); // Default::default()
   const static_roots: AllocId[] = [];
   const string_cache = new Map<string, never>();
   const exported_symbols_cache = new Map<Symbol, Instance | undefined>();
@@ -828,7 +826,7 @@ MiriMachine.get_user_relevant_crates = function (tcx: TyCtxt, config: MiriConfig
 
 // rustc: src/tools/miri/src/machine.rs:922 late_init
 MiriMachine.late_init = function (ecx: MiriInterpCx, config: MiriConfig, on_main_stack_empty: StackEmptyCallback): InterpResult {
-  const r0 = EnvVars_().init(ecx, config);
+  const r0 = env_ns.EnvVars.init(ecx, config);
   if (r0.$ === "Err") return r0;
   const r1 = MiriMachine.init_extern_statics(ecx);
   if (r1.$ === "Err") return r1;
@@ -950,21 +948,21 @@ MiriMachine.prototype.visit_provenance = function (this: MiriMachine, visit: Vis
     fds,
   } = this;
 
-  visit_object(threads, visit, "miri::concurrency::thread::ThreadManager (lane miri-threads)");
-  visit_object(tls, visit, "miri::shims::tls::TlsData (lane miri-shims-a)");
-  visit_table(env_ns, "VisitProvenance_EnvVars", env_vars, visit, "miri::shims::env::EnvVars (lane miri-shims-a)");
-  visit_object(dirs, visit, "miri::shims::unix::fs::DirTable (lane miri-fs)");
-  visit_object(fds, visit, "miri::shims::files::FdTable (lane miri-shims-b)");
-  visit_table(data_race_handler_ns, "VisitProvenance_GlobalDataRaceHandler", data_race, visit, "miri::concurrency::GlobalDataRaceHandler (lane miri-race)");
+  threads.visit_provenance(visit);
+  tls.visit_provenance(visit);
+  env_ns.VisitProvenance_EnvVars.visit_provenance(env_vars, visit);
+  dirs.visit_provenance(visit);
+  fds.visit_provenance(visit);
+  data_race_handler_ns.VisitProvenance_GlobalDataRaceHandler.visit_provenance(data_race, visit);
   // borrow_tracker.visit_provenance(visit);  (`Option<RefCell<T>>`, provenance_gc.rs:33 / :88)
   if (borrow_tracker !== undefined) {
-    visit_object(borrow_tracker, visit, "miri::borrow_tracker::GlobalStateInner (lane miri-alloc)");
+    borrow_tracker.visit_provenance(visit);
   }
   // alloc_addresses.visit_provenance(visit);  (`RefCell<T>`, provenance_gc.rs:88)
-  visit_object(alloc_addresses, visit, "miri::alloc_addresses::GlobalStateInner (lane miri-alloc)");
+  alloc_addresses.visit_provenance(visit);
   // main_fn_ret_place.visit_provenance(visit);  (`Option<T>`, provenance_gc.rs:33)
   if (main_fn_ret_place !== undefined) {
-    visit_table(provenance_gc_ns, "VisitProvenance_MPlaceTy", main_fn_ret_place, visit, "miri::provenance_gc: MPlaceTy (lane miri-driver)");
+    provenance_gc_ns.VisitProvenance_MPlaceTy.visit_provenance(main_fn_ret_place, visit);
   }
   // argc / argv / cmd_line / extern_static_weak_import_default: `Option<Pointer>` / `Option<StrictPointer>`
   // (provenance_gc.rs:33, :114, :120: the pointer's provenance).
@@ -2230,17 +2228,6 @@ function btree_range<V>(map: Map<Size, V>, start: Size | undefined, end: Size | 
   return out;
 }
 
-/**
- * PORT(contract): a fn a wave-37 lane defines on an enum companion / a class (PORTING §8, borrowck-contract rules
- * 4-5) that the skeleton does not declare (so it cannot be imported typed). Read at call time (decision C10: never at
- * load); stops `unported` until that lane has ported it. Replace with direct calls when the lane lands.
- */
-function pending<F>(owner: object | undefined, name: string, what: string): F {
-  const f = owner === undefined ? undefined : (owner as Record<string, unknown>)[name];
-  if (typeof f !== "function") return unported(`${what}::${name} (not ported yet; called from src/tools/miri/src/machine.rs)`);
-  return f.bind(owner) as F;
-}
-
 /** `impl AtomicReadOrd` / `AtomicWriteOrd` / `AtomicRwOrd` / `AtomicFenceOrd` (concurrency/data_race.rs:96 / :116 / :75 /
  *  :137; lane miri-race), read on the namespace at call time (C10). */
 function AtomicReadOrd_(): { from(ordering: AtomicOrdering): AtomicReadOrd } {
@@ -2277,43 +2264,6 @@ function AllocState_(): {
 }
 function BorrowTrackerMethod_(): { instantiate_global_state(self: BorrowTrackerMethod, config: MiriConfig): GlobalState } {
   return borrow_tracker_ns.BorrowTrackerMethod;
-}
-
-/** `impl EnvVars` (shims/env.rs:29; lane miri-shims-a). */
-function EnvVars_(): { init(ecx: MiriInterpCx, config: MiriConfig): InterpResult } {
-  return { init: pending(env_ns.EnvVars, "init", "miri::shims::env::EnvVars (lane miri-shims-a)") };
-}
-
-/** `impl Default for TlsData` (shims/tls.rs:54; lane miri-shims-a): `TlsData.default()`. */
-function TlsData_default(): TlsData {
-  return pending<() => TlsData>(TlsData, "default", "miri::shims::tls::TlsData (impl Default; lane miri-shims-a)")();
-}
-
-/** `impl Default for DirTable` (shims/unix/fs.rs:218; lane miri-fs): `DirTable.default()`. */
-function DirTable_default(): DirTable {
-  return pending<() => DirTable>(DirTable, "default", "miri::shims::unix::fs::DirTable (impl Default; lane miri-fs)")();
-}
-
-/**
- * PORT(contract): `x.visit_provenance(visit)` of a class value whose `VisitProvenance` impl (a prototype method,
- * borrowck-contract rule 5) another wave-36 lane ports and the skeleton does not declare; `unported` until then.
- */
-function visit_object(x: object, visit: VisitWith, what: string): void {
-  const f = (x as Partial<VisitProvenance>).visit_provenance;
-  if (typeof f !== "function") return unported(`${what}::visit_provenance (VisitProvenance; not ported yet; called from machine.rs)`);
-  f.call(x, visit);
-}
-
-/**
- * PORT(contract): `VisitProvenance::visit_provenance(x, visit)` of a non-class value through its impl table
- * `VisitProvenance_<T>` (borrowck-contract rule 5) exported by the module `ns` of another wave-36 lane; `unported` until then.
- */
-function visit_table<T>(ns: object, table: string, x: T, visit: VisitWith, what: string): void {
-  const t = (ns as Record<string, { visit_provenance?: (self: T, visit: VisitWith) => void } | undefined>)[table];
-  if (t === undefined || typeof t.visit_provenance !== "function") {
-    return unported(`${what}: ${table}.visit_provenance (not ported yet; called from machine.rs)`);
-  }
-  t.visit_provenance(x, visit);
 }
 
 /**
