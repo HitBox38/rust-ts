@@ -61,11 +61,16 @@ with `bun scripts/state.ts record decision <text>`, and continue.
 
 ## 5. Environment
 
-- Windows host with Bun, Node 24, nightly rustc (oracle), TypeScript 7 (`bunx tsc`).
-- `RUST_TS_DATA` (in `.env.local`, gitignored) holds the upstream checkout, oracle cache,
-  probe builds and run outputs. On this machine it is `D:/rust-ts-data` (C: is nearly full;
-  never put large data on C:).
-- Linux-only behavior (later milestones) runs in WSL2 Ubuntu.
+- The root host (where the gate runs) is macOS on Apple silicon (`aarch64-apple-darwin`; `RUST_TS_HOST_TUPLE` in
+  `.env.local`), with Bun, Node 24, the nightly rustc (oracle) and TypeScript 7 (`bunx tsc`). The project started on
+  a Windows host; Windows support is kept where cheap but is unchecked (proc-macro dylibs and host libm via `bun:ffi`
+  stop `unported` there).
+- Host-specific fixtures (the host libm results behind `src/miri/math.test.ts`, the `mirimath` probe) hold only on
+  `aarch64-apple-darwin`; on another host their tests skip with a printed reason, which the gate's skip allowlist
+  rejects, so the gate must run on the root host.
+- `RUST_TS_DATA` (in `.env.local`, gitignored) holds the upstream checkout, oracle cache, probe builds and run
+  outputs. On the root host it is the repo's `.data/`.
+- Linux-only behavior (later milestones) runs in a Linux VM or container.
 
 ## 6. Git
 
