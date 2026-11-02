@@ -29,6 +29,7 @@ import { isolation_abort_error } from "../helpers.ts";
 import { HostError, type IoError, IoError_from_ErrorKind, LibcError } from "./io_error.ts";
 import { type Readiness, Readiness_EMPTY, type ReadinessWatched, ReadinessWatched_default } from "./readiness.ts";
 import { type UnixFileDescription } from "./unix/fd.ts";
+import type * as fs from "../../std/fs.ts";
 import { Size } from "../../rustc_abi/lib.ts";
 import { InterpCx } from "../../rustc_const_eval/interpret/eval_context.ts";
 import { type AnyMachine, type Machine } from "../../rustc_const_eval/interpret/machine.ts";
@@ -1058,7 +1059,7 @@ InterpCx.prototype.write_to_host = function (this: MiriInterpCx, file: HostWrite
 ///
 /// Note that on Windows hosts, `custom_flags` is ignored if `root` is `Some`!
 // rustc: src/tools/miri/src/shims/files.rs:706 open_file_or_dir
-export function open_file_or_dir(_root: Pending<"fs::Dir"> | undefined, _path: string, _opts: Pending<"fs::OpenOptions">): Result<Either<Pending<"fs::File">, Pending<"fs::Dir">>, io_Error> {
+export function open_file_or_dir(_root: fs.Dir | undefined, _path: string, _opts: fs.OpenOptions): Result<Either<fs.File, fs.Dir>, io_Error> {
   // On Unix, `open`/`openat` works for files and directories.
   // On Windows, that fails with `PermissionDenied`, so we need to open an `fs::Dir` instead.
   // (But that may succeed even on a file! So we still have to check the metadata.)

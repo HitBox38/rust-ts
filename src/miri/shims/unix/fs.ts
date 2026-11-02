@@ -12,8 +12,7 @@
 // - `cfg(unix)` / `cfg(windows)` blocks of Miri's own build are host cfgs: they are selected with `process.platform`
 //   (the oracle Miri is built for the host it runs on); `libc::O_*` in those blocks are the *host's* constants
 //   (node:fs `constants`). `cfg(bootstrap)` is off for the pinned component (the `fallback` path field does not exist).
-// - Calls into other wave-37 lanes go through the skeleton's declared signatures; the gaps are marked
-//   `PORT(contract): pending <lane>` below and listed in docs/handoff/miri-fs.md.
+// - Calls into the other wave-37 lanes (files, io_error, fd, os_str) are typed calls of their exports.
 import { constants as host_fs_constants } from "node:fs";
 import { type MPlaceTy, type OpTy, type Pointer, type Scalar, type StrictPointer } from "../../lib.ts";
 import { type DynMachineCallback, type MiriInterpCx, MemoryKind_from_MiriMemoryKind } from "../../machine.ts";
@@ -23,7 +22,7 @@ import { type IoError, IoError_from_ErrorKind, IoError_from_io_Error, LibcError 
 import { bytes_to_os_str } from "../os_str.ts";
 import { shim_varargs, type Varargs } from "../sig.ts";
 import { system_time_to_duration } from "../time.ts";
-import { type FlockOp } from "./fd.ts";
+import { type FlockOp, UnixFileDescription_provided } from "./fd.ts";
 import { type DirEntry, DirStream, DirTable, debug_DirStream, FileMetadata, type TimeUpdate } from "./fs.gen.ts";
 import { port_methods } from "../../../rust_ts/miri_stub.ts";
 import { FieldIdx, FieldsShape, Size } from "../../../rustc_abi/lib.ts";
@@ -260,7 +259,7 @@ function with_ref<T, R>(r: FileDescriptionRef<T>, f: (r: FileDescriptionRef<T>) 
  * `FileDescription_provided`; `impl UnixFileDescription for FileHandle/DirHandle`: this file's tables below). These
  * classes carry them on their prototypes, installed on first construction (C10: another module's values are not read at
  * load). `downcast::<FileHandle>()` / `::<DirHandle>()` are the exact class tests `is_FileHandle` / `is_DirHandle`.
- * PORT(contract): pending miri-shims-d: `UnixFileDescription`'s provided methods (fd.rs) are not installed yet.
+ * The provided `UnixFileDescription` methods they do not override are fd.ts's `UnixFileDescription_provided`.
  */
 export class FileHandleDesc implements FileHandle {
   constructor(
@@ -276,8 +275,8 @@ let desc_impls_installed = false;
 function install_desc_impls(): void {
   if (desc_impls_installed) return;
   desc_impls_installed = true;
-  Object.assign(FileHandleDesc.prototype, FileDescription_provided, FileDescription_FileHandle, UnixFileDescription_FileHandle);
-  Object.assign(DirHandleDesc.prototype, FileDescription_provided, FileDescription_DirHandle, UnixFileDescription_DirHandle);
+  Object.assign(FileHandleDesc.prototype, FileDescription_provided, FileDescription_FileHandle, UnixFileDescription_provided, UnixFileDescription_FileHandle);
+  Object.assign(DirHandleDesc.prototype, FileDescription_provided, FileDescription_DirHandle, UnixFileDescription_provided, UnixFileDescription_DirHandle);
 }
 /** `FileHandle { file, writable, readable }` */
 function new_FileHandle(file: fs.File, writable: boolean, readable: boolean): FileHandleDesc & FileDescription {
@@ -1027,8 +1026,8 @@ function open_tail(
     const d = (dirfd.dir as unknown as fs.Dir).try_clone();
     f_or_d = d.$ === "Ok" ? Ok({ $: "Right", _0: d._0 }) : d;
   } else {
-    // PORT(contract): pending miri-shims-b: `open_file_or_dir` takes / returns `Pending` host types.
-    f_or_d = open_file_or_dir(dirfd?.dir as never, path, options as never) as unknown as Result<Either<fs.File, fs.Dir>, io_Error>;
+    // PORT: `DirHandle.dir` is the generated `Pending<"std::fs::Dir">` field (typemap); the value is a src/std/fs.ts `Dir`.
+    f_or_d = open_file_or_dir(dirfd?.dir as unknown as fs.Dir | undefined, path, options);
   }
   if (f_or_d.$ === "Err") {
     return this_.set_errno_and_return_neg1_i32(IoError_from_io_Error(f_or_d._0));
