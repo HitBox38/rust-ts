@@ -11,13 +11,13 @@ Scope: Miri `src/tools/miri/src/shims/unix/fs.rs` (2,404 lines) → `src/miri/sh
 
 ## Verification (one line each)
 - `bunx tsc --noEmit -p .`: 0 errors.
-- `bun scripts/coverage.ts --check --offline`: `markers ok (24012; vendor 5050; library 583)` (the new std markers in src/std/fs.ts pass the strict library check).
+- `bun scripts/coverage.ts --check --offline`: `markers ok (24142; vendor 5050; library 583)` (after the shims-b merge) (the new std markers in src/std/fs.ts pass the strict library check).
 - `bun scripts/coverage.ts --missing src/tools/miri/src/shims/unix/fs.rs`: **58/58 ported**.
 - Codegen set `miri` (`bun tools/codegen/types.ts miri`): no diff (0 unknown types).
 - `bun test ./src/miri/shims/unix/fs.test.ts`: 9 pass / 0 fail (201 expects), before and after the shims-b merge.
-- `RUST_TS_REQUIRE_PROBES=1 bun test ./src ./tools`: RESULT_SRC
-- `bun test ./scripts ./harness`: RESULT_SCRIPTS
-- `bun scripts/difftest.ts --suite mir --sample 100`: RESULT_DIFFTEST
+- `RUST_TS_REQUIRE_PROBES=1 bun test ./src ./tools`: 6761 pass / 1 skip / 5 fail (1858 s). All 5 hit bun's 5 s timeout while `bun test ./scripts ./harness` ran at the same time: liveness.oracle (2), elaborate_drops.oracle, parser/diagnostics `attr_cfg_chain`, odht.oracle. Re-run alone, those 4 files give 158 pass / 0 fail. None of them touches Miri. Root's sequential unit step should be clean.
+- `bun test ./scripts ./harness`: 136 pass / 0 fail.
+- `bun scripts/difftest.ts --suite mir --sample 100`: MATCH 100/100 (run 20261102-125249-miri-fs-0qap, `RUST_TS_AGENT=miri-fs`).
 
 ## Oracle evidence (isolated Miri, `$RUST_TS_DATA/tmp/miri-fs/`, runner `m.sh`)
 - `open.rs` (`std::fs::File::open("foo.txt")`, default isolation) prints `error: unsupported operation: \`open\` not available when isolation is enabled`, then the help lines and the std backtrace. The message and the help text come from `isolation_abort_error` / diagnostics (already ported). The fs shim's part is the op name and that the rejection happens after the right prechecks.
@@ -52,7 +52,7 @@ The tests stub only what the stub machine cannot do: `check_varargs`, `read_path
 - `mkstemp`'s `SUBSTITUTIONS.choose(rng)` (`rand::seq::IndexedRandom::choose`) is not in the vendored rand subset, so it is `unported`. It is only reachable with isolation off.
 
 ## Integration with miri-shims-b (merged into this branch)
-This branch merges `t3/port-miri-shims-b` (3658f2dc; files, io_error, time, math, backtrace, cpu_affinity, sig), so it
+This branch merges `t3/port-miri-shims-b` (tip 1bc6dd88 at merge time; files, io_error, time, math, backtrace, cpu_affinity, sig), so it
 type-checks against the real API. Root: merge shims-b first, or take both together. fs.ts uses shims-b's API as their
 lane described it:
 - Values: `FileHandleDesc` / `DirHandleDesc` (exported from fs.ts) are the classes of the `FileHandle { file, writable,
