@@ -335,6 +335,9 @@ class HostStdoutImpl implements HostWrite {
     let tail: Uint8Array;
     if (flushed >= end) {
       tail = buf.subarray(flushed);
+      // Avoid unnecessary short writes by not splitting the remaining bytes if they're larger than the buffer
+      // (library/alloc/src/io/buffered/linewritershim.rs:199): they are written in full by the next call.
+      if (tail.length >= STDOUT_BUF_SIZE) return Ok(flushed);
     } else if (end - flushed <= STDOUT_BUF_SIZE) {
       tail = buf.subarray(flushed, end);
     } else {
@@ -1010,7 +1013,9 @@ FdTable.prototype.insert_with_min_num = function (this: FdTable, file_handle: Dy
   // end, and `candidate` is now the first number after that block -- exactly what we need.
 
   // self.fds.try_insert(candidate, file_handle).unwrap();
-  assert(!this.fds.has(candidate), "called `Result::unwrap()` on an `Err` value: OccupiedError");
+  // `unwrap` would print the `OccupiedError`'s real Debug (key, old and new value): not ported, so stop rather than
+  // print an invented text (unreachable: `candidate` is the first free number by construction).
+  if (this.fds.has(candidate)) unported("FdTable::insert_with_min_num: `unwrap` panic text (Debug of OccupiedError)");
   this.fds.set(candidate, file_handle);
   return candidate;
 };
