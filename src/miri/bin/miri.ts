@@ -36,6 +36,8 @@ import {
   run_genmc_mode,
 } from "../lib.ts";
 import { MiriConfig, clone_MiriConfig } from "../eval.ts";
+// `miri::MAX_CPUS` (PORT: from its module until lib.ts re-exports it; root)
+import { MAX_CPUS } from "../shims/cpu_affinity.ts";
 import type { Pending } from "../../rustc_type_ir/decls.ts";
 import { EXTRA_SYMBOLS } from "../sym.ts";
 import { deinit_loggers, init_early_loggers, init_late_loggers } from "./log/setup.ts";
@@ -529,11 +531,6 @@ function parse_range(val: string): Result<{ start: number; end: number }, string
   return Ok({ start: from, end: to });
 }
 
-/** `miri::MAX_CPUS` (shims/cpu_affinity.rs, lane miri-shims-b, wave 37; not yet exported by lib.ts). PORT(contract):
- * pending miri-shims-b; root replaces this with the re-export when it lands. */
-function MAX_CPUS(): number {
-  return unported("miri::shims::cpu_affinity::MAX_CPUS (src/tools/miri/src/shims/cpu_affinity.rs; lane miri-shims-b, not exported)");
-}
 
 /** `env::vars_os().collect::<Vec<_>>()` (PORT: D14 host environment, `OsString` → `string` per the typemap; the order is
  * the runtime's `process.env` order, which follows `environ`). */
@@ -848,8 +845,8 @@ export function main(): number {
       const r = u32_from_str(param);
       if (r.$ === "Err") fatal_error(`-Zmiri-num-cpus requires a \`u32\`: ${display_ParseIntError(r._0)}`);
       const num_cpus = r._0;
-      if (!(1 <= num_cpus && num_cpus <= MAX_CPUS())) {
-        fatal_error(`-Zmiri-num-cpus must be in the range 1..=${MAX_CPUS()}`);
+      if (!(1 <= num_cpus && num_cpus <= MAX_CPUS)) {
+        fatal_error(`-Zmiri-num-cpus must be in the range 1..=${MAX_CPUS}`);
       }
       miri_config.num_cpus = num_cpus;
     } else if ((param = strip_prefix(arg, "-Zmiri-force-page-size=")) !== undefined) {
