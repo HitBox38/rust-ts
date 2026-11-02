@@ -3,26 +3,21 @@
 //
 // PORT:
 // - `trait EvalContextExt::emulate_foreign_item_inner` is a module fn taking `this_` (decision C9: called by path).
-// - `shim_sig!(extern "C" fn(..) -> ..)` (shims/sig.rs:30, lane miri-shims-b) is the closure the macro expands to:
-//   `shim_sig(abi, args, ret, c_variadic)` below builds `|this| ShimSig { .. }` from the same type list
-//   (`shim_sig_arg!`: `*_` = `layouts.void_ptr_mut.ty`, `iN`/`uN` = `tcx.types.*`, `libc::T` =
-//   `helpers::path_ty_layout(this, ["libc", "T"]).ty`). PORT(contract): pending miri-shims-b — swap for their helper.
+// - `shim_sig!(extern "C" fn(..) -> ..)` is shims-b's `shim_sig("C", [<arg tokens>, ("..." if variadic)], <ret>)`
+//   (shims/sig.ts); `check_shim_sig_deprecated` takes the arg count `N` as a trailing `n`.
 // - `trace!(..)` stays a comment (docs/handoff/miri-log.md).
 import { type MPlaceTy, type OpTy, type Scalar } from "../../../lib.ts";
 import { type MiriInterpCx, SIGRTMAX, SIGRTMIN } from "../../../machine.ts";
-import { path_ty_layout } from "../../../helpers.ts";
 import { EmulateItemResult } from "../../mod.ts";
-import { ShimSig } from "../../sig.ts";
+import { shim_sig, type ShimSigFn } from "../../sig.ts";
 import { prctl } from "../linux_like/thread.ts";
 import { syscall } from "../linux_like/syscall.ts";
-import { ExternAbi } from "../../../../rustc_abi/extern_abi.ts";
 import { CanonAbi } from "../../../../rustc_abi/canon_abi.ts";
 import { Immediate } from "../../../../rustc_const_eval/interpret/operand.ts";
 import { type InterpResult, interp_ok, Scalar as interp_Scalar } from "../../../../rustc_middle/mir/interpret/mod.ts";
 import { type FnAbi } from "../../../../rustc_middle/ty/decls.ts";
 import { type Ty } from "../../../../rustc_middle/ty/mod.ts";
 import { Symbol } from "../../../../rustc_span/symbol.ts";
-import { type Pending } from "../../../../rustc_type_ir/decls.ts";
 import { panic, unreachable } from "../../../../std/panic.ts";
 
 // The documentation of glibc complains that the kernel never exposes
@@ -43,14 +38,14 @@ export function emulate_foreign_item_inner(this__: MiriInterpCx, link_name: Symb
 
   const sig = (s: ShimSigFn) => this_.check_shim_sig(s, [link_name, abi, args]);
   const sig_variadic = (s: ShimSigFn) => this_.check_shim_sig_variadic(s, [link_name, abi, args]);
-  const sig_deprecated = () => this_.check_shim_sig_deprecated(abi, CanonAbi.C, link_name, args);
+  const sig_deprecated = (n: number) => this_.check_shim_sig_deprecated(abi, CanonAbi.C, link_name, args, n);
 
   switch (Symbol.as_str(link_name)) {
     // File related shims
     case "open64": {
       // FIXME: This does not have a direct test (#3179).
       // "open64" means that the file is opened with O_LARGEFILE, which we always do.
-      const c = sig_variadic(shim_sig("C", [ptr_, i32_], i32_, true));
+      const c = sig_variadic(shim_sig("C", ["*_", "i32", "..."], "i32"));
       if (c.$ === "Err") return c;
       const [[path_raw, flag], varargs] = c._0 as [[OpTy, OpTy], typeof c._0[1]];
       const result = this_.open(undefined, path_raw, flag, varargs);
@@ -62,7 +57,7 @@ export function emulate_foreign_item_inner(this__: MiriInterpCx, link_name: Symb
     case "openat64": {
       // FIXME: This does not have a direct test (#3179).
       // "openat64" means that the file is opened with O_LARGEFILE, which we always do.
-      const c = sig_variadic(shim_sig("C", [i32_, ptr_, i32_], i32_, true));
+      const c = sig_variadic(shim_sig("C", ["i32", "*_", "i32", "..."], "i32"));
       if (c.$ === "Err") return c;
       const [[dirfd, path_raw, flag], varargs] = c._0 as [[OpTy, OpTy, OpTy], typeof c._0[1]];
       const result = this_.open(dirfd, path_raw, flag, varargs);
@@ -73,7 +68,7 @@ export function emulate_foreign_item_inner(this__: MiriInterpCx, link_name: Symb
     }
     case "pread64": {
       // FIXME: This does not have a direct test (#3179).
-      const c = sig(shim_sig("C", [i32_, ptr_, usize_, libc("off64_t")], isize_, false));
+      const c = sig(shim_sig("C", ["i32", "*_", "usize", "libc::off64_t"], "isize"));
       if (c.$ === "Err") return c;
       const [fd_op, buf_op, count_op, offset_op] = c._0 as [OpTy, OpTy, OpTy, OpTy];
       const fd = read_i32(this_, fd_op);
@@ -90,7 +85,7 @@ export function emulate_foreign_item_inner(this__: MiriInterpCx, link_name: Symb
     }
     case "pwrite64": {
       // FIXME: This does not have a direct test (#3179).
-      const c = sig(shim_sig("C", [i32_, ptr_, usize_, libc("off64_t")], isize_, false));
+      const c = sig(shim_sig("C", ["i32", "*_", "usize", "libc::off64_t"], "isize"));
       if (c.$ === "Err") return c;
       const [fd_op, buf_op, n_op, offset_op] = c._0 as [OpTy, OpTy, OpTy, OpTy];
       const fd = read_i32(this_, fd_op);
@@ -108,7 +103,7 @@ export function emulate_foreign_item_inner(this__: MiriInterpCx, link_name: Symb
     }
     case "lseek64": {
       // FIXME: This does not have a direct test (#3179).
-      const c = sig(shim_sig("C", [i32_, libc("off64_t"), i32_], libc("off64_t"), false));
+      const c = sig(shim_sig("C", ["i32", "libc::off64_t", "i32"], "libc::off64_t"));
       if (c.$ === "Err") return c;
       const [fd_op, offset_op, whence_op] = c._0 as [OpTy, OpTy, OpTy];
       const fd = read_i32(this_, fd_op);
@@ -122,7 +117,7 @@ export function emulate_foreign_item_inner(this__: MiriInterpCx, link_name: Symb
       break;
     }
     case "posix_fallocate64": {
-      const c = sig(shim_sig("C", [i32_, libc("off64_t"), libc("off64_t")], i32_, false));
+      const c = sig(shim_sig("C", ["i32", "libc::off64_t", "libc::off64_t"], "i32"));
       if (c.$ === "Err") return c;
       const [fd_op, offset_op, len_op] = c._0 as [OpTy, OpTy, OpTy];
 
@@ -140,7 +135,7 @@ export function emulate_foreign_item_inner(this__: MiriInterpCx, link_name: Symb
       break;
     }
     case "fallocate": {
-      const c = sig(shim_sig("C", [i32_, i32_, libc("off_t"), libc("off_t")], i32_, false));
+      const c = sig(shim_sig("C", ["i32", "i32", "libc::off_t", "libc::off_t"], "i32"));
       if (c.$ === "Err") return c;
       const [fd_op, mode_op, offset_op, len_op] = c._0 as [OpTy, OpTy, OpTy, OpTy];
 
@@ -161,7 +156,7 @@ export function emulate_foreign_item_inner(this__: MiriInterpCx, link_name: Symb
       break;
     }
     case "fallocate64": {
-      const c = sig(shim_sig("C", [i32_, i32_, libc("off64_t"), libc("off64_t")], i32_, false));
+      const c = sig(shim_sig("C", ["i32", "i32", "libc::off64_t", "libc::off64_t"], "i32"));
       if (c.$ === "Err") return c;
       const [fd_op, mode_op, offset_op, len_op] = c._0 as [OpTy, OpTy, OpTy, OpTy];
 
@@ -181,7 +176,7 @@ export function emulate_foreign_item_inner(this__: MiriInterpCx, link_name: Symb
       break;
     }
     case "ftruncate64": {
-      const c = sig(shim_sig("C", [i32_, libc("off64_t")], i32_, false));
+      const c = sig(shim_sig("C", ["i32", "libc::off64_t"], "i32"));
       if (c.$ === "Err") return c;
       const [fd_op, length_op] = c._0 as [OpTy, OpTy];
       const fd = read_i32(this_, fd_op);
@@ -195,7 +190,7 @@ export function emulate_foreign_item_inner(this__: MiriInterpCx, link_name: Symb
       break;
     }
     case "sync_file_range": {
-      const c = sig_deprecated();
+      const c = sig_deprecated(4);
       if (c.$ === "Err") return c;
       const [fd, offset, nbytes, flags] = c._0 as [OpTy, OpTy, OpTy, OpTy];
       const result = this_.sync_file_range(fd, offset, nbytes, flags);
@@ -205,7 +200,7 @@ export function emulate_foreign_item_inner(this__: MiriInterpCx, link_name: Symb
       break;
     }
     case "statx": {
-      const c = sig_deprecated();
+      const c = sig_deprecated(5);
       if (c.$ === "Err") return c;
       const [dirfd, pathname, flags, mask, statxbuf] = c._0 as [OpTy, OpTy, OpTy, OpTy, OpTy];
       const result = this_.linux_statx(dirfd, pathname, flags, mask, statxbuf);
@@ -215,7 +210,7 @@ export function emulate_foreign_item_inner(this__: MiriInterpCx, link_name: Symb
       break;
     }
     case "fstat64": {
-      const c = sig(shim_sig("C", [i32_, ptr_], i32_, false));
+      const c = sig(shim_sig("C", ["i32", "*_"], "i32"));
       if (c.$ === "Err") return c;
       const [fd, buf] = c._0 as [OpTy, OpTy];
       const result = this_.fstat(fd, buf, "stat64");
@@ -225,7 +220,7 @@ export function emulate_foreign_item_inner(this__: MiriInterpCx, link_name: Symb
       break;
     }
     case "readdir64": {
-      const c = sig_deprecated();
+      const c = sig_deprecated(1);
       if (c.$ === "Err") return c;
       const [dirp] = c._0 as [OpTy];
       const r = this_.readdir(dirp, dest, "dirent64");
@@ -235,7 +230,7 @@ export function emulate_foreign_item_inner(this__: MiriInterpCx, link_name: Symb
 
     // epoll, eventfd
     case "epoll_create1": {
-      const c = sig_deprecated();
+      const c = sig_deprecated(1);
       if (c.$ === "Err") return c;
       const [flag] = c._0 as [OpTy];
       const result = this_.epoll_create1(flag);
@@ -245,7 +240,7 @@ export function emulate_foreign_item_inner(this__: MiriInterpCx, link_name: Symb
       break;
     }
     case "epoll_ctl": {
-      const c = sig_deprecated();
+      const c = sig_deprecated(4);
       if (c.$ === "Err") return c;
       const [epfd, op, fd, event] = c._0 as [OpTy, OpTy, OpTy, OpTy];
       const result = this_.epoll_ctl(epfd, op, fd, event);
@@ -255,7 +250,7 @@ export function emulate_foreign_item_inner(this__: MiriInterpCx, link_name: Symb
       break;
     }
     case "epoll_wait": {
-      const c = sig_deprecated();
+      const c = sig_deprecated(4);
       if (c.$ === "Err") return c;
       const [epfd, events, maxevents, timeout] = c._0 as [OpTy, OpTy, OpTy, OpTy];
       const r = this_.epoll_wait(epfd, events, maxevents, timeout, dest);
@@ -263,7 +258,7 @@ export function emulate_foreign_item_inner(this__: MiriInterpCx, link_name: Symb
       break;
     }
     case "eventfd": {
-      const c = sig_deprecated();
+      const c = sig_deprecated(2);
       if (c.$ === "Err") return c;
       const [val, flag] = c._0 as [OpTy, OpTy];
       const result = this_.eventfd(val, flag);
@@ -275,7 +270,7 @@ export function emulate_foreign_item_inner(this__: MiriInterpCx, link_name: Symb
 
     // Threading
     case "pthread_setname_np": {
-      const c = sig_deprecated();
+      const c = sig_deprecated(2);
       if (c.$ === "Err") return c;
       const [thread_op, name_op] = c._0 as [OpTy, OpTy];
       const thread = this_.read_scalar(thread_op as never);
@@ -298,7 +293,7 @@ export function emulate_foreign_item_inner(this__: MiriInterpCx, link_name: Symb
       break;
     }
     case "pthread_getname_np": {
-      const c = sig_deprecated();
+      const c = sig_deprecated(3);
       if (c.$ === "Err") return c;
       const [thread_op, name_op, len_op] = c._0 as [OpTy, OpTy, OpTy];
       // The function's behavior isn't portable between platforms.
@@ -332,7 +327,7 @@ export function emulate_foreign_item_inner(this__: MiriInterpCx, link_name: Symb
       break;
     }
     case "gettid": {
-      const c = sig_deprecated();
+      const c = sig_deprecated(0);
       if (c.$ === "Err") return c;
       const result = this_.unix_gettid(Symbol.as_str(link_name));
       if (result.$ === "Err") return result;
@@ -355,7 +350,7 @@ export function emulate_foreign_item_inner(this__: MiriInterpCx, link_name: Symb
 
     // Miscellaneous
     case "mmap64": {
-      const c = sig_deprecated();
+      const c = sig_deprecated(6);
       if (c.$ === "Err") return c;
       const [addr, length, prot, flags, fd, offset_op] = c._0 as [OpTy, OpTy, OpTy, OpTy, OpTy, OpTy];
       const offset = read_i64(this_, offset_op);
@@ -367,7 +362,7 @@ export function emulate_foreign_item_inner(this__: MiriInterpCx, link_name: Symb
       break;
     }
     case "mremap": {
-      const c = sig_variadic(shim_sig("C", [ptr_, usize_, usize_, i32_], ptr_, true));
+      const c = sig_variadic(shim_sig("C", ["*_", "usize", "usize", "i32", "..."], "*_"));
       if (c.$ === "Err") return c;
       const [[old_address, old_size, new_size, flags]] = c._0 as [[OpTy, OpTy, OpTy, OpTy], unknown];
       const ptr = this_.mremap(old_address, old_size, new_size, flags);
@@ -377,7 +372,7 @@ export function emulate_foreign_item_inner(this__: MiriInterpCx, link_name: Symb
       break;
     }
     case "__xpg_strerror_r": {
-      const c = sig_deprecated();
+      const c = sig_deprecated(3);
       if (c.$ === "Err") return c;
       const [errnum, buf, buflen] = c._0 as [OpTy, OpTy, OpTy];
       const result = this_.strerror_r(errnum, buf, buflen);
@@ -387,7 +382,7 @@ export function emulate_foreign_item_inner(this__: MiriInterpCx, link_name: Symb
       break;
     }
     case "__errno_location": {
-      const c = sig_deprecated();
+      const c = sig_deprecated(0);
       if (c.$ === "Err") return c;
       const errno_place = this_.last_error_place();
       if (errno_place.$ === "Err") return errno_place;
@@ -397,7 +392,7 @@ export function emulate_foreign_item_inner(this__: MiriInterpCx, link_name: Symb
       break;
     }
     case "__libc_current_sigrtmin": {
-      const c = sig_deprecated();
+      const c = sig_deprecated(0);
       if (c.$ === "Err") return c;
 
       const w = this_.write_int(BigInt(SIGRTMIN), dest);
@@ -405,7 +400,7 @@ export function emulate_foreign_item_inner(this__: MiriInterpCx, link_name: Symb
       break;
     }
     case "__libc_current_sigrtmax": {
-      const c = sig_deprecated();
+      const c = sig_deprecated(0);
       if (c.$ === "Err") return c;
 
       const w = this_.write_int(BigInt(SIGRTMAX), dest);
@@ -417,7 +412,7 @@ export function emulate_foreign_item_inner(this__: MiriInterpCx, link_name: Symb
     // These shims are enabled only when the caller is in the standard library.
     case "pthread_getattr_np": {
       if (!this_.frame_in_std()) return interp_ok(EmulateItemResult.NotSupported);
-      const c = sig_deprecated();
+      const c = sig_deprecated(2); // [_thread, _attr]
       if (c.$ === "Err") return c;
       const w = this_.write_null(dest);
       if (w.$ === "Err") return w;
@@ -425,7 +420,7 @@ export function emulate_foreign_item_inner(this__: MiriInterpCx, link_name: Symb
     }
     case "gnu_get_libc_version": {
       if (!(this_.frame_in_std() && this_.tcx.deref().sess.target.env.$ === "Gnu")) return interp_ok(EmulateItemResult.NotSupported);
-      const c = sig_deprecated();
+      const c = sig_deprecated(0);
       if (c.$ === "Err") return c;
       // We have to be at least version 2.26 so that std does not call `res_init`.
       // This returns a C string, so we have to add a null terminator.
@@ -445,28 +440,6 @@ export function emulate_foreign_item_inner(this__: MiriInterpCx, link_name: Symb
 }
 
 // ---------------------------------------------------------------- private glue of this module ----
-
-/** The skeleton's `check_shim_sig` parameter type (sig.ts). */
-type ShimSigFn = Pending<"fn(&MiriInterpCx<'tcx>) -> ShimSig<'tcx, N>">;
-/** One `shim_sig_arg!` type. */
-type SigTy = (this_: MiriInterpCx) => Ty;
-
-/** `shim_sig!(extern $abi fn($args) -> $ret)` (module header). PORT(contract): pending miri-shims-b. */
-function shim_sig(abi: string, args: readonly SigTy[], ret: SigTy, c_variadic: boolean): ShimSigFn {
-  return ((this_: MiriInterpCx): ShimSig => {
-    const a = ExternAbi.from_str(abi);
-    if (a.$ === "Err") return panic("incorrect abi specified");
-    return new ShimSig(a._0, args.map((t) => t(this_)), ret(this_), c_variadic);
-  }) as unknown as ShimSigFn;
-}
-const ptr_: SigTy = (this_) => this_.machine.layouts.void_ptr_mut.ty; // `*_`
-const i32_: SigTy = (this_) => this_.tcx.deref().types.i32;
-const isize_: SigTy = (this_) => this_.tcx.deref().types.isize;
-const usize_: SigTy = (this_) => this_.tcx.deref().types.usize;
-/** `libc::$ty` (`helpers::path_ty_layout($this, &["libc", "$ty"]).ty`). */
-function libc(ty: string): SigTy {
-  return (this_) => path_ty_layout(this_ as never, ["libc", ty]).ty;
-}
 
 /** `this.write_scalar(v, dest)?`. */
 function write_scalar(this_: MiriInterpCx, v: Scalar, dest: MPlaceTy): InterpResult {

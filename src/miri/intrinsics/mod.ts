@@ -276,7 +276,7 @@ InterpCx.prototype.call_llvm_intrinsic = function (
     const name = Symbol.as_str(link_name);
     // LLVM intrinsics
     if (name === "llvm.prefetch.p0") {
-      const c = this_.check_shim_sig_llvm_intrinsic(link_name, args);
+      const c = this_.check_shim_sig_llvm_intrinsic(link_name, args, 4);
       if (c.$ === "Err") return c;
       const [p, rw_op, loc_op, ty_op] = c._0 as [OpTy, OpTy, OpTy, OpTy];
 
@@ -306,7 +306,7 @@ InterpCx.prototype.call_llvm_intrinsic = function (
     // Used to implement the x86 `_mm{,256,512}_popcnt_epi{8,16,32,64}` and wasm
     // `{i,u}8x16_popcnt` functions.
     else if (name.startsWith("llvm.ctpop.v") && target.endian === "Little") {
-      const c = this_.check_shim_sig_llvm_intrinsic(link_name, args);
+      const c = this_.check_shim_sig_llvm_intrinsic(link_name, args, 1);
       if (c.$ === "Err") return c;
       const [op_] = c._0 as [OpTy];
 

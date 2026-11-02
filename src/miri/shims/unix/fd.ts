@@ -28,7 +28,7 @@ import { callback, type DynMachineCallback, type MiriInterpCx } from "../../mach
 import { VisitProvenance_MPlaceTy, VisitProvenance_no_provenance, VisitProvenance_Pointer, VisitProvenance_tuple2, VisitProvenance_Vec } from "../../provenance_gc.ts";
 import { type DynFileDescriptionRef, type FdNum, type FileDescription, type FileDescriptionRef, NullOutput, Stderr, Stdin, Stdout } from "../files.ts";
 import { type IoError } from "../io_error.ts";
-import { type Varargs } from "../sig.ts";
+import { shim_varargs, type Varargs } from "../sig.ts";
 import { type FlockOp } from "./fd.gen.ts";
 import { port_methods } from "../../../rust_ts/miri_stub.ts";
 import { Align, Size } from "../../../rustc_abi/lib.ts";
@@ -304,7 +304,7 @@ InterpCx.prototype.flock = function (this: MiriInterpCx, fd_num: FdNum, op: numb
   if (result_r.$ === "Err") return result_r;
   // return `0` if flock is successful
   const result: Result<number, io_Error> = result_r._0.$ === "Ok" ? Ok(0) : result_r._0;
-  const v = this_.try_unwrap_io_result(result);
+  const v = this_.try_unwrap_io_result(result, (v: number) => v);
   if (v.$ === "Err") return v;
   return interp_ok(interp_Scalar.from_i32(v._0));
 };
@@ -858,44 +858,29 @@ InterpCx.prototype.write_to_fd = function (
 
 // ---------------------------------------------------------------- private glue of this module ----
 
-// PORT(contract): pending miri-shims-b. The `self: FileDescriptionRef<Self>` methods take the ref as a leading
-// `self_` argument (the convention shims-b and shims-e agreed, wave 37); the skeleton's `FileDescription` still declares
-// them without it, hence the casts. A `FileDescriptionRef` from `FdTable::get` / `remove` is a strong handle: one that is
-// not moved on (`insert`, `read`, `write`, `as_unix`) is released with `drop()` where Rust drops it.
-type SelfRefFn<A extends unknown[], R> = (this: FileDescription, self_: DynFileDescriptionRef, ...args: A) => R;
+// The `self: FileDescriptionRef<Self>` methods take the ref as a leading `self_` argument (shims-b's files.ts); a
+// `FileDescriptionRef` from `FdTable::get` / `remove` is a strong handle: one that is not moved on (`insert`, `read`,
+// `write`, `as_unix`) is released with `drop()` where Rust drops it.
 
 /** `fd.as_unix()` (`FileDescription::as_unix(self: FileDescriptionRef<Self>)`, files.rs:200; moves `fd`). */
 function fd_as_unix(fd: DynFileDescriptionRef): FileDescriptionRef<UnixFileDescription> {
-  const inner = deref(fd);
-  return (inner.as_unix as unknown as SelfRefFn<[], FileDescriptionRef<UnixFileDescription>>).call(inner, fd);
+  return fd.deref().as_unix(fd) as FileDescriptionRef<UnixFileDescription>;
 }
 /** `fd.read(..)` (`FileDescription::read(self: FileDescriptionRef<Self>, ..)`, files.rs:140; moves `fd`). */
 function fd_read(fd: DynFileDescriptionRef, communicate_allowed: boolean, ptr: Pointer, len: number, ecx: MiriInterpCx, finish: DynMachineCallback<Result<number, IoError>>): InterpResult {
-  const inner = deref(fd);
-  return (inner.read as unknown as SelfRefFn<Parameters<FileDescription["read"]>, InterpResult>).call(inner, fd, communicate_allowed, ptr, len, ecx, finish);
+  return fd.deref().read(fd, communicate_allowed, ptr, len, ecx, finish);
 }
 /** `fd.write(..)` (`FileDescription::write(self: FileDescriptionRef<Self>, ..)`, files.rs:157; moves `fd`). */
 function fd_write(fd: DynFileDescriptionRef, communicate_allowed: boolean, ptr: Pointer, len: number, ecx: MiriInterpCx, finish: DynMachineCallback<Result<number, IoError>>): InterpResult {
-  const inner = deref(fd);
-  return (inner.write as unknown as SelfRefFn<Parameters<FileDescription["write"]>, InterpResult>).call(inner, fd, communicate_allowed, ptr, len, ecx, finish);
+  return fd.deref().write(fd, communicate_allowed, ptr, len, ecx, finish);
 }
-/** `*fd` (`impl Deref for FileDescriptionRef<T>`, files.rs:52): shims-b's `ref.deref()`; until it exists this stops
- * `unported`. */
+/** `*fd` (`impl Deref for FileDescriptionRef<T>`, files.rs:52). */
 function deref<T>(fd: FileDescriptionRef<T>): T {
-  const d = (fd as unknown as { deref?: () => T }).deref;
-  if (typeof d !== "function") {
-    return unported("miri::shims::files::FileDescriptionRef: `Deref` (src/tools/miri/src/shims/files.rs:52; lane miri-shims-b)");
-  }
-  return d.call(fd);
+  return fd.deref();
 }
-/** `drop(fd)`: releases a strong `FileDescriptionRef` handle (the `Rc`'s `Drop`; the last ref closes the description).
- * Until shims-b's `FileDescriptionRef.drop` exists this stops `unported`. */
+/** `drop(fd)`: releases a strong `FileDescriptionRef` handle (the last ref closes the description). */
 function drop_fd_ref(fd: FileDescriptionRef<unknown>): void {
-  const drop = (fd as unknown as { drop?: () => void }).drop;
-  if (typeof drop !== "function") {
-    unported("miri::shims::files::FileDescriptionRef: `Drop` of the `Rc` (src/tools/miri/src/shims/files.rs:44; lane miri-shims-b)");
-  }
-  drop.call(fd);
+  fd.drop();
 }
 /** Drops `fd` after the value of the expression it was used in has been computed (Rust drops temporaries / locals there). */
 function with_drop<T>(fd: FileDescriptionRef<unknown>, value: T): T {
@@ -912,8 +897,8 @@ function Scalar_eq(a: Scalar, b: Scalar): boolean {
   return false;
 }
 
-/** `shim_varargs![i32]` (shims/sig.rs:46, lane miri-shims-b; `|this| [this.tcx.types.i32]`). */
-const shim_varargs_i32 = ((this_: MiriInterpCx) => [this_.tcx.deref().types.i32]) as unknown as Pending<"fn(&MiriInterpCx<'tcx>) -> [Ty<'tcx>; N]">;
+/** `shim_varargs![i32]` (shims/sig.rs:46). */
+const shim_varargs_i32 = shim_varargs("i32");
 
 /** `this.read_scalar(op)?.to_i32()?`. */
 function read_i32(this_: MiriInterpCx, op: OpTy): InterpResult<number> {
