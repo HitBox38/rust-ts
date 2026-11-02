@@ -27,7 +27,7 @@
 import { type AtomicReadOrd, type AtomicRwOrd, type AtomicWriteOrd, type GlobalState as DataRaceState, type ThreadClockSet } from "./data_race.ts";
 import { type AllocDataRaceHandler } from "./data_race_handler.ts";
 import { type ThreadManager } from "./thread.ts";
-import { type VClock, VTimestamp, VectorIdx } from "./vector_clock.ts";
+import { type VClock, VTimestamp, VectorIdx, clone_VTimestamp } from "./vector_clock.ts";
 import { VClock as VClock_ } from "./vector_clock.ts";
 import { type LoadInfo, LoadRecency, StoreBuffer, StoreBufferAlloc, StoreElement } from "./weak_memory.gen.ts";
 import { type AccessType, RangeObjectMap } from "../data_structures/range_object_map.ts";
@@ -462,7 +462,9 @@ StoreBuffer.prototype.fetch_store = function (this: StoreBuffer, is_seqcst: bool
 StoreBuffer.prototype.store_impl = function (this: StoreBuffer, val: Scalar, index: VectorIdx, thread_clock: VClock, is_seqcst: boolean, sync_clock: VClock): void {
   const store_elem = new StoreElement(
     index,
-    vclock_index(thread_clock, index),
+    // PORT: `VTimestamp` is `Copy` (vector_clock.ts header): the element owns a copy, not the thread's live slot, which
+    // `increment_clock` mutates in place.
+    clone_VTimestamp(vclock_index(thread_clock, index)),
     sync_clock,
     is_seqcst,
     // In the language provided in the paper, an atomic store takes the value from a
@@ -510,7 +512,8 @@ StoreElement.prototype.load_impl = function (this: StoreElement, index: VectorId
   load_info.sc_loaded ||= is_seqcst;
   // let _ = load_info.timestamps.try_insert(index, clocks.clock[index]);
   if (!load_info.timestamps.has(index)) {
-    load_info.timestamps.set(index, vclock_index(clocks.clock, index));
+    // PORT: a copy of the `Copy` `VTimestamp`, not the thread's live clock slot (see store_impl).
+    load_info.timestamps.set(index, clone_VTimestamp(vclock_index(clocks.clock, index)));
   }
   return this.val;
 };
