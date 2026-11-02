@@ -35,7 +35,15 @@ No `.gen.ts`, no other lane's file, no `src/std`, `scripts/`, `harness/` or `too
 
 ### Unit step
 
-UNIT_STEP_RESULT
+- `RUST_TS_REQUIRE_PROBES=1 bun test ./src ./tools` on `afddd8c8`: 6744 pass, 1 skip, **4 fail**:
+  - `src/miri/contract.test.ts` placeholders (`MIRI_STUBS.length > 100`, item 6 below): expected on this branch alone;
+    passes once merged with miri-shims-b's `7c64e53a`.
+  - `test_classify_nonstarters` (unicode_normalization), and in odht.oracle.test.ts `build: insert results ...` and
+    `readmeta: core/alloc/std def_path_hash_map ...`: bun's 5 s timeouts while the machine was loaded by the other
+    wave-37 sessions. Rerun alone, both files pass (8 pass, 0 fail). Not related to this lane.
+  Log: `$RUST_TS_DATA/tmp/miri-shims-c/unit-src2.log`.
+- `bun test ./scripts ./harness`: 136 pass, 0 fail.
+- `bun test src/miri`: 166 pass, 1 fail (the same contract assertion). In a trial merge with `7c64e53a`: 167 pass, 0 fail.
 
 ## Oracle checks (unit tests)
 
