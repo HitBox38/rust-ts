@@ -1,6 +1,6 @@
 # Handoff: fixer lane `miri-thread-exit` (M6: the port's Miri thread-exit / join bug)
 
-Branch `t3/868575cb` (worktree `t3-868575cb`). At setup it merged `integ-w37` and `t3/miri-codegen-backend`, with no
+Branch `t3/fix-miri-thread-exit-join` (worktree `t3-868575cb`). At setup it merged `integ-w37` and `t3/miri-codegen-backend`, with no
 conflicts. Fix commit: 635b50ec. The handoff commit follows it.
 
 ## Root cause (one bug, all three cases)
