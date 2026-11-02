@@ -359,9 +359,9 @@ export interface Config {
   /// internal features are wontfix, and they are usually the cause of the ICEs.
   using_internal_features: { value: boolean };
 }
-// PORT: the driver passes `None` for every callback (`file_loader`, `psess_created`, `track_state`,
-// `register_lints`, `override_queries`); their `Some` arms are not ported. `make_codegen_backend` is ported
-// (Miri's driver sets it, bin/miri.rs:129).
+// PORT: the `Some` arms of `psess_created`, `track_state` and `register_lints` are not ported (the driver passes
+// `None`). `file_loader`, `override_queries` and `make_codegen_backend` are ported (Miri's driver sets the last one,
+// bin/miri.rs:129).
 
 /** Whether `e` is an unwind payload (`Panic`/`FatalErrorMarker`), i.e. what `catch_unwind` catches. */
 function is_unwind(e: unknown): boolean {
