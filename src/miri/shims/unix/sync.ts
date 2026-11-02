@@ -4,10 +4,9 @@
 // PORT decisions (docs/handoff/miri-shims-e.md):
 // - `PthreadMutex` / `PthreadRwLock` / `PthreadCondvar` implement `SyncObj` and are stored as `Box<dyn SyncObj>` in
 //   `AllocExtra.sync_objs`; `get_sync::<T>` is an exact type test (decision after the miri-threads review: `instanceof`
-//   the concrete class, never field presence). The generated types are interfaces (no inherent impl, so no auto class),
-//   so each is a hand class here that implements the generated interface and shadows its `export *` name; the derived
-//   `Clone` (`clone_PthreadMutex`, ..) is redefined here to build the class (it is what gets stored by
-//   `init_immovable_sync`). The generated `debug_*` apply unchanged.
+//   the concrete class, never field presence). They are generated classes (set `miri`'s `class` list), so the derived
+//   `Clone` (`clone_PthreadMutex`, ..) builds the class too; `impl SyncObj for ..` is installed on their prototypes with
+//   `port_methods` (C10).
 // - `ecx.tcx.sess.target.os` is `this.tcx.deref().sess.target.os` (helpers.ts precedent).
 import { type TimeoutClock, type TimeoutStyle } from "../../clock.ts";
 import { display_AccessKind, type AccessKind, clone_CondvarRef, clone_MutexRef, clone_RwLockRef, CondvarRef, MutexRef, RwLockRef, type SyncObj } from "../../concurrency/sync.ts";
@@ -16,10 +15,13 @@ import { throw_machine_stop } from "../../helpers.ts";
 import { type MPlaceTy, type OpTy, type Scalar } from "../../lib.ts";
 import { type MiriInterpCx } from "../../machine.ts";
 import {
+  clone_PthreadCondvar,
+  clone_PthreadMutex,
+  clone_PthreadRwLock,
   type MutexKind,
-  type PthreadCondvar as gen_PthreadCondvar,
-  type PthreadMutex as gen_PthreadMutex,
-  type PthreadRwLock as gen_PthreadRwLock,
+  PthreadCondvar,
+  PthreadMutex,
+  PthreadRwLock,
 } from "./sync.gen.ts";
 import { debug_Size, Size, Size_eq } from "../../../rustc_abi/lib.ts";
 import { InterpCx } from "../../../rustc_const_eval/interpret/eval_context.ts";
@@ -29,6 +31,7 @@ import { spec } from "../../../rustc_target/lib.ts";
 import { type Os } from "../../../rustc_target/spec/mod.ts";
 import { panic } from "../../../std/panic.ts";
 import { PLAIN } from "../../../std/fmt.ts";
+import { port_methods } from "../../../rust_ts/miri_stub.ts";
 import { Err } from "../../../std/result.ts";
 export * from "./sync.gen.ts";
 
@@ -214,31 +217,25 @@ function mutexattr_translate_kind(ecx: MiriInterpCx, kind: number): InterpResult
 /// The mutex kind.
 // (generated: `MutexKind`)
 
-// #[derive(Debug, Clone)]
-export class PthreadMutex implements gen_PthreadMutex, SyncObj {
-  constructor(
-    public mutex_ref: MutexRef,
-    public kind: MutexKind,
-  ) {}
-
-  // impl SyncObj for PthreadMutex
+// #[derive(Debug, Clone)] struct PthreadMutex (generated class)
+declare module "./sync.gen.ts" {
+  interface PthreadMutex extends SyncObj {}
+}
+// impl SyncObj for PthreadMutex
+port_methods("miri::shims::unix::sync::SyncObj for PthreadMutex", () => PthreadMutex.prototype, {
   // rustc: src/tools/miri/src/shims/unix/sync.rs:124 on_access
-  on_access(access_kind: AccessKind): InterpResult {
+  on_access(this: PthreadMutex, access_kind: AccessKind): InterpResult {
     if (!this.mutex_ref.queue_is_empty()) {
       return throw_ub_format(`${display_AccessKind(access_kind)} of \`pthread_mutex_t\` is forbidden while the queue is non-empty`);
     }
     return interp_ok(undefined);
-  }
+  },
 
   // rustc: src/tools/miri/src/shims/unix/sync.rs:133 delete_on_write
-  delete_on_write(): boolean {
+  delete_on_write(this: PthreadMutex): boolean {
     return true;
-  }
-}
-/** The derived `Clone` of `PthreadMutex` (builds the class; shadows the generated object-literal clone). */
-export function clone_PthreadMutex(v: gen_PthreadMutex): PthreadMutex {
-  return new PthreadMutex(clone_MutexRef(v.mutex_ref), v.kind);
-}
+  },
+});
 /** `downcast_ref::<PthreadMutex>()`'s exact type test. */
 const is_PthreadMutex = (v: SyncObj): v is PthreadMutex => v instanceof PthreadMutex;
 
@@ -374,28 +371,25 @@ function mutex_kind_from_static_initializer(ecx: MiriInterpCx, mutex: MPlaceTy):
 // We store some data directly inside the type, ignoring the platform layout:
 // - init: u8
 
-// #[derive(Debug, Clone)]
-export class PthreadRwLock implements gen_PthreadRwLock, SyncObj {
-  constructor(public rwlock_ref: RwLockRef) {}
-
-  // impl SyncObj for PthreadRwLock
+// #[derive(Debug, Clone)] struct PthreadRwLock (generated class)
+declare module "./sync.gen.ts" {
+  interface PthreadRwLock extends SyncObj {}
+}
+// impl SyncObj for PthreadRwLock
+port_methods("miri::shims::unix::sync::SyncObj for PthreadRwLock", () => PthreadRwLock.prototype, {
   // rustc: src/tools/miri/src/shims/unix/sync.rs:260 on_access
-  on_access(access_kind: AccessKind): InterpResult {
+  on_access(this: PthreadRwLock, access_kind: AccessKind): InterpResult {
     if (!this.rwlock_ref.queue_is_empty()) {
       return throw_ub_format(`${display_AccessKind(access_kind)} of \`pthread_rwlock_t\` is forbidden while the queue is non-empty`);
     }
     return interp_ok(undefined);
-  }
+  },
 
   // rustc: src/tools/miri/src/shims/unix/sync.rs:269 delete_on_write
-  delete_on_write(): boolean {
+  delete_on_write(this: PthreadRwLock): boolean {
     return true;
-  }
-}
-/** The derived `Clone` of `PthreadRwLock` (builds the class; shadows the generated object-literal clone). */
-export function clone_PthreadRwLock(v: gen_PthreadRwLock): PthreadRwLock {
-  return new PthreadRwLock(clone_RwLockRef(v.rwlock_ref));
-}
+  },
+});
 /** `downcast_ref::<PthreadRwLock>()`'s exact type test. */
 const is_PthreadRwLock = (v: SyncObj): v is PthreadRwLock => v instanceof PthreadRwLock;
 
@@ -525,31 +519,25 @@ function cond_init_offset(ecx: MiriInterpCx): InterpResult<Size> {
   return interp_ok(offset);
 }
 
-// #[derive(Debug, Clone)]
-export class PthreadCondvar implements gen_PthreadCondvar, SyncObj {
-  constructor(
-    public condvar_ref: CondvarRef,
-    public clock: TimeoutClock,
-  ) {}
-
-  // impl SyncObj for PthreadCondvar
+// #[derive(Debug, Clone)] struct PthreadCondvar (generated class)
+declare module "./sync.gen.ts" {
+  interface PthreadCondvar extends SyncObj {}
+}
+// impl SyncObj for PthreadCondvar
+port_methods("miri::shims::unix::sync::SyncObj for PthreadCondvar", () => PthreadCondvar.prototype, {
   // rustc: src/tools/miri/src/shims/unix/sync.rs:407 on_access
-  on_access(access_kind: AccessKind): InterpResult {
+  on_access(this: PthreadCondvar, access_kind: AccessKind): InterpResult {
     if (!this.condvar_ref.queue_is_empty()) {
       return throw_ub_format(`${display_AccessKind(access_kind)} of \`pthread_cond_t\` is forbidden while the queue is non-empty`);
     }
     return interp_ok(undefined);
-  }
+  },
 
   // rustc: src/tools/miri/src/shims/unix/sync.rs:416 delete_on_write
-  delete_on_write(): boolean {
+  delete_on_write(this: PthreadCondvar): boolean {
     return true;
-  }
-}
-/** The derived `Clone` of `PthreadCondvar` (builds the class; shadows the generated object-literal clone). */
-export function clone_PthreadCondvar(v: gen_PthreadCondvar): PthreadCondvar {
-  return new PthreadCondvar(clone_CondvarRef(v.condvar_ref), v.clock);
-}
+  },
+});
 /** `downcast_ref::<PthreadCondvar>()`'s exact type test. */
 const is_PthreadCondvar = (v: SyncObj): v is PthreadCondvar => v instanceof PthreadCondvar;
 

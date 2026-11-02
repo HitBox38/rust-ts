@@ -2,8 +2,9 @@
 // wave 37). Its types are generated into epoll.gen.ts (tools/codegen set `miri`); this module re-exports them.
 //
 // PORT decisions (docs/handoff/miri-shims-e.md), as in eventfd.ts:
-// - `Epoll` is a hand class implementing the generated interface (exact type test for `downcast::<Epoll>()`); trait
-//   methods it does not override delegate to `FileDescription_provided` / `UnixFileDescription_provided`.
+// - `Epoll` is a generated class (set `miri`'s `class` list: exact type test for `downcast::<Epoll>()`); its trait impls
+//   are installed on the prototype with `port_methods` (C10), the provided methods it does not override being
+//   `FileDescription_provided` / `UnixFileDescription_provided`'s.
 // - `FileDescriptionRef`s are owned strong handles, `drop()`ped where Rust drops them (reverse declaration order at scope
 //   end, via `try`/`finally`), moved into `callback!` captures. `watcher: Rc<ReadinessWatcher>` follows readiness.ts's Rc
 //   protocol: `Rc::new(ReadinessWatcher::default())` is `Rc_new_ReadinessWatcher()`, and dropping the `Epoll` drops the
@@ -14,12 +15,10 @@ import { type UnblockKind } from "../../../concurrency/thread.ts";
 import { type MPlaceTy, type OpTy, type Scalar } from "../../../lib.ts";
 import { callback, type MiriInterpCx } from "../../../machine.ts";
 import { type VisitProvenanceImpl, VisitProvenance_MPlaceTy } from "../../../provenance_gc.ts";
-import * as files from "../../files.ts";
-import { type FileDescription, type FileDescriptionRef } from "../../files.ts";
-import * as readiness from "../../readiness.ts";
-import { type Readiness, type ReadinessInterest, type ReadinessInterestKey } from "../../readiness.ts";
-import * as fd_ from "../fd.ts";
-import { type Epoll as gen_Epoll } from "./epoll.gen.ts";
+import { type FileDescription, FileDescription_provided, type FileDescriptionRef } from "../../files.ts";
+import { type Readiness, type ReadinessInterest, type ReadinessInterestKey, Rc_drop_ReadinessWatcher, Rc_new_ReadinessWatcher } from "../../readiness.ts";
+import { type UnixFileDescription, UnixFileDescription_provided } from "../fd.ts";
+import { Epoll } from "./epoll.gen.ts";
 import { FieldIdx } from "../../../../rustc_abi/lib.ts";
 import { InterpCx } from "../../../../rustc_const_eval/interpret/eval_context.ts";
 import { type AnyMachine, type Machine } from "../../../../rustc_const_eval/interpret/machine.ts";
@@ -30,6 +29,7 @@ import { type IoError as io_Error } from "../../../../std/io.ts";
 import { assert, panic } from "../../../../std/panic.ts";
 import { Err, type Result } from "../../../../std/result.ts";
 import { Duration } from "../../../../std/time.ts";
+import { port_methods } from "../../../../rust_ts/miri_stub.ts";
 export * from "./epoll.gen.ts";
 
 declare module "../../../../rustc_const_eval/interpret/eval_context.ts" {
@@ -69,85 +69,43 @@ const VisitProvenance_FileDescriptionRef: VisitProvenanceImpl<FileDescriptionRef
 };
 
 /// An `Epoll` file descriptor connects file handles and epoll events
-// #[derive(Debug)]
-export class Epoll implements gen_Epoll {
-  constructor(
-    /// Watcher used for registering interests in the global readiness
-    /// interest table.
-    public watcher: readiness.ReadinessWatcher,
-  ) {}
+// #[derive(Debug)] struct Epoll (generated class: set `miri`'s `class` list)
+declare module "./epoll.gen.ts" {
+  interface Epoll extends UnixFileDescription {}
+}
 
-  // ---- impl FileDescription for Epoll ----
+// impl FileDescription for Epoll (the provided methods it does not override are `FileDescription_provided`'s)
+port_methods("miri::shims::unix::linux_like::epoll::FileDescription for Epoll", () => Epoll.prototype, {
+  ...FileDescription_provided,
 
   // rustc: src/tools/miri/src/shims/unix/linux_like/epoll.rs:20 name
-  name(): string {
+  name(this: Epoll): string {
     return "epoll";
-  }
+  },
 
   // rustc: src/tools/miri/src/shims/unix/linux_like/epoll.rs:24 metadata
-  metadata(): InterpResult<Either<Result<Pending<"fs::Metadata">, io_Error>, string>> {
+  metadata(this: Epoll): InterpResult<Either<Result<Pending<"fs::Metadata">, io_Error>, string>> {
     // On Linux, epoll is an "anonymous inode" reported as S_IFREG.
     return interp_ok({ $: "Right", _0: "S_IFREG" });
-  }
+  },
 
   // rustc: src/tools/miri/src/shims/unix/linux_like/epoll.rs:31 as_unix
-  as_unix(self_: FileDescriptionRef<Epoll>): FileDescriptionRef<Epoll> {
-    return self_;
-  }
-
-  // (provided) `FileDescription` methods Epoll does not override
-  read(...args: readonly never[]): InterpResult {
-    return files.FileDescription_provided.read.call(this, ...args);
-  }
-  write(...args: readonly never[]): InterpResult {
-    return files.FileDescription_provided.write.call(this, ...args);
-  }
-  short_fd_operations(...args: readonly never[]): boolean {
-    return files.FileDescription_provided.short_fd_operations.call(this, ...args);
-  }
-  seek(...args: readonly never[]): InterpResult<unknown> {
-    return files.FileDescription_provided.seek.call(this, ...args);
-  }
-  is_tty(...args: readonly never[]): boolean {
-    return files.FileDescription_provided.is_tty.call(this, ...args);
-  }
-  readiness_watched(...args: readonly never[]): readiness.ReadinessWatched | undefined {
-    return files.FileDescription_provided.readiness_watched.call(this, ...args);
-  }
-  readiness(...args: readonly never[]): Readiness {
-    return files.FileDescription_provided.readiness.call(this, ...args);
-  }
-
-  // ---- impl UnixFileDescription for Epoll {} ----
-  pread(...args: readonly never[]): InterpResult {
-    return fd_.UnixFileDescription_provided.pread.call(this, ...args);
-  }
-  pwrite(...args: readonly never[]): InterpResult {
-    return fd_.UnixFileDescription_provided.pwrite.call(this, ...args);
-  }
-  flock(...args: readonly never[]): InterpResult<unknown> {
-    return fd_.UnixFileDescription_provided.flock.call(this, ...args);
-  }
-  get_flags(...args: readonly never[]): InterpResult<unknown> {
-    return fd_.UnixFileDescription_provided.get_flags.call(this, ...args);
-  }
-  set_flags(...args: readonly never[]): InterpResult<unknown> {
-    return fd_.UnixFileDescription_provided.set_flags.call(this, ...args);
-  }
-  ioctl(...args: readonly never[]): InterpResult<number> {
-    return fd_.UnixFileDescription_provided.ioctl.call(this, ...args);
-  }
-  as_socket(...args: readonly never[]): unknown {
-    return fd_.UnixFileDescription_provided.as_socket.call(this, ...args);
-  }
+  as_unix(this: Epoll, self_: FileDescriptionRef<FileDescription>): FileDescriptionRef<UnixFileDescription> {
+    // PORT: the unsizing `FileDescriptionRef<Self> -> FileDescriptionRef<dyn UnixFileDescription>` (a move).
+    return self_ as unknown as FileDescriptionRef<UnixFileDescription>;
+  },
 
   /** Drop glue of `Epoll` (no `Drop` impl of its own): drops `watcher: Rc<ReadinessWatcher>`. */
-  drop_glue(): void {
-    readiness.Rc_drop_ReadinessWatcher(this.watcher);
-  }
-}
+  drop_glue(this: Epoll): void {
+    Rc_drop_ReadinessWatcher(this.watcher);
+  },
+} satisfies FileDescription & ThisType<Epoll>);
+
+// impl UnixFileDescription for Epoll {}
+port_methods("miri::shims::unix::linux_like::epoll::UnixFileDescription for Epoll", () => Epoll.prototype, UnixFileDescription_provided);
+
 /** `downcast::<Epoll>()`'s exact type test. */
-export const is_Epoll = (v: object): v is Epoll => v instanceof Epoll;
+export const is_Epoll = (v: FileDescription): v is Epoll => v instanceof Epoll;
 
 // ---------------------------------------------------------------- EvalContextExt ----
 
@@ -173,9 +131,7 @@ InterpCx.prototype.epoll_create1 = function (this: MiriInterpCx, flags_op: OpTy)
     return throw_unsup_format(`epoll_create1: flag ${hex32(flags)} is unsupported, only 0 or EPOLL_CLOEXEC are allowed`);
   }
 
-  const fd = this_.machine.fds.insert_new(
-    new Epoll(readiness.Rc_new_ReadinessWatcher()) as unknown as Pending<"impl FileDescription">, // PORT(contract): pending miri-shims-b
-  );
+  const fd = this_.machine.fds.insert_new(new Epoll(Rc_new_ReadinessWatcher()));
   return interp_ok(ScalarNs.from_i32(fd));
 };
 

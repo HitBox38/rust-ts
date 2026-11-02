@@ -2,8 +2,8 @@
 // wave 37). Its types are generated into sync.gen.ts (tools/codegen set `miri`); this module re-exports them.
 //
 // PORT decisions (docs/handoff/miri-shims-e.md):
-// - `LinuxFutex` is a hand class implementing the generated interface (exact `instanceof` type test for `get_sync_or_init`,
-//   as unix/sync.ts); `impl SyncObj for LinuxFutex {}` copies `SyncObj_provided`.
+// - `LinuxFutex` is a generated class (set `miri`'s `class` list; exact `instanceof` type test for `get_sync_or_init`, as
+//   unix/sync.ts); `impl SyncObj for LinuxFutex {}` installs `SyncObj_provided` with `port_methods` (C10).
 // - `shim_varargs![..]` is shims/sig.ts's `shim_varargs(..tys)` (lane miri-shims-b, agreed contract: string type specs),
 //   called through the module namespace when `check_varargs` evaluates it (see `shim_varargs_` below).
 import { type Deadline } from "../../../clock.ts";
@@ -14,11 +14,12 @@ import { callback, type MiriInterpCx } from "../../../machine.ts";
 import { VisitProvenance_MPlaceTy } from "../../../provenance_gc.ts";
 import * as sig from "../../sig.ts";
 import { type Varargs } from "../../sig.ts";
-import { type LinuxFutex as gen_LinuxFutex } from "./sync.gen.ts";
+import { LinuxFutex } from "./sync.gen.ts";
 import { InterpErrorInfo_from_InterpErrorKind, type InterpResult, interp_ok, Scalar as ScalarNs } from "../../../../rustc_middle/mir/interpret/mod.ts";
 import { type Ty } from "../../../../rustc_middle/ty/mod.ts";
 import { panic } from "../../../../std/panic.ts";
 import { Err } from "../../../../std/result.ts";
+import { port_methods } from "../../../../rust_ts/miri_stub.ts";
 export * from "./sync.gen.ts";
 
 /** `shim_varargs![..]`; the closure is evaluated by `check_varargs` (macro expansion at the call site). */
@@ -41,12 +42,11 @@ function try_into_unwrap(v: number): number {
   return v;
 }
 
-export class LinuxFutex implements gen_LinuxFutex, SyncObj {
-  constructor(public futex: FutexRef) {}
-  // impl SyncObj for LinuxFutex {}
-  on_access = SyncObj_provided.on_access;
-  delete_on_write = SyncObj_provided.delete_on_write;
+declare module "./sync.gen.ts" {
+  interface LinuxFutex extends SyncObj {}
 }
+// impl SyncObj for LinuxFutex {}
+port_methods("miri::shims::unix::linux_like::sync::SyncObj for LinuxFutex", () => LinuxFutex.prototype, SyncObj_provided);
 /** `downcast_ref::<LinuxFutex>()`'s exact type test. */
 const is_LinuxFutex = (v: SyncObj): v is LinuxFutex => v instanceof LinuxFutex;
 

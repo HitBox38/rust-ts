@@ -1283,7 +1283,7 @@ export function emulate_foreign_item_inner(self_: MiriInterpCx, link_name: Symbo
       const key_ = interp_Scalar.to_bits(key_s._0, key.layout.size);
       if (key_.$ === "Err") return key_;
       const active_thread = this_.active_thread();
-      const ptr = this_.machine.tls.load_tls(key_._0, active_thread, this_ as unknown as Pending<"impl HasDataLayout">);
+      const ptr = this_.machine.tls.load_tls(key_._0, active_thread, this_);
       if (ptr.$ === "Err") return ptr;
       const w = this_.write_scalar(ptr._0, dest);
       if (w.$ === "Err") return w;
@@ -1300,7 +1300,7 @@ export function emulate_foreign_item_inner(self_: MiriInterpCx, link_name: Symbo
       const active_thread = this_.active_thread();
       const new_data = this_.read_scalar(new_ptr);
       if (new_data.$ === "Err") return new_data;
-      const s = this_.machine.tls.store_tls(key_._0, active_thread, new_data._0, this_.tcx.deref() as unknown as Pending<"impl HasDataLayout">);
+      const s = this_.machine.tls.store_tls(key_._0, active_thread, new_data._0, this_.tcx.deref());
       if (s.$ === "Err") return s;
 
       // Return success (`0`).
