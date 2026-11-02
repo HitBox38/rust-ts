@@ -64,8 +64,7 @@ import type { ImmTy, MPlaceTy, OpTy, PlaceTy, FnArg, Pointer, Scalar, StrictPoin
 import { apply_random_float_error_to_imm } from "./math.ts";
 import * as provenance_gc_ns from "./provenance_gc.ts";
 import type { VisitProvenance, VisitProvenanceImpl, VisitWith } from "./provenance_gc.ts";
-import * as cpu_affinity_ns from "./shims/cpu_affinity.ts";
-import { CpuAffinityMask } from "./shims/cpu_affinity.ts";
+import { CpuAffinityMask, MAX_CPUS } from "./shims/cpu_affinity.ts";
 import * as env_ns from "./shims/env.ts";
 import { EnvVars } from "./shims/env.ts";
 import { FdTable } from "./shims/files.ts";
@@ -635,7 +634,6 @@ declare module "./machine.gen.ts" {
   // On 16bit targets, 32 pages is more than the entire address space!
   const stack_addr = tcx.data_layout().pointer_size().bits() < 32 ? page_size : page_size * 32n;
   const stack_size = tcx.data_layout().pointer_size().bits() < 32 ? page_size * 4n : page_size * 16n;
-  const MAX_CPUS = cpu_affinity_MAX_CPUS();
   assert(
     config.num_cpus <= MAX_CPUS,
     () => `miri only supports up to ${MAX_CPUS} CPUs, but ${config.num_cpus} were configured`,
@@ -645,8 +643,7 @@ declare module "./machine.gen.ts" {
   const os = tcx.sess.target.os.$;
   if ((os === "Linux" || os === "FreeBsd" || os === "Android") && !is_no_core(tcx)) {
     const affinity = new Map<ThreadId, CpuAffinityMask>();
-    // PORT(contract): cpu_affinity.ts declares `cx` as `Pending<impl LayoutOf>`; the value is the `LayoutCx`.
-    affinity.set(threads.active_thread_(), CpuAffinityMask.new(layout_cx as unknown as Parameters<typeof CpuAffinityMask.new>[0], config.num_cpus));
+    affinity.set(threads.active_thread_(), CpuAffinityMask.new(layout_cx, config.num_cpus));
     thread_cpu_affinity = affinity;
   } else {
     thread_cpu_affinity = undefined;
@@ -2295,13 +2292,6 @@ function TlsData_default(): TlsData {
 /** `impl Default for DirTable` (shims/unix/fs.rs:218; lane miri-fs): `DirTable.default()`. */
 function DirTable_default(): DirTable {
   return pending<() => DirTable>(DirTable, "default", "miri::shims::unix::fs::DirTable (impl Default; lane miri-fs)")();
-}
-
-/** `shims::cpu_affinity::MAX_CPUS` (lane miri-shims-b; not exported by the skeleton yet). */
-function cpu_affinity_MAX_CPUS(): number {
-  const v = (cpu_affinity_ns as unknown as Record<string, unknown>)["MAX_CPUS"];
-  if (typeof v !== "number") return unported("miri::shims::cpu_affinity::MAX_CPUS (not ported yet; lane miri-shims-b)");
-  return v;
 }
 
 /**
