@@ -117,7 +117,7 @@ export function clone_WeakFileDescriptionRef<T>(v: WeakFileDescriptionRef<T>, _c
 /** Represents an open file description. (`trait FileDescription: std::fmt::Debug + FileDescriptionExt`; the provided
  *  methods are `FileDescription_provided`'s, which an implementor copies for the ones it does not override.) */
 export interface FileDescription extends DropGlue {
-  // shims/files.rs:132
+  // rustc: src/tools/miri/src/shims/files.rs:132 name
   name(): string;
   /// Reads as much as possible into the given buffer `ptr`.
   /// `len` indicates how many bytes we should try to read.
@@ -583,8 +583,12 @@ FileDescriptionRef.prototype.visit_provenance = function <T>(this: FileDescripti
 /// A helper trait to indirectly allow downcasting on `Rc<FdIdWith<dyn _>>`.
 /// Ideally we'd just add a `FdIdWith<Self>: Any` bound to the `FileDescription` trait,
 /// but that does not allow upcasting.
-// (trait FileDescriptionExt, files.rs:110: `fn into_rc_any(self: FileDescriptionRef<Self>) -> Rc<dyn Any>;` at :111,
-// its only impl is the blanket one below)
+/** `trait FileDescriptionExt: 'static` (files.rs:110); its only impl is the blanket one below, a method of
+ *  `FileDescriptionRef` (`self: FileDescriptionRef<Self>`). */
+export interface FileDescriptionExt {
+  // rustc: src/tools/miri/src/shims/files.rs:111 into_rc_any
+  into_rc_any(): FileDescriptionRef<unknown>;
+}
 // rustc: src/tools/miri/src/shims/files.rs:115 into_rc_any
 FileDescriptionRef.prototype.into_rc_any = function <T>(this: FileDescriptionRef<T>): FileDescriptionRef<unknown> {
   check_live(this);
