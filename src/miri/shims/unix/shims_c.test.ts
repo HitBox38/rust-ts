@@ -32,6 +32,7 @@ import { Ty } from "../../../rustc_middle/ty/mod.ts";
 import { Symbol } from "../../../rustc_span/symbol.ts";
 import { create_default_session_globals_then } from "../../../rustc_span/lib.ts";
 import { Unported } from "../../../std/panic.ts";
+import { IoError_kind } from "../../../std/io.ts";
 import { Err, unwrap_result } from "../../../std/result.ts";
 
 // ---- helpers ----
@@ -272,10 +273,20 @@ test("getcwd / chdir under isolation: the oracle's abort message and warning", (
     if (k.$ !== "MachineStop") continue;
     expect(TerminationInfoStop.downcast_ref(k._0)).toEqual({ $: "UnsupportedInIsolation", _0: `${name} not available when isolation is enabled` });
   }
-  // The warning path warns once, then needs `IoError::from(ErrorKind::PermissionDenied)` (lane miri-shims-b, pending).
+  // The warning path warns once, sets errno from `IoError::from(ErrorKind::PermissionDenied)` (lane miri-shims-b; it
+  // stops `unported` until that lands) and returns NULL (the oracle's `Err(PermissionDenied)`).
+  const errnos: unknown[] = [];
+  const warn_cx = mk("WarningWithoutBacktrace");
+  Object.assign(warn_cx, {
+    set_last_error: (e: unknown) => {
+      errnos.push(e);
+      return interp_ok(undefined);
+    },
+  });
   let caught: unknown;
+  let r: ReturnType<MiriInterpCx["getcwd"]> | undefined;
   try {
-    mk("WarningWithoutBacktrace").getcwd(op(0), op(0));
+    r = warn_cx.getcwd(op(0), op(0));
   } catch (e) {
     caught = e;
   }
@@ -283,6 +294,12 @@ test("getcwd / chdir under isolation: the oracle's abort message and warning", (
   if (caught !== undefined) {
     expect(caught).toBeInstanceOf(Unported);
     expect((caught as Error).message).toContain("impl From<io::ErrorKind> for IoError");
+  } else {
+    expect(r!.$ === "Ok" && r!._0.offset.bytes_u64() === 0n && r!._0.provenance === undefined).toBe(true);
+    expect(errnos.length).toBe(1);
+    const e = errnos[0] as { $: string; _0: unknown };
+    expect(e.$).toBe("HostError");
+    expect(IoError_kind(e._0 as never)).toBe("PermissionDenied");
   }
 });
 

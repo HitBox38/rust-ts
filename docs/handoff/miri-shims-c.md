@@ -68,20 +68,24 @@ Tiny programs run on the isolated Miri oracle (x86_64-unknown-linux-gnu, Miri's 
 
 ## Contracts other lanes need (missing signatures; I edited none of their files)
 
-1. **miri-shims-b, sig.ts: `shim_sig(abi: string, args: readonly string[], ret: string)`**, returning the
+1. **miri-shims-b, sig.ts: `shim_sig(abi: string, args: readonly string[], ret: string)`** (exported by their `7c64e53a`
+   with this exact form), returning the
    `fn(&MiriInterpCx) -> ShimSig` that `check_shim_sig` / `check_shim_sig_variadic` take. The arguments are the macro's
    tokens as strings, exactly as written upstream: `"*_"`, `"i32"`, `"usize"`, `"libc::off_t"`, `"fn(..) -> _"`, `"()"`,
    `"panic_unwind::imp::uw::_Unwind_Reason_Code"`, and a trailing `"..."` for C varargs. I call it as
    `shim_sig("C", ["*_", "usize"], "*_")`, through a `PORT(contract): pending miri-shims-b` declaration (foreign_items.ts)
    read from the module namespace at call time. shims-a's foreign_items.rs needs the same form.
-2. **miri-shims-b, io_error.ts: `IoError_from_ErrorKind(kind: ErrorKind): IoError`** (io_error.rs:47). It needs an
+2. **miri-shims-b, io_error.ts: `IoError_from_ErrorKind(kind: ErrorKind): IoError`** (io_error.rs:47; exported by
+   their `7c64e53a`). It needs an
    `io::Error` built from a bare `ErrorKind` (`ErrorData::Simple`), which src/std/io.ts's `IoError` cannot represent yet
    (only `Os` / `Custom` / `SimpleMessage`). That is a **src/std change for root**: add a `{ $: "Simple"; kind }` variant
    (Display = `ErrorKind_as_str`, Debug `Kind(PermissionDenied)`). env.ts calls it through a pending declaration.
-3. **miri-shims-b, files.ts**: readiness.ts uses `FileDescriptionRef.prototype.id`, `FileDescriptionRef.downgrade`,
-   `WeakFileDescriptionRef.prototype.upgrade` / `is_closed` as declared, and `Deref` as `fd._0.inner`. When the last
-   strong `FileDescriptionRef` of a description that holds a `ReadinessWatched` goes away, `Drop for ReadinessWatched`
-   must run: call `drop_ReadinessWatched(watched)` (readiness.ts) from that drop path.
+3. **miri-shims-b, files.ts** (their `7c64e53a`): `FileDescriptionRef` is a counted strong handle. readiness.ts
+   releases every strong handle it receives where Rust drops it: `FdTable::get` in add_interest/update_interest,
+   `upgrade()` in `Drop for ReadinessWatcher` / remove_interest / each get_ready_interests iteration, and the by-value
+   `fd` of `update_fd_readiness`. It uses `deref()` / `drop()`, read at call time with a skeleton fallback
+   (`_0.inner` / no-op) until shims-b merges. `Drop for ReadinessWatched` is `ReadinessWatched.prototype.drop()`, the
+   name shims-b's stdio drop glue calls (agreed with them).
 4. **miri-shims-a, shims/env.ts**:
    - `EnvVars::init` builds `FxHashMap<OsString, OsString>` as rust_ts/hash_map.ts
      `FxHashMap.default(OsString_key, LAYOUT_VEC)`. `OsString_key` is exported from unix/env.ts: `[u8]`'s `Hash`, i.e.
@@ -96,10 +100,14 @@ Tiny programs run on the isolated Miri oracle (x86_64-unknown-linux-gnu, Miri's 
    directly; shims-d confirmed and adopted it in poll.ts, shims-e had proposed the same items and got the reply:
    `Rc::new(ReadinessWatcher::default())` → `Rc_new_ReadinessWatcher()`, `Rc::clone` → `Rc_clone_ReadinessWatcher`,
    dropping an Rc → `Rc_drop_ReadinessWatcher` (runs Drop at zero), `Readiness::EMPTY` → `Readiness_EMPTY` (frozen),
-   `ReadinessWatched::default()` → `ReadinessWatched_default()`, `ReadinessInterest::active()` → `active_()`.
-6. **Root, src/miri/contract.test.ts:144**: `expect(MIRI_STUBS.length).toBeGreaterThan(100)` now fails. This lane
-   removes its 10 registrations, leaving exactly 100, and every wave-37 lane lowers the count further. The assertion is
-   contract-lane code and needs a root change, e.g. a lower bound that tracks the wave, or dropping the count check.
+   `ReadinessWatched::default()` → `ReadinessWatched_default()`, `ReadinessInterest::active()` → `active_()`,
+   `Drop for ReadinessWatched` → `watched.drop()` (both lanes told about this rename).
+   Also: shims-b's `check_shim_sig_deprecated(.., n)` and `try_unwrap_io_result(result, from_i32)` take a trailing argument
+   the skeleton lacks. This lane's calls pass it through a cast, so they are right with and without that merge.
+6. **src/miri/contract.test.ts:144** `expect(MIRI_STUBS.length).toBeGreaterThan(100)` fails on this branch alone. This
+   lane removes its 10 registrations, leaving exactly 100. miri-shims-b's commit `7c64e53a` already relaxes it to `> 0`.
+   A trial merge of this branch with `7c64e53a` (temp worktree) type-checks and `bun test src/miri` is 167 pass, 0 fail,
+   so merge shims-b first or together.
 7. **Root / codegen (optional)**: `ReadinessWatcher.interests` is generated as `Map<ReadinessInterestKey, ..>` (a
    `BTreeMap` with tuple keys). This lane stores an `InterestMap` there (a `KeyedMap` iterated in key order). A
    typemap entry could make the generated type say so. Not needed for correctness, since every watcher is built by

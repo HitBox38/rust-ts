@@ -62,17 +62,14 @@ declare module "../../../rustc_const_eval/interpret/eval_context.ts" {
 }
 
 /** `fn(&MiriInterpCx<'tcx>) -> ShimSig<'tcx, N>`: what `shim_sig!` expands to (sig.ts's `check_shim_sig` parameter). */
-type ShimSigFn = Pending<"fn(&MiriInterpCx<'tcx>) -> ShimSig<'tcx, N>">;
+type ShimSigFn = Parameters<MiriInterpCx["check_shim_sig"]>[0];
 
-// PORT(contract): pending miri-shims-b — `shim_sig!` (shims/sig.rs:30) has no TS form in the skeleton; this lane calls
-// it as `shim_sig(abi, args, ret)` with the macro's tokens as strings (module header; handoff).
-declare module "../sig.ts" {
-  export function shim_sig(abi: string, args: readonly string[], ret: string): ShimSigFn;
-}
-
+// PORT(contract): pending miri-shims-b — `shim_sig!` (shims/sig.rs:30) has no TS form in the skeleton; miri-shims-b
+// exports it as `shim_sig(abi, args, ret)` with the macro's tokens as strings (module header). It is read from the
+// module namespace at call time (no declaration here, so this file type-checks with and without that export).
 /** `shim_sig!(extern "<abi>" fn(<args>) -> <ret>)` through the pending shims-b export (`unported` until it lands). */
 function shim_sig(abi: string, args: readonly string[], ret: string): ShimSigFn {
-  const f = (sig as { shim_sig?: (abi: string, args: readonly string[], ret: string) => ShimSigFn }).shim_sig;
+  const f = (sig as unknown as { shim_sig?: (abi: string, args: readonly string[], ret: string) => ShimSigFn }).shim_sig;
   if (typeof f !== "function") {
     return unported("miri::shims::sig::shim_sig! (src/tools/miri/src/shims/sig.rs:30; lane miri-shims-b)");
   }
