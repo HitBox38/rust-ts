@@ -9,19 +9,15 @@
 //   `new` lay out the `environ` block in its iteration order, which the program can observe. `OsString`'s `Hash` is
 //   `OsStr::as_encoded_bytes().hash()` = `[u8]::hash` (`write_length_prefix(len)` + `write(bytes)`), not `str`'s:
 //   `OsString_key` below.
-// - `EnvVars::unix()` / `unix_mut()` (shims/env.rs:64/:71, lane miri-shims-a) are inlined as `env_unix` (the match
-//   is upstream's; the shims-a companion is not declared in the skeleton).
 // - `std::env::current_dir` / `set_current_dir` (isolation off only) are host stand-ins (`process.cwd()` /
 //   `process.chdir`, plan-m6 D14).
-// - `IoError::from(io::ErrorKind)` (shims/io_error.rs:47, lane miri-shims-b) is reached through
-//   `IoError_from_ErrorKind`, a `PORT(contract): pending miri-shims-b` declaration (`unported` until it exists).
 // - `env!("CARGO_PKG_VERSION")` is Miri's crate version at the pin (src/tools/miri/Cargo.toml: `0.1.0`).
 import { type OpTy, type Pointer, type Scalar } from "../../lib.ts";
 import { MemoryKind_from_MiriMemoryKind, type MiriInterpCx } from "../../machine.ts";
 import { HOSTNAME } from "./mod.ts";
 import { UnixEnvVars } from "./env.gen.ts";
-import * as io_error from "../io_error.ts";
-import { type IoError } from "../io_error.ts";
+import { EnvVars } from "../env.ts";
+import { IoError_from_ErrorKind } from "../io_error.ts";
 import { type VisitWith } from "../../provenance_gc.ts";
 import { FxHashMap, type KeyType } from "../../../rust_ts/hash_map.ts";
 import { FieldIdx, Size } from "../../../rustc_abi/lib.ts";
@@ -90,21 +86,6 @@ declare module "./env.gen.ts" {
   }
 }
 
-// PORT(contract): pending miri-shims-b — `impl From<io::ErrorKind> for IoError` (shims/io_error.rs:47) is in the
-// io_error.rs inventory but not declared; this lane calls it as `IoError_from_ErrorKind` (handoff).
-declare module "../io_error.ts" {
-  export function IoError_from_ErrorKind(value: ErrorKind): IoError;
-}
-
-/** `IoError::from(kind)` through the pending shims-b export (`unported` until it lands). */
-function IoError_from_ErrorKind(kind: ErrorKind): IoError {
-  const f = (io_error as { IoError_from_ErrorKind?: (value: ErrorKind) => IoError }).IoError_from_ErrorKind;
-  if (typeof f !== "function") {
-    return unported("miri::shims::io_error: impl From<io::ErrorKind> for IoError (src/tools/miri/src/shims/io_error.rs:47; lane miri-shims-b)");
-  }
-  return f(kind);
-}
-
 /** `throw_unsup_format!(..)` (`err_unsup!(Unsupported(format!(..)))`) */
 function throw_unsup_format<T>(msg: string): InterpResult<T> {
   return Err(InterpErrorInfo_from_InterpErrorKind({ $: "Unsupported", _0: { $: "Unsupported", _0: msg } }));
@@ -131,16 +112,6 @@ export const OsString_key: KeyType<string> = {
 const LAYOUT_POINTER = { size: 32, align: 8 };
 
 /** `EnvVars::unix()` / `unix_mut()` (shims/env.rs:64 / :71; module header). */
-function env_unix(ecx: MiriInterpCx): UnixEnvVars {
-  const env = ecx.machine.env_vars;
-  switch (env.$) {
-    case "Unix":
-      return env._0;
-    default:
-      return unreachable();
-  }
-}
-
 // impl VisitProvenance for UnixEnvVars<'_>
 // rustc: src/tools/miri/src/shims/unix/env.rs:24 visit_provenance
 UnixEnvVars.prototype.visit_provenance = function (this: UnixEnvVars, visit: VisitWith): void {
@@ -258,7 +229,7 @@ InterpCx.prototype.getenv = function (this: MiriInterpCx, name_op: OpTy): Interp
   const name = this_.read_os_str_from_c_str(name_ptr._0);
   if (name.$ === "Err") return name;
 
-  const var_ptr = env_unix(this_).get_ptr(this_, name._0);
+  const var_ptr = EnvVars.unix(this_.machine.env_vars).get_ptr(this_, name._0);
   if (var_ptr.$ === "Err") return var_ptr;
   return interp_ok(var_ptr._0 ?? interp_Pointer.null());
 };
@@ -290,7 +261,7 @@ InterpCx.prototype.setenv = function (this: MiriInterpCx, name_op: OpTy, value_o
     const [name, value] = new_;
     const var_ptr = alloc_env_var(this_, name, value);
     if (var_ptr.$ === "Err") return var_ptr;
-    const map = env_unix(this_).map;
+    const map = EnvVars.unix_mut(this_.machine.env_vars).map;
     // `map.insert(name, var_ptr)` returns the old value
     const old = map.get(name);
     map.set(name, var_ptr._0);
@@ -322,7 +293,7 @@ InterpCx.prototype.unsetenv = function (this: MiriInterpCx, name_op: OpTy): Inte
     const name = this_.read_os_str_from_c_str(name_ptr._0);
     if (name.$ === "Err") return name;
     if (name._0.length !== 0 && !name._0.includes("=")) {
-      const map = env_unix(this_).map;
+      const map = EnvVars.unix_mut(this_.machine.env_vars).map;
       const old = map.get(name._0);
       map.delete(name._0);
       success = { old };
@@ -499,10 +470,7 @@ InterpCx.prototype.chdir = function (this: MiriInterpCx, path_op: OpTy): InterpR
 
   const result = set_current_dir(path._0);
   const mapped: Result<number, io_Error> = result.$ === "Ok" ? Ok(0) : result;
-  // PORT(contract): miri-shims-b's `try_unwrap_io_result` takes `T::from(-1)` as a trailing `from_i32` (the skeleton's
-  // declaration has none); passed through so the call is right on both sides of that merge.
-  const try_unwrap = this_.try_unwrap_io_result as unknown as (r: Result<number, io_Error>, from_i32: (v: number) => number) => InterpResult<number>;
-  const v = try_unwrap.call(this_, mapped, (v: number) => v);
+  const v = this_.try_unwrap_io_result(mapped, (v: number) => v);
   if (v.$ === "Err") return v;
   return interp_ok(interp_Scalar.from_i32(v._0));
 };
@@ -512,7 +480,7 @@ InterpCx.prototype.chdir = function (this: MiriInterpCx, path_op: OpTy): InterpR
 InterpCx.prototype.update_environ = function (this: MiriInterpCx): InterpResult {
   const this_ = this.eval_context_mut();
   // Deallocate the old environ list.
-  const environ = env_unix(this_).environ;
+  const environ = EnvVars.unix(this_.machine.env_vars).environ;
   const old_vars_ptr = this_.read_pointer(environ);
   if (old_vars_ptr.$ === "Err") return old_vars_ptr;
   {
@@ -521,7 +489,7 @@ InterpCx.prototype.update_environ = function (this: MiriInterpCx): InterpResult 
   }
 
   // Write the new list.
-  const vals = Array.from(env_unix(this_).map.values());
+  const vals = Array.from(EnvVars.unix(this_.machine.env_vars).map.values());
   const environ_block = alloc_environ_block(this_, vals);
   if (environ_block.$ === "Err") return environ_block;
   const w = this_.write_pointer(environ_block._0, environ);

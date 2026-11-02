@@ -1,10 +1,10 @@
 // Port of src/tools/miri/src/shims/unix/linux_like/thread.rs (crate `miri`, plan-m6 D2). Fill lane: `miri-shims-e`
 // (plan-m6 wave 37).
 //
-// PORT: `shim_sig!(..)` / `shim_varargs![..]` as in syscall.ts (shims/sig.ts helpers of lane miri-shims-b).
+// PORT: `shim_sig!(..)` / `shim_varargs![..]` as in syscall.ts (shims/sig.ts).
 import { type MPlaceTy, type OpTy } from "../../../lib.ts";
 import { type MiriInterpCx } from "../../../machine.ts";
-import * as sig from "../../sig.ts";
+import { shim_sig, shim_varargs } from "../../sig.ts";
 import { type ShimSig } from "../../sig.ts";
 import { type ThreadNameResult } from "../thread.ts"; // use crate::shims::unix::thread::{EvalContextExt as _, ThreadNameResult};
 import { Size } from "../../../../rustc_abi/lib.ts";
@@ -16,14 +16,6 @@ import { panic } from "../../../../std/panic.ts";
 import { Err } from "../../../../std/result.ts";
 import { type Provenance } from "../../../machine.ts";
 
-/** `shim_sig!(extern "<abi>" fn(<args>) -> <ret>)` */
-function shim_sig_(abi: string, args: readonly string[], ret: string): (this_: MiriInterpCx) => ShimSig {
-  return (this_) => sig.shim_sig(abi, args, ret)(this_);
-}
-/** `shim_varargs![..]` */
-function shim_varargs_(...tys: string[]): (this_: MiriInterpCx) => Ty[] {
-  return (this_) => sig.shim_varargs(...tys)(this_);
-}
 /** `throw_unsup_format!(..)` (`err_unsup!(Unsupported(format!(..)))`) */
 function throw_unsup_format<T>(msg: string): InterpResult<T> {
   return Err(InterpErrorInfo_from_InterpErrorKind({ $: "Unsupported", _0: { $: "Unsupported", _0: msg } }));
@@ -37,7 +29,7 @@ const TASK_COMM_LEN = 16n;
 
 // rustc: src/tools/miri/src/shims/unix/linux_like/thread.rs:11 prctl
 export function prctl(ecx: MiriInterpCx, link_name: Symbol, abi: FnAbi<Ty>, args: readonly OpTy[], dest: MPlaceTy): InterpResult {
-  const c = ecx.check_shim_sig_variadic(shim_sig_("C", ["i32", "..."], "i32"), [link_name, abi, args]);
+  const c = ecx.check_shim_sig_variadic(shim_sig("C", ["i32", "..."], "i32"), [link_name, abi, args]);
   if (c.$ === "Err") return c;
   const [[op_op], varargs] = [c._0[0], c._0[1]];
 
@@ -51,7 +43,7 @@ export function prctl(ecx: MiriInterpCx, link_name: Symbol, abi: FnAbi<Ty>, args
   const op = oi._0;
   let res: Scalar<Provenance>;
   if (op === pr_set_name) {
-    const v = ecx.check_varargs(shim_varargs_("*libc::c_char"), varargs, "prctl(PR_SET_NAME, ...)");
+    const v = ecx.check_varargs(shim_varargs("*libc::c_char"), varargs, "prctl(PR_SET_NAME, ...)");
     if (v.$ === "Err") return v;
     const [name_op] = v._0[0];
 
@@ -68,7 +60,7 @@ export function prctl(ecx: MiriInterpCx, link_name: Symbol, abi: FnAbi<Ty>, args
     assert_eq_ThreadNameResult(r._0, "Ok");
     res = ScalarNs.from_u32(0);
   } else if (op === pr_get_name) {
-    const v = ecx.check_varargs(shim_varargs_("*libc::c_char"), varargs, "prctl(PR_GET_NAME, ...)");
+    const v = ecx.check_varargs(shim_varargs("*libc::c_char"), varargs, "prctl(PR_GET_NAME, ...)");
     if (v.$ === "Err") return v;
     const [name_op] = v._0[0];
 

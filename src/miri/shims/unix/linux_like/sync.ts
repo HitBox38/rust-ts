@@ -4,15 +4,14 @@
 // PORT decisions (docs/handoff/miri-shims-e.md):
 // - `LinuxFutex` is a generated class (set `miri`'s `class` list; exact `instanceof` type test for `get_sync_or_init`, as
 //   unix/sync.ts); `impl SyncObj for LinuxFutex {}` installs `SyncObj_provided` with `port_methods` (C10).
-// - `shim_varargs![..]` is shims/sig.ts's `shim_varargs(..tys)` (lane miri-shims-b, agreed contract: string type specs),
-//   called through the module namespace when `check_varargs` evaluates it (see `shim_varargs_` below).
+// - `shim_varargs![..]` is shims/sig.ts's `shim_varargs(..tys)` (string type specs).
 import { type Deadline } from "../../../clock.ts";
 import { clone_FutexRef, FutexRef, type SyncObj, SyncObj_provided } from "../../../concurrency/sync.ts";
 import { type UnblockKind } from "../../../concurrency/thread.ts";
 import { type MPlaceTy, type OpTy } from "../../../lib.ts";
 import { callback, type MiriInterpCx } from "../../../machine.ts";
 import { VisitProvenance_MPlaceTy } from "../../../provenance_gc.ts";
-import * as sig from "../../sig.ts";
+import { shim_varargs } from "../../sig.ts";
 import { type Varargs } from "../../sig.ts";
 import { LinuxFutex } from "./sync.gen.ts";
 import { InterpErrorInfo_from_InterpErrorKind, type InterpResult, interp_ok, Scalar as ScalarNs } from "../../../../rustc_middle/mir/interpret/mod.ts";
@@ -22,10 +21,6 @@ import { Err } from "../../../../std/result.ts";
 import { port_methods } from "../../../../rust_ts/miri_stub.ts";
 export * from "./sync.gen.ts";
 
-/** `shim_varargs![..]`; the closure is evaluated by `check_varargs` (macro expansion at the call site). */
-function shim_varargs_(...tys: string[]): (this_: MiriInterpCx) => Ty[] {
-  return (this_) => sig.shim_varargs(...tys)(this_);
-}
 /** `throw_ub_format!(..)` (`err_ub!(Ub(format!(..)))`) */
 function throw_ub_format<T>(msg: string): InterpResult<T> {
   return Err(InterpErrorInfo_from_InterpErrorKind({ $: "UndefinedBehavior", _0: { $: "Ub", _0: msg } }));
@@ -54,7 +49,7 @@ const is_LinuxFutex = (v: SyncObj): v is LinuxFutex => v instanceof LinuxFutex;
 /// `args` is the arguments *including* the syscall number.
 // rustc: src/tools/miri/src/shims/unix/linux_like/sync.rs:13 futex
 export function futex(ecx: MiriInterpCx, varargs_: Varargs, dest: MPlaceTy): InterpResult {
-  const c = ecx.check_varargs(shim_varargs_("*u32", "i32", "u32"), varargs_, "syscall(SYS_futex, ...)");
+  const c = ecx.check_varargs(shim_varargs("*u32", "i32", "u32"), varargs_, "syscall(SYS_futex, ...)");
   if (c.$ === "Err") return c;
   const [[addr_op, op_op, val_op], varargs] = [c._0[0], c._0[1]];
 
@@ -104,7 +99,7 @@ export function futex(ecx: MiriInterpCx, varargs_: Varargs, dest: MPlaceTy): Int
     let timeout_op: OpTy;
     let bitset: number;
     if (wait_bitset) {
-      const c = ecx.check_varargs(shim_varargs_("*libc::timespec", "*u32", "u32"), varargs, "syscall(SYS_futex, ...)");
+      const c = ecx.check_varargs(shim_varargs("*libc::timespec", "*u32", "u32"), varargs, "syscall(SYS_futex, ...)");
       if (c.$ === "Err") return c;
       const [timeout, uaddr2_op, bitset_op] = c._0[0];
       const u = ecx.read_pointer(uaddr2_op);
@@ -121,7 +116,7 @@ export function futex(ecx: MiriInterpCx, varargs_: Varargs, dest: MPlaceTy): Int
       if (bu.$ === "Err") return bu;
       [timeout_op, bitset] = [timeout, bu._0];
     } else {
-      const c = ecx.check_varargs(shim_varargs_("*libc::timespec"), varargs, "syscall(SYS_futex, ...)");
+      const c = ecx.check_varargs(shim_varargs("*libc::timespec"), varargs, "syscall(SYS_futex, ...)");
       if (c.$ === "Err") return c;
       const [timeout] = c._0[0];
       [timeout_op, bitset] = [timeout, U32_MAX];
@@ -263,7 +258,7 @@ export function futex(ecx: MiriInterpCx, varargs_: Varargs, dest: MPlaceTy): Int
 
     let bitset: number;
     if (op === futex_wake_bitset) {
-      const c = ecx.check_varargs(shim_varargs_("*libc::timespec", "*u32", "u32"), varargs, "syscall(SYS_futex, ...)");
+      const c = ecx.check_varargs(shim_varargs("*libc::timespec", "*u32", "u32"), varargs, "syscall(SYS_futex, ...)");
       if (c.$ === "Err") return c;
       const [timeout_op, uaddr2_op, bitset_op] = c._0[0];
       const t = ecx.read_pointer(timeout_op);

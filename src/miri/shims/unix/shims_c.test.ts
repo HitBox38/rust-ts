@@ -470,8 +470,23 @@ test("update_readiness: edge detection, de-duplicated ready queue, un-triggering
 
 test("Rc<ReadinessWatcher> / Drop: dead watchers leave the watched FD's list; a closed FD's interests leave the watcher", () => {
   const watched = ReadinessWatched_default();
-  const fd_ref = { _0: { id: fdid(1), inner: { readiness_watched: () => watched } } };
-  const weak_fd = { upgrade: () => fd_ref, is_closed: () => false };
+  // `upgrade()` hands out an owned strong handle (files.ts's Rc protocol); readiness.rs drops each one.
+  const inner = { readiness_watched: () => watched };
+  let live = 0;
+  const upgrade = () => {
+    live += 1;
+    let dropped = false;
+    return {
+      _0: { id: fdid(1), inner },
+      deref: () => inner,
+      drop: () => {
+        expect(dropped).toBe(false);
+        dropped = true;
+        live -= 1;
+      },
+    };
+  };
+  const weak_fd = { upgrade, is_closed: () => false };
   const w1 = Rc_new_ReadinessWatcher();
   const w2 = Rc_new_ReadinessWatcher();
   for (const w of [w1, w2]) {
@@ -494,4 +509,6 @@ test("Rc<ReadinessWatcher> / Drop: dead watchers leave the watched FD's list; a 
   watched.drop();
   expect(w2.interests.size).toBe(0);
   expect(w2.ready).toEqual([]);
+  // Every upgraded handle was released.
+  expect(live).toBe(0);
 });

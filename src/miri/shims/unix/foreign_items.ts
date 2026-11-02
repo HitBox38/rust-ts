@@ -7,10 +7,9 @@
 // - `match link_name.as_str() { .. }` is a `switch` in upstream arm order; `_ => { return match target_os {..} }` is the
 //   `platform_specific` closure (also the target of a failed guard). An arm with a guard (`"x" if
 //   this.frame_in_std() => ..`) falls through to the `_` arm when the guard is false (`platform_specific()`).
-// - `shim_sig!(extern "C" fn(A, B) -> R)` (shims/sig.rs:30, lane miri-shims-b) is `shim_sig("C", ["A", "B"], "R")`: the
-//   macro's argument and return tokens as strings (`"*_"`, `"i32"`, `"libc::off_t"`, `"fn(..) -> _"`, `"()"`, a trailing
-//   `"..."` for C varargs). It is a `PORT(contract): pending miri-shims-b` declaration below (`unported` until it
-//   exists); `check_shim_sig` / `check_shim_sig_variadic` are declared in sig.ts.
+// - `shim_sig!(extern "C" fn(A, B) -> R)` (shims/sig.rs:30) is sig.ts's `shim_sig("C", ["A", "B"], "R")`: the macro's
+//   argument and return tokens as strings (`"*_"`, `"i32"`, `"libc::off_t"`, `"fn(..) -> _"`, `"()"`, a trailing `"..."`
+//   for C varargs); `check_shim_sig` / `check_shim_sig_variadic` are declared in sig.ts.
 // - The other-OS dispatch arms (android, freebsd, macos, solarish, netbsd) and their `is_dyn_sym` stop `unported`
 //   (plan-m6 D2: only x86_64-unknown-linux-gnu). The Linux arm calls linux/foreign_items.ts (lane miri-shims-d).
 // - `socketpair` / `pipe` / `pipe2` (shims/unix/virtual_socket.rs) and `getaddrinfo` / `freeaddrinfo`
@@ -24,7 +23,7 @@ import { type MPlaceTy, type OpTy, type Scalar } from "../../lib.ts";
 import { type MiriInterpCx } from "../../machine.ts";
 import { type EmulateItemResult } from "../mod.ts";
 import { DynSym } from "../foreign_items.ts";
-import * as sig from "../sig.ts";
+import { shim_sig } from "../sig.ts";
 import * as linux from "./linux/foreign_items.ts";
 import { UID } from "./mod.ts";
 import { type CanonAbi } from "../../../rustc_abi/canon_abi.ts";
@@ -61,21 +60,6 @@ declare module "../../../rustc_const_eval/interpret/eval_context.ts" {
   }
 }
 
-/** `fn(&MiriInterpCx<'tcx>) -> ShimSig<'tcx, N>`: what `shim_sig!` expands to (sig.ts's `check_shim_sig` parameter). */
-type ShimSigFn = Parameters<MiriInterpCx["check_shim_sig"]>[0];
-
-// PORT(contract): pending miri-shims-b — `shim_sig!` (shims/sig.rs:30) has no TS form in the skeleton; miri-shims-b
-// exports it as `shim_sig(abi, args, ret)` with the macro's tokens as strings (module header). It is read from the
-// module namespace at call time (no declaration here, so this file type-checks with and without that export).
-/** `shim_sig!(extern "<abi>" fn(<args>) -> <ret>)` through the pending shims-b export (`unported` until it lands). */
-function shim_sig(abi: string, args: readonly string[], ret: string): ShimSigFn {
-  const f = (sig as unknown as { shim_sig?: (abi: string, args: readonly string[], ret: string) => ShimSigFn }).shim_sig;
-  if (typeof f !== "function") {
-    return unported("miri::shims::sig::shim_sig! (src/tools/miri/src/shims/sig.rs:30; lane miri-shims-b)");
-  }
-  return f(abi, args, ret);
-}
-
 /** `throw_unsup_format!(..)` (`err_unsup!(Unsupported(format!(..)))`) */
 function throw_unsup_format<T>(msg: string): InterpResult<T> {
   return Err(InterpErrorInfo_from_InterpErrorKind({ $: "Unsupported", _0: { $: "Unsupported", _0: msg } }));
@@ -98,14 +82,10 @@ function read_int(this_: MiriInterpCx, op: OpTy, size: Size): InterpResult<bigin
 /** `CanonAbi::C` */
 const CANON_C: CanonAbi = { $: "C" };
 
-/**
- * `this.check_shim_sig_deprecated(abi, CanonAbi::C, link_name, args)` destructured into `N` operands: miri-shims-b's
- * sig.ts takes Rust's `const N` as a trailing `n` (the skeleton's declaration has no `n`; the extra argument is passed
- * through so the call is right on both sides of that merge).
- */
+/** `this.check_shim_sig_deprecated(abi, CanonAbi::C, link_name, args)` destructured into `N` operands (sig.ts takes
+ *  Rust's `const N` as a trailing `n`). */
 function check_shim_sig_deprecated(this_: MiriInterpCx, abi: FnAbi<Ty>, link_name: Symbol, args: readonly OpTy[], n: number): InterpResult<readonly OpTy[]> {
-  const f = this_.check_shim_sig_deprecated as unknown as (...a: unknown[]) => InterpResult<readonly OpTy[]>;
-  return f.call(this_, abi, CANON_C, link_name, args, n);
+  return this_.check_shim_sig_deprecated(abi, CANON_C, link_name, args, n);
 }
 
 /** `Os::X` values for `check_target_os`. */
