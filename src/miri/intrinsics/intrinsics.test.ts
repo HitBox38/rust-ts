@@ -16,7 +16,7 @@ import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import "../lib.ts";
-import { MiriMachine } from "../machine.ts";
+import { type MiriInterpCx, MiriMachine } from "../machine.ts";
 import { compute_crc32, round, sigma0, sigma1, sub_word } from "./math.ts";
 import { check_intrinsic_arg_count } from "./mod.ts";
 import { Size } from "../../rustc_abi/lib.ts";
@@ -50,11 +50,11 @@ const slot = (t: FTy | "I32", bits?: bigint): Slot => {
 };
 
 /** The stand-in `ecx` (header). */
-function stand_in_ecx(): InterpCx {
-  const machine = Object.create(MiriMachine.prototype) as MiriMachine & Record<string, unknown>;
+function stand_in_ecx(): MiriInterpCx {
+  const machine = Object.create(MiriMachine.prototype) as Record<string, unknown>;
   machine.float_nondet = false;
   machine.float_rounding_error = "None";
-  const ecx = Object.create(InterpCx.prototype) as InterpCx & Record<string, unknown>;
+  const ecx = Object.create(InterpCx.prototype) as Record<string, unknown>;
   ecx.machine = machine;
   ecx.read_scalar = (op: Slot): InterpResult<Scalar> => interp_ok(op.val!);
   ecx.write_scalar = (v: Scalar, dest: Slot): InterpResult => {
@@ -63,11 +63,11 @@ function stand_in_ecx(): InterpCx {
   };
   ecx.project_to_simd = (p: Slot): InterpResult<[Slot, bigint]> => interp_ok([p, BigInt(p.lanes!.length)]);
   ecx.project_index = (p: Slot, i: bigint): InterpResult<Slot> => interp_ok(p.lanes![Number(i)]!);
-  return ecx;
+  return ecx as unknown as MiriInterpCx;
 }
 
 function bits_of(s: Slot): bigint {
-  const r = Scalar.to_bits(s.val!, s.layout.size);
+  const r = Scalar.to_bits(s.val as Scalar, s.layout.size);
   if (r.$ === "Err") throw new Error("not an integer scalar");
   return r._0;
 }
@@ -77,7 +77,7 @@ const WIDTH: Record<string, FTy> = { f16: "F16", f32: "F32", f64: "F64", f128: "
 const HOST_OPS = new Set(["sin", "cos", "exp", "exp2", "log", "log10", "log2"]);
 
 /** Runs one oracle line through the port; returns `[intrinsic, want, got]` or undefined when skipped. */
-function run_line(ecx: InterpCx, l: string[]): [string, bigint[], bigint[]] | undefined {
+function run_line(ecx: MiriInterpCx, l: string[]): [string, bigint[], bigint[]] | undefined {
   const name = l[0]!;
   const h = (s: string) => BigInt(`0x${s}`);
   if (name.startsWith("sqrtf")) {

@@ -8,6 +8,7 @@
 // `-1` (io_error.rs:318). Every test also checks that the shims leak no handle (live handles == table entries).
 import { expect, test } from "bun:test";
 import "../../lib.ts";
+import { type MiriInterpCx } from "../../machine.ts";
 import { TerminationInfoStop, display_TerminationInfo } from "../../diagnostics.ts";
 import { InterpCx } from "../../../rustc_const_eval/interpret/eval_context.ts";
 import { interp_ok, Scalar, type InterpResult } from "../../../rustc_middle/mir/interpret/mod.ts";
@@ -76,20 +77,21 @@ function setup(isolated_op: unknown = { $: "Reject", _0: "Abort" }) {
   const fds = new FdTableDouble();
   for (const d of descs) fds.insert(new Handle(d));
   const errors: unknown[] = [];
-  const ecx = Object.create(InterpCx.prototype) as InterpCx & Record<string, unknown>;
-  ecx.machine = { fds, isolated_op };
-  ecx.tcx = { deref: () => ({ sess: { target: { os: { $: "Linux" } } } }) };
-  ecx.set_errno_and_return_neg1_i32 = (err: unknown): InterpResult<Scalar> => {
+  const ecx_ = Object.create(InterpCx.prototype) as Record<string, unknown>;
+  ecx_.machine = { fds, isolated_op };
+  ecx_.tcx = { deref: () => ({ sess: { target: { os: { $: "Linux" } } } }) };
+  ecx_.set_errno_and_return_neg1_i32 = (err: unknown): InterpResult<Scalar> => {
     errors.push(err);
     return interp_ok(Scalar.from_i32(-1));
   };
   const live = () => descs.reduce((n, d) => n + d.strong, 0);
+  const ecx = ecx_ as unknown as MiriInterpCx & Record<string, unknown>;
   return { ecx, fds, descs, errors, live };
 }
-const i32 = (r: InterpResult<Scalar>): number => {
+const i32 = (r: InterpResult<unknown>): number => {
   expect(r.$).toBe("Ok");
   if (r.$ !== "Ok") return NaN;
-  const v = Scalar.to_i32(r._0);
+  const v = Scalar.to_i32(r._0 as Scalar);
   return v.$ === "Ok" ? v._0 : NaN;
 };
 
@@ -144,7 +146,7 @@ test("close / dup / dup2 of a closed descriptor fail with EBADF", () => {
 const op_i32 = (v: number) => ({ layout: { size: Size.from_bytes(4n) }, v });
 function socket_ecx(isolated_op: unknown) {
   const s = setup(isolated_op);
-  s.ecx.read_scalar = (op: { v: number }) => interp_ok(Scalar.from_i32(op.v));
+  (s.ecx as Record<string, unknown>).read_scalar = (op: { v: number }) => interp_ok(Scalar.from_i32(op.v));
   return s;
 }
 
