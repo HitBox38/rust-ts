@@ -87,10 +87,10 @@
 //   (`cc`, rustc's default linker on unix hosts); part of the aux key like the rest of the environment.
 // A host build in the temp directory and its rename keep `-Crpath`'s `@loader_path`/`$ORIGIN`-relative paths valid
 // (same parent directory). Existing callers (no `procMacro`) plan, key and build exactly as before.
-import { existsSync, mkdirSync, readdirSync, readFileSync, readlinkSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, readlinkSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { delimiter, dirname, isAbsolute, join, resolve } from "node:path";
-import { DATA, PIN, UPSTREAM, hash } from "../scripts/lib/common.ts";
+import { DATA, PIN, UPSTREAM, ensureDir, hash } from "../scripts/lib/common.ts";
 import { caseDeps } from "../scripts/lib/deps.ts";
 import { getEnv } from "../scripts/lib/env.ts";
 import { pruneStaleUiAux, touchAuxDir } from "./library.ts";
@@ -435,15 +435,78 @@ function ignoreDecision(ln: DirectiveLine, needs = false): string | undefined {
 // needs.rs `handle_needs` / `prepare_needs_conditions` does for COMPILETEST_TARGET (x86_64-unknown-linux-gnu, host =
 // target as everywhere in this module), from the oracle's target spec (`--print=all-target-specs-json`) enriched by
 // `--print=cfg --target <target>` (common.rs `get_current_target_config`: `panic`, `target_has_atomic`), its
-// `--print=supported-crate-types` (`needs-crate-type`) and `--print=backend-has-mnemonic:ret` (`needs-asm-ret`).
+// `--print=supported-crate-types` (`needs-crate-type`), `--print=backend-has-mnemonic:ret` (`needs-asm-ret`) and
+// `--print=backend-has-zstd` (`needs-llvm-zstd`, needs.rs `llvm_has_zstd`; lane harness-w37). `needs-deterministic-layouts`
+// (`!config.rust_randomized_layout`: "rustc/stdlib were compiled with randomized layouts") is decided from the oracle
+// too (lane harness-w37): `oracleStdLayoutsRandomized` below.
 // A need that depends on bootstrap/CI configuration this harness does not have (sanitizer runtimes built, profiler
-// runtime, Enzyme/Offload, randomized layouts, rust-lld in the stage sysroot, git hash, debug assertions, a clang or
-// wasmtime runner, LLVM zstd) is not evaluated: the test is skipped with that reason, as for `ignore-<stage>`.
+// runtime, Enzyme/Offload, rust-lld in the stage sysroot, git hash, debug assertions, a clang or wasmtime runner) is
+// not evaluated: the test is skipped with that reason, as for `ignore-<stage>`.
 // Configuration that is the default when bootstrap passes nothing is used: `--run` unset (`run_enabled`: auto, true
 // off Fuchsia). compiletest runs on the (non-Windows) target host, so `has_symlinks()` is true and `find_dlltool`'s
 // windows-gnu condition is false. An `IgnoreDecision::Error` (compiletest poisons the run) rejects the test.
 // Callers without `needs` (every suite built before harness-w36, protected ones included) keep the old rule: only
 // `needs-subprocess` is evaluated and any other `needs-*` rejects the test, so their case sets do not change.
+
+/**
+ * Whether the oracle's standard library was compiled with randomized layouts (`-Zrandomize-layout`; bootstrap's
+ * `rust.randomize-layout`, which compiletest learns as `--rust-randomized-layout`), decided by the oracle (lane
+ * harness-w37). `-Zrandomize-layout` sets `ReprFlags::RANDOMIZE_LAYOUT` in the `ReprOptions` of every ADT of the crate
+ * it compiles (rustc_middle ty/mod.rs `repr_options_of_def_id`), which goes into the crate's metadata, and a layout
+ * computed in any crate shuffles the fields of an ADT carrying that flag (rustc_abi layout.rs `univariant_biased`,
+ * seeded by the ADT's `field_shuffle_seed` plus its field layouts' `randomization_seed`s, when rustc_abi has the
+ * `randomize` feature). So a crate compiled by the oracle sees std's flag in the field order of std's types:
+ * `#[rustc_dump_layout(debug)]` on `core::ops::Range<[u8; k]>` for k = 1..=LAYOUT_PROBES (two equal fields, so the
+ * deterministic order is the declaration order `[0, 1]`; each k gives a different seed, so a randomized `Range` swaps
+ * them for about half of the k). The control is the same struct compiled by the oracle with `-Zrandomize-layout` in
+ * an aux crate (`rl_aux::Range`): it must show swaps, or the check cannot see randomization at all (then `undefined`).
+ * Bootstrap passes the flag to every crate of the std build, so `core`'s `Range` stands for the standard library.
+ * `undefined` with the reason when the check cannot decide.
+ */
+const LAYOUT_PROBES = 64;
+let layoutsMemo: { randomized: boolean | undefined; why: string } | undefined;
+export function oracleStdLayoutsRandomized(): { randomized: boolean | undefined; why: string } {
+  if (layoutsMemo) return layoutsMemo;
+  const dir = mkdtempSync(join(ensureDir(join(DATA, "tmp")), "needs-layouts-"));
+  try {
+    const rustc = (args: string[]) => Bun.spawnSync(["rustc", `+${PIN.toolchain}`, "--edition=2021", "-Awarnings", ...args], { cwd: dir, stdout: "pipe", stderr: "pipe" });
+    writeFileSync(join(dir, "aux.rs"), "pub struct Range<Idx> { pub start: Idx, pub end: Idx }\n");
+    const aux = rustc(["--crate-type=rlib", "--crate-name=rl_aux", "--emit=metadata", "-o", join(dir, "librl_aux.rmeta"), "-Zrandomize-layout", "aux.rs"]);
+    if (aux.exitCode !== 0) throw new Error(`oracle rustc failed on the layout check's aux crate: ${aux.stderr.toString().slice(0, 500)}`);
+    const lines = ["#![feature(rustc_attrs)]", "extern crate rl_aux;"];
+    for (let k = 1; k <= LAYOUT_PROBES; k++) {
+      lines.push(`#[rustc_dump_layout(debug)] type S${k} = core::ops::Range<[u8; ${k}]>;`);
+      lines.push(`#[rustc_dump_layout(debug)] type A${k} = rl_aux::Range<[u8; ${k}]>;`);
+    }
+    writeFileSync(join(dir, "main.rs"), lines.join("\n") + "\n");
+    const r = rustc(["--crate-type=lib", "--crate-name=rl_main", "--emit=metadata", "-o", join(dir, "rl_main.rmeta"), "--extern", `rl_aux=${join(dir, "librl_aux.rmeta")}`, "main.rs"]);
+    const orders = layoutOrders(r.stderr.toString());
+    const std = orders.filter((o) => !o.ty.startsWith("rl_aux::"));
+    const control = orders.filter((o) => o.ty.startsWith("rl_aux::"));
+    if (std.length !== LAYOUT_PROBES || control.length !== LAYOUT_PROBES) {
+      throw new Error(`the layout check expected ${LAYOUT_PROBES} + ${LAYOUT_PROBES} layouts from the oracle, got ${std.length} + ${control.length}: ${r.stderr.toString().slice(0, 500)}`);
+    }
+    const swapped = (os: typeof orders) => os.filter((o) => o.order.join(",") !== "0,1").length;
+    const [s, c] = [swapped(std), swapped(control)];
+    const counts = `core::ops::Range<[u8; 1..=${LAYOUT_PROBES}]> reordered ${s}/${LAYOUT_PROBES}, the -Zrandomize-layout control ${c}/${LAYOUT_PROBES}`;
+    if (c === 0) return (layoutsMemo = { randomized: undefined, why: `the oracle shows no randomized layout even for a crate compiled with -Zrandomize-layout (${counts})` });
+    return (layoutsMemo = { randomized: s > 0, why: counts });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+/** The field order (`in_memory_order`) of every `error: layout_of(<ty>) = Layout { .. }` of `#[rustc_dump_layout(debug)]`. */
+export function layoutOrders(stderr: string): { ty: string; order: number[] }[] {
+  const out: { ty: string; order: number[] }[] = [];
+  for (const block of stderr.split(/^error: layout_of\(/m).slice(1)) {
+    const ty = /^(.*)\) = Layout \{/.exec(block)?.[1];
+    const m = /in_memory_order: \[([^\]]*)\]/.exec(block);
+    if (ty === undefined || !m) throw new Error(`unexpected #[rustc_dump_layout(debug)] output: ${block.slice(0, 300)}`);
+    out.push({ ty, order: m[1]!.split(",").map((x) => x.trim()).filter(Boolean).map(Number) });
+  }
+  return out;
+}
 
 /** common.rs `KNOWN_TARGET_HAS_ATOMIC_WIDTHS`, `KNOWN_CRATE_TYPES`. */
 const KNOWN_TARGET_HAS_ATOMIC_WIDTHS = ["8", "16", "32", "64", "128", "ptr"];
@@ -451,12 +514,14 @@ const KNOWN_CRATE_TYPES = ["bin", "cdylib", "dylib", "lib", "proc-macro", "rlib"
 /** Rust's `{:?}` of a `Vec<String>` / `&[&str]`. */
 const debugStrs = (xs: readonly string[]) => `[${xs.map((x) => JSON.stringify(x)).join(", ")}]`;
 
+type NeedCondition = boolean | undefined | (() => { condition: boolean | undefined; why?: string });
 interface NeedsCfg {
   /** `target_has_atomic` from `--print=cfg` (`get_current_target_config`). */
   targetHasAtomic: Set<string>;
   supportedCrateTypes: Set<string>;
-  /** needs.rs `prepare_needs_conditions`: name -> condition (undefined: not reproduced, with why) and ignore reason. */
-  simple: Map<string, { condition: boolean | undefined; why?: string; reason: string }>;
+  /** needs.rs `prepare_needs_conditions`: name -> condition (undefined: not reproduced, with why; a function: decided
+   * on first use) and ignore reason. */
+  simple: Map<string, { condition: NeedCondition; why?: string; reason: string }>;
 }
 let needsMemo: NeedsCfg | undefined;
 function needsCfg(): NeedsCfg {
@@ -481,10 +546,14 @@ function needsCfg(): NeedsCfg {
   // `has_mnemonic`: the default codegen backend is llvm.
   const mnemonic = rustcPrint([`--target=${target}`, "-Zunstable-options", "--print=backend-has-mnemonic:ret"]).trim();
   if (mnemonic !== "true" && mnemonic !== "false") throw new Error(`unexpected output from \`--print=backend-has-mnemonic:ret\`: ${mnemonic}`);
+  // `llvm_has_zstd`: asked without `--target` (query_rustc_output adds only target_rustcflags); the default codegen
+  // backend is llvm (as for `has_mnemonic`).
+  const zstd = rustcPrint(["-Zunstable-options", "--print=backend-has-zstd"]).trim();
+  if (zstd !== "true" && zstd !== "false") throw new Error(`unexpected output from \`--print=backend-has-zstd\`: ${zstd}`);
   const san = (s: string) => cur.sanitizers.includes(s);
   const CONFIG = "bootstrap/CI configuration this harness does not reproduce";
-  const simple = new Map<string, { condition: boolean | undefined; why?: string; reason: string }>();
-  const need = (name: string, condition: boolean | undefined, reason: string, why?: string) => simple.set(name, { condition, why, reason });
+  const simple: NeedsCfg["simple"] = new Map();
+  const need = (name: string, condition: NeedCondition, reason: string, why?: string) => simple.set(name, { condition, why, reason });
   need("needs-asm-ret", mnemonic === "true", "ignored on targets without a `ret` assembly instruction");
   need("needs-asm-support", ["x86", "x86_64", "arm", "aarch64", "arm64ec", "riscv32", "riscv64", "loongarch32", "loongarch64", "s390x"].includes(cur.arch), "ignored on targets without inline assembly support");
   need("needs-sanitizer-support", undefined, "ignored on targets without sanitizers support", `RUSTC_SANITIZER_SUPPORT: whether bootstrap built the sanitizer runtimes, ${CONFIG}`);
@@ -516,15 +585,24 @@ function needsCfg(): NeedsCfg {
   need("needs-git-hash", undefined, "ignored when git hashes have been omitted for building", `--git-hash (rust.omit-git-hash), ${CONFIG}`);
   need("needs-dynamic-linking", cur.dynamicLinking, "ignored on targets without dynamic linking");
   need("needs-relocation-model-pic", cur.relocationModel === "pic", "ignored on targets without PIC relocation model");
-  need("needs-deterministic-layouts", undefined, "ignored when randomizing layouts", `--rust-randomized-layout (rust.randomize-layout), ${CONFIG}`);
+  need("needs-deterministic-layouts", () => {
+    const l = oracleStdLayoutsRandomized();
+    return { condition: l.randomized === undefined ? undefined : !l.randomized, why: `--rust-randomized-layout (rust.randomize-layout): ${l.why}` };
+  }, "ignored when randomizing layouts");
   need("needs-wasmtime", undefined, "ignored when wasmtime runner is not available", `the target runner, ${CONFIG}`);
   need("needs-symlink", true, "ignored if symlinks are unavailable");
-  need("needs-llvm-zstd", undefined, "ignored if LLVM wasn't build with zstd for ELF section compression or LLVM is not the default codegen backend", `LLVM built with zstd (llvm.libzstd), ${CONFIG}`);
+  need("needs-llvm-zstd", zstd === "true", "ignored if LLVM wasn't build with zstd for ELF section compression or LLVM is not the default codegen backend");
   need("needs-rustc-debug-assertions", undefined, "ignored if rustc wasn't built with debug assertions", `rust.debug-assertions, ${CONFIG}`);
   need("needs-std-debug-assertions", undefined, "ignored if std wasn't built with debug assertions", `rust.debug-assertions-std, ${CONFIG}`);
   need("needs-std-remap-debuginfo", undefined, "ignored if std wasn't built with remapping of debuginfo", `rust.remap-debuginfo, ${CONFIG}`);
   need("needs-target-std", !(target.includes("-none") || target.includes("nvptx") || target.includes("switch")), "ignored if target does not support std");
   return (needsMemo = { targetHasAtomic, supportedCrateTypes, simple });
+}
+
+/** The condition of a simple `needs-*` directive (`undefined`: not reproduced) and why; for tests and review. */
+export function needCondition(name: string): { condition: boolean | undefined; why?: string } | undefined {
+  const need = needsCfg().simple.get(name);
+  return need === undefined ? undefined : typeof need.condition === "function" ? need.condition() : { condition: need.condition, why: need.why };
 }
 
 /** needs.rs `handle_needs` for a `needs-*` line (not `needs-llvm-components` / `needs-backends`): see above. */
@@ -548,8 +626,9 @@ function needsDecision(ln: DirectiveLine): string | undefined {
   }
   const need = cfg.simple.get(ln.name);
   if (!need) throw new Reject(`invalid needs directive: ${ln.name}`);
-  if (need.condition === undefined) throw new Reject(`\`${ln.name}\` depends on compiletest configuration this harness does not reproduce (${need.why})`);
-  if (need.condition) return undefined;
+  const { condition, why } = typeof need.condition === "function" ? need.condition() : need;
+  if (condition === undefined) throw new Reject(`\`${ln.name}\` depends on compiletest configuration this harness does not reproduce (${why})`);
+  if (condition) return undefined;
   const remark = remarkAfterSpace(ln);
   return remark !== undefined ? `${need.reason} (${remark.trim()})` : need.reason;
 }

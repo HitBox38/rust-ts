@@ -206,16 +206,16 @@ test("Miri oracle, suites and argv (child process)", () => {
   expect(j.subjectEntry).toBe(j.driverEntry);
   expect(j.helloSubject.slice(1)).toEqual([join(REPO, "src/miri/bin/miri.ts"), ...j.hello[0].args]);
   // run-pass / run-fail: the counts measured by lanes harness-m6a (3,269 / 263) and harness-w36 (needs-* evaluated:
-  // +209 / +31), D6's argv.
-  // 3,478 minus mpsc_stress.rs, which the Miri oracle does not finish (skipped).
-  expect(j.counts.runPass + j.counts.heavy).toBe(3477);
+  // +209 / +31), D6's argv; harness-w37: +1 (type-sizes.rs, needs-deterministic-layouts decided by the oracle).
+  // 3,479 minus mpsc_stress.rs, which the Miri oracle does not finish (skipped).
+  expect(j.counts.runPass + j.counts.heavy).toBe(3478);
   // harness-m6a's 6 heavy cases plus 2 among the new ones (harness-w36's full timing).
   expect(j.counts.heavy).toBe(8);
   expect(j.counts.runFail).toBe(294);
   // needs-unwind holds on x86_64-unknown-linux-gnu (compiletest's can_unwind); only needs that depend on bootstrap/CI
-  // configuration are still skipped.
+  // configuration are still skipped (needs-deterministic-layouts is decided by the oracle since harness-w37).
   expect(j.needsUnwind).toBe(true);
-  expect([...new Set(j.needsSkips)].sort()).toEqual(["`needs-deterministic-layouts`", "`needs-sanitizer-support`"]);
+  expect([...new Set(j.needsSkips)].sort()).toEqual(["`needs-sanitizer-support`"]);
   expect(j.noOut).toEqual([]);
   expect(j.sysroots.length).toBe(1);
   expect(j.sysroots[0]).toContain("miri-sysroot");
@@ -232,8 +232,8 @@ test("Miri oracle, suites and argv (child process)", () => {
   expect(j.revCheckFail).toBe(false);
   expect(j.ignoredDir).toBe(false);
   // harness-w36: 489 (aux 420, only-*/ignore-* 55, needs-* config 8, min-llvm-version 6) + 8 heavy + 1 the oracle
-  // does not finish; run-fail 32.
-  expect(j.skippedRp).toBe(498);
+  // does not finish; run-fail 32. harness-w37: needs-* config 7 (type-sizes.rs is a case).
+  expect(j.skippedRp).toBe(497);
   expect(j.skippedRf).toBe(32);
   expect(j.skippedOverlap).toEqual([]);
   expect(j.args.plain).toEqual(["a.rs", "--sysroot", "/m", "--target=x", "-O"]);

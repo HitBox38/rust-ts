@@ -1,0 +1,24 @@
+# Template: scripts/probes.ts substitutes @SRC@ and builds this in $RUST_TS_DATA/probes.
+#
+# Oracle probe for src/miri/concurrency/{scheduler,thread}.ts (lane miri-threads-fix; registered by lane harness-w37
+# from docs/handoff/miri-threads-probe/): its stdout is src/miri/concurrency/scheduler.oracle.txt, byte for byte
+# (tools/probes/fixtures.test.ts). Miri's thread scheduling at the pin, driven by Miri's rand (src/tools/miri/Cargo.toml:
+# `rand = "0.10"`), resolved through upstream's Cargo.lock (`lockfile = "upstream"`): rand 0.10.1, rand_core 0.10.1,
+# chacha20 0.10.0.
+[package]
+name = "mirisched"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata.rust-ts]
+lockfile = "upstream"
+
+[[bin]]
+name = "mirisched"
+path = "@SRC@/main.rs"
+
+[dependencies]
+rand = "=0.10.1"
+
+[workspace]
