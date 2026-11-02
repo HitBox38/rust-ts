@@ -1,12 +1,11 @@
 // Port of src/tools/miri/src/shims/unix/linux_like/syscall.rs (crate `miri`, plan-m6 D2). Fill lane: `miri-shims-e`
 // (plan-m6 wave 37).
 //
-// PORT: `shim_sig!(..)` / `shim_varargs![..]` are shims/sig.ts's `shim_sig(abi, args, ret)` / `shim_varargs(..tys)` (lane
-// miri-shims-b, agreed contract: string type specs), called through the module namespace when the `check_*` fn evaluates
-// the closure (macro expansion at the call site).
+// PORT: `shim_sig!(..)` / `shim_varargs![..]` are shims/sig.ts's `shim_sig(abi, args, ret)` / `shim_varargs(..tys)`
+// (string type specs); the `check_*` fn evaluates the closure.
 import { type MPlaceTy, type OpTy } from "../../../lib.ts";
 import { type MiriInterpCx } from "../../../machine.ts";
-import * as sig from "../../sig.ts";
+import { shim_sig, shim_varargs } from "../../sig.ts";
 import { type ShimSig } from "../../sig.ts";
 import "../env.ts"; // use crate::shims::unix::env::EvalContextExt;
 import "./eventfd.ts"; // use crate::shims::unix::linux_like::eventfd::EvalContextExt as _;
@@ -18,14 +17,6 @@ import { type Ty } from "../../../../rustc_middle/ty/mod.ts";
 import { type Symbol } from "../../../../rustc_span/symbol.ts";
 import { Err } from "../../../../std/result.ts";
 
-/** `shim_sig!(extern "<abi>" fn(<args>) -> <ret>)` */
-function shim_sig_(abi: string, args: readonly string[], ret: string): (this_: MiriInterpCx) => ShimSig {
-  return (this_) => sig.shim_sig(abi, args, ret)(this_);
-}
-/** `shim_varargs![..]` */
-function shim_varargs_(...tys: string[]): (this_: MiriInterpCx) => Ty[] {
-  return (this_) => sig.shim_varargs(...tys)(this_);
-}
 /** `throw_unsup_format!(..)` (`err_unsup!(Unsupported(format!(..)))`) */
 function throw_unsup_format<T>(msg: string): InterpResult<T> {
   return Err(InterpErrorInfo_from_InterpErrorKind({ $: "Unsupported", _0: { $: "Unsupported", _0: msg } }));
@@ -33,7 +24,7 @@ function throw_unsup_format<T>(msg: string): InterpResult<T> {
 
 // rustc: src/tools/miri/src/shims/unix/linux_like/syscall.rs:11 syscall
 export function syscall(ecx: MiriInterpCx, link_name: Symbol, abi: FnAbi<Ty>, args: readonly OpTy[], dest: MPlaceTy): InterpResult {
-  const c = ecx.check_shim_sig_variadic(shim_sig_("C", ["isize", "..."], "isize"), [link_name, abi, args]);
+  const c = ecx.check_shim_sig_variadic(shim_sig("C", ["isize", "..."], "isize"), [link_name, abi, args]);
   if (c.$ === "Err") return c;
   const [[op], varargs] = [c._0[0], c._0[1]];
   // The syscall variadic function is legal to call with more arguments than needed,
@@ -65,7 +56,7 @@ export function syscall(ecx: MiriInterpCx, link_name: Symbol, abi: FnAbi<Ty>, ar
   if (num === sys_getrandom) {
     // Used by getrandom 0.1
     // The first argument is the syscall id, so skip over it.
-    const v = ecx.check_varargs(shim_varargs_("*libc::c_void", "usize", "i32"), varargs, "syscall(SYS_getrandom, ...)");
+    const v = ecx.check_varargs(shim_varargs("*libc::c_void", "usize", "i32"), varargs, "syscall(SYS_getrandom, ...)");
     if (v.$ === "Err") return v;
     const [ptr_op, len_op, flags_op] = v._0[0];
 
@@ -94,7 +85,7 @@ export function syscall(ecx: MiriInterpCx, link_name: Symbol, abi: FnAbi<Ty>, ar
     const r = futex(ecx, varargs, dest);
     if (r.$ === "Err") return r;
   } else if (num === sys_eventfd2) {
-    const v = ecx.check_varargs(shim_varargs_("u32", "i32"), varargs, "syscall(SYS_evetfd2, ...)");
+    const v = ecx.check_varargs(shim_varargs("u32", "i32"), varargs, "syscall(SYS_evetfd2, ...)");
     if (v.$ === "Err") return v;
     const [initval, flags] = v._0[0];
 
@@ -113,7 +104,7 @@ export function syscall(ecx: MiriInterpCx, link_name: Symbol, abi: FnAbi<Ty>, ar
     if (w.$ === "Err") return w;
   } else if (num === sys_accept4) {
     // Used on Android.
-    const v = ecx.check_varargs(shim_varargs_("i32", "*libc::sockaddr", "*libc::socklen_t", "i32"), varargs, "syscall(SYS_accept4, ...)");
+    const v = ecx.check_varargs(shim_varargs("i32", "*libc::sockaddr", "*libc::socklen_t", "i32"), varargs, "syscall(SYS_accept4, ...)");
     if (v.$ === "Err") return v;
     const [socket, address, address_len, flags] = v._0[0];
     const r = ecx.accept4(socket, address, address_len, flags, dest);

@@ -283,24 +283,15 @@ test("getcwd / chdir under isolation: the oracle's abort message and warning", (
       return interp_ok(undefined);
     },
   });
-  let caught: unknown;
-  let r: ReturnType<MiriInterpCx["getcwd"]> | undefined;
-  try {
-    r = warn_cx.getcwd(op(0), op(0));
-  } catch (e) {
-    caught = e;
-  }
+  const r = warn_cx.getcwd(op(0), op(0));
   expect(warnings).toEqual(["`getcwd` was made to return an error due to isolation"]);
-  if (caught !== undefined) {
-    expect(caught).toBeInstanceOf(Unported);
-    expect((caught as Error).message).toContain("impl From<io::ErrorKind> for IoError");
-  } else {
-    expect(r!.$ === "Ok" && r!._0.offset.bytes_u64() === 0n && r!._0.provenance === undefined).toBe(true);
-    expect(errnos.length).toBe(1);
-    const e = errnos[0] as { $: string; _0: unknown };
-    expect(e.$).toBe("HostError");
-    expect(IoError_kind(e._0 as never)).toBe("PermissionDenied");
-  }
+  // `this.set_last_error(ErrorKind::PermissionDenied)?` and a NULL return.
+  expect(r.$ === "Ok" && r._0.offset.bytes_u64() === 0n && r._0.provenance === undefined).toBe(true);
+  expect(errnos.length).toBe(1);
+  const e = errnos[0] as { $: string; _0: unknown };
+  expect(e.$).toBe("HostError");
+  expect(e._0).toEqual({ $: "Simple", kind: "PermissionDenied" });
+  expect(IoError_kind(e._0 as never)).toBe("PermissionDenied");
 });
 
 test("gethostname: zero length is UB; a short buffer on linux-gnu writes without the null and sets ENAMETOOLONG", () => {
@@ -470,8 +461,23 @@ test("update_readiness: edge detection, de-duplicated ready queue, un-triggering
 
 test("Rc<ReadinessWatcher> / Drop: dead watchers leave the watched FD's list; a closed FD's interests leave the watcher", () => {
   const watched = ReadinessWatched_default();
-  const fd_ref = { _0: { id: fdid(1), inner: { readiness_watched: () => watched } } };
-  const weak_fd = { upgrade: () => fd_ref, is_closed: () => false };
+  // `upgrade()` hands out an owned strong handle (files.ts's Rc protocol); readiness.rs drops each one.
+  const inner = { readiness_watched: () => watched };
+  let live = 0;
+  const upgrade = () => {
+    live += 1;
+    let dropped = false;
+    return {
+      _0: { id: fdid(1), inner },
+      deref: () => inner,
+      drop: () => {
+        expect(dropped).toBe(false);
+        dropped = true;
+        live -= 1;
+      },
+    };
+  };
+  const weak_fd = { upgrade, is_closed: () => false };
   const w1 = Rc_new_ReadinessWatcher();
   const w2 = Rc_new_ReadinessWatcher();
   for (const w of [w1, w2]) {
@@ -494,4 +500,6 @@ test("Rc<ReadinessWatcher> / Drop: dead watchers leave the watched FD's list; a 
   watched.drop();
   expect(w2.interests.size).toBe(0);
   expect(w2.ready).toEqual([]);
+  // Every upgraded handle was released.
+  expect(live).toBe(0);
 });

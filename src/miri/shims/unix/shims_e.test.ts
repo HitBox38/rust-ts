@@ -23,6 +23,7 @@ import { BlockingIoManager } from "../../concurrency/blocking_io.ts";
 import { GlobalDataRaceHandler } from "../../concurrency/data_race_handler.ts";
 import { type StackEmptyCallback, ThreadId, ThreadManager } from "../../concurrency/thread.ts";
 import { DelayedReadinessUpdates, type Readiness, ReadinessInterest } from "../readiness.ts";
+import { type FileDescription } from "../files.ts";
 import { type Varargs } from "../sig.ts";
 import { Epoll, is_Epoll } from "./linux_like/epoll.ts";
 import { EventFd } from "./linux_like/eventfd.ts";
@@ -708,7 +709,7 @@ test("epoll_ctl: EPOLLET is stripped (unsigned bit 31), EPOLLHUP|EPOLLERR always
   expect(show(ctl("EPOLL_CTL_ADD", 4))).toBe("unsupported operation: non-epoll FD passed to `epoll_ctl`");
   expect(drops).toEqual(["other"]);
   expect(is_Epoll(epoll)).toBe(true);
-  expect(is_Epoll({ watcher })).toBe(false);
+  expect(is_Epoll({ watcher } as unknown as FileDescription)).toBe(false);
 });
 
 // ---------------------------------------------------------------- eventfd ----

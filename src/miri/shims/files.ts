@@ -24,40 +24,28 @@ import { isatty } from "node:tty";
 import { type Pointer } from "../lib.ts";
 import { type DynMachineCallback, type MiriInterpCx } from "../machine.ts";
 import { type VisitWith } from "../provenance_gc.ts";
-import { VClock } from "../concurrency/vector_clock.ts";
 import { type DirHandle, type DynFileDescriptionRef, FdId, type FdIdWith, type FdNum, FdTable, type FileHandle, FileDescriptionRef, NullOutput, Stderr, Stdin, Stdout, WeakFileDescriptionRef } from "./files.gen.ts";
+import { isolation_abort_error } from "../helpers.ts";
 import { HostError, type IoError, IoError_from_ErrorKind, LibcError } from "./io_error.ts";
-import { type Readiness, ReadinessWatched } from "./readiness.ts";
+import { type Readiness, Readiness_EMPTY, type ReadinessWatched, ReadinessWatched_default } from "./readiness.ts";
 import { type UnixFileDescription } from "./unix/fd.ts";
+import type * as fs from "../../std/fs.ts";
 import { Size } from "../../rustc_abi/lib.ts";
 import { InterpCx } from "../../rustc_const_eval/interpret/eval_context.ts";
 import { type AnyMachine, type Machine } from "../../rustc_const_eval/interpret/machine.ts";
 import { InterpErrorInfo_from_InterpErrorKind, type InterpResult, interp_ok } from "../../rustc_middle/mir/interpret/mod.ts";
 import { type Either } from "../../rustc_middle/mir/mod.ts";
 import { type Pending, type Pending1 } from "../../rustc_type_ir/decls.ts";
-import { debug_IoError as debug_io_Error, handle_ebadf, io_error_from_node, type IoError as io_Error, type IoResult } from "../../std/io.ts";
+import { debug_IoError as debug_io_Error, handle_ebadf, io_error_from_node, type IoError as io_Error, type IoResult, type SeekFrom } from "../../std/io.ts";
 import { assert, assert_eq, panic, unported } from "../../std/panic.ts";
 import { PLAIN } from "../../std/fmt.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
 export * from "./files.gen.ts";
 
-/** PORT(C10): helpers.ts assigns `MiriMachine.prototype` methods at load (helpers.ts:1297-1328), so a module that
- *  machine.ts imports cannot import helpers.ts statically (helpers would run before machine.ts defines `MiriMachine`);
- *  it is read on first use instead (everything is loaded by then: src/miri/lib.ts). */
-function helpers(): typeof import("../helpers.ts") {
-  return require("../helpers.ts") as typeof import("../helpers.ts");
-}
-
 /** `throw_unsup_format!(..)` (`err_unsup!(Unsupported(format!(..)))`) */
 function throw_unsup_format<T>(msg: string): InterpResult<T> {
   return Err(InterpErrorInfo_from_InterpErrorKind({ $: "Unsupported", _0: { $: "Unsupported", _0: msg } }));
 }
-
-/** `std::io::SeekFrom` (library/std/src/io/mod.rs). PORT: a stand-in here until src/std/io.ts has one (root). */
-export type SeekFrom =
-  | { readonly $: "Start"; _0: bigint }
-  | { readonly $: "End"; _0: bigint }
-  | { readonly $: "Current"; _0: bigint };
 
 /** `impl io::Write` / `impl io::Read` of a host handle (the subset `read_from_host` / `write_to_host` call). */
 export interface HostWrite {
@@ -96,14 +84,6 @@ function drop_in_place_inner(inner: unknown): void {
 /** A `FileDescription` implementor's drop glue (header): the type's `Drop` impl and its fields' drop glue. */
 export interface DropGlue {
   drop_glue?(): void;
-}
-
-/** The `ReadinessWatched` field's drop glue (`impl Drop for ReadinessWatched`, readiness.rs:379, lane miri-shims-c).
- *  PORT(contract): pending miri-shims-c (its `Drop` is not declared by the skeleton; `drop` is the expected name). */
-function drop_ReadinessWatched(watched: ReadinessWatched): void {
-  const d = (watched as unknown as { drop?: () => void }).drop;
-  if (typeof d !== "function") return unported("miri::shims::readiness::ReadinessWatched: Drop (shims/readiness.rs:379; lane miri-shims-c)");
-  d.call(watched);
 }
 
 // ---- manual impls the generated modules call ----
@@ -212,16 +192,6 @@ export const FileDescription_provided = {
     return panic(`FD type ${this.name()} implements \`readiness_watched\` but not \`readiness\``);
   },
 };
-
-/** `Readiness::EMPTY` (shims/readiness.rs:67, lane miri-shims-c), a fresh copy (`Readiness` is `Copy`). */
-function Readiness_EMPTY(): Readiness {
-  return { readable: false, writable: false, read_closed: false, write_closed: false, error: false };
-}
-
-/** `ReadinessWatched::default()` (derived `Default`, shims/readiness.rs:370). */
-function ReadinessWatched_default(): ReadinessWatched {
-  return new ReadinessWatched([], VClock.default());
-}
 
 /** PORT: the `UnixFileDescription` impls of the stdio types are in shims/unix/fd.rs:102-105 (lane miri-shims-d), which
  *  give them only provided methods; the unsizing `FileDescriptionRef<Self> -> FileDescriptionRef<dyn UnixFileDescription>`
@@ -625,7 +595,7 @@ Stdin.prototype.name = function (this: Stdin): string {
 Stdin.prototype.read = function (this: Stdin, self_: FileDescriptionRef<FileDescription>, communicate_allowed: boolean, ptr: Pointer, len: number, ecx: MiriInterpCx, finish: DynMachineCallback<Result<number, IoError>>): InterpResult {
   if (!communicate_allowed) {
     // We want isolation mode to be deterministic, so we have to disallow all reads, even stdin.
-    const r = helpers().isolation_abort_error("`read` from stdin");
+    const r = isolation_abort_error("`read` from stdin");
     if (r.$ === "Err") return r;
   }
 
@@ -651,7 +621,7 @@ Stdin.prototype.readiness_watched = function (this: Stdin): ReadinessWatched | u
 Stdin.prototype.readiness = function (this: Stdin): Readiness {
   // Stdin is readable (we never return EWOULDBLOCK above) and also writable (since that never
   // blocks either). This matches what we see on Linux.
-  const readiness = Readiness_EMPTY();
+  const readiness = { ...Readiness_EMPTY };
   readiness.readable = true;
   readiness.writable = true;
   return readiness;
@@ -668,7 +638,7 @@ Stdin.prototype.seek = FileDescription_provided.seek;
 Stdin.prototype.metadata = FileDescription_provided.metadata;
 /** Drop glue of `Stdin` (header): `io::Stdin` has none, `ReadinessWatched` has a `Drop`. */
 Stdin.prototype.drop_glue = function (this: Stdin): void {
-  drop_ReadinessWatched(this.watched);
+  this.watched.drop();
 };
 
 // rustc: src/tools/miri/src/shims/files.rs:279 new
@@ -711,7 +681,7 @@ Stdout.prototype.readiness_watched = function (this: Stdout): ReadinessWatched |
 // rustc: src/tools/miri/src/shims/files.rs:317 readiness
 Stdout.prototype.readiness = function (this: Stdout): Readiness {
   // stdout can always be written (we never return EWOULDBLOCK there) and never be read.
-  const readiness = Readiness_EMPTY();
+  const readiness = { ...Readiness_EMPTY };
   readiness.writable = true;
   return readiness;
 };
@@ -727,7 +697,7 @@ Stdout.prototype.seek = FileDescription_provided.seek;
 Stdout.prototype.metadata = FileDescription_provided.metadata;
 /** Drop glue of `Stdout` (header). */
 Stdout.prototype.drop_glue = function (this: Stdout): void {
-  drop_ReadinessWatched(this.watched);
+  this.watched.drop();
 };
 
 // rustc: src/tools/miri/src/shims/files.rs:336 new
@@ -763,7 +733,7 @@ Stderr.prototype.readiness_watched = function (this: Stderr): ReadinessWatched |
 // rustc: src/tools/miri/src/shims/files.rs:368 readiness
 Stderr.prototype.readiness = function (this: Stderr): Readiness {
   // stderr can always be written (we never return EWOULDBLOCK there) and never be read.
-  const readiness = Readiness_EMPTY();
+  const readiness = { ...Readiness_EMPTY };
   readiness.writable = true;
   return readiness;
 };
@@ -779,7 +749,7 @@ Stderr.prototype.seek = FileDescription_provided.seek;
 Stderr.prototype.metadata = FileDescription_provided.metadata;
 /** Drop glue of `Stderr` (header). */
 Stderr.prototype.drop_glue = function (this: Stderr): void {
-  drop_ReadinessWatched(this.watched);
+  this.watched.drop();
 };
 
 // rustc: src/tools/miri/src/shims/files.rs:387 new
@@ -807,7 +777,7 @@ NullOutput.prototype.readiness_watched = function (this: NullOutput): ReadinessW
 // rustc: src/tools/miri/src/shims/files.rs:413 readiness
 NullOutput.prototype.readiness = function (this: NullOutput): Readiness {
   // null output can always be written (we never return EWOULDBLOCK there) and never be read.
-  const readiness = Readiness_EMPTY();
+  const readiness = { ...Readiness_EMPTY };
   readiness.writable = true;
   return readiness;
 };
@@ -824,7 +794,7 @@ NullOutput.prototype.metadata = FileDescription_provided.metadata;
 NullOutput.prototype.is_tty = FileDescription_provided.is_tty;
 /** Drop glue of `NullOutput` (header). */
 NullOutput.prototype.drop_glue = function (this: NullOutput): void {
-  drop_ReadinessWatched(this.watched);
+  this.watched.drop();
 };
 
 /** `{:?}` of an `io::Error` for an `unwrap` panic. */
@@ -1089,7 +1059,7 @@ InterpCx.prototype.write_to_host = function (this: MiriInterpCx, file: HostWrite
 ///
 /// Note that on Windows hosts, `custom_flags` is ignored if `root` is `Some`!
 // rustc: src/tools/miri/src/shims/files.rs:706 open_file_or_dir
-export function open_file_or_dir(_root: Pending<"fs::Dir"> | undefined, _path: string, _opts: Pending<"fs::OpenOptions">): Result<Either<Pending<"fs::File">, Pending<"fs::Dir">>, io_Error> {
+export function open_file_or_dir(_root: fs.Dir | undefined, _path: string, _opts: fs.OpenOptions): Result<Either<fs.File, fs.Dir>, io_Error> {
   // On Unix, `open`/`openat` works for files and directories.
   // On Windows, that fails with `PermissionDenied`, so we need to open an `fs::Dir` instead.
   // (But that may succeed even on a file! So we still have to check the metadata.)

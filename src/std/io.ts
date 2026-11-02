@@ -4,11 +4,11 @@
 // raw OS error code (`errno`) plus Node's error-code name (`code`, e.g. "ENOENT", used by callers that
 // test for one errno). `decode_error_kind` and `format_os_error` are the unix ones from
 // library/std/src/sys/io/error/unix.rs; on Windows (raw codes are `GetLastError` values, which Node
-// does not expose) they call `unported`. `ErrorData::Simple` is not produced yet.
+// does not expose) they call `unported`.
 import { writeSync } from "node:fs";
 import { constants } from "node:os";
 import { dlopen, FFIType, ptr } from "bun:ffi";
-import { debug_str, debug_struct, type Debug } from "./fmt.ts";
+import { debug_str, debug_struct, debug_tuple, type Debug } from "./fmt.ts";
 import { panic, unported } from "./panic.ts";
 import { Err, Ok, type Result } from "./result.ts";
 
@@ -115,11 +115,34 @@ export type IoError =
   | { readonly $: "Os"; readonly errno: number | undefined; readonly code: string }
   /** `io::Error::new(kind, String)` / `io::Error::other(String)`: a boxed `StringError`. */
   | { readonly $: "Custom"; readonly kind: ErrorKind; readonly error: string }
+  /** `io::Error::from(kind)`: `ErrorData::Simple(kind)`. */
+  | { readonly $: "Simple"; readonly kind: ErrorKind }
   /** `const_error!(kind, "message")` (e.g. `io::Error::INVALID_UTF8`). */
   | { readonly $: "SimpleMessage"; readonly kind: ErrorKind; readonly message: string };
 
+/// Enumeration of possible methods to seek within an I/O object.
+///
+/// It is used by the [`Seek`] trait.
+// (library/core/src/io/seek.rs:202 `SeekFrom`, `#[derive(Copy, PartialEq, Eq, Clone, Debug)]`; `u64` / `i64` offsets are
+// bigints)
+export type SeekFrom =
+  /// Sets the offset to the provided number of bytes.
+  | { readonly $: "Start"; _0: bigint }
+  /// Sets the offset to the size of this object plus the specified number of bytes.
+  | { readonly $: "End"; _0: bigint }
+  /// Sets the offset to the current position plus the specified number of bytes.
+  | { readonly $: "Current"; _0: bigint };
+
 /** `std::io::Result<T>` */
 export type IoResult<T> = Result<T, IoError>;
+
+/// Converts an [`ErrorKind`] into an [`Error`].
+///
+/// This conversion creates a new error with a simple representation of error kind.
+// std: library/core/src/io/error.rs:218 from
+export function io_error_from_kind(kind: ErrorKind): IoError {
+  return { $: "Simple", kind };
+}
 
 /** `io::Error::other(error)` */
 export function io_error_other(error: string): IoError {
@@ -149,6 +172,8 @@ export function IoError_kind(e: IoError): ErrorKind {
     case "Os":
       return decode_error_kind(os_errno(e));
     case "Custom":
+      return e.kind;
+    case "Simple":
       return e.kind;
     case "SimpleMessage":
       return e.kind;
@@ -257,6 +282,9 @@ export function display_IoError(e: IoError): string {
     }
     case "Custom":
       return e.error;
+    case "Simple":
+      // `kind.fmt(fmt)`: `impl Display for ErrorKind` is `as_str` (core/src/io/error.rs:1128).
+      return ErrorKind_as_str(e.kind);
     case "SimpleMessage":
       return e.message;
   }
@@ -279,6 +307,9 @@ export const debug_IoError: Debug<IoError> = (e, f) => {
         ["kind", e.kind],
         ["error", debug_str(e.error)],
       ]);
+    case "Simple":
+      // `fmt.debug_tuple("Kind").field(&kind).finish()` (`ErrorKind`'s derived Debug is the variant name).
+      return debug_tuple(f, "Kind", [e.kind]);
     case "SimpleMessage":
       return debug_struct(f, "Error", [
         ["kind", e.kind],

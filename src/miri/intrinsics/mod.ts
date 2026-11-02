@@ -5,12 +5,9 @@
 // - `trait EvalContextExt` (impl for `MiriInterpCx`) is a `declare module` augmentation of `InterpCx` (decision C2).
 // - `check_intrinsic_arg_count::<N>(args)` takes `N` as a parameter and returns the slice (`&[OpTy; N]`).
 // - `mod aarch64` / `mod loongarch` are not ported (D12: unreachable on x86_64-unknown-linux-gnu): their dispatch arms stop
-//   `unported`. `mod x86` is a later wave (D12, wave 38): its arm stops `unported("x86 intrinsics: wave 38 ..")` (lane
-//   brief) until miri-x86-a replaces it with the call `x86::EvalContextExt::emulate_x86_intrinsic(this, ..)`.
-// - `EmulateItemResult::jump_to_next_block` (shims/mod.rs:46, lane miri-shims-a) is not declared by the skeleton (an
-//   inherent method of a string-union enum, "lane decides"): `jump_to_next_block` below is a private stand-in with the
-//   upstream body, marked `PORT(contract): pending miri-shims-a`; root swaps it for shims-a's companion fn on integration.
-// - `T: Default` of `jump_to_next_block` is passed as the value (`undefined` for `Option<Instance>` / `()`).
+//   `unported`. `mod x86` is a later wave (D12, wave 38): its arm calls `emulate_x86_intrinsic`, the wave-38 placeholder
+//   of intrinsics/x86/mod.ts (root decision on the shims-d review L1), which stops `unported` until ported.
+// - `EmulateItemResult::jump_to_next_block` is shims/mod.ts's companion fn (`T::default()` is `undefined`).
 // - `trace!(..)` stays a comment (docs/handoff/miri-log.md: Miri's `trace!` is compiled out of the release oracle).
 import { type ImmTy, type MPlaceTy, type OpTy, type PlaceTy, type Pointer as MiriPointer, type Scalar } from "../lib.ts";
 import { type MiriInterpCx, type Provenance } from "../machine.ts";
@@ -58,41 +55,6 @@ function u128_count_ones(v: bigint): number {
   return n;
 }
 
-/**
- * PORT(contract): pending miri-shims-a. `EmulateItemResult::jump_to_next_block` (src/tools/miri/src/shims/mod.rs:46), not
- * declared by the skeleton; same body as upstream. `default_` is `T::default()`.
- */
-function jump_to_next_block<T>(
-  self: EmulateItemResult,
-  ecx: MiriInterpCx,
-  dest: PlaceTy,
-  ret: BasicBlock | undefined,
-  unwind: UnwindAction | undefined,
-  not_supported: (ecx: MiriInterpCx) => InterpResult<T>,
-  default_: T,
-): InterpResult<T> {
-  switch (self) {
-    case "NeedsReturn": {
-      // trace!("{:?}", ecx.dump_place(dest));
-      void dest;
-      const r = ecx.return_to_block(ret);
-      if (r.$ === "Err") return r;
-      return interp_ok(default_);
-    }
-    case "NeedsUnwind": {
-      // Jump to the unwind block to begin unwinding.
-      if (unwind === undefined) return panic("called `Option::unwrap()` on a `None` value");
-      const r = ecx.unwind_to_block(unwind);
-      if (r.$ === "Err") return r;
-      return interp_ok(default_);
-    }
-    case "AlreadyJumped":
-      return interp_ok(default_);
-    case "NotSupported":
-      return not_supported(ecx);
-  }
-}
-
 /// Check that the number of args is what we expect.
 // rustc: src/tools/miri/src/intrinsics/mod.rs:21 check_intrinsic_arg_count
 export function check_intrinsic_arg_count(args: readonly OpTy[], N: number): InterpResult<readonly OpTy[]> {
@@ -136,7 +98,7 @@ InterpCx.prototype.call_intrinsic = function (
 
   const res = this_.emulate_intrinsic_by_name(intrinsic_name, instance.args, args, dest, ret);
   if (res.$ === "Err") return res;
-  return jump_to_next_block<Instance | undefined>(res._0, this_, dest, ret, unwind, (this_) => {
+  return EmulateItemResult.jump_to_next_block<Instance>(res._0, this_, dest, ret, unwind, (this_) => {
     // We haven't handled the intrinsic, let's see if we can use a fallback body.
     const intrinsic = this_.tcx.deref().intrinsic(Instance.def_id(instance));
     if (intrinsic === undefined) return panic("called `Option::unwrap()` on a `None` value");
@@ -154,7 +116,7 @@ InterpCx.prototype.call_intrinsic = function (
       def: { $: "Item", _0: Instance.def_id(instance) },
       args: instance.args,
     });
-  }, undefined);
+  });
 };
 
 /// Emulates a Miri-supported intrinsic (not supported by the core engine).
@@ -340,8 +302,12 @@ InterpCx.prototype.call_llvm_intrinsic = function (
 
     // Target-specific shims
     else if (name.startsWith("llvm.x86.") && (target.arch.$ === "X86" || target.arch.$ === "X86_64") && target.endian === "Little") {
-      // break 'handled x86::EvalContextExt::emulate_x86_intrinsic(this, link_name, args, &dest)?,
-      return unported("x86 intrinsics: wave 38 (miri::intrinsics::x86::EvalContextExt::emulate_x86_intrinsic, plan-m6 D12)");
+      // PORT: `x86::EvalContextExt::emulate_x86_intrinsic` is the wave-38 placeholder (intrinsics/x86/mod.ts, lane
+      // miri-x86-a; it stops `unported` until ported).
+      const r = this_.emulate_x86_intrinsic(link_name, args, dest);
+      if (r.$ === "Err") return r;
+      res = r._0;
+      break handled;
     } else if (name.startsWith("llvm.aarch64.") && target.arch.$ === "AArch64" && target.endian === "Little") {
       // break 'handled aarch64::EvalContextExt::emulate_aarch64_intrinsic(this, link_name, args, &dest)?,
       return unported("miri::intrinsics::aarch64::EvalContextExt::emulate_aarch64_intrinsic (plan-m6 D12: aarch64 intrinsics are unreachable on the target)");
@@ -356,12 +322,12 @@ InterpCx.prototype.call_llvm_intrinsic = function (
   }
 
   // The rest either implements the logic, or falls back to `lookup_exported_symbol`.
-  return jump_to_next_block<undefined>(res, this_, PlaceTy_from_MPlaceTy(dest as never) as unknown as PlaceTy, ret, undefined, (this_) => {
+  return EmulateItemResult.jump_to_next_block<undefined>(res, this_, PlaceTy_from_MPlaceTy(dest as never) as unknown as PlaceTy, ret, undefined, (this_) => {
     return throw_machine_stop({
       $: "UnsupportedForeignItem",
       _0: `can't call LLVM intrinsic \`${Symbol.as_str(link_name)}\` on architecture \`${Arch.display(this_.tcx.deref().sess.target.arch)}\``,
     });
-  }, undefined);
+  });
 };
 
 // ---------------------------------------------------------------- private glue of this module ----

@@ -3,12 +3,12 @@
 //
 // PORT:
 // - `size`/`align` are `u64` (`bigint`, decision C5).
-// - `shim_sig!` is expanded with foreign_items.ts's `shim_sig` / `sig_ty` (see there); `core::mem::Alignment` is the
+// - `shim_sig!` is sig.ts's `shim_sig` (string type tokens); `core::mem::Alignment` is the
 //   `$krate :: $($path)::+` arm (`path_ty_layout`).
 // - `fn prev_power_of_two` (nested in `malloc_align`) is a module fn.
 import { type OpTy, type PlaceTy, type Pointer, type Scalar } from "../lib.ts";
 import { MemoryKind_from_MiriMemoryKind, type MiriInterpCx } from "../machine.ts";
-import { shim_sig, sig_ty as T } from "./foreign_items.ts";
+import { shim_sig } from "./sig.ts";
 import { Align, type AlignFromBytesError, debug_AlignFromBytesError, Size } from "../../rustc_abi/lib.ts";
 import { type SpecialAllocatorMethod } from "../../rustc_ast/expand/allocator.gen.ts";
 import { InterpCx } from "../../rustc_const_eval/interpret/eval_context.ts";
@@ -206,7 +206,7 @@ InterpCx.prototype.rust_special_allocator_method = function (
   switch (method) {
     case "Alloc":
     case "AllocZeroed": {
-      const a = this_.check_shim_sig(shim_sig("Rust", [T.usize, T.path("core", "mem", "Alignment")], T.ptr(T.unit)), [
+      const a = this_.check_shim_sig(shim_sig("Rust", ["usize", "core::mem::Alignment"], "*()"), [
         link_name,
         abi,
         args,
@@ -233,7 +233,7 @@ InterpCx.prototype.rust_special_allocator_method = function (
     }
     case "Dealloc": {
       const a = this_.check_shim_sig(
-        shim_sig("Rust", [T.ptr(T.unit), T.usize, T.path("core", "mem", "Alignment")], T.unit),
+        shim_sig("Rust", ["*()", "usize", "core::mem::Alignment"], "()"),
         [link_name, abi, args],
       );
       if (a.$ === "Err") return a;
@@ -254,7 +254,7 @@ InterpCx.prototype.rust_special_allocator_method = function (
     }
     case "Realloc": {
       const a = this_.check_shim_sig(
-        shim_sig("Rust", [T.ptr(T.unit), T.usize, T.path("core", "mem", "Alignment"), T.usize], T.ptr(T.unit)),
+        shim_sig("Rust", ["*()", "usize", "core::mem::Alignment", "usize"], "*()"),
         [link_name, abi, args],
       );
       if (a.$ === "Err") return a;

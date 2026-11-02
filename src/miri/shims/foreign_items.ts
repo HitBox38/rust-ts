@@ -5,10 +5,9 @@
 // PORT:
 // - `trait EvalContextExt` / `trait EvalContextExtPriv` (impl for `MiriInterpCx`) are `declare module` augmentations of
 //   `InterpCx` (decision C2). `shims::math`, `shims::unix::foreign_items` are called by path (decision C9): module fns.
-// - `shim_sig!(extern "<abi>" fn(<args>) -> <ret>)` (shims/sig.rs:30, a macro of lane miri-shims-b) is expanded by hand
-//   with `shim_sig(abi, [args], ret)` below: one `SigTy` per `shim_sig_arg!` arm (shims/sig.rs:106), computed from the
-//   interpreter when `check_shim_sig` calls the closure, as the macro's closure does. `check_shim_sig` returns
-//   `&[OpTy; N]`; here the args slice, destructured with the arity the signature fixes.
+// - `shim_sig!(extern "<abi>" fn(<args>) -> <ret>)` (shims/sig.rs:30) is sig.ts's `shim_sig(abi, [args], ret)` with the
+//   macro's type tokens as strings. `check_shim_sig` returns `&[OpTy; N]`; here the args slice, destructured with the
+//   arity the signature fixes.
 // - `cfg(feature = "native-lib")` (foreign_items.rs:266) is off in the port (decision C6).
 // - Windows (`shims::windows::foreign_items`) is out of scope (plan-m6 D2): its dispatch arms stop `unported`.
 // - `std::io::stdout().write_all` / `stderr()` (miri_write_to_stdout/err, errors ignored) write the host fds 1 / 2.
@@ -23,8 +22,9 @@ import { display_MiriMemoryKind, MemoryKind_from_MiriMemoryKind, type MiriInterp
 import { type Provenance } from "../machine.ts";
 import { DynSym } from "./foreign_items.gen.ts";
 import * as math from "./math.ts";
+import { iter_exported_symbols } from "../helpers.ts";
 import { EmulateItemResult } from "./mod.ts";
-import { ShimSig } from "./sig.ts";
+import { shim_sig, type ShimSigFn } from "./sig.ts";
 import * as unix_foreign_items from "./unix/foreign_items.ts";
 import { Align, type AlignFromBytesError, debug_AbiFromStrErr, debug_AlignFromBytesError, Size } from "../../rustc_abi/lib.ts";
 import { ExternAbi } from "../../rustc_abi/extern_abi.ts";
@@ -80,81 +80,11 @@ declare module "../../rustc_const_eval/interpret/eval_context.ts" {
   }
 }
 
-// PORT(contract): pending miri-shims-b. shims/sig.rs:327 `check_shim_sig` takes `shim_sig: fn(&MiriInterpCx) ->
-// ShimSig` (the skeleton's declaration has a `Pending` type there); this overload is the type the callers here pass.
-declare module "../../rustc_const_eval/interpret/eval_context.ts" {
-  interface InterpCx<M extends AnyMachine = Machine> {
-    check_shim_sig(this: MiriInterpCx, shim_sig: (this_: MiriInterpCx) => ShimSig, _1: [Symbol, FnAbi<Ty>, readonly OpTy[]]): InterpResult<readonly OpTy[]>;
-  }
-}
-
 declare module "./foreign_items.gen.ts" {
   namespace DynSym {
     // shims/foreign_items.rs:31
     export let from_str: (name: string) => DynSym;
   }
-}
-
-/** helpers.ts, read at call time: helpers.ts assigns `MiriMachine.prototype` methods at load, so a module that
- *  machine.ts may reach must not value-import it (C10; reported by lane miri-shims-b). */
-function helpers(): typeof import("../helpers.ts") {
-  return require("../helpers.ts") as typeof import("../helpers.ts");
-}
-
-// ---- `shim_sig!` (shims/sig.rs:30, lane miri-shims-b), expanded by hand ----
-
-/** A `shim_sig_arg!` type (shims/sig.rs:106), computed from the interpreter. */
-export type SigTy = (this_: MiriInterpCx) => Ty;
-
-/** The `shim_sig_arg!` arms (shims/sig.rs:106-185) the shims of this lane use. */
-export const sig_ty = {
-  i8: ((this_) => this_.tcx.deref().types.i8) as SigTy,
-  i16: ((this_) => this_.tcx.deref().types.i16) as SigTy,
-  i32: ((this_) => this_.tcx.deref().types.i32) as SigTy,
-  i64: ((this_) => this_.tcx.deref().types.i64) as SigTy,
-  isize: ((this_) => this_.tcx.deref().types.isize) as SigTy,
-  u8: ((this_) => this_.tcx.deref().types.u8) as SigTy,
-  u16: ((this_) => this_.tcx.deref().types.u16) as SigTy,
-  u32: ((this_) => this_.tcx.deref().types.u32) as SigTy,
-  u64: ((this_) => this_.tcx.deref().types.u64) as SigTy,
-  usize: ((this_) => this_.tcx.deref().types.usize) as SigTy,
-  /** `()` */
-  unit: ((this_) => this_.tcx.deref().types.unit) as SigTy,
-  /** `!` */
-  never: ((this_) => this_.tcx.deref().types.never) as SigTy,
-  bool: ((this_) => this_.tcx.deref().types.bool) as SigTy,
-  /** `*_`: mutability does not matter for ABI. */
-  ptr_any: ((this_) => this_.machine.layouts.void_ptr_mut.ty) as SigTy,
-  /** `*$ty`: pointee types matter for varargs so we support explicitly giving them. Mutability does not matter for ABI. */
-  ptr(ty: SigTy): SigTy {
-    return (this_) => Ty.new_ptr(this_.tcx.deref(), ty(this_), "Mut");
-  },
-  /** `fn(..) -> _`: all function pointer types are the same on the ABI level so we don't care about arg/ret. */
-  fn_ptr: ((this_) => this_.machine.layouts.fn_ptr.ty) as SigTy,
-  /** `&[$ty]` */
-  slice_ref(ty: SigTy): SigTy {
-    return (this_) => {
-      const tcx = this_.tcx.deref();
-      return Ty.new_ref(tcx, tcx.lifetimes.re_erased, Ty.new_slice(tcx, ty(this_)), "Not");
-    };
-  },
-  /** `$krate :: $($path)::+` */
-  path(...path: string[]): SigTy {
-    return (this_) => helpers().path_ty_layout(this_, path).ty;
-  },
-};
-
-/** `shim_sig!(extern "<abi>" fn(<args>) -> <ret>)` (no trailing `...`: `c_variadic` is false). */
-export function shim_sig(abi: string, args: readonly SigTy[], ret: SigTy): (this_: MiriInterpCx) => ShimSig {
-  return (this_) => {
-    const args_ = args.map((a) => a(this_));
-    return new ShimSig(
-      expect_result(ExternAbi.from_str(abi), "incorrect abi specified", debug_AbiFromStrErr),
-      args_,
-      ret(this_),
-      false,
-    );
-  };
 }
 
 // ---- local macro helpers ----
@@ -349,7 +279,7 @@ InterpCx.prototype.lookup_exported_symbol = function (this: MiriInterpCx, link_n
       is_weak: boolean;
     }
     let symbol_target: SymbolTarget | undefined = undefined;
-    const r = helpers().iter_exported_symbols(tcx, (cnum: CrateNum, def_id: DefId, _used: boolean): InterpResult => {
+    const r = iter_exported_symbols(tcx, (cnum: CrateNum, def_id: DefId, _used: boolean): InterpResult => {
       const attrs = tcx.codegen_fn_attrs(def_id) as CodegenFnAttrs;
       // Skip over items without an explicitly defined symbol name.
       if (
@@ -467,7 +397,6 @@ InterpCx.prototype.lookup_exported_static = function (this: MiriInterpCx, link_n
   return interp_ok(instance);
 };
 
-const T = sig_ty;
 
 // rustc: src/tools/miri/src/shims/foreign_items.rs:256 emulate_foreign_item_inner
 InterpCx.prototype.emulate_foreign_item_inner = function (
@@ -518,20 +447,20 @@ InterpCx.prototype.emulate_foreign_item_inner = function (
 
   // Here we dispatch all the shims for foreign functions. If you have a platform specific
   // shim, add it to the corresponding submodule.
-  const sig = (shim: (this_: MiriInterpCx) => ShimSig): InterpResult<readonly OpTy[]> =>
+  const sig = (shim: ShimSigFn): InterpResult<readonly OpTy[]> =>
     this_.check_shim_sig(shim, [link_name, abi, args]);
   const name = Symbol.as_str(link_name);
   // Magic function Rust emits (and not as part of the allocator shim).
   if (name === this_.mangle_internal_symbol(NO_ALLOC_SHIM_IS_UNSTABLE)) {
     // This is a no-op shim that only exists to prevent making the allocator shims
     // instantly stable.
-    const a = sig(shim_sig("Rust", [], T.unit));
+    const a = sig(shim_sig("Rust", [], "()"));
     if (a.$ === "Err") return a;
   } else {
     switch (name) {
       // Miri-specific extern functions
       case "miri_alloc": {
-        const a = sig(shim_sig("Rust", [T.usize, T.usize], T.ptr(T.unit)));
+        const a = sig(shim_sig("Rust", ["usize", "usize"], "*()"));
         if (a.$ === "Err") return a;
         const [size_op, align_op] = a._0 as [OpTy, OpTy];
         const size = this_.read_target_usize(size_op);
@@ -555,7 +484,7 @@ InterpCx.prototype.emulate_foreign_item_inner = function (
         break;
       }
       case "miri_dealloc": {
-        const a = sig(shim_sig("Rust", [T.ptr(T.unit), T.usize, T.usize], T.unit));
+        const a = sig(shim_sig("Rust", ["*()", "usize", "usize"], "()"));
         if (a.$ === "Err") return a;
         const [ptr_op, old_size_op, align_op] = a._0 as [OpTy, OpTy, OpTy];
         const ptr = this_.read_pointer(ptr_op);
@@ -575,7 +504,7 @@ InterpCx.prototype.emulate_foreign_item_inner = function (
         break;
       }
       case "miri_track_alloc": {
-        const a = sig(shim_sig("Rust", [T.ptr(T.unit)], T.unit));
+        const a = sig(shim_sig("Rust", ["*()"], "()"));
         if (a.$ === "Err") return a;
         const [ptr_op] = a._0 as [OpTy];
         const ptr = this_.read_pointer(ptr_op);
@@ -591,7 +520,7 @@ InterpCx.prototype.emulate_foreign_item_inner = function (
         break;
       }
       case "miri_start_unwind": {
-        const a = sig(shim_sig("Rust", [T.ptr(T.unit)], T.never));
+        const a = sig(shim_sig("Rust", ["*()"], "!"));
         if (a.$ === "Err") return a;
         const [payload] = a._0 as [OpTy];
         const r = this_.handle_miri_start_unwind(payload);
@@ -599,13 +528,13 @@ InterpCx.prototype.emulate_foreign_item_inner = function (
         return interp_ok("NeedsUnwind");
       }
       case "miri_run_provenance_gc": {
-        const a = sig(shim_sig("Rust", [], T.unit));
+        const a = sig(shim_sig("Rust", [], "()"));
         if (a.$ === "Err") return a;
         this_.run_provenance_gc();
         break;
       }
       case "miri_get_alloc_id": {
-        const a = sig(shim_sig("Rust", [T.ptr(T.unit)], T.u64));
+        const a = sig(shim_sig("Rust", ["*()"], "u64"));
         if (a.$ === "Err") return a;
         const [ptr_op] = a._0 as [OpTy];
         const ptr = this_.read_pointer(ptr_op);
@@ -617,7 +546,7 @@ InterpCx.prototype.emulate_foreign_item_inner = function (
         break;
       }
       case "miri_print_borrow_state": {
-        const a = sig(shim_sig("Rust", [T.u64, T.bool], T.unit));
+        const a = sig(shim_sig("Rust", ["u64", "bool"], "()"));
         if (a.$ === "Err") return a;
         const [id_op, show_unnamed_op] = a._0 as [OpTy, OpTy];
         const id_s = this_.read_scalar(id_op);
@@ -647,7 +576,7 @@ InterpCx.prototype.emulate_foreign_item_inner = function (
       case "miri_pointer_name": {
         // This associates a name to a tag. Very useful for debugging, and also makes
         // tests more strict.
-        const a = sig(shim_sig("Rust", [T.ptr(T.unit), T.u8, T.slice_ref(T.u8)], T.unit));
+        const a = sig(shim_sig("Rust", ["*()", "u8", "&[u8]"], "()"));
         if (a.$ === "Err") return a;
         const [ptr_op, nth_parent_op, name_op] = a._0 as [OpTy, OpTy, OpTy];
         const ptr = this_.read_pointer(ptr_op);
@@ -665,13 +594,13 @@ InterpCx.prototype.emulate_foreign_item_inner = function (
         // end the shared borrow from `read_byte_slice` before we can
         // start the mutable borrow for `give_pointer_debug_name`.
         // `String::from_utf8_lossy` (TextDecoder's replacement is U+FFFD per maximal subpart, as std's).
-        const name_ = new TextDecoder("utf-8", { fatal: false }).decode(name_bytes._0);
+        const name_ = new TextDecoder("utf-8", { fatal: false, ignoreBOM: true }).decode(name_bytes._0);
         const r = this_.give_pointer_debug_name(ptr._0, nth_parent._0, name_);
         if (r.$ === "Err") return r;
         break;
       }
       case "miri_static_root": {
-        const a = sig(shim_sig("Rust", [T.ptr(T.unit)], T.unit));
+        const a = sig(shim_sig("Rust", ["*()"], "()"));
         if (a.$ === "Err") return a;
         const [ptr_op] = a._0 as [OpTy];
         const ptr = this_.read_pointer(ptr_op);
@@ -686,7 +615,7 @@ InterpCx.prototype.emulate_foreign_item_inner = function (
         break;
       }
       case "miri_host_to_target_path": {
-        const a = sig(shim_sig("Rust", [T.ptr(T.unit), T.ptr(T.unit), T.usize], T.usize));
+        const a = sig(shim_sig("Rust", ["*()", "*()", "usize"], "usize"));
         if (a.$ === "Err") return a;
         const [ptr_op, out_op, out_size_op] = a._0 as [OpTy, OpTy, OpTy];
         const ptr = this_.read_pointer(ptr_op);
@@ -716,7 +645,7 @@ InterpCx.prototype.emulate_foreign_item_inner = function (
       case "miri_thread_spawn": {
         const a = sig(
           // FIXME: The first argument is actually a function pointer.
-          shim_sig("Rust", [T.fn_ptr, T.ptr(T.unit)], T.usize),
+          shim_sig("Rust", ["fn(..) -> _", "*()"], "usize"),
         );
         if (a.$ === "Err") return a;
         const [start_routine_op, func_arg_op] = a._0 as [OpTy, OpTy];
@@ -730,7 +659,7 @@ InterpCx.prototype.emulate_foreign_item_inner = function (
         break;
       }
       case "miri_thread_join": {
-        const a = sig(shim_sig("Rust", [T.usize], T.bool));
+        const a = sig(shim_sig("Rust", ["usize"], "bool"));
         if (a.$ === "Err") return a;
         const [thread_id_op] = a._0 as [OpTy];
 
@@ -752,7 +681,7 @@ InterpCx.prototype.emulate_foreign_item_inner = function (
       }
       // Hint that a loop is spinning indefinitely.
       case "miri_spin_loop": {
-        const a = sig(shim_sig("Rust", [], T.unit));
+        const a = sig(shim_sig("Rust", [], "()"));
         if (a.$ === "Err") return a;
 
         // Try to run another thread to maximize the chance of finding actual bugs.
@@ -788,7 +717,7 @@ InterpCx.prototype.emulate_foreign_item_inner = function (
       // Writes some bytes to the interpreter's stdout/stderr. See the README for details.
       case "miri_write_to_stdout":
       case "miri_write_to_stderr": {
-        const a = sig(shim_sig("Rust", [T.slice_ref(T.u8)], T.unit));
+        const a = sig(shim_sig("Rust", ["&[u8]"], "()"));
         if (a.$ === "Err") return a;
         const [msg_op] = a._0 as [OpTy];
         const msg_imm = this_.read_immediate(msg_op);
@@ -816,7 +745,7 @@ InterpCx.prototype.emulate_foreign_item_inner = function (
       case "miri_promise_symbolic_alignment": {
         // use rustc_abi::AlignFromBytesError;
 
-        const a = sig(shim_sig("Rust", [T.ptr(T.unit), T.usize], T.unit));
+        const a = sig(shim_sig("Rust", ["*()", "usize"], "()"));
         if (a.$ === "Err") return a;
         const [ptr_op, align_op] = a._0 as [OpTy, OpTy];
 
@@ -864,7 +793,7 @@ InterpCx.prototype.emulate_foreign_item_inner = function (
       }
       // GenMC mode: Assume statements block the current thread when their condition is false.
       case "miri_genmc_assume": {
-        const a = sig(shim_sig("Rust", [T.bool], T.unit));
+        const a = sig(shim_sig("Rust", ["bool"], "()"));
         if (a.$ === "Err") return a;
         const [condition] = a._0 as [OpTy];
 
@@ -880,7 +809,7 @@ InterpCx.prototype.emulate_foreign_item_inner = function (
       // Aborting the process.
       case "exit": {
         // FIXME: This does not have a direct test (#3179).
-        const a = sig(shim_sig("C", [T.i32], T.unit));
+        const a = sig(shim_sig("C", ["i32"], "()"));
         if (a.$ === "Err") return a;
         const [code_op] = a._0 as [OpTy];
         const code_s = this_.read_scalar(code_op);
@@ -898,14 +827,14 @@ InterpCx.prototype.emulate_foreign_item_inner = function (
       }
       case "abort": {
         // FIXME: This does not have a direct test (#3179).
-        const a = sig(shim_sig("C", [], T.unit));
+        const a = sig(shim_sig("C", [], "()"));
         if (a.$ === "Err") return a;
         return throw_machine_stop({ $: "Abort", _0: "the program aborted execution" });
       }
 
       // Standard C allocation
       case "malloc": {
-        const a = sig(shim_sig("C", [T.usize], T.ptr_any));
+        const a = sig(shim_sig("C", ["usize"], "*_"));
         if (a.$ === "Err") return a;
         const [size_op] = a._0 as [OpTy];
         const size = this_.read_target_usize(size_op);
@@ -927,7 +856,7 @@ InterpCx.prototype.emulate_foreign_item_inner = function (
         break;
       }
       case "calloc": {
-        const a = sig(shim_sig("C", [T.usize, T.usize], T.ptr_any));
+        const a = sig(shim_sig("C", ["usize", "usize"], "*_"));
         if (a.$ === "Err") return a;
         const [items_op, elem_size_op] = a._0 as [OpTy, OpTy];
         const items = this_.read_target_usize(items_op);
@@ -952,7 +881,7 @@ InterpCx.prototype.emulate_foreign_item_inner = function (
         break;
       }
       case "free": {
-        const a = sig(shim_sig("C", [T.ptr_any], T.unit));
+        const a = sig(shim_sig("C", ["*_"], "()"));
         if (a.$ === "Err") return a;
         const [ptr_op] = a._0 as [OpTy];
         const ptr = this_.read_pointer(ptr_op);
@@ -962,7 +891,7 @@ InterpCx.prototype.emulate_foreign_item_inner = function (
         break;
       }
       case "realloc": {
-        const a = sig(shim_sig("C", [T.ptr_any, T.usize], T.ptr_any));
+        const a = sig(shim_sig("C", ["*_", "usize"], "*_"));
         if (a.$ === "Err") return a;
         const [old_ptr_op, new_size_op] = a._0 as [OpTy, OpTy];
         const old_ptr = this_.read_pointer(old_ptr_op);
@@ -989,7 +918,7 @@ InterpCx.prototype.emulate_foreign_item_inner = function (
         const c = this_.check_target_os([spec.Os.Linux, spec.Os.FreeBsd, spec.Os.Android], link_name);
         if (c.$ === "Err") return c;
 
-        const a = sig(shim_sig("C", [T.ptr_any], T.usize));
+        const a = sig(shim_sig("C", ["*_"], "usize"));
         if (a.$ === "Err") return a;
         const [ptr_op] = a._0 as [OpTy];
         const ptr = this_.read_pointer(ptr_op);
@@ -1027,7 +956,7 @@ InterpCx.prototype.emulate_foreign_item_inner = function (
 
       // C memory handling functions
       case "memcmp": {
-        const a = sig(shim_sig("C", [T.ptr_any, T.ptr_any, T.usize], T.i32));
+        const a = sig(shim_sig("C", ["*_", "*_", "usize"], "i32"));
         if (a.$ === "Err") return a;
         const [left_op, right_op, n_op] = a._0 as [OpTy, OpTy, OpTy];
         const left = this_.read_pointer(left_op);
@@ -1064,7 +993,7 @@ InterpCx.prototype.emulate_foreign_item_inner = function (
         break;
       }
       case "memchr": {
-        const a = sig(shim_sig("C", [T.ptr_any, T.i32, T.usize], T.ptr_any));
+        const a = sig(shim_sig("C", ["*_", "i32", "usize"], "*_"));
         if (a.$ === "Err") return a;
         const [ptr_op, val_op, num_op] = a._0 as [OpTy, OpTy, OpTy];
         const ptr = this_.read_pointer(ptr_op);
@@ -1102,7 +1031,7 @@ InterpCx.prototype.emulate_foreign_item_inner = function (
         const c = this_.check_target_os([spec.Os.Linux, spec.Os.Android, spec.Os.FreeBsd], link_name);
         if (c.$ === "Err") return c;
 
-        const a = sig(shim_sig("C", [T.ptr_any, T.i32, T.usize], T.ptr_any));
+        const a = sig(shim_sig("C", ["*_", "i32", "usize"], "*_"));
         if (a.$ === "Err") return a;
         const [ptr_op, val_op, num_op] = a._0 as [OpTy, OpTy, OpTy];
         const ptr = this_.read_pointer(ptr_op);
@@ -1136,7 +1065,7 @@ InterpCx.prototype.emulate_foreign_item_inner = function (
         break;
       }
       case "strlen": {
-        const a = sig(shim_sig("C", [T.ptr_any], T.usize));
+        const a = sig(shim_sig("C", ["*_"], "usize"));
         if (a.$ === "Err") return a;
         const [ptr_op] = a._0 as [OpTy];
         const ptr = this_.read_pointer(ptr_op);
@@ -1150,7 +1079,7 @@ InterpCx.prototype.emulate_foreign_item_inner = function (
         break;
       }
       case "strnlen": {
-        const a = sig(shim_sig("C", [T.ptr_any, T.usize], T.usize));
+        const a = sig(shim_sig("C", ["*_", "usize"], "usize"));
         if (a.$ === "Err") return a;
         const [ptr_op, num_op] = a._0 as [OpTy, OpTy];
         const ptr = this_.read_pointer(ptr_op);
@@ -1172,7 +1101,7 @@ InterpCx.prototype.emulate_foreign_item_inner = function (
         break;
       }
       case "wcslen": {
-        const a = sig(shim_sig("C", [T.ptr_any], T.usize));
+        const a = sig(shim_sig("C", ["*_"], "usize"));
         if (a.$ === "Err") return a;
         const [ptr_op] = a._0 as [OpTy];
         const ptr = this_.read_pointer(ptr_op);
@@ -1186,7 +1115,7 @@ InterpCx.prototype.emulate_foreign_item_inner = function (
         break;
       }
       case "memcpy": {
-        const a = sig(shim_sig("C", [T.ptr_any, T.ptr_any, T.usize], T.ptr_any));
+        const a = sig(shim_sig("C", ["*_", "*_", "usize"], "*_"));
         if (a.$ === "Err") return a;
         const [ptr_dest_op, ptr_src_op, n_op] = a._0 as [OpTy, OpTy, OpTy];
         const ptr_dest = this_.read_pointer(ptr_dest_op);
@@ -1210,7 +1139,7 @@ InterpCx.prototype.emulate_foreign_item_inner = function (
         break;
       }
       case "strcpy": {
-        const a = sig(shim_sig("C", [T.ptr_any, T.ptr_any], T.ptr_any));
+        const a = sig(shim_sig("C", ["*_", "*_"], "*_"));
         if (a.$ === "Err") return a;
         const [ptr_dest_op, ptr_src_op] = a._0 as [OpTy, OpTy];
         const ptr_dest = this_.read_pointer(ptr_dest_op);
@@ -1234,7 +1163,7 @@ InterpCx.prototype.emulate_foreign_item_inner = function (
         break;
       }
       case "memset": {
-        const a = sig(shim_sig("C", [T.ptr_any, T.i32, T.usize], T.ptr_any));
+        const a = sig(shim_sig("C", ["*_", "i32", "usize"], "*_"));
         if (a.$ === "Err") return a;
         const [ptr_dest_op, val_op, n_op] = a._0 as [OpTy, OpTy, OpTy];
         const ptr_dest = this_.read_pointer(ptr_dest_op);

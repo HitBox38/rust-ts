@@ -18,9 +18,11 @@ export function clone_MutexKind(v: MutexKind): MutexKind {
 }
 
 // rustc-type: src/tools/miri/src/shims/unix/sync.rs:118 PthreadMutex
-export interface PthreadMutex {
-  mutex_ref: MutexRef;
-  kind: MutexKind;
+export class PthreadMutex {
+  constructor(
+    public mutex_ref: MutexRef,
+    public kind: MutexKind,
+  ) {}
 }
 export const debug_PthreadMutex: Debug<PthreadMutex> = (v, f) =>
   debug_struct(f, "PthreadMutex", [
@@ -28,30 +30,29 @@ export const debug_PthreadMutex: Debug<PthreadMutex> = (v, f) =>
     ["kind", debug_MutexKind(v.kind, f)],
   ]);
 export function clone_PthreadMutex(v: PthreadMutex): PthreadMutex {
-  return {
-    mutex_ref: clone_MutexRef(v.mutex_ref),
-    kind: v.kind,
-  };
+  return new PthreadMutex(clone_MutexRef(v.mutex_ref), v.kind);
 }
 
 // rustc-type: src/tools/miri/src/shims/unix/sync.rs:255 PthreadRwLock
-export interface PthreadRwLock {
-  rwlock_ref: RwLockRef;
+export class PthreadRwLock {
+  constructor(
+    public rwlock_ref: RwLockRef,
+  ) {}
 }
 export const debug_PthreadRwLock: Debug<PthreadRwLock> = (v, f) =>
   debug_struct(f, "PthreadRwLock", [
     ["rwlock_ref", debug_RwLockRef(v.rwlock_ref, f)],
   ]);
 export function clone_PthreadRwLock(v: PthreadRwLock): PthreadRwLock {
-  return {
-    rwlock_ref: clone_RwLockRef(v.rwlock_ref),
-  };
+  return new PthreadRwLock(clone_RwLockRef(v.rwlock_ref));
 }
 
 // rustc-type: src/tools/miri/src/shims/unix/sync.rs:401 PthreadCondvar
-export interface PthreadCondvar {
-  condvar_ref: CondvarRef;
-  clock: TimeoutClock;
+export class PthreadCondvar {
+  constructor(
+    public condvar_ref: CondvarRef,
+    public clock: TimeoutClock,
+  ) {}
 }
 export const debug_PthreadCondvar: Debug<PthreadCondvar> = (v, f) =>
   debug_struct(f, "PthreadCondvar", [
@@ -59,8 +60,5 @@ export const debug_PthreadCondvar: Debug<PthreadCondvar> = (v, f) =>
     ["clock", debug_TimeoutClock(v.clock, f)],
   ]);
 export function clone_PthreadCondvar(v: PthreadCondvar): PthreadCondvar {
-  return {
-    condvar_ref: clone_CondvarRef(v.condvar_ref),
-    clock: v.clock,
-  };
+  return new PthreadCondvar(clone_CondvarRef(v.condvar_ref), v.clock);
 }

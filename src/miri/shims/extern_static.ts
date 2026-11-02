@@ -5,7 +5,7 @@
 // PORT:
 // - `impl MiriMachine` (associated fns, no `self`) are statics of `MiriMachine` registered with `port_methods`
 //   (decision C10: `MiriMachine` is in an import cycle with this module, so it is not read at load).
-// - `FxHashMap::try_insert(..).unwrap()` is `try_insert_unwrap` (panics with `OccupiedError`'s Debug, as std).
+// - `FxHashMap::try_insert(..).unwrap()` is `try_insert_unwrap` (its unreachable panic text stops `unported`).
 import { type ImmTy, type Pointer, type StrictPointer } from "../lib.ts";
 import { type MiriInterpCx, MemoryKind_from_MiriMemoryKind, MiriMachine, debug_Provenance, type Provenance } from "../machine.ts";
 import { EnvVars } from "./env.ts";
@@ -16,7 +16,7 @@ import { debug_Size, type Size } from "../../rustc_abi/lib.ts";
 import { debug_Pointer, type InterpResult, interp_ok, Scalar } from "../../rustc_middle/mir/interpret/mod.ts";
 import { debug_Symbol, Symbol } from "../../rustc_span/symbol.ts";
 import { debug_struct, type Debug, PLAIN } from "../../std/fmt.ts";
-import { assert, panic } from "../../std/panic.ts";
+import { assert, panic, unported } from "../../std/panic.ts";
 import { unwrap_result } from "../../std/result.ts";
 
 declare module "../machine.gen.ts" {
@@ -34,21 +34,12 @@ declare module "../machine.gen.ts" {
   }
 }
 
-const debug_StrictPointer: Debug<StrictPointer> = (v, f) => debug_Pointer<Provenance>(v, f, debug_Provenance);
-
-/** `map.try_insert(key, value).unwrap()` (`HashMap::try_insert`; the `Err` is `OccupiedError`, whose Debug is
- *  `OccupiedError { key, old_value, new_value }`). */
+/** `map.try_insert(key, value).unwrap()` (`HashMap::try_insert`). PORT: unreachable (`init_extern_statics` runs once, on
+ *  empty maps); the `unwrap` panic text (the `OccupiedError` Debug) is not ported (decision for miri-threads: invented
+ *  `OccupiedError` texts stop `unported`). */
 function try_insert_unwrap(map: Map<Symbol, StrictPointer>, key: Symbol, value: StrictPointer): void {
-  const old_value = map.get(key);
-  if (old_value !== undefined) {
-    const f = PLAIN;
-    panic(
-      `called \`Result::unwrap()\` on an \`Err\` value: ${debug_struct(f, "OccupiedError", [
-        ["key", debug_Symbol(key, f)],
-        ["old_value", debug_StrictPointer(old_value, f)],
-        ["new_value", debug_StrictPointer(value, f)],
-      ])}`,
-    );
+  if (map.has(key)) {
+    unported("miri::shims::extern_static: `try_insert(..).unwrap()` panic text (Debug of OccupiedError)");
   }
   map.set(key, value);
 }
