@@ -3,6 +3,8 @@
 import { type FutexRef } from "../../../concurrency/sync.ts";
 
 // rustc-type: src/tools/miri/src/shims/unix/linux_like/sync.rs:5 LinuxFutex
-export interface LinuxFutex {
-  futex: FutexRef;
+export class LinuxFutex {
+  constructor(
+    public futex: FutexRef,
+  ) {}
 }

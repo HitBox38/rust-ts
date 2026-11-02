@@ -16,7 +16,7 @@
 // - lane miri-race: `impl Index<VectorIdx> for VClock` (vector_clock.rs:428), `VTimestamp::ZERO` (vector_clock.rs:70),
 //   `impl Ord for VTimestamp` (vector_clock.rs:123), `impl From<u32> for VectorIdx` (vector_clock.rs:39) are written
 //   below in terms of the declared `as_slice` / `to_u32` / `time` / `VTimestamp::new` and the generated constructor, as
-//   their upstream bodies are (`vclock_index`, `VTimestamp_ZERO`, `VTimestamp_le`, `new VectorIdx(0)`);
+//   their upstream bodies are (`VTimestamp_le`);
 //   `AllocDataRaceHandler::as_weak_memory_ref` / `GlobalDataRaceHandler::as_vclocks_ref` (data_race_handler.rs:39/:61)
 //   are their one-arm `if let`s; `GlobalState::active_thread_state` returns a `Ref<ThreadClockSet>`, read as the
 //   `ThreadClockSet`.
@@ -27,7 +27,7 @@
 import { type AtomicReadOrd, type AtomicRwOrd, type AtomicWriteOrd, type GlobalState as DataRaceState, type ThreadClockSet } from "./data_race.ts";
 import { type AllocDataRaceHandler } from "./data_race_handler.ts";
 import { type ThreadManager } from "./thread.ts";
-import { type VClock, VTimestamp, VectorIdx } from "./vector_clock.ts";
+import { type VClock, VTimestamp, VectorIdx, clone_VTimestamp } from "./vector_clock.ts";
 import { VClock as VClock_ } from "./vector_clock.ts";
 import { type LoadInfo, LoadRecency, StoreBuffer, StoreBufferAlloc, StoreElement } from "./weak_memory.gen.ts";
 import { type AccessType, RangeObjectMap } from "../data_structures/range_object_map.ts";
@@ -55,15 +55,6 @@ export * from "./weak_memory.gen.ts";
 const STORE_BUFFER_LIMIT = 128;
 
 // ---- PORT(contract, header): lane miri-race's undeclared impls, as their upstream bodies ----
-let VTIMESTAMP_ZERO: VTimestamp | undefined;
-/** `VTimestamp::ZERO` = `VTimestamp::new(0, NaReadType::Read, DUMMY_SP)` (vector_clock.rs:70); built on first use (C10). */
-function VTimestamp_ZERO(): VTimestamp {
-  return (VTIMESTAMP_ZERO ??= VTimestamp.new(0, "Read", DUMMY_SP));
-}
-/** `clock[index]`: `self.as_slice().get(index.to_u32().to_usize()).unwrap_or(&VTimestamp::ZERO)` (vector_clock.rs:428). */
-function vclock_index(clock: VClock, index: VectorIdx): VTimestamp {
-  return clock.as_slice()[index.to_u32()] ?? VTimestamp_ZERO();
-}
 /** `a <= b` of `VTimestamp`: `Ord::cmp` compares `time()` (vector_clock.rs:123). */
 function VTimestamp_le(a: VTimestamp, b: VTimestamp): boolean {
   return a.time() <= b.time();
@@ -76,7 +67,7 @@ function active_thread_state(global: DataRaceState, thread_mgr: ThreadManager): 
 /** `load_info.timestamps.iter().any(|(&idx, &load_ts)| load_ts <= clock[idx])` (fetch_store / store_impl). */
 function any_load_happens_before(load_info: LoadInfo, clock: VClock): boolean {
   for (const [idx, load_ts] of load_info.timestamps) {
-    if (VTimestamp_le(load_ts, vclock_index(clock, idx))) return true;
+    if (VTimestamp_le(load_ts, clock.index(idx))) return true;
   }
   return false;
 }
@@ -264,8 +255,8 @@ StoreBufferAlloc.prototype.get_or_create_store_buffer_mut = function (this: Stor
   const store_elem = new StoreElement(
     // The thread index and timestamp of the initialisation write
     // are never meaningfully used, so it's fine to leave them as 0
-    new VectorIdx(0), // VectorIdx::from(0) (header)
-    VTimestamp_ZERO(),
+    VectorIdx.from(0),
+    VTimestamp.ZERO, // `VTimestamp::ZERO` is `Copy`; the frozen constant is never mutated
     // The initialization write is non-atomic so nothing can be acquired.
     new VClock_([]), // VClock::default()
     false,
@@ -402,7 +393,7 @@ StoreBuffer.prototype.fetch_store = function (this: StoreBuffer, is_seqcst: bool
         return false;
       }
 
-      if (VTimestamp_le(store_elem.store_timestamp, vclock_index(clocks.clock, store_elem.store_thread))) {
+      if (VTimestamp_le(store_elem.store_timestamp, clocks.clock.index(store_elem.store_thread))) {
         // CoWR: if a store happens-before the current load,
         // then we can't read-from anything earlier in modification order.
         // C++20 §6.9.2.2 [intro.races] paragraph 18
@@ -414,12 +405,12 @@ StoreBuffer.prototype.fetch_store = function (this: StoreBuffer, is_seqcst: bool
         // then we cannot read-from anything earlier in modification order.
         // C++20 §6.9.2.2 [intro.races] paragraph 16
         keep_searching = false;
-      } else if (VTimestamp_le(store_elem.store_timestamp, vclock_index(clocks.write_seqcst, store_elem.store_thread)) && store_elem.is_seqcst) {
+      } else if (VTimestamp_le(store_elem.store_timestamp, clocks.write_seqcst.index(store_elem.store_thread)) && store_elem.is_seqcst) {
         // The current non-SC load, which may be sequenced-after an SC fence,
         // cannot read-before the last SC store executed before the fence.
         // C++17 §32.4 [atomics.order] paragraph 4
         keep_searching = false;
-      } else if (is_seqcst && VTimestamp_le(store_elem.store_timestamp, vclock_index(clocks.read_seqcst, store_elem.store_thread))) {
+      } else if (is_seqcst && VTimestamp_le(store_elem.store_timestamp, clocks.read_seqcst.index(store_elem.store_thread))) {
         // The current SC load cannot read-from any but the last store sequenced-before
         // the last SC fence.
         // C++17 §32.4 [atomics.order] paragraph 5
@@ -462,7 +453,9 @@ StoreBuffer.prototype.fetch_store = function (this: StoreBuffer, is_seqcst: bool
 StoreBuffer.prototype.store_impl = function (this: StoreBuffer, val: Scalar, index: VectorIdx, thread_clock: VClock, is_seqcst: boolean, sync_clock: VClock): void {
   const store_elem = new StoreElement(
     index,
-    vclock_index(thread_clock, index),
+    // PORT: `VTimestamp` is `Copy` (vector_clock.ts header): the element owns a copy, not the thread's live slot, which
+    // `increment_clock` mutates in place.
+    clone_VTimestamp(thread_clock.index(index)),
     sync_clock,
     is_seqcst,
     // In the language provided in the paper, an atomic store takes the value from a
@@ -482,7 +475,7 @@ StoreBuffer.prototype.store_impl = function (this: StoreBuffer, val: Scalar, ind
     // or unmarked stores can be picked.
     for (let i = this.buffer.length - 1; i >= 0; i--) {
       const elem = this.buffer[i]!;
-      if (VTimestamp_le(elem.store_timestamp, vclock_index(thread_clock, elem.store_thread))) {
+      if (VTimestamp_le(elem.store_timestamp, thread_clock.index(elem.store_thread))) {
         // This store happens-before the ongoing SC store.
         elem.is_seqcst = true;
       } else if (any_load_happens_before(elem.load_info, thread_clock)) {
@@ -510,7 +503,8 @@ StoreElement.prototype.load_impl = function (this: StoreElement, index: VectorId
   load_info.sc_loaded ||= is_seqcst;
   // let _ = load_info.timestamps.try_insert(index, clocks.clock[index]);
   if (!load_info.timestamps.has(index)) {
-    load_info.timestamps.set(index, vclock_index(clocks.clock, index));
+    // PORT: a copy of the `Copy` `VTimestamp`, not the thread's live clock slot (see store_impl).
+    load_info.timestamps.set(index, clone_VTimestamp(clocks.clock.index(index)));
   }
   return this.val;
 };

@@ -1,0 +1,32 @@
+# Template: scripts/probes.ts substitutes @SRC@ and builds this in $RUST_TS_DATA/probes.
+#
+# Oracle probe for src/miri/{math,operator}.ts (lane miri-eval-fix; registered by lane harness-w37 from
+# docs/handoff/miri-eval-fix-probe/): `mirimath <host tuple>` prints src/miri/math.oracle.txt, byte for byte
+# (tools/probes/fixtures.test.ts; scripts/probes.ts PROBE_FIXTURES passes the fixture's host tuple). Part 2 of the
+# output is the host libm's results, so the fixture holds only on its host (`tuple` line); on another host the fixture
+# test is skipped with the reason printed. Miri's dependencies at the pin (src/tools/miri/Cargo.toml), resolved through
+# upstream's Cargo.lock (`lockfile = "upstream"`), the lock the oracle's Miri was built with: rand 0.10.1
+# (chacha20 0.10.0), rustc_apfloat 0.2.3. `mirimath <tuple> dump <width> <op>` prints one op's outputs (see main.rs).
+[package]
+name = "mirimath"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata.rust-ts]
+lockfile = "upstream"
+
+[[bin]]
+name = "mirimath"
+path = "@SRC@/main.rs"
+
+[dependencies]
+rand = "=0.10.1"
+rustc_apfloat = "=0.2.3"
+
+[profile.release]
+# Host float operations must be the Miri binary's: calls into the host libm and compiler-builtins' `__powi{s,d}f2`
+# with runtime arguments (every input goes through `black_box`).
+opt-level = 3
+
+[workspace]

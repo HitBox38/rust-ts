@@ -13,18 +13,20 @@ import { type Debug, debug_bool, debug_int, debug_struct, debug_vec } from "../.
 /// page below:
 ///
 /// <https://man.netbsd.org/eventfd.2>
-export interface EventFd {
-  /// The object contains an unsigned 64-bit integer (uint64_t) counter that is maintained by the
-  /// kernel. This counter is initialized with the value specified in the argument initval.
-  counter: bigint;
-  is_nonblock: boolean;
-  clock: VClock;
-  /// A list of thread ids blocked on eventfd::read.
-  blocked_read_tid: ThreadId[];
-  /// A list of thread ids blocked on eventfd::write.
-  blocked_write_tid: ThreadId[];
-  /// State for being watched by epoll.
-  watched: ReadinessWatched;
+export class EventFd {
+  constructor(
+    /// The object contains an unsigned 64-bit integer (uint64_t) counter that is maintained by the
+    /// kernel. This counter is initialized with the value specified in the argument initval.
+    public counter: bigint,
+    public is_nonblock: boolean,
+    public clock: VClock,
+    /// A list of thread ids blocked on eventfd::read.
+    public blocked_read_tid: ThreadId[],
+    /// A list of thread ids blocked on eventfd::write.
+    public blocked_write_tid: ThreadId[],
+    /// State for being watched by epoll.
+    public watched: ReadinessWatched,
+  ) {}
 }
 export const debug_EventFd: Debug<EventFd> = (v, f) =>
   debug_struct(f, "EventFd", [

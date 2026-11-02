@@ -1,6 +1,6 @@
-// compiler/rustc_abi/src/canon_abi.rs (types; `Display` needs `ExternAbi`, which is not ported).
+// compiler/rustc_abi/src/canon_abi.rs (types and `Display`, via `ExternAbi::as_str`).
 import { type Debug, debug_tuple } from "../std/fmt.ts";
-import { unported } from "../std/panic.ts";
+import { ExternAbi } from "./extern_abi.ts";
 
 /// Calling convention to determine codegen
 ///
@@ -94,9 +94,96 @@ export function CanonAbi_eq(a: CanonAbi, b: CanonAbi): boolean {
 }
 
 // impl fmt::Display for CanonAbi
-// PORT: not ported (no marker; canon_abi.rs:79 fmt): it prints through `ExternAbi::as_str` (extern_abi.rs, not ported).
-export function display_CanonAbi(_self: CanonAbi): string {
-  return unported("rustc_abi::CanonAbi Display (ExternAbi::as_str)");
+// rustc: compiler/rustc_abi/src/canon_abi.rs:79 fmt
+export function display_CanonAbi(self: CanonAbi): string {
+  // convert to the ExternAbi that *shares a string* with this CanonAbi.
+  // FIXME: ideally we'd avoid printing `CanonAbi`, and preserve `ExternAbi` everywhere
+  // that we need to generate error messages.
+  let erased_abi: ExternAbi;
+  switch (self.$) {
+    case "C":
+      erased_abi = { $: "C", unwind: false };
+      break;
+    case "Rust":
+      erased_abi = { $: "Rust" };
+      break;
+    case "RustCold":
+      erased_abi = { $: "RustCold" };
+      break;
+    case "RustPreserveNone":
+      erased_abi = { $: "RustPreserveNone" };
+      break;
+    case "RustTail":
+      erased_abi = { $: "RustTail" };
+      break;
+    case "Custom":
+      erased_abi = { $: "Custom" };
+      break;
+    case "Swift":
+      erased_abi = { $: "Swift" };
+      break;
+    case "Arm":
+      switch (self._0) {
+        case "Aapcs":
+          erased_abi = { $: "Aapcs", unwind: false };
+          break;
+        case "CCmseNonSecureCall":
+          erased_abi = { $: "CmseNonSecureCall" };
+          break;
+        case "CCmseNonSecureEntry":
+          erased_abi = { $: "CmseNonSecureEntry" };
+          break;
+      }
+      break;
+    case "GpuKernel":
+      erased_abi = { $: "GpuKernel" };
+      break;
+    case "Interrupt":
+      switch (self._0) {
+        case "Avr":
+          erased_abi = { $: "AvrInterrupt" };
+          break;
+        case "AvrNonBlocking":
+          erased_abi = { $: "AvrNonBlockingInterrupt" };
+          break;
+        case "Msp430":
+          erased_abi = { $: "Msp430Interrupt" };
+          break;
+        case "RiscvMachine":
+          erased_abi = { $: "RiscvInterruptM" };
+          break;
+        case "RiscvSupervisor":
+          erased_abi = { $: "RiscvInterruptS" };
+          break;
+        case "X86":
+          erased_abi = { $: "X86Interrupt" };
+          break;
+      }
+      break;
+    case "X86":
+      switch (self._0) {
+        case "Fastcall":
+          erased_abi = { $: "Fastcall", unwind: false };
+          break;
+        case "Stdcall":
+          erased_abi = { $: "Stdcall", unwind: false };
+          break;
+        case "SysV64":
+          erased_abi = { $: "SysV64", unwind: false };
+          break;
+        case "Thiscall":
+          erased_abi = { $: "Thiscall", unwind: false };
+          break;
+        case "Vectorcall":
+          erased_abi = { $: "Vectorcall", unwind: false };
+          break;
+        case "Win64":
+          erased_abi = { $: "Win64", unwind: false };
+          break;
+      }
+      break;
+  }
+  return ExternAbi.as_str(erased_abi);
 }
 
 /// Callee codegen for interrupts

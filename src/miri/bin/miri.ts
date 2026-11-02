@@ -28,6 +28,7 @@ import {
   type BorrowTrackerMethod,
   GenmcConfig,
   type GenmcCtx,
+  MAX_CPUS,
   MIRI_DEFAULT_ARGS,
   ProvenanceMode,
   ValidationMode,
@@ -102,11 +103,7 @@ class MiriCompilerCalls implements Callbacks {
   // rustc: src/tools/miri/src/bin/miri.rs:129 config
   config(config: Config): void {
     // We never reach codegen anyway.
-    // PORT(contract): pending rustc_interface: `Config.make_codegen_backend` is typed `undefined` and `run_compiler`
-    // does not port its `Some` arm (interface.ts:362); until it does, the field is set here and ignored there, and the
-    // default backend (the LLVM stand-in, whose `codegen_crate` stops `unported`) is used instead.
-    (config as unknown as { make_codegen_backend: ((sess: EarlySession) => CodegenBackend) | undefined }).make_codegen_backend = (sess) =>
-      make_miri_codegen_backend(sess, /* dep */ false);
+    config.make_codegen_backend = (sess) => make_miri_codegen_backend(sess, /* dep */ false);
 
     // Register our custom extra symbols.
     config.extra_symbols = [...EXTRA_SYMBOLS];
@@ -205,7 +202,7 @@ class MiriCompilerCalls implements Callbacks {
   }
 }
 
-/** PORT(contract): pending miri-threads: `run_genmc_mode` (genmc/dummy.ts) still declares `Result<(), NonZeroI32>` with
+/** PORT(contract): pending a `NonZeroI32` typemap entry: `run_genmc_mode` (genmc/dummy.ts) still declares `Result<(), NonZeroI32>` with
  * `Pending<"NonZeroI32">`; miri-eval's `eval_entry` returns the exit code as a nonzero `number`. Both directions of
  * that boundary convert here until dummy.ts is filled. */
 function as_exit_result(r: Result<null, Pending<"NonZeroI32">>): Result<null, number> {
@@ -529,11 +526,6 @@ function parse_range(val: string): Result<{ start: number; end: number }, string
   return Ok({ start: from, end: to });
 }
 
-/** `miri::MAX_CPUS` (shims/cpu_affinity.rs, lane miri-shims-b, wave 37; not yet exported by lib.ts). PORT(contract):
- * pending miri-shims-b; root replaces this with the re-export when it lands. */
-function MAX_CPUS(): number {
-  return unported("miri::shims::cpu_affinity::MAX_CPUS (src/tools/miri/src/shims/cpu_affinity.rs; lane miri-shims-b, not exported)");
-}
 
 /** `env::vars_os().collect::<Vec<_>>()` (PORT: D14 host environment, `OsString` → `string` per the typemap; the order is
  * the runtime's `process.env` order, which follows `environ`). */
@@ -848,8 +840,8 @@ export function main(): number {
       const r = u32_from_str(param);
       if (r.$ === "Err") fatal_error(`-Zmiri-num-cpus requires a \`u32\`: ${display_ParseIntError(r._0)}`);
       const num_cpus = r._0;
-      if (!(1 <= num_cpus && num_cpus <= MAX_CPUS())) {
-        fatal_error(`-Zmiri-num-cpus must be in the range 1..=${MAX_CPUS()}`);
+      if (!(1 <= num_cpus && num_cpus <= MAX_CPUS)) {
+        fatal_error(`-Zmiri-num-cpus must be in the range 1..=${MAX_CPUS}`);
       }
       miri_config.num_cpus = num_cpus;
     } else if ((param = strip_prefix(arg, "-Zmiri-force-page-size=")) !== undefined) {

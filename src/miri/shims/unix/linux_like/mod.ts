@@ -1,7 +1,4 @@
-// Port of src/tools/miri/src/shims/unix/linux_like/mod.rs (crate `miri`, plan-m6 D2): STUB by lane miri-contract (wave 35).
-// Fill lane: `miri-shims-e` (plan-m6 wave 37). Contract and rules: docs/handoff/miri-contract.md ("How to fill a stub").
-// Until ported, every method declared below is an `unported` placeholder (`stub_*` calls at the end, installed by
-// src/miri/lib.ts) and every free fn stops with `unported`. The declarations were translated mechanically from the
-// upstream signatures (`Pending<"..">` = a type the translation did not map); the fill lane owns and corrects them.
-
+// Port of src/tools/miri/src/shims/unix/linux_like/mod.rs (crate `miri`, plan-m6 D2). Fill lane: `miri-shims-e` (plan-m6
+// wave 37). The module has no fns: `pub mod epoll; pub mod eventfd; pub mod sync; pub mod syscall; pub mod thread;` (the
+// submodules are loaded by src/miri/lib.ts).
 export {};
