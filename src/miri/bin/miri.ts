@@ -28,6 +28,7 @@ import {
   type BorrowTrackerMethod,
   GenmcConfig,
   type GenmcCtx,
+  MAX_CPUS,
   MIRI_DEFAULT_ARGS,
   ProvenanceMode,
   ValidationMode,
@@ -36,8 +37,6 @@ import {
   run_genmc_mode,
 } from "../lib.ts";
 import { MiriConfig, clone_MiriConfig } from "../eval.ts";
-// `miri::MAX_CPUS` (PORT: from its module until lib.ts re-exports it; root)
-import { MAX_CPUS } from "../shims/cpu_affinity.ts";
 import type { Pending } from "../../rustc_type_ir/decls.ts";
 import { EXTRA_SYMBOLS } from "../sym.ts";
 import { deinit_loggers, init_early_loggers, init_late_loggers } from "./log/setup.ts";

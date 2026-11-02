@@ -1,7 +1,7 @@
 // `std::fs` stand-ins (plan-m6 D14: host-dependent Miri code goes through src/std stand-ins), created by lane miri-fs for
 // Miri's shims/unix/fs.rs (record: docs/handoff/miri-fs.md, for a root decision as miri-eval's src/std/time.ts was).
-// Port of the subset of library/std/src/fs.rs (+ the unix extension traits of library/std/src/os/unix/fs.rs, and
-// `std::path::absolute`) that Miri's file-system shims call.
+// Port of the subset of library/std/src/fs.rs (+ the unix extension traits of library/std/src/os/unix/fs.rs) that
+// Miri's file-system shims call.
 //
 // PORT:
 // - The pure builders are ported with their data: `OpenOptions` (the unix `sys::fs::OpenOptions` fields:
@@ -13,11 +13,8 @@
 //   implementation (node:fs) is a root decision (docs/handoff/miri-fs.md); the types are opaque classes so that the
 //   callers type-check against the upstream method names.
 // - `Path`/`PathBuf` are strings (src/std/path.ts); `OsString` names are strings.
-// - `std::path::absolute` belongs in src/std/path.ts; it is here because this lane may only create src/std/fs.ts.
-//   It reads the host cwd for a relative path (`env::current_dir`, D14: the port runs with the oracle's cwd).
-import { type IoError, type IoResult } from "./io.ts";
+import { type IoError, type IoResult, type SeekFrom } from "./io.ts";
 import { unported } from "./panic.ts";
-import { path_components, path_is_absolute, path_join, type Component } from "./path.ts";
 import { Err, Ok } from "./result.ts";
 import { type SystemTime } from "./time.ts";
 
@@ -86,9 +83,6 @@ export class File {
     return host("<&std::fs::File as std::io::Seek>::stream_position");
   }
 }
-
-/** `std::io::SeekFrom` (library/std/src/io/mod.rs). PORT: here rather than in src/std/io.ts (not this lane's file). */
-export type SeekFrom = { readonly $: "Start"; _0: bigint } | { readonly $: "End"; _0: bigint } | { readonly $: "Current"; _0: bigint };
 
 /** `std::fs::TryLockError` */
 export type TryLockError = { readonly $: "Error"; _0: IoError } | { readonly $: "WouldBlock" };
@@ -448,80 +442,4 @@ export function set_permissions(_path: string, _perm: Permissions): IoResult<nul
 // std: library/std/src/os/unix/fs.rs:1107 symlink
 export function unix_symlink(_original: string, _link: string): IoResult<null> {
   return host("std::os::unix::fs::symlink");
-}
-
-/// `std::path::absolute` (PORT: belongs in src/std/path.ts; see the header).
-// std: library/std/src/path.rs:4148 absolute
-export function absolute(path: string): IoResult<string> {
-  if (path === "") {
-    return Err({ $: "SimpleMessage", kind: "InvalidInput", message: "cannot make an empty path absolute" });
-  } else {
-    return sys_path_absolute(path);
-  }
-}
-
-/** `Component::as_os_str` (library/std/src/path.rs), on unix. */
-function component_as_os_str(c: Component): string {
-  switch (c.$) {
-    case "Prefix":
-      return c.raw;
-    case "RootDir":
-      return "/";
-    case "CurDir":
-      return ".";
-    case "ParentDir":
-      return "..";
-    case "Normal":
-      return c._0;
-  }
-}
-
-// std: library/std/src/sys/path/unix.rs:20 absolute
-function sys_path_absolute(path: string): IoResult<string> {
-  if (process.platform === "win32") return unported("std::sys::path::windows::absolute (std::path::absolute on a Windows host)");
-  // This is mostly a wrapper around collecting `Path::components`, with
-  // exceptions made where this conflicts with the POSIX specification.
-  // See 4.16 Pathname Resolution, IEEE Std 1003.1-2024
-  // https://pubs.opengroup.org/onlinepubs/9799919799/basedefs/V1_chap04.html#tag_04_16
-
-  // Get the components, skipping the redundant leading "." component if it exists.
-  // PORT: `path.strip_prefix(".")` succeeds exactly when the first component is `.` (`CurDir`).
-  const all = path_components(path);
-  const first = all.clone().next();
-  const components = first !== undefined && first.$ === "CurDir" ? (all.next(), all) : all;
-  const path_os = path;
-
-  let normalized: string;
-  if (path_is_absolute(path)) {
-    // "If a pathname begins with two successive <slash> characters, the
-    // first component following the leading <slash> characters may be
-    // interpreted in an implementation-defined manner, although more than
-    // two leading <slash> characters shall be treated as a single <slash>
-    // character."
-    if (path_os.startsWith("//") && !path_os.startsWith("///")) {
-      components.next();
-      normalized = "//";
-    } else {
-      normalized = "";
-    }
-  } else {
-    // env::current_dir()?  (PORT: the host cwd, D14)
-    normalized = process.cwd();
-  }
-  // normalized.extend(components);
-  for (let c = components.next(); c !== undefined; c = components.next()) {
-    normalized = path_join(normalized, component_as_os_str(c));
-  }
-
-  // "Interfaces using pathname resolution may specify additional constraints
-  // when a pathname that does not name an existing directory contains at
-  // least one non- <slash> character and contains one or more trailing
-  // <slash> characters".
-  // A trailing <slash> is also meaningful if "a symbolic link is
-  // encountered during pathname resolution".
-  if (path_os.endsWith("/")) {
-    normalized = path_join(normalized, "");
-  }
-
-  return Ok(normalized);
 }

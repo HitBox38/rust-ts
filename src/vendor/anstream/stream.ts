@@ -76,6 +76,7 @@ export function is_interrupted(e: IoError): boolean {
     case "Os":
       return e.code === "EINTR";
     case "Custom":
+    case "Simple":
     case "SimpleMessage":
       return e.kind === "Interrupted";
   }

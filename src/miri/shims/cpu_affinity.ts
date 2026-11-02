@@ -4,7 +4,7 @@
 //
 // PORT: `cx: &impl LayoutOf<'tcx>` is `LayoutOfCx` (helpers.ts `path_ty_layout`'s parameter: an `InterpCx` or the
 // machine's `LayoutCx`). `[u8; CPU_MASK_BYTES]` is the generated `number[]` of bytes.
-import type { path_ty_layout } from "../helpers.ts";
+import { path_ty_layout } from "../helpers.ts";
 import { type MPlaceTy, type OpTy } from "../lib.ts";
 import { type MiriInterpCx } from "../machine.ts";
 import { type ThreadId } from "../concurrency/thread.ts";
@@ -21,13 +21,6 @@ import { type TyCtxt } from "../../rustc_middle/ty/context.ts";
 import { type TyAndLayout } from "../../rustc_middle/ty/layout.ts";
 import { type Ty, type TypingEnv } from "../../rustc_middle/ty/mod.ts";
 export * from "./cpu_affinity.gen.ts";
-
-/** PORT(C10): helpers.ts assigns `MiriMachine.prototype` methods at load (helpers.ts:1297-1328), so a module that
- *  machine.ts imports cannot import helpers.ts statically (helpers would run before machine.ts defines `MiriMachine`);
- *  it is read on first use instead (everything is loaded by then: src/miri/lib.ts). */
-function helpers(): typeof import("../helpers.ts") {
-  return require("../helpers.ts") as typeof import("../helpers.ts");
-}
 
 /** `throw_unsup_format!(..)` (`err_unsup!(Unsupported(format!(..)))`) */
 function throw_unsup_format<T>(msg: string): InterpResult<T> {
@@ -99,7 +92,7 @@ CpuAffinityMask.CPU_MASK_BYTES = MAX_CPUS / 8;
 CpuAffinityMask.chunk_size = function (cx: LayoutOfCx): number {
   // The actual representation of the CpuAffinityMask is [c_ulong; _].
   // PORT: `path_ty_layout` only unwraps `layout_of`'s result, so the error type of `cx` does not matter.
-  const ulong = helpers().path_ty_layout(cx as Parameters<typeof path_ty_layout>[0], ["core", "ffi", "c_ulong"]);
+  const ulong = path_ty_layout(cx as Parameters<typeof path_ty_layout>[0], ["core", "ffi", "c_ulong"]);
   return ulong.size.bytes();
 };
 

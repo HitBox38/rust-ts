@@ -2767,7 +2767,14 @@
       "src/tools/miri/src/shims/unwind.rs",
       "src/tools/miri/src/sym.rs"
     ],
-    "class": [],
+    "class": [
+      "miri::shims::unix::sync::PthreadMutex",
+      "miri::shims::unix::sync::PthreadRwLock",
+      "miri::shims::unix::sync::PthreadCondvar",
+      "miri::shims::unix::linux_like::sync::LinuxFutex",
+      "miri::shims::unix::linux_like::epoll::Epoll",
+      "miri::shims::unix::linux_like::eventfd::EventFd"
+    ],
     "hand": [
       "miri::alloc::alloc_bytes::MiriAllocBytes",
       "miri::borrow_tracker::BorTag",

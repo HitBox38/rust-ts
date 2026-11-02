@@ -18,10 +18,9 @@
 //   `ReadinessWatched.watchers`, generated as `Pending1<"std::rc::Weak", ..>`).
 // - `Drop for ReadinessWatched` is `ReadinessWatched.prototype.drop`: the file description that holds it runs it when its last
 //   `FileDescriptionRef` goes away (shims/files.rs's `Rc`, lane miri-shims-b).
-// - `FileDescriptionRef<T>`'s `Deref` is `deref_fd` (shims-b's `deref()`); strong handles this file receives (`FdTable::get`,
-//   `upgrade`, the by-value `fd` of `update_fd_readiness`) are released with `drop_fd` (shims-b's `drop()`) where Rust drops
-//   them (`try`/`finally` for the scope end). Its `id`/`downgrade`/`upgrade`/`is_closed` are the
-//   files.rs contract (miri-shims-b).
+// - `FileDescriptionRef<T>`'s `Deref` is `deref()` (shims/files.ts); strong handles this file receives (`FdTable::get`,
+//   `upgrade`, the by-value `fd` of `update_fd_readiness`) are released with `drop()` where Rust drops them
+//   (`try`/`finally` for the scope end).
 // - `#[derive(Default)]` of `ReadinessWatched` / `DelayedReadinessUpdates` are `ReadinessWatched_default()` /
 //   `DelayedReadinessUpdates_default()`.
 // - `cfg!(debug_assertions)` blocks (readiness.rs:327, :408) are off in the release Miri (the oracle): kept as comments.
@@ -243,22 +242,6 @@ function interests_of(w: ReadinessWatcher): InterestMap {
   return w.interests as InterestMap;
 }
 
-/** `FileDescriptionRef<T>`'s `Deref` (shims/files.rs:54; miri-shims-b's `deref()`): the description inside the `Rc`. */
-function deref_fd(fd: DynFileDescriptionRef): FileDescription {
-  const d = (fd as { deref?: () => FileDescription }).deref;
-  return d !== undefined ? d.call(fd) : fd._0.inner;
-}
-
-/**
- * Dropping a strong `FileDescriptionRef` (miri-shims-b's `drop()`: `FdTable::get`, `WeakFileDescriptionRef::upgrade` and
- * by-value parameters hand out owned handles, released where Rust drops them). PORT(contract): pending miri-shims-b
- * (the skeleton's `FileDescriptionRef` has no strong count; without it this is a no-op).
- */
-function drop_fd(fd: DynFileDescriptionRef): void {
-  const d = (fd as { drop?: () => void }).drop;
-  if (d !== undefined) d.call(fd);
-}
-
 /** `ready.iter().position(|k| k == key)` */
 function position_key(ready: readonly ReadinessInterestKey[], key: ReadinessInterestKey): number | undefined {
   const idx = ready.findIndex((k) => key_eq(k, key));
@@ -337,14 +320,14 @@ ReadinessWatcher.prototype.drop = function (this: ReadinessWatcher): void {
       try {
         // We can't easily figure out who in that list is us, but we can just remove
         // everything that has no more strong refs.
-        const watched = deref_fd(fd).readiness_watched();
+        const watched = fd.deref().readiness_watched();
         if (watched === undefined) panic("called `Option::unwrap()` on a `None` value");
         const watchers = watchers_of(watched);
         const kept = watchers.filter((w) => w.strong_count() > 0);
         watchers.length = 0;
         watchers.push(...kept);
       } finally {
-        drop_fd(fd);
+        fd.drop();
       }
     }
   }
@@ -386,12 +369,12 @@ ReadinessWatcher.prototype.add_interest = function (
     if (interests.range(range_for_id(fd_id)).length === 0) {
       // This is the first time this FD got added to the watcher.
       // Let's make sure it can be watched, and add ourselves to its list.
-      const watched = deref_fd(fd_ref).readiness_watched();
+      const watched = fd_ref.deref().readiness_watched();
       if (watched === undefined) {
         return Err(
           InterpErrorInfo_from_InterpErrorKind({
             $: "Unsupported",
-            _0: { $: "Unsupported", _0: `I/O readiness watching not supported for ${deref_fd(fd_ref).name()}` },
+            _0: { $: "Unsupported", _0: `I/O readiness watching not supported for ${fd_ref.deref().name()}` },
           }),
         );
       }
@@ -406,7 +389,7 @@ ReadinessWatcher.prototype.add_interest = function (
     // After adding a new interest for a fd, we need to forcefully update
     // the readiness of this fd.
 
-    const r = ecx.update_readiness(this, deref_fd(fd_ref).readiness(), /* force_edge */ true, (callback) => {
+    const r = ecx.update_readiness(this, fd_ref.deref().readiness(), /* force_edge */ true, (callback) => {
       // Need to release the RefCell when this closure returns, so we have to move
       // it into the closure, so we have to do a re-lookup here.
       return callback(key, interests.get(key)!);
@@ -415,7 +398,7 @@ ReadinessWatcher.prototype.add_interest = function (
 
     return interp_ok(Ok(null));
   } finally {
-    drop_fd(fd_ref);
+    fd_ref.drop();
   }
 };
 
@@ -443,7 +426,7 @@ ReadinessWatcher.prototype.update_interest = function (
   const fd_ref = ecx.machine.fds.get(key[1]);
   if (fd_ref === undefined) panic("File description should exist");
   try {
-    const r = ecx.update_readiness(this, deref_fd(fd_ref).readiness(), /* force_edge */ true, (callback) => {
+    const r = ecx.update_readiness(this, fd_ref.deref().readiness(), /* force_edge */ true, (callback) => {
       // Need to release the RefCell when this closure returns, so we have to move
       // it into the closure, so we have to do a re-lookup here.
       return callback(key, interests.get(key)!);
@@ -452,7 +435,7 @@ ReadinessWatcher.prototype.update_interest = function (
 
     return interp_ok(null);
   } finally {
-    drop_fd(fd_ref);
+    fd_ref.drop();
   }
 };
 
@@ -483,14 +466,14 @@ ReadinessWatcher.prototype.remove_interest = function (this: ReadinessWatcher, k
     // If this was the last interest in this FD, remove us from the global list
     // of who is interested in this FD.
     if (interests.range(range_for_id(key[0])).length === 0) {
-      const watched = deref_fd(fd_ref).readiness_watched();
+      const watched = fd_ref.deref().readiness_watched();
       if (watched === undefined) return undefined;
       watched.remove(this);
     }
 
     return null;
   } finally {
-    drop_fd(fd_ref);
+    fd_ref.drop();
   }
 };
 
@@ -576,12 +559,12 @@ ReadinessWatcher.prototype.get_ready_interests = function (this: ReadinessWatche
 
       ready_interests.push(clone_interest(interest));
       // We now "see" the readiness of this FD, so make the data race system aware of that.
-      const watched = deref_fd(fd).readiness_watched();
+      const watched = fd.deref().readiness_watched();
       if (watched === undefined) panic("called `Option::unwrap()` on a `None` value");
       const r = ecx.acquire_clock(watched.ready_clock);
       if (r.$ === "Err") return r;
     } finally {
-      drop_fd(fd);
+      fd.drop();
     }
   }
   // Add back the level-triggered ones.
@@ -719,7 +702,7 @@ InterpCx.prototype.update_fd_readiness = function (this: MiriInterpCx, fd: DynFi
   // `fd` (taken by value) is dropped when the function returns.
   try {
     const fd_id = fd.id();
-    const watched = deref_fd(fd).readiness_watched();
+    const watched = fd.deref().readiness_watched();
     if (watched === undefined) panic("called `Option::unwrap()` on a `None` value");
 
     if (!ReadinessUpdateFlags.contains(flags, ReadinessUpdateFlags.NO_RELEASE_CLOCK)) {
@@ -743,7 +726,7 @@ InterpCx.prototype.update_fd_readiness = function (this: MiriInterpCx, fd: DynFi
       return interp_ok(undefined);
     }
 
-    const active_readiness = deref_fd(fd).readiness();
+    const active_readiness = fd.deref().readiness();
     // `for watcher in watchers`: each `Rc` is dropped at the end of its iteration (the rest on an early return).
     for (let i = 0; i < watchers.length; i++) {
       const watcher = watchers[i]!;
@@ -763,7 +746,7 @@ InterpCx.prototype.update_fd_readiness = function (this: MiriInterpCx, fd: DynFi
 
     return interp_ok(undefined);
   } finally {
-    drop_fd(fd);
+    fd.drop();
   }
 };
 

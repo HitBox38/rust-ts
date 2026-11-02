@@ -10,10 +10,10 @@
 //   live in `UnixFileDescription_provided` (PORTING §8). The empty impls for `Stdin` / `Stdout` / `Stderr` /
 //   `NullOutput` (files.rs's types, lane miri-shims-b) install those provided methods on their prototypes through
 //   `port_methods` (C10: another module's classes).
-// - `FileDescriptionRef<T>`'s `Deref` (files.rs:52) is shims-b's `ref.deref()` (`deref` below). The trait methods whose receiver
+// - `FileDescriptionRef<T>`'s `Deref` (files.rs:52) is `ref.deref()` (`deref` below). The trait methods whose receiver
 //   is `self: FileDescriptionRef<Self>` (`FileDescription::read` / `write` / `as_unix`, `UnixFileDescription::as_socket`)
-//   take the ref as a leading `self_` argument (convention agreed with miri-shims-b / -e). PORT(contract): pending
-//   miri-shims-b — the calls go through `fd_read` / `fd_write` / `fd_as_unix` below.
+//   take the ref as a leading `self_` argument (files.ts header); the calls go through `fd_read` / `fd_write` /
+//   `fd_as_unix` below.
 // - A `FileDescriptionRef` from `FdTable::get` / `remove` is a strong `Rc` handle; one Rust drops (not moved on) is
 //   released with `.drop()` at the same point (`drop_fd_ref` / `with_drop`; shims-b's refcount protocol).
 // - `usize` lengths are numbers: every `count` / `len` here has passed `check_ptr_access` for that many bytes (or is a
@@ -27,7 +27,7 @@ import { type MPlaceTy, type OpTy, type Pointer, type Scalar } from "../../lib.t
 import { callback, type DynMachineCallback, type MiriInterpCx } from "../../machine.ts";
 import { VisitProvenance_MPlaceTy, VisitProvenance_no_provenance, VisitProvenance_Pointer, VisitProvenance_tuple2, VisitProvenance_Vec } from "../../provenance_gc.ts";
 import { type DynFileDescriptionRef, type FdNum, type FileDescription, type FileDescriptionRef, NullOutput, Stderr, Stdin, Stdout } from "../files.ts";
-import { type IoError } from "../io_error.ts";
+import { type IoError, IoError_from_ErrorKind } from "../io_error.ts";
 import { shim_varargs, type Varargs } from "../sig.ts";
 import { type FlockOp } from "./fd.gen.ts";
 import { port_methods } from "../../../rust_ts/miri_stub.ts";
@@ -434,10 +434,7 @@ InterpCx.prototype.fcntl = function (this: MiriInterpCx, fd_num_op: OpTy, cmd_op
       const reject_with = isolated_op._0;
       const r = this_.reject_in_isolation("`fcntl`", reject_with);
       if (r.$ === "Err") return r;
-      // return this.set_errno_and_return_neg1_i32(ErrorKind::PermissionDenied);
-      return unported(
-        "miri::shims::io_error: `From<io::ErrorKind> for IoError` (src/tools/miri/src/shims/io_error.rs:46, lane miri-shims-b; std io::Error has no `ErrorData::Simple` stand-in) in fcntl(F_FULLFSYNC) (macOS target)",
-      );
+      return this_.set_errno_and_return_neg1_i32(IoError_from_ErrorKind("PermissionDenied"));
     }
 
     return this_.ffullsync_fd(fd_num);
@@ -888,11 +885,13 @@ function with_drop<T>(fd: FileDescriptionRef<unknown>, value: T): T {
   return value;
 }
 
-/** `Scalar`'s derived `PartialEq` (`op == fioclex`; both are integers from `read_scalar` / `eval_libc`). */
+/** `Scalar`'s derived `PartialEq` (`op == fioclex`). The right side is always an integer from `eval_libc`, so a pointer
+ *  `op` (`Ptr` vs `Int`, different variants) is unequal, as derived `PartialEq` says. */
 function Scalar_eq(a: Scalar, b: Scalar): boolean {
   if (a.$ === "Int" && b.$ === "Int") return a._0.size().bytes_u64() === b._0.size().bytes_u64() && a._0.to_bits_unchecked() === b._0.to_bits_unchecked();
-  if (a.$ === "Ptr" || b.$ === "Ptr") {
-    return unported("miri::shims::unix::fd::ioctl: `Scalar == Scalar` with a pointer operand");
+  if (a.$ === "Ptr" && b.$ === "Ptr") {
+    // PORT: unreachable here (`b` comes from `eval_libc`); `Pointer<Provenance>`'s derived `PartialEq` is not needed.
+    return unported("miri::shims::unix::fd::ioctl: `Scalar == Scalar` with two pointer operands");
   }
   return false;
 }

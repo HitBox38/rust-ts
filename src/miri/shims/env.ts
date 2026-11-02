@@ -7,8 +7,9 @@
 // - `impl EnvVars` (an enum) is the companion const's methods (`EnvVars.init(ecx, config)`, `EnvVars.unix(self)`, ...);
 //   `impl VisitProvenance for EnvVars` is the table `VisitProvenance_EnvVars` (provenance_gc.ts, borrowck-contract
 //   rule 5). `unix_mut` / `windows_mut` return the same object as `unix` / `windows` (`&mut T` is `T`).
-// - `FxHashMap<OsString, OsString>` is a `Map` (insertion-ordered; upstream's iteration order is FxHash order). The order
-//   only matters to `UnixEnvVars::new` (lane miri-shims-c), which allocates one block per variable.
+// - `FxHashMap<OsString, OsString>` is rust_ts/hash_map.ts's `FxHashMap` with `OsString_key` (unix/env.ts: `OsString`
+//   hashes its bytes with a length prefix, not `str`'s 0xff terminator), so `UnixEnvVars::new` sees upstream's FxHash
+//   order (the `environ` block order depends on it).
 // - Windows (`WindowsEnvVars`, shims/windows/env.rs) is out of scope (plan-m6 D2): its arms stop `unported`.
 // - `std::process::id()` (isolation off) is the host's `process.pid` (D14 stand-in).
 import * as gen from "./env.gen.ts";
@@ -16,7 +17,8 @@ import { type ThreadId } from "../concurrency/thread.ts";
 import { type MiriConfig } from "../eval.ts";
 import { type MiriInterpCx } from "../machine.ts";
 import { type VisitProvenance, type VisitWith } from "../provenance_gc.ts";
-import { UnixEnvVars } from "./unix/env.ts";
+import { OsString_key, UnixEnvVars } from "./unix/env.ts";
+import { FxHashMap, LAYOUT_VEC } from "../../rust_ts/hash_map.ts";
 import { InterpCx } from "../../rustc_const_eval/interpret/eval_context.ts";
 import { type AnyMachine, type Machine } from "../../rustc_const_eval/interpret/machine.ts";
 import { type InterpResult, interp_ok } from "../../rustc_middle/mir/interpret/mod.ts";
@@ -53,18 +55,6 @@ interface EnvVars_methods {
 export type EnvVars = gen.EnvVars;
 export const EnvVars = gen.EnvVars as typeof gen.EnvVars & EnvVars_methods;
 
-/**
- * PORT(contract): pending miri-shims-c. `impl VisitProvenance for UnixEnvVars` (shims/unix/env.rs:23) is a prototype
- * method the skeleton does not declare (it is in unix/env.ts's inventory); looked up at call time, `unported` until then.
- */
-function visit_UnixEnvVars(env: UnixEnvVars, visit: VisitWith): void {
-  const f = (env as unknown as Partial<VisitProvenance>).visit_provenance;
-  if (typeof f !== "function") {
-    return unported("miri::shims::unix::env::UnixEnvVars::visit_provenance (VisitProvenance; lane miri-shims-c)");
-  }
-  f.call(env, visit);
-}
-
 // impl VisitProvenance for EnvVars<'_>
 export const VisitProvenance_EnvVars = {
   // rustc: src/tools/miri/src/shims/env.rs:20 visit_provenance
@@ -73,7 +63,7 @@ export const VisitProvenance_EnvVars = {
       case "Uninit":
         break;
       case "Unix":
-        visit_UnixEnvVars(self._0, visit);
+        self._0.visit_provenance(visit);
         break;
       case "Windows":
         return unported("miri::shims::windows::env::WindowsEnvVars::visit_provenance (Windows shims are out of scope, plan-m6 D2)");
@@ -85,7 +75,7 @@ export const VisitProvenance_EnvVars = {
 EnvVars.init = function (ecx: MiriInterpCx, config: MiriConfig): InterpResult {
   // Initialize the `env_vars` map.
   // Skip the loop entirely if we don't want to forward anything.
-  const env_vars = new Map<string, string>();
+  const env_vars = FxHashMap.default<string, string>(OsString_key, LAYOUT_VEC);
   if (ecx.machine.communicate() || config.forwarded_env_vars.length !== 0) {
     for (const [name, value] of config.env) {
       const forward = ecx.machine.communicate() || config.forwarded_env_vars.some((v) => v === name);

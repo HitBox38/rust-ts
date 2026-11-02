@@ -9,27 +9,24 @@
 // - `Rc<ReadinessWatcher>` is the `ReadinessWatcher` object with shims-c's refcount (readiness.ts):
 //   `Rc::new(ReadinessWatcher::default())` is `Rc_new_ReadinessWatcher()`, dropping the `Rc` is
 //   `Rc_drop_ReadinessWatcher(w)` (runs `impl Drop for ReadinessWatcher`, readiness.rs:139, at zero), `Readiness::EMPTY` is
-//   `Readiness_EMPTY` (API from lane miri-shims-c, wave 37). The skeleton does not declare them yet, so they are read
-//   through the module namespace at call time and stop `unported` until shims-c lands. PORT(contract): pending
-//   miri-shims-c. A watcher moved into the blocking callback is dropped when the callback runs; a callback dropped
+//   `Readiness_EMPTY` (readiness.ts). A watcher moved into the blocking callback is dropped when the callback runs; a callback dropped
 //   without running (its thread never unblocks) does not release it.
 // - The watcher is released where Rust drops it on the success paths; on an `InterpError` exit (`?`, which ends the
 //   program) it is not released.
 // - The `FileDescriptionRef` from `FdTable::get` (`.is_some()`) is a strong handle released with `.drop()` (shims-b's
-//   refcount protocol; unix/fd.ts header).
+//   refcount protocol; files.ts header).
 import { type MPlaceTy, type OpTy, type Scalar } from "../../lib.ts";
 import { callback, type MiriInterpCx } from "../../machine.ts";
 import { Deadline } from "../../clock.ts";
 import { VisitProvenance_BTreeMap, VisitProvenance_MPlaceTy, VisitProvenance_no_provenance, type VisitWith } from "../../provenance_gc.ts";
 import { type FdNum, type FileDescriptionRef } from "../files.ts";
-import * as readiness_ns from "../readiness.ts";
-import { type Readiness, type ReadinessWatcher } from "../readiness.ts";
+import { type Readiness, Readiness_EMPTY, Rc_drop_ReadinessWatcher, Rc_new_ReadinessWatcher, type ReadinessWatcher } from "../readiness.ts";
 import { type PollInterest } from "./poll.gen.ts";
 import { type UnblockKind } from "../../concurrency/thread.ts";
 import { InterpCx } from "../../../rustc_const_eval/interpret/eval_context.ts";
 import { type AnyMachine, type Machine } from "../../../rustc_const_eval/interpret/machine.ts";
 import { InterpErrorInfo_from_InterpErrorKind, type InterpResult, interp_ok, Scalar as interp_Scalar } from "../../../rustc_middle/mir/interpret/mod.ts";
-import { panic, unported } from "../../../std/panic.ts";
+import { panic } from "../../../std/panic.ts";
 import { Err } from "../../../std/result.ts";
 import { Duration } from "../../../std/time.ts";
 export * from "./poll.gen.ts";
@@ -96,7 +93,7 @@ InterpCx.prototype.poll = function (this: MiriInterpCx, fds: OpTy, nfds_op: OpTy
   // a positive file descriptor that doesn't exist.
   let invalid_interests = 0;
 
-  const watcher = ReadinessWatcher_default();
+  const watcher = Rc_new_ReadinessWatcher();
 
   // We iterate over the fds array of the `poll` syscall. For each fd, we check its
   // output field, the relevant events, and whether they are currently fulfilled.
@@ -127,7 +124,7 @@ InterpCx.prototype.poll = function (this: MiriInterpCx, fds: OpTy, nfds_op: OpTy
 
     let revents: number;
     const fd = this_.machine.fds.get(fd_num);
-    if (fd !== undefined) drop_fd_ref(fd);
+    if (fd !== undefined) fd.drop();
     if (fd !== undefined) {
       // A file description for this file descriptor exists; the interest is thus not ignored.
       const interest: PollInterest = { revents_place: revents_field };
@@ -301,7 +298,7 @@ InterpCx.prototype.poll_bitflag_to_readiness = function (this: MiriInterpCx, bit
   const pollnval = this_.eval_libc_u16("POLLNVAL");
 
   // The POLLHUP and POLLERR interests are always set.
-  const readiness: Readiness = { ...readiness_api("Readiness_EMPTY"), write_closed: true, error: true };
+  const readiness: Readiness = { ...Readiness_EMPTY, write_closed: true, error: true };
 
   if ((bitflag & pollin) === pollin) {
     readiness.readable = true;
@@ -350,41 +347,9 @@ const VisitProvenance_interests = {
   },
 };
 
-/** shims-c's readiness.ts API that the skeleton does not declare (module header). */
-interface ReadinessApi {
-  Rc_new_ReadinessWatcher: () => ReadinessWatcher;
-  Rc_drop_ReadinessWatcher: (w: ReadinessWatcher) => void;
-  Readiness_EMPTY: Readiness;
-}
-function readiness_api<K extends keyof ReadinessApi>(name: K): ReadinessApi[K] {
-  const v = (readiness_ns as unknown as Partial<ReadinessApi>)[name];
-  if (v === undefined) {
-    return unported(`miri::shims::readiness::${name} (src/tools/miri/src/shims/readiness.rs; lane miri-shims-c) in poll`);
-  }
-  return v as ReadinessApi[K];
-}
-
-/** `Rc::new(ReadinessWatcher::default())`. PORT(contract): pending miri-shims-c. */
-function ReadinessWatcher_default(): ReadinessWatcher {
-  return readiness_api("Rc_new_ReadinessWatcher")();
-}
-
-/** `drop(watcher)` of an `Rc<ReadinessWatcher>`. PORT(contract): pending miri-shims-c. */
-function drop_watcher(watcher: ReadinessWatcher): void {
-  readiness_api("Rc_drop_ReadinessWatcher")(watcher);
-}
 function with_drop_watcher<T>(watcher: ReadinessWatcher, value: T): T {
-  drop_watcher(watcher);
+  Rc_drop_ReadinessWatcher(watcher);
   return value;
-}
-
-/** `drop(fd)` of a strong `FileDescriptionRef` handle (shims-b's `.drop()`; unix/fd.ts `drop_fd_ref`). */
-function drop_fd_ref(fd: FileDescriptionRef<unknown>): void {
-  const drop = (fd as unknown as { drop?: () => void }).drop;
-  if (typeof drop !== "function") {
-    unported("miri::shims::files::FileDescriptionRef: `Drop` of the `Rc` (src/tools/miri/src/shims/files.rs:44; lane miri-shims-b) in poll");
-  }
-  drop.call(fd);
 }
 
 /** `u32::strict_add`. */

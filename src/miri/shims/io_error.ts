@@ -19,7 +19,7 @@ import { InterpCx } from "../../rustc_const_eval/interpret/eval_context.ts";
 import { type AnyMachine, type Machine } from "../../rustc_const_eval/interpret/machine.ts";
 import { InterpErrorInfo_from_InterpErrorKind, type InterpResult, interp_ok, Scalar as interp_Scalar } from "../../rustc_middle/mir/interpret/mod.ts";
 import { spec } from "../../rustc_target/lib.ts";
-import { display_IoError, type ErrorKind, ErrorKind_as_str, type IoError as io_Error, IoError_kind, IoError_raw_os_error } from "../../std/io.ts";
+import { display_IoError, type ErrorKind, type IoError as io_Error, io_error_from_kind, IoError_kind, IoError_raw_os_error } from "../../std/io.ts";
 import { unported } from "../../std/panic.ts";
 import { Err, type Result } from "../../std/result.ts";
 export * from "./io_error.gen.ts";
@@ -100,22 +100,13 @@ export function IoError_from_io_Error(value: io_Error): IoError {
 // rustc: src/tools/miri/src/shims/io_error.rs:47 from
 /** `impl From<io::ErrorKind> for IoError` */
 export function IoError_from_ErrorKind(value: ErrorKind): IoError {
-  return { $: "HostError", _0: io_Error_from_ErrorKind(value) };
+  return { $: "HostError", _0: io_error_from_kind(value) };
 }
 
 // rustc: src/tools/miri/src/shims/io_error.rs:53 from
 /** `impl From<Scalar> for IoError` */
 export function IoError_from_Scalar(value: Scalar): IoError {
   return { $: "Raw", _0: value };
-}
-
-/** `impl From<ErrorKind> for io::Error` (library/core/src/io/error.rs: `ErrorData::Simple(kind)`).
- *  PORT: src/std/io.ts has no `Simple` repr yet (its header: "`ErrorData::Simple` is not produced yet"; src/std is not
- *  this lane's: root). Stand-in: a `SimpleMessage` with `message = kind.as_str()`. `kind()`, `raw_os_error()` (None) and
- *  Display (`Simple` displays `kind.as_str()`) are exact, so the errno mapping (`host_error_to_errnum`) is; only the
- *  io::Error's Debug differs (`Simple` prints `Kind(..)`), which only an `unwrap` panic message would show. */
-function io_Error_from_ErrorKind(kind: ErrorKind): io_Error {
-  return { $: "SimpleMessage", kind, message: ErrorKind_as_str(kind) };
 }
 
 // This mapping should match `decode_error_kind` in
@@ -491,7 +482,7 @@ InterpCx.prototype.try_errnum_to_io_error = function (this: MiriInterpCx, target
     // For other hosts or other constants, we fall back to translating via `ErrorKind`.
     for (const [name, kind] of UNIX_IO_ERROR_TABLE) {
       if (target_errnum_ === this_.eval_libc_i32(name)) {
-        return interp_ok(io_Error_from_ErrorKind(kind));
+        return interp_ok(io_error_from_kind(kind));
       }
     }
     return interp_ok(undefined);
@@ -503,7 +494,7 @@ InterpCx.prototype.try_errnum_to_io_error = function (this: MiriInterpCx, target
       const v = interp_Scalar.to_u32(this_.eval_windows("c", name));
       if (v.$ === "Err") return v;
       if (target_errnum_ === v._0) {
-        return interp_ok(io_Error_from_ErrorKind(kind));
+        return interp_ok(io_error_from_kind(kind));
       }
     }
     return interp_ok(undefined);
