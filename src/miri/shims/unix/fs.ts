@@ -537,21 +537,13 @@ insert_new: function (this: DirTable, stream: DirStream): bigint {
   this.next_id += 1n;
   // self.streams.try_insert(id, stream).unwrap();
   if (this.streams.has(id)) {
-    const old_value = this.streams.get(id)!;
-    panic(`called \`Result::unwrap()\` on an \`Err\` value: ${debug_OccupiedError(id, old_value, stream, PLAIN_)}`);
+    // PORT: unreachable (ids only grow); the `unwrap` panic text (the `OccupiedError` Debug) is not ported (decision for
+    // miri-threads: invented `OccupiedError` texts stop `unported`).
+    unported("miri::shims::unix::fs::DirTable::insert_new: `try_insert(..).unwrap()` panic text (Debug of OccupiedError)");
   }
   this.streams.set(id, stream);
   return id;
 }});
-
-/** `Debug` of `std::collections::hash_map::OccupiedError<'_, u64, DirStream>` (library/std/src/collections/hash/map.rs). */
-function debug_OccupiedError(key: bigint, old_value: DirStream, value: DirStream, f: Fmt): string {
-  return debug_struct(f, "OccupiedError", [
-    ["key", debug_int(key, f)],
-    ["old_value", debug_DirStream(old_value, f)],
-    ["value", debug_DirStream(value, f)],
-  ]);
-}
 
 // impl Default for DirTable
 // rustc: src/tools/miri/src/shims/unix/fs.rs:219 default

@@ -141,22 +141,24 @@ test("placeholders: installed once, no name registered twice per target, each st
     }
   }
   expect(dups).toEqual([]);
-  // PORT (lane miri-shims-b, wave 37): fill lanes delete placeholders, so the sample is any still-installed `InterpCx`
-  // placeholder (it was time.rs's `clock_gettime`, ported in wave 37) and the count only has to be positive.
-  expect(MIRI_STUBS.length).toBeGreaterThan(0);
-  const s = MIRI_STUBS.find((x) => x.target() === InterpCx.prototype && x.names.length > 0)!;
-  const name = s.names[0]!;
-  expect(LANES.has(s.lane)).toBe(true);
-  const proto = InterpCx.prototype as unknown as Record<string, () => unknown>;
-  let caught: unknown;
-  try {
-    proto[name]!.call(undefined);
-  } catch (e) {
-    caught = e;
+  // Fill lanes delete placeholders, so no count or sample is fixed: every placeholder still installed (none once the
+  // last lane lands) must name a known lane and stop `unported` with its path, upstream file and lane.
+  for (const s of MIRI_STUBS) {
+    expect(LANES.has(s.lane)).toBe(true);
+    const t = s.target() as Record<string, (() => unknown) | undefined>;
+    for (const name of s.names) {
+      expect(typeof t[name]).toBe("function");
+      let caught: unknown;
+      try {
+        t[name]!.call(undefined);
+      } catch (e) {
+        caught = e;
+      }
+      expect(caught).toBeInstanceOf(Unported);
+      expect((caught as Error).message).toContain(`${s.path}::${name} (${s.upstream}; lane ${s.lane})`);
+      expect(stub_message(s, name)).toBe(`${s.path}::${name} (${s.upstream}; lane ${s.lane})`);
+    }
   }
-  expect(caught).toBeInstanceOf(Unported);
-  expect((caught as Error).message).toContain(stub_message(s, name));
-  expect(stub_message(s, name)).toBe(`${s.path}::${name} (${s.upstream}; lane ${s.lane})`);
 });
 
 test("every method a module declares on `InterpCx` is a function after load", () => {

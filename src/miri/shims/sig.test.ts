@@ -50,6 +50,9 @@ test("check_shim_sig_deprecated / check_shim_sig_llvm_intrinsic: argument count 
   expect(JSON.stringify(bad)).toContain("incorrect number of arguments for `cbrt`: got 2, expected 1");
   const variadic = ecx.check_shim_sig_deprecated({ conv: CanonAbi.C, c_variadic: true } as never, CanonAbi.C, name, args, 2);
   expect(JSON.stringify(variadic)).toContain("calling a non-variadic function with a c-variadic caller-side signature");
+  // `CanonAbi`'s Display prints the `ExternAbi` string it shares (canon_abi.rs:79).
+  const rust = ecx.check_shim_sig_deprecated({ conv: { $: "Rust" }, c_variadic: false } as never, CanonAbi.C, name, args, 2);
+  expect(JSON.stringify(rust)).toContain('calling a function with calling convention \\"C\\" using caller calling convention \\"Rust\\"');
   const llvm = Symbol.intern("llvm.x86.foo");
   expect(ecx.check_shim_sig_llvm_intrinsic(llvm, args, 2)).toEqual(Ok(args));
   expect(JSON.stringify(ecx.check_shim_sig_llvm_intrinsic(llvm, args, 3))).toContain("incorrect number of arguments for `llvm.x86.foo`: got 2, expected 3");

@@ -5,9 +5,12 @@
 // - Only `socket` (socket.rs:158) is in scope: its isolation-on path (`reject_in_isolation("`socket`", ..)`, then
 //   `EACCES`) is what run-pass cases reach, and it is ported in full up to the host socket. With isolation off,
 //   `TcpSocket::new` (shims/unix/tcp_socket.rs, `socket2`) is out of scope and stops `unported`.
-// - With isolation on no socket file description can exist, so the other socket shims (`bind`, `listen`, `accept4`,
-//   `connect`, `send`, `recv`, `setsockopt`, `getsockopt`, `getsockname`, `getpeername`, `shutdown`) and the
-//   `UnixSocketFileDescription` trait are not ported: they stop `unported` with the D2 reason (no `rustc:` markers).
+// - The other socket shims (`bind`, `listen`, `accept4`, `connect`, `send`, `recv`, `setsockopt`, `getsockopt`,
+//   `getsockname`, `getpeername`, `shutdown`) and the `UnixSocketFileDescription` trait are not ported: they stop
+//   `unported` with the D2 reason (no `rustc:` markers). They ARE reachable with isolation on: `socketpair` creates
+//   `VirtualSocket`s (shims/unix/virtual_socket.rs, which `as_socket()` returns; std's `UnixStream::read` calls `recv`),
+//   and on a non-socket or closed fd they return `ENOTSOCK` / `EBADF`. In the port `socketpair` / `pipe2`
+//   (virtual_socket.rs, out of scope) stop `unported` first; the lane that ports virtual_socket.rs must port these too.
 // - `socket2::Domain::{IPV4, IPV6}` is the string `"IPV4"` / `"IPV6"` (only passed on to `TcpSocket::new`).
 import { type MPlaceTy, type OpTy, type Scalar } from "../../lib.ts";
 import { type MiriInterpCx } from "../../machine.ts";

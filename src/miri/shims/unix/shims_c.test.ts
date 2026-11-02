@@ -283,24 +283,15 @@ test("getcwd / chdir under isolation: the oracle's abort message and warning", (
       return interp_ok(undefined);
     },
   });
-  let caught: unknown;
-  let r: ReturnType<MiriInterpCx["getcwd"]> | undefined;
-  try {
-    r = warn_cx.getcwd(op(0), op(0));
-  } catch (e) {
-    caught = e;
-  }
+  const r = warn_cx.getcwd(op(0), op(0));
   expect(warnings).toEqual(["`getcwd` was made to return an error due to isolation"]);
-  if (caught !== undefined) {
-    expect(caught).toBeInstanceOf(Unported);
-    expect((caught as Error).message).toContain("impl From<io::ErrorKind> for IoError");
-  } else {
-    expect(r!.$ === "Ok" && r!._0.offset.bytes_u64() === 0n && r!._0.provenance === undefined).toBe(true);
-    expect(errnos.length).toBe(1);
-    const e = errnos[0] as { $: string; _0: unknown };
-    expect(e.$).toBe("HostError");
-    expect(IoError_kind(e._0 as never)).toBe("PermissionDenied");
-  }
+  // `this.set_last_error(ErrorKind::PermissionDenied)?` and a NULL return.
+  expect(r.$ === "Ok" && r._0.offset.bytes_u64() === 0n && r._0.provenance === undefined).toBe(true);
+  expect(errnos.length).toBe(1);
+  const e = errnos[0] as { $: string; _0: unknown };
+  expect(e.$).toBe("HostError");
+  expect(e._0).toEqual({ $: "Simple", kind: "PermissionDenied" });
+  expect(IoError_kind(e._0 as never)).toBe("PermissionDenied");
 });
 
 test("gethostname: zero length is UB; a short buffer on linux-gnu writes without the null and sets ENAMETOOLONG", () => {

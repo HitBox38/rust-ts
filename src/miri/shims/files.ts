@@ -25,6 +25,7 @@ import { type Pointer } from "../lib.ts";
 import { type DynMachineCallback, type MiriInterpCx } from "../machine.ts";
 import { type VisitWith } from "../provenance_gc.ts";
 import { type DirHandle, type DynFileDescriptionRef, FdId, type FdIdWith, type FdNum, FdTable, type FileHandle, FileDescriptionRef, NullOutput, Stderr, Stdin, Stdout, WeakFileDescriptionRef } from "./files.gen.ts";
+import { isolation_abort_error } from "../helpers.ts";
 import { HostError, type IoError, IoError_from_ErrorKind, LibcError } from "./io_error.ts";
 import { type Readiness, Readiness_EMPTY, type ReadinessWatched, ReadinessWatched_default } from "./readiness.ts";
 import { type UnixFileDescription } from "./unix/fd.ts";
@@ -39,13 +40,6 @@ import { assert, assert_eq, panic, unported } from "../../std/panic.ts";
 import { PLAIN } from "../../std/fmt.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
 export * from "./files.gen.ts";
-
-/** PORT(C10): helpers.ts assigns `MiriMachine.prototype` methods at load (helpers.ts:1297-1328), so a module that
- *  machine.ts imports cannot import helpers.ts statically (helpers would run before machine.ts defines `MiriMachine`);
- *  it is read on first use instead (everything is loaded by then: src/miri/lib.ts). */
-function helpers(): typeof import("../helpers.ts") {
-  return require("../helpers.ts") as typeof import("../helpers.ts");
-}
 
 /** `throw_unsup_format!(..)` (`err_unsup!(Unsupported(format!(..)))`) */
 function throw_unsup_format<T>(msg: string): InterpResult<T> {
@@ -600,7 +594,7 @@ Stdin.prototype.name = function (this: Stdin): string {
 Stdin.prototype.read = function (this: Stdin, self_: FileDescriptionRef<FileDescription>, communicate_allowed: boolean, ptr: Pointer, len: number, ecx: MiriInterpCx, finish: DynMachineCallback<Result<number, IoError>>): InterpResult {
   if (!communicate_allowed) {
     // We want isolation mode to be deterministic, so we have to disallow all reads, even stdin.
-    const r = helpers().isolation_abort_error("`read` from stdin");
+    const r = isolation_abort_error("`read` from stdin");
     if (r.$ === "Err") return r;
   }
 

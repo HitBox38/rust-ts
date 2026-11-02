@@ -22,6 +22,7 @@ import { display_MiriMemoryKind, MemoryKind_from_MiriMemoryKind, type MiriInterp
 import { type Provenance } from "../machine.ts";
 import { DynSym } from "./foreign_items.gen.ts";
 import * as math from "./math.ts";
+import { iter_exported_symbols } from "../helpers.ts";
 import { EmulateItemResult } from "./mod.ts";
 import { shim_sig, type ShimSigFn } from "./sig.ts";
 import * as unix_foreign_items from "./unix/foreign_items.ts";
@@ -84,12 +85,6 @@ declare module "./foreign_items.gen.ts" {
     // shims/foreign_items.rs:31
     export let from_str: (name: string) => DynSym;
   }
-}
-
-/** helpers.ts, read at call time: helpers.ts assigns `MiriMachine.prototype` methods at load, so a module that
- *  machine.ts may reach must not value-import it (C10; reported by lane miri-shims-b). */
-function helpers(): typeof import("../helpers.ts") {
-  return require("../helpers.ts") as typeof import("../helpers.ts");
 }
 
 // ---- local macro helpers ----
@@ -284,7 +279,7 @@ InterpCx.prototype.lookup_exported_symbol = function (this: MiriInterpCx, link_n
       is_weak: boolean;
     }
     let symbol_target: SymbolTarget | undefined = undefined;
-    const r = helpers().iter_exported_symbols(tcx, (cnum: CrateNum, def_id: DefId, _used: boolean): InterpResult => {
+    const r = iter_exported_symbols(tcx, (cnum: CrateNum, def_id: DefId, _used: boolean): InterpResult => {
       const attrs = tcx.codegen_fn_attrs(def_id) as CodegenFnAttrs;
       // Skip over items without an explicitly defined symbol name.
       if (
@@ -599,7 +594,7 @@ InterpCx.prototype.emulate_foreign_item_inner = function (
         // end the shared borrow from `read_byte_slice` before we can
         // start the mutable borrow for `give_pointer_debug_name`.
         // `String::from_utf8_lossy` (TextDecoder's replacement is U+FFFD per maximal subpart, as std's).
-        const name_ = new TextDecoder("utf-8", { fatal: false }).decode(name_bytes._0);
+        const name_ = new TextDecoder("utf-8", { fatal: false, ignoreBOM: true }).decode(name_bytes._0);
         const r = this_.give_pointer_debug_name(ptr._0, nth_parent._0, name_);
         if (r.$ === "Err") return r;
         break;
