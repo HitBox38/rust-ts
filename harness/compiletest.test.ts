@@ -11,7 +11,11 @@ import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 
 const REPO = resolve(import.meta.dir, "..");
+// The oracle's `#[rustc_dump_layout(debug)]` stderr for `core::ops::Range<[u8; 1]>` and `rl_aux::Range<[u8; 1]>` (compiled
+// with -Zrandomize-layout: reordered), from the check in `oracleStdLayoutsRandomized`.
+const LAYOUT_STDERR = "error: layout_of(std::ops::Range<[u8; 1]>) = Layout {\n           size: Size(2 bytes),\n           align: AbiAlign {\n               abi: Align(1 bytes),\n           },\n           backend_repr: Memory {\n               sized: true,\n           },\n           fields: Arbitrary {\n               offsets: [\n                   Size(0 bytes),\n                   Size(1 bytes),\n               ],\n               in_memory_order: [\n                   0,\n                   1,\n               ],\n           },\n           largest_niche: None,\n           uninhabited: false,\n           variants: Single {\n               index: 0,\n           },\n           max_repr_align: None,\n           unadjusted_abi_align: Align(1 bytes),\n           repr_c: false,\n           randomization_seed: 7505337128903775511,\n       }\n --> main.rs:3:29\n  |\n3 | #[rustc_dump_layout(debug)] type S1 = core::ops::Range<[u8; 1]>;\n  |                             ^^^^^^^\n\nerror: layout_of(rl_aux::Range<[u8; 1]>) = Layout {\n           size: Size(2 bytes),\n           align: AbiAlign {\n               abi: Align(1 bytes),\n           },\n           backend_repr: Memory {\n               sized: true,\n           },\n           fields: Arbitrary {\n               offsets: [\n                   Size(1 bytes),\n                   Size(0 bytes),\n               ],\n               in_memory_order: [\n                   1,\n                   0,\n               ],\n           },\n           largest_niche: None,\n           uninhabited: false,\n           variants: Single {\n               index: 0,\n           },\n           max_repr_align: None,\n           unadjusted_abi_align: Align(1 bytes),\n           repr_c: false,\n           randomization_seed: 11594332325826662558,\n       }\n --> main.rs:4:29\n  |\n4 | #[rustc_dump_layout(debug)] type A1 = rl_aux::Range<[u8; 1]>;\n  |                             ^^^^^^^\n\n";
 const CHILD = `
+const LAYOUT_STDERR = ${JSON.stringify(LAYOUT_STDERR)};
 const c = await import(${JSON.stringify(join(REPO, "harness/compiletest.ts"))});
 const { DATA, PIN } = await import(${JSON.stringify(join(REPO, "scripts/lib/common.ts"))});
 const raw = [
@@ -38,6 +42,16 @@ console.log(JSON.stringify({
   noPreferDynamic: json(c.uiFileCases(["tests/ui/compiletest-self-test/no-prefer-dynamic-means-no-so.rs"], "human", aux)),
   blessed: blessed("tests/ui/traits/alias/cross-crate.rs"),
   blessedRev: blessed("tests/ui/traits/const-traits/cross-crate.rs#stock"),
+  // lane harness-w37: needs decided from the oracle.
+  zstd: c.needCondition("needs-llvm-zstd"),
+  zstdPrint: Bun.spawnSync(["rustc", "+" + PIN.toolchain, "-Zunstable-options", "--print=backend-has-zstd"]).stdout.toString().trim(),
+  layouts: c.oracleStdLayoutsRandomized(),
+  deterministic: c.needCondition("needs-deterministic-layouts"),
+  typeSizes: json(c.uiFileCases(["tests/ui/structs-enums/type-sizes.rs"], "human", { run: true, needs: true })),
+  typeSizesOld: json(c.uiFileCases(["tests/ui/structs-enums/type-sizes.rs"], "human", { run: true })),
+  orders: c.layoutOrders(LAYOUT_STDERR),
+  ordersBad: (() => { try { c.layoutOrders("error: layout_of(T) = Layout {\\n  size: Size(2 bytes),\\n}\\n"); return "NO ERROR"; } catch (e) { return String(e); } })(),
+  layoutTmps: (await import("node:fs")).readdirSync(DATA + "/tmp").filter((n) => n.startsWith("needs-layouts-")),
 }));
 `;
 // A failing aux build: a 1 ms timeout (and 4 ms for the retry) that no rustc meets. `CARGO_HOME` is inherited into
@@ -96,6 +110,32 @@ test("uiBlessed: expected file per revision and compiletest's normalization", ()
     ["error[E0277]: x", "  --> $DIR/cross-crate.rs:14:5", "  --> $SRC_DIR/core/src/option.rs:LL:COL", "  --> $SRC_DIR/alloc/src/string.rs:LL:COL", "LL |     a\\tb", ""].join("\n"),
   );
   expect(R.blessedRev.path).toBe("tests/ui/traits/const-traits/cross-crate.stock.stderr");
+});
+
+test("needs-llvm-zstd and needs-deterministic-layouts are decided by the oracle (lane harness-w37)", () => {
+  // needs.rs `llvm_has_zstd`: the oracle's `--print=backend-has-zstd`.
+  expect(["true", "false"]).toContain(R.zstdPrint);
+  expect(R.zstd).toEqual({ condition: R.zstdPrint === "true", why: undefined });
+  // The dist nightly's std is not compiled with -Zrandomize-layout: core::ops::Range keeps its declaration order for
+  // every k, while the -Zrandomize-layout control is reordered for some (the check can see randomization).
+  expect(R.layouts.randomized).toBe(false);
+  const m = /reordered (\d+)\/64, the -Zrandomize-layout control (\d+)\/64$/.exec(R.layouts.why)!;
+  expect(Number(m[1])).toBe(0);
+  expect(Number(m[2])).toBeGreaterThan(0);
+  expect(R.deterministic.condition).toBe(true);
+  // type-sizes.rs (`needs-deterministic-layouts`, run-pass) is a case with `needs`, still rejected without.
+  expect(R.typeSizes.skipped).toEqual([]);
+  expect(R.typeSizes.cases.map((c: { id: string }) => c.id)).toEqual(["tests/ui/structs-enums/type-sizes.rs"]);
+  expect(R.typeSizesOld.cases).toEqual([]);
+  expect(R.typeSizesOld.skipped.length).toBe(1);
+  // The parser reads each layout's type and in_memory_order; a layout without one is an error, not a guess.
+  expect(R.orders).toEqual([
+    { ty: "std::ops::Range<[u8; 1]>", order: [0, 1] },
+    { ty: "rl_aux::Range<[u8; 1]>", order: [1, 0] },
+  ]);
+  expect(R.ordersBad).toContain("unexpected #[rustc_dump_layout(debug)] output");
+  // The check's scratch directory is removed.
+  expect(R.layoutTmps).toEqual([]);
 });
 
 test("aux-bin: built into <aux dir>/bin; aux bins alone give the main compile no -L", () => {

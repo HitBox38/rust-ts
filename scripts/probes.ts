@@ -39,12 +39,24 @@ const EXE = process.platform === "win32" ? ".exe" : "";
 
 /**
  * Probes whose whole stdout is a committed oracle fixture (lane harness-w36): probe name -> repo-relative fixture. The
- * probe takes no input and its output is deterministic, so `bun scripts/probes.ts fixture <name>` regenerates the
- * fixture and tools/probes/fixtures.test.ts checks that the committed file equals the probe's output.
+ * probe's output is deterministic, so `bun scripts/probes.ts fixture <name>` regenerates the fixture and
+ * tools/probes/fixtures.test.ts checks that the committed file equals the probe's output.
+ *   `args`: the probe's command-line arguments (default none).
+ *   `host`: the fixture holds only on this host tuple (the probe prints host results, e.g. the host libm's; lane
+ *           harness-w37). On another host (`oracleHost()`) the fixture test is skipped with the reason printed and
+ *           `fixture` refuses to rewrite it (that would replace the recorded host's results with this host's).
  */
-export const PROBE_FIXTURES: Record<string, string> = {
-  randstream: "src/vendor/rand/stdrng.oracle.txt",
-  miriaddr: "src/miri/alloc_addresses/addresses.oracle.txt",
+export interface ProbeFixture {
+  fixture: string;
+  args?: string[];
+  host?: string;
+}
+
+export const PROBE_FIXTURES: Record<string, ProbeFixture> = {
+  randstream: { fixture: "src/vendor/rand/stdrng.oracle.txt" },
+  miriaddr: { fixture: "src/miri/alloc_addresses/addresses.oracle.txt" },
+  mirisched: { fixture: "src/miri/concurrency/scheduler.oracle.txt" },
+  mirimath: { fixture: "src/miri/math.oracle.txt", args: ["aarch64-apple-darwin"], host: "aarch64-apple-darwin" },
 };
 
 /** Binary path of a probe, whether or not it is built. */
@@ -232,10 +244,16 @@ if (import.meta.main) {
   } else if (cmd === "path" && names[0]) {
     console.log(probePath(names[0]));
   } else if (cmd === "fixture") {
+    let host: string | undefined;
     for (const n of names.length ? names : Object.keys(PROBE_FIXTURES)) {
-      const out = PROBE_FIXTURES[n];
-      if (out === undefined) die(`probe ${n} has no fixture (PROBE_FIXTURES: ${Object.keys(PROBE_FIXTURES).join(", ")})`);
-      const r = await run([probePath(n)], { timeoutMs: 120_000 });
+      const f = PROBE_FIXTURES[n];
+      if (f === undefined) die(`probe ${n} has no fixture (PROBE_FIXTURES: ${Object.keys(PROBE_FIXTURES).join(", ")})`);
+      const out = f.fixture;
+      if (f.host !== undefined) {
+        host ??= oracleHost();
+        if (host !== f.host) die(`probe ${n}: ${out} holds the results of host ${f.host}, this host is ${host}; not rewritten`);
+      }
+      const r = await run([probePath(n), ...(f.args ?? [])], { timeoutMs: 120_000 });
       if (r.code !== 0 || r.timedOut) die(`probe ${n} failed (exit ${r.code}${r.timedOut ? ", timed out" : ""}): ${r.stderr.trim().slice(0, 300)}`);
       const before = existsSync(join(REPO, out)) ? readFileSync(join(REPO, out), "utf8") : undefined;
       writeFileSync(join(REPO, out), r.stdout);
