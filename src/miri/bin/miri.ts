@@ -103,11 +103,7 @@ class MiriCompilerCalls implements Callbacks {
   // rustc: src/tools/miri/src/bin/miri.rs:129 config
   config(config: Config): void {
     // We never reach codegen anyway.
-    // PORT(contract): pending rustc_interface: `Config.make_codegen_backend` is typed `undefined` and `run_compiler`
-    // does not port its `Some` arm (interface.ts:362); until it does, the field is set here and ignored there, and the
-    // default backend (the LLVM stand-in, whose `codegen_crate` stops `unported`) is used instead.
-    (config as unknown as { make_codegen_backend: ((sess: EarlySession) => CodegenBackend) | undefined }).make_codegen_backend = (sess) =>
-      make_miri_codegen_backend(sess, /* dep */ false);
+    config.make_codegen_backend = (sess) => make_miri_codegen_backend(sess, /* dep */ false);
 
     // Register our custom extra symbols.
     config.extra_symbols = [...EXTRA_SYMBOLS];

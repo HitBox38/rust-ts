@@ -6,7 +6,7 @@ import type { PathBuf } from "../rustc_error_messages/lib.ts";
 import type { Level, LintId } from "../rustc_lint_defs/lib.ts";
 import { type Input, LinkerJobs, type OutFileName, Options_impl, UnstableOptions_impl, build_configuration, build_target_config } from "../rustc_session/config.ts";
 import { type Options, str_cmp } from "../rustc_session/options.ts";
-import { EarlyDiagCtxt, type Session, build_early_session, build_session } from "../rustc_session/session.ts";
+import { EarlyDiagCtxt, type EarlySession, type Session, build_early_session, build_session } from "../rustc_session/session.ts";
 import * as rustc_lint from "../rustc_lint/lib.ts";
 import { drop_compiler_dcx } from "../rust_ts/driver.ts";
 import { ast, token } from "../rustc_ast/lib.ts";
@@ -352,7 +352,7 @@ export interface Config {
   /// hotswapping branch of cg_clif" for "setting the codegen backend from a
   /// custom driver where the custom codegen backend has arbitrary data."
   /// (See #102759.)
-  make_codegen_backend: undefined;
+  make_codegen_backend: ((sess: EarlySession) => CodegenBackend) | undefined;
 
   /// The inner atomic value is set to true when a feature marked as `internal` is
   /// enabled. Makes it so that "please report a bug" is hidden, as ICEs with
@@ -360,7 +360,8 @@ export interface Config {
   using_internal_features: { value: boolean };
 }
 // PORT: the driver passes `None` for every callback (`file_loader`, `psess_created`, `track_state`,
-// `register_lints`, `override_queries`, `make_codegen_backend`); their `Some` arms are not ported.
+// `register_lints`, `override_queries`); their `Some` arms are not ported. `make_codegen_backend` is ported
+// (Miri's driver sets it, bin/miri.rs:129).
 
 /** Whether `e` is an unwind payload (`Panic`/`FatalErrorMarker`), i.e. what `catch_unwind` catches. */
 function is_unwind(e: unknown): boolean {
@@ -422,12 +423,20 @@ export function run_compiler<R>(config: Config, f: (compiler: Compiler) => R): R
 
         const early_sess = build_early_session(config.opts, target, config.ice_file);
 
-        const codegen_backend: CodegenBackend = util.get_codegen_backend(
-          early_dcx,
-          early_sess.opts.sysroot,
-          early_sess.opts.unstable_opts.codegen_backend,
-          early_sess.target,
-        );
+        const make_codegen_backend = config.make_codegen_backend;
+        let codegen_backend: CodegenBackend;
+        if (make_codegen_backend === undefined) {
+          codegen_backend = util.get_codegen_backend(
+            early_dcx,
+            early_sess.opts.sysroot,
+            early_sess.opts.unstable_opts.codegen_backend,
+            early_sess.target,
+          );
+        } else {
+          // N.B. `make_codegen_backend` takes precedence over
+          // `target.default_codegen_backend`, which is ignored in this case.
+          codegen_backend = make_codegen_backend(early_sess);
+        }
         const codegen_backend_init = codegen_backend.init(early_sess);
 
         const sess = build_session(
