@@ -58,7 +58,7 @@ import { display_Canonical } from "../../rustc_type_ir/canonical.ts";
 import { TypeVisitableExt } from "../../rustc_type_ir/visit.ts";
 import { is_whitespace } from "../../std/char.ts";
 import { debug_option, debug_str } from "../../std/fmt.ts";
-import { debug_IoError, type IoError, io_error_from_node } from "../../std/io.ts";
+import { debug_IoError, ErrorKind_as_str, type IoError, io_error_from_node } from "../../std/io.ts";
 import { assert } from "../../std/panic.ts";
 import { Err, unwrap_result } from "../../std/result.ts";
 import { utf8_len } from "../../std/str.ts";
@@ -550,7 +550,7 @@ function io_error_new(e: IoError, msg: string): IoError {
 
 /** `Display` of an `io::Error` (the `{e}` of the dump errors). */
 function display_io_error(e: IoError): string {
-  return e.$ === "Os" ? e.code : e.$ === "Custom" ? e.error : e.message;
+  return e.$ === "Os" ? e.code : e.$ === "Custom" ? e.error : e.$ === "Simple" ? ErrorKind_as_str(e.kind) : e.message;
 }
 
 ///////////////////////////////////////////////////////////////////////////

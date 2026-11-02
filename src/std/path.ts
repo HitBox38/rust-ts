@@ -1,6 +1,8 @@
 // `std::path` (library/std/src/path.rs, sys/path/{windows,windows_prefix,unix}.rs at the pin), as
 // far as the compiler needs it. Moved from rustc_span/source_map.ts (review w23a, batch 3 #9).
-import { panic } from "./panic.ts";
+import { type IoResult } from "./io.ts";
+import { panic, unported } from "./panic.ts";
+import { Err, Ok } from "./result.ts";
 import { utf8, utf8_len } from "./str.ts";
 
 // PORT: `Path`/`PathBuf` are strings; the host platform's path rules apply (rustc on the host
@@ -697,4 +699,66 @@ export function path_hash(self_: string, h: Hasher): void {
   }
 
   h.write_usize(chunk_bits);
+}
+
+/// Makes the path absolute without accessing the filesystem.
+/// (`std::path::absolute`; PORT: on unix it reads the host cwd for a relative path, `env::current_dir`, D14: the port runs
+/// with the oracle's cwd.)
+// std: library/std/src/path.rs:4148 absolute
+export function absolute(path: string): IoResult<string> {
+  if (path === "") {
+    return Err({ $: "SimpleMessage", kind: "InvalidInput", message: "cannot make an empty path absolute" });
+  } else {
+    return sys_path_absolute(path);
+  }
+}
+
+// std: library/std/src/sys/path/unix.rs:20 absolute
+function sys_path_absolute(path: string): IoResult<string> {
+  if (process.platform === "win32") return unported("std::sys::path::windows::absolute (std::path::absolute on a Windows host)");
+  // This is mostly a wrapper around collecting `Path::components`, with
+  // exceptions made where this conflicts with the POSIX specification.
+  // See 4.16 Pathname Resolution, IEEE Std 1003.1-2024
+  // https://pubs.opengroup.org/onlinepubs/9799919799/basedefs/V1_chap04.html#tag_04_16
+
+  // Get the components, skipping the redundant leading "." component if it exists.
+  // PORT: `path.strip_prefix(".")` succeeds exactly when the first component is `.` (`CurDir`).
+  const all = path_components(path);
+  const first = all.clone().next();
+  const components = first !== undefined && first.$ === "CurDir" ? (all.next(), all) : all;
+  const path_os = path;
+
+  let normalized: string;
+  if (path_is_absolute(path)) {
+    // "If a pathname begins with two successive <slash> characters, the
+    // first component following the leading <slash> characters may be
+    // interpreted in an implementation-defined manner, although more than
+    // two leading <slash> characters shall be treated as a single <slash>
+    // character."
+    if (path_os.startsWith("//") && !path_os.startsWith("///")) {
+      components.next();
+      normalized = "//";
+    } else {
+      normalized = "";
+    }
+  } else {
+    // env::current_dir()?  (PORT: the host cwd, D14)
+    normalized = process.cwd();
+  }
+  // normalized.extend(components);
+  for (let c = components.next(); c !== undefined; c = components.next()) {
+    normalized = path_join(normalized, component_as_os_str(c));
+  }
+
+  // "Interfaces using pathname resolution may specify additional constraints
+  // when a pathname that does not name an existing directory contains at
+  // least one non- <slash> character and contains one or more trailing
+  // <slash> characters".
+  // A trailing <slash> is also meaningful if "a symbolic link is
+  // encountered during pathname resolution".
+  if (path_os.endsWith("/")) {
+    normalized = path_join(normalized, "");
+  }
+
+  return Ok(normalized);
 }

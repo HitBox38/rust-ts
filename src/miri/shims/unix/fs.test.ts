@@ -22,6 +22,7 @@ import { interp_ok, Pointer, Scalar, type InterpResult } from "../../../rustc_mi
 import { Size } from "../../../rustc_abi/lib.ts";
 import { spec } from "../../../rustc_target/lib.ts";
 import * as std_fs from "../../../std/fs.ts";
+import { absolute } from "../../../std/path.ts";
 import { Panic, Unported } from "../../../std/panic.ts";
 
 /** x86_64-unknown-linux-gnu libc constants (oracle). */
@@ -305,9 +306,9 @@ test("std::fs stand-in: pure builders, host operations unported; std::path::abso
     err = e;
   }
   expect(err).toBeInstanceOf(Unported);
-  expect(std_fs.absolute("/proc/self/../x")).toEqual({ $: "Ok", _0: "/proc/self/../x" });
-  expect(std_fs.absolute("/a//b/./c/")).toEqual({ $: "Ok", _0: "/a/b/c/" });
-  expect(std_fs.absolute("./x")).toEqual({ $: "Ok", _0: `${process.cwd()}/x` });
-  expect(std_fs.absolute("")).toEqual({ $: "Err", _0: { $: "SimpleMessage", kind: "InvalidInput", message: "cannot make an empty path absolute" } });
+  expect(absolute("/proc/self/../x")).toEqual({ $: "Ok", _0: "/proc/self/../x" });
+  expect(absolute("/a//b/./c/")).toEqual({ $: "Ok", _0: "/a/b/c/" });
+  expect(absolute("./x")).toEqual({ $: "Ok", _0: `${process.cwd()}/x` });
+  expect(absolute("")).toEqual({ $: "Err", _0: { $: "SimpleMessage", kind: "InvalidInput", message: "cannot make an empty path absolute" } });
   void Panic;
 });

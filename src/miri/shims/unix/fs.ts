@@ -18,7 +18,7 @@ import { constants as host_fs_constants } from "node:fs";
 import { type MPlaceTy, type OpTy, type Pointer, type Scalar, type StrictPointer } from "../../lib.ts";
 import { type DynMachineCallback, type MiriInterpCx, MemoryKind_from_MiriMemoryKind } from "../../machine.ts";
 import { type VisitWith, VisitProvenance_Option, VisitProvenance_Pointer, VisitProvenance_str, VisitProvenance_tuple2 } from "../../provenance_gc.ts";
-import { type DirHandle, FdId, type FdNum, type FileDescription, FileDescription_DirHandle, FileDescription_FileHandle, FileDescription_provided, type FileDescriptionRef, type FileHandle, open_file_or_dir, type SeekFrom } from "../files.ts";
+import { type DirHandle, FdId, type FdNum, type FileDescription, FileDescription_DirHandle, FileDescription_FileHandle, FileDescription_provided, type FileDescriptionRef, type FileHandle, open_file_or_dir } from "../files.ts";
 import { type IoError, IoError_from_ErrorKind, IoError_from_io_Error, LibcError } from "../io_error.ts";
 import { bytes_to_os_str } from "../os_str.ts";
 import { shim_varargs, type Varargs } from "../sig.ts";
@@ -42,9 +42,9 @@ import {
 import { spec } from "../../../rustc_target/lib.ts";
 import { debug_int, debug_struct, type Fmt } from "../../../std/fmt.ts";
 import * as fs from "../../../std/fs.ts";
-import { type ErrorKind, debug_IoError as debug_io_Error, type IoError as io_Error, IoError_kind } from "../../../std/io.ts";
+import { type ErrorKind, debug_IoError as debug_io_Error, type IoError as io_Error, io_error_from_kind, IoError_kind, type SeekFrom } from "../../../std/io.ts";
 import { assert, panic, unported } from "../../../std/panic.ts";
-import { path_is_absolute, path_strip_prefix } from "../../../std/path.ts";
+import { absolute, path_is_absolute, path_strip_prefix } from "../../../std/path.ts";
 import { Err, Ok, type Result, unwrap_result } from "../../../std/result.ts";
 import { utf8 } from "../../../std/str.ts";
 import { SystemTime } from "../../../std/time.ts";
@@ -191,11 +191,6 @@ function err_ub_format(msg: string): InterpErrorKind {
   return { $: "UndefinedBehavior", _0: { $: "Ub", _0: msg } };
 }
 
-/** `io::Error::from(kind)` (`ErrorKind::WouldBlock.into()`, `ErrorKind::NotFound.into()`): the `HostError` payload of
- *  shims-b's `IoError_from_ErrorKind` (io_error.rs:47). */
-function io_Error_from_ErrorKind(kind: ErrorKind): io_Error {
-  return (IoError_from_ErrorKind(kind) as { _0: io_Error })._0;
-}
 
 /** `{:#x}` of an `i32` (two's complement bits, like Rust's `LowerHex` for signed integers). */
 function hex_i32(n: number): string {
@@ -329,7 +324,7 @@ function display_target_os(this_: MiriInterpCx): string {
 
 /** `path::absolute(&path).is_ok_and(|path| path.starts_with("/proc"))` */
 function is_in_proc(path: string): boolean {
-  const abs = fs.absolute(path);
+  const abs = absolute(path);
   return abs.$ === "Ok" && path_strip_prefix(abs._0, "/proc") !== undefined;
 }
 
@@ -508,7 +503,7 @@ export const UnixFileDescription_FileHandle = {
       return interp_ok(Err(res._0._0));
     } else {
       if (nonblocking) {
-        return interp_ok(Err(io_Error_from_ErrorKind("WouldBlock")));
+        return interp_ok(Err(io_error_from_kind("WouldBlock")));
       } else {
         return throw_unsup_format("blocking `flock` is not currently supported");
       }
@@ -2370,7 +2365,7 @@ InterpCx.prototype.readlink = function (this: MiriInterpCx, pathname_op: OpTy, b
   let result: Result<string, io_Error>;
   if (self_exe !== undefined && pathname === self_exe) {
     const current_exe = this_.machine.current_exe;
-    result = current_exe !== undefined ? Ok(current_exe) : Err(io_Error_from_ErrorKind("NotFound"));
+    result = current_exe !== undefined ? Ok(current_exe) : Err(io_error_from_kind("NotFound"));
   } else if (target_os_in(this_, ["Linux", "Android", "Illumos", "Solaris"]) && is_in_proc(pathname)) {
     // Trying to read a symlink inside `/proc` is likely going to be nonsense, e.g.
     // `/proc/self/fd/N` doesn't use the same FD numbering. So we pretend nothing exists.
