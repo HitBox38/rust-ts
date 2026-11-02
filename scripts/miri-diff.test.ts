@@ -94,26 +94,64 @@ describe("normaliseTrace: tracing-tree's other shapes (constructed after tracing
   });
 });
 
-describe("pointer addresses (lane harness-w36)", () => {
-  test("a pointer's address is masked; its allocation id and tag, and bare integers, stay", () => {
+describe("pointer addresses (lane harness-w36; offsets kept by lane harness-w37)", () => {
+  test("a pointer's address is relative to its allocation's first address; its allocation id and tag, and bare integers, stay", () => {
     const t = normaliseTrace(
       [
         "  INFO miri::borrow_tracker retag_ptr_value: type=&u8, mode=Default, val=Scalar(0x20150[alloc27]<20>)",
-        "    INFO miri::borrow_tracker retag_ptr_value: type=&dyn Fn(), mode=FnEntry, val=ScalarPair(0x20150[alloc27]<25>, 0x2a160[alloc28]<23>)",
-        "  INFO miri::x val=Scalar(0x0000002a), p=0xdeadbeef[wildcard]",
+        "    INFO miri::borrow_tracker retag_ptr_value: type=&dyn Fn(), mode=FnEntry, val=ScalarPair(0x20158[alloc27]<25>, 0x2a160[alloc28]<23>)",
+        "  INFO miri::x val=Scalar(0x0000002a), p=0xdeadbeef[wildcard], q=0x20148[a27]",
         "",
       ].join("\n"),
     );
     expect(t.events).toEqual([
-      "INFO miri::borrow_tracker retag_ptr_value: type=&u8, mode=Default, val=Scalar(0xADDR[alloc27]<20>)",
-      "INFO miri::borrow_tracker retag_ptr_value: type=&dyn Fn(), mode=FnEntry, val=ScalarPair(0xADDR[alloc27]<25>, 0xADDR[alloc28]<23>)",
-      "INFO miri::x val=Scalar(0x0000002a), p=0xADDR[wildcard]",
+      "INFO miri::borrow_tracker retag_ptr_value: type=&u8, mode=Default, val=Scalar(0xADDR+0x0[alloc27]<20>)",
+      "INFO miri::borrow_tracker retag_ptr_value: type=&dyn Fn(), mode=FnEntry, val=ScalarPair(0xADDR+0x8[alloc27]<25>, 0xADDR+0x0[alloc28]<23>)",
+      "INFO miri::x val=Scalar(0x0000002a), p=0xADDR[wildcard], q=0xADDR-0x8[a27]",
     ]);
-    // Another address of the same pointer matches; another allocation or tag does not.
-    const a = normaliseTrace("  INFO m val=Scalar(0x30150[alloc27]<20>)\n").events;
-    expect(compareTraces(t.events.slice(0, 1).map((e) => e.replace(/^.*val=/, "INFO m val=")), a)).toEqual({ kind: "match" });
-    expect(normaliseTrace("  INFO m val=Scalar(0x30150[alloc26]<20>)\n").events).not.toEqual(a);
     expect(maskAddresses("x=0x1f")).toBe("x=0x1f");
+  });
+
+  // Real records of the cached oracle trace of tests/miri/hello (MIRI_LOG=info; stderr lines 4963-4976 and 5284-5331,
+  // indentation shortened): `&str` pointers into alloc1, then a `OnceLock` in alloc223 and its `Once` field 0x38 in.
+  const HELLO = [
+    "  INFO miri::borrow_tracker retag_ptr_value: type=&str, mode=FnEntry, val=ScalarPair(0x20f46[alloc1]<492>, 0x000000000000000e)",
+    "    INFO miri::borrow_tracker retag_ptr_value: type=*const str, mode=Raw, val=ScalarPair(0x20f46[alloc1]<495>, 0x000000000000000e)",
+    "  INFO miri::borrow_tracker retag_ptr_value: type=&std::sync::OnceLock<std::sync::ReentrantLock<std::cell::RefCell<std::io::LineWriter<std::io::stdio::StdoutRaw>>>>, mode=Default, val=Scalar(0x20fe8[alloc223]<526>)",
+    "    INFO miri::borrow_tracker retag_ptr_value: type=&std::sync::Once, mode=Default, val=Scalar(0x21020[alloc223]<538>)",
+    "",
+  ];
+  /** HELLO with every address of the trace moved by `d` (another environment: every base shifts). */
+  const shifted = (d: number, lines: string[] = HELLO): string =>
+    lines.join("\n").replace(/0x([0-9a-f]+)(?=\[alloc)/g, (_m, h: string) => `0x${(parseInt(h, 16) + d).toString(16)}`);
+
+  test("real trace fragments: the offset within an allocation shows, the environment's base shift does not", () => {
+    const o = normaliseTrace(HELLO.join("\n")).events;
+    expect(o.map((e) => /val=.*$/.exec(e)![0])).toEqual([
+      "val=ScalarPair(0xADDR+0x0[alloc1]<492>, 0x000000000000000e)",
+      "val=ScalarPair(0xADDR+0x0[alloc1]<495>, 0x000000000000000e)",
+      "val=Scalar(0xADDR+0x0[alloc223]<526>)",
+      "val=Scalar(0xADDR+0x38[alloc223]<538>)",
+    ]);
+    // Every base 0x1000 higher (e.g. a longer argv): same trace.
+    expect(compareTraces(o, normaliseTrace(shifted(0x1000)).events)).toEqual({ kind: "match" });
+    // The `Once` field at offset 0x30 instead of 0x38: the traces differ at that record (the old mask hid this).
+    const wrongField = HELLO.map((l) => l.replace("0x21020[alloc223]", "0x21018[alloc223]"));
+    expect(compareTraces(o, normaliseTrace(wrongField.join("\n")).events)).toEqual({ kind: "diverges", index: 3 });
+    // Another allocation or tag still differs.
+    expect(compareTraces(o, normaliseTrace(HELLO.join("\n").replace("[alloc223]<538>", "[alloc224]<538>")).events)).toEqual({ kind: "diverges", index: 3 });
+    expect(compareTraces(o, normaliseTrace(HELLO.join("\n").replace("<538>", "<539>")).events)).toEqual({ kind: "diverges", index: 3 });
+  });
+
+  test("the bases are per trace and an address in a continuation line counts too", () => {
+    const one = "  INFO m p=0x500[alloc9]\n";
+    // Two normalisations do not share bases: each trace's first address of alloc9 is its own +0x0.
+    expect(normaliseTrace(one).events).toEqual(["INFO m p=0xADDR+0x0[alloc9]"]);
+    expect(normaliseTrace(one.replace("0x500", "0x900")).events).toEqual(["INFO m p=0xADDR+0x0[alloc9]"]);
+    const t = normaliseTrace("  INFO m v=Foo {\n      a: 0x510[alloc9]<1>,\n    }\n  INFO m p=0x500[alloc9]\n");
+    expect(t.events).toEqual(["INFO m v=Foo {\n    a: 0xADDR+0x0[alloc9]<1>,\n  }", "INFO m p=0xADDR-0x10[alloc9]"]);
+    // 64-bit addresses do not lose precision.
+    expect(maskAddresses("p=0xfffffffffffffff8[alloc3] q=0xffffffffffffffff[alloc3]")).toBe("p=0xADDR+0x0[alloc3] q=0xADDR+0x7[alloc3]");
   });
 });
 

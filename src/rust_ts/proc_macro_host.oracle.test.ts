@@ -10,7 +10,7 @@
 //
 // Skips (visibly) if the pinned rustc is unavailable; fails instead under RUST_TS_REQUIRE_PROBES=1.
 import { describe, expect, test } from "bun:test";
-import { copyFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, realpathSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { PIN, REPO } from "../../scripts/lib/common.ts";
 import "../proc_macro/lib.ts";
@@ -187,6 +187,102 @@ pub fn bad_parse(_: TokenStream) -> TokenStream { "let x = (;".parse().unwrap() 
 pub fn say(input: TokenStream) -> TokenStream { println!("OUT {}", input); eprintln!("ERR {}", input); TokenStream::new() }
 `;
 
+/** The pinned oracle's stdout for `ERRORS`: the expansion, every failed macro call removed. */
+const ERRORS_STDOUT = [
+  "#![feature(prelude_import)]",
+  "extern crate std;",
+  "#[prelude_import]",
+  "use std::prelude::rust_2021::*;",
+  "extern crate hard_pm;",
+  "use hard_pm::*;",
+  "fn main() {}",
+  "",
+].join("\n");
+
+/** The pinned oracle's stderr for `ERRORS` (thread ids masked). */
+const ERRORS_STDERR = [
+  "error: proc macro panicked",
+  " --> user_errors.rs:3:1",
+  "  |",
+  "3 | boom!();",
+  "  | ^^^^^^^",
+  "  |",
+  "  = help: message: boom at 42",
+  "",
+  "error: proc macro panicked",
+  " --> user_errors.rs:4:1",
+  "  |",
+  "4 | boom_any!();",
+  "  | ^^^^^^^^^^^",
+  "",
+  "error: bad input here: ünïcödé",
+  " --> user_errors.rs:5:1",
+  "  |",
+  "5 | err!(here);",
+  "  | ^^^^^^^^^^",
+  "  |",
+  "  = note: this error originates in the macro `err` (in Nightly builds, run with -Z macro-backtrace for more info)",
+  "",
+  "error: proc macro panicked",
+  " --> user_errors.rs:6:1",
+  "  |",
+  "6 | bad_parse!();",
+  "  | ^^^^^^^^^^^^",
+  "  |",
+  "  = help: message: called `Result::unwrap()` on an `Err` value: LexError(\"this file contains an unclosed delimiter\")",
+  "",
+  "error: aborting due to 4 previous errors",
+  "",
+  "",
+].join("\n");
+
+/** The pinned oracle's stderr for `ERRORS` with `-Zproc-macro-backtrace`: the dylib's panic hook prints first. */
+const ERRORS_BT_STDERR = [
+  "",
+  "thread '<unnamed>' (TID) panicked at hard_pm.rs:5:46:",
+  "boom at 42",
+  "note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace",
+  "error: proc macro panicked",
+  " --> user_errors_bt.rs:3:1",
+  "  |",
+  "3 | boom!();",
+  "  | ^^^^^^^",
+  "  |",
+  "  = help: message: boom at 42",
+  "",
+  "",
+  "thread '<unnamed>' (TID) panicked at hard_pm.rs:8:50:",
+  "Box<dyn Any>",
+  "error: proc macro panicked",
+  " --> user_errors_bt.rs:4:1",
+  "  |",
+  "4 | boom_any!();",
+  "  | ^^^^^^^^^^^",
+  "",
+  "error: bad input here: ünïcödé",
+  " --> user_errors_bt.rs:5:1",
+  "  |",
+  "5 | err!(here);",
+  "  | ^^^^^^^^^^",
+  "  |",
+  "  = note: this error originates in the macro `err` (in Nightly builds, run with -Z macro-backtrace for more info)",
+  "",
+  "",
+  "thread '<unnamed>' (TID) panicked at hard_pm.rs:64:72:",
+  "called `Result::unwrap()` on an `Err` value: LexError(\"this file contains an unclosed delimiter\")",
+  "error: proc macro panicked",
+  " --> user_errors_bt.rs:6:1",
+  "  |",
+  "6 | bad_parse!();",
+  "  | ^^^^^^^^^^^^",
+  "  |",
+  "  = help: message: called `Result::unwrap()` on an `Err` value: LexError(\"this file contains an unclosed delimiter\")",
+  "",
+  "error: aborting due to 4 previous errors",
+  "",
+  "",
+].join("\n");
+
 describe.skipIf(SKIP)("proc-macro host dylibs vs the oracle (-Zunpretty=expanded)", () => {
   let echo = "";
   let hard = "";
@@ -257,12 +353,21 @@ err!(here);
 bad_parse!();
 fn main() {}
 `;
+  // The failure-path cases pin the oracle's own text (lane fixers-36), so two identical but unrelated failures (a
+  // missing crate, a rejected `--extern` path, ...) cannot pass as port == oracle. Recorded from the pinned oracle;
+  // thread ids masked by `normalize`.
   test("proc-macro panics and compile_error! spans", () => {
-    compare("user_errors.rs", ERRORS, [["hard_pm", hard_pm()]]);
+    const oracle = compare("user_errors.rs", ERRORS, [["hard_pm", hard_pm()]]);
+    expect(oracle.code).toBe(1);
+    expect(oracle.stdout).toBe(ERRORS_STDOUT);
+    expect(normalize(oracle.stderr)).toBe(ERRORS_STDERR);
   }, 60_000);
 
   test("-Zproc-macro-backtrace: the dylib's panic hook prints", () => {
-    compare("user_errors_bt.rs", ERRORS, [["hard_pm", hard_pm()]], ["-Zproc-macro-backtrace"]);
+    const oracle = compare("user_errors_bt.rs", ERRORS, [["hard_pm", hard_pm()]], ["-Zproc-macro-backtrace"]);
+    expect(oracle.code).toBe(1);
+    expect(oracle.stdout).toBe(ERRORS_STDOUT);
+    expect(normalize(oracle.stderr)).toBe(ERRORS_BT_STDERR);
   }, 60_000);
 
   test("the dylib's own stdout / stderr writes interleave with diagnostics", () => {
@@ -281,10 +386,32 @@ fn main() {}
 
   test.skipIf(process.platform !== "darwin" || !Bun.which("codesign"))("dlopen failure (unsigned dylib on macOS) is CrateError::DlOpen", () => {
     const file = echo_pm();
-    const unsigned = `unsigned_${file}`;
+    // The copy keeps the `lib<name>.dylib` file name (in its own directory): a renamed copy such as
+    // `unsigned_libecho_pm.dylib` is rejected by the locator as an unknown `--extern` file type and never reaches dlopen.
+    mkdirSync(join(WORK, "unsigned"), { recursive: true });
+    const unsigned = join("unsigned", file);
     copyFileSync(join(WORK, file), join(WORK, unsigned));
     expect(run(["codesign", "--remove-signature", unsigned]).code).toBe(0);
-    compare("user_unsigned.rs", "extern crate echo_pm;\nfn main() {}\n", [["echo_pm", unsigned]]);
+    const oracle = compare("user_unsigned.rs", "extern crate echo_pm;\nfn main() {}\n", [["echo_pm", unsigned]]);
+    expect(oracle.code).toBe(1);
+    expect(oracle.stdout).toBe("");
+    // `CrateError::DlOpen(path, err)`: `{path}: dlopen failed: {err}`, err being dyld's message (it names the dylib's
+    // UUID, so only its shape is pinned).
+    const path = realpathSync(join(WORK, unsigned));
+    const [first, ...rest] = oracle.stderr.split("\n");
+    expect(first!.startsWith(`error: ${path}: dlopen failed: dlopen(${path}, 0x0005): tried: '${path}' (missing code signature in <`)).toBe(true);
+    expect(rest.join("\n")).toBe(
+      [
+        " --> user_unsigned.rs:1:1",
+        "  |",
+        "1 | extern crate echo_pm;",
+        "  | ^^^^^^^^^^^^^^^^^^^^^",
+        "",
+        "error: aborting due to 1 previous error",
+        "",
+        "",
+      ].join("\n"),
+    );
   }, 60_000);
 });
 

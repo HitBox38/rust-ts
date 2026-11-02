@@ -58,6 +58,7 @@ import { debug_target_spec_other, spec } from "../rustc_target/lib.ts";
 import { type Os } from "../rustc_target/spec/mod.ts";
 import { debug_str, PLAIN } from "../std/fmt.ts";
 import { assert, panic, unported } from "../std/panic.ts";
+import { port_methods } from "../rust_ts/miri_stub.ts";
 import { Err, unwrap_result } from "../std/result.ts";
 
 /** `Res<!>`'s `Id` is uninhabited (`ModChild::res`): its Debug is never called. */
@@ -1289,54 +1290,58 @@ InterpCx.prototype.mangle_internal_symbol = function (this: MiriInterpCx, name: 
   return v;
 };
 
-/// Get the current span in the topmost function which is workspace-local and not
-/// `#[track_caller]`.
-/// This function is backed by a cache, and can be assumed to be very fast.
-/// It will work even when the stack is empty.
-// rustc: src/tools/miri/src/helpers.rs:1019 current_user_relevant_span
-MiriMachine.prototype.current_user_relevant_span = function (this: MiriMachine): Span {
-  return this.threads.active_thread_ref().current_user_relevant_span();
-};
+// PORT(C10): `impl<'tcx> MiriMachine<'tcx>` methods of this file are registered with `port_methods`, not assigned at load:
+// MiriMachine is in an import cycle with this module (modules machine.ts imports may then import helpers.ts).
+port_methods("miri::helpers::MiriMachine", () => MiriMachine.prototype, {
+  /// Get the current span in the topmost function which is workspace-local and not
+  /// `#[track_caller]`.
+  /// This function is backed by a cache, and can be assumed to be very fast.
+  /// It will work even when the stack is empty.
+  // rustc: src/tools/miri/src/helpers.rs:1019 current_user_relevant_span
+  current_user_relevant_span(this: MiriMachine): Span {
+    return this.threads.active_thread_ref().current_user_relevant_span();
+  },
 
-/// Returns the span of the *caller* of the current operation, again
-/// walking down the stack to find the closest frame in a local crate, if the caller of the
-/// current operation is not in a local crate.
-/// This is useful when we are processing something which occurs on function-entry and we want
-/// to point at the call to the function, not the function definition generally.
-// rustc: src/tools/miri/src/helpers.rs:1028 caller_span
-MiriMachine.prototype.caller_span = function (this: MiriMachine): Span {
-  // We need to go down at least to the caller (len - 2), or however
-  // far we have to go to find a frame in a local crate which is also not #[track_caller].
-  const frame_idx0 = this.top_user_relevant_frame();
-  if (frame_idx0 === undefined) panic("called `Option::unwrap()` on a `None` value");
-  const frame_idx = Math.min(frame_idx0, Math.max(this.stack().length - 2, 0));
-  return this.stack()[frame_idx]!.current_span();
-};
+  /// Returns the span of the *caller* of the current operation, again
+  /// walking down the stack to find the closest frame in a local crate, if the caller of the
+  /// current operation is not in a local crate.
+  /// This is useful when we are processing something which occurs on function-entry and we want
+  /// to point at the call to the function, not the function definition generally.
+  // rustc: src/tools/miri/src/helpers.rs:1028 caller_span
+  caller_span(this: MiriMachine): Span {
+    // We need to go down at least to the caller (len - 2), or however
+    // far we have to go to find a frame in a local crate which is also not #[track_caller].
+    const frame_idx0 = this.top_user_relevant_frame();
+    if (frame_idx0 === undefined) panic("called `Option::unwrap()` on a `None` value");
+    const frame_idx = Math.min(frame_idx0, Math.max(this.stack().length - 2, 0));
+    return this.stack()[frame_idx]!.current_span();
+  },
 
-// rustc: src/tools/miri/src/helpers.rs:1036 stack
-MiriMachine.prototype.stack = function (this: MiriMachine): readonly Frame<Provenance, FrameExtra>[] {
-  return this.threads.active_thread_stack();
-};
+  // rustc: src/tools/miri/src/helpers.rs:1036 stack
+  stack(this: MiriMachine): readonly Frame<Provenance, FrameExtra>[] {
+    return this.threads.active_thread_stack();
+  },
 
-// rustc: src/tools/miri/src/helpers.rs:1040 top_user_relevant_frame
-MiriMachine.prototype.top_user_relevant_frame = function (this: MiriMachine): number | undefined {
-  return this.threads.active_thread_ref().top_user_relevant_frame_();
-};
+  // rustc: src/tools/miri/src/helpers.rs:1040 top_user_relevant_frame
+  top_user_relevant_frame(this: MiriMachine): number | undefined {
+    return this.threads.active_thread_ref().top_user_relevant_frame_();
+  },
 
-/// This is the source of truth for the `user_relevance` flag in our `FrameExtra`.
-// rustc: src/tools/miri/src/helpers.rs:1045 user_relevance
-MiriMachine.prototype.user_relevance = function (this: MiriMachine, frame: Frame<Provenance>): number {
-  if (InstanceKind.requires_caller_location(frame.instance_().def, this.tcx)) {
-    return 0;
-  }
-  if (this.is_local(frame.instance_())) {
-    return 255; // u8::MAX
-  } else {
-    // A non-relevant frame, but at least it doesn't require a caller location, so
-    // better than nothing.
-    return 1;
-  }
-};
+  /// This is the source of truth for the `user_relevance` flag in our `FrameExtra`.
+  // rustc: src/tools/miri/src/helpers.rs:1045 user_relevance
+  user_relevance(this: MiriMachine, frame: Frame<Provenance>): number {
+    if (InstanceKind.requires_caller_location(frame.instance_().def, this.tcx)) {
+      return 0;
+    }
+    if (this.is_local(frame.instance_())) {
+      return 255; // u8::MAX
+    } else {
+      // A non-relevant frame, but at least it doesn't require a caller location, so
+      // better than nothing.
+      return 1;
+    }
+  },
+});
 
 // rustc: src/tools/miri/src/helpers.rs:1059 isolation_abort_error
 export function isolation_abort_error(name: string): InterpResult {

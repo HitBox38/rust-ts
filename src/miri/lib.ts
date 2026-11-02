@@ -196,12 +196,13 @@ export {
 } from "./machine.ts";
 export { LiveAllocs, type VisitProvenance, type VisitWith } from "./provenance_gc.ts";
 export { EmulateItemResult } from "./shims/mod.ts";
-// pub use crate::shims::cpu_affinity::MAX_CPUS;  (a const of shims/cpu_affinity.rs, lane miri-shims-b: re-export it here when ported)
+export { MAX_CPUS } from "./shims/cpu_affinity.ts";
 export { EnvVars } from "./shims/env.ts";
 export { DynSym } from "./shims/foreign_items.ts";
-// pub use crate::shims::io_error::{EvalContextExt as _, IoError, LibcError};  (`LibcError` is the variant
-// `IoError::LibcError` through `pub use self::IoError::*`: its constructor is lane miri-shims-b's)
-export type { IoError } from "./shims/io_error.ts";
+// pub use crate::shims::io_error::{EvalContextExt as _, IoError, LibcError};  (`LibcError` is the variant constructor
+// io_error.rs exports through `pub use self::IoError::*`; the other variants are reached as `IoError::X`, i.e. the
+// companion `IoError.X`, as upstream's crate root re-exports only `LibcError`)
+export { IoError, LibcError } from "./shims/io_error.ts";
 export { type Readiness, ReadinessInterest, ReadinessUpdateFlags, ReadinessWatched, ReadinessWatcher } from "./shims/readiness.ts";
 export { TlsData } from "./shims/tls.ts";
 export type { CatchUnwindData } from "./shims/unwind.ts";

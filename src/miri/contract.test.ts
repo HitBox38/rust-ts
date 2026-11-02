@@ -141,19 +141,24 @@ test("placeholders: installed once, no name registered twice per target, each st
     }
   }
   expect(dups).toEqual([]);
-  expect(MIRI_STUBS.length).toBeGreaterThan(100);
-  const s = MIRI_STUBS.find((x) => x.path === "miri::shims::time::EvalContextExt")!;
-  expect(s.lane).toBe("miri-shims-b");
-  const proto = InterpCx.prototype as unknown as Record<string, () => unknown>;
-  let caught: unknown;
-  try {
-    proto["clock_gettime"]!.call(undefined);
-  } catch (e) {
-    caught = e;
+  // Fill lanes delete placeholders, so no count or sample is fixed: every placeholder still installed (none once the
+  // last lane lands) must name a known lane and stop `unported` with its path, upstream file and lane.
+  for (const s of MIRI_STUBS) {
+    expect(LANES.has(s.lane)).toBe(true);
+    const t = s.target() as Record<string, (() => unknown) | undefined>;
+    for (const name of s.names) {
+      expect(typeof t[name]).toBe("function");
+      let caught: unknown;
+      try {
+        t[name]!.call(undefined);
+      } catch (e) {
+        caught = e;
+      }
+      expect(caught).toBeInstanceOf(Unported);
+      expect((caught as Error).message).toContain(`${s.path}::${name} (${s.upstream}; lane ${s.lane})`);
+      expect(stub_message(s, name)).toBe(`${s.path}::${name} (${s.upstream}; lane ${s.lane})`);
+    }
   }
-  expect(caught).toBeInstanceOf(Unported);
-  expect((caught as Error).message).toContain(stub_message(s, "clock_gettime"));
-  expect(stub_message(s, "clock_gettime")).toBe("miri::shims::time::EvalContextExt::clock_gettime (src/tools/miri/src/shims/time.rs; lane miri-shims-b)");
 });
 
 test("every method a module declares on `InterpCx` is a function after load", () => {

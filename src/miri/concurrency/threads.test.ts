@@ -37,7 +37,7 @@ import { PLAIN } from "../../std/fmt.ts";
 import { Panic, Unported } from "../../std/panic.ts";
 import { Err } from "../../std/result.ts";
 import { Poll } from "../../std/task.ts";
-import { Duration } from "../../std/time.ts";
+import { Duration, SystemTime } from "../../std/time.ts";
 import { StdRng } from "../../vendor/rand/rngs/std.ts";
 import { EnvFilter, LayeredSubscriber, reset_global_default_for_tests, set_global_default } from "../../rust_ts/tracing.ts";
 import { HierarchicalLayer, type Writer } from "../../rust_ts/tracing_tree.ts";
@@ -66,7 +66,7 @@ interface Cx extends MiriInterpCx {
   now: { readonly t: bigint };
 }
 
-function make_ecx(opts: { fixed?: boolean; preemption_rate?: number; seed?: bigint } = {}): Cx {
+function make_ecx(opts: { fixed?: boolean; preemption_rate?: number; seed?: bigint; communicate?: boolean } = {}): Cx {
   const monotonic_clock = MonotonicClock.new(false);
   const now = {
     get t(): bigint {
@@ -84,7 +84,7 @@ function make_ecx(opts: { fixed?: boolean; preemption_rate?: number; seed?: bigi
     blocking_io: (BlockingIoManager.new(false) as { _0: BlockingIoManager })._0,
     static_roots: [],
     thread_cpu_affinity: undefined,
-    communicate: () => false,
+    communicate: () => opts.communicate ?? false,
     handle_abnormal_termination: () => {},
     current_user_relevant_span: () => DUMMY_SP,
   };
@@ -274,6 +274,72 @@ test("unblock_expired_deadlines: fires expired timeouts and returns the smallest
   expect(r).toEqual({ $: "Ok", _0: Duration.from_nanos(30n) });
   expect(ecx.log).toEqual(["t2:TimedOut@2"]);
   expect(ecx.active_thread()).toBe(ThreadId.MAIN_THREAD);
+});
+
+/** A `RealTime` deadline `secs` seconds after the Unix epoch (a constructed `SystemTime`; the host clock is not read here). */
+const real_deadline = (secs: bigint): Deadline => ({ $: "RealTime", _0: unwrap_some(SystemTime.UNIX_EPOCH.checked_add(Duration.from_secs(secs))) });
+function unwrap_some<T>(v: T | undefined): T {
+  if (v === undefined) throw new Error("expected Some");
+  return v;
+}
+/** 10^11 s after the epoch (year ~5138): later than any host clock this test runs under. */
+const FAR_FUTURE_SECS = 100_000_000_000n;
+/** 2023-11-14 (1.7e9 s after the epoch): earlier than any host clock this test runs under. */
+const PAST_SECS = 1_700_000_000n;
+
+test("unblock_expired_deadlines, RealTime arm (isolation off): a past SystemTime deadline fires, a future one waits", () => {
+  const ecx = make_ecx({ communicate: true });
+  ThreadManager.init(ecx, EXIT);
+  const t = ecx.machine.threads;
+  const ids = [t.create_thread(READY), t.create_thread(READY), t.create_thread(READY)];
+  // t1: a deadline in the past (`duration_since` is `Err`, so the wait is `Duration::ZERO`): it times out.
+  // t2: the epoch itself (also in the past): it times out too, after t1 (thread order).
+  // t3: far in the future: it stays blocked and bounds the returned wait.
+  const deadlines = [real_deadline(1n), real_deadline(0n), real_deadline(FAR_FUTURE_SECS)];
+  ids.forEach((id, i) => {
+    t.set_active_thread(id);
+    ecx.block_thread({ $: "Sleep" }, deadlines[i], record(ecx, `t${id.index()}`));
+  });
+  t.set_active_thread(ThreadId.MAIN_THREAD);
+  const r = ecx.unblock_expired_deadlines();
+  expect(r.$).toBe("Ok");
+  const wait = (r as { _0: Duration | undefined })._0!;
+  expect(wait).toBeInstanceOf(Duration);
+  // wait = FAR_FUTURE - now, with PAST_SECS < now < FAR_FUTURE / 2.
+  expect(wait.as_secs()).toBeLessThan(FAR_FUTURE_SECS - PAST_SECS);
+  expect(wait.as_secs()).toBeGreaterThan(FAR_FUTURE_SECS / 2n);
+  expect(ecx.log).toEqual(["t1:TimedOut@1", "t2:TimedOut@2"]);
+  expect(t.threads[ids[2]!.index()]!.state.$).toBe("Blocked");
+  expect(ecx.active_thread()).toBe(ThreadId.MAIN_THREAD);
+});
+
+test("unblock_expired_deadlines: RealTime and Monotonic deadlines share min_wait_time", () => {
+  const ecx = make_ecx({ communicate: true });
+  ThreadManager.init(ecx, EXIT);
+  const t = ecx.machine.threads;
+  const ids = [t.create_thread(READY), t.create_thread(READY)];
+  const deadlines = [real_deadline(FAR_FUTURE_SECS), deadline(50n)];
+  ids.forEach((id, i) => {
+    t.set_active_thread(id);
+    ecx.block_thread({ $: "Sleep" }, deadlines[i], record(ecx, `t${id.index()}`));
+  });
+  t.set_active_thread(ThreadId.MAIN_THREAD);
+  expect(ecx.unblock_expired_deadlines()).toEqual({ $: "Ok", _0: Duration.from_nanos(50n) });
+  expect(ecx.log).toEqual([]);
+});
+
+test("RealTime deadlines need isolation off: block_thread and unblock_expired_deadlines panic under isolation", () => {
+  const ecx = make_ecx({ communicate: false });
+  ThreadManager.init(ecx, EXIT);
+  expect(() => ecx.block_thread({ $: "Sleep" }, real_deadline(1n), record(ecx, "m"))).toThrow("cannot have `RealTime` timeout with isolation");
+  // A RealTime deadline that got in (the manager's block_thread does not check isolation) trips the assert.
+  const t = ecx.machine.threads;
+  const id = t.create_thread(READY);
+  t.set_active_thread(id);
+  t.block_thread({ $: "Sleep" }, real_deadline(1n), record(ecx, "t"));
+  t.set_active_thread(ThreadId.MAIN_THREAD);
+  expect(() => ecx.unblock_expired_deadlines()).toThrow("cannot have `RealTime` timeout with isolation");
+  expect(ecx.log).toEqual([]);
 });
 
 test("futex: a wake before the deadline unblocks with Ready; the waiter list follows extract_if(..).take(count)", () => {

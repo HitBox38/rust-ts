@@ -5,10 +5,12 @@ import { type Debug, debug_struct } from "../../../../std/fmt.ts";
 
 // rustc-type: src/tools/miri/src/shims/unix/linux_like/epoll.rs:13 Epoll
 /// An `Epoll` file descriptor connects file handles and epoll events
-export interface Epoll {
-  /// Watcher used for registering interests in the global readiness
-  /// interest table.
-  watcher: ReadinessWatcher;
+export class Epoll {
+  constructor(
+    /// Watcher used for registering interests in the global readiness
+    /// interest table.
+    public watcher: ReadinessWatcher,
+  ) {}
 }
 export const debug_Epoll: Debug<Epoll> = (v, f) =>
   debug_struct(f, "Epoll", [
