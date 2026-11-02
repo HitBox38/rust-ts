@@ -28,12 +28,20 @@
 // diagnostics, the port's `rust-ts: unported:` line, empty lines) is "other": not part of the trace, counted and
 // returned separately. A program line that happens to look like an event or span line is misread as one, on both
 // sides alike. There is no timing to strip: rustc_log sets no timer (tracing-tree's `()` timer writes nothing).
-// Addresses (lane harness-w36; review miri-diff, decision 2026-11-01): a pointer with provenance prints as
-// `0x<address>[alloc<id>]<tag>` (or `[wildcard]`), e.g. `retag_ptr_value: ... val=Scalar(0x20150[alloc27]<20>)`. The
-// address depends on the environment (allocation sizes of argv, env and paths shift every later base address,
-// alloc_addresses `AddressGenerator`), so in records it is masked to `0xADDR`; the allocation id and tag stay, so a
-// pointer to another allocation or with another tag still differs. A bare `0x...` (an integer scalar) is data and kept.
-
+// Addresses (lane harness-w36; review miri-diff, decision 2026-11-01; offsets kept by lane harness-w37): a pointer with
+// provenance prints as `0x<address>[alloc<id>]<tag>` (machine.rs `Provenance::fmt` / `impl Debug for Provenance`;
+// `{:#?}` prints the id as `a<id>`, mir/interpret/mod.rs `impl Display for AllocId`) or `0x<address>[wildcard]`, e.g.
+// `retag_ptr_value: ... val=Scalar(0x20150[alloc27]<20>)`. The address is the allocation's base address plus the
+// offset (OFFSET_IS_ADDR). The base depends on the environment (allocation sizes of argv, env and paths shift every
+// later base address, alloc_addresses `AddressGenerator`), the offset does not. The trace never prints a base, so per
+// trace the first address seen with an allocation id stands in for that allocation's base, and every address with
+// that id is written relative to it: `0xADDR+0x<n>[alloc<id>]` (`0xADDR-0x<n>` below it), the first one `0xADDR+0x0`.
+// So `0x20150[alloc27]` then `0x20158[alloc27]` normalise to `+0x0` and `+0x8`, and a pointer at another offset
+// within the allocation than the oracle's differs. Only the record's own and earlier records' addresses matter, so
+// records before the first difference stay comparable. What stays hidden: every pointer into one allocation shifted by
+// the same amount on one side (the first one included). `[wildcard]` has no allocation to be relative to, so its
+// address is masked whole (`0xADDR[wildcard]`). The allocation id and tag stay, so a pointer to another allocation or
+// with another tag still differs. A bare `0x...` (an integer scalar) is data and kept.
 /** A normalised trace: its records (events and span openings, in order) and the stderr lines that are not trace. */
 export interface MiriTrace {
   readonly events: string[];
@@ -41,10 +49,25 @@ export interface MiriTrace {
 }
 
 const ANSI = /\x1b\[[0-9;]*m/g;
-/** The address of a pointer with provenance (see the header): hex digits followed by `[alloc<id>]` or `[wildcard]`. */
-const PTR_ADDR = /\b0x[0-9a-f]+(?=\[(?:alloc\d+|wildcard)\])/g;
-/** A record with its pointer addresses masked (see the header). */
-export const maskAddresses = (record: string): string => record.replace(PTR_ADDR, "0xADDR");
+/** The address of a pointer with provenance (see the header): hex digits followed by `[alloc<id>]`, `[a<id>]` or
+ * `[wildcard]`; group 1 the address, 2 the allocation id (absent for `wildcard`). */
+const PTR_ADDR = /\b0x([0-9a-f]+)(?=\[(?:(?:alloc|a)(\d+)|wildcard)\])/g;
+/** Per trace: allocation id -> the first address seen with it (see the header). */
+export type AllocBases = Map<string, bigint>;
+/**
+ * A record with its pointer addresses masked (see the header): relative to `bases` (the first address of each
+ * allocation seen so far in the trace; addresses of new allocations are added to it).
+ */
+export function maskAddresses(record: string, bases: AllocBases = new Map()): string {
+  return record.replace(PTR_ADDR, (_m, hex: string, id: string | undefined) => {
+    if (id === undefined) return "0xADDR";
+    const addr = BigInt(`0x${hex}`);
+    let base = bases.get(id);
+    if (base === undefined) bases.set(id, (base = addr));
+    const off = addr - base;
+    return off < 0n ? `0xADDR-0x${(-off).toString(16)}` : `0xADDR+0x${off.toString(16)}`;
+  });
+}
 /** tracing-tree's event line (colours removed): indentation, level, target, fields. */
 const EVENT = /^( +)(TRACE|DEBUG|INFO|WARN|ERROR) (\S+)(.*)$/;
 /** tracing-tree's span-opening line (colours removed): indentation, `<target>::<name>`, optional fields. */
@@ -59,23 +82,24 @@ export function normaliseTrace(stderr: string): MiriTrace {
   if (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
   /** Indentation of the last record's first line, while the next line may continue it; -1 otherwise. */
   let recIndent = -1;
+  const bases: AllocBases = new Map();
   for (const raw of lines) {
     const line = raw.replace(ANSI, "");
     const e = EVENT.exec(line);
     if (e) {
-      events.push(maskAddresses(`${e[2]} ${e[3]}${e[4]}`));
+      events.push(maskAddresses(`${e[2]} ${e[3]}${e[4]}`, bases));
       recIndent = e[1]!.length;
       continue;
     }
     const s = SPAN.exec(line);
     if (s) {
-      events.push(maskAddresses(`SPAN ${s[2]}${s[3] ? ` ${s[3]}` : ""}`));
+      events.push(maskAddresses(`SPAN ${s[2]}${s[3] ? ` ${s[3]}` : ""}`, bases));
       recIndent = s[1]!.length;
       continue;
     }
     const indent = /^ */.exec(line)![0].length;
     if (recIndent >= 0 && indent > recIndent && indent < line.length) {
-      events[events.length - 1] += `\n${maskAddresses(line.slice(recIndent))}`;
+      events[events.length - 1] += `\n${maskAddresses(line.slice(recIndent), bases)}`;
       continue;
     }
     other.push(line);

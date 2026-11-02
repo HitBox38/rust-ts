@@ -195,22 +195,9 @@ test("-Zmiri-retag-fields warns and continues", () => {
   // (`-Zmiri-genmc` is in ORACLE above since genmc/dummy.ts landed.)
 });
 
-// PENDING wave 37 (lane miri-shims-b ports `MAX_CPUS`, shims/cpu_affinity.rs): the oracle prints
-// "fatal error: -Zmiri-num-cpus must be in the range 1..=1024" and exits 1. Until then the range check stops unported;
-// this test pins that stop (not the oracle's behaviour) and is replaced by the todo below when wave 37 lands.
-test("-Zmiri-num-cpus range check: stops unported at MAX_CPUS until wave 37 (pending, not the oracle's output)", () => {
-  let stop: unknown;
-  try {
-    run(["-Zmiri-num-cpus=0"]);
-  } catch (e) {
-    stop = e;
-  }
-  expect(stop).toBeInstanceOf(Unported);
-  expect((stop as Unported).what).toBe(
-    "miri::shims::cpu_affinity::MAX_CPUS (src/tools/miri/src/shims/cpu_affinity.rs; lane miri-shims-b, not exported)",
-  );
+// The oracle prints "fatal error: -Zmiri-num-cpus must be in the range 1..=1024" and exits 1 (MAX_CPUS = 1024,
+// shims/cpu_affinity.rs, lane miri-shims-b, wave 37).
+test("-Zmiri-num-cpus range check: the oracle's range error (MAX_CPUS = 1024)", () => {
+  expect(run(["-Zmiri-num-cpus=0"]).slice(0, 2)).toEqual(["fatal error: -Zmiri-num-cpus must be in the range 1..=1024\n", 1]);
+  expect(run(["-Zmiri-num-cpus=1025"]).slice(0, 2)).toEqual(["fatal error: -Zmiri-num-cpus must be in the range 1..=1024\n", 1]);
 });
-// Wave 37 (MAX_CPUS = 1024, lane miri-shims-b): replace the pending test above with the oracle's range error
-// (not a `test.todo`: bun reports a todo as a junit <skipped>, which the gate rejects unless allowlisted):
-//   expect(run(["-Zmiri-num-cpus=0"]).slice(0, 2)).toEqual(["fatal error: -Zmiri-num-cpus must be in the range 1..=1024\n", 1]);
-//   expect(run(["-Zmiri-num-cpus=1025"]).slice(0, 2)).toEqual(["fatal error: -Zmiri-num-cpus must be in the range 1..=1024\n", 1]);
