@@ -33,7 +33,7 @@ const LIBC: Record<string, number> = {
   SYNC_FILE_RANGE_WAIT_BEFORE: 1, SYNC_FILE_RANGE_WRITE: 2, SYNC_FILE_RANGE_WAIT_AFTER: 4, TMP_MAX: 238328,
 };
 /** Errno the oracle printed for each op under `-Zmiri-isolation-error=warn-nobacktrace` (`std::io::ErrorKind`
- *  PermissionDenied maps to EPERM through io_error.rs's table). */
+ *  PermissionDenied maps to EPERM through io_error.rs's table, which runs for real here). */
 const ERRNO: Record<string, number> = {
   open: 1, openat: 1, unlink: 1, symlink: 1, linkat: 1, stat: 13, lstat: 13, fstat: 9, fstatat: 13, chmod: 13,
   rename: 1, mkdir: 1, rmdir: 1, opendir: 13, readdir: 9, closedir: 9, posix_fallocate: 9, fallocate: 9, utimensat: 13,
@@ -101,12 +101,15 @@ function ecx(reject_with: string): [MiriInterpCx, Recorded] {
     eval_libc_u32: (name: string) => LIBC[name]!,
     libc_ty_layout: (_name: string) => ({ size: Size.from_bytes(4) }),
     check_varargs: (_tys: unknown, v: { args: FakeOp[] }) => interp_ok([v.args, { args: [], already_gone: 0 }]),
-    set_errno_and_return_neg1_i32: (err: unknown) => {
-      rec.errno.push(err);
-      return interp_ok(Scalar.from_i32(-1));
+    // io_error.rs (lane miri-shims-b) runs for real down to the errno place: `last_error_place` / its write are stubs.
+    last_error_place: () => interp_ok("ERRNO_PLACE"),
+    write_scalar: (v: Scalar<never>, dest: unknown) => {
+      if (dest === "ERRNO_PLACE") rec.errno.push(v);
+      else rec.writes.push(["scalar", dest]);
+      return interp_ok(undefined);
     },
-    set_last_error: (err: unknown) => {
-      rec.errno.push(err);
+    write_int: (i: bigint, dest: unknown) => {
+      rec.writes.push(["int", i, dest]);
       return interp_ok(undefined);
     },
     write_null: (dest: unknown) => {
@@ -126,12 +129,11 @@ function stop_of(r: InterpResult<unknown>): unknown {
   return kind;
 }
 
-/** The libc errno of an `IoError` passed to the errno setters (the oracle's numbers). */
+/** The errno value written to the errno place. */
 function errno_of(e: unknown): number {
-  const err = e as { $: string; _0: unknown };
-  if (err.$ === "LibcError") return LIBC[err._0 as string]!;
-  if (err.$ === "HostError" && (err._0 as { kind: string }).kind === "PermissionDenied") return LIBC.EPERM!;
-  throw new Error(`unexpected io error ${JSON.stringify(e)}`);
+  const r = Scalar.to_i32(e as Scalar<never>);
+  if (r.$ !== "Ok") throw new Error("errno is not an i32");
+  return r._0;
 }
 
 type Call = (cx: MiriInterpCx) => InterpResult<unknown>;
@@ -257,11 +259,6 @@ test("mkstemp: a template without the XXXXXX suffix is EACCES under isolation (t
 test("fd-based shims check the fd before isolation (oracle: lseek, ftruncate, fsync, fdatasync, futimens, sync_file_range, isatty)", () => {
   const [cx, rec] = ecx("Abort");
   const dest = "DEST" as never;
-  const neg1 = (err: unknown) => {
-    rec.errno.push(err);
-    return interp_ok(undefined);
-  };
-  Object.assign(cx, { set_errno_and_return_neg1: neg1 });
   expect(cx.lseek(0, 0n, 77, dest).$).toBe("Ok"); // bad whence
   expect(cx.lseek(0, -1n, LIBC.SEEK_SET!, dest).$).toBe("Ok"); // negative offset
   expect(cx.lseek(99, 0n, LIBC.SEEK_SET!, dest).$).toBe("Ok"); // bad fd

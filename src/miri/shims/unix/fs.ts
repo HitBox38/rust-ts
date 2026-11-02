@@ -17,12 +17,11 @@
 import { constants as host_fs_constants } from "node:fs";
 import { type MPlaceTy, type OpTy, type Pointer, type Scalar, type StrictPointer } from "../../lib.ts";
 import { type DynMachineCallback, type MiriInterpCx, MemoryKind_from_MiriMemoryKind } from "../../machine.ts";
-import { path_ty_layout } from "../../helpers.ts";
 import { type VisitWith, VisitProvenance_Option, VisitProvenance_Pointer, VisitProvenance_str, VisitProvenance_tuple2 } from "../../provenance_gc.ts";
-import { type DirHandle, type DynFileDescriptionRef, FdId, type FdNum, type FileDescriptionRef, type FileHandle, open_file_or_dir } from "../files.ts";
-import { type IoError } from "../io_error.ts";
+import { type DirHandle, FdId, type FdNum, type FileDescription, FileDescription_DirHandle, FileDescription_FileHandle, FileDescription_provided, type FileDescriptionRef, type FileHandle, open_file_or_dir, type SeekFrom } from "../files.ts";
+import { type IoError, IoError_from_ErrorKind, IoError_from_io_Error, LibcError } from "../io_error.ts";
 import { bytes_to_os_str } from "../os_str.ts";
-import { type Varargs } from "../sig.ts";
+import { shim_varargs, type Varargs } from "../sig.ts";
 import { system_time_to_duration } from "../time.ts";
 import { type FlockOp } from "./fd.ts";
 import { type DirEntry, DirStream, DirTable, debug_DirStream, FileMetadata, type TimeUpdate } from "./fs.gen.ts";
@@ -40,11 +39,10 @@ import {
   Pointer_Option_from_Pointer,
   Scalar as interp_Scalar,
 } from "../../../rustc_middle/mir/interpret/mod.ts";
-import { type Ty } from "../../../rustc_middle/ty/mod.ts";
 import { spec } from "../../../rustc_target/lib.ts";
 import { debug_int, debug_struct, type Fmt } from "../../../std/fmt.ts";
 import * as fs from "../../../std/fs.ts";
-import { type ErrorKind, ErrorKind_as_str, debug_IoError as debug_io_Error, type IoError as io_Error, IoError_kind } from "../../../std/io.ts";
+import { type ErrorKind, debug_IoError as debug_io_Error, type IoError as io_Error, IoError_kind } from "../../../std/io.ts";
 import { assert, panic, unported } from "../../../std/panic.ts";
 import { path_is_absolute, path_strip_prefix } from "../../../std/path.ts";
 import { Err, Ok, type Result, unwrap_result } from "../../../std/result.ts";
@@ -174,15 +172,6 @@ declare module "./fs.gen.ts" {
   }
 }
 
-// PORT(contract): pending miri-shims-b. `FileDescriptionRef::downcast::<T>()` (files.rs:124) is declared without a
-// runtime witness (Rust downcasts `Rc<dyn Any>` by `TypeId`); fs.rs downcasts to `FileHandle` and `DirHandle` and passes
-// the Rust type name. shims-b implements (or replaces) this overload; see docs/handoff/miri-fs.md.
-declare module "../files.gen.ts" {
-  interface FileDescriptionRef<T> {
-    downcast<U>(type_name: "FileHandle" | "DirHandle"): FileDescriptionRef<U> | undefined;
-  }
-}
-
 // ---- local helpers (macros and std conversions the file uses) ----
 
 /** `throw_unsup_format!(..)` (`err_unsup!(Unsupported(format!(..)))`) */
@@ -202,26 +191,10 @@ function err_ub_format(msg: string): InterpErrorKind {
   return { $: "UndefinedBehavior", _0: { $: "Ub", _0: msg } };
 }
 
-/** `LibcError(name)` (`pub use self::IoError::*`, shims/io_error.rs). */
-function LibcError(name: string): IoError {
-  return { $: "LibcError", _0: name };
-}
-/** `impl From<io::Error> for IoError` (shims/io_error.rs:41): `HostError(value)`. */
-function IoError_from_io_Error(value: io_Error): IoError {
-  return { $: "HostError", _0: value };
-}
-/**
- * `impl From<io::ErrorKind> for IoError` (shims/io_error.rs:47): `IoError::HostError(value.into())`.
- * PORT(contract): pending miri-shims-b (io_error.rs owns the conversion; not exported by the skeleton) and src/std/io.ts,
- * which has no `Repr::Simple(kind)` for `io::Error::from(ErrorKind)`. The stand-in is the `SimpleMessage` variant with
- * the kind's `as_str()` text: the same `kind()` (all Miri reads for the errno, io_error.rs:346) and the same `Display`;
- * only its `Debug` differs (`Kind(..)` upstream), which no fs.rs path prints.
- */
-function IoError_from_ErrorKind(kind: ErrorKind): IoError {
-  return IoError_from_io_Error(io_Error_from_ErrorKind(kind));
-}
+/** `io::Error::from(kind)` (`ErrorKind::WouldBlock.into()`, `ErrorKind::NotFound.into()`): the `HostError` payload of
+ *  shims-b's `IoError_from_ErrorKind` (io_error.rs:47). */
 function io_Error_from_ErrorKind(kind: ErrorKind): io_Error {
-  return { $: "SimpleMessage", kind, message: ErrorKind_as_str(kind) };
+  return (IoError_from_ErrorKind(kind) as { _0: io_Error })._0;
 }
 
 /** `{:#x}` of an `i32` (two's complement bits, like Rust's `LowerHex` for signed integers). */
@@ -253,17 +226,81 @@ function FdId_eq(a: FdId, b: FdId): boolean {
   return a._0 === b._0;
 }
 
-/** `Deref for FileDescriptionRef<T>` (files.rs:52): the description inside the `Rc<FdIdWith<T>>`.
- *  PORT(contract): pending miri-shims-b (the generated representation `{ _0: FdIdWith<T> }`). */
-function deref<T>(r: FileDescriptionRef<T>): T {
-  return r._0.inner;
+/**
+ * The description of a downcast handle, for the rest of the fn. PORT: Rust drops the `FileDescriptionRef<FileHandle>` /
+ * `<DirHandle>` local at the end of the fn; it is dropped here right away. The table still holds the description until
+ * the fn returns (none of these fns closes it), so the strong count cannot reach 0 at either point: the drop point is
+ * not observable.
+ */
+function into_inner<T>(r: FileDescriptionRef<T>): T {
+  const inner = r.deref();
+  r.drop();
+  return inner;
 }
 
-/** `this.machine.fds.insert_new(desc)` with a `FileHandle` / `DirHandle` value.
- *  PORT(contract): pending miri-shims-b: `FdTable::insert_new` takes `impl FileDescription` (`Pending` in the skeleton);
- *  the generated `FileHandle` / `DirHandle` are plain records, and files.rs:432 / :521 give them `FileDescription`. */
-function fds_insert_new(this_: MiriInterpCx, desc: FileHandle | DirHandle): FdNum {
-  return this_.machine.fds.insert_new(desc as never);
+/** `this.machine.fds.get(open_dir.fd_num).is_none_or(|fd| fd.id() != open_dir.fd_id)`: the temporary handle is dropped at
+ *  the end of the `if` condition. */
+function backing_fd_tampered(this_: MiriInterpCx, open_dir: DirStream): boolean {
+  const fd = this_.machine.fds.get(open_dir.fd_num);
+  if (fd === undefined) return true;
+  const tampered = !FdId_eq(fd.id(), open_dir.fd_id);
+  fd.drop();
+  return tampered;
+}
+
+/** Runs `f` with an owned handle and drops it after (Rust drops a `FileDescriptionRef` local at the end of its scope;
+ *  files.ts makes `Drop` explicit). */
+function with_ref<T, R>(r: FileDescriptionRef<T>, f: (r: FileDescriptionRef<T>) => R): R {
+  try {
+    return f(r);
+  } finally {
+    r.drop();
+  }
+}
+
+/**
+ * The `FileHandle` / `DirHandle` values fs.rs builds (`FileHandle { file, writable, readable }`, `DirHandle { dir }`).
+ * PORT: the generated types are records; their trait impls are tables (`impl FileDescription for FileHandle/DirHandle`:
+ * files.rs:432 / :521, `FileDescription_FileHandle` / `FileDescription_DirHandle` of lane miri-shims-b, over
+ * `FileDescription_provided`; `impl UnixFileDescription for FileHandle/DirHandle`: this file's tables below). These
+ * classes carry them on their prototypes, installed on first construction (C10: another module's values are not read at
+ * load). `downcast::<FileHandle>()` / `::<DirHandle>()` are the exact class tests `is_FileHandle` / `is_DirHandle`.
+ * PORT(contract): pending miri-shims-d: `UnixFileDescription`'s provided methods (fd.rs) are not installed yet.
+ */
+export class FileHandleDesc implements FileHandle {
+  constructor(
+    public file: FileHandle["file"],
+    public readable: boolean,
+    public writable: boolean,
+  ) {}
+}
+export class DirHandleDesc implements DirHandle {
+  constructor(public dir: DirHandle["dir"]) {}
+}
+let desc_impls_installed = false;
+function install_desc_impls(): void {
+  if (desc_impls_installed) return;
+  desc_impls_installed = true;
+  Object.assign(FileHandleDesc.prototype, FileDescription_provided, FileDescription_FileHandle, UnixFileDescription_FileHandle);
+  Object.assign(DirHandleDesc.prototype, FileDescription_provided, FileDescription_DirHandle, UnixFileDescription_DirHandle);
+}
+/** `FileHandle { file, writable, readable }` */
+function new_FileHandle(file: fs.File, writable: boolean, readable: boolean): FileHandleDesc & FileDescription {
+  install_desc_impls();
+  return new FileHandleDesc(file as never, readable, writable) as FileHandleDesc & FileDescription;
+}
+/** `DirHandle { dir }` */
+function new_DirHandle(dir: fs.Dir): DirHandleDesc & FileDescription {
+  install_desc_impls();
+  return new DirHandleDesc(dir as never) as DirHandleDesc & FileDescription;
+}
+/** The `TypeId` test of `downcast::<FileHandle>()`. */
+function is_FileHandle(v: FileDescription): v is FileDescription & FileHandle {
+  return v.constructor === FileHandleDesc;
+}
+/** The `TypeId` test of `downcast::<DirHandle>()`. */
+function is_DirHandle(v: FileDescription): v is FileDescription & DirHandle {
+  return v.constructor === DirHandleDesc;
 }
 
 /** The host's `libc::O_*` (Miri's `cfg(unix)` blocks; node:fs `constants`). */
@@ -295,9 +332,6 @@ function is_in_proc(path: string): boolean {
   const abs = fs.absolute(path);
   return abs.$ === "Ok" && path_strip_prefix(abs._0, "/proc") !== undefined;
 }
-
-/** `shim_varargs![$ty]` (sig.rs:46) of one type: `|this| [shim_sig_arg!(this, $ty)]`. */
-type ShimVarargs = (this_: MiriInterpCx) => Ty[];
 
 /** `if let IsolatedOp::Reject(reject_with) = this.machine.isolated_op { this.reject_in_isolation(name, reject_with)?; .. }`:
  *  `undefined` when isolation is off, else the result of `reject_in_isolation` (an `Err` stops the shim). */
@@ -362,12 +396,13 @@ next_host_entry: function (this: DirStream): Result<Either<fs.DirEntry, string>,
 }});
 
 // impl UnixFileDescription for FileHandle
-// PORT: an impl table (borrowck-contract rules 4-5) with `self` first; the trait's provided methods (fd.rs, lane
-// miri-shims-d) fill the rest. `self.file` is the host `fs::File` (`Pending` in the typemap).
+// PORT: an impl table (borrowck-contract rules 4-5) of `this` methods, installed on `FileHandleDesc.prototype` (above);
+// the trait's provided methods (fd.rs, lane miri-shims-d) fill the rest. `this.file` is the host `fs::File` (`Pending` in
+// the typemap; src/std/fs.ts stand-in).
 export const UnixFileDescription_FileHandle = {
   // rustc: src/tools/miri/src/shims/unix/fs.rs:70 pread
   pread(
-    self: FileHandle,
+    this: FileHandle,
     communicate_allowed: boolean,
     offset: bigint,
     ptr: Pointer,
@@ -376,7 +411,7 @@ export const UnixFileDescription_FileHandle = {
     finish: DynMachineCallback<Result<number, IoError>>,
   ): InterpResult {
     assert(communicate_allowed, "isolation should have prevented even opening a file");
-    if (!self.readable) {
+    if (!this.readable) {
       return finish.call(ecx, Err(LibcError("EBADF")));
     }
 
@@ -384,7 +419,7 @@ export const UnixFileDescription_FileHandle = {
     // Emulates pread using seek + read + seek to restore cursor position.
     // Correctness of this emulation relies on sequential nature of Miri execution.
     // The closure is used to emulate `try` block, since we "bubble" `io::Error` using `?`.
-    const file = self.file as unknown as fs.File;
+    const file = this.file as unknown as fs.File;
     const f = (): Result<number, io_Error> => {
       const cursor_pos = file.stream_position();
       if (cursor_pos.$ === "Err") return cursor_pos;
@@ -414,7 +449,7 @@ export const UnixFileDescription_FileHandle = {
 
   // rustc: src/tools/miri/src/shims/unix/fs.rs:111 pwrite
   pwrite(
-    self: FileHandle,
+    this: FileHandle,
     communicate_allowed: boolean,
     ptr: Pointer,
     len: number,
@@ -423,14 +458,14 @@ export const UnixFileDescription_FileHandle = {
     finish: DynMachineCallback<Result<number, IoError>>,
   ): InterpResult {
     assert(communicate_allowed, "isolation should have prevented even opening a file");
-    if (!self.writable) {
+    if (!this.writable) {
       return finish.call(ecx, Err(LibcError("EBADF")));
     }
 
     // Emulates pwrite using seek + write + seek to restore cursor position.
     // Correctness of this emulation relies on sequential nature of Miri execution.
     // The closure is used to emulate `try` block, since we "bubble" `io::Error` using `?`.
-    const file = self.file as unknown as fs.File;
+    const file = this.file as unknown as fs.File;
     const bytes = ecx.read_bytes_ptr_strip_provenance(ptr, Size.from_bytes(len));
     if (bytes.$ === "Err") return bytes;
     const f = (): Result<number, io_Error> => {
@@ -449,10 +484,10 @@ export const UnixFileDescription_FileHandle = {
   },
 
   // rustc: src/tools/miri/src/shims/unix/fs.rs:143 flock
-  flock(self: FileHandle, communicate_allowed: boolean, op: FlockOp): InterpResult<Result<null, io_Error>> {
+  flock(this: FileHandle, communicate_allowed: boolean, op: FlockOp): InterpResult<Result<null, io_Error>> {
     assert(communicate_allowed, "isolation should have prevented even opening a file");
 
-    const file = self.file as unknown as fs.File;
+    const file = this.file as unknown as fs.File;
     // We must not block the interpreter loop, so we always `try_lock`.
     let res: Result<null, fs.TryLockError>;
     let nonblocking: boolean;
@@ -481,10 +516,10 @@ export const UnixFileDescription_FileHandle = {
   },
 
   // rustc: src/tools/miri/src/shims/unix/fs.rs:172 get_flags
-  get_flags(self: FileHandle, ecx: MiriInterpCx): InterpResult<Scalar> {
-    if (self.readable && self.writable) return interp_ok(ecx.eval_libc("O_RDWR"));
-    if (self.readable && !self.writable) return interp_ok(ecx.eval_libc("O_RDONLY"));
-    if (!self.readable && self.writable) return interp_ok(ecx.eval_libc("O_WRONLY"));
+  get_flags(this: FileHandle, ecx: MiriInterpCx): InterpResult<Scalar> {
+    if (this.readable && this.writable) return interp_ok(ecx.eval_libc("O_RDWR"));
+    if (this.readable && !this.writable) return interp_ok(ecx.eval_libc("O_RDONLY"));
+    if (!this.readable && this.writable) return interp_ok(ecx.eval_libc("O_WRONLY"));
     return panic("internal error: entered unreachable code");
   },
 };
@@ -493,7 +528,7 @@ const PLAIN_: Fmt = { alternate: false };
 // impl UnixFileDescription for DirHandle
 export const UnixFileDescription_DirHandle = {
   // rustc: src/tools/miri/src/shims/unix/fs.rs:183 get_flags
-  get_flags(_self: DirHandle, ecx: MiriInterpCx): InterpResult<Scalar> {
+  get_flags(this: DirHandle, ecx: MiriInterpCx): InterpResult<Scalar> {
     // Directories are always readonly on Unix.
     return interp_ok(ecx.eval_libc("O_RDONLY"));
   },
@@ -795,15 +830,16 @@ InterpCx.prototype.open = function (this: MiriInterpCx, dirfd_op: OpTy | undefin
 
   // Helper for those flags that read the `mode` parameter.
   const read_mode = (this_: MiriInterpCx, options: fs.OpenOptions, fn_name: string): InterpResult => {
-    const tys: ShimVarargs =
+    const r = this_.check_varargs(
       this_.libc_ty_layout("mode_t").size.bytes() >= 4
         ? // `mode_t` is big enough, no C integer promotion.
-          (this_) => [path_ty_layout(this_, ["libc", "mode_t"]).ty]
+          shim_varargs("libc::mode_t")
         : // Types smaller than int get promoted to int
           // (see https://github.com/rust-lang/rust/issues/71915).
-          (this_) => [this_.tcx.deref().types.i32];
-    // PORT(contract): pending miri-shims-b: `check_varargs` takes `tys` as a `Pending` fn type.
-    const r = this_.check_varargs(tys as never, varargs, fn_name);
+          shim_varargs("i32"),
+      varargs,
+      fn_name,
+    );
     if (r.$ === "Err") return r;
     const [[mode]] = r._0;
     const mode_r = read_u32(this_, mode!);
@@ -952,25 +988,45 @@ InterpCx.prototype.open = function (this: MiriInterpCx, dirfd_op: OpTy | undefin
     return this_.set_errno_and_return_neg1_i32(IoError_from_ErrorKind("PermissionDenied"));
   }
 
-  let dirfd: DirHandle | undefined;
+  let dirfd_ref: FileDescriptionRef<DirHandle> | undefined;
   if (dirfd_num !== undefined) {
     if (path_is_absolute(path) || dirfd_num === this_.eval_libc_i32("AT_FDCWD")) {
-      dirfd = undefined;
+      dirfd_ref = undefined;
     } else {
       // relative to dirfd, which must be a directory handle
       const fd = this_.machine.fds.get(dirfd_num);
       if (fd === undefined) {
         return this_.set_errno_and_return_neg1_i32(LibcError("EBADF"));
       }
-      const dir = fd.downcast<DirHandle>("DirHandle");
+      const dir = fd.downcast(is_DirHandle);
       if (dir === undefined) {
         return this_.set_errno_and_return_neg1_i32(LibcError("ENOTDIR"));
       }
-      dirfd = deref(dir);
+      dirfd_ref = dir;
     }
   } else {
-    dirfd = undefined;
+    dirfd_ref = undefined;
   }
+  // `dirfd` (an `Option<FileDescriptionRef<DirHandle>>`) is dropped at the end of the fn.
+  try {
+    return open_tail(this_, dirfd_ref?.deref(), path, options, custom_flags, writable, readable, want_directory, nofollow);
+  } finally {
+    dirfd_ref?.drop();
+  }
+};
+
+/** The rest of `open` (fs.rs:690-739), while `dirfd` is alive. */
+function open_tail(
+  this_: MiriInterpCx,
+  dirfd: DirHandle | undefined,
+  path: string,
+  options: fs.OpenOptions,
+  custom_flags: number,
+  writable: boolean,
+  readable: boolean,
+  want_directory: boolean,
+  nofollow: boolean,
+): InterpResult<Scalar> {
 
   // Let's see what we get when we open this!
   options.custom_flags(custom_flags);
@@ -999,7 +1055,7 @@ InterpCx.prototype.open = function (this: MiriInterpCx, dirfd_op: OpTy | undefin
       return this_.set_errno_and_return_neg1_i32(LibcError("EISDIR"));
     }
 
-    const fd = fds_insert_new(this_, { dir: dir as never });
+    const fd = this_.machine.fds.insert_new(new_DirHandle(dir));
     return interp_ok(interp_Scalar.from_i32(fd));
   } else {
     const file = f_or_d._0._0;
@@ -1015,10 +1071,10 @@ InterpCx.prototype.open = function (this: MiriInterpCx, dirfd_op: OpTy | undefin
       return panic("we should not get a symlink here");
     }
 
-    const fd = fds_insert_new(this_, { file: file as never, writable, readable });
+    const fd = this_.machine.fds.insert_new(new_FileHandle(file, writable, readable));
     return interp_ok(interp_Scalar.from_i32(fd));
   }
-};
+}
 
 // rustc: src/tools/miri/src/shims/unix/fs.rs:742 lseek
 InterpCx.prototype.lseek = function (this: MiriInterpCx, fd_num: number, offset: bigint, whence: number, dest: MPlaceTy): InterpResult {
@@ -1026,7 +1082,7 @@ InterpCx.prototype.lseek = function (this: MiriInterpCx, fd_num: number, offset:
 
   // Isolation check is done via `FileDescription` trait.
 
-  let seek_from: fs.SeekFrom;
+  let seek_from: SeekFrom;
   if (whence === this_.eval_libc_i32("SEEK_SET")) {
     if (offset < 0n) {
       // Negative offsets return `EINVAL`.
@@ -1048,13 +1104,12 @@ InterpCx.prototype.lseek = function (this: MiriInterpCx, fd_num: number, offset:
   if (fd === undefined) {
     return this_.set_errno_and_return_neg1(LibcError("EBADF"), dest);
   }
-  // PORT(contract): pending miri-shims-b: `FileDescription::seek` takes `Pending<"SeekFrom">` (src/std/fs.ts `SeekFrom`).
-  const seek = deref(fd).seek(communicate, seek_from as never);
+  const seek = with_ref(fd, (fd) => fd.deref().seek(communicate, seek_from));
   if (seek.$ === "Err") return seek;
   const result: Result<bigint, io_Error> = seek._0.$ === "Ok" ? Ok(try_from_unwrap(seek._0._0, I64_MIN, I64_MAX)) : seek._0;
-  // drop(fd);
+  // drop(fd);  (with_ref)
 
-  const result_ = this_.try_unwrap_io_result(result);
+  const result_ = this_.try_unwrap_io_result(result, (v) => BigInt(v));
   if (result_.$ === "Err") return result_;
   const w = this_.write_int(result_._0, dest);
   if (w.$ === "Err") return w;
@@ -1084,7 +1139,7 @@ InterpCx.prototype.unlink = function (this: MiriInterpCx, path_op: OpTy): Interp
     // FIXME: maybe we can retry based on the error code?
     result = unported("miri::shims::unix::fs unlink: the cfg(windows) host branch (FileTypeExt::is_symlink_dir)");
   }
-  const r = this_.try_unwrap_io_result(result.$ === "Ok" ? Ok(0) : result);
+  const r = this_.try_unwrap_io_result(result.$ === "Ok" ? Ok(0) : result, (v) => v);
   if (r.$ === "Err") return r;
   return interp_ok(interp_Scalar.from_i32(r._0));
 };
@@ -1116,7 +1171,7 @@ InterpCx.prototype.symlink = function (this: MiriInterpCx, target_op: OpTy, link
   }
 
   const result = create_link(target._0, linkpath._0);
-  const r = this_.try_unwrap_io_result(result.$ === "Ok" ? Ok(0) : result);
+  const r = this_.try_unwrap_io_result(result.$ === "Ok" ? Ok(0) : result, (v) => v);
   if (r.$ === "Err") return r;
   return interp_ok(interp_Scalar.from_i32(r._0));
 };
@@ -1173,7 +1228,7 @@ InterpCx.prototype.linkat = function (this: MiriInterpCx, oldfd_op: OpTy, oldpat
   if (newpath.$ === "Err") return newpath;
 
   const result = fs.hard_link(oldpath._0, newpath._0);
-  const r = this_.try_unwrap_io_result(result.$ === "Ok" ? Ok(0) : result);
+  const r = this_.try_unwrap_io_result(result.$ === "Ok" ? Ok(0) : result, (v) => v);
   if (r.$ === "Err") return r;
   return interp_ok(interp_Scalar.from_i32(r._0));
 };
@@ -1526,12 +1581,12 @@ InterpCx.prototype.fchmod = function (this: MiriInterpCx, fd_op: OpTy, mode_op: 
   if (fd === undefined) {
     return this_.set_errno_and_return_neg1_i32(LibcError("EBADF"));
   }
-  const file_ref = fd.downcast<FileHandle>("FileHandle");
+  const file_ref = fd.downcast(is_FileHandle);
   if (file_ref === undefined) {
     // The docs don't talk about what happens for non-regular files...
     return throw_unsup_format("`fchmod` is only supported on regular files");
   }
-  const file = deref(file_ref);
+  const file = into_inner(file_ref);
   if (!file.writable && !file.readable) {
     // Apparently, `fchmod` on a read-only file is fine. But let's not allow it on a
     // path-only file.
@@ -1584,7 +1639,7 @@ InterpCx.prototype.rename = function (this: MiriInterpCx, oldpath_op: OpTy, newp
 
   const result = fs.rename(oldpath._0, newpath._0);
 
-  const r = this_.try_unwrap_io_result(result.$ === "Ok" ? Ok(0) : result);
+  const r = this_.try_unwrap_io_result(result.$ === "Ok" ? Ok(0) : result, (v) => v);
   if (r.$ === "Err") return r;
   return interp_ok(interp_Scalar.from_i32(r._0));
 };
@@ -1626,7 +1681,7 @@ InterpCx.prototype.mkdir = function (this: MiriInterpCx, path_op: OpTy, mode_op:
 
   const result = builder.create(path._0);
 
-  const r = this_.try_unwrap_io_result(result.$ === "Ok" ? Ok(0) : result);
+  const r = this_.try_unwrap_io_result(result.$ === "Ok" ? Ok(0) : result, (v) => v);
   if (r.$ === "Err") return r;
   return interp_ok(interp_Scalar.from_i32(r._0));
 };
@@ -1655,7 +1710,7 @@ InterpCx.prototype.rmdir = function (this: MiriInterpCx, path_op: OpTy): InterpR
     result = unported("miri::shims::unix::fs rmdir: the cfg(windows) host branch (FileTypeExt::is_symlink_dir)");
   }
 
-  const r = this_.try_unwrap_io_result(result.$ === "Ok" ? Ok(0) : result);
+  const r = this_.try_unwrap_io_result(result.$ === "Ok" ? Ok(0) : result, (v) => v);
   if (r.$ === "Err") return r;
   return interp_ok(interp_Scalar.from_i32(r._0));
 };
@@ -1691,10 +1746,9 @@ InterpCx.prototype.opendir = function (this: MiriInterpCx, name_op: OpTy): Inter
     if (dir_r.$ === "Err") {
       return throw_unsup_format("cannot `opendir` this directory: failed to create directory handle");
     }
-    // PORT(contract): pending miri-shims-b: `FdTable::new_ref` takes the description (`DirHandle` record).
-    const dir = this_.machine.fds.new_ref<DirHandle>({ dir: dir_r._0 as never });
+    const dir = this_.machine.fds.new_ref(new_DirHandle(dir_r._0));
     const dir_fd_id = dir.id();
-    const dir_fd_num = this_.machine.fds.insert(dir as unknown as DynFileDescriptionRef);
+    const dir_fd_num = this_.machine.fds.insert(dir);
 
     const stream = DirStream.new(read_dir, dir_fd_num, dir_fd_id);
     const id = this_.machine.dirs.insert_new(stream);
@@ -1740,8 +1794,7 @@ InterpCx.prototype.readdir = function (this: MiriInterpCx, dirp_op: OpTy, dest: 
   }
 
   // Check that the backing FD is still valid.
-  const backing = this_.machine.fds.get(open_dir.fd_num);
-  if (backing === undefined || !FdId_eq(backing.id(), open_dir.fd_id)) {
+  if (backing_fd_tampered(this_, open_dir)) {
     return throw_ub_format("the backing FD for this DIR stream has been tampered with");
   }
 
@@ -1895,8 +1948,7 @@ InterpCx.prototype.dirfd = function (this: MiriInterpCx, dirp_op: OpTy, dest: MP
   }
 
   // Check that the backing FD is still valid.
-  const backing = this_.machine.fds.get(open_dir.fd_num);
-  if (backing === undefined || !FdId_eq(backing.id(), open_dir.fd_id)) {
+  if (backing_fd_tampered(this_, open_dir)) {
     return throw_ub_format("the backing FD for this DIR stream has been tampered with");
   }
 
@@ -1927,8 +1979,7 @@ InterpCx.prototype.closedir = function (this: MiriInterpCx, dirp_op: OpTy): Inte
   this_.machine.dirs.streams.delete(dirp._0);
 
   // Check that the backing FD is still valid.
-  const backing = this_.machine.fds.get(open_dir.fd_num);
-  if (backing === undefined || !FdId_eq(backing.id(), open_dir.fd_id)) {
+  if (backing_fd_tampered(this_, open_dir)) {
     return throw_ub_format("the backing FD for this DIR stream has been tampered with");
   }
   // And close it.
@@ -1956,13 +2007,13 @@ InterpCx.prototype.ftruncate64 = function (this: MiriInterpCx, fd_num: number, l
   if (fd === undefined) {
     return this_.set_errno_and_return_neg1_i32(LibcError("EBADF"));
   }
-  const file_ref = fd.downcast<FileHandle>("FileHandle");
+  const file_ref = fd.downcast(is_FileHandle);
   if (file_ref === undefined) {
     // The docs say that EINVAL is returned when the FD "does not reference a regular file
     // or a POSIX shared memory object" (and we don't support shmem objects).
     return this_.set_errno_and_return_neg1_i32(LibcError("EINVAL"));
   }
-  const file = deref(file_ref);
+  const file = into_inner(file_ref);
   if (!file.writable) {
     // man page says "EBADF or EINVAL", Linux seems to use EINVAL.
     return this_.set_errno_and_return_neg1_i32(LibcError("EINVAL"));
@@ -1972,7 +2023,7 @@ InterpCx.prototype.ftruncate64 = function (this: MiriInterpCx, fd_num: number, l
   // if let Ok(length) = length.try_into()  (i128 -> u64)
   if (length >= 0n && length <= U64_MAX) {
     const result = (file.file as unknown as fs.File).set_len(length);
-    const r = this_.try_unwrap_io_result(result.$ === "Ok" ? Ok(0) : result);
+    const r = this_.try_unwrap_io_result(result.$ === "Ok" ? Ok(0) : result, (v) => v);
     if (r.$ === "Err") return r;
     return interp_ok(interp_Scalar.from_i32(r._0));
   } else {
@@ -2045,12 +2096,12 @@ InterpCx.prototype.fallocate_impl = function (this: MiriInterpCx, fd_num: number
   if (fd === undefined) {
     return interp_ok(Err(LibcError("EBADF")));
   }
-  const file_ref = fd.downcast<FileHandle>("FileHandle");
+  const file_ref = fd.downcast(is_FileHandle);
   if (file_ref === undefined) {
     // Man page specifies to return ENODEV if `fd` is not a regular file.
     return interp_ok(Err(LibcError("ENODEV")));
   }
-  const file = deref(file_ref);
+  const file = into_inner(file_ref);
 
   if (!file.writable) {
     return interp_ok(Err(LibcError("EBADF")));
@@ -2103,14 +2154,14 @@ InterpCx.prototype.ffullsync_fd = function (this: MiriInterpCx, fd_num: number):
     return this_.set_errno_and_return_neg1_i32(LibcError("EBADF"));
   }
   // Only regular files support synchronization.
-  const file_ref = fd.downcast<FileHandle>("FileHandle");
+  const file_ref = fd.downcast(is_FileHandle);
   if (file_ref === undefined) {
     return throw_unsup_format("`fsync` is only supported on file-backed file descriptors");
   }
   assert(this_.machine.communicate(), "isolation should have prevented even opening a file");
 
-  const io_result = maybe_sync_file(deref(file_ref), (f) => f.sync_all());
-  const r = this_.try_unwrap_io_result(io_result);
+  const io_result = maybe_sync_file(into_inner(file_ref), (f) => f.sync_all());
+  const r = this_.try_unwrap_io_result(io_result, (v) => v);
   if (r.$ === "Err") return r;
   return interp_ok(interp_Scalar.from_i32(r._0));
 };
@@ -2127,14 +2178,14 @@ InterpCx.prototype.fdatasync = function (this: MiriInterpCx, fd_op: OpTy): Inter
     return this_.set_errno_and_return_neg1_i32(LibcError("EBADF"));
   }
   // Only regular files support synchronization.
-  const file_ref = fd.downcast<FileHandle>("FileHandle");
+  const file_ref = fd.downcast(is_FileHandle);
   if (file_ref === undefined) {
     return throw_unsup_format("`fdatasync` is only supported on file-backed file descriptors");
   }
   assert(this_.machine.communicate(), "isolation should have prevented even opening a file");
 
-  const io_result = maybe_sync_file(deref(file_ref), (f) => f.sync_data());
-  const r = this_.try_unwrap_io_result(io_result);
+  const io_result = maybe_sync_file(into_inner(file_ref), (f) => f.sync_data());
+  const r = this_.try_unwrap_io_result(io_result, (v) => v);
   if (r.$ === "Err") return r;
   return interp_ok(interp_Scalar.from_i32(r._0));
 };
@@ -2154,7 +2205,7 @@ InterpCx.prototype.futimens = function (this: MiriInterpCx, fd_op: OpTy, times_o
   if (fd === undefined) {
     return this_.set_errno_and_return_neg1_i32(LibcError("EBADF"));
   }
-  const file_ref = fd.downcast<FileHandle>("FileHandle");
+  const file_ref = fd.downcast(is_FileHandle);
   if (file_ref === undefined) {
     return throw_unsup_format("`futimens` is only supported on file-backed file descriptors");
   }
@@ -2166,8 +2217,8 @@ InterpCx.prototype.futimens = function (this: MiriInterpCx, fd_op: OpTy, times_o
     return this_.set_errno_and_return_neg1_i32(LibcError("EINVAL"));
   }
   const [access, modified] = times._0;
-  const result = (deref(file_ref).file as unknown as fs.File).set_times(host_file_times_from_updates(access, modified));
-  const r = this_.try_unwrap_io_result(result.$ === "Ok" ? Ok(0) : result);
+  const result = (into_inner(file_ref).file as unknown as fs.File).set_times(host_file_times_from_updates(access, modified));
+  const r = this_.try_unwrap_io_result(result.$ === "Ok" ? Ok(0) : result, (v) => v);
   if (r.$ === "Err") return r;
   return interp_ok(interp_Scalar.from_i32(r._0));
 };
@@ -2234,7 +2285,7 @@ InterpCx.prototype.utimensat = function (this: MiriInterpCx, dirfd_op: OpTy, pat
   }
   const filetimes = host_file_times_from_updates(access, modified);
   const result = symlink_nofollow_flag ? fs.set_times_nofollow(path._0, filetimes) : fs.set_times(path._0, filetimes);
-  const r = this_.try_unwrap_io_result(result.$ === "Ok" ? Ok(0) : result);
+  const r = this_.try_unwrap_io_result(result.$ === "Ok" ? Ok(0) : result, (v) => v);
   if (r.$ === "Err") return r;
   return interp_ok(interp_Scalar.from_i32(r._0));
 };
@@ -2266,14 +2317,14 @@ InterpCx.prototype.sync_file_range = function (this: MiriInterpCx, fd_op: OpTy, 
     return this_.set_errno_and_return_neg1_i32(LibcError("EBADF"));
   }
   // Only regular files support synchronization.
-  const file_ref = fd.downcast<FileHandle>("FileHandle");
+  const file_ref = fd.downcast(is_FileHandle);
   if (file_ref === undefined) {
     return throw_unsup_format("`sync_data_range` is only supported on file-backed file descriptors");
   }
   assert(this_.machine.communicate(), "isolation should have prevented even opening a file");
 
-  const io_result = maybe_sync_file(deref(file_ref), (f) => f.sync_data());
-  const r = this_.try_unwrap_io_result(io_result);
+  const io_result = maybe_sync_file(into_inner(file_ref), (f) => f.sync_data());
+  const r = this_.try_unwrap_io_result(io_result, (v) => v);
   if (r.$ === "Err") return r;
   return interp_ok(interp_Scalar.from_i32(r._0));
 };
@@ -2363,7 +2414,7 @@ InterpCx.prototype.isatty = function (this: MiriInterpCx, miri_fd: OpTy): Interp
   let error: IoError;
   const fd = this_.machine.fds.get(fd_num._0);
   if (fd !== undefined) {
-    if (deref(fd).is_tty(this_.machine.communicate())) {
+    if (with_ref(fd, (fd) => fd.deref().is_tty(this_.machine.communicate()))) {
       return interp_ok(interp_Scalar.from_i32(1));
     } else {
       error = LibcError("ENOTTY");
@@ -2540,7 +2591,7 @@ InterpCx.prototype.mkstemp = function (this: MiriInterpCx, template_op: OpTy): I
     if (os_str.$ === "Err") return os_str;
     const file = fopts.open(os_str._0);
     if (file.$ === "Ok") {
-      const fd = fds_insert_new(this_, { file: file._0 as never, writable: true, readable: true });
+      const fd = this_.machine.fds.insert_new(new_FileHandle(file._0, true, true));
       return interp_ok(interp_Scalar.from_i32(fd));
     } else {
       const e = file._0;
@@ -2624,11 +2675,11 @@ at: function (ecx: MiriInterpCx, dirfd: FdNum, path: string, symlink_nofollow_fl
     if (fd === undefined) {
       return interp_ok(Err(LibcError("EBADF")));
     }
-    const dir_ref = fd.downcast<DirHandle>("DirHandle");
+    const dir_ref = fd.downcast(is_DirHandle);
     if (dir_ref === undefined) {
       return interp_ok(Err(LibcError("ENOTDIR")));
     }
-    const dir = deref(dir_ref).dir as unknown as fs.Dir;
+    const dir = into_inner(dir_ref).dir as unknown as fs.Dir;
 
     // Windows does not by itself treat `.` correctly so we do that by hand.
     // (https://github.com/rust-lang/rust/issues/163032)
@@ -2652,9 +2703,7 @@ from_fd_num: function (ecx: MiriInterpCx, fd_num: FdNum): InterpResult<Result<Fi
   if (fd === undefined) {
     return interp_ok(Err(LibcError("EBADF")));
   }
-  // PORT(contract): pending miri-shims-b: `FileDescription::metadata` returns
-  // `Pending<"Either<io::Result<fs::Metadata>, &'static str>">`.
-  const md = deref(fd).metadata();
+  const md = with_ref(fd, (fd) => fd.deref().metadata());
   if (md.$ === "Err") return md;
   const either = md._0 as unknown as Either<Result<fs.Metadata, io_Error>, string>;
   switch (either.$) {
