@@ -11,6 +11,7 @@ import { InterpCx } from "./eval_context.ts";
 import { type AnyMachine, type ProvOf, type Machine } from "./machine.ts";
 import { RetagMode } from "./machine.gen.ts";
 import { type EvaluatedCalleeAndArgs } from "./step.gen.ts";
+import { typing_env_no } from "../../rust_ts/typing_env_no.ts";
 import { type FnVal } from "./memory.gen.ts";
 import { ImmTy, type OpTy } from "./operand.gen.ts";
 import { Immediate } from "./operand.ts";
@@ -646,6 +647,9 @@ InterpCx.prototype.eval_fn_call_argument = function (this: InterpCx, op: mir_Ope
   }
 };
 
+/** PORT(perf): the callee signature of `eval_callee_and_args`, keyed `ty.id * 64 + env` (envs below 64). */
+const CALLEE_SIG_MEMO = new Map<number, [Binder<FnSig>, FnSig]>();
+
 /// Shared part of `Call` and `TailCall` implementation — finding and evaluating all the
 /// necessary information about callee and arguments to make a call.
 // rustc: compiler/rustc_const_eval/src/interpret/step.rs:438 eval_callee_and_args
@@ -701,8 +705,17 @@ InterpCx.prototype.eval_callee_and_args = function (
   }
 
   // let _trace = enter_trace_span!(M, "fn_sig", ty = ?func.layout.ty.kind());
-  const fn_sig_binder = func.layout.ty.fn_sig(this.tcx.deref());
-  const fn_sig = this.tcx.deref().normalize_erasing_late_bound_regions(this.typing_env, fn_sig_binder, fold_FnSig);
+  // PORT(perf): upstream instantiates and normalizes the signature on every call. Both are pure functions of the callee
+  // type and the typing env (interned values), so the pair is remembered per type: see `CALLEE_SIG_MEMO`.
+  const env_no = typing_env_no(this.typing_env);
+  const sig_key = func.layout.ty.id * 0x40 + env_no;
+  let sig_memo = env_no < 0x40 ? CALLEE_SIG_MEMO.get(sig_key) : undefined;
+  if (sig_memo === undefined) {
+    const fn_sig_binder = func.layout.ty.fn_sig(this.tcx.deref());
+    sig_memo = [fn_sig_binder, this.tcx.deref().normalize_erasing_late_bound_regions(this.typing_env, fn_sig_binder, fold_FnSig)];
+    if (env_no < 0x40) CALLEE_SIG_MEMO.set(sig_key, sig_memo);
+  }
+  const [fn_sig_binder, fn_sig] = sig_memo;
   const n_inputs = FnSig.inputs(fn_sig).length;
   if (n_inputs > args.length) panic(`range start index ${n_inputs} out of range for slice of length ${args.length}`);
   const extra_args_ = args.slice(n_inputs);
