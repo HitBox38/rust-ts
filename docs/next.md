@@ -422,3 +422,20 @@ miri-thread-exit. Miri 1,199/1,514 fns (79.2%). New protected suites: miri-hello
 UNPORTED, 2 TIMEOUT), run-fail-miri 292/294 (99.3%; 1 UNPORTED, 1 TIMEOUT). 533,608 protected in 49 suites (+3,701, 0 lost);
 23,795/27,032 fns (88.0%). M6b's run-pass/run-fail >= 90% is met; M6b still needs miri-pass >= 80% (harness-m6c).
 run-pass-miri-heavy was left out of this gate (8 serial cases; the two slowest take 282 s and 451 s on the oracle): perf lane.
+
+## Wave 38 (started 2026-11-04) — run-pass tail, M6b (plan-m6 §5)
+Integration branch `integ-w38` (worktree .data/integ-w38). Chained lanes start when their first half lands.
+| lane | scope | status |
+|---|---|---|
+| harness-m6c | miri-pass, miri-fail, run-pass-aux-miri suites (A8: revisions, only/ignore-target); M6b needs miri-pass >= 80% | running |
+| harness-w38 | harness-w37 nits, queued probes (randstream, epoll/eventfd), difftest keeps the unported reason in the run's jsonl | running |
+| miri-perf | D11: hello <= 3 s user, run-pass p99 <= 10 s; the 3 timeouts and the heavy cases; rmeta-core RSS watch | running |
+| miri-x86-a | intrinsics/x86/mod.rs + sse, sse2, sse3, ssse3, sse41, sse42 (~2.7k) | running |
+| miri-x86-b | intrinsics/x86/avx, avx2, avx512, aesni, bmi, gfni, sha (~1.4k) | after miri-x86-a |
+| miri-tb-a | tree_borrows perms, tree_visitor, unimap, wildcard, foreign_access_skipping, exhaustive (~2.0k) | running |
+| miri-tb-b | tree_borrows tree, mod, diagnostics, tree/tests (~3.5k) | after miri-tb-a |
+| followups-37 | port-side small queue from the wave 37 reviews | running |
+| ice-report | design only: caller locations through #[track_caller], emit_bug, report_ice; unblocks 14 mir cases | running |
+| miri-tail | the 61 UNPORTED run-pass/run-fail cases | scoping |
+| mono-collector, mono-partition, miri-sysroot, harness-m6d | M7 groundwork, plan-m6 §5 | queued |
+

@@ -52,10 +52,10 @@
     "tydump-ui": 1840,
     "pm-expanded": 280
   },
-  "updated": "2026-11-03T22:28:49.230Z",
+  "updated": "2026-11-03T22:31:03.498Z",
   "open_stops": [],
   "coverage": {
-    "ported": 23354,
+    "ported": 23795,
     "total": 27032
   }
 }
