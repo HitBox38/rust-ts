@@ -415,3 +415,10 @@ rule recorded: nothing writes to the tree during a gate. Per-merge rule: full un
 | harness-w37 | miri-diff masks the base and keeps offsets; needs-llvm-zstd / needs-deterministic-layouts from the oracle; register the scheduler and mirimath probes; ctfe-sample.ts into scripts (harness batch) | running |
 After the shims: miri-hello first differences via miri-diff → fixer lanes; perf lane (D11: hello world <= 3 s user); then the
 M6a gate (miri-hello protected).
+
+## Wave 37 ACCEPTED 2026-11-04 (gate-20261102-174727-root-kxpt, main ef00b86a) — **M6a done**: std hello world runs
+All wave 37 lanes reviewed and integrated: miri-shims-a to -e, miri-fs, fixers-36, harness-w37, miri-wire-37, m6a-backend,
+miri-thread-exit. Miri 1,199/1,514 fns (79.2%). New protected suites: miri-hello 1/1, run-pass-miri 3408/3470 (98.2%; 60
+UNPORTED, 2 TIMEOUT), run-fail-miri 292/294 (99.3%; 1 UNPORTED, 1 TIMEOUT). 533,608 protected in 49 suites (+3,701, 0 lost);
+23,795/27,032 fns (88.0%). M6b's run-pass/run-fail >= 90% is met; M6b still needs miri-pass >= 80% (harness-m6c).
+run-pass-miri-heavy was left out of this gate (8 serial cases; the two slowest take 282 s and 451 s on the oracle): perf lane.
