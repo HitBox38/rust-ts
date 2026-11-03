@@ -46,11 +46,22 @@ console.log(JSON.stringify({
   zstd: c.needCondition("needs-llvm-zstd"),
   zstdPrint: Bun.spawnSync(["rustc", "+" + PIN.toolchain, "-Zunstable-options", "--print=backend-has-zstd"]).stdout.toString().trim(),
   layouts: c.oracleStdLayoutsRandomized(),
+  miriSysroot: (await import("node:fs")).existsSync((await import(${JSON.stringify(join(REPO, "scripts/lib/miri.ts"))})).miriTargetLibDir()),
   deterministic: c.needCondition("needs-deterministic-layouts"),
   typeSizes: json(c.uiFileCases(["tests/ui/structs-enums/type-sizes.rs"], "human", { run: true, needs: true })),
   typeSizesOld: json(c.uiFileCases(["tests/ui/structs-enums/type-sizes.rs"], "human", { run: true })),
   orders: c.layoutOrders(LAYOUT_STDERR),
   ordersBad: (() => { try { c.layoutOrders("error: layout_of(T) = Layout {\\n  size: Size(2 bytes),\\n}\\n"); return "NO ERROR"; } catch (e) { return String(e); } })(),
+  layoutUndecided: (() => {
+    const check = (...outs) => { let i = 0; return c.stdLayoutsRandomized(() => outs[Math.min(i++, outs.length - 1)], () => {}, "/d", "lib", []); };
+    const ok = { exitCode: 0, stderr: "" };
+    return {
+      auxFails: check({ exitCode: 1, stderr: "error: nope" }),
+      mainFails: check(ok, { exitCode: 1, stderr: "error: nope" }),
+      unparsable: check(ok, { exitCode: 1, stderr: "error: layout_of(T) = Layout {\\n}\\n" }),
+    };
+  })(),
+  combined: [[false, false], [false, undefined], [true, undefined], [undefined, undefined]].map((rs) => c.combineLayouts(rs.map((randomized, i) => ({ randomized, why: "w" + i })))),
   layoutTmps: (await import("node:fs")).readdirSync(DATA + "/tmp").filter((n) => n.startsWith("needs-layouts-")),
 }));
 `;
@@ -119,9 +130,15 @@ test("needs-llvm-zstd and needs-deterministic-layouts are decided by the oracle 
   // The dist nightly's std is not compiled with -Zrandomize-layout: core::ops::Range keeps its declaration order for
   // every k, while the -Zrandomize-layout control is reordered for some (the check can see randomization).
   expect(R.layouts.randomized).toBe(false);
-  const m = /reordered (\d+)\/64, the -Zrandomize-layout control (\d+)\/64$/.exec(R.layouts.why)!;
-  expect(Number(m[1])).toBe(0);
-  expect(Number(m[2])).toBeGreaterThan(0);
+  // Both standard libraries when the Miri sysroot is built: the oracle's, then the Miri sysroot's (lane harness-w38).
+  const parts = [...R.layouts.why.matchAll(/(oracle std|Miri sysroot std): .*? reordered (\d+)\/64, the -Zrandomize-layout control (\d+)\/64/g)];
+  expect(parts[0]![1]).toBe("oracle std");
+  expect(parts.length).toBe(R.miriSysroot ? 2 : 1);
+  if (R.miriSysroot) expect(parts[1]![1]).toBe("Miri sysroot std");
+  for (const m of parts) {
+    expect(Number(m[2])).toBe(0);
+    expect(Number(m[3])).toBeGreaterThan(0);
+  }
   expect(R.deterministic.condition).toBe(true);
   // type-sizes.rs (`needs-deterministic-layouts`, run-pass) is a case with `needs`, still rejected without.
   expect(R.typeSizes.skipped).toEqual([]);
@@ -134,6 +151,15 @@ test("needs-llvm-zstd and needs-deterministic-layouts are decided by the oracle 
     { ty: "rl_aux::Range<[u8; 1]>", order: [1, 0] },
   ]);
   expect(R.ordersBad).toContain("unexpected #[rustc_dump_layout(debug)] output");
+  // A check that cannot run or read its own compiles is undecided (the test is skipped with the reason), never a throw.
+  expect(R.layoutUndecided.auxFails.randomized ?? null).toBe(null);
+  expect(R.layoutUndecided.auxFails.why).toBe("lib: oracle rustc failed on the layout check's aux crate: error: nope");
+  expect(R.layoutUndecided.mainFails.randomized ?? null).toBe(null);
+  expect(R.layoutUndecided.mainFails.why).toContain("lib: the layout check expected 64 + 64 layouts from the oracle, got 0 + 0");
+  expect(R.layoutUndecided.unparsable.randomized ?? null).toBe(null);
+  expect(R.layoutUndecided.unparsable.why).toContain("lib: unexpected #[rustc_dump_layout(debug)] output");
+  // Any randomized library decides; else any undecided one leaves the need undecided.
+  expect(R.combined.map((x: { randomized?: boolean }) => x.randomized ?? null)).toEqual([false, null, true, null]);
   // The check's scratch directory is removed.
   expect(R.layoutTmps).toEqual([]);
 });
