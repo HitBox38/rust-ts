@@ -588,6 +588,9 @@ InterpCx.prototype.cleanup_stack_frame = function (this: InterpCx, unwinding: bo
   }
 };
 
+/** PORT(perf): see `push_stack_frame_done`. */
+const ALWAYS_LIVE_VARS = new WeakMap<Body, Local[]>();
+
 /// Call this after `push_stack_frame_raw` and when all the other setup that needs to be done
 /// is completed.
 // rustc: compiler/rustc_const_eval/src/interpret/stack.rs:484 push_stack_frame_done
@@ -598,12 +601,20 @@ InterpCx.prototype.push_stack_frame_done = function (this: InterpCx): InterpResu
   if (r.$ === "Err") return r;
 
   const body = this.body();
-  const always_live = always_storage_live_locals(body);
-  for (const local of body.vars_and_temps_iter()) {
-    if (always_live.contains(local)) {
-      const r = this.storage_live(local);
-      if (r.$ === "Err") return r;
+  // PORT(perf): upstream recomputes the set on every call, walking every statement of the body. The body is immutable,
+  // so the locals to make live are remembered per body: invisible, same locals in the same order.
+  let always_live = ALWAYS_LIVE_VARS.get(body);
+  if (always_live === undefined) {
+    const set = always_storage_live_locals(body);
+    always_live = [];
+    for (const local of body.vars_and_temps_iter()) {
+      if (set.contains(local)) always_live.push(local);
     }
+    ALWAYS_LIVE_VARS.set(body, always_live);
+  }
+  for (let i = 0; i < always_live.length; i++) {
+    const r = this.storage_live(always_live[i]!);
+    if (r.$ === "Err") return r;
   }
 
   // Get ready to execute the first instruction in the stack frame.
