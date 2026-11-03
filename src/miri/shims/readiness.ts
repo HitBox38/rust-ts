@@ -30,6 +30,7 @@ import { type MiriInterpCx } from "../machine.ts";
 import { type VisitWith } from "../provenance_gc.ts";
 import { type DynFileDescriptionRef, type FdId, type FdNum, type FileDescription, FileDescriptionRef } from "./files.ts";
 import {
+  clone_Readiness,
   DelayedReadinessUpdates,
   type Readiness,
   ReadinessInterest,
@@ -42,7 +43,7 @@ import { KeyedMap } from "../../rust_ts/keyed.ts";
 import { InterpCx } from "../../rustc_const_eval/interpret/eval_context.ts";
 import { type AnyMachine, type Machine } from "../../rustc_const_eval/interpret/machine.ts";
 import { InterpErrorInfo_from_InterpErrorKind, type InterpResult, interp_ok } from "../../rustc_middle/mir/interpret/mod.ts";
-import { panic } from "../../std/panic.ts";
+import { assert, panic } from "../../std/panic.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
 export * from "./readiness.gen.ts";
 
@@ -167,9 +168,14 @@ export const Readiness_EMPTY: Readiness = Object.freeze({
 /** `FdNum::MAX` (`i32::MAX`). */
 const FdNum_MAX = 0x7fff_ffff;
 
-/** The tuple's derived `Ord` as a number: `FdId` first, then `FdNum` (offset so a negative `i32` orders first). */
-function key_ord(k: ReadinessInterestKey): number {
-  return k[0]._0 * 2 ** 32 + (k[1] + 2 ** 31);
+/** The tuple's derived `Ord`: `FdId` first, then `FdNum`. */
+function key_cmp(a: ReadinessInterestKey, b: ReadinessInterestKey): number {
+  return a[0]._0 - b[0]._0 || a[1] - b[1];
+}
+
+/** The tuple's canonical `KeyedMap` key (a string: `FdId * 2^32 + FdNum` loses precision past 2^21 descriptions). */
+function key_canon(k: ReadinessInterestKey): string {
+  return `${k[0]._0}:${k[1]}`;
 }
 
 /** The tuple's derived `PartialEq`. */
@@ -179,28 +185,55 @@ function key_eq(a: ReadinessInterestKey, b: ReadinessInterestKey): boolean {
 
 /**
  * `BTreeMap<ReadinessInterestKey, ReadinessInterest>`: a `Map` keyed by value whose iteration is in key order (module
- * header). Mutation while iterating goes through a snapshot, so `retain` / `range_mut` see a stable order.
+ * header). The keys are kept sorted as they come and go, so a lookup never sorts. Mutation while iterating goes through
+ * a snapshot, so `retain` / `range_mut` see a stable order.
  */
 export class InterestMap extends KeyedMap<ReadinessInterestKey, ReadinessInterest> {
+  /** The stored keys in `Ord` order. */
+  readonly #sorted: ReadinessInterestKey[] = [];
+
   constructor() {
-    super(key_ord);
+    super(key_canon);
   }
 
-  /** The stored keys in `Ord` order. */
-  #sorted_keys(): ReadinessInterestKey[] {
-    return Array.from(super.keys()).sort((a, b) => key_ord(a) - key_ord(b));
+  /** The position of the first stored key `>= k`. */
+  #lower_bound(k: ReadinessInterestKey): number {
+    let lo = 0;
+    let hi = this.#sorted.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1;
+      if (key_cmp(this.#sorted[mid]!, k) < 0) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo;
+  }
+
+  override set(k: ReadinessInterestKey, v: ReadinessInterest): this {
+    if (!this.has(k)) this.#sorted.splice(this.#lower_bound(k), 0, k);
+    return super.set(k, v);
+  }
+
+  override delete(k: ReadinessInterestKey): boolean {
+    const deleted = super.delete(k);
+    if (deleted) this.#sorted.splice(this.#lower_bound(k), 1);
+    return deleted;
+  }
+
+  override clear(): void {
+    this.#sorted.length = 0;
+    super.clear();
   }
 
   override *entries(): MapIterator<[ReadinessInterestKey, ReadinessInterest]> {
-    for (const k of this.#sorted_keys()) yield [k, super.get(k)!];
+    for (const k of this.#sorted.slice()) yield [k, super.get(k)!];
   }
 
   override *keys(): MapIterator<ReadinessInterestKey> {
-    for (const k of this.#sorted_keys()) yield k;
+    yield* this.#sorted.slice();
   }
 
   override *values(): MapIterator<ReadinessInterest> {
-    for (const k of this.#sorted_keys()) yield super.get(k)!;
+    for (const k of this.#sorted.slice()) yield super.get(k)!;
   }
 
   override [Symbol.iterator](): MapIterator<[ReadinessInterestKey, ReadinessInterest]> {
@@ -213,12 +246,11 @@ export class InterestMap extends KeyedMap<ReadinessInterestKey, ReadinessInteres
 
   /** `range(lo..=hi)` / `range_mut(lo..=hi)`: the entries with `lo <= key <= hi`, in order. */
   range(range: [ReadinessInterestKey, ReadinessInterestKey]): [ReadinessInterestKey, ReadinessInterest][] {
-    const lo = key_ord(range[0]);
-    const hi = key_ord(range[1]);
     const out: [ReadinessInterestKey, ReadinessInterest][] = [];
-    for (const [k, v] of this.entries()) {
-      const o = key_ord(k);
-      if (lo <= o && o <= hi) out.push([k, v]);
+    for (let i = this.#lower_bound(range[0]); i < this.#sorted.length; i++) {
+      const k = this.#sorted[i]!;
+      if (key_cmp(k, range[1]) > 0) break;
+      out.push([k, super.get(k)!]);
     }
     return out;
   }
@@ -270,6 +302,8 @@ export function Rc_clone_ReadinessWatcher(w: ReadinessWatcher): ReadinessWatcher
 
 /** Dropping an `Rc<ReadinessWatcher>`: the last one runs `Drop for ReadinessWatcher`. */
 export function Rc_drop_ReadinessWatcher(w: ReadinessWatcher): void {
+  // PORT: Rust's ownership rules out a double drop; here a second `Drop` run or a negative count would go unnoticed.
+  assert(w.rc_strong > 0, "ReadinessWatcher: `Rc` dropped more often than cloned");
   w.rc_strong -= 1;
   if (w.rc_strong === 0) w.drop();
 }
@@ -360,7 +394,7 @@ ReadinessWatcher.prototype.add_interest = function (
 
     const interest = new ReadinessInterest(
       FileDescriptionRef.downgrade(fd_ref),
-      relevant,
+      clone_Readiness(relevant), // `Readiness` is `Copy`
       is_edge_triggered,
       data,
       { ...Readiness_EMPTY },
