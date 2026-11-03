@@ -26,6 +26,7 @@ import { debug_SizedTraitKind, type SizedTraitKind } from "../../rustc_type_ir/s
 import { debug_AliasTyKind } from "../../rustc_type_ir/ty_kind.ts";
 import { debug_ExistentialTraitRef, debug_TraitRef } from "../../rustc_type_ir/ir_print.ts";
 import { intern_key } from "../../rust_ts/intern_key.ts";
+import { typing_env_no } from "../../rust_ts/typing_env_no.ts";
 import { debug_str } from "../../std/fmt.ts";
 import { debug_ParamEnvAnd, debug_PseudoCanonicalInput, debug_Ty, type ParamEnvAnd, type PseudoCanonicalInput, type Ty } from "../ty/mod.ts";
 import type { AdtDef } from "../ty/decls.ts";
@@ -572,9 +573,12 @@ export const KEY_AliasTyKind: QueryKey<AliasTyKind> = {
 
 /** `impl<'tcx, T: QueryKey> QueryKey for ty::PseudoCanonicalInput<'tcx, T>`, instantiated per key type below
  * (PORTING §5: the `T: QueryKey` bound is the `key_T` table). */
-function pseudo_canonical_input_key<T>(key_T: QueryKey<T, unknown>): QueryKey<PseudoCanonicalInput<T>> {
+function pseudo_canonical_input_key<T>(
+  key_T: QueryKey<T, unknown>,
+  hash_key: (k: PseudoCanonicalInput<T>) => string | number = intern_key,
+): QueryKey<PseudoCanonicalInput<T>> {
   return {
-    make_cache: default_cache<PseudoCanonicalInput<T>>(intern_key),
+    make_cache: default_cache<PseudoCanonicalInput<T>>(hash_key),
     // rustc: compiler/rustc_middle/src/query/keys.rs:306 default_span
     default_span(self: PseudoCanonicalInput<T>, tcx: TyCtxt): Span {
       return key_T.default_span(self.value, tcx);
@@ -583,20 +587,46 @@ function pseudo_canonical_input_key<T>(key_T: QueryKey<T, unknown>): QueryKey<Ps
     as_local_key: QueryKey_provided.as_local_key,
     debug: (v, f) => debug_PseudoCanonicalInput(v, f, key_T.debug),
     debug_local: no_local_key,
-    hash_key: intern_key,
+    hash_key,
   };
 }
 
+// PORT(perf) (lane miri-perf, plan-m6 D11): the hot `PseudoCanonicalInput` keys without `intern_key`. Upstream hashes
+// the key's fields; the port's `intern_key` builds a string walking them, on every cache hit: 18 s of 202 s
+// (profile samples) in `tests/ui/moves/move-3-unique.rs`, mostly `layout_of`. These keys give the same equality: the
+// env by `typing_env_no` (same `intern_key` <=> same number), interned children by `id`, `DefId` by its two numbers,
+// and anything else by `intern_key`. Numbers and strings never meet in one cache by accident: each function's result
+// form is decided by the value alone (`typing_env_no` beyond 2^21 envs, never reached, keeps the old text).
+const TWO_32 = 0x1_0000_0000;
+/** `PseudoCanonicalInput<Ty>` or `<GenericArg>`: every interned value has a process-wide `id`, below 2^32. */
+function pci_interned_key(k: PseudoCanonicalInput<{ readonly id: number }>): string | number {
+  const env = typing_env_no(k.typing_env);
+  return env < 0x20_0000 ? env * TWO_32 + k.value.id : intern_key(k);
+}
+/** `Instance`'s `Eq`: an `Item` by its two numbers and the args' `id`, every other kind by `intern_key`. */
+function instance_key(i: Instance): string {
+  const d = i.def;
+  return d.$ === "Item" ? `${d._0.krate}:${d._0.index}:${i.args.id}` : intern_key(i);
+}
+const pci_DefId_GenericArgsRef_key = (k: PseudoCanonicalInput<[DefId, GenericArgsRef]>): string =>
+  `${typing_env_no(k.typing_env)}|${k.value[0].krate}:${k.value[0].index}:${k.value[1].id}`;
+const pci_AdtDef_GenericArgsRef_key = (k: PseudoCanonicalInput<[AdtDef, GenericArgsRef]>): string =>
+  `${typing_env_no(k.typing_env)}|${k.value[0].id}:${k.value[1].id}`;
+const pci_Instance_List_Ty_key = (k: PseudoCanonicalInput<[Instance, List<Ty>]>): string =>
+  `${typing_env_no(k.typing_env)}|${instance_key(k.value[0])}|${k.value[1].id}`;
+const pci_GlobalId_key = (k: PseudoCanonicalInput<GlobalId>): string =>
+  `${typing_env_no(k.typing_env)}|${instance_key(k.value.instance)}|${k.value.promoted ?? ""}`;
+
 /** `PseudoCanonicalInput<Ty>` (`layout_of`, `is_*_raw`, `needs_drop_raw`, ...). */
-export const KEY_PseudoCanonicalInput_Ty: QueryKey<PseudoCanonicalInput<Ty>> = pseudo_canonical_input_key(KEY_Ty);
+export const KEY_PseudoCanonicalInput_Ty: QueryKey<PseudoCanonicalInput<Ty>> = pseudo_canonical_input_key(KEY_Ty, pci_interned_key);
 /** `PseudoCanonicalInput<GenericArg>` (`try_normalize_generic_arg_after_erasing_regions`). */
-export const KEY_PseudoCanonicalInput_GenericArg: QueryKey<PseudoCanonicalInput<GenericArg>> = pseudo_canonical_input_key(KEY_GenericArg);
+export const KEY_PseudoCanonicalInput_GenericArg: QueryKey<PseudoCanonicalInput<GenericArg>> = pseudo_canonical_input_key(KEY_GenericArg, pci_interned_key as (k: PseudoCanonicalInput<GenericArg>) => string | number);
 /** `PseudoCanonicalInput<TraitRef>` (`codegen_select_candidate`). */
 export const KEY_PseudoCanonicalInput_TraitRef: QueryKey<PseudoCanonicalInput<TraitRef>> = pseudo_canonical_input_key(KEY_TraitRef);
 /** `PseudoCanonicalInput<(DefId, GenericArgsRef)>` (`resolve_instance_raw`). */
-export const KEY_PseudoCanonicalInput_DefId_GenericArgsRef: QueryKey<PseudoCanonicalInput<[DefId, GenericArgsRef]>> = pseudo_canonical_input_key(KEY_DefId_GenericArgsRef);
+export const KEY_PseudoCanonicalInput_DefId_GenericArgsRef: QueryKey<PseudoCanonicalInput<[DefId, GenericArgsRef]>> = pseudo_canonical_input_key(KEY_DefId_GenericArgsRef, pci_DefId_GenericArgsRef_key);
 /** `PseudoCanonicalInput<GlobalId>` (`eval_to_allocation_raw`, `eval_to_const_value_raw`, `eval_to_valtree`). */
-export const KEY_PseudoCanonicalInput_GlobalId: QueryKey<PseudoCanonicalInput<GlobalId>> = pseudo_canonical_input_key(KEY_GlobalId);
+export const KEY_PseudoCanonicalInput_GlobalId: QueryKey<PseudoCanonicalInput<GlobalId>> = pseudo_canonical_input_key(KEY_GlobalId, pci_GlobalId_key);
 
 export const KEY_AdtDef_GenericArgsRef: QueryKey<[AdtDef, GenericArgsRef]> = {
   make_cache: default_cache<[AdtDef, GenericArgsRef]>(intern_key),
@@ -611,7 +641,7 @@ export const KEY_AdtDef_GenericArgsRef: QueryKey<[AdtDef, GenericArgsRef]> = {
   hash_key: intern_key,
 };
 /** `PseudoCanonicalInput<(AdtDef, GenericArgsRef)>` (`is_opsem_inhabited_adt_cached`). */
-export const KEY_PseudoCanonicalInput_AdtDef_GenericArgsRef: QueryKey<PseudoCanonicalInput<[AdtDef, GenericArgsRef]>> = pseudo_canonical_input_key(KEY_AdtDef_GenericArgsRef);
+export const KEY_PseudoCanonicalInput_AdtDef_GenericArgsRef: QueryKey<PseudoCanonicalInput<[AdtDef, GenericArgsRef]>> = pseudo_canonical_input_key(KEY_AdtDef_GenericArgsRef, pci_AdtDef_GenericArgsRef_key);
 
 export const KEY_Symbol: QueryKey<Symbol> = {
   make_cache: default_cache<Symbol>((k) => k),
@@ -870,7 +900,7 @@ export const KEY_Instance_List_Ty: QueryKey<[Instance, List<Ty>]> = {
   hash_key: intern_key,
 };
 /** `PseudoCanonicalInput<(Instance, &List<Ty>)>` (`fn_abi_of_instance_no_deduced_attrs`, `fn_abi_of_instance_raw`; lane fn-abi). */
-export const KEY_PseudoCanonicalInput_Instance_List_Ty: QueryKey<PseudoCanonicalInput<[Instance, List<Ty>]>> = pseudo_canonical_input_key(KEY_Instance_List_Ty);
+export const KEY_PseudoCanonicalInput_Instance_List_Ty: QueryKey<PseudoCanonicalInput<[Instance, List<Ty>]>> = pseudo_canonical_input_key(KEY_Instance_List_Ty, pci_Instance_List_Ty_key);
 
 export const KEY_Value: QueryKey<Value> = {
   make_cache: default_cache<Value>(intern_key),
