@@ -7,8 +7,10 @@ import "../lib.ts";
 import { TlsData } from "./tls.ts";
 import { ThreadId } from "../concurrency/thread.ts";
 import { type Scalar } from "../lib.ts";
+import { BorTag } from "../borrow_tracker/mod.ts";
+import { MiriMachine, type Provenance } from "../machine.ts";
 import { Size, TargetDataLayout } from "../../rustc_abi/lib.ts";
-import { Scalar as interp_Scalar } from "../../rustc_middle/mir/interpret/mod.ts";
+import { type AllocId, Pointer, Scalar as interp_Scalar } from "../../rustc_middle/mir/interpret/mod.ts";
 import { type Instance } from "../../rustc_middle/ty/instance.ts";
 import { type Span } from "../../rustc_span/lib.ts";
 
@@ -26,6 +28,9 @@ const ok = <T>(r: { $: "Ok"; _0: T } | { $: "Err"; _0: unknown }): T => {
   return r._0;
 };
 const err_text = (r: { $: string; _0: unknown }): string => JSON.stringify(r);
+/** A pointer scalar with `Provenance::Concrete { alloc_id, tag }`. */
+const ptr = (alloc_id: number, tag: number): Scalar =>
+  interp_Scalar.from_pointer(Pointer.new({ $: "Concrete", alloc_id: alloc_id as AllocId, tag: BorTag.new(tag)! } as Provenance, Size.from_bytes(16)), cx) as Scalar;
 
 test("TlsData::default starts at key 1; keys grow; the key must fit in key_size", () => {
   const tls = TlsData.default_();
@@ -108,13 +113,49 @@ test("delete_all_thread_tls clears one thread's values; macOS dtors must have ru
 
 test("visit_provenance visits every stored value and macOS dtor argument", () => {
   const tls = TlsData.default_();
-  const k = ok(tls.create_tls_key(undefined, Size.from_bytes(4)));
-  ok(tls.store_tls(k, T0, usize(1n), cx));
-  ok(tls.add_macos_thread_dtor(T0, DTOR_A, usize(2n), SPAN));
-  let calls = 0;
-  tls.visit_provenance(() => {
-    calls++;
+  const k1 = ok(tls.create_tls_key(undefined, Size.from_bytes(8)));
+  const k2 = ok(tls.create_tls_key(undefined, Size.from_bytes(8)));
+  // A pointer stored in TLS may be its allocation's only reference: the provenance GC has to see it.
+  ok(tls.store_tls(k1, T0, ptr(1, 11), cx));
+  ok(tls.store_tls(k1, T1, ptr(2, 12), cx));
+  ok(tls.store_tls(k2, T0, ptr(3, 13), cx));
+  ok(tls.add_macos_thread_dtor(T0, DTOR_A, ptr(4, 14), SPAN));
+  ok(tls.add_macos_thread_dtor(T1, DTOR_B, ptr(5, 15), SPAN));
+  // Integer scalars carry no provenance: nothing to report for them.
+  ok(tls.store_tls(k2, T1, usize(1n), cx));
+  ok(tls.add_macos_thread_dtor(T0, DTOR_B, usize(2n), SPAN));
+
+  const seen: [number | undefined, number | undefined][] = [];
+  tls.visit_provenance((alloc_id, tag) => seen.push([alloc_id, tag]));
+  // The order is unobservable (a GC only collects into sets).
+  seen.sort((a, b) => a[0]! - b[0]!);
+  expect(seen).toEqual([
+    [1, 11],
+    [2, 12],
+    [3, 13],
+    [4, 14],
+    [5, 15],
+  ]);
+});
+
+test("MiriMachine::visit_provenance reaches TLS, so a provenance GC sees what TLS holds", () => {
+  const tls = TlsData.default_();
+  const k = ok(tls.create_tls_key(undefined, Size.from_bytes(8)));
+  ok(tls.store_tls(k, T0, ptr(9, 19), cx));
+  const nothing = { visit_provenance: () => {} };
+  const machine = Object.assign(Object.create(MiriMachine.prototype) as MiriMachine, {
+    tls,
+    threads: nothing,
+    env_vars: { map: new Map(), $: "Uninit" },
+    dirs: nothing,
+    fds: nothing,
+    data_race: { $: "None" },
+    borrow_tracker: undefined,
+    alloc_addresses: nothing,
+    extern_statics: new Map(),
+    extern_statics_imports: new Map(),
   });
-  // Integer scalars carry no provenance: nothing to report (the walk itself must not stop `unported`).
-  expect(calls).toBe(0);
+  const seen: (number | undefined)[] = [];
+  machine.visit_provenance((alloc_id) => seen.push(alloc_id));
+  expect(seen).toEqual([9]);
 });
