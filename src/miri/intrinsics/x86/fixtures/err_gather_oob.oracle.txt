@@ -1,0 +1,21 @@
+exit: 1
+--- stdout
+--- stderr
+error: Undefined Behavior: memory access failed: attempting to access 4 bytes, but got alloc205+0xfa0 which is at or beyond the end of the allocation of size 16 bytes
+  --> err_gather_oob.rs:14:22
+   |
+14 |     let _ = unsafe { g(i32x4([0; 4]), d.as_ptr() as *const i8, o, m, 4) };
+   |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Undefined Behavior occurred here
+   |
+   = help: this indicates a bug in the program: it performed an invalid operation, and caused Undefined Behavior
+   = help: see https://doc.rust-lang.org/nightly/reference/behavior-considered-undefined.html for further information
+help: alloc205 was allocated here:
+  --> err_gather_oob.rs:11:9
+   |
+11 |     let d = [0u8; 16];
+   |         ^
+
+note: some details are omitted, run with `MIRIFLAGS=-Zmiri-backtrace=full` for a verbose backtrace
+
+error: aborting due to 1 previous error
+
