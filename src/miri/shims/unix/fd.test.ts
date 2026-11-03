@@ -1,4 +1,6 @@
-// Tests of lane miri-shims-d's unix/fd.ts (close / dup / dup2) and unix/socket.ts (the A3 isolation path).
+// Tests of lane miri-shims-d's unix/fd.ts (close / dup / dup2) and unix/socket.ts (the A3 isolation path). The other fd
+// shims run end to end against the oracle in fd_ops.oracle.test.ts; flock's lock path and F_GETFL / F_SETFL's success
+// path need a host file (isolation off, not ported: D14) and are tested here on a stand-in description.
 //
 // `FdTable` (files.rs) and the errno shims (io_error.rs) belong to lane miri-shims-b and are still placeholders on this
 // branch, so the shims run on a stand-in `ecx` (`InterpCx.prototype`, Linux target) whose `machine.fds` is a test double
@@ -19,6 +21,8 @@ interface Desc {
   name: string;
   strong: number;
   closed: boolean;
+  /** The description's own unix methods (`flock`, `get_flags`, ...). */
+  methods?: Record<string, unknown>;
 }
 class Handle {
   constructor(readonly desc: Desc) {
@@ -32,6 +36,7 @@ class Handle {
       name: () => self_desc.name,
       as_unix: (self_: Handle) => self_,
       readiness_watched: () => undefined,
+      ...self_desc.methods,
     };
   }
   drop(): void {
@@ -183,4 +188,98 @@ test("socket without isolation and the other socket shims stop unported (plan-m6
     $: "Unsupported",
     _0: { $: "Unsupported", _0: "socket: domain 0x1 is unsupported, only AF_INET and AF_INET6 are allowed." },
   });
+});
+
+// ---- flock's lock path and F_GETFL / F_SETFL's success path on a stand-in description ----
+
+/** The target's libc constants the shims read with `eval_libc_i32`, as `libc::*` prints them under the isolated Miri. */
+const LIBC: Record<string, number> = {
+  LOCK_SH: 1,
+  LOCK_EX: 2,
+  LOCK_NB: 4,
+  LOCK_UN: 8,
+  F_GETFL: 3,
+  F_SETFL: 4,
+  O_NONBLOCK: 2048,
+  O_RDONLY: 0,
+  O_WRONLY: 1,
+  O_RDWR: 2,
+  O_CREAT: 64,
+  O_EXCL: 128,
+  O_NOCTTY: 256,
+  O_TRUNC: 512,
+};
+
+/** `setup` plus fd 3, a description with the given unix methods. */
+function file_setup(methods: Record<string, unknown>) {
+  const s = setup();
+  const d: Desc = { name: "file", strong: 0, closed: false, methods };
+  s.descs.push(d);
+  const fd = s.fds.insert(new Handle(d));
+  expect(fd).toBe(3);
+  const e = s.ecx as Record<string, unknown>;
+  e.eval_libc_i32 = (name: string) => LIBC[name] ?? 1000;
+  e.read_scalar = (op: { v: number }) => interp_ok(Scalar.from_i32(op.v));
+  (e.machine as Record<string, unknown>).communicate = () => true;
+  e.try_unwrap_io_result = (r: { $: string; _0: unknown }, f: (v: never) => number) => {
+    if (r.$ === "Ok") return interp_ok(f(r._0 as never));
+    s.errors.push(r._0);
+    return interp_ok(-1);
+  };
+  e.check_varargs = (_sig: unknown, varargs: OpTy[]) => interp_ok([varargs]);
+  return { ...s, fd };
+}
+type OpTy = ReturnType<typeof op_i32>;
+
+test("flock parses every op upstream accepts and leaks no handle", () => {
+  const calls: unknown[] = [];
+  const { ecx, fds, fd, live } = file_setup({
+    flock: (communicate: boolean, op: unknown) => {
+      calls.push([communicate, op]);
+      return interp_ok({ $: "Ok", _0: null });
+    },
+  });
+  for (const op of [LIBC.LOCK_SH!, LIBC.LOCK_SH! | LIBC.LOCK_NB!, LIBC.LOCK_EX!, LIBC.LOCK_EX! | LIBC.LOCK_NB!, LIBC.LOCK_UN!]) {
+    expect(i32(ecx.flock(fd, op))).toBe(0);
+  }
+  expect(calls).toEqual([
+    [true, { $: "SharedLock", nonblocking: false }],
+    [true, { $: "SharedLock", nonblocking: true }],
+    [true, { $: "ExclusiveLock", nonblocking: false }],
+    [true, { $: "ExclusiveLock", nonblocking: true }],
+    [true, { $: "Unlock" }],
+  ]);
+  expect(live()).toBe(fds.fds.size);
+});
+
+test("flock hands a host error to the io-error path; unknown flags stop with the handle released", () => {
+  const { ecx, fds, fd, live, errors } = file_setup({ flock: () => interp_ok({ $: "Err", _0: "would block" }) });
+  expect(i32(ecx.flock(fd, LIBC.LOCK_EX! | LIBC.LOCK_NB!))).toBe(-1);
+  expect(errors).toEqual(["would block"]);
+  expect(live()).toBe(fds.fds.size);
+  // The text is the oracle's: see `flock-flags` in fd_ops.oracle.test.ts.
+  const r = ecx.flock(fd, LIBC.LOCK_SH! | LIBC.LOCK_EX!);
+  expect(r.$).toBe("Err");
+  if (r.$ === "Err") {
+    const kind = r._0.kind();
+    expect(kind.$ === "Unsupported" && (kind._0 as { _0: string })._0).toBe("unsupported flags 0x3");
+  }
+  expect(live()).toBe(fds.fds.size);
+});
+
+test("fcntl F_GETFL and F_SETFL reach the description, F_SETFL drops the flags it never stores, no handle leaks", () => {
+  const set: number[] = [];
+  const { ecx, fds, fd, live } = file_setup({
+    get_flags: () => interp_ok(Scalar.from_i32(LIBC.O_RDWR!)),
+    set_flags: (flag: number) => {
+      set.push(flag);
+      return interp_ok(Scalar.from_i32(0));
+    },
+  });
+  expect(i32(ecx.fcntl(op_i32(fd) as never, op_i32(LIBC.F_GETFL!) as never, [] as never))).toBe(LIBC.O_RDWR!);
+  expect(live()).toBe(fds.fds.size);
+  const flags = LIBC.O_NONBLOCK! | LIBC.O_RDWR! | LIBC.O_WRONLY! | LIBC.O_CREAT! | LIBC.O_EXCL! | LIBC.O_NOCTTY! | LIBC.O_TRUNC!;
+  expect(i32(ecx.fcntl(op_i32(fd) as never, op_i32(LIBC.F_SETFL!) as never, [op_i32(flags)] as never))).toBe(0);
+  expect(set).toEqual([LIBC.O_NONBLOCK!]);
+  expect(live()).toBe(fds.fds.size);
 });
