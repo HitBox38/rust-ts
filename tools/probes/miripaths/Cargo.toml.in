@@ -1,0 +1,17 @@
+# Template: scripts/probes.ts substitutes @SRC@ and builds this in $RUST_TS_DATA/probes.
+#
+# Oracle probe for src/miri/shims/os_str.ts `windows_to_unix` / `unix_to_windows` (lane miri-shims-a; registered by lane
+# harness-w38 from its script, which only lived in the gitignored $RUST_TS_DATA/tmp/shims-a/paths.rs): its stdout is
+# tools/probes/miripaths/paths.oracle.txt, byte for byte (tools/probes/fixtures.test.ts), and that file is the `ORACLE`
+# table of src/miri/shims/os_str.test.ts. No dependencies.
+[package]
+name = "miripaths"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[[bin]]
+name = "miripaths"
+path = "@SRC@/main.rs"
+
+[workspace]

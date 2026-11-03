@@ -4,8 +4,8 @@
 //
 //   bun scripts/probes.ts build [name...]   build probes (default: all)
 //   bun scripts/probes.ts path <name>       print the probe binary path
-//   bun scripts/probes.ts fixture [name...] rewrite the committed oracle fixtures of `PROBE_FIXTURES` (default: all)
-//                                           from their (built) probes' stdout
+//   bun scripts/probes.ts fixture [name...] rewrite the committed oracle fixtures of `PROBE_FIXTURES` (default: all that
+//                                           hold on this host) from their (built) probes' stdout
 //
 // Each probe is `tools/probes/<name>/Cargo.toml.in` (+ sources). The template's `@UPSTREAM@`,
 // `@SRC@` and `@RELEASE@` are substituted, and its `[package.metadata.rust-ts]` table may set:
@@ -30,6 +30,8 @@
 import { copyFileSync, existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { DATA, PIN, REPO, UPSTREAM, die, ensureDir, parseArgs, requireUpstream, run } from "./lib/common.ts";
+import { caseEnv, mergeEnv } from "./lib/env.ts";
+import { MIRI_CASE_ENV, MIRI_SYSROOT, miriBinary, miriPin, verifyMiriOracle } from "./lib/miri.ts";
 import { oracleHost, oracleSysroot, verifyOracleToolchain } from "./lib/oracle.ts";
 
 const PROBES_SRC = join(REPO, "tools", "probes");
@@ -45,11 +47,15 @@ const EXE = process.platform === "win32" ? ".exe" : "";
  *   `host`: the fixture holds only on this host tuple (the probe prints host results, e.g. the host libm's; lane
  *           harness-w37). On another host (`oracleHost()`) the fixture test is skipped with the reason printed and
  *           `fixture` refuses to rewrite it (that would replace the recorded host's results with this host's).
+ *   `miri`: not a cargo build: `tools/probes/<name>/main.rs` is a program for the isolated Miri oracle (it needs the
+ *           Linux target Miri interprets for; lane harness-w38), which runs it from source. It has no `Cargo.toml.in`, so
+ *           `build` does not see it; it needs `bun scripts/miri.ts setup` instead.
  */
 export interface ProbeFixture {
   fixture: string;
   args?: string[];
   host?: string;
+  miri?: boolean;
 }
 
 export const PROBE_FIXTURES: Record<string, ProbeFixture> = {
@@ -57,7 +63,34 @@ export const PROBE_FIXTURES: Record<string, ProbeFixture> = {
   miriaddr: { fixture: "src/miri/alloc_addresses/addresses.oracle.txt" },
   mirisched: { fixture: "src/miri/concurrency/scheduler.oracle.txt" },
   mirimath: { fixture: "src/miri/math.oracle.txt", args: ["aarch64-apple-darwin"], host: "aarch64-apple-darwin" },
+  miripaths: { fixture: "tools/probes/miripaths/paths.oracle.txt" },
+  miriepoll: { fixture: "tools/probes/miriepoll/epoll.oracle.txt", miri: true },
 };
+
+/** What prints a `PROBE_FIXTURES` entry's fixture: the built probe, or the Miri oracle on the probe's source. */
+export function probeFixtureCmd(name: string, f: ProbeFixture): { cmd: string[]; env: Record<string, string> } {
+  if (!f.miri) return { cmd: [probeBinary(name), ...(f.args ?? [])], env: mergeEnv(process.env, undefined) };
+  const cmd = [miriBinary(), join(PROBES_SRC, name, "main.rs"), "--edition=2021", "--sysroot", MIRI_SYSROOT, "--target", miriPin().target, ...(f.args ?? [])];
+  return { cmd, env: mergeEnv(process.env, caseEnv(MIRI_CASE_ENV)) };
+}
+
+/**
+ * Which fixtures `fixture` rewrites. Named ones are all required: an unknown name or a fixture of another host is an
+ * error. With no names, a fixture of another host is left alone and reported (lane harness-w38): it is not this host's
+ * to rewrite, which is no reason to fail the others.
+ */
+export function fixtureSelection(names: readonly string[], host: () => string): { run: string[]; skipped: string[]; errors: string[] } {
+  const out = { run: [] as string[], skipped: [] as string[], errors: [] as string[] };
+  for (const n of names.length ? names : Object.keys(PROBE_FIXTURES)) {
+    const f = PROBE_FIXTURES[n];
+    if (f === undefined) out.errors.push(`probe ${n} has no fixture (PROBE_FIXTURES: ${Object.keys(PROBE_FIXTURES).join(", ")})`);
+    else if (f.host !== undefined && f.host !== host()) {
+      const why = `probe ${n}: ${f.fixture} holds the results of host ${f.host}, this host is ${host()}; not rewritten`;
+      (names.length ? out.errors : out.skipped).push(why);
+    } else out.run.push(n);
+  }
+  return out;
+}
 
 /** Binary path of a probe, whether or not it is built. */
 export function probeBinary(name: string): string {
@@ -244,16 +277,17 @@ if (import.meta.main) {
   } else if (cmd === "path" && names[0]) {
     console.log(probePath(names[0]));
   } else if (cmd === "fixture") {
-    let host: string | undefined;
-    for (const n of names.length ? names : Object.keys(PROBE_FIXTURES)) {
-      const f = PROBE_FIXTURES[n];
-      if (f === undefined) die(`probe ${n} has no fixture (PROBE_FIXTURES: ${Object.keys(PROBE_FIXTURES).join(", ")})`);
+    let hostMemo: string | undefined;
+    const sel = fixtureSelection(names, () => (hostMemo ??= oracleHost()));
+    if (sel.errors.length) die(sel.errors.join("; "));
+    for (const why of sel.skipped) console.log(`note: ${why}`);
+    for (const n of sel.run) {
+      const f = PROBE_FIXTURES[n]!;
       const out = f.fixture;
-      if (f.host !== undefined) {
-        host ??= oracleHost();
-        if (host !== f.host) die(`probe ${n}: ${out} holds the results of host ${f.host}, this host is ${host}; not rewritten`);
-      }
-      const r = await run([probePath(n), ...(f.args ?? [])], { timeoutMs: 120_000 });
+      if (f.miri) verifyMiriOracle();
+      else probePath(n);
+      const { cmd, env } = probeFixtureCmd(n, f);
+      const r = await run(cmd, { timeoutMs: 120_000, env });
       if (r.code !== 0 || r.timedOut) die(`probe ${n} failed (exit ${r.code}${r.timedOut ? ", timed out" : ""}): ${r.stderr.trim().slice(0, 300)}`);
       const before = existsSync(join(REPO, out)) ? readFileSync(join(REPO, out), "utf8") : undefined;
       writeFileSync(join(REPO, out), r.stdout);

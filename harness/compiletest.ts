@@ -93,6 +93,7 @@ import { delimiter, dirname, isAbsolute, join, resolve } from "node:path";
 import { DATA, PIN, UPSTREAM, ensureDir, hash } from "../scripts/lib/common.ts";
 import { caseDeps } from "../scripts/lib/deps.ts";
 import { getEnv } from "../scripts/lib/env.ts";
+import { MIRI_SYSROOT, miriPin, miriTargetLibDir } from "../scripts/lib/miri.ts";
 import { pruneStaleUiAux, touchAuxDir } from "./library.ts";
 import { ORACLE_RETRY_FACTOR, oracleHost, oraclePinnedPathEnv, oracleRustcCmd, oracleSysroot, rustcDriverHash, verifyOracleToolchain } from "../scripts/lib/oracle.ts";
 
@@ -461,36 +462,68 @@ function ignoreDecision(ln: DirectiveLine, needs = false): string | undefined {
  * them for about half of the k). The control is the same struct compiled by the oracle with `-Zrandomize-layout` in
  * an aux crate (`rl_aux::Range`): it must show swaps, or the check cannot see randomization at all (then `undefined`).
  * Bootstrap passes the flag to every crate of the std build, so `core`'s `Range` stands for the standard library.
- * `undefined` with the reason when the check cannot decide.
+ * `undefined` with the reason when the check cannot decide, also when its own compiles fail or print something else: the
+ * need is then not evaluated and the test skipped with that reason (lane harness-w38), like any undecided need.
+ *
+ * The check covers both standard libraries the needs-evaluating suites run on: the oracle's (the proc-macro suites) and,
+ * once built (`bun scripts/miri.ts setup`; no Miri case can run before), the Miri sysroot's (lane harness-w38). `needs` are
+ * decided once per target, not per suite, so the need holds only if neither is randomized.
  */
 const LAYOUT_PROBES = 64;
+/** One oracle rustc process of the check, run in the check's temp dir. */
+export type LayoutRustc = (args: string[]) => { exitCode: number; stderr: string };
+
+/** `oracleStdLayoutsRandomized` for one standard library: `extra` selects it (nothing: the oracle's own). */
+export function stdLayoutsRandomized(rustc: LayoutRustc, write: (file: string, text: string) => void, dir: string, what: string, extra: string[]): { randomized: boolean | undefined; why: string } {
+  const undecided = (why: string) => ({ randomized: undefined, why: `${what}: ${why}` });
+  write("aux.rs", "pub struct Range<Idx> { pub start: Idx, pub end: Idx }\n");
+  const auxOut = join(dir, "librl_aux.rmeta");
+  const aux = rustc(["--crate-type=rlib", "--crate-name=rl_aux", "--emit=metadata", "-o", auxOut, "-Zrandomize-layout", ...extra, "aux.rs"]);
+  if (aux.exitCode !== 0) return undecided(`oracle rustc failed on the layout check's aux crate: ${aux.stderr.slice(0, 500)}`);
+  const lines = ["#![feature(rustc_attrs)]", "extern crate rl_aux;"];
+  for (let k = 1; k <= LAYOUT_PROBES; k++) {
+    lines.push(`#[rustc_dump_layout(debug)] type S${k} = core::ops::Range<[u8; ${k}]>;`);
+    lines.push(`#[rustc_dump_layout(debug)] type A${k} = rl_aux::Range<[u8; ${k}]>;`);
+  }
+  write("main.rs", lines.join("\n") + "\n");
+  const r = rustc(["--crate-type=lib", "--crate-name=rl_main", "--emit=metadata", "-o", join(dir, "rl_main.rmeta"), "--extern", `rl_aux=${auxOut}`, ...extra, "main.rs"]);
+  let orders: { ty: string; order: number[] }[];
+  try {
+    orders = layoutOrders(r.stderr);
+  } catch (e) {
+    return undecided((e as Error).message);
+  }
+  const std = orders.filter((o) => !o.ty.startsWith("rl_aux::"));
+  const control = orders.filter((o) => o.ty.startsWith("rl_aux::"));
+  if (std.length !== LAYOUT_PROBES || control.length !== LAYOUT_PROBES) {
+    return undecided(`the layout check expected ${LAYOUT_PROBES} + ${LAYOUT_PROBES} layouts from the oracle, got ${std.length} + ${control.length}: ${r.stderr.slice(0, 500)}`);
+  }
+  const swapped = (os: typeof orders) => os.filter((o) => o.order.join(",") !== "0,1").length;
+  const [s, c] = [swapped(std), swapped(control)];
+  const counts = `${what}: core::ops::Range<[u8; 1..=${LAYOUT_PROBES}]> reordered ${s}/${LAYOUT_PROBES}, the -Zrandomize-layout control ${c}/${LAYOUT_PROBES}`;
+  if (c === 0) return { randomized: undefined, why: `the oracle shows no randomized layout even for a crate compiled with -Zrandomize-layout (${counts})` };
+  return { randomized: s > 0, why: counts };
+}
+
+/** Combines the per-library answers: any randomized one decides; else any undecided one leaves the need undecided. */
+export function combineLayouts(parts: readonly { randomized: boolean | undefined; why: string }[]): { randomized: boolean | undefined; why: string } {
+  const why = parts.map((p) => p.why).join("; ");
+  return { randomized: parts.some((p) => p.randomized === true) ? true : parts.some((p) => p.randomized === undefined) ? undefined : false, why };
+}
+
 let layoutsMemo: { randomized: boolean | undefined; why: string } | undefined;
 export function oracleStdLayoutsRandomized(): { randomized: boolean | undefined; why: string } {
   if (layoutsMemo) return layoutsMemo;
   const dir = mkdtempSync(join(ensureDir(join(DATA, "tmp")), "needs-layouts-"));
   try {
-    const rustc = (args: string[]) => Bun.spawnSync(["rustc", `+${PIN.toolchain}`, "--edition=2021", "-Awarnings", ...args], { cwd: dir, stdout: "pipe", stderr: "pipe" });
-    writeFileSync(join(dir, "aux.rs"), "pub struct Range<Idx> { pub start: Idx, pub end: Idx }\n");
-    const aux = rustc(["--crate-type=rlib", "--crate-name=rl_aux", "--emit=metadata", "-o", join(dir, "librl_aux.rmeta"), "-Zrandomize-layout", "aux.rs"]);
-    if (aux.exitCode !== 0) throw new Error(`oracle rustc failed on the layout check's aux crate: ${aux.stderr.toString().slice(0, 500)}`);
-    const lines = ["#![feature(rustc_attrs)]", "extern crate rl_aux;"];
-    for (let k = 1; k <= LAYOUT_PROBES; k++) {
-      lines.push(`#[rustc_dump_layout(debug)] type S${k} = core::ops::Range<[u8; ${k}]>;`);
-      lines.push(`#[rustc_dump_layout(debug)] type A${k} = rl_aux::Range<[u8; ${k}]>;`);
-    }
-    writeFileSync(join(dir, "main.rs"), lines.join("\n") + "\n");
-    const r = rustc(["--crate-type=lib", "--crate-name=rl_main", "--emit=metadata", "-o", join(dir, "rl_main.rmeta"), "--extern", `rl_aux=${join(dir, "librl_aux.rmeta")}`, "main.rs"]);
-    const orders = layoutOrders(r.stderr.toString());
-    const std = orders.filter((o) => !o.ty.startsWith("rl_aux::"));
-    const control = orders.filter((o) => o.ty.startsWith("rl_aux::"));
-    if (std.length !== LAYOUT_PROBES || control.length !== LAYOUT_PROBES) {
-      throw new Error(`the layout check expected ${LAYOUT_PROBES} + ${LAYOUT_PROBES} layouts from the oracle, got ${std.length} + ${control.length}: ${r.stderr.toString().slice(0, 500)}`);
-    }
-    const swapped = (os: typeof orders) => os.filter((o) => o.order.join(",") !== "0,1").length;
-    const [s, c] = [swapped(std), swapped(control)];
-    const counts = `core::ops::Range<[u8; 1..=${LAYOUT_PROBES}]> reordered ${s}/${LAYOUT_PROBES}, the -Zrandomize-layout control ${c}/${LAYOUT_PROBES}`;
-    if (c === 0) return (layoutsMemo = { randomized: undefined, why: `the oracle shows no randomized layout even for a crate compiled with -Zrandomize-layout (${counts})` });
-    return (layoutsMemo = { randomized: s > 0, why: counts });
+    const rustc: LayoutRustc = (args) => {
+      const r = Bun.spawnSync(["rustc", `+${PIN.toolchain}`, "--edition=2021", "-Awarnings", ...args], { cwd: dir, stdout: "pipe", stderr: "pipe" });
+      return { exitCode: r.exitCode, stderr: r.stderr.toString() };
+    };
+    const write = (file: string, text: string) => writeFileSync(join(dir, file), text);
+    const parts = [stdLayoutsRandomized(rustc, write, dir, "oracle std", [])];
+    if (existsSync(miriTargetLibDir())) parts.push(stdLayoutsRandomized(rustc, write, dir, "Miri sysroot std", ["--sysroot", MIRI_SYSROOT, "--target", miriPin().target]));
+    return (layoutsMemo = combineLayouts(parts));
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
