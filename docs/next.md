@@ -420,7 +420,7 @@ M6a gate (miri-hello protected).
 All wave 37 lanes reviewed and integrated: miri-shims-a to -e, miri-fs, fixers-36, harness-w37, miri-wire-37, m6a-backend,
 miri-thread-exit. Miri 1,199/1,514 fns (79.2%). New protected suites: miri-hello 1/1, run-pass-miri 3408/3470 (98.2%; 60
 UNPORTED, 2 TIMEOUT), run-fail-miri 292/294 (99.3%; 1 UNPORTED, 1 TIMEOUT). 533,608 protected in 49 suites (+3,701, 0 lost);
-23,795/27,032 fns (88.0%). M6b's run-pass/run-fail >= 90% is met; M6b still needs miri-pass >= 80% (harness-m6c).
+23,795/27,032 fns (88.0%). M6b is not read from this gate: its run-pass figure also needs run-pass-miri-heavy, which did not run (correction, 2026-11-04: an earlier version of this note called it met; plan-m6 A12), and M6b needs miri-pass >= 80% (harness-m6c).
 run-pass-miri-heavy was left out of this gate (8 serial cases; the two slowest take 282 s and 451 s on the oracle): perf lane.
 
 ## Wave 38 (started 2026-11-04) — run-pass tail, M6b (plan-m6 §5)
