@@ -1178,7 +1178,13 @@ export class ValidityVisitor<M extends AnyMachine = Machine> extends ValueVisito
   // rustc: compiler/rustc_const_eval/src/interpret/validity.rs:1267 visit_field
   override visit_field(old_val: PlaceTy, field: number, new_val: PlaceTy): InterpResult {
     const elem = this.aggregate_field_path_elem(old_val.layout, field, new_val.layout.ty);
-    return this.with_elem(elem, (this_) => this_.visit_value(new_val));
+    // PORT(perf): `with_elem` inlined, without its closure: this is the validator's commonest step.
+    const path_len = this.path.projs.length;
+    this.path.projs.push(elem);
+    const r = this.visit_value(new_val);
+    if (r.$ === "Err") return r;
+    this.path.projs.length = path_len;
+    return r;
   }
 
   // #[inline]
