@@ -1,0 +1,4 @@
+exit 0
+== MONO_ITEM
+== FP
+== stderr

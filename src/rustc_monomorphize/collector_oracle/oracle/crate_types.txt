@@ -1,0 +1,26 @@
+exit 0
+== MONO_ITEM
+MONO_ITEM fn <{closure@/rustc/6f5da406b56c2db6607202b63daee73aa8c61297/library/std/src/sys/thread_local/native/mod.rs:71:21: 71:24} as std::ops::FnOnce<(std::option::Option<&mut std::option::Option<std::cell::Cell<u32>>>,)>>::call_once - shim @@ crate_types.88bfeb99625cb61a-cgu.0[Internal]
+MONO_ITEM fn TL::{constant#0}::{closure#1} @@ crate_types.88bfeb99625cb61a-cgu.0[Internal]
+MONO_ITEM fn exported @@ crate_types.88bfeb99625cb61a-cgu.0[External]
+MONO_ITEM fn exported::{closure#0} @@ crate_types.88bfeb99625cb61a-cgu.0[Internal]
+MONO_ITEM fn kept @@ crate_types.88bfeb99625cb61a-cgu.0[External]
+MONO_ITEM fn std::cell::Cell::<u32>::get @@ crate_types.88bfeb99625cb61a-cgu.0[External]
+MONO_ITEM fn std::thread::LocalKey::<std::cell::Cell<u32>>::try_with::<{closure@$FILE:8:60: 8:63}, u32> @@ crate_types.88bfeb99625cb61a-cgu.0[External]
+MONO_ITEM fn std::thread::LocalKey::<std::cell::Cell<u32>>::with::<{closure@$FILE:8:60: 8:63}, u32> @@ crate_types.88bfeb99625cb61a-cgu.0[External]
+MONO_ITEM static KEEP @@ crate_types.88bfeb99625cb61a-cgu.0[External]
+MONO_ITEM static TL::{constant#0}::{closure#0}::__RUST_STD_INTERNAL_VAL @@ crate_types.88bfeb99625cb61a-cgu.0[Internal]
+MONO_ITEM static TL::{constant#0}::{closure#1}::__RUST_STD_INTERNAL_VAL @@ crate_types.88bfeb99625cb61a-cgu.0[Internal]
+== FP
+FP 1ce6a78b91f26b85111d48e708e8f1ee fn std::cell::Cell::<u32>::get
+FP 227cdbe7b0a72f9205e2a53233a84c32 static TL::{constant#0}::{closure#1}::__RUST_STD_INTERNAL_VAL
+FP 31cdf8b9c9faa76b0f3ea6f71391448c static TL::{constant#0}::{closure#0}::__RUST_STD_INTERNAL_VAL
+FP 4a5e54f3f32eab63d0ca79f97544e273 fn kept
+FP 6ba5e9ace7f1407fe1a61bfd65d11c6c fn TL::{constant#0}::{closure#1}
+FP 751eede3d09d7676a030b6f18721c192 fn exported::{closure#0}
+FP 7bf2e14b2a7131cfda688d8a7860e35b static KEEP
+FP 92d0eed9a55c029d6af3369f9cbf46b8 fn <{closure@/rustc/6f5da406b56c2db6607202b63daee73aa8c61297/library/std/src/sys/thread_local/native/mod.rs:71:21: 71:24} as std::ops::FnOnce<(std::option::Option<&mut std::option::Option<std::cell::Cell<u32>>>,)>>::call_once - shim
+FP a53fa7d60e6f07022426795a78d0fe49 fn exported
+FP b4d03c7e1416a56899e94a8580a8901a fn std::thread::LocalKey::<std::cell::Cell<u32>>::with::<{closure@$FILE:8:60: 8:63}, u32>
+FP d34241223b5f62b4ff47afca42b84930 fn std::thread::LocalKey::<std::cell::Cell<u32>>::try_with::<{closure@$FILE:8:60: 8:63}, u32>
+== stderr

@@ -1,0 +1,26 @@
+exit 0
+== MONO_ITEM
+MONO_ITEM fn foo::<i32> @@ up_static_init.501d9d929f29b24b-cgu.0[External]
+MONO_ITEM fn start @@ up_static_init.501d9d929f29b24b-cgu.0[External]
+MONO_ITEM static FN @@ up_static_init.501d9d929f29b24b-cgu.0[External]
+== FP
+FP 14578afdf7444b1732232725ba10b9a2 static FN
+FP 310b74ae20b820f6ede44073b7e9e856 fn foo::<i32>
+FP 3c724cb2822dcb7ac01643ee89abb115 fn start
+== stderr
+warning: static `FN` is never used
+ --> $FILE:5:8
+  |
+5 | static FN: fn() = foo::<i32>;
+  |        ^^
+  |
+  = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `foo` is never used
+ --> $FILE:7:4
+  |
+7 | fn foo<T>() {}
+  |    ^^^
+
+warning: 2 warnings emitted
+

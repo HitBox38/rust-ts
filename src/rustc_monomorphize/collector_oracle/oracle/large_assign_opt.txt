@@ -1,0 +1,27 @@
+exit 0
+== MONO_ITEM
+MONO_ITEM fn copied @@ large_assign_opt.4aad84f11475e168-cgu.0[External]
+MONO_ITEM fn moved @@ large_assign_opt.4aad84f11475e168-cgu.0[External]
+MONO_ITEM fn take_copy @@ large_assign_opt.4aad84f11475e168-cgu.0[External]
+MONO_ITEM fn take_move @@ large_assign_opt.4aad84f11475e168-cgu.0[External]
+== FP
+FP 03692b5b1b2f2f778aba2efaf3d25651 fn copied
+FP 3f1f53ad285cce4b8cd70e2b740dc119 fn moved
+FP 80b5727db980fff15ae508fa7135d481 fn take_move
+FP 9f94d11ee5ad282fe65765238af0f6d5 fn take_copy
+== stderr
+warning: moving 2000 bytes
+  --> $FILE:12:82
+   |
+12 | #[inline(never)] #[no_mangle] pub fn copied(a: [u8; 2000]) -> u8 { take_copy(&a, a) + 1 }
+   |                                                                                  ^ value moved from here
+   |
+   = note: the current maximum size is 1000, but it can be customized with the move_size_limit attribute: `#![move_size_limit = "..."]`
+note: the lint level is defined here
+  --> $FILE:7:9
+   |
+ 7 | #![warn(large_assignments)]
+   |         ^^^^^^^^^^^^^^^^^
+
+warning: 1 warning emitted
+

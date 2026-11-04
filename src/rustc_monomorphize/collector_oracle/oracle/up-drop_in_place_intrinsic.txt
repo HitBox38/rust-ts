@@ -1,0 +1,33 @@
+exit 0
+== MONO_ITEM
+MONO_ITEM fn <StructWithDtor as std::ops::Drop>::drop @@ up_drop_in_place_intrinsic.6815621bfbe6113f-cgu.0[External]
+MONO_ITEM fn <StructWithDtor as std::ops::Drop>::pin_drop @@ up_drop_in_place_intrinsic.6815621bfbe6113f-cgu.0[External]
+MONO_ITEM fn drop_slice_in_place @@ up_drop_in_place_intrinsic.6815621bfbe6113f-cgu.0[External]
+MONO_ITEM fn start @@ up_drop_in_place_intrinsic.6815621bfbe6113f-cgu.0[External]
+MONO_ITEM fn std::ptr::drop_glue::<StructWithDtor> - shim(Some(StructWithDtor)) @@ up_drop_in_place_intrinsic.6815621bfbe6113f-cgu.0[Internal]
+MONO_ITEM fn std::ptr::drop_glue::<[StructWithDtor; 2]> - shim(Some([StructWithDtor; 2])) @@ up_drop_in_place_intrinsic.6815621bfbe6113f-cgu.0[Internal]
+MONO_ITEM fn std::ptr::drop_glue::<[StructWithDtor]> - shim(Some([StructWithDtor])) @@ up_drop_in_place_intrinsic.6815621bfbe6113f-cgu.0[Internal]
+MONO_ITEM fn std::ptr::drop_in_place::<[StructWithDtor]> @@ up_drop_in_place_intrinsic.6815621bfbe6113f-cgu.0[External]
+== FP
+FP 073a0aeb8ce3c0cf8e83e6d83b1976e8 fn std::ptr::drop_glue::<[StructWithDtor; 2]> - shim(Some([StructWithDtor; 2]))
+FP 116d8aa8404c6ae0f1aa3418d31aad1e fn std::ptr::drop_in_place::<[StructWithDtor]>
+FP 27e5776718a0f8afa5a4aa5f8ee6b9e0 fn std::ptr::drop_glue::<StructWithDtor> - shim(Some(StructWithDtor))
+FP 346a19c13d2760f5382c46cc91ed9c8e fn <StructWithDtor as std::ops::Drop>::pin_drop
+FP 3d9ead658dbbdeec05f57c9f17a50e91 fn drop_slice_in_place
+FP 3e409d901a19dce63e8837baa6ceec1f fn <StructWithDtor as std::ops::Drop>::drop
+FP bb29f90da489cacd1c8c1e7c0d139ddc fn start
+FP f9b585f858a4b1b8d41ff6276968ed51 fn std::ptr::drop_glue::<[StructWithDtor]> - shim(Some([StructWithDtor]))
+== stderr
+warning: field `0` is never read
+ --> $FILE:8:23
+  |
+8 | struct StructWithDtor(u32);
+  |        -------------- ^^^
+  |        |
+  |        field in this struct
+  |
+  = help: consider removing this field
+  = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: 1 warning emitted
+

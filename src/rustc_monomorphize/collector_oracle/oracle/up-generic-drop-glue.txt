@@ -1,0 +1,30 @@
+exit 0
+== MONO_ITEM
+MONO_ITEM fn <EnumWithDrop<f64, f32> as std::ops::Drop>::drop @@ up_generic_drop_glue.777f577655fcc6fe-cgu.0[External]
+MONO_ITEM fn <EnumWithDrop<i32, i64> as std::ops::Drop>::drop @@ up_generic_drop_glue.777f577655fcc6fe-cgu.0[External]
+MONO_ITEM fn <NonGenericWithDrop as std::ops::Drop>::drop @@ up_generic_drop_glue.777f577655fcc6fe-cgu.0[External]
+MONO_ITEM fn <NonGenericWithDrop as std::ops::Drop>::pin_drop @@ up_generic_drop_glue.777f577655fcc6fe-cgu.0[External]
+MONO_ITEM fn <StructWithDrop<&str, NonGenericNoDrop> as std::ops::Drop>::drop @@ up_generic_drop_glue.777f577655fcc6fe-cgu.0[External]
+MONO_ITEM fn <StructWithDrop<i8, char> as std::ops::Drop>::drop @@ up_generic_drop_glue.777f577655fcc6fe-cgu.0[External]
+MONO_ITEM fn start @@ up_generic_drop_glue.777f577655fcc6fe-cgu.0[External]
+MONO_ITEM fn std::ptr::drop_glue::<EnumWithDrop<f64, f32>> - shim(Some(EnumWithDrop<f64, f32>)) @@ up_generic_drop_glue.777f577655fcc6fe-cgu.0[Internal]
+MONO_ITEM fn std::ptr::drop_glue::<EnumWithDrop<i32, i64>> - shim(Some(EnumWithDrop<i32, i64>)) @@ up_generic_drop_glue.777f577655fcc6fe-cgu.0[Internal]
+MONO_ITEM fn std::ptr::drop_glue::<NonGenericWithDrop> - shim(Some(NonGenericWithDrop)) @@ up_generic_drop_glue.777f577655fcc6fe-cgu.0[Internal]
+MONO_ITEM fn std::ptr::drop_glue::<StructNoDrop<NonGenericWithDrop, f64>> - shim(Some(StructNoDrop<NonGenericWithDrop, f64>)) @@ up_generic_drop_glue.777f577655fcc6fe-cgu.0[Internal]
+MONO_ITEM fn std::ptr::drop_glue::<StructWithDrop<&str, NonGenericNoDrop>> - shim(Some(StructWithDrop<&str, NonGenericNoDrop>)) @@ up_generic_drop_glue.777f577655fcc6fe-cgu.0[Internal]
+MONO_ITEM fn std::ptr::drop_glue::<StructWithDrop<i8, char>> - shim(Some(StructWithDrop<i8, char>)) @@ up_generic_drop_glue.777f577655fcc6fe-cgu.0[Internal]
+== FP
+FP 179b2b846f525391a8714c219c08df99 fn <NonGenericWithDrop as std::ops::Drop>::pin_drop
+FP 1c4d415a9cf2ee562f0a3e566b9aecab fn start
+FP 2b4510f6a7794f10e5389a2c2ab8c857 fn std::ptr::drop_glue::<StructWithDrop<&str, NonGenericNoDrop>> - shim(Some(StructWithDrop<&str, NonGenericNoDrop>))
+FP 30defb6c401d222789a629de73422e4b fn std::ptr::drop_glue::<EnumWithDrop<i32, i64>> - shim(Some(EnumWithDrop<i32, i64>))
+FP 31c6bb210a6a45bb022144aa0672b13e fn <NonGenericWithDrop as std::ops::Drop>::drop
+FP 4225c91d12a6bdb0fc20906b706f1bfc fn <StructWithDrop<i8, char> as std::ops::Drop>::drop
+FP 449ff3a256e17bf12128c877de0b52ff fn std::ptr::drop_glue::<StructWithDrop<i8, char>> - shim(Some(StructWithDrop<i8, char>))
+FP 49098901db7d8ecf4d06f991f1d09a78 fn std::ptr::drop_glue::<EnumWithDrop<f64, f32>> - shim(Some(EnumWithDrop<f64, f32>))
+FP 97fa2cb67328f739622b7fc848831d80 fn std::ptr::drop_glue::<NonGenericWithDrop> - shim(Some(NonGenericWithDrop))
+FP 9fd730397170000528e9f1247f9a53b6 fn <StructWithDrop<&str, NonGenericNoDrop> as std::ops::Drop>::drop
+FP c50ec7001853377bcf254ff7b4b54eb3 fn <EnumWithDrop<f64, f32> as std::ops::Drop>::drop
+FP cf435d2ddb8a27d60ce009e5b793b6ee fn <EnumWithDrop<i32, i64> as std::ops::Drop>::drop
+FP ee73d2abd26271e8f3e88f2911dcd592 fn std::ptr::drop_glue::<StructNoDrop<NonGenericWithDrop, f64>> - shim(Some(StructNoDrop<NonGenericWithDrop, f64>))
+== stderr

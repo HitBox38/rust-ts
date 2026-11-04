@@ -1,0 +1,28 @@
+exit 0
+== MONO_ITEM
+MONO_ITEM fn Struct::bar @@ up_non_generic_functions.3e73db1a28d77797-cgu.0[External]
+MONO_ITEM fn Struct::bar::foo @@ up_non_generic_functions.3e73db1a28d77797-cgu.0[External]
+MONO_ITEM fn Struct::bar::foo @@ up_non_generic_functions.3e73db1a28d77797-cgu.0[External]
+MONO_ITEM fn Struct::foo @@ up_non_generic_functions.3e73db1a28d77797-cgu.0[External]
+MONO_ITEM fn Struct::foo::foo @@ up_non_generic_functions.3e73db1a28d77797-cgu.0[External]
+MONO_ITEM fn Struct::foo::foo @@ up_non_generic_functions.3e73db1a28d77797-cgu.0[External]
+MONO_ITEM fn bar @@ up_non_generic_functions.3e73db1a28d77797-cgu.0[External]
+MONO_ITEM fn bar::baz @@ up_non_generic_functions.3e73db1a28d77797-cgu.0[External]
+MONO_ITEM fn foo @@ up_non_generic_functions.3e73db1a28d77797-cgu.0[External]
+MONO_ITEM fn foo::foo @@ up_non_generic_functions.3e73db1a28d77797-cgu.0[External]
+MONO_ITEM fn foo::foo @@ up_non_generic_functions.3e73db1a28d77797-cgu.0[External]
+MONO_ITEM fn start @@ up_non_generic_functions.3e73db1a28d77797-cgu.0[External]
+== FP
+FP 0f0e786add04d578502e2fb201376b60 fn Struct::foo::foo
+FP 2527ef17e4d02f1fe325471afff28807 fn Struct::foo::foo
+FP 3c4d319d1f4350c04949669340447963 fn foo
+FP 47e74eb8393bc0f0bf7ca121ef341ed8 fn foo::foo
+FP 498af380c1bb9e2c7e11bb26f6f3002a fn bar
+FP 70f5c71bd9cb4a1cf49c02b45d82bf63 fn bar::baz
+FP 99f728160536abb9bbc88ed410c791ed fn Struct::bar
+FP a7fe99fa1b2b01fda3f58ae6f58d1700 fn start
+FP bb98fbb29584ca1c9c80e960ab463383 fn foo::foo
+FP cbde4944d83010555fd134a1009d003f fn Struct::foo
+FP e7b1b2b0ad3d6359cd6048a2acd67eda fn Struct::bar::foo
+FP fa91054c01cf1b9e7dfcca50ecb68e69 fn Struct::bar::foo
+== stderr

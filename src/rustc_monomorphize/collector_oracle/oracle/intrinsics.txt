@@ -1,0 +1,46 @@
+exit 0
+== MONO_ITEM
+MONO_ITEM fn <u32 as std::intrinsics::fallback::DisjointBitOr>::disjoint_bitor @@ intrinsics.8fb1d4b1bd6af956-cgu.0[Internal]
+MONO_ITEM fn core::num::<impl u32>::rotate_left @@ intrinsics.8fb1d4b1bd6af956-cgu.0[Internal]
+MONO_ITEM fn fallback @@ intrinsics.8fb1d4b1bd6af956-cgu.0[External]
+MONO_ITEM fn plain @@ intrinsics.8fb1d4b1bd6af956-cgu.0[External]
+MONO_ITEM fn std::intrinsics::disjoint_bitor::<u32> @@ intrinsics.8fb1d4b1bd6af956-cgu.0[External]
+MONO_ITEM fn std::intrinsics::rotate_left::<u32> @@ intrinsics.8fb1d4b1bd6af956-cgu.0[External]
+MONO_ITEM fn std::mem::MaybeUninit::<u8>::assume_init @@ intrinsics.8fb1d4b1bd6af956-cgu.0[Internal]
+MONO_ITEM fn std::mem::MaybeUninit::<u8>::uninit @@ intrinsics.8fb1d4b1bd6af956-cgu.0[Internal]
+MONO_ITEM fn std::mem::zeroed::<u32> @@ intrinsics.8fb1d4b1bd6af956-cgu.0[Internal]
+MONO_ITEM fn std::ptr::const_ptr::<impl *const ()>::is_aligned_to @@ intrinsics.8fb1d4b1bd6af956-cgu.0[External]
+MONO_ITEM fn std::ptr::write_bytes::precondition_check @@ intrinsics.8fb1d4b1bd6af956-cgu.0[Internal]
+MONO_ITEM fn u @@ intrinsics.8fb1d4b1bd6af956-cgu.0[External]
+MONO_ITEM fn validity::<u32> @@ intrinsics.8fb1d4b1bd6af956-cgu.0[External]
+MONO_ITEM fn z @@ intrinsics.8fb1d4b1bd6af956-cgu.0[External]
+== FP
+FP 0bf54de70184e319440d122acc4a1959 fn plain
+FP 17b8a991f6e52cd06a77b5070844a0f9 fn validity::<u32>
+FP 1e5b49b0a48b528ea06511a332745472 fn std::ptr::write_bytes::precondition_check
+FP 443aa6901ceb692aeae9e018a3562aa5 fn std::intrinsics::rotate_left::<u32>
+FP 59ed174705080bf1fd35168aff6bf2b3 fn std::mem::zeroed::<u32>
+FP 5d29f6e8cea5cb607e291367fd914dac fn fallback
+FP 5f61cfbe963474a66df787d62d26a668 fn std::mem::MaybeUninit::<u8>::uninit
+FP 683751950928fc8c08283718393573e0 fn std::intrinsics::disjoint_bitor::<u32>
+FP 71cac6905802569016c587f192ded954 fn <u32 as std::intrinsics::fallback::DisjointBitOr>::disjoint_bitor
+FP a3f6e6e4f648e073f00d0263ba6fbbaf fn u
+FP a66c36de35339a09d2c50112b0f113ce fn std::ptr::const_ptr::<impl *const ()>::is_aligned_to
+FP ed192174593284988749ce23a57e297a fn z
+FP f3019ae89df8bf84a61214c43667081e fn core::num::<impl u32>::rotate_left
+FP ffec0fd052e6c1da97b7a0dbb194a018 fn std::mem::MaybeUninit::<u8>::assume_init
+== stderr
+warning: the type `u8` does not permit being left uninitialized
+ --> $FILE:9:29
+  |
+9 | pub fn u() -> u8 { unsafe { std::mem::MaybeUninit::uninit().assume_init() } }
+  |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |                             |
+  |                             this code causes undefined behavior when executed
+  |                             help: use `MaybeUninit<T>` instead, and only call `assume_init` after initialization is done
+  |
+  = note: integers must be initialized
+  = note: `#[warn(invalid_value)]` on by default
+
+warning: 1 warning emitted
+

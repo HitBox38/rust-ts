@@ -1,0 +1,22 @@
+exit 0
+== MONO_ITEM
+MONO_ITEM fn sizes @@ profile_closures_2018.40342d7574fd5ded-cgu.0[External]
+MONO_ITEM fn sizes::{closure#0} @@ profile_closures_2018.40342d7574fd5ded-cgu.0[Internal]
+MONO_ITEM fn sizes::{closure#1} @@ profile_closures_2018.40342d7574fd5ded-cgu.0[Internal]
+MONO_ITEM fn std::ptr::drop_glue::<(std::string::String, [u64; 8])> - shim(Some((std::string::String, [u64; 8]))) @@ profile_closures_2018.40342d7574fd5ded-cgu.0[External]
+MONO_ITEM fn std::ptr::drop_glue::<alloc::raw_vec::RawVec<u8>> - shim(Some(alloc::raw_vec::RawVec<u8>)) @@ profile_closures_2018.40342d7574fd5ded-cgu.0[External]
+MONO_ITEM fn std::ptr::drop_glue::<std::string::String> - shim(Some(std::string::String)) @@ profile_closures_2018.40342d7574fd5ded-cgu.0[External]
+MONO_ITEM fn std::ptr::drop_glue::<std::vec::Vec<u8>> - shim(Some(std::vec::Vec<u8>)) @@ profile_closures_2018.40342d7574fd5ded-cgu.0[External]
+MONO_ITEM fn std::ptr::drop_glue::<{closure@$FILE:7:13: 7:20}> - shim(Some({closure@$FILE:7:13: 7:20})) @@ profile_closures_2018.40342d7574fd5ded-cgu.0[External]
+MONO_ITEM fn std::string::String::len @@ profile_closures_2018.40342d7574fd5ded-cgu.0[Internal]
+== FP
+FP 01a1a44c715c78e04c260172ebf20dce fn std::ptr::drop_glue::<std::string::String> - shim(Some(std::string::String))
+FP 239a5694870414d332068f667258d7d3 fn std::ptr::drop_glue::<(std::string::String, [u64; 8])> - shim(Some((std::string::String, [u64; 8])))
+FP 4151bb1c803a832a91ce463e169c79bc fn std::ptr::drop_glue::<{closure@$FILE:7:13: 7:20}> - shim(Some({closure@$FILE:7:13: 7:20}))
+FP 427d56aaaf82405cc7b5cb28d2238af4 fn std::ptr::drop_glue::<alloc::raw_vec::RawVec<u8>> - shim(Some(alloc::raw_vec::RawVec<u8>))
+FP 4628fe1bc14fc9e3d5a6100eb2b53fc5 fn std::ptr::drop_glue::<std::vec::Vec<u8>> - shim(Some(std::vec::Vec<u8>))
+FP 593becf77a9440f5072b14b77f467c9c fn std::string::String::len
+FP 6b99e0518e5cbed9b98e4be495150955 fn sizes
+FP 6bc209ed4a2527fa9203a7555b1800f4 fn sizes::{closure#1}
+FP d6bf897806b4767301dda79151653452 fn sizes::{closure#0}
+== stderr

@@ -1,0 +1,83 @@
+exit 0
+== MONO_ITEM
+MONO_ITEM fn <PresentDrop as Trait>::foo @@ up_unsizing.83d8a151a4f311f7-cgu.0[Internal]
+MONO_ITEM fn <PresentDrop as std::ops::Drop>::drop @@ up_unsizing.83d8a151a4f311f7-cgu.0[Internal]
+MONO_ITEM fn <bool as Trait>::foo @@ up_unsizing.83d8a151a4f311f7-cgu.0[Internal]
+MONO_ITEM fn <char as Trait>::foo @@ up_unsizing.83d8a151a4f311f7-cgu.0[Internal]
+MONO_ITEM fn <f64 as Trait>::foo @@ up_unsizing.83d8a151a4f311f7-cgu.0[Internal]
+MONO_ITEM fn <u32 as Trait>::foo @@ up_unsizing.83d8a151a4f311f7-cgu.0[Internal]
+MONO_ITEM fn start @@ up_unsizing.83d8a151a4f311f7-cgu.0[External]
+MONO_ITEM fn std::ptr::drop_glue::<PresentDrop> - shim(Some(PresentDrop)) @@ up_unsizing.83d8a151a4f311f7-cgu.0[Internal]
+== FP
+FP 02c66507c3b454812303810807e97f5e fn <f64 as Trait>::foo
+FP 5c3de441f6556a29cbf34a4ced35e5f9 fn start
+FP 7dd12a589ba2f6f0c7b8b8ef65d7ebf5 fn <bool as Trait>::foo
+FP 87145500a524c294d3b668b5d7123c91 fn <PresentDrop as std::ops::Drop>::drop
+FP 954fedd20b869a57a85289571820b236 fn <char as Trait>::foo
+FP bac28a39ff4b20d62458e50e41a3e5e1 fn <u32 as Trait>::foo
+FP f1d1d56ceb3fb09d63b05a9da81b0fdb fn <PresentDrop as Trait>::foo
+FP fb0f8f52e4d1f69dc13175c41485acaf fn std::ptr::drop_glue::<PresentDrop> - shim(Some(PresentDrop))
+== stderr
+warning: trait objects without an explicit `dyn` are deprecated
+  --> $FILE:62:40
+   |
+62 |     let _bool_unsized = bool_sized as &Trait;
+   |                                        ^^^^^
+   |
+   = warning: this is accepted in the current edition (Rust 2015) but is a hard error in Rust 2021!
+   = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2021/warnings-promoted-to-error.html>
+   = note: `#[warn(bare_trait_objects)]` (part of `#[warn(rust_2021_compatibility)]`) on by default
+help: if this is a dyn-compatible trait, use `dyn`
+   |
+62 |     let _bool_unsized = bool_sized as &dyn Trait;
+   |                                        +++
+
+warning: trait objects without an explicit `dyn` are deprecated
+  --> $FILE:67:40
+   |
+67 |     let _char_unsized = char_sized as &Trait;
+   |                                        ^^^^^
+   |
+   = warning: this is accepted in the current edition (Rust 2015) but is a hard error in Rust 2021!
+   = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2021/warnings-promoted-to-error.html>
+help: if this is a dyn-compatible trait, use `dyn`
+   |
+67 |     let _char_unsized = char_sized as &dyn Trait;
+   |                                        +++
+
+warning: trait objects without an explicit `dyn` are deprecated
+  --> $FILE:72:51
+   |
+72 |     let _struct_unsized = struct_sized as &Struct<Trait>;
+   |                                                   ^^^^^
+   |
+   = warning: this is accepted in the current edition (Rust 2015) but is a hard error in Rust 2021!
+   = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2021/warnings-promoted-to-error.html>
+help: if this is a dyn-compatible trait, use `dyn`
+   |
+72 |     let _struct_unsized = struct_sized as &Struct<dyn Trait>;
+   |                                                   +++
+
+warning: trait objects without an explicit `dyn` are deprecated
+  --> $FILE:77:51
+   |
+77 |     let _wrapper_sized = wrapper_sized as Wrapper<Trait>;
+   |                                                   ^^^^^
+   |
+   = warning: this is accepted in the current edition (Rust 2015) but is a hard error in Rust 2021!
+   = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2021/warnings-promoted-to-error.html>
+help: if this is a dyn-compatible trait, use `dyn`
+   |
+77 |     let _wrapper_sized = wrapper_sized as Wrapper<dyn Trait>;
+   |                                                   +++
+
+warning: unused variable: `droppable`
+  --> $FILE:84:9
+   |
+84 |     let droppable = droppable as &dyn Trait;
+   |         ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_droppable`
+   |
+   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: 5 warnings emitted
+

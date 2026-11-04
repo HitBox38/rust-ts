@@ -1,0 +1,12 @@
+exit 0
+== MONO_ITEM
+MONO_ITEM fn <S as Tr>::d @@ vtable_static.b54312314c217f24-cgu.0[External]
+MONO_ITEM fn <S as Tr>::m @@ vtable_static.b54312314c217f24-cgu.0[External]
+MONO_ITEM static OBJ @@ vtable_static.b54312314c217f24-cgu.0[External]
+MONO_ITEM static REF_TO_OBJ @@ vtable_static.b54312314c217f24-cgu.0[External]
+== FP
+FP a9b939478cc0d84e85e73f1ac54a4fa4 static OBJ
+FP d27f9280991a27574f73058a7d77baf9 static REF_TO_OBJ
+FP f2d6dcc8c0bd96f04ac7d4e4ba288bf1 fn <S as Tr>::d
+FP faa2dcf4579ee4c2eef1a8bc92cbf83f fn <S as Tr>::m
+== stderr

@@ -1,0 +1,6 @@
+exit 0
+== MONO_ITEM
+MONO_ITEM fn f @@ opt.2c18e1863cf3b211-cgu.0[External]
+== FP
+FP 7902a569ba83696cead133dd75e38be9 fn f
+== stderr

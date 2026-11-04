@@ -1,0 +1,32 @@
+exit 0
+== MONO_ITEM
+MONO_ITEM fn <Leaf as std::ops::Drop>::drop @@ up_transitive_drop_glue.5c437db3c88a987-cgu.0[External]
+MONO_ITEM fn <Leaf as std::ops::Drop>::pin_drop @@ up_transitive_drop_glue.5c437db3c88a987-cgu.0[External]
+MONO_ITEM fn <LeafGen<i16> as std::ops::Drop>::drop @@ up_transitive_drop_glue.5c437db3c88a987-cgu.0[External]
+MONO_ITEM fn <LeafGen<u32> as std::ops::Drop>::drop @@ up_transitive_drop_glue.5c437db3c88a987-cgu.0[External]
+MONO_ITEM fn start @@ up_transitive_drop_glue.5c437db3c88a987-cgu.0[External]
+MONO_ITEM fn std::ptr::drop_glue::<Intermediate> - shim(Some(Intermediate)) @@ up_transitive_drop_glue.5c437db3c88a987-cgu.0[Internal]
+MONO_ITEM fn std::ptr::drop_glue::<IntermediateGen<i16>> - shim(Some(IntermediateGen<i16>)) @@ up_transitive_drop_glue.5c437db3c88a987-cgu.0[Internal]
+MONO_ITEM fn std::ptr::drop_glue::<IntermediateGen<u32>> - shim(Some(IntermediateGen<u32>)) @@ up_transitive_drop_glue.5c437db3c88a987-cgu.0[Internal]
+MONO_ITEM fn std::ptr::drop_glue::<Leaf> - shim(Some(Leaf)) @@ up_transitive_drop_glue.5c437db3c88a987-cgu.0[Internal]
+MONO_ITEM fn std::ptr::drop_glue::<LeafGen<i16>> - shim(Some(LeafGen<i16>)) @@ up_transitive_drop_glue.5c437db3c88a987-cgu.0[Internal]
+MONO_ITEM fn std::ptr::drop_glue::<LeafGen<u32>> - shim(Some(LeafGen<u32>)) @@ up_transitive_drop_glue.5c437db3c88a987-cgu.0[Internal]
+MONO_ITEM fn std::ptr::drop_glue::<Root> - shim(Some(Root)) @@ up_transitive_drop_glue.5c437db3c88a987-cgu.0[Internal]
+MONO_ITEM fn std::ptr::drop_glue::<RootGen<i16>> - shim(Some(RootGen<i16>)) @@ up_transitive_drop_glue.5c437db3c88a987-cgu.0[Internal]
+MONO_ITEM fn std::ptr::drop_glue::<RootGen<u32>> - shim(Some(RootGen<u32>)) @@ up_transitive_drop_glue.5c437db3c88a987-cgu.0[Internal]
+== FP
+FP 0398f9ae8259b9e1737ec96c7e3b4899 fn std::ptr::drop_glue::<IntermediateGen<i16>> - shim(Some(IntermediateGen<i16>))
+FP 1351140c3c1d154733b041ff43348957 fn <LeafGen<i16> as std::ops::Drop>::drop
+FP 2b4c1171e47cdcf92c117a0cbd2aeb3f fn <Leaf as std::ops::Drop>::pin_drop
+FP 4bde03ab256fbb9d729d7b031b63b4f9 fn std::ptr::drop_glue::<RootGen<i16>> - shim(Some(RootGen<i16>))
+FP 4eadc7fec5e998f2c5e23e389e96e3d6 fn <LeafGen<u32> as std::ops::Drop>::drop
+FP 5d383e47f41c8ddbe7f0ac7674a56569 fn std::ptr::drop_glue::<LeafGen<u32>> - shim(Some(LeafGen<u32>))
+FP 6e6a00c295dd824b3525ee3dc228f524 fn start
+FP 6f616e15e9821070e780d9a1c3581abb fn std::ptr::drop_glue::<RootGen<u32>> - shim(Some(RootGen<u32>))
+FP ae5cb4475d02f57d4da29d064a997455 fn <Leaf as std::ops::Drop>::drop
+FP bd8f4e5189c22986735d429740b8c7fd fn std::ptr::drop_glue::<LeafGen<i16>> - shim(Some(LeafGen<i16>))
+FP c16ad8dd696fbec242a5a54a345e98cd fn std::ptr::drop_glue::<Root> - shim(Some(Root))
+FP e7307c131addaa2125c57d18694d7a0f fn std::ptr::drop_glue::<Intermediate> - shim(Some(Intermediate))
+FP e9e4a67d54cc869312567fd0f7d2947b fn std::ptr::drop_glue::<IntermediateGen<u32>> - shim(Some(IntermediateGen<u32>))
+FP f836a7861e4ca453730689a0726cf545 fn std::ptr::drop_glue::<Leaf> - shim(Some(Leaf))
+== stderr

@@ -1,0 +1,6 @@
+exit 0
+== MONO_ITEM
+MONO_ITEM fn NonGeneric::foo @@ up_unused_traits_and_generics.e48dba1354a5334a-cgu.0[External]
+== FP
+FP 4c787b2c8210c0448a577295362e994b fn NonGeneric::foo
+== stderr

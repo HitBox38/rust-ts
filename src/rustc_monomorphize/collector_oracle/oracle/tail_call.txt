@@ -1,0 +1,18 @@
+exit 0
+== MONO_ITEM
+MONO_ITEM fn a @@ tail_call.92103412809474af-cgu.0[External]
+MONO_ITEM fn b @@ tail_call.92103412809474af-cgu.0[External]
+MONO_ITEM fn plain @@ tail_call.92103412809474af-cgu.0[Internal]
+MONO_ITEM fn std::panic::Location::<'_>::caller @@ tail_call.92103412809474af-cgu.0[Internal]
+MONO_ITEM fn std::panic::Location::<'_>::line @@ tail_call.92103412809474af-cgu.0[Internal]
+MONO_ITEM fn tracked - shim(reify) @@ tail_call.92103412809474af-cgu.0[Internal]
+MONO_ITEM fn tracked @@ tail_call.92103412809474af-cgu.0[Internal]
+== FP
+FP 11307fe5f424aaebcaeff5a90771bded fn b
+FP 1746ff30c4d031da8dbe0982ace98670 fn a
+FP 2d284db09042f30311f0d4abf21850c6 fn tracked
+FP 3ff772f26c493f14404a1319eb866bf8 fn plain
+FP 55fd0826a06028fa45880d73e156688c fn std::panic::Location::<'_>::caller
+FP 6cfe1313e1366d9602375d260fab7bc7 fn std::panic::Location::<'_>::line
+FP 8be3806ce15f19f5a5e3c9db102a4f82 fn tracked - shim(reify)
+== stderr

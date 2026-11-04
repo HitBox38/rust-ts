@@ -1,0 +1,6 @@
+exit 0
+== MONO_ITEM
+MONO_ITEM fn foo @@ up_unreferenced_const_fn.bc6112cc9e8752bd-cgu.0[External]
+== FP
+FP 6cfc0fed72f4584779fa04c651f0eb65 fn foo
+== stderr

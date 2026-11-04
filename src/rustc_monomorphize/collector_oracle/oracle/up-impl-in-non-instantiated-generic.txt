@@ -1,0 +1,23 @@
+exit 0
+== MONO_ITEM
+MONO_ITEM fn generic_function::<impl SomeTrait for i64>::foo @@ up_impl_in_non_instantiated_generic.417e8046911d7a8e-cgu.0[External]
+MONO_ITEM fn start @@ up_impl_in_non_instantiated_generic.417e8046911d7a8e-cgu.0[External]
+== FP
+FP 41290d28b4cb3143238d35eac19b84bc fn start
+FP 524f5083948c75f5f631a61ffbee0e22 fn generic_function::<impl SomeTrait for i64>::foo
+== stderr
+warning: non-local `impl` definition, `impl` blocks should be written at the same level as their item
+  --> $FILE:13:5
+   |
+12 | pub fn generic_function<T>(x: T) -> (T, i32) {
+   | -------------------------------------------- move the `impl` block outside of this function `generic_function`
+13 |     impl SomeTrait for i64 {
+   |     ^^^^^---------^^^^^^^^
+   |          |
+   |          `SomeTrait` is not local
+   |
+   = note: an `impl` is never scoped, even when it is nested inside an item, as it may impact type checking outside of that item, which can be the case if neither the trait or the self type are at the same nesting level as the `impl`
+   = note: `#[warn(non_local_definitions)]` on by default
+
+warning: 1 warning emitted
+

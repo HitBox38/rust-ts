@@ -1,0 +1,16 @@
+exit 0
+== MONO_ITEM
+MONO_ITEM fn generic_fn::<i64> @@ up_items_within_generic_items.7447f664db99156f-cgu.0[External]
+MONO_ITEM fn generic_fn::<i8> @@ up_items_within_generic_items.7447f664db99156f-cgu.0[External]
+MONO_ITEM fn generic_fn::<u16> @@ up_items_within_generic_items.7447f664db99156f-cgu.0[External]
+MONO_ITEM fn generic_fn::nested_fn @@ up_items_within_generic_items.7447f664db99156f-cgu.0[External]
+MONO_ITEM fn generic_fn::nested_fn @@ up_items_within_generic_items.7447f664db99156f-cgu.0[External]
+MONO_ITEM fn start @@ up_items_within_generic_items.7447f664db99156f-cgu.0[External]
+== FP
+FP 32c6e20cf8a45c0edbca0d8af0390334 fn generic_fn::<u16>
+FP 49e7f8bb6de4e822b4766356ba1c3e03 fn generic_fn::nested_fn
+FP b424fd004dc2feca25aa45b7809d669e fn start
+FP bf9d2056476690887279f24ec8f18811 fn generic_fn::<i8>
+FP d6d118369b9b002562c0cba260f9b38d fn generic_fn::<i64>
+FP d92f3190b71d72a92c5cae2a39eaef1d fn generic_fn::nested_fn
+== stderr

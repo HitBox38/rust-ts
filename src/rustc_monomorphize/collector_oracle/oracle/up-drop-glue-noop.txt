@@ -1,0 +1,10 @@
+exit 0
+== MONO_ITEM
+MONO_ITEM fn start @@ up_drop_glue_noop.652bfae6df18e514-cgu.0[External]
+MONO_ITEM fn std::ptr::drop_in_place::<u32> @@ up_drop_glue_noop.652bfae6df18e514-cgu.0[External]
+MONO_ITEM fn std::ptr::drop_in_place::<u64> @@ up_drop_glue_noop.652bfae6df18e514-cgu.0[External]
+== FP
+FP 1de24b7d4ce33dfa3cc0cceba143f6ec fn std::ptr::drop_in_place::<u32>
+FP 48144737c2352975e7afd1d166f9e6f1 fn start
+FP 79841a1b62dfaf1d9f8701d733a6c4d9 fn std::ptr::drop_in_place::<u64>
+== stderr

@@ -1,0 +1,18 @@
+exit 0
+== MONO_ITEM
+MONO_ITEM fn async_fn @@ up_async_fn_impl.6fc89e39396196-cgu.0[External]
+MONO_ITEM fn async_fn::{closure#0} @@ up_async_fn_impl.6fc89e39396196-cgu.0[External]
+== FP
+FP 02f88f97ab4c6e28c193f10a166a9909 fn async_fn::{closure#0}
+FP a7ca232c8f48bbb9952d8bcc74de027c fn async_fn
+== stderr
+warning: unused variable: `x`
+ --> $FILE:8:23
+  |
+8 | pub async fn async_fn(x: u64) -> bool {
+  |                       ^ help: if this is intentional, prefix it with an underscore: `_x`
+  |
+  = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: 1 warning emitted
+
