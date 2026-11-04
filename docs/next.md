@@ -438,9 +438,9 @@ Integration branch `integ-w38` (worktree .data/integ-w38). x86 and Tree Borrows 
 | ice-report | design: docs/plan-ice-report.md; independent review ACCEPT WITH AMENDMENTS (docs/reviews/plan-ice-report.md): D3 replay and D8 RUST_BACKTRACE=0 rejected, D4 and D11 amended, target 92 of 118 cases incl. all 14 mir; lanes queued at low priority, after the M6b gate | reviewed |
 | miri-tail-a | configure_llvm / target_config flags (31 cases), each_linked_rlib with -C lto (14), parse_native_lib (2), -Zrandomize-layout (1) | APPROVE WITH NITS; on integ-w38 |
 | miri-tail-b | shims/unix/virtual_socket.rs: pipe2, socketpair (10 cases; narrows D2) | APPROVE WITH NITS; merging after the dry run |
-| mono-collector, mono-partition | M7 groundwork, plan-m6 §5 | running |
+| mono-collector, mono-partition | M7 groundwork, plan-m6 §5 (rustc_monomorphize 90/153; offload has no lane) | APPROVE WITH NITS; on integ-w38 |
 | harness-w39 | aux cache poisoning, scope, probes nits, case lock for the fs cases | APPROVE WITH NITS; on integ-w38 |
-| fixers-38 | allocation dump order, --print sysroot stop, send/recv, test gaps, cleanups | running |
+| fixers-38 | stdout/stderr synchronous writers, --print sysroot stop, send/recv, -C target-cpu, test gaps, cleanups | in review |
 | mio-poll | isolation-off cases stop at mio::Poll::new (17 in miri-pass) with no socket I/O in sight: check whether Miri only creates it at startup, and port that with real polling still stopping | queued |
 | miri-sysroot, harness-m6d | M7 groundwork, plan-m6 §5 | queued |
 Left out of the 61 for now: getaddrinfo (1 case, sync-send-in-std.rs; D2 sockets) and RUSTC_LOG info/trace (2 cases, log-backtrace.rs, def-path-hash-ice-157238.rs; need rustc's INFO events converted beyond the current targets).
