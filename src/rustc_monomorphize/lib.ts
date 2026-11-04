@@ -3,6 +3,7 @@
 // Nothing outside this crate calls `provide` yet (M7 groundwork, plan-m6 section 5): rustc_interface's
 // `DEFAULT_QUERY_PROVIDERS` does not list it, so every path the protected suites run keeps today's UNPORTED stops. The
 // oracle test driver collector_oracle/run.ts installs it through `override_queries`.
+import * as partitioning from "./partitioning.ts";
 import { debug_result, type Result, Err, Ok } from "../std/result.ts";
 import { PLAIN } from "../std/fmt.ts";
 import { panic } from "../std/panic.ts";
@@ -46,8 +47,6 @@ export function custom_coerce_unsize_info(tcx: TyCtxtAt, source_ty: Ty, target_t
 
 // rustc: compiler/rustc_monomorphize/src/lib.rs:54 provide
 export function provide(providers: Providers): void {
-  // PORT(contract): pending mono-partition. Upstream calls `partitioning::provide(providers)` here, and that fn ends with
-  // `collector::provide(providers)` (partitioning.rs:1395). At the merge this line becomes `partitioning.provide(providers)`.
-  collector.provide(providers);
+  partitioning.provide(providers);
   mono_checks.provide(providers.queries);
 }

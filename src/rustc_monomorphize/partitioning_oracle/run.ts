@@ -6,9 +6,6 @@
 // in `DEFAULT_QUERY_PROVIDERS`, so no production path reaches them. It then forces `collect_and_partition_mono_items`,
 // which is what `codegen_crate` does first, and which prints `-Zprint-mono-items`.
 //
-// PORT(contract): pending mono-collector. The collector is loaded by path, because until lane mono-collector merges its
-// file is not in the tree: without it this driver stops as UNPORTED (exit 70), the state the test pins. After the merge
-// the two `pending` lines below can go, with pending_mono_collector.ts.
 //
 // `RUST_TS_PARTITION_INCREMENTAL=1` stands for `-C incremental=<dir>`: rustc_incremental is out of scope (the session
 // setup stops at `unported`), but partitioning only reads whether the option is set. The driver sets
@@ -31,9 +28,6 @@ import { Panic, Unported } from "../../std/panic.ts";
 const EXIT_UNPORTED = 70;
 
 /** What lane mono-collector's `collector.ts` and `lib.ts` export; `undefined` until it merges. */
-interface CollectorModule {
-  collect_crate_mono_items: (tcx: TyCtxt, strategy: "Eager" | "Lazy") => [never[], never];
-}
 interface LibModule {
   provide: (providers: Providers) => void;
 }
@@ -54,13 +48,7 @@ async function main(): Promise<number> {
   const { CodegenUnitNameBuilder } = await import("../../rustc_middle/mono.ts");
   const { LOCAL_CRATE } = await import("../../rustc_span/def_id.ts");
   const { Symbol } = await import("../../rustc_span/symbol.ts");
-  const collector_module = await load_optional<CollectorModule>("../collector.ts");
   const lib_module = await load_optional<LibModule>("../lib.ts");
-  // PORT(contract): pending mono-collector.
-  const pending = await import("../pending_mono_collector.ts");
-  if (collector_module !== undefined) {
-    pending.collector.collect_crate_mono_items = collector_module.collect_crate_mono_items as unknown as typeof pending.collector.collect_crate_mono_items;
-  }
 
   const callbacks = {
     // As rustc's `TimePassesCallbacks::config` (rustc_driver_impl/src/lib.rs), minus time-passes.

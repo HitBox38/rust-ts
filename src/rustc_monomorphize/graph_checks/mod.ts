@@ -2,7 +2,7 @@
 //! Checks that need to operate on the entire mono item graph
 import type { MonoItem } from "../../rustc_middle/mono.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
-import type { UsageMap } from "../pending_mono_collector.ts";
+import type { UsageMap } from "../collector.ts";
 import { check_static_initializers_are_acyclic } from "./statics.ts";
 
 // rustc: compiler/rustc_monomorphize/src/graph_checks/mod.rs:10 target_specific_checks

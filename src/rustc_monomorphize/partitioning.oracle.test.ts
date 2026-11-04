@@ -3,9 +3,6 @@
 // the pinned rustc), next to its sources: partitioning_oracle/upstream/ is tests/codegen-units/partitioning at the pin,
 // unedited; partitioning_oracle/programs/ are this lane's.
 //
-// PORT(contract): pending mono-collector. The cases that need the collector run only when its file is in the tree. Until
-// then the driver must stop at the stand-in, which one test pins. The name tests below need no collector.
-//
 // Skips (visibly) if rustc is unavailable: aux crates are built by the oracle and the sysroot is the oracle's. Fails
 // instead under RUST_TS_REQUIRE_PROBES=1.
 import { beforeAll, describe, expect, test } from "bun:test";
@@ -30,7 +27,6 @@ const SKIP = !HAVE && !REQUIRE;
 if (SKIP) console.log(`SKIP: pinned rustc (${PIN.toolchain}, ${PIN.commit.slice(0, 12)}) unavailable; RUST_TS_REQUIRE_PROBES=1 makes this a failure`);
 
 const DRIVER = join(ORACLE_HERE, "run.ts");
-const HAVE_COLLECTOR = existsSync(join(HERE, "collector.ts"));
 const CASES = all_cases();
 const expected_of = (name: string): Output => parse(readFileSync(join(ORACLE_HERE, "oracle", `${name}.txt`), "utf8"));
 
@@ -138,7 +134,7 @@ describe("the mono items' CGUs and linkage, against -Zprint-mono-items", () => {
   }
 
   beforeAll(async () => {
-    if (SKIP || !HAVE_COLLECTOR) return;
+    if (SKIP) return;
     build_aux(CASES);
     const sysroot = Bun.spawnSync([...RUSTC, "--print", "sysroot"]).stdout.toString().trim();
     let next = 0;
@@ -150,17 +146,6 @@ describe("the mono items' CGUs and linkage, against -Zprint-mono-items", () => {
     };
     await Promise.all([worker(), worker(), worker()]);
   }, 900_000);
-
-  // PORT(contract): pending mono-collector. Defined, not skipped, on either side of the merge: the gate rejects skips.
-  if (!HAVE_COLLECTOR) {
-    test.skipIf(SKIP)("until the collector merges, the driver stops at its stand-in", async () => {
-      const sysroot = Bun.spawnSync([...RUSTC, "--print", "sysroot"]).stdout.toString().trim();
-      const r = await run_case(CASES.find((c) => c.name === "regular-modules")!, sysroot);
-      expect(r.code).toBe(70);
-      expect(r.stderr).toBe("rust-ts: reached unported code: rustc_monomorphize::collector::collect_crate_mono_items (pending mono-collector)\n");
-    }, 120_000);
-    return;
-  }
 
   test.skipIf(SKIP).each(CASES.map((c) => c.name))("%s", (name) => {
     const got = results.get(name)!;

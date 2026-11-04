@@ -7,8 +7,7 @@
 // does up to `collect_crate_mono_items` (rustc_monomorphize/src/partitioning.rs:1169-1178) and prints one line per item,
 // in the collector's order: `<fingerprint as 32 hex digits> <item, as -Zprint-mono-items prints it without its @@ part>`.
 //
-// PORT(contract): pending mono-partition. Once `collect_and_partition_mono_items` lands, the CGU part of the oracle's
-// `MONO_ITEM` lines can be compared too, and this driver should call that query.
+// The CGU part of the oracle's `MONO_ITEM` lines is compared by partitioning_oracle (`collect_and_partition_mono_items`).
 //
 // Exit codes as src/rust_ts/main.ts: rustc's own, plus 70 = reached unported code, 101 = ICE.
 import type { Compiler, Config } from "../../rustc_interface/interface.ts";
@@ -26,7 +25,7 @@ async function main(): Promise<number> {
   const { ErrorOutputType } = await import("../../rustc_session/config.ts");
   const { provide } = await import("../lib.ts");
   const { collect_crate_mono_items } = await import("../collector.ts");
-  const { display_MonoItem, MonoItem_to_stable_hash_key } = await import("../pending_mono_partition.ts");
+  const { display_MonoItem, MonoItem_to_stable_hash_key } = await import("../../rustc_middle/mono.ts");
   const { with_no_trimmed_paths } = await import("../../rustc_middle/ty/print/pretty.ts");
   const { Fingerprint } = await import("../../rustc_data_structures/fingerprint.ts");
 
@@ -48,7 +47,7 @@ async function main(): Promise<number> {
       tcx.dcx().abort_if_errors();
       const lines = tcx.with_stable_hashing_context((hcx) =>
         items.map((item) => {
-          const fp = MonoItem_to_stable_hash_key(item, hcx, (hasher) => hasher.finish(Fingerprint));
+          const fp = MonoItem_to_stable_hash_key(item, hcx);
           return `${fp.toString(16).padStart(32, "0")} ${with_no_trimmed_paths(() => display_MonoItem(item))}`;
         }),
       );

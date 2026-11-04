@@ -305,7 +305,7 @@ import {
   StartNotFound_diagnostic,
 } from "./diagnostics.ts";
 import { custom_coerce_unsize_info } from "./lib.ts";
-import { MonoItem_is_instantiable, MonoItem_to_stable_hash_key, NormalizationErrorInMono } from "./pending_mono_partition.ts";
+import { MonoItem_to_stable_hash_key, NormalizationErrorInMono } from "../rustc_middle/mono.ts";
 import { dump_closure_profile } from "./util.ts";
 
 // `impl TypeFoldable` of the types this file instantiates and normalizes (derived upstream), as D4 descriptors.
@@ -1589,7 +1589,7 @@ function collect_roots(tcx: TyCtxt, mode: MonoItemCollectionStrategy): MonoItem[
   // can't actually be used, so we can just skip codegenning them.
   return roots
     .into_iter()
-    .filter(({ node: mono_item }) => MonoItem_is_instantiable(mono_item, tcx))
+    .filter(({ node: mono_item }) => MonoItem.is_instantiable(mono_item, tcx))
     .map(({ node: mono_item }) => mono_item);
 }
 
@@ -1743,7 +1743,7 @@ class RootCollector {
           return;
         }
         const mono_item = create_fn_mono_item(this.tcx, r._0, DUMMY_SP);
-        if (MonoItem_is_instantiable(mono_item.node, this.tcx)) {
+        if (MonoItem.is_instantiable(mono_item.node, this.tcx)) {
           this.output.push(mono_item);
         }
       }
@@ -1904,7 +1904,7 @@ function create_mono_items_for_default_impls(tcx: TyCtxt, item: ItemId, output: 
     const instance = Instance.expect_resolve(tcx, typing_env, method.def_id, args, DUMMY_SP);
 
     const mono_item = create_fn_mono_item(tcx, instance, DUMMY_SP);
-    if (MonoItem_is_instantiable(mono_item.node, tcx) && tcx.should_codegen_locally(instance)) {
+    if (MonoItem.is_instantiable(mono_item.node, tcx) && tcx.should_codegen_locally(instance)) {
       output.push(mono_item);
     }
   }
@@ -1942,7 +1942,7 @@ export function collect_crate_mono_items(tcx: TyCtxt, strategy: MonoItemCollecti
     // `state.visited.into_inner().into_sorted(&mut hcx, true)`: `sort_by_cached_key` on `to_stable_hash_key`. The keys
     // are 128-bit fingerprints of distinct items; bigint order is `Fingerprint`'s derived `Ord`.
     const keyed = [...state.visited].map((item): [Fingerprint, MonoItem] => [
-      MonoItem_to_stable_hash_key(item, hcx, (hasher) => hasher.finish(Fingerprint)),
+      MonoItem_to_stable_hash_key(item, hcx),
       item,
     ]);
     keyed.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));

@@ -108,7 +108,6 @@
 // - The one unstable sort whose ties are observable (`stats` in `dump_mono_items_stats`) is std/slice_sort.ts's ipnsort.
 // PORT: `debug!` calls are comments (driver-m2 decision 8); rustc release builds compile them out.
 // PORT: `let _prof_timer = tcx.prof.generic_activity(..)` guards are `.run(..)` closures (as rustc_interface passes.ts).
-// PORT(contract): `collector` and the diagnostics come from ./pending_mono_collector.ts until lane mono-collector merges.
 import { LangItem } from "../rustc_attr_ir/lang_items.ts";
 import { InlineAttr, Linkage, debug_Linkage } from "../rustc_attr_ir/data_structures.ts";
 import { par_join } from "../rustc_data_structures/sync/parallel.ts";
@@ -154,13 +153,9 @@ import { Err, Ok, type Result } from "../std/result.ts";
 import { slice_sort_unstable_by } from "../std/slice_sort.ts";
 import { closeSync, mkdirSync, openSync, writeSync } from "node:fs";
 import { target_specific_checks } from "./graph_checks/mod.ts";
-import {
-  CouldntDumpMonoStats_diagnostic,
-  type MonoItemCollectionStrategy,
-  SymbolAlreadyDefined_diagnostic,
-  type UsageMap,
-  collector,
-} from "./pending_mono_collector.ts";
+import * as collector from "./collector.ts";
+import { type MonoItemCollectionStrategy, type UsageMap } from "./collector.ts";
+import { CouldntDumpMonoStats_diagnostic, SymbolAlreadyDefined_diagnostic } from "./diagnostics.ts";
 
 interface PartitioningCx {
   tcx: TyCtxt;

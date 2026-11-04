@@ -10,7 +10,8 @@ import type { KeyedMap } from "../../rust_ts/keyed.ts";
 import { type DefId, DefIdMap } from "../../rustc_span/def_id.ts";
 import { Span } from "../../rustc_span/lib.ts";
 import { panic } from "../../std/panic.ts";
-import { StaticInitializerCyclic_diagnostic, type UsageMap } from "../pending_mono_collector.ts";
+import type { UsageMap } from "../collector.ts";
+import { StaticInitializerCyclic_diagnostic } from "../diagnostics.ts";
 
 // rustc-type: compiler/rustc_monomorphize/src/graph_checks/statics.rs:14 StaticNodeIdx
 // #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
