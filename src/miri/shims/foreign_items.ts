@@ -32,7 +32,7 @@ import { NO_ALLOC_SHIM_IS_UNSTABLE } from "../../rustc_ast/expand/allocator.ts";
 import { type CodegenFnAttrs, CodegenFnAttrFlags } from "../../rustc_middle/middle/codegen_fn_attrs.ts";
 import { InterpCx } from "../../rustc_const_eval/interpret/eval_context.ts";
 import { type AnyMachine, type Machine } from "../../rustc_const_eval/interpret/machine.ts";
-import { display_MemoryKind } from "../../rustc_const_eval/interpret/memory.ts";
+import { display_MemoryKind, repeat_n } from "../../rustc_const_eval/interpret/memory.ts";
 import { PlaceTy_from_MPlaceTy } from "../../rustc_const_eval/interpret/place.ts";
 import {
   type AllocId,
@@ -123,11 +123,6 @@ function* range_rev(start: bigint, end: bigint): Generator<bigint> {
     yield i;
   }
 }
-/** `std::iter::repeat_n(val, n)` */
-function* repeat_n(val: number, n: number): Generator<number> {
-  for (let i = 0; i < n; i++) yield val;
-}
-
 /** `(BytePos, BytePos)`'s derived `PartialOrd::lt` (`Span::lo_hi`). */
 function lo_hi_lt(a: Span, b: Span): boolean {
   const [alo, ahi] = Span.lo_hi(a);

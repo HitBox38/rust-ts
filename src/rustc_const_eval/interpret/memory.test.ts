@@ -37,7 +37,7 @@ import { PLAIN } from "../../std/fmt.ts";
 import { Panic } from "../../std/panic.ts";
 import { DummyMachine } from "../const_eval/mod.ts";
 import { InterpCx } from "./eval_context.ts";
-import { type AllocRef, type AllocRefMut, debug_DumpAllocs, type MemoryKind } from "./memory.ts";
+import { type AllocRef, type AllocRefMut, debug_DumpAllocs, type MemoryKind, repeat_n, type SizedIterator } from "./memory.ts";
 import type { CtfeMemoryKind } from "./machine.ts";
 
 class CaptureConfig extends Error {}
@@ -185,6 +185,20 @@ test("interp-memory: hand-built memory states against upstream semantics", () =>
     expect(ok(ecx.read_bytes_ptr_strip_provenance(opt(b), S(6)))).toEqual(Uint8Array.from([1, 2, 3, 4, 0, 0]));
     const e3 = err(ecx.read_bytes_ptr_strip_provenance(at(b, 4), S(8)));
     expect(e3.$ === "Unsupported" && e3._0.$).toBe("ReadPointerAsInt");
+    // upstream reads `size_hint` and bounds-checks before producing a byte (isolated Miri on `memset(p, 0, 1 << 33)` of
+    // a 16-byte allocation reports "attempting to access 8589934592 bytes"), so nothing of the source is consumed
+    const huge = repeat_n(7, 2 ** 33);
+    const oob = err(ecx.write_bytes_ptr(opt(b), huge));
+    expect(oob.$ === "UndefinedBehavior" && oob._0.$).toBe("PointerOutOfBounds");
+    expect(huge.size_hint()).toEqual([2 ** 33, 2 ** 33]);
+    // a precise `size_hint` writes exactly that many bytes; one that lies panics, as upstream's expect / assert_matches
+    ok(ecx.write_bytes_ptr(opt(b), repeat_n(9, 2)));
+    expect(ok(ecx.read_bytes_ptr_strip_provenance(opt(b), S(4)))).toEqual(Uint8Array.from([9, 9, 3, 4]));
+    const lying = (hint: number, actual: number): SizedIterator => ({ next: repeat_n(0, actual).next, size_hint: () => [hint, hint] });
+    expect(() => ecx.write_bytes_ptr(opt(b), lying(2, 1))).toThrow("iterator was shorter than it said it would be");
+    expect(() => ecx.write_bytes_ptr(opt(b), lying(2, 3))).toThrow("iterator was longer than it said it would be");
+    expect(() => ecx.write_bytes_ptr(opt(b), lying(0, 1))).toThrow("iterator said it was empty but returned an element");
+    ok(ecx.write_bytes_ptr(opt(b), [1, 2, 3, 4].values()));
 
     // ---- mem_copy: bytes, init mask and provenance ----
     const c = ok(ecx.allocate_ptr(S(16), A(8), STACK, "Uninit"));

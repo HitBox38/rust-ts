@@ -1,6 +1,6 @@
 // Oracle test for the vendored rand 0.10.1 / rand_core 0.10.1 / chacha20 0.10.0 (lane vendor-rand, plan-m6 D5).
 //
-// `stdrng.oracle.txt` is the output of the vendor-rand probe (docs/handoff/vendor-rand-probe/: rand =0.10.1 with
+// `stdrng.oracle.txt` is the output of the registered probe tools/probes/randstream (rand =0.10.1 with
 // default features, resolved through upstream's Cargo.lock to chacha20 0.10.0, built with the pinned toolchain's
 // cargo for the host, i.e. the `neon` ChaCha backend on aarch64). This test recomputes every line with the port
 // (the portable `soft` backend) and compares them byte for byte: StdRng `seed_from_u64` / `from_seed` /
