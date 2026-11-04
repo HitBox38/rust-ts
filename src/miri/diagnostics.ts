@@ -39,7 +39,7 @@ import { DUMMY_SP, Span } from "../rustc_span/lib.ts";
 import { Symbol } from "../rustc_span/symbol.ts";
 import { bug } from "../rustc_span/macros.ts";
 import { type Fmt, PLAIN } from "../std/fmt.ts";
-import { display_IoError } from "../std/io.ts";
+import { display_IoError, write_stderr } from "../std/io.ts";
 import { assert, unported } from "../std/panic.ts";
 export * from "./diagnostics.gen.ts";
 
@@ -474,7 +474,7 @@ export function report_result(ecx: MiriInterpCx, res: InterpErrorInfo): [number,
 
   report_msg("Error", primary_msg, labels, [], helps, stacktrace, ecx.active_thread(), ecx.machine);
 
-  process.stderr.write(`${extra}`); // newlines are already in the string
+  write_stderr(`${extra}`); // newlines are already in the string
 
   // Include a note like `std` does when we omit frames from a backtrace
   if (pruned) {
@@ -836,8 +836,8 @@ InterpCx.prototype.emit_diagnostic = function (this: MiriInterpCx, e: NonHalting
 /// We had a panic in Miri itself, try to print something useful.
 // rustc: src/tools/miri/src/diagnostics.rs:848 handle_ice
 InterpCx.prototype.handle_ice = function (this: MiriInterpCx): void {
-  process.stderr.write("\n");
-  process.stderr.write("Miri caused an ICE during evaluation. Here's the interpreter backtrace at the time of the panic:\n");
+  write_stderr("\n");
+  write_stderr("Miri caused an ICE during evaluation. Here's the interpreter backtrace at the time of the panic:\n");
   const this_ = this.eval_context_ref();
   const stacktrace = this_.generate_stacktrace();
   report_msg("Note", "the place in the program where the ICE was triggered", [], [], [], stacktrace, this_.active_thread(), this_.machine);

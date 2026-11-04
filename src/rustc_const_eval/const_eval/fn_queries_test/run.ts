@@ -14,6 +14,7 @@ import type { TyCtxt } from "../../../rustc_middle/ty/context.ts";
 import { with_no_trimmed_paths } from "../../../rustc_middle/ty/print/pretty.ts";
 import { debug_LocalDefId, LocalDefId } from "../../../rustc_span/def_id.ts";
 import { PLAIN } from "../../../std/fmt.ts";
+import { write_stdout } from "../../../std/io.ts";
 
 function report(tcx: TyCtxt): void {
   tcx.hir_crate_items(null);
@@ -24,7 +25,7 @@ function report(tcx: TyCtxt): void {
     const ask = k.$ === "Fn" || k.$ === "AssocFn" || (k.$ === "Ctor" && k._1 === "Fn") || k.$ === "Closure" || k.$ === "Impl";
     if (ask) {
       const c = tcx.constness(id) as Constness;
-      process.stdout.write(with_no_trimmed_paths(() => `${debug_LocalDefId(id, PLAIN)} ${def.debug_DefKind(k, PLAIN)} ${debug_Constness(c, PLAIN)} promotable=${tcx.is_promotable_const_fn(LocalDefId.to_def_id(id))}\n`));
+      write_stdout(with_no_trimmed_paths(() => `${debug_LocalDefId(id, PLAIN)} ${def.debug_DefKind(k, PLAIN)} ${debug_Constness(c, PLAIN)} promotable=${tcx.is_promotable_const_fn(LocalDefId.to_def_id(id))}\n`));
     }
   }
 }

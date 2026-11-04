@@ -117,6 +117,17 @@ for (const target of TARGET_CONFIG_TARGETS) {
 exact(["--print", "target-list"]);
 exact(["--print", "host-tuple"]);
 exact(["--print", "wasm-proc-macro-tuple"]);
+// miri-tail-a review O1: without `--sysroot` upstream prints its own toolchain's path, which rust-ts cannot name. It stops,
+// and never prints the stand-in with exit 0.
+for (const kind of ["sysroot", "target-libdir"]) {
+  test.skipIf(SKIP)(`rustc --print ${kind} without --sysroot stops`, () => {
+    requireRustc();
+    const got = ours(["--print", kind]);
+    expect(got.stdout).toBe("");
+    expect(got.stderr).toBe("rust-ts: unported: rustc_session::filesearch::default_sysroot (the path of the default sysroot; pass --sysroot)\n");
+    expect(got.code).toBe(70);
+  });
+}
 exact(["--print", "sysroot", "--sysroot", SYSROOT]);
 exact(["--print", "target-libdir", "--sysroot", SYSROOT]);
 exact(["--print", "cfg", "--target", "nonexistent-target"]);
@@ -181,7 +192,13 @@ exact(["-Zunpretty=ast-tree", "-Clink-self-contained=+linker,-linker", "-Zunstab
 
 // LLVM inputs rust-ts only knows the default of (review parser-b, finding 2): never silently skipped.
 pending(["-Zunpretty=ast-tree", "-Cllvm-args=-bogus", "x.rs"], "rustc_codegen_llvm::llvm_util::configure_llvm (-C llvm-args)");
-pending(["-Zunpretty=ast-tree", "-Ctarget-feature=+bogus", "x.rs"], "rustc_codegen_llvm::llvm_util::configure_llvm (-C target-feature)");
+exact(["-Zunpretty=ast-tree", "-Ctarget-feature=+bogus", "x.rs"]);
 pending(["-Zunpretty=ast-tree", "-Ctarget-cpu=bogus", "x.rs"], "rustc_codegen_llvm::llvm_util::configure_llvm (-C target-cpu)");
+// The CPU of ORACLE_TARGET_CPU_FEATURES, alone and with what `internal_target_features` adds in Rust. The same CPU on another
+// target is LLVM's own warning, so that stops.
+exact(["--print", "cfg", "--target", "x86_64-unknown-linux-gnu", "-Ctarget-cpu=x86-64-v4"]);
+exact(["--print", "cfg", "--target", "x86_64-unknown-linux-gnu", "-Ctarget-cpu=x86-64-v4", "-Ctarget-feature=+avx512vbmi,-avx2"]);
+exact(["-Zunpretty=ast-tree", "--target", "x86_64-unknown-linux-gnu", "-Ctarget-cpu=x86-64-v4", "x.rs"]);
+pending(["--print", "cfg", "--target", "aarch64-apple-darwin", "-Ctarget-cpu=x86-64-v4"], "rustc_codegen_llvm::llvm_util::configure_llvm (-C target-cpu)");
 pending(["-Zunpretty=ast-tree", "-Zretpoline", "--target", "x86_64-unknown-linux-gnu", "x.rs"], "rustc_codegen_llvm::llvm_util::configure_llvm (-Z retpoline)");
-pending(["-Zunpretty=ast-tree", "-Zsanitizer=memory", "x.rs"], "rustc_codegen_llvm::llvm_util::target_config (-Z sanitizer)");
+exact(["-Zunpretty=ast-tree", "-Zsanitizer=memory", "x.rs"]);

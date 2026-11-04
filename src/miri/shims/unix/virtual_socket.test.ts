@@ -15,7 +15,7 @@ import { REPO } from "../../../../scripts/lib/common.ts";
 import { caseEnv, mergeEnv } from "../../../../scripts/lib/env.ts";
 import "../../lib.ts";
 import { callback, type DynMachineCallback, type MiriInterpCx } from "../../machine.ts";
-import { FdTable, type FileDescriptionRef } from "../files.ts";
+import { FdTable, FileDescriptionRef } from "../files.ts";
 import { DelayedReadinessUpdates, ReadinessUpdateFlags } from "../readiness.ts";
 import { type IoError, IoError_from_ErrorKind, LibcError } from "../io_error.ts";
 import { VirtualSocket } from "./virtual_socket.ts";
@@ -24,7 +24,9 @@ import { InterpCx } from "../../../rustc_const_eval/interpret/eval_context.ts";
 import { type InterpResult, interp_ok, Scalar } from "../../../rustc_middle/mir/interpret/mod.ts";
 import { debug_InterpErrorKind } from "../../../rustc_middle/mir/interpret/error.gen.ts";
 import { PLAIN } from "../../../std/fmt.ts";
-import { Ok, type Result } from "../../../std/result.ts";
+import { Err, Ok, type Result } from "../../../std/result.ts";
+import { InterpErrorInfo_from_InterpErrorKind } from "../../../rustc_middle/mir/interpret/mod.ts";
+import { miri_fixture_expected, miri_fixture_port } from "../../../rust_ts/miri_fixture.ts";
 
 const FIXTURE = readFileSync(join(import.meta.dir, "virtual_socket.oracle.txt"), "utf8").split("\n");
 const CONST = new Map<string, number>();
@@ -43,19 +45,35 @@ const err = (name: string): string => {
   return m.replace(`err err_${name} exit=1 error: unsupported operation: `, "");
 };
 
-test("the port runs probe.rs like the oracle (stdout and exit code)", () => {
-  if (!existsSync(MIRI_SYSROOT)) {
-    if (process.env.RUST_TS_REQUIRE_PROBES === "1") throw new Error(`no Miri sysroot at ${MIRI_SYSROOT}`);
-    console.log(`skip: no Miri sysroot at ${MIRI_SYSROOT}`);
+test("the port runs probe.rs like the oracle (stdout, stderr and exit code)", () => {
+  // About a minute of CPU, and under a loaded machine it can reach the limit: only where probes are required (the gate).
+  if (process.env.RUST_TS_REQUIRE_PROBES !== "1") {
+    console.log("skip: probe.rs runs only with RUST_TS_REQUIRE_PROBES=1");
     return;
   }
+  if (!existsSync(MIRI_SYSROOT)) throw new Error(`no Miri sysroot at ${MIRI_SYSROOT}`);
   // Run as the `miri-hello` suite runs a program file (`bun scripts/miri-diff.ts <file>` uses the same case).
   const c = miriFileCase("docs/handoff/miri-tail-b-probe/probe.rs");
   const p = Bun.spawnSync(miriSubject(c.args), { cwd: REPO, env: mergeEnv(process.env, caseEnv(c.env)) as Record<string, string> });
   const stdout = p.stdout.toString().split("\n").slice(0, -1);
   expect(stdout).toEqual(out_lines);
+  expect(p.stderr.toString()).toBe("");
   expect(p.exitCode).toBe(0);
 }, 600_000);
+
+// `send` and `recv` end to end, and the paths the review's mutations reached: committed oracle fixtures (rust_ts/miri_fixture.ts).
+const SOCKET_ORACLE = join(import.meta.dir, "virtual_socket_oracle");
+for (const name of ["socket_ops", "recv_peek", "recv_bad_flag", "send_bad_flag"]) {
+  test(`the port runs ${name}.rs like the oracle`, () => {
+    if (!existsSync(MIRI_SYSROOT)) {
+      if (process.env.RUST_TS_REQUIRE_PROBES === "1") throw new Error(`no Miri sysroot at ${MIRI_SYSROOT}`);
+      console.log(`skip: no Miri sysroot at ${MIRI_SYSROOT}`);
+      return;
+    }
+    const file = join(SOCKET_ORACLE, `${name}.rs`);
+    expect(miri_fixture_port(file)).toEqual(miri_fixture_expected(file));
+  }, 600_000);
+}
 
 // ---------------------------------------------------------------- the stand-in machine ----
 
@@ -445,4 +463,74 @@ test("send / recv: the socket paths, with the call's non-blocking flag; peeking 
   expect(results[1]).toEqual(Ok(4));
   const sa2 = c.machine.fds.get(a)! as unknown as FileDescriptionRef<VirtualSocket>;
   expect(error_text(sa2.deref().recv(sa2, false, IO as never, 4, /* is_peek */ true, false, c, finish()))).toBe("socketpair: virtual sockets don't support peeking");
+});
+
+// ---------------------------------------------------------------- handles (review miri-tail-b N3) ----
+// Every read and write path, with injected errors, then everything closed: both descriptions must be released.
+const boom = () => Err(InterpErrorInfo_from_InterpErrorKind({ $: "Unsupported", _0: { $: "Unsupported", _0: "boom" } })) as never;
+type Pair = { c: Cx; x: number; y: number; wx: any; wy: any };
+function pair(kind: "pipe" | "sp", nonblock = false): Pair {
+  const c = cx();
+  let x: number, y: number;
+  if (kind === "pipe") { const p = pipe(c, nonblock ? CONST.get("O_NONBLOCK")! : 0); x = p.r; y = p.w; }
+  else { const p = socketpair(c, nonblock ? CONST.get("SOCK_NONBLOCK")! : 0); x = p.a; y = p.b; }
+  const hx = c.machine.fds.get(x)!; const hy = c.machine.fds.get(y)!;
+  const wx = FileDescriptionRef.downgrade(hx); const wy = FileDescriptionRef.downgrade(hy);
+  hx.drop(); hy.drop();
+  return { c, x, y, wx, wy };
+}
+/** Everything closed and the update queue drained: both descriptions must be gone, i.e. no handle leaked. */
+function assert_released(p: Pair) {
+  for (const fd of [p.x, p.y]) { const h = p.c.machine.fds.remove(fd); if (h) h.drop(); }
+  const q = p.c.machine.delayed_readiness_updates.to_update;
+  while (q.length) q.pop()!.drop();
+  expect([p.wx.is_closed(), p.wy.is_closed()]).toEqual([true, true]);
+}
+const finish = () => callback<object, Result<number, IoError>>({}, () => interp_ok(undefined));
+function rawread(p: Pair, fd: number, n: number) { const h = p.c.machine.fds.get(fd)!; return h.deref().read(h, false, IO as never, n, p.c, finish()); }
+function rawwrite(p: Pair, fd: number, n: number) { p.c.mem.fill(1, IO, IO + Math.min(n, 0x40000)); const h = p.c.machine.fds.get(fd)!; return h.deref().write(h, false, IO as never, n, p.c, finish()); }
+
+for (const kind of ["pipe", "sp"] as const) {
+  test(`${kind}: read paths release handles`, () => {
+    let p = pair(kind); ok(rawread(p, p.x, 0)); assert_released(p);                                 // zero length
+    p = pair(kind, true); ok(rawread(p, p.x, 4)); assert_released(p);                               // EAGAIN
+    p = pair(kind); ok(rawwrite(p, p.y, 4)); ok(rawread(p, p.x, 2)); assert_released(p);            // data, not empty
+    p = pair(kind); ok(rawwrite(p, p.y, 4)); ok(rawread(p, p.x, 4)); assert_released(p);            // data, empty
+    p = pair(kind); close(p.c, p.y); ok(rawread(p, p.x, 4)); (p as any).y = -1; assert_released(p); // EOF
+    p = pair(kind); ok(rawwrite(p, p.y, 4)); close(p.c, p.y); ok(rawread(p, p.x, 4)); (p as any).y = -1; assert_released(p); // data, no peer
+    // error paths
+    p = pair(kind); ok(rawwrite(p, p.y, 4)); (p.c as any).acquire_clock = boom; expect(rawread(p, p.x, 4).$).toBe("Err"); assert_released(p);
+    p = pair(kind); ok(rawwrite(p, p.y, 4)); (p.c as any).write_bytes_ptr = boom; expect(rawread(p, p.x, 4).$).toBe("Err"); assert_released(p);
+    // a blocked reader: the callback holds the handle until it runs
+    p = pair(kind); ok(rawread(p, p.x, 4)); expect(p.c.blocked.length).toBe(1); ok(rawwrite(p, p.y, 4)); ok(p.c.blocked[0]!.cb.call(p.c, "Ready")); assert_released(p);
+  });
+  test(`${kind}: write paths release handles`, () => {
+    let p = pair(kind); ok(rawwrite(p, p.y, 0)); assert_released(p);                                 // zero length
+    p = pair(kind); ok(rawwrite(p, p.y, 4)); assert_released(p);                                     // data
+    p = pair(kind); close(p.c, p.x); ok(rawwrite(p, p.y, 4)); (p as any).x = -1; assert_released(p); // EPIPE
+    p = pair(kind, true); ok(rawwrite(p, p.y, 0x34000)); ok(rawwrite(p, p.y, 1)); assert_released(p); // EAGAIN
+    // error paths
+    p = pair(kind); (p.c as any).release_clock = boom; expect(rawwrite(p, p.y, 4).$).toBe("Err"); assert_released(p);
+    p = pair(kind); (p.c as any).read_bytes_ptr_strip_provenance = boom; expect(rawwrite(p, p.y, 4).$).toBe("Err"); assert_released(p);
+    // a blocked writer
+    p = pair(kind); ok(rawwrite(p, p.y, 0x34000)); ok(rawwrite(p, p.y, 1)); expect(p.c.blocked.length).toBe(1); ok(rawread(p, p.x, 16)); ok(p.c.blocked[0]!.cb.call(p.c, "Ready")); assert_released(p);
+  });
+  test(`${kind}: unblock_thread and update_fd_readiness errors release handles`, () => {
+    let p = pair(kind); ok(rawread(p, p.x, 4));
+    const un = (p.c as any).unblock_thread; (p.c as any).unblock_thread = boom; expect(rawwrite(p, p.y, 4).$).toBe("Err"); (p.c as any).unblock_thread = un;
+    // the reader's callback still holds its handle; run it to release (data is there).
+    ok(p.c.blocked[0]!.cb.call(p.c, "Ready")); assert_released(p);
+    const real = (u: any) => (fd: any, f: any) => { fd.drop(); return boom(); };
+    p = pair(kind); (p.c as any).update_fd_readiness = real(0); expect(rawwrite(p, p.y, 4).$).toBe("Err"); assert_released(p);
+    p = pair(kind); ok(rawwrite(p, p.y, 4)); (p.c as any).update_fd_readiness = real(0); expect(rawread(p, p.x, 4).$).toBe("Err"); assert_released(p);
+  });
+}
+test("EBADF and reading the write end, as_socket and peek release handles", () => {
+  let p = pair("pipe"); ok(rawwrite(p, p.x, 4)); assert_released(p);          // EBADF: write on the read end
+  p = pair("pipe"); expect(rawread(p, p.y, 4).$).toBe("Err"); assert_released(p); // unsup: read on the write end
+  p = pair("pipe"); let h = p.c.machine.fds.get(p.x)!; expect(h.deref().as_unix(h).deref().as_socket(h as never)).toBeUndefined(); assert_released(p);
+  p = pair("sp"); h = p.c.machine.fds.get(p.x)!; const s = h.deref().as_unix(h).deref().as_socket(h as never) as any; s.drop(); assert_released(p);
+  p = pair("sp"); const r = p.c.machine.fds.get(p.x)! as any; expect(r.deref().recv(r, false, IO, 4, true, false, p.c, finish()).$).toBe("Err"); assert_released(p);
+  p = pair("sp"); const r2 = p.c.machine.fds.get(p.x)! as any; ok(r2.deref().recv(r2, false, IO, 4, false, true, p.c, finish())); assert_released(p);
+  p = pair("sp"); const w2 = p.c.machine.fds.get(p.x)! as any; ok(w2.deref().send(w2, false, IO, 4, true, p.c, finish())); assert_released(p);
 });

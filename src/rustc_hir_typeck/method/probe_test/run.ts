@@ -36,6 +36,7 @@ import { FnSig, fold_FnSig } from "../../../rustc_type_ir/ty_kind.ts";
 import { Unnormalized } from "../../../rustc_type_ir/unnormalized.ts";
 import { debug_struct, PLAIN } from "../../../std/fmt.ts";
 import { Unported } from "../../../std/panic.ts";
+import { write_stderr, write_stdout } from "../../../std/io.ts";
 
 let probe: typeof import("../probe.ts");
 
@@ -60,7 +61,7 @@ function print(name: string, r: MethodAutoderefStepsResult): void {
     });
     const b = r.opt_bad_ty;
     out += b !== undefined ? `  bad: reached_raw_pointer=${b.reached_raw_pointer} ty=${debug_canonical_ty(b.ty as Canonical<QueryResponse<Ty>>)}\n` : "  bad: none\n";
-    process.stdout.write(out);
+    write_stdout(out);
   });
 }
 
@@ -105,7 +106,7 @@ async function main(args: string[]): Promise<number> {
   } catch (e) {
     // As the port's main (src/rust_ts): an `unported(..)` stop is exit 70 with its text on stderr.
     if (e instanceof Unported) {
-      process.stderr.write(`UNPORTED: ${e.what}\n`);
+      write_stderr(`UNPORTED: ${e.what}\n`);
       return 70;
     }
     throw e;

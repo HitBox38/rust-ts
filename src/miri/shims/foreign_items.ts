@@ -13,7 +13,6 @@
 // - `std::io::stdout().write_all` / `stderr()` (miri_write_to_stdout/err, errors ignored) write the host fds 1 / 2.
 // - `lookup_exported_symbol`'s `Entry` on the `exported_symbols_cache` is `has` / `get` / `set`; a cached `None` is
 //   a present key with value `undefined`.
-import { writeSync } from "node:fs";
 import { type MPlaceTy, type OpTy, type PlaceTy, type Pointer } from "../lib.ts";
 import { GlobalDataRaceHandler } from "../concurrency/data_race_handler.ts";
 import { ExitType } from "../concurrency/genmc/dummy.gen.ts";
@@ -52,7 +51,7 @@ import { Span } from "../../rustc_span/lib.ts";
 import { Symbol } from "../../rustc_span/symbol.ts";
 import { spec } from "../../rustc_target/lib.ts";
 import { PLAIN } from "../../std/fmt.ts";
-import { stdout_write_all } from "../../std/io.ts";
+import { stdout_write_all, write_stderr } from "../../std/io.ts";
 import { assert, unported, unreachable, unwrap } from "../../std/panic.ts";
 import { Err, expect_result, unwrap_result } from "../../std/result.ts";
 export * from "./foreign_items.gen.ts";
@@ -143,10 +142,7 @@ function get_alloc_id_or_abort(this_: MiriInterpCx, ptr: Pointer): InterpResult<
 }
 
 /** `eprintln!` / `std::io::stderr().write_all` (unbuffered, as std's stderr). */
-function stderr_write_all(buf: Uint8Array): void {
-  let off = 0;
-  while (off < buf.length) off += writeSync(2, buf, off);
-}
+const stderr_write_all = write_stderr;
 
 // impl DynSym
 // rustc: src/tools/miri/src/shims/foreign_items.rs:31 from_str

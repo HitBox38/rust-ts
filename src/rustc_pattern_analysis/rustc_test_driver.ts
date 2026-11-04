@@ -37,6 +37,7 @@ import {
 } from "./rustc.ts";
 import { PLAIN } from "../std/fmt.ts";
 import { Panic, Unported } from "../std/panic.ts";
+import { write_stdout } from "../std/io.ts";
 
 const [scenario, file] = process.argv.slice(2) as [string, string];
 let out = "";
@@ -277,5 +278,5 @@ const code = catch_with_exit_code(() =>
     },
   } as unknown as Parameters<typeof compiler_entrypoint>[1]),
 );
-process.stdout.write(out);
+write_stdout(out);
 process.exitCode = code;

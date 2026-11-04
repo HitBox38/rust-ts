@@ -15,7 +15,7 @@ import { type Config, run_compiler } from "../rustc_interface/interface.ts";
 import { Target } from "../rustc_target/spec/mod.ts";
 import { TargetTuple } from "../rustc_target/spec/tuple.ts";
 import { sym } from "../rustc_span/symbol.ts";
-import { ORACLE_ACCEPTED_LLVM_ARGS, update_target_reliable_float_cfg } from "./codegen_backend.ts";
+import { ORACLE_ACCEPTED_LLVM_ARGS, ORACLE_TARGET_CPU_FEATURES, update_target_reliable_float_cfg } from "./codegen_backend.ts";
 import { TARGET_CONFIGS } from "./target_config.gen.ts";
 
 const REQUIRE = process.env.RUST_TS_REQUIRE_PROBES === "1";
@@ -130,6 +130,22 @@ test.skipIf(SKIP)("ORACLE_ACCEPTED_LLVM_ARGS: the oracle accepts each value with
   // Not vacuous: an unknown value is LLVM's error, which is why the set is exact.
   expect(run(["-Cllvm-args=-not-a-real-llvm-arg"]).code).toBe(1);
 }, 60_000);
+
+// `target_config` asks the entry in place of LLVM's `has_features`, which gives the same set only if it is closed under
+// `implied_target_features` (the same argument as for TARGET_CONFIGS). Its values are checked against `--print cfg` in
+// rustc_driver_impl/print.oracle.test.ts.
+test("ORACLE_TARGET_CPU_FEATURES: each entry is closed under implied_target_features", () => {
+  expect(ORACLE_TARGET_CPU_FEATURES.size).toBeGreaterThan(0);
+  for (const [key, features] of ORACLE_TARGET_CPU_FEATURES) {
+    const target = Target.expect_builtin(TargetTuple.from_tuple(key.split(" ")[0]!));
+    const map = target.rust_target_features_map();
+    const have = new Set(features);
+    for (const f of features) {
+      if (!map.has(f)) continue;
+      for (const implied of target.implied_target_features(f, map)) expect(`${key}: ${f} implies ${implied}: ${have.has(implied)}`).toBe(`${key}: ${f} implies ${implied}: true`);
+    }
+  }
+});
 
 // `update_target_reliable_float_cfg` is what the table recorded for every target with the default flags.
 test("update_target_reliable_float_cfg: equal to the oracle table for every target", () => {

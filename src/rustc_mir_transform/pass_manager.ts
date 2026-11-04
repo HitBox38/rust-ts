@@ -12,7 +12,6 @@
 // Init order: every pass module imports this module (for `MirPass` / `MirLint` / `PassPolicy`), so this module must not
 // import a pass module (or lib.ts) at load: `crate::PASS_NAMES`, `crate::validate` and `crate::lint` are read lazily
 // (`require`) inside the fns that use them.
-import { writeSync } from "node:fs";
 import type { Session } from "../rustc_session/session.ts";
 import { OptLevel } from "../rustc_session/config.ts";
 import type { DefId } from "../rustc_span/def_id.ts";
@@ -26,6 +25,7 @@ import { panic, unported } from "../std/panic.ts";
 import { PLAIN } from "../std/fmt.ts";
 import { DiagSymbolList_from } from "../rustc_errors/diagnostic_impls.ts";
 import * as diagnostics from "./diagnostics.ts";
+import { write_stderr } from "../std/io.ts";
 
 // thread_local! {
 /// Maps MIR pass names to a snake case form to match profiling naming style
@@ -469,9 +469,7 @@ export function dump_mir_for_phase_change(tcx: TyCtxt, body: Body): void {
 
 /** `eprintln!` (PORT: synchronous write to fd 2, as rustc_query_impl/job.ts). */
 function eprintln(s: string): void {
-  const buf = new TextEncoder().encode(`${s}\n`);
-  let off = 0;
-  while (off < buf.length) off += writeSync(2, buf, off);
+  write_stderr(`${s}\n`);
 }
 
 // rustc: compiler/rustc_mir_transform/src/pass_manager.rs:422 limited_by_opt_bisect

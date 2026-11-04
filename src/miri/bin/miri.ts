@@ -80,6 +80,7 @@ import { Panic, Unported, assert, panic, unported } from "../../std/panic.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
 import { existsSync, readdirSync, realpathSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { write_stderr } from "../../std/io.ts";
 
 /** `std::process::exit(code)` in flight (PORT: header). */
 export class MiriExit extends Error {
@@ -223,7 +224,7 @@ function canonicalize(p: string): string | undefined {
 
 /** `eprintln!` */
 function eprintln(s: string): void {
-  process.stderr.write(`${s}\n`);
+  write_stderr(`${s}\n`);
 }
 
 class MiriCodegenBackend implements CodegenBackend {
@@ -960,13 +961,13 @@ if (import.meta.main) {
     if (e instanceof MiriExit) {
       process.exitCode = e.code;
     } else if (e instanceof Unported) {
-      process.stderr.write(`rust-ts: unported: ${e.what}\n`);
+      write_stderr(`rust-ts: unported: ${e.what}\n`);
       process.exitCode = 70;
     } else if (e instanceof FatalErrorMarker) {
       process.exitCode = 101;
     } else {
       const msg = e instanceof Panic ? e.message : String(e);
-      process.stderr.write(`rust-ts: internal compiler error: ${msg}\n${e instanceof Error ? e.stack : ""}\n`);
+      write_stderr(`rust-ts: internal compiler error: ${msg}\n${e instanceof Error ? e.stack : ""}\n`);
       process.exitCode = 101;
     }
   }

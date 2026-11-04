@@ -3,8 +3,7 @@
 // PORT:
 // - `struct Collector<'tcx>` with its `impl` is a class (PORTING section 5).
 // - `find_attr!(self.tcx, def_id, Pat => e)` is `find_attr(HasAttrs_<Id>.get_attrs(id, tcx), ..)` (rustc_attr_ir/lib.ts).
-// - `sess.opts.libs` holds `rustc_session::utils::NativeLib`; `-l` parsing (`parse_native_lib`) is unported, so
-//   the list is always empty when this runs.
+// - `sess.opts.libs` holds `rustc_session::utils::NativeLib`.
 import type { ExternAbi } from "../rustc_abi/extern_abi.ts";
 import { Size } from "../rustc_abi/lib.ts";
 import { type LinkEntry, type PeImportNameType, find_attr } from "../rustc_attr_ir/lib.ts";

@@ -12,6 +12,7 @@ import type { Crate } from "../../rustc_ast/ast.ts";
 import type { Compiler, Config } from "../../rustc_interface/interface.ts";
 import { Panic, Unported } from "../../std/panic.ts";
 import { ensure_stack } from "../../rust_ts/stack.ts";
+import { write_stderr, write_stdout } from "../../std/io.ts";
 
 const EXIT_UNPORTED = 70;
 
@@ -30,8 +31,8 @@ async function main(): Promise<number> {
     },
     after_crate_root_parsing(compiler: Compiler, _krate: Crate): "Stop" | "Continue" {
       const opts = compiler.sess.opts;
-      process.stdout.write(`crate_hash ${hex(opts.dep_tracking_hash(true))}\n`);
-      process.stdout.write(`incr_hash ${hex(opts.dep_tracking_hash(false))}\n`);
+      write_stdout(`crate_hash ${hex(opts.dep_tracking_hash(true))}\n`);
+      write_stdout(`incr_hash ${hex(opts.dep_tracking_hash(false))}\n`);
       return "Stop";
     },
   };
@@ -44,11 +45,11 @@ try {
   process.exitCode = await main();
 } catch (e) {
   if (e instanceof Unported) {
-    process.stderr.write(`rust-ts: unported: ${e.what}\n`);
+    write_stderr(`rust-ts: unported: ${e.what}\n`);
     process.exitCode = EXIT_UNPORTED;
   } else {
     const msg = e instanceof Panic ? e.message : String(e);
-    process.stderr.write(`rust-ts: internal compiler error: ${msg}\n${e instanceof Error ? e.stack : ""}\n`);
+    write_stderr(`rust-ts: internal compiler error: ${msg}\n${e instanceof Error ? e.stack : ""}\n`);
     process.exitCode = 101;
   }
 }

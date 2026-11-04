@@ -78,7 +78,14 @@ fn main() {
     let od8 = i32x8([0, 1, -8, 3, 4, -5, 6, 7]);
     let oq2 = i64x2([1, -4]);
     let oq4 = i64x4([1, -4, 2, -3]);
+    // Negative 64-bit offsets on enabled lanes (`oq2` and `oq4` have them only on masked-off lanes).
+    let oqn2 = i64x2([-4, -3]);
+    let oqn4 = i64x4([-4, 1, -3, 2]);
     for sc in [1i8, 2, 4, 8] {
+        t!("llvm.x86.avx2.gather.q.d", g_q_d(s4, p, oqn2, m4, sc));
+        t!("llvm.x86.avx2.gather.q.d.256", g_q_d256(s4, p, oqn4, m4, sc));
+        t!("llvm.x86.avx2.gather.q.q", g_q_q(s2q, p, oqn2, m2q, sc));
+        t!("llvm.x86.avx2.gather.q.q.256", g_q_q256(s4q, p, oqn4, m4q, sc));
         t!("llvm.x86.avx2.gather.d.d", g_d_d(s4, p, od4, m4, sc));
         t!("llvm.x86.avx2.gather.d.d.256", g_d_d256(s8, p, od8, m8, sc));
         t!("llvm.x86.avx2.gather.d.q", g_d_q(s2q, p, od4, m2q, sc));

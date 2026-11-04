@@ -33,14 +33,12 @@ import { type Ty } from "../../rustc_middle/ty/mod.ts";
 import { type Debug, PLAIN } from "../../std/fmt.ts";
 import { port_methods } from "../../rust_ts/miri_stub.ts";
 import { panic, unwrap } from "../../std/panic.ts";
-import { writeSync } from "node:fs";
+import { write_stderr } from "../../std/io.ts";
 export * from "./mod.gen.ts";
 
 /** `eprintln!` (PORT: synchronous write to fd 2, as rustc_mir_transform/pass_manager.ts). */
 function eprintln(s: string): void {
-  const buf = new TextEncoder().encode(`${s}\n`);
-  let off = 0;
-  while (off < buf.length) off += writeSync(2, buf, off);
+  write_stderr(`${s}\n`);
 }
 
 // impl fmt::Display for AccessKind

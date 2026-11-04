@@ -100,7 +100,7 @@ declare module "./unimap.gen.ts" {
   }
 }
 
-/** `Vec<Option<V>>` equality of `data[from..to]` and `other[from..to]`. */
+/** `Vec<Option<V>>` equality of `a[0..len]` and `b[0..len]`. */
 function options_eq<V>(a: readonly (V | undefined)[], b: readonly (V | undefined)[], len: number, eq_V: (a: V, b: V) => boolean): boolean {
   for (let i = 0; i < len; i++) {
     const x = a[i];

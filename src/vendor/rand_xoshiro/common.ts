@@ -83,7 +83,7 @@ export function read_u32_into(src: Uint8Array, dst: number[]): void {
   for (let i = 0; i < dst.length; i++) dst[i] = view.getUint32(4 * i, /* littleEndian */ true);
 }
 
-/** `rand_core::le::read_u64_into` (rand_core-0.9.3/src/le.rs:29). */
+/** `rand_core::le::read_u64_into` (rand_core-0.9.3/src/le.rs:35). */
 export function read_u64_into(src: Uint8Array, dst: bigint[]): void {
   const view = new DataView(src.buffer, src.byteOffset, src.byteLength);
   for (let i = 0; i < dst.length; i++) dst[i] = view.getBigUint64(8 * i, /* littleEndian */ true);

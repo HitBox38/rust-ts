@@ -17,6 +17,7 @@ import "../../lib.ts";
 import type { Compiler, Config } from "../../../rustc_interface/interface.ts";
 import type { TyCtxt } from "../../../rustc_middle/ty/context.ts";
 import { ensure_stack } from "../../../rust_ts/stack.ts";
+import { write_stderr } from "../../../std/io.ts";
 
 async function main(args: string[]): Promise<number> {
   ensure_stack();
@@ -66,7 +67,7 @@ try {
   // As src/rust_ts/main.ts: reaching unported code is exit 70 with one `rust-ts: unported: ..` line.
   const { Unported } = await import("../../../std/panic.ts");
   if (e instanceof Unported) {
-    process.stderr.write(`rust-ts: unported: ${e.what}\n`);
+    write_stderr(`rust-ts: unported: ${e.what}\n`);
     process.exitCode = 70;
   } else {
     throw e;

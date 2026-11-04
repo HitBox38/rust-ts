@@ -1706,8 +1706,9 @@ export function repeat_n(element: number, count: number): SizedIterator {
 ///
 /// Performs appropriate bounds checks.
 // PORT: a JS iterator has no `size_hint`. A lazy source of program-controlled length is a `SizedIterator` (`repeat_n`),
-// so nothing is produced before the bounds check, as upstream. Any other iterator walks bytes that are already in memory
-// or a small fixed count; it is collected first, so its length is precise (`lower == upper`).
+// so nothing is produced before the bounds check, as upstream. Any other iterator is collected first, so its length is
+// precise (`lower == upper`): the callers walk bytes already in memory, a small fixed count, or (check_validity_requirement.ts,
+// after a successful allocation of that size) a type's size.
 // rustc: compiler/rustc_const_eval/src/interpret/memory.rs:1445 write_bytes_ptr
 InterpCx.prototype.write_bytes_ptr = function (this: InterpCx, ptr: Pointer<CtfeProvenance | undefined>, src: IterableIterator<number> | SizedIterator): InterpResult {
   let src_: Iterator<number>;

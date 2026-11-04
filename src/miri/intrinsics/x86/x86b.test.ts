@@ -140,6 +140,8 @@ function stand_in_ecx(features: readonly string[]): MiriInterpCx {
   ecx.read_pointer = (p: Addr): InterpResult<Addr> => interp_ok(p);
   ecx.mem_copy = (src: Addr, dest: Slot, size: Size, nonoverlapping: boolean): InterpResult => {
     expect(nonoverlapping).toBe(true);
+    // A store below keeps only the low byte, so a wrong sign on a 64-bit offset (2^64 away) would pass without this.
+    if (!(src.addr >= 0 && src.addr + Number(size.bytes()) <= 256)) throw new Error(`gather read outside the table: ${src.addr}`);
     for (let i = 0; i < Number(size.bytes()); i++) dest.buf[dest.off + i] = src.addr + i;
     return interp_ok(undefined);
   };
@@ -236,7 +238,7 @@ test("avx: vpermilvar and ldu.dq match the oracle", in_session(() => {
 }));
 
 test("avx2: every gather form (masks, scales, negative offsets, offsets / dest length mismatch) matches the oracle", in_session(() => {
-  expect(run_fixture("avx2", ["avx2"], (l) => l.includes("gather"))).toBe(41);
+  expect(run_fixture("avx2", ["avx2"], (l) => l.includes("gather"))).toBe(57);
 }));
 
 test("vzeroupper / vzeroall take no arguments and write nothing", in_session(() => {

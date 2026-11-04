@@ -38,6 +38,7 @@ import { VecU8, dyn_write } from "../vendor/anstream/stream.ts";
 import { ColorChoice } from "../vendor/colorchoice/lib.ts";
 import { Panic, Unported } from "../std/panic.ts";
 import { Str } from "../std/str.ts";
+import { write_stderr, write_stdout } from "../std/io.ts";
 
 type Json = null | boolean | number | string | Json[] | { [k: string]: Json };
 type Obj = { [k: string]: Json };
@@ -138,7 +139,7 @@ function main(): void {
   const paths = process.argv.slice(2);
   const out: Uint8Array[] = [];
   const flush = () => {
-    process.stdout.write(Buffer.concat(out));
+    write_stdout(Buffer.concat(out));
     out.length = 0;
   };
   try {
@@ -155,11 +156,11 @@ function main(): void {
     // Same exit-code contract as src/rust_ts/main.ts: 70 = reached unported code, 101 = ICE.
     flush();
     if (e instanceof Unported) {
-      process.stderr.write(`rust-ts: unported: ${e.what}\n`);
+      write_stderr(`rust-ts: unported: ${e.what}\n`);
       process.exitCode = 70;
     } else {
       const msg = e instanceof Panic ? e.message : String(e);
-      process.stderr.write(`rust-ts: internal compiler error: ${msg}\n${e instanceof Error ? e.stack : ""}\n`);
+      write_stderr(`rust-ts: internal compiler error: ${msg}\n${e instanceof Error ? e.stack : ""}\n`);
       process.exitCode = 101;
     }
   }

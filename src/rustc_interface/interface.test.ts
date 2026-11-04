@@ -1,7 +1,7 @@
 // Tests of src/rustc_interface/interface.ts `run_compiler`: its `Config.make_codegen_backend` arm (interface.rs:424-437;
 // Miri's driver is the user, src/miri/bin/miri.ts).
-import { expect, test } from "bun:test";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { afterAll, expect, test } from "bun:test";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { DATA } from "../../scripts/lib/common.ts";
 import { compiler_entrypoint } from "../rustc_driver_impl/lib.ts";
@@ -28,14 +28,16 @@ function config_of(file: string): Config {
   return config;
 }
 
+const SOURCE_FILE = join(DATA, "tmp", "interface-test", `${process.pid}.rs`);
+afterAll(() => rmSync(SOURCE_FILE, { force: true }));
+
 function source_file(): string {
-  const file = join(DATA, "tmp", "interface-test", `${process.pid}.rs`);
-  mkdirSync(dirname(file), { recursive: true });
-  writeFileSync(file, "");
-  return file;
+  mkdirSync(dirname(SOURCE_FILE), { recursive: true });
+  writeFileSync(SOURCE_FILE, "");
+  return SOURCE_FILE;
 }
 
-test("run_compiler uses Config.make_codegen_backend when it is set, and does not ask for the default backend", () => {
+test("run_compiler uses Config.make_codegen_backend when it is set, then calls init and target_config on what it made", () => {
   const calls: string[] = [];
   let stub: CodegenBackend | undefined;
   const config = config_of(source_file());

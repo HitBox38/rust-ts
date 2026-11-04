@@ -35,6 +35,7 @@ import { Unported, unported } from "../../../std/panic.ts";
 import { PathSource } from "../../late.ts";
 import { CStore, type Res } from "../../lib.ts";
 import { with_resolver } from "../../macros_oracle/with_resolver.ts";
+import { write_stderr } from "../../../std/io.ts";
 
 /** An empty `CStore` (test stand-in). */
 const EMPTY_CSTORE = new Proxy(
@@ -128,7 +129,7 @@ if (import.meta.main) {
   } catch (e) {
     if (e instanceof FatalErrorMarker) process.exit(1);
     if (e instanceof Unported) {
-      process.stderr.write(`UNPORTED: ${e.what}\n`);
+      write_stderr(`UNPORTED: ${e.what}\n`);
       process.exit(70);
     }
     throw e;

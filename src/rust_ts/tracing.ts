@@ -30,9 +30,9 @@
 // EnvFilter: the static directives (`target=level`, bare `level`, bare `target`) are ported, with the
 // "would enable traces that are disabled statically" warning. Directives with a span name or field filters
 // (`target[span{field=value}]=level`) are dynamic filters and stop with `unported`.
-import { writeSync } from "node:fs";
 import { panic, unported } from "../std/panic.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
+import { write_stderr } from "../std/io.ts";
 
 // ---- tracing-core: Level, LevelFilter -------------------------------------------------------------------------------
 
@@ -563,9 +563,7 @@ function paint_codes(codes: string, text: string): string {
 
 /** `eprintln!` (unbuffered stderr; errors are ignored like a closed stderr would panic, which never happens here). */
 function eprintln(s: string): void {
-  const b = Buffer.from(`${s}\n`, "utf8");
-  let off = 0;
-  while (off < b.length) off += writeSync(2, b, off, b.length - off);
+  write_stderr(`${s}\n`);
 }
 
 /**

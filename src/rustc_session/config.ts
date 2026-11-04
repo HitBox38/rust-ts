@@ -11,8 +11,9 @@
 // options.gen.ts reads this module's enums only lazily (POLONIUS_HELP is a function read through a getter), so
 // either module may be evaluated first. (Before integ-w32, POLONIUS_HELP was an eager const and importing this
 // module first failed with a TDZ error on `Polonius`.)
-import { lstatSync, readFileSync, readlinkSync, statSync, writeFileSync, writeSync } from "node:fs";
+import { lstatSync, readFileSync, readlinkSync, statSync, writeFileSync } from "node:fs";
 import { availableParallelism } from "node:os";
+import { isatty } from "node:tty";
 import type { PathBuf } from "../rustc_error_messages/lib.ts";
 import type { ColorConfig } from "../rustc_errors/emitter.ts";
 import { HumanReadableErrorType, debug_HumanReadableErrorType } from "../rustc_errors/emitter.ts";
@@ -32,7 +33,7 @@ import { type FileName, RealFileName, RemapPathScopeComponents, SourceFileHashAl
 import { FilePathMapping } from "../rustc_span/source_map.ts";
 import { type Symbol, sym } from "../rustc_span/symbol.ts";
 import { type Debug, debug_bool, debug_int, debug_map, debug_option, debug_str, debug_struct, debug_tuple, debug_vec } from "../std/fmt.ts";
-import { type IoError, debug_IoError, display_IoError, io_error_from_node, stdout_write_all } from "../std/io.ts";
+import { type IoError, debug_IoError, display_IoError, io_error_from_node, stdout_write_all, write_stderr } from "../std/io.ts";
 import { path_file_name, path_file_stem, path_hash, path_join, path_parent } from "../std/path.ts";
 import { assert_eq, panic, unported, unwrap } from "../std/panic.ts";
 import type { Decoder } from "../rustc_serialize/serialize.ts";
@@ -103,21 +104,6 @@ import { SearchPath } from "./search_paths.ts";
 import { spec as target_spec } from "../rustc_target/lib.ts";
 import { edit_distance_with_substrings } from "../rustc_span/edit_distance.ts";
 
-// PORT: `print!`/`eprintln!` -> synchronous writes to fd 1/2 (Rust's `Stdout` is line-buffered and
-// `Stderr` unbuffered; the bytes written are the same).
-// Root: move to src/std/io.ts.
-function write_fd(fd: number, s: string): void {
-  const buf = utf8_bytes(s);
-  let off = 0;
-  while (off < buf.length) {
-    try {
-      off += writeSync(fd, buf, off);
-    } catch (e) {
-      if ((e as { code?: string }).code === "EAGAIN") continue;
-      throw e;
-    }
-  }
-}
 /** `print!("{s}")`: `io::stdout().write_fmt(..)`, which swallows `EBADF` (std `handle_ebadf`, std io.ts
  *  `stdout_write_all`); any other error panics "failed printing to stdout: {e}" (std `print_to`). */
 export function std_print(s: string): void {
@@ -126,7 +112,7 @@ export function std_print(s: string): void {
 }
 /** `eprintln!("{s}")` */
 function eprintln(s: string): void {
-  write_fd(2, `${s}\n`);
+  write_stderr(`${s}\n`);
 }
 
 /** `<String as Ord>::cmp`: byte-wise, which for UTF-8 is code point order. */
@@ -1381,7 +1367,8 @@ export const OutFileName = {
       case "Real":
         return false;
       case "Stdout":
-        return process.stdout.isTTY === true;
+        // PORT: `io::stdout().is_terminal()`. Not `process.stdout.isTTY`: touching that stream makes a pipe non-blocking.
+        return isatty(1);
     }
   },
 

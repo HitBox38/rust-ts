@@ -19,6 +19,7 @@ import { debug_LocalDefId, LocalDefId } from "../../../rustc_span/def_id.ts";
 import { debug_BoundVariableKind } from "../../../rustc_type_ir/binder.ts";
 import { debug_tuple, debug_vec, PLAIN } from "../../../std/fmt.ts";
 import { Panic, Unported } from "../../../std/panic.ts";
+import { write_stderr, write_stdout } from "../../../std/io.ts";
 
 function dump(tcx: TyCtxt): string {
   const out: string[] = [];
@@ -48,7 +49,7 @@ async function main(args: string[]): Promise<number> {
     },
     after_expansion(_compiler: Compiler, tcx: TyCtxt): "Stop" | "Continue" {
       const text = dump(tcx);
-      process.stdout.write(text);
+      write_stdout(text);
       tcx.dcx().abort_if_errors();
       return "Stop";
     },
@@ -60,11 +61,11 @@ try {
   process.exitCode = await main(process.argv.slice(2));
 } catch (e) {
   if (e instanceof Unported) {
-    process.stderr.write(`rust-ts: unported: ${e.what}\n`);
+    write_stderr(`rust-ts: unported: ${e.what}\n`);
     process.exitCode = 70;
   } else {
     const msg = e instanceof Panic ? e.message : String(e);
-    process.stderr.write(`rust-ts: internal compiler error: ${msg}\n${e instanceof Error ? e.stack : ""}\n`);
+    write_stderr(`rust-ts: internal compiler error: ${msg}\n${e instanceof Error ? e.stack : ""}\n`);
     process.exitCode = 101;
   }
 }
