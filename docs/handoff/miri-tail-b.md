@@ -5,13 +5,15 @@ Branch `t3/port-miri-virtual-sockets`, port commit `98f91b02`, base `1d221bff`.
 Scope: `shims/unix/virtual_socket.rs` into `src/miri/shims/unix/virtual_socket.ts`, and the `socketpair` / `pipe` / `pipe2`
 arms of `shims/unix/foreign_items.ts`.
 
-All measurements were taken while load was 60 to 390 from the other lanes. Timeouts below are not results, so they are
-reported as undetermined, not as failures.
+Most measurements were taken while load was about 50 to 390 from the other lanes. Timeouts below are not results, so they
+are not reported as failures.
 
 ## Needs root
 
-1. **Protected cases not confirmed.** See "Sample" below: 6 protected cases timed out in the sample and again when rerun
-   alone. They matched in `gate-20261102-174727-root-kxpt`. Results of the last pass are in "Final pass".
+1. **One protected case has no difftest MATCH here:** `tests/ui/moves/move-3-unique.rs`. It keeps exceeding the suite's 60 s
+   limit under load (port 252 s at load about 65, oracle 16 s). Run with no limit, its exit code, stdout and stderr are
+   byte-identical to the oracle's, so I see no divergence. It matched in `gate-20261102-174727-root-kxpt`, and the gate on a
+   quiet machine is the check that settles it. The other 16 timed-out sample cases MATCH (see "Sample").
 2. **`harness/scope.json`** still lists `shims/unix/virtual_socket.rs` under `miri.excluded`. Not edited (brief). Until it
    is removed, `coverage.ts --missing` prints an out-of-scope note, though it reports 21/21, and the file is presumably not
    counted in the Miri totals (not checked).
@@ -23,8 +25,8 @@ reported as undetermined, not as failures.
 4. **`socket.ts` is now wrong, and I did not edit it (not assigned).** Its header and `socket_out_of_scope` text say "with
    isolation on no socket fd exists", which `socketpair` makes false. `send` and `recv` (socket.rs:418, :497) are now
    reachable. The port stops `unported` where the oracle succeeds: `UnixStream::pair()` then `write_all` prints `[104, 105]`
-   on the oracle and stops at `miri::shims::unix::socket::EvalContextExt::send` on the port. No `tests/ui` file mentions
-   `UnixStream::pair` or `socketpair` outside a sanitizer list, so this should not move a suite. The
+   on the oracle and stops at `miri::shims::unix::socket::EvalContextExt::send` on the port. No `tests/ui` `.rs` file
+   mentions `UnixStream::pair` or `socketpair`, though indirect use through std was not ruled out. The
    `UnixSocketFileDescription` trait's provided methods are also unported.
 5. **The brief's case list differs from the gate's rows.** `tests/ui/process/nofile-limit.rs` is not a `pipe2` row: it stops
    at `rustc_codegen_llvm::llvm_util::configure_llvm (-C target-feature)`, as it did in the gate, so this lane does not
@@ -41,13 +43,13 @@ reported as undetermined, not as failures.
 ## Coverage
 
 `bun scripts/coverage.ts --missing src/tools/miri/src/shims/unix/virtual_socket.rs`: **21/21 ported**, with the out-of-scope
-note from item 2. `coverage.ts --check --offline` before the last small edits: `markers ok (24416; vendor 5050; library 584)`.
+note from item 2. `coverage.ts --check --offline` on `98f91b02`: `markers ok (24416; vendor 5050; library 584)`.
 
 ## The 10 cases
 
-Before the last small edits (see "Not covered"): all 10 MATCH. Runs `20261103-224146-miri-tail-b-3fis` (`--filter
-tests/ui/process/`: 30 of 31 MATCH, the other is `nofile-limit`), `...-64zd` (backtrace), `...-ibnu` (abort-on-panic).
-`issue-14456` also matched in the sample on the commit. The rerun on the commit is in "Final pass".
+**All 10 MATCH on `98f91b02`**, each run alone with `--jobs 1` (`$RUST_TS_DATA/tmp/miri-tail-b/final.txt`). They also matched
+before the last small edits (runs `20261103-224146-miri-tail-b-3fis`, where `--filter tests/ui/process/` gave 30 of 31 MATCH
+with `nofile-limit` the other, `20261103-224212-miri-tail-b-64zd` and `20261103-224217-miri-tail-b-ibnu`).
 
 Cases: `tests/ui/backtrace/backtrace.rs`, `tests/ui/panics/abort-on-panic.rs#current`, `#next`, and under
 `tests/ui/process/`: `core-run-destroy`, `issue-13304`, `issue-14456`, `issue-30490`, `println-with-broken-pipe`,
@@ -69,9 +71,14 @@ Run `20261103-233411-miri-tail-b-c0y3`, detached, load about 120 to 230: **MATCH
     `generic-associated-types/iterable`, `generics/autobind`, `higher-ranked/trait-bounds/issue-39292`,
     `impl-trait/type-alias-generic-param`, `intrinsics/const-eval-select-x86_64`, `intrinsics/volatile-composite-types`,
     `iterators/rangefrom-overflow-overflow-checks`, `let-else/let-else-non-copy`.
-  - **6 undetermined, TIMEOUT again**: `consts/issue-23833`, `drop/drop-order-comparisons#e2021`,
-    `mir/validate-various-comparison-behavior`, `moves/move-3-unique`, `recursion/recursion-tail-cps`,
-    `rfcs/rfc-2091-track-caller/std-panic-locations#default`.
+  - **6 TIMEOUT again**, rerun the same way at load 52 to 73 (`final.txt`):
+    - 5 MATCH: `consts/issue-23833`, `drop/drop-order-comparisons#e2021`, `mir/validate-various-comparison-behavior`,
+      `recursion/recursion-tail-cps`, `rfcs/rfc-2091-track-caller/std-panic-locations#default`.
+    - `moves/move-3-unique`: no MATCH line (over the 60 s limit a third time). Compared raw with no limit, in the suite's cwd:
+      exit 0/0, stdout 0/0 bytes, stderr 295/295 bytes, both identical. This is not difftest's verdict.
+
+So of the 200: 194 MATCH across these runs (178 + 11 + 5), 5 UNPORTED, 1 timing out (`move-3-unique`). This adds runs together
+at different loads; it is not one clean run, and the sample's own figure stays 178.
 
 ## Other checks
 
@@ -83,7 +90,7 @@ Run `20261103-233411-miri-tail-b-c0y3`, detached, load about 120 to 230: **MATCH
       partial stdout agrees with the oracle up to where it was killed. The same program run directly with no time limit took
       430 s and its 66 stdout lines and exit code are **identical to the fixture**.
 - `--suite miri-hello`: MATCH 1/1 (run `20261103-225306-miri-tail-b-2uqw`).
-- `bunx tsc --noEmit -p .`: 0 errors, after the last small edits.
+- `bunx tsc --noEmit -p .` on `98f91b02`: 0 errors.
 - Oracle comparison, port against the fixture, whole programs:
   - `probe.rs`: identical (above). Covers fd numbers, flags, both directions, close, EOF, EPIPE, EBADF, EAGAIN, partial writes,
     blocking across threads, the data-race clock, `FIONBIO`, epoll (level and edge), `EPOLLERR` from lost data, `poll`, `dup`.
@@ -100,7 +107,7 @@ Run `20261103-233411-miri-tail-b-c0y3`, detached, load about 120 to 230: **MATCH
   not mine to edit. Only stdout, exit code and first error line were compared.
 - **The 24 `err_*.rs` were compared before the last small edits** and not rerun: `else if (n !== 0)` → `else` in
   `VecDeque_u8.read` (`n` is at least 1 whenever the deque is non-empty and `len > 0`), `flags` → `flags!`, and type-only
-  changes. The stand-in tests, which ran after those edits, check the error text of the 13 unsupported-operation paths.
+  changes. The stand-in tests, which ran after those edits, check 12 of those programs' error text against the fixture.
 - **`debug_VirtualSocket` / `debug_Buffer`**: hand-written in the generated shape, no caller and no oracle check. A `peer_fd` value
   stops at `debug_WeakFileDescriptionRef`'s existing `unported_debug`.
 - **Gate:** not run (root only).
@@ -142,6 +149,3 @@ None in `virtual_socket.ts`. In `foreign_items.ts`, `getaddrinfo` / `freeaddrinf
 Copied `.env.local` from the main checkout (gitignored) and ran `bun install --frozen-lockfile`. Oracle toolchain untouched; the
 probes use the isolated Miri. Scratch and logs: `$RUST_TS_DATA/tmp/miri-tail-b/`.
 
-## Final pass
-
-Pending: 10 cases, the 6 undetermined cases, `tsc` and markers on the commit. Log: `$RUST_TS_DATA/tmp/miri-tail-b/final.txt`.
