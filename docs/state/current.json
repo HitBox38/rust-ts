@@ -1,5 +1,5 @@
 {
-  "milestone": "M5",
+  "milestone": "M6",
   "pin": "6f5da406b56c2db6607202b63daee73aa8c61297",
   "protected": {
     "check-core": 1,
@@ -52,7 +52,7 @@
     "tydump-ui": 1840,
     "pm-expanded": 280
   },
-  "updated": "2026-11-04T13:56:25.601Z",
+  "updated": "2026-11-04T14:23:13.217Z",
   "open_stops": [],
   "coverage": {
     "ported": 24230,
