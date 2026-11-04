@@ -11,7 +11,8 @@ import { type OutputFilenames, std_print } from "../rustc_session/config.ts";
 import type { CrateType } from "../rustc_structures/crate_type.ts";
 import { TargetTuple } from "../rustc_target/spec/tuple.ts";
 import { TARGET_CONFIGS } from "./target_config.gen.ts";
-import { Symbol, sym } from "../rustc_span/symbol.ts";
+import { SanitizerSet } from "../rustc_target/spec/mod.ts";
+import { sym } from "../rustc_span/symbol.ts";
 import { unported } from "../std/panic.ts";
 import type { MetadataLoaderDyn } from "../rustc_metadata/creader.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
@@ -30,18 +31,35 @@ import {
 } from "../rustc_interface/stand_ins.ts";
 
 /**
+ * PORT: `-C llvm-args` lists whose whole effect is in LLVM's own passes, which never run where this stand-in is reached
+ * (`codegen_crate` is unported; under Miri the dummy backend codegens). `configure_llvm` hands them to
+ * `LLVMRustSetLLVMOptions`, whose parser (LLVM's `cl::ParseCommandLineOptions`) is not ported: an unknown value prints
+ * LLVM's error and exits 1, and `--help` and the like print and exit. So only the lists the oracle was seen to accept are
+ * let through, by exact list, and everything else stays `unported`.
+ * Source: `rustc +nightly -Cllvm-args=<value> --print cfg --target <tuple>` (exit 0, no stderr, same stdout as without
+ * the flag), re-run for every entry by codegen_backend.oracle.test.ts.
+ */
+export const ORACLE_ACCEPTED_LLVM_ARGS: ReadonlySet<string> = new Set([
+  // tests/ui/alloc-error/alloc-error-backtrace.rs, tests/ui/runtime/backtrace-debuginfo.rs
+  "-enable-tail-merge=0",
+  // tests/ui/codegen/issue-82833-slice-miscompile.rs
+  "--inline-threshold=0",
+]);
+
+/**
  * PORT: the inputs of LLVM's initialisation (`llvm_util::configure_llvm`, `global_llvm_features`,
  * `llvm_features_by_flags`) and of `target_config` that rust-ts only knows the default of. Each
- * non-default one is reported by name; the caller calls `unported` with it. With all of them at their
- * default, `init` reports nothing (LLVM accepts the target's own `llvm_args`) and `target_config` is the
- * oracle table (decision D4).
+ * non-default one is reported by name; the caller calls `unported` with it. With none reported, `init` needs nothing
+ * from LLVM (it accepts the target's own `llvm_args`) and `target_config` asks the oracle table what LLVM would answer
+ * (decision D4): the table's key is the tuple, so what is reported here is what changes the CPU or the feature string
+ * `OwnedMCSubtargetInfo::new` gets. `-C target-feature` does not: `global_llvm_features(sess, for_cfg = true)` skips
+ * it, and `internal_target_features` handles it in Rust.
  */
 function non_default_llvm_input(sess: EarlySession, for_target_config: boolean): string | undefined {
   const cg = sess.opts.cg;
   const z = sess.opts.unstable_opts;
-  if (cg.llvm_args.length !== 0) return "-C llvm-args";
+  if (cg.llvm_args.length !== 0 && !ORACLE_ACCEPTED_LLVM_ARGS.has(cg.llvm_args.join(" "))) return "-C llvm-args";
   if (cg.target_cpu !== undefined) return "-C target-cpu";
-  if (cg.target_feature !== "") return "-C target-feature";
   if (z.llvm_target_feature !== "") return "-Z llvm-target-feature";
   if (z.llvm_plugins.length !== 0) return "-Z llvm-plugins";
   if (z.time_llvm_passes) return "-Z time-llvm-passes";
@@ -51,8 +69,9 @@ function non_default_llvm_input(sess: EarlySession, for_target_config: boolean):
   if (z.small_data_threshold !== undefined && sess.target.small_data_threshold_support_().$ === "LlvmArg") return "-Z small-data-threshold";
   if (z.fixed_x18) return "-Z fixed-x18";
   if (z.retpoline || z.retpoline_external_thunk) return "-Z retpoline";
-  // `sanitizer_features_by_flags` only adds features (no diagnostics): it changes `target_config`, not `init`.
-  if (for_target_config && sess.sanitizers() !== 0) return "-Z sanitizer";
+  // `sanitizer_features_by_flags` only adds a feature for hwaddress (no diagnostics): it changes `target_config`, not
+  // `init`. No other sanitizer reaches `llvm_features_by_flags`, so the feature string LLVM gets is the default one.
+  if (for_target_config && (sess.sanitizers() & SanitizerSet.HWADDRESS) !== 0) return "-Z sanitizer";
   if (sess.target.is_like_wasm && sess.panic_strategy() !== sess.target.panic_strategy) return "-C panic (wasm exception handling)";
   return undefined;
 }
@@ -124,7 +143,15 @@ export class LlvmCodegenBackend implements CodegenBackend {
     init.thin_lto_supported = true;
     return init;
   }
-  /** `llvm_util::target_config` (PORT: the oracle table src/rust_ts/target_config.gen.ts, decision D4). */
+  /// Used to generate cfg variables and apply features.
+  /// Must express features in the way Rust understands them.
+  ///
+  /// We do not have to worry about RUSTC_SPECIFIC_FEATURES here, those are handled outside codegen.
+  /**
+   * `llvm_util::target_config` (llvm_util.rs:325). PORT: `require_inited`, the triple, CPU and feature strings and
+   * `OwnedMCSubtargetInfo::new` are LLVM's; what LLVM answers comes from the oracle table
+   * src/rust_ts/target_config.gen.ts (decision D4), valid for the CPU and features `non_default_llvm_input` leaves alone.
+   */
   target_config(sess: EarlySession): TargetConfig {
     const input = non_default_llvm_input(sess, true);
     if (input !== undefined) {
@@ -135,14 +162,37 @@ export class LlvmCodegenBackend implements CodegenBackend {
     if (t === undefined) {
       return unported(`rustc_codegen_llvm::llvm_util::target_config (no oracle table for ${tuple})`);
     }
-    return {
-      internal_target_features: new Set(t.internal_target_features.map((f) => Symbol.intern(f))),
-      has_reliable_f16: t.has_reliable_f16,
-      has_reliable_f16_math: t.has_reliable_f16_math,
-      has_reliable_f16b: t.has_reliable_f16b,
-      has_reliable_f128: t.has_reliable_f128,
-      has_reliable_f128_math: t.has_reliable_f128_math,
+    // PORT: the table holds what `target_config` returned with no `-Ctarget-feature`, that is every feature LLVM reports
+    // plus its transitive implications. That set is closed under `implied_target_features`, so asking it in place of
+    // `mc_subtarget_info.has_features` expands to the same set.
+    const llvm_reports = new Set<string>(t.internal_target_features);
+
+    const internal_target_features_ = target_features.internal_target_features(
+      sess,
+      (feature) => {
+        const f = to_llvm_features(sess.target, feature);
+        return f === undefined ? [] : LLVMFeature.into_iter(f);
+      },
+      (feature) => {
+        // This closure determines whether the target CPU has the feature according to LLVM. We
+        // do *not* consider the `-Ctarget-feature`s here (that's why we passed `for_cfg: true`
+        // to `global_llvm_features` above) because that will be handled later in
+        // `internal_target_features`.
+        return to_llvm_features(sess.target, feature) !== undefined && llvm_reports.has(feature);
+      },
+    );
+
+    const cfg: TargetConfig = {
+      internal_target_features: internal_target_features_,
+      has_reliable_f16: true,
+      has_reliable_f16_math: true,
+      has_reliable_f16b: true,
+      has_reliable_f128: true,
+      has_reliable_f128_math: true,
     };
+
+    update_target_reliable_float_cfg(sess.target, cfg);
+    return cfg;
   }
   print_version(): void {
     std_print(`LLVM version: ${LLVM_VERSION}\n`);
@@ -225,6 +275,10 @@ const LLVMFeature = {
   },
   with_dependencies(llvm_feature_name: string, dependencies: TargetFeatureFoldStrength[]): LLVMFeature {
     return { llvm_feature_name, dependencies };
+  },
+  /** `impl IntoIterator for LLVMFeature` `into_iter` (llvm_util.rs:217). */
+  into_iter(self: LLVMFeature): string[] {
+    return [self.llvm_feature_name, ...self.dependencies.map((feat) => feat._0)];
   },
 };
 
@@ -366,6 +420,109 @@ function to_llvm_features(target: Target, s: string): LLVMFeature | undefined {
     default:
       return LLVMFeature.new(s);
   }
+}
+
+/// Determine whether or not experimental float types are reliable based on known bugs.
+/** `llvm_util::update_target_reliable_float_cfg` (llvm_util.rs:371). */
+export function update_target_reliable_float_cfg(target: Target, cfg: TargetConfig): void {
+  const target_arch = target.arch.$;
+  const target_os = target.options.os.$;
+  const target_endian = target.options.endian;
+  const target_env = target.options.env.$;
+  const target_abi = target.options.cfg_abi.$;
+  const target_pointer_width = target.pointer_width;
+  const [major] = get_version();
+
+  // MinGW ABI bugs <https://gcc.gnu.org/bugzilla/show_bug.cgi?id=115054> resolved in GCC 16
+  // but our toolchain hasn't been updated.
+  if (target_arch === "X86_64" && target_os === "Windows" && target_env === "Gnu" && target_abi !== "Llvm") {
+    cfg.has_reliable_f16 = false;
+  } else {
+    // `f16` support only requires that symbols converting to and from `f32` are available. We
+    // provide these in `compiler-builtins`, so `f16` should be available on all platforms that
+    // do not have other ABI issues or LLVM crashes.
+    cfg.has_reliable_f16 = true;
+  }
+
+  // The heuristic for evaluating to true is twofold, namely;
+  //
+  // 1. Can LLVM compile an IR snippet containing `fpext bfloat %<var> to float`
+  // 2. Does the documentation indicate `bf16` support, can be seen in the
+  //    tracking issue; <https://github.com/rust-lang/rust/issues/160630>
+  if (target_arch === "Arm64EC") {
+    // This is similar to <https://github.com/llvm/llvm-project/issues/94434>, however
+    // does not work until LLVM 23 on Windows.
+    cfg.has_reliable_f16b = major >= 23;
+  } else if (target_arch === "AArch64" || target_arch === "Arm") {
+    cfg.has_reliable_f16b = true;
+  } else {
+    // FIXME(f16b) until <https://github.com/llvm/llvm-project/issues/97896>
+    // is resolved the below do not have a reliable `f16b`, on a widening
+    // path a call to `__truncsfbf2` is emitted. Or when using architectural
+    // extensions a non-portable narrowing instruction is emitted.
+    // PORT: the `(Arch::X86_64 | Arch::RiscV64 | Arch::LoongArch64, _)` arm and `_` are both `false`.
+    cfg.has_reliable_f16b = false;
+  }
+
+  if (target_arch === "AmdGpu") {
+    // Unsupported https://github.com/llvm/llvm-project/issues/121122
+    cfg.has_reliable_f128 = false;
+  } else if (target_arch === "Arm64EC" && major < 23) {
+    cfg.has_reliable_f128 = false; // (fixed in llvm23)
+  } else if (target_arch === "Nvptx64") {
+    // Selection bug <https://github.com/llvm/llvm-project/issues/95471>. This issue is closed
+    // but basic math still does not work.
+    cfg.has_reliable_f128 = false;
+  } else if (target_arch === "PowerPC") {
+    // ABI/LLVM bugs:
+    // - with +vsx <https://github.com/llvm/llvm-project/pull/216613>
+    // - without +vsx <https://github.com/rust-lang/rust/issues/125109>
+    cfg.has_reliable_f128 = false;
+  } else if (target_arch === "PowerPC64" && target_os === "Aix") {
+    // AIX does not support f128.
+    cfg.has_reliable_f128 = false;
+  } else if (target_arch === "PowerPC64") {
+    // ABI bugs on BE without +vsx <https://github.com/rust-lang/rust/issues/125109>.
+    cfg.has_reliable_f128 = cfg.internal_target_features.has(sym.vsx);
+  } else if (target_arch === "X86_64" && target_os === "Windows" && target_env === "Gnu" && target_abi !== "Llvm" && major < 23) {
+    // MinGW ABI bugs <https://gcc.gnu.org/bugzilla/show_bug.cgi?id=115054> (fixed in llvm23)
+    cfg.has_reliable_f128 = false;
+  } else {
+    // There are no known problems on other platforms, so the only requirement is that symbols
+    // are available. `compiler-builtins` provides all symbols required for core `f128`
+    // support, so this should work for everything else.
+    cfg.has_reliable_f128 = true;
+  }
+
+  // Assume that working `f16` means working `f16` math for most platforms, since
+  // operations just go through `f32`.
+  cfg.has_reliable_f16_math = cfg.has_reliable_f16;
+
+  let has_reliable_f128_math: boolean;
+  // LLVM lowers `fp128` math to `long double` symbols even on platforms where
+  // `long double` is not IEEE binary128. See
+  // <https://github.com/llvm/llvm-project/issues/44744>.
+  //
+  // This rules out anything that doesn't have `long double` = `binary128`; <= 32 bits
+  // (ld is `f64`), anything other than Linux (Windows and MacOS use `f64`), and `x86`
+  // (ld is 80-bit extended precision).
+  //
+  // On big-endian powerpc the symbol selection is correct, despite __ibmf128 being
+  // long double on the target, but the f128 symbols are not defined.
+  //
+  // musl does not implement the symbols required for f128 math at all.
+  if (target_env === "Musl") {
+    has_reliable_f128_math = false;
+  } else if (target_arch === "X86_64") {
+    has_reliable_f128_math = false;
+  } else if ((target_arch === "PowerPC" || target_arch === "PowerPC64") && target_endian === "Big") {
+    has_reliable_f128_math = false;
+  } else if (target_os === "Linux" && target_pointer_width === 64) {
+    has_reliable_f128_math = true;
+  } else {
+    has_reliable_f128_math = false;
+  }
+  cfg.has_reliable_f128_math = has_reliable_f128_math && cfg.has_reliable_f128;
 }
 
 /** `llvm_util::llvm_features_by_flags` (llvm_util.rs:663). */
