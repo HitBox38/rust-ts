@@ -452,7 +452,7 @@ export class InterpCx<M extends AnyMachine = Machine>
     // trace!("resolve: {:?}, {:#?}", def, args);
     // trace!("typing_env: {:#?}", self.typing_env);
     // trace!("args: {:#?}", args);
-    // Measured (docs/handoff/miri-perf.md, 486 Ginstr at base): -0.4 Ginstr here; about 1% more on `dynamic-drop.rs` with the other low-gain changes (handoff).
+    // Measured (docs/handoff/miri-perf.md, 486 Ginstr at base): -0.4 Ginstr here; the six low-gain changes together are worth 1.1% here and 2.2% on `dynamic-drop.rs` (handoff).
     // PORT(perf): a successful resolution is pure in `(def, args, typing env)` (all interned or by value), and `Instance` is
     // never written to, so the first result is reused: `try_resolve` erases, folds and looks up queries on every call.
     // A `DefId` means something else in another `TyCtxt` and the empty list is process-wide, so the memo is per `TyCtxt`.
