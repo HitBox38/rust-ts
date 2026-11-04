@@ -4,8 +4,9 @@ Branch `t3/port-miri-x86-intrinsics-1`, base main `c9d3c553`. It builds on its o
 
 **Integration aid:** branch `t3/miri-x86-b-on-x86-a` merges this lane with miri-x86-a's `t3/port-miri-x86-intrinsics` and
 adds one commit that removes the stand-ins (see "Stand-ins to remove"). Replay that commit, or use the branch, when merging both lanes.
-At x86-a's `0001ccf9`: tsc 0 errors; `bun test src/miri/intrinsics/x86 src/miri/contract.test.ts` 44 pass, 1 fail. The failure is the
-contract test rejecting x86-a's `src/miri/intrinsics/x86/probes/driver.ts` (not a module; that lane has been told).
+At x86-a's `dee9e4fa` (branch head `2bac277e`): tsc 0 errors; `bun test src/miri/intrinsics/x86 src/miri/contract.test.ts` 46 pass,
+0 fail. That includes x86-a's "values: wide" case, which needs this lane's real `avx2.ts`: it skips on x86-a's branch alone and runs
+here (run on its own to confirm it did not skip).
 
 ## Decisions root needs to look at
 
