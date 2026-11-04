@@ -459,6 +459,7 @@ export class Allocation<Prov = CtfeProvenance, Extra = null, Bytes = Uint8Array>
     }
 
     // Get the integer part of the result. We HAVE TO check provenance before returning this!
+    // Measured (docs/handoff/miri-perf.md, 486 Ginstr at base): -15.0 Ginstr with `write_scalar`, `read_target_uint` / `write_target_uint` and consts/int.ts.
     // PORT(perf): `read_le_uint_at` when the range is small and in bounds and the target little-endian; anything else takes
     // upstream's path (with its slice panics). A big `Size` is `NaN` and fails the test.
     const all_bytes = deref(this.bytes);

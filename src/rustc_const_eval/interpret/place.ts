@@ -412,6 +412,7 @@ PlaceTy.prototype.layout_ = function (this: PlaceTy): TyAndLayout {
 // #[inline]
 // rustc: compiler/rustc_const_eval/src/interpret/place.rs:276 meta
 PlaceTy.prototype.meta = function (this: PlaceTy): MemPlaceMeta {
+  // Measured (docs/handoff/miri-perf.md, 486 Ginstr at base): -0.3 Ginstr on the benchmark, with `offset_with_meta` and `assert_mem_place`.
   // PORT(perf): `as_mplace_or_local` inlined: its `Either` and tuple are allocations here. Same arms.
   const place = this.place;
   switch (place.$) {
@@ -762,6 +763,7 @@ InterpCx.prototype.eval_place = function (this: InterpCx, mir_place: mir_Place, 
 /// Given a place, returns either the underlying mplace or a reference to where the value of
 /// this place is stored.
 /**
+ * Measured (docs/handoff/miri-perf.md, 486 Ginstr at base): -2.4 Ginstr.
  * PORT(perf): the `MutRef<Immediate>` of `as_mplace_or_mutable_local` as a class: an object literal with an accessor pair
  * and two closures on every local write was its own hot spot. Same reads and writes.
  */

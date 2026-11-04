@@ -1144,6 +1144,7 @@ InterpCx.prototype.enable_thread = function (this: MiriInterpCx, thread_id: Thre
 // #[inline]
 // rustc: src/tools/miri/src/concurrency/thread.rs:1066 active_thread_stack
 InterpCx.prototype.active_thread_stack = function (this: MiriInterpCx): readonly Frame<Provenance, FrameExtra>[] {
+  // Measured (docs/handoff/miri-perf.md, 486 Ginstr at base): -6.4 Ginstr with `frame` / `frame_mut` (eval_context.ts).
   // PORT(perf): the two inner calls inlined: every frame access comes through here. `eval_context_ref` is `this`.
   const threads = this.machine.threads;
   return threads.threads[threads.active_thread._0]!.stack;

@@ -188,6 +188,7 @@ InterpCx.prototype.read_discriminant = function (this: InterpCx, op: Projectable
       const kind = ty.kind();
       switch (kind.$) {
         case "Adt": {
+          // Measured (docs/handoff/miri-perf.md, 486 Ginstr at base): -12.1 Ginstr.
           // PORT(perf): upstream walks `discriminants` every time, a cheap iterator; here it is a generator that re-evaluates
           // each explicit discriminant through the query cache. A pair `(adt, bits)` already found is remembered, so a walk
           // only ever happens for a new pair, in upstream's order, and evaluates what upstream's first walk evaluates:

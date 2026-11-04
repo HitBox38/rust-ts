@@ -1109,6 +1109,7 @@ export class Size {
   ) {}
 
   /**
+   * Measured (docs/handoff/miri-perf.md, 486 Ginstr at base): -3.8 Ginstr, with `bytes_u64`'s shared values.
    * PORT(perf): a small value is a shared object: `Size` is immutable, and nothing compares it by identity (`Size_eq`,
    * `Size_cmp`), so this is invisible. It removes most `Size` allocations from the interpreter's offset arithmetic.
    */
@@ -1137,6 +1138,7 @@ export class Size {
   // PORT (abi-lib): `bits: impl TryInto<u64>` is a `number` or a `bigint` (`u64_arg`).
   // rustc: compiler/rustc_abi/src/lib.rs:890 from_bits
   static from_bits(bits: number | bigint): Size {
+    // Measured (docs/handoff/miri-perf.md, 486 Ginstr at base): -14.1 Ginstr for this and the `Size` fast paths that refer here.
     // PORT(perf): upstream's `u64` arithmetic in `number` for a safe non-negative count (`bits / 8` is exact, a power
     // of two); the `bigint` path below stays for the rest. This and the other `Size` fast paths below (`bits`,
     // `align_to`, `is_aligned`, `checked_add`, `checked_mul`, `mul`, `truncate`, `sign_extend`) took
@@ -1163,6 +1165,7 @@ export class Size {
   // PORT (size-bigint): a `number`, so a value beyond 2^53 - 1 stops (`raw`); exact callers use `bytes_u64()`.
   // rustc: compiler/rustc_abi/src/lib.rs:902 bytes
   bytes(): number {
+    // Measured (docs/handoff/miri-perf.md, 486 Ginstr at base): no change on its own (+0.1 Ginstr with the numeric query keys).
     // PORT(perf): `this.raw` without the accessor call (2% of the samples in the interpreter).
     if (this.big !== undefined) return unported(SIZE_BEYOND_2_53);
     return this.small;

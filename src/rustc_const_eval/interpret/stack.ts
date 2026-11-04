@@ -434,6 +434,7 @@ Frame.prototype.locals_addr = function (this: Frame): number {
   // more than just panics.
   for (let i = stack.length - 1; i >= 0; i--) {
     const frame = stack[i]!;
+    // Measured (docs/handoff/miri-perf.md, 486 Ginstr at base): -0.6 Ginstr.
     // PORT(perf): Miri calls this for every non-leaking allocation (machine.rs `init_allocation`), and the outer frames do
     // not move between two calls. A frame's infos are a pure function of its body, instance and location, so they are
     // reused while the location stands; `FrameInfo` is immutable. Same list, in the same order.
@@ -523,6 +524,7 @@ InterpCx.prototype.push_stack_frame_raw = function (this: InterpCx, instance: In
   this.stack_mut().push(frame);
 
   // Make sure all the constants required by this frame evaluate successfully (post-monomorphization check).
+  // Measured (docs/handoff/miri-perf.md, 486 Ginstr at base): -1.0 Ginstr with the locals loop above.
   // PORT(perf): upstream re-checks them on every push, through query cache hits. Once they all succeeded for `(body, args,
   // typing env)` the checks are pure hits (a query's success is cached and nothing else is written), so they are skipped.
   const required_key = instance.args.id * 0x40 + typing_env_no(this.typing_env);
@@ -633,6 +635,7 @@ InterpCx.prototype.push_stack_frame_done = function (this: InterpCx): InterpResu
   if (r.$ === "Err") return r;
 
   const body = this.body();
+  // Measured (docs/handoff/miri-perf.md, 486 Ginstr at base): -2.3 Ginstr.
   // PORT(perf): upstream recomputes the set on every call, walking every statement of the body. The body is immutable,
   // so the locals to make live are remembered per body: invisible, same locals in the same order.
   let always_live = ALWAYS_LIVE_VARS.get(body);

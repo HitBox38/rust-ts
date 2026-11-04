@@ -133,6 +133,7 @@ InterpCx.prototype.step = function (this: InterpCx): InterpResult<boolean> {
     const r = this.eval_statement(stmt);
     if (r.$ === "Err") return r;
     // Make sure we are not updating `statement_index` of the wrong frame.
+    // Measured (docs/handoff/miri-perf.md, 486 Ginstr at base): -1.3 Ginstr with the two changes in `eval_callee_and_args`.
     // PORT(perf): the closure only on the failing path; this runs per statement.
     if (old_frames !== this.frame_idx()) assert_eq(old_frames, this.frame_idx(), (v) => `${v}`);
     // Advance the program counter.
@@ -708,6 +709,7 @@ InterpCx.prototype.eval_callee_and_args = function (
   }
 
   // let _trace = enter_trace_span!(M, "fn_sig", ty = ?func.layout.ty.kind());
+  // Measured (docs/handoff/miri-perf.md, 486 Ginstr at base): -18.5 Ginstr.
   // PORT(perf): upstream instantiates and normalizes the signature on every call. Both are pure functions of the callee
   // type and the typing env (interned values), so the pair is remembered per type: see `CALLEE_SIG_MEMO`.
   const env_no = typing_env_no(this.typing_env);

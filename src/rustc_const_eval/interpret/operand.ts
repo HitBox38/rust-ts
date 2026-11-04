@@ -839,6 +839,7 @@ InterpCx.prototype.read_str = function (this: InterpCx, mplace: MPlaceTy): Inter
 // rustc: compiler/rustc_const_eval/src/interpret/operand.rs:727 local_to_op
 InterpCx.prototype.local_to_op = function (this: InterpCx, local: Local, layout: TyAndLayout | undefined): InterpResult<OpTy> {
   const frame = this.frame();
+  // Measured (docs/handoff/miri-perf.md, 486 Ginstr at base): -3.2 Ginstr with `place_to_op`, `local_to_place` and `layout_of_local`.
   // PORT(perf): `layout_of_local`'s cache hit without its `Ok`: this is the interpreter's commonest call.
   let layout_ = frame.locals[local]!.layout;
   if (layout_ === undefined) {

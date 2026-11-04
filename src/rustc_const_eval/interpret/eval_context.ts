@@ -136,6 +136,7 @@ var place_cache: typeof import("./place.ts") | undefined;
 // `LayoutOf` / `FnAbiOf`) are methods of the class (PORTING §8); the trait methods `tcx()` / `typing_env()` are `tcx_()` /
 // `typing_env_()` (rustc_middle ty/layout.ts header), the fields keep their names.
 /**
+ * Measured (docs/handoff/miri-perf.md, 486 Ginstr at base): -19.7 Ginstr.
  * PORT(perf) (lane miri-perf, plan-m6 D11): upstream folds and normalizes every MIR type or constant each time it is used
  * in a frame. The result is a pure function of the value (MIR is immutable, so its object identity is the value), of the
  * frame's args (interned) and of the typing env: remembered for the polymorphic bodies, which take `args_for_mir_body`, so a
@@ -451,6 +452,7 @@ export class InterpCx<M extends AnyMachine = Machine>
     // trace!("resolve: {:?}, {:#?}", def, args);
     // trace!("typing_env: {:#?}", self.typing_env);
     // trace!("args: {:#?}", args);
+    // Measured (docs/handoff/miri-perf.md, 486 Ginstr at base): -0.4 Ginstr here; about 1% more on `dynamic-drop.rs` with the other low-gain changes (handoff).
     // PORT(perf): a successful resolution is pure in `(def, args, typing env)` (all interned or by value), and `Instance` is
     // never written to, so the first result is reused: `try_resolve` erases, folds and looks up queries on every call.
     // A `DefId` means something else in another `TyCtxt` and the empty list is process-wide, so the memo is per `TyCtxt`.

@@ -135,6 +135,7 @@ function throw_validation_failure<T>(where_: Path, msg: ValidationErrorKind | st
 // PORT: `arms(e)` is the macro's match: the message of the first matching arm, `undefined` for the final `e => e`.
 // The caller applies the `?`.
 function try_validation<T>(e: InterpResult<T>, where_: Path, arms: (e: InterpErrorKind) => ValidationErrorKind | string | undefined): InterpResult<T> {
+  // Measured (docs/handoff/miri-perf.md, 486 Ginstr at base): no change on the benchmark (0.0 Ginstr), with the two `return r` below.
   // PORT(perf): the success path allocates nothing.
   if (e.$ === "Ok") return e;
   return InterpResult.map_err_kind<T>(e, (e) => {
@@ -1178,6 +1179,7 @@ export class ValidityVisitor<M extends AnyMachine = Machine> extends ValueVisito
   // rustc: compiler/rustc_const_eval/src/interpret/validity.rs:1267 visit_field
   override visit_field(old_val: PlaceTy, field: number, new_val: PlaceTy): InterpResult {
     const elem = this.aggregate_field_path_elem(old_val.layout, field, new_val.layout.ty);
+    // Measured (docs/handoff/miri-perf.md, 486 Ginstr at base): no change on the benchmark (+0.5 Ginstr, within noise).
     // PORT(perf): `with_elem` inlined, without its closure: this is the validator's commonest step.
     const path_len = this.path.projs.length;
     this.path.projs.push(elem);
