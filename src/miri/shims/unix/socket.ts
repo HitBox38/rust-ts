@@ -2,23 +2,29 @@
 // Port of src/tools/miri/src/shims/unix/socket.rs (crate `miri`, plan-m6 D2).
 //
 // PORT (plan-m6 D2 / A3; harness/scope.json `miri.partial`):
-// - Only `socket` (socket.rs:158) is in scope: its isolation-on path (`reject_in_isolation("`socket`", ..)`, then
-//   `EACCES`) is what run-pass cases reach, and it is ported in full up to the host socket. With isolation off,
-//   `TcpSocket::new` (shims/unix/tcp_socket.rs, `socket2`) is out of scope and stops `unported`.
-// - The other socket shims (`bind`, `listen`, `accept4`, `connect`, `send`, `recv`, `setsockopt`, `getsockopt`,
-//   `getsockname`, `getpeername`, `shutdown`) and the `UnixSocketFileDescription` trait are not ported: they stop
-//   `unported` with the D2 reason (no `rustc:` markers). They ARE reachable with isolation on: `socketpair` creates
-//   `VirtualSocket`s (shims/unix/virtual_socket.rs, which `as_socket()` returns; std's `UnixStream::read` calls `recv`),
-//   and on a non-socket or closed fd they return `ENOTSOCK` / `EBADF`. In the port `socketpair` / `pipe2`
-//   (virtual_socket.rs, out of scope) stop `unported` first; the lane that ports virtual_socket.rs must port these too.
+// - `socket` (socket.rs:158): its isolation-on path (`reject_in_isolation("`socket`", ..)`, then `EACCES`) is what run-pass
+//   cases reach, and it is ported in full up to the host socket. With isolation off, `TcpSocket::new`
+//   (shims/unix/tcp_socket.rs, `socket2`) is out of scope and stops `unported`.
+// - `send` and `recv` (socket.rs:418, :497): ported in full, a narrow extension of D2 (review miri-tail-b N1). `socketpair`
+//   creates `VirtualSocket`s (shims/unix/virtual_socket.rs, which `as_socket()` returns), and std's `UnixStream` reads and
+//   writes through these two. A `VirtualSocket` is the only socket that can exist, because `TcpSocket::new` stops first, so
+//   the trait's provided `recv` and `send` (socket.rs:71, :88, "cannot receive from" / "cannot send to") cannot be reached and
+//   `UnixSocketFileDescription` stays `Pending` in fd.ts.
+// - The other socket shims (`bind`, `listen`, `accept4`, `connect`, `setsockopt`, `getsockopt`, `getsockname`, `getpeername`,
+//   `shutdown`) stop `unported` with the D2 reason (no `rustc:` markers). A `socketpair` fd can reach them, and on a non-socket
+//   or closed fd upstream returns `ENOTSOCK` / `EBADF`, so a program that calls one of them stops here.
 // - `socket2::Domain::{IPV4, IPV6}` is the string `"IPV4"` / `"IPV6"` (only passed on to `TcpSocket::new`).
-import { type MPlaceTy, type OpTy, type Scalar } from "../../lib.ts";
-import { type MiriInterpCx } from "../../machine.ts";
+import { type MPlaceTy, type OpTy, type Pointer, type Scalar } from "../../lib.ts";
+import { callback, type MiriInterpCx } from "../../machine.ts";
+import { VisitProvenance_MPlaceTy } from "../../provenance_gc.ts";
+import { type IoError } from "../io_error.ts";
+import { type VirtualSocket } from "./virtual_socket.ts";
+import { type FileDescriptionRef } from "../files.ts";
 import { InterpCx } from "../../../rustc_const_eval/interpret/eval_context.ts";
 import { type AnyMachine, type Machine } from "../../../rustc_const_eval/interpret/machine.ts";
 import { InterpErrorInfo_from_InterpErrorKind, type InterpResult, Scalar as interp_Scalar } from "../../../rustc_middle/mir/interpret/mod.ts";
 import { unported } from "../../../std/panic.ts";
-import { Err } from "../../../std/result.ts";
+import { Err, Ok, type Result } from "../../../std/result.ts";
 
 /** `throw_unsup_format!(..)` (`err_unsup!(Unsupported(format!(..)))`). */
 function throw_unsup_format<T>(msg: string): InterpResult<T> {
@@ -130,7 +136,7 @@ InterpCx.prototype.socket = function (this: MiriInterpCx, domain_op: OpTy, type_
 
 /** The socket shims outside A3's isolation-error path (module header). */
 function socket_out_of_scope(name: string): never {
-  return unported(`miri::shims::unix::socket::EvalContextExt::${name} (src/tools/miri/src/shims/unix/socket.rs; plan-m6 D2/A3: sockets are out of scope in M6, and with isolation on no socket fd exists)`);
+  return unported(`miri::shims::unix::socket::EvalContextExt::${name} (src/tools/miri/src/shims/unix/socket.rs; plan-m6 D2/A3: network sockets and socket options are out of scope in M6)`);
 }
 InterpCx.prototype.bind = function (): InterpResult<Scalar> {
   return socket_out_of_scope("bind");
@@ -144,11 +150,116 @@ InterpCx.prototype.accept4 = function (): InterpResult {
 InterpCx.prototype.connect = function (): InterpResult {
   return socket_out_of_scope("connect");
 };
-InterpCx.prototype.send = function (): InterpResult {
-  return socket_out_of_scope("send");
+// rustc: src/tools/miri/src/shims/unix/socket.rs:418 send
+InterpCx.prototype.send = function (this: MiriInterpCx, socket_op: OpTy, buffer: OpTy, length_op: OpTy, flags_op: OpTy, dest: MPlaceTy): InterpResult {
+  const this_ = this.eval_context_mut();
+
+  const args = read_send_recv_args(this_, socket_op, buffer, length_op, flags_op);
+  if (args.$ === "Err") return args;
+  const { socket_num, buffer_ptr, length } = args._0;
+  let flags = args._0.flags;
+
+  // Get the file handle
+  const fd = this_.machine.fds.get(socket_num);
+  if (fd === undefined) {
+    return this_.set_errno_and_return_neg1({ $: "LibcError", _0: "EBADF" }, dest);
+  }
+
+  const socket = fd.deref().as_unix(fd).deref().as_socket(fd as never);
+  if (socket === undefined) {
+    return this_.set_errno_and_return_neg1({ $: "LibcError", _0: "ENOTSOCK" }, dest);
+  }
+
+  let is_non_block = false;
+
+  // Interpret the flag. Every flag we recognize is "subtracted" from `flags`, so
+  // if there is anything left at the end, that's an unsupported flag.
+  const os = this_.tcx.deref().sess.target.os.$;
+  if (os === "Linux" || os === "Android" || os === "FreeBsd" || os === "Solaris" || os === "Illumos") {
+    // MSG_NOSIGNAL and MSG_DONTWAIT only exist on Linux, Android, FreeBSD,
+    // Solaris, and Illumos targets.
+    const msg_nosignal = this_.eval_libc_i32("MSG_NOSIGNAL");
+    const msg_dontwait = this_.eval_libc_i32("MSG_DONTWAIT");
+    if ((flags & msg_nosignal) === msg_nosignal) {
+      // This is only needed to ensure that no EPIPE signal is sent when
+      // trying to send into a stream which is no longer connected.
+      // Since we don't support signals, we can ignore this.
+      flags &= ~msg_nosignal;
+    }
+    if ((flags & msg_dontwait) === msg_dontwait) {
+      flags &= ~msg_dontwait;
+      is_non_block = true;
+    }
+  }
+
+  if (flags !== 0) {
+    socket.drop();
+    return throw_unsup_format(`send: flag ${hex_i32(flags)} is unsupported, only MSG_NOSIGNAL and MSG_DONTWAIT are allowed`);
+  }
+
+  const virtual_socket = socket as unknown as FileDescriptionRef<VirtualSocket>;
+  return virtual_socket.deref().send(virtual_socket, this_.machine.communicate(), buffer_ptr, length, is_non_block, this_, finish_send_recv(dest));
 };
-InterpCx.prototype.recv = function (): InterpResult {
-  return socket_out_of_scope("recv");
+// rustc: src/tools/miri/src/shims/unix/socket.rs:497 recv
+InterpCx.prototype.recv = function (this: MiriInterpCx, socket_op: OpTy, buffer: OpTy, length_op: OpTy, flags_op: OpTy, dest: MPlaceTy): InterpResult {
+  const this_ = this.eval_context_mut();
+
+  const args = read_send_recv_args(this_, socket_op, buffer, length_op, flags_op);
+  if (args.$ === "Err") return args;
+  const { socket_num, buffer_ptr, length } = args._0;
+  let flags = args._0.flags;
+
+  // Get the file handle
+  const fd = this_.machine.fds.get(socket_num);
+  if (fd === undefined) {
+    return this_.set_errno_and_return_neg1({ $: "LibcError", _0: "EBADF" }, dest);
+  }
+
+  const socket = fd.deref().as_unix(fd).deref().as_socket(fd as never);
+  if (socket === undefined) {
+    return this_.set_errno_and_return_neg1({ $: "LibcError", _0: "ENOTSOCK" }, dest);
+  }
+
+  let is_peek = false;
+  let is_non_block = false;
+
+  // Interpret the flag. Every flag we recognize is "subtracted" from `flags`, so
+  // if there is anything left at the end, that's an unsupported flag.
+
+  const msg_peek = this_.eval_libc_i32("MSG_PEEK");
+  if ((flags & msg_peek) === msg_peek) {
+    is_peek = true;
+    flags &= ~msg_peek;
+  }
+
+  const os = this_.tcx.deref().sess.target.os.$;
+  if (os === "Linux" || os === "Android" || os === "FreeBsd" || os === "Illumos") {
+    // MSG_CMSG_CLOEXEC only exists on Linux, Android, FreeBSD,
+    // and Illumos targets.
+    const msg_cmsg_cloexec = this_.eval_libc_i32("MSG_CMSG_CLOEXEC");
+    if ((flags & msg_cmsg_cloexec) === msg_cmsg_cloexec) {
+      // We don't support `exec` so we can ignore this.
+      flags &= ~msg_cmsg_cloexec;
+    }
+  }
+
+  if (os === "Linux" || os === "Android" || os === "FreeBsd" || os === "Solaris" || os === "Illumos") {
+    // MSG_DONTWAIT only exists on Linux, Android, FreeBSD,
+    // Solaris, and Illumos targets.
+    const msg_dontwait = this_.eval_libc_i32("MSG_DONTWAIT");
+    if ((flags & msg_dontwait) === msg_dontwait) {
+      flags &= ~msg_dontwait;
+      is_non_block = true;
+    }
+  }
+
+  if (flags !== 0) {
+    socket.drop();
+    return throw_unsup_format(`recv: flag ${hex_i32(flags)} is unsupported, only MSG_PEEK, MSG_DONTWAIT and MSG_CMSG_CLOEXEC are allowed`);
+  }
+
+  const virtual_socket = socket as unknown as FileDescriptionRef<VirtualSocket>;
+  return virtual_socket.deref().recv(virtual_socket, this_.machine.communicate(), buffer_ptr, length, is_peek, is_non_block, this_, finish_send_recv(dest));
 };
 InterpCx.prototype.setsockopt = function (): InterpResult<Scalar> {
   return socket_out_of_scope("setsockopt");
@@ -165,6 +276,41 @@ InterpCx.prototype.getpeername = function (): InterpResult {
 InterpCx.prototype.shutdown = function (): InterpResult<Scalar> {
   return socket_out_of_scope("shutdown");
 };
+
+/** The arguments `send` and `recv` read first, in upstream's order. */
+function read_send_recv_args(this_: MiriInterpCx, socket_op: OpTy, buffer: OpTy, length_op: OpTy, flags_op: OpTy): InterpResult<{ socket_num: number; buffer_ptr: Pointer; length: number; flags: number }> {
+  const socket_num = read_i32(this_, socket_op);
+  if (socket_num.$ === "Err") return socket_num;
+  const buffer_ptr = this_.read_pointer(buffer as never);
+  if (buffer_ptr.$ === "Err") return buffer_ptr;
+  const size_layout = this_.libc_ty_layout("size_t");
+  const length_s = this_.read_scalar(length_op as never);
+  if (length_s.$ === "Err") return length_s;
+  const length_r = interp_Scalar.to_uint(length_s._0 as Scalar, size_layout.size);
+  if (length_r.$ === "Err") return length_r;
+  // PORT: `usize` is a number here (`virtual_socket_read` / `virtual_socket_write`), so a length above 2^53 stops.
+  if (length_r._0 > BigInt(Number.MAX_SAFE_INTEGER)) return unported("miri::shims::unix::socket send/recv with a length of 2^53 bytes or more");
+  const flags = read_i32(this_, flags_op);
+  if (flags.$ === "Err") return flags;
+  return Ok({ socket_num: socket_num._0, buffer_ptr: buffer_ptr._0 as Pointer, length: Number(length_r._0), flags: flags._0 });
+}
+
+/** The `callback!` both `send` and `recv` pass: the result, or `-1` and `errno`. */
+function finish_send_recv(dest: MPlaceTy) {
+  return callback<{ dest: MPlaceTy }, Result<number, IoError>>(
+    {
+      dest: [dest, VisitProvenance_MPlaceTy],
+    },
+    (this_, result, { dest }) => {
+      switch (result.$) {
+        case "Ok":
+          return this_.write_scalar(interp_Scalar.from_target_usize(BigInt(result._0), this_) as never, dest as never);
+        case "Err":
+          return this_.set_errno_and_return_neg1(result._0, dest);
+      }
+    },
+  );
+}
 
 /** `this.read_scalar(op)?.to_i32()?`. */
 function read_i32(this_: MiriInterpCx, op: OpTy): InterpResult<number> {

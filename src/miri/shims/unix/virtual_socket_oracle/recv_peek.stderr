@@ -1,0 +1,12 @@
+error: unsupported operation: socketpair: virtual sockets don't support peeking
+  --> recv_peek.rs:10:9
+   |
+10 |         libc::recv(s[1], x.as_mut_ptr().cast(), 2, libc::MSG_PEEK);
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ unsupported operation occurred here
+   |
+   = help: this is likely not a bug in the program; it indicates that the program performed an operation that Miri does not support
+
+note: some details are omitted, run with `MIRIFLAGS=-Zmiri-backtrace=full` for a verbose backtrace
+
+error: aborting due to 1 previous error
+

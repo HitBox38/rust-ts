@@ -50,6 +50,16 @@ export function run_miri_program(file: string, flags: readonly string[] = [], pr
   return { oracle: run(cmds.oracle, file, env), port: run(cmds.port, file, env) };
 }
 
+/** The port's result on `file`, for tests against a committed fixture (`rust_ts/miri_fixture.ts`). */
+export function run_miri_port(file: string, flags: readonly string[] = []): MiriRun {
+  return run(miri_program_cmds(file, flags, []).port, file, miri_program_env());
+}
+
+/** The oracle's result on `file`, for making a fixture (`rust_ts/miri_fixture.ts`). */
+export function run_miri_oracle(file: string, flags: readonly string[] = []): MiriRun {
+  return run(miri_program_cmds(file, flags, []).oracle, file, miri_program_env());
+}
+
 /**
  * Each side's stderr, read through a real `pipe(2)` made by the shell. A pipe from `spawnSync` or `Bun.spawn` holds far
  * more (Bun gives the child a socket, with about 512 KiB before a write has to wait), so it hides what a smaller buffer shows.

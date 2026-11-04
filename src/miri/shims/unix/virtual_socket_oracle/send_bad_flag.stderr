@@ -1,0 +1,12 @@
+error: unsupported operation: send: flag 0x1 is unsupported, only MSG_NOSIGNAL and MSG_DONTWAIT are allowed
+ --> send_bad_flag.rs:9:9
+  |
+9 |         libc::send(s[0], b"x".as_ptr().cast(), 1, libc::MSG_NOSIGNAL | libc::MSG_OOB);
+  |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ unsupported operation occurred here
+  |
+  = help: this is likely not a bug in the program; it indicates that the program performed an operation that Miri does not support
+
+note: some details are omitted, run with `MIRIFLAGS=-Zmiri-backtrace=full` for a verbose backtrace
+
+error: aborting due to 1 previous error
+
