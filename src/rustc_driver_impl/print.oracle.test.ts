@@ -117,6 +117,17 @@ for (const target of TARGET_CONFIG_TARGETS) {
 exact(["--print", "target-list"]);
 exact(["--print", "host-tuple"]);
 exact(["--print", "wasm-proc-macro-tuple"]);
+// miri-tail-a review O1: without `--sysroot` upstream prints its own toolchain's path, which rust-ts cannot name. It stops,
+// and never prints the stand-in with exit 0.
+for (const kind of ["sysroot", "target-libdir"]) {
+  test.skipIf(SKIP)(`rustc --print ${kind} without --sysroot stops`, () => {
+    requireRustc();
+    const got = ours(["--print", kind]);
+    expect(got.stdout).toBe("");
+    expect(got.stderr).toBe("rust-ts: unported: rustc_session::filesearch::default_sysroot (the path of the default sysroot; pass --sysroot)\n");
+    expect(got.code).toBe(70);
+  });
+}
 exact(["--print", "sysroot", "--sysroot", SYSROOT]);
 exact(["--print", "target-libdir", "--sysroot", SYSROOT]);
 exact(["--print", "cfg", "--target", "nonexistent-target"]);
