@@ -430,8 +430,8 @@ Integration branch `integ-w38` (worktree .data/integ-w38). x86 and Tree Borrows 
 | harness-m6c | miri-pass, -heavy, -tb, miri-fail, run-pass-aux-miri suites (A8); M6b needs miri-pass + heavy >= 80%; scripts/criteria.ts | REQUEST CHANGES, root's fixes re-checked APPROVE WITH NITS; on integ-w38 |
 | harness-w38 | harness-w37 nits, queued probes (randstream, epoll/eventfd), UNPORTED bucket counts in the run summary | APPROVE WITH NITS; on integ-w38 |
 | miri-perf | D11: hello <= 3 s user, run-pass p99 <= 10 s; the 3 timeouts and the heavy cases; rmeta-core RSS watch | running |
-| miri-x86-a | intrinsics/x86/mod.rs + sse, sse2, sse3, ssse3, sse41, sse42 (~2.7k) | running |
-| miri-x86-b | intrinsics/x86/avx, avx2, avx512, aesni, bmi, gfni, sha (~1.4k) | running |
+| miri-x86-a | intrinsics/x86/mod.rs + sse, sse2, sse3, ssse3, sse41, sse42 (~2.7k) | APPROVE WITH NITS; on integ-w38 |
+| miri-x86-b | intrinsics/x86/avx, avx2, avx512, aesni, bmi, gfni, sha (~1.4k) | APPROVE WITH NITS; on integ-w38; AES rounds stay unported (D5) |
 | miri-tb-a | tree_borrows mod, perms, tree_visitor, unimap, wildcard, foreign_access_skipping, exhaustive (~2.6k) | APPROVE WITH NITS; on integ-w38 |
 | miri-tb-b | tree_borrows tree, diagnostics, tree/tests (~2.9k) | APPROVE WITH NITS; on integ-w38; test gaps queued |
 | followups-37 | port-side small queue from the wave 37 reviews | APPROVE WITH NITS (M1 fixed); on integ-w38 |
