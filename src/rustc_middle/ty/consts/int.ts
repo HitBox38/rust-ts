@@ -35,6 +35,8 @@ export function Size_sign_extend(self: Size, value: bigint): bigint {
     // Truncated until nothing is left.
     return 0n;
   }
+  // PORT(perf): as `Size::sign_extend` (rustc_abi/lib.ts).
+  if (size <= 128) return BigInt.asIntN(size, value);
   // Sign-extend it.
   const shift = BigInt(128 - size);
   // Shift the unsigned value to the left, then shift back to the right as signed
@@ -49,6 +51,8 @@ export function Size_truncate(self: Size, value: bigint): bigint {
     // Truncated until nothing is left.
     return 0n;
   }
+  // PORT(perf): as `Size::truncate` (rustc_abi/lib.ts).
+  if (size <= 128) return BigInt.asUintN(size, value);
   const shift = BigInt(128 - size);
   // Truncate (shift left to drop out leftover values, shift right to fill with zeroes).
   return BigInt.asUintN(128, value << shift) >> shift;
