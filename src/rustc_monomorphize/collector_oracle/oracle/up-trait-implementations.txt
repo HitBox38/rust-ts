@@ -1,0 +1,26 @@
+exit 0
+== MONO_ITEM
+MONO_ITEM fn <f32 as SomeGenericTrait<&str>>::bar::<&str> @@ up_trait_implementations.a1bd9b25cf871a0e-cgu.0[External]
+MONO_ITEM fn <f32 as SomeGenericTrait<char>>::foo @@ up_trait_implementations.a1bd9b25cf871a0e-cgu.0[External]
+MONO_ITEM fn <f32 as SomeGenericTrait<i64>>::foo @@ up_trait_implementations.a1bd9b25cf871a0e-cgu.0[External]
+MONO_ITEM fn <f32 as SomeGenericTrait<u32>>::bar::<()> @@ up_trait_implementations.a1bd9b25cf871a0e-cgu.0[External]
+MONO_ITEM fn <f64 as SomeGenericTrait<u32>>::bar::<&str> @@ up_trait_implementations.a1bd9b25cf871a0e-cgu.0[External]
+MONO_ITEM fn <f64 as SomeGenericTrait<u32>>::bar::<()> @@ up_trait_implementations.a1bd9b25cf871a0e-cgu.0[External]
+MONO_ITEM fn <f64 as SomeGenericTrait<u32>>::foo @@ up_trait_implementations.a1bd9b25cf871a0e-cgu.0[External]
+MONO_ITEM fn <i32 as SomeTrait>::bar::<char> @@ up_trait_implementations.a1bd9b25cf871a0e-cgu.0[External]
+MONO_ITEM fn <i32 as SomeTrait>::foo @@ up_trait_implementations.a1bd9b25cf871a0e-cgu.0[External]
+MONO_ITEM fn <i64 as SomeTrait>::foo @@ up_trait_implementations.a1bd9b25cf871a0e-cgu.0[External]
+MONO_ITEM fn start @@ up_trait_implementations.a1bd9b25cf871a0e-cgu.0[External]
+== FP
+FP 0990ffed661527ef6f1f3a9fecc1de05 fn <i32 as SomeTrait>::foo
+FP 0e3f7e75890bad2e9a4360d8ed5536a9 fn <f32 as SomeGenericTrait<char>>::foo
+FP 14a03cefc81aad92e1de05dfa0cb3c01 fn <i64 as SomeTrait>::foo
+FP 2f0ef9e5cc67ec8ca655a9d666ce5f6c fn <f64 as SomeGenericTrait<u32>>::bar::<&str>
+FP 4161f9f501bb9177bcf593dfa75bd58c fn <f32 as SomeGenericTrait<&str>>::bar::<&str>
+FP 747d783dbfd1df24800301e8c66fd3a3 fn <f64 as SomeGenericTrait<u32>>::bar::<()>
+FP 771c36d73c43eb6e3e16d2608c9e484b fn <f32 as SomeGenericTrait<u32>>::bar::<()>
+FP a5022072cf2ad3ef02673d907621802b fn <f64 as SomeGenericTrait<u32>>::foo
+FP a87ca1ddc4edf1ed947e509176fe5e0d fn start
+FP bf46f100624975345a8d3663289b86f7 fn <i32 as SomeTrait>::bar::<char>
+FP e65bf0c53fecbebe3bbc8ecd9060511f fn <f32 as SomeGenericTrait<i64>>::foo
+== stderr

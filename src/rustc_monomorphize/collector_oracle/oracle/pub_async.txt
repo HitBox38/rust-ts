@@ -1,0 +1,20 @@
+exit 0
+== MONO_ITEM
+MONO_ITEM fn <{async fn body of inner()} as std::future::IntoFuture>::into_future @@ pub_async.ef84a985295caa74-cgu.0[External]
+MONO_ITEM fn S::method @@ pub_async.ef84a985295caa74-cgu.0[External]
+MONO_ITEM fn inner @@ pub_async.ef84a985295caa74-cgu.0[External]
+MONO_ITEM fn inner::{closure#0} @@ pub_async.ef84a985295caa74-cgu.0[External]
+MONO_ITEM fn public @@ pub_async.ef84a985295caa74-cgu.0[External]
+MONO_ITEM fn public::{closure#0} @@ pub_async.ef84a985295caa74-cgu.0[External]
+MONO_ITEM fn std::pin::Pin::<&mut {async fn body of inner()}>::new_unchecked @@ pub_async.ef84a985295caa74-cgu.0[Internal]
+MONO_ITEM fn std::ptr::drop_glue::<{async fn body of inner()}> - shim(Some({async fn body of inner()})) @@ pub_async.ef84a985295caa74-cgu.0[External]
+== FP
+FP 464f212658520120a4593112b0c01b34 fn S::method
+FP 610a9254cc8414a86e38095a3fb3f44f fn inner::{closure#0}
+FP 786c09e1b3df4567fc1c75227af345aa fn std::ptr::drop_glue::<{async fn body of inner()}> - shim(Some({async fn body of inner()}))
+FP 7933be78e8eda8ce3d4d26a8f53ad559 fn public::{closure#0}
+FP 8f90823457c1a1e5d5da41fabe60d782 fn public
+FP b4939221af456b45f7cfe53086388462 fn std::pin::Pin::<&mut {async fn body of inner()}>::new_unchecked
+FP cbe23c33225479eecf2adfeffe0c96cc fn <{async fn body of inner()} as std::future::IntoFuture>::into_future
+FP ff755747d21ee3b593104d1a522731bc fn inner
+== stderr

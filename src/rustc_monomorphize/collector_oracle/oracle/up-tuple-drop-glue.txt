@@ -1,0 +1,34 @@
+exit 0
+== MONO_ITEM
+MONO_ITEM fn <Dropped as std::ops::Drop>::drop @@ up_tuple_drop_glue.abaee5535b757b15-cgu.0[External]
+MONO_ITEM fn <Dropped as std::ops::Drop>::pin_drop @@ up_tuple_drop_glue.abaee5535b757b15-cgu.0[External]
+MONO_ITEM fn start @@ up_tuple_drop_glue.abaee5535b757b15-cgu.0[External]
+MONO_ITEM fn std::ptr::drop_glue::<(Dropped, bool)> - shim(Some((Dropped, bool))) @@ up_tuple_drop_glue.abaee5535b757b15-cgu.0[Internal]
+MONO_ITEM fn std::ptr::drop_glue::<(i16, (Dropped, bool))> - shim(Some((i16, (Dropped, bool)))) @@ up_tuple_drop_glue.abaee5535b757b15-cgu.0[Internal]
+MONO_ITEM fn std::ptr::drop_glue::<(u32, Dropped)> - shim(Some((u32, Dropped))) @@ up_tuple_drop_glue.abaee5535b757b15-cgu.0[Internal]
+MONO_ITEM fn std::ptr::drop_glue::<Dropped> - shim(Some(Dropped)) @@ up_tuple_drop_glue.abaee5535b757b15-cgu.0[Internal]
+== FP
+FP 1f523eb21e56fff4d3070ba18f5877a0 fn std::ptr::drop_glue::<(u32, Dropped)> - shim(Some((u32, Dropped)))
+FP 3cf328a7ad03ee8570e708348ca50c39 fn <Dropped as std::ops::Drop>::pin_drop
+FP 7456868264e8844e8c01a80d252ed744 fn std::ptr::drop_glue::<Dropped> - shim(Some(Dropped))
+FP 933422910ed1db43a0bbdae70a3a6191 fn <Dropped as std::ops::Drop>::drop
+FP a9cb6720ce221ec9d8f567172d4ab720 fn std::ptr::drop_glue::<(i16, (Dropped, bool))> - shim(Some((i16, (Dropped, bool))))
+FP a9ea481643f3f9073f2070dd2c000d23 fn std::ptr::drop_glue::<(Dropped, bool)> - shim(Some((Dropped, bool)))
+FP be44c1a0e3b0ea3928822a97f95556c9 fn start
+== stderr
+warning: unused variable: `x`
+  --> $FILE:20:9
+   |
+20 |     let x = (0u32, Dropped);
+   |         ^ help: if this is intentional, prefix it with an underscore: `_x`
+   |
+   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `x`
+  --> $FILE:24:9
+   |
+24 |     let x = (0i16, (Dropped, true));
+   |         ^ help: if this is intentional, prefix it with an underscore: `_x`
+
+warning: 2 warnings emitted
+

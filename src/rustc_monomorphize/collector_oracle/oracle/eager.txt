@@ -1,0 +1,38 @@
+exit 0
+== MONO_ITEM
+MONO_ITEM fn <Lt<'_> as Tr>::a @@ eager.226ac6fc3ca3b95e-cgu.0[External]
+MONO_ITEM fn <Lt<'_> as Tr>::c @@ eager.226ac6fc3ca3b95e-cgu.0[External]
+MONO_ITEM fn <S as Tr>::a @@ eager.226ac6fc3ca3b95e-cgu.0[External]
+MONO_ITEM fn <S as Tr>::c @@ eager.226ac6fc3ca3b95e-cgu.0[External]
+MONO_ITEM fn af @@ eager.226ac6fc3ca3b95e-cgu.0[External]
+MONO_ITEM fn af::{closure#0} @@ eager.226ac6fc3ca3b95e-cgu.0[External]
+MONO_ITEM fn cf @@ eager.226ac6fc3ca3b95e-cgu.0[External]
+MONO_ITEM fn lifetimes @@ eager.226ac6fc3ca3b95e-cgu.0[External]
+MONO_ITEM fn pub_af @@ eager.226ac6fc3ca3b95e-cgu.0[External]
+MONO_ITEM fn pub_af::{closure#0} @@ eager.226ac6fc3ca3b95e-cgu.0[External]
+MONO_ITEM fn std::ptr::drop_glue::<E> - shim(Some(E)) @@ eager.226ac6fc3ca3b95e-cgu.0[External]
+MONO_ITEM fn std::ptr::drop_glue::<WithDrop> - shim(Some(WithDrop)) @@ eager.226ac6fc3ca3b95e-cgu.0[External]
+MONO_ITEM fn std::ptr::drop_glue::<alloc::raw_vec::RawVec<u8>> - shim(Some(alloc::raw_vec::RawVec<u8>)) @@ eager.226ac6fc3ca3b95e-cgu.0[External]
+MONO_ITEM fn std::ptr::drop_glue::<std::string::String> - shim(Some(std::string::String)) @@ eager.226ac6fc3ca3b95e-cgu.0[External]
+MONO_ITEM fn std::ptr::drop_glue::<std::vec::Vec<u8>> - shim(Some(std::vec::Vec<u8>)) @@ eager.226ac6fc3ca3b95e-cgu.0[External]
+MONO_ITEM fn unused @@ eager.226ac6fc3ca3b95e-cgu.0[External]
+MONO_ITEM fn unused::{closure#0} @@ eager.226ac6fc3ca3b95e-cgu.0[External]
+== FP
+FP 01a1a44c715c78e04c260172ebf20dce fn std::ptr::drop_glue::<std::string::String> - shim(Some(std::string::String))
+FP 0ca691b50b30abef2d40987d5ddce497 fn <Lt<'_> as Tr>::c
+FP 1c18dbcfebb8b01737f16607ee862ef3 fn std::ptr::drop_glue::<E> - shim(Some(E))
+FP 1d586373318954cea293850b8e4068a8 fn pub_af::{closure#0}
+FP 427d56aaaf82405cc7b5cb28d2238af4 fn std::ptr::drop_glue::<alloc::raw_vec::RawVec<u8>> - shim(Some(alloc::raw_vec::RawVec<u8>))
+FP 4628fe1bc14fc9e3d5a6100eb2b53fc5 fn std::ptr::drop_glue::<std::vec::Vec<u8>> - shim(Some(std::vec::Vec<u8>))
+FP 52db648069fb2b650fd910d0fa53f2b0 fn <S as Tr>::c
+FP 76bafa225ccb13d400cb0582b26fea90 fn af::{closure#0}
+FP 77a6c559b111a019c4369bb3a0d1f2a1 fn lifetimes
+FP 937809fd88586759d9d4568b76dcec19 fn <S as Tr>::a
+FP ba51a39594a25678f1083ecb76572f02 fn unused
+FP bd8f167db69fa16d5cdfafb130b213b2 fn <Lt<'_> as Tr>::a
+FP ca4d866f2d21115c98edfab886882a7f fn unused::{closure#0}
+FP cf9cc1da2cba819fcdff7202c8ac575f fn pub_af
+FP d6f64eac0e56df38a44e2e6aca5168a5 fn af
+FP df3012e0de483dbb735c0192b233c495 fn cf
+FP e94b440062937d5366566da152c13be0 fn std::ptr::drop_glue::<WithDrop> - shim(Some(WithDrop))
+== stderr

@@ -1,0 +1,43 @@
+exit 0
+== MONO_ITEM
+MONO_ITEM fn <Struct<u32> as Trait>::bar @@ up_instantiation_through_vtable.630d9ef5b46aa93e-cgu.0[External]
+MONO_ITEM fn <Struct<u32> as Trait>::foo @@ up_instantiation_through_vtable.630d9ef5b46aa93e-cgu.0[External]
+MONO_ITEM fn <Struct<u64> as Trait>::bar @@ up_instantiation_through_vtable.630d9ef5b46aa93e-cgu.0[External]
+MONO_ITEM fn <Struct<u64> as Trait>::foo @@ up_instantiation_through_vtable.630d9ef5b46aa93e-cgu.0[External]
+MONO_ITEM fn start @@ up_instantiation_through_vtable.630d9ef5b46aa93e-cgu.0[External]
+== FP
+FP 1804fb8783d9e11dde66c30f23b781d3 fn <Struct<u64> as Trait>::foo
+FP 40b92b80821e1a378e4e186cc061509c fn <Struct<u32> as Trait>::foo
+FP cc57bd09eaa4b972e0b6b5f6d3233fa0 fn <Struct<u64> as Trait>::bar
+FP e4f4493f2667c47352e55e6655de072e fn <Struct<u32> as Trait>::bar
+FP fcbad6c9b31c42a51bbadce04c0cf2cd fn start
+== stderr
+warning: trait objects without an explicit `dyn` are deprecated
+  --> $FILE:29:22
+   |
+29 |     let r1 = &s1 as &Trait;
+   |                      ^^^^^
+   |
+   = warning: this is accepted in the current edition (Rust 2015) but is a hard error in Rust 2021!
+   = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2021/warnings-promoted-to-error.html>
+   = note: `#[warn(bare_trait_objects)]` (part of `#[warn(rust_2021_compatibility)]`) on by default
+help: if this is a dyn-compatible trait, use `dyn`
+   |
+29 |     let r1 = &s1 as &dyn Trait;
+   |                      +++
+
+warning: trait objects without an explicit `dyn` are deprecated
+  --> $FILE:36:21
+   |
+36 |     let _ = &s1 as &Trait;
+   |                     ^^^^^
+   |
+   = warning: this is accepted in the current edition (Rust 2015) but is a hard error in Rust 2021!
+   = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2021/warnings-promoted-to-error.html>
+help: if this is a dyn-compatible trait, use `dyn`
+   |
+36 |     let _ = &s1 as &dyn Trait;
+   |                     +++
+
+warning: 2 warnings emitted
+

@@ -1,0 +1,110 @@
+exit 0
+== MONO_ITEM
+MONO_ITEM fn <&dyn std::fmt::Debug as std::fmt::Debug>::fmt @@ mixed.82da6f1a55d3283e-cgu.0[External]
+MONO_ITEM fn <D as std::ops::Drop>::drop @@ mixed.82da6f1a55d3283e-cgu.0[External]
+MONO_ITEM fn <S as Tr>::d @@ mixed.82da6f1a55d3283e-cgu.0[External]
+MONO_ITEM fn <S as Tr>::m @@ mixed.82da6f1a55d3283e-cgu.0[External]
+MONO_ITEM fn <for<'a> fn(&'a str) -> <str as std::borrow::ToOwned>::Owned {<str as std::borrow::ToOwned>::to_owned} as std::ops::FnOnce<(&str,)>>::call_once - shim(for<'a> fn(&'a str) -> <str as std::borrow::ToOwned>::Owned {<str as std::borrow::ToOwned>::to_owned}) @@ mixed.82da6f1a55d3283e-cgu.0[Internal]
+MONO_ITEM fn <std::alloc::Global as std::alloc::Allocator>::deallocate @@ mixed.82da6f1a55d3283e-cgu.0[Internal]
+MONO_ITEM fn <std::boxed::Box<dyn Tr> as std::ops::Drop>::drop @@ mixed.82da6f1a55d3283e-cgu.0[External]
+MONO_ITEM fn <u8 as std::slice::<impl [T]>::to_vec_in::ConvertVec>::to_vec::<std::alloc::Global> @@ mixed.82da6f1a55d3283e-cgu.0[External]
+MONO_ITEM fn <{closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-6bf0445a/src/rustc_monomorphize/collector_oracle/programs/mixed.rs:24:46: 24:49} as std::ops::FnOnce<(u32,)>>::call_once - shim @@ mixed.82da6f1a55d3283e-cgu.0[Internal]
+MONO_ITEM fn <{closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-6bf0445a/src/rustc_monomorphize/collector_oracle/programs/mixed.rs:31:29: 31:32} as std::ops::FnOnce<(u32,)>>::call_once - shim @@ mixed.82da6f1a55d3283e-cgu.0[Internal]
+MONO_ITEM fn TABLE::{closure#0} @@ mixed.82da6f1a55d3283e-cgu.0[External]
+MONO_ITEM fn alloc::raw_vec::RawVecInner::with_capacity_in @@ mixed.82da6f1a55d3283e-cgu.0[External]
+MONO_ITEM fn core::fmt::rt::Argument::<'_>::new_debug::<&dyn std::fmt::Debug> @@ mixed.82da6f1a55d3283e-cgu.0[External]
+MONO_ITEM fn core::ub_checks::maybe_is_nonoverlapping::runtime @@ mixed.82da6f1a55d3283e-cgu.0[Internal]
+MONO_ITEM fn f @@ mixed.82da6f1a55d3283e-cgu.0[External]
+MONO_ITEM fn f::{closure#0} @@ mixed.82da6f1a55d3283e-cgu.0[Internal]
+MONO_ITEM fn f::{closure#1} @@ mixed.82da6f1a55d3283e-cgu.0[Internal]
+MONO_ITEM fn gen_fn::<S> @@ mixed.82da6f1a55d3283e-cgu.0[Internal]
+MONO_ITEM fn id @@ mixed.82da6f1a55d3283e-cgu.0[External]
+MONO_ITEM fn inl_always @@ mixed.82da6f1a55d3283e-cgu.0[Internal]
+MONO_ITEM fn inl_never::<&str> @@ mixed.82da6f1a55d3283e-cgu.0[Internal]
+MONO_ITEM fn inl_never::<u8> @@ mixed.82da6f1a55d3283e-cgu.0[Internal]
+MONO_ITEM fn std::alloc::Global::alloc_impl_runtime @@ mixed.82da6f1a55d3283e-cgu.0[Internal]
+MONO_ITEM fn std::alloc::Layout::from_size_alignment_unchecked::precondition_check @@ mixed.82da6f1a55d3283e-cgu.0[Internal]
+MONO_ITEM fn std::boxed::Box::<S>::new @@ mixed.82da6f1a55d3283e-cgu.0[Internal]
+MONO_ITEM fn std::boxed::Box::<[u8; 1]>::new_uninit @@ mixed.82da6f1a55d3283e-cgu.0[Internal]
+MONO_ITEM fn std::boxed::box_assume_init_into_vec_unsafe::<u8, 1> @@ mixed.82da6f1a55d3283e-cgu.0[Internal]
+MONO_ITEM fn std::boxed::box_new_uninit @@ mixed.82da6f1a55d3283e-cgu.0[Internal]
+MONO_ITEM fn std::cell::Cell::<u32>::get @@ mixed.82da6f1a55d3283e-cgu.0[External]
+MONO_ITEM fn std::cell::Cell::<u32>::set @@ mixed.82da6f1a55d3283e-cgu.0[External]
+MONO_ITEM fn std::fmt::Arguments::<'_>::new::<2, 1> @@ mixed.82da6f1a55d3283e-cgu.0[External]
+MONO_ITEM fn std::fmt::format @@ mixed.82da6f1a55d3283e-cgu.0[Internal]
+MONO_ITEM fn std::fmt::format::{closure#0} @@ mixed.82da6f1a55d3283e-cgu.0[External]
+MONO_ITEM fn std::hint::assert_unchecked::precondition_check @@ mixed.82da6f1a55d3283e-cgu.0[Internal]
+MONO_ITEM fn std::hint::must_use::<std::string::String> @@ mixed.82da6f1a55d3283e-cgu.0[Internal]
+MONO_ITEM fn std::intrinsics::cold_path @@ mixed.82da6f1a55d3283e-cgu.0[Internal]
+MONO_ITEM fn std::mem::Alignment::new_unchecked::precondition_check @@ mixed.82da6f1a55d3283e-cgu.0[Internal]
+MONO_ITEM fn std::option::Option::<&str>::map_or_else::<std::string::String, {closure@std::fmt::format::{closure#0}}, for<'a> fn(&'a str) -> <str as std::borrow::ToOwned>::Owned {<str as std::borrow::ToOwned>::to_owned}> @@ mixed.82da6f1a55d3283e-cgu.0[External]
+MONO_ITEM fn std::ptr::NonNull::<T>::new_unchecked::precondition_check @@ mixed.82da6f1a55d3283e-cgu.0[Internal]
+MONO_ITEM fn std::ptr::const_ptr::<impl *const ()>::is_aligned_to @@ mixed.82da6f1a55d3283e-cgu.0[External]
+MONO_ITEM fn std::ptr::copy_nonoverlapping::precondition_check @@ mixed.82da6f1a55d3283e-cgu.0[Internal]
+MONO_ITEM fn std::ptr::drop_glue::<D> - shim(Some(D)) @@ mixed.82da6f1a55d3283e-cgu.0[External]
+MONO_ITEM fn std::ptr::drop_glue::<alloc::raw_vec::RawVec<u8>> - shim(Some(alloc::raw_vec::RawVec<u8>)) @@ mixed.82da6f1a55d3283e-cgu.0[External]
+MONO_ITEM fn std::ptr::drop_glue::<dyn Tr> - shim(Some(dyn Tr)) @@ mixed.82da6f1a55d3283e-cgu.0[External]
+MONO_ITEM fn std::ptr::drop_glue::<std::boxed::Box<dyn Tr>> - shim(Some(std::boxed::Box<dyn Tr>)) @@ mixed.82da6f1a55d3283e-cgu.0[External]
+MONO_ITEM fn std::ptr::drop_glue::<std::string::String> - shim(Some(std::string::String)) @@ mixed.82da6f1a55d3283e-cgu.0[External]
+MONO_ITEM fn std::ptr::drop_glue::<std::vec::Vec<u8>> - shim(Some(std::vec::Vec<u8>)) @@ mixed.82da6f1a55d3283e-cgu.0[External]
+MONO_ITEM fn std::slice::from_raw_parts::precondition_check @@ mixed.82da6f1a55d3283e-cgu.0[Internal]
+MONO_ITEM fn std::str::<impl std::borrow::ToOwned for str>::to_owned @@ mixed.82da6f1a55d3283e-cgu.0[Internal]
+MONO_ITEM fn std::vec::Vec::<T, A>::from_raw_parts_in::precondition_check @@ mixed.82da6f1a55d3283e-cgu.0[Internal]
+MONO_ITEM fn std::vec::Vec::<T, A>::set_len::precondition_check @@ mixed.82da6f1a55d3283e-cgu.0[Internal]
+MONO_ITEM static TABLE @@ mixed.82da6f1a55d3283e-cgu.0[External]
+MONO_ITEM static TL @@ mixed.82da6f1a55d3283e-cgu.0[External]
+== FP
+FP 01a1a44c715c78e04c260172ebf20dce fn std::ptr::drop_glue::<std::string::String> - shim(Some(std::string::String))
+FP 0b2ad27f37f821683071e282e88fe019 fn std::ptr::drop_glue::<std::boxed::Box<dyn Tr>> - shim(Some(std::boxed::Box<dyn Tr>))
+FP 0e961fbadb12361d1d662a0cbde00de4 fn std::mem::Alignment::new_unchecked::precondition_check
+FP 1199ef4daf6d75df4c1ccde7b628f630 fn core::ub_checks::maybe_is_nonoverlapping::runtime
+FP 126ea1819772593170e297f2699a42bf fn std::cell::Cell::<u32>::set
+FP 1323e61a055b41d5e1ba376c8a319bd7 fn id
+FP 17b4773e0ef2f2bb991fa1a27228f18d fn std::hint::must_use::<std::string::String>
+FP 17e6cefd174c05ba7bb05eff3bf49de8 fn inl_never::<u8>
+FP 1ce6a78b91f26b85111d48e708e8f1ee fn std::cell::Cell::<u32>::get
+FP 1d58e801d1c0eec3a5a740bfdc0c816e fn std::str::<impl std::borrow::ToOwned for str>::to_owned
+FP 1e436a791aeb9e6f386a66ce6b9e5052 fn std::alloc::Global::alloc_impl_runtime
+FP 285a942a67e26a6cbe53e1e2998ad139 fn std::ptr::NonNull::<T>::new_unchecked::precondition_check
+FP 2d79d2c31f0a684d908b1efb06b5a6cb fn std::ptr::drop_glue::<D> - shim(Some(D))
+FP 3144d315170f5afd2360124b5527c4e8 fn f::{closure#0}
+FP 33d879fe3d2664e5d6941e1d308ade86 fn std::boxed::box_assume_init_into_vec_unsafe::<u8, 1>
+FP 38850edfc1ebf5702550a0752bb3cb33 fn <u8 as std::slice::<impl [T]>::to_vec_in::ConvertVec>::to_vec::<std::alloc::Global>
+FP 427d56aaaf82405cc7b5cb28d2238af4 fn std::ptr::drop_glue::<alloc::raw_vec::RawVec<u8>> - shim(Some(alloc::raw_vec::RawVec<u8>))
+FP 4628fe1bc14fc9e3d5a6100eb2b53fc5 fn std::ptr::drop_glue::<std::vec::Vec<u8>> - shim(Some(std::vec::Vec<u8>))
+FP 475e9b86f670ef03f3f772e615c32901 fn std::intrinsics::cold_path
+FP 584e9b6d626b12417c7d4eca4cefc313 static TABLE
+FP 58df73145aaf1cadfc19e1efbd2caf03 fn std::hint::assert_unchecked::precondition_check
+FP 5d8e17462db28588a9be3045a67db3be fn std::ptr::copy_nonoverlapping::precondition_check
+FP 5db7125aeab7847afc100014c9c836cc fn std::alloc::Layout::from_size_alignment_unchecked::precondition_check
+FP 6142a81957050ba80da3b734b1ce00e9 fn <std::alloc::Global as std::alloc::Allocator>::deallocate
+FP 630f9a0bd00f44339c663eef47e02dc9 fn <&dyn std::fmt::Debug as std::fmt::Debug>::fmt
+FP 66c03011e85bc12e6a8e537f343c8e36 static TL
+FP 6d3e7e583f79680a68775623c91d2659 fn std::vec::Vec::<T, A>::from_raw_parts_in::precondition_check
+FP 70d646e27ac47b726d8f3220f48af9ca fn inl_never::<&str>
+FP 83cbbe1a0e4ba0f589dff5be97549dd8 fn <std::boxed::Box<dyn Tr> as std::ops::Drop>::drop
+FP 840a52c37c78bf735f5a738edb6bb1cc fn std::option::Option::<&str>::map_or_else::<std::string::String, {closure@std::fmt::format::{closure#0}}, for<'a> fn(&'a str) -> <str as std::borrow::ToOwned>::Owned {<str as std::borrow::ToOwned>::to_owned}>
+FP 94a975846772964da4bb9e36b1f8a029 fn std::fmt::format
+FP 98001bffacad01d289d7917ace219f22 fn <S as Tr>::m
+FP 9ca097438b4258e7657231763c8d95be fn inl_always
+FP 9e08c5fb9a946726fdba0a3e7405416f fn <S as Tr>::d
+FP 9f73dc64097742b84c30732ba1f2e3c1 fn core::fmt::rt::Argument::<'_>::new_debug::<&dyn std::fmt::Debug>
+FP a025cdb1c23d805565d34669610c13f3 fn f
+FP a40719f28510d3eaad9eff6535fe6672 fn std::boxed::Box::<[u8; 1]>::new_uninit
+FP a4950456dd78ca9eee24f2697eb6e7a0 fn <for<'a> fn(&'a str) -> <str as std::borrow::ToOwned>::Owned {<str as std::borrow::ToOwned>::to_owned} as std::ops::FnOnce<(&str,)>>::call_once - shim(for<'a> fn(&'a str) -> <str as std::borrow::ToOwned>::Owned {<str as std::borrow::ToOwned>::to_owned})
+FP a60219fb974024b29feac9a348997381 fn std::slice::from_raw_parts::precondition_check
+FP a66c36de35339a09d2c50112b0f113ce fn std::ptr::const_ptr::<impl *const ()>::is_aligned_to
+FP a6d8494292ba5052a60b6aa9b9ab99b2 fn f::{closure#1}
+FP bcf403444319bb9f1689eb9b0a0c7ee2 fn alloc::raw_vec::RawVecInner::with_capacity_in
+FP cb18194453fb09d4e8493428398f7602 fn TABLE::{closure#0}
+FP cbb34049ee7e4f5da81bff9b8a7b00c1 fn std::boxed::box_new_uninit
+FP ccc1deca9c05e33f7197ede761509438 fn std::boxed::Box::<S>::new
+FP d256039b070725046c0057bebcc1768e fn <D as std::ops::Drop>::drop
+FP dc5eae46bc1e59db9d29cfee72fb1e85 fn std::fmt::Arguments::<'_>::new::<2, 1>
+FP dd7aa47f56a770a7829ed36cb624ec02 fn std::ptr::drop_glue::<dyn Tr> - shim(Some(dyn Tr))
+FP ec1c9a02c30844ad1239771993ec764c fn std::vec::Vec::<T, A>::set_len::precondition_check
+FP ee65170f2b0ad73b0c96d2ba1ac04236 fn <{closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-6bf0445a/src/rustc_monomorphize/collector_oracle/programs/mixed.rs:24:46: 24:49} as std::ops::FnOnce<(u32,)>>::call_once - shim
+FP f52351253c27dc2f9656a9576539476d fn <{closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-6bf0445a/src/rustc_monomorphize/collector_oracle/programs/mixed.rs:31:29: 31:32} as std::ops::FnOnce<(u32,)>>::call_once - shim
+FP faa7a836ea2f5aa93a1d3e92fd889c38 fn gen_fn::<S>
+FP fac36acf06aedb23e16de785db654d93 fn std::fmt::format::{closure#0}
+== stderr

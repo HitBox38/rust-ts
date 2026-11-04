@@ -1,0 +1,34 @@
+exit 0
+== MONO_ITEM
+MONO_ITEM fn <char as Trait>::foo @@ up_trait_method_as_argument.73ed737c4682412d-cgu.0[External]
+MONO_ITEM fn <fn(char) -> char {<char as Trait>::foo} as std::ops::Fn<(char,)>>::call - shim(fn(char) -> char {<char as Trait>::foo}) @@ up_trait_method_as_argument.73ed737c4682412d-cgu.0[External]
+MONO_ITEM fn <fn(char) -> char {<char as Trait>::foo} as std::ops::FnMut<(char,)>>::call_mut - shim(fn(char) -> char {<char as Trait>::foo}) @@ up_trait_method_as_argument.73ed737c4682412d-cgu.0[External]
+MONO_ITEM fn <fn(char) -> char {<char as Trait>::foo} as std::ops::FnOnce<(char,)>>::call_once - shim(fn(char) -> char {<char as Trait>::foo}) @@ up_trait_method_as_argument.73ed737c4682412d-cgu.0[External]
+MONO_ITEM fn <fn(u32) -> u32 {<u32 as Trait>::foo} as std::ops::Fn<(u32,)>>::call - shim(fn(u32) -> u32 {<u32 as Trait>::foo}) @@ up_trait_method_as_argument.73ed737c4682412d-cgu.0[External]
+MONO_ITEM fn <fn(u32) -> u32 {<u32 as Trait>::foo} as std::ops::FnMut<(u32,)>>::call_mut - shim(fn(u32) -> u32 {<u32 as Trait>::foo}) @@ up_trait_method_as_argument.73ed737c4682412d-cgu.0[External]
+MONO_ITEM fn <fn(u32) -> u32 {<u32 as Trait>::foo} as std::ops::FnOnce<(u32,)>>::call_once - shim(fn(u32) -> u32 {<u32 as Trait>::foo}) @@ up_trait_method_as_argument.73ed737c4682412d-cgu.0[External]
+MONO_ITEM fn <u32 as Trait>::foo @@ up_trait_method_as_argument.73ed737c4682412d-cgu.0[External]
+MONO_ITEM fn start @@ up_trait_method_as_argument.73ed737c4682412d-cgu.0[External]
+MONO_ITEM fn take_foo::<char, fn(char) -> char {<char as Trait>::foo}> @@ up_trait_method_as_argument.73ed737c4682412d-cgu.0[External]
+MONO_ITEM fn take_foo::<u32, fn(u32) -> u32 {<u32 as Trait>::foo}> @@ up_trait_method_as_argument.73ed737c4682412d-cgu.0[External]
+MONO_ITEM fn take_foo_mut::<char, fn(char) -> char {<char as Trait>::foo}> @@ up_trait_method_as_argument.73ed737c4682412d-cgu.0[External]
+MONO_ITEM fn take_foo_mut::<u32, fn(u32) -> u32 {<u32 as Trait>::foo}> @@ up_trait_method_as_argument.73ed737c4682412d-cgu.0[External]
+MONO_ITEM fn take_foo_once::<char, fn(char) -> char {<char as Trait>::foo}> @@ up_trait_method_as_argument.73ed737c4682412d-cgu.0[External]
+MONO_ITEM fn take_foo_once::<u32, fn(u32) -> u32 {<u32 as Trait>::foo}> @@ up_trait_method_as_argument.73ed737c4682412d-cgu.0[External]
+== FP
+FP 0175e69a310d56d84ac7aaca9b6abc49 fn <fn(u32) -> u32 {<u32 as Trait>::foo} as std::ops::Fn<(u32,)>>::call - shim(fn(u32) -> u32 {<u32 as Trait>::foo})
+FP 1b1c2e3837ee6ca3e86b7fc48bacafd0 fn take_foo::<u32, fn(u32) -> u32 {<u32 as Trait>::foo}>
+FP 2d6899aa1dc28f162d78c4f8b6c2ab7f fn <fn(char) -> char {<char as Trait>::foo} as std::ops::FnOnce<(char,)>>::call_once - shim(fn(char) -> char {<char as Trait>::foo})
+FP 33504b9f674b63ff1c57173d05dba755 fn take_foo_mut::<char, fn(char) -> char {<char as Trait>::foo}>
+FP 4a48703c946e35d0701947311f996277 fn <fn(char) -> char {<char as Trait>::foo} as std::ops::FnMut<(char,)>>::call_mut - shim(fn(char) -> char {<char as Trait>::foo})
+FP 690af0430ea125beba957f9e4ad7f501 fn <fn(char) -> char {<char as Trait>::foo} as std::ops::Fn<(char,)>>::call - shim(fn(char) -> char {<char as Trait>::foo})
+FP 6b7fa8f84a333e7ada673486c62af3fa fn take_foo_once::<char, fn(char) -> char {<char as Trait>::foo}>
+FP 7e3ce74a6c9b00b74244b943a0d4f4b2 fn take_foo_once::<u32, fn(u32) -> u32 {<u32 as Trait>::foo}>
+FP 9da1505ce83d950f97a8e5683a68136f fn <char as Trait>::foo
+FP 9e57efc636b6676a64e4a2ed916b79d6 fn take_foo_mut::<u32, fn(u32) -> u32 {<u32 as Trait>::foo}>
+FP c51f161a7e11f05d7f00e78f8114cdd9 fn <fn(u32) -> u32 {<u32 as Trait>::foo} as std::ops::FnOnce<(u32,)>>::call_once - shim(fn(u32) -> u32 {<u32 as Trait>::foo})
+FP c9bb3a4ae08b7076dab17ac2022a94a9 fn <fn(u32) -> u32 {<u32 as Trait>::foo} as std::ops::FnMut<(u32,)>>::call_mut - shim(fn(u32) -> u32 {<u32 as Trait>::foo})
+FP e08184e0f3e512fbd87e93a689255b5f fn start
+FP f788c337952d834f7a6b41dc59a8bc52 fn take_foo::<char, fn(char) -> char {<char as Trait>::foo}>
+FP ff0e0569a5d96c791f4b3caf479e8a97 fn <u32 as Trait>::foo
+== stderr

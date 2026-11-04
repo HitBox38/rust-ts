@@ -1,0 +1,6 @@
+exit 0
+== MONO_ITEM
+MONO_ITEM fn fine @@ impossible.7f7c8060728e1bab-cgu.0[External]
+== FP
+FP 088eb269fa7a738211515e436eb6cbce fn fine
+== stderr

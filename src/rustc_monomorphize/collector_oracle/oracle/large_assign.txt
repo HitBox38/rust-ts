@@ -1,0 +1,39 @@
+exit 0
+== MONO_ITEM
+MONO_ITEM fn f @@ large_assign.5fd03cb2a5381526-cgu.0[External]
+MONO_ITEM fn std::alloc::Global::alloc_impl_runtime @@ large_assign.5fd03cb2a5381526-cgu.0[Internal]
+MONO_ITEM fn std::boxed::Box::<[u8; 2000]>::new @@ large_assign.5fd03cb2a5381526-cgu.0[Internal]
+MONO_ITEM fn std::boxed::box_new_uninit @@ large_assign.5fd03cb2a5381526-cgu.0[Internal]
+MONO_ITEM fn std::ptr::NonNull::<T>::new_unchecked::precondition_check @@ large_assign.5fd03cb2a5381526-cgu.0[Internal]
+MONO_ITEM fn take @@ large_assign.5fd03cb2a5381526-cgu.0[External]
+== FP
+FP 036b286f8d65e39b96da1f0632872c78 fn std::boxed::Box::<[u8; 2000]>::new
+FP 1e436a791aeb9e6f386a66ce6b9e5052 fn std::alloc::Global::alloc_impl_runtime
+FP 285a942a67e26a6cbe53e1e2998ad139 fn std::ptr::NonNull::<T>::new_unchecked::precondition_check
+FP 6b53e717c61454b6bc2a33cd368c18da fn take
+FP 8bc06484ecb74c076f6b5a5b96cd17bd fn f
+FP cbb34049ee7e4f5da81bff9b8a7b00c1 fn std::boxed::box_new_uninit
+== stderr
+warning: moving 2000 bytes
+  --> $FILE:11:10
+   |
+11 |     take(a);
+   |          ^ value moved from here
+   |
+   = note: the current maximum size is 1000, but it can be customized with the move_size_limit attribute: `#![move_size_limit = "..."]`
+note: the lint level is defined here
+  --> $FILE:6:9
+   |
+ 6 | #![warn(large_assignments)]
+   |         ^^^^^^^^^^^^^^^^^
+
+warning: moving 2000 bytes
+  --> $FILE:12:5
+   |
+12 |     (b, Box::new(a))
+   |     ^^^^^^^^^^^^^^^^ value moved from here
+   |
+   = note: the current maximum size is 1000, but it can be customized with the move_size_limit attribute: `#![move_size_limit = "..."]`
+
+warning: 2 warnings emitted
+

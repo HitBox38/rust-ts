@@ -1,0 +1,18 @@
+exit 0
+== MONO_ITEM
+MONO_ITEM fn <D as std::ops::Drop>::drop @@ terminate.d3bcb01a7092e836-cgu.0[External]
+MONO_ITEM fn cleanup @@ terminate.d3bcb01a7092e836-cgu.0[External]
+MONO_ITEM fn may_panic @@ terminate.d3bcb01a7092e836-cgu.0[Internal]
+MONO_ITEM fn no_unwind @@ terminate.d3bcb01a7092e836-cgu.0[External]
+MONO_ITEM fn nounwind_drop @@ terminate.d3bcb01a7092e836-cgu.0[External]
+MONO_ITEM fn std::fmt::Arguments::<'_>::from_str @@ terminate.d3bcb01a7092e836-cgu.0[Internal]
+MONO_ITEM fn std::ptr::drop_glue::<D> - shim(Some(D)) @@ terminate.d3bcb01a7092e836-cgu.0[External]
+== FP
+FP 113f4a20ffcb3537799696849102776d fn may_panic
+FP 2418e91d25610b015eaad2ac8fc2be39 fn nounwind_drop
+FP 513010454f5ea7a233723a66cb81e4ff fn no_unwind
+FP 584d702e9091f0f5ef73ad8b78126e97 fn std::fmt::Arguments::<'_>::from_str
+FP b47a8b52ac63adfd536739becf0fde80 fn std::ptr::drop_glue::<D> - shim(Some(D))
+FP e1abb8ebf14720c1e35a21495e27f4da fn <D as std::ops::Drop>::drop
+FP ea226080416da7e5c29ad3669223fa83 fn cleanup
+== stderr

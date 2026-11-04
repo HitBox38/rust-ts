@@ -1,0 +1,32 @@
+exit 0
+== MONO_ITEM
+MONO_ITEM fn foo1::<&str> @@ up_generic_functions.6f25809070484e53-cgu.0[External]
+MONO_ITEM fn foo1::<char> @@ up_generic_functions.6f25809070484e53-cgu.0[External]
+MONO_ITEM fn foo1::<i32> @@ up_generic_functions.6f25809070484e53-cgu.0[External]
+MONO_ITEM fn foo1::<i64> @@ up_generic_functions.6f25809070484e53-cgu.0[External]
+MONO_ITEM fn foo2::<&str, usize> @@ up_generic_functions.6f25809070484e53-cgu.0[External]
+MONO_ITEM fn foo2::<char, ()> @@ up_generic_functions.6f25809070484e53-cgu.0[External]
+MONO_ITEM fn foo2::<i32, i32> @@ up_generic_functions.6f25809070484e53-cgu.0[External]
+MONO_ITEM fn foo2::<i64, &str> @@ up_generic_functions.6f25809070484e53-cgu.0[External]
+MONO_ITEM fn foo3::<char, (), ()> @@ up_generic_functions.6f25809070484e53-cgu.0[External]
+MONO_ITEM fn foo3::<i16, &str, usize> @@ up_generic_functions.6f25809070484e53-cgu.0[External]
+MONO_ITEM fn foo3::<i32, i32, i32> @@ up_generic_functions.6f25809070484e53-cgu.0[External]
+MONO_ITEM fn foo3::<i64, &str, char> @@ up_generic_functions.6f25809070484e53-cgu.0[External]
+MONO_ITEM fn lifetime_only @@ up_generic_functions.6f25809070484e53-cgu.0[External]
+MONO_ITEM fn start @@ up_generic_functions.6f25809070484e53-cgu.0[External]
+== FP
+FP 07e22719ea576d542c85fabcd0febde5 fn foo3::<i32, i32, i32>
+FP 0a7a9789383dbb4d8f653ae334d066cd fn foo2::<&str, usize>
+FP 27ffe02df55ff3bdb1afc279705af14f fn foo1::<char>
+FP 3b75c425e41922e9d63b8d004b2fe10e fn foo1::<i32>
+FP 65f3552b0f1c0ca8b795035ab7fb83a5 fn foo1::<i64>
+FP 8aa5994710a273a6537cf89341bd60dd fn lifetime_only
+FP 9544ce843d08a8b8cc262da1f69462b5 fn start
+FP 99d21b0ab1fd6872530d3a4aac809c22 fn foo3::<i16, &str, usize>
+FP a99599715a594e03ae261a70326043de fn foo1::<&str>
+FP bb3961e8a914b22166c605f879549b76 fn foo3::<i64, &str, char>
+FP bb5ac86fac2870ab3f7e758545433286 fn foo2::<i32, i32>
+FP c673433058ca69fd4bc559a562d0daa3 fn foo3::<char, (), ()>
+FP ccc39a7b671dbc3a95c0d7d6cd49a810 fn foo2::<i64, &str>
+FP da9b0faf538f1818697140b231e42c1b fn foo2::<char, ()>
+== stderr

@@ -1,0 +1,16 @@
+exit 0
+== MONO_ITEM
+MONO_ITEM fn <Equatable as std::cmp::PartialEq>::eq @@ up_overloaded_operators.be69b5fc7d890ccc-cgu.0[External]
+MONO_ITEM fn <Equatable as std::cmp::PartialEq>::ne @@ up_overloaded_operators.be69b5fc7d890ccc-cgu.0[External]
+MONO_ITEM fn <Equatable as std::ops::Add<u32>>::add @@ up_overloaded_operators.be69b5fc7d890ccc-cgu.0[External]
+MONO_ITEM fn <Equatable as std::ops::Deref>::deref @@ up_overloaded_operators.be69b5fc7d890ccc-cgu.0[External]
+MONO_ITEM fn <Indexable as std::ops::Index<usize>>::index @@ up_overloaded_operators.be69b5fc7d890ccc-cgu.0[External]
+MONO_ITEM fn <Indexable as std::ops::IndexMut<usize>>::index_mut @@ up_overloaded_operators.be69b5fc7d890ccc-cgu.0[External]
+== FP
+FP 096d0babae9c6eab075ababd32f3f8b1 fn <Indexable as std::ops::Index<usize>>::index
+FP 1bc0e6b2e8ab2e14944348d77ecb5e46 fn <Equatable as std::cmp::PartialEq>::eq
+FP 44fc485d9e2ace32a6e4098ba33fff5d fn <Indexable as std::ops::IndexMut<usize>>::index_mut
+FP 489a7e74348584a31b934f41882ae31c fn <Equatable as std::ops::Add<u32>>::add
+FP 5ffee2c11e1d8561284a24e1327eb50f fn <Equatable as std::ops::Deref>::deref
+FP 6b5ee6198d0bf6b0e6258e2a87e3ed7a fn <Equatable as std::cmp::PartialEq>::ne
+== stderr

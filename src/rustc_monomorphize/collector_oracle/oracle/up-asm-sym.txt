@@ -1,0 +1,14 @@
+exit 0
+== MONO_ITEM
+MONO_ITEM fn f::fun @@ up_asm_sym.bf0168e4072200d0-cgu.0[External]
+MONO_ITEM fn g @@ up_asm_sym.bf0168e4072200d0-cgu.0[External]
+MONO_ITEM fn g::fun @@ up_asm_sym.bf0168e4072200d0-cgu.0[Internal]
+MONO_ITEM static f::S @@ up_asm_sym.bf0168e4072200d0-cgu.0[External]
+MONO_ITEM static g::S @@ up_asm_sym.bf0168e4072200d0-cgu.0[Internal]
+== FP
+FP 1d247fb74c1ecc19ced1edff2caa6835 static g::S
+FP 43ef0a5a2f3c423f7a99f860bfbbbbc3 static f::S
+FP 7465697dda3a064ccf4f712c8048f45a fn f::fun
+FP 9004f638debea3ea3c6b397c0d32f9f3 fn g
+FP f8456d24cba9d7d6b03cee524c22521d fn g::fun
+== stderr

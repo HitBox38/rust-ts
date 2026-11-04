@@ -1,0 +1,18 @@
+exit 0
+== MONO_ITEM
+MONO_ITEM fn <EnumWithDrop as std::ops::Drop>::drop @@ up_non_generic_drop_glue.d0156ed1c1449483-cgu.0[External]
+MONO_ITEM fn <EnumWithDrop as std::ops::Drop>::pin_drop @@ up_non_generic_drop_glue.d0156ed1c1449483-cgu.0[External]
+MONO_ITEM fn <StructWithDrop as std::ops::Drop>::drop @@ up_non_generic_drop_glue.d0156ed1c1449483-cgu.0[External]
+MONO_ITEM fn <StructWithDrop as std::ops::Drop>::pin_drop @@ up_non_generic_drop_glue.d0156ed1c1449483-cgu.0[External]
+MONO_ITEM fn start @@ up_non_generic_drop_glue.d0156ed1c1449483-cgu.0[External]
+MONO_ITEM fn std::ptr::drop_glue::<EnumWithDrop> - shim(Some(EnumWithDrop)) @@ up_non_generic_drop_glue.d0156ed1c1449483-cgu.0[Internal]
+MONO_ITEM fn std::ptr::drop_glue::<StructWithDrop> - shim(Some(StructWithDrop)) @@ up_non_generic_drop_glue.d0156ed1c1449483-cgu.0[Internal]
+== FP
+FP 1d3aa5287635b5ddb3126ac6c63523c7 fn <EnumWithDrop as std::ops::Drop>::pin_drop
+FP 58f84f4a402be3891215c807d29459c1 fn <StructWithDrop as std::ops::Drop>::drop
+FP 8471c0fd544fb8ad3f474132e5693108 fn <StructWithDrop as std::ops::Drop>::pin_drop
+FP 863103d0578f8443d7d3b1f548948309 fn std::ptr::drop_glue::<StructWithDrop> - shim(Some(StructWithDrop))
+FP d491307aee6485d2b10171f3157565d1 fn start
+FP ea92f89accc41825d7426db3b654274d fn std::ptr::drop_glue::<EnumWithDrop> - shim(Some(EnumWithDrop))
+FP fa2ba22d62940f94ea647e9305765791 fn <EnumWithDrop as std::ops::Drop>::drop
+== stderr
