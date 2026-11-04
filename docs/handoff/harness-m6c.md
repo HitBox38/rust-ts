@@ -48,7 +48,7 @@ at the start of these runs, and other lanes were active throughout.
 
 | suite | cases (files) | skipped | oracle exit codes | user p50 / p99 / max, total | wall | role |
 |---|---|---|---|---|---|---|
-| `miri-pass` + `miri-pass-heavy` | 350 + 10 = 360 (353) | 12 target filters | 347 exit 0 (tests/pass), 13 exit 101 (tests/panic) | 26 ms / 2.9 s / 5.0 s, 37.6 s | 8 s | **M6b: >= 80%, ORACLE_TIMEOUT excluded (A9)**; the figures were measured before the heavy split |
+| `miri-pass` + `miri-pass-heavy` | 353 + 7 = 360 after review R2, which moved three cases back; 350 + 10 in the runs below (353) | 12 target filters | 347 exit 0 (tests/pass), 13 exit 101 (tests/panic) | 26 ms / 2.9 s / 5.0 s, 37.6 s | 8 s | **M6b: >= 80%, ORACLE_TIMEOUT excluded (A9)**; the figures were measured before the heavy split |
 | `miri-pass-tb` | 132 (73) | 0 | 132 exit 0 | 34 ms / 0.85 s / 0.87 s, 10.5 s | 4 s | report only (A5) |
 | `miri-fail` | 610 (547) | 3 target filters | 610 exit 1 | 22 ms / 106 ms / 1.27 s, 22.3 s | 6 s | report only, no threshold; subset `tree-borrows` |
 | `run-pass-aux-miri` | 356 (327) | 65 | 324 exit 0, 27 exit 1, 5 exit 101 | 24 ms / 187 ms / 243 ms, 11.6 s | 3 s | report only |

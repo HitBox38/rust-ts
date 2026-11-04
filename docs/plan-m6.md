@@ -194,7 +194,7 @@ Proposed suites (all `milestone: "M6"`):
 
 Gates:
 - **M6a**: `miri-hello` MATCH, no protected loss.
-- **M6b**: `run-pass-miri` + `run-pass-miri-heavy` + `run-fail-miri` ≥ 90% MATCH, `miri-pass` + `miri-pass-heavy` ≥ 80% MATCH (A12: `bun scripts/criteria.ts --run <run>`).
+- **M6b**: `run-pass-miri` + `run-pass-miri-heavy` ≥ 90% MATCH, `run-fail-miri` ≥ 90% MATCH, `miri-pass` + `miri-pass-heavy` ≥ 80% MATCH (A12: `bun scripts/criteria.ts --run <gate run>`).
 - **M6 (= gate)**: M6a + M6b + `pm-ui` ≥ 95% MATCH + the 30 `quote!` cases MATCH in every suite that has them.
 - Report only: `miri-fail`, `run-pass-aux-miri`, `miri-sysroot-*`, `pm-expanded`.
 
@@ -357,8 +357,9 @@ interpreter speed.
   another host). Each protected Miri suite adds to every gate's ~10 h: the harness lanes mark the large ones heavy/serial
   and keep slow cases out of the per-batch path.
 
-- **A12 (M6b, review harness-m6c R1, R2).** M6b is one figure per group, summed over the group's full runs by
-  `scripts/criteria.ts`; a suite's own `criterion` line is only its share, and a group with a suite missing is not met.
+- **A12 (M6b, review harness-m6c R1, R2, re-check L1, L2).** M6b is one figure per group, summed by `scripts/criteria.ts`
+  from one gate's `gate.json`; a suite's own `criterion` line is only its share. A group is met only if that gate passed on
+  a clean tree and ran every suite of the group. `run-fail-miri` is its own group, so run-pass cannot hide it.
   The heavy lists hold cases by the oracle's cost and by the files they write, never by how the port does: a longer limit
   must not turn a port TIMEOUT into a MATCH.
 
