@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { GROUPS, groupResult, type GateRecord } from "./criteria.ts";
+import { GROUPS, gateRecordProblem, groupResult, type GateRecord } from "./criteria.ts";
 
 const s = (suite: string, match: number, total: number, oracleTimeouts: string[] = []) => ({ suite, match, total, oracleTimeouts });
 const gate = (suites: GateRecord["suites"], over: Partial<GateRecord> = {}): GateRecord => ({ pass: true, staticOk: true, skipStatic: false, head: "abc", dirty: [], suites, ...over });
@@ -40,4 +40,15 @@ test("ORACLE_TIMEOUT leaves the denominator and is counted (plan-m6 A9); met is 
   // 79.996% rounds to 80 in the printed line, and is not met.
   const close = groupResult(miriPass, gate([s("miri-pass", 19999, 25000), s("miri-pass-heavy", 0, 0)]));
   expect([close.percent, close.met]).toEqual([80, false]);
+});
+
+test("a gate.json missing what the figure reads is named, not a crash", () => {
+  const ok = gate([s("miri-pass", 1, 1)]);
+  expect(gateRecordProblem(ok)).toBeUndefined();
+  expect(gateRecordProblem(null)).toBe("not an object");
+  const { head: _head, ...noHead } = ok;
+  expect(gateRecordProblem(noHead)).toContain("head, dirty or suites");
+  const { pass: _pass, ...noPass } = ok;
+  expect(gateRecordProblem(noPass)).toContain("pass, staticOk or skipStatic");
+  expect(gateRecordProblem({ ...ok, suites: [{ suite: "x", match: 1, total: 1 }] })).toContain("a suites entry lacks");
 });

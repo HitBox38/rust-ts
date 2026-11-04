@@ -53,6 +53,16 @@ export function gateProblems(g: GateRecord): string[] {
   return problems;
 }
 
+/** What a `gate.json` lacks of the fields this reads, or undefined (review harness-m6c-recheck L7: one ERROR line, not a stack trace). */
+export function gateRecordProblem(g: unknown): string | undefined {
+  const r = g as Partial<GateRecord> | null;
+  if (typeof r !== "object" || r === null) return "not an object";
+  if (typeof r.pass !== "boolean" || typeof r.staticOk !== "boolean" || typeof r.skipStatic !== "boolean") return "pass, staticOk or skipStatic is missing";
+  if (typeof r.head !== "string" || !Array.isArray(r.dirty) || !Array.isArray(r.suites)) return "head, dirty or suites is missing";
+  const bad = r.suites.find((s) => typeof s?.suite !== "string" || typeof s.match !== "number" || typeof s.total !== "number" || !Array.isArray(s.oracleTimeouts));
+  return bad === undefined ? undefined : `a suites entry lacks suite, match, total or oracleTimeouts: ${JSON.stringify(bad)?.slice(0, 200)}`;
+}
+
 export function groupResult(group: CriteriaGroup, g: GateRecord): GroupResult {
   let match = 0;
   let of = 0;
@@ -81,12 +91,16 @@ if (import.meta.main) {
   const readGate = (run: string): GateRecord => {
     const f = join(RUNS, run, "gate.json");
     if (!existsSync(f)) die(`${run} has no gate.json: a milestone figure comes from a gate run`);
+    let g: unknown;
     try {
-      return JSON.parse(readFileSync(f, "utf8")) as GateRecord;
+      g = JSON.parse(readFileSync(f, "utf8"));
     } catch (e) {
       die(`${f} is not readable JSON: ${e instanceof Error ? e.message : String(e)}`);
       process.exit(1);
     }
+    const problem = gateRecordProblem(g);
+    if (problem !== undefined) die(`${f}: ${problem}`);
+    return g as GateRecord;
   };
   const a = parseArgs(process.argv.slice(2));
   if (typeof a.run !== "string") {

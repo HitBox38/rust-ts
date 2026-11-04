@@ -7,6 +7,9 @@
 //   bun scripts/probes.ts fixture [name...] rewrite the committed oracle fixtures of `PROBE_FIXTURES` (default: all that
 //                                           hold on this host) from their (built) probes' stdout
 //
+// `build` records a hash of what it built from (`probeStamp`), so tools/probes/fixtures.test.ts can tell a binary from an
+// older source (review harness-w38 L3): nothing else notices, since the gate only checks that the binary exists.
+//
 // Each probe is `tools/probes/<name>/Cargo.toml.in` (+ sources). The template's `@UPSTREAM@`,
 // `@SRC@` and `@RELEASE@` are substituted, and its `[package.metadata.rust-ts]` table may set:
 //   env = { KEY = "value", ... }   extra build environment (e.g. RUSTC_BOOTSTRAP / CFG_RELEASE for
@@ -28,8 +31,8 @@
 //                                  Its oracle cache key also covers the sysroot (difftest:
 //                                  rustcDriverHash).
 import { copyFileSync, existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { DATA, PIN, REPO, UPSTREAM, die, ensureDir, parseArgs, requireUpstream, run } from "./lib/common.ts";
+import { dirname, join, relative, resolve } from "node:path";
+import { DATA, PIN, REPO, UPSTREAM, die, ensureDir, hash, parseArgs, requireUpstream, run } from "./lib/common.ts";
 import { caseEnv, mergeEnv } from "./lib/env.ts";
 import { MIRI_CASE_ENV, MIRI_SYSROOT, miriBinary, miriPin, verifyMiriOracle } from "./lib/miri.ts";
 import { oracleHost, oracleSysroot, verifyOracleToolchain } from "./lib/oracle.ts";
@@ -67,11 +70,15 @@ export const PROBE_FIXTURES: Record<string, ProbeFixture> = {
   miriepoll: { fixture: "tools/probes/miriepoll/epoll.oracle.txt", miri: true },
 };
 
-/** What prints a `PROBE_FIXTURES` entry's fixture: the built probe, or the Miri oracle on the probe's source. */
-export function probeFixtureCmd(name: string, f: ProbeFixture): { cmd: string[]; env: Record<string, string> } {
-  if (!f.miri) return { cmd: [probeBinary(name), ...(f.args ?? [])], env: mergeEnv(process.env, undefined) };
+/**
+ * What prints a `PROBE_FIXTURES` entry's fixture: the built probe, or the Miri oracle on the probe's source. `env` is an
+ * overlay for `run()` / `mergeEnv`, whose `null`s remove variables: merged here, `run()` would overlay the result on
+ * `process.env` and bring the removed ones back (review harness-w38 L1).
+ */
+export function probeFixtureCmd(name: string, f: ProbeFixture): { cmd: string[]; env: Record<string, string | null> } {
+  if (!f.miri) return { cmd: [probeBinary(name), ...(f.args ?? [])], env: {} };
   const cmd = [miriBinary(), join(PROBES_SRC, name, "main.rs"), "--edition=2021", "--sysroot", MIRI_SYSROOT, "--target", miriPin().target, ...(f.args ?? [])];
-  return { cmd, env: mergeEnv(process.env, caseEnv(MIRI_CASE_ENV)) };
+  return { cmd, env: caseEnv(MIRI_CASE_ENV) };
 }
 
 /**
@@ -99,8 +106,53 @@ export function probeBinary(name: string): string {
 
 export function probePath(name: string): string {
   const p = probeBinary(name);
-  if (!existsSync(p)) die(`probe '${name}' not built; run: bun scripts/probes.ts build ${name}`);
+  if (!existsSync(p)) die(probeNotBuildable(name) ?? `probe '${name}' not built; run: bun scripts/probes.ts build ${name}`);
   return p;
+}
+
+/** Why `build <name>` cannot work: a program for the Miri oracle, or no such probe. */
+export function probeNotBuildable(name: string): string | undefined {
+  if (PROBE_FIXTURES[name]?.miri) return `probe '${name}' has no cargo build: the Miri oracle runs its source; run: bun scripts/miri.ts setup, then bun scripts/probes.ts fixture ${name}`;
+  if (!existsSync(join(PROBES_SRC, name, "Cargo.toml.in"))) return `no probe '${name}' (no tools/probes/${name}/Cargo.toml.in)`;
+  return undefined;
+}
+
+/**
+ * Hash of what a cargo probe is built from: its template and `.rs` files, and the `.rs` files they `#[path]` from another
+ * probe's directory (names relative to tools/probes, so every worktree gets the same hash).
+ */
+export function probeSourceHash(name: string): string {
+  const files = new Set<string>();
+  const add = (f: string) => {
+    if (files.has(f)) return;
+    files.add(f);
+    if (!f.endsWith(".rs")) return;
+    for (const m of readFileSync(f, "utf8").matchAll(/#\[path = "(\.\.\/[^"]+)"\]/g)) add(resolve(dirname(f), m[1]!));
+  };
+  const walk = (dir: string) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const p = join(dir, e.name);
+      if (e.isDirectory()) {
+        if (e.name !== "target") walk(p);
+      } else if (e.name === "Cargo.toml.in" || e.name.endsWith(".rs")) add(p);
+    }
+  };
+  walk(join(PROBES_SRC, name));
+  return hash(JSON.stringify([...files].sort().map((f) => [relative(PROBES_SRC, f).replaceAll("\\", "/"), hash(readFileSync(f))])));
+}
+
+/** Where `build` records `probeSourceHash` of the binary it built. */
+const probeStamp = (name: string): string => join(PROBES_OUT, name, "source.hash");
+
+/**
+ * Whether a built probe still matches the source here. `stale`: it was built from something else. `unknown`: built before
+ * stamps existed, so nothing can be said until the next build.
+ */
+export function probeStaleness(name: string): { state: "current" | "unknown" } | { state: "stale"; why: string } {
+  const stamp = probeStamp(name);
+  if (!existsSync(stamp)) return { state: "unknown" };
+  if (readFileSync(stamp, "utf8").trim() === probeSourceHash(name)) return { state: "current" };
+  return { state: "stale", why: `probe '${name}' was built from other sources than tools/probes/${name} here; run: bun scripts/probes.ts build ${name}` };
 }
 
 /** Every probe under tools/probes (a directory with a Cargo.toml.in). */
@@ -231,10 +283,14 @@ function rustcDevEnv(name: string): Record<string, string> {
 }
 
 async function build(name: string): Promise<void> {
+  const notBuildable = probeNotBuildable(name);
+  if (notBuildable !== undefined) die(notBuildable);
   requireUpstream();
   // Probes are built with the oracle toolchain: check it has exactly the pinned components first (review harness-w35
   // N5; lane harness-w36), as every other oracle build does.
   verifyOracleToolchain();
+  // Hashed before cargo reads the sources: a file edited during the build then reads as stale, not as current.
+  const source = probeSourceHash(name);
   const text = manifest(name);
   const meta = probeMeta(name);
   const dir = ensureDir(join(PROBES_OUT, name));
@@ -244,6 +300,7 @@ async function build(name: string): Promise<void> {
     env: { CARGO_TARGET_DIR: TARGET, ...meta.env, ...(meta.rustcDev ? rustcDevEnv(name) : {}) },
   });
   if (r.code !== 0) die(`probe ${name} failed to build:\n${r.stderr}`);
+  writeFileSync(probeStamp(name), `${source}\n`);
   console.log(`built ${name}: ${probePath(name)}`);
 }
 

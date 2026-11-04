@@ -60,6 +60,7 @@ import { join } from "node:path";
 import { SUITES, suite as getSuite, type Case, type Suite } from "../harness/suites.ts";
 import type { Blessed } from "../harness/compiletest.ts";
 import { ORACLE_CACHE, PIN, REPO, RUNS, UPSTREAM, die, ensureDir, hash, nowId, parseArgs, pool, requireUpstream, run, type ProcResult } from "./lib/common.ts";
+import { withCaseLock } from "./lib/case-lock.ts";
 import { caseDeps, type Dep } from "./lib/deps.ts";
 import { caseEnv } from "./lib/env.ts";
 import { UNSTABLE_ORACLE_PATTERNS, unstableMiriOracleReason, unstableOracleReason } from "./lib/unstable.ts";
@@ -990,8 +991,13 @@ export async function difftest(
       // A heavy suite runs one process at a time: the oracle, then the subject, each recording its resources.
       const oUsage = new Map<string, Usage>();
       const sUsage = new Map<string, Usage>();
+      // Its `MIRI_TEMP` is shared with any other difftest of this case: scripts/lib/case-lock.ts. The limits start after the wait.
+      const heavySides = async () => [await runOracle(s, chunk, oUsage), await runSubject(s, chunk, impl, stats, sUsage)] as const;
+      const miriTemp = chunk[0]?.env?.MIRI_TEMP;
       const [o, sub] = s.heavy
-        ? [await runOracle(s, chunk, oUsage), await runSubject(s, chunk, impl, stats, sUsage)]
+        ? typeof miriTemp === "string"
+          ? await withCaseLock(`${miriTemp}.lock`, 2 * ((1 + ORACLE_RETRY_FACTOR) * (s.oracleTimeoutMs ?? s.timeoutMs) + s.timeoutMs), heavySides)
+          : await heavySides()
         : await Promise.all([runOracle(s, chunk), runSubject(s, chunk, impl, stats)]);
       for (const c of chunk) {
         const oc = o.get(c.id)!;
