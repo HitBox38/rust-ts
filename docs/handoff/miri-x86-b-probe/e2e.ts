@@ -40,7 +40,15 @@ const results = await pool(list, jobs, async (f) => {
     const w = want.split("\n");
     const i = g.findIndex((l, n) => l !== w[n]);
     const at = i < 0 ? Math.min(g.length, w.length) : i;
-    detail = verdict === "UNPORTED" ? p.stderr.split("\n").find((l) => l.includes("unported")) ?? "" : `line ${at + 1}: port ${JSON.stringify(g[at]?.slice(0, 160))} oracle ${JSON.stringify(w[at]?.slice(0, 160))}`;
+    if (verdict === "TIMEOUT") {
+      // What the killed process did print still counts: compare its complete stdout lines with the oracle's.
+      const stdout_of = (t: string) => t.slice(t.indexOf("--- stdout\n") + 11, t.indexOf("--- stderr\n")).split("\n");
+      const port = stdout_of(got).slice(0, -1);
+      const wanted = stdout_of(want);
+      const diff = port.findIndex((l, n) => l !== wanted[n]);
+      verdict = diff < 0 ? "TIMEOUT" : "DIFF";
+      detail = diff < 0 ? `first ${port.length} of ${wanted.length - 1} stdout lines match` : `stdout line ${diff + 1}: port ${JSON.stringify(port[diff]?.slice(0, 160))} oracle ${JSON.stringify(wanted[diff]?.slice(0, 160))}`;
+    } else detail = verdict === "UNPORTED" ? p.stderr.split("\n").find((l) => l.includes("unported")) ?? "" : `line ${at + 1}: port ${JSON.stringify(g[at]?.slice(0, 160))} oracle ${JSON.stringify(w[at]?.slice(0, 160))}`;
   }
   console.log(`${verdict} ${name} (${(p.ms / 1000).toFixed(1)} s)${detail === "" ? "" : `: ${detail}`}`);
   return verdict;
