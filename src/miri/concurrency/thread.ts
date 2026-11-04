@@ -1144,15 +1144,17 @@ InterpCx.prototype.enable_thread = function (this: MiriInterpCx, thread_id: Thre
 // #[inline]
 // rustc: src/tools/miri/src/concurrency/thread.rs:1066 active_thread_stack
 InterpCx.prototype.active_thread_stack = function (this: MiriInterpCx): readonly Frame<Provenance, FrameExtra>[] {
-  const this_ = this.eval_context_ref();
-  return this_.machine.threads.active_thread_stack();
+  // PORT(perf): the two inner calls inlined: every frame access comes through here. `eval_context_ref` is `this`.
+  const threads = this.machine.threads;
+  return threads.threads[threads.active_thread._0]!.stack;
 };
 
 // #[inline]
 // rustc: src/tools/miri/src/concurrency/thread.rs:1072 active_thread_stack_mut
 InterpCx.prototype.active_thread_stack_mut = function (this: MiriInterpCx): Frame<Provenance, FrameExtra>[] {
-  const this_ = this.eval_context_mut();
-  return this_.machine.threads.active_thread_stack_mut();
+  // PORT(perf): as `active_thread_stack`.
+  const threads = this.machine.threads;
+  return threads.threads[threads.active_thread._0]!.stack;
 };
 
 /// Set the name of the current thread. The buffer must not include the null terminator.
