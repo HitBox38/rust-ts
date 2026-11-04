@@ -1,0 +1,15 @@
+exit 1
+== stdout
+
+== stderr
+error: symbol `clashing_symbol` is already defined
+  --> $FILE:11:5
+   |
+11 |     pub fn y() {}
+   |     ^^^^^^^^^^
+
+error: aborting due to 1 previous error
+
+
+== dump
+<none>

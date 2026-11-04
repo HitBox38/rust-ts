@@ -1,0 +1,28 @@
+exit 0
+== stdout
+MONO_ITEM fn bar @@ c9zzwz2ykfiiketymsltvh0u8[External]
+MONO_ITEM fn foo @@ c9zzwz2ykfiiketymsltvh0u8[External]
+MONO_ITEM fn mod1::bar @@ 45201t2ns25gxuzotnc4wma5f[External]
+MONO_ITEM fn mod1::foo @@ 45201t2ns25gxuzotnc4wma5f[External]
+MONO_ITEM fn mod1::mod1::bar @@ 6bf1cr6i3wq0kf4caqgdzrkhj[External]
+MONO_ITEM fn mod1::mod1::foo @@ 6bf1cr6i3wq0kf4caqgdzrkhj[External]
+MONO_ITEM fn mod1::mod2::bar @@ a4b4c9obb1iu3mo9zuv9plkqh[External]
+MONO_ITEM fn mod1::mod2::foo @@ a4b4c9obb1iu3mo9zuv9plkqh[External]
+MONO_ITEM fn mod2::bar @@ d4fg2k8ihio45cy5vmey6tu2b[External]
+MONO_ITEM fn mod2::foo @@ d4fg2k8ihio45cy5vmey6tu2b[External]
+MONO_ITEM fn mod2::mod1::bar @@ 9laay74mnijivge54o863eqfw[External]
+MONO_ITEM fn mod2::mod1::foo @@ 9laay74mnijivge54o863eqfw[External]
+MONO_ITEM fn mod2::mod2::bar @@ 2qx2frvmsem3ehysqa6lst92n[External]
+MONO_ITEM fn mod2::mod2::foo @@ 2qx2frvmsem3ehysqa6lst92n[External]
+MONO_ITEM static BAZ @@ c9zzwz2ykfiiketymsltvh0u8[External]
+MONO_ITEM static mod1::BAZ @@ 45201t2ns25gxuzotnc4wma5f[External]
+MONO_ITEM static mod1::mod1::BAZ @@ 6bf1cr6i3wq0kf4caqgdzrkhj[External]
+MONO_ITEM static mod1::mod2::BAZ @@ a4b4c9obb1iu3mo9zuv9plkqh[External]
+MONO_ITEM static mod2::BAZ @@ d4fg2k8ihio45cy5vmey6tu2b[External]
+MONO_ITEM static mod2::mod1::BAZ @@ 9laay74mnijivge54o863eqfw[External]
+MONO_ITEM static mod2::mod2::BAZ @@ 2qx2frvmsem3ehysqa6lst92n[External]
+
+== stderr
+
+== dump
+<none>

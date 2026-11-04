@@ -1,0 +1,10 @@
+exit 0
+== stdout
+MONO_ITEM fn mxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx::f @@ egfb5uncy4faoq46je0mc6oyf[External]
+MONO_ITEM fn short::f @@ egfb5uncy4faoq46je0mc6oyf[External]
+MONO_ITEM fn yzéééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé::f @@ egfb5uncy4faoq46je0mc6oyf[External]
+
+== stderr
+
+== dump
+<none>

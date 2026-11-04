@@ -1,0 +1,101 @@
+exit 1
+== stdout
+
+== stderr
+warning: struct `Foo` is never constructed
+  --> $FILE:13:8
+   |
+13 | struct Foo(&'static Foo);
+   |        ^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: static `A` is never used
+  --> $FILE:16:8
+   |
+16 | static A: Foo = Foo(&A); //~ ERROR static initializer forms a cycle involving `A`
+   |        ^
+
+warning: static `B0` is never used
+  --> $FILE:18:8
+   |
+18 | static B0: Foo = Foo(&B1); //~ ERROR static initializer forms a cycle involving `B0`
+   |        ^^
+
+warning: static `B1` is never used
+  --> $FILE:19:8
+   |
+19 | static B1: Foo = Foo(&B0);
+   |        ^^
+
+warning: static `C0` is never used
+  --> $FILE:21:8
+   |
+21 | static C0: Foo = Foo(&C1); //~ ERROR static initializer forms a cycle involving `C0`
+   |        ^^
+
+warning: static `C1` is never used
+  --> $FILE:22:8
+   |
+22 | static C1: Foo = Foo(&C2);
+   |        ^^
+
+warning: static `C2` is never used
+  --> $FILE:23:8
+   |
+23 | static C2: Foo = Foo(&C0);
+   |        ^^
+
+warning: struct `Bar` is never constructed
+  --> $FILE:25:8
+   |
+25 | struct Bar(&'static u32);
+   |        ^^^
+
+warning: static `BAR` is never used
+  --> $FILE:28:8
+   |
+28 | static BAR: Bar = Bar(&INT);
+   |        ^^^
+
+warning: static `INT` is never used
+  --> $FILE:29:8
+   |
+29 | static INT: u32 = 42u32;
+   |        ^^^
+
+error: static initializer forms a cycle involving `C0`
+  --> $FILE:21:1
+   |
+21 | static C0: Foo = Foo(&C1); //~ ERROR static initializer forms a cycle involving `C0`
+   | ^^^^^^^^^^^^^^ part of this cycle
+22 | static C1: Foo = Foo(&C2);
+   | -------------- part of this cycle
+23 | static C2: Foo = Foo(&C0);
+   | -------------- part of this cycle
+   |
+   = note: cyclic static initializers are not supported for target `x86_64-unknown-linux-gnu`
+
+error: static initializer forms a cycle involving `A`
+  --> $FILE:16:1
+   |
+16 | static A: Foo = Foo(&A); //~ ERROR static initializer forms a cycle involving `A`
+   | ^^^^^^^^^^^^^ part of this cycle
+   |
+   = note: cyclic static initializers are not supported for target `x86_64-unknown-linux-gnu`
+
+error: static initializer forms a cycle involving `B0`
+  --> $FILE:18:1
+   |
+18 | static B0: Foo = Foo(&B1); //~ ERROR static initializer forms a cycle involving `B0`
+   | ^^^^^^^^^^^^^^ part of this cycle
+19 | static B1: Foo = Foo(&B0);
+   | -------------- part of this cycle
+   |
+   = note: cyclic static initializers are not supported for target `x86_64-unknown-linux-gnu`
+
+error: aborting due to 3 previous errors; 10 warnings emitted
+
+
+== dump
+<none>

@@ -1,0 +1,28 @@
+exit 0
+== stdout
+MONO_ITEM fn bar @@ regular_modules.c0192215d5abbe4f-cgu.0[External]
+MONO_ITEM fn foo @@ regular_modules.c0192215d5abbe4f-cgu.0[External]
+MONO_ITEM fn mod1::bar @@ regular_modules.c0192215d5abbe4f-cgu.0[External]
+MONO_ITEM fn mod1::foo @@ regular_modules.c0192215d5abbe4f-cgu.0[External]
+MONO_ITEM fn mod1::mod1::bar @@ regular_modules.c0192215d5abbe4f-cgu.0[External]
+MONO_ITEM fn mod1::mod1::foo @@ regular_modules.c0192215d5abbe4f-cgu.0[External]
+MONO_ITEM fn mod1::mod2::bar @@ regular_modules.c0192215d5abbe4f-cgu.0[External]
+MONO_ITEM fn mod1::mod2::foo @@ regular_modules.c0192215d5abbe4f-cgu.0[External]
+MONO_ITEM fn mod2::bar @@ regular_modules.c0192215d5abbe4f-cgu.0[External]
+MONO_ITEM fn mod2::foo @@ regular_modules.c0192215d5abbe4f-cgu.0[External]
+MONO_ITEM fn mod2::mod1::bar @@ regular_modules.c0192215d5abbe4f-cgu.0[External]
+MONO_ITEM fn mod2::mod1::foo @@ regular_modules.c0192215d5abbe4f-cgu.0[External]
+MONO_ITEM fn mod2::mod2::bar @@ regular_modules.c0192215d5abbe4f-cgu.0[External]
+MONO_ITEM fn mod2::mod2::foo @@ regular_modules.c0192215d5abbe4f-cgu.0[External]
+MONO_ITEM static BAZ @@ regular_modules.c0192215d5abbe4f-cgu.0[External]
+MONO_ITEM static mod1::BAZ @@ regular_modules.c0192215d5abbe4f-cgu.0[External]
+MONO_ITEM static mod1::mod1::BAZ @@ regular_modules.c0192215d5abbe4f-cgu.0[External]
+MONO_ITEM static mod1::mod2::BAZ @@ regular_modules.c0192215d5abbe4f-cgu.0[External]
+MONO_ITEM static mod2::BAZ @@ regular_modules.c0192215d5abbe4f-cgu.0[External]
+MONO_ITEM static mod2::mod1::BAZ @@ regular_modules.c0192215d5abbe4f-cgu.0[External]
+MONO_ITEM static mod2::mod2::BAZ @@ regular_modules.c0192215d5abbe4f-cgu.0[External]
+
+== stderr
+
+== dump
+<none>

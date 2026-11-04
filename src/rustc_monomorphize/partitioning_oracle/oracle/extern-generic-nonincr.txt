@@ -1,0 +1,12 @@
+exit 0
+== stdout
+MONO_ITEM fn cgu_generic_function::bar::<&str> @@ extern_generic.998ac00c5258139-cgu.0[External]
+MONO_ITEM fn cgu_generic_function::foo::<&str> @@ extern_generic.998ac00c5258139-cgu.0[External]
+MONO_ITEM fn mod1::mod1::user @@ extern_generic.998ac00c5258139-cgu.0[External]
+MONO_ITEM fn mod1::user @@ extern_generic.998ac00c5258139-cgu.0[External]
+MONO_ITEM fn user @@ extern_generic.998ac00c5258139-cgu.0[External]
+
+== stderr
+
+== dump
+<none>

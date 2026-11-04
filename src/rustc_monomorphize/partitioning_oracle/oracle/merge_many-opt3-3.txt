@@ -1,0 +1,8 @@
+exit 0
+== stdout
+MONO_ITEM static private_used_elsewhere::INNER @@ merge_many.d97d8c349ff64a97-cgu.0[External]
+
+== stderr
+
+== dump
+<none>

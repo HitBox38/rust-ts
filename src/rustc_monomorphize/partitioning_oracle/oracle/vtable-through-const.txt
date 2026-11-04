@@ -1,0 +1,172 @@
+exit 0
+== stdout
+MONO_ITEM fn <mod1::NeedsDrop as mod1::Trait1>::do_something @@ vtable_through_const.6f9dfde91094e56-mod1.volatile[External]
+MONO_ITEM fn <mod1::NeedsDrop as mod1::Trait1>::do_something_else @@ vtable_through_const.6f9dfde91094e56-mod1.volatile[External]
+MONO_ITEM fn <mod1::NeedsDrop as mod1::Trait1Gen<u8>>::do_something @@ vtable_through_const.6f9dfde91094e56-mod1.volatile[External]
+MONO_ITEM fn <mod1::NeedsDrop as mod1::Trait1Gen<u8>>::do_something_else @@ vtable_through_const.6f9dfde91094e56-mod1.volatile[External]
+MONO_ITEM fn <mod1::NeedsDrop as std::ops::Drop>::drop @@ vtable_through_const.6f9dfde91094e56-fallback.cgu[External]
+MONO_ITEM fn main @@ vtable_through_const.6f9dfde91094e56[External]
+MONO_ITEM fn mod1::id::<char> @@ vtable_through_const.6f9dfde91094e56-mod1.volatile[External]
+MONO_ITEM fn std::ptr::drop_glue::<mod1::NeedsDrop> - shim(Some(mod1::NeedsDrop)) @@ vtable_through_const.6f9dfde91094e56-fallback.cgu[External]
+
+== stderr
+warning: trait objects without an explicit `dyn` are deprecated
+  --> $FILE:43:36
+   |
+43 |     pub const TRAIT1_REF: &'static Trait1 = &NeedsDrop as &Trait1;
+   |                                    ^^^^^^
+   |
+   = warning: this is accepted in the current edition (Rust 2015) but is a hard error in Rust 2021!
+   = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2021/warnings-promoted-to-error.html>
+   = note: `#[warn(bare_trait_objects)]` (part of `#[warn(rust_2021_compatibility)]`) on by default
+help: if this is a dyn-compatible trait, use `dyn`
+   |
+43 |     pub const TRAIT1_REF: &'static dyn Trait1 = &NeedsDrop as &Trait1;
+   |                                    +++
+
+warning: trait objects without an explicit `dyn` are deprecated
+  --> $FILE:44:40
+   |
+44 |     pub const TRAIT1_GEN_REF: &'static Trait1Gen<u8> = &NeedsDrop as &Trait1Gen<u8>;
+   |                                        ^^^^^^^^^^^^^
+   |
+   = warning: this is accepted in the current edition (Rust 2015) but is a hard error in Rust 2021!
+   = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2021/warnings-promoted-to-error.html>
+help: if this is a dyn-compatible trait, use `dyn`
+   |
+44 |     pub const TRAIT1_GEN_REF: &'static dyn Trait1Gen<u8> = &NeedsDrop as &Trait1Gen<u8>;
+   |                                        +++
+
+warning: trait objects without an explicit `dyn` are deprecated
+  --> $FILE:69:36
+   |
+69 |     pub const TRAIT2_REF: &'static Trait2 = &NeedsDrop as &Trait2;
+   |                                    ^^^^^^
+   |
+   = warning: this is accepted in the current edition (Rust 2015) but is a hard error in Rust 2021!
+   = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2021/warnings-promoted-to-error.html>
+help: if this is a dyn-compatible trait, use `dyn`
+   |
+69 |     pub const TRAIT2_REF: &'static dyn Trait2 = &NeedsDrop as &Trait2;
+   |                                    +++
+
+warning: trait objects without an explicit `dyn` are deprecated
+  --> $FILE:70:40
+   |
+70 |     pub const TRAIT2_GEN_REF: &'static Trait2Gen<u8> = &NeedsDrop as &Trait2Gen<u8>;
+   |                                        ^^^^^^^^^^^^^
+   |
+   = warning: this is accepted in the current edition (Rust 2015) but is a hard error in Rust 2021!
+   = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2021/warnings-promoted-to-error.html>
+help: if this is a dyn-compatible trait, use `dyn`
+   |
+70 |     pub const TRAIT2_GEN_REF: &'static dyn Trait2Gen<u8> = &NeedsDrop as &Trait2Gen<u8>;
+   |                                        +++
+
+warning: trait objects without an explicit `dyn` are deprecated
+  --> $FILE:43:60
+   |
+43 |     pub const TRAIT1_REF: &'static Trait1 = &NeedsDrop as &Trait1;
+   |                                                            ^^^^^^
+   |
+   = warning: this is accepted in the current edition (Rust 2015) but is a hard error in Rust 2021!
+   = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2021/warnings-promoted-to-error.html>
+help: if this is a dyn-compatible trait, use `dyn`
+   |
+43 |     pub const TRAIT1_REF: &'static Trait1 = &NeedsDrop as &dyn Trait1;
+   |                                                            +++
+
+warning: trait objects without an explicit `dyn` are deprecated
+  --> $FILE:44:71
+   |
+44 |     pub const TRAIT1_GEN_REF: &'static Trait1Gen<u8> = &NeedsDrop as &Trait1Gen<u8>;
+   |                                                                       ^^^^^^^^^^^^^
+   |
+   = warning: this is accepted in the current edition (Rust 2015) but is a hard error in Rust 2021!
+   = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2021/warnings-promoted-to-error.html>
+help: if this is a dyn-compatible trait, use `dyn`
+   |
+44 |     pub const TRAIT1_GEN_REF: &'static Trait1Gen<u8> = &NeedsDrop as &dyn Trait1Gen<u8>;
+   |                                                                       +++
+
+warning: trait objects without an explicit `dyn` are deprecated
+  --> $FILE:69:60
+   |
+69 |     pub const TRAIT2_REF: &'static Trait2 = &NeedsDrop as &Trait2;
+   |                                                            ^^^^^^
+   |
+   = warning: this is accepted in the current edition (Rust 2015) but is a hard error in Rust 2021!
+   = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2021/warnings-promoted-to-error.html>
+help: if this is a dyn-compatible trait, use `dyn`
+   |
+69 |     pub const TRAIT2_REF: &'static Trait2 = &NeedsDrop as &dyn Trait2;
+   |                                                            +++
+
+warning: trait objects without an explicit `dyn` are deprecated
+  --> $FILE:70:71
+   |
+70 |     pub const TRAIT2_GEN_REF: &'static Trait2Gen<u8> = &NeedsDrop as &Trait2Gen<u8>;
+   |                                                                       ^^^^^^^^^^^^^
+   |
+   = warning: this is accepted in the current edition (Rust 2015) but is a hard error in Rust 2021!
+   = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2021/warnings-promoted-to-error.html>
+help: if this is a dyn-compatible trait, use `dyn`
+   |
+70 |     pub const TRAIT2_GEN_REF: &'static Trait2Gen<u8> = &NeedsDrop as &dyn Trait2Gen<u8>;
+   |                                                                       +++
+
+warning: method `do_something_else` is never used
+  --> $FILE:19:12
+   |
+17 |     pub trait Trait1 {
+   |               ------ method in this trait
+18 |         fn do_something(&self) {}
+19 |         fn do_something_else(&self) {}
+   |            ^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `do_something_else` is never used
+  --> $FILE:26:12
+   |
+24 |     pub trait Trait1Gen<T> {
+   |               --------- method in this trait
+25 |         fn do_something(&self, x: T) -> T;
+26 |         fn do_something_else(&self, x: T) -> T;
+   |            ^^^^^^^^^^^^^^^^^
+
+warning: trait `Trait2` is never used
+  --> $FILE:47:15
+   |
+47 |     pub trait Trait2 {
+   |               ^^^^^^
+
+warning: trait `Trait2Gen` is never used
+  --> $FILE:54:15
+   |
+54 |     pub trait Trait2Gen<T> {
+   |               ^^^^^^^^^
+
+warning: constant `TRAIT2_REF` is never used
+  --> $FILE:69:15
+   |
+69 |     pub const TRAIT2_REF: &'static Trait2 = &NeedsDrop as &Trait2;
+   |               ^^^^^^^^^^
+
+warning: constant `TRAIT2_GEN_REF` is never used
+  --> $FILE:70:15
+   |
+70 |     pub const TRAIT2_GEN_REF: &'static Trait2Gen<u8> = &NeedsDrop as &Trait2Gen<u8>;
+   |               ^^^^^^^^^^^^^^
+
+warning: constant `ID_I64` is never used
+  --> $FILE:71:15
+   |
+71 |     pub const ID_I64: fn(i64) -> i64 = id::<i64>;
+   |               ^^^^^^
+
+warning: 15 warnings emitted
+
+
+== dump
+<none>

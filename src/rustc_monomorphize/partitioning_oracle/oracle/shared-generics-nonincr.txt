@@ -1,0 +1,9 @@
+exit 0
+== stdout
+MONO_ITEM fn foo @@ shared_generics.13d450bbe0888d78-cgu.0[External]
+MONO_ITEM fn shared_generics_aux::generic_fn::<u16> @@ shared_generics.13d450bbe0888d78-cgu.0[External]
+
+== stderr
+
+== dump
+<none>

@@ -1,0 +1,13 @@
+exit 0
+== stdout
+MONO_ITEM fn a::f @@ swap_order.6618d64481bab847-a--swap_order.6618d64481bab847-b--swap_order.6618d64481bab847-d[External]
+MONO_ITEM fn b::f @@ swap_order.6618d64481bab847-a--swap_order.6618d64481bab847-b--swap_order.6618d64481bab847-d[External]
+MONO_ITEM fn c::f @@ swap_order.6618d64481bab847-c--swap_order.6618d64481bab847-x[External]
+MONO_ITEM fn d::f @@ swap_order.6618d64481bab847-a--swap_order.6618d64481bab847-b--swap_order.6618d64481bab847-d[External]
+MONO_ITEM fn shared @@ swap_order.6618d64481bab847-a--swap_order.6618d64481bab847-b--swap_order.6618d64481bab847-d[Internal]
+MONO_ITEM fn x::f @@ swap_order.6618d64481bab847-c--swap_order.6618d64481bab847-x[External]
+
+== stderr
+
+== dump
+<none>
