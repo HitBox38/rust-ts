@@ -154,10 +154,23 @@ InterpCx.prototype.connect = function (): InterpResult {
 InterpCx.prototype.send = function (this: MiriInterpCx, socket_op: OpTy, buffer: OpTy, length_op: OpTy, flags_op: OpTy, dest: MPlaceTy): InterpResult {
   const this_ = this.eval_context_mut();
 
-  const args = read_send_recv_args(this_, socket_op, buffer, length_op, flags_op);
-  if (args.$ === "Err") return args;
-  const { socket_num, buffer_ptr, length } = args._0;
-  let flags = args._0.flags;
+  const socket_num_r = read_i32(this_, socket_op);
+  if (socket_num_r.$ === "Err") return socket_num_r;
+  const socket_num = socket_num_r._0;
+  const buffer_ptr_r = this_.read_pointer(buffer as never);
+  if (buffer_ptr_r.$ === "Err") return buffer_ptr_r;
+  const buffer_ptr = buffer_ptr_r._0 as Pointer;
+  const size_layout = this_.libc_ty_layout("size_t");
+  const length_s = this_.read_scalar(length_op as never);
+  if (length_s.$ === "Err") return length_s;
+  const length_r = interp_Scalar.to_uint(length_s._0 as Scalar, size_layout.size);
+  if (length_r.$ === "Err") return length_r;
+  // PORT: `usize` is a number here (`virtual_socket_read` / `virtual_socket_write`), so a length above 2^53 stops.
+  if (length_r._0 > BigInt(Number.MAX_SAFE_INTEGER)) return unported("miri::shims::unix::socket send with a length of 2^53 bytes or more");
+  const length = Number(length_r._0);
+  const flags_r = read_i32(this_, flags_op);
+  if (flags_r.$ === "Err") return flags_r;
+  let flags = flags_r._0;
 
   // Get the file handle
   const fd = this_.machine.fds.get(socket_num);
@@ -198,16 +211,41 @@ InterpCx.prototype.send = function (this: MiriInterpCx, socket_op: OpTy, buffer:
   }
 
   const virtual_socket = socket as unknown as FileDescriptionRef<VirtualSocket>;
-  return virtual_socket.deref().send(virtual_socket, this_.machine.communicate(), buffer_ptr, length, is_non_block, this_, finish_send_recv(dest));
+  return virtual_socket.deref().send(virtual_socket, this_.machine.communicate(), buffer_ptr, length, is_non_block, this_, callback<{ dest: MPlaceTy }, Result<number, IoError>>(
+      {
+        dest: [dest, VisitProvenance_MPlaceTy],
+      },
+      (this_, result, { dest }) => {
+        switch (result.$) {
+          case "Ok":
+            return this_.write_scalar(interp_Scalar.from_target_usize(BigInt(result._0), this_) as never, dest as never);
+          case "Err":
+            return this_.set_errno_and_return_neg1(result._0, dest);
+        }
+      },
+    ));
 };
 // rustc: src/tools/miri/src/shims/unix/socket.rs:497 recv
 InterpCx.prototype.recv = function (this: MiriInterpCx, socket_op: OpTy, buffer: OpTy, length_op: OpTy, flags_op: OpTy, dest: MPlaceTy): InterpResult {
   const this_ = this.eval_context_mut();
 
-  const args = read_send_recv_args(this_, socket_op, buffer, length_op, flags_op);
-  if (args.$ === "Err") return args;
-  const { socket_num, buffer_ptr, length } = args._0;
-  let flags = args._0.flags;
+  const socket_num_r = read_i32(this_, socket_op);
+  if (socket_num_r.$ === "Err") return socket_num_r;
+  const socket_num = socket_num_r._0;
+  const buffer_ptr_r = this_.read_pointer(buffer as never);
+  if (buffer_ptr_r.$ === "Err") return buffer_ptr_r;
+  const buffer_ptr = buffer_ptr_r._0 as Pointer;
+  const size_layout = this_.libc_ty_layout("size_t");
+  const length_s = this_.read_scalar(length_op as never);
+  if (length_s.$ === "Err") return length_s;
+  const length_r = interp_Scalar.to_uint(length_s._0 as Scalar, size_layout.size);
+  if (length_r.$ === "Err") return length_r;
+  // PORT: `usize` is a number here (`virtual_socket_read` / `virtual_socket_write`), so a length above 2^53 stops.
+  if (length_r._0 > BigInt(Number.MAX_SAFE_INTEGER)) return unported("miri::shims::unix::socket recv with a length of 2^53 bytes or more");
+  const length = Number(length_r._0);
+  const flags_r = read_i32(this_, flags_op);
+  if (flags_r.$ === "Err") return flags_r;
+  let flags = flags_r._0;
 
   // Get the file handle
   const fd = this_.machine.fds.get(socket_num);
@@ -259,7 +297,19 @@ InterpCx.prototype.recv = function (this: MiriInterpCx, socket_op: OpTy, buffer:
   }
 
   const virtual_socket = socket as unknown as FileDescriptionRef<VirtualSocket>;
-  return virtual_socket.deref().recv(virtual_socket, this_.machine.communicate(), buffer_ptr, length, is_peek, is_non_block, this_, finish_send_recv(dest));
+  return virtual_socket.deref().recv(virtual_socket, this_.machine.communicate(), buffer_ptr, length, is_peek, is_non_block, this_, callback<{ dest: MPlaceTy }, Result<number, IoError>>(
+      {
+        dest: [dest, VisitProvenance_MPlaceTy],
+      },
+      (this_, result, { dest }) => {
+        switch (result.$) {
+          case "Ok":
+            return this_.write_scalar(interp_Scalar.from_target_usize(BigInt(result._0), this_) as never, dest as never);
+          case "Err":
+            return this_.set_errno_and_return_neg1(result._0, dest);
+        }
+      },
+    ));
 };
 InterpCx.prototype.setsockopt = function (): InterpResult<Scalar> {
   return socket_out_of_scope("setsockopt");
@@ -276,41 +326,6 @@ InterpCx.prototype.getpeername = function (): InterpResult {
 InterpCx.prototype.shutdown = function (): InterpResult<Scalar> {
   return socket_out_of_scope("shutdown");
 };
-
-/** The arguments `send` and `recv` read first, in upstream's order. */
-function read_send_recv_args(this_: MiriInterpCx, socket_op: OpTy, buffer: OpTy, length_op: OpTy, flags_op: OpTy): InterpResult<{ socket_num: number; buffer_ptr: Pointer; length: number; flags: number }> {
-  const socket_num = read_i32(this_, socket_op);
-  if (socket_num.$ === "Err") return socket_num;
-  const buffer_ptr = this_.read_pointer(buffer as never);
-  if (buffer_ptr.$ === "Err") return buffer_ptr;
-  const size_layout = this_.libc_ty_layout("size_t");
-  const length_s = this_.read_scalar(length_op as never);
-  if (length_s.$ === "Err") return length_s;
-  const length_r = interp_Scalar.to_uint(length_s._0 as Scalar, size_layout.size);
-  if (length_r.$ === "Err") return length_r;
-  // PORT: `usize` is a number here (`virtual_socket_read` / `virtual_socket_write`), so a length above 2^53 stops.
-  if (length_r._0 > BigInt(Number.MAX_SAFE_INTEGER)) return unported("miri::shims::unix::socket send/recv with a length of 2^53 bytes or more");
-  const flags = read_i32(this_, flags_op);
-  if (flags.$ === "Err") return flags;
-  return Ok({ socket_num: socket_num._0, buffer_ptr: buffer_ptr._0 as Pointer, length: Number(length_r._0), flags: flags._0 });
-}
-
-/** The `callback!` both `send` and `recv` pass: the result, or `-1` and `errno`. */
-function finish_send_recv(dest: MPlaceTy) {
-  return callback<{ dest: MPlaceTy }, Result<number, IoError>>(
-    {
-      dest: [dest, VisitProvenance_MPlaceTy],
-    },
-    (this_, result, { dest }) => {
-      switch (result.$) {
-        case "Ok":
-          return this_.write_scalar(interp_Scalar.from_target_usize(BigInt(result._0), this_) as never, dest as never);
-        case "Err":
-          return this_.set_errno_and_return_neg1(result._0, dest);
-      }
-    },
-  );
-}
 
 /** `this.read_scalar(op)?.to_i32()?`. */
 function read_i32(this_: MiriInterpCx, op: OpTy): InterpResult<number> {
