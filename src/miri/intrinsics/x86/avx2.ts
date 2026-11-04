@@ -30,26 +30,6 @@ declare module "../../../rustc_const_eval/interpret/eval_context.ts" {
   }
 }
 
-// PORT(contract): pending miri-x86-a. The helpers of intrinsics/x86/mod.rs this file and avx512.ts call, with the
-// signatures agreed with that lane. Calls go through the `x86` namespace, so this block only has to be deleted once
-// mod.ts exports them; a differing export then shows up as a type error here.
-declare module "./mod.ts" {
-  export function pmaddbw(ecx: MiriInterpCx, left: OpTy, right: OpTy, dest: MPlaceTy): InterpResult;
-  export function mpsadbw(ecx: MiriInterpCx, left: OpTy, right: OpTy, imm: OpTy, dest: MPlaceTy): InterpResult;
-  export function pmulhrsw(ecx: MiriInterpCx, left: OpTy, right: OpTy, dest: MPlaceTy): InterpResult;
-  export function packsswb(ecx: MiriInterpCx, left: OpTy, right: OpTy, dest: MPlaceTy): InterpResult;
-  export function packssdw(ecx: MiriInterpCx, left: OpTy, right: OpTy, dest: MPlaceTy): InterpResult;
-  export function packuswb(ecx: MiriInterpCx, left: OpTy, right: OpTy, dest: MPlaceTy): InterpResult;
-  export function packusdw(ecx: MiriInterpCx, left: OpTy, right: OpTy, dest: MPlaceTy): InterpResult;
-  export function permute(ecx: MiriInterpCx, values: OpTy, indices: OpTy, dest: MPlaceTy): InterpResult;
-  export function psadbw(ecx: MiriInterpCx, left: OpTy, right: OpTy, dest: MPlaceTy): InterpResult;
-  export function pshufb(ecx: MiriInterpCx, left: OpTy, right: OpTy, dest: MPlaceTy): InterpResult;
-  export function psign(ecx: MiriInterpCx, left: OpTy, right: OpTy, dest: MPlaceTy): InterpResult;
-  export function shift_simd_by_scalar(ecx: MiriInterpCx, left: OpTy, right: OpTy, which: x86.ShiftOp, dest: MPlaceTy): InterpResult;
-  export function shift_simd_by_simd(ecx: MiriInterpCx, left: OpTy, right: OpTy, which: x86.ShiftOp, dest: MPlaceTy): InterpResult;
-  export function pmaddwd(ecx: MiriInterpCx, left: OpTy, right: OpTy, dest: MPlaceTy): InterpResult;
-}
-
 /** `assert_eq!` of two `u64` lengths. */
 function assert_eq_len(left: bigint, right: bigint): void {
   assert_eq(left, right, (v) => `${v}`);

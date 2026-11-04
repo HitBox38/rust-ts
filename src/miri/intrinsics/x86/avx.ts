@@ -29,25 +29,6 @@ declare module "../../../rustc_const_eval/interpret/eval_context.ts" {
   }
 }
 
-// PORT(contract): pending miri-x86-a. The helpers of intrinsics/x86/mod.rs this file calls, with the signatures agreed
-// with that lane. Calls go through the `x86` namespace, so this block only has to be deleted once mod.ts exports them;
-// a differing export then shows up as a type error here.
-declare module "./mod.ts" {
-  export function bin_op_simd_float_all<F extends Float<F>>(ecx: MiriInterpCx, which: x86.FloatBinOp, left: OpTy, right: OpTy, dest: MPlaceTy, F_: FloatType<F>): InterpResult;
-  export function round_all<F extends Float<F>>(ecx: MiriInterpCx, op: OpTy, rounding: OpTy, dest: MPlaceTy, F_: FloatType<F>): InterpResult;
-  export function unary_op_ps(ecx: MiriInterpCx, which: x86.FloatUnaryOp, op: OpTy, dest: MPlaceTy): InterpResult;
-  export function conditional_dot_product(ecx: MiriInterpCx, left: OpTy, right: OpTy, imm: OpTy, dest: MPlaceTy): InterpResult;
-  export function convert_float_to_int(ecx: MiriInterpCx, op: OpTy, rnd: Round, dest: MPlaceTy): InterpResult;
-  export function test_bits_masked(ecx: MiriInterpCx, op: OpTy, mask: OpTy): InterpResult<[boolean, boolean]>;
-  export function test_high_bits_masked(ecx: MiriInterpCx, op: OpTy, mask: OpTy): InterpResult<[boolean, boolean]>;
-}
-
-// PORT(contract): pending miri-x86-a. `FloatBinOp::cmp_from_imm` (mod.rs:199) on the companion; once mod.ts has it, call
-// `FloatBinOp.cmp_from_imm(..)` directly and delete this function.
-function cmp_from_imm(ecx: MiriInterpCx, imm: number, intrinsic: Symbol): InterpResult<FloatBinOp> {
-  return (FloatBinOp as unknown as { cmp_from_imm(ecx: MiriInterpCx, imm: number, intrinsic: Symbol): InterpResult<FloatBinOp> }).cmp_from_imm(ecx, imm, intrinsic);
-}
-
 /** `assert_eq!` of two `u64` lengths. */
 function assert_eq_len(left: bigint, right: bigint): void {
   assert_eq(left, right, (v) => `${v}`);
@@ -186,7 +167,7 @@ InterpCx.prototype.emulate_x86_avx_intrinsic = function (this: MiriInterpCx, lin
       if (imm_s.$ === "Err") return imm_s;
       const imm_v = Scalar.to_i8(imm_s._0);
       if (imm_v.$ === "Err") return imm_v;
-      const which = cmp_from_imm(this_, imm_v._0, link_name);
+      const which = FloatBinOp.cmp_from_imm(this_, imm_v._0, link_name);
       if (which.$ === "Err") return which;
 
       const r = x86.bin_op_simd_float_all(this_, which._0, left, right, dest, Single);
@@ -206,7 +187,7 @@ InterpCx.prototype.emulate_x86_avx_intrinsic = function (this: MiriInterpCx, lin
       if (imm_s.$ === "Err") return imm_s;
       const imm_v = Scalar.to_i8(imm_s._0);
       if (imm_v.$ === "Err") return imm_v;
-      const which = cmp_from_imm(this_, imm_v._0, link_name);
+      const which = FloatBinOp.cmp_from_imm(this_, imm_v._0, link_name);
       if (which.$ === "Err") return which;
 
       const r = x86.bin_op_simd_float_all(this_, which._0, left, right, dest, Double);

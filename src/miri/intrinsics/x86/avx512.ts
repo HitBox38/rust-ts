@@ -27,12 +27,6 @@ declare module "../../../rustc_const_eval/interpret/eval_context.ts" {
   }
 }
 
-// PORT(contract): pending miri-x86-a. `permute2` of intrinsics/x86/mod.rs (the other helpers this file calls are declared
-// in avx2.ts), with the signature agreed with that lane. Delete this block once mod.ts exports it.
-declare module "./mod.ts" {
-  export function permute2(ecx: MiriInterpCx, left: OpTy, indices: OpTy, right: OpTy, dest: MPlaceTy): InterpResult;
-}
-
 /** `assert_eq!` of two `u64` lengths. */
 function assert_eq_len(left: bigint, right: bigint): void {
   assert_eq(left, right, (v) => `${v}`);
