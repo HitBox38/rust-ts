@@ -376,10 +376,26 @@ export function stderr_write_all(buf: Uint8Array): IoResult<null> {
 const utf8_encoder = new TextEncoder();
 const stdio_bytes = (data: string | Uint8Array): Uint8Array => (typeof data === "string" ? utf8_encoder.encode(data) : data);
 
+/** `OUTPUT_CAPTURE` (library/std/src/io/stdio.rs), what libtest captures output with. PORT: the sink is an array of chunks. */
+let OUTPUT_CAPTURE: Uint8Array[] | undefined;
+
+// std: library/std/src/io/stdio.rs:1158 set_output_capture
+/** Sets the capture and returns the previous one. Tests use it to read an in-process `eprintln!`. */
+export function set_output_capture(sink: Uint8Array[] | undefined): Uint8Array[] | undefined {
+  const old = OUTPUT_CAPTURE;
+  OUTPUT_CAPTURE = sink;
+  return old;
+}
+
 /** `print!("{data}")`: `print_to` (library/std/src/io/stdio.rs:1199) panics on a failed write.
  *  PORT: the way to write to stdout from ported code and from drivers. Never use `process.stdout.write`: see `write_stderr`. */
 export function write_stdout(data: string | Uint8Array): void {
-  const r = stdout_write_all(stdio_bytes(data));
+  const bytes = stdio_bytes(data);
+  if (OUTPUT_CAPTURE !== undefined) {
+    OUTPUT_CAPTURE.push(bytes);
+    return;
+  }
+  const r = stdout_write_all(bytes);
   if (r.$ === "Err") panic(`failed printing to stdout: ${display_IoError(r._0)}`);
 }
 
@@ -389,6 +405,11 @@ export function write_stdout(data: string | Uint8Array): void {
  *  after it, which is all the diagnostics, lands in the middle of the text, and whatever is still queued at
  *  `process.exit` is lost. Merely touching `process.stderr` also makes the pipe non-blocking for every later write. */
 export function write_stderr(data: string | Uint8Array): void {
-  const r = stderr_write_all(stdio_bytes(data));
+  const bytes = stdio_bytes(data);
+  if (OUTPUT_CAPTURE !== undefined) {
+    OUTPUT_CAPTURE.push(bytes);
+    return;
+  }
+  const r = stderr_write_all(bytes);
   if (r.$ === "Err") panic(`failed printing to stderr: ${display_IoError(r._0)}`);
 }

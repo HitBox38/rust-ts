@@ -7,6 +7,7 @@
 // file, recorded below; exit 1 for every one).
 import { expect, mock, spyOn, test } from "bun:test";
 import { set_args_os } from "../../std/env.ts";
+import { set_output_capture } from "../../std/io.ts";
 import { Unported } from "../../std/panic.ts";
 import { FxHashMap, FxHashSet, String_key, usize_key } from "../../rust_ts/hash_map.ts";
 import { MiriConfig } from "../eval.ts";
@@ -82,12 +83,8 @@ const enc = new TextEncoder();
 function run(args: string[]): [string, number, MiriConfig] {
   set_args_os(["miri", ...args].map((a) => enc.encode(a)));
   last_config = undefined;
-  let err = "";
-  const orig = process.stderr.write.bind(process.stderr);
-  process.stderr.write = ((chunk: string | Uint8Array): boolean => {
-    err += typeof chunk === "string" ? chunk : new TextDecoder().decode(chunk);
-    return true;
-  }) as typeof process.stderr.write;
+  const captured: Uint8Array[] = [];
+  const previous = set_output_capture(captured);
   let code: number;
   try {
     code = main();
@@ -95,8 +92,9 @@ function run(args: string[]): [string, number, MiriConfig] {
     if (!(e instanceof MiriExit)) throw e;
     code = e.code;
   } finally {
-    process.stderr.write = orig;
+    set_output_capture(previous);
   }
+  const err = captured.map((c) => new TextDecoder().decode(c)).join("");
   return [err, code, last_config!];
 }
 
@@ -146,7 +144,7 @@ test("bad flags: stderr and exit status equal the oracle Miri's", () => {
 
 test("flag values reach MiriConfig (every flag kind)", () => {
   // Every case below stops at rustc's "error: no input filename given" (exit 1, as the oracle does), after parsing; the
-  // config is inspected. (rustc's diagnostics go to fd 2 through the emitter, not `process.stderr.write`: not captured.)
+  // config is inspected. (rustc's diagnostics go to fd 2 through the emitter, not `eprintln!`: not captured.)
   const parse = (args: string[]): MiriConfig => {
     const [err, code, cfg] = run(args);
     expect(err).toBe("");
