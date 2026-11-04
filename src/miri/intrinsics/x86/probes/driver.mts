@@ -4,6 +4,7 @@
 // has no stand-in yet), so a program that needs SSE3 or later cannot run through the ordinary entry. This entry adds the
 // comma-separated features of `$X86_PROBE_FEATURES` to what `target_config` reports, standing in for the oracle's
 // `-C target-feature=+..`. Only `Session::internal_target_features` changes; the rest is src/miri/bin/miri.ts's entry glue.
+// `.mts`, not `.ts`: src/miri/contract.test.ts requires every `.ts` module under src/miri to mirror an upstream file.
 import { main, MiriExit } from "../../../bin/miri.ts";
 import { LlvmCodegenBackend } from "../../../../rust_ts/codegen_backend.ts";
 import { ensure_stack } from "../../../../rust_ts/stack.ts";
