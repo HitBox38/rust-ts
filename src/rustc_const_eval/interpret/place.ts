@@ -4,6 +4,7 @@
 // Port of compiler/rustc_const_eval/src/interpret/place.rs (declared by lane interp-contract, filled by lane
 // interp-place-operand, plan-m4 wave 23c). Representation notes: interpret/eval_context.ts's header and
 // docs/handoff/interp-contract.md.
+import type { LocalState } from "./stack.gen.ts";
 import { type HasDataLayout, Size, Scalar as abi_Scalar, debug_Size } from "../../rustc_abi/lib.ts";
 import { InterpCx, mir_assign_valid_types } from "./eval_context.ts";
 import { type CtfeMemoryKind, type AnyMachine, type ProvOf, type MachineTypesOf, type Machine } from "./machine.ts";
@@ -753,6 +754,24 @@ InterpCx.prototype.eval_place = function (this: InterpCx, mir_place: mir_Place, 
 
 /// Given a place, returns either the underlying mplace or a reference to where the value of
 /// this place is stored.
+/**
+ * PORT(perf): the `MutRef<Immediate>` of `as_mplace_or_mutable_local` as a class: an object literal with an accessor pair
+ * and two closures on every local write was its own hot spot. Same reads and writes.
+ */
+class LocalImmediateRef implements MutRef<Immediate> {
+  constructor(
+    private readonly state: LocalState,
+    private cur: Immediate,
+  ) {}
+  get value(): Immediate {
+    return this.cur;
+  }
+  set value(v: Immediate) {
+    this.cur = v;
+    this.state.value = { $: "Live", _0: { $: "Immediate", _0: v } };
+  }
+}
+
 // PORT: `&mut Immediate` (the local's value) is a `MutRef<Immediate>` whose writes store
 // `LocalValue::Live(Operand::Immediate(v))` into the frame's `LocalState` (`LocalState.value` is the mutable field).
 // #[inline(always)]
@@ -784,17 +803,7 @@ InterpCx.prototype.as_mplace_or_mutable_local = function (this: InterpCx, place:
             return interp_ok<R>({ $: "Left", _0: new MPlaceTy(op._0, layout) });
           case "Immediate": {
             // The local still has the optimized representation.
-            let cur = op._0;
-            const local_val: MutRef<Immediate> = {
-              get value(): Immediate {
-                return cur;
-              },
-              set value(v: Immediate) {
-                cur = v;
-                state.value = { $: "Live", _0: { $: "Immediate", _0: v } };
-              },
-            };
-            return interp_ok<R>({ $: "Right", _0: [local_val, layout, local] });
+            return interp_ok<R>({ $: "Right", _0: [new LocalImmediateRef(state, op._0), layout, local] });
           }
         }
       }
