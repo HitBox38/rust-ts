@@ -58,7 +58,7 @@ import {
   Scalar,
 } from "../../rustc_middle/mir/interpret/mod.ts";
 import type { MemPlaceMeta as gen_MemPlaceMeta } from "./place.gen.ts";
-import { typing_env_no } from "../../rust_ts/typing_env_no.ts";
+import { pack_def_id, typing_env_no } from "../../rust_ts/typing_env_no.ts";
 import type { NormalizationError } from "../../rustc_middle/ty/normalize_erasing_regions.ts";
 import { BasicBlock, type Body, Const as mir_Const, type ConstAlloc, type Either, type Promoted, type Location, type UnwindAction } from "../../rustc_middle/mir/mod.ts";
 import type { TyCtxtAt } from "../../rustc_middle/query/calls.ts";
@@ -142,6 +142,8 @@ var place_cache: typeof import("./place.ts") | undefined;
  * repeat use is invisible. `Err` is not remembered (it builds a span-dependent error).
  */
 const FRAME_NORMALIZE_MEMO = new Map<unknown, Map<number, Result<unknown, NormalizationError>>>();
+/** PORT(perf): see `resolve`. */
+const RESOLVE_MEMO = new Map<number, InterpResult<Instance>>();
 
 export class InterpCx<M extends AnyMachine = Machine>
   implements
@@ -448,10 +450,21 @@ export class InterpCx<M extends AnyMachine = Machine>
     // trace!("resolve: {:?}, {:#?}", def, args);
     // trace!("typing_env: {:#?}", self.typing_env);
     // trace!("args: {:#?}", args);
+    // PORT(perf): a successful resolution is pure in `(def, args, typing env)` (all interned or by value), and `Instance` is
+    // never written to, so the first result is reused: `try_resolve` erases, folds and looks up queries on every call.
+    const resolve_key = pack_def_id(typing_env_no(this.typing_env), def, args.id);
+    if (resolve_key >= 0) {
+      const hit = RESOLVE_MEMO.get(resolve_key);
+      if (hit !== undefined) return hit;
+    }
     const r = Instance.try_resolve(this.tcx.deref(), this.typing_env, def, args);
     if (r.$ === "Ok") {
       const instance = r._0;
-      if (instance !== undefined) return interp_ok(instance);
+      if (instance !== undefined) {
+        const ok = interp_ok(instance);
+        if (resolve_key >= 0) RESOLVE_MEMO.set(resolve_key, ok);
+        return ok;
+      }
       // throw_inval!(TooGeneric)
       return Err(InterpErrorInfo_from_InterpErrorKind({ $: "InvalidProgram", _0: { $: "TooGeneric" } }));
     }
