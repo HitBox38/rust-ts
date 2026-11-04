@@ -12,9 +12,8 @@
 //   for C varargs); `check_shim_sig` / `check_shim_sig_variadic` are declared in sig.ts.
 // - The other-OS dispatch arms (android, freebsd, macos, solarish, netbsd) and their `is_dyn_sym` stop `unported`
 //   (plan-m6 D2: only x86_64-unknown-linux-gnu). The Linux arm calls linux/foreign_items.ts (lane miri-shims-d).
-// - `socketpair` / `pipe` / `pipe2` (shims/unix/virtual_socket.rs) and `getaddrinfo` / `freeaddrinfo`
-//   (shims/unix/socket_address.rs) live in files without a module (D2 sockets exclusion, miri-contract "Scope"): their
-//   arms check the signature, then stop `unported`.
+// - `getaddrinfo` / `freeaddrinfo` (shims/unix/socket_address.rs) live in a file without a module (D2 sockets exclusion,
+//   miri-contract "Scope"): their arms check the signature, then stop `unported`.
 // - `trace!(..)` calls are comments (only `info!` is ported, plan-m6 A6).
 // - `std::env::home_dir()` (`getpwuid_r`, isolation off only) is a host stand-in (`$HOME`, else `os.homedir()`,
 //   plan-m6 D14).
@@ -876,12 +875,22 @@ export function emulate_foreign_item_inner(self_: MiriInterpCx, link_name: Symbo
     case "socketpair": {
       const a = this_.check_shim_sig(shim_sig("C", ["i32", "i32", "i32", "*_"], "i32"), sig_args);
       if (a.$ === "Err") return a;
-      return unported("miri::shims::unix::virtual_socket::EvalContextExt::socketpair (plan-m6 D2: sockets)");
+      const [domain, type_, protocol, sv] = a._0;
+      const result = this_.socketpair(domain!, type_!, protocol!, sv!);
+      if (result.$ === "Err") return result;
+      const w = this_.write_scalar(result._0, dest);
+      if (w.$ === "Err") return w;
+      break;
     }
     case "pipe": {
       const a = this_.check_shim_sig(shim_sig("C", ["*_"], "i32"), sig_args);
       if (a.$ === "Err") return a;
-      return unported("miri::shims::unix::virtual_socket::EvalContextExt::pipe2 (plan-m6 D2: sockets)");
+      const [pipefd] = a._0;
+      const result = this_.pipe2(pipefd!, /*flags*/ undefined);
+      if (result.$ === "Err") return result;
+      const w = this_.write_scalar(result._0, dest);
+      if (w.$ === "Err") return w;
+      break;
     }
     case "pipe2": {
       // Currently this function does not exist on all Unixes, e.g. on macOS.
@@ -890,7 +899,12 @@ export function emulate_foreign_item_inner(self_: MiriInterpCx, link_name: Symbo
 
       const a = this_.check_shim_sig(shim_sig("C", ["*_", "i32"], "i32"), sig_args);
       if (a.$ === "Err") return a;
-      return unported("miri::shims::unix::virtual_socket::EvalContextExt::pipe2 (plan-m6 D2: sockets)");
+      const [pipefd, flags] = a._0;
+      const result = this_.pipe2(pipefd!, flags!);
+      if (result.$ === "Err") return result;
+      const w = this_.write_scalar(result._0, dest);
+      if (w.$ === "Err") return w;
+      break;
     }
 
     // Network sockets
