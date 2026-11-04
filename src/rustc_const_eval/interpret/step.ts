@@ -133,7 +133,8 @@ InterpCx.prototype.step = function (this: InterpCx): InterpResult<boolean> {
     const r = this.eval_statement(stmt);
     if (r.$ === "Err") return r;
     // Make sure we are not updating `statement_index` of the wrong frame.
-    assert_eq(old_frames, this.frame_idx(), (v) => `${v}`);
+    // PORT(perf): the closure only on the failing path; this runs per statement.
+    if (old_frames !== this.frame_idx()) assert_eq(old_frames, this.frame_idx(), (v) => `${v}`);
     // Advance the program counter.
     // PORT: `loc.as_mut().left().unwrap().statement_index += 1`: `Location` values are shared (e.g. `Location::START`),
     // so the frame gets a new one.
@@ -647,6 +648,7 @@ InterpCx.prototype.eval_fn_call_argument = function (this: InterpCx, op: mir_Ope
   }
 };
 
+const NO_TYS: Ty[] = [];
 /** PORT(perf): the callee signature of `eval_callee_and_args`, keyed `ty.id * 64 + env` (envs below 64). */
 const CALLEE_SIG_MEMO = new Map<number, [Binder<FnSig>, FnSig]>();
 
@@ -674,7 +676,8 @@ InterpCx.prototype.eval_callee_and_args = function (
   // argument with the return place.
   let move_definitely_disjoint: boolean;
   move_definitely_disjoint: {
-    const previous_locals = new Set<Local>();
+    // PORT(perf): an array, not a `Set`: this is per call, and there are only a few places.
+    const previous_locals: Local[] = [];
     const places: mir_Place[] = [];
     for (const a of args_ops) {
       // We only have to care about `Move` arguments.
@@ -687,12 +690,12 @@ InterpCx.prototype.eval_callee_and_args = function (
         move_definitely_disjoint = false;
         break move_definitely_disjoint;
       }
-      if (previous_locals.has(place.local)) {
+      if (previous_locals.includes(place.local)) {
         // This local is the base for two arguments! They might overlap.
         move_definitely_disjoint = false;
         break move_definitely_disjoint;
       }
-      previous_locals.add(place.local);
+      previous_locals.push(place.local);
     }
     // We found no violation so they are all definitely disjoint.
     move_definitely_disjoint = true;
@@ -718,8 +721,8 @@ InterpCx.prototype.eval_callee_and_args = function (
   const [fn_sig_binder, fn_sig] = sig_memo;
   const n_inputs = FnSig.inputs(fn_sig).length;
   if (n_inputs > args.length) panic(`range start index ${n_inputs} out of range for slice of length ${args.length}`);
-  const extra_args_ = args.slice(n_inputs);
-  const extra_args = this.tcx.deref().mk_type_list_from_iter(extra_args_.map((arg) => FnArg.layout(arg).ty));
+  // PORT(perf): no slice and no closure in the usual case of no extra arguments.
+  const extra_args = args.length === n_inputs ? this.tcx.deref().mk_type_list(NO_TYS) : this.tcx.deref().mk_type_list_from_iter(args.slice(n_inputs).map((arg) => FnArg.layout(arg).ty));
 
   let callee: FnVal<never>;
   let fn_abi: FnAbi<Ty> | undefined;
