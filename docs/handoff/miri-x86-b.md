@@ -4,6 +4,8 @@ Branch `t3/port-miri-x86-intrinsics-1`, base main `c9d3c553`. It builds on its o
 
 **Integration aid:** branch `t3/miri-x86-b-on-x86-a` merges this lane with miri-x86-a's `t3/port-miri-x86-intrinsics` and
 adds one commit that removes the stand-ins (see "Stand-ins to remove"). Replay that commit, or use the branch, when merging both lanes.
+At x86-a's `0001ccf9`: tsc 0 errors; `bun test src/miri/intrinsics/x86 src/miri/contract.test.ts` 44 pass, 1 fail. The failure is the
+contract test rejecting x86-a's `src/miri/intrinsics/x86/probes/driver.ts` (not a module; that lane has been told).
 
 ## Decisions root needs to look at
 
@@ -67,7 +69,7 @@ Mutation check (12 mutations, all reverted): 11 fail the tests. The twelfth, dro
 
 ### End to end
 
-Run on a throwaway merge with miri-x86-a's `f9f88ec7`..`542e1adb` through `src/miri/bin/miri.ts`, under a load average of 50-370.
+Run on a throwaway merge with miri-x86-a's `542e1adb` through `src/miri/bin/miri.ts`, under a load average of 50-370.
 **Every program with a `-Ctarget-feature` flag (19 of 24) needed a temporary rig that is not committed:** a local patch to
 `codegen_backend.ts` accepting the flag, with feature sets taken from the oracle's `rustc --print cfg`. So this shows the intrinsics
 agree once decision 1 is resolved; it does not show that the port accepts the flag.

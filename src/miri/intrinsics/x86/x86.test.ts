@@ -8,7 +8,7 @@
 // - the `err_*` probes compare the whole stderr (the diagnostics) and the exit status;
 // - the two `*_panic` probes compare the panic text and the exit status: the ICE frame around it is the driver's.
 //
-// The port's driver stops `unported` on `-C target-feature` (docs/handoff/miri-x86-a.md), so `probes/driver.ts` grants the
+// The port's driver stops `unported` on `-C target-feature` (docs/handoff/miri-x86-a.md), so `probes/driver.mts` grants the
 // features the oracle got from that flag.
 import { expect, test } from "bun:test";
 import { existsSync, readFileSync } from "node:fs";
@@ -67,7 +67,7 @@ const PANICS: readonly Case[] = [err("err_cmp_imm_panic"), err("err_round_panic"
 
 async function run(c: Case): Promise<{ stdout: Buffer; stderr: string; exit: number }> {
   const proc = Bun.spawn(
-    [process.execPath, "driver.ts", "--sysroot", MIRI_SYSROOT, "--target", "x86_64-unknown-linux-gnu", "--edition=2021", ...c.flags, `${c.probe}.rs`],
+    [process.execPath, "driver.mts", "--sysroot", MIRI_SYSROOT, "--target", "x86_64-unknown-linux-gnu", "--edition=2021", ...c.flags, `${c.probe}.rs`],
     {
       cwd: DIR,
       env: {
@@ -105,6 +105,18 @@ for (const c of VALUES) {
     expect(String(exit)).toBe(fixture(c, "exit").trim());
   }, TIMEOUT_MS);
 }
+
+// The helpers of mod.ts that only the AVX files reach (lane miri-x86-b), and their multi-chunk paths. Until that lane is
+// merged its `emulate_x86_avx*_intrinsic` are `unported` placeholders, so this case needs both lanes.
+const AVX_PORTED = !readFileSync(join(import.meta.dir, "avx2.ts"), "utf8").includes("stub_methods(");
+if (!AVX_PORTED) console.log("SKIP: wide.rs needs lane miri-x86-b's avx files (avx2.ts is still a stub)");
+const WIDE: Case = { fixture: "wide", probe: "wide", features: `${SSE42},avx,avx2,avx512f,avx512bw,avx512vbmi`, flags: [] };
+test.skipIf(!AVX_PORTED || (!HAVE && !REQUIRE))("values: wide", async () => {
+  const { stdout, stderr, exit } = await run(WIDE);
+  expect_same_bytes(stdout, WIDE, stderr);
+  expect(stderr).toBe(fixture(WIDE, "stderr"));
+  expect(String(exit)).toBe(fixture(WIDE, "exit").trim());
+}, TIMEOUT_MS);
 
 for (const c of ERRORS) {
   test.skipIf(!HAVE && !REQUIRE)(`diagnostics: ${c.fixture}`, async () => {
