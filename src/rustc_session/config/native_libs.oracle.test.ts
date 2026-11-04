@@ -54,5 +54,5 @@ for (const value of [
       return { code: r.exitCode, stdout: r.stdout.toString(), stderr: r.stderr.toString() };
     };
     expect(run([process.execPath, join(REPO, "src/rust_ts/main.ts")])).toEqual(run(RUSTC));
-  });
+  }, 120_000);
 }

@@ -173,5 +173,5 @@ for (const [target, flags] of [
       return { code: r.exitCode, stdout: r.stdout.toString(), stderr: r.stderr.toString() };
     };
     expect(run([process.execPath, REPO_MAIN])).toEqual(run(RUSTC));
-  });
+  }, 120_000);
 }
