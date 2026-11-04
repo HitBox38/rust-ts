@@ -30,6 +30,12 @@ use rustc_session::config::ErrorOutputType;
 struct Probe;
 
 impl Callbacks for Probe {
+    #[allow(rustc::bad_opt_access)]
+    fn config(&mut self, config: &mut interface::Config) {
+        // As rustc's `TimePassesCallbacks::config` (rustc_driver_impl/src/lib.rs), minus time-passes.
+        config.opts.trimmed_def_paths = true;
+    }
+
     fn after_analysis<'tcx>(&mut self, _compiler: &interface::Compiler, tcx: TyCtxt<'tcx>) -> Compilation {
         let partitions = tcx.collect_and_partition_mono_items(());
         let mut out: BTreeMap<Fingerprint, String> = BTreeMap::new();

@@ -795,7 +795,7 @@ class MirUsedCollector extends Visitor {
     super();
   }
 
-  // PORT: `T: TypeFoldable` takes its descriptor; `monomorphize_ty` is the `T = Ty` use.
+  // PORT: `T: TypeFoldable` takes its descriptor `d_T` (D4).
   // rustc: compiler/rustc_monomorphize/src/collector.rs:699 monomorphize
   monomorphize<T>(value: T, d_T: Parameters<typeof Instance.instantiate_mir_and_normalize_erasing_regions<T>>[4]): T {
     // trace!("monomorphize: self.instance={:?}", self.instance);
