@@ -1902,7 +1902,8 @@ SUITES.push(
 //   (`miriRunArgs` refuses it for tests/ui). Those programs see the host's clock, files and environment, and a real pid
 //   in `gettid`, so `MIRI_PASS_UNSTABLE` lists what two oracle runs showed to be irreproducible, and a case writing to the
 //   real filesystem is in the heavy class (`MIRI_UI_HEAVY`): the two sides of an ordinary single-mode case run at the same
-//   time, and they would race on the files under the case's `MIRI_TEMP`.
+//   time, and they would race on the files under the case's `MIRI_TEMP`. Two difftests of such a case take turns
+//   (scripts/lib/case-lock.ts), since the path is fixed and shared.
 // - A5: no gate depends on Tree Borrows, so `miri-pass` leaves out the cases with a `-Zmiri-tree-borrows*` flag; they are
 //   the report suite `miri-pass-tb`. miri-fail is report only and keeps them (subset `tree-borrows`).
 // Unprotected until root accepts a run; none is in the gate's defaults.
