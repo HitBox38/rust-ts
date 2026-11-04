@@ -122,6 +122,7 @@ import "./shims/unix/poll.ts";
 import "./shims/unix/socket.ts";
 import "./shims/unix/sync.ts";
 import "./shims/unix/thread.ts";
+import "./shims/unix/virtual_socket.ts";
 import "./shims/unwind.ts";
 import "./sym.ts";
 

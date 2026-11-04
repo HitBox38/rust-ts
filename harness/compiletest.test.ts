@@ -6,8 +6,8 @@
 // common.ts here would break that test (or this one, depending on the order). The child runs without that
 // override (RUST_TS_DATA then comes from .env.local, as for every tool) and prints what the tests check as JSON.
 import { expect, test } from "bun:test";
-import { existsSync, readdirSync } from "node:fs";
-import { homedir } from "node:os";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
 const REPO = resolve(import.meta.dir, "..");
@@ -62,19 +62,32 @@ console.log(JSON.stringify({
     };
   })(),
   combined: [[false, false], [false, undefined], [true, undefined], [undefined, undefined]].map((rs) => c.combineLayouts(rs.map((randomized, i) => ({ randomized, why: "w" + i })))),
-  layoutTmps: (await import("node:fs")).readdirSync(DATA + "/tmp").filter((n) => n.startsWith("needs-layouts-")),
+  layoutTmpLeft: (await import("node:fs")).existsSync(c.oracleStdLayoutsRandomized().dir),
 }));
 `;
-// A failing aux build: a 1 ms timeout (and 4 ms for the retry) that no rustc meets. `CARGO_HOME` is inherited into
-// the aux builds' environment and so into their key: spelling the same directory differently gives this child
-// keys no other run has built, so the build really runs (and fails) instead of reusing a cached directory.
+// Failing aux builds, independent of timing and of the shared cache (review: cache poisoning, history 2026-11-04). The child
+// gets a private $RUST_TS_DATA holding a small upstream tree of its own, so nothing it builds, or finds already built, is
+// in the shared `$RUST_TS_DATA/aux/ui`. Neither aux crate can build: `hangs.rs` never finishes (its const evaluation is an
+// endless loop), so the limit fires however late its timer is, and `rejected.rs` is an error whatever the limit.
+const FAIL_AUX: Record<string, string> = {
+  "hangs.rs": "#![allow(long_running_const_eval)]\nconst _: () = loop {};\n",
+  "rejected.rs": "this is not Rust\n",
+};
+const FAIL_TESTS: Record<string, { aux: string; timeoutMs: number }> = {
+  "tests/ui/failed-aux/timeout.rs": { aux: "hangs.rs", timeoutMs: 1 },
+  "tests/ui/failed-aux/error.rs": { aux: "rejected.rs", timeoutMs: 300000 },
+};
 const FAIL_CHILD = `
 const c = await import(${JSON.stringify(join(REPO, "harness/compiletest.ts"))});
-try {
-  c.uiFileCases(["tests/ui/traits/alias/cross-crate.rs"], "human", { aux: true, auxTimeoutMs: 1 });
-  console.log("NO ERROR");
-} catch (e) {
-  console.log("THROWN " + (e instanceof Error ? e.message : String(e)));
+const { DATA } = await import(${JSON.stringify(join(REPO, "scripts/lib/common.ts"))});
+console.log("DATA " + DATA);
+for (const [file, { timeoutMs }] of Object.entries(${JSON.stringify(FAIL_TESTS)})) {
+  try {
+    c.uiFileCases([file], "human", { aux: true, auxTimeoutMs: timeoutMs });
+    console.log("NO ERROR " + file);
+  } catch (e) {
+    console.log("THROWN " + (e instanceof Error ? e.message : String(e)));
+  }
 }
 `;
 const env: Record<string, string> = {};
@@ -83,9 +96,17 @@ const child = Bun.spawnSync([process.execPath, "-e", CHILD], { cwd: REPO, env })
 if (child.exitCode !== 0) throw new Error(`ERROR: compiletest.test.ts child failed: ${child.stderr.toString().slice(0, 2000)}`);
 const R = JSON.parse(child.stdout.toString());
 const AUX_ROOT = join(R.DATA, "aux", "ui");
-const cargoHome = process.env.CARGO_HOME || join(homedir(), ".cargo");
-const failChild = Bun.spawnSync([process.execPath, "-e", FAIL_CHILD], { cwd: REPO, env: { ...env, CARGO_HOME: `${cargoHome}/./` } });
+const failData = mkdtempSync(join(tmpdir(), "rust-ts-failed-aux-"));
+mkdirSync(join(failData, "rust/tests/ui/failed-aux/auxiliary"), { recursive: true });
+for (const [aux, text] of Object.entries(FAIL_AUX)) writeFileSync(join(failData, "rust/tests/ui/failed-aux/auxiliary", aux), text);
+for (const [file, { aux }] of Object.entries(FAIL_TESTS)) writeFileSync(join(failData, "rust", file), `//@ aux-build:${aux}\nfn main() {}\n`);
+const failChild = Bun.spawnSync([process.execPath, "-e", FAIL_CHILD], { cwd: REPO, env: { ...env, RUST_TS_DATA: failData } });
 const failOut = failChild.stdout.toString();
+const failStderr = failChild.stderr.toString();
+// What the child left in its aux root (it creates the root before any build).
+const failAuxRoot = join(failData, "aux", "ui");
+const failLeft = existsSync(failAuxRoot) ? readdirSync(failAuxRoot) : ["no aux root"];
+rmSync(failData, { recursive: true, force: true });
 
 test("aux-build: built by the oracle as rmeta, the main compile gets -L <aux dir> before the test's compile-flags", () => {
   expect(R.crossNoAux.skipped.map((k: { reason: string }) => k.reason)).toEqual(["needs an auxiliary crate (`aux-build:send_sync.rs`), which this harness does not build"]);
@@ -160,8 +181,9 @@ test("needs-llvm-zstd and needs-deterministic-layouts are decided by the oracle 
   expect(R.layoutUndecided.unparsable.why).toContain("lib: unexpected #[rustc_dump_layout(debug)] output");
   // Any randomized library decides; else any undecided one leaves the need undecided.
   expect(R.combined.map((x: { randomized?: boolean }) => x.randomized ?? null)).toEqual([false, null, true, null]);
-  // The check's scratch directory is removed.
-  expect(R.layoutTmps).toEqual([]);
+  // The check's own scratch directory is removed (others in the shared tmp belong to other processes: review harness-w38 L4).
+  expect(R.layouts.dir.startsWith(join(R.DATA, "tmp", "needs-layouts-"))).toBe(true);
+  expect(R.layoutTmpLeft).toBe(false);
 });
 
 test("aux-bin: built into <aux dir>/bin; aux bins alone give the main compile no -L", () => {
@@ -180,10 +202,18 @@ test("no-prefer-dynamic aux crate: no --crate-type, rmeta named in --extern", ()
   expect(existsSync(ext.slice("no_prefer_dynamic_lib=".length))).toBe(true);
 });
 
-test("a failed aux build is an ERROR that stops the case list, never a skip, and leaves no temp dir", () => {
-  expect(failChild.exitCode).toBe(0);
+test("a failed aux build is an ERROR that stops the case list, never a skip, and leaves nothing behind", () => {
+  expect(failChild.exitCode, failStderr).toBe(0);
   const lines = failOut.split("\n");
-  expect(lines.some((l) => l.startsWith("ERROR: tests/ui/traits/alias/cross-crate.rs: the oracle's build of an auxiliary crate failed:") && l.includes("timed out"))).toBe(true);
-  expect(lines.some((l) => l.startsWith("THROWN ERROR:"))).toBe(true);
-  expect(readdirSync(AUX_ROOT).filter((n) => n.endsWith(`.tmp-${failChild.pid}`))).toEqual([]);
+  // The child's aux root is private, so the shared cache can neither answer for these builds nor receive them.
+  expect(lines[0]).toBe(`DATA ${failData}`);
+  const failed = (id: string) => lines.filter((l) => l.startsWith(`ERROR: ${id}: the oracle's build of an auxiliary crate failed:`));
+  expect(failed("tests/ui/failed-aux/timeout.rs").length).toBe(1);
+  expect(failed("tests/ui/failed-aux/timeout.rs")[0]).toContain("`tests/ui/failed-aux/auxiliary/hangs.rs` timed out (1 ms, then 4 ms)");
+  expect(failed("tests/ui/failed-aux/error.rs").length).toBe(1);
+  expect(failed("tests/ui/failed-aux/error.rs")[0]).toContain("`tests/ui/failed-aux/auxiliary/rejected.rs` (exit 1): error");
+  expect(lines.filter((l) => l.startsWith("THROWN ERROR:")).length).toBe(2);
+  expect(lines.filter((l) => l.startsWith("NO ERROR")).length).toBe(0);
+  // Neither a temp dir nor a cached entry: no failed build is ever cached.
+  expect(failLeft).toEqual([]);
 });

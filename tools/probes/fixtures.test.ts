@@ -11,7 +11,8 @@
 //                                           `ORACLE` table of src/miri/shims/os_str.test.ts, checked below)
 //   miriepoll  (tools/probes/miriepoll)  -> tools/probes/miriepoll/epoll.oracle.txt (lane harness-w38; a program the Miri
 //                                           oracle runs from source: needs `bun scripts/miri.ts setup`, not a build)
-// Without a built probe its test is a visible skip; RUST_TS_REQUIRE_PROBES=1 (the gate) makes that a failure. The
+// A binary built from other sources than this tree's fails its test (scripts/probes.ts `probeStaleness`; review
+// harness-w38 L3). Without a built probe its test is a visible skip; RUST_TS_REQUIRE_PROBES=1 (the gate) makes that a failure. The
 // literal probeBinary("<name>") calls let the gate's unit-test pre-check (scripts/probes.ts `oracleTestProbes`) see
 // that these tests need the probes. The host is RUST_TS_HOST_TUPLE (the environment, else the repo's `.env.local`, which
 // scripts/lib/common.ts loads), as for src/miri/math.test.ts through `host_tuple()`;
@@ -20,8 +21,9 @@ import { expect, test } from "bun:test";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { REPO } from "../../scripts/lib/common.ts";
+import { mergeEnv } from "../../scripts/lib/env.ts";
 import { miriOracleProblem } from "../../scripts/lib/miri.ts";
-import { PROBE_FIXTURES, fixtureSelection, probeBinary, probeFixtureCmd } from "../../scripts/probes.ts";
+import { PROBE_FIXTURES, fixtureSelection, probeBinary, probeFixtureCmd, probeNames, probeStaleness } from "../../scripts/probes.ts";
 
 const REQUIRE_PROBES = process.env.RUST_TS_REQUIRE_PROBES === "1";
 const PROBES: [string, string | undefined][] = [
@@ -62,6 +64,43 @@ test("paths.oracle.txt is the ORACLE table of src/miri/shims/os_str.test.ts", ()
   expect(table.split("\n").filter((l) => l.startsWith("  [\"")).length).toBe(rows.length);
 });
 
+test("no built probe comes from other sources than this tree's", () => {
+  const built = probeNames().filter((n) => existsSync(probeBinary(n)));
+  const seen = built.map((n) => probeStaleness(n));
+  const unknown = seen.filter((s) => s.state === "unknown").length;
+  if (unknown) console.log(`fixtures.test.ts: ${unknown} of ${built.length} built probes were built before source stamps and cannot be checked until the next bun scripts/probes.ts build`);
+  expect(seen.flatMap((s) => (s.state === "stale" ? [s.why] : []))).toEqual([]);
+});
+
+const probesCli = (...args: string[]) => {
+  const p = Bun.spawnSync([process.execPath, join(REPO, "scripts/probes.ts"), ...args], { cwd: REPO, stdout: "pipe", stderr: "pipe" });
+  return { code: p.exitCode, out: p.stdout.toString(), err: p.stderr.toString() };
+};
+
+test("the CLI on a probe it cannot build: one ERROR line with what to do, no stack trace", () => {
+  for (const cmd of ["build", "path"]) {
+    const miri = probesCli(cmd, "miriepoll");
+    expect(miri).toEqual({ code: 1, out: "ERROR: probe 'miriepoll' has no cargo build: the Miri oracle runs its source; run: bun scripts/miri.ts setup, then bun scripts/probes.ts fixture miriepoll\n", err: "" });
+    const unknown = probesCli(cmd, "no-such-probe");
+    expect(unknown).toEqual({ code: 1, out: "ERROR: no probe 'no-such-probe' (no tools/probes/no-such-probe/Cargo.toml.in)\n", err: "" });
+  }
+}, 60_000);
+
+test("a Miri fixture's environment stays scrubbed through run(), as `fixture` runs it", () => {
+  const child = `
+const { run } = await import(${JSON.stringify(join(REPO, "scripts/lib/common.ts"))});
+const { PROBE_FIXTURES, probeFixtureCmd } = await import(${JSON.stringify(join(REPO, "scripts/probes.ts"))});
+const { env } = probeFixtureCmd("miriepoll", PROBE_FIXTURES.miriepoll);
+const r = await run([process.execPath, "-e", "console.log(JSON.stringify(['MIRI_BE_RUSTC', 'MIRI_LOG', 'RUSTC_LOG', 'RUSTUP_HOME'].map((k) => process.env[k] ?? null)))"], { env });
+console.log(r.stdout.trim());
+`;
+  const p = Bun.spawnSync([process.execPath, "-e", child], { cwd: REPO, env: { ...process.env, MIRI_BE_RUSTC: "host", MIRI_LOG: "debug", RUSTC_LOG: "debug" }, stdout: "pipe", stderr: "pipe" });
+  expect(p.exitCode, p.stderr.toString()).toBe(0);
+  const [beRustc, log, rustcLog, rustupHome] = JSON.parse(p.stdout.toString().trim().split("\n").at(-1)!) as (string | null)[];
+  expect([beRustc, log, rustcLog]).toEqual([null, null, null]);
+  expect(rustupHome).toContain("rustup-miri");
+}, 60_000);
+
 for (const [name, bin] of PROBES) {
   const f = PROBE_FIXTURES[name]!;
   const { fixture, host } = f;
@@ -76,7 +115,7 @@ for (const [name, bin] of PROBES) {
   t(`${fixture} equals the ${name} probe's output${note}`, () => {
     expect(missing).toBeUndefined();
     const { cmd, env } = probeFixtureCmd(name, f);
-    const r = Bun.spawnSync(cmd, { env, stdout: "pipe", stderr: "pipe" });
+    const r = Bun.spawnSync(cmd, { env: mergeEnv(process.env, env), stdout: "pipe", stderr: "pipe" });
     expect(r.exitCode, r.stderr.toString()).toBe(0);
     const out = r.stdout.toString();
     const want = readFileSync(join(REPO, fixture), "utf8");

@@ -1,5 +1,8 @@
 # Handoff: harness-m6c (harness batch, M6 wave 38; plan-m6 §4, D13, D14, A5, A8, A9, A11; needs an independent review)
 
+**Later changes:** review R2 moved three cases back (353 + 7, as in `harness/suites.ts`), so the 350 + 10 tables below describe the
+earlier list. The M6b figure comes from one gate, `bun scripts/criteria.ts --run <gate run>` (plan-m6 A12).
+
 Branch `t3/add-miri-harness-suites`, base main `c9d3c553`. Harness and test files only. No file under `src/` changed, so
 there are no coverage changes, `// rustc:` markers, `unported(...)` calls or `// PORT:` decisions. No baseline, oracle
 output, existing suite or existing cache key changed; "Existing suites unchanged" has the proof. The new suites have no

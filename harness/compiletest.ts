@@ -525,8 +525,9 @@ export function combineLayouts(parts: readonly { randomized: boolean | undefined
   return { randomized: parts.some((p) => p.randomized === true) ? true : parts.some((p) => p.randomized === undefined) ? undefined : false, why };
 }
 
-let layoutsMemo: { randomized: boolean | undefined; why: string } | undefined;
-export function oracleStdLayoutsRandomized(): { randomized: boolean | undefined; why: string } {
+let layoutsMemo: { randomized: boolean | undefined; why: string; dir: string } | undefined;
+/** `dir`: this check's scratch directory, already removed (the shared tmp holds other processes' too: compiletest.test.ts). */
+export function oracleStdLayoutsRandomized(): { randomized: boolean | undefined; why: string; dir: string } {
   if (layoutsMemo) return layoutsMemo;
   const dir = mkdtempSync(join(ensureDir(join(DATA, "tmp")), "needs-layouts-"));
   try {
@@ -537,7 +538,7 @@ export function oracleStdLayoutsRandomized(): { randomized: boolean | undefined;
     const write = (file: string, text: string) => writeFileSync(join(dir, file), text);
     const parts = [stdLayoutsRandomized(rustc, write, dir, "oracle std", [])];
     if (existsSync(miriTargetLibDir())) parts.push(stdLayoutsRandomized(rustc, write, dir, "Miri sysroot std", ["--sysroot", MIRI_SYSROOT, "--target", miriPin().target]));
-    return (layoutsMemo = combineLayouts(parts));
+    return (layoutsMemo = { ...combineLayouts(parts), dir });
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
