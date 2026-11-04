@@ -510,6 +510,10 @@ Pointer.prototype.map_provenance = function <Prov>(this: Pointer<Prov>, f: (prov
 // #[inline(always)]
 // rustc: compiler/rustc_middle/src/mir/interpret/pointer.rs:345 wrapping_offset
 Pointer.prototype.wrapping_offset = function <Prov>(this: Pointer<Prov>, i: Size, cx: HasDataLayout): Pointer<Prov> {
+  // PORT(perf): in numbers when the sum is below 2^32, where the wrap and the truncation to the target's usize do nothing
+  // (a big `Size` is `NaN` and fails the test).
+  const sum = this.offset.small + i.small;
+  if (sum < 0x1_0000_0000) return new Pointer(Size.from_bytes(sum), this.provenance);
   const res = PointerArithmetic_provided.truncate_to_target_usize(
     cx.data_layout(),
     BigInt.asUintN(64, this.offset.bytes_u64() + i.bytes_u64()),

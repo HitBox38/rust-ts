@@ -806,6 +806,11 @@ InterpCx.prototype.check_and_deref_ptr = function <T, R>(this: InterpCx, this_: 
     const a = alloc_size(this_, alloc_id, offset_, prov);
     if (a.$ === "Err") return a;
     const [alloc_size_, _alloc_align, ret_val] = a._0;
+    // PORT(perf): the in-bounds answer in numbers when all three are small (a `NaN` from a big `Size` fails the test, and a
+    // rounded sum is above the safe bound, so it fails too); everything else, every error included, takes the exact path.
+    if (size > 0n && size <= 0x1f_ffff_ffff_ffffn && offset_.small + Number(size) <= alloc_size_.small) {
+      return interp_ok(ret_val);
+    }
     const offset = offset_.bytes_u64();
     // Compute absolute begin and end of the range.
     let begin: bigint | undefined;
