@@ -8,13 +8,14 @@
 // - stderr and the exit code, which covers the post-monomorphization diagnostics, the mono checks and their order;
 // - for -Zprofile-closures, the csv, whose lines appear in the collector's walk order.
 //
-// The driver needs the oracle toolchain's x86_64-unknown-linux-gnu sysroot for `std`; without rustc it skips visibly
+// The program's absolute path is `$FILE` on both sides (collector_oracle/common.ts normalize_path), so this holds from any
+// checkout. The driver needs the oracle toolchain's x86_64-unknown-linux-gnu sysroot for `std`; without rustc it skips visibly
 // (RUST_TS_REQUIRE_PROBES=1 makes that a failure).
 import { describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { DATA, PIN } from "../../scripts/lib/common.ts";
-import { clean_env, flags_of, HERE, normalize_stderr, parse_oracle, program_files, read_closure_profile, TARGET } from "./collector_oracle/common.ts";
+import { clean_env, flags_of, HERE, normalize_path, parse_oracle, program_files, read_closure_profile, TARGET } from "./collector_oracle/common.ts";
 
 const REQUIRE = process.env.RUST_TS_REQUIRE_PROBES === "1";
 const RUSTC = ["rustc", `+${PIN.toolchain}`];
@@ -52,7 +53,7 @@ describe.skipIf(SKIP)("collect_crate_mono_items against the oracle", () => {
           [process.execPath, RUNNER, "--sysroot", SYSROOT, `--target=${TARGET}`, ...flags, path, "--crate-name", name.replaceAll("-", "_"), "--emit=obj", "-o", join(WORK, `${name}.o`)],
           { cwd, env: clean_env(), stdout: "pipe", stderr: "pipe" },
         );
-        const stderr = normalize_stderr(r.stderr.toString(), path);
+        const stderr = normalize_path(r.stderr.toString(), path);
         const expected_stop = EXPECTED_UNPORTED.get(name);
         if (expected_stop !== undefined) {
           expect(r.exitCode).toBe(70);
@@ -63,8 +64,7 @@ describe.skipIf(SKIP)("collect_crate_mono_items against the oracle", () => {
         expect(r.exitCode).toBe(oracle.code);
         if (oracle.code !== 0) return;
 
-        const lines = r.stdout
-          .toString()
+        const lines = normalize_path(r.stdout.toString(), path)
           .split("\n")
           .filter((l) => l !== "");
         const items = lines.map((l) => l.slice(33));

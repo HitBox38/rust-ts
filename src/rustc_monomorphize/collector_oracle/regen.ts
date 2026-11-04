@@ -6,10 +6,11 @@
 // Everything is compiled for x86_64-unknown-linux-gnu, whose `rust-std` the oracle toolchain has: the port's
 // `rustc_target::callconv::aarch64::compute_rust_abi_info` is unported and `check_mono_item` needs an ABI.
 // A program run with -Zprofile-closures also gets oracle/<name>.closure_profile.csv.
+// The program's own absolute path becomes $FILE everywhere (common.ts normalize_path); nothing else is changed.
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { DATA, PIN } from "../../../scripts/lib/common.ts";
-import { clean_env, flags_of, HERE, normalize_stderr, program_files, read_closure_profile, TARGET } from "./common.ts";
+import { clean_env, flags_of, HERE, normalize_path, program_files, read_closure_profile, TARGET } from "./common.ts";
 
 const RUSTC = ["rustc", `+${PIN.toolchain}`];
 const SYSROOT = Bun.spawnSync([...RUSTC, "--print", "sysroot"]).stdout.toString().trim();
@@ -49,12 +50,10 @@ for (const { name, path } of program_files()) {
   });
   const profile = read_closure_profile(cwd, path);
   if (profile !== undefined) writeFileSync(join(HERE, "oracle", `${name}.closure_profile.csv`), profile);
-  const items = oracle.stdout
-    .toString()
+  const items = normalize_path(oracle.stdout.toString(), path)
     .split("\n")
     .filter((l) => l.startsWith("MONO_ITEM "));
-  const fps = fp.stdout
-    .toString()
+  const fps = normalize_path(fp.stdout.toString(), path)
     .split("\n")
     .filter((l) => l.startsWith("FP "));
   const out = [
@@ -64,7 +63,7 @@ for (const { name, path } of program_files()) {
     "== FP",
     ...fps,
     "== stderr",
-    normalize_stderr(oracle.stderr.toString(), path),
+    normalize_path(oracle.stderr.toString(), path),
   ].join("\n");
   writeFileSync(join(HERE, "oracle", `${name}.txt`), out);
   console.log(`${name}: exit ${oracle.exitCode}, ${items.length} items, ${fps.length} fingerprints`);

@@ -2,8 +2,8 @@ exit 0
 == MONO_ITEM
 MONO_ITEM fn <PresentDrop as std::ops::Drop>::drop @@ up_non_generic_closures.b729e2f57551325a-cgu.0[External]
 MONO_ITEM fn <PresentDrop as std::ops::Drop>::pin_drop @@ up_non_generic_closures.b729e2f57551325a-cgu.0[External]
-MONO_ITEM fn <{closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-6bf0445a/src/rustc_monomorphize/collector_oracle/upstream/non-generic-closures.rs:27:13: 27:21} as std::ops::FnOnce<(i32,)>>::call_once - shim @@ up_non_generic_closures.b729e2f57551325a-cgu.0[External]
-MONO_ITEM fn <{closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-6bf0445a/src/rustc_monomorphize/collector_oracle/upstream/non-generic-closures.rs:27:13: 27:21} as std::ops::FnOnce<(i32,)>>::call_once - shim(vtable) @@ up_non_generic_closures.b729e2f57551325a-cgu.0[External]
+MONO_ITEM fn <{closure@$FILE:27:13: 27:21} as std::ops::FnOnce<(i32,)>>::call_once - shim @@ up_non_generic_closures.b729e2f57551325a-cgu.0[External]
+MONO_ITEM fn <{closure@$FILE:27:13: 27:21} as std::ops::FnOnce<(i32,)>>::call_once - shim(vtable) @@ up_non_generic_closures.b729e2f57551325a-cgu.0[External]
 MONO_ITEM fn assigned_to_variable_but_not_executed @@ up_non_generic_closures.b729e2f57551325a-cgu.0[External]
 MONO_ITEM fn assigned_to_variable_but_not_executed::{closure#0} @@ up_non_generic_closures.b729e2f57551325a-cgu.0[External]
 MONO_ITEM fn assigned_to_variable_executed_directly @@ up_non_generic_closures.b729e2f57551325a-cgu.0[External]
@@ -14,7 +14,7 @@ MONO_ITEM fn run_closure @@ up_non_generic_closures.b729e2f57551325a-cgu.0[Exter
 MONO_ITEM fn start @@ up_non_generic_closures.b729e2f57551325a-cgu.0[External]
 MONO_ITEM fn std::mem::drop::<PresentDrop> @@ up_non_generic_closures.b729e2f57551325a-cgu.0[External]
 MONO_ITEM fn std::ptr::drop_glue::<PresentDrop> - shim(Some(PresentDrop)) @@ up_non_generic_closures.b729e2f57551325a-cgu.0[Internal]
-MONO_ITEM fn std::ptr::drop_glue::<{closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-6bf0445a/src/rustc_monomorphize/collector_oracle/upstream/non-generic-closures.rs:49:14: 49:24}> - shim(Some({closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-6bf0445a/src/rustc_monomorphize/collector_oracle/upstream/non-generic-closures.rs:49:14: 49:24})) @@ up_non_generic_closures.b729e2f57551325a-cgu.0[Internal]
+MONO_ITEM fn std::ptr::drop_glue::<{closure@$FILE:49:14: 49:24}> - shim(Some({closure@$FILE:49:14: 49:24})) @@ up_non_generic_closures.b729e2f57551325a-cgu.0[Internal]
 MONO_ITEM fn temporary @@ up_non_generic_closures.b729e2f57551325a-cgu.0[External]
 MONO_ITEM fn temporary::{closure#0} @@ up_non_generic_closures.b729e2f57551325a-cgu.0[External]
 MONO_ITEM fn with_drop @@ up_non_generic_closures.b729e2f57551325a-cgu.0[External]
@@ -29,16 +29,16 @@ FP 685ff8f3d31d7e9dd9dd50facbcc27d8 fn assigned_to_variable_executed_directly
 FP 6e5fba6a8b66545484f4553d28d5b1ce fn with_drop::{closure#0}
 FP 70d4e24240d2b67340fb1895eef795f8 fn run_closure
 FP 722d102c7a5e497a840c3f360618a019 fn assigned_to_variable_executed_indirectly
-FP 76e361f4840db3c3f2d34a32c5ed877a fn <{closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-6bf0445a/src/rustc_monomorphize/collector_oracle/upstream/non-generic-closures.rs:27:13: 27:21} as std::ops::FnOnce<(i32,)>>::call_once - shim(vtable)
+FP 76e361f4840db3c3f2d34a32c5ed877a fn <{closure@$FILE:27:13: 27:21} as std::ops::FnOnce<(i32,)>>::call_once - shim(vtable)
 FP 849ff037d8e40d5b32b3fefcdd70f8fe fn std::ptr::drop_glue::<PresentDrop> - shim(Some(PresentDrop))
 FP 937b9f2b0d99f5c6c7de76525efdf6a6 fn assigned_to_variable_executed_indirectly::{closure#0}
 FP 93d1e248bb4b962c8db34aaaf7d20f65 fn <PresentDrop as std::ops::Drop>::pin_drop
 FP c3743015dc649fd839cd2b94e74c96b6 fn temporary
 FP c8a5830a1bbf4a3984c9d9282a30259c fn temporary::{closure#0}
-FP d5da81d88e1f119a3b8347ff17e1ef47 fn std::ptr::drop_glue::<{closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-6bf0445a/src/rustc_monomorphize/collector_oracle/upstream/non-generic-closures.rs:49:14: 49:24}> - shim(Some({closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-6bf0445a/src/rustc_monomorphize/collector_oracle/upstream/non-generic-closures.rs:49:14: 49:24}))
+FP d5da81d88e1f119a3b8347ff17e1ef47 fn std::ptr::drop_glue::<{closure@$FILE:49:14: 49:24}> - shim(Some({closure@$FILE:49:14: 49:24}))
 FP e87f12c204c44a6c38afcc28a003d849 fn assigned_to_variable_but_not_executed::{closure#0}
 FP f4a977e58c4e866831d83626f94c948c fn with_drop
-FP f6b3c930415c6128d3fc9ff950bed43e fn <{closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-6bf0445a/src/rustc_monomorphize/collector_oracle/upstream/non-generic-closures.rs:27:13: 27:21} as std::ops::FnOnce<(i32,)>>::call_once - shim
+FP f6b3c930415c6128d3fc9ff950bed43e fn <{closure@$FILE:27:13: 27:21} as std::ops::FnOnce<(i32,)>>::call_once - shim
 == stderr
 warning: trait objects without an explicit `dyn` are deprecated
   --> $FILE:69:20

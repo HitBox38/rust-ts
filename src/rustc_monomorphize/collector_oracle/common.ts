@@ -22,15 +22,19 @@ export function flags_of(src: string): string[] {
   return flags;
 }
 
-/** The program's absolute path appears in diagnostics; the oracle's checkout and the test's differ. */
-export function normalize_stderr(s: string, path: string): string {
-  return s.replaceAll(path, "$FILE").replaceAll(dirname(path), "$DIR");
+/**
+ * The program's absolute path, in diagnostics and inside closure names (`{closure@<path>:1:2: 1:3}`), differs between the
+ * checkout that wrote the fixture and the one running the test. Only that path is replaced, on both sides. Fingerprints do
+ * not depend on it, so a fixture is otherwise the oracle's output.
+ */
+export function normalize_path(s: string, path: string): string {
+  return s.replaceAll(path, "$FILE");
 }
 
 /** The `closure_profile_<pid>.csv` a -Zprofile-closures run left in `cwd` (the pid is in the name only), if any. */
 export function read_closure_profile(cwd: string, path: string): string | undefined {
   const f = readdirSync(cwd).find((x) => /^closure_profile_\d+\.csv$/.test(x));
-  return f === undefined ? undefined : normalize_stderr(readFileSync(join(cwd, f), "utf8"), path);
+  return f === undefined ? undefined : normalize_path(readFileSync(join(cwd, f), "utf8"), path);
 }
 
 export function clean_env(): Record<string, string> {
@@ -43,7 +47,10 @@ export function clean_env(): Record<string, string> {
 
 export interface OracleOutput {
   code: number;
-  /** `MONO_ITEM` lines without the ` @@ cgu[linkage]` part (it needs mono-partition), in the oracle's order (sorted text). */
+  /**
+   * `MONO_ITEM` lines without the ` @@ cgu[linkage]` part (it needs mono-partition), in the oracle's order: it sorted them as
+   * text with that part and the real path in, so the test sorts both sides again.
+   */
   items: string[];
   /** `<fingerprint> <item>`, ascending by fingerprint: the order of `collect_crate_mono_items`. */
   fingerprints: string[];

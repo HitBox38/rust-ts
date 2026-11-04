@@ -6,8 +6,8 @@ MONO_ITEM fn exported @@ crate_types.88bfeb99625cb61a-cgu.0[External]
 MONO_ITEM fn exported::{closure#0} @@ crate_types.88bfeb99625cb61a-cgu.0[Internal]
 MONO_ITEM fn kept @@ crate_types.88bfeb99625cb61a-cgu.0[External]
 MONO_ITEM fn std::cell::Cell::<u32>::get @@ crate_types.88bfeb99625cb61a-cgu.0[External]
-MONO_ITEM fn std::thread::LocalKey::<std::cell::Cell<u32>>::try_with::<{closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-6bf0445a/src/rustc_monomorphize/collector_oracle/programs/crate_types.rs:8:60: 8:63}, u32> @@ crate_types.88bfeb99625cb61a-cgu.0[External]
-MONO_ITEM fn std::thread::LocalKey::<std::cell::Cell<u32>>::with::<{closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-6bf0445a/src/rustc_monomorphize/collector_oracle/programs/crate_types.rs:8:60: 8:63}, u32> @@ crate_types.88bfeb99625cb61a-cgu.0[External]
+MONO_ITEM fn std::thread::LocalKey::<std::cell::Cell<u32>>::try_with::<{closure@$FILE:8:60: 8:63}, u32> @@ crate_types.88bfeb99625cb61a-cgu.0[External]
+MONO_ITEM fn std::thread::LocalKey::<std::cell::Cell<u32>>::with::<{closure@$FILE:8:60: 8:63}, u32> @@ crate_types.88bfeb99625cb61a-cgu.0[External]
 MONO_ITEM static KEEP @@ crate_types.88bfeb99625cb61a-cgu.0[External]
 MONO_ITEM static TL::{constant#0}::{closure#0}::__RUST_STD_INTERNAL_VAL @@ crate_types.88bfeb99625cb61a-cgu.0[Internal]
 MONO_ITEM static TL::{constant#0}::{closure#1}::__RUST_STD_INTERNAL_VAL @@ crate_types.88bfeb99625cb61a-cgu.0[Internal]
@@ -21,6 +21,6 @@ FP 751eede3d09d7676a030b6f18721c192 fn exported::{closure#0}
 FP 7bf2e14b2a7131cfda688d8a7860e35b static KEEP
 FP 92d0eed9a55c029d6af3369f9cbf46b8 fn <{closure@/rustc/6f5da406b56c2db6607202b63daee73aa8c61297/library/std/src/sys/thread_local/native/mod.rs:71:21: 71:24} as std::ops::FnOnce<(std::option::Option<&mut std::option::Option<std::cell::Cell<u32>>>,)>>::call_once - shim
 FP a53fa7d60e6f07022426795a78d0fe49 fn exported
-FP b4d03c7e1416a56899e94a8580a8901a fn std::thread::LocalKey::<std::cell::Cell<u32>>::with::<{closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-6bf0445a/src/rustc_monomorphize/collector_oracle/programs/crate_types.rs:8:60: 8:63}, u32>
-FP d34241223b5f62b4ff47afca42b84930 fn std::thread::LocalKey::<std::cell::Cell<u32>>::try_with::<{closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-6bf0445a/src/rustc_monomorphize/collector_oracle/programs/crate_types.rs:8:60: 8:63}, u32>
+FP b4d03c7e1416a56899e94a8580a8901a fn std::thread::LocalKey::<std::cell::Cell<u32>>::with::<{closure@$FILE:8:60: 8:63}, u32>
+FP d34241223b5f62b4ff47afca42b84930 fn std::thread::LocalKey::<std::cell::Cell<u32>>::try_with::<{closure@$FILE:8:60: 8:63}, u32>
 == stderr

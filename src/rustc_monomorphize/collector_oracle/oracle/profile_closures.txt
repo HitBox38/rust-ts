@@ -1,6 +1,6 @@
 exit 0
 == MONO_ITEM
-MONO_ITEM fn <{closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-6bf0445a/src/rustc_monomorphize/collector_oracle/programs/profile_closures.rs:11:29: 11:32} as std::ops::FnOnce<(u32,)>>::call_once - shim @@ profile_closures.79f04c76f8296bf6-cgu.0[Internal]
+MONO_ITEM fn <{closure@$FILE:11:29: 11:32} as std::ops::FnOnce<(u32,)>>::call_once - shim @@ profile_closures.79f04c76f8296bf6-cgu.0[Internal]
 MONO_ITEM fn f @@ profile_closures.79f04c76f8296bf6-cgu.0[External]
 MONO_ITEM fn f::{closure#0} @@ profile_closures.79f04c76f8296bf6-cgu.0[Internal]
 MONO_ITEM fn f::{closure#1} @@ profile_closures.79f04c76f8296bf6-cgu.0[Internal]
@@ -12,7 +12,7 @@ MONO_ITEM fn second::{closure#0} @@ profile_closures.79f04c76f8296bf6-cgu.0[Inte
 MONO_ITEM fn std::ptr::drop_glue::<alloc::raw_vec::RawVec<u8>> - shim(Some(alloc::raw_vec::RawVec<u8>)) @@ profile_closures.79f04c76f8296bf6-cgu.0[External]
 MONO_ITEM fn std::ptr::drop_glue::<std::string::String> - shim(Some(std::string::String)) @@ profile_closures.79f04c76f8296bf6-cgu.0[External]
 MONO_ITEM fn std::ptr::drop_glue::<std::vec::Vec<u8>> - shim(Some(std::vec::Vec<u8>)) @@ profile_closures.79f04c76f8296bf6-cgu.0[External]
-MONO_ITEM fn std::ptr::drop_glue::<{closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-6bf0445a/src/rustc_monomorphize/collector_oracle/programs/profile_closures.rs:9:13: 9:20}> - shim(Some({closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-6bf0445a/src/rustc_monomorphize/collector_oracle/programs/profile_closures.rs:9:13: 9:20})) @@ profile_closures.79f04c76f8296bf6-cgu.0[External]
+MONO_ITEM fn std::ptr::drop_glue::<{closure@$FILE:9:13: 9:20}> - shim(Some({closure@$FILE:9:13: 9:20})) @@ profile_closures.79f04c76f8296bf6-cgu.0[External]
 MONO_ITEM fn std::string::String::len @@ profile_closures.79f04c76f8296bf6-cgu.0[Internal]
 == FP
 FP 01a1a44c715c78e04c260172ebf20dce fn std::ptr::drop_glue::<std::string::String> - shim(Some(std::string::String))
@@ -25,8 +25,8 @@ FP 64625baf8d8f173d782319f844714738 fn g
 FP a060263da398a5f0f637da8575013725 fn second
 FP a2463b9cd59513d03dc48a68cc7ac655 fn g::{closure#0}
 FP ba93ef0204063489e3c58c9562a90897 fn f::{closure#0}
-FP d17a11f0a20470f90586616394b2bfc6 fn std::ptr::drop_glue::<{closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-6bf0445a/src/rustc_monomorphize/collector_oracle/programs/profile_closures.rs:9:13: 9:20}> - shim(Some({closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-6bf0445a/src/rustc_monomorphize/collector_oracle/programs/profile_closures.rs:9:13: 9:20}))
+FP d17a11f0a20470f90586616394b2bfc6 fn std::ptr::drop_glue::<{closure@$FILE:9:13: 9:20}> - shim(Some({closure@$FILE:9:13: 9:20}))
 FP e43c24434bdfc5c0c037cd3d13b2213c fn f
 FP f16cd05f2631c62e85074cac35ddbc06 fn f::{closure#2}
-FP ffb31a88c9e493840154361f457e74f9 fn <{closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-6bf0445a/src/rustc_monomorphize/collector_oracle/programs/profile_closures.rs:11:29: 11:32} as std::ops::FnOnce<(u32,)>>::call_once - shim
+FP ffb31a88c9e493840154361f457e74f9 fn <{closure@$FILE:11:29: 11:32} as std::ops::FnOnce<(u32,)>>::call_once - shim
 == stderr

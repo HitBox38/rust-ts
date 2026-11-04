@@ -8,8 +8,8 @@ MONO_ITEM fn <for<'a> fn(&'a str) -> <str as std::borrow::ToOwned>::Owned {<str 
 MONO_ITEM fn <std::alloc::Global as std::alloc::Allocator>::deallocate @@ mixed.82da6f1a55d3283e-cgu.0[Internal]
 MONO_ITEM fn <std::boxed::Box<dyn Tr> as std::ops::Drop>::drop @@ mixed.82da6f1a55d3283e-cgu.0[External]
 MONO_ITEM fn <u8 as std::slice::<impl [T]>::to_vec_in::ConvertVec>::to_vec::<std::alloc::Global> @@ mixed.82da6f1a55d3283e-cgu.0[External]
-MONO_ITEM fn <{closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-6bf0445a/src/rustc_monomorphize/collector_oracle/programs/mixed.rs:24:46: 24:49} as std::ops::FnOnce<(u32,)>>::call_once - shim @@ mixed.82da6f1a55d3283e-cgu.0[Internal]
-MONO_ITEM fn <{closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-6bf0445a/src/rustc_monomorphize/collector_oracle/programs/mixed.rs:31:29: 31:32} as std::ops::FnOnce<(u32,)>>::call_once - shim @@ mixed.82da6f1a55d3283e-cgu.0[Internal]
+MONO_ITEM fn <{closure@$FILE:24:46: 24:49} as std::ops::FnOnce<(u32,)>>::call_once - shim @@ mixed.82da6f1a55d3283e-cgu.0[Internal]
+MONO_ITEM fn <{closure@$FILE:31:29: 31:32} as std::ops::FnOnce<(u32,)>>::call_once - shim @@ mixed.82da6f1a55d3283e-cgu.0[Internal]
 MONO_ITEM fn TABLE::{closure#0} @@ mixed.82da6f1a55d3283e-cgu.0[External]
 MONO_ITEM fn alloc::raw_vec::RawVecInner::with_capacity_in @@ mixed.82da6f1a55d3283e-cgu.0[External]
 MONO_ITEM fn core::fmt::rt::Argument::<'_>::new_debug::<&dyn std::fmt::Debug> @@ mixed.82da6f1a55d3283e-cgu.0[External]
@@ -103,8 +103,8 @@ FP d256039b070725046c0057bebcc1768e fn <D as std::ops::Drop>::drop
 FP dc5eae46bc1e59db9d29cfee72fb1e85 fn std::fmt::Arguments::<'_>::new::<2, 1>
 FP dd7aa47f56a770a7829ed36cb624ec02 fn std::ptr::drop_glue::<dyn Tr> - shim(Some(dyn Tr))
 FP ec1c9a02c30844ad1239771993ec764c fn std::vec::Vec::<T, A>::set_len::precondition_check
-FP ee65170f2b0ad73b0c96d2ba1ac04236 fn <{closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-6bf0445a/src/rustc_monomorphize/collector_oracle/programs/mixed.rs:24:46: 24:49} as std::ops::FnOnce<(u32,)>>::call_once - shim
-FP f52351253c27dc2f9656a9576539476d fn <{closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-6bf0445a/src/rustc_monomorphize/collector_oracle/programs/mixed.rs:31:29: 31:32} as std::ops::FnOnce<(u32,)>>::call_once - shim
+FP ee65170f2b0ad73b0c96d2ba1ac04236 fn <{closure@$FILE:24:46: 24:49} as std::ops::FnOnce<(u32,)>>::call_once - shim
+FP f52351253c27dc2f9656a9576539476d fn <{closure@$FILE:31:29: 31:32} as std::ops::FnOnce<(u32,)>>::call_once - shim
 FP faa7a836ea2f5aa93a1d3e92fd889c38 fn gen_fn::<S>
 FP fac36acf06aedb23e16de785db654d93 fn std::fmt::format::{closure#0}
 == stderr
