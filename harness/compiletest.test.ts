@@ -62,7 +62,7 @@ console.log(JSON.stringify({
     };
   })(),
   combined: [[false, false], [false, undefined], [true, undefined], [undefined, undefined]].map((rs) => c.combineLayouts(rs.map((randomized, i) => ({ randomized, why: "w" + i })))),
-  layoutTmps: (await import("node:fs")).readdirSync(DATA + "/tmp").filter((n) => n.startsWith("needs-layouts-")),
+  layoutTmpLeft: (await import("node:fs")).existsSync(c.oracleStdLayoutsRandomized().dir),
 }));
 `;
 // Failing aux builds, independent of timing and of the shared cache (review: cache poisoning, history 2026-11-04). The child
@@ -181,8 +181,9 @@ test("needs-llvm-zstd and needs-deterministic-layouts are decided by the oracle 
   expect(R.layoutUndecided.unparsable.why).toContain("lib: unexpected #[rustc_dump_layout(debug)] output");
   // Any randomized library decides; else any undecided one leaves the need undecided.
   expect(R.combined.map((x: { randomized?: boolean }) => x.randomized ?? null)).toEqual([false, null, true, null]);
-  // The check's scratch directory is removed.
-  expect(R.layoutTmps).toEqual([]);
+  // The check's own scratch directory is removed (others in the shared tmp belong to other processes: review harness-w38 L4).
+  expect(R.layouts.dir.startsWith(join(R.DATA, "tmp", "needs-layouts-"))).toBe(true);
+  expect(R.layoutTmpLeft).toBe(false);
 });
 
 test("aux-bin: built into <aux dir>/bin; aux bins alone give the main compile no -L", () => {
