@@ -9,7 +9,6 @@
 // `scripts/gate.ts` does not read it.
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { RUNS, die, parseArgs } from "./lib/common.ts";
 
 export interface CriteriaGroup {
   name: string;
@@ -75,19 +74,25 @@ export function groupResult(group: CriteriaGroup, g: GateRecord): GroupResult {
   return { name: group.name, match, of, oracleTimeouts, percent, target: group.percent, met, problems };
 }
 
-function readGate(run: string): GateRecord {
-  const f = join(RUNS, run, "gate.json");
-  if (!existsSync(f)) die(`${run} has no gate.json: a milestone figure comes from a gate run`);
-  try {
-    return JSON.parse(readFileSync(f, "utf8")) as GateRecord;
-  } catch (e) {
-    die(`${f} is not readable JSON: ${e instanceof Error ? e.message : String(e)}`);
-  }
-}
-
 if (import.meta.main) {
+  // Loaded here, not at the top: common.ts fixes the data directory when it loads, and a test file sharing a process with
+  // criteria.test.ts (lib/deps.test.ts) sets its own first.
+  const { RUNS, die, parseArgs } = await import("./lib/common.ts");
+  const readGate = (run: string): GateRecord => {
+    const f = join(RUNS, run, "gate.json");
+    if (!existsSync(f)) die(`${run} has no gate.json: a milestone figure comes from a gate run`);
+    try {
+      return JSON.parse(readFileSync(f, "utf8")) as GateRecord;
+    } catch (e) {
+      die(`${f} is not readable JSON: ${e instanceof Error ? e.message : String(e)}`);
+      process.exit(1);
+    }
+  };
   const a = parseArgs(process.argv.slice(2));
-  if (typeof a.run !== "string") die("usage: bun scripts/criteria.ts --run <gate run id>");
+  if (typeof a.run !== "string") {
+    die("usage: bun scripts/criteria.ts --run <gate run id>");
+    process.exit(1);
+  }
   const g = readGate(a.run);
   console.log(`gate ${a.run} at ${g.head.slice(0, 10)}: pass=${g.pass}`);
   let allMet = true;
