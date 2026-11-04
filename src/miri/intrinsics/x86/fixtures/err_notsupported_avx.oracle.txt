@@ -1,0 +1,15 @@
+exit: 1
+--- stdout
+--- stderr
+error: unsupported operation: can't call LLVM intrinsic `llvm.x86.avx.nonexistent` on architecture `x86_64`
+ --> err_notsupported_avx.rs:8:14
+  |
+8 |     unsafe { nonexistent() };
+  |              ^^^^^^^^^^^^^ unsupported operation occurred here
+  |
+  = help: this means the program tried to do something Miri does not support; it does not indicate a bug in the program
+
+note: some details are omitted, run with `MIRIFLAGS=-Zmiri-backtrace=full` for a verbose backtrace
+
+error: aborting due to 1 previous error
+

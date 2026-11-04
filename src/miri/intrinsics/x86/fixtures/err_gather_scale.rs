@@ -1,0 +1,14 @@
+//@ flags: -Ctarget-feature=+avx2
+#![feature(link_llvm_intrinsics, repr_simd, simd_ffi)]
+#![allow(internal_features, improper_ctypes, non_camel_case_types)]
+#[repr(simd)]
+#[derive(Copy, Clone)]
+struct i32x4([i32; 4]);
+unsafe extern "llvm-intrinsic" {
+    #[link_name = "llvm.x86.avx2.gather.d.d"] fn g(s: i32x4, p: *const i8, o: i32x4, m: i32x4, sc: i8) -> i32x4;
+}
+fn main() {
+    let z = i32x4([0; 4]);
+    let d = [0u8; 16];
+    let _ = unsafe { g(z, d.as_ptr() as *const i8, z, z, 3) };
+}
