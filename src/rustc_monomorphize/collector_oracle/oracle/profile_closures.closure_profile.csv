@@ -3,3 +3,5 @@
 0, 0, $FILE:11:29: 11:32, "Some(LineInfo { line_index: 10, start_col: CharPos(28), end_col: CharPos(31) }) Some(LineInfo { line_index: 10, start_col: CharPos(28), end_col: CharPos(31) })"
 0, 0, $FILE:7:30: 7:38, "Some(LineInfo { line_index: 6, start_col: CharPos(29), end_col: CharPos(37) }) Some(LineInfo { line_index: 6, start_col: CharPos(29), end_col: CharPos(37) })"
 8, 8, $FILE:14:41: 14:43, "Some(LineInfo { line_index: 13, start_col: CharPos(40), end_col: CharPos(42) }) Some(LineInfo { line_index: 13, start_col: CharPos(40), end_col: CharPos(42) })"
+24, 24, $FILE:16:78: 16:85, "Some(LineInfo { line_index: 15, start_col: CharPos(77), end_col: CharPos(84) }) Some(LineInfo { line_index: 15, start_col: CharPos(77), end_col: CharPos(84) })"
+8, 8, $FILE:16:107: 16:109, "Some(LineInfo { line_index: 15, start_col: CharPos(106), end_col: CharPos(108) }) Some(LineInfo { line_index: 15, start_col: CharPos(106), end_col: CharPos(108) })"

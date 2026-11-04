@@ -12,3 +12,5 @@ pub fn f(a: (String, u32)) -> usize {
     c() + d(1) as usize + p(2) as usize
 }
 pub fn g(b: (u8, u64)) -> u64 { let h = || b.1; h() }
+// Disjoint captures: the whole of `big` before RFC 2229, one field after.
+pub fn sizes(big: (String, [u64; 8]), r: &(u8, [u64; 8])) -> usize { let k = move || big.0.len(); let l = || r.0; k() + l() as usize }

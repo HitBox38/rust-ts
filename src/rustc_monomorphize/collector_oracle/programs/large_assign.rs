@@ -5,6 +5,12 @@
 #![move_size_limit = "1000"]
 #![warn(large_assignments)]
 pub fn take(_: [u8; 2000]) {}
+pub struct NotCopy(pub [u8; 2000]);
+pub fn take_move(_: NotCopy) {}
+// A moved argument is passed by pointer, so it does not lint; a copied one does.
+pub fn moved(n: NotCopy) { take_move(n) }
+// Overlapping spans lint once: `a` in the tuple, then the whole tuple's statement.
+pub fn overlap(a: [u8; 2000], b: u8) -> ([u8; 2000], u8) { let c = (a, b); c }
 pub fn f() -> ([u8; 2000], Box<[u8; 2000]>) {
     let a = [0u8; 2000];
     let b = a;
