@@ -433,6 +433,18 @@ Frame.prototype.locals_addr = function (this: Frame): number {
   // more than just panics.
   for (let i = stack.length - 1; i >= 0; i--) {
     const frame = stack[i]!;
+    // PORT(perf): Miri calls this for every non-leaking allocation (machine.rs `init_allocation`), and the outer frames do
+    // not move between two calls. A frame's infos are a pure function of its body, instance and location, so they are
+    // reused while the location stands; `FrameInfo` is immutable. Same list, in the same order.
+    const floc = frame.loc;
+    const first = frames.length;
+    if (floc.$ === "Left") {
+      const memo = FRAME_INFOS.get(frame);
+      if (memo !== undefined && memo.block === floc._0.block && memo.statement_index === floc._0.statement_index) {
+        for (let j = 0; j < memo.infos.length; j++) frames.push(memo.infos[j]!);
+        continue;
+      }
+    }
     let span: Span;
     switch (frame.loc.$) {
       case "Left": {
@@ -460,10 +472,15 @@ Frame.prototype.locals_addr = function (this: Frame): number {
       span = tcx.def_span(Instance.def_id(frame.instance));
     }
     frames.push(new FrameInfo(frame.instance, span));
+    if (floc.$ === "Left") {
+      FRAME_INFOS.set(frame, { block: floc._0.block, statement_index: floc._0.statement_index, infos: frames.slice(first) });
+    }
   }
   // trace!("generate stacktrace: {:#?}", frames);
   return frames;
 };
+/** PORT(perf): see `generate_stacktrace_from_stack`. */
+const FRAME_INFOS = new WeakMap<Frame, { block: number; statement_index: number; infos: readonly FrameInfo[] }>();
 
 /// Very low-level helper that pushes a stack frame without initializing
 /// the arguments or local variables.
