@@ -1224,7 +1224,8 @@ export class Size {
     // up to the floor, which is the mask); see `from_bits`.
     if (this.big === undefined) {
       const a = align.bytes();
-      const sum = this.small + a - 1;
+      // `a - 1` as one operand: a sum that rounds is then above the bound; `(small + a) - 1` could round back below it.
+      const sum = this.small + (a - 1);
       if (sum <= Number.MAX_SAFE_INTEGER) return Size.small_of(Math.floor(sum / a) * a);
     }
     const mask = BigInt(align.bytes()) - 1n;
