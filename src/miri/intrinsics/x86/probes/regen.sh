@@ -27,6 +27,7 @@ run sse41.det sse41 -C target-feature=+sse4.1 -Zmiri-deterministic-floats
 run sse42 sse42 -C target-feature=+sse4.2
 run adx_pclmul adx_pclmul -C target-feature=+pclmulqdq,+vpclmulqdq,+avx512f
 run wide wide -C target-feature=+avx2,+avx512f,+avx512bw,+avx512vbmi
+run pause_threads pause_threads -Zmiri-preemption-rate=0
 for p in err_feature_sse3 err_feature_ssse3 err_feature_sse41 err_feature_sse42 err_feature_pclmul err_cmp_avx err_unknown_x86 err_unknown_sse err_unknown_sse2 err_argcount err_uninit; do run $p $p; done
 run err_ldu_null err_ldu_null -C target-feature=+sse3
 # A panic's stderr has the host's paths, a thread id and a native backtrace: only its location and text are kept.

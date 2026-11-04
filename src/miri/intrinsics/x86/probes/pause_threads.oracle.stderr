@@ -1,0 +1,14 @@
+warning: suspicious definition of the runtime `write` symbol used by the standard library
+  --> pause_threads.rs:13:5
+   |
+13 |     fn write(fd: i32, buf: *const u8, count: usize) -> isize;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: expected `unsafe extern "C" fn(i32, *const std::ffi::c_void, usize) -> isize` (for the current target)
+              found `unsafe extern "C" fn(i32, *const u8, usize) -> isize`
+   = help: either fix the signature or remove any attributes like `#[unsafe(no_mangle)]`, `#[unsafe(export_name = "write")]`, or `#[link_name = "write"]`
+   = help: allow this lint if the signature is compatible
+   = note: `#[warn(suspicious_runtime_symbol_definitions)]` on by default
+
+warning: 1 warning emitted
+
