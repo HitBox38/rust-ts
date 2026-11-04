@@ -1,6 +1,6 @@
 # Handoff: harness-w39 (harness batch; needs an independent review)
 
-Branch `t3/7f54d27c`, on `main` `b79919b0` with `integ-w38` `223c634a` merged (`09bddbe8`). No port code: no marker, `unported(...)` or
+Branch `t3/harness-cache-test-fixes`, on `main` `b79919b0` with `integ-w38` `223c634a` merged (`09bddbe8`). No port code: no marker, `unported(...)` or
 `// PORT:` was added or changed.
 
 ## Items
