@@ -1,0 +1,26 @@
+warning: integer-to-pointer cast
+ --> src/miri/borrow_tracker/tree_borrows/oracle/wildcard_no_exposed.rs:9:10
+  |
+9 |         *(addr as *mut u8) = 2;
+  |          ^^^^^^^^^^^^^^^^^ integer-to-pointer cast
+  |
+  = help: this program is using integer-to-pointer casts or (equivalently) `ptr::with_exposed_provenance`, which means that Miri might miss pointer bugs in this program
+  = help: see https://doc.rust-lang.org/nightly/std/ptr/fn.with_exposed_provenance.html for more details on that operation
+  = help: to ensure that Miri does not miss bugs in your program, use Strict Provenance APIs (https://doc.rust-lang.org/nightly/std/ptr/index.html#strict-provenance, https://crates.io/crates/sptr) instead
+  = help: you can then set `MIRIFLAGS=-Zmiri-strict-provenance` to ensure you are not relying on `with_exposed_provenance` semantics
+  = help: Tree Borrows does not support integer-to-pointer casts, so the program is likely to go wrong when this pointer gets used
+
+error: Undefined Behavior: write access through <wildcard> at alloc205[0x0] is forbidden
+ --> src/miri/borrow_tracker/tree_borrows/oracle/wildcard_no_exposed.rs:9:9
+  |
+9 |         *(addr as *mut u8) = 2;
+  |         ^^^^^^^^^^^^^^^^^^^^^^ Undefined Behavior occurred here
+  |
+  = help: this indicates a potential bug in the program: it performed an invalid operation, but the Tree Borrows rules it violated are still experimental
+  = help: see https://github.com/rust-lang/unsafe-code-guidelines/blob/master/wip/tree-borrows.md for further information
+  = help: there are no exposed tags which may perform this access here
+
+note: some details are omitted, run with `MIRIFLAGS=-Zmiri-backtrace=full` for a verbose backtrace
+
+error: aborting due to 1 previous error; 1 warning emitted
+

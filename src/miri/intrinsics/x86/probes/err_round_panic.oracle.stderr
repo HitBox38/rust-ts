@@ -1,0 +1,2 @@
+thread 'rustc' panicked at /rustc/6f5da406b56c2db6607202b63daee73aa8c61297/src/tools/miri/src/intrinsics/x86/mod.rs:648:21:
+invalid rounding mode 0xfffffff7

@@ -1,0 +1,11 @@
+error: Undefined Behavior: attempted to call intrinsic `llvm.x86.sse3.ldu.dq` that requires missing target feature sse3
+  --> err_feature_sse3.rs:16:24
+   |
+16 |     let b = [0i8; 16]; ldu(b.as_ptr());
+   |                        ^^^^^^^^^^^^^^^ Undefined Behavior occurred here
+   |
+   = help: this indicates a bug in the program: it performed an invalid operation, and caused Undefined Behavior
+   = help: see https://doc.rust-lang.org/nightly/reference/behavior-considered-undefined.html for further information
+
+error: aborting due to 1 previous error
+

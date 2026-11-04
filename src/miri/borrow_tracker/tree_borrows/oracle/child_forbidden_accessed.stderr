@@ -1,0 +1,25 @@
+error: Undefined Behavior: read access through <473> at alloc206[0x5] is forbidden
+  --> src/miri/borrow_tracker/tree_borrows/oracle/child_forbidden_accessed.rs:13:9
+   |
+13 |         rmut[5] += 1;
+   |         ^^^^^^^^^^^^ Undefined Behavior occurred here
+   |
+   = help: this indicates a potential bug in the program: it performed an invalid operation, but the Tree Borrows rules it violated are still experimental
+   = help: see https://github.com/rust-lang/unsafe-code-guidelines/blob/master/wip/tree-borrows.md for further information
+   = help: the accessed tag <473> has state Disabled which forbids this child read access
+help: the accessed tag <473> was created here, in the initial state Reserved
+  --> src/miri/borrow_tracker/tree_borrows/oracle/child_forbidden_accessed.rs:10:20
+   |
+10 |         let rmut = &mut *std::ptr::slice_from_raw_parts_mut(p, 6);
+   |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+help: the accessed tag <473> later transitioned to Disabled due to a foreign write access at offsets [0x5..0x6]
+  --> src/miri/borrow_tracker/tree_borrows/oracle/child_forbidden_accessed.rs:12:9
+   |
+12 |         *p.add(5) = 1;
+   |         ^^^^^^^^^^^^^
+   = help: this transition corresponds to a loss of read and write permissions
+
+note: some details are omitted, run with `MIRIFLAGS=-Zmiri-backtrace=full` for a verbose backtrace
+
+error: aborting due to 1 previous error
+

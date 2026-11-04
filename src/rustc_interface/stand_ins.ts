@@ -66,7 +66,7 @@ export const CodegenBackend_provided = {
   // rustc: compiler/rustc_codegen_ssa/src/traits/backend.rs:40 init
   init(_self: CodegenBackend, _sess: EarlySession): CodegenBackendInit {
     // Default::default()
-    return { global_backend_features: [], replaced_intrinsics: [], fallback_intrinsics: [], thin_lto_supported: false };
+    return { global_backend_features: [], replaced_intrinsics: [], fallback_intrinsics: [], thin_lto_supported: true };
   },
 
   /// Collect target-specific options that should be set in `cfg(...)`, including

@@ -14,6 +14,8 @@
 import { newtype_index } from "../rustc_index/newtype_index.ts";
 import type { BitMatrix } from "../rustc_index/bit_set.ts";
 import { Hash64 } from "../rustc_hashes/lib.ts";
+import { SliceRandom } from "../vendor/rand/seq/slice.ts";
+import { Xoshiro128StarStar } from "../vendor/rand_xoshiro/lib.ts";
 import { type Debug, debug_int, debug_option, debug_struct, debug_tuple, debug_vec, type Fmt, PLAIN } from "../std/fmt.ts";
 import type { MutRef } from "../std/mut_ref.ts";
 import { assert, assert_eq, panic, unported, unwrap } from "../std/panic.ts";
@@ -1215,12 +1217,11 @@ export class LayoutCalculator<Cx extends HasDataLayout> {
         // #[cfg(feature = "randomize")]
         // `ReprOptions.field_shuffle_seed` is a deterministic seed we can use to randomize field
         // ordering.
-        // let mut rng = rand_xoshiro::Xoshiro128StarStar::seed_from_u64(
-        //     field_seed.wrapping_add(repr.field_shuffle_seed).as_u64(),
-        // );
+        const rng = Xoshiro128StarStar.seed_from_u64(Hash64.as_u64(Hash64.wrapping_add(field_seed, repr.field_shuffle_seed)));
+
         // Shuffle the ordering of the fields.
-        // optimizing.shuffle(&mut rng);
-        return unported("rustc_abi::layout::LayoutCalculator::layout_of_univariant_biased: -Zrandomize-layout shuffle (rand_xoshiro::Xoshiro128StarStar, rand::seq::SliceRandom::shuffle)");
+        SliceRandom.shuffle(optimizing, rng);
+        for (let k = 0; k < end; k++) in_memory_order[k] = optimizing[k];
         // Otherwise we just leave things alone and actually optimize the type's fields
       } else {
         // To allow unsizing `&Foo<Type>` -> `&Foo<dyn Trait>`, the layout of the struct must

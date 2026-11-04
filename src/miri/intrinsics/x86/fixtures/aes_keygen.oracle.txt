@@ -1,0 +1,22 @@
+exit: 0
+--- stdout
+llvm.x86.aesni.aeskeygenassist i64x2:4746332809aa78b8,787972e828b1a81e u8:00 => i64x2:34a05ac3a05ac334,9bbcb640bcb6409b
+llvm.x86.aesni.aeskeygenassist i64x2:83f08f42afc52fc7,bccaa9a20f90754e u8:01 => i64x2:2cec8c72ec8c732c,3a6574d26574d33a
+llvm.x86.aesni.aeskeygenassist i64x2:8b3c5746536566df,13802a5b029086da u8:02 => i64x2:5a3deb593deb5b5a,397dcde77dcde539
+llvm.x86.aesni.aeskeygenassist i64x2:0bba24f107c84475,949bf58aaea09e30 u8:1b => i64x2:a12bf42d2bf436a1,7e2214fd2214e67e
+llvm.x86.aesni.aeskeygenassist i64x2:600a9c0856efbba8,cb3b405051928c40 u8:36 => i64x2:30d067e8d067de30,531fe23f1fe20953
+llvm.x86.aesni.aeskeygenassist i64x2:9f5f7b27f9edf4c8,3c0089b62b232d25 u8:80 => i64x2:ccdbcfa1dbcf21cc,4eeb6327eb63a74e
+llvm.x86.aesni.aeskeygenassist i64x2:7a52c37d2aa75d62,d332df44ed832755 u8:ff => i64x2:ffda00d1da002eff,1b66236166239e1b
+llvm.x86.aesni.aeskeygenassist i64x2:0000000000000000,0000000000000000 u8:00 => i64x2:6363636363636363,6363636363636363
+llvm.x86.aesni.aeskeygenassist i64x2:ffffffffffffffff,ffffffffffffffff u8:ff => i64x2:161616e916161616,161616e916161616
+fips197-a1 rcon 01 key a0fafe1788542cb123a339392a6c7605
+fips197-a1 rcon 02 key f2c295f27a96b9435935807a7359f67f
+fips197-a1 rcon 04 key 3d80477d4716fe3e1e237e446d7a883b
+fips197-a1 rcon 08 key ef44a541a8525b7fb671253bdb0bad00
+fips197-a1 rcon 10 key d4d1c6f87c839d87caf2b8bc11f915bc
+fips197-a1 rcon 20 key 6d88a37a110b3efddbf98641ca0093fd
+fips197-a1 rcon 40 key 4e54f70e5f5fc9f384a64fb24ea6dc4f
+fips197-a1 rcon 80 key ead27321b58dbad2312bf5607f8d292f
+fips197-a1 rcon 1b key ac7766f319fadc2128d12941575c006e
+fips197-a1 rcon 36 key d014f9a8c9ee2589e13f0cc8b6630ca6
+--- stderr

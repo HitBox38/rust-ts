@@ -1,14 +1,14 @@
 // Differential test suites. Each case runs on the oracle and on rust-ts with the same
 // inputs; outputs (stdout, stderr, exit code) must be byte-identical.
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { DATA, REPO, UPSTREAM, hash } from "../scripts/lib/common.ts";
 import { caseDeps } from "../scripts/lib/deps.ts";
 import { caseEnv, mergeEnv } from "../scripts/lib/env.ts";
-import { oraclePinnedPathEnv, oracleRustcCmd, oracleSysroot, rustcDriverHash, verifyOracleToolchain } from "../scripts/lib/oracle.ts";
+import { oracleHost, oraclePinnedPathEnv, oracleRustcCmd, oracleSysroot, rustcDriverHash, verifyOracleToolchain } from "../scripts/lib/oracle.ts";
 import { probePath } from "../scripts/probes.ts";
 import { MIRI_CASE_ENV, MIRI_DEFAULT_ARGS, MIRI_SYSROOT, miriBinary, miriOracleKey, miriPin } from "../scripts/lib/miri.ts";
-import { COMPILETEST_TARGET, collectUiTests, uiBlessed, uiCases, uiFileCases, uiOutputBaseDir, type Blessed, type ErrorFormat, type UiCase } from "./compiletest.ts";
+import { COMPILETEST_TARGET, collectUiTests, uiBlessed, uiCases, uiFileCases, uiOutputBaseDir, uiTestCases, type Blessed, type ErrorFormat, type UiCase } from "./compiletest.ts";
 import { AUX_STALE_MS, EMPTY_SYSROOT, M5_TARGET, libArgs, libCrate, libEnv, oracleLibRmeta, pruneStaleAux, touchAuxDir } from "./library.ts";
 
 export interface Case {
@@ -1588,8 +1588,10 @@ const runCorpus = (): { cases: UiCase[]; skipped: SkippedCase[] } => (runCorpusM
  * Miri flags that turn isolation off (`-Zmiri-disable-isolation`: the program sees the host's clock, files, real pid,
  * so the `gettid` thread id in a panic message becomes the host's) or pass host variables to the program
  * (`-Zmiri-env-forward=<var>`). D14 keeps isolation on, and `unstableMiriOracleReason` and `MIRI_CASE_ENV` rely on it,
- * so a case whose argv has one is skipped (review harness-m6a N3, lane harness-w36). No tests/ui test passes one at the
- * pin; Miri's own test suites (harness-m6c) do.
+ * so a case in a tests/ui suite whose argv has one is skipped (review harness-m6a N3, lane harness-w36); no tests/ui test
+ * passes one at the pin. Miri's own suites (harness-m6c) keep their test's flags, so 27 of their cases run with isolation
+ * off: there a real pid or path in the output shows up as a difference between two oracle runs, and a case that does is
+ * listed by hand in `MIRI_PASS_UNSTABLE`, which a pin move has to re-check (read by miri-pass and miri-pass-heavy; the other Miri suites have no such case at the pin).
  */
 export const MIRI_ISOLATION_OFF = ["-Zmiri-disable-isolation", "-Zmiri-env-forward"];
 /**
@@ -1731,7 +1733,8 @@ const miriSuite = (s: Omit<Suite, "milestone" | "mode" | "miri" | "oracle" | "su
   oracle: ([c]) => [miriBinary(), ...c!.args],
   subject: ([c]) => miriSubject(c!.args),
 });
-const M6B = "plan-m6 gate M6b: run-pass-miri + run-pass-miri-heavy + run-fail-miri >= 90% MATCH, ORACLE_TIMEOUT excluded";
+// A suite's share only (plan-m6 A12): the M6b figure comes from a gate, `bun scripts/criteria.ts --run <run>`.
+const M6B = "this suite's share of plan-m6 gate M6b (run-pass-miri + run-pass-miri-heavy, and run-fail-miri, each >= 90% MATCH, ORACLE_TIMEOUT excluded; the figure: bun scripts/criteria.ts --run <gate run>)";
 const MIRI_HEAVY_CLASS = { rssBudgetMb: 12 * 1024 };
 SUITES.push(
   miriSuite({
@@ -1879,6 +1882,174 @@ SUITES.push(
     },
     (a) => [...a, "-Zunpretty=expanded"],
   ),
+);
+
+// M6, Miri's own tests (plan-m6 §4, D13, A5, A8, A9, A11; lane harness-m6c).
+// - `miri-pass` + `miri-pass-heavy` + `miri-pass-tb`: src/tools/miri/tests/pass and tests/panic; `miri-fail`: tests/fail.
+//   pass-dep / fail-dep (they need crates.io crates), genmc, native-lib and many-seeds are out of M6 (D13).
+// - Cases, argv: as src/tools/miri/tests/ui.rs runs them through the ui_test crate, not compiletest:
+//   harness/compiletest.ts "Miri's own tests" (`uiTestCases`): revisions expanded (`<file>#<rev>`), `only-*` / `ignore-*`
+//   evaluated for target x86_64-unknown-linux-gnu on the real host, as `MIRI_TEST_TARGET=<target> ./miri test` does (A8).
+//   That argv has ui_test's `--error-format=json`, so stderr is rustc's JSON diagnostics, as upstream's tests see it
+//   before ui_test renders it.
+// - cwd `src/tools/miri` (cargo runs ui.rs there, so diagnostics show `tests/pass/...`); file and id relative to it.
+// - Env (both sides): ui.rs's `MIRI_ENV_VAR_TEST=0`, `RUST_BACKTRACE=1` and `MIRI_TEMP` (one fixed empty directory per case
+//   under $RUST_TS_DATA/tmp, where upstream has one random directory per run: a fixed path keeps the oracle cache key
+//   stable, and one per case keeps two revisions of a test apart), then `MIRI_CASE_ENV`, then the test's `rustc-env`;
+//   `RUSTC_ICE=0` as every suite here (no report file in the checkout). `--out-dir` is under $RUST_TS_DATA/tmp too: Miri
+//   creates it, and it must stay out of the checkout.
+// - Isolation (D14): upstream's flags are kept, so these are the first suites with `-Zmiri-disable-isolation` cases
+//   (`miriRunArgs` refuses it for tests/ui). Those programs see the host's clock, files and environment, and a real pid
+//   in `gettid`, so `MIRI_PASS_UNSTABLE` lists what two oracle runs showed to be irreproducible, and a case writing to the
+//   real filesystem is in the heavy class (`MIRI_UI_HEAVY`): the two sides of an ordinary single-mode case run at the same
+//   time, and they would race on the files under the case's `MIRI_TEMP`.
+// - A5: no gate depends on Tree Borrows, so `miri-pass` leaves out the cases with a `-Zmiri-tree-borrows*` flag; they are
+//   the report suite `miri-pass-tb`. miri-fail is report only and keeps them (subset `tree-borrows`).
+// Unprotected until root accepts a run; none is in the gate's defaults.
+const MIRI_UI_CWD = join(UPSTREAM, "src", "tools", "miri");
+const isTreeBorrows = (c: Case): boolean => c.args.some((a) => a.startsWith("-Zmiri-tree-borrows"));
+const miriUiMemo = new Map<string, { cases: Case[]; skipped: SkippedCase[] }>();
+/** The ui_test cases of `dirs` (relative to `MIRI_UI_CWD`), with the environment above. */
+function miriUiCorpus(dirs: string[]): { cases: Case[]; skipped: SkippedCase[] } {
+  const key = dirs.join(",");
+  const m = miriUiMemo.get(key);
+  if (m) return m;
+  const cfg = { host: oracleHost(), target: miriPin().target };
+  const ui = uiTestCases(MIRI_UI_CWD, dirs, cfg, (file) => ({ ...cfg, sysroot: MIRI_SYSROOT, outDir: join(DATA, "tmp", "miri_ui", "0", dirname(file)) }));
+  const cases = ui.cases.map((c): Case => {
+    const temp = join(DATA, "tmp", "miri-temp", hash(c.id).slice(0, 16));
+    mkdirSync(temp, { recursive: true });
+    return { id: c.id, file: c.file, args: c.args, env: { RUSTC_ICE: "0", MIRI_ENV_VAR_TEST: "0", MIRI_TEMP: temp, RUST_BACKTRACE: "1", ...MIRI_CASE_ENV, ...c.env } };
+  });
+  const r = { cases, skipped: ui.skipped };
+  miriUiMemo.set(key, r);
+  return r;
+}
+const MIRI_PASS_DIRS = ["tests/pass", "tests/panic"];
+/**
+ * The heavy cases of miri-pass (plan-m6 A11; `bun scripts/miri.ts time --suite miri-pass`, macOS arm64, 6 jobs, load 15,
+ * docs/handoff/harness-m6c.md): over 2.5 s of user time under the Miri oracle (every other case stays under 1.8 s), and
+ * the cases writing files under `MIRI_TEMP` (`utils::prepare`), whose two sides must not run at once (above). tests/fail
+ * (max 1.3 s), miri-pass-tb (max 0.9 s) and run-pass-aux-miri (max 0.24 s) have none over 2.5 s. Membership comes from the
+ * oracle's cost and the files a case writes, never from how the port does: this list's longer limit must not turn a
+ * port TIMEOUT into a MATCH (review harness-m6c R2, root decision; AGENTS.md section 2).
+ */
+const MIRI_UI_HEAVY: Record<string, string> = {
+  "tests/pass/0weak_memory/consistency.rs": "Miri oracle 3.1 s user, exit 0",
+  "tests/pass/0weak_memory/consistency_sc.rs": "Miri oracle 5.0 s user, exit 0",
+  "tests/pass/0weak_memory/weak.rs": "Miri oracle 3.7 s user, exit 0",
+  "tests/pass/float_nan.rs": "Miri oracle 2.9 s user, exit 0",
+  "tests/pass/issues/issue-miri-3680.rs": "writes files under MIRI_TEMP: the oracle and the subject must not run at once",
+  "tests/pass/shims/fs-permissions.rs": "writes files under MIRI_TEMP: the oracle and the subject must not run at once",
+  "tests/pass/shims/fs.rs": "writes files under MIRI_TEMP: the oracle and the subject must not run at once",
+};
+/**
+ * Cases whose oracle output differs between two runs (every case of the four suites run twice, once with a changed host
+ * `HOME`, `PATH` and `USER`; docs/handoff/harness-m6c.md): only these two, both in `thread '<name>' (<tid>) panicked`.
+ */
+const MIRI_PASS_UNSTABLE: UnstableCase[] = [
+  { id: "tests/panic/mir-validation.rs", reason: "ICE by design (a mir-opt validation failure, expected exit 101): the panic message names the oracle's OS thread id" },
+  { id: "tests/panic/panic1.rs", reason: "`-Zmiri-disable-isolation`: the `gettid` shim adds the real pid (shims/env.rs `get_tid`), and the program's panic message prints it" },
+];
+const isMiriUiHeavy = (c: Case): boolean => Object.hasOwn(MIRI_UI_HEAVY, c.id);
+const uiHeavySkips = (cases: Case[]): SkippedCase[] => cases.filter(isMiriUiHeavy).map((c) => ({ id: c.id, reason: `heavy (plan-m6 A11: ${MIRI_UI_HEAVY[c.id]}): in the suite's -heavy sibling` }));
+const uiSorted = (k: SkippedCase[]): SkippedCase[] => k.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+// This line is one suite's share. The M6b figure comes from a gate: `bun scripts/criteria.ts --run <gate run>`.
+const M6B_MIRI_PASS = "this suite's share of plan-m6 gate M6b (miri-pass + miri-pass-heavy >= 80% MATCH, ORACLE_TIMEOUT excluded; the figure: bun scripts/criteria.ts --run <gate run>)";
+const miriPassGated = (): Case[] => miriUiCorpus(MIRI_PASS_DIRS).cases.filter((c) => !isTreeBorrows(c));
+const miriPassCases = (): Case[] => miriPassGated().filter((c) => !isMiriUiHeavy(c));
+const miriPassHeavyCases = (): Case[] => miriPassGated().filter(isMiriUiHeavy);
+const miriPassTbCases = (): Case[] => miriUiCorpus(MIRI_PASS_DIRS).cases.filter(isTreeBorrows);
+const miriFailCases = (): Case[] => miriUiCorpus(["tests/fail"]).cases;
+SUITES.push(
+  miriSuite({
+    name: "miri-pass",
+    description:
+      "Miri's own tests/pass + tests/panic as ui.rs runs them (ui_test's argv, `--edition 2021 -Dwarnings -Dunused -Ainternal_features -Zui-testing` + `//@compile-flags`, revisions and only/ignore-target; D13, A8) for x86_64-unknown-linux-gnu, Stacked Borrows only (A5): stdout + stderr + exit; heavy cases in miri-pass-heavy",
+    timeoutMs: 60_000,
+    cwd: MIRI_UI_CWD,
+    cases: miriPassCases,
+    skipped: () =>
+      uiSorted([
+        ...miriUiCorpus(MIRI_PASS_DIRS).skipped,
+        ...uiHeavySkips(miriPassGated()),
+        ...miriPassTbCases().map((c) => ({ id: c.id, reason: "a Tree Borrows case (plan-m6 A5: no gate depends on it): in miri-pass-tb" })),
+      ]),
+    unstable: () => MIRI_PASS_UNSTABLE,
+    criterion: { percent: 80, what: M6B_MIRI_PASS },
+  }),
+  miriSuite({
+    name: "miri-pass-heavy",
+    description: "miri-pass's cases that are slow under the Miri oracle or use the real filesystem, so the oracle and the subject must not run at once (A11); heavy class: one process at a time, long timeouts",
+    timeoutMs: 1_800_000,
+    oracleTimeoutMs: 900_000,
+    heavy: MIRI_HEAVY_CLASS,
+    cwd: MIRI_UI_CWD,
+    cases: miriPassHeavyCases,
+    unstable: () => MIRI_PASS_UNSTABLE.filter((u) => Object.hasOwn(MIRI_UI_HEAVY, u.id)),
+    criterion: { percent: 80, what: M6B_MIRI_PASS },
+  }),
+  miriSuite({
+    name: "miri-pass-tb",
+    description: "miri-pass's Tree Borrows cases (a `-Zmiri-tree-borrows*` flag; plan-m6 A5: a report suite until after M6), same argv: stdout + stderr + exit; report only",
+    timeoutMs: 60_000,
+    cwd: MIRI_UI_CWD,
+    cases: miriPassTbCases,
+  }),
+  miriSuite({
+    name: "miri-fail",
+    description: "Miri's own tests/fail as ui.rs runs them (UB diagnostics: stacked/tree borrows, data races, validity, alignment; argv as miri-pass): stdout + stderr + exit; report only",
+    timeoutMs: 60_000,
+    cwd: MIRI_UI_CWD,
+    cases: miriFailCases,
+    skipped: () => miriUiCorpus(["tests/fail"]).skipped,
+    subsets: { "tree-borrows": isTreeBorrows },
+  }),
+);
+
+// `run-pass-aux-miri` (plan-m6 §4 item 3; lane harness-m6c): the tests/ui run-pass tests with aux crates that are not
+// proc macros, run as run-pass-miri runs them (D6, `miriRunArgs`), their aux crates built by the isolated Miri as
+// `MIRI_BE_RUSTC=target` rlibs carrying MIR (harness/compiletest.ts, the header's Miri section), cached under
+// `$RUST_TS_DATA/aux/ui/<key>` like every aux build. The aux directory is in the case's argv, so the oracle cache key
+// follows any aux change. A test in run-pass-miri (no aux crate) is not a case here, and not listed as skipped either;
+// a test with a proc-macro or binary aux crate is listed as skipped. Report only; unprotected.
+const MIRI_AUX_TIMEOUT_MS = 300_000;
+/** An aux directive that applies to revision `rev` (undefined: any). */
+const AUX_DIRECTIVE = /^\s*\/\/@\s*(?:\[([^\]]*)\])?\s*(?:aux-[a-z-]+|proc-macro)\s*:/gm;
+function declaresAux(file: string, rev: string | undefined): boolean {
+  return [...readFileSync(join(UPSTREAM, file), "utf8").matchAll(AUX_DIRECTIVE)].some((m) => rev === undefined || m[1] === undefined || m[1] === rev);
+}
+let runAuxMemo: { cases: Case[]; skipped: SkippedCase[] } | undefined;
+function runPassAuxCorpus(): { cases: Case[]; skipped: SkippedCase[] } {
+  if (runAuxMemo) return runAuxMemo;
+  const ui = uiFileCases(runModeFiles(), "human", { aux: true, auxTimeoutMs: MIRI_AUX_TIMEOUT_MS, run: true, needs: true, miriAux: true });
+  const sysroot = oracleSysroot();
+  const cases: Case[] = [];
+  const skipped: SkippedCase[] = [];
+  for (const c of ui.cases) {
+    if (!RUN_PASS_MODES.includes(c.mode!) || !ui.auxSteps.has(c.id)) continue;
+    try {
+      cases.push(pinSessionEnv({ id: c.id, file: c.file, args: miriRunArgs(c, sysroot, MIRI_SYSROOT), env: { ...c.env, ...MIRI_CASE_ENV } }, ui.auxFiles.get(c.id)));
+    } catch (e) {
+      skipped.push({ id: c.id, reason: `not run under Miri: ${e instanceof Error ? e.message : String(e)}` });
+    }
+  }
+  for (const k of ui.skipped) {
+    const hash_ = k.id.indexOf("#");
+    const [file, rev] = hash_ < 0 ? [k.id, undefined] : [k.id.slice(0, hash_), k.id.slice(hash_ + 1)];
+    if (declaresAux(file, rev) && declaredModes(file, rev).some((d) => RUN_PASS_MODES.includes(d))) skipped.push(k);
+  }
+  return (runAuxMemo = { cases, skipped: uiSorted(skipped) });
+}
+SUITES.push(
+  miriSuite({
+    name: "run-pass-aux-miri",
+    description: "tests/ui run-pass tests with non-proc-macro aux crates under Miri (argv as run-pass-miri), the aux crates built by the isolated Miri as MIRI_BE_RUSTC=target rlibs carrying MIR: stdout + stderr + exit; report only",
+    timeoutMs: 60_000,
+    oracleTimeoutMs: MIRI_AUX_TIMEOUT_MS,
+    cases: () => runPassAuxCorpus().cases,
+    skipped: () => runPassAuxCorpus().skipped,
+  }),
 );
 
 export function suite(name: string): Suite {
