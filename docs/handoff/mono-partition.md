@@ -1,6 +1,8 @@
 # Handoff: mono-partition (wave 38, M7 groundwork, plan-m6 section 5)
 
-Branch `t3/mono-partitioning-groundwork`, on top of `integ-w38` (ddcf02fe).
+Branch `t3/mono-partitioning-groundwork`. It merged `integ-w38` at df0180bc. That branch has moved on since (688895b6 when this
+was written). A trial merge (`git merge-tree`) into 688895b6 has no conflicts and changes only this lane's files. None of the
+checks below ran on that newer base.
 
 ## Files
 
@@ -53,18 +55,19 @@ crate id, `-in-` for an upstream crate); the driver's stop at the stand-in.
 
 **Everything else waited for mono-collector.** All of `place_mono_items`, `merge_codegen_units`, `internalize_symbols`, linkage,
 size estimates, `-Zprint-mono-items`, `-Zdump-mono-stats`, `assert_symbols_are_distinct` and `graph_checks` need real mono
-items. These 62 cases are committed and define themselves as soon as `collector.ts` is in the tree. On this branch they do not
+items. These 63 cases are committed and define themselves as soon as `collector.ts` is in the tree. On this branch they do not
 run.
 
 I ran them on a **merge rehearsal**: a fresh checkout of be5d0614 at another path, plus lane mono-collector's commit ed4a96a7,
 with the edits listed under "At the merge" applied. Not committed anywhere:
 - `tsc`: clean.
-- This lane's 62 cases: 60 byte-identical to the oracle (exit code, stdout, stderr, dump file); 2 pinned stops
+- This lane's 63 cases: 61 byte-identical to the oracle (exit code, stdout, stderr, dump file); 2 pinned stops
   (`vtable-through-const{,-nonincr}`, exit 70 at `rustc_middle::mir::interpret::Allocation::new (ty/vtable.rs
   vtable_allocation_provider, M4)`, before partitioning).
 - Coverage of those cases: 13 upstream programs, incremental and not; 1 to 16 and default CGU counts; opt-levels 0, 1, 2, 3;
   mangled and human-readable names; truncated names; a binary through std; `-Clink-dead-code`; both stats formats.
-- Mutations: 17 hand-made changes (swap_remove order, sort ties, overlap tie-break, CGU order on a line, internalization, stable
+- Mutations (run before the last small edits, against the same oracle files; the `swap_remove` one against `swap_order`, which
+  I added because it first survived): 17 hand-made changes (swap_remove order, sort ties, overlap tie-break, CGU order on a line, internalization, stable
   vs ipnsort in the stats, the 1800 limit, suffix padding, name sorting, truncation point, and others). 16 were caught.
   The survivor removes the `size_estimate <= max_overlap` break, which cannot change a result (overlap <= size).
 - `MonoItem_to_stable_hash_key` from `mono.ts` also ran through mono-collector's own test, which compares against the oracle's
