@@ -3,11 +3,13 @@
 // only inside one difftest, and two at once would delete each other's files (`utils::prepare`): a false DIFF, or a
 // failing oracle output in the cache.
 //
-// The lock is a file created with O_EXCL, holding the owner's pid. A dead owner's lock, or one older than `maxHoldMs` (a
-// reused pid after a reboot), is taken over. If two waiters see the same dead owner, one can remove the lock the other
+// The lock is a file created with O_EXCL, holding the owner's pid. It is taken over if its owner is dead, if it predates
+// this boot (a reboot leaves it behind, and its pid may now be another live process's), if it names this process, if it
+// is still empty after a write that takes microseconds, or if it is older than `maxHoldMs`. If two waiters see the same dead owner, one can remove the lock the other
 // has just made: that needs a killed difftest and two more on the same case in the same moment, and is not handled.
 // Imports no harness code: scripts/lib/common.ts fixes RUST_TS_DATA when it first loads.
 import { readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { uptime } from "node:os";
 
 const alive = (pid: number): boolean => {
   try {
@@ -29,6 +31,9 @@ function owner(file: string): number | undefined | "gone" {
   }
 }
 
+/** How long an empty lock file can still be a writer between creating it and writing its pid. */
+const EMPTY_LOCK_MS = 10_000;
+
 const ageMs = (file: string): number => {
   try {
     return Date.now() - statSync(file).mtimeMs;
@@ -36,6 +41,13 @@ const ageMs = (file: string): number => {
     return 0;
   }
 };
+
+/** Whether a lock with owner `pid` and age `age` can no longer be held by anyone. `uptimeMs` is how long ago this boot was. */
+export function isStaleLock(pid: number | undefined, age: number, maxHoldMs: number, uptimeMs: number, self: number, isAlive: (pid: number) => boolean): boolean {
+  if (age > maxHoldMs || age > uptimeMs) return true;
+  if (pid === undefined) return age > EMPTY_LOCK_MS;
+  return pid === self || !isAlive(pid);
+}
 
 /**
  * Runs `fn` holding the lock `file`, waiting for any other process that holds it. The wait is outside `fn`, so it never
@@ -52,7 +64,7 @@ export async function withCaseLock<T>(file: string, maxHoldMs: number, fn: () =>
     }
     const pid = owner(file);
     if (pid === "gone") continue;
-    if ((pid !== undefined && !alive(pid)) || ageMs(file) > maxHoldMs) {
+    if (isStaleLock(pid, ageMs(file), maxHoldMs, uptime() * 1000, process.pid, alive)) {
       const moved = `${file}.stale-${process.pid}`;
       try {
         renameSync(file, moved);

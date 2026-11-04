@@ -3,7 +3,7 @@ import { expect, test } from "bun:test";
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { withCaseLock } from "./case-lock.ts";
+import { isStaleLock, withCaseLock } from "./case-lock.ts";
 
 const inTemp = async (f: (dir: string) => Promise<void>) => {
   const dir = mkdtempSync(join(tmpdir(), "rust-ts-case-lock-"));
@@ -81,3 +81,21 @@ test("the lock is released when fn throws, and a lock that was taken over stays 
     expect(readFileSync(lock, "utf8")).toBe("1\n");
   });
 }, 60_000);
+
+test("a lock nobody can hold is stale: from before this boot, naming this process, empty for too long (review harness-w39 N1)", () => {
+  const HOUR = 3_600_000;
+  const liveOther = 4242;
+  const alive = (pid: number) => pid === liveOther;
+  const stale = (pid: number | undefined, age: number) => isStaleLock(pid, age, 3 * HOUR, 2 * HOUR, 1000, alive);
+  // A live owner during this boot: it may really hold it.
+  expect(stale(liveOther, 60_000)).toBe(false);
+  // The same live pid, but the file predates the boot: a reused pid after a reboot.
+  expect(stale(liveOther, 2 * HOUR + 1)).toBe(true);
+  expect(stale(1000, 60_000)).toBe(true);
+  expect(stale(9999, 60_000)).toBe(true);
+  // Empty: a writer between create and write, then not.
+  expect(stale(undefined, 1)).toBe(false);
+  expect(stale(undefined, 11_000)).toBe(true);
+  // Past the limit even with a long uptime.
+  expect(isStaleLock(liveOther, 3 * HOUR + 1, 3 * HOUR, 100 * HOUR, 1000, alive)).toBe(true);
+});
