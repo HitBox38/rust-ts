@@ -30,10 +30,8 @@ import { assert, panic, unported, unreachable, unwrap } from "../../../std/panic
 import { utf8_len } from "../../../std/str.ts";
 export * from "./diagnostics.gen.ts";
 
-// ---- PORT(contract): pending miri-tb-a ----
-// Items of lane miri-tb-a's perms.rs that its stub does not declare, with upstream's signatures (the stub's inventory lists
-// them: `impl Permission` / `impl PermTransition` in `mod diagnostics`, `impl fmt::Display for Permission`). See
-// docs/handoff/miri-tb-b.md.
+// ---- Items of perms.rs not declared in its stub, with upstream's signatures (the stub's inventory lists them: `impl
+// Permission` / `impl PermTransition` in `mod diagnostics`, `impl fmt::Display for Permission`).
 declare module "./perms.gen.ts" {
   interface Permission {
     // borrow_tracker/tree_borrows/perms.rs:456
@@ -48,14 +46,11 @@ declare module "./perms.gen.ts" {
     endpoint(): Permission;
   }
 }
-/** `{}` of a `Permission` (borrow_tracker/tree_borrows/perms.rs:449): lane miri-tb-a's `display_Permission`, read through the
- * namespace import at call time (a named import of an export that does not exist yet would fail at link time). */
+/** `{}` of a `Permission` (borrow_tracker/tree_borrows/perms.rs:449). */
 export function fmt_Permission(self: Permission): string {
-  const display_Permission = (perms as unknown as { display_Permission?: (self: Permission) => string }).display_Permission;
-  if (display_Permission === undefined) return unported("miri::borrow_tracker::tree_borrows::perms::Permission: Display (src/tools/miri/src/borrow_tracker/tree_borrows/perms.rs:449; lane miri-tb-a)");
-  return display_Permission(self);
+  return perms.display_Permission(self);
 }
-// ---- end of PORT(contract) ----
+// ----
 
 /** `eprintln!` (PORT: synchronous write to fd 2, as rustc_mir_transform/pass_manager.ts). */
 function eprintln(s: string): void {

@@ -6,7 +6,7 @@
 // field of one (a transition makes a new value and `LocationState.permission` is replaced), so copies can share them;
 // compare with `PermissionPriv_eq` / `Permission_eq` (`derive(PartialEq)`), never `===` (two `ReservedFrz` are two objects).
 // PORT: `Display` impls are `display_<Type>(v): string` (no formatter options reach them: each is `write!(f, "{}", ..)`).
-// PORT(contract): pending miri-tb-b: `rel_pos.is_foreign()` (tree.rs:1231, `matches!(self, ForeignAccess)`) is inlined.
+// PORT: `rel_pos.is_foreign()` (tree.rs:1231, `matches!(self, ForeignAccess)`) is inlined.
 // PORT: the `#[cfg(test)]` non-test items tree/tests.rs needs (`compatible_with_protector`,
 // `is_reserved_frz_with_conflicted`, the `Exhaustive_*` tables) are exported here; the `#[test]` fns are in perms.test.ts.
 import { type AccessKind } from "../mod.ts";

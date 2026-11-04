@@ -11,7 +11,7 @@
 //! - idempotency properties asserted in `perms.rs` (for optimizations)
 // Port of src/tools/miri/src/borrow_tracker/tree_borrows/tree.rs (crate `miri`, plan-m6 D2). Fill lane: `miri-tb-b`
 // (plan-m6 wave 38). Its types are generated into tree.gen.ts (tools/codegen set `miri`); this module re-exports them.
-// tree/tests.rs (`mod tests`) is ported as tree/tests.test.ts.pending-tb-a (it needs lane miri-tb-a; root renames it).
+// tree/tests.rs (`mod tests`) is ported as tree/tests.test.ts.
 //
 // PORT: `LocationState` is `Copy` and mutated in place, so every copy that stays live next to its source is a
 // `clone_LocationState` (`new_child`'s `loc.perms.insert(idx, perm)` runs once per location range;
@@ -46,13 +46,11 @@ import { assert, assert_eq, unwrap } from "../../../std/panic.ts";
 import { Err, Ok, type Result } from "../../../std/result.ts";
 export * from "./tree.gen.ts";
 
-// ---- PORT(contract): pending miri-tb-a ----
-// Items of lane miri-tb-a's files that its stubs do not declare, with upstream's signatures. `impl IdempotentForeignAccess`,
+// ---- Items of foreign_access_skipping.rs, wildcard.rs and unimap.rs not declared in their stubs, with upstream's signatures. `impl IdempotentForeignAccess`,
 // `impl WildcardAccessLevel` and `impl WildcardAccessRelatedness` are "companion fns / hand type, lane decides" in the
 // stubs' inventories: these are written to PORTING §8 (enum methods on the companion const; `&mut self` of a single-value
 // handle is a `MutRef`). A companion const cannot be augmented with `declare module`, and reading it at load would break
-// C10 (2), so each is reached by casting the companion at call time. All of it is here so integration changes one place.
-// See docs/handoff/miri-tb-b.md.
+// C10 (2), so each is reached by casting the companion at call time.
 interface IdempotentForeignAccess_methods {
   // borrow_tracker/tree_borrows/foreign_access_skipping.rs:40
   can_skip_foreign_access(self: IdempotentForeignAccess, happening_next: IdempotentForeignAccess): boolean;
@@ -88,7 +86,7 @@ function ExposedCacheNode_eq(a: ExposedCacheNode, b: ExposedCacheNode): boolean 
   return a.local_writes === b.local_writes && a.local_reads === b.local_reads;
 }
 
-// ---- end of PORT(contract) ----
+// ----
 
 /** `#[derive(PartialEq)]` of `LocationState` (:36). */
 export function LocationState_eq(a: LocationState, b: LocationState): boolean {

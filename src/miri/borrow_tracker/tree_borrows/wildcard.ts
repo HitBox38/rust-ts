@@ -6,8 +6,6 @@
 // PORT: `ExposedCacheNode`'s counters are `u16` and the oracle Miri is a release build (no overflow checks), so `+ 1`,
 // `- 1` and `+ u16::from(..)` wrap at 2^16 (`u16_add` / `u16_sub`).
 // PORT: `impl Tree` is on tree.gen.ts's class, another module's: `port_methods` (C10).
-// PORT(contract): pending miri-tb-b: `LocationState.permission_()` is declared `Pending<"Permission">` in tree.ts; it is
-// read through `as unknown as Permission`, which stays valid when tb-b corrects the declaration.
 import { type AccessKind, type BorTag, debug_BorTag, type GlobalState } from "../mod.ts";
 import { type Permission } from "./perms.ts";
 import { type AccessRelatedness, type LocationState, type Node, Tree } from "./tree.ts";
@@ -243,7 +241,7 @@ ExposedCache.prototype.remove = function (this: ExposedCache, idx: UniIndex): vo
 /** `perms.get(id).map(|p| p.permission()).unwrap_or_else(|| node.default_location_state().permission())` */
 function permission_at(perms: UniValMap<LocationState>, id: UniIndex, node: Node): Permission {
   const p = perms.get(id);
-  return (p !== undefined ? p.permission_() : node.default_location_state().permission_()) as unknown as Permission;
+  return p !== undefined ? p.permission_() : node.default_location_state().permission_();
 }
 
 // impl Tree
@@ -316,7 +314,7 @@ port_methods("miri::borrow_tracker::tree_borrows::wildcard::Tree", () => Tree.pr
         if (node.is_exposed) {
           const perm = perms.get(id) ?? node.default_location_state();
 
-          exposed_as = (perm.permission_() as unknown as Permission).strongest_allowed_local_access(protected_tags.has(node.tag));
+          exposed_as = perm.permission_().strongest_allowed_local_access(protected_tags.has(node.tag));
         } else {
           exposed_as = "None";
         }

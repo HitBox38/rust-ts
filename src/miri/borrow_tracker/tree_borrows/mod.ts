@@ -2,10 +2,7 @@
 // wave 38). Its types are generated into mod.gen.ts (tools/codegen set `miri`); this module re-exports them.
 //
 // PORT: `impl Tree` is on tree.gen.ts's class, another module's: `port_methods` (C10). `NewPermission` is this module's own.
-// PORT(contract): pending miri-tb-b: tree.ts declares `LocationState.new_accessed` / `.new_non_accessed` / `.permission_()`
-// and `Tree.new_child` with `Pending<"Permission">`. The `Permission` values cross those signatures `as never` (arguments)
-// and `as unknown as Permission` (results), which stay valid when tb-b corrects the declarations. `LocationState_eq` below
-// is the `#[derive(PartialEq)]` of tree.rs:36, which `DedupRangeMap::iter_mut` needs; tb-b's own can replace it.
+// `LocationState_eq` below is the `#[derive(PartialEq)]` of tree.rs:36, which `DedupRangeMap::iter_mut` needs.
 // Logging: upstream `trace!` lines are verbatim comments (A6: only `info!` is ported, by lane miri-log; this file has none).
 import { type AccessKind, BorTag, BorrowTrackerMethod, type GlobalState, type GlobalStateInner, type TreeBorrowsParams } from "../mod.ts";
 import { IdempotentForeignAccess } from "./foreign_access_skipping.ts";
@@ -90,7 +87,7 @@ declare module "./mod.gen.ts" {
   }
 }
 
-/** `#[derive(PartialEq)]` of `LocationState` (tree.rs:36; PORT(contract), module header). */
+/** `#[derive(PartialEq)]` of `LocationState` (tree.rs:36). */
 function LocationState_eq(a: LocationState, b: LocationState): boolean {
   return a.accessed === b.accessed && Permission_eq(a.permission, b.permission) && a.idempotent_foreign_access === b.idempotent_foreign_access;
 }
@@ -380,9 +377,9 @@ InterpCx.prototype.tb_reborrow = function (
     const sifa = perm.strongest_idempotent_foreign_access(protected_);
 
     if (perm.associated_access() !== undefined) {
-      return LocationState.new_accessed(perm as never, sifa);
+      return LocationState.new_accessed(perm, sifa);
     } else {
-      return LocationState.new_non_accessed(perm as never, sifa);
+      return LocationState.new_non_accessed(perm, sifa);
     }
   };
   let inside_perms: DedupRangeMap<LocationState>;
@@ -392,7 +389,7 @@ InterpCx.prototype.tb_reborrow = function (
     inside_perms = DedupRangeMap.new(ptr_size, loc_state(ty_is_freeze));
   } else {
     // The initial state will be overwritten by the visitor below.
-    const perms_map = DedupRangeMap.new(ptr_size, LocationState.new_accessed(Permission.new_disabled() as never, IdempotentForeignAccess.None));
+    const perms_map = DedupRangeMap.new(ptr_size, LocationState.new_accessed(Permission.new_disabled(), IdempotentForeignAccess.None));
     const v = this_.visit_freeze_sensitive(place, ptr_size, (range, frozen) => {
       const state = loc_state(frozen);
       for (const [_loc_range, _loc, elem] of perms_map.iter_mut(range.start, range.size, clone_LocationState, LocationState_eq)) {
@@ -411,7 +408,7 @@ InterpCx.prototype.tb_reborrow = function (
   const tree_borrows = alloc_extra.borrow_tracker_tb();
 
   for (const [perm_range, loc_state] of inside_perms.iter_all()) {
-    const access = (loc_state.permission_() as unknown as Permission).associated_access();
+    const access = loc_state.permission_().associated_access();
     if (access !== undefined) {
       // Some reborrows incur a read/write access to the parent.
       // As a write also implies a read, a single write is performed instead of a read and a write.
@@ -463,7 +460,7 @@ InterpCx.prototype.tb_reborrow = function (
     parent_prov,
     new_tag,
     inside_perms,
-    clone_Permission(new_perm.outside_perm) as never,
+    clone_Permission(new_perm.outside_perm),
     protected_,
     this_.machine.current_user_relevant_span(),
   );

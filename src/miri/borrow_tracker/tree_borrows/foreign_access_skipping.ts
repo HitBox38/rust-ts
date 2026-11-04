@@ -80,7 +80,7 @@ IdempotentForeignAccess.from_foreign = function (acc: AccessKind): IdempotentFor
 /// to e.g. invoke `can_skip_foreign_access`.
 // rustc: src/tools/miri/src/borrow_tracker/tree_borrows/foreign_access_skipping.rs:80 from_acc_and_rel
 IdempotentForeignAccess.from_acc_and_rel = function (acc: AccessKind, rel: AccessRelatedness): IdempotentForeignAccess {
-  // PORT(contract): pending miri-tb-b: `rel.is_foreign()` (tree.rs:1231) is the one-arm `matches!` inlined.
+  // PORT: `rel.is_foreign()` (tree.rs:1231) is the one-arm `matches!` inlined.
   return rel === "ForeignAccess" ? IdempotentForeignAccess.from_foreign(acc) : "None";
 };
 

@@ -1,7 +1,7 @@
 // Unit tests of tree_borrows/diagnostics.rs (lane miri-tb-b) that need nothing of lane miri-tb-a: the tree printing compared
 // byte for byte with the oracle (oracle/print_state.stderr), and the texts that hold no `Permission`. Upstream has no
 // `#[cfg(test)]` tests for this file. The tests of real trees and of the error texts with permissions are
-// tree_scenarios.test.ts.pending-tb-a (docs/handoff/miri-tb-b.md).
+// tree_scenarios.test.ts.
 import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";

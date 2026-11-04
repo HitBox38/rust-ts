@@ -3,7 +3,7 @@
 Small Rust programs and what the oracle Miri prints for them. `<name>.stderr` is the exact stderr of the isolated Miri at
 the pin (`UPSTREAM.json`), `<name>.exit` its exit code. They check `tree_borrows/diagnostics.ts` byte for byte:
 `diagnostics.test.ts` compares the tree printing with `print_state.stderr` now. The error texts on real trees need lane
-miri-tb-a's code: `tree_scenarios.test.ts.pending-tb-a` (docs/handoff/miri-tb-b.md).
+miri-tb-a's code: `tree_scenarios.test.ts`.
 
 Regenerate from the repo root (a path in the output is the path given here, so keep it relative):
 
