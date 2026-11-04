@@ -697,9 +697,13 @@ InterpCx.prototype.get_place_alloc_mut = function (this: InterpCx, mplace: MPlac
 // rustc: compiler/rustc_const_eval/src/interpret/place.rs:576 local_to_place
 InterpCx.prototype.local_to_place = function (this: InterpCx, local: Local): InterpResult<PlaceTy> {
   const frame = this.frame();
-  const lr = this.layout_of_local(frame, local, undefined);
-  if (lr.$ === "Err") return lr;
-  const layout = lr._0;
+  // PORT(perf): `layout_of_local`'s cache hit without its `Ok`, as in `local_to_op`.
+  let layout = frame.locals[local]!.layout;
+  if (layout === undefined) {
+    const lr = this.layout_of_local(frame, local, undefined);
+    if (lr.$ === "Err") return lr;
+    layout = lr._0;
+  }
   let place: Place;
   if (layout.is_sized()) {
     // We can just always use the `Local` for sized values.

@@ -5,7 +5,7 @@
 //! For handling of argument passing and return values, see the `call` module.
 import { typing_env_no } from "../../rust_ts/typing_env_no.ts";
 import { type FrameNote } from "../diagnostics.ts";
-import { InterpCx, from_known_layout } from "./eval_context.ts";
+import { InterpCx } from "./eval_context.ts";
 import { ReturnAction, type AnyMachine, type ProvOf, type MachineTypesOf, type Machine } from "./machine.ts";
 import { Immediate, type Operand } from "./operand.ts";
 import { MemPlaceMeta } from "./place.ts";
@@ -827,15 +827,19 @@ InterpCx.prototype.layout_of_local = function (this: InterpCx, frame: Frame, loc
     return interp_ok(cached);
   }
 
-  const layout_r = from_known_layout(this.tcx, this.typing_env, layout, () => {
+  // PORT(perf): `from_known_layout` inlined (no closure for the usual `None`; its `Some` arm is `Ok(layout)` in a release
+  // build, see `from_known_layout`).
+  let layout_: TyAndLayout;
+  if (layout === undefined) {
     const local_ty = unwrap(frame.body.local_decls[local]).ty;
     const local_ty_r = this.instantiate_from_frame_and_normalize_erasing_regions(frame, local_ty, fold_Ty);
     if (local_ty_r.$ === "Err") return Err(InterpErrorInfo_from_ErrorHandled(local_ty_r._0));
     const r = this.layout_of(local_ty_r._0);
-    return r.$ === "Err" ? Err(InterpErrorInfo_from_InterpErrorKind(r._0)) : r;
-  });
-  if (layout_r.$ === "Err") return layout_r;
-  const layout_ = layout_r._0;
+    if (r.$ === "Err") return Err(InterpErrorInfo_from_InterpErrorKind(r._0));
+    layout_ = r._0;
+  } else {
+    layout_ = layout;
+  }
 
   // Layouts of locals are requested a lot, so we cache them.
   state.layout = layout_;
