@@ -144,6 +144,7 @@ var place_cache: typeof import("./place.ts") | undefined;
 const FRAME_NORMALIZE_MEMO = new Map<unknown, Map<number, Result<unknown, NormalizationError>>>();
 /** PORT(perf): see `resolve`. */
 const RESOLVE_MEMO = new Map<number, InterpResult<Instance>>();
+let resolve_memo_tcx: unknown;
 
 export class InterpCx<M extends AnyMachine = Machine>
   implements
@@ -452,6 +453,11 @@ export class InterpCx<M extends AnyMachine = Machine>
     // trace!("args: {:#?}", args);
     // PORT(perf): a successful resolution is pure in `(def, args, typing env)` (all interned or by value), and `Instance` is
     // never written to, so the first result is reused: `try_resolve` erases, folds and looks up queries on every call.
+    // A `DefId` means something else in another `TyCtxt` and the empty list is process-wide, so the memo is per `TyCtxt`.
+    if (resolve_memo_tcx !== this.tcx.tcx) {
+      resolve_memo_tcx = this.tcx.tcx;
+      RESOLVE_MEMO.clear();
+    }
     const resolve_key = pack_def_id(typing_env_no(this.typing_env), def, args.id);
     if (resolve_key >= 0) {
       const hit = RESOLVE_MEMO.get(resolve_key);
