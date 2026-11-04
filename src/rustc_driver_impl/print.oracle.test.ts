@@ -194,5 +194,11 @@ exact(["-Zunpretty=ast-tree", "-Clink-self-contained=+linker,-linker", "-Zunstab
 pending(["-Zunpretty=ast-tree", "-Cllvm-args=-bogus", "x.rs"], "rustc_codegen_llvm::llvm_util::configure_llvm (-C llvm-args)");
 pending(["-Zunpretty=ast-tree", "-Ctarget-feature=+bogus", "x.rs"], "rustc_codegen_llvm::llvm_util::configure_llvm (-C target-feature)");
 pending(["-Zunpretty=ast-tree", "-Ctarget-cpu=bogus", "x.rs"], "rustc_codegen_llvm::llvm_util::configure_llvm (-C target-cpu)");
+// The CPU of ORACLE_TARGET_CPU_FEATURES, alone and with what `internal_target_features` adds in Rust. The same CPU on another
+// target is LLVM's own warning, so that stops.
+exact(["--print", "cfg", "--target", "x86_64-unknown-linux-gnu", "-Ctarget-cpu=x86-64-v4"]);
+exact(["--print", "cfg", "--target", "x86_64-unknown-linux-gnu", "-Ctarget-cpu=x86-64-v4", "-Ctarget-feature=+avx512vbmi,-avx2"]);
+exact(["-Zunpretty=ast-tree", "--target", "x86_64-unknown-linux-gnu", "-Ctarget-cpu=x86-64-v4", "x.rs"]);
+pending(["--print", "cfg", "--target", "aarch64-apple-darwin", "-Ctarget-cpu=x86-64-v4"], "rustc_codegen_llvm::llvm_util::configure_llvm (-C target-cpu)");
 pending(["-Zunpretty=ast-tree", "-Zretpoline", "--target", "x86_64-unknown-linux-gnu", "x.rs"], "rustc_codegen_llvm::llvm_util::configure_llvm (-Z retpoline)");
 pending(["-Zunpretty=ast-tree", "-Zsanitizer=memory", "x.rs"], "rustc_codegen_llvm::llvm_util::target_config (-Z sanitizer)");

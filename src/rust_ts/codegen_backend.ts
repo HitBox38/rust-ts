@@ -47,6 +47,28 @@ export const ORACLE_ACCEPTED_LLVM_ARGS: ReadonlySet<string> = new Set([
 ]);
 
 /**
+ * What LLVM answers for a `-C target-cpu` that a case uses, from the oracle: the features `target_config` returns, read with
+ * tools/codegen/target-config/probe.rs (`<probe> empty.rs --target <tuple> -C target-cpu=<cpu>`, its `internal_target_features`
+ * line), as src/rust_ts/target_config.gen.ts holds them for the default CPU (decision D4). Only LLVM knows a CPU's features,
+ * so any other CPU stays `unported`. The CPU reaches LLVM only here: `global_llvm_features` adds it only for `native`, and
+ * `configure_llvm` does not read it. codegen_backend.oracle.test.ts checks the entry against `--print cfg`, and that it is
+ * closed under `implied_target_features`, as the code below needs.
+ */
+export const ORACLE_TARGET_CPU_FEATURES: ReadonlyMap<string, readonly string[]> = new Map([
+  // src/tools/miri/tests/pass/target-cpu-implies-target-feature.rs
+  [
+    "x86_64-unknown-linux-gnu -C target-cpu=x86-64-v4",
+    ["avx", "avx2", "avx512bw", "avx512cd", "avx512dq", "avx512f", "avx512vl", "bmi1", "bmi2", "cmpxchg16b", "f16c", "fma", "fxsr", "lahfsahf", "lzcnt", "movbe", "popcnt", "sse", "sse2", "sse3", "sse4.1", "sse4.2", "ssse3", "x87", "xsave"],
+  ],
+]);
+
+/** The entry of `ORACLE_TARGET_CPU_FEATURES` for this session's `-C target-cpu`, if there is one. */
+function oracle_target_cpu_features(sess: EarlySession): readonly string[] | undefined {
+  if (sess.opts.target_triple.$ !== "TargetTuple") return undefined;
+  return ORACLE_TARGET_CPU_FEATURES.get(`${TargetTuple.tuple(sess.opts.target_triple)} -C target-cpu=${sess.opts.cg.target_cpu}`);
+}
+
+/**
  * PORT: the inputs of LLVM's initialisation (`llvm_util::configure_llvm`, `global_llvm_features`,
  * `llvm_features_by_flags`) and of `target_config` that rust-ts only knows the default of. Each
  * non-default one is reported by name; the caller calls `unported` with it. With none reported, `init` needs nothing
@@ -59,7 +81,7 @@ function non_default_llvm_input(sess: EarlySession, for_target_config: boolean):
   const cg = sess.opts.cg;
   const z = sess.opts.unstable_opts;
   if (cg.llvm_args.length !== 0 && !ORACLE_ACCEPTED_LLVM_ARGS.has(cg.llvm_args.join(" "))) return "-C llvm-args";
-  if (cg.target_cpu !== undefined) return "-C target-cpu";
+  if (cg.target_cpu !== undefined && oracle_target_cpu_features(sess) === undefined) return "-C target-cpu";
   if (z.llvm_target_feature !== "") return "-Z llvm-target-feature";
   if (z.llvm_plugins.length !== 0) return "-Z llvm-plugins";
   if (z.time_llvm_passes) return "-Z time-llvm-passes";
@@ -165,7 +187,7 @@ export class LlvmCodegenBackend implements CodegenBackend {
     // PORT: the table holds what `target_config` returned with no `-Ctarget-feature`, that is every feature LLVM reports
     // plus its transitive implications. That set is closed under `implied_target_features`, so asking it in place of
     // `mc_subtarget_info.has_features` expands to the same set.
-    const llvm_reports = new Set<string>(t.internal_target_features);
+    const llvm_reports = new Set<string>(sess.opts.cg.target_cpu !== undefined ? oracle_target_cpu_features(sess)! : t.internal_target_features);
 
     const internal_target_features_ = target_features.internal_target_features(
       sess,
