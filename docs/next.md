@@ -428,7 +428,7 @@ Integration branch `integ-w38` (worktree .data/integ-w38). x86 and Tree Borrows 
 | lane | scope | status |
 |---|---|---|
 | harness-m6c | miri-pass, miri-fail, run-pass-aux-miri suites (A8: revisions, only/ignore-target); M6b needs miri-pass >= 80% | running |
-| harness-w38 | harness-w37 nits, queued probes (randstream, epoll/eventfd), UNPORTED bucket counts in the run summary | running |
+| harness-w38 | harness-w37 nits, queued probes (randstream, epoll/eventfd), UNPORTED bucket counts in the run summary | APPROVE WITH NITS; on integ-w38 |
 | miri-perf | D11: hello <= 3 s user, run-pass p99 <= 10 s; the 3 timeouts and the heavy cases; rmeta-core RSS watch | running |
 | miri-x86-a | intrinsics/x86/mod.rs + sse, sse2, sse3, ssse3, sse41, sse42 (~2.7k) | running |
 | miri-x86-b | intrinsics/x86/avx, avx2, avx512, aesni, bmi, gfni, sha (~1.4k) | running |
