@@ -439,7 +439,7 @@ Integration branch `integ-w38` (worktree .data/integ-w38). x86 and Tree Borrows 
 | miri-tail-a | configure_llvm / target_config flags (31 cases), each_linked_rlib with -C lto (14), parse_native_lib (2), -Zrandomize-layout (1) | APPROVE WITH NITS; on integ-w38 |
 | miri-tail-b | shims/unix/virtual_socket.rs: pipe2, socketpair (10 cases; narrows D2) | APPROVE WITH NITS; merging after the dry run |
 | mono-collector, mono-partition | M7 groundwork, plan-m6 §5 | running |
-| harness-w39 | aux cache poisoning, scope, probes nits, case lock for the fs cases | in review |
+| harness-w39 | aux cache poisoning, scope, probes nits, case lock for the fs cases | APPROVE WITH NITS; on integ-w38 |
 | fixers-38 | allocation dump order, --print sysroot stop, send/recv, test gaps, cleanups | running |
 | mio-poll | isolation-off cases stop at mio::Poll::new (17 in miri-pass) with no socket I/O in sight: check whether Miri only creates it at startup, and port that with real polling still stopping | queued |
 | miri-sysroot, harness-m6d | M7 groundwork, plan-m6 §5 | queued |
