@@ -58,6 +58,8 @@ import {
   Scalar,
 } from "../../rustc_middle/mir/interpret/mod.ts";
 import type { MemPlaceMeta as gen_MemPlaceMeta } from "./place.gen.ts";
+import { pack_def_id, typing_env_no } from "../../rust_ts/typing_env_no.ts";
+import type { NormalizationError } from "../../rustc_middle/ty/normalize_erasing_regions.ts";
 import { BasicBlock, type Body, Const as mir_Const, type ConstAlloc, type Either, type Promoted, type Location, type UnwindAction } from "../../rustc_middle/mir/mod.ts";
 import type { TyCtxtAt } from "../../rustc_middle/query/calls.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
@@ -133,6 +135,18 @@ var place_cache: typeof import("./place.ts") | undefined;
 // PORT: the impls of `HasDataLayout` / `HasTyCtxt` / `HasTypingEnv` / `LayoutOfHelpers` / `FnAbiOfHelpers` (and the blanket
 // `LayoutOf` / `FnAbiOf`) are methods of the class (PORTING §8); the trait methods `tcx()` / `typing_env()` are `tcx_()` /
 // `typing_env_()` (rustc_middle ty/layout.ts header), the fields keep their names.
+/**
+ * Measured (docs/handoff/miri-perf.md, 486 Ginstr at base): -19.7 Ginstr.
+ * PORT(perf) (lane miri-perf, plan-m6 D11): upstream folds and normalizes every MIR type or constant each time it is used
+ * in a frame. The result is a pure function of the value (MIR is immutable, so its object identity is the value), of the
+ * frame's args (interned) and of the typing env: remembered for the polymorphic bodies, which take `args_for_mir_body`, so a
+ * repeat use is invisible. `Err` is not remembered (it builds a span-dependent error).
+ */
+const FRAME_NORMALIZE_MEMO = new Map<unknown, Map<number, Result<unknown, NormalizationError>>>();
+/** PORT(perf): see `resolve`. */
+const RESOLVE_MEMO = new Map<number, InterpResult<Instance>>();
+let resolve_memo_tcx: unknown;
+
 export class InterpCx<M extends AnyMachine = Machine>
   implements
     LayoutOf<Result<TyAndLayout<Ty>, InterpErrorKind>, InterpErrorKind>,
@@ -345,14 +359,16 @@ export class InterpCx<M extends AnyMachine = Machine>
   // rustc: compiler/rustc_const_eval/src/interpret/eval_context.rs:287 frame
   frame(): Frame {
     const stack_ = this.stack();
-    return unwrap(stack_[stack_.length - 1], "a call frame should exist");
+    // PORT(perf): `unwrap` only on the failing path; it takes a third of this function's samples.
+    return stack_[stack_.length - 1] ?? unwrap<Frame>(undefined, "a call frame should exist");
   }
 
   // #[inline(always)]
   // rustc: compiler/rustc_const_eval/src/interpret/eval_context.rs:292 frame_mut
   frame_mut(): Frame {
     const stack_ = this.stack_mut();
-    return unwrap(stack_[stack_.length - 1], "a call frame should exist");
+    // PORT(perf): as `frame`.
+    return stack_[stack_.length - 1] ?? unwrap<Frame>(undefined, "a call frame should exist");
   }
 
   // #[inline(always)]
@@ -403,6 +419,20 @@ export class InterpCx<M extends AnyMachine = Machine>
   // rustc: compiler/rustc_const_eval/src/interpret/eval_context.rs:338 instantiate_from_frame_and_normalize_erasing_regions
   instantiate_from_frame_and_normalize_erasing_regions<T>(frame: Frame, value: T, d_T: TypeFoldable<T>): Result<T, ErrorHandled> {
     // let _trace = enter_trace_span!(M, "instantiate_from_frame_and_normalize_erasing_regions", %frame.instance);
+    // PORT(perf): see `FRAME_NORMALIZE_MEMO`.
+    const args = Instance.args_for_mir_body(frame.instance);
+    const env = args === undefined ? -1 : typing_env_no(this.typing_env);
+    let memo: Map<number, Result<unknown, NormalizationError>> | undefined;
+    const memo_key = args === undefined ? 0 : args.id * 0x40 + env;
+    if (args !== undefined && env < 0x40) {
+      memo = FRAME_NORMALIZE_MEMO.get(value);
+      if (memo === undefined) {
+        memo = new Map();
+        FRAME_NORMALIZE_MEMO.set(value, memo);
+      }
+      const hit = memo.get(memo_key);
+      if (hit !== undefined) return hit as Result<T, ErrorHandled>;
+    }
     const r = Instance.try_instantiate_mir_and_normalize_erasing_regions(
       frame.instance,
       this.tcx.deref(),
@@ -411,6 +441,7 @@ export class InterpCx<M extends AnyMachine = Machine>
       d_T,
     );
     if (r.$ === "Err") return Err<ErrorHandled>({ $: "TooGeneric", _0: this.cur_span() });
+    if (memo !== undefined) memo.set(memo_key, r);
     return r;
   }
 
@@ -421,10 +452,27 @@ export class InterpCx<M extends AnyMachine = Machine>
     // trace!("resolve: {:?}, {:#?}", def, args);
     // trace!("typing_env: {:#?}", self.typing_env);
     // trace!("args: {:#?}", args);
+    // Measured (docs/handoff/miri-perf.md, 486 Ginstr at base): -0.4 Ginstr here; the six low-gain changes together are worth 1.1% here and 2.2% on `dynamic-drop.rs` (handoff).
+    // PORT(perf): a successful resolution is pure in `(def, args, typing env)` (all interned or by value), and `Instance` is
+    // never written to, so the first result is reused: `try_resolve` erases, folds and looks up queries on every call.
+    // A `DefId` means something else in another `TyCtxt` and the empty list is process-wide, so the memo is per `TyCtxt`.
+    if (resolve_memo_tcx !== this.tcx.tcx) {
+      resolve_memo_tcx = this.tcx.tcx;
+      RESOLVE_MEMO.clear();
+    }
+    const resolve_key = pack_def_id(typing_env_no(this.typing_env), def, args.id);
+    if (resolve_key >= 0) {
+      const hit = RESOLVE_MEMO.get(resolve_key);
+      if (hit !== undefined) return hit;
+    }
     const r = Instance.try_resolve(this.tcx.deref(), this.typing_env, def, args);
     if (r.$ === "Ok") {
       const instance = r._0;
-      if (instance !== undefined) return interp_ok(instance);
+      if (instance !== undefined) {
+        const ok = interp_ok(instance);
+        if (resolve_key >= 0) RESOLVE_MEMO.set(resolve_key, ok);
+        return ok;
+      }
       // throw_inval!(TooGeneric)
       return Err(InterpErrorInfo_from_InterpErrorKind({ $: "InvalidProgram", _0: { $: "TooGeneric" } }));
     }

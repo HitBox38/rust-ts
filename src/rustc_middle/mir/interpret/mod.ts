@@ -696,6 +696,22 @@ export function write_target_uint(endianness: Endian, target: Uint8Array, data: 
   // This u128 holds an "any-size uint" (since smaller uints can fits in it)
   // So we do not write all bytes of the u128, just the "payload".
   // PORT: `<&mut [u8] as io::Write>::write` copies `min(buf.len(), target.len())` bytes and never fails.
+  // PORT(perf): a little-endian write of up to 8 bytes of a value below 2^53 needs no 128-bit byte loop.
+  if (endianness === "Little" && target.length <= 8 && data >= 0n && data <= 0x1f_ffff_ffff_ffffn) {
+    const n = Number(data);
+    let lo = n >>> 0;
+    let hi = (n - lo) / 0x1_0000_0000;
+    for (let i = 0; i < target.length; i++) {
+      if (i < 4) {
+        target[i] = lo & 0xff;
+        lo >>>= 8;
+      } else {
+        target[i] = hi & 0xff;
+        hi >>>= 8;
+      }
+    }
+    return OK_WRITE;
+  }
   const bytes = u128_to_le_bytes(data);
   switch (endianness) {
     case "Little":
@@ -713,6 +729,37 @@ export function write_target_uint(endianness: Endian, target: Uint8Array, data: 
   return Ok(undefined);
 }
 
+/**
+ * PORT(perf): the little-endian `read_target_uint` of `bytes[start..start + len]` (`len` at most 8, in bounds) without making
+ * the view: `subarray` is a costly native call, and an interpreter load needs none.
+ */
+export function read_le_uint_at(bytes: Uint8Array, start: number, len: number): bigint {
+  let lo = 0;
+  let hi = 0;
+  for (let i = start + Math.min(len, 4) - 1; i >= start; i--) lo = lo * 256 + bytes[i]!;
+  for (let i = start + len - 1; i >= start + 4; i--) hi = hi * 256 + bytes[i]!;
+  if (hi === 0 && lo < 256) return SMALL_BIGINTS[lo]!;
+  return hi < 0x20_0000 ? BigInt(hi * 0x1_0000_0000 + lo) : (BigInt(hi) << 32n) | BigInt(lo);
+}
+/** PORT(perf): the little-endian `write_target_uint` of a `data` in `0..2^53` to `bytes[start..start + len]` (`len` at most 8, in bounds), without a view. */
+export function write_le_uint_at(bytes: Uint8Array, start: number, len: number, data: bigint): void {
+  const n = Number(data);
+  let lo = n >>> 0;
+  let hi = (n - lo) / 0x1_0000_0000;
+  for (let i = 0; i < len; i++) {
+    if (i < 4) {
+      bytes[start + i] = lo & 0xff;
+      lo >>>= 8;
+    } else {
+      bytes[start + i] = hi & 0xff;
+      hi >>>= 8;
+    }
+  }
+}
+const OK_WRITE: Result<undefined, IoError> = Ok(undefined);
+/** PORT(perf): see `read_target_uint`. */
+const SMALL_BIGINTS: readonly bigint[] = Array.from({ length: 256 }, (_, i) => BigInt(i));
+
 /** `u128::to_le_bytes` */
 function u128_to_le_bytes(data: bigint): Uint8Array {
   const out = new Uint8Array(16);
@@ -727,6 +774,16 @@ function u128_to_le_bytes(data: bigint): Uint8Array {
 // #[inline]
 // rustc: compiler/rustc_middle/src/mir/interpret/mod.rs:586 read_target_uint
 export function read_target_uint(endianness: Endian, source: Uint8Array): Result<bigint, IoError> {
+  // PORT(perf): a little-endian read of up to 8 bytes in numbers: one `BigInt` instead of sixteen shifts over a 16-byte
+  // buffer, none for a byte value (`Scalar` bits are immutable, so sharing them is invisible).
+  if (endianness === "Little" && source.length <= 8) {
+    let lo = 0;
+    let hi = 0;
+    for (let i = Math.min(source.length, 4) - 1; i >= 0; i--) lo = lo * 256 + source[i]!;
+    for (let i = source.length - 1; i >= 4; i--) hi = hi * 256 + source[i]!;
+    if (hi === 0 && lo < 256) return Ok(SMALL_BIGINTS[lo]!);
+    return Ok(hi < 0x20_0000 ? BigInt(hi * 0x1_0000_0000 + lo) : (BigInt(hi) << 32n) | BigInt(lo));
+  }
   // This u128 holds an "any-size uint" (since smaller uints can fits in it)
   const buf = new Uint8Array(16);
   // So we do not read exactly 16 bytes into the u128, just the "payload".

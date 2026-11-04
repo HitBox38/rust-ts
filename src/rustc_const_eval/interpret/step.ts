@@ -11,6 +11,7 @@ import { InterpCx } from "./eval_context.ts";
 import { type AnyMachine, type ProvOf, type Machine } from "./machine.ts";
 import { RetagMode } from "./machine.gen.ts";
 import { type EvaluatedCalleeAndArgs } from "./step.gen.ts";
+import { typing_env_no } from "../../rust_ts/typing_env_no.ts";
 import { type FnVal } from "./memory.gen.ts";
 import { ImmTy, type OpTy } from "./operand.gen.ts";
 import { Immediate } from "./operand.ts";
@@ -132,7 +133,9 @@ InterpCx.prototype.step = function (this: InterpCx): InterpResult<boolean> {
     const r = this.eval_statement(stmt);
     if (r.$ === "Err") return r;
     // Make sure we are not updating `statement_index` of the wrong frame.
-    assert_eq(old_frames, this.frame_idx(), (v) => `${v}`);
+    // Measured (docs/handoff/miri-perf.md, 486 Ginstr at base): -1.3 Ginstr with the two changes in `eval_callee_and_args`.
+    // PORT(perf): the closure only on the failing path; this runs per statement.
+    if (old_frames !== this.frame_idx()) assert_eq(old_frames, this.frame_idx(), (v) => `${v}`);
     // Advance the program counter.
     // PORT: `loc.as_mut().left().unwrap().statement_index += 1`: `Location` values are shared (e.g. `Location::START`),
     // so the frame gets a new one.
@@ -646,6 +649,10 @@ InterpCx.prototype.eval_fn_call_argument = function (this: InterpCx, op: mir_Ope
   }
 };
 
+const NO_TYS: Ty[] = [];
+/** PORT(perf): the callee signature of `eval_callee_and_args`, keyed `ty.id * 64 + env` (envs below 64). */
+const CALLEE_SIG_MEMO = new Map<number, [Binder<FnSig>, FnSig]>();
+
 /// Shared part of `Call` and `TailCall` implementation — finding and evaluating all the
 /// necessary information about callee and arguments to make a call.
 // rustc: compiler/rustc_const_eval/src/interpret/step.rs:438 eval_callee_and_args
@@ -670,7 +677,8 @@ InterpCx.prototype.eval_callee_and_args = function (
   // argument with the return place.
   let move_definitely_disjoint: boolean;
   move_definitely_disjoint: {
-    const previous_locals = new Set<Local>();
+    // PORT(perf): an array, not a `Set`: this is per call, and there are only a few places.
+    const previous_locals: Local[] = [];
     const places: mir_Place[] = [];
     for (const a of args_ops) {
       // We only have to care about `Move` arguments.
@@ -683,12 +691,12 @@ InterpCx.prototype.eval_callee_and_args = function (
         move_definitely_disjoint = false;
         break move_definitely_disjoint;
       }
-      if (previous_locals.has(place.local)) {
+      if (previous_locals.includes(place.local)) {
         // This local is the base for two arguments! They might overlap.
         move_definitely_disjoint = false;
         break move_definitely_disjoint;
       }
-      previous_locals.add(place.local);
+      previous_locals.push(place.local);
     }
     // We found no violation so they are all definitely disjoint.
     move_definitely_disjoint = true;
@@ -701,12 +709,22 @@ InterpCx.prototype.eval_callee_and_args = function (
   }
 
   // let _trace = enter_trace_span!(M, "fn_sig", ty = ?func.layout.ty.kind());
-  const fn_sig_binder = func.layout.ty.fn_sig(this.tcx.deref());
-  const fn_sig = this.tcx.deref().normalize_erasing_late_bound_regions(this.typing_env, fn_sig_binder, fold_FnSig);
+  // Measured (docs/handoff/miri-perf.md, 486 Ginstr at base): -18.5 Ginstr.
+  // PORT(perf): upstream instantiates and normalizes the signature on every call. Both are pure functions of the callee
+  // type and the typing env (interned values), so the pair is remembered per type: see `CALLEE_SIG_MEMO`.
+  const env_no = typing_env_no(this.typing_env);
+  const sig_key = func.layout.ty.id * 0x40 + env_no;
+  let sig_memo = env_no < 0x40 ? CALLEE_SIG_MEMO.get(sig_key) : undefined;
+  if (sig_memo === undefined) {
+    const fn_sig_binder = func.layout.ty.fn_sig(this.tcx.deref());
+    sig_memo = [fn_sig_binder, this.tcx.deref().normalize_erasing_late_bound_regions(this.typing_env, fn_sig_binder, fold_FnSig)];
+    if (env_no < 0x40) CALLEE_SIG_MEMO.set(sig_key, sig_memo);
+  }
+  const [fn_sig_binder, fn_sig] = sig_memo;
   const n_inputs = FnSig.inputs(fn_sig).length;
   if (n_inputs > args.length) panic(`range start index ${n_inputs} out of range for slice of length ${args.length}`);
-  const extra_args_ = args.slice(n_inputs);
-  const extra_args = this.tcx.deref().mk_type_list_from_iter(extra_args_.map((arg) => FnArg.layout(arg).ty));
+  // PORT(perf): no slice and no closure in the usual case of no extra arguments.
+  const extra_args = args.length === n_inputs ? this.tcx.deref().mk_type_list(NO_TYS) : this.tcx.deref().mk_type_list_from_iter(args.slice(n_inputs).map((arg) => FnArg.layout(arg).ty));
 
   let callee: FnVal<never>;
   let fn_abi: FnAbi<Ty> | undefined;

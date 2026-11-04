@@ -1092,6 +1092,7 @@ export const debug_Endian: Debug<Endian> = (v) => Endian.as_str(v);
 
 /// Size of a type in bytes.
 // #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+const SMALL_SIZES: Size[] = [];
 // PORT (size-bigint, root decision 2026-10-31 "Size representation"): `raw: u64` has two forms. A value below 2^53
 // (every size in practice, the fast path of the ~390 `bytes()` callers) is the `number` `small` (`big` undefined); a
 // value of 2^53 or more (TypeId fragments and integer addresses used as pointer offsets, valid layouts up to
@@ -1107,9 +1108,21 @@ export class Size {
     readonly big: bigint | undefined,
   ) {}
 
+  /**
+   * Measured (docs/handoff/miri-perf.md, 486 Ginstr at base): -3.8 Ginstr, with `bytes_u64`'s shared values.
+   * PORT(perf): a small value is a shared object: `Size` is immutable, and nothing compares it by identity (`Size_eq`,
+   * `Size_cmp`), so this is invisible. It removes most `Size` allocations from the interpreter's offset arithmetic.
+   */
+  private static small_of(n: number): Size {
+    return n < 1024 ? SMALL_SIZES[n]! : new Size(n, undefined);
+  }
+  static {
+    for (let i = 0; i < 1024; i++) SMALL_SIZES.push(new Size(i, undefined));
+  }
+
   /** PORT (size-bigint): `Size { raw }` for an exact `u64`, in the form its value needs. */
   private static of(raw: bigint): Size {
-    return raw > MAX_SAFE ? new Size(NaN, raw) : new Size(Number(raw), undefined);
+    return raw > MAX_SAFE ? new Size(NaN, raw) : Size.small_of(Number(raw));
   }
 
   /** PORT (size-bigint): the field `raw` as a `number` (`bytes()`): stops on a value beyond 2^53 - 1. */
@@ -1118,13 +1131,18 @@ export class Size {
     return this.small;
   }
 
-  static readonly ZERO: Size = new Size(0, undefined);
+  static readonly ZERO: Size = Size.small_of(0);
 
   /// Rounds `bits` up to the next-higher byte boundary, if `bits` is
   /// not a multiple of 8.
   // PORT (abi-lib): `bits: impl TryInto<u64>` is a `number` or a `bigint` (`u64_arg`).
   // rustc: compiler/rustc_abi/src/lib.rs:890 from_bits
   static from_bits(bits: number | bigint): Size {
+    // Measured (docs/handoff/miri-perf.md, 486 Ginstr at base): -14.1 Ginstr for this and the `Size` fast paths that refer here.
+    // PORT(perf): upstream's `u64` arithmetic in `number` for a safe non-negative count (`bits / 8` is exact, a power
+    // of two); the `bigint` path below stays for the rest. The other `Size` fast paths below refer here; no
+    // representation change.
+    if (typeof bits === "number" && Number.isSafeInteger(bits) && bits >= 0) return Size.small_of(Math.ceil(bits / 8));
     const bits_ = u64_arg(bits);
     // `u64::div_ceil(8)`
     return Size.of((bits_ + 7n) / 8n);
@@ -1136,7 +1154,7 @@ export class Size {
   static from_bytes(bytes: number | bigint): Size {
     if (typeof bytes === "number" && Number.isSafeInteger(bytes) && bytes >= 0) {
       // PORT (abi-lib): fast path, the common case (a safe non-negative integer is a valid `raw`).
-      return new Size(bytes, undefined);
+      return Size.small_of(bytes);
     }
     const bytes_: bigint = u64_arg(bytes);
     return Size.of(bytes_);
@@ -1146,12 +1164,18 @@ export class Size {
   // PORT (size-bigint): a `number`, so a value beyond 2^53 - 1 stops (`raw`); exact callers use `bytes_u64()`.
   // rustc: compiler/rustc_abi/src/lib.rs:902 bytes
   bytes(): number {
-    return this.raw;
+    // Measured (docs/handoff/miri-perf.md, 486 Ginstr at base): no change on its own (+0.1 Ginstr with the numeric query keys).
+    // PORT(perf): `this.raw` without the accessor call (2% of the samples in the interpreter).
+    if (this.big !== undefined) return unported(SIZE_BEYOND_2_53);
+    return this.small;
   }
 
   /** PORT (size-bigint): `bytes()` as the exact `u64` (a `bigint`), for the paths that handle any `Size`. */
   bytes_u64(): bigint {
-    return this.big ?? BigInt(this.small);
+    // PORT(perf): a small size is a shared bigint (they are immutable values) rather than a new one.
+    if (this.big !== undefined) return this.big;
+    const small = this.small;
+    return small < 1024 ? SMALL_U64[small]! : BigInt(small);
   }
 
   /** PORT (size-bigint): whether `bytes()` would stop (the value is 2^53 or more). */
@@ -1174,6 +1198,11 @@ export class Size {
       return panic(`Size::bits: ${bytes} bytes in bits doesn't fit in u64`);
     }
 
+    // PORT(perf): `number` when the product is a safe integer (see `from_bits`).
+    if (this.big === undefined) {
+      const b = this.small * 8;
+      if (b <= Number.MAX_SAFE_INTEGER) return b;
+    }
     // `self.bytes().checked_mul(8).unwrap_or_else(|| overflow(self.bytes()))`
     const bits = this.bytes_u64() * 8n;
     if (bits > U64_MAX) overflow(this.bytes_u64());
@@ -1193,6 +1222,14 @@ export class Size {
     // PORT: the mask arithmetic in `bigint` (JS bitwise operators are 32-bit). PORT (size-bigint): upstream's
     // `self.bytes() + mask` would overflow `u64` (a debug-assertion panic; wrapping in rustc) only for a size within
     // `mask` of 2^64, which no caller builds; the sum is wrapped as rustc's release build does.
+    // PORT(perf): `number` when `self + mask` is a safe integer (`align` is a power of two, so the division is exact
+    // up to the floor, which is the mask); see `from_bits`.
+    if (this.big === undefined) {
+      const a = align.bytes();
+      // `a - 1` as one operand: a sum that rounds is then above the bound; `(small + a) - 1` could round back below it.
+      const sum = this.small + (a - 1);
+      if (sum <= Number.MAX_SAFE_INTEGER) return Size.small_of(Math.floor(sum / a) * a);
+    }
     const mask = BigInt(align.bytes()) - 1n;
     return Size.from_bytes(((this.bytes_u64() + mask) & U64_MAX) & ~mask);
   }
@@ -1200,6 +1237,8 @@ export class Size {
   // #[inline]
   // rustc: compiler/rustc_abi/src/lib.rs:933 is_aligned
   is_aligned(align: Align): boolean {
+    // PORT(perf): `number` when small (`align` is a power of two, so `%` is the mask test); see `from_bits`.
+    if (this.big === undefined) return this.small % align.bytes() === 0;
     const mask = BigInt(align.bytes()) - 1n;
     return (this.bytes_u64() & mask) === 0n;
   }
@@ -1208,6 +1247,12 @@ export class Size {
   // rustc: compiler/rustc_abi/src/lib.rs:939 checked_add
   checked_add(offset: Size, cx: HasDataLayout): Size | undefined {
     const dl = cx.data_layout();
+
+    // PORT(perf): `number` when the sum is a safe integer; `obj_size_bound` is an exact power of two (see `from_bits`).
+    if (this.big === undefined && offset.big === undefined) {
+      const sum = this.small + offset.small;
+      if (sum <= Number.MAX_SAFE_INTEGER) return sum < dl.obj_size_bound() ? Size.small_of(sum) : undefined;
+    }
 
     // PORT (abi-lib): `u64::checked_add` in `bigint`.
     const bytes = this.bytes_u64() + offset.bytes_u64();
@@ -1222,6 +1267,12 @@ export class Size {
   // rustc: compiler/rustc_abi/src/lib.rs:948 checked_mul
   checked_mul(count: number | bigint, cx: HasDataLayout): Size | undefined {
     const dl = cx.data_layout();
+
+    // PORT(perf): `number` when the product is a safe integer (see `from_bits`).
+    if (this.big === undefined && typeof count === "number" && Number.isSafeInteger(count) && count >= 0) {
+      const product = this.small * count;
+      if (product <= Number.MAX_SAFE_INTEGER) return product < dl.obj_size_bound() ? Size.small_of(product) : undefined;
+    }
 
     // PORT: `u64::checked_mul` in `bigint`; a product of 2^64 or more is `None` as upstream.
     const bytes = this.bytes_u64() * u64_arg(count);
@@ -1239,6 +1290,9 @@ export class Size {
       // Truncated until nothing is left.
       return 0n;
     }
+    // PORT(perf): the same low `size` bits, sign-extended, without the 128-bit shifts (see `from_bits`). A `size` above
+    // 128 keeps the path below.
+    if (size <= 128) return BigInt.asIntN(size, value);
     // Sign-extend it.
     const shift = BigInt(128 - size);
     // Shift the unsigned value to the left, then shift back to the right as signed
@@ -1255,6 +1309,9 @@ export class Size {
       // Truncated until nothing is left.
       return 0n;
     }
+    // PORT(perf): the same low `size` bits without the 128-bit shifts (see `from_bits`). A `size` above 128 keeps the
+    // path below.
+    if (size <= 128) return BigInt.asUintN(size, value);
     const shift = BigInt(128 - size);
     // Truncate (shift left to drop out leftover values, shift right to fill with zeroes).
     return ((value << shift) & U128_MAX) >> shift;
@@ -1289,7 +1346,7 @@ export class Size {
       // PORT (size-bigint): fast path: two small values whose sum is still a safe integer (exact); any other sum
       // takes the `bigint` path below.
       const sum = this.small + other.small;
-      if (Number.isSafeInteger(sum)) return new Size(sum, undefined);
+      if (Number.isSafeInteger(sum)) return Size.small_of(sum);
     }
     // `self.bytes().checked_add(other.bytes())` (in `bigint`)
     const bytes = this.bytes_u64() + other.bytes_u64();
@@ -1310,7 +1367,7 @@ export class Size {
       if (bytes < 0) {
         return panic(`Size::sub: ${this.small} - ${other.small} would result in negative size`);
       }
-      return new Size(bytes, undefined);
+      return Size.small_of(bytes);
     }
     const bytes = this.bytes_u64() - other.bytes_u64();
     if (bytes < 0n) {
@@ -1333,6 +1390,11 @@ export class Size {
   // PORT (abi-lib): `count: u64` is a `number` or a `bigint` (`u64_arg`).
   // rustc: compiler/rustc_abi/src/lib.rs:1034 mul
   mul(count: number | bigint): Size {
+    // PORT(perf): `number` when the product is a safe integer (see `from_bits`).
+    if (this.big === undefined && typeof count === "number" && Number.isSafeInteger(count) && count >= 0) {
+      const product = this.small * count;
+      if (product <= Number.MAX_SAFE_INTEGER) return Size.small_of(product);
+    }
     const count_ = u64_arg(count);
     // `self.bytes().checked_mul(count)` (in `bigint`)
     const bytes = this.bytes_u64() * count_;
@@ -1353,6 +1415,7 @@ export class Size {
     return this.add(other);
   }
 }
+const SMALL_U64: readonly bigint[] = Array.from({ length: 1024 }, (_, i) => BigInt(i));
 const U64_MAX = (1n << 64n) - 1n;
 const U128_MAX = (1n << 128n) - 1n;
 const I128_MAX = (1n << 127n) - 1n;

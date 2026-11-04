@@ -56,6 +56,7 @@ import {
 import type { ExternAbi } from "../../rustc_abi/extern_abi.ts";
 import type { FloatTy, IntTy, UintTy } from "../../rustc_ast_ir/lib.ts";
 import { LangItem } from "../../rustc_attr_ir/lang_items.ts";
+import { typing_env_no } from "../../rust_ts/typing_env_no.ts";
 import { into_MultiSpan, type DiagArgValue, type PathBuf } from "../../rustc_error_messages/lib.ts";
 import { String_into_diag_arg } from "../../rustc_error_messages/diagnostic_impls.ts";
 import { Diag, type DiagCtxtHandle, type Level } from "../../rustc_errors/lib.ts";
@@ -1077,6 +1078,38 @@ export type LayoutCxLike = HasTyCtxt & HasTypingEnv;
 /** The local `enum TyMaybeWithLayout` of `ty_and_layout_field` (ty/layout.rs:849). */
 export type TyMaybeWithLayout = { readonly $: "Ty"; readonly _0: Ty } | { readonly $: "TyAndLayout"; readonly _0: TyAndLayout };
 
+// Measured (docs/handoff/miri-perf.md, 486 Ginstr at base): -69.8 Ginstr.
+// PORT(perf) (lane miri-perf, plan-m6 D11): upstream recomputes `TyAndLayout::field` / `for_variant` on every call,
+// which is cheap in Rust. Here each call stringifies a `layout_of` key, folds `field.ty(tcx, args)`, and for a tag or a
+// variant builds a `LayoutData` and stringifies all of it to intern it: `ty_and_layout_field` plus `for_variant` were 15% of
+// the samples in `tests/ui/moves/move-3-unique.rs`, and value validation calls them for every field of every copy. The
+// results are pure functions of `(ty, layout, typing env, index)`: they read interned values and already-cached queries
+// (a failing one panics, so nothing is remembered), and `TyAndLayout` is immutable, so a repeat call returning the first
+// result is invisible. The dep graph is off (`read_index` is a no-op), so skipped query reads change nothing.
+const LAYOUT_MEMO = new Map<Layout, Map<number, TyAndLayout>>();
+/**
+ * The memo key of `(ty, typing env, index, kind)` within one `Layout`, or -1 for a call that is not remembered: an
+ * index of 2^16 or more, a `ty.id` of 2^30 or more, or an env numbered 64 or more (a compilation with many param envs:
+ * the memo is for the interpreter, which uses one or two, and stays out of the way of the rest).
+ */
+function layout_memo_key(ty: Ty, cx: LayoutCxLike, index: number, kind: 0 | 1): number {
+  const env = typing_env_no(cx.typing_env_());
+  if (env >= 0x40 || index >= 0x1_0000 || ty.id >= 0x4000_0000) return -1;
+  return ty.id * 0x80_0000 + index * 0x80 + kind * 0x40 + env;
+}
+function layout_memo_get(layout: Layout, key: number): TyAndLayout | undefined {
+  return key < 0 ? undefined : LAYOUT_MEMO.get(layout)?.get(key);
+}
+function layout_memo_set(layout: Layout, key: number, r: TyAndLayout): void {
+  if (key < 0) return;
+  let m = LAYOUT_MEMO.get(layout);
+  if (m === undefined) {
+    m = new Map();
+    LAYOUT_MEMO.set(layout, m);
+  }
+  m.set(key, r);
+}
+
 // impl<'tcx, C> TyAbiInterface<'tcx, C> for Ty<'tcx> where C: HasTyCtxt<'tcx> + HasTypingEnv<'tcx>
 // PORT (layout-contract): the impl table, registered with rustc_abi below (header).
 export const TyAbiInterface_Ty: TyAbiInterface<Ty, LayoutCxLike> = {
@@ -1087,7 +1120,12 @@ export const TyAbiInterface_Ty: TyAbiInterface<Ty, LayoutCxLike> = {
     if (v.$ === "Single" && v.index === variant_index) {
       // If all variants but one are uninhabited, the variant layout is the enum layout.
       return this_;
-    } else if (v.$ === "Single" || v.$ === "Empty") {
+    }
+    // PORT(perf): see `LAYOUT_MEMO`.
+    const memo_key = layout_memo_key(this_.ty, cx, variant_index, 1);
+    const hit = layout_memo_get(this_.layout, memo_key);
+    if (hit !== undefined) return hit;
+    if (v.$ === "Single" || v.$ === "Empty") {
       // Single-variant and no-variant enums *can* have other variants, but those are
       // uninhabited. Produce a layout that has the right fields for that variant, so that
       // the rest of the compiler can project fields etc as usual.
@@ -1118,11 +1156,18 @@ export const TyAbiInterface_Ty: TyAbiInterface<Ty, LayoutCxLike> = {
 
     assert_eq(layout.variants(), { $: "Single", index: variant_index }, dbg_Variants, Variants_eq);
 
-    return new abi_TyAndLayout(this_.ty, layout);
+    const r = new abi_TyAndLayout(this_.ty, layout);
+    layout_memo_set(this_.layout, memo_key, r);
+    return r;
   },
 
   // rustc: compiler/rustc_middle/src/ty/layout.rs:848 ty_and_layout_field
   ty_and_layout_field(this_: TyAndLayout, cx: LayoutCxLike, i: number): TyAndLayout {
+    // PORT(perf): see `LAYOUT_MEMO`.
+    const memo_key = layout_memo_key(this_.ty, cx, i, 0);
+    const hit = layout_memo_get(this_.layout, memo_key);
+    if (hit !== undefined) return hit;
+
     // enum TyMaybeWithLayout<'tcx> { Ty(Ty<'tcx>), TyAndLayout(TyAndLayout<'tcx>) } (module-level `TyMaybeWithLayout`)
 
     // rustc: compiler/rustc_middle/src/ty/layout.rs:854 field_ty_or_layout
@@ -1335,9 +1380,11 @@ export const TyAbiInterface_Ty: TyAbiInterface<Ty, LayoutCxLike> = {
             `failed to get layout for \`${pretty().display_Ty(field_ty)}\`: ${format_debug(e, debug_LayoutError, PLAIN)},\ndespite it being a field (#${i}) of an existing layout: ${format_debug(this_, debug_TyAndLayout_Ty, PRETTY)}`,
           );
         }
+        layout_memo_set(this_.layout, memo_key, l._0);
         return l._0;
       }
       case "TyAndLayout":
+        layout_memo_set(this_.layout, memo_key, r._0);
         return r._0;
     }
   },

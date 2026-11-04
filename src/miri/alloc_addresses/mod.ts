@@ -465,6 +465,12 @@ InterpCx.prototype.ptr_get_alloc = function (
   // must have been called in the past, so we can just look up the address in the map.
   const base_addr = unwrap(this_.machine.alloc_addresses.base_addr.get(alloc_id));
 
+  // Measured (docs/handoff/miri-perf.md, 486 Ginstr at base): -8.4 Ginstr with the other pointer-arithmetic fast paths (memory.ts `check_and_deref_ptr`, pointer.ts `wrapping_offset`).
+  // PORT(perf): in numbers when the difference is exact, in range and below 2^32, where the wrapping and the truncation to
+  // the target's usize do nothing. A big `addr` is `NaN` and fails the test.
+  const rel_ = addr.small - Number(base_addr);
+  if (rel_ >= 0 && rel_ < 0x1_0000_0000 && base_addr <= 0x1f_ffff_ffff_ffffn) return [alloc_id, Size_.from_bytes(rel_)];
+
   // Wrapping "addr - base_addr"
   const rel_offset = PointerArithmetic_provided.truncate_to_target_usize(this_, BigInt.asUintN(64, addr.bytes_u64() - base_addr));
   return [alloc_id, Size_.from_bytes(rel_offset)];
