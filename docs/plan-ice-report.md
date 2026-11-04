@@ -202,7 +202,8 @@ Other panics map less well, and refuse the same way:
 JSC does proper tail calls in strict code, and every ES module is strict. **955 of 1,239 TS bug sites (77%) are
 `return bug(...)` or `=> bug(...)`**, which removes the very frame the location needs. `DiagInner.new` → `new_with_messages`
 at the base of every diagnostic chain has the same problem. Without a fix the prototype matched only 13 of
-118 (10 of the 14 `mir` cases); the rest refused, none printed a wrong location.
+118 (10 of the 14 `mir` cases). 97 of the others refused, the other 8 are `RUST_BACKTRACE=short` cases, and no
+resolved location was wrong.
 
 | | T1: tail calls off globally | T2: make the sites non-tail | **T3: replay on refusal (recommended)** |
 |---|---|---|---|

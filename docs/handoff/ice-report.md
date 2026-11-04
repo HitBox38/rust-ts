@@ -1,6 +1,6 @@
 # Handoff: ice-report (design only)
 
-Branch `t3/61f37e7c`, based on `c9d3c553`. No port code changed.
+Branch `t3/plan-ice-report`, based on `c9d3c553`. No port code changed.
 
 ## Files touched
 
