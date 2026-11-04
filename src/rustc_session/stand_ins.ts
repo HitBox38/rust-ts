@@ -13,6 +13,7 @@
 import type { PathBuf } from "../rustc_error_messages/lib.ts";
 import type { EarlyDiagCtxt as EarlyDiagCtxtReal } from "./session.ts";
 import type { Matches as MatchesReal } from "../vendor/getopts/lib.ts";
+import { debug_SanitizerSet as debug_SanitizerSet_ } from "../rustc_structures/sanitizer_set.ts";
 import { type Debug } from "../std/fmt.ts";
 import { panic, unported } from "../std/panic.ts";
 import { Ok, type Result } from "../std/result.ts";
@@ -54,7 +55,9 @@ export const debug_StackProtector: Debug<StackProtector> = (v) => v;
 
 // ---- rustc_structures ----
 
-export { SanitizerSet, debug_SanitizerSet } from "../rustc_target/stand_ins.ts";
+export { SanitizerSet } from "../rustc_target/stand_ins.ts";
+// PORT: `SanitizerSet` here is the plain-number stand-in of rustc_target; the Debug impl is the ported one.
+export const debug_SanitizerSet = debug_SanitizerSet_ as Debug<number>;
 
 /** rustc_structures/src/collapse_macro_debug_info.rs:13 */
 export type CollapseMacroDebuginfo = "No" | "Unspecified" | "External" | "Yes";

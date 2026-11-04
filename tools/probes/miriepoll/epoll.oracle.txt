@@ -1,0 +1,85 @@
+constants: EPOLLIN=0x1 EPOLLOUT=0x4 EPOLLRDHUP=0x2000 EPOLLHUP=0x10 EPOLLERR=0x8 EPOLLET=0x80000000 EFD_NONBLOCK=0x800 EFD_CLOEXEC=0x80000 EBADF=9 EEXIST=17 ENOENT=2 EINVAL=22 EFAULT=14 EAGAIN=11 sizeof(epoll_event)=12
+eventfd nonblock cloexec: 3
+read empty: -1/11
+write 1: 8
+write 2: 8
+read sum: 8:3
+read cleared: -1/11
+read 4 bytes: -1/22
+write 7 before a long read: 8
+read 16 bytes: 8 [7, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 255, 255, 255, 255]
+write 4 bytes: -1/22
+write 12 bytes: -1/22
+read after 12: -1/11
+write u64::MAX: -1/22
+write MAX-1: 8
+write over: -1/11
+read MAX-1: 8:18446744073709551614
+close: 0
+read closed: -1/9
+initval read: 8:5
+blocking read: 8:3
+woken write: 8
+write MAX-1 blocking: 8
+read wakes writer: 8:18446744073709551614
+blocked write: 8
+read after: 8:1
+epoll_create1 0: 3
+epoll_create1 cloexec: 4
+ctl bad epfd: -1/9
+ctl bad fd: -1/9
+ctl epfd as fd: -1/14
+ctl mod unregistered: -1/2
+ctl del unregistered: -1/2
+ctl add: 0
+ctl add again: -1/17
+ctl mod: 0
+wait after mod: 1 0x4:3
+ctl del: 0
+ctl del again: -1/2
+wait after del: 0
+ctl del null event: -1/2
+close epoll: 0
+wait closed epfd: -1/9
+wait bad epfd: -1/9
+wait max 0: -1/22
+wait max -1: -1/22
+et add: 0
+et first: 1 0x4:11
+et none: 0
+et write: 8
+et after write: 1 0x5:11
+et none again: 0
+et write 2: 8
+et after write 2: 1 0x5:11
+et read: 8:2
+et after read: 1 0x4:11
+et after close: 0
+lt add: 0
+lt first: 1 0x1:12
+lt second: 1 0x1:12
+lt read: 8:1
+lt drained: 0
+many add 0: 0
+many add 1: 0
+many add 2: 0
+many none: 0
+many max 1: 1 0x1:22
+many rest: 2 0x1:21 0x1:20
+many empty: 0
+dup: 5
+dup add fd: 0
+dup add dup: 0
+dup both: 2 0x4:31 0x4:32
+dup write: 8
+dup after close of fd: 2 0x5:31 0x5:32
+dup all closed: 0
+two add 1: 0
+two add 2: 0
+two wait 1: 1 0x4:41
+two wait 2: 1 0x4:42
+two wait 1 again: 0
+block add: 0
+block timeout: 0
+block woken: 1 0x1:51
+block writer: 8

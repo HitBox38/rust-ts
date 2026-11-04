@@ -87,12 +87,27 @@
 //   (`cc`, rustc's default linker on unix hosts); part of the aux key like the rest of the environment.
 // A host build in the temp directory and its rename keep `-Crpath`'s `@loader_path`/`$ORIGIN`-relative paths valid
 // (same parent directory). Existing callers (no `procMacro`) plan, key and build exactly as before.
+//
+// Aux crates built by Miri (`uiFileCases(.., { aux: true, miriAux: true })`, lane harness-m6c, plan-m6 §4 item 3): the
+// programs run under Miri need their aux crates' MIR for the interpreter, so the isolated Miri builds them, the way
+// cargo-miri builds a dependency: `MIRI_BE_RUSTC=target` (bin/miri.rs `MiriDepCompilerCalls`: `MIRI_DEFAULT_ARGS`, so
+// `-Zalways-encode-mir`, and a dummy codegen backend that writes an rlib holding the metadata) on the Miri sysroot, by
+// absolute path. compiletest's aux argv (`--target=<COMPILETEST_TARGET>`, `--out-dir`, the aux crate's own flags) stays,
+// with three differences forced by that mode:
+// - the crate type is always `--crate-type lib` (an rlib). `MiriDepCompilerCalls::config` drops every other crate type and
+//   asserts that one is left, so compiletest's `--crate-type dylib` panics; a dylib would not hold MIR anyway;
+// - no `--emit=metadata` (the harness's shape for the rmeta suites): Miri's main compile requires an rlib ("crate `x`
+//   required to be available in rlib format"), so `aux-crate`'s `--extern` names `lib<name>.rlib`;
+// - `--sysroot` is the Miri sysroot, and the key (`auxKey`) adds `miriOracleKey()`.
+// `aux-bin` crates (Miri cannot run a second program; a test runs them with `Command`, which isolation refuses) and
+// proc-macro crates (`procMacro` off: skipped as everywhere) are rejected. Existing callers plan, key and build exactly as before.
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, readlinkSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { delimiter, dirname, isAbsolute, join, resolve } from "node:path";
 import { DATA, PIN, UPSTREAM, ensureDir, hash } from "../scripts/lib/common.ts";
 import { caseDeps } from "../scripts/lib/deps.ts";
 import { getEnv } from "../scripts/lib/env.ts";
+import { MIRI_CASE_ENV, MIRI_SYSROOT, miriBinary, miriOracleKey, miriPin, miriTargetLibDir } from "../scripts/lib/miri.ts";
 import { pruneStaleUiAux, touchAuxDir } from "./library.ts";
 import { ORACLE_RETRY_FACTOR, oracleHost, oraclePinnedPathEnv, oracleRustcCmd, oracleSysroot, rustcDriverHash, verifyOracleToolchain } from "../scripts/lib/oracle.ts";
 
@@ -461,36 +476,68 @@ function ignoreDecision(ln: DirectiveLine, needs = false): string | undefined {
  * them for about half of the k). The control is the same struct compiled by the oracle with `-Zrandomize-layout` in
  * an aux crate (`rl_aux::Range`): it must show swaps, or the check cannot see randomization at all (then `undefined`).
  * Bootstrap passes the flag to every crate of the std build, so `core`'s `Range` stands for the standard library.
- * `undefined` with the reason when the check cannot decide.
+ * `undefined` with the reason when the check cannot decide, also when its own compiles fail or print something else: the
+ * need is then not evaluated and the test skipped with that reason (lane harness-w38), like any undecided need.
+ *
+ * The check covers both standard libraries the needs-evaluating suites run on: the oracle's (the proc-macro suites) and,
+ * once built (`bun scripts/miri.ts setup`; no Miri case can run before), the Miri sysroot's (lane harness-w38). `needs` are
+ * decided once per target, not per suite, so the need holds only if neither is randomized.
  */
 const LAYOUT_PROBES = 64;
+/** One oracle rustc process of the check, run in the check's temp dir. */
+export type LayoutRustc = (args: string[]) => { exitCode: number; stderr: string };
+
+/** `oracleStdLayoutsRandomized` for one standard library: `extra` selects it (nothing: the oracle's own). */
+export function stdLayoutsRandomized(rustc: LayoutRustc, write: (file: string, text: string) => void, dir: string, what: string, extra: string[]): { randomized: boolean | undefined; why: string } {
+  const undecided = (why: string) => ({ randomized: undefined, why: `${what}: ${why}` });
+  write("aux.rs", "pub struct Range<Idx> { pub start: Idx, pub end: Idx }\n");
+  const auxOut = join(dir, "librl_aux.rmeta");
+  const aux = rustc(["--crate-type=rlib", "--crate-name=rl_aux", "--emit=metadata", "-o", auxOut, "-Zrandomize-layout", ...extra, "aux.rs"]);
+  if (aux.exitCode !== 0) return undecided(`oracle rustc failed on the layout check's aux crate: ${aux.stderr.slice(0, 500)}`);
+  const lines = ["#![feature(rustc_attrs)]", "extern crate rl_aux;"];
+  for (let k = 1; k <= LAYOUT_PROBES; k++) {
+    lines.push(`#[rustc_dump_layout(debug)] type S${k} = core::ops::Range<[u8; ${k}]>;`);
+    lines.push(`#[rustc_dump_layout(debug)] type A${k} = rl_aux::Range<[u8; ${k}]>;`);
+  }
+  write("main.rs", lines.join("\n") + "\n");
+  const r = rustc(["--crate-type=lib", "--crate-name=rl_main", "--emit=metadata", "-o", join(dir, "rl_main.rmeta"), "--extern", `rl_aux=${auxOut}`, ...extra, "main.rs"]);
+  let orders: { ty: string; order: number[] }[];
+  try {
+    orders = layoutOrders(r.stderr);
+  } catch (e) {
+    return undecided((e as Error).message);
+  }
+  const std = orders.filter((o) => !o.ty.startsWith("rl_aux::"));
+  const control = orders.filter((o) => o.ty.startsWith("rl_aux::"));
+  if (std.length !== LAYOUT_PROBES || control.length !== LAYOUT_PROBES) {
+    return undecided(`the layout check expected ${LAYOUT_PROBES} + ${LAYOUT_PROBES} layouts from the oracle, got ${std.length} + ${control.length}: ${r.stderr.slice(0, 500)}`);
+  }
+  const swapped = (os: typeof orders) => os.filter((o) => o.order.join(",") !== "0,1").length;
+  const [s, c] = [swapped(std), swapped(control)];
+  const counts = `${what}: core::ops::Range<[u8; 1..=${LAYOUT_PROBES}]> reordered ${s}/${LAYOUT_PROBES}, the -Zrandomize-layout control ${c}/${LAYOUT_PROBES}`;
+  if (c === 0) return { randomized: undefined, why: `the oracle shows no randomized layout even for a crate compiled with -Zrandomize-layout (${counts})` };
+  return { randomized: s > 0, why: counts };
+}
+
+/** Combines the per-library answers: any randomized one decides; else any undecided one leaves the need undecided. */
+export function combineLayouts(parts: readonly { randomized: boolean | undefined; why: string }[]): { randomized: boolean | undefined; why: string } {
+  const why = parts.map((p) => p.why).join("; ");
+  return { randomized: parts.some((p) => p.randomized === true) ? true : parts.some((p) => p.randomized === undefined) ? undefined : false, why };
+}
+
 let layoutsMemo: { randomized: boolean | undefined; why: string } | undefined;
 export function oracleStdLayoutsRandomized(): { randomized: boolean | undefined; why: string } {
   if (layoutsMemo) return layoutsMemo;
   const dir = mkdtempSync(join(ensureDir(join(DATA, "tmp")), "needs-layouts-"));
   try {
-    const rustc = (args: string[]) => Bun.spawnSync(["rustc", `+${PIN.toolchain}`, "--edition=2021", "-Awarnings", ...args], { cwd: dir, stdout: "pipe", stderr: "pipe" });
-    writeFileSync(join(dir, "aux.rs"), "pub struct Range<Idx> { pub start: Idx, pub end: Idx }\n");
-    const aux = rustc(["--crate-type=rlib", "--crate-name=rl_aux", "--emit=metadata", "-o", join(dir, "librl_aux.rmeta"), "-Zrandomize-layout", "aux.rs"]);
-    if (aux.exitCode !== 0) throw new Error(`oracle rustc failed on the layout check's aux crate: ${aux.stderr.toString().slice(0, 500)}`);
-    const lines = ["#![feature(rustc_attrs)]", "extern crate rl_aux;"];
-    for (let k = 1; k <= LAYOUT_PROBES; k++) {
-      lines.push(`#[rustc_dump_layout(debug)] type S${k} = core::ops::Range<[u8; ${k}]>;`);
-      lines.push(`#[rustc_dump_layout(debug)] type A${k} = rl_aux::Range<[u8; ${k}]>;`);
-    }
-    writeFileSync(join(dir, "main.rs"), lines.join("\n") + "\n");
-    const r = rustc(["--crate-type=lib", "--crate-name=rl_main", "--emit=metadata", "-o", join(dir, "rl_main.rmeta"), "--extern", `rl_aux=${join(dir, "librl_aux.rmeta")}`, "main.rs"]);
-    const orders = layoutOrders(r.stderr.toString());
-    const std = orders.filter((o) => !o.ty.startsWith("rl_aux::"));
-    const control = orders.filter((o) => o.ty.startsWith("rl_aux::"));
-    if (std.length !== LAYOUT_PROBES || control.length !== LAYOUT_PROBES) {
-      throw new Error(`the layout check expected ${LAYOUT_PROBES} + ${LAYOUT_PROBES} layouts from the oracle, got ${std.length} + ${control.length}: ${r.stderr.toString().slice(0, 500)}`);
-    }
-    const swapped = (os: typeof orders) => os.filter((o) => o.order.join(",") !== "0,1").length;
-    const [s, c] = [swapped(std), swapped(control)];
-    const counts = `core::ops::Range<[u8; 1..=${LAYOUT_PROBES}]> reordered ${s}/${LAYOUT_PROBES}, the -Zrandomize-layout control ${c}/${LAYOUT_PROBES}`;
-    if (c === 0) return (layoutsMemo = { randomized: undefined, why: `the oracle shows no randomized layout even for a crate compiled with -Zrandomize-layout (${counts})` });
-    return (layoutsMemo = { randomized: s > 0, why: counts });
+    const rustc: LayoutRustc = (args) => {
+      const r = Bun.spawnSync(["rustc", `+${PIN.toolchain}`, "--edition=2021", "-Awarnings", ...args], { cwd: dir, stdout: "pipe", stderr: "pipe" });
+      return { exitCode: r.exitCode, stderr: r.stderr.toString() };
+    };
+    const write = (file: string, text: string) => writeFileSync(join(dir, file), text);
+    const parts = [stdLayoutsRandomized(rustc, write, dir, "oracle std", [])];
+    if (existsSync(miriTargetLibDir())) parts.push(stdLayoutsRandomized(rustc, write, dir, "Miri sysroot std", ["--sysroot", MIRI_SYSROOT, "--target", miriPin().target]));
+    return (layoutsMemo = combineLayouts(parts));
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -879,15 +926,19 @@ export interface AuxStep {
   host?: boolean;
   /** A proc-macro crate (`proc-macro:`, or a proc-macro crate by its own crate type). */
   procMacro?: boolean;
+  /** Built by the isolated Miri as `MIRI_BE_RUSTC=target` (the header's Miri section); else by the oracle rustc. */
+  miri?: boolean;
 }
 
 /**
  * How the aux crates of one tree are planned: `procMacro` = proc-macro aux crates are built (else the test is
- * rejected, plan-m2 D6); `host` = this tree belongs to a proc-macro crate, so it is built for the real host.
+ * rejected, plan-m2 D6); `host` = this tree belongs to a proc-macro crate, so it is built for the real host; `miri` =
+ * built by the isolated Miri (the header's Miri section).
  */
 interface AuxCtx {
   procMacro: boolean;
   host: boolean;
+  miri?: boolean;
 }
 const NO_PROC_MACRO: AuxCtx = { procMacro: false, host: false };
 
@@ -934,7 +985,7 @@ function planAllAux(root: string, rev: string | undefined, props: Props, auxDir:
     const t = planAux(root, rev, c.path, auxDir, undefined, steps, format, ctx);
     // add_extern: `lib<name>.rlib` / the dylib name, here the rmeta the harness builds instead (header); a host-built
     // crate (the header's proc-macro section) by compiletest's own `get_lib_name`.
-    const lib = t.host ? getLibName(pathToCrateName(c.path), t.auxType) : `lib${pathToCrateName(c.path)}.rmeta`;
+    const lib = ctx.miri ? `lib${pathToCrateName(c.path)}.rlib` : t.host ? getLibName(pathToCrateName(c.path), t.auxType) : `lib${pathToCrateName(c.path)}.rmeta`;
     if (lib !== undefined) cmd.push("--extern", `${c.modifiers !== undefined ? `${c.modifiers}:` : ""}${c.name}=${auxDir}/${lib}`);
   }
   for (const pm of props.aux.procMacros) {
@@ -966,6 +1017,7 @@ function planAux(
   const pmCrate = type === "proc-macro" || isProcMacroCrate(src, ap);
   if (pmCrate && !ctx.procMacro) throw new Reject(`auxiliary crate \`${auxPath}\` is a proc-macro crate: deferred to M6 (plan-m2 D6)`);
   if (ap.compileFlags.includes("-o")) throw new Reject(`auxiliary crate \`${auxPath}\` sets \`-o\`, which this harness does not reproduce`);
+  if (ctx.miri && type === "bin") throw new Reject(`auxiliary binary \`${auxPath}\`: Miri builds no program to run`);
   // `AuxType::ProcMacro` (not wasm): `force_host`. Host-built here (header): proc-macro crates and their aux trees.
   if (type === "proc-macro") ap.forceHost = true;
   // `procMacro` only: an aux crate's own `//@ force-host` builds it for the real host too (a proc macro's
@@ -974,7 +1026,12 @@ function planAux(
   // On unix, bins go to a `bin` subfolder.
   const dir = type === "bin" ? `${auxDir}/bin` : auxDir;
   const args = compileArgs(auxPath, "", "", rev, ap, format, { auxOutDir: dir, hostTarget: host ? oracleHost() : undefined });
-  planAllAux(root, rev, ap, dir, args, steps, format, { procMacro: ctx.procMacro, host });
+  if (ctx.miri) {
+    const at = args.indexOf(oracleSysroot());
+    if (at < 0 || args[at - 1] !== "--sysroot") throw new Reject(`auxiliary crate \`${auxPath}\` sets its own \`--sysroot\`, which this harness does not reproduce under Miri`);
+    args[at] = MIRI_SYSROOT;
+  }
+  planAllAux(root, rev, ap, dir, args, steps, format, { procMacro: ctx.procMacro, host, ...(ctx.miri ? { miri: true } : {}) });
   // COMPILETEST_TARGET is not emscripten/musl/wasm32/nvptx/vxworks/bpf and the mode is not coverage, so
   // dylib unless the target cannot link dynamically.
   const [auxType, crateType] =
@@ -987,10 +1044,16 @@ function planAux(
           : current().dynamicLinking
             ? (["dylib", "dylib"] as const)
             : (["lib", "lib"] as const);
-  if (crateType !== undefined) args.push("--crate-type", crateType);
+  // `ctx.miri`: an rlib, whatever compiletest would pass (the header's Miri section).
+  if (ctx.miri) args.push("--crate-type", "lib");
+  else if (crateType !== undefined) args.push("--crate-type", crateType);
   // For convenience, but this only works on 2018.
   if (auxType === "proc-macro") args.push("--extern", "proc_macro");
   args.push("-L", dir);
+  if (ctx.miri) {
+    steps.push({ file: auxPath, args, env: { ...compileEnv(ap), ...MIRI_CASE_ENV, MIRI_BE_RUSTC: "target" }, miri: true });
+    return { auxType: "lib", host };
+  }
   if (!host) args.push("--emit=metadata"); // harness: metadata only (header)
   steps.push(host ? { file: auxPath, args, env: compileEnv(ap), host, procMacro: pmCrate } : { file: auxPath, args, env: compileEnv(ap) });
   return { auxType, host };
@@ -1117,6 +1180,8 @@ export function auxKey(id: string, steps: readonly AuxStep[]): string {
       rustcDriverHash(),
       id,
       steps.map((s) => [s.file, s.args, auxEnv(s), hash(readFileSync(join(UPSTREAM, s.file))), caseDeps(UPSTREAM, s.file, s.env)]),
+      // (Only for Miri-built crates, so no other aux directory is re-keyed.)
+      ...(steps.some((s) => s.miri) ? [miriOracleKey()] : []),
     ]),
   ).slice(0, 16);
 }
@@ -1146,7 +1211,8 @@ function buildAux(id: string, steps: AuxStep[], timeoutMs: number): string {
   try {
     for (const s of steps) {
       // Built in `tmp` and renamed: nothing in an rmeta refers to its output directory.
-      const cmd = oracleRustcCmd(s.args.map((a) => a.replaceAll(AUX_DIR, tmp)));
+      const stepArgs = s.args.map((a) => a.replaceAll(AUX_DIR, tmp));
+      const cmd = s.miri ? [miriBinary(), ...stepArgs] : oracleRustcCmd(stepArgs);
       const spawn = (ms: number) => Bun.spawnSync(cmd, { cwd: UPSTREAM, env: auxEnv(s), timeout: ms });
       let r = spawn(timeoutMs);
       if (r.exitedDueToTimeout) r = spawn(timeoutMs * ORACLE_RETRY_FACTOR);
@@ -1154,6 +1220,9 @@ function buildAux(id: string, steps: AuxStep[], timeoutMs: number): string {
       if (r.exitCode !== 0) {
         const how = r.exitCode === null ? `signal ${r.signalCode}` : `exit ${r.exitCode}`;
         const first = r.stderr.toString().split("\n").find((l) => l.startsWith("error")) ?? "";
+        // An rlib collects its native static libraries, and bootstrap's `-Lnative=<test helpers>` is not reproduced (the
+        // header): `rust_test_helpers` is not built. Nothing in the test's own sources can fix that, so it is a skip.
+        if (s.miri && first.includes("could not find native static library")) throw new Reject(`Miri's build of \`${s.file}\`: ${first}`);
         auxBuildError(id, `\`${s.file}\` (${how})${first ? `: ${first.slice(0, 300)}` : ""}`);
       }
     }
@@ -1216,15 +1285,18 @@ export function uiCases(dirs: string[], format: ErrorFormat): { cases: UiCase[];
  * case's aux builds (source, argv with the aux directory filled in, host-built or not), in build order.
  * With `needs` (the M6 run and pm suites, lane harness-w36), every `needs-*` directive is evaluated as compiletest does
  * for COMPILETEST_TARGET (see "needs-*" above) instead of rejecting the test.
+ * With `miriAux` (needs `aux`; run-pass-aux-miri, lane harness-m6c), the aux crates are built by the isolated Miri (see
+ * the header's Miri section).
  */
 export function uiFileCases(
   files: string[],
   format: ErrorFormat,
-  opts: { aux?: boolean; auxTimeoutMs?: number; run?: boolean; procMacro?: boolean; needs?: boolean },
+  opts: { aux?: boolean; auxTimeoutMs?: number; run?: boolean; procMacro?: boolean; needs?: boolean; miriAux?: boolean },
 ): { cases: UiCase[]; skipped: Skip[]; auxFiles: Map<string, string[]>; auxSteps: Map<string, AuxStep[]> } {
   if (opts.aux && opts.auxTimeoutMs === undefined) throw new Error("ERROR: uiFileCases: `aux` needs `auxTimeoutMs`");
   if (opts.procMacro && !opts.aux) throw new Error("ERROR: uiFileCases: `procMacro` needs `aux`");
-  const ctx: AuxCtx = opts.procMacro ? { procMacro: true, host: false } : NO_PROC_MACRO;
+  if (opts.miriAux && !opts.aux) throw new Error("ERROR: uiFileCases: `miriAux` needs `aux`");
+  const ctx: AuxCtx = opts.miriAux ? { procMacro: false, host: false, miri: true } : opts.procMacro ? { procMacro: true, host: false } : NO_PROC_MACRO;
   const auxFiles = new Map<string, string[]>();
   const auxSteps = new Map<string, AuxStep[]>();
   const cases: UiCase[] = [];
@@ -1462,4 +1534,305 @@ export function uiBlessed(id: string, args: string[]): Blessed {
     return n;
   };
   return { path, expected, normalize };
+}
+
+// ---- Miri's own tests: ui_test's rules (lane harness-m6c, plan-m6 §4, D13, A8) ----
+//
+// Miri's tests/pass, tests/panic and tests/fail do not run under compiletest: src/tools/miri/tests/ui.rs runs them with
+// the `ui_test` crate (0.30.7 at the pin: Miri's and the root Cargo.lock), whose directives differ from compiletest's.
+// Paths and names below refer to ui_test-0.30.7/src unless they name ui.rs:
+// - collection: lib.rs `run_tests_generic` / `default_file_filter`: every `*.rs` file under the root, `auxiliary`
+//   directories left out, nothing else (no `compiletest-ignore-dir`, no dot-file rule);
+// - directive lines: parser.rs `parse_checked_line`: a line that *starts* with `//@` (no indentation), then
+//   `parse_command`: `[rev,rev] name: args`, the name being up to the first character that is not alphanumeric, `-` or
+//   `_`, the args trimmed;
+// - per-revision comments: parser.rs `Comments::for_revision`: the base comments, then every revision key holding the
+//   revision in `BTreeMap<Vec<String>, _>` order (the keys sorted, not file order), which orders `compile-flags` and
+//   `rustc-env`;
+// - ignores: config.rs `test_file_conditions` / `test_condition`: `ignore-<cond>` (any holds: ignored), then
+//   `only-<cond>` (all must hold), with `target` and `host` substring lists up to a `#` (parser.rs `Condition::parse`);
+// - argv: per_test_config.rs `build_command` (cmd.rs `CommandBuilder::build`, `rustc`; ui.rs `run_tests`), see
+//   `uiTestArgs`. A test's expected exit status and its `//~` annotations, normalizations and blessed files shape
+//   nothing the case runs: the oracle's raw output is what the port is compared with.
+// Not reproduced (a skip with a recorded reason, never guessed): `aux-build`, `run` and `needs-asm-support`, which no
+// test under the three directories uses at the pin, and a directive ui_test itself rejects (the test could never pass upstream).
+// tests/panic runs `WithDeps` upstream (ui.rs `main`), which only adds `--extern`/`-L` flags for tests/deps' crates:
+// plan-m6 D13 leaves those crates out, and no test under tests/panic names one, so the flags are not passed. Those
+// flags print nothing (`unused_crate_dependencies` is allow-by-default and not in `unused`). No test under the three
+// directories has a `.stdin` file (per_test_config.rs `run_test`).
+
+/** parser.rs `Revisioned`, the fields that shape the command or the test's conditions. */
+export interface UiTestRevisioned {
+  compileFlags: string[];
+  envVars: [string, string][];
+  ignore: UiTestCondition[];
+  only: UiTestCondition[];
+  /** `custom["edition"]` (the `//@edition:` directive). */
+  edition: string | undefined;
+}
+
+/** parser.rs `Condition`. */
+export type UiTestCondition = { kind: "host" | "target"; subs: string[] } | { kind: "bitwidth"; bits: number[] } | { kind: "on-host" };
+
+/** parser.rs `Comments`: `revisioned` keeps every revision key (comma-joined; `""` is the base comments). */
+export interface UiTestComments {
+  revisions: string[] | undefined;
+  revisioned: Map<string, { key: string[]; comments: UiTestRevisioned }>;
+}
+
+/** What `test_file_conditions` evaluates against (config.rs `Config.host`, `Config.target`). */
+export interface UiTestConfig {
+  host: string;
+  target: string;
+}
+
+/** comma-1.0.0 `parse_command` (parser.rs `compile-flags`). */
+export function commaParseCommand(input: string): string[] | undefined {
+  const chars = [...input];
+  const out: string[] = [];
+  let next = true;
+  let i = 0;
+  const escape = (): string | undefined => {
+    if (i >= chars.length) return undefined;
+    const c = chars[i++]!;
+    return c === "n" ? "\n" : c === "r" ? "\r" : c === "t" ? "\t" : c;
+  };
+  while (i < chars.length) {
+    const ch = chars[i++]!;
+    if (/\s/u.test(ch)) {
+      next = true;
+      continue;
+    }
+    if (next) {
+      out.push("");
+      next = false;
+    }
+    if (ch === "\\") {
+      const e = escape();
+      if (e === undefined) return undefined;
+      out[out.length - 1] += e;
+    } else if (ch === '"' || ch === "'") {
+      let s = "";
+      let closed = false;
+      while (i < chars.length) {
+        const c = chars[i++]!;
+        if (c === ch) {
+          closed = true;
+          break;
+        }
+        if (c === "\\") {
+          const e = escape();
+          if (e === undefined) return undefined;
+          s += e;
+        } else s += c;
+      }
+      if (!closed) return undefined;
+      out[out.length - 1] += s;
+    } else out[out.length - 1] += ch;
+  }
+  return out;
+}
+
+/** parser.rs `Condition::parse`. */
+function uiTestCondition(c: string, args: string): UiTestCondition {
+  const words = args.split(/\s+/).filter(Boolean);
+  const untilHash = (): string[] => {
+    const i = words.indexOf("#");
+    return i < 0 ? words : words.slice(0, i);
+  };
+  if (c === "on-host") return { kind: "on-host" };
+  if (c === "bitwidth") {
+    const bits = words.map(Number);
+    if (bits.some((b) => !Number.isInteger(b) || b < 0 || b > 255)) throw new Reject(`invalid bitwidth in \`${args}\``);
+    return { kind: "bitwidth", bits };
+  }
+  if (c === "target" || c === "host") {
+    const subs = untilHash();
+    if (subs.some((s) => !/^[0-9A-Za-z_-]*$/.test(s))) throw new Reject(`target strings can only contain integers, basic alphabet characters or dashes: \`${args}\``);
+    return { kind: c, subs };
+  }
+  throw new Reject(`\`${c}\` is not a valid condition, expected \`on-host\`, /[0-9]+bit/, /host-.*/, or /target-.*/`);
+}
+
+/**
+ * Directives that shape nothing here (see the header): parser.rs `commands` (`check-pass`, `error-in-other-file`,
+ * `normalize-*`, `require-annotations-for-level`, `stderr-per-bitwidth`), config.rs `Config::rustc`'s `no-rustfix`, ui.rs's
+ * `run-native` (only `Mode::Pass { native: true }` reads it, which runs only when the target is the host and builds the
+ * program with a real rustc).
+ */
+const UI_TEST_NO_EFFECT = new Set(["check-pass", "error-in-other-file", "normalize-stderr-test", "normalize-stdout-test", "require-annotations-for-level", "stderr-per-bitwidth", "no-rustfix", "run-native"]);
+
+/** parser.rs `CommentParser::parse` + `parse_checked_line` + `parse_command`, the `//@` lines. */
+export function uiTestComments(src: string): UiTestComments {
+  const comments: UiTestComments = { revisions: undefined, revisioned: new Map() };
+  const of = (key: string[]): UiTestRevisioned => {
+    const k = key.join(",");
+    let r = comments.revisioned.get(k);
+    if (!r) comments.revisioned.set(k, (r = { key, comments: { compileFlags: [], envVars: [], ignore: [], only: [], edition: undefined } }));
+    return r.comments;
+  };
+  of([]);
+  for (const raw of src.split("\n")) {
+    const line = raw.endsWith("\r") ? raw.slice(0, -1) : raw;
+    if (!line.startsWith("//@")) continue;
+    let cmd = line.slice(3).trim();
+    // parse_revisions
+    let key: string[] = [];
+    if (cmd.startsWith("[")) {
+      const end = cmd.indexOf("]");
+      if (end < 0) throw new Reject(`\`[\` without corresponding \`]\`: ${line}`);
+      key = cmd.slice(1, end).split(",").map((r) => r.trim());
+      cmd = cmd.slice(end + 1).trimStart();
+    }
+    // "Commands are letters or dashes, grab everything until the first character that is neither of those."
+    const m = /^[\p{L}\p{N}_-]*/u.exec(cmd)!;
+    const name = m[0];
+    let args = "";
+    if (name.length < cmd.length) {
+      if (cmd[name.length] !== ":") throw new Reject(`test command must be followed by \`:\` (or end the line): ${line}`);
+      args = cmd.slice(name.length + 1).trim();
+    }
+    if (name === "revisions") {
+      if (key.length > 0) throw new Reject("revisions cannot be declared under a revision");
+      if (comments.revisions !== undefined) throw new Reject("cannot specify `revisions` twice");
+      comments.revisions = args.split(/\s+/).filter(Boolean);
+      continue;
+    }
+    const r = of(key);
+    if (name === "compile-flags") {
+      const parsed = commaParseCommand(args);
+      if (parsed === undefined) throw new Reject(`\`${args}\` contains an unclosed quotation mark`);
+      r.compileFlags.push(...parsed);
+    } else if (name === "rustc-env") {
+      for (const env of args.split(/\s+/).filter(Boolean)) {
+        const eq = env.indexOf("=");
+        if (eq < 0) throw new Reject("environment variables must be key/value pairs separated by a `=`");
+        r.envVars.push([env.slice(0, eq), env.slice(eq + 1)]);
+      }
+    } else if (name === "edition") {
+      if (r.edition !== undefined) throw new Reject("cannot specify `edition` twice");
+      r.edition = args;
+    } else if (name === "aux-build" || name === "run" || name === "needs-asm-support") throw new Reject(`\`${name}\` is not reproduced by this harness`);
+    else if (UI_TEST_NO_EFFECT.has(name)) continue;
+    else if (name.startsWith("ignore-")) r.ignore.push(uiTestCondition(name.slice("ignore-".length), args));
+    else if (name.startsWith("only-")) r.only.push(uiTestCondition(name.slice("only-".length), args));
+    else throw new Reject(`\`${name}\` is not a command known to \`ui_test\``);
+  }
+  // parse: every key must name a declared revision.
+  for (const { key } of comments.revisioned.values()) {
+    for (const rev of key) {
+      if (comments.revisions === undefined) throw new Reject("there are no revisions in this test");
+      if (!comments.revisions.includes(rev)) throw new Reject(`the revision \`${rev}\` is not known`);
+    }
+  }
+  return comments;
+}
+
+/** parser.rs `Comments::for_revision`: the base comments, then the keys holding `revision` in `Vec<String>` order. */
+export function uiTestForRevision(c: UiTestComments, revision: string): UiTestRevisioned[] {
+  const cmp = (a: string[], b: string[]): number => {
+    for (let i = 0; i < Math.min(a.length, b.length); i++) if (a[i] !== b[i]) return a[i]! < b[i]! ? -1 : 1;
+    return a.length - b.length;
+  };
+  const keys = [...c.revisioned.values()].filter((r) => r.key.length > 0 && r.key.includes(revision)).sort((a, b) => cmp(a.key, b.key));
+  return [c.revisioned.get("")!.comments, ...keys.map((r) => r.comments)];
+}
+
+/** config.rs `get_pointer_width`. */
+const uiTestPointerWidth = (t: string): number => ((t.includes("64") && !t.endsWith("gnux32") && !t.endsWith("gnu_ilp32")) || t.startsWith("s390x") ? 64 : t.startsWith("avr") ? 16 : 32);
+
+/** config.rs `test_condition`. */
+function uiTestConditionHolds(cfg: UiTestConfig, c: UiTestCondition): boolean {
+  if (c.kind === "bitwidth") return c.bits.includes(uiTestPointerWidth(cfg.target));
+  if (c.kind === "target") return c.subs.some((s) => cfg.target.includes(s));
+  if (c.kind === "host") return c.subs.some((s) => cfg.host.includes(s));
+  return cfg.host === cfg.target;
+}
+
+/** config.rs `test_file_conditions` (`run_only_ignored` off): why the revision is not run, or undefined if it is. */
+export function uiTestIgnored(c: UiTestComments, revision: string, cfg: UiTestConfig): string | undefined {
+  const revs = uiTestForRevision(c, revision);
+  const show = (x: UiTestCondition) => (x.kind === "bitwidth" ? `bitwidth ${x.bits.join(" ")}` : x.kind === "on-host" ? "on-host" : `${x.kind} ${x.subs.join(" ")}`);
+  const hit = revs.flatMap((r) => r.ignore).find((x) => uiTestConditionHolds(cfg, x));
+  if (hit) return `ignored on target ${cfg.target}, host ${cfg.host} (ignore-${show(hit)})`;
+  const miss = revs.flatMap((r) => r.only).find((x) => !uiTestConditionHolds(cfg, x));
+  if (miss) return `not run on target ${cfg.target}, host ${cfg.host} (only-${show(miss)})`;
+  return undefined;
+}
+
+/** What `uiTestArgs` adds to a test's own directives (ui.rs `run_tests`, `miri_config`). */
+export interface UiTestRun extends UiTestConfig {
+  /** `MIRI_SYSROOT`. */
+  sysroot: string;
+  /** ui.rs `out_dir` for this test (`patch_out_dir`). */
+  outDir: string;
+}
+
+/**
+ * per_test_config.rs `build_command` for `file` (relative to the cwd), revision `revision` (`""`: none):
+ * - `CommandBuilder::rustc`'s `--error-format=json`, then ui.rs's `-Dwarnings -Dunused -Ainternal_features -Zui-testing
+ *   --sysroot=<sysroot>` (`MIRIFLAGS`: none), then `--out-dir <dir>`;
+ * - the path, then every applying `compile-flags`;
+ * - `apply_custom`, in `BTreeMap` key order: `edition` (the last one that applies wins; default `2021`, `miri_config`),
+ *   then `rustc-revision-args` (`--cfg=<rev> -Cextra-filename=<rev>`);
+ * - `--target <target>` unless the target is the host (`host_matches_target`).
+ */
+export function uiTestArgs(c: UiTestComments, file: string, revision: string, run: UiTestRun): string[] {
+  const revs = uiTestForRevision(c, revision);
+  const args = ["--error-format=json", "-Dwarnings", "-Dunused", "-Ainternal_features", "-Zui-testing", `--sysroot=${run.sysroot}`, "--out-dir", run.outDir, file];
+  for (const r of revs) args.push(...r.compileFlags);
+  args.push("--edition", revs.reduce<string>((e, r) => r.edition ?? e, "2021"));
+  if (revision !== "") args.push(`--cfg=${revision}`, `-Cextra-filename=${revision}`);
+  if (run.host !== run.target) args.push("--target", run.target);
+  return args;
+}
+
+/** `TestConfig::envs`: `rustc-env`, in `for_revision` order (a later value wins). */
+export function uiTestEnv(c: UiTestComments, revision: string): Record<string, string> {
+  return Object.fromEntries(uiTestForRevision(c, revision).flatMap((r) => r.envVars));
+}
+
+/** lib.rs `run_tests_generic` + `default_file_filter`, relative to `cwd`, sorted. */
+export function collectUiTestFiles(cwd: string, dir: string, out: string[] = []): string[] {
+  for (const e of readdirSync(join(cwd, dir), { withFileTypes: true })) {
+    const rel = `${dir}/${e.name}`;
+    if (e.isDirectory()) {
+      if (e.name !== "auxiliary") collectUiTestFiles(cwd, rel, out);
+    } else if (e.name.endsWith(".rs")) out.push(rel);
+  }
+  return out.sort();
+}
+
+/** One ui_test case (one test, or one revision: id `<file>#<revision>`), before the suite's own environment. */
+export interface UiTestCase {
+  id: string;
+  file: string;
+  args: string[];
+  env: Record<string, string>;
+}
+
+/**
+ * `run_tests_generic` + `parse_and_test_file` + `test_file` for the tests under `dirs` (relative to `cwd`): one case per
+ * revision, as listed in the file, unless its conditions say otherwise (`skipped`; a test ui_test rejects too).
+ */
+export function uiTestCases(cwd: string, dirs: string[], cfg: UiTestConfig, run: (file: string) => UiTestRun): { cases: UiTestCase[]; skipped: Skip[] } {
+  const cases: UiTestCase[] = [];
+  const skipped: Skip[] = [];
+  for (const file of dirs.flatMap((d) => collectUiTestFiles(cwd, d)).sort()) {
+    let comments: UiTestComments;
+    try {
+      comments = uiTestComments(readFileSync(join(cwd, file), "utf8"));
+    } catch (e) {
+      if (!(e instanceof Reject)) throw e;
+      skipped.push({ id: file, reason: `ui_test rejects the file: ${e.message}` });
+      continue;
+    }
+    for (const rev of comments.revisions ?? [""]) {
+      const id = rev === "" ? file : `${file}#${rev}`;
+      const ignored = uiTestIgnored(comments, rev, cfg);
+      if (ignored !== undefined) skipped.push({ id, reason: ignored });
+      else cases.push({ id, file, args: uiTestArgs(comments, file, rev, run(file)), env: uiTestEnv(comments, rev) });
+    }
+  }
+  return { cases, skipped };
 }

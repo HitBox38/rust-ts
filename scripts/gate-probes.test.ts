@@ -108,3 +108,17 @@ console.log(JSON.stringify({ ok, lines }));
   expect(j.lines).toContain("ERROR: probe 'rmetadump' not built (needed by unit tests, runner unit tests (scripts/gate-probes.test.ts)); run: bun scripts/probes.ts build rmetadump");
   expect(j.lines.every((l: string) => l.startsWith("ERROR: probe '"))).toBe(true);
 });
+
+test("a fixture probe that is missing: its test fails under RUST_TS_REQUIRE_PROBES=1 and only then does its title not say skipped", () => {
+  const run = (env: Record<string, string>) => {
+    const r = Bun.spawnSync([process.execPath, "test", join(REPO, "tools/probes/fixtures.test.ts"), "-t", "randstream"], { cwd: REPO, env: { ...process.env, RUST_TS_DATA: join(REPO, ".no-such-data-dir"), RUST_TS_HOST_TUPLE: "aarch64-apple-darwin", ...env }, stdout: "pipe", stderr: "pipe" });
+    return { code: r.exitCode, out: r.stdout.toString() + r.stderr.toString() };
+  };
+  const required = run({ RUST_TS_REQUIRE_PROBES: "1" });
+  expect(required.code).toBe(1);
+  expect(required.out).toContain("(required, missing: probe not built; bun scripts/probes.ts build randstream)");
+  expect(required.out).not.toContain("(skipped: probe not built");
+  const optional = run({ RUST_TS_REQUIRE_PROBES: "0" });
+  expect(optional.code).toBe(0);
+  expect(optional.out).not.toContain("(required, missing");
+}, 60_000);

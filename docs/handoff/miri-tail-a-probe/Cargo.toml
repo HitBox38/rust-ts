@@ -1,0 +1,18 @@
+# Probe behind src/vendor/rand_xoshiro/shuffle.oracle.txt: the exact crates of rustc_abi's `-Zrandomize-layout` shuffle,
+# at the versions upstream's Cargo.lock gives rustc_abi. Build with upstream's Cargo.lock copied next to this file:
+#   cp $RUST_TS_DATA/rust/Cargo.lock . && cargo run --release --offline > src/vendor/rand_xoshiro/shuffle.oracle.txt
+[package]
+name = "miri-tail-a-probe"
+version = "0.0.0"
+edition = "2024"
+
+[[bin]]
+name = "probe"
+path = "main.rs"
+
+[dependencies]
+# compiler/rustc_abi/Cargo.toml: `rand = { version = "0.9.0", default-features = false, optional = true }`
+rand = { version = "=0.9.3", default-features = false }
+rand_xoshiro = "=0.7.0"
+
+[workspace]

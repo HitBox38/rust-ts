@@ -3,10 +3,9 @@
 // / `AddressGenerator::generate` / `address_space_shortage`) and `MiriMachine::free_alloc_id` (-> `ReusePool::add_addr`)
 // with the vendored `StdRng`, and compares every address, every cross-thread synchronisation and the next rng word.
 //
-// The fixture is the output of the probe in docs/handoff/miri-alloc-probe (upstream's address_generator.rs / reuse_pool.rs
+// The fixture is the output of the registered probe tools/probes/miriaddr (upstream's address_generator.rs / reuse_pool.rs
 // logic and the reuse-or-generate choice of alloc_addresses/mod.rs, built against the real rand 0.10.1 through upstream's
-// Cargo.lock). PORT: until a registered probe regenerates it (a harness item), the fixture is committed, as
-// src/vendor/rand/stdrng.oracle.txt is.
+// Cargo.lock); `bun scripts/probes.ts fixture miriaddr` regenerates it and tools/probes/fixtures.test.ts checks it.
 //
 // The interpreter around these fns is a test double: `get_alloc_info` answers from the script, `active_thread()` is the
 // op's thread, `acquire_clock` records the clock, and the data-race `release_clock` returns a clock tagged with the

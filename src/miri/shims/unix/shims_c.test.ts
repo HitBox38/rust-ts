@@ -9,7 +9,7 @@ import "../../lib.ts";
 import { type MiriInterpCx, type Provenance, Provenance_Provenance } from "../../machine.ts";
 import { TerminationInfoStop } from "../../diagnostics.ts";
 import { ThreadId } from "../../concurrency/thread.ts";
-import { FdId } from "../files.ts";
+import { FdId, FdTable } from "../files.ts";
 import {
   InterestMap,
   Readiness_EMPTY,
@@ -428,6 +428,60 @@ test("InterestMap iterates in BTreeMap order ((FdId, FdNum) tuple Ord) and looks
   expect([...m.keys()].map(([i, n]) => `${i._0}:${n}`)).toEqual(["2:5", "10:0"]);
 });
 
+test("InterestMap keys stay exact past 2^21 descriptions and stay sorted across inserts and removals (shims-c L4, L6)", () => {
+  const m = new InterestMap();
+  const mk = () => new ReadinessInterest({} as never, R({}), false, 0n, R({}));
+  const big = 2 ** 22 + 1;
+  // `FdId * 2^32 + FdNum` would need more than 53 bits here: these used to share one key.
+  for (const k of [key(big, 3), key(big, 1), key(big, 2)]) m.set(k, mk());
+  expect(m.size).toBe(3);
+  const names = () => [...m.keys()].map(([i, n]) => `${i._0}:${n}`);
+  expect(names()).toEqual([`${big}:1`, `${big}:2`, `${big}:3`]);
+  expect(m.range([key(big, 2), key(big, 0x7fff_ffff)]).map(([[, n]]) => n)).toEqual([2, 3]);
+  // A replaced value keeps its single key.
+  m.set(key(big, 2), mk());
+  expect(names()).toEqual([`${big}:1`, `${big}:2`, `${big}:3`]);
+  // Removal and reinsertion keep the order; a missing key changes nothing.
+  expect(m.delete(key(big, 2))).toBe(true);
+  expect(m.delete(key(big, 2))).toBe(false);
+  m.set(key(1, 9), mk());
+  m.set(key(big, 2), mk());
+  expect(names()).toEqual(["1:9", `${big}:1`, `${big}:2`, `${big}:3`]);
+  expect(m.range([key(2, 0), key(3, 0)])).toEqual([]);
+  m.clear();
+  expect(names()).toEqual([]);
+  // A lookup does not sort.
+  const sort = Array.prototype.sort;
+  let sorted = 0;
+  Array.prototype.sort = function (this: unknown[], ...a) {
+    sorted++;
+    return sort.apply(this, a) as never;
+  };
+  try {
+    m.set(key(2, 2), mk());
+    m.set(key(2, 1), mk());
+    m.range([key(2, 0), key(2, 9)]);
+    [...m.entries()];
+  } finally {
+    Array.prototype.sort = sort;
+  }
+  expect(sorted).toBe(0);
+});
+
+test("add_interest copies `relevant` (shims-c L5: `Readiness` is `Copy`)", () => {
+  const t = FdTable.new();
+  const fd_num = t.insert_new({ readiness: () => R({}), readiness_watched: () => ReadinessWatched_default(), name: () => "stub" } as never);
+  const cx = fake_cx({ machine: { fds: t }, update_readiness: () => interp_ok(undefined) });
+  const w = Rc_new_ReadinessWatcher();
+  const relevant = R({ readable: true });
+  expect(w.add_interest(fd_num, relevant, false, 7n, cx).$).toBe("Ok");
+  relevant.readable = false;
+  relevant.writable = true;
+  const [stored] = [...w.interests.values()];
+  expect(stored!.relevant).toEqual(R({ readable: true }));
+  expect(stored!.relevant).not.toBe(relevant);
+});
+
 test("update_readiness: edge detection, de-duplicated ready queue, un-triggering, waking blocked threads", () => {
   const woken: number[] = [];
   const cx = fake_cx({
@@ -491,6 +545,8 @@ test("Rc<ReadinessWatcher> / Drop: dead watchers leave the watched FD's list; a 
   expect(watched.watchers.length).toBe(2);
   Rc_drop_ReadinessWatcher(w1);
   expect(watched.watchers.length).toBe(1);
+  // A double drop is caught (shims-c L2): Rust's ownership cannot express it.
+  expect(() => Rc_drop_ReadinessWatcher(w1)).toThrow("dropped more often than cloned");
   expect(watched.has_watcher_with_blocked_thread()).toBe(false);
   w2.add_blocked_thread(ThreadId.new_unchecked(2));
   expect(watched.has_watcher_with_blocked_thread()).toBe(true);

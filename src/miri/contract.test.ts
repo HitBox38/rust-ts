@@ -49,7 +49,7 @@ const OUT_OF_SCOPE: RegExp[] = [
   /^shims\/native_lib\//,
   /^shims\/windows\//,
   /^shims\/unix\/(android|freebsd|macos|netbsd|solarish)\//,
-  /^shims\/unix\/(socket_address|tcp_socket|virtual_socket)\.rs$/, // A3: socket.rs stays (isolation errors)
+  /^shims\/unix\/(socket_address|tcp_socket)\.rs$/, // A3: socket.rs stays (isolation errors); virtual_socket.rs is in (miri-tail scope)
   /^bin\/log\/tracing_chrome\.rs$/,
   /^intrinsics\/(aarch64|loongarch)\.rs$/, // D12: not reachable on x86_64-unknown-linux-gnu
   /^alloc\/isolated_alloc\.rs$/, // C6: compiled only with `native-lib`
@@ -74,11 +74,11 @@ const MODULES = IN_SCOPE.map(tsOf);
 const LANES = new Set([
   "miri-contract", "miri-machine", "miri-eval", "miri-driver", "miri-alloc", "miri-sb", "miri-threads", "miri-race",
   "miri-shims-a", "miri-shims-b", "miri-shims-c", "miri-shims-d", "miri-shims-e", "miri-fs",
-  "miri-x86-a", "miri-x86-b", "miri-tb-a", "miri-tb-b",
+  "miri-x86-a", "miri-x86-b", "miri-tb-a", "miri-tb-b", "miri-tail-b",
 ]);
 
 test("every in-scope upstream file has its module, naming its fill lane; no module for an out-of-scope file", () => {
-  expect(IN_SCOPE.length).toBe(101);
+  expect(IN_SCOPE.length).toBe(102);
   const missing = MODULES.filter((m) => !existsSync(join(REPO, m)));
   expect(missing).toEqual([]);
   const noLane: string[] = [];

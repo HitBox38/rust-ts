@@ -21,6 +21,7 @@ import { InterpCx } from "./eval_context.ts";
 import { MinMax, MulAddType, VarArgCompatible } from "./intrinsics.gen.ts";
 import { type AnyMachine, type ProvOf, type Machine } from "./machine.ts";
 import { MemoryKind } from "./memory.gen.ts";
+import { repeat_n } from "./memory.ts";
 import { type Projectable } from "./projection.ts";
 import { PlaceTy_from_MPlaceTy, type Writeable } from "./place.ts";
 import { display_ImmTy, Immediate } from "./operand.ts";
@@ -1735,11 +1736,6 @@ function subslice(s: Uint8Array, start: number, len: number): Uint8Array {
   const rest = s.subarray(start);
   if (len > rest.length) panic(`range end index ${len} out of range for slice of length ${rest.length}`);
   return rest.subarray(0, len);
-}
-
-/** `std::iter::repeat_n(byte, n)` */
-function* repeat_n(byte: number, n: number): IterableIterator<number> {
-  for (let i = 0; i < n; i++) yield byte;
 }
 
 /** `Ord::cmp` of two byte slices (lexicographic), as `-1 | 0 | 1`. */

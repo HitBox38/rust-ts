@@ -105,14 +105,15 @@ describe("report", () => {
   });
 });
 
-// The CLI on one file of tests/ui/consts with the oracle (skipped, visibly, without the upstream checkout).
+// The CLI on one file of tests/ui/consts with the oracle (skipped, visibly, without the upstream checkout). The checkout
+// is found where the CLI finds it, `RUST_TS_DATA` or the repo's `.env.local` (which `bun test` does not load, so the
+// environment alone would skip this test): scripts/lib/common.ts says, in a child (see scripts/lib/deps.test.ts for why).
 const UPSTREAM_FILE = "tests/ui/consts/const-fn-val.rs";
-const env: Record<string, string> = {};
-for (const [k, v] of Object.entries(process.env)) if (v !== undefined && k !== "RUST_TS_DATA") env[k] = v;
-const data = process.env.RUST_TS_DATA;
-const haveUpstream = data !== undefined && existsSync(join(data, "rust", UPSTREAM_FILE));
+const data = Bun.spawnSync([process.execPath, "-e", `console.log((await import(${JSON.stringify(join(REPO, "scripts/lib/common.ts"))})).DATA)`], { cwd: REPO, stdout: "pipe", stderr: "pipe" }).stdout.toString().trim();
+const haveUpstream = data !== "" && existsSync(join(data, "rust", UPSTREAM_FILE));
+const cli = (...args: string[]) => Bun.spawnSync([process.execPath, join(REPO, "scripts/ctfe-sample.ts"), ...args], { cwd: REPO, stdout: "pipe", stderr: "pipe" });
 (haveUpstream ? test : test.skip)(`the CLI classifies one file and writes its report${haveUpstream ? "" : " (skipped: no upstream checkout)"}`, () => {
-  const r = Bun.spawnSync([process.execPath, join(REPO, "scripts/ctfe-sample.ts"), "--file", UPSTREAM_FILE], { cwd: REPO, env: { ...env, RUST_TS_DATA: data! }, stdout: "pipe", stderr: "pipe" });
+  const r = cli("--file", UPSTREAM_FILE);
   const out = r.stdout.toString();
   expect(out).toMatch(/^files=1 filter=rustc_const_eval::interpret=info$/m);
   const counts = SAMPLE_CLASSES.map((c) => Number(new RegExp(`^${c}=(\\d+)`, "m").exec(out)![1]));
@@ -127,3 +128,10 @@ const haveUpstream = data !== undefined && existsSync(join(data, "rust", UPSTREA
   expect(r.exitCode).toBe(failed ? 1 : 0);
   expect(out.includes("ERROR: ctfe-sample:")).toBe(failed);
 }, 300_000);
+
+(haveUpstream ? test : test.skip)(`the CLI on a missing --file: one ERROR line, no stack trace${haveUpstream ? "" : " (skipped: no upstream checkout)"}`, () => {
+  const r = cli("--file", "tests/ui/consts/no-such-file.rs");
+  expect(r.exitCode).toBe(1);
+  expect(r.stdout.toString()).toMatch(/^ERROR: --file tests\/ui\/consts\/no-such-file\.rs: no such file/m);
+  expect(r.stderr.toString()).toBe("");
+}, 60_000);
