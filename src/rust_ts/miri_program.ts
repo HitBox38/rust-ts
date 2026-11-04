@@ -5,6 +5,7 @@
 import { spawnSync } from "node:child_process";
 import { basename, dirname, join } from "node:path";
 import { REPO } from "../../scripts/lib/common.ts";
+import { caseEnv, mergeEnv } from "../../scripts/lib/env.ts";
 import { MIRI_CASE_ENV, MIRI_SYSROOT, miriBinary, miriOracleProblem, miriPin } from "../../scripts/lib/miri.ts";
 
 /** A generous per-run limit: a run that takes seconds on a quiet machine took over 240 s at load 100 (other lanes). */
@@ -27,12 +28,17 @@ function run(cmd: string[], file: string, env: Record<string, string>): MiriRun 
   return { status: r.status, stdout: r.stdout, stderr: r.stderr };
 }
 
+/**
+ * The environment both sides run with: what difftest and phase-diff give a case (`caseEnv` keeps a caller's exported
+ * variables out, such as RUSTC_LOG), and `RUSTC_ICE=0` so an ICE writes no file into the cwd, which is inside `src/`.
+ */
+export function miri_program_env(base: Record<string, string | undefined> = process.env): Record<string, string> {
+  return mergeEnv(base, caseEnv({ ...MIRI_CASE_ENV, RUSTC_ICE: "0", RUST_BACKTRACE: "0" }, base));
+}
+
 /** The oracle's and the port's result on `file`, with Miri flags `flags` and the program's arguments `program_args`. */
 export function run_miri_program(file: string, flags: readonly string[] = [], program_args: readonly string[] = []): { oracle: MiriRun; port: MiriRun } {
-  const env: Record<string, string> = {};
-  for (const [k, v] of Object.entries({ ...process.env, ...MIRI_CASE_ENV })) {
-    if (v !== undefined && v !== null) env[k] = v;
-  }
+  const env = miri_program_env();
   const argv = [basename(file), "--edition", "2021", "--sysroot", MIRI_SYSROOT, "--target", miriPin().target, ...flags];
   if (program_args.length > 0) argv.push("--", ...program_args);
   return {
