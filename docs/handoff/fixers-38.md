@@ -46,8 +46,8 @@ fd 2 loops that did not retry `EAGAIN` use them too, and `is_tty` uses `isatty(1
 
 **Protected cases: none affected.** The allocation dump path appears in 3 cached oracle outputs, all under 3.2 KB and none in a baseline:
 `tests/fail/uninit/padding-enum.rs`, `tests/fail/uninit/padding-wide-ptr.rs`, `tests/fail/intrinsics/ptr_metadata_uninit_thin.rs`. This
-assumes the cache holds every protected case. The other old writers wrote only a crash message or stdout with nothing after them. I
-did not run a full suite.
+assumes the cache holds every protected case. By reading, not by a full audit, the other old writers wrote only a crash message or
+stdout with nothing after them. I did not run a full suite.
 
 ## For root
 
@@ -60,7 +60,7 @@ did not run a full suite.
   batch could own it. `--print cfg` (alone and with `-C target-feature`) checks it against the live oracle, and a test checks it is closed
   under `implied_target_features`.
 - **Upstream tests under `pass-dep`:** no suite runs them, so `libc-pipe`, `libc-socketpair` and `libc-socketpair-no-blocking` are not
-  regression-protected. `tests/fail` has no socket cases in `miri-fail`.
+  regression-protected.
 - **`tests/ui/test-attrs/terse.rs`:** TIMEOUT in my `run-fail-miri` sample and alone at load about 5. Not protected, and the `miri-tail-a`
   review already measured it at 173-194 s CPU.
 - **`x86.test.ts` under load:** the per-test limit is now 5 minutes. Lanes at high load can set `RUST_TS_X86_TEST_TIMEOUT_MS`.
@@ -81,7 +81,7 @@ Oracle comparisons of upstream's tests, stdout, stderr and exit, oracle exit fir
 The `-dep` tests ran with `--extern libc=<sysroot>/liblibc-*.rmeta -Zcrate-attr=feature(rustc_private)`, not ui.rs's full argv. A first run
 with the `.rlib` made both sides fail to compile and "match"; those results were discarded.
 
-Mutations, each killed by the new tests: the review's 5 for `virtual_socket.ts`; `send` and `recv` ignoring `is_non_block`; `send`'s `EBADF`;
+Mutations, each killed by the new tests (the socket ones rerun on the final fixture): the review's 5 for `virtual_socket.ts`; `send` and `recv` ignoring `is_non_block`; `send`'s `EBADF`;
 two flag masks; `tree.ts` `perm.accessed`; the children sort; `reverse()` in the traversal; `to_uint` at the gather offset; removing `pause`'s
 yield; each writer back to `process.std*.write`. **One survivor:** reversed child pushes in `tree_visitor.ts` pass programs A and B; the
 review says `tree_visitor.test.ts` catches that, and I did not rerun it.
