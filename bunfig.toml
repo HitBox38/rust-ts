@@ -1,0 +1,3 @@
+[test]
+# One line at the end of a `bun test` in a worktree with no .env.local (scripts/lib/env-local-note.ts).
+preload = ["./scripts/lib/env-local-note.ts"]
