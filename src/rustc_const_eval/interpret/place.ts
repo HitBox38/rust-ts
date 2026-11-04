@@ -396,8 +396,9 @@ PlaceTy.prototype.as_mplace_or_local = function (this: PlaceTy): Either<MPlaceTy
 // #[inline(always)]
 // rustc: compiler/rustc_const_eval/src/interpret/place.rs:259 assert_mem_place
 PlaceTy.prototype.assert_mem_place = function (this: PlaceTy): MPlaceTy {
-  const e = this.as_mplace_or_local();
-  if (e.$ === "Left") return e._0;
+  // PORT(perf): `as_mplace_or_local` inlined, as in `meta`.
+  const place = this.place;
+  if (place.$ === "Ptr") return new MPlaceTy(place._0, this.layout);
   return bug(`PlaceTy of type ${display_Ty(this.layout.ty)} was a local when it was expected to be an MPlace`);
 };
 
@@ -411,11 +412,12 @@ PlaceTy.prototype.layout_ = function (this: PlaceTy): TyAndLayout {
 // #[inline]
 // rustc: compiler/rustc_const_eval/src/interpret/place.rs:276 meta
 PlaceTy.prototype.meta = function (this: PlaceTy): MemPlaceMeta {
-  const e = this.as_mplace_or_local();
-  switch (e.$) {
-    case "Left":
-      return e._0.meta();
-    case "Right":
+  // PORT(perf): `as_mplace_or_local` inlined: its `Either` and tuple are allocations here. Same arms.
+  const place = this.place;
+  switch (place.$) {
+    case "Ptr":
+      return new MPlaceTy(place._0, this.layout).meta();
+    case "Local":
       // debug_assert!(self.layout.is_sized(), "unsized locals should live in memory");
       return MemPlaceMeta.None;
   }
@@ -423,15 +425,16 @@ PlaceTy.prototype.meta = function (this: PlaceTy): MemPlaceMeta {
 
 // rustc: compiler/rustc_const_eval/src/interpret/place.rs:286 offset_with_meta
 PlaceTy.prototype.offset_with_meta = function (this: PlaceTy, offset: Size, mode: OffsetMode, meta: MemPlaceMeta, layout: TyAndLayout, ecx: InterpCx): InterpResult<PlaceTy> {
-  const e = this.as_mplace_or_local();
-  switch (e.$) {
-    case "Left": {
-      const r = e._0.offset_with_meta(offset, mode, meta, layout, ecx);
+  // PORT(perf): `as_mplace_or_local` inlined, as in `meta`. Same arms.
+  const place = this.place;
+  switch (place.$) {
+    case "Ptr": {
+      const r = new MPlaceTy(place._0, this.layout).offset_with_meta(offset, mode, meta, layout, ecx);
       if (r.$ === "Err") return r;
       return interp_ok(PlaceTy_from_MPlaceTy(r._0));
     }
-    case "Right": {
-      const [local, old_offset, locals_addr] = e._0;
+    case "Local": {
+      const { local, offset: old_offset, locals_addr } = place;
       // debug_assert!(layout.is_sized(), "unsized locals should live in memory");
       assert_matches_none(meta); // we couldn't store it anyway...
       // `Place::Local` are always in-bounds of their surrounding local, so we can just
