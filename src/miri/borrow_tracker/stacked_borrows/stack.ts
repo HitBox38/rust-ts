@@ -398,8 +398,9 @@ Stack.prototype.insert_cache = function (this: Stack, new_idx: number, new_: Ite
 /// Construct a new `Stack` using the passed `Item` as the root tag.
 // rustc: src/tools/miri/src/borrow_tracker/stacked_borrows/stack.rs:342 new
 (Stack as unknown as { new: (item: Item) => Stack }).new = function (item: Item): Stack {
-  const items: Item[] = new Array<Item>(CACHE_LEN);
-  for (let i = 0; i < CACHE_LEN; i++) items[i] = clone_Item(item);
+  // PORT(perf): one copy in all the slots instead of `CACHE_LEN` (32) per new stack, the cost of every allocation: the slots
+  // hold the same tag, so an in-place `set_permission` (the only write to a cached item) reaches each of them anyway.
+  const items: Item[] = new Array<Item>(CACHE_LEN).fill(clone_Item(item));
   return new Stack(
     [clone_Item(item)],
     undefined,
