@@ -13,6 +13,7 @@
 import type { Compiler, Config } from "../../rustc_interface/interface.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import { ensure_stack } from "../../rust_ts/stack.ts";
+import { write_stdout } from "../../std/io.ts";
 import { Panic, Unported } from "../../std/panic.ts";
 
 const EXIT_UNPORTED = 70;
@@ -51,7 +52,7 @@ async function main(): Promise<number> {
           return `${fp.toString(16).padStart(32, "0")} ${with_no_trimmed_paths(() => display_MonoItem(item))}`;
         }),
       );
-      process.stdout.write(lines.map((l) => `${l}\n`).join(""));
+      write_stdout(lines.map((l) => `${l}\n`).join(""));
       return "Stop";
     },
   };

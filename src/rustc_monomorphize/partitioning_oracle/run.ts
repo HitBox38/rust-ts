@@ -23,6 +23,7 @@ import type { Compiler, Config } from "../../rustc_interface/interface.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import type { Providers } from "../../rustc_middle/util/mod.ts";
 import { ensure_stack } from "../../rust_ts/stack.ts";
+import { write_stderr, write_stdout } from "../../std/io.ts";
 import { Panic, Unported } from "../../std/panic.ts";
 
 const EXIT_UNPORTED = 70;
@@ -82,7 +83,7 @@ async function main(): Promise<number> {
           const named = builder.build_cgu_name(cnum, ["a", "b"], undefined);
           return `CGU_NAME ${Symbol.as_str(no_mangle)} ${Symbol.as_str(named)}\n`;
         });
-        process.stdout.write(lines.join(""));
+        write_stdout(lines.join(""));
       } else {
         tcx.collect_and_partition_mono_items(null);
       }
@@ -100,10 +101,10 @@ try {
   process.exitCode = await main();
 } catch (e) {
   if (e instanceof Unported) {
-    process.stderr.write(`rust-ts: reached unported code: ${e.what}\n`);
+    write_stderr(`rust-ts: reached unported code: ${e.what}\n`);
     process.exitCode = EXIT_UNPORTED;
   } else if (e instanceof Panic) {
-    process.stderr.write(`rust-ts: internal compiler error: ${e.message}\n`);
+    write_stderr(`rust-ts: internal compiler error: ${e.message}\n`);
     process.exitCode = 101;
   } else {
     throw e;
