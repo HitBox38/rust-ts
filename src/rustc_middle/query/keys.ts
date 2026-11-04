@@ -26,7 +26,7 @@ import { debug_SizedTraitKind, type SizedTraitKind } from "../../rustc_type_ir/s
 import { debug_AliasTyKind } from "../../rustc_type_ir/ty_kind.ts";
 import { debug_ExistentialTraitRef, debug_TraitRef } from "../../rustc_type_ir/ir_print.ts";
 import { intern_key } from "../../rust_ts/intern_key.ts";
-import { typing_env_no } from "../../rust_ts/typing_env_no.ts";
+import { pack_def_id, typing_env_no } from "../../rust_ts/typing_env_no.ts";
 import { debug_str } from "../../std/fmt.ts";
 import { debug_ParamEnvAnd, debug_PseudoCanonicalInput, debug_Ty, type ParamEnvAnd, type PseudoCanonicalInput, type Ty } from "../ty/mod.ts";
 import type { AdtDef } from "../ty/decls.ts";
@@ -174,8 +174,11 @@ export const KEY_ShimKind: QueryKey<ShimKind> = {
   hash_key: intern_key,
 };
 
+/** PORT(perf): `InstanceKind`'s `Eq`: an `Item` by its `DefId` number, every other kind by `intern_key` (`instance_mir`, `codegen_instance_attrs`). */
+const instance_kind_key = (k: InstanceKind): string | number => (k.$ === "Item" ? DefId_hash_key(k._0) : intern_key(k));
+
 export const KEY_InstanceKind: QueryKey<InstanceKind> = {
-  make_cache: default_cache<InstanceKind>(intern_key),
+  make_cache: default_cache<InstanceKind>(instance_kind_key),
   // rustc: compiler/rustc_middle/src/query/keys.rs:74 default_span
   default_span(self: InstanceKind, tcx: TyCtxt): Span {
     return tcx.def_span(InstanceKind.def_id(self));
@@ -184,7 +187,7 @@ export const KEY_InstanceKind: QueryKey<InstanceKind> = {
   as_local_key: QueryKey_provided.as_local_key,
   debug: (v, f) => debug_InstanceKind(v, f),
   debug_local: no_local_key,
-  hash_key: intern_key,
+  hash_key: instance_kind_key,
 };
 
 export const KEY_Instance: QueryKey<Instance> = {
@@ -608,12 +611,23 @@ function instance_key(i: Instance): string {
   const d = i.def;
   return d.$ === "Item" ? `${d._0.krate}:${d._0.index}:${i.args.id}` : intern_key(i);
 }
-const pci_DefId_GenericArgsRef_key = (k: PseudoCanonicalInput<[DefId, GenericArgsRef]>): string =>
-  `${typing_env_no(k.typing_env)}|${k.value[0].krate}:${k.value[0].index}:${k.value[1].id}`;
+const pci_DefId_GenericArgsRef_key = (k: PseudoCanonicalInput<[DefId, GenericArgsRef]>): string | number => {
+  const env = typing_env_no(k.typing_env);
+  const n = pack_def_id(env, k.value[0], k.value[1].id);
+  return n >= 0 ? n : `${env}|${k.value[0].krate}:${k.value[0].index}:${k.value[1].id}`;
+};
 const pci_AdtDef_GenericArgsRef_key = (k: PseudoCanonicalInput<[AdtDef, GenericArgsRef]>): string =>
   `${typing_env_no(k.typing_env)}|${k.value[0].id}:${k.value[1].id}`;
-const pci_Instance_List_Ty_key = (k: PseudoCanonicalInput<[Instance, List<Ty>]>): string =>
-  `${typing_env_no(k.typing_env)}|${instance_key(k.value[0])}|${k.value[1].id}`;
+const pci_Instance_List_Ty_key = (k: PseudoCanonicalInput<[Instance, List<Ty>]>): string | number => {
+  const env = typing_env_no(k.typing_env);
+  const d = k.value[0].def;
+  // An `Item` with no extra arguments, the usual call. Every empty list is the same value.
+  if (d.$ === "Item" && k.value[1].length === 0) {
+    const n = pack_def_id(env, d._0, k.value[0].args.id);
+    if (n >= 0) return n;
+  }
+  return `${env}|${instance_key(k.value[0])}|${k.value[1].id}`;
+};
 const pci_GlobalId_key = (k: PseudoCanonicalInput<GlobalId>): string =>
   `${typing_env_no(k.typing_env)}|${instance_key(k.value.instance)}|${k.value.promoted ?? ""}`;
 

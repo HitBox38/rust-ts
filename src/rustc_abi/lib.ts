@@ -1163,7 +1163,9 @@ export class Size {
   // PORT (size-bigint): a `number`, so a value beyond 2^53 - 1 stops (`raw`); exact callers use `bytes_u64()`.
   // rustc: compiler/rustc_abi/src/lib.rs:902 bytes
   bytes(): number {
-    return this.raw;
+    // PORT(perf): `this.raw` without the accessor call (2% of the samples in the interpreter).
+    if (this.big !== undefined) return unported(SIZE_BEYOND_2_53);
+    return this.small;
   }
 
   /** PORT (size-bigint): `bytes()` as the exact `u64` (a `bigint`), for the paths that handle any `Size`. */
