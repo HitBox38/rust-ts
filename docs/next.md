@@ -436,7 +436,7 @@ Integration branch `integ-w38` (worktree .data/integ-w38). x86 and Tree Borrows 
 | miri-tb-b | tree_borrows tree, diagnostics, tree/tests (~2.9k) | APPROVE WITH NITS; on integ-w38; test gaps queued |
 | followups-37 | port-side small queue from the wave 37 reviews | APPROVE WITH NITS (M1 fixed); on integ-w38 |
 | ice-report | design: docs/plan-ice-report.md; independent review ACCEPT WITH AMENDMENTS (docs/reviews/plan-ice-report.md): D3 replay and D8 RUST_BACKTRACE=0 rejected, D4 and D11 amended, target 92 of 118 cases incl. all 14 mir; lanes queued at low priority, after the M6b gate | reviewed |
-| miri-tail-a | configure_llvm / target_config flags (31 cases), each_linked_rlib with -C lto (14), parse_native_lib (2), -Zrandomize-layout (1) | running |
+| miri-tail-a | configure_llvm / target_config flags (31 cases), each_linked_rlib with -C lto (14), parse_native_lib (2), -Zrandomize-layout (1) | APPROVE WITH NITS; on integ-w38 |
 | miri-tail-b | shims/unix/virtual_socket.rs: pipe2, socketpair (10 cases; narrows D2) | running |
 | mono-collector, mono-partition, miri-sysroot, harness-m6d | M7 groundwork, plan-m6 §5 | queued |
 Left out of the 61 for now: getaddrinfo (1 case, sync-send-in-std.rs; D2 sockets) and RUSTC_LOG info/trace (2 cases, log-backtrace.rs, def-path-hash-ice-157238.rs; need rustc's INFO events converted beyond the current targets).
