@@ -1873,13 +1873,18 @@ MiriMachine.prototype.init_frame = function (
 };
 
 // rustc: src/tools/miri/src/machine.rs:1915 stack
-MiriMachine.prototype.stack_ = function (this: MiriMachine, ecx: MiriInterpCx): readonly Frame<Provenance, gen.FrameExtra>[] {
-  return ecx.active_thread_stack();
+MiriMachine.prototype.stack_ = function (this: MiriMachine, _ecx: MiriInterpCx): readonly Frame<Provenance, gen.FrameExtra>[] {
+  // PORT(perf): `ecx.active_thread_stack()` without its three calls: `ecx.machine` is this machine, and every frame access
+  // comes through here.
+  const threads = this.threads;
+  return threads.threads[threads.active_thread._0]!.stack;
 };
 
 // rustc: src/tools/miri/src/machine.rs:1921 stack_mut
-MiriMachine.prototype.stack_mut = function (this: MiriMachine, ecx: MiriInterpCx): Frame<Provenance, gen.FrameExtra>[] {
-  return ecx.active_thread_stack_mut();
+MiriMachine.prototype.stack_mut = function (this: MiriMachine, _ecx: MiriInterpCx): Frame<Provenance, gen.FrameExtra>[] {
+  // PORT(perf): as `stack_`.
+  const threads = this.threads;
+  return threads.threads[threads.active_thread._0]!.stack;
 };
 
 // rustc: src/tools/miri/src/machine.rs:1927 before_terminator

@@ -355,14 +355,16 @@ export class InterpCx<M extends AnyMachine = Machine>
   // rustc: compiler/rustc_const_eval/src/interpret/eval_context.rs:287 frame
   frame(): Frame {
     const stack_ = this.stack();
-    return unwrap(stack_[stack_.length - 1], "a call frame should exist");
+    // PORT(perf): `unwrap` only on the failing path; it takes a third of this function's samples.
+    return stack_[stack_.length - 1] ?? unwrap<Frame>(undefined, "a call frame should exist");
   }
 
   // #[inline(always)]
   // rustc: compiler/rustc_const_eval/src/interpret/eval_context.rs:292 frame_mut
   frame_mut(): Frame {
     const stack_ = this.stack_mut();
-    return unwrap(stack_[stack_.length - 1], "a call frame should exist");
+    // PORT(perf): as `frame`.
+    return stack_[stack_.length - 1] ?? unwrap<Frame>(undefined, "a call frame should exist");
   }
 
   // #[inline(always)]
