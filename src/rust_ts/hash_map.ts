@@ -20,6 +20,7 @@
 // `Hash` of keys whose identity is not a JS primitive (`Span`, `Ident`, `DefId`, ...) is not
 // provided: such maps cannot be JS `Map`s keyed by value anyway.
 
+import { KeyedMap } from "./keyed.ts";
 import { type Debug, debug_map, debug_set, type Fmt } from "../std/fmt.ts";
 import { unported } from "../std/panic.ts";
 import { HashMap } from "../vendor/hashbrown/map.ts";
@@ -486,6 +487,8 @@ export function debug_HashSet<T>(v: Set<T>, f: Fmt, debug_T: Debug<T>): string {
  * buckets (and so its order); a plain `Map` is copied entry by entry. */
 export function clone_HashMap<K, V>(v: Map<K, V>, clone_K: (k: K) => K, clone_V: (v: V) => V): Map<K, V> {
   if (v instanceof FxHashMap) return (v as FxHashMap<K, V>).clone(clone_K, clone_V);
+  // A value-keyed map stays one: as a plain `Map` it would be keyed by the cloned key objects' identity.
+  if (v instanceof KeyedMap) return new KeyedMap<K, V>((v as KeyedMap<K, V>).key, [...v].map(([k, x]): [K, V] => [clone_K(k), clone_V(x)]));
   return new Map([...v].map(([k, x]) => [clone_K(k), clone_V(x)]));
 }
 

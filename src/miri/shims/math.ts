@@ -7,8 +7,7 @@
 // (library/std/src/num/f{32,64}.rs: `cmath::coshf(self)` & co.; `cbrt` / `abs_sub` are core's `libm::cbrtf` /
 // `libm::fdimf` externs; `acosh` / `asinh` are `cmath::acosh{,f}` at this pin): the 38 imports `cbrt{,f} cosh{,f}
 // sinh{,f} tan{,f} tanh{,f} acos{,f} asin{,f} atan{,f} acosh{,f} asinh{,f} log1p{,f} expm1{,f} tgamma{,f} erf{,f}
-// erfc{,f} hypot{,f} atan2{,f} fdim{,f} lgamma_r lgammaf_r`. They are opened here with bun:ffi from the library
-// host_libm.ts names (`host_libm_path()`); host_libm.ts is not this lane's file (root may merge the tables).
+// erfc{,f} hypot{,f} atan2{,f} fdim{,f} lgamma_r lgammaf_r`. src/rust_ts/host_libm.ts opens them with bun:ffi.
 import { type MPlaceTy, type OpTy, type Scalar } from "../lib.ts";
 import { type MiriInterpCx } from "../machine.ts";
 import { apply_random_float_error_ulp, clamp_float_value, fixed_float_value, ToHost_Double, ToHost_Single, ToSoft_f32, ToSoft_f64 } from "../math.ts";
@@ -19,48 +18,14 @@ import { type FnAbi } from "../../rustc_middle/ty/decls.ts";
 import { type Ty } from "../../rustc_middle/ty/mod.ts";
 import { bug } from "../../rustc_span/macros.ts";
 import { Symbol } from "../../rustc_span/symbol.ts";
-import { host_libm_path } from "../../rust_ts/host_libm.ts";
+import { host_libm, host_libm_lgamma } from "../../rust_ts/host_libm.ts";
 import { Double, Single } from "../../vendor/rustc_apfloat/ieee.ts";
-import { unported } from "../../std/panic.ts";
-import { dlopen, FFIType, ptr } from "bun:ffi";
-
-const d1 = { args: [FFIType.f64], returns: FFIType.f64 } as const;
-const d2 = { args: [FFIType.f64, FFIType.f64], returns: FFIType.f64 } as const;
-const f1 = { args: [FFIType.f32], returns: FFIType.f32 } as const;
-const f2 = { args: [FFIType.f32, FFIType.f32], returns: FFIType.f32 } as const;
-const SYMBOLS = {
-  cbrt: d1, cosh: d1, sinh: d1, tan: d1, tanh: d1, acos: d1, asin: d1, atan: d1, acosh: d1, asinh: d1,
-  log1p: d1, expm1: d1, tgamma: d1, erf: d1, erfc: d1, hypot: d2, atan2: d2, fdim: d2,
-  cbrtf: f1, coshf: f1, sinhf: f1, tanf: f1, tanhf: f1, acosf: f1, asinf: f1, atanf: f1, acoshf: f1, asinhf: f1,
-  log1pf: f1, expm1f: f1, tgammaf: f1, erff: f1, erfcf: f1, hypotf: f2, atan2f: f2, fdimf: f2,
-  lgamma_r: { args: [FFIType.f64, FFIType.ptr], returns: FFIType.f64 },
-  lgammaf_r: { args: [FFIType.f32, FFIType.ptr], returns: FFIType.f32 },
-} as const;
-type Fn1 = (x: number) => number;
-type Fn2 = (x: number, y: number) => number;
-type ShimLibm = Record<Exclude<keyof typeof SYMBOLS, "lgamma_r" | "lgammaf_r" | "hypot" | "atan2" | "fdim" | "hypotf" | "atan2f" | "fdimf">, Fn1> &
-  Record<"hypot" | "atan2" | "fdim" | "hypotf" | "atan2f" | "fdimf", Fn2> &
-  Record<"lgamma_r" | "lgammaf_r", (x: number, signp: ReturnType<typeof ptr>) => number>;
-
-let LIBM: ShimLibm | undefined;
-/** The host libm entry points of this file, opened on first use (header). */
-function libm(): ShimLibm {
-  if (LIBM === undefined) {
-    let lib: ReturnType<typeof dlopen<typeof SYMBOLS>>;
-    try {
-      lib = dlopen(host_libm_path(), SYMBOLS);
-    } catch (e) {
-      return unported(`host libm ${host_libm_path()}: ${e instanceof Error ? e.message : String(e)}`);
-    }
-    LIBM = lib.symbols as unknown as ShimLibm;
-  }
-  return LIBM;
-}
+import { ptr } from "bun:ffi";
 
 /** `fN::ln_gamma` (std: `let x = cmath::lgamma{f}_r(self, &mut signgamp); (x, signgamp)`). */
 function ln_gamma(f: "lgamma_r" | "lgammaf_r", x: number): [number, number] {
   const signgamp = new Int32Array(1);
-  const r = libm()[f](x, ptr(signgamp));
+  const r = host_libm_lgamma()[f](x, ptr(signgamp));
   return [r, signgamp[0]!];
 }
 
@@ -103,7 +68,7 @@ export function emulate_foreign_item_inner(this_: MiriInterpCx, link_name: Symbo
           // Using host floats (but it's fine, these operations do not have
           // guaranteed precision).
           const f_host = ToHost_Single.to_host(f_);
-          const m = libm();
+          const m = host_libm();
           let res: number;
           switch (name) {
             case "cbrtf": res = m.cbrtf(f_host); break;
@@ -158,7 +123,7 @@ export function emulate_foreign_item_inner(this_: MiriInterpCx, link_name: Symbo
       let res =
         fixed_float_value(this__, name, [f1v, f2v], Single) ??
         (() => {
-          const m = libm();
+          const m = host_libm();
           let res: Single;
           switch (name) {
             // underscore case for windows, here and below
@@ -221,7 +186,7 @@ export function emulate_foreign_item_inner(this_: MiriInterpCx, link_name: Symbo
           // Using host floats (but it's fine, these operations do not have
           // guaranteed precision).
           const f_host = ToHost_Double.to_host(f_);
-          const m = libm();
+          const m = host_libm();
           let res: number;
           switch (name) {
             case "cbrt": res = m.cbrt(f_host); break;
@@ -276,7 +241,7 @@ export function emulate_foreign_item_inner(this_: MiriInterpCx, link_name: Symbo
       let res =
         fixed_float_value(this__, name, [f1v, f2v], Double) ??
         (() => {
-          const m = libm();
+          const m = host_libm();
           let res: Double;
           switch (name) {
             // underscore case for windows, here and below

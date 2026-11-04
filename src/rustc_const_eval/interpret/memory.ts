@@ -178,7 +178,7 @@ declare module "./eval_context.ts" {
     // memory.rs:1423 (lane interp-memory)
     read_bytes_ptr_strip_provenance(ptr: Pointer<ProvOf<M> | undefined>, size: Size): InterpResult<Uint8Array>;
     // memory.rs:1445 (lane interp-memory)
-    write_bytes_ptr(ptr: Pointer<ProvOf<M> | undefined>, src: IterableIterator<number>): InterpResult;
+    write_bytes_ptr(ptr: Pointer<ProvOf<M> | undefined>, src: IterableIterator<number> | SizedIterator): InterpResult;
     // memory.rs:1475 (lane interp-memory)
     mem_copy(src: Pointer<ProvOf<M> | undefined>, dest: Pointer<ProvOf<M> | undefined>, size: Size, nonoverlapping: boolean): InterpResult;
     // memory.rs:1490 (lane interp-memory)
@@ -1684,14 +1684,44 @@ InterpCx.prototype.read_bytes_ptr_strip_provenance = function (this: InterpCx, p
   return interp_ok(b._0);
 };
 
+/** PORT: an iterator that has `Iterator::size_hint`, which `write_bytes_ptr` reads before producing anything. */
+export interface SizedIterator extends Iterator<number> {
+  size_hint(): [number, number];
+}
+
+/** PORT: `std::iter::repeat_n(element, count)`, lazy and with its exact `size_hint` (a generator has none). */
+export function repeat_n(element: number, count: number): SizedIterator {
+  let remaining = count;
+  return {
+    next: (): IteratorResult<number> => {
+      if (remaining === 0) return { done: true, value: undefined };
+      remaining--;
+      return { done: false, value: element };
+    },
+    size_hint: (): [number, number] => [remaining, remaining],
+  };
+}
+
 /// Writes the given stream of bytes into memory.
 ///
 /// Performs appropriate bounds checks.
-// PORT: a JS iterator has no `size_hint`: it is collected first, so its length is precise (`lower == upper`).
+// PORT: a JS iterator has no `size_hint`. A lazy source of program-controlled length is a `SizedIterator` (`repeat_n`),
+// so nothing is produced before the bounds check, as upstream. Any other iterator walks bytes that are already in memory
+// or a small fixed count; it is collected first, so its length is precise (`lower == upper`).
 // rustc: compiler/rustc_const_eval/src/interpret/memory.rs:1445 write_bytes_ptr
-InterpCx.prototype.write_bytes_ptr = function (this: InterpCx, ptr: Pointer<CtfeProvenance | undefined>, src: IterableIterator<number>): InterpResult {
-  const src_ = [...src];
-  const len = src_.length; // `let (lower, upper) = src.size_hint(); let len = upper.expect(..); assert_eq!(lower, len, ..)`
+InterpCx.prototype.write_bytes_ptr = function (this: InterpCx, ptr: Pointer<CtfeProvenance | undefined>, src: IterableIterator<number> | SizedIterator): InterpResult {
+  let src_: Iterator<number>;
+  let len: number;
+  if ("size_hint" in src) {
+    src_ = src;
+    const [lower, upper] = src.size_hint();
+    len = upper; // `upper.expect("can only write bounded iterators")`
+    assert(lower === len, "can only write iterators with a precise length"); // `assert_eq!`
+  } else {
+    const collected = [...src];
+    src_ = collected.values();
+    len = collected.length;
+  }
 
   const size = Size.from_bytes(len);
   const a = this.get_ptr_alloc_mut(ptr, size);
@@ -1699,7 +1729,7 @@ InterpCx.prototype.write_bytes_ptr = function (this: InterpCx, ptr: Pointer<Ctfe
   const alloc_ref = a._0;
   if (alloc_ref === undefined) {
     // zero-sized access
-    // assert_matches!(src.next(), None, "iterator said it was empty but returned an element"): `len` is 0.
+    assert(src_.next().done === true, "iterator said it was empty but returned an element");
     return interp_ok(undefined);
   }
 
@@ -1708,11 +1738,12 @@ InterpCx.prototype.write_bytes_ptr = function (this: InterpCx, ptr: Pointer<Ctfe
   const bytes = alloc_ref.alloc.get_bytes_unchecked_for_overwrite(alloc_ref.tcx, alloc_ref.range);
   // `zip` would stop when the first iterator ends; we want to definitely
   // cover all of `bytes`.
-  // PORT: `src.next().expect("iterator was shorter than it said it would be")` and the final
-  // `assert_matches!(src.next(), None, "iterator was longer than it said it would be")` hold: `bytes.len() == len`.
   for (let i = 0; i < bytes.length; i++) {
-    bytes[i] = src_[i]!;
+    const next = src_.next();
+    if (next.done === true) return panic("iterator was shorter than it said it would be");
+    bytes[i] = next.value;
   }
+  assert(src_.next().done === true, "iterator was longer than it said it would be");
   return interp_ok(undefined);
 };
 

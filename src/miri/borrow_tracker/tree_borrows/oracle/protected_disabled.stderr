@@ -1,0 +1,37 @@
+error: Undefined Behavior: write access through <467> at alloc205[0x0] is forbidden
+ --> src/miri/borrow_tracker/tree_borrows/oracle/protected_disabled.rs:4:14
+  |
+4 |     unsafe { *y = 2 };
+  |              ^^^^^^ Undefined Behavior occurred here
+  |
+  = help: this indicates a potential bug in the program: it performed an invalid operation, but the Tree Borrows rules it violated are still experimental
+  = help: see https://github.com/rust-lang/unsafe-code-guidelines/blob/master/wip/tree-borrows.md for further information
+  = help: the accessed tag <467> is foreign to the protected tag <471> (i.e., it is not a child)
+  = help: this foreign write access would cause the protected tag <471> (currently Unique) to become Disabled
+  = help: protected tags must never be Disabled
+help: the accessed tag <467> was created here
+ --> src/miri/borrow_tracker/tree_borrows/oracle/protected_disabled.rs:8:13
+  |
+8 |     let v = &mut 0u8;
+  |             ^^^^^^^^
+help: the protected tag <471> was created here, in the initial state Reserved
+ --> src/miri/borrow_tracker/tree_borrows/oracle/protected_disabled.rs:2:6
+  |
+2 | fn f(x: &mut u8, y: *mut u8) {
+  |      ^
+help: the protected tag <471> later transitioned to Unique due to a child write access at offsets [0x0..0x1]
+ --> src/miri/borrow_tracker/tree_borrows/oracle/protected_disabled.rs:3:5
+  |
+3 |     *x = 1;
+  |     ^^^^^^
+  = help: this transition corresponds to the first write to a 2-phase borrowed mutable reference
+  = note: stack backtrace:
+          0: f
+              at src/miri/borrow_tracker/tree_borrows/oracle/protected_disabled.rs:4:14: 4:20
+          1: main
+              at src/miri/borrow_tracker/tree_borrows/oracle/protected_disabled.rs:10:5: 10:29
+
+note: some details are omitted, run with `MIRIFLAGS=-Zmiri-backtrace=full` for a verbose backtrace
+
+error: aborting due to 1 previous error
+

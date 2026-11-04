@@ -10,6 +10,7 @@ import { debug_NativeLibKind, NativeLibKind } from "../rustc_structures/lib.ts";
 // LOAD ORDER: options.ts before config.ts (see config.ts header).
 import "./options.ts";
 import { CanonicalizedPath_new_hook } from "./config.ts";
+import { NativeLib_new_hook } from "./config/native_libs.ts";
 import { Session } from "./session.ts";
 import type { VerboseTimingGuard } from "./stand_ins.ts";
 
@@ -86,6 +87,8 @@ export class CanonicalizedPath {
 // methods keep the upstream names); Debug prints the upstream field names.
 // PORT: config.ts's `parse_externs` reaches `CanonicalizedPath::new` through this hook (load order).
 CanonicalizedPath_new_hook.new_ = (path) => CanonicalizedPath.new(path);
+// PORT: config/native_libs.ts's `parse_native_lib` builds a `NativeLib` through this hook (load order).
+NativeLib_new_hook.new_ = (name, new_name, kind, verbatim) => new NativeLib(name, new_name, kind, verbatim);
 export const debug_CanonicalizedPath: Debug<CanonicalizedPath> = (v, f) =>
   debug_struct(f, "CanonicalizedPath", [
     ["canonicalized", debug_option(v.canonicalized_, f, (p) => debug_str(p))],
