@@ -1078,6 +1078,7 @@ export type LayoutCxLike = HasTyCtxt & HasTypingEnv;
 /** The local `enum TyMaybeWithLayout` of `ty_and_layout_field` (ty/layout.rs:849). */
 export type TyMaybeWithLayout = { readonly $: "Ty"; readonly _0: Ty } | { readonly $: "TyAndLayout"; readonly _0: TyAndLayout };
 
+// Measured (docs/handoff/miri-perf.md, 486 Ginstr at base): -69.8 Ginstr.
 // PORT(perf) (lane miri-perf, plan-m6 D11): upstream recomputes `TyAndLayout::field` / `for_variant` on every call,
 // which is cheap in Rust. Here each call stringifies a `layout_of` key, folds `field.ty(tcx, args)`, and for a tag or a
 // variant builds a `LayoutData` and stringifies all of it to intern it: `ty_and_layout_field` plus `for_variant` were 15% of

@@ -174,6 +174,7 @@ export const KEY_ShimKind: QueryKey<ShimKind> = {
   hash_key: intern_key,
 };
 
+// Measured (docs/handoff/miri-perf.md, 486 Ginstr at base): +0.1 Ginstr on the benchmark, with the numeric `(def, args)` keys (it reads few of these).
 /** PORT(perf): `InstanceKind`'s `Eq`: an `Item` by its `DefId` number, every other kind by `intern_key` (`instance_mir`, `codegen_instance_attrs`). */
 const instance_kind_key = (k: InstanceKind): string | number => (k.$ === "Item" ? DefId_hash_key(k._0) : intern_key(k));
 
@@ -594,6 +595,7 @@ function pseudo_canonical_input_key<T>(
   };
 }
 
+// Measured (docs/handoff/miri-perf.md, 486 Ginstr at base): -79.2 Ginstr.
 // PORT(perf) (lane miri-perf, plan-m6 D11): the hot `PseudoCanonicalInput` keys without `intern_key`. Upstream hashes
 // the key's fields; the port's `intern_key` builds a string walking them, on every cache hit: 18 s of 202 s
 // (profile samples) in `tests/ui/moves/move-3-unique.rs`, mostly `layout_of`. These keys give the same equality: the

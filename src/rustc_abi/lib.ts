@@ -1140,9 +1140,8 @@ export class Size {
   static from_bits(bits: number | bigint): Size {
     // Measured (docs/handoff/miri-perf.md, 486 Ginstr at base): -14.1 Ginstr for this and the `Size` fast paths that refer here.
     // PORT(perf): upstream's `u64` arithmetic in `number` for a safe non-negative count (`bits / 8` is exact, a power
-    // of two); the `bigint` path below stays for the rest. This and the other `Size` fast paths below (`bits`,
-    // `align_to`, `is_aligned`, `checked_add`, `checked_mul`, `mul`, `truncate`, `sign_extend`) took
-    // `tests/ui/moves/move-3-unique.rs` from 858 to the figure in docs/handoff/miri-perf.md: no representation change.
+    // of two); the `bigint` path below stays for the rest. The other `Size` fast paths below refer here; no
+    // representation change.
     if (typeof bits === "number" && Number.isSafeInteger(bits) && bits >= 0) return Size.small_of(Math.ceil(bits / 8));
     const bits_ = u64_arg(bits);
     // `u64::div_ceil(8)`

@@ -263,6 +263,7 @@ Ty.prototype.is_privately_uninhabited = function (this: Ty, tcx: TyCtxt, typing_
 // rustc: compiler/rustc_middle/src/ty/inhabitedness/mod.rs:239 is_opsem_inhabited
 Ty.prototype.is_opsem_inhabited = function (this: Ty, tcx: TyCtxt, typing_env: TypingEnv): boolean {
   // Handle simple cases directly, use the query with its cache for the rest.
+  // Measured (docs/handoff/miri-perf.md, 486 Ginstr at base): -4.4 Ginstr.
   // PORT(perf): upstream's walk and query lookup are cheap in Rust; here they build a key per ADT, on every pointer and value
   // validation checks. The answer is pure in `(ty, typing env)` (it panics rather than answering on a bad type), so it is
   // kept per type for the first few envs: invisible, and any query the walk needs ran on the first call, as before.

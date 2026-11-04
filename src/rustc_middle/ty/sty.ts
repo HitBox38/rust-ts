@@ -2203,6 +2203,7 @@ Ty.prototype.is_like_maybe_dangling = function (this: Ty): boolean {
 
 // rustc: compiler/rustc_middle/src/ty/sty.rs:2181 inputs
 RawList.prototype.inputs = function (this: List<Ty>): readonly Ty[] {
+  // Measured (docs/handoff/miri-perf.md, 486 Ginstr at base): -1.0 Ginstr with `output`.
   // PORT(perf): the sub-slice is a view upstream; here it is a copy, so it is kept per (immutable, interned) list.
   let inputs = LIST_INPUTS.get(this);
   if (inputs === undefined) {
