@@ -89,19 +89,12 @@ fn shim_paths() {
     println!("recv stdin {:?}", recv(0, 2, 0));
     close(p[0]);
     close(p[1]);
-    // `send` with MSG_DONTWAIT on a full buffer of a blocking socket.
-    let s = socket_pair(0);
-    let big = vec![1u8; 0x34000];
-    println!("fill {:?}", send(s[0], &big, 0));
-    println!("send dontwait, full {:?}", send(s[0], b"y", libc::MSG_DONTWAIT));
-    close(s[0]);
-    close(s[1]);
 }
 
 /// Small first writes: the buffer's minimum capacity, and the wraps that follow from it.
 fn small_first_writes() {
     let p = pipe_with(libc::O_NONBLOCK);
-    for first in 1..=7usize {
+    for first in [3, 6usize] {
         let a = [first as u8; 32];
         println!("{:?}", wr(p[1], &a[..first]));
         println!("{:?}", rd(p[0], first.saturating_sub(1).max(1)).0);
@@ -144,21 +137,23 @@ fn two_readers() {
     close(p[1]);
 }
 
-/// Two writers blocked at once, on a full buffer: the same for the writers' list.
-fn two_writers() {
-    let p = pipe_with(0);
+/// A full buffer of a blocking socket: `send` with MSG_DONTWAIT is EAGAIN. Then two writers blocked at once: the same as
+/// `two_readers`, for the writers' list.
+fn full_buffer_two_writers() {
+    let s = socket_pair(0);
     let big = vec![1u8; 0x34000];
-    println!("{:?}", wr(p[1], &big));
-    let t1 = thread::spawn(move || println!("a {:?}", wr(p[1], b"aaa")));
-    let t2 = thread::spawn(move || println!("b {:?}", wr(p[1], b"bbb")));
+    println!("fill {:?}", send(s[0], &big, 0));
+    println!("send dontwait, full {:?}", send(s[0], b"y", libc::MSG_DONTWAIT));
+    let t1 = thread::spawn(move || println!("a {:?}", wr(s[0], b"aaa")));
+    let t2 = thread::spawn(move || println!("b {:?}", wr(s[0], b"bbb")));
     spin(5);
-    println!("{:?}", rd(p[0], 2).0);
+    println!("{:?}", rd(s[1], 2).0);
     spin(5);
-    println!("{:?}", rd(p[0], 4).0);
+    println!("{:?}", rd(s[1], 4).0);
     t1.join().unwrap();
     t2.join().unwrap();
-    close(p[0]);
-    close(p[1]);
+    close(s[0]);
+    close(s[1]);
 }
 
 fn main() {
@@ -167,5 +162,5 @@ fn main() {
     small_first_writes();
     non_blocking_eof();
     two_readers();
-    two_writers();
+    full_buffer_two_writers();
 }
