@@ -30,7 +30,6 @@
       "shims/unix/android": "non-Linux unix shims (plan-m6 D2)",
       "shims/unix/netbsd": "non-Linux unix shims (plan-m6 D2)",
       "shims/unix/socket_address.rs": "sockets beyond the isolation error (plan-m6 D2, A3)",
-      "shims/unix/virtual_socket.rs": "sockets beyond the isolation error (plan-m6 D2, A3)",
       "shims/unix/tcp_socket.rs": "sockets beyond the isolation error (plan-m6 D2, A3)",
       "bin/log/tracing_chrome.rs": "Chrome trace output of MIRI_TRACING (plan-m6 D2)"
     },
