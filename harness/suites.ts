@@ -1588,8 +1588,10 @@ const runCorpus = (): { cases: UiCase[]; skipped: SkippedCase[] } => (runCorpusM
  * Miri flags that turn isolation off (`-Zmiri-disable-isolation`: the program sees the host's clock, files, real pid,
  * so the `gettid` thread id in a panic message becomes the host's) or pass host variables to the program
  * (`-Zmiri-env-forward=<var>`). D14 keeps isolation on, and `unstableMiriOracleReason` and `MIRI_CASE_ENV` rely on it,
- * so a case whose argv has one is skipped (review harness-m6a N3, lane harness-w36). No tests/ui test passes one at the
- * pin; Miri's own test suites (harness-m6c) do.
+ * so a case in a tests/ui suite whose argv has one is skipped (review harness-m6a N3, lane harness-w36); no tests/ui test
+ * passes one at the pin. Miri's own suites (harness-m6c) keep their test's flags, so 27 of their cases run with isolation
+ * off: there a real pid or path in the output shows up as a difference between two oracle runs, and a case that does is
+ * listed by hand in `MIRI_PASS_UNSTABLE`, which a pin move has to re-check.
  */
 export const MIRI_ISOLATION_OFF = ["-Zmiri-disable-isolation", "-Zmiri-env-forward"];
 /**
@@ -1925,20 +1927,17 @@ function miriUiCorpus(dirs: string[]): { cases: Case[]; skipped: SkippedCase[] }
 const MIRI_PASS_DIRS = ["tests/pass", "tests/panic"];
 /**
  * The heavy cases of miri-pass (plan-m6 A11; `bun scripts/miri.ts time --suite miri-pass`, macOS arm64, 6 jobs, load 15,
- * docs/handoff/harness-m6c.md): over 2.5 s of user time under the Miri oracle (every other case stays under 1.8 s); the
- * cases the port did not finish in 40 s of CPU, more than its 60 s limit allows on a busy host (a loaded host, so a
- * lower bound; the port took over 200 s of CPU on consistency.rs's 3.1 s); and the cases writing files under `MIRI_TEMP`
- * (`utils::prepare`), whose two sides must not run at once (above). tests/fail (max 1.3 s), miri-pass-tb (max 0.9 s) and
- * run-pass-aux-miri (max 0.24 s) have none over 2.5 s.
+ * docs/handoff/harness-m6c.md): over 2.5 s of user time under the Miri oracle (every other case stays under 1.8 s), and
+ * the cases writing files under `MIRI_TEMP` (`utils::prepare`), whose two sides must not run at once (above). tests/fail
+ * (max 1.3 s), miri-pass-tb (max 0.9 s) and run-pass-aux-miri (max 0.24 s) have none over 2.5 s. Membership comes from the
+ * oracle's cost and the files a case writes, never from how the port does: this list's longer limit must not turn a
+ * port TIMEOUT into a MATCH (review harness-m6c R2, root decision; AGENTS.md section 2).
  */
 const MIRI_UI_HEAVY: Record<string, string> = {
   "tests/pass/0weak_memory/consistency.rs": "Miri oracle 3.1 s user, exit 0",
   "tests/pass/0weak_memory/consistency_sc.rs": "Miri oracle 5.0 s user, exit 0",
   "tests/pass/0weak_memory/weak.rs": "Miri oracle 3.7 s user, exit 0",
-  "tests/pass/float.rs": "Miri oracle 0.5 s user, exit 0; the port unfinished after 52 s of CPU",
   "tests/pass/float_nan.rs": "Miri oracle 2.9 s user, exit 0",
-  "tests/pass/panic/nested_panic_caught.rs": "Miri oracle 1.2 s user, exit 0; the port unfinished after 42 s of CPU",
-  "tests/pass/shims/time-with-isolation.rs": "Miri oracle 0.8 s user, exit 0; the port unfinished after 47 s of CPU",
   "tests/pass/issues/issue-miri-3680.rs": "writes files under MIRI_TEMP: the oracle and the subject must not run at once",
   "tests/pass/shims/fs-permissions.rs": "writes files under MIRI_TEMP: the oracle and the subject must not run at once",
   "tests/pass/shims/fs.rs": "writes files under MIRI_TEMP: the oracle and the subject must not run at once",
@@ -1954,7 +1953,8 @@ const MIRI_PASS_UNSTABLE: UnstableCase[] = [
 const isMiriUiHeavy = (c: Case): boolean => Object.hasOwn(MIRI_UI_HEAVY, c.id);
 const uiHeavySkips = (cases: Case[]): SkippedCase[] => cases.filter(isMiriUiHeavy).map((c) => ({ id: c.id, reason: `heavy (plan-m6 A11: ${MIRI_UI_HEAVY[c.id]}): in the suite's -heavy sibling` }));
 const uiSorted = (k: SkippedCase[]): SkippedCase[] => k.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
-const M6B_MIRI_PASS = "plan-m6 gate M6b: miri-pass + miri-pass-heavy >= 80% MATCH, ORACLE_TIMEOUT excluded";
+// This line is one suite's share. The M6b figure sums both suites' full runs: `bun scripts/criteria.ts --run <run>`.
+const M6B_MIRI_PASS = "this suite's share of plan-m6 gate M6b (miri-pass + miri-pass-heavy >= 80% MATCH, ORACLE_TIMEOUT excluded; the figure: bun scripts/criteria.ts --run <run>)";
 const miriPassGated = (): Case[] => miriUiCorpus(MIRI_PASS_DIRS).cases.filter((c) => !isTreeBorrows(c));
 const miriPassCases = (): Case[] => miriPassGated().filter((c) => !isMiriUiHeavy(c));
 const miriPassHeavyCases = (): Case[] => miriPassGated().filter(isMiriUiHeavy);
