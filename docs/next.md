@@ -429,7 +429,7 @@ Integration branch `integ-w38` (worktree .data/integ-w38). x86 and Tree Borrows 
 |---|---|---|
 | harness-m6c | miri-pass, -heavy, -tb, miri-fail, run-pass-aux-miri suites (A8); M6b needs miri-pass + heavy >= 80%; scripts/criteria.ts | REQUEST CHANGES, root's fixes re-checked APPROVE WITH NITS; on integ-w38 |
 | harness-w38 | harness-w37 nits, queued probes (randstream, epoll/eventfd), UNPORTED bucket counts in the run summary | APPROVE WITH NITS; on integ-w38 |
-| miri-perf | D11: hello <= 3 s user, run-pass p99 <= 10 s; the 3 timeouts and the heavy cases; rmeta-core RSS watch | running |
+| miri-perf | D11: hello <= 3 s user met; p99 11.1 s (target 10 s); move-3-unique about 70 s to 33 s CPU; rmeta-core RSS watch | in review |
 | miri-x86-a | intrinsics/x86/mod.rs + sse, sse2, sse3, ssse3, sse41, sse42 (~2.7k) | APPROVE WITH NITS; on integ-w38 |
 | miri-x86-b | intrinsics/x86/avx, avx2, avx512, aesni, bmi, gfni, sha (~1.4k) | APPROVE WITH NITS; on integ-w38; AES rounds stay unported (D5) |
 | miri-tb-a | tree_borrows mod, perms, tree_visitor, unimap, wildcard, foreign_access_skipping, exhaustive (~2.6k) | APPROVE WITH NITS; on integ-w38 |
@@ -438,6 +438,10 @@ Integration branch `integ-w38` (worktree .data/integ-w38). x86 and Tree Borrows 
 | ice-report | design: docs/plan-ice-report.md; independent review ACCEPT WITH AMENDMENTS (docs/reviews/plan-ice-report.md): D3 replay and D8 RUST_BACKTRACE=0 rejected, D4 and D11 amended, target 92 of 118 cases incl. all 14 mir; lanes queued at low priority, after the M6b gate | reviewed |
 | miri-tail-a | configure_llvm / target_config flags (31 cases), each_linked_rlib with -C lto (14), parse_native_lib (2), -Zrandomize-layout (1) | APPROVE WITH NITS; on integ-w38 |
 | miri-tail-b | shims/unix/virtual_socket.rs: pipe2, socketpair (10 cases; narrows D2) | APPROVE WITH NITS; merging after the dry run |
-| mono-collector, mono-partition, miri-sysroot, harness-m6d | M7 groundwork, plan-m6 §5 | queued |
+| mono-collector, mono-partition | M7 groundwork, plan-m6 §5 | running |
+| harness-w39 | aux cache poisoning, scope, probes nits, case lock for the fs cases | in review |
+| fixers-38 | allocation dump order, --print sysroot stop, send/recv, test gaps, cleanups | running |
+| mio-poll | isolation-off cases stop at mio::Poll::new (17 in miri-pass) with no socket I/O in sight: check whether Miri only creates it at startup, and port that with real polling still stopping | queued |
+| miri-sysroot, harness-m6d | M7 groundwork, plan-m6 §5 | queued |
 Left out of the 61 for now: getaddrinfo (1 case, sync-send-in-std.rs; D2 sockets) and RUSTC_LOG info/trace (2 cases, log-backtrace.rs, def-path-hash-ice-157238.rs; need rustc's INFO events converted beyond the current targets).
 
