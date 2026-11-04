@@ -135,7 +135,10 @@ function throw_validation_failure<T>(where_: Path, msg: ValidationErrorKind | st
 // PORT: `arms(e)` is the macro's match: the message of the first matching arm, `undefined` for the final `e => e`.
 // The caller applies the `?`.
 function try_validation<T>(e: InterpResult<T>, where_: Path, arms: (e: InterpErrorKind) => ValidationErrorKind | string | undefined): InterpResult<T> {
-  return InterpResult.map_err_kind(e, (e) => {
+  // Measured (docs/handoff/miri-perf.md, 486 Ginstr at base): no change on the benchmark (0.0 Ginstr), with the two `return r` below.
+  // PORT(perf): the success path allocates nothing.
+  if (e.$ === "Ok") return e;
+  return InterpResult.map_err_kind<T>(e, (e) => {
     // We catch the error and turn it into a validation failure. We are okay with
     // allocation here as this can only slow down builds that fail anyway.
     const msg = arms(e);
@@ -337,7 +340,8 @@ export class ValidityVisitor<M extends AnyMachine = Machine> extends ValueVisito
     // Undo changes
     this.path.projs.length = path_len;
     // Done
-    return interp_ok(r._0);
+    // PORT(perf): `r` is that value already.
+    return r;
   }
 
   // rustc: compiler/rustc_const_eval/src/interpret/validity.rs:471 read_immediate
@@ -349,8 +353,8 @@ export class ValidityVisitor<M extends AnyMachine = Machine> extends ValueVisito
       if (e.$ === "Unsupported" && e._0.$ === "ReadPartialPointer") return ValidationErrorKind.PartialPointer;
       return undefined;
     });
-    if (r.$ === "Err") return r;
-    return interp_ok(r._0);
+    // PORT(perf): `r` is the value (`interp_ok(r?)`).
+    return r;
   }
 
   // rustc: compiler/rustc_const_eval/src/interpret/validity.rs:489 read_scalar
@@ -1175,7 +1179,14 @@ export class ValidityVisitor<M extends AnyMachine = Machine> extends ValueVisito
   // rustc: compiler/rustc_const_eval/src/interpret/validity.rs:1267 visit_field
   override visit_field(old_val: PlaceTy, field: number, new_val: PlaceTy): InterpResult {
     const elem = this.aggregate_field_path_elem(old_val.layout, field, new_val.layout.ty);
-    return this.with_elem(elem, (this_) => this_.visit_value(new_val));
+    // Measured (docs/handoff/miri-perf.md, 486 Ginstr at base): no change on the benchmark (+0.5 Ginstr, within noise).
+    // PORT(perf): `with_elem` inlined, without its closure: this is the validator's commonest step.
+    const path_len = this.path.projs.length;
+    this.path.projs.push(elem);
+    const r = this.visit_value(new_val);
+    if (r.$ === "Err") return r;
+    this.path.projs.length = path_len;
+    return r;
   }
 
   // #[inline]

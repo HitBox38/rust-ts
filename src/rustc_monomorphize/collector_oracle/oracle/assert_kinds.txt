@@ -1,0 +1,22 @@
+exit 0
+== MONO_ITEM
+MONO_ITEM fn bounds @@ assert_kinds.a5bbf83b7385503b-cgu.0[External]
+MONO_ITEM fn deref @@ assert_kinds.a5bbf83b7385503b-cgu.0[External]
+MONO_ITEM fn div @@ assert_kinds.a5bbf83b7385503b-cgu.0[External]
+MONO_ITEM fn en @@ assert_kinds.a5bbf83b7385503b-cgu.0[External]
+MONO_ITEM fn neg @@ assert_kinds.a5bbf83b7385503b-cgu.0[External]
+MONO_ITEM fn null_ref @@ assert_kinds.a5bbf83b7385503b-cgu.0[External]
+MONO_ITEM fn overflow @@ assert_kinds.a5bbf83b7385503b-cgu.0[External]
+MONO_ITEM fn rem @@ assert_kinds.a5bbf83b7385503b-cgu.0[External]
+MONO_ITEM fn shl @@ assert_kinds.a5bbf83b7385503b-cgu.0[External]
+== FP
+FP 56df1028138d208aae39a8f1390685f9 fn neg
+FP 8c63b0f2e793abf31eb0c2a4d40b54dc fn bounds
+FP 98caeadd9e43615ce0a5600f5b6fd89f fn null_ref
+FP 9f94872a4677153462b2508fdbdd338e fn en
+FP bc3256719c04ee7fd5fa1c531461d12a fn shl
+FP c2cac4c64628fad04e98d98d354cb187 fn div
+FP cd8f73383a07c324f6f4d7af1393bacf fn rem
+FP d1b3383b4e547edb3804e6264dfff4c5 fn deref
+FP e3f5cb28260b585937f7cfa97fa906ce fn overflow
+== stderr

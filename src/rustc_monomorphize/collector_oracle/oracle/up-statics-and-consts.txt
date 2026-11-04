@@ -1,0 +1,16 @@
+exit 0
+== MONO_ITEM
+MONO_ITEM fn foo @@ up_statics_and_consts.f913dff85b89f822-cgu.0[External]
+MONO_ITEM fn start @@ up_statics_and_consts.f913dff85b89f822-cgu.0[External]
+MONO_ITEM static STATIC1 @@ up_statics_and_consts.f913dff85b89f822-cgu.0[External]
+MONO_ITEM static foo::STATIC2 @@ up_statics_and_consts.f913dff85b89f822-cgu.0[External]
+MONO_ITEM static foo::STATIC2 @@ up_statics_and_consts.f913dff85b89f822-cgu.0[External]
+MONO_ITEM static foo::STATIC2 @@ up_statics_and_consts.f913dff85b89f822-cgu.0[External]
+== FP
+FP 03f72edfa04c705de33943b6d161e2be static foo::STATIC2
+FP 3a2e6aaad8e5b5c69e774ad2c9c34b21 static foo::STATIC2
+FP 53a478ae518bb01d955bbe22bdfca430 static foo::STATIC2
+FP 5dc6cab21327ac01310026e9bdcb076e fn foo
+FP 8d46820ad5a2458f5ee4c1d99a54ec27 static STATIC1
+FP d906eb99ac827453b7df4daed33bc555 fn start
+== stderr

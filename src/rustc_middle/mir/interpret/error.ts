@@ -888,5 +888,14 @@ InterpResult.and = function <T, U>(self: InterpResult<T>, other: InterpResult<U>
 // #[inline(always)]
 // rustc: compiler/rustc_middle/src/mir/interpret/error.rs:1101 interp_ok
 export function interp_ok<T>(x: T): InterpResult<T> {
+  // Measured (docs/handoff/miri-perf.md, 486 Ginstr at base): -2.5 Ginstr.
+  // PORT(perf): the commonest results (`()`, `true`, `false`) are shared objects: a `Result` is never written to and never
+  // compared by identity, and upstream's value has no allocation at all.
+  if (x === undefined) return OK_UNDEFINED as InterpResult<T>;
+  if (x === true) return OK_TRUE as InterpResult<T>;
+  if (x === false) return OK_FALSE as InterpResult<T>;
   return InterpResult.new(Ok(x));
 }
+const OK_UNDEFINED: InterpResult<unknown> = Ok(undefined);
+const OK_TRUE: InterpResult<unknown> = Ok(true);
+const OK_FALSE: InterpResult<unknown> = Ok(false);

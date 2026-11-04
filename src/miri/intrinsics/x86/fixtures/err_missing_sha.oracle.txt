@@ -1,0 +1,16 @@
+exit: 1
+--- stdout
+--- stderr
+error: Undefined Behavior: attempted to call intrinsic `llvm.x86.sha256msg1` that requires missing target feature sha
+  --> err_missing_sha.rs:12:22
+   |
+12 |     let _ = unsafe { msg1(z, z) };
+   |                      ^^^^^^^^^^ Undefined Behavior occurred here
+   |
+   = help: this indicates a bug in the program: it performed an invalid operation, and caused Undefined Behavior
+   = help: see https://doc.rust-lang.org/nightly/reference/behavior-considered-undefined.html for further information
+
+note: some details are omitted, run with `MIRIFLAGS=-Zmiri-backtrace=full` for a verbose backtrace
+
+error: aborting due to 1 previous error
+

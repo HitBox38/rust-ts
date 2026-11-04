@@ -839,9 +839,14 @@ InterpCx.prototype.read_str = function (this: InterpCx, mplace: MPlaceTy): Inter
 // rustc: compiler/rustc_const_eval/src/interpret/operand.rs:727 local_to_op
 InterpCx.prototype.local_to_op = function (this: InterpCx, local: Local, layout: TyAndLayout | undefined): InterpResult<OpTy> {
   const frame = this.frame();
-  const lr = this.layout_of_local(frame, local, layout);
-  if (lr.$ === "Err") return lr;
-  const layout_ = lr._0;
+  // Measured (docs/handoff/miri-perf.md, 486 Ginstr at base): -3.2 Ginstr with `place_to_op`, `local_to_place` and `layout_of_local`.
+  // PORT(perf): `layout_of_local`'s cache hit without its `Ok`: this is the interpreter's commonest call.
+  let layout_ = frame.locals[local]!.layout;
+  if (layout_ === undefined) {
+    const lr = this.layout_of_local(frame, local, layout);
+    if (lr.$ === "Err") return lr;
+    layout_ = lr._0;
+  }
   const or = frame.locals[local]!.access();
   if (or.$ === "Err") return or;
   const op = or._0;
@@ -876,12 +881,13 @@ InterpCx.prototype.ghost_local_in_frame_to_op = function (this: InterpCx, frame:
 /// will never actually read from memory.
 // rustc: compiler/rustc_const_eval/src/interpret/operand.rs:763 place_to_op
 InterpCx.prototype.place_to_op = function (this: InterpCx, place: PlaceTy): InterpResult<OpTy> {
-  const e = place.as_mplace_or_local();
-  switch (e.$) {
-    case "Left":
-      return interp_ok(OpTy_from_MPlaceTy(e._0));
-    case "Right": {
-      const [local, offset, _locals_addr] = e._0;
+  // PORT(perf): `as_mplace_or_local` inlined: its `Either` and tuple are allocations here. Same arms.
+  const place_ = place.place;
+  switch (place_.$) {
+    case "Ptr":
+      return interp_ok(OpTy_from_MPlaceTy(new MPlaceTy(place_._0, place.layout)));
+    case "Local": {
+      const { local, offset } = place_;
       // debug_assert!(place.layout.is_sized()); // only sized locals can ever be `Place::Local`.
       // debug_assert_eq!(locals_addr, self.frame().locals_addr());
       const br = this.local_to_op(local, undefined);

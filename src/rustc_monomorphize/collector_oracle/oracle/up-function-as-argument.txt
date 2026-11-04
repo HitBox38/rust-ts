@@ -1,0 +1,26 @@
+exit 0
+== MONO_ITEM
+MONO_ITEM fn <fn(char, f64) {function::<char, f64>} as std::ops::FnOnce<(char, f64)>>::call_once - shim(fn(char, f64) {function::<char, f64>}) @@ up_function_as_argument.b2af348ec9d378f0-cgu.0[External]
+MONO_ITEM fn <fn(u32, &str) {function::<u32, &str>} as std::ops::FnOnce<(u32, &str)>>::call_once - shim(fn(u32, &str) {function::<u32, &str>}) @@ up_function_as_argument.b2af348ec9d378f0-cgu.0[External]
+MONO_ITEM fn function::<char, f64> @@ up_function_as_argument.b2af348ec9d378f0-cgu.0[External]
+MONO_ITEM fn function::<f32, i64> @@ up_function_as_argument.b2af348ec9d378f0-cgu.0[External]
+MONO_ITEM fn function::<i32, ()> @@ up_function_as_argument.b2af348ec9d378f0-cgu.0[External]
+MONO_ITEM fn function::<u32, &str> @@ up_function_as_argument.b2af348ec9d378f0-cgu.0[External]
+MONO_ITEM fn start @@ up_function_as_argument.b2af348ec9d378f0-cgu.0[External]
+MONO_ITEM fn take_fn_once::<char, f64, fn(char, f64) {function::<char, f64>}> @@ up_function_as_argument.b2af348ec9d378f0-cgu.0[External]
+MONO_ITEM fn take_fn_once::<u32, &str, fn(u32, &str) {function::<u32, &str>}> @@ up_function_as_argument.b2af348ec9d378f0-cgu.0[External]
+MONO_ITEM fn take_fn_pointer::<f32, i64> @@ up_function_as_argument.b2af348ec9d378f0-cgu.0[External]
+MONO_ITEM fn take_fn_pointer::<i32, ()> @@ up_function_as_argument.b2af348ec9d378f0-cgu.0[External]
+== FP
+FP 0d0378f4aa908a6ce7148e371bd10734 fn take_fn_pointer::<i32, ()>
+FP 4878d37ef27624edeb931f25137d5f38 fn function::<i32, ()>
+FP 68c245a67b32e3c7cdba0fc9f2b517cd fn <fn(char, f64) {function::<char, f64>} as std::ops::FnOnce<(char, f64)>>::call_once - shim(fn(char, f64) {function::<char, f64>})
+FP 8801755412a97c92964ebbf5b0d1ebc9 fn start
+FP 93f0f2f761a72dc20b7875b032f1b4ad fn function::<u32, &str>
+FP bf650bd43d8b18a27dca323558a0afaf fn <fn(u32, &str) {function::<u32, &str>} as std::ops::FnOnce<(u32, &str)>>::call_once - shim(fn(u32, &str) {function::<u32, &str>})
+FP c4409a164835c4549b147150ff2324f1 fn take_fn_once::<char, f64, fn(char, f64) {function::<char, f64>}>
+FP c5f17652eb1f466c28b825536127e78c fn function::<char, f64>
+FP d04fe64baeb82a31a8a4aebb087ba161 fn take_fn_pointer::<f32, i64>
+FP e4642c90fbf2dea2cb8e891d5af3bbe6 fn take_fn_once::<u32, &str, fn(u32, &str) {function::<u32, &str>}>
+FP ee69895ff43bc5c4be3bca956d30be15 fn function::<f32, i64>
+== stderr

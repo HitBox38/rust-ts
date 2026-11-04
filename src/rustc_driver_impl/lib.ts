@@ -17,6 +17,7 @@ import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import { new_parser_from_file, new_parser_from_source_str, unwrap_or_emit_fatal } from "../rustc_parse/lib.ts";
 import * as passes from "../rustc_interface/passes.ts";
 import { build_output_filenames } from "../rustc_interface/util.ts";
+import { displayed_sysroot_path } from "../rustc_session/filesearch.ts";
 import { filename_for_input, invalid_output_for_target } from "../rustc_session/output.ts";
 import { CrateType as CrateTypeC } from "../rustc_structures/crate_type.ts";
 import { DUMMY_SP } from "../rustc_span/lib.ts";
@@ -491,10 +492,10 @@ export function print_crate_info(codegen_backend: CodegenBackend, sess: Session,
         println_info(TargetTuple.display(sess.wasm_proc_macro_tuple));
         break;
       case "Sysroot":
-        println_info(sess.opts.sysroot.path());
+        println_info(displayed_sysroot_path(sess.opts.sysroot.path()));
         break;
       case "TargetLibdir":
-        println_info(sess.target_tlib_path.dir);
+        println_info(displayed_sysroot_path(sess.target_tlib_path.dir));
         break;
       case "TargetSpecJson":
         println_info(to_string_pretty(Target_to_json(sess.target)));

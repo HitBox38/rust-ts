@@ -1,0 +1,24 @@
+exit 1
+== MONO_ITEM
+== FP
+== stderr
+error: this function definition requires the `avx` target feature, which is not enabled
+ --> $FILE:6:1
+  |
+6 | pub extern "C" fn def(x: __m256) -> __m256 { x }
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ function defined here
+  |
+  = note: the function has type `__m256` in its signature, which is passed in SIMD vector registers under the "C" ABI
+  = help: consider enabling the missing target feature globally (`-C target-feature=+avx`) or locally (`#[target_feature(enable="avx")]`)
+
+error: this function call requires the `avx` target feature, which is not enabled in the caller
+ --> $FILE:7:79
+  |
+7 | pub unsafe fn call(p: extern "C" fn(__m256) -> __m256, x: __m256) -> __m256 { p(x) }
+  |                                                                               ^^^^ function called here
+  |
+  = note: the function has type `__m256` in its signature, which is passed in SIMD vector registers under the "C" ABI
+  = help: consider enabling the missing target feature globally (`-C target-feature=+avx`) or locally (`#[target_feature(enable="avx")]`)
+
+error: aborting due to 2 previous errors
+

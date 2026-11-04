@@ -1,0 +1,11 @@
+exit 0
+== stdout
+MONO_ITEM fn inline::inlined_function @@ inline_always.5803b41b0fafe606-user2[Internal] inline_always.5803b41b0fafe606-user1[Internal]
+MONO_ITEM fn non_user::baz @@ inline_always.5803b41b0fafe606-non_user[External]
+MONO_ITEM fn user1::foo @@ inline_always.5803b41b0fafe606-user1[External]
+MONO_ITEM fn user2::bar @@ inline_always.5803b41b0fafe606-user2[External]
+
+== stderr
+
+== dump
+<none>

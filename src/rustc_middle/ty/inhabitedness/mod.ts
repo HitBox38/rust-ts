@@ -49,6 +49,7 @@
 // calls. `debug_assert!` and `#[instrument]` are comments.
 // Extension module (docs/handoff/ty-contract.md "Init order"): rustc_middle/lib.ts loads it after the classes; its
 // top-level code touches only the classes it imports. ty/mod.ts's `provide` reaches `provide` through `require`.
+import { typing_env_no } from "../../../rust_ts/typing_env_no.ts";
 import { debug_DefKind } from "../../../rustc_hir/def.gen.ts";
 import { type DefId, DefIdSet, type LocalModId } from "../../../rustc_span/def_id.ts";
 import { bug } from "../../../rustc_span/macros.ts";
@@ -262,8 +263,21 @@ Ty.prototype.is_privately_uninhabited = function (this: Ty, tcx: TyCtxt, typing_
 // rustc: compiler/rustc_middle/src/ty/inhabitedness/mod.rs:239 is_opsem_inhabited
 Ty.prototype.is_opsem_inhabited = function (this: Ty, tcx: TyCtxt, typing_env: TypingEnv): boolean {
   // Handle simple cases directly, use the query with its cache for the rest.
-  return new OpsemInhabitedCtx(tcx, typing_env, undefined, false).is_inhabited_ty(this);
+  // Measured (docs/handoff/miri-perf.md, 486 Ginstr at base): -4.4 Ginstr.
+  // PORT(perf): upstream's walk and query lookup are cheap in Rust; here they build a key per ADT, on every pointer and value
+  // validation checks. The answer is pure in `(ty, typing env)` (it panics rather than answering on a bad type), so it is
+  // kept per type for the first few envs: invisible, and any query the walk needs ran on the first call, as before.
+  const env = typing_env_no(typing_env);
+  const key = this.id * 0x40 + env;
+  if (env < 0x40) {
+    const hit = OPSEM_INHABITED.get(key);
+    if (hit !== undefined) return hit;
+  }
+  const r = new OpsemInhabitedCtx(tcx, typing_env, undefined, false).is_inhabited_ty(this);
+  if (env < 0x40) OPSEM_INHABITED.set(key, r);
+  return r;
 };
+const OPSEM_INHABITED = new Map<number, boolean>();
 
 /// N.B. this query should only be called through `Ty::inhabited_predicate`
 // rustc: compiler/rustc_middle/src/ty/inhabitedness/mod.rs:246 inhabited_predicate_type

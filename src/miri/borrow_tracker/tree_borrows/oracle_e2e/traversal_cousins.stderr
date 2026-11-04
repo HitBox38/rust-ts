@@ -1,0 +1,37 @@
+error: Undefined Behavior: write access through <468> at alloc205[0x0] is forbidden
+  --> traversal_cousins.rs:3:74
+   |
+ 3 | fn two(_a: &mut i32, _b: &mut i32, _c: &mut i32, q: *mut i32) { unsafe { q.write(1) }; }
+   |                                                                          ^^^^^^^^^^ Undefined Behavior occurred here
+   |
+   = help: this indicates a potential bug in the program: it performed an invalid operation, but the Tree Borrows rules it violated are still experimental
+   = help: see https://github.com/rust-lang/unsafe-code-guidelines/blob/master/wip/tree-borrows.md for further information
+   = help: the accessed tag <468> is foreign to the protected tag <475> (i.e., it is not a child)
+   = help: this foreign write access would cause the protected tag <475> (currently Reserved (conflicted)) to become Disabled
+   = help: protected tags must never be Disabled
+help: the accessed tag <468> was created here
+  --> traversal_cousins.rs:10:18
+   |
+10 |         let m2 = &mut *r1;
+   |                  ^^^^^^^^
+help: the protected tag <475> was created here, in the initial state Reserved
+  --> traversal_cousins.rs:3:8
+   |
+ 3 | fn two(_a: &mut i32, _b: &mut i32, _c: &mut i32, q: *mut i32) { unsafe { q.write(1) }; }
+   |        ^^
+help: the protected tag <475> later transitioned to Reserved (conflicted) due to a reborrow (acting as a foreign read access) at offsets [0x0..0x4]
+  --> traversal_cousins.rs:3:22
+   |
+ 3 | fn two(_a: &mut i32, _b: &mut i32, _c: &mut i32, q: *mut i32) { unsafe { q.write(1) }; }
+   |                      ^^
+   = help: this transition corresponds to a temporary loss of write permissions until function exit
+   = note: stack backtrace:
+           0: two
+               at traversal_cousins.rs:3:74: 3:84
+           1: main
+               at traversal_cousins.rs:15:9: 15:25
+
+note: some details are omitted, run with `MIRIFLAGS=-Zmiri-backtrace=full` for a verbose backtrace
+
+error: aborting due to 1 previous error
+

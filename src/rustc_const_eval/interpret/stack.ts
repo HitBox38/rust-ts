@@ -3,8 +3,9 @@
 // variables (interpret/eval_context.ts's header has the representation notes).
 //! Manages the low-level pushing and popping of stack frames and the (de)allocation of local variables.
 //! For handling of argument passing and return values, see the `call` module.
+import { args_env_key, typing_env_no } from "../../rust_ts/typing_env_no.ts";
 import { type FrameNote } from "../diagnostics.ts";
-import { InterpCx, from_known_layout } from "./eval_context.ts";
+import { InterpCx } from "./eval_context.ts";
 import { ReturnAction, type AnyMachine, type ProvOf, type MachineTypesOf, type Machine } from "./machine.ts";
 import { Immediate, type Operand } from "./operand.ts";
 import { MemPlaceMeta } from "./place.ts";
@@ -433,6 +434,19 @@ Frame.prototype.locals_addr = function (this: Frame): number {
   // more than just panics.
   for (let i = stack.length - 1; i >= 0; i--) {
     const frame = stack[i]!;
+    // Measured (docs/handoff/miri-perf.md, 486 Ginstr at base): -0.6 Ginstr.
+    // PORT(perf): Miri calls this for every non-leaking allocation (machine.rs `init_allocation`), and the outer frames do
+    // not move between two calls. A frame's infos are a pure function of its body, instance and location, so they are
+    // reused while the location stands; `FrameInfo` is immutable. Same list, in the same order.
+    const floc = frame.loc;
+    const first = frames.length;
+    if (floc.$ === "Left") {
+      const memo = FRAME_INFOS.get(frame);
+      if (memo !== undefined && memo.block === floc._0.block && memo.statement_index === floc._0.statement_index) {
+        for (let j = 0; j < memo.infos.length; j++) frames.push(memo.infos[j]!);
+        continue;
+      }
+    }
     let span: Span;
     switch (frame.loc.$) {
       case "Left": {
@@ -460,10 +474,15 @@ Frame.prototype.locals_addr = function (this: Frame): number {
       span = tcx.def_span(Instance.def_id(frame.instance));
     }
     frames.push(new FrameInfo(frame.instance, span));
+    if (floc.$ === "Left") {
+      FRAME_INFOS.set(frame, { block: floc._0.block, statement_index: floc._0.statement_index, infos: frames.slice(first) });
+    }
   }
   // trace!("generate stacktrace: {:#?}", frames);
   return frames;
 };
+/** PORT(perf): see `generate_stacktrace_from_stack`. */
+const FRAME_INFOS = new WeakMap<Frame, { block: number; statement_index: number; infos: readonly FrameInfo[] }>();
 
 /// Very low-level helper that pushes a stack frame without initializing
 /// the arguments or local variables.
@@ -483,7 +502,10 @@ InterpCx.prototype.push_stack_frame_raw = function (this: InterpCx, instance: In
   // First push a stack frame so we have access to `instantiate_from_current_frame` and other
   // `self.frame()`-based functions.
   // PORT: `IndexVec::from_elem(dead_local, ..)` clones `dead_local` per local (`LocalState` is mutable).
-  const locals = body.local_decls.map(() => new LocalState(LocalValue.Dead, /* Cell::new(None) */ undefined));
+  // PORT(perf): a loop, not `map` with a closure: this is per call.
+  const n_locals = body.local_decls.length;
+  const locals = new Array<LocalState>(n_locals);
+  for (let i = 0; i < n_locals; i++) locals[i] = new LocalState(LocalValue.Dead, /* Cell::new(None) */ undefined);
   // PORT: `extra: ()` is `null` (the CTFE machines' `FrameExtra`, interp-contract decision 2).
   const pre_frame = new Frame<CtfeProvenance, null>(
     body,
@@ -502,7 +524,16 @@ InterpCx.prototype.push_stack_frame_raw = function (this: InterpCx, instance: In
   this.stack_mut().push(frame);
 
   // Make sure all the constants required by this frame evaluate successfully (post-monomorphization check).
-  for (const const_ of body.required_consts_()) {
+  // Measured (docs/handoff/miri-perf.md, 486 Ginstr at base): -1.0 Ginstr with the locals loop above.
+  // PORT(perf): upstream re-checks them on every push, through query cache hits. Once they all succeeded for `(body, args,
+  // typing env)` the checks are pure hits (a query's success is cached and nothing else is written), so they are skipped.
+  const required_key = args_env_key(instance.args.id, typing_env_no(this.typing_env));
+  let required_ok = REQUIRED_CONSTS_OK.get(body);
+  if (required_ok === undefined) {
+    required_ok = new Set();
+    REQUIRED_CONSTS_OK.set(body, required_ok);
+  }
+  if (required_key === undefined || !required_ok.has(required_key)) for (const const_ of body.required_consts_()) {
     // We can't use `eval_mir_constant` here as that assumes that all required consts have
     // already been checked, so we need a separate tracing call.
     // let _trace = enter_trace_span!(M, const_eval::required_consts, ?const_.const_);
@@ -516,6 +547,7 @@ InterpCx.prototype.push_stack_frame_raw = function (this: InterpCx, instance: In
       return Err(InterpErrorInfo_from_ErrorHandled(err));
     }
   }
+  if (required_key !== undefined) required_ok.add(required_key);
 
   // Finish things up.
   const r = this.machine.after_stack_push(this);
@@ -588,6 +620,11 @@ InterpCx.prototype.cleanup_stack_frame = function (this: InterpCx, unwinding: bo
   }
 };
 
+/** PORT(perf): see `push_stack_frame_raw`. */
+const REQUIRED_CONSTS_OK = new WeakMap<Body, Set<number>>();
+/** PORT(perf): see `push_stack_frame_done`. */
+const ALWAYS_LIVE_VARS = new WeakMap<Body, Local[]>();
+
 /// Call this after `push_stack_frame_raw` and when all the other setup that needs to be done
 /// is completed.
 // rustc: compiler/rustc_const_eval/src/interpret/stack.rs:484 push_stack_frame_done
@@ -598,12 +635,21 @@ InterpCx.prototype.push_stack_frame_done = function (this: InterpCx): InterpResu
   if (r.$ === "Err") return r;
 
   const body = this.body();
-  const always_live = always_storage_live_locals(body);
-  for (const local of body.vars_and_temps_iter()) {
-    if (always_live.contains(local)) {
-      const r = this.storage_live(local);
-      if (r.$ === "Err") return r;
+  // Measured (docs/handoff/miri-perf.md, 486 Ginstr at base): -2.3 Ginstr.
+  // PORT(perf): upstream recomputes the set on every call, walking every statement of the body. The body is immutable,
+  // so the locals to make live are remembered per body: invisible, same locals in the same order.
+  let always_live = ALWAYS_LIVE_VARS.get(body);
+  if (always_live === undefined) {
+    const set = always_storage_live_locals(body);
+    always_live = [];
+    for (const local of body.vars_and_temps_iter()) {
+      if (set.contains(local)) always_live.push(local);
     }
+    ALWAYS_LIVE_VARS.set(body, always_live);
+  }
+  for (let i = 0; i < always_live.length; i++) {
+    const r = this.storage_live(always_live[i]!);
+    if (r.$ === "Err") return r;
   }
 
   // Get ready to execute the first instruction in the stack frame.
@@ -784,15 +830,19 @@ InterpCx.prototype.layout_of_local = function (this: InterpCx, frame: Frame, loc
     return interp_ok(cached);
   }
 
-  const layout_r = from_known_layout(this.tcx, this.typing_env, layout, () => {
+  // PORT(perf): `from_known_layout` inlined (no closure for the usual `None`; its `Some` arm is `Ok(layout)` in a release
+  // build, see `from_known_layout`).
+  let layout_: TyAndLayout;
+  if (layout === undefined) {
     const local_ty = unwrap(frame.body.local_decls[local]).ty;
     const local_ty_r = this.instantiate_from_frame_and_normalize_erasing_regions(frame, local_ty, fold_Ty);
     if (local_ty_r.$ === "Err") return Err(InterpErrorInfo_from_ErrorHandled(local_ty_r._0));
     const r = this.layout_of(local_ty_r._0);
-    return r.$ === "Err" ? Err(InterpErrorInfo_from_InterpErrorKind(r._0)) : r;
-  });
-  if (layout_r.$ === "Err") return layout_r;
-  const layout_ = layout_r._0;
+    if (r.$ === "Err") return Err(InterpErrorInfo_from_InterpErrorKind(r._0));
+    layout_ = r._0;
+  } else {
+    layout_ = layout;
+  }
 
   // Layouts of locals are requested a lot, so we cache them.
   state.layout = layout_;

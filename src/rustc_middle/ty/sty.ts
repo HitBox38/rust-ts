@@ -2203,12 +2203,21 @@ Ty.prototype.is_like_maybe_dangling = function (this: Ty): boolean {
 
 // rustc: compiler/rustc_middle/src/ty/sty.rs:2181 inputs
 RawList.prototype.inputs = function (this: List<Ty>): readonly Ty[] {
-  return unwrap(split_last(this))[1];
+  // Measured (docs/handoff/miri-perf.md, 486 Ginstr at base): -1.0 Ginstr with `output`.
+  // PORT(perf): the sub-slice is a view upstream; here it is a copy, so it is kept per (immutable, interned) list.
+  let inputs = LIST_INPUTS.get(this);
+  if (inputs === undefined) {
+    inputs = unwrap(split_last(this))[1];
+    LIST_INPUTS.set(this, inputs);
+  }
+  return inputs;
 };
+const LIST_INPUTS = new WeakMap<List<Ty>, readonly Ty[]>();
 
 // rustc: compiler/rustc_middle/src/ty/sty.rs:2185 output
 RawList.prototype.output = function (this: List<Ty>): Ty {
-  return unwrap(split_last(this))[0];
+  // PORT(perf): `split_last` without its copy of the rest of the list.
+  return unwrap(this[this.length - 1]);
 };
 
 // ---- impl rustc_type_ir::inherent::Symbol<TyCtxt<'tcx>> for Symbol -------------------------------------------------

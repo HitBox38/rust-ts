@@ -25,6 +25,7 @@ import { FnSig } from "../../rustc_type_ir/ty_kind.ts";
 import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
 import { debug_list, debug_tuple, PLAIN } from "../../std/fmt.ts";
 import { Unported } from "../../std/panic.ts";
+import { write_stderr, write_stdout } from "../../std/io.ts";
 
 let Autoderef: typeof import("../autoderef.ts").Autoderef;
 
@@ -47,7 +48,7 @@ function report(tcx: TyCtxt): void {
       for (const [t, k] of ad) out += with_no_trimmed_paths(() => ` (${display_Ty(t)}, ${k})`);
       const steps = with_no_trimmed_paths(() => debug_list(PLAIN, ad.steps().map(([t, k]: [Ty, string]) => debug_tuple(PLAIN, "", [debug_Ty(t, PLAIN), k]))));
       const final_ = with_no_trimmed_paths(() => display_Ty(ad.final_ty()));
-      process.stdout.write(`${name}:${out} | final=${final_} steps=${steps} limit=${ad.reached_recursion_limit()}\n`);
+      write_stdout(`${name}:${out} | final=${final_} steps=${steps} limit=${ad.reached_recursion_limit()}\n`);
     }
   }
 }
@@ -67,7 +68,7 @@ async function main(args: string[]): Promise<number> {
   } catch (e) {
     // As the port's main (src/rust_ts): an `unported(..)` stop is exit 70 with its text on stderr.
     if (e instanceof Unported) {
-      process.stderr.write(`UNPORTED: ${e.what}\n`);
+      write_stderr(`UNPORTED: ${e.what}\n`);
       return 70;
     }
     throw e;

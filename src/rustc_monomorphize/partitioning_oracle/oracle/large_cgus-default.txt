@@ -1,0 +1,19 @@
+exit 0
+== stdout
+MONO_ITEM fn big_a::f @@ large_cgus.8d3d39e24f1a135d-cgu.1[External]
+MONO_ITEM fn big_b::f @@ large_cgus.8d3d39e24f1a135d-cgu.0[External]
+MONO_ITEM fn just_over::f @@ large_cgus.8d3d39e24f1a135d-cgu.0[External]
+MONO_ITEM fn just_under::f @@ large_cgus.8d3d39e24f1a135d-cgu.2[External]
+MONO_ITEM fn small_0::f @@ large_cgus.8d3d39e24f1a135d-cgu.2[External]
+MONO_ITEM fn small_1::f @@ large_cgus.8d3d39e24f1a135d-cgu.2[External]
+MONO_ITEM fn small_2::f @@ large_cgus.8d3d39e24f1a135d-cgu.2[External]
+MONO_ITEM fn small_3::f @@ large_cgus.8d3d39e24f1a135d-cgu.2[External]
+MONO_ITEM fn small_4::f @@ large_cgus.8d3d39e24f1a135d-cgu.2[External]
+MONO_ITEM fn small_5::f @@ large_cgus.8d3d39e24f1a135d-cgu.2[External]
+MONO_ITEM fn small_6::f @@ large_cgus.8d3d39e24f1a135d-cgu.2[External]
+MONO_ITEM fn small_7::f @@ large_cgus.8d3d39e24f1a135d-cgu.2[External]
+
+== stderr
+
+== dump
+<none>

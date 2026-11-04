@@ -149,7 +149,7 @@ export const UnixFileDescription_provided = {
 
   // rustc: src/tools/miri/src/shims/unix/fd.rs:95 as_socket
   as_socket(this: FileDescription, self_: FileDescriptionRef<UnixFileDescription>): FileDescriptionRef<Pending<"dyn UnixSocketFileDescription">> | undefined {
-    void self_;
+    self_.drop();
     return undefined;
   },
 };

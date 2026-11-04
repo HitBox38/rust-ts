@@ -51,7 +51,7 @@ import {
 import { Span } from "./span_encoding.ts";
 import { is_whitespace, len_utf8, to_string as char_to_string } from "../std/char.ts";
 import { debug_list, debug_str, debug_struct, debug_tuple, debug_vec, PLAIN, type Debug } from "../std/fmt.ts";
-import { debug_IoError, INVALID_UTF8, io_error_from_node, io_error_other, type IoResult } from "../std/io.ts";
+import { debug_IoError, INVALID_UTF8, io_error_from_node, io_error_other, type IoResult, write_stderr } from "../std/io.ts";
 import { assert, panic, unported, unwrap } from "../std/panic.ts";
 import { path_components, path_eq, path_is_absolute, path_join, path_strip_prefix } from "../std/path.ts";
 import { Err, Ok, ok, type Result } from "../std/result.ts";
@@ -401,7 +401,7 @@ export class SourceMap {
   new_source_file(filename: FileName, src: Str): SourceFile {
     const r = this.try_new_source_file(filename, src);
     if (r.$ === "Ok") return r._0;
-    process.stderr.write(`fatal error: rustc does not support text files larger than ${SourceFile.MAX_FILE_SIZE} bytes\n`);
+    write_stderr(`fatal error: rustc does not support text files larger than ${SourceFile.MAX_FILE_SIZE} bytes\n`);
     return new FatalError().raise();
   }
 

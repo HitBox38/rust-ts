@@ -13,7 +13,6 @@
 // - `std::io::stdout().write_all` / `stderr()` (miri_write_to_stdout/err, errors ignored) write the host fds 1 / 2.
 // - `lookup_exported_symbol`'s `Entry` on the `exported_symbols_cache` is `has` / `get` / `set`; a cached `None` is
 //   a present key with value `undefined`.
-import { writeSync } from "node:fs";
 import { type MPlaceTy, type OpTy, type PlaceTy, type Pointer } from "../lib.ts";
 import { GlobalDataRaceHandler } from "../concurrency/data_race_handler.ts";
 import { ExitType } from "../concurrency/genmc/dummy.gen.ts";
@@ -32,7 +31,7 @@ import { NO_ALLOC_SHIM_IS_UNSTABLE } from "../../rustc_ast/expand/allocator.ts";
 import { type CodegenFnAttrs, CodegenFnAttrFlags } from "../../rustc_middle/middle/codegen_fn_attrs.ts";
 import { InterpCx } from "../../rustc_const_eval/interpret/eval_context.ts";
 import { type AnyMachine, type Machine } from "../../rustc_const_eval/interpret/machine.ts";
-import { display_MemoryKind } from "../../rustc_const_eval/interpret/memory.ts";
+import { display_MemoryKind, repeat_n } from "../../rustc_const_eval/interpret/memory.ts";
 import { PlaceTy_from_MPlaceTy } from "../../rustc_const_eval/interpret/place.ts";
 import {
   type AllocId,
@@ -52,7 +51,7 @@ import { Span } from "../../rustc_span/lib.ts";
 import { Symbol } from "../../rustc_span/symbol.ts";
 import { spec } from "../../rustc_target/lib.ts";
 import { PLAIN } from "../../std/fmt.ts";
-import { stdout_write_all } from "../../std/io.ts";
+import { stdout_write_all, write_stderr } from "../../std/io.ts";
 import { assert, unported, unreachable, unwrap } from "../../std/panic.ts";
 import { Err, expect_result, unwrap_result } from "../../std/result.ts";
 export * from "./foreign_items.gen.ts";
@@ -123,11 +122,6 @@ function* range_rev(start: bigint, end: bigint): Generator<bigint> {
     yield i;
   }
 }
-/** `std::iter::repeat_n(val, n)` */
-function* repeat_n(val: number, n: number): Generator<number> {
-  for (let i = 0; i < n; i++) yield val;
-}
-
 /** `(BytePos, BytePos)`'s derived `PartialOrd::lt` (`Span::lo_hi`). */
 function lo_hi_lt(a: Span, b: Span): boolean {
   const [alo, ahi] = Span.lo_hi(a);
@@ -148,10 +142,7 @@ function get_alloc_id_or_abort(this_: MiriInterpCx, ptr: Pointer): InterpResult<
 }
 
 /** `eprintln!` / `std::io::stderr().write_all` (unbuffered, as std's stderr). */
-function stderr_write_all(buf: Uint8Array): void {
-  let off = 0;
-  while (off < buf.length) off += writeSync(2, buf, off);
-}
+const stderr_write_all = write_stderr;
 
 // impl DynSym
 // rustc: src/tools/miri/src/shims/foreign_items.rs:31 from_str

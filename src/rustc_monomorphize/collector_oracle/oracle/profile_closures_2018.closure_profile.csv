@@ -1,0 +1,2 @@
+88, 24, $FILE:7:13: 7:20, "Some(LineInfo { line_index: 6, start_col: CharPos(12), end_col: CharPos(19) }) Some(LineInfo { line_index: 6, start_col: CharPos(12), end_col: CharPos(19) })"
+72, 1, $FILE:8:13: 8:20, "Some(LineInfo { line_index: 7, start_col: CharPos(12), end_col: CharPos(19) }) Some(LineInfo { line_index: 7, start_col: CharPos(12), end_col: CharPos(19) })"

@@ -4,6 +4,7 @@
 // Port of compiler/rustc_const_eval/src/interpret/place.rs (declared by lane interp-contract, filled by lane
 // interp-place-operand, plan-m4 wave 23c). Representation notes: interpret/eval_context.ts's header and
 // docs/handoff/interp-contract.md.
+import type { LocalState } from "./stack.gen.ts";
 import { type HasDataLayout, Size, Scalar as abi_Scalar, debug_Size } from "../../rustc_abi/lib.ts";
 import { InterpCx, mir_assign_valid_types } from "./eval_context.ts";
 import { type CtfeMemoryKind, type AnyMachine, type ProvOf, type MachineTypesOf, type Machine } from "./machine.ts";
@@ -395,8 +396,9 @@ PlaceTy.prototype.as_mplace_or_local = function (this: PlaceTy): Either<MPlaceTy
 // #[inline(always)]
 // rustc: compiler/rustc_const_eval/src/interpret/place.rs:259 assert_mem_place
 PlaceTy.prototype.assert_mem_place = function (this: PlaceTy): MPlaceTy {
-  const e = this.as_mplace_or_local();
-  if (e.$ === "Left") return e._0;
+  // PORT(perf): `as_mplace_or_local` inlined, as in `meta`.
+  const place = this.place;
+  if (place.$ === "Ptr") return new MPlaceTy(place._0, this.layout);
   return bug(`PlaceTy of type ${display_Ty(this.layout.ty)} was a local when it was expected to be an MPlace`);
 };
 
@@ -410,11 +412,13 @@ PlaceTy.prototype.layout_ = function (this: PlaceTy): TyAndLayout {
 // #[inline]
 // rustc: compiler/rustc_const_eval/src/interpret/place.rs:276 meta
 PlaceTy.prototype.meta = function (this: PlaceTy): MemPlaceMeta {
-  const e = this.as_mplace_or_local();
-  switch (e.$) {
-    case "Left":
-      return e._0.meta();
-    case "Right":
+  // Measured (docs/handoff/miri-perf.md, 486 Ginstr at base): -0.3 Ginstr on the benchmark, with `offset_with_meta` and `assert_mem_place`.
+  // PORT(perf): `as_mplace_or_local` inlined: its `Either` and tuple are allocations here. Same arms.
+  const place = this.place;
+  switch (place.$) {
+    case "Ptr":
+      return new MPlaceTy(place._0, this.layout).meta();
+    case "Local":
       // debug_assert!(self.layout.is_sized(), "unsized locals should live in memory");
       return MemPlaceMeta.None;
   }
@@ -422,15 +426,16 @@ PlaceTy.prototype.meta = function (this: PlaceTy): MemPlaceMeta {
 
 // rustc: compiler/rustc_const_eval/src/interpret/place.rs:286 offset_with_meta
 PlaceTy.prototype.offset_with_meta = function (this: PlaceTy, offset: Size, mode: OffsetMode, meta: MemPlaceMeta, layout: TyAndLayout, ecx: InterpCx): InterpResult<PlaceTy> {
-  const e = this.as_mplace_or_local();
-  switch (e.$) {
-    case "Left": {
-      const r = e._0.offset_with_meta(offset, mode, meta, layout, ecx);
+  // PORT(perf): `as_mplace_or_local` inlined, as in `meta`. Same arms.
+  const place = this.place;
+  switch (place.$) {
+    case "Ptr": {
+      const r = new MPlaceTy(place._0, this.layout).offset_with_meta(offset, mode, meta, layout, ecx);
       if (r.$ === "Err") return r;
       return interp_ok(PlaceTy_from_MPlaceTy(r._0));
     }
-    case "Right": {
-      const [local, old_offset, locals_addr] = e._0;
+    case "Local": {
+      const { local, offset: old_offset, locals_addr } = place;
       // debug_assert!(layout.is_sized(), "unsized locals should live in memory");
       assert_matches_none(meta); // we couldn't store it anyway...
       // `Place::Local` are always in-bounds of their surrounding local, so we can just
@@ -693,9 +698,13 @@ InterpCx.prototype.get_place_alloc_mut = function (this: InterpCx, mplace: MPlac
 // rustc: compiler/rustc_const_eval/src/interpret/place.rs:576 local_to_place
 InterpCx.prototype.local_to_place = function (this: InterpCx, local: Local): InterpResult<PlaceTy> {
   const frame = this.frame();
-  const lr = this.layout_of_local(frame, local, undefined);
-  if (lr.$ === "Err") return lr;
-  const layout = lr._0;
+  // PORT(perf): `layout_of_local`'s cache hit without its `Ok`, as in `local_to_op`.
+  let layout = frame.locals[local]!.layout;
+  if (layout === undefined) {
+    const lr = this.layout_of_local(frame, local, undefined);
+    if (lr.$ === "Err") return lr;
+    layout = lr._0;
+  }
   let place: Place;
   if (layout.is_sized()) {
     // We can just always use the `Local` for sized values.
@@ -753,6 +762,25 @@ InterpCx.prototype.eval_place = function (this: InterpCx, mir_place: mir_Place, 
 
 /// Given a place, returns either the underlying mplace or a reference to where the value of
 /// this place is stored.
+/**
+ * Measured (docs/handoff/miri-perf.md, 486 Ginstr at base): -2.4 Ginstr.
+ * PORT(perf): the `MutRef<Immediate>` of `as_mplace_or_mutable_local` as a class: an object literal with an accessor pair
+ * and two closures on every local write was its own hot spot. Same reads and writes.
+ */
+class LocalImmediateRef implements MutRef<Immediate> {
+  constructor(
+    private readonly state: LocalState,
+    private cur: Immediate,
+  ) {}
+  get value(): Immediate {
+    return this.cur;
+  }
+  set value(v: Immediate) {
+    this.cur = v;
+    this.state.value = { $: "Live", _0: { $: "Immediate", _0: v } };
+  }
+}
+
 // PORT: `&mut Immediate` (the local's value) is a `MutRef<Immediate>` whose writes store
 // `LocalValue::Live(Operand::Immediate(v))` into the frame's `LocalState` (`LocalState.value` is the mutable field).
 // #[inline(always)]
@@ -784,17 +812,7 @@ InterpCx.prototype.as_mplace_or_mutable_local = function (this: InterpCx, place:
             return interp_ok<R>({ $: "Left", _0: new MPlaceTy(op._0, layout) });
           case "Immediate": {
             // The local still has the optimized representation.
-            let cur = op._0;
-            const local_val: MutRef<Immediate> = {
-              get value(): Immediate {
-                return cur;
-              },
-              set value(v: Immediate) {
-                cur = v;
-                state.value = { $: "Live", _0: { $: "Immediate", _0: v } };
-              },
-            };
-            return interp_ok<R>({ $: "Right", _0: [local_val, layout, local] });
+            return interp_ok<R>({ $: "Right", _0: [new LocalImmediateRef(state, op._0), layout, local] });
           }
         }
       }

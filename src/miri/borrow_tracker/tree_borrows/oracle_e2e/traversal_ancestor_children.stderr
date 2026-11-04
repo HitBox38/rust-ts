@@ -1,0 +1,31 @@
+error: Undefined Behavior: write access through <468> at alloc205[0x0] is forbidden
+ --> traversal_ancestor_children.rs:6:69
+  |
+6 | unsafe fn f(a: &mut u8, b: &mut u8, q: *mut u8) { let _ = (&a, &b); ptr::write(q, 1); }
+  |                                                                     ^^^^^^^^^^^^^^^^ Undefined Behavior occurred here
+  |
+  = help: this indicates a potential bug in the program: it performed an invalid operation, but the Tree Borrows rules it violated are still experimental
+  = help: see https://github.com/rust-lang/unsafe-code-guidelines/blob/master/wip/tree-borrows.md for further information
+  = help: the accessed tag <468> is foreign to the protected tag <474> (i.e., it is not a child)
+  = help: this foreign write access would cause the protected tag <474> (currently Reserved) to become Disabled
+  = help: protected tags must never be Disabled
+help: the accessed tag <468> was created here
+ --> traversal_ancestor_children.rs:7:81
+  |
+7 | fn main() { unsafe { let mut x = 0u8; let p: *mut u8 = &mut x; let q: *mut u8 = &mut *p; f(&mut *p, &mut *p, q); } }
+  |                                                                                 ^^^^^^^
+help: the protected tag <474> was created here, in the initial state Reserved
+ --> traversal_ancestor_children.rs:6:25
+  |
+6 | unsafe fn f(a: &mut u8, b: &mut u8, q: *mut u8) { let _ = (&a, &b); ptr::write(q, 1); }
+  |                         ^
+  = note: stack backtrace:
+          0: f
+              at traversal_ancestor_children.rs:6:69: 6:85
+          1: main
+              at traversal_ancestor_children.rs:7:90: 7:112
+
+note: some details are omitted, run with `MIRIFLAGS=-Zmiri-backtrace=full` for a verbose backtrace
+
+error: aborting due to 1 previous error
+

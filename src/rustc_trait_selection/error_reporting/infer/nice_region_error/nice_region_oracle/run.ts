@@ -21,6 +21,7 @@ import type { Region } from "../../../../../rustc_type_ir/sty/mod.ts";
 import type { EarlyBinder } from "../../../../../rustc_type_ir/binder.ts";
 import type { PolyFnSig } from "../../../../../rustc_type_ir/decls.ts";
 import { ensure_stack } from "../../../../../rust_ts/stack.ts";
+import { write_stderr } from "../../../../../std/io.ts";
 
 async function main(args: string[]): Promise<number> {
   ensure_stack();
@@ -82,7 +83,7 @@ try {
   // As src/rust_ts/main.ts: reaching unported code is exit 70 with one `rust-ts: unported: ..` line.
   const { Unported } = await import("../../../../../std/panic.ts");
   if (e instanceof Unported) {
-    process.stderr.write(`rust-ts: unported: ${e.what}\n`);
+    write_stderr(`rust-ts: unported: ${e.what}\n`);
     process.exitCode = 70;
   } else {
     throw e;

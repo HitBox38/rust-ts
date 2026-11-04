@@ -1,0 +1,31 @@
+exit 0
+== stdout
+MONO_ITEM fn <WithDrop as std::ops::Drop>::drop @@ dead_code.b17fe80c2f6ef893-fallback.cgu[External]
+MONO_ITEM fn <WithDrop as std::ops::Drop>::pin_drop @@ dead_code.b17fe80c2f6ef893.volatile[External]
+MONO_ITEM fn caller @@ dead_code.b17fe80c2f6ef893[External]
+MONO_ITEM fn inlined_unused @@ dead_code.b17fe80c2f6ef893[External]
+MONO_ITEM fn inner::unused @@ dead_code.b17fe80c2f6ef893-inner[External]
+MONO_ITEM fn inner::used @@ dead_code.b17fe80c2f6ef893-inner[External]
+MONO_ITEM fn std::ptr::drop_glue::<WithDrop> - shim(Some(WithDrop)) @@ dead_code.b17fe80c2f6ef893-fallback.cgu[External]
+MONO_ITEM fn unused_private @@ dead_code.b17fe80c2f6ef893[External]
+
+== stderr
+warning: function `unused_private` is never used
+ --> $FILE:4:4
+  |
+4 | fn unused_private() {}
+  |    ^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `unused` is never used
+  --> $FILE:19:8
+   |
+19 |     fn unused() {}
+   |        ^^^^^^
+
+warning: 2 warnings emitted
+
+
+== dump
+<none>

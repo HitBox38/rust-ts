@@ -13,6 +13,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { CandidateHeadUsages, type Cx, type Delegate, GlobalCache, type LowerAvailableDepth, type PathKind, SearchGraph } from "../mod.ts";
 import { unwrap } from "../../../std/panic.ts";
+import { write_stdout } from "../../../std/io.ts";
 
 // ---- case generation -----------------------------------------------------------------------------------------------
 
@@ -230,13 +231,13 @@ export function trace_hash(trace: string): string {
 if (import.meta.main) {
   const [cmd, seed, n, traces] = process.argv.slice(2);
   if (cmd === "gen") {
-    process.stdout.write(gen(Number(seed), Number(n)).join("\n") + "\n");
+    write_stdout(gen(Number(seed), Number(n)).join("\n") + "\n");
   } else if (cmd === "fixture") {
     const lines = readFileSync(unwrap(traces), "utf8").split("\n").filter((l) => l !== "");
     if (lines.length !== Number(n)) throw new Error(`ERROR: ${lines.length} traces for ${n} cases`);
-    process.stdout.write(`# search graph oracle: sha256[0..16] of oracle/main.rs's trace for gen(${seed}, ${n})\n`);
-    process.stdout.write(`# seed ${seed} n ${n}\n`);
-    process.stdout.write(lines.map(trace_hash).join("\n") + "\n");
+    write_stdout(`# search graph oracle: sha256[0..16] of oracle/main.rs's trace for gen(${seed}, ${n})\n`);
+    write_stdout(`# seed ${seed} n ${n}\n`);
+    write_stdout(lines.map(trace_hash).join("\n") + "\n");
   } else {
     console.log("ERROR: usage: cases.ts gen <seed> <n> | fixture <seed> <n> <traces.txt>");
     process.exit(2);

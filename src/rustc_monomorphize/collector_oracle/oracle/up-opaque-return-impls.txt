@@ -1,0 +1,93 @@
+exit 0
+== MONO_ITEM
+MONO_ITEM fn <Counter as std::iter::Iterator::advance_by::SpecAdvanceBy>::spec_advance_by @@ up_opaque_return_impls.7466215eb615acf9-cgu.0[External]
+MONO_ITEM fn <Counter as std::iter::Iterator::advance_by::SpecAdvanceBy>::spec_advance_by::{closure#0} @@ up_opaque_return_impls.7466215eb615acf9-cgu.0[External]
+MONO_ITEM fn <Counter as std::iter::Iterator>::advance_by @@ up_opaque_return_impls.7466215eb615acf9-cgu.0[External]
+MONO_ITEM fn <Counter as std::iter::Iterator>::next @@ up_opaque_return_impls.7466215eb615acf9-cgu.0[External]
+MONO_ITEM fn <Counter as std::iter::Iterator>::nth @@ up_opaque_return_impls.7466215eb615acf9-cgu.0[External]
+MONO_ITEM fn <Counter as std::iter::Iterator>::size_hint @@ up_opaque_return_impls.7466215eb615acf9-cgu.0[External]
+MONO_ITEM fn <Counter as std::iter::Iterator>::try_fold::<std::num::NonZero<usize>, {closure@<Counter as std::iter::Iterator::advance_by::SpecAdvanceBy>::spec_advance_by::{closure#0}}, std::option::Option<std::num::NonZero<usize>>> @@ up_opaque_return_impls.7466215eb615acf9-cgu.0[External]
+MONO_ITEM fn <TestStruct as TestTrait>::test_func @@ up_opaque_return_impls.7466215eb615acf9-cgu.0[External]
+MONO_ITEM fn <TestStruct2 as TestTrait2>::test_func2 @@ up_opaque_return_impls.7466215eb615acf9-cgu.0[External]
+MONO_ITEM fn <std::option::Option<std::num::NonZero<usize>> as std::ops::FromResidual<std::option::Option<!>>>::from_residual @@ up_opaque_return_impls.7466215eb615acf9-cgu.0[External]
+MONO_ITEM fn <std::option::Option<std::num::NonZero<usize>> as std::ops::Try>::branch @@ up_opaque_return_impls.7466215eb615acf9-cgu.0[External]
+MONO_ITEM fn <std::option::Option<std::num::NonZero<usize>> as std::ops::Try>::from_output @@ up_opaque_return_impls.7466215eb615acf9-cgu.0[External]
+MONO_ITEM fn Counter::new @@ up_opaque_return_impls.7466215eb615acf9-cgu.0[Internal]
+MONO_ITEM fn foo @@ up_opaque_return_impls.7466215eb615acf9-cgu.0[External]
+MONO_ITEM fn foo2 @@ up_opaque_return_impls.7466215eb615acf9-cgu.0[External]
+MONO_ITEM fn foo3 @@ up_opaque_return_impls.7466215eb615acf9-cgu.0[External]
+MONO_ITEM fn std::alloc::Global::alloc_impl_runtime @@ up_opaque_return_impls.7466215eb615acf9-cgu.0[Internal]
+MONO_ITEM fn std::boxed::Box::<Counter>::new @@ up_opaque_return_impls.7466215eb615acf9-cgu.0[Internal]
+MONO_ITEM fn std::boxed::Box::<TestStruct2>::new @@ up_opaque_return_impls.7466215eb615acf9-cgu.0[Internal]
+MONO_ITEM fn std::boxed::box_new_uninit @@ up_opaque_return_impls.7466215eb615acf9-cgu.0[Internal]
+MONO_ITEM fn std::fmt::Arguments::<'_>::from_str @@ up_opaque_return_impls.7466215eb615acf9-cgu.0[Internal]
+MONO_ITEM fn std::ptr::NonNull::<T>::new_unchecked::precondition_check @@ up_opaque_return_impls.7466215eb615acf9-cgu.0[Internal]
+== FP
+FP 0152ddc9fffaa26b0a5ab8335797ae83 fn <std::option::Option<std::num::NonZero<usize>> as std::ops::Try>::branch
+FP 027520882de0a81c75e0c57e10e17ae9 fn <Counter as std::iter::Iterator>::nth
+FP 04a77191ed9fe9901ad5fa5d841e1ba4 fn <Counter as std::iter::Iterator>::size_hint
+FP 0b29b7f2fe70887da960f23d50a33ab9 fn std::boxed::Box::<TestStruct2>::new
+FP 1357dd6d383a4939ca1b2bb20f03c065 fn Counter::new
+FP 1e436a791aeb9e6f386a66ce6b9e5052 fn std::alloc::Global::alloc_impl_runtime
+FP 285a942a67e26a6cbe53e1e2998ad139 fn std::ptr::NonNull::<T>::new_unchecked::precondition_check
+FP 325a9776da373db257b5b3502e121507 fn <TestStruct as TestTrait>::test_func
+FP 337acb0219527b2aeed23d0cb98ce8e3 fn <Counter as std::iter::Iterator>::next
+FP 49b189521084896a9140f4b12e795859 fn <std::option::Option<std::num::NonZero<usize>> as std::ops::Try>::from_output
+FP 584d702e9091f0f5ef73ad8b78126e97 fn std::fmt::Arguments::<'_>::from_str
+FP 60a742209687ee6db7e4a81188fedf68 fn foo2
+FP 72ec296e3ab0ffb1d0b76642fec6fb90 fn foo3
+FP 9d48b17b348546b7ef0dd2c4f674bb2d fn <TestStruct2 as TestTrait2>::test_func2
+FP a904e080d289d197bd7114739eb355bc fn <Counter as std::iter::Iterator>::advance_by
+FP b00f43a3db6392941896060b493089be fn foo
+FP bbe2918ef6e493225899662b9b5f19c2 fn <Counter as std::iter::Iterator::advance_by::SpecAdvanceBy>::spec_advance_by
+FP bd113740831c493b6094359af50664ce fn <std::option::Option<std::num::NonZero<usize>> as std::ops::FromResidual<std::option::Option<!>>>::from_residual
+FP cbb34049ee7e4f5da81bff9b8a7b00c1 fn std::boxed::box_new_uninit
+FP e48b4ee30118c5613c6a8ffa70b21b53 fn <Counter as std::iter::Iterator>::try_fold::<std::num::NonZero<usize>, {closure@<Counter as std::iter::Iterator::advance_by::SpecAdvanceBy>::spec_advance_by::{closure#0}}, std::option::Option<std::num::NonZero<usize>>>
+FP e831c7bdbc5d389b6564304a4bfd9ecd fn <Counter as std::iter::Iterator::advance_by::SpecAdvanceBy>::spec_advance_by::{closure#0}
+FP fbedde64e6a383053ca2fc3ad0e420ef fn std::boxed::Box::<Counter>::new
+== stderr
+warning: trait `TestTrait` is more private than the item `foo`
+  --> $FILE:20:1
+   |
+20 | pub fn foo() -> impl TestTrait {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ function `foo` is reachable at visibility `pub`
+   |
+note: but trait `TestTrait` is only usable at visibility `pub(crate)`
+  --> $FILE:7:1
+   |
+ 7 | trait TestTrait {
+   | ^^^^^^^^^^^^^^^
+   = note: `#[warn(private_interfaces)]` on by default
+
+warning: trait `TestTrait2` is more private than the item `foo2`
+  --> $FILE:40:1
+   |
+40 | pub fn foo2() -> Box<dyn TestTrait2> {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ function `foo2` is reachable at visibility `pub`
+   |
+note: but trait `TestTrait2` is only usable at visibility `pub(crate)`
+  --> $FILE:27:1
+   |
+27 | trait TestTrait2 {
+   | ^^^^^^^^^^^^^^^^
+
+warning: method `test_func` is never used
+ --> $FILE:8:8
+  |
+7 | trait TestTrait {
+  |       --------- method in this trait
+8 |     fn test_func(&self);
+  |        ^^^^^^^^^
+  |
+  = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `test_func2` is never used
+  --> $FILE:28:8
+   |
+27 | trait TestTrait2 {
+   |       ---------- method in this trait
+28 |     fn test_func2(&self);
+   |        ^^^^^^^^^^
+
+warning: 4 warnings emitted
+

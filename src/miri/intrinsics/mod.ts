@@ -5,8 +5,7 @@
 // - `trait EvalContextExt` (impl for `MiriInterpCx`) is a `declare module` augmentation of `InterpCx` (decision C2).
 // - `check_intrinsic_arg_count::<N>(args)` takes `N` as a parameter and returns the slice (`&[OpTy; N]`).
 // - `mod aarch64` / `mod loongarch` are not ported (D12: unreachable on x86_64-unknown-linux-gnu): their dispatch arms stop
-//   `unported`. `mod x86` is a later wave (D12, wave 38): its arm calls `emulate_x86_intrinsic`, the wave-38 placeholder
-//   of intrinsics/x86/mod.ts (root decision on the shims-d review L1), which stops `unported` until ported.
+//   `unported`. `mod x86` is ported (intrinsics/x86/); only its AES round functions stop `unported` (plan-m6 D5).
 // - `EmulateItemResult::jump_to_next_block` is shims/mod.ts's companion fn (`T::default()` is `undefined`).
 // - `trace!(..)` stays a comment (docs/handoff/miri-log.md: Miri's `trace!` is compiled out of the release oracle).
 import { type ImmTy, type MPlaceTy, type OpTy, type PlaceTy, type Pointer as MiriPointer, type Scalar } from "../lib.ts";
@@ -302,8 +301,6 @@ InterpCx.prototype.call_llvm_intrinsic = function (
 
     // Target-specific shims
     else if (name.startsWith("llvm.x86.") && (target.arch.$ === "X86" || target.arch.$ === "X86_64") && target.endian === "Little") {
-      // PORT: `x86::EvalContextExt::emulate_x86_intrinsic` is the wave-38 placeholder (intrinsics/x86/mod.ts, lane
-      // miri-x86-a; it stops `unported` until ported).
       const r = this_.emulate_x86_intrinsic(link_name, args, dest);
       if (r.$ === "Err") return r;
       res = r._0;

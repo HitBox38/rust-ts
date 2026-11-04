@@ -9,7 +9,7 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { ThreadClockSet } from "./data_race.ts";
 import { VClock, VTimestamp, VectorIdx } from "./vector_clock.ts";
-import { type LoadRecency, StoreBuffer, type StoreElement } from "./weak_memory.ts";
+import { clone_StoreElement, type LoadRecency, StoreBuffer, type StoreElement } from "./weak_memory.ts";
 import { type Scalar } from "../lib.ts";
 import { ScalarInt } from "../../rustc_middle/ty/consts/int.ts";
 import { type Span } from "../../rustc_span/lib.ts";
@@ -97,6 +97,23 @@ test("CoWR: a load cannot read before a store that happens-before it", () => {
   expect(readable(b, clocks(clock(0, 1)), false)).toEqual(["10", "20"]);
   // Knows time 2: only the latest.
   expect(readable(b, clocks(clock(0, 2)), false)).toEqual(["20"]);
+});
+
+test("a cloned store element finds its load timestamps by `VectorIdx` value (LoadInfo.timestamps is keyed by value)", () => {
+  const b = buffer([[1, 1, 10]]);
+  const e = b.buffer[1]!;
+  e.load_impl(new VectorIdx(2), clocks(clock(0, 0, 3)), false);
+  const c = clone_StoreElement(e);
+  expect(c.load_info.timestamps.get(new VectorIdx(2))?.time()).toBe(3);
+  expect(c.load_info.timestamps.has(new VectorIdx(1))).toBe(false);
+  // A later load by the same thread keeps the first timestamp and adds no second entry.
+  c.load_impl(new VectorIdx(2), clocks(clock(0, 0, 4)), false);
+  expect(c.load_info.timestamps.size).toBe(1);
+  expect(c.load_info.timestamps.get(new VectorIdx(2))?.time()).toBe(3);
+  // The clone does not share the original's map.
+  c.load_impl(new VectorIdx(1), clocks(clock(0, 5)), false);
+  expect(e.load_info.timestamps.size).toBe(1);
+  expect(c.load_info.timestamps.size).toBe(2);
 });
 
 test("CoRR: a load cannot read before a store an earlier (happens-before) load has read", () => {

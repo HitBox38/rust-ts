@@ -1,0 +1,185 @@
+────────────────────────────────────────────────────────────────────────────────────────────
+Warning: this tree is indicative only. Some tags may have been hidden.
+0..   1..   2..  10..  11.. 100.. 101..1000..1001..1024
+| Unq | Unq | Unq | Unq | Unq | Unq | Unq | Unq | Unq |    └─┬──<466=root of the allocation>
+| Res | Unq | Res | Unq | Res | Unq | Res | Unq | Res |      └─┬──<470=data, data>
+|-----| Unq |-----|?Dis |-----|?Dis |-----|?Dis |-----|        ├────<503=data[1]>
+|-----|-----|-----| Unq |-----|?Dis |-----|?Dis |-----|        ├────<517=data[10]>
+|-----|-----|-----|-----|-----| Frz |-----|?Dis |-----|        ├────<531=data[100]>
+|-----|-----|-----|-----|-----|-----|-----| Unq |-----|        └────<545=data[1000]>
+────────────────────────────────────────────────────────────────────────────────────────────
+────────────────────────────────────────────────────────────────────────────────────────────
+0..   1..   2..  10..  11.. 100.. 101..1000..1001..1024
+| Unq | Unq | Unq | Unq | Unq | Unq | Unq | Unq | Unq |    └─┬──<466=root of the allocation>
+| Res | Unq | Res | Unq | Res | Unq | Res | Unq | Res |      └─┬──<467>
+| Res | Unq | Res | Unq | Res | Unq | Res | Unq | Res |        └─┬──<468>
+| Res | Unq | Res | Unq | Res | Unq | Res | Unq | Res |          └─┬──<469>
+| Res | Unq | Res | Unq | Res | Unq | Res | Unq | Res |            └─┬──<470=data, data>
+| Frz | Dis | Frz | Dis | Frz | Dis | Frz | Dis | Frz |              ├─┬──<471>
+| Frz | Dis | Frz | Dis | Frz | Dis | Frz | Dis | Frz |              │ └────<472>
+| Frz | Dis | Frz | Dis | Frz | Dis | Frz | Dis | Frz |              ├─┬──<486>
+| Frz | Dis | Frz | Dis | Frz | Dis | Frz | Dis | Frz |              │ └────<487>
+| Frz | Dis | Frz | Dis | Frz | Dis | Frz | Dis | Frz |              ├─┬──<500>
+| Frz | Dis | Frz | Dis | Frz | Dis | Frz | Dis | Frz |              │ └────<501>
+|-----| Unq |-----|?Dis |-----|?Dis |-----|?Dis |-----|              ├────<503=data[1]>
+|-----|-----|-----| Unq |-----|?Dis |-----|?Dis |-----|              ├────<517=data[10]>
+|-----|-----|-----|-----|-----| Frz |-----|?Dis |-----|              ├────<531=data[100]>
+|-----|-----|-----|-----|-----|-----|-----| Unq |-----|              └────<545=data[1000]>
+────────────────────────────────────────────────────────────────────────────────────────────
+──────────────────────────────────────────────────────────────────────
+Warning: this tree is indicative only. Some tags may have been hidden.
+0..   1
+| Unq |    └─┬──<561=root of the allocation>
+| Frz |      └─┬──<563=x>
+| Frz |        ├────<578=a>
+| Frz |        ├─┬──<593=ba>
+| Frz |        │ └────<608=baaa>
+| Frz |        ├────<622=bb>
+| Frz |        └────<636=c>
+──────────────────────────────────────────────────────────────────────
+────────────────────────────────────────────
+0..   1
+| Unq |    └─┬──<561=root of the allocation>
+| Frz |      └─┬──<562>
+| Frz |        └─┬──<563=x>
+| Frz |          ├────<578=a>
+| Frz |          ├─┬──<592>
+| Frz |          │ ├─┬──<593=ba>
+| Frz |          │ │ └─┬──<607>
+| Frz |          │ │   └────<608=baaa>
+| Frz |          │ └────<622=bb>
+| Frz |          └────<636=c>
+────────────────────────────────────────────
+─────────────────────────────────────────────────────
+0..   1
+| Unq |    └─┬──<661=root of the allocation>
+| Res |      └─┬──<662>
+| Res |        └─┬──<663>
+| Res |          └────<724=strong> Strongly protected
+─────────────────────────────────────────────────────
+────────────────────────────────────────────
+0..   1
+| Unq |    └─┬──<686=root of the allocation>
+| Res |      └─┬──<721>
+| Res |        └─┬──<722>
+| Res |          └─┬──<725> Weakly protected
+| Frz |            └────<744>
+────────────────────────────────────────────
+────────────────────────────────────────────
+0..   2
+| Unq |    └─┬──<779=root of the allocation>
+| Res |      └─┬──<780>
+| Res |        └─┬──<781>
+| Frz |          ├─┬──<782>
+| Frz |          │ └─┬──<783>
+| Frz |          │   └─┬──<784>
+| Frz |          │     └────<785>
+| Frz |          ├─┬──<787>
+| Frz |          │ └─┬──<788=v>
+| Frz |          │   └─┬──<789>
+| Frz |          │     └────<790>
+| Res |          └─┬──<804>
+| Res |            └─┬──<805>
+| Res |              └─┬──<806>
+| Res |                └────<807> (exposed)
+────────────────────────────────────────────
+warning: integer-to-pointer cast
+  --> src/miri/borrow_tracker/tree_borrows/oracle/print_state.rs:87:19
+   |
+87 |     let w = &mut *(addr as *mut [u8; 2]);
+   |                   ^^^^^^^^^^^^^^^^^^^^^^ integer-to-pointer cast
+   |
+   = help: this program is using integer-to-pointer casts or (equivalently) `ptr::with_exposed_provenance`, which means that Miri might miss pointer bugs in this program
+   = help: see https://doc.rust-lang.org/nightly/std/ptr/fn.with_exposed_provenance.html for more details on that operation
+   = help: to ensure that Miri does not miss bugs in your program, use Strict Provenance APIs (https://doc.rust-lang.org/nightly/std/ptr/index.html#strict-provenance, https://crates.io/crates/sptr) instead
+   = help: you can then set `MIRIFLAGS=-Zmiri-strict-provenance` to ensure you are not relying on `with_exposed_provenance` semantics
+   = help: Tree Borrows does not support integer-to-pointer casts, so the program is likely to go wrong when this pointer gets used
+   = note: stack backtrace:
+           0: exposed_and_wildcard
+               at src/miri/borrow_tracker/tree_borrows/oracle/print_state.rs:87:19: 87:41
+           1: main
+               at src/miri/borrow_tracker/tree_borrows/oracle/print_state.rs:20:9: 20:31
+
+──────────────────────────────────────────────────────────────────────
+Warning: this tree is indicative only. Some tags may have been hidden.
+0..   1..   2
+| Unq | Unq |    └─┬──<779=root of the allocation>
+| Frz | Dis |      └────<788=v>
+|     |     |
+| Res | Unq |    *─┬──<809=w>
+|-----| Unq |      └────<823=wc>
+──────────────────────────────────────────────────────────────────────
+──────────────────────────────────────────────────
+0..   1..   2
+| Unq | Unq |    └─┬──<779=root of the allocation>
+| Res | Unq |      └─┬──<780>
+| Res | Unq |        └─┬──<781>
+| Frz | Dis |          ├─┬──<782>
+| Frz | Dis |          │ └─┬──<783>
+| Frz | Dis |          │   └─┬──<784>
+| Frz | Dis |          │     └────<785>
+| Frz | Dis |          ├─┬──<787>
+| Frz | Dis |          │ └─┬──<788=v>
+| Frz | Dis |          │   └─┬──<789>
+| Frz | Dis |          │     └────<790>
+| Res | Unq |          └─┬──<804>
+| Res | Unq |            └─┬──<805>
+| Res | Unq |              └─┬──<806>
+| Res | Unq |                └────<807> (exposed)
+|     |     |
+| Res | Unq |    *─┬──<809=w>
+|-----| Unq |      └────<823=wc>
+──────────────────────────────────────────────────
+────────────────────────────────────────────
+0..   1
+| Unq |    └─┬──<841=root of the allocation>
+|?Cel |      └────<842=r>
+────────────────────────────────────────────
+────────────────────────────────────────────
+0..   1
+| Unq |    └─┬──<860=root of the allocation>
+| ReIM|      └────<861=m>
+────────────────────────────────────────────
+──────────────────────────────────────────────────────────────────────
+Warning: this tree is indicative only. Some tags may have been hidden.
+0..   1
+| Unq |    └─┬──<877=root of the allocation>
+| Res |      └─┬──<880=x> Strongly protected
+| Res |        └────<893=y>
+──────────────────────────────────────────────────────────────────────
+──────────────────────────────────────────────────────────────────────
+Warning: this tree is indicative only. Some tags may have been hidden.
+0..   1
+| Unq |    └─┬──<877=root of the allocation>
+| Res |      └─┬──<880=x> Strongly protected
+| Res |        ├────<893=y>
+| Frz |        └────<909=z>
+──────────────────────────────────────────────────────────────────────
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+Warning: this tree is indicative only. Some tags may have been hidden.
+0..   1
+| Unq |    └─┬──<924=root of the allocation>
+| Frz |      └────<926=π🦀, a name that is much wider than the warning line of the tree printing, by a good margin>
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+warning: integer-to-pointer cast
+   --> src/miri/borrow_tracker/tree_borrows/oracle/print_state.rs:140:19
+    |
+140 |     let w = &mut *(addr as *mut u8);
+    |                   ^^^^^^^^^^^^^^^^^ integer-to-pointer cast
+    |
+    = note: stack backtrace:
+            0: wide_offsets
+                at src/miri/borrow_tracker/tree_borrows/oracle/print_state.rs:140:19: 140:36
+            1: main
+                at src/miri/borrow_tracker/tree_borrows/oracle/print_state.rs:23:9: 23:23
+
+────────────────────────────────────────────────────────────────────────────
+Warning: this tree is indicative only. Some tags may have been hidden.
+0..12345..12346..123456..123457..200000
+|  Unq |  Unq |   Unq |   Unq |   Unq |    └─┬──<955=root of the allocation>
+| -----|  Unq |  -----|  ?Dis |  -----|      └────<967=x>
+|      |      |       |       |       |
+| -----| -----|  -----|   Unq |  -----|    *────<980=w>
+────────────────────────────────────────────────────────────────────────────
+warning: 2 warnings emitted
+

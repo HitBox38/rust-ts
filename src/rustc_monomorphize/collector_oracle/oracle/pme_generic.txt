@@ -1,0 +1,25 @@
+exit 1
+== MONO_ITEM
+== FP
+== stderr
+error[E0080]: evaluation panicked: no
+ --> $FILE:5:33
+  |
+5 | impl<T> Fail<T> { const C: () = panic!("no"); }
+  |                                 ^^^^^^^^^^^^ evaluation of `Fail::<u8>::C` failed here
+
+note: erroneous constant encountered
+ --> $FILE:6:25
+  |
+6 | fn inner<T>() { let _ = Fail::<T>::C; }
+  |                         ^^^^^^^^^^^^
+
+note: the above error was encountered while instantiating `fn inner::<u8>`
+ --> $FILE:7:17
+  |
+7 | fn outer<T>() { inner::<T>() }
+  |                 ^^^^^^^^^^^^
+
+error: aborting due to 1 previous error
+
+For more information about this error, try `rustc --explain E0080`.

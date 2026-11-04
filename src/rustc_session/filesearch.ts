@@ -173,6 +173,15 @@ export function default_sysroot(): PathBuf {
   return DEFAULT_SYSROOT_STANDIN;
 }
 
+/**
+ * PORT: `path` on its way to the output. A path under the stand-in is not an answer, so it stops: upstream prints the
+ * directory of its own toolchain, and rust-ts has no toolchain of its own to name (`--print sysroot`, `target-libdir`).
+ */
+export function displayed_sysroot_path(path: PathBuf): PathBuf {
+  if (path.startsWith(DEFAULT_SYSROOT_STANDIN)) return unported("rustc_session::filesearch::default_sysroot (the path of the default sysroot; pass --sysroot)");
+  return path;
+}
+
 /** `current_dll_path` (not ported, see above). */
 export function current_dll_path(): never {
   return unported("rustc_session::filesearch::current_dll_path");

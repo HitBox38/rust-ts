@@ -70,7 +70,7 @@ tree_borrows/{tree, diagnostics} + tree/tests.rs. `concurrency/genmc/dummy.rs` â
 ## Scope (what has no module)
 
 `concurrency/genmc/*` except `dummy.rs` (C7), `shims/native_lib/*`, `shims/windows/*`,
-`shims/unix/{android,freebsd,macos,netbsd,solarish}/*`, `shims/unix/{socket_address,tcp_socket,virtual_socket}.rs` (A3 keeps
+`shims/unix/{android,freebsd,macos,netbsd,solarish}/*`, `shims/unix/{socket_address,tcp_socket}.rs` (`virtual_socket.rs` joined the scope later: miri-tail-b; A3 keeps
 `socket.rs`), `bin/log/tracing_chrome.rs`, `intrinsics/{aarch64,loongarch}.rs` (D12: unreachable on the target),
 `alloc/isolated_alloc.rs` (C6: compiled only with `native-lib`). Call sites into them stop `unported("...")` (the fill
 lane writes them). `contract.test.ts` `OUT_OF_SCOPE` is the list; it fails if a module mirrors an excluded file or an

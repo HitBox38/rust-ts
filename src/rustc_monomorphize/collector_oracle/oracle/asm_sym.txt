@@ -1,0 +1,14 @@
+exit 0
+== MONO_ITEM
+MONO_ITEM fn f @@ asm_sym.104bcc865adff1f8-cgu.0[External]
+MONO_ITEM fn sym_fn @@ asm_sym.104bcc865adff1f8-cgu.0[Internal]
+MONO_ITEM fn used_from_asm @@ asm_sym.104bcc865adff1f8-cgu.0[Internal]
+MONO_ITEM global_asm @@ asm_sym.104bcc865adff1f8-cgu.0[Internal]
+MONO_ITEM static SYM_STATIC @@ asm_sym.104bcc865adff1f8-cgu.0[External]
+== FP
+FP 1c73a7792657d0778b750ca8fa96ca37 fn f
+FP 1ccdbd61f2b1312949d89baf4de6bc09 fn sym_fn
+FP 2c53cf851aaa20db303b8c5f76ff2ca0 global_asm
+FP 39582ef566bb1c3e1d33cf547238a305 fn used_from_asm
+FP 561f37646ec0a4b5863d7041868ec941 static SYM_STATIC
+== stderr

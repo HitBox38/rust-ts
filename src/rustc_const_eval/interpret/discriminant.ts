@@ -1,6 +1,7 @@
 // Port of compiler/rustc_const_eval/src/interpret/discriminant.rs (declared by lane interp-contract, filled by lane interp-ops).
 //! Functions for reading and writing discriminants of multi-variant layouts (enums and coroutines).
 import { BackendRepr, type FieldIdx, Scalar as abi_Scalar, debug_Size, VariantIdx } from "../../rustc_abi/lib.ts";
+import type { AdtDef } from "../../rustc_middle/ty/adt.ts";
 import { InterpCx } from "./eval_context.ts";
 import { type AnyMachine, type ProvOf, type Machine } from "./machine.ts";
 import { type Writeable } from "./place.ts";
@@ -83,6 +84,9 @@ InterpCx.prototype.write_discriminant = function (this: InterpCx, variant_index:
     return interp_ok(undefined);
   }
 };
+
+/** PORT(perf): see `read_discriminant`. */
+const ADT_DISCR_MEMO = new Map<AdtDef, Map<bigint, VariantIdx>>();
 
 /// Read discriminant, return the variant index.
 /// Can also legally be called on non-enums (e.g. through the discriminant_value intrinsic)!
@@ -184,9 +188,22 @@ InterpCx.prototype.read_discriminant = function (this: InterpCx, op: Projectable
       const kind = ty.kind();
       switch (kind.$) {
         case "Adt": {
+          // Measured (docs/handoff/miri-perf.md, 486 Ginstr at base): -12.1 Ginstr.
+          // PORT(perf): upstream walks `discriminants` every time, a cheap iterator; here it is a generator that re-evaluates
+          // each explicit discriminant through the query cache. A pair `(adt, bits)` already found is remembered, so a walk
+          // only ever happens for a new pair, in upstream's order, and evaluates what upstream's first walk evaluates:
+          // no const-eval runs earlier or later than before. A failed search (UB) is never remembered.
+          let memo = ADT_DISCR_MEMO.get(kind._0);
+          if (memo === undefined) {
+            memo = new Map();
+            ADT_DISCR_MEMO.set(kind._0, memo);
+          }
+          found = memo.get(discr_bits);
+          if (found !== undefined) break;
           for (const [idx, var_] of kind._0.discriminants(this.tcx.deref())) {
             if (var_.val === discr_bits) {
               found = idx;
+              memo.set(discr_bits, idx);
               break;
             }
           }

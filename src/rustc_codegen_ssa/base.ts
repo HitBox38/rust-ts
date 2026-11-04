@@ -26,7 +26,7 @@ import { metadata_symbol_name, type SymbolExportKind } from "../rustc_middle/mid
 import type { AllocatorKind, AllocatorMethod } from "../rustc_ast/expand/allocator.gen.ts";
 import { ALLOC_ERROR_HANDLER, ALLOCATOR_METHODS } from "../rustc_ast/expand/allocator.ts";
 import type { Target as TargetSpec } from "../rustc_target/spec/mod.ts";
-import { are_upstream_rust_objects_already_included } from "./back/link.ts";
+import { are_upstream_rust_objects_already_included, each_linked_rlib, ignored_for_lto } from "./back/link.ts";
 import { exported_symbols as linker_exported_symbols, linked_symbols as linker_linked_symbols } from "./back/linker.ts";
 import { exported_symbols_for_lto as lto_exported_symbols_for_lto } from "./back/lto.ts";
 import {
@@ -296,9 +296,15 @@ export function CrateInfo_new(tcx: TyCtxt, target_cpu: string): CrateInfo {
   const each_linked_rlib_for_lto: CrateNum[] = [];
   const each_linked_rlib_file_for_lto: string[] = [];
   if (tcx.sess.lto() !== "No" && tcx.sess.lto() !== "ThinLocal") {
-    // drop(crate::back::link::each_linked_rlib(&info, None, &mut |cnum, path| { .. }));
-    void each_linked_rlib_for_lto;
-    return unported("rustc_codegen_ssa::back::link::each_linked_rlib (CrateInfo::new with -C lto; M7)");
+    // drop(..): a `LinkRlibError` here is dropped; linking reports it through its own call.
+    void each_linked_rlib(info, undefined, (cnum, path) => {
+      if (ignored_for_lto(tcx.sess, info, cnum)) {
+        return;
+      }
+
+      each_linked_rlib_for_lto.push(cnum);
+      each_linked_rlib_file_for_lto.push(path);
+    });
   }
   info.each_linked_rlib_file_for_lto = each_linked_rlib_file_for_lto;
 

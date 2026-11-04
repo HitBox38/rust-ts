@@ -1,8 +1,8 @@
 // Tests of src/miri/math.ts (lanes miri-eval, miri-eval-fix): the port of math.rs's `#[cfg(test)] mod tests` (upstream
 // order), plus oracle checks of the float-error helpers, `generate_nan` (operator.rs) and the host float operations
-// against `math.oracle.txt`: the output of the probe docs/handoff/miri-eval-fix-probe (built with the pinned nightly
-// `nightly-2026-10-11`, rand =0.10.1 with chacha20 =0.10.0 as in Miri's Cargo.lock, rustc_apfloat =0.2.3; how to
-// rebuild it: docs/handoff/miri-eval-fix.md). Part 1 (RNG helpers) is host-independent; part 2 (host float
+// against `math.oracle.txt`: the output of the registered probe tools/probes/mirimath (built with the pinned nightly
+// `nightly-2026-10-11`, rand =0.10.1 with chacha20 =0.10.0 as in Miri's Cargo.lock, rustc_apfloat =0.2.3; to rebuild it:
+// `bun scripts/probes.ts build mirimath`, then `bun scripts/probes.ts fixture mirimath`). Part 1 (RNG helpers) is host-independent; part 2 (host float
 // operations) is the host libm's and runs only on the fixture's host.
 import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
@@ -178,7 +178,7 @@ test("IeeeExt::pi is core's PI (oracle bits)", () => {
 
 // ---- host float operations (math.oracle.txt `host` lines) ----
 //
-// The probe's part 2 (docs/handoff/miri-eval-fix-probe/main.rs): every host op of every width over a large
+// The probe's part 2 (tools/probes/mirimath/main.rs): every host op of every width over a large
 // deterministic sample (f64 / f32: 200,000 inputs; f16: all 65,536, powf × 8 exponents, powi × 15), outputs folded
 // into an FNV-1a hash (NaN canonical: Miri replaces NaN results, math.rs callers' `adjust_nan`). These are the host
 // libm's results, so they hold only on the host the fixture was recorded on (`tuple` line); elsewhere the test is

@@ -1,6 +1,6 @@
 # M6 plan — interpreter (const eval + Miri shims), run-pass, proc macros
 
-Source: the plan-m6 planner (design lane; it ports no code). Status: **accepted with amendments A1–A11** (root,
+Source: the plan-m6 planner (design lane; it ports no code). Status: **accepted with amendments A1–A12** (root,
 2026-11-01, after the independent review `docs/reviews/plan-m6.md`; the amendments, at the end of §5, take precedence over
 the text they amend). Decisions D1–D14 are recorded with `bun scripts/state.ts record decision`.
 Pin `6f5da406b56c` (1.101.0-nightly). Paths are relative to the upstream checkout (`compiler/…`, `library/…`,
@@ -194,7 +194,7 @@ Proposed suites (all `milestone: "M6"`):
 
 Gates:
 - **M6a**: `miri-hello` MATCH, no protected loss.
-- **M6b**: `run-pass-miri` + `run-fail-miri` ≥ 90% MATCH, `miri-pass` ≥ 80% MATCH.
+- **M6b**: `run-pass-miri` + `run-pass-miri-heavy` ≥ 90% MATCH, `run-fail-miri` ≥ 90% MATCH, `miri-pass` + `miri-pass-heavy` ≥ 80% MATCH (A12: `bun scripts/criteria.ts --run <gate run>`).
 - **M6 (= gate)**: M6a + M6b + `pm-ui` ≥ 95% MATCH + the 30 `quote!` cases MATCH in every suite that has them.
 - Report only: `miri-fail`, `run-pass-aux-miri`, `miri-sysroot-*`, `pm-expanded`.
 
@@ -356,6 +356,12 @@ interpreter speed.
 - **A11 (cost).** The Miri oracle output contains absolute local paths, so its cache is bound to this machine (rebuild it on
   another host). Each protected Miri suite adds to every gate's ~10 h: the harness lanes mark the large ones heavy/serial
   and keep slow cases out of the per-batch path.
+
+- **A12 (M6b, review harness-m6c R1, R2, re-check L1, L2).** M6b is one figure per group, summed by `scripts/criteria.ts`
+  from one gate's `gate.json`; a suite's own `criterion` line is only its share. A group is met only if that gate passed on
+  a clean tree and ran every suite of the group. `run-fail-miri` is its own group, so run-pass cannot hide it.
+  The heavy lists hold cases by the oracle's cost and by the files they write, never by how the port does: a longer limit
+  must not turn a port TIMEOUT into a MATCH.
 
 ## 6. Risks
 

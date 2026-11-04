@@ -1,0 +1,15 @@
+exit 0
+== stdout
+MONO_ITEM fn generic::<&str> @@ local_generic.5c55d428223b328f-cgu.0[External]
+MONO_ITEM fn generic::<char> @@ local_generic.5c55d428223b328f-cgu.0[External]
+MONO_ITEM fn generic::<u32> @@ local_generic.5c55d428223b328f-cgu.0[External]
+MONO_ITEM fn generic::<u64> @@ local_generic.5c55d428223b328f-cgu.0[External]
+MONO_ITEM fn mod1::mod1::user @@ local_generic.5c55d428223b328f-cgu.0[External]
+MONO_ITEM fn mod1::user @@ local_generic.5c55d428223b328f-cgu.0[External]
+MONO_ITEM fn mod2::user @@ local_generic.5c55d428223b328f-cgu.0[External]
+MONO_ITEM fn user @@ local_generic.5c55d428223b328f-cgu.0[External]
+
+== stderr
+
+== dump
+<none>

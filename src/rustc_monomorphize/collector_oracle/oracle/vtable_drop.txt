@@ -1,0 +1,12 @@
+exit 0
+== MONO_ITEM
+MONO_ITEM fn <D as Tr>::m @@ vtable_drop.93a5de1ee9a9132e-cgu.0[External]
+MONO_ITEM fn <D as std::ops::Drop>::drop @@ vtable_drop.93a5de1ee9a9132e-cgu.0[External]
+MONO_ITEM fn f @@ vtable_drop.93a5de1ee9a9132e-cgu.0[External]
+MONO_ITEM fn std::ptr::drop_glue::<D> - shim(Some(D)) @@ vtable_drop.93a5de1ee9a9132e-cgu.0[External]
+== FP
+FP 05648f48767f465fee4931cb41fbbaf5 fn <D as std::ops::Drop>::drop
+FP 3a64f7c7314c14f10966d95b4bd37015 fn f
+FP 4d06164a69f54872d9b25d1e2cce6599 fn std::ptr::drop_glue::<D> - shim(Some(D))
+FP f25ba34319abdfb89ea1e2375f94cda4 fn <D as Tr>::m
+== stderr

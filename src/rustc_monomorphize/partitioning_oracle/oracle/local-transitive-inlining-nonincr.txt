@@ -1,0 +1,11 @@
+exit 0
+== stdout
+MONO_ITEM fn direct_user::foo @@ local_transitive_inlining.a19410adf847a980-cgu.0[Internal]
+MONO_ITEM fn indirect_user::bar @@ local_transitive_inlining.a19410adf847a980-cgu.0[External]
+MONO_ITEM fn inline::inlined_function @@ local_transitive_inlining.a19410adf847a980-cgu.0[Internal]
+MONO_ITEM fn non_user::baz @@ local_transitive_inlining.a19410adf847a980-cgu.0[External]
+
+== stderr
+
+== dump
+<none>

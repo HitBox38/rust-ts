@@ -1,0 +1,13 @@
+exit 0
+== stdout
+MONO_ITEM fn a::f @@ swap_order.6618d64481bab847-cgu.0[External]
+MONO_ITEM fn b::f @@ swap_order.6618d64481bab847-cgu.1[External]
+MONO_ITEM fn c::f @@ swap_order.6618d64481bab847-cgu.0[External]
+MONO_ITEM fn d::f @@ swap_order.6618d64481bab847-cgu.0[External]
+MONO_ITEM fn shared @@ swap_order.6618d64481bab847-cgu.0[Internal]
+MONO_ITEM fn x::f @@ swap_order.6618d64481bab847-cgu.1[External]
+
+== stderr
+
+== dump
+<none>

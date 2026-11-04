@@ -1,0 +1,68 @@
+exit 0
+== MONO_ITEM
+MONO_ITEM fn <EnumWithDrop as std::ops::Drop>::drop @@ up_drop_glue_eager.bc4698b3c93aa0a9-cgu.0[External]
+MONO_ITEM fn <EnumWithDrop as std::ops::Drop>::pin_drop @@ up_drop_glue_eager.bc4698b3c93aa0a9-cgu.0[External]
+MONO_ITEM fn <StructWithDrop as std::ops::Drop>::drop @@ up_drop_glue_eager.bc4698b3c93aa0a9-cgu.0[External]
+MONO_ITEM fn <StructWithDrop as std::ops::Drop>::pin_drop @@ up_drop_glue_eager.bc4698b3c93aa0a9-cgu.0[External]
+MONO_ITEM fn <StructWithDropAndLt<'_> as std::ops::Drop>::drop @@ up_drop_glue_eager.bc4698b3c93aa0a9-cgu.0[External]
+MONO_ITEM fn <StructWithDropAndLt<'_> as std::ops::Drop>::pin_drop @@ up_drop_glue_eager.bc4698b3c93aa0a9-cgu.0[External]
+MONO_ITEM fn <StructWithLtAndClause<'_> as std::ops::Drop>::drop @@ up_drop_glue_eager.bc4698b3c93aa0a9-cgu.0[External]
+MONO_ITEM fn <StructWithLtAndClause<'_> as std::ops::Drop>::pin_drop @@ up_drop_glue_eager.bc4698b3c93aa0a9-cgu.0[External]
+MONO_ITEM fn std::ptr::drop_glue::<EnumWithDrop> - shim(Some(EnumWithDrop)) @@ up_drop_glue_eager.bc4698b3c93aa0a9-cgu.0[External]
+MONO_ITEM fn std::ptr::drop_glue::<StructWithDrop> - shim(Some(StructWithDrop)) @@ up_drop_glue_eager.bc4698b3c93aa0a9-cgu.0[External]
+MONO_ITEM fn std::ptr::drop_glue::<StructWithDropAndLt<'_>> - shim(Some(StructWithDropAndLt<'_>)) @@ up_drop_glue_eager.bc4698b3c93aa0a9-cgu.0[External]
+MONO_ITEM fn std::ptr::drop_glue::<StructWithLtAndClause<'_>> - shim(Some(StructWithLtAndClause<'_>)) @@ up_drop_glue_eager.bc4698b3c93aa0a9-cgu.0[External]
+== FP
+FP 071ebc9cbfc5c2f0abe2e3cb3dc4928c fn <StructWithDropAndLt<'_> as std::ops::Drop>::pin_drop
+FP 1d4983bbce063cd60d6c76b3ba8b84eb fn <StructWithDrop as std::ops::Drop>::drop
+FP 5cf5387dbd55e524968b3694a468694a fn std::ptr::drop_glue::<EnumWithDrop> - shim(Some(EnumWithDrop))
+FP 7be8ea91902572e22076f923605a8c89 fn <StructWithDropAndLt<'_> as std::ops::Drop>::drop
+FP 83c7a2f9492d70656485da4817bb457d fn <EnumWithDrop as std::ops::Drop>::pin_drop
+FP 8effad0520f7a5d5f920a70e17506825 fn <EnumWithDrop as std::ops::Drop>::drop
+FP 94f9eb95792989ab4b937bd1b89f9e72 fn std::ptr::drop_glue::<StructWithLtAndClause<'_>> - shim(Some(StructWithLtAndClause<'_>))
+FP ab79be6ca31533e252628df54dd20503 fn <StructWithDrop as std::ops::Drop>::pin_drop
+FP b413114ea65b9941dc450d01a3f85308 fn std::ptr::drop_glue::<StructWithDrop> - shim(Some(StructWithDrop))
+FP c22505a353a9423eebe1f1e1a64ee8ef fn std::ptr::drop_glue::<StructWithDropAndLt<'_>> - shim(Some(StructWithDropAndLt<'_>))
+FP cf1d73c9391b559851c993f7fd56361d fn <StructWithLtAndClause<'_> as std::ops::Drop>::pin_drop
+FP eff8fe59a1de909f4756d9c70f78e303 fn <StructWithLtAndClause<'_> as std::ops::Drop>::drop
+== stderr
+warning: struct `StructWithDrop` is never constructed
+ --> $FILE:7:8
+  |
+7 | struct StructWithDrop {
+  |        ^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: struct `StructNoDrop` is never constructed
+  --> $FILE:17:8
+   |
+17 | struct StructNoDrop {
+   |        ^^^^^^^^^^^^
+
+warning: enum `EnumWithDrop` is never used
+  --> $FILE:22:6
+   |
+22 | enum EnumWithDrop {
+   |      ^^^^^^^^^^^^
+
+warning: enum `EnumNoDrop` is never used
+  --> $FILE:32:6
+   |
+32 | enum EnumNoDrop {
+   |      ^^^^^^^^^^
+
+warning: struct `StructWithDropAndLt` is never constructed
+  --> $FILE:44:8
+   |
+44 | struct StructWithDropAndLt<'a> {
+   |        ^^^^^^^^^^^^^^^^^^^
+
+warning: struct `StructWithLtAndClause` is never constructed
+  --> $FILE:51:8
+   |
+51 | struct StructWithLtAndClause<'a: 'a> {
+   |        ^^^^^^^^^^^^^^^^^^^^^
+
+warning: 6 warnings emitted
+

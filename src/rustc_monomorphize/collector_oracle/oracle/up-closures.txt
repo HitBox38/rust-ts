@@ -1,0 +1,24 @@
+exit 0
+== MONO_ITEM
+MONO_ITEM fn A::{constant#0}::{closure#0} @@ up_closures.e6bbe5317f579c2e-cgu.0[External]
+MONO_ITEM fn async_fn @@ up_closures.e6bbe5317f579c2e-cgu.0[External]
+MONO_ITEM fn async_fn::{closure#0} @@ up_closures.e6bbe5317f579c2e-cgu.0[External]
+MONO_ITEM fn closure @@ up_closures.e6bbe5317f579c2e-cgu.0[External]
+MONO_ITEM fn closure::{closure#0} @@ up_closures.e6bbe5317f579c2e-cgu.0[External]
+== FP
+FP 0734ba5900856fc8f217f2e3e1cd97ec fn A::{constant#0}::{closure#0}
+FP 1d71c56ec65d511ed2254c2820321b14 fn closure
+FP 205b8c776cdf7f7ddc3a368161501715 fn async_fn
+FP 831daa3d1bdc274ca9ea59784eac6947 fn closure::{closure#0}
+FP e4751da7c4735031929cbd6d838d6b40 fn async_fn::{closure#0}
+== stderr
+warning: trait `A` is never used
+  --> $FILE:15:7
+   |
+15 | trait A where
+   |       ^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: 1 warning emitted
+

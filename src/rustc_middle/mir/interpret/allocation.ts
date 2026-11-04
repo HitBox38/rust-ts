@@ -37,7 +37,7 @@ import { AllocRange, type AllocFlags, type AllocInit, type AllocResult } from ".
 import { clone_InitMask, decode_InitMask, encode_InitMask, type InitCopy, InitMask } from "./allocation/init_mask.ts";
 import { clone_ProvenanceMap, decode_ProvenanceMap, encode_ProvenanceMap, type ProvenanceCopy, ProvenanceMap } from "./allocation/provenance_map.ts";
 import { InterpErrorInfo_from_InterpErrorKind, type InterpErrorKind, InterpResult, interp_ok } from "./error.ts";
-import { type AllocId, read_target_uint, write_target_uint } from "./mod.ts";
+import { type AllocId, read_le_uint_at, read_target_uint, write_le_uint_at, write_target_uint } from "./mod.ts";
 import { type CtfeProvenance, Pointer, type Provenance, Provenance_CtfeProvenance } from "./pointer.ts";
 import { Scalar } from "./value.ts";
 export * from "./allocation.gen.ts";
@@ -459,8 +459,16 @@ export class Allocation<Prov = CtfeProvenance, Extra = null, Bytes = Uint8Array>
     }
 
     // Get the integer part of the result. We HAVE TO check provenance before returning this!
-    const bytes = this.get_bytes_unchecked(range);
-    const bits = unwrap_result(read_target_uint(cx.data_layout().endian, bytes), debug_IoError);
+    // Measured (docs/handoff/miri-perf.md, 486 Ginstr at base): -15.0 Ginstr with `write_scalar`, `read_target_uint` / `write_target_uint` and consts/int.ts.
+    // PORT(perf): `read_le_uint_at` when the range is small and in bounds and the target little-endian; anything else takes
+    // upstream's path (with its slice panics). A big `Size` is `NaN` and fails the test.
+    const all_bytes = deref(this.bytes);
+    const r_start = range.start.small;
+    const r_size = range.size.small;
+    const bits =
+      r_size <= 8 && r_start + r_size <= all_bytes.length && cx.data_layout().endian === "Little"
+        ? read_le_uint_at(all_bytes, r_start, r_size)
+        : unwrap_result(read_target_uint(cx.data_layout().endian, this.get_bytes_unchecked(range)), debug_IoError);
 
     if (read_provenance) {
       assert_eq(range.size, cx.data_layout().pointer_size(), debug_size_plain, size_eq);
@@ -522,8 +530,18 @@ export class Allocation<Prov = CtfeProvenance, Extra = null, Bytes = Uint8Array>
 
     const endian = cx.data_layout().endian;
     // Yes we do overwrite all the bytes in `dst`.
-    const dst = this.get_bytes_unchecked_for_overwrite(cx, range);
-    unwrap_result(write_target_uint(endian, dst, bytes), debug_IoError);
+    // PORT(perf): as `read_scalar`: no view when the write is small, in bounds, little-endian and of a value below 2^53.
+    const all_bytes = deref(this.bytes);
+    const r_start = range.start.small;
+    const r_size = range.size.small;
+    if (r_size <= 8 && r_start + r_size <= all_bytes.length && endian === "Little" && bytes >= 0n && bytes <= 0x1f_ffff_ffff_ffffn) {
+      this.mark_init(range, true);
+      this.provenance.clear(range, all_bytes, cx);
+      write_le_uint_at(all_bytes, r_start, r_size, bytes);
+    } else {
+      const dst = this.get_bytes_unchecked_for_overwrite(cx, range);
+      unwrap_result(write_target_uint(endian, dst, bytes), debug_IoError);
+    }
 
     // See if we have to also store some provenance.
     if (provenance !== undefined) {

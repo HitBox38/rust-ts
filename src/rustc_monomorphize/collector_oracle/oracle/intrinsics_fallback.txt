@@ -1,0 +1,18 @@
+exit 0
+== MONO_ITEM
+MONO_ITEM fn <u32 as std::intrinsics::fallback::DisjointBitOr>::disjoint_bitor @@ intrinsics_fallback.c96c7e250ad394a0-cgu.0[Internal]
+MONO_ITEM fn <u32 as std::intrinsics::fallback::FunnelShift>::unchecked_funnel_shl @@ intrinsics_fallback.c96c7e250ad394a0-cgu.0[Internal]
+MONO_ITEM fn core::num::<impl u32>::rotate_left @@ intrinsics_fallback.c96c7e250ad394a0-cgu.0[Internal]
+MONO_ITEM fn f @@ intrinsics_fallback.c96c7e250ad394a0-cgu.0[External]
+MONO_ITEM fn std::intrinsics::disjoint_bitor::<u32> @@ intrinsics_fallback.c96c7e250ad394a0-cgu.0[External]
+MONO_ITEM fn std::intrinsics::rotate_left::<u32> @@ intrinsics_fallback.c96c7e250ad394a0-cgu.0[External]
+MONO_ITEM fn std::intrinsics::unchecked_funnel_shl::<u32> @@ intrinsics_fallback.c96c7e250ad394a0-cgu.0[External]
+== FP
+FP 367214e527953adb756a31df402123c1 fn std::intrinsics::unchecked_funnel_shl::<u32>
+FP 443aa6901ceb692aeae9e018a3562aa5 fn std::intrinsics::rotate_left::<u32>
+FP 5729fd05e272f0cbca5d3cfc9cf04a82 fn f
+FP 683751950928fc8c08283718393573e0 fn std::intrinsics::disjoint_bitor::<u32>
+FP 71cac6905802569016c587f192ded954 fn <u32 as std::intrinsics::fallback::DisjointBitOr>::disjoint_bitor
+FP c9227e36fbd120078e9745750cca7b86 fn <u32 as std::intrinsics::fallback::FunnelShift>::unchecked_funnel_shl
+FP f3019ae89df8bf84a61214c43667081e fn core::num::<impl u32>::rotate_left
+== stderr

@@ -1,0 +1,20 @@
+exit 0
+== MONO_ITEM
+MONO_ITEM fn f @@ debuginfo_const.637b8adee5fcb492-cgu.0[External]
+MONO_ITEM fn g @@ debuginfo_const.637b8adee5fcb492-cgu.0[External]
+MONO_ITEM fn only_in_debuginfo @@ debuginfo_const.637b8adee5fcb492-cgu.0[Internal]
+== FP
+FP 1eb607830c9b7f53bd16545d5f6400e3 fn g
+FP 84a3bf4f87be2f0710fe9256c0e15962 fn f
+FP e5081553740fce45ad08aa51f44b7fb8 fn only_in_debuginfo
+== stderr
+warning: unused variable: `dead`
+  --> $FILE:14:9
+   |
+14 |     let dead = P;
+   |         ^^^^ help: if this is intentional, prefix it with an underscore: `_dead`
+   |
+   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: 1 warning emitted
+

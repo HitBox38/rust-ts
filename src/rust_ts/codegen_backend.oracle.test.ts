@@ -12,6 +12,11 @@ import { join } from "node:path";
 import { DATA, PIN } from "../../scripts/lib/common.ts";
 import { compiler_entrypoint } from "../rustc_driver_impl/lib.ts";
 import { type Config, run_compiler } from "../rustc_interface/interface.ts";
+import { Target } from "../rustc_target/spec/mod.ts";
+import { TargetTuple } from "../rustc_target/spec/tuple.ts";
+import { sym } from "../rustc_span/symbol.ts";
+import { ORACLE_ACCEPTED_LLVM_ARGS, ORACLE_TARGET_CPU_FEATURES, update_target_reliable_float_cfg } from "./codegen_backend.ts";
+import { TARGET_CONFIGS } from "./target_config.gen.ts";
 
 const REQUIRE = process.env.RUST_TS_REQUIRE_PROBES === "1";
 const RUSTC = ["rustc", `+${PIN.toolchain}`];
@@ -109,3 +114,80 @@ test.skipIf(SKIP)("global_backend_features: equal to the oracle's LLVM `target-f
   expect(want["aarch64-unknown-linux-gnu"]!.length).toBeGreaterThan(0);
   expect(want["x86_64-pc-windows-msvc"]).toContain("+cx16");
 }, 120_000);
+
+// Source of `ORACLE_ACCEPTED_LLVM_ARGS`: LLVM's parser takes the value silently and nothing rustc prints changes.
+test.skipIf(SKIP)("ORACLE_ACCEPTED_LLVM_ARGS: the oracle accepts each value with no output of its own", () => {
+  const run = (args: string[]) => {
+    const r = Bun.spawnSync([...RUSTC, "--print", "cfg", "--target", "x86_64-unknown-linux-gnu", ...args], { stdout: "pipe", stderr: "pipe" });
+    return { code: r.exitCode, stdout: r.stdout.toString(), stderr: r.stderr.toString() };
+  };
+  const base = run([]);
+  expect(base.code).toBe(0);
+  expect(ORACLE_ACCEPTED_LLVM_ARGS.size).toBeGreaterThan(0);
+  for (const args of ORACLE_ACCEPTED_LLVM_ARGS) {
+    expect(run([`-Cllvm-args=${args}`])).toEqual(base);
+  }
+  // Not vacuous: an unknown value is LLVM's error, which is why the set is exact.
+  expect(run(["-Cllvm-args=-not-a-real-llvm-arg"]).code).toBe(1);
+}, 60_000);
+
+// `target_config` asks the entry in place of LLVM's `has_features`, which gives the same set only if it is closed under
+// `implied_target_features` (the same argument as for TARGET_CONFIGS). Its values are checked against `--print cfg` in
+// rustc_driver_impl/print.oracle.test.ts.
+test("ORACLE_TARGET_CPU_FEATURES: each entry is closed under implied_target_features", () => {
+  expect(ORACLE_TARGET_CPU_FEATURES.size).toBeGreaterThan(0);
+  for (const [key, features] of ORACLE_TARGET_CPU_FEATURES) {
+    const target = Target.expect_builtin(TargetTuple.from_tuple(key.split(" ")[0]!));
+    const map = target.rust_target_features_map();
+    const have = new Set(features);
+    for (const f of features) {
+      if (!map.has(f)) continue;
+      for (const implied of target.implied_target_features(f, map)) expect(`${key}: ${f} implies ${implied}: ${have.has(implied)}`).toBe(`${key}: ${f} implies ${implied}: true`);
+    }
+  }
+});
+
+// `update_target_reliable_float_cfg` is what the table recorded for every target with the default flags.
+test("update_target_reliable_float_cfg: equal to the oracle table for every target", () => {
+  for (const [tuple, t] of TARGET_CONFIGS) {
+    const features = new Set(t.internal_target_features);
+    const cfg = {
+      internal_target_features: features.has("vsx") ? new Set([sym.vsx]) : new Set<typeof sym.vsx>(),
+      has_reliable_f16: true,
+      has_reliable_f16_math: true,
+      has_reliable_f16b: true,
+      has_reliable_f128: true,
+      has_reliable_f128_math: true,
+    };
+    update_target_reliable_float_cfg(Target.expect_builtin(TargetTuple.from_tuple(tuple)), cfg);
+    const { internal_target_features: _, ...got } = cfg;
+    const { internal_target_features: __, ...want } = t;
+    expect({ tuple, ...got }).toEqual({ tuple, ...want });
+  }
+});
+
+// `target_config` with what `-C target-feature` and `-Z sanitizer` change: `--print cfg` shows `internal_target_features`
+// and the `target_has_reliable_*` flags, stderr shows `internal_target_features`' warnings and errors.
+const REPO_MAIN = join(import.meta.dir, "main.ts");
+for (const [target, flags] of [
+  ["x86_64-unknown-linux-gnu", ["-Ctarget-feature=+avx2,-sse3"]],
+  ["x86_64-unknown-linux-gnu", ["-Ctarget-feature=-crt-static"]],
+  ["x86_64-unknown-linux-gnu", ["-Ctarget-feature=+crt-static"]],
+  ["x86_64-unknown-linux-gnu", ["-Ctarget-feature=+bogus"]],
+  ["x86_64-unknown-linux-gnu", ["-Ctarget-feature=bogus"]],
+  ["x86_64-unknown-linux-gnu", ["-Ctarget-feature=+pclmul"]],
+  ["x86_64-unknown-linux-gnu", ["-Zsanitizer=kcfi", "-Cpanic=abort"]],
+  ["x86_64-unknown-linux-gnu", ["-Zsanitizer=cfi", "-Clto", "-Ccodegen-units=1"]],
+  ["aarch64-unknown-linux-gnu", ["-Ctarget-feature=-neon"]],
+  ["aarch64-unknown-linux-gnu", ["-Ctarget-feature=+paca"]],
+  ["aarch64-apple-darwin", ["-Ctarget-feature=-fp16"]],
+] as [string, string[]][]) {
+  test.skipIf(SKIP)(`target_config: rustc --print cfg --target ${target} ${flags.join(" ")}`, () => {
+    const args = ["--print", "cfg", "--target", target, ...flags];
+    const run = (cmd: string[]) => {
+      const r = Bun.spawnSync([...cmd, ...args], { stdout: "pipe", stderr: "pipe" });
+      return { code: r.exitCode, stdout: r.stdout.toString(), stderr: r.stderr.toString() };
+    };
+    expect(run([process.execPath, REPO_MAIN])).toEqual(run(RUSTC));
+  }, 120_000);
+}

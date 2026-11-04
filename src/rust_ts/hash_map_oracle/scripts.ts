@@ -23,6 +23,7 @@ import { CrateNum, DefId, DefId_key, DefIndex } from "../../rustc_span/def_id.ts
 import { create_default_session_globals_then } from "../../rustc_span/lib.ts";
 import { Symbol } from "../../rustc_span/symbol.ts";
 import { FxHashMap, FxHashSet, FxKeyedMap, type KeyType, LAYOUT_U32, LAYOUT_USIZE, type Layout, String_key, u32_key, u8_key } from "../hash_map.ts";
+import { write_stdout } from "../../std/io.ts";
 
 export const PROBE = join(DATA, "target", "probes", "release", "fxorder" + (process.platform === "win32" ? ".exe" : ""));
 
@@ -430,12 +431,12 @@ if (import.meta.main) {
   const [cmd, seed, count] = process.argv.slice(2);
   const scripts = (cmd === "fixture-def" ? gen_def : gen)(Number(seed), Number(count));
   if (cmd === "gen") {
-    process.stdout.write(scripts.map((s) => s + "\n").join(""));
+    write_stdout(scripts.map((s) => s + "\n").join(""));
   } else if (cmd === "fixture" || cmd === "fixture-def") {
     const answers = probe(scripts);
     if (answers.length !== scripts.length) throw new Error("ERROR: fxorder answered a different number of scripts");
-    process.stdout.write(`# fxorder answers (SHA-256 prefixes) to scripts.ts ${cmd === "fixture" ? "gen" : "gen_def"}(${seed}, ${count}); see scripts.ts\n`);
-    process.stdout.write(answers.map((a) => digest(a) + "\n").join(""));
+    write_stdout(`# fxorder answers (SHA-256 prefixes) to scripts.ts ${cmd === "fixture" ? "gen" : "gen_def"}(${seed}, ${count}); see scripts.ts\n`);
+    write_stdout(answers.map((a) => digest(a) + "\n").join(""));
   } else {
     console.log("ERROR: usage: scripts.ts gen|fixture|fixture-def <seed> <count>");
     process.exit(2);

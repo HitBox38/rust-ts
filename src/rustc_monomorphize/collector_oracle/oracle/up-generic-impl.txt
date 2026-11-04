@@ -1,0 +1,40 @@
+exit 0
+== MONO_ITEM
+MONO_ITEM fn LifeTimeOnly::<'_>::bar @@ up_generic_impl.cb0cbd1a54433c3-cgu.0[External]
+MONO_ITEM fn LifeTimeOnly::<'_>::baz @@ up_generic_impl.cb0cbd1a54433c3-cgu.0[External]
+MONO_ITEM fn LifeTimeOnly::<'_>::foo @@ up_generic_impl.cb0cbd1a54433c3-cgu.0[External]
+MONO_ITEM fn Struct::<&str>::new @@ up_generic_impl.cb0cbd1a54433c3-cgu.0[External]
+MONO_ITEM fn Struct::<Struct<&str>>::get::<i16> @@ up_generic_impl.cb0cbd1a54433c3-cgu.0[External]
+MONO_ITEM fn Struct::<Struct<&str>>::new @@ up_generic_impl.cb0cbd1a54433c3-cgu.0[External]
+MONO_ITEM fn Struct::<char>::get::<i16> @@ up_generic_impl.cb0cbd1a54433c3-cgu.0[External]
+MONO_ITEM fn Struct::<char>::new @@ up_generic_impl.cb0cbd1a54433c3-cgu.0[External]
+MONO_ITEM fn Struct::<i32>::get::<i16> @@ up_generic_impl.cb0cbd1a54433c3-cgu.0[External]
+MONO_ITEM fn Struct::<i32>::new @@ up_generic_impl.cb0cbd1a54433c3-cgu.0[External]
+MONO_ITEM fn Struct::<i64>::get::<i16> @@ up_generic_impl.cb0cbd1a54433c3-cgu.0[External]
+MONO_ITEM fn Struct::<i64>::new @@ up_generic_impl.cb0cbd1a54433c3-cgu.0[External]
+MONO_ITEM fn id::<&str> @@ up_generic_impl.cb0cbd1a54433c3-cgu.0[External]
+MONO_ITEM fn id::<Struct<&str>> @@ up_generic_impl.cb0cbd1a54433c3-cgu.0[External]
+MONO_ITEM fn id::<char> @@ up_generic_impl.cb0cbd1a54433c3-cgu.0[External]
+MONO_ITEM fn id::<i32> @@ up_generic_impl.cb0cbd1a54433c3-cgu.0[External]
+MONO_ITEM fn id::<i64> @@ up_generic_impl.cb0cbd1a54433c3-cgu.0[External]
+MONO_ITEM fn start @@ up_generic_impl.cb0cbd1a54433c3-cgu.0[External]
+== FP
+FP 00409a549bfd733937057028b345da5f fn id::<Struct<&str>>
+FP 01ea6efc1b0ddc6be5b9d4f05fa314ed fn LifeTimeOnly::<'_>::foo
+FP 31856a5630ba79220700ac6b109c62b9 fn Struct::<char>::new
+FP 4a9c5e982b582ee6dfb28eb7f7e0a611 fn Struct::<Struct<&str>>::new
+FP 4e8e5ac530266f33dfc0237fe635d4c3 fn Struct::<i32>::get::<i16>
+FP 51558beb700bff424ad288df1d36d3e2 fn id::<&str>
+FP 5d52c14be7f4872926e1384995892e7f fn id::<i32>
+FP 622fbb8296b3d6b698b526aea4ec1283 fn Struct::<i64>::get::<i16>
+FP 68342a511f17743acc79ec8e3fe40858 fn LifeTimeOnly::<'_>::bar
+FP 68930b6bf155a2dd29c8ce5adfad0362 fn LifeTimeOnly::<'_>::baz
+FP 78b4b9990c059b81d53972449f77e14a fn id::<i64>
+FP 891140b849ef00fe76d97a64fe098b4c fn start
+FP 9d7c56daced4a00604f5d86eafde4162 fn Struct::<i32>::new
+FP b3c36f84ea12fae47f282faa3376a4ed fn Struct::<&str>::new
+FP e43b147850d603d6884e9f6eaf687063 fn Struct::<char>::get::<i16>
+FP ed1452c22cc2659ccffd248701fae7f7 fn Struct::<Struct<&str>>::get::<i16>
+FP fafee187a564a8b06995b216cabee39e fn id::<char>
+FP fe89e81caa37222d0d550d40954dbafc fn Struct::<i64>::new
+== stderr

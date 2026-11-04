@@ -1,0 +1,12 @@
+exit 0
+== stdout
+MONO_ITEM fn cgu_explicit_inlining::always_inlined @@ inlining_from_extern_crate.fc9dd2904a5a538b-cgu.0[Internal]
+MONO_ITEM fn cgu_explicit_inlining::inlined @@ inlining_from_extern_crate.fc9dd2904a5a538b-cgu.0[Internal]
+MONO_ITEM fn mod1::user @@ inlining_from_extern_crate.fc9dd2904a5a538b-cgu.0[External]
+MONO_ITEM fn mod2::user @@ inlining_from_extern_crate.fc9dd2904a5a538b-cgu.0[External]
+MONO_ITEM fn user @@ inlining_from_extern_crate.fc9dd2904a5a538b-cgu.0[External]
+
+== stderr
+
+== dump
+<none>

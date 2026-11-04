@@ -28,7 +28,7 @@ import type { Ty } from "../rustc_middle/ty/mod.ts";
 import type { LocalDefId } from "../rustc_span/def_id.ts";
 import type { Body } from "../rustc_middle/mir/mod.ts";
 import type { ConstValue } from "../rustc_middle/mir/consts.ts";
-import { debug_IoError } from "../std/io.ts";
+import { debug_IoError, write_stderr } from "../std/io.ts";
 import { FatalErrorMarker } from "../rustc_span/fatal_error.ts";
 import { Panic, Unported } from "../std/panic.ts";
 import { unwrap_result } from "../std/result.ts";
@@ -256,7 +256,7 @@ try {
     on_stack_overflow();
   }
   if (e instanceof Unported) {
-    process.stderr.write(`rust-ts: unported: ${e.what}\n`);
+    write_stderr(`rust-ts: unported: ${e.what}\n`);
     process.exitCode = EXIT_UNPORTED;
   } else if (e instanceof FatalErrorMarker) {
     // `FatalError.raise()` before `catch_with_exit_code` (`init_rustc_env_logger`'s `early_fatal` on a bad
@@ -264,7 +264,7 @@ try {
     process.exitCode = 101;
   } else {
     const msg = e instanceof Panic ? e.message : String(e);
-    process.stderr.write(`rust-ts: internal compiler error: ${msg}\n${e instanceof Error ? e.stack : ""}\n`);
+    write_stderr(`rust-ts: internal compiler error: ${msg}\n${e instanceof Error ? e.stack : ""}\n`);
     process.exitCode = 101;
   }
 }

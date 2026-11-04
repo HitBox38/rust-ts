@@ -1,0 +1,10 @@
+exit 0
+== MONO_ITEM
+MONO_ITEM fn f @@ debuginfo.5788dedd18320a49-cgu.0[External]
+MONO_ITEM fn in_debuginfo @@ debuginfo.5788dedd18320a49-cgu.0[Internal]
+MONO_ITEM fn sink::<u8> @@ debuginfo.5788dedd18320a49-cgu.0[Internal]
+== FP
+FP a6d2020eb726d9e0a186145abd11a8fd fn sink::<u8>
+FP cdedc97d80a2d63e209d05ab686aaf14 fn f
+FP e6817880ee0ba3d8bb08fe3750a0dc10 fn in_debuginfo
+== stderr
