@@ -1,0 +1,25 @@
+error: Undefined Behavior: write access through <469> at alloc205[0x0] is forbidden
+ --> src/miri/borrow_tracker/tree_borrows/oracle/child_forbidden_conflicting.rs:9:9
+  |
+9 |         *z = 1;
+  |         ^^^^^^ Undefined Behavior occurred here
+  |
+  = help: this indicates a potential bug in the program: it performed an invalid operation, but the Tree Borrows rules it violated are still experimental
+  = help: see https://github.com/rust-lang/unsafe-code-guidelines/blob/master/wip/tree-borrows.md for further information
+  = help: the accessed tag <469> is a child of the conflicting tag <468>
+  = help: the conflicting tag <468> has state Frozen which forbids this child write access
+help: the accessed tag <469> was created here
+ --> src/miri/borrow_tracker/tree_borrows/oracle/child_forbidden_conflicting.rs:8:17
+  |
+8 |         let z = &mut *(y as *const u8 as *mut u8);
+  |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+help: the conflicting tag <468> was created here, in the initial state Frozen
+ --> src/miri/borrow_tracker/tree_borrows/oracle/child_forbidden_conflicting.rs:7:17
+  |
+7 |         let y = &*x;
+  |                 ^^^
+
+note: some details are omitted, run with `MIRIFLAGS=-Zmiri-backtrace=full` for a verbose backtrace
+
+error: aborting due to 1 previous error
+

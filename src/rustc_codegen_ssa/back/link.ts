@@ -1,6 +1,7 @@
 // Partial port of compiler/rustc_codegen_ssa/src/back/link.rs: `link_binary` on the path that links nothing
 // (`--emit=metadata` and other outputs without `should_link()`), with `ensure_removed` and the EII linkage check
-// it calls, and `are_upstream_rust_objects_already_included` (for `CrateInfo::new`). Linking proper (rlibs,
+// it calls, and `each_linked_rlib`, `ignored_for_lto`, `are_upstream_rust_objects_already_included` (for
+// `CrateInfo::new`). Linking proper (rlibs,
 // staticlibs, the native linker, temp dirs, sanitizer runtimes, linker args, ...) is M7: the `should_link()`
 // branch of `link_binary` calls `unported` once it has checked the output file is writeable.
 import { rmSync } from "node:fs";
@@ -17,6 +18,11 @@ import { bug } from "../../rustc_span/macros.ts";
 import { TargetTuple } from "../../rustc_target/spec/tuple.ts";
 import type { EncodedMetadata } from "../../rustc_metadata/lib.ts";
 import { unported } from "../../std/panic.ts";
+import { debug_list, PLAIN } from "../../std/fmt.ts";
+import { Err, Ok, type Result } from "../../std/result.ts";
+import { debug_CrateType, type CrateType } from "../../rustc_structures/crate_type.ts";
+import { debug_Linkage } from "../../rustc_middle/middle/dependency_format.ts";
+import { LinkRlibError } from "../diagnostics.gen.ts";
 import type { CompiledModule, CompiledModules, CrateInfo } from "../lib.ts";
 
 /**
@@ -210,6 +216,73 @@ export function link_binary(
     // debug!(?preserve_objects, ?preserve_dwarf_objects);
     unported("rustc_codegen_ssa::back::link::preserve_objects_for_their_debuginfo (link_binary_remove_temps; M7)");
   });
+}
+
+// Crate type is not passed when calculating the dylibs to include for LTO. In that case all
+// crate types must use the same dependency formats.
+// rustc: compiler/rustc_codegen_ssa/src/back/link.rs:495 each_linked_rlib
+export function each_linked_rlib(info: CrateInfo, crate_type: CrateType | undefined, f: (cnum: CrateNum, path: string) => void): Result<null, LinkRlibError> {
+  let fmts;
+  if (crate_type !== undefined) {
+    fmts = info.dependency_formats.get(crate_type);
+    if (fmts === undefined) {
+      return Err(LinkRlibError.MissingFormat);
+    }
+  } else {
+    const dep_formats = [...info.dependency_formats];
+    const first = dep_formats[0];
+    if (first === undefined) return Err(LinkRlibError.MissingFormat);
+    const [ty1, list1] = first;
+    // PORT: `list1 != *list2` of `IndexVec<CrateNum, Linkage>`.
+    const other = dep_formats.slice(1).find(([, list2]) => list1.length !== list2.length || list1.some((l, i) => l !== list2[i]));
+    if (other !== undefined) {
+      const [ty2, list2] = other;
+      const debug_linkages = (list: typeof list1): string => debug_list(PLAIN, list.map((l) => debug_Linkage(l, PLAIN)));
+      return Err({
+        $: "IncompatibleDependencyFormats",
+        ty1: debug_CrateType(ty1, PLAIN),
+        ty2: debug_CrateType(ty2, PLAIN),
+        list1: debug_linkages(list1),
+        list2: debug_linkages(list2),
+      });
+    }
+    fmts = list1;
+  }
+
+  const used_dep_crates = info.used_crates;
+  for (const cnum of used_dep_crates) {
+    const fmt = fmts[cnum];
+    if (fmt === "NotLinked" || fmt === "Dynamic" || fmt === "IncludedFromDylib") continue;
+    if (fmt === undefined) return Err(LinkRlibError.MissingFormat);
+    const crate_name = info.crate_name.get(cnum)!;
+    const used_crate_source = info.used_crate_source.get(cnum)!;
+    if (used_crate_source.rlib !== undefined) {
+      f(cnum, used_crate_source.rlib);
+    } else if (used_crate_source.rmeta !== undefined) {
+      return Err({ $: "OnlyRmetaFound", crate_name });
+    } else {
+      return Err({ $: "NotFound", crate_name });
+    }
+  }
+  return Ok(null);
+}
+
+/// Returns a boolean indicating whether the specified crate should be ignored
+/// during LTO.
+///
+/// Crates ignored during LTO are not lumped together in the "massive object
+/// file" that we create and are linked in their normal rlib states. See
+/// comments below for what crates do not participate in LTO.
+///
+/// It's unusual for a crate to not participate in LTO. Typically only
+/// compiler-specific and unstable crates have a reason to not participate in
+/// LTO.
+// rustc: compiler/rustc_codegen_ssa/src/back/link.rs:1839 ignored_for_lto
+export function ignored_for_lto(sess: Session, info: CrateInfo, cnum: CrateNum): boolean {
+  // If our target enables builtin function lowering in LLVM then the
+  // crates providing these functions don't participate in LTO (e.g.
+  // no_builtins or compiler builtins crates).
+  return !sess.target.options.no_builtins && (info.compiler_builtins === cnum || info.is_no_builtins.has(cnum));
 }
 
 // rustc: compiler/rustc_codegen_ssa/src/back/link.rs:3780 are_upstream_rust_objects_already_included

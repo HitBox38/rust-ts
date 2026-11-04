@@ -3,10 +3,10 @@
 // `yield_active_thread` (thread.ts) with the vendored `StdRng`, and asserts every scheduling decision, every preemption
 // draw's outcome, and the rng's next word after the run (`tail=`), so a missing or extra draw anywhere fails.
 //
-// The fixture is the output of the probe in docs/handoff/miri-threads-probe (upstream's scheduler.rs `schedule` and
+// The fixture is the output of the registered probe tools/probes/mirisched (upstream's scheduler.rs `schedule` and
 // thread.rs `maybe_preempt_active_thread` transcribed verbatim over the same std iterator chain, built against the real
-// rand 0.10.1 through upstream's Cargo.lock, seeded as MiriMachine::new seeds it). PORT: until a registered probe
-// regenerates it (a harness item), the fixture is committed, as alloc_addresses/addresses.oracle.txt is.
+// rand 0.10.1 through upstream's Cargo.lock, seeded as MiriMachine::new seeds it); `bun scripts/probes.ts fixture
+// mirisched` regenerates it and tools/probes/fixtures.test.ts checks it.
 //
 // The interpreter around these fns is a test double (as in threads.test.ts): a real `ThreadManager`, `BlockingIoManager`
 // and `StdRng`, data race detection off, isolation on, no deadlines. The scripted events (spawn, block, unblock, yield,

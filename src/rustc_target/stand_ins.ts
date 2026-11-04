@@ -1,8 +1,7 @@
 // Not an upstream mirror. PORT: stand-ins for rustc_target's dependencies that are not ported yet.
 //   rustc_structures   SanitizerSet (`pub use rustc_structures::SanitizerSet` in spec/mod.rs; the hir-def
 //                      lane ports rustc_structures: replace this by a re-export of its module then)
-import type { Debug } from "../std/fmt.ts";
-import { panic, unported } from "../std/panic.ts";
+import { panic } from "../std/panic.ts";
 
 /** rustc_structures/src/sanitizer_set.rs:9 `bitflags! SanitizerSet: u16` (values copied). */
 export type SanitizerSet = number;
@@ -137,6 +136,4 @@ export const SanitizerSet = {
       .join(", ");
   },
 } as const;
-// PORT: `external_bitflags_debug!` (rustc_data_structures) is not ported.
-export const debug_SanitizerSet: Debug<SanitizerSet> = () => unported("rustc_structures::SanitizerSet Debug");
 

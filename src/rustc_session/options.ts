@@ -21,7 +21,7 @@ import type { MutRef } from "../rustc_span/hygiene.ts";
 import { SourceFileHashAlgorithm } from "../rustc_span/lib.ts";
 import { is_whitespace } from "../std/char.ts";
 import { type Debug, debug_str, debug_struct } from "../std/fmt.ts";
-import { assert, panic, unported } from "../std/panic.ts";
+import { assert, panic } from "../std/panic.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
 import {
   type AnnotateMoves,
@@ -221,24 +221,74 @@ export interface ExtendedTargetModifierInfo {
 }
 
 // PORT: `mod target_modifier_consistency_check` (options.rs:90, between `struct TargetModifier` and its
-// impl; the TS class holds both, so the module comes first) -> a const object of its fns. They read
-// `sess.target` / `sess.sanitizers()` (session.rs, rustc_target), which are not ported yet.
+// impl; the TS class holds both, so the module comes first) -> a const object of its fns.
 const target_modifier_consistency_check = {
   // rustc: compiler/rustc_session/src/options.rs:92 sanitizer
-  sanitizer(_sess: Session, _l: TargetModifier, _r: TargetModifier | undefined): boolean {
-    unported("rustc_session::options::target_modifier_consistency_check::sanitizer (Session::target, SanitizerSet::combine_with_defaults)");
+  sanitizer(sess: Session, l: TargetModifier, r: TargetModifier | undefined): boolean {
+    const lparsed_: MutRef<SanitizerSet> = { value: SanitizerSet.empty() };
+    const lval = l.value_name.length === 0 ? undefined : l.value_name;
+    parse_sanitizers(lparsed_, lval);
+    const lparsed = SanitizerSet.combine_with_defaults(lparsed_.value, sess.target.options.default_sanitizers);
+
+    const rparsed_: MutRef<SanitizerSet> = { value: SanitizerSet.empty() };
+    const rval = r === undefined || r.value_name.length === 0 ? undefined : r.value_name;
+    parse_sanitizers(rparsed_, rval);
+    const rparsed = SanitizerSet.combine_with_defaults(rparsed_.value, sess.target.options.default_sanitizers);
+
+    // Some sanitizers need to be target modifiers, and some do not.
+    // For now, we should mark all sanitizers as target modifiers except for these:
+    // AddressSanitizer, LeakSanitizer
+    const tmod_sanitizers =
+      SanitizerSet.MEMORY |
+      SanitizerSet.THREAD |
+      SanitizerSet.HWADDRESS |
+      SanitizerSet.CFI |
+      SanitizerSet.MEMTAG |
+      SanitizerSet.SHADOWCALLSTACK |
+      SanitizerSet.KCFI |
+      SanitizerSet.KERNELADDRESS |
+      SanitizerSet.KERNELHWADDRESS |
+      SanitizerSet.SAFESTACK |
+      SanitizerSet.DATAFLOW;
+
+    return (lparsed & tmod_sanitizers) === (rparsed & tmod_sanitizers);
   },
   // rustc: compiler/rustc_session/src/options.rs:124 sanitizer_cfi_normalize_integers
-  sanitizer_cfi_normalize_integers(_sess: Session, _l: TargetModifier, _r: TargetModifier | undefined): boolean {
-    unported("rustc_session::options::target_modifier_consistency_check::sanitizer_cfi_normalize_integers (Session::sanitizers)");
+  sanitizer_cfi_normalize_integers(sess: Session, l: TargetModifier, r: TargetModifier | undefined): boolean {
+    // For kCFI, the helper flag -Zsanitizer-cfi-normalize-integers should also be a target modifier
+    if (SanitizerSet.contains(sess.sanitizers(), SanitizerSet.KCFI)) {
+      if (r !== undefined) {
+        return l.extend().tech_value === r.extend().tech_value;
+      } else {
+        return false;
+      }
+    }
+    return true;
   },
   // rustc: compiler/rustc_session/src/options.rs:139 sanitizer_cfi_minimal_runtime
-  sanitizer_cfi_minimal_runtime(_sess: Session, _l: TargetModifier, _r: TargetModifier | undefined): boolean {
-    unported("rustc_session::options::target_modifier_consistency_check::sanitizer_cfi_minimal_runtime (Session::sanitizers)");
+  sanitizer_cfi_minimal_runtime(sess: Session, l: TargetModifier, r: TargetModifier | undefined): boolean {
+    // For CFI, the helper flag -Zsanitizer-cfi-minimal-runtime should also be a target modifier
+    if (SanitizerSet.contains(sess.sanitizers(), SanitizerSet.CFI)) {
+      if (r !== undefined) {
+        return l.extend().tech_value === r.extend().tech_value;
+      } else {
+        return false;
+      }
+    }
+    return true;
   },
   // rustc: compiler/rustc_session/src/options.rs:154 target_cpu
-  target_cpu(_sess: Session, _l: TargetModifier, _r: TargetModifier | undefined): boolean {
-    unported("rustc_session::options::target_modifier_consistency_check::target_cpu (Session::target)");
+  target_cpu(sess: Session, l: TargetModifier, r: TargetModifier | undefined): boolean {
+    if (!sess.target.options.requires_consistent_cpu) {
+      return true;
+    }
+    const l_tech_value = l.extend().tech_value;
+    // If only one of the two compared crates specifies the CPU
+    // explicitly we compare against the target's default CPU.
+    // We reuse the same parsing logic.
+    const r_tech_value =
+      r !== undefined ? r.extend().tech_value : OptionsTargetModifiers.reparse({ $: "CodegenOptions", _0: "TargetCpu" }, sess.target.options.cpu).tech_value;
+    return l_tech_value === r_tech_value;
   },
 };
 

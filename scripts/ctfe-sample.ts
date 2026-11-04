@@ -20,7 +20,7 @@
 // Output: the counts per class and the most frequent details of each (the full report in
 // `$RUST_TS_DATA/ctfe-sample/<run id>/report.txt`, one JSON line per file in `results.jsonl`). Exit 1 with an
 // `ERROR:` line when any file failed (differed, crashed, port-timeout), 0 otherwise.
-import { readdirSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { DATA, REPO, UPSTREAM, die, ensureDir, nowId, parseArgs, pool, requireUpstream } from "./lib/common.ts";
 import { caseEnv, mergeEnv } from "./lib/env.ts";
@@ -89,6 +89,7 @@ if (import.meta.main) {
   let pick: string[];
   if (typeof a.file === "string") {
     pick = [join(UPSTREAM, a.file)];
+    if (!existsSync(pick[0]!)) die(`--file ${a.file}: no such file in the upstream checkout (${UPSTREAM})`);
   } else {
     const dir = typeof a.dir === "string" ? a.dir : DEFAULTS.dir;
     pick = sampleFiles(rsFiles(join(UPSTREAM, dir)), n);

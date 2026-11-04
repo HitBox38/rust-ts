@@ -104,6 +104,24 @@ export interface CaseResult {
   retried?: true;
 }
 
+/** `unportedBuckets` key of an UNPORTED case whose subject printed no `rust-ts: unported:` line. */
+export const UNPORTED_NO_REASON = "(no reason printed)";
+
+/**
+ * Summary `unportedBuckets` (lane harness-w38): how many UNPORTED cases stopped on each reason, most frequent first
+ * (ties by reason), summing to the summary's `UNPORTED` count. A split suite's section rows carry no reason of their own
+ * (the run case does): `reasons` gives it, by row id.
+ */
+export function unportedBuckets(results: readonly CaseResult[], reasons?: ReadonlyMap<string, string>): Record<string, number> {
+  const n = new Map<string, number>();
+  for (const r of results) {
+    if (r.status !== "UNPORTED") continue;
+    const why = r.unported ?? reasons?.get(r.id) ?? UNPORTED_NO_REASON;
+    n.set(why, (n.get(why) ?? 0) + 1);
+  }
+  return Object.fromEntries([...n].sort(([a, x], [b, y]) => y - x || (a < b ? -1 : a > b ? 1 : 0)));
+}
+
 /** ORACLE_TIMEOUT cases by what the subject did (see `CaseResult.subject`). */
 export interface OracleTimeoutSubjects {
   ok: number;
@@ -659,6 +677,8 @@ interface SplitRunResult {
   heavy?: HeavyRun;
   /** The oracle's re-run for the diff files' text, if there was one (see the header). */
   oracleRerun?: OracleRerun;
+  /** A run-level UNPORTED: what the subject reported, which is the reason of every UNPORTED row of the run. */
+  unported?: string;
 }
 
 /** A split run's second oracle process (see the header): summary and gate.json `oracleReruns`. */
@@ -743,12 +763,13 @@ export async function runSplit(s: Suite, c: Case, impl: string, stats: SubjectSt
   let extra: string[] = [];
   let r2: ProcResult | undefined;
   let oracleRerun: OracleRerun | undefined;
+  let runUnported: string | undefined;
   if (fresh.unstable) results = all(o, { id: c.id, status: "UNSTABLE", unstable: fresh.unstable, subject: subjectEnd(r) });
   else if (runLevel) {
     const head: CaseResult = { id: c.id, status: runLevel };
     if (runLevel === "UNPORTED") {
-      const what = unportedOf(r);
-      if (what !== undefined) head.unported = what;
+      runUnported = unportedOf(r);
+      if (runUnported !== undefined) head.unported = runUnported;
     } else if (runLevel !== "TIMEOUT") {
       // Exit codes differ: stderr and exit code tell why (the stdout of either side may be a whole crate's dump).
       const ot = runCaseText("", o.stderr, o.code);
@@ -821,7 +842,7 @@ export async function runSplit(s: Suite, c: Case, impl: string, stats: SubjectSt
     diffs.delete(x.id);
     return { id: x.id, status: "UNSTABLE", unstable: why };
   });
-  return { results, diffs, extra: extra.map(secId), heavy: heavyOf(r2), ...(oracleRerun ? { oracleRerun } : {}) };
+  return { results, diffs, extra: extra.map(secId), heavy: heavyOf(r2), ...(oracleRerun ? { oracleRerun } : {}), ...(runUnported !== undefined ? { unported: runUnported } : {}) };
 }
 
 export interface RunOptions {
@@ -1009,6 +1030,8 @@ export async function difftest(
   /** Split suites: ids of the sections only the subject printed (see the header). */
   const extra: { run: string; id: string }[] = [];
   const oracleReruns: OracleRerun[] = [];
+  /** Split suites: the reason of each UNPORTED row (see `unportedBuckets`). */
+  const splitReasons = new Map<string, string>();
   if (split) {
     const reported: CaseResult[] = [];
     const diffTexts = new Map<string, string>();
@@ -1019,6 +1042,7 @@ export async function difftest(
       if (sr.oracleRerun) oracleReruns.push(sr.oracleRerun);
       for (const id of sr.extra) extra.push({ run: c.id, id });
       for (const x of sr.results) if (!opts.filter || x.id.includes(opts.filter)) reported.push(x);
+      if (sr.unported !== undefined) for (const x of sr.results) if (x.status === "UNPORTED") splitReasons.set(x.id, sr.unported);
       for (const [id, t] of sr.diffs) diffTexts.set(id, t);
     });
     for (const x of opts.sample ? sample(reported, opts.sample, seed) : reported) {
@@ -1076,6 +1100,7 @@ export async function difftest(
     ...(timedOut.length ? { subjectTimeoutRetries: retries } : {}),
     ...(s.skipped ? { skipped: skipped.length } : {}),
     ...(counts.ORACLE_TIMEOUT ? { oracleTimeoutSubjects } : {}),
+    ...(counts.UNPORTED ? { unportedBuckets: unportedBuckets(results, splitReasons) } : {}),
     ...(subsets ? { subsets } : {}),
     ...(blessed ? { blessed } : {}),
     ...(upstreamBefore.length ? { upstreamDirty: upstreamBefore } : {}),

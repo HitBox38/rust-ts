@@ -1,0 +1,11 @@
+error: Undefined Behavior: memory access failed: attempting to access 16 bytes, but got null pointer
+  --> err_ldu_null.rs:16:5
+   |
+16 |     ldu(std::ptr::null());
+   |     ^^^^^^^^^^^^^^^^^^^^^ Undefined Behavior occurred here
+   |
+   = help: this indicates a bug in the program: it performed an invalid operation, and caused Undefined Behavior
+   = help: see https://doc.rust-lang.org/nightly/reference/behavior-considered-undefined.html for further information
+
+error: aborting due to 1 previous error
+

@@ -1,0 +1,2 @@
+thread 'rustc' panicked at /rustc/6f5da406b56c2db6607202b63daee73aa8c61297/src/tools/miri/src/intrinsics/x86/mod.rs:206:13:
+invalid `imm` parameter of llvm.x86.sse.cmp.ss: 0xff
