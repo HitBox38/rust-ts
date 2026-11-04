@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { debug_Token, FrontmatterAllowed, strip_shebang, tokenize } from "../rustc_lexer/lib.ts";
 import { PLAIN, debug_option, debug_int } from "../std/fmt.ts";
 import { Str } from "../std/str.ts";
+import { write_stdout } from "../std/io.ts";
 
 const decoder = new TextDecoder("utf-8", { fatal: true });
 
@@ -21,8 +22,8 @@ for (const path of process.argv.slice(2)) {
   out += `file: ${path}\nshebang: ${debug_option(shebang, PLAIN, debug_int)}\n`;
   for (const tok of tokenize(src.slice(shebang ?? 0), FrontmatterAllowed.Yes)) out += debug_Token(tok, PLAIN) + "\n";
   if (out.length > 1 << 20) {
-    process.stdout.write(out);
+    write_stdout(out);
     out = "";
   }
 }
-process.stdout.write(out);
+write_stdout(out);

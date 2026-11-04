@@ -15,6 +15,7 @@ import type { Compiler } from "../rustc_interface/interface.ts";
 import { EarlyDiagCtxt } from "../rustc_session/session.ts";
 import { ErrorOutputType } from "../rustc_session/config.ts";
 import { Panic, Unported } from "../std/panic.ts";
+import { write_stderr, write_stdout } from "../std/io.ts";
 
 async function main(): Promise<number> {
   const { catch_with_exit_code, compiler_entrypoint } = await import("../rustc_driver_impl/lib.ts");
@@ -27,7 +28,7 @@ async function main(): Promise<number> {
   const CStore = creader.CStore;
   const maybe_resolve_crate = CStore.prototype.maybe_resolve_crate;
   CStore.prototype.maybe_resolve_crate = function (this: InstanceType<typeof CStore>, ...args: Parameters<typeof maybe_resolve_crate>) {
-    process.stdout.write(`resolving crate \`${Symbol.as_str(args[1])}\`\n`);
+    write_stdout(`resolving crate \`${Symbol.as_str(args[1])}\`\n`);
     return maybe_resolve_crate.apply(this, args);
   };
 
@@ -53,11 +54,11 @@ try {
   process.exitCode = await main();
 } catch (e) {
   if (e instanceof Unported) {
-    process.stderr.write(`rust-ts: unported: ${e.what}\n`);
+    write_stderr(`rust-ts: unported: ${e.what}\n`);
     process.exitCode = 70;
   } else {
     const msg = e instanceof Panic ? e.message : String(e);
-    process.stderr.write(`rust-ts: internal compiler error: ${msg}\n${e instanceof Error ? e.stack : ""}\n`);
+    write_stderr(`rust-ts: internal compiler error: ${msg}\n${e instanceof Error ? e.stack : ""}\n`);
     process.exitCode = 101;
   }
 }

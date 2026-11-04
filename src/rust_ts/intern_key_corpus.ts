@@ -14,6 +14,7 @@
 import { INTERNED } from "../rustc_data_structures/intern.ts";
 import { panic } from "../std/panic.ts";
 import { intern_key, intern_key_eq, set_intern_key_observer } from "./intern_key.ts";
+import { write_stdout } from "../std/io.ts";
 
 function push_key(v: unknown, out: string[]): void {
   switch (typeof v) {
@@ -183,7 +184,7 @@ async function main(argv: string[]): Promise<void> {
     for (const v of kept) len += intern_key(v).length;
     s.avg_key_len = Math.round(len / kept.length);
   }
-  process.stdout.write(`${JSON.stringify(s)}\n`);
+  write_stdout(`${JSON.stringify(s)}\n`);
 }
 
 if (import.meta.main) await main(process.argv.slice(2));

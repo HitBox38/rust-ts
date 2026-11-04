@@ -36,13 +36,27 @@ export function miri_program_env(base: Record<string, string | undefined> = proc
   return mergeEnv(base, caseEnv({ ...MIRI_CASE_ENV, RUSTC_ICE: "0", RUST_BACKTRACE: "0" }, base));
 }
 
+/** The oracle's and the port's command lines on `file`. */
+function miri_program_cmds(file: string, flags: readonly string[], program_args: readonly string[]): { oracle: string[]; port: string[] } {
+  const argv = [basename(file), "--edition", "2021", "--sysroot", MIRI_SYSROOT, "--target", miriPin().target, ...flags];
+  if (program_args.length > 0) argv.push("--", ...program_args);
+  return { oracle: [miriBinary(), ...argv], port: [process.execPath, join(REPO, "src/miri/bin/miri.ts"), ...argv] };
+}
+
 /** The oracle's and the port's result on `file`, with Miri flags `flags` and the program's arguments `program_args`. */
 export function run_miri_program(file: string, flags: readonly string[] = [], program_args: readonly string[] = []): { oracle: MiriRun; port: MiriRun } {
   const env = miri_program_env();
-  const argv = [basename(file), "--edition", "2021", "--sysroot", MIRI_SYSROOT, "--target", miriPin().target, ...flags];
-  if (program_args.length > 0) argv.push("--", ...program_args);
-  return {
-    oracle: run([miriBinary(), ...argv], file, env),
-    port: run([process.execPath, join(REPO, "src/miri/bin/miri.ts"), ...argv], file, env),
-  };
+  const cmds = miri_program_cmds(file, flags, program_args);
+  return { oracle: run(cmds.oracle, file, env), port: run(cmds.port, file, env) };
+}
+
+/**
+ * Each side's stderr, read through a real `pipe(2)` made by the shell. A pipe from `spawnSync` or `Bun.spawn` holds far
+ * more (Bun gives the child a socket, with about 512 KiB before a write has to wait), so it hides what a smaller buffer shows.
+ */
+export function run_miri_program_stderr_pipe(file: string, flags: readonly string[] = []): { oracle: string; port: string } {
+  const env = miri_program_env();
+  const cmds = miri_program_cmds(file, flags, []);
+  const through_pipe = (cmd: string[]) => run(["/bin/sh", "-c", `"$@" 2>&1 >/dev/null | cat`, "sh", ...cmd], file, env).stdout;
+  return { oracle: through_pipe(cmds.oracle), port: through_pipe(cmds.port) };
 }

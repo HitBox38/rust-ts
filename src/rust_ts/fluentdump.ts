@@ -17,6 +17,7 @@ import { debug_str, PLAIN, PRETTY } from "../std/fmt.ts";
 import { Str } from "../std/str.ts";
 import { debug_Result, parse, parse_runtime } from "../vendor/fluent_syntax/parser/mod.ts";
 import { Panic, Unported } from "../std/panic.ts";
+import { write_stderr, write_stdout } from "../std/io.ts";
 
 interface Record {
   provenance: string[];
@@ -164,20 +165,20 @@ try {
       else out += parse_and_dump(`generated_msg = ${rec.message}\n`);
     });
     if (out.length > 1 << 20) {
-      process.stdout.write(out);
+      write_stdout(out);
       out = "";
     }
   }
-  process.stdout.write(out);
+  write_stdout(out);
 } catch (e) {
   // Same exit-code contract as src/rust_ts/main.ts: 70 = reached unported code, 101 = ICE.
-  process.stdout.write(out);
+  write_stdout(out);
   if (e instanceof Unported) {
-    process.stderr.write(`rust-ts: unported: ${e.what}\n`);
+    write_stderr(`rust-ts: unported: ${e.what}\n`);
     process.exitCode = 70;
   } else {
     const msg = e instanceof Panic ? e.message : String(e);
-    process.stderr.write(`rust-ts: internal compiler error: ${msg}\n${e instanceof Error ? e.stack : ""}\n`);
+    write_stderr(`rust-ts: internal compiler error: ${msg}\n${e instanceof Error ? e.stack : ""}\n`);
     process.exitCode = 101;
   }
 }

@@ -33,7 +33,7 @@ import { display_Ty } from "../../../rustc_middle/ty/print/pretty.ts";
 import { PLAIN } from "../../../std/fmt.ts";
 import { assert, assert_eq, panic, unwrap } from "../../../std/panic.ts";
 import { Err } from "../../../std/result.ts";
-import { writeSync } from "node:fs";
+import { write_stderr } from "../../../std/io.ts";
 export * from "./mod.gen.ts";
 
 // pub mod diagnostics; mod foreign_access_skipping; mod perms; mod tree; mod tree_visitor; mod unimap; mod wildcard;
@@ -99,9 +99,7 @@ function err_ub(info: UndefinedBehaviorInfo): InterpErrorKind {
 
 /** `eprintln!` (PORT: synchronous write to fd 2, as borrow_tracker/mod.ts). */
 function eprintln(s: string): void {
-  const buf = new TextEncoder().encode(`${s}\n`);
-  let off = 0;
-  while (off < buf.length) off += writeSync(2, buf, off);
+  write_stderr(`${s}\n`);
 }
 
 // impl<'tcx> Tree

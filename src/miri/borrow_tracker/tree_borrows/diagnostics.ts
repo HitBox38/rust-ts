@@ -8,7 +8,6 @@
 // a synchronous write to fd 2, as in borrow_tracker/mod.ts. `err_machine_stop!(TerminationInfo::..)` is miri-driver's
 // `TerminationInfo_into_machine_stop(info)`, read through the namespace import at call time (miri-sb's note).
 // PORT: `DisplayIndent::write(&self, s: &mut String)` takes a `MutRef<string>` (PORTING §8).
-import { writeSync } from "node:fs";
 import * as borrow_tracker from "../mod.ts";
 import { type BorTag, BorTag as BorTag_, debug_BorTag, type ProtectorKind } from "../mod.ts";
 import * as gen from "./diagnostics.gen.ts";
@@ -28,6 +27,7 @@ import { PLAIN } from "../../../std/fmt.ts";
 import { type MutRef } from "../../../std/mut_ref.ts";
 import { assert, panic, unported, unreachable, unwrap } from "../../../std/panic.ts";
 import { utf8_len } from "../../../std/str.ts";
+import { write_stderr } from "../../../std/io.ts";
 export * from "./diagnostics.gen.ts";
 
 // ---- Items of perms.rs not declared in its stub, with upstream's signatures (the stub's inventory lists them: `impl
@@ -54,9 +54,7 @@ export function fmt_Permission(self: Permission): string {
 
 /** `eprintln!` (PORT: synchronous write to fd 2, as rustc_mir_transform/pass_manager.ts). */
 function eprintln(s: string): void {
-  const buf = new TextEncoder().encode(`${s}\n`);
-  let off = 0;
-  while (off < buf.length) off += writeSync(2, buf, off);
+  write_stderr(`${s}\n`);
 }
 
 /** `s.chars().count()` (the UTF-16 length of the string is not it). */

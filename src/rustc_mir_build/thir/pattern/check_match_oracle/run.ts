@@ -11,6 +11,7 @@ import "../../../../rustc_middle/lib.ts";
 import { Symbol } from "../../../../rustc_span/symbol.ts";
 import { Unported } from "../../../../std/panic.ts";
 import "../../../lib.ts";
+import { write_stdout } from "../../../../std/io.ts";
 
 class CaptureConfig extends Error {}
 function config_from_args(args: string[]): Config {
@@ -54,7 +55,7 @@ function main(): void {
     // the session's own abort (errors emitted) after the closure ran
     if (lines.length === 0) throw e;
   }
-  process.stdout.write(lines.map((l) => `${l}\n`).join(""));
+  write_stdout(lines.map((l) => `${l}\n`).join(""));
 }
 
 main();

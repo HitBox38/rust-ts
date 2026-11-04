@@ -335,31 +335,60 @@ export function handle_ebadf<T>(r: IoResult<T>, default_: () => IoResult<T>): Io
   return r;
 }
 
+/** `Write::write_all` (library/core/src/io/write.rs:214) over `write(2)` on the host's fd 1 or 2.
+ *  PORT: `EAGAIN` is retried: a pipe on these fds can be non-blocking, which std's stdio never expects. Bun makes it so
+ *  when anything touches `process.stdout` / `process.stderr`, and the flag is on the open file, so it can also come
+ *  from the parent process or from the other fd of a `2>&1`. */
+function stdio_write_all(fd: 1 | 2, buf: Uint8Array): IoResult<null> {
+  let off = 0;
+  while (off < buf.length) {
+    let n: number;
+    try {
+      n = writeSync(fd, buf, off, buf.length - off);
+    } catch (e) {
+      const code = (e as { code?: string }).code;
+      // Err(ref e) if e.is_interrupted() => {}
+      if (code === "EINTR" || code === "EAGAIN") continue;
+      return Err(io_error_from_node(e));
+    }
+    if (n === 0) return Err(WRITE_ALL_EOF);
+    off += n;
+  }
+  return Ok(null);
+}
+
 /** `<StdoutRaw as Write>::write_all` (library/std/src/io/stdio.rs:179): `handle_ebadf(self.0.write_all(buf), || Ok(()))`,
  *  so a closed or unwritable fd 1 swallows the output, as rustc's `io::stdout()` does.
- *  The inner `write_all` is `Write::write_all` (library/core/src/io/write.rs:214) over `write(2)` on fd 1.
  *  PORT: `Stdout` is line-buffered (`LineWriter<StdoutRaw>`); this writes through unbuffered. For EBADF and for
  *  normal output the result is the same (EBADF is swallowed either way). For other write errors (ENOSPC, EIO)
  *  upstream may hold a short write in its buffer and drop the error at the final flush on exit, while this reports
- *  it at once (as the port did before). `EAGAIN` is retried: Bun may leave a pipe on fd 1 non-blocking, which
- *  rustc's stdout never is. */
+ *  it at once (as the port did before). */
 export function stdout_write_all(buf: Uint8Array): IoResult<null> {
-  const inner = (): IoResult<null> => {
-    let off = 0;
-    while (off < buf.length) {
-      let n: number;
-      try {
-        n = writeSync(1, buf, off, buf.length - off);
-      } catch (e) {
-        const code = (e as { code?: string }).code;
-        // Err(ref e) if e.is_interrupted() => {}
-        if (code === "EINTR" || code === "EAGAIN") continue;
-        return Err(io_error_from_node(e));
-      }
-      if (n === 0) return Err(WRITE_ALL_EOF);
-      off += n;
-    }
-    return Ok(null);
-  };
-  return handle_ebadf(inner(), () => Ok(null));
+  return handle_ebadf(stdio_write_all(1, buf), () => Ok(null));
+}
+
+/** `<StderrRaw as Write>::write_all` (library/std/src/io/stdio.rs:211): `handle_ebadf(self.0.write_all(buf), || Ok(()))`.
+ *  Upstream's `Stderr` is unbuffered, so nothing differs here. */
+export function stderr_write_all(buf: Uint8Array): IoResult<null> {
+  return handle_ebadf(stdio_write_all(2, buf), () => Ok(null));
+}
+
+const utf8_encoder = new TextEncoder();
+const stdio_bytes = (data: string | Uint8Array): Uint8Array => (typeof data === "string" ? utf8_encoder.encode(data) : data);
+
+/** `print!("{data}")`: `print_to` (library/std/src/io/stdio.rs:1199) panics on a failed write.
+ *  PORT: the way to write to stdout from ported code and from drivers. Never use `process.stdout.write`: see `write_stderr`. */
+export function write_stdout(data: string | Uint8Array): void {
+  const r = stdout_write_all(stdio_bytes(data));
+  if (r.$ === "Err") panic(`failed printing to stdout: ${display_IoError(r._0)}`);
+}
+
+/** `eprint!("{data}")`: `print_to` (library/std/src/io/stdio.rs:1199) panics on a failed write.
+ *  PORT: the way to write to stderr from ported code and from drivers. Never use `process.stderr.write`. On a pipe that
+ *  stream writes what fits and queues the rest for the event loop (about 64 KiB on macOS). So a synchronous write made
+ *  after it, which is all the diagnostics, lands in the middle of the text, and whatever is still queued at
+ *  `process.exit` is lost. Merely touching `process.stderr` also makes the pipe non-blocking for every later write. */
+export function write_stderr(data: string | Uint8Array): void {
+  const r = stderr_write_all(stdio_bytes(data));
+  if (r.$ === "Err") panic(`failed printing to stderr: ${display_IoError(r._0)}`);
 }

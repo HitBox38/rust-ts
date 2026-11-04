@@ -5,7 +5,6 @@
 // is the parallel front-end's deadlock handler and is not ported: single-threaded rustc finds cycles
 // on the query stack (`find_cycle_in_stack`), which is ported. Shard locks never contend, so the three
 // `CollectActiveJobsKind`s collect the same map.
-import { writeSync } from "node:fs";
 import type { TaggedQueryKey } from "../rustc_middle/queries.gen.ts";
 import { TaggedQueryKey as TaggedQueryKeyC } from "../rustc_middle/query/query_api.ts";
 import { clone_QueryJob, type QueryCycle, type QueryJob, type QueryJobId, type QueryLatch, type QueryStackFrame } from "../rustc_middle/query/job.ts";
@@ -13,8 +12,8 @@ import type { QueryVTable } from "../rustc_middle/query/system.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import type { Span } from "../rustc_span/lib.ts";
 import { panic } from "../std/panic.ts";
-import { utf8 as utf8_bytes } from "../std/str.ts";
 import { for_each_query_vtable } from "./query_vtables.ts";
+import { write_stderr } from "../std/io.ts";
 
 /// Map from query job IDs to job information collected by
 /// `collect_active_query_jobs`.
@@ -158,9 +157,7 @@ export function find_dep_kind_root(tcx: TyCtxt, id: QueryJobId, job_map: QueryJo
 
 /** `eprintln!` (PORT: synchronous write to fd 2, like the driver's `std_print`). */
 function eprintln(s: string): void {
-  const buf = utf8_bytes(`${s}\n`);
-  let off = 0;
-  while (off < buf.length) off += writeSync(2, buf, off);
+  write_stderr(`${s}\n`);
 }
 
 /**

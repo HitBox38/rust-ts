@@ -11,6 +11,7 @@
 //   bun run.ts <rustc arguments...>
 import type { Compiler, Config } from "../../../../rustc_interface/interface.ts";
 import type { TyCtxt } from "../../../../rustc_middle/ty/context.ts";
+import { write_stderr, write_stdout } from "../../../../std/io.ts";
 
 async function main(argv: string[]): Promise<number> {
   const { catch_with_exit_code, compiler_entrypoint } = await import("../../../../rustc_driver_impl/lib.ts");
@@ -45,7 +46,7 @@ async function main(argv: string[]): Promise<number> {
         const w = new VecU8();
         const wr = MirWriter.new(tcx).write_mir_fn(body, w);
         if (wr.$ === "Err") throw new Error(`ERROR: write_mir_fn: ${debug_IoError(wr._0, PLAIN)}`);
-        process.stdout.write(new TextDecoder("utf-8", { fatal: true }).decode(w.bytes()));
+        write_stdout(new TextDecoder("utf-8", { fatal: true }).decode(w.bytes()));
       }
       return "Stop" as const;
     },
@@ -59,7 +60,7 @@ try {
 } catch (e) {
   // Unported code exits 70 (UNPORTED), like the harness runners.
   if (e instanceof Unported) {
-    process.stderr.write(`rust-ts: unported: ${e.what}\n`);
+    write_stderr(`rust-ts: unported: ${e.what}\n`);
     process.exitCode = 70;
   } else {
     throw e;

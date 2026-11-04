@@ -11,6 +11,7 @@ import { ensure_stack } from "../../../../rust_ts/stack.ts";
 import { FatalErrorMarker } from "../../../../rustc_span/fatal_error.ts";
 import { Symbol } from "../../../../rustc_span/symbol.ts";
 import { Panic, Unported } from "../../../../std/panic.ts";
+import { write_stderr } from "../../../../std/io.ts";
 
 const extra = (process.env.X86_PROBE_FEATURES ?? "").split(",").filter((f) => f !== "");
 const target_config = LlvmCodegenBackend.prototype.target_config;
@@ -27,13 +28,13 @@ try {
   if (e instanceof MiriExit) {
     process.exitCode = e.code;
   } else if (e instanceof Unported) {
-    process.stderr.write(`rust-ts: unported: ${e.what}\n`);
+    write_stderr(`rust-ts: unported: ${e.what}\n`);
     process.exitCode = 70;
   } else if (e instanceof FatalErrorMarker) {
     process.exitCode = 101;
   } else {
     const msg = e instanceof Panic ? e.message : String(e);
-    process.stderr.write(`rust-ts: internal compiler error: ${msg}\n${e instanceof Error ? e.stack : ""}\n`);
+    write_stderr(`rust-ts: internal compiler error: ${msg}\n${e instanceof Error ? e.stack : ""}\n`);
     process.exitCode = 101;
   }
 }

@@ -1,6 +1,7 @@
 // rust-ts: io::Error Debug/Display against the oracle (rustc 1.101.0-nightly 6f5da406b, scratch
 // program: `io::Error::other(..)` and the `read_to_string` invalid-UTF-8 error).
 import { expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
 import { constants } from "node:os";
 import { join } from "node:path";
 import { PLAIN, PRETTY } from "./fmt.ts";
@@ -35,4 +36,50 @@ test.skipIf(process.platform === "win32")("stdout_write_all on a read-only fd 1 
   const r = Bun.spawnSync(["sh", "-c", 'exec "$0" -e "$1" 1</dev/null', process.execPath, script], { stdout: "pipe", stderr: "pipe" });
   expect(r.stderr.toString()).toBe(JSON.stringify(Ok(null)));
   expect(r.exitCode).toBe(0);
+});
+
+// miri-x86-a review O1. `process.stderr.write` on a pipe writes what fits and queues the rest for the event loop, so a
+// later synchronous write overtakes it and `process.exit` loses the queue; touching the stream makes the pipe non-blocking.
+// `write_stdout` / `write_stderr` have none of that, on a real pipe (the shell's: Bun's own hold far more).
+const IO_TS = join(import.meta.dir, "io.ts");
+const BIG = 1 << 20;
+function child_through_pipe(fd: 1 | 2, body: string): string {
+  const script = `import { writeSync } from "node:fs";
+    import { write_stdout, write_stderr } from ${JSON.stringify(IO_TS)};
+    const write = ${fd === 1 ? "write_stdout" : "write_stderr"};
+    ${body}
+    writeSync(${fd}, "AFTER\\n");
+    process.exit(3);`;
+  const redirect = fd === 1 ? `2>/dev/null` : `2>&1 >/dev/null`;
+  // `cat` starts reading late, so the pipe fills while the child writes.
+  const r = Bun.spawnSync(["/bin/sh", "-c", `"$@" ${redirect} | (sleep 0.3; cat)`, "sh", process.execPath, "-e", script], { stdout: "pipe", stderr: "inherit" });
+  return r.stdout.toString();
+}
+for (const fd of [1, 2] as const) {
+  const name = fd === 1 ? "write_stdout" : "write_stderr";
+  test(`${name}: a large write on a pipe is whole and in order`, () => {
+    const out = child_through_pipe(fd, `write("x".repeat(${BIG}) + "\\n");`);
+    expect(out.length).toBe(BIG + 7);
+    expect(out.endsWith("\nAFTER\n")).toBe(true);
+  });
+  test(`${name}: a pipe made non-blocking does not lose or fail a write`, () => {
+    const out = child_through_pipe(fd, `void process.std${fd === 1 ? "out" : "err"}; write(new TextEncoder().encode("y".repeat(${BIG}) + "\\n"));`);
+    expect(out.length).toBe(BIG + 7);
+    expect(out.endsWith("\nAFTER\n")).toBe(true);
+  });
+}
+
+test("nothing under src/ writes through process.stdout or process.stderr", () => {
+  const offenders: string[] = [];
+  const src = join(import.meta.dir, "..");
+  for (const f of new Bun.Glob("**/*.{ts,mts}").scanSync({ cwd: src })) {
+    if (/\.test\.m?ts$/.test(f) || f === "std/io.ts") continue;
+    const text = readFileSync(join(src, f), "utf8");
+    if (!text.includes("process.std")) continue;
+    for (const line of text.split("\n")) {
+      if (/^\s*(\/\/|\*)/.test(line)) continue;
+      if (/process\.std(out|err)\.write\b/.test(line)) offenders.push(`${f}: ${line.trim()}`);
+    }
+  }
+  expect(offenders).toEqual([]);
 });

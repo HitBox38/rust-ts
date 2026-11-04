@@ -386,10 +386,14 @@ export function fd_writer(fd: number): Writer {
     write_all(s: string): string | undefined {
       const bytes = Buffer.from(s, "utf8");
       let off = 0;
-      try {
-        while (off < bytes.length) off += writeSync(fd, bytes, off, bytes.length - off);
-      } catch (e) {
-        return String((e as Error).message);
+      while (off < bytes.length) {
+        try {
+          off += writeSync(fd, bytes, off, bytes.length - off);
+        } catch (e) {
+          // PORT: `EAGAIN` is retried: fd 2 can be a non-blocking pipe (src/std/io.ts `stdio_write_all`).
+          if ((e as { code?: string }).code === "EAGAIN") continue;
+          return String((e as Error).message);
+        }
       }
       return undefined;
     },

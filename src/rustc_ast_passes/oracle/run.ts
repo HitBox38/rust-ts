@@ -19,6 +19,7 @@ import type { Compiler, Config } from "../../rustc_interface/interface.ts";
 import { EarlyDiagCtxt } from "../../rustc_session/session.ts";
 import { ErrorOutputType } from "../../rustc_session/config.ts";
 import { Panic, Unported } from "../../std/panic.ts";
+import { write_stderr, write_stdout } from "../../std/io.ts";
 
 const EXIT_UNPORTED = 70;
 
@@ -47,7 +48,7 @@ async function main(): Promise<number> {
       for (const [, early_lints] of lints.map) {
         for (const l of early_lints) {
           const spans = (l.span?.primary_spans ?? []).map((s) => debug_Span(s, PLAIN));
-          process.stdout.write(`buffered lint: ${Lint.name_lower(l.lint_id.lint)} ${spans.join(", ")}\n`);
+          write_stdout(`buffered lint: ${Lint.name_lower(l.lint_id.lint)} ${spans.join(", ")}\n`);
         }
       }
       return "Stop";
@@ -62,11 +63,11 @@ try {
   process.exitCode = await main();
 } catch (e) {
   if (e instanceof Unported) {
-    process.stderr.write(`rust-ts: unported: ${e.what}\n`);
+    write_stderr(`rust-ts: unported: ${e.what}\n`);
     process.exitCode = EXIT_UNPORTED;
   } else {
     const msg = e instanceof Panic ? e.message : String(e);
-    process.stderr.write(`rust-ts: internal compiler error: ${msg}\n${e instanceof Error ? e.stack : ""}\n`);
+    write_stderr(`rust-ts: internal compiler error: ${msg}\n${e instanceof Error ? e.stack : ""}\n`);
     process.exitCode = 101;
   }
 }

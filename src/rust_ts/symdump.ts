@@ -6,6 +6,7 @@ import { ALL_EDITIONS, display_Edition } from "../rustc_span/edition.ts";
 import { display_Ident, Ident, kw, PREDEFINED_SYMBOLS_COUNT, sym, Symbol, debug_Symbol, used_keywords } from "../rustc_span/symbol.ts";
 import { PLAIN } from "../std/fmt.ts";
 import { Panic, Unported } from "../std/panic.ts";
+import { write_stderr, write_stdout } from "../std/io.ts";
 
 /** Sections that read the symbol interner (must match NEEDS_GLOBALS in the probe). */
 const NEEDS_GLOBALS = ["predefined", "integer", "character", "ident"];
@@ -103,7 +104,7 @@ function section(name: string): string {
       break;
     }
     default:
-      process.stderr.write(`symdump: unknown section ${JSON.stringify(name)}\n`);
+      write_stderr(`symdump: unknown section ${JSON.stringify(name)}\n`);
       process.exit(2);
   }
   return out;
@@ -117,16 +118,16 @@ try {
   };
   if (sections.some((s) => NEEDS_GLOBALS.includes(s))) create_default_session_globals_then(all);
   else all();
-  process.stdout.write(out);
+  write_stdout(out);
 } catch (e) {
   // Same exit-code contract as src/rust_ts/main.ts: 70 = reached unported code, 101 = ICE.
   if (e instanceof Unported) {
-    process.stderr.write(`rust-ts: unported: ${e.what}
+    write_stderr(`rust-ts: unported: ${e.what}
 `);
     process.exitCode = 70;
   } else {
     const msg = e instanceof Panic ? e.message : String(e);
-    process.stderr.write(`rust-ts: internal compiler error: ${msg}
+    write_stderr(`rust-ts: internal compiler error: ${msg}
 ${e instanceof Error ? e.stack : ""}
 `);
     process.exitCode = 101;

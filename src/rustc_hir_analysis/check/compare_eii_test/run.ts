@@ -18,6 +18,7 @@ import type { Symbol } from "../../../rustc_span/symbol.ts";
 import { EarlyBinder } from "../../../rustc_type_ir/binder.ts";
 import { Unnormalized } from "../../../rustc_type_ir/unnormalized.ts";
 import { Unported } from "../../../std/panic.ts";
+import { write_stderr } from "../../../std/io.ts";
 
 async function main(args: string[]): Promise<number> {
   const { catch_with_exit_code, compiler_entrypoint } = await import("../../../rustc_driver_impl/lib.ts");
@@ -61,7 +62,7 @@ async function main(args: string[]): Promise<number> {
     return catch_with_exit_code(() => compiler_entrypoint(["rustc", ...args], callbacks));
   } catch (e) {
     if (e instanceof Unported) {
-      process.stderr.write(`UNPORTED: ${e.what}\n`);
+      write_stderr(`UNPORTED: ${e.what}\n`);
       return 70;
     }
     throw e;

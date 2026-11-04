@@ -18,6 +18,7 @@ import type { Compiler, Config } from "../../rustc_interface/interface.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import { Panic, Unported } from "../../std/panic.ts";
 import { ensure_stack } from "../../rust_ts/stack.ts";
+import { write_stderr, write_stdout } from "../../std/io.ts";
 
 const EXIT_UNPORTED = 70;
 
@@ -49,7 +50,7 @@ async function main(): Promise<number> {
       const key = `${def}|${s.what}|${s.first}|${s.second}`;
       if (reported.has(key)) continue;
       reported.add(key);
-      process.stdout.write(`ALIAS ${this.pass_name}.${this.disambiguator} ${def} ${s.what} ${s.first} == ${s.second}\n`);
+      write_stdout(`ALIAS ${this.pass_name}.${this.disambiguator} ${def} ${s.what} ${s.first} == ${s.second}\n`);
     }
   };
 
@@ -91,13 +92,13 @@ async function main(): Promise<number> {
           }
         } catch (e) {
           if (!(e instanceof Unported)) throw e;
-          process.stdout.write(`STOP ${tcx.def_path_str(def)} ${e.what}\n`);
+          write_stdout(`STOP ${tcx.def_path_str(def)} ${e.what}\n`);
         }
       }
       for (const s of find_shared_mir_nodes([...new Set(finals)], "bodies", 10)) {
-        process.stdout.write(`ALIAS final-bodies ${s.what} ${s.first} == ${s.second}\n`);
+        write_stdout(`ALIAS final-bodies ${s.what} ${s.first} == ${s.second}\n`);
       }
-      process.stdout.write(`CHECKED ${dumps} ${[...passes].join(" ")}\n`);
+      write_stdout(`CHECKED ${dumps} ${[...passes].join(" ")}\n`);
       return "Stop";
     },
   };
@@ -110,11 +111,11 @@ try {
   process.exitCode = await main();
 } catch (e) {
   if (e instanceof Unported) {
-    process.stderr.write(`rust-ts: unported: ${e.what}\n`);
+    write_stderr(`rust-ts: unported: ${e.what}\n`);
     process.exitCode = EXIT_UNPORTED;
   } else {
     const msg = e instanceof Panic ? e.message : String(e);
-    process.stderr.write(`rust-ts: internal compiler error: ${msg}\n${e instanceof Error ? e.stack : ""}\n`);
+    write_stderr(`rust-ts: internal compiler error: ${msg}\n${e instanceof Error ? e.stack : ""}\n`);
     process.exitCode = 101;
   }
 }

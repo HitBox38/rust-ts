@@ -24,6 +24,7 @@ import { Panic, Unported } from "../std/panic.ts";
 import { Str } from "../std/str.ts";
 import { AutoStream, ColorChoice } from "../vendor/anstream/lib.ts";
 import { VecU8, dyn_write } from "../vendor/anstream/stream.ts";
+import { write_stderr, write_stdout } from "../std/io.ts";
 
 const encoder = new TextEncoder();
 // Validation only (`String::from_utf8`); the source is passed on as the file's own bytes, BOM included.
@@ -100,7 +101,7 @@ function main(): void {
   const out: Uint8Array[] = [];
   let size = 0;
   const flush = () => {
-    process.stdout.write(Buffer.concat(out));
+    write_stdout(Buffer.concat(out));
     out.length = 0;
     size = 0;
   };
@@ -139,11 +140,11 @@ function main(): void {
   } catch (e) {
     flush();
     if (e instanceof Unported) {
-      process.stderr.write(`rust-ts: unported: ${e.what}\n`);
+      write_stderr(`rust-ts: unported: ${e.what}\n`);
       process.exitCode = 70;
     } else {
       const msg = e instanceof Panic ? e.message : String(e);
-      process.stderr.write(`rust-ts: internal compiler error: ${msg}\n${e instanceof Error ? e.stack : ""}\n`);
+      write_stderr(`rust-ts: internal compiler error: ${msg}\n${e instanceof Error ? e.stack : ""}\n`);
       process.exitCode = 101;
     }
   }

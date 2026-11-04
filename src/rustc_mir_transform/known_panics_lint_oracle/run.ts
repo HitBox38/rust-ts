@@ -20,6 +20,7 @@ import type { Compiler, Config } from "../../rustc_interface/interface.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import { Panic, Unported } from "../../std/panic.ts";
 import { ensure_stack } from "../../rust_ts/stack.ts";
+import { write_stderr, write_stdout } from "../../std/io.ts";
 
 const EXIT_UNPORTED = 70;
 if (process.env.KPL_ORACLE_STACK === "1") Error.stackTraceLimit = 200;
@@ -90,7 +91,7 @@ async function main(): Promise<number> {
             out += `// after ${pass.name()}\n${write(body)}`;
           }
         }
-        process.stdout.write(out);
+        write_stdout(out);
       }
       // `analysis`: "we exclude lint errors from this" (rustc_interface passes.rs).
       const guar = tcx.sess.dcx().has_errors_excluding_lint_errors();
@@ -108,12 +109,12 @@ try {
   process.exitCode = await main();
 } catch (e) {
   if (e instanceof Unported) {
-    process.stderr.write(`rust-ts: unported: ${e.what}\n`);
-    if (process.env.KPL_ORACLE_STACK === "1") process.stderr.write(`${e.stack}\n`);
+    write_stderr(`rust-ts: unported: ${e.what}\n`);
+    if (process.env.KPL_ORACLE_STACK === "1") write_stderr(`${e.stack}\n`);
     process.exitCode = EXIT_UNPORTED;
   } else {
     const msg = e instanceof Panic ? e.message : String(e);
-    process.stderr.write(`rust-ts: internal compiler error: ${msg}\n${e instanceof Error ? e.stack : ""}\n`);
+    write_stderr(`rust-ts: internal compiler error: ${msg}\n${e instanceof Error ? e.stack : ""}\n`);
     process.exitCode = 101;
   }
 }

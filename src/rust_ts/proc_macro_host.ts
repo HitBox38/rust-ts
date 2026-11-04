@@ -36,6 +36,7 @@ import type { Closure } from "../proc_macro/bridge/closure.ts";
 import type { BridgeConfig } from "../proc_macro/bridge/mod.ts";
 import { unported } from "../std/panic.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
+import { write_stderr } from "../std/io.ts";
 
 // ---------------------------------------------------------------------------------------------------------------
 // The C side
@@ -311,7 +312,7 @@ function dispatch_callback(env: number | null, io: number | null): void {
   const io_ = io ?? 0;
   if (frame === undefined || io_ === 0) {
     // Cannot happen (the C side only passes envs made by `dylib_run`); no way to report it from here.
-    process.stderr.write("rust-ts: proc_macro_host: dispatch callback with an unknown env\n");
+    write_stderr("rust-ts: proc_macro_host: dispatch callback with an unknown env\n");
     process.exit(101);
   }
   const s = struct_buffer();

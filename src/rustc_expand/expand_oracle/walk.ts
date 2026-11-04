@@ -30,6 +30,7 @@ import { path_parent } from "../../std/path.ts";
 import { ModuleData } from "../base.ts";
 import { StripUnconfigured, features, pre_configure_attrs } from "../config.ts";
 import { DirOwnership, mod_dir_path, mod_file_path_from_attr, parse_external_mod } from "../module.ts";
+import { write_stderr } from "../../std/io.ts";
 
 class CaptureConfig extends Error {}
 
@@ -189,6 +190,6 @@ process.exitCode = catch_with_exit_code(() => run_compiler(config, (compiler) =>
 } catch (e) {
   // As src/rust_ts/main.ts: unported code exits 70.
   if (!(e instanceof Unported)) throw e;
-  process.stderr.write(`unported: ${e.what}\n`);
+  write_stderr(`unported: ${e.what}\n`);
   process.exitCode = 70;
 }

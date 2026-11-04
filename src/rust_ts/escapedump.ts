@@ -21,6 +21,7 @@ import {
   unescape_char,
   unescape_str,
 } from "../vendor/rustc_literal_escaper/lib.ts";
+import { write_stdout } from "../std/io.ts";
 
 const decoder = new TextDecoder("utf-8", { fatal: true });
 const dchar: Debug<number> = (c) => debug_char(c);
@@ -104,9 +105,9 @@ for (const path of process.argv.slice(2)) {
     const end = start + tok.kind.suffix_start;
     out += dump(start, mode, src.slice(start + prefix_len, end - postfix_len));
     if (out.length > 1 << 20) {
-      process.stdout.write(out);
+      write_stdout(out);
       out = "";
     }
   }
 }
-process.stdout.write(out);
+write_stdout(out);
