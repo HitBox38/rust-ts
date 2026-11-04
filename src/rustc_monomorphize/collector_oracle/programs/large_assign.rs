@@ -9,8 +9,8 @@ pub struct NotCopy(pub [u8; 2000]);
 pub fn take_move(_: NotCopy) {}
 // A moved argument is passed by pointer, so it does not lint; a copied one does.
 pub fn moved(n: NotCopy) { take_move(n) }
-// Overlapping spans lint once: `a` in the tuple, then the whole tuple's statement.
-pub fn overlap(a: [u8; 2000], b: u8) -> ([u8; 2000], u8) { let c = (a, b); c }
+// Overlapping spans lint once: the moves inside the block, then the temporary in the whole tuple's statement.
+pub fn overlap(a: [u8; 2000]) -> ([u8; 2000], u8) { let c = ({ let x = a; x }, 1u8); c }
 pub fn f() -> ([u8; 2000], Box<[u8; 2000]>) {
     let a = [0u8; 2000];
     let b = a;

@@ -2,22 +2,22 @@ exit 0
 == MONO_ITEM
 MONO_ITEM fn may_unwind @@ no_core_lang_items.81b45970130c85e0-cgu.0[Internal]
 MONO_ITEM fn no_unwind @@ no_core_lang_items.81b45970130c85e0-cgu.0[External]
-MONO_ITEM fn panic_cannot_unwind @@ no_core_lang_items.81b45970130c85e0-cgu.0[External]
-MONO_ITEM fn panic_in_cleanup @@ no_core_lang_items.81b45970130c85e0-cgu.0[External]
-MONO_ITEM fn panic_nounwind @@ no_core_lang_items.81b45970130c85e0-cgu.0[External]
+MONO_ITEM fn panic_cannot_unwind @@ no_core_lang_items.81b45970130c85e0-cgu.0[Internal]
+MONO_ITEM fn panic_nounwind @@ no_core_lang_items.81b45970130c85e0-cgu.0[Internal]
 MONO_ITEM fn validity @@ no_core_lang_items.81b45970130c85e0-cgu.0[External]
+MONO_ITEM fn validity_gen::<u8> @@ no_core_lang_items.81b45970130c85e0-cgu.0[Internal]
 == FP
 FP 0242f79f85e1c28cce3286c701f47ed7 fn no_unwind
-FP 53c76eb81cbac8f68e115597f765b489 fn panic_in_cleanup
 FP a5567838167d022b676965fdd12c582a fn panic_cannot_unwind
+FP bc6b3a4ae58ef8edda023a84227df515 fn validity_gen::<u8>
 FP bc80c17f7729936cd224963d87556129 fn validity
 FP dad4188b10822fb5404c3b2b211fc482 fn panic_nounwind
 FP dc7174b53324cdae4ca868699f3eb293 fn may_unwind
 == stderr
 warning: function cannot return without recursing
-  --> $FILE:19:18
+  --> $FILE:20:18
    |
-19 | #[inline(never)] fn may_unwind() { may_unwind() }
+20 | #[inline(never)] fn may_unwind() { may_unwind() }
    |                  ^^^^^^^^^^^^^^^   ------------ recursive call site
    |                  |
    |                  cannot return without recursing
