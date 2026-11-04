@@ -1,0 +1,11 @@
+exit 0
+== stdout
+MONO_ITEM fn aaa::foo @@ incremental_merging.20ab3c513ad85504-aaa--incremental_merging.20ab3c513ad85504-bbb[External]
+MONO_ITEM fn bbb::foo @@ incremental_merging.20ab3c513ad85504-aaa--incremental_merging.20ab3c513ad85504-bbb[External]
+MONO_ITEM fn ccc::foo @@ incremental_merging.20ab3c513ad85504-ccc[External]
+MONO_ITEM fn ddd::foo @@ incremental_merging.20ab3c513ad85504-ddd[External]
+
+== stderr
+
+== dump
+<none>

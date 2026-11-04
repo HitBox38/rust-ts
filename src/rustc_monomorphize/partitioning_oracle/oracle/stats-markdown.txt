@@ -1,0 +1,99 @@
+exit 0
+== stdout
+MONO_ITEM fn Tied::method @@ stats.591f988c34cc9edb-cgu.0[External]
+MONO_ITEM fn f00 @@ stats.591f988c34cc9edb-cgu.0[External]
+MONO_ITEM fn f01 @@ stats.591f988c34cc9edb-cgu.0[External]
+MONO_ITEM fn f02 @@ stats.591f988c34cc9edb-cgu.0[External]
+MONO_ITEM fn f03 @@ stats.591f988c34cc9edb-cgu.0[External]
+MONO_ITEM fn f04 @@ stats.591f988c34cc9edb-cgu.0[External]
+MONO_ITEM fn f05 @@ stats.591f988c34cc9edb-cgu.0[External]
+MONO_ITEM fn f06 @@ stats.591f988c34cc9edb-cgu.0[External]
+MONO_ITEM fn f07 @@ stats.591f988c34cc9edb-cgu.0[External]
+MONO_ITEM fn f08 @@ stats.591f988c34cc9edb-cgu.0[External]
+MONO_ITEM fn f09 @@ stats.591f988c34cc9edb-cgu.0[External]
+MONO_ITEM fn f10 @@ stats.591f988c34cc9edb-cgu.0[External]
+MONO_ITEM fn f11 @@ stats.591f988c34cc9edb-cgu.0[External]
+MONO_ITEM fn f12 @@ stats.591f988c34cc9edb-cgu.0[External]
+MONO_ITEM fn f13 @@ stats.591f988c34cc9edb-cgu.0[External]
+MONO_ITEM fn f14 @@ stats.591f988c34cc9edb-cgu.0[External]
+MONO_ITEM fn f15 @@ stats.591f988c34cc9edb-cgu.0[External]
+MONO_ITEM fn f16 @@ stats.591f988c34cc9edb-cgu.0[External]
+MONO_ITEM fn f17 @@ stats.591f988c34cc9edb-cgu.0[External]
+MONO_ITEM fn f18 @@ stats.591f988c34cc9edb-cgu.0[External]
+MONO_ITEM fn f19 @@ stats.591f988c34cc9edb-cgu.0[External]
+MONO_ITEM fn f20 @@ stats.591f988c34cc9edb-cgu.0[External]
+MONO_ITEM fn f21 @@ stats.591f988c34cc9edb-cgu.0[External]
+MONO_ITEM fn f22 @@ stats.591f988c34cc9edb-cgu.0[External]
+MONO_ITEM fn f23 @@ stats.591f988c34cc9edb-cgu.0[External]
+MONO_ITEM fn f24 @@ stats.591f988c34cc9edb-cgu.0[External]
+MONO_ITEM fn f25 @@ stats.591f988c34cc9edb-cgu.0[External]
+MONO_ITEM fn f26 @@ stats.591f988c34cc9edb-cgu.0[External]
+MONO_ITEM fn f27 @@ stats.591f988c34cc9edb-cgu.0[External]
+MONO_ITEM fn f28 @@ stats.591f988c34cc9edb-cgu.0[External]
+MONO_ITEM fn f29 @@ stats.591f988c34cc9edb-cgu.0[External]
+MONO_ITEM fn f30 @@ stats.591f988c34cc9edb-cgu.0[External]
+MONO_ITEM fn f31 @@ stats.591f988c34cc9edb-cgu.0[External]
+MONO_ITEM fn f32 @@ stats.591f988c34cc9edb-cgu.0[External]
+MONO_ITEM fn f33 @@ stats.591f988c34cc9edb-cgu.0[External]
+MONO_ITEM fn f34 @@ stats.591f988c34cc9edb-cgu.0[External]
+MONO_ITEM fn f35 @@ stats.591f988c34cc9edb-cgu.0[External]
+MONO_ITEM fn f36 @@ stats.591f988c34cc9edb-cgu.0[External]
+MONO_ITEM fn f37 @@ stats.591f988c34cc9edb-cgu.0[External]
+MONO_ITEM fn f38 @@ stats.591f988c34cc9edb-cgu.0[External]
+MONO_ITEM fn f39 @@ stats.591f988c34cc9edb-cgu.0[External]
+MONO_ITEM fn generic::<u16> @@ stats.591f988c34cc9edb-cgu.0[External]
+MONO_ITEM fn generic::<u32> @@ stats.591f988c34cc9edb-cgu.0[External]
+MONO_ITEM fn generic::<u8> @@ stats.591f988c34cc9edb-cgu.0[External]
+MONO_ITEM fn use_generic @@ stats.591f988c34cc9edb-cgu.0[External]
+MONO_ITEM static A_STATIC @@ stats.591f988c34cc9edb-cgu.0[External]
+
+== stderr
+
+== dump
+| Item | Instantiation count | Estimated Cost Per Instantiation | Total Estimated Cost |
+| --- | ---: | ---: | ---: |
+| `generic` | 3 | 2 | 6 |
+| `f35` | 1 | 5 | 5 |
+| `f39` | 1 | 5 | 5 |
+| `f07` | 1 | 5 | 5 |
+| `f19` | 1 | 5 | 5 |
+| `f31` | 1 | 5 | 5 |
+| `f27` | 1 | 5 | 5 |
+| `use_generic` | 1 | 5 | 5 |
+| `f03` | 1 | 5 | 5 |
+| `f15` | 1 | 5 | 5 |
+| `f23` | 1 | 5 | 5 |
+| `f11` | 1 | 5 | 5 |
+| `f06` | 1 | 4 | 4 |
+| `f22` | 1 | 4 | 4 |
+| `f26` | 1 | 4 | 4 |
+| `f30` | 1 | 4 | 4 |
+| `f02` | 1 | 4 | 4 |
+| `f10` | 1 | 4 | 4 |
+| `f14` | 1 | 4 | 4 |
+| `f34` | 1 | 4 | 4 |
+| `f18` | 1 | 4 | 4 |
+| `f38` | 1 | 4 | 4 |
+| `f29` | 1 | 3 | 3 |
+| `f33` | 1 | 3 | 3 |
+| `f21` | 1 | 3 | 3 |
+| `f17` | 1 | 3 | 3 |
+| `f37` | 1 | 3 | 3 |
+| `f05` | 1 | 3 | 3 |
+| `f01` | 1 | 3 | 3 |
+| `f13` | 1 | 3 | 3 |
+| `f25` | 1 | 3 | 3 |
+| `f09` | 1 | 3 | 3 |
+| `f04` | 1 | 2 | 2 |
+| `f36` | 1 | 2 | 2 |
+| `f24` | 1 | 2 | 2 |
+| `f32` | 1 | 2 | 2 |
+| `f20` | 1 | 2 | 2 |
+| `f12` | 1 | 2 | 2 |
+| `f28` | 1 | 2 | 2 |
+| `f16` | 1 | 2 | 2 |
+| `f00` | 1 | 2 | 2 |
+| `f08` | 1 | 2 | 2 |
+| `Tied::method` | 1 | 1 | 1 |
+| `A_STATIC` | 1 | 1 | 1 |
+

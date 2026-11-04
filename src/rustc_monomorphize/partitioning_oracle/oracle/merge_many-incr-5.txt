@@ -1,0 +1,26 @@
+exit 0
+== stdout
+MONO_ITEM fn big::f @@ merge_many.d97d8c349ff64a97-big[External]
+MONO_ITEM fn big::g @@ merge_many.d97d8c349ff64a97-big[External]
+MONO_ITEM fn caller::f @@ merge_many.d97d8c349ff64a97-caller--merge_many.d97d8c349ff64a97.volatile[External]
+MONO_ITEM fn generic::<u32> @@ merge_many.d97d8c349ff64a97-caller--merge_many.d97d8c349ff64a97.volatile[External]
+MONO_ITEM fn generic::<u64> @@ merge_many.d97d8c349ff64a97-caller--merge_many.d97d8c349ff64a97.volatile[External]
+MONO_ITEM fn generic::<u8> @@ merge_many.d97d8c349ff64a97-caller--merge_many.d97d8c349ff64a97.volatile[External]
+MONO_ITEM fn private_used_elsewhere::helper @@ merge_many.d97d8c349ff64a97-private_used_elsewhere--merge_many.d97d8c349ff64a97-same_size_4[External]
+MONO_ITEM fn same_size_1::f @@ merge_many.d97d8c349ff64a97-same_size_1--merge_many.d97d8c349ff64a97-small--merge_many.d97d8c349ff64a97-uses_generic[External]
+MONO_ITEM fn same_size_2::f @@ merge_many.d97d8c349ff64a97-same_size_2--merge_many.d97d8c349ff64a97-same_size_3--merge_many.d97d8c349ff64a97-small2[External]
+MONO_ITEM fn same_size_3::f @@ merge_many.d97d8c349ff64a97-same_size_2--merge_many.d97d8c349ff64a97-same_size_3--merge_many.d97d8c349ff64a97-small2[External]
+MONO_ITEM fn same_size_4::f @@ merge_many.d97d8c349ff64a97-private_used_elsewhere--merge_many.d97d8c349ff64a97-same_size_4[External]
+MONO_ITEM fn shared_a @@ merge_many.d97d8c349ff64a97-big[Internal] merge_many.d97d8c349ff64a97-same_size_1--merge_many.d97d8c349ff64a97-small--merge_many.d97d8c349ff64a97-uses_generic[Internal] merge_many.d97d8c349ff64a97-same_size_2--merge_many.d97d8c349ff64a97-same_size_3--merge_many.d97d8c349ff64a97-small2[Internal]
+MONO_ITEM fn shared_b @@ merge_many.d97d8c349ff64a97-big[Internal] merge_many.d97d8c349ff64a97-same_size_2--merge_many.d97d8c349ff64a97-same_size_3--merge_many.d97d8c349ff64a97-small2[Internal]
+MONO_ITEM fn shared_c @@ merge_many.d97d8c349ff64a97-big[Internal] merge_many.d97d8c349ff64a97-private_used_elsewhere--merge_many.d97d8c349ff64a97-same_size_4[Internal]
+MONO_ITEM fn small2::f @@ merge_many.d97d8c349ff64a97-same_size_2--merge_many.d97d8c349ff64a97-same_size_3--merge_many.d97d8c349ff64a97-small2[External]
+MONO_ITEM fn small::f @@ merge_many.d97d8c349ff64a97-same_size_1--merge_many.d97d8c349ff64a97-small--merge_many.d97d8c349ff64a97-uses_generic[External]
+MONO_ITEM fn uses_generic::f @@ merge_many.d97d8c349ff64a97-same_size_1--merge_many.d97d8c349ff64a97-small--merge_many.d97d8c349ff64a97-uses_generic[External]
+MONO_ITEM fn uses_generic::g @@ merge_many.d97d8c349ff64a97-same_size_1--merge_many.d97d8c349ff64a97-small--merge_many.d97d8c349ff64a97-uses_generic[External]
+MONO_ITEM static private_used_elsewhere::INNER @@ merge_many.d97d8c349ff64a97-private_used_elsewhere--merge_many.d97d8c349ff64a97-same_size_4[External]
+
+== stderr
+
+== dump
+<none>

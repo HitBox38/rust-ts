@@ -1,0 +1,15 @@
+exit 0
+== stdout
+MONO_ITEM fn generic::<&str> @@ 9zup899nhjtb73nj4opp73e6c[External]
+MONO_ITEM fn generic::<char> @@ 9zup899nhjtb73nj4opp73e6c[External]
+MONO_ITEM fn generic::<u32> @@ 9zup899nhjtb73nj4opp73e6c[External]
+MONO_ITEM fn generic::<u64> @@ 9zup899nhjtb73nj4opp73e6c[External]
+MONO_ITEM fn mod1::mod1::user @@ a2kvsahtxdrjb4nsqvgvypge8[External]
+MONO_ITEM fn mod1::user @@ 73fkexy0r9wa54odtm4ypse1t[External]
+MONO_ITEM fn mod2::user @@ agldowlbzhhi8007glu5ahxw9[External]
+MONO_ITEM fn user @@ 8irednb0yo4nwrtxj2lrj4b0v[External]
+
+== stderr
+
+== dump
+<none>

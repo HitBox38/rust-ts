@@ -1,0 +1,26 @@
+exit 0
+== stdout
+MONO_ITEM fn big::f @@ merge_many.d97d8c349ff64a97-cgu.00[External]
+MONO_ITEM fn big::g @@ merge_many.d97d8c349ff64a97-cgu.00[External]
+MONO_ITEM fn caller::f @@ merge_many.d97d8c349ff64a97-cgu.05[External]
+MONO_ITEM fn generic::<u32> @@ merge_many.d97d8c349ff64a97-cgu.03[External]
+MONO_ITEM fn generic::<u64> @@ merge_many.d97d8c349ff64a97-cgu.03[External]
+MONO_ITEM fn generic::<u8> @@ merge_many.d97d8c349ff64a97-cgu.03[External]
+MONO_ITEM fn private_used_elsewhere::helper @@ merge_many.d97d8c349ff64a97-cgu.08[External]
+MONO_ITEM fn same_size_1::f @@ merge_many.d97d8c349ff64a97-cgu.04[External]
+MONO_ITEM fn same_size_2::f @@ merge_many.d97d8c349ff64a97-cgu.02[External]
+MONO_ITEM fn same_size_3::f @@ merge_many.d97d8c349ff64a97-cgu.07[External]
+MONO_ITEM fn same_size_4::f @@ merge_many.d97d8c349ff64a97-cgu.01[External]
+MONO_ITEM fn shared_a @@ merge_many.d97d8c349ff64a97-cgu.00[Internal] merge_many.d97d8c349ff64a97-cgu.02[Internal] merge_many.d97d8c349ff64a97-cgu.04[Internal]
+MONO_ITEM fn shared_b @@ merge_many.d97d8c349ff64a97-cgu.00[Internal] merge_many.d97d8c349ff64a97-cgu.07[Internal]
+MONO_ITEM fn shared_c @@ merge_many.d97d8c349ff64a97-cgu.00[Internal] merge_many.d97d8c349ff64a97-cgu.01[Internal]
+MONO_ITEM fn small2::f @@ merge_many.d97d8c349ff64a97-cgu.10[External]
+MONO_ITEM fn small::f @@ merge_many.d97d8c349ff64a97-cgu.09[External]
+MONO_ITEM fn uses_generic::f @@ merge_many.d97d8c349ff64a97-cgu.06[External]
+MONO_ITEM fn uses_generic::g @@ merge_many.d97d8c349ff64a97-cgu.06[External]
+MONO_ITEM static private_used_elsewhere::INNER @@ merge_many.d97d8c349ff64a97-cgu.08[External]
+
+== stderr
+
+== dump
+<none>

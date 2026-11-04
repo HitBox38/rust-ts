@@ -1,0 +1,26 @@
+exit 0
+== stdout
+MONO_ITEM fn big::f @@ 1fs4cb2ddnb4qw3ow8fvjcrd6[External]
+MONO_ITEM fn big::g @@ 1fs4cb2ddnb4qw3ow8fvjcrd6[External]
+MONO_ITEM fn caller::f @@ 4t2bywi52fwkzlqxxq9gdfhws[External]
+MONO_ITEM fn generic::<u32> @@ 52hhliy2b3ab4ytxzqi03brc6[External]
+MONO_ITEM fn generic::<u64> @@ 52hhliy2b3ab4ytxzqi03brc6[External]
+MONO_ITEM fn generic::<u8> @@ 52hhliy2b3ab4ytxzqi03brc6[External]
+MONO_ITEM fn private_used_elsewhere::helper @@ 52hhliy2b3ab4ytxzqi03brc6[External]
+MONO_ITEM fn same_size_1::f @@ 52hhliy2b3ab4ytxzqi03brc6[External]
+MONO_ITEM fn same_size_2::f @@ 52hhliy2b3ab4ytxzqi03brc6[External]
+MONO_ITEM fn same_size_3::f @@ 52hhliy2b3ab4ytxzqi03brc6[External]
+MONO_ITEM fn same_size_4::f @@ 4t2bywi52fwkzlqxxq9gdfhws[External]
+MONO_ITEM fn shared_a @@ 1fs4cb2ddnb4qw3ow8fvjcrd6[Internal] 52hhliy2b3ab4ytxzqi03brc6[Internal]
+MONO_ITEM fn shared_b @@ 1fs4cb2ddnb4qw3ow8fvjcrd6[Internal] 52hhliy2b3ab4ytxzqi03brc6[Internal]
+MONO_ITEM fn shared_c @@ 1fs4cb2ddnb4qw3ow8fvjcrd6[Internal] 4t2bywi52fwkzlqxxq9gdfhws[Internal]
+MONO_ITEM fn small2::f @@ 4t2bywi52fwkzlqxxq9gdfhws[External]
+MONO_ITEM fn small::f @@ 4t2bywi52fwkzlqxxq9gdfhws[External]
+MONO_ITEM fn uses_generic::f @@ 4t2bywi52fwkzlqxxq9gdfhws[External]
+MONO_ITEM fn uses_generic::g @@ 4t2bywi52fwkzlqxxq9gdfhws[External]
+MONO_ITEM static private_used_elsewhere::INNER @@ 52hhliy2b3ab4ytxzqi03brc6[External]
+
+== stderr
+
+== dump
+<none>

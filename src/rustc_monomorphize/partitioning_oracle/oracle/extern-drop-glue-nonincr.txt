@@ -1,0 +1,35 @@
+exit 0
+== stdout
+MONO_ITEM fn mod1::user @@ extern_drop_glue.20967bcc2786086e-cgu.0[External]
+MONO_ITEM fn std::ptr::drop_glue::<LocalStruct> - shim(Some(LocalStruct)) @@ extern_drop_glue.20967bcc2786086e-cgu.0[External]
+MONO_ITEM fn std::ptr::drop_glue::<cgu_extern_drop_glue::Struct> - shim(Some(cgu_extern_drop_glue::Struct)) @@ extern_drop_glue.20967bcc2786086e-cgu.0[External]
+MONO_ITEM fn std::ptr::drop_glue::<mod1::LocalStruct> - shim(Some(mod1::LocalStruct)) @@ extern_drop_glue.20967bcc2786086e-cgu.0[External]
+MONO_ITEM fn user @@ extern_drop_glue.20967bcc2786086e-cgu.0[External]
+
+== stderr
+warning: field `0` is never read
+  --> $FILE:14:20
+   |
+14 | struct LocalStruct(cgu_extern_drop_glue::Struct);
+   |        ----------- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |        |
+   |        field in this struct
+   |
+   = help: consider removing this field
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: field `0` is never read
+  --> $FILE:25:24
+   |
+25 |     struct LocalStruct(cgu_extern_drop_glue::Struct);
+   |            ----------- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |            |
+   |            field in this struct
+   |
+   = help: consider removing this field
+
+warning: 2 warnings emitted
+
+
+== dump
+<none>

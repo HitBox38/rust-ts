@@ -1,0 +1,16 @@
+exit 0
+== stdout
+MONO_ITEM fn <type1::Struct as Trait>::default @@ methods_are_with_self_type.5f0047a3633d2936-cgu.0[External]
+MONO_ITEM fn <type1::Struct as Trait>::foo @@ methods_are_with_self_type.5f0047a3633d2936-cgu.0[External]
+MONO_ITEM fn <type2::Struct as Trait>::default @@ methods_are_with_self_type.5f0047a3633d2936-cgu.0[External]
+MONO_ITEM fn <type2::Struct as Trait>::foo @@ methods_are_with_self_type.5f0047a3633d2936-cgu.0[External]
+MONO_ITEM fn mod1::<impl SomeGenericType<char, &str>>::associated_fn @@ methods_are_with_self_type.5f0047a3633d2936-cgu.0[Internal]
+MONO_ITEM fn mod1::<impl SomeGenericType<u32, u64>>::method @@ methods_are_with_self_type.5f0047a3633d2936-cgu.0[Internal]
+MONO_ITEM fn mod1::<impl SomeType>::associated_fn @@ methods_are_with_self_type.5f0047a3633d2936-cgu.0[External]
+MONO_ITEM fn mod1::<impl SomeType>::method @@ methods_are_with_self_type.5f0047a3633d2936-cgu.0[External]
+MONO_ITEM fn start @@ methods_are_with_self_type.5f0047a3633d2936-cgu.0[External]
+
+== stderr
+
+== dump
+<none>

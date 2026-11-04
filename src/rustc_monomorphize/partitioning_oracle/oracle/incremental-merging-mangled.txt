@@ -1,0 +1,11 @@
+exit 0
+== stdout
+MONO_ITEM fn aaa::foo @@ dhszpx3y9ljiak5slkg4317rw[External]
+MONO_ITEM fn bbb::foo @@ dhszpx3y9ljiak5slkg4317rw[External]
+MONO_ITEM fn ccc::foo @@ 8dknzq48d7oxy2xpy79zpgwbt[External]
+MONO_ITEM fn ddd::foo @@ 94wtk80fzc8iat75chw42jg89[External]
+
+== stderr
+
+== dump
+<none>
