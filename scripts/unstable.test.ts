@@ -42,11 +42,12 @@ test("UNSTABLE status, the M3 ui lists, and the gate's refusal to protect listed
   expect(j.oracleTimeoutFirst).toBe("ORACLE_TIMEOUT");
   // The 8 measured cases (harness/suites.ts M3_UI_UNSTABLE), with reasons, in both M3 ui suites; mirdump-ui has its own
   // list (M4A_UI_UNSTABLE), and so have the M4c suites mir (MIR_UNSTABLE) and thir-tree (THIR_TREE_UNSTABLE: the 8 M3 ids
-  // plus one, lane harness-w25), and so has the M6 suite pm-ui (PM_UI_UNSTABLE, lane harness-m6b).
+  // plus one, lane harness-w25), and so have the M6 suites pm-ui (PM_UI_UNSTABLE, lane harness-m6b) and miri-pass
+  // (MIRI_PASS_UNSTABLE, lane harness-m6c).
   expect(j.tydump.length).toBe(8);
   expect(j.thirdump).toEqual(j.tydump);
   for (const [, why] of j.tydump) expect(why.length).toBeGreaterThan(0);
-  expect(j.withUnstable).toEqual(["tydump-ui", "thirdump-ui", "mirdump-ui", "mir", "thir-tree", "pm-ui"]);
+  expect(j.withUnstable).toEqual(["tydump-ui", "thirdump-ui", "mirdump-ui", "mir", "thir-tree", "pm-ui", "miri-pass"]);
   expect(j.mirdump.length).toBe(4);
   for (const [, why] of j.mirdump) expect(why.length).toBeGreaterThan(0);
   expect(j.mir.length).toBe(14);
