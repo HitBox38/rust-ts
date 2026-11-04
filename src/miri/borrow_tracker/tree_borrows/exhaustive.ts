@@ -3,7 +3,8 @@
 //! of the behavior of the state machine of permissions,
 //! but the contents of this file are extremely generic)
 // Port of src/tools/miri/src/borrow_tracker/tree_borrows/exhaustive.rs (crate `miri`, plan-m6 D2). Fill lane: `miri-tb-a`
-// (plan-m6 wave 38). `#[cfg(test)]` upstream; only the `.test.ts` files use it.
+// (plan-m6 wave 38). `#[cfg(test)]` upstream; here `perms.ts` imports it too, because its `Exhaustive_*` tables sit beside the types they enumerate, so it
+// is loaded on the default path. Only the `.test.ts` files call it.
 //
 // PORT: the trait is an interface and each impl an `Exhaustive_<Type>` table (borrowck-contract rules 4-5); the impls for
 // generic containers are functions of the element's table, and their `T: Clone` bound is a function parameter `clone_T`

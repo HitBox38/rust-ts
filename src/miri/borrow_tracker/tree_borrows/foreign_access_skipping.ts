@@ -7,7 +7,7 @@
 // The derived `PartialOrd` is `IdempotentForeignAccess_discriminant`.
 import * as gen from "./foreign_access_skipping.gen.ts";
 import { type AccessKind } from "../mod.ts";
-import { type AccessRelatedness } from "./tree.ts";
+import { AccessRelatedness } from "./tree.ts";
 import { type MutRef } from "../../../std/mut_ref.ts";
 export * from "./foreign_access_skipping.gen.ts";
 
@@ -80,8 +80,7 @@ IdempotentForeignAccess.from_foreign = function (acc: AccessKind): IdempotentFor
 /// to e.g. invoke `can_skip_foreign_access`.
 // rustc: src/tools/miri/src/borrow_tracker/tree_borrows/foreign_access_skipping.rs:80 from_acc_and_rel
 IdempotentForeignAccess.from_acc_and_rel = function (acc: AccessKind, rel: AccessRelatedness): IdempotentForeignAccess {
-  // PORT: `rel.is_foreign()` (tree.rs:1231) is the one-arm `matches!` inlined.
-  return rel === "ForeignAccess" ? IdempotentForeignAccess.from_foreign(acc) : "None";
+  return AccessRelatedness.is_foreign(rel) ? IdempotentForeignAccess.from_foreign(acc) : "None";
 };
 
 /// During retags, the SIFA needs to be weakened to account for children with weaker SIFAs being inserted.

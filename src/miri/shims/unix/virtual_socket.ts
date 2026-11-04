@@ -6,7 +6,7 @@
 // types and their `#[derive(Debug)]` are hand-written here in the generated shape.
 //
 // PORT decisions (docs/handoff/miri-tail-b.md):
-// - `VecDeque<u8>` is `VecDeque_u8` below, a model of the real ring buffer (library/alloc/src/collections/vec_deque). The
+// - `VecDeque<u8>` is src/std/vec_deque_u8.ts, a model of the real ring buffer (library/alloc/src/collections/vec_deque). The
 //   model is needed because `Read for VecDeque<u8>` only reads the front slice, so a read of a wrapped buffer comes back
 //   short, and how the buffer wraps depends on the capacity growth, on `handle_capacity_increase`, and on `drain` resetting
 //   the head. All of that reaches the program through the return value of `read`.
@@ -21,7 +21,7 @@
 // - `Drop for VirtualSocket` plus the field drop glue is `drop_glue()`: `drop()`, then `watched` (the only field whose drop
 //   is observable).
 // - `impl UnixSocketFileDescription for VirtualSocket` (`send` / `recv`) are prototype methods with a leading `self_`.
-//   socket.rs's trait and the `send` / `recv` shims are not ported (socket.ts, partial scope), so nothing calls them yet;
+//   socket.rs's trait is not ported (socket.ts, partial scope), and its `send` / `recv` shims call these directly;
 //   `as_socket` is typed through `Pending<"dyn UnixSocketFileDescription">`, as fd.ts declares it.
 import { debug_ThreadId, type ThreadId, type UnblockKind, assert_eq_UnblockKind } from "../../concurrency/thread.ts";
 import { VClock, debug_VClock } from "../../concurrency/vector_clock.ts";
@@ -34,7 +34,6 @@ import {
   type FileDescription,
   FileDescription_provided,
   FileDescriptionRef,
-  type HostWrite,
   type WeakFileDescriptionRef,
 } from "../files.ts";
 import { debug_IoError, type IoError, IoError_from_ErrorKind, LibcError } from "../io_error.ts";
@@ -58,9 +57,10 @@ import { type Either } from "../../../rustc_middle/mir/mod.ts";
 import { spec } from "../../../rustc_target/lib.ts";
 import { type Pending } from "../../../rustc_type_ir/decls.ts";
 import { type Debug, debug_bool, debug_int, debug_list, debug_option, debug_struct, debug_tuple, debug_vec, PRETTY } from "../../../std/fmt.ts";
-import { type IoError as io_Error, type IoResult } from "../../../std/io.ts";
+import { type IoError as io_Error } from "../../../std/io.ts";
 import { assert_eq, panic } from "../../../std/panic.ts";
 import { Err, Ok, type Result, unwrap_result } from "../../../std/result.ts";
+import { VecDeque_u8 } from "../../../std/vec_deque_u8.ts";
 
 /** `throw_unsup_format!(..)` (`err_unsup!(Unsupported(format!(..)))`) */
 function throw_unsup_format<T>(msg: string): InterpResult<T> {
@@ -84,103 +84,6 @@ const VisitProvenance_FileDescriptionRef: VisitProvenanceImpl<FileDescriptionRef
 /// be configured in the real system.
 const MAX_SOCKETPAIR_BUFFER_CAPACITY = 0x34000;
 
-/** `VecDeque<u8>`: head, length and the physical buffer, whose length is the capacity (header). */
-class VecDeque_u8 implements HostWrite {
-  private buf: Uint8Array = new Uint8Array(0);
-  private head = 0;
-  len = 0;
-
-  capacity(): number {
-    return this.buf.length;
-  }
-
-  is_empty(): boolean {
-    return this.len === 0;
-  }
-
-  /** `wrap_add(self.head, idx)` (mod.rs:251) */
-  private to_wrapped_index(idx: number): number {
-    const i = this.head + idx;
-    return i >= this.capacity() ? i - this.capacity() : i;
-  }
-
-  /** `VecDeque::reserve` (mod.rs:1141), with `RawVec::reserve` → `grow_amortized` (raw_vec/mod.rs:524; `size == 1`, so the
-   *  minimum non-zero capacity is 8). */
-  private reserve(additional: number): void {
-    const new_cap = this.len + additional;
-    const old_cap = this.capacity();
-
-    if (new_cap > old_cap) {
-      const cap = Math.max(8, Math.max(old_cap * 2, new_cap));
-      const buf = new Uint8Array(cap);
-      buf.set(this.buf);
-      this.buf = buf;
-      this.handle_capacity_increase(old_cap);
-    }
-  }
-
-  /** `VecDeque::handle_capacity_increase` (mod.rs:692): moves the shortest contiguous section of the ring buffer. */
-  private handle_capacity_increase(old_capacity: number): void {
-    const new_capacity = this.capacity();
-    if (this.head <= old_capacity - this.len) {
-      // A: nop
-    } else {
-      const head_len = old_capacity - this.head;
-      const tail_len = this.len - head_len;
-      if (head_len > tail_len && new_capacity - old_capacity >= tail_len) {
-        // B
-        this.buf.copyWithin(old_capacity, 0, tail_len);
-      } else {
-        // C
-        const new_head = new_capacity - head_len;
-        this.buf.copyWithin(new_head, this.head, this.head + head_len);
-        this.head = new_head;
-      }
-    }
-  }
-
-  /** `<VecDeque<u8> as io::Write>::write` (library/alloc/src/io/impls.rs:564): `extend`, i.e. the `slice::Iter` `spec_extend`
-   *  (vec_deque/spec_extend.rs:109): `reserve`, then `copy_slice` (mod.rs:564) at the back. */
-  write(src: Uint8Array): IoResult<number> {
-    this.reserve(src.length);
-    const dst = this.to_wrapped_index(this.len);
-    const head_room = this.capacity() - dst;
-    if (src.length <= head_room) {
-      this.buf.set(src, dst);
-    } else {
-      this.buf.set(src.subarray(0, head_room), dst);
-      this.buf.set(src.subarray(head_room), 0);
-    }
-    this.len += src.length;
-    return Ok(src.length);
-  }
-
-  /** `<VecDeque<u8> as io::Read>::read` (library/alloc/src/io/impls.rs:458): the front slice of `as_slices` (`slice_ranges`,
-   *  mod.rs:1841) into `out`, then `drain(..n)` (`Drop for Drain`, vec_deque/drain.rs: with nothing in front of the drain the
-   *  head moves past it, and an emptied deque resets the head to 0). */
-  read(out: Uint8Array): IoResult<number> {
-    // The front slice is `head..head + len`, or `head..capacity` when the buffer wraps (empty when `len == 0`).
-    const front_len = Math.min(this.len, this.capacity() - this.head);
-    const n = Math.min(front_len, out.length);
-    out.set(this.buf.subarray(this.head, this.head + n));
-    const new_len = this.len - n;
-    if (new_len === 0) {
-      this.head = 0;
-    } else {
-      this.head = this.to_wrapped_index(n);
-    }
-    this.len = new_len;
-    return Ok(n);
-  }
-
-  /** The elements in order (`Debug` of a `VecDeque`). */
-  iter(): number[] {
-    const out: number[] = [];
-    for (let i = 0; i < this.len; i++) out.push(this.buf[this.to_wrapped_index(i)]!);
-    return out;
-  }
-}
-
 /** `#[derive(Debug, PartialEq)] enum VirtualSocketType` */
 type VirtualSocketType =
   // Either end of the socketpair fd.
@@ -200,7 +103,7 @@ class Buffer {
 
   // rustc: src/tools/miri/src/shims/unix/virtual_socket.rs:75 new
   static new(): Buffer {
-    return new Buffer(new VecDeque_u8(), new VClock([])); // VClock::default()
+    return new Buffer(new VecDeque_u8(), VClock.default());
   }
 }
 const debug_Buffer: Debug<Buffer> = (v, f) =>

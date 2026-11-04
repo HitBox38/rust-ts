@@ -504,73 +504,6 @@ class LocStateProtPair {
         return this.retag_y(evt._0);
     }
   }
-
-  /// List all sequences of operations that start at `self` and do not cause UB
-  /// There are no duplicates: all sequences returned lead to distinct final states
-  /// (though the sequence is not guaranteed to be the shortest possible sequence of events).
-  /// Yields the states it reaches, and the sequence of operations that got us there.
-  // rustc: src/tools/miri/src/borrow_tracker/tree_borrows/tree/tests.rs:534 all_states_reachable_via_opaque_code
-  all_states_reachable_via_opaque_code<RetX, RetY>(RetX: Exhaustive<RetX>, RetY: Exhaustive<RetY>): [LocStateProtPair, OpaqueCode<RetX, RetY>][] {
-    // We compute the reachable set of `Self` from `self` by non-UB `OpaqueCode`.
-    // Configurations are `(reach: Self, code: OpaqueCode)` tuples
-    // for which `code` applied to `self` returns `Ok(reach)`.
-
-    // Stack of all configurations left to handle.
-    const handle: [LocStateProtPair, OpaqueCode<RetX, RetY>][] = [[this, { events: [] }]];
-    // Code that can be applied to `self`, and final state.
-    const paths: [LocStateProtPair, OpaqueCode<RetX, RetY>][] = [];
-    // Already explored states reachable from `self`
-    const seen = new Set<string>();
-    // This is essentially just computing the transitive closure by `perform_test_event`,
-    // most of the work lies in remembering the path up to the current state.
-    for (let top = handle.pop(); top !== undefined; top = handle.pop()) {
-      const [state, path] = top;
-      for (const evt of Exhaustive_TestEvent(RetX, RetY).exhaustive()) {
-        const next = state.perform_test_event(evt);
-        if (next.$ === "Ok") {
-          const key = key_LocStateProtPair(next._0);
-          if (!seen.has(key)) {
-            seen.add(key);
-            const evts: OpaqueCode<RetX, RetY> = { events: [...path.events, evt] };
-            paths.push([next._0, evts]);
-            handle.push([next._0, evts]);
-          }
-        }
-      }
-    }
-    return paths;
-  }
-
-  /// Two states (by convention `self` is the source and `other` is the target)
-  /// are "distinguishable" if there exists a sequence of instructions
-  /// that causes UB in the target but not in the source.
-  /// This implementation simply explores the reachable space
-  /// by all sequences of `TestEvent`.
-  /// This function can be instantiated with `RetX` and `RetY`
-  /// among `NoRet` or `AllowRet` to resp. forbid/allow `x`/`y` to lose their
-  /// protector.
-  // rustc: src/tools/miri/src/borrow_tracker/tree_borrows/tree/tests.rs:580 distinguishable
-  distinguishable<RetX, RetY>(RetX: Exhaustive<RetX>, RetY: Exhaustive<RetY>, other: LocStateProtPair): boolean {
-    if (key_LocStateProtPair(this) === key_LocStateProtPair(other)) return false;
-    const states: [LocStateProtPair, LocStateProtPair][] = [[this, other]];
-    const seen = new Set<string>();
-    for (let state = states.pop(); state !== undefined; state = states.pop()) {
-      const key = `${key_LocStateProtPair(state[0])}|${key_LocStateProtPair(state[1])}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      const [source, target] = state;
-      for (const evt of Exhaustive_TestEvent(RetX, RetY).exhaustive()) {
-        // Generate successor states through events (accesses and protector ends)
-        const new_source = source.perform_test_event(evt);
-        if (new_source.$ !== "Ok") continue;
-        const new_target = target.perform_test_event(evt);
-        if (new_target.$ !== "Ok") return true;
-        if (key_LocStateProtPair(new_source._0) === key_LocStateProtPair(new_target._0)) continue;
-        states.push([new_source._0, new_target._0]);
-      }
-    }
-    return false;
-  }
 }
 
 /** `#[derive(Hash, Eq)]` of `LocStateProtPair`, as a key. */
@@ -612,6 +545,79 @@ function display_OpaqueCode<RetX, RetY>(self: OpaqueCode<RetX, RetY>): string {
   return f;
 }
 
+// upstream's second `impl LocStateProtPair` (PORT: on the prototype, so the markers stay in upstream order)
+interface LocStateProtPair {
+  all_states_reachable_via_opaque_code<RetX, RetY>(RetX: Exhaustive<RetX>, RetY: Exhaustive<RetY>): [LocStateProtPair, OpaqueCode<RetX, RetY>][];
+  distinguishable<RetX, RetY>(RetX: Exhaustive<RetX>, RetY: Exhaustive<RetY>, other: LocStateProtPair): boolean;
+}
+
+/// List all sequences of operations that start at `self` and do not cause UB
+/// There are no duplicates: all sequences returned lead to distinct final states
+/// (though the sequence is not guaranteed to be the shortest possible sequence of events).
+/// Yields the states it reaches, and the sequence of operations that got us there.
+// rustc: src/tools/miri/src/borrow_tracker/tree_borrows/tree/tests.rs:534 all_states_reachable_via_opaque_code
+LocStateProtPair.prototype.all_states_reachable_via_opaque_code = function <RetX, RetY>(this: LocStateProtPair, RetX: Exhaustive<RetX>, RetY: Exhaustive<RetY>): [LocStateProtPair, OpaqueCode<RetX, RetY>][] {
+  // We compute the reachable set of `Self` from `self` by non-UB `OpaqueCode`.
+  // Configurations are `(reach: Self, code: OpaqueCode)` tuples
+  // for which `code` applied to `self` returns `Ok(reach)`.
+
+  // Stack of all configurations left to handle.
+  const handle: [LocStateProtPair, OpaqueCode<RetX, RetY>][] = [[this, { events: [] }]];
+  // Code that can be applied to `self`, and final state.
+  const paths: [LocStateProtPair, OpaqueCode<RetX, RetY>][] = [];
+  // Already explored states reachable from `self`
+  const seen = new Set<string>();
+  // This is essentially just computing the transitive closure by `perform_test_event`,
+  // most of the work lies in remembering the path up to the current state.
+  for (let top = handle.pop(); top !== undefined; top = handle.pop()) {
+    const [state, path] = top;
+    for (const evt of Exhaustive_TestEvent(RetX, RetY).exhaustive()) {
+      const next = state.perform_test_event(evt);
+      if (next.$ === "Ok") {
+        const key = key_LocStateProtPair(next._0);
+        if (!seen.has(key)) {
+          seen.add(key);
+          const evts: OpaqueCode<RetX, RetY> = { events: [...path.events, evt] };
+          paths.push([next._0, evts]);
+          handle.push([next._0, evts]);
+        }
+      }
+    }
+  }
+  return paths;
+};
+
+/// Two states (by convention `self` is the source and `other` is the target)
+/// are "distinguishable" if there exists a sequence of instructions
+/// that causes UB in the target but not in the source.
+/// This implementation simply explores the reachable space
+/// by all sequences of `TestEvent`.
+/// This function can be instantiated with `RetX` and `RetY`
+/// among `NoRet` or `AllowRet` to resp. forbid/allow `x`/`y` to lose their
+/// protector.
+// rustc: src/tools/miri/src/borrow_tracker/tree_borrows/tree/tests.rs:580 distinguishable
+LocStateProtPair.prototype.distinguishable = function <RetX, RetY>(this: LocStateProtPair, RetX: Exhaustive<RetX>, RetY: Exhaustive<RetY>, other: LocStateProtPair): boolean {
+  if (key_LocStateProtPair(this) === key_LocStateProtPair(other)) return false;
+  const states: [LocStateProtPair, LocStateProtPair][] = [[this, other]];
+  const seen = new Set<string>();
+  for (let state = states.pop(); state !== undefined; state = states.pop()) {
+    const key = `${key_LocStateProtPair(state[0])}|${key_LocStateProtPair(state[1])}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const [source, target] = state;
+    for (const evt of Exhaustive_TestEvent(RetX, RetY).exhaustive()) {
+      // Generate successor states through events (accesses and protector ends)
+      const new_source = source.perform_test_event(evt);
+      if (new_source.$ !== "Ok") continue;
+      const new_target = target.perform_test_event(evt);
+      if (new_target.$ !== "Ok") return true;
+      if (key_LocStateProtPair(new_source._0) === key_LocStateProtPair(new_target._0)) continue;
+      states.push([new_source._0, new_target._0]);
+    }
+  }
+  return false;
+};
+
 // `Reserved { conflicted: false }` and `Reserved { conflicted: true }` are properly indistinguishable
 // under the conditions where we want to insert a spurious read.
 // rustc: src/tools/miri/src/borrow_tracker/tree_borrows/tree/tests.rs:606 reserved_aliased_protected_indistinguishable
@@ -631,6 +637,44 @@ test("reserved_aliased_protected_indistinguishable", () => {
   expect(target.y.state.permission.is_reserved_frz_with_conflicted(true)).toBe(true);
   expect(source.distinguishable(AllowRet, AllowRet, target)).toBe(false);
 });
+
+// impl Exhaustive for Pattern
+const Exhaustive_Pattern: Exhaustive<Pattern> = {
+  // rustc: src/tools/miri/src/borrow_tracker/tree_borrows/tree/tests.rs:654 exhaustive
+  *exhaustive() {
+    const v: Pattern[] = [];
+    for (const xy_rel of Exhaustive_RelPosXY.exhaustive()) {
+      for (const [x_retag_perm, y_current_perm] of Exhaustive_tuple2(Exhaustive_LocationState, Exhaustive_LocationState, clone_LocationState).exhaustive()) {
+        // We can only do spurious reads for accessed locations anyway.
+        if (!x_retag_perm.accessed) continue; // precondition!
+        // And `x` just got retagged, so it must be initial.
+        if (!x_retag_perm.permission.is_initial()) continue; // precondition!
+        // As stated earlier, `x` is always protected in the patterns we consider here.
+        if (!compatible_with_protector(x_retag_perm)) continue; // precondition!
+        for (const y_protected of Exhaustive_bool.exhaustive()) {
+          // Finally `y` that is optionally protected must have a compatible permission.
+          if (y_protected) {
+            if (!compatible_with_protector(y_current_perm)) continue; // precondition!
+          }
+          v.push(new Pattern(xy_rel, x_retag_perm, y_current_perm, y_protected));
+        }
+      }
+    }
+    yield* v;
+  },
+};
+
+// impl fmt::Display for Pattern
+// rustc: src/tools/miri/src/borrow_tracker/tree_borrows/tree/tests.rs:679 fmt
+function display_Pattern(self: Pattern): string {
+  const [x, y] = self.retag_permissions();
+  let f = `${display_RelPosXY(self.xy_rel)}; `;
+  f += `y: (${display_LocStateProt(y)}); `;
+  f += `retag x (${display_LocStateProt(x)}); `;
+
+  f += "<arbitrary code>; <spurious read x>;";
+  return f;
+}
 
 class Pattern {
   constructor(
@@ -671,44 +715,6 @@ class Pattern {
     const state = new LocStateProtPair(this.xy_rel, x, y);
     return state.retag_dependent_access("X");
   }
-}
-
-// impl Exhaustive for Pattern
-const Exhaustive_Pattern: Exhaustive<Pattern> = {
-  // rustc: src/tools/miri/src/borrow_tracker/tree_borrows/tree/tests.rs:654 exhaustive
-  *exhaustive() {
-    const v: Pattern[] = [];
-    for (const xy_rel of Exhaustive_RelPosXY.exhaustive()) {
-      for (const [x_retag_perm, y_current_perm] of Exhaustive_tuple2(Exhaustive_LocationState, Exhaustive_LocationState, clone_LocationState).exhaustive()) {
-        // We can only do spurious reads for accessed locations anyway.
-        if (!x_retag_perm.accessed) continue; // precondition!
-        // And `x` just got retagged, so it must be initial.
-        if (!x_retag_perm.permission.is_initial()) continue; // precondition!
-        // As stated earlier, `x` is always protected in the patterns we consider here.
-        if (!compatible_with_protector(x_retag_perm)) continue; // precondition!
-        for (const y_protected of Exhaustive_bool.exhaustive()) {
-          // Finally `y` that is optionally protected must have a compatible permission.
-          if (y_protected) {
-            if (!compatible_with_protector(y_current_perm)) continue; // precondition!
-          }
-          v.push(new Pattern(xy_rel, x_retag_perm, y_current_perm, y_protected));
-        }
-      }
-    }
-    yield* v;
-  },
-};
-
-// impl fmt::Display for Pattern
-// rustc: src/tools/miri/src/borrow_tracker/tree_borrows/tree/tests.rs:679 fmt
-function display_Pattern(self: Pattern): string {
-  const [x, y] = self.retag_permissions();
-  let f = `${display_RelPosXY(self.xy_rel)}; `;
-  f += `y: (${display_LocStateProt(y)}); `;
-  f += `retag x (${display_LocStateProt(x)}); `;
-
-  f += "<arbitrary code>; <spurious read x>;";
-  return f;
 }
 
 /// For each of the patterns described above, execute it once

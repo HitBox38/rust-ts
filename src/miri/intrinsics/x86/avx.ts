@@ -18,7 +18,7 @@ import { type AnyMachine, type Machine } from "../../../rustc_const_eval/interpr
 import { interp_ok, type InterpResult, Scalar } from "../../../rustc_middle/mir/interpret/mod.ts";
 import { Symbol } from "../../../rustc_span/symbol.ts";
 import { assert_eq, unreachable, unwrap } from "../../../std/panic.ts";
-import { Round, type Float, type FloatType } from "../../../vendor/rustc_apfloat/lib.ts";
+import { Round } from "../../../vendor/rustc_apfloat/lib.ts";
 import { Double, Single } from "../../../vendor/rustc_apfloat/ieee.ts";
 
 declare module "../../../rustc_const_eval/interpret/eval_context.ts" {

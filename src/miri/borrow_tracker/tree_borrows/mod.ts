@@ -2,13 +2,12 @@
 // wave 38). Its types are generated into mod.gen.ts (tools/codegen set `miri`); this module re-exports them.
 //
 // PORT: `impl Tree` is on tree.gen.ts's class, another module's: `port_methods` (C10). `NewPermission` is this module's own.
-// `LocationState_eq` below is the `#[derive(PartialEq)]` of tree.rs:36, which `DedupRangeMap::iter_mut` needs.
 // Logging: upstream `trace!` lines are verbatim comments (A6: only `info!` is ported, by lane miri-log; this file has none).
 import { type AccessKind, BorTag, BorrowTrackerMethod, type GlobalState, type GlobalStateInner, type TreeBorrowsParams } from "../mod.ts";
 import { IdempotentForeignAccess } from "./foreign_access_skipping.ts";
 import { NewPermission } from "./mod.gen.ts";
-import { clone_Permission, display_Permission, Permission, Permission_eq } from "./perms.ts";
-import { clone_LocationState, LocationState, Tree } from "./tree.ts";
+import { clone_Permission, display_Permission, Permission } from "./perms.ts";
+import { clone_LocationState, LocationState, LocationState_eq, Tree } from "./tree.ts";
 import { AllocDataRaceHandler } from "../../concurrency/data_race_handler.ts";
 import { DedupRangeMap } from "../../data_structures/dedup_range_map.ts";
 import { type NonHaltingDiagnostic } from "../../diagnostics.ts";
@@ -85,11 +84,6 @@ declare module "./mod.gen.ts" {
     function new_(pointee: Ty, ref_mutability: Mutability | undefined, mode: RetagMode, cx: MiriInterpCx): NewPermission | undefined;
     export { new_ as new };
   }
-}
-
-/** `#[derive(PartialEq)]` of `LocationState` (tree.rs:36). */
-function LocationState_eq(a: LocationState, b: LocationState): boolean {
-  return a.accessed === b.accessed && Permission_eq(a.permission, b.permission) && a.idempotent_foreign_access === b.idempotent_foreign_access;
 }
 
 /** `err_ub!(..)` (rustc_const_eval/interpret/intrinsics.ts has the same private helper). */

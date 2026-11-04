@@ -15,7 +15,7 @@ import { type IdempotentForeignAccess } from "./foreign_access_skipping.ts";
 import { type TransitionError } from "./diagnostics.ts";
 import * as gen from "./perms.gen.ts";
 import { PermTransition, Permission } from "./perms.gen.ts";
-import { type AccessRelatedness } from "./tree.ts";
+import { AccessRelatedness } from "./tree.ts";
 import { type WildcardAccessLevel } from "./wildcard.ts";
 import { PLAIN } from "../../../std/fmt.ts";
 import { assert, unreachable } from "../../../std/panic.ts";
@@ -303,7 +303,7 @@ function foreign_write(state: PermissionPriv, protected_: boolean): PermissionPr
 /// Dispatch handler depending on the kind of access and its position.
 // rustc: src/tools/miri/src/borrow_tracker/tree_borrows/perms.rs:220 perform_access
 export function perform_access(kind: AccessKind, rel_pos: AccessRelatedness, child: PermissionPriv, protected_: boolean): PermissionPriv | undefined {
-  const is_foreign = rel_pos === "ForeignAccess";
+  const is_foreign = AccessRelatedness.is_foreign(rel_pos);
   if (kind === "Write" && is_foreign) return foreign_write(child, protected_);
   if (kind === "Read" && is_foreign) return foreign_read(child, protected_);
   if (kind === "Write" && !is_foreign) return child_write(child, protected_);
