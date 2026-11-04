@@ -9,15 +9,16 @@ ssse3, sse41, sse42}.rs`. Lane miri-x86-b ports the other x86 files against this
 1. **`-C target-feature` stops the port before Miri runs** (also miri-x86-b's item 1). `src/rust_ts/codegen_backend.ts`
    `non_default_llvm_input` stops `unported("rustc_codegen_llvm::llvm_util::configure_llvm (-C target-feature)")`. So a real
    program using SSE3 or later reports UNPORTED, although the intrinsics themselves are ported. The target's defaults are only
-   `fxsr, sse, sse2, x87`, so SSE and SSE2 are unaffected. The run-pass-miri sample below has 2 such cases (both sanitizer
-   `kcfi`, unprotected). Not this lane's file. Needs a lane that computes the feature set. Until then this lane's tests go through
+   `fxsr, sse, sse2, x87`, so SSE and SSE2 are unaffected. The run-pass-miri sample below has 3 such cases (`sanitizer/cfi`,
+   unprotected). Not this lane's file. Needs a lane that computes the feature set. Until then this lane's tests go through
    `probes/driver.mts`, which adds the features to `target_config`.
 2. **Merge this lane and miri-x86-b together.** `x86.test.ts` "values: wide" needs miri-x86-b's real `avx2.ts`. On this branch
    alone it skips, with a printed reason, and the gate's skip allowlist rejects a skip. On the merge it runs and passes (checked,
    see below). The stale comments in `src/miri/intrinsics/mod.ts` (lines 8-9, 305-306: "stops `unported` until ported") belong to
    that file's owner.
 3. **Cost.** `x86.test.ts` takes about 3.5 CPU-minutes (203 s user for its 23 tests before "wide" was added; 18 min wall at load
-   ~100). Each test has a 20 min timeout. It adds 750 KB of fixtures; the `*.oracle.out` files are binary to git (they contain NUL).
+   ~100, about 3 min at load ~30). Each test has a 20 min timeout. `probes/` is 752 KB; the `*.oracle.out` files are binary to git
+   (they contain NUL).
 
 ## Files touched
 
@@ -44,8 +45,8 @@ None in these files.
 
 ## Verification
 
-Results marked (F) are from the final commit, see "Final run" at the end. The difftests and upstream programs ran on `0001ccf9` +
-the driver rename; the lane's ported code has not changed since `542e1adb`.
+`bun test src/miri`, tsc and the markers ran on the final code ("Final run" at the end). The difftests and upstream programs ran on
+`0001ccf9`; the lane's ported code has not changed since `542e1adb`.
 
 **Oracle fixtures (`x86.test.ts`)**: each probe runs end to end on the port and must equal what the isolated Miri produced, on
 target x86_64-unknown-linux-gnu, default seed.
@@ -130,3 +131,9 @@ argument order. `split_simd_to_128bit_chunks` returns `[bigint, bigint, P]`, `ex
 `len: bigint`.
 
 ## Final run
+
+On `dee9e4fa` (same code as this file's commit), load ~20-60:
+
+- `bunx tsc --noEmit -p .`: 0 errors.
+- `bun scripts/coverage.ts --check --offline`: `markers ok (24440; vendor 5050; library 584)`.
+- `RUST_TS_REQUIRE_PROBES=1 bun test src/miri`: 267 pass, 1 skip, 0 fail (182 s). The skip is "values: wide" ("For root" 2).
