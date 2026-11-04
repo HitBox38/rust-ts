@@ -3,7 +3,7 @@
 // variables (interpret/eval_context.ts's header has the representation notes).
 //! Manages the low-level pushing and popping of stack frames and the (de)allocation of local variables.
 //! For handling of argument passing and return values, see the `call` module.
-import { typing_env_no } from "../../rust_ts/typing_env_no.ts";
+import { args_env_key, typing_env_no } from "../../rust_ts/typing_env_no.ts";
 import { type FrameNote } from "../diagnostics.ts";
 import { InterpCx } from "./eval_context.ts";
 import { ReturnAction, type AnyMachine, type ProvOf, type MachineTypesOf, type Machine } from "./machine.ts";
@@ -527,13 +527,13 @@ InterpCx.prototype.push_stack_frame_raw = function (this: InterpCx, instance: In
   // Measured (docs/handoff/miri-perf.md, 486 Ginstr at base): -1.0 Ginstr with the locals loop above.
   // PORT(perf): upstream re-checks them on every push, through query cache hits. Once they all succeeded for `(body, args,
   // typing env)` the checks are pure hits (a query's success is cached and nothing else is written), so they are skipped.
-  const required_key = instance.args.id * 0x40 + typing_env_no(this.typing_env);
+  const required_key = args_env_key(instance.args.id, typing_env_no(this.typing_env));
   let required_ok = REQUIRED_CONSTS_OK.get(body);
   if (required_ok === undefined) {
     required_ok = new Set();
     REQUIRED_CONSTS_OK.set(body, required_ok);
   }
-  if (!required_ok.has(required_key)) for (const const_ of body.required_consts_()) {
+  if (required_key === undefined || !required_ok.has(required_key)) for (const const_ of body.required_consts_()) {
     // We can't use `eval_mir_constant` here as that assumes that all required consts have
     // already been checked, so we need a separate tracing call.
     // let _trace = enter_trace_span!(M, const_eval::required_consts, ?const_.const_);
@@ -547,7 +547,7 @@ InterpCx.prototype.push_stack_frame_raw = function (this: InterpCx, instance: In
       return Err(InterpErrorInfo_from_ErrorHandled(err));
     }
   }
-  required_ok.add(required_key);
+  if (required_key !== undefined) required_ok.add(required_key);
 
   // Finish things up.
   const r = this.machine.after_stack_push(this);

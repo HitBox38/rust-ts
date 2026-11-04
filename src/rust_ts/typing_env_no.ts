@@ -32,13 +32,21 @@ export function typing_env_no(env: TypingEnvLike): number {
 }
 
 /**
- * PORT(perf): `(env, DefId, id)` as one number when all fit (the interpreter's usual case), else -1: env below 4, crate below
- * 2^7, index below 2^20, id below 2^24. Injective on what it accepts; a key that does not fit takes another form, decided by
- * its value alone, so one value always has one key.
+ * PORT(perf): `(env, DefId, id)` as one number when all fit (the interpreter's usual case), else -1: env below 4 at bit 51,
+ * crate below 2^7 at bit 44, index below 2^20 at bit 24, id below 2^24 at bit 0, 53 bits in all. Injective on what it accepts
+ * (tested); a key that does not fit takes another form, decided by its value alone, so one value always has one key.
  */
 export function pack_def_id(env: number, d: { readonly krate: number; readonly index: number }, id: number): number {
   if (env < 4 && d.krate < 0x80 && d.index < 0x10_0000 && id < 0x100_0000) {
-    return env * 0x8_0000_0000_0000 + d.krate * 0x100_0000_0000 + d.index * 0x100_0000 + id;
+    return env * 0x8_0000_0000_0000 + d.krate * 0x1000_0000_0000 + d.index * 0x100_0000 + id;
   }
   return -1;
+}
+
+/**
+ * PORT(perf): `(args, env)` as one number, or undefined if the env does not fit below 0x40: `(args, env)` and
+ * `(args - 1, env + 0x40)` would otherwise be the same key (review miri-perf F2). The caller then does not memoize.
+ */
+export function args_env_key(args_id: number, env: number): number | undefined {
+  return env < 0x40 ? args_id * 0x40 + env : undefined;
 }
