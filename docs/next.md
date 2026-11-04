@@ -427,7 +427,7 @@ run-pass-miri-heavy was left out of this gate (8 serial cases; the two slowest t
 Integration branch `integ-w38` (worktree .data/integ-w38). x86 and Tree Borrows run in parallel: the Miri contract declares what the halves share (split per docs/handoff/miri-contract.md).
 | lane | scope | status |
 |---|---|---|
-| harness-m6c | miri-pass, miri-fail, run-pass-aux-miri suites (A8: revisions, only/ignore-target); M6b needs miri-pass >= 80% | running |
+| harness-m6c | miri-pass, -heavy, -tb, miri-fail, run-pass-aux-miri suites (A8); M6b needs miri-pass + heavy >= 80%; scripts/criteria.ts | REQUEST CHANGES, root's fixes re-checked APPROVE WITH NITS; on integ-w38 |
 | harness-w38 | harness-w37 nits, queued probes (randstream, epoll/eventfd), UNPORTED bucket counts in the run summary | APPROVE WITH NITS; on integ-w38 |
 | miri-perf | D11: hello <= 3 s user, run-pass p99 <= 10 s; the 3 timeouts and the heavy cases; rmeta-core RSS watch | running |
 | miri-x86-a | intrinsics/x86/mod.rs + sse, sse2, sse3, ssse3, sse41, sse42 (~2.7k) | running |
