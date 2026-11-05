@@ -462,5 +462,6 @@ Queued:
 - 52 run-pass programs with proc-macro aux crates run in no suite: run-pass-aux-native in harness-m7c.
 - EiiMapEncodedKeyValue decoding (16 cases); rustc-env.rs CRASH; long error descriptions in rustc_errors::codes (7 miri-fail cases).
 - Plan items outside the M6 gate, not done: miri-sysroot-* with harness-m6d; D11's p99 (11.1 s against 10 s); D8's cross-thread proc-macro path (expand-expr.rs).
+- Reviews of wave 39: abi-vtable F1 (a supertrait vtable pointer's contents are not compared: fix before a native suite relies on upcasting), F2, F3; mono-wire W2, W3, W5; mir-alias F2 (checker gaps), F3, F4; harness-m7a H3, H5 (due in harness-m7b before the first ir-* baseline), H8-H10; integ-w39 L3, N1-N6; integ-w39-b1 F1 (other exits still leak the metadata temp dir, not new, not reaching the gate); the tools batch from mono-wire, with codegen-sets-m7; rustc_lint/builtin.ts:541; short_string_namespace.
 - Recorded earlier: ICE report lanes (docs/plan-ice-report.md, as amended); the deliberate probe rebuild (harness-w39 A1); the bytecode bundle; integ-w38 re-check N2, N8, N9; miri-perf N1-N5; the review nits in docs/state/history.jsonl.
 
