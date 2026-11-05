@@ -33,6 +33,7 @@ import {
   BasicBlock,
   Body,
   BorrowKind,
+  clone_BorrowKind,
   clone_ConstOperand,
   clone_MirSource,
   clone_Rvalue,
@@ -1175,7 +1176,7 @@ class Promoter extends MutVisitor {
       // `mem::replace(&mut place.local, promoted_ref)`
       const old_local = place.local;
       place.local = promoted_ref;
-      rvalue = { $: "Ref", _0: tcx.lifetimes.re_erased, _1: borrow_kind, _2: new Place(old_local, RawList.empty()) };
+      rvalue = { $: "Ref", _0: tcx.lifetimes.re_erased, _1: clone_BorrowKind(borrow_kind), _2: new Place(old_local, RawList.empty()) };
       promoted_op = promoted_operand_;
     }
 

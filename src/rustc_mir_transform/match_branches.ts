@@ -18,6 +18,7 @@ import {
   type ConstOperand,
   clone_ConstOperand,
   clone_Operand,
+  clone_Place,
   clone_StatementKind,
   clone_TerminatorKind,
   type Local,
@@ -116,7 +117,9 @@ class SimplifyMatch {
       return {
         $: "Assign",
         _0: [
-          dest,
+          // PORT: `dest` is `Copy` upstream, and this `Place` is still the arm's statement's (it stays in the body if the arm
+          // has another predecessor), so this statement gets its own copy (PORTING §8).
+          clone_Place(dest),
           // We didn't remember the `WithRetag` of the original assignments, so in case
           // one of them had "no", we also have to use "no" here.
           { $: "Use", _0: { $: "Constant", _0: clone_ConstOperand(first_const) }, _1: WithRetag.No },
@@ -173,7 +176,7 @@ class SimplifyMatch {
       const const_cmp = Operand.const_from_scalar(this.tcx, this.discr_ty, Scalar.from_uint(first_case, size), DUMMY_SP);
       const op = first_bool ? "Eq" : "Ne";
       const rval: Rvalue = { $: "BinaryOp", _0: op, _1: [{ $: "Copy", _0: Place_from_Local(this.discr_local()) }, const_cmp] };
-      return { $: "Assign", _0: [dest, rval] };
+      return { $: "Assign", _0: [clone_Place(dest), rval] };
     } else {
       return undefined;
     }
@@ -239,7 +242,7 @@ class SimplifyMatch {
       } else {
         rval = { $: "Cast", _0: CastKind.IntToInt, _1: operand, _2: first_const.ty() };
       }
-      return { $: "Assign", _0: [dest, rval] };
+      return { $: "Assign", _0: [clone_Place(dest), rval] };
     } else {
       return undefined;
     }
@@ -335,7 +338,7 @@ class SimplifyMatch {
     }
     // We didn't remember the `WithRetag` of the original assignments, so in case
     // one of them had "no", we also have to use "no" here.
-    return { $: "Assign", _0: [dest, { $: "Use", _0: { $: "Copy", _0: copy_src_place }, _1: WithRetag.No }] };
+    return { $: "Assign", _0: [clone_Place(dest), { $: "Use", _0: { $: "Copy", _0: clone_Place(copy_src_place) }, _1: WithRetag.No }] };
   }
 
   /// Returns a new statement if we can use the statement replace all statements.

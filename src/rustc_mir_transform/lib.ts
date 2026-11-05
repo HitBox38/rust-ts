@@ -89,7 +89,7 @@ import { FieldIdx } from "../rustc_abi/layout.ts";
 import {
   type Body,
   ClearCrossCrate,
-  clone_Body,
+  clone_Body_with_annotations,
   clone_Operand,
   Const,
   type ConstQualifs,
@@ -694,7 +694,7 @@ function inner_mir_for_ctfe(tcx: TyCtxt, def: LocalDefId): Body {
     // cloning it.
     [body, always] = [body_.steal(), true];
   } else if (ctx !== undefined && ctx.$ === "ConstFn") {
-    [body, always] = [clone_Body(body_.borrow()), false];
+    [body, always] = [clone_Body_with_annotations(body_.borrow()), false];
   } else {
     return bug(`\`mir_for_ctfe\` called on non-const ${debug_LocalDefId(def, PLAIN)}`);
   }
