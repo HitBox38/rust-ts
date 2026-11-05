@@ -935,9 +935,9 @@ function rustc_incremental_provide(providers: MiddleProviders): void {
     });
 }
 
-/** The queries `rustc_monomorphize::provide` sets; passes_mono.test.ts compares this with what it really sets. */
+/** The queries `rustc_monomorphize::provide` sets; src/rustc_monomorphize/wire.test.ts compares this with what it really sets. */
 export const RUSTC_MONOMORPHIZE_QUERIES = ["collect_and_partition_mono_items", "is_codegened_item", "codegen_unit", "size_estimate", "items_of_instance", "check_mono_item"] as const;
-/** The hooks `rustc_monomorphize::provide` sets; passes_mono.test.ts compares this with what it really sets. */
+/** The hooks `rustc_monomorphize::provide` sets; src/rustc_monomorphize/wire.test.ts compares this with what it really sets. */
 export const RUSTC_MONOMORPHIZE_HOOKS = ["should_codegen_locally"] as const;
 
 let rustc_monomorphize_providers: MiddleProviders | undefined;
