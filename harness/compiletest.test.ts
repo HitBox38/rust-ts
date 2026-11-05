@@ -133,7 +133,7 @@ test("aux-crate: nested aux crates with extern modifiers, --extern after the com
 
 test("proc-macro aux crates are skipped (M6)", () => {
   expect(R.procMacro.cases).toEqual([]);
-  expect(R.procMacro.skipped[0].reason).toContain("deferred to M6");
+  expect(R.procMacro.skipped[0].reason).toContain("no suite runs this yet");
 });
 
 test("uiBlessed: expected file per revision and compiletest's normalization", () => {

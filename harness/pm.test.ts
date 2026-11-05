@@ -126,7 +126,7 @@ t("proc-macro: aux built as a host dylib with compiletest's AuxType::ProcMacro a
   expect(a.at(-1)).toBe("-Zparse-crate-root-only");
   // Without `procMacro`, the test is skipped as before (plan-m2 D6).
   expect(R.attrDefault.cases).toEqual([]);
-  expect(R.attrDefault.skipped[0].reason).toContain("deferred to M6");
+  expect(R.attrDefault.skipped[0].reason).toContain("no suite runs this yet");
 });
 
 t("dylib names follow compiletest's DLL_PREFIX/DLL_EXTENSION of the machine it runs on", () => {

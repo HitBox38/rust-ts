@@ -7,11 +7,12 @@ import { join } from "node:path";
 
 // The grandchild spins until its own clock says it has used `CPU_MS` of CPU, so the amount does not depend on how fast the
 // host is or how much of it this process gets: at any load only the wall time grows. Read as seconds or microseconds,
-// `run()` would report about 1,000x off, outside the bounds below.
+// `run()` would report about 1,000x off, outside the bounds below. The inner loop keeps the clock's own syscalls from being most of its
+// time: system time stays well under `CPU_MS`, so reading it as user time fails (review harness-w39 N4).
 const CPU_MS = 300;
 const CHILD = `
 const { run } = await import(${JSON.stringify(join(import.meta.dir, "common.ts"))});
-const r = await run([process.execPath, "-e", "const b = new Uint8Array(256 * 2 ** 20); for (let i = 0; i < b.length; i += 4096) b[i] = 1; const start = process.cpuUsage().user; let x = 0; while (process.cpuUsage().user - start < ${CPU_MS} * 1000) x++; console.log(b[4096] + (x > 0 ? 0 : 1));"]);
+const r = await run([process.execPath, "-e", "const b = new Uint8Array(256 * 2 ** 20); for (let i = 0; i < b.length; i += 4096) b[i] = 1; const start = process.cpuUsage().user; let x = 0; while (process.cpuUsage().user - start < ${CPU_MS} * 1000) for (let i = 0; i < 2e6; i++) x++; console.log(b[4096] + (x > 0 ? 0 : 1));"]);
 console.log(JSON.stringify({ code: r.code, stderr: r.stderr, usage: r.usage }));
 `;
 

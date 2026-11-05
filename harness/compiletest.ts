@@ -959,6 +959,14 @@ export function dylibName(name: string, platform: string = process.platform): st
   return `lib${name}.${platform === "darwin" ? "dylib" : "so"}`;
 }
 
+/**
+ * Why a test with a proc-macro aux crate is skipped where `ctx.procMacro` is off (docs/reviews/m6-audit.md F2: "deferred to M6" misstated the plan). In `run-pass-aux-miri` that is 52
+ * run-pass programs: `pm-ui` compares their expansion, and nothing compares their execution. Under Miri they would need its driver to load a host-built dylib during expansion, which
+ * plan-m6's suite definition left out. They need a native run: the macro built by the oracle for the host, as `pm-ui` does, and the program built and run by each side. That
+ * belongs in `run-pass-aux-native` (lane harness-m7c), whose planned 356 cases leave them out today; root records the decision.
+ */
+const NO_PROC_MACRO_YET = "no suite runs this yet: `pm-ui` compares the expansion; running it needs a native run with a host-built macro (proposed for `run-pass-aux-native`, plan-m7 M7c)";
+
 /** runtest.rs `get_lib_name` (no wasm proc macros: `wasm-proc-macros` is off). */
 function getLibName(name: string, auxType: "bin" | "lib" | "dylib" | "proc-macro"): string | undefined {
   if (auxType === "bin") return undefined;
@@ -979,7 +987,7 @@ function isProcMacroCrate(src: string, ap: Props): boolean {
  */
 function planAllAux(root: string, rev: string | undefined, props: Props, auxDir: string, cmd: string[], steps: AuxStep[], format: ErrorFormat, ctx: AuxCtx = NO_PROC_MACRO): void {
   // (compiletest builds proc-macros last; without `ctx.procMacro` none is reproduced, so the test is skipped before any build.)
-  if (props.aux.procMacros.length > 0 && !ctx.procMacro) throw new Reject(`needs a proc-macro auxiliary crate (\`proc-macro: ${props.aux.procMacros[0]!.path}\`): deferred to M6 (plan-m2 D6)`);
+  if (props.aux.procMacros.length > 0 && !ctx.procMacro) throw new Reject(`needs a proc-macro auxiliary crate (\`proc-macro: ${props.aux.procMacros[0]!.path}\`): ${NO_PROC_MACRO_YET}`);
   for (const b of props.aux.builds) planAux(root, rev, b, auxDir, undefined, steps, format, ctx);
   for (const b of props.aux.bins) planAux(root, rev, b, auxDir, "bin", steps, format, ctx);
   for (const c of props.aux.crates) {
@@ -1016,7 +1024,7 @@ function planAux(
   const src = readFileSync(join(UPSTREAM, auxPath), "utf8");
   const ap = testProps(fileDirectives(src), rev, { auxFile: true, extra: true });
   const pmCrate = type === "proc-macro" || isProcMacroCrate(src, ap);
-  if (pmCrate && !ctx.procMacro) throw new Reject(`auxiliary crate \`${auxPath}\` is a proc-macro crate: deferred to M6 (plan-m2 D6)`);
+  if (pmCrate && !ctx.procMacro) throw new Reject(`auxiliary crate \`${auxPath}\` is a proc-macro crate: ${NO_PROC_MACRO_YET}`);
   if (ap.compileFlags.includes("-o")) throw new Reject(`auxiliary crate \`${auxPath}\` sets \`-o\`, which this harness does not reproduce`);
   if (ctx.miri && type === "bin") throw new Reject(`auxiliary binary \`${auxPath}\`: Miri builds no program to run`);
   // `AuxType::ProcMacro` (not wasm): `force_host`. Host-built here (header): proc-macro crates and their aux trees.
