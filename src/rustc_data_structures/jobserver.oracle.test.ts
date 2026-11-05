@@ -91,14 +91,14 @@ describe.skipIf(SKIP)("jobserver::initialize, oracle", () => {
     });
   }
 
-  // The whole driver: where it is called, the diagnostic's note, and that a compile goes on after it.
-  test("through the driver: bad jobserver, then a pipe from `cargo`", () => {
-    for (const [value, setup] of [["--jobserver-auth=3,4", ""], ["--jobserver-auth=5,6", PIPE]] as const) {
-      const o = oracle(value, setup);
-      const p = sh(value, setup, [process.execPath, join(REPO, "src/rust_ts/main.ts"), ...LIB]);
-      expect(p.stderr.toString()).toBe(o.stderr.toString());
-      expect(p.exitCode).toBe(o.exitCode);
-    }
+  // The whole driver: where it is called, the diagnostic's note, and that a compile goes on after it. cargo's own
+  // pipe through the driver is the `check-rg` suite's.
+  test("through the driver: a bad jobserver", () => {
+    const value = "--jobserver-auth=3,4";
+    const o = oracle(value, "");
+    const p = sh(value, "", [process.execPath, join(REPO, "src/rust_ts/main.ts"), ...LIB]);
+    expect(p.stderr.toString()).toBe(o.stderr.toString());
+    expect(p.exitCode).toBe(o.exitCode);
   }, 30_000);
 
   // PORT rule (lib.ts `Client_from_env_ext`): a value that may not be UTF-8 stops; `process.env` has lost its bytes.
