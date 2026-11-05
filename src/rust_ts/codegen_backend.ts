@@ -4,8 +4,8 @@
 // metadata level: `init` (its `global_backend_features` from `llvm_util::global_llvm_features`) and `target_config`
 // (the oracle table src/rust_ts/target_config.gen.ts, decision D4), `supported_crate_types` (the trait default),
 // `target_cpu` (`llvm_util::target_cpu`) and `link` (codegen_ssa `link_binary`, as LLVM's `link` does). Codegen
-// itself (`codegen_crate`, `join_codegen`) and LLVM's statistics are `unported`: unreachable for `--emit=metadata`
-// (D5).
+// itself (`codegen_crate` past monomorphization, `join_codegen`) and LLVM's statistics are `unported`: unreachable for
+// `--emit=metadata` (D5).
 import type { CodegenBackendInit, EarlySession, Session } from "../rustc_session/session.ts";
 import { type OutputFilenames, std_print } from "../rustc_session/config.ts";
 import type { CrateType } from "../rustc_structures/crate_type.ts";
@@ -18,6 +18,7 @@ import type { MetadataLoaderDyn } from "../rustc_metadata/creader.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import { link_binary, type ArchiveBuilderBuilder } from "../rustc_codegen_ssa/back/link.ts";
 import { wants_wasm_eh } from "../rustc_codegen_ssa/base.ts";
+import { CpuRequired_diagnostic, CpuUnsupported_diagnostic } from "../rustc_codegen_ssa/diagnostics.ts";
 import * as target_features from "../rustc_codegen_ssa/target_features.ts";
 import type { Target } from "../rustc_target/spec/mod.ts";
 import type { CompiledModules, CrateInfo } from "../rustc_codegen_ssa/lib.ts";
@@ -234,10 +235,31 @@ export class LlvmCodegenBackend implements CodegenBackend {
   target_cpu(sess: Session): string {
     return llvm_util_target_cpu(sess.early_sess);
   }
-  codegen_crate(_tcx: TyCtxt): unknown {
-    // `rustc_codegen_ssa::base::codegen_crate(LlvmCodegenBackend(()), tcx, crate::llvm_util::target_cpu(tcx.sess)
-    // .to_string())` and the offload/autodiff steps: unreachable without `should_codegen()` (D5).
-    return unported("rustc_codegen_llvm::LlvmCodegenBackend::codegen_crate (codegen; M7)");
+  codegen_crate(tcx: TyCtxt): unknown {
+    // back/llvm_backend.rs:336: the offload check, which stops below (no lane yet; plan-m7 D18), then
+    // `rustc_codegen_ssa::base::codegen_crate(LlvmCodegenBackend(()), tcx)`.
+    // PORT: only the head of that function (base.rs:723-739), which is everything before LLVM: the CPU checks and the
+    // collector and partitioner, which print `-Zprint-mono-items` and write `-Zdump-mono-stats`. No `// rustc:` marker, as
+    // base.rs's `codegen_crate` stays to be ported. The stop that follows never counts as success: docs/handoff/mono-wire.md
+    // says how a suite reads this output.
+    const offload = tcx.sess.opts.unstable_opts.offload;
+    if (offload.some((o) => o.$ === "Device") || offload.some((o) => o.$ === "Host")) return unported("rustc_codegen_llvm::LlvmCodegenBackend::codegen_crate (-Zoffload; plan-m7 D18)");
+    if (tcx.sess.target.need_explicit_cpu && tcx.sess.opts.cg.target_cpu === undefined) {
+      // The target has no default cpu, but none is set explicitly
+      tcx.dcx().emit_fatal(CpuRequired_diagnostic({}));
+    }
+
+    const target_cpu = tcx.sess.opts.cg.target_cpu;
+    if (target_cpu !== undefined && tcx.sess.target.unsupported_cpus.includes(target_cpu)) {
+      // The target cpu is explicitly listed as an unsupported cpu
+      tcx.dcx().emit_fatal(CpuUnsupported_diagnostic({ target_cpu }));
+    }
+
+    // Run the monomorphization collector and partition the collected items into
+    // codegen units.
+    tcx.collect_and_partition_mono_items(null);
+
+    return unported("rustc_codegen_llvm::LlvmCodegenBackend::codegen_crate (after collect_and_partition_mono_items; codegen; M7)");
   }
   join_codegen(
     _ongoing_codegen: unknown,

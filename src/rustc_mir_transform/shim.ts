@@ -1212,7 +1212,7 @@ function build_fn_ptr_as_ptr_shim(tcx: TyCtxt, def_id: DefId, self_ty: Ty): Body
   const raw_ptr_local = Local.new(locals.length);
   locals.push(LocalDecl.with_source_info(raw_unit_ptr, clone_SourceInfo(source_info)));
   const raw_ptr = Place_from_Local(raw_ptr_local);
-  statements.push(Statement.new(clone_SourceInfo(source_info), { $: "Assign", _0: [raw_ptr, cast_to_raw_rvalue] }));
+  statements.push(Statement.new(clone_SourceInfo(source_info), { $: "Assign", _0: [clone_Place(raw_ptr), cast_to_raw_rvalue] }));
 
   const transmute_to_nonnull = {
     $: "Cast" as const,

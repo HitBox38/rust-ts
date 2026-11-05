@@ -5,8 +5,8 @@
 //
 // Every number comes from that run's `gate.json`, one snapshot of one commit: a `<suite>.summary.json` can be overwritten
 // later (`difftest --run-id`), and so can mix trees. A group is met only if the gate passed on a clean tree, with its
-// static steps, and ran every suite of the group. Prints one line per group; exits 1 if a group is not met. Report only:
-// `scripts/gate.ts` does not read it.
+// static steps, and ran every suite of the group and every protected suite at that gate's commit: a narrowed gate says nothing about losses
+// (review integ-w38-recheck N3). Prints one line per group; exits 1 if a group is not met. Report only: `scripts/gate.ts` does not read it.
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -63,11 +63,17 @@ export function gateRecordProblem(g: unknown): string | undefined {
   return bad === undefined ? undefined : `a suites entry lacks suite, match, total or oracleTimeouts: ${JSON.stringify(bad)?.slice(0, 200)}`;
 }
 
-export function groupResult(group: CriteriaGroup, g: GateRecord): GroupResult {
+/** The protected suites `g` did not run, as one problem, or none. */
+export function protectedNotRun(g: GateRecord, protectedSuites: readonly string[]): string[] {
+  const missing = protectedSuites.filter((p) => !g.suites.some((s) => s.suite === p));
+  return missing.length === 0 ? [] : [`${missing.length} protected suite(s) not in this gate, so losses are unknown (${missing.slice(0, 3).join(", ")}${missing.length > 3 ? ", ..." : ""})`];
+}
+
+export function groupResult(group: CriteriaGroup, g: GateRecord, protectedSuites: readonly string[] = []): GroupResult {
   let match = 0;
   let of = 0;
   let oracleTimeouts = 0;
-  const problems = gateProblems(g);
+  const problems = [...gateProblems(g), ...protectedNotRun(g, protectedSuites)];
   for (const name of group.suites) {
     const s = g.suites.find((x) => x.suite === name);
     if (s === undefined) {
@@ -87,7 +93,7 @@ export function groupResult(group: CriteriaGroup, g: GateRecord): GroupResult {
 if (import.meta.main) {
   // Loaded here, not at the top: common.ts fixes the data directory when it loads, and a test file sharing a process with
   // criteria.test.ts (lib/deps.test.ts) sets its own first.
-  const { RUNS, die, parseArgs } = await import("./lib/common.ts");
+  const { REPO, RUNS, die, parseArgs } = await import("./lib/common.ts");
   const readGate = (run: string): GateRecord => {
     const f = join(RUNS, run, "gate.json");
     if (!existsSync(f)) die(`${run} has no gate.json: a milestone figure comes from a gate run`);
@@ -109,9 +115,13 @@ if (import.meta.main) {
   }
   const g = readGate(a.run);
   console.log(`gate ${a.run} at ${g.head.slice(0, 10)}: pass=${g.pass}`);
+  // The protected set of the gate's own commit: a later commit may have grown it.
+  const ls = Bun.spawnSync(["git", "ls-tree", "--name-only", g.head, "harness/baseline/"], { cwd: REPO, stdout: "pipe", stderr: "pipe" });
+  if (ls.exitCode !== 0) die(`cannot read the protected set of ${g.head}: ${ls.stderr.toString().trim().split("\n")[0]}`);
+  const protectedSuites = ls.stdout.toString().split("\n").filter((f) => f.endsWith(".txt")).map((f) => f.slice("harness/baseline/".length, -".txt".length));
   let allMet = true;
   for (const group of GROUPS) {
-    const r = groupResult(group, g);
+    const r = groupResult(group, g, protectedSuites);
     allMet &&= r.met;
     const why = r.problems.length ? ` (${r.problems.join("; ")})` : "";
     console.log(`${r.name}: MATCH ${r.match}/${r.of} = ${r.percent}% vs >= ${r.target}%, ${r.oracleTimeouts} oracle timeouts excluded: ${r.met ? "met" : "not met"}${why}`);

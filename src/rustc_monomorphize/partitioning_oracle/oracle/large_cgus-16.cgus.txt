@@ -1,0 +1,37 @@
+CGU large_cgus.8d3d39e24f1a135d-cgu.00 sym=_RNSCsc7Oof5f0wIz_10large_cgus3cgu size=3075 primary=true covdead=false n=1
+IT fn big_a::f External Default inlined=false size=3075
+DO _RNvNtCsc7Oof5f0wIz_10large_cgus5big_a1f fn big_a::f
+CGU large_cgus.8d3d39e24f1a135d-cgu.01 sym=_RNSCsc7Oof5f0wIz_10large_cguss_3cgu size=2051 primary=false covdead=false n=1
+IT fn big_b::f External Default inlined=false size=2051
+DO _RNvNtCsc7Oof5f0wIz_10large_cgus5big_b1f fn big_b::f
+CGU large_cgus.8d3d39e24f1a135d-cgu.02 sym=_RNSCsc7Oof5f0wIz_10large_cguss0_3cgu size=1795 primary=false covdead=false n=1
+IT fn just_over::f External Default inlined=false size=1795
+DO _RNvNtCsc7Oof5f0wIz_10large_cgus9just_over1f fn just_over::f
+CGU large_cgus.8d3d39e24f1a135d-cgu.03 sym=_RNSCsc7Oof5f0wIz_10large_cguss1_3cgu size=1539 primary=false covdead=false n=1
+IT fn just_under::f External Default inlined=false size=1539
+DO _RNvNtCsc7Oof5f0wIz_10large_cgus10just_under1f fn just_under::f
+CGU large_cgus.8d3d39e24f1a135d-cgu.04 sym=_RNSCsc7Oof5f0wIz_10large_cguss2_3cgu size=131 primary=false covdead=false n=1
+IT fn small_7::f External Default inlined=false size=131
+DO _RNvNtCsc7Oof5f0wIz_10large_cgus7small_71f fn small_7::f
+CGU large_cgus.8d3d39e24f1a135d-cgu.05 sym=_RNSCsc7Oof5f0wIz_10large_cguss3_3cgu size=115 primary=false covdead=false n=1
+IT fn small_6::f External Default inlined=false size=115
+DO _RNvNtCsc7Oof5f0wIz_10large_cgus7small_61f fn small_6::f
+CGU large_cgus.8d3d39e24f1a135d-cgu.06 sym=_RNSCsc7Oof5f0wIz_10large_cguss4_3cgu size=99 primary=false covdead=false n=1
+IT fn small_5::f External Default inlined=false size=99
+DO _RNvNtCsc7Oof5f0wIz_10large_cgus7small_51f fn small_5::f
+CGU large_cgus.8d3d39e24f1a135d-cgu.07 sym=_RNSCsc7Oof5f0wIz_10large_cguss5_3cgu size=83 primary=false covdead=false n=1
+IT fn small_4::f External Default inlined=false size=83
+DO _RNvNtCsc7Oof5f0wIz_10large_cgus7small_41f fn small_4::f
+CGU large_cgus.8d3d39e24f1a135d-cgu.08 sym=_RNSCsc7Oof5f0wIz_10large_cguss6_3cgu size=67 primary=false covdead=false n=1
+IT fn small_3::f External Default inlined=false size=67
+DO _RNvNtCsc7Oof5f0wIz_10large_cgus7small_31f fn small_3::f
+CGU large_cgus.8d3d39e24f1a135d-cgu.09 sym=_RNSCsc7Oof5f0wIz_10large_cguss7_3cgu size=51 primary=false covdead=false n=1
+IT fn small_2::f External Default inlined=false size=51
+DO _RNvNtCsc7Oof5f0wIz_10large_cgus7small_21f fn small_2::f
+CGU large_cgus.8d3d39e24f1a135d-cgu.10 sym=_RNSCsc7Oof5f0wIz_10large_cguss8_3cgu size=35 primary=false covdead=false n=1
+IT fn small_1::f External Default inlined=false size=35
+DO _RNvNtCsc7Oof5f0wIz_10large_cgus7small_11f fn small_1::f
+CGU large_cgus.8d3d39e24f1a135d-cgu.11 sym=_RNSCsc7Oof5f0wIz_10large_cguss9_3cgu size=19 primary=false covdead=false n=1
+IT fn small_0::f External Default inlined=false size=19
+DO _RNvNtCsc7Oof5f0wIz_10large_cgus7small_01f fn small_0::f
+ALL 12

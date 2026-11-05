@@ -1,0 +1,11 @@
+CGU local_transitive_inlining.a19410adf847a980-indirect_user sym=_RINSCsdS4Px9UponQ_25local_transitive_inlining3cguKRe6c6f63616c5f7472616e7369746976655f696e6c696e696e672e613139343130616466383437613938302d696e6469726563745f75736572_E size=5 primary=true covdead=false n=3
+IT fn indirect_user::bar External Default inlined=false size=2
+IT fn direct_user::foo Internal Default inlined=true size=2
+IT fn inline::inlined_function Internal Default inlined=true size=1
+DO _RNvNtCsdS4Px9UponQ_25local_transitive_inlining11direct_user3foo fn direct_user::foo
+DO _RNvNtCsdS4Px9UponQ_25local_transitive_inlining13indirect_user3bar fn indirect_user::bar
+DO _RNvNtCsdS4Px9UponQ_25local_transitive_inlining6inline16inlined_function fn inline::inlined_function
+CGU local_transitive_inlining.a19410adf847a980-non_user sym=_RINSCsdS4Px9UponQ_25local_transitive_inlining3cguKRe6c6f63616c5f7472616e7369746976655f696e6c696e696e672e613139343130616466383437613938302d6e6f6e5f75736572_E size=1 primary=false covdead=false n=1
+IT fn non_user::baz External Default inlined=false size=1
+DO _RNvNtCsdS4Px9UponQ_25local_transitive_inlining8non_user3baz fn non_user::baz
+ALL 4

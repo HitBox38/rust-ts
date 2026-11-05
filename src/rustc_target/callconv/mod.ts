@@ -13,9 +13,9 @@
 //   the registered table (rustc_abi layout/ty.ts), reached through `TyAndLayout`'s methods.
 // - `impl fmt::Debug for ArgAbi / FnAbi` need `Ty: Display`: `debug_ArgAbi` / `debug_FnAbi` take the `Display` fn (as
 //   rustc_abi's `debug_TyAndLayout`).
-// - Only the x86_64 lowerings (`x86_64::compute_abi_info`, SysV, and `x86_win64::compute_abi_info`, lane gaps-30c) are
-//   ported; the other targets' modules
-//   (`mod aarch64; .. mod xtensa;`) are not, and their arms of `adjust_for_foreign_abi` / `adjust_for_rust_abi` stop
+// - Only the x86_64 lowerings (`x86_64::compute_abi_info`, SysV, and `x86_win64::compute_abi_info`, lane gaps-30c) and
+//   `aarch64` (lane abi-vtable) are ported; the other targets' modules (`mod amdgpu; .. mod xtensa;`) are not, and
+//   their arms of `adjust_for_foreign_abi` / `adjust_for_rust_abi` stop
 //   with `unported(..)`.
 import { CanonAbi, debug_CanonAbi } from "../../rustc_abi/canon_abi.ts";
 import { ExternAbi } from "../../rustc_abi/extern_abi.ts";
@@ -42,12 +42,13 @@ import { assert, panic, unported, unreachable } from "../../std/panic.ts";
 import { to_writer } from "../../vendor/bitflags/parser.ts";
 import { flags_companion } from "../../vendor/bitflags/traits.ts";
 import { Arch, type HasTargetSpec, type HasX86AbiOpt } from "../spec/mod.ts";
+import * as aarch64 from "./aarch64.ts";
 import * as x86_64 from "./x86_64.ts";
 import * as x86_win64 from "./x86_win64.ts";
 
 export { AbiMap } from "../spec/abi_map.ts";
 
-// mod aarch64; .. mod xtensa;  PORT: only `mod x86_64;` and `mod x86_win64;` are ported (header).
+// mod aarch64; .. mod xtensa;  PORT: only `mod aarch64;`, `mod x86_64;` and `mod x86_win64;` are ported (header).
 
 /// Different modes in which indirect arguments can be passed.
 // #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, StableHash)]
@@ -871,8 +872,17 @@ export class FnAbi<Ty> {
         }
       case "AArch64":
       case "Arm64EC":
-        // let kind = if is_like_darwin { DarwinPCS } else if is_like_windows { Win64 } else { AAPCS };
-        return unported("rustc_target::callconv::aarch64::compute_abi_info (lane fn-abi: x86_64 only)");
+      {
+        let kind: aarch64.AbiKind;
+        if (cx.target_spec().is_like_darwin) {
+          kind = aarch64.AbiKind.DarwinPCS;
+        } else if (cx.target_spec().is_like_windows) {
+          kind = aarch64.AbiKind.Win64;
+        } else {
+          kind = aarch64.AbiKind.AAPCS;
+        }
+        return aarch64.compute_abi_info(cx, this, kind);
+      }
       case "AmdGpu":
         return unported("rustc_target::callconv::amdgpu::compute_abi_info (lane fn-abi: x86_64 only)");
       case "Arm":
@@ -941,7 +951,8 @@ export class FnAbi<Ty> {
       case "LoongArch64":
         return unported("rustc_target::callconv::loongarch::compute_rust_abi_info (lane fn-abi: x86_64 only)");
       case "AArch64":
-        return unported("rustc_target::callconv::aarch64::compute_rust_abi_info (lane fn-abi: x86_64 only)");
+        aarch64.compute_rust_abi_info(cx, this);
+        break;
       case "Bpf":
         return unported("rustc_target::callconv::bpf::compute_rust_abi_info (lane fn-abi: x86_64 only)");
       default:

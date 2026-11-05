@@ -1,0 +1,14 @@
+CGU inline_always.5803b41b0fafe606-non_user sym=_RINSCs7yuVVUTtJ08_13inline_always3cguKRe696e6c696e655f616c776179732e353830336234316230666166653630362d6e6f6e5f75736572_E size=1 primary=true covdead=false n=1
+IT fn non_user::baz External Default inlined=false size=1
+DO _RNvNtCs7yuVVUTtJ08_13inline_always8non_user3baz fn non_user::baz
+CGU inline_always.5803b41b0fafe606-user1 sym=_RINSCs7yuVVUTtJ08_13inline_always3cguKRe696e6c696e655f616c776179732e353830336234316230666166653630362d7573657231_E size=3 primary=false covdead=false n=2
+IT fn user1::foo External Default inlined=false size=2
+IT fn inline::inlined_function Internal Default inlined=true size=1
+DO _RNvNtCs7yuVVUTtJ08_13inline_always5user13foo fn user1::foo
+DO _RNvNtCs7yuVVUTtJ08_13inline_always6inline16inlined_function fn inline::inlined_function
+CGU inline_always.5803b41b0fafe606-user2 sym=_RINSCs7yuVVUTtJ08_13inline_always3cguKRe696e6c696e655f616c776179732e353830336234316230666166653630362d7573657232_E size=3 primary=false covdead=false n=2
+IT fn user2::bar External Default inlined=false size=2
+IT fn inline::inlined_function Internal Default inlined=true size=1
+DO _RNvNtCs7yuVVUTtJ08_13inline_always5user23bar fn user2::bar
+DO _RNvNtCs7yuVVUTtJ08_13inline_always6inline16inlined_function fn inline::inlined_function
+ALL 4

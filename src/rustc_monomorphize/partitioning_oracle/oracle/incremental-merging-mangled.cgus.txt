@@ -1,0 +1,12 @@
+CGU 8dknzq48d7oxy2xpy79zpgwbt sym=_RINSCs2NTxbAtg5oe_19incremental_merging3cguKRe38646b6e7a71343864376f78793278707937397a7067776274_E size=10 primary=true covdead=false n=1
+IT fn ccc::foo External Default inlined=false size=10
+DO _RNvNtCs2NTxbAtg5oe_19incremental_merging3ccc3foo fn ccc::foo
+CGU 94wtk80fzc8iat75chw42jg89 sym=_RINSCs2NTxbAtg5oe_19incremental_merging3cguKRe393477746b3830667a6338696174373563687734326a673839_E size=13 primary=false covdead=false n=1
+IT fn ddd::foo External Default inlined=false size=13
+DO _RNvNtCs2NTxbAtg5oe_19incremental_merging3ddd3foo fn ddd::foo
+CGU dhszpx3y9ljiak5slkg4317rw sym=_RINSCs2NTxbAtg5oe_19incremental_merging3cguKRe6468737a70783379396c6a69616b35736c6b67343331377277_E size=11 primary=false covdead=false n=2
+IT fn bbb::foo External Default inlined=false size=7
+IT fn aaa::foo External Default inlined=false size=4
+DO _RNvNtCs2NTxbAtg5oe_19incremental_merging3aaa3foo fn aaa::foo
+DO _RNvNtCs2NTxbAtg5oe_19incremental_merging3bbb3foo fn bbb::foo
+ALL 4

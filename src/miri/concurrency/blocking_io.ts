@@ -7,6 +7,12 @@
 // the isolation-off ones stop `unported("mio::..")` where mio is called.
 // - `BlockingIoManager::new`: `communicate.then_some(Poll::new()?)` evaluates `Poll::new()` eagerly; with isolation on its
 //   result (a host kqueue/epoll handle) is dropped unobserved, so the port does not create one.
+// - With isolation off, Miri polls before every foreign item and on every scheduler tick (scheduler.rs:107,
+//   foreign_items.rs:127), so a program that does no socket I/O still reaches `Poll::new` and `Poll::poll`. Nothing can be in
+//   the poller until `register` runs, and `register` stops `unported`. mio's `select` on an empty poller
+//   (mio-1.1.1 sys/unix/selector/kqueue.rs, epoll.rs) returns no event once the timeout passes, so `new` makes no host
+//   poller (`NO_HOST_POLLER`), and `poll` with no source is ported: nothing for a zero timeout, a sleep for a longer one
+//   (fixers-39, recorded in docs/handoff/fixers-39.md). An EINTR there would be a spurious wakeup, which `poll_and_unblock` ignores.
 // - `events: Events` is mio's buffer (`never` in the typemap): `undefined`, it is only read by `poll`.
 // - `sources: BTreeMap<FdId, _>` is the generated `Map`; `FdId` is a class (lane miri-shims-b), so lookups compare
 //   `FdId._0` (`source_entry`); `blocked_threads: BTreeMap<ThreadId, _>` is a `KeyedMap` keyed by `ThreadId._0`
@@ -76,16 +82,16 @@ export function Readiness_from_Event(_event: Pending<"mio::event::Event">): Read
   return unported("mio::event::Event (host I/O, isolation off; plan-m6 D5)");
 }
 
+/** PORT: the `Some` of `BlockingIoManager.poll` with isolation off: the port creates no host poller (see the header). */
+const NO_HOST_POLLER = Object.freeze({});
+
 /// Create a new blocking I/O manager instance based on the availability
 /// of communication with the host.
 // rustc: src/tools/miri/src/concurrency/blocking_io.rs:106 new
 (BlockingIoManager as unknown as { new: typeof BlockingIoManager.new }).new = function (communicate: boolean): Result<BlockingIoManager, io_Error> {
   // `poll: communicate.then_some(Poll::new()?)` (see the header)
-  if (communicate) {
-    return unported("mio::Poll::new (host I/O, isolation off; plan-m6 D5)");
-  }
   const manager = new BlockingIoManager(
-    undefined,
+    communicate ? (NO_HOST_POLLER as never) : undefined,
     // Events::with_capacity(IO_EVENT_CAPACITY)
     undefined as never,
     new Map<FdId, BlockingIoSource>(),
@@ -97,9 +103,16 @@ export function Readiness_from_Event(_event: Pending<"mio::event::Event">): Read
 /// The timeout semantics are the same as described in [`Poll::poll`].
 /// The events also immediately get processed: threads get unblocked, and fd readiness gets updated.
 // rustc: src/tools/miri/src/concurrency/blocking_io.rs:118 poll
-BlockingIoManager.poll = function (ecx: MiriInterpCx, _timeout: Duration | undefined): InterpResult<Result<null, io_Error>> {
+BlockingIoManager.poll = function (ecx: MiriInterpCx, timeout: Duration | undefined): InterpResult<Result<null, io_Error>> {
   const poll = ecx.machine.blocking_io.poll;
   if (poll === undefined) panic("Blocking I/O should not be called with isolation enabled");
+
+  // PORT: no source was ever registered, so the poller is empty and no event can arrive (see the header). With no timeout
+  // upstream would block forever; the scheduler never asks for that with no source (`any_thread_blocked_on_host`).
+  if (ecx.machine.blocking_io.sources.size === 0 && timeout !== undefined) {
+    if (!timeout.is_zero()) ecx.machine.monotonic_clock.sleep(timeout);
+    return interp_ok({ $: "Ok", _0: null });
+  }
 
   // Poll for new I/O events from OS and store them in the events buffer.
   // `poll.poll(&mut ecx.machine.blocking_io.events, timeout)`, then each event's fd readiness is updated

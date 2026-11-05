@@ -201,6 +201,7 @@ const out = {
   gated: ["miri-pass", "miri-pass-heavy"].flatMap((n) => ids(n).filter((i) => byId(n, i)?.args.some((a) => a.startsWith("-Zmiri-tree-borrows")))),
   tb: ids("miri-pass-tb").filter((i) => !byId("miri-pass-tb", i).args.some((a) => a.startsWith("-Zmiri-tree-borrows"))),
   fsHeavy: ids("miri-pass-heavy").filter((i) => i.includes("shims/fs") || i.includes("issue-miri-3680")),
+  clockHeavy: [...ids("miri-pass-heavy"), ...ids("miri-pass")].filter((i) => i.includes("shims/time")).map((i) => [i, ids("miri-pass-heavy").includes(i)]),
   unstable: get("miri-pass").unstable().map((u) => u.id),
   skippedPass: get("miri-pass").skipped().filter((k) => !k.reason.includes("Tree Borrows") && !k.reason.startsWith("heavy")).map((k) => k.id),
   tbSkipped: get("miri-pass").skipped().filter((k) => k.reason.includes("Tree Borrows")).length,
@@ -240,17 +241,19 @@ suiteTest(`the suites' fields${why}`, () => {
 });
 
 suiteTest(`the case sets at the pin (revisions expanded, target filters honoured)${why}`, () => {
-  expect(k.counts).toEqual({ "miri-pass": 353, "miri-pass-heavy": 7, "miri-pass-tb": 132, "miri-fail": 610 });
+  expect(k.counts).toEqual({ "miri-pass": 352, "miri-pass-heavy": 8, "miri-pass-tb": 132, "miri-fail": 610 });
   expect(k.dup).toBe(false);
   expect(k.overlap).toEqual([]);
   expect(k.gated).toEqual([]);
   expect(k.tb).toEqual([]);
   expect(k.fsHeavy).toEqual(["tests/pass/issues/issue-miri-3680.rs", "tests/pass/shims/fs-permissions.rs", "tests/pass/shims/fs.rs"]);
+  // plan-m6 A12's amendment: the real-clock bound is heavy; the virtual clock (isolation on) is not.
+  expect(k.clockHeavy).toEqual([["tests/pass/shims/time.rs", true], ["tests/pass/shims/time-with-isolation.rs", false]]);
   expect(k.unstable).toEqual(["tests/panic/mir-validation.rs", "tests/panic/panic1.rs"]);
   expect(k.skippedPass).toContain("tests/pass/shims/aarch64/intrinsics-aarch64-aes.rs");
   expect(k.skippedPass.length).toBe(12);
   expect(k.tbSkipped).toBe(132);
-  expect(k.tempDirs).toBe(353);
+  expect(k.tempDirs).toBe(352);
   expect(k.subset).toEqual(["tree-borrows"]);
 });
 

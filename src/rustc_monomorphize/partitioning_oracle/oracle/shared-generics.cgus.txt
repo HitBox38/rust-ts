@@ -1,0 +1,7 @@
+CGU shared_generics.13d450bbe0888d78 sym=_RINSCs1HyaOKqwv6C_15shared_generics3cguKRe7368617265645f67656e65726963732e31336434353062626530383838643738_E size=5 primary=true covdead=false n=1
+IT fn foo External Default inlined=false size=5
+DO _RNvCs1HyaOKqwv6C_15shared_generics3foo fn foo
+CGU shared_generics_aux.13d450bbe0888d78-in-shared_generics.13d450bbe0888d78.volatile sym=_RINSCs1HyaOKqwv6C_15shared_generics3cguKRe7368617265645f67656e65726963735f6175782e313364343530626265303838386437382d696e2d7368617265645f67656e65726963732e313364343530626265303838386437382e766f6c6174696c65_E size=2 primary=false covdead=false n=1
+IT fn shared_generics_aux::generic_fn::<u16> External Default inlined=false size=2
+DO _RINvCs64YpNJE4t8Q_19shared_generics_aux10generic_fntECs1HyaOKqwv6C_15shared_generics fn shared_generics_aux::generic_fn::<u16>
+ALL 2

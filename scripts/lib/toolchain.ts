@@ -77,3 +77,12 @@ export function miriToolchainError(sysroot: string, pinned: string[], host: stri
   ];
   return `the Miri toolchain ${toolchain} (RUSTUP_HOME=${rustupHome}) differs from its pinned components (UPSTREAM.json rust.miri.components): ${what.join("; ")}; run: bun scripts/miri.ts setup (it only ever installs into that RUSTUP_HOME, never into the oracle's)`;
 }
+
+/**
+ * `undefined` if the port will know its host: `RUST_TS_HOST_TUPLE` is the oracle's. A worktree with no `.env.local` leaves it unset, and every port run
+ * then exits 70 at `CFG_COMPILER_HOST_TRIPLE`, which reads as UNPORTED on every case (docs/handoff/plan-m7.md item 3). Else one line (no `ERROR:` prefix).
+ */
+export function hostTupleError(tuple: string | undefined, host: string): string | undefined {
+  if (tuple === host) return undefined;
+  return tuple === undefined ? `RUST_TS_HOST_TUPLE is not set, so every port run would stop at exit 70; copy .env.local from the main checkout (it should say ${host})` : `RUST_TS_HOST_TUPLE is ${tuple}, but the oracle's host is ${host}; fix .env.local`;
+}

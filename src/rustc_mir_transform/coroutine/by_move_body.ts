@@ -70,7 +70,7 @@
 //
 // PORT: `UnordMap<FieldIdx, (FieldIdx, Ty, bool, Vec<Projection>)>` is a `Map` of tuples (only `get` and `len` are
 // used, so the order is unobservable). `MakeByMoveBody` `extends MutVisitor` (mir/visit.ts, D4).
-// PORT: `body.clone()` is the generated `clone_Body`; `tcx.arena.alloc(Steal::new(..))` is the `Steal` itself
+// PORT: `body.clone()` is `clone_Body_with_annotations` (mir/mod.ts); `tcx.arena.alloc(Steal::new(..))` is the `Steal` itself
 // (arenas are erased, PORTING §5) with `Steal`'s type name as `alloc_steal_mir` gives it.
 // PORT: `.clone()` of query values fed back (`codegen_fn_attrs`, `generics_of`) shares the value: query values are
 // never mutated (precedent rustc_const_eval interpret/intern.ts).
@@ -81,7 +81,7 @@ import { DefKind } from "../../rustc_hir/def.ts";
 import { PerParentDisambiguatorState } from "../../rustc_hir_id/definitions.ts";
 import { type Projection, type ProjectionKind } from "../../rustc_middle/hir/place.ts";
 import {
-  clone_Body,
+  clone_Body_with_annotations,
   debug_Local,
   debug_ProjectionElem,
   type Local,
@@ -243,7 +243,7 @@ export function coroutine_by_move_body_def_id(tcx: TyCtxt, coroutine_def_id: Loc
     CoroutineClosureArgs.coroutine_captures_by_ref_ty(parent_closure_args),
   );
 
-  const by_move_body = clone_Body(body);
+  const by_move_body = clone_Body_with_annotations(body);
   new MakeByMoveBody(tcx, field_remapping, by_move_coroutine_ty).visit_body(by_move_body);
 
   // This path is unique since we're in a query so we'll only be called once with `parent_def_id`

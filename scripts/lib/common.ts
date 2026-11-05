@@ -67,7 +67,11 @@ export function die(msg: string): never {
 }
 
 export function requireUpstream(): string {
-  if (!existsSync(join(UPSTREAM, "compiler"))) die(`upstream checkout missing at ${UPSTREAM}; run: bun scripts/upstream.ts fetch`);
+  if (!existsSync(join(UPSTREAM, "compiler"))) {
+    // A worktree with no .env.local must not clone rust into itself (review harness-m7a H7).
+    if (process.env.RUST_TS_DATA === undefined && !existsSync(join(REPO, ".env.local"))) die(`RUST_TS_DATA is not set and ${REPO} has no .env.local: copy .env.local from the main checkout`);
+    die(`upstream checkout missing at ${UPSTREAM}; run: bun scripts/upstream.ts fetch`);
+  }
   return UPSTREAM;
 }
 

@@ -6,7 +6,7 @@ import { homedir } from "node:os";
 import { basename, isAbsolute, join, resolve } from "node:path";
 import { PIN, UPSTREAM, die, hash, run } from "./common.ts";
 import { pinnedPathEnv } from "./env.ts";
-import { oracleToolchainError } from "./toolchain.ts";
+import { hostTupleError, oracleToolchainError } from "./toolchain.ts";
 
 /**
  * An oracle process that times out is run once more with this many times its timeout (difftest's oracle
@@ -31,6 +31,8 @@ export async function verifyOraclePin(): Promise<void> {
     die(`oracle toolchain '${PIN.toolchain}' is ${m[1]}, pin is ${PIN.commit}; run: rustup toolchain install ${PIN.nightlyName}`);
   }
   verifyOracleToolchain(host[1]!);
+  const tuple = hostTupleError(process.env.RUST_TS_HOST_TUPLE, host[1]!);
+  if (tuple !== undefined) die(tuple);
   verified = true;
 }
 

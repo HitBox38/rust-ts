@@ -935,6 +935,39 @@ function rustc_incremental_provide(providers: MiddleProviders): void {
     });
 }
 
+/** The queries `rustc_monomorphize::provide` sets; src/rustc_monomorphize/wire.test.ts compares this with what it really sets. */
+export const RUSTC_MONOMORPHIZE_QUERIES = ["collect_and_partition_mono_items", "is_codegened_item", "codegen_unit", "size_estimate", "items_of_instance", "check_mono_item"] as const;
+/** The hooks `rustc_monomorphize::provide` sets; src/rustc_monomorphize/wire.test.ts compares this with what it really sets. */
+export const RUSTC_MONOMORPHIZE_HOOKS = ["should_codegen_locally"] as const;
+
+let rustc_monomorphize_providers: MiddleProviders | undefined;
+function rustc_monomorphize_loaded(): MiddleProviders {
+  if (rustc_monomorphize_providers === undefined) {
+    const providers = { queries: {}, extern_queries: {}, hooks: {} } as MiddleProviders;
+    (require("../rustc_monomorphize/lib.ts") as typeof import("../rustc_monomorphize/lib.ts")).provide(providers);
+    rustc_monomorphize_providers = providers;
+  }
+  return rustc_monomorphize_providers;
+}
+
+/**
+ * `rustc_monomorphize::provide` (lib.rs:54). PORT: the crate is loaded the first time one of its providers runs, which is
+ * only under codegen. No `--emit=metadata` or `-Zunpretty` run gets there, so neither the rustc entry nor the Miri entry
+ * has to evaluate its modules, and their module lists and order stay as they were (docs/handoff/mono-wire.md has the
+ * numbers). `partitioning.ts` also cannot be evaluated before the driver (docs/reviews/mono-lanes.md section 2); here it
+ * always loads after.
+ */
+function rustc_monomorphize_provide(providers: MiddleProviders): void {
+  const queries = providers.queries as unknown as Record<string, unknown>;
+  for (const name of RUSTC_MONOMORPHIZE_QUERIES) {
+    queries[name] = (tcx: TyCtxt, key: never): unknown => (rustc_monomorphize_loaded().queries[name] as (tcx: TyCtxt, key: never) => unknown)(tcx, key);
+  }
+  const hooks = providers.hooks as unknown as Record<string, unknown>;
+  for (const name of RUSTC_MONOMORPHIZE_HOOKS) {
+    hooks[name] = (tcx: TyCtxt, instance: unknown): unknown => rustc_monomorphize_loaded().hooks[name](tcx, instance);
+  }
+}
+
 /**
  * PORT: port-side placeholder providers (merge-w15b). Upstream, every crate in `DEFAULT_QUERY_PROVIDERS` installs its
  * providers, so a query reaching `Providers::default()`'s `default_query` / `default_extern_query` is a compiler bug
@@ -966,10 +999,10 @@ function default_query_providers(): MiddleProviders {
   // PORT: the `hir_crate_items` query value is `unknown` in queries.gen.ts.
   providers.queries.proc_macro_decls_static = (tcx, _) => (tcx.hir_crate_items(null) as hir.ModuleItems).proc_macro_decls();
   rustc_ast_lowering.provide(providers.queries);
-  // PORT: pending crates (their `provide` fns are not ported): rustc_expand_queries,
-  // rustc_monomorphize (rustc_const_eval, rustc_borrowck, rustc_mir_dataflow, rustc_mir_transform, rustc_privacy,
-  // rustc_hir_analysis, rustc_hir_typeck, rustc_traits, rustc_ty_utils, rustc_metadata, rustc_lint, rustc_symbol_mangling,
-  // rustc_codegen_ssa and rustc_mir_build are provided below).
+  // PORT: pending crates (their `provide` fns are not ported): rustc_expand_queries (rustc_const_eval, rustc_borrowck,
+  // rustc_mir_dataflow, rustc_mir_transform, rustc_monomorphize, rustc_privacy, rustc_hir_analysis, rustc_hir_typeck,
+  // rustc_traits, rustc_ty_utils, rustc_metadata, rustc_lint, rustc_symbol_mangling, rustc_codegen_ssa and rustc_mir_build
+  // are provided below).
   // Their queries stop as UNPORTED (`install_unported_providers`).
   limits.provide(providers.queries);
   rustc_const_eval.provide(providers);
@@ -979,6 +1012,7 @@ function default_query_providers(): MiddleProviders {
   rustc_mir_build_provide(providers);
   rustc_mir_dataflow.provide(providers);
   rustc_mir_transform_provide(providers);
+  rustc_monomorphize_provide(providers);
   rustc_privacy.provide(providers.queries);
   query_impl_provide(providers);
   rustc_resolve.provide(providers.queries);
@@ -1394,7 +1428,14 @@ export function start_codegen(codegen_backend: CodegenBackend, tcx: TyCtxt): [un
       // Linker::link will skip join_codegen in case of a `CompiledModules` Any value.
       return new CompiledModules([], undefined);
     } else {
-      return codegen_backend.codegen_crate(tcx);
+      try {
+        return codegen_backend.codegen_crate(tcx);
+      } catch (e) {
+        // As Rust's unwinding drop of `EncodedMetadata`: it owns the metadata temp dir, which only `Linker::link` drops
+        // otherwise, so a stop in codegen must not leave `rmetaXXXXXX/` in the output directory.
+        metadata.drop();
+        throw e;
+      }
     }
   });
 

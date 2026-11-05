@@ -1403,3 +1403,15 @@ var rmeta_decoder__m: typeof import("../../rustc_metadata/rmeta/decoder.ts") | u
 function as_interner(tcx: TyCtxt): Interner {
   return tcx as unknown as Interner;
 }
+
+/**
+ * `body.clone()` while the body still has its `user_type_annotations`, i.e. before `CleanupPostBorrowck`. PORT: upstream's derive
+ * copies each `CanonicalUserTypeAnnotation`; the generated `clone_Body` copies only the array (`[...v.user_type_annotations]`,
+ * handoff mir-alias asks for the generator fix). Without this, `RegionRenumberer` wrote `'?N` into the input body's
+ * `inferred_ty`, which dumps show until that pass clears them.
+ */
+export function clone_Body_with_annotations(v: gen.Body): gen.Body {
+  const body = gen.clone_Body(v);
+  body.user_type_annotations = body.user_type_annotations.map((annotation) => ({ ...annotation }));
+  return body;
+}

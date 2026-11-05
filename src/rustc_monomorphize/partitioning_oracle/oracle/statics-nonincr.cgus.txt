@@ -1,0 +1,22 @@
+CGU statics.205f582a2516ec1-cgu.0 sym=_RNSCsaLJkNr2BOf_7statics3cgu size=10 primary=true covdead=false n=10
+IT static FOO Internal Default inlined=false size=1
+IT static function::BAR Internal Default inlined=false size=1
+IT static BAR Internal Default inlined=false size=1
+IT static function::FOO Internal Default inlined=false size=1
+IT fn function External Default inlined=false size=1
+IT static mod1::function::FOO Internal Default inlined=false size=1
+IT static mod1::BAR Internal Default inlined=false size=1
+IT static mod1::function::BAR Internal Default inlined=false size=1
+IT static mod1::FOO Internal Default inlined=false size=1
+IT fn mod1::function External Default inlined=false size=1
+DO _RNvCsaLJkNr2BOf_7statics3BAR static BAR
+DO _RNvCsaLJkNr2BOf_7statics3FOO static FOO
+DO _RNvCsaLJkNr2BOf_7statics8function fn function
+DO _RNvNtCsaLJkNr2BOf_7statics4mod13BAR static mod1::BAR
+DO _RNvNtCsaLJkNr2BOf_7statics4mod13FOO static mod1::FOO
+DO _RNvNtCsaLJkNr2BOf_7statics4mod18function fn mod1::function
+DO _RNvNvCsaLJkNr2BOf_7statics8function3BAR static function::BAR
+DO _RNvNvCsaLJkNr2BOf_7statics8function3FOO static function::FOO
+DO _RNvNvNtCsaLJkNr2BOf_7statics4mod18function3BAR static mod1::function::BAR
+DO _RNvNvNtCsaLJkNr2BOf_7statics4mod18function3FOO static mod1::function::FOO
+ALL 10

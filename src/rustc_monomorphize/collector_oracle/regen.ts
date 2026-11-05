@@ -3,8 +3,8 @@
 //
 // For each program in programs/ (ours) and upstream/ (tests/codegen-units/item-collection at the pin, unedited), writes
 // oracle/<name>.txt from the pinned rustc: its exit code, its `MONO_ITEM` lines, stderr, and the `FP` lines of probe/main.rs.
-// Everything is compiled for x86_64-unknown-linux-gnu, whose `rust-std` the oracle toolchain has: the port's
-// `rustc_target::callconv::aarch64::compute_rust_abi_info` is unported and `check_mono_item` needs an ABI.
+// A program with a vtable reachable from its statics also gets oracle/<name>.vtables.txt, the probe's `VT` lines.
+// Everything is compiled for x86_64-unknown-linux-gnu, whose `rust-std` the oracle toolchain has on every host.
 // A program run with -Zprofile-closures also gets oracle/<name>.closure_profile.csv.
 // The program's own absolute path becomes $FILE everywhere (common.ts normalize_path); nothing else is changed.
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -56,6 +56,10 @@ for (const { name, path } of program_files()) {
   const fps = normalize_path(fp.stdout.toString(), path)
     .split("\n")
     .filter((l) => l.startsWith("FP "));
+  const vtables = normalize_path(fp.stdout.toString(), path)
+    .split("\n")
+    .filter((l) => l.startsWith("VT "));
+  if (vtables.length > 0) writeFileSync(join(HERE, "oracle", `${name}.vtables.txt`), `${vtables.join("\n")}\n`);
   const out = [
     `exit ${oracle.exitCode}`,
     "== MONO_ITEM",

@@ -1,0 +1,12 @@
+CGU inlining_from_extern_crate.fc9dd2904a5a538b-cgu.0 sym=_RNSCslGFDTZKPRUZ_26inlining_from_extern_crate3cgu size=12 primary=true covdead=false n=5
+IT fn mod2::user External Default inlined=false size=3
+IT fn cgu_explicit_inlining::always_inlined Internal Default inlined=true size=1
+IT fn mod1::user External Default inlined=false size=3
+IT fn cgu_explicit_inlining::inlined Internal Default inlined=true size=1
+IT fn user External Default inlined=false size=4
+DO _RNvCs8rAGHlPtKyk_21cgu_explicit_inlining14always_inlined fn cgu_explicit_inlining::always_inlined
+DO _RNvCs8rAGHlPtKyk_21cgu_explicit_inlining7inlined fn cgu_explicit_inlining::inlined
+DO _RNvCslGFDTZKPRUZ_26inlining_from_extern_crate4user fn user
+DO _RNvNtCslGFDTZKPRUZ_26inlining_from_extern_crate4mod14user fn mod1::user
+DO _RNvNtCslGFDTZKPRUZ_26inlining_from_extern_crate4mod24user fn mod2::user
+ALL 5

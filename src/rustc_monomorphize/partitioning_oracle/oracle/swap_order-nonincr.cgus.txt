@@ -1,0 +1,15 @@
+CGU swap_order.6618d64481bab847-cgu.0 sym=_RNSCs8Lswo9mMidn_10swap_order3cgu size=62 primary=true covdead=false n=4
+IT fn d::f External Default inlined=false size=23
+IT fn shared Internal Default inlined=true size=8
+IT fn a::f External Default inlined=false size=18
+IT fn c::f External Default inlined=false size=13
+DO _RNvCs8Lswo9mMidn_10swap_order6shared fn shared
+DO _RNvNtCs8Lswo9mMidn_10swap_order1a1f fn a::f
+DO _RNvNtCs8Lswo9mMidn_10swap_order1c1f fn c::f
+DO _RNvNtCs8Lswo9mMidn_10swap_order1d1f fn d::f
+CGU swap_order.6618d64481bab847-cgu.1 sym=_RNSCs8Lswo9mMidn_10swap_orders_3cgu size=56 primary=false covdead=false n=2
+IT fn x::f External Default inlined=false size=43
+IT fn b::f External Default inlined=false size=13
+DO _RNvNtCs8Lswo9mMidn_10swap_order1b1f fn b::f
+DO _RNvNtCs8Lswo9mMidn_10swap_order1x1f fn x::f
+ALL 6

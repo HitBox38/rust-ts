@@ -1,0 +1,18 @@
+CGU dead_code.b17fe80c2f6ef893-cgu.0 sym=_RNSCsfePeDKQsqfD_9dead_code3cgu size=12 primary=true covdead=false n=8
+IT fn inlined_unused External Hidden inlined=false size=1
+IT fn <WithDrop as std::ops::Drop>::pin_drop External Default inlined=false size=1
+IT fn caller External Default inlined=false size=2
+IT fn unused_private External Hidden inlined=false size=1
+IT fn <WithDrop as std::ops::Drop>::drop External Default inlined=false size=1
+IT fn std::ptr::drop_glue::<WithDrop> - shim(Some(WithDrop)) External Default inlined=false size=3
+IT fn inner::used External Hidden inlined=false size=2
+IT fn inner::unused External Hidden inlined=false size=1
+DO _RINvNtCsajD8mEyjPew_4core3ptr9drop_glueNtCsfePeDKQsqfD_9dead_code8WithDropEBD_ fn std::ptr::drop_glue::<WithDrop> - shim(Some(WithDrop))
+DO _RNvCsfePeDKQsqfD_9dead_code14inlined_unusedB1_ fn inlined_unused
+DO _RNvCsfePeDKQsqfD_9dead_code14unused_private fn unused_private
+DO _RNvCsfePeDKQsqfD_9dead_code6caller fn caller
+DO _RNvNtCsfePeDKQsqfD_9dead_code5inner4used fn inner::used
+DO _RNvNtCsfePeDKQsqfD_9dead_code5inner6unused fn inner::unused
+DO _RNvXCsfePeDKQsqfD_9dead_codeNtB2_8WithDropNtNtNtCsajD8mEyjPew_4core3ops4drop4Drop4drop fn <WithDrop as std::ops::Drop>::drop
+DO _RNvYNtCsfePeDKQsqfD_9dead_code8WithDropNtNtNtCsajD8mEyjPew_4core3ops4drop4Drop8pin_dropB4_ fn <WithDrop as std::ops::Drop>::pin_drop
+ALL 8

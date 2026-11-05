@@ -1,0 +1,50 @@
+CGU regular_modules.c0192215d5abbe4f sym=_RINSCsgux71rijInz_15regular_modules3cguKRe726567756c61725f6d6f64756c65732e63303139323231356435616262653466_E size=3 primary=true covdead=false n=3
+IT fn foo External Default inlined=false size=1
+IT static BAZ External Default inlined=false size=1
+IT fn bar External Default inlined=false size=1
+DO _RNvCsgux71rijInz_15regular_modules3BAZ static BAZ
+DO _RNvCsgux71rijInz_15regular_modules3bar fn bar
+DO _RNvCsgux71rijInz_15regular_modules3foo fn foo
+CGU regular_modules.c0192215d5abbe4f-mod1 sym=_RINSCsgux71rijInz_15regular_modules3cguKRe726567756c61725f6d6f64756c65732e633031393232313564356162626534662d6d6f6431_E size=3 primary=false covdead=false n=3
+IT fn mod1::foo External Default inlined=false size=1
+IT static mod1::BAZ External Default inlined=false size=1
+IT fn mod1::bar External Default inlined=false size=1
+DO _RNvNtCsgux71rijInz_15regular_modules4mod13BAZ static mod1::BAZ
+DO _RNvNtCsgux71rijInz_15regular_modules4mod13bar fn mod1::bar
+DO _RNvNtCsgux71rijInz_15regular_modules4mod13foo fn mod1::foo
+CGU regular_modules.c0192215d5abbe4f-mod1-mod1 sym=_RINSCsgux71rijInz_15regular_modules3cguKRe726567756c61725f6d6f64756c65732e633031393232313564356162626534662d6d6f64312d6d6f6431_E size=3 primary=false covdead=false n=3
+IT static mod1::mod1::BAZ External Default inlined=false size=1
+IT fn mod1::mod1::foo External Default inlined=false size=1
+IT fn mod1::mod1::bar External Default inlined=false size=1
+DO _RNvNtNtCsgux71rijInz_15regular_modules4mod14mod13BAZ static mod1::mod1::BAZ
+DO _RNvNtNtCsgux71rijInz_15regular_modules4mod14mod13bar fn mod1::mod1::bar
+DO _RNvNtNtCsgux71rijInz_15regular_modules4mod14mod13foo fn mod1::mod1::foo
+CGU regular_modules.c0192215d5abbe4f-mod1-mod2 sym=_RINSCsgux71rijInz_15regular_modules3cguKRe726567756c61725f6d6f64756c65732e633031393232313564356162626534662d6d6f64312d6d6f6432_E size=3 primary=false covdead=false n=3
+IT fn mod1::mod2::foo External Default inlined=false size=1
+IT static mod1::mod2::BAZ External Default inlined=false size=1
+IT fn mod1::mod2::bar External Default inlined=false size=1
+DO _RNvNtNtCsgux71rijInz_15regular_modules4mod14mod23BAZ static mod1::mod2::BAZ
+DO _RNvNtNtCsgux71rijInz_15regular_modules4mod14mod23bar fn mod1::mod2::bar
+DO _RNvNtNtCsgux71rijInz_15regular_modules4mod14mod23foo fn mod1::mod2::foo
+CGU regular_modules.c0192215d5abbe4f-mod2 sym=_RINSCsgux71rijInz_15regular_modules3cguKRe726567756c61725f6d6f64756c65732e633031393232313564356162626534662d6d6f6432_E size=3 primary=false covdead=false n=3
+IT fn mod2::foo External Default inlined=false size=1
+IT static mod2::BAZ External Default inlined=false size=1
+IT fn mod2::bar External Default inlined=false size=1
+DO _RNvNtCsgux71rijInz_15regular_modules4mod23BAZ static mod2::BAZ
+DO _RNvNtCsgux71rijInz_15regular_modules4mod23bar fn mod2::bar
+DO _RNvNtCsgux71rijInz_15regular_modules4mod23foo fn mod2::foo
+CGU regular_modules.c0192215d5abbe4f-mod2-mod1 sym=_RINSCsgux71rijInz_15regular_modules3cguKRe726567756c61725f6d6f64756c65732e633031393232313564356162626534662d6d6f64322d6d6f6431_E size=3 primary=false covdead=false n=3
+IT static mod2::mod1::BAZ External Default inlined=false size=1
+IT fn mod2::mod1::foo External Default inlined=false size=1
+IT fn mod2::mod1::bar External Default inlined=false size=1
+DO _RNvNtNtCsgux71rijInz_15regular_modules4mod24mod13BAZ static mod2::mod1::BAZ
+DO _RNvNtNtCsgux71rijInz_15regular_modules4mod24mod13bar fn mod2::mod1::bar
+DO _RNvNtNtCsgux71rijInz_15regular_modules4mod24mod13foo fn mod2::mod1::foo
+CGU regular_modules.c0192215d5abbe4f-mod2-mod2 sym=_RINSCsgux71rijInz_15regular_modules3cguKRe726567756c61725f6d6f64756c65732e633031393232313564356162626534662d6d6f64322d6d6f6432_E size=3 primary=false covdead=false n=3
+IT fn mod2::mod2::bar External Default inlined=false size=1
+IT static mod2::mod2::BAZ External Default inlined=false size=1
+IT fn mod2::mod2::foo External Default inlined=false size=1
+DO _RNvNtNtCsgux71rijInz_15regular_modules4mod24mod23BAZ static mod2::mod2::BAZ
+DO _RNvNtNtCsgux71rijInz_15regular_modules4mod24mod23bar fn mod2::mod2::bar
+DO _RNvNtNtCsgux71rijInz_15regular_modules4mod24mod23foo fn mod2::mod2::foo
+ALL 21

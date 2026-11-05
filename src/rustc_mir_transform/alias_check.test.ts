@@ -14,10 +14,10 @@
 //    validate_oracle/ctors.rs. `STOP` lines (bodies that reach unported code) are allowed; `ALIAS` lines are not.
 // Skips (visibly) if the pinned rustc's sysroot is unavailable; fails instead under RUST_TS_REQUIRE_PROBES=1.
 import { describe, expect, test } from "bun:test";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { DATA, PIN, REPO } from "../../scripts/lib/common.ts";
-import { find_shared_mir_nodes, find_shared_objects } from "./alias_check_oracle/alias_check.ts";
+import { find_shared_mir_nodes, find_shared_objects, is_immutable_hit } from "./alias_check_oracle/alias_check.ts";
 
 describe("find_shared_objects", () => {
   class Place {
@@ -65,9 +65,33 @@ describe("find_shared_objects", () => {
 
   test("immutable payloads are reported by find_shared_objects but are not MIR nodes", () => {
     const tail = { tail_result_is_ignored: false, span: 0 };
-    const body = { local_decls: [{ local_info: { $: "BlockTailTemp", _0: tail } }, { local_info: { $: "BlockTailTemp", _0: tail } }] };
+    const info = () => ({ $: "Set", _0: { $: "BlockTailTemp", _0: tail } });
+    const body = { local_decls: [{ local_info: info() }, { local_info: info() }] };
     expect(find_shared_objects(body).length).toBe(1);
     expect(find_shared_mir_nodes(body)).toEqual([]);
+  });
+
+  test("a type no one listed is reported: the default is mutable", () => {
+    const targets = { $: "Cleanup", _0: 3 };
+    const body = { a: { unwind: targets }, b: { unwind: targets } };
+    expect(find_shared_mir_nodes(body).map((s) => s.what)).toEqual(["{$: Cleanup}"]);
+    const list = [1, 2];
+    expect(find_shared_mir_nodes({ a: list, b: list }).map((s) => s.what)).toEqual(["Array"]);
+  });
+
+  test("unit variants have no field to write, so sharing one is not reported", () => {
+    const unit = { $: "Continue" };
+    expect(find_shared_objects({ a: unit, b: unit })).toEqual([]);
+  });
+
+  test("an immutable position needs both paths and the right type: `.msg._0` is also an Operand", () => {
+    expect(is_immutable_hit("{$: Desugared}", "body.a.msg._0", "body.coroutine.coroutine_kind")).toBe(true);
+    expect(is_immutable_hit("Operand::Copy", "body.a.msg._0", "body.b.msg._0")).toBe(false);
+    expect(is_immutable_hit("{$: Int}", "body.a.const_._0._0", "body.b.const_._0._0")).toBe(true);
+    expect(is_immutable_hit("{$: Int}", "body.a.const_._0._0", "body.b.kind._0")).toBe(false);
+    // `ClearCrossCrate::Set` and the `LocalInfo` itself are written in place (patch.ts), only the payload is not.
+    expect(is_immutable_hit("{$: Set}", "body.local_decls[1].local_info", "body.local_decls[2].local_info")).toBe(false);
+    expect(is_immutable_hit("{$: User}", "body.local_decls[1].local_info._0", "body.local_decls[2].local_info._0")).toBe(false);
   });
 });
 
@@ -135,4 +159,76 @@ describe("no MIR node is shared within or between bodies (UB checks on)", () => 
       120_000,
     );
   }
+});
+
+// Fixed bugs, through the real driver (driver.ts, hooks.ts). The whole sweep is sweep.ts; see docs/handoff/mir-alias.md.
+function run_driver(args: string[], mono: boolean): { stdout: string; stderr: string; code: number; hits: string[]; checked: boolean } {
+  mkdirSync(WORK, { recursive: true });
+  const out = join(WORK, `driver-${process.pid}-${mono ? "mono" : "mir"}.jsonl`);
+  rmSync(out, { force: true });
+  const r = Bun.spawnSync([process.execPath, join(REPO, "src/rustc_mir_transform/alias_check_oracle/driver.ts"), ...args], {
+    cwd: WORK,
+    env: { ...ENV, RUST_TS_ALIAS_OUT: out, ...(mono ? { RUST_TS_ALIAS_MONO: "1" } : {}) },
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  const lines = readFileSync(out, "utf8").split("\n").filter((l) => l !== "");
+  rmSync(out, { force: true });
+  return {
+    stdout: r.stdout.toString(),
+    stderr: r.stderr.toString(),
+    code: r.exitCode ?? -1,
+    hits: lines.filter((l) => !l.startsWith('{"kind":"CHECKED"')),
+    checked: lines.some((l) => l.startsWith('{"kind":"CHECKED"')),
+  };
+}
+const fixture = (f: string): string => join(REPO, "src/rustc_mir_transform/alias_check_oracle", f);
+
+describe("fixed aliasing bugs", () => {
+  test.skipIf(SKIP)(
+    "oracle_programs.rs at -O: the MIR and the dump after borrowck are byte-identical to the oracle",
+    () => {
+      mkdirSync(WORK, { recursive: true });
+      const dirs = [join(WORK, `dump-oracle-${process.pid}`), join(WORK, `dump-port-${process.pid}`)] as const;
+      const args = (dir: string): string[] => [
+        fixture("oracle_programs.rs"),
+        "--edition=2021",
+        "--target=x86_64-unknown-linux-gnu",
+        "--sysroot",
+        SYSROOT!,
+        "-Awarnings",
+        "-Zwrite-long-types-to-disk=no",
+        "-Zunpretty=mir",
+        "-O",
+        "-Zverbose-internals",
+        "-Zdump-mir=f & CleanupPostBorrowck",
+        `-Zdump-mir-dir=${dir}`,
+      ];
+      const oracle = Bun.spawnSync([...RUSTC, ...args(dirs[0])], { cwd: WORK, env: ENV, stdout: "pipe", stderr: "pipe" });
+      const port = Bun.spawnSync([process.execPath, join(REPO, "src/rust_ts/main.ts"), ...args(dirs[1])], { cwd: WORK, env: ENV, stdout: "pipe", stderr: "pipe" });
+      expect(oracle.exitCode).toBe(0);
+      expect(port.stderr.toString()).toBe(oracle.stderr.toString());
+      // The programs do reach both paths: `MatchBranchSimplification` merged an or-pattern's arm, `f` has annotations.
+      expect(oracle.stdout.toString()).toContain("_10 = Eq(copy _1, ");
+      expect(port.stdout.toString() === oracle.stdout.toString()).toBe(true);
+      expect(port.exitCode).toBe(0);
+      const file = "oracle_programs.f.2-1-002.CleanupPostBorrowck.before.mir";
+      const dump = readFileSync(join(dirs[0], file), "utf8");
+      expect(dump).toContain("inferred_ty: &'{erased} i32");
+      expect(readFileSync(join(dirs[1], file), "utf8")).toBe(dump);
+      for (const d of dirs) rmSync(d, { recursive: true, force: true });
+    },
+    120_000,
+  );
+  test.skipIf(SKIP)(
+    "shims: FnPtr::addr and the AsyncDrop future's poll shim share nothing once the collector has built them",
+    () => {
+      const r = run_driver([fixture("shims.rs"), "--edition=2024", "--target=x86_64-unknown-linux-gnu", "--sysroot", SYSROOT!, "-Awarnings", "-Copt-level=3"], true);
+      expect(r.stderr).toBe("");
+      expect(r.code).toBe(0);
+      expect(r.hits).toEqual([]);
+      expect(r.checked).toBe(true);
+    },
+    120_000,
+  );
 });

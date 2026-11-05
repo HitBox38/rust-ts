@@ -246,7 +246,7 @@ import {
 } from "../rustc_middle/mir/mod.ts";
 import { mono_reachable } from "../rustc_middle/mir/traversal.ts";
 import { Visitor } from "../rustc_middle/mir/visit.ts";
-import { CollectionMode, InstantiationMode, InstantiationMode_eq, MonoItem } from "../rustc_middle/mono.ts";
+import { CollectionMode, InstantiationMode, InstantiationMode_eq, MonoItem, NormalizationErrorInMono } from "../rustc_middle/mono.ts";
 import type { TyCtxtAt } from "../rustc_middle/query/calls.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import { fold_GenericArgs, type GenericArg } from "../rustc_middle/ty/generic_args.ts";
@@ -305,7 +305,6 @@ import {
   StartNotFound_diagnostic,
 } from "./diagnostics.ts";
 import { custom_coerce_unsize_info } from "./lib.ts";
-import { MonoItem_to_stable_hash_key, NormalizationErrorInMono } from "../rustc_middle/mono.ts";
 import { dump_closure_profile } from "./util.ts";
 
 // `impl TypeFoldable` of the types this file instantiates and normalizes (derived upstream), as D4 descriptors.
@@ -1820,7 +1819,7 @@ class RootCollector {
     if (start_def_id === undefined) {
       return this.tcx.dcx().emit_fatal(StartNotFound_diagnostic({}));
     }
-    const main_ret_ty = PolyFnSigC.output(EarlyBinder.no_bound_vars(this.tcx.fn_sig(main_def_id) as EarlyBinder<PolyFnSig>, fold_PolyFnSig)!);
+    const main_ret_ty = PolyFnSigC.output(unwrap(EarlyBinder.no_bound_vars(this.tcx.fn_sig(main_def_id) as EarlyBinder<PolyFnSig>, fold_PolyFnSig)));
 
     // Given that `main()` has no arguments,
     // then its return type cannot have
@@ -1942,7 +1941,7 @@ export function collect_crate_mono_items(tcx: TyCtxt, strategy: MonoItemCollecti
     // `state.visited.into_inner().into_sorted(&mut hcx, true)`: `sort_by_cached_key` on `to_stable_hash_key`. The keys
     // are 128-bit fingerprints of distinct items; bigint order is `Fingerprint`'s derived `Ord`.
     const keyed = [...state.visited].map((item): [Fingerprint, MonoItem] => [
-      MonoItem_to_stable_hash_key(item, hcx),
+      MonoItem.to_stable_hash_key(item, hcx),
       item,
     ]);
     keyed.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));

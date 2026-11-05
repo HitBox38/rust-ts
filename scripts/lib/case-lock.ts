@@ -11,6 +11,9 @@
 import { readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { uptime } from "node:os";
 
+/** The lock files this process holds now: its own pid on one of these is a holder, not a leftover (review integ-w38-recheck N1). */
+const held = new Set<string>();
+
 const alive = (pid: number): boolean => {
   try {
     process.kill(pid, 0);
@@ -58,13 +61,15 @@ export async function withCaseLock<T>(file: string, maxHoldMs: number, fn: () =>
   for (;;) {
     try {
       writeFileSync(file, `${process.pid}\n`, { flag: "wx" });
+      held.add(file);
       break;
     } catch (e) {
       if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
     }
     const pid = owner(file);
     if (pid === "gone") continue;
-    if (isStaleLock(pid, ageMs(file), maxHoldMs, uptime() * 1000, process.pid, alive)) {
+    // A lock this process holds is never stale here, so a second call in one process waits for the first. `self` only says "my pid on a file I do not hold".
+    if (isStaleLock(pid, ageMs(file), maxHoldMs, uptime() * 1000, held.has(file) ? -1 : process.pid, alive)) {
       const moved = `${file}.stale-${process.pid}`;
       try {
         renameSync(file, moved);
@@ -76,13 +81,14 @@ export async function withCaseLock<T>(file: string, maxHoldMs: number, fn: () =>
     }
     if (!noted) {
       noted = true;
-      note(`note: waiting for pid ${pid ?? "?"} to release ${file}: another difftest is running this case`);
+      note(`note: waiting for pid ${pid ?? "?"} to release ${file}: another run has this lock`);
     }
     await Bun.sleep(pollMs);
   }
   try {
     return await fn();
   } finally {
+    held.delete(file);
     // Unless it was taken over: then the file is the new owner's.
     if (owner(file) === process.pid) rmSync(file, { force: true });
   }

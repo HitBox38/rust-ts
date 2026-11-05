@@ -1,0 +1,50 @@
+CGU 2qx2frvmsem3ehysqa6lst92n sym=_RINSCsgux71rijInz_15regular_modules3cguKRe327178326672766d73656d33656879737161366c737439326e_E size=3 primary=true covdead=false n=3
+IT fn mod2::mod2::bar External Default inlined=false size=1
+IT static mod2::mod2::BAZ External Default inlined=false size=1
+IT fn mod2::mod2::foo External Default inlined=false size=1
+DO _RNvNtNtCsgux71rijInz_15regular_modules4mod24mod23BAZ static mod2::mod2::BAZ
+DO _RNvNtNtCsgux71rijInz_15regular_modules4mod24mod23bar fn mod2::mod2::bar
+DO _RNvNtNtCsgux71rijInz_15regular_modules4mod24mod23foo fn mod2::mod2::foo
+CGU 45201t2ns25gxuzotnc4wma5f sym=_RINSCsgux71rijInz_15regular_modules3cguKRe343532303174326e7332356778757a6f746e6334776d613566_E size=3 primary=false covdead=false n=3
+IT fn mod1::foo External Default inlined=false size=1
+IT static mod1::BAZ External Default inlined=false size=1
+IT fn mod1::bar External Default inlined=false size=1
+DO _RNvNtCsgux71rijInz_15regular_modules4mod13BAZ static mod1::BAZ
+DO _RNvNtCsgux71rijInz_15regular_modules4mod13bar fn mod1::bar
+DO _RNvNtCsgux71rijInz_15regular_modules4mod13foo fn mod1::foo
+CGU 6bf1cr6i3wq0kf4caqgdzrkhj sym=_RINSCsgux71rijInz_15regular_modules3cguKRe3662663163723669337771306b663463617167647a726b686a_E size=3 primary=false covdead=false n=3
+IT static mod1::mod1::BAZ External Default inlined=false size=1
+IT fn mod1::mod1::foo External Default inlined=false size=1
+IT fn mod1::mod1::bar External Default inlined=false size=1
+DO _RNvNtNtCsgux71rijInz_15regular_modules4mod14mod13BAZ static mod1::mod1::BAZ
+DO _RNvNtNtCsgux71rijInz_15regular_modules4mod14mod13bar fn mod1::mod1::bar
+DO _RNvNtNtCsgux71rijInz_15regular_modules4mod14mod13foo fn mod1::mod1::foo
+CGU 9laay74mnijivge54o863eqfw sym=_RINSCsgux71rijInz_15regular_modules3cguKRe396c61617937346d6e696a6976676535346f38363365716677_E size=3 primary=false covdead=false n=3
+IT static mod2::mod1::BAZ External Default inlined=false size=1
+IT fn mod2::mod1::foo External Default inlined=false size=1
+IT fn mod2::mod1::bar External Default inlined=false size=1
+DO _RNvNtNtCsgux71rijInz_15regular_modules4mod24mod13BAZ static mod2::mod1::BAZ
+DO _RNvNtNtCsgux71rijInz_15regular_modules4mod24mod13bar fn mod2::mod1::bar
+DO _RNvNtNtCsgux71rijInz_15regular_modules4mod24mod13foo fn mod2::mod1::foo
+CGU a4b4c9obb1iu3mo9zuv9plkqh sym=_RINSCsgux71rijInz_15regular_modules3cguKRe6134623463396f6262316975336d6f397a757639706c6b7168_E size=3 primary=false covdead=false n=3
+IT fn mod1::mod2::foo External Default inlined=false size=1
+IT static mod1::mod2::BAZ External Default inlined=false size=1
+IT fn mod1::mod2::bar External Default inlined=false size=1
+DO _RNvNtNtCsgux71rijInz_15regular_modules4mod14mod23BAZ static mod1::mod2::BAZ
+DO _RNvNtNtCsgux71rijInz_15regular_modules4mod14mod23bar fn mod1::mod2::bar
+DO _RNvNtNtCsgux71rijInz_15regular_modules4mod14mod23foo fn mod1::mod2::foo
+CGU c9zzwz2ykfiiketymsltvh0u8 sym=_RINSCsgux71rijInz_15regular_modules3cguKRe63397a7a777a32796b6669696b6574796d736c747668307538_E size=3 primary=false covdead=false n=3
+IT fn foo External Default inlined=false size=1
+IT static BAZ External Default inlined=false size=1
+IT fn bar External Default inlined=false size=1
+DO _RNvCsgux71rijInz_15regular_modules3BAZ static BAZ
+DO _RNvCsgux71rijInz_15regular_modules3bar fn bar
+DO _RNvCsgux71rijInz_15regular_modules3foo fn foo
+CGU d4fg2k8ihio45cy5vmey6tu2b sym=_RINSCsgux71rijInz_15regular_modules3cguKRe64346667326b386968696f3435637935766d65793674753262_E size=3 primary=false covdead=false n=3
+IT fn mod2::foo External Default inlined=false size=1
+IT static mod2::BAZ External Default inlined=false size=1
+IT fn mod2::bar External Default inlined=false size=1
+DO _RNvNtCsgux71rijInz_15regular_modules4mod23BAZ static mod2::BAZ
+DO _RNvNtCsgux71rijInz_15regular_modules4mod23bar fn mod2::bar
+DO _RNvNtCsgux71rijInz_15regular_modules4mod23foo fn mod2::foo
+ALL 21

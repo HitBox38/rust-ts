@@ -1,0 +1,20 @@
+CGU vtable_through_const.6f9dfde91094e56 sym=_RINSCsB8h3ljQM9S_20vtable_through_const3cguKRe767461626c655f7468726f7567685f636f6e73742e366639646664653931303934653536_E size=6 primary=true covdead=false n=1
+IT fn main External Default inlined=false size=6
+DO _RNvCsB8h3ljQM9S_20vtable_through_const4main fn main
+CGU vtable_through_const.6f9dfde91094e56-fallback.cgu sym=_RINSCsB8h3ljQM9S_20vtable_through_const3cguKRe767461626c655f7468726f7567685f636f6e73742e3666396466646539313039346535362d66616c6c6261636b2e636775_E size=4 primary=false covdead=false n=2
+IT fn <mod1::NeedsDrop as std::ops::Drop>::drop External Default inlined=false size=1
+IT fn std::ptr::drop_glue::<mod1::NeedsDrop> - shim(Some(mod1::NeedsDrop)) External Default inlined=false size=3
+DO _RINvNtCsajD8mEyjPew_4core3ptr9drop_glueNtNtCsB8h3ljQM9S_20vtable_through_const4mod19NeedsDropEBF_ fn std::ptr::drop_glue::<mod1::NeedsDrop> - shim(Some(mod1::NeedsDrop))
+DO _RNvXNtCsB8h3ljQM9S_20vtable_through_const4mod1NtB2_9NeedsDropNtNtNtCsajD8mEyjPew_4core3ops4drop4Drop4drop fn <mod1::NeedsDrop as std::ops::Drop>::drop
+CGU vtable_through_const.6f9dfde91094e56-mod1.volatile sym=_RINSCsB8h3ljQM9S_20vtable_through_const3cguKRe767461626c655f7468726f7567685f636f6e73742e3666396466646539313039346535362d6d6f64312e766f6c6174696c65_E size=8 primary=false covdead=false n=5
+IT fn <mod1::NeedsDrop as mod1::Trait1Gen<u8>>::do_something External Default inlined=false size=2
+IT fn <mod1::NeedsDrop as mod1::Trait1Gen<u8>>::do_something_else External Default inlined=false size=2
+IT fn <mod1::NeedsDrop as mod1::Trait1>::do_something_else External Default inlined=false size=1
+IT fn <mod1::NeedsDrop as mod1::Trait1>::do_something External Default inlined=false size=1
+IT fn mod1::id::<char> External Hidden inlined=false size=2
+DO _RINvNtCsB8h3ljQM9S_20vtable_through_const4mod12idcEB4_ fn mod1::id::<char>
+DO _RNvXs0_NtCsB8h3ljQM9S_20vtable_through_const4mod1NtB5_9NeedsDropINtB5_9Trait1GenhE12do_somethingB7_ fn <mod1::NeedsDrop as mod1::Trait1Gen<u8>>::do_something
+DO _RNvXs0_NtCsB8h3ljQM9S_20vtable_through_const4mod1NtB5_9NeedsDropINtB5_9Trait1GenhE17do_something_elseB7_ fn <mod1::NeedsDrop as mod1::Trait1Gen<u8>>::do_something_else
+DO _RNvYNtNtCsB8h3ljQM9S_20vtable_through_const4mod19NeedsDropNtB4_6Trait112do_somethingB6_ fn <mod1::NeedsDrop as mod1::Trait1>::do_something
+DO _RNvYNtNtCsB8h3ljQM9S_20vtable_through_const4mod19NeedsDropNtB4_6Trait117do_something_elseB6_ fn <mod1::NeedsDrop as mod1::Trait1>::do_something_else
+ALL 8

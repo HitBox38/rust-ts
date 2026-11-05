@@ -9,7 +9,7 @@ const REPO = resolve(import.meta.dir, "..");
 const CHILD = `
 const { existsSync } = await import("node:fs");
 const g = await import(${JSON.stringify(join(REPO, "scripts/gate.ts"))});
-const { SUITES, RMETA_RUN } = await import(${JSON.stringify(join(REPO, "harness/suites.ts"))});
+const { SUITES, RMETA_RUN, IR_RUN, RG_CHECK } = await import(${JSON.stringify(join(REPO, "harness/suites.ts"))});
 const { probeBinary } = await import(${JSON.stringify(join(REPO, "scripts/probes.ts"))});
 // A suite whose declared probes are not all built cannot build its oracle command (probePath ends the process).
 const built = (s) => (s.probes ?? []).every((p) => existsSync(probeBinary(p)));
@@ -49,6 +49,10 @@ console.log(JSON.stringify({
   otherCompiler: fake(["rmetadump"], wrap(["--dump", probe], ["/bin/cc"])),
   otherScript: fake([], [bun, "scripts/other.ts", "--", "rustc"]),
   malformed: fake([], [bun, RMETA_RUN, "--side", "oracle", "--", "rustc"]),
+  irRuns: g.oracleRuns([bun, IR_RUN, "--out", "d", "--side", "oracle", "--bin", "b", "--", "rustc", "+x"]),
+  irOther: fake([], [bun, IR_RUN, "--out", "d", "--side", "oracle", "--bin", "b", "--", "/bin/cc"]),
+  irMalformed: fake([], [bun, IR_RUN, "--side", "oracle", "--", "rustc"]),
+  rgRuns: g.oracleRuns([bun, RG_CHECK, "run", "--label", "l", "--side", "oracle", "--target", "t"]),
 }));
 `;
 
@@ -75,7 +79,13 @@ test("checkProbes over every suite; the rmeta wrapper's compiler and probe", () 
     ["check-std", ["rustc"]],
     ["rmeta-std", ["rustc", j.probe]],
     ["check-chain", ["rustc"]],
+    ["check-ui-encode-mir", ["rustc"]],
   ]);
+  // The IR wrapper's compiler, as the rmeta wrapper's; the check-rg script runs the oracle rustc through its own cargo.
+  expect(j.irRuns).toEqual(["rustc"]);
+  expect(j.irOther).toEqual(expect.arrayContaining([expect.stringContaining("/bin/cc")]));
+  expect(j.irMalformed[0]).toContain("--bin");
+  expect(j.rgRuns).toEqual(["rustc"]);
   expect(j.runsPlain).toEqual(["rustc"]);
   expect(j.runsBytes).toEqual(["rustc"]);
   expect(j.runsDump).toEqual(["rustc", j.probe]);

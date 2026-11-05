@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { GROUPS, gateRecordProblem, groupResult, type GateRecord } from "./criteria.ts";
+import { GROUPS, gateRecordProblem, groupResult, protectedNotRun, type GateRecord } from "./criteria.ts";
 
 const s = (suite: string, match: number, total: number, oracleTimeouts: string[] = []) => ({ suite, match, total, oracleTimeouts });
 const gate = (suites: GateRecord["suites"], over: Partial<GateRecord> = {}): GateRecord => ({ pass: true, staticOk: true, skipStatic: false, head: "abc", dirty: [], suites, ...over });
@@ -51,4 +51,13 @@ test("a gate.json missing what the figure reads is named, not a crash", () => {
   const { pass: _pass, ...noPass } = ok;
   expect(gateRecordProblem(noPass)).toContain("pass, staticOk or skipStatic");
   expect(gateRecordProblem({ ...ok, suites: [{ suite: "x", match: 1, total: 1 }] })).toContain("a suites entry lacks");
+});
+
+test("a gate narrowed to the group's suites does not meet it: losses in the protected set are unknown (review integ-w38-recheck N3)", () => {
+  const g = gate([s("miri-pass", 350, 350), s("miri-pass-heavy", 8, 8)]);
+  expect(groupResult(miriPass, g).met).toBe(true);
+  const r = groupResult(miriPass, g, ["miri-pass", "lex", "mir", "emit", "parse"]);
+  expect(r.met).toBe(false);
+  expect(r.problems).toEqual(["4 protected suite(s) not in this gate, so losses are unknown (lex, mir, emit, ...)"]);
+  expect(protectedNotRun(g, ["miri-pass"])).toEqual([]);
 });

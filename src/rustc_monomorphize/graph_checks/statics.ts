@@ -67,7 +67,7 @@ class StaticRefGraph implements Successors<StaticNodeIdx> {
   successors(node_idx: StaticNodeIdx): StaticNodeIdx[] {
     const def_id = this.statics.list[node_idx]!;
     const used = this.used_map.get({ $: "Static", _0: def_id });
-    // `IndexMap`'s `Index` panics on a missing key.
+    // `UnordMap`'s `Index` panics on a missing key.
     if (used === undefined) panic("no entry found for key");
     const out: StaticNodeIdx[] = [];
     for (const mono_item of used) {
