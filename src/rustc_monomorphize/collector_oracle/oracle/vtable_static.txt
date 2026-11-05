@@ -1,12 +1,80 @@
 exit 0
 == MONO_ITEM
+MONO_ITEM fn <Aligned as Plain>::own @@ vtable_static.b54312314c217f24-cgu.0[External]
+MONO_ITEM fn <Aligned as Plain>::with_default @@ vtable_static.b54312314c217f24-cgu.0[External]
+MONO_ITEM fn <Diamond as Both>::both @@ vtable_static.b54312314c217f24-cgu.0[External]
+MONO_ITEM fn <Diamond as First>::first @@ vtable_static.b54312314c217f24-cgu.0[External]
+MONO_ITEM fn <Diamond as Second>::second @@ vtable_static.b54312314c217f24-cgu.0[External]
+MONO_ITEM fn <Generic<u16> as Plain>::own @@ vtable_static.b54312314c217f24-cgu.0[External]
+MONO_ITEM fn <Generic<u16> as Plain>::with_default @@ vtable_static.b54312314c217f24-cgu.0[External]
+MONO_ITEM fn <Huge as Plain>::own @@ vtable_static.b54312314c217f24-cgu.0[External]
+MONO_ITEM fn <Huge as Plain>::with_default @@ vtable_static.b54312314c217f24-cgu.0[External]
+MONO_ITEM fn <NeedsDrop as Plain>::own @@ vtable_static.b54312314c217f24-cgu.0[External]
+MONO_ITEM fn <NeedsDrop as Plain>::with_default @@ vtable_static.b54312314c217f24-cgu.0[External]
+MONO_ITEM fn <NoDrop as Plain>::own @@ vtable_static.b54312314c217f24-cgu.0[External]
+MONO_ITEM fn <NoDrop as Plain>::with_default @@ vtable_static.b54312314c217f24-cgu.0[External]
+MONO_ITEM fn <NotSend as Vacant>::after @@ vtable_static.b54312314c217f24-cgu.0[External]
+MONO_ITEM fn <NotSend as Vacant>::present @@ vtable_static.b54312314c217f24-cgu.0[External]
 MONO_ITEM fn <S as Tr>::d @@ vtable_static.b54312314c217f24-cgu.0[External]
 MONO_ITEM fn <S as Tr>::m @@ vtable_static.b54312314c217f24-cgu.0[External]
+MONO_ITEM fn <Zst as Plain>::own @@ vtable_static.b54312314c217f24-cgu.0[External]
+MONO_ITEM fn <Zst as Plain>::with_default @@ vtable_static.b54312314c217f24-cgu.0[External]
+MONO_ITEM fn <{closure@$FILE:107:53: 107:56} as std::ops::FnOnce<(u32,)>>::call_once - shim @@ vtable_static.b54312314c217f24-cgu.0[Internal]
+MONO_ITEM fn <{closure@$FILE:107:53: 107:56} as std::ops::FnOnce<(u32,)>>::call_once - shim(vtable) @@ vtable_static.b54312314c217f24-cgu.0[Internal]
+MONO_ITEM fn CLOSURE::{closure#0} @@ vtable_static.b54312314c217f24-cgu.0[External]
+MONO_ITEM fn std::ptr::drop_glue::<NeedsDrop> - shim(Some(NeedsDrop)) @@ vtable_static.b54312314c217f24-cgu.0[External]
+MONO_ITEM fn std::ptr::drop_glue::<alloc::raw_vec::RawVec<u8>> - shim(Some(alloc::raw_vec::RawVec<u8>)) @@ vtable_static.b54312314c217f24-cgu.0[External]
+MONO_ITEM fn std::ptr::drop_glue::<std::vec::Vec<u8>> - shim(Some(std::vec::Vec<u8>)) @@ vtable_static.b54312314c217f24-cgu.0[External]
+MONO_ITEM static ALIGNED @@ vtable_static.b54312314c217f24-cgu.0[External]
+MONO_ITEM static CLOSURE @@ vtable_static.b54312314c217f24-cgu.0[External]
+MONO_ITEM static GENERIC @@ vtable_static.b54312314c217f24-cgu.0[External]
+MONO_ITEM static HUGE_PTR @@ vtable_static.b54312314c217f24-cgu.0[External]
+MONO_ITEM static NEEDS_DROP_PTR @@ vtable_static.b54312314c217f24-cgu.0[External]
+MONO_ITEM static NESTED @@ vtable_static.b54312314c217f24-cgu.0[External]
+MONO_ITEM static NO_DROP @@ vtable_static.b54312314c217f24-cgu.0[External]
+MONO_ITEM static NO_PRINCIPAL @@ vtable_static.b54312314c217f24-cgu.0[External]
 MONO_ITEM static OBJ @@ vtable_static.b54312314c217f24-cgu.0[External]
 MONO_ITEM static REF_TO_OBJ @@ vtable_static.b54312314c217f24-cgu.0[External]
+MONO_ITEM static SUPERTRAITS @@ vtable_static.b54312314c217f24-cgu.0[External]
+MONO_ITEM static VACANT @@ vtable_static.b54312314c217f24-cgu.0[External]
+MONO_ITEM static ZST @@ vtable_static.b54312314c217f24-cgu.0[External]
 == FP
+FP 03d231286b768675e2dc2c04c433b0fa fn <Huge as Plain>::with_default
+FP 081ab2dcef15c417038a8a6889005e39 fn <Zst as Plain>::own
+FP 0f8afd7d320168aa52c5f588a4ec326f static NESTED
+FP 18f76e3e84007d4231bb92f10477afa6 fn <{closure@$FILE:107:53: 107:56} as std::ops::FnOnce<(u32,)>>::call_once - shim(vtable)
+FP 1d3207e26c8d0467f114972cc3a34a0f fn <Zst as Plain>::with_default
+FP 20252bca48ec8638791234fa90b12688 static HUGE_PTR
+FP 2869b1f1209f529f88d34bd5f0180b18 static ALIGNED
+FP 29f60cf772d0d116f08f8f0bb65c27f3 fn <Diamond as First>::first
+FP 350d747f84f95b912261ea19b28e3ecf fn <NoDrop as Plain>::own
+FP 41aafbe67fcc480923d75c080a96900f static NO_PRINCIPAL
+FP 427d56aaaf82405cc7b5cb28d2238af4 fn std::ptr::drop_glue::<alloc::raw_vec::RawVec<u8>> - shim(Some(alloc::raw_vec::RawVec<u8>))
+FP 4628fe1bc14fc9e3d5a6100eb2b53fc5 fn std::ptr::drop_glue::<std::vec::Vec<u8>> - shim(Some(std::vec::Vec<u8>))
+FP 5026c655afd260f30f6a849bba08b2cd fn <NotSend as Vacant>::present
+FP 53753e191f378b95f450056b7acac199 static NEEDS_DROP_PTR
+FP 63c9f05ea536c080fad34ad023d86d5c fn <Huge as Plain>::own
+FP 6a8e309049cff60d13ed3f443d96ef64 fn <Diamond as Second>::second
+FP 6aa4d68d8fcedf9b55d99dbdb42b5aab fn <Generic<u16> as Plain>::own
+FP 7104789432559b8c3c80fc2b4987b568 fn <Aligned as Plain>::own
+FP 7e3d446afdacaf5a9c5f51b2060efc48 fn std::ptr::drop_glue::<NeedsDrop> - shim(Some(NeedsDrop))
+FP 7fbc153ff615e046765d25dcf985dd18 fn <NoDrop as Plain>::with_default
+FP 807a12d82f37ab58977f2e2dde5825fe fn <S as Tr>::m
+FP 8a2664411e92a5a373d0959d4e7d68e8 fn <NeedsDrop as Plain>::own
+FP 8f4747831050f50b152579330f03bdd3 fn <NeedsDrop as Plain>::with_default
+FP 92c1e5fcf5ef3d32504d1fc2ade859fc static NO_DROP
 FP a9b939478cc0d84e85e73f1ac54a4fa4 static OBJ
+FP ae2b25f2ace688bf4ba381f0eecb0d6b fn <Generic<u16> as Plain>::with_default
+FP afded0369c230388e0ce075540afe218 static ZST
+FP b45abeb578f48d9bc8c8ce70e07f3a2f static SUPERTRAITS
+FP c178117553ba2c41a68b024e6ca6893c static VACANT
 FP d27f9280991a27574f73058a7d77baf9 static REF_TO_OBJ
+FP de09538835e0623fe4b651e18307de43 fn <Aligned as Plain>::with_default
+FP e754f6ca439825e4df072979eae0bc18 fn <{closure@$FILE:107:53: 107:56} as std::ops::FnOnce<(u32,)>>::call_once - shim
+FP eaeb987751f266db87832e037d9f7bab static GENERIC
+FP edc16a3209f26405663c4a6894551be1 fn <Diamond as Both>::both
 FP f2d6dcc8c0bd96f04ac7d4e4ba288bf1 fn <S as Tr>::d
-FP faa2dcf4579ee4c2eef1a8bc92cbf83f fn <S as Tr>::m
+FP f713adf8112c6f164ee95801e2e1793a static CLOSURE
+FP fc7461ea87495f43ef6fa0b9c5ea3ea8 fn <NotSend as Vacant>::after
+FP fe29778e77a25e4fbb0054f71699734c fn CLOSURE::{closure#0}
 == stderr
