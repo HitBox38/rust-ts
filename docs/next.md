@@ -448,5 +448,18 @@ Root's own commits on integ-w38: independent re-check APPROVE WITH NITS (docs/re
 Queued after the M6b gate: pointer fragments in Miri allocation dumps print `[object Object]` (re-check F1, silent wrong output, mir/pretty.ts:174); Stacked Borrows ICE on a valid program (miri-perf O1); MIR validation at -Copt-level 2 and 3 (mono-lanes O2); type_length wrapping (mono-lanes O1); mio::Poll::new for 17 miri-pass cases; the probe rebuild (harness-w39 A1); the bytecode bundle; the review nits recorded in docs/state/history.jsonl.
 
 ## Wave 38 ACCEPTED 2026-11-05 (gate-20261104-143144-root-lpo8, main bc16a254) — **M6 done**
-534,012 protected in 52 suites (+404, 0 lost); 24,230/27,053 fns (89.6%); Miri 1,504/1,535. `bun scripts/criteria.ts --run gate-20261104-143144-root-lpo8`: M6b run-pass 3473/3478 = 99.86%, run-fail 294/294 = 100%, miri-pass 337/360 = 93.61%, all met. pm-ui 279/282 = 98.9%. The 30 `quote!` cases: 325 of 325 instances MATCH across the 11 suites that have them. Independent regression audit running.
+534,012 protected in 52 suites (+404, 0 lost); 24,230/27,053 fns (89.6%); Miri 1,504/1,535. `bun scripts/criteria.ts --run gate-20261104-143144-root-lpo8`: M6b run-pass 3473/3478 = 99.86%, run-fail 294/294 = 100%, miri-pass 337/360 = 93.61%, all met. pm-ui 279/282 = 98.9%. The 30 `quote!` cases: 325 of 325 instances MATCH across the 11 suites that have them. Independent regression audit PASS WITH NOTES, M6 done by the plan's definition (docs/reviews/m6-audit.md).
+Report suites, not protected, after the accept at db323c3b: miri-pass-tb 130/132 (2 mio::Poll::new); miri-fail 598/610 (1 DIFF, the pointer fragment; 4 mio::Poll::new; 7 long error descriptions); run-pass-aux-miri 338/356 (16 EiiMapEncodedKeyValue, 1 RUSTC_LOG, 1 CRASH rustc-env.rs: `option_env!("PWD")` is wrong on the port).
+
+## Wave 39 (started 2026-11-05) — M7 planning, fixes
+| lane | scope | status |
+|---|---|---|
+| plan-m7 | docs/plan-m7.md: text LLVM IR and clang, suites, waves; gets an independent review | running |
+| fixers-39 | pointer-fragment dump, Stacked Borrows crash, MIR validation at -Copt-level 2/3, type_length, mio::Poll::new, a test's global state | running |
+Queued:
+- Near-limit protected cases, which matched only through the serial retry in the gate (audit): dynamic-drop.rs and issue-8827.rs (newly protected, about 52-57 s of 60 s), move-3-unique.rs, and four mir cases retried in each of the last four gates (deep-try-chain-issue-153583, hkl_forbidden, param_mismatch2, self-referential-4). Next perf lane; the gate must run with nothing else on the host.
+- 52 run-pass programs with proc-macro aux crates run in no suite (harness/compiletest.ts:982 still says "deferred to M6"): harness batch.
+- EiiMapEncodedKeyValue decoding (16 cases); rustc-env.rs CRASH; long error descriptions in rustc_errors::codes (7 miri-fail cases).
+- Plan items outside the M6 gate, not done: miri-sysroot-* with harness-m6d; D11's p99 (11.1 s against 10 s); D8's cross-thread proc-macro path (expand-expr.rs).
+- Recorded earlier: ICE report lanes (docs/plan-ice-report.md, as amended); the deliberate probe rebuild (harness-w39 A1); the bytecode bundle; harness-w39 N2-N4; re-check N1-N3, N8, N9; miri-perf N1-N5; the review nits in docs/state/history.jsonl.
 

@@ -8,7 +8,7 @@ The mirror image of [ts-rust](https://github.com/pingdotgg/ts-rust).
 | | |
 |---|---|
 | Upstream pin | `rust-lang/rust@6f5da406b` = `rustc 1.101.0-nightly (2026-10-10)` |
-| Milestone | M0–M6 done (harness; lexer/parser; expansion + name resolution; typeck + trait solving; MIR build, borrowck, MIR transforms, const eval; check core → alloc → std; running programs through a port of the pinned nightly's Miri). **The crate metadata (.rmeta) of core, alloc and std is byte-identical to rustc's.** **Real programs run: 3,473 of 3,478 run-pass programs and 294 of 294 run-fail programs match the real Miri, as do 337 of 360 of Miri's own tests.** Next: M7 (text LLVM IR → clang). **Proc macros run: oracle-built proc-macro dylibs load into the port and match rustc on 279/282 ui cases.** |
+| Milestone | M0–M6 done (harness; lexer/parser; expansion + name resolution; typeck + trait solving; MIR build, borrowck, MIR transforms, const eval; check core → alloc → std; running programs through a port of the pinned nightly's Miri). **The crate metadata (.rmeta) of core, alloc and std is byte-identical to rustc's.** **Programs run through the port and match the real Miri's stdout, stderr and exit code: 3,473 of 3,478 run-pass cases (a match includes the 199 that real Miri itself refuses or fails; of those it runs to exit 0, 99.85%), 294 of 294 run-fail cases, and 337 of 360 of Miri's own tests. Native builds are M7.** Next: M7 (text LLVM IR → clang). **Proc macros run: oracle-built proc-macro dylibs load into the port and match rustc on 279/282 ui cases.** |
 | Protected parity | **534,012** cases across 52 suites that match the real compiler byte-for-byte and can never regress |
 | Ported | 24,230 / 27,053 in-scope upstream functions (89.6%; Miri 1,504 / 1,535) |
 
@@ -17,7 +17,7 @@ At 100%: the front end (`rustc_lexer`, `rustc_span`, `rustc_ast`, `rustc_ast_low
 `rustc_hir_analysis`, `rustc_infer`, `rustc_type_ir`, `rustc_next_trait_solver`, `rustc_traits`), plus
 `rustc_mir_build`, `rustc_pattern_analysis`, `rustc_symbol_mangling`, and now the borrow checker (`rustc_borrowck`,
 including legacy Polonius), `rustc_mir_transform` and `rustc_const_eval`. Nearly done: `rustc_parse`, `rustc_expand`,
-`rustc_lint`, `rustc_trait_selection`, `rustc_mir_dataflow` (92%) and `rustc_middle` (91%).
+`rustc_lint`, `rustc_trait_selection`, `rustc_mir_dataflow` (92%) and `rustc_middle` (92%).
 
 | suite (milestone) | what it compares against the oracle | protected |
 |---|---|---|
