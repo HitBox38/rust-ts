@@ -1,0 +1,18 @@
+CGU local_drop_glue.18774779c9ede17c sym=_RINSCs26emfu2Q3c6_15local_drop_glue3cguKRe6c6f63616c5f64726f705f676c75652e31383737343737396339656465313763_E size=4 primary=true covdead=false n=1
+IT fn user External Default inlined=false size=4
+DO _RNvCs26emfu2Q3c6_15local_drop_glue4user fn user
+CGU local_drop_glue.18774779c9ede17c-fallback.cgu sym=_RINSCs26emfu2Q3c6_15local_drop_glue3cguKRe6c6f63616c5f64726f705f676c75652e313837373437373963396564653137632d66616c6c6261636b2e636775_E size=13 primary=false covdead=false n=5
+IT fn std::ptr::drop_glue::<mod1::Struct2> - shim(Some(mod1::Struct2)) External Default inlined=false size=5
+IT fn <Struct as std::ops::Drop>::drop External Default inlined=false size=1
+IT fn std::ptr::drop_glue::<Outer> - shim(Some(Outer)) External Default inlined=false size=2
+IT fn std::ptr::drop_glue::<(u32, Struct)> - shim(Some((u32, Struct))) External Default inlined=false size=2
+IT fn std::ptr::drop_glue::<Struct> - shim(Some(Struct)) External Default inlined=false size=3
+DO _RINvNtCsajD8mEyjPew_4core3ptr9drop_glueNtCs26emfu2Q3c6_15local_drop_glue5OuterEBD_ fn std::ptr::drop_glue::<Outer> - shim(Some(Outer))
+DO _RINvNtCsajD8mEyjPew_4core3ptr9drop_glueNtCs26emfu2Q3c6_15local_drop_glue6StructEBD_ fn std::ptr::drop_glue::<Struct> - shim(Some(Struct))
+DO _RINvNtCsajD8mEyjPew_4core3ptr9drop_glueNtNtCs26emfu2Q3c6_15local_drop_glue4mod17Struct2EBF_ fn std::ptr::drop_glue::<mod1::Struct2> - shim(Some(mod1::Struct2))
+DO _RINvNtCsajD8mEyjPew_4core3ptr9drop_glueTmNtCs26emfu2Q3c6_15local_drop_glue6StructEEBF_ fn std::ptr::drop_glue::<(u32, Struct)> - shim(Some((u32, Struct)))
+DO _RNvXCs26emfu2Q3c6_15local_drop_glueNtB2_6StructNtNtNtCsajD8mEyjPew_4core3ops4drop4Drop4drop fn <Struct as std::ops::Drop>::drop
+CGU local_drop_glue.18774779c9ede17c-mod1 sym=_RINSCs26emfu2Q3c6_15local_drop_glue3cguKRe6c6f63616c5f64726f705f676c75652e313837373437373963396564653137632d6d6f6431_E size=6 primary=false covdead=false n=1
+IT fn mod1::user External Default inlined=false size=6
+DO _RNvNtCs26emfu2Q3c6_15local_drop_glue4mod14user fn mod1::user
+ALL 4

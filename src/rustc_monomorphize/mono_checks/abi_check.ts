@@ -49,7 +49,7 @@ function passes_vectors_by_value(mode: PassMode, repr: BackendRepr): UsesVectorR
   }
   if (mode.$ === "Cast") {
     const cast = mode.cast;
-    if (cast.prefix.some((x) => x !== undefined && x.kind.$ === "Vector") || cast.rest.unit.kind.$ === "Vector") {
+    if (cast.prefix.some((x) => x.kind.$ === "Vector") || cast.rest.unit.kind.$ === "Vector") {
       return "FixedVector";
     }
   }
@@ -81,7 +81,7 @@ function do_check_simd_vector_abi(tcx: TyCtxt, abi: FnAbi<Ty>, def_id: DefId, is
         // Some targets use homogeneous aggregates, where the unit size counts.
         const mode = arg_abi.mode;
         let unit_size = size;
-        if (mode.$ === "Cast" && mode.cast.prefix.every((x) => x === undefined)) {
+        if (mode.$ === "Cast" && mode.cast.prefix.length === 0) {
           unit_size = mode.cast.rest.unit.size;
         }
 

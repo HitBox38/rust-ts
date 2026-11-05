@@ -1,7 +1,9 @@
 // Oracle checks of rustc_monomorphize's partitioning and of rustc_middle/mono.ts (lane mono-partition). The subject is
 // partitioning_oracle/run.ts; the expected output is committed under partitioning_oracle/oracle/ (regen.ts writes it from
 // the pinned rustc), next to its sources: partitioning_oracle/upstream/ is tests/codegen-units/partitioning at the pin,
-// unedited; partitioning_oracle/programs/ are this lane's.
+// unedited; partitioning_oracle/programs/ are this lane's. oracle/<case>.cgus.txt (partitioning_oracle/probe/main.rs) holds
+// what `-Zprint-mono-items` does not show: `mangle_cgu`, CGU sizes, `is_primary`, each item's visibility and `inlined`,
+// `items()` order, and `items_in_deterministic_order` with symbol names.
 //
 // Skips (visibly) if rustc is unavailable: aux crates are built by the oracle and the sysroot is the oracle's. Fails
 // instead under RUST_TS_REQUIRE_PROBES=1.
@@ -11,7 +13,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PIN } from "../../scripts/lib/common.ts";
 import { CodegenUnit } from "../rustc_middle/mono.ts";
-import { all_cases, build_aux, type Case, common_args, fresh_dir, HERE as ORACLE_HERE, normalize, parse, port_env, RUSTC, type Output } from "./partitioning_oracle/common.ts";
+import { all_cases, build_aux, type Case, common_args, fresh_dir, has_cgus_fixture, HERE as ORACLE_HERE, normalize, parse, port_env, RUSTC, type Output } from "./partitioning_oracle/common.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REQUIRE = process.env.RUST_TS_REQUIRE_PROBES === "1";
@@ -121,16 +123,18 @@ describe("the mono items' CGUs and linkage, against -Zprint-mono-items", () => {
     "vtable-through-const": "rustc_middle::mir::interpret::Allocation::new (ty/vtable.rs vtable_allocation_provider, M4)",
     "vtable-through-const-nonincr": "rustc_middle::mir::interpret::Allocation::new (ty/vtable.rs vtable_allocation_provider, M4)",
   };
-  const results = new Map<string, Output>();
+  const results = new Map<string, Output & { cgus: string }>();
 
-  async function run_case(c: Case, sysroot: string): Promise<Output> {
+  async function run_case(c: Case, sysroot: string): Promise<Output & { cgus: string }> {
     const out = fresh_dir(`port-${c.name}`);
-    const p = Bun.spawn(["bun", DRIVER, "--sysroot", sysroot, ...common_args(c, out, "port")], { env: port_env(c), stdout: "pipe", stderr: "pipe" });
+    const cgus_path = join(out, "cgus.txt");
+    const p = Bun.spawn(["bun", DRIVER, "--sysroot", sysroot, ...common_args(c, out, "port")], { env: { ...port_env(c), RUST_TS_PARTITION_CGUS: cgus_path }, stdout: "pipe", stderr: "pipe" });
     const [stdout, stderr] = await Promise.all([new Response(p.stdout).text(), new Response(p.stderr).text()]);
     const code = await p.exited;
     const dump_path = c.dump === undefined ? undefined : join(out, "dump", c.dump);
     const dump = dump_path !== undefined && existsSync(dump_path) ? readFileSync(dump_path, "utf8") : undefined;
-    return { code, stdout: normalize(stdout, c), stderr: normalize(stderr, c), dump };
+    const cgus = existsSync(cgus_path) ? normalize(readFileSync(cgus_path, "utf8"), c) : "";
+    return { code, stdout: normalize(stdout, c), stderr: normalize(stderr, c), dump, cgus };
   }
 
   beforeAll(async () => {
@@ -160,5 +164,8 @@ describe("the mono items' CGUs and linkage, against -Zprint-mono-items", () => {
     expect(got.stderr).toBe(want.stderr);
     expect(got.code).toBe(want.code);
     expect(got.dump).toBe(want.dump);
+    if (has_cgus_fixture(CASES.find((c) => c.name === name)!)) {
+      expect(got.cgus).toBe(readFileSync(join(ORACLE_HERE, "oracle", `${name}.cgus.txt`), "utf8"));
+    }
   });
 });

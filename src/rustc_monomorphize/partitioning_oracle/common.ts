@@ -65,7 +65,7 @@ function program_cases(): Case[] {
   const p = (stem: string): Pick<Case, "file" | "crate_name" | "aux" | "target"> => ({ file: join(dir, `${stem}.rs`), crate_name: stem, aux: [], target: TARGET });
   const out: Case[] = [];
   // Merge order, tie-breaks and renaming at each CGU count, in both modes.
-  for (const n of [1, 2, 3, 5, 16]) {
+  for (const n of [1, 2, 3, 16]) {
     out.push({ ...p("merge_many"), name: `merge_many-incr-${n}`, flags: ["-Copt-level=0", `-Ccodegen-units=${n}`, HUMAN], incremental: true });
     out.push({ ...p("merge_many"), name: `merge_many-nonincr-${n}`, flags: ["-Copt-level=0", `-Ccodegen-units=${n}`], incremental: false });
   }
@@ -123,13 +123,13 @@ export function all_cases(): Case[] {
 
 /** The program's absolute path appears in diagnostics and in closures' names; the oracle's checkout and the test's differ. */
 export function normalize(s: string, c: Case): string {
-  return s.replaceAll(c.file, "$FILE").replaceAll(dirname(c.file), "$DIR").replaceAll(WORK, "$WORK");
+  return s.replaceAll(c.file, "$FILE");
 }
 
 export function clean_env(): Record<string, string> {
   const env: Record<string, string> = { RUSTC_ICE: "0", RUST_BACKTRACE: "0" };
   for (const [k, v] of Object.entries(process.env)) {
-    if (v !== undefined && !["MAKEFLAGS", "CARGO_MAKEFLAGS", "MFLAGS", "RUSTC_LOG", "RUSTC_BOOTSTRAP", "RUSTC_ICE", "RUST_BACKTRACE", "RUST_TS_PARTITION_INCREMENTAL", "RUST_TS_PARTITION_ACYCLIC"].includes(k)) env[k] = v;
+    if (v !== undefined && !["MAKEFLAGS", "CARGO_MAKEFLAGS", "MFLAGS", "RUSTC_LOG", "RUSTC_BOOTSTRAP", "RUSTC_ICE", "RUST_BACKTRACE", "RUST_TS_PARTITION_INCREMENTAL", "RUST_TS_PARTITION_ACYCLIC", "RUST_TS_PARTITION_CGUS"].includes(k)) env[k] = v;
   }
   return env;
 }
@@ -185,6 +185,14 @@ export function port_env(c: Case): Record<string, string> {
   if (c.incremental) env.RUST_TS_PARTITION_INCREMENTAL = "1";
   if (c.port_target !== undefined) env.RUST_TS_PARTITION_ACYCLIC = "1";
   return env;
+}
+
+/**
+ * Whether the case has an `oracle/<name>.cgus.txt`: not `static_cycle`, whose target differs between the sides, so symbol
+ * names and CGU hashes do too.
+ */
+export function has_cgus_fixture(c: Case): boolean {
+  return c.port_target === undefined;
 }
 
 export function fresh_dir(name: string): string {

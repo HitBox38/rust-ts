@@ -1,8 +1,7 @@
 // Port of compiler/rustc_monomorphize/src/lib.rs (lane mono-collector).
 //
-// Nothing outside this crate calls `provide` yet (M7 groundwork, plan-m6 section 5): rustc_interface's
-// `DEFAULT_QUERY_PROVIDERS` does not list it, so every path the protected suites run keeps today's UNPORTED stops. The
-// oracle test driver collector_oracle/run.ts installs it through `override_queries`.
+// rustc_interface's `DEFAULT_QUERY_PROVIDERS` loads this module the first time one of these providers runs, so it is
+// outside the module list of a run that reaches no codegen (rustc_interface passes.ts `rustc_monomorphize_provide`).
 import * as partitioning from "./partitioning.ts";
 import { debug_result, type Result, Err, Ok } from "../std/result.ts";
 import { PLAIN } from "../std/fmt.ts";

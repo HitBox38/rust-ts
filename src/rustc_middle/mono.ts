@@ -419,6 +419,17 @@ export const MonoItem = {
         return self._0.owner_id.to_def_id();
     }
   },
+
+  // impl ToStableHashKey for MonoItem<'_>, out of file order (PORTING section 8): the const must declare it.
+  // PORT: ported rather than skipped: `collect_crate_mono_items` sorts all mono items by this key
+  // (`UnordSet::into_sorted`), which fixes the order CGU names are interned in, and so the order of the CGUs of an item in
+  // `-Zprint-mono-items`.
+  // rustc: compiler/rustc_middle/src/mono.rs:332 to_stable_hash_key
+  to_stable_hash_key(self: MonoItem, hcx: StableHashCtxt): Fingerprint {
+    const hasher = StableHasher.new();
+    stable_hash_MonoItem(self, hcx, hasher);
+    return hasher.finish(Fingerprint);
+  },
 } as const;
 
 // impl<'tcx> fmt::Display for MonoItem<'tcx>
@@ -432,17 +443,6 @@ export function display_MonoItem(self: MonoItem): string {
     case "GlobalAsm":
       return "global_asm";
   }
-}
-
-// impl ToStableHashKey for MonoItem<'_>
-// PORT: ported rather than skipped: `collect_crate_mono_items` sorts all mono items by this key
-// (`UnordSet::into_sorted`), which fixes the order CGU names are interned in, and so the order of the CGUs of an item in
-// `-Zprint-mono-items`.
-// rustc: compiler/rustc_middle/src/mono.rs:332 to_stable_hash_key
-export function MonoItem_to_stable_hash_key(self: MonoItem, hcx: StableHashCtxt): Fingerprint {
-  const hasher = StableHasher.new();
-  stable_hash_MonoItem(self, hcx, hasher);
-  return hasher.finish(Fingerprint);
 }
 
 // PORT(contract): pending a generator batch. `#[derive(StableHash)]` of `MonoItem` and of what it holds, written out as

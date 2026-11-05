@@ -976,16 +976,10 @@ function mono_item_visibility(
   }
 }
 
-/** PORT(contract): `Session::default_visibility` (rustc_session session.rs:908) is not ported and session.ts is not this
- *  lane's file; handoff item. */
-function session_default_visibility(sess: Session): SymbolVisibility {
-  return sess.opts.unstable_opts.default_visibility ?? sess.target.default_visibility ?? SymbolVisibility.Interposable;
-}
-
 // rustc: compiler/rustc_monomorphize/src/partitioning.rs:971 default_visibility
 function default_visibility(tcx: TyCtxt, id: DefId, is_generic: boolean): Visibility {
   // Fast-path to avoid expensive query call below
-  if (session_default_visibility(tcx.sess) === SymbolVisibility.Interposable) {
+  if (tcx.sess.default_visibility() === SymbolVisibility.Interposable) {
     return Visibility.Default;
   }
 
@@ -1006,7 +1000,7 @@ function default_visibility(tcx: TyCtxt, id: DefId, is_generic: boolean): Visibi
 
     // For all other symbols, `default_visibility` determines which visibility to use.
     case "Rust":
-      return Visibility.from(session_default_visibility(tcx.sess));
+      return Visibility.from(tcx.sess.default_visibility());
   }
 }
 
@@ -1313,91 +1307,103 @@ function collect_and_partition_mono_items(tcx: TyCtxt, _: null): MonoItemPartiti
 
 /// Outputs stats about instantiation counts and estimated size, per `MonoItem`'s
 /// def, to a file in the given output directory.
-// PORT: `Box<dyn Error>` is its `to_string()`.
+// PORT: `Box<dyn Error>` is its `to_string()`. Upstream's `?`s are on the file calls alone, so a `try` covers only those:
+// a panic or a stop in between is not an I/O error (docs/reviews/mono-lanes.md P1).
 // rustc: compiler/rustc_monomorphize/src/partitioning.rs:1277 dump_mono_items_stats
 function dump_mono_items_stats(tcx: TyCtxt, codegen_units: readonly CodegenUnit[], output_directory_: string | undefined, crate_name: Symbol): Result<null, string> {
-  // PORT: the `?`s on `fs` calls: node's error as `io::Error`, then `to_string()`.
+  let output_directory: string;
+  if (output_directory_ !== undefined) {
+    const r = fs_result(() => mkdirSync(output_directory_, { recursive: true }));
+    if (r.$ === "Err") return r;
+    output_directory = output_directory_;
+  } else {
+    output_directory = ".";
+  }
+
+  const format = tcx.sess.opts.unstable_opts.dump_mono_stats_format;
+  const ext = DumpMonoStatsFormat.extension(format);
+  const filename = `${Symbol.as_str(crate_name)}.mono_items.${ext}`;
+  const output_path = path_join(output_directory, filename);
+  const opened = fs_result(() => openSync(output_path, "w"));
+  if (opened.$ === "Err") return opened;
+  const file = opened._0;
+
   try {
-    let output_directory: string;
-    if (output_directory_ !== undefined) {
-      mkdirSync(output_directory_, { recursive: true });
-      output_directory = output_directory_;
-    } else {
-      output_directory = ".";
-    }
-
-    const format = tcx.sess.opts.unstable_opts.dump_mono_stats_format;
-    const ext = DumpMonoStatsFormat.extension(format);
-    const filename = `${Symbol.as_str(crate_name)}.mono_items.${ext}`;
-    const output_path = path_join(output_directory, filename);
-    const file = openSync(output_path, "w");
-
-    try {
-      // Gather instantiated mono items grouped by def_id
-      const items_per_def_id = new DefIdMap<MonoItem[]>();
-      for (const cgu of codegen_units) {
-        for (const mono_item of cgu.items().keys()) {
-          // Avoid variable-sized compiler-generated shims
-          if (MonoItem.is_user_defined(mono_item)) {
-            const def_id = MonoItem.def_id(mono_item);
-            let v = items_per_def_id.get(def_id);
-            if (v === undefined) {
-              v = [];
-              items_per_def_id.set(def_id, v);
-            }
-            v.push(mono_item);
+    // Gather instantiated mono items grouped by def_id
+    const items_per_def_id = new DefIdMap<MonoItem[]>();
+    for (const cgu of codegen_units) {
+      for (const mono_item of cgu.items().keys()) {
+        // Avoid variable-sized compiler-generated shims
+        if (MonoItem.is_user_defined(mono_item)) {
+          const def_id = MonoItem.def_id(mono_item);
+          let v = items_per_def_id.get(def_id);
+          if (v === undefined) {
+            v = [];
+            items_per_def_id.set(def_id, v);
           }
+          v.push(mono_item);
         }
       }
+    }
 
-      // #[derive(serde::Serialize)]
-      // PORT: upstream's local `struct MonoItem`. `JSON.stringify` writes what `serde_json::to_writer` writes: compact,
-      // fields in this order, the same string escapes.
-      interface MonoItem_ {
-        name: string;
-        instantiation_count: number;
-        size_estimate: number;
-        total_estimate: number;
-      }
+    // #[derive(serde::Serialize)]
+    // PORT: upstream's local `struct MonoItem`. `JSON.stringify` writes what `serde_json::to_writer` writes: compact,
+    // fields in this order, the same string escapes.
+    interface MonoItem_ {
+      name: string;
+      instantiation_count: number;
+      size_estimate: number;
+      total_estimate: number;
+    }
 
-      // Output stats sorted by total instantiated size, from heaviest to lightest
-      const stats: MonoItem_[] = [];
-      for (const [def_id, items] of items_per_def_id) {
-        const name = with_no_trimmed_paths(() => tcx.def_path_str(def_id));
-        const instantiation_count = items.length;
-        const size_estimate = MonoItem.size_estimate(items[0]!, tcx);
-        const total_estimate = instantiation_count * size_estimate;
-        stats.push({ name, instantiation_count, size_estimate, total_estimate });
-      }
-      // PORT: `sort_unstable_by_key(|item| cmp::Reverse(item.total_estimate))`, ties visible: core's ipnsort. `MonoItem`
-      // is `String` + 3 `usize`: 48 bytes, `Freeze`, not `Copy`.
-      slice_sort_unstable_by(stats, (a, b) => b.total_estimate - a.total_estimate, { size_of: 48, freeze: true, copy: false });
+    // Output stats sorted by total instantiated size, from heaviest to lightest
+    const stats: MonoItem_[] = [];
+    for (const [def_id, items] of items_per_def_id) {
+      const name = with_no_trimmed_paths(() => tcx.def_path_str(def_id));
+      const instantiation_count = items.length;
+      const size_estimate = MonoItem.size_estimate(items[0]!, tcx);
+      const total_estimate = instantiation_count * size_estimate;
+      stats.push({ name, instantiation_count, size_estimate, total_estimate });
+    }
+    // PORT: `sort_unstable_by_key(|item| cmp::Reverse(item.total_estimate))`, ties visible: core's ipnsort. `MonoItem`
+    // is `String` + 3 `usize`: 48 bytes, `Freeze`, not `Copy`.
+    slice_sort_unstable_by(stats, (a, b) => b.total_estimate - a.total_estimate, { size_of: 48, freeze: true, copy: false });
 
-      if (stats.length !== 0) {
-        switch (format) {
-          case "Json":
-            writeSync(file, JSON.stringify(stats));
-            break;
-          case "Markdown": {
-            let out = "| Item | Instantiation count | Estimated Cost Per Instantiation | Total Estimated Cost |\n";
-            out += "| --- | ---: | ---: | ---: |\n";
+    if (stats.length !== 0) {
+      switch (format) {
+        case "Json": {
+          const json = JSON.stringify(stats);
+          const r = fs_result(() => writeSync(file, json));
+          if (r.$ === "Err") return r;
+          break;
+        }
+        case "Markdown": {
+          let out = "| Item | Instantiation count | Estimated Cost Per Instantiation | Total Estimated Cost |\n";
+          out += "| --- | ---: | ---: | ---: |\n";
 
-            for (const { name, instantiation_count, size_estimate, total_estimate } of stats) {
-              out += `| \`${name}\` | ${instantiation_count} | ${size_estimate} | ${total_estimate} |\n`;
-            }
-            writeSync(file, out);
-            break;
+          for (const { name, instantiation_count, size_estimate, total_estimate } of stats) {
+            out += `| \`${name}\` | ${instantiation_count} | ${size_estimate} | ${total_estimate} |\n`;
           }
+          const r = fs_result(() => writeSync(file, out));
+          if (r.$ === "Err") return r;
+          break;
         }
       }
-    } finally {
-      closeSync(file);
     }
-  } catch (e) {
-    return Err(display_IoError(io_error_from_node(e)));
+  } finally {
+    closeSync(file);
   }
 
   return Ok(null);
+}
+
+/** PORT: a `?` on an `fs` call: node's error as `io::Error`, then `to_string()`. */
+function fs_result<T>(f: () => T): Result<T, string> {
+  try {
+    return Ok(f());
+  } catch (e) {
+    return Err(display_IoError(io_error_from_node(e)));
+  }
 }
 
 // rustc: compiler/rustc_monomorphize/src/partitioning.rs:1352 provide

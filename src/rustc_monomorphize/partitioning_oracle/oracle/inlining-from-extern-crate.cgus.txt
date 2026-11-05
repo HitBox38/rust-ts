@@ -1,0 +1,18 @@
+CGU inlining_from_extern_crate.fc9dd2904a5a538b sym=_RINSCslGFDTZKPRUZ_26inlining_from_extern_crate3cguKRe696e6c696e696e675f66726f6d5f65787465726e5f63726174652e66633964643239303461356135333862_E size=6 primary=true covdead=false n=3
+IT fn user External Default inlined=false size=4
+IT fn cgu_explicit_inlining::inlined Internal Default inlined=true size=1
+IT fn cgu_explicit_inlining::always_inlined Internal Default inlined=true size=1
+DO _RNvCs8rAGHlPtKyk_21cgu_explicit_inlining14always_inlined fn cgu_explicit_inlining::always_inlined
+DO _RNvCs8rAGHlPtKyk_21cgu_explicit_inlining7inlined fn cgu_explicit_inlining::inlined
+DO _RNvCslGFDTZKPRUZ_26inlining_from_extern_crate4user fn user
+CGU inlining_from_extern_crate.fc9dd2904a5a538b-mod1 sym=_RINSCslGFDTZKPRUZ_26inlining_from_extern_crate3cguKRe696e6c696e696e675f66726f6d5f65787465726e5f63726174652e666339646432393034613561353338622d6d6f6431_E size=4 primary=false covdead=false n=2
+IT fn mod1::user External Default inlined=false size=3
+IT fn cgu_explicit_inlining::inlined Internal Default inlined=true size=1
+DO _RNvCs8rAGHlPtKyk_21cgu_explicit_inlining7inlined fn cgu_explicit_inlining::inlined
+DO _RNvNtCslGFDTZKPRUZ_26inlining_from_extern_crate4mod14user fn mod1::user
+CGU inlining_from_extern_crate.fc9dd2904a5a538b-mod2 sym=_RINSCslGFDTZKPRUZ_26inlining_from_extern_crate3cguKRe696e6c696e696e675f66726f6d5f65787465726e5f63726174652e666339646432393034613561353338622d6d6f6432_E size=4 primary=false covdead=false n=2
+IT fn mod2::user External Default inlined=false size=3
+IT fn cgu_explicit_inlining::always_inlined Internal Default inlined=true size=1
+DO _RNvCs8rAGHlPtKyk_21cgu_explicit_inlining14always_inlined fn cgu_explicit_inlining::always_inlined
+DO _RNvNtCslGFDTZKPRUZ_26inlining_from_extern_crate4mod24user fn mod2::user
+ALL 5

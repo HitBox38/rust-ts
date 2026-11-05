@@ -1,0 +1,44 @@
+CGU regular_modules.c0192215d5abbe4f-cgu.0 sym=_RNSCsgux71rijInz_15regular_modules3cgu size=21 primary=true covdead=false n=21
+IT fn foo External Default inlined=false size=1
+IT static BAZ External Default inlined=false size=1
+IT fn bar External Default inlined=false size=1
+IT fn mod2::foo External Default inlined=false size=1
+IT static mod2::BAZ External Default inlined=false size=1
+IT fn mod2::bar External Default inlined=false size=1
+IT static mod2::mod1::BAZ External Default inlined=false size=1
+IT fn mod2::mod1::foo External Default inlined=false size=1
+IT fn mod2::mod1::bar External Default inlined=false size=1
+IT fn mod1::mod2::foo External Default inlined=false size=1
+IT static mod1::mod2::BAZ External Default inlined=false size=1
+IT fn mod1::mod2::bar External Default inlined=false size=1
+IT fn mod1::foo External Default inlined=false size=1
+IT static mod1::BAZ External Default inlined=false size=1
+IT fn mod1::bar External Default inlined=false size=1
+IT static mod1::mod1::BAZ External Default inlined=false size=1
+IT fn mod1::mod1::foo External Default inlined=false size=1
+IT fn mod1::mod1::bar External Default inlined=false size=1
+IT fn mod2::mod2::bar External Default inlined=false size=1
+IT static mod2::mod2::BAZ External Default inlined=false size=1
+IT fn mod2::mod2::foo External Default inlined=false size=1
+DO _RNvCsgux71rijInz_15regular_modules3BAZ static BAZ
+DO _RNvCsgux71rijInz_15regular_modules3bar fn bar
+DO _RNvCsgux71rijInz_15regular_modules3foo fn foo
+DO _RNvNtCsgux71rijInz_15regular_modules4mod13BAZ static mod1::BAZ
+DO _RNvNtCsgux71rijInz_15regular_modules4mod13bar fn mod1::bar
+DO _RNvNtCsgux71rijInz_15regular_modules4mod13foo fn mod1::foo
+DO _RNvNtCsgux71rijInz_15regular_modules4mod23BAZ static mod2::BAZ
+DO _RNvNtCsgux71rijInz_15regular_modules4mod23bar fn mod2::bar
+DO _RNvNtCsgux71rijInz_15regular_modules4mod23foo fn mod2::foo
+DO _RNvNtNtCsgux71rijInz_15regular_modules4mod14mod13BAZ static mod1::mod1::BAZ
+DO _RNvNtNtCsgux71rijInz_15regular_modules4mod14mod13bar fn mod1::mod1::bar
+DO _RNvNtNtCsgux71rijInz_15regular_modules4mod14mod13foo fn mod1::mod1::foo
+DO _RNvNtNtCsgux71rijInz_15regular_modules4mod14mod23BAZ static mod1::mod2::BAZ
+DO _RNvNtNtCsgux71rijInz_15regular_modules4mod14mod23bar fn mod1::mod2::bar
+DO _RNvNtNtCsgux71rijInz_15regular_modules4mod14mod23foo fn mod1::mod2::foo
+DO _RNvNtNtCsgux71rijInz_15regular_modules4mod24mod13BAZ static mod2::mod1::BAZ
+DO _RNvNtNtCsgux71rijInz_15regular_modules4mod24mod13bar fn mod2::mod1::bar
+DO _RNvNtNtCsgux71rijInz_15regular_modules4mod24mod13foo fn mod2::mod1::foo
+DO _RNvNtNtCsgux71rijInz_15regular_modules4mod24mod23BAZ static mod2::mod2::BAZ
+DO _RNvNtNtCsgux71rijInz_15regular_modules4mod24mod23bar fn mod2::mod2::bar
+DO _RNvNtNtCsgux71rijInz_15regular_modules4mod24mod23foo fn mod2::mod2::foo
+ALL 21

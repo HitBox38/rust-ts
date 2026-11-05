@@ -1,0 +1,15 @@
+CGU swap_order.6618d64481bab847-a--swap_order.6618d64481bab847-b--swap_order.6618d64481bab847-d sym=_RINSCs8Lswo9mMidn_10swap_order3cguKRe737761705f6f726465722e363631386436343438316261623834372d612d2d737761705f6f726465722e363631386436343438316261623834372d622d2d737761705f6f726465722e363631386436343438316261623834372d64_E size=62 primary=true covdead=false n=4
+IT fn d::f External Default inlined=false size=23
+IT fn shared Internal Default inlined=true size=8
+IT fn a::f External Default inlined=false size=18
+IT fn b::f External Default inlined=false size=13
+DO _RNvCs8Lswo9mMidn_10swap_order6shared fn shared
+DO _RNvNtCs8Lswo9mMidn_10swap_order1a1f fn a::f
+DO _RNvNtCs8Lswo9mMidn_10swap_order1b1f fn b::f
+DO _RNvNtCs8Lswo9mMidn_10swap_order1d1f fn d::f
+CGU swap_order.6618d64481bab847-c--swap_order.6618d64481bab847-x sym=_RINSCs8Lswo9mMidn_10swap_order3cguKRe737761705f6f726465722e363631386436343438316261623834372d632d2d737761705f6f726465722e363631386436343438316261623834372d78_E size=56 primary=false covdead=false n=2
+IT fn x::f External Default inlined=false size=43
+IT fn c::f External Default inlined=false size=13
+DO _RNvNtCs8Lswo9mMidn_10swap_order1c1f fn c::f
+DO _RNvNtCs8Lswo9mMidn_10swap_order1x1f fn x::f
+ALL 6

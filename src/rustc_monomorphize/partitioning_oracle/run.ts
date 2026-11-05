@@ -2,10 +2,10 @@
 //   bun src/rustc_monomorphize/partitioning_oracle/run.ts <rustc arguments...>
 //
 // The ported driver, stopped after `tcx.ensure_ok().analysis(())` (the `after_analysis` callback, as
-// rustc_interface/analysis_oracle/run.ts). The partitioning providers are installed here through `override_queries`, not
-// in `DEFAULT_QUERY_PROVIDERS`, so no production path reaches them. It then forces `collect_and_partition_mono_items`,
-// which is what `codegen_crate` does first, and which prints `-Zprint-mono-items`.
+// rustc_interface/analysis_oracle/run.ts). It then forces `collect_and_partition_mono_items`, which is what `codegen_crate`
+// does first, and which prints `-Zprint-mono-items`.
 //
+// `RUST_TS_PARTITION_CGUS=<file>` also writes to <file> the lines partitioning_oracle/probe/main.rs prints.
 //
 // `RUST_TS_PARTITION_INCREMENTAL=1` stands for `-C incremental=<dir>`: rustc_incremental is out of scope (the session
 // setup stops at `unported`), but partitioning only reads whether the option is set. The driver sets
@@ -18,26 +18,15 @@
 // `RUST_TS_PARTITION_NAMES=1` prints `CodegenUnitNameBuilder`'s names instead, which needs no collector.
 //
 // Exit codes as src/rust_ts/main.ts: rustc's own, plus 70 = reached unported code, 101 = ICE.
-import { existsSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import type { Compiler, Config } from "../../rustc_interface/interface.ts";
+import type { MonoItem as MonoItemT, MonoItemPartitions } from "../../rustc_middle/mono.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
-import type { Providers } from "../../rustc_middle/util/mod.ts";
 import { ensure_stack } from "../../rust_ts/stack.ts";
 import { write_stderr, write_stdout } from "../../std/io.ts";
 import { Panic, Unported } from "../../std/panic.ts";
 
 const EXIT_UNPORTED = 70;
-
-/** What lane mono-collector's `collector.ts` and `lib.ts` export; `undefined` until it merges. */
-interface LibModule {
-  provide: (providers: Providers) => void;
-}
-
-async function load_optional<M>(path: string): Promise<M | undefined> {
-  // A variable path: tsc must not resolve it while the file is absent.
-  if (!existsSync(new URL(path, import.meta.url))) return undefined;
-  return (await import(path)) as M;
-}
 
 async function main(): Promise<number> {
   ensure_stack();
@@ -45,23 +34,33 @@ async function main(): Promise<number> {
   const { raw_args } = await import("../../rustc_driver_impl/args.ts");
   const { EarlyDiagCtxt } = await import("../../rustc_session/session.ts");
   const { ErrorOutputType } = await import("../../rustc_session/config.ts");
-  const partitioning = await import("../partitioning.ts");
-  const { CodegenUnitNameBuilder } = await import("../../rustc_middle/mono.ts");
+  const { CodegenUnitNameBuilder, display_MonoItem, MonoItem } = await import("../../rustc_middle/mono.ts");
+  const { with_no_trimmed_paths } = await import("../../rustc_middle/ty/print/pretty.ts");
   const { LOCAL_CRATE } = await import("../../rustc_span/def_id.ts");
   const { Symbol } = await import("../../rustc_span/symbol.ts");
-  const lib_module = await load_optional<LibModule>("../lib.ts");
+
+  /** What partitioning_oracle/probe/main.rs prints. */
+  const cgu_lines = (tcx: TyCtxt): string => {
+    const partitions = tcx.collect_and_partition_mono_items(null) as MonoItemPartitions;
+    const item_str = (item: MonoItemT): string => with_no_trimmed_paths(() => display_MonoItem(item));
+    const out: string[] = [];
+    for (const cgu of partitions.codegen_units) {
+      out.push(`CGU ${Symbol.as_str(cgu.name())} sym=${Symbol.as_str(cgu.symbol_name())} size=${cgu.size_estimate()} primary=${cgu.is_primary()} covdead=${cgu.is_code_coverage_dead_code_cgu()} n=${cgu.items().size}`);
+      for (const [item, data] of cgu.items()) {
+        out.push(`IT ${item_str(item)} ${data.linkage} ${data.visibility} inlined=${data.inlined} size=${data.size_estimate}`);
+      }
+      for (const [item] of cgu.items_in_deterministic_order(tcx)) {
+        out.push(`DO ${MonoItem.symbol_name(item, tcx).name} ${item_str(item)}`);
+      }
+    }
+    out.push(`ALL ${partitions.all_mono_items.size}`);
+    return out.map((l) => `${l}\n`).join("");
+  };
 
   const callbacks = {
     // As rustc's `TimePassesCallbacks::config` (rustc_driver_impl/src/lib.rs), minus time-passes.
     config(config: Config): void {
       config.opts.trimmed_def_paths = true;
-      const prev = config.override_queries;
-      config.override_queries = (sess, providers) => {
-        prev?.(sess, providers);
-        partitioning.provide(providers);
-        // The collector's and `mono_checks`' providers. After the merge `lib.provide` calls `partitioning.provide` itself.
-        lib_module?.provide(providers);
-      };
     },
     after_expansion(_compiler: Compiler, tcx: TyCtxt): "Stop" | "Continue" {
       if (process.env.RUST_TS_PARTITION_INCREMENTAL === "1") {
@@ -86,6 +85,8 @@ async function main(): Promise<number> {
         write_stdout(lines.join(""));
       } else {
         tcx.collect_and_partition_mono_items(null);
+        const cgus = process.env.RUST_TS_PARTITION_CGUS;
+        if (cgus !== undefined) writeFileSync(cgus, cgu_lines(tcx));
       }
       // `TyCtxt::finish` would serialize the dep graph (rustc_incremental, out of scope).
       tcx.sess.opts.incremental = undefined;

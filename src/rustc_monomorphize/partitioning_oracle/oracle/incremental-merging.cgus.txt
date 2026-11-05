@@ -1,0 +1,12 @@
+CGU incremental_merging.20ab3c513ad85504-aaa--incremental_merging.20ab3c513ad85504-bbb sym=_RINSCs2NTxbAtg5oe_19incremental_merging3cguKRe696e6372656d656e74616c5f6d657267696e672e323061623363353133616438353530342d6161612d2d696e6372656d656e74616c5f6d657267696e672e323061623363353133616438353530342d626262_E size=11 primary=true covdead=false n=2
+IT fn bbb::foo External Default inlined=false size=7
+IT fn aaa::foo External Default inlined=false size=4
+DO _RNvNtCs2NTxbAtg5oe_19incremental_merging3aaa3foo fn aaa::foo
+DO _RNvNtCs2NTxbAtg5oe_19incremental_merging3bbb3foo fn bbb::foo
+CGU incremental_merging.20ab3c513ad85504-ccc sym=_RINSCs2NTxbAtg5oe_19incremental_merging3cguKRe696e6372656d656e74616c5f6d657267696e672e323061623363353133616438353530342d636363_E size=10 primary=false covdead=false n=1
+IT fn ccc::foo External Default inlined=false size=10
+DO _RNvNtCs2NTxbAtg5oe_19incremental_merging3ccc3foo fn ccc::foo
+CGU incremental_merging.20ab3c513ad85504-ddd sym=_RINSCs2NTxbAtg5oe_19incremental_merging3cguKRe696e6372656d656e74616c5f6d657267696e672e323061623363353133616438353530342d646464_E size=13 primary=false covdead=false n=1
+IT fn ddd::foo External Default inlined=false size=13
+DO _RNvNtCs2NTxbAtg5oe_19incremental_merging3ddd3foo fn ddd::foo
+ALL 4
