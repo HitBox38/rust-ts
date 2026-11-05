@@ -5,7 +5,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
-import { installedComponents, oracleToolchainError, pinnedComponents } from "./toolchain.ts";
+import { hostTupleError, installedComponents, oracleToolchainError, pinnedComponents } from "./toolchain.ts";
 
 const REPO = resolve(import.meta.dir, "..", "..");
 const PINNED = ["cargo-{host}", "llvm-tools-preview-{host}", "rust-std-{host}", "rust-std-x86_64-unknown-linux-gnu", "rustc-{host}", "rustc-dev-{host}"];
@@ -72,4 +72,11 @@ test("the pinned list (UPSTREAM.json rust.components) matches the oracle toolcha
   const root = r.stdout.toString().trim();
   const host = /^host: (\S+)$/m.exec(v.stdout.toString())![1]!;
   expect(oracleToolchainError(root, pin.components, host, basename(root))).toBeUndefined();
+});
+
+test("hostTupleError: unset and wrong are each one clear line", () => {
+  expect(hostTupleError(HOST, HOST)).toBeUndefined();
+  expect(hostTupleError(undefined, HOST)).toContain("RUST_TS_HOST_TUPLE is not set");
+  expect(hostTupleError(undefined, HOST)).toContain(".env.local");
+  expect(hostTupleError("x86_64-apple-darwin", HOST)).toContain("the oracle's host is aarch64-apple-darwin");
 });

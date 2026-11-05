@@ -1258,6 +1258,56 @@ export function collectUiTests(dir: string, out: string[] = []): string[] {
   return out;
 }
 
+/**
+ * The tests of `tests/mir-opt` for the suite `mir-opt-o4` (review plan-m7 F7): revisions and ignores as compiletest evaluates them for
+ * COMPILETEST_TARGET, one case per revision, a test with an aux crate skipped. Argv, which is **not** compiletest's exact mir-opt
+ * command: runtest.rs's `-Copt-level=1 -Zvalidate-mir -Zlint-mir -Zmir-include-spans=false --crate-type=rlib`, the test's flags and
+ * revision cfg, always `-Zmir-opt-level=4` with runtest.rs's `+ReorderBasicBlocks,+ReorderLocals` and the test's `test-mir-pass` enabled, then
+ * `-Zunpretty=mir`. compiletest runs a `test-mir-pass` test at level 0 with that pass alone and compares `.diff` dumps; F7 asks for the whole
+ * level-4 pipeline on each of them, compared whole, and that is what a bug in a pass ordering shows up in. No `-Zdump-mir` of ours.
+ * A test's own `-Zdump-mir` stays, so the caller must give each side a `-Zdump-mir-dir`.
+ */
+export function mirOptCases(dir = "tests/mir-opt"): { cases: UiCase[]; skipped: Skip[] } {
+  const cases: UiCase[] = [];
+  const skipped: Skip[] = [];
+  for (const file of collectUiTests(dir).sort()) {
+    const lines = fileDirectives(readFileSync(join(UPSTREAM, file), "utf8"));
+    const revisions = lines.flatMap((ln) => (nameValueDirective(ln, "revisions") ?? "").split(/\s+/).filter(Boolean));
+    for (const rev of revisions.length ? revisions : [undefined]) {
+      const id = rev === undefined ? file : `${file}#${rev}`;
+      try {
+        let ignore: string | undefined;
+        let aux: string | undefined;
+        let pass: string | undefined;
+        for (const ln of lines) {
+          if (!appliesTo(ln, rev)) continue;
+          if ((ln.name.startsWith("aux-") || ln.name === "proc-macro") && valueAfterColon(ln) !== undefined) aux ??= ln.raw;
+          ignore = ignoreDecision(ln, true) ?? ignore;
+          pass = nameValueDirective(ln, "test-mir-pass") ?? pass;
+        }
+        if (ignore !== undefined) {
+          skipped.push({ id, reason: `ignored by compiletest on ${host().target}: ${ignore}` });
+          continue;
+        }
+        if (aux !== undefined) {
+          skipped.push({ id, reason: `needs an auxiliary crate (\`${aux}\`), which this suite does not build` });
+          continue;
+        }
+        const p = testProps(lines, rev);
+        const args = [file, "--sysroot", host().sysroot, `--target=${host().target}`, ...(rev !== undefined ? ["--cfg", rev.toLowerCase().replaceAll("-", "_")] : [])];
+        args.push("-Copt-level=1", "-Zvalidate-mir", "-Zlint-mir", "-Zmir-include-spans=false", "--crate-type=rlib", "-Zmir-opt-level=4", "-Zmir-enable-passes=+ReorderBasicBlocks,+ReorderLocals");
+        if (pass !== undefined) args.push(`-Zmir-enable-passes=+${pass}`);
+        args.push("-Zwrite-long-types-to-disk=no", ...p.compileFlags, "-Zunpretty=mir");
+        cases.push({ id, file, args, env: compileEnv(p) });
+      } catch (e) {
+        if (!(e instanceof Reject)) throw e;
+        skipped.push({ id, reason: `compiletest rejects the test: ${e.message}` });
+      }
+    }
+  }
+  return { cases, skipped };
+}
+
 const memo = new Map<string, { cases: UiCase[]; skipped: Skip[] }>();
 
 /**

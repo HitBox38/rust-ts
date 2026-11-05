@@ -2,13 +2,15 @@
 // inputs; outputs (stdout, stderr, exit code) must be byte-identical.
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { DATA, REPO, UPSTREAM, hash } from "../scripts/lib/common.ts";
+import { DATA, REPO, UPSTREAM, die, hash } from "../scripts/lib/common.ts";
 import { caseDeps } from "../scripts/lib/deps.ts";
 import { caseEnv, mergeEnv } from "../scripts/lib/env.ts";
 import { oracleHost, oraclePinnedPathEnv, oracleRustcCmd, oracleSysroot, rustcDriverHash, verifyOracleToolchain } from "../scripts/lib/oracle.ts";
 import { probePath } from "../scripts/probes.ts";
+import { RG_INPUT_DIRS, RG_ROOT, RG_SRC, rgIsSetUp } from "../scripts/rg-check.ts";
+import { llvmBinDir, llvmToolHashes } from "../scripts/lib/llvm-tools.ts";
 import { MIRI_CASE_ENV, MIRI_DEFAULT_ARGS, MIRI_SYSROOT, miriBinary, miriOracleKey, miriPin } from "../scripts/lib/miri.ts";
-import { COMPILETEST_TARGET, collectUiTests, uiBlessed, uiCases, uiFileCases, uiOutputBaseDir, uiTestCases, type Blessed, type ErrorFormat, type UiCase } from "./compiletest.ts";
+import { COMPILETEST_TARGET, collectUiTests, mirOptCases, uiBlessed, uiCases, uiFileCases, uiOutputBaseDir, uiTestCases, type Blessed, type ErrorFormat, type UiCase } from "./compiletest.ts";
 import { AUX_STALE_MS, EMPTY_SYSROOT, M5_TARGET, libArgs, libCrate, libEnv, oracleLibRmeta, pruneStaleAux, touchAuxDir } from "./library.ts";
 
 export interface Case {
@@ -1292,6 +1294,8 @@ SUITES.push(
 // - `check-ui`: the same crates, `--bytes` only.
 /** The wrapper both sides run (under Bun); scripts/gate.ts `oracleRuns` reads its command line for the probe check. */
 export const RMETA_RUN = join(REPO, "scripts", "rmeta-run.ts");
+/** The script both sides of a check-rg suite run; scripts/gate.ts `oracleRuns` knows it. */
+export const RG_CHECK = join(REPO, "scripts", "rg-check.ts");
 /** The wrapper's directory for one case's two files. */
 const rmetaOut = (suite: string, c: Case): string => join(DATA, "rmeta", suite, hash(c.id).slice(0, 16));
 /** The probe's options and rustc arguments (`--dump-arg`s; see scripts/rmeta-run.ts). */
@@ -2060,11 +2064,168 @@ SUITES.push(
   }),
 );
 
-// IR suites (plan-m7 §6, D12; lane harness-m7a): both sides run scripts/ir-run.ts, which prints a normal form (scripts/lib/ir-normal.ts).
+// M7 preflight suites (plan-m7 §6, D13, review F7; lane harness-m7a). All report only and unprotected until root accepts a run: no baseline, so
+// none is in the gate's defaults. x86_64-unknown-linux-gnu unless a suite says otherwise (D3).
+// - `mir-o2`, `mono-ui`: the run-pass corpus with compiletest's argv, without aux crates and without its `-o`.
+// - `ir-hello`: scripts/ir-run.ts's first user, at N1 (scripts/lib/ir-normal.ts). Until wave 41 the port stops `unported` at `codegen_crate`.
+// - `check-ui-encode-mir`: every 5th crate of `check-ui` with `-Copt-level=3 -Zalways-encode-mir` (F7 item 1).
+// - `mir-opt-o4`: harness/compiletest.ts `mirOptCases`. **Each side has its own `-Zdump-mir-dir`, last on the command line,** so a test's own
+//   `-Zdump-mir` (dump_dataflow.rs writes graphviz files) cannot write into the upstream checkout, the cwd: one such run dirtied it in a review.
+//   Needs `tests/mir-opt` in the checkout (UPSTREAM.json `sparse`; `bun scripts/upstream.ts fetch`).
+// - `check-rg`, `check-rg-encode-mir`, `check-rg-host`: real cargo, scripts/rg-check.ts. Heavy: one side at a time, at one target path.
+//   Compiles that emit `link` go to the oracle on both sides, as the port has no codegen yet (scripts/rg-rustc.ts).
+const M7A = (what: string) => `plan-m7 gate M7a: ${what}; report until accepted`;
+/** A compiletest argv without its `-o <path>`: nothing here links, and `-Zunpretty` and a build to llvm-ir write elsewhere. */
+export const dropOutput = (args: readonly string[]): string[] => args.filter((a, i) => a !== "-o" && args[i - 1] !== "-o");
+let runPassMemo: { cases: Case[]; skipped: SkippedCase[] } | undefined;
+/** The run-pass tests' compiles (no aux crates), as compiletest makes them, before each suite's own flags. */
+function runPassCompiles(): { cases: Case[]; skipped: SkippedCase[] } {
+  if (runPassMemo) return runPassMemo;
+  const ui = runCorpus();
+  const cases = ui.cases.filter((c) => RUN_PASS_MODES.includes(c.mode!)).map((c): Case => ({ id: c.id, file: c.file, args: dropOutput(c.args), env: { ...NOCORE_ENV, ...c.env } }));
+  const skipped = ui.skipped.filter((k) => {
+    const h = k.id.indexOf("#");
+    return declaredModes(h < 0 ? k.id : k.id.slice(0, h), h < 0 ? undefined : k.id.slice(h + 1)).some((d) => RUN_PASS_MODES.includes(d));
+  });
+  return (runPassMemo = { cases, skipped: uiSorted(skipped) });
+}
+const withArgs = (c: Case, extra: readonly string[]): Case => pinSessionEnv({ ...c, args: [...c.args, ...extra] });
+/** The test-only driver stopped after mono collection: the port's only way there until codegen exists, on any `-Zprint-mono-items` run. */
+const MONO_SUBJECT_ENTRY = "src/rustc_monomorphize/partitioning_oracle/run.ts";
+/**
+ * The oracle has to reach `codegen_crate` without linking, so pre-pass IR it throws away, written over one file by every case and never read (`-o /dev/null`
+ * fails: rustc makes its temp dir beside the output). The same argv goes to the subject, whose driver stops at collection and writes nothing.
+ */
+export const MONO_ARGS = ["-Zprint-mono-items=yes", "-Cno-prepopulate-passes", "--emit=llvm-ir", "-o", join(DATA, "tmp", "mono-ui-discard.ll")];
+
 /** The wrapper both sides of an IR suite run (under Bun). */
 export const IR_RUN = join(REPO, "scripts", "ir-run.ts");
 /** A small program's IR argv, as `ir-hello`'s cases and scripts/ir-diff.ts's file form: compiletest's flags that matter, pre-pass. */
 export const irFileArgs = (file: string, opt: "O" | "0", target: string = COMPILETEST_TARGET): string[] => ["--target", target, "--sysroot", oracleSysroot(), "--edition=2021", opt === "O" ? "-O" : "-Copt-level=0", "-Ccodegen-units=1", "-Cno-prepopulate-passes", "--emit=llvm-ir", file];
+/** `Suite.oracleKey` of an IR suite: the wrapper and normal form's sources, the oracle rustc build, the tools that make the normal form. */
+let irKeyMemo: string | undefined;
+const irOracleKey = (): string => {
+  if (irKeyMemo !== undefined) return irKeyMemo;
+  const host = oracleHost();
+  const parts = [hash(readFileSync(IR_RUN)), hash(readFileSync(join(REPO, "scripts", "lib", "ir-normal.ts"))), rustcDriverHash(), JSON.stringify(llvmToolHashes(oracleSysroot(), host))];
+  return (irKeyMemo = hash(parts.join("\0")));
+};
+/** One side's command of an IR suite. */
+const irRun = (suite: string, side: "oracle" | "subject", c: Case, compiler: string[]): string[] => [process.execPath, IR_RUN, "--out", join(DATA, "ir", suite, hash(c.id).slice(0, 16)), "--side", side, "--bin", llvmBinDir(oracleSysroot(), oracleHost()), "--", ...compiler];
+
+/** Where a side of `mir-opt-o4` writes what a test's `-Zdump-mir` asks for. */
+const mirOptDumpDir = (side: string, c: Case): string => `-Zdump-mir-dir=${join(DATA, "tmp", "mir-opt-o4", side, hash(c.id).slice(0, 16))}`;
+let mirOptMemo: { cases: Case[]; skipped: SkippedCase[] } | undefined;
+function mirOptCorpus(): { cases: Case[]; skipped: SkippedCase[] } {
+  if (mirOptMemo) return mirOptMemo;
+  if (!existsSync(join(UPSTREAM, "tests", "mir-opt"))) die(`tests/mir-opt is not in the upstream checkout ${UPSTREAM}; run: bun scripts/upstream.ts fetch`);
+  const m = mirOptCases();
+  return (mirOptMemo = { cases: m.cases.map((c) => pinSessionEnv({ id: c.id, file: c.file, args: c.args, env: { ...NOCORE_ENV, ...c.env } })), skipped: uiSorted(m.skipped) });
+}
+
+const RG_CHECK_DESCRIPTION = "ripgrep 15.2.0's 34 crates under real `cargo check` (pinned Cargo.lock, D19), byte identity of each `.rmeta`, stderr and exit, and rg's MIR, as a bin's `.rmeta` is 0 bytes. Both sides build at one absolute target path, CARGO_INCREMENTAL=0. Compiles that emit `link` (build scripts and their dependencies) go to the oracle on both sides, as the port has no codegen yet";
+/** `Suite.oracleKey` of the check-rg suites: the two scripts and the oracle's rustc build. */
+const rgOracleKey = (): string => hash([hash(readFileSync(RG_CHECK)), hash(readFileSync(join(REPO, "scripts", "rg-rustc.ts"))), rustcDriverHash()].join("\0"));
+/** A `check-rg` suite: one run, one section per crate (scripts/rg-check.ts). `target` is read at run time: it can be the host's. */
+const rgSuite = (s: { name: string; description: string; target: () => string; encodeMir: boolean; criterion?: Suite["criterion"] }): Suite => {
+  const side = (which: string) => [process.execPath, RG_CHECK, "run", "--label", s.name, "--side", which, "--target", s.target(), ...(s.encodeMir ? ["--encode-mir"] : [])];
+  return {
+    name: s.name,
+    milestone: "M7",
+    description: s.description,
+    mode: "split",
+    split: "rmetadump",
+    // The port took 375 s (plain) and 537 s (encode-mir) of CPU at -j3 (docs/handoff/real-crates.md); a loaded host needs room.
+    timeoutMs: 3_600_000,
+    oracleTimeoutMs: 600_000,
+    heavy: M5_HEAVY,
+    cwd: RG_ROOT,
+    inputDirs: RG_INPUT_DIRS,
+    cases: () => {
+      if (!rgIsSetUp()) die(`ripgrep is not set up in ${RG_ROOT}; run: bun scripts/rg-check.ts setup`);
+      return [{ id: RG_SRC, file: join(RG_SRC, "Cargo.lock"), args: [s.target(), s.encodeMir ? "encode-mir" : "plain"] }];
+    },
+    oracleKey: rgOracleKey,
+    oracle: () => side("oracle"),
+    subject: () => side("subject"),
+    ...(s.criterion ? { criterion: s.criterion } : {}),
+  };
+};
+
+SUITES.push(
+  {
+    name: "mir-o2",
+    milestone: "M7",
+    description: "rustc -Zunpretty=mir on tests/ui's run-pass tests (no aux crates) with compiletest's argv, so nearly all at -O: MIR at level 2, which no protected suite prints: stdout + stderr + exit",
+    mode: "single",
+    timeoutMs: 240_000,
+    oracleTimeoutMs: 300_000,
+    cases: () => runPassCompiles().cases.map((c) => withArgs(c, ["-Zunpretty=mir"])),
+    skipped: () => runPassCompiles().skipped,
+    oracle: ([c]) => oracleRustcCmd(c!.args),
+    subject: ([c]) => [...bunCmd(RUSTC_DRIVER_ENTRY), ...c!.args],
+    criterion: { percent: 99, what: M7A("mir-o2 >= 99%") },
+  },
+  {
+    name: "mono-ui",
+    milestone: "M7",
+    description: "-Zprint-mono-items=yes on mir-o2's tests: the oracle through codegen to pre-pass IR it throws away, the port through its driver stopped after mono collection: stdout + stderr + exit",
+    mode: "single",
+    timeoutMs: 240_000,
+    oracleTimeoutMs: 300_000,
+    cases: () => runPassCompiles().cases.map((c) => withArgs(c, MONO_ARGS)),
+    skipped: () => runPassCompiles().skipped,
+    oracle: ([c]) => oracleRustcCmd(c!.args),
+    subject: ([c]) => [...bunCmd(MONO_SUBJECT_ENTRY), ...c!.args],
+    criterion: { percent: 99, what: M7A("mono-ui >= 99%") },
+  },
+  {
+    name: "ir-hello",
+    milestone: "M7",
+    description: "std's hello world at -O and -Copt-level=0, pre-pass, x86_64-unknown-linux-gnu: the N1 normal form of its IR (scripts/ir-run.ts) + stderr + exit",
+    mode: "single",
+    timeoutMs: 120_000,
+    oracleTimeoutMs: 60_000,
+    cwd: REPO,
+    cases: () =>
+      (["O", "0"] as const).map((o): Case => ({ id: `hello ${o === "O" ? "-O" : "-Copt-level=0"}`, file: MIRI_HELLO, args: irFileArgs(MIRI_HELLO, o), env: NOCORE_ENV })),
+    irArgs: (c) => c.args,
+    oracleKey: irOracleKey,
+    oracle: ([c]) => irRun("ir-hello", "oracle", c!, oracleRustcCmd(c!.args)),
+    subject: ([c]) => irRun("ir-hello", "subject", c!, [...bunCmd(RUSTC_DRIVER_ENTRY), ...c!.args]),
+    criterion: { percent: 100, what: M7A("ir-hello MATCH") },
+  },
+  {
+    name: "mir-opt-o4",
+    milestone: "M7",
+    description: "tests/mir-opt at -Zmir-opt-level=4 with each test's flags and pass, -Zvalidate-mir -Zlint-mir (review plan-m7 F7): -Zunpretty=mir, stdout + stderr + exit; not compiletest's .diff comparison",
+    mode: "single",
+    timeoutMs: 120_000,
+    oracleTimeoutMs: 300_000,
+    cases: () => mirOptCorpus().cases,
+    skipped: () => mirOptCorpus().skipped,
+    oracle: ([c]) => oracleRustcCmd([...c!.args, mirOptDumpDir("oracle", c!)]),
+    subject: ([c]) => [...bunCmd(RUSTC_DRIVER_ENTRY), ...c!.args, mirOptDumpDir("subject", c!)],
+  },
+  rmetaSuite(
+    {
+      name: "check-ui-encode-mir",
+      description: "every 5th crate of check-ui with -Copt-level=3 -Zalways-encode-mir (review plan-m7 F7): no other suite encodes optimized MIR. stderr + exit + the .rmeta's size and sha256",
+      mode: "single",
+      timeoutMs: 120_000,
+      oracleTimeoutMs: 300_000,
+      cases: () =>
+        RMETA_UI_CORPUS()
+          .filter((_, i) => i % 5 === 0)
+          .map((c) => ({ ...c, args: [...c.args.slice(0, -1), "-Copt-level=3", "-Zalways-encode-mir", c.args.at(-1)!] })),
+    },
+    true,
+    undefined,
+  ),
+  rgSuite({ name: "check-rg", description: RG_CHECK_DESCRIPTION, target: () => COMPILETEST_TARGET, encodeMir: false, criterion: { percent: 97, what: M7A("check-rg >= 33 of 34, then 34") } }),
+  rgSuite({ name: "check-rg-encode-mir", description: `${RG_CHECK_DESCRIPTION}. With -Copt-level=3 -Zalways-encode-mir on every unit (review plan-m7 F7)`, target: () => COMPILETEST_TARGET, encodeMir: true }),
+  rgSuite({ name: "check-rg-host", description: `${RG_CHECK_DESCRIPTION}. For the host, aarch64-apple-darwin (review plan-m7 F7): cfg(target_arch = "aarch64") and libc's macOS modules; waits for lane abi-vtable`, target: () => oracleHost(), encodeMir: false }),
+);
 
 export function suite(name: string): Suite {
   const s = SUITES.find((s) => s.name === name);
