@@ -107,3 +107,10 @@ export function crateSection(u: Pick<RgUnit, "crate" | "code" | "args">, rmeta: 
 export function mirArgs(args: readonly string[], extra: readonly string[]): string[] {
   return [...args.filter((a) => !a.startsWith("--json=") && a !== "--error-format=json" && !a.startsWith("--emit=")), ...extra, "-Zunpretty=mir"];
 }
+
+/**
+ * What cargo's environment must say on both sides, whatever the caller's says. `CARGO_INCREMENTAL=0`: plan-m7 D11. `GIT_CEILING_DIRECTORIES`: ripgrep's build.rs
+ * asks `git rev-parse` for a hash, puts it in `RIPGREP_BUILD_GIT_HASH`, and so in `rg`'s MIR and the tree. $RUST_TS_DATA sits inside this repository, so
+ * without this the hash is this repository's HEAD, and each commit made the cached oracle a false difference with the next subject.
+ */
+export const rgCargoEnv = (root: string, cargoHome: string): Record<string, string> => ({ CARGO_HOME: cargoHome, CARGO_INCREMENTAL: "0", GIT_CEILING_DIRECTORIES: root });

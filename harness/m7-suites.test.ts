@@ -38,7 +38,7 @@ test("the suites, without running one", () => {
   expect(j.mono.slice(0, 4)).toEqual(["-Zprint-mono-items=yes", "-Cno-prepopulate-passes", "--emit=llvm-ir", "-o"]);
   expect(j.mono[4]).toEndWith("mono-ui-discard.ll");
   expect(j.subject.mirO2).toEndWith("src/rust_ts/main.ts");
-  expect(j.subject.mono).toEndWith("partitioning_oracle/run.ts");
+  expect(j.subject.mono).toEndWith("scripts/mono-run.ts");
   expect(j.hello).toEqual([["hello -O", true, true, true], ["hello -Copt-level=0", false, true, true]]);
   expect(j.encode).toEqual([true, true, true]);
   expect(j.encodeCount).toBe(Math.ceil(j.ui / 5));

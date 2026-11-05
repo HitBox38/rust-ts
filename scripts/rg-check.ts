@@ -8,7 +8,7 @@
 // step that uses the network, and each file is checked against the crate's and the lock's pinned SHA-256.
 //
 // `run` is one side: the oracle's `cargo check --locked --offline --keep-going -j4 --target <tuple>`, with `RUSTC` set to scripts/rg-rustc.ts,
-// whose header has the routing, and `CARGO_INCREMENTAL=0` (D11).
+// whose header has the routing, and the environment of `rgCargoEnv` (`CARGO_INCREMENTAL=0`, D11; no git repository in reach of ripgrep's build.rs).
 // - **Both sides build at one absolute target path,** `$RUST_TS_DATA/ripgrep/target/<label>`, one side at a time under a lock: a file `include!`d
 //   from `OUT_DIR` keeps its absolute path in the metadata, so two paths give five false differences (`docs/handoff/real-crates.md`). The path
 //   is the same, not normalised, so nothing real can be hidden. It is emptied before a run, and the tree is moved to
@@ -30,7 +30,7 @@ import { DATA, REPO, parseArgs, die } from "./lib/common.ts";
 import { withCaseLock } from "./lib/case-lock.ts";
 import { sha256File } from "./lib/llvm-tools.ts";
 import { oracleSysroot } from "./lib/oracle.ts";
-import { crateSection, mirArgs, sizeHash, stopLine, treeLine, unitKey, unitRmeta, type RgUnit } from "./lib/rg-check.ts";
+import { crateSection, mirArgs, rgCargoEnv, sizeHash, stopLine, treeLine, unitKey, unitRmeta, type RgUnit } from "./lib/rg-check.ts";
 
 export const RG_VERSION = "15.2.0";
 /** D19: the crate and its lock file, pinned. */
@@ -87,8 +87,7 @@ async function runSide(label: string, side: "oracle" | "subject", target: string
   // Comes out of the process's own environment, so RUST_TS_HOST_TUPLE and PATH reach the compilers.
   const env: Record<string, string> = {
     ...Object.fromEntries(Object.entries(process.env).filter((e): e is [string, string] => e[1] !== undefined)),
-    CARGO_HOME,
-    CARGO_INCREMENTAL: "0",
+    ...rgCargoEnv(RG_ROOT, CARGO_HOME),
     RUSTC: WRAPPER,
     RUSTC_ICE: "0",
     RUST_BACKTRACE: "0",

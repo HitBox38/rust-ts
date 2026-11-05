@@ -2090,8 +2090,8 @@ function runPassCompiles(): { cases: Case[]; skipped: SkippedCase[] } {
   return (runPassMemo = { cases, skipped: uiSorted(skipped) });
 }
 const withArgs = (c: Case, extra: readonly string[]): Case => pinSessionEnv({ ...c, args: [...c.args, ...extra] });
-/** The test-only driver stopped after mono collection: the port's only way there until codegen exists, on any `-Zprint-mono-items` run. */
-const MONO_SUBJECT_ENTRY = "src/rustc_monomorphize/partitioning_oracle/run.ts";
+/** The real driver with a backend that stops after mono collection, which `main.ts` must not do (the file's header). Needs lane mono-wire; until it merges, every case is UNPORTED. */
+const MONO_SUBJECT_ENTRY = "scripts/mono-run.ts";
 /**
  * The oracle has to reach `codegen_crate` without linking, so pre-pass IR it throws away, written over one file by every case and never read (`-o /dev/null`
  * fails: rustc makes its temp dir beside the output). The same argv goes to the subject, whose driver stops at collection and writes nothing.
@@ -2169,7 +2169,7 @@ SUITES.push(
   {
     name: "mono-ui",
     milestone: "M7",
-    description: "-Zprint-mono-items=yes on mir-o2's tests: the oracle through codegen to pre-pass IR it throws away, the port through its driver stopped after mono collection: stdout + stderr + exit",
+    description: "-Zprint-mono-items=yes on mir-o2's tests: the oracle through codegen to pre-pass IR it throws away, the port through the real driver with a backend that stops after mono collection (scripts/mono-run.ts): stdout + stderr + exit; what codegen would do after that is not compared",
     mode: "single",
     timeoutMs: 240_000,
     oracleTimeoutMs: 300_000,

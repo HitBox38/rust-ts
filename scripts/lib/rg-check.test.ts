@@ -3,7 +3,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { argValue, classifyCall, crateSection, mirArgs, stopLine, treeLine, unitKey, unitMetadata, unitRmeta } from "./rg-check.ts";
+import { argValue, classifyCall, crateSection, mirArgs, rgCargoEnv, stopLine, treeLine, unitKey, unitMetadata, unitRmeta } from "./rg-check.ts";
 
 const TMP = mkdtempSync(join(tmpdir(), "rust-ts-rg-check-"));
 afterAll(() => rmSync(TMP, { recursive: true, force: true }));
@@ -74,4 +74,17 @@ describe("what is compared", () => {
     expect(treeLine(d)).not.toBe(base);
     expect(treeLine(join(TMP, "missing"))).toStartWith("tree 0 files");
   });
+});
+
+test("no git repository is in reach of a build script, and it does not move the result: ripgrep's build.rs reads HEAD", () => {
+  const repo = join(TMP, "repo");
+  const inner = join(repo, "data", "ripgrep", "src");
+  mkdirSync(inner, { recursive: true });
+  Bun.spawnSync(["git", "init", "-q", repo]);
+  Bun.spawnSync(["git", "-c", "user.name=x", "-c", "user.email=x@x", "commit", "-q", "--allow-empty", "-m", "x"], { cwd: repo });
+  const head = (env: Record<string, string>) => Bun.spawnSync(["git", "rev-parse", "HEAD"], { cwd: inner, env: { ...process.env, ...env }, stdout: "pipe", stderr: "pipe" });
+  expect(head({}).exitCode).toBe(0);
+  const env = rgCargoEnv(join(repo, "data", "ripgrep"), "/c");
+  expect(head(env).exitCode).not.toBe(0);
+  expect(env.CARGO_INCREMENTAL).toBe("0");
 });
