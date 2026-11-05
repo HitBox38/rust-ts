@@ -23,7 +23,7 @@ export interface Mutation {
   sites(ir: string): Edit[];
   /** What each tier must do with it, applied to every site, on a program with a site that does not fold away (the test's fixture has one). */
   expect: Record<IrTier, Verdict>;
-  /** On a program whose every site folds away, N3 absorbs even the whole mutation: scripts/ir-tiers.ts counts that, and does not call it wrong. */
+  /** On a program whose every site folds away or is dead, N3 absorbs even the whole mutation: scripts/ir-tiers.ts counts that, and does not call it wrong. */
   n3MayAbsorb?: boolean;
 }
 
@@ -69,12 +69,14 @@ const swapFirst = (p: (l: string) => boolean) =>
 /** The local names of every definition get another spelling: what a wrong collision counter does to a whole function. */
 function renameLocals(ir: string): string {
   let inFn = false;
+  // A named struct type reads like a local, and is not one.
+  const types = new Set([...ir.matchAll(/^%([A-Za-z_][\w.]*) = type /gm)].map((m) => m[1]!));
   return lines(ir)
     .map((l) => {
       if (l.startsWith("define ")) inFn = true;
       if (!inFn) return l;
       if (l === "}") inFn = false;
-      return l.replace(/%([A-Za-z_][\w.]*)/g, "%$1.w").replace(/^([A-Za-z_][\w.]*):/, "$1.w:");
+      return l.replace(/%([A-Za-z_][\w.]*)/g, (m, n: string) => (types.has(n) ? m : `%${n}.w`)).replace(/^([A-Za-z_][\w.]*):/, "$1.w:");
     })
     .join("\n");
 }
@@ -112,14 +114,14 @@ export const MUST_STAY_VISIBLE: Mutation[] = [
   { name: "store i64 deleted", why: "F1", sites: re(/^ {2}store i64 .*\n/gm, ""), expect: ALL },
   { name: "lifetime markers dropped", why: "F1: behaviour cannot see it", sites: re(/^ {2}call void @llvm\.lifetime\..*\n/gm, ""), expect: ALL },
   { name: "readonly on every pointer parameter", why: "F1; the verifier may reject it, and that is a difference too", sites: onDefines(/([(]|, )ptr (?![^,)]*(?:readonly|writeonly))(?=[a-z%])/g, "$1ptr readonly "), expect: ALL },
-  { name: "noalias dropped", why: "the tier table", sites: re(/ noalias /gm, " "), expect: ALL },
+  { name: "noalias dropped", why: "the tier table", sites: re(/^(?!declare .*@llvm\.)(.*?) noalias /gm, "$1 "), expect: ALL },
   { name: "load align 8 becomes 4", why: "the tier table", sites: re(/(= load \S+, ptr %\S+), align 8/gm, "$1, align 4"), expect: ALL },
   { name: "!noundef dropped", why: "the tier table", sites: re(/, !noundef !\d+/gm, ""), expect: ALL },
   { name: "nuw dropped on a GEP with a variable index", why: "the tier table's GEP, where nothing folds it", sites: re(/(= getelementptr inbounds) nuw (i8, ptr %\S+, i64 %\S+)$/gm, "$1 $2"), expect: ALL },
   { name: "two declarations swapped", why: "the tier table: order is kept", sites: swapFirst((l) => l.startsWith("declare") && !l.includes("@llvm.")), expect: ALL },
   { name: "two globals swapped", why: "order is kept", sites: swapFirst((l) => /^@\S+ = /.test(l)), expect: ALL },
   { name: "two definitions' first lines swapped", why: "a parse error or another program: a difference either way", sites: swapFirst((l) => l.startsWith("define ")), expect: ALL },
-  { name: "two allocas swapped", why: "order is kept, at N2 too", sites: swapFirst((l) => /^ {2}%\S+ = alloca /.test(l)), expect: ALL },
+  { name: "two allocas swapped", why: "order is kept, at N2 too", sites: swapFirst((l) => /^ {2}%\S+ = alloca /.test(l)), expect: ALL, n3MayAbsorb: true },
   { name: "two blocks swapped", why: "layout order is kept, at N2 too", sites: whole(swapBlocks), expect: ALL },
   { name: "an unused declaration added", why: "the module's contents", sites: whole((ir) => `${ir}\ndeclare void @zz_unused()\n`), expect: ALL },
   { name: "triple changed", why: "the module's contents", sites: re(/^target triple = "[^"]+"/gm, 'target triple = "x86_64-unknown-freebsd"'), expect: ALL },
@@ -175,7 +177,7 @@ export const ALWAYS_ABSORBED: Mutation[] = [
   { name: "attributes dropped from intrinsic declarations", why: "the parser replaces them", sites: re(/^(declare .*@llvm\.[^(]*\(.*\)) #\d+$/gm, "$1"), expect: NONE },
   { name: "default load alignment dropped", why: "parser default", sites: re(/(= load (?:i64|ptr), ptr %\S+), align 8/gm, "$1"), expect: NONE },
   { name: "an unused attribute group added", why: "the parser drops it", sites: whole((ir) => `${ir}\nattributes #999 = { cold }\n`), expect: NONE },
-  { name: "an unused metadata node added", why: "the parser drops it", sites: whole((ir) => `${ir}\n!9999 = !{}\n`), expect: NONE },
+  { name: "an unused metadata node added", why: "the parser drops it", sites: whole((ir) => `${ir}\n!99999999 = !{}\n`), expect: NONE },
 ];
 
 /** The offset is inside a double-quoted string on its line (metadata renumbering skips those). */
