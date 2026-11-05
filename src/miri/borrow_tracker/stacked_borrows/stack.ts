@@ -117,7 +117,11 @@ Stack.prototype.retain = function (this: Stack, tags: Set<BorTag>): void {
 
     read_idx += 1;
   }
-  this.borrows.length = write_idx;
+  // `truncate`: no-op when `write_idx` is past the end. A stack cleared by `set_unknown_bottom` is empty here while
+  // `write_idx` is 1, and setting `length` would grow it with a hole (docs/reviews/miri-perf.md O1).
+  if (write_idx < this.borrows.length) {
+    this.borrows.length = write_idx;
+  }
 
   // #[cfg(not(feature = "stack-cache"))]
   // let _unused = first_removed; // This is only needed for the stack-cache

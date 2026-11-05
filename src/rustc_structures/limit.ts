@@ -17,7 +17,7 @@ const USIZE_MAX_STR = "18446744073709551615";
 
 declare module "./limit.gen.ts" {
   interface Limit {
-    value_within_limit(value: number): boolean;
+    value_within_limit(value: number | bigint): boolean;
   }
 }
 
@@ -42,8 +42,9 @@ Limit.unlimited = function (): Limit {
 /// Check that `value` is within the limit. Ensures that the same comparisons are used
 /// throughout the compiler, as mismatches can cause ICEs, see #72540.
 // rustc: compiler/rustc_structures/src/limit.rs:27 value_within_limit
-gen.Limit.prototype.value_within_limit = function (this: Limit, value: number): boolean {
-  return value <= this._0;
+gen.Limit.prototype.value_within_limit = function (this: Limit, value: number | bigint): boolean {
+  // PORT: a `bigint` is a whole `usize` (`type_length`), which can pass the `USIZE_MAX` sentinel of an unlimited limit.
+  return value <= this._0 || this._0 === USIZE_MAX;
 };
 
 // rustc: compiler/rustc_structures/src/limit.rs:33 from

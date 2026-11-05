@@ -221,6 +221,9 @@ test("wildcard accesses collapse the stack into an unknown bottom", () => {
   expect(c.stack.unknown_bottom_()).toBe(T(4));
   expect(c.stack.find_granting("Read", C(3), c.exposed)).toEqual({ $: "Ok", _0: undefined });
   expect(c.stack.find_granting("Read", C(4), c.exposed).$).toBe("Err");
+  // The provenance GC on a collapsed stack: `retain`'s `truncate(1)` leaves it empty, with no hole (miri-perf O1).
+  c.stack.retain(new Set());
+  expect(c.stack.borrows.length).toBe(0);
   // A SRW retag from the unknown part forgets everything up to `next_ptr_tag`.
   ok(retag(c, 7, C(2), "SharedReadWrite", undefined));
   expect(c.stack.unknown_bottom_()).toBe(T(100));
