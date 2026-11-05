@@ -96,6 +96,7 @@
     "rand": "=0.10.1",
     "rand_core": "=0.10.1",
     "chacha20": "=0.10.0",
-    "rand_xoshiro": "=0.7.0"
+    "rand_xoshiro": "=0.7.0",
+    "jobserver": "=0.1.34"
   }
 }

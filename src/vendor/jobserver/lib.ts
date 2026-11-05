@@ -1,5 +1,5 @@
 // Port of jobserver =0.1.34 `src/lib.rs`: `Client::from_env_ext` and `find_jobserver_auth`, what
-// rustc_data_structures::jobserver::initialize reaches. See error.ts on the `crate-pending:` markers and unix.ts on
+// rustc_data_structures::jobserver::initialize reaches. See unix.ts on
 // why no token is ever read or written.
 import { unported } from "../../std/panic.ts";
 import type { Result } from "../../std/result.ts";
@@ -23,12 +23,12 @@ export interface FromEnv {
   readonly var_: readonly [string, string];
 }
 
-// crate-pending: jobserver-0.1.34/src/lib.rs:170 new_ok
+// crate: jobserver-0.1.34/src/lib.rs:170 new_ok
 function FromEnv_new_ok(client: Client, var_name: string, var_: string): FromEnv {
   return { client: { $: "Ok", _0: client }, var_: [var_name, var_] };
 }
 
-// crate-pending: jobserver-0.1.34/src/lib.rs:176 new_err
+// crate: jobserver-0.1.34/src/lib.rs:176 new_err
 function FromEnv_new_err(kind: FromEnvErrorInner, var_name: string, var_: string): FromEnv {
   return { client: { $: "Err", _0: { inner: kind } }, var_: [var_name, var_] };
 }
@@ -37,7 +37,7 @@ function FromEnv_new_err(kind: FromEnvErrorInner, var_name: string, var_: string
  * Attempts to connect to the jobserver specified in this process's
  * environment.
  */
-// crate-pending: jobserver-0.1.34/src/lib.rs:253 from_env_ext
+// crate: jobserver-0.1.34/src/lib.rs:253 from_env_ext
 export function Client_from_env_ext(check_pipe: boolean): FromEnv {
   let env: string | undefined;
   let var_os: string | undefined;
@@ -70,7 +70,7 @@ export function Client_from_env_ext(check_pipe: boolean): FromEnv {
   return FromEnv_new_err(c._0, env, var_os);
 }
 
-// crate-pending: jobserver-0.1.34/src/lib.rs:625 find_jobserver_auth
+// crate: jobserver-0.1.34/src/lib.rs:625 find_jobserver_auth
 function find_jobserver_auth(var_: string): string | undefined {
   for (const arg of ["--jobserver-auth=", "--jobserver-fds="]) {
     // `var.rsplit_once(arg)`

@@ -1,8 +1,5 @@
 // Port of jobserver =0.1.34 `src/error.rs` (the version rustc_data_structures uses at the pin).
 //
-// PORT: the markers are `crate-pending:`, not `crate:`, because harness/scope.json's `vendor` does not list
-// jobserver yet and coverage.ts rejects a marker of an unlisted crate; only the root can add it (handoff
-// docs/handoff/real-crates.md).
 import { display_IoError, type IoError } from "../../std/io.ts";
 
 /** There is no `Debug`/`source` port: only `kind` and `Display` are reached (rustc_data_structures::jobserver::initialize). */
@@ -47,12 +44,12 @@ export type FromEnvErrorInner =
   | { readonly $: "Unsupported" };
 
 /** Get the error kind. */
-// crate-pending: jobserver-0.1.34/src/error.rs:43 kind
+// crate: jobserver-0.1.34/src/error.rs:43 kind
 export function FromEnvError_kind(self: FromEnvError): FromEnvErrorKind {
   return self.inner.$;
 }
 
-// crate-pending: jobserver-0.1.34/src/error.rs:58 fmt
+// crate: jobserver-0.1.34/src/error.rs:58 fmt
 export function display_FromEnvError(self: FromEnvError): string {
   const inner = self.inner;
   switch (inner.$) {

@@ -1,5 +1,4 @@
 // Port of jobserver =0.1.34 `src/unix.rs`: only what `Client::from_env_ext` reaches (`open` and its checks).
-// See error.ts on the `crate-pending:` markers.
 //
 // PORT: rust-ts holds no jobserver file descriptors. Upstream keeps the fds it opens for its helper thread and for
 // acquiring tokens, which codegen's parallelism uses; the port is single-threaded (plan-m7 D15) and acquires nothing
@@ -16,7 +15,7 @@ export interface Client {
   readonly creation_arg: { readonly $: "Fifo"; readonly path: string } | { readonly $: "Fds"; readonly read: number; readonly write: number };
 }
 
-// crate-pending: jobserver-0.1.34/src/unix.rs:90 open
+// crate: jobserver-0.1.34/src/unix.rs:90 open
 export function Client_open(s: string, check_pipe: boolean): Result<Client, FromEnvErrorInner> {
   const fifo = Client_from_fifo(s);
   if (fifo.$ === "Err") return fifo;
@@ -28,7 +27,7 @@ export function Client_open(s: string, check_pipe: boolean): Result<Client, From
 }
 
 /** `--jobserver-auth=fifo:PATH` */
-// crate-pending: jobserver-0.1.34/src/unix.rs:103 from_fifo
+// crate: jobserver-0.1.34/src/unix.rs:103 from_fifo
 function Client_from_fifo(s: string): Result<Client | undefined, FromEnvErrorInner> {
   // `s.splitn(2, ':')`
   const colon = s.indexOf(":");
@@ -76,7 +75,7 @@ function parse_i32(src: string): Result<number, string> {
 }
 
 /** `--jobserver-auth=R,W` */
-// crate-pending: jobserver-0.1.34/src/unix.rs:134 from_pipe
+// crate: jobserver-0.1.34/src/unix.rs:134 from_pipe
 function Client_from_pipe(s: string, check_pipe: boolean): Result<Client | undefined, FromEnvErrorInner> {
   // `s.splitn(2, ',')`
   const comma = s.indexOf(",");
@@ -125,7 +124,8 @@ let FCNTL: ((fd: number, cmd: number) => number) | undefined;
  * PORT: whether `fd` is open with `FD_CLOEXEC` set. Unlike the oracle's small runtime, Bun has descriptors of its own
  * by the time this runs (a pipe at 3, for one), so a closed number in the variable can name one of them and look open.
  * Nothing that came through `exec` can have `FD_CLOEXEC` set, so such a descriptor is the runtime's, and to the
- * program that was started it is not open.
+ * program that was started it is not open. Only above fd 2: Bun reopens closed stdio with `FD_CLOEXEC` set, and the oracle
+ * sees those as open, not a pipe (review real-crates F1).
  */
 function runtime_owned_fd(fd: number): boolean {
   if (FCNTL === undefined) {
@@ -140,10 +140,10 @@ function runtime_owned_fd(fd: number): boolean {
 
 const EBADF = { $: "Os", errno: 9, code: "EBADF" } as const;
 
-// crate-pending: jobserver-0.1.34/src/unix.rs:480 fd_check
+// crate: jobserver-0.1.34/src/unix.rs:480 fd_check
 function fd_check(fd: number, check_pipe: boolean): FromEnvErrorInner | undefined {
   if (!check_pipe) return unported("jobserver::imp::fd_check (check_pipe false: rustc always passes true)");
-  if (runtime_owned_fd(fd)) return { $: "CannotOpenFd", _0: fd, _1: EBADF };
+  if (fd > 2 && runtime_owned_fd(fd)) return { $: "CannotOpenFd", _0: fd, _1: EBADF };
   let mode: number;
   try {
     mode = fstatSync(fd).mode;
