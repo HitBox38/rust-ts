@@ -155,7 +155,7 @@ import {
   type Rvalue,
   type Statement,
   type Terminator,
-  clone_Body,
+  clone_Body_with_annotations,
   traversal,
 } from "../rustc_middle/mir/mod.ts";
 import { Visitor } from "../rustc_middle/mir/visit.ts";
@@ -363,8 +363,8 @@ export function borrowck_collect_region_constraints(root_cx: BorrowCheckRootCtxt
   // requires first making our own copy of the MIR. This copy will
   // be modified (in place) to contain non-lexical lifetimes. It
   // will have a lifetime tied to the inference context.
-  const body_owned = clone_Body(input_body);
-  const promoted = input_promoted.map(clone_Body);
+  const body_owned = clone_Body_with_annotations(input_body);
+  const promoted = input_promoted.map(clone_Body_with_annotations);
   const universal_regions = nll.replace_regions_in_mir(infcx, body_owned, promoted);
   const body = body_owned; // no further changes
 

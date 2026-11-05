@@ -15,6 +15,7 @@ import {
   BasicBlockData,
   type Body,
   clone_Body,
+  clone_Place,
   clone_SourceInfo,
   CoroutineInfo,
   Local,
@@ -413,7 +414,7 @@ function build_adrop_for_adrop_shim(tcx: TyCtxt, proxy_ty: Ty, impl_ty: Ty, span
   const cor_ref_local = Local.new(locals.length);
   locals.push(LocalDecl.new(cor_ref, span));
   const cor_ref_place = Place_from_Local(cor_ref_local);
-  statements.push(Statement.new(clone_SourceInfo(source_info), { $: "Assign", _0: [cor_ref_place, reborrow] }));
+  statements.push(Statement.new(clone_SourceInfo(source_info), { $: "Assign", _0: [clone_Place(cor_ref_place), reborrow] }));
 
   // cor_pin_ty = `Pin<&mut cor_ref>`
   const cor_pin_ty = TyC.new_adt(tcx, pin_adt_ref, tcx.mk_args([GenericArg.from_Ty(cor_ref)]));
@@ -430,7 +431,7 @@ function build_adrop_for_adrop_shim(tcx: TyCtxt, proxy_ty: Ty, impl_ty: Ty, span
         $: "Call",
         func: Operand.function_handle(tcx, pin_fn, [GenericArg.from_Ty(cor_ref)], span),
         args: [dummy_spanned({ $: "Move", _0: cor_ref_place })],
-        destination: cor_pin_place,
+        destination: clone_Place(cor_pin_place),
         target: call_bb,
         unwind: UnwindAction.Continue,
         call_source: "Misc",
