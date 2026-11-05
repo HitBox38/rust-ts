@@ -116,11 +116,7 @@ describe("CodegenUnit names, against the oracle's", () => {
 
 describe("the mono items' CGUs and linkage, against -Zprint-mono-items", () => {
   /** Stops outside this lane's files, each with the program's whole output pinned to it (exit 70). */
-  const STOPS: Record<string, string> = {
-    // `check_mono_item` -> `vtable_allocation`: rustc_middle ty/vtable.rs stops; not partitioning.
-    "vtable-through-const": "rustc_middle::mir::interpret::Allocation::new (ty/vtable.rs vtable_allocation_provider, M4)",
-    "vtable-through-const-nonincr": "rustc_middle::mir::interpret::Allocation::new (ty/vtable.rs vtable_allocation_provider, M4)",
-  };
+  const STOPS: Record<string, string> = {};
   const results = new Map<string, Output>();
 
   async function run_case(c: Case, sysroot: string): Promise<Output> {

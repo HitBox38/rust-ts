@@ -6,7 +6,8 @@
 // - the collector's order: the items are sorted by `MonoItem::to_stable_hash_key` upstream, and the fingerprints and that
 //   order come from the rustc-dev probe collector_oracle/probe/main.rs;
 // - stderr and the exit code, which covers the post-monomorphization diagnostics, the mono checks and their order;
-// - for -Zprofile-closures, the csv, whose lines appear in the collector's walk order.
+// - for -Zprofile-closures, the csv, whose lines appear in the collector's walk order;
+// - for a program with vtables reachable from its statics, what `tcx.vtable_allocation` holds, slot by slot.
 //
 // The program's absolute path is `$FILE` on both sides (collector_oracle/common.ts normalize_path), so this holds from any
 // checkout. The driver needs the oracle toolchain's x86_64-unknown-linux-gnu sysroot for `std`; without rustc it skips visibly
@@ -34,10 +35,7 @@ const WORK = join(DATA, "tmp", "mono-collector-test", process.env.RUST_TS_AGENT 
 const RUNNER = join(HERE, "run.ts");
 
 // Programs the port does not reach the end of yet, with the stop they must report. Nothing else may stop.
-const EXPECTED_UNPORTED = new Map<string, string>([
-  // `GlobalAlloc::VTable` reaches `tcx.vtable_allocation`, whose provider (rustc_middle ty/vtable.ts, not this lane) stops.
-  ["vtable_static", "rustc_middle::mir::interpret::Allocation::new (ty/vtable.rs vtable_allocation_provider, M4)"],
-]);
+const EXPECTED_UNPORTED = new Map<string, string>();
 
 describe.skipIf(SKIP)("collect_crate_mono_items against the oracle", () => {
   for (const { name, path } of program_files()) {
@@ -64,9 +62,13 @@ describe.skipIf(SKIP)("collect_crate_mono_items against the oracle", () => {
         expect(r.exitCode).toBe(oracle.code);
         if (oracle.code !== 0) return;
 
-        const lines = normalize_path(r.stdout.toString(), path)
+        const all = normalize_path(r.stdout.toString(), path)
           .split("\n")
           .filter((l) => l !== "");
+        const lines = all.filter((l) => !l.startsWith("VT "));
+        const vtables = all.filter((l) => l.startsWith("VT "));
+        const vtables_file = join(HERE, "oracle", `${name}.vtables.txt`);
+        expect(vtables.map((l) => `${l}\n`).join("")).toBe(existsSync(vtables_file) ? readFileSync(vtables_file, "utf8") : "");
         const items = lines.map((l) => l.slice(33));
         // The oracle sorts its lines with the ` @@ ..` part still on, so the order of what is left is not quite sorted:
         // both sides are sorted again here. The collector's own order is checked against the fingerprints below.
