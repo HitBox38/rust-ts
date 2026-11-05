@@ -271,6 +271,7 @@ tests/ui/rfcs/rfc-1937-termination-trait/termination-trait-for-never.rs
 tests/ui/rfcs/rfc-1937-termination-trait/termination-trait-for-result-box-error_err.rs
 tests/ui/rfcs/rfc-1937-termination-trait/termination-trait-for-str-err.rs
 tests/ui/rfcs/rfc-2091-track-caller/diverging-caller-location.rs
+tests/ui/sanitizer/cfi/fn-ptr-type-mismatch.rs#kcfi
 tests/ui/splat/splat-fn-ptr-cast.rs
 tests/ui/splat/splat-fn-ptr-tuple-fail.rs
 tests/ui/std/instant-add-duration-overflow.rs
@@ -281,6 +282,7 @@ tests/ui/str/str-overrun.rs
 tests/ui/structs/rhs-type.rs
 tests/ui/sync/track-caller-for-once-87707.rs
 tests/ui/test-attrs/run-unexported-tests.rs
+tests/ui/test-attrs/terse.rs
 tests/ui/test-attrs/test-panic-abort-nocapture.rs
 tests/ui/test-attrs/test-panic-abort.rs
 tests/ui/test-attrs/test-should-panic-failed-show-span.rs

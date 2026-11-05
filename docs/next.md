@@ -446,3 +446,7 @@ Integration branch `integ-w38` (worktree .data/integ-w38). x86 and Tree Borrows 
 Left out of the 61 for now: getaddrinfo (1 case, sync-send-in-std.rs; D2 sockets) and RUSTC_LOG info/trace (2 cases, log-backtrace.rs, def-path-hash-ice-157238.rs; need rustc's INFO events converted beyond the current targets).
 Root's own commits on integ-w38: independent re-check APPROVE WITH NITS (docs/reviews/integ-w38-recheck.md).
 Queued after the M6b gate: pointer fragments in Miri allocation dumps print `[object Object]` (re-check F1, silent wrong output, mir/pretty.ts:174); Stacked Borrows ICE on a valid program (miri-perf O1); MIR validation at -Copt-level 2 and 3 (mono-lanes O2); type_length wrapping (mono-lanes O1); mio::Poll::new for 17 miri-pass cases; the probe rebuild (harness-w39 A1); the bytecode bundle; the review nits recorded in docs/state/history.jsonl.
+
+## Wave 38 ACCEPTED 2026-11-05 (gate-20261104-143144-root-lpo8, main bc16a254) — **M6 done**
+534,012 protected in 52 suites (+404, 0 lost); 24,230/27,053 fns (89.6%); Miri 1,504/1,535. `bun scripts/criteria.ts --run gate-20261104-143144-root-lpo8`: M6b run-pass 3473/3478 = 99.86%, run-fail 294/294 = 100%, miri-pass 337/360 = 93.61%, all met. pm-ui 279/282 = 98.9%. The 30 `quote!` cases: 325 of 325 instances MATCH across the 11 suites that have them. Independent regression audit running.
+

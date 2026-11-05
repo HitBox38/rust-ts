@@ -1,0 +1,6 @@
+tests/ui/drop/dynamic-drop-async.rs
+tests/ui/generics/issue-94923.rs
+tests/ui/impl-trait/example-calendar.rs
+tests/ui/panics/panic-handler-flail-wildly.rs
+tests/ui/threads-sendsync/task-comm-5.rs
+tests/ui/threads-sendsync/task-comm-6.rs
