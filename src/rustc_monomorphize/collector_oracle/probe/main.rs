@@ -7,25 +7,89 @@
 //! `MonoItem::to_stable_hash_key`, the sort key of `into_sorted(hcx, true)`, is public. An item that no CGU holds has no
 //! line here (the test reports how many of the `MONO_ITEM` lines were covered).
 //!
+//! It also prints, as `VT ` lines, what `tcx.vtable_allocation` holds, slot by slot, for every vtable reachable from the
+//! crate's statics. `-Zprint-mono-items` only shows which instances a vtable reaches; this shows sizes, alignments, null
+//! drop slots and vacant slots. Blocks are sorted by header and deduplicated: `AllocId`s and the walk's order are not the
+//! point. The same walk is in collector_oracle/run.ts.
+//!
 //! Built by collector_oracle/regen.ts with RUSTC_BOOTSTRAP=1; not in tools/probes, which lanes do not edit.
 #![feature(rustc_private)]
+extern crate rustc_abi;
 extern crate rustc_data_structures;
 extern crate rustc_driver;
+extern crate rustc_hir;
 extern crate rustc_interface;
 extern crate rustc_middle;
 extern crate rustc_session;
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::process::ExitCode;
 
+use rustc_abi::Size;
 use rustc_data_structures::fingerprint::Fingerprint;
 use rustc_data_structures::stable_hash::ToStableHashKey;
 use rustc_driver::{Callbacks, Compilation};
+use rustc_hir::def::DefKind;
 use rustc_interface::interface;
+use rustc_middle::mir::interpret::{AllocId, GlobalAlloc, Scalar, alloc_range};
 use rustc_middle::ty::TyCtxt;
 use rustc_middle::ty::print::with_no_trimmed_paths;
 use rustc_session::EarlyDiagCtxt;
 use rustc_session::config::ErrorOutputType;
+
+fn slot<'tcx>(tcx: TyCtxt<'tcx>, id: AllocId) -> String {
+    match tcx.global_alloc(id) {
+        GlobalAlloc::Function { instance } => format!("fn {instance}"),
+        GlobalAlloc::VTable(ty, dyn_ty) => format!("vtable {dyn_ty} for {ty}"),
+        GlobalAlloc::Memory(_) => "memory".to_string(),
+        GlobalAlloc::Static(_) => "static".to_string(),
+        GlobalAlloc::TypeId { .. } => "typeid".to_string(),
+    }
+}
+
+fn walk<'tcx>(tcx: TyCtxt<'tcx>, id: AllocId, seen: &mut BTreeSet<AllocId>, out: &mut BTreeMap<String, String>) {
+    if !seen.insert(id) {
+        return;
+    }
+    match tcx.global_alloc(id) {
+        GlobalAlloc::Function { .. } | GlobalAlloc::TypeId { .. } => {}
+        GlobalAlloc::Static(def_id) => {
+            if let Ok(alloc) = tcx.eval_static_initializer(def_id) {
+                for &(_, prov) in alloc.inner().provenance().ptrs().iter() {
+                    walk(tcx, prov.alloc_id(), seen, out);
+                }
+            }
+        }
+        GlobalAlloc::Memory(alloc) => {
+            for &(_, prov) in alloc.inner().provenance().ptrs().iter() {
+                walk(tcx, prov.alloc_id(), seen, out);
+            }
+        }
+        GlobalAlloc::VTable(ty, dyn_ty) => {
+            let principal = dyn_ty.principal().map(|p| tcx.instantiate_bound_regions_with_erased(p));
+            let vtable_id = tcx.vtable_allocation((ty, principal));
+            let alloc = tcx.global_alloc(vtable_id).unwrap_memory();
+            let inner = alloc.inner();
+            let ptr_size = tcx.data_layout.pointer_size();
+            let mut body = format!("size {} align {} {:?}\n", inner.size().bytes(), inner.align.bytes(), inner.mutability);
+            let mut off = Size::ZERO;
+            while off < inner.size() {
+                let text = match inner.read_scalar(&tcx, alloc_range(off, ptr_size), true) {
+                    Err(_) => "uninit".to_string(),
+                    Ok(Scalar::Int(int)) => format!("int {}", int.to_bits(ptr_size)),
+                    Ok(Scalar::Ptr(ptr, _)) => {
+                        let (prov, offset) = ptr.prov_and_relative_offset();
+                        walk(tcx, prov.alloc_id(), seen, out);
+                        format!("{} +{}", slot(tcx, prov.alloc_id()), offset.bytes())
+                    }
+                };
+                body.push_str(&format!("  {}: {text}\n", off.bytes()));
+                off += ptr_size;
+            }
+            out.insert(format!("VTABLE {dyn_ty} for {ty}"), body);
+        }
+    }
+}
 
 struct Probe;
 
@@ -50,6 +114,22 @@ impl Callbacks for Probe {
         for (fp, item) in out {
             let (a, b) = fp.split();
             println!("FP {:016x}{:016x} {item}", a.as_u64(), b.as_u64());
+        }
+        let mut seen = BTreeSet::new();
+        let mut vtables = BTreeMap::new();
+        with_no_trimmed_paths!({
+            for item in tcx.hir_crate_items(()).free_items() {
+                let def_id = item.owner_id.to_def_id();
+                if matches!(tcx.def_kind(def_id), DefKind::Static { .. }) {
+                    walk(tcx, tcx.reserve_and_set_static_alloc(def_id), &mut seen, &mut vtables);
+                }
+            }
+        });
+        for (header, body) in vtables {
+            println!("VT {header}");
+            for line in body.lines() {
+                println!("VT {line}");
+            }
         }
         Compilation::Stop
     }

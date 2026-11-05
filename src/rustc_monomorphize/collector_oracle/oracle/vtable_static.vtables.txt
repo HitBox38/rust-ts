@@ -1,0 +1,79 @@
+VT VTABLE Both + std::marker::Sync for Diamond
+VT size 56 align 8 Not
+VT   0: int 0
+VT   8: int 0
+VT   16: int 1
+VT   24: fn <Diamond as First>::first +0
+VT   32: fn <Diamond as Second>::second +0
+VT   40: memory +0
+VT   48: fn <Diamond as Both>::both +0
+VT VTABLE Plain + std::marker::Sync for Aligned
+VT size 40 align 8 Not
+VT   0: int 0
+VT   8: int 64
+VT   16: int 64
+VT   24: fn <Aligned as Plain>::own +0
+VT   32: fn <Aligned as Plain>::with_default +0
+VT VTABLE Plain + std::marker::Sync for Generic<u16>
+VT size 40 align 8 Not
+VT   0: int 0
+VT   8: int 2
+VT   16: int 2
+VT   24: fn <Generic<u16> as Plain>::own +0
+VT   32: fn <Generic<u16> as Plain>::with_default +0
+VT VTABLE Plain + std::marker::Sync for NoDrop
+VT size 40 align 8 Not
+VT   0: int 0
+VT   8: int 4
+VT   16: int 4
+VT   24: fn <NoDrop as Plain>::own +0
+VT   32: fn <NoDrop as Plain>::with_default +0
+VT VTABLE Plain + std::marker::Sync for Zst
+VT size 40 align 8 Not
+VT   0: int 0
+VT   8: int 0
+VT   16: int 1
+VT   24: fn <Zst as Plain>::own +0
+VT   32: fn <Zst as Plain>::with_default +0
+VT VTABLE Plain for Huge
+VT size 40 align 8 Not
+VT   0: int 0
+VT   8: int 1152921504606846976
+VT   16: int 1
+VT   24: fn <Huge as Plain>::own +0
+VT   32: fn <Huge as Plain>::with_default +0
+VT VTABLE Plain for NeedsDrop
+VT size 40 align 8 Not
+VT   0: fn std::ptr::drop_glue::<NeedsDrop> - shim(Some(NeedsDrop)) +0
+VT   8: int 32
+VT   16: int 8
+VT   24: fn <NeedsDrop as Plain>::own +0
+VT   32: fn <NeedsDrop as Plain>::with_default +0
+VT VTABLE Tr + std::marker::Sync for S
+VT size 40 align 8 Not
+VT   0: int 0
+VT   8: int 4
+VT   16: int 4
+VT   24: fn <S as Tr>::m +0
+VT   32: fn <S as Tr>::d +0
+VT VTABLE Vacant + std::marker::Sync for NotSend
+VT size 48 align 8 Not
+VT   0: int 0
+VT   8: int 0
+VT   16: int 1
+VT   24: fn <NotSend as Vacant>::present +0
+VT   32: uninit
+VT   40: fn <NotSend as Vacant>::after +0
+VT VTABLE std::marker::Send + std::marker::Sync for u32
+VT size 24 align 8 Not
+VT   0: int 0
+VT   8: int 4
+VT   16: int 4
+VT VTABLE std::ops::Fn(u32) -> u32 + std::marker::Sync for {closure@$FILE:107:53: 107:56}
+VT size 48 align 8 Not
+VT   0: int 0
+VT   8: int 0
+VT   16: int 1
+VT   24: fn <{closure@$FILE:107:53: 107:56} as std::ops::FnOnce<(u32,)>>::call_once - shim(vtable) +0
+VT   32: fn CLOSURE::{closure#0} +0
+VT   40: fn CLOSURE::{closure#0} +0

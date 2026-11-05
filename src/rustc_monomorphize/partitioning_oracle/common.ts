@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { DATA, PIN, UPSTREAM } from "../../../scripts/lib/common.ts";
 
 export const HERE = dirname(fileURLToPath(import.meta.url));
-/** The port's `rustc_target::callconv::aarch64` is unported and `check_mono_item` needs an ABI (as lane mono-collector). */
+/** In the oracle toolchain's pinned `rust-std` on every host (as lane mono-collector). */
 export const TARGET = "x86_64-unknown-linux-gnu";
 export const RUSTC = ["rustc", `+${PIN.toolchain}`];
 export const WORK = join(DATA, "tmp", "mono-partition-oracle", process.env.RUST_TS_AGENT ?? "default");
