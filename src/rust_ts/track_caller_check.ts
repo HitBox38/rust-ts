@@ -224,8 +224,12 @@ function binary_check(sites: Site[]): void {
   const all = new Set(readFileSync(path, "utf8").split("\n"));
   const mapped = [...new Set(sites.filter((s) => s.location !== undefined).map((s) => s.location!))];
   const absent = mapped.filter((l) => !all.has(`RD/${l}`));
-  console.log(`oracle binary: ${mapped.length - absent.length} of ${mapped.length} mapped locations witnessed (absent is not an error)`);
+  // Another column witnessed on the same line is what a column error would look like; other absences are compiled out.
+  const lines = new Set([...all].map((l) => l.replace(/:\d+$/, "")));
+  const suspect = absent.filter((l) => lines.has(`RD/${l.replace(/:\d+$/, "")}`));
+  console.log(`oracle binary: ${mapped.length - absent.length} of ${mapped.length} mapped locations witnessed; ${absent.length} absent (not an error), ${suspect.length} of them with another column witnessed on the line`);
   writeFileSync(join(OUT, "not-witnessed.txt"), absent.join("\n") + "\n");
+  writeFileSync(join(OUT, "other-column.txt"), suspect.join("\n") + "\n");
 }
 
 /** How many of the locations the oracle prints in the ICE corpus the D4 rules refuse. */

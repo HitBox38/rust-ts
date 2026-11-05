@@ -45,7 +45,7 @@ export type PanicHook = (default_hook: (info: PanicHookInfo) => void, info: Pani
 
 let HOOK: PanicHook | undefined;
 
-// std: library/std/src/panicking.rs:213 update_hook
+// std: library/std/src/panicking.rs:219 update_hook
 export function update_hook(hook_fn: PanicHook): void {
   HOOK = hook_fn;
   set_panic_with_hook(panic_with_hook);
@@ -53,7 +53,7 @@ export function update_hook(hook_fn: PanicHook): void {
 
 let panic_in_hook = false;
 
-// std: library/std/src/panicking.rs:775 panic_with_hook
+// std: library/std/src/panicking.rs:773 panic_with_hook
 function panic_with_hook(payload: Panic): void {
   // PORT: `Location::caller()` is taken here, where the stack is the panic's own.
   const stack = panic_stack();
@@ -90,12 +90,12 @@ export type BacktraceStyle = "Off" | "Short" | "Full";
 
 let BACKTRACE_STYLE: BacktraceStyle | undefined;
 
-// std: library/std/src/panic.rs:473 set_backtrace_style
+// std: library/std/src/panic.rs:480 set_backtrace_style
 export function set_backtrace_style(style: BacktraceStyle): void {
   BACKTRACE_STYLE = style;
 }
 
-// std: library/std/src/panic.rs:502 get_backtrace_style
+// std: library/std/src/panic.rs:509 get_backtrace_style
 export function get_backtrace_style(): BacktraceStyle {
   if (BACKTRACE_STYLE === undefined) {
     const v = process.env.RUST_BACKTRACE;

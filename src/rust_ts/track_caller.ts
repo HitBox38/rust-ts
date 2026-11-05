@@ -310,9 +310,19 @@ export function map_call(ts: TsFile, owner: Owner, callee: string, macro: boolea
       return { ok: false, why: `\`${callee}\` called ${ts_calls.length}x in TS, ${up_calls.length}x at ${rel_ts}` };
     }
     call = up_calls[k]!;
-    if (up_calls.length > 1) {
-      const ts_key = ts.call_key(line, col, callee);
-      const up_key = up.call_key(call, callee);
+    const ts_key = ts.call_key(line, col, callee);
+    const up_key = up.call_key(call, callee);
+    // `.expect("..")` is ported as `unwrap(x, "..")`: that call is not the upstream `.unwrap()`, whatever the count says.
+    if (callee === "unwrap" && up_key === undefined && ts_key !== undefined) {
+      return { ok: false, why: `\`unwrap\` with a message at ${rel_ts} is no upstream \`.unwrap()\`` };
+    }
+    if (up_calls.length === 1) {
+      // A single call on both sides needs no key, but keys that exist and differ show two different calls: a port's
+      // `panic` for an upstream `bug!`, or a fn that lost its own call and inlined a helper's.
+      if (ts_key !== undefined && up_key !== undefined && ts_key !== up_key) {
+        return { ok: false, why: `\`${callee}\` at ${rel_ts}: key ${JSON.stringify(ts_key)} in TS, ${JSON.stringify(up_key)} upstream` };
+      }
+    } else {
       if (ts_key === undefined || up_key === undefined) return { ok: false, why: `no key for \`${callee}\` #${k} of ${up_calls.length} at ${rel_ts}` };
       if (ts_key !== up_key) return { ok: false, why: `\`${callee}\` #${k} of ${up_calls.length} at ${rel_ts}: key ${JSON.stringify(ts_key)} in TS, ${JSON.stringify(up_key)} upstream` };
       if (up_calls.filter((c) => up.call_key(c, callee) === up_key).length !== 1) {
@@ -481,6 +491,11 @@ export class TsFile {
         lit = i;
         break;
       }
+    }
+    // An enum value's tag, `{ $: "Variant", .. }`, is upstream's `Enum::Variant { .. }`, not a message.
+    if (lit >= 0 && /\$\s*:\s*$/.test(s.slice(start, lit))) {
+      const tag = ts_literal(this.src, lit);
+      if (struct_at < 0 || lit < struct_at) return tag === undefined ? undefined : `struct ${tag}`;
     }
     return first_key(struct_at, struct?.[1], lit, () => ts_literal(this.src, lit));
   }
