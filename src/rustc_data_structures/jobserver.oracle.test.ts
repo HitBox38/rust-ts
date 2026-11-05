@@ -52,6 +52,8 @@ const CASES: [string, string][] = [
   ["--jobserver-auth=7,8 x --jobserver-auth=100,101 y", ""],
   // Not a pipe: stdin.
   ["--jobserver-auth=0,1", ""],
+  // Closed stdio: Bun reopens it with FD_CLOEXEC set, and it is still open, not a pipe (review real-crates F1).
+  ["--jobserver-auth=0,0", "exec 0<&-"],
   // Negative: disabled, silently.
   ["--jobserver-auth=-1,-1", ""],
   ["--jobserver-auth=100,-1", ""],

@@ -105,6 +105,8 @@ for (const c of CASES) {
     const pending = PENDING[c];
     if (pending !== undefined) {
       expect({ exit: got.code, unported: unported_lines(got.stderr) }).toEqual({ exit: 70, unported: [`rust-ts: unported: ${pending}`] });
+      // A stop in codegen leaves no metadata temp dir (re-check integ-w39 B1: it dirtied this tree and failed the gate).
+      expect(readdirSync(CASES_DIR).filter((n) => n.startsWith("rmeta"))).toEqual([]);
       return;
     }
     if (oracle_cmd === undefined) return;
@@ -116,6 +118,8 @@ for (const c of CASES) {
     const pending = IN_PROCESS_PENDING[c];
     if (pending !== undefined) {
       expect({ exit: got.code, unported: unported_lines(got.stderr) }).toEqual({ exit: 70, unported: [`rust-ts: unported: ${pending}`] });
+      // A stop in codegen leaves no metadata temp dir (re-check integ-w39 B1: it dirtied this tree and failed the gate).
+      expect(readdirSync(CASES_DIR).filter((n) => n.startsWith("rmeta"))).toEqual([]);
       return;
     }
     if (oracle_cmd === undefined) return;

@@ -62,9 +62,10 @@ test("the suites, without running one", () => {
   expect(j.rg[2][3]).toContain("--target aarch64-apple-darwin");
 }, 120_000);
 
-test("no new suite is protected, so none is in the gate's defaults", () => {
+// Only ir-hello: the others become protected at wave 39's accept, which writes their baselines (re-check integ-w39 M1).
+test("ir-hello is not protected, so it is not in the gate's defaults", () => {
   const baseline = new Set(readdirSync(join(REPO, "harness/baseline")).map((f) => f.replace(/\.txt$/, "")));
-  expect(NEW.filter((n) => baseline.has(n))).toEqual([]);
+  expect(baseline.has("ir-hello")).toBe(false);
 });
 
 test("the sparse list adds exactly the two directories root approved", () => {

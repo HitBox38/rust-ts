@@ -11,7 +11,7 @@
 //   stop) drops the `MaybeTempDir` before it reaches `EncodedMetadata` (so the temp dir is removed unless
 //   `-C save-temps`), as Rust's unwinding drop does. Then the dir moves into `EncodedMetadata::from_path`, which
 //   drops it on an empty file or its own error and otherwise keeps it in the `EncodedMetadata` (whose `drop()` the
-//   driver calls when `Linker::link` ends).
+//   driver calls when `Linker::link` ends, and `start_codegen` calls on an unwinding exit from `codegen_crate`).
 import { closeSync, mkdtempSync, openSync, readSync, renameSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import { OutFileName, type OutputFilenames } from "../rustc_session/config.ts";

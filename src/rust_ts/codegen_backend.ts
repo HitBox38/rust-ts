@@ -236,13 +236,14 @@ export class LlvmCodegenBackend implements CodegenBackend {
     return llvm_util_target_cpu(sess.early_sess);
   }
   codegen_crate(tcx: TyCtxt): unknown {
-    // `rustc_codegen_ssa::base::codegen_crate(LlvmCodegenBackend(()), tcx, crate::llvm_util::target_cpu(tcx.sess)
-    // .to_string())`, after the offload check, which stops below (no lane yet; plan-m7 D18).
+    // back/llvm_backend.rs:336: the offload check, which stops below (no lane yet; plan-m7 D18), then
+    // `rustc_codegen_ssa::base::codegen_crate(LlvmCodegenBackend(()), tcx)`.
     // PORT: only the head of that function (base.rs:723-739), which is everything before LLVM: the CPU checks and the
     // collector and partitioner, which print `-Zprint-mono-items` and write `-Zdump-mono-stats`. No `// rustc:` marker, as
     // base.rs's `codegen_crate` stays to be ported. The stop that follows never counts as success: docs/handoff/mono-wire.md
     // says how a suite reads this output.
-    if (tcx.sess.opts.unstable_opts.offload.length > 0) return unported("rustc_codegen_llvm::LlvmCodegenBackend::codegen_crate (-Zoffload; plan-m7 D18)");
+    const offload = tcx.sess.opts.unstable_opts.offload;
+    if (offload.some((o) => o.$ === "Device") || offload.some((o) => o.$ === "Host")) return unported("rustc_codegen_llvm::LlvmCodegenBackend::codegen_crate (-Zoffload; plan-m7 D18)");
     if (tcx.sess.target.need_explicit_cpu && tcx.sess.opts.cg.target_cpu === undefined) {
       // The target has no default cpu, but none is set explicitly
       tcx.dcx().emit_fatal(CpuRequired_diagnostic({}));

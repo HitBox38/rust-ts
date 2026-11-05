@@ -1428,7 +1428,14 @@ export function start_codegen(codegen_backend: CodegenBackend, tcx: TyCtxt): [un
       // Linker::link will skip join_codegen in case of a `CompiledModules` Any value.
       return new CompiledModules([], undefined);
     } else {
-      return codegen_backend.codegen_crate(tcx);
+      try {
+        return codegen_backend.codegen_crate(tcx);
+      } catch (e) {
+        // As Rust's unwinding drop of `EncodedMetadata`: it owns the metadata temp dir, which only `Linker::link` drops
+        // otherwise, so a stop in codegen must not leave `rmetaXXXXXX/` in the output directory.
+        metadata.drop();
+        throw e;
+      }
     }
   });
 
