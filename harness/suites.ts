@@ -121,6 +121,8 @@ export interface Suite {
    * command.
    */
   miri?: boolean;
+  /** An IR suite (scripts/ir-run.ts): the compiler argv of a case, for scripts/ir-diff.ts. */
+  irArgs?(c: Case): string[];
   /**
    * A milestone-completion criterion over the suite's cases (plan-m6 A9): MATCH over every case but the ORACLE_TIMEOUT
    * ones must reach `percent`. Report only (difftest prints it and records it in `<suite>.summary.json`): never a
@@ -2057,6 +2059,12 @@ SUITES.push(
     skipped: () => runPassAuxCorpus().skipped,
   }),
 );
+
+// IR suites (plan-m7 §6, D12; lane harness-m7a): both sides run scripts/ir-run.ts, which prints a normal form (scripts/lib/ir-normal.ts).
+/** The wrapper both sides of an IR suite run (under Bun). */
+export const IR_RUN = join(REPO, "scripts", "ir-run.ts");
+/** A small program's IR argv, as `ir-hello`'s cases and scripts/ir-diff.ts's file form: compiletest's flags that matter, pre-pass. */
+export const irFileArgs = (file: string, opt: "O" | "0", target: string = COMPILETEST_TARGET): string[] => ["--target", target, "--sysroot", oracleSysroot(), "--edition=2021", opt === "O" ? "-O" : "-Copt-level=0", "-Ccodegen-units=1", "-Cno-prepopulate-passes", "--emit=llvm-ir", file];
 
 export function suite(name: string): Suite {
   const s = SUITES.find((s) => s.name === name);
