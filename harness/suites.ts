@@ -2093,10 +2093,13 @@ const withArgs = (c: Case, extra: readonly string[]): Case => pinSessionEnv({ ..
 /** The real driver with a backend that stops after mono collection, which `main.ts` must not do (the file's header). Needs lane mono-wire; until it merges, every case is UNPORTED. */
 const MONO_SUBJECT_ENTRY = "scripts/mono-run.ts";
 /**
- * The oracle has to reach `codegen_crate` without linking, so pre-pass IR it throws away, written over one file by every case and never read (`-o /dev/null`
- * fails: rustc makes its temp dir beside the output). The same argv goes to the subject, whose driver stops at collection and writes nothing.
+ * The oracle has to reach `codegen_crate` without linking, so pre-pass IR it throws away, written under a directory of the
+ * case's own and never read. Not one shared `-o` (review harness-m7a H1): rustc writes `<stem>.<cgu>.rcgu.ll` beside the output,
+ * so cases with one crate name collide and the oracle fails, `-o` warns on multi-CGU programs, which the port cannot, and it
+ * forces them to one CGU, which changes their mono items. The same argv goes to the subject, whose driver stops at
+ * collection and writes nothing.
  */
-export const MONO_ARGS = ["-Zprint-mono-items=yes", "-Cno-prepopulate-passes", "--emit=llvm-ir", "-o", join(DATA, "tmp", "mono-ui-discard.ll")];
+export const monoArgs = (id: string): string[] => ["-Zprint-mono-items=yes", "-Cno-prepopulate-passes", "--emit=llvm-ir", "--out-dir", join(DATA, "tmp", "mono-ui-out", hash(id).slice(0, 16))];
 
 /** The wrapper both sides of an IR suite run (under Bun). */
 export const IR_RUN = join(REPO, "scripts", "ir-run.ts");
@@ -2124,8 +2127,8 @@ function mirOptCorpus(): { cases: Case[]; skipped: SkippedCase[] } {
 }
 
 const RG_CHECK_DESCRIPTION = "ripgrep 15.2.0's 34 crates under real `cargo check` (pinned Cargo.lock, D19), byte identity of each `.rmeta`, stderr and exit, and rg's MIR, as a bin's `.rmeta` is 0 bytes. Both sides build at one absolute target path, CARGO_INCREMENTAL=0. Compiles that emit `link` (build scripts and their dependencies) go to the oracle on both sides, as the port has no codegen yet";
-/** `Suite.oracleKey` of the check-rg suites: the two scripts and the oracle's rustc build. */
-const rgOracleKey = (): string => hash([hash(readFileSync(RG_CHECK)), hash(readFileSync(join(REPO, "scripts", "rg-rustc.ts"))), rustcDriverHash()].join("\0"));
+/** `Suite.oracleKey` of the check-rg suites: the two scripts, the library defining the environment and output format, and the oracle's rustc build. */
+const rgOracleKey = (): string => hash([hash(readFileSync(RG_CHECK)), hash(readFileSync(join(REPO, "scripts", "rg-rustc.ts"))), hash(readFileSync(join(REPO, "scripts", "lib", "rg-check.ts"))), rustcDriverHash()].join("\0"));
 /** A `check-rg` suite: one run, one section per crate (scripts/rg-check.ts). `target` is read at run time: it can be the host's. */
 const rgSuite = (s: { name: string; description: string; target: () => string; encodeMir: boolean; criterion?: Suite["criterion"] }): Suite => {
   const side = (which: string) => [process.execPath, RG_CHECK, "run", "--label", s.name, "--side", which, "--target", s.target(), ...(s.encodeMir ? ["--encode-mir"] : [])];
@@ -2173,7 +2176,7 @@ SUITES.push(
     mode: "single",
     timeoutMs: 240_000,
     oracleTimeoutMs: 300_000,
-    cases: () => runPassCompiles().cases.map((c) => withArgs(c, MONO_ARGS)),
+    cases: () => runPassCompiles().cases.map((c) => withArgs(c, monoArgs(c.id))),
     skipped: () => runPassCompiles().skipped,
     oracle: ([c]) => oracleRustcCmd(c!.args),
     subject: ([c]) => [...bunCmd(MONO_SUBJECT_ENTRY), ...c!.args],

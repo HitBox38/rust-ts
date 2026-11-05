@@ -31,6 +31,7 @@ import { withCaseLock } from "./lib/case-lock.ts";
 import { sha256File } from "./lib/llvm-tools.ts";
 import { oracleSysroot } from "./lib/oracle.ts";
 import { crateSection, mirArgs, rgCargoEnv, sizeHash, stopLine, treeLine, unitKey, unitRmeta, type RgUnit } from "./lib/rg-check.ts";
+const RG_SCRUBBED_ENV = new Set(["GIT_DIR", "GIT_WORK_TREE", "GIT_COMMON_DIR", "RUSTFLAGS", "CARGO_ENCODED_RUSTFLAGS", "RUSTC_WRAPPER", "RUSTC_WORKSPACE_WRAPPER"]);
 
 export const RG_VERSION = "15.2.0";
 /** D19: the crate and its lock file, pinned. */
@@ -86,7 +87,8 @@ async function runSide(label: string, side: "oracle" | "subject", target: string
   const portMain = join(REPO, "src", "rust_ts", "main.ts");
   // Comes out of the process's own environment, so RUST_TS_HOST_TUPLE and PATH reach the compilers.
   const env: Record<string, string> = {
-    ...Object.fromEntries(Object.entries(process.env).filter((e): e is [string, string] => e[1] !== undefined)),
+    // Not what changes the build or which repository ripgrep's build.rs reads (review harness-m7a H6): a cached oracle did not have them.
+    ...Object.fromEntries(Object.entries(process.env).filter((e): e is [string, string] => e[1] !== undefined && !RG_SCRUBBED_ENV.has(e[0]))),
     ...rgCargoEnv(RG_ROOT, CARGO_HOME),
     RUSTC: WRAPPER,
     RUSTC_ICE: "0",

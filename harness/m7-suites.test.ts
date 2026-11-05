@@ -15,7 +15,8 @@ const get = (n) => s.suite(n);
 const fake = { id: "x", file: "x.rs", args: ["x.rs"] };
 console.log(JSON.stringify({
   dropped: s.dropOutput(["a", "-o", "b", "-Zc", "-ofoo"]),
-  mono: s.MONO_ARGS,
+  mono: s.monoArgs("tests/ui/a.rs"),
+  monoOther: s.monoArgs("tests/ui/b.rs"),
   subject: { mirO2: get("mir-o2").subject([fake])[1], mono: get("mono-ui").subject([fake])[1] },
   hello: get("ir-hello").cases().map((c) => [c.id, c.args.includes("-O"), c.args.includes("--emit=llvm-ir"), c.args.includes("-Cno-prepopulate-passes")]),
   helloOracle: get("ir-hello").oracle([fake]).slice(1, 6).map((a) => a.split("/").pop()),
@@ -35,8 +36,11 @@ test("the suites, without running one", () => {
   const j = JSON.parse(r.stdout.toString().trim().split("\n").at(-1)!);
   // The two run-pass suites' case lists come from the full corpus (3,479 tests, docs/handoff/harness-m7a.md); building it here would spend the unit step's budget.
   expect(j.dropped).toEqual(["a", "-Zc", "-ofoo"]);
-  expect(j.mono.slice(0, 4)).toEqual(["-Zprint-mono-items=yes", "-Cno-prepopulate-passes", "--emit=llvm-ir", "-o"]);
-  expect(j.mono[4]).toEndWith("mono-ui-discard.ll");
+  expect(j.mono.slice(0, 4)).toEqual(["-Zprint-mono-items=yes", "-Cno-prepopulate-passes", "--emit=llvm-ir", "--out-dir"]);
+  // Each case has its own output directory, and no `-o` (review harness-m7a H1): a shared one makes the oracle itself wrong.
+  expect(j.mono).not.toContain("-o");
+  expect(j.mono[4]).toContain("mono-ui-out");
+  expect(j.monoOther[4]).not.toBe(j.mono[4]);
   expect(j.subject.mirO2).toEndWith("src/rust_ts/main.ts");
   expect(j.subject.mono).toEndWith("scripts/mono-run.ts");
   expect(j.hello).toEqual([["hello -O", true, true, true], ["hello -Copt-level=0", false, true, true]]);
