@@ -671,20 +671,20 @@ error: fn_abi_of(CScalars) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CRetU8) = FnAbi {
@@ -726,20 +726,20 @@ error: fn_abi_of(CRetU8) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CRetI8) = FnAbi {
@@ -781,20 +781,20 @@ error: fn_abi_of(CRetI8) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CRetU16) = FnAbi {
@@ -836,20 +836,20 @@ error: fn_abi_of(CRetU16) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CRetI16) = FnAbi {
@@ -891,20 +891,20 @@ error: fn_abi_of(CRetI16) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CRetBool) = FnAbi {
@@ -952,20 +952,20 @@ error: fn_abi_of(CRetBool) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CRetChar) = FnAbi {
@@ -1013,20 +1013,20 @@ error: fn_abi_of(CRetChar) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CRetF32) = FnAbi {
@@ -1068,20 +1068,20 @@ error: fn_abi_of(CRetF32) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CRetU128) = FnAbi {
@@ -1123,20 +1123,20 @@ error: fn_abi_of(CRetU128) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CHfa1) = FnAbi {
@@ -1225,20 +1225,20 @@ error: fn_abi_of(CHfa1) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CHfa2) = FnAbi {
@@ -1361,20 +1361,20 @@ error: fn_abi_of(CHfa2) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CHfa3) = FnAbi {
@@ -1497,20 +1497,20 @@ error: fn_abi_of(CHfa3) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CHfa4) = FnAbi {
@@ -1637,20 +1637,20 @@ error: fn_abi_of(CHfa4) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CHfa4D) = FnAbi {
@@ -1765,20 +1765,20 @@ error: fn_abi_of(CHfa4D) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CHfa5) = FnAbi {
@@ -1891,20 +1891,20 @@ error: fn_abi_of(CHfa5) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CHfaNested) = FnAbi {
@@ -2023,20 +2023,20 @@ error: fn_abi_of(CHfaNested) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CHfaF16) = FnAbi {
@@ -2159,20 +2159,20 @@ error: fn_abi_of(CHfaF16) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CHfaF128) = FnAbi {
@@ -2295,20 +2295,20 @@ error: fn_abi_of(CHfaF128) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CMixedFloats) = FnAbi {
@@ -2431,20 +2431,20 @@ error: fn_abi_of(CMixedFloats) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CFloatAndInt) = FnAbi {
@@ -2567,20 +2567,20 @@ error: fn_abi_of(CFloatAndInt) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CUnionSame) = FnAbi {
@@ -2685,20 +2685,20 @@ error: fn_abi_of(CUnionSame) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CUnionMixed) = FnAbi {
@@ -2803,20 +2803,20 @@ error: fn_abi_of(CUnionMixed) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CHfaC) = FnAbi {
@@ -2939,20 +2939,20 @@ error: fn_abi_of(CHfaC) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CZstPadded) = FnAbi {
@@ -3075,20 +3075,20 @@ error: fn_abi_of(CZstPadded) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CF32x2) = FnAbi {
@@ -3183,20 +3183,20 @@ error: fn_abi_of(CF32x2) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CF32x4) = FnAbi {
@@ -3291,20 +3291,20 @@ error: fn_abi_of(CF32x4) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CF64x2) = FnAbi {
@@ -3399,20 +3399,20 @@ error: fn_abi_of(CF64x2) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CF32x8) = FnAbi {
@@ -3507,20 +3507,20 @@ error: fn_abi_of(CF32x8) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CHva2) = FnAbi {
@@ -3643,20 +3643,20 @@ error: fn_abi_of(CHva2) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CHva4) = FnAbi {
@@ -3787,20 +3787,20 @@ error: fn_abi_of(CHva4) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CHva5) = FnAbi {
@@ -3913,20 +3913,20 @@ error: fn_abi_of(CHva5) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CHvaInt) = FnAbi {
@@ -4049,20 +4049,20 @@ error: fn_abi_of(CHvaInt) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CHvaWide) = FnAbi {
@@ -4157,20 +4157,20 @@ error: fn_abi_of(CHvaWide) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CHvaMixed) = FnAbi {
@@ -4271,20 +4271,20 @@ error: fn_abi_of(CHvaMixed) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CVecAndFloat) = FnAbi {
@@ -4385,20 +4385,20 @@ error: fn_abi_of(CVecAndFloat) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CInt3) = FnAbi {
@@ -4521,20 +4521,20 @@ error: fn_abi_of(CInt3) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CInt8) = FnAbi {
@@ -4657,20 +4657,20 @@ error: fn_abi_of(CInt8) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CInt9) = FnAbi {
@@ -4785,20 +4785,20 @@ error: fn_abi_of(CInt9) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CInt16) = FnAbi {
@@ -4921,20 +4921,20 @@ error: fn_abi_of(CInt16) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CInt17) = FnAbi {
@@ -5031,20 +5031,20 @@ error: fn_abi_of(CInt17) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CInt24) = FnAbi {
@@ -5149,20 +5149,20 @@ error: fn_abi_of(CInt24) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CWrapU128) = FnAbi {
@@ -5251,20 +5251,20 @@ error: fn_abi_of(CWrapU128) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CWrapBool) = FnAbi {
@@ -5365,20 +5365,20 @@ error: fn_abi_of(CWrapBool) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CWrapU8) = FnAbi {
@@ -5467,20 +5467,20 @@ error: fn_abi_of(CWrapU8) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CWrapI16) = FnAbi {
@@ -5569,20 +5569,20 @@ error: fn_abi_of(CWrapI16) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CWrapF32Int) = FnAbi {
@@ -5675,20 +5675,20 @@ error: fn_abi_of(CWrapF32Int) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CTransparentU8) = FnAbi {
@@ -5777,20 +5777,20 @@ error: fn_abi_of(CTransparentU8) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CTransparentHfa) = FnAbi {
@@ -5909,20 +5909,20 @@ error: fn_abi_of(CTransparentHfa) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CAlign16U8) = FnAbi {
@@ -6041,20 +6041,20 @@ error: fn_abi_of(CAlign16U8) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CAlign16U64) = FnAbi {
@@ -6173,20 +6173,20 @@ error: fn_abi_of(CAlign16U64) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CAlign16Pair) = FnAbi {
@@ -6309,20 +6309,20 @@ error: fn_abi_of(CAlign16Pair) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CAlign32U8) = FnAbi {
@@ -6423,20 +6423,20 @@ error: fn_abi_of(CAlign32U8) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CAlign16Big) = FnAbi {
@@ -6537,20 +6537,20 @@ error: fn_abi_of(CAlign16Big) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CPacked) = FnAbi {
@@ -6669,20 +6669,20 @@ error: fn_abi_of(CPacked) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CPacked2) = FnAbi {
@@ -6801,20 +6801,20 @@ error: fn_abi_of(CPacked2) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CCLike) = FnAbi {
@@ -6963,20 +6963,20 @@ error: fn_abi_of(CCLike) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CRepr16) = FnAbi {
@@ -7125,20 +7125,20 @@ error: fn_abi_of(CRepr16) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CTwo) = FnAbi {
@@ -7329,20 +7329,20 @@ error: fn_abi_of(CTwo) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CBig) = FnAbi {
@@ -7507,20 +7507,20 @@ error: fn_abi_of(CBig) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CMaybeU8) = FnAbi {
@@ -7711,20 +7711,20 @@ error: fn_abi_of(CMaybeU8) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CMaybeRef) = FnAbi {
@@ -7889,20 +7889,20 @@ error: fn_abi_of(CMaybeRef) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CTuple) = FnAbi {
@@ -8025,20 +8025,20 @@ error: fn_abi_of(CTuple) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CTupleFloats) = FnAbi {
@@ -8161,20 +8161,20 @@ error: fn_abi_of(CTupleFloats) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CTupleFloatInt) = FnAbi {
@@ -8297,20 +8297,20 @@ error: fn_abi_of(CTupleFloatInt) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CArray) = FnAbi {
@@ -8417,20 +8417,20 @@ error: fn_abi_of(CArray) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CArrayBig) = FnAbi {
@@ -8519,20 +8519,20 @@ error: fn_abi_of(CArrayBig) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CUnit) = FnAbi {
@@ -8599,20 +8599,20 @@ error: fn_abi_of(CUnit) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CZst) = FnAbi {
@@ -8739,20 +8739,20 @@ error: fn_abi_of(CZst) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CWide) = FnAbi {
@@ -9005,20 +9005,20 @@ error: fn_abi_of(CWide) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CHuge) = FnAbi {
@@ -9107,20 +9107,20 @@ error: fn_abi_of(CHuge) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CHuger) = FnAbi {
@@ -9209,20 +9209,20 @@ error: fn_abi_of(CHuger) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:118:13
+   --> abi.rs:124:13
     |
-114 |   macro_rules! each_abi {
+120 |   macro_rules! each_abi {
 ...
-118 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
+124 |               pub type $name = extern "C" fn($($arg),*) $(-> $ret)?;
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-123 | / each_abi! {
-124 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
-125 | |     CRetU8: => u8;
-126 | |     CRetI8: => i8;
+129 | / each_abi! {
+130 | |     CScalars: u8, i8, u16, i16, bool, char, u32, i32, u64, i64, u128, i128, f16, f32, f64, f128, *const u8, &u8, &mut u8 => i8;
+131 | |     CRetU8: => u8;
+132 | |     CRetI8: => i8;
 ...   |
-194 | |     CHuger: Huger => Huger;
-195 | | }
+200 | |     CHuger: Huger => Huger;
+201 | | }
     | |_- in this macro invocation
 
 error: fn_abi_of(CVariadic) = FnAbi {
@@ -9385,9 +9385,9 @@ error: fn_abi_of(CVariadic) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:198:1
+   --> abi.rs:204:1
     |
-198 | pub type CVariadic = unsafe extern "C" fn(i32, u8, Hfa2, ...) -> u16;
+204 | pub type CVariadic = unsafe extern "C" fn(i32, u8, Hfa2, ...) -> u16;
     | ^^^^^^^^^^^^^^^^^^
 
 error: fn_abi_of(CUnwind) = FnAbi {
@@ -9604,9 +9604,9 @@ error: fn_abi_of(CUnwind) = FnAbi {
            conv: C,
            can_unwind: true,
        }
-   --> abi.rs:200:1
+   --> abi.rs:206:1
     |
-200 | pub type CUnwind = extern "C-unwind" fn(Hfa2, Int9, Int24) -> Hfa5;
+206 | pub type CUnwind = extern "C-unwind" fn(Hfa2, Int9, Int24) -> Hfa5;
     | ^^^^^^^^^^^^^^^^
 
 error: fn_abi_of(SystemAbi) = FnAbi {
@@ -9836,9 +9836,9 @@ error: fn_abi_of(SystemAbi) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:202:1
+   --> abi.rs:208:1
     |
-202 | pub type SystemAbi = extern "system" fn(u8, Hfa2, Int9, Int24) -> i16;
+208 | pub type SystemAbi = extern "system" fn(u8, Hfa2, Int9, Int24) -> i16;
     | ^^^^^^^^^^^^^^^^^^
 
 error: fn_abi_of(c_item_unsized) = FnAbi {
@@ -9920,9 +9920,9 @@ error: fn_abi_of(c_item_unsized) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:206:1
+   --> abi.rs:212:1
     |
-206 | pub extern "C" fn c_item_unsized(x: [u8]) {}
+212 | pub extern "C" fn c_item_unsized(x: [u8]) {}
     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 error: fn_abi_of(c_item_hfa) = FnAbi {
@@ -10134,9 +10134,9 @@ error: fn_abi_of(c_item_hfa) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-   --> abi.rs:208:1
+   --> abi.rs:214:1
     |
-208 | pub extern "C" fn c_item_hfa(x: Hfa4, y: &Hfa2, z: Int24) -> Hfa2 {
+214 | pub extern "C" fn c_item_hfa(x: Hfa4, y: &Hfa2, z: Int24) -> Hfa2 {
     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 error: fn_abi_of(rust_item_unsized) = FnAbi {
@@ -10218,9 +10218,9 @@ error: fn_abi_of(rust_item_unsized) = FnAbi {
            conv: Rust,
            can_unwind: true,
        }
-   --> abi.rs:212:1
+   --> abi.rs:218:1
     |
-212 | pub fn rust_item_unsized(x: [u8]) {}
+218 | pub fn rust_item_unsized(x: [u8]) {}
     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 error: fn_abi_of(rust_item) = FnAbi {
@@ -10575,9 +10575,9 @@ error: fn_abi_of(rust_item) = FnAbi {
            conv: Rust,
            can_unwind: true,
        }
-   --> abi.rs:214:1
+   --> abi.rs:220:1
     |
-214 | pub fn rust_item(x: Hfa4, y: &Hfa2, z: Int24, a: Int9, b: F32x4, c: u8, d: &mut u8) -> Hfa2 {
+220 | pub fn rust_item(x: Hfa4, y: &Hfa2, z: Int24, a: Int9, b: F32x4, c: u8, d: &mut u8) -> Hfa2 {
     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 error: fn_abi_of(RustSmall) = FnAbi {
@@ -11193,9 +11193,9 @@ error: fn_abi_of(RustSmall) = FnAbi {
            conv: Rust,
            can_unwind: true,
        }
-   --> abi.rs:220:1
+   --> abi.rs:226:1
     |
-220 | pub type RustSmall = fn(u8, i16, f32, bool, char, Hfa2, Int3, Int16, Int24, (f32, f32), (f64, u8), MaybeU8) -> Hfa5;
+226 | pub type RustSmall = fn(u8, i16, f32, bool, char, Hfa2, Int3, Int16, Int24, (f32, f32), (f64, u8), MaybeU8) -> Hfa5;
     | ^^^^^^^^^^^^^^^^^^
 
 error: fn_abi_of(RustVectors) = FnAbi {
@@ -11522,9 +11522,9 @@ error: fn_abi_of(RustVectors) = FnAbi {
            conv: Rust,
            can_unwind: true,
        }
-   --> abi.rs:222:1
+   --> abi.rs:228:1
     |
-222 | pub type RustVectors = fn(F32x2, F32x4, F32x8, Hva2, &'static [u8], u128) -> F32x4;
+228 | pub type RustVectors = fn(F32x2, F32x4, F32x8, Hva2, &'static [u8], u128) -> F32x4;
     | ^^^^^^^^^^^^^^^^^^^^
 
 error: fn_abi_of(RustRet) = FnAbi {
@@ -11583,10 +11583,514 @@ error: fn_abi_of(RustRet) = FnAbi {
            conv: Rust,
            can_unwind: true,
        }
-   --> abi.rs:224:1
+   --> abi.rs:230:1
     |
-224 | pub type RustRet = fn() -> Int16;
+230 | pub type RustRet = fn() -> Int16;
     | ^^^^^^^^^^^^^^^^
 
-error: aborting due to 81 previous errors
+error: fn_abi_of(CPassIndirectly) = FnAbi {
+           args: [
+               ArgAbi {
+                   layout: TyAndLayout {
+                       ty: PassIndirectly,
+                       layout: Layout {
+                           size: Size(1 bytes),
+                           align: AbiAlign {
+                               abi: Align(1 bytes),
+                           },
+                           backend_repr: Memory {
+                               sized: true,
+                           },
+                           fields: Arbitrary {
+                               offsets: [
+                                   Size(0 bytes),
+                               ],
+                               in_memory_order: [
+                                   0,
+                               ],
+                           },
+                           largest_niche: None,
+                           uninhabited: false,
+                           variants: Single {
+                               index: 0,
+                           },
+                           max_repr_align: None,
+                           unadjusted_abi_align: Align(1 bytes),
+                           repr_c: true,
+                           randomization_seed: 8625201116076746582,
+                       },
+                   },
+                   mode: Indirect {
+                       attrs: ArgAttributes {
+                           regular: CapturesAddress | NoAlias | NonNull | NoUndef | NoFree,
+                           arg_ext: None,
+                           pointee_size: Size(1 bytes),
+                           pointee_align: Some(
+                               Align(1 bytes),
+                           ),
+                       },
+                       address_space: None,
+                       mode: Pointer,
+                   },
+               },
+           ],
+           ret: ArgAbi {
+               layout: TyAndLayout {
+                   ty: (),
+                   layout: Layout {
+                       size: Size(0 bytes),
+                       align: AbiAlign {
+                           abi: Align(1 bytes),
+                       },
+                       backend_repr: Memory {
+                           sized: true,
+                       },
+                       fields: Arbitrary {
+                           offsets: [],
+                           in_memory_order: [],
+                       },
+                       largest_niche: None,
+                       uninhabited: false,
+                       variants: Single {
+                           index: 0,
+                       },
+                       max_repr_align: None,
+                       unadjusted_abi_align: Align(1 bytes),
+                       repr_c: false,
+                       randomization_seed: 0,
+                   },
+               },
+               mode: Ignore,
+           },
+           c_variadic: false,
+           fixed_count: 1,
+           conv: C,
+           can_unwind: false,
+       }
+   --> abi.rs:237:1
+    |
+237 | pub type CPassIndirectly = extern "C" fn(PassIndirectly);
+    | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: fn_abi_of(RustPassIndirectly) = FnAbi {
+           args: [
+               ArgAbi {
+                   layout: TyAndLayout {
+                       ty: PassIndirectly,
+                       layout: Layout {
+                           size: Size(1 bytes),
+                           align: AbiAlign {
+                               abi: Align(1 bytes),
+                           },
+                           backend_repr: Memory {
+                               sized: true,
+                           },
+                           fields: Arbitrary {
+                               offsets: [
+                                   Size(0 bytes),
+                               ],
+                               in_memory_order: [
+                                   0,
+                               ],
+                           },
+                           largest_niche: None,
+                           uninhabited: false,
+                           variants: Single {
+                               index: 0,
+                           },
+                           max_repr_align: None,
+                           unadjusted_abi_align: Align(1 bytes),
+                           repr_c: true,
+                           randomization_seed: 8625201116076746582,
+                       },
+                   },
+                   mode: Cast {
+                       pad_i32_count: 0,
+                       cast: CastTarget {
+                           prefix: [],
+                           rest_offset: None,
+                           rest: Uniform {
+                               unit: Reg {
+                                   kind: Integer,
+                                   size: Size(1 bytes),
+                               },
+                               total: Size(1 bytes),
+                               is_consecutive: false,
+                           },
+                           attrs: ArgAttributes {
+                               regular: NoUndef,
+                               arg_ext: None,
+                               pointee_size: Size(0 bytes),
+                               pointee_align: None,
+                           },
+                       },
+                   },
+               },
+           ],
+           ret: ArgAbi {
+               layout: TyAndLayout {
+                   ty: (),
+                   layout: Layout {
+                       size: Size(0 bytes),
+                       align: AbiAlign {
+                           abi: Align(1 bytes),
+                       },
+                       backend_repr: Memory {
+                           sized: true,
+                       },
+                       fields: Arbitrary {
+                           offsets: [],
+                           in_memory_order: [],
+                       },
+                       largest_niche: None,
+                       uninhabited: false,
+                       variants: Single {
+                           index: 0,
+                       },
+                       max_repr_align: None,
+                       unadjusted_abi_align: Align(1 bytes),
+                       repr_c: false,
+                       randomization_seed: 0,
+                   },
+               },
+               mode: Ignore,
+           },
+           c_variadic: false,
+           fixed_count: 1,
+           conv: Rust,
+           can_unwind: true,
+       }
+   --> abi.rs:239:1
+    |
+239 | pub type RustPassIndirectly = fn(PassIndirectly);
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: fn_abi_of(CHva256) = FnAbi {
+           args: [
+               ArgAbi {
+                   layout: TyAndLayout {
+                       ty: Hva256,
+                       layout: Layout {
+                           size: Size(64 bytes),
+                           align: AbiAlign {
+                               abi: Align(32 bytes),
+                           },
+                           backend_repr: Memory {
+                               sized: true,
+                           },
+                           fields: Arbitrary {
+                               offsets: [
+                                   Size(0 bytes),
+                                   Size(32 bytes),
+                               ],
+                               in_memory_order: [
+                                   0,
+                                   1,
+                               ],
+                           },
+                           largest_niche: None,
+                           uninhabited: false,
+                           variants: Single {
+                               index: 0,
+                           },
+                           max_repr_align: None,
+                           unadjusted_abi_align: Align(32 bytes),
+                           repr_c: false,
+                           randomization_seed: 2072571266051141990,
+                       },
+                   },
+                   mode: Indirect {
+                       attrs: ArgAttributes {
+                           regular: CapturesAddress | NoAlias | NonNull | NoUndef | NoFree,
+                           arg_ext: None,
+                           pointee_size: Size(64 bytes),
+                           pointee_align: Some(
+                               Align(32 bytes),
+                           ),
+                       },
+                       address_space: None,
+                       mode: Pointer,
+                   },
+               },
+           ],
+           ret: ArgAbi {
+               layout: TyAndLayout {
+                   ty: Hva256,
+                   layout: Layout {
+                       size: Size(64 bytes),
+                       align: AbiAlign {
+                           abi: Align(32 bytes),
+                       },
+                       backend_repr: Memory {
+                           sized: true,
+                       },
+                       fields: Arbitrary {
+                           offsets: [
+                               Size(0 bytes),
+                               Size(32 bytes),
+                           ],
+                           in_memory_order: [
+                               0,
+                               1,
+                           ],
+                       },
+                       largest_niche: None,
+                       uninhabited: false,
+                       variants: Single {
+                           index: 0,
+                       },
+                       max_repr_align: None,
+                       unadjusted_abi_align: Align(32 bytes),
+                       repr_c: false,
+                       randomization_seed: 2072571266051141990,
+                   },
+               },
+               mode: Indirect {
+                   attrs: ArgAttributes {
+                       regular: CapturesAddress | NoAlias | NonNull | NoUndef | NoFree,
+                       arg_ext: None,
+                       pointee_size: Size(64 bytes),
+                       pointee_align: Some(
+                           Align(32 bytes),
+                       ),
+                   },
+                   address_space: None,
+                   mode: Pointer,
+               },
+           },
+           c_variadic: false,
+           fixed_count: 1,
+           conv: C,
+           can_unwind: false,
+       }
+   --> abi.rs:241:1
+    |
+241 | pub type CHva256 = extern "C" fn(Hva256) -> Hva256;
+    | ^^^^^^^^^^^^^^^^
+
+error: fn_abi_of(CHva32) = FnAbi {
+           args: [
+               ArgAbi {
+                   layout: TyAndLayout {
+                       ty: Hva32,
+                       layout: Layout {
+                           size: Size(8 bytes),
+                           align: AbiAlign {
+                               abi: Align(4 bytes),
+                           },
+                           backend_repr: Memory {
+                               sized: true,
+                           },
+                           fields: Arbitrary {
+                               offsets: [
+                                   Size(0 bytes),
+                                   Size(4 bytes),
+                               ],
+                               in_memory_order: [
+                                   0,
+                                   1,
+                               ],
+                           },
+                           largest_niche: None,
+                           uninhabited: false,
+                           variants: Single {
+                               index: 0,
+                           },
+                           max_repr_align: None,
+                           unadjusted_abi_align: Align(4 bytes),
+                           repr_c: false,
+                           randomization_seed: 12697384856469083711,
+                       },
+                   },
+                   mode: Cast {
+                       pad_i32_count: 0,
+                       cast: CastTarget {
+                           prefix: [],
+                           rest_offset: None,
+                           rest: Uniform {
+                               unit: Reg {
+                                   kind: Integer,
+                                   size: Size(8 bytes),
+                               },
+                               total: Size(8 bytes),
+                               is_consecutive: false,
+                           },
+                           attrs: ArgAttributes {
+                               regular: ,
+                               arg_ext: None,
+                               pointee_size: Size(0 bytes),
+                               pointee_align: None,
+                           },
+                       },
+                   },
+               },
+           ],
+           ret: ArgAbi {
+               layout: TyAndLayout {
+                   ty: Hva32,
+                   layout: Layout {
+                       size: Size(8 bytes),
+                       align: AbiAlign {
+                           abi: Align(4 bytes),
+                       },
+                       backend_repr: Memory {
+                           sized: true,
+                       },
+                       fields: Arbitrary {
+                           offsets: [
+                               Size(0 bytes),
+                               Size(4 bytes),
+                           ],
+                           in_memory_order: [
+                               0,
+                               1,
+                           ],
+                       },
+                       largest_niche: None,
+                       uninhabited: false,
+                       variants: Single {
+                           index: 0,
+                       },
+                       max_repr_align: None,
+                       unadjusted_abi_align: Align(4 bytes),
+                       repr_c: false,
+                       randomization_seed: 12697384856469083711,
+                   },
+               },
+               mode: Cast {
+                   pad_i32_count: 0,
+                   cast: CastTarget {
+                       prefix: [],
+                       rest_offset: None,
+                       rest: Uniform {
+                           unit: Reg {
+                               kind: Integer,
+                               size: Size(8 bytes),
+                           },
+                           total: Size(8 bytes),
+                           is_consecutive: false,
+                       },
+                       attrs: ArgAttributes {
+                           regular: ,
+                           arg_ext: None,
+                           pointee_size: Size(0 bytes),
+                           pointee_align: None,
+                       },
+                   },
+               },
+           },
+           c_variadic: false,
+           fixed_count: 1,
+           conv: C,
+           can_unwind: false,
+       }
+   --> abi.rs:243:1
+    |
+243 | pub type CHva32 = extern "C" fn(Hva32) -> Hva32;
+    | ^^^^^^^^^^^^^^^
+
+error: fn_abi_of(CScalable) = FnAbi {
+           args: [
+               ArgAbi {
+                   layout: TyAndLayout {
+                       ty: Svint32,
+                       layout: Layout {
+                           size: Size(16 bytes),
+                           align: AbiAlign {
+                               abi: Align(16 bytes),
+                           },
+                           backend_repr: SimdScalableVector {
+                               element: i32 is ..,
+                               count: BackendLaneCount(
+                                   4,
+                               ),
+                               number_of_vectors: NumScalableVectors(
+                                   1,
+                               ),
+                           },
+                           fields: Arbitrary {
+                               offsets: [
+                                   Size(0 bytes),
+                               ],
+                               in_memory_order: [
+                                   0,
+                               ],
+                           },
+                           largest_niche: None,
+                           uninhabited: false,
+                           variants: Single {
+                               index: 0,
+                           },
+                           max_repr_align: None,
+                           unadjusted_abi_align: Align(4 bytes),
+                           repr_c: false,
+                           randomization_seed: 18446462603027873799,
+                       },
+                   },
+                   mode: Direct(
+                       ArgAttributes {
+                           regular: ,
+                           arg_ext: None,
+                           pointee_size: Size(0 bytes),
+                           pointee_align: None,
+                       },
+                   ),
+               },
+           ],
+           ret: ArgAbi {
+               layout: TyAndLayout {
+                   ty: Svint32,
+                   layout: Layout {
+                       size: Size(16 bytes),
+                       align: AbiAlign {
+                           abi: Align(16 bytes),
+                       },
+                       backend_repr: SimdScalableVector {
+                           element: i32 is ..,
+                           count: BackendLaneCount(
+                               4,
+                           ),
+                           number_of_vectors: NumScalableVectors(
+                               1,
+                           ),
+                       },
+                       fields: Arbitrary {
+                           offsets: [
+                               Size(0 bytes),
+                           ],
+                           in_memory_order: [
+                               0,
+                           ],
+                       },
+                       largest_niche: None,
+                       uninhabited: false,
+                       variants: Single {
+                           index: 0,
+                       },
+                       max_repr_align: None,
+                       unadjusted_abi_align: Align(4 bytes),
+                       repr_c: false,
+                       randomization_seed: 18446462603027873799,
+                   },
+               },
+               mode: Direct(
+                   ArgAttributes {
+                       regular: ,
+                       arg_ext: None,
+                       pointee_size: Size(0 bytes),
+                       pointee_align: None,
+                   },
+               ),
+           },
+           c_variadic: false,
+           fixed_count: 1,
+           conv: C,
+           can_unwind: false,
+       }
+   --> abi.rs:247:1
+    |
+247 | pub type CScalable = extern "C" fn(Svint32) -> Svint32;
+    | ^^^^^^^^^^^^^^^^^^
+
+error: aborting due to 86 previous errors
 
