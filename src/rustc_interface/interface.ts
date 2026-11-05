@@ -1,5 +1,5 @@
 // Partial port of compiler/rustc_interface/src/interface.rs: `Compiler`, `parse_cfg`, `parse_check_cfg`,
-// `Config`, `run_compiler`. `try_print_query_stack` needs rustc_middle (not ported).
+// `Config`, `run_compiler`, `try_print_query_stack`.
 import type { Providers as MiddleProviders } from "../rustc_middle/util/mod.ts";
 import "../rustc_session/options.ts"; // LOAD ORDER: see rustc_session/config.ts
 import type { PathBuf } from "../rustc_error_messages/lib.ts";
@@ -19,6 +19,7 @@ import { ParseSess } from "../rustc_session/parse.ts";
 import { FileName } from "../rustc_span/lib.ts";
 import { Ident, kw, Symbol, sym } from "../rustc_span/symbol.ts";
 import { RealFileLoader } from "../rustc_span/source_map.ts";
+import { write_stderr } from "../std/io.ts";
 import { Panic, unported, unwrap } from "../std/panic.ts";
 import { FatalErrorMarker } from "../rustc_span/fatal_error.ts";
 import { initialize as jobserver_initialize } from "../rustc_data_structures/jobserver.ts";
@@ -553,4 +554,29 @@ function max_opt(a: number | undefined, b: number | undefined): number | undefin
   return Math.max(a, b);
 }
 
-// `try_print_query_stack` (interface.rs:542): not ported (rustc_middle / rustc_query_impl).
+// rustc: compiler/rustc_interface/src/interface.rs:542 try_print_query_stack
+export function try_print_query_stack(limit_frames: number | undefined, file: ((line: string) => void) | undefined): void {
+  write_stderr("query stack during panic:\n");
+
+  // PORT: loaded here, not at the top: this runs only in a panic hook, and the modules are not this crate's own.
+  const { with_context_opt } = require("../rustc_middle/ty/context/tls.ts") as typeof import("../rustc_middle/ty/context/tls.ts");
+  const { with_no_queries } = require("../rustc_middle/ty/print/pretty.ts") as typeof import("../rustc_middle/ty/print/pretty.ts");
+  const { print_query_stack } = require("../rustc_query_impl/lib.ts") as typeof import("../rustc_query_impl/lib.ts");
+
+  // Be careful relying on global state here: this code is called from
+  // a panic hook, which means that the global `DiagCtxt` may be in a weird
+  // state if it was responsible for triggering the panic.
+  const all_frames = with_context_opt((icx) => {
+    if (icx !== undefined) {
+      return with_no_queries(() => print_query_stack(icx.tcx, icx.query, limit_frames, file));
+    } else {
+      return 0;
+    }
+  });
+
+  if (limit_frames !== undefined && all_frames > limit_frames) {
+    write_stderr(`... and ${all_frames - limit_frames} other queries... use \`env RUST_BACKTRACE=1\` to see the full query stack\n`);
+  } else {
+    write_stderr("end of query stack\n");
+  }
+}

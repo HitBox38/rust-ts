@@ -180,6 +180,7 @@ declare module "./mod.gen.ts" {
 }
 
 /// `macro_rules! span_mirbug` (mod.rs:53).
+// rustc-macro: compiler/rustc_borrowck/src/type_check/mod.rs:53 span_mirbug!
 // PORT: a macro: `$context` is `cx`, `$elem` its `{:?}` (`elem`), `format_args!($($message)*)` the formatted `msg`.
 function span_mirbug(cx: TypeChecker, elem: string, msg: string): void {
   mirbug(cx.tcx(), cx.last_span, `broken MIR in ${debug_DefId(cx.body_().source.def_id(), PLAIN)} (${elem}): ${msg}`);

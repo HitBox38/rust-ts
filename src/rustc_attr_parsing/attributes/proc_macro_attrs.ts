@@ -94,18 +94,22 @@ function parse_derive_like(cx: AcceptContext, args: ArgParser, trait_name_mandat
   }
   const trait_attr = MetaItemOrLitParser.meta_item(trait_attr_.value);
   if (trait_attr === undefined) {
+    // rustc-call: 81:19
     cx.adcx().expected_not_literal(MetaItemOrLitParser.span(trait_attr_.value));
     return undefined;
   }
   const trait_ident = trait_attr.path().word();
   if (trait_ident === undefined) {
+    // rustc-call: 85:19
     cx.adcx().expected_identifier(trait_attr.path().span());
     return undefined;
   }
   if (!Symbol.can_be_raw(trait_ident.name)) {
+    // rustc-call: 89:19
     cx.adcx().expected_identifier(trait_ident.span);
     return undefined;
   }
+  // rustc-call: 92:8
   if (cx.expect_no_args(trait_attr.args()) === undefined) return undefined;
 
   // Parse optional attributes
@@ -129,16 +133,20 @@ function parse_derive_like(cx: AcceptContext, args: ArgParser, trait_name_mandat
     for (const attr_ of attr_list.mixed()) {
       const attr = MetaItemOrLitParser.meta_item(attr_);
       if (attr === undefined) {
+        // rustc-call: 110:27
         cx.adcx().expected_identifier(MetaItemOrLitParser.span(attr_));
         return undefined;
       }
+      // rustc-call: 113:16
       if (cx.expect_no_args(attr.args()) === undefined) return undefined;
       const ident = attr.path().word();
       if (ident === undefined) {
+        // rustc-call: 115:27
         cx.adcx().expected_identifier(attr.path().span());
         return undefined;
       }
       if (!Symbol.can_be_raw(ident.name)) {
+        // rustc-call: 119:27
         cx.adcx().expected_identifier(ident.span);
         return undefined;
       }

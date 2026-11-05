@@ -816,72 +816,29 @@ ThirBuildCx.prototype.make_mirror_unadjusted = function (this: ThirBuildCx, expr
     case "Struct": {
       const [qpath, fields, base] = [ek._0, ek._1, ek._2];
       const tk = expr_ty.kind();
-      if (tk.$ !== "Adt") {
-        return span_bug(expr.span, `unexpected type for struct literal: ${debug_Ty(expr_ty, PLAIN)}`);
-      }
-      const [adt, args] = [tk._0, tk._1];
-      switch (adt.adt_kind()) {
-        case "Struct":
-        case "Union": {
-          const user_provided_types = this.typeck_results.user_provided_types();
-          const user_ty: UserTy = user_provided_types.get(expr.hir_id);
-          // debug!("make_mirror_unadjusted: (struct/union) user_ty={:?}", user_ty);
-          const fields_ = this.field_refs(fields);
-          let base_: AdtExpr["base"];
-          switch (base.$) {
-            case "Base":
-              base_ = {
-                $: "Base",
-                _0: {
-                  base: this.mirror_expr(base._0),
-                  field_types: this.typeck_results.fru_field_types().index(expr.hir_id).slice(),
-                },
-              };
-              break;
-            case "DefaultFields":
-              base_ = { $: "DefaultFields", _0: this.typeck_results.fru_field_types().index(expr.hir_id).slice() };
-              break;
-            case "None":
-            case "NoneWithError":
-              base_ = { $: "None" };
-              break;
-          }
-          kind = {
-            $: "Adt",
-            _0: {
-              adt_def: adt,
-              variant_index: FIRST_VARIANT,
-              args,
-              user_ty,
-              fields: fields_,
-              base: base_,
-            },
-          };
-          break;
-        }
-        case "Enum": {
-          const res = this.typeck_results.qpath_res(qpath, expr.hir_id);
-          if (res.$ === "Def" && res._0.$ === "Variant") {
-            const variant_id = res._1;
-            const base0: StructTailExpr = base;
-            // PORT: the message is `stringify!` of the condition (tokens on one line); only reached as an ICE.
-            assert(
-              base.$ === "None" || base.$ === "DefaultFields" || base.$ === "NoneWithError",
-              "assertion failed: matches!(base, hir::StructTailExpr::None | hir::StructTailExpr::DefaultFields(_) | hir::StructTailExpr::NoneWithError(_))",
-            );
-
-            const index = adt.variant_index_with_id(variant_id);
+      if (tk.$ === "Adt") {
+        const [adt, args] = [tk._0, tk._1];
+        switch (adt.adt_kind()) {
+          case "Struct":
+          case "Union": {
             const user_provided_types = this.typeck_results.user_provided_types();
             const user_ty: UserTy = user_provided_types.get(expr.hir_id);
-            // debug!("make_mirror_unadjusted: (variant) user_ty={:?}", user_ty);
+            // debug!("make_mirror_unadjusted: (struct/union) user_ty={:?}", user_ty);
             const fields_ = this.field_refs(fields);
             let base_: AdtExpr["base"];
-            switch (base0.$) {
+            switch (base.$) {
+              case "Base":
+                base_ = {
+                  $: "Base",
+                  _0: {
+                    base: this.mirror_expr(base._0),
+                    field_types: this.typeck_results.fru_field_types().index(expr.hir_id).slice(),
+                  },
+                };
+                break;
               case "DefaultFields":
                 base_ = { $: "DefaultFields", _0: this.typeck_results.fru_field_types().index(expr.hir_id).slice() };
                 break;
-              case "Base":
-                return span_bug(base0._0.span, `unexpected res: ${debug_Res(res, PLAIN, debug_HirId)}`);
               case "None":
               case "NoneWithError":
                 base_ = { $: "None" };
@@ -891,18 +848,62 @@ ThirBuildCx.prototype.make_mirror_unadjusted = function (this: ThirBuildCx, expr
               $: "Adt",
               _0: {
                 adt_def: adt,
-                variant_index: index,
+                variant_index: FIRST_VARIANT,
                 args,
                 user_ty,
                 fields: fields_,
                 base: base_,
               },
             };
-          } else {
-            return span_bug(expr.span, `unexpected res: ${debug_Res(res, PLAIN, debug_HirId)}`);
+            break;
           }
-          break;
+          case "Enum": {
+            const res = this.typeck_results.qpath_res(qpath, expr.hir_id);
+            if (res.$ === "Def" && res._0.$ === "Variant") {
+              const variant_id = res._1;
+              const base0: StructTailExpr = base;
+              // PORT: the message is `stringify!` of the condition (tokens on one line); only reached as an ICE.
+              assert(
+                base.$ === "None" || base.$ === "DefaultFields" || base.$ === "NoneWithError",
+                "assertion failed: matches!(base, hir::StructTailExpr::None | hir::StructTailExpr::DefaultFields(_) | hir::StructTailExpr::NoneWithError(_))",
+              );
+
+              const index = adt.variant_index_with_id(variant_id);
+              const user_provided_types = this.typeck_results.user_provided_types();
+              const user_ty: UserTy = user_provided_types.get(expr.hir_id);
+              // debug!("make_mirror_unadjusted: (variant) user_ty={:?}", user_ty);
+              const fields_ = this.field_refs(fields);
+              let base_: AdtExpr["base"];
+              switch (base0.$) {
+                case "DefaultFields":
+                  base_ = { $: "DefaultFields", _0: this.typeck_results.fru_field_types().index(expr.hir_id).slice() };
+                  break;
+                case "Base":
+                  return span_bug(base0._0.span, `unexpected res: ${debug_Res(res, PLAIN, debug_HirId)}`);
+                case "None":
+                case "NoneWithError":
+                  base_ = { $: "None" };
+                  break;
+              }
+              kind = {
+                $: "Adt",
+                _0: {
+                  adt_def: adt,
+                  variant_index: index,
+                  args,
+                  user_ty,
+                  fields: fields_,
+                  base: base_,
+                },
+              };
+            } else {
+              return span_bug(expr.span, `unexpected res: ${debug_Res(res, PLAIN, debug_HirId)}`);
+            }
+            break;
+          }
         }
+      } else {
+        return span_bug(expr.span, `unexpected type for struct literal: ${debug_Ty(expr_ty, PLAIN)}`);
       }
       break;
     }

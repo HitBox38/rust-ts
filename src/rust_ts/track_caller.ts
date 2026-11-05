@@ -19,9 +19,21 @@
 //     calls drop the frame of a strict-mode `return f(..)`; a broken link is a refusal, never a guess;
 //     `BUN_JSC_useTailCalls=0` keeps every frame, see `TAIL_CALLS`);
 //  3. the TS call is the k-th call of that name in G's ported body; G's upstream body must contain the
-//     same number of calls of it, and the k-th one is the upstream call site.
-// Anything that does not check out (unmarked glue frames, native frames, count mismatch, a call inside a
-// `macro_rules!` definition, non-ASCII before the column, ...) is `unported`, never a guess.
+//     same number of calls of it, and the k-th one is the upstream call site. With two or more calls the
+//     position alone proves nothing (ports reorder arms: docs/reviews/plan-ice-report.md F3), so the k-th
+//     pair must also agree on a key that is unique among the siblings: the diagnostic struct's name or the
+//     full normalized message literal (`call_key`). A site with no such key refuses, unless it carries a
+//     `// rustc-call: <line>:<col>` anchor on the line above, which names the upstream call directly and
+//     is checked against the upstream body here and by track_caller_check.ts.
+// Anything that does not check out (unmarked glue frames, native frames, count mismatch, a missing or
+// differing key, a call inside a `macro_rules!` definition, non-ASCII before the column, ...) is refused,
+// never a guess. A refusal stops a `DiagLocation` display `unported` (exit 70) and a panic with a visible
+// reason (exit 101; std/panic.ts `panic_with_hook`).
+//
+// `resolve_panic_stack()` is the same walk for a panic: `Location::caller()` in the panic entry points, which
+// also are `#[track_caller]`. JSC's tail calls stay on: a site a case reaches is made non-tail on demand
+// (`keep_frame` in std/panic.ts, or a bare statement for a `never` call; docs/reviews/plan-ice-report.md
+// D3), and no second process ever runs to find a location.
 //
 // PORT: the upstream sources are read from the pinned checkout (`$RUST_TS_DATA/rust`, `.env.local` as in
 // scripts/lib/common.ts) at display time; the oracle build compiled them in.
@@ -52,6 +64,15 @@ export function capture(): string {
 
 export type Resolved = { ok: true; file: string; line: number; col: number } | { ok: false; why: string };
 const resolved = new Map<string, Resolved>();
+
+/** The JS stack, deep enough for `resolve_panic_stack`: call from the panic machinery only. */
+export function panic_stack(): string {
+  const limit = Error.stackTraceLimit;
+  Error.stackTraceLimit = STACK_FRAMES;
+  const err = new Error();
+  Error.stackTraceLimit = limit;
+  return err.stack ?? "";
+}
 
 export function resolve(key: string): Resolved {
   let r = resolved.get(key);
@@ -96,7 +117,7 @@ export const TAIL_CALLS: boolean = (() => {
 
 type FrameKind =
   | { kind: "glue" } // the `X_diagnostic` vtable wrapper: transparent
-  | { kind: "owned"; owner: Owner; closure: boolean; tc: boolean };
+  | { kind: "owned"; owner: Owner; closure: boolean; tc: boolean; up_tc: boolean };
 
 function classify(fr: Frame): FrameKind | string {
   if (!fr.file.startsWith(SRC_ROOT)) return `frame outside src: ${fr.file}`;
@@ -114,7 +135,7 @@ function classify(fr: Frame): FrameKind | string {
   }
   const tc = owner.kind === "fn" ? upstream_is_track_caller(owner.path, owner.line) : true;
   if (tc === undefined) return `cannot read ${owner.path}:${owner.line}`;
-  return { kind: "owned", owner, closure, tc: tc && !closure };
+  return { kind: "owned", owner, closure, tc: tc && !closure, up_tc: tc };
 }
 
 /** Whether the call at `caller`'s position calls the function of frame `callee` (by name), i.e. no frame
@@ -126,7 +147,7 @@ function linked(caller: Frame, callee: FrameKind): string | undefined {
   if (callee.kind === "glue") ok = y === "into_diag";
   else if (callee.closure) ok = !TAIL_CALLS; // a call through a value: the name says nothing
   else ok = ts_name_re(callee_name(callee), true, callee.owner.kind === "macro").test(y);
-  return ok ? undefined : `\`${y}\` at ${rel(caller.file)}:${caller.line} does not call the next frame (tail call?)`;
+  return ok ? undefined : `\`${y}\` at ${rel(caller.file)}:${caller.line} does not call the next frame, \`${callee_name(callee)}\` (tail call?)`;
 }
 
 /** The upstream name of a frame's function (`into_diag` for the derive(Diagnostic) glue). */
@@ -145,57 +166,162 @@ function ts_name_re(name: string, whole: boolean, macro = false): RegExp {
 function resolve_stack(stack: string): Resolved {
   const frames = parse_stack(stack);
   // frames[0] is `capture` itself; frames[1] must be `DiagLocation::caller`.
-  let g = -1;
-  let prev: FrameKind | undefined;
-  let prev_below: FrameKind | undefined;
-  for (let i = 1; i < frames.length; i++) {
+  const fr = frames[1];
+  if (fr === undefined) return fail("native frame #1");
+  const k = classify(fr);
+  if (typeof k === "string") return fail(k);
+  if (!(k.kind === "owned" && k.owner.kind === "fn" && k.owner.path === "compiler/rustc_errors/src/diagnostic.rs" && k.owner.name === "caller")) {
+    return fail("capture() not called from DiagLocation::caller");
+  }
+  return walk(frames, 2, k, undefined);
+}
+
+/** Files of the panic machinery: their frames lead to the panic site and are `#[track_caller]` upstream or
+ *  have no upstream mirror. */
+const STD_PANIC = `${SRC_ROOT}/std/panic.ts`;
+const STD_PANICKING = `${SRC_ROOT}/std/panicking.ts`;
+const STD_RESULT = `${SRC_ROOT}/std/result.ts`;
+const SPAN_MACROS = `${SRC_ROOT}/rustc_span/macros.ts`;
+const SELF = `${SRC_ROOT}/rust_ts/track_caller.ts`;
+/** Constructors and internals of the machinery: they name no call a port site can make. */
+const PANIC_INTERNALS: ReadonlySet<string> = new Set(["Panic", "ExplicitBug", "panic_with_hook", "panic_stack"]);
+
+function frame_fn_name(raw: string | undefined): string {
+  return /^\s*at (?:new )?(\S+) \(/.exec(raw ?? "")?.[1] ?? "";
+}
+
+/** `Location::caller()` of the panic the stack was captured for. The first frame outside the machinery called one of the machinery's
+ *  entry points (`bug`, `span_bug`, `panic`, `unwrap`, `assert`, ...) or threw directly (`throw new ExplicitBug()`
+ *  in `Diag::emit`, `#[track_caller]` upstream; anywhere else a direct `throw` names no upstream call). */
+export function resolve_panic_stack(stack: string): Resolved {
+  const raw = stack.split("\n").slice(1);
+  const frames = parse_stack(stack);
+  const entry = new Set<string>();
+  let i = 0;
+  for (; i < frames.length; i++) {
+    const fr = frames[i];
+    if (fr === undefined) return fail(`native frame #${i}`);
+    if (fr.file !== SELF && fr.file !== STD_PANIC && fr.file !== STD_PANICKING && fr.file !== STD_RESULT && fr.file !== SPAN_MACROS) break;
+    const name = frame_fn_name(raw[i]);
+    if (fr.file === SELF || name === "" || PANIC_INTERNALS.has(name)) continue;
+    entry.add(name);
+    // `bug!`/`span_bug!` are `bug_fmt`/`span_bug_fmt` -> `bug_impl`; the TS wrappers tail-call it.
+    if (name === "bug_impl") {
+      entry.add("bug");
+      entry.add("span_bug");
+    }
+  }
+  return walk(frames, i, undefined, entry);
+}
+
+/** Walks up from `frames[start]`: `below` is the frame under it, or the panic machinery's `entry` names. */
+function walk(frames: (Frame | undefined)[], start: number, below: FrameKind | undefined, entry: ReadonlySet<string> | undefined): Resolved {
+  let prev = below;
+  let callee: string | undefined;
+  let macro = false;
+  for (let i = start; i < frames.length; i++) {
     const fr = frames[i];
     if (fr === undefined) return fail(`native frame #${i}`);
     const k = classify(fr);
     if (typeof k === "string") return fail(k);
-    if (i === 1) {
-      if (!(k.kind === "owned" && k.owner.kind === "fn" && k.owner.path === "compiler/rustc_errors/src/diagnostic.rs" && k.owner.name === "caller")) {
-        return fail("capture() not called from DiagLocation::caller");
-      }
-    } else {
-      const why = linked(fr, prev!);
+    if (prev !== undefined) {
+      const why = linked(fr, prev);
       if (why !== undefined) return fail(why);
+      callee = callee_name(prev);
+      macro = prev.kind === "owned" && prev.owner.kind === "macro";
+    } else if (entry!.size > 0) {
+      const y = ident_at(ts_file(fr.file).masked_lines[fr.line - 1] ?? "", fr.col - 1);
+      if (y === undefined || !entry!.has(y)) {
+        return fail(`\`${y}\` at ${rel(fr.file)}:${fr.line} does not call the panic entry ${[...entry!].join("/")} (tail call?)`);
+      }
+      callee = y;
+    } else if (k.kind !== "owned" || !k.tc) {
+      return fail(`a direct throw at ${rel(fr.file)}:${fr.line} names no upstream call`);
     }
     if (k.kind === "glue" || k.tc) {
-      prev_below = k;
+      // A `#[track_caller]` fn's closures are not `#[track_caller]`: a call the port inlined from an upstream
+      // closure would have its location there, not in this fn's caller.
+      if (k.kind === "owned" && k.owner.kind === "fn" && callee !== undefined) {
+        const why = tc_call_in_closure(k.owner, callee);
+        if (why !== undefined) return fail(why);
+      }
       prev = k;
       continue;
     }
-    g = i;
-    break;
+    if (callee === undefined) return fail("no call to locate");
+    return locate(fr, k, callee, macro);
   }
-  if (g < 0) return fail("no non-#[track_caller] caller within the captured frames");
-  const fr = frames[g]!;
+  return fail("no non-#[track_caller] caller within the captured frames");
+}
+
+/** Refusal when the upstream `#[track_caller]` fn calls `callee` from inside a closure. */
+function tc_call_in_closure(owner: Owner, callee: string): string | undefined {
+  const up = up_file(owner.path);
+  const body = up?.owner_body(owner);
+  if (up === undefined || body === undefined) return `cannot read ${owner.path}:${owner.line}`;
+  return up.calls_in(body, callee).some((c) => up.in_closure(body, c.pos)) ? `\`${callee}\` in a closure of #[track_caller] ${owner.path}:${owner.line}` : undefined;
+}
+
+/** The upstream location of the call in the caller `G`'s frame. */
+function locate(fr: Frame, k: FrameKind, callee: string, macro: boolean): Resolved {
   const ts = ts_file(fr.file);
   const owner = ts.owner_at(fr.line)!;
   if (owner.kind !== "fn") return fail(`caller is not a ported fn (${rel(fr.file)}:${fr.line})`);
-  // The upstream name of the callee: the fn of the frame below G (`linked` checked the TS name against it).
-  const callee = callee_name(prev_below!);
-
-  // 3. k-th call of `callee` in G's TS body <-> k-th call in G's upstream body.
-  const ts_calls = ts.calls_in(owner, callee, prev_below!.kind === "owned" && prev_below!.owner.kind === "macro");
-  const k = ts_calls.findIndex(([l, c]) => l === fr.line && c === fr.col);
-  if (k < 0) return fail(`call at ${rel(fr.file)}:${fr.line}:${fr.col} not found`);
-  const up = up_file(owner.path);
-  if (up === undefined) return fail(`cannot read ${owner.path}`);
-  const body = up.fn_body(owner.line);
-  if (body === undefined) return fail(`no fn body at ${owner.path}:${owner.line}`);
-  const up_calls = up.calls_in(body, callee);
-  if (up_calls.length !== ts_calls.length) {
-    return fail(`\`${callee}\` called ${ts_calls.length}x in TS, ${up_calls.length}x at ${owner.path}:${owner.line}`);
+  const m = map_call(ts, owner, callee, macro, fr.line, fr.col);
+  if (!m.ok) return fail(m.why);
+  const up = m.up;
+  // A frame in a TS closure of an upstream `#[track_caller]` fn is `G` only if upstream has that closure too.
+  if (k.kind === "owned" && k.up_tc && !up.in_closure(m.body, m.call.pos)) {
+    return fail(`a TS closure in #[track_caller] ${owner.path}:${owner.line} has no upstream closure`);
   }
-  const call = up_calls[k]!;
-  if (call.in_macro_rules) return fail(`call inside macro_rules! at ${owner.path}`);
-  const [line, col0] = up.line_col(call.pos);
+  const [line, col0] = up.line_col(m.call.pos);
   const prefix = up.lines[line - 1]!.slice(0, col0);
   // `col_display`: every char before the position is ASCII and not a tab, so it is the byte column.
   if (!/^[\x20-\x7e]*$/.test(prefix)) return fail(`non-ASCII before ${owner.path}:${line}:${col0 + 1}`);
   return { ok: true, file: `${VIRTUAL_RUSTC_DEV_SOURCE_BASE_DIR}/${owner.path}`, line, col: col0 + 1 };
+}
+
+export type MappedCall = { ok: true; up: UpFile; body: [number, number]; call: UpCall; anchored: boolean } | { ok: false; why: string };
+
+/** Maps the TS call of `callee` at (line, col) in `owner` to its upstream call site, or refuses. */
+export function map_call(ts: TsFile, owner: Owner, callee: string, macro: boolean, line: number, col: number): MappedCall {
+  const rel_ts = `${owner.path}:${owner.line}`;
+  const ts_calls = ts.calls_in(owner, callee, macro);
+  const k = ts_calls.findIndex(([l, c]) => l === line && c === col);
+  if (k < 0) return { ok: false, why: `call of \`${callee}\` at line ${line}:${col} of the port of ${rel_ts} not found` };
+  const up = up_file(owner.path);
+  if (up === undefined) return { ok: false, why: `cannot read ${owner.path}` };
+  const body = up.owner_body(owner);
+  if (body === undefined) return { ok: false, why: `no body at ${rel_ts}` };
+  // The location of a fn generated by a `macro_rules!` is the macro's invocation.
+  if (up.in_file_macro_rules(body[0])) return { ok: false, why: `${rel_ts} is inside a macro_rules!` };
+  const up_calls = up.calls_in(body, callee);
+  let call: UpCall;
+  const anchor = ts.anchor_at(line);
+  if (anchor !== undefined) {
+    const at = up_calls.find((c) => {
+      const [l, c0] = up.line_col(c.pos);
+      return l === anchor[0] && c0 + 1 === anchor[1];
+    });
+    if (at === undefined) return { ok: false, why: `rustc-call ${anchor[0]}:${anchor[1]} names no call of \`${callee}\` in ${rel_ts}` };
+    call = at;
+  } else {
+    if (up_calls.length !== ts_calls.length) {
+      return { ok: false, why: `\`${callee}\` called ${ts_calls.length}x in TS, ${up_calls.length}x at ${rel_ts}` };
+    }
+    call = up_calls[k]!;
+    if (up_calls.length > 1) {
+      const ts_key = ts.call_key(line, col, callee);
+      const up_key = up.call_key(call, callee);
+      if (ts_key === undefined || up_key === undefined) return { ok: false, why: `no key for \`${callee}\` #${k} of ${up_calls.length} at ${rel_ts}` };
+      if (ts_key !== up_key) return { ok: false, why: `\`${callee}\` #${k} of ${up_calls.length} at ${rel_ts}: key ${JSON.stringify(ts_key)} in TS, ${JSON.stringify(up_key)} upstream` };
+      if (up_calls.filter((c) => up.call_key(c, callee) === up_key).length !== 1) {
+        return { ok: false, why: `\`${callee}\` #${k} of ${up_calls.length} at ${rel_ts}: key ${JSON.stringify(up_key)} is not unique` };
+      }
+    }
+  }
+  if (call.in_macro_rules) return { ok: false, why: `call inside macro_rules! at ${owner.path}` };
+  return { ok: true, up, body, call, anchored: anchor !== undefined };
 }
 
 function fail(why: string): Resolved {
@@ -220,19 +346,19 @@ function ident_at(line: string, idx: number): string | undefined {
 
 // ---- TS sources --------------------------------------------------------------------------------------
 
-type Owner =
+export type Owner =
   | { kind: "fn"; path: string; line: number; name: string; start: number; end: number }
   | { kind: "macro"; path: string; line: number; name: string; start: number; end: number }
   | { kind: "derive_diagnostic"; path: string; line: number; start: number; end: number };
 
-class TsFile {
+export class TsFile {
   readonly lines: string[];
   readonly masked: string;
   readonly masked_lines: string[];
   readonly line_starts: number[];
   readonly owners: Owner[] = [];
 
-  constructor(src: string) {
+  constructor(readonly src: string) {
     this.lines = src.split("\n");
     this.masked = mask_ts(src);
     this.masked_lines = this.masked.split("\n");
@@ -243,6 +369,13 @@ class TsFile {
       // 1-based line of the declaration: the first line after the marker that is not a comment
       let decl = i + 2;
       while (decl <= this.lines.length && /^\s*\/\//.test(this.lines[decl - 1]!)) decl++;
+      if (m !== null) {
+        this.owners.push({ kind: "fn", path: m[1]!, line: Number(m[2]), name: m[3]!, start: decl, end: this.body_end(decl) });
+        continue;
+      }
+      // A `const` whose initializer holds closures (`rustc_attr_parsing`'s `ATTRIBUTES` tables): its closures
+      // are the frames, and the initializer is the body the calls are looked up in.
+      m = /^\s*\/\/ rustc-const: (compiler\/\S+):(\d+) (\w+)\s*$/.exec(l);
       if (m !== null) {
         this.owners.push({ kind: "fn", path: m[1]!, line: Number(m[2]), name: m[3]!, start: decl, end: this.body_end(decl) });
         continue;
@@ -267,7 +400,7 @@ class TsFile {
     const ind = indent(first);
     for (let j = decl + 1; j <= this.masked_lines.length; j++) {
       const l = this.masked_lines[j - 1]!;
-      if (l.trim() !== "" && indent(l) === ind && l.trimStart().startsWith("}")) return j;
+      if (l.trim() !== "" && indent(l) === ind && /^[}\]]/.test(l.trimStart())) return j;
     }
     return decl;
   }
@@ -323,10 +456,133 @@ class TsFile {
     }
     return out;
   }
+
+  /** The `// rustc-call: <line>:<col>` anchor on the line above `line`: the upstream call this one ports. */
+  anchor_at(line: number): [number, number] | undefined {
+    const m = /^\s*\/\/ rustc-call: (\d+):(\d+)\s*$/.exec(this.lines[line - 2] ?? "");
+    return m === null ? undefined : [Number(m[1]), Number(m[2])];
+  }
+
+  /** The key of the call of `name` at (line, col): see `first_key`. */
+  call_key(line: number, col: number, name: string): string | undefined {
+    const s = this.masked;
+    const at = this.line_starts[line - 1]! + col - 1;
+    const after = at + (/^[\w$]+/.exec(s.slice(at, at + 200))?.[0].length ?? name.length);
+    const open = /^\s*(?:<[^()]*>)?\s*\(/.exec(s.slice(after, after + 400));
+    if (open === null) return undefined;
+    const start = after + open[0].length;
+    const end = match_close(s, start - 1) - 1;
+    const struct = /(?<![\w$])([A-Z]\w*?)_(?:diagnostic|into_diag)(?![\w$])/.exec(s.slice(start, end));
+    const struct_at = struct === null ? -1 : start + struct.index;
+    let lit = -1;
+    for (let i = start; i < end; i++) {
+      const c = s[i];
+      if (c === '"' || c === "'" || c === "`") {
+        lit = i;
+        break;
+      }
+    }
+    return first_key(struct_at, struct?.[1], lit, () => ts_literal(this.src, lit));
+  }
+}
+
+/** A call's key: whichever of the diagnostic struct's name and the first string literal comes first in its
+ *  arguments (D4), or nothing when it has neither. The two kinds never compare equal. */
+function first_key(struct_at: number, struct: string | undefined, lit_at: number, lit: () => string | undefined): string | undefined {
+  if (struct_at >= 0 && (lit_at < 0 || struct_at < lit_at)) return `struct ${struct}`;
+  if (lit_at < 0) return undefined;
+  const text = lit();
+  return text === undefined ? undefined : `literal ${text}`;
+}
+
+/** A TS string or template literal at `at`, with `${..}` as `{}`. */
+function ts_literal(src: string, at: number): string | undefined {
+  const q = src[at]!;
+  let out = "";
+  for (let i = at + 1; i < src.length; i++) {
+    const c = src[i]!;
+    if (c === q) return out;
+    if (c === "\\") {
+      const e = unescape_char(src, i + 1);
+      if (e === undefined) return undefined;
+      out += e[0];
+      i = e[1] - 1;
+    } else if (q === "`" && c === "$" && src[i + 1] === "{") {
+      let d = 0;
+      let j = i + 1;
+      for (; j < src.length; j++) {
+        if (src[j] === "{") d++;
+        else if (src[j] === "}" && --d === 0) break;
+      }
+      out += "{}";
+      i = j;
+    } else out += c;
+  }
+  return undefined;
+}
+
+/** A Rust string literal at `at` (format placeholders as `{}`, `{{`/`}}` as `{`/`}`). */
+function rust_literal(src: string, at: number): string | undefined {
+  let i = at;
+  if (src[i] === "b" || src[i] === "c") i++;
+  let text = "";
+  if (src[i] === "r") {
+    const m = /^r(#*)"/.exec(src.slice(i, i + 300));
+    if (m === null) return undefined;
+    const from = i + m[0].length;
+    const close = src.indexOf(`"${m[1]}`, from);
+    if (close < 0) return undefined;
+    text = src.slice(from, close);
+  } else {
+    if (src[i] !== '"') return undefined;
+    for (i++; ; i++) {
+      if (i >= src.length) return undefined;
+      const c = src[i]!;
+      if (c === '"') break;
+      if (c === "\\" && src[i + 1] === "\n") {
+        // A line continuation drops the newline and the leading whitespace after it.
+        i += 2;
+        while (/\s/.test(src[i] ?? "")) i++;
+        i--;
+      } else if (c === "\\") {
+        const e = unescape_char(src, i + 1);
+        if (e === undefined) return undefined;
+        text += e[0];
+        i = e[1] - 1;
+      } else text += c;
+    }
+  }
+  return text
+    .replace(/\{\{|\}\}|\{[^{}]*\}/g, (m) => (m === "{{" ? "\0{" : m === "}}" ? "\0}" : "{}"))
+    .replace(/\0/g, "");
+}
+
+/** The char of the escape whose letter is at `i`, and the index after it. Anything unusual has no key. */
+function unescape_char(src: string, i: number): [string, number] | undefined {
+  const c = src[i];
+  switch (c) {
+    case "n":
+      return ["\n", i + 1];
+    case "t":
+      return ["\t", i + 1];
+    case "r":
+      return ["\r", i + 1];
+    case "0":
+      return ["\0", i + 1];
+    case "\\":
+    case '"':
+    case "'":
+    case "`":
+    case "$":
+    case "{":
+      return [c, i + 1];
+    default:
+      return undefined;
+  }
 }
 
 const ts_cache = new Map<string, TsFile>();
-function ts_file(file: string): TsFile {
+export function ts_file(file: string): TsFile {
   let f = ts_cache.get(file);
   if (f === undefined) {
     f = new TsFile(readFileSync(file, "utf8"));
@@ -337,20 +593,25 @@ function ts_file(file: string): TsFile {
 
 // ---- upstream sources --------------------------------------------------------------------------------
 
-interface UpCall {
+export interface UpCall {
+  /** Where the location points: the method name, or the start of the path or macro invocation. */
   pos: number;
+  /** The name's own offset. */
+  at: number;
   in_macro_rules: boolean;
 }
 
-class UpFile {
+export class UpFile {
   readonly lines: string[];
   readonly masked: string;
   readonly masked_lines: string[];
   readonly line_starts: number[];
+  /** Start offsets of the string literals, ascending. */
+  readonly literals: number[] = [];
 
   constructor(readonly src: string) {
     this.lines = src.split("\n");
-    this.masked = mask_rust(src);
+    this.masked = mask_rust(src, this.literals);
     this.masked_lines = this.masked.split("\n");
     this.line_starts = line_starts(src);
   }
@@ -386,6 +647,84 @@ class UpFile {
     return undefined;
   }
 
+  /** The body of a marked fn, or the initializer of a `rustc-const:` const. */
+  owner_body(owner: Owner): [number, number] | undefined {
+    const l = this.masked_lines[owner.line - 1];
+    if (l === undefined) return undefined;
+    if (owner.kind === "fn" && !/\bfn\b/.test(l)) {
+      // `const NAME: T = <initializer>;`: the first `;` outside any bracket.
+      if (!new RegExp(`\\bconst\\s+${owner.name}\\b`).test(l)) return undefined;
+      const start = this.line_starts[owner.line - 1]! + l.search(/\bconst\b/);
+      let d = 0;
+      for (let i = start; i < this.masked.length; i++) {
+        const c = this.masked[i]!;
+        if (c === "(" || c === "[" || c === "{") d++;
+        else if (c === ")" || c === "]" || c === "}") d--;
+        else if (c === ";" && d === 0) return [start, i];
+      }
+      return undefined;
+    }
+    return this.fn_body(owner.line);
+  }
+
+  /** Whether `pos` lies in a `macro_rules!` of this file. */
+  in_file_macro_rules(pos: number): boolean {
+    return (this.macro_rules_ ??= this.macro_rules_ranges([0, this.masked.length])).some(([a, b]) => pos > a && pos < b);
+  }
+  private macro_rules_: [number, number][] | undefined;
+
+  private macro_rules_ranges([start, end]: [number, number]): [number, number][] {
+    const out: [number, number][] = [];
+    for (const m of this.masked.slice(start, end).matchAll(/\bmacro_rules!\s*\w+\s*[{(\[]/g)) {
+      const open = start + m.index + m[0].length - 1;
+      out.push([open, match_close(this.masked, open)]);
+    }
+    return out;
+  }
+
+  /** Whether `pos` lies in a closure of `body`. A `|` that merely could open one counts: the answer only ever
+   *  makes the caller refuse. */
+  in_closure([start, end]: [number, number], pos: number): boolean {
+    const s = this.masked;
+    for (let i = start; i < pos; i++) {
+      if (s[i] !== "|") continue;
+      let p = i - 1;
+      while (p >= start && /\s/.test(s[p]!)) p--;
+      const before = s[p] ?? "";
+      const opens = before === "(" || before === "," || before === "{" || before === "[" || before === ";" || (before === "=" && s[p - 1] !== "=") || /\b(?:move|return)$/.test(s.slice(Math.max(start, p - 6), p + 1));
+      if (!opens) continue;
+      // The parameters end at the next `|` (`||`: at once).
+      const close = s.indexOf("|", i + 1);
+      if (close < 0 || close >= end) continue;
+      let b = close + 1;
+      while (/\s/.test(s[b] ?? "")) b++;
+      if (s.startsWith("->", b)) {
+        const brace = s.indexOf("{", b);
+        if (brace < 0) continue;
+        b = brace;
+      }
+      const stop = s[b] === "{" ? match_close(s, b) : expr_end(s, b, end);
+      if (pos > close && pos < stop) return true;
+      i = close;
+    }
+    return false;
+  }
+
+  /** The key of a call: see `first_key`. */
+  call_key(call: UpCall, name: string): string | undefined {
+    const s = this.masked;
+    const after = call.at + name.length;
+    const open = /^\s*(?:!\s*)?(?:::\s*<[^;{}]*?>\s*)?[({\[]/.exec(s.slice(after, after + 400));
+    if (open === null) return undefined;
+    const start = after + open[0].length;
+    const end = match_close(s, start - 1) - 1;
+    const args = s.slice(start, end);
+    const struct = /(?<!\w)([A-Z]\w*[a-z]\w*)(?:\s*\{|\s*$)/.exec(args);
+    const struct_at = struct === null ? -1 : start + struct.index;
+    const lit = this.literals.find((l) => l >= start && l < end) ?? -1;
+    return first_key(struct_at, struct?.[1], lit, () => rust_literal(this.src, lit));
+  }
+
   calls_in([start, end]: [number, number], name: string): UpCall[] {
     const s = this.masked;
     const macro_rules: [number, number][] = [];
@@ -405,7 +744,7 @@ class UpFile {
       const is_call = /^\s*(::\s*<[^;{}]*?>\s*)?\(/.test(after);
       if (!is_macro && !is_call) continue;
       const pos = is_macro || /\.\s*$/.test(before) ? (is_macro ? path_start(s, at, start) : at) : path_start(s, at, start);
-      out.push({ pos, in_macro_rules: macro_rules.some(([a, b]) => at > a && at < b) });
+      out.push({ pos, at, in_macro_rules: macro_rules.some(([a, b]) => at > a && at < b) });
     }
     return out;
   }
@@ -453,7 +792,7 @@ function path_start(s: string, at: number, floor: number): number {
 }
 
 const up_cache = new Map<string, UpFile | undefined>();
-function up_file(path: string): UpFile | undefined {
+export function up_file(path: string): UpFile | undefined {
   if (!up_cache.has(path)) {
     const root = upstream_root();
     const full = root === undefined ? undefined : join(root, path);
@@ -489,6 +828,10 @@ function upstream_is_track_caller(path: string, line: number): boolean | undefin
   return fn_is_track_caller(f, line);
 }
 
+export function is_track_caller_owner(owner: Owner): boolean {
+  return owner.kind !== "fn" || upstream_is_track_caller(owner.path, owner.line) === true;
+}
+
 function fn_is_track_caller(f: UpFile, line: number): boolean {
   if (has_track_caller_attr(f, line)) return true;
   const l = f.masked_lines[line - 1]!;
@@ -515,6 +858,8 @@ function enclosing_impl_trait(f: UpFile, line: number): string | undefined {
   for (let j = line - 2; j >= 0; j--) {
     const l = f.masked_lines[j]!;
     if (l.trim() === "" || indent(l) >= ind) continue;
+    // `impl<..> Trait for X\n{` and `impl Trait\n    for X\nwhere ..\n{`: the lines before the body are the header.
+    if (/^\s*(?:\{|where\b|for\s)/.test(l)) continue;
     if (!/^\s*(unsafe\s+)?impl\b/.test(l)) return undefined;
     // header up to the `{`
     let header = "";
@@ -711,7 +1056,7 @@ function mask_ts(src: string): string {
 }
 
 /** Blanks out Rust comments and string/char literal text (newlines kept). */
-function mask_rust(src: string): string {
+function mask_rust(src: string, literals: number[]): string {
   const out = src.split("");
   const blank = (a: number, b: number) => {
     for (let k = a; k < b; k++) if (out[k] !== "\n") out[k] = " ";
@@ -752,11 +1097,14 @@ function mask_rust(src: string): string {
       const close = `"${m[1]}`;
       const e = src.indexOf(close, i + m[0].length);
       const end = e < 0 ? n : e + close.length;
+      literals.push(i);
       blank(i, end);
       i = end;
     } else if (c === '"') {
       let k = i + 1;
       while (k < n && src[k] !== '"') k += src[k] === "\\" ? 2 : 1;
+      // `b"..."` and `c"..."` lexed as an ident plus a string: the `"` is the start either way.
+      literals.push(i);
       blank(i, k + 1);
       i = k + 1;
     } else if (c === "'") {

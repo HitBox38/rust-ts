@@ -355,6 +355,7 @@ function parse_register_tool(tools: IdentIndexSet[], cx: AcceptContext, args: Ar
     const path = elem.path();
     const ident = path.word();
     if (ident === undefined) {
+      // rustc-call: 355:23
       cx.adcx().expected_identifier(path.span());
       continue;
     }
