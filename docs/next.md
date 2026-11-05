@@ -454,7 +454,7 @@ Report suites, not protected, after the accept at db323c3b: miri-pass-tb 130/132
 ## Wave 39 (started 2026-11-05) — M7 planning, fixes
 | lane | scope | status |
 |---|---|---|
-| plan-m7 | docs/plan-m7.md: text LLVM IR and clang, suites, waves; gets an independent review | running |
+| plan-m7 | docs/plan-m7.md on t3/plan-m7-clang-ir (a6966e12): IR model behind llvm/ffi.rs, pinned opt and llc, IR parity before LLVM's passes plus native behaviour | in independent review |
 | fixers-39 | pointer-fragment dump, Stacked Borrows crash, MIR validation at -Copt-level 2/3, type_length, mio::Poll::new, a test's global state | running |
 Queued:
 - Near-limit protected cases, which matched only through the serial retry in the gate (audit): dynamic-drop.rs and issue-8827.rs (newly protected, about 52-57 s of 60 s), move-3-unique.rs, and four mir cases retried in each of the last four gates (deep-try-chain-issue-153583, hkl_forbidden, param_mismatch2, self-referential-4). Next perf lane; the gate must run with nothing else on the host.
