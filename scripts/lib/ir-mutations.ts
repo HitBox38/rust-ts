@@ -21,8 +21,10 @@ export interface Mutation {
    * scripts/ir-tiers.ts also applies sampled ones alone.
    */
   sites(ir: string): Edit[];
-  /** What each tier must do with it, applied to every site. */
+  /** What each tier must do with it, applied to every site, on a program with a site that does not fold away (the test's fixture has one). */
   expect: Record<IrTier, Verdict>;
+  /** On a program whose every site folds away, N3 absorbs even the whole mutation: scripts/ir-tiers.ts counts that, and does not call it wrong. */
+  n3MayAbsorb?: boolean;
 }
 
 export function applyEdits(ir: string, edits: readonly Edit[]): string {
@@ -99,17 +101,17 @@ const NONE: Record<IrTier, Verdict> = { N1: "absorbed", N2: "absorbed", N3: "abs
 
 /** Real bugs: every tier must report them. */
 export const MUST_STAY_VISIBLE: Mutation[] = [
-  { name: "noalias on every pointer parameter", why: "F1, unsound", sites: onDefines(/([(]|, )ptr (?!noalias)(?=[a-z%])/g, "$1ptr noalias "), expect: ALL },
+  { name: "noalias on every pointer parameter", why: "F1, unsound", sites: onDefines(/([(]|, )ptr (?![^,)]*noalias)(?=[a-z%])/g, "$1ptr noalias "), expect: ALL },
   { name: "nuw nsw on every add, sub, mul", why: "F1, unsound", sites: re(/= (add|sub|mul) (?!nuw|nsw)/gm, "= $1 nuw nsw "), expect: ALL },
   { name: "!nonnull on every loaded pointer", why: "F1, unsound", sites: re(/(= load ptr, ptr %\S+, align \d+)(?![^\n]*!nonnull)/gm, "$1, !nonnull !{}"), expect: ALL },
   { name: "integer loads and stores claim align 16", why: "F1, over-alignment", sites: re(/((?:= load i\d+, ptr %\S+|store i\d+ \S+, ptr %\S+)), align \d+/gm, "$1, align 16"), expect: ALL },
-  { name: "inbounds nuw on every inbounds GEP", why: "F1, unsound", sites: re(/= getelementptr inbounds (?!nuw)/gm, "= getelementptr inbounds nuw "), expect: ALL },
+  { name: "inbounds nuw on every inbounds GEP", why: "F1, unsound", sites: re(/= getelementptr inbounds (?!nuw)/gm, "= getelementptr inbounds nuw "), expect: ALL, n3MayAbsorb: true },
   { name: "signed compares become unsigned", why: "F1, signed as unsigned", sites: re(/icmp s(lt|gt|le|ge) /gm, "icmp u$1 "), expect: ALL },
   { name: "eq and ne swapped", why: "F1", sites: re(/icmp (eq|ne) /gm, (m) => `icmp ${m[1] === "eq" ? "ne" : "eq"} `), expect: ALL },
   { name: "sub i64 becomes add", why: "F1", sites: re(/= sub ((?:nuw |nsw )*)i64 /gm, "= add $1i64 "), expect: ALL },
   { name: "store i64 deleted", why: "F1", sites: re(/^ {2}store i64 .*\n/gm, ""), expect: ALL },
   { name: "lifetime markers dropped", why: "F1: behaviour cannot see it", sites: re(/^ {2}call void @llvm\.lifetime\..*\n/gm, ""), expect: ALL },
-  { name: "readonly on every pointer parameter", why: "F1; the verifier may reject it, and that is a difference too", sites: onDefines(/([(]|, )ptr (?!readonly|writeonly)(?=[a-z%])/g, "$1ptr readonly "), expect: ALL },
+  { name: "readonly on every pointer parameter", why: "F1; the verifier may reject it, and that is a difference too", sites: onDefines(/([(]|, )ptr (?![^,)]*(?:readonly|writeonly))(?=[a-z%])/g, "$1ptr readonly "), expect: ALL },
   { name: "noalias dropped", why: "the tier table", sites: re(/ noalias /gm, " "), expect: ALL },
   { name: "load align 8 becomes 4", why: "the tier table", sites: re(/(= load \S+, ptr %\S+), align 8/gm, "$1, align 4"), expect: ALL },
   { name: "!noundef dropped", why: "the tier table", sites: re(/, !noundef !\d+/gm, ""), expect: ALL },
@@ -163,11 +165,11 @@ export const ALWAYS_ABSORBED: Mutation[] = [
   { name: "comment lines removed", why: "annotation writer", sites: re(/^; .*\n/gm, ""), expect: NONE },
   { name: "preds tails reordered", why: "use-list order", sites: re(/^(\w+:) +; preds = (%[^,\n]+), (%[^,\n]+)$/gm, "$1 ; preds = $3, $2"), expect: NONE },
   { name: "!guid removed", why: "assign-guid adds it", sites: re(/, !guid !\d+| !guid !\d+(?= \{)/gm, ""), expect: NONE },
-  { name: "attribute groups renumbered", why: "assigned by the printer", sites: re(/(^attributes | )#(\d+)/gm, (m) => `${m[1]}#${Number(m[2]) + 1000}`), expect: NONE },
+  { name: "attribute groups renumbered", why: "assigned by the printer", sites: whole((ir) => ir.replace(/(^attributes | )#(\d+)/gm, (_, a, n) => `${a}#${Number(n) + 1000}`)), expect: NONE },
   {
     name: "metadata renumbered",
     why: "assigned by the printer",
-    sites: (ir) => [...ir.matchAll(/!(\d+)\b/g)].filter((m) => !lineHolds(ir, m.index)).map((m) => ({ at: m.index, len: m[0].length, text: `!${Number(m[1]) + 1000}` })),
+    sites: whole((ir) => applyEdits(ir, [...ir.matchAll(/!(\d+)\b/g)].filter((m) => !inString(ir, m.index)).map((m) => ({ at: m.index, len: m[0].length, text: `!${Number(m[1]) + 1000}` })))),
     expect: NONE,
   },
   { name: "attributes dropped from intrinsic declarations", why: "the parser replaces them", sites: re(/^(declare .*@llvm\.[^(]*\(.*\)) #\d+$/gm, "$1"), expect: NONE },
@@ -177,7 +179,7 @@ export const ALWAYS_ABSORBED: Mutation[] = [
 ];
 
 /** The offset is inside a double-quoted string on its line (metadata renumbering skips those). */
-function lineHolds(ir: string, at: number): boolean {
+function inString(ir: string, at: number): boolean {
   const start = ir.lastIndexOf("\n", at) + 1;
   return ir.slice(start, at).split('"').length % 2 === 0;
 }
