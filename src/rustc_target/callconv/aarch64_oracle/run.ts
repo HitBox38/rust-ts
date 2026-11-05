@@ -3,8 +3,8 @@
 //
 // `compiler_entrypoint` on abi.rs once per target, in one process, each exit code on stderr as `exit <n>` after its
 // output. One process because of the unit budget (docs/reviews/plan-m7.md F5): starting one costs more than the fixture's
-// work. rustc never runs two sessions in a process, so state leaking between them would show up here as a mismatch with
-// the oracle, whose output comes from one process per target (regen.ts).
+// work. The oracle's output comes from one process per target (regen.ts), and rustc never runs two sessions in a process. Darwin
+// runs first, in a fresh process, as rustc does; a bug only a fresh process shows on linux-gnu would not show here.
 //
 // Exit codes as src/rust_ts/main.ts for a stop: 70 = reached unported code, 101 = ICE. Otherwise 0.
 import { ensure_stack } from "../../../rust_ts/stack.ts";

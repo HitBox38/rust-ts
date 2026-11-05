@@ -131,10 +131,6 @@ function place(): typeof import("./place.ts") {
 // PORT: cached (`require` per call was ~30% of CTFE time); `var` is hoisted, as cycles may call this early.
 var place_cache: typeof import("./place.ts") | undefined;
 
-// rustc-type: compiler/rustc_const_eval/src/interpret/eval_context.rs:30 InterpCx
-// PORT: the impls of `HasDataLayout` / `HasTyCtxt` / `HasTypingEnv` / `LayoutOfHelpers` / `FnAbiOfHelpers` (and the blanket
-// `LayoutOf` / `FnAbiOf`) are methods of the class (PORTING §8); the trait methods `tcx()` / `typing_env()` are `tcx_()` /
-// `typing_env_()` (rustc_middle ty/layout.ts header), the fields keep their names.
 /**
  * Measured (docs/handoff/miri-perf.md, 486 Ginstr at base): -19.7 Ginstr.
  * PORT(perf) (lane miri-perf, plan-m6 D11): upstream folds and normalizes every MIR type or constant each time it is used
@@ -145,8 +141,13 @@ var place_cache: typeof import("./place.ts") | undefined;
 const FRAME_NORMALIZE_MEMO = new Map<unknown, Map<number, Result<unknown, NormalizationError>>>();
 /** PORT(perf): see `resolve`. */
 const RESOLVE_MEMO = new Map<number, InterpResult<Instance>>();
-let resolve_memo_tcx: unknown;
+/** Weak: a strong reference kept the whole `TyCtxt` alive to process exit (`docs/reviews/miri-perf.md` N2). */
+let resolve_memo_tcx: WeakRef<object> | undefined;
 
+// rustc-type: compiler/rustc_const_eval/src/interpret/eval_context.rs:30 InterpCx
+// PORT: the impls of `HasDataLayout` / `HasTyCtxt` / `HasTypingEnv` / `LayoutOfHelpers` / `FnAbiOfHelpers` (and the blanket
+// `LayoutOf` / `FnAbiOf`) are methods of the class (PORTING §8); the trait methods `tcx()` / `typing_env()` are `tcx_()` /
+// `typing_env_()` (rustc_middle ty/layout.ts header), the fields keep their names.
 export class InterpCx<M extends AnyMachine = Machine>
   implements
     LayoutOf<Result<TyAndLayout<Ty>, InterpErrorKind>, InterpErrorKind>,
@@ -456,8 +457,8 @@ export class InterpCx<M extends AnyMachine = Machine>
     // PORT(perf): a successful resolution is pure in `(def, args, typing env)` (all interned or by value), and `Instance` is
     // never written to, so the first result is reused: `try_resolve` erases, folds and looks up queries on every call.
     // A `DefId` means something else in another `TyCtxt` and the empty list is process-wide, so the memo is per `TyCtxt`.
-    if (resolve_memo_tcx !== this.tcx.tcx) {
-      resolve_memo_tcx = this.tcx.tcx;
+    if (resolve_memo_tcx?.deref() !== this.tcx.tcx) {
+      resolve_memo_tcx = new WeakRef(this.tcx.tcx);
       RESOLVE_MEMO.clear();
     }
     const resolve_key = pack_def_id(typing_env_no(this.typing_env), def, args.id);

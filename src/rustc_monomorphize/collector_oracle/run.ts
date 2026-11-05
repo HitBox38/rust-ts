@@ -32,7 +32,6 @@ async function main(): Promise<number> {
   const { collect_crate_mono_items } = await import("../collector.ts");
   const { display_MonoItem, MonoItem } = await import("../../rustc_middle/mono.ts");
   const { with_no_trimmed_paths } = await import("../../rustc_middle/ty/print/pretty.ts");
-  const { Fingerprint } = await import("../../rustc_data_structures/fingerprint.ts");
   const { Size, Size_cmp } = await import("../../rustc_abi/lib.ts");
   const { CtfeProvenance, GlobalAlloc: GlobalAllocC, Provenance_CtfeProvenance, alloc_range } = await import("../../rustc_middle/mir/interpret/mod.ts");
   const { display_Instance } = await import("../../rustc_middle/ty/instance.ts");
