@@ -31,6 +31,16 @@ const MIN_JS_STACK = 2 * 1024 * 1024;
 /** Set in the re-exec'd process (the JS stack size it was given). */
 const MARKER = "RUST_TS_JS_STACK";
 
+/**
+ * What `/bin/sh` changes on its way to `exec "$@"`: bash adds `PWD` and `SHLVL` when missing, replaces a wrong `PWD` and drops an
+ * `OLDPWD` that is not a directory. rustc sees none of that, and `env!`/`option_env!` read it (`docs/reviews/m6-audit.md`:
+ * tests/ui/compiletest-self-test/rustc-env.rs, `//@ unset-rustc-env:PWD`).
+ */
+const SHELL_VARS = ["PWD", "OLDPWD", "SHLVL"];
+
+/** Carries `SHELL_VARS`' values across the shell, as a JSON array with `null` for unset. Removed on arrival. */
+const SHELL_ENV = "RUST_TS_SHELL_ENV";
+
 /** Room kept free between JSC's limit and the end of the mapped stack (native frames, guard). */
 const MARGIN = 1024 * 1024;
 
@@ -79,6 +89,18 @@ function macho_main_stacksize(path: string): number | undefined {
   }
 }
 
+/** In the re-exec'd process: puts back what the shell changed. A process that merely inherited `MARKER` has nothing to do. */
+function restore_shell_env(): void {
+  const saved = process.env[SHELL_ENV];
+  if (saved === undefined) return;
+  delete process.env[SHELL_ENV];
+  (JSON.parse(saved) as (string | null)[]).forEach((v, i) => {
+    const k = SHELL_VARS[i]!;
+    if (v === null) delete process.env[k];
+    else process.env[k] = v;
+  });
+}
+
 /**
  * Re-execs this process once with a stack sized for the compiler (see the file comment). Returns
  * only when no re-exec is needed or possible.
@@ -89,7 +111,10 @@ function macho_main_stacksize(path: string): number | undefined {
  */
 export function ensure_stack(): void {
   if (process.platform !== "darwin" && process.platform !== "linux") return;
-  if (process.env[MARKER] !== undefined) return;
+  if (process.env[MARKER] !== undefined) {
+    restore_shell_env();
+    return;
+  }
   const want = Math.max(Math.ceil(rust_thread_stack_size(process.env.RUST_MIN_STACK) * JS_STACK_PER_RUST_BYTE), MIN_JS_STACK);
 
   const linux = process.platform === "linux";
@@ -126,6 +151,7 @@ export function ensure_stack(): void {
   };
   const setenv = (k: string, v: string): boolean => libc.symbols.setenv(ptr(cstr(k)), ptr(cstr(v)), 1) === 0;
   if (!setenv("BUN_JSC_maxPerThreadStackUsage", String(js_stack)) || !setenv(MARKER, String(js_stack))) return;
+  if (!setenv(SHELL_ENV, JSON.stringify(SHELL_VARS.map((k) => process.env[k] ?? null)))) return;
 
   const args = ["sh", "-c", `ulimit -S -s ${soft_kib} 2>/dev/null || unset BUN_JSC_maxPerThreadStackUsage; exec "$@"`, "sh", process.execPath]
     .map(cstr)
