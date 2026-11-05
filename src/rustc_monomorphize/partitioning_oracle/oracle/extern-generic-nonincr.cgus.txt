@@ -1,0 +1,12 @@
+CGU extern_generic.998ac00c5258139-cgu.0 sym=_RNSCsP52qudGxef_14extern_generic3cgu size=19 primary=true covdead=false n=5
+IT fn cgu_generic_function::foo::<&str> External Default inlined=false size=5
+IT fn cgu_generic_function::bar::<&str> External Default inlined=false size=8
+IT fn mod1::user External Default inlined=false size=2
+IT fn mod1::mod1::user External Default inlined=false size=2
+IT fn user External Default inlined=false size=2
+DO _RINvCslHFsxZpyhBL_20cgu_generic_function3barReECsP52qudGxef_14extern_generic fn cgu_generic_function::bar::<&str>
+DO _RINvCslHFsxZpyhBL_20cgu_generic_function3fooReECsP52qudGxef_14extern_generic fn cgu_generic_function::foo::<&str>
+DO _RNvCsP52qudGxef_14extern_generic4user fn user
+DO _RNvNtCsP52qudGxef_14extern_generic4mod14user fn mod1::user
+DO _RNvNtNtCsP52qudGxef_14extern_generic4mod14mod14user fn mod1::mod1::user
+ALL 5

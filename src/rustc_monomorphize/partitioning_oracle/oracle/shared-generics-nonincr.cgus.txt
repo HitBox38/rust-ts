@@ -1,0 +1,6 @@
+CGU shared_generics.13d450bbe0888d78-cgu.0 sym=_RNSCs1HyaOKqwv6C_15shared_generics3cgu size=7 primary=true covdead=false n=2
+IT fn foo External Default inlined=false size=5
+IT fn shared_generics_aux::generic_fn::<u16> External Default inlined=false size=2
+DO _RINvCs64YpNJE4t8Q_19shared_generics_aux10generic_fntECs1HyaOKqwv6C_15shared_generics fn shared_generics_aux::generic_fn::<u16>
+DO _RNvCs1HyaOKqwv6C_15shared_generics3foo fn foo
+ALL 2

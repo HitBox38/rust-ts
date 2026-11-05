@@ -653,6 +653,12 @@ export class Session {
     }
   }
 
+  /// Returns the default symbol visibility.
+  // rustc: compiler/rustc_session/src/session.rs:908 default_visibility
+  default_visibility(): target_spec.SymbolVisibility {
+    return this.opts.unstable_opts.default_visibility ?? this.target.default_visibility ?? target_spec.SymbolVisibility.Interposable;
+  }
+
   // rustc: compiler/rustc_session/src/session.rs:916 staticlib_components
   staticlib_components(verbatim: boolean): [string, string] {
     if (verbatim) {

@@ -1,0 +1,23 @@
+CGU methods_are_with_self_type.5f0047a3633d2936 sym=_RINSCs89GGW8TsxHS_26methods_are_with_self_type3cguKRe6d6574686f64735f6172655f776974685f73656c665f747970652e35663030343761333633336432393336_E size=14 primary=true covdead=false n=3
+IT fn mod1::<impl SomeType>::associated_fn External Default inlined=false size=1
+IT fn start External Default inlined=false size=12
+IT fn mod1::<impl SomeType>::method External Default inlined=false size=1
+DO _RNvMNtCs89GGW8TsxHS_26methods_are_with_self_type4mod1NtB4_8SomeType13associated_fn fn mod1::<impl SomeType>::associated_fn
+DO _RNvMNtCs89GGW8TsxHS_26methods_are_with_self_type4mod1NtB4_8SomeType6method fn mod1::<impl SomeType>::method
+DO start fn start
+CGU methods_are_with_self_type.5f0047a3633d2936-type1.volatile sym=_RINSCs89GGW8TsxHS_26methods_are_with_self_type3cguKRe6d6574686f64735f6172655f776974685f73656c665f747970652e356630303437613336333364323933362d74797065312e766f6c6174696c65_E size=2 primary=false covdead=false n=2
+IT fn <type1::Struct as Trait>::default External Default inlined=false size=1
+IT fn <type1::Struct as Trait>::foo External Default inlined=false size=1
+DO _RNvXCs89GGW8TsxHS_26methods_are_with_self_typeNtNtB2_5type16StructNtB2_5Trait3fooB2_ fn <type1::Struct as Trait>::foo
+DO _RNvYNtNtCs89GGW8TsxHS_26methods_are_with_self_type5type16StructNtB6_5Trait7defaultB6_ fn <type1::Struct as Trait>::default
+CGU methods_are_with_self_type.5f0047a3633d2936-type2.volatile sym=_RINSCs89GGW8TsxHS_26methods_are_with_self_type3cguKRe6d6574686f64735f6172655f776974685f73656c665f747970652e356630303437613336333364323933362d74797065322e766f6c6174696c65_E size=2 primary=false covdead=false n=2
+IT fn <type2::Struct as Trait>::default External Default inlined=false size=1
+IT fn <type2::Struct as Trait>::foo External Default inlined=false size=1
+DO _RNvXCs89GGW8TsxHS_26methods_are_with_self_typeNtNtB2_5type26StructNtB2_5Trait3fooB2_ fn <type2::Struct as Trait>::foo
+DO _RNvYNtNtCs89GGW8TsxHS_26methods_are_with_self_type5type26StructNtB6_5Trait7defaultB6_ fn <type2::Struct as Trait>::default
+CGU methods_are_with_self_type.5f0047a3633d2936.volatile sym=_RINSCs89GGW8TsxHS_26methods_are_with_self_type3cguKRe6d6574686f64735f6172655f776974685f73656c665f747970652e356630303437613336333364323933362e766f6c6174696c65_E size=6 primary=false covdead=false n=2
+IT fn mod1::<impl SomeGenericType<u32, u64>>::method External Hidden inlined=false size=1
+IT fn mod1::<impl SomeGenericType<char, &str>>::associated_fn External Hidden inlined=false size=5
+DO _RNvMs_NtCs89GGW8TsxHS_26methods_are_with_self_type4mod1INtB6_15SomeGenericTypecReE13associated_fnB6_ fn mod1::<impl SomeGenericType<char, &str>>::associated_fn
+DO _RNvMs_NtCs89GGW8TsxHS_26methods_are_with_self_type4mod1INtB6_15SomeGenericTypemyE6methodB6_ fn mod1::<impl SomeGenericType<u32, u64>>::method
+ALL 7

@@ -1,0 +1,94 @@
+CGU stats.591f988c34cc9edb-cgu.0 sym=_RNSCs7EoUPvysJBf_5stats3cgu size=153 primary=true covdead=false n=46
+IT fn f18 External Default inlined=false size=4
+IT fn f06 External Default inlined=false size=4
+IT fn f36 External Default inlined=false size=2
+IT fn f29 External Default inlined=false size=3
+IT fn f35 External Default inlined=false size=5
+IT fn f33 External Default inlined=false size=3
+IT fn f22 External Default inlined=false size=4
+IT fn f26 External Default inlined=false size=4
+IT fn f24 External Default inlined=false size=2
+IT fn f39 External Default inlined=false size=5
+IT fn f21 External Default inlined=false size=3
+IT fn f30 External Default inlined=false size=4
+IT fn f17 External Default inlined=false size=3
+IT fn f02 External Default inlined=false size=4
+IT fn f07 External Default inlined=false size=5
+IT fn f16 External Default inlined=false size=2
+IT fn f00 External Default inlined=false size=2
+IT fn f10 External Default inlined=false size=4
+IT fn generic::<u32> External Default inlined=false size=2
+IT fn f20 External Default inlined=false size=2
+IT fn f12 External Default inlined=false size=2
+IT fn Tied::method External Default inlined=false size=1
+IT fn f14 External Default inlined=false size=4
+IT fn f37 External Default inlined=false size=3
+IT fn f34 External Default inlined=false size=4
+IT fn f05 External Default inlined=false size=3
+IT fn f32 External Default inlined=false size=2
+IT fn f19 External Default inlined=false size=5
+IT fn f01 External Default inlined=false size=3
+IT fn generic::<u8> External Default inlined=false size=2
+IT fn f28 External Default inlined=false size=2
+IT fn f31 External Default inlined=false size=5
+IT fn generic::<u16> External Default inlined=false size=2
+IT fn f27 External Default inlined=false size=5
+IT fn use_generic External Default inlined=false size=5
+IT fn f03 External Default inlined=false size=5
+IT fn f13 External Default inlined=false size=3
+IT fn f04 External Default inlined=false size=2
+IT fn f25 External Default inlined=false size=3
+IT fn f09 External Default inlined=false size=3
+IT fn f15 External Default inlined=false size=5
+IT fn f38 External Default inlined=false size=4
+IT fn f23 External Default inlined=false size=5
+IT fn f11 External Default inlined=false size=5
+IT fn f08 External Default inlined=false size=2
+IT static A_STATIC External Default inlined=false size=1
+DO _RINvCs7EoUPvysJBf_5stats7generichEB2_ fn generic::<u8>
+DO _RINvCs7EoUPvysJBf_5stats7genericmEB2_ fn generic::<u32>
+DO _RINvCs7EoUPvysJBf_5stats7generictEB2_ fn generic::<u16>
+DO _RNvCs7EoUPvysJBf_5stats11use_generic fn use_generic
+DO _RNvCs7EoUPvysJBf_5stats3f00 fn f00
+DO _RNvCs7EoUPvysJBf_5stats3f01 fn f01
+DO _RNvCs7EoUPvysJBf_5stats3f02 fn f02
+DO _RNvCs7EoUPvysJBf_5stats3f03 fn f03
+DO _RNvCs7EoUPvysJBf_5stats3f04 fn f04
+DO _RNvCs7EoUPvysJBf_5stats3f05 fn f05
+DO _RNvCs7EoUPvysJBf_5stats3f06 fn f06
+DO _RNvCs7EoUPvysJBf_5stats3f07 fn f07
+DO _RNvCs7EoUPvysJBf_5stats3f08 fn f08
+DO _RNvCs7EoUPvysJBf_5stats3f09 fn f09
+DO _RNvCs7EoUPvysJBf_5stats3f10 fn f10
+DO _RNvCs7EoUPvysJBf_5stats3f11 fn f11
+DO _RNvCs7EoUPvysJBf_5stats3f12 fn f12
+DO _RNvCs7EoUPvysJBf_5stats3f13 fn f13
+DO _RNvCs7EoUPvysJBf_5stats3f14 fn f14
+DO _RNvCs7EoUPvysJBf_5stats3f15 fn f15
+DO _RNvCs7EoUPvysJBf_5stats3f16 fn f16
+DO _RNvCs7EoUPvysJBf_5stats3f17 fn f17
+DO _RNvCs7EoUPvysJBf_5stats3f18 fn f18
+DO _RNvCs7EoUPvysJBf_5stats3f19 fn f19
+DO _RNvCs7EoUPvysJBf_5stats3f20 fn f20
+DO _RNvCs7EoUPvysJBf_5stats3f21 fn f21
+DO _RNvCs7EoUPvysJBf_5stats3f22 fn f22
+DO _RNvCs7EoUPvysJBf_5stats3f23 fn f23
+DO _RNvCs7EoUPvysJBf_5stats3f24 fn f24
+DO _RNvCs7EoUPvysJBf_5stats3f25 fn f25
+DO _RNvCs7EoUPvysJBf_5stats3f26 fn f26
+DO _RNvCs7EoUPvysJBf_5stats3f27 fn f27
+DO _RNvCs7EoUPvysJBf_5stats3f28 fn f28
+DO _RNvCs7EoUPvysJBf_5stats3f29 fn f29
+DO _RNvCs7EoUPvysJBf_5stats3f30 fn f30
+DO _RNvCs7EoUPvysJBf_5stats3f31 fn f31
+DO _RNvCs7EoUPvysJBf_5stats3f32 fn f32
+DO _RNvCs7EoUPvysJBf_5stats3f33 fn f33
+DO _RNvCs7EoUPvysJBf_5stats3f34 fn f34
+DO _RNvCs7EoUPvysJBf_5stats3f35 fn f35
+DO _RNvCs7EoUPvysJBf_5stats3f36 fn f36
+DO _RNvCs7EoUPvysJBf_5stats3f37 fn f37
+DO _RNvCs7EoUPvysJBf_5stats3f38 fn f38
+DO _RNvCs7EoUPvysJBf_5stats3f39 fn f39
+DO _RNvCs7EoUPvysJBf_5stats8A_STATIC static A_STATIC
+DO _RNvMCs7EoUPvysJBf_5statsNtB2_4Tied6method fn Tied::method
+ALL 44

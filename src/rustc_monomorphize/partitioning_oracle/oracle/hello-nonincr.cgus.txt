@@ -1,0 +1,178 @@
+CGU hello.b6c7b6e691a126d6-cgu.0 sym=_RNSCsfGVVHW78eig_5hello3cgu size=923 primary=true covdead=false n=88
+IT fn std::fmt::format Internal Default inlined=false size=22
+IT fn std::fmt::format::{closure#0} Internal Default inlined=false size=4
+IT fn std::fmt::DebugList::<'_, '_>::entries::<&u32, std::slice::Iter<'_, u32>> Internal Default inlined=false size=20
+IT fn <std::slice::Iter<'_, u32> as std::iter::Iterator>::next Internal Default inlined=false size=29
+IT fn <std::slice::Iter<'_, u32> as std::iter::IntoIterator>::into_iter Internal Default inlined=false size=2
+IT fn std::ptr::NonNull::<T>::new_unchecked::precondition_check Internal Default inlined=false size=15
+IT fn std::ptr::drop_glue::<std::string::String> - shim(Some(std::string::String)) Internal Default inlined=false size=2
+IT fn std::ptr::drop_glue::<std::boxed::Box<std::mem::MaybeUninit<[std::string::String; 1]>>> - shim(Some(std::boxed::Box<std::mem::MaybeUninit<[std::string::String; 1]>>)) Internal Default inlined=false size=8
+IT fn std::ptr::drop_glue::<{closure@std::iter::Iterator::for_each::call<u32, {closure@std::vec::Vec<u32>::extend_trusted<std::ops::Range<u32>>::{closure#0}}>::{closure#0}}> - shim(Some({closure@std::iter::Iterator::for_each::call<u32, {closure@std::vec::Vec<u32>::extend_trusted<std::ops::Range<u32>>::{closure#0}}>::{closure#0}})) Internal Default inlined=false size=2
+IT fn std::ptr::drop_glue::<alloc::raw_vec::RawVec<u32>> - shim(Some(alloc::raw_vec::RawVec<u32>)) Internal Default inlined=false size=3
+IT fn <{closure@std::rt::lang_start<()>::{closure#0}} as std::ops::FnOnce<()>>::call_once - shim Internal Default inlined=false size=1
+IT fn std::ptr::drop_glue::<[std::string::String]> - shim(Some([std::string::String])) Internal Default inlined=false size=15
+IT fn std::ptr::drop_glue::<alloc::raw_vec::RawVec<u8>> - shim(Some(alloc::raw_vec::RawVec<u8>)) Internal Default inlined=false size=3
+IT fn std::ptr::drop_glue::<std::vec::Vec<u8>> - shim(Some(std::vec::Vec<u8>)) Internal Default inlined=false size=6
+IT fn std::ptr::drop_glue::<{closure@std::vec::Vec<u32>::extend_trusted<std::ops::Range<u32>>::{closure#0}}> - shim(Some({closure@std::vec::Vec<u32>::extend_trusted<std::ops::Range<u32>>::{closure#0}})) Internal Default inlined=false size=2
+IT fn std::ptr::drop_glue::<alloc::raw_vec::RawVec<std::string::String>> - shim(Some(alloc::raw_vec::RawVec<std::string::String>)) Internal Default inlined=false size=3
+IT fn std::ptr::drop_glue::<std::vec::set_len_on_drop::SetLenOnDrop<'_>> - shim(Some(std::vec::set_len_on_drop::SetLenOnDrop<'_>)) Internal Default inlined=false size=3
+IT fn <{closure@std::rt::lang_start<()>::{closure#0}} as std::ops::FnOnce<()>>::call_once - shim(vtable) Internal Default inlined=false size=1
+IT fn std::ptr::drop_glue::<std::vec::Vec<u32>> - shim(Some(std::vec::Vec<u32>)) Internal Default inlined=false size=6
+IT fn <for<'a> fn(&'a str) -> <str as std::borrow::ToOwned>::Owned {<str as std::borrow::ToOwned>::to_owned} as std::ops::FnOnce<(&str,)>>::call_once - shim(for<'a> fn(&'a str) -> <str as std::borrow::ToOwned>::Owned {<str as std::borrow::ToOwned>::to_owned}) Internal Default inlined=false size=1
+IT fn <fn() as std::ops::FnOnce<()>>::call_once - shim(fn()) Internal Default inlined=false size=1
+IT fn std::ptr::drop_glue::<std::vec::Vec<std::string::String>> - shim(Some(std::vec::Vec<std::string::String>)) Internal Default inlined=false size=6
+IT fn std::vec::Vec::<u32>::extend_trusted::<std::ops::Range<u32>>::{closure#0} Internal Default inlined=false size=6
+IT fn <std::vec::Vec<std::string::String> as std::ops::Drop>::drop Internal Default inlined=false size=7
+IT fn <std::vec::Vec<u32> as std::ops::Drop>::drop Internal Default inlined=false size=7
+IT fn <std::vec::Vec<u32> as std::ops::Deref>::deref Internal Default inlined=false size=6
+IT fn std::vec::Vec::<u32>::extend_trusted::<std::ops::Range<u32>> Internal Default inlined=false size=34
+IT fn std::vec::Vec::<T, A>::from_raw_parts_in::precondition_check Internal Default inlined=false size=14
+IT fn <std::vec::Vec<u32> as std::vec::spec_extend::SpecExtend<u32, std::ops::Range<u32>>>::spec_extend Internal Default inlined=false size=2
+IT fn <std::vec::Vec<u32> as std::iter::FromIterator<u32>>::from_iter::<std::ops::Range<u32>> Internal Default inlined=false size=3
+IT fn std::vec::Vec::<u32>::reserve Internal Default inlined=false size=15
+IT fn <std::vec::Vec<u32> as std::vec::spec_from_iter::SpecFromIter<u32, std::ops::Range<u32>>>::from_iter Internal Default inlined=false size=2
+IT fn <std::vec::Vec<u32> as std::vec::spec_from_iter_nested::SpecFromIterNested<u32, std::ops::Range<u32>>>::from_iter Internal Default inlined=false size=31
+IT fn std::vec::Vec::<std::string::String>::len Internal Default inlined=false size=4
+IT fn std::vec::Vec::<T, A>::set_len::precondition_check Internal Default inlined=false size=14
+IT fn b::more Internal Default inlined=false size=22
+IT fn std::boxed::Box::<[std::string::String; 1]>::new_uninit Internal Default inlined=true size=3
+IT fn std::boxed::box_assume_init_into_vec_unsafe::<std::string::String, 1> Internal Default inlined=true size=25
+IT fn b::show Internal Default inlined=false size=11
+IT fn std::hint::must_use::<std::string::String> Internal Default inlined=true size=2
+IT fn <std::ops::Range<u32> as std::iter::Iterator>::collect::<std::vec::Vec<u32>> Internal Default inlined=false size=2
+IT fn <std::ops::Range<u32> as std::iter::IntoIterator>::into_iter Internal Default inlined=false size=2
+IT fn <std::ops::Range<u32> as std::iter::range::RangeIteratorImpl>::spec_next Internal Default inlined=false size=12
+IT fn std::cmp::impls::<impl std::cmp::PartialOrd for u32>::lt Internal Default inlined=true size=4
+IT fn std::iter::range::<impl std::iter::Iterator for std::ops::Range<u32>>::size_hint Internal Default inlined=false size=11
+IT fn <std::ops::Range<u32> as std::iter::Iterator>::for_each::<{closure@std::vec::Vec<u32>::extend_trusted<std::ops::Range<u32>>::{closure#0}}> Internal Default inlined=false size=3
+IT fn <std::ops::Range<u32> as std::iter::Iterator>::fold::<(), {closure@std::iter::Iterator::for_each::call<u32, {closure@std::vec::Vec<u32>::extend_trusted<std::ops::Range<u32>>::{closure#0}}>::{closure#0}}> Internal Default inlined=false size=26
+IT fn std::iter::range::<impl std::iter::Iterator for std::ops::Range<u32>>::next Internal Default inlined=false size=2
+IT fn std::alloc::Global::alloc_impl_runtime Internal Default inlined=false size=54
+IT fn <std::alloc::Global as std::alloc::Allocator>::deallocate Internal Default inlined=false size=6
+IT fn core::ub_checks::maybe_is_nonoverlapping::runtime Internal Default inlined=false size=21
+IT fn core::fmt::rt::Argument::<'_>::new_debug::<&[u32]> Internal Default inlined=false size=7
+IT fn core::fmt::rt::Argument::<'_>::new_display::<usize> Internal Default inlined=false size=7
+IT fn core::fmt::rt::Argument::<'_>::new_display::<std::string::String> Internal Default inlined=false size=7
+IT fn std::rt::lang_start::<()> External Hidden inlined=false size=5
+IT fn std::rt::lang_start::<()>::{closure#0} Internal Default inlined=false size=6
+IT fn std::option::Option::<&str>::map_or_else::<std::string::String, {closure@std::fmt::format::{closure#0}}, for<'a> fn(&'a str) -> <str as std::borrow::ToOwned>::Owned {<str as std::borrow::ToOwned>::to_owned}> Internal Default inlined=false size=21
+IT fn std::ptr::const_ptr::<impl *const ()>::is_aligned_to Internal Default inlined=false size=20
+IT fn std::string::String::new Internal Default inlined=false size=3
+IT fn <std::string::String as std::fmt::Display>::fmt Internal Default inlined=false size=8
+IT fn <std::boxed::Box<std::mem::MaybeUninit<[std::string::String; 1]>> as std::ops::Drop>::drop Internal Default inlined=false size=19
+IT fn std::boxed::box_new_uninit Internal Default inlined=false size=18
+IT fn core::fmt::num::<impl std::fmt::Debug for u32>::fmt Internal Default inlined=false size=13
+IT fn std::ptr::copy_nonoverlapping::precondition_check Internal Default inlined=false size=42
+IT fn std::iter::Iterator::for_each::call::<u32, {closure@std::vec::Vec<u32>::extend_trusted<std::ops::Range<u32>>::{closure#0}}>::{closure#0} Internal Default inlined=false size=4
+IT fn <() as std::process::Termination>::report Internal Default inlined=false size=2
+IT fn <u8 as std::slice::<impl [T]>::to_vec_in::ConvertVec>::to_vec::<std::alloc::Global> Internal Default inlined=false size=28
+IT fn std::mem::Alignment::new_unchecked::precondition_check Internal Default inlined=false size=15
+IT fn std::str::<impl std::borrow::ToOwned for str>::to_owned Internal Default inlined=false size=4
+IT fn main External Hidden inlined=false size=27
+IT fn <u32 as std::iter::Step>::steps_between Internal Default inlined=false size=12
+IT fn <u32 as std::iter::Step>::forward_unchecked Internal Default inlined=false size=5
+IT fn a::numbers Internal Default inlined=false size=3
+IT fn std::fmt::Arguments::<'_>::new::<7, 2> Internal Default inlined=false size=4
+IT fn <&[u32] as std::fmt::Debug>::fmt Internal Default inlined=false size=3
+IT fn <[u32] as std::fmt::Debug>::fmt Internal Default inlined=false size=19
+IT fn <&u32 as std::fmt::Debug>::fmt Internal Default inlined=false size=3
+IT fn std::fmt::Arguments::<'_>::new::<2, 1> Internal Default inlined=false size=4
+IT fn std::hint::assert_unchecked::precondition_check Internal Default inlined=false size=13
+IT fn std::intrinsics::cold_path Internal Default inlined=false size=1
+IT fn <alloc::raw_vec::RawVec<std::string::String> as std::ops::Drop>::drop Internal Default inlined=false size=3
+IT fn alloc::raw_vec::RawVecInner::with_capacity_in Internal Default inlined=false size=21
+IT fn <alloc::raw_vec::RawVec<u32> as std::ops::Drop>::drop Internal Default inlined=false size=3
+IT fn std::alloc::Layout::from_size_alignment_unchecked::precondition_check Internal Default inlined=false size=16
+IT fn <std::vec::set_len_on_drop::SetLenOnDrop<'_> as std::ops::Drop>::drop Internal Default inlined=false size=4
+IT fn std::slice::from_raw_parts::precondition_check Internal Default inlined=false size=29
+IT fn core::num::<impl u32>::unchecked_add::precondition_check Internal Default inlined=false size=15
+IT fn std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()> Internal Default inlined=false size=3
+DO _RINvMNtCsajD8mEyjPew_4core6optionINtB3_6OptionReE11map_or_elseNtNtCs6EtWt5HU3LY_5alloc6string6StringNCNvNtB12_3fmt6format0NvYeNtNtB12_6borrow7ToOwned8to_ownedECsfGVVHW78eig_5hello fn std::option::Option::<&str>::map_or_else::<std::string::String, {closure@std::fmt::format::{closure#0}}, for<'a> fn(&'a str) -> <str as std::borrow::ToOwned>::Owned {<str as std::borrow::ToOwned>::to_owned}>
+DO _RINvMNtNtCsajD8mEyjPew_4core3fmt2rtNtB3_8Argument11new_displayNtNtCs6EtWt5HU3LY_5alloc6string6StringECsfGVVHW78eig_5hello fn core::fmt::rt::Argument::<'_>::new_display::<std::string::String>
+DO _RINvMNtNtCsajD8mEyjPew_4core3fmt2rtNtB3_8Argument11new_displayjECsfGVVHW78eig_5hello fn core::fmt::rt::Argument::<'_>::new_display::<usize>
+DO _RINvMNtNtCsajD8mEyjPew_4core3fmt2rtNtB3_8Argument9new_debugRSmECsfGVVHW78eig_5hello fn core::fmt::rt::Argument::<'_>::new_debug::<&[u32]>
+DO _RINvMs2_NtCsajD8mEyjPew_4core3fmtNtB6_9Arguments3newKj2_Kj1_ECsfGVVHW78eig_5hello fn std::fmt::Arguments::<'_>::new::<2, 1>
+DO _RINvMs2_NtCsajD8mEyjPew_4core3fmtNtB6_9Arguments3newKj7_Kj2_ECsfGVVHW78eig_5hello fn std::fmt::Arguments::<'_>::new::<7, 2>
+DO _RINvMs6_NtNtCsajD8mEyjPew_4core3fmt8buildersNtB6_9DebugList7entriesRmINtNtNtBa_5slice4iter4ItermEECsfGVVHW78eig_5hello fn std::fmt::DebugList::<'_, '_>::entries::<&u32, std::slice::Iter<'_, u32>>
+DO _RINvMsk_NtCs6EtWt5HU3LY_5alloc3vecINtB6_3VecmE14extend_trustedINtNtNtCsajD8mEyjPew_4core3ops5range5RangemEECsfGVVHW78eig_5hello fn std::vec::Vec::<u32>::extend_trusted::<std::ops::Range<u32>>
+DO _RINvNtCs6EtWt5HU3LY_5alloc5boxed31box_assume_init_into_vec_unsafeNtNtB4_6string6StringKj1_ECsfGVVHW78eig_5hello fn std::boxed::box_assume_init_into_vec_unsafe::<std::string::String, 1>
+DO _RINvNtCs7uvcShySr4P_3std2rt10lang_startuECsfGVVHW78eig_5hello fn std::rt::lang_start::<()>
+DO _RINvNtCsajD8mEyjPew_4core3ptr9drop_glueINtNtCs6EtWt5HU3LY_5alloc3vec3VecNtNtBG_6string6StringEECsfGVVHW78eig_5hello fn std::ptr::drop_glue::<std::vec::Vec<std::string::String>> - shim(Some(std::vec::Vec<std::string::String>))
+DO _RINvNtCsajD8mEyjPew_4core3ptr9drop_glueINtNtCs6EtWt5HU3LY_5alloc3vec3VechEECsfGVVHW78eig_5hello fn std::ptr::drop_glue::<std::vec::Vec<u8>> - shim(Some(std::vec::Vec<u8>))
+DO _RINvNtCsajD8mEyjPew_4core3ptr9drop_glueINtNtCs6EtWt5HU3LY_5alloc3vec3VecmEECsfGVVHW78eig_5hello fn std::ptr::drop_glue::<std::vec::Vec<u32>> - shim(Some(std::vec::Vec<u32>))
+DO _RINvNtCsajD8mEyjPew_4core3ptr9drop_glueINtNtCs6EtWt5HU3LY_5alloc5boxed3BoxINtNtNtB4_3mem12maybe_uninit11MaybeUninitANtNtBG_6string6Stringj1_EEECsfGVVHW78eig_5hello fn std::ptr::drop_glue::<std::boxed::Box<std::mem::MaybeUninit<[std::string::String; 1]>>> - shim(Some(std::boxed::Box<std::mem::MaybeUninit<[std::string::String; 1]>>))
+DO _RINvNtCsajD8mEyjPew_4core3ptr9drop_glueINtNtCs6EtWt5HU3LY_5alloc7raw_vec6RawVecNtNtBG_6string6StringEECsfGVVHW78eig_5hello fn std::ptr::drop_glue::<alloc::raw_vec::RawVec<std::string::String>> - shim(Some(alloc::raw_vec::RawVec<std::string::String>))
+DO _RINvNtCsajD8mEyjPew_4core3ptr9drop_glueINtNtCs6EtWt5HU3LY_5alloc7raw_vec6RawVechEECsfGVVHW78eig_5hello fn std::ptr::drop_glue::<alloc::raw_vec::RawVec<u8>> - shim(Some(alloc::raw_vec::RawVec<u8>))
+DO _RINvNtCsajD8mEyjPew_4core3ptr9drop_glueINtNtCs6EtWt5HU3LY_5alloc7raw_vec6RawVecmEECsfGVVHW78eig_5hello fn std::ptr::drop_glue::<alloc::raw_vec::RawVec<u32>> - shim(Some(alloc::raw_vec::RawVec<u32>))
+DO _RINvNtCsajD8mEyjPew_4core3ptr9drop_glueNCINvMsk_NtCs6EtWt5HU3LY_5alloc3vecINtBK_3VecmE14extend_trustedINtNtNtB4_3ops5range5RangemEE0ECsfGVVHW78eig_5hello fn std::ptr::drop_glue::<{closure@std::vec::Vec<u32>::extend_trusted<std::ops::Range<u32>>::{closure#0}}> - shim(Some({closure@std::vec::Vec<u32>::extend_trusted<std::ops::Range<u32>>::{closure#0}}))
+DO _RINvNtCsajD8mEyjPew_4core3ptr9drop_glueNCINvNvNtNtNtNtB4_4iter6traits8iterator8Iterator8for_each4callmNCINvMsk_NtCs6EtWt5HU3LY_5alloc3vecINtB1L_3VecmE14extend_trustedINtNtNtB4_3ops5range5RangemEE0E0ECsfGVVHW78eig_5hello fn std::ptr::drop_glue::<{closure@std::iter::Iterator::for_each::call<u32, {closure@std::vec::Vec<u32>::extend_trusted<std::ops::Range<u32>>::{closure#0}}>::{closure#0}}> - shim(Some({closure@std::iter::Iterator::for_each::call<u32, {closure@std::vec::Vec<u32>::extend_trusted<std::ops::Range<u32>>::{closure#0}}>::{closure#0}}))
+DO _RINvNtCsajD8mEyjPew_4core3ptr9drop_glueNtNtCs6EtWt5HU3LY_5alloc6string6StringECsfGVVHW78eig_5hello fn std::ptr::drop_glue::<std::string::String> - shim(Some(std::string::String))
+DO _RINvNtCsajD8mEyjPew_4core3ptr9drop_glueNtNtNtCs6EtWt5HU3LY_5alloc3vec15set_len_on_drop12SetLenOnDropECsfGVVHW78eig_5hello fn std::ptr::drop_glue::<std::vec::set_len_on_drop::SetLenOnDrop<'_>> - shim(Some(std::vec::set_len_on_drop::SetLenOnDrop<'_>))
+DO _RINvNtCsajD8mEyjPew_4core3ptr9drop_glueSNtNtCs6EtWt5HU3LY_5alloc6string6StringECsfGVVHW78eig_5hello fn std::ptr::drop_glue::<[std::string::String]> - shim(Some([std::string::String]))
+DO _RINvNtCsajD8mEyjPew_4core4hint8must_useNtNtCs6EtWt5HU3LY_5alloc6string6StringECsfGVVHW78eig_5hello fn std::hint::must_use::<std::string::String>
+DO _RINvNtNtCs7uvcShySr4P_3std3sys9backtrace28___rust_begin_short_backtraceFEuuECsfGVVHW78eig_5hello fn std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
+DO _RINvXs_NvMNtCs6EtWt5HU3LY_5alloc5sliceSp9to_vec_inhNtB5_10ConvertVec6to_vecNtNtBa_5alloc6GlobalECsfGVVHW78eig_5hello fn <u8 as std::slice::<impl [T]>::to_vec_in::ConvertVec>::to_vec::<std::alloc::Global>
+DO _RINvXsf_NtCs6EtWt5HU3LY_5alloc3vecINtB6_3VecmEINtNtNtNtCsajD8mEyjPew_4core4iter6traits7collect12FromIteratormE9from_iterINtNtNtBR_3ops5range5RangemEECsfGVVHW78eig_5hello fn <std::vec::Vec<u32> as std::iter::FromIterator<u32>>::from_iter::<std::ops::Range<u32>>
+DO _RINvYINtNtNtCsajD8mEyjPew_4core3ops5range5RangemENtNtNtNtBa_4iter6traits8iterator8Iterator4folduNCINvNvBL_8for_each4callmNCINvMsk_NtCs6EtWt5HU3LY_5alloc3vecINtB24_3VecmE14extend_trustedB3_E0E0ECsfGVVHW78eig_5hello fn <std::ops::Range<u32> as std::iter::Iterator>::fold::<(), {closure@std::iter::Iterator::for_each::call<u32, {closure@std::vec::Vec<u32>::extend_trusted<std::ops::Range<u32>>::{closure#0}}>::{closure#0}}>
+DO _RINvYINtNtNtCsajD8mEyjPew_4core3ops5range5RangemENtNtNtNtBa_4iter6traits8iterator8Iterator7collectINtNtCs6EtWt5HU3LY_5alloc3vec3VecmEECsfGVVHW78eig_5hello fn <std::ops::Range<u32> as std::iter::Iterator>::collect::<std::vec::Vec<u32>>
+DO _RINvYINtNtNtCsajD8mEyjPew_4core3ops5range5RangemENtNtNtNtBa_4iter6traits8iterator8Iterator8for_eachNCINvMsk_NtCs6EtWt5HU3LY_5alloc3vecINtB1I_3VecmE14extend_trustedB3_E0ECsfGVVHW78eig_5hello fn <std::ops::Range<u32> as std::iter::Iterator>::for_each::<{closure@std::vec::Vec<u32>::extend_trusted<std::ops::Range<u32>>::{closure#0}}>
+DO _RNCINvMsk_NtCs6EtWt5HU3LY_5alloc3vecINtB8_3VecmE14extend_trustedINtNtNtCsajD8mEyjPew_4core3ops5range5RangemEE0CsfGVVHW78eig_5hello fn std::vec::Vec::<u32>::extend_trusted::<std::ops::Range<u32>>::{closure#0}
+DO _RNCINvNtCs7uvcShySr4P_3std2rt10lang_startuE0CsfGVVHW78eig_5hello fn std::rt::lang_start::<()>::{closure#0}
+DO _RNCINvNvNtNtNtNtCsajD8mEyjPew_4core4iter6traits8iterator8Iterator8for_each4callmNCINvMsk_NtCs6EtWt5HU3LY_5alloc3vecINtB1p_3VecmE14extend_trustedINtNtNtBe_3ops5range5RangemEE0E0CsfGVVHW78eig_5hello fn std::iter::Iterator::for_each::call::<u32, {closure@std::vec::Vec<u32>::extend_trusted<std::ops::Range<u32>>::{closure#0}}>::{closure#0}
+DO _RNCNvNtCs6EtWt5HU3LY_5alloc3fmt6format0CsfGVVHW78eig_5hello fn std::fmt::format::{closure#0}
+DO _RNSNvYNCINvNtCs7uvcShySr4P_3std2rt10lang_startuE0INtNtNtCsajD8mEyjPew_4core3ops8function6FnOnceuE9call_once6vtableCsfGVVHW78eig_5hello fn <{closure@std::rt::lang_start<()>::{closure#0}} as std::ops::FnOnce<()>>::call_once - shim(vtable)
+DO _RNvCsfGVVHW78eig_5hello4main fn main
+DO _RNvMNtCs6EtWt5HU3LY_5alloc6stringNtB2_6String3newCsfGVVHW78eig_5hello fn std::string::String::new
+DO _RNvMNtNtCsajD8mEyjPew_4core3ptr9const_ptrPu13is_aligned_toCsfGVVHW78eig_5hello fn std::ptr::const_ptr::<impl *const ()>::is_aligned_to
+DO _RNvMs0_NtCs6EtWt5HU3LY_5alloc5allocNtB5_6Global18alloc_impl_runtimeCsfGVVHW78eig_5hello fn std::alloc::Global::alloc_impl_runtime
+DO _RNvMs7_NtCs6EtWt5HU3LY_5alloc5boxedINtB5_3BoxANtNtB7_6string6Stringj1_E10new_uninitCsfGVVHW78eig_5hello fn std::boxed::Box::<[std::string::String; 1]>::new_uninit
+DO _RNvMs8_NtCs6EtWt5HU3LY_5alloc7raw_vecNtB5_11RawVecInner16with_capacity_inCsfGVVHW78eig_5hello fn alloc::raw_vec::RawVecInner::with_capacity_in
+DO _RNvMs_NtCs6EtWt5HU3LY_5alloc3vecINtB4_3VecNtNtB6_6string6StringE3lenCsfGVVHW78eig_5hello fn std::vec::Vec::<std::string::String>::len
+DO _RNvMs_NtCs6EtWt5HU3LY_5alloc3vecINtB4_3VecmE7reserveCsfGVVHW78eig_5hello fn std::vec::Vec::<u32>::reserve
+DO _RNvNtCs6EtWt5HU3LY_5alloc3fmt6formatCsfGVVHW78eig_5hello fn std::fmt::format
+DO _RNvNtCs6EtWt5HU3LY_5alloc5boxed14box_new_uninitCsfGVVHW78eig_5hello fn std::boxed::box_new_uninit
+DO _RNvNtCsajD8mEyjPew_4core10intrinsics9cold_pathCsfGVVHW78eig_5hello fn std::intrinsics::cold_path
+DO _RNvNtCsfGVVHW78eig_5hello1a7numbers fn a::numbers
+DO _RNvNtCsfGVVHW78eig_5hello1b4more fn b::more
+DO _RNvNtCsfGVVHW78eig_5hello1b4show fn b::show
+DO _RNvNvMNtNtCsajD8mEyjPew_4core3mem9alignmentNtB4_9Alignment13new_unchecked18precondition_checkCsfGVVHW78eig_5hello fn std::mem::Alignment::new_unchecked::precondition_check
+DO _RNvNvMNtNtCsajD8mEyjPew_4core5alloc6layoutNtB4_6Layout29from_size_alignment_unchecked18precondition_checkCsfGVVHW78eig_5hello fn std::alloc::Layout::from_size_alignment_unchecked::precondition_check
+DO _RNvNvMs1_NtNtCsajD8mEyjPew_4core3ptr8non_nullINtB7_7NonNullpE13new_unchecked18precondition_checkCsfGVVHW78eig_5hello fn std::ptr::NonNull::<T>::new_unchecked::precondition_check
+DO _RNvNvMs6_NtCsajD8mEyjPew_4core3numm13unchecked_add18precondition_checkCsfGVVHW78eig_5hello fn core::num::<impl u32>::unchecked_add::precondition_check
+DO _RNvNvMs_NtCs6EtWt5HU3LY_5alloc3vecINtB6_3VecppE17from_raw_parts_in18precondition_checkCsfGVVHW78eig_5hello fn std::vec::Vec::<T, A>::from_raw_parts_in::precondition_check
+DO _RNvNvMs_NtCs6EtWt5HU3LY_5alloc3vecINtB6_3VecppE7set_len18precondition_checkCsfGVVHW78eig_5hello fn std::vec::Vec::<T, A>::set_len::precondition_check
+DO _RNvNvNtCsajD8mEyjPew_4core3ptr19copy_nonoverlapping18precondition_checkCsfGVVHW78eig_5hello fn std::ptr::copy_nonoverlapping::precondition_check
+DO _RNvNvNtCsajD8mEyjPew_4core4hint16assert_unchecked18precondition_checkCsfGVVHW78eig_5hello fn std::hint::assert_unchecked::precondition_check
+DO _RNvNvNtCsajD8mEyjPew_4core9ub_checks23maybe_is_nonoverlapping7runtimeCsfGVVHW78eig_5hello fn core::ub_checks::maybe_is_nonoverlapping::runtime
+DO _RNvNvNtNtCsajD8mEyjPew_4core5slice3raw14from_raw_parts18precondition_checkCsfGVVHW78eig_5hello fn std::slice::from_raw_parts::precondition_check
+DO _RNvXNtNtCs6EtWt5HU3LY_5alloc3vec14spec_from_iterINtB4_3VecmEINtB2_12SpecFromItermINtNtNtCsajD8mEyjPew_4core3ops5range5RangemEE9from_iterCsfGVVHW78eig_5hello fn <std::vec::Vec<u32> as std::vec::spec_from_iter::SpecFromIter<u32, std::ops::Range<u32>>>::from_iter
+DO _RNvXNtNtNtCsajD8mEyjPew_4core4iter6traits7collectINtNtNtB8_3ops5range5RangemENtB2_12IntoIterator9into_iterCsfGVVHW78eig_5hello fn <std::ops::Range<u32> as std::iter::IntoIterator>::into_iter
+DO _RNvXNtNtNtCsajD8mEyjPew_4core4iter6traits7collectINtNtNtB8_5slice4iter4ItermENtB2_12IntoIterator9into_iterCsfGVVHW78eig_5hello fn <std::slice::Iter<'_, u32> as std::iter::IntoIterator>::into_iter
+DO _RNvXs10_NtNtCsajD8mEyjPew_4core3cmp5implsmNtB8_10PartialOrd2lt fn std::cmp::impls::<impl std::cmp::PartialOrd for u32>::lt
+DO _RNvXs1_NtCs6EtWt5HU3LY_5alloc5allocNtB5_6GlobalNtNtCsajD8mEyjPew_4core5alloc9Allocator10deallocateCsfGVVHW78eig_5hello fn <std::alloc::Global as std::alloc::Allocator>::deallocate
+DO _RNvXs1g_NtCsajD8mEyjPew_4core3fmtRSmNtB6_5Debug3fmtCsfGVVHW78eig_5hello fn <&[u32] as std::fmt::Debug>::fmt
+DO _RNvXs1g_NtCsajD8mEyjPew_4core3fmtRmNtB6_5Debug3fmtCsfGVVHW78eig_5hello fn <&u32 as std::fmt::Debug>::fmt
+DO _RNvXs2J_NtNtCsajD8mEyjPew_4core5slice4iterINtB6_4ItermENtNtNtNtBa_4iter6traits8iterator8Iterator4nextCsfGVVHW78eig_5hello fn <std::slice::Iter<'_, u32> as std::iter::Iterator>::next
+DO _RNvXs2_NtCs6EtWt5HU3LY_5alloc3streNtNtB7_6borrow7ToOwned8to_ownedCsfGVVHW78eig_5hello fn std::str::<impl std::borrow::ToOwned for str>::to_owned
+DO _RNvXs3_NtNtCsajD8mEyjPew_4core4iter5rangeINtNtNtB9_3ops5range5RangemENtB5_17RangeIteratorImpl9spec_nextCsfGVVHW78eig_5hello fn <std::ops::Range<u32> as std::iter::range::RangeIteratorImpl>::spec_next
+DO _RNvXs4_NtCs6EtWt5HU3LY_5alloc7raw_vecINtB5_6RawVecNtNtB7_6string6StringENtNtNtCsajD8mEyjPew_4core3ops4drop4Drop4dropCsfGVVHW78eig_5hello fn <alloc::raw_vec::RawVec<std::string::String> as std::ops::Drop>::drop
+DO _RNvXs4_NtCs6EtWt5HU3LY_5alloc7raw_vecINtB5_6RawVecmENtNtNtCsajD8mEyjPew_4core3ops4drop4Drop4dropCsfGVVHW78eig_5hello fn <alloc::raw_vec::RawVec<u32> as std::ops::Drop>::drop
+DO _RNvXs4_NtNtCsajD8mEyjPew_4core4iter5rangeINtNtNtB9_3ops5range5RangemENtNtNtB7_6traits8iterator8Iterator4nextCsfGVVHW78eig_5hello fn std::iter::range::<impl std::iter::Iterator for std::ops::Range<u32>>::next
+DO _RNvXs4_NtNtCsajD8mEyjPew_4core4iter5rangeINtNtNtB9_3ops5range5RangemENtNtNtB7_6traits8iterator8Iterator9size_hintCsfGVVHW78eig_5hello fn std::iter::range::<impl std::iter::Iterator for std::ops::Range<u32>>::size_hint
+DO _RNvXs8_NtCs6EtWt5HU3LY_5alloc3vecINtB5_3VecmENtNtNtCsajD8mEyjPew_4core3ops5deref5Deref5derefCsfGVVHW78eig_5hello fn <std::vec::Vec<u32> as std::ops::Deref>::deref
+DO _RNvXsH_NtNtCsajD8mEyjPew_4core4iter5rangemNtB5_4Step13steps_betweenCsfGVVHW78eig_5hello fn <u32 as std::iter::Step>::steps_between
+DO _RNvXsH_NtNtCsajD8mEyjPew_4core4iter5rangemNtB5_4Step17forward_uncheckedCsfGVVHW78eig_5hello fn <u32 as std::iter::Step>::forward_unchecked
+DO _RNvXsU_NtCs7uvcShySr4P_3std7processuNtB5_11Termination6reportCsfGVVHW78eig_5hello fn <() as std::process::Termination>::report
+DO _RNvXsW_NtNtCsajD8mEyjPew_4core3fmt3nummNtB7_5Debug3fmtCsfGVVHW78eig_5hello fn core::fmt::num::<impl std::fmt::Debug for u32>::fmt
+DO _RNvXs_NtNtCs6EtWt5HU3LY_5alloc3vec11spec_extendINtB6_3VecmEINtB4_10SpecExtendmINtNtNtCsajD8mEyjPew_4core3ops5range5RangemEE11spec_extendCsfGVVHW78eig_5hello fn <std::vec::Vec<u32> as std::vec::spec_extend::SpecExtend<u32, std::ops::Range<u32>>>::spec_extend
+DO _RNvXs_NtNtCs6EtWt5HU3LY_5alloc3vec15set_len_on_dropNtB4_12SetLenOnDropNtNtNtCsajD8mEyjPew_4core3ops4drop4Drop4dropCsfGVVHW78eig_5hello fn <std::vec::set_len_on_drop::SetLenOnDrop<'_> as std::ops::Drop>::drop
+DO _RNvXs_NtNtCs6EtWt5HU3LY_5alloc3vec21spec_from_iter_nestedINtB6_3VecmEINtB4_18SpecFromIterNestedmINtNtNtCsajD8mEyjPew_4core3ops5range5RangemEE9from_iterCsfGVVHW78eig_5hello fn <std::vec::Vec<u32> as std::vec::spec_from_iter_nested::SpecFromIterNested<u32, std::ops::Range<u32>>>::from_iter
+DO _RNvXsh_NtCs6EtWt5HU3LY_5alloc5boxedINtB5_3BoxINtNtNtCsajD8mEyjPew_4core3mem12maybe_uninit11MaybeUninitANtNtB7_6string6Stringj1_EENtNtNtBO_3ops4drop4Drop4dropCsfGVVHW78eig_5hello fn <std::boxed::Box<std::mem::MaybeUninit<[std::string::String; 1]>> as std::ops::Drop>::drop
+DO _RNvXsp_NtCs6EtWt5HU3LY_5alloc3vecINtB5_3VecNtNtB7_6string6StringENtNtNtCsajD8mEyjPew_4core3ops4drop4Drop4dropCsfGVVHW78eig_5hello fn <std::vec::Vec<std::string::String> as std::ops::Drop>::drop
+DO _RNvXsp_NtCs6EtWt5HU3LY_5alloc3vecINtB5_3VecmENtNtNtCsajD8mEyjPew_4core3ops4drop4Drop4dropCsfGVVHW78eig_5hello fn <std::vec::Vec<u32> as std::ops::Drop>::drop
+DO _RNvXsq_NtCs6EtWt5HU3LY_5alloc6stringNtB5_6StringNtNtCsajD8mEyjPew_4core3fmt7Display3fmtCsfGVVHW78eig_5hello fn <std::string::String as std::fmt::Display>::fmt
+DO _RNvXsr_NtCsajD8mEyjPew_4core3fmtSmNtB5_5Debug3fmtCsfGVVHW78eig_5hello fn <[u32] as std::fmt::Debug>::fmt
+DO _RNvYFEuINtNtNtCsajD8mEyjPew_4core3ops8function6FnOnceuE9call_onceCsfGVVHW78eig_5hello fn <fn() as std::ops::FnOnce<()>>::call_once - shim(fn())
+DO _RNvYNCINvNtCs7uvcShySr4P_3std2rt10lang_startuE0INtNtNtCsajD8mEyjPew_4core3ops8function6FnOnceuE9call_onceCsfGVVHW78eig_5hello fn <{closure@std::rt::lang_start<()>::{closure#0}} as std::ops::FnOnce<()>>::call_once - shim
+DO _RNvYNvYeNtNtCs6EtWt5HU3LY_5alloc6borrow7ToOwned8to_ownedINtNtNtCsajD8mEyjPew_4core3ops8function6FnOnceTReEE9call_onceCsfGVVHW78eig_5hello fn <for<'a> fn(&'a str) -> <str as std::borrow::ToOwned>::Owned {<str as std::borrow::ToOwned>::to_owned} as std::ops::FnOnce<(&str,)>>::call_once - shim(for<'a> fn(&'a str) -> <str as std::borrow::ToOwned>::Owned {<str as std::borrow::ToOwned>::to_owned})
+ALL 68

@@ -1,0 +1,18 @@
+CGU local_generic.5c55d428223b328f-cgu.0 sym=_RNSCs7VuU6MQbLml_13local_generic3cgu size=16 primary=true covdead=false n=8
+IT fn generic::<u64> External Default inlined=false size=2
+IT fn generic::<char> External Default inlined=false size=2
+IT fn generic::<u32> External Default inlined=false size=2
+IT fn user External Default inlined=false size=2
+IT fn generic::<&str> External Default inlined=false size=2
+IT fn mod1::mod1::user External Default inlined=false size=2
+IT fn mod2::user External Default inlined=false size=2
+IT fn mod1::user External Default inlined=false size=2
+DO _RINvCs7VuU6MQbLml_13local_generic7genericReEB2_ fn generic::<&str>
+DO _RINvCs7VuU6MQbLml_13local_generic7genericcEB2_ fn generic::<char>
+DO _RINvCs7VuU6MQbLml_13local_generic7genericmEB2_ fn generic::<u32>
+DO _RINvCs7VuU6MQbLml_13local_generic7genericyEB2_ fn generic::<u64>
+DO _RNvCs7VuU6MQbLml_13local_generic4user fn user
+DO _RNvNtCs7VuU6MQbLml_13local_generic4mod14user fn mod1::user
+DO _RNvNtCs7VuU6MQbLml_13local_generic4mod24user fn mod2::user
+DO _RNvNtNtCs7VuU6MQbLml_13local_generic4mod14mod14user fn mod1::mod1::user
+ALL 5

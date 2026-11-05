@@ -1,0 +1,10 @@
+CGU local_transitive_inlining.a19410adf847a980-cgu.0 sym=_RNSCsdS4Px9UponQ_25local_transitive_inlining3cgu size=6 primary=true covdead=false n=4
+IT fn indirect_user::bar External Default inlined=false size=2
+IT fn direct_user::foo Internal Default inlined=true size=2
+IT fn inline::inlined_function Internal Default inlined=true size=1
+IT fn non_user::baz External Default inlined=false size=1
+DO _RNvNtCsdS4Px9UponQ_25local_transitive_inlining11direct_user3foo fn direct_user::foo
+DO _RNvNtCsdS4Px9UponQ_25local_transitive_inlining13indirect_user3bar fn indirect_user::bar
+DO _RNvNtCsdS4Px9UponQ_25local_transitive_inlining6inline16inlined_function fn inline::inlined_function
+DO _RNvNtCsdS4Px9UponQ_25local_transitive_inlining8non_user3baz fn non_user::baz
+ALL 4

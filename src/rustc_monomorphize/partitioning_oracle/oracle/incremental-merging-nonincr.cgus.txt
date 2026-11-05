@@ -1,0 +1,12 @@
+CGU incremental_merging.20ab3c513ad85504-cgu.0 sym=_RNSCs2NTxbAtg5oe_19incremental_merging3cgu size=13 primary=true covdead=false n=1
+IT fn ddd::foo External Default inlined=false size=13
+DO _RNvNtCs2NTxbAtg5oe_19incremental_merging3ddd3foo fn ddd::foo
+CGU incremental_merging.20ab3c513ad85504-cgu.1 sym=_RNSCs2NTxbAtg5oe_19incremental_mergings_3cgu size=11 primary=false covdead=false n=2
+IT fn bbb::foo External Default inlined=false size=7
+IT fn aaa::foo External Default inlined=false size=4
+DO _RNvNtCs2NTxbAtg5oe_19incremental_merging3aaa3foo fn aaa::foo
+DO _RNvNtCs2NTxbAtg5oe_19incremental_merging3bbb3foo fn bbb::foo
+CGU incremental_merging.20ab3c513ad85504-cgu.2 sym=_RNSCs2NTxbAtg5oe_19incremental_mergings0_3cgu size=10 primary=false covdead=false n=1
+IT fn ccc::foo External Default inlined=false size=10
+DO _RNvNtCs2NTxbAtg5oe_19incremental_merging3ccc3foo fn ccc::foo
+ALL 4

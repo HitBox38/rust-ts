@@ -1,0 +1,58 @@
+CGU merge_many.d97d8c349ff64a97-cgu.00 sym=_RNSCsiFHaYW7bgmF_10merge_many3cgu size=23 primary=true covdead=false n=5
+IT fn big::g External Default inlined=false size=3
+IT fn big::f External Default inlined=false size=7
+IT fn shared_a Internal Default inlined=true size=4
+IT fn shared_b Internal Default inlined=true size=2
+IT fn shared_c Internal Default inlined=true size=7
+DO _RNvCsiFHaYW7bgmF_10merge_many8shared_a fn shared_a
+DO _RNvCsiFHaYW7bgmF_10merge_many8shared_b fn shared_b
+DO _RNvCsiFHaYW7bgmF_10merge_many8shared_c fn shared_c
+DO _RNvNtCsiFHaYW7bgmF_10merge_many3big1f fn big::f
+DO _RNvNtCsiFHaYW7bgmF_10merge_many3big1g fn big::g
+CGU merge_many.d97d8c349ff64a97-cgu.01 sym=_RNSCsiFHaYW7bgmF_10merge_manys_3cgu size=9 primary=false covdead=false n=2
+IT fn same_size_4::f External Default inlined=false size=2
+IT fn shared_c Internal Default inlined=true size=7
+DO _RNvCsiFHaYW7bgmF_10merge_many8shared_c fn shared_c
+DO _RNvNtCsiFHaYW7bgmF_10merge_many11same_size_41f fn same_size_4::f
+CGU merge_many.d97d8c349ff64a97-cgu.02 sym=_RNSCsiFHaYW7bgmF_10merge_manys0_3cgu size=6 primary=false covdead=false n=2
+IT fn same_size_2::f External Default inlined=false size=2
+IT fn shared_a Internal Default inlined=true size=4
+DO _RNvCsiFHaYW7bgmF_10merge_many8shared_a fn shared_a
+DO _RNvNtCsiFHaYW7bgmF_10merge_many11same_size_21f fn same_size_2::f
+CGU merge_many.d97d8c349ff64a97-cgu.03 sym=_RNSCsiFHaYW7bgmF_10merge_manys1_3cgu size=6 primary=false covdead=false n=3
+IT fn generic::<u64> External Default inlined=false size=2
+IT fn generic::<u32> External Default inlined=false size=2
+IT fn generic::<u8> External Default inlined=false size=2
+DO _RINvCsiFHaYW7bgmF_10merge_many7generichEB2_ fn generic::<u8>
+DO _RINvCsiFHaYW7bgmF_10merge_many7genericmEB2_ fn generic::<u32>
+DO _RINvCsiFHaYW7bgmF_10merge_many7genericyEB2_ fn generic::<u64>
+CGU merge_many.d97d8c349ff64a97-cgu.04 sym=_RNSCsiFHaYW7bgmF_10merge_manys2_3cgu size=6 primary=false covdead=false n=2
+IT fn same_size_1::f External Default inlined=false size=2
+IT fn shared_a Internal Default inlined=true size=4
+DO _RNvCsiFHaYW7bgmF_10merge_many8shared_a fn shared_a
+DO _RNvNtCsiFHaYW7bgmF_10merge_many11same_size_11f fn same_size_1::f
+CGU merge_many.d97d8c349ff64a97-cgu.05 sym=_RNSCsiFHaYW7bgmF_10merge_manys3_3cgu size=5 primary=false covdead=false n=1
+IT fn caller::f External Default inlined=false size=5
+DO _RNvNtCsiFHaYW7bgmF_10merge_many6caller1f fn caller::f
+CGU merge_many.d97d8c349ff64a97-cgu.06 sym=_RNSCsiFHaYW7bgmF_10merge_manys4_3cgu size=4 primary=false covdead=false n=2
+IT fn uses_generic::g External Default inlined=false size=2
+IT fn uses_generic::f External Default inlined=false size=2
+DO _RNvNtCsiFHaYW7bgmF_10merge_many12uses_generic1f fn uses_generic::f
+DO _RNvNtCsiFHaYW7bgmF_10merge_many12uses_generic1g fn uses_generic::g
+CGU merge_many.d97d8c349ff64a97-cgu.07 sym=_RNSCsiFHaYW7bgmF_10merge_manys5_3cgu size=4 primary=false covdead=false n=2
+IT fn same_size_3::f External Default inlined=false size=2
+IT fn shared_b Internal Default inlined=true size=2
+DO _RNvCsiFHaYW7bgmF_10merge_many8shared_b fn shared_b
+DO _RNvNtCsiFHaYW7bgmF_10merge_many11same_size_31f fn same_size_3::f
+CGU merge_many.d97d8c349ff64a97-cgu.08 sym=_RNSCsiFHaYW7bgmF_10merge_manys6_3cgu size=3 primary=false covdead=false n=2
+IT fn private_used_elsewhere::helper External Hidden inlined=false size=2
+IT static private_used_elsewhere::INNER External Hidden inlined=false size=1
+DO _RNvNtCsiFHaYW7bgmF_10merge_many22private_used_elsewhere5INNER static private_used_elsewhere::INNER
+DO _RNvNtCsiFHaYW7bgmF_10merge_many22private_used_elsewhere6helper fn private_used_elsewhere::helper
+CGU merge_many.d97d8c349ff64a97-cgu.09 sym=_RNSCsiFHaYW7bgmF_10merge_manys7_3cgu size=1 primary=false covdead=false n=1
+IT fn small::f External Default inlined=false size=1
+DO _RNvNtCsiFHaYW7bgmF_10merge_many5small1f fn small::f
+CGU merge_many.d97d8c349ff64a97-cgu.10 sym=_RNSCsiFHaYW7bgmF_10merge_manys8_3cgu size=1 primary=false covdead=false n=1
+IT fn small2::f External Default inlined=false size=1
+DO _RNvNtCsiFHaYW7bgmF_10merge_many6small21f fn small2::f
+ALL 17

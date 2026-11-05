@@ -1,0 +1,20 @@
+CGU methods_are_with_self_type.5f0047a3633d2936-cgu.0 sym=_RNSCs89GGW8TsxHS_26methods_are_with_self_type3cgu size=24 primary=true covdead=false n=9
+IT fn mod1::<impl SomeType>::associated_fn External Default inlined=false size=1
+IT fn start External Default inlined=false size=12
+IT fn mod1::<impl SomeGenericType<u32, u64>>::method Internal Default inlined=false size=1
+IT fn mod1::<impl SomeGenericType<char, &str>>::associated_fn Internal Default inlined=false size=5
+IT fn mod1::<impl SomeType>::method External Default inlined=false size=1
+IT fn <type2::Struct as Trait>::default External Default inlined=false size=1
+IT fn <type2::Struct as Trait>::foo External Default inlined=false size=1
+IT fn <type1::Struct as Trait>::default External Default inlined=false size=1
+IT fn <type1::Struct as Trait>::foo External Default inlined=false size=1
+DO _RNvMNtCs89GGW8TsxHS_26methods_are_with_self_type4mod1NtB4_8SomeType13associated_fn fn mod1::<impl SomeType>::associated_fn
+DO _RNvMNtCs89GGW8TsxHS_26methods_are_with_self_type4mod1NtB4_8SomeType6method fn mod1::<impl SomeType>::method
+DO _RNvMs_NtCs89GGW8TsxHS_26methods_are_with_self_type4mod1INtB6_15SomeGenericTypecReE13associated_fnB6_ fn mod1::<impl SomeGenericType<char, &str>>::associated_fn
+DO _RNvMs_NtCs89GGW8TsxHS_26methods_are_with_self_type4mod1INtB6_15SomeGenericTypemyE6methodB6_ fn mod1::<impl SomeGenericType<u32, u64>>::method
+DO _RNvXCs89GGW8TsxHS_26methods_are_with_self_typeNtNtB2_5type16StructNtB2_5Trait3fooB2_ fn <type1::Struct as Trait>::foo
+DO _RNvXCs89GGW8TsxHS_26methods_are_with_self_typeNtNtB2_5type26StructNtB2_5Trait3fooB2_ fn <type2::Struct as Trait>::foo
+DO _RNvYNtNtCs89GGW8TsxHS_26methods_are_with_self_type5type16StructNtB6_5Trait7defaultB6_ fn <type1::Struct as Trait>::default
+DO _RNvYNtNtCs89GGW8TsxHS_26methods_are_with_self_type5type26StructNtB6_5Trait7defaultB6_ fn <type2::Struct as Trait>::default
+DO start fn start
+ALL 7

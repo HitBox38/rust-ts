@@ -1,0 +1,15 @@
+CGU cgu_generic_function.998ac00c5258139-in-extern_generic.998ac00c5258139.volatile sym=_RINSCsP52qudGxef_14extern_generic3cguKRe6367755f67656e657269635f66756e6374696f6e2e3939386163303063353235383133392d696e2d65787465726e5f67656e657269632e3939386163303063353235383133392e766f6c6174696c65_E size=13 primary=true covdead=false n=2
+IT fn cgu_generic_function::foo::<&str> External Default inlined=false size=5
+IT fn cgu_generic_function::bar::<&str> External Default inlined=false size=8
+DO _RINvCslHFsxZpyhBL_20cgu_generic_function3barReECsP52qudGxef_14extern_generic fn cgu_generic_function::bar::<&str>
+DO _RINvCslHFsxZpyhBL_20cgu_generic_function3fooReECsP52qudGxef_14extern_generic fn cgu_generic_function::foo::<&str>
+CGU extern_generic.998ac00c5258139 sym=_RINSCsP52qudGxef_14extern_generic3cguKRe65787465726e5f67656e657269632e393938616330306335323538313339_E size=2 primary=false covdead=false n=1
+IT fn user External Default inlined=false size=2
+DO _RNvCsP52qudGxef_14extern_generic4user fn user
+CGU extern_generic.998ac00c5258139-mod1 sym=_RINSCsP52qudGxef_14extern_generic3cguKRe65787465726e5f67656e657269632e3939386163303063353235383133392d6d6f6431_E size=2 primary=false covdead=false n=1
+IT fn mod1::user External Default inlined=false size=2
+DO _RNvNtCsP52qudGxef_14extern_generic4mod14user fn mod1::user
+CGU extern_generic.998ac00c5258139-mod1-mod1 sym=_RINSCsP52qudGxef_14extern_generic3cguKRe65787465726e5f67656e657269632e3939386163303063353235383133392d6d6f64312d6d6f6431_E size=2 primary=false covdead=false n=1
+IT fn mod1::mod1::user External Default inlined=false size=2
+DO _RNvNtNtCsP52qudGxef_14extern_generic4mod14mod14user fn mod1::mod1::user
+ALL 5

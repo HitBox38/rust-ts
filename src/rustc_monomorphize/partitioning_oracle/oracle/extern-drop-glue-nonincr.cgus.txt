@@ -1,0 +1,12 @@
+CGU extern_drop_glue.20967bcc2786086e-cgu.0 sym=_RNSCs2NsMwnVl3qc_16extern_drop_glue3cgu size=15 primary=true covdead=false n=5
+IT fn user External Default inlined=false size=4
+IT fn mod1::user External Default inlined=false size=4
+IT fn std::ptr::drop_glue::<cgu_extern_drop_glue::Struct> - shim(Some(cgu_extern_drop_glue::Struct)) External Default inlined=false size=3
+IT fn std::ptr::drop_glue::<mod1::LocalStruct> - shim(Some(mod1::LocalStruct)) External Default inlined=false size=2
+IT fn std::ptr::drop_glue::<LocalStruct> - shim(Some(LocalStruct)) External Default inlined=false size=2
+DO _RINvNtCsajD8mEyjPew_4core3ptr9drop_glueNtCs2NsMwnVl3qc_16extern_drop_glue11LocalStructEBD_ fn std::ptr::drop_glue::<LocalStruct> - shim(Some(LocalStruct))
+DO _RINvNtCsajD8mEyjPew_4core3ptr9drop_glueNtCs3KiKLavInW_20cgu_extern_drop_glue6StructECs2NsMwnVl3qc_16extern_drop_glue fn std::ptr::drop_glue::<cgu_extern_drop_glue::Struct> - shim(Some(cgu_extern_drop_glue::Struct))
+DO _RINvNtCsajD8mEyjPew_4core3ptr9drop_glueNtNtCs2NsMwnVl3qc_16extern_drop_glue4mod111LocalStructEBF_ fn std::ptr::drop_glue::<mod1::LocalStruct> - shim(Some(mod1::LocalStruct))
+DO _RNvCs2NsMwnVl3qc_16extern_drop_glue4user fn user
+DO _RNvNtCs2NsMwnVl3qc_16extern_drop_glue4mod14user fn mod1::user
+ALL 3

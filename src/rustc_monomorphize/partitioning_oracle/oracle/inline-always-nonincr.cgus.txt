@@ -1,0 +1,10 @@
+CGU inline_always.5803b41b0fafe606-cgu.0 sym=_RNSCs7yuVVUTtJ08_13inline_always3cgu size=6 primary=true covdead=false n=4
+IT fn user1::foo External Default inlined=false size=2
+IT fn inline::inlined_function Internal Default inlined=true size=1
+IT fn non_user::baz External Default inlined=false size=1
+IT fn user2::bar External Default inlined=false size=2
+DO _RNvNtCs7yuVVUTtJ08_13inline_always5user13foo fn user1::foo
+DO _RNvNtCs7yuVVUTtJ08_13inline_always5user23bar fn user2::bar
+DO _RNvNtCs7yuVVUTtJ08_13inline_always6inline16inlined_function fn inline::inlined_function
+DO _RNvNtCs7yuVVUTtJ08_13inline_always8non_user3baz fn non_user::baz
+ALL 4
