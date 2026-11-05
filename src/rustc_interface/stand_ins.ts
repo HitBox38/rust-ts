@@ -1,6 +1,6 @@
 // Not an upstream mirror. PORT: stand-ins for crates the driver path reaches but that are not ported:
 //   rustc_codegen_ssa::traits::CodegenBackend (the trait and its provided methods; the LLVM backend stand-in is
-//   src/rust_ts/codegen_backend.ts), rustc_data_structures::jobserver::initialize
+//   src/rust_ts/codegen_backend.ts)
 // Each keeps only what can be copied verbatim or is observable-free on the paths the port runs; everything
 // else calls `unported(...)`. Replace by the real modules when those crates are ported.
 import type { CodegenBackendInit, EarlySession, Session } from "../rustc_session/session.ts";
@@ -131,19 +131,6 @@ export type IncrCompSession = never;
 
 /** PORT: `rustc_middle::dep_graph::WorkProductMap` (`UnordMap<WorkProductId, WorkProduct>`): no incremental (D3). */
 export type WorkProductMap = Map<unknown, unknown>;
-
-/**
- * `rustc_data_structures::jobserver::initialize` (stand-in). Upstream inherits a jobserver from
- * `CARGO_MAKEFLAGS`/`MAKEFLAGS`/`MFLAGS` (`Client::from_env_ext`) and reports a malformed one; with none
- * of them set (`FromEnvErrorKind::NoEnvVar`) it silently creates its own client. Only that case is kept.
- */
-export function jobserver_initialize(_limit: number, _report: (err: string) => void): void {
-  for (const v of ["CARGO_MAKEFLAGS", "MAKEFLAGS", "MFLAGS"]) {
-    if (process.env[v] !== undefined) {
-      unported(`rustc_data_structures::jobserver::initialize (inherited jobserver: ${v} is set)`);
-    }
-  }
-}
 
 /** `rustc_middle::ty::CurrentGcx`: the real type (re-exported for the existing imports). */
 export { CurrentGcx } from "../rustc_middle/ty/context.ts";
