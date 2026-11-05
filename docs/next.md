@@ -456,11 +456,11 @@ Report suites, not protected, after the accept at db323c3b: miri-pass-tb 130/132
 |---|---|---|
 | plan-m7 | docs/plan-m7.md: IR model behind llvm/ffi.rs, pinned opt and llc, IR parity before LLVM's passes plus native behaviour | ACCEPT WITH AMENDMENTS (docs/reviews/plan-m7.md); D4 scope change pending the owner, before wave 40 |
 | fixers-39 | pointer-fragment dump, Stacked Borrows crash, MIR validation at -Copt-level 2/3, type_length, mio::Poll::new, a test's global state | APPROVE WITH NITS; on integ-w39 |
-| M7 preflight (plan-m7 wave 39, as amended) | abi-aarch64, vtable-alloc, mono-wire, real-crates (O3-O7), harness-m7a (with mir-opt-o4, -Zalways-encode-mir check-rg, check-rg-host); o2-inline deleted, fixers-39 has it; plus mir-alias | on integ-w39 except mir-alias (lanes done; its review running) |
+| M7 preflight (plan-m7 wave 39, as amended) | abi-aarch64, vtable-alloc, mono-wire, real-crates (O3-O7), harness-m7a (with mir-opt-o4, -Zalways-encode-mir check-rg, check-rg-host); o2-inline deleted, fixers-39 has it; plus mir-alias | all on integ-w39, reviewed; root's commits re-checked (REQUEST CHANGES, fixed) |
 Queued:
 - Near-limit protected cases, which matched only through the serial retry in the gate (audit): dynamic-drop.rs and issue-8827.rs (newly protected, about 52-57 s of 60 s), move-3-unique.rs, and four mir cases retried in each of the last four gates (deep-try-chain-issue-153583, hkl_forbidden, param_mismatch2, self-referential-4). Next perf lane; the gate must run with nothing else on the host.
-- 52 run-pass programs with proc-macro aux crates run in no suite (harness/compiletest.ts:982 still says "deferred to M6"): harness batch.
+- 52 run-pass programs with proc-macro aux crates run in no suite: run-pass-aux-native in harness-m7c.
 - EiiMapEncodedKeyValue decoding (16 cases); rustc-env.rs CRASH; long error descriptions in rustc_errors::codes (7 miri-fail cases).
 - Plan items outside the M6 gate, not done: miri-sysroot-* with harness-m6d; D11's p99 (11.1 s against 10 s); D8's cross-thread proc-macro path (expand-expr.rs).
-- Recorded earlier: ICE report lanes (docs/plan-ice-report.md, as amended); the deliberate probe rebuild (harness-w39 A1); the bytecode bundle; harness-w39 N2-N4; re-check N1-N3, N8, N9; miri-perf N1-N5; the review nits in docs/state/history.jsonl.
+- Recorded earlier: ICE report lanes (docs/plan-ice-report.md, as amended); the deliberate probe rebuild (harness-w39 A1); the bytecode bundle; integ-w38 re-check N2, N8, N9; miri-perf N1-N5; the review nits in docs/state/history.jsonl.
 
