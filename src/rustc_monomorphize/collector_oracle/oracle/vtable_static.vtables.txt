@@ -6,6 +6,11 @@ VT   16: int 1
 VT   24: fn <Diamond as First>::first +0
 VT   32: fn <Diamond as Second>::second +0
 VT   40: memory +0
+VT     size 32 align 8 Not
+VT       0: int 0
+VT       8: int 0
+VT       16: int 1
+VT       24: fn <Diamond as Second>::second +0
 VT   48: fn <Diamond as Both>::both +0
 VT VTABLE Plain + std::marker::Sync for Aligned
 VT size 40 align 8 Not
