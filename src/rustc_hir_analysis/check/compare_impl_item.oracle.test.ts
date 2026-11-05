@@ -40,7 +40,7 @@ const CASES = readdirSync(CASES_DIR)
  * exported-symbols-codec: that codec is ported, so metadata is written; the stop is codegen's mono item collection.
  */
 const PENDING: Record<string, string> = {
-  refine_rpitit: "collect_and_partition_mono_items provider (not ported)",
+  refine_rpitit: "rustc_codegen_llvm::LlvmCodegenBackend::codegen_crate (after collect_and_partition_mono_items; codegen; M7)",
 };
 
 /**
