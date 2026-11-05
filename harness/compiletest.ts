@@ -959,6 +959,14 @@ export function dylibName(name: string, platform: string = process.platform): st
   return `lib${name}.${platform === "darwin" ? "dylib" : "so"}`;
 }
 
+/**
+ * Why a test with a proc-macro aux crate is skipped where `ctx.procMacro` is off (docs/reviews/m6-audit.md F2: "deferred to M6" misstated the plan). In `run-pass-aux-miri` that is 52
+ * run-pass programs: `pm-ui` compares their expansion, and nothing compares their execution. Under Miri they would need its driver to load a host-built dylib during expansion, which
+ * plan-m6's suite definition left out. They need a native run: the macro built by the oracle for the host, as `pm-ui` does, and the program built and run by each side. That
+ * belongs in `run-pass-aux-native` (lane harness-m7c), whose planned 356 cases leave them out today; root records the decision.
+ */
+const NO_PROC_MACRO_YET = "no suite runs this yet: `pm-ui` compares the expansion; running it needs a native run with a host-built macro (proposed for `run-pass-aux-native`, plan-m7 M7c)";
+
 /** runtest.rs `get_lib_name` (no wasm proc macros: `wasm-proc-macros` is off). */
 function getLibName(name: string, auxType: "bin" | "lib" | "dylib" | "proc-macro"): string | undefined {
   if (auxType === "bin") return undefined;
@@ -979,7 +987,7 @@ function isProcMacroCrate(src: string, ap: Props): boolean {
  */
 function planAllAux(root: string, rev: string | undefined, props: Props, auxDir: string, cmd: string[], steps: AuxStep[], format: ErrorFormat, ctx: AuxCtx = NO_PROC_MACRO): void {
   // (compiletest builds proc-macros last; without `ctx.procMacro` none is reproduced, so the test is skipped before any build.)
-  if (props.aux.procMacros.length > 0 && !ctx.procMacro) throw new Reject(`needs a proc-macro auxiliary crate (\`proc-macro: ${props.aux.procMacros[0]!.path}\`): deferred to M6 (plan-m2 D6)`);
+  if (props.aux.procMacros.length > 0 && !ctx.procMacro) throw new Reject(`needs a proc-macro auxiliary crate (\`proc-macro: ${props.aux.procMacros[0]!.path}\`): ${NO_PROC_MACRO_YET}`);
   for (const b of props.aux.builds) planAux(root, rev, b, auxDir, undefined, steps, format, ctx);
   for (const b of props.aux.bins) planAux(root, rev, b, auxDir, "bin", steps, format, ctx);
   for (const c of props.aux.crates) {
@@ -1016,7 +1024,7 @@ function planAux(
   const src = readFileSync(join(UPSTREAM, auxPath), "utf8");
   const ap = testProps(fileDirectives(src), rev, { auxFile: true, extra: true });
   const pmCrate = type === "proc-macro" || isProcMacroCrate(src, ap);
-  if (pmCrate && !ctx.procMacro) throw new Reject(`auxiliary crate \`${auxPath}\` is a proc-macro crate: deferred to M6 (plan-m2 D6)`);
+  if (pmCrate && !ctx.procMacro) throw new Reject(`auxiliary crate \`${auxPath}\` is a proc-macro crate: ${NO_PROC_MACRO_YET}`);
   if (ap.compileFlags.includes("-o")) throw new Reject(`auxiliary crate \`${auxPath}\` sets \`-o\`, which this harness does not reproduce`);
   if (ctx.miri && type === "bin") throw new Reject(`auxiliary binary \`${auxPath}\`: Miri builds no program to run`);
   // `AuxType::ProcMacro` (not wasm): `force_host`. Host-built here (header): proc-macro crates and their aux trees.
@@ -1256,6 +1264,56 @@ export function collectUiTests(dir: string, out: string[] = []): string[] {
     } else if (e.name.endsWith(".rs") && !/^[.#~]/.test(e.name)) out.push(rel);
   }
   return out;
+}
+
+/**
+ * The tests of `tests/mir-opt` for the suite `mir-opt-o4` (review plan-m7 F7): revisions and ignores as compiletest evaluates them for
+ * COMPILETEST_TARGET, one case per revision, a test with an aux crate skipped. Argv, which is **not** compiletest's exact mir-opt
+ * command: runtest.rs's `-Copt-level=1 -Zvalidate-mir -Zlint-mir -Zmir-include-spans=false --crate-type=rlib`, the test's flags and
+ * revision cfg, always `-Zmir-opt-level=4` with runtest.rs's `+ReorderBasicBlocks,+ReorderLocals` and the test's `test-mir-pass` enabled, then
+ * `-Zunpretty=mir`. compiletest runs a `test-mir-pass` test at level 0 with that pass alone and compares `.diff` dumps; F7 asks for the whole
+ * level-4 pipeline on each of them, compared whole, and that is what a bug in a pass ordering shows up in. No `-Zdump-mir` of ours.
+ * A test's own `-Zdump-mir` stays, so the caller must give each side a `-Zdump-mir-dir`.
+ */
+export function mirOptCases(dir = "tests/mir-opt"): { cases: UiCase[]; skipped: Skip[] } {
+  const cases: UiCase[] = [];
+  const skipped: Skip[] = [];
+  for (const file of collectUiTests(dir).sort()) {
+    const lines = fileDirectives(readFileSync(join(UPSTREAM, file), "utf8"));
+    const revisions = lines.flatMap((ln) => (nameValueDirective(ln, "revisions") ?? "").split(/\s+/).filter(Boolean));
+    for (const rev of revisions.length ? revisions : [undefined]) {
+      const id = rev === undefined ? file : `${file}#${rev}`;
+      try {
+        let ignore: string | undefined;
+        let aux: string | undefined;
+        let pass: string | undefined;
+        for (const ln of lines) {
+          if (!appliesTo(ln, rev)) continue;
+          if ((ln.name.startsWith("aux-") || ln.name === "proc-macro") && valueAfterColon(ln) !== undefined) aux ??= ln.raw;
+          ignore = ignoreDecision(ln, true) ?? ignore;
+          pass = nameValueDirective(ln, "test-mir-pass") ?? pass;
+        }
+        if (ignore !== undefined) {
+          skipped.push({ id, reason: `ignored by compiletest on ${host().target}: ${ignore}` });
+          continue;
+        }
+        if (aux !== undefined) {
+          skipped.push({ id, reason: `needs an auxiliary crate (\`${aux}\`), which this suite does not build` });
+          continue;
+        }
+        const p = testProps(lines, rev);
+        const args = [file, "--sysroot", host().sysroot, `--target=${host().target}`, ...(rev !== undefined ? ["--cfg", rev.toLowerCase().replaceAll("-", "_")] : [])];
+        args.push("-Copt-level=1", "-Zvalidate-mir", "-Zlint-mir", "-Zmir-include-spans=false", "--crate-type=rlib", "-Zmir-opt-level=4", "-Zmir-enable-passes=+ReorderBasicBlocks,+ReorderLocals");
+        if (pass !== undefined) args.push(`-Zmir-enable-passes=+${pass}`);
+        args.push("-Zwrite-long-types-to-disk=no", ...p.compileFlags, "-Zunpretty=mir");
+        cases.push({ id, file, args, env: compileEnv(p) });
+      } catch (e) {
+        if (!(e instanceof Reject)) throw e;
+        skipped.push({ id, reason: `compiletest rejects the test: ${e.message}` });
+      }
+    }
+  }
+  return { cases, skipped };
 }
 
 const memo = new Map<string, { cases: UiCase[]; skipped: Skip[] }>();

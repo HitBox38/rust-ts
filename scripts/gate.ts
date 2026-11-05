@@ -17,14 +17,15 @@
 // when a run starts (or it stops with `ERROR:`), and a run fails if a suite changes it (scripts/lib/upstream.ts).
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { RMETA_RUN, SUITES, suite as getSuite, type Suite } from "../harness/suites.ts";
+import { IR_RUN, RG_CHECK, RMETA_RUN, SUITES, suite as getSuite, type Suite } from "../harness/suites.ts";
 import { difftest, heavyErrorLines, heavyLine, unstableOf, type HeavyRun, type OracleRerun } from "./difftest.ts";
 import { REPO, RUNS, UPSTREAM, die, ensureDir, nowId, parseArgs, run } from "./lib/common.ts";
 import { miriBinary } from "./lib/miri.ts";
 import { verifyOraclePin } from "./lib/oracle.ts";
 import { UNIT_STEPS } from "./lib/unit-steps.ts";
 import { upstreamError, upstreamStatus } from "./lib/upstream.ts";
-import { oracleTestProbes, probeBinary } from "./probes.ts";
+import { oracleTestProbes, probeBinary, probeStaleness } from "./probes.ts";
+import { parseIrRunArgs } from "./ir-run.ts";
 import { parseRmetaRunArgs } from "./rmeta-run.ts";
 import { record } from "./state.ts";
 
@@ -103,6 +104,13 @@ export function checkProbes(suites: string[], unitTests: boolean): boolean {
     if (!existsSync(probeBinary(probe))) {
       console.log(`ERROR: probe '${probe}' not built (needed by ${by.join(", ")}); run: bun scripts/probes.ts build ${probe}`);
       ok = false;
+      continue;
+    }
+    // Fails here, in seconds, not after a whole gate (review harness-w39 N2). `unknown` is not stale: it says nothing.
+    const stale = probeStaleness(probe);
+    if (stale.state === "stale") {
+      console.log(`ERROR: ${stale.why}`);
+      ok = false;
     }
   }
   if (!ok) return false;
@@ -117,10 +125,13 @@ export function checkProbes(suites: string[], unitTests: boolean): boolean {
 
 /**
  * The programs an oracle command runs: its first word, except for scripts/rmeta-run.ts under Bun (the rmeta suites),
- * where it is the wrapper's compiler (the first word after its `--`) and, with `--dump`, its probe. Throws on a
- * malformed wrapper command line (`parseRmetaRunArgs`).
+ * where it is the wrapper's compiler (the first word after its `--`) and, with `--dump`, its probe, for scripts/ir-run.ts
+ * (the IR suites), its compiler, and for scripts/rg-check.ts (the check-rg suites), the oracle rustc through its cargo.
+ * Throws on a malformed wrapper command line (`parseRmetaRunArgs`, `parseIrRunArgs`).
  */
 export function oracleRuns(cmd: string[]): string[] {
+  if (cmd[0] === process.execPath && cmd[1] === IR_RUN) return [parseIrRunArgs(cmd.slice(2)).compiler[0]!];
+  if (cmd[0] === process.execPath && cmd[1] === RG_CHECK) return ["rustc"];
   if (cmd[0] === process.execPath && cmd[1] === RMETA_RUN) {
     const a = parseRmetaRunArgs(cmd.slice(2));
     return [a.compiler[0]!, ...(a.dump !== undefined ? [a.dump] : [])];

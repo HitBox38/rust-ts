@@ -1,6 +1,6 @@
 // scripts/lib/case-lock.ts, with real processes for mutual exclusion and a dead owner.
 import { expect, test } from "bun:test";
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { isStaleLock, withCaseLock } from "./case-lock.ts";
@@ -99,3 +99,53 @@ test("a lock nobody can hold is stale: from before this boot, naming this proces
   // Past the limit even with a long uptime.
   expect(isStaleLock(liveOther, 3 * HOUR + 1, 3 * HOUR, 100 * HOUR, 1000, alive)).toBe(true);
 });
+
+test("two calls in one process take turns: its own pid on a lock it holds is a holder (review integ-w38-recheck N1)", async () => {
+  await inTemp(async (dir) => {
+    const lock = join(dir, "lock");
+    let inside = 0;
+    let most = 0;
+    const body = async () => {
+      most = Math.max(most, ++inside);
+      await Bun.sleep(40);
+      inside--;
+    };
+    await Promise.all([withCaseLock(lock, 60_000, body, () => {}, 10), withCaseLock(lock, 60_000, body, () => {}, 10)]);
+    expect(most).toBe(1);
+    expect(existsSync(lock)).toBe(false);
+    // A file with this pid that this process does not hold is still a leftover: no wait.
+    writeFileSync(lock, `${process.pid}\n`);
+    const start = Date.now();
+    await withCaseLock(lock, 60_000, async () => {}, () => {}, 10_000);
+    expect(Date.now() - start).toBeLessThan(5_000);
+  });
+});
+
+test("difftest takes the lock around a heavy case's two sides, and only there (review harness-w39 N3)", async () => {
+  await inTemp(async (dir) => {
+    // A case's oracle prints what it sees of the lock; the subject always prints "locked". MATCH means the lock was held.
+    const child = `
+const { writeFileSync, readFileSync, mkdirSync } = await import("node:fs");
+const { join } = await import("node:path");
+const d = await import(${JSON.stringify(join(import.meta.dir, "..", "difftest.ts"))});
+const { SUITES } = await import(${JSON.stringify(join(import.meta.dir, "..", "..", "harness", "suites.ts"))});
+const { RUNS } = await import(${JSON.stringify(join(import.meta.dir, "common.ts"))});
+const TMP = ${JSON.stringify(dir)};
+const STUB = join(TMP, "stub.mjs");
+writeFileSync(STUB, \`import { existsSync } from "node:fs"; console.log(process.argv[2] === "subject" || existsSync(process.env.MIRI_TEMP + ".lock") ? "locked" : "unlocked");\`);
+const suite = (name, heavy, env) => ({ name, milestone: "test", description: "", mode: "single", cwd: TMP, timeoutMs: 20000, ...(heavy ? { heavy: { rssBudgetMb: 12288 } } : {}), cases: () => [{ id: "c", file: "", args: [], env }], oracle: () => [process.execPath, STUB, "oracle"], subject: () => [process.execPath, STUB, "subject"] });
+SUITES.push(suite("lock-heavy", true, { MIRI_TEMP: join(TMP, "t") }), suite("lock-light", false, { MIRI_TEMP: join(TMP, "t") }));
+const status = async (name) => {
+  await d.difftest({ suite: name, runId: "run-" + name, quiet: true, jobs: 1 });
+  return JSON.parse(readFileSync(join(RUNS, "run-" + name, name + ".jsonl"), "utf8").trim()).status;
+};
+console.log(JSON.stringify({ heavy: await status("lock-heavy"), light: await status("lock-light") }));
+`;
+    // An empty git repository as the upstream checkout, which difftest only reads the status of (as unported-buckets.test.ts).
+    mkdirSync(join(dir, "rust", "compiler"), { recursive: true });
+    Bun.spawnSync(["git", "init", "-q", join(dir, "rust")]);
+    const r = Bun.spawnSync([process.execPath, "-e", child], { env: { ...process.env, RUST_TS_DATA: dir }, stdout: "pipe", stderr: "pipe" });
+    expect(r.exitCode, r.stderr.toString() + r.stdout.toString()).toBe(0);
+    expect(JSON.parse(r.stdout.toString().trim().split("\n").at(-1)!)).toEqual({ heavy: "MATCH", light: "DIFF" });
+  });
+}, 60_000);
