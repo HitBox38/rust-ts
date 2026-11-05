@@ -241,7 +241,8 @@ export const Instance = {
             // This is arguably better.
             span: span_or_local_def_span(),
             instance: Instance.new_raw(def_id, args),
-            type_length: type_length_,
+            // PORT: the generated field is `number` (`usize`); `number_into_diag_arg` also takes a `bigint`, which keeps all 64 bits.
+            type_length: type_length_ as unknown as number,
           }),
         );
       } else {
@@ -724,32 +725,36 @@ export const ShimKind = {
 };
 
 // PORT: the fn-local `struct Visitor<'tcx>` of `type_length`, with its `TypeVisitor` impl (`type Result = ()`).
+// PORT: `type_length` is a `usize` that wraps (rustc is built without overflow checks): lengths double per level of a
+// recursive type, so they pass 2^53 and 2^64 well before any recursion limit. PORTING section 5 `u64`: a `bigint`, wrapped to
+// 64 bits after every `+=` and `-` (docs/reviews/mono-lanes.md O1). This path is cold: `-Zenforce-type-length-limit`, or
+// `expect_resolve`'s error path.
 class TypeLengthVisitor implements TypeVisitor<undefined> {
   readonly Result = VisitorResult.unit;
-  type_length = 0;
-  cache: Map<Ty, number> = new Map();
+  type_length = 0n;
+  cache: Map<Ty, bigint> = new Map();
 
   // rustc: compiler/rustc_middle/src/ty/instance.rs:419 visit_ty
   visit_ty(t: Ty): undefined {
     const value = this.cache.get(t);
     if (value !== undefined) {
-      this.type_length += value;
+      this.type_length = BigInt.asUintN(64, this.type_length + value);
       return;
     }
 
     const prev = this.type_length;
-    this.type_length += 1;
+    this.type_length = BigInt.asUintN(64, this.type_length + 1n);
     fold_Ty.super_visit_with(t, this);
 
     // We don't try to use the cache if the type is fairly small.
-    if (this.type_length > 16) {
-      this.cache.set(t, this.type_length - prev);
+    if (this.type_length > 16n) {
+      this.cache.set(t, BigInt.asUintN(64, this.type_length - prev));
     }
   }
 
   // rustc: compiler/rustc_middle/src/ty/instance.rs:435 visit_const
   visit_const(ct: Const): undefined {
-    this.type_length += 1;
+    this.type_length = BigInt.asUintN(64, this.type_length + 1n);
     fold_Const.super_visit_with(ct, this);
   }
 
@@ -772,7 +777,7 @@ class TypeLengthVisitor implements TypeVisitor<undefined> {
 }
 
 // rustc: compiler/rustc_middle/src/ty/instance.rs:413 type_length
-function type_length<T>(item: T, d_T: TypeVisitable<T>): number {
+function type_length<T>(item: T, d_T: TypeVisitable<T>): bigint {
   const visitor = new TypeLengthVisitor();
   d_T.visit_with(item, visitor);
 
