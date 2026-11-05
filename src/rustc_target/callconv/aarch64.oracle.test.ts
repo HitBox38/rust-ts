@@ -8,30 +8,32 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { DATA } from "../../../scripts/lib/common.ts";
-import { abi_args, HERE, TARGETS, test_env } from "./aarch64_oracle/common.ts";
+import { HERE, TARGETS, test_env } from "./aarch64_oracle/common.ts";
 
-const MAIN = join(HERE, "../../../rust_ts/main.ts");
 const WORK = join(DATA, "tmp", "aarch64-abi-test", process.env.RUST_TS_AGENT ?? "default");
 
+function expected(target: string): string {
+  // regen.ts: the exit code, then stderr; run.ts prints them the other way round, per target.
+  const text = readFileSync(join(HERE, "oracle", `${target}.txt`), "utf8");
+  const nl = text.indexOf("\n");
+  return `== ${target}\n${text.slice(nl + 1)}exit ${text.slice(0, nl)}\n`;
+}
+
 describe("callconv::aarch64 against the oracle (#[rustc_abi(debug)])", () => {
-  for (const target of TARGETS) {
-    test(
-      target,
-      () => {
-        const expected = readFileSync(join(HERE, "oracle", `${target}.txt`), "utf8");
-        const out = join(WORK, target);
-        rmSync(out, { recursive: true, force: true });
-        const r = Bun.spawnSync([process.execPath, MAIN, ...abi_args(target, out)], { cwd: HERE, env: test_env(), stdout: "pipe", stderr: "pipe" });
-        expect(r.stdout.toString()).toBe("");
-        expect(`${r.exitCode}\n${r.stderr.toString()}`).toBe(expected);
-      },
-      { timeout: 120_000 },
-    );
-  }
+  test(
+    TARGETS.join(", "),
+    () => {
+      rmSync(WORK, { recursive: true, force: true });
+      const r = Bun.spawnSync([process.execPath, join(HERE, "run.ts"), WORK], { cwd: HERE, env: test_env(), stdout: "pipe", stderr: "pipe" });
+      expect(r.stdout.toString()).toBe("");
+      expect(r.stderr.toString()).toBe(TARGETS.map(expected).join(""));
+      expect(r.exitCode).toBe(0);
+    },
+    { timeout: 120_000 },
+  );
 
   test("the fixture separates the two ABI kinds", () => {
-    const darwin = readFileSync(join(HERE, "oracle", "aarch64-apple-darwin.txt"), "utf8");
-    const aapcs = readFileSync(join(HERE, "oracle", "aarch64-unknown-linux-gnu.txt"), "utf8");
-    expect(darwin).not.toBe(aapcs);
+    const [darwin, aapcs] = TARGETS.map(expected);
+    expect(darwin!.slice(darwin!.indexOf("\n"))).not.toBe(aapcs!.slice(aapcs!.indexOf("\n")));
   });
 });
