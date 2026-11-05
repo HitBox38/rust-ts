@@ -1934,6 +1934,10 @@ const MIRI_PASS_DIRS = ["tests/pass", "tests/panic"];
  * (max 1.3 s), miri-pass-tb (max 0.9 s) and run-pass-aux-miri (max 0.24 s) have none over 2.5 s. Membership comes from the
  * oracle's cost and the files a case writes, never from how the port does: this list's longer limit must not turn a
  * port TIMEOUT into a MATCH (review harness-m6c R2, root decision; AGENTS.md section 2).
+ * A third reason, also a property of the program (plan-m6 A12's amendment, docs/reviews/fixers-39.md item 6): an
+ * isolation-off case whose source asserts an upper bound on the real clock. Its outcome depends on host load, not on any
+ * limit, and difftest does not retry a DIFF, so it runs with nothing beside it. The program's own bound stays, so a port
+ * too slow for it still fails. Never add a case because it was seen to fail.
  */
 const MIRI_UI_HEAVY: Record<string, string> = {
   "tests/pass/0weak_memory/consistency.rs": "Miri oracle 3.1 s user, exit 0",
@@ -1943,6 +1947,7 @@ const MIRI_UI_HEAVY: Record<string, string> = {
   "tests/pass/issues/issue-miri-3680.rs": "writes files under MIRI_TEMP: the oracle and the subject must not run at once",
   "tests/pass/shims/fs-permissions.rs": "writes files under MIRI_TEMP: the oracle and the subject must not run at once",
   "tests/pass/shims/fs.rs": "writes files under MIRI_TEMP: the oracle and the subject must not run at once",
+  "tests/pass/shims/time.rs": "isolation off and its source asserts an upper bound on the real clock: its outcome depends on host load, not on a limit",
 };
 /**
  * Cases whose oracle output differs between two runs (every case of the four suites run twice, once with a changed host

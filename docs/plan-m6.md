@@ -362,6 +362,14 @@ interpreter speed.
   a clean tree and ran every suite of the group. `run-fail-miri` is its own group, so run-pass cannot hide it.
   The heavy lists hold cases by the oracle's cost and by the files they write, never by how the port does: a longer limit
   must not turn a port TIMEOUT into a MATCH.
+  **Amendment (harness-m7a; root decision on `docs/reviews/fixers-39.md` item 6).** A third reason, a property of the
+  program: an isolation-off case whose source asserts an upper bound on the real clock. Today that is
+  `tests/pass/shims/time.rs` only. Its outcome depends on host load, not on any limit (margin 6.4x quiet, 1.5x in a 12-job
+  pool), and difftest does not retry a DIFF, so a loaded gate could lose it as a protected case. This goes against the
+  sentence's words, since the bound is at risk only because the port is slow, but not its purpose: the limit plays no part
+  (a 2.3 s run never nears 60 s), and the program's own 1,000 ms bound stays, so a port that became 7x slower would still
+  fail in the heavy class. It removes contention, as the file-writing reason does. Never add a case because it was seen to
+  fail; `sync.rs#stack` (5.4x at the worst load measured) stays in `miri-pass`.
 
 ## 6. Risks
 
