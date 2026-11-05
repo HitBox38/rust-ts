@@ -57,7 +57,7 @@ narrow measurable milestones; a ratchet that never goes backwards.
 | M4 | MIR build, borrowck, MIR transforms | `-Zunpretty=mir`; ui/borrowck, ui/nll | **done** 2026-10-29: mir 20968/21526 (97.4%), mir-minicore 46/46, borrowck-ui 960/960, rustc_dump subset 118/119, mirdump-ui 1340, thir-tree 1823 |
 | M5 | Check core → alloc → std | zero diagnostics, matching metadata-level behaviour (plan: docs/plan-m5.md) | **done** 2026-10-31 (gate-20261031-111945-root-7u0n): core, alloc and std .rmeta byte-identical (check-core/alloc/std); rmeta-core/alloc/std 82,338 / 14,678 / 18,196; mir-core/alloc/std 47,734 / 3,734 / 5,204; check-ui/rmeta-ui 730/730 |
 | M6 | Interpreter (const eval + shims) | std hello world runs; run-pass tests; proc macros (plan: docs/plan-m6.md; M6a miri-hello, M6b run-pass and run-fail ≥ 90% + miri-pass ≥ 80%, M6 + pm-ui ≥ 95%) | **done** 2026-11-05 (gate-20261104-143144-root-lpo8): miri-hello MATCH; run-pass-miri + heavy 3473/3478 = 99.86%, run-fail-miri 294/294, miri-pass + heavy 337/360 = 93.61%; pm-ui 279/282 = 98.9%; `quote!` 325/325 across 11 suites |
-| M7 | Text LLVM IR → clang | run-pass parity; ripgrep builds |
+| M7 | Text LLVM IR → clang (plan: docs/plan-m7.md; D1 pinned opt and llc, D3 targets and D4 pending the owner) | run-pass parity; ripgrep builds | preflight done 2026-11-06 (gate-20261105-081912-root-ygiz): mir-o2 3474/3479, mono-ui 3475/3479, mir-opt-o4 405/406, check-rg 36/36 in 3 modes; wave 40 waits for the owner's answer on D4 |
 | M8 | cargo-ts, rustfmt-ts, clippy-ts | each tool's upstream tests |
 | M9 | Ouroboros | rust-ts compiles tsc-rs; that tsc-rs type-checks rust-ts |
 

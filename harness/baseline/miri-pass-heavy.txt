@@ -2,3 +2,4 @@ tests/pass/0weak_memory/consistency.rs
 tests/pass/0weak_memory/consistency_sc.rs
 tests/pass/0weak_memory/weak.rs
 tests/pass/float_nan.rs
+tests/pass/shims/time.rs

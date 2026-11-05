@@ -465,3 +465,14 @@ Queued:
 - Reviews of wave 39: abi-vtable F1 (a supertrait vtable pointer's contents are not compared: fix before a native suite relies on upcasting), F2, F3; mono-wire W2, W3, W5; mir-alias F2 (checker gaps), F3, F4; harness-m7a H3, H5 (due in harness-m7b before the first ir-* baseline), H8-H10; integ-w39 L3, N1-N6; integ-w39-b1 F1 (other exits still leak the metadata temp dir, not new, not reaching the gate); the tools batch from mono-wire, with codegen-sets-m7; rustc_lint/builtin.ts:541; short_string_namespace.
 - Recorded earlier: ICE report lanes (docs/plan-ice-report.md, as amended); the deliberate probe rebuild (harness-w39 A1); the bytecode bundle; integ-w38 re-check N2, N8, N9; miri-perf N1-N5; the review nits in docs/state/history.jsonl.
 
+## Wave 39 ACCEPTED 2026-11-06 (gate-20261105-081912-root-ygiz, main 1ec6dd8a) — M7 preflight
+541,633 protected in 59 suites (+7,621, 0 lost); 24,242/27,053 fns (89.6%). New protected: mir-o2 3474, mono-ui 3475, mir-opt-o4 405, check-ui-encode-mir 146, check-rg, check-rg-encode-mir and check-rg-host 36 each; miri-pass 345, miri-pass-heavy 5. M6b miri-pass now 350/360 = 97.22%.
+**Held for the owner:** D4 (port rustc_codegen_llvm; harness/scope.json says changes need the owner's approval) and PLAN.md's D1, D3; wave 40 does not start without an answer. Also reported: root removed scope.json's virtual_socket.rs exclusion without approval.
+
+## Wave 40a (started 2026-11-06) — what does not depend on D4
+| lane | scope | status |
+|---|---|---|
+| perf-near-limit | the cases gates retry (14 mir, 4 run-pass-miri at the last gate) | running |
+| fixers-40 | review queue of wave 39 | running |
+| ice-report | docs/plan-ice-report.md as amended by its review: target 92 of 118, no replay, no RUST_BACKTRACE change | running |
+

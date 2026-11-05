@@ -34,6 +34,8 @@ tests/pass/async-panic-track-caller.rs#nofeat
 tests/pass/atomic-compare-exchange-weak-never-fail.rs
 tests/pass/atomic.rs#stack
 tests/pass/backtrace/backtrace-api-v1.rs
+tests/pass/backtrace/backtrace-global-alloc.rs
+tests/pass/backtrace/backtrace-std.rs
 tests/pass/bad_substs.rs
 tests/pass/binary-heap.rs
 tests/pass/binops.rs
@@ -79,6 +81,7 @@ tests/pass/concurrency/scope.rs
 tests/pass/concurrency/simple.rs
 tests/pass/concurrency/spin_loop.rs
 tests/pass/concurrency/spin_loops_nopreempt.rs
+tests/pass/concurrency/sync.rs#stack
 tests/pass/concurrency/sync_nopreempt.rs
 tests/pass/concurrency/sync_singlethread.rs
 tests/pass/concurrency/thread_park_isolated.rs
@@ -132,6 +135,7 @@ tests/pass/function_pointers.rs
 tests/pass/future-self-referential.rs#stack
 tests/pass/generators.rs#stack
 tests/pass/getpid.rs#with_isolation
+tests/pass/getpid.rs#without_isolation
 tests/pass/global_allocator.rs
 tests/pass/hashmap.rs#stack
 tests/pass/heap.rs
@@ -226,6 +230,7 @@ tests/pass/panic/std-panic-locations.rs
 tests/pass/panic/thread_panic.rs
 tests/pass/panic/unwind_dwarf.rs
 tests/pass/partially-uninit.rs
+tests/pass/path.rs
 tests/pass/pattern-types.rs
 tests/pass/pointers.rs
 tests/pass/prefetch.rs
@@ -251,16 +256,23 @@ tests/pass/shims/available-parallelism-miri-num-cpus.rs
 tests/pass/shims/available-parallelism.rs#stack
 tests/pass/shims/ctor.rs
 tests/pass/shims/env/args.rs
+tests/pass/shims/env/current_dir.rs
 tests/pass/shims/env/current_dir_with_isolation.rs
+tests/pass/shims/env/current_exe.rs
+tests/pass/shims/env/home.rs
+tests/pass/shims/env/temp.rs
 tests/pass/shims/env/var-forward.rs
 tests/pass/shims/env/var-set.rs
+tests/pass/shims/env/var-without-isolation.rs
 tests/pass/shims/env/var.rs
 tests/pass/shims/exit.rs
 tests/pass/shims/fs-with-isolation.rs
+tests/pass/shims/hostname.rs
 tests/pass/shims/io.rs
 tests/pass/shims/pipe.rs
 tests/pass/shims/ptr_mask.rs
 tests/pass/shims/random.rs
+tests/pass/shims/sleep_long.rs
 tests/pass/shims/time-with-isolation.rs
 tests/pass/shims/unix-socket.rs
 tests/pass/shims/x86/intrinsics-sha.rs
