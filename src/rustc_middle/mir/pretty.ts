@@ -76,7 +76,7 @@ import { AllocRange, alloc_range } from "./interpret/allocation.ts";
 import { debug_AllocError } from "./interpret/allocation.gen.ts";
 import type { PointerFrag } from "./interpret/allocation/provenance_map.gen.ts";
 import { debug_AllocId, GlobalAlloc, read_target_uint } from "./interpret/mod.ts";
-import { CtfeProvenance, debug_CtfeProvenance, debug_Pointer, Pointer, Provenance_CtfeProvenance } from "./interpret/pointer.ts";
+import { CtfeProvenance, debug_Pointer, debug_provenance, Pointer, Provenance_CtfeProvenance } from "./interpret/pointer.ts";
 import {
   clone_Location,
   debug_Location,
@@ -167,12 +167,6 @@ function str_trim(s: string): string {
 /** `format!` of a `Display` / `Debug` impl that returned `fmt::Error` (std's `format` panics). */
 function fmt_error_in_format(): never {
   return panic("a Display implementation returned an error unexpectedly: Error");
-}
-
-/** PORT: `Debug` of a `Prov: Provenance` value, by its representation (as pointer.ts `provenance_of`: a bigint is a
- *  `CtfeProvenance`, a number an `AllocId`). */
-function debug_prov<Prov>(prov: Prov, f: Fmt): string {
-  return typeof prov === "bigint" ? debug_CtfeProvenance(prov as unknown as CtfeProvenance, f) : debug_AllocId(prov as unknown as AllocId, f);
 }
 
 
@@ -2207,10 +2201,10 @@ export function write_allocation_bytes<Prov, Extra, Bytes>(tcx: TyCtxt, alloc: A
       const offset = Size.from_bytes(offset_);
       const provenance_width = (bytes: number): number => bytes * 3;
       const ptr = Pointer.new(prov, offset);
-      let target = debug_Pointer(ptr, PLAIN, debug_prov);
+      let target = debug_Pointer(ptr, PLAIN, debug_provenance);
       if (utf8_len(target) > provenance_width(ptr_size.bytes_usize() - 1)) {
         // This is too long, try to save some space.
-        target = format_debug(ptr, (v, f) => debug_Pointer(v, f, debug_prov), PRETTY);
+        target = format_debug(ptr, (v, f) => debug_Pointer(v, f, debug_provenance), PRETTY);
       }
       if (i.sub(line_start).add(ptr_size).bytes_usize() > BYTES_PER_LINE) {
         // This branch handles the situation where a provenance starts in the current line
@@ -2270,7 +2264,7 @@ export function write_allocation_bytes<Prov, Extra, Bytes>(tcx: TyCtxt, alloc: A
       const j = i.bytes_usize();
       const c = alloc.inspect_with_uninit_and_ptr_outside_interpreter({ start: j, end: j + 1 })[0]!;
       // FIXME: Find a way to print `frag.offset` that does not look terrible...
-      if ((r = w.write_str(`╾${hex_pad(c, 2)}${format_debug(frag.prov, debug_prov, PRETTY)} (ptr fragment ${frag.idx})╼`)).$ === "Err") return r;
+      if ((r = w.write_str(`╾${hex_pad(c, 2)}${format_debug(frag.prov, debug_provenance, PRETTY)} (ptr fragment ${frag.idx})╼`)).$ === "Err") return r;
       i = i.add(Size.from_bytes(1));
     } else if (alloc.init_mask_().is_range_initialized(alloc_range(i, Size.from_bytes(1))).$ === "Ok") {
       const j = i.bytes_usize();

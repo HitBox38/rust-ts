@@ -6,7 +6,7 @@
 // case's stderr and exit status are compared with the oracle Miri's (the isolated toolchain, `miri <flag>` with no input
 // file, recorded below; exit 1 for every one).
 import { expect, mock, spyOn, test } from "bun:test";
-import { set_args_os } from "../../std/env.ts";
+import { args_os, set_args_os } from "../../std/env.ts";
 import { set_output_capture } from "../../std/io.ts";
 import { Unported } from "../../std/panic.ts";
 import { FxHashMap, FxHashSet, String_key, usize_key } from "../../rust_ts/hash_map.ts";
@@ -81,6 +81,7 @@ const enc = new TextEncoder();
 
 /** Runs `miri <args>` in-process: [stderr, exit status, the parsed config]. */
 function run(args: string[]): [string, number, MiriConfig] {
+  const previous_args = args_os();
   set_args_os(["miri", ...args].map((a) => enc.encode(a)));
   last_config = undefined;
   const captured: Uint8Array[] = [];
@@ -93,6 +94,7 @@ function run(args: string[]): [string, number, MiriConfig] {
     code = e.code;
   } finally {
     set_output_capture(previous);
+    set_args_os(previous_args);
   }
   const err = captured.map((c) => new TextDecoder().decode(c)).join("");
   return [err, code, last_config!];

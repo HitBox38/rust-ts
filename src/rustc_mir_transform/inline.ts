@@ -37,6 +37,7 @@ import {
   clone_Place,
   clone_SourceInfo,
   clone_SourceScopeData,
+  clone_UnwindAction,
   debug_TerminatorKind,
   Local,
   LocalDecl,
@@ -1332,8 +1333,10 @@ class Integrator extends MutVisitor {
       case "Cleanup":
         return { $: "Cleanup", _0: this.map_block(unwind._0) };
       // Add an unwind edge to the original call's cleanup block
+      // PORT: `UnwindAction` is `Copy`, and `successors_mut` writes a `Cleanup`'s block in place, so each edge gets its own
+      // copy: sharing one made `remove_dead_blocks` renumber it once per edge (docs/reviews/mono-lanes.md O2).
       case "Continue":
-        return this.cleanup_block;
+        return clone_UnwindAction(this.cleanup_block);
     }
   }
 
