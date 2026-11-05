@@ -286,57 +286,66 @@ export function compiler_entrypoint(at_args0: readonly string[], callbacks: Call
       return;
     }
 
-    const [linker, incr_comp_session] = passes.create_and_enter_global_ctxt(compiler, krate, (tcx): Linker | undefined => {
-      // Make sure name resolution and macro expansion is run.
-      void tcx.resolver_for_lowering();
+    // PORT: Rust drops a `Linker` that never reaches `link` when this unwinds (`-Z metrics-dir`, `report_unused_features`,
+    // `tcx.finish()`), and its metadata temp dir with it. `link` drops its own (`docs/reviews/integ-w39-b1.md` F1).
+    let built_linker: Linker | undefined;
+    try {
+      const [linker, incr_comp_session] = passes.create_and_enter_global_ctxt(compiler, krate, (tcx): Linker | undefined => {
+        // Make sure name resolution and macro expansion is run.
+        void tcx.resolver_for_lowering();
 
-      if (Callbacks_provided.after_expansion(callbacks, compiler, tcx) === "Stop") {
-        return undefined;
-      }
-
-      passes.write_dep_info(tcx);
-
-      passes.write_interface(tcx);
-
-      if (sess.opts.output_types.contains_key("DepInfo") && sess.opts.output_types.len() === 1) {
-        return undefined;
-      }
-
-      if (sess.opts.unstable_opts.no_analysis) {
-        return undefined;
-      }
-
-      tcx.ensure_ok().analysis(null);
-
-      if (Callbacks_provided.after_analysis(callbacks, compiler, tcx) === "Stop") {
-        return undefined;
-      }
-
-      if (sess.opts.output_types.contains_key("Mir")) {
-        const r = pretty.emit_mir(tcx);
-        if (r.$ === "Err") {
-          // `tcx.dcx().emit_fatal(CantEmitMIR { error })` (diagnostics.rs: a `#[derive(Diagnostic)]`, generated).
-          return unported("rustc_driver_impl::diagnostics::CantEmitMIR (--emit=mir write error)");
+        if (Callbacks_provided.after_expansion(callbacks, compiler, tcx) === "Stop") {
+          return undefined;
         }
+
+        passes.write_dep_info(tcx);
+
+        passes.write_interface(tcx);
+
+        if (sess.opts.output_types.contains_key("DepInfo") && sess.opts.output_types.len() === 1) {
+          return undefined;
+        }
+
+        if (sess.opts.unstable_opts.no_analysis) {
+          return undefined;
+        }
+
+        tcx.ensure_ok().analysis(null);
+
+        if (Callbacks_provided.after_analysis(callbacks, compiler, tcx) === "Stop") {
+          return undefined;
+        }
+
+        if (sess.opts.output_types.contains_key("Mir")) {
+          const r = pretty.emit_mir(tcx);
+          if (r.$ === "Err") {
+            // `tcx.dcx().emit_fatal(CantEmitMIR { error })` (diagnostics.rs: a `#[derive(Diagnostic)]`, generated).
+            return unported("rustc_driver_impl::diagnostics::CantEmitMIR (--emit=mir write error)");
+          }
+        }
+
+        const linker = Linker.codegen_and_build_linker(tcx, codegen_backend);
+        built_linker = linker;
+
+        const metrics_dir = sess.opts.unstable_opts.metrics_dir;
+        if (metrics_dir !== undefined) {
+          // dump_feature_usage_metrics(tcx, metrics_dir);
+          unported("rustc_driver_impl::dump_feature_usage_metrics (-Z metrics-dir)");
+        }
+
+        tcx.report_unused_features();
+
+        return linker;
+      });
+
+      // Linking is done outside the `compiler.enter()` so that the
+      // `GlobalCtxt` within `Queries` can be freed as early as possible.
+      if (linker !== undefined) {
+        linker.link(sess, incr_comp_session, codegen_backend);
       }
-
-      const linker = Linker.codegen_and_build_linker(tcx, codegen_backend);
-
-      const metrics_dir = sess.opts.unstable_opts.metrics_dir;
-      if (metrics_dir !== undefined) {
-        // dump_feature_usage_metrics(tcx, metrics_dir);
-        unported("rustc_driver_impl::dump_feature_usage_metrics (-Z metrics-dir)");
-      }
-
-      tcx.report_unused_features();
-
-      return linker;
-    });
-
-    // Linking is done outside the `compiler.enter()` so that the
-    // `GlobalCtxt` within `Queries` can be freed as early as possible.
-    if (linker !== undefined) {
-      linker.link(sess, incr_comp_session, codegen_backend);
+    } catch (e) {
+      built_linker?.drop();
+      throw e;
     }
   });
 }
