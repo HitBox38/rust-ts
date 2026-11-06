@@ -2140,7 +2140,7 @@ SUITES.push(
   {
     name: "mir-opt-o4",
     milestone: "M7",
-    description: "tests/mir-opt at -Zmir-opt-level=4 with each test's flags and pass, -Zvalidate-mir -Zlint-mir (review plan-m7 F7): -Zunpretty=mir, stdout + stderr + exit; not compiletest's .diff comparison",
+    description: "tests/mir-opt at -Zmir-opt-level=4 with each test's flags and pass, -Zvalidate-mir -Zlint-mir (review plan-m7 F7), except that a test's own later -Zmir-opt-level wins, so 60 of 406 run at the test's level (3 on 2, 2 on 21, 1 on 8, 0 on 29): -Zunpretty=mir, stdout + stderr + exit; not compiletest's .diff comparison",
     mode: "single",
     timeoutMs: 120_000,
     oracleTimeoutMs: 300_000,
