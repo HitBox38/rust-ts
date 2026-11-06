@@ -137,6 +137,11 @@ export class StalledPrefix {
 
   /** The first `len` entries of `pending` passed, each at the state the tables are in now. */
   record(infcx: InferCtxt, pending: PendingObligations, len: number): void {
+    // Nothing to remember, and a pass that started at 0 has made no marks: not worth the next pass clearing them.
+    if (len === 0) {
+      this.pending = undefined;
+      return;
+    }
     const inner = infcx.inner;
     const watches = StalledPrefix.watches(inner);
     for (let i = 0; i < watches.length; i++) {
