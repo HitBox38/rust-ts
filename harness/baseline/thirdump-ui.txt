@@ -520,6 +520,7 @@ tests/ui/traits/enum-negative-sync-impl.rs
 tests/ui/traits/error-reporting/ambiguity-in-dropck-err-reporting.rs
 tests/ui/traits/error-reporting/apit-with-bad-path.rs
 tests/ui/traits/error-reporting/conditionally-implemented-trait-158423.rs
+tests/ui/traits/error-reporting/conditionally-implemented-trait-long-type.rs
 tests/ui/traits/error-reporting/cow-slice-missing-clone-issue-141241.rs#current
 tests/ui/traits/error-reporting/cow-slice-missing-clone-issue-141241.rs#next
 tests/ui/traits/error-reporting/cow-slice-missing-clone-issue-141241.rs#with_clone
@@ -1352,6 +1353,7 @@ tests/ui/traits/object/with-self-in-projection-output-bad.rs
 tests/ui/traits/object/with-self-in-projection-output-good.rs
 tests/ui/traits/object/with-self-in-projection-output-repeated-supertrait.rs
 tests/ui/traits/objects-owned-object-borrowed-method-headerless.rs
+tests/ui/traits/on_unimplemented_long_types.rs
 tests/ui/traits/opaque-trait-size-error-5883.rs
 tests/ui/traits/operator-overloading-issue-52025.rs
 tests/ui/traits/overflow-computing-ambiguity.rs

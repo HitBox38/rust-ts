@@ -2072,6 +2072,7 @@ tests/ui/borrowck/borrowck-closures-use-after-free.rs
 tests/ui/borrowck/borrowck-consume-unsize-vec.rs
 tests/ui/borrowck/borrowck-consume-upcast-box.rs
 tests/ui/borrowck/borrowck-deref-pattern-assignment.rs
+tests/ui/borrowck/borrowck-describe-field-generic-param-owned-box.rs
 tests/ui/borrowck/borrowck-describe-lvalue.rs
 tests/ui/borrowck/borrowck-drop-from-guard.rs
 tests/ui/borrowck/borrowck-escaping-closure-error-1.rs
@@ -4689,6 +4690,7 @@ tests/ui/consts/const-eval/const_prop_errors.rs
 tests/ui/consts/const-eval/const_raw_ptr_ops.rs
 tests/ui/consts/const-eval/const_raw_ptr_ops2.rs
 tests/ui/consts/const-eval/const_signed_pat.rs
+tests/ui/consts/const-eval/do_not_const_check.rs
 tests/ui/consts/const-eval/dont_promote_unstable_const_fn.rs
 tests/ui/consts/const-eval/dont_promote_unstable_const_fn_cross_crate.rs
 tests/ui/consts/const-eval/double_check.rs
@@ -12214,6 +12216,9 @@ tests/ui/mir/validate/error-body.rs
 tests/ui/mir/validate/ice-zst-as-discr-145786.rs
 tests/ui/mir/validate/issue-95978-validator-lifetime-comparison.rs
 tests/ui/mir/validate/needs-reveal-all.rs
+tests/ui/mir/validate/noncleanup-cleanup.rs
+tests/ui/mir/validate/noncleanup-resume.rs
+tests/ui/mir/validate/noncleanup-terminate.rs
 tests/ui/mir/validate/project-into-simd.rs
 tests/ui/mir/validate/transmute_cast_sized.rs
 tests/ui/mir/validate/validate-unsize-cast.rs
@@ -12405,6 +12410,7 @@ tests/ui/move-expr/double-move.rs
 tests/ui/move-expr/gen-blocks.rs
 tests/ui/move-expr/gen-closures.rs
 tests/ui/move-expr/move-fnonce.rs
+tests/ui/move-expr/name-resolution.rs
 tests/ui/move-expr/nested-async-block-ownership.rs
 tests/ui/move-expr/nested-closures-mutate-before-call.rs
 tests/ui/move-expr/nested-closures.rs
@@ -16983,6 +16989,7 @@ tests/ui/simd/intrinsic/float-math-pass.rs
 tests/ui/simd/intrinsic/float-minmax-pass.rs
 tests/ui/simd/intrinsic/generic-arithmetic-2.rs
 tests/ui/simd/intrinsic/generic-arithmetic-pass.rs
+tests/ui/simd/intrinsic/generic-arithmetic-saturating-2.rs
 tests/ui/simd/intrinsic/generic-arithmetic-saturating-pass.rs
 tests/ui/simd/intrinsic/generic-as.rs
 tests/ui/simd/intrinsic/generic-bitmask-pass.rs
@@ -16996,9 +17003,13 @@ tests/ui/simd/intrinsic/generic-comparison.rs
 tests/ui/simd/intrinsic/generic-elements-pass.rs
 tests/ui/simd/intrinsic/generic-elements.rs
 tests/ui/simd/intrinsic/generic-gather-scatter-pass.rs
+tests/ui/simd/intrinsic/generic-gather-scatter.rs
 tests/ui/simd/intrinsic/generic-reduction-pass.rs
 tests/ui/simd/intrinsic/generic-reduction.rs
 tests/ui/simd/intrinsic/generic-select-pass.rs
+tests/ui/simd/intrinsic/generic-select.rs
+tests/ui/simd/intrinsic/generic-shuffle.rs
+tests/ui/simd/intrinsic/inlining-issue67557-ice.rs
 tests/ui/simd/intrinsic/inlining-issue67557.rs
 tests/ui/simd/intrinsic/issue-85855.rs
 tests/ui/simd/intrinsic/ptr-cast.rs
@@ -17011,6 +17022,7 @@ tests/ui/simd/issue-85915-simd-ptrs.rs
 tests/ui/simd/issue-89193.rs
 tests/ui/simd/libm_no_std_cant_float.rs
 tests/ui/simd/libm_std_can_float.rs
+tests/ui/simd/masked-load-store-build-fail.rs
 tests/ui/simd/masked-load-store-check-fail.rs
 tests/ui/simd/masked-load-store.rs
 tests/ui/simd/monomorphize-heterogeneous.rs
@@ -17021,6 +17033,7 @@ tests/ui/simd/not-out-of-bounds.rs
 tests/ui/simd/portable-intrinsics-arent-exposed.rs
 tests/ui/simd/repr-simd-on-enum.rs
 tests/ui/simd/repr_packed.rs
+tests/ui/simd/shuffle.rs
 tests/ui/simd/simd-bitmask-notpow2.rs
 tests/ui/simd/simd-bitmask.rs
 tests/ui/simd/simd-lane-limit-err-npow2.rs
@@ -18545,6 +18558,7 @@ tests/ui/tool-attributes/tool_lints-rpass.rs
 tests/ui/tool-attributes/tool_lints.rs
 tests/ui/tool-attributes/unknown-lint-tool-name.rs
 tests/ui/tool-attributes/unknown-tool-name.rs
+tests/ui/track-diagnostics/track.rs
 tests/ui/track-diagnostics/track2.rs
 tests/ui/track-diagnostics/track3.rs
 tests/ui/track-diagnostics/track4.rs

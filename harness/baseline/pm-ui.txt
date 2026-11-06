@@ -191,6 +191,7 @@ tests/ui/proc-macro/lifetimes-rpass.rs
 tests/ui/proc-macro/lifetimes.rs
 tests/ui/proc-macro/lints_in_proc_macros.rs
 tests/ui/proc-macro/literal-to-string.rs
+tests/ui/proc-macro/load-panic-backtrace.rs
 tests/ui/proc-macro/load-panic.rs
 tests/ui/proc-macro/load-two.rs
 tests/ui/proc-macro/macro-brackets.rs
@@ -261,6 +262,7 @@ tests/ui/proc-macro/weird-hygiene.rs
 tests/ui/resolve/derive-macro-1.rs
 tests/ui/resolve/derive-macro-2.rs
 tests/ui/resolve/prelude-order.rs
+tests/ui/resolve/proc_macro_generated_packed.rs
 tests/ui/rfcs/rfc-2565-param-attrs/issue-64682-dropping-first-attrs-in-impl-fns.rs
 tests/ui/rfcs/rfc-2565-param-attrs/param-attrs-pretty.rs
 tests/ui/rfcs/rfc-2565-param-attrs/proc-macro-cannot-be-used.rs

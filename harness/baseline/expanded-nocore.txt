@@ -1499,6 +1499,8 @@ tests/ui/async-await/witness-auto-trait/higher-ranked-auto-trait-9.rs
 tests/ui/async-await/witness-auto-trait/witness-lifetime-dependent-auto-trait-119095.rs
 tests/ui/attributes/align-on-fields-143987.rs
 tests/ui/attributes/ambiguous_derive_helpers.rs
+tests/ui/attributes/arg-error-issue-121425.rs
+tests/ui/attributes/args-checked.rs
 tests/ui/attributes/assoc-expr.rs
 tests/ui/attributes/attr-bad-crate-attr.rs
 tests/ui/attributes/attr-before-view-item.rs
@@ -1642,6 +1644,7 @@ tests/ui/attributes/malformed-attrs.rs
 tests/ui/attributes/malformed-fn-align.rs
 tests/ui/attributes/malformed-must_use.rs
 tests/ui/attributes/malformed-no-std.rs
+tests/ui/attributes/malformed-reprs.rs
 tests/ui/attributes/malformed-static-align.rs
 tests/ui/attributes/malformed-unstable-removed.rs
 tests/ui/attributes/may_dangle.rs
@@ -1658,6 +1661,7 @@ tests/ui/attributes/no_link/auxiliary/no_link-crate.rs
 tests/ui/attributes/no_link/multiple-crates-and-no_link.rs
 tests/ui/attributes/no_link/no-link-struct.rs
 tests/ui/attributes/no_link/no-link-unknown-crate.rs
+tests/ui/attributes/nonterminal-expansion.rs
 tests/ui/attributes/obsolete-attr.rs
 tests/ui/attributes/optimize-smoke-test.rs
 tests/ui/attributes/optimize.rs
@@ -7084,6 +7088,7 @@ tests/ui/error-codes/E0540.rs
 tests/ui/error-codes/E0559.rs
 tests/ui/error-codes/E0560.rs
 tests/ui/error-codes/E0565-1.rs
+tests/ui/error-codes/E0565.rs
 tests/ui/error-codes/E0572.rs
 tests/ui/error-codes/E0582.rs
 tests/ui/error-codes/E0583.rs
@@ -11600,6 +11605,8 @@ tests/ui/macros/macro-tt-followed-by-seq.rs
 tests/ui/macros/macro-tt-matchers.rs
 tests/ui/macros/macro-use-all-and-none.rs
 tests/ui/macros/macro-use-all.rs
+tests/ui/macros/macro-use-bad-args-1.rs
+tests/ui/macros/macro-use-bad-args-2.rs
 tests/ui/macros/macro-use-both.rs
 tests/ui/macros/macro-use-empty.rs
 tests/ui/macros/macro-use-one.rs
@@ -14949,6 +14956,7 @@ tests/ui/proc-macro/attr-stmt-expr.rs
 tests/ui/proc-macro/attribute-after-derive.rs
 tests/ui/proc-macro/attribute-spans-preserved.rs
 tests/ui/proc-macro/attribute-with-error.rs
+tests/ui/proc-macro/attribute.rs
 tests/ui/proc-macro/attributes-included.rs
 tests/ui/proc-macro/attributes-on-definitions.rs
 tests/ui/proc-macro/attributes-on-modules-fail.rs
@@ -15818,9 +15826,13 @@ tests/ui/repr/conflicting-repr-enum-attrs.rs
 tests/ui/repr/conflicting-repr-hints.rs
 tests/ui/repr/explicit-rust-repr-conflicts.rs
 tests/ui/repr/invalid-repr-on-structs-74082.rs
+tests/ui/repr/invalid_repr_list_help.rs
 tests/ui/repr/issue-83505-repr-simd.rs
+tests/ui/repr/malformed-repr-hints.rs
 tests/ui/repr/packed-struct-contains-aligned-type-73112.rs
 tests/ui/repr/packed-struct-with-enum-53728.rs
+tests/ui/repr/repr-align-assign.rs
+tests/ui/repr/repr-align.rs
 tests/ui/repr/repr-c-dead-variants.rs
 tests/ui/repr/repr-c-int-dead-variants.rs
 tests/ui/repr/repr-disallow-on-variant.rs
@@ -15834,6 +15846,7 @@ tests/ui/repr/repr-transparent-other-items.rs
 tests/ui/repr/repr-transparent-other-reprs.rs
 tests/ui/repr/repr-transparent-repr-c.rs
 tests/ui/repr/repr-transparent.rs
+tests/ui/repr/repr.rs
 tests/ui/repr/repr_align_greater_usize.rs
 tests/ui/repr/repr_c_int_align.rs
 tests/ui/repr/transparent-enum-too-many-variants.rs
@@ -18533,6 +18546,8 @@ tests/ui/tool-attributes/duplicate-diagnostic.rs
 tests/ui/tool-attributes/duplicate-tool.rs
 tests/ui/tool-attributes/invalid-tool.rs
 tests/ui/tool-attributes/multiple-registered.rs
+tests/ui/tool-attributes/nested-disallowed.rs
+tests/ui/tool-attributes/predefined-tool.rs
 tests/ui/tool-attributes/tool-attributes-misplaced-1.rs
 tests/ui/tool-attributes/tool-attributes-misplaced-2.rs
 tests/ui/tool-attributes/tool-attributes-shadowing.rs

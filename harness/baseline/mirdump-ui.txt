@@ -658,6 +658,7 @@ tests/ui/mir/issue-99866.rs
 tests/ui/mir/issue66339.rs
 tests/ui/mir/lint/assignment-overlap.rs
 tests/ui/mir/lint/call-overlap.rs
+tests/ui/mir/lint/storage-live.rs
 tests/ui/mir/meaningless-bound.rs
 tests/ui/mir/mir-build-2021-closure-capture-ice-110453-1.rs
 tests/ui/mir/mir-build-2021-closure-capture-ice-110453-2.rs

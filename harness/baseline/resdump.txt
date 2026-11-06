@@ -1500,6 +1500,7 @@ tests/ui/async-await/witness-auto-trait/witness-lifetime-dependent-auto-trait-11
 tests/ui/attributes/align-on-fields-143987.rs
 tests/ui/attributes/ambiguous_derive_helpers.rs
 tests/ui/attributes/arg-error-issue-121425.rs
+tests/ui/attributes/args-checked.rs
 tests/ui/attributes/assoc-expr.rs
 tests/ui/attributes/attr-bad-crate-attr.rs
 tests/ui/attributes/attr-before-view-item.rs
@@ -11604,6 +11605,8 @@ tests/ui/macros/macro-tt-followed-by-seq.rs
 tests/ui/macros/macro-tt-matchers.rs
 tests/ui/macros/macro-use-all-and-none.rs
 tests/ui/macros/macro-use-all.rs
+tests/ui/macros/macro-use-bad-args-1.rs
+tests/ui/macros/macro-use-bad-args-2.rs
 tests/ui/macros/macro-use-both.rs
 tests/ui/macros/macro-use-empty.rs
 tests/ui/macros/macro-use-one.rs
@@ -14953,6 +14956,7 @@ tests/ui/proc-macro/attr-stmt-expr.rs
 tests/ui/proc-macro/attribute-after-derive.rs
 tests/ui/proc-macro/attribute-spans-preserved.rs
 tests/ui/proc-macro/attribute-with-error.rs
+tests/ui/proc-macro/attribute.rs
 tests/ui/proc-macro/attributes-included.rs
 tests/ui/proc-macro/attributes-on-definitions.rs
 tests/ui/proc-macro/attributes-on-modules-fail.rs
@@ -18542,6 +18546,8 @@ tests/ui/tool-attributes/duplicate-diagnostic.rs
 tests/ui/tool-attributes/duplicate-tool.rs
 tests/ui/tool-attributes/invalid-tool.rs
 tests/ui/tool-attributes/multiple-registered.rs
+tests/ui/tool-attributes/nested-disallowed.rs
+tests/ui/tool-attributes/predefined-tool.rs
 tests/ui/tool-attributes/tool-attributes-misplaced-1.rs
 tests/ui/tool-attributes/tool-attributes-misplaced-2.rs
 tests/ui/tool-attributes/tool-attributes-shadowing.rs
