@@ -193,28 +193,14 @@ const CASES: [string, string[]][] = [
   ["skiplines.rs", [...JSON_, "-Dwarnings"]],
   ["stray.rs", PRETTY],
   ["confusable.rs", [...PRETTY, "--json=diagnostic-unicode"]],
+  // an error code with a long description: `explanation` holds the E<nnnn>.md text (codes.ts, error_codes_text.gen.ts)
+  ["unterm_str.rs", JSON_],
+  ["blockcomment.rs", PRETTY],
+  ["doccomment.rs", JSON_],
 ];
 
 /** [case name, args, `unported(..)` text, reason] */
 const EXPECTED_UNPORTED: [string, string[], string, string][] = [
-  [
-    "unterm_str.rs",
-    JSON_,
-    "rustc_errors::codes::DIAGNOSTICS long description text (E0765.md)",
-    "error code with a long description: `explanation` needs the E<nnnn>.md text, not embedded yet (codes.ts)",
-  ],
-  [
-    "blockcomment.rs",
-    PRETTY,
-    "rustc_errors::codes::DIAGNOSTICS long description text (E0758.md)",
-    "error code with a long description: `explanation` needs the E<nnnn>.md text, not embedded yet (codes.ts)",
-  ],
-  [
-    "doccomment.rs",
-    JSON_,
-    "rustc_errors::codes::DIAGNOSTICS long description text (E0585.md)",
-    "error code with a long description: `explanation` needs the E<nnnn>.md text, not embedded yet (codes.ts)",
-  ],
   [
     "expr.rs",
     [...JSON_, "-Ztrack-diagnostics"],

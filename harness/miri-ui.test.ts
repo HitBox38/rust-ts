@@ -249,7 +249,7 @@ suiteTest(`the case sets at the pin (revisions expanded, target filters honoured
   expect(k.fsHeavy).toEqual(["tests/pass/issues/issue-miri-3680.rs", "tests/pass/shims/fs-permissions.rs", "tests/pass/shims/fs.rs"]);
   // plan-m6 A12's amendment: the real-clock bound is heavy; the virtual clock (isolation on) is not.
   expect(k.clockHeavy).toEqual([["tests/pass/shims/time.rs", true], ["tests/pass/shims/time-with-isolation.rs", false]]);
-  expect(k.unstable).toEqual(["tests/panic/mir-validation.rs", "tests/panic/panic1.rs"]);
+  expect(k.unstable).toEqual(["tests/panic/panic1.rs"]);
   expect(k.skippedPass).toContain("tests/pass/shims/aarch64/intrinsics-aarch64-aes.rs");
   expect(k.skippedPass.length).toBe(12);
   expect(k.tbSkipped).toBe(132);

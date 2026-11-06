@@ -7,7 +7,6 @@
 // generated into codes.gen.ts; the `E<nnnn>` constants into error_codes.gen.ts
 // (tools/codegen/error_codes.ts, from `rustc_error_codes::error_codes!`).
 import { into_diag_arg_using_display } from "../rustc_error_messages/lib.ts";
-import { unported } from "../std/panic.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
 import { ErrCode, type InvalidErrorCode as InvalidErrorCode_ } from "./codes.gen.ts";
 import { ERROR_CODES } from "./error_codes.gen.ts";
@@ -26,15 +25,17 @@ export function display_ErrCode(self: ErrCode): string {
 export const ErrCode_into_diag_arg = into_diag_arg_using_display<ErrCode>(display_ErrCode);
 
 /**
- * PORT: the long description of an error code (`include_str!("../../rustc_error_codes/src/error_codes/E<n>.md")`).
- * The ~1.3 MB of Markdown is not embedded, so reading the text is `unported`; whether a code has a
- * description (`try_find_description(..).is_ok()`) is exact.
+ * PORT: the long description of an error code (`include_str!("../../rustc_error_codes/src/error_codes/E<n>.md")`). The 418,411
+ * bytes of Markdown are in error_codes_text.gen.ts (tools/codegen/error_codes.ts), loaded with a synchronous `require` the first
+ * time a text is read, so a compile that reads none neither parses nor evaluates them. `import()` is not an option here: `text()`
+ * is synchronous, as upstream's `&'static str` is.
  */
 export class ErrCodeDescription {
   constructor(readonly code: ErrCode) {}
 
   text(): string {
-    return unported(`rustc_errors::codes::DIAGNOSTICS long description text (${display_ErrCode(this.code)}.md)`);
+    const { ERROR_CODE_TEXT } = require("./error_codes_text.gen.ts") as typeof import("./error_codes_text.gen.ts");
+    return ERROR_CODE_TEXT[ErrCode.as_u32(this.code)]!;
   }
 }
 
