@@ -58,6 +58,10 @@ export async function commandOutput(cmd: string[], limitMs = 5_000): Promise<str
   try {
     const p = Bun.spawn(cmd, { stdin: "ignore", stdout: "pipe", stderr: "ignore", timeout: limitMs, killSignal: "SIGKILL" });
     p.unref();
+    // Bun's own timeout dies with this process, so a `process.exit` during a read would leave the command behind (review harness-w41 N1).
+    const killAtExit = () => p.kill("SIGKILL");
+    process.on("exit", killAtExit);
+    void p.exited.finally(() => process.off("exit", killAtExit));
     const [text, code] = await Promise.all([new Response(p.stdout).text(), p.exited]);
     return code === 0 ? text : undefined;
   } catch {
@@ -76,22 +80,59 @@ export const REAL_HOST: HostReaders = {
 const READ_LIMIT_MS = 6_000;
 
 /**
+ * The readers with a read still unsettled past the limit (review root-w40-check F2). A command stuck past SIGKILL, or whose child holds
+ * its stdout, is a process and a descriptor that outlive the gate: started again on every sample they reach the per-user process limit
+ * across about 3 gates without a reboot, each mark waits out the limit, and nothing says so. So such a reader is not started again until
+ * that read settles, and one `note:` says so. Past the limit only: a mark can overlap a healthy poll, and must still get its own reading.
+ * That leaves at most two reads of a reader per gate, the two that overlapped as it stuck. Report only, like the rest of this file.
+ */
+export class StuckReads {
+  private readonly past = new Map<string, number>();
+  private readonly noted = new Set<string>();
+
+  constructor(private readonly note: (line: string) => void) {}
+
+  isStuck(reader: string): boolean {
+    return (this.past.get(reader) ?? 0) > 0;
+  }
+
+  pastLimit(reader: string, reading: Promise<unknown>, limitMs: number): void {
+    this.past.set(reader, (this.past.get(reader) ?? 0) + 1);
+    const settled = () => void this.past.set(reader, this.past.get(reader)! - 1);
+    reading.then(settled, settled);
+    if (this.noted.has(reader)) return;
+    this.noted.add(reader);
+    this.note(`note: host reader ${reader} is stuck: a read has not ended ${limitMs / 1000} s after it started, so it is not started again until it does, and gate.json has null for it. A process stuck past SIGKILL lasts until a reboot: check \`ps\`, and reboot before the next gate if it is there`);
+  }
+}
+
+/**
  * One sample. Never throws or hangs, whatever a reader does: `gateRun` awaits samples between suites, so a reader that never
  * answered would stop the gate. The timer is kept referenced: the gate's top-level await does not need that today, but a caller
  * without one would otherwise exit silently, 0 and with no gate.json, during such a read.
  */
-export async function sampleHost(r: HostReaders, readLimitMs = READ_LIMIT_MS): Promise<HostSample> {
-  const read = async (f: () => Promise<string | undefined>): Promise<string | undefined> => {
+export async function sampleHost(r: HostReaders, readLimitMs = READ_LIMIT_MS, stuck?: StuckReads): Promise<HostSample> {
+  const read = async (reader: "pmset" | "swapusage"): Promise<string | undefined> => {
+    if (stuck?.isStuck(reader)) return undefined;
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
-      return await Promise.race([f(), new Promise<undefined>((res) => { timer = setTimeout(() => res(undefined), readLimitMs); })]);
+      const reading = r[reader]();
+      return await Promise.race([
+        reading,
+        new Promise<undefined>((res) => {
+          timer = setTimeout(() => {
+            stuck?.pastLimit(reader, reading, readLimitMs);
+            res(undefined);
+          }, readLimitMs);
+        }),
+      ]);
     } catch {
       return undefined;
     } finally {
       clearTimeout(timer);
     }
   };
-  const [pmset, swap] = await Promise.all([read(() => r.pmset()), read(() => r.swapusage())]);
+  const [pmset, swap] = await Promise.all([read("pmset"), read("swapusage")]);
   return { at: r.now().toISOString(), power: pmset === undefined ? null : (parsePower(pmset) ?? null), load: r.load(), swapUsedMb: swap === undefined ? null : (parseSwapUsedMb(swap) ?? null) };
 }
 
@@ -113,6 +154,10 @@ export interface HostLogOptions {
   allowBattery: boolean;
   /** Whether the reading `gateRun` took before this log was on battery; undefined if it had none. */
   firstOnBattery: boolean | undefined;
+  /** Shared with the reading `gateRun` took before this log: that read can be the stuck one. */
+  stuck: StuckReads;
+  /** `sampleHost`'s limit; tests shorten it. */
+  readLimitMs?: number;
 }
 
 /** What gate.json keeps of a run (`host`). */
@@ -123,7 +168,11 @@ export interface HostRecord {
    * sample, and it may have had no reading. Not a run started on battery with the flag.
    */
   powerLost: { at: string; percent: number | null }[];
-  /** Polls and suite edges in time order; see `HostLogOptions.keepEveryMs`. */
+  /**
+   * Polls and suite edges in time order; see `HostLogOptions.keepEveryMs`. Power is known only at these readings, so a spell on battery
+   * that starts and ends between two of them, up to `pollMs` long (60 s on a real gate), shows neither here nor in `powerLost`: the wave
+   * 40a gate's 10 s spell during `expanded` is only in `pmset -g log` (review w40a-audit N4).
+   */
   samples: HostSample[];
 }
 
@@ -135,6 +184,8 @@ export class HostLog {
   private polling = false;
   private onBattery: boolean | undefined;
   private keptAt = -Infinity;
+  /** The last sample had no power reading, so a change seen next happened some time before it was seen. */
+  private unread = false;
 
   constructor(
     private readonly readers: HostReaders,
@@ -145,17 +196,23 @@ export class HostLog {
 
   /** Follows the power source; a sample with no reading says nothing about it. Whether the source changed. */
   private follow(s: HostSample): boolean {
-    if (s.power === null) return false;
+    if (s.power === null) {
+      this.unread = true;
+      return false;
+    }
     const was = this.onBattery;
+    const unread = this.unread;
+    this.unread = false;
     this.onBattery = s.power.onBattery;
     if (was === s.power.onBattery) return false;
     if (was === undefined && (!s.power.onBattery || this.opts.allowBattery)) return false;
     const charge = s.power.percent === null ? "" : ` at ${s.power.percent}%`;
+    // After no reading at all or a failed one, T is only when it was seen: the move happened some time before it.
+    const when = was === undefined || unread ? "by" : "at";
     if (s.power.onBattery) {
       this.powerLost.push({ at: s.at, percent: s.power.percent });
-      // A first reading says only when it was seen: the host may have been on battery since before it.
-      this.opts.note(`note: power lost ${was === undefined ? "by" : "at"} ${s.at}: this gate now runs on battery${charge}, slower, and a timeout from here on may be false (\`host\` in gate.json)`);
-    } else this.opts.note(`note: power back at ${s.at}${charge}`);
+      this.opts.note(`note: power lost ${when} ${s.at}: this gate now runs on battery${charge}, slower, and a timeout from here on may be false (\`host\` in gate.json)`);
+    } else this.opts.note(`note: power back ${when} ${s.at}${charge}`);
     return true;
   }
 
@@ -167,7 +224,7 @@ export class HostLog {
 
   /** A sample that is always kept: the run's and each suite's start and end. */
   async mark(): Promise<HostSample> {
-    const s = await sampleHost(this.readers);
+    const s = await sampleHost(this.readers, this.opts.readLimitMs, this.opts.stuck);
     this.follow(s);
     return this.keep(s);
   }
@@ -177,7 +234,7 @@ export class HostLog {
     if (this.polling) return;
     this.polling = true;
     try {
-      const s = await sampleHost(this.readers);
+      const s = await sampleHost(this.readers, this.opts.readLimitMs, this.opts.stuck);
       const changed = this.follow(s);
       if (changed || Date.parse(s.at) - this.keptAt >= this.opts.keepEveryMs) this.keep(s);
     } finally {

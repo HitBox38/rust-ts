@@ -63,7 +63,8 @@
 import { existsSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { availableParallelism } from "node:os";
 import { join } from "node:path";
-import { SUITES, suite as getSuite, type Case, type Suite } from "../harness/suites.ts";
+import { SUITES, irReportSuite, suite as getSuite, type Case, type Suite } from "../harness/suites.ts";
+import { isIrTier } from "./lib/ir-normal.ts";
 import type { Blessed } from "../harness/compiletest.ts";
 import { ORACLE_CACHE, PIN, REPO, RUNS, UPSTREAM, die, ensureDir, hash, nowId, parseArgs, pool, requireUpstream, run, type ProcResult } from "./lib/common.ts";
 import { withCaseLock } from "./lib/case-lock.ts";
@@ -1139,6 +1140,7 @@ export async function difftest(
     ...(changed.length ? { upstreamChanges: changed } : {}),
     ...(split ? { extra: extra.length, oracleReruns } : {}),
     ...(s.heavy ? { heavy: heavyRuns } : {}),
+    ...(s.irTier ? { irTier: s.irTier } : {}),
   };
   const criterion = s.criterion ? criterionOf(s.criterion, counts, results.length) : undefined;
   if (criterion) Object.assign(summary, { criterion });
@@ -1164,8 +1166,15 @@ if (import.meta.main) {
   const a = parseArgs(process.argv.slice(2));
   if (a.list || !a.suite) {
     for (const s of SUITES) console.log(`${s.name.padEnd(8)} [${s.milestone}] ${s.description}`);
-    if (!a.list) console.log("usage: bun scripts/difftest.ts --suite <name> [--sample N] [--filter S] [--impl port|shim|stub]");
+    if (!a.list) console.log("usage: bun scripts/difftest.ts --suite <name> [--sample N] [--filter S] [--impl port|shim|stub] [--ir-tier N1|N2|N3]");
     process.exit(0);
+  }
+  // An IR suite at another tier: a report under its own name, which no gate takes (`irReportSuite`).
+  if (a["ir-tier"] !== undefined) {
+    if (typeof a["ir-tier"] !== "string" || !isIrTier(a["ir-tier"])) die(`--ir-tier must be N1, N2 or N3, not ${String(a["ir-tier"])}`);
+    const report = irReportSuite(getSuite(String(a.suite)), a["ir-tier"]);
+    if (!SUITES.includes(report)) SUITES.push(report);
+    a.suite = report.name;
   }
   const num = (k: string) => (typeof a[k] === "string" ? Number(a[k]) : undefined);
   const { dir, counts, results, stats, skipped, oracleTimeoutSubjects: ots, subsets, blessed, extra, heavy, oracleReruns, criterion } = await difftest({
@@ -1181,6 +1190,8 @@ if (import.meta.main) {
   });
   const pct = results.length ? ((100 * counts.MATCH) / results.length).toFixed(2) : "0";
   console.log(`suite=${a.suite} total=${results.length} ${STATUSES.map((s) => `${s}=${counts[s]}`).join(" ")} match%=${pct}${skipped !== undefined ? ` skipped=${skipped}` : ""}`);
+  const irTier = getSuite(String(a.suite)).irTier;
+  if (irTier) console.log(`ir tier: ${irTier}${String(a.suite).includes("@") ? " (a report; no gate reads this name)" : ""}`);
   for (const [name, sc] of Object.entries(subsets ?? {})) {
     console.log(`subset ${name}: total=${sc.total} ${STATUSES.map((st) => `${st}=${sc[st]}`).join(" ")} match%=${sc.total ? ((100 * sc.MATCH) / sc.total).toFixed(2) : "0"}`);
   }

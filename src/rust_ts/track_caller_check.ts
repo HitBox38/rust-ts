@@ -7,8 +7,8 @@
 //  - every call of the callee families in D4 goes through `map_call`, the resolver's own mapping: how many map, why
 //    the others refuse, and every **proven swap** (the TS call's key is at another index upstream): a port bug, fixed
 //    by restoring upstream's order;
-//  - every `// rustc-call:` anchor and `// rustc-const:` marker must name upstream code (coverage.ts --check does not
-//    know them yet: see docs/handoff/ice-report-impl.md);
+//  - every `// rustc-call:` anchor and `// rustc-const:` marker must name upstream code (coverage.ts --check checks this too,
+//    in the gate: scripts/lib/marker-check.ts);
 //  - mapped locations absent from the oracle binary's `Location` constants are reported, never an error: absence
 //    only means "not witnessed", and presence does not prove the mapping either (review F3);
 //  - how many of the locations the oracle prints in the ICE corpus D4 refuses.
