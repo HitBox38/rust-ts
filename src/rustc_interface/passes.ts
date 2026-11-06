@@ -1414,43 +1414,44 @@ export function start_codegen(codegen_backend: CodegenBackend, tcx: TyCtxt): [un
   }
   const metadata = r._0;
 
-  const is_host_metadata = tcx.sess.opts.unstable_opts.offload.some((o) => o.$ === "HostMetadata");
+  // PORT: `metadata` is a local here until it moves into the returned tuple, so any unwind from this point on drops it
+  // in Rust, and its temp dir with it (`temp_dir.rs:14-23`, kept under `-C save-temps`). Drops are explicit here (fs.ts),
+  // and a stop left `rmetaXXXXXX/` where the oracle leaves nothing (`docs/reviews/integ-w39-b1.md` F1).
+  try {
+    const is_host_metadata = tcx.sess.opts.unstable_opts.offload.some((o) => o.$ === "HostMetadata");
 
-  const codegen = tcx.sess.time("codegen_crate", (): unknown => {
-    if (tcx.sess.opts.unstable_opts.no_codegen || !tcx.sess.opts.output_types.should_codegen() || is_host_metadata) {
-      tcx.sess.dcx().abort_if_errors();
+    const codegen = tcx.sess.time("codegen_crate", (): unknown => {
+      if (tcx.sess.opts.unstable_opts.no_codegen || !tcx.sess.opts.output_types.should_codegen() || is_host_metadata) {
+        tcx.sess.dcx().abort_if_errors();
 
-      if (is_host_metadata) {
-        // rustc_monomorphize::write_host_metadata_offload_manifest(tcx);
-        return unported("rustc_monomorphize::write_host_metadata_offload_manifest (-Z offload=HostMetadata)");
-      }
+        if (is_host_metadata) {
+          // rustc_monomorphize::write_host_metadata_offload_manifest(tcx);
+          return unported("rustc_monomorphize::write_host_metadata_offload_manifest (-Z offload=HostMetadata)");
+        }
 
-      // Linker::link will skip join_codegen in case of a `CompiledModules` Any value.
-      return new CompiledModules([], undefined);
-    } else {
-      try {
+        // Linker::link will skip join_codegen in case of a `CompiledModules` Any value.
+        return new CompiledModules([], undefined);
+      } else {
         return codegen_backend.codegen_crate(tcx);
-      } catch (e) {
-        // As Rust's unwinding drop of `EncodedMetadata`: it owns the metadata temp dir, which only `Linker::link` drops
-        // otherwise, so a stop in codegen must not leave `rmetaXXXXXX/` in the output directory.
-        metadata.drop();
-        throw e;
       }
+    });
+
+    // info!("Post-codegen\n{:?}", tcx.debug_stats());
+
+    // This must run after monomorphization so that all generic types
+    // have been instantiated.
+    if (tcx.sess.opts.unstable_opts.print_type_sizes) {
+      // tcx.sess.code_stats.print_type_sizes();
+      unported("rustc_session::code_stats::CodeStats::print_type_sizes (-Z print-type-sizes)");
     }
-  });
 
-  // info!("Post-codegen\n{:?}", tcx.debug_stats());
+    const crate_info = CrateInfo_new(tcx, codegen_backend.target_cpu(tcx.sess));
 
-  // This must run after monomorphization so that all generic types
-  // have been instantiated.
-  if (tcx.sess.opts.unstable_opts.print_type_sizes) {
-    // tcx.sess.code_stats.print_type_sizes();
-    unported("rustc_session::code_stats::CodeStats::print_type_sizes (-Z print-type-sizes)");
+    return [codegen, crate_info, metadata];
+  } catch (e) {
+    metadata.drop();
+    throw e;
   }
-
-  const crate_info = CrateInfo_new(tcx, codegen_backend.target_cpu(tcx.sess));
-
-  return [codegen, crate_info, metadata];
 }
 
 /// Compute and validate the crate name.

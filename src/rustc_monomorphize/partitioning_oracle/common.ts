@@ -77,6 +77,8 @@ function program_cases(): Case[] {
   // The order `Vec::swap_remove` leaves.
   out.push({ ...p("swap_order"), name: "swap_order-incr", flags: ["-Copt-level=0", "-Ccodegen-units=2", HUMAN], incremental: true });
   out.push({ ...p("swap_order"), name: "swap_order-nonincr", flags: ["-Copt-level=0", "-Ccodegen-units=2"], incremental: false });
+  // `compute_inlined_overlap`, and `items_in_deterministic_order`'s `-Zcodegen-source-order` branch: see the program.
+  out.push({ ...p("overlap"), name: "overlap-source-order", flags: ["-Copt-level=0", "-Ccodegen-units=2", "-Zcodegen-source-order", HUMAN], incremental: true });
   // `NON_INCR_MIN_CGU_SIZE` and the `cgu.NN` suffix.
   out.push({ ...p("large_cgus"), name: "large_cgus-default", flags: ["-Copt-level=0"], incremental: false });
   out.push({ ...p("large_cgus"), name: "large_cgus-16", flags: ["-Copt-level=0", "-Ccodegen-units=16"], incremental: false });

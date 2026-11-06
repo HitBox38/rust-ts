@@ -7,13 +7,16 @@
 // is a bug: the edit is applied twice, or to a position it was not meant for (PORTING §8, decision 2026-10-22 "MIR build
 // aliasing").
 //
-// `find_shared_objects(body)` walks the body's object graph (own enumerable properties, arrays and `Map` values)
-// and reports every object reached a second time. **Everything counts as mutable unless this file says why it is not**
-// (the list used to name the mutable types, and a type nobody listed could not be reported):
+// `find_shared_objects(body)` walks the body's object graph (own data properties of any kind: enumerable or not, string or
+// symbol; arrays; `Map` keys and values; `Set` members) and reports every object reached a second time. **Everything counts as
+// mutable unless this file says why it is not** (the list used to name the mutable types, and a type nobody listed could not
+// be reported). It cannot see accessors, which it does not call, or `#private` fields.
 //
-// - Frozen objects are not walked. Writing to one throws (ES modules are strict). These are the interned type-system
-//   values, `RawList`s and shared unit variants. `Object.isFrozen` is shallow: the `PlaceElem`s inside a projection list are
-//   not frozen, but `MutVisitor::process_projection_elem` builds new elements instead of writing to them.
+// - Interned values and lists are not walked: the type-system values (`Interned`) and `RawList`s, shared by design. Writing to
+//   one throws (ES modules are strict). `Object.isFrozen` is shallow: the `PlaceElem`s inside a projection list are not frozen,
+//   but `MutVisitor::process_projection_elem` builds new elements instead of writing to them.
+// - Other frozen objects cannot be written, so sharing one is not reported, but what they hold can be, so it is walked: a
+//   frozen wrapper reached twice reports its unfrozen children.
 // - Unit variants (no own field but `$`) are not walked: no field to write. Only the dataflow state lattices write `.$`, and
 //   `replace_in_place` targets only `Operand`, `Rvalue`, `Place` and `StmtDebugInfo`, none of which has a unit variant.
 // - `IMMUTABLE`: value classes with no in-place writes.
@@ -21,11 +24,11 @@
 // - `IMMUTABLE_POSITIONS`: `Copy` payloads that upstream does copy, at the positions below, which no pass writes into. The
 //   check is by position as well as type because the same tag can be mutable elsewhere (`.msg._0` is also an `Operand`).
 
+import { Interned } from "../../rustc_data_structures/intern.ts";
+import { RawList } from "../../rustc_middle/ty/list.ts";
+
 /** Constructor names of value classes that no MIR pass edits in place. */
 const IMMUTABLE: ReadonlySet<string> = new Set(["DefId", "LocalDefId", "HirId", "OwnerId", "Size", "Align", "ScalarInt", "ErrorGuaranteed"]);
-
-/** Property names that are skipped (derived data shared upstream through an `Arc`). */
-const SKIP_FIELDS: ReadonlySet<string> = new Set(["cache"]);
 
 /**
  * `[what, path]`: a hit is harmless when both of its paths match one row. Checked by reading every field write in
@@ -92,20 +95,61 @@ function is_unit_variant(o: object): boolean {
   return keys.length === 1;
 }
 
+/** What `v` holds, for `find_shared_objects`' stack: last pushed is walked first, so the first path is the lowest index. */
+function push_children(stack: [unknown, string][], v: object, name: string, path: string): void {
+  if (v instanceof Map) {
+    for (const [k, x] of v) {
+      stack.push([k, `${path}{key ${String(k)}}`]);
+      stack.push([x, `${path}{${String(k)}}`]);
+    }
+    return;
+  }
+  if (v instanceof Set) {
+    let i = 0;
+    for (const x of v) stack.push([x, `${path}{member ${i++}}`]);
+    return;
+  }
+  if (ArrayBuffer.isView(v)) return;
+  const is_array = Array.isArray(v);
+  const keys = Reflect.ownKeys(v);
+  for (let i = keys.length - 1; i >= 0; i--) {
+    const k = keys[i]!;
+    if (is_array && typeof k === "string" && (k === "length" || /^\d+$/.test(k))) continue;
+    // `BasicBlocks.cache`: an `Arc` upstream, derived data.
+    if (k === "cache" && name === "BasicBlocks") continue;
+    const d = Object.getOwnPropertyDescriptor(v, k)!;
+    if ("value" in d) stack.push([d.value, typeof k === "string" ? `${path}.${k}` : `${path}[${String(k)}]`]);
+  }
+  if (is_array) {
+    const a = v as unknown[];
+    for (let i = a.length - 1; i >= 0; i--) stack.push([a[i], `${path}[${i}]`]);
+  }
+}
+
 /**
  * Every object of `root`'s graph that is reachable through two paths (up to `limit` reports). `on_object` is called once
  * per walked object with its first path (the cross-body check in hooks.ts).
  */
 export function find_shared_objects(root: object, root_path = "body", limit = 50, on_object?: (o: object, path: string) => void): SharedObject[] {
   const seen = new Map<object, string>();
+  const frozen_walks = new Map<object, number>();
   const out: SharedObject[] = [];
   const stack: [unknown, string][] = [[root, root_path]];
   while (stack.length > 0) {
     const [v, path] = stack.pop()!;
     if (v === null || typeof v !== "object") continue;
-    if (Object.isFrozen(v)) continue;
+    if (v instanceof Interned || v instanceof RawList) continue;
     const name = describe_object(v);
     if (IMMUTABLE.has(name)) continue;
+    if (Object.isFrozen(v)) {
+      // Twice at most: the second reach is the one that reports a child, and it keeps a frozen cycle from looping.
+      const walks = frozen_walks.get(v) ?? 0;
+      if (walks < 2) {
+        frozen_walks.set(v, walks + 1);
+        push_children(stack, v, name, path);
+      }
+      continue;
+    }
     if (is_unit_variant(v)) continue;
     const prev = seen.get(v);
     if (prev !== undefined) {
@@ -115,21 +159,7 @@ export function find_shared_objects(root: object, root_path = "body", limit = 50
     }
     seen.set(v, path);
     on_object?.(v, path);
-    if (v instanceof Map) {
-      for (const [k, x] of v) stack.push([x, `${path}{${String(k)}}`]);
-      continue;
-    }
-    if (v instanceof Set) continue;
-    if (Array.isArray(v)) {
-      for (let i = v.length - 1; i >= 0; i--) stack.push([v[i], `${path}[${i}]`]);
-      continue;
-    }
-    const keys = Object.keys(v);
-    for (let i = keys.length - 1; i >= 0; i--) {
-      const k = keys[i]!;
-      if (SKIP_FIELDS.has(k)) continue;
-      stack.push([(v as Record<string, unknown>)[k], `${path}.${k}`]);
-    }
+    push_children(stack, v, name, path);
   }
   return out;
 }

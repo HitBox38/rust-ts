@@ -14,6 +14,7 @@
 // Exit codes as src/rust_ts/main.ts: rustc's own, plus 70 = reached unported code, 101 = ICE.
 import type { Compiler, Config } from "../../rustc_interface/interface.ts";
 import type { AllocId, GlobalAlloc } from "../../rustc_middle/mir/interpret/mod.ts";
+import type { Allocation } from "../../rustc_middle/mir/interpret/allocation.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import type { ModuleItems } from "../../rustc_middle/hir/mod.ts";
 import { ensure_stack } from "../../rust_ts/stack.ts";
@@ -31,7 +32,6 @@ async function main(): Promise<number> {
   const { collect_crate_mono_items } = await import("../collector.ts");
   const { display_MonoItem, MonoItem } = await import("../../rustc_middle/mono.ts");
   const { with_no_trimmed_paths } = await import("../../rustc_middle/ty/print/pretty.ts");
-  const { Fingerprint } = await import("../../rustc_data_structures/fingerprint.ts");
   const { Size, Size_cmp } = await import("../../rustc_abi/lib.ts");
   const { CtfeProvenance, GlobalAlloc: GlobalAllocC, Provenance_CtfeProvenance, alloc_range } = await import("../../rustc_middle/mir/interpret/mod.ts");
   const { display_Instance } = await import("../../rustc_middle/ty/instance.ts");
@@ -55,6 +55,32 @@ async function main(): Promise<number> {
     }
   }
 
+  // One block of a vtable, a line per pointer-sized slot. A slot holding a pointer to plain memory is a supertrait vtable
+  // (`VtblEntry::TraitVPtr`): what it points at is printed under it, one level in, so a wrong upcasting target shows.
+  function dump_block(tcx: TyCtxt, inner: Allocation, indent: string, seen: Set<AllocId>, out: Map<string, string>): string {
+    const ptr_size = tcx.data_layout().pointer_size();
+    let body = `${indent}size ${inner.size().bytes()} align ${inner.align.bytes()} ${inner.mutability}\n`;
+    for (let off = Size.ZERO; Size_cmp(off, inner.size()) < 0; off = off.add(ptr_size)) {
+      let nested = "";
+      const r = inner.read_scalar(tcx, alloc_range(off, ptr_size), true, Provenance_CtfeProvenance);
+      let text: string;
+      if (r.$ === "Err") {
+        text = "uninit";
+      } else if (r._0.$ === "Int") {
+        text = `int ${r._0._0.to_bits(ptr_size)}`;
+      } else {
+        const [prov, offset] = r._0._0.prov_and_relative_offset();
+        const id = CtfeProvenance.alloc_id(prov);
+        walk(tcx, id, seen, out);
+        const ga: GlobalAlloc = tcx.global_alloc(id);
+        if (ga.$ === "Memory") nested = dump_block(tcx, ga._0.inner(), `${indent}    `, seen, out);
+        text = `${slot(tcx, id)} +${offset.bytes()}`;
+      }
+      body += `${indent}  ${off.bytes()}: ${text}\n${nested}`;
+    }
+    return body;
+  }
+
   function walk(tcx: TyCtxt, id: AllocId, seen: Set<AllocId>, out: Map<string, string>): void {
     if (seen.has(id)) return;
     seen.add(id);
@@ -75,23 +101,7 @@ async function main(): Promise<number> {
         const [ty, dyn_ty] = [ga._0, ga._1];
         const principal = dyn_ty.principal();
         const vtable_id = tcx.vtable_allocation([ty, principal !== undefined ? tcx.instantiate_bound_regions_with_erased(principal, d_ExistentialTraitRef) : undefined]);
-        const inner = GlobalAllocC.unwrap_memory(tcx.global_alloc(vtable_id)).inner();
-        const ptr_size = tcx.data_layout().pointer_size();
-        let body = `size ${inner.size().bytes()} align ${inner.align.bytes()} ${inner.mutability}\n`;
-        for (let off = Size.ZERO; Size_cmp(off, inner.size()) < 0; off = off.add(ptr_size)) {
-          const r = inner.read_scalar(tcx, alloc_range(off, ptr_size), true, Provenance_CtfeProvenance);
-          let text: string;
-          if (r.$ === "Err") {
-            text = "uninit";
-          } else if (r._0.$ === "Int") {
-            text = `int ${r._0._0.to_bits(ptr_size)}`;
-          } else {
-            const [prov, offset] = r._0._0.prov_and_relative_offset();
-            walk(tcx, CtfeProvenance.alloc_id(prov), seen, out);
-            text = `${slot(tcx, CtfeProvenance.alloc_id(prov))} +${offset.bytes()}`;
-          }
-          body += `  ${off.bytes()}: ${text}\n`;
-        }
+        const body = dump_block(tcx, GlobalAllocC.unwrap_memory(tcx.global_alloc(vtable_id)).inner(), "", seen, out);
         out.set(`VTABLE ${display_List_PolyExistentialPredicate(dyn_ty)} for ${display_Ty(ty)}`, body);
         break;
       }

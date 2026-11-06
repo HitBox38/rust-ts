@@ -58,11 +58,17 @@ pub struct F64x2([f64; 2]);
 pub struct F32x8([f32; 8]);
 #[repr(simd)]
 pub struct U64x2([u64; 2]);
+#[repr(simd)]
+pub struct U8x4([u8; 4]);
 pub struct Hva2 { a: F32x4, b: F32x4 }
 pub struct Hva4 { a: F32x2, b: F32x2, c: F32x2, d: F32x2 }
 pub struct Hva5 { a: F32x4, b: F32x4, c: F32x4, d: F32x4, e: F32x4 }
 pub struct HvaInt { a: U64x2, b: U64x2 }
 pub struct HvaWide { a: F32x8 }
+// `is_homogeneous_aggregate`'s vector-size limit: only 64 and 128 bits count (docs/reviews/abi-vtable.md F2). `HvaWide` alone
+// never gets there, being a one-field wrapper with `BackendRepr::SimdVector`.
+pub struct Hva256 { a: F32x8, b: F32x8 }
+pub struct Hva32 { a: U8x4, b: U8x4 }
 pub struct HvaMixed { a: F32x2, b: F32x4 }
 pub struct VecAndFloat { a: F32x4, b: f32 }
 
@@ -222,3 +228,20 @@ pub type RustSmall = fn(u8, i16, f32, bool, char, Hfa2, Int3, Int16, Int24, (f32
 pub type RustVectors = fn(F32x2, F32x4, F32x8, Hva2, &'static [u8], u128) -> F32x4;
 #[rustc_abi(debug)]
 pub type RustRet = fn() -> Int16;
+
+// The early returns of `classify_ret` and `classify_arg`.
+#[repr(C)]
+#[rustc_pass_indirectly_in_non_rustic_abis]
+pub struct PassIndirectly(u8);
+#[rustc_abi(debug)]
+pub type CPassIndirectly = extern "C" fn(PassIndirectly);
+#[rustc_abi(debug)]
+pub type RustPassIndirectly = fn(PassIndirectly);
+#[rustc_abi(debug)]
+pub type CHva256 = extern "C" fn(Hva256) -> Hva256;
+#[rustc_abi(debug)]
+pub type CHva32 = extern "C" fn(Hva32) -> Hva32;
+#[rustc_scalable_vector(4)]
+pub struct Svint32(i32);
+#[rustc_abi(debug)]
+pub type CScalable = extern "C" fn(Svint32) -> Svint32;
