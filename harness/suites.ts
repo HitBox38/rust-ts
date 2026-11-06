@@ -825,20 +825,9 @@ function m3UiCorpus(dirs: string[], dumpTests = true): { cases: Case[]; skipped:
   m3UiMemo.set(key, r);
   return r;
 }
-// Unstable cases of tydump-ui and thirdump-ui (lane harness-w20c; review harness-w20b §5): each oracle output differed
-// between two runs of the same probe binary with the same argv, env and cwd (both probes, measured twice), and the
-// difference is not caused by the harness:
-// - `-Zwrite-long-types-to-disk=yes` (the test's own compile-flags, after compiletest's `=no`): the note
-//   `the full name for the type has been written to '<out dir>/<stem>.long-type-<hash>.txt'` names a hash of the type
-//   (rustc_middle ty/error.rs `short_string_namespace`: `DefaultHasher` over `Hash` of an interned value, which hashes
-//   its address). The note is printed whether or not the out dir exists, and the address varies from run to run
-//   (ASLR), so no out dir or temp dir makes it reproducible (compiletest normalizes it to `$LONG_TYPE_HASH`).
-// (Six `#old` revisions that ICE were here for the thread id in the panic message, which is masked now: scripts/lib/unstable.ts.)
-const M3_UI_LONG_TYPE = "the long-type note names `<stem>.long-type-<hash>.txt`, a hash of an interned type's address";
-const M3_UI_UNSTABLE: UnstableCase[] = [
-  { id: "tests/ui/traits/error-reporting/conditionally-implemented-trait-long-type.rs", reason: M3_UI_LONG_TYPE },
-  { id: "tests/ui/traits/on_unimplemented_long_types.rs", reason: M3_UI_LONG_TYPE },
-];
+// tydump-ui and thirdump-ui had unstable cases (lane harness-w20c; review harness-w20b §5): six `#old` revisions that ICE, for
+// the panic message's thread id, and the two `-Zwrite-long-types-to-disk=yes` tests, for the note's hash. Both are masked
+// at comparison now (scripts/lib/unstable.ts), and three runs of each oracle are the same once masked.
 const m3UiSuite = (name: string, probe: string, subject: string, dirs: string[], subsets: Suite["subsets"], description: string): Suite => ({
   name,
   milestone: "M3",
@@ -853,7 +842,6 @@ const m3UiSuite = (name: string, probe: string, subject: string, dirs: string[],
   subject: ([c]) => [...bunCmd(subject), ...c!.args],
   subsets,
   blessed: (c) => uiBlessed(c.id, c.args),
-  unstable: () => M3_UI_UNSTABLE,
 });
 SUITES.push(
   m3UiSuite(
@@ -1001,8 +989,8 @@ SUITES.push(
 // - `mir`: every tests/ui file with `stdArgs` (std injected, no compiletest flags) + `-Zunpretty=mir`, as hir-tree, plus
 //   compiletest's `-Zwrite-long-types-to-disk=no`. Unlike hir-tree, this mode type-checks, and with the default (`yes`)
 //   every type error naming a long type writes `<stem>.long-type-<hash>.txt` into the cwd, i.e. the upstream checkout
-//   (measured: 242 files from 74 cases in two oracle passes), and its note names a hash of an interned type's address
-//   (UNSTABLE). With `no`, rustc prints the full type instead, as in every compiletest-argv suite. Skips re-measured for
+//   (measured: 242 files from 74 cases in two oracle passes), and its note names a hash of an interned type's address.
+//   With `no`, rustc prints the full type instead, as in every compiletest-argv suite. Skips re-measured for
 //   this mode (`MIR_SKIPPED`).
 // - `thir-tree`: thirdump-ui's cases (`m3UiCorpus([...M3_UI_DIRS, "tests/ui/thir-print"])`: tests/ui/typeck,
 //   tests/ui/traits, every `#[rustc_dump_*]` test and tests/ui/thir-print) + `-Zunpretty=thir-tree`, except that a case
@@ -1074,10 +1062,6 @@ const mirCorpus = (): string[] => {
 };
 const mirCase = (f: string): Case => pinSessionEnv({ id: f, file: f, args: [...stdArgs(f), "-Zwrite-long-types-to-disk=no", "-Zunpretty=mir", f], env: NOCORE_ENV });
 const M4C_THIR_DIRS = [...M3_UI_DIRS, "tests/ui/thir-print"];
-// Unstable cases of `thir-tree` (lane harness-w25): the oracle was run twice on every case. thirdump-ui's two
-// `-Zwrite-long-types-to-disk=yes` tests differed for their hash; seven `#old` revisions that ICE differed only in the
-// thread id, which is masked now (scripts/lib/unstable.ts). Every other case's two outputs were identical.
-const THIR_TREE_UNSTABLE: UnstableCase[] = M3_UI_UNSTABLE;
 let thirTreeMemo: Case[] | undefined;
 function thirTreeCases(): Case[] {
   return (thirTreeMemo ??= m3UiCorpus(M4C_THIR_DIRS).cases.map((c0) => {
@@ -1157,7 +1141,6 @@ SUITES.push(
     subject: ([c]) => [...bunCmd("src/rust_ts/main.ts"), ...c!.args],
     subsets: { "typeck+traits": inDirs(M3_UI_DIRS), rustc_dump: (c) => uiDumpTests().has(c.file), "thir-print": inDirs(["tests/ui/thir-print"]) },
     blessed: (c) => uiBlessed(c.id, c.args),
-    unstable: () => THIR_TREE_UNSTABLE,
   },
 );
 

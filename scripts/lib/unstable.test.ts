@@ -1,7 +1,7 @@
 // Unit tests of the comparison's mask (lane harness-w40; docs/handoff/ice-report-impl.md 5.2): what stays different and what
 // compares equal. `equal` is the question `classify` asks of two rendered outputs (scripts/difftest.ts `compared`).
 import { describe, expect, test } from "bun:test";
-import { EXIT_MARK, STDERR_MARK, UNSTABLE_ORACLE_PATTERNS, isIceStderr, maskThreadId, maskedTexts, stderrMask, unstableOracleReason } from "./unstable.ts";
+import { EXIT_MARK, STDERR_MARK, UNSTABLE_ORACLE_PATTERNS, isIceStderr, maskLongTypeHash, maskThreadId, maskedTexts, stderrMask, unstableOracleReason } from "./unstable.ts";
 
 const render = (stdout: string, stderr: string, code = 101) => `${stdout}${STDERR_MARK}${stderr}${EXIT_MARK}${code} ---\n`;
 const equal = (o: string, s: string, miri = false, ostdout = "", sstdout = ostdout) => {
@@ -82,6 +82,42 @@ describe("what compares equal", () => {
     expect(a).toBe(render("o", "thread 'a' (<tid>) panicked"));
     expect(b).toBe("");
   });
+});
+
+describe("the long-type hash", () => {
+  const note = (path: string) => `   = note: the full name for the type has been written to '${path}'\n`;
+  test("the digits compare equal, in every suite, Miri or not, ICE or not", () => {
+    for (const miri of [false, true]) expect(equal(note("build/a/b.long-type-11093767555032064917.txt"), note("build/a/b.long-type-42.txt"), miri)).toBe(true);
+  });
+  test("more than one note", () => {
+    const two = (x: number, y: number) => note(`d/a.long-type-${x}.txt`) + "x\n" + note(`d/b.long-type-${y}.txt`);
+    expect(equal(two(1, 2), two(3, 4))).toBe(true);
+    expect(equal(two(1, 2), two(3, 3))).toBe(true); // what this gives up: whether two notes name one file
+  });
+  test("still different: another stem, directory or text", () => {
+    expect(equal(note("d/a.long-type-1.txt"), note("d/b.long-type-1.txt"))).toBe(false);
+    expect(equal(note("d/a.long-type-1.txt"), note("e/a.long-type-1.txt"))).toBe(false);
+    expect(equal(note("d/a.long-type-1.txt"), note("d/a.long-type-1.txt").replace("full name", "whole name"))).toBe(false);
+  });
+  test("digits in the stem stay: the mistake of docs/reviews/fixers-40.md's own script", () => {
+    expect(maskLongTypeHash("'d/issue-38591-1.long-type-77.txt'")).toBe("'d/issue-38591-1.long-type-<hash>.txt'");
+    expect(equal(note("d/issue-1.long-type-1.txt"), note("d/issue-2.long-type-1.txt"))).toBe(false);
+    expect(equal(note("d/a1.txt"), note("d/a2.txt"))).toBe(false);
+  });
+  test("still different: not digits, no closing quote, or a literal mask", () => {
+    expect(equal(note("d/a.long-type-1.txt"), note("d/a.long-type-abc.txt"))).toBe(false);
+    expect(equal("d/a.long-type-1.txt\n", "d/a.long-type-2.txt\n")).toBe(false);
+    expect(equal(note("d/a.long-type-<hash>.txt"), note("d/a.long-type-5.txt"))).toBe(false);
+    expect(maskLongTypeHash("x.long-type-<hash>.txt'")).toBe("x.long-type-<<hash>.txt'");
+  });
+  test("a note the subject invents, or drops, still differs", () => {
+    expect(equal("", note("d/a.long-type-1.txt"))).toBe(false);
+    expect(equal(note("d/a.long-type-1.txt"), "")).toBe(false);
+  });
+  test("stdout is never masked", () => {
+    expect(equal("", "", false, note("d/a.long-type-1.txt"), note("d/a.long-type-2.txt"))).toBe(false);
+  });
+  test("a long-type hash alone is no longer a reason for UNSTABLE", () => expect(unstableOracleReason(note("d/a.long-type-1.txt"))).toBeUndefined());
 });
 
 describe("the mask is a comparison's, not a detector's", () => {

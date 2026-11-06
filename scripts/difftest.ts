@@ -16,10 +16,10 @@
 // is not reproducible: the case is listed in `Suite.unstable`, or its oracle stderr matches one of
 // `UNSTABLE_ORACLE_PATTERNS`; never cached, never compared, never MATCH, and the gate never protects it)
 //
-// Comparison: exact, except that a panic message's OS thread id is masked on both sides, in stderr only, never in stdout
-// and never in what is cached or in the text of a diff file (`maskThreadId`, `stderrMask`, `maskedTexts`,
-// scripts/lib/unstable.ts; lane harness-w40). A Miri suite masks only when its host process ICEd. A batch suite has no
-// stderr to compare, so it masks nothing.
+// Comparison: exact, except that a panic message's OS thread id and a long-type note's hash are masked on both sides, in
+// stderr only, never in stdout and never in what is cached or in the text of a diff file (`maskThreadId`,
+// `maskLongTypeHash`, `stderrMask`, `maskedTexts`, scripts/lib/unstable.ts; lane harness-w40). A Miri suite masks the thread
+// id only when its host process ICEd. A batch suite has no stderr to compare, so it masks nothing.
 //
 // Environment: both sides run with the caller's environment minus the variables scripts/lib/env.ts scrubs
 // (`RUSTC_LOG*`, `RUST_BACKTRACE`, `RUSTC_BOOTSTRAP`, `CLICOLOR_FORCE`, `CARGO_*`, ...), plus the case's own

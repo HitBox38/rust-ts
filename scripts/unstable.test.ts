@@ -11,7 +11,7 @@ const g = await import(${JSON.stringify(join(REPO, "scripts/gate.ts"))});
 const { SUITES } = await import(${JSON.stringify(join(REPO, "harness/suites.ts"))});
 const o = (text, code = 0, extra = {}) => ({ text, code, timedOut: false, ...extra });
 const listed = (name) => [...d.unstableOf(SUITES.find((s) => s.name === name)).entries()];
-const id = listed("tydump-ui")[0][0];
+const id = listed("miri-pass")[0][0];
 const single = { mode: "single" };
 const miri = { mode: "single", miri: true };
 const batch = { mode: "batch" };
@@ -37,8 +37,8 @@ console.log(JSON.stringify({
   mir: listed("mir"),
   thirTree: listed("thir-tree"),
   withUnstable: SUITES.filter((s) => s.unstable).map((s) => s.name),
-  protectedListed: g.protectedUnstable("tydump-ui", new Set([id, "tests/ui/typeck/other.rs"])),
-  protectedNone: g.protectedUnstable("tydump-ui", new Set(["tests/ui/typeck/other.rs"])),
+  protectedListed: g.protectedUnstable("miri-pass", new Set([id, "tests/pass/other.rs"])),
+  protectedNone: g.protectedUnstable("miri-pass", new Set(["tests/pass/other.rs"])),
   baselinesClean: SUITES.map((s) => [s.name, g.protectedUnstable(s.name)]).filter(([, b]) => b.length),
 }));
 `;
@@ -57,16 +57,14 @@ test("UNSTABLE status, the M3 ui lists, and the gate's refusal to protect listed
   expect(j.masked).toEqual(["MATCH", "DIFF", "DIFF", "DIFF", "DIFF"]);
   expect(j.unstableStaysFirst).toBe("UNSTABLE");
   expect(j.batchIsUntouched).toBe("x");
-  // The measured cases: tydump-ui and thirdump-ui's long-type tests (harness/suites.ts M3_UI_UNSTABLE), which thir-tree shares;
-  // miri-pass and miri-pass-heavy's (MIRI_PASS_UNSTABLE, lane harness-m6c).
-  expect(j.tydump.length).toBe(2);
-  expect(j.thirdump).toEqual(j.tydump);
-  for (const [, why] of j.tydump) expect(why.length).toBeGreaterThan(0);
-  expect(j.withUnstable).toEqual(["tydump-ui", "thirdump-ui", "thir-tree", "miri-pass", "miri-pass-heavy"]);
+  // The one measured case left: miri-pass's own program's id (MIRI_PASS_UNSTABLE, lane harness-m6c); miri-pass-heavy shares the list.
+  expect(j.withUnstable).toEqual(["miri-pass", "miri-pass-heavy"]);
+  expect(j.tydump).toEqual([]);
+  expect(j.thirdump).toEqual([]);
   expect(j.mirdump).toEqual([]);
   expect(j.mir).toEqual([]);
-  expect(j.thirTree).toEqual(j.tydump);
-  expect(j.protectedListed).toEqual([j.tydump[0][0]]);
+  expect(j.thirTree).toEqual([]);
+  expect(j.protectedListed).toEqual(["tests/panic/panic1.rs"]);
   expect(j.protectedNone).toEqual([]);
   // No baseline protects a listed unstable case.
   expect(j.baselinesClean).toEqual([]);
