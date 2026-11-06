@@ -237,7 +237,7 @@ function file_create(path: string): IoResult<null> {
 // ---- Stand-ins (see the header) ------------------------------------------------------------------------------
 
 /** PORT: stand-in for `tempfile::TempDir`. */
-class TempDir {
+export class TempDir {
   constructor(public path_: string) {}
 
   /** `TempDir::path` */
@@ -250,6 +250,16 @@ class TempDir {
     return this.path_;
   }
 
+  /** `TempDir::close`: `remove_dir_all`, with its error. */
+  close(): IoResult<null> {
+    try {
+      rmSync(this.path_, { recursive: true });
+      return Ok(null);
+    } catch (e) {
+      return Err(io_error_from_node(e));
+    }
+  }
+
   /** `impl Drop for TempDir`: `remove_dir_all`, ignoring errors. */
   drop(): void {
     try {
@@ -260,9 +270,10 @@ class TempDir {
   }
 }
 
-/** PORT: stand-in for `rustc_fs_util::TempDirBuilder` (over `tempfile::Builder`); only `new`/`prefix`/`tempdir_in`. */
-class TempDirBuilder {
+/** PORT: stand-in for `rustc_fs_util::TempDirBuilder` (over `tempfile::Builder`); only `new`/`prefix`/`suffix`/`tempdir_in`. */
+export class TempDirBuilder {
   private prefix_ = ".tmp";
+  private suffix_ = "";
 
   static new(): TempDirBuilder {
     return new TempDirBuilder();
@@ -273,11 +284,20 @@ class TempDirBuilder {
     return this;
   }
 
+  suffix(suffix: string): TempDirBuilder {
+    this.suffix_ = suffix;
+    return this;
+  }
+
   tempdir_in(dir: string): IoResult<TempDir> {
     try {
       // tempfile: a relative `dir` is made absolute first (`env::current_dir()?.join(dir)`).
       const abs = path_is_absolute(dir) ? dir : path_join(process.cwd(), dir);
-      return Ok(new TempDir(mkdtempSync(path_join(abs, this.prefix_))));
+      const made = mkdtempSync(path_join(abs, this.prefix_));
+      if (this.suffix_ === "") return Ok(new TempDir(made));
+      // PORT: `mkdtemp` has no suffix: the new, private directory is renamed to `<prefix>XXXXXX<suffix>`.
+      renameSync(made, made + this.suffix_);
+      return Ok(new TempDir(made + this.suffix_));
     } catch (e) {
       return Err(io_error_from_node(e));
     }

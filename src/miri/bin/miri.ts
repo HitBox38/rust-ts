@@ -1,5 +1,5 @@
 // Port of src/tools/miri/src/bin/miri.rs (crate `miri`, plan-m6 D2): the `miri` driver binary.
-// Fill lane: `miri-driver` (plan-m6 wave 36): ported (`MiriDepCompilerCalls` is plan-m6 D4: `unported`).
+// Fill lane: `miri-driver` (plan-m6 wave 36): ported; `MiriDepCompilerCalls` (plan-m6 D4): lane `miri-sysroot`.
 // Run as `bun src/miri/bin/miri.ts <rustc args>` (the oracle's `miri <rustc args>`); the entry glue is at the end.
 //
 // PORT (lane miri-driver):
@@ -45,6 +45,7 @@ import { TARGET_CONFIGS } from "../../rust_ts/target_config.gen.ts";
 import { ensure_stack } from "../../rust_ts/stack.ts";
 import { vars_os as std_vars_os } from "../../std/env.ts";
 import { os_str_from_encoded_bytes } from "../shims/os_str.ts";
+import { exported_non_generic_symbols_helper, reachable_non_generics_helper } from "../../rustc_codegen_ssa/back/symbol_export.ts";
 import type { CompiledModules, CrateInfo } from "../../rustc_codegen_ssa/lib.ts";
 import {
   type Callbacks,
@@ -395,16 +396,53 @@ function make_miri_codegen_backend(sess: EarlySession, dep: boolean): CodegenBac
 
 /// This compiler produces rlibs that are meant for later consumption by Miri.
 // struct MiriDepCompilerCalls;
-// impl rustc_driver::Callbacks for MiriDepCompilerCalls: `config` (bin/miri.rs:283) and `after_analysis` (:324).
-// PORT: plan-m6 D4: the port-built Miri sysroot (`MIRI_BE_RUSTC=target`) is a later lane (`miri-sysroot`); the two
-// callbacks stop `unported` (no markers yet).
 class MiriDepCompilerCalls implements Callbacks {
-  config(_config: Config): void {
-    return unported("miri(bin)::MiriDepCompilerCalls::config (src/tools/miri/src/bin/miri.rs:283; plan-m6 D4, lane miri-sysroot)");
+  // impl rustc_driver::Callbacks for MiriDepCompilerCalls
+  // rustc: src/tools/miri/src/bin/miri.rs:283 config
+  config(config: Config): void {
+    // We don't need actual codegen, we just emit an rlib that Miri can later consume.
+    config.make_codegen_backend = (sess) => make_miri_codegen_backend(sess, /* dep */ true);
+
+    // Avoid warnings about unsupported crate types. However, only do that we we are *not* being
+    // queried by cargo about the supported crate types so that cargo still receives the
+    // warnings it expects.
+    if (config.opts.prints.length === 0) {
+      // #[allow(rustc::bad_opt_access)] // tcx does not exist yet
+      {
+        const any_crate_types = config.opts.crate_types.length !== 0;
+        config.opts.crate_types = config.opts.crate_types.filter((c) => c === "Executable" || c === "Rlib");
+        if (any_crate_types) {
+          // Assert that we didn't remove all crate types if any crate type was passed on
+          // the cli. Otherwise we might silently change what kind of crate we are building.
+          assert(config.opts.crate_types.length !== 0, "assertion failed: !config.opts.crate_types.is_empty()");
+        }
+      }
+    }
+
+    // Queries overridden here affect the data stored in `rmeta` files of dependencies,
+    // which will be used later in non-`MIRI_BE_RUSTC` mode.
+    config.override_queries = (_, local_providers) => {
+      // `exported_non_generic_symbols` is usually empty because we don't codegen anything.
+      // However, we need it for `lookup_link_section`.
+      // So overwrite the query with a version that dooes something even without codegen.
+      local_providers.queries.exported_non_generic_symbols = (tcx, _local_crate) => exported_non_generic_symbols_helper(tcx);
+      // `exported_non_generic_symbols_helper` calls `reachable_non_generics`.
+      local_providers.queries.reachable_non_generics = (tcx, _local_crate) => reachable_non_generics_helper(tcx);
+    };
+
+    // Register our custom extra symbols.
+    config.extra_symbols = [...EXTRA_SYMBOLS];
   }
 
-  after_analysis(_: Compiler, _tcx: TyCtxt): Compilation {
-    return unported("miri(bin)::MiriDepCompilerCalls::after_analysis (src/tools/miri/src/bin/miri.rs:324; plan-m6 D4, lane miri-sysroot)");
+  // rustc: src/tools/miri/src/bin/miri.rs:324 after_analysis
+  after_analysis(_: Compiler, tcx: TyCtxt): Compilation {
+    // While the dummy codegen backend doesn't do any codegen, we are still emulating
+    // regular rustc builds, which would perform post-mono const-eval during collection.
+    // So let's also do that here. In particular this is needed to make `compile_fail`
+    // doc tests trigger post-mono errors.
+    void tcx.collect_and_partition_mono_items(null);
+
+    return "Continue";
   }
 }
 

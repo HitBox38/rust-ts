@@ -32,7 +32,8 @@ import type { CrateType } from "../rustc_structures/crate_type.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import type { MetadataLoaderDyn } from "../rustc_metadata/creader.ts";
 import { internal_target_features } from "../rustc_codegen_ssa/target_features.ts";
-import { type ArchiveBuilderBuilder, link_binary } from "../rustc_codegen_ssa/back/link.ts";
+import { ArArchiveBuilderBuilder, type ArchiveBuilderBuilder } from "../rustc_codegen_ssa/back/archive.ts";
+import { link_binary } from "../rustc_codegen_ssa/back/link.ts";
 import { CompiledModules, type CrateInfo } from "../rustc_codegen_ssa/lib.ts";
 import * as diagnostics from "./diagnostics.gen.ts";
 
@@ -360,12 +361,14 @@ export class DummyCodegenBackend implements CodegenBackend {
   }
 }
 
-/**
- * PORT: `struct DummyArchiveBuilderBuilder` (util.rs:489): its `new_archive_builder` (:492) and
- * `create_dll_import_lib` (:499) build archives with `ArArchiveBuilderBuilder` (codegen_ssa back/archive.rs, M7),
- * which only the linking steps of `link_binary` reach; opaque here (see `ArchiveBuilderBuilder`).
- */
-const DummyArchiveBuilderBuilder: ArchiveBuilderBuilder = { __archive_builder_builder: "DummyArchiveBuilderBuilder" };
+// struct DummyArchiveBuilderBuilder;
+// PORT: `create_dll_import_lib` is not on the interface yet (back/archive.ts): only `link_natively` reaches it.
+const DummyArchiveBuilderBuilder: ArchiveBuilderBuilder = {
+  // rustc: compiler/rustc_interface/src/util.rs:492 new_archive_builder
+  new_archive_builder(sess) {
+    return ArArchiveBuilderBuilder.new_archive_builder(sess);
+  },
+};
 
 // rustc: compiler/rustc_interface/src/util.rs:617 multiple_output_types_to_stdout
 function multiple_output_types_to_stdout(output_types: OutputTypes, single_output_file_is_stdout: boolean): boolean {
