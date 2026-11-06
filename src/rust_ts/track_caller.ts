@@ -331,11 +331,12 @@ export function map_call(ts: TsFile, owner: Owner, callee: string, macro: boolea
     }
   }
   if (call.in_macro_rules) return { ok: false, why: `call inside macro_rules! at ${owner.path}` };
-  // Counts agreeing is no evidence here: the call is in an item nested upstream, and this one is in the owner's own body, so the
-  // port hoisted that item and this call is another one (review ice-report-impl F1: ref_prop.ts:313 printed ref_prop.rs:339:25
-  // for the assert at :275:17). A port that kept the nested fn inside the owner still maps.
-  if (anchor === undefined && up.in_nested_item(body, call.pos) && !ts.in_nested_fn(owner, line, col)) {
-    return { ok: false, why: `\`${callee}\` at ${rel_ts}: the only upstream call is in a nested item, and this one is not` };
+  // Counts agreeing is no evidence here: the call is in an item nested upstream, so a port that hoisted that item left another
+  // call in the owner (review ice-report-impl F1: ref_prop.ts:313 printed ref_prop.rs:339:25 for the assert at :275:17). A port
+  // keeping a nested item inside its owner marks it, and `locate` uses the innermost owner, so this refuses nothing real;
+  // a closure in the owner is no sign of a nested item (re-check R2).
+  if (anchor === undefined && up.in_nested_item(body, call.pos)) {
+    return { ok: false, why: `\`${callee}\` at ${rel_ts}: the only upstream call is in a nested item` };
   }
   return { ok: true, up, body, call, anchored: anchor !== undefined };
 }

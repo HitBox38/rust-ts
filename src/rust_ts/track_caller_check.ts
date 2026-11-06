@@ -153,18 +153,25 @@ function static_check(): { sites: Site[]; byOwner: Map<string, { ts: TsFile; fil
     }
   }
   // Not only D4's families: the resolver accepts every tracked name and the panic entries, and a call that maps into an item
-  // nested upstream is where a count can agree by coincidence (review ice-report-impl F1).
-  const into_nested: string[] = [];
+  // nested upstream is where a count can agree by coincidence (review ice-report-impl F1). On the innermost owner, as `locate`
+  // does (re-check R1). `map_call` refuses these now, so anything listed here is a mapping to read.
+  const names = tracked_names();
+  const into_nested = new Set<string>();
+  let examined = 0;
   for (const { ts, file, owner } of [...byOwner.values()].flat()) {
-    for (const callee of [...FAMILIES, ...PANIC_ENTRIES]) {
-      for (const [line, col] of ts.calls_in(owner, callee, false)) {
-        const m = map_call(ts, owner, callee, false, line, col);
-        if (m.ok && !m.anchored && m.up.in_nested_item(m.body, m.call.pos)) into_nested.push(`${file.slice(SRC_ROOT.length + 1)}:${line} ${callee}`);
+    for (const callee of names) {
+      for (const macro of [false, true]) {
+        for (const [line, col] of ts.calls_in(owner, callee, macro)) {
+          if (ts.owner_at(line) !== owner) continue;
+          examined++;
+          const m = map_call(ts, owner, callee, macro, line, col);
+          if (m.ok && !m.anchored && m.up.in_nested_item(m.body, m.call.pos)) into_nested.add(`${file.slice(SRC_ROOT.length + 1)}:${line} ${callee}`);
+        }
       }
     }
   }
-  console.log(`calls mapped into a nested upstream item, each in a nested function of its TS owner: ${into_nested.length}`);
-  writeFileSync(join(OUT, "into-nested.txt"), `${into_nested.join("\n")}\n`);
+  console.log(`tracked names ${names.size}, ${examined} calls: mapped into a nested upstream item: ${into_nested.size}`);
+  writeFileSync(join(OUT, "into-nested.txt"), `${[...into_nested].join("\n")}\n`);
   const counts = new Map<string, number>();
   for (const s of sites) counts.set(s.result, (counts.get(s.result) ?? 0) + 1);
   console.log(`sites ${sites.length}; ${[...counts].sort().map(([k, v]) => `${k} ${v}`).join("; ")}`);
@@ -183,6 +190,18 @@ function static_check(): { sites: Site[]; byOwner: Map<string, { ts: TsFile; fil
 /** TS names of the panic machinery's entry points (std/panic.ts, std/result.ts, rustc_span/macros.ts). */
 const PANIC_ENTRIES: readonly string[] = ["bug", "span_bug", "panic", "unreachable", "unwrap", "assert", "assert_eq", "assert_matches", "expect"];
 
+/** Every name that can lead to a location: a `#[track_caller]` fn, a panic entry, D4's families, and `into_diag`. */
+function tracked_names(): Set<string> {
+  const leads = new Set<string>([...PANIC_ENTRIES, ...FAMILIES, "into_diag"]);
+  for (const file of ts_sources(SRC_ROOT)) {
+    if (file.includes("/rust_ts/track_caller")) continue;
+    for (const owner of ts_file(file).owners) {
+      if (owner.kind === "fn" && up_file(owner.path) !== undefined && is_track_caller_owner(owner)) leads.add(owner.name);
+    }
+  }
+  return leads;
+}
+
 /**
  * The hole in the resolver's link check: it compares the callee's *name*. A non-`#[track_caller]` fn `N` that tail-calls
  * another `N` loses its frame, and its caller's `x.N(..)` still links to the frame below, so the location would be taken
@@ -192,13 +211,7 @@ const PANIC_ENTRIES: readonly string[] = ["bug", "span_bug", "panic", "unreachab
 function self_named_tail_calls(): string[] {
   const out: string[] = [];
   const files = ts_sources(SRC_ROOT).filter((f) => !f.includes("/rust_ts/track_caller"));
-  // Only a name that can lead to a location matters: a `#[track_caller]` fn, or a panic entry.
-  const leads = new Set<string>(PANIC_ENTRIES);
-  for (const file of files) {
-    for (const owner of ts_file(file).owners) {
-      if (owner.kind === "fn" && up_file(owner.path) !== undefined && is_track_caller_owner(owner)) leads.add(owner.name);
-    }
-  }
+  const leads = tracked_names();
   for (const file of files) {
     const ts = ts_file(file);
     for (const owner of ts.owners) {

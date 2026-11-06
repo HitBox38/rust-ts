@@ -1125,10 +1125,11 @@ function ice_path_with_config(config: UnstableOptions | undefined): PathBuf | un
   return ICE_PATH.value;
 }
 
-/** `jiff::Zoned::now().strftime("%Y-%m-%dT%H_%M_%S")` (local time). */
+/** `jiff::Zoned::now().strftime("%Y-%m-%dT%H_%M_%S")`, in UTC whatever `TZ` says: rustc_driver_impl/Cargo.toml:9 builds jiff
+ *  with `default-features = false, features = ["std"]`, so it has no system time zone (re-check of ice-report R3). */
 function strftime_ice(d: Date): string {
   const p = (n: number, w = 2): string => String(n).padStart(w, "0");
-  return `${p(d.getFullYear(), 4)}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}_${p(d.getMinutes())}_${p(d.getSeconds())}`;
+  return `${p(d.getUTCFullYear(), 4)}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())}T${p(d.getUTCHours())}_${p(d.getUTCMinutes())}_${p(d.getUTCSeconds())}`;
 }
 
 /** `PathBuf::push` of a relative file name. */
