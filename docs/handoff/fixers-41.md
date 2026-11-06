@@ -56,7 +56,7 @@ Rewriting `environ` on arrival could handle the first four, at the cost of a sec
 
 **`__CF_USER_TEXT_ENCODING`, which the review left alone.** The oracle links CoreFoundation, which sets this variable before `main`. `stack.ts` now does the same (`cf_user_text_encoding`, darwin only). A value starting with this uid and a `:` stays. Otherwise it becomes `0x<uid>:<first 63 bytes of ~/.CFUserTextEncoding>`, or `0x<uid>:0:0` if the file cannot be opened, where `~` is `CFFIXED_USER_HOME` or the passwd entry's home, not `HOME`. **The source is CF-Lite as I remember it, outside the pin.** Six cases are compared with the oracle in the test, and a replaced value stays in its position (by hand). Root running as uid 0 with no `HOME` was not tried.
 
-**Entries:** `main.ts`, `miri.ts` and `mono-run.ts` all go through `ensure_stack`. `mono-run` by hand: `env!` of the `.env` variable and of three old marker names gives stderr and exit identical to the oracle. `miri.ts` imports `miri_stack_first.ts` first, so module-level `process.env` reads run after the clean-up. It does not avoid the second parse of the import graph: Bun parses everything before evaluating anything. See "For root".
+**Entries:** `main.ts`, `miri.ts` and `mono-run.ts` all go through `ensure_stack`. `mono-run` by hand: `env!` of the `.env` variable and of `RUST_TS_JS_STACK`, `RUST_TS_SHELL_ENV` and the JSC variable gives stderr and exit identical to the oracle. `miri.ts` imports `miri_stack_first.ts` first, so module-level `process.env` reads run after the clean-up. It does not avoid the second parse of the import graph: Bun parses everything before evaluating anything. See "For root".
 
 ## 2. F2: `.env`
 
@@ -96,7 +96,7 @@ Each compares with the oracle, on programs run under both sides with the same ex
 
 **The Miri test reads `environ` directly, not `vars()`.** The same program through `std::env::vars_os()` takes about 19 s of CPU under Miri. `vars_os` is a loop over that block. By hand, at this code, both are byte-identical to the oracle, order included:
 
-- `vars_os()` plus `env::var`, with non-UTF-8 entries: isolation off, `-Zmiri-env-forward`, and `-Zmiri-env-set`. This ran before the last two small commits, which only moved a file and changed a comment.
+- `vars_os()` plus `env::var`, with non-UTF-8 entries: isolation off, `-Zmiri-env-forward`, and `-Zmiri-env-set`. This ran before `miri_stack_first.ts` was added, and was not repeated after.
 - `vars()` with 65 variables, isolation off, at head.
 
 **Mutations, 18 in all; 17 killed.** Each was applied alone against these tests: dotenv kept, JSC variable or marker left in `environ`, no `env -i`, a non-empty shell `envp`, no stack raised, carrying what `env` cannot, no CF, CF using `HOME`, CF reading 64 bytes, CF keeping any value, second call re-execing, macros on `process.env`, Miri on `process.env`, Miri lossy, the hash lossy, `getenv`'s rule by hand.
@@ -119,7 +119,7 @@ Run at `850272db`, `RUST_TS_REQUIRE_PROBES=1`, `--jobs 5`, agent `fixers-41`. He
 
 **DIFF 0, CRASH 0.** The brief asked for `check-rg`; I added the other two modes.
 
-**The one TIMEOUT is protected and not a failure:** `tests/ui/moves/move-3-unique.rs`. The pool's own retry also timed out, with other lanes at load near 30. Run alone it is MATCH, three times. With the base and this head one after the other: 28.5 s and 28.8 s wall, 34.9 s and 35.1 s CPU. It is a slow program near its limit under load. Expect it again if the gate runs under load.
+**The one TIMEOUT is protected and not a failure:** `tests/ui/moves/move-3-unique.rs`. The pool's own retry also timed out, with other lanes at load near 30. Run alone it is MATCH: twice on this lane's code and once on the base. The base and this head, one after the other, for the whole `difftest` command: 28.5 s and 28.8 s wall, 34.9 s and 35.1 s CPU. It is a slow program near its limit under load. Expect it again if the gate runs under load.
 
 **Other runs, at head:**
 
@@ -178,5 +178,5 @@ No new `unported`. The existing stop in `bytes_to_os_str_unix` is unchanged and 
 
 ## For root
 
-- **A real saving for Miri suites, which I did not make.** Bun parses `miri.ts`'s whole import graph before evaluating anything, so the process that only re-execs costs about 7.9e9 of `miri hello`'s 29e9, about 27%. Starting Miri through a thin entry, or `bun --preload src/rust_ts/miri_stack_first.ts`, avoids it: 31e9 to 21e9 on a small program by hand. The harness's command line lives in `scripts/`, so it needs a harness batch.
+- **A real saving for Miri suites, which I did not make.** Bun parses `miri.ts`'s whole import graph before evaluating anything, so the process that only re-execs loads everything for nothing. `bun --preload src/rust_ts/miri_stack_first.ts`, or a thin entry, avoids that: about 33e9 to 21e9 instructions on a small `no_std` program, by hand, two runs each. The harness's command line lives in `scripts/`, so it needs a harness batch.
 - `RLIMIT_STACK` under a proc macro (section 1) is the one known difference left.
