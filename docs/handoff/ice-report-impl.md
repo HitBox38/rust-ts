@@ -147,7 +147,7 @@ backtrace, labelled, in stderr and in the ICE file (D9); `report_ice`'s fresh `D
 
 ### 5.1 Status semantics and protected results
 
-`classify` (`scripts/difftest.ts:582`) needs no change, and the exit codes hold:
+`classify` (`scripts/difftest.ts:601`) needs no change, and the exit codes hold:
 
 - **A refused panic location: exit 101, reason on stderr**, printed at the panic so a caught panic cannot lose it:
   `rust-ts: internal compiler error: <msg>`, then `rust-ts: the ICE report stopped: location refused: <why>`, then the JS stack. A CRASH stays a CRASH.
