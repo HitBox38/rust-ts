@@ -189,7 +189,9 @@ export const SUITES: Suite[] = [
     cases: () =>
       corpus("tests/ui").map((f) => {
         const ed = edition(f);
-        return { id: f, file: f, args: [`--edition=${ed}`, "-Zunpretty=ast-tree", f] };
+        // RUSTC_ICE=0, as every suite that runs a hook-installing entry: a panic must not leave a report in the upstream checkout
+        // (review ice-report-impl F3). Measured when added: all 21,523 oracle outputs identical to those cached without it.
+        return { id: f, file: f, args: [`--edition=${ed}`, "-Zunpretty=ast-tree", f], env: { RUSTC_ICE: "0" } };
       }),
     oracle: ([c]) => oracleRustcCmd(c!.args),
     subject: ([c]) => [...bunCmd("src/rust_ts/main.ts"), ...c!.args],
