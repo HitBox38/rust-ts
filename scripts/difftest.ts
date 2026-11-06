@@ -108,6 +108,12 @@ export interface CaseResult {
    * with the same timeout, after the pool (see `difftest`).
    */
   retried?: true;
+  /**
+   * A subject that timed out in the pool: each attempt's wall and CPU time and max RSS, for the question a status cannot
+   * answer: how slow was it alone, and how much of the pool's timeout was contention (lane harness-w40, review m6-audit F1).
+   * Report only: nothing reads it to decide a status. `alone` is missing past the retry cap.
+   */
+  attempts?: { pool: Usage; alone?: Usage };
 }
 
 /** `unportedBuckets` key of an UNPORTED case whose subject printed no `rust-ts: unported:` line. */
@@ -469,7 +475,7 @@ export interface SubjectStats {
   batchOnlyTimeouts: number;
 }
 
-/** `usage`: filled with each single-mode subject process's resources (heavy suites). */
+/** `usage`: filled with the resources of each process that ran one case alone (in a batch suite, those only). */
 export async function runSubject(s: Suite, cases: Case[], impl: string, stats?: SubjectStats, usage?: Map<string, Usage>): Promise<Map<string, Output>> {
   const env = { RUST_TS_IMPL: impl };
   const out = new Map<string, Output>();
@@ -485,6 +491,7 @@ export async function runSubject(s: Suite, cases: Case[], impl: string, stats?: 
   /** A single-case process: its own status, whatever it printed. */
   const runOne = async (c: Case): Promise<boolean> => {
     const r = await exec([c]);
+    usage?.set(c.id, usageOf(r));
     const failed = r.code !== 0 || r.timedOut;
     const parts = splitBatch(r.stdout);
     // On failure the section printed may be incomplete; treat it as missing.
@@ -968,11 +975,12 @@ export async function difftest(
   let diffsWritten = 0;
   const started = performance.now();
   /** Records a case's status (and its blessed result and diff file) from its oracle and subject outputs. */
-  const record = (c: Case, oc: Output, sc: Output, retried: boolean) => {
+  const record = (c: Case, oc: Output, sc: Output, retried: boolean, attempts?: CaseResult["attempts"]) => {
     const [om, sm] = compared(s, oc, sc);
     const status = classify(om, sm);
     const r: CaseResult = { id: c.id, status };
     if (retried) r.retried = true;
+    if (attempts) r.attempts = attempts;
     if (status === "UNPORTED") {
       const m = /^rust-ts: unported: (.*)$/m.exec(sc.text);
       if (m) r.unported = m[1]!.slice(0, 300);
@@ -999,7 +1007,7 @@ export async function difftest(
     }
   };
   /** Cases whose subject timed out in the parallel pool (with their oracle output). */
-  const timedOut: { c: Case; oc: Output }[] = [];
+  const timedOut: { c: Case; oc: Output; pool: Usage }[] = [];
   await pool(
     chunks,
     jobs,
@@ -1014,13 +1022,13 @@ export async function difftest(
         ? typeof miriTemp === "string"
           ? await withCaseLock(`${miriTemp}.lock`, 2 * ((1 + ORACLE_RETRY_FACTOR) * (s.oracleTimeoutMs ?? s.timeoutMs) + s.timeoutMs), heavySides)
           : await heavySides()
-        : await Promise.all([runOracle(s, chunk), runSubject(s, chunk, impl, stats)]);
+        : await Promise.all([runOracle(s, chunk), runSubject(s, chunk, impl, stats, sUsage)]);
       for (const c of chunk) {
         const oc = o.get(c.id)!;
         const sc = sub.get(c.id)!;
         if (s.heavy) heavyRuns.push(heavyRun(s, c.id, oUsage.get(c.id) ?? "cached", sUsage.get(c.id)!));
         // (A heavy subject already ran alone: its TIMEOUT is not re-run.)
-        if (classify(oc, sc) === "TIMEOUT" && !s.heavy) timedOut.push({ c, oc });
+        if (classify(oc, sc) === "TIMEOUT" && !s.heavy) timedOut.push({ c, oc, pool: sUsage.get(c.id)! }); // (A TIMEOUT is only ever a process of its own: see `runBatch`.)
         else record(c, oc, sc, false);
       }
     },
@@ -1036,17 +1044,18 @@ export async function difftest(
   // case's, but a subject slower than the limit on its own still times out. Past the cap the rest keep
   // their TIMEOUT unretried (a hang on a common path would otherwise cost a timeout per case, serially).
   const retries = { retried: 0, finished: 0, notRetried: 0 };
-  for (const { c, oc } of timedOut) {
+  for (const { c, oc, pool } of timedOut) {
     if (retries.retried >= SUBJECT_TIMEOUT_RETRY_CAP) {
       retries.notRetried++;
-      record(c, oc, { text: "", code: 0, timedOut: true }, false);
+      record(c, oc, { text: "", code: 0, timedOut: true }, false, { pool });
       continue;
     }
     if (!opts.quiet) process.stderr.write(`\r${s.name}: re-running subject timeout ${retries.retried + 1}/${Math.min(timedOut.length, SUBJECT_TIMEOUT_RETRY_CAP)} alone`);
     retries.retried++;
-    const sc = (await runSubject(s, [c], impl, stats)).get(c.id)!;
+    const aloneUsage = new Map<string, Usage>();
+    const sc = (await runSubject(s, [c], impl, stats, aloneUsage)).get(c.id)!;
     if (!sc.timedOut) retries.finished++;
-    record(c, oc, sc, true);
+    record(c, oc, sc, true, { pool, alone: aloneUsage.get(c.id)! });
   }
   if (!opts.quiet && retries.retried) process.stderr.write("\n");
   /** Split suites: ids of the sections only the subject printed (see the header). */
