@@ -152,26 +152,30 @@ function static_check(): { sites: Site[]; byOwner: Map<string, { ts: TsFile; fil
       }
     }
   }
-  // Not only D4's families: the resolver accepts every tracked name and the panic entries, and a call that maps into an item
-  // nested upstream is where a count can agree by coincidence (review ice-report-impl F1). On the innermost owner, as `locate`
-  // does (re-check R1). `map_call` refuses these now, so anything listed here is a mapping to read.
+  // Not only D4's families: the resolver accepts every tracked name and the panic entries, and a call whose upstream match is in
+  // an item nested in the body is where a count can agree by coincidence (review ice-report-impl F1). `map_call` refuses those, so
+  // counting mapped ones would print 0 by construction (final re-check V1): this lists the refusals, each a site to read. On
+  // the innermost owner, as `locate` does. The macro names are their own list, in macro mode.
+  const macro_names = new Set<string>();
+  for (const { ts } of [...byOwner.values()].flat()) for (const o of ts.owners) if (o.kind === "macro") macro_names.add(o.name);
   const names = tracked_names();
-  const into_nested = new Set<string>();
+  const refused_nested = new Set<string>();
   let examined = 0;
   for (const { ts, file, owner } of [...byOwner.values()].flat()) {
-    for (const callee of names) {
-      for (const macro of [false, true]) {
+    for (const [list, macro] of [[names, false], [macro_names, true]] as const) {
+      for (const callee of list) {
         for (const [line, col] of ts.calls_in(owner, callee, macro)) {
           if (ts.owner_at(line) !== owner) continue;
           examined++;
           const m = map_call(ts, owner, callee, macro, line, col);
-          if (m.ok && !m.anchored && m.up.in_nested_item(m.body, m.call.pos)) into_nested.add(`${file.slice(SRC_ROOT.length + 1)}:${line} ${callee}`);
+          if (!m.ok && m.why.includes("the only upstream call is in a nested item")) refused_nested.add(`${file.slice(SRC_ROOT.length + 1)}:${line} ${callee}`);
         }
       }
     }
   }
-  console.log(`tracked names ${names.size}, ${examined} calls: mapped into a nested upstream item: ${into_nested.size}`);
-  writeFileSync(join(OUT, "into-nested.txt"), `${[...into_nested].join("\n")}\n`);
+  console.log(`tracked names ${names.size}, macro names ${macro_names.size}, ${examined} calls: refused as a nested item upstream: ${refused_nested.size}`);
+  for (const r of refused_nested) console.log(`  refused: ${r}`);
+  writeFileSync(join(OUT, "refused-nested.txt"), `${[...refused_nested].join("\n")}\n`);
   const counts = new Map<string, number>();
   for (const s of sites) counts.set(s.result, (counts.get(s.result) ?? 0) + 1);
   console.log(`sites ${sites.length}; ${[...counts].sort().map(([k, v]) => `${k} ${v}`).join("; ")}`);

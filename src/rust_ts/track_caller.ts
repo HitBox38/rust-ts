@@ -333,8 +333,8 @@ export function map_call(ts: TsFile, owner: Owner, callee: string, macro: boolea
   if (call.in_macro_rules) return { ok: false, why: `call inside macro_rules! at ${owner.path}` };
   // Counts agreeing is no evidence here: the call is in an item nested upstream, so a port that hoisted that item left another
   // call in the owner (review ice-report-impl F1: ref_prop.ts:313 printed ref_prop.rs:339:25 for the assert at :275:17). A port
-  // keeping a nested item inside its owner marks it, and `locate` uses the innermost owner, so this refuses nothing real;
-  // a closure in the owner is no sign of a nested item (re-check R2).
+  // keeping a nested item inside its owner marks it, and `locate` uses the innermost owner, so a call there maps through that
+  // marker instead; a closure in the owner is no sign of a nested item (re-check R2). track_caller_check.ts lists what this refuses.
   if (anchor === undefined && up.in_nested_item(body, call.pos)) {
     return { ok: false, why: `\`${callee}\` at ${rel_ts}: the only upstream call is in a nested item` };
   }
