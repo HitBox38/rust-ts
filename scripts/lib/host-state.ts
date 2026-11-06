@@ -50,8 +50,8 @@ export function parseSwapUsedMb(text: string): number | undefined {
 
 /**
  * Stdout of a command given by absolute path; undefined if it is not there or fails. A command past `limitMs` is SIGKILLed, as
- * SIGTERM can be ignored, but a child of it can still hold stdout open, so `sampleHost` holds the limit on the whole read. Unref'd:
- * a read still running must not keep a finished gate alive.
+ * SIGTERM can be ignored, but a child of it can still hold stdout open, so `sampleHost` holds the limit on the whole read. Unref'd,
+ * so a read whose command has gone but whose stdout is held does not keep a finished gate alive; a live command can, up to the limit.
  */
 export async function commandOutput(cmd: string[], limitMs = 5_000): Promise<string | undefined> {
   if (!existsSync(cmd[0]!)) return undefined;
@@ -77,7 +77,8 @@ const READ_LIMIT_MS = 6_000;
 
 /**
  * One sample. Never throws or hangs, whatever a reader does: `gateRun` awaits samples between suites, so a reader that never
- * answered would stop the gate. The timer is kept referenced: it may be all that keeps the loop alive during such a read.
+ * answered would stop the gate. The timer is kept referenced: the gate's top-level await does not need that today, but a caller
+ * without one would otherwise exit silently, 0 and with no gate.json, during such a read.
  */
 export async function sampleHost(r: HostReaders, readLimitMs = READ_LIMIT_MS): Promise<HostSample> {
   const read = async (f: () => Promise<string | undefined>): Promise<string | undefined> => {
@@ -110,6 +111,8 @@ export interface HostLogOptions {
   note: (line: string) => void;
   /** `--allow-battery`: a run may start on battery, so a first reading on battery is not news. */
   allowBattery: boolean;
+  /** Whether the reading `gateRun` took before this log was on battery; undefined if it had none. */
+  firstOnBattery: boolean | undefined;
 }
 
 /** What gate.json keeps of a run (`host`). */
@@ -136,7 +139,9 @@ export class HostLog {
   constructor(
     private readonly readers: HostReaders,
     private readonly opts: HostLogOptions,
-  ) {}
+  ) {
+    this.onBattery = opts.firstOnBattery;
+  }
 
   /** Follows the power source; a sample with no reading says nothing about it. Whether the source changed. */
   private follow(s: HostSample): boolean {
@@ -148,7 +153,8 @@ export class HostLog {
     const charge = s.power.percent === null ? "" : ` at ${s.power.percent}%`;
     if (s.power.onBattery) {
       this.powerLost.push({ at: s.at, percent: s.power.percent });
-      this.opts.note(`note: power lost at ${s.at}: this gate now runs on battery${charge}, slower, and a timeout from here on may be false (\`host\` in gate.json)`);
+      // A first reading says only when it was seen: the host may have been on battery since before it.
+      this.opts.note(`note: power lost ${was === undefined ? "by" : "at"} ${s.at}: this gate now runs on battery${charge}, slower, and a timeout from here on may be false (\`host\` in gate.json)`);
     } else this.opts.note(`note: power back at ${s.at}${charge}`);
     return true;
   }

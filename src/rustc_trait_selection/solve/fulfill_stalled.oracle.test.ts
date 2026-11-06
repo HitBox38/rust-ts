@@ -1,6 +1,6 @@
 // `StalledPrefix` under its self-check (`set_stalled_prefix_check`): no pass skips an entry upstream's check would not keep, on programs
-// with every kind of stalled variable, and the output is still the oracle's. Review perf-near-limit N1: a build with `first_reader`
-// keeping the latest entry passed every other test. The programs are the review's generator's (`ints`, `consts`, `tait`), on `no_core`
+// with each kind of stalled variable, and the output is still the oracle's. Review perf-near-limit N1: a build with `first_reader`
+// keeping the latest entry passed every other test. The programs are the review's generator's (`ints`, `floats`, `consts`, `tait`), on `no_core`
 // so that none loads std (plan-m7 F5); each one stops on a deliberate bug the others miss, as docs/handoff/fixers-42.md lists.
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -34,7 +34,7 @@ const PRELUDE = `#![feature(no_core, lang_items, rustc_attrs, type_alias_impl_tr
 #[lang = "copy"] pub trait Copy {}
 #[rustc_builtin_macro] pub macro define_opaque($($tt:tt)*) {}
 trait Tr {}
-impl Tr for u8 {} impl Tr for u32 {}
+impl Tr for u8 {} impl Tr for u32 {} impl Tr for f32 {} impl Tr for f64 {}
 struct A<const N: usize>; impl Tr for A<3> {}
 fn mk<T: Tr>() -> T { loop {} }
 fn nd<T: Tr>(_: &T) {}
@@ -42,6 +42,7 @@ fn mkc<const N: usize>() -> A<N> where A<N>: Tr { loop {} }
 `;
 const PROGRAMS: Record<string, string> = {
   ints: `pub fn f() {\n${each((i) => `let a${i} = 1; nd(&a${i});`)}\n${reversed((i) => (i % 3 !== 0 ? "" : i % 2 ? `let _: u8 = a${i};` : `let _: u32 = a${i};`))}\n}\n`,
+  floats: `pub fn f() {\n${each((i) => `let a${i} = 1.0; nd(&a${i});`)}\n${reversed((i) => (i % 3 !== 0 ? "" : i % 2 ? `let _: f32 = a${i};` : `let _: f64 = a${i};`))}\n}\n`,
   consts: `pub fn f() {\n${each((i) => `let a${i} = mkc();`)}\n${reversed((i) => (i % 5 === 1 ? `let _: A<4> = a${i};` : `let _: A<3> = a${i};`))}\n}\n`,
   tait: `type O0 = impl Tr;\ntype O1 = impl Tr;\ntype O2 = impl Tr;\n#[define_opaque(O0, O1, O2)]\npub fn f() {\n${each((i) => `let a${i} = mk();`)}\nlet o0: O0 = a0;\nlet o1: O1 = a1;\nlet o2: O2 = a2;\n${reversed((i) => `let _: u8 = a${i};`)}\n}\n`,
 };

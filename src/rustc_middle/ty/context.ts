@@ -225,9 +225,9 @@ type VarError = { $: "NotPresent" } | { $: "NotUnicode"; _0: string };
 type InternedSet<K> = InternedSetImpl<K>;
 
 // rustc-type: compiler/rustc_middle/src/ty/context.rs:138 CtxtInterners
-// PORT (D2): every set maps the canonical key of the value (rust_ts/intern_key.ts: the derived `Hash` + `Eq` of
-// `TyKind`, `RegionKind`, ... with interned children by id, i.e. upstream's `InternedInSet` `Borrow`/`Hash`/`Eq`
-// impls, context.rs:1906-1999) to the one object made for it. The arena is erased (PORTING §5). The element
+// PORT (D2): each set finds the one object made for a value by upstream's `InternedInSet` `Borrow`/`Hash`/`Eq` impls
+// (context.rs:1906-1999): `value_hash` and `value_eq` on the stored value where it is hot (`intern_value`, `intern_slice`), else
+// the value's canonical key (rust_ts/intern_key.ts: the derived `Hash` + `Eq` as a string, interned children by id). The arena is erased (PORTING §5). The element
 // types of sets whose classes are not ported yet are `unknown`; their `mk_*` / `intern_*` are stubs.
 export class CtxtInterners {
   constructor(

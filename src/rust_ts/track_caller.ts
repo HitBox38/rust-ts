@@ -1001,7 +1001,6 @@ function escape_re(s: string): string {
   return s.replace(/[$]/g, "\\$");
 }
 
-/** Index just past the bracket matching the one at `open` (masked text). */
 /**
  * The part of the item at `at` that holds code: a `static`'s or `const`'s whole value, up to its `;`; else its `{ .. }` body, or `undefined`
  * if it has none (`fn f();`). A `{` in the header's brackets is no body, as a const argument is not (`[u8; { 1 }]`, `Foo<{ 1 }>`).
@@ -1026,6 +1025,7 @@ function item_span(s: string, at: number, end: number): [number, number] | undef
   return undefined;
 }
 
+/** Index just past the bracket matching the one at `open` (masked text). */
 function match_close(s: string, open: number): number {
   const o = s[open]!;
   const c = o === "(" ? ")" : o === "[" ? "]" : "}";

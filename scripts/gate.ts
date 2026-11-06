@@ -360,7 +360,7 @@ export async function gateRun(requested: string[], skipStatic: boolean, skipHeav
   const refused = batteryRefusal(first.power, allowBattery);
   if (refused !== undefined) die(refused);
   if (first.power?.onBattery) console.log(`note: running on battery (--allow-battery)${first.power.percent === null ? "" : `, at ${first.power.percent}%`}: timings will run slow, and a timeout may be false`);
-  const host = new HostLog(gateHost.readers, { pollMs: gateHost.pollMs, keepEveryMs: gateHost.keepEveryMs, note: (l) => console.log(l), allowBattery });
+  const host = new HostLog(gateHost.readers, { pollMs: gateHost.pollMs, keepEveryMs: gateHost.keepEveryMs, note: (l) => console.log(l), allowBattery, firstOnBattery: first.power?.onBattery });
   await host.mark();
   host.start();
   // Heavy suites last, in their given order (plan-m5 §4.2); `--skip-heavy` leaves them out, as not run.
@@ -447,7 +447,7 @@ export async function gateRun(requested: string[], skipStatic: boolean, skipHeav
   const pass = staticOk && unchanged && unstableOk && upstreamOk && out.every((s) => s.lost.length === 0);
   await host.mark();
   host.stop();
-  if (host.powerLost.length) console.log(`note: this gate lost power ${host.powerLost.length} time(s), first at ${host.powerLost[0]!.at}; a lost case after that may be a false timeout (\`host\` in gate.json)`);
+  if (host.powerLost.length) console.log(`note: this gate lost power ${host.powerLost.length} time(s), first seen at ${host.powerLost[0]!.at}; a lost case from about then on may be a false timeout (\`host\` in gate.json)`);
   writeFileSync(join(RUNS, runId, "gate.json"), JSON.stringify({ runId, pass, staticOk, skipStatic, unitTestSkips: st.skips ?? null, head: prov.head, dirty: prov.dirty, unstableOk, upstreamOk, suites: out, ...(notRun.length ? { notRun } : {}), host: host.record(allowBattery) }, null, 1));
   console.log(`gate ${pass ? "PASS" : "FAIL"} run=${runId}`);
   if (!pass) process.exit(1);

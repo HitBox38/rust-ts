@@ -321,7 +321,7 @@ function hash_string(s: string): number {
 /**
  * One field's share of a struct's hash. The shares are summed, so that fields hash the same in any order. A multiply alone is linear, so
  * its sum depends on little but the sum of the fields: `Ref(r, t)` over 100 regions by 40,000 types shared a hash on 58% of values,
- * with 92 in a bucket, against about 0.05% for random hashes (review perf-near-limit N3). So the second round, and the name's last
+ * with 100 in a bucket, against about 0.05% for random hashes (review perf-near-limit N3). So the second round, and the name's last
  * char to tell `_0` from `_1`, as swapped fields would otherwise always meet. Only which bucket a value is in depends on this:
  * `value_eq` decides every hit, and no table is iterated.
  */
