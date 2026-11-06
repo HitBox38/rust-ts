@@ -469,8 +469,8 @@ Queued:
 541,633 protected in 59 suites (+7,621, 0 lost); 24,242/27,053 fns (89.6%). New protected: mir-o2 3474, mono-ui 3475, mir-opt-o4 405, check-ui-encode-mir 146, check-rg, check-rg-encode-mir and check-rg-host 36 each; miri-pass 345, miri-pass-heavy 5. M6b miri-pass now 350/360 = 97.22%.
 **Held for the owner:** D4 (port rustc_codegen_llvm; harness/scope.json says changes need the owner's approval) and PLAN.md's D1, D3; wave 40 does not start without an answer. Also reported: root removed scope.json's virtual_socket.rs exclusion without approval.
 
-## Wave 40a ACCEPTED 2026-11-07 (gate-20261106-073703-root-u0z2, main d51089a3) — what does not depend on D4
-541,731 protected in 59 suites (+98, 0 lost); 24,245/27,053 fns (89.6%). The gains are 35 distinct tests/ui files across 13 suites: the ICE report and fixers. The laptop lost AC power at 19:14 UTC, near the end, with one suite left; the new safeguard noted it and no case was lost. Regression audit: docs/reviews/w40a-audit.md, running.
+## Wave 40a ACCEPTED 2026-11-06 (gate-20261106-073703-root-u0z2, main d51089a3) — what does not depend on D4
+541,731 protected in 59 suites (+98, 0 lost); 24,245/27,053 fns (89.6%). The gains are 35 distinct tests/ui files across 13 suites. The laptop lost AC power at 19:14 UTC, near the end, with one suite left; the new safeguard noted it and no case was lost. Regression audit: docs/reviews/w40a-audit.md, running.
 | lane | scope | status |
 |---|---|---|
 | perf-near-limit | the cases gates retry: all 10 protected mir cases at 36% of their limit or less; dynamic-drop.rs and issue-8827.rs stay at 63-66% | APPROVE WITH NITS; on integ-w40 |
