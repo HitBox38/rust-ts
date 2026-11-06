@@ -491,6 +491,7 @@ Queued from these reviews, none blocking wave 40a:
 
 
 ## Wave 40b (started 2026-11-06) — what does not depend on D4, while D4 waits for the owner
+**Merged to main; gate next, on AC power.**
 | lane | scope | status |
 |---|---|---|
 | fixers-43 | environment and driver: fixers-42 R1-R3, R5; a cwd of 1,024 bytes or more; `miri.ts` and `RUST_TS_IMPL`; rustc-env.rs CRASH; check3 N1, O1 | REQUEST CHANGES on F1 (a shim under the Miri home installed an unpinned nightly), root fixed it; on integ-w41 |
