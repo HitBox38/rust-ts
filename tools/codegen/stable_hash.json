@@ -9,6 +9,7 @@
   ],
   "module": "src/rustc_data_structures/stable_hash.ts",
   "types": [
+    { "paths": ["rustc_hir::ItemId", "rustc_hir::hir::ItemId"], "stable_hash": "stable_hash_ItemId($v, $hcx, $h)", "import": "src/rustc_hir/stable_hash.gen.ts" },
     { "paths": ["u8"], "stable_hash": "stable_hash_u8($v, $hcx, $h)" },
     { "paths": ["u16"], "stable_hash": "stable_hash_u16($v, $hcx, $h)" },
     { "paths": ["u32"], "stable_hash": "stable_hash_u32($v, $hcx, $h)" },
