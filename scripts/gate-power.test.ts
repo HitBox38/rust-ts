@@ -110,6 +110,13 @@ test("power lost during a run: a note, and neither the verdict nor a status chan
   expect(steady.gateJson.host.samples.length).toBeGreaterThanOrEqual(4); // the run's start and end, the suite's two
 });
 
+test("with the flag, a move to battery just after the gate's first reading is still a loss", () => {
+  const r = gate("allowed-move", [AC, BATT], true);
+  expect(r.code, r.stdout + r.stderr).toBe(0);
+  expect(r.stdout).toMatch(/^note: power lost at \S+: this gate now runs on battery at 57%/m);
+  expect(r.gateJson.host.powerLost.map((p: { percent: number }) => p.percent)).toEqual([57]);
+});
+
 test("no pmset, or one that throws: nothing is refused or noted (the parser's own tests cover a desktop)", () => {
   const r = gate("no-pmset", [null], false, true);
   expect(r.code, r.stdout + r.stderr).toBe(0);

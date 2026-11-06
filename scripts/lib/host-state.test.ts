@@ -71,7 +71,9 @@ describe("a command that will not end", () => {
       const s = await sampleHost({ ...fake([AC]), pmset: read, swapusage: async () => undefined }, limit * 2);
       expect(performance.now() - started).toBeLessThan(limit * 2 + 1_600);
       expect(s.power).toBeNull();
-      if (existsSync(marker)) return Number(readFileSync(marker, "utf8"));
+      // Empty if the shell was killed between making the file and writing it, which is not having started.
+      const pid = existsSync(marker) ? Number(readFileSync(marker, "utf8")) : 0;
+      if (pid > 0) return pid;
     }
     throw new Error(`${name}: the shell never started`);
   };
