@@ -141,9 +141,7 @@ describe("upstream checkout status", () => {
 });
 
 describe("unstable oracle output patterns", () => {
-  test("thread ids, long-type hashes and ICE report files are detected", () => {
-    expect(unstableOracleReason("error: x\n\nthread 'rustc' (178972394) panicked at /rustc-dev/x/compiler/a.rs:1:1:\n")).toContain("thread id");
-    expect(unstableOracleReason("thread 'rustc' (rtid 5) panicked at x\n")).toContain("thread id");
+  test("long-type hashes and ICE report files are detected", () => {
     expect(unstableOracleReason("   = note: the full name for the type has been written to 'build/a/b.long-type-11093767555032064917.txt'\n")).toContain("long-type");
     expect(unstableOracleReason("note: please attach the file at `/u/rustc-ice-2026-10-21T11_18_00-4242.txt` to your bug report\n")).toContain("ICE note");
   });
@@ -152,5 +150,7 @@ describe("unstable oracle output patterns", () => {
     expect(unstableOracleReason("error[E0277]: x\n  --> a.rs:1:1\nLL | thread 'rustc' (1) panicked at\n")).toBeUndefined();
     expect(unstableOracleReason("   = note: the full name for the type has been written to '$TEST_BUILD_DIR/a.long-type-$LONG_TYPE_HASH.txt'\n")).toBeUndefined();
     expect(unstableOracleReason("note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n")).toBeUndefined();
+    // A thread id is masked at comparison instead (scripts/lib/unstable.test.ts).
+    expect(unstableOracleReason("error: x\n\nthread 'rustc' (178972394) panicked at /rustc-dev/x/compiler/a.rs:1:1:\n")).toBeUndefined();
   });
 });

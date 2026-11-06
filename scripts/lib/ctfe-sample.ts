@@ -13,6 +13,7 @@
 //                  did not ICE): a FAILURE, never a skip (review miri-log, decision 2026-11-01)
 //   matched        stdout, stderr and exit code identical (`info` when the oracle's stderr has an ` INFO ` line)
 //   differed       anything else: a FAILURE (the first differing stderr line, or stdout / exit, is recorded)
+import { maskThreadId } from "./unstable.ts";
 
 /** One side's run, as scripts/ctfe-sample.ts streams it. */
 export interface SampleRun {
@@ -64,7 +65,7 @@ export function classify(oracle: SampleRun, port: SampleRun | undefined, repo: s
   if (port.exit === 101 && oracle.exit !== 101) {
     const msg =
       /rust-ts: internal compiler error: (.*)/.exec(port.stderr)?.[1] ??
-      /^(thread 'rustc' panicked.*|error: internal compiler error.*)$/m.exec(port.stderr)?.[1] ??
+      /^(thread 'rustc' (?:\(\d+\) )?panicked.*|error: internal compiler error.*)$/m.exec(port.stderr)?.[1] ??
       "(no message)";
     const prefix = repo.replace(/[\\/]+$/, "") + "/";
     const frames = [...port.stderr.replaceAll("\\", "/").matchAll(/\(?(\/?[^\s()]+\.ts):\d+:\d+\)?/g)]
@@ -72,15 +73,18 @@ export function classify(oracle: SampleRun, port: SampleRun | undefined, repo: s
       .slice(0, 3);
     return { cls: "crashed", detail: `${msg.slice(0, 200)} @ ${frames.join(" < ")}` };
   }
-  if (oracle.stderr === port.stderr && oracle.stdout === port.stdout && oracle.exit === port.exit) {
+  // Both sides' stderr with the panic message's OS thread id masked, as difftest compares it (scripts/lib/unstable.ts).
+  const oe = maskThreadId(oracle.stderr);
+  const pe = maskThreadId(port.stderr);
+  if (oe === pe && oracle.stdout === port.stdout && oracle.exit === port.exit) {
     return { cls: "matched", detail: oracle.stderr.includes(" INFO ") ? "info" : "no-info" };
   }
-  const ol = oracle.stderr.split("\n");
-  const pl = port.stderr.split("\n");
+  const ol = oe.split("\n");
+  const pl = pe.split("\n");
   let i = 0;
   while (i < ol.length && ol[i] === pl[i]) i++;
-  const where = oracle.stderr === port.stderr ? (oracle.stdout !== port.stdout ? "stdout" : "exit") : `stderr line ${i + 1}/${ol.length}`;
-  const lines = oracle.stderr === port.stderr ? "" : `: o=${(ol[i] ?? "").slice(0, 120)} | p=${(pl[i] ?? "").slice(0, 120)}`;
+  const where = oe === pe ? (oracle.stdout !== port.stdout ? "stdout" : "exit") : `stderr line ${i + 1}/${ol.length}`;
+  const lines = oe === pe ? "" : `: o=${(ol[i] ?? "").slice(0, 120)} | p=${(pl[i] ?? "").slice(0, 120)}`;
   return { cls: "differed", detail: `exit ${oracle.exit}/${port.exit} ${where}${lines}` };
 }
 

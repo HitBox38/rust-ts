@@ -828,28 +828,16 @@ function m3UiCorpus(dirs: string[], dumpTests = true): { cases: Case[]; skipped:
 // Unstable cases of tydump-ui and thirdump-ui (lane harness-w20c; review harness-w20b §5): each oracle output differed
 // between two runs of the same probe binary with the same argv, env and cwd (both probes, measured twice), and the
 // difference is not caused by the harness:
-// - an ICE under compiletest's `RUST_BACKTRACE=short`: std's panic message names the OS thread id,
-//   `thread 'rustc' (<tid>) panicked at ...` (compiletest normalizes it to `$TID`). For five of the six, the port ICEs
-//   at the same point too (root decision, lane ui-diffs-20), so they could only ever differ in the ICE report;
-//   old-solver-caching-bug-151069.rs#old is listed for the thread id alone;
 // - `-Zwrite-long-types-to-disk=yes` (the test's own compile-flags, after compiletest's `=no`): the note
 //   `the full name for the type has been written to '<out dir>/<stem>.long-type-<hash>.txt'` names a hash of the type
 //   (rustc_middle ty/error.rs `short_string_namespace`: `DefaultHasher` over `Hash` of an interned value, which hashes
 //   its address). The note is printed whether or not the out dir exists, and the address varies from run to run
 //   (ASLR), so no out dir or temp dir makes it reproducible (compiletest normalizes it to `$LONG_TYPE_HASH`).
-const M3_UI_TID = "ICE: the panic message names the oracle's OS thread id (`thread 'rustc' (<tid>) panicked`)";
-// Root decision (lane ui-diffs-20): the port reaches the same assert!/bug! as rustc, after identical earlier errors.
-const M3_UI_SAME_ICE = "both sides ICE at the same point; rustc's ICE report (thread id, backtrace) is not reproducible";
+// (Six `#old` revisions that ICE were here for the thread id in the panic message, which is masked now: scripts/lib/unstable.ts.)
 const M3_UI_LONG_TYPE = "the long-type note names `<stem>.long-type-<hash>.txt`, a hash of an interned type's address";
 const M3_UI_UNSTABLE: UnstableCase[] = [
   { id: "tests/ui/traits/error-reporting/conditionally-implemented-trait-long-type.rs", reason: M3_UI_LONG_TYPE },
-  { id: "tests/ui/traits/next-solver/cycles/use-impl-to-normalize-own-self-ty-ice.rs#old", reason: M3_UI_SAME_ICE },
-  { id: "tests/ui/traits/next-solver/normalize/old-solver-caching-bug-151069.rs#old", reason: M3_UI_TID },
-  { id: "tests/ui/traits/next-solver/normalize/success-results-in-unconstrained-infer.rs#old", reason: M3_UI_SAME_ICE },
-  { id: "tests/ui/traits/next-solver/overflow/incorrect-old-solver-caching-ice-148095.rs#old", reason: M3_UI_SAME_ICE },
   { id: "tests/ui/traits/on_unimplemented_long_types.rs", reason: M3_UI_LONG_TYPE },
-  { id: "tests/ui/traits/projection-cache-rematch-impl-122529.rs#old", reason: M3_UI_SAME_ICE },
-  { id: "tests/ui/traits/projection-cache-rematch-impl-141124.rs#old", reason: M3_UI_SAME_ICE },
 ];
 const m3UiSuite = (name: string, probe: string, subject: string, dirs: string[], subsets: Suite["subsets"], description: string): Suite => ({
   name,
@@ -907,19 +895,6 @@ const M4A_UI_DIRS = [
   "tests/ui/unsafe",
   "tests/ui/pattern/usefulness",
 ];
-// Unstable cases of mirdump-ui (lane harness-w21): the oracle (the same probe binary, argv, env and cwd) was run twice on
-// every case; these 4 differed, all in `thread 'rustc' (<tid>) panicked`. They are tests that ICE by design
-// (`failure-status: 101`: `-Zlint-mir` / `-Zvalidate-mir` reporting broken MIR, `-Ztreat-err-as-bug`), so the panic
-// message names the oracle's OS thread id (compiletest normalizes it to `$TID`). Every other case's two outputs were
-// identical; mirdump-minicore had none. difftest's detection (scripts/lib/unstable.ts) still applies.
-const M4A_UI_ICE_TID =
-  "ICE by design (`failure-status: 101`, broken-MIR lint/validation): the panic message names the oracle's OS thread id (`thread 'rustc' (<tid>) panicked`)";
-const M4A_UI_UNSTABLE: UnstableCase[] = [
-  { id: "tests/ui/mir/lint/no-storage.rs", reason: M4A_UI_ICE_TID },
-  { id: "tests/ui/mir/lint/storage-live.rs", reason: M4A_UI_ICE_TID },
-  { id: "tests/ui/mir/lint/storage-return.rs", reason: M4A_UI_ICE_TID },
-  { id: "tests/ui/mir/validate/call-move-arg.rs", reason: M4A_UI_ICE_TID },
-];
 SUITES.push(
   {
     name: "mirdump-minicore",
@@ -950,7 +925,6 @@ SUITES.push(
     subject: ([c]) => [...bunCmd("src/rust_ts/mirdump.ts"), ...c!.args],
     subsets: Object.fromEntries(M4A_UI_DIRS.map((d) => [d.slice("tests/ui/".length), inDirs([d])])),
     blessed: (c) => uiBlessed(c.id, c.args),
-    unstable: () => M4A_UI_UNSTABLE,
   },
 );
 
@@ -1088,43 +1062,15 @@ const MINICORE_CG_CLIF = (c: Case) => c.file.startsWith(`${CG_CLIF_EXAMPLE}/`);
 // oracle's 300 s + 4 x 300 s, cached once per oracle build, so it stays (as fn-to-method-deeply-nested.rs in hir-tree).
 // Every other case took < 6 s wall at load average ~10 (< 15 s at ~100).
 const MIR_SKIPPED: SkippedCase[] = [];
-// Unstable cases of `mir` (lane harness-w25): the oracle was run twice on every case (and these a third and fourth time);
-// these 14 differed, each only in `thread 'rustc' (<tid>) panicked`: rustc ICEs on them with this argv (no compiletest
-// flags: broken-MIR validation in the simd and mir/validate tests, elaborate_box_derefs, CTFE of `do_not_const_check`, a
-// typeck `bug!` in move-expr/name-resolution.rs, track-diagnostics' deliberate ICE), and the panic message names the OS
-// thread id. difftest's pattern detection
-// (scripts/lib/unstable.ts) finds all 14 too; the list documents them. Every other case's outputs were identical.
-const MIR_ICE_TID = "the oracle ICEs with this argv; the panic message names its OS thread id (`thread 'rustc' (<tid>) panicked`)";
-const MIR_UNSTABLE: UnstableCase[] = [
-  "tests/ui/borrowck/borrowck-describe-field-generic-param-owned-box.rs",
-  "tests/ui/consts/const-eval/do_not_const_check.rs",
-  "tests/ui/mir/validate/noncleanup-cleanup.rs",
-  "tests/ui/mir/validate/noncleanup-resume.rs",
-  "tests/ui/mir/validate/noncleanup-terminate.rs",
-  "tests/ui/move-expr/name-resolution.rs",
-  "tests/ui/simd/intrinsic/generic-arithmetic-saturating-2.rs",
-  "tests/ui/simd/intrinsic/generic-gather-scatter.rs",
-  "tests/ui/simd/intrinsic/generic-select.rs",
-  "tests/ui/simd/intrinsic/generic-shuffle.rs",
-  "tests/ui/simd/intrinsic/inlining-issue67557-ice.rs",
-  "tests/ui/simd/masked-load-store-build-fail.rs",
-  "tests/ui/simd/shuffle.rs",
-  "tests/ui/track-diagnostics/track.rs",
-].map((id) => ({ id, reason: MIR_ICE_TID }));
 const mirCorpus = (): string[] => {
   const skip = new Set(MIR_SKIPPED.map((k) => k.id));
   return corpus("tests/ui").filter((f) => !skip.has(f));
 };
 const M4C_THIR_DIRS = [...M3_UI_DIRS, "tests/ui/thir-print"];
-// Unstable cases of `thir-tree` (lane harness-w25): the oracle was run twice on every case; these 9 differed. 8 are
-// thirdump-ui's (`M3_UI_UNSTABLE`): the two `-Zwrite-long-types-to-disk=yes` tests and six `#old` revisions that ICE
-// (thread id); the ninth, trait-bound-holds-for-ty-error-140303.rs#old, ICEs only on this path (the probe stops before).
-// Every other case's two outputs were identical. difftest's pattern detection finds all 9 too.
-const THIR_TREE_ICE_TID = "the oracle ICEs; the panic message names its OS thread id (`thread 'rustc' (<tid>) panicked`)";
-const THIR_TREE_UNSTABLE: UnstableCase[] = [
-  ...M3_UI_UNSTABLE.map((k) => (k.reason === M3_UI_LONG_TYPE ? k : { id: k.id, reason: THIR_TREE_ICE_TID })),
-  { id: "tests/ui/traits/error-reporting/trait-bound-holds-for-ty-error-140303.rs#old", reason: THIR_TREE_ICE_TID },
-].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+// Unstable cases of `thir-tree` (lane harness-w25): the oracle was run twice on every case. thirdump-ui's two
+// `-Zwrite-long-types-to-disk=yes` tests differed for their hash; seven `#old` revisions that ICE differed only in the
+// thread id, which is masked now (scripts/lib/unstable.ts). Every other case's two outputs were identical.
+const THIR_TREE_UNSTABLE: UnstableCase[] = M3_UI_UNSTABLE;
 let thirTreeMemo: Case[] | undefined;
 function thirTreeCases(): Case[] {
   return (thirTreeMemo ??= m3UiCorpus(M4C_THIR_DIRS).cases.map((c0) => {
@@ -1173,7 +1119,6 @@ SUITES.push(
     oracleTimeoutMs: 300_000,
     cases: () => mirCorpus().map((f) => pinSessionEnv({ id: f, file: f, args: [...stdArgs(f), "-Zwrite-long-types-to-disk=no", "-Zunpretty=mir", f], env: NOCORE_ENV })),
     skipped: () => MIR_SKIPPED,
-    unstable: () => MIR_UNSTABLE,
     oracle: ([c]) => oracleRustcCmd(c!.args),
     subject: ([c]) => [...bunCmd("src/rust_ts/main.ts"), ...c!.args],
   },
@@ -1593,7 +1538,7 @@ const runCorpus = (): { cases: UiCase[]; skipped: SkippedCase[] } => (runCorpusM
 /**
  * Miri flags that turn isolation off (`-Zmiri-disable-isolation`: the program sees the host's clock, files, real pid,
  * so the `gettid` thread id in a panic message becomes the host's) or pass host variables to the program
- * (`-Zmiri-env-forward=<var>`). D14 keeps isolation on, and `unstableMiriOracleReason` and `MIRI_CASE_ENV` rely on it,
+ * (`-Zmiri-env-forward=<var>`). D14 keeps isolation on, and `stderrMask` and `MIRI_CASE_ENV` rely on it,
  * so a case in a tests/ui suite whose argv has one is skipped (review harness-m6a N3, lane harness-w36); no tests/ui test
  * passes one at the pin. Miri's own suites (harness-m6c) keep their test's flags, so 27 of their cases run with isolation
  * off: there a real pid or path in the output shows up as a difference between two oracle runs, and a case that does is
@@ -1847,17 +1792,7 @@ function pmCorpus(): { cases: Case[]; skipped: SkippedCase[] } {
 }
 /** pm-ui's argv: `--emit=metadata` unless compiletest already passes `--emit metadata` (check modes). */
 export const pmUiArgs = (args: readonly string[]): string[] => (args.some((a, i) => a === "--emit" && args[i + 1] === "metadata") ? [...args] : [...args, "--emit=metadata"]);
-// Unstable cases of pm-ui (lane harness-m6b): the oracle was run twice on every pm-ui and pm-expanded case (same argv,
-// env, cwd); only this one differed, in `thread 'rustc' (<tid>) panicked` (a `known-bug` test that ICEs by design,
-// `failure-status: 101`, in MIR building, which `-Zunpretty=expanded` never reaches). difftest's detection
-// (scripts/lib/unstable.ts) still applies.
-const PM_UI_UNSTABLE: UnstableCase[] = [
-  {
-    id: "tests/ui/resolve/proc_macro_generated_packed.rs",
-    reason: "ICE by design (`known-bug`, `failure-status: 101`): the panic message names the oracle's OS thread id (`thread 'rustc' (<tid>) panicked`)",
-  },
-];
-const pmSuite = (s: Pick<Suite, "name" | "description" | "criterion" | "unstable">, args: (a: readonly string[]) => string[]): Suite => ({
+const pmSuite = (s: Pick<Suite, "name" | "description" | "criterion">, args: (a: readonly string[]) => string[]): Suite => ({
   ...s,
   milestone: "M6",
   mode: "single",
@@ -1877,7 +1812,6 @@ SUITES.push(
       description:
         "tests/ui tests using a proc-macro crate (oracle-built host dylib aux, compiletest's force-host argv), compiletest's main-compile argv with --emit=metadata: stdout + stderr + exit; gate M6 (>= 95%)",
       criterion: { percent: 95, what: "plan-m6 gate M6: pm-ui >= 95% MATCH, ORACLE_TIMEOUT excluded" },
-      unstable: () => PM_UI_UNSTABLE,
     },
     pmUiArgs,
   ),
@@ -1957,10 +1891,11 @@ const MIRI_UI_HEAVY: Record<string, string> = {
 };
 /**
  * Cases whose oracle output differs between two runs (every case of the four suites run twice, once with a changed host
- * `HOME`, `PATH` and `USER`; docs/handoff/harness-m6c.md): only these two, both in `thread '<name>' (<tid>) panicked`.
+ * `HOME`, `PATH` and `USER`; docs/handoff/harness-m6c.md): only this one, whose digits are the program's own, so the mask
+ * for a host ICE (`stderrMask`) rightly leaves them. (`tests/panic/mir-validation.rs` was the other: a Miri ICE, whose
+ * outputs are the same in three runs with the thread id masked; docs/handoff/harness-w40.md.)
  */
 const MIRI_PASS_UNSTABLE: UnstableCase[] = [
-  { id: "tests/panic/mir-validation.rs", reason: "ICE by design (a mir-opt validation failure, expected exit 101): the panic message names the oracle's OS thread id" },
   { id: "tests/panic/panic1.rs", reason: "`-Zmiri-disable-isolation`: the `gettid` shim adds the real pid (shims/env.rs `get_tid`), and the program's panic message prints it" },
 ];
 const isMiriUiHeavy = (c: Case): boolean => Object.hasOwn(MIRI_UI_HEAVY, c.id);
