@@ -1,6 +1,6 @@
 # Handoff: perf-near-limit
 
-Branch `t3/b8863490`, based on `1adcee8e`. Speed work on the cases that matched only through the gate's serial retry. No representation
+Branch `t3/reduce-near-limit-runtime`, based on `1adcee8e`. Speed work on the cases that matched only through the gate's serial retry. No representation
 change, nothing touched in `harness/`, `scripts/` or baselines.
 
 ## Result
