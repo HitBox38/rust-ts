@@ -57,7 +57,7 @@ function pickCase(a: ReturnType<typeof parseArgs>): { args: string[]; cwd: strin
   if (!existsSync(abs)) fail(`no such file: ${abs}`);
   if (a.opt !== undefined && a.opt !== "O" && a.opt !== "0") fail(`--opt must be O or 0, not ${String(a.opt)}`);
   // The file's own directory, so its name in panic locations is the bare name on both sides.
-  return { args: irFileArgs(basename(abs), a.opt === "0" ? "0" : "O", typeof a.target === "string" ? a.target : undefined), cwd: dirname(abs), env: undefined, what: file };
+  return { args: irFileArgs(basename(abs), a.opt === "0" ? "0" : "O", typeof a.target === "string" ? a.target : undefined), cwd: dirname(abs), env: undefined, what: file, env: { RUSTC_ICE: "0" } };
 }
 
 /** The tiers' normal forms of a side's kept `.ll`s, joined by name; undefined if it kept none. */
