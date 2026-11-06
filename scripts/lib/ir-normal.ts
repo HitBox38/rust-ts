@@ -14,8 +14,14 @@
 //   - What the parser itself normalises, by reading into one in-memory form: attribute group and metadata numbers and
 //     their placement; unused attribute groups and metadata; attributes on intrinsic declarations (the parser replaces
 //     them, so a wrong `noreturn` there is ignored by every tool that reads the text); default alignments on `load`,
-//     `store` and `alloca`; `dso_local` implied by a linkage; constant expressions the parser folds.
-//   - A missing `!guid` (`assign-guid` adds it, as LLVMRustOptimize does). A present and wrong `!guid` stays visible.
+//     `store` and `alloca`; `dso_local` implied by a linkage; constant expressions the parser folds; a struct type no one uses;
+//     and its auto-upgrades, each of which parses to one module, so nothing downstream of the text can tell them apart: `PIC Level`
+//     and `PIE Level` module flags' behaviour (Min to Max), `nocapture` for `captures(none)` (review harness-m7a H10).
+//   - A missing `!guid` (`assign-guid` adds it, as LLVMRustOptimize does), not always: on a program with an `lto` flag some functions the
+//     text shows as `internal` keep the guid they got before internalisation, evidently (`tests/ui/sanitizer/cfi/coroutine.rs#cfi`: removing
+//     every `!guid` leaves 7 of 229 different, `main`, `lang_start` and the allocator shims; review H10 did not trace it). That is a false
+//     difference, never a hidden one, but `llir-*` should know: for those cases, at most 37, the port cannot leave `!guid` to `assign-guid`.
+//     A present and wrong `!guid` stays visible.
 //   What it keeps: order of globals, functions, declarations, blocks and instructions; local value and block names,
 //   including LLVM's collision suffixes; every flag, attribute and alignment that is not a default; folded constants;
 //   datalayout, triple, `source_filename`, module flags; `; No predecessors!` (a function of the code). `verify` rejects an

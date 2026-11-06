@@ -38,7 +38,12 @@ export function llvmToolHashes(sysroot: string, host: string): Record<LlvmTool |
   return { opt: sha256File(join(bin, "opt")), llc: sha256File(join(bin, "llc")), "llvm-as": sha256File(join(bin, "llvm-as")), libLLVM: sha256File(a) };
 }
 
-/** Pinned per host: the tools of the toolchain at this repo's pin. Another host has none yet. */
+/**
+ * Pinned per host: the tools of the toolchain at this repo's pin. Another host has none yet.
+ * **Trust on first use** (review harness-m7a H8): these were read from the files on this host. Only `libLLVM`'s has a second witness (review
+ * plan-m7). `opt`, `llc` and `llvm-as` were not checked against anything independent, such as the dist tarball, so the pin shows that they have not
+ * changed, not that they are the release's. llvm-tools.test.ts does check that their `--version` matches `rustc -vV`.
+ */
 export const LLVM_TOOLS_PINNED: Record<string, Record<LlvmTool | "libLLVM", string>> = {
   "aarch64-apple-darwin": {
     opt: "08fbe6994221b032254a35d87296801b4eea608182ec76c7fdb585a06b726455",
@@ -47,6 +52,14 @@ export const LLVM_TOOLS_PINNED: Record<string, Record<LlvmTool | "libLLVM", stri
     libLLVM: "468b56993bc4e1cacb5dd0b3972da21a36ffcf8ab52aba2ae92e421be2a55910",
   },
 };
+
+/** `undefined` if `hashes` (`llvmToolHashes`) are what `LLVM_TOOLS_PINNED` holds for `host`, or it holds nothing for `host`; else one line (no `ERROR:` prefix). */
+export function llvmToolsPinError(hashes: Record<LlvmTool | "libLLVM", string>, host: string): string | undefined {
+  const pin = LLVM_TOOLS_PINNED[host];
+  if (pin === undefined) return undefined;
+  const changed = ([...LLVM_TOOLS, "libLLVM"] as const).filter((t) => hashes[t] !== pin[t]);
+  return changed.length ? `llvm-tools: ${changed.join(", ")} differ from the hashes pinned in scripts/lib/llvm-tools.ts, so the oracle toolchain has changed; never change it: reinstall the pinned toolchain only by the owner's decision` : undefined;
+}
 
 /**
  * `undefined` if the tools and both library copies exist, and the copies are one build; else one line (no `ERROR:` prefix).

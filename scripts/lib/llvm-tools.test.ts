@@ -4,7 +4,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { LLVM_TOOLS, LLVM_TOOLS_PINNED, libLlvmCopies, llvmBinDir, llvmToolHashes, llvmToolsError } from "./llvm-tools.ts";
+import { LLVM_TOOLS, LLVM_TOOLS_PINNED, libLlvmCopies, llvmBinDir, llvmToolHashes, llvmToolsError, llvmToolsPinError } from "./llvm-tools.ts";
 
 const REPO = resolve(import.meta.dir, "..", "..");
 const TMP = mkdtempSync(join(tmpdir(), "rust-ts-llvm-tools-"));
@@ -38,6 +38,13 @@ describe("llvmToolsError", () => {
     expect(llvmToolsError(fake("differ-fast", ["aaaa", "bbbb"]), HOST, false)).toBeUndefined();
     expect(llvmToolsError(fake("differ-size", ["aaaa", "bbb"]), HOST, false)).toContain("not one build");
   });
+});
+
+test("llvmToolsPinError: names what changed; a host with no pin says nothing", () => {
+  const pinned = LLVM_TOOLS_PINNED["aarch64-apple-darwin"]!;
+  expect(llvmToolsPinError(pinned, "aarch64-apple-darwin")).toBeUndefined();
+  expect(llvmToolsPinError({ ...pinned, opt: "0", libLLVM: "0" }, "aarch64-apple-darwin")).toStartWith("llvm-tools: opt, libLLVM differ from");
+  expect(llvmToolsPinError({ ...pinned, opt: "0" }, "another-host")).toBeUndefined();
 });
 
 const pin = JSON.parse(readFileSync(join(REPO, "UPSTREAM.json"), "utf8")).rust as { toolchain: string; components: string[] };

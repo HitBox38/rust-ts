@@ -8,7 +8,7 @@ import { caseEnv, mergeEnv } from "../scripts/lib/env.ts";
 import { oracleHost, oraclePinnedPathEnv, oracleRustcCmd, oracleSysroot, rustcDriverHash, verifyOracleToolchain } from "../scripts/lib/oracle.ts";
 import { probePath } from "../scripts/probes.ts";
 import { RG_INPUT_DIRS, RG_ROOT, RG_SRC, rgIsSetUp } from "../scripts/rg-check.ts";
-import { llvmBinDir, llvmToolHashes } from "../scripts/lib/llvm-tools.ts";
+import { llvmBinDir, llvmToolHashes, llvmToolsError, llvmToolsPinError } from "../scripts/lib/llvm-tools.ts";
 import { MIRI_CASE_ENV, MIRI_DEFAULT_ARGS, MIRI_SYSROOT, miriBinary, miriOracleKey, miriPin } from "../scripts/lib/miri.ts";
 import { COMPILETEST_TARGET, collectUiTests, mirOptCases, uiBlessed, uiCases, uiFileCases, uiOutputBaseDir, uiTestCases, type Blessed, type ErrorFormat, type UiCase } from "./compiletest.ts";
 import { AUX_STALE_MS, EMPTY_SYSROOT, M5_TARGET, libArgs, libCrate, libEnv, oracleLibRmeta, pruneStaleAux, touchAuxDir } from "./library.ts";
@@ -2070,7 +2070,13 @@ let irKeyMemo: string | undefined;
 const irOracleKey = (): string => {
   if (irKeyMemo !== undefined) return irKeyMemo;
   const host = oracleHost();
-  const parts = [hash(readFileSync(IR_RUN)), hash(readFileSync(join(REPO, "scripts", "lib", "ir-normal.ts"))), rustcDriverHash(), JSON.stringify(llvmToolHashes(oracleSysroot(), host))];
+  // One `ERROR:` line, here on difftest's path too (review harness-m7a H8): a missing tool would throw a raw ENOENT below, and a changed one would re-key and re-run the oracle with no message.
+  const missing = llvmToolsError(oracleSysroot(), host, false);
+  if (missing !== undefined) die(missing);
+  const hashes = llvmToolHashes(oracleSysroot(), host);
+  const changed = llvmToolsPinError(hashes, host);
+  if (changed !== undefined) die(changed);
+  const parts = [hash(readFileSync(IR_RUN)), hash(readFileSync(join(REPO, "scripts", "lib", "ir-normal.ts"))), rustcDriverHash(), JSON.stringify(hashes)];
   return (irKeyMemo = hash(parts.join("\0")));
 };
 /** One side's command of an IR suite. */
