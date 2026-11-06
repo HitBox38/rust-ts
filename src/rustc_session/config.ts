@@ -33,6 +33,7 @@ import { type FileName, RealFileName, RemapPathScopeComponents, SourceFileHashAl
 import { FilePathMapping } from "../rustc_span/source_map.ts";
 import { type Symbol, sym } from "../rustc_span/symbol.ts";
 import { type Debug, debug_bool, debug_int, debug_map, debug_option, debug_str, debug_struct, debug_tuple, debug_vec } from "../std/fmt.ts";
+import { current_dir_str, var_ as env_var } from "../std/env.ts";
 import { type IoError, debug_IoError, display_IoError, io_error_from_node, stdout_write_all, write_stderr } from "../std/io.ts";
 import { path_file_name, path_file_stem, path_hash, path_join, path_parent } from "../std/path.ts";
 import { assert_eq, panic, unported, unwrap } from "../std/panic.ts";
@@ -1665,11 +1666,7 @@ function file_path_mapping(
 
 /** `std::env::current_dir()` */
 function env_current_dir(): Result<PathBuf, IoError> {
-  try {
-    return Ok(process.cwd());
-  } catch (e) {
-    return Err(io_error_from_node(e));
-  }
+  return current_dir_str();
 }
 
 /** `impl Default for Options` (PORT: a free fn; the generated `Options` class has no `default`). */
@@ -3057,11 +3054,11 @@ export function build_session_options(early_dcx: EarlyDiagCtxtReal, matches: get
     }
   }
 
-  const graphviz_font = process.env.RUSTC_GRAPHVIZ_FONT;
-  if (graphviz_font !== undefined) {
+  const graphviz_font = env_var("RUSTC_GRAPHVIZ_FONT");
+  if (graphviz_font.$ === "Ok") {
     // FIXME: this is only mutation of UnstableOptions here, move into
     // UnstableOptions::build?
-    unstable_opts.graphviz_font = graphviz_font;
+    unstable_opts.graphviz_font = graphviz_font._0;
   }
 
   if (!cg.embed_bitcode) {

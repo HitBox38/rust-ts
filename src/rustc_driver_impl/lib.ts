@@ -58,6 +58,7 @@ import { panic, unported } from "../std/panic.ts";
 import { CURRENT_THREAD, display_location, js_backtrace, type PanicHookInfo, set_backtrace_style, update_hook } from "../std/panicking.ts";
 import { display_IoError, io_error_from_node, write_stderr } from "../std/io.ts";
 import * as diagnostics from "./diagnostics.gen.ts";
+import { expect_result } from "../std/result.ts";
 import { from_utf8 } from "../std/str.ts";
 import { FileName } from "../rustc_span/lib.ts";
 import { appendFileSync, readFileSync } from "node:fs";
@@ -384,15 +385,12 @@ function make_input(early_dcx: EarlyDiagCtxt, free_matches: readonly string[]): 
       early_dcx.early_fatal("couldn't read from stdin, as it did not contain valid UTF-8");
     }
 
-    const path = env_var("UNSTABLE_RUSTDOC_TEST_PATH");
+    const path = env.var_("UNSTABLE_RUSTDOC_TEST_PATH");
     if (path.$ === "Ok") {
-      const line_r = env_var("UNSTABLE_RUSTDOC_TEST_LINE");
-      if (line_r.$ === "Err") {
-        panic(`when UNSTABLE_RUSTDOC_TEST_PATH is set UNSTABLE_RUSTDOC_TEST_LINE also needs to be set: ${line_r._0}`);
-      }
-      const line = parse_isize(line_r._0);
-      if (line.$ === "Err") panic(`UNSTABLE_RUSTDOC_TEST_LINE needs to be a number: ParseIntError { kind: ${line._0} }`);
-      return { $: "DocTestStr", file: path._0, line: line._0, input };
+      const line_r = env.var_("UNSTABLE_RUSTDOC_TEST_LINE");
+      const line_ = expect_result(line_r, "when UNSTABLE_RUSTDOC_TEST_PATH is set UNSTABLE_RUSTDOC_TEST_LINE also needs to be set", env.debug_VarError);
+      const line = expect_result<number, string>(parse_isize(line_), "UNSTABLE_RUSTDOC_TEST_LINE needs to be a number", (e) => `ParseIntError { kind: ${e} }`);
+      return { $: "DocTestStr", file: path._0, line, input };
     } else {
       const name = FileName.anon_source_code(input);
       return { $: "Str", name, input };
@@ -418,13 +416,6 @@ function stdin_read_to_string(): string | undefined {
   }
   const r = from_utf8(bytes);
   return r.$ === "Ok" ? r._0 : undefined;
-}
-
-/** `env::var(key)`: `Err` carries the `VarError` Debug (`NotPresent`; `NotUnicode(..)` cannot be
- *  told apart in JS, see src/std/env.ts). */
-function env_var(key: string): { $: "Ok"; _0: string } | { $: "Err"; _0: string } {
-  const v = process.env[key];
-  return v === undefined ? { $: "Err", _0: "NotPresent" } : { $: "Ok", _0: v };
 }
 
 /** `str::parse::<isize>()` (64-bit): the value, or the `IntErrorKind` name. */
@@ -711,10 +702,10 @@ export function version_at_macro_invocation(
 
   let version = version0;
   let release = release0;
-  const force_version = process.env.RUSTC_OVERRIDE_VERSION_STRING;
-  if (force_version !== undefined) {
-    version = force_version;
-    release = force_version;
+  const force_version = env.var_("RUSTC_OVERRIDE_VERSION_STRING");
+  if (force_version.$ === "Ok") {
+    version = force_version._0;
+    release = force_version._0;
   }
 
   safe_println(`${binary} ${version}`);
@@ -1088,6 +1079,8 @@ export function catch_with_exit_code(f: () => void): number {
 
 /** `static ICE_PATH: OnceLock<Option<PathBuf>>` */
 let ICE_PATH: { value: PathBuf | undefined } | undefined;
+/** PORT: `PathBuf` is a lossy string here, so a non-UTF-8 `RUSTC_ICE` keeps its bytes for the file system, which must not get the U+FFFD. */
+let ICE_PATH_OS: Buffer | undefined;
 
 // This function should only be called from the ICE hook.
 //
@@ -1112,7 +1105,8 @@ function ice_path_with_config(config: UnstableOptions | undefined): PathBuf | un
         return undefined;
       }
       let path: PathBuf;
-      const s = process.env.RUSTC_ICE;
+      const s_os = env.var_os("RUSTC_ICE");
+      const s = s_os === undefined ? undefined : env.to_string_lossy(s_os);
       if (s !== undefined) {
         if (s === "0") {
           // Explicitly opting out of writing ICEs to disk.
@@ -1123,12 +1117,15 @@ function ice_path_with_config(config: UnstableOptions | undefined): PathBuf | un
         }
         path = s;
       } else {
-        path = config?.metrics_dir ?? process.cwd();
+        const cwd = env.current_dir_str();
+        path = config?.metrics_dir ?? (cwd.$ === "Ok" ? cwd._0 : "");
       }
       // Don't use a standard datetime format because Windows doesn't support `:` in paths
       const file_now = strftime_ice(new Date());
       const pid = process.pid;
-      return path_push(path, `rustc-ice-${file_now}-${pid}.txt`);
+      const pushed = path_push(path, `rustc-ice-${file_now}-${pid}.txt`);
+      if (s_os !== undefined && !Buffer.from(path).equals(s_os)) ICE_PATH_OS = Buffer.concat([s_os, Buffer.from(pushed.slice(path.length))]);
+      return pushed;
     })(),
   };
   return ICE_PATH.value;
@@ -1204,7 +1201,7 @@ export function install_ice_hook(bug_report_url: string, extra_info: (dcx: DiagC
         // PORT: `let _ = write!(..)` on a file that may not open: errors are ignored. The JS stack stands in for
         // `Backtrace::force_capture()` (plan-ice-report D9).
         try {
-          appendFileSync(path, `thread '${name}' panicked at ${display_location(location)}:\n${msg}\nstack backtrace:\n${js_backtrace(info.payload)}`);
+          appendFileSync(ICE_PATH_OS ?? path, `thread '${name}' panicked at ${display_location(location)}:\n${msg}\nstack backtrace:\n${js_backtrace(info.payload)}`);
         } catch {}
       }
     }
@@ -1258,7 +1255,7 @@ function report_ice(
     let open_error: unknown;
     let opened = false;
     try {
-      appendFileSync(path, "");
+      appendFileSync(ICE_PATH_OS ?? path, "");
       opened = true;
     } catch (err) {
       open_error = err;
@@ -1268,12 +1265,12 @@ function report_ice(
       if (FIRST_PANIC.value) {
         FIRST_PANIC.value = false;
         try {
-          appendFileSync(path, `\n\nrustc version: ${version}\nplatform: ${tuple}`);
+          appendFileSync(ICE_PATH_OS ?? path, `\n\nrustc version: ${version}\nplatform: ${tuple}`);
         } catch {}
       }
       file = (line) => {
         try {
-          appendFileSync(path, `${line}\n`);
+          appendFileSync(ICE_PATH_OS ?? path, `${line}\n`);
         } catch {}
       };
     } else {

@@ -42,8 +42,8 @@ import type { Pending } from "../../rustc_type_ir/decls.ts";
 import { EXTRA_SYMBOLS } from "../sym.ts";
 import { deinit_loggers, init_early_loggers, init_late_loggers } from "./log/setup.ts";
 import { TARGET_CONFIGS } from "../../rust_ts/target_config.gen.ts";
-import { ensure_stack } from "../../rust_ts/stack.ts";
-import { vars_os as std_vars_os } from "../../std/env.ts";
+import { ensure_stack, selected_impl } from "../../rust_ts/stack.ts";
+import { debug_os_string, set_current_dir, var_os, vars_os as std_vars_os } from "../../std/env.ts";
 import { os_str_from_encoded_bytes } from "../shims/os_str.ts";
 import type { CompiledModules, CrateInfo } from "../../rustc_codegen_ssa/lib.ts";
 import {
@@ -80,11 +80,11 @@ import type { CrateType } from "../../rustc_structures/crate_type.ts";
 import { FileName } from "../../rustc_span/lib.ts";
 import { FatalErrorMarker } from "../../rustc_span/fatal_error.ts";
 import { Panic, Unported, assert, panic, unported } from "../../std/panic.ts";
-import { report_uncaught } from "../../std/panicking.ts";
-import { Err, Ok, type Result } from "../../std/result.ts";
+import { report_uncaught, update_hook } from "../../std/panicking.ts";
+import { Err, Ok, type Result, unwrap_result } from "../../std/result.ts";
 import { existsSync, readdirSync, realpathSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { write_stderr } from "../../std/io.ts";
+import { debug_IoError, write_stderr } from "../../std/io.ts";
 
 /** `std::process::exit(code)` in flight (PORT: header). */
 export class MiriExit extends Error {
@@ -145,14 +145,9 @@ class MiriCompilerCalls implements Callbacks {
     config.current_exe = local === undefined ? undefined : canonicalize(local);
 
     // Adjust working directory for interpretation.
-    const cwd = process.env.MIRI_CWD;
+    const cwd = var_os("MIRI_CWD");
     if (cwd !== undefined) {
-      // `env::set_current_dir(cwd).unwrap()`
-      try {
-        process.chdir(cwd);
-      } catch (e) {
-        return panic(`called \`Result::unwrap()\` on an \`Err\` value: ${String(e)}`);
-      }
+      unwrap_result(set_current_dir(cwd), debug_IoError);
     }
 
     // Emit warnings for some unusual configurations.
@@ -551,14 +546,17 @@ export function main(): number {
   const args = a._0;
 
   // If the environment asks us to actually be rustc, then do that.
-  const crate_kind = process.env.MIRI_BE_RUSTC;
+  const crate_kind = var_os("MIRI_BE_RUSTC");
   if (crate_kind !== undefined) {
-    if (crate_kind === "host") {
+    if (os_str_eq(crate_kind, "host")) {
       // For host crates like proc macros and build scripts, we are an entirely normal rustc.
       // These eventually produce actual binaries and never run in Miri.
       return rustc_driver_main();
-    } else if (crate_kind !== "target") {
-      return panic(`invalid \`MIRI_BE_RUSTC\` value: ${JSON.stringify(crate_kind)}`);
+    } else if (!os_str_eq(crate_kind, "target")) {
+      // PORT: no ICE hook yet, so upstream's panic goes to std's `default_hook`. "No hook" here is a report at top level (std/panicking.ts).
+      update_hook((default_hook, info) => default_hook(info));
+      // rustc-call: 425:13
+      panic(`invalid \`MIRI_BE_RUSTC\` value: ${debug_os_string(crate_kind)}`);
     }
 
     // Earliest rustc setup.
@@ -930,6 +928,11 @@ function MIRI_DEFAULT_ARGS_(): string[] {
   return [...MIRI_DEFAULT_ARGS];
 }
 
+/** `crate_kind == "host"`: `OsStr == str`, by bytes. */
+function os_str_eq(a: Uint8Array, b: string): boolean {
+  return Buffer.from(b).equals(a);
+}
+
 /** `str::strip_prefix` */
 function strip_prefix(s: string, prefix: string): string | undefined {
   return s.startsWith(prefix) ? s.slice(prefix.length) : undefined;
@@ -953,10 +956,20 @@ function available_parallelism(): number {
 
 // ---- entry glue (rust-ts, not upstream): `fn main() -> ExitCode` as a process, like src/rust_ts/main.ts ----
 // Exit codes: Miri's own (`exit(code)`, `ExitCode`), 101 for an ICE, 70 = reached unported code (never a Miri status).
+// RUST_TS_IMPL as src/rust_ts/main.ts: `port` (default), `shim` (runs the oracle's Miri, so the suite must score 100%), `stub` (unported, 0%).
 if (import.meta.main) {
-  ensure_stack();
   try {
-    process.exitCode = main();
+    const impl = selected_impl();
+    if (impl === "shim") {
+      const { miriBinary } = await import("../../../scripts/lib/miri.ts");
+      const proc = Bun.spawn([miriBinary(), ...process.argv.slice(2)], { stdio: ["inherit", "inherit", "inherit"] });
+      process.exitCode = await proc.exited;
+    } else if (impl === "stub") {
+      throw new Unported("stub implementation");
+    } else {
+      ensure_stack();
+      process.exitCode = main();
+    }
   } catch (e) {
     if (e instanceof MiriExit) {
       process.exitCode = e.code;

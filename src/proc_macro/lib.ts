@@ -38,6 +38,7 @@ import {
   display_f64 as display_f64_std,
   PLAIN,
 } from "../std/fmt.ts";
+import { var_ as std_env_var, type VarError } from "../std/env.ts";
 import { panic, unported } from "../std/panic.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
 import { Str, utf8 } from "../std/str.ts";
@@ -2103,11 +2104,8 @@ export const tracked = {
   /// Besides the dependency tracking this function should be equivalent to `env::var` from the
   /// standard library, except that the argument must be UTF-8.
   // std: library/proc_macro/src/lib.rs:1910 env_var
-  // PORT: `env::var(key)`: `Err(VarError::NotPresent)` when unset. A non-UTF-8 value (`NotUnicode`) cannot be
-  // told apart through `process.env`.
-  env_var(key: string): Result<string, "NotPresent"> {
-    const v = process.env[key];
-    const value: Result<string, "NotPresent"> = v === undefined ? Err("NotPresent") : Ok(v);
+  env_var(key: string): Result<string, VarError> {
+    const value = std_env_var(key);
     BridgeMethods.track_env_var(key, value.$ === "Ok" ? value._0 : undefined);
     return value;
   },

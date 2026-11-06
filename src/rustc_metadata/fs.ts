@@ -18,6 +18,7 @@ import { OutFileName, type OutputFilenames } from "../rustc_session/config.ts";
 import { filename_for_metadata } from "../rustc_session/output.ts";
 import type { Session } from "../rustc_session/session.ts";
 import type { ErrorGuaranteed } from "../rustc_span/lib.ts";
+import { current_dir_str } from "../std/env.ts";
 import { io_error_from_node, type IoResult, stdout_write_all } from "../std/io.ts";
 import { path_is_absolute, path_join } from "../std/path.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
@@ -276,7 +277,12 @@ class TempDirBuilder {
   tempdir_in(dir: string): IoResult<TempDir> {
     try {
       // tempfile: a relative `dir` is made absolute first (`env::current_dir()?.join(dir)`).
-      const abs = path_is_absolute(dir) ? dir : path_join(process.cwd(), dir);
+      let abs = dir;
+      if (!path_is_absolute(dir)) {
+        const cwd = current_dir_str();
+        if (cwd.$ === "Err") return cwd;
+        abs = path_join(cwd._0, dir);
+      }
       return Ok(new TempDir(mkdtempSync(path_join(abs, this.prefix_))));
     } catch (e) {
       return Err(io_error_from_node(e));

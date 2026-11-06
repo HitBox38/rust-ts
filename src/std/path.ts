@@ -1,8 +1,9 @@
 // `std::path` (library/std/src/path.rs, sys/path/{windows,windows_prefix,unix}.rs at the pin), as
 // far as the compiler needs it. Moved from rustc_span/source_map.ts (review w23a, batch 3 #9).
-import { type IoResult } from "./io.ts";
+import { current_dir_str } from "./env.ts";
+import { debug_IoError, type IoResult } from "./io.ts";
 import { panic, unported } from "./panic.ts";
-import { Err, Ok } from "./result.ts";
+import { Err, Ok, unwrap_result } from "./result.ts";
 import { utf8, utf8_len } from "./str.ts";
 
 // PORT: `Path`/`PathBuf` are strings; the host platform's path rules apply (rustc on the host
@@ -743,7 +744,7 @@ function sys_path_absolute(path: string): IoResult<string> {
     }
   } else {
     // env::current_dir()?  (PORT: the host cwd, D14)
-    normalized = process.cwd();
+    normalized = unwrap_result(current_dir_str(), debug_IoError);
   }
   // normalized.extend(components);
   for (let c = components.next(); c !== undefined; c = components.next()) {

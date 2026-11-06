@@ -26,6 +26,7 @@ import { StableCrateId } from "../rustc_span/def_id.ts";
 import { Edition } from "../rustc_span/edition.ts";
 import type { ErrorGuaranteed, RealFileName, Span } from "../rustc_span/lib.ts";
 import { FileName, Span as SpanC } from "../rustc_span/lib.ts";
+import { var_ as env_var } from "../std/env.ts";
 import { path_components, path_is_absolute, path_join, path_parent } from "../std/path.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
 import { FilePathMapping, SourceMap, get_source_map } from "../rustc_span/source_map.ts";
@@ -1116,8 +1117,8 @@ export function build_session(
     sopts.unstable_opts.time_passes ? sopts.unstable_opts.time_passes_format : undefined,
   );
 
-  const val = process.env.RUSTC_CTFE_BACKTRACE;
-  const ctfe_backtrace: CtfeBacktrace = val === "immediate" ? "Immediate" : val !== undefined && val !== "0" ? "Capture" : "Disabled";
+  const val = env_var("RUSTC_CTFE_BACKTRACE");
+  const ctfe_backtrace: CtfeBacktrace = val.$ === "Ok" && val._0 === "immediate" ? "Immediate" : val.$ === "Ok" && val._0 !== "0" ? "Capture" : "Disabled";
 
   const asm_arch = early_sess.target.allow_asm ? target_asm.InlineAsmArch.from_arch(early_sess.target.arch) : undefined;
   const target_filesearch = FileSearch.new(sopts.search_paths, target_tlib_path, early_sess.target, sopts.unstable_opts.implicit_sysroot_deps);

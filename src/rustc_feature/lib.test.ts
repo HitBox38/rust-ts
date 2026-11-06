@@ -71,7 +71,7 @@ test("find_gated_cfg / is_builtin_attr_name / UnstableFeatures", () => {
   expect(is_builtin_attr_name(sym.rustc_dummy)).toBe(true);
   expect(is_builtin_attr_name(sym.cfg)).toBe(true);
   expect(is_builtin_attr_name(sym.test)).toBe(false);
-  expect(UnstableFeatures.from_environment_value(undefined, { $: "Err", _0: "NotPresent" })).toBe("Allow");
+  expect(UnstableFeatures.from_environment_value(undefined, { $: "Err", _0: { $: "NotPresent" } })).toBe("Allow");
   expect(UnstableFeatures.is_nightly_build("Allow")).toBe(true);
   expect(UnstableFeatures.is_nightly_build("Cheat")).toBe(true);
   expect(UnstableFeatures.is_nightly_build("Disallow")).toBe(false);

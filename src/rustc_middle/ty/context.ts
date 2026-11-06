@@ -35,6 +35,7 @@ import type { CrateType } from "../../rustc_structures/lib.ts";
 import type { Limit } from "../../rustc_structures/lib.ts";
 import { PLAIN } from "../../std/fmt.ts";
 import { assert, assert_eq, panic, unported } from "../../std/panic.ts";
+import { var_ as std_env_var, type VarError } from "../../std/env.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
 import { Steal } from "../../rustc_data_structures/steal.ts";
 import type { DepGraph } from "../dep_graph/graph.ts";
@@ -218,8 +219,6 @@ interface CodegenFnAttrs {
   target_features: readonly TargetFeature[];
 }
 type Place = import("../mir/syntax.ts").Place;
-/** `std::env::VarError` */
-type VarError = { $: "NotPresent" } | { $: "NotUnicode"; _0: string };
 
 /** PORT (D2): `ShardedHashMap<InternedInSet<'tcx, T>, ()>`; the stored `K` is the hash-consed object itself. */
 type InternedSet<K> = InternedSetImpl<K>;
@@ -1440,11 +1439,11 @@ export class TyCtxt {
   /// Helper to get a tracked environment variable via. [`TyCtxt::env_var_os`] and converting to
   /// UTF-8 like [`std::env::var`].
   // rustc: compiler/rustc_middle/src/ty/context.rs:1288 env_var
-  // PORT: `&OsStr` is a JS string (rustc_interface passes.ts `env_var_os`), so `to_str()` is always `Some`.
+  // PORT: `&OsStr` is a lossy JS string (rustc_interface passes.ts `env_var_os`), so `value.to_str()` is `std::env::var`'s own check.
   env_var(key: string): Result<string, VarError> {
     const value = this.env_var_os(key) as string | undefined;
     if (value !== undefined) {
-      return Ok(value);
+      return std_env_var(key);
     } else {
       return Err({ $: "NotPresent" });
     }
