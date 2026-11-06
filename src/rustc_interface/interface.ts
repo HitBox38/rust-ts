@@ -27,6 +27,7 @@ import { type CodegenBackend, CurrentGcx } from "./stand_ins.ts";
 import * as util from "./util.ts";
 import { setup_callbacks } from "./callbacks.ts";
 import { DEF_ID_DEBUG } from "../rustc_span/def_id.ts";
+import { EMIT_BUG_DIAGNOSTIC } from "../rustc_span/macros.ts";
 
 /// Represents a compiler session. Note that every `Compiler` contains a
 /// `Session`, but `Compiler` also contains some things that cannot be in
@@ -392,11 +393,12 @@ export function run_compiler<R>(config: Config, f: (compiler: Compiler) => R): R
     });
   }
 
-  // PORT: installs only `DEF_ID_DEBUG` (callbacks.ts module comment). Upstream installs the callbacks for the
+  // PORT: installs `DEF_ID_DEBUG` and `EMIT_BUG_DIAGNOSTIC` (callbacks.ts module comment). Upstream installs the callbacks for the
   // rest of the process (one compiler per rustc process); rust-ts tests run several compilers in one process
-  // and also test the defaults, so the previous hook is restored when `run_compiler` returns. Nothing formats
-  // a `DefId` after that in a real run, so this is not observable there.
+  // and also test the defaults, so the previous hooks are restored when `run_compiler` returns. Nothing formats
+  // a `DefId` after that in a real run, and no `tcx` is left for a `bug!` to print through, so this is not observable there.
   const old_def_id_debug = DEF_ID_DEBUG.deref();
+  const old_emit_bug_diagnostic = EMIT_BUG_DIAGNOSTIC.f;
   setup_callbacks();
   try {
     const target = build_target_config(
@@ -544,6 +546,7 @@ export function run_compiler<R>(config: Config, f: (compiler: Compiler) => R): R
     );
   } finally {
     DEF_ID_DEBUG.swap(old_def_id_debug);
+    EMIT_BUG_DIAGNOSTIC.f = old_emit_bug_diagnostic;
   }
 }
 

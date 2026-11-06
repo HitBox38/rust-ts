@@ -5,9 +5,10 @@
 // keeps the config `main()` parsed into; `default_config()` below is the upstream listing, checked against it. Each
 // case's stderr and exit status are compared with the oracle Miri's (the isolated toolchain, `miri <flag>` with no input
 // file, recorded below; exit 1 for every one).
-import { expect, mock, spyOn, test } from "bun:test";
+import { afterAll, expect, mock, spyOn, test } from "bun:test";
 import { args_os, set_args_os } from "../../std/env.ts";
 import { set_output_capture } from "../../std/io.ts";
+import { take_hook } from "../../std/panicking.ts";
 import { Unported } from "../../std/panic.ts";
 import { FxHashMap, FxHashSet, String_key, usize_key } from "../../rust_ts/hash_map.ts";
 import { MiriConfig } from "../eval.ts";
@@ -63,6 +64,8 @@ mock.module("./log/setup.ts", () => ({
   deinit_loggers: () => {},
 }));
 const { main, MiriExit } = await import("./miri.ts");
+// `main` installs the ICE hook, and `bun test` runs every file in this process.
+afterAll(take_hook);
 const real_default = MiriConfig.default.bind(MiriConfig);
 spyOn(MiriConfig, "default").mockImplementation(() => {
   last_config = real_default();

@@ -51,6 +51,14 @@ export function update_hook(hook_fn: PanicHook): void {
   set_panic_with_hook(panic_with_hook);
 }
 
+// std: library/std/src/panicking.rs:179 take_hook
+// PORT: returns nothing, as nothing here uses the old hook; a process that ends with its hook needs no call. Only tests call it,
+// as `bun test` runs every file in one process and a `main` called in one would keep the hook for all the later ones.
+export function take_hook(): void {
+  HOOK = undefined;
+  set_panic_with_hook(undefined);
+}
+
 let panic_in_hook = false;
 
 // std: library/std/src/panicking.rs:773 panic_with_hook

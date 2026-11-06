@@ -34,6 +34,7 @@ import {
 } from "./as_place.ts";
 import { lit_to_mir_constant } from "./as_constant.ts";
 import { Category } from "./category.ts";
+import { plain_bug } from "../../../rust_ts/test_bug.ts";
 
 const WORK = join(DATA, "tmp", "mb-expr-a", process.env.RUST_TS_AGENT ?? "default");
 
@@ -203,7 +204,7 @@ test("expr_as_place of a VarRef; as_temp; stmt_expr without a statement scope", 
 
     // a non-place expression in place context goes through a temp too (`StorageLive`); its temporary scope is the
     // enclosing one, so the temp's storage is scheduled for drop there, which is not pushed here (`span_bug!`)
-    expect(() => b.as_place(START_BLOCK, lit!)).toThrow(`region scope Node(15) not in scope to drop _${n + 1}`);
+    expect(() => plain_bug(() => b.as_place(START_BLOCK, lit!))).toThrow(`region scope Node(15) not in scope to drop _${n + 1}`);
     expect(stmts(b)).toEqual([`StorageLive(_${n})`, `StorageLive(_${n + 1})`]);
 
     // the general case of stmt_expr requires a statement scope

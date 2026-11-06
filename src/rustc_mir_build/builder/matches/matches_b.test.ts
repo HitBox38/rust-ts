@@ -24,6 +24,7 @@ import { FnSig } from "../../../rustc_type_ir/ty_kind.ts";
 import "../../lib.ts";
 import { Builder, type LocalsForNode } from "../mod.ts";
 import { Candidate, PatternExtraData } from "./mod.ts";
+import { plain_bug } from "../../../rust_ts/test_bug.ts";
 
 const WORK = join(DATA, "tmp", "mb-matches-b", process.env.RUST_TS_AGENT ?? "default");
 
@@ -190,7 +191,7 @@ test("bind_and_guard_matched_candidate, declare_binding, should_emit_debug_info_
     // a pinned binding of a non-`Pin` local is a span_bug
     let bug: unknown;
     try {
-      b.pin_borrowed_local(blk2, 0 as never, { $: "Ref", _0: tcx.lifetimes.re_erased, _1: { $: "Shared" }, _2: undefined as never }, si);
+      plain_bug(() => b.pin_borrowed_local(blk2, 0 as never, { $: "Ref", _0: tcx.lifetimes.re_erased, _1: { $: "Shared" }, _2: undefined as never }, si));
     } catch (e) {
       bug = e;
     }
