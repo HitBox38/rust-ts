@@ -15,9 +15,7 @@
 // - `getaddrinfo` / `freeaddrinfo` (shims/unix/socket_address.rs) live in a file without a module (D2 sockets exclusion,
 //   miri-contract "Scope"): their arms check the signature, then stop `unported`.
 // - `trace!(..)` calls are comments (only `info!` is ported, plan-m6 A6).
-// - `std::env::home_dir()` (`getpwuid_r`, isolation off only) is a host stand-in (`$HOME`, else `os.homedir()`,
-//   plan-m6 D14).
-import { homedir } from "node:os";
+// - `std::env::home_dir()` (`getpwuid_r`, isolation off only) is a host stand-in, `home_dir` below (plan-m6 D14).
 import { type MPlaceTy, type OpTy, type Scalar } from "../../lib.ts";
 import { type MiriInterpCx } from "../../machine.ts";
 import { type EmulateItemResult } from "../mod.ts";
@@ -25,6 +23,8 @@ import { DynSym } from "../foreign_items.ts";
 import { shim_sig } from "../sig.ts";
 import * as linux from "./linux/foreign_items.ts";
 import { UID } from "./mod.ts";
+import { os_str_from_encoded_bytes } from "../os_str.ts";
+import { home_dir } from "../../../std/env.ts";
 import { type CanonAbi } from "../../../rustc_abi/canon_abi.ts";
 import { Size } from "../../../rustc_abi/lib.ts";
 import { InterpCx } from "../../../rustc_const_eval/interpret/eval_context.ts";
@@ -1893,8 +1893,7 @@ export function emulate_foreign_item_inner(self_: MiriInterpCx, link_name: Symbo
 
       // We only set the home_dir field.
       // #[allow(deprecated)]
-      const home_dir = process.env.HOME ?? homedir();
-      const w = this_.write_path_to_c_str(home_dir, buf_._0, buflen_._0);
+      const w = this_.write_path_to_c_str(os_str_from_encoded_bytes(home_dir()), buf_._0, buflen_._0);
       if (w.$ === "Err") return w;
       const [written, _] = w._0;
       const pw_dir = this_.project_field_named(pwd_._0, "pw_dir");

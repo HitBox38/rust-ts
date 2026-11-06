@@ -124,6 +124,7 @@ import { Binder, EarlyBinder } from "../rustc_type_ir/binder.ts";
 import { FnSigKind, fold_FnSig } from "../rustc_type_ir/ty_kind.ts";
 import { Unnormalized } from "../rustc_type_ir/unnormalized.ts";
 import { define_assoc, provide_defaults } from "../rust_ts/provided.ts";
+import { var_ as env_var } from "../std/env.ts";
 import { type Debug, debug_int, debug_option, debug_struct, type Fmt, PLAIN, PRETTY } from "../std/fmt.ts";
 import type { IoError as io_Error } from "../std/io.ts";
 import { assert, panic, unported, unreachable, unwrap } from "../std/panic.ts";
@@ -810,9 +811,8 @@ MiriMachine.allocator_shim_symbols = function (tcx: TyCtxt): Map<Symbol, Allocat
 MiriMachine.get_user_relevant_crates = function (tcx: TyCtxt, config: MiriConfig): CrateNum[] {
   // Convert the local crate names from the passed-in config into CrateNums so that they can
   // be looked up quickly during execution
-  // PORT (plan-m6 D14): `std::env::var` reads the host environment (`process.env`; a non-Unicode value is `Err`, as unset).
-  const local_crates_var = process.env["MIRI_LOCAL_CRATES"];
-  const local_crate_names: string[] = local_crates_var !== undefined ? local_crates_var.split(",").map((krate) => krate) : [];
+  const local_crates_var = env_var("MIRI_LOCAL_CRATES");
+  const local_crate_names: string[] = local_crates_var.$ === "Ok" ? local_crates_var._0.split(",").map((krate) => krate) : [];
   const local_crates: CrateNum[] = [];
   for (const crate_num of tcx.crates(null)) {
     const name_ = tcx.crate_name(crate_num);

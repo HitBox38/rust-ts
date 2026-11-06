@@ -27,8 +27,10 @@ const SKIP_MIRI = miri_problem !== undefined && !REQUIRE;
 if (SKIP_RUSTC) console.log(`SKIP: pinned rustc (${PIN.toolchain}) unavailable; RUST_TS_REQUIRE_PROBES=1 makes this a failure`);
 if (SKIP_MIRI) console.log(`SKIP: ${miri_problem}; RUST_TS_REQUIRE_PROBES=1 makes this a failure`);
 
-const WORK = join(DATA, "tmp", "environment-oracle", process.env.RUST_TS_AGENT ?? "default");
+// One directory per process: the same or no `RUST_TS_AGENT` must not share one, as `beforeAll` and `afterAll` delete it.
+const WORK = join(DATA, "tmp", "environment-oracle", `${process.env.RUST_TS_AGENT ?? "default"}-${process.pid}`);
 const EXEC_WITH_ENV = join(REPO, "src/rust_ts/exec_with_env.ts");
+const HOME_BYTES = join(WORK, "home_bytes");
 
 const ENVPM = `
 extern crate proc_macro;
@@ -111,11 +113,23 @@ unsafe extern "C" {
     fn getenv(s: *const c_char) -> *const c_char;
 }
 unsafe fn put(s: *const c_char) { unsafe { write(1, s.cast(), strlen(s)); write(1, b"\\n".as_ptr().cast(), 1); } }
+unsafe fn put_addr(a: usize) {
+    let mut b = [b'\\n'; 17];
+    let mut i = 0;
+    while i < 16 {
+        let d = ((a >> (60 - 4 * i)) & 15) as u8;
+        b[i] = if d < 10 { b'0' + d } else { b'a' + d - 10 };
+        i += 1;
+    }
+    unsafe { write(1, b.as_ptr().cast(), 17); }
+}
 #[unsafe(no_mangle)]
 fn miri_start(_: isize, _: *const *const u8) -> isize {
     unsafe {
         let mut p = environ;
-        while !(*p).is_null() { put(*p); p = p.add(1); }
+        // Each entry's address: Miri's allocations are sized by the bytes it writes, and the addresses follow from them.
+        while !(*p).is_null() { put(*p); put_addr(*p as usize); p = p.add(1); }
+        put_addr(environ as usize);
         let keys = [c"F1", c"VALUE", c"RUST_TS_JS_STACK", c"BUN_JSC_maxPerThreadStackUsage", c"PWD", c"DOTENVVAR", c"1", c"_"];
         let mut i = 0;
         while i < keys.len() {
@@ -155,6 +169,8 @@ const ENTRIES = [
   "EMOJI=\xf0\x9f\x98\x80",
   "1=num",
   "10=num2",
+  // CoreFoundation copies this file's bytes into `__CF_USER_TEXT_ENCODING`, up to 63, here cutting a character (stack.ts).
+  `CFFIXED_USER_HOME=${HOME_BYTES}`,
 ];
 
 interface Out {
@@ -184,6 +200,8 @@ beforeAll(() => {
   writeFileSync(join(WORK, "block.rs"), BLOCK);
   writeFileSync(join(WORK, ".env"), "DOTENVVAR=fromdotenv\nREALOVER=fromdotenv\n");
   writeFileSync(join(WORK, ".env.local"), "DOTENVLOCAL=fromdotenv\n");
+  mkdirSync(HOME_BYTES);
+  writeFileSync(join(HOME_BYTES, ".CFUserTextEncoding"), Buffer.from(`0x\xff\xfe:${"x".repeat(57)}\xc3\xa9zz`, "latin1"));
 });
 afterAll(() => {
   rmSync(WORK, { recursive: true, force: true });
@@ -207,6 +225,7 @@ describe.skipIf(process.platform === "win32")("the environment under both sides"
     expect(out).toContain(`O${PROBED.indexOf("SET_BY_MACRO")}: () = crate::option::Option::Some("yes")`);
     expect(out).toContain("raw \\\"VALUE=a\\\\xffb\\\"");
     expect(out).toContain("PWD: Ok(\\\"/wrong\\\")");
+    if (process.platform === "darwin") expect(out).toContain(`:0x\\\\xff\\\\xfe:${"x".repeat(57)}\\\\xc3\\\"`);
   });
 
   // PORT: not rustc's doing but CoreFoundation's, which the oracle links (stack.ts `cf_user_text_encoding`).

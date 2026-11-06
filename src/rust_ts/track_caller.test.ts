@@ -172,6 +172,60 @@ test("a call left in the owner does not map onto one in an item nested upstream 
   expect(m.ok ? "" : m.why).toContain("nested item");
 });
 
+test("in_nested_item: the item shapes of re-check N1, on synthetic source", () => {
+  // Each `CALL` is in a nested item, or not, as the name of the case says. The up file reads a `.rs` under the upstream checkout, so
+  // this takes its prototype's method on an object with only `masked`, which is all the method reads.
+  const nested = (body: string): boolean => {
+    const src = `fn owner() {\n${body}\n}\n`;
+    const in_nested_item = up_file("compiler/rustc_mir_transform/src/ref_prop.rs")!.in_nested_item;
+    return in_nested_item.call({ masked: src } as never, [src.indexOf("{"), src.lastIndexOf("}")], src.indexOf("CALL"));
+  };
+  for (const body of [
+    "fn n() { CALL(); }",
+    "fn n(x: [u8; { 1 }]) { CALL(); }",
+    "impl Foo<{ 1 }> { const X: u8 = CALL(); }",
+    "const X: u8 = CALL();",
+    "const X: u8 = { CALL() };",
+    "static X: u8 = CALL();",
+    "static mut X: u8 = CALL();",
+    "pub static X: T = T::new(CALL);",
+    "safe fn n() { CALL(); }",
+    "gen fn n() { CALL(); }",
+    "m!(fn n() { CALL(); })",
+    "fn \u00e9t\u00e9() { CALL(); }",
+    "trait T { fn f() { CALL(); } }",
+    "mod m { CALL!(); }",
+    "unsafe impl T for U { CALL!(); }",
+  ]) {
+    expect([body, nested(body)]).toEqual([body, true]);
+  }
+  for (const body of [
+    "CALL();",
+    "trait T { fn f(); } if x { CALL(); }",
+    "fn n(); CALL();",
+    "const X: u8 = 1; CALL();",
+    "static X: u8 = 1; CALL();",
+    "let c = const { 1 }; CALL();",
+    "fn n() {} CALL();",
+    "let f: fn(u8) = g; CALL();",
+    "impl_trait(CALL);",
+  ]) {
+    expect([body, nested(body)]).toEqual([body, false]);
+  }
+});
+
+test("a `static` nested in a fn at the pin is a nested item, as re-check N1 found the regex missed", () => {
+  const up = up_file("compiler/rustc_driver_impl/src/lib.rs")!;
+  const line = up.lines.findIndex((l) => l.includes("static FIRST_PANIC")) + 1;
+  expect(line).toBeGreaterThan(0);
+  const at = up.src.indexOf("static FIRST_PANIC");
+  const fn_line = up.lines.slice(0, line).findLastIndex((l) => /^\s*(pub )?fn /.test(l)) + 1;
+  const body = up.fn_body(fn_line)!;
+  const call = up.src.indexOf("AtomicBool::new", at);
+  expect(up.in_nested_item(body, call)).toBe(true);
+  expect(up.in_nested_item(body, up.src.indexOf(";", call) + 5)).toBe(false);
+});
+
 test("`impl` in the owner's own signature is a type, not a nested item", () => {
   const up = up_file("compiler/rustc_attr_parsing/src/attributes/repr.rs")!;
   const at = up.src.indexOf("-> impl IntoIterator");

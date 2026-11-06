@@ -23,8 +23,8 @@
 // rust-ts stops earlier than rustc only for nestings close to rustc's own limit; on Linux the main
 // stack grows up to `RLIMIT_STACK`. Windows: no re-exec (the default stack applies).
 import { closeSync, existsSync, openSync, readSync } from "node:fs";
-import { CString, dlopen, FFIType, type Pointer, ptr, read } from "bun:ffi";
-import { environ_entries, type OsString, process_raw_argv, remove_var, set_var, var_os, vars_os } from "../std/env.ts";
+import { dlopen, FFIType, type Pointer, ptr, read } from "bun:ffi";
+import { environ_entries, type OsString, process_raw_argv, read_cstr, remove_var, set_var, var_os, vars_os } from "../std/env.ts";
 
 /** `rustc_session::config::DEFAULT_STACK_SIZE` (config.rs:57); stack.test.ts checks it against config.ts. */
 export const DEFAULT_STACK_SIZE = 17 * 1024 * 1024;
@@ -124,7 +124,13 @@ function env_can_carry(entries: readonly OsString[]): boolean {
  * sorts it, adds `PWD`, `SHLVL` and `_`, acts on `SHELLOPTS`, `IFS`, `OPTIND`, and SIP strips `DYLD_*` from it. So:
  *
  *     execve("/bin/sh", [sh, -c, script, sh, <entries>, <execPath>, <argv...>], [])
- *     script: if ulimit -S -s N; then set -- JSC_STACK_VAR=M "$@"; fi; exec /usr/bin/env -i MARKER=1 "$@"
+ *     script: unset PWD OLDPWD SHLVL; if ulimit -S -s N; then set -- JSC_STACK_VAR=M "$@"; fi; exec /usr/bin/env -i MARKER=1 "$@"
+ *
+ * Only the first `execve` can come back to say it did not fit (E2BIG, and the process stays on the default stack, exact); a later
+ * one failing would end the run with exit 1, where the oracle compiles (docs/reviews/fixers-41.md F4). So the first must be the
+ * largest. It carries the marker and `JSC_STACK_VAR` in the script's text, and more besides; what is left to keep out of the next
+ * one is the shell's own `PWD`, as long as the cwd. Read at every byte around the limit, with 31- and 533-byte Bun paths and with 3,000
+ * entries, on macOS: no later stage fails. The kernel's count is not documented, so a change there would show here as that exit 1.
  *
  * The shell starts with an empty environment, so it reads nothing, and holds the caller's entries only as positional
  * parameters, which it passes on byte for byte (`"$@"`, every byte value checked in stack.test.ts). `env -i` then sets them in
@@ -172,7 +178,7 @@ function reexec_with_stack(marker: string, entries: readonly OsString[]): void {
     out.set(b);
     return out;
   };
-  const script = `if ulimit -S -s ${soft_kib} 2>/dev/null; then set -- ${JSC_STACK_VAR}=${js_stack} "$@"; fi; exec ${ENV_PROGRAM} -i ${marker}=1 "$@"`;
+  const script = `unset PWD OLDPWD SHLVL; if ulimit -S -s ${soft_kib} 2>/dev/null; then set -- ${JSC_STACK_VAR}=${js_stack} "$@"; fi; exec ${ENV_PROGRAM} -i ${marker}=1 "$@"`;
   const args = ["sh", "-c", script, "sh"]
     .map(cstr)
     .concat(entries.map(cstr), [cstr(process.execPath)], argv.slice(1).map(cstr));
@@ -192,53 +198,56 @@ const CF_ENCODING_VAR = "__CF_USER_TEXT_ENCODING";
 
 /**
  * PORT (macOS): the oracle's process links CoreFoundation, whose startup puts this variable in `environ` before rustc's `main`, so
- * programs see it. Bun does not link it. This is `_CFStringGetUserDefaultEncoding` (CF-Lite `CFString.c`, not in the pin; each
- * branch is checked against the oracle in stack.test.ts): a value that starts with this uid (`strtol`, base 0) and a `:` stays.
- * Otherwise, unless root with no `HOME`, it becomes `0x<uid>:<the first 63 bytes of ~/.CFUserTextEncoding>`, or `0x<uid>:0:0` if
- * the file cannot be opened, where `~` is `CFFIXED_USER_HOME` or else the passwd entry's home, not `HOME`.
+ * programs see it. Bun does not link it. This is `_CFStringGetUserDefaultEncoding` (CF-Lite `CFString.c`, not in the pin): host
+ * behaviour written from memory and then checked against the oracle in environment.oracle.test.ts, by hand for other uids
+ * (docs/reviews/fixers-41.md section 5). Its uid is an `int`, so `nobody` (4294967294 here) is -2 to all of this but `getpwuid` and the
+ * `%X`. A value that starts with this uid (`strtol`, base 0) and a `:` stays. Otherwise, unless root or below with no `HOME` or no
+ * passwd entry, it becomes `0x<uid>:<the first 63 bytes of ~/.CFUserTextEncoding, up to a NUL>`, or `0x<uid>:0:0` if the file cannot
+ * be opened, where `~` is `CFFIXED_USER_HOME` or else the passwd entry's home, not `HOME`. Returns whether it set the variable.
  */
-function cf_user_text_encoding(current: string | undefined): void {
-  const uid = process.getuid!();
+function cf_user_text_encoding(current: string | undefined): boolean {
+  const uid = process.getuid!() | 0;
   if (current !== undefined) {
     const m = /^[ \t\n\v\f\r]*([+-]?)(0[xX][0-9a-fA-F]+|0[0-7]*|[1-9][0-9]*)(.?)/s.exec(current);
     if (m !== null && m[3] === ":") {
       const n = Number(m[2]!.replace(/^0(?=[0-7])/, "0o"));
-      if ((m[1] === "-" ? -n : n) === uid) return;
+      if ((m[1] === "-" ? -n : n) === uid) return false;
     }
   }
-  if (uid === 0 && var_os("HOME") === undefined) return;
-  const fixed = var_os("CFFIXED_USER_HOME");
-  const home = fixed !== undefined ? new TextDecoder().decode(fixed) : passwd_home(uid);
-  if (home === undefined) return;
-  const tail = (() => {
+  if (uid <= 0 && var_os("HOME") === undefined) return false;
+  const pw_dir = passwd_home(uid >>> 0);
+  if (pw_dir === undefined) return false;
+  const home = var_os("CFFIXED_USER_HOME") ?? pw_dir;
+  const tail = ((): Uint8Array => {
     let fd: number;
     try {
-      fd = openSync(`${home}/.CFUserTextEncoding`, "r");
+      fd = openSync(Buffer.concat([home, Buffer.from("/.CFUserTextEncoding")]), "r");
     } catch {
-      return "0:0";
+      return Buffer.from("0:0");
     }
     try {
       const buf = new Uint8Array(63);
       const n = readSync(fd, buf, 0, 63, 0);
       const end = buf.subarray(0, n).indexOf(0);
-      return new TextDecoder().decode(buf.subarray(0, end === -1 ? n : end));
+      return buf.subarray(0, end === -1 ? n : end);
     } catch {
-      return "";
+      return new Uint8Array(0);
     } finally {
       closeSync(fd);
     }
   })();
-  set_var(CF_ENCODING_VAR, `0x${uid.toString(16).toUpperCase()}:${tail}`);
+  set_var(CF_ENCODING_VAR, Buffer.concat([Buffer.from(`0x${(uid >>> 0).toString(16).toUpperCase()}:`), tail]));
+  return true;
 }
 
 /** `getpwuid(uid)->pw_dir`. `os.userInfo().homedir` returns `HOME`, not the passwd entry. */
-function passwd_home(uid: number): string | undefined {
+function passwd_home(uid: number): OsString | undefined {
   const lib = dlopen("libSystem.B.dylib", { getpwuid: { args: [FFIType.u32], returns: FFIType.ptr } });
   try {
     const pw = lib.symbols.getpwuid(uid);
     if (pw === null) return undefined;
     const dir = read.ptr(pw, 48); // macOS `struct passwd`: pw_dir follows pw_name, pw_passwd, pw_uid, pw_gid, pw_change, pw_class, pw_gecos
-    return dir === 0 ? undefined : new CString(dir as Pointer).toString();
+    return dir === 0 ? undefined : read_cstr(dir as Pointer);
   } finally {
     lib.close();
   }
@@ -256,8 +265,7 @@ function settle_environment(): OsString[] | undefined {
   if (process.platform === "darwin") {
     const current = vars_os(entries).find(([k]) => lossy.decode(k) === CF_ENCODING_VAR);
     const before = current === undefined ? undefined : lossy.decode(current[1]);
-    cf_user_text_encoding(before);
-    if (process.env[CF_ENCODING_VAR] !== before) entries = environ_entries()!;
+    if (cf_user_text_encoding(before)) entries = environ_entries()!;
   }
   const real = new Map<string, string>();
   for (const [k, v] of vars_os(entries)) {
@@ -272,6 +280,15 @@ function settle_environment(): OsString[] | undefined {
     if (process.env[k] !== v) process.env[k] = v;
   }
   return entries;
+}
+
+/**
+ * `RUST_TS_IMPL`, for the entries: `port` unless the process was started with it set. `shim` forwards to the oracle and would score
+ * as a pass, so a `.env` in the cwd, which only `process.env` sees, must not be able to choose it. This reads C's `environ`.
+ */
+export function selected_impl(): string {
+  const v = var_os("RUST_TS_IMPL");
+  return v === undefined ? "port" : lossy.decode(v);
 }
 
 let ENSURED = false;

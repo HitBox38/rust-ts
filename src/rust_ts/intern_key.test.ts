@@ -242,8 +242,25 @@ test("value_hash, value_eq: the cases the key text decides, and values that coll
   // A hash equal on different values is a collision, not an equality.
   expect(value_hash(2n ** 64n)).toBe(value_hash(2n ** 65n));
   expect(value_eq(2n ** 64n, 2n ** 65n)).toBe(false);
-  expect(value_hash({ a: 1, b: 2 })).toBe(value_hash({ a: 2, b: 1 }));
-  expect(value_eq({ a: 1, b: 2 }, { a: 2, b: 1 })).toBe(false);
+  // Names ending alike share a salt (`field_hash`), so swapping their values is still such a collision.
+  expect(value_hash({ a0: 1, b0: 2 })).toBe(value_hash({ a0: 2, b0: 1 }));
+  expect(value_eq({ a0: 1, b0: 2 }, { a0: 2, b0: 1 })).toBe(false);
+});
+
+test("value_hash: values on a grid do not pile up in a bucket (review perf-near-limit N3)", () => {
+  const seen = new Map<number, number>();
+  const count = (v: unknown): void => {
+    const h = value_hash(v);
+    seen.set(h, (seen.get(h) ?? 0) + 1);
+  };
+  const stub = (id: number) => ({ [INTERNED]: true, id });
+  const regions = Array.from({ length: 100 }, (_, i) => stub(i));
+  for (const r of regions) for (let t = 0; t < 2000; t++) count({ $: "Ref", _0: r, _1: stub(1000 + t), _2: "Not" });
+  // Two fields of the same values, swapped: a sum of the same shares would give all of these the same hash as their mirror.
+  for (let a = 0; a < 400; a++) for (let b = 0; b < 400; b++) count({ x: a, y: b });
+  const total = 100 * 2000 + 400 * 400;
+  expect(total - seen.size).toBeLessThan(total / 1000);
+  expect(Math.max(...seen.values())).toBeLessThan(5);
 });
 
 test("intern_key_eq: the cases the key text decides", () => {

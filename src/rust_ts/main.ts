@@ -10,13 +10,13 @@
 import { FatalErrorMarker } from "../rustc_span/fatal_error.ts";
 import { Unported } from "../std/panic.ts";
 import { report_uncaught } from "../std/panicking.ts";
-import { ensure_stack } from "./stack.ts";
+import { ensure_stack, selected_impl } from "./stack.ts";
 import { write_stderr } from "../std/io.ts";
 
 export const EXIT_UNPORTED = 70;
 
 async function main(args: string[]): Promise<number> {
-  const impl = process.env.RUST_TS_IMPL ?? "port";
+  const impl = selected_impl();
   if (impl === "shim") {
     const { PIN } = await import("../../scripts/lib/common.ts");
     const proc = Bun.spawn(["rustc", `+${PIN.toolchain}`, ...args], { stdio: ["inherit", "inherit", "inherit"] });

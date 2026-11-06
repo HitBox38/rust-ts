@@ -12,7 +12,7 @@
 // the bucket and `==` on the value (rust_ts/intern_key.ts `value_hash`, `value_eq`), and need no key string. An interner uses
 // either these or the key-string methods, never both.
 
-import { hash_mix, observe_interned, value_eq, value_hash } from "../rust_ts/intern_key.ts";
+import { hash_mix, observe_interned, observe_interned_slice, value_eq, value_hash } from "../rust_ts/intern_key.ts";
 
 /** PORT(perf): test hook, see `set_intern_shadow`. */
 let shadow: ((set: object, value: unknown, got: unknown) => void) | undefined;
@@ -140,7 +140,7 @@ export class ShardedHashMap<K, V> {
    * id, so slices compare element by element here; `v` may itself be a list: it is its elements, as in `slice_intern`'s key.
    */
   intern_slice<T>(this: InternedSet<K & readonly T[]>, v: readonly T[], make: () => K & readonly T[]): K & readonly T[] {
-    observe_interned(v instanceof Array && v.constructor !== Array ? Array.from(v) : v);
+    observe_interned_slice(v);
     let h = v.length;
     for (let i = 0; i < v.length; i++) h = hash_mix(h, value_hash(v[i]));
     const first = this.hashed.get(h);

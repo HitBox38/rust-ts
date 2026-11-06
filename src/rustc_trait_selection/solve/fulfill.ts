@@ -27,7 +27,7 @@ import { debug_GoalStalledOn, type GoalStalledOn, type NoSolution } from "../../
 import { TyOrConstInferVar } from "../../rustc_type_ir/solve/mod.ts";
 import { type TypeVisitable, TypeVisitableExt, type TypeVisitor } from "../../rustc_type_ir/visit.ts";
 import { debug_option, debug_struct, debug_tuple, debug_vec, type Debug } from "../../std/fmt.ts";
-import { assert, assert_eq } from "../../std/panic.ts";
+import { assert, assert_eq, panic } from "../../std/panic.ts";
 import { NO_READER, type WriteWatch } from "../../vendor/ena/snapshot_vec.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
 import type { FulfillmentError } from "../decls.ts";
@@ -43,6 +43,18 @@ type PendingObligations = [PredicateObligation, GoalStalledOn | undefined][];
 
 /** PORT(perf): below this many entries the saving is too small to take the tables' watches from another context. */
 const MIN_STALLED_LEN = 64;
+
+/** PORT(perf): test hook, see `set_stalled_prefix_check`. */
+let stalled_prefix_check: { skipped: number } | undefined;
+let min_stalled_len = MIN_STALLED_LEN;
+/**
+ * Test hook: every pass rechecks each entry `StalledPrefix` would skip with upstream's own check, at upstream's moment, and panics on
+ * a wrong one, and all lists use `StalledPrefix`, however short. `check.skipped` counts the entries, so a test can see it did something.
+ */
+export function set_stalled_prefix_check(check: typeof stalled_prefix_check): void {
+  stalled_prefix_check = check;
+  min_stalled_len = check === undefined ? MIN_STALLED_LEN : 1;
+}
 
 /**
  * PORT(perf) (lane perf-near-limit): upstream has no such thing. Upstream's `try_evaluate_obligations` calls
@@ -260,8 +272,17 @@ export class FulfillmentCtxt<E> implements TraitEngine<E> {
       // each passed the check, nothing that check reads has changed since (`StalledPrefix`), and the check is a pure
       // function of those reads. All of them are kept, so `del` is still 0 at `prefix`, as it would be upstream.
       // Measured: deep-try-chain, see `StalledPrefix`.
-      let extending = len >= MIN_STALLED_LEN;
+      let extending = len >= min_stalled_len;
       const prefix = extending ? this.stalled_prefix.valid_len(infcx, pending) : this.stalled_prefix.forget();
+      if (stalled_prefix_check !== undefined) {
+        stalled_prefix_check.skipped += prefix;
+        for (let j = 0; j < prefix; j++) {
+          const on = pending[j]![1];
+          if (on === undefined || !solve.SolverDelegateEvalExt_for_D.goal_remains_stalled(delegate, on)) {
+            panic(`StalledPrefix: entry ${j} of a prefix of ${prefix} in a list of ${len} is not stalled`);
+          }
+        }
+      }
       for (let i = prefix; i < len; i++) {
         const entry = pending[i]!;
         // Common case: still stalled; keep the obligation. This path is extremely hot in

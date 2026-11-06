@@ -315,7 +315,11 @@ InterpCx.prototype.unsetenv = function (this: MiriInterpCx, name_op: OpTy): Inte
   }
 };
 
-/** `std::env::current_dir()` (D14 host stand-in). */
+/**
+ * `std::env::current_dir()` (D14 host stand-in). PORT: `process.cwd()` is a decoded string, so a directory name that is not UTF-8
+ * would come out lossy, and unlike `environ` it is not escaped (os_str.ts header). APFS refuses such a name, so on the root host it
+ * cannot arise; on Linux it could.
+ */
 function current_dir(): Result<string, io_Error> {
   try {
     return Ok(process.cwd());

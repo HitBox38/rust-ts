@@ -336,7 +336,7 @@ export function map_call(ts: TsFile, owner: Owner, callee: string, macro: boolea
   // keeping a nested item inside its owner marks it, and `locate` uses the innermost owner, so a call there maps through that
   // marker instead; a closure in the owner is no sign of a nested item (re-check R2). track_caller_check.ts lists what this refuses.
   if (anchor === undefined && up.in_nested_item(body, call.pos)) {
-    return { ok: false, why: `\`${callee}\` at ${rel_ts}: the only upstream call is in a nested item` };
+    return { ok: false, why: `\`${callee}\` at ${rel_ts}: its upstream call is in a nested item` };
   }
   return { ok: true, up, body, call, anchored: anchor !== undefined };
 }
@@ -704,27 +704,27 @@ export class UpFile {
     return out;
   }
 
-  /** Whether `pos` lies in a closure of `body`. A `|` that merely could open one counts: the answer only ever
-   *  makes the caller refuse. */
   /**
-   * Whether `pos` lies in an item nested in the body (`fn name`, `impl`, `trait`, `mod`). A port may hoist such an item to a marked
-   * fn of its own, so a call there says nothing about a call left in the owner. Only at an item position, as `impl` is also a
-   * type (`-> impl Iterator<..> {` in the owner's own signature opens its body).
+   * Whether `pos` lies in an item nested in the body (`fn name`, `impl`, `trait`, `mod`, `static`, `const NAME:`). A port may hoist such
+   * an item to a marked fn of its own, or to a module-level value, so a call there says nothing about a call left in the owner. Only
+   * at an item position, as `impl` is also a type (`-> impl Iterator<..> {` in the owner's own signature opens its body). A macro's
+   * argument counts, `m!(fn n() { .. })`, and a `|` or a `(` that merely could open one only ever makes the caller refuse.
    */
   in_nested_item([start, end]: [number, number], pos: number): boolean {
     const s = this.masked;
     const inner = s.slice(start + 1, end);
-    for (const m of inner.matchAll(/\b(?:fn\s+[A-Za-z_]\w*|impl\b|trait\s+[A-Za-z_]\w*|mod\s+[A-Za-z_]\w*)/g)) {
+    for (const m of inner.matchAll(/(?<![\p{L}\p{N}_])(?:fn\s+[\p{L}_][\p{L}\p{N}_]*|impl(?![\p{L}\p{N}_])|trait\s+[\p{L}_][\p{L}\p{N}_]*|mod\s+[\p{L}_][\p{L}\p{N}_]*|static\s+(?:mut\s+)?[\p{L}_][\p{L}\p{N}_]*|const\s+[\p{L}_][\p{L}\p{N}_]*\s*:)/gu)) {
       const at = start + 1 + m.index;
       if (at >= pos) break;
-      if (!/[;{}\]]\s*(?:(?:pub(?:\([^)]*\))?|const|async|unsafe|extern(?:\s+"[^"]*")?|default)\s+)*$/.test(s.slice(start, at))) continue;
-      const open = s.indexOf("{", at);
-      if (open < 0 || open >= end) continue;
-      if (pos > open && pos < match_close(s, open)) return true;
+      if (!/[;{}\]()]\s*(?:(?:pub(?:\([^)]*\))?|const|async|unsafe|safe|gen|extern(?:\s+"[^"]*")?|default)\s+)*$/.test(s.slice(start, at))) continue;
+      const span = item_span(s, at, end);
+      if (span !== undefined && pos > span[0] && pos < span[1]) return true;
     }
     return false;
   }
 
+  /** Whether `pos` lies in a closure of `body`. A `|` that merely could open one counts: the answer only ever
+   *  makes the caller refuse. */
   in_closure([start, end]: [number, number], pos: number): boolean {
     const s = this.masked;
     for (let i = start; i < pos; i++) {
@@ -1002,6 +1002,30 @@ function escape_re(s: string): string {
 }
 
 /** Index just past the bracket matching the one at `open` (masked text). */
+/**
+ * The part of the item at `at` that holds code: a `static`'s or `const`'s whole value, up to its `;`; else its `{ .. }` body, or `undefined`
+ * if it has none (`fn f();`). A `{` in the header's brackets is no body, as a const argument is not (`[u8; { 1 }]`, `Foo<{ 1 }>`).
+ * Angle brackets count only outside the others, as `1 << 3` has no partner, and `->` closes none.
+ */
+function item_span(s: string, at: number, end: number): [number, number] | undefined {
+  const value = /^(?:static|const)\b/.test(s.slice(at, at + 7));
+  let depth = 0;
+  let angle = 0;
+  for (let i = at; i < end; i++) {
+    const c = s[i]!;
+    if (c === "(" || c === "[") depth++;
+    else if (c === ")" || c === "]") depth--;
+    else if (depth === 0 && c === "<") angle++;
+    else if (depth === 0 && c === ">" && s[i - 1] !== "-" && s[i - 1] !== "=") angle--;
+    else if (c === ";" && depth === 0) return value ? [at, i] : undefined;
+    else if (c === "{") {
+      if (!value && depth === 0 && angle === 0) return [i, match_close(s, i)];
+      i = match_close(s, i) - 1;
+    }
+  }
+  return undefined;
+}
+
 function match_close(s: string, open: number): number {
   const o = s[open]!;
   const c = o === "(" ? ")" : o === "[" ? "]" : "}";

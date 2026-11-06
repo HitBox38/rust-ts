@@ -5,11 +5,13 @@
 // status`) on tiny programs: $RUST_TS_DATA/tmp/miri-shims-c/{envorder,getcwd,mmap}.rs, run with `run.sh` there
 // (x86_64-unknown-linux-gnu, Miri's default flags); the outputs are quoted next to each test.
 import { expect, test } from "bun:test";
+import { homedir } from "node:os";
 import "../../lib.ts";
 import { type MiriInterpCx, type Provenance, Provenance_Provenance } from "../../machine.ts";
 import { TerminationInfoStop } from "../../diagnostics.ts";
 import { ThreadId } from "../../concurrency/thread.ts";
 import { FdId, FdTable } from "../files.ts";
+import { os_str_as_encoded_bytes } from "../os_str.ts";
 import {
   InterestMap,
   Readiness_EMPTY,
@@ -33,6 +35,7 @@ import { Symbol } from "../../../rustc_span/symbol.ts";
 import { create_default_session_globals_then } from "../../../rustc_span/lib.ts";
 import { Unported } from "../../../std/panic.ts";
 import { IoError_kind } from "../../../std/io.ts";
+import { remove_var, set_var, var_os } from "../../../std/env.ts";
 import { Err, unwrap_result } from "../../../std/result.ts";
 
 // ---- helpers ----
@@ -409,6 +412,50 @@ test("dispatcher: a failed `frame_in_std` guard falls to the platform arm; no OS
     const mac = fake_cx({ machine: { communicate: () => false }, tcx: { deref: () => ({ sess: { target: { os: { $: "MacOs" } } } }) }, frame_in_std: () => false });
     expect(() => emulate_foreign_item_inner(mac, Symbol.intern("no_such_fn"), {} as never, [], {} as never)).toThrow(Unported);
   });
+});
+
+test("getpwuid_r writes HOME's bytes, and the passwd home when HOME is empty or unset (docs/reviews/fixers-41.md F2)", () => {
+  const before = var_os("HOME");
+  const home_of = (): Uint8Array => {
+    let got: Uint8Array | undefined;
+    create_default_session_globals_then(() => {
+      const place = { ptr: () => Pointer.without_provenance(0x10n) };
+      const cx = fake_cx({
+        frame_in_std: () => true,
+        check_shim_sig_deprecated: (_a: unknown, _c: unknown, _l: unknown, args: unknown[]) => interp_ok(args),
+        check_no_isolation: () => interp_ok(undefined),
+        read_scalar: () => interp_ok(Scalar.from_u32(UID)),
+        deref_pointer_as: () => interp_ok(place),
+        libc_ty_layout: () => ({}),
+        read_pointer: () => interp_ok(Pointer.without_provenance(0x20n)),
+        read_target_usize: () => interp_ok(4096n),
+        machine: { layouts: { unit_ptr_mut: {} }, communicate: () => false },
+        tcx: { deref: () => ({ sess: { target: { os: { $: "Linux" } } } }) },
+        write_uninit: () => interp_ok(undefined),
+        project_field_named: () => interp_ok({}),
+        write_pointer: () => interp_ok(undefined),
+        write_null: () => interp_ok(undefined),
+        write_path_to_c_str: (path: string) => {
+          got = os_str_as_encoded_bytes(path);
+          return interp_ok([true, 0n]);
+        },
+      });
+      const r = emulate_foreign_item_inner(cx, Symbol.intern("getpwuid_r"), {} as never, [0, 1, 2, 3, 4] as never, {} as never);
+      expect(r).toEqual({ $: "Ok", _0: "NeedsReturn" });
+    });
+    return got!;
+  };
+  try {
+    const bytes = Uint8Array.from([47, 97, 255, 98]); // The oracle's program gets exactly these.
+    set_var("HOME", bytes);
+    expect(Array.from(home_of())).toEqual(Array.from(bytes));
+    set_var("HOME", "");
+    expect(new TextDecoder().decode(home_of())).toBe(homedir());
+    remove_var("HOME");
+    expect(new TextDecoder().decode(home_of())).toBe(homedir());
+  } finally {
+    if (before !== undefined) set_var("HOME", before);
+  }
 });
 
 // ---- shims/readiness.rs ----

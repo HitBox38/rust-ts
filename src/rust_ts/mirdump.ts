@@ -34,7 +34,7 @@ import { Panic, Unported } from "../std/panic.ts";
 import { report_uncaught } from "../std/panicking.ts";
 import { unwrap_result } from "../std/result.ts";
 import { VecU8 } from "../vendor/anstream/stream.ts";
-import { ensure_stack } from "./stack.ts";
+import { ensure_stack, selected_impl } from "./stack.ts";
 
 const EXIT_UNPORTED = 70;
 
@@ -209,7 +209,7 @@ function dump(tcx: TyCtxt, d: Deps, rec: Recorded): string {
 }
 
 async function main(args: string[]): Promise<number> {
-  const impl = process.env.RUST_TS_IMPL ?? "port";
+  const impl = selected_impl();
   if (impl === "shim") {
     const { probePath } = await import("../../scripts/probes.ts");
     const proc = Bun.spawn([probePath("mirdump"), ...args], { stdio: ["inherit", "inherit", "inherit"] });
