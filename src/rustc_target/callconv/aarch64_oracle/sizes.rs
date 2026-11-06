@@ -1,6 +1,6 @@
 // `#[rustc_abi(debug)]` by value at the sizes `callconv/mod.rs`'s and `x86_64.rs`'s comparisons turn on: one and two pointers,
 // and either side of 2^53 up to `obj_size_bound`, where a `number` would stop or round (docs/reviews/abi-vtable.md F3). See regen.ts.
-#![feature(no_core, lang_items, rustc_attrs, auto_traits)]
+#![feature(no_core, lang_items, rustc_attrs, auto_traits, repr_simd)]
 #![crate_type = "lib"]
 #![no_core]
 #![allow(improper_ctypes_definitions, dead_code, internal_features)]
@@ -17,6 +17,8 @@ pub trait Copy {}
 pub unsafe auto trait Freeze {}
 impl Copy for u8 {}
 
+#[repr(simd)]
+pub struct V64([f64; 8]);
 pub struct B8([u8; 8]);
 pub struct B9([u8; 9]);
 pub struct B16([u8; 16]);
@@ -39,6 +41,7 @@ macro_rules! each_size {
 }
 
 each_size! {
+    RustV64 CV64: V64;
     Rust8 C8: B8;
     Rust9 C9: B9;
     Rust16 C16: B16;

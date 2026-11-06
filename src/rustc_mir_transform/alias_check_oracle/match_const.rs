@@ -1,5 +1,5 @@
 // Review mir-alias F1: `unify_if_equal_const`'s `dest`. At -O GVN has given every constant the same span, so `identical_stmts`
-// takes this case first; it stays for this one only with GVN off. `#![no_core]` so that the extra run stays cheap.
+// takes this program's case first; it stays with GVN off. (Dead blocks do reach the site at -O: review fixers-44 F3.) `#![no_core]` so that the extra run stays cheap.
 #![feature(no_core, lang_items)]
 #![crate_type = "lib"]
 #![no_core]

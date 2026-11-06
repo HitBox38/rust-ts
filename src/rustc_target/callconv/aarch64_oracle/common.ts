@@ -14,7 +14,7 @@ export interface Case {
 // `sizes.rs` also runs on x86_64, the only way into `callconv/x86_64.ts`: what `abi.rs` would add there is not worth its fixture.
 export const CASES: Case[] = [
   ...TARGETS.map((target) => ({ target, file: "abi.rs", oracle: `${target}.txt` })),
-  ...[...TARGETS, "x86_64-unknown-linux-gnu"].map((target) => ({ target, file: "sizes.rs", oracle: `sizes.${target}.txt` })),
+  ...[...TARGETS, "x86_64-unknown-linux-gnu", "x86_64-pc-windows-msvc"].map((target) => ({ target, file: "sizes.rs", oracle: `sizes.${target}.txt` })),
 ];
 
 export function abi_args(c: Case, out: string): string[] {

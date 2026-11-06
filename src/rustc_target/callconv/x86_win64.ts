@@ -15,17 +15,18 @@ export function compute_abi_info<Ty>(cx: HasTargetSpec, fn_abi: FnAbi<Ty>): void
     if (repr.$ === "Memory" && !repr.sized) {
       // (nothing)
     } else if (repr.$ === "ScalarPair" || repr.$ === "Memory") {
-      switch (a.layout.size.bits()) {
-        case 8:
+      // PORT: `bits()` in `bigint`, as `u64`: a by-value aggregate can reach `obj_size_bound` (2^61), and `bits()` stops from 2^50 bytes.
+      switch (a.layout.size.bytes_u64() * 8n) {
+        case 8n:
           a.cast_to(Reg.i8());
           break;
-        case 16:
+        case 16n:
           a.cast_to(Reg.i16());
           break;
-        case 32:
+        case 32n:
           a.cast_to(Reg.i32());
           break;
-        case 64:
+        case 64n:
           a.cast_to(Reg.i64());
           break;
         default:
