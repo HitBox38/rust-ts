@@ -1057,15 +1057,22 @@ const MINICORE_CG_CLIF = (c: Case) => c.file.startsWith(`${CG_CLIF_EXAMPLE}/`);
 // docs/handoff/harness-w25.md): none. hir-tree's 4 skips (`HIR_TREE_SKIPPED`), and suggestions/fn-to-method-deeply-nested.rs
 // (182 s for hir-tree), print no `{:#?}` tree here and finish in < 2 s (issue-93775.rs, expr-stack-overflow.rs and
 // survive-peano-lesson-queue.rs print MIR; deep-try-chain-issue-153583.rs and fn-to-method-deeply-nested.rs exit 1 with
-// diagnostics). The slowest case, tests/ui/closures/supertrait-hint-cycle.rs (E0275 overflow), takes ~120 s of CPU
-// (90-100 s wall with 4 jobs; 323 s wall alone at load average 67; one pass at load average 125-144 hit 300 s): within the
-// oracle's 300 s + 4 x 300 s, cached once per oracle build, so it stays (as fn-to-method-deeply-nested.rs in hir-tree).
-// Every other case took < 6 s wall at load average ~10 (< 15 s at ~100).
-const MIR_SKIPPED: SkippedCase[] = [];
+// diagnostics). The slowest case, tests/ui/closures/supertrait-hint-cycle.rs (E0275 overflow), is in `MIR_HEAVY`. Every
+// other case took < 6 s wall at load average ~10 (< 15 s at ~100).
+/**
+ * `mir-heavy`'s cases, out of `mir`. **The rule, plan-m6 A12's oracle-cost rule:** a case is here only because the oracle
+ * alone takes about `mir`'s limit or more, measured alone, and never because of how the port does: a longer limit must not
+ * turn a port TIMEOUT into a MATCH. A case that is protected in `mir` cannot come here: moving it would lose it.
+ */
+export const MIR_HEAVY: Record<string, string> = {
+  "tests/ui/closures/supertrait-hint-cycle.rs": "the oracle alone takes 59-68 s and 11.6 GB against mir's 60 s limit (E0275 overflow; docs/handoff/perf-near-limit.md)",
+};
+const MIR_SKIPPED: SkippedCase[] = Object.entries(MIR_HEAVY).map(([id, why]) => ({ id, reason: `heavy (plan-m6 A12: ${why}): in mir-heavy` }));
 const mirCorpus = (): string[] => {
   const skip = new Set(MIR_SKIPPED.map((k) => k.id));
   return corpus("tests/ui").filter((f) => !skip.has(f));
 };
+const mirCase = (f: string): Case => pinSessionEnv({ id: f, file: f, args: [...stdArgs(f), "-Zwrite-long-types-to-disk=no", "-Zunpretty=mir", f], env: NOCORE_ENV });
 const M4C_THIR_DIRS = [...M3_UI_DIRS, "tests/ui/thir-print"];
 // Unstable cases of `thir-tree` (lane harness-w25): the oracle was run twice on every case. thirdump-ui's two
 // `-Zwrite-long-types-to-disk=yes` tests differed for their hash; seven `#old` revisions that ICE differed only in the
@@ -1117,8 +1124,22 @@ SUITES.push(
     mode: "single",
     timeoutMs: 60_000,
     oracleTimeoutMs: 300_000,
-    cases: () => mirCorpus().map((f) => pinSessionEnv({ id: f, file: f, args: [...stdArgs(f), "-Zwrite-long-types-to-disk=no", "-Zunpretty=mir", f], env: NOCORE_ENV })),
+    cases: () => mirCorpus().map(mirCase),
     skipped: () => MIR_SKIPPED,
+    oracle: ([c]) => oracleRustcCmd(c!.args),
+    subject: ([c]) => [...bunCmd("src/rust_ts/main.ts"), ...c!.args],
+  },
+  {
+    // No baseline file, so `gate.ts run` leaves it out by default; `--suites mir-heavy` runs it: one process at a time, about
+    // 60-70 s for an oracle that is not cached yet, then the subject up to its limit, at 16 GB or more on a 24 GB host.
+    name: "mir-heavy",
+    milestone: "M4c",
+    description: "mir's cases whose oracle alone takes about mir's limit or more (plan-m6 A12's oracle-cost rule; MIR_HEAVY); heavy class: one process at a time, long timeouts; in no gate by default",
+    mode: "single",
+    timeoutMs: 1_800_000,
+    oracleTimeoutMs: 900_000,
+    heavy: { rssBudgetMb: 16 * 1024 },
+    cases: () => Object.keys(MIR_HEAVY).map(mirCase),
     oracle: ([c]) => oracleRustcCmd(c!.args),
     subject: ([c]) => [...bunCmd("src/rust_ts/main.ts"), ...c!.args],
   },
