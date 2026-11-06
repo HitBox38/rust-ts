@@ -2,8 +2,8 @@
 
 **The port builds the Miri sysroot, and every file compared is byte-identical to the oracle's.** Run as `MIRI_BE_RUSTC=target`
 with cargo-miri's argv, it builds 26 of the sysroot's 27 crates: exit 0, and rmeta, rlib, dep-info, stdout and stderr all
-equal. The 27th, `custom_local_sysroot`, cannot be replayed on either side, because its source was a file in the setup run's
-temp directory, now gone.
+equal. The 27th, `custom_local_sysroot`, is left out, as its source was a file in the setup run's temp directory, now gone.
+(Corrected by the review, F1: an empty `lib.rs` at that path does replay it on both sides.)
 
 Each crate was built against the sysroot's own dependencies, so a crate's result depends only on how the port handles that
 crate. I did not run a chain where the port's outputs feed the next crate. Every dependency file is byte-identical, so such

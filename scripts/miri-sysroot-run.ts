@@ -102,6 +102,8 @@ export async function miriSysrootRun(a: MiriSysrootRunArgs): Promise<number> {
     fileLine("rlib", rlib),
     sysrootLine("rmeta", rmeta, inLib(rmeta)),
     sysrootLine("rlib", rlib, inLib(rlib)),
+    // A file only one side writes is a difference too (review miri-sysroot F4).
+    `files: ${[...names].sort().join(" ")}`,
   ];
   process.stdout.write(lines.join("\n") + "\n");
   if (!lines.some((l) => l.includes(": differs"))) rmSync(out, { recursive: true, force: true });

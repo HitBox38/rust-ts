@@ -5,7 +5,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 import { assert } from "../../std/panic.ts";
 
-// crate-pending: ar_archive_writer-0.5.3/src/math_extras.rs:6 align_to_power_of2
+// crate: ar_archive_writer-0.5.3/src/math_extras.rs:6 align_to_power_of2
 export function align_to_power_of2(value: number, align: number): number {
   assert(align !== 0 && Number.isInteger(Math.log2(align)), "Align must be a power of 2");
   // Replace unary minus to avoid compilation error on Windows:

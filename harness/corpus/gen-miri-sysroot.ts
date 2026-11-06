@@ -7,7 +7,8 @@
 // crate with the isolated Miri: harness/miri-sysroot.ts), so `--out-dir` is `$OUT`, and `--extern` / `-L dependency=` name
 // the finished sysroot's library directory, `$LIB`, which holds the same file names. Paths under the isolated toolchain
 // are `$TC` and under its cargo home `$CARGO_HOME`. Left out: build scripts (the sysroot does not hold them), and
-// `custom_local_sysroot`, the empty crate rustc-build-sysroot writes into that temp directory, so its source is gone.
+// `custom_local_sysroot`, the empty crate rustc-build-sysroot writes into that temp directory. An empty `lib.rs` at that path does
+// replay it on both sides, with the sysroot's bytes (review miri-sysroot F1); nothing here does that yet.
 // cargo-miri adds one flag the log does not show, as bootstrap would: `-Cpanic=abort` on `panic_abort` (replaying the crate with
 // the isolated Miri gives the sysroot's bytes with it, and other bytes without it).
 import { readFileSync } from "node:fs";

@@ -29,7 +29,7 @@ export interface ObjectSymbolLike {
   name_bytes(): { $: "Ok"; _0: Uint8Array } | { $: "Err"; _0: unknown };
 }
 
-// crate-pending: ar_archive_writer-0.5.3/src/object_reader.rs:15 is_archive_symbol
+// crate: ar_archive_writer-0.5.3/src/object_reader.rs:15 is_archive_symbol
 function is_archive_symbol(sym: ObjectSymbolLike): boolean {
   // FIXME Use a better equivalent of LLVM's SymbolRef::SF_FormatSpecific
   if (sym.kind() === "File" || sym.kind() === "Section") {
@@ -44,7 +44,7 @@ function is_archive_symbol(sym: ObjectSymbolLike): boolean {
   return true;
 }
 
-// crate-pending: ar_archive_writer-0.5.3/src/object_reader.rs:29 get_native_object_symbols
+// crate: ar_archive_writer-0.5.3/src/object_reader.rs:29 get_native_object_symbols
 export function get_native_object_symbols(buf: Uint8Array, f: (name: Uint8Array) => IoResult<null>): IoResult<boolean> {
   // FIXME match what LLVM does
 
@@ -70,7 +70,7 @@ export function get_native_object_symbols(buf: Uint8Array, f: (name: Uint8Array)
   }
 }
 
-// crate-pending: ar_archive_writer-0.5.3/src/object_reader.rs:57 is_ec_object
+// crate: ar_archive_writer-0.5.3/src/object_reader.rs:57 is_ec_object
 export function is_ec_object(obj: Uint8Array): boolean {
   const k = FileKind.parse(obj);
   if (k.$ === "Ok" && k._0 === "Coff") {
@@ -87,7 +87,7 @@ export function is_ec_object(obj: Uint8Array): boolean {
   }
 }
 
-// crate-pending: ar_archive_writer-0.5.3/src/object_reader.rs:74 is_any_arm64_coff
+// crate: ar_archive_writer-0.5.3/src/object_reader.rs:74 is_any_arm64_coff
 export function is_any_arm64_coff(obj: Uint8Array): boolean {
   const k = FileKind.parse(obj);
   if (k.$ === "Ok" && k._0 === "Coff") {
@@ -104,7 +104,7 @@ export function is_any_arm64_coff(obj: Uint8Array): boolean {
   }
 }
 
-// crate-pending: ar_archive_writer-0.5.3/src/object_reader.rs:93 is_64_bit_symbolic_file
+// crate: ar_archive_writer-0.5.3/src/object_reader.rs:93 is_64_bit_symbolic_file
 export function is_64_bit_symbolic_file(obj: Uint8Array): boolean {
   const k = FileKind.parse(obj);
   if (k.$ !== "Ok") return false;
@@ -139,7 +139,7 @@ const MIN_BIG_ARCHIVE_MEM_DATA_ALIGN = 2;
 // members to be aligned if they are 64-bit and recommends it for 32-bit
 // members. This ensures that when these members are loaded they are aligned in
 // memory.
-// crate-pending: ar_archive_writer-0.5.3/src/object_reader.rs:167 get_member_alignment
+// crate: ar_archive_writer-0.5.3/src/object_reader.rs:167 get_member_alignment
 export function get_member_alignment(obj: Uint8Array): number {
   // If the desired alignment is > PAGESIZE, 32-bit members are aligned on a
   // word boundary, while 64-bit members are aligned on a PAGESIZE boundary.

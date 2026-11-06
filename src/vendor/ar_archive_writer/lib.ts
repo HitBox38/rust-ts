@@ -1,8 +1,7 @@
 // Port of ar_archive_writer 0.5.3 `src/lib.rs` (version from upstream's root Cargo.lock; plan-m6 D4, lane miri-sysroot).
 //
 // PORT: `coff_import_file::write_import_library` and `mangler.rs` (COFF import libraries, raw-dylib on Windows) are not
-// ported. `harness/scope.json` does not list this crate yet, so its markers are spelled `// crate-pending:`; see
-// docs/handoff/miri-sysroot.md for the one edit that turns them into `// crate:`.
+// ported.
 import type { IoResult } from "../../std/io.ts";
 import { get_member_alignment, get_native_object_symbols, is_64_bit_symbolic_file, is_any_arm64_coff, is_ec_object } from "./object_reader.ts";
 

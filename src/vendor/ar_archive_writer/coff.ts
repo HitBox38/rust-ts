@@ -10,12 +10,12 @@ const IMAGE_FILE_MACHINE_ARM64 = 0xaa64;
 const IMAGE_FILE_MACHINE_ARM64EC = 0xa641;
 const IMAGE_FILE_MACHINE_ARM64X = 0xa64e;
 
-// crate-pending: ar_archive_writer-0.5.3/src/coff.rs:40 is_arm64ec
+// crate: ar_archive_writer-0.5.3/src/coff.rs:40 is_arm64ec
 export function is_arm64ec(machine: number): boolean {
   return machine === IMAGE_FILE_MACHINE_ARM64EC || machine === IMAGE_FILE_MACHINE_ARM64X;
 }
 
-// crate-pending: ar_archive_writer-0.5.3/src/coff.rs:44 is_any_arm64
+// crate: ar_archive_writer-0.5.3/src/coff.rs:44 is_any_arm64
 export function is_any_arm64(machine: number): boolean {
   return machine === IMAGE_FILE_MACHINE_ARM64 || is_arm64ec(machine);
 }

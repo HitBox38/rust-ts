@@ -198,7 +198,7 @@ test("Miri oracle, suites and argv (child process)", () => {
     expect(j.problem).toBeNull();
     expect(j.key).toBe(true);
   }
-  expect(j.miriSuites).toEqual(["miri-hello", "run-pass-miri", "run-pass-miri-heavy", "run-fail-miri", "miri-pass", "miri-pass-heavy", "miri-pass-tb", "miri-fail", "run-pass-aux-miri"]);
+  expect(j.miriSuites).toEqual(["miri-hello", "run-pass-miri", "run-pass-miri-heavy", "run-fail-miri", "miri-pass", "miri-pass-heavy", "miri-pass-tb", "miri-fail", "run-pass-aux-miri", "miri-sysroot-core", "miri-sysroot-alloc", "miri-sysroot-std"]);
   expect(j.milestones).toEqual(j.miriSuites.map(() => "M6"));
   // The gate accepts the Miri binary as these suites' oracle program, by absolute path, never through rustup.
   expect(j.undeclared).toEqual([]);

@@ -64,7 +64,7 @@ export class RmetaLink {
     }
     const native_lib_filenames: (string | undefined)[] = [];
     for (let n = decoder.read_usize(); n > 0; n--) {
-      const tag = decoder.read_usize();
+      const tag = decoder.read_u8();
       if (tag === 0) native_lib_filenames.push(undefined);
       else if (tag === 1) native_lib_filenames.push(Decoder_provided.read_str(decoder));
       else return panic("Encountered invalid discriminant while decoding `Option`.");

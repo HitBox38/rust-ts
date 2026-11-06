@@ -154,6 +154,7 @@ export function checkProbes(suites: string[], unitTests: boolean): boolean {
 
 /**
  * The programs an oracle command runs: its first word, except for scripts/rmeta-run.ts under Bun (the rmeta suites),
+ * or scripts/miri-sysroot-run.ts
  * where it is the wrapper's compiler (the first word after its `--`) and, with `--dump`, its probe, for scripts/ir-run.ts
  * (the IR suites), its compiler, and for scripts/rg-check.ts (the check-rg suites), the oracle rustc through its cargo.
  * Throws on a malformed wrapper command line (`parseRmetaRunArgs`, `parseIrRunArgs`).

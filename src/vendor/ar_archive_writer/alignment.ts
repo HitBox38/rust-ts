@@ -5,7 +5,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 /// Returns a multiple of `align` needed to store `size` bytes.
-// crate-pending: ar_archive_writer-0.5.3/src/alignment.rs:7 align_to
+// crate: ar_archive_writer-0.5.3/src/alignment.rs:7 align_to
 export function align_to(size: number, align: number): number {
   // PORT: `(size + align - 1) & !(align - 1)` on `u64`; `align` is a power of two, and archive offsets need not fit a JS bit `&`.
   const n = size + align - 1;
@@ -20,7 +20,7 @@ inline uint64_t offsetToAlignment(uint64_t Value, Align Alignment) {
 }
 */
 
-// crate-pending: ar_archive_writer-0.5.3/src/alignment.rs:19 offset_to_alignment
+// crate: ar_archive_writer-0.5.3/src/alignment.rs:19 offset_to_alignment
 export function offset_to_alignment(value: number, alignment: number): number {
   return align_to(value, alignment) - value;
 }

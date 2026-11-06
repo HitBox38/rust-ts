@@ -2241,7 +2241,7 @@ export function fileSize(file: string): number {
 // `miri-sysroot-<crate>` (plan-m6 §5, D4; lane harness-m6d; report only: no baseline, so in no gate by default): the port as
 // `MIRI_BE_RUSTC=target` builds the crate with cargo-miri's argv (harness/miri-sysroot.ts); stdout + stderr + exit + the sizes and
 // hashes of the dep-info, rmeta and rlib, and whether rmeta and rlib equal the Miri sysroot's (scripts/miri-sysroot-run.ts). One
-// case, one process per side, heavy: the port took 90 s and 9 GB on core, the oracle 5 s.
+// case, one process per side, heavy: the port took 90 s and 10 to 10.8 GB on core, the oracle 5 s.
 SUITES.push(
   ...MIRI_SYSROOT_SUITE_CRATES.map((crate): Suite => {
     const run = (side: "oracle" | "subject", compiler: string[]): string[] => [process.execPath, MIRI_SYSROOT_RUN, "--crate", crate, "--side", side, "--", ...compiler];
@@ -2258,7 +2258,7 @@ SUITES.push(
       // Every input is in the toolchain and sysroot that `miriOracleKey` hashes, or is the corpus (the case's file).
       inputDirs: [],
       cases: () => [{ id: crate, file: relative(REPO, MIRI_SYSROOT_CORPUS), args: [crate], env: { ...NOCORE_ENV, ...MIRI_CASE_ENV } }],
-      oracleKey: () => hash([hash(readFileSync(MIRI_SYSROOT_RUN)), hash(readFileSync(MIRI_SYSROOT_CORPUS)), miriOracleKey()].join("\0")),
+      oracleKey: () => hash([hash(readFileSync(MIRI_SYSROOT_RUN)), hash(readFileSync(join(REPO, "harness", "miri-sysroot.ts"))), hash(readFileSync(MIRI_SYSROOT_CORPUS)), miriOracleKey()].join("\0")),
       oracle: () => run("oracle", [miriBinary()]),
       subject: () => run("subject", miriSubjectOf(MIRI_DRIVER_ENTRY, [])),
     };

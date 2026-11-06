@@ -83,28 +83,28 @@ export class NewArchiveMember {
     public perms: number,
   ) {}
 
-  // crate-pending: ar_archive_writer-0.5.3/src/archive_writer.rs:45 new
+  // crate: ar_archive_writer-0.5.3/src/archive_writer.rs:45 new
   static new(buf: Uint8Array, object_reader: ObjectReader, member_name: string): NewArchiveMember {
     return new NewArchiveMember(buf, object_reader, member_name, 0, 0, 0, 0o644);
   }
 }
 
-// crate-pending: ar_archive_writer-0.5.3/src/archive_writer.rs:62 is_darwin
+// crate: ar_archive_writer-0.5.3/src/archive_writer.rs:62 is_darwin
 function is_darwin(kind: ArchiveKind): boolean {
   return kind === "Darwin" || kind === "Darwin64";
 }
 
-// crate-pending: ar_archive_writer-0.5.3/src/archive_writer.rs:66 is_aix_big_archive
+// crate: ar_archive_writer-0.5.3/src/archive_writer.rs:66 is_aix_big_archive
 function is_aix_big_archive(kind: ArchiveKind): boolean {
   return kind === "AixBig";
 }
 
-// crate-pending: ar_archive_writer-0.5.3/src/archive_writer.rs:70 is_coff_archive
+// crate: ar_archive_writer-0.5.3/src/archive_writer.rs:70 is_coff_archive
 function is_coff_archive(kind: ArchiveKind): boolean {
   return kind === "Coff";
 }
 
-// crate-pending: ar_archive_writer-0.5.3/src/archive_writer.rs:74 is_bsd_like
+// crate: ar_archive_writer-0.5.3/src/archive_writer.rs:74 is_bsd_like
 function is_bsd_like(kind: ArchiveKind): boolean {
   switch (kind) {
     case "Gnu":
@@ -119,20 +119,20 @@ function is_bsd_like(kind: ArchiveKind): boolean {
   }
 }
 
-// crate-pending: ar_archive_writer-0.5.3/src/archive_writer.rs:81 print_rest_of_member_header
+// crate: ar_archive_writer-0.5.3/src/archive_writer.rs:81 print_rest_of_member_header
 function print_rest_of_member_header(w: ArchiveWriter, mtime: number, uid: number, gid: number, perms: number, size: number): void {
   // The format has only 6 chars for uid and gid. Truncate if the provided
   // values don't fit.
   w.write_str(`${pad(mtime, 12)}${pad(uid % 1000000, 6)}${pad(gid % 1000000, 6)}${pad(perms.toString(8), 8)}${pad(size, 10)}\`\n`);
 }
 
-// crate-pending: ar_archive_writer-0.5.3/src/archive_writer.rs:102 print_gnu_small_member_header
+// crate: ar_archive_writer-0.5.3/src/archive_writer.rs:102 print_gnu_small_member_header
 function print_gnu_small_member_header(w: ArchiveWriter, name: string, mtime: number, uid: number, gid: number, perms: number, size: number): void {
   w.write_str(pad(name + "/", 16));
   print_rest_of_member_header(w, mtime, uid, gid, perms, size);
 }
 
-// crate-pending: ar_archive_writer-0.5.3/src/archive_writer.rs:115 print_bsd_member_header
+// crate: ar_archive_writer-0.5.3/src/archive_writer.rs:115 print_bsd_member_header
 function print_bsd_member_header(w: ArchiveWriter, pos: number, name: string, mtime: number, uid: number, gid: number, perms: number, size: number): void {
   const pos_after_header = pos + 60 + utf8_len(name);
   // Pad so that even 64 bit object files are aligned.
@@ -144,7 +144,7 @@ function print_bsd_member_header(w: ArchiveWriter, pos: number, name: string, mt
   w.write_str(pad("", pad_, "\0"));
 }
 
-// crate-pending: ar_archive_writer-0.5.3/src/archive_writer.rs:140 print_big_archive_member_header
+// crate: ar_archive_writer-0.5.3/src/archive_writer.rs:140 print_big_archive_member_header
 function print_big_archive_member_header(
   w: ArchiveWriter,
   name: string,
@@ -169,12 +169,12 @@ function print_big_archive_member_header(
   w.write_str("`\n");
 }
 
-// crate-pending: ar_archive_writer-0.5.3/src/archive_writer.rs:177 use_string_table
+// crate: ar_archive_writer-0.5.3/src/archive_writer.rs:177 use_string_table
 function use_string_table(thin: boolean, name: string): boolean {
   return thin || utf8_len(name) >= 16 || name.includes("/");
 }
 
-// crate-pending: ar_archive_writer-0.5.3/src/archive_writer.rs:181 is_64bit_kind
+// crate: ar_archive_writer-0.5.3/src/archive_writer.rs:181 is_64bit_kind
 function is_64bit_kind(kind: ArchiveKind): boolean {
   switch (kind) {
     case "Gnu":
@@ -189,7 +189,7 @@ function is_64bit_kind(kind: ArchiveKind): boolean {
   }
 }
 
-// crate-pending: ar_archive_writer-0.5.3/src/archive_writer.rs:188 print_member_header
+// crate: ar_archive_writer-0.5.3/src/archive_writer.rs:188 print_member_header
 function print_member_header(
   w: ArchiveWriter,
   pos: number,
@@ -240,7 +240,7 @@ interface MemberData {
   object_reader: ObjectReader;
 }
 
-// crate-pending: ar_archive_writer-0.5.3/src/archive_writer.rs:245 compute_string_table
+// crate: ar_archive_writer-0.5.3/src/archive_writer.rs:245 compute_string_table
 function compute_string_table(names: Uint8Array): MemberData {
   const size = names.length;
   const pad_ = offset_to_alignment(size, 2);
@@ -258,7 +258,7 @@ function compute_string_table(names: Uint8Array): MemberData {
   };
 }
 
-// crate-pending: ar_archive_writer-0.5.3/src/archive_writer.rs:262 now
+// crate: ar_archive_writer-0.5.3/src/archive_writer.rs:262 now
 function now(): number {
   return 0;
 }
@@ -271,7 +271,7 @@ function u32_try_from(val: number): number {
   return val;
 }
 
-// crate-pending: ar_archive_writer-0.5.3/src/archive_writer.rs:268 print_n_bits
+// crate: ar_archive_writer-0.5.3/src/archive_writer.rs:268 print_n_bits
 function print_n_bits(w: ArchiveWriter, kind: ArchiveKind, val: number): void {
   const b = new DataView(new ArrayBuffer(8));
   const le = is_bsd_like(kind);
@@ -284,7 +284,7 @@ function print_n_bits(w: ArchiveWriter, kind: ArchiveKind, val: number): void {
   }
 }
 
-// crate-pending: ar_archive_writer-0.5.3/src/archive_writer.rs:284 compute_symbol_table_size_and_pad
+// crate: ar_archive_writer-0.5.3/src/archive_writer.rs:284 compute_symbol_table_size_and_pad
 function compute_symbol_table_size_and_pad(kind: ArchiveKind, num_syms: number, offset_size: number, string_table_size: number): [number, number] {
   assert(offset_size === 4 || offset_size === 8, "Unsupported offset_size");
   let size = offset_size; // Number of entries
@@ -306,7 +306,7 @@ function compute_symbol_table_size_and_pad(kind: ArchiveKind, num_syms: number, 
   return [size, pad_];
 }
 
-// crate-pending: ar_archive_writer-0.5.3/src/archive_writer.rs:317 compute_symbol_map_size_and_pad
+// crate: ar_archive_writer-0.5.3/src/archive_writer.rs:317 compute_symbol_map_size_and_pad
 function compute_symbol_map_size_and_pad(num_obj: number, sym_map: SymMap): [number, number] {
   let size = 4 * 2; // Number of symbols and objects entries
   size += num_obj * 4; // Offset table
@@ -320,7 +320,7 @@ function compute_symbol_map_size_and_pad(num_obj: number, sym_map: SymMap): [num
   return [size, pad_];
 }
 
-// crate-pending: ar_archive_writer-0.5.3/src/archive_writer.rs:331 compute_ec_symbols_size_and_pad
+// crate: ar_archive_writer-0.5.3/src/archive_writer.rs:331 compute_ec_symbols_size_and_pad
 function compute_ec_symbols_size_and_pad(sym_map: SymMap): [number, number] {
   let size = 4; // Number of symbols
 
@@ -333,7 +333,7 @@ function compute_ec_symbols_size_and_pad(sym_map: SymMap): [number, number] {
   return [size, pad_];
 }
 
-// crate-pending: ar_archive_writer-0.5.3/src/archive_writer.rs:344 write_symbol_table_header
+// crate: ar_archive_writer-0.5.3/src/archive_writer.rs:344 write_symbol_table_header
 function write_symbol_table_header(w: ArchiveWriter, kind: ArchiveKind, size: number, prev_member_offset: number, next_member_offset: number): void {
   if (is_bsd_like(kind)) {
     const name = is_64bit_kind(kind) ? "__.SYMDEF_64" : "__.SYMDEF";
@@ -347,7 +347,7 @@ function write_symbol_table_header(w: ArchiveWriter, kind: ArchiveKind, size: nu
   }
 }
 
-// crate-pending: ar_archive_writer-0.5.3/src/archive_writer.rs:377 compute_headers_size
+// crate: ar_archive_writer-0.5.3/src/archive_writer.rs:377 compute_headers_size
 function compute_headers_size(kind: ArchiveKind, num_members: number, string_member_size: number, num_syms: number, sym_names_size: number, sym_map: SymMap | undefined): number {
   const offset_size = is_64bit_kind(kind) ? 8 : 4;
   const [symtab_size] = compute_symbol_table_size_and_pad(kind, num_syms, offset_size, sym_names_size);
@@ -372,7 +372,7 @@ function compute_headers_size(kind: ArchiveKind, num_members: number, string_mem
 // NOTE: is64BitSymbolicFile, getAuxMaxAlignment and getMemberAlignment were
 // moved to object_reader.rs
 
-// crate-pending: ar_archive_writer-0.5.3/src/archive_writer.rs:409 write_symbol_table
+// crate: ar_archive_writer-0.5.3/src/archive_writer.rs:409 write_symbol_table
 function write_symbol_table(
   w: ArchiveWriter,
   kind: ArchiveKind,
@@ -432,7 +432,7 @@ function write_symbol_table(
 const u16_le = (v: number): Uint8Array => Uint8Array.of(v & 0xff, (v >>> 8) & 0xff);
 const u32_le = (v: number): Uint8Array => Uint8Array.of(v & 0xff, (v >>> 8) & 0xff, (v >>> 16) & 0xff, (v >>> 24) & 0xff);
 
-// crate-pending: ar_archive_writer-0.5.3/src/archive_writer.rs:475 write_symbol_map
+// crate: ar_archive_writer-0.5.3/src/archive_writer.rs:475 write_symbol_map
 function write_symbol_map(w: ArchiveWriter, kind: ArchiveKind, members: readonly MemberData[], sym_map: SymMap, members_offset: number): void {
   const [size, pad_] = compute_symbol_map_size_and_pad(members.length, sym_map);
   write_symbol_table_header(w, kind, size, 0, 0);
@@ -459,7 +459,7 @@ function write_symbol_map(w: ArchiveWriter, kind: ArchiveKind, members: readonly
   w.write_str(pad("", pad_, "\0"));
 }
 
-// crate-pending: ar_archive_writer-0.5.3/src/archive_writer.rs:518 write_ec_symbols
+// crate: ar_archive_writer-0.5.3/src/archive_writer.rs:518 write_ec_symbols
 function write_ec_symbols(w: ArchiveWriter, sym_map: SymMap): void {
   const [size, pad_] = compute_ec_symbols_size_and_pad(sym_map);
   print_gnu_small_member_header(w, "/<ECSYMBOLS>", now(), 0, 0, 0, size);
@@ -483,7 +483,7 @@ function write_ec_symbols(w: ArchiveWriter, sym_map: SymMap): void {
 const starts_with = (name: Uint8Array, p: Uint8Array): boolean => name.length >= p.length && p.every((b, i) => name[i] === b);
 const ends_with = (name: Uint8Array, p: Uint8Array): boolean => name.length >= p.length && p.every((b, i) => name[name.length - p.length + i] === b);
 
-// crate-pending: ar_archive_writer-0.5.3/src/archive_writer.rs:543 is_import_descriptor
+// crate: ar_archive_writer-0.5.3/src/archive_writer.rs:543 is_import_descriptor
 function is_import_descriptor(name: Uint8Array): boolean {
   return starts_with(name, IMPORT_DESCRIPTOR_PREFIX) || starts_with(name, NULL_IMPORT_DESCRIPTOR_SYMBOL_NAME) || (starts_with(name, NULL_THUNK_DATA_PREFIX) && ends_with(name, NULL_THUNK_DATA_SUFFIX));
 }
@@ -494,7 +494,7 @@ function is_import_descriptor(name: Uint8Array): boolean {
 // format. If there are more than 0xfffe archive members however we switch to
 // the GNU archive format which ignores the symbol index. As such to avoid an
 // overflow accept usize here and only convert to u16 on COFF archives.
-// crate-pending: ar_archive_writer-0.5.3/src/archive_writer.rs:556 write_symbols
+// crate: ar_archive_writer-0.5.3/src/archive_writer.rs:556 write_symbols
 function write_symbols(obj: Uint8Array, index: number, sym_names: ArchiveWriter, sym_map: SymMap | undefined, object_reader: ObjectReader): IoResult<number[]> {
   const ret: number[] = [];
 
@@ -543,7 +543,7 @@ function write_symbols(obj: Uint8Array, index: number, sym_names: ArchiveWriter,
   return Ok(ret);
 }
 
-// crate-pending: ar_archive_writer-0.5.3/src/archive_writer.rs:612 compute_member_data
+// crate: ar_archive_writer-0.5.3/src/archive_writer.rs:612 compute_member_data
 function compute_member_data(
   string_table: ArchiveWriter,
   sym_names: ArchiveWriter,
@@ -732,7 +732,7 @@ function compute_member_data(
   return Ok(ret);
 }
 
-// crate-pending: ar_archive_writer-0.5.3/src/archive_writer.rs:845 write_archive_to_stream
+// crate: ar_archive_writer-0.5.3/src/archive_writer.rs:845 write_archive_to_stream
 export function write_archive_to_stream(w: ArchiveWriter, new_members: readonly NewArchiveMember[], kind: ArchiveKind, thin: boolean, is_ec: boolean | undefined): IoResult<null> {
   assert(!thin || !is_bsd_like(kind), "Only the gnu format has a thin mode");
 
