@@ -170,7 +170,7 @@ The oracle and this head both exit 101 on the assertion at `rustc_ty_utils/abi.r
 | `known_panics_lint.ts:1115` | `layout.size < Size::from_bytes(MAX_ALLOC_LIMIT)` (`:908`) | `pub struct H1([u8; 1 << 53]); #[rustc_abi(debug)] pub fn a1(_: H1) {}` at `-O --emit=metadata`: the oracle prints the dump, the port stops |
 | `rustc_lint/types.ts:914` | `variant_size_differences`' `size.bytes()` as `u64` | `pub enum E { A(H1), B(u8) }` at `-Zunpretty=mir` |
 
-With both patched in a copy, and `E` left out as the second site is only reached by it, 17 by-value functions (moves, `drop`, `ptr::read`, closures, `fn` pointers, `extern "C"`) gave stdout identical to the oracle's at `-Zunpretty=mir` at three opt levels. The first is `Size_cmp`, the second `bytes_u64`, and each is about one line. `builtin.ts:541`, already in `abi-vtable`'s item 6, is a third of this class. I did not run these through mono or Miri.
+With the first patched in a copy and `E` left out of the program (I did not patch the second), 17 by-value functions (moves, `drop`, `ptr::read`, closures, `fn` pointers, `extern "C"`) gave stdout identical to the oracle's at `-Zunpretty=mir` at three opt levels. By reading, the first fix is `Size_cmp`, the second `bytes_u64`, each about one line. `builtin.ts:541`, already in `abi-vtable`'s item 6, is a third of this class. I did not run these through mono or Miri.
 
 ## 5. Protect the 16 EII cases?
 
