@@ -233,3 +233,10 @@ No TIMEOUT, CRASH or ORACLE_TIMEOUT. No run reported a change to the upstream ch
 - **Files I left stale:** `src/rust_ts/track_caller_check.ts:10` still says `coverage.ts --check` does not know these markers. Its own weaker check can go. `docs/next.md` is yours.
 - **The gate:** after this lands, `parse`'s entries re-run once (about 5 min), and 50 others run once. 24 cases are new MATCHes for it to protect.
 - **`README` and docs** that quote `mir` as 21,526 cases are 1 high now. I did not hunt them.
+
+## Corrections (harness-w41; `docs/reviews/harness-w40.md`)
+
+- **L2:** the mask on a Miri ICE hid more than "the digits of an id": it also hid interpreted programs' ids, and a program printing the marker text turned it on. Since harness-w41 it covers only `thread 'rustc'`.
+- **N1:** section 8b's "Moved" undercounts. It also moves `parse-ui-json`: 44 cached entries read an explanation, and all 44 MATCH. That suite has no baseline and is not in the gate.
+- **N2:** "the diff files' bodies stay raw" holds for single mode only. A split suite writes masked text, and its cached entry stays raw.
+- **N5:** `mir` is 21,525 cases plus 1 skipped since `mir-heavy`. `docs/plan-m7.md` is corrected; records in `docs/next.md` and older handoffs stay as written at their time.

@@ -16,7 +16,7 @@ import { readFileSync } from "node:fs";
 import { ts_file, up_file } from "../../src/rust_ts/track_caller.ts";
 
 /** Whether a TS source can hold markers these checks read (the resolver and its tests quote the syntax). */
-export const hasAnchorSyntax = (text: string): boolean => /^\s*\/\/ rustc-(?:call|const):/m.test(text);
+export const hasAnchorSyntax = (text: string): boolean => /^\s*\/\/\s*rustc-(?:call|const):/m.test(text);
 
 /** The last path segment of the upstream call that starts at `text` (`a::b::<T>::name(`, `name(`, `name!(`). */
 function calleeAt(text: string): string | undefined {
@@ -32,7 +32,8 @@ export function anchorErrors(file: string, rel: string): string[] {
   const ts = ts_file(file);
   ts.lines.forEach((l, i) => {
     const line = i + 1;
-    if (/^\s*\/\/ rustc-const:/.test(l)) {
+    // Any spacing reaches the strict patterns: `//rustc-call: 1:2` is no anchor to the resolver, so it is a typo to report (review harness-w40 N3).
+    if (/^\s*\/\/\s*rustc-const:/.test(l)) {
       const c = /^\s*\/\/ rustc-const: (compiler\/\S+):(\d+) (\w+)(?:\s|$)/.exec(l);
       if (c === null) return void out.push(`${rel}:${line}: malformed rustc-const marker: ${l.trim().slice(0, 100)}`);
       const up = up_file(c[1]!);
@@ -40,7 +41,7 @@ export function anchorErrors(file: string, rel: string): string[] {
       if (!new RegExp(`\\bconst\\s+${c[3]}\\b`).test(up.lines[Number(c[2]) - 1] ?? "")) out.push(`${rel}:${line}: rustc-const: no \`const ${c[3]}\` at ${c[1]}:${c[2]}`);
       return;
     }
-    if (!/^\s*\/\/ rustc-call:/.test(l)) return;
+    if (!/^\s*\/\/\s*rustc-call:/.test(l)) return;
     const a = /^\s*\/\/ rustc-call: (\d+):(\d+)\s*$/.exec(l);
     if (a === null) return void out.push(`${rel}:${line}: malformed rustc-call anchor: ${l.trim().slice(0, 100)}`);
     const [ul, uc] = [Number(a[1]), Number(a[2])];

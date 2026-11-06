@@ -8,7 +8,7 @@ import { caseEnv, mergeEnv } from "../scripts/lib/env.ts";
 import { oracleHost, oraclePinnedPathEnv, oracleRustcCmd, oracleSysroot, rustcDriverHash, verifyOracleToolchain } from "../scripts/lib/oracle.ts";
 import { probePath } from "../scripts/probes.ts";
 import { RG_INPUT_DIRS, RG_ROOT, RG_SRC, rgIsSetUp } from "../scripts/rg-check.ts";
-import { llvmBinDir, llvmToolHashes } from "../scripts/lib/llvm-tools.ts";
+import { llvmBinDir, llvmToolHashes, llvmToolsError, llvmToolsPinError } from "../scripts/lib/llvm-tools.ts";
 import { MIRI_CASE_ENV, MIRI_DEFAULT_ARGS, MIRI_SYSROOT, miriBinary, miriOracleKey, miriPin } from "../scripts/lib/miri.ts";
 import { COMPILETEST_TARGET, collectUiTests, mirOptCases, uiBlessed, uiCases, uiFileCases, uiOutputBaseDir, uiTestCases, type Blessed, type ErrorFormat, type UiCase } from "./compiletest.ts";
 import { AUX_STALE_MS, EMPTY_SYSROOT, M5_TARGET, libArgs, libCrate, libEnv, oracleLibRmeta, pruneStaleAux, touchAuxDir } from "./library.ts";
@@ -163,6 +163,15 @@ function edition(file: string): string {
 
 const bunCmd = (script: string) => [process.execPath, join(REPO, script)];
 
+// Left out of `parse` (root's decision 2026-11-06, docs/reviews/harness-w40.md item 5): the oracle timed out on each in all of the last 3
+// gates, and an ORACLE_TIMEOUT is never cached, so every run pays up to 25 minutes of process time per file. None is in `parse`'s baseline.
+// The same files as `NOCORE_SKIPPED`, with a reason of their own: that one names a different flag, and this suite has never had their output.
+const PARSE_SKIPPED: SkippedCase[] = [
+  { id: "tests/ui/associated-consts/issue-93775.rs", reason: "oracle -Zunpretty=ast-tree ({:#?} of a deeply nested AST) does not finish in 1500 s" },
+  { id: "tests/ui/expr/if/expr-stack-overflow.rs", reason: "oracle -Zunpretty=ast-tree does not finish in 1500 s (NOCORE_SKIPPED records ~13 GB of output)" },
+  { id: "tests/ui/parser/survive-peano-lesson-queue.rs", reason: "oracle -Zunpretty=ast-tree ({:#?} of a deeply nested AST) does not finish in 1500 s" },
+];
+
 export const SUITES: Suite[] = [
   {
     name: "lex",
@@ -186,8 +195,9 @@ export const SUITES: Suite[] = [
     // `{:#?}` dump nests ~1300 levels); 60 s could never finish it. Success is cached once per
     // oracle build, so the longer limit costs nothing afterwards.
     oracleTimeoutMs: 300_000,
+    skipped: () => PARSE_SKIPPED,
     cases: () =>
-      corpus("tests/ui").map((f) => {
+      corpus("tests/ui").filter((f) => !PARSE_SKIPPED.some((k) => k.id === f)).map((f) => {
         const ed = edition(f);
         // RUSTC_ICE=0, as every suite that runs a hook-installing entry: a panic must not leave a report in the upstream checkout
         // (review ice-report-impl F3). Measured when added: all 21,523 oracle outputs identical to those cached without it.
@@ -1658,12 +1668,21 @@ export const RUSTC_DRIVER_ENTRY = "src/rust_ts/main.ts";
 export const MIRI_SUBJECT_ENTRY: string = MIRI_DRIVER_ENTRY;
 
 /**
+ * Preloaded by the Miri subject (lane harness-w41; docs/reviews/fixers-41.md section 2): Bun parses an entry's whole import graph before it
+ * evaluates anything, so without this the process that only re-execs (src/rust_ts/stack.ts) parses all of Miri for nothing. `miri.ts` imports this
+ * file first anyway, so the modules evaluate in the same order, and the file's `Bun.main` check holds under a preload. `process.argv` is the
+ * same; only `process.execArgv` and the raw argv show the flag, and no port code reads them for anything but the tail after the script.
+ * An oracle key never reads a subject's command.
+ */
+export const MIRI_STACK_PRELOAD = "src/rust_ts/miri_stack_first.ts";
+
+/**
  * The subject of a Miri case with entry point `entry` (see above). `MIRI_DRIVER_ENTRY` gets the oracle's argv as is;
  * any other entry (the port's rustc driver) gets Miri's rustc argv: `MIRI_DEFAULT_ARGS`, then the case's argv without
  * `-Zmiri-*` and without the program's arguments after `--`.
  */
 export function miriSubjectOf(entry: string, args: string[]): string[] {
-  if (entry === MIRI_DRIVER_ENTRY) return [...bunCmd(MIRI_DRIVER_ENTRY), ...args];
+  if (entry === MIRI_DRIVER_ENTRY) return [process.execPath, "--preload", join(REPO, MIRI_STACK_PRELOAD), join(REPO, MIRI_DRIVER_ENTRY), ...args];
   const dd = args.indexOf("--");
   const rustc = (dd < 0 ? args : args.slice(0, dd)).filter((a) => !a.startsWith("-Zmiri-"));
   return [...bunCmd(entry), ...MIRI_DEFAULT_ARGS, ...rustc];
@@ -2051,7 +2070,13 @@ let irKeyMemo: string | undefined;
 const irOracleKey = (): string => {
   if (irKeyMemo !== undefined) return irKeyMemo;
   const host = oracleHost();
-  const parts = [hash(readFileSync(IR_RUN)), hash(readFileSync(join(REPO, "scripts", "lib", "ir-normal.ts"))), rustcDriverHash(), JSON.stringify(llvmToolHashes(oracleSysroot(), host))];
+  // One `ERROR:` line, here on difftest's path too (review harness-m7a H8): a missing tool would throw a raw ENOENT below, and a changed one would re-key and re-run the oracle with no message.
+  const missing = llvmToolsError(oracleSysroot(), host, false);
+  if (missing !== undefined) die(missing);
+  const hashes = llvmToolHashes(oracleSysroot(), host);
+  const changed = llvmToolsPinError(hashes, host);
+  if (changed !== undefined) die(changed);
+  const parts = [hash(readFileSync(IR_RUN)), hash(readFileSync(join(REPO, "scripts", "lib", "ir-normal.ts"))), rustcDriverHash(), JSON.stringify(hashes)];
   return (irKeyMemo = hash(parts.join("\0")));
 };
 /** One side's command of an IR suite. */

@@ -28,7 +28,7 @@ export function unstableOracleReason(stderr: string): string | undefined {
  * supported ...`). Any one of these marks the stderr as an ICE (lane harness-w36; review harness-m6a N1).
  */
 const ICE_MARKERS = [
-  /the compiler unexpectedly panicked/,
+  /^error: the compiler unexpectedly panicked/m,
   /^error: internal compiler error(?:\[E\d+\])?: /m,
   /^note: we would appreciate a bug report: /m,
   /^note: using internal features is not supported and expected to cause internal compiler errors/m,
@@ -46,25 +46,34 @@ export const isIceStderr = (stderr: string): boolean => ICE_MARKERS.some((re) =>
 export const maskThreadId = (stderr: string): string =>
   stderr.replace(/^(thread '[^'\n]*' \((?:rtid )?)(\d+|<+tid>)(\) panicked)/gm, (_m, a: string, id: string, b: string) => `${a}${id.startsWith("<") ? `<${id}` : "<tid>"}${b}`);
 
+/** `maskThreadId` of the host compiler's thread alone (rustc_interface `run_in_thread_with_globals`'s `.name("rustc")`). */
+const maskRustcThreadId = (stderr: string): string =>
+  stderr.replace(/^(thread 'rustc' \((?:rtid )?)(\d+|<+tid>)(\) panicked)/gm, (_m, a: string, id: string, b: string) => `${a}${id.startsWith("<") ? `<${id}` : "<tid>"}${b}`);
+
 /**
  * The long-type note, `the full name for the type has been written to '<dir>/<stem>.long-type-<digits>.txt'`, names a hash
  * of an interned type's address (rustc_middle ty/error.rs `short_string_namespace`: `DefaultHasher` over `Hash` of an
  * interned value), which ASLR changes on every run, so no value can match. This masks only those digits (lane harness-w40;
- * docs/reviews/fixers-40.md N1): compiletest's own normalization (runtest.rs:2616, `$LONG_TYPE_HASH`), which also takes the
- * closing quote here, so that the directory, the stem (digits in it included) and the note's text still compare. A literal
+ * docs/reviews/fixers-40.md N1): compiletest's own normalization (runtest.rs:2616, `$LONG_TYPE_HASH`), differing in both directions:
+ * compiletest's pattern has no quote and needs `$TEST_BUILD_DIR/` and a stem with no dot; this one is narrower on the closing quote and wider on the
+ * directory, so that the directory, the stem (digits in it included) and the note's text still compare. A literal
  * `<hash>` gets one more `<`, as in `maskThreadId`. What this gives up: whether two notes name one file.
  */
 export const maskLongTypeHash = (stderr: string): string =>
   stderr.replace(/(\.long-type-)(\d+|<+hash>)(\.txt')/g, (_m, a: string, id: string, b: string) => `${a}${id.startsWith("<") ? `<${id}` : "<hash>"}${b}`);
 
 /**
- * The mask a comparison applies to a stderr, given the oracle's stderr: the long-type hash always, the thread id unless the
- * suite is Miri's and no host ICE. A Miri suite (`Suite.miri`; lane harness-m6a)
- * masks only when its host process ICEd (`isIceStderr`, including the `bug!` path): an interpreted program's panic message
- * names the id Miri's `gettid` shim returns (shims/env.rs `get_tid`: the pid plus the thread index, and with isolation on
- * the pid is a constant, so `thread 'main' (1000) panicked`), which is deterministic and must be compared.
+ * The mask a comparison applies to a stderr, given the oracle's stderr: the long-type hash always; the thread id everywhere but a Miri
+ * suite (`Suite.miri`; lane harness-m6a). There an interpreted program's panic message names the id Miri's `gettid` shim returns
+ * (shims/env.rs `get_tid`: the pid plus the thread index, and with isolation on the pid is a constant, so `thread 'main' (1000) panicked`),
+ * which is deterministic and must be compared. So a Miri suite masks only when its host process ICEd (`isIceStderr`, including the
+ * `bug!` path), and then only the host's thread, `thread 'rustc'` (docs/reviews/harness-w40.md L2): a program's own panic before the ICE,
+ * or a program that merely prints a marker, keeps its id compared. A host panic on another thread stays unmasked, and shows as a DIFF.
+ * **What is still hidden:** a program that names its own thread `rustc` and prints an ICE marker at the start of a line. Text alone
+ * cannot tell that from an ICE. No case does it, and it hides only the digits of that one line.
  */
-export const stderrMask = (miri: boolean, oracleStderr: string): ((stderr: string) => string) => (!miri || isIceStderr(oracleStderr) ? (e) => maskLongTypeHash(maskThreadId(e)) : maskLongTypeHash);
+export const stderrMask = (miri: boolean, oracleStderr: string): ((stderr: string) => string) =>
+  !miri ? (e) => maskLongTypeHash(maskThreadId(e)) : isIceStderr(oracleStderr) ? (e) => maskLongTypeHash(maskRustcThreadId(e)) : maskLongTypeHash;
 
 /** The markers of a single-mode output's text (difftest `render`). */
 export const STDERR_MARK = "\n--- stderr ---\n";

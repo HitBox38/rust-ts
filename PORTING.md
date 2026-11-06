@@ -147,10 +147,14 @@ format, e.g. `NodeId(4294967040)`).
 `Clause`, `ValTree`, `Pattern`, `AdtDef`, ... and `&'tcx List<T>` are **frozen class instances, unique per
 value**, made only by the `CtxtInterners` of `TyCtxt` (rustc_middle ty/context.ts). Each extends
 `rustc_data_structures/intern.ts`'s `Interned` (lists: `RawList`, a frozen `Array` subclass, so a `List<T>` is a
-`readonly T[]`) and carries a sequential `id` used only inside intern keys. Equality is `===`, `Map`/`Set` key on
+`readonly T[]`) and carries a sequential `id`: what `hash_Interned` writes and what memo tables key on, so it is not free to change. Equality is `===`, `Map`/`Set` key on
 the object, methods live on the prototype (`ty.kind()`); `Interned` has no `Ord`, so nothing orders on them.
-Interning looks the value up by its canonical key (rust_ts/intern_key.ts: the derived `Hash`+`Eq` as a string,
-interned children by `id`). Packed pointers (`GenericArg`, `Term`) are unions of the objects (`Ty | Region |
+Interning is upstream's table where it is hot: a hash that only picks the bucket, then `==` on the stored value, with no
+key string (`intern_value`/`intern_slice`, rustc_data_structures/sharded.ts; `value_hash`/`value_eq`, rust_ts/intern_key.ts:
+the derived `Hash`+`Eq`, interned children by `id`). That is the type, region, const, predicate, clause, list,
+canonical-input and external-constraint interners. The others (`ValTree`, `Pattern`, `ConstAllocation`, `Layout`,
+`AdtDef`) look the value up by its canonical key, that equality as a string (`intern_key`, or `key_Allocation` and `AdtDef`'s own hash).
+An interner uses one or the other, never both. Packed pointers (`GenericArg`, `Term`) are unions of the objects (`Ty | Region |
 Const`), dispatched with `instanceof`. Multi-field ids (`DefId`, `HirId`) stay small immutable classes; as map
 keys use `DefIdMap`/`DefIdSet` (rustc_span) and `HirIdMap`/`HirIdSet` (rustc_hir_id), keyed
 `krate * 2^32 + index` / `owner * 2^32 + local_id`; other composite keys use `KeyedMap`/`KeyedSet` with a key

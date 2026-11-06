@@ -381,7 +381,7 @@ would be lost; use `--sourcemap`. Recommended as its own batch in wave 39 (D14).
 
 | Suites | `-O` / opt-level | MIR actually seen |
 |---|---|---|
-| `mir` 21,526 cases, `mir-core`, `mir-alloc`, `mir-std`, `rmeta-*`, `check-*` | none | **`mir_opt_level` 1 only** |
+| `mir` 21,525 cases, `mir-core`, `mir-alloc`, `mir-std`, `rmeta-*`, `check-*` | none | **`mir_opt_level` 1 only** |
 | `mir-minicore` | 3 of 46 `-O` | the only protected optimized-MIR cases at level 2 |
 | `mirdump-ui` | 156 `-O`, 19 level 3, 5 level 4 | `mir_built` and `mir_promoted`, not `optimized_mir` |
 | `borrowck-*`, `tydump-ui`, `thirdump-ui`, `thir-tree`, `pm-*` | some `-O` | stop before `optimized_mir` for the program (not audited case by case) |

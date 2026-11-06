@@ -4,7 +4,7 @@
 // scripts/lib/common.ts; see scripts/lib/deps.test.ts for why), MIRI_DEFAULT_ARGS against the upstream source, the real
 // isolated toolchain, the Miri suites' cases (plan-m6 D6) and the criterion report (A9).
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { miriToolchainError, oracleToolchainError } from "./lib/toolchain.ts";
@@ -193,7 +193,8 @@ test("Miri oracle, suites and argv (child process)", () => {
   expect(j.hello[0].args.slice(0, 2)).toEqual(["harness/corpus/miri/hello.rs", "--sysroot"]);
   expect(j.hello[0].args.slice(3)).toEqual(["--target", "x86_64-unknown-linux-gnu"]);
   expect(j.subjectEntry).toBe(j.driverEntry);
-  expect(j.helloSubject.slice(1)).toEqual([join(REPO, "src/miri/bin/miri.ts"), ...j.hello[0].args]);
+  expect(existsSync(j.helloSubject[2])).toBe(true); // A missing preload is Bun's own error, on every Miri case.
+  expect(j.helloSubject.slice(1)).toEqual(["--preload", join(REPO, "src/rust_ts/miri_stack_first.ts"), join(REPO, "src/miri/bin/miri.ts"), ...j.hello[0].args]);
   // run-pass / run-fail: the counts measured by lanes harness-m6a (3,269 / 263) and harness-w36 (needs-* evaluated:
   // +209 / +31), D6's argv; harness-w37: +1 (type-sizes.rs, needs-deterministic-layouts decided by the oracle).
   // 3,479 minus mpsc_stress.rs, which the Miri oracle does not finish (skipped).
@@ -233,7 +234,7 @@ test("Miri oracle, suites and argv (child process)", () => {
   expect(j.args.isolationSplit).toContain("-Zmiri-disable-isolation");
   expect(j.args.envForward).toContain("-Zmiri-env-forward=HOME");
   expect(j.args.programArg).toEqual(["a.rs", "--sysroot", "/m", "--", "-Zmiri-disable-isolation"]);
-  expect(j.subject.slice(1)).toEqual([join(REPO, "src/miri/bin/miri.ts"), "a.rs", "--sysroot", "/m", "-Zmiri-disable-isolation", "-O", "--", "-Zmiri-x", "p"]);
+  expect(j.subject.slice(1)).toEqual(["--preload", join(REPO, "src/rust_ts/miri_stack_first.ts"), join(REPO, "src/miri/bin/miri.ts"), "a.rs", "--sysroot", "/m", "-Zmiri-disable-isolation", "-O", "--", "-Zmiri-x", "p"]);
   // The rustc-driver fallback (before harness-w36): Miri's rustc argv.
   expect(j.subjectRustc.slice(1)).toEqual([join(REPO, "src/rust_ts/main.ts"), ...j.ours, "a.rs", "--sysroot", "/m", "-O"]);
   expect(j.criterion[0]).toEqual({ match: 9, of: 10, oracleTimeouts: 2, percent: 90, target: 90, met: true, what: "w" });

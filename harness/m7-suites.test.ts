@@ -56,6 +56,23 @@ console.log(JSON.stringify({
   for (const id of j.ids) expect(mir.has(id)).toBe(false);
 }, 120_000);
 
+test("parse's skips: each with its own flag in the reason, none protected", () => {
+  const code = `
+const s = await import(${JSON.stringify(join(REPO, "harness/suites.ts"))});
+console.log(JSON.stringify(s.suite("parse").skipped()));
+`;
+  const r = Bun.spawnSync([process.execPath, "-e", code], { cwd: REPO, stdout: "pipe", stderr: "pipe" });
+  expect(r.exitCode, r.stderr.toString()).toBe(0);
+  const skipped = JSON.parse(r.stdout.toString().trim().split("\n").at(-1)!) as { id: string; reason: string }[];
+  expect(skipped.map((k) => k.id).sort()).toEqual(["tests/ui/associated-consts/issue-93775.rs", "tests/ui/expr/if/expr-stack-overflow.rs", "tests/ui/parser/survive-peano-lesson-queue.rs"]);
+  const base = new Set(readFileSync(join(REPO, "harness/baseline/parse.txt"), "utf8").split("\n"));
+  for (const k of skipped) {
+    expect(base.has(k.id)).toBe(false);
+    expect(k.reason).toContain("-Zunpretty=ast-tree ");
+    expect(k.reason).not.toContain("expanded");
+  }
+});
+
 test("the suites, without running one", () => {
   const r = Bun.spawnSync([process.execPath, "-e", CHILD], { cwd: REPO, stdout: "pipe", stderr: "pipe" });
   expect(r.exitCode, r.stderr.toString() + r.stdout.toString()).toBe(0);
