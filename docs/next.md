@@ -473,6 +473,7 @@ Queued:
 | lane | scope | status |
 |---|---|---|
 | perf-near-limit | the cases gates retry (14 mir, 4 run-pass-miri at the last gate) | running |
-| fixers-40 | review queue of wave 39 | running |
-| ice-report | docs/plan-ice-report.md as amended by its review: target 92 of 118, no replay, no RUST_BACKTRACE change | running |
+| fixers-40 | review queue of wave 39 | APPROVE WITH NITS; on integ-w40 |
+| fixers-41 | environment seen by compiled programs: the /bin/sh re-exec (fixers-40 F1), Bun's dotenv (F2), non-Unicode variables (F3) | running |
+| ice-report | docs/plan-ice-report.md as amended by its review: 92 of 118 reached, no replay, no RUST_BACKTRACE change | REQUEST CHANGES (a wrong location), root's fixes in re-check |
 

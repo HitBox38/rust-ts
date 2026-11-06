@@ -21,6 +21,7 @@
 // - `str::parse` of the flag values: `u32` / `u64` through rustc_session's `u32_from_str` / `u64_from_str` (core's
 //   radix-10 rules), `NonZero<u64>` adds the `Zero` error; `f64` through `f64_from_str` below (core's dec2flt grammar).
 //   The `ParseIntError` texts are core's `IntErrorKind` descriptions.
+import "../../rust_ts/miri_stack_first.ts"; // LOAD ORDER: before everything else, see that file.
 import "../lib.ts";
 import {
   type BacktraceStyle,
@@ -42,6 +43,8 @@ import { EXTRA_SYMBOLS } from "../sym.ts";
 import { deinit_loggers, init_early_loggers, init_late_loggers } from "./log/setup.ts";
 import { TARGET_CONFIGS } from "../../rust_ts/target_config.gen.ts";
 import { ensure_stack } from "../../rust_ts/stack.ts";
+import { vars_os as std_vars_os } from "../../std/env.ts";
+import { os_str_from_encoded_bytes } from "../shims/os_str.ts";
 import type { CompiledModules, CrateInfo } from "../../rustc_codegen_ssa/lib.ts";
 import {
   type Callbacks,
@@ -529,14 +532,10 @@ function parse_range(val: string): Result<{ start: number; end: number }, string
 }
 
 
-/** `env::vars_os().collect::<Vec<_>>()` (PORT: D14 host environment, `OsString` → `string` per the typemap; the order is
- * the runtime's `process.env` order, which follows `environ`). */
+/** `env::vars_os().collect::<Vec<_>>()`. PORT: `environ`'s entries in order (src/std/env.ts); `OsString` -> `string` per the typemap,
+ * keeping bytes that are not UTF-8 (shims/os_str.ts `os_str_from_encoded_bytes`). */
 function vars_os(): [string, string][] {
-  const out: [string, string][] = [];
-  for (const [k, v] of Object.entries(process.env)) {
-    if (v !== undefined) out.push([k, v]);
-  }
-  return out;
+  return std_vars_os().map(([k, v]) => [os_str_from_encoded_bytes(k), os_str_from_encoded_bytes(v)]);
 }
 
 // rustc: src/tools/miri/src/bin/miri.rs:408 main
