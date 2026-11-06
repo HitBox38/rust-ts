@@ -9,8 +9,8 @@ The mirror image of [ts-rust](https://github.com/pingdotgg/ts-rust).
 |---|---|
 | Upstream pin | `rust-lang/rust@6f5da406b` = `rustc 1.101.0-nightly (2026-10-10)` |
 | Milestone | M0–M6 done (harness; lexer/parser; expansion + name resolution; typeck + trait solving; MIR build, borrowck, MIR transforms, const eval; check core → alloc → std; running programs through a port of the pinned nightly's Miri). **The crate metadata (.rmeta) of core, alloc and std is byte-identical to rustc's.** **Programs run through the port and match the real Miri's stdout, stderr and exit code: 3,473 of 3,478 run-pass cases (a match includes the 199 that real Miri itself refuses or fails; of those it runs to exit 0, 99.85%), 294 of 294 run-fail cases, and 350 of 360 of Miri's own tests. Native builds are M7.** Next: M7 (text LLVM IR → clang). **Proc macros run: oracle-built proc-macro dylibs load into the port and match rustc on 279/282 ui cases.** |
-| Protected parity | **541,633** cases across 59 suites that match the real compiler byte-for-byte and can never regress |
-| Ported | 24,242 / 27,053 in-scope upstream functions (89.6%; Miri 1,504 / 1,535) |
+| Protected parity | **541,731** cases across 59 suites that match the real compiler byte-for-byte and can never regress |
+| Ported | 24,245 / 27,053 in-scope upstream functions (89.6%; Miri 1,504 / 1,535) |
 
 At 100%: the front end (`rustc_lexer`, `rustc_span`, `rustc_ast`, `rustc_ast_lowering`, `rustc_ast_passes`,
 `rustc_builtin_macros`, `rustc_attr_parsing`, `rustc_resolve`), type checking (`rustc_hir_typeck`,
@@ -25,10 +25,10 @@ including legacy Polonius), `rustc_mir_transform` and `rustc_const_eval`. Nearly
 | `parse`, `parse-ui` (M1) | `-Zunpretty=ast-tree` on tests/ui; ui/parser diagnostics | 21,523 / 991 |
 | `expanded`, `unpretty-expanded`, `resdump` (M2) | macro expansion and name resolution | ~21,500 each |
 | `hir-tree`, `unpretty-hir`, `tydump-nocore` (M3) | HIR and type checking | ~21,500 each |
-| `tydump-ui`, `thirdump-ui` (M3) | types and THIR on tests/ui | 1,840 / 1,851 |
-| `mirdump-ui`, `mirdump-minicore` (M4) | MIR built and checked by the compiler | 1,343 / 46 |
+| `tydump-ui`, `thirdump-ui` (M3) | types and THIR on tests/ui | 1,842 / 1,853 |
+| `mirdump-ui`, `mirdump-minicore` (M4) | MIR built and checked by the compiler | 1,344 / 46 |
 | `borrowck-ui`, `borrowck-ui-report` (M4) | borrow-check results on ui/borrowck + ui/nll (all 960), and five more ui dirs | 960 / 1,276 |
-| `mir`, `thir-tree` (M4) | the real `-Zunpretty=mir` (optimized MIR) and `-Zunpretty=thir-tree` | 21,508 / 1,849 |
+| `mir`, `thir-tree` (M4) | the real `-Zunpretty=mir` (optimized MIR) and `-Zunpretty=thir-tree` | 21,522 / 1,851 |
 | `mir-core` (M5) | `-Zunpretty=mir` of all of libcore, one case per MIR body | 47,734 |
 | `check-core`, `rmeta-core` (M5) | libcore's `.rmeta` byte for byte (+ stderr/exit), and section by section through an rmeta dump probe | 1 / 82,338 |
 | `check-ui`, `rmeta-ui` (M5) | the same on 730 small lib crates (tests/ui auxiliary crates) | 730 / 730 |

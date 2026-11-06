@@ -469,8 +469,8 @@ Queued:
 541,633 protected in 59 suites (+7,621, 0 lost); 24,242/27,053 fns (89.6%). New protected: mir-o2 3474, mono-ui 3475, mir-opt-o4 405, check-ui-encode-mir 146, check-rg, check-rg-encode-mir and check-rg-host 36 each; miri-pass 345, miri-pass-heavy 5. M6b miri-pass now 350/360 = 97.22%.
 **Held for the owner:** D4 (port rustc_codegen_llvm; harness/scope.json says changes need the owner's approval) and PLAN.md's D1, D3; wave 40 does not start without an answer. Also reported: root removed scope.json's virtual_socket.rs exclusion without approval.
 
-## Wave 40a (started 2026-11-06) — what does not depend on D4
-**Gate running on main; accept and audit to follow.**
+## Wave 40a ACCEPTED 2026-11-07 (gate-20261106-073703-root-u0z2, main d51089a3) — what does not depend on D4
+541,731 protected in 59 suites (+98, 0 lost); 24,245/27,053 fns (89.6%). The gains are 35 distinct tests/ui files across 13 suites: the ICE report and fixers. The laptop lost AC power at 19:14 UTC, near the end, with one suite left; the new safeguard noted it and no case was lost. Regression audit: docs/reviews/w40a-audit.md, running.
 | lane | scope | status |
 |---|---|---|
 | perf-near-limit | the cases gates retry: all 10 protected mir cases at 36% of their limit or less; dynamic-drop.rs and issue-8827.rs stay at 63-66% | APPROVE WITH NITS; on integ-w40 |
@@ -488,5 +488,4 @@ Queued from these reviews, none blocking wave 40a:
 - fixers-42 R1-R3: wrong panic or result on invalid or non-UTF-8 `MIRI_CWD`, `MIRI_BE_RUSTC`, `RUSTC_OVERRIDE_VERSION_STRING`, `RUSTC_CTFE_BACKTRACE` (`miri.ts:148,152,154,561`, `rustc_driver_impl/lib.ts:714`, `rustc_session/session.ts:1119`). R5: `home_dir`'s fallback when the passwd home is not UTF-8. R8: the near-limit test's own spawn with a 900-byte Bun path.
 - Seen in fixers-42's review, on base too: a cwd of 1,024 bytes or more stops the port where the oracle compiles (`rustc_session/config.ts:3226`); `HOME` or `XDG_CACHE_HOME` over 1,023 bytes panics Bun at start; `miri.ts` ignores `RUST_TS_IMPL`, so `--impl` cannot validate the harness on Miri suites.
 - root-w40-check3 N1: five assertions outside `plain_bug` keep their message only because the panic location is refused (`expr_a.test.ts:141,155`, `matches_b.test.ts:202`, `late_a.test.ts:730`, `late_b.test.ts:790`); they would read `ExplicitBug` if it resolved. N5: `BACKTRACE_STYLE`, the `MiriConfig.default` spy, the `log/setup` mock and `ICE_PATH` stay changed after `miri.test.ts`; no later test reads them today. O1, on base too: `typeck_impl.test.ts` fails with `Cannot access 'InlineAttr' before initialization` when it is the first file in its process.
-- From earlier: `--allow-battery` in AGENTS.md.
 
