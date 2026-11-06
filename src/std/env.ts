@@ -129,8 +129,8 @@ let ENV_LIBC: ReturnType<typeof open_env_libc> | undefined;
 const env_libc = () => (ENV_LIBC ??= open_env_libc());
 
 /** A NUL-terminated copy of `s`; `undefined` when `s` has an interior NUL (`run_with_cstr`'s `Err`). */
-function to_cstr(s: string): Uint8Array | undefined {
-  const b = encoder.encode(s);
+function to_cstr(s: string | OsString): Uint8Array | undefined {
+  const b = typeof s === "string" ? encoder.encode(s) : s;
   if (b.includes(0)) return undefined;
   const out = new Uint8Array(b.length + 1);
   out.set(b);
@@ -138,7 +138,7 @@ function to_cstr(s: string): Uint8Array | undefined {
 }
 
 /** The bytes of the C string at `p`, copied. */
-function read_cstr(p: Pointer): OsString {
+export function read_cstr(p: Pointer): OsString {
   let n = 0;
   while (read.u8(p, n) !== 0) n++;
   return n === 0 ? new Uint8Array(0) : new Uint8Array(toArrayBuffer(p, 0, n)).slice();
@@ -246,13 +246,14 @@ export function var_(key: string): Result<string, VarError> {
 
 /** `env::set_var(key, value)` for a name and value this port made. `process.env` follows it. */
 // std: library/std/src/sys/env/unix.rs:132 setenv
-export function set_var(key: string, value: string): void {
-  process.env[key] = value;
+export function set_var(key: string, value: string | OsString): void {
+  const text = typeof value === "string" ? value : lossy.decode(value);
+  process.env[key] = text;
   if (!ENV_FROM_LIBC) return;
   const k = to_cstr(key);
   const v = to_cstr(value);
   if (k === undefined || v === undefined || env_libc().symbols.setenv(ptr(k), ptr(v), 1) !== 0) {
-    panic(`failed to set environment variable \`${key}\` to \`${value}\``);
+    panic(`failed to set environment variable \`${key}\` to \`${text}\``);
   }
 }
 

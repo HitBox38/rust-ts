@@ -29,6 +29,7 @@ if (SKIP_MIRI) console.log(`SKIP: ${miri_problem}; RUST_TS_REQUIRE_PROBES=1 make
 
 const WORK = join(DATA, "tmp", "environment-oracle", process.env.RUST_TS_AGENT ?? "default");
 const EXEC_WITH_ENV = join(REPO, "src/rust_ts/exec_with_env.ts");
+const HOME_BYTES = join(WORK, "home_bytes");
 
 const ENVPM = `
 extern crate proc_macro;
@@ -155,6 +156,8 @@ const ENTRIES = [
   "EMOJI=\xf0\x9f\x98\x80",
   "1=num",
   "10=num2",
+  // CoreFoundation copies this file's bytes into `__CF_USER_TEXT_ENCODING`, up to 63, here cutting a character (stack.ts).
+  `CFFIXED_USER_HOME=${HOME_BYTES}`,
 ];
 
 interface Out {
@@ -184,6 +187,8 @@ beforeAll(() => {
   writeFileSync(join(WORK, "block.rs"), BLOCK);
   writeFileSync(join(WORK, ".env"), "DOTENVVAR=fromdotenv\nREALOVER=fromdotenv\n");
   writeFileSync(join(WORK, ".env.local"), "DOTENVLOCAL=fromdotenv\n");
+  mkdirSync(HOME_BYTES);
+  writeFileSync(join(HOME_BYTES, ".CFUserTextEncoding"), Buffer.from(`0x\xff\xfe:${"x".repeat(57)}\xc3\xa9zz`, "latin1"));
 });
 afterAll(() => {
   rmSync(WORK, { recursive: true, force: true });
@@ -207,6 +212,7 @@ describe.skipIf(process.platform === "win32")("the environment under both sides"
     expect(out).toContain(`O${PROBED.indexOf("SET_BY_MACRO")}: () = crate::option::Option::Some("yes")`);
     expect(out).toContain("raw \\\"VALUE=a\\\\xffb\\\"");
     expect(out).toContain("PWD: Ok(\\\"/wrong\\\")");
+    if (process.platform === "darwin") expect(out).toContain(`:0x\\\\xff\\\\xfe:${"x".repeat(57)}\\\\xc3\\\"`);
   });
 
   // PORT: not rustc's doing but CoreFoundation's, which the oracle links (stack.ts `cf_user_text_encoding`).
