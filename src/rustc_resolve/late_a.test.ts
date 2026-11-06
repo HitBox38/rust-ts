@@ -727,7 +727,7 @@ case_("resolve_label / is_label_valid_from_rib (late.rs:2783, 2820)", () => {
     expect(v.is_label_valid_from_rib(1)).toBe(true);
     // `all` stops at the first barrier; a rib kind that is neither is a bug.
     v.label_ribs.splice(1, 1, Rib.new<NodeId>(RibKind.AssocItem));
-    expect(() => v.is_label_valid_from_rib(0)).toThrow("unexpected rib kind: AssocItem");
+    expect(() => plain_bug(() => v.is_label_valid_from_rib(0))).toThrow("unexpected rib kind: AssocItem");
   });
 });
 

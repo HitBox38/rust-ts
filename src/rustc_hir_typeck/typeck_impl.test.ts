@@ -385,3 +385,11 @@ test_("place_op.rs:352 convert_place_op_to_mutable: builtin place ops are left a
   // No type-dependent def for the expression: not a method call.
   call("convert_place_op_to_mutable", fcx, "Deref", lit_unit(1), lit_unit(2));
 });
+
+// `Cannot access 'InlineAttr' before initialization` when this file ran first in its process (docs/reviews/root-w40-check3.md O1): rustc_attr_ir's
+// `data_structures.ts` spreads its generated file's values, and the generated file imports it back, so the cycle must be entered through `data_structures.ts`.
+test("this crate loads as the first module of a process", () => {
+  const r = Bun.spawnSync([process.execPath, "-e", `import ${JSON.stringify(`${import.meta.dir}/lib.ts`)};`], { stdout: "pipe", stderr: "pipe" });
+  expect(r.stderr.toString()).toBe("");
+  expect(r.exitCode).toBe(0);
+});

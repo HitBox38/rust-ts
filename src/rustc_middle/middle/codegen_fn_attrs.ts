@@ -37,7 +37,7 @@ import {
   type Linkage,
   type OptimizeAttr,
   type RtsanSetting,
-} from "../../rustc_attr_ir/data_structures.gen.ts";
+} from "../../rustc_attr_ir/data_structures.ts";
 import { debug_DefId, type DefId } from "../../rustc_span/def_id.ts";
 import { debug_Symbol, type Symbol } from "../../rustc_span/symbol.ts";
 import { debug_SanitizerSet, decode_SanitizerSet, encode_SanitizerSet, SanitizerSet } from "../../rustc_structures/sanitizer_set.ts";
