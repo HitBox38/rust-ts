@@ -3,10 +3,23 @@
 // - `one_big`: one inlined item, the biggest overlap by size, so it is the one merged;
 // - `two_small`: two small inlined items, the most items, which is what counting items instead of size would pick.
 // `dst` then outgrows `top` by more than `two_small` weighs, so `two_small` goes into `top`. A wrong pick stays with `dst`.
+// `#![no_core]` for the unit budget (docs/reviews/plan-m7.md F5): loading `core` is most of what a case costs.
+#![feature(no_core, lang_items)]
+#![no_core]
 #![crate_type = "lib"]
-#![no_std]
+#![allow(internal_features, unused_assignments)]
 
-macro_rules! x5 { ($v:ident) => { $v ^= 1; $v ^= 2; $v ^= 3; $v ^= 4; $v ^= 5; } }
+#[lang = "pointee_sized"]
+trait PointeeSized {}
+#[lang = "meta_sized"]
+trait MetaSized: PointeeSized {}
+#[lang = "sized"]
+trait Sized: MetaSized {}
+#[lang = "copy"]
+trait Copy {}
+impl Copy for u32 {}
+
+macro_rules! x5 { ($v:ident) => { $v = 1; $v = 2; $v = 3; $v = 4; $v = 5; } }
 
 #[inline(always)]
 fn big(x: u32) -> u32 {
@@ -18,14 +31,14 @@ fn big(x: u32) -> u32 {
 #[inline(always)]
 fn small1(x: u32) -> u32 {
     let mut v = x;
-    v ^= 1;
+    v = 1;
     v
 }
 
 #[inline(always)]
 fn small2(x: u32) -> u32 {
     let mut v = x;
-    v ^= 2;
+    v = 2;
     v
 }
 
