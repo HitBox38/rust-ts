@@ -119,7 +119,42 @@ export interface SnapshotVecDelegate<Value, Undo> {
 
   // crate: ena-0.14.4/src/snapshot_vec.rs:144 reverse
   reverse(values: Value[], action: Undo): void;
+
+  /**
+   * PORT(perf): not in upstream. What a `WriteWatch` reader can see of the element at `index`, as a string; two calls that
+   * give the same string mean a reader gets the same answer from either value.
+   */
+  watch_state?(index: number, value: Value): string;
 }
+
+/**
+ * PORT(perf) (lane perf-near-limit): upstream has no such thing. One reader (`StalledPrefix`, rustc_trait_selection
+ * solve/fulfill.ts) has a list of entries that each read some elements here, and asks "up to which entry can nothing they
+ * read have changed since I set this?". `first_reader[index]` is the lowest entry that read that element, `NO_READER` if none.
+ * The array is empty when nobody asks, so writers pay one bounds check. Every write path of `SnapshotVec` reports here: `set`,
+ * `set_all`, `update`, `get_mut` and both rollback paths. `push` and `extend` only add elements at or above the length, which
+ * no entry can have read. `changed_from` only falls, until the reader sets it again.
+ *
+ * `update` and a rollback's `SetElem` compare `D.watch_state` before and after, when the delegate has one: `set`, `set_all`
+ * and `get_mut` always count as a change.
+ */
+export class WriteWatch {
+  first_reader: Int32Array = NO_READERS;
+  /** The lowest entry that read something that has changed. */
+  changed_from: number = NO_READER;
+  /** Would a change to this element lower `changed_from`? */
+  matters(index: number): boolean {
+    return index < this.first_reader.length && this.first_reader[index]! < this.changed_from;
+  }
+  note(index: number): void {
+    if (this.matters(index)) this.changed_from = this.first_reader[index]!;
+  }
+  note_all(): void {
+    if (this.first_reader.length > 0) this.changed_from = 0;
+  }
+}
+export const NO_READER = 0x7fff_ffff;
+const NO_READERS = new Int32Array(0);
 
 export class SnapshotVec<Value, Undo, L = VecLog<UndoLog<Value, Undo>>> {
   constructor(
@@ -127,6 +162,8 @@ export class SnapshotVec<Value, Undo, L = VecLog<UndoLog<Value, Undo>>> {
     public undo_log: L,
     /** PORT: `_marker: PhantomData<D>` holds `D`. */
     readonly D: SnapshotVecDelegate<Value, Undo>,
+    /** PORT(perf): shared with every `with_log` view of these `values`; a `clone` gets its own. */
+    readonly watch: WriteWatch = new WriteWatch(),
   ) {}
 
   // HACK(eddyb) manual impl avoids `Default` bound on `D`.
@@ -146,7 +183,7 @@ export class SnapshotVec<Value, Undo, L = VecLog<UndoLog<Value, Undo>>> {
   /// Creates a `SnapshotVec` using the `undo_log`, allowing mutating methods to be called
   // crate: ena-0.14.4/src/snapshot_vec.rs:168 with_log
   with_log<L2 extends UndoLogs<UndoLog<Value, Undo>>>(this: SnapshotVecStorage<Value, Undo>, undo_log: L2): SnapshotVec<Value, Undo, L2> {
-    return new SnapshotVec<Value, Undo, L2>(this.values, undo_log, this.D);
+    return new SnapshotVec<Value, Undo, L2>(this.values, undo_log, this.D, this.watch);
   }
 
   // crate: ena-0.14.4/src/snapshot_vec.rs:184 with_capacity
@@ -172,6 +209,7 @@ export class SnapshotVec<Value, Undo, L = VecLog<UndoLog<Value, Undo>>> {
   // crate: ena-0.14.4/src/snapshot_vec.rs:205 get_mut
   get_mut(index: number): Value {
     index_check(this.values, index);
+    this.watch.note(index);
     return this.values[index]!;
   }
 
@@ -212,6 +250,7 @@ export class SnapshotVec<Value, Undo, L = VecLog<UndoLog<Value, Undo>>> {
   set(this: SnapshotVec<Value, Undo, UndoLogs<UndoLog<Value, Undo>>>, index: number, new_elem: Value): void {
     // `mem::replace(&mut self.values.as_mut()[index], new_elem)`
     index_check(this.values, index);
+    this.watch.note(index);
     const old_elem = this.values[index]!;
     this.values[index] = new_elem;
     if (this.undo_log.in_snapshot()) {
@@ -224,6 +263,7 @@ export class SnapshotVec<Value, Undo, L = VecLog<UndoLog<Value, Undo>>> {
   // crate: ena-0.14.4/src/snapshot_vec.rs:249 set_all
   set_all(this: SnapshotVec<Value, Undo, UndoLogs<UndoLog<Value, Undo>>>, new_elems: (index: number) => Value): void {
     if (!this.undo_log.in_snapshot()) {
+      this.watch.note_all();
       for (let index = 0; index < this.values.length; index++) {
         this.values[index] = new_elems(index);
       }
@@ -242,6 +282,20 @@ export class SnapshotVec<Value, Undo, L = VecLog<UndoLog<Value, Undo>>> {
       this.undo_log.push({ $: "SetElem", _0: index, _1: old_elem });
     }
     index_check(this.values, index);
+    const watch = this.watch;
+    const watch_state = this.D.watch_state;
+    if (watch.matters(index)) {
+      const v = this.values[index]!;
+      if (watch_state === undefined) {
+        watch.note(index);
+        op(v);
+      } else {
+        const before = watch_state(index, v);
+        op(v);
+        if (watch_state(index, v) !== before) watch.note(index);
+      }
+      return;
+    }
     op(this.values[index]!);
   }
 
@@ -263,7 +317,12 @@ export class SnapshotVec<Value, Undo, L = VecLog<UndoLog<Value, Undo>>> {
     // `&mut self.values` (`V: Rollback<UndoLog<D>>`)
     const D = this.D;
     const values = this.values;
-    const rollback: Rollback<UndoLog<Value, Undo>> = { reverse: (undo) => reverse_Vec(D, values, undo) };
+    const rollback: Rollback<UndoLog<Value, Undo>> = {
+      reverse: (undo) => {
+        this.note_undo(undo);
+        reverse_Vec(D, values, undo);
+      },
+    };
     this.undo_log.rollback_to(() => rollback, snapshot.snapshot);
   }
 
@@ -328,7 +387,22 @@ export class SnapshotVec<Value, Undo, L = VecLog<UndoLog<Value, Undo>>> {
 
   // crate: ena-0.14.4/src/snapshot_vec.rs:44 reverse
   reverse(this: SnapshotVecStorage<Value, Undo>, undo: UndoLog<Value, Undo>): void {
+    this.note_undo(undo);
     reverse_Vec(this.D, this.values, undo);
+  }
+
+  /** PORT(perf): tells the `WriteWatch` about one rollback step, before it is applied. */
+  private note_undo(undo: UndoLog<Value, Undo>): void {
+    const watch = this.watch;
+    if (undo.$ === "Other") {
+      watch.note_all();
+      return;
+    }
+    const index = undo._0;
+    if (!watch.matters(index)) return;
+    const watch_state = this.D.watch_state;
+    if (undo.$ === "SetElem" && watch_state !== undefined && watch_state(index, this.values[index]!) === watch_state(index, undo._1)) return;
+    watch.note(index);
   }
 }
 

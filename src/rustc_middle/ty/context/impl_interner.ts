@@ -574,7 +574,9 @@ TyCtxt.prototype.get_re_static_lifetime = function (this: TyCtxt): Region {
 // rustc: compiler/rustc_middle/src/ty/context/impl_interner.rs:702 intern_re_var
 TyCtxt.prototype.intern_re_var = function (this: TyCtxt, rv: RegionVid): Region {
   // Use a pre-interned one when possible.
-  return this.lifetimes.re_vars[rv] ?? this.intern_region({ $: "ReVar", _0: rv });
+  // PORT(perf): `re_var_memo`, see `CommonLifetimes`.
+  const l = this.lifetimes;
+  return l.re_vars[rv] ?? (l.re_var_memo[rv] ??= this.intern_region({ $: "ReVar", _0: rv }));
 };
 
 // rustc: compiler/rustc_middle/src/ty/context/impl_interner.rs:711 intern_region
@@ -598,7 +600,8 @@ TyCtxt.prototype.intern_canonical_bound = function (this: TyCtxt, var_: BoundVar
   if (re !== undefined) {
     return re;
   } else {
-    return this.intern_region({ $: "ReBound", _0: { $: "Canonical" }, _1: { var: var_, kind: { $: "Anon" } } });
+    // PORT(perf): `canonical_bound_memo`, see `CommonLifetimes`.
+    return (this.lifetimes.canonical_bound_memo[var_] ??= this.intern_region({ $: "ReBound", _0: { $: "Canonical" }, _1: { var: var_, kind: { $: "Anon" } } }));
   }
 };
 

@@ -166,6 +166,13 @@ export function Delegate<K, V, E>(K: UnifyKey<K, V, E>): Delegate<K, V, E> {
 
     // crate: ena-0.14.4/src/unify/backing_vec.rs:164 reverse
     reverse(_values: VarValue<K, V>[], _undo: undefined): void {},
+
+    // PORT(perf): see `WriteWatch`. `StalledPrefix`'s entries read of a variable whether it is a root and, if so, whether its
+    // value's variant is `Unknown` (or, on the subtyping table, only whether it is a root). Path compression (a non-root's
+    // parent) and a root's rank or `Unknown` universe do not show in this string; becoming a non-root or `Known` does.
+    watch_state(index: number, v: VarValue<K, V>): string {
+      return K.eq(v.parent, K.from_index(index)) ? `root:${(v.value as { readonly $?: string } | undefined)?.$}` : "child";
+    },
   };
 }
 
