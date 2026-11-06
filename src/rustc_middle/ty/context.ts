@@ -1892,7 +1892,8 @@ export class TyCtxt {
   // ---- interning (context.rs:1975-2620; lane ty-contract) ----
 
   // PORT: `direct_interners!` (context.rs:1975) expands, per entry, `Borrow`/`PartialEq`/`Hash` impls for
-  // `InternedInSet<$ty>` (the canonical intern key, module comment) and `fn $method(self, v: $ty) -> $ret_ty`.
+  // `InternedInSet<$ty>` and `fn $method(self, v: $ty) -> $ret_ty`. The impls are the canonical intern key (module comment), or for
+  // the tables that take `intern_value` / `intern_slice`, `value_hash` and `value_eq` on the stored value, which agree with that key.
   // rustc-macro: compiler/rustc_middle/src/ty/context.rs:2014 direct_interners! intern_region
   intern_region(v: RegionKind): Region {
     return Interned.new_unchecked(this.interners.region.intern_value(v, region_kind_of, (v) => new Region(v)));
@@ -2813,9 +2814,10 @@ function sty_debug_print_go(fmt: Fmt, tcx: TyCtxt, variants: readonly TyKind["$"
 // (non-arena-memory-owning) types.
 // rustc-type: compiler/rustc_middle/src/ty/context.rs:1889 InternedInSet
 // PORT (D2): the set stores the hash-consed object itself (no arena), and the `Borrow` / `PartialEq` / `Hash` impls
-// below are what the canonical intern key realises: an `InternedSet` is keyed by `intern_key(borrow(x))`, so two
-// entries are equal iff their borrowed forms have the same key. They are written out as functions over the stored
-// object; the interners call `intern_key` on the borrowed value directly.
+// below are what the canonical intern key realises: two entries are equal iff their borrowed forms have the same key.
+// They are written out as functions over the stored object. Some interners call `intern_key` on the borrowed value directly;
+// the hot ones (types, regions, consts, predicates, clauses, lists, canonical inputs, external constraints) look the value up
+// with `intern_value` / `intern_slice`, which make no key string (rustc_data_structures/sharded.ts, lane perf-near-limit).
 export const InternedInSet = {
   // rustc: compiler/rustc_middle/src/ty/context.rs:1892 clone
   clone<T>(self: T): T {

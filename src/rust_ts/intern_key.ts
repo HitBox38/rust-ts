@@ -318,6 +318,19 @@ function hash_string(s: string): number {
   return h | 0;
 }
 
+/**
+ * One field's share of a struct's hash. The shares are summed, so that fields hash the same in any order. A multiply alone is linear, so
+ * its sum depends on little but the sum of the fields: `Ref(r, t)` over 100 regions by 40,000 types shared a hash on 58% of values,
+ * with 92 in a bucket, against about 0.05% for random hashes (review perf-near-limit N3). So the second round, and the name's last
+ * char to tell `_0` from `_1`, as swapped fields would otherwise always meet. Only which bucket a value is in depends on this:
+ * `value_eq` decides every hit, and no table is iterated.
+ */
+function field_hash(name: string, field: unknown): number {
+  const x = Math.imul(value_hash(field) ^ 0x5bd1e995 ^ Math.imul(name.charCodeAt(name.length - 1), 0x01000193), 0x9e3779b1);
+  const y = Math.imul(x ^ (x >>> 15), 0x85ebca6b);
+  return y ^ (y >>> 13);
+}
+
 export function value_hash(v: unknown): number {
   switch (typeof v) {
     case "number":
@@ -346,14 +359,14 @@ export function value_hash(v: unknown): number {
         // A literal, as nearly all are: `for in` makes no array, and such an object inherits nothing enumerable.
         for (const k in v) {
           const f = (v as Record<string, unknown>)[k];
-          if (f !== undefined) h = (h + hash_mix(0x5bd1e995, value_hash(f))) | 0;
+          if (f !== undefined) h = (h + field_hash(k, f)) | 0;
         }
         return h;
       }
       const keys = Object.keys(v);
       for (let i = 0; i < keys.length; i++) {
         const f = (v as Record<string, unknown>)[keys[i]!];
-        if (f !== undefined) h = (h + hash_mix(0x5bd1e995, value_hash(f))) | 0;
+        if (f !== undefined) h = (h + field_hash(keys[i]!, f)) | 0;
       }
       return h;
     }
@@ -431,4 +444,9 @@ export function intern_key(v: unknown): string {
 /** For `ShardedHashMap::intern_value`: a real `intern_key` call when the test hook is on, so its corpus still sees every value. */
 export function observe_interned(v: unknown): void {
   if (observer !== undefined) observer(v, key_of(v));
+}
+
+/** `observe_interned` of a slice: a list is its elements, as in `slice_intern`'s key. Copies it only for an observer. */
+export function observe_interned_slice(v: readonly unknown[]): void {
+  if (observer !== undefined) observe_interned(v instanceof Array && v.constructor !== Array ? Array.from(v) : v);
 }
