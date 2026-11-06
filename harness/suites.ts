@@ -1,7 +1,7 @@
 // Differential test suites. Each case runs on the oracle and on rust-ts with the same
 // inputs; outputs (stdout, stderr, exit code) must be byte-identical.
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, relative } from "node:path";
 import { DATA, REPO, UPSTREAM, die, hash } from "../scripts/lib/common.ts";
 import { caseDeps } from "../scripts/lib/deps.ts";
 import { caseEnv, mergeEnv } from "../scripts/lib/env.ts";
@@ -12,6 +12,7 @@ import type { IrTier } from "../scripts/lib/ir-normal.ts";
 import { llvmBinDir, llvmToolHashes, llvmToolsError, llvmToolsPinError } from "../scripts/lib/llvm-tools.ts";
 import { MIRI_CASE_ENV, MIRI_DEFAULT_ARGS, MIRI_SYSROOT, miriBinary, miriOracleKey, miriPin } from "../scripts/lib/miri.ts";
 import { COMPILETEST_TARGET, collectUiTests, mirOptCases, uiBlessed, uiCases, uiFileCases, uiOutputBaseDir, uiTestCases, type Blessed, type ErrorFormat, type UiCase } from "./compiletest.ts";
+import { MIRI_SYSROOT_CORPUS, MIRI_SYSROOT_SUITE_CRATES } from "./miri-sysroot.ts";
 import { AUX_STALE_MS, EMPTY_SYSROOT, M5_TARGET, libArgs, libCrate, libEnv, oracleLibRmeta, pruneStaleAux, touchAuxDir } from "./library.ts";
 
 export interface Case {
@@ -1262,6 +1263,8 @@ SUITES.push(
 export const RMETA_RUN = join(REPO, "scripts", "rmeta-run.ts");
 /** The script both sides of a check-rg suite run; scripts/gate.ts `oracleRuns` knows it. */
 export const RG_CHECK = join(REPO, "scripts", "rg-check.ts");
+/** The wrapper both sides of the `miri-sysroot-*` suites run; scripts/gate.ts `oracleRuns` reads its command line. */
+export const MIRI_SYSROOT_RUN = join(REPO, "scripts", "miri-sysroot-run.ts");
 /** The wrapper's directory for one case's two files. */
 const rmetaOut = (suite: string, c: Case): string => join(DATA, "rmeta", suite, hash(c.id).slice(0, 16));
 /** The probe's options and rustc arguments (`--dump-arg`s; see scripts/rmeta-run.ts). */
@@ -2234,3 +2237,30 @@ export function suite(name: string): Suite {
 export function fileSize(file: string): number {
   return statSync(join(UPSTREAM, file)).size;
 }
+
+// `miri-sysroot-<crate>` (plan-m6 §5, D4; lane harness-m6d; report only: no baseline, so in no gate by default): the port as
+// `MIRI_BE_RUSTC=target` builds the crate with cargo-miri's argv (harness/miri-sysroot.ts); stdout + stderr + exit + the sizes and
+// hashes of the dep-info, rmeta and rlib, and whether rmeta and rlib equal the Miri sysroot's (scripts/miri-sysroot-run.ts). One
+// case, one process per side, heavy: the port took 90 s and 9 GB on core, the oracle 5 s.
+SUITES.push(
+  ...MIRI_SYSROOT_SUITE_CRATES.map((crate): Suite => {
+    const run = (side: "oracle" | "subject", compiler: string[]): string[] => [process.execPath, MIRI_SYSROOT_RUN, "--crate", crate, "--side", side, "--", ...compiler];
+    return {
+      name: `miri-sysroot-${crate}`,
+      milestone: "M6",
+      description: `library/${crate} built by the port as Miri's sysroot compiler (MIRI_BE_RUSTC=target) with cargo-miri's argv: stdout + stderr + exit, the sizes and sha256 of its dep-info, rmeta and rlib, and whether rmeta and rlib equal $RUST_TS_DATA/miri-sysroot's; report only (plan-m6 D4)`,
+      mode: "single",
+      miri: true,
+      heavy: M5_HEAVY,
+      timeoutMs: 1_800_000,
+      oracleTimeoutMs: 300_000,
+      cwd: REPO,
+      // Every input is in the toolchain and sysroot that `miriOracleKey` hashes, or is the corpus (the case's file).
+      inputDirs: [],
+      cases: () => [{ id: crate, file: relative(REPO, MIRI_SYSROOT_CORPUS), args: [crate], env: { ...NOCORE_ENV, ...MIRI_CASE_ENV } }],
+      oracleKey: () => hash([hash(readFileSync(MIRI_SYSROOT_RUN)), hash(readFileSync(MIRI_SYSROOT_CORPUS)), miriOracleKey()].join("\0")),
+      oracle: () => run("oracle", [miriBinary()]),
+      subject: () => run("subject", miriSubjectOf(MIRI_DRIVER_ENTRY, [])),
+    };
+  }),
+);

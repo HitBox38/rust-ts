@@ -14,6 +14,7 @@ import { Err, Ok } from "../../../std/result.ts";
 import type { BinaryFormat } from "../common.ts";
 import { ElfFile32, ElfFile64, type ElfFile, type ElfSection } from "./elf/mod.ts";
 import { MachOFile32, MachOFile64, type MachOFile, type MachOSection } from "./macho/mod.ts";
+import { ElfSymbolIterator } from "./elf/symbol.ts";
 import { Error, FileKind, type ObjectKind, type Result, type SectionIndex } from "./mod.ts";
 import type { Object, ObjectSection } from "./traits.ts";
 import { WasmFile, type WasmSection } from "./wasm.ts";
@@ -87,6 +88,14 @@ export class File implements Object<Section> {
       default:
         return Err(new Error("Unsupported file format"));
     }
+  }
+
+  /// PORT: `Object::symbols` (any.rs:421): `SymbolIterator` is the ELF iterator; other formats have no symbol API yet.
+  // crate: object-0.39.1/src/read/any.rs:421 symbols
+  symbols(): ElfSymbolIterator {
+    const inner = this.inner;
+    if (inner.$ === "Elf32" || inner.$ === "Elf64") return new ElfSymbolIterator(inner._0.endian_, inner._0.symbols);
+    return unported(`object::read::File::symbols (${inner.$})`);
   }
 
   /// Return the file format.

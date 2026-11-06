@@ -839,6 +839,11 @@ export class Session {
     return this.opts.unstable_opts.contract_checks ?? false;
   }
 
+  // rustc: compiler/rustc_session/src/session.rs:808 target_can_use_split_dwarf
+  target_can_use_split_dwarf(): boolean {
+    return this.target.options.debuginfo_kind === "Dwarf";
+  }
+
   // rustc: compiler/rustc_session/src/session.rs:1099 split_debuginfo
   split_debuginfo(): SplitDebuginfo {
     return this.opts.cg.split_debuginfo ?? this.target.split_debuginfo;

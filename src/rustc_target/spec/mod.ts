@@ -51,6 +51,7 @@
 //   `small_data_threshold_support_()`.
 // - Only the built-in targets listed in `PORTED_TARGETS` are ported; `load_builtin` of any other
 //   built-in tuple calls `unported`.
+import type { Architecture, BinaryFormat as object_BinaryFormat, SubArchitecture } from "../../vendor/object/common.ts";
 import {
   Align,
   type AddressSpace,
@@ -1690,9 +1691,20 @@ export const BinaryFormat = {
   ),
 
   /// Returns [`object::BinaryFormat`] for given `BinaryFormat`
-  // not ported (no marker; mod.rs:1242 to_object): needs the `object` crate (wave 11).
-  to_object(_self: BinaryFormat): never {
-    return unported("rustc_target::spec::BinaryFormat::to_object (object crate)");
+  // rustc: compiler/rustc_target/src/spec/mod.rs:1242 to_object
+  to_object(self: BinaryFormat): object_BinaryFormat {
+    switch (self) {
+      case "Coff":
+        return "Coff";
+      case "Elf":
+        return "Elf";
+      case "MachO":
+        return "MachO";
+      case "Wasm":
+        return "Wasm";
+      case "Xcoff":
+        return "Xcoff";
+    }
   },
 
   // rustc: compiler/rustc_target/src/spec/mod.rs:1252 desc_symbol
@@ -2847,10 +2859,76 @@ export class Target {
     }
   }
 
-  // not ported (no marker; mod.rs:3025 object_architecture): returns `object::Architecture` (the
-  // `object` crate, wave 11).
-  object_architecture(_internal_target_features: ReadonlySet<Symbol>): never {
-    return unported("rustc_target::spec::Target::object_architecture (object crate)");
+  // rustc: compiler/rustc_target/src/spec/mod.rs:3025 object_architecture
+  object_architecture(internal_target_features: ReadonlySet<Symbol>): [Architecture, SubArchitecture | undefined] | undefined {
+    switch (this.arch.$) {
+      case "Arm":
+        return ["Arm", undefined];
+      case "AArch64":
+        return [this.pointer_width === 32 ? "Aarch64_Ilp32" : "Aarch64", undefined];
+      case "X86":
+        return ["I386", undefined];
+      case "S390x":
+        return ["S390x", undefined];
+      case "M68k":
+        return ["M68k", undefined];
+      case "Mips":
+      case "Mips32r6":
+        return ["Mips", undefined];
+      case "Mips64":
+      case "Mips64r6":
+        // While there are currently no builtin targets
+        // using the N32 ABI, it is possible to specify
+        // it using a custom target specification. N32
+        // is an ILP32 ABI like the Aarch64_Ilp32
+        // and X86_64_X32 cases above and below this one.
+        return [this.options.llvm_abiname.$ === "N32" ? "Mips64_N32" : "Mips64", undefined];
+      case "X86_64":
+        return [this.pointer_width === 32 ? "X86_64_X32" : "X86_64", undefined];
+      case "PowerPC":
+        return ["PowerPc", undefined];
+      case "PowerPC64":
+        return ["PowerPc64", undefined];
+      case "RiscV32":
+        return ["Riscv32", undefined];
+      case "RiscV64":
+        return ["Riscv64", undefined];
+      case "Sparc":
+        if (internal_target_features.has(sym.v8plus)) {
+          // Target uses V8+, aka EM_SPARC32PLUS, aka 64-bit V9 but in 32-bit mode
+          return ["Sparc32Plus", undefined];
+        } else {
+          // Target uses V7 or V8, aka EM_SPARC
+          return ["Sparc", undefined];
+        }
+      case "Sparc64":
+        return ["Sparc64", undefined];
+      case "Avr":
+        return ["Avr", undefined];
+      case "Msp430":
+        return ["Msp430", undefined];
+      case "Hexagon":
+        return ["Hexagon", undefined];
+      case "Xtensa":
+        return ["Xtensa", undefined];
+      case "Bpf":
+        return ["Bpf", undefined];
+      case "LoongArch32":
+        return ["LoongArch32", undefined];
+      case "LoongArch64":
+        return ["LoongArch64", undefined];
+      case "CSky":
+        return ["Csky", undefined];
+      case "Arm64EC":
+        return ["Aarch64", "Arm64EC"];
+      case "AmdGpu":
+      case "Nvptx64":
+      case "SpirV":
+      case "Wasm32":
+      case "Wasm64":
+      case "Other":
+        return undefined;
+    }
   }
 
   /// Returns whether this target is known to have unreliable alignment:
