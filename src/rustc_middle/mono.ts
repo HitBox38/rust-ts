@@ -13,20 +13,12 @@
 import { InlineAttr, type Linkage, debug_Linkage } from "../rustc_attr_ir/data_structures.ts";
 import { type BaseNString, CASE_INSENSITIVE, ToBaseN_u128, to_base_fixed_len } from "../rustc_data_structures/base_n.ts";
 import { Fingerprint } from "../rustc_data_structures/fingerprint.ts";
-import {
-  type StableHashCtxt,
-  StableHasher,
-  stable_hash_Discriminant,
-  stable_hash_Option,
-  stable_hash_bool,
-  stable_hash_usize,
-} from "../rustc_data_structures/stable_hash.ts";
+import { type StableHashCtxt, StableHasher } from "../rustc_data_structures/stable_hash.ts";
 import { Hash128, Hash64 } from "../rustc_hashes/lib.ts";
 import { type ItemId, debug_ItemId } from "../rustc_hir/hir.ts";
-import { stable_hash_ItemId } from "../rustc_hir/stable_hash.gen.ts";
 import { intern_key } from "../rust_ts/intern_key.ts";
 import { KeyedMap } from "../rust_ts/keyed.ts";
-import { type CrateNum, type DefId, type DefIdSet, LOCAL_CRATE, StableCrateId, debug_DefId, stable_hash_DefId } from "../rustc_span/def_id.ts";
+import { type CrateNum, type DefId, type DefIdSet, LOCAL_CRATE, StableCrateId, debug_DefId } from "../rustc_span/def_id.ts";
 import { OrdSpan, Span } from "../rustc_span/lib.ts";
 import { Symbol, debug_Symbol } from "../rustc_span/symbol.ts";
 import type { SymbolVisibility } from "../rustc_target/spec/mod.ts";
@@ -34,9 +26,8 @@ import { type Debug, debug_map, debug_option, debug_struct, debug_tuple, debug_v
 import { assert, panic, unported } from "../std/panic.ts";
 import { Str, str_floor_char_boundary, utf8, utf8_len } from "../std/str.ts";
 import { CodegenFnAttrFlags, CodegenFnAttrs, TyCtxt_codegen_instance_attrs } from "./middle/codegen_fn_attrs.ts";
-import { stable_hash_Ty } from "./stable_hash.gen.ts";
+import { stable_hash_MonoItem } from "./mono_stable_hash.gen.ts";
 import type { TyCtxt } from "./ty/context.ts";
-import { stable_hash_GenericArg, stable_hash_RawList } from "./ty/impls_ty.ts";
 import type { ReifyReason } from "./ty/instance.gen.ts";
 import { Instance, InstanceKind, type ShimKind, debug_Instance, display_Instance } from "./ty/instance.ts";
 import { RawList } from "./ty/list.ts";
@@ -442,104 +433,6 @@ export function display_MonoItem(self: MonoItem): string {
       return `static ${display_Instance(Instance.new_raw(self._0, RawList.empty()))}`;
     case "GlobalAsm":
       return "global_asm";
-  }
-}
-
-// PORT(contract): pending a generator batch. `#[derive(StableHash)]` of `MonoItem` and of what it holds, written out as
-// tools/codegen's generator would (the discriminant, then the fields in declaration order), because tools/ is not this
-// lane's and no set generates them yet. Root: add the types to a set and delete these (docs/handoff/mono-partition.md).
-function stable_hash_MonoItem(self: MonoItem, __hcx: StableHashCtxt, __hasher: StableHasher): void {
-  switch (self.$) {
-    case "Fn":
-      stable_hash_Discriminant(0, __hcx, __hasher);
-      stable_hash_InstanceKind(self._0.def, __hcx, __hasher);
-      stable_hash_RawList(self._0.args, __hcx, __hasher, stable_hash_GenericArg);
-      break;
-    case "Static":
-      stable_hash_Discriminant(1, __hcx, __hasher);
-      stable_hash_DefId(self._0, __hcx, __hasher);
-      break;
-    case "GlobalAsm":
-      stable_hash_Discriminant(2, __hcx, __hasher);
-      stable_hash_ItemId(self._0, __hcx, __hasher);
-      break;
-  }
-}
-function stable_hash_InstanceKind(self: InstanceKind, __hcx: StableHashCtxt, __hasher: StableHasher): void {
-  switch (self.$) {
-    case "Item":
-      stable_hash_Discriminant(0, __hcx, __hasher);
-      stable_hash_DefId(self._0, __hcx, __hasher);
-      break;
-    case "Intrinsic":
-      stable_hash_Discriminant(1, __hcx, __hasher);
-      stable_hash_DefId(self._0, __hcx, __hasher);
-      break;
-    case "LlvmIntrinsic":
-      stable_hash_Discriminant(2, __hcx, __hasher);
-      stable_hash_DefId(self._0, __hcx, __hasher);
-      break;
-    case "Virtual":
-      stable_hash_Discriminant(3, __hcx, __hasher);
-      stable_hash_DefId(self._0, __hcx, __hasher);
-      stable_hash_usize(self._1, __hcx, __hasher);
-      break;
-    case "Shim":
-      stable_hash_Discriminant(4, __hcx, __hasher);
-      stable_hash_ShimKind(self._0, __hcx, __hasher);
-      break;
-  }
-}
-/** `mem::discriminant` of `ShimKind`: its declaration order (ty/instance.rs:106). */
-const ShimKind__discriminant: Record<ShimKind["$"], number> = {
-  VTable: 0,
-  Reify: 1,
-  FnPtr: 2,
-  ClosureOnce: 3,
-  ConstructCoroutineInClosure: 4,
-  ThreadLocal: 5,
-  FutureDropPoll: 6,
-  DropGlue: 7,
-  Clone: 8,
-  FnPtrAsPtr: 9,
-  FnPtrFromPtr: 10,
-  AsyncDropGlueCtor: 11,
-  AsyncDropGlue: 12,
-};
-function stable_hash_ShimKind(self: ShimKind, __hcx: StableHashCtxt, __hasher: StableHasher): void {
-  stable_hash_Discriminant(ShimKind__discriminant[self.$], __hcx, __hasher);
-  switch (self.$) {
-    case "VTable":
-    case "ThreadLocal":
-      stable_hash_DefId(self._0, __hcx, __hasher);
-      break;
-    case "Reify":
-      stable_hash_DefId(self._0, __hcx, __hasher);
-      stable_hash_Option(self._1, __hcx, __hasher, (v: ReifyReason, h, x) => stable_hash_Discriminant(v === "FnPtr" ? 0 : 1, h, x));
-      break;
-    case "ClosureOnce":
-      stable_hash_DefId(self.call_once, __hcx, __hasher);
-      stable_hash_DefId(self.closure, __hcx, __hasher);
-      stable_hash_bool(self.track_caller, __hcx, __hasher);
-      break;
-    case "ConstructCoroutineInClosure":
-      stable_hash_DefId(self.coroutine_closure_def_id, __hcx, __hasher);
-      stable_hash_bool(self.receiver_by_ref, __hcx, __hasher);
-      break;
-    case "FutureDropPoll":
-      stable_hash_DefId(self._0, __hcx, __hasher);
-      stable_hash_Ty(self._1, __hcx, __hasher);
-      stable_hash_Ty(self._2, __hcx, __hasher);
-      break;
-    case "DropGlue":
-      stable_hash_DefId(self._0, __hcx, __hasher);
-      stable_hash_Option(self._1, __hcx, __hasher, stable_hash_Ty);
-      break;
-    default:
-      // `FnPtr`, `AsyncDropGlue`, `Clone`, `FnPtrAsPtr`, `FnPtrFromPtr`, `AsyncDropGlueCtor`: `(DefId, Ty)`.
-      stable_hash_DefId(self._0, __hcx, __hasher);
-      stable_hash_Ty(self._1, __hcx, __hasher);
-      break;
   }
 }
 

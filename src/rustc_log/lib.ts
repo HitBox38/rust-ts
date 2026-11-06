@@ -13,6 +13,7 @@
 // `RUSTC_LOG_THREAD_IDS` output.
 import { openSync } from "node:fs";
 import { isatty } from "node:tty";
+import { var_ as env_var, type VarError } from "../std/env.ts";
 import { PLAIN } from "../std/fmt.ts";
 import { debug_IoError, io_error_from_node } from "../std/io.ts";
 import { unported } from "../std/panic.ts";
@@ -20,17 +21,7 @@ import { Err, Ok, type Result } from "../std/result.ts";
 import { Directive, EnvFilter, type Event, INFO_CONVERTED_TARGETS, display_LevelFilter, unconverted_info_directive, type Layer, LayeredSubscriber, type SetGlobalDefaultError, display_SetGlobalDefaultError, set_global_default } from "../rust_ts/tracing.ts";
 import { HierarchicalLayer, type Writer, fd_writer, stderr_writer } from "../rust_ts/tracing_tree.ts";
 
-/** `std::env::VarError` */
-export type VarError = { $: "NotPresent" } | { $: "NotUnicode"; _0: Uint8Array };
-
-/**
- * `env::var(name)`. PORT: `process.env` holds strings only, so `VarError::NotUnicode` is never produced (a
- * non-UTF-8 value reaches rust-ts already decoded lossily).
- */
-function env_var(name: string): Result<string, VarError> {
-  const v = process.env[name];
-  return v === undefined ? Err({ $: "NotPresent" }) : Ok(v);
-}
+export type { VarError };
 
 function is_ok_and(r: Result<string, VarError>, f: (v: string) => boolean): boolean {
   return r.$ === "Ok" && f(r._0);

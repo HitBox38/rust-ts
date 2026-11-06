@@ -21,6 +21,7 @@
 // - `str::parse` of the flag values: `u32` / `u64` through rustc_session's `u32_from_str` / `u64_from_str` (core's
 //   radix-10 rules), `NonZero<u64>` adds the `Zero` error; `f64` through `f64_from_str` below (core's dec2flt grammar).
 //   The `ParseIntError` texts are core's `IntErrorKind` descriptions.
+import "../../rust_ts/miri_stack_first.ts"; // LOAD ORDER: before everything else, see that file.
 import "../lib.ts";
 import {
   type BacktraceStyle,
@@ -42,6 +43,8 @@ import { EXTRA_SYMBOLS } from "../sym.ts";
 import { deinit_loggers, init_early_loggers, init_late_loggers } from "./log/setup.ts";
 import { TARGET_CONFIGS } from "../../rust_ts/target_config.gen.ts";
 import { ensure_stack } from "../../rust_ts/stack.ts";
+import { vars_os as std_vars_os } from "../../std/env.ts";
+import { os_str_from_encoded_bytes } from "../shims/os_str.ts";
 import type { CompiledModules, CrateInfo } from "../../rustc_codegen_ssa/lib.ts";
 import {
   type Callbacks,
@@ -77,6 +80,7 @@ import type { CrateType } from "../../rustc_structures/crate_type.ts";
 import { FileName } from "../../rustc_span/lib.ts";
 import { FatalErrorMarker } from "../../rustc_span/fatal_error.ts";
 import { Panic, Unported, assert, panic, unported } from "../../std/panic.ts";
+import { report_uncaught } from "../../std/panicking.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
 import { existsSync, readdirSync, realpathSync, statSync } from "node:fs";
 import { join } from "node:path";
@@ -528,14 +532,10 @@ function parse_range(val: string): Result<{ start: number; end: number }, string
 }
 
 
-/** `env::vars_os().collect::<Vec<_>>()` (PORT: D14 host environment, `OsString` → `string` per the typemap; the order is
- * the runtime's `process.env` order, which follows `environ`). */
+/** `env::vars_os().collect::<Vec<_>>()`. PORT: `environ`'s entries in order (src/std/env.ts); `OsString` -> `string` per the typemap,
+ * keeping bytes that are not UTF-8 (shims/os_str.ts `os_str_from_encoded_bytes`). */
 function vars_os(): [string, string][] {
-  const out: [string, string][] = [];
-  for (const [k, v] of Object.entries(process.env)) {
-    if (v !== undefined) out.push([k, v]);
-  }
-  return out;
+  return std_vars_os().map(([k, v]) => [os_str_from_encoded_bytes(k), os_str_from_encoded_bytes(v)]);
 }
 
 // rustc: src/tools/miri/src/bin/miri.rs:408 main
@@ -966,8 +966,7 @@ if (import.meta.main) {
     } else if (e instanceof FatalErrorMarker) {
       process.exitCode = 101;
     } else {
-      const msg = e instanceof Panic ? e.message : String(e);
-      write_stderr(`rust-ts: internal compiler error: ${msg}\n${e instanceof Error ? e.stack : ""}\n`);
+      report_uncaught(e);
       process.exitCode = 101;
     }
   }

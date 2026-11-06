@@ -4,10 +4,14 @@
 //
 // PORT:
 // - `OsStr` / `OsString` / `Path` / `PathBuf` are `string` (typemap `std::ffi::OsString`; D14: host OS strings are
-//   UTF-8). `as_encoded_bytes()` is the UTF-8 encoding, `os_str.len()` its byte length (`utf8_len`). A JS string holds
+//   UTF-8). `as_encoded_bytes()` is the UTF-8 encoding, `os_str.len()` its byte length (`os_str_len`). A JS string holds
 //   any `str`, but not every `OsStr`: on a Unix host `OsStr::from_bytes` accepts any bytes, and bytes that are not UTF-8
 //   stop `unported` (`bytes_to_os_str`); on a Windows host `OsString::from_wide` accepts unpaired surrogates, which stop
 //   `unported` likewise. Every other path is exact.
+// - The one exception is the host environment Miri forwards, which it only stores and writes into the program's `environ`, and
+//   whose bytes the program can see: `os_str_from_encoded_bytes` keeps a byte that is not UTF-8 as the lone surrogate
+//   U+DC00 + byte, and `os_str_as_encoded_bytes` gives it back. Valid UTF-8 never decodes to a lone surrogate, so this is
+//   injective. A program reading such a string back goes through `bytes_to_os_str`, and stops as above.
 // - `#[cfg(unix)]` / `#[cfg(windows)]` (the *host* Miri runs on) is `HOST_IS_UNIX` / `HOST_IS_WINDOWS`
 //   (`process.platform`), so both variants of `bytes_to_os_str` (:21 / :25), `u16vec_to_osstring` (:52 / :56),
 //   `os_str_to_u16vec` (:89 / :93) and of `convert_path`'s tail are ported and the host picks one, as the build does.
@@ -107,9 +111,45 @@ function string_from_utf16(v: readonly number[]): string | undefined {
   return s;
 }
 
-/** `OsStr::as_encoded_bytes` */
+/** `OsStr::as_encoded_bytes` (see the module header for lone surrogates). */
 export function os_str_as_encoded_bytes(os_str: string): Uint8Array {
-  return UTF8_ENCODER.encode(os_str);
+  if (!/\p{Cs}/u.test(os_str)) return UTF8_ENCODER.encode(os_str);
+  const out: number[] = [];
+  for (const c of os_str) {
+    const u = c.codePointAt(0)!;
+    if (u >= 0xdc80 && u <= 0xdcff) out.push(u - 0xdc00);
+    else {
+      assert(u < 0xd800 || u > 0xdfff, "an OsStr holds no surrogate but an escaped byte");
+      out.push(...UTF8_ENCODER.encode(c));
+    }
+  }
+  return Uint8Array.from(out);
+}
+
+/** `os_str.len()` */
+function os_str_len(os_str: string): number {
+  return /\p{Cs}/u.test(os_str) ? os_str_as_encoded_bytes(os_str).length : utf8_len(os_str);
+}
+
+/** `OsStr::from_encoded_bytes_unchecked(bytes)`, for the host environment: any bytes (see the module header). */
+export function os_str_from_encoded_bytes(bytes: Uint8Array): string {
+  const whole = str_from_utf8(bytes);
+  if (whole !== undefined) return whole;
+  let out = "";
+  for (let i = 0; i < bytes.length; ) {
+    const b = bytes[i]!;
+    const n = b < 0x80 ? 1 : b >= 0xc2 && b <= 0xdf ? 2 : b >= 0xe0 && b <= 0xef ? 3 : b >= 0xf0 && b <= 0xf4 ? 4 : 0;
+    const c = n === 0 ? undefined : str_from_utf8(bytes.subarray(i, i + n));
+    // A short sequence at the end decodes as `undefined` too: the fatal decoder rejects it.
+    if (c === undefined) {
+      out += String.fromCharCode(0xdc00 + b);
+      i += 1;
+    } else {
+      out += c;
+      i += n;
+    }
+  }
+  return out;
 }
 
 // rustc: src/tools/miri/src/shims/os_str.rs:21 bytes_to_os_str
@@ -196,8 +236,9 @@ function os_str_to_u16vec_not_windows(os_str: string): InterpResult<number[]> {
   // On non-Windows platforms the best we can do to transform Vec<u16> from/to OS strings is to do the
   // intermediate transformation into strings. Which invalidates non-utf8 paths that are actually
   // valid.
-  // `os_str.to_str()` is always `Some` for the port's `OsStr` (a `string`, module header); the `None` arm:
-  // `err_unsup_format!("{:?} is not a valid utf-8 string", os_str)` cannot be reached.
+  // `os_str.to_str()` is `None` for a forwarded host string holding an escaped byte (module header), and the arm is
+  // `err_unsup_format!("{:?} is not a valid utf-8 string", os_str)`. Nothing reaches it yet, as shims/env.ts stops Windows targets and
+  // this is their path; when Windows shims arrive, this arm must be added, or a lone surrogate is written into the wide string.
   return interp_ok(string_to_utf16(os_str));
 }
 
@@ -260,7 +301,7 @@ InterpCx.prototype.write_os_str_to_wide_str_truncated = function (
 /// Allocate enough memory to store the given `OsStr` as a null-terminated sequence of bytes.
 // rustc: src/tools/miri/src/shims/os_str.rs:140 alloc_os_str_as_c_str
 InterpCx.prototype.alloc_os_str_as_c_str = function (this: MiriInterpCx, os_str: string, memkind: MemoryKind): InterpResult<Pointer> {
-  const size = BigInt(utf8_len(os_str)) + 1n; // Make space for `0` terminator.
+  const size = BigInt(os_str_len(os_str)) + 1n; // Make space for `0` terminator.
   const this_ = this.eval_context_mut();
 
   const tcx = this_.tcx.deref();

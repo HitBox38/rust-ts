@@ -3,6 +3,7 @@
 import "../rustc_session/options.ts"; // LOAD ORDER: see rustc_session/config.ts
 import { DEFAULT_STACK_SIZE, Input, type Jobs, OutFileName, OutputFilenames, OutputType, OutputTypes, type Sysroot } from "../rustc_session/config.ts";
 import { isatty } from "node:tty";
+import { CURRENT_THREAD } from "../std/panicking.ts";
 import type { Attribute } from "../rustc_ast/ast.gen.ts";
 import { parse_crate_name } from "./passes.ts";
 import type { EarlyDiagCtxt } from "../rustc_session/session.ts";
@@ -176,10 +177,16 @@ function run_in_thread_with_globals<R>(
   // (which might cause problems for the parallel compiler).
   // PORT: no thread: `f` runs on the JS main thread (the stack size is the host's); a panic on the
   // "thread" propagates as the thrown value, like `resume_unwind(e)` after `join`.
-
-  // We build the session globals and run `f` on the spawned thread, because
-  // `SessionGlobals` does not impl `Send` in the non-parallel compiler.
-  return create_session_globals_then(edition, extra_symbols, sm_inputs, () => f(CurrentGcx.new()));
+  // `thread::Builder::new().name("rustc".to_string())`.
+  const thread_name = CURRENT_THREAD.name;
+  CURRENT_THREAD.name = "rustc";
+  try {
+    // We build the session globals and run `f` on the spawned thread, because
+    // `SessionGlobals` does not impl `Send` in the non-parallel compiler.
+    return create_session_globals_then(edition, extra_symbols, sm_inputs, () => f(CurrentGcx.new()));
+  } finally {
+    CURRENT_THREAD.name = thread_name;
+  }
 }
 
 // rustc: compiler/rustc_interface/src/util.rs:214 run_in_thread_pool_with_globals

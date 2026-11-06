@@ -16,6 +16,12 @@
 // is not reproducible: the case is listed in `Suite.unstable`, or its oracle stderr matches one of
 // `UNSTABLE_ORACLE_PATTERNS`; never cached, never compared, never MATCH, and the gate never protects it)
 //
+// Comparison: exact, except that a panic message's OS thread id and a long-type note's hash are masked on both sides, in
+// stderr only, never in stdout and never in what is cached (`maskThreadId`, `maskLongTypeHash`, `stderrMask`, `maskedTexts`,
+// scripts/lib/unstable.ts; lane harness-w40). A single-mode diff file shows the raw text, a split suite's the masked text, so an
+// audit of a split suite reads the id in the cached entry. A Miri suite masks the thread id only when its host process ICEd, and
+// then only `thread 'rustc'`. A batch suite has no stderr to compare, so it masks nothing.
+//
 // Environment: both sides run with the caller's environment minus the variables scripts/lib/env.ts scrubs
 // (`RUSTC_LOG*`, `RUST_BACKTRACE`, `RUSTC_BOOTSTRAP`, `CLICOLOR_FORCE`, `CARGO_*`, ...), plus the case's own
 // `Case.env`. Upstream checkout: `git status` of $RUST_TS_DATA/rust (ignored files included, `build/` excluded:
@@ -63,7 +69,7 @@ import { ORACLE_CACHE, PIN, REPO, RUNS, UPSTREAM, die, ensureDir, hash, nowId, p
 import { withCaseLock } from "./lib/case-lock.ts";
 import { caseDeps, type Dep } from "./lib/deps.ts";
 import { caseEnv } from "./lib/env.ts";
-import { UNSTABLE_ORACLE_PATTERNS, unstableMiriOracleReason, unstableOracleReason } from "./lib/unstable.ts";
+import { EXIT_MARK, STDERR_MARK, UNSTABLE_ORACLE_PATTERNS, maskedTexts, stderrMask, unstableOracleReason } from "./lib/unstable.ts";
 import { upstreamChanges, upstreamError, upstreamStatus } from "./lib/upstream.ts";
 import { verifyMiriOracle } from "./lib/miri.ts";
 import { ORACLE_RETRY_FACTOR, rustcDriverHash, verifyOraclePin } from "./lib/oracle.ts";
@@ -103,6 +109,12 @@ export interface CaseResult {
    * with the same timeout, after the pool (see `difftest`).
    */
   retried?: true;
+  /**
+   * A subject that timed out in the pool: each attempt's wall and CPU time and max RSS, for the question a status cannot
+   * answer: how slow was it alone, and how much of the pool's timeout was contention (lane harness-w40, review m6-audit F1).
+   * Report only: nothing reads it to decide a status. `alone` is missing past the retry cap.
+   */
+  attempts?: { pool: Usage; alone?: Usage };
 }
 
 /** `unportedBuckets` key of an UNPORTED case whose subject printed no `rust-ts: unported:` line. */
@@ -214,8 +226,8 @@ export function heavyErrorLines(suite: string, h: HeavyRun): string[] {
   return out;
 }
 
-function render(r: { stdout: string; stderr: string; code: number }): string {
-  return `${r.stdout}\n--- stderr ---\n${r.stderr}\n--- exit: ${r.code} ---\n`;
+export function render(r: { stdout: string; stderr: string; code: number }): string {
+  return `${r.stdout}${STDERR_MARK}${r.stderr}${EXIT_MARK}${r.code} ---\n`;
 }
 
 /** Split batch output on `file: <path>` header lines. */
@@ -366,9 +378,6 @@ export function oracleCacheKey(s: Suite, c: Case, fileHash: string, deps: Dep[])
 /** `oracleCacheKey` of a case, with its file hash and dependencies as difftest computes them. */
 export const caseOracleCacheKey = (s: Suite, c: Case): string => oracleCacheKey(s, c, fileHash(s, c), depsOf(s, c));
 
-/** The detector of unstable oracle stderr for a suite: Miri suites' (scripts/lib/unstable.ts) or everyone else's. */
-export const unstableReasonOf = (s: Suite): ((stderr: string) => string | undefined) => (s.miri ? unstableMiriOracleReason : unstableOracleReason);
-
 /** `Suite.unstable` as a map from case id to reason. */
 export function unstableOf(s: Suite): Map<string, string> {
   return new Map((s.unstable?.() ?? []).map((u) => [u.id, u.reason]));
@@ -387,7 +396,7 @@ async function runOracle(s: Suite, cases: Case[], usage?: Map<string, Usage>): P
     let cached = !listed.has(c.id) && existsSync(p) ? readCached(p) : undefined;
     if (cached && s.mode === "single") {
       // An entry written before its pattern was known: never reused, removed.
-      const why = unstableReasonOf(s)(stderrOf(cached));
+      const why = unstableOracleReason(stderrOf(cached));
       if (why) {
         rmSync(p, { force: true });
         cached = undefined;
@@ -441,7 +450,7 @@ async function runOracle(s: Suite, cases: Case[], usage?: Map<string, Usage>): P
         continue;
       }
       const o: Output = { text: render(r), code: r.code, timedOut: false };
-      const why = listed.get(c.id) ?? unstableReasonOf(s)(r.stderr);
+      const why = listed.get(c.id) ?? unstableOracleReason(r.stderr);
       if (why) o.unstable = why;
       out.set(c.id, o);
       if (!why) writeCached(paths.get(c.id)!, o);
@@ -467,7 +476,7 @@ export interface SubjectStats {
   batchOnlyTimeouts: number;
 }
 
-/** `usage`: filled with each single-mode subject process's resources (heavy suites). */
+/** `usage`: filled with the resources of each process that ran one case alone (in a batch suite, those only). */
 export async function runSubject(s: Suite, cases: Case[], impl: string, stats?: SubjectStats, usage?: Map<string, Usage>): Promise<Map<string, Output>> {
   const env = { RUST_TS_IMPL: impl };
   const out = new Map<string, Output>();
@@ -483,6 +492,7 @@ export async function runSubject(s: Suite, cases: Case[], impl: string, stats?: 
   /** A single-case process: its own status, whatever it printed. */
   const runOne = async (c: Case): Promise<boolean> => {
     const r = await exec([c]);
+    usage?.set(c.id, usageOf(r));
     const failed = r.code !== 0 || r.timedOut;
     const parts = splitBatch(r.stdout);
     // On failure the section printed may be incomplete; treat it as missing.
@@ -598,6 +608,17 @@ export async function runSubject(s: Suite, cases: Case[], impl: string, stats?: 
   return out;
 }
 
+/**
+ * The two outputs a case compares (see the header): a single-mode suite's with their stderr masked; a batch suite's as they
+ * are, as its text is per-file stdout. `classify` and the `first difference` lines read these; the cache and the diff
+ * files' bodies keep the raw text.
+ */
+export function compared(s: Suite, o: Output, sub: Output): [Output, Output] {
+  if (s.mode !== "single") return [o, sub];
+  const [ot, st] = maskedTexts(s.miri === true, o.text, sub.text);
+  return [{ ...o, text: ot }, { ...sub, text: st }];
+}
+
 export function classify(o: Output, sub: Output): Status {
   if (o.timedOut) return "ORACLE_TIMEOUT";
   if (o.unstable !== undefined) return "UNSTABLE";
@@ -646,9 +667,9 @@ export const BLESSED_STATUSES: BlessedResult["blessed"][] = ["PASS", "FAIL", "NO
 
 /** The stderr part of a single-mode output (`render`). */
 function stderrOf(o: Output): string {
-  const start = o.text.indexOf("\n--- stderr ---\n");
-  const end = o.text.lastIndexOf("\n--- exit: ");
-  return start < 0 || end < start ? "" : o.text.slice(start + "\n--- stderr ---\n".length, end);
+  const start = o.text.indexOf(STDERR_MARK);
+  const end = o.text.lastIndexOf(EXIT_MARK);
+  return start < 0 || end < start ? "" : o.text.slice(start + STDERR_MARK.length, end);
 }
 
 function blessedResult(id: string, b: Blessed, o: Output, sub: Output): BlessedResult {
@@ -727,7 +748,7 @@ export async function runSplit(s: Suite, c: Case, impl: string, stats: SubjectSt
   /** What the oracle side found: its usage if it ran, its split text if it ran and finished, why it is unstable. */
   const fresh: { usage?: Usage; out?: SplitOutput; unstable?: string; timedOut?: boolean } = {};
   let cached = !listed.has(c.id) && existsSync(p) ? readCachedAs<SplitOracle>(p, (o) => typeof o?.code === "number" && typeof o.stderr === "string" && Array.isArray(o.hashes?.sections)) : undefined;
-  if (cached && unstableReasonOf(s)(cached.stderr)) {
+  if (cached && unstableOracleReason(cached.stderr)) {
     // An entry written before its pattern was known: never reused, removed (as in `runOracle`).
     rmSync(p, { force: true });
     cached = undefined;
@@ -742,7 +763,7 @@ export async function runSplit(s: Suite, c: Case, impl: string, stats: SubjectSt
     }
     fresh.out = splitter(r.stdout);
     const o: SplitOracle = { code: r.code, stderr: r.stderr, hashes: splitHashes(fresh.out) };
-    fresh.unstable = listed.get(c.id) ?? unstableReasonOf(s)(r.stderr);
+    fresh.unstable = listed.get(c.id) ?? unstableOracleReason(r.stderr);
     if (!fresh.unstable) writeCached(p, o);
     return o;
   };
@@ -759,6 +780,8 @@ export async function runSplit(s: Suite, c: Case, impl: string, stats: SubjectSt
 
   /** Every case of the run with one status; the run case carries the details. */
   const all = (o: SplitOracle, head: CaseResult): CaseResult[] => [head, ...o.hashes.sections.map(([id]): CaseResult => ({ id: secId(id), status: head.status }))];
+  // What this run compares of a stderr, on both sides, here and in the oracle's re-run below (review ice-report-impl F4).
+  const mask = stderrMask(s.miri === true, o.stderr);
   const runLevel: Status | undefined = r.timedOut ? "TIMEOUT" : r.code !== o.code ? (r.code === EXIT_UNPORTED ? "UNPORTED" : r.code === 101 && o.code !== 101 ? "CRASH" : "DIFF") : undefined;
   let results: CaseResult[];
   let extra: string[] = [];
@@ -773,8 +796,8 @@ export async function runSplit(s: Suite, c: Case, impl: string, stats: SubjectSt
       if (runUnported !== undefined) head.unported = runUnported;
     } else if (runLevel !== "TIMEOUT") {
       // Exit codes differ: stderr and exit code tell why (the stdout of either side may be a whole crate's dump).
-      const ot = runCaseText("", o.stderr, o.code);
-      const st = runCaseText("", r.stderr, r.code);
+      const ot = runCaseText("", mask(o.stderr), o.code);
+      const st = runCaseText("", mask(r.stderr), r.code);
       head.first = firstDiffLine(ot, st);
       diffs.set(c.id, diffText(c.id, runLevel, c, ot, o.code, st, r.code));
     }
@@ -785,7 +808,7 @@ export async function runSplit(s: Suite, c: Case, impl: string, stats: SubjectSt
     const subH = splitHashes(sub);
     const score = (o: SplitOracle) => {
       const cmp = compareSections(o.hashes, subH);
-      const rs: CaseResult[] = [{ id: c.id, status: subH.skeleton === o.hashes.skeleton && r.stderr === o.stderr ? "MATCH" : "DIFF" }];
+      const rs: CaseResult[] = [{ id: c.id, status: subH.skeleton === o.hashes.skeleton && mask(r.stderr) === mask(o.stderr) ? "MATCH" : "DIFF" }];
       for (const [id, oc] of cmp.outcomes) rs.push(oc === "match" ? { id: secId(id), status: "MATCH" } : oc === "missing" ? { id: secId(id), status: "DIFF", first: MISSING } : { id: secId(id), status: "DIFF" });
       return { rs, extra: cmp.extra };
     };
@@ -803,7 +826,7 @@ export async function runSplit(s: Suite, c: Case, impl: string, stats: SubjectSt
           const h2 = splitHashes(out2);
           // An equal skeleton has the same section ids in the same order, so the hash lists line up.
           const whole =
-            r2.code !== o.code ? `exit code (${o.code} cached, ${r2.code} now)` : r2.stderr !== o.stderr ? "stderr" : h2.skeleton !== o.hashes.skeleton || h2.sections.length !== o.hashes.sections.length ? "skeleton" : undefined;
+            r2.code !== o.code ? `exit code (${o.code} cached, ${r2.code} now)` : mask(r2.stderr) !== mask(o.stderr) ? "stderr" : h2.skeleton !== o.hashes.skeleton || h2.sections.length !== o.hashes.sections.length ? "skeleton" : undefined;
           const changed = whole ? [] : o.hashes.sections.filter(([id, h], k) => h2.sections[k]![0] !== id || h2.sections[k]![1] !== h).map(([id]) => secId(id));
           if (whole !== undefined || changed.length) {
             rmSync(p, { force: true });
@@ -829,8 +852,8 @@ export async function runSplit(s: Suite, c: Case, impl: string, stats: SubjectSt
           continue;
         }
         const isRun = x.id === c.id;
-        const ot = isRun ? runCaseText(oText.out.skeleton, oText.stderr, oText.code) : oSec.get(x.id.slice(c.id.length + 1))!;
-        const st = isRun ? runCaseText(sub.skeleton, r.stderr, r.code) : (sSec.get(x.id.slice(c.id.length + 1)) ?? "");
+        const ot = isRun ? runCaseText(oText.out.skeleton, mask(oText.stderr), oText.code) : oSec.get(x.id.slice(c.id.length + 1))!;
+        const st = isRun ? runCaseText(sub.skeleton, mask(r.stderr), r.code) : (sSec.get(x.id.slice(c.id.length + 1)) ?? "");
         if (x.first !== MISSING) x.first = firstDiffLine(ot, st);
         diffs.set(x.id, diffText(x.id, "DIFF", c, ot, oText.code, x.first === MISSING ? `<${MISSING}>` : st, r.code));
       }
@@ -953,14 +976,16 @@ export async function difftest(
   let diffsWritten = 0;
   const started = performance.now();
   /** Records a case's status (and its blessed result and diff file) from its oracle and subject outputs. */
-  const record = (c: Case, oc: Output, sc: Output, retried: boolean) => {
-    const status = classify(oc, sc);
+  const record = (c: Case, oc: Output, sc: Output, retried: boolean, attempts?: CaseResult["attempts"]) => {
+    const [om, sm] = compared(s, oc, sc);
+    const status = classify(om, sm);
     const r: CaseResult = { id: c.id, status };
     if (retried) r.retried = true;
+    if (attempts) r.attempts = attempts;
     if (status === "UNPORTED") {
       const m = /^rust-ts: unported: (.*)$/m.exec(sc.text);
       if (m) r.unported = m[1]!.slice(0, 300);
-    } else if (status === "DIFF" || status === "CRASH") r.first = firstDiffLine(oc.text, sc.text);
+    } else if (status === "DIFF" || status === "CRASH") r.first = firstDiffLine(om.text, sm.text);
     else if (status === "UNSTABLE") {
       const m = /^rust-ts: unported: (.*)$/m.exec(sc.text);
       r.unstable = oc.unstable!;
@@ -978,12 +1003,12 @@ export async function difftest(
       const name = c.id.replace(/[\\/:]/g, "__");
       writeFileSync(
         join(diffDir, name + ".txt"),
-        `case: ${c.id}\nstatus: ${status}\nargs: ${c.args.join(" ")}\nfirst difference at ${firstDiff(oc.text, sc.text)}\n\n=== oracle (exit ${oc.code}) ===\n${oc.text.slice(0, 20000)}\n=== subject (exit ${sc.code}) ===\n${sc.text.slice(0, 20000)}\n`,
+        `case: ${c.id}\nstatus: ${status}\nargs: ${c.args.join(" ")}\nfirst difference at ${firstDiff(om.text, sm.text)}\n\n=== oracle (exit ${oc.code}) ===\n${oc.text.slice(0, 20000)}\n=== subject (exit ${sc.code}) ===\n${sc.text.slice(0, 20000)}\n`,
       );
     }
   };
   /** Cases whose subject timed out in the parallel pool (with their oracle output). */
-  const timedOut: { c: Case; oc: Output }[] = [];
+  const timedOut: { c: Case; oc: Output; pool: Usage }[] = [];
   await pool(
     chunks,
     jobs,
@@ -998,13 +1023,13 @@ export async function difftest(
         ? typeof miriTemp === "string"
           ? await withCaseLock(`${miriTemp}.lock`, 2 * ((1 + ORACLE_RETRY_FACTOR) * (s.oracleTimeoutMs ?? s.timeoutMs) + s.timeoutMs), heavySides)
           : await heavySides()
-        : await Promise.all([runOracle(s, chunk), runSubject(s, chunk, impl, stats)]);
+        : await Promise.all([runOracle(s, chunk), runSubject(s, chunk, impl, stats, sUsage)]);
       for (const c of chunk) {
         const oc = o.get(c.id)!;
         const sc = sub.get(c.id)!;
         if (s.heavy) heavyRuns.push(heavyRun(s, c.id, oUsage.get(c.id) ?? "cached", sUsage.get(c.id)!));
         // (A heavy subject already ran alone: its TIMEOUT is not re-run.)
-        if (classify(oc, sc) === "TIMEOUT" && !s.heavy) timedOut.push({ c, oc });
+        if (classify(oc, sc) === "TIMEOUT" && !s.heavy) timedOut.push({ c, oc, pool: sUsage.get(c.id)! }); // (A TIMEOUT is only ever a process of its own: see `runBatch`.)
         else record(c, oc, sc, false);
       }
     },
@@ -1020,17 +1045,18 @@ export async function difftest(
   // case's, but a subject slower than the limit on its own still times out. Past the cap the rest keep
   // their TIMEOUT unretried (a hang on a common path would otherwise cost a timeout per case, serially).
   const retries = { retried: 0, finished: 0, notRetried: 0 };
-  for (const { c, oc } of timedOut) {
+  for (const { c, oc, pool } of timedOut) {
     if (retries.retried >= SUBJECT_TIMEOUT_RETRY_CAP) {
       retries.notRetried++;
-      record(c, oc, { text: "", code: 0, timedOut: true }, false);
+      record(c, oc, { text: "", code: 0, timedOut: true }, false, { pool });
       continue;
     }
     if (!opts.quiet) process.stderr.write(`\r${s.name}: re-running subject timeout ${retries.retried + 1}/${Math.min(timedOut.length, SUBJECT_TIMEOUT_RETRY_CAP)} alone`);
     retries.retried++;
-    const sc = (await runSubject(s, [c], impl, stats)).get(c.id)!;
+    const aloneUsage = new Map<string, Usage>();
+    const sc = (await runSubject(s, [c], impl, stats, aloneUsage)).get(c.id)!;
     if (!sc.timedOut) retries.finished++;
-    record(c, oc, sc, true);
+    record(c, oc, sc, true, { pool, alone: aloneUsage.get(c.id)! });
   }
   if (!opts.quiet && retries.retried) process.stderr.write("\n");
   /** Split suites: ids of the sections only the subject printed (see the header). */

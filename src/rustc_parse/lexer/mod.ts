@@ -356,79 +356,6 @@ export class Lexer {
         // `Unknown | InvalidIdent` arm share one `case`: when the guard fails, control continues
         // into the `Unknown | InvalidIdent` body, exactly as the next matching arm would. The arms
         // in between match other variants only.
-        case "InvalidIdent":
-        case "Unknown": {
-          if (
-            tk.$ === "InvalidIdent" &&
-            // Do not recover an identifier with emoji if the codepoint is a confusable
-            // with a recoverable substitution token, like `➖`.
-            !unicode_chars.UNICODE_ARRAY.some(([c, _, __]) => {
-              const sym_ = this.str_from(start);
-              return str_chars_count(sym_) === 1 && c === sym_.chars().next()!;
-            })
-          ) {
-            const sym_ = nfc_normalize(this.str_from(start).toString());
-            const span = this.mk_sp(start, this.pos);
-            let spans = this.psess.bad_unicode_identifiers.get(sym_);
-            if (spans === undefined) {
-              spans = [];
-              this.psess.bad_unicode_identifiers.set(sym_, spans);
-            }
-            spans.push(span);
-            kind = { $: "Ident", _0: sym_, _1: "Normal" };
-            break;
-          }
-
-          // rustc_lexer::TokenKind::Unknown | rustc_lexer::TokenKind::InvalidIdent => {
-          // Don't emit diagnostics for sequences of the same invalid token
-          if (swallow_next_invalid > 0) {
-            swallow_next_invalid -= 1;
-            continue;
-          }
-          const it = this.str_from_to_end(start).chars();
-          const c = it.next()!;
-          if (c === C_NBSP) {
-            // If an error has already been reported on non-breaking
-            // space characters earlier in the file, treat all
-            // subsequent occurrences as whitespace.
-            if (this.nbsp_is_whitespace) {
-              preceded_by_whitespace = true;
-              continue;
-            }
-            this.nbsp_is_whitespace = true;
-          }
-          let repeats = 0;
-          for (let c1 = it.next(); c1 !== undefined && c1 === c; c1 = it.next()) repeats++;
-          // FIXME: the lexer could be used to turn the ASCII version of unicode
-          // homoglyphs, instead of keeping a table in `check_for_substitution`into the
-          // token. Ideally, this should be inside `rustc_lexer`. However, we should
-          // first remove compound tokens like `<<` from `rustc_lexer`, and then add
-          // fancier error recovery to it, as there will be less overall work to do this
-          // way.
-          const [token__, sugg] = unicode_chars.check_for_substitution(this, start, c, repeats + 1);
-          const span = this.mk_sp(start, BytePos(this.pos + BytePos.from_usize(repeats * len_utf8(c))));
-          const escaped = escaped_char(c);
-          const null_ = c === 0x00;
-          const invisible = INVISIBLE_CHARACTERS.includes(c);
-          let repeat: diagnostics.UnknownTokenRepeat | undefined;
-          if (repeats > 0) {
-            swallow_next_invalid = repeats;
-            repeat = { repeats };
-          } else {
-            repeat = undefined;
-          }
-          this.dcx().emit_err(
-            diagnostics.UnknownTokenStart_diagnostic({ span, escaped, sugg, null: null_, invisible, repeat }),
-          );
-
-          if (token__ !== undefined) {
-            kind = token__;
-          } else {
-            preceded_by_whitespace = true;
-            continue;
-          }
-          break;
-        }
         // PORT: the guarded `Literal { kind: CStr | RawCStr, .. } if edition < 2021` arm and the
         // general `Literal { kind, suffix_start }` arm share one `case` (guard first, then the
         // general arm); the `GuardedStrPrefix` arm between them matches another variant.
@@ -648,6 +575,81 @@ export class Lexer {
           kind = token.TokenKind.Percent;
           break;
 
+        // PORT: `InvalidIdent` with its guard (upstream `InvalidIdent if ..`, lexer/mod.rs:284) shares this arm with
+        // `Unknown | InvalidIdent` (lexer/mod.rs:468), in the latter's place: its `emit_err` comes after the others.
+        case "InvalidIdent":
+        case "Unknown": {
+          if (
+            tk.$ === "InvalidIdent" &&
+            // Do not recover an identifier with emoji if the codepoint is a confusable
+            // with a recoverable substitution token, like `➖`.
+            !unicode_chars.UNICODE_ARRAY.some(([c, _, __]) => {
+              const sym_ = this.str_from(start);
+              return str_chars_count(sym_) === 1 && c === sym_.chars().next()!;
+            })
+          ) {
+            const sym_ = nfc_normalize(this.str_from(start).toString());
+            const span = this.mk_sp(start, this.pos);
+            let spans = this.psess.bad_unicode_identifiers.get(sym_);
+            if (spans === undefined) {
+              spans = [];
+              this.psess.bad_unicode_identifiers.set(sym_, spans);
+            }
+            spans.push(span);
+            kind = { $: "Ident", _0: sym_, _1: "Normal" };
+            break;
+          }
+
+          // rustc_lexer::TokenKind::Unknown | rustc_lexer::TokenKind::InvalidIdent => {
+          // Don't emit diagnostics for sequences of the same invalid token
+          if (swallow_next_invalid > 0) {
+            swallow_next_invalid -= 1;
+            continue;
+          }
+          const it = this.str_from_to_end(start).chars();
+          const c = it.next()!;
+          if (c === C_NBSP) {
+            // If an error has already been reported on non-breaking
+            // space characters earlier in the file, treat all
+            // subsequent occurrences as whitespace.
+            if (this.nbsp_is_whitespace) {
+              preceded_by_whitespace = true;
+              continue;
+            }
+            this.nbsp_is_whitespace = true;
+          }
+          let repeats = 0;
+          for (let c1 = it.next(); c1 !== undefined && c1 === c; c1 = it.next()) repeats++;
+          // FIXME: the lexer could be used to turn the ASCII version of unicode
+          // homoglyphs, instead of keeping a table in `check_for_substitution`into the
+          // token. Ideally, this should be inside `rustc_lexer`. However, we should
+          // first remove compound tokens like `<<` from `rustc_lexer`, and then add
+          // fancier error recovery to it, as there will be less overall work to do this
+          // way.
+          const [token__, sugg] = unicode_chars.check_for_substitution(this, start, c, repeats + 1);
+          const span = this.mk_sp(start, BytePos(this.pos + BytePos.from_usize(repeats * len_utf8(c))));
+          const escaped = escaped_char(c);
+          const null_ = c === 0x00;
+          const invisible = INVISIBLE_CHARACTERS.includes(c);
+          let repeat: diagnostics.UnknownTokenRepeat | undefined;
+          if (repeats > 0) {
+            swallow_next_invalid = repeats;
+            repeat = { repeats };
+          } else {
+            repeat = undefined;
+          }
+          this.dcx().emit_err(
+            diagnostics.UnknownTokenStart_diagnostic({ span, escaped, sugg, null: null_, invisible, repeat }),
+          );
+
+          if (token__ !== undefined) {
+            kind = token__;
+          } else {
+            preceded_by_whitespace = true;
+            continue;
+          }
+          break;
+        }
         case "Eof":
           kind = token.TokenKind.Eof;
           break;

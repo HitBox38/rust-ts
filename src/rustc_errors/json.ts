@@ -281,8 +281,7 @@ class Diagnostic {
       const r = codes.try_find_description(diag.code);
       code = {
         code: codes.display_ErrCode(diag.code),
-        // PORT: `.ok()` of the `&'static str`; reading the text of an existing description is
-        // `unported` in codes.ts (the Markdown is not embedded).
+        // PORT: `.ok()` of the `&'static str`; codes.ts loads the text on the first read.
         explanation: r.$ === "Ok" ? r._0.text() : undefined,
       };
     } else if (diag.is_lint !== undefined) {

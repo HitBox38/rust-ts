@@ -18,6 +18,7 @@ import { HOSTNAME } from "./mod.ts";
 import { UnixEnvVars } from "./env.gen.ts";
 import { EnvVars } from "../env.ts";
 import { IoError_from_ErrorKind } from "../io_error.ts";
+import { os_str_as_encoded_bytes } from "../os_str.ts";
 import { type VisitWith } from "../../provenance_gc.ts";
 import { FxHashMap, type KeyType } from "../../../rust_ts/hash_map.ts";
 import { FieldIdx, Size } from "../../../rustc_abi/lib.ts";
@@ -100,7 +101,7 @@ const utf8 = new TextEncoder();
 /** `Hash for OsString` (= `OsStr::as_encoded_bytes().hash(state)`, i.e. `[u8]`'s `Hash`); `size_of::<OsString>()` = 24. */
 export const OsString_key: KeyType<string> = {
   hash: (k, state) => {
-    const bytes = utf8.encode(k);
+    const bytes = os_str_as_encoded_bytes(k);
     state.write_length_prefix(bytes.length);
     state.write(bytes);
   },
@@ -314,7 +315,11 @@ InterpCx.prototype.unsetenv = function (this: MiriInterpCx, name_op: OpTy): Inte
   }
 };
 
-/** `std::env::current_dir()` (D14 host stand-in). */
+/**
+ * `std::env::current_dir()` (D14 host stand-in). PORT: `process.cwd()` is a decoded string, so a directory name that is not UTF-8
+ * would come out lossy, and unlike `environ` it is not escaped (os_str.ts header). APFS refuses such a name, so on the root host it
+ * cannot arise; on Linux it could.
+ */
 function current_dir(): Result<string, io_Error> {
   try {
     return Ok(process.cwd());

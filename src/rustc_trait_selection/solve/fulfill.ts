@@ -27,7 +27,8 @@ import { debug_GoalStalledOn, type GoalStalledOn, type NoSolution } from "../../
 import { TyOrConstInferVar } from "../../rustc_type_ir/solve/mod.ts";
 import { type TypeVisitable, TypeVisitableExt, type TypeVisitor } from "../../rustc_type_ir/visit.ts";
 import { debug_option, debug_struct, debug_tuple, debug_vec, type Debug } from "../../std/fmt.ts";
-import { assert, assert_eq } from "../../std/panic.ts";
+import { assert, assert_eq, panic } from "../../std/panic.ts";
+import { NO_READER, type WriteWatch } from "../../vendor/ena/snapshot_vec.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
 import type { FulfillmentError } from "../decls.ts";
 import { SolverDelegate } from "./delegate.ts";
@@ -39,6 +40,133 @@ import { fulfillment_error_for_no_solution, fulfillment_error_for_stalled } from
 // `Vec::retain_mut` is more sophisticated and minimizes element moves, but also contains more code
 // and doesn't get inlined in `try_evaluate_obligations`, giving worse performance overall.
 type PendingObligations = [PredicateObligation, GoalStalledOn | undefined][];
+
+/** PORT(perf): below this many entries the saving is too small to take the tables' watches from another context. */
+const MIN_STALLED_LEN = 64;
+
+/** PORT(perf): test hook, see `set_stalled_prefix_check`. */
+let stalled_prefix_check: { skipped: number } | undefined;
+let min_stalled_len = MIN_STALLED_LEN;
+/**
+ * Test hook: every pass rechecks each entry `StalledPrefix` would skip with upstream's own check, at upstream's moment, and panics on
+ * a wrong one, and all lists use `StalledPrefix`, however short. `check.skipped` counts the entries, so a test can see it did something.
+ */
+export function set_stalled_prefix_check(check: typeof stalled_prefix_check): void {
+  stalled_prefix_check = check;
+  min_stalled_len = check === undefined ? MIN_STALLED_LEN : 1;
+}
+
+/**
+ * PORT(perf) (lane perf-near-limit): upstream has no such thing. Upstream's `try_evaluate_obligations` calls
+ * `goal_remains_stalled` for every pending entry on every pass. This remembers that the first `len` entries of `pending` all
+ * gave `true`, and `valid_len` says how many of them still would, so a pass can start after those.
+ *
+ * What the call reads (`inlined_rerunning_stalled_goal_may_make_progress`), and why each is covered:
+ * - the entry's `stalled_on`: written only when the entry is evaluated, and these entries are not; `pending` is replaced, not
+ *   edited, by everything else that removes entries (`drain_pending`, `collect_remaining_errors_impl`), hence the identity
+ *   check. A pass removes entries only at or above where it started, so a prefix entry's position does not move.
+ * - `ty_or_const_infer_var_changed` and `is_sub_unification_table_root_var`: variables of the five unification tables. Each
+ *   variable an entry reads has that entry or a lower one in `first_reader`. A write or rollback that changes what the call
+ *   reads of it lowers `changed_from` to that entry (ena `WriteWatch`, `watch_state`), and the prefix ends there. A too low
+ *   `first_reader`, left by an entry that has since gone, only shortens the prefix.
+ * - `opaques`: `extend_over` lets in only `No` and `Yes` whose count equals the storage's, for which the call reads nothing but
+ *   that count; the count is compared here. A `Yes` that went through the erased path ends the prefix, as what it reads
+ *   (`should_rerun_after_erased_canonicalization`) is not covered.
+ * - `disable_trait_solver_fast_paths`: fixed for the session, and when set no entry ever passes.
+ * Only entries that upstream's call would keep without evaluating are skipped, and the call writes nothing, so no
+ * evaluation, query, allocation or diagnostic moves.
+ *
+ * One owner per `InferCtxtInner`: a second context with a long list takes the watches, and the first starts over.
+ * Lists shorter than `MIN_STALLED_LEN` do not use this at all: nearly all do not reach it, and pay one comparison.
+ *
+ * Measured: tests/ui/try-trait/deep-try-chain-issue-153583.rs, 319 Ginstr and 36 s CPU before (36-90 s over a day's loads, as
+ * those checks are memory bound), 61 Ginstr and 6.6 s after; 426M of 457M checks skipped. A list under `MIN_STALLED_LEN` pays one
+ * comparison per pass.
+ */
+export class StalledPrefix {
+  private pending: PendingObligations | undefined = undefined;
+  private len = 0;
+  private opaques = 0;
+  /** Per table, in `watches` order (`WriteWatch.first_reader`). */
+  private readonly first_reader = [new Int32Array(0), new Int32Array(0), new Int32Array(0), new Int32Array(0), new Int32Array(0)];
+
+  private static watches(inner: InferCtxt["inner"]): WriteWatch[] {
+    return [
+      inner.type_variable_storage.eq_relations.values.values.watch,
+      inner.type_variable_storage.sub_unification_table.values.values.watch,
+      inner.const_unification_storage.values.values.watch,
+      inner.int_unification_storage.values.values.watch,
+      inner.float_unification_storage.values.values.watch,
+    ];
+  }
+
+  private mark(slot: number, index: number, entry: number): void {
+    let readers = this.first_reader[slot]!;
+    if (index >= readers.length) {
+      const grown = new Int32Array(Math.max(index + 1, readers.length * 2, 256)).fill(NO_READER);
+      grown.set(readers);
+      this.first_reader[slot] = readers = grown;
+    }
+    if (entry < readers[index]!) readers[index] = entry;
+  }
+
+  /** How many leading entries of `pending` are known to be still stalled now. */
+  valid_len(infcx: InferCtxt, pending: PendingObligations): number {
+    let valid = 0;
+    if (this.pending === pending && this.len <= pending.length) {
+      const inner = infcx.inner;
+      if (inner.stalled_prefix_owner === this && inner.opaque_type_storage.opaque_types.size === this.opaques) {
+        valid = this.len;
+        const watches = StalledPrefix.watches(inner);
+        for (let i = 0; i < watches.length; i++) valid = Math.min(valid, watches[i]!.changed_from);
+      }
+    }
+    return valid === 0 ? this.forget() : valid;
+  }
+
+  /**
+   * Nothing is known any more: a pass that does not use this may remove entries anywhere, and the marks are of entries that
+   * may no longer be here, and could be above an entry's new position. Returns the prefix length, 0.
+   */
+  forget(): 0 {
+    if (this.pending !== undefined) {
+      for (let i = 0; i < this.first_reader.length; i++) this.first_reader[i]!.fill(NO_READER);
+      this.pending = undefined;
+    }
+    return 0;
+  }
+
+  /** Can the entry at `entry`, which just passed `goal_remains_stalled`, be part of the prefix? If so, it now is. */
+  extend_over(infcx: InferCtxt, stalled_on: GoalStalledOn | undefined, entry: number): boolean {
+    const { opaques, stalled_vars, sub_roots } = stalled_on!;
+    if (opaques.$ !== "No" && opaques.num_opaques_in_storage !== infcx.inner.opaque_type_storage.opaque_types.size) return false;
+    for (let i = 0; i < stalled_vars.length; i++) {
+      const v = stalled_vars[i]!;
+      this.mark(v.$ === "Ty" ? 0 : v.$ === "Const" ? 2 : v.$ === "TyInt" ? 3 : 4, v._0 as number, entry);
+    }
+    for (let i = 0; i < sub_roots.length; i++) this.mark(1, sub_roots[i]! as number, entry);
+    return true;
+  }
+
+  /** The first `len` entries of `pending` passed, each at the state the tables are in now. */
+  record(infcx: InferCtxt, pending: PendingObligations, len: number): void {
+    // Nothing to remember, and a pass that started at 0 has made no marks: not worth the next pass clearing them.
+    if (len === 0) {
+      this.pending = undefined;
+      return;
+    }
+    const inner = infcx.inner;
+    const watches = StalledPrefix.watches(inner);
+    for (let i = 0; i < watches.length; i++) {
+      watches[i]!.first_reader = this.first_reader[i]!;
+      watches[i]!.changed_from = NO_READER;
+    }
+    inner.stalled_prefix_owner = this;
+    this.pending = pending;
+    this.len = len;
+    this.opaques = inner.opaque_type_storage.opaque_types.size;
+  }
+}
 
 /// A trait engine using the new trait solver.
 ///
@@ -63,6 +191,9 @@ export class FulfillmentCtxt<E> implements TraitEngine<E> {
     /** PORT: `_errors: PhantomData<E>` carries `E`'s `FromSolverError` descriptor (module comment). */
     public _errors: FromSolverError<E, NextSolverError>,
   ) {}
+
+  /** PORT(perf): not in upstream, see `StalledPrefix`. */
+  private readonly stalled_prefix = new StalledPrefix();
 
   // ---- impl<'tcx, E: 'tcx> FulfillmentCtxt<'tcx, E> ----
 
@@ -137,16 +268,35 @@ export class FulfillmentCtxt<E> implements TraitEngine<E> {
       const pending = this.obligations.pending;
       const len = pending.length;
       let del = 0;
-      for (let i = 0; i < len; i++) {
+      // PORT(perf): upstream rechecks every stalled entry on every pass. `prefix` entries are known to be still stalled:
+      // each passed the check, nothing that check reads has changed since (`StalledPrefix`), and the check is a pure
+      // function of those reads. All of them are kept, so `del` is still 0 at `prefix`, as it would be upstream.
+      // Measured: deep-try-chain, see `StalledPrefix`.
+      let extending = len >= min_stalled_len;
+      const prefix = extending ? this.stalled_prefix.valid_len(infcx, pending) : this.stalled_prefix.forget();
+      if (stalled_prefix_check !== undefined) {
+        stalled_prefix_check.skipped += prefix;
+        for (let j = 0; j < prefix; j++) {
+          const on = pending[j]![1];
+          if (on === undefined || !solve.SolverDelegateEvalExt_for_D.goal_remains_stalled(delegate, on)) {
+            panic(`StalledPrefix: entry ${j} of a prefix of ${prefix} in a list of ${len} is not stalled`);
+          }
+        }
+      }
+      for (let i = prefix; i < len; i++) {
         const entry = pending[i]!;
         // Common case: still stalled; keep the obligation. This path is extremely hot in
         // some cases; there can be thousands of pending obligations.
         // PORT: (perf) this first statement of the closure runs here in the loop, so the common case does not call
         // `retain_pending` (the rest of the closure).
         const opt_stalled_on = entry[1];
-        const keep =
-          (opt_stalled_on !== undefined && solve.SolverDelegateEvalExt_for_D.goal_remains_stalled(delegate, opt_stalled_on)) ||
-          this.retain_pending(infcx, delegate, entry, errors_cell, set_any_changed);
+        const stalled = opt_stalled_on !== undefined && solve.SolverDelegateEvalExt_for_D.goal_remains_stalled(delegate, opt_stalled_on);
+        if (extending && !(stalled && this.stalled_prefix.extend_over(infcx, opt_stalled_on, i))) {
+          // Recorded before this entry is evaluated: that evaluation is the first thing here that can write.
+          this.stalled_prefix.record(infcx, pending, i);
+          extending = false;
+        }
+        const keep = stalled || this.retain_pending(infcx, delegate, entry, errors_cell, set_any_changed);
         if (!keep) {
           del += 1;
         } else if (del > 0) {
@@ -155,6 +305,7 @@ export class FulfillmentCtxt<E> implements TraitEngine<E> {
           pending[i - del] = entry;
         }
       }
+      if (extending) this.stalled_prefix.record(infcx, pending, len);
       if (del > 0) {
         pending.length = len - del;
       }

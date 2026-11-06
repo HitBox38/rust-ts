@@ -71,6 +71,7 @@ import {
   type RibKind,
 } from "./late.ts";
 import { DefId_key, Finalize, Ident_key, ParentScope, provide, type Res, Resolver, Segment, with_owner } from "./lib.ts";
+import { plain_bug } from "../rust_ts/test_bug.ts";
 
 const DIR = join(import.meta.dir, "late_b_oracle");
 const ROOT = join(import.meta.dir, "..", "..");
@@ -858,7 +859,7 @@ test("with_generic_param_rib (late.rs:3160)", () => {
     v.with_generic_param_rib(t_only, { $: "Normal" }, l.id, "Item", generics.span, () => {});
     expect(v.r.partial_res_map.get(pt.id)?.full_res()).toEqual({ $: "Err" });
     // Any other rib kind is a bug.
-    expect(() => v.with_generic_param_rib(t_only, { $: "FnOrCoroutine" }, l.id, "Item", generics.span, () => {})).toThrow("Unexpected rib kind FnOrCoroutine");
+    expect(() => plain_bug(() => v.with_generic_param_rib(t_only, { $: "FnOrCoroutine" }, l.id, "Item", generics.span, () => {}))).toThrow("Unexpected rib kind FnOrCoroutine");
     // A name used twice: E0403, through `Resolver::report_error`. (The same param twice has one `NodeId`, so
     // the `Res::Err` recorded for the second one then hits `record_partial_res`'s "resolved multiple times"
     // panic, as it would upstream.)

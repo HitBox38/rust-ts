@@ -4,11 +4,11 @@
 // scripts/lib/common.ts; see scripts/lib/deps.test.ts for why), MIRI_DEFAULT_ARGS against the upstream source, the real
 // isolated toolchain, the Miri suites' cases (plan-m6 D6) and the criterion report (A9).
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { miriToolchainError, oracleToolchainError } from "./lib/toolchain.ts";
-import { THREAD_ID_PATTERN, UNSTABLE_ORACLE_PATTERNS, isIceStderr, unstableMiriOracleReason, unstableOracleReason } from "./lib/unstable.ts";
+import { isIceStderr, stderrMask, unstableOracleReason } from "./lib/unstable.ts";
 
 const REPO = resolve(import.meta.dir, "..");
 const HOST = "aarch64-apple-darwin";
@@ -54,16 +54,15 @@ describe("miriToolchainError", () => {
   });
 });
 
-describe("unstableMiriOracleReason", () => {
+describe("the thread-id mask on a Miri suite (stderrMask)", () => {
   const programPanic = "\nthread 'main' (1000) panicked at tests/ui/macros/cfg-expr.rs:26:1:\nexplicit panic\n";
-  test("the interpreted program's panic names Miri's virtual thread id: stable", () => {
-    expect(unstableOracleReason(programPanic)).toContain("thread id");
-    expect(unstableMiriOracleReason(programPanic)).toBeUndefined();
-    expect(unstableMiriOracleReason("thread '<unnamed>' (1001) panicked at a.rs:1:1:\n")).toBeUndefined();
+  const masked = (e: string) => stderrMask(true, e)(e) !== e;
+  test("the interpreted program's panic names Miri's virtual thread id: compared", () => {
+    expect(masked(programPanic)).toBe(false);
+    expect(masked("thread '<unnamed>' (1001) panicked at a.rs:1:1:\n")).toBe(false);
   });
-  test("a panic of Miri itself (an ICE) names the host's thread id: unstable", () => {
-    const ice = "thread 'rustc' (178972394) panicked at compiler/a.rs:1:1:\nboom\nerror: the compiler unexpectedly panicked. This is a bug\n";
-    expect(unstableMiriOracleReason(ice)).toContain("thread id");
+  test("a panic of Miri itself (an ICE) names the host's thread id: masked", () => {
+    expect(masked("thread 'rustc' (178972394) panicked at compiler/a.rs:1:1:\nboom\nerror: the compiler unexpectedly panicked. This is a bug\n")).toBe(true);
   });
   test("an ICE through bug! (ExplicitBug: no `unexpectedly panicked` line) is still an ICE (review harness-m6a N1)", () => {
     // report_ice (rustc_driver_impl lib.rs:1539) skips the `Ice` error for an ExplicitBug payload but always prints the
@@ -73,31 +72,21 @@ describe("unstableMiriOracleReason", () => {
       "note: please make sure that you have updated to the latest nightly",
       "note: rustc 1.101.0-nightly (6f5da406b 2026-10-10) running on aarch64-apple-darwin",
     ];
-    const bug = ["error: internal compiler error: src/tools/miri/src/x.rs:1:1: boom", "", "thread 'rustc' (73787783) panicked at src/tools/miri/src/x.rs:1:1:", "Box<dyn Any>", ...notes, ""].join("\n");
+    const bug = ["error: internal compiler error: src/tools/miri/src/x.rs:1:1: boom", "", "thread 'rustc' (73787783) panicked at src/tools/miri/src/x.rs:1:1:", "Box<dyn Any>", ...notes].join("\n");
     expect(isIceStderr(bug)).toBe(true);
-    expect(unstableMiriOracleReason(bug)).toContain("thread id");
+    expect(masked(bug)).toBe(true);
     // Each marker alone (the tid line plus one of them).
     const tid = "thread 'rustc' (73787783) panicked at a.rs:1:1:\nx\n";
-    for (const n of notes.filter((n) => !n.includes("updated"))) expect(unstableMiriOracleReason(tid + n + "\n")).toContain("thread id");
-    expect(unstableMiriOracleReason(tid + "note: using internal features is not supported and expected to cause internal compiler errors when used incorrectly\n")).toContain("thread id");
-    expect(unstableMiriOracleReason(tid + "error: internal compiler error[E0308]: mismatched types\n")).toContain("thread id");
+    for (const n of notes.filter((n) => !n.includes("updated"))) expect(masked(tid + n + "\n")).toBe(true);
+    expect(masked(tid + "note: using internal features is not supported and expected to cause internal compiler errors when used incorrectly\n")).toBe(true);
+    expect(masked(tid + "error: internal compiler error[E0308]: mismatched types\n")).toBe(true);
     // A program's own panic with Miri's diagnostics is not an ICE.
     expect(isIceStderr("thread 'main' (1000) panicked at a.rs:1:1:\nboom\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n")).toBe(false);
   });
-  test("the Miri rule names the thread-id pattern; it does not depend on the pattern order (review harness-m6a N2)", () => {
-    expect(UNSTABLE_ORACLE_PATTERNS).toContain(THREAD_ID_PATTERN);
-    const saved = [...UNSTABLE_ORACLE_PATTERNS];
-    try {
-      UNSTABLE_ORACLE_PATTERNS.reverse();
-      expect(unstableMiriOracleReason("\nthread 'main' (1000) panicked at a.rs:1:1:\n")).toBeUndefined();
-      expect(unstableMiriOracleReason("note: please attach the file at `/u/rustc-ice-2026-10-21T11_18_00-4242.txt` to your bug report\n")).toContain("ICE note");
-    } finally {
-      UNSTABLE_ORACLE_PATTERNS.splice(0, UNSTABLE_ORACLE_PATTERNS.length, ...saved);
-    }
-  });
-  test("the other patterns apply as everywhere", () => {
-    expect(unstableMiriOracleReason("note: please attach the file at `/u/rustc-ice-2026-10-21T11_18_00-4242.txt` to your bug report\n")).toContain("ICE note");
-    expect(unstableMiriOracleReason("")).toBeUndefined();
+  test("the unstable patterns apply as everywhere", () => {
+    expect(unstableOracleReason("note: please attach the file at `/u/rustc-ice-2026-10-21T11_18_00-4242.txt` to your bug report\n")).toContain("ICE note");
+    expect(unstableOracleReason(programPanic)).toBeUndefined();
+    expect(unstableOracleReason("")).toBeUndefined();
   });
 });
 
@@ -204,7 +193,8 @@ test("Miri oracle, suites and argv (child process)", () => {
   expect(j.hello[0].args.slice(0, 2)).toEqual(["harness/corpus/miri/hello.rs", "--sysroot"]);
   expect(j.hello[0].args.slice(3)).toEqual(["--target", "x86_64-unknown-linux-gnu"]);
   expect(j.subjectEntry).toBe(j.driverEntry);
-  expect(j.helloSubject.slice(1)).toEqual([join(REPO, "src/miri/bin/miri.ts"), ...j.hello[0].args]);
+  expect(existsSync(j.helloSubject[2])).toBe(true); // A missing preload is Bun's own error, on every Miri case.
+  expect(j.helloSubject.slice(1)).toEqual(["--preload", join(REPO, "src/rust_ts/miri_stack_first.ts"), join(REPO, "src/miri/bin/miri.ts"), ...j.hello[0].args]);
   // run-pass / run-fail: the counts measured by lanes harness-m6a (3,269 / 263) and harness-w36 (needs-* evaluated:
   // +209 / +31), D6's argv; harness-w37: +1 (type-sizes.rs, needs-deterministic-layouts decided by the oracle).
   // 3,479 minus mpsc_stress.rs, which the Miri oracle does not finish (skipped).
@@ -244,7 +234,7 @@ test("Miri oracle, suites and argv (child process)", () => {
   expect(j.args.isolationSplit).toContain("-Zmiri-disable-isolation");
   expect(j.args.envForward).toContain("-Zmiri-env-forward=HOME");
   expect(j.args.programArg).toEqual(["a.rs", "--sysroot", "/m", "--", "-Zmiri-disable-isolation"]);
-  expect(j.subject.slice(1)).toEqual([join(REPO, "src/miri/bin/miri.ts"), "a.rs", "--sysroot", "/m", "-Zmiri-disable-isolation", "-O", "--", "-Zmiri-x", "p"]);
+  expect(j.subject.slice(1)).toEqual(["--preload", join(REPO, "src/rust_ts/miri_stack_first.ts"), join(REPO, "src/miri/bin/miri.ts"), "a.rs", "--sysroot", "/m", "-Zmiri-disable-isolation", "-O", "--", "-Zmiri-x", "p"]);
   // The rustc-driver fallback (before harness-w36): Miri's rustc argv.
   expect(j.subjectRustc.slice(1)).toEqual([join(REPO, "src/rust_ts/main.ts"), ...j.ours, "a.rs", "--sysroot", "/m", "-O"]);
   expect(j.criterion[0]).toEqual({ match: 9, of: 10, oracleTimeouts: 2, percent: 90, target: 90, met: true, what: "w" });

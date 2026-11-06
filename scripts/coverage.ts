@@ -15,7 +15,10 @@
 //                                           or `library/<crate>`: its files with std markers)
 //   bun scripts/coverage.ts --missing PATH  unported functions in one upstream file (`compiler/...`, `src/tools/miri/src/...`,
 //                                           `library/...` or `<crate>-<ver>/<path>`)
-//   bun scripts/coverage.ts --check         ERROR on markers that point at no upstream / crate / library fn
+//   bun scripts/coverage.ts --check         ERROR on markers that point at no upstream / crate / library fn, and on stale
+//                                           `// rustc-call:` anchors and `// rustc-const:` markers (scripts/lib/marker-check.ts)
+//   bun scripts/coverage.ts --order         report only: markers out of upstream's order, per TS file and upstream file
+//                                           (the rows go to $RUST_TS_DATA/coverage-order.txt; PORTING section 8 allows some)
 //   --offline                               fetch missing vendor crate sources only from cargo's local cache
 // Vendor crate sources are resolved lazily: only the crates a mode actually reads (none for a
 // compiler `--missing` / `--crate`; for `--check`, only crates that have markers).
@@ -25,6 +28,7 @@ import { FrontmatterAllowed, strip_shebang, tokenize } from "../src/rustc_lexer/
 import { Str } from "../src/std/str.ts";
 import { crateSrc } from "./crate-src.ts";
 import { DATA, REPO, UPSTREAM, die, parseArgs, requireUpstream } from "./lib/common.ts";
+import { anchorErrors, orderRows } from "./lib/marker-check.ts";
 
 export interface UpstreamFn {
   path: string;
@@ -224,6 +228,14 @@ if (import.meta.main) {
   const vendor = vendorEntries();
   const vendorOf = (path: string) => vendor.find((v) => path.startsWith(`${v.id}/`));
 
+  if (a.order) {
+    const rows = orderRows(ms);
+    const sum = (f: (r: (typeof rows)[number]) => number) => rows.reduce((n, r) => n + f(r), 0);
+    writeFileSync(join(DATA, "coverage-order.txt"), rows.map((r) => `${r.file} ${r.path}: ${r.outOfOrder} out of order of ${r.markers}, ${r.descents} descents; first ${r.first}\n`).join(""));
+    console.log(`order (report only): ${sum((r) => r.outOfOrder)} markers out of order of ${ms.length}, ${sum((r) => r.descents)} descents, in ${rows.length} file pairs (rows: ${join(DATA, "coverage-order.txt")})`);
+    process.exit(0);
+  }
+
   const ms_ = miriScope();
   if (typeof a.missing === "string") {
     const ve = vendorOf(a.missing);
@@ -368,7 +380,12 @@ if (import.meta.main) {
     });
     const sev = STD_MARKERS_STRICT ? "ERROR" : "warning";
     for (const m of sbad) console.log(`${sev}: ${m.file}: marker ${m.path}:${m.line} ${m.name} ${lmissing.includes(m) ? "names no file under library/<crate>/ in the upstream checkout" : "matches no upstream library fn"}`);
-    if (bad.length || vbad.length || (STD_MARKERS_STRICT && sbad.length)) process.exit(1);
+    // `// rustc-call:` anchors and `// rustc-const:` markers, in the ported sources only: the resolver and its tests quote the syntax.
+    const anchors = walk(join(REPO, "src"), ".ts")
+      .filter((f) => !f.endsWith(".test.ts") && !/[\\/]rust_ts[\\/]track_caller/.test(f))
+      .flatMap((f) => anchorErrors(f, relative(REPO, f).replaceAll("\\", "/")));
+    for (const e of anchors) console.log(`ERROR: ${e}`);
+    if (bad.length || vbad.length || anchors.length || (STD_MARKERS_STRICT && sbad.length)) process.exit(1);
     console.log(`markers ok (${ms.length}; vendor ${vms.length}; library ${sms.length}${sbad.length ? `, ${sbad.length} invalid: warnings above` : ""})`);
     process.exit(0);
   }

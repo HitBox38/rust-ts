@@ -39,10 +39,11 @@ export const PanicMessage = {
   // std: library/proc_macro/src/bridge/panic_message.rs:26 from
   into_payload(val: PanicMessage): unknown {
     switch (val.$) {
+      // PORT: `false`: the payload is re-raised with `resume_unwind`, which runs no panic hook.
       case "StaticStr":
-        return new Panic(val._0);
+        return new Panic(val._0, false);
       case "String":
-        return new Panic(val._0);
+        return new Panic(val._0, false);
       case "Unknown": {
         return new UnknownPanicMessage();
       }

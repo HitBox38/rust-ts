@@ -20,6 +20,7 @@ import { InterpCx } from "./eval_context.ts";
 import { intern_const_alloc_recursive, InternKind } from "./intern.ts";
 import { MemoryKind } from "./memory.ts";
 import { MemPlace, MPlaceTy } from "./place.ts";
+import { plain_bug } from "../../rust_ts/test_bug.ts";
 
 class CaptureConfig extends Error {}
 function config_from_args(args: string[]): Config {
@@ -109,7 +110,7 @@ test("intern_const_alloc_recursive: moves the base and the reachable allocations
           const inner = local(ecx, new Array(ptr_size).fill(0));
           const base = local(ecx, new Array(ptr_size).fill(0));
           write_ptr(ecx, base, CtfeProvenance.from_parts([inner, false, false]));
-          expect(() => intern_const_alloc_recursive(ecx, InternKind.Constant, place(base))).toThrow(
+          expect(() => plain_bug(() => intern_const_alloc_recursive(ecx, InternKind.Constant, place(base)))).toThrow(
             "the static const safety checks accepted a mutable pointer they should not have accepted",
           );
         }

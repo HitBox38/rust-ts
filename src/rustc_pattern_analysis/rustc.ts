@@ -62,7 +62,7 @@ import * as usefulness from "./usefulness.ts";
 import { compute_match_usefulness, PlaceValidity } from "./usefulness.ts";
 import { type Debug, debug_str, debug_struct, type Fmt, PLAIN } from "../std/fmt.ts";
 import type { MutRef } from "../std/mut_ref.ts";
-import { assert, unwrap } from "../std/panic.ts";
+import { keep_frame, assert, unwrap } from "../std/panic.ts";
 import { Err, Ok, type Result, unwrap_result } from "../std/result.ts";
 
 // mod print;
@@ -1110,12 +1110,12 @@ export class RustcPatCtxt implements PatCx<RustcPatCtxtTypes> {
 
   // rustc: compiler/rustc_pattern_analysis/src/rustc.rs:931 bug
   bug(fmt: string): ErrorGuaranteed {
-    return span_bug(this.scrut_span, fmt);
+    span_bug(this.scrut_span, fmt);
   }
 
   // rustc: compiler/rustc_pattern_analysis/src/rustc.rs:935 delayed_bug
   delayed_bug(fmt: string): ErrorGuaranteed {
-    return this.tcx.dcx().span_delayed_bug(this.scrut_span, fmt);
+    return keep_frame(this.tcx.dcx().span_delayed_bug(this.scrut_span, fmt));
   }
 
   // rustc: compiler/rustc_pattern_analysis/src/rustc.rs:939 lint_overlapping_range_endpoints

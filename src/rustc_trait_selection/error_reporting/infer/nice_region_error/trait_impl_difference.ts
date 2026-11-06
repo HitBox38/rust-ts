@@ -8,6 +8,7 @@
 // Init order: top-level code here touches only this file's .gen.ts, ./mod.ts (`NiceRegionError`) and other crates;
 // the crate's other modules (diagnostics, ./placeholder_error.ts) are read inside function bodies only.
 export * from "./trait_impl_difference.gen.ts";
+import { keep_frame } from "../../../../std/panic.ts";
 import { type VisitorResult, VisitorResult as VisitorResultC } from "../../../../rustc_ast_ir/visit.ts";
 import { Namespace } from "../../../../rustc_hir/def.ts";
 import * as hir from "../../../../rustc_hir/lib.ts";
@@ -150,7 +151,7 @@ NiceRegionError.prototype.emit_err = function (this: NiceRegionError, sp: Span, 
       } in type paths`,
     );
   }
-  return diag.emit_err();
+  return keep_frame(diag.emit_err());
 };
 // }
 

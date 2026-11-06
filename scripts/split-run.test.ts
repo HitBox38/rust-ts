@@ -63,7 +63,14 @@ out.timeout = await go(suite("timeout", ok, spec({ stdout: AB, sleepMs: 4000 }),
 out.oracleTimeout = await go(suite("oracle-timeout", spec({ stdout: AB, sleepMs: 3000 }), ok, { oracleTimeoutMs: 200 }));
 out.unstableRun = await go(suite("unstable-run", ok, ok, { unstable: () => [{ id: "run", reason: "listed" }] }));
 out.unstableSection = await go(suite("unstable-section", ok, spec({ stdout: mir(fn("a"), fn("b", " // x")) }), { unstable: () => [{ id: "run|fn b() -> ()", reason: "listed" }] }));
-out.detected = await go(suite("detected", spec({ stdout: AB, stderr: "thread 'rustc' (12345) panicked at x.rs:1:1:\\n", code: 101 }), ok));
+out.detected = await go(suite("detected", spec({ stdout: AB, stderr: "note: please attach the file at /u/rustc-ice-2026-10-21T11_18_00-4242.txt to your bug report\\n", code: 101 }), ok));
+// A thread id in stderr: masked on both sides, in the run case and in the oracle's re-run (review ice-report-impl F4).
+const tid = (n, at = "x.rs:1:1") => "thread 'rustc' (" + n + ") panicked at " + at + ":\\nboom\\n";
+out.tidMatch = await go(suite("tid-match", spec({ stdout: AB, stderr: tid(1), code: 101 }), spec({ stdout: AB, stderr: tid(2), code: 101 })));
+out.tidLocation = await go(suite("tid-location", spec({ stdout: AB, stderr: tid(1), code: 101 }), spec({ stdout: AB, stderr: tid(2, "x.rs:1:2"), code: 101 })));
+const tidRerun = suite("tid-rerun", spec({ stdout: AB, stderr: tid(1), code: 101 }, { stdout: AB, stderr: tid(9), code: 101 }), spec({ stdout: AB, stderr: tid(2), code: 101 }, { stdout: mir(fn("a", " // x"), fn("b")), stderr: tid(3), code: 101 }));
+out.tidRerun = { first: await go(tidRerun) };
+out.tidRerun.second = await go(tidRerun);
 // The oracle's re-run: the 1st run caches the entry (subject MATCH); the 2nd differs in section a, so its diff file
 // needs the oracle's text and the oracle runs again: its 2nd invocation reproduces, or not.
 const twice = async (name, oracle, extra = {}) => {
@@ -138,6 +145,17 @@ test("split runs: status mapping, unstable runs and sections, the oracle re-run,
   // A detected unstable oracle output (UNSTABLE_ORACLE_PATTERNS) too.
   expect(statuses(j.detected)).toEqual(all("UNSTABLE"));
   expect(j.detected.cached).toBe(false);
+  // A thread id is not unstable: it is cached, raw, and only the digits are forgiven.
+  expect(statuses(j.tidMatch)).toEqual(all("MATCH"));
+  expect(j.tidMatch.cached).toBe(true);
+  expect(statuses(j.tidLocation)[0]).toEqual(["run", "DIFF"]);
+  expect(j.tidLocation.results[0]!.first).toContain("x.rs:1:2");
+  expect(j.tidLocation.results[0]!.first).toContain("<tid>");
+  // A re-run with another id reproduces the entry: no "not reproduced" error (F4).
+  expect(statuses(j.tidRerun.first)).toEqual(all("MATCH"));
+  expect(j.tidRerun.second.oracleRerun).toEqual({ run: "run", outcome: "reproduced" });
+  expect(j.tidRerun.second.cached).toBe(true);
+  expect(lines.some((l) => l.includes("split-run-test-tid-rerun"))).toBe(false);
 
   // The re-run reproduces: scored as cached, and the diff file has the re-run's text.
   const rep = j.reproduced;

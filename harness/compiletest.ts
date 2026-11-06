@@ -1270,8 +1270,9 @@ export function collectUiTests(dir: string, out: string[] = []): string[] {
  * The tests of `tests/mir-opt` for the suite `mir-opt-o4` (review plan-m7 F7): revisions and ignores as compiletest evaluates them for
  * COMPILETEST_TARGET, one case per revision, a test with an aux crate skipped. Argv, which is **not** compiletest's exact mir-opt
  * command: runtest.rs's `-Copt-level=1 -Zvalidate-mir -Zlint-mir -Zmir-include-spans=false --crate-type=rlib`, the test's flags and
- * revision cfg, always `-Zmir-opt-level=4` with runtest.rs's `+ReorderBasicBlocks,+ReorderLocals` and the test's `test-mir-pass` enabled, then
- * `-Zunpretty=mir`. compiletest runs a `test-mir-pass` test at level 0 with that pass alone and compares `.diff` dumps; F7 asks for the whole
+ * revision cfg, `-Zmir-opt-level=4` with runtest.rs's `+ReorderBasicBlocks,+ReorderLocals` and the test's `test-mir-pass` enabled, then
+ * `-Zunpretty=mir`. A test's own `-Zmir-opt-level` comes later and wins, as in compiletest, so 60 of 406 run at the test's level, not at 4
+ * (review harness-m7a H9 counted 53: it missed the cases written `-Z mir-opt-level=N`, 9 of them, a difference of 7). compiletest runs a `test-mir-pass` test at level 0 with that pass alone and compares `.diff` dumps; F7 asks for the whole
  * level-4 pipeline on each of them, compared whole, and that is what a bug in a pass ordering shows up in. No `-Zdump-mir` of ours.
  * A test's own `-Zdump-mir` stays, so the caller must give each side a `-Zdump-mir-dir`.
  */

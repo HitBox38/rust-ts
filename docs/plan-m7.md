@@ -341,7 +341,7 @@ oracle built the build scripts):
 | Result | **34 of 34 lib and bin crates exit 0**, and the warnings and errors cargo reports are the oracle's, after working around 2 stops (§5, O4, O5) | |
 | CPU | 339 s (323.6 + `rg` 15.7) | 5.79 s (58×) |
 | Largest | `regex_automata` 34 s, `serde_core` 33 s, `regex_syntax` 27 s / 3.9 GB, `encoding_rs` 18 s, `libc` 17 s | |
-| `.rmeta` | **29 of 34 byte-identical**, including `rg`; 5 differ (O6) | |
+| `.rmeta` | **34 of 34 byte-identical** at one path, including `rg`. The 29 of 34 this plan first reported compared two directory names, and the oracle against itself gives the same 29 (O6, `docs/reviews/real-crates.md`) | |
 
 This is the first run of the port on code outside the test suites. It is the best news in this plan.
 
@@ -381,7 +381,7 @@ would be lost; use `--sourcemap`. Recommended as its own batch in wave 39 (D14).
 
 | Suites | `-O` / opt-level | MIR actually seen |
 |---|---|---|
-| `mir` 21,526 cases, `mir-core`, `mir-alloc`, `mir-std`, `rmeta-*`, `check-*` | none | **`mir_opt_level` 1 only** |
+| `mir` 21,525 cases, `mir-core`, `mir-alloc`, `mir-std`, `rmeta-*`, `check-*` | none | **`mir_opt_level` 1 only** |
 | `mir-minicore` | 3 of 46 `-O` | the only protected optimized-MIR cases at level 2 |
 | `mirdump-ui` | 156 `-O`, 19 level 3, 5 level 4 | `mir_built` and `mir_promoted`, not `optimized_mir` |
 | `borrowck-*`, `tydump-ui`, `thirdump-ui`, `thir-tree`, `pm-*` | some `-O` | stop before `optimized_mir` for the program (not audited case by case) |
@@ -422,7 +422,7 @@ against upstream. **Root cause not found.** 4.2% of the sample, 95% interval rou
 | O3 | `vtable_allocation_provider` stops at `Allocation::new`, `ty/vtable.ts:93` | 1 of 120 sampled, and `rg` | preflight; looks small |
 | O4 | `rustc_data_structures::jobserver::initialize` stops under `CARGO_MAKEFLAGS` | **every crate under cargo** | preflight, needed for ripgrep |
 | O5 | `build_output_filenames`'s `invocation_temp` stops with `-C incremental` (rand) | cargo's dev profile | D11 |
-| O6 | `serde_core.rmeta` differs from the oracle's, 4 bytes smaller, first body difference 1.5 kB from the end; `serde`, `serde_json`, `grep_printer`, `grep` differ too, at least `grep` only by hashes of its dependencies | a metadata bug no suite sees; would break SVH-sensitive linking if mixed | preflight |
+| O6 | **Not a port difference.** This row said `serde_core.rmeta` and 4 others differ from the oracle's. That was the comparison: it used two directory names, and the path is in the bytes. At one path the port is identical on 34 of 34 (`docs/reviews/real-crates.md`) | none | closed |
 | O7 | `callconv/aarch64.rs` 0/6 | no host target past `compute_rust_abi_info`, even in `cargo check` | preflight |
 | O8 | `P1`: `dump_mono_items_stats` catch relabels a panic | wrong stop name | `mono-wire` |
 
@@ -433,9 +433,9 @@ as always (A9). Denominators exclude ORACLE_TIMEOUT and oracle-unstable cases.
 
 | Suite | Mode | Cases | Oracle CPU | Port estimate, wall at 8 jobs | Role |
 |---|---|---|---|---|---|
-| `mir-o2` | `-Zunpretty=mir`, compiletest's argv, x86_64-linux | 3,470 (run-pass corpus, no aux) | about 3 min | 11 min | **M7a ≥ 99%**, then protected. Measured 115/120 |
-| `mono-ui` | `-Zprint-mono-items=yes` on the same | 3,470 | about 5 min | 12 min | **M7a ≥ 99%**. Measured: 113/120 reach the end, review 351/363 MATCH |
-| `check-rg` | ripgrep's 34 crates, `--emit=metadata`, rmeta bytes | 34 | 6 s | 6 min, heavy | **M7a ≥ 33**, then 34 |
+| `mir-o2` | `-Zunpretty=mir`, compiletest's argv, x86_64-linux | 3,479 (run-pass corpus, no aux) | about 3 min | 11 min | **M7a ≥ 99%**, then protected. Measured 115/120 |
+| `mono-ui` | `-Zprint-mono-items=yes` on the same | 3,479 | about 5 min | 12 min | **M7a ≥ 99%**. Measured: 113/120 reach the end, review 351/363 MATCH |
+| `check-rg` | ripgrep's 34 crates, `--emit=metadata`, rmeta bytes | 36 reported cases, of 34 crates | 6 s | 6 min, heavy | **M7a ≥ 33**, then 34 |
 | `ir-hello` | normal form | 2 (`-O`, `-Copt-level=0`) | | | **M7a** |
 | `ir-run-pass` | normal form; compiletest's argv + `-Cno-prepopulate-passes --emit=llvm-ir`, x86_64-linux | 3,478 | 66 s + 35 s of `opt` | 18 min | **M7b, M7c** |
 | `ir-run-pass-o0` | the same + `-Copt-level=0` (other MIR, no lifetime markers) | 3,478 | 2 min | 18 min | report → M7c |
@@ -450,7 +450,7 @@ as always (A9). Denominators exclude ORACLE_TIMEOUT and oracle-unstable cases.
 | `rg-behaviour` | scripted queries on a fixed corpus, oracle-built vs port-built `rg`; plus ripgrep's own 333 `rgtest!` integration tests, as a report | about 50 + 333 | | | **M7d** |
 | `std-self` | port-built core, alloc, std; hello links and runs | 1 | | minutes, heavy, 12 GB | report (M9) |
 
-Oracle caches: IR is about 230 MB per suite uncompressed (16.0 MB over 240 cases) and only 25 GB of disk is free. Cache
+Oracle caches: IR is about 230 MB per suite uncompressed (16.0 MB over 240 cases) and only 16-19 GB of disk is free (25 GB when this plan was measured). Cache
 **gzipped normal forms** (D12). The output is bound to this machine, per plan-m6 A11.
 
 **Gates** (`scripts/criteria.ts` groups, per A12):
@@ -527,7 +527,7 @@ does); difftest compares stdout. `scripts/native-run.ts` builds into a per-case 
 (UNSTABLE otherwise). Stderr masks: stderr only, thread ids (plan-ice-report's mask), `stack backtrace:` blocks.
 `rust_test_helpers` is built once with `cc` for the suite (44 run-pass files use it or `#[link]`).
 
-**D13. Preflight before contracts.** O2, O3, O4, O6, O7, `mono-wire` and `mir-o2`, `mono-ui`, `check-rg` come first. They
+**D13. Preflight before contracts.** O2, O3, O4, O7, `mono-wire` and `mir-o2`, `mono-ui`, `check-rg` come first. They
 need no codegen, each is a real bug on the M7 path, and the protected sets cannot see them today. Everything downstream would
 otherwise diverge from MIR that is wrong.
 
@@ -569,7 +569,7 @@ Lanes ≤ about 3k upstream lines; ✱ = contract-first, merges before its depen
 - `vtable-alloc`: `ty/vtable.ts`, O3.
 - `mono-wire`: providers in `DEFAULT_QUERY_PROVIDERS`, load order, review items P1, N1–N5, C1–C3; `tools` entries as a tools
   batch.
-- `real-crates`: O1, O4, O5, O6.
+- `real-crates`: O1, O4, O5, and O6, which it closed as the comparison's artifact.
 - `harness-m7a`: `llvm-tools` guard, `ir-run.ts` + normal form + tests of what it absorbs and what it must not, `mir-o2`,
   `mono-ui`, ripgrep setup + `check-rg`, `ir-diff.ts`.
 - `startup-bundle` (harness batch, D14). May slip; nothing depends on it.
@@ -636,7 +636,7 @@ tail. It is the one place where a port meets behaviour we re-derive rather than 
   Linux VM becomes available, add `run-pass-native-linux` as a report.
 - **Memory.** `regex_syntax` 3.9 GB in the front end; codegen holds a model per CGU, on top. Gates run many cases, but 34
   crates at -j4 is fine on 24 GB. check-core is already at 12.3 GB; `std-self` must stay serial.
-- **Disk.** 25 GB free. Gzipped cache; `$T/rg` target directories are removed after use. Watch `aux`-style growth:
+- **Disk.** 16-19 GB free (25 GB when this plan was measured). Gzipped cache; `$T/rg` target directories are removed after use. Watch `aux`-style growth:
   `run-pass-aux-native` keeps rlibs by hash.
 - **Unit step.** 21 of 30 minutes. The ≤ 15 s rule is a real constraint for about 37 lanes; `opt`-based tests in unit tests
   are cheap (10 ms) but per-case port runs are not.
@@ -665,7 +665,7 @@ What would change the plan:
 - **Samples, not full runs:** native 240 of 3,478, control 150, O2 120, normal form 150. `run-fail` was not sampled natively.
   tests/codegen-llvm: 484 of 848 files ran; revisions, `needs-*`, aux and other targets were skipped by my simple directive
   filter.
-- **O2's and O6's root causes.** O6's list of 5 files is not separated into cause and cascade beyond `grep`.
+- **O2's root cause.** (O6's turned out to be the comparison's: `docs/reviews/real-crates.md`.)
 - **`rg`'s mono run** stubbed the vtable provider with an empty allocation, which can under-collect items reached only
   through a const vtable. Its direct-call ABI walk failed in my script.
 - **`ar_archive_writer`:** read from a tarball; it is not in `Cargo.lock`-vendored form here, so `crate-src.ts` needs one

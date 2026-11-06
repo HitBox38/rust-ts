@@ -8,14 +8,15 @@
 // Exit codes: rustc's own (0 ok, 1 errors, 101 ICE), plus 70 = reached unported code.
 // 70 must never be interpreted as a rustc status.
 import { FatalErrorMarker } from "../rustc_span/fatal_error.ts";
-import { Panic, Unported } from "../std/panic.ts";
-import { ensure_stack } from "./stack.ts";
+import { Unported } from "../std/panic.ts";
+import { report_uncaught } from "../std/panicking.ts";
+import { ensure_stack, selected_impl } from "./stack.ts";
 import { write_stderr } from "../std/io.ts";
 
 export const EXIT_UNPORTED = 70;
 
 async function main(args: string[]): Promise<number> {
-  const impl = process.env.RUST_TS_IMPL ?? "port";
+  const impl = selected_impl();
   if (impl === "shim") {
     const { PIN } = await import("../../scripts/lib/common.ts");
     const proc = Bun.spawn(["rustc", `+${PIN.toolchain}`, ...args], { stdio: ["inherit", "inherit", "inherit"] });
@@ -50,8 +51,7 @@ try {
     // `RUSTC_LOG_*` value): `resume_unwind` skips the panic hook, so rustc exits 101 printing nothing more.
     process.exitCode = 101;
   } else {
-    const msg = e instanceof Panic ? e.message : String(e);
-    write_stderr(`rust-ts: internal compiler error: ${msg}\n${e instanceof Error ? e.stack : ""}\n`);
+    report_uncaught(e);
     process.exitCode = 101;
   }
 }

@@ -1,5 +1,5 @@
 // Partial port of compiler/rustc_interface/src/interface.rs: `Compiler`, `parse_cfg`, `parse_check_cfg`,
-// `Config`, `run_compiler`. `try_print_query_stack` needs rustc_middle (not ported).
+// `Config`, `run_compiler`, `try_print_query_stack`.
 import type { Providers as MiddleProviders } from "../rustc_middle/util/mod.ts";
 import "../rustc_session/options.ts"; // LOAD ORDER: see rustc_session/config.ts
 import type { PathBuf } from "../rustc_error_messages/lib.ts";
@@ -19,6 +19,7 @@ import { ParseSess } from "../rustc_session/parse.ts";
 import { FileName } from "../rustc_span/lib.ts";
 import { Ident, kw, Symbol, sym } from "../rustc_span/symbol.ts";
 import { RealFileLoader } from "../rustc_span/source_map.ts";
+import { write_stderr } from "../std/io.ts";
 import { Panic, unported, unwrap } from "../std/panic.ts";
 import { FatalErrorMarker } from "../rustc_span/fatal_error.ts";
 import { initialize as jobserver_initialize } from "../rustc_data_structures/jobserver.ts";
@@ -26,6 +27,7 @@ import { type CodegenBackend, CurrentGcx } from "./stand_ins.ts";
 import * as util from "./util.ts";
 import { setup_callbacks } from "./callbacks.ts";
 import { DEF_ID_DEBUG } from "../rustc_span/def_id.ts";
+import { EMIT_BUG_DIAGNOSTIC } from "../rustc_span/macros.ts";
 
 /// Represents a compiler session. Note that every `Compiler` contains a
 /// `Session`, but `Compiler` also contains some things that cannot be in
@@ -391,11 +393,12 @@ export function run_compiler<R>(config: Config, f: (compiler: Compiler) => R): R
     });
   }
 
-  // PORT: installs only `DEF_ID_DEBUG` (callbacks.ts module comment). Upstream installs the callbacks for the
+  // PORT: installs `DEF_ID_DEBUG` and `EMIT_BUG_DIAGNOSTIC` (callbacks.ts module comment). Upstream installs the callbacks for the
   // rest of the process (one compiler per rustc process); rust-ts tests run several compilers in one process
-  // and also test the defaults, so the previous hook is restored when `run_compiler` returns. Nothing formats
-  // a `DefId` after that in a real run, so this is not observable there.
+  // and also test the defaults, so those two are restored when `run_compiler` returns (`TRACK_FEATURE` stays). Nothing
+  // formats a `DefId` after that in a real run, and no `tcx` is left for a `bug!` to print through, so this is not observable there.
   const old_def_id_debug = DEF_ID_DEBUG.deref();
+  const old_emit_bug_diagnostic = EMIT_BUG_DIAGNOSTIC.f;
   setup_callbacks();
   try {
     const target = build_target_config(
@@ -543,6 +546,7 @@ export function run_compiler<R>(config: Config, f: (compiler: Compiler) => R): R
     );
   } finally {
     DEF_ID_DEBUG.swap(old_def_id_debug);
+    EMIT_BUG_DIAGNOSTIC.f = old_emit_bug_diagnostic;
   }
 }
 
@@ -553,4 +557,29 @@ function max_opt(a: number | undefined, b: number | undefined): number | undefin
   return Math.max(a, b);
 }
 
-// `try_print_query_stack` (interface.rs:542): not ported (rustc_middle / rustc_query_impl).
+// rustc: compiler/rustc_interface/src/interface.rs:542 try_print_query_stack
+export function try_print_query_stack(limit_frames: number | undefined, file: ((line: string) => void) | undefined): void {
+  write_stderr("query stack during panic:\n");
+
+  // PORT: loaded here, not at the top: this runs only in a panic hook, and the modules are not this crate's own.
+  const { with_context_opt } = require("../rustc_middle/ty/context/tls.ts") as typeof import("../rustc_middle/ty/context/tls.ts");
+  const { with_no_queries } = require("../rustc_middle/ty/print/pretty.ts") as typeof import("../rustc_middle/ty/print/pretty.ts");
+  const { print_query_stack } = require("../rustc_query_impl/lib.ts") as typeof import("../rustc_query_impl/lib.ts");
+
+  // Be careful relying on global state here: this code is called from
+  // a panic hook, which means that the global `DiagCtxt` may be in a weird
+  // state if it was responsible for triggering the panic.
+  const all_frames = with_context_opt((icx) => {
+    if (icx !== undefined) {
+      return with_no_queries(() => print_query_stack(icx.tcx, icx.query, limit_frames, file));
+    } else {
+      return 0;
+    }
+  });
+
+  if (limit_frames !== undefined && all_frames > limit_frames) {
+    write_stderr(`... and ${all_frames - limit_frames} other queries... use \`env RUST_BACKTRACE=1\` to see the full query stack\n`);
+  } else {
+    write_stderr("end of query stack\n");
+  }
+}

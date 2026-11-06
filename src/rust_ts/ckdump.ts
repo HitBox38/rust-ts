@@ -15,7 +15,8 @@
 import type { Compiler, Config } from "../rustc_interface/interface.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import { Panic, Unported } from "../std/panic.ts";
-import { ensure_stack } from "./stack.ts";
+import { report_uncaught } from "../std/panicking.ts";
+import { ensure_stack, selected_impl } from "./stack.ts";
 import { write_stderr } from "../std/io.ts";
 
 const EXIT_UNPORTED = 70;
@@ -34,7 +35,7 @@ function make_callbacks() {
 }
 
 async function main(args: string[]): Promise<number> {
-  const impl = process.env.RUST_TS_IMPL ?? "port";
+  const impl = selected_impl();
   if (impl === "shim") {
     const { probePath } = await import("../../scripts/probes.ts");
     const proc = Bun.spawn([probePath("ckdump"), ...args], { stdio: ["inherit", "inherit", "inherit"] });
@@ -75,8 +76,7 @@ try {
     write_stderr(`rust-ts: unported: ${e.what}\n`);
     process.exitCode = EXIT_UNPORTED;
   } else {
-    const msg = e instanceof Panic ? e.message : String(e);
-    write_stderr(`rust-ts: internal compiler error: ${msg}\n${e instanceof Error ? e.stack : ""}\n`);
+    report_uncaught(e);
     process.exitCode = 101;
   }
 }

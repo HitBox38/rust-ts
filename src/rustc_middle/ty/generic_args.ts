@@ -326,15 +326,13 @@ export const fold_GenericArg: TypeFoldable<GenericArg> = {
 
   // rustc: compiler/rustc_middle/src/ty/generic_args.rs:346 fold_with
   fold_with(self: GenericArg, folder: TypeFolder): GenericArg {
-    const k = GenericArg.kind(self);
-    switch (k.$) {
-      case "Lifetime":
-        return GenericArg.from_Region(fold_Region.fold_with(k._0, folder));
-      case "Type":
-        return GenericArg.from_Ty(fold_Ty.fold_with(k._0, folder));
-      case "Const":
-        return GenericArg.from_Const(fold_Const.fold_with(k._0, folder));
-    }
+    // PORT(perf): upstream matches on `self.kind()`, which costs it nothing; here `kind` allocates a `GenericArgKind`, and this
+    // is the hottest caller in the next solver. The same arms in `kind`'s test order. Measured: 1,348 to 1,320 Ginstr on
+    // recursive-drop-elaboration.rs.
+    if (self instanceof Region) return GenericArg.from_Region(fold_Region.fold_with(self, folder));
+    if (self instanceof Ty) return GenericArg.from_Ty(fold_Ty.fold_with(self, folder));
+    if (self instanceof Const) return GenericArg.from_Const(fold_Const.fold_with(self, folder));
+    return panic_unreachable();
   },
 
   // rustc: compiler/rustc_middle/src/ty/generic_args.rs:356 visit_with

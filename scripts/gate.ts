@@ -8,6 +8,10 @@
 //       others, one after another, and print each run's wall/user time and max RSS (an RSS over the suite's budget
 //       is a `note:`, not a failure: D11). `--skip-heavy` leaves them out: they are listed as not run (`notRun` in
 //       gate.json), none of their cases counts as lost, and the run cannot be accepted if one of them is protected.
+//       It refuses to start on battery (one `ERROR:` line), unless `--allow-battery`: a gate on battery ran up to 3.5x slower, so a
+//       timeout can become a false protected loss (docs/reviews/perf-near-limit.md, question c). Power lost during a run is a `note:`, never
+//       a failure. gate.json records power, load, swap and times (`host`, `SuiteGate.startedAt`...), which no status or verdict reads
+//       (scripts/lib/host-state.ts). On a host with no battery or no `pmset`, none of this does anything but record `power: null`.
 //   bun scripts/gate.ts accept --run <run-id>
 //       grow the protected set with that gate run's new MATCHes. Refused if the run lost anything,
 //       skipped static checks, skipped a protected suite, ran on a dirty tree, or HEAD has moved since.
@@ -18,8 +22,9 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { IR_RUN, RG_CHECK, RMETA_RUN, SUITES, suite as getSuite, type Suite } from "../harness/suites.ts";
-import { difftest, heavyErrorLines, heavyLine, unstableOf, type HeavyRun, type OracleRerun } from "./difftest.ts";
+import { difftest, heavyErrorLines, heavyLine, unstableOf, type HeavyRun, type OracleRerun, type Usage } from "./difftest.ts";
 import { REPO, RUNS, UPSTREAM, die, ensureDir, nowId, parseArgs, run } from "./lib/common.ts";
+import { HostLog, REAL_HOST, batteryRefusal, sampleHost, type HostReaders, type HostSample } from "./lib/host-state.ts";
 import { miriBinary } from "./lib/miri.ts";
 import { verifyOraclePin } from "./lib/oracle.ts";
 import { UNIT_STEPS } from "./lib/unit-steps.ts";
@@ -55,6 +60,11 @@ interface SuiteGate {
   unstable?: string[];
   /** Cases whose subject timed out in difftest's parallel pool and were re-run alone (their status is the re-run's). */
   retried?: string[];
+  /**
+   * Every subject that timed out in the pool, with its final status and each attempt's time and max RSS (`CaseResult.attempts`).
+   * Informational: a status never reads it. Lane harness-w40; `MATCH` here is a case that matched only through the re-run.
+   */
+  retryTimes?: { id: string; status: string; pool: Usage; alone?: Usage }[];
   /** Paths of the upstream checkout this suite's run changed (scripts/lib/upstream.ts); any fails the run. */
   upstreamChanges?: string[];
   /** Heavy suites: each run's wall/user time and max RSS (informational; an RSS over budget never fails the run). */
@@ -71,7 +81,20 @@ interface SuiteGate {
    * cached entry made the cases it would have scored UNSTABLE, so a protected one among them is lost.
    */
   oracleReruns?: OracleRerun[];
+  /** Informational (scripts/lib/host-state.ts): when the suite ran, and power, load and swap at its two ends. */
+  startedAt?: string;
+  endedAt?: string;
+  hostStart?: HostSample;
+  hostEnd?: HostSample;
 }
+
+/** Where a gate's host record comes from: the real host, or a test's fake readers. */
+export interface GateHost {
+  readers: HostReaders;
+  pollMs: number;
+  keepEveryMs: number;
+}
+const REAL_GATE_HOST: GateHost = { readers: REAL_HOST, pollMs: 60_000, keepEveryMs: 600_000 };
 
 /** Protected ids of `suite` that its `Suite.unstable` lists: an unstable case can never be protected. */
 export function protectedUnstable(suite: string, base: Set<string> = readBaseline(suite)): string[] {
@@ -330,8 +353,16 @@ function protectedSuites(): string[] {
     .map((f) => f.slice(0, -4));
 }
 
-async function gateRun(requested: string[], skipStatic: boolean, skipHeavy: boolean): Promise<void> {
+export async function gateRun(requested: string[], skipStatic: boolean, skipHeavy: boolean, allowBattery = false, gateHost: GateHost = REAL_GATE_HOST): Promise<void> {
   for (const name of requested) getSuite(name); // unknown suite names fail here
+  // Before anything starts. What this reads decides only whether a run starts: no status or verdict reads the record below.
+  const first = await sampleHost(gateHost.readers);
+  const refused = batteryRefusal(first.power, allowBattery);
+  if (refused !== undefined) die(refused);
+  if (first.power?.onBattery) console.log(`note: running on battery (--allow-battery)${first.power.percent === null ? "" : `, at ${first.power.percent}%`}: timings will run slow, and a timeout may be false`);
+  const host = new HostLog(gateHost.readers, { pollMs: gateHost.pollMs, keepEveryMs: gateHost.keepEveryMs, note: (l) => console.log(l), allowBattery, firstOnBattery: first.power?.onBattery });
+  await host.mark();
+  host.start();
   // Heavy suites last, in their given order (plan-m5 §4.2); `--skip-heavy` leaves them out, as not run.
   const isHeavy = (name: string) => getSuite(name).heavy !== undefined;
   const notRun = skipHeavy ? requested.filter(isHeavy).map((suite) => ({ suite, reason: "--skip-heavy" })) : [];
@@ -361,7 +392,9 @@ async function gateRun(requested: string[], skipStatic: boolean, skipHeavy: bool
   const staticOk = st.ok;
   const out: SuiteGate[] = [];
   for (const suite of suites) {
+    const hostStart = await host.mark();
     const { results, stats, upstreamChanges, heavy, extra, oracleReruns } = await difftest({ suite, runId, quiet: true });
+    const hostEnd = await host.mark();
     const base = readBaseline(suite);
     const match = new Set(results.filter((r) => r.status === "MATCH").map((r) => r.id));
     const lost = [...base].filter((id) => !match.has(id));
@@ -372,8 +405,9 @@ async function gateRun(requested: string[], skipStatic: boolean, skipHeavy: bool
     const lostSkipped = lost.filter((id) => skippedWhy.has(id)).map((id) => ({ id, reason: skippedWhy.get(id)! }));
     const unstable = results.filter((r) => r.status === "UNSTABLE").map((r) => r.id);
     const retried = results.filter((r) => r.retried).map((r) => r.id);
+    const retryTimes = results.flatMap((r) => (r.attempts ? [{ id: r.id, status: r.status, ...r.attempts }] : []));
     const heavyErrors = (heavy ?? []).flatMap((h) => heavyErrorLines(suite, h));
-    out.push({ suite, baseline: base.size, match: match.size, total: results.length, lost, gained, batchOnlyFailures: stats.batchOnlyFailures, batchOnlyTimeouts: stats.batchOnlyTimeouts, oracleTimeouts, lostSkipped, unstable, retried, upstreamChanges, ...(heavy ? { heavy, heavyErrors } : {}), ...(extra !== undefined ? { extra, oracleReruns } : {}) });
+    out.push({ suite, baseline: base.size, match: match.size, total: results.length, lost, gained, batchOnlyFailures: stats.batchOnlyFailures, batchOnlyTimeouts: stats.batchOnlyTimeouts, oracleTimeouts, lostSkipped, unstable, retried, retryTimes, upstreamChanges, ...(heavy ? { heavy, heavyErrors } : {}), ...(extra !== undefined ? { extra, oracleReruns } : {}), startedAt: hostStart.at, endedAt: hostEnd.at, hostStart, hostEnd });
     console.log(`${lost.length ? "ERROR:" : "ok   "} ${suite}: protected=${base.size} match=${match.size}/${results.length} lost=${lost.length} gained=${gained.length}`);
     for (const h of heavy ?? []) console.log(`  ${heavyLine(suite, h)}`);
     // (Reported, recorded in gate.json, but not a gate failure by themselves: see `SuiteGate.heavyErrors`.)
@@ -411,7 +445,10 @@ async function gateRun(requested: string[], skipStatic: boolean, skipHeavy: bool
   const upstreamOk = out.every((s) => !s.upstreamChanges?.length);
   if (!upstreamOk) console.log("ERROR: a suite changed the upstream checkout (see `upstreamChanges` in gate.json)");
   const pass = staticOk && unchanged && unstableOk && upstreamOk && out.every((s) => s.lost.length === 0);
-  writeFileSync(join(RUNS, runId, "gate.json"), JSON.stringify({ runId, pass, staticOk, skipStatic, unitTestSkips: st.skips ?? null, head: prov.head, dirty: prov.dirty, unstableOk, upstreamOk, suites: out, ...(notRun.length ? { notRun } : {}) }, null, 1));
+  await host.mark();
+  host.stop();
+  if (host.powerLost.length) console.log(`note: this gate lost power ${host.powerLost.length} time(s), first seen at ${host.powerLost[0]!.at}; a lost case from about then on may be a false timeout (\`host\` in gate.json)`);
+  writeFileSync(join(RUNS, runId, "gate.json"), JSON.stringify({ runId, pass, staticOk, skipStatic, unitTestSkips: st.skips ?? null, head: prov.head, dirty: prov.dirty, unstableOk, upstreamOk, suites: out, ...(notRun.length ? { notRun } : {}), host: host.record(allowBattery) }, null, 1));
   console.log(`gate ${pass ? "PASS" : "FAIL"} run=${runId}`);
   if (!pass) process.exit(1);
 }
@@ -475,10 +512,10 @@ if (import.meta.main) {
       typeof a.suites === "string"
         ? a.suites.split(",")
         : protectedSuites();
-    await gateRun(suites, Boolean(a["skip-static"]), Boolean(a["skip-heavy"]));
+    await gateRun(suites, Boolean(a["skip-static"]), Boolean(a["skip-heavy"]), Boolean(a["allow-battery"]));
   } else if (cmd === "accept" && typeof a.run === "string") {
     await gateAccept(a.run);
   } else {
-    console.log("usage: bun scripts/gate.ts run [--suites a,b] [--skip-static] [--skip-heavy] | accept --run <run-id>");
+    console.log("usage: bun scripts/gate.ts run [--suites a,b] [--skip-static] [--skip-heavy] [--allow-battery] | accept --run <run-id>");
   }
 }

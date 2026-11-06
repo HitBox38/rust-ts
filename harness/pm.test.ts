@@ -200,7 +200,7 @@ t("pm suites: pm-ui appends --emit=metadata unless compiletest passes it; defini
   expect(ui).toMatchObject({ name: "pm-ui", milestone: "M6", mode: "single", timeoutMs: 60000, oracleTimeoutMs: 300000, subsets: ["tests/ui/proc-macro"] });
   expect(ui.criterion.percent).toBe(95);
   expect(ui.heavy).toBeUndefined();
-  expect(ui.unstable.map((u: { id: string }) => u.id)).toEqual(["tests/ui/resolve/proc_macro_generated_packed.rs"]);
+  expect(ui.unstable).toEqual([]);
   expect(exp).toMatchObject({ name: "pm-expanded", milestone: "M6", mode: "single", unstable: [] });
   expect(exp.criterion).toBeUndefined();
 });

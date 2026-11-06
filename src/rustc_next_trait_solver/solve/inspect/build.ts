@@ -34,7 +34,7 @@ import type { Certainty, Goal, GoalSource, QueryResult } from "../../../rustc_ty
 import { debug_Certainty, debug_Goal, debug_GoalSource, fold_with_Goal, try_fold_with_Goal, visit_with_Goal } from "../../../rustc_type_ir/solve/mod.ts";
 import { type Debug, debug_int, debug_option, debug_struct, debug_tuple, debug_vec, type Fmt, PLAIN } from "../../../std/fmt.ts";
 import type { MutRef } from "../../../std/mut_ref.ts";
-import { assert_eq, panic, unreachable, unwrap } from "../../../std/panic.ts";
+import { keep_frame, assert_eq, panic, unreachable, unwrap } from "../../../std/panic.ts";
 import { make_canonical_state } from "../../canonical/mod.ts";
 import type { SolverDelegate } from "../../delegate.ts";
 
@@ -89,7 +89,7 @@ export class ProofTreeBuilder {
 
   // rustc: compiler/rustc_next_trait_solver/src/solve/inspect/build.rs:79 unwrap
   unwrap(): Probe {
-    return unwrap(unwrap(this.state).value);
+    return keep_frame(unwrap(unwrap(this.state).value));
   }
 }
 

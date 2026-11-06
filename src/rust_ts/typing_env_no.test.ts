@@ -1,6 +1,7 @@
 // The packed memo keys (review miri-perf F1, F2): a collision runs the wrong function or hides an error, and no sample shows it.
 import { expect, test } from "bun:test";
-import { args_env_key, pack_def_id } from "./typing_env_no.ts";
+import { INTERNED } from "../rustc_data_structures/intern.ts";
+import { args_env_key, pack_def_id, typing_env_no } from "./typing_env_no.ts";
 
 test("pack_def_id is injective on everything it accepts, and stays exact", () => {
   const seen = new Map<number, string>();
@@ -35,4 +36,24 @@ test("args_env_key: an env past 0x3f is not memoized, so (args, env) and (args -
   const seen = new Set<number>();
   for (let args = 0; args < 8; args++) for (let env = 0; env < 0x40; env++) seen.add(args_env_key(args, env)!);
   expect(seen.size).toBe(8 * 0x40);
+});
+
+test("typing_env_no: two envs in turn keep their numbers, and a third evicts neither's meaning", () => {
+  const bounds = { [INTERNED]: true, id: 900 } as unknown as object;
+  const env = (mode: object): Parameters<typeof typing_env_no>[0] => ({ typing_mode_: { _0: mode }, param_env: { caller_bounds_: bounds } });
+  const [a, b, c] = [{ $: "A9" }, { $: "B9" }, { $: "C9" }];
+  const na = typing_env_no(env(a));
+  const nb = typing_env_no(env(b));
+  expect(nb).not.toBe(na);
+  for (let i = 0; i < 4; i++) {
+    expect(typing_env_no(env(a))).toBe(na);
+    expect(typing_env_no(env(b))).toBe(nb);
+  }
+  const nc = typing_env_no(env(c));
+  expect(new Set([na, nb, nc]).size).toBe(3);
+  expect(typing_env_no(env(a))).toBe(na);
+  expect(typing_env_no(env(c))).toBe(nc);
+  expect(typing_env_no(env(b))).toBe(nb);
+  // A different object with the same text is the same env.
+  expect(typing_env_no(env({ $: "A9" }))).toBe(na);
 });

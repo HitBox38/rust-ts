@@ -8,6 +8,7 @@ import { LoggerConfig } from "../../../rustc_log/lib.ts";
 import { type TyCtxt } from "../../../rustc_middle/ty/context.ts";
 import { type CtfeBacktrace, type EarlyDiagCtxt } from "../../../rustc_session/session.ts";
 import { Level_from_str } from "../../../rust_ts/tracing.ts";
+import { var_ as env_var } from "../../../std/env.ts";
 import { Ok } from "../../../std/result.ts";
 // PORT: `crate::fatal_error!` is the binary crate's macro (bin/miri.rs). This import is a cycle (miri.ts imports this
 // module); `fatal_error` is only read when `MIRI_TRACING` is set, long after both modules are evaluated.
@@ -37,9 +38,9 @@ function rustc_logger_config(): LoggerConfig {
   const cfg = LoggerConfig.from_env("RUSTC_LOG");
 
   // Overwrite if MIRI_LOG is set.
-  const v = process.env["MIRI_LOG"];
-  if (v !== undefined) {
-    const var_ = v;
+  const v = env_var("MIRI_LOG");
+  if (v.$ === "Ok") {
+    const var_ = v._0;
     // MIRI_LOG serves as default for RUSTC_LOG, if that is not set.
     if (cfg.filter.$ === "Err" && cfg.filter._0.$ === "NotPresent") {
       // We try to be a bit clever here: if `MIRI_LOG` is just a single level

@@ -60,6 +60,7 @@ import {
   RibKind,
 } from "./late.ts";
 import { type Res, Resolver, Segment, provide } from "./lib.ts";
+import { plain_bug } from "../rust_ts/test_bug.ts";
 
 // ---- 1. end-to-end oracle cases ---------------------------------------------------------------
 
@@ -826,7 +827,7 @@ case_("visit_attribute does nothing; visit_anon_const is a bug; visit_ty_pat on 
   with_visitor((v) => {
     expect(v.visit_attribute({} as Attribute)).toBeUndefined();
     const value = new Expr(nid(3), { $: "Underscore" }, DUMMY_SP, [], undefined);
-    expect(() => v.visit_anon_const({ id: nid(1), value })).toThrow("encountered anon const without a manual call to `resolve_anon_const`");
+    expect(() => plain_bug(() => v.visit_anon_const({ id: nid(1), value }))).toThrow("encountered anon const without a manual call to `resolve_anon_const`");
     expect(v.visit_ty_pat({ id: nid(2), kind: { $: "NotNull" }, span: DUMMY_SP, tokens: undefined } as never)).toBeUndefined();
   });
 });

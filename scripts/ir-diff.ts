@@ -56,8 +56,9 @@ function pickCase(a: ReturnType<typeof parseArgs>): { args: string[]; cwd: strin
   const abs = resolve(process.cwd(), file);
   if (!existsSync(abs)) fail(`no such file: ${abs}`);
   if (a.opt !== undefined && a.opt !== "O" && a.opt !== "0") fail(`--opt must be O or 0, not ${String(a.opt)}`);
-  // The file's own directory, so its name in panic locations is the bare name on both sides.
-  return { args: irFileArgs(basename(abs), a.opt === "0" ? "0" : "O", typeof a.target === "string" ? a.target : undefined), cwd: dirname(abs), env: undefined, what: file };
+  // The file's own directory, so its name in panic locations is the bare name on both sides. No ICE report beside the file: under
+  // tests/ui it would dirty the upstream checkout (review harness-w40 L1).
+  return { args: irFileArgs(basename(abs), a.opt === "0" ? "0" : "O", typeof a.target === "string" ? a.target : undefined), cwd: dirname(abs), env: { RUSTC_ICE: "0" }, what: file };
 }
 
 /** The tiers' normal forms of a side's kept `.ll`s, joined by name; undefined if it kept none. */

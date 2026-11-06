@@ -20,7 +20,7 @@ import { type ErrorGuaranteed, Span, type Spanned } from "../rustc_span/lib.ts";
 import { FatalError } from "../rustc_span/fatal_error.ts";
 import { ExplicitBug, type Location } from "../rustc_span/macros.ts";
 import { debug_option, PLAIN, type Debug, type Fmt } from "../std/fmt.ts";
-import { assert, assert_eq, panic, panicking, unported, unwrap } from "../std/panic.ts";
+import { keep_frame, assert, assert_eq, panic, panicking, unported, unwrap } from "../std/panic.ts";
 import { utf8_len } from "../std/str.ts";
 import * as track_caller from "../rust_ts/track_caller.ts";
 import type { ErrCode } from "./codes.ts";
@@ -256,7 +256,7 @@ declare module "./diagnostic.gen.ts" {
   level: Level,
   message: IntoDiagMessage,
 ): DiagInner {
-  return DiagInner.new_with_messages(level, [[into_DiagMessage(message), "NoStyle"]]);
+  return keep_frame(DiagInner.new_with_messages(level, [[into_DiagMessage(message), "NoStyle"]]));
 };
 
 // rustc: compiler/rustc_errors/src/diagnostic.rs:213 new_with_messages
