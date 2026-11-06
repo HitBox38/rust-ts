@@ -4,9 +4,11 @@
 //   bun scripts/ir-run.ts --out <dir> --side oracle|subject --bin <llvm-tools dir> [--tier N1|N2|N3] [--keep] -- <compiler argv...>
 //
 // - The compiler runs with this process's cwd, environment and stdout/stderr (inherited, so its diagnostics pass through byte
-//   for byte), with `--out-dir <dir>/<side>-<pid>` appended; the argv names `--emit=llvm-ir` and no `-o`. `--out-dir`, not `-o`:
+//   for byte), with `--out-dir <dir>/work` appended; the argv names `--emit=llvm-ir` and no `-o`. `--out-dir`, not `-o`:
 //   a `-o` turns several codegen units into one, which would change what is compared. A compiler that fails ends the run with
 //   its exit code. One that exits 0 and writes no `.ll` prints `ir: none` and exits 0.
+// - **Both sides use that one path, one at a time under a lock,** as scripts/rg-check.ts's tree: `-Csplit-debuginfo` writes the output directory
+//   into the IR (`splitDebugFilename`, review harness-m7a H5), so a path with the side and pid in it would differ between any two runs.
 // - Each `.ll`, in byte order of its name, prints `ir: <file name> <tier>`, then its normal form. The default tier is N1.
 // - An `opt` or `llvm-as` failure (the module does not parse or verify) prints `ir: normal form failed: <first error line>` and
 //   exits `EXIT_NORMAL_FORM`, a difference from any oracle that succeeded (plan-m7 D16: never retried, never hidden).
@@ -16,10 +18,14 @@
 // No ERROR lines of its own: what it prints is part of the compared output. Only a malformed command line exits 2.
 import { mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeSync } from "node:fs";
 import { join } from "node:path";
+import { withCaseLock } from "./lib/case-lock.ts";
 import { isIrTier, normalForm, type IrTier } from "./lib/ir-normal.ts";
 
 /** Not a code rustc uses: 0, 1, 70 (the port's `unported`) or 101 (an ICE). */
 export const EXIT_NORMAL_FORM = 102;
+
+/** Past every limit a caller sets (scripts/ir-diff.ts's port: 30 min), and a dead owner's lock goes sooner: see scripts/lib/case-lock.ts. */
+const LOCK_MAX_HOLD_MS = 2 * 3_600_000;
 
 export interface IrRunArgs {
   out: string;
@@ -89,7 +95,13 @@ function writeAll(text: string): void {
 }
 
 export async function irRun(a: IrRunArgs): Promise<number> {
-  const tmp = join(a.out, `${a.side}-${process.pid}`);
+  mkdirSync(a.out, { recursive: true });
+  // No note on waiting: what this prints is compared.
+  return withCaseLock(join(a.out, "work.lock"), LOCK_MAX_HOLD_MS, () => irRunLocked(a), () => {}, 50);
+}
+
+async function irRunLocked(a: IrRunArgs): Promise<number> {
+  const tmp = join(a.out, "work");
   rmSync(tmp, { recursive: true, force: true });
   mkdirSync(tmp, { recursive: true });
   try {

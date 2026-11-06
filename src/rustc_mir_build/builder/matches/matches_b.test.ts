@@ -200,7 +200,7 @@ test("bind_and_guard_matched_candidate, declare_binding, should_emit_debug_info_
     expect(bug).not.toBeInstanceOf(Unported);
 
     // or-patterns are expanded before tests are picked (`pick_test_for_match_pair`'s `bug!`)
-    expect(() => b.pick_test([{ ...leaf(), match_pairs: [{ kind: { $: "Or", or_subpats: [] }, pattern_span: DUMMY_SP }] } as never])).toThrow(
+    expect(() => plain_bug(() => b.pick_test([{ ...leaf(), match_pairs: [{ kind: { $: "Or", or_subpats: [] }, pattern_span: DUMMY_SP }] } as never]))).toThrow(
       "or-patterns should have already been handled",
     );
   });

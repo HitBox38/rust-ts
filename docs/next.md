@@ -460,7 +460,7 @@ Report suites, not protected, after the accept at db323c3b: miri-pass-tb 130/132
 Queued:
 - Near-limit protected cases, which matched only through the serial retry in the gate (audit): dynamic-drop.rs and issue-8827.rs (newly protected, about 52-57 s of 60 s), move-3-unique.rs, and four mir cases retried in each of the last four gates (deep-try-chain-issue-153583, hkl_forbidden, param_mismatch2, self-referential-4). Next perf lane; the gate must run with nothing else on the host.
 - 52 run-pass programs with proc-macro aux crates run in no suite: run-pass-aux-native in harness-m7c.
-- EiiMapEncodedKeyValue decoding (16 cases); rustc-env.rs CRASH; long error descriptions in rustc_errors::codes (7 miri-fail cases).
+- (Both done since, in fixers-40: EiiMapEncodedKeyValue decoding, rustc-env.rs CRASH.) Long error descriptions in rustc_errors::codes (7 miri-fail cases).
 - Plan items outside the M6 gate, not done: miri-sysroot-* with harness-m6d; D11's p99 (11.1 s against 10 s); D8's cross-thread proc-macro path (expand-expr.rs).
 - Reviews of wave 39: abi-vtable F1 (a supertrait vtable pointer's contents are not compared: fix before a native suite relies on upcasting), F2, F3; mono-wire W2, W3, W5; mir-alias F2 (checker gaps), F3, F4; harness-m7a H3, H5 (due in harness-m7b before the first ir-* baseline), H8-H10; integ-w39 L3, N1-N6; integ-w39-b1 F1 (other exits still leak the metadata temp dir, not new, not reaching the gate); the tools batch from mono-wire, with codegen-sets-m7; rustc_lint/builtin.ts:541; short_string_namespace.
 - Recorded earlier: ICE report lanes (docs/plan-ice-report.md, as amended); the deliberate probe rebuild (harness-w39 A1); the bytecode bundle; integ-w38 re-check N2, N8, N9; miri-perf N1-N5; the review nits in docs/state/history.jsonl.
@@ -493,9 +493,17 @@ Queued from these reviews, none blocking wave 40a:
 ## Wave 40b (started 2026-11-06) — what does not depend on D4, while D4 waits for the owner
 | lane | scope | status |
 |---|---|---|
-| fixers-43 | environment and driver: fixers-42 R1-R3, R5; a cwd of 1,024 bytes or more; `miri.ts` and `RUST_TS_IMPL`; rustc-env.rs CRASH; check3 N1, O1 | running |
-| fixers-44 | EiiMapEncodedKeyValue decoding (16 cases); abi-vtable F1-F3; mono-wire W2, W3, W5; mir-alias F1-F4 | running |
-| harness-w42 | root-w40-check F2, check2 C3, C5; harness-w41 N1, N2; harness-m7a H3, H5, N2; stale comments | running |
-| miri-sysroot, harness-m6d | plan-m6 §5, D4 of that plan: the port builds core, alloc and std as Miri's sysroot compiler, as a report suite | running |
+| fixers-43 | environment and driver: fixers-42 R1-R3, R5; a cwd of 1,024 bytes or more; `miri.ts` and `RUST_TS_IMPL`; rustc-env.rs CRASH; check3 N1, O1 | REQUEST CHANGES on F1 (a shim under the Miri home installed an unpinned nightly), root fixed it; on integ-w41 |
+| fixers-44 | EiiMapEncodedKeyValue decoding (16 cases); abi-vtable F1-F3; mono-wire W2, W3, W5; mir-alias F1-F4 | APPROVE WITH NITS; on integ-w41 |
+| harness-w42 | root-w40-check F2, check2 C3, C5; harness-w41 N1, N2; harness-m7a H3, H5, N2; stale comments | REQUEST CHANGES on F1 (lock wait inside IR limits), root fixed it; on integ-w41 |
+| miri-sysroot, harness-m6d | plan-m6 §5, D4 of that plan: the port builds core, alloc and std as Miri's sysroot compiler, as a report suite | APPROVE WITH NITS; all 26 replayable crates byte-identical, in a chain too; on integ-w41 |
+
+Queued from wave 40b's reviews, none blocking:
+- fixers-43 F2: from a cwd of 1,024 bytes or more, `realpath` on a relative path resolves against `~/.bun/bin` (`rustc_fs_util/lib.ts:19`, `passes.ts:547`, `miri.ts:218`). F3: `RUST_TARGET_PATH` is read lossily (`rustc_target/spec/mod.ts:2797`); exit 70 today, a silent wrong answer once `from_json` is ported, so due with it. F4: upstream's `?` ported as `unwrap_result` (`std/path.ts:747`, `passes.ts:582`). F6: the cwd refresh on Linux with a U+FFFD twin (`env.ts:332-336`). F7: the location checker cannot see the 79 new `Result` sites or witness Miri locations. Its temp-dir error lacks the oracle's ` at path "..."`, and `POLONIUS_ALGORITHM=bad` refuses its location.
+- fixers-44 F2: `aarch64.ts:127`'s `is_scalable_vector` guard is not equivalent and has no test. F5: older stops at or above 2^53 bytes (`known_panics_lint.ts:1115`, `rustc_lint/types.ts:914`). F6: `decl.name.span` in the EII test; W5's `coverage.ts --order --require-clean` (docs/handoff/fixers-44.md).
+- harness-w42 N1: a SIGKILLed `ir-run` with its compiler alive leaves a lock the next run takes at once; N2: a SIGTERM during the normal form leaves `work.lock`, recovered next run; N4: `process.off("exit")` has no test; N6: three fixed test deadlines; the `criteria.ts` M7 group.
+- miri-sysroot F1: `custom_local_sysroot` as the 27th crate (an empty `lib.rs` at its path). F2: overlapping runs of one crate and side share an out dir. F6: the ICE report stops on `miri.ts:417`'s assertion. Chained lanes in docs/handoff/miri-sysroot.md: Mach-O, COFF and XCOFF object writing, bundled native libraries, staticlib and native linking, `elf_e_flags` on other architectures.
+
+- root-w41-check N1, watch: Bun segfaulted once at 622 ms on a `miri-sysroot-core` subject (exit 128, a DIFF; 1 in about 1,500 subjects, reruns match, cause unknown). difftest has no retry for that, so if a gate loses a single case, grep its diff for `Bun has crashed` first. N2: `x86_win64.ts`'s `case 8n`, `16n`, `32n` arms are not pinned by the fixture. N3: two difftests at once on one IR case still wait inside their limits. N4: a hand-run shim with no host tuple and no `.env.local` still calls `rustc +nightly -vV` under the Miri home. N5: Bun's `mkdtempSync` truncates prefixes of 1,018-1,023 bytes. N6: no test of `tempdir_in`'s suffix path.
 
 Also queued: `tests/ui/closures/supertrait-hint-cycle.rs` under `mir-heavy` (first report run, on AC, 2026-11-06): the oracle takes 60.3 s and 9 GB, and the port timed out at 1,800 s with 12.7 GB, so it is at least 30x slower there; worth a performance look, not protected. near-limit `dynamic-drop.rs` and `issue-8827.rs` (60-62%).

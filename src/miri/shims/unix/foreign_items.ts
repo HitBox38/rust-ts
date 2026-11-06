@@ -45,7 +45,7 @@ import { display_IoError } from "../../../std/io.ts";
 import { PLAIN } from "../../../std/fmt.ts";
 import { Duration } from "../../../std/time.ts";
 import { type Pending } from "../../../rustc_type_ir/decls.ts";
-import { unported } from "../../../std/panic.ts";
+import { unported, unwrap } from "../../../std/panic.ts";
 import { Err } from "../../../std/result.ts";
 import { display_Scalar } from "../../../rustc_middle/mir/interpret/value.ts";
 
@@ -1893,7 +1893,9 @@ export function emulate_foreign_item_inner(self_: MiriInterpCx, link_name: Symbo
 
       // We only set the home_dir field.
       // #[allow(deprecated)]
-      const w = this_.write_path_to_c_str(os_str_from_encoded_bytes(home_dir()), buf_._0, buflen_._0);
+      // rustc-call: 1393:53
+      const home_dir_ = unwrap(home_dir());
+      const w = this_.write_path_to_c_str(os_str_from_encoded_bytes(home_dir_), buf_._0, buflen_._0);
       if (w.$ === "Err") return w;
       const [written, _] = w._0;
       const pw_dir = this_.project_field_named(pwd_._0, "pw_dir");

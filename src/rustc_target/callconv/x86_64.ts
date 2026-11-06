@@ -111,10 +111,13 @@ function classify_arg<Ty>(cx: HasDataLayout, arg: ArgAbi<Ty>): (Class | undefine
     return undefined;
   }
 
-  const n = Math.ceil(arg.layout.size.bytes() / 8);
-  if (n > MAX_EIGHTBYTES) {
+  // PORT: `div_ceil(8)` in `bigint`, as `u64`: a by-value aggregate can reach `obj_size_bound` (2^61), and only past this test
+  // does `n` fit a `number` for certain.
+  const n_u64 = (arg.layout.size.bytes_u64() + 7n) / 8n;
+  if (n_u64 > BigInt(MAX_EIGHTBYTES)) {
     return MEMORY;
   }
+  const n = Number(n_u64);
 
   const cls: (Class | undefined)[] = new Array<Class | undefined>(MAX_EIGHTBYTES).fill(undefined);
   if (classify(cx, arg.layout, cls, Size.ZERO) === MEMORY) return MEMORY;

@@ -16,7 +16,8 @@ import { sym } from "../rustc_span/symbol.ts";
 import { unported } from "../std/panic.ts";
 import type { MetadataLoaderDyn } from "../rustc_metadata/creader.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
-import { link_binary, type ArchiveBuilderBuilder } from "../rustc_codegen_ssa/back/link.ts";
+import type { ArchiveBuilderBuilder } from "../rustc_codegen_ssa/back/archive.ts";
+import { link_binary } from "../rustc_codegen_ssa/back/link.ts";
 import { wants_wasm_eh } from "../rustc_codegen_ssa/base.ts";
 import { CpuRequired_diagnostic, CpuUnsupported_diagnostic } from "../rustc_codegen_ssa/diagnostics.ts";
 import * as target_features from "../rustc_codegen_ssa/target_features.ts";
@@ -692,4 +693,9 @@ function llvm_util_target_cpu(sess: EarlySession): string {
 }
 
 /** PORT: `rustc_codegen_llvm::back::archive::LlvmArchiveBuilderBuilder` (M7): opaque, see `ArchiveBuilderBuilder`. */
-const LlvmArchiveBuilderBuilder: ArchiveBuilderBuilder = { __archive_builder_builder: "LlvmArchiveBuilderBuilder" };
+const LlvmArchiveBuilderBuilder: ArchiveBuilderBuilder = {
+  // PORT: rustc_codegen_llvm's builder (`ArArchiveBuilder` over LLVM's object reader): not reached, `codegen_crate` stops first (M7).
+  new_archive_builder() {
+    return unported("rustc_codegen_llvm::back::archive::LlvmArchiveBuilderBuilder::new_archive_builder (M7)");
+  },
+};

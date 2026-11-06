@@ -80,8 +80,12 @@ export const MIRI_CASE_ENV: Readonly<Record<string, string | null>> = {
 };
 
 let hostMemo: string | undefined;
-/** The host tuple (the oracle's; the isolated toolchain is installed for the same host). */
-const host = (): string => (hostMemo ??= oracleHost());
+/**
+ * The host tuple (the oracle's; the isolated toolchain is installed for the same host). `RUST_TS_HOST_TUPLE` first, which the gate
+ * checks is the oracle's: a process under the isolated `RUSTUP_HOME`, as Miri's shim, asking `rustc +nightly` would make rustup
+ * install an unpinned nightly there (review fixers-43 F1).
+ */
+const host = (): string => (hostMemo ??= process.env.RUST_TS_HOST_TUPLE ?? oracleHost());
 
 /** The isolated toolchain's rustup name: `<nightlyName>-<host>`. */
 export const miriToolchainName = (): string => `${PIN.nightlyName}-${host()}`;

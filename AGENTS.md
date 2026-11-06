@@ -32,7 +32,7 @@ Every agent prompt begins with the text of `docs/agent-brief.md`.
   gate on the clean tree, accept (HEAD must not have moved), then commit the baseline growth
   naming the run id.
 - The gate refuses to start on battery, which runs up to 3.5x slower and can turn a timeout into a false loss.
-  `--allow-battery` overrides that; `gate.json`'s `host` records the power source through the run either way.
+  `--allow-battery` overrides that; `gate.json`'s `host` samples the power source every 60 s, so it can miss a shorter spell.
 - Never edit oracle outputs, baselines, suite definitions or runner scripts to make a result
   pass. Changes to `harness/` or `scripts/` need their own reviewed batch.
 - A **STOP** (`bun scripts/state.ts record stop <reason>`) blocks new features until resolved:

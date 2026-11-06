@@ -3,8 +3,9 @@
 //! Reading of the rustc metadata for rlibs and dylibs
 //
 // PORT: the read half (`DefaultMetadataLoader`, `load_metadata_with`, `search_for_section`,
-// `get_metadata_xcoff`) is ported; the write half (object/wrapper/compressed metadata files) is
-// M5 and calls `unported(...)`. `&Path` is a `string` (`path.display()` is the string itself);
+// `get_metadata_xcoff`) is ported; of the write half, wrapper files for ELF targets (lane miri-sysroot, vendor `object::write`):
+// `create_object_file`, `add_gnu_property_note`, `create_wrapper_file` stop `unported` on other formats, and so does
+// `elf_e_flags` on the architectures with non-zero flags. Compressed metadata files stay `unported` (dylibs, M7). `&Path` is a `string` (`path.display()` is the string itself);
 // `OwnedSlice` is a `Uint8Array` view into the mapped file (owned_slice.ts).
 // PORT: `rustc_metadata::fs::METADATA_FILENAME` is copied here (fs.rs is the locator lane's).
 // `debug!` tracing calls are kept as comments.
@@ -15,8 +16,12 @@ import type { MetadataLoader } from "../../rustc_metadata/creader.ts";
 import type { Session } from "../../rustc_session/session.ts";
 import type { Target } from "../../rustc_target/spec/mod.ts";
 import { display_IoError } from "../../std/io.ts";
-import { unported } from "../../std/panic.ts";
+import { panic, unported } from "../../std/panic.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
+import { type Architecture, type BinaryFormat, SectionKind } from "../../vendor/object/common.ts";
+import * as elf from "../../vendor/object/elf.ts";
+import type { Endianness } from "../../vendor/object/endian.ts";
+import { Object as WriteObject } from "../../vendor/object/write/mod.ts";
 import { ArchiveFile } from "../../vendor/object/read/archive.ts";
 import { File } from "../../vendor/object/read/any.ts";
 import { display_Error } from "../../vendor/object/read/mod.ts";
@@ -26,6 +31,8 @@ import { Object_provided } from "../../vendor/object/read/traits.ts";
 const METADATA_FILENAME = "lib.rmeta";
 
 const utf8 = new TextEncoder();
+/** `object::pe::IMAGE_SCN_LNK_REMOVE`. */
+const pe_IMAGE_SCN_LNK_REMOVE = 0x0000_0800;
 
 /** `a == b` on byte slices. */
 function bytes_eq(a: Uint8Array, b: Uint8Array): boolean {
@@ -133,8 +140,44 @@ export function search_for_section(path: string, bytes: Uint8Array, section: str
 }
 
 // rustc: compiler/rustc_codegen_ssa/src/back/metadata.rs:128 add_gnu_property_note
-export function add_gnu_property_note(_file: unknown, _architecture: unknown, _endianness: unknown): never {
-  return unported("rustc_codegen_ssa::back::metadata::add_gnu_property_note (object write, M5)");
+function add_gnu_property_note(file: WriteObject, architecture: Architecture, endianness: Endianness): void {
+  // Only X86_64 and Aarch64 require a GNU property note.
+  if (!(architecture === "X86_64" || architecture === "Aarch64")) {
+    return;
+  }
+
+  const section = file.add_section(file.segment_name("Data"), utf8.encode(".note.gnu.property"), SectionKind.Note);
+  const data: number[] = [];
+  const push_u32 = (v: number): void => {
+    const b = [v & 0xff, (v >>> 8) & 0xff, (v >>> 16) & 0xff, (v >>> 24) & 0xff];
+    switch (endianness) {
+      case "Little":
+        data.push(...b);
+        break;
+      case "Big":
+        data.push(...b.reverse());
+        break;
+    }
+  };
+  const n_namsz = 4; // Size of the n_name field
+  const n_descsz = 16; // Size of the n_desc field
+  const n_type = elf.NT_GNU_PROPERTY_TYPE_0; // Type of note descriptor
+  for (const v of [n_namsz, n_descsz, n_type]) push_u32(v);
+  data.push(...utf8.encode("GNU\0")); // Owner of the program property note
+  let pr_type: number;
+  switch (architecture) {
+    case "X86_64":
+      pr_type = elf.GNU_PROPERTY_X86_FEATURE_1_AND;
+      break;
+    case "Aarch64":
+      pr_type = elf.GNU_PROPERTY_AARCH64_FEATURE_1_AND;
+      break;
+  }
+  const pr_datasz = 4; //size of the pr_data field
+  const pr_data = 3; //program property descriptor
+  const pr_padding = 0;
+  for (const v of [pr_type!, pr_datasz, pr_data, pr_padding]) push_u32(v);
+  file.append_section_data(section, Uint8Array.from(data), 8);
 }
 
 // rustc: compiler/rustc_codegen_ssa/src/back/metadata.rs:173 get_metadata_xcoff
@@ -151,18 +194,78 @@ export function get_metadata_xcoff(path: string, data: Uint8Array): Result<Uint8
 }
 
 // rustc: compiler/rustc_codegen_ssa/src/back/metadata.rs:200 create_object_file
-export function create_object_file(_sess: Session): never {
-  return unported("rustc_codegen_ssa::back::metadata::create_object_file (object write, M5)");
+export function create_object_file(sess: Session): WriteObject | undefined {
+  let endianness: Endianness;
+  switch (sess.target.options.endian) {
+    case "Little":
+      endianness = "Little";
+      break;
+    case "Big":
+      endianness = "Big";
+      break;
+  }
+  const arch = sess.target.object_architecture(sess.internal_target_features);
+  if (arch === undefined) {
+    return undefined;
+  }
+  const [architecture, sub_architecture] = arch;
+  // PORT: `sess.target.binary_format.to_object()`: `BinaryFormat` here is that enum's own spellings (spec/mod.ts `to_object`), and a
+  // value import of spec/mod.ts would change the load order of its module cycle for whatever loads this file first.
+  const binary_format: BinaryFormat = sess.target.options.binary_format;
+
+  const file = new WriteObject(binary_format, architecture, endianness!);
+  file.set_sub_architecture(sub_architecture);
+  if (sess.target.options.is_like_darwin) {
+    return unported("rustc_codegen_ssa::back::metadata::create_object_file (Mach-O object files)");
+  }
+  if (binary_format === "Coff") {
+    return unported("rustc_codegen_ssa::back::metadata::create_object_file (COFF object files)");
+  }
+  if (binary_format === "Elf") {
+    const e_flags = elf_e_flags(architecture, sess);
+    // adapted from LLVM's `MCELFObjectTargetWriter::getOSABI`
+    const os_abi = elf_os_abi(sess);
+    const abi_version = 0;
+    add_gnu_property_note(file, architecture, endianness!);
+    file.flags = { $: "Elf", os_abi, abi_version, e_flags };
+  }
+  return file;
 }
 
 // rustc: compiler/rustc_codegen_ssa/src/back/metadata.rs:263 elf_os_abi
-export function elf_os_abi(_sess: Session): never {
-  return unported("rustc_codegen_ssa::back::metadata::elf_os_abi (object write, M5)");
+export function elf_os_abi(sess: Session): number {
+  const os = sess.target.options.os;
+  switch (os.$) {
+    case "Hermit":
+      return elf.ELFOSABI_STANDALONE;
+    case "FreeBsd":
+      return elf.ELFOSABI_FREEBSD;
+    case "Solaris":
+      return elf.ELFOSABI_SOLARIS;
+    default:
+      return elf.ELFOSABI_NONE;
+  }
 }
 
 // rustc: compiler/rustc_codegen_ssa/src/back/metadata.rs:272 elf_e_flags
-export function elf_e_flags(_architecture: unknown, _sess: Session): never {
-  return unported("rustc_codegen_ssa::back::metadata::elf_e_flags (object write, M5)");
+export function elf_e_flags(architecture: Architecture, _sess: Session): number {
+  switch (architecture) {
+    case "Mips":
+    case "Mips64":
+    case "Mips64_N32":
+    case "Riscv32":
+    case "Riscv64":
+    case "LoongArch32":
+    case "LoongArch64":
+    case "Avr":
+    case "Csky":
+    case "PowerPc64":
+    case "Sparc32Plus":
+      // PORT: these arms read the target's CPU, ABI and features (no target in the port's suites needs them yet).
+      return unported(`rustc_codegen_ssa::back::metadata::elf_e_flags (${architecture})`);
+    default:
+      return 0;
+  }
 }
 
 // rustc: compiler/rustc_codegen_ssa/src/back/metadata.rs:418 macho_object_build_version_for_target
@@ -189,8 +292,36 @@ export type MetadataPosition = "First" | "Last";
 ///
 /// (See upstream for the per-format details.)
 // rustc: compiler/rustc_codegen_ssa/src/back/metadata.rs:483 create_wrapper_file
-export function create_wrapper_file(_sess: Session, _section_name: string, _data: Uint8Array): [Uint8Array, MetadataPosition] {
-  return unported("rustc_codegen_ssa::back::metadata::create_wrapper_file (object write, M5)");
+export function create_wrapper_file(sess: Session, section_name: string, data: Uint8Array): [Uint8Array, MetadataPosition] {
+  const file = create_object_file(sess);
+  if (file === undefined) {
+    if (sess.target.options.is_like_wasm) {
+      return [create_metadata_file_for_wasm(sess, data, section_name), "First"];
+    }
+
+    // Targets using this branch don't have support implemented here yet or
+    // they're not yet implemented in the `object` crate and will likely
+    // fill out this module over time.
+    return [data.slice(), "Last"];
+  }
+  if (file.format() === "Xcoff") {
+    return unported("rustc_codegen_ssa::back::metadata::create_wrapper_file (XCOFF object files)");
+  }
+  const section = file.add_section(file.segment_name("Debug"), utf8.encode(section_name), SectionKind.Debug);
+  switch (file.format()) {
+    case "Coff":
+      file.section_mut(section).flags = { $: "Coff", characteristics: pe_IMAGE_SCN_LNK_REMOVE };
+      break;
+    case "Elf":
+      file.section_mut(section).flags = { $: "Elf", sh_flags: elf.SHF_EXCLUDE };
+      break;
+    default:
+      break;
+  }
+  file.append_section_data(section, data, 1);
+  const out = file.write();
+  if (out.$ === "Err") return panic(`called \`Result::unwrap()\` on an \`Err\` value: Error(${JSON.stringify(out._0._0)})`);
+  return [out._0, "First"];
 }
 
 // rustc: compiler/rustc_codegen_ssa/src/back/metadata.rs:567 create_compressed_metadata_file

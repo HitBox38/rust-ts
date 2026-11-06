@@ -29,6 +29,24 @@ function sysroot(components: string[] | undefined, src: boolean): string {
   return root;
 }
 
+// Suites run the preload form, where this import does nothing, and from a cwd whose `.env` agrees. So nothing else notices if plain miri.ts loses it: `ensure_stack`
+// then runs after the module-level reads of process.env, which see `.env`'s variables (review harness-w41 N2). A parse error is the cheapest path that gets the host's target spec.
+test("plain miri.ts settles the environment before anything reads it: a cwd's .env does not reach the compiler", () => {
+  const cwd = mkdtempSync(join(tmpdir(), "rust-ts-miri-dotenv-"));
+  dirs.push(cwd);
+  writeFileSync(join(cwd, ".env"), "RUST_TS_HOST_TUPLE=bogus-host\n");
+  writeFileSync(join(cwd, "bad.rs"), "fn main( {\n");
+  const env: Record<string, string | undefined> = { ...process.env };
+  // From this repo's .env.local, which would win over the cwd's; and a stack already set up would mean no re-exec.
+  delete env.RUST_TS_HOST_TUPLE;
+  delete env.BUN_JSC_maxPerThreadStackUsage;
+  const r = Bun.spawnSync([process.execPath, join(REPO, "src/miri/bin/miri.ts"), "bad.rs"], { cwd, env, stdout: "pipe", stderr: "pipe" });
+  const stderr = r.stderr.toString();
+  expect(stderr).not.toContain("bogus-host");
+  expect(stderr).toContain("this file contains an unclosed delimiter");
+  expect(r.exitCode).toBe(1);
+}, 60_000);
+
 describe("miriToolchainError", () => {
   test("the pinned components with rust-src's directory: ok", () => {
     expect(miriToolchainError(sysroot(CLEAN, true), PINNED, HOST, "tc", "/h")).toBeUndefined();
@@ -165,6 +183,14 @@ console.log(JSON.stringify({
 }));
 `;
 
+test("with RUST_TS_HOST_TUPLE set, the Miri binary's path runs no rustc, which under the isolated home would install a nightly", () => {
+  const code = `const m = await import(${JSON.stringify(join(import.meta.dir, "lib/miri.ts"))}); console.log(m.miriBinary());`;
+  const env: Record<string, string | undefined> = { ...process.env, PATH: "/nonexistent", RUST_TS_HOST_TUPLE: "some-host" };
+  const r = Bun.spawnSync([process.execPath, "-e", code], { cwd: import.meta.dir, env: env as Record<string, string>, stdout: "pipe", stderr: "pipe" });
+  expect(r.exitCode, r.stderr.toString()).toBe(0);
+  expect(r.stdout.toString().trim()).toEndWith("-some-host/bin/miri");
+});
+
 test("Miri oracle, suites and argv (child process)", () => {
   const env: Record<string, string> = {};
   for (const [k, v] of Object.entries(process.env)) if (v !== undefined && k !== "RUST_TS_DATA") env[k] = v;
@@ -180,7 +206,7 @@ test("Miri oracle, suites and argv (child process)", () => {
     expect(j.problem).toBeNull();
     expect(j.key).toBe(true);
   }
-  expect(j.miriSuites).toEqual(["miri-hello", "run-pass-miri", "run-pass-miri-heavy", "run-fail-miri", "miri-pass", "miri-pass-heavy", "miri-pass-tb", "miri-fail", "run-pass-aux-miri"]);
+  expect(j.miriSuites).toEqual(["miri-hello", "run-pass-miri", "run-pass-miri-heavy", "run-fail-miri", "miri-pass", "miri-pass-heavy", "miri-pass-tb", "miri-fail", "run-pass-aux-miri", "miri-sysroot-core", "miri-sysroot-alloc", "miri-sysroot-std"]);
   expect(j.milestones).toEqual(j.miriSuites.map(() => "M6"));
   // The gate accepts the Miri binary as these suites' oracle program, by absolute path, never through rustup.
   expect(j.undeclared).toEqual([]);

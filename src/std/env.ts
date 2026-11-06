@@ -14,8 +14,9 @@
 // `environ`, which is what a proc-macro dylib reads. So everything `std::env` does on the host goes through libc here.
 // On other hosts (Windows) `process.env` stands in: a non-Unicode value or a dotenv variable is not detected there.
 import { readFileSync } from "node:fs";
-import { homedir } from "node:os";
+import { constants, homedir } from "node:os";
 import { dlopen, FFIType, type Pointer, ptr, read, toArrayBuffer } from "bun:ffi";
+import { io_error_from_node, io_error_from_raw_os_error, type IoResult } from "./io.ts";
 import { panic } from "./panic.ts";
 import { Err, Ok, type Result } from "./result.ts";
 import { debug_os_bytes, from_utf8 } from "./str.ts";
@@ -116,6 +117,11 @@ export function os_string_into_string(a: OsString): { $: "Ok"; _0: string } | { 
 /** `<OsString as Debug>` */
 export const debug_os_string = debug_os_bytes;
 
+/** `OsStr::to_string_lossy` */
+export function to_string_lossy(a: OsString): string {
+  return lossy.decode(a);
+}
+
 // ---- the process environment ----------------------------------------------------------------------------------------
 
 const ENV_FROM_LIBC = process.platform === "darwin" || process.platform === "linux";
@@ -125,9 +131,28 @@ const open_env_libc = () =>
     getenv: { args: [FFIType.ptr], returns: FFIType.ptr },
     setenv: { args: [FFIType.ptr, FFIType.ptr, FFIType.i32], returns: FFIType.i32 },
     unsetenv: { args: [FFIType.ptr], returns: FFIType.i32 },
+    getcwd: { args: [FFIType.ptr, FFIType.u64], returns: FFIType.ptr },
+    chdir: { args: [FFIType.ptr], returns: FFIType.i32 },
+    sysconf: { args: [FFIType.i32], returns: FFIType.i64_fast },
+    getuid: { args: [], returns: FFIType.u32 },
+    getpwuid_r: { args: [FFIType.u32, FFIType.ptr, FFIType.ptr, FFIType.u64, FFIType.ptr], returns: FFIType.i32 },
   });
 let ENV_LIBC: ReturnType<typeof open_env_libc> | undefined;
 const env_libc = () => (ENV_LIBC ??= open_env_libc());
+
+let ERRNO: (() => number) | undefined;
+/** The reader of `errno` (library/std/src/sys/io/error/unix.rs), for right after a failed call, as `io::Error::last_os_error()` does. Take it
+ *  before that call: its first use runs `dlopen`, which overwrites `errno`. */
+function errno_reader(): () => number {
+  if (ERRNO === undefined) {
+    const linux = process.platform === "linux";
+    const name = linux ? "__errno_location" : "__error";
+    const lib = dlopen(linux ? "libc.so.6" : "libSystem.B.dylib", { [name]: { args: [], returns: FFIType.ptr } });
+    const f = lib.symbols[name]!;
+    ERRNO = () => read.i32(f() as Pointer, 0);
+  }
+  return ERRNO;
+}
 
 /** A NUL-terminated copy of `s`; `undefined` when `s` has an interior NUL (`run_with_cstr`'s `Err`). */
 function to_cstr(s: string | OsString): Uint8Array | undefined {
@@ -233,15 +258,95 @@ export function var_os(key: string): OsString | undefined {
   return v === null ? undefined : read_cstr(v as Pointer);
 }
 
-/** `env::home_dir()`. PORT: `fallback` is `getpwuid_r`'s `pw_dir`, which `os.homedir()` gives when `HOME` is unset or empty. */
+/** `env::home_dir()`. PORT: where libc is not read (Windows), `os.homedir()` stands in for `fallback`. */
 // std: library/std/src/sys/paths/unix.rs:452 home_dir
-export function home_dir(): OsString {
+export function home_dir(): OsString | undefined {
   const home = var_os("HOME");
-  return home !== undefined && home.length > 0 ? home : encoder.encode(homedir());
+  if (home !== undefined && home.length > 0) return home;
+  return ENV_FROM_LIBC ? home_dir_fallback() : encoder.encode(homedir());
+}
+
+/** `libc::_SC_GETPW_R_SIZE_MAX`, and where `pw_dir` is in `struct passwd`: after `pw_name`, `pw_passwd`, `pw_uid`, `pw_gid`, and on macOS
+ *  `pw_change`, `pw_class`, `pw_gecos`, or on Linux `pw_gecos`. From the pinned libc-0.2.189: Linux `src/unix/linux_like/linux_l4re_shared.rs:536`,
+ *  `:49-57`; macOS `src/unix/bsd/apple/mod.rs:2514`, `src/unix/bsd/mod.rs:31-39`. Linux is read, not run: the first Linux pass runs `env.test.ts`'s `home_dir`. */
+const GETPW_R = process.platform === "linux" ? { sc_size_max: 70, pw_dir: 32 } : { sc_size_max: 71, pw_dir: 48 };
+
+// std: library/std/src/sys/paths/unix.rs:483 fallback
+function home_dir_fallback(): OsString | undefined {
+  const libc = env_libc().symbols;
+  const n = Number(libc.sysconf(GETPW_R.sc_size_max));
+  const amt = n < 0 ? 512 : n;
+  const buf = new Uint8Array(amt);
+  // `MaybeUninit<libc::passwd>`: at least its size on both hosts.
+  const p = new Uint8Array(128);
+  const result = new BigUint64Array(1);
+  if (libc.getpwuid_r(libc.getuid(), ptr(p), ptr(buf), amt, ptr(result)) !== 0 || result[0] === 0n) return undefined;
+  return read_cstr(read.ptr(ptr(p), GETPW_R.pw_dir) as Pointer);
+}
+
+/** `env::current_dir()`. PORT: where libc is not read (Windows), `process.cwd()` stands in. Bun's `process.cwd()` has a fixed buffer and fails
+ *  with `ERANGE` once the path has 1,024 bytes; this grows its buffer, as upstream does. */
+// std: library/std/src/sys/paths/unix.rs:22 getcwd
+export function current_dir(): IoResult<OsString> {
+  if (!ENV_FROM_LIBC) {
+    try {
+      return Ok(encoder.encode(process.cwd()));
+    } catch (e) {
+      return Err(io_error_from_node(e));
+    }
+  }
+  const libc = env_libc().symbols;
+  const last_errno = errno_reader();
+  let cap = 512;
+  for (;;) {
+    const buf = new Uint8Array(cap);
+    if (libc.getcwd(ptr(buf), cap) !== null) return Ok(buf.slice(0, buf.indexOf(0)));
+    const errno = last_errno();
+    if (errno !== constants.errno.ERANGE) return Err(io_error_from_raw_os_error(errno));
+    cap *= 2;
+  }
+}
+
+/** `env::current_dir()` for a caller whose `PathBuf` is a `string`: lossy, as `process.cwd()` is. */
+export function current_dir_str(): IoResult<string> {
+  const r = current_dir();
+  return r.$ === "Ok" ? Ok(lossy.decode(r._0)) : r;
+}
+
+/** `env::set_current_dir(path)`. PORT: `process.chdir` takes only a string, and where libc is not read it stands in. */
+// std: library/std/src/sys/paths/unix.rs:54 chdir
+export function set_current_dir(path: string | OsString): IoResult<null> {
+  if (!ENV_FROM_LIBC) {
+    try {
+      process.chdir(typeof path === "string" ? path : lossy.decode(path));
+      return Ok(null);
+    } catch (e) {
+      return Err(io_error_from_node(e));
+    }
+  }
+  const p = to_cstr(path);
+  if (p === undefined) return Err({ $: "SimpleMessage", kind: "InvalidInput", message: "file name contained an unexpected NUL byte" });
+  const libc = env_libc().symbols;
+  const last_errno = errno_reader();
+  if (libc.chdir(ptr(p)) !== 0) return Err(io_error_from_raw_os_error(last_errno()));
+  // PORT: Bun keeps its own copy of the cwd, which a child takes by default and against which `process.chdir` resolves a relative path.
+  // This refreshes it. It fails harmlessly, leaving the cwd alone, when the path is too long for Bun's buffer or not UTF-8.
+  const now = current_dir_str();
+  if (now.$ === "Ok") {
+    try {
+      process.chdir(now._0);
+    } catch {}
+  }
+  return Ok(null);
 }
 
 /** `std::env::VarError` */
 export type VarError = { readonly $: "NotPresent" } | { readonly $: "NotUnicode"; _0: OsString };
+
+/** `#[derive(Debug)]` of `VarError` */
+export function debug_VarError(e: VarError): string {
+  return e.$ === "NotPresent" ? "NotPresent" : `NotUnicode(${debug_os_bytes(e._0)})`;
+}
 
 /** `env::var(key)` */
 // std: library/std/src/env.rs:228 var

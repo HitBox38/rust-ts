@@ -12,7 +12,8 @@ import type { EncodedMetadata } from "../rustc_metadata/lib.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import type { Symbol } from "../rustc_span/symbol.ts";
 import { DefaultMetadataLoader } from "../rustc_codegen_ssa/back/metadata.ts";
-import { type ArchiveBuilderBuilder, link_binary } from "../rustc_codegen_ssa/back/link.ts";
+import { ArArchiveBuilderBuilder } from "../rustc_codegen_ssa/back/archive.ts";
+import { link_binary } from "../rustc_codegen_ssa/back/link.ts";
 import type { CompiledModules, CrateInfo } from "../rustc_codegen_ssa/lib.ts";
 
 
@@ -122,9 +123,6 @@ export const CodegenBackend_provided = {
     link_binary(sess, ArArchiveBuilderBuilder, compiled_modules, crate_info, metadata, outputs, self.name());
   },
 };
-
-/** PORT: `rustc_codegen_ssa::back::archive::ArArchiveBuilderBuilder` (back/archive.rs, M7): opaque, see `ArchiveBuilderBuilder`. */
-export const ArArchiveBuilderBuilder: ArchiveBuilderBuilder = { __archive_builder_builder: "ArArchiveBuilderBuilder" };
 
 /** PORT: `rustc_session::IncrCompSession` (session.rs): no incremental compilation (D3), so never constructed. */
 export type IncrCompSession = never;

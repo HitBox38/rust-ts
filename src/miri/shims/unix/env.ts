@@ -9,8 +9,7 @@
 //   `new` lay out the `environ` block in its iteration order, which the program can observe. `OsString`'s `Hash` is
 //   `OsStr::as_encoded_bytes().hash()` = `[u8]::hash` (`write_length_prefix(len)` + `write(bytes)`), not `str`'s:
 //   `OsString_key` below.
-// - `std::env::current_dir` / `set_current_dir` (isolation off only) are host stand-ins (`process.cwd()` /
-//   `process.chdir`, plan-m6 D14).
+// - `std::env::current_dir` / `set_current_dir` (isolation off only) are host stand-ins (src/std/env.ts, plan-m6 D14).
 // - `env!("CARGO_PKG_VERSION")` is Miri's crate version at the pin (src/tools/miri/Cargo.toml: `0.1.0`).
 import { type OpTy, type Pointer, type Scalar } from "../../lib.ts";
 import { MemoryKind_from_MiriMemoryKind, type MiriInterpCx } from "../../machine.ts";
@@ -36,7 +35,8 @@ import { Ty } from "../../../rustc_middle/ty/mod.ts";
 import { Symbol } from "../../../rustc_span/symbol.ts";
 import { spec } from "../../../rustc_target/lib.ts";
 import { Arch, type Os } from "../../../rustc_target/spec/mod.ts";
-import { type ErrorKind, io_error_from_node, type IoError as io_Error } from "../../../std/io.ts";
+import { current_dir_str, set_current_dir as std_set_current_dir } from "../../../std/env.ts";
+import { type ErrorKind, type IoError as io_Error } from "../../../std/io.ts";
 import { assert, unported, unreachable } from "../../../std/panic.ts";
 import { Err, Ok, type Result } from "../../../std/result.ts";
 export * from "./env.gen.ts";
@@ -316,26 +316,16 @@ InterpCx.prototype.unsetenv = function (this: MiriInterpCx, name_op: OpTy): Inte
 };
 
 /**
- * `std::env::current_dir()` (D14 host stand-in). PORT: `process.cwd()` is a decoded string, so a directory name that is not UTF-8
- * would come out lossy, and unlike `environ` it is not escaped (os_str.ts header). APFS refuses such a name, so on the root host it
- * cannot arise; on Linux it could.
+ * `std::env::current_dir()` (D14 host stand-in). PORT: a decoded string, so a directory name that is not UTF-8 would come out lossy, and
+ * unlike `environ` it is not escaped (os_str.ts header). APFS refuses such a name, so on the root host it cannot arise; on Linux it could.
  */
 function current_dir(): Result<string, io_Error> {
-  try {
-    return Ok(process.cwd());
-  } catch (e) {
-    return Err(io_error_from_node(e));
-  }
+  return current_dir_str();
 }
 
 /** `std::env::set_current_dir(path)` (D14 host stand-in). */
 function set_current_dir(path: string): Result<null, io_Error> {
-  try {
-    process.chdir(path);
-    return Ok(null);
-  } catch (e) {
-    return Err(io_error_from_node(e));
-  }
+  return std_set_current_dir(path);
 }
 
 // rustc: src/tools/miri/src/shims/unix/env.rs:196 getcwd

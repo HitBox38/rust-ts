@@ -1,7 +1,7 @@
 // `StalledPrefix` under its self-check (`set_stalled_prefix_check`): no pass skips an entry upstream's check would not keep, on programs
 // with each kind of stalled variable, and the output is still the oracle's. Review perf-near-limit N1: a build with `first_reader`
 // keeping the latest entry passed every other test. The programs are the review's generator's (`ints`, `floats`, `consts`, `tait`), on `no_core`
-// so that none loads std (plan-m7 F5); each one stops on a deliberate bug the others miss, as docs/handoff/fixers-42.md lists.
+// so that none loads std (plan-m7 F5); each one stops on a deliberate bug the others miss, as docs/reviews/root-w40-check2.md section 4 shows.
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";

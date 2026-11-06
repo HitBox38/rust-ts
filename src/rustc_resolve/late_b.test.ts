@@ -787,7 +787,7 @@ test("apply_pattern_bindings (late.rs:4319) and innermost_rib_bindings (late.rs:
       [a, local(3 as NodeId)],
       [b, local(2 as NodeId)],
     ]);
-    expect(() => v.apply_pattern_bindings([])).toThrow("tried applying nonexistent bindings from pattern");
+    expect(() => plain_bug(() => v.apply_pattern_bindings([]))).toThrow("tried applying nonexistent bindings from pattern");
   });
 });
 

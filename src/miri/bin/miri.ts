@@ -1,5 +1,5 @@
 // Port of src/tools/miri/src/bin/miri.rs (crate `miri`, plan-m6 D2): the `miri` driver binary.
-// Fill lane: `miri-driver` (plan-m6 wave 36): ported (`MiriDepCompilerCalls` is plan-m6 D4: `unported`).
+// Fill lane: `miri-driver` (plan-m6 wave 36): ported; `MiriDepCompilerCalls` (plan-m6 D4): lane `miri-sysroot`.
 // Run as `bun src/miri/bin/miri.ts <rustc args>` (the oracle's `miri <rustc args>`); the entry glue is at the end.
 //
 // PORT (lane miri-driver):
@@ -42,9 +42,10 @@ import type { Pending } from "../../rustc_type_ir/decls.ts";
 import { EXTRA_SYMBOLS } from "../sym.ts";
 import { deinit_loggers, init_early_loggers, init_late_loggers } from "./log/setup.ts";
 import { TARGET_CONFIGS } from "../../rust_ts/target_config.gen.ts";
-import { ensure_stack } from "../../rust_ts/stack.ts";
-import { vars_os as std_vars_os } from "../../std/env.ts";
+import { ensure_stack, selected_impl } from "../../rust_ts/stack.ts";
+import { debug_os_string, set_current_dir, var_os, vars_os as std_vars_os } from "../../std/env.ts";
 import { os_str_from_encoded_bytes } from "../shims/os_str.ts";
+import { exported_non_generic_symbols_helper, reachable_non_generics_helper } from "../../rustc_codegen_ssa/back/symbol_export.ts";
 import type { CompiledModules, CrateInfo } from "../../rustc_codegen_ssa/lib.ts";
 import {
   type Callbacks,
@@ -80,11 +81,11 @@ import type { CrateType } from "../../rustc_structures/crate_type.ts";
 import { FileName } from "../../rustc_span/lib.ts";
 import { FatalErrorMarker } from "../../rustc_span/fatal_error.ts";
 import { Panic, Unported, assert, panic, unported } from "../../std/panic.ts";
-import { report_uncaught } from "../../std/panicking.ts";
-import { Err, Ok, type Result } from "../../std/result.ts";
+import { report_uncaught, update_hook } from "../../std/panicking.ts";
+import { Err, Ok, type Result, unwrap_result } from "../../std/result.ts";
 import { existsSync, readdirSync, realpathSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { write_stderr } from "../../std/io.ts";
+import { debug_IoError, write_stderr } from "../../std/io.ts";
 
 /** `std::process::exit(code)` in flight (PORT: header). */
 export class MiriExit extends Error {
@@ -145,14 +146,9 @@ class MiriCompilerCalls implements Callbacks {
     config.current_exe = local === undefined ? undefined : canonicalize(local);
 
     // Adjust working directory for interpretation.
-    const cwd = process.env.MIRI_CWD;
+    const cwd = var_os("MIRI_CWD");
     if (cwd !== undefined) {
-      // `env::set_current_dir(cwd).unwrap()`
-      try {
-        process.chdir(cwd);
-      } catch (e) {
-        return panic(`called \`Result::unwrap()\` on an \`Err\` value: ${String(e)}`);
-      }
+      unwrap_result(set_current_dir(cwd), debug_IoError);
     }
 
     // Emit warnings for some unusual configurations.
@@ -395,16 +391,53 @@ function make_miri_codegen_backend(sess: EarlySession, dep: boolean): CodegenBac
 
 /// This compiler produces rlibs that are meant for later consumption by Miri.
 // struct MiriDepCompilerCalls;
-// impl rustc_driver::Callbacks for MiriDepCompilerCalls: `config` (bin/miri.rs:283) and `after_analysis` (:324).
-// PORT: plan-m6 D4: the port-built Miri sysroot (`MIRI_BE_RUSTC=target`) is a later lane (`miri-sysroot`); the two
-// callbacks stop `unported` (no markers yet).
 class MiriDepCompilerCalls implements Callbacks {
-  config(_config: Config): void {
-    return unported("miri(bin)::MiriDepCompilerCalls::config (src/tools/miri/src/bin/miri.rs:283; plan-m6 D4, lane miri-sysroot)");
+  // impl rustc_driver::Callbacks for MiriDepCompilerCalls
+  // rustc: src/tools/miri/src/bin/miri.rs:283 config
+  config(config: Config): void {
+    // We don't need actual codegen, we just emit an rlib that Miri can later consume.
+    config.make_codegen_backend = (sess) => make_miri_codegen_backend(sess, /* dep */ true);
+
+    // Avoid warnings about unsupported crate types. However, only do that we we are *not* being
+    // queried by cargo about the supported crate types so that cargo still receives the
+    // warnings it expects.
+    if (config.opts.prints.length === 0) {
+      // #[allow(rustc::bad_opt_access)] // tcx does not exist yet
+      {
+        const any_crate_types = config.opts.crate_types.length !== 0;
+        config.opts.crate_types = config.opts.crate_types.filter((c) => c === "Executable" || c === "Rlib");
+        if (any_crate_types) {
+          // Assert that we didn't remove all crate types if any crate type was passed on
+          // the cli. Otherwise we might silently change what kind of crate we are building.
+          assert(config.opts.crate_types.length !== 0, "assertion failed: !config.opts.crate_types.is_empty()");
+        }
+      }
+    }
+
+    // Queries overridden here affect the data stored in `rmeta` files of dependencies,
+    // which will be used later in non-`MIRI_BE_RUSTC` mode.
+    config.override_queries = (_, local_providers) => {
+      // `exported_non_generic_symbols` is usually empty because we don't codegen anything.
+      // However, we need it for `lookup_link_section`.
+      // So overwrite the query with a version that dooes something even without codegen.
+      local_providers.queries.exported_non_generic_symbols = (tcx, _local_crate) => exported_non_generic_symbols_helper(tcx);
+      // `exported_non_generic_symbols_helper` calls `reachable_non_generics`.
+      local_providers.queries.reachable_non_generics = (tcx, _local_crate) => reachable_non_generics_helper(tcx);
+    };
+
+    // Register our custom extra symbols.
+    config.extra_symbols = [...EXTRA_SYMBOLS];
   }
 
-  after_analysis(_: Compiler, _tcx: TyCtxt): Compilation {
-    return unported("miri(bin)::MiriDepCompilerCalls::after_analysis (src/tools/miri/src/bin/miri.rs:324; plan-m6 D4, lane miri-sysroot)");
+  // rustc: src/tools/miri/src/bin/miri.rs:324 after_analysis
+  after_analysis(_: Compiler, tcx: TyCtxt): Compilation {
+    // While the dummy codegen backend doesn't do any codegen, we are still emulating
+    // regular rustc builds, which would perform post-mono const-eval during collection.
+    // So let's also do that here. In particular this is needed to make `compile_fail`
+    // doc tests trigger post-mono errors.
+    void tcx.collect_and_partition_mono_items(null);
+
+    return "Continue";
   }
 }
 
@@ -551,14 +584,17 @@ export function main(): number {
   const args = a._0;
 
   // If the environment asks us to actually be rustc, then do that.
-  const crate_kind = process.env.MIRI_BE_RUSTC;
+  const crate_kind = var_os("MIRI_BE_RUSTC");
   if (crate_kind !== undefined) {
-    if (crate_kind === "host") {
+    if (os_str_eq(crate_kind, "host")) {
       // For host crates like proc macros and build scripts, we are an entirely normal rustc.
       // These eventually produce actual binaries and never run in Miri.
       return rustc_driver_main();
-    } else if (crate_kind !== "target") {
-      return panic(`invalid \`MIRI_BE_RUSTC\` value: ${JSON.stringify(crate_kind)}`);
+    } else if (!os_str_eq(crate_kind, "target")) {
+      // PORT: no ICE hook yet, so upstream's panic goes to std's `default_hook`. "No hook" here is a report at top level (std/panicking.ts).
+      update_hook((default_hook, info) => default_hook(info));
+      // rustc-call: 425:13
+      panic(`invalid \`MIRI_BE_RUSTC\` value: ${debug_os_string(crate_kind)}`);
     }
 
     // Earliest rustc setup.
@@ -930,6 +966,11 @@ function MIRI_DEFAULT_ARGS_(): string[] {
   return [...MIRI_DEFAULT_ARGS];
 }
 
+/** `crate_kind == "host"`: `OsStr == str`, by bytes. */
+function os_str_eq(a: Uint8Array, b: string): boolean {
+  return Buffer.from(b).equals(a);
+}
+
 /** `str::strip_prefix` */
 function strip_prefix(s: string, prefix: string): string | undefined {
   return s.startsWith(prefix) ? s.slice(prefix.length) : undefined;
@@ -953,10 +994,20 @@ function available_parallelism(): number {
 
 // ---- entry glue (rust-ts, not upstream): `fn main() -> ExitCode` as a process, like src/rust_ts/main.ts ----
 // Exit codes: Miri's own (`exit(code)`, `ExitCode`), 101 for an ICE, 70 = reached unported code (never a Miri status).
+// RUST_TS_IMPL as src/rust_ts/main.ts: `port` (default), `shim` (runs the oracle's Miri, so the suite must score 100%), `stub` (unported, 0%).
 if (import.meta.main) {
-  ensure_stack();
   try {
-    process.exitCode = main();
+    const impl = selected_impl();
+    if (impl === "shim") {
+      const { miriBinary } = await import("../../../scripts/lib/miri.ts");
+      const proc = Bun.spawn([miriBinary(), ...process.argv.slice(2)], { stdio: ["inherit", "inherit", "inherit"] });
+      process.exitCode = await proc.exited;
+    } else if (impl === "stub") {
+      throw new Unported("stub implementation");
+    } else {
+      ensure_stack();
+      process.exitCode = main();
+    }
   } catch (e) {
     if (e instanceof MiriExit) {
       process.exitCode = e.code;

@@ -161,6 +161,12 @@ export function io_error_from_node(e: unknown): IoError {
   return { $: "Os", errno, code: err.code ?? "UNKNOWN" };
 }
 
+/** `io::Error::from_raw_os_error(errno)`. `code` is the name `node:os` gives that errno. */
+export function io_error_from_raw_os_error(errno: number): IoError {
+  const code = Object.entries(E).find(([, v]) => v === errno)?.[0] ?? "UNKNOWN";
+  return { $: "Os", errno, code };
+}
+
 function os_errno(e: { readonly errno: number | undefined; readonly code: string }): number {
   if (e.errno === undefined) return unported(`std::io::Error raw OS error (${process.platform}, ${e.code})`);
   return e.errno;

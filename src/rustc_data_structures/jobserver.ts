@@ -6,7 +6,7 @@
 // `initialize` in one process stays silent, as upstream's `OnceLock` does (rust-ts tests run several compilers in
 // one process). `Client::new` makes no pipe and `acquire_raw` is not called: both only feed tokens to code that is
 // not here, and the `expect` could fail only when the process has run out of descriptors.
-import { debug_str } from "../std/fmt.ts";
+import { debug_os_string } from "../std/env.ts";
 import { unported } from "../std/panic.ts";
 import { Client_from_env_ext, display_FromEnvError, FromEnvError_kind, type Client } from "../vendor/jobserver/lib.ts";
 
@@ -39,8 +39,7 @@ export function initialize(_limit: number, report: (err: string) => void): void 
       // Can unwrap because `var` is `None` only when the error kind is `NoEnvVar`.
       const [name, value] = var_;
       const msg = "failed to connect to jobserver from environment variable";
-      // PORT: `value` is an `OsString`; its `{:?}` (`str::lossy::Debug`) escapes a valid string as `str`'s `{:?}` does.
-      report(`${msg} \`${name}=${debug_str(value)}\`: ${display_FromEnvError(error)}`);
+      report(`${msg} \`${name}=${debug_os_string(value)}\`: ${display_FromEnvError(error)}`);
     }
 
     // Create a new jobserver if there's no inherited one.

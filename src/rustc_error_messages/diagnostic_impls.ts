@@ -6,6 +6,7 @@
 // (ESM cycle), so top-level code here must not read lib.ts bindings.
 import type { MutRef } from "../rustc_span/hygiene.ts";
 import { Symbol } from "../rustc_span/symbol.ts";
+import { var_ as env_var } from "../std/env.ts";
 import { debug_char } from "../std/fmt.ts";
 import { unported } from "../std/panic.ts";
 import type { DiagArgValue, IntoDiagArg, PathBuf } from "./lib.ts";
@@ -150,8 +151,9 @@ export class Backtrace {
 
   /** `Backtrace::capture` */
   static capture(): Backtrace {
-    const lib = process.env["RUST_LIB_BACKTRACE"];
-    const enabled = lib !== undefined ? lib !== "0" : (process.env["RUST_BACKTRACE"] ?? "0") !== "0";
+    const lib = env_var("RUST_LIB_BACKTRACE");
+    const rust = env_var("RUST_BACKTRACE");
+    const enabled = lib.$ === "Ok" ? lib._0 !== "0" : rust.$ === "Ok" && rust._0 !== "0";
     return new Backtrace(enabled ? "Captured" : "Disabled");
   }
 

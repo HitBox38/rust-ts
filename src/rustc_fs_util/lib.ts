@@ -6,7 +6,8 @@
 // `PathBuf` is a UTF-8 string (PORTING section 5).
 import { realpathSync } from "node:fs";
 import { win32 } from "node:path";
-import { io_error_from_node, io_error_other, type IoResult } from "../std/io.ts";
+import { current_dir_str } from "../std/env.ts";
+import { io_error_other, type IoResult } from "../std/io.ts";
 import { unreachable } from "../std/panic.ts";
 import { path_components, path_is_absolute, path_join } from "../std/path.ts";
 import { Err, Ok } from "../std/result.ts";
@@ -52,12 +53,9 @@ function absolute(path: string): IoResult<string> {
   if (path_is_absolute(path)) {
     normalized = (path.startsWith("//") && !path.startsWith("///") ? "//" : "/") + parts.join("/");
   } else {
-    let cwd: string;
-    try {
-      cwd = process.cwd();
-    } catch (e) {
-      return Err(io_error_from_node(e));
-    }
+    const wd = current_dir_str();
+    if (wd.$ === "Err") return wd;
+    const cwd = wd._0;
     normalized = parts.length === 0 ? cwd : path_join(cwd, parts.join("/"));
   }
   if (path.endsWith("/") && parts.length !== 0) normalized += "/";

@@ -3,12 +3,13 @@
 // Copyright (c) 2015 The Gimli Developers; licensed under MIT OR Apache-2.0 (object).
 //
 // PORT: see file.ts for the dictionary encoding of `Elf: FileHeader`. The symbol entries stay an
-// undecoded `PodSlice` (decoded on access). Not ported (unused on rustc's path): the `Sym` trait,
-// `ElfSymbol*` and symbol lookups/maps.
+// undecoded `PodSlice` (decoded on access). Not ported (unused on rustc's path): most of the `Sym` trait and of `ElfSymbol`
+// (only what `ar_archive_writer`'s `get_native_object_symbols` asks) and symbol lookups/maps.
 
-import { Err, Ok } from "../../../../std/result.ts";
+import { Err, Ok, type Result as StdResult } from "../../../../std/result.ts";
 import * as elf from "../../elf.ts";
-import { type Endianness, U32 } from "../../endian.ts";
+import type { SymbolKind } from "../../common.ts";
+import { type Endianness, U16, U32 } from "../../endian.ts";
 import { PodSlice } from "../../pod.ts";
 import { Error, read_error_err, read_error_opt, type Result, SectionIndex, SymbolIndex } from "../mod.ts";
 import { StringTable } from "../util.ts";
@@ -150,5 +151,87 @@ export class SymbolTable {
       return Err(new Error("Invalid ELF symbol index"));
     }
     return read_error_opt(this.symbols_.get(index), "Invalid ELF symbol index");
+  }
+}
+
+/** `.read_error("Invalid ELF symbol name offset")` on `StringTable::get`'s `Result<_, ()>`. */
+const read_error_opt_result = (r: StdResult<Uint8Array, undefined>): Result<Uint8Array> => (r.$ === "Ok" ? r : Err(new Error("Invalid ELF symbol name offset")));
+
+/** `elf::Sym32<Endianness>` / `elf::Sym64<Endianness>` (`Elf::Sym`). */
+type SymValue = elf.Sym32 | elf.Sym64;
+
+/// An iterator for the symbols in an [`ElfFile32`](super::ElfFile32) or [`ElfFile64`](super::ElfFile64).
+export class ElfSymbolIterator implements IterableIterator<ElfSymbol> {
+  private index: number;
+
+  // crate: object-0.39.1/src/read/elf/symbol.rs:287 new
+  constructor(
+    readonly endian: Endianness,
+    readonly symbols: SymbolTable,
+  ) {
+    this.index = 1;
+  }
+
+  [Symbol.iterator](): this {
+    return this;
+  }
+
+  // crate: object-0.39.1/src/read/elf/symbol.rs:309 next
+  next(): IteratorResult<ElfSymbol> {
+    const index = this.index;
+    const symbol = this.symbols.symbols_.get(index);
+    if (symbol === undefined) return { done: true, value: undefined };
+    this.index += 1;
+    return { done: false, value: new ElfSymbol(this.endian, this.symbols, SymbolIndex(index), symbol as SymValue) };
+  }
+}
+
+/// A symbol in an [`ElfFile32`](super::ElfFile32) or [`ElfFile64`](super::ElfFile64).
+export class ElfSymbol {
+  constructor(
+    readonly endian: Endianness,
+    readonly symbols: SymbolTable,
+    readonly index: SymbolIndex,
+    readonly symbol: SymValue,
+  ) {}
+
+  // crate: object-0.39.1/src/read/elf/symbol.rs:376 name_bytes
+  name_bytes(): Result<Uint8Array> {
+    // `self.symbol.name(self.endian, self.symbols.strings())` (`Sym::name`)
+    return read_error_opt_result(this.symbols.strings().get(U32.get(this.symbol.st_name, this.endian)));
+  }
+
+  // crate: object-0.39.1/src/read/elf/symbol.rs:397 kind
+  kind(): SymbolKind {
+    switch (this.symbol.st_type()) {
+      case elf.STT_NOTYPE:
+        return "Unknown";
+      case elf.STT_OBJECT:
+      case elf.STT_COMMON:
+        return "Data";
+      case elf.STT_FUNC:
+      case elf.STT_GNU_IFUNC:
+        return "Text";
+      case elf.STT_SECTION:
+        return "Section";
+      case elf.STT_FILE:
+        return "File";
+      case elf.STT_TLS:
+        return "Tls";
+      default:
+        return "Unknown";
+    }
+  }
+
+  // crate: object-0.39.1/src/read/elf/symbol.rs:433 is_undefined
+  is_undefined(): boolean {
+    // `self.symbol.is_undefined(self.endian)`
+    return U16.get(this.symbol.st_shndx, this.endian) === elf.SHN_UNDEF;
+  }
+
+  // crate: object-0.39.1/src/read/elf/symbol.rs:472 is_global
+  is_global(): boolean {
+    // `!self.symbol.is_local()`
+    return !(this.symbol.st_bind() === elf.STB_LOCAL);
   }
 }
