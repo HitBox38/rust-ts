@@ -267,7 +267,8 @@ export function home_dir(): OsString | undefined {
 }
 
 /** `libc::_SC_GETPW_R_SIZE_MAX`, and where `pw_dir` is in `struct passwd`: after `pw_name`, `pw_passwd`, `pw_uid`, `pw_gid`, and on macOS
- *  `pw_change`, `pw_class`, `pw_gecos`, or on Linux `pw_gecos`. */
+ *  `pw_change`, `pw_class`, `pw_gecos`, or on Linux `pw_gecos`. From the pinned libc-0.2.189: Linux `src/unix/linux_like/linux_l4re_shared.rs:536`,
+ *  `:49-57`; macOS `src/unix/bsd/apple/mod.rs:2514`, `src/unix/bsd/mod.rs:31-39`. Linux is read, not run: the first Linux pass runs `env.test.ts`'s `home_dir`. */
 const GETPW_R = process.platform === "linux" ? { sc_size_max: 70, pw_dir: 32 } : { sc_size_max: 71, pw_dir: 48 };
 
 // std: library/std/src/sys/paths/unix.rs:483 fallback

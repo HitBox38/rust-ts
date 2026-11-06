@@ -150,7 +150,7 @@ Under a cwd of 1,024 bytes or more, Bun's cached cwd cannot be refreshed. So `pa
 
 ## Not checked
 
-- Linux and Windows. `GETPW_R`'s Linux values (`_SC_GETPW_R_SIZE_MAX` 70, `pw_dir` at 32) and `__errno_location` are from memory of glibc, not run. On macOS, `pw_dir` at 48 was checked by the interposer.
+- Linux and Windows. `GETPW_R`'s Linux values (`_SC_GETPW_R_SIZE_MAX` 70, `pw_dir` at 32) and `__errno_location` were from memory of glibc, not run; the review checked them against the pinned libc and std sources, cited at `GETPW_R`. On macOS, `pw_dir` at 48 was checked by the interposer.
 - A directory really named with non-UTF-8 bytes. APFS refuses one, so the `MIRI_CWD` and `RUSTC_ICE` byte paths only show `ENOENT` here.
 - `errno` read by a second FFI call: nothing between the two calls should change it, and the tests saw the right code, but it is not the same guarantee as Rust's direct read.
 - `HOME` or `XDG_CACHE_HOME` over 1,023 bytes (Bun panics at start) and start-up cost in the number of entries, both from the review's "Seen" list: not in this brief.

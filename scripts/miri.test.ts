@@ -183,6 +183,14 @@ console.log(JSON.stringify({
 }));
 `;
 
+test("with RUST_TS_HOST_TUPLE set, the Miri binary's path runs no rustc, which under the isolated home would install a nightly", () => {
+  const code = `const m = await import(${JSON.stringify(join(import.meta.dir, "lib/miri.ts"))}); console.log(m.miriBinary());`;
+  const env: Record<string, string | undefined> = { ...process.env, PATH: "/nonexistent", RUST_TS_HOST_TUPLE: "some-host" };
+  const r = Bun.spawnSync([process.execPath, "-e", code], { cwd: import.meta.dir, env: env as Record<string, string>, stdout: "pipe", stderr: "pipe" });
+  expect(r.exitCode, r.stderr.toString()).toBe(0);
+  expect(r.stdout.toString().trim()).toEndWith("-some-host/bin/miri");
+});
+
 test("Miri oracle, suites and argv (child process)", () => {
   const env: Record<string, string> = {};
   for (const [k, v] of Object.entries(process.env)) if (v !== undefined && k !== "RUST_TS_DATA") env[k] = v;
