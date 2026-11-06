@@ -340,8 +340,16 @@ export function value_hash(v: unknown): number {
       }
       if (v instanceof Map || v instanceof Set) panic("intern_key: a Map/Set inside an intern key");
       // A sum: fields hash the same in any order, as `sorted_keys` makes them equal in any order.
-      const keys = Object.keys(v);
       let h = 0x811c9dc5;
+      if (Object.getPrototypeOf(v) === Object.prototype) {
+        // A literal, as nearly all are: `for in` makes no array, and such an object inherits nothing enumerable.
+        for (const k in v) {
+          const f = (v as Record<string, unknown>)[k];
+          if (f !== undefined) h = (h + hash_mix(0x5bd1e995, value_hash(f))) | 0;
+        }
+        return h;
+      }
+      const keys = Object.keys(v);
       for (let i = 0; i < keys.length; i++) {
         const f = (v as Record<string, unknown>)[keys[i]!];
         if (f !== undefined) h = (h + hash_mix(0x5bd1e995, value_hash(f))) | 0;
@@ -374,18 +382,22 @@ export function value_eq(a: unknown, b: unknown): boolean {
       }
       const ra = a as Record<string, unknown>;
       const rb = b as Record<string, unknown>;
+      const proto = Object.getPrototypeOf(a);
+      if (proto === Object.prototype && Object.getPrototypeOf(b) === proto) {
+        // Literals, as in `value_hash`: no arrays made, and `ra[k]` of a field only the other has is `undefined`.
+        for (const k in ra) if (!value_eq(ra[k], rb[k])) return false;
+        for (const k in rb) if (rb[k] !== undefined && ra[k] === undefined) return false;
+        return true;
+      }
       const ka = Object.keys(a);
       for (let i = 0; i < ka.length; i++) {
         const k = ka[i]!;
-        if (!value_eq(ra[k], rb[k])) return false;
+        if (!value_eq(ra[k], Object.hasOwn(b, k) ? rb[k] : undefined)) return false;
       }
-      // A field only `b` has, unless it is `undefined`, which the loop above saw as equal in reverse.
       const kb = Object.keys(b);
-      if (kb.length !== ka.length || !same_names(ka, kb)) {
-        for (let i = 0; i < kb.length; i++) {
-          const k = kb[i]!;
-          if (!Object.hasOwn(a, k) && rb[k] !== undefined) return false;
-        }
+      for (let i = 0; i < kb.length; i++) {
+        const k = kb[i]!;
+        if (rb[k] !== undefined && (!Object.hasOwn(a, k) || ra[k] === undefined)) return false;
       }
       return true;
     }
