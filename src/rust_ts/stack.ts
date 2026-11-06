@@ -282,6 +282,15 @@ function settle_environment(): OsString[] | undefined {
   return entries;
 }
 
+/**
+ * `RUST_TS_IMPL`, for the entries: `port` unless the process was started with it set. `shim` forwards to the oracle and would score
+ * as a pass, so a `.env` in the cwd, which only `process.env` sees, must not be able to choose it. This reads C's `environ`.
+ */
+export function selected_impl(): string {
+  const v = var_os("RUST_TS_IMPL");
+  return v === undefined ? "port" : lossy.decode(v);
+}
+
 let ENSURED = false;
 
 /**

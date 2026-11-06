@@ -11,7 +11,7 @@ import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import { FatalErrorMarker } from "../rustc_span/fatal_error.ts";
 import { Panic, Unported } from "../std/panic.ts";
 import { report_uncaught } from "../std/panicking.ts";
-import { ensure_stack } from "./stack.ts";
+import { ensure_stack, selected_impl } from "./stack.ts";
 import { write_stderr } from "../std/io.ts";
 
 const EXIT_UNPORTED = 70;
@@ -32,7 +32,7 @@ function make_callbacks(dump: (tcx: TyCtxt) => string, print: (s: string) => voi
 }
 
 async function main(args: string[]): Promise<number> {
-  const impl = process.env.RUST_TS_IMPL ?? "port";
+  const impl = selected_impl();
   if (impl === "shim") {
     const { probePath } = await import("../../scripts/probes.ts");
     const proc = Bun.spawn([probePath("resdump"), ...args], { stdio: ["inherit", "inherit", "inherit"] });

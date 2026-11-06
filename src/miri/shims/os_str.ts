@@ -236,8 +236,9 @@ function os_str_to_u16vec_not_windows(os_str: string): InterpResult<number[]> {
   // On non-Windows platforms the best we can do to transform Vec<u16> from/to OS strings is to do the
   // intermediate transformation into strings. Which invalidates non-utf8 paths that are actually
   // valid.
-  // `os_str.to_str()` is always `Some` for the port's `OsStr` (a `string`, module header); the `None` arm:
-  // `err_unsup_format!("{:?} is not a valid utf-8 string", os_str)` cannot be reached.
+  // `os_str.to_str()` is `None` for a forwarded host string holding an escaped byte (module header), and the arm is
+  // `err_unsup_format!("{:?} is not a valid utf-8 string", os_str)`. Nothing reaches it yet, as shims/env.ts stops Windows targets and
+  // this is their path; when Windows shims arrive, this arm must be added, or a lone surrogate is written into the wide string.
   return interp_ok(string_to_utf16(os_str));
 }
 

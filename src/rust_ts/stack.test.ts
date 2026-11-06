@@ -2,7 +2,7 @@
 // process with the stack it needs and exactly the environment it was started with. The programs that show that environment under
 // the oracle, too, are in environment.oracle.test.ts; this file holds what is cheap enough to try many environments on.
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import "../rustc_session/options.ts"; // LOAD ORDER: see rustc_session/config.ts
@@ -144,6 +144,23 @@ describe.skipIf(process.platform === "win32")("ensure_stack", () => {
       }
     } finally {
       rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("a `.env` in the cwd cannot choose RUST_TS_IMPL; the process's own variable does (docs/reviews/fixers-41.md N4)", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "rust-ts-impl-"));
+    try {
+      writeFileSync(join(cwd, ".env"), "RUST_TS_IMPL=shim\n");
+      const script = `import { selected_impl } from ${JSON.stringify(join(import.meta.dir, "stack.ts"))}; console.log(process.env.RUST_TS_IMPL, selected_impl());`;
+      const seen = (env: Record<string, string>): string => Bun.spawnSync([process.execPath, "-e", script], { cwd, env, stdout: "pipe", stderr: "pipe" }).stdout.toString().trim();
+      expect(seen({})).toBe("shim port"); // Bun's dotenv did load it: this is the case that matters.
+      expect(seen({ RUST_TS_IMPL: "stub" })).toBe("stub stub");
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+    // Every entry asks `selected_impl`, not `process.env`.
+    for (const entry of ["main", "ckdump", "mirdump", "resdump", "thirdump", "tydump"]) {
+      expect(readFileSync(join(import.meta.dir, `${entry}.ts`), "utf8")).toContain("const impl = selected_impl();");
     }
   });
 
