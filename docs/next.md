@@ -470,6 +470,7 @@ Queued:
 **Held for the owner:** D4 (port rustc_codegen_llvm; harness/scope.json says changes need the owner's approval) and PLAN.md's D1, D3; wave 40 does not start without an answer. Also reported: root removed scope.json's virtual_socket.rs exclusion without approval.
 
 ## Wave 40a (started 2026-11-06) — what does not depend on D4
+**Gate running on main; accept and audit to follow.**
 | lane | scope | status |
 |---|---|---|
 | perf-near-limit | the cases gates retry: all 10 protected mir cases at 36% of their limit or less; dynamic-drop.rs and issue-8827.rs stay at 63-66% | APPROVE WITH NITS; on integ-w40 |
