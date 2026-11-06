@@ -10,12 +10,15 @@
 //! origin crate when the `TyCtxt` is not present in TLS.
 // Port of compiler/rustc_interface/src/callbacks.rs (partial).
 //
-// PORT: only the `DEF_ID_DEBUG` and `TRACK_FEATURE` hooks are ported. The other hooks' statics do not exist in rust-ts yet, so
+// PORT: only the `DEF_ID_DEBUG`, `TRACK_FEATURE` and `EMIT_BUG_DIAGNOSTIC` hooks are ported. The other hooks' statics do not exist in rust-ts yet, so
 // their callbacks are not ported and `setup_callbacks` leaves them at their defaults:
 // - `track_span_parent` (`rustc_span::SPAN_TRACK`): HIR lowering's relative spans + dep tracking (M3, D3);
 // - `track_diagnostic` (`rustc_errors::TRACK_DIAGNOSTIC`): `dep_graph.record_diagnostic` (incremental only);
-// - `emit_bug_diagnostic` (`rustc_span::macros::EMIT_BUG_DIAGNOSTIC`): `bug!` inside a tcx;
 // - `rustc_expand_queries::setup_callbacks()`: crate not ported.
+import { DiagMessage, MultiSpan } from "../rustc_error_messages/lib.ts";
+import { DiagInner, DiagLocation, Level } from "../rustc_errors/lib.ts";
+import { EMIT_BUG_DIAGNOSTIC, type Location } from "../rustc_span/macros.ts";
+import type { Span } from "../rustc_span/span_encoding.ts";
 import { type DefId, DEF_ID_DEBUG, DefIndex, display_CrateNum } from "../rustc_span/def_id.ts";
 import type { Fmt } from "../std/fmt.ts";
 import * as tls from "../rustc_middle/ty/context/tls.ts";
@@ -54,6 +57,30 @@ function def_id_debug(def_id: DefId, _f: Fmt): string {
   return `${s})`;
 }
 
+/// Returns true if it printed the diagnostic, which happens if a `tcx` is available.
+// rustc: compiler/rustc_interface/src/callbacks.rs:90 emit_bug_diagnostic
+function emit_bug_diagnostic(span: Span | undefined, args: string, location: Location | undefined): boolean {
+  // PORT: `undefined` is a location track_caller.ts refused: nothing is printed, so `bug_impl` panics with the message
+  // and the panic hook reports the refusal.
+  if (location === undefined) return false;
+  return tls.with_opt((tcx) => {
+    if (tcx !== undefined) {
+      const diag = DiagInner.new(Level.Bug, DiagMessage.from_str(`${location.file}:${location.line}:${location.col}: ${args}`));
+      if (span !== undefined) {
+        diag.span = MultiSpan.from_span(span);
+      }
+      diag.emitted_at = DiagLocation.from_location(location);
+      // Emit the bug without aborting. We let `bug_impl` do the abort because it has
+      // `#[track_caller]` which gives a better location. (`#[track_caller]` doesn't work
+      // here because this function is called via a function pointer.)
+      tcx.dcx().emit_diagnostic(diag);
+      return true;
+    } else {
+      return false;
+    }
+  });
+}
+
 /// Sets up the callbacks in prior crates which we want to refer to the
 /// TyCtxt in.
 // rustc: compiler/rustc_interface/src/callbacks.rs:115 setup_callbacks
@@ -62,6 +89,6 @@ export function setup_callbacks(): void {
   DEF_ID_DEBUG.swap(def_id_debug);
   // `rustc_errors::TRACK_DIAGNOSTIC.swap(..)`: not ported (module comment).
   TRACK_FEATURE.swap(track_feature);
-  // `rustc_span::macros::EMIT_BUG_DIAGNOSTIC`, `rustc_expand_queries::setup_callbacks()`: not ported
-  // (module comment).
+  EMIT_BUG_DIAGNOSTIC.f = emit_bug_diagnostic;
+  // `rustc_expand_queries::setup_callbacks()`: not ported (module comment).
 }

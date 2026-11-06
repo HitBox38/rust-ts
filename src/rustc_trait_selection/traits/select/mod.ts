@@ -224,6 +224,7 @@ SelectionContext.prototype.poly_select = function (this: SelectionContext, oblig
     if (r.$ === "Err" && r._0.$ === "Overflow" && r._0._0.$ === "Canonical") {
       // In standard mode, overflow must have been caught and reported
       // earlier.
+      // rustc-call: 235:17
       assert(this.query_mode === "Canonical", "assertion failed: self.query_mode == TraitQueryMode::Canonical");
       return Err({ $: "Overflow", _0: OverflowError.Canonical });
     } else if (r.$ === "Err") {
@@ -746,49 +747,9 @@ SelectionContext.prototype.evaluate_predicate_recursively = function (
           }
         }
 
-        case "ConstArgHasType": {
-          let ct = clause._0;
-          const ty = clause._1;
-          ct = this.infcx.shallow_resolve_const(ct);
-          let ct_ty: Ty;
-          const ck = ct.kind();
-          switch (ck.$) {
-            case "Infer": {
-              return Ok("EvaluatedToAmbig");
-            }
-            case "Error":
-              return Ok("EvaluatedToOk");
-            case "Value":
-              ct_ty = ck._0.ty;
-              break;
-            case "Alias":
-              ct_ty = Unnormalized.skip_norm_wip(AliasConst.type_of(ck._1, this.tcx()));
-              break;
-            // FIXME(generic_const_exprs): See comment in `fulfill.rs`
-            case "Expr":
-              return Ok("EvaluatedToOk");
-            case "Placeholder":
-              return bug(`placeholder const ${debug_Const(ct, PLAIN)} in old solver`);
-            case "Bound":
-              return bug(`escaping bound vars in ${debug_Const(ct, PLAIN)}`);
-            case "Param":
-              ct_ty = ParamConst.find_const_ty_from_env(ck._0, obligation.param_env);
-              break;
-          }
-
-          const r = this.infcx.at(obligation.cause, obligation.param_env).eq(
-            // Only really exercised by generic_const_exprs
-            DefineOpaqueTypes.Yes,
-            ct_ty,
-            ty,
-            ToTrace_Ty,
-          );
-          if (r.$ === "Ok") {
-            return this.evaluate_predicates_recursively(previous_stack, r._0.into_obligations());
-          } else {
-            return Ok("EvaluatedToErr");
-          }
-        }
+        case "ConstArgHasType":
+          // PORT: the last arm of upstream's flat match: below the `switch`, so its `bug!`s stay in upstream order.
+          break;
       }
       break;
     }
@@ -919,6 +880,50 @@ SelectionContext.prototype.evaluate_predicate_recursively = function (
       return bug("NormalizesTo is only used by the new solver");
     case "Ambiguous":
       return Ok("EvaluatedToAmbig");
+  }
+  if (kind.$ === "Clause" && kind._0.$ === "ConstArgHasType") {
+    const clause = kind._0;
+    let ct = clause._0;
+    const ty = clause._1;
+    ct = this.infcx.shallow_resolve_const(ct);
+    let ct_ty: Ty;
+    const ck = ct.kind();
+    switch (ck.$) {
+      case "Infer": {
+        return Ok("EvaluatedToAmbig");
+      }
+      case "Error":
+        return Ok("EvaluatedToOk");
+      case "Value":
+        ct_ty = ck._0.ty;
+        break;
+      case "Alias":
+        ct_ty = Unnormalized.skip_norm_wip(AliasConst.type_of(ck._1, this.tcx()));
+        break;
+      // FIXME(generic_const_exprs): See comment in `fulfill.rs`
+      case "Expr":
+        return Ok("EvaluatedToOk");
+      case "Placeholder":
+        return bug(`placeholder const ${debug_Const(ct, PLAIN)} in old solver`);
+      case "Bound":
+        return bug(`escaping bound vars in ${debug_Const(ct, PLAIN)}`);
+      case "Param":
+        ct_ty = ParamConst.find_const_ty_from_env(ck._0, obligation.param_env);
+        break;
+    }
+
+    const r = this.infcx.at(obligation.cause, obligation.param_env).eq(
+      // Only really exercised by generic_const_exprs
+      DefineOpaqueTypes.Yes,
+      ct_ty,
+      ty,
+      ToTrace_Ty,
+    );
+    if (r.$ === "Ok") {
+      return this.evaluate_predicates_recursively(previous_stack, r._0.into_obligations());
+    } else {
+      return Ok("EvaluatedToErr");
+    }
   }
   return unreachable();
 };
@@ -2575,7 +2580,7 @@ SelectionContext.prototype.rematch_impl = function (this: SelectionContext, impl
     return r._0;
   } else {
     const predicate = this.infcx.deeply_resolve_ignoring_regions(obligation.predicate, d_PolyTraitClauseRel);
-    return bug(
+    bug(
       `impl ${format_debug(impl_def_id, debug_DefId, PLAIN)} was matchable against ${format_debug(predicate, (p, f) => debug_Binder(p, f, debug_TraitClause), PLAIN)} but now is not`,
     );
   }

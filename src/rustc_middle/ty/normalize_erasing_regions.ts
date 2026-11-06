@@ -239,7 +239,7 @@ class NormalizeAfterErasingRegionsFolder implements TypeFolder {
     const arg = this.typing_env.as_query_input(arg_);
     const r = this.tcx.try_normalize_generic_arg_after_erasing_regions(arg) as Result<GenericArg, NoSolution>;
     if (r.$ === "Ok") return r._0;
-    return bug(
+    bug(
       `Failed to normalize ${debug_GenericArg(arg.value, PLAIN)} in typing_env=${debug_TypingEnv(this.typing_env, PLAIN)}, maybe try to call \`try_normalize_erasing_regions\` instead`,
     );
   }

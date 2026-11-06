@@ -1664,7 +1664,8 @@ Ty.prototype.ptr_metadata_ty_or_tail = function (this: Ty, tcx: TyCtxt, normaliz
     // Sized types
     case "Infer":
       if (k._0.$ === "IntVar" || k._0.$ === "FloatVar") return Ok(tcx.types.unit);
-      return bug(`\`ptr_metadata_ty_or_tail\` applied to unexpected type: ${debug_Ty(this, PLAIN)} (tail = ${debug_Ty(tail, PLAIN)})`);
+      // rustc-call: 1816:86
+      bug(`\`ptr_metadata_ty_or_tail\` applied to unexpected type: ${debug_Ty(this, PLAIN)} (tail = ${debug_Ty(tail, PLAIN)})`);
     case "Uint":
     case "Int":
     case "Bool":
@@ -1715,7 +1716,8 @@ Ty.prototype.ptr_metadata_ty_or_tail = function (this: Ty, tcx: TyCtxt, normaliz
     case "Pat":
     case "Bound":
     case "Placeholder":
-      return bug(`\`ptr_metadata_ty_or_tail\` applied to unexpected type: ${debug_Ty(this, PLAIN)} (tail = ${debug_Ty(tail, PLAIN)})`);
+      // rustc-call: 1816:86
+      bug(`\`ptr_metadata_ty_or_tail\` applied to unexpected type: ${debug_Ty(this, PLAIN)} (tail = ${debug_Ty(tail, PLAIN)})`);
   }
 };
 

@@ -36,7 +36,7 @@ import { Ident } from "../rustc_span/symbol.ts";
 import { debug_Path } from "../rustc_ast/lib.ts";
 import { type Symbol, sym } from "../rustc_span/symbol.ts";
 import { type Debug, debug_struct, debug_tuple, debug_vec } from "../std/fmt.ts";
-import { assert, unwrap } from "../std/panic.ts";
+import { keep_frame, assert, unwrap } from "../std/panic.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
 import { ShouldEmit } from "./context.ts";
 import {
@@ -742,14 +742,15 @@ class MetaItemListParserContext {
 
     if (this.parser.token.kind.$ === "OpenInvisible") {
       // Do not attempt to suggest anything when encountered as part of a macro expansion.
-      return this.parser.dcx().create_err(InvalidMetaItem_diagnostic(err));
+      // rustc-call: 631:38
+      return keep_frame(this.parser.dcx().create_err(InvalidMetaItem_diagnostic(err)));
     }
 
     if (this.should_emit.$ === "ErrorsAndLints" && this.should_emit.recovery === "Forbidden") {
       // Do not attempt to suggest anything in `Recovery::Forbidden` mode.
       // Malformed diagnostic-attr arguments that start with an `if` expression can lead to
       // an ICE (https://github.com/rust-lang/rust/issues/152744), because callers may cancel the `InvalidMetaItem` error.
-      return this.parser.dcx().create_err(InvalidMetaItem_diagnostic(err));
+      return keep_frame(this.parser.dcx().create_err(InvalidMetaItem_diagnostic(err)));
     }
 
     // Suggest quoting idents, e.g. in `#[cfg(key = value)]`. We don't use `Token::ident` and
@@ -794,7 +795,7 @@ class MetaItemListParserContext {
       }
     }
 
-    return this.parser.dcx().create_err(InvalidMetaItem_diagnostic(err));
+    return keep_frame(this.parser.dcx().create_err(InvalidMetaItem_diagnostic(err)));
   }
 
   // rustc: compiler/rustc_attr_parsing/src/parser.rs:685 should_continue_parsing_meta_items

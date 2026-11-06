@@ -6,7 +6,7 @@
 // Partial port of compiler/rustc_driver_impl/src/lib.rs: the `main` → `compiler_entrypoint` →
 // `handle_options` → `run_compiler` path, version/help printing and the `-Zunpretty` early exit.
 // Everything after parsing (expansion, analysis, codegen, linking), `--explain`, `-W help`,
-// `--print`, metadata listing, rlink processing and the ICE hook is unported (see each fn).
+// `--print`, metadata listing and rlink processing is unported (see each fn).
 import "../rustc_session/options.ts"; // LOAD ORDER: see rustc_session/config.ts
 import "../rustc_session/lib.ts";
 import type { AttrVec, Crate } from "../rustc_ast/ast.gen.ts";
@@ -50,10 +50,17 @@ import type { TimePassesFormat } from "../rustc_session/stand_ins.ts";
 import { UnstableFeatures } from "../rustc_feature/lib.ts";
 import type { PathBuf } from "../rustc_error_messages/lib.ts";
 import * as env from "../std/env.ts";
+import { type DiagCtxtHandle, DelayedBugPanic, DiagCtxt, ExplicitBug } from "../rustc_errors/lib.ts";
+import { AnnotateSnippetEmitter } from "../rustc_errors/annotate_snippet_emitter_writer.ts";
+import { stderr_destination } from "../rustc_errors/emitter.ts";
+import { extra_compiler_flags } from "../rustc_session/utils.ts";
 import { panic, unported } from "../std/panic.ts";
+import { CURRENT_THREAD, display_location, js_backtrace, type PanicHookInfo, set_backtrace_style, update_hook } from "../std/panicking.ts";
+import { display_IoError, io_error_from_node, write_stderr } from "../std/io.ts";
+import * as diagnostics from "./diagnostics.gen.ts";
 import { from_utf8 } from "../std/str.ts";
 import { FileName } from "../rustc_span/lib.ts";
-import { readFileSync } from "node:fs";
+import { appendFileSync, readFileSync } from "node:fs";
 import * as getopts from "../vendor/getopts/lib.ts";
 import { arg_expand_all, raw_args } from "./args.ts";
 import * as pretty from "./pretty.ts";
@@ -77,7 +84,8 @@ export const DEFAULT_BUG_REPORT_URL: string =
 // PORT: build constants of the oracle rustc (`option_env!` in the `version!` macro), from UPSTREAM.json:
 // `CFG_VERSION` (see rustc_interface/util.ts), `CFG_VER_HASH` = `rust.commit`, `CFG_VER_DATE` =
 // `rust.commitDate`, `CFG_RELEASE` = `rust.release`. Checked against `rustc -vV` in driver.oracle.test.ts.
-import { CFG_VERSION } from "../rustc_interface/util.ts";
+import { CFG_VERSION, version_str } from "../rustc_interface/util.ts";
+import { try_print_query_stack } from "../rustc_interface/interface.ts";
 const CFG_VER_HASH: string | undefined = "6f5da406b56c2db6607202b63daee73aa8c61297";
 const CFG_VER_DATE: string | undefined = "2026-10-10";
 const CFG_RELEASE: string | undefined = "1.101.0-nightly";
@@ -1126,10 +1134,11 @@ function ice_path_with_config(config: UnstableOptions | undefined): PathBuf | un
   return ICE_PATH.value;
 }
 
-/** `jiff::Zoned::now().strftime("%Y-%m-%dT%H_%M_%S")` (local time). */
+/** `jiff::Zoned::now().strftime("%Y-%m-%dT%H_%M_%S")`, in UTC whatever `TZ` says: rustc_driver_impl/Cargo.toml:9 builds jiff
+ *  with `default-features = false, features = ["std"]`, so it has no system time zone (re-check of ice-report R3). */
 function strftime_ice(d: Date): string {
   const p = (n: number, w = 2): string => String(n).padStart(w, "0");
-  return `${p(d.getFullYear(), 4)}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}_${p(d.getMinutes())}_${p(d.getSeconds())}`;
+  return `${p(d.getUTCFullYear(), 4)}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())}T${p(d.getUTCHours())}_${p(d.getUTCMinutes())}_${p(d.getUTCSeconds())}`;
 }
 
 /** `PathBuf::push` of a relative file name. */
@@ -1154,7 +1163,7 @@ export const USING_INTERNAL_FEATURES: { value: boolean } = { value: false };
 ///
 /// A custom rustc driver can skip calling this to set up a custom ICE hook.
 // rustc: compiler/rustc_driver_impl/src/lib.rs:1459 install_ice_hook
-export function install_ice_hook(_bug_report_url: string, _extra_info: unknown): void {
+export function install_ice_hook(bug_report_url: string, extra_info: (dcx: DiagCtxtHandle) => void): void {
   // If the user has not explicitly overridden "RUST_BACKTRACE", then produce
   // full backtraces. When a compiler ICE happens, we want to gather
   // as much information as possible to present in the issue opened
@@ -1166,15 +1175,148 @@ export function install_ice_hook(_bug_report_url: string, _extra_info: unknown):
     // PORT: `std::env::args()` panics on a non-Unicode argument (before the hook below exists), which
     // is how rustc reacts to one when `RUST_BACKTRACE` is unset.
     const ui_testing = env.args().some((arg) => arg === "-Zui-testing");
-    // PORT: `panic::set_backtrace_style(Short | Full)` has no observable counterpart: rust-ts prints
-    // no Rust backtraces.
-    void (CFG_RELEASE_CHANNEL === "dev" && !ui_testing);
+    if (CFG_RELEASE_CHANNEL === "dev" && !ui_testing) {
+      set_backtrace_style("Short");
+    } else {
+      set_backtrace_style("Full");
+    }
   }
 
-  // `panic::update_hook(..)` with `report_ice` (lib.rs:1538): PORT: not ported. An ICE (uncaught
-  // `Panic`) is reported by src/rust_ts/main.ts (exit 101); the upstream report embeds the Rust panic
-  // location and backtrace, which rust-ts cannot reproduce.
+  update_hook((default_hook, info) => {
+    // Lock stderr to prevent interleaving of concurrent panics.
+    // If the error was caused by a broken pipe then this is not a bug.
+    // Write the error and return immediately. See #98700.
+    // PORT: `#[cfg(windows)]`: Windows is unchecked (AGENTS.md section 5).
+
+    // Invoke the default handler, which prints the actual panic message and optionally a backtrace
+    // Don't do this for delayed bugs, which already emit their own more useful backtrace.
+    if (!(info.payload instanceof DelayedBugPanic)) {
+      default_hook(info);
+      // Separate the output with an empty line
+      write_stderr("\n");
+
+      const path = ice_path();
+      if (path !== undefined) {
+        // The current implementation always returns `Some`.
+        const location = info.location();
+        const msg = info.payload.payload_as_str() ?? "Box<dyn Any>";
+        const name = CURRENT_THREAD.name;
+        // PORT: `let _ = write!(..)` on a file that may not open: errors are ignored. The JS stack stands in for
+        // `Backtrace::force_capture()` (plan-ice-report D9).
+        try {
+          appendFileSync(path, `thread '${name}' panicked at ${display_location(location)}:\n${msg}\nstack backtrace:\n${js_backtrace(info.payload)}`);
+        } catch {}
+      }
+    }
+
+    // Print the ICE message
+    report_ice(info, bug_report_url, extra_info, USING_INTERNAL_FEATURES);
+  });
 }
+
+/// Prints the ICE message, including query stack, but without backtrace.
+///
+/// The message will point the user at `bug_report_url` to report the ICE.
+///
+/// When `install_ice_hook` is called, this function will be called as the panic
+/// hook.
+// rustc: compiler/rustc_driver_impl/src/lib.rs:1538 report_ice
+function report_ice(
+  info: PanicHookInfo,
+  bug_report_url: string,
+  extra_info: (dcx: DiagCtxtHandle) => void,
+  using_internal_features: { value: boolean },
+): void {
+  const emitter = AnnotateSnippetEmitter.new(stderr_destination("Auto"));
+  const dcx = DiagCtxt.new(emitter).handle();
+
+  // a .span_bug or .bug call has already printed what
+  // it wants to print.
+  if (!(info.payload instanceof ExplicitBug) && !(info.payload instanceof DelayedBugPanic)) {
+    dcx.emit_err(diagnostics.Ice_diagnostic({}));
+  }
+
+  if (using_internal_features.value) {
+    dcx.emit_note(diagnostics.IceBugReportInternalFeature_diagnostic({}));
+  } else {
+    dcx.emit_note(diagnostics.IceBugReport_diagnostic({ bug_report_url }));
+
+    // Only emit update nightly hint for users on nightly builds.
+    if (UnstableFeatures.is_nightly_build(UnstableFeatures.from_environment(undefined))) {
+      dcx.emit_note(diagnostics.UpdateNightlyNote_diagnostic({}));
+    }
+  }
+
+  const version = version_str() ?? "unknown_version";
+  const tuple = host_tuple();
+
+  let file: ((line: string) => void) | undefined;
+  const path = ice_path();
+  if (path !== undefined) {
+    // Create the ICE dump target file.
+    // PORT: `File::options().create(true).append(true).open(path)`, then line writes with errors ignored.
+    let open_error: unknown;
+    let opened = false;
+    try {
+      appendFileSync(path, "");
+      opened = true;
+    } catch (err) {
+      open_error = err;
+    }
+    if (opened) {
+      dcx.emit_note(diagnostics.IcePath_diagnostic({ path }));
+      if (FIRST_PANIC.value) {
+        FIRST_PANIC.value = false;
+        try {
+          appendFileSync(path, `\n\nrustc version: ${version}\nplatform: ${tuple}`);
+        } catch {}
+      }
+      file = (line) => {
+        try {
+          appendFileSync(path, `${line}\n`);
+        } catch {}
+      };
+    } else {
+      // The path ICE couldn't be written to disk, provide feedback to the user as to why.
+      const var_ = process.env.RUSTC_ICE;
+      dcx.emit_warn(
+        diagnostics.IcePathError_diagnostic({
+          path,
+          error: display_IoError(io_error_from_node(open_error)),
+          env_var: var_ === undefined ? undefined : { env_var: var_ },
+        }),
+      );
+    }
+  }
+
+  dcx.emit_note(diagnostics.IceVersion_diagnostic({ version, triple: tuple }));
+
+  const flags = extra_compiler_flags();
+  if (flags !== undefined) {
+    const [flags_, excluded_cargo_defaults] = flags;
+    dcx.emit_note(diagnostics.IceFlags_diagnostic({ flags: flags_.join(" ") }));
+    if (excluded_cargo_defaults) {
+      dcx.emit_note(diagnostics.IceExcludeCargoDefaults_diagnostic({}));
+    }
+  }
+
+  // If backtraces are enabled, also print the query stack
+  const rust_backtrace = process.env.RUST_BACKTRACE;
+  const backtrace = rust_backtrace !== undefined && rust_backtrace !== "0";
+
+  const limit_frames = backtrace ? undefined : 2;
+
+  try_print_query_stack(limit_frames, file);
+
+  // We don't trust this callback not to panic itself, so run it at the end after we're sure we've
+  // printed all the relevant info.
+  extra_info(dcx);
+
+  // PORT: `RUSTC_BREAK_ON_ICE` is `#[cfg(windows)]`.
+}
+
+/** `static FIRST_PANIC: AtomicBool` of `report_ice`. */
+const FIRST_PANIC: { value: boolean } = { value: true };
 
 /** `env!("CFG_RELEASE_CHANNEL")` of the oracle toolchain. */
 const CFG_RELEASE_CHANNEL: string = "nightly";

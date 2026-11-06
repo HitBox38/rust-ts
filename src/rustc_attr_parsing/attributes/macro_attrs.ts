@@ -65,6 +65,7 @@ export const MacroUseParser: AttributeParser<MacroUseParser> = AttributeParser_p
     return { state: MacroUseArgs.default(), uses_attr_spans: [], first_span: undefined };
   },
 
+  // rustc-const: compiler/rustc_attr_parsing/src/attributes/macro_attrs.rs:45 ATTRIBUTES
   ATTRIBUTES: [
     [
       [sym.macro_use],

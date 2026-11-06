@@ -124,7 +124,7 @@ import { qpath_to_string } from "../rustc_hir_pretty/lib.ts";
 import { debug_OwnerId, HirId_eq, OwnerId_eq } from "../rustc_hir_id/lib.ts";
 import { display_Ident, Symbol } from "../rustc_span/symbol.ts";
 import { FnCtxt_as_PpAnn } from "./fn_ctxt/mod.ts";
-import { assert, assert_eq, unported, unwrap } from "../std/panic.ts";
+import { keep_frame, assert, assert_eq, unported, unwrap } from "../std/panic.ts";
 import { FnCtxt, TypeckRootCtxt, type Companions } from "./decls.ts";
 import * as gen from "./lib.gen.ts";
 import { type BreakableCtxt, EnclosingBreakables, type Needs as NeedsT, type TupleArgumentsFlag as TupleArgumentsFlagT } from "./lib.gen.ts";
@@ -759,7 +759,7 @@ export function fatally_break_rust(tcx: TyCtxt, span: Span): never {
       diag.note("some of the compiler flags provided by cargo are hidden");
     }
   }
-  return diag.emit_bug();
+  return keep_frame(diag.emit_bug());
 }
 
 /// Adds query implementations to the [Providers] vtable, see [`rustc_middle::query`]
