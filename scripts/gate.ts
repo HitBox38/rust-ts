@@ -21,7 +21,7 @@
 // when a run starts (or it stops with `ERROR:`), and a run fails if a suite changes it (scripts/lib/upstream.ts).
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { IR_RUN, RG_CHECK, RMETA_RUN, SUITES, suite as getSuite, type Suite } from "../harness/suites.ts";
+import { IR_RUN, MIRI_SYSROOT_RUN, RG_CHECK, RMETA_RUN, SUITES, suite as getSuite, type Suite } from "../harness/suites.ts";
 import { difftest, heavyErrorLines, heavyLine, unstableOf, type HeavyRun, type OracleRerun, type Usage } from "./difftest.ts";
 import { REPO, RUNS, UPSTREAM, die, ensureDir, nowId, parseArgs, run } from "./lib/common.ts";
 import { HostLog, REAL_HOST, batteryRefusal, sampleHost, type HostReaders, type HostSample } from "./lib/host-state.ts";
@@ -31,6 +31,7 @@ import { UNIT_STEPS } from "./lib/unit-steps.ts";
 import { upstreamError, upstreamStatus } from "./lib/upstream.ts";
 import { oracleTestProbes, probeBinary, probeStaleness } from "./probes.ts";
 import { parseIrRunArgs } from "./ir-run.ts";
+import { parseMiriSysrootRunArgs } from "./miri-sysroot-run.ts";
 import { parseRmetaRunArgs } from "./rmeta-run.ts";
 import { record } from "./state.ts";
 
@@ -155,6 +156,7 @@ export function checkProbes(suites: string[], unitTests: boolean): boolean {
 export function oracleRuns(cmd: string[]): string[] {
   if (cmd[0] === process.execPath && cmd[1] === IR_RUN) return [parseIrRunArgs(cmd.slice(2)).compiler[0]!];
   if (cmd[0] === process.execPath && cmd[1] === RG_CHECK) return ["rustc"];
+  if (cmd[0] === process.execPath && cmd[1] === MIRI_SYSROOT_RUN) return [parseMiriSysrootRunArgs(cmd.slice(2)).compiler[0]!];
   if (cmd[0] === process.execPath && cmd[1] === RMETA_RUN) {
     const a = parseRmetaRunArgs(cmd.slice(2));
     return [a.compiler[0]!, ...(a.dump !== undefined ? [a.dump] : [])];
