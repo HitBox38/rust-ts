@@ -11,22 +11,18 @@ import { DummyResult, type ExtCtxt, MacEager, type MacroExpanderResult } from ".
 import { edit_distance } from "../rustc_span/edit_distance.ts";
 import type { Span } from "../rustc_span/lib.ts";
 import { Ident, kw, sym, Symbol } from "../rustc_span/symbol.ts";
+import * as env from "../std/env.ts";
+import { type VarError } from "../std/env.ts";
 import { escape_char } from "../std/fmt.ts";
-import { Err, Ok, type Result } from "../std/result.ts";
+import { Ok, type Result } from "../std/result.ts";
 import * as diagnostics from "./diagnostics.ts";
 import { expr_to_string, get_exprs_from_tts, get_single_expr_from_tts } from "./util.ts";
-
-/**
- * `std::env::VarError`. PORT: `NotUnicode(OsString)` cannot arise: the host environment is read through
- * `process.env`, whose values are already decoded strings.
- */
-type VarError = { readonly $: "NotPresent" } | { readonly $: "NotUnicode"; _0: Uint8Array };
 
 // rustc: compiler/rustc_builtin_macros/src/env.rs:20 lookup_env
 function lookup_env(var_: Symbol): Result<Symbol, VarError> {
   const var_s = Symbol.as_str(var_);
   // Try to retrieve the environment variable from rustc's environment.
-  const v = env_var(var_s);
+  const v = env.var_(var_s);
   if (v.$ === "Err") return v;
   return Ok(Symbol.intern(v._0));
 }
@@ -237,17 +233,6 @@ function find_similar_cargo_var(var_: string): string | undefined {
 // ---- local helpers ---------------------------------------------------------------------------------
 
 const Symbol_iterator: typeof globalThis.Symbol.iterator = globalThis.Symbol.iterator;
-
-/**
- * `std::env::var(key)`. PORT: reads `process.env` (both sides of the harness run with the same
- * environment); a key that is empty or contains `=`/NUL is absent, as `getenv` reports it.
- */
-function env_var(key: string): Result<string, VarError> {
-  if (key === "" || key.includes("=") || key.includes("\0")) return Err({ $: "NotPresent" });
-  const v = process.env[key];
-  if (v === undefined) return Err({ $: "NotPresent" });
-  return Ok(v);
-}
 
 /**
  * `cx.sess.env_depinfo.borrow_mut().insert((var, value))`. PORT: `Session.env_depinfo` is typed
