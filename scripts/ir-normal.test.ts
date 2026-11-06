@@ -8,6 +8,7 @@ import { applyEdits, MUTATIONS } from "./lib/ir-mutations.ts";
 import { IR_TIERS, normalForm, stripIrComments, tierCommands, type IrTier } from "./lib/ir-normal.ts";
 import { llvmBinDir } from "./lib/llvm-tools.ts";
 import { EXIT_NORMAL_FORM, parseIrRunArgs } from "./ir-run.ts";
+import { irTierError } from "./lib/ir-normal.ts";
 
 const REPO = resolve(import.meta.dir, "..");
 const TMP = mkdtempSync(join(tmpdir(), "rust-ts-ir-normal-"));
@@ -108,9 +109,22 @@ describe("tier commands", () => {
   });
 });
 
+test("F1's tier rule: anything but N1 needs its own recorded decision (review harness-m7a H3)", () => {
+  const decision = (msg: string, kind = "decision") => JSON.stringify({ ts: "t", kind, msg }) + "\n";
+  expect(irTierError("ir-a", "N1", "")).toBeUndefined();
+  const e = irTierError("ir-a", "N3", "");
+  expect(e).toContain('record decision "IR tier: ir-a at N3: <why>"');
+  expect(e).toContain("--suite ir-a --ir-tier N3");
+  expect(e).not.toContain("\n");
+  expect(irTierError("ir-a", "N3", decision("IR tier: ir-a at N3: names are the cause"))).toBeUndefined();
+  // Not another tier's or suite's, not another kind of record, and not a mention in passing.
+  for (const h of [decision("IR tier: ir-a at N2: x"), decision("IR tier: ir-a-b at N3: x"), decision("IR tier: ir-a at N3: x", "stop"), decision("we should not record IR tier: ir-a at N3: x"), decision("IR tier: ir-a at N3")]) {
+    expect(irTierError("ir-a", "N3", h)).toBeDefined();
+  }
+});
+
 describe("ir-run", () => {
-  const run = (compiler: string, side = "subject", extra: string[] = []) => {
-    const out = join(TMP, `run-${Math.random().toString(36).slice(2)}`);
+  const run = (compiler: string, side = "subject", extra: string[] = [], out = join(TMP, `run-${Math.random().toString(36).slice(2)}`)) => {
     const c = join(TMP, `c-${Math.random().toString(36).slice(2)}.ts`);
     writeFileSync(c, compiler);
     const r = Bun.spawnSync([process.execPath, join(REPO, "scripts/ir-run.ts"), "--out", out, "--side", side, "--bin", BIN, ...extra, "--", process.execPath, c, "arg"], { stdout: "pipe", stderr: "pipe" });
@@ -139,6 +153,29 @@ describe("ir-run", () => {
   test("--keep keeps the raw text, under the side's name", () => {
     const r = run(WRITE({ "a.ll": LL }), "oracle", ["--keep"]);
     expect(readFileSync(join(r.out, "oracle", "a.ll"), "utf8")).toBe(LL);
+  });
+  test("both sides compile at one path, so a path in the IR is the same (review harness-m7a H5)", () => {
+    const withDir = `import { writeFileSync } from "node:fs"; const d = process.argv.at(-1)!; writeFileSync(d + "/a.ll", ${JSON.stringify(LL)} + '!llvm.ident = !{!0}\\n!0 = !{!"' + d + '"}\\n');`;
+    const out = join(TMP, "one-path");
+    const o = run(withDir, "oracle", [], out);
+    const s = run(withDir, "subject", [], out);
+    expect([o.code, s.code]).toEqual([0, 0]);
+    expect(o.stdout).toContain(`!{!"${join(out, "work")}"}`);
+    expect(s.stdout).toBe(o.stdout);
+    expect(readdirSync(out)).toEqual([]);
+  });
+  test("two runs of one case at once take turns, and say nothing about it in the compared output", async () => {
+    const out = join(TMP, "turns");
+    const c = join(TMP, "turns-c.ts");
+    // Two compilers inside at once fail on the file they both make, whichever wrote what.
+    const busy = join(TMP, "turns-busy");
+    writeFileSync(c, `import { rmSync, writeFileSync } from "node:fs"; const d = process.argv.at(-1)!; writeFileSync(${JSON.stringify(busy)}, "", { flag: "wx" }); await Bun.sleep(150); await Bun.write(d + "/a.ll", ${JSON.stringify(LL)}); rmSync(${JSON.stringify(busy)});`);
+    const one = () => Bun.spawn([process.execPath, join(REPO, "scripts/ir-run.ts"), "--out", out, "--side", "oracle", "--bin", BIN, "--", process.execPath, c], { stdout: "pipe", stderr: "pipe" });
+    const ps = [one(), one()];
+    const rs = await Promise.all(ps.map(async (p) => [await p.exited, await new Response(p.stdout).text(), await new Response(p.stderr).text()] as const));
+    expect(rs[0]![0]).toBe(0);
+    expect(rs[0]![2]).toBe("");
+    expect(rs[1]).toEqual(rs[0]!);
   });
   test("a failing compiler ends the run with its code, and no IR is read", () => {
     const r = run(`console.error("nope"); process.exit(70);`);

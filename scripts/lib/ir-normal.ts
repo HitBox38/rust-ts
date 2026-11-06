@@ -45,7 +45,10 @@
 //
 // The rule for choosing a tier is F1's, recorded before wave 41: N1 is the target; if `ir-run-pass` is under 95% on N1 at M7c's
 // gate and at least half of the failures are model behaviour, gate on N2 (names) or N3 (not names), each one recorded
-// decision; behaviour is never the only gate on codegen; under 95% on N3 is a STOP.
+// decision; behaviour is never the only gate on codegen; under 95% on N3 is a STOP. **What holds it (review harness-m7a H3):** every IR suite
+// names its tier (`Suite.irTier`, which is in its oracle key, summaries, gate.json and the accept record), and a unit test in the gate's static step
+// fails on anything but N1 without the decision `irTierError` names. Another tier of a suite is a report: `difftest --suite <s> --ir-tier <t>`,
+// under a name no gate or baseline takes, for the lost tier and for M7b's three.
 import { join } from "node:path";
 
 export const IR_TIERS = ["N1", "N2", "N3"] as const;
@@ -53,6 +56,15 @@ export type IrTier = (typeof IR_TIERS)[number];
 export const isIrTier = (t: string): t is IrTier => (IR_TIERS as readonly string[]).includes(t);
 
 const OPT_PASSES: Record<IrTier, string> = { N1: "assign-guid,verify", N2: "assign-guid,verify", N3: "assign-guid,function(instsimplify),verify" };
+
+/** F1's rule on one suite. `history`: docs/state/history.jsonl. One line (no `ERROR:` prefix) if `tier` needs a decision that is not recorded. */
+export function irTierError(suite: string, tier: IrTier, history: string): string | undefined {
+  if (tier === "N1") return undefined;
+  const named = `IR tier: ${suite} at ${tier}:`;
+  const records = history.split("\n").filter(Boolean).map((l) => JSON.parse(l) as { kind?: string; msg?: string });
+  if (records.some((r) => r.kind === "decision" && r.msg?.startsWith(named))) return undefined;
+  return `suite ${suite} is read at ${tier}, a weaker check than N1, with no recorded decision (review plan-m7 F1); record one: bun scripts/state.ts record decision "${named} <why>", or run it as a report: difftest --suite ${suite} --ir-tier ${tier}`;
+}
 
 /** A block label with its preds comment: an identifier or quoted name at the line start, a colon, then only the comment. */
 const LABEL_PREDS = /^((?:[-a-zA-Z$._0-9]+|"[^"]*"):) +; preds = .*$/;

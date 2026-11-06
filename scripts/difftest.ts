@@ -8,6 +8,7 @@
 //     --batch-size N    files per process in batch suites (default 100)
 //     --run-id ID       output dir name under $RUST_TS_DATA/runs (default: timestamp)
 //     --report blessed  also write the blessed-output report (suites with `Suite.blessed`; never a status)
+//     --ir-tier T       an IR suite at normal form tier N1, N2 or N3, as a report under the name <suite>@<T> (harness/suites.ts `irReportSuite`)
 //     --list            list suites
 //
 // Statuses: MATCH | DIFF | UNPORTED (exit 70) | CRASH (subject ICE/exit mismatch with no output) |
@@ -63,7 +64,8 @@
 import { existsSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { availableParallelism } from "node:os";
 import { join } from "node:path";
-import { SUITES, suite as getSuite, type Case, type Suite } from "../harness/suites.ts";
+import { SUITES, irReportSuite, suite as getSuite, type Case, type Suite } from "../harness/suites.ts";
+import { isIrTier } from "./lib/ir-normal.ts";
 import type { Blessed } from "../harness/compiletest.ts";
 import { ORACLE_CACHE, PIN, REPO, RUNS, UPSTREAM, die, ensureDir, hash, nowId, parseArgs, pool, requireUpstream, run, type ProcResult } from "./lib/common.ts";
 import { withCaseLock } from "./lib/case-lock.ts";
@@ -1023,7 +1025,11 @@ export async function difftest(
         ? typeof miriTemp === "string"
           ? await withCaseLock(`${miriTemp}.lock`, 2 * ((1 + ORACLE_RETRY_FACTOR) * (s.oracleTimeoutMs ?? s.timeoutMs) + s.timeoutMs), heavySides)
           : await heavySides()
-        : await Promise.all([runOracle(s, chunk), runSubject(s, chunk, impl, stats, sUsage)]);
+        : s.irTier
+          ? // Its sides compile at one work directory under a lock (scripts/ir-run.ts): together, a wait for the other would
+            // count against this side's own limit, and a first run of a new key gives false TIMEOUTs (review harness-w42 F1).
+            [await runOracle(s, chunk), await runSubject(s, chunk, impl, stats, sUsage)]
+          : await Promise.all([runOracle(s, chunk), runSubject(s, chunk, impl, stats, sUsage)]);
       for (const c of chunk) {
         const oc = o.get(c.id)!;
         const sc = sub.get(c.id)!;
@@ -1139,6 +1145,7 @@ export async function difftest(
     ...(changed.length ? { upstreamChanges: changed } : {}),
     ...(split ? { extra: extra.length, oracleReruns } : {}),
     ...(s.heavy ? { heavy: heavyRuns } : {}),
+    ...(s.irTier ? { irTier: s.irTier } : {}),
   };
   const criterion = s.criterion ? criterionOf(s.criterion, counts, results.length) : undefined;
   if (criterion) Object.assign(summary, { criterion });
@@ -1164,8 +1171,15 @@ if (import.meta.main) {
   const a = parseArgs(process.argv.slice(2));
   if (a.list || !a.suite) {
     for (const s of SUITES) console.log(`${s.name.padEnd(8)} [${s.milestone}] ${s.description}`);
-    if (!a.list) console.log("usage: bun scripts/difftest.ts --suite <name> [--sample N] [--filter S] [--impl port|shim|stub]");
+    if (!a.list) console.log("usage: bun scripts/difftest.ts --suite <name> [--sample N] [--filter S] [--impl port|shim|stub] [--ir-tier N1|N2|N3]");
     process.exit(0);
+  }
+  // An IR suite at another tier: a report under its own name, which no gate takes (`irReportSuite`).
+  if (a["ir-tier"] !== undefined) {
+    if (typeof a["ir-tier"] !== "string" || !isIrTier(a["ir-tier"])) die(`--ir-tier must be N1, N2 or N3, not ${String(a["ir-tier"])}`);
+    const report = irReportSuite(getSuite(String(a.suite)), a["ir-tier"]);
+    if (!SUITES.includes(report)) SUITES.push(report);
+    a.suite = report.name;
   }
   const num = (k: string) => (typeof a[k] === "string" ? Number(a[k]) : undefined);
   const { dir, counts, results, stats, skipped, oracleTimeoutSubjects: ots, subsets, blessed, extra, heavy, oracleReruns, criterion } = await difftest({
@@ -1181,6 +1195,8 @@ if (import.meta.main) {
   });
   const pct = results.length ? ((100 * counts.MATCH) / results.length).toFixed(2) : "0";
   console.log(`suite=${a.suite} total=${results.length} ${STATUSES.map((s) => `${s}=${counts[s]}`).join(" ")} match%=${pct}${skipped !== undefined ? ` skipped=${skipped}` : ""}`);
+  const irTier = getSuite(String(a.suite)).irTier;
+  if (irTier) console.log(`ir tier: ${irTier}${String(a.suite).includes("@") ? " (a report; no gate reads this name)" : ""}`);
   for (const [name, sc] of Object.entries(subsets ?? {})) {
     console.log(`subset ${name}: total=${sc.total} ${STATUSES.map((st) => `${st}=${sc[st]}`).join(" ")} match%=${sc.total ? ((100 * sc.MATCH) / sc.total).toFixed(2) : "0"}`);
   }

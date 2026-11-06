@@ -1,9 +1,9 @@
 // scripts/lib/host-state.ts, on fake readers. `scripts/gate-power.test.ts` runs the gate itself on them.
 import { afterAll, describe, expect, test } from "bun:test";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { HostLog, batteryRefusal, commandOutput, parsePower, parseSwapUsedMb, sampleHost, type HostReaders } from "./host-state.ts";
+import { HostLog, StuckReads, batteryRefusal, commandOutput, parsePower, parseSwapUsedMb, sampleHost, type HostReaders } from "./host-state.ts";
 
 const AC = "Now drawing from 'AC Power'\n -InternalBattery-0 (id=22872163)\t100%; charged; 0:00 remaining present: true\n";
 const BATT = (n: number) => `Now drawing from 'Battery Power'\n -InternalBattery-0 (id=22872163)\t${n}%; discharging; 3:21 remaining present: true\n`;
@@ -105,6 +105,127 @@ describe("a command that will not end", () => {
   });
 });
 
+describe("a read stuck past the limit (review root-w40-check F2)", () => {
+  /** A reader whose reads end only when the test says; `n` counts the reads started. */
+  const held = () => {
+    const ends: ((text: string | undefined) => void)[] = [];
+    const fails: ((e: Error) => void)[] = [];
+    const reader = () =>
+      new Promise<string | undefined>((res, rej) => {
+        ends.push(res);
+        fails.push(rej);
+      });
+    return { reader, ends, fails };
+  };
+  const readers = (pmset: () => Promise<string | undefined>): HostReaders => ({ ...fake([AC]), pmset });
+
+  test("not started again while it has not ended, one note, and the other reader goes on; started again once it ends", async () => {
+    const notes: string[] = [];
+    const stuck = new StuckReads((l) => notes.push(l));
+    const h = held();
+    const r = readers(h.reader);
+    expect((await sampleHost(r, 10, stuck)).power).toBeNull();
+    expect(notes.length).toBe(1);
+    expect(notes[0]).toStartWith("note: host reader pmset is stuck: ");
+    expect(notes[0]).not.toContain("\n");
+    const started = performance.now();
+    for (let i = 0; i < 5; i++) {
+      const s = await sampleHost(r, 5_000, stuck);
+      expect(s.power).toBeNull();
+      expect(s.swapUsedMb).toBe(512.25);
+    }
+    expect(h.ends.length).toBe(1);
+    expect(performance.now() - started).toBeLessThan(2_000); // no sample waits out its limit
+    h.ends[0]!(AC);
+    await Bun.sleep(0);
+    await sampleHost(r, 10, stuck);
+    expect(h.ends.length).toBe(2); // read again, and past the limit again: still the one note
+    expect(notes.length).toBe(1);
+  });
+  test("a stuck read that ends in a failure also releases it", async () => {
+    const stuck = new StuckReads(() => {});
+    const h = held();
+    await sampleHost(readers(h.reader), 10, stuck);
+    h.fails[0]!(new Error("late"));
+    await Bun.sleep(0);
+    expect(stuck.isStuck("pmset")).toBe(false);
+  });
+  test("reads within the limit are not held back: a mark overlapping a healthy poll gets its own reading", async () => {
+    const notes: string[] = [];
+    const stuck = new StuckReads((l) => notes.push(l));
+    let n = 0;
+    const slow = async () => {
+      n++;
+      await Bun.sleep(5);
+      return AC;
+    };
+    const both = await Promise.all([sampleHost(readers(slow), 5_000, stuck), sampleHost(readers(slow), 5_000, stuck)]);
+    expect(n).toBe(2);
+    expect(both.map((s) => s.power?.source)).toEqual(["AC Power", "AC Power"]);
+    expect(notes).toEqual([]);
+  });
+  test("a real command that outlives the limit: one process through many samples, cleaned up by pid", async () => {
+    const TMP = mkdtempSync(join(tmpdir(), "rust-ts-host-stuck-"));
+    const marker = join(TMP, "pids");
+    const pids = () => (existsSync(marker) ? readFileSync(marker, "utf8").split("\n").filter(Boolean).map(Number) : []);
+    // Its own limit is past the test's: to this reader it is unkillable, as one stuck in the kernel would be.
+    const r = readers(() => commandOutput(["/bin/sh", "-c", `echo $$ >> ${marker}\nexec sleep 20`], 20_000));
+    const notes: string[] = [];
+    const stuck = new StuckReads((l) => notes.push(l));
+    try {
+      for (let i = 0; i < 4; i++) await sampleHost(r, 50, stuck);
+      const until = performance.now() + 2_000;
+      while (pids().length === 0 && performance.now() < until) await Bun.sleep(10);
+      await Bun.sleep(20);
+      expect(pids().length).toBe(1);
+      expect(notes.length).toBe(1);
+    } finally {
+      for (const pid of pids()) process.kill(pid, "SIGKILL");
+      rmSync(TMP, { recursive: true, force: true });
+    }
+  });
+});
+
+test("a process.exit during a read kills the command (review harness-w41 N1)", async () => {
+  const TMP = mkdtempSync(join(tmpdir(), "rust-ts-host-exit-"));
+  const marker = join(TMP, "pid");
+  const script = join(TMP, "gate.ts");
+  writeFileSync(
+    script,
+    `import { readFileSync } from "node:fs";
+const { commandOutput } = await import(${JSON.stringify(join(import.meta.dir, "host-state.ts"))});
+void commandOutput(["/bin/sh", "-c", "echo $$ > ${marker}\\ntrap '' TERM\\nexec sleep 20"], 20_000);
+const written = () => { try { return readFileSync(${JSON.stringify(marker)}, "utf8").endsWith("\\n"); } catch { return false; } };
+const until = Date.now() + 10_000;
+while (!written()) {
+  if (Date.now() > until) process.exit(3);
+  await Bun.sleep(5);
+}
+process.exit(1);
+`,
+  );
+  const r = Bun.spawnSync([process.execPath, script], { stdout: "pipe", stderr: "pipe" });
+  expect(r.exitCode, r.stderr.toString()).toBe(1);
+  const pid = Number(readFileSync(marker, "utf8"));
+  expect(pid).toBeGreaterThan(0);
+  const alive = () => {
+    try {
+      process.kill(pid, 0);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  try {
+    const until = performance.now() + 1_500;
+    while (alive() && performance.now() < until) await Bun.sleep(10);
+    expect(alive()).toBe(false);
+  } finally {
+    if (alive()) process.kill(pid, "SIGKILL");
+    rmSync(TMP, { recursive: true, force: true });
+  }
+});
+
 describe("a reader that fails", () => {
   test("no pmset on this path, and a command that fails: undefined", async () => {
     expect(await commandOutput(["/nonexistent/pmset", "-g", "batt"])).toBeUndefined();
@@ -122,7 +243,7 @@ describe("a reader that fails", () => {
 describe("HostLog", () => {
   const log = (pmset: (string | undefined)[], keepEveryMs = 3_600_000, allowBattery = false) => {
     const notes: string[] = [];
-    return { notes, h: new HostLog(fake(pmset), { pollMs: 1, keepEveryMs, note: (l) => notes.push(l), allowBattery, firstOnBattery: undefined }) };
+    return { notes, h: new HostLog(fake(pmset), { pollMs: 1, keepEveryMs, note: (l) => notes.push(l), allowBattery, firstOnBattery: undefined, stuck: new StuckReads(() => {}) }) };
   };
   test("power lost and back: one note each, as `note:`, and kept whatever the keep interval", async () => {
     const { h, notes } = log([AC, AC, BATT(90), BATT(88), AC]);
@@ -155,7 +276,7 @@ describe("HostLog", () => {
   test("the reading taken before the log counts, flag or not", async () => {
     for (const allowBattery of [false, true]) {
       const notes: string[] = [];
-      const h = new HostLog(fake([BATT(90), AC]), { pollMs: 1, keepEveryMs: 3_600_000, note: (l) => notes.push(l), allowBattery, firstOnBattery: false });
+      const h = new HostLog(fake([BATT(90), AC]), { pollMs: 1, keepEveryMs: 3_600_000, note: (l) => notes.push(l), allowBattery, firstOnBattery: false, stuck: new StuckReads(() => {}) });
       await h.mark();
       await h.poll();
       expect(notes.length).toBe(2);
@@ -163,9 +284,22 @@ describe("HostLog", () => {
       expect(h.powerLost.map((p) => p.percent)).toEqual([90]);
     }
     const notes: string[] = [];
-    const h = new HostLog(fake([AC]), { pollMs: 1, keepEveryMs: 3_600_000, note: (l) => notes.push(l), allowBattery: true, firstOnBattery: true });
+    const h = new HostLog(fake([AC]), { pollMs: 1, keepEveryMs: 3_600_000, note: (l) => notes.push(l), allowBattery: true, firstOnBattery: true, stuck: new StuckReads(() => {}) });
     await h.mark();
     expect(notes[0]).toStartWith("note: power back at ");
+  });
+  test("after a failed reading the time is when it was seen: `by`, not `at` (review root-w40-check2 C3)", async () => {
+    for (const [pmset, first] of [[[AC, undefined, undefined, BATT(50)], "note: power lost by "], [[AC, undefined, AC, BATT(50)], "note: power lost at "]] as const) {
+      const { h, notes } = log([...pmset]);
+      await h.mark();
+      for (let i = 0; i < 3; i++) await h.poll();
+      expect(notes.length).toBe(1);
+      expect(notes[0]).toStartWith(first);
+    }
+    const { h, notes } = log([AC, BATT(50), undefined, AC, BATT(49)]);
+    await h.mark();
+    for (let i = 0; i < 4; i++) await h.poll();
+    expect(notes.map((n) => n.split(" ").slice(0, 4).join(" "))).toEqual(["note: power lost at", "note: power back by", "note: power lost at"]);
   });
   test("a first reading on AC is no news", async () => {
     const { h, notes } = log([undefined, AC, AC]);

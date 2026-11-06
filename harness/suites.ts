@@ -8,6 +8,7 @@ import { caseEnv, mergeEnv } from "../scripts/lib/env.ts";
 import { oracleHost, oraclePinnedPathEnv, oracleRustcCmd, oracleSysroot, rustcDriverHash, verifyOracleToolchain } from "../scripts/lib/oracle.ts";
 import { probePath } from "../scripts/probes.ts";
 import { RG_INPUT_DIRS, RG_ROOT, RG_SRC, rgIsSetUp } from "../scripts/rg-check.ts";
+import type { IrTier } from "../scripts/lib/ir-normal.ts";
 import { llvmBinDir, llvmToolHashes, llvmToolsError, llvmToolsPinError } from "../scripts/lib/llvm-tools.ts";
 import { MIRI_CASE_ENV, MIRI_DEFAULT_ARGS, MIRI_SYSROOT, miriBinary, miriOracleKey, miriPin } from "../scripts/lib/miri.ts";
 import { COMPILETEST_TARGET, collectUiTests, mirOptCases, uiBlessed, uiCases, uiFileCases, uiOutputBaseDir, uiTestCases, type Blessed, type ErrorFormat, type UiCase } from "./compiletest.ts";
@@ -125,6 +126,10 @@ export interface Suite {
   miri?: boolean;
   /** An IR suite (scripts/ir-run.ts): the compiler argv of a case, for scripts/ir-diff.ts. */
   irArgs?(c: Case): string[];
+  /** An IR suite: the normal form tier it is read at (`irSuite` requires it). Anything but N1 needs a recorded decision: scripts/lib/ir-normal.ts `irTierError`. */
+  irTier?: IrTier;
+  /** An IR suite at another tier, as a report: see `irReportSuite`. */
+  irAt?(tier: IrTier): Suite;
   /**
    * A milestone-completion criterion over the suite's cases (plan-m6 A9): MATCH over every case but the ORACLE_TIMEOUT
    * ones must reach `percent`. Report only (difftest prints it and records it in `<suite>.summary.json`): never a
@@ -2027,7 +2032,7 @@ SUITES.push(
 // M7 preflight suites (plan-m7 §6, D13, review F7; lane harness-m7a). All report only and unprotected until root accepts a run: no baseline, so
 // none is in the gate's defaults. x86_64-unknown-linux-gnu unless a suite says otherwise (D3).
 // - `mir-o2`, `mono-ui`: the run-pass corpus with compiletest's argv, without aux crates and without its `-o`.
-// - `ir-hello`: scripts/ir-run.ts's first user, at N1 (scripts/lib/ir-normal.ts). Until wave 41 the port stops `unported` at `codegen_crate`.
+// - `ir-hello`: scripts/ir-run.ts's first user, at N1 (`irSuite`, scripts/lib/ir-normal.ts). Until wave 41 the port stops `unported` at `codegen_crate`.
 // - `check-ui-encode-mir`: every 5th crate of `check-ui` with `-Copt-level=3 -Zalways-encode-mir` (F7 item 1).
 // - `mir-opt-o4`: harness/compiletest.ts `mirOptCases`. **Each side has its own `-Zdump-mir-dir`, last on the command line,** so a test's own
 //   `-Zdump-mir` (dump_dataflow.rs writes graphviz files) cannot write into the upstream checkout, the cwd: one such run dirtied it in a review.
@@ -2065,9 +2070,10 @@ export const monoArgs = (id: string): string[] => ["-Zprint-mono-items=yes", "-C
 export const IR_RUN = join(REPO, "scripts", "ir-run.ts");
 /** A small program's IR argv, as `ir-hello`'s cases and scripts/ir-diff.ts's file form: compiletest's flags that matter, pre-pass. */
 export const irFileArgs = (file: string, opt: "O" | "0", target: string = COMPILETEST_TARGET): string[] => ["--target", target, "--sysroot", oracleSysroot(), "--edition=2021", opt === "O" ? "-O" : "-Copt-level=0", "-Ccodegen-units=1", "-Cno-prepopulate-passes", "--emit=llvm-ir", file];
-/** `Suite.oracleKey` of an IR suite: the wrapper and normal form's sources, the oracle rustc build, the tools that make the normal form. */
+/** `Suite.oracleKey` of an IR suite: the wrapper and normal form's sources, the oracle rustc build, the tools that make the normal form, its tier. */
 let irKeyMemo: string | undefined;
-const irOracleKey = (): string => {
+const irOracleKey = (tier: IrTier): string => hash([irToolsKey(), tier].join("\0"));
+const irToolsKey = (): string => {
   if (irKeyMemo !== undefined) return irKeyMemo;
   const host = oracleHost();
   // One `ERROR:` line, here on difftest's path too (review harness-m7a H8): a missing tool would throw a raw ENOENT below, and a changed one would re-key and re-run the oracle with no message.
@@ -2080,7 +2086,35 @@ const irOracleKey = (): string => {
   return (irKeyMemo = hash(parts.join("\0")));
 };
 /** One side's command of an IR suite. */
-const irRun = (suite: string, side: "oracle" | "subject", c: Case, compiler: string[]): string[] => [process.execPath, IR_RUN, "--out", join(DATA, "ir", suite, hash(c.id).slice(0, 16)), "--side", side, "--bin", llvmBinDir(oracleSysroot(), oracleHost()), "--", ...compiler];
+const irRun = (suite: string, tier: IrTier, side: "oracle" | "subject", c: Case, compiler: string[]): string[] => [process.execPath, IR_RUN, "--out", join(DATA, "ir", suite, hash(c.id).slice(0, 16)), "--side", side, "--bin", llvmBinDir(oracleSysroot(), oracleHost()), "--tier", tier, "--", ...compiler];
+/** An IR suite: what differs from one to the next, and its tier, which is the only way a suite gets one (review harness-m7a H3). */
+const irSuite = (d: { name: string; tier: IrTier; description: (tier: IrTier) => string; timeoutMs: number; oracleTimeoutMs: number; cwd: string; cases: () => Case[]; criterion?: Suite["criterion"] }): Suite => {
+  const at = (name: string, tier: IrTier): Suite => ({
+    name,
+    milestone: "M7",
+    description: d.description(tier),
+    mode: "single",
+    timeoutMs: d.timeoutMs,
+    oracleTimeoutMs: d.oracleTimeoutMs,
+    cwd: d.cwd,
+    cases: d.cases,
+    irArgs: (c) => c.args,
+    irTier: tier,
+    irAt: (t) => at(`${d.name}@${t}`, t),
+    oracleKey: () => irOracleKey(tier),
+    oracle: ([c]) => irRun(name, tier, "oracle", c!, oracleRustcCmd(c!.args)),
+    subject: ([c]) => irRun(name, tier, "subject", c!, [...bunCmd(RUSTC_DRIVER_ENTRY), ...c!.args]),
+  });
+  return { ...at(d.name, d.tier), ...(d.criterion ? { criterion: d.criterion } : {}) };
+};
+/**
+ * `s` read at `tier` as a report (F1: "the lost tier stays as a report"; at M7b's gate, each of the three). Its name, `<suite>@<tier>`, gives it
+ * its own oracle entries and result files. It is never registered, so `gate.ts` refuses that name, for a run and for an accept, and it can have no baseline.
+ */
+export function irReportSuite(s: Suite, tier: IrTier): Suite {
+  if (!s.irAt) die(`suite ${s.name} is not an IR suite, so it has no tiers`);
+  return s.irTier === tier ? s : s.irAt(tier);
+}
 
 /** Where a side of `mir-opt-o4` writes what a test's `-Zdump-mir` asks for. */
 const mirOptDumpDir = (side: string, c: Case): string => `-Zdump-mir-dir=${join(DATA, "tmp", "mir-opt-o4", side, hash(c.id).slice(0, 16))}`;
@@ -2148,22 +2182,17 @@ SUITES.push(
     subject: ([c]) => [...bunCmd(MONO_SUBJECT_ENTRY), ...c!.args],
     criterion: { percent: 99, what: M7A("mono-ui >= 99%") },
   },
-  {
+  irSuite({
     name: "ir-hello",
-    milestone: "M7",
-    description: "std's hello world at -O and -Copt-level=0, pre-pass, x86_64-unknown-linux-gnu: the N1 normal form of its IR (scripts/ir-run.ts) + stderr + exit",
-    mode: "single",
+    tier: "N1",
+    description: (tier) => `std's hello world at -O and -Copt-level=0, pre-pass, x86_64-unknown-linux-gnu: the ${tier} normal form of its IR (scripts/ir-run.ts) + stderr + exit`,
     timeoutMs: 120_000,
     oracleTimeoutMs: 60_000,
     cwd: REPO,
     cases: () =>
       (["O", "0"] as const).map((o): Case => ({ id: `hello ${o === "O" ? "-O" : "-Copt-level=0"}`, file: MIRI_HELLO, args: irFileArgs(MIRI_HELLO, o), env: NOCORE_ENV })),
-    irArgs: (c) => c.args,
-    oracleKey: irOracleKey,
-    oracle: ([c]) => irRun("ir-hello", "oracle", c!, oracleRustcCmd(c!.args)),
-    subject: ([c]) => irRun("ir-hello", "subject", c!, [...bunCmd(RUSTC_DRIVER_ENTRY), ...c!.args]),
     criterion: { percent: 100, what: M7A("ir-hello MATCH") },
-  },
+  }),
   {
     name: "mir-opt-o4",
     milestone: "M7",

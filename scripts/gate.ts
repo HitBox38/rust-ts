@@ -24,13 +24,14 @@ import { join } from "node:path";
 import { IR_RUN, RG_CHECK, RMETA_RUN, SUITES, suite as getSuite, type Suite } from "../harness/suites.ts";
 import { difftest, heavyErrorLines, heavyLine, unstableOf, type HeavyRun, type OracleRerun, type Usage } from "./difftest.ts";
 import { REPO, RUNS, UPSTREAM, die, ensureDir, nowId, parseArgs, run } from "./lib/common.ts";
-import { HostLog, REAL_HOST, batteryRefusal, sampleHost, type HostReaders, type HostSample } from "./lib/host-state.ts";
+import { HostLog, REAL_HOST, StuckReads, batteryRefusal, sampleHost, type HostReaders, type HostSample } from "./lib/host-state.ts";
 import { miriBinary } from "./lib/miri.ts";
 import { verifyOraclePin } from "./lib/oracle.ts";
 import { UNIT_STEPS } from "./lib/unit-steps.ts";
 import { upstreamError, upstreamStatus } from "./lib/upstream.ts";
 import { oracleTestProbes, probeBinary, probeStaleness } from "./probes.ts";
 import { parseIrRunArgs } from "./ir-run.ts";
+import type { IrTier } from "./lib/ir-normal.ts";
 import { parseRmetaRunArgs } from "./rmeta-run.ts";
 import { record } from "./state.ts";
 
@@ -86,6 +87,8 @@ interface SuiteGate {
   endedAt?: string;
   hostStart?: HostSample;
   hostEnd?: HostSample;
+  /** An IR suite: the normal form tier this run read it at (review harness-m7a H3). */
+  irTier?: IrTier;
 }
 
 /** Where a gate's host record comes from: the real host, or a test's fake readers. */
@@ -93,6 +96,8 @@ export interface GateHost {
   readers: HostReaders;
   pollMs: number;
   keepEveryMs: number;
+  /** `sampleHost`'s limit; tests shorten it. */
+  readLimitMs?: number;
 }
 const REAL_GATE_HOST: GateHost = { readers: REAL_HOST, pollMs: 60_000, keepEveryMs: 600_000 };
 
@@ -356,11 +361,13 @@ function protectedSuites(): string[] {
 export async function gateRun(requested: string[], skipStatic: boolean, skipHeavy: boolean, allowBattery = false, gateHost: GateHost = REAL_GATE_HOST): Promise<void> {
   for (const name of requested) getSuite(name); // unknown suite names fail here
   // Before anything starts. What this reads decides only whether a run starts: no status or verdict reads the record below.
-  const first = await sampleHost(gateHost.readers);
+  const note = (l: string) => console.log(l);
+  const stuck = new StuckReads(note);
+  const first = await sampleHost(gateHost.readers, gateHost.readLimitMs, stuck);
   const refused = batteryRefusal(first.power, allowBattery);
   if (refused !== undefined) die(refused);
   if (first.power?.onBattery) console.log(`note: running on battery (--allow-battery)${first.power.percent === null ? "" : `, at ${first.power.percent}%`}: timings will run slow, and a timeout may be false`);
-  const host = new HostLog(gateHost.readers, { pollMs: gateHost.pollMs, keepEveryMs: gateHost.keepEveryMs, note: (l) => console.log(l), allowBattery, firstOnBattery: first.power?.onBattery });
+  const host = new HostLog(gateHost.readers, { pollMs: gateHost.pollMs, keepEveryMs: gateHost.keepEveryMs, note, allowBattery, firstOnBattery: first.power?.onBattery, stuck, readLimitMs: gateHost.readLimitMs });
   await host.mark();
   host.start();
   // Heavy suites last, in their given order (plan-m5 §4.2); `--skip-heavy` leaves them out, as not run.
@@ -373,7 +380,7 @@ export async function gateRun(requested: string[], skipStatic: boolean, skipHeav
   if (prov.dirty.length) console.log(`note: tree is dirty (${prov.dirty.length} paths); this run cannot be accepted`);
   // Before anything runs the oracle (unit tests, aux builds, suites): the pinned commit and components.
   await verifyOraclePin();
-  if (!checkProbes(suites, !skipStatic)) die("missing probes; build them and re-run the gate");
+  if (!checkProbes(suites, !skipStatic)) die("a probe is missing or stale; do what the lines above say and re-run the gate");
   const dirtyUpstream = upstreamStatus(UPSTREAM);
   if (dirtyUpstream.length) {
     console.log(upstreamError("the upstream checkout is not clean", dirtyUpstream, UPSTREAM));
@@ -395,6 +402,7 @@ export async function gateRun(requested: string[], skipStatic: boolean, skipHeav
     const hostStart = await host.mark();
     const { results, stats, upstreamChanges, heavy, extra, oracleReruns } = await difftest({ suite, runId, quiet: true });
     const hostEnd = await host.mark();
+    const irTier = getSuite(suite).irTier;
     const base = readBaseline(suite);
     const match = new Set(results.filter((r) => r.status === "MATCH").map((r) => r.id));
     const lost = [...base].filter((id) => !match.has(id));
@@ -407,8 +415,9 @@ export async function gateRun(requested: string[], skipStatic: boolean, skipHeav
     const retried = results.filter((r) => r.retried).map((r) => r.id);
     const retryTimes = results.flatMap((r) => (r.attempts ? [{ id: r.id, status: r.status, ...r.attempts }] : []));
     const heavyErrors = (heavy ?? []).flatMap((h) => heavyErrorLines(suite, h));
-    out.push({ suite, baseline: base.size, match: match.size, total: results.length, lost, gained, batchOnlyFailures: stats.batchOnlyFailures, batchOnlyTimeouts: stats.batchOnlyTimeouts, oracleTimeouts, lostSkipped, unstable, retried, retryTimes, upstreamChanges, ...(heavy ? { heavy, heavyErrors } : {}), ...(extra !== undefined ? { extra, oracleReruns } : {}), startedAt: hostStart.at, endedAt: hostEnd.at, hostStart, hostEnd });
+    out.push({ suite, baseline: base.size, match: match.size, total: results.length, lost, gained, batchOnlyFailures: stats.batchOnlyFailures, batchOnlyTimeouts: stats.batchOnlyTimeouts, oracleTimeouts, lostSkipped, unstable, retried, retryTimes, upstreamChanges, ...(heavy ? { heavy, heavyErrors } : {}), ...(extra !== undefined ? { extra, oracleReruns } : {}), startedAt: hostStart.at, endedAt: hostEnd.at, hostStart, hostEnd, ...(irTier ? { irTier } : {}) });
     console.log(`${lost.length ? "ERROR:" : "ok   "} ${suite}: protected=${base.size} match=${match.size}/${results.length} lost=${lost.length} gained=${gained.length}`);
+    if (irTier) console.log(`note: ${suite}: read at IR tier ${irTier}`);
     for (const h of heavy ?? []) console.log(`  ${heavyLine(suite, h)}`);
     // (Reported, recorded in gate.json, but not a gate failure by themselves: see `SuiteGate.heavyErrors`.)
     for (const l of heavyErrors) console.log(l);
@@ -453,6 +462,9 @@ export async function gateRun(requested: string[], skipStatic: boolean, skipHeav
   if (!pass) process.exit(1);
 }
 
+/** A suite's entry in the accept record; the tier as the run read it, so a protected set says which tier it was protected at. */
+export const acceptEntry = (protectedCases: number, s: Pick<SuiteGate, "total" | "irTier">) => ({ protected: protectedCases, total: s.total, ...(s.irTier ? { irTier: s.irTier } : {}) });
+
 /** MATCH ids of one suite, re-read from the run's own per-case results (not from gate.json). */
 function matchesOfRun(runId: string, suite: string): Set<string> {
   const p = join(RUNS, runId, `${suite}.jsonl`);
@@ -481,9 +493,9 @@ async function gateAccept(runId: string): Promise<void> {
   if (stray.length) die(`tree is dirty outside docs/state/ (${stray.slice(0, 3).join("; ")}); commit or stash, then re-run the gate`);
   const missing = protectedSuites().filter((name) => !g.suites.some((x) => x.suite === name));
   if (missing.length) die(`gate run ${runId} did not run protected suite(s) ${missing.join(", ")}; nothing accepted`);
-  const summary: Record<string, { protected: number; total: number }> = {};
+  const summary: Record<string, ReturnType<typeof acceptEntry>> = {};
   // Every suite is checked before any baseline is written, so a refusal leaves every baseline as it was.
-  const grown: { suite: string; base: Set<string>; before: number; total: number }[] = [];
+  const grown: { suite: string; base: Set<string>; before: number; run: SuiteGate }[] = [];
   for (const s of g.suites) {
     getSuite(s.suite); // registered suite names only (also keeps the baseline path inside harness/baseline)
     const base = readBaseline(s.suite);
@@ -494,11 +506,11 @@ async function gateAccept(runId: string): Promise<void> {
     for (const id of match) base.add(id);
     const unstable = protectedUnstable(s.suite, base);
     if (unstable.length) die(`gate run ${runId}: ${s.suite} would protect ${unstable.length} case(s) the suite lists as unstable (e.g. ${unstable[0]}); nothing accepted`);
-    grown.push({ suite: s.suite, base, before, total: s.total });
+    grown.push({ suite: s.suite, base, before, run: s });
   }
-  for (const { suite, base, before, total } of grown) {
+  for (const { suite, base, before, run } of grown) {
     writeFileSync(join(BASELINE, `${suite}.txt`), [...base].sort().join("\n") + "\n");
-    summary[suite] = { protected: base.size, total };
+    summary[suite] = acceptEntry(base.size, run);
     console.log(`${suite}: protected set ${before} -> ${base.size}`);
   }
   record("accept", `accepted gate run ${runId} (tested ${g.head})`, { runId, head: g.head, suites: summary });

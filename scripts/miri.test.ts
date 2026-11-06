@@ -29,6 +29,24 @@ function sysroot(components: string[] | undefined, src: boolean): string {
   return root;
 }
 
+// Suites run the preload form, where this import does nothing, and from a cwd whose `.env` agrees. So nothing else notices if plain miri.ts loses it: `ensure_stack`
+// then runs after the module-level reads of process.env, which see `.env`'s variables (review harness-w41 N2). A parse error is the cheapest path that gets the host's target spec.
+test("plain miri.ts settles the environment before anything reads it: a cwd's .env does not reach the compiler", () => {
+  const cwd = mkdtempSync(join(tmpdir(), "rust-ts-miri-dotenv-"));
+  dirs.push(cwd);
+  writeFileSync(join(cwd, ".env"), "RUST_TS_HOST_TUPLE=bogus-host\n");
+  writeFileSync(join(cwd, "bad.rs"), "fn main( {\n");
+  const env: Record<string, string | undefined> = { ...process.env };
+  // From this repo's .env.local, which would win over the cwd's; and a stack already set up would mean no re-exec.
+  delete env.RUST_TS_HOST_TUPLE;
+  delete env.BUN_JSC_maxPerThreadStackUsage;
+  const r = Bun.spawnSync([process.execPath, join(REPO, "src/miri/bin/miri.ts"), "bad.rs"], { cwd, env, stdout: "pipe", stderr: "pipe" });
+  const stderr = r.stderr.toString();
+  expect(stderr).not.toContain("bogus-host");
+  expect(stderr).toContain("this file contains an unclosed delimiter");
+  expect(r.exitCode).toBe(1);
+}, 60_000);
+
 describe("miriToolchainError", () => {
   test("the pinned components with rust-src's directory: ok", () => {
     expect(miriToolchainError(sysroot(CLEAN, true), PINNED, HOST, "tc", "/h")).toBeUndefined();
