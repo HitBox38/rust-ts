@@ -489,3 +489,13 @@ Queued from these reviews, none blocking wave 40a:
 - Seen in fixers-42's review, on base too: a cwd of 1,024 bytes or more stops the port where the oracle compiles (`rustc_session/config.ts:3226`); `HOME` or `XDG_CACHE_HOME` over 1,023 bytes panics Bun at start; `miri.ts` ignores `RUST_TS_IMPL`, so `--impl` cannot validate the harness on Miri suites.
 - root-w40-check3 N1: five assertions outside `plain_bug` keep their message only because the panic location is refused (`expr_a.test.ts:141,155`, `matches_b.test.ts:202`, `late_a.test.ts:730`, `late_b.test.ts:790`); they would read `ExplicitBug` if it resolved. N5: `BACKTRACE_STYLE`, the `MiriConfig.default` spy, the `log/setup` mock and `ICE_PATH` stay changed after `miri.test.ts`; no later test reads them today. O1, on base too: `typeck_impl.test.ts` fails with `Cannot access 'InlineAttr' before initialization` when it is the first file in its process.
 
+
+## Wave 40b (started 2026-11-06) — what does not depend on D4, while D4 waits for the owner
+| lane | scope | status |
+|---|---|---|
+| fixers-43 | environment and driver: fixers-42 R1-R3, R5; a cwd of 1,024 bytes or more; `miri.ts` and `RUST_TS_IMPL`; rustc-env.rs CRASH; check3 N1, O1 | running |
+| fixers-44 | EiiMapEncodedKeyValue decoding (16 cases); abi-vtable F1-F3; mono-wire W2, W3, W5; mir-alias F1-F4 | running |
+| harness-w42 | root-w40-check F2, check2 C3, C5; harness-w41 N1, N2; harness-m7a H3, H5, N2; stale comments | running |
+| miri-sysroot, harness-m6d | plan-m6 §5, D4 of that plan: the port builds core, alloc and std as Miri's sysroot compiler, as a report suite | running |
+
+Also queued: `tests/ui/closures/supertrait-hint-cycle.rs` under `mir-heavy` (first report run, on AC, 2026-11-06): the oracle takes 60.3 s and 9 GB, and the port timed out at 1,800 s with 12.7 GB, so it is at least 30x slower there; worth a performance look, not protected. near-limit `dynamic-drop.rs` and `issue-8827.rs` (60-62%).
