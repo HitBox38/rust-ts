@@ -2,7 +2,7 @@
 // hook needs it. Only a driver that installs a hook loads this, through `update_hook`.
 import { panic_stack, resolve_panic_stack } from "../rust_ts/track_caller.ts";
 import { write_stderr } from "./io.ts";
-import { Panic, panic_count_get, set_panic_with_hook, while_unwinding } from "./panic.ts";
+import { Panic, panic, panic_count_get, panicking, set_panic_with_hook, while_unwinding } from "./panic.ts";
 
 /** `std::panic::Location`: `{file}:{line}:{col}` when displayed. */
 export interface Location {
@@ -45,18 +45,21 @@ export type PanicHook = (default_hook: (info: PanicHookInfo) => void, info: Pani
 
 let HOOK: PanicHook | undefined;
 
+// PORT: returns nothing, as nothing here uses the old hook, and "no hook" is this port's `Hook::Default`. Only tests call it: `bun test`
+// runs every file in one process, and a `main` called in one would keep the hook for all the later ones.
+// std: library/std/src/panicking.rs:179 take_hook
+export function take_hook(): void {
+  if (panicking()) {
+    panic("cannot modify the panic hook from a panicking thread");
+  }
+  HOOK = undefined;
+  set_panic_with_hook(undefined);
+}
+
 // std: library/std/src/panicking.rs:219 update_hook
 export function update_hook(hook_fn: PanicHook): void {
   HOOK = hook_fn;
   set_panic_with_hook(panic_with_hook);
-}
-
-// std: library/std/src/panicking.rs:179 take_hook
-// PORT: returns nothing, as nothing here uses the old hook; a process that ends with its hook needs no call. Only tests call it,
-// as `bun test` runs every file in one process and a `main` called in one would keep the hook for all the later ones.
-export function take_hook(): void {
-  HOOK = undefined;
-  set_panic_with_hook(undefined);
 }
 
 let panic_in_hook = false;

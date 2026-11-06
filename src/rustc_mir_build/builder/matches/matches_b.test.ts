@@ -195,7 +195,8 @@ test("bind_and_guard_matched_candidate, declare_binding, should_emit_debug_info_
     } catch (e) {
       bug = e;
     }
-    expect(bug).toBeInstanceOf(Error);
+    expect(bug).toBeInstanceOf(Panic);
+    expect((bug as Panic).message).toContain("expect type `Pin` for a pinned binding, found type u8");
     expect(bug).not.toBeInstanceOf(Unported);
 
     // or-patterns are expanded before tests are picked (`pick_test_for_match_pair`'s `bug!`)

@@ -395,7 +395,7 @@ export function run_compiler<R>(config: Config, f: (compiler: Compiler) => R): R
 
   // PORT: installs `DEF_ID_DEBUG` and `EMIT_BUG_DIAGNOSTIC` (callbacks.ts module comment). Upstream installs the callbacks for the
   // rest of the process (one compiler per rustc process); rust-ts tests run several compilers in one process
-  // and also test the defaults, so the previous hooks are restored when `run_compiler` returns. Nothing formats
+  // and also test the defaults, so those two are restored when `run_compiler` returns (not `TRACK_FEATURE`, which no test's default reads). Nothing formats
   // a `DefId` after that in a real run, and no `tcx` is left for a `bug!` to print through, so this is not observable there.
   const old_def_id_debug = DEF_ID_DEBUG.deref();
   const old_emit_bug_diagnostic = EMIT_BUG_DIAGNOSTIC.f;
