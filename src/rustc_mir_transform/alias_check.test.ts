@@ -322,4 +322,22 @@ describe("fixed aliasing bugs", () => {
     },
     120_000,
   );
+  test.skipIf(SKIP)(
+    "match_const: unify_if_equal_const merges the arms and shares nothing, with GVN off",
+    () => {
+      const args = [fixture("match_const.rs"), "--target=x86_64-unknown-linux-gnu", "-Zunpretty=mir", "-Zmir-opt-level=0", "-Zmir-enable-passes=+MatchBranchSimplification"];
+      mkdirSync(WORK, { recursive: true });
+      const oracle = Bun.spawnSync([...RUSTC, ...args], { cwd: WORK, env: ENV, stdout: "pipe", stderr: "pipe" });
+      const r = run_driver(args, false);
+      expect(oracle.exitCode).toBe(0);
+      expect(r.stderr).toBe(oracle.stderr.toString());
+      expect(r.code).toBe(0);
+      // Merged, with one assignment left for the whole match: the program does reach the site.
+      expect(oracle.stdout.toString()).not.toContain("switchInt");
+      expect(r.stdout).toBe(oracle.stdout.toString());
+      expect(r.hits).toEqual([]);
+      expect(r.checked).toBe(true);
+    },
+    120_000,
+  );
 });

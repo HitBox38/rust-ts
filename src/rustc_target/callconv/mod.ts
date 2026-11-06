@@ -30,6 +30,7 @@ import {
   Primitive,
   Scalar,
   Size,
+  Size_cmp,
   debug_AddressSpace,
   debug_Align,
   debug_Size,
@@ -1004,7 +1005,7 @@ export class FnAbi<Ty> {
 
       if (
         arg_idx === undefined &&
-        arg.layout.size.bytes() > Primitive.size({ $: "Pointer", _0: AddressSpace.ZERO }, cx).mul(2).bytes() &&
+        Size_cmp(arg.layout.size, Primitive.size({ $: "Pointer", _0: AddressSpace.ZERO }, cx).mul(2)) > 0 &&
         !(arg.layout.backend_repr.$ === "SimdVector" || arg.layout.backend_repr.$ === "SimdScalableVector")
       ) {
         // Return values larger than 2 registers using a return area
@@ -1062,7 +1063,7 @@ export class FnAbi<Ty> {
           assert(is_indirect_not_on_stack, "assertion failed: is_indirect_not_on_stack");
 
           const size = arg.layout.size;
-          if (arg.layout.is_sized() && size.bytes() <= Primitive.size({ $: "Pointer", _0: AddressSpace.ZERO }, cx).bytes()) {
+          if (arg.layout.is_sized() && Size_cmp(size, Primitive.size({ $: "Pointer", _0: AddressSpace.ZERO }, cx)) <= 0) {
             // We want to pass small aggregates as immediates, but using
             // an LLVM aggregate type for this leads to bad optimizations,
             // so we pick an appropriately sized integer type instead.
