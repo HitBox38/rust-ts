@@ -289,7 +289,8 @@ export function intern_key_eq(a: unknown, b: unknown): boolean {
 
 // PORT(perf) (lane perf-near-limit): `value_hash` and `value_eq` are the interners' lookup without a key string: what upstream
 // does (`make_hash` + `table_entry`'s `==`, rustc_data_structures sharded.rs), with the same equality as the key text. The key
-// text cost about 45% of user CPU in tests/ui/type-alias-impl-trait/*, and the kept strings most of the heap.
+// text cost about 45% of samples in tests/ui/type-alias-impl-trait/*. Measured: param_mismatch2.rs 439 to 391 Ginstr, 26 to 22 s
+// CPU; hkl_forbidden.rs 731 to 667 Ginstr, RSS 7.4 to 6.1 GB. An interner entry no longer keeps a string.
 //
 // `value_eq(a, b)` is `intern_key(a) === intern_key(b)` for every value `value_hash` accepts whose field names are made of
 // `[A-Za-z0-9_$]` (all of them: Rust field names, `$`, `_0`): numbers by `Object.is`, other primitives by `===`, interned

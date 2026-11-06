@@ -506,7 +506,7 @@ export class CommonLifetimes {
   // the whole `RegionKind` (the rest of it is fixed at each use), so these give the interner's own object, and only repeats
   // skip the interner, so ids and interning order do not move. Separate from the pre-interned arrays, whose length and
   // holes upstream code can see (`get_anon_re_canonical_bounds_lifetime`). Goals in tests/ui/type-alias-impl-trait have hundreds
-  // of canonical regions. Measured: with `CommonTypes`'s, param_mismatch2.rs -18% of samples, see docs/handoff/perf-near-limit.md.
+  // of canonical regions. Measured: with `CommonTypes`'s, param_mismatch2.rs 391 to 265 Ginstr, self-referential-4.rs 591 to 402.
   readonly re_var_memo: Region[] = [];
   readonly canonical_bound_memo: Region[] = [];
   readonly placeholder_anon_memo: Region[][] = [];

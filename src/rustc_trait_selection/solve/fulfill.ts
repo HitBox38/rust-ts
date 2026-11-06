@@ -67,8 +67,9 @@ const MIN_STALLED_LEN = 64;
  * One owner per `InferCtxtInner`: a second context with a long list takes the watches, and the first starts over.
  * Lists shorter than `MIN_STALLED_LEN` do not use this at all: nearly all do not reach it, and pay one comparison.
  *
- * Measured: tests/ui/try-trait/deep-try-chain-issue-153583.rs, 301 Ginstr and 90 s CPU before, 61 Ginstr and 10 s after; 426M of
- * 457M checks skipped. Nothing else measured moves: a list under `MIN_STALLED_LEN` pays one comparison per pass.
+ * Measured: tests/ui/try-trait/deep-try-chain-issue-153583.rs, 319 Ginstr and 36 s CPU before (36-90 s over a day's loads, as
+ * those checks are memory bound), 61 Ginstr and 6.6 s after; 426M of 457M checks skipped. A list under `MIN_STALLED_LEN` pays one
+ * comparison per pass.
  */
 export class StalledPrefix {
   private pending: PendingObligations | undefined = undefined;
