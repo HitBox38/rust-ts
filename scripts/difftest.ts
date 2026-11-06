@@ -1025,7 +1025,11 @@ export async function difftest(
         ? typeof miriTemp === "string"
           ? await withCaseLock(`${miriTemp}.lock`, 2 * ((1 + ORACLE_RETRY_FACTOR) * (s.oracleTimeoutMs ?? s.timeoutMs) + s.timeoutMs), heavySides)
           : await heavySides()
-        : await Promise.all([runOracle(s, chunk), runSubject(s, chunk, impl, stats, sUsage)]);
+        : s.irTier
+          ? // Its sides compile at one work directory under a lock (scripts/ir-run.ts): together, a wait for the other would
+            // count against this side's own limit, and a first run of a new key gives false TIMEOUTs (review harness-w42 F1).
+            [await runOracle(s, chunk), await runSubject(s, chunk, impl, stats, sUsage)]
+          : await Promise.all([runOracle(s, chunk), runSubject(s, chunk, impl, stats, sUsage)]);
       for (const c of chunk) {
         const oc = o.get(c.id)!;
         const sc = sub.get(c.id)!;

@@ -15,7 +15,7 @@ Branch `t3/fix-harness-review-findings`, from `9e11cc8b`. This is a batch of cha
 | harness-w41 N1 | A `process.exit` during a read kills the command. Three lines, so fixed rather than noted | `commandOutput` |
 | harness-w41 N2 | A test of plain `miri.ts` from a cwd whose `.env` sets `RUST_TS_HOST_TUPLE=bogus-host` | `scripts/miri.test.ts` |
 | harness-m7a H3 | See below | `irSuite`, `irReportSuite`, `irTierError` |
-| harness-m7a H5 | Both sides compile at `<out>/work`, one at a time under `withCaseLock`, as `check-rg` does | `scripts/ir-run.ts` |
+| harness-m7a H5 | Both sides compile at `<out>/work`, one at a time under `withCaseLock`; root's fix after the review runs an IR suite's sides in turn in `difftest.ts`, as a heavy suite's are | `scripts/ir-run.ts` |
 | harness-m7a N2 | "a probe is missing or stale", where it said "missing probes" | `gateRun` |
 | Stale comments | Both were still stale, and both are corrected | `track_caller_check.ts:10`, `miri_stack_first.ts:4` |
 
@@ -100,10 +100,10 @@ Mutations ran in a scratch worktree at `e671b0a8`, each with only the named test
 
 ## Things root should know
 
-- **A wait for the IR lock counts against difftest's timeout.** The wait is inside the `ir-run` process difftest is timing, so two difftests on one case at once could produce a false TIMEOUT on a slow case. It is harmless at `ir-hello`'s size. The gate alone is one difftest. Worth another look when `ir-run-pass` arrives with parallel lanes.
+- **A wait for the IR lock counts against difftest's timeout.** The wait is inside the `ir-run` process difftest is timing, so two difftests on one case at once could produce a false TIMEOUT on a slow case. It is harmless at `ir-hello`'s size. (Corrected by the review, F1: one difftest was enough, as its sides ran together. Root's fix runs an IR suite's sides in turn.) Worth another look when `ir-run-pass` arrives with parallel lanes.
 - **The fixed path relies on SIGTERM being passed on.** `ir-run` forwards it to the compiler. If `ir-run` itself were SIGKILLed, its compiler could still be writing to `work` when the next run takes the stale lock. By reading; not reproduced.
 - **AGENTS.md section 2** still says `host` "records the power source through the run". N4's limit is now in the comment only, as that file is not mine.
-- **N1 covers `process.exit`.** A gate that is itself SIGKILLed still orphans a read in flight.
+- **N1 covers `process.exit`.** A gate ended by SIGKILL or SIGTERM still orphans a read in flight.
 
 ## What I did not check
 
