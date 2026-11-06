@@ -9,6 +9,7 @@
 //   as an `AcceptFn` is `(self, cx, args) => RustcAlignParser_inherent.parse(self, cx, args)`.
 // - `Size::signed_int_max` (rustc_abi) is not ported; `parse_alignment` computes it in place
 //   (`i128::MAX >> (128 - bits)`), see `signed_int_max` below.
+import { keep_frame } from "../../std/panic.ts";
 import type { LitKind } from "../../rustc_ast/lib.ts";
 import { Align, Size } from "../../rustc_abi/lib.ts";
 import type { ReprAttr } from "../../rustc_attr_ir/lib.ts";
@@ -156,6 +157,7 @@ function parse_repr(cx: AcceptContext, param: MetaItemParser): ReprAttr | undefi
           { $: "Warn", _0: Target.MacroCall },
         ],
       });
+      // rustc-call: 129:16
       if (cx.expect_no_args(param.args()) === undefined) return undefined;
       return { $: "ReprRust" };
     }
@@ -196,29 +198,32 @@ function parse_repr(cx: AcceptContext, param: MetaItemParser): ReprAttr | undefi
     }
 
     case sym.i8:
-      return repr_int("i8", { $: "ReprInt", _0: { $: "SignedInt", _0: "I8" } });
+      // rustc-call: 173:26
+      return keep_frame(repr_int("i8", { $: "ReprInt", _0: { $: "SignedInt", _0: "I8" } }));
     case sym.u8:
-      return repr_int("u8", { $: "ReprInt", _0: { $: "UnsignedInt", _0: "U8" } });
+      return keep_frame(repr_int("u8", { $: "ReprInt", _0: { $: "UnsignedInt", _0: "U8" } }));
     case sym.i16:
-      return repr_int("i16", { $: "ReprInt", _0: { $: "SignedInt", _0: "I16" } });
+      return keep_frame(repr_int("i16", { $: "ReprInt", _0: { $: "SignedInt", _0: "I16" } }));
     case sym.u16:
-      return repr_int("u16", { $: "ReprInt", _0: { $: "UnsignedInt", _0: "U16" } });
+      return keep_frame(repr_int("u16", { $: "ReprInt", _0: { $: "UnsignedInt", _0: "U16" } }));
     case sym.i32:
-      return repr_int("i32", { $: "ReprInt", _0: { $: "SignedInt", _0: "I32" } });
+      return keep_frame(repr_int("i32", { $: "ReprInt", _0: { $: "SignedInt", _0: "I32" } }));
     case sym.u32:
-      return repr_int("u32", { $: "ReprInt", _0: { $: "UnsignedInt", _0: "U32" } });
+      // rustc-call: 178:27
+      return keep_frame(repr_int("u32", { $: "ReprInt", _0: { $: "UnsignedInt", _0: "U32" } }));
     case sym.i64:
-      return repr_int("i64", { $: "ReprInt", _0: { $: "SignedInt", _0: "I64" } });
+      // rustc-call: 179:27
+      return keep_frame(repr_int("i64", { $: "ReprInt", _0: { $: "SignedInt", _0: "I64" } }));
     case sym.u64:
-      return repr_int("u64", { $: "ReprInt", _0: { $: "UnsignedInt", _0: "U64" } });
+      return keep_frame(repr_int("u64", { $: "ReprInt", _0: { $: "UnsignedInt", _0: "U64" } }));
     case sym.i128:
-      return repr_int("i128", { $: "ReprInt", _0: { $: "SignedInt", _0: "I128" } });
+      return keep_frame(repr_int("i128", { $: "ReprInt", _0: { $: "SignedInt", _0: "I128" } }));
     case sym.u128:
-      return repr_int("u128", { $: "ReprInt", _0: { $: "UnsignedInt", _0: "U128" } });
+      return keep_frame(repr_int("u128", { $: "ReprInt", _0: { $: "UnsignedInt", _0: "U128" } }));
     case sym.isize:
-      return repr_int("isize", { $: "ReprInt", _0: { $: "SignedInt", _0: "Isize" } });
+      return keep_frame(repr_int("isize", { $: "ReprInt", _0: { $: "SignedInt", _0: "Isize" } }));
     case sym.usize:
-      return repr_int("usize", { $: "ReprInt", _0: { $: "UnsignedInt", _0: "Usize" } });
+      return keep_frame(repr_int("usize", { $: "ReprInt", _0: { $: "UnsignedInt", _0: "Usize" } }));
     default: {
       cx.adcx().expected_specific_argument(param.span(), [
         sym.align,

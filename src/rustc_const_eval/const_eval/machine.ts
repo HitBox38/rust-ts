@@ -245,7 +245,7 @@ export class CompileTimeMachine extends compile_time_machine implements HasStati
             }),
           );
         } else {
-          return span_bug(ecx.cur_span(), `calling non-const function \`${display_Instance(instance)}\``);
+          span_bug(ecx.cur_span(), `calling non-const function \`${display_Instance(instance)}\``);
         }
       }
     }

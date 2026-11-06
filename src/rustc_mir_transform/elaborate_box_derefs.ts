@@ -111,7 +111,7 @@ export class ElaborateBoxDerefs extends MirPass {
 
     const nonnull_def = Unnormalized.skip_norm_wip(EarlyBinder.instantiate_identity(tcx.type_of(nonnull_did) as EarlyBinder<Ty>)).ty_adt_def();
     if (nonnull_def === undefined) {
-      return span_bug(tcx.def_span(nonnull_did), "expected Unique to contain Nonnull");
+      span_bug(tcx.def_span(nonnull_did), "expected Unique to contain Nonnull");
     }
 
     const patch = MirPatch.new(body);

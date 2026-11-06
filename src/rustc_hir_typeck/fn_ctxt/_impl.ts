@@ -206,7 +206,7 @@ FnCtxt.prototype.tag = function (this: FnCtxt): string {
 FnCtxt.prototype.local_ty = function (this: FnCtxt, span: SpanT, nid: HirId): Ty {
   const ty = this.locals.get(nid);
   if (ty === undefined) {
-    return span_bug(span, `no type for local variable ${this.tcx.hir_id_to_string(nid)}`);
+    span_bug(span, `no type for local variable ${this.tcx.hir_id_to_string(nid)}`);
   }
   return ty;
 };

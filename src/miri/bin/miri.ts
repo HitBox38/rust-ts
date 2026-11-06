@@ -77,6 +77,7 @@ import type { CrateType } from "../../rustc_structures/crate_type.ts";
 import { FileName } from "../../rustc_span/lib.ts";
 import { FatalErrorMarker } from "../../rustc_span/fatal_error.ts";
 import { Panic, Unported, assert, panic, unported } from "../../std/panic.ts";
+import { report_uncaught } from "../../std/panicking.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
 import { existsSync, readdirSync, realpathSync, statSync } from "node:fs";
 import { join } from "node:path";
@@ -966,8 +967,7 @@ if (import.meta.main) {
     } else if (e instanceof FatalErrorMarker) {
       process.exitCode = 101;
     } else {
-      const msg = e instanceof Panic ? e.message : String(e);
-      write_stderr(`rust-ts: internal compiler error: ${msg}\n${e instanceof Error ? e.stack : ""}\n`);
+      report_uncaught(e);
       process.exitCode = 101;
     }
   }

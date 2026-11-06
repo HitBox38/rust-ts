@@ -11,6 +11,7 @@
 // its top-level code may touch only the classes it imports, never another extension module.
 // PORT: `RegionVid::as_usize` / `DebruijnIndex::as_usize` / `BoundVar::as_usize` are the identity on the branded
 // numbers; `slice.get(i)` is `arr[i]` (`undefined` = `None`).
+import { keep_frame } from "../../../std/panic.ts";
 import type { VisitorResult } from "../../../rustc_ast_ir/visit.ts";
 import { try_visit } from "../../../rustc_ast_ir/visit.ts";
 import type { LangItem } from "../../../rustc_attr_ir/lang_items.ts";
@@ -490,7 +491,7 @@ TyCtxt.prototype.delay_bug = function (this: TyCtxt, msg: string): ErrorGuarante
 
 // rustc: compiler/rustc_middle/src/ty/context/impl_interner.rs:615 span_delayed_bug
 TyCtxt.prototype.span_delayed_bug = function (this: TyCtxt, span: Span, msg: string): ErrorGuaranteed {
-  return this.dcx().span_delayed_bug(span, msg);
+  return keep_frame(this.dcx().span_delayed_bug(span, msg));
 };
 
 // rustc: compiler/rustc_middle/src/ty/context/impl_interner.rs:619 is_general_coroutine

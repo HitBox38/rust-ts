@@ -15,6 +15,7 @@
 import type { Compiler, Config } from "../rustc_interface/interface.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import { Panic, Unported } from "../std/panic.ts";
+import { report_uncaught } from "../std/panicking.ts";
 import { ensure_stack } from "./stack.ts";
 import { write_stderr } from "../std/io.ts";
 
@@ -75,8 +76,7 @@ try {
     write_stderr(`rust-ts: unported: ${e.what}\n`);
     process.exitCode = EXIT_UNPORTED;
   } else {
-    const msg = e instanceof Panic ? e.message : String(e);
-    write_stderr(`rust-ts: internal compiler error: ${msg}\n${e instanceof Error ? e.stack : ""}\n`);
+    report_uncaught(e);
     process.exitCode = 101;
   }
 }

@@ -467,7 +467,8 @@ InterpCx.prototype.ptr_get_alloc = function (
 
   // Measured (docs/handoff/miri-perf.md, 486 Ginstr at base): -8.4 Ginstr with the other pointer-arithmetic fast paths (memory.ts `check_and_deref_ptr`, pointer.ts `wrapping_offset`).
   // PORT(perf): in numbers when the difference is exact, in range and below 2^32, where the wrapping and the truncation to
-  // the target's usize do nothing. A big `addr` is `NaN` and fails the test.
+  // the target's usize do nothing. A big `addr` is `NaN` and fails the test. This assumes pointers of at least 32 bits: bound
+  // it by the pointer size when a 16-bit target is ported (`avr-none` and JSON targets stop `unported` today).
   const rel_ = addr.small - Number(base_addr);
   if (rel_ >= 0 && rel_ < 0x1_0000_0000 && base_addr <= 0x1f_ffff_ffff_ffffn) return [alloc_id, Size_.from_bytes(rel_)];
 

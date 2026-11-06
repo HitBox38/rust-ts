@@ -17,7 +17,38 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { DATA, PIN, REPO } from "../../scripts/lib/common.ts";
+import { Interned } from "../rustc_data_structures/intern.ts";
+import { RawList } from "../rustc_middle/ty/list.ts";
 import { find_shared_mir_nodes, find_shared_objects, is_immutable_hit } from "./alias_check_oracle/alias_check.ts";
+import { classify_run } from "./alias_check_oracle/sweep_outcome.ts";
+
+describe("sweep.ts's outcomes (docs/reviews/mir-alias.md F4)", () => {
+  const side = (code: number, err = "", out = "") => ({ out, err, code });
+  // Both texts as printed for tests/ui/abi/sysv64-zst.rs on aarch64-apple-darwin, the oracle's with RUST_BACKTRACE=0.
+  const ORACLE_ICE = "error[E0570]: x\n\nthread 'rustc' (30084032) panicked at /rustc-dev/6f5da406/compiler/rustc_ty_utils/src/abi.rs:556:31:\ncalled `Option::unwrap()` on a `None` value\nnote: run with\n";
+  const PORT_ICE = "error[E0570]: x\nrust-ts: internal compiler error: called `Option::unwrap()` on a `None` value\n    at f (a.ts:1:1)\n";
+
+  test("mono: CHECKED only on exit 0, whatever the driver's CHECKED line says", () => {
+    expect(classify_run(true, false, undefined, side(0), undefined)).toBe("CHECKED");
+    expect(classify_run(true, false, undefined, side(1), undefined)).toBe("FAILED");
+    expect(classify_run(true, false, undefined, side(101), undefined)).toBe("ICE");
+    expect(classify_run(true, false, undefined, side(70), undefined)).toBe("UNPORTED");
+  });
+
+  test("BOTH_ICE compares the messages", () => {
+    expect(classify_run(false, false, side(101, ORACLE_ICE), side(101, PORT_ICE), undefined)).toBe("BOTH_ICE");
+    expect(classify_run(false, false, side(101, ORACLE_ICE), side(101, "rust-ts: internal compiler error: another\n"), undefined)).toBe("DIFF");
+    expect(classify_run(false, false, side(101, ORACLE_ICE), side(101, "no message\n"), undefined)).toBe("DIFF");
+  });
+
+  test("the rest keeps its meaning", () => {
+    expect(classify_run(false, true, side(0), side(0), undefined)).toBe("TIMEOUT");
+    expect(classify_run(false, false, side(0, "e", "o"), side(0, "e", "o"), undefined)).toBe("MATCH");
+    expect(classify_run(false, false, side(0, "e", "o"), side(0, "e", "o"), "pass.mir: line 1")).toBe("DIFF");
+    expect(classify_run(false, false, side(0), side(101, PORT_ICE), undefined)).toBe("ICE");
+    expect(classify_run(false, false, side(0, "a"), side(0, "b"), undefined)).toBe("DIFF");
+  });
+});
 
 describe("find_shared_objects", () => {
   class Place {
@@ -77,6 +108,66 @@ describe("find_shared_objects", () => {
     expect(find_shared_mir_nodes(body).map((s) => s.what)).toEqual(["{$: Cleanup}"]);
     const list = [1, 2];
     expect(find_shared_mir_nodes({ a: list, b: list }).map((s) => s.what)).toEqual(["Array"]);
+  });
+
+  // docs/reviews/mir-alias.md F2: each of these was walked past and reported nothing.
+  describe("a Place held twice is reported wherever it is held", () => {
+    const p = () => new Place(3, EMPTY);
+    const reported = (make: (p: Place) => object, what = "Place") => {
+      const hits = find_shared_mir_nodes(make(p()));
+      expect(hits.map((s) => s.what)).toEqual([what]);
+      return hits[0]!;
+    };
+    test("a Map key", () => {
+      expect(reported((p) => ({ a: p, m: new Map([[p, 1]]) })).second).toBe("body.m{key [object Object]}");
+    });
+    test("a Map value", () => {
+      expect(reported((p) => ({ a: p, m: new Map([["k", p]]) })).second).toBe("body.m{k}");
+    });
+    test("a Set member", () => {
+      expect(reported((p) => ({ a: p, s: new Set([p]) })).second).toBe("body.s{member 0}");
+    });
+    test("a frozen object's field, and a frozen array's element", () => {
+      expect(reported((p) => ({ a: p, f: Object.freeze({ inner: p }) })).second).toBe("body.f.inner");
+      expect(reported((p) => ({ a: p, f: Object.freeze([p]) })).second).toBe("body.f[0]");
+    });
+    test("one frozen wrapper in two places, with an unfrozen child", () => {
+      const w = Object.freeze({ inner: new Place(3, EMPTY) });
+      expect(find_shared_mir_nodes({ a: w, b: w }).map((s) => [s.what, s.first, s.second])).toEqual([["Place", "body.a.inner", "body.b.inner"]]);
+      // The wrapper itself cannot be written, so a child with nothing to write reports nothing.
+      const leaf = Object.freeze({ inner: 1 });
+      expect(find_shared_mir_nodes({ a: leaf, b: leaf })).toEqual([]);
+    });
+    test("a field named cache on anything but BasicBlocks", () => {
+      expect(reported((p) => ({ a: p, s: { cache: p } })).second).toBe("body.s.cache");
+    });
+    test("a symbol prop and a non-enumerable prop, on an object and on an array", () => {
+      const sym = globalThis.Symbol("hidden");
+      expect(reported((p) => ({ a: p, s: { [sym]: p } })).second).toBe("body.s[Symbol(hidden)]");
+      expect(reported((p) => ({ a: p, s: Object.defineProperty({}, "h", { value: p }) })).second).toBe("body.s.h");
+      expect(reported((p) => ({ a: p, s: Object.defineProperty([], "h", { value: p }) })).second).toBe("body.s.h");
+    });
+  });
+
+  test("what stays out of the walk: BasicBlocks.cache, interned values and their lists, accessors", () => {
+    class BasicBlocks {
+      constructor(public cache: object) {}
+    }
+    const c = { predecessors: [] };
+    expect(find_shared_objects({ a: new BasicBlocks(c), b: new BasicBlocks(c) })).toEqual([]);
+    class Ty extends Interned {
+      constructor(public kind_: object) {
+        super();
+        Object.freeze(this);
+      }
+    }
+    const kind = { $: "Adt", _0: 1 };
+    expect(find_shared_objects({ a: new Ty(kind), b: new Ty(kind) })).toEqual([]);
+    const elem = { $: "Field", _0: 1 };
+    const list = RawList.of_slice(undefined, [elem]);
+    expect(find_shared_objects({ a: list, b: list })).toEqual([]);
+    const p = new Place(3, EMPTY);
+    expect(find_shared_objects({ a: p, get b() { return p; } })).toEqual([]);
   });
 
   test("unit variants have no field to write, so sharing one is not reported", () => {

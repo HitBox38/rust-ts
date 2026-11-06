@@ -11,7 +11,8 @@
 // `assert!(tag.get() <= TAG_MASK)` checks the lowered bound and stops `unported` (not a panic) past it: BorTags are handed
 // out sequentially from 1, so no real run reaches 2^50.
 // PORT: `Item` is `Copy`; the generated class is a mutable object (`set_permission` is `&mut self`), so every Rust copy
-// that stays live next to its source is `clone_Item(v)` (PORTING §8), and nothing aliases one `Item` from two places.
+// that stays live next to its source is `clone_Item(v)` (PORTING §8), and nothing aliases one `Item` from two places, except
+// the cache's slots after `Stack::new` (stack.ts).
 import { BorTag, debug_BorTag } from "../mod.ts";
 import * as gen from "./item.gen.ts";
 import { Item } from "./item.gen.ts";

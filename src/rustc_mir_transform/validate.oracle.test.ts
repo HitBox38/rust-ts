@@ -6,7 +6,8 @@
 // - validate_oracle/invalid/*.rs and five tests/ui/mir/validate tests: custom MIR that the validator rejects under
 //   `-Zvalidate-mir`. Both sides ICE (exit 101) with the same `broken MIR in .. (after pass ..) at ..:\n<failure>`
 //   message. The oracle's ICE report adds the panic location and indents the message's continuation lines; the port's
-//   prints `rust-ts: internal compiler error: <message>` (rustc_span macros.ts: no `#[track_caller]` location).
+//   prints the same ICE block, or, when the location is refused (src/rust_ts/track_caller.ts), `rust-ts: internal compiler
+//   error: <message>` with the reason.
 // Skips (visibly) if the probe is missing; fails instead under RUST_TS_REQUIRE_PROBES=1.
 import { expect, test } from "bun:test";
 import { existsSync, mkdirSync, readdirSync } from "node:fs";
@@ -72,13 +73,19 @@ function oracle_message(stderr: string): string | undefined {
   return msg.join("\n");
 }
 const PORT_ICE = "rust-ts: internal compiler error: ";
-/** The port's ICE message: up to the JS stack (`Panic: ...` / `ExplicitBug...`). */
+/** The port's ICE message: as the oracle's, or the banner when the panic's location was refused. */
 function port_message(stderr: string): string | undefined {
+  const m = oracle_message(stderr);
+  if (m !== undefined) return m;
   const i = stderr.indexOf(PORT_ICE);
   if (i === -1) return undefined;
   const rest = stderr.slice(i + PORT_ICE.length);
-  const end = rest.search(/\n(Panic|ExplicitBug|Error)\b/);
+  const end = rest.indexOf("\nrust-ts: the ICE report stopped: ");
   return end === -1 ? rest.trimEnd() : rest.slice(0, end);
+}
+/** The `panicked at` location, when the port could resolve it. A wrong one is the failure that must never happen. */
+function panic_location(stderr: string): string | undefined {
+  return /^thread '[^'\n]*' \(\d+\) panicked at (\S+):$/m.exec(stderr)?.[1];
 }
 
 for (const extra of [[], ["-Zvalidate-mir"]]) {
@@ -112,5 +119,7 @@ for (const [file, cwd] of INVALID) {
     const om = oracle_message(o.stderr);
     expect(om).toContain("broken MIR in ");
     expect(port_message(p.stderr)).toBe(om!);
+    const at = panic_location(p.stderr);
+    if (at !== undefined) expect(at).toBe(panic_location(o.stderr)!);
   }, 120_000);
 }

@@ -51,7 +51,7 @@ import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import { AllocDecodingSession, AllocDecodingState, type AllocId } from "../../rustc_middle/mir/interpret/mod.ts";
 import type { Visibility } from "../../rustc_middle/ty/mod.ts";
 import { MemDecoder } from "../../rustc_serialize/opaque.ts";
-import { type Decodable, type Decoder, Decoder_provided, decode_Option as decode_Option_, decode_String, decode_tuple as decode_tuple_, type Encoder } from "../../rustc_serialize/serialize.ts";
+import { type Decodable, type Decoder, Decoder_provided, decode_Option as decode_Option_, decode_String, decode_tuple as decode_tuple_, decode_Vec, type Encoder } from "../../rustc_serialize/serialize.ts";
 import type { TargetModifier } from "../../rustc_session/options.ts";
 import type { DeniedPartialMitigation } from "../../rustc_session/options/mitigation_coverage.ts";
 import { CrateNum, DefId, DefIndex, LOCAL_CRATE, LocalDefId, type ModId, type StableCrateId, debug_StableCrateId } from "../../rustc_span/def_id.ts";
@@ -98,6 +98,8 @@ import { proc_macro as expand_proc_macro } from "../../rustc_expand/lib.ts";
 import { SyntaxExtension as SyntaxExtension_, type SyntaxExtensionKind } from "../../rustc_expand/base.ts";
 import { CanonicalSymbols } from "../../rustc_attr_ir/canonical_symbols.ts";
 import type { StrippedCfgItem } from "../../rustc_attr_ir/data_structures.ts";
+import { decode_EiiDecl, decode_EiiImpl } from "../../rustc_attr_ir/data_structures.ts";
+import type { EiiMapEncodedKeyValue } from "../eii.ts";
 import type { DiagnosticItems } from "../../rustc_attr_ir/diagnostic_items.ts";
 import { debug_DefKind } from "../../rustc_hir/def.ts";
 import { DefPath as DefPath_, DefPathData } from "../../rustc_hir_id/definitions.ts";
@@ -441,7 +443,7 @@ export interface CrateMetadata {
   get_foreign_modules(tcx: TyCtxt): Iterable<ForeignModule>;
   get_dylib_dependency_formats(tcx: TyCtxt): [CrateNum, LinkagePreference][];
   /** `-> impl Iterator<Item = EiiMapEncodedKeyValue>` */
-  get_externally_implementable_items(tcx: TyCtxt): Iterable<unknown>;
+  get_externally_implementable_items(tcx: TyCtxt): Iterable<EiiMapEncodedKeyValue>;
   get_missing_lang_items(tcx: TyCtxt): LangItem[];
   get_exportable_items(tcx: TyCtxt): Iterable<DefId>;
   get_stable_order_of_exportable_impls(tcx: TyCtxt): Iterable<[DefId, number]>;
@@ -1791,9 +1793,13 @@ CrateMetadata.prototype.get_fake_doc_items = function (this: CrateMetadata, tcx:
 function decode_SimplifiedType(d: MetadataDecodeContext): SimplifiedType {
   return decode_SimplifiedType_(d, decode_DefId);
 }
-/** `Decodable` of `EiiMapEncodedKeyValue` (rmeta encoder.rs type alias of a tuple; `EiiDecl` / `EiiImpl`). */
-function decode_EiiMapEncodedKeyValue(_d: MetadataDecodeContext): unknown {
-  return unported("Decodable for rustc_metadata::rmeta::EiiMapEncodedKeyValue (rustc_attr_ir EiiDecl/EiiImpl, derive(Decodable) not generated)");
+/** `Decodable` of `EiiMapEncodedKeyValue` (eii.rs:9: a tuple, `(DefId, (EiiDecl, Vec<(DefId, EiiImpl)>))`). */
+function decode_EiiMapEncodedKeyValue(d: MetadataDecodeContext): EiiMapEncodedKeyValue {
+  return decode_tuple_(
+    d,
+    decode_DefId,
+    (d) => decode_tuple_(d, decode_EiiDecl, (d) => decode_Vec(d, (d) => decode_tuple_(d, decode_DefId, decode_EiiImpl))),
+  );
 }
 /** `Decodable` of `(ExportedSymbol<'tcx>, SymbolExportInfo)` (rustc_middle middle/exported_symbols.rs). */
 function decode_ExportedSymbol_SymbolExportInfo(d: MetadataDecodeContext): [ExportedSymbol, SymbolExportInfo] {
@@ -2090,7 +2096,7 @@ CrateMetadata.prototype.get_dylib_dependency_formats = function (this: CrateMeta
 };
 
 // rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:1594 get_externally_implementable_items
-CrateMetadata.prototype.get_externally_implementable_items = function (this: CrateMetadata, tcx: TyCtxt): Iterable<unknown> {
+CrateMetadata.prototype.get_externally_implementable_items = function (this: CrateMetadata, tcx: TyCtxt): Iterable<EiiMapEncodedKeyValue> {
   return this.root.externally_implementable_items.decode([this, tcx], decode_EiiMapEncodedKeyValue);
 };
 

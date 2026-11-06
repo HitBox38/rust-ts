@@ -949,6 +949,13 @@
     },
     "derive_default": true
   },
+  "rustc_driver_impl": {
+    "files": ["compiler/rustc_driver_impl/src/diagnostics.rs"],
+    "class": [],
+    "hand": [],
+    "discriminant": [],
+    "skip": []
+  },
   "rustc_interface": {
     "files": ["compiler/rustc_interface/src/diagnostics.rs"],
     "class": [],
