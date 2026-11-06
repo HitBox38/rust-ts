@@ -77,7 +77,7 @@ The other `.bytes()` and `.bits()` in `mod.ts` and `x86_64.ts` I read but did no
 
 ## mir-alias
 
-**F1.** Each of `unify_by_eq_op`, `unify_by_int_to_int` and `unify_by_copy`'s two clones, reverted alone, fails `fixed aliasing`. **The fifth, `unify_if_equal_const`, is new:** `alias_check_oracle/match_const.rs`, `#![no_core]`, `-Zmir-opt-level=0 -Zmir-enable-passes=+MatchBranchSimplification`. Reverting it fails the new test. Why that flag: GVN gives each constant the same span at `-O`, so `identical_stmts` takes the case first. That is from reading upstream, and the review measured the outcome.
+**F1.** Each of `unify_by_eq_op`, `unify_by_int_to_int` and `unify_by_copy`'s two clones, reverted alone, fails `fixed aliasing`. **The fifth, `unify_if_equal_const`, is new:** `alias_check_oracle/match_const.rs`, `#![no_core]`, `-Zmir-opt-level=0 -Zmir-enable-passes=+MatchBranchSimplification`. Reverting it fails the new test. Why that flag: `try_as_constant` gives each constant `DUMMY_SP` (`gvn.rs:1990-1999`), so at `-O` `identical_stmts` takes the case first. With a scratch print on this program, the site is reached 0 times at `-O` and once at this flag or at `-O -Zmir-enable-passes=-GVN`.
 
 **F2.** The walker from before `ecc69f9b` fails 7 of `find_shared_objects`' tests.
 
@@ -111,7 +111,7 @@ Also still failing when reverted: borrowck's annotations, `raw_ptr`, `cor_ref_pl
 
 ## Unit-time budget
 
-CPU, user + sys, 3 runs each at load about 5: the `eii` test 1.3-1.4 s; `match_const` about 1.1 s, from one run of the driver and the first time I timed it, as `alias_check.test.ts` as a whole is too noisy to show it (12.2-14.2 s before and after); the ABI test +0.1 s or less, inside its noise. **About 2.5 s of the 5 s.**
+CPU, user + sys, 3 runs each at load about 5, `bun test`'s own start (0.06 s) included: the `eii` test 1.3-1.4 s; `match_const` 0.9-1.0 s, alone with `-t` (`1642fd77`'s message says about 1.1 s, an earlier measurement); the ABI test 2.6-3.2 s before and 2.6-2.9 s after, so no cost I can separate from its noise. **About 2.4 s of the 5 s.**
 
 ## `// PORT:` decisions
 
