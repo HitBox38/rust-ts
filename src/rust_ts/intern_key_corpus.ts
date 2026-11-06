@@ -15,6 +15,7 @@ import { INTERNED } from "../rustc_data_structures/intern.ts";
 import { panic } from "../std/panic.ts";
 import { intern_key, intern_key_eq, set_intern_key_observer } from "./intern_key.ts";
 import { write_stdout } from "../std/io.ts";
+import { set_intern_shadow } from "../rustc_data_structures/sharded.ts";
 
 function push_key(v: unknown, out: string[]): void {
   switch (typeof v) {
@@ -89,6 +90,9 @@ export interface IkSummary {
   eq_mismatches: number;
   /** kept values whose key changed after they were keyed */
   changed_after_keyed: number;
+  /** `intern_value` / `intern_slice` results compared with what a table keyed by `intern_key_reference` holds. */
+  shadow_checks: number;
+  shadow_mismatches: number;
   first_mismatch?: string;
   ns_reference?: number;
   ns_new?: number;
@@ -110,6 +114,8 @@ async function main(argv: string[]): Promise<void> {
     eq_false_checks: 0,
     eq_mismatches: 0,
     changed_after_keyed: 0,
+    shadow_checks: 0,
+    shadow_mismatches: 0,
   };
   const first_of = new Map<string, unknown>();
   const kept: unknown[] = [];
@@ -150,6 +156,22 @@ async function main(argv: string[]): Promise<void> {
     if (bench) kept.push(v);
   });
 
+  // The interners' lookup without key strings gives the object a key table would: the same equality on every value of the
+  // compilation, and no stored value written to after it was interned.
+  const shadow_tables = new Map<object, Map<string, unknown>>();
+  set_intern_shadow((set, value, got) => {
+    let table = shadow_tables.get(set);
+    if (table === undefined) shadow_tables.set(set, (table = new Map()));
+    const key = intern_key_reference(Array.isArray(value) ? Array.from(value as unknown[]) : value);
+    const had = table.get(key);
+    s.shadow_checks++;
+    if (had === undefined) table.set(key, got);
+    else if (had !== got) {
+      s.shadow_mismatches++;
+      mismatch(`shadow: ${key}`);
+    }
+  });
+
   const { catch_with_exit_code, compiler_entrypoint } = await import("../rustc_driver_impl/lib.ts");
   const { run_required_analyses_prefix, dump } = await import("./tydump_dump.ts");
   const callbacks = {
@@ -165,6 +187,7 @@ async function main(argv: string[]): Promise<void> {
     compiler_entrypoint(["rustc", ...args], callbacks as unknown as Parameters<typeof compiler_entrypoint>[1]),
   );
   set_intern_key_observer(undefined);
+  set_intern_shadow(undefined);
   s.distinct_keys = first_of.size;
   if (bench) {
     // each key goes into a `Map`, as in the interners (a key built by concatenation is flattened there)

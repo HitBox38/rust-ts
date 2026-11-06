@@ -287,6 +287,113 @@ export function intern_key_eq(a: unknown, b: unknown): boolean {
   }
 }
 
+// PORT(perf) (lane perf-near-limit): `value_hash` and `value_eq` are the interners' lookup without a key string: what upstream
+// does (`make_hash` + `table_entry`'s `==`, rustc_data_structures sharded.rs), with the same equality as the key text. The key
+// text cost about 45% of user CPU in tests/ui/type-alias-impl-trait/*, and the kept strings most of the heap.
+//
+// `value_eq(a, b)` is `intern_key(a) === intern_key(b)` for every value `value_hash` accepts whose field names are made of
+// `[A-Za-z0-9_$]` (all of them: Rust field names, `$`, `_0`): numbers by `Object.is`, other primitives by `===`, interned
+// objects by id, arrays element-wise, other objects by their own enumerable fields that are not `undefined`, in any order.
+// `value_hash` only picks the bucket; two values that are `value_eq` always get one hash, so a differing hash
+// means a differing value, and an equal hash is only ever followed by `value_eq`. A collision costs a comparison, never a wrong
+// result. It visits every node and rejects what `intern_key` rejects, with the same panic; `value_eq` needs no checks, as its
+// first argument passed `value_hash` and its second is a stored value that did.
+
+export function hash_mix(h: number, x: number): number {
+  return Math.imul((h ^ x) | 0, 0x9e3779b1) ^ (h >>> 15);
+}
+
+function hash_number(v: number): number {
+  const i = v | 0;
+  if (i === v) return i;
+  // Beyond 32 bits, fractions, `NaN`, infinities. `0` and `-0` share a hash and `value_eq` tells them apart.
+  if (v !== v) return 0x7ff80000;
+  return hash_mix(Math.trunc(v / 0x1_0000_0000) | 0, (v % 0x1_0000_0000) | 0);
+}
+
+function hash_string(s: string): number {
+  let h = s.length;
+  for (let i = 0; i < s.length; i++) h = Math.imul(h, 31) + s.charCodeAt(i);
+  return h | 0;
+}
+
+export function value_hash(v: unknown): number {
+  switch (typeof v) {
+    case "number":
+      return hash_number(v);
+    case "string":
+      return hash_string(v);
+    case "boolean":
+      return v ? 0x4cf5ad43 : 0x27d4eb2f;
+    case "bigint":
+      return hash_number(Number(BigInt.asIntN(53, v)));
+    case "undefined":
+      return 0x165667b1;
+    case "object": {
+      if (v === null) return 0x2545f491;
+      const o = v as { readonly [INTERNED]?: true; readonly id?: number };
+      if (o[INTERNED] === true) return o.id! | 0;
+      if (Array.isArray(v)) {
+        let h = v.length;
+        for (let i = 0; i < v.length; i++) h = hash_mix(h, value_hash(v[i]));
+        return h;
+      }
+      if (v instanceof Map || v instanceof Set) panic("intern_key: a Map/Set inside an intern key");
+      // A sum: fields hash the same in any order, as `sorted_keys` makes them equal in any order.
+      const keys = Object.keys(v);
+      let h = 0x811c9dc5;
+      for (let i = 0; i < keys.length; i++) {
+        const f = (v as Record<string, unknown>)[keys[i]!];
+        if (f !== undefined) h = (h + hash_mix(0x5bd1e995, value_hash(f))) | 0;
+      }
+      return h;
+    }
+    default:
+      return panic(`intern_key: a ${typeof v} inside an intern key`);
+  }
+}
+
+export function value_eq(a: unknown, b: unknown): boolean {
+  if (a === b) return a !== 0 || 1 / (a as number) === 1 / (b as number);
+  switch (typeof a) {
+    case "number":
+      return a !== a && b !== b;
+    case "object": {
+      if (a === null || typeof b !== "object" || b === null) return false;
+      const ia = (a as { readonly [INTERNED]?: true })[INTERNED] === true;
+      const ib = (b as { readonly [INTERNED]?: true })[INTERNED] === true;
+      if (ia || ib) return ia && ib && (a as { readonly id?: number }).id === (b as { readonly id?: number }).id;
+      const aa = Array.isArray(a);
+      if (aa !== Array.isArray(b)) return false;
+      if (aa) {
+        const xa = a as readonly unknown[];
+        const xb = b as readonly unknown[];
+        if (xa.length !== xb.length) return false;
+        for (let i = 0; i < xa.length; i++) if (!value_eq(xa[i], xb[i])) return false;
+        return true;
+      }
+      const ra = a as Record<string, unknown>;
+      const rb = b as Record<string, unknown>;
+      const ka = Object.keys(a);
+      for (let i = 0; i < ka.length; i++) {
+        const k = ka[i]!;
+        if (!value_eq(ra[k], rb[k])) return false;
+      }
+      // A field only `b` has, unless it is `undefined`, which the loop above saw as equal in reverse.
+      const kb = Object.keys(b);
+      if (kb.length !== ka.length || !same_names(ka, kb)) {
+        for (let i = 0; i < kb.length; i++) {
+          const k = kb[i]!;
+          if (!Object.hasOwn(a, k) && rb[k] !== undefined) return false;
+        }
+      }
+      return true;
+    }
+    default:
+      return false;
+  }
+}
+
 /** Test hook (intern_key.test.ts): sees every value and its key. */
 let observer: ((v: unknown, key: string) => void) | undefined;
 export function set_intern_key_observer(f: ((v: unknown, key: string) => void) | undefined): void {
@@ -298,4 +405,9 @@ export function intern_key(v: unknown): string {
   const k = key_of(v);
   if (observer !== undefined) observer(v, k);
   return k;
+}
+
+/** For `ShardedHashMap::intern_value`: a real `intern_key` call when the test hook is on, so its corpus still sees every value. */
+export function observe_interned(v: unknown): void {
+  if (observer !== undefined) observer(v, key_of(v));
 }

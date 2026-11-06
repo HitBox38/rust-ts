@@ -305,7 +305,7 @@ export class CtxtInterners {
   // rustc: compiler/rustc_middle/src/ty/context.rs:215 intern_ty
   intern_ty(kind: TyKind): Ty {
     return Interned.new_unchecked(
-      this.type_.intern(kind, intern_key(kind), (kind) => {
+      this.type_.intern_value(kind, ty_kind_of, (kind) => {
         const flags = FlagComputation.for_kind(kind);
         return new Ty(kind, flags.flags, flags.outer_exclusive_binder);
       }),
@@ -316,7 +316,7 @@ export class CtxtInterners {
   // rustc: compiler/rustc_middle/src/ty/context.rs:233 intern_const
   intern_const(kind: ConstKind): Const {
     return Interned.new_unchecked(
-      this.const_.intern(kind, intern_key(kind), (kind) => {
+      this.const_.intern_value(kind, const_kind_of, (kind) => {
         const flags = FlagComputation.for_const_kind(kind);
         return new Const(kind, flags.flags, flags.outer_exclusive_binder);
       }),
@@ -327,7 +327,7 @@ export class CtxtInterners {
   // rustc: compiler/rustc_middle/src/ty/context.rs:250 intern_predicate
   intern_predicate(kind: Binder<PredicateKind>): Predicate {
     return Interned.new_unchecked(
-      this.predicate.intern(kind, intern_key(kind), (kind) => {
+      this.predicate.intern_value(kind, predicate_kind_of, (kind) => {
         const flags = FlagComputation.for_predicate(kind);
         return new Predicate(kind, flags.flags, flags.outer_exclusive_binder);
       }),
@@ -340,7 +340,7 @@ export class CtxtInterners {
       return RawList.empty_with_type_info();
     } else {
       // PORT (lane small-gaps-18): element-wise key even for an interned list (as `slice_intern`).
-      return this.clauses.intern_ref(clauses, intern_key(clauses instanceof RawList ? Array.from(clauses) : clauses), () => {
+      return this.clauses.intern_slice(clauses, () => {
         const flags = FlagComputation.for_clauses(clauses);
 
         return RawList.from_arena(undefined, TypeInfo.from(flags), clauses);
@@ -348,6 +348,14 @@ export class CtxtInterners {
     }
   }
 }
+
+// PORT(perf): the value each interned class holds, for `intern_value` (rustc_data_structures/sharded.ts).
+const ty_kind_of = (t: Ty): TyKind => t.internee;
+const const_kind_of = (c: Const): ConstKind => c.internee;
+const predicate_kind_of = (p: Predicate): Binder<PredicateKind> => p.internee;
+const region_kind_of = (r: Region): RegionKind => r.internee;
+const canonical_input_of = (c: CanonicalInput): CanonicalInputData => c._0;
+const external_constraints_of = (c: ExternalConstraints): ExternalConstraintsData => c._0;
 
 // For these preinterned values, an alternative would be to have
 // variable-length vectors that grow as needed. But that turned out to be
@@ -508,7 +516,7 @@ export class CommonLifetimes {
 
   // rustc: compiler/rustc_middle/src/ty/context.rs:486 new
   static new(interners: CtxtInterners): CommonLifetimes {
-    const mk = (r: RegionKind): Region => Interned.new_unchecked(interners.region.intern(r, intern_key(r), (r) => new Region(r)));
+    const mk = (r: RegionKind): Region => Interned.new_unchecked(interners.region.intern_value(r, region_kind_of, (r) => new Region(r)));
 
     const re_vars = range(NUM_PREINTERNED_RE_VARS).map((n) => mk({ $: "ReVar", _0: n as RegionVid }));
 
@@ -1873,7 +1881,7 @@ export class TyCtxt {
   // `InternedInSet<$ty>` (the canonical intern key, module comment) and `fn $method(self, v: $ty) -> $ret_ty`.
   // rustc-macro: compiler/rustc_middle/src/ty/context.rs:2014 direct_interners! intern_region
   intern_region(v: RegionKind): Region {
-    return Interned.new_unchecked(this.interners.region.intern(v, intern_key(v), (v) => new Region(v)));
+    return Interned.new_unchecked(this.interners.region.intern_value(v, region_kind_of, (v) => new Region(v)));
   }
   // rustc-macro: compiler/rustc_middle/src/ty/context.rs:2016 direct_interners! intern_valtree
   intern_valtree(v: ValTreeKind): ValTree {
@@ -1905,13 +1913,13 @@ export class TyCtxt {
   // rustc-macro: compiler/rustc_middle/src/ty/context.rs:2021 direct_interners! mk_external_constraints
   mk_external_constraints(v: ExternalConstraintsData): ExternalConstraints {
     return Interned.new_unchecked(
-      this.interners.external_constraints.intern(v, intern_key(v), (v) => new ExternalConstraints(v)),
+      this.interners.external_constraints.intern_value(v, external_constraints_of, (v) => new ExternalConstraints(v)),
     );
   }
   // rustc-macro: compiler/rustc_middle/src/ty/context.rs:2023 direct_interners! intern_canonical_input
   intern_canonical_input(v: CanonicalInputData): CanonicalInput {
     return Interned.new_unchecked(
-      this.interners.canonical_inputs.intern(v, intern_key(v), (v) => new CanonicalInput(v)),
+      this.interners.canonical_inputs.intern_value(v, canonical_input_of, (v) => new CanonicalInput(v)),
     );
   }
 
@@ -1926,7 +1934,7 @@ export class TyCtxt {
     } else {
       // PORT (lane small-gaps-18): the key is element-wise even when `v` is itself an interned `List` (`intern_key`
       // keys an interned object by its id): `tcx.mk_args(args)` of an interned `args` must return that same list.
-      return set.intern_ref(v, intern_key(v instanceof RawList ? Array.from(v) : v), () => RawList.from_arena(undefined, null, v));
+      return set.intern_slice(v, () => RawList.from_arena(undefined, null, v));
     }
   }
   // rustc-macro: compiler/rustc_middle/src/ty/context.rs:2045 slice_interners! mk_const_list
