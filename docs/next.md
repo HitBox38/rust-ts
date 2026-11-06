@@ -474,7 +474,7 @@ Queued:
 |---|---|---|
 | perf-near-limit | the cases gates retry: all 10 protected mir cases at 36% of their limit or less; dynamic-drop.rs and issue-8827.rs stay at 63-66% | in review |
 | fixers-40 | review queue of wave 39 | APPROVE WITH NITS; on integ-w40 |
-| fixers-41 | environment seen by compiled programs: the /bin/sh re-exec (fixers-40 F1), Bun's dotenv (F2), non-Unicode variables (F3) | in review |
+| fixers-41 | environment seen by compiled programs: the /bin/sh re-exec (fixers-40 F1), Bun's dotenv (F2), non-Unicode variables (F3) | APPROVE WITH NITS; on integ-w40 |
 | ice-report | docs/plan-ice-report.md as amended by its review: 92 of 118 reached, 18 of those needing the mask batch; no replay, no RUST_BACKTRACE change | reviewed and re-checked; on integ-w40 |
 | harness-w40 | queued: thread-id mask, stderr only (docs/handoff/ice-report-impl.md section 5.2, and F4 for split suites); coverage.ts support for rustc-call and rustc-const (5.3); long-type digits (fixers-40 N1); the generator for long error descriptions as a tools batch; mono-wire's tools batch; supertrait-hint-cycle.rs to a heavy list (oracle 59-68 s, A12's oracle-cost rule); retry times, and per-case RSS if possible, in gate.json | queued |
 
