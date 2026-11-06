@@ -163,6 +163,15 @@ function edition(file: string): string {
 
 const bunCmd = (script: string) => [process.execPath, join(REPO, script)];
 
+// Left out of `parse` (root's decision 2026-11-06, docs/reviews/harness-w40.md item 5): the oracle timed out on each in all of the last 3
+// gates, and an ORACLE_TIMEOUT is never cached, so every run pays up to 25 minutes of process time per file. None is in `parse`'s baseline.
+// The same files as `NOCORE_SKIPPED`, with a reason of their own: that one names a different flag, and this suite has never had their output.
+const PARSE_SKIPPED: SkippedCase[] = [
+  { id: "tests/ui/associated-consts/issue-93775.rs", reason: "oracle -Zunpretty=ast-tree ({:#?} of a deeply nested AST) does not finish in 1500 s" },
+  { id: "tests/ui/expr/if/expr-stack-overflow.rs", reason: "oracle -Zunpretty=ast-tree does not finish in 1500 s (NOCORE_SKIPPED records ~13 GB of output)" },
+  { id: "tests/ui/parser/survive-peano-lesson-queue.rs", reason: "oracle -Zunpretty=ast-tree ({:#?} of a deeply nested AST) does not finish in 1500 s" },
+];
+
 export const SUITES: Suite[] = [
   {
     name: "lex",
@@ -186,8 +195,9 @@ export const SUITES: Suite[] = [
     // `{:#?}` dump nests ~1300 levels); 60 s could never finish it. Success is cached once per
     // oracle build, so the longer limit costs nothing afterwards.
     oracleTimeoutMs: 300_000,
+    skipped: () => PARSE_SKIPPED,
     cases: () =>
-      corpus("tests/ui").map((f) => {
+      corpus("tests/ui").filter((f) => !PARSE_SKIPPED.some((k) => k.id === f)).map((f) => {
         const ed = edition(f);
         // RUSTC_ICE=0, as every suite that runs a hook-installing entry: a panic must not leave a report in the upstream checkout
         // (review ice-report-impl F3). Measured when added: all 21,523 oracle outputs identical to those cached without it.
