@@ -1668,12 +1668,21 @@ export const RUSTC_DRIVER_ENTRY = "src/rust_ts/main.ts";
 export const MIRI_SUBJECT_ENTRY: string = MIRI_DRIVER_ENTRY;
 
 /**
+ * Preloaded by the Miri subject (lane harness-w41; docs/reviews/fixers-41.md section 2): Bun parses an entry's whole import graph before it
+ * evaluates anything, so without this the process that only re-execs (src/rust_ts/stack.ts) parses all of Miri for nothing. `miri.ts` imports this
+ * file first anyway, so the modules evaluate in the same order, and the file's `Bun.main` check holds under a preload. `process.argv` is the
+ * same; only `process.execArgv` and the raw argv show the flag, and no port code reads them for anything but the tail after the script.
+ * An oracle key never reads a subject's command.
+ */
+export const MIRI_STACK_PRELOAD = "src/rust_ts/miri_stack_first.ts";
+
+/**
  * The subject of a Miri case with entry point `entry` (see above). `MIRI_DRIVER_ENTRY` gets the oracle's argv as is;
  * any other entry (the port's rustc driver) gets Miri's rustc argv: `MIRI_DEFAULT_ARGS`, then the case's argv without
  * `-Zmiri-*` and without the program's arguments after `--`.
  */
 export function miriSubjectOf(entry: string, args: string[]): string[] {
-  if (entry === MIRI_DRIVER_ENTRY) return [...bunCmd(MIRI_DRIVER_ENTRY), ...args];
+  if (entry === MIRI_DRIVER_ENTRY) return [process.execPath, "--preload", join(REPO, MIRI_STACK_PRELOAD), join(REPO, MIRI_DRIVER_ENTRY), ...args];
   const dd = args.indexOf("--");
   const rustc = (dd < 0 ? args : args.slice(0, dd)).filter((a) => !a.startsWith("-Zmiri-"));
   return [...bunCmd(entry), ...MIRI_DEFAULT_ARGS, ...rustc];
