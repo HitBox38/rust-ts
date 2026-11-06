@@ -14,6 +14,7 @@
 // `environ`, which is what a proc-macro dylib reads. So everything `std::env` does on the host goes through libc here.
 // On other hosts (Windows) `process.env` stands in: a non-Unicode value or a dotenv variable is not detected there.
 import { readFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { dlopen, FFIType, type Pointer, ptr, read, toArrayBuffer } from "bun:ffi";
 import { panic } from "./panic.ts";
 import { Err, Ok, type Result } from "./result.ts";
@@ -230,6 +231,13 @@ export function var_os(key: string): OsString | undefined {
   if (k === undefined) return undefined;
   const v = env_libc().symbols.getenv(ptr(k));
   return v === null ? undefined : read_cstr(v as Pointer);
+}
+
+/** `env::home_dir()`. PORT: `fallback` is `getpwuid_r`'s `pw_dir`, which `os.homedir()` gives when `HOME` is unset or empty. */
+// std: library/std/src/sys/paths/unix.rs:452 home_dir
+export function home_dir(): OsString {
+  const home = var_os("HOME");
+  return home !== undefined && home.length > 0 ? home : encoder.encode(homedir());
 }
 
 /** `std::env::VarError` */
