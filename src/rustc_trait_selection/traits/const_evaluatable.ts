@@ -101,6 +101,7 @@ export function is_const_evaluatable(infcx: InferCtxt, unexpanded_ct: Const, par
       case "Alias": {
         const r = try_evaluate_const(infcx, unexpanded_ct, param_env, (ty) => Ok(UnnormalizedC.skip_norm_wip(ty)));
         if (r.$ === "Err" && r._0.$ === "HasGenericsOrInfers") {
+          // rustc-call: 73:68
           return Err({ $: "Error", _0: infcx.dcx().span_delayed_bug(span, "Missing value for constant, but no error reported?") });
         } else if (r.$ === "Err" && (r._0.$ === "EvaluationFailure" || r._0.$ === "InvalidConstParamTy")) {
           const e = r._0._0;

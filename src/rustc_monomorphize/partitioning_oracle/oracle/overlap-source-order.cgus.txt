@@ -1,0 +1,23 @@
+CGU overlap.e99af07dce225fed-dst--overlap.e99af07dce225fed-one_big sym=_RINSCsk3tsy4eZsiD_7overlap3cguKRe6f7665726c61702e653939616630376463653232356665642d6473742d2d6f7665726c61702e653939616630376463653232356665642d6f6e655f626967_E size=81 primary=true covdead=false n=6
+IT fn dst::alpha External Default inlined=false size=23
+IT fn dst::zed External Default inlined=false size=4
+IT fn big Internal Default inlined=true size=18
+IT fn small1 Internal Default inlined=true size=4
+IT fn small2 Internal Default inlined=true size=4
+IT fn one_big::f External Default inlined=false size=28
+DO _RNvCsk3tsy4eZsiD_7overlap3big fn big
+DO _RNvCsk3tsy4eZsiD_7overlap6small1 fn small1
+DO _RNvCsk3tsy4eZsiD_7overlap6small2 fn small2
+DO _RNvNtCsk3tsy4eZsiD_7overlap3dst3zed fn dst::zed
+DO _RNvNtCsk3tsy4eZsiD_7overlap3dst5alpha fn dst::alpha
+DO _RNvNtCsk3tsy4eZsiD_7overlap7one_big1f fn one_big::f
+CGU overlap.e99af07dce225fed-top--overlap.e99af07dce225fed-two_small sym=_RINSCsk3tsy4eZsiD_7overlap3cguKRe6f7665726c61702e653939616630376463653232356665642d746f702d2d6f7665726c61702e653939616630376463653232356665642d74776f5f736d616c6c_E size=80 primary=false covdead=false n=4
+IT fn top::zed External Default inlined=false size=63
+IT fn two_small::f External Default inlined=false size=9
+IT fn small1 Internal Default inlined=true size=4
+IT fn small2 Internal Default inlined=true size=4
+DO _RNvCsk3tsy4eZsiD_7overlap6small1 fn small1
+DO _RNvCsk3tsy4eZsiD_7overlap6small2 fn small2
+DO _RNvNtCsk3tsy4eZsiD_7overlap3top3zed fn top::zed
+DO _RNvNtCsk3tsy4eZsiD_7overlap9two_small1f fn two_small::f
+ALL 8

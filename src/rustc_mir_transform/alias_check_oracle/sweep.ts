@@ -30,6 +30,7 @@ import { DATA, REPO } from "../../../scripts/lib/common.ts";
 import { caseEnv, mergeEnv } from "../../../scripts/lib/env.ts";
 import { oracleRustcCmd, oracleSysroot } from "../../../scripts/lib/oracle.ts";
 import type { AliasHit } from "./hooks.ts";
+import { classify_run, type Outcome } from "./sweep_outcome.ts";
 
 const DRIVER = join(REPO, "src/rustc_mir_transform/alias_check_oracle/driver.ts");
 const MAIN = join(REPO, "src/rust_ts/main.ts");
@@ -166,7 +167,7 @@ async function spawn(cmd: string[], cwd: string, e: Record<string, string>): Pro
 interface RunResult {
   file: string;
   mode: string;
-  outcome: "MATCH" | "DIFF" | "UNPORTED" | "ICE" | "BOTH_ICE" | "TIMEOUT" | "CHECKED";
+  outcome: Outcome;
   oracle: number | undefined;
   port: number;
   checked: boolean;
@@ -230,20 +231,9 @@ async function run_one(p: Program, mode: string): Promise<RunResult> {
       } else hits.push(o);
     }
   }
-  let outcome: RunResult["outcome"];
-  let first_diff: string | undefined;
-  if (port.timeout) outcome = "TIMEOUT";
-  else if (port.code === 70) outcome = "UNPORTED";
-  else if (mono) outcome = port.code === 101 ? "ICE" : "CHECKED";
-  else if (dump && oracle!.code === port.code && dump_difference(join(cwd, "o"), join(cwd, "p")) !== undefined) {
-    outcome = "DIFF";
-    first_diff = dump_difference(join(cwd, "o"), join(cwd, "p"));
-  } else if (oracle!.out === port.out && oracle!.err === port.err && oracle!.code === port.code) outcome = "MATCH";
-  else if (port.code === 101 && oracle!.code !== 101) outcome = "ICE";
-  // Invalid custom MIR at this mode, on both sides. The wording differs (`rust-ts: internal compiler error`), and the ICE's
-  // text is not compared here: the suites do that.
-  else if (port.code === 101 && oracle!.code === 101) outcome = "BOTH_ICE";
-  else outcome = "DIFF";
+  const dump_diff = dump && !port.timeout && port.code !== 70 && oracle!.code === port.code ? dump_difference(join(cwd, "o"), join(cwd, "p")) : undefined;
+  const outcome = classify_run(mono, port.timeout, oracle, port, dump_diff);
+  let first_diff = dump_diff;
   if ((outcome === "DIFF" || outcome === "ICE") && first_diff === undefined) {
     first_diff = oracle === undefined ? port.err.slice(0, 300) : first_difference(oracle.out, port.out) || first_difference(oracle.err, port.err);
   } else if (outcome === "UNPORTED") {

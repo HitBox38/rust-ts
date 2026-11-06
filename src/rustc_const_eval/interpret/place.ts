@@ -760,8 +760,6 @@ InterpCx.prototype.eval_place = function (this: InterpCx, mir_place: mir_Place, 
   return interp_ok(place);
 };
 
-/// Given a place, returns either the underlying mplace or a reference to where the value of
-/// this place is stored.
 /**
  * Measured (docs/handoff/miri-perf.md, 486 Ginstr at base): -2.4 Ginstr.
  * PORT(perf): the `MutRef<Immediate>` of `as_mplace_or_mutable_local` as a class: an object literal with an accessor pair
@@ -781,6 +779,8 @@ class LocalImmediateRef implements MutRef<Immediate> {
   }
 }
 
+/// Given a place, returns either the underlying mplace or a reference to where the value of
+/// this place is stored.
 // PORT: `&mut Immediate` (the local's value) is a `MutRef<Immediate>` whose writes store
 // `LocalValue::Live(Operand::Immediate(v))` into the frame's `LocalState` (`LocalState.value` is the mutable field).
 // #[inline(always)]

@@ -22,6 +22,7 @@
 import type { AllocatorKind } from "../../../rustc_ast/expand/allocator.ts";
 import * as dependency_format from "../../dependency_format.ts";
 import * as eii from "../../eii.ts";
+import type { EiiMap } from "../../eii.ts";
 import * as foreign_modules from "../../foreign_modules.ts";
 import * as native_libs from "../../native_libs.ts";
 import type { DiagnosticItems } from "../../../rustc_attr_ir/diagnostic_items.ts";
@@ -69,7 +70,7 @@ import { decode_FnSig, type FnSig } from "../../../rustc_type_ir/ty_kind.ts";
 // end rmeta-ty imports
 import { CStore, type LoadedMacro } from "../../creader.ts";
 import type { CrateMetadata, DecodeIterator, MetadataDecodeContext, SimplifiedType } from "../decoder.ts";
-import { decode_Deprecation, type Deprecation } from "../../../rustc_attr_ir/data_structures.ts";
+import { decode_Deprecation, type Deprecation, type EiiImpl } from "../../../rustc_attr_ir/data_structures.ts";
 import { DeprecationEntry } from "../../../rustc_middle/middle/stability.ts";
 import { decode_AsyncDestructor, decode_ConstConditions, decode_DeducedParamAttrs, decode_Destructor, decode_GenericClauses, decode_Generics, decode_ImplTraitHeader, decode_ObjectLifetimeDefault, decode_TraitDef } from "../../../rustc_middle/decodable.gen.ts";
 import { decode_ConstStability, decode_DefaultBodyStability, decode_Stability } from "../../../rustc_attr_ir/stability.ts";
@@ -575,11 +576,9 @@ export const PROVIDE_EXTERN: { readonly [N in ExternQuery]?: ProvideEntry<N> } =
   externally_implementable_items: [
     IntoArgs_CrateNum,
     (tcx, _def_id, _other, cdata) => {
-      // PORT: `EiiMapEncodedKeyValue` = `(DefId, (EiiDecl, Vec<(DefId, EiiImpl)>))` (eii.rs:9); `EiiDecl` /
-      // `EiiImpl` are not ported (`unknown`).
-      const map = new KeyedMap<DefId, [unknown, Map<DefId, unknown>]>(DefId_hash_key);
-      for (const [decl_did, [decl, impls]] of cdata.get_externally_implementable_items(tcx) as Iterable<[DefId, [unknown, [DefId, unknown][]]]>) {
-        map.set(decl_did, [decl, new KeyedMap<DefId, unknown>(DefId_hash_key, impls)]);
+      const map: EiiMap = new KeyedMap(DefId_hash_key);
+      for (const [decl_did, [decl, impls]] of cdata.get_externally_implementable_items(tcx)) {
+        map.set(decl_did, [decl, new KeyedMap<DefId, EiiImpl>(DefId_hash_key, impls)]);
       }
       return map;
     },

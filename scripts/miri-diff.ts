@@ -18,7 +18,7 @@
 // cached under $RUST_TS_DATA/miri-diff-cache/, keyed as difftest keys the Miri oracle cache (difftest.ts
 // `caseOracleCacheKey`: pin, Miri binary, suite, case id, argv, file, env including `MIRI_LOG`, dependencies,
 // `miriOracleKey()`), so the oracle runs once per case and Miri toolchain/sysroot; raw, so a normalisation change needs
-// no new oracle run. A case whose oracle stderr is unstable (difftest `unstableReasonOf`, `Suite.unstable`) is never
+// no new oracle run. A case whose oracle stderr is unstable (`unstableOracleReason`, `Suite.unstable`) is never
 // cached.
 //
 // Output (AGENTS.md §4): a few summary lines (records on each side; the first differing record with the oracle's and
@@ -35,8 +35,9 @@ import { caseEnv } from "./lib/env.ts";
 import { verifyMiriOracle } from "./lib/miri.ts";
 import { compareTraces, normaliseTrace, traceLine, traceText, type MiriTrace, type TraceVerdict } from "./lib/miri-trace.ts";
 import { verifyOraclePin } from "./lib/oracle.ts";
+import { unstableOracleReason } from "./lib/unstable.ts";
 import { upstreamChanges, upstreamError, upstreamStatus } from "./lib/upstream.ts";
-import { ORACLE_RETRY_FACTOR, caseOracleCacheKey, cwdOf, unportedOf, unstableOf, unstableReasonOf } from "./difftest.ts";
+import { ORACLE_RETRY_FACTOR, caseOracleCacheKey, cwdOf, unportedOf, unstableOf } from "./difftest.ts";
 
 /** The variables miri-diff adds to a case's env on both sides (A6: `info`-level events only). */
 export const MIRI_TRACE_ENV: Readonly<Record<string, string>> = { MIRI_LOG: "info" };
@@ -164,7 +165,7 @@ async function main(): Promise<void> {
     cached ?? oracleRun(),
     run(s.subject([c]), { cwd, timeoutMs: s.timeoutMs, env: { ...caseEnv(c.env), RUST_TS_IMPL: impl } }),
   ]);
-  const unstable = listedUnstable ?? unstableReasonOf(s)(o.stderr);
+  const unstable = listedUnstable ?? unstableOracleReason(o.stderr);
   if (!cached && unstable === undefined) writeTrace(cacheFile, o);
 
   const ot = normaliseTrace(o.stderr);

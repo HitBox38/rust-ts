@@ -38,9 +38,13 @@ describe("classes", () => {
     expect(FAILURE_CLASSES).toContain("crashed");
     // A port panic printed as rustc does.
     expect(classify(run(), run({ exit: 101, stderr: "thread 'rustc' panicked at x\n" }), REPO).detail).toBe("thread 'rustc' panicked at x @ ");
+    expect(classify(run(), run({ exit: 101, stderr: "thread 'rustc' (123) panicked at x\n" }), REPO).detail).toBe("thread 'rustc' (123) panicked at x @ ");
     // Both sides ICE: compared like any other output.
     expect(classify(run({ exit: 101, stderr: "error: internal compiler error: a\n" }), run({ exit: 101, stderr: "error: internal compiler error: a\n" }), REPO).cls).toBe("matched");
     expect(classify(run({ exit: 101, stderr: "error: internal compiler error: a\n" }), run({ exit: 101, stderr: "error: internal compiler error: b\n" }), REPO).cls).toBe("differed");
+    // ... with the thread id masked, as difftest compares it; a location still differs.
+    expect(classify(run({ exit: 101, stderr: "thread 'rustc' (1) panicked at x\n" }), run({ exit: 101, stderr: "thread 'rustc' (2) panicked at x\n" }), REPO).cls).toBe("matched");
+    expect(classify(run({ exit: 101, stderr: "thread 'rustc' (1) panicked at x\n" }), run({ exit: 101, stderr: "thread 'rustc' (2) panicked at y\n" }), REPO).cls).toBe("differed");
   });
   test("port-timeout and port output over the cap are failures; unported is not", () => {
     expect(classify(run(), run({ timeout: true, exit: null }), REPO)).toEqual({ cls: "port-timeout", detail: "" });

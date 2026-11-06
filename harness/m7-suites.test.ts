@@ -30,6 +30,32 @@ console.log(JSON.stringify({
 }));
 `;
 
+test("mir-heavy: the oracle-cost rule, out of mir, unprotected, in no gate by default", () => {
+  const code = `
+const s = await import(${JSON.stringify(join(REPO, "harness/suites.ts"))});
+const heavy = s.suite("mir-heavy");
+console.log(JSON.stringify({
+  ids: heavy.cases().map((c) => c.id),
+  list: Object.keys(s.MIR_HEAVY),
+  heavy: heavy.heavy,
+  skipped: s.suite("mir").skipped().map((k) => k.id),
+  same: JSON.stringify(heavy.oracle(heavy.cases())) === JSON.stringify(s.suite("mir").oracle(heavy.cases())),
+}));
+`;
+  const r = Bun.spawnSync([process.execPath, "-e", code], { cwd: REPO, stdout: "pipe", stderr: "pipe" });
+  expect(r.exitCode, r.stderr.toString()).toBe(0);
+  const j = JSON.parse(r.stdout.toString().trim().split("\n").at(-1)!);
+  expect(j.ids).toEqual(["tests/ui/closures/supertrait-hint-cycle.rs"]);
+  expect(j.ids).toEqual(j.list);
+  expect(j.skipped).toEqual(j.ids);
+  expect(j.heavy).toBeDefined();
+  expect(j.same).toBe(true);
+  // gate.ts's default is the suites with a baseline file, and a protected case can never have moved.
+  expect(existsSync(join(REPO, "harness/baseline/mir-heavy.txt"))).toBe(false);
+  const mir = new Set(readFileSync(join(REPO, "harness/baseline/mir.txt"), "utf8").split("\n"));
+  for (const id of j.ids) expect(mir.has(id)).toBe(false);
+}, 120_000);
+
 test("the suites, without running one", () => {
   const r = Bun.spawnSync([process.execPath, "-e", CHILD], { cwd: REPO, stdout: "pipe", stderr: "pipe" });
   expect(r.exitCode, r.stderr.toString() + r.stdout.toString()).toBe(0);

@@ -18,7 +18,7 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { IR_RUN, RG_CHECK, RMETA_RUN, SUITES, suite as getSuite, type Suite } from "../harness/suites.ts";
-import { difftest, heavyErrorLines, heavyLine, unstableOf, type HeavyRun, type OracleRerun } from "./difftest.ts";
+import { difftest, heavyErrorLines, heavyLine, unstableOf, type HeavyRun, type OracleRerun, type Usage } from "./difftest.ts";
 import { REPO, RUNS, UPSTREAM, die, ensureDir, nowId, parseArgs, run } from "./lib/common.ts";
 import { miriBinary } from "./lib/miri.ts";
 import { verifyOraclePin } from "./lib/oracle.ts";
@@ -55,6 +55,11 @@ interface SuiteGate {
   unstable?: string[];
   /** Cases whose subject timed out in difftest's parallel pool and were re-run alone (their status is the re-run's). */
   retried?: string[];
+  /**
+   * Every subject that timed out in the pool, with its final status and each attempt's time and max RSS (`CaseResult.attempts`).
+   * Informational: a status never reads it. Lane harness-w40; `MATCH` here is a case that matched only through the re-run.
+   */
+  retryTimes?: { id: string; status: string; pool: Usage; alone?: Usage }[];
   /** Paths of the upstream checkout this suite's run changed (scripts/lib/upstream.ts); any fails the run. */
   upstreamChanges?: string[];
   /** Heavy suites: each run's wall/user time and max RSS (informational; an RSS over budget never fails the run). */
@@ -372,8 +377,9 @@ async function gateRun(requested: string[], skipStatic: boolean, skipHeavy: bool
     const lostSkipped = lost.filter((id) => skippedWhy.has(id)).map((id) => ({ id, reason: skippedWhy.get(id)! }));
     const unstable = results.filter((r) => r.status === "UNSTABLE").map((r) => r.id);
     const retried = results.filter((r) => r.retried).map((r) => r.id);
+    const retryTimes = results.flatMap((r) => (r.attempts ? [{ id: r.id, status: r.status, ...r.attempts }] : []));
     const heavyErrors = (heavy ?? []).flatMap((h) => heavyErrorLines(suite, h));
-    out.push({ suite, baseline: base.size, match: match.size, total: results.length, lost, gained, batchOnlyFailures: stats.batchOnlyFailures, batchOnlyTimeouts: stats.batchOnlyTimeouts, oracleTimeouts, lostSkipped, unstable, retried, upstreamChanges, ...(heavy ? { heavy, heavyErrors } : {}), ...(extra !== undefined ? { extra, oracleReruns } : {}) });
+    out.push({ suite, baseline: base.size, match: match.size, total: results.length, lost, gained, batchOnlyFailures: stats.batchOnlyFailures, batchOnlyTimeouts: stats.batchOnlyTimeouts, oracleTimeouts, lostSkipped, unstable, retried, retryTimes, upstreamChanges, ...(heavy ? { heavy, heavyErrors } : {}), ...(extra !== undefined ? { extra, oracleReruns } : {}) });
     console.log(`${lost.length ? "ERROR:" : "ok   "} ${suite}: protected=${base.size} match=${match.size}/${results.length} lost=${lost.length} gained=${gained.length}`);
     for (const h of heavy ?? []) console.log(`  ${heavyLine(suite, h)}`);
     // (Reported, recorded in gate.json, but not a gate failure by themselves: see `SuiteGate.heavyErrors`.)

@@ -21,6 +21,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { DATA, REPO, UPSTREAM, ensureDir, parseArgs, run } from "./lib/common.ts";
 import { caseEnv } from "./lib/env.ts";
 import { dumpFilesInOrder, firstDumpDifference } from "./lib/mir-dump.ts";
+import { maskedTexts } from "./lib/unstable.ts";
 import { upstreamChanges, upstreamError, upstreamStatus } from "./lib/upstream.ts";
 import { oracleRustcCmd, verifyOraclePin } from "./lib/oracle.ts";
 
@@ -93,12 +94,14 @@ for (const [phase, flags] of PHASES) {
   const st = `${s.stdout}\n--- stderr ---\n${s.stderr}\n--- exit: ${s.code} ---\n`;
   writeFileSync(join(out, `${phase}.oracle.txt`), ot);
   writeFileSync(join(out, `${phase}.subject.txt`), st);
-  if (ot === st) {
+  // Compared as difftest compares a case: a panic message's thread id and a long-type hash are masked, in stderr only.
+  const [om, sm] = maskedTexts(false, ot, st);
+  if (om === sm) {
     console.log(`ok    ${phase}`);
     continue;
   }
-  const ol = ot.split("\n");
-  const sl = st.split("\n");
+  const ol = om.split("\n");
+  const sl = sm.split("\n");
   let i = 0;
   while (ol[i] === sl[i]) i++;
   console.log(`DIVERGES at phase '${phase}' (${s.code === 70 ? "unported" : `exit ${s.code} vs ${o.code}`}), line ${i + 1}:`);

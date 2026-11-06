@@ -11,21 +11,34 @@ const g = await import(${JSON.stringify(join(REPO, "scripts/gate.ts"))});
 const { SUITES } = await import(${JSON.stringify(join(REPO, "harness/suites.ts"))});
 const o = (text, code = 0, extra = {}) => ({ text, code, timedOut: false, ...extra });
 const listed = (name) => [...d.unstableOf(SUITES.find((s) => s.name === name)).entries()];
-const id = listed("tydump-ui")[0][0];
+const id = listed("miri-pass")[0][0];
+const single = { mode: "single" };
+const miri = { mode: "single", miri: true };
+const batch = { mode: "batch" };
 console.log(JSON.stringify({
   statuses: d.STATUSES,
   same: d.classify(o("a"), o("a")),
   unstableSame: d.classify(o("a", 0, { unstable: "why" }), o("a")),
   unstableUnported: d.classify(o("a", 0, { unstable: "why" }), o("x", 70)),
   oracleTimeoutFirst: d.classify({ text: "", code: 0, timedOut: true, unstable: "why" }, o("")),
+  // Through \`compared\`, as difftest calls it (scripts/lib/unstable.test.ts has the pairs).
+  masked: [
+    [single, "", "thread 'a' (1) panicked at x", "", "thread 'a' (2) panicked at x"],
+    [single, "", "thread 'a' (1) panicked at x", "", "thread 'b' (2) panicked at x"],
+    [single, "thread 'a' (1) panicked", "", "thread 'a' (2) panicked", ""],
+    [miri, "", "thread 'main' (1000) panicked at x", "", "thread 'main' (1001) panicked at x"],
+    [batch, "", "thread 'a' (1) panicked at x", "", "thread 'a' (2) panicked at x"],
+  ].map(([s, a, b, c, e]) => d.classify(...d.compared(s, o(d.render({ stdout: a, stderr: b, code: 0 })), o(d.render({ stdout: c, stderr: e, code: 0 }))))),
+  unstableStaysFirst: d.classify(...d.compared(single, o(d.render({ stdout: "", stderr: "thread 'a' (1) panicked", code: 0 }), 0, { unstable: "why" }), o(d.render({ stdout: "", stderr: "thread 'a' (2) panicked", code: 0 })))),
+  batchIsUntouched: d.compared(batch, o("x"), o("y"))[0].text,
   tydump: listed("tydump-ui"),
   thirdump: listed("thirdump-ui"),
   mirdump: listed("mirdump-ui"),
   mir: listed("mir"),
   thirTree: listed("thir-tree"),
   withUnstable: SUITES.filter((s) => s.unstable).map((s) => s.name),
-  protectedListed: g.protectedUnstable("tydump-ui", new Set([id, "tests/ui/typeck/other.rs"])),
-  protectedNone: g.protectedUnstable("tydump-ui", new Set(["tests/ui/typeck/other.rs"])),
+  protectedListed: g.protectedUnstable("miri-pass", new Set([id, "tests/pass/other.rs"])),
+  protectedNone: g.protectedUnstable("miri-pass", new Set(["tests/pass/other.rs"])),
   baselinesClean: SUITES.map((s) => [s.name, g.protectedUnstable(s.name)]).filter(([, b]) => b.length),
 }));
 `;
@@ -40,22 +53,18 @@ test("UNSTABLE status, the M3 ui lists, and the gate's refusal to protect listed
   expect(j.unstableSame).toBe("UNSTABLE");
   expect(j.unstableUnported).toBe("UNSTABLE");
   expect(j.oracleTimeoutFirst).toBe("ORACLE_TIMEOUT");
-  // The 8 measured cases (harness/suites.ts M3_UI_UNSTABLE), with reasons, in both M3 ui suites; mirdump-ui has its own
-  // list (M4A_UI_UNSTABLE), and so have the M4c suites mir (MIR_UNSTABLE) and thir-tree (THIR_TREE_UNSTABLE: the 8 M3 ids
-  // plus one, lane harness-w25), and so have the M6 suites pm-ui (PM_UI_UNSTABLE, lane harness-m6b) and miri-pass
-  // and miri-pass-heavy (MIRI_PASS_UNSTABLE, lane harness-m6c).
-  expect(j.tydump.length).toBe(8);
-  expect(j.thirdump).toEqual(j.tydump);
-  for (const [, why] of j.tydump) expect(why.length).toBeGreaterThan(0);
-  expect(j.withUnstable).toEqual(["tydump-ui", "thirdump-ui", "mirdump-ui", "mir", "thir-tree", "pm-ui", "miri-pass", "miri-pass-heavy"]);
-  expect(j.mirdump.length).toBe(4);
-  for (const [, why] of j.mirdump) expect(why.length).toBeGreaterThan(0);
-  expect(j.mir.length).toBe(14);
-  for (const [, why] of j.mir) expect(why.length).toBeGreaterThan(0);
-  expect(j.thirTree.length).toBe(9);
-  for (const [, why] of j.thirTree) expect(why.length).toBeGreaterThan(0);
-  for (const [k] of j.tydump) expect(j.thirTree.map(([t]: [string, string]) => t)).toContain(k);
-  expect(j.protectedListed).toEqual([j.tydump[0][0]]);
+  // A thread id is masked, in a single-mode suite's stderr; a name, stdout, a Miri program's id and a batch suite are not.
+  expect(j.masked).toEqual(["MATCH", "DIFF", "DIFF", "DIFF", "DIFF"]);
+  expect(j.unstableStaysFirst).toBe("UNSTABLE");
+  expect(j.batchIsUntouched).toBe("x");
+  // The one measured case left: miri-pass's own program's id (MIRI_PASS_UNSTABLE, lane harness-m6c); miri-pass-heavy shares the list.
+  expect(j.withUnstable).toEqual(["miri-pass", "miri-pass-heavy"]);
+  expect(j.tydump).toEqual([]);
+  expect(j.thirdump).toEqual([]);
+  expect(j.mirdump).toEqual([]);
+  expect(j.mir).toEqual([]);
+  expect(j.thirTree).toEqual([]);
+  expect(j.protectedListed).toEqual(["tests/panic/panic1.rs"]);
   expect(j.protectedNone).toEqual([]);
   // No baseline protects a listed unstable case.
   expect(j.baselinesClean).toEqual([]);

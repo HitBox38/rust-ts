@@ -11,6 +11,7 @@
 // its top-level code may touch only the classes it imports, never another extension module.
 // PORT: `RegionVid::as_usize` / `DebruijnIndex::as_usize` / `BoundVar::as_usize` are the identity on the branded
 // numbers; `slice.get(i)` is `arr[i]` (`undefined` = `None`).
+import { keep_frame } from "../../../std/panic.ts";
 import type { VisitorResult } from "../../../rustc_ast_ir/visit.ts";
 import { try_visit } from "../../../rustc_ast_ir/visit.ts";
 import type { LangItem } from "../../../rustc_attr_ir/lang_items.ts";
@@ -490,7 +491,7 @@ TyCtxt.prototype.delay_bug = function (this: TyCtxt, msg: string): ErrorGuarante
 
 // rustc: compiler/rustc_middle/src/ty/context/impl_interner.rs:615 span_delayed_bug
 TyCtxt.prototype.span_delayed_bug = function (this: TyCtxt, span: Span, msg: string): ErrorGuaranteed {
-  return this.dcx().span_delayed_bug(span, msg);
+  return keep_frame(this.dcx().span_delayed_bug(span, msg));
 };
 
 // rustc: compiler/rustc_middle/src/ty/context/impl_interner.rs:619 is_general_coroutine
@@ -573,7 +574,9 @@ TyCtxt.prototype.get_re_static_lifetime = function (this: TyCtxt): Region {
 // rustc: compiler/rustc_middle/src/ty/context/impl_interner.rs:702 intern_re_var
 TyCtxt.prototype.intern_re_var = function (this: TyCtxt, rv: RegionVid): Region {
   // Use a pre-interned one when possible.
-  return this.lifetimes.re_vars[rv] ?? this.intern_region({ $: "ReVar", _0: rv });
+  // PORT(perf): `re_var_memo`, see `CommonLifetimes`.
+  const l = this.lifetimes;
+  return l.re_vars[rv] ?? (l.re_var_memo[rv] ??= this.intern_region({ $: "ReVar", _0: rv }));
 };
 
 // rustc: compiler/rustc_middle/src/ty/context/impl_interner.rs:711 intern_region
@@ -597,7 +600,8 @@ TyCtxt.prototype.intern_canonical_bound = function (this: TyCtxt, var_: BoundVar
   if (re !== undefined) {
     return re;
   } else {
-    return this.intern_region({ $: "ReBound", _0: { $: "Canonical" }, _1: { var: var_, kind: { $: "Anon" } } });
+    // PORT(perf): `canonical_bound_memo`, see `CommonLifetimes`.
+    return (this.lifetimes.canonical_bound_memo[var_] ??= this.intern_region({ $: "ReBound", _0: { $: "Canonical" }, _1: { var: var_, kind: { $: "Anon" } } }));
   }
 };
 

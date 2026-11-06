@@ -1,10 +1,44 @@
 // Rust panics. rustc turns an uncaught panic into an ICE (exit 101); the driver does the same.
 
+/**
+ * PORT: Rust runs the panic hook at the panic, before unwinding starts, so the query context is still live when the
+ * hook prints it. The one place every panic passes is this constructor, which calls `panic_with_hook` (std/panicking.ts)
+ * once a hook is installed. `resume_unwind` runs no hook, which here is `run_hook = false` (a re-raised payload:
+ * proc_macro/bridge/panic_message.ts `into_payload`). A subclass sets its `name` after `super()`, so the hook must tell
+ * subclasses apart with `instanceof` and never read `name`.
+ */
 export class Panic extends Error {
-  constructor(message: string) {
+  /** The panic hook has told the user about this panic, so an entry point's last-resort banner stays silent. */
+  reported: boolean;
+
+  constructor(message: string, run_hook: boolean = true) {
     super(message);
     this.name = "Panic";
+    this.reported = !run_hook && PANIC_WITH_HOOK !== undefined;
+    if (run_hook && PANIC_WITH_HOOK !== undefined) PANIC_WITH_HOOK(this);
   }
+
+  /** `payload_as_str`: the text of a `&str`/`String` payload; `panic_any` subclasses have none (`Box<dyn Any>`). */
+  payload_as_str(): string | undefined {
+    return this.message;
+  }
+}
+
+/** Set by std/panicking.ts when a hook is installed. PORT: a function here keeps this module free of imports, since
+ *  everything imports it. `undefined` means no hook: entry points without one report at top level. */
+let PANIC_WITH_HOOK: ((payload: Panic) => void) | undefined;
+
+export function set_panic_with_hook(f: ((payload: Panic) => void) | undefined): void {
+  PANIC_WITH_HOOK = f;
+}
+
+/**
+ * Keeps the calling frame on the stack where a call returns a value and `#[track_caller]` needs that frame: JSC's proper
+ * tail calls drop it on `return f(..)`. Write `return keep_frame(f(..))`, or a bare `f(..);` for a `never` call. Other shapes
+ * do not work: Bun 1.4.3 folds `const r = f(); return r;` back into a tail call (src/rust_ts/track_caller.test.ts pins this).
+ */
+export function keep_frame<T>(value: T): T {
+  return value;
 }
 
 /** Code path not ported yet. The driver maps this to exit code 70 ("UNPORTED"), never to a rustc status. */
@@ -73,7 +107,12 @@ export function panicking(): boolean {
   return panic_count > 0;
 }
 
-/** Runs `f` as destructor code during unwinding: `panicking()` is true inside `f`. */
+/** `panic_count::get_count()` */
+export function panic_count_get(): number {
+  return panic_count;
+}
+
+/** Runs `f` as destructor code during unwinding: `panicking()` is true inside `f`. Also the panic hook's count. */
 export function while_unwinding<R>(f: () => R): R {
   panic_count += 1;
   try {

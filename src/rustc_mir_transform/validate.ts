@@ -166,6 +166,7 @@ export class Validator extends MirPass {
 
     // Also run the TypeChecker.
     for (const [location, msg] of validate_types(tcx, typing_env, body, body)) {
+      // rustc-call: 81:25
       cfg_checker.fail(location, msg);
     }
 

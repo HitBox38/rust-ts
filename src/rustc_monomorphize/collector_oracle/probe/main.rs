@@ -9,7 +9,7 @@
 //!
 //! It also prints, as `VT ` lines, what `tcx.vtable_allocation` holds, slot by slot, for every vtable reachable from the
 //! crate's statics. `-Zprint-mono-items` only shows which instances a vtable reaches; this shows sizes, alignments, null
-//! drop slots and vacant slots. Blocks are sorted by header and deduplicated: `AllocId`s and the walk's order are not the
+//! drop slots, vacant slots and, printed under its slot, the supertrait vtable a `TraitVPtr` slot points at. Blocks are sorted by header and deduplicated: `AllocId`s and the walk's order are not the
 //! point. The same walk is in collector_oracle/run.ts.
 //!
 //! Built by collector_oracle/regen.ts with RUSTC_BOOTSTRAP=1; not in tools/probes, which lanes do not edit.
@@ -31,7 +31,7 @@ use rustc_data_structures::stable_hash::ToStableHashKey;
 use rustc_driver::{Callbacks, Compilation};
 use rustc_hir::def::DefKind;
 use rustc_interface::interface;
-use rustc_middle::mir::interpret::{AllocId, GlobalAlloc, Scalar, alloc_range};
+use rustc_middle::mir::interpret::{AllocId, Allocation, GlobalAlloc, Scalar, alloc_range};
 use rustc_middle::ty::TyCtxt;
 use rustc_middle::ty::print::with_no_trimmed_paths;
 use rustc_session::EarlyDiagCtxt;
@@ -69,26 +69,42 @@ fn walk<'tcx>(tcx: TyCtxt<'tcx>, id: AllocId, seen: &mut BTreeSet<AllocId>, out:
             let principal = dyn_ty.principal().map(|p| tcx.instantiate_bound_regions_with_erased(p));
             let vtable_id = tcx.vtable_allocation((ty, principal));
             let alloc = tcx.global_alloc(vtable_id).unwrap_memory();
-            let inner = alloc.inner();
-            let ptr_size = tcx.data_layout.pointer_size();
-            let mut body = format!("size {} align {} {:?}\n", inner.size().bytes(), inner.align.bytes(), inner.mutability);
-            let mut off = Size::ZERO;
-            while off < inner.size() {
-                let text = match inner.read_scalar(&tcx, alloc_range(off, ptr_size), true) {
-                    Err(_) => "uninit".to_string(),
-                    Ok(Scalar::Int(int)) => format!("int {}", int.to_bits(ptr_size)),
-                    Ok(Scalar::Ptr(ptr, _)) => {
-                        let (prov, offset) = ptr.prov_and_relative_offset();
-                        walk(tcx, prov.alloc_id(), seen, out);
-                        format!("{} +{}", slot(tcx, prov.alloc_id()), offset.bytes())
-                    }
-                };
-                body.push_str(&format!("  {}: {text}\n", off.bytes()));
-                off += ptr_size;
-            }
+            let body = dump_block(tcx, alloc.inner(), "", seen, out);
             out.insert(format!("VTABLE {dyn_ty} for {ty}"), body);
         }
     }
+}
+
+/// One block of a vtable, a line per pointer-sized slot. A slot holding a pointer to plain memory is a supertrait vtable
+/// (`VtblEntry::TraitVPtr`): what it points at is printed under it, one level in, so a wrong upcasting target shows.
+fn dump_block<'tcx>(
+    tcx: TyCtxt<'tcx>,
+    inner: &Allocation,
+    indent: &str,
+    seen: &mut BTreeSet<AllocId>,
+    out: &mut BTreeMap<String, String>,
+) -> String {
+    let ptr_size = tcx.data_layout.pointer_size();
+    let mut body = format!("{indent}size {} align {} {:?}\n", inner.size().bytes(), inner.align.bytes(), inner.mutability);
+    let mut off = Size::ZERO;
+    while off < inner.size() {
+        let mut nested = String::new();
+        let text = match inner.read_scalar(&tcx, alloc_range(off, ptr_size), true) {
+            Err(_) => "uninit".to_string(),
+            Ok(Scalar::Int(int)) => format!("int {}", int.to_bits(ptr_size)),
+            Ok(Scalar::Ptr(ptr, _)) => {
+                let (prov, offset) = ptr.prov_and_relative_offset();
+                walk(tcx, prov.alloc_id(), seen, out);
+                if let GlobalAlloc::Memory(alloc) = tcx.global_alloc(prov.alloc_id()) {
+                    nested = dump_block(tcx, alloc.inner(), &format!("{indent}    "), seen, out);
+                }
+                format!("{} +{}", slot(tcx, prov.alloc_id()), offset.bytes())
+            }
+        };
+        body.push_str(&format!("{indent}  {}: {text}\n{nested}", off.bytes()));
+        off += ptr_size;
+    }
+    body
 }
 
 struct Probe;

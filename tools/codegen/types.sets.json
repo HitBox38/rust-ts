@@ -949,6 +949,40 @@
     },
     "derive_default": true
   },
+  "rustc_driver_impl": {
+    "files": ["compiler/rustc_driver_impl/src/diagnostics.rs"],
+    "class": [],
+    "hand": [],
+    "discriminant": [],
+    "skip": []
+  },
+  "rustc_monomorphize": {
+    "files": ["compiler/rustc_monomorphize/src/diagnostics.rs"],
+    "class": [],
+    "hand": [],
+    "discriminant": [],
+    "skip": [],
+    "typemap_extra": ["tyir.typemap.json", "mir.typemap.json"]
+  },
+  "rustc_middle_mono": {
+    "files": ["compiler/rustc_middle/src/mono.rs", "compiler/rustc_middle/src/ty/instance.rs"],
+    "class": [],
+    "hand": [],
+    "discriminant": [],
+    "skip": [],
+    "derive_only": true,
+    "derive_stable_hash": true,
+    "stable_hash_module": "mono_stable_hash",
+    "stable_hash_types": [
+      "rustc_middle::mono::MonoItem",
+      "rustc_middle::ty::instance::Instance",
+      "rustc_middle::ty::instance::InstanceKind",
+      "rustc_middle::ty::instance::ShimKind",
+      "rustc_middle::ty::instance::ReifyReason"
+    ],
+    "typemap_extra": ["tyir.typemap.json", "mir.typemap.json"],
+    "resolve_files": ["compiler/rustc_middle/src/ty/mod.rs"]
+  },
   "rustc_interface": {
     "files": ["compiler/rustc_interface/src/diagnostics.rs"],
     "class": [],
