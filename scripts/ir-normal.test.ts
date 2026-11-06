@@ -167,7 +167,9 @@ describe("ir-run", () => {
   test("two runs of one case at once take turns, and say nothing about it in the compared output", async () => {
     const out = join(TMP, "turns");
     const c = join(TMP, "turns-c.ts");
-    writeFileSync(c, `const d = process.argv.at(-1)!; await Bun.sleep(100); await Bun.write(d + "/a.ll", ${JSON.stringify(LL)});`);
+    // Two compilers inside at once fail on the file they both make, whichever wrote what.
+    const busy = join(TMP, "turns-busy");
+    writeFileSync(c, `import { rmSync, writeFileSync } from "node:fs"; const d = process.argv.at(-1)!; writeFileSync(${JSON.stringify(busy)}, "", { flag: "wx" }); await Bun.sleep(150); await Bun.write(d + "/a.ll", ${JSON.stringify(LL)}); rmSync(${JSON.stringify(busy)});`);
     const one = () => Bun.spawn([process.execPath, join(REPO, "scripts/ir-run.ts"), "--out", out, "--side", "oracle", "--bin", BIN, "--", process.execPath, c], { stdout: "pipe", stderr: "pipe" });
     const ps = [one(), one()];
     const rs = await Promise.all(ps.map(async (p) => [await p.exited, await new Response(p.stdout).text(), await new Response(p.stderr).text()] as const));

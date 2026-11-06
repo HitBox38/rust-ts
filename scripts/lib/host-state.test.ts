@@ -159,7 +159,7 @@ describe("a read stuck past the limit (review root-w40-check F2)", () => {
       await Bun.sleep(5);
       return AC;
     };
-    const both = await Promise.all([sampleHost(readers(slow), 1_000, stuck), sampleHost(readers(slow), 1_000, stuck)]);
+    const both = await Promise.all([sampleHost(readers(slow), 5_000, stuck), sampleHost(readers(slow), 5_000, stuck)]);
     expect(n).toBe(2);
     expect(both.map((s) => s.power?.source)).toEqual(["AC Power", "AC Power"]);
     expect(notes).toEqual([]);

@@ -8,6 +8,7 @@
 //     --batch-size N    files per process in batch suites (default 100)
 //     --run-id ID       output dir name under $RUST_TS_DATA/runs (default: timestamp)
 //     --report blessed  also write the blessed-output report (suites with `Suite.blessed`; never a status)
+//     --ir-tier T       an IR suite at normal form tier N1, N2 or N3, as a report under the name <suite>@<T> (harness/suites.ts `irReportSuite`)
 //     --list            list suites
 //
 // Statuses: MATCH | DIFF | UNPORTED (exit 70) | CRASH (subject ICE/exit mismatch with no output) |
