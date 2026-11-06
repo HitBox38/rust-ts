@@ -389,6 +389,10 @@ const NUM_PREINTERNED_ANON_RE_BOUNDS_V = 20;
 
 // rustc-type: compiler/rustc_middle/src/ty/context.rs:310 CommonTypes
 export class CommonTypes {
+  // PORT(perf): as `CommonLifetimes`'s memos: the `Ty` of an inference or canonical variable number past the pre-interned ranges.
+  readonly ty_var_memo: Ty[] = [];
+  readonly canonical_bound_memo: Ty[] = [];
+
   constructor(
     public unit: Ty,
     public bool: Ty,
@@ -497,6 +501,16 @@ export class CommonTypes {
 
 // rustc-type: compiler/rustc_middle/src/ty/context.rs:385 CommonLifetimes
 export class CommonLifetimes {
+  // PORT(perf) (lane perf-near-limit): the region interned for a variable number past the pre-interned ranges, or for a
+  // placeholder's `(universe, var)` with an `Anon` bound. Indexed by those numbers alone, nothing packed: the number decides
+  // the whole `RegionKind` (the rest of it is fixed at each use), so these give the interner's own object, and only repeats
+  // skip the interner, so ids and interning order do not move. Separate from the pre-interned arrays, whose length and
+  // holes upstream code can see (`get_anon_re_canonical_bounds_lifetime`). Goals in tests/ui/type-alias-impl-trait have hundreds
+  // of canonical regions. Measured: with `CommonTypes`'s, param_mismatch2.rs -18% of samples, see docs/handoff/perf-near-limit.md.
+  readonly re_var_memo: Region[] = [];
+  readonly canonical_bound_memo: Region[] = [];
+  readonly placeholder_anon_memo: Region[][] = [];
+
   constructor(
     /// `ReStatic`
     public re_static: Region,
