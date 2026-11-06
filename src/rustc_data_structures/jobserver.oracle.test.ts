@@ -103,12 +103,17 @@ describe.skipIf(SKIP)("jobserver::initialize, oracle", () => {
     expect(p.exitCode).toBe(o.exitCode);
   }, 30_000);
 
-  // PORT rule (lib.ts `Client_from_env_ext`): a value that may not be UTF-8 stops; `process.env` has lost its bytes.
-  test("a non-UTF-8 value stops rather than guess", () => {
-    const line = `CARGO_MAKEFLAGS=$'--jobserver-auth=\\xff' exec ${q(process.execPath)} ${q(join(import.meta.dir, "jobserver_oracle", "run.ts"))}`;
-    const p = Bun.spawnSync(["bash", "-c", line], { cwd: WORK, stdin: "ignore", stdout: "pipe", stderr: "pipe" });
-    // (Exit 70 is main.ts's, which this subject does not go through.)
-    expect(p.exitCode).not.toBe(0);
-    expect(p.stderr.toString()).toContain("unported: jobserver::Client::from_env_ext");
-  });
+  // `var_os.to_str()`: `None` is `CannotParse`, and its `{:?}` shows the raw bytes. A real U+FFFD is an ordinary value.
+  for (const value of ["--jobserver-auth=\\xff", "--jobserver-auth=\\xef\\xbf\\xbd"]) {
+    test(`the bytes ${value}`, () => {
+      const run = (argv: string[]) => {
+        const p = Bun.spawnSync(["bash", "-c", `CARGO_MAKEFLAGS=$'${value}' RUSTC_ICE=0 exec ${argv.map(q).join(" ")}`], { cwd: WORK, stdin: "ignore", stdout: "pipe", stderr: "pipe" });
+        return { stdout: p.stdout.toString("latin1" as never), stderr: p.stderr.toString("latin1" as never) };
+      };
+      const line = run([...RUSTC, ...LIB]).stderr.split("\n")[0]!;
+      const got = run([process.execPath, join(import.meta.dir, "jobserver_oracle", "run.ts")]);
+      expect(got.stderr).toBe("");
+      expect(got.stdout).toBe(line.startsWith(WARN) ? `${line.slice(WARN.length)}\n` : "");
+    });
+  }
 });

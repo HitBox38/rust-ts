@@ -4,6 +4,7 @@
 // PORT: `RustcVersion` is a generated class; its associated const and static fns are assigned onto
 // it and re-exported with the extended type (the token.ts pattern). The derived `PartialOrd`/`Ord`
 // (field order: major, minor, patch) is `RustcVersion_cmp`; the derived `PartialEq` is `RustcVersion_eq`.
+import { var_ as env_var } from "../../std/env.ts";
 import * as gen from "./version.gen.ts";
 
 export * from "./version.gen.ts";
@@ -89,10 +90,9 @@ let CURRENT_OVERRIDABLE: RustcVersion | undefined;
 // rustc: compiler/rustc_ast/src/attr/version.rs:16 current_overridable
 RustcVersion.current_overridable = function (): RustcVersion {
   if (CURRENT_OVERRIDABLE === undefined) {
-    // PORT: `std::env::var` -> `process.env` (non-unicode values cannot occur in JS strings).
-    const override_var = process.env["RUSTC_OVERRIDE_VERSION_STRING"];
+    const override_var = env_var("RUSTC_OVERRIDE_VERSION_STRING");
     let override_: RustcVersion | undefined;
-    if (override_var !== undefined && (override_ = RustcVersion.parse_str(override_var)) !== undefined) {
+    if (override_var.$ === "Ok" && (override_ = RustcVersion.parse_str(override_var._0)) !== undefined) {
       CURRENT_OVERRIDABLE = override_;
     } else {
       CURRENT_OVERRIDABLE = RustcVersion.CURRENT;

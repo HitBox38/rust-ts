@@ -138,7 +138,7 @@ test("PlaceBuilder, to_place / try_to_place, unresolvable upvars", () => {
     // an upvar with no capture (edition 2024: precise capture) does not resolve
     const up = new PlaceBuilder({ $: "Upvar", var_hir_id: { _0: tcx.local_def_id_to_hir_id(def) }, closure_def_id: def }, []);
     expect(up.try_to_place(b)).toBeUndefined();
-    expect(() => up.to_place(b)).toThrow("could not resolve upvar");
+    expect(() => plain_bug(() => up.to_place(b))).toThrow("could not resolve upvar");
   });
 });
 
@@ -151,7 +151,7 @@ test("lit_to_mir_constant, as_constant / as_operand of literals", () => {
     expect(String((v._0._0 as { to_bits_unchecked(): bigint }).to_bits_unchecked())).toBe("44"); // truncated to u8
     const n = lit_to_mir_constant(tcx, { lit: { $: "Int", _0: 1n, _1: { $: "Unsuffixed" } } as never, ty: tcx.types.i32, neg: true });
     expect(String(((n as { _0: { _0: { _0: { to_bits_unchecked(): bigint } } } })._0._0._0).to_bits_unchecked())).toBe(String(0xffffffffn));
-    expect(() => lit_to_mir_constant(tcx, { lit: { $: "Bool", _0: true } as never, ty: tcx.types.u8, neg: false })).toThrow(
+    expect(() => plain_bug(() => lit_to_mir_constant(tcx, { lit: { $: "Bool", _0: true } as never, ty: tcx.types.u8, neg: false }))).toThrow(
       "invalid lit/ty combination in `lit_to_mir_constant`",
     );
     const err = lit_to_mir_constant(tcx, { lit: { $: "Bool", _0: true } as never, ty: TyC.new_error(tcx, ErrorGuaranteed.unchecked_error_guaranteed()), neg: false });

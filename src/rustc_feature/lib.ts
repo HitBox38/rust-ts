@@ -17,9 +17,10 @@
 import "./unstable.ts";
 import "./unstable.gen.ts";
 
+import { var_ as env_var, type VarError } from "../std/env.ts";
 import { type Debug, debug_int, debug_option, debug_str, debug_struct } from "../std/fmt.ts";
 import { panic } from "../std/panic.ts";
-import { Err, Ok, type Result } from "../std/result.ts";
+import { type Result } from "../std/result.ts";
 import { debug_Symbol, display_Symbol, type Symbol } from "../rustc_span/symbol.ts";
 import { ACCEPTED_LANG_FEATURES } from "./accepted.ts";
 import { REMOVED_LANG_FEATURES } from "./removed.ts";
@@ -56,8 +57,7 @@ export type UnstableFeatures =
   /// features. As a result, this is always required for building Rust itself.
   | "Cheat";
 
-/** `std::env::VarError`. PORT: `NotUnicode(OsString)` cannot occur: JS environment values are strings. */
-export type VarError = "NotPresent";
+export type { VarError };
 
 // PORT: `option_env!("CFG_DISABLE_UNSTABLE_FEATURES")` is read when rustc is built. Bootstrap sets it
 // only for the beta and stable channels; the oracle is the pinned nightly (`UPSTREAM.json`
@@ -75,9 +75,7 @@ export const UnstableFeatures = {
   /// features. Otherwise, only `RUSTC_BOOTSTRAP=1` will work.
   // rustc: compiler/rustc_feature/src/lib.rs:55 from_environment
   from_environment(krate: string | undefined): UnstableFeatures {
-    // PORT: `std::env::var` -> `process.env`.
-    const v = process.env["RUSTC_BOOTSTRAP"];
-    return UnstableFeatures.from_environment_value(krate, v === undefined ? Err("NotPresent" as const) : Ok(v));
+    return UnstableFeatures.from_environment_value(krate, env_var("RUSTC_BOOTSTRAP"));
   },
 
   /// Avoid unsafe `std::env::set_var()` by allowing tests to inject

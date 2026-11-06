@@ -1,6 +1,7 @@
 // Port of jobserver =0.1.34 `src/lib.rs`: `Client::from_env_ext` and `find_jobserver_auth`, what
 // rustc_data_structures::jobserver::initialize reaches. See unix.ts on
 // why no token is ever read or written.
+import { os_string_into_string, type OsString, var_os as std_var_os } from "../../std/env.ts";
 import { unported } from "../../std/panic.ts";
 import type { Result } from "../../std/result.ts";
 import type { FromEnvError, FromEnvErrorInner } from "./error.ts";
@@ -20,16 +21,16 @@ export interface FromEnv {
    */
   readonly client: Result<Client, FromEnvError>;
   /** Name and value of the environment variable. `None` if no relevant environment variable is found. */
-  readonly var_: readonly [string, string];
+  readonly var_: readonly [string, OsString];
 }
 
 // crate: jobserver-0.1.34/src/lib.rs:170 new_ok
-function FromEnv_new_ok(client: Client, var_name: string, var_: string): FromEnv {
+function FromEnv_new_ok(client: Client, var_name: string, var_: OsString): FromEnv {
   return { client: { $: "Ok", _0: client }, var_: [var_name, var_] };
 }
 
 // crate: jobserver-0.1.34/src/lib.rs:176 new_err
-function FromEnv_new_err(kind: FromEnvErrorInner, var_name: string, var_: string): FromEnv {
+function FromEnv_new_err(kind: FromEnvErrorInner, var_name: string, var_: OsString): FromEnv {
   return { client: { $: "Err", _0: { inner: kind } }, var_: [var_name, var_] };
 }
 
@@ -40,9 +41,9 @@ function FromEnv_new_err(kind: FromEnvErrorInner, var_name: string, var_: string
 // crate: jobserver-0.1.34/src/lib.rs:253 from_env_ext
 export function Client_from_env_ext(check_pipe: boolean): FromEnv {
   let env: string | undefined;
-  let var_os: string | undefined;
+  let var_os: OsString | undefined;
   for (const e of ["CARGO_MAKEFLAGS", "MAKEFLAGS", "MFLAGS"]) {
-    const v = process.env[e];
+    const v = std_var_os(e);
     if (v !== undefined) {
       env = e;
       var_os = v;
@@ -50,17 +51,15 @@ export function Client_from_env_ext(check_pipe: boolean): FromEnv {
     }
   }
   if (env === undefined || var_os === undefined) {
-    return FromEnv_new_err({ $: "NoEnvVar" }, "", "");
+    return FromEnv_new_err({ $: "NoEnvVar" }, "", new Uint8Array(0));
   }
 
-  // PORT: `var_os.to_str()` returns `None` for a non-UTF-8 value, whose `{:?}` shows the raw bytes. `process.env`
-  // has already replaced them with U+FFFD, indistinguishable from a real U+FFFD, so neither can be reported.
-  if (var_os.includes("�")) {
-    return unported(`jobserver::Client::from_env_ext (${env} may not be valid UTF-8)`);
+  const var_ = os_string_into_string(var_os);
+  if (var_.$ === "Err") {
+    return FromEnv_new_err({ $: "CannotParse", _0: "not valid UTF-8" }, env, var_os);
   }
-  const var_ = var_os;
 
-  const s = find_jobserver_auth(var_);
+  const s = find_jobserver_auth(var_._0);
   if (s === undefined) {
     return FromEnv_new_err({ $: "NoJobserver" }, env, var_os);
   }

@@ -50,6 +50,7 @@ import {
 } from "./lib.ts";
 import { Span } from "./span_encoding.ts";
 import { is_whitespace, len_utf8, to_string as char_to_string } from "../std/char.ts";
+import { current_dir_str } from "../std/env.ts";
 import { debug_list, debug_str, debug_struct, debug_tuple, debug_vec, PLAIN, type Debug } from "../std/fmt.ts";
 import { debug_IoError, INVALID_UTF8, io_error_from_node, io_error_other, type IoResult, write_stderr } from "../std/io.ts";
 import { assert, panic, unported, unwrap } from "../std/panic.ts";
@@ -205,11 +206,7 @@ export class RealFileLoader implements FileLoader {
 
   // rustc: compiler/rustc_span/src/source_map.rs:162 current_directory
   current_directory(): IoResult<PathBuf> {
-    try {
-      return Ok(process.cwd());
-    } catch (e) {
-      return Err(io_error_from_node(e));
-    }
+    return current_dir_str();
   }
 }
 

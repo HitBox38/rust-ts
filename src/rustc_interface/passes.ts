@@ -14,7 +14,10 @@ import type { NodeId } from "../rustc_ast/node_id.ts";
 import { Input, type OutputFilenames, type OutFileName, std_print, UnstableOptions_impl } from "../rustc_session/config.ts";
 import type { Session } from "../rustc_session/session.ts";
 import "../rustc_session/utils.ts"; // `Session::time`
+import { current_dir_str, to_string_lossy, var_ as std_env_var } from "../std/env.ts";
+import { debug_IoError } from "../std/io.ts";
 import { unported, unreachable } from "../std/panic.ts";
+import { unwrap_result } from "../std/result.ts";
 import * as rustc_resolve from "../rustc_resolve/lib.ts";
 import * as rustc_ast_passes from "../rustc_ast_passes/lib.ts";
 import { Resolver } from "../rustc_resolve/lib.ts";
@@ -487,10 +490,10 @@ function split_whitespace(s: string): string[] {
 
 // rustc: compiler/rustc_interface/src/passes.rs:497 env_var_os
 function env_var_os(tcx: TyCtxt, key: string): string | undefined {
-  // PORT: `&OsStr` keys and values are JS strings (`to_string_lossy`/`to_str` are the identity).
-  const value = process.env[key];
+  // PORT: `&OsStr` keys and values are JS strings. A non-UTF-8 value is lossy here, and `env_var` (ty/context.ts) tells it apart.
+  const value = std_env_var(key);
 
-  const value_tcx = value;
+  const value_tcx = value.$ === "Ok" ? value._0 : value._0.$ === "NotUnicode" ? to_string_lossy(value._0._0) : undefined;
 
   // Also add the variable to Cargo's dependency tracking
   //
@@ -499,7 +502,7 @@ function env_var_os(tcx: TyCtxt, key: string): string | undefined {
   // properly change-tracked.
   // PORT: `Session.env_depinfo` is a `Set<string>` holding the JSON text of the `(Symbol, Option<Symbol>)`
   // pair (as rustc_builtin_macros env.ts does) until session.ts carries the tuple.
-  tcx.sess.env_depinfo.add(JSON.stringify([key, value ?? null]));
+  tcx.sess.env_depinfo.add(JSON.stringify([key, value.$ === "Ok" ? value._0 : null]));
 
   return value_tcx;
 }
@@ -576,7 +579,7 @@ function std_path_absolute(path: string): string | undefined {
   if (path_is_absolute(path)) {
     normalized = (path.startsWith("//") && !path.startsWith("///") ? "//" : "/") + parts.join("/");
   } else {
-    normalized = path_join(process.cwd(), parts.join("/"));
+    normalized = path_join(unwrap_result(current_dir_str(), debug_IoError), parts.join("/"));
   }
   if (path.endsWith("/") && parts.length !== 0) normalized += "/";
   return normalized;

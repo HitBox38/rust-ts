@@ -41,14 +41,15 @@ export function unwrap_result<T, E>(r: Result<T, E>): T;
 export function unwrap_result<T, E>(r: Result<T, E>, debug_err?: Debug<E>): T {
   if (r.$ === "Err") {
     if (debug_err === undefined) throw new Panic("called `Result::unwrap()` on an `Err` value");
-    return unwrap_failed("called `Result::unwrap()` on an `Err` value", r._0, debug_err);
+    // A bare statement, not `return`: a tail call would drop this frame, which `Location::caller()` needs (track_caller.ts).
+    unwrap_failed("called `Result::unwrap()` on an `Err` value", r._0, debug_err);
   }
   return r._0;
 }
 
 /** `Result::expect` (`E: Debug`): panics with `{msg}: {e:?}`. See `unwrap_result` for `debug_err`. */
 export function expect_result<T, E>(r: Result<T, E>, msg: string, debug_err: Debug<E>): T {
-  if (r.$ === "Err") return unwrap_failed(msg, r._0, debug_err);
+  if (r.$ === "Err") unwrap_failed(msg, r._0, debug_err);
   return r._0;
 }
 
