@@ -21,7 +21,7 @@
 // - `str::parse` of the flag values: `u32` / `u64` through rustc_session's `u32_from_str` / `u64_from_str` (core's
 //   radix-10 rules), `NonZero<u64>` adds the `Zero` error; `f64` through `f64_from_str` below (core's dec2flt grammar).
 //   The `ParseIntError` texts are core's `IntErrorKind` descriptions.
-import "./stack_first.ts"; // LOAD ORDER: before everything else, see that file.
+import "../../rust_ts/miri_stack_first.ts"; // LOAD ORDER: before everything else, see that file.
 import "../lib.ts";
 import {
   type BacktraceStyle,
