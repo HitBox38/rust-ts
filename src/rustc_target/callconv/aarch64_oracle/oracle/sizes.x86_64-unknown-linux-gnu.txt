@@ -1,0 +1,2075 @@
+1
+error: fn_abi_of(Rust8) = FnAbi {
+           args: [
+               ArgAbi {
+                   layout: TyAndLayout {
+                       ty: B8,
+                       layout: Layout {
+                           size: Size(8 bytes),
+                           align: AbiAlign {
+                               abi: Align(1 bytes),
+                           },
+                           backend_repr: Memory {
+                               sized: true,
+                           },
+                           fields: Arbitrary {
+                               offsets: [
+                                   Size(0 bytes),
+                               ],
+                               in_memory_order: [
+                                   0,
+                               ],
+                           },
+                           largest_niche: None,
+                           uninhabited: false,
+                           variants: Single {
+                               index: 0,
+                           },
+                           max_repr_align: None,
+                           unadjusted_abi_align: Align(1 bytes),
+                           repr_c: false,
+                           randomization_seed: 5561599825505712519,
+                       },
+                   },
+                   mode: Cast {
+                       pad_i32_count: 0,
+                       cast: CastTarget {
+                           prefix: [],
+                           rest_offset: None,
+                           rest: Uniform {
+                               unit: Reg {
+                                   kind: Integer,
+                                   size: Size(8 bytes),
+                               },
+                               total: Size(8 bytes),
+                               is_consecutive: false,
+                           },
+                           attrs: ArgAttributes {
+                               regular: NoUndef,
+                               arg_ext: None,
+                               pointee_size: Size(0 bytes),
+                               pointee_align: None,
+                           },
+                       },
+                   },
+               },
+           ],
+           ret: ArgAbi {
+               layout: TyAndLayout {
+                   ty: B8,
+                   layout: Layout {
+                       size: Size(8 bytes),
+                       align: AbiAlign {
+                           abi: Align(1 bytes),
+                       },
+                       backend_repr: Memory {
+                           sized: true,
+                       },
+                       fields: Arbitrary {
+                           offsets: [
+                               Size(0 bytes),
+                           ],
+                           in_memory_order: [
+                               0,
+                           ],
+                       },
+                       largest_niche: None,
+                       uninhabited: false,
+                       variants: Single {
+                           index: 0,
+                       },
+                       max_repr_align: None,
+                       unadjusted_abi_align: Align(1 bytes),
+                       repr_c: false,
+                       randomization_seed: 5561599825505712519,
+                   },
+               },
+               mode: Cast {
+                   pad_i32_count: 0,
+                   cast: CastTarget {
+                       prefix: [],
+                       rest_offset: None,
+                       rest: Uniform {
+                           unit: Reg {
+                               kind: Integer,
+                               size: Size(8 bytes),
+                           },
+                           total: Size(8 bytes),
+                           is_consecutive: false,
+                       },
+                       attrs: ArgAttributes {
+                           regular: NoUndef,
+                           arg_ext: None,
+                           pointee_size: Size(0 bytes),
+                           pointee_align: None,
+                       },
+                   },
+               },
+           },
+           c_variadic: false,
+           fixed_count: 1,
+           conv: Rust,
+           can_unwind: true,
+       }
+  --> sizes.rs:34:13
+   |
+30 |   macro_rules! each_size {
+...
+34 |               pub type $rust = fn($ty) -> $ty;
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+41 | / each_size! {
+42 | |     Rust8 C8: B8;
+43 | |     Rust9 C9: B9;
+44 | |     Rust16 C16: B16;
+...  |
+50 | |     Rust61Below C61Below: B61Below;
+51 | | }
+   | |_- in this macro invocation
+
+error: fn_abi_of(C8) = FnAbi {
+           args: [
+               ArgAbi {
+                   layout: TyAndLayout {
+                       ty: B8,
+                       layout: Layout {
+                           size: Size(8 bytes),
+                           align: AbiAlign {
+                               abi: Align(1 bytes),
+                           },
+                           backend_repr: Memory {
+                               sized: true,
+                           },
+                           fields: Arbitrary {
+                               offsets: [
+                                   Size(0 bytes),
+                               ],
+                               in_memory_order: [
+                                   0,
+                               ],
+                           },
+                           largest_niche: None,
+                           uninhabited: false,
+                           variants: Single {
+                               index: 0,
+                           },
+                           max_repr_align: None,
+                           unadjusted_abi_align: Align(1 bytes),
+                           repr_c: false,
+                           randomization_seed: 5561599825505712519,
+                       },
+                   },
+                   mode: Cast {
+                       pad_i32_count: 0,
+                       cast: CastTarget {
+                           prefix: [],
+                           rest_offset: None,
+                           rest: Uniform {
+                               unit: Reg {
+                                   kind: Integer,
+                                   size: Size(8 bytes),
+                               },
+                               total: Size(8 bytes),
+                               is_consecutive: false,
+                           },
+                           attrs: ArgAttributes {
+                               regular: ,
+                               arg_ext: None,
+                               pointee_size: Size(0 bytes),
+                               pointee_align: None,
+                           },
+                       },
+                   },
+               },
+           ],
+           ret: ArgAbi {
+               layout: TyAndLayout {
+                   ty: B8,
+                   layout: Layout {
+                       size: Size(8 bytes),
+                       align: AbiAlign {
+                           abi: Align(1 bytes),
+                       },
+                       backend_repr: Memory {
+                           sized: true,
+                       },
+                       fields: Arbitrary {
+                           offsets: [
+                               Size(0 bytes),
+                           ],
+                           in_memory_order: [
+                               0,
+                           ],
+                       },
+                       largest_niche: None,
+                       uninhabited: false,
+                       variants: Single {
+                           index: 0,
+                       },
+                       max_repr_align: None,
+                       unadjusted_abi_align: Align(1 bytes),
+                       repr_c: false,
+                       randomization_seed: 5561599825505712519,
+                   },
+               },
+               mode: Cast {
+                   pad_i32_count: 0,
+                   cast: CastTarget {
+                       prefix: [],
+                       rest_offset: None,
+                       rest: Uniform {
+                           unit: Reg {
+                               kind: Integer,
+                               size: Size(8 bytes),
+                           },
+                           total: Size(8 bytes),
+                           is_consecutive: false,
+                       },
+                       attrs: ArgAttributes {
+                           regular: ,
+                           arg_ext: None,
+                           pointee_size: Size(0 bytes),
+                           pointee_align: None,
+                       },
+                   },
+               },
+           },
+           c_variadic: false,
+           fixed_count: 1,
+           conv: C,
+           can_unwind: false,
+       }
+  --> sizes.rs:36:13
+   |
+30 |   macro_rules! each_size {
+...
+36 |               pub type $c = extern "C" fn($ty) -> $ty;
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+41 | / each_size! {
+42 | |     Rust8 C8: B8;
+43 | |     Rust9 C9: B9;
+44 | |     Rust16 C16: B16;
+...  |
+50 | |     Rust61Below C61Below: B61Below;
+51 | | }
+   | |_- in this macro invocation
+
+error: fn_abi_of(Rust9) = FnAbi {
+           args: [
+               ArgAbi {
+                   layout: TyAndLayout {
+                       ty: B9,
+                       layout: Layout {
+                           size: Size(9 bytes),
+                           align: AbiAlign {
+                               abi: Align(1 bytes),
+                           },
+                           backend_repr: Memory {
+                               sized: true,
+                           },
+                           fields: Arbitrary {
+                               offsets: [
+                                   Size(0 bytes),
+                               ],
+                               in_memory_order: [
+                                   0,
+                               ],
+                           },
+                           largest_niche: None,
+                           uninhabited: false,
+                           variants: Single {
+                               index: 0,
+                           },
+                           max_repr_align: None,
+                           unadjusted_abi_align: Align(1 bytes),
+                           repr_c: false,
+                           randomization_seed: 8830576588685241727,
+                       },
+                   },
+                   mode: Indirect {
+                       attrs: ArgAttributes {
+                           regular: CapturesAddress | NoAlias | NonNull | NoUndef | NoFree,
+                           arg_ext: None,
+                           pointee_size: Size(9 bytes),
+                           pointee_align: Some(
+                               Align(1 bytes),
+                           ),
+                       },
+                       address_space: None,
+                       mode: Pointer,
+                   },
+               },
+           ],
+           ret: ArgAbi {
+               layout: TyAndLayout {
+                   ty: B9,
+                   layout: Layout {
+                       size: Size(9 bytes),
+                       align: AbiAlign {
+                           abi: Align(1 bytes),
+                       },
+                       backend_repr: Memory {
+                           sized: true,
+                       },
+                       fields: Arbitrary {
+                           offsets: [
+                               Size(0 bytes),
+                           ],
+                           in_memory_order: [
+                               0,
+                           ],
+                       },
+                       largest_niche: None,
+                       uninhabited: false,
+                       variants: Single {
+                           index: 0,
+                       },
+                       max_repr_align: None,
+                       unadjusted_abi_align: Align(1 bytes),
+                       repr_c: false,
+                       randomization_seed: 8830576588685241727,
+                   },
+               },
+               mode: Indirect {
+                   attrs: ArgAttributes {
+                       regular: CapturesAddress | NoAlias | NonNull | NoUndef | NoFree,
+                       arg_ext: None,
+                       pointee_size: Size(9 bytes),
+                       pointee_align: Some(
+                           Align(1 bytes),
+                       ),
+                   },
+                   address_space: None,
+                   mode: Pointer,
+               },
+           },
+           c_variadic: false,
+           fixed_count: 1,
+           conv: Rust,
+           can_unwind: true,
+       }
+  --> sizes.rs:34:13
+   |
+30 |   macro_rules! each_size {
+...
+34 |               pub type $rust = fn($ty) -> $ty;
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+41 | / each_size! {
+42 | |     Rust8 C8: B8;
+43 | |     Rust9 C9: B9;
+44 | |     Rust16 C16: B16;
+...  |
+50 | |     Rust61Below C61Below: B61Below;
+51 | | }
+   | |_- in this macro invocation
+
+error: fn_abi_of(C9) = FnAbi {
+           args: [
+               ArgAbi {
+                   layout: TyAndLayout {
+                       ty: B9,
+                       layout: Layout {
+                           size: Size(9 bytes),
+                           align: AbiAlign {
+                               abi: Align(1 bytes),
+                           },
+                           backend_repr: Memory {
+                               sized: true,
+                           },
+                           fields: Arbitrary {
+                               offsets: [
+                                   Size(0 bytes),
+                               ],
+                               in_memory_order: [
+                                   0,
+                               ],
+                           },
+                           largest_niche: None,
+                           uninhabited: false,
+                           variants: Single {
+                               index: 0,
+                           },
+                           max_repr_align: None,
+                           unadjusted_abi_align: Align(1 bytes),
+                           repr_c: false,
+                           randomization_seed: 8830576588685241727,
+                       },
+                   },
+                   mode: Cast {
+                       pad_i32_count: 0,
+                       cast: CastTarget {
+                           prefix: [
+                               Reg {
+                                   kind: Integer,
+                                   size: Size(8 bytes),
+                               },
+                           ],
+                           rest_offset: None,
+                           rest: Uniform {
+                               unit: Reg {
+                                   kind: Integer,
+                                   size: Size(1 bytes),
+                               },
+                               total: Size(1 bytes),
+                               is_consecutive: false,
+                           },
+                           attrs: ArgAttributes {
+                               regular: ,
+                               arg_ext: None,
+                               pointee_size: Size(0 bytes),
+                               pointee_align: None,
+                           },
+                       },
+                   },
+               },
+           ],
+           ret: ArgAbi {
+               layout: TyAndLayout {
+                   ty: B9,
+                   layout: Layout {
+                       size: Size(9 bytes),
+                       align: AbiAlign {
+                           abi: Align(1 bytes),
+                       },
+                       backend_repr: Memory {
+                           sized: true,
+                       },
+                       fields: Arbitrary {
+                           offsets: [
+                               Size(0 bytes),
+                           ],
+                           in_memory_order: [
+                               0,
+                           ],
+                       },
+                       largest_niche: None,
+                       uninhabited: false,
+                       variants: Single {
+                           index: 0,
+                       },
+                       max_repr_align: None,
+                       unadjusted_abi_align: Align(1 bytes),
+                       repr_c: false,
+                       randomization_seed: 8830576588685241727,
+                   },
+               },
+               mode: Cast {
+                   pad_i32_count: 0,
+                   cast: CastTarget {
+                       prefix: [
+                           Reg {
+                               kind: Integer,
+                               size: Size(8 bytes),
+                           },
+                       ],
+                       rest_offset: None,
+                       rest: Uniform {
+                           unit: Reg {
+                               kind: Integer,
+                               size: Size(1 bytes),
+                           },
+                           total: Size(1 bytes),
+                           is_consecutive: false,
+                       },
+                       attrs: ArgAttributes {
+                           regular: ,
+                           arg_ext: None,
+                           pointee_size: Size(0 bytes),
+                           pointee_align: None,
+                       },
+                   },
+               },
+           },
+           c_variadic: false,
+           fixed_count: 1,
+           conv: C,
+           can_unwind: false,
+       }
+  --> sizes.rs:36:13
+   |
+30 |   macro_rules! each_size {
+...
+36 |               pub type $c = extern "C" fn($ty) -> $ty;
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+41 | / each_size! {
+42 | |     Rust8 C8: B8;
+43 | |     Rust9 C9: B9;
+44 | |     Rust16 C16: B16;
+...  |
+50 | |     Rust61Below C61Below: B61Below;
+51 | | }
+   | |_- in this macro invocation
+
+error: fn_abi_of(Rust16) = FnAbi {
+           args: [
+               ArgAbi {
+                   layout: TyAndLayout {
+                       ty: B16,
+                       layout: Layout {
+                           size: Size(16 bytes),
+                           align: AbiAlign {
+                               abi: Align(1 bytes),
+                           },
+                           backend_repr: Memory {
+                               sized: true,
+                           },
+                           fields: Arbitrary {
+                               offsets: [
+                                   Size(0 bytes),
+                               ],
+                               in_memory_order: [
+                                   0,
+                               ],
+                           },
+                           largest_niche: None,
+                           uninhabited: false,
+                           variants: Single {
+                               index: 0,
+                           },
+                           max_repr_align: None,
+                           unadjusted_abi_align: Align(1 bytes),
+                           repr_c: false,
+                           randomization_seed: 10082101935738397902,
+                       },
+                   },
+                   mode: Indirect {
+                       attrs: ArgAttributes {
+                           regular: CapturesAddress | NoAlias | NonNull | NoUndef | NoFree,
+                           arg_ext: None,
+                           pointee_size: Size(16 bytes),
+                           pointee_align: Some(
+                               Align(1 bytes),
+                           ),
+                       },
+                       address_space: None,
+                       mode: Pointer,
+                   },
+               },
+           ],
+           ret: ArgAbi {
+               layout: TyAndLayout {
+                   ty: B16,
+                   layout: Layout {
+                       size: Size(16 bytes),
+                       align: AbiAlign {
+                           abi: Align(1 bytes),
+                       },
+                       backend_repr: Memory {
+                           sized: true,
+                       },
+                       fields: Arbitrary {
+                           offsets: [
+                               Size(0 bytes),
+                           ],
+                           in_memory_order: [
+                               0,
+                           ],
+                       },
+                       largest_niche: None,
+                       uninhabited: false,
+                       variants: Single {
+                           index: 0,
+                       },
+                       max_repr_align: None,
+                       unadjusted_abi_align: Align(1 bytes),
+                       repr_c: false,
+                       randomization_seed: 10082101935738397902,
+                   },
+               },
+               mode: Indirect {
+                   attrs: ArgAttributes {
+                       regular: CapturesAddress | NoAlias | NonNull | NoUndef | NoFree,
+                       arg_ext: None,
+                       pointee_size: Size(16 bytes),
+                       pointee_align: Some(
+                           Align(1 bytes),
+                       ),
+                   },
+                   address_space: None,
+                   mode: Pointer,
+               },
+           },
+           c_variadic: false,
+           fixed_count: 1,
+           conv: Rust,
+           can_unwind: true,
+       }
+  --> sizes.rs:34:13
+   |
+30 |   macro_rules! each_size {
+...
+34 |               pub type $rust = fn($ty) -> $ty;
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+41 | / each_size! {
+42 | |     Rust8 C8: B8;
+43 | |     Rust9 C9: B9;
+44 | |     Rust16 C16: B16;
+...  |
+50 | |     Rust61Below C61Below: B61Below;
+51 | | }
+   | |_- in this macro invocation
+
+error: fn_abi_of(C16) = FnAbi {
+           args: [
+               ArgAbi {
+                   layout: TyAndLayout {
+                       ty: B16,
+                       layout: Layout {
+                           size: Size(16 bytes),
+                           align: AbiAlign {
+                               abi: Align(1 bytes),
+                           },
+                           backend_repr: Memory {
+                               sized: true,
+                           },
+                           fields: Arbitrary {
+                               offsets: [
+                                   Size(0 bytes),
+                               ],
+                               in_memory_order: [
+                                   0,
+                               ],
+                           },
+                           largest_niche: None,
+                           uninhabited: false,
+                           variants: Single {
+                               index: 0,
+                           },
+                           max_repr_align: None,
+                           unadjusted_abi_align: Align(1 bytes),
+                           repr_c: false,
+                           randomization_seed: 10082101935738397902,
+                       },
+                   },
+                   mode: Cast {
+                       pad_i32_count: 0,
+                       cast: CastTarget {
+                           prefix: [
+                               Reg {
+                                   kind: Integer,
+                                   size: Size(8 bytes),
+                               },
+                           ],
+                           rest_offset: None,
+                           rest: Uniform {
+                               unit: Reg {
+                                   kind: Integer,
+                                   size: Size(8 bytes),
+                               },
+                               total: Size(8 bytes),
+                               is_consecutive: false,
+                           },
+                           attrs: ArgAttributes {
+                               regular: ,
+                               arg_ext: None,
+                               pointee_size: Size(0 bytes),
+                               pointee_align: None,
+                           },
+                       },
+                   },
+               },
+           ],
+           ret: ArgAbi {
+               layout: TyAndLayout {
+                   ty: B16,
+                   layout: Layout {
+                       size: Size(16 bytes),
+                       align: AbiAlign {
+                           abi: Align(1 bytes),
+                       },
+                       backend_repr: Memory {
+                           sized: true,
+                       },
+                       fields: Arbitrary {
+                           offsets: [
+                               Size(0 bytes),
+                           ],
+                           in_memory_order: [
+                               0,
+                           ],
+                       },
+                       largest_niche: None,
+                       uninhabited: false,
+                       variants: Single {
+                           index: 0,
+                       },
+                       max_repr_align: None,
+                       unadjusted_abi_align: Align(1 bytes),
+                       repr_c: false,
+                       randomization_seed: 10082101935738397902,
+                   },
+               },
+               mode: Cast {
+                   pad_i32_count: 0,
+                   cast: CastTarget {
+                       prefix: [
+                           Reg {
+                               kind: Integer,
+                               size: Size(8 bytes),
+                           },
+                       ],
+                       rest_offset: None,
+                       rest: Uniform {
+                           unit: Reg {
+                               kind: Integer,
+                               size: Size(8 bytes),
+                           },
+                           total: Size(8 bytes),
+                           is_consecutive: false,
+                       },
+                       attrs: ArgAttributes {
+                           regular: ,
+                           arg_ext: None,
+                           pointee_size: Size(0 bytes),
+                           pointee_align: None,
+                       },
+                   },
+               },
+           },
+           c_variadic: false,
+           fixed_count: 1,
+           conv: C,
+           can_unwind: false,
+       }
+  --> sizes.rs:36:13
+   |
+30 |   macro_rules! each_size {
+...
+36 |               pub type $c = extern "C" fn($ty) -> $ty;
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+41 | / each_size! {
+42 | |     Rust8 C8: B8;
+43 | |     Rust9 C9: B9;
+44 | |     Rust16 C16: B16;
+...  |
+50 | |     Rust61Below C61Below: B61Below;
+51 | | }
+   | |_- in this macro invocation
+
+error: fn_abi_of(Rust17) = FnAbi {
+           args: [
+               ArgAbi {
+                   layout: TyAndLayout {
+                       ty: B17,
+                       layout: Layout {
+                           size: Size(17 bytes),
+                           align: AbiAlign {
+                               abi: Align(1 bytes),
+                           },
+                           backend_repr: Memory {
+                               sized: true,
+                           },
+                           fields: Arbitrary {
+                               offsets: [
+                                   Size(0 bytes),
+                               ],
+                               in_memory_order: [
+                                   0,
+                               ],
+                           },
+                           largest_niche: None,
+                           uninhabited: false,
+                           variants: Single {
+                               index: 0,
+                           },
+                           max_repr_align: None,
+                           unadjusted_abi_align: Align(1 bytes),
+                           repr_c: false,
+                           randomization_seed: 12639225041669075460,
+                       },
+                   },
+                   mode: Indirect {
+                       attrs: ArgAttributes {
+                           regular: CapturesAddress | NoAlias | NonNull | NoUndef | NoFree,
+                           arg_ext: None,
+                           pointee_size: Size(17 bytes),
+                           pointee_align: Some(
+                               Align(1 bytes),
+                           ),
+                       },
+                       address_space: None,
+                       mode: Pointer,
+                   },
+               },
+           ],
+           ret: ArgAbi {
+               layout: TyAndLayout {
+                   ty: B17,
+                   layout: Layout {
+                       size: Size(17 bytes),
+                       align: AbiAlign {
+                           abi: Align(1 bytes),
+                       },
+                       backend_repr: Memory {
+                           sized: true,
+                       },
+                       fields: Arbitrary {
+                           offsets: [
+                               Size(0 bytes),
+                           ],
+                           in_memory_order: [
+                               0,
+                           ],
+                       },
+                       largest_niche: None,
+                       uninhabited: false,
+                       variants: Single {
+                           index: 0,
+                       },
+                       max_repr_align: None,
+                       unadjusted_abi_align: Align(1 bytes),
+                       repr_c: false,
+                       randomization_seed: 12639225041669075460,
+                   },
+               },
+               mode: Indirect {
+                   attrs: ArgAttributes {
+                       regular: CapturesAddress | NoAlias | NonNull | NoUndef | NoFree,
+                       arg_ext: None,
+                       pointee_size: Size(17 bytes),
+                       pointee_align: Some(
+                           Align(1 bytes),
+                       ),
+                   },
+                   address_space: None,
+                   mode: Pointer,
+               },
+           },
+           c_variadic: false,
+           fixed_count: 1,
+           conv: Rust,
+           can_unwind: true,
+       }
+  --> sizes.rs:34:13
+   |
+30 |   macro_rules! each_size {
+...
+34 |               pub type $rust = fn($ty) -> $ty;
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+41 | / each_size! {
+42 | |     Rust8 C8: B8;
+43 | |     Rust9 C9: B9;
+44 | |     Rust16 C16: B16;
+...  |
+50 | |     Rust61Below C61Below: B61Below;
+51 | | }
+   | |_- in this macro invocation
+
+error: fn_abi_of(C17) = FnAbi {
+           args: [
+               ArgAbi {
+                   layout: TyAndLayout {
+                       ty: B17,
+                       layout: Layout {
+                           size: Size(17 bytes),
+                           align: AbiAlign {
+                               abi: Align(1 bytes),
+                           },
+                           backend_repr: Memory {
+                               sized: true,
+                           },
+                           fields: Arbitrary {
+                               offsets: [
+                                   Size(0 bytes),
+                               ],
+                               in_memory_order: [
+                                   0,
+                               ],
+                           },
+                           largest_niche: None,
+                           uninhabited: false,
+                           variants: Single {
+                               index: 0,
+                           },
+                           max_repr_align: None,
+                           unadjusted_abi_align: Align(1 bytes),
+                           repr_c: false,
+                           randomization_seed: 12639225041669075460,
+                       },
+                   },
+                   mode: Indirect {
+                       attrs: ArgAttributes {
+                           regular: CapturesAddress | NoAlias | NonNull | NoUndef | NoFree,
+                           arg_ext: None,
+                           pointee_size: Size(17 bytes),
+                           pointee_align: Some(
+                               Align(1 bytes),
+                           ),
+                       },
+                       address_space: None,
+                       mode: OnStack,
+                   },
+               },
+           ],
+           ret: ArgAbi {
+               layout: TyAndLayout {
+                   ty: B17,
+                   layout: Layout {
+                       size: Size(17 bytes),
+                       align: AbiAlign {
+                           abi: Align(1 bytes),
+                       },
+                       backend_repr: Memory {
+                           sized: true,
+                       },
+                       fields: Arbitrary {
+                           offsets: [
+                               Size(0 bytes),
+                           ],
+                           in_memory_order: [
+                               0,
+                           ],
+                       },
+                       largest_niche: None,
+                       uninhabited: false,
+                       variants: Single {
+                           index: 0,
+                       },
+                       max_repr_align: None,
+                       unadjusted_abi_align: Align(1 bytes),
+                       repr_c: false,
+                       randomization_seed: 12639225041669075460,
+                   },
+               },
+               mode: Indirect {
+                   attrs: ArgAttributes {
+                       regular: CapturesAddress | NoAlias | NonNull | NoUndef | NoFree,
+                       arg_ext: None,
+                       pointee_size: Size(17 bytes),
+                       pointee_align: Some(
+                           Align(1 bytes),
+                       ),
+                   },
+                   address_space: None,
+                   mode: Pointer,
+               },
+           },
+           c_variadic: false,
+           fixed_count: 1,
+           conv: C,
+           can_unwind: false,
+       }
+  --> sizes.rs:36:13
+   |
+30 |   macro_rules! each_size {
+...
+36 |               pub type $c = extern "C" fn($ty) -> $ty;
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+41 | / each_size! {
+42 | |     Rust8 C8: B8;
+43 | |     Rust9 C9: B9;
+44 | |     Rust16 C16: B16;
+...  |
+50 | |     Rust61Below C61Below: B61Below;
+51 | | }
+   | |_- in this macro invocation
+
+error: fn_abi_of(Rust53Below) = FnAbi {
+           args: [
+               ArgAbi {
+                   layout: TyAndLayout {
+                       ty: B53Below,
+                       layout: Layout {
+                           size: Size(9007199254740991 bytes),
+                           align: AbiAlign {
+                               abi: Align(1 bytes),
+                           },
+                           backend_repr: Memory {
+                               sized: true,
+                           },
+                           fields: Arbitrary {
+                               offsets: [
+                                   Size(0 bytes),
+                               ],
+                               in_memory_order: [
+                                   0,
+                               ],
+                           },
+                           largest_niche: None,
+                           uninhabited: false,
+                           variants: Single {
+                               index: 0,
+                           },
+                           max_repr_align: None,
+                           unadjusted_abi_align: Align(1 bytes),
+                           repr_c: false,
+                           randomization_seed: 16171957056842057206,
+                       },
+                   },
+                   mode: Indirect {
+                       attrs: ArgAttributes {
+                           regular: CapturesAddress | NoAlias | NonNull | NoUndef | NoFree,
+                           arg_ext: None,
+                           pointee_size: Size(9007199254740991 bytes),
+                           pointee_align: Some(
+                               Align(1 bytes),
+                           ),
+                       },
+                       address_space: None,
+                       mode: Pointer,
+                   },
+               },
+           ],
+           ret: ArgAbi {
+               layout: TyAndLayout {
+                   ty: B53Below,
+                   layout: Layout {
+                       size: Size(9007199254740991 bytes),
+                       align: AbiAlign {
+                           abi: Align(1 bytes),
+                       },
+                       backend_repr: Memory {
+                           sized: true,
+                       },
+                       fields: Arbitrary {
+                           offsets: [
+                               Size(0 bytes),
+                           ],
+                           in_memory_order: [
+                               0,
+                           ],
+                       },
+                       largest_niche: None,
+                       uninhabited: false,
+                       variants: Single {
+                           index: 0,
+                       },
+                       max_repr_align: None,
+                       unadjusted_abi_align: Align(1 bytes),
+                       repr_c: false,
+                       randomization_seed: 16171957056842057206,
+                   },
+               },
+               mode: Indirect {
+                   attrs: ArgAttributes {
+                       regular: CapturesAddress | NoAlias | NonNull | NoUndef | NoFree,
+                       arg_ext: None,
+                       pointee_size: Size(9007199254740991 bytes),
+                       pointee_align: Some(
+                           Align(1 bytes),
+                       ),
+                   },
+                   address_space: None,
+                   mode: Pointer,
+               },
+           },
+           c_variadic: false,
+           fixed_count: 1,
+           conv: Rust,
+           can_unwind: true,
+       }
+  --> sizes.rs:34:13
+   |
+30 |   macro_rules! each_size {
+...
+34 |               pub type $rust = fn($ty) -> $ty;
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+41 | / each_size! {
+42 | |     Rust8 C8: B8;
+43 | |     Rust9 C9: B9;
+44 | |     Rust16 C16: B16;
+...  |
+50 | |     Rust61Below C61Below: B61Below;
+51 | | }
+   | |_- in this macro invocation
+
+error: fn_abi_of(C53Below) = FnAbi {
+           args: [
+               ArgAbi {
+                   layout: TyAndLayout {
+                       ty: B53Below,
+                       layout: Layout {
+                           size: Size(9007199254740991 bytes),
+                           align: AbiAlign {
+                               abi: Align(1 bytes),
+                           },
+                           backend_repr: Memory {
+                               sized: true,
+                           },
+                           fields: Arbitrary {
+                               offsets: [
+                                   Size(0 bytes),
+                               ],
+                               in_memory_order: [
+                                   0,
+                               ],
+                           },
+                           largest_niche: None,
+                           uninhabited: false,
+                           variants: Single {
+                               index: 0,
+                           },
+                           max_repr_align: None,
+                           unadjusted_abi_align: Align(1 bytes),
+                           repr_c: false,
+                           randomization_seed: 16171957056842057206,
+                       },
+                   },
+                   mode: Indirect {
+                       attrs: ArgAttributes {
+                           regular: CapturesAddress | NoAlias | NonNull | NoUndef | NoFree,
+                           arg_ext: None,
+                           pointee_size: Size(9007199254740991 bytes),
+                           pointee_align: Some(
+                               Align(1 bytes),
+                           ),
+                       },
+                       address_space: None,
+                       mode: OnStack,
+                   },
+               },
+           ],
+           ret: ArgAbi {
+               layout: TyAndLayout {
+                   ty: B53Below,
+                   layout: Layout {
+                       size: Size(9007199254740991 bytes),
+                       align: AbiAlign {
+                           abi: Align(1 bytes),
+                       },
+                       backend_repr: Memory {
+                           sized: true,
+                       },
+                       fields: Arbitrary {
+                           offsets: [
+                               Size(0 bytes),
+                           ],
+                           in_memory_order: [
+                               0,
+                           ],
+                       },
+                       largest_niche: None,
+                       uninhabited: false,
+                       variants: Single {
+                           index: 0,
+                       },
+                       max_repr_align: None,
+                       unadjusted_abi_align: Align(1 bytes),
+                       repr_c: false,
+                       randomization_seed: 16171957056842057206,
+                   },
+               },
+               mode: Indirect {
+                   attrs: ArgAttributes {
+                       regular: CapturesAddress | NoAlias | NonNull | NoUndef | NoFree,
+                       arg_ext: None,
+                       pointee_size: Size(9007199254740991 bytes),
+                       pointee_align: Some(
+                           Align(1 bytes),
+                       ),
+                   },
+                   address_space: None,
+                   mode: Pointer,
+               },
+           },
+           c_variadic: false,
+           fixed_count: 1,
+           conv: C,
+           can_unwind: false,
+       }
+  --> sizes.rs:36:13
+   |
+30 |   macro_rules! each_size {
+...
+36 |               pub type $c = extern "C" fn($ty) -> $ty;
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+41 | / each_size! {
+42 | |     Rust8 C8: B8;
+43 | |     Rust9 C9: B9;
+44 | |     Rust16 C16: B16;
+...  |
+50 | |     Rust61Below C61Below: B61Below;
+51 | | }
+   | |_- in this macro invocation
+
+error: fn_abi_of(Rust53) = FnAbi {
+           args: [
+               ArgAbi {
+                   layout: TyAndLayout {
+                       ty: B53,
+                       layout: Layout {
+                           size: Size(9007199254740992 bytes),
+                           align: AbiAlign {
+                               abi: Align(1 bytes),
+                           },
+                           backend_repr: Memory {
+                               sized: true,
+                           },
+                           fields: Arbitrary {
+                               offsets: [
+                                   Size(0 bytes),
+                               ],
+                               in_memory_order: [
+                                   0,
+                               ],
+                           },
+                           largest_niche: None,
+                           uninhabited: false,
+                           variants: Single {
+                               index: 0,
+                           },
+                           max_repr_align: None,
+                           unadjusted_abi_align: Align(1 bytes),
+                           repr_c: false,
+                           randomization_seed: 12405320074666147209,
+                       },
+                   },
+                   mode: Indirect {
+                       attrs: ArgAttributes {
+                           regular: CapturesAddress | NoAlias | NonNull | NoUndef | NoFree,
+                           arg_ext: None,
+                           pointee_size: Size(9007199254740992 bytes),
+                           pointee_align: Some(
+                               Align(1 bytes),
+                           ),
+                       },
+                       address_space: None,
+                       mode: Pointer,
+                   },
+               },
+           ],
+           ret: ArgAbi {
+               layout: TyAndLayout {
+                   ty: B53,
+                   layout: Layout {
+                       size: Size(9007199254740992 bytes),
+                       align: AbiAlign {
+                           abi: Align(1 bytes),
+                       },
+                       backend_repr: Memory {
+                           sized: true,
+                       },
+                       fields: Arbitrary {
+                           offsets: [
+                               Size(0 bytes),
+                           ],
+                           in_memory_order: [
+                               0,
+                           ],
+                       },
+                       largest_niche: None,
+                       uninhabited: false,
+                       variants: Single {
+                           index: 0,
+                       },
+                       max_repr_align: None,
+                       unadjusted_abi_align: Align(1 bytes),
+                       repr_c: false,
+                       randomization_seed: 12405320074666147209,
+                   },
+               },
+               mode: Indirect {
+                   attrs: ArgAttributes {
+                       regular: CapturesAddress | NoAlias | NonNull | NoUndef | NoFree,
+                       arg_ext: None,
+                       pointee_size: Size(9007199254740992 bytes),
+                       pointee_align: Some(
+                           Align(1 bytes),
+                       ),
+                   },
+                   address_space: None,
+                   mode: Pointer,
+               },
+           },
+           c_variadic: false,
+           fixed_count: 1,
+           conv: Rust,
+           can_unwind: true,
+       }
+  --> sizes.rs:34:13
+   |
+30 |   macro_rules! each_size {
+...
+34 |               pub type $rust = fn($ty) -> $ty;
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+41 | / each_size! {
+42 | |     Rust8 C8: B8;
+43 | |     Rust9 C9: B9;
+44 | |     Rust16 C16: B16;
+...  |
+50 | |     Rust61Below C61Below: B61Below;
+51 | | }
+   | |_- in this macro invocation
+
+error: fn_abi_of(C53) = FnAbi {
+           args: [
+               ArgAbi {
+                   layout: TyAndLayout {
+                       ty: B53,
+                       layout: Layout {
+                           size: Size(9007199254740992 bytes),
+                           align: AbiAlign {
+                               abi: Align(1 bytes),
+                           },
+                           backend_repr: Memory {
+                               sized: true,
+                           },
+                           fields: Arbitrary {
+                               offsets: [
+                                   Size(0 bytes),
+                               ],
+                               in_memory_order: [
+                                   0,
+                               ],
+                           },
+                           largest_niche: None,
+                           uninhabited: false,
+                           variants: Single {
+                               index: 0,
+                           },
+                           max_repr_align: None,
+                           unadjusted_abi_align: Align(1 bytes),
+                           repr_c: false,
+                           randomization_seed: 12405320074666147209,
+                       },
+                   },
+                   mode: Indirect {
+                       attrs: ArgAttributes {
+                           regular: CapturesAddress | NoAlias | NonNull | NoUndef | NoFree,
+                           arg_ext: None,
+                           pointee_size: Size(9007199254740992 bytes),
+                           pointee_align: Some(
+                               Align(1 bytes),
+                           ),
+                       },
+                       address_space: None,
+                       mode: OnStack,
+                   },
+               },
+           ],
+           ret: ArgAbi {
+               layout: TyAndLayout {
+                   ty: B53,
+                   layout: Layout {
+                       size: Size(9007199254740992 bytes),
+                       align: AbiAlign {
+                           abi: Align(1 bytes),
+                       },
+                       backend_repr: Memory {
+                           sized: true,
+                       },
+                       fields: Arbitrary {
+                           offsets: [
+                               Size(0 bytes),
+                           ],
+                           in_memory_order: [
+                               0,
+                           ],
+                       },
+                       largest_niche: None,
+                       uninhabited: false,
+                       variants: Single {
+                           index: 0,
+                       },
+                       max_repr_align: None,
+                       unadjusted_abi_align: Align(1 bytes),
+                       repr_c: false,
+                       randomization_seed: 12405320074666147209,
+                   },
+               },
+               mode: Indirect {
+                   attrs: ArgAttributes {
+                       regular: CapturesAddress | NoAlias | NonNull | NoUndef | NoFree,
+                       arg_ext: None,
+                       pointee_size: Size(9007199254740992 bytes),
+                       pointee_align: Some(
+                           Align(1 bytes),
+                       ),
+                   },
+                   address_space: None,
+                   mode: Pointer,
+               },
+           },
+           c_variadic: false,
+           fixed_count: 1,
+           conv: C,
+           can_unwind: false,
+       }
+  --> sizes.rs:36:13
+   |
+30 |   macro_rules! each_size {
+...
+36 |               pub type $c = extern "C" fn($ty) -> $ty;
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+41 | / each_size! {
+42 | |     Rust8 C8: B8;
+43 | |     Rust9 C9: B9;
+44 | |     Rust16 C16: B16;
+...  |
+50 | |     Rust61Below C61Below: B61Below;
+51 | | }
+   | |_- in this macro invocation
+
+error: fn_abi_of(Rust53Above) = FnAbi {
+           args: [
+               ArgAbi {
+                   layout: TyAndLayout {
+                       ty: B53Above,
+                       layout: Layout {
+                           size: Size(9007199254740993 bytes),
+                           align: AbiAlign {
+                               abi: Align(1 bytes),
+                           },
+                           backend_repr: Memory {
+                               sized: true,
+                           },
+                           fields: Arbitrary {
+                               offsets: [
+                                   Size(0 bytes),
+                               ],
+                               in_memory_order: [
+                                   0,
+                               ],
+                           },
+                           largest_niche: None,
+                           uninhabited: false,
+                           variants: Single {
+                               index: 0,
+                           },
+                           max_repr_align: None,
+                           unadjusted_abi_align: Align(1 bytes),
+                           repr_c: false,
+                           randomization_seed: 9021926365076218639,
+                       },
+                   },
+                   mode: Indirect {
+                       attrs: ArgAttributes {
+                           regular: CapturesAddress | NoAlias | NonNull | NoUndef | NoFree,
+                           arg_ext: None,
+                           pointee_size: Size(9007199254740993 bytes),
+                           pointee_align: Some(
+                               Align(1 bytes),
+                           ),
+                       },
+                       address_space: None,
+                       mode: Pointer,
+                   },
+               },
+           ],
+           ret: ArgAbi {
+               layout: TyAndLayout {
+                   ty: B53Above,
+                   layout: Layout {
+                       size: Size(9007199254740993 bytes),
+                       align: AbiAlign {
+                           abi: Align(1 bytes),
+                       },
+                       backend_repr: Memory {
+                           sized: true,
+                       },
+                       fields: Arbitrary {
+                           offsets: [
+                               Size(0 bytes),
+                           ],
+                           in_memory_order: [
+                               0,
+                           ],
+                       },
+                       largest_niche: None,
+                       uninhabited: false,
+                       variants: Single {
+                           index: 0,
+                       },
+                       max_repr_align: None,
+                       unadjusted_abi_align: Align(1 bytes),
+                       repr_c: false,
+                       randomization_seed: 9021926365076218639,
+                   },
+               },
+               mode: Indirect {
+                   attrs: ArgAttributes {
+                       regular: CapturesAddress | NoAlias | NonNull | NoUndef | NoFree,
+                       arg_ext: None,
+                       pointee_size: Size(9007199254740993 bytes),
+                       pointee_align: Some(
+                           Align(1 bytes),
+                       ),
+                   },
+                   address_space: None,
+                   mode: Pointer,
+               },
+           },
+           c_variadic: false,
+           fixed_count: 1,
+           conv: Rust,
+           can_unwind: true,
+       }
+  --> sizes.rs:34:13
+   |
+30 |   macro_rules! each_size {
+...
+34 |               pub type $rust = fn($ty) -> $ty;
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+41 | / each_size! {
+42 | |     Rust8 C8: B8;
+43 | |     Rust9 C9: B9;
+44 | |     Rust16 C16: B16;
+...  |
+50 | |     Rust61Below C61Below: B61Below;
+51 | | }
+   | |_- in this macro invocation
+
+error: fn_abi_of(C53Above) = FnAbi {
+           args: [
+               ArgAbi {
+                   layout: TyAndLayout {
+                       ty: B53Above,
+                       layout: Layout {
+                           size: Size(9007199254740993 bytes),
+                           align: AbiAlign {
+                               abi: Align(1 bytes),
+                           },
+                           backend_repr: Memory {
+                               sized: true,
+                           },
+                           fields: Arbitrary {
+                               offsets: [
+                                   Size(0 bytes),
+                               ],
+                               in_memory_order: [
+                                   0,
+                               ],
+                           },
+                           largest_niche: None,
+                           uninhabited: false,
+                           variants: Single {
+                               index: 0,
+                           },
+                           max_repr_align: None,
+                           unadjusted_abi_align: Align(1 bytes),
+                           repr_c: false,
+                           randomization_seed: 9021926365076218639,
+                       },
+                   },
+                   mode: Indirect {
+                       attrs: ArgAttributes {
+                           regular: CapturesAddress | NoAlias | NonNull | NoUndef | NoFree,
+                           arg_ext: None,
+                           pointee_size: Size(9007199254740993 bytes),
+                           pointee_align: Some(
+                               Align(1 bytes),
+                           ),
+                       },
+                       address_space: None,
+                       mode: OnStack,
+                   },
+               },
+           ],
+           ret: ArgAbi {
+               layout: TyAndLayout {
+                   ty: B53Above,
+                   layout: Layout {
+                       size: Size(9007199254740993 bytes),
+                       align: AbiAlign {
+                           abi: Align(1 bytes),
+                       },
+                       backend_repr: Memory {
+                           sized: true,
+                       },
+                       fields: Arbitrary {
+                           offsets: [
+                               Size(0 bytes),
+                           ],
+                           in_memory_order: [
+                               0,
+                           ],
+                       },
+                       largest_niche: None,
+                       uninhabited: false,
+                       variants: Single {
+                           index: 0,
+                       },
+                       max_repr_align: None,
+                       unadjusted_abi_align: Align(1 bytes),
+                       repr_c: false,
+                       randomization_seed: 9021926365076218639,
+                   },
+               },
+               mode: Indirect {
+                   attrs: ArgAttributes {
+                       regular: CapturesAddress | NoAlias | NonNull | NoUndef | NoFree,
+                       arg_ext: None,
+                       pointee_size: Size(9007199254740993 bytes),
+                       pointee_align: Some(
+                           Align(1 bytes),
+                       ),
+                   },
+                   address_space: None,
+                   mode: Pointer,
+               },
+           },
+           c_variadic: false,
+           fixed_count: 1,
+           conv: C,
+           can_unwind: false,
+       }
+  --> sizes.rs:36:13
+   |
+30 |   macro_rules! each_size {
+...
+36 |               pub type $c = extern "C" fn($ty) -> $ty;
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+41 | / each_size! {
+42 | |     Rust8 C8: B8;
+43 | |     Rust9 C9: B9;
+44 | |     Rust16 C16: B16;
+...  |
+50 | |     Rust61Below C61Below: B61Below;
+51 | | }
+   | |_- in this macro invocation
+
+error: fn_abi_of(Rust60) = FnAbi {
+           args: [
+               ArgAbi {
+                   layout: TyAndLayout {
+                       ty: B60,
+                       layout: Layout {
+                           size: Size(1152921504606846976 bytes),
+                           align: AbiAlign {
+                               abi: Align(1 bytes),
+                           },
+                           backend_repr: Memory {
+                               sized: true,
+                           },
+                           fields: Arbitrary {
+                               offsets: [
+                                   Size(0 bytes),
+                               ],
+                               in_memory_order: [
+                                   0,
+                               ],
+                           },
+                           largest_niche: None,
+                           uninhabited: false,
+                           variants: Single {
+                               index: 0,
+                           },
+                           max_repr_align: None,
+                           unadjusted_abi_align: Align(1 bytes),
+                           repr_c: false,
+                           randomization_seed: 4130352268419036128,
+                       },
+                   },
+                   mode: Indirect {
+                       attrs: ArgAttributes {
+                           regular: CapturesAddress | NoAlias | NonNull | NoUndef | NoFree,
+                           arg_ext: None,
+                           pointee_size: Size(1152921504606846976 bytes),
+                           pointee_align: Some(
+                               Align(1 bytes),
+                           ),
+                       },
+                       address_space: None,
+                       mode: Pointer,
+                   },
+               },
+           ],
+           ret: ArgAbi {
+               layout: TyAndLayout {
+                   ty: B60,
+                   layout: Layout {
+                       size: Size(1152921504606846976 bytes),
+                       align: AbiAlign {
+                           abi: Align(1 bytes),
+                       },
+                       backend_repr: Memory {
+                           sized: true,
+                       },
+                       fields: Arbitrary {
+                           offsets: [
+                               Size(0 bytes),
+                           ],
+                           in_memory_order: [
+                               0,
+                           ],
+                       },
+                       largest_niche: None,
+                       uninhabited: false,
+                       variants: Single {
+                           index: 0,
+                       },
+                       max_repr_align: None,
+                       unadjusted_abi_align: Align(1 bytes),
+                       repr_c: false,
+                       randomization_seed: 4130352268419036128,
+                   },
+               },
+               mode: Indirect {
+                   attrs: ArgAttributes {
+                       regular: CapturesAddress | NoAlias | NonNull | NoUndef | NoFree,
+                       arg_ext: None,
+                       pointee_size: Size(1152921504606846976 bytes),
+                       pointee_align: Some(
+                           Align(1 bytes),
+                       ),
+                   },
+                   address_space: None,
+                   mode: Pointer,
+               },
+           },
+           c_variadic: false,
+           fixed_count: 1,
+           conv: Rust,
+           can_unwind: true,
+       }
+  --> sizes.rs:34:13
+   |
+30 |   macro_rules! each_size {
+...
+34 |               pub type $rust = fn($ty) -> $ty;
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+41 | / each_size! {
+42 | |     Rust8 C8: B8;
+43 | |     Rust9 C9: B9;
+44 | |     Rust16 C16: B16;
+...  |
+50 | |     Rust61Below C61Below: B61Below;
+51 | | }
+   | |_- in this macro invocation
+
+error: fn_abi_of(C60) = FnAbi {
+           args: [
+               ArgAbi {
+                   layout: TyAndLayout {
+                       ty: B60,
+                       layout: Layout {
+                           size: Size(1152921504606846976 bytes),
+                           align: AbiAlign {
+                               abi: Align(1 bytes),
+                           },
+                           backend_repr: Memory {
+                               sized: true,
+                           },
+                           fields: Arbitrary {
+                               offsets: [
+                                   Size(0 bytes),
+                               ],
+                               in_memory_order: [
+                                   0,
+                               ],
+                           },
+                           largest_niche: None,
+                           uninhabited: false,
+                           variants: Single {
+                               index: 0,
+                           },
+                           max_repr_align: None,
+                           unadjusted_abi_align: Align(1 bytes),
+                           repr_c: false,
+                           randomization_seed: 4130352268419036128,
+                       },
+                   },
+                   mode: Indirect {
+                       attrs: ArgAttributes {
+                           regular: CapturesAddress | NoAlias | NonNull | NoUndef | NoFree,
+                           arg_ext: None,
+                           pointee_size: Size(1152921504606846976 bytes),
+                           pointee_align: Some(
+                               Align(1 bytes),
+                           ),
+                       },
+                       address_space: None,
+                       mode: OnStack,
+                   },
+               },
+           ],
+           ret: ArgAbi {
+               layout: TyAndLayout {
+                   ty: B60,
+                   layout: Layout {
+                       size: Size(1152921504606846976 bytes),
+                       align: AbiAlign {
+                           abi: Align(1 bytes),
+                       },
+                       backend_repr: Memory {
+                           sized: true,
+                       },
+                       fields: Arbitrary {
+                           offsets: [
+                               Size(0 bytes),
+                           ],
+                           in_memory_order: [
+                               0,
+                           ],
+                       },
+                       largest_niche: None,
+                       uninhabited: false,
+                       variants: Single {
+                           index: 0,
+                       },
+                       max_repr_align: None,
+                       unadjusted_abi_align: Align(1 bytes),
+                       repr_c: false,
+                       randomization_seed: 4130352268419036128,
+                   },
+               },
+               mode: Indirect {
+                   attrs: ArgAttributes {
+                       regular: CapturesAddress | NoAlias | NonNull | NoUndef | NoFree,
+                       arg_ext: None,
+                       pointee_size: Size(1152921504606846976 bytes),
+                       pointee_align: Some(
+                           Align(1 bytes),
+                       ),
+                   },
+                   address_space: None,
+                   mode: Pointer,
+               },
+           },
+           c_variadic: false,
+           fixed_count: 1,
+           conv: C,
+           can_unwind: false,
+       }
+  --> sizes.rs:36:13
+   |
+30 |   macro_rules! each_size {
+...
+36 |               pub type $c = extern "C" fn($ty) -> $ty;
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+41 | / each_size! {
+42 | |     Rust8 C8: B8;
+43 | |     Rust9 C9: B9;
+44 | |     Rust16 C16: B16;
+...  |
+50 | |     Rust61Below C61Below: B61Below;
+51 | | }
+   | |_- in this macro invocation
+
+error: fn_abi_of(Rust61Below) = FnAbi {
+           args: [
+               ArgAbi {
+                   layout: TyAndLayout {
+                       ty: B61Below,
+                       layout: Layout {
+                           size: Size(2305843009213693951 bytes),
+                           align: AbiAlign {
+                               abi: Align(1 bytes),
+                           },
+                           backend_repr: Memory {
+                               sized: true,
+                           },
+                           fields: Arbitrary {
+                               offsets: [
+                                   Size(0 bytes),
+                               ],
+                               in_memory_order: [
+                                   0,
+                               ],
+                           },
+                           largest_niche: None,
+                           uninhabited: false,
+                           variants: Single {
+                               index: 0,
+                           },
+                           max_repr_align: None,
+                           unadjusted_abi_align: Align(1 bytes),
+                           repr_c: false,
+                           randomization_seed: 4037752569295220171,
+                       },
+                   },
+                   mode: Indirect {
+                       attrs: ArgAttributes {
+                           regular: CapturesAddress | NoAlias | NonNull | NoUndef | NoFree,
+                           arg_ext: None,
+                           pointee_size: Size(2305843009213693951 bytes),
+                           pointee_align: Some(
+                               Align(1 bytes),
+                           ),
+                       },
+                       address_space: None,
+                       mode: Pointer,
+                   },
+               },
+           ],
+           ret: ArgAbi {
+               layout: TyAndLayout {
+                   ty: B61Below,
+                   layout: Layout {
+                       size: Size(2305843009213693951 bytes),
+                       align: AbiAlign {
+                           abi: Align(1 bytes),
+                       },
+                       backend_repr: Memory {
+                           sized: true,
+                       },
+                       fields: Arbitrary {
+                           offsets: [
+                               Size(0 bytes),
+                           ],
+                           in_memory_order: [
+                               0,
+                           ],
+                       },
+                       largest_niche: None,
+                       uninhabited: false,
+                       variants: Single {
+                           index: 0,
+                       },
+                       max_repr_align: None,
+                       unadjusted_abi_align: Align(1 bytes),
+                       repr_c: false,
+                       randomization_seed: 4037752569295220171,
+                   },
+               },
+               mode: Indirect {
+                   attrs: ArgAttributes {
+                       regular: CapturesAddress | NoAlias | NonNull | NoUndef | NoFree,
+                       arg_ext: None,
+                       pointee_size: Size(2305843009213693951 bytes),
+                       pointee_align: Some(
+                           Align(1 bytes),
+                       ),
+                   },
+                   address_space: None,
+                   mode: Pointer,
+               },
+           },
+           c_variadic: false,
+           fixed_count: 1,
+           conv: Rust,
+           can_unwind: true,
+       }
+  --> sizes.rs:34:13
+   |
+30 |   macro_rules! each_size {
+...
+34 |               pub type $rust = fn($ty) -> $ty;
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+41 | / each_size! {
+42 | |     Rust8 C8: B8;
+43 | |     Rust9 C9: B9;
+44 | |     Rust16 C16: B16;
+...  |
+50 | |     Rust61Below C61Below: B61Below;
+51 | | }
+   | |_- in this macro invocation
+
+error: fn_abi_of(C61Below) = FnAbi {
+           args: [
+               ArgAbi {
+                   layout: TyAndLayout {
+                       ty: B61Below,
+                       layout: Layout {
+                           size: Size(2305843009213693951 bytes),
+                           align: AbiAlign {
+                               abi: Align(1 bytes),
+                           },
+                           backend_repr: Memory {
+                               sized: true,
+                           },
+                           fields: Arbitrary {
+                               offsets: [
+                                   Size(0 bytes),
+                               ],
+                               in_memory_order: [
+                                   0,
+                               ],
+                           },
+                           largest_niche: None,
+                           uninhabited: false,
+                           variants: Single {
+                               index: 0,
+                           },
+                           max_repr_align: None,
+                           unadjusted_abi_align: Align(1 bytes),
+                           repr_c: false,
+                           randomization_seed: 4037752569295220171,
+                       },
+                   },
+                   mode: Indirect {
+                       attrs: ArgAttributes {
+                           regular: CapturesAddress | NoAlias | NonNull | NoUndef | NoFree,
+                           arg_ext: None,
+                           pointee_size: Size(2305843009213693951 bytes),
+                           pointee_align: Some(
+                               Align(1 bytes),
+                           ),
+                       },
+                       address_space: None,
+                       mode: OnStack,
+                   },
+               },
+           ],
+           ret: ArgAbi {
+               layout: TyAndLayout {
+                   ty: B61Below,
+                   layout: Layout {
+                       size: Size(2305843009213693951 bytes),
+                       align: AbiAlign {
+                           abi: Align(1 bytes),
+                       },
+                       backend_repr: Memory {
+                           sized: true,
+                       },
+                       fields: Arbitrary {
+                           offsets: [
+                               Size(0 bytes),
+                           ],
+                           in_memory_order: [
+                               0,
+                           ],
+                       },
+                       largest_niche: None,
+                       uninhabited: false,
+                       variants: Single {
+                           index: 0,
+                       },
+                       max_repr_align: None,
+                       unadjusted_abi_align: Align(1 bytes),
+                       repr_c: false,
+                       randomization_seed: 4037752569295220171,
+                   },
+               },
+               mode: Indirect {
+                   attrs: ArgAttributes {
+                       regular: CapturesAddress | NoAlias | NonNull | NoUndef | NoFree,
+                       arg_ext: None,
+                       pointee_size: Size(2305843009213693951 bytes),
+                       pointee_align: Some(
+                           Align(1 bytes),
+                       ),
+                   },
+                   address_space: None,
+                   mode: Pointer,
+               },
+           },
+           c_variadic: false,
+           fixed_count: 1,
+           conv: C,
+           can_unwind: false,
+       }
+  --> sizes.rs:36:13
+   |
+30 |   macro_rules! each_size {
+...
+36 |               pub type $c = extern "C" fn($ty) -> $ty;
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+41 | / each_size! {
+42 | |     Rust8 C8: B8;
+43 | |     Rust9 C9: B9;
+44 | |     Rust16 C16: B16;
+...  |
+50 | |     Rust61Below C61Below: B61Below;
+51 | | }
+   | |_- in this macro invocation
+
+error: aborting due to 18 previous errors
+
