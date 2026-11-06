@@ -219,6 +219,12 @@ test("value_hash, value_eq: the cases the key text decides, and values that coll
   expect(value_eq({ a: 1 }, { a: 1, b: 2 })).toBe(false);
   expect(value_eq({ a: 1, b: 2 }, { a: 1 })).toBe(false);
   expect(value_eq({ $: "A", _0: 1 }, { _0: 1, $: "A" })).toBe(true);
+  // Names every literal inherits: only the own fields count.
+  expect(value_eq({ p: 1 }, { p: 1, constructor: 5 })).toBe(false);
+  expect(value_eq({ p: 1, constructor: 5 }, { p: 1 })).toBe(false);
+  expect(value_eq({ p: 1, constructor: undefined }, { p: 1 })).toBe(true);
+  expect(value_eq({ p: 1 }, { p: 1, constructor: undefined })).toBe(true);
+  expect(value_eq({ a: undefined, b: 1 }, { a: 1, b: undefined })).toBe(false);
   expect(value_hash({ $: "A", _0: 1 })).toBe(value_hash({ _0: 1, $: "A" }));
   expect(value_hash({ a: 1, b: undefined })).toBe(value_hash({ a: 1 }));
   expect(value_eq([1], { 0: 1 })).toBe(false);

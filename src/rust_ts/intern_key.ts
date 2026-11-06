@@ -384,10 +384,18 @@ export function value_eq(a: unknown, b: unknown): boolean {
       const rb = b as Record<string, unknown>;
       const proto = Object.getPrototypeOf(a);
       if (proto === Object.prototype && Object.getPrototypeOf(b) === proto) {
-        // Literals, as in `value_hash`: no arrays made, and `ra[k]` of a field only the other has is `undefined`.
-        for (const k in ra) if (!value_eq(ra[k], rb[k])) return false;
-        for (const k in rb) if (rb[k] !== undefined && ra[k] === undefined) return false;
-        return true;
+        // Literals, as in `value_hash`: no arrays made. Every field of `a` that is not `undefined` equals `b`'s (a name `b` only
+        // inherits, like `constructor`, gives a function, which `value_hash` rejects, so no equal value), so one more such field
+        // in `b` is all that can still differ.
+        let defined = 0;
+        for (const k in ra) {
+          const fa = ra[k];
+          if (fa === undefined) continue;
+          defined++;
+          if (!value_eq(fa, rb[k])) return false;
+        }
+        for (const k in rb) if (rb[k] !== undefined) defined--;
+        return defined === 0;
       }
       const ka = Object.keys(a);
       for (let i = 0; i < ka.length; i++) {
