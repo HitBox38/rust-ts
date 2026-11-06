@@ -147,7 +147,7 @@ format, e.g. `NodeId(4294967040)`).
 `Clause`, `ValTree`, `Pattern`, `AdtDef`, ... and `&'tcx List<T>` are **frozen class instances, unique per
 value**, made only by the `CtxtInterners` of `TyCtxt` (rustc_middle ty/context.ts). Each extends
 `rustc_data_structures/intern.ts`'s `Interned` (lists: `RawList`, a frozen `Array` subclass, so a `List<T>` is a
-`readonly T[]`) and carries a sequential `id` used only for interning. Equality is `===`, `Map`/`Set` key on
+`readonly T[]`) and carries a sequential `id`: what `hash_Interned` writes and what memo tables key on, so it is not free to change. Equality is `===`, `Map`/`Set` key on
 the object, methods live on the prototype (`ty.kind()`); `Interned` has no `Ord`, so nothing orders on them.
 Interning is upstream's table where it is hot: a hash that only picks the bucket, then `==` on the stored value, with no
 key string (`intern_value`/`intern_slice`, rustc_data_structures/sharded.ts; `value_hash`/`value_eq`, rust_ts/intern_key.ts:

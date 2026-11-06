@@ -1,5 +1,8 @@
 // scripts/lib/host-state.ts, on fake readers. `scripts/gate-power.test.ts` runs the gate itself on them.
-import { describe, expect, test } from "bun:test";
+import { afterAll, describe, expect, test } from "bun:test";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { HostLog, batteryRefusal, commandOutput, parsePower, parseSwapUsedMb, sampleHost, type HostReaders } from "./host-state.ts";
 
 const AC = "Now drawing from 'AC Power'\n -InternalBattery-0 (id=22872163)\t100%; charged; 0:00 remaining present: true\n";
@@ -52,6 +55,50 @@ describe("the refusal", () => {
   });
 });
 
+describe("a command that will not end", () => {
+  const TMP = mkdtempSync(join(tmpdir(), "rust-ts-host-state-"));
+  afterAll(() => rmSync(TMP, { recursive: true, force: true }));
+  /**
+   * The real readers' shape on `/bin/sh -c body`, with short limits: no reading, soon, from a command seen to start. Not a script
+   * file: macOS takes about 600 ms to start a new one, past these limits, and a command killed before it starts proves nothing.
+   */
+  const sampled = async (name: string, body: string): Promise<number> => {
+    const marker = join(TMP, name);
+    const read = () => commandOutput(["/bin/sh", "-c", `echo $$ > ${marker}\n${body}`], 200);
+    const started = performance.now();
+    const s = await sampleHost({ ...fake([AC]), pmset: read, swapusage: async () => undefined }, 400);
+    expect(performance.now() - started).toBeLessThan(2_000);
+    expect(s.power).toBeNull();
+    return Number(readFileSync(marker, "utf8"));
+  };
+  test("ignores SIGTERM: killed, and the sample goes on", async () => {
+    const pid = await sampled("ignores-term", "trap '' TERM\nwhile :; do sleep 1; done");
+    const alive = () => {
+      try {
+        process.kill(pid, 0);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+    const until = performance.now() + 1_500;
+    while (alive() && performance.now() < until) await Bun.sleep(10);
+    expect(alive()).toBe(false);
+  });
+  test("killed, and its child holds stdout", async () => {
+    await sampled("child-holds", "sleep 2\nexit 0");
+  });
+  test("exits at once, and a background child holds stdout", async () => {
+    await sampled("background-holds", "sleep 2 &\nexit 0");
+  });
+  test("a reader that never answers", async () => {
+    const never = () => new Promise<undefined>(() => {});
+    const s = await sampleHost({ ...fake([AC]), pmset: never, swapusage: never }, 20);
+    expect(s.power).toBeNull();
+    expect(s.load).toEqual([1, 2, 3]);
+  });
+});
+
 describe("a reader that fails", () => {
   test("no pmset on this path, and a command that fails: undefined", async () => {
     expect(await commandOutput(["/nonexistent/pmset", "-g", "batt"])).toBeUndefined();
@@ -67,9 +114,9 @@ describe("a reader that fails", () => {
 });
 
 describe("HostLog", () => {
-  const log = (pmset: (string | undefined)[], keepEveryMs = 3_600_000) => {
+  const log = (pmset: (string | undefined)[], keepEveryMs = 3_600_000, allowBattery = false) => {
     const notes: string[] = [];
-    return { notes, h: new HostLog(fake(pmset), { pollMs: 1, keepEveryMs, note: (l) => notes.push(l) }) };
+    return { notes, h: new HostLog(fake(pmset), { pollMs: 1, keepEveryMs, note: (l) => notes.push(l), allowBattery }) };
   };
   test("power lost and back: one note each, as `note:`, and kept whatever the keep interval", async () => {
     const { h, notes } = log([AC, AC, BATT(90), BATT(88), AC]);
@@ -82,14 +129,30 @@ describe("HostLog", () => {
     expect(h.powerLost.map((p) => p.percent)).toEqual([90]);
     expect(h.samples.map((s) => s.power?.onBattery)).toEqual([false, true, false]);
   });
-  test("a run that starts on battery has lost nothing; losing it again later has", async () => {
-    const { h, notes } = log([BATT(70), BATT(69), AC, BATT(100)]);
+  test("a run started on battery with the flag has lost nothing; losing it again later has", async () => {
+    const { h, notes } = log([BATT(70), BATT(69), AC, BATT(100)], 3_600_000, true);
     await h.mark();
     await h.poll();
     expect(notes).toEqual([]);
     await h.poll();
     await h.poll();
     expect(h.powerLost.length).toBe(1);
+  });
+  test("without the flag, a first reading on battery is noted, however late it comes", async () => {
+    const { h, notes } = log([undefined, undefined, BATT(40), BATT(39)]);
+    await h.mark();
+    for (let i = 0; i < 3; i++) await h.poll();
+    expect(notes.length).toBe(1);
+    expect(notes[0]).toStartWith("note: power lost at ");
+    expect(h.powerLost.map((p) => p.percent)).toEqual([40]);
+  });
+  test("a first reading on AC is no news", async () => {
+    const { h, notes } = log([undefined, AC, AC]);
+    await h.mark();
+    await h.poll();
+    await h.poll();
+    expect(notes).toEqual([]);
+    expect(h.powerLost).toEqual([]);
   });
   test("a failed reading says nothing about the source", async () => {
     const { h, notes } = log([AC, undefined, AC, undefined, BATT(50)]);

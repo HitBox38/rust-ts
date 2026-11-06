@@ -48,11 +48,16 @@ export function parseSwapUsedMb(text: string): number | undefined {
   return Number(m[1]) * (m[2] === "G" ? 1024 : m[2] === "K" ? 1 / 1024 : 1);
 }
 
-/** Stdout of a command given by absolute path; undefined if it is not there, fails or hangs. */
-export async function commandOutput(cmd: string[]): Promise<string | undefined> {
+/**
+ * Stdout of a command given by absolute path; undefined if it is not there or fails. A command past `limitMs` is SIGKILLed, as
+ * SIGTERM can be ignored, but a child of it can still hold stdout open, so `sampleHost` holds the limit on the whole read. Unref'd:
+ * a read still running must not keep a finished gate alive.
+ */
+export async function commandOutput(cmd: string[], limitMs = 5_000): Promise<string | undefined> {
   if (!existsSync(cmd[0]!)) return undefined;
   try {
-    const p = Bun.spawn(cmd, { stdin: "ignore", stdout: "pipe", stderr: "ignore", timeout: 5_000 });
+    const p = Bun.spawn(cmd, { stdin: "ignore", stdout: "pipe", stderr: "ignore", timeout: limitMs, killSignal: "SIGKILL" });
+    p.unref();
     const [text, code] = await Promise.all([new Response(p.stdout).text(), p.exited]);
     return code === 0 ? text : undefined;
   } catch {
@@ -67,13 +72,22 @@ export const REAL_HOST: HostReaders = {
   now: () => new Date(),
 };
 
-/** One sample. Never throws, whatever a reader does. */
-export async function sampleHost(r: HostReaders): Promise<HostSample> {
+/** How long a sample waits for a reader; past `commandOutput`'s limit, so that a killed command is seen as failed first. */
+const READ_LIMIT_MS = 6_000;
+
+/**
+ * One sample. Never throws or hangs, whatever a reader does: `gateRun` awaits samples between suites, so a reader that never
+ * answered would stop the gate. The timer is kept referenced: it may be all that keeps the loop alive during such a read.
+ */
+export async function sampleHost(r: HostReaders, readLimitMs = READ_LIMIT_MS): Promise<HostSample> {
   const read = async (f: () => Promise<string | undefined>): Promise<string | undefined> => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
     try {
-      return await f();
+      return await Promise.race([f(), new Promise<undefined>((res) => { timer = setTimeout(() => res(undefined), readLimitMs); })]);
     } catch {
       return undefined;
+    } finally {
+      clearTimeout(timer);
     }
   };
   const [pmset, swap] = await Promise.all([read(() => r.pmset()), read(() => r.swapusage())]);
@@ -94,12 +108,17 @@ export interface HostLogOptions {
   keepEveryMs: number;
   /** A `note:` line, as soon as power is lost or back. */
   note: (line: string) => void;
+  /** `--allow-battery`: a run may start on battery, so a first reading on battery is not news. */
+  allowBattery: boolean;
 }
 
 /** What gate.json keeps of a run (`host`). */
 export interface HostRecord {
   allowBattery: boolean;
-  /** Each move to battery during the run, not one the run started in. */
+  /**
+   * Each move to battery during the run, and, without `--allow-battery`, a first reading on battery: the refusal reads only one
+   * sample, and it may have had no reading. Not a run started on battery with the flag.
+   */
   powerLost: { at: string; percent: number | null }[];
   /** Polls and suite edges in time order; see `HostLogOptions.keepEveryMs`. */
   samples: HostSample[];
@@ -124,7 +143,8 @@ export class HostLog {
     if (s.power === null) return false;
     const was = this.onBattery;
     this.onBattery = s.power.onBattery;
-    if (was === undefined || was === s.power.onBattery) return false;
+    if (was === s.power.onBattery) return false;
+    if (was === undefined && (!s.power.onBattery || this.opts.allowBattery)) return false;
     const charge = s.power.percent === null ? "" : ` at ${s.power.percent}%`;
     if (s.power.onBattery) {
       this.powerLost.push({ at: s.at, percent: s.power.percent });

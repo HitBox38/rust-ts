@@ -360,7 +360,7 @@ export async function gateRun(requested: string[], skipStatic: boolean, skipHeav
   const refused = batteryRefusal(first.power, allowBattery);
   if (refused !== undefined) die(refused);
   if (first.power?.onBattery) console.log(`note: running on battery (--allow-battery)${first.power.percent === null ? "" : `, at ${first.power.percent}%`}: timings will run slow, and a timeout may be false`);
-  const host = new HostLog(gateHost.readers, { pollMs: gateHost.pollMs, keepEveryMs: gateHost.keepEveryMs, note: (l) => console.log(l) });
+  const host = new HostLog(gateHost.readers, { pollMs: gateHost.pollMs, keepEveryMs: gateHost.keepEveryMs, note: (l) => console.log(l), allowBattery });
   await host.mark();
   host.start();
   // Heavy suites last, in their given order (plan-m5 §4.2); `--skip-heavy` leaves them out, as not run.
