@@ -91,7 +91,7 @@ test.skipIf(process.platform === "win32")("current_dir and set_current_dir past 
 });
 
 test.skipIf(process.platform === "win32")("home_dir: HOME's bytes, and the passwd home when it is empty or unset", () => {
-  // In a directory of its own: with no HOME, Bun makes a `Library/Caches` in the cwd.
+  // In a directory of its own: given an empty HOME, Bun makes a `Library/Caches` in the cwd.
   const dir = mkdtempSync(join(tmpdir(), "rust-ts-home-"));
   try {
     const home_bytes = (entries: string[]): string => {

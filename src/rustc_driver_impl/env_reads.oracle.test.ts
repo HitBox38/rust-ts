@@ -50,7 +50,7 @@ afterAll(() => {
 });
 
 function run(entries: string[], cmd: string[], opts: { stdin?: string; cwd?: string[] } = {}): { stdout: string; stderr: string; code: number | null } {
-  // HOME keeps Bun's transpile cache where it is; with none, Bun makes a `Library/Caches` in the cwd.
+  // HOME keeps Bun's transpile cache where it is; given an empty one, Bun makes a `Library/Caches` in the cwd.
   const env = [`HOME=${process.env.HOME ?? ""}`, "RUSTC_ICE=0", ...entries];
   const argv = [process.execPath, EXEC_WITH_ENV, JSON.stringify(env), ...cmd];
   // The shell changes into the deep directory and execs; `Bun.spawn`'s `cwd` could not state it.

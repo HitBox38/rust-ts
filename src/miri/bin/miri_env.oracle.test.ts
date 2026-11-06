@@ -37,7 +37,7 @@ const mask = (s: string): string =>
     .replace(/stack backtrace:\n(?:(?:[ \t]+\S|note: rust-ts prints).*\n)*/g, "stack backtrace:\n");
 
 function run(entries: string[], cmd: string[]): { stderr: string; code: number | null } {
-  // HOME keeps Bun's transpile cache where it is; with none, Bun makes a `Library/Caches` in the cwd.
+  // HOME keeps Bun's transpile cache where it is; given an empty one, Bun makes a `Library/Caches` in the cwd.
   const env = [`HOME=${process.env.HOME ?? ""}`, "RUSTC_ICE=0", ...entries];
   const r = Bun.spawnSync([process.execPath, EXEC_WITH_ENV, JSON.stringify(env), ...cmd], { cwd: dir, stdout: "pipe", stderr: "pipe" });
   return { stderr: mask(r.stderr.toString("latin1" as never)), code: r.exitCode };
