@@ -56,7 +56,7 @@ import { stderr_destination } from "../rustc_errors/emitter.ts";
 import { extra_compiler_flags } from "../rustc_session/utils.ts";
 import { panic, unported } from "../std/panic.ts";
 import { CURRENT_THREAD, display_location, js_backtrace, type PanicHookInfo, set_backtrace_style, update_hook } from "../std/panicking.ts";
-import { write_stderr } from "../std/io.ts";
+import { display_IoError, io_error_from_node, write_stderr } from "../std/io.ts";
 import * as diagnostics from "./diagnostics.gen.ts";
 import { from_utf8 } from "../std/str.ts";
 import { FileName } from "../rustc_span/lib.ts";
@@ -1245,25 +1245,34 @@ function report_ice(
   if (path !== undefined) {
     // Create the ICE dump target file.
     // PORT: `File::options().create(true).append(true).open(path)`, then line writes with errors ignored.
+    let open_error: unknown;
+    let opened = false;
     try {
       appendFileSync(path, "");
+      opened = true;
+    } catch (err) {
+      open_error = err;
+    }
+    if (opened) {
       dcx.emit_note(diagnostics.IcePath_diagnostic({ path }));
       if (FIRST_PANIC.value) {
         FIRST_PANIC.value = false;
-        appendFileSync(path, `\n\nrustc version: ${version}\nplatform: ${tuple}`);
+        try {
+          appendFileSync(path, `\n\nrustc version: ${version}\nplatform: ${tuple}`);
+        } catch {}
       }
       file = (line) => {
         try {
           appendFileSync(path, `${line}\n`);
         } catch {}
       };
-    } catch (err) {
+    } else {
       // The path ICE couldn't be written to disk, provide feedback to the user as to why.
       const var_ = process.env.RUSTC_ICE;
       dcx.emit_warn(
         diagnostics.IcePathError_diagnostic({
           path,
-          error: err instanceof Error ? err.message : String(err),
+          error: display_IoError(io_error_from_node(open_error)),
           env_var: var_ === undefined ? undefined : { env_var: var_ },
         }),
       );

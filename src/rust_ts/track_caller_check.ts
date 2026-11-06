@@ -152,6 +152,19 @@ function static_check(): { sites: Site[]; byOwner: Map<string, { ts: TsFile; fil
       }
     }
   }
+  // Not only D4's families: the resolver accepts every tracked name and the panic entries, and a call that maps into an item
+  // nested upstream is where a count can agree by coincidence (review ice-report-impl F1).
+  const into_nested: string[] = [];
+  for (const { ts, file, owner } of [...byOwner.values()].flat()) {
+    for (const callee of [...FAMILIES, ...PANIC_ENTRIES]) {
+      for (const [line, col] of ts.calls_in(owner, callee, false)) {
+        const m = map_call(ts, owner, callee, false, line, col);
+        if (m.ok && !m.anchored && m.up.in_nested_item(m.body, m.call.pos)) into_nested.push(`${file.slice(SRC_ROOT.length + 1)}:${line} ${callee}`);
+      }
+    }
+  }
+  console.log(`calls mapped into a nested upstream item, each in a nested function of its TS owner: ${into_nested.length}`);
+  writeFileSync(join(OUT, "into-nested.txt"), `${into_nested.join("\n")}\n`);
   const counts = new Map<string, number>();
   for (const s of sites) counts.set(s.result, (counts.get(s.result) ?? 0) + 1);
   console.log(`sites ${sites.length}; ${[...counts].sort().map(([k, v]) => `${k} ${v}`).join("; ")}`);

@@ -331,6 +331,12 @@ export function map_call(ts: TsFile, owner: Owner, callee: string, macro: boolea
     }
   }
   if (call.in_macro_rules) return { ok: false, why: `call inside macro_rules! at ${owner.path}` };
+  // Counts agreeing is no evidence here: the call is in an item nested upstream, and this one is in the owner's own body, so the
+  // port hoisted that item and this call is another one (review ice-report-impl F1: ref_prop.ts:313 printed ref_prop.rs:339:25
+  // for the assert at :275:17). A port that kept the nested fn inside the owner still maps.
+  if (anchor === undefined && up.in_nested_item(body, call.pos) && !ts.in_nested_fn(owner, line, col)) {
+    return { ok: false, why: `\`${callee}\` at ${rel_ts}: the only upstream call is in a nested item, and this one is not` };
+  }
   return { ok: true, up, body, call, anchored: anchor !== undefined };
 }
 
@@ -699,6 +705,25 @@ export class UpFile {
 
   /** Whether `pos` lies in a closure of `body`. A `|` that merely could open one counts: the answer only ever
    *  makes the caller refuse. */
+  /**
+   * Whether `pos` lies in an item nested in the body (`fn name`, `impl`, `trait`, `mod`). A port may hoist such an item to a marked
+   * fn of its own, so a call there says nothing about a call left in the owner. Only at an item position, as `impl` is also a
+   * type (`-> impl Iterator<..> {` in the owner's own signature opens its body).
+   */
+  in_nested_item([start, end]: [number, number], pos: number): boolean {
+    const s = this.masked;
+    const inner = s.slice(start + 1, end);
+    for (const m of inner.matchAll(/\b(?:fn\s+[A-Za-z_]\w*|impl\b|trait\s+[A-Za-z_]\w*|mod\s+[A-Za-z_]\w*)/g)) {
+      const at = start + 1 + m.index;
+      if (at >= pos) break;
+      if (!/[;{}\]]\s*(?:(?:pub(?:\([^)]*\))?|const|async|unsafe|extern(?:\s+"[^"]*")?|default)\s+)*$/.test(s.slice(start, at))) continue;
+      const open = s.indexOf("{", at);
+      if (open < 0 || open >= end) continue;
+      if (pos > open && pos < match_close(s, open)) return true;
+    }
+    return false;
+  }
+
   in_closure([start, end]: [number, number], pos: number): boolean {
     const s = this.masked;
     for (let i = start; i < pos; i++) {

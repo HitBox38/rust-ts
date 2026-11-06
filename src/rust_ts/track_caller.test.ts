@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { keep_frame } from "../std/panic.ts";
-import { is_track_caller_owner, map_call, type Owner, TAIL_CALLS, TsFile, up_file } from "./track_caller.ts";
+import { is_track_caller_owner, map_call, type Owner, TAIL_CALLS, ts_file, TsFile, up_file } from "./track_caller.ts";
 
 const MAIN = join(import.meta.dir, "main.ts");
 const SRC = "fn main() {\n    let x = ;\n}\n";
@@ -158,6 +158,27 @@ test("the rustc-call anchor names the upstream call, and a wrong one refuses", (
   const bad = port(`${line}:${col0 + 2}`);
   const n = map_at(bad.ts, bad.owner, "emit_err", 0);
   expect(n.ok ? "" : n.why).toContain("names no call");
+});
+
+test("a call left in the owner does not map onto one in an item nested upstream (review ice-report-impl F1)", () => {
+  const file = join(import.meta.dir, "..", "rustc_mir_transform", "ref_prop.ts");
+  const ts = ts_file(file);
+  const owner = ts.owners.find((o) => o.kind === "fn" && o.path.endsWith("ref_prop.rs") && ts.lines.slice(o.start - 1, o.end).join("\n").includes("assert(place.local !== local"))!;
+  expect(owner).toBeDefined();
+  const line = ts.lines.findIndex((l) => l.includes("assert(place.local !== local")) + 1;
+  const col = ts.lines[line - 1]!.indexOf("assert(") + 1;
+  const m = map_call(ts, owner, "assert", false, line, col);
+  expect(m.ok).toBe(false);
+  expect(m.ok ? "" : m.why).toContain("nested item");
+});
+
+test("`impl` in the owner's own signature is a type, not a nested item", () => {
+  const up = up_file("compiler/rustc_attr_parsing/src/attributes/repr.rs")!;
+  const at = up.src.indexOf("-> impl IntoIterator");
+  expect(at).toBeGreaterThan(0);
+  const start = up.src.lastIndexOf("fn ", at);
+  const open = up.src.indexOf("{", at);
+  expect(up.in_nested_item([start, up.src.indexOf("\n    }", open) + 6], open + 40)).toBe(false);
 });
 
 test("key normalization: placeholders, escapes and continuations compare equal across the two languages", () => {
