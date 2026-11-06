@@ -9,7 +9,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { REPO, UPSTREAM } from "../../scripts/lib/common.ts";
 import { INTERNED } from "../rustc_data_structures/intern.ts";
-import { intern_key, intern_key_eq } from "./intern_key.ts";
+import { intern_key, intern_key_eq, value_eq, value_hash } from "./intern_key.ts";
 import { intern_key_reference, type IkSummary } from "./intern_key_corpus.ts";
 import { test_scratch_dir } from "./test_scratch.ts";
 
@@ -181,6 +181,71 @@ test("intern_key_eq: key equality on generated pairs (equal, nearly equal, unrel
   expect(seen.panic).toBeGreaterThan(100);
 });
 
+test("value_hash, value_eq: key equality on generated pairs; the hash rejects what the key does; equal values, equal hashes", () => {
+  const r = rng(0xc0de);
+  const seen = { eq: 0, ne: 0, panic: 0 };
+  for (let i = 0; i < 30_000; i++) {
+    const a = gen(r, 4, r(3) === 0);
+    const m = r(3);
+    const b = m === 0 ? same(r, a) : m === 1 ? near(r, a) : gen(r, 4, r(5) === 0);
+    const ka = outcome(() => intern_key_reference(a));
+    const kb = outcome(() => intern_key_reference(b));
+    expect({ i, got: "panic" in ka ? outcome(() => String(value_hash(a))) : undefined }).toEqual({ i, got: "panic" in ka ? ka : undefined });
+    if ("panic" in ka || "panic" in kb) {
+      seen.panic++;
+      continue;
+    }
+    const want = JSON.stringify(ka) === JSON.stringify(kb);
+    if (want) seen.eq++;
+    else seen.ne++;
+    expect({ i, got: value_eq(a, b), rev: value_eq(b, a) }).toEqual({ i, got: want, rev: want });
+    if (want) expect({ i, h: value_hash(a) }).toEqual({ i, h: value_hash(b) });
+  }
+  expect(seen.eq).toBeGreaterThan(5_000);
+  expect(seen.ne).toBeGreaterThan(5_000);
+  expect(seen.panic).toBeGreaterThan(100);
+});
+
+test("value_hash, value_eq: the cases the key text decides, and values that collide", () => {
+  expect(value_eq(0, -0)).toBe(false);
+  expect(value_eq([0], [-0])).toBe(false);
+  expect(value_eq(NaN, NaN)).toBe(true);
+  expect(value_eq(1, 1n)).toBe(false);
+  expect(value_eq(1, "1")).toBe(false);
+  expect(value_eq(true, "t")).toBe(false);
+  expect(value_eq(null, undefined)).toBe(false);
+  expect(value_eq({ a: 1, b: undefined }, { a: 1 })).toBe(true);
+  expect(value_eq({ a: 1 }, { a: 1, b: undefined })).toBe(true);
+  expect(value_eq({ a: 1 }, { a: 1, b: 2 })).toBe(false);
+  expect(value_eq({ a: 1, b: 2 }, { a: 1 })).toBe(false);
+  expect(value_eq({ $: "A", _0: 1 }, { _0: 1, $: "A" })).toBe(true);
+  // Names every literal inherits: only the own fields count.
+  expect(value_eq({ p: 1 }, { p: 1, constructor: 5 })).toBe(false);
+  expect(value_eq({ p: 1, constructor: 5 }, { p: 1 })).toBe(false);
+  expect(value_eq({ p: 1, constructor: undefined }, { p: 1 })).toBe(true);
+  expect(value_eq({ p: 1 }, { p: 1, constructor: undefined })).toBe(true);
+  expect(value_eq({ a: undefined, b: 1 }, { a: 1, b: undefined })).toBe(false);
+  expect(value_hash({ $: "A", _0: 1 })).toBe(value_hash({ _0: 1, $: "A" }));
+  expect(value_hash({ a: 1, b: undefined })).toBe(value_hash({ a: 1 }));
+  expect(value_eq([1], { 0: 1 })).toBe(false);
+  expect(value_eq(new Array(1), [undefined])).toBe(true);
+  expect(value_hash(new Array(1))).toBe(value_hash([undefined]));
+  const i0 = new FakeInterned(0);
+  expect(value_eq(i0, new FakeInterned(0))).toBe(true);
+  expect(value_eq(i0, INTERNED_POOL[1])).toBe(false);
+  expect(value_eq(i0, { id: 0 })).toBe(false);
+  // Large and odd numbers and bigints, which must only hash consistently: the table compares.
+  for (const v of [2 ** 53, -(2 ** 53), 1.5, Infinity, -Infinity, NaN, 2n ** 64n, -(2n ** 64n), 2n ** 53n]) {
+    expect(value_hash(v)).toBe(value_hash(v));
+    expect(value_eq(v, v)).toBe(true);
+  }
+  // A hash equal on different values is a collision, not an equality.
+  expect(value_hash(2n ** 64n)).toBe(value_hash(2n ** 65n));
+  expect(value_eq(2n ** 64n, 2n ** 65n)).toBe(false);
+  expect(value_hash({ a: 1, b: 2 })).toBe(value_hash({ a: 2, b: 1 }));
+  expect(value_eq({ a: 1, b: 2 }, { a: 2, b: 1 })).toBe(false);
+});
+
 test("intern_key_eq: the cases the key text decides", () => {
   const i0 = INTERNED_POOL[0]!;
   // `0` and `-0` key apart, every `NaN` keys alike
@@ -234,12 +299,14 @@ function corpus(args: string[], cwd: string): IkSummary {
 
 /** The checked counts; `min_values` guards against a run that keyed (almost) nothing. */
 function expect_clean(s: IkSummary, min_values: number, exit_code: number): void {
-  expect({ exit_code: s.exit_code, key_mismatches: s.key_mismatches, eq_mismatches: s.eq_mismatches, first_mismatch: s.first_mismatch }).toEqual({
+  expect({ exit_code: s.exit_code, key_mismatches: s.key_mismatches, eq_mismatches: s.eq_mismatches, shadow_mismatches: s.shadow_mismatches, first_mismatch: s.first_mismatch }).toEqual({
     exit_code,
     key_mismatches: 0,
     eq_mismatches: 0,
+    shadow_mismatches: 0,
     first_mismatch: undefined,
   });
+  if (min_values > 0) expect(s.shadow_checks).toBeGreaterThan(0);
   expect(s.values).toBeGreaterThan(min_values);
   expect(s.eq_true_checks).toBeGreaterThan(0);
   expect(s.eq_false_checks).toBeGreaterThan(0);

@@ -263,6 +263,9 @@ export class InferCtxtInner {
     public opaque_type_storage: OpaqueTypeStorage,
   ) {}
 
+  /** PORT(perf): not in upstream: which `StalledPrefix` (solve/fulfill.ts) owns the tables' `WriteWatch`es. A clone has none. */
+  stalled_prefix_owner: object | undefined = undefined;
+
   // infer/mod.rs:175 (static, assigned in infer/mod.ts)
   declare static new: () => InferCtxtInner;
 }

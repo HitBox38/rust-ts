@@ -12,6 +12,7 @@
 // PORT (D4): `T: Print<FmtPrinter>` is the `Print<T>` descriptor `d_T`, last (decls.ts signatures).
 // PORT: print/pretty.ts is imported before print/mod.ts (print/mod.ts header: entering mod.ts first is a TDZ error).
 // PORT: ./context.ts is imported first so that this module also loads as an entry point (init order).
+import { closeSync, openSync, readFileSync, writeSync } from "node:fs";
 import { TyCtxt } from "./context.ts";
 import { display_List_PolyExistentialPredicate, display_ParamTy, FmtPrinter, with_forced_trimmed_paths } from "./print/pretty.ts";
 import { type Print, type PrintError, print_Ty } from "./print/mod.ts";
@@ -19,6 +20,7 @@ import { display_ExternAbi } from "../../rustc_abi/extern_abi.ts";
 import { pluralize } from "../../rustc_errors/lib.ts";
 import { Namespace } from "../../rustc_hir/def.ts";
 import { type CoroutineKind, display_CoroutineKind, display_Safety } from "../../rustc_hir/hir.ts";
+import type { OutputFilenames } from "../../rustc_session/config.ts";
 import { Limit } from "../../rustc_structures/limit.ts";
 import type { TypeError } from "../../rustc_type_ir/error.ts";
 import { display_Const } from "../../rustc_type_ir/ir_print.ts";
@@ -26,7 +28,7 @@ import { display_ClausePolarity, PolyExistentialTraitRef } from "../../rustc_typ
 import type { AliasTermKind } from "../../rustc_type_ir/term_kind.ts";
 import type { Debug } from "../../std/fmt.ts";
 import type { MutRef } from "../../std/mut_ref.ts";
-import { unported, unwrap } from "../../std/panic.ts";
+import { unwrap } from "../../std/panic.ts";
 import { expect_result } from "../../std/result.ts";
 import { utf8_len } from "../../std/str.ts";
 import type { AdtDef } from "./decls.ts";
@@ -370,21 +372,42 @@ TyCtxt.prototype.short_string_namespace = function <T>(this: TyCtxt, t: T, path:
     return regular;
   }
   // Ensure we create an unique file for the type passed in when we create a file.
-  // PORT: the file name hashes `t` with `DefaultHasher` through its `Hash` impl, which for the interned type-system
-  // values hashes their address (not reproducible), and the rest writes the type to that file (`File` I/O, not in
-  // src/std). Upstream continues:
-  //   let mut s = DefaultHasher::new(); t.hash(&mut s); let hash = s.finish();
-  //   *path = Some(path.take().unwrap_or_else(|| {
-  //       self.output_filenames(()).temp_path_for_diagnostic(&format!("long-type-{hash}.txt"))
-  //   }));
-  //   let Ok(mut file) = File::options().create(true).read(true).append(true).open(&path.as_ref().unwrap())
-  //   else { return regular; };
-  //   // Do not write the same type to the file multiple times.
-  //   let mut contents = String::new(); let _ = file.read_to_string(&mut contents);
-  //   if let Some(_) = contents.lines().find(|line| line == &regular) { return short; }
-  //   match write!(file, "{regular}\n") { Ok(_) => short, Err(_) => regular }
-  void path;
-  return unported("rustc_middle::ty::error::TyCtxt::short_string_namespace: long-type file (`Hash` of `T` into `DefaultHasher`, `File` I/O)");
+  // PORT: upstream hashes `t` with `DefaultHasher`, and for the interned type-system values that hashes an address, so the
+  // oracle's own file name differs from run to run (compiletest normalizes it to `$LONG_TYPE_HASH`, and harness/suites.ts
+  // `M3_UI_LONG_TYPE` skips the cases that print it). No value can match it: this hashes the type's text, which keeps the
+  // name's shape and gives one file per type. `T` has no generic `Hash` here.
+  const hash = BigInt(Bun.hash(regular));
+  path.value = path.value ?? (this.output_filenames(null) as OutputFilenames).temp_path_for_diagnostic(`long-type-${hash}.txt`);
+  let file: number;
+  try {
+    // `File::options().create(true).read(true).append(true).open(..)`
+    file = openSync(path.value, "a+");
+  } catch {
+    return regular;
+  }
+  try {
+    // Do not write the same type to the file multiple times.
+    let contents = "";
+    try {
+      // `let _ = file.read_to_string(&mut contents)`: on an error or invalid UTF-8 `contents` stays empty.
+      contents = new TextDecoder("utf-8", { fatal: true }).decode(readFileSync(file));
+    } catch {
+      // ignored
+    }
+    // `contents.lines()`: `\n` or `\r\n` ends a line.
+    if (contents.split("\n").some((line) => (line.endsWith("\r") ? line.slice(0, -1) : line) === regular)) {
+      return short;
+    }
+
+    try {
+      writeSync(file, `${regular}\n`);
+      return short;
+    } catch {
+      return regular;
+    }
+  } finally {
+    closeSync(file);
+  }
 };
 
 // rustc: compiler/rustc_middle/src/ty/error.rs:328 alias_term_kind_def_path_str

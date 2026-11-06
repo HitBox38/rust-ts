@@ -8,10 +8,36 @@
 //   JS `Map<string, [K, V]>` keyed by the canonical key of the borrowed value (`Q`), which callers pass in:
 //   the derived `Hash` + `PartialEq` of `Q` as a string (rust_ts/intern_key.ts). Equal keys <=> `==` values.
 // - Insertion order is the JS `Map`'s; nothing iterates an interner (D6).
+// PORT(perf) (lane perf-near-limit): `intern_value` and `intern_slice` are the table as upstream has it, a hash that only picks
+// the bucket and `==` on the value (rust_ts/intern_key.ts `value_hash`, `value_eq`), and need no key string. An interner uses
+// either these or the key-string methods, never both.
+
+import { hash_mix, observe_interned, value_eq, value_hash } from "../rust_ts/intern_key.ts";
+
+/** PORT(perf): test hook, see `set_intern_shadow`. */
+let shadow: ((set: object, value: unknown, got: unknown) => void) | undefined;
+/**
+ * Test hook: `f` sees every `intern_value` / `intern_slice` result with its value, so a test can check that a table keyed by
+ * `intern_key` would give the same object.
+ */
+export function set_intern_shadow(f: typeof shadow): void {
+  shadow = f;
+}
+
+function slice_eq<T>(a: readonly T[], b: readonly T[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (!value_eq(a[i], b[i])) return false;
+  return true;
+}
 
 export class ShardedHashMap<K, V> {
   /** canonical key of the borrowed value -> the stored `(K, V)` */
   protected readonly table = new Map<string, [K, V]>();
+  /** PORT(perf): `value_hash` -> the first stored entry with that hash. */
+  private readonly hashed = new Map<number, K>();
+  /** PORT(perf): `value_hash` -> the later entries with that hash. Empty unless two distinct values collide. */
+  private readonly collided = new Map<number, K[]>();
+  private hashed_len = 0;
 
   // rustc: compiler/rustc_data_structures/src/sharded.rs:146 with_capacity
   static with_capacity<K, V>(_cap: number): ShardedHashMap<K, V> {
@@ -21,7 +47,7 @@ export class ShardedHashMap<K, V> {
 
   // rustc: compiler/rustc_data_structures/src/sharded.rs:150 len
   len(): number {
-    return this.table.size;
+    return this.table.size + this.hashed_len;
   }
 
   // rustc: compiler/rustc_data_structures/src/sharded.rs:157 get
@@ -70,6 +96,80 @@ export class ShardedHashMap<K, V> {
     const v = make(value);
     this.table.set(key, [v, null]);
     return v;
+  }
+
+  /**
+   * PORT(perf): `intern`, with no key string (module comment). `value_of(k)` is the value `k` was made from: the fields
+   * compared are that stored value's, so nothing may write to it after this (hash-consed values are immutable upstream, and
+   * `set_intern_shadow`'s test would see a write as a different object from a key table).
+   */
+  intern_value<Q>(this: InternedSet<K>, value: Q, value_of: (k: K) => Q, make: (value: Q) => K): K {
+    observe_interned(value);
+    const h = value_hash(value);
+    const first = this.hashed.get(h);
+    let got: K | undefined;
+    if (first === undefined) {
+      got = make(value);
+      this.hashed.set(h, got);
+      this.hashed_len++;
+    } else if (value_eq(value, value_of(first))) {
+      got = first;
+    } else {
+      const rest = this.collided.get(h);
+      if (rest !== undefined) {
+        for (let i = 0; i < rest.length; i++) {
+          if (value_eq(value, value_of(rest[i]!))) {
+            got = rest[i]!;
+            break;
+          }
+        }
+      }
+      if (got === undefined) {
+        got = make(value);
+        if (rest === undefined) this.collided.set(h, [got]);
+        else rest.push(got);
+        this.hashed_len++;
+      }
+    }
+    if (shadow !== undefined) shadow(this, value, got);
+    return got;
+  }
+
+  /**
+   * PORT(perf): `intern_ref` of a slice, with no key string. The stored list is an interned object that `value_eq` compares by
+   * id, so slices compare element by element here; `v` may itself be a list: it is its elements, as in `slice_intern`'s key.
+   */
+  intern_slice<T>(this: InternedSet<K & readonly T[]>, v: readonly T[], make: () => K & readonly T[]): K & readonly T[] {
+    observe_interned(v instanceof Array && v.constructor !== Array ? Array.from(v) : v);
+    let h = v.length;
+    for (let i = 0; i < v.length; i++) h = hash_mix(h, value_hash(v[i]));
+    const first = this.hashed.get(h);
+    let got: (K & readonly T[]) | undefined;
+    if (first === undefined) {
+      got = make();
+      this.hashed.set(h, got);
+      this.hashed_len++;
+    } else if (slice_eq(v, first)) {
+      got = first;
+    } else {
+      const rest = this.collided.get(h);
+      if (rest !== undefined) {
+        for (let i = 0; i < rest.length; i++) {
+          if (slice_eq(v, rest[i]!)) {
+            got = rest[i]!;
+            break;
+          }
+        }
+      }
+      if (got === undefined) {
+        got = make();
+        if (rest === undefined) this.collided.set(h, [got]);
+        else rest.push(got);
+        this.hashed_len++;
+      }
+    }
+    if (shadow !== undefined) shadow(this, v, got);
+    return got;
   }
 
   // rustc: compiler/rustc_data_structures/src/sharded.rs:259 contains_pointer_to

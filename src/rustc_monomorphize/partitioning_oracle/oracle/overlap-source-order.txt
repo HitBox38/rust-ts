@@ -1,0 +1,15 @@
+exit 0
+== stdout
+MONO_ITEM fn big @@ overlap.e99af07dce225fed-dst--overlap.e99af07dce225fed-one_big[Internal]
+MONO_ITEM fn dst::alpha @@ overlap.e99af07dce225fed-dst--overlap.e99af07dce225fed-one_big[External]
+MONO_ITEM fn dst::zed @@ overlap.e99af07dce225fed-dst--overlap.e99af07dce225fed-one_big[External]
+MONO_ITEM fn one_big::f @@ overlap.e99af07dce225fed-dst--overlap.e99af07dce225fed-one_big[External]
+MONO_ITEM fn small1 @@ overlap.e99af07dce225fed-dst--overlap.e99af07dce225fed-one_big[Internal] overlap.e99af07dce225fed-top--overlap.e99af07dce225fed-two_small[Internal]
+MONO_ITEM fn small2 @@ overlap.e99af07dce225fed-dst--overlap.e99af07dce225fed-one_big[Internal] overlap.e99af07dce225fed-top--overlap.e99af07dce225fed-two_small[Internal]
+MONO_ITEM fn top::zed @@ overlap.e99af07dce225fed-top--overlap.e99af07dce225fed-two_small[External]
+MONO_ITEM fn two_small::f @@ overlap.e99af07dce225fed-top--overlap.e99af07dce225fed-two_small[External]
+
+== stderr
+
+== dump
+<none>

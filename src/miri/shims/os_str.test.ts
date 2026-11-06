@@ -6,7 +6,7 @@
 // `Vec<u8>` (Unix host) and `Vec<u16>` (Windows host), which agree (script: $RUST_TS_DATA/tmp/shims-a/paths.rs).
 import { expect, test } from "bun:test";
 import "../lib.ts";
-import { bytes_to_os_str, os_str_as_encoded_bytes, unix_to_windows, windows_to_unix } from "./os_str.ts";
+import { bytes_to_os_str, os_str_as_encoded_bytes, os_str_from_encoded_bytes, unix_to_windows, windows_to_unix } from "./os_str.ts";
 import { Unported } from "../../std/panic.ts";
 
 // [input, windows_to_unix(input), unix_to_windows(input)]
@@ -73,4 +73,25 @@ test("as_encoded_bytes is the UTF-8 encoding (`os_str.len()` counts bytes)", () 
   expect(Array.from(os_str_as_encoded_bytes("aé€😀"))).toEqual([
     0x61, 0xc3, 0xa9, 0xe2, 0x82, 0xac, 0xf0, 0x9f, 0x98, 0x80,
   ]);
+});
+
+test("os_str_from_encoded_bytes: any bytes round trip, and valid UTF-8 decodes as itself", () => {
+  const round = (b: number[]) => expect(Array.from(os_str_as_encoded_bytes(os_str_from_encoded_bytes(Uint8Array.from(b))))).toEqual(b);
+  for (let a = 0; a < 256; a++) {
+    round([a]);
+    for (const c of [0x41, 0x80, 0x9f, 0xbf, 0xc0, 0xed, 0xf0, 0xff]) round([a, c]);
+  }
+  // Cut, overlong and surrogate sequences, and one past U+10FFFF.
+  for (const b of [[0xf0, 0x9f, 0x98], [0xc0, 0x80], [0xed, 0xa0, 0x80], [0xf4, 0x90, 0x80, 0x80], [0x61, 0xff, 0xf0, 0x9f, 0x98, 0x80, 0xfe]]) round(b);
+  let seed = 12345;
+  for (let i = 0; i < 2000; i++) {
+    const b: number[] = [];
+    for (let n = i % 12; n > 0; n--) {
+      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+      b.push(seed >> 16 & 0xff);
+    }
+    round(b);
+  }
+  expect(os_str_from_encoded_bytes(new TextEncoder().encode("a\u{1F600}=\uFEFFb"))).toBe("a\u{1F600}=\uFEFFb");
+  expect(os_str_from_encoded_bytes(Uint8Array.from([0x61, 0xff, 0x62]))).toBe("a\udcffb");
 });

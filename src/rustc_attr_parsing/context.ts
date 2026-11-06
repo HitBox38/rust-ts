@@ -46,7 +46,7 @@ import type { Session } from "../rustc_session/lib.ts";
 import type { Span } from "../rustc_span/lib.ts";
 import { debug_Symbol, type Ident, type Symbol } from "../rustc_span/symbol.ts";
 import { type Debug, debug_bool, debug_list, debug_struct, PLAIN } from "../std/fmt.ts";
-import { panic } from "../std/panic.ts";
+import { keep_frame, panic } from "../std/panic.ts";
 
 // Glob imports to avoid big, bitrotty import lists
 import { AllowInternalUnstableParser, RustcAllowConstFnUnstableParser, UnstableFeatureBoundParser } from "./attributes/allow_unstable.ts";
@@ -442,7 +442,7 @@ export class SharedContext {
   // #[track_caller]
   // rustc: compiler/rustc_attr_parsing/src/context.rs:412 emit_err
   emit_err(diag: Diagnostic): ErrorGuaranteed {
-    return this.cx.emit_err(diag);
+    return keep_frame(this.cx.emit_err(diag));
   }
 
   /// Emit a lint. This method is somewhat special, since lints emitted during attribute parsing
@@ -938,13 +938,13 @@ export const ShouldEmit = {
     switch (self.$) {
       case "EarlyFatal":
         if (Level_eq(diag.deref().level_(), Level.DelayedBug)) {
-          return diag.emit_err();
+          return keep_frame(diag.emit_err());
         }
-        return diag.upgrade_to_fatal().emit_fatal();
+        return keep_frame(diag.upgrade_to_fatal().emit_fatal());
       case "ErrorsAndLints":
-        return diag.emit_err();
+        return keep_frame(diag.emit_err());
       case "Nothing":
-        return diag.delay_as_bug();
+        return keep_frame(diag.delay_as_bug());
     }
   },
 };
@@ -977,7 +977,7 @@ export class AttributeDiagnosticContext {
       span = this.ctx.inner_span;
     }
 
-    return this.ctx.shared.emit_err(
+    return keep_frame(this.ctx.shared.emit_err(
       AttributeParseError_diagnostic({
         span,
         inner_span: this.ctx.inner_span,
@@ -987,7 +987,7 @@ export class AttributeDiagnosticContext {
         reason,
         suggestions,
       }),
-    );
+    ));
   }
 
   /// Adds a custom suggestion to the diagnostic. This also prevents the default (template-based)
@@ -1001,7 +1001,7 @@ export class AttributeDiagnosticContext {
   // #[track_caller]
   // rustc: compiler/rustc_attr_parsing/src/context.rs:976 expected_integer_literal_in_range
   expected_integer_literal_in_range(span: Span, lower_bound: number, upper_bound: number): ErrorGuaranteed {
-    return this.emit_parse_error(span, { $: "ExpectedIntegerLiteralInRange", lower_bound, upper_bound });
+    return keep_frame(this.emit_parse_error(span, { $: "ExpectedIntegerLiteralInRange", lower_bound, upper_bound }));
   }
 
   /// The provided span is used as a fallback in case `args` does not contain any. It should be
@@ -1021,44 +1021,44 @@ export class AttributeDiagnosticContext {
         span_ = args._0.args_span();
         break;
     }
-    return this.emit_parse_error(span_, { $: "ExpectedList" });
+    return keep_frame(this.emit_parse_error(span_, { $: "ExpectedList" }));
   }
 
   // #[track_caller]
   // rustc: compiler/rustc_attr_parsing/src/context.rs:1001 expected_list_with_num_args_or_more
   expected_list_with_num_args_or_more(args: number, span: Span): ErrorGuaranteed {
-    return this.emit_parse_error(span, { $: "ExpectedListWithNumArgsOrMore", args });
+    return keep_frame(this.emit_parse_error(span, { $: "ExpectedListWithNumArgsOrMore", args }));
   }
 
   // #[track_caller]
   // rustc: compiler/rustc_attr_parsing/src/context.rs:1013 expected_list_or_no_args
   expected_list_or_no_args(span: Span): ErrorGuaranteed {
-    return this.emit_parse_error(span, { $: "ExpectedListOrNoArgs" });
+    return keep_frame(this.emit_parse_error(span, { $: "ExpectedListOrNoArgs" }));
   }
 
   // #[track_caller]
   // rustc: compiler/rustc_attr_parsing/src/context.rs:1018 expected_nv_or_no_args
   expected_nv_or_no_args(span: Span): ErrorGuaranteed {
-    return this.emit_parse_error(span, { $: "ExpectedNameValueOrNoArgs" });
+    return keep_frame(this.emit_parse_error(span, { $: "ExpectedNameValueOrNoArgs" }));
   }
 
   // #[track_caller]
   // rustc: compiler/rustc_attr_parsing/src/context.rs:1023 expected_non_empty_string_literal
   expected_non_empty_string_literal(span: Span): ErrorGuaranteed {
-    return this.emit_parse_error(span, { $: "ExpectedNonEmptyStringLiteral" });
+    return keep_frame(this.emit_parse_error(span, { $: "ExpectedNonEmptyStringLiteral" }));
   }
 
   // #[track_caller]
   // rustc: compiler/rustc_attr_parsing/src/context.rs:1028 expected_no_args
   expected_no_args(span: Span): ErrorGuaranteed {
-    return this.emit_parse_error(span, { $: "ExpectedNoArgs" });
+    return keep_frame(this.emit_parse_error(span, { $: "ExpectedNoArgs" }));
   }
 
   /// Emit an error that a `name` was expected here
   // #[track_caller]
   // rustc: compiler/rustc_attr_parsing/src/context.rs:1034 expected_identifier
   expected_identifier(span: Span): ErrorGuaranteed {
-    return this.emit_parse_error(span, { $: "ExpectedIdentifier" });
+    return keep_frame(this.emit_parse_error(span, { $: "ExpectedIdentifier" }));
   }
 
   /// Emit an error that a `name = value` pair was expected at this span. The symbol can be given for
@@ -1066,21 +1066,21 @@ export class AttributeDiagnosticContext {
   // #[track_caller]
   // rustc: compiler/rustc_attr_parsing/src/context.rs:1041 expected_name_value
   expected_name_value(span: Span, name: Symbol | undefined): ErrorGuaranteed {
-    return this.emit_parse_error(span, { $: "ExpectedNameValue", _0: name });
+    return keep_frame(this.emit_parse_error(span, { $: "ExpectedNameValue", _0: name }));
   }
 
   /// Emit an error that a `name = value` argument is missing in a list of name-value pairs.
   // #[track_caller]
   // rustc: compiler/rustc_attr_parsing/src/context.rs:1047 missing_name_value
   missing_name_value(span: Span, name: Symbol): ErrorGuaranteed {
-    return this.emit_parse_error(span, { $: "MissingNameValue", _0: name });
+    return keep_frame(this.emit_parse_error(span, { $: "MissingNameValue", _0: name }));
   }
 
   /// Emit an error that a `name = value` pair was found where that name was already seen.
   // #[track_caller]
   // rustc: compiler/rustc_attr_parsing/src/context.rs:1053 duplicate_key
   duplicate_key(span: Span, key: Symbol): ErrorGuaranteed {
-    return this.emit_parse_error(span, { $: "DuplicateKey", _0: key });
+    return keep_frame(this.emit_parse_error(span, { $: "DuplicateKey", _0: key }));
   }
 
   /// An error that should be emitted when a [`MetaItemOrLitParser`]
@@ -1088,7 +1088,7 @@ export class AttributeDiagnosticContext {
   // #[track_caller]
   // rustc: compiler/rustc_attr_parsing/src/context.rs:1060 expected_not_literal
   expected_not_literal(span: Span): ErrorGuaranteed {
-    return this.emit_parse_error(span, { $: "ExpectedNotLiteral" });
+    return keep_frame(this.emit_parse_error(span, { $: "ExpectedNotLiteral" }));
   }
 
   /// Signals that we expected exactly one argument and that we got either zero or two or more.
@@ -1101,20 +1101,20 @@ export class AttributeDiagnosticContext {
     const reason: AttributeParseErrorReason =
       provided_arguments === 0 ? { $: "ExpectedArgument" } : { $: "ExpectedSingleArgument" };
 
-    return this.emit_parse_error(span, reason);
+    return keep_frame(this.emit_parse_error(span, reason));
   }
 
   // #[track_caller]
   // rustc: compiler/rustc_attr_parsing/src/context.rs:1084 expected_at_least_one_argument
   expected_at_least_one_argument(span: Span): ErrorGuaranteed {
-    return this.emit_parse_error(span, { $: "ExpectedAtLeastOneArgument" });
+    return keep_frame(this.emit_parse_error(span, { $: "ExpectedAtLeastOneArgument" }));
   }
 
   /// Produces an error along the lines of `expected one of [foo, meow]`
   // #[track_caller]
   // rustc: compiler/rustc_attr_parsing/src/context.rs:1090 expected_specific_argument
   expected_specific_argument(span: Span, possibilities: readonly Symbol[]): ErrorGuaranteed {
-    return this.emit_parse_error(span, { $: "ExpectedSpecificArgument", possibilities, strings: false, list: false });
+    return keep_frame(this.emit_parse_error(span, { $: "ExpectedSpecificArgument", possibilities, strings: false, list: false }));
   }
 
   /// Produces an error along the lines of `expected one of [foo, meow] as an argument`.
@@ -1122,14 +1122,14 @@ export class AttributeDiagnosticContext {
   // #[track_caller]
   // rustc: compiler/rustc_attr_parsing/src/context.rs:1108 expected_specific_argument_and_list
   expected_specific_argument_and_list(span: Span, possibilities: readonly Symbol[]): ErrorGuaranteed {
-    return this.emit_parse_error(span, { $: "ExpectedSpecificArgument", possibilities, strings: false, list: true });
+    return keep_frame(this.emit_parse_error(span, { $: "ExpectedSpecificArgument", possibilities, strings: false, list: true }));
   }
 
   /// produces an error along the lines of `expected one of ["foo", "meow"]`
   // #[track_caller]
   // rustc: compiler/rustc_attr_parsing/src/context.rs:1125 expected_specific_argument_strings
   expected_specific_argument_strings(span: Span, possibilities: readonly Symbol[]): ErrorGuaranteed {
-    return this.emit_parse_error(span, { $: "ExpectedSpecificArgument", possibilities, strings: true, list: false });
+    return keep_frame(this.emit_parse_error(span, { $: "ExpectedSpecificArgument", possibilities, strings: true, list: false }));
   }
 
   // rustc: compiler/rustc_attr_parsing/src/context.rs:1140 warn_empty_attribute
@@ -1168,7 +1168,7 @@ export class AttributeDiagnosticContext {
   /// removing the `b` prefix.
   // rustc: compiler/rustc_attr_parsing/src/context.rs:1178 expected_string_literal
   expected_string_literal(span: Span, actual_literal: MetaItemLit | undefined): ErrorGuaranteed {
-    return this.emit_parse_error(span, {
+    return keep_frame(this.emit_parse_error(span, {
       $: "ExpectedStringLiteral",
       byte_string:
         actual_literal === undefined
@@ -1176,7 +1176,7 @@ export class AttributeDiagnosticContext {
           : LitKind.is_bytestr(actual_literal.kind)
             ? this.ctx.shared.cx.sess().source_map().start_point(actual_literal.span)
             : undefined,
-    });
+    }));
   }
 
   /// Error that a filename string literal was expected.
@@ -1187,7 +1187,7 @@ export class AttributeDiagnosticContext {
 
   // rustc: compiler/rustc_attr_parsing/src/context.rs:1198 expected_integer_literal
   expected_integer_literal(span: Span): ErrorGuaranteed {
-    return this.emit_parse_error(span, { $: "ExpectedIntegerLiteral" });
+    return keep_frame(this.emit_parse_error(span, { $: "ExpectedIntegerLiteral" }));
   }
 
   // impl Deref for AttributeDiagnosticContext { type Target = AcceptContext; }

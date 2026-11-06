@@ -1,0 +1,60 @@
+warning: the feature `lang_items` is internal to the compiler or standard library
+ --> long_type.rs:2:21
+  |
+2 | #![feature(no_core, lang_items)]
+  |                     ^^^^^^^^^^
+  |
+  = note: using it is strongly discouraged
+  = note: `#[warn(internal_features)]` on by default
+
+error[E0277]: the trait bound `S<S<S<_, _>, _>, _>: Trait` is not satisfied
+  --> long_type.rs:18:21
+   |
+18 |     require_trait::<C>();
+   |                     ^ unsatisfied trait bound
+   |
+help: the trait `Trait` is not implemented for `S<S<S<S<_, _>, _>, _>, _>`
+  --> long_type.rs:11:1
+   |
+11 | struct S<A, B>(*const A, *const B);
+   | ^^^^^^^^^^^^^^
+help: this trait has no implementations, consider adding one
+  --> long_type.rs:12:1
+   |
+12 | trait Trait {}
+   | ^^^^^^^^^^^
+note: required by a bound in `require_trait`
+  --> long_type.rs:13:21
+   |
+13 | fn require_trait<T: Trait>() {}
+   |                     ^^^^^ required by this bound in `require_trait`
+   = note: the full name for the type has been written to 'long_type.long-type-HASH.txt'
+   = note: consider using `--verbose` to print the full type name to the console
+
+error[E0277]: the trait bound `S<S<S<_, _>, _>, _>: Trait` is not satisfied
+  --> long_type.rs:19:21
+   |
+19 |     require_trait::<C>();
+   |                     ^ unsatisfied trait bound
+   |
+help: the trait `Trait` is not implemented for `S<S<S<S<_, _>, _>, _>, _>`
+  --> long_type.rs:11:1
+   |
+11 | struct S<A, B>(*const A, *const B);
+   | ^^^^^^^^^^^^^^
+help: this trait has no implementations, consider adding one
+  --> long_type.rs:12:1
+   |
+12 | trait Trait {}
+   | ^^^^^^^^^^^
+note: required by a bound in `require_trait`
+  --> long_type.rs:13:21
+   |
+13 | fn require_trait<T: Trait>() {}
+   |                     ^^^^^ required by this bound in `require_trait`
+   = note: the full name for the type has been written to 'long_type.long-type-HASH.txt'
+   = note: consider using `--verbose` to print the full type name to the console
+
+error: aborting due to 2 previous errors; 1 warning emitted
+
+For more information about this error, try `rustc --explain E0277`.

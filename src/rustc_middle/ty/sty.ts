@@ -392,7 +392,9 @@ Ty.new_infer = function (tcx: TyCtxt, infer: InferTy): Ty {
 // rustc: compiler/rustc_middle/src/ty/sty.rs:942 new_var
 Ty.new_var = function (tcx: TyCtxt, v: TyVid): Ty {
   // Use a pre-interned one when possible.
-  return tcx.types.ty_vars[v] ?? Ty.new(tcx, { $: "Infer", _0: { $: "TyVar", _0: v } });
+  // PORT(perf): `ty_var_memo`, see `CommonTypes`.
+  const t = tcx.types;
+  return t.ty_vars[v] ?? (t.ty_var_memo[v] ??= Ty.new(tcx, { $: "Infer", _0: { $: "TyVar", _0: v } }));
 };
 
 // rustc: compiler/rustc_middle/src/ty/sty.rs:388 new_int_var
@@ -453,11 +455,12 @@ Ty.new_canonical_bound = function (tcx: TyCtxt, var_: BoundVar): Ty {
   if (ty !== undefined) {
     return ty;
   } else {
-    return Ty.new(tcx, {
+    // PORT(perf): `canonical_bound_memo`, see `CommonTypes`.
+    return (tcx.types.canonical_bound_memo[var_] ??= Ty.new(tcx, {
       $: "Bound",
       _0: { $: "Canonical" },
       _1: { var: var_, kind: { $: "Anon" } },
-    });
+    }));
   }
 };
 
@@ -1664,7 +1667,8 @@ Ty.prototype.ptr_metadata_ty_or_tail = function (this: Ty, tcx: TyCtxt, normaliz
     // Sized types
     case "Infer":
       if (k._0.$ === "IntVar" || k._0.$ === "FloatVar") return Ok(tcx.types.unit);
-      return bug(`\`ptr_metadata_ty_or_tail\` applied to unexpected type: ${debug_Ty(this, PLAIN)} (tail = ${debug_Ty(tail, PLAIN)})`);
+      // rustc-call: 1816:86
+      bug(`\`ptr_metadata_ty_or_tail\` applied to unexpected type: ${debug_Ty(this, PLAIN)} (tail = ${debug_Ty(tail, PLAIN)})`);
     case "Uint":
     case "Int":
     case "Bool":
@@ -1715,7 +1719,8 @@ Ty.prototype.ptr_metadata_ty_or_tail = function (this: Ty, tcx: TyCtxt, normaliz
     case "Pat":
     case "Bound":
     case "Placeholder":
-      return bug(`\`ptr_metadata_ty_or_tail\` applied to unexpected type: ${debug_Ty(this, PLAIN)} (tail = ${debug_Ty(tail, PLAIN)})`);
+      // rustc-call: 1816:86
+      bug(`\`ptr_metadata_ty_or_tail\` applied to unexpected type: ${debug_Ty(this, PLAIN)} (tail = ${debug_Ty(tail, PLAIN)})`);
   }
 };
 

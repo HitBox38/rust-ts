@@ -208,6 +208,12 @@ Region.new_canonical_bound = function (interner: TyCtxt, var_: BoundVar): Region
 
 // rustc: compiler/rustc_type_ir/src/sty/mod.rs:130 new_placeholder
 Region.new_placeholder = function (interner: TyCtxt, placeholder: PlaceholderRegion): Region {
+  // PORT(perf): `placeholder_anon_memo`, see `CommonLifetimes`; `_tcx` is always `undefined`.
+  if (placeholder.bound.kind.$ === "Anon") {
+    const by_universe = interner.lifetimes.placeholder_anon_memo;
+    const by_var = (by_universe[placeholder.universe] ??= []);
+    return (by_var[placeholder.bound.var] ??= interner.intern_region({ $: "RePlaceholder", _0: placeholder }));
+  }
   return interner.intern_region({ $: "RePlaceholder", _0: placeholder });
 };
 

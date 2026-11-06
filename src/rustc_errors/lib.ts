@@ -21,7 +21,7 @@ import { DUMMY_SP, ErrorGuaranteed, Span } from "../rustc_span/lib.ts";
 import type { SourceMap } from "../rustc_span/source_map.ts";
 import { type Debug, PLAIN } from "../std/fmt.ts";
 import { is_whitespace } from "../std/char.ts";
-import { assert, assert_eq, assert_matches, Panic, panic, panicking, unported, unwrap } from "../std/panic.ts";
+import { keep_frame, assert, assert_eq, assert_matches, Panic, panic, panicking, unported, unwrap } from "../std/panic.ts";
 import { utf8_len } from "../std/str.ts";
 import { type ErrCode, display_ErrCode, try_find_description } from "./codes.ts";
 import { Diag, type Diagnostic, DiagInner } from "./diagnostic.ts";
@@ -139,6 +139,10 @@ export class DelayedBugPanic extends Panic {
   constructor() {
     super("DelayedBugPanic");
     this.name = "DelayedBugPanic";
+  }
+
+  override payload_as_str(): string | undefined {
+    return undefined;
   }
 }
 
@@ -943,7 +947,7 @@ export class DiagCtxtHandle {
 
   // rustc: compiler/rustc_errors/src/lib.rs:1060 create_err
   create_err(err: Diagnostic): Diag {
-    return err.into_diag(this, Level.Error);
+    return keep_frame(err.into_diag(this, Level.Error));
   }
 
   // rustc: compiler/rustc_errors/src/lib.rs:1065 emit_err

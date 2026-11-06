@@ -538,7 +538,7 @@ MissingCopyImplementations.prototype.check_item = function (this: MissingCopyImp
   const MAX_SIZE = 256n;
 
   const l = cx.layout_of(ty);
-  const size = l.$ === "Ok" ? l._0.size.bytes() : undefined;
+  const size = l.$ === "Ok" ? l._0.size.bytes_u64() : undefined;
   if (size !== undefined) {
     if (size > MAX_SIZE) {
       return;

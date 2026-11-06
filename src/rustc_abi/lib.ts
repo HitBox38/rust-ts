@@ -1090,9 +1090,10 @@ export const Endian = {
 // rustc: compiler/rustc_abi/src/lib.rs:845 fmt
 export const debug_Endian: Debug<Endian> = (v) => Endian.as_str(v);
 
+const SMALL_SIZES: Size[] = [];
+
 /// Size of a type in bytes.
 // #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
-const SMALL_SIZES: Size[] = [];
 // PORT (size-bigint, root decision 2026-10-31 "Size representation"): `raw: u64` has two forms. A value below 2^53
 // (every size in practice, the fast path of the ~390 `bytes()` callers) is the `number` `small` (`big` undefined); a
 // value of 2^53 or more (TypeId fragments and integer addresses used as pointer offsets, valid layouts up to

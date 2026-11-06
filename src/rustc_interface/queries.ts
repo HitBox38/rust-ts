@@ -29,14 +29,26 @@ export class Linker {
   static codegen_and_build_linker(tcx: TyCtxt, codegen_backend: CodegenBackend): Linker {
     const [ongoing_codegen, crate_info, metadata] = start_codegen(codegen_backend, tcx);
 
-    return new Linker(
-      /* dep_graph */ tcx.dep_graph,
-      /* output_filenames */ tcx.output_filenames(null) as OutputFilenames,
-      /* crate_hash */ tcx.sess.opts.incremental !== undefined ? tcx.crate_hash(LOCAL_CRATE) : undefined,
-      crate_info,
-      metadata,
-      ongoing_codegen,
-    );
+    // PORT: `metadata` drops if `tcx.crate_hash` unwinds, before the `Linker` owns it (see `drop` below).
+    try {
+      return new Linker(
+        /* dep_graph */ tcx.dep_graph,
+        /* output_filenames */ tcx.output_filenames(null) as OutputFilenames,
+        /* crate_hash */ tcx.sess.opts.incremental !== undefined ? tcx.crate_hash(LOCAL_CRATE) : undefined,
+        crate_info,
+        metadata,
+        ongoing_codegen,
+      );
+    } catch (e) {
+      metadata.drop();
+      throw e;
+    }
+  }
+
+  // PORT: Rust's drop glue, for a `Linker` that never reaches `link` because `run_compiler` unwound first: dropping its
+  // `metadata` removes the temp dir. `link` consumes the `Linker` and drops `metadata` itself; a second drop does nothing.
+  drop(): void {
+    this.metadata.drop();
   }
 
   // rustc: compiler/rustc_interface/src/queries.rs:49 link
