@@ -121,7 +121,7 @@ function env_can_carry(entries: readonly OsString[]): boolean {
  *
  * PORT: the rlimit is raised by `/bin/sh -c 'ulimit -S -s <kib>; ...'`: XNU refuses `setrlimit(RLIMIT_STACK)` (EINVAL) in a process
  * with a custom `LC_MAIN` stack, as Bun is. The shell must not touch the environment, and on its way to `exec` it would: bash
- * sorts it, adds `PWD`, `SHLVL` and `_`, acts on `SHELLOPTS`, `IFS`, `OPTIND`, `ENV`, and SIP strips `DYLD_*` from it. So:
+ * sorts it, adds `PWD`, `SHLVL` and `_`, acts on `SHELLOPTS`, `IFS`, `OPTIND`, and SIP strips `DYLD_*` from it. So:
  *
  *     execve("/bin/sh", [sh, -c, script, sh, <entries>, <execPath>, <argv...>], [])
  *     script: if ulimit -S -s N; then set -- JSC_STACK_VAR=M "$@"; fi; exec /usr/bin/env -i MARKER=1 "$@"
@@ -129,9 +129,10 @@ function env_can_carry(entries: readonly OsString[]): boolean {
  * The shell starts with an empty environment, so it reads nothing, and holds the caller's entries only as positional
  * parameters, which it passes on byte for byte (`"$@"`, every byte value checked in stack.test.ts). `env -i` then sets them in
  * order and execs Bun. The marker comes first, so an entry starting with `-` is not taken for an option of `env`. On arrival
- * `environ` is `MARKER, [JSC_STACK_VAR,] <entries>`, and `unsetenv` of the first two leaves exactly the entries. The stack limit
- * reaches the program by neither route: `RLIMIT_STACK` is not in the environment (a program can read it with `getrlimit`, as
- * under the oracle it reads the default), and `JSC_STACK_VAR` is gone before any compiler code runs.
+ * `environ` is `MARKER, [JSC_STACK_VAR,] <entries>`, and `unsetenv` of the first two leaves exactly the entries. `JSC_STACK_VAR` is
+ * gone before any compiler code runs, so no read of the environment can show the stack limit. The raised `RLIMIT_STACK` is not
+ * in the environment and stays: a proc macro calling `getrlimit`, or a child it spawns, sees it where the oracle's sees the default,
+ * and XNU refuses to lower it here. That is the one trace of the re-exec left that a proc macro can read.
  *
  * An `execPath` holding `=` stays on the default stack too: `env` would take it for an entry.
  */
