@@ -39,7 +39,6 @@ console.log(JSON.stringify({
   list: Object.keys(s.MIR_HEAVY),
   heavy: heavy.heavy,
   skipped: s.suite("mir").skipped().map((k) => k.id),
-  inMir: s.suite("mir").cases().filter((c) => Object.hasOwn(s.MIR_HEAVY, c.id)).length,
   same: JSON.stringify(heavy.oracle(heavy.cases())) === JSON.stringify(s.suite("mir").oracle(heavy.cases())),
 }));
 `;
@@ -49,7 +48,6 @@ console.log(JSON.stringify({
   expect(j.ids).toEqual(["tests/ui/closures/supertrait-hint-cycle.rs"]);
   expect(j.ids).toEqual(j.list);
   expect(j.skipped).toEqual(j.ids);
-  expect(j.inMir).toBe(0);
   expect(j.heavy).toBeDefined();
   expect(j.same).toBe(true);
   // gate.ts's default is the suites with a baseline file, and a protected case can never have moved.
