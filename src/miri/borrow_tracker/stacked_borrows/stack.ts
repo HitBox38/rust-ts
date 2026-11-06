@@ -8,7 +8,7 @@
 // fn of the file) but its call sites are comments, as compiled.
 // PORT: `[Item; CACHE_LEN]` / `[usize; CACHE_LEN]` are arrays of exactly CACHE_LEN entries; `Item` is `Copy`, so every
 // copy into or out of the cache is `clone_Item` (item.ts header): `set_permission` on a stack item must not reach a cache
-// slot (or vice versa) except where upstream updates both.
+// slot (or vice versa) except where upstream updates both. `Stack::new` is the exception: its slots share one `Item`, see there.
 import { type AccessKind, type BorTag } from "../mod.ts";
 import { clone_Item, debug_Item, type Item, Item_eq, Permission } from "./item.ts";
 import { Permission_grants } from "./mod.ts";
