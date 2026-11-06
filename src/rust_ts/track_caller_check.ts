@@ -66,6 +66,7 @@ interface Site {
 
 function classify_refusal(why: string): string {
   if (why.includes("macro_rules")) return "refused: macro_rules";
+  if (why.includes("nested item")) return "refused: nested item";
   if (why.includes("called")) return "refused: count mismatch";
   if (why.includes("no key")) return "refused: no key";
   if (why.includes("not unique")) return "refused: key not unique";
@@ -168,7 +169,7 @@ function static_check(): { sites: Site[]; byOwner: Map<string, { ts: TsFile; fil
           if (ts.owner_at(line) !== owner) continue;
           examined++;
           const m = map_call(ts, owner, callee, macro, line, col);
-          if (!m.ok && m.why.includes("the only upstream call is in a nested item")) refused_nested.add(`${file.slice(SRC_ROOT.length + 1)}:${line} ${callee}`);
+          if (!m.ok && m.why.includes("its upstream call is in a nested item")) refused_nested.add(`${file.slice(SRC_ROOT.length + 1)}:${line} ${callee}`);
         }
       }
     }
