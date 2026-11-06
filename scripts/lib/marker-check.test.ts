@@ -21,6 +21,14 @@ const CONST = "compiler/rustc_attr_parsing/src/attributes/macro_attrs.rs";
 describe("rustc-call", () => {
   test("a good anchor", () => expect(errors(anchored("81:19", "cx.adcx().expected_not_literal(x)"))).toEqual([]));
   test("a text with no markers costs nothing", () => expect(errors("const x = 1;\n// The marker is `rustc-const:`, in prose.\n")).toEqual([]));
+  test("no space, or too many: a typo the resolver would not read (review harness-w40 N3)", () => {
+    const good = anchored("81:19", "cx.adcx().expected_not_literal(x)");
+    for (const bad of [good.replace("// rustc-call:", "//rustc-call:"), good.replace("// rustc-call:", "//  rustc-call:"), good.replace("// rustc-call:", "//\trustc-call:")]) {
+      expect(errors(bad)[0]).toContain("malformed rustc-call anchor");
+    }
+    const c = `// rustc-const: ${CONST}:1 NAME\n`;
+    for (const bad of [c.replace("// ", "//"), c.replace("// ", "//   ")]) expect(errors(bad)[0]).toContain("malformed rustc-const marker");
+  });
   test("the wrong line", () => expect(errors(anchored("82:19", "cx.adcx().expected_not_literal(x)"))[0]).toContain("no call of"));
   test("the wrong column: inside the name", () => expect(errors(anchored("81:20", "cx.adcx().expected_not_literal(x)"))[0]).toContain("no call of"));
   test("the wrong column: the receiver is not where the call starts", () => expect(errors(anchored("81:9", "cx.adcx().expected_not_literal(x)"))[0]).toContain("no call of"));

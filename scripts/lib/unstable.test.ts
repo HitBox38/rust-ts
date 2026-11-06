@@ -53,6 +53,21 @@ describe("further negative tests: still different", () => {
   test("a line of its own: a different number of panics", () => {
     expect(equal("thread 'a' (1) panicked at x:\n", "thread 'a' (1) panicked at x:\nthread 'a' (1) panicked at x:\n")).toBe(false);
   });
+  test("Miri ICE: an interpreted program's id still compares (review harness-w40 L2)", () => {
+    const ice = (id: number, tail = "") => `thread 'main' (${id}) panicked at a.rs:1:1:\nboom\n${tail}thread 'rustc' (7${id}) panicked at c.rs:1:1:\nx\n${ICE_NOTE}`;
+    expect(equal(ice(1000), ice(1001), true)).toBe(false);
+    expect(equal(`thread 'rustc' (1) panicked\n${ICE_NOTE}`, `thread 'rustc' (2) panicked\n${ICE_NOTE}`, true)).toBe(true);
+    expect(equal(`thread 'rustc' (1) panicked\nthread 'main' (1000) panicked\n${ICE_NOTE}`, `thread 'rustc' (2) panicked\nthread 'main' (1001) panicked\n${ICE_NOTE}`, true)).toBe(false);
+    expect(equal(`thread 'rustc2' (1) panicked\n${ICE_NOTE}`, `thread 'rustc2' (2) panicked\n${ICE_NOTE}`, true)).toBe(false);
+  });
+  test("Miri: a program printing a marker text does not turn the mask on, unless at a line's start, and then only for `rustc`", () => {
+    const say = (id: number) => `thread 'main' (${id}) panicked at a.rs:1:1:\nthe compiler unexpectedly panicked\n`;
+    expect(isIceStderr(say(1))).toBe(false);
+    expect(equal(say(1000), say(1001), true)).toBe(false);
+    const atStart = (id: number) => `thread 'main' (${id}) panicked at a.rs:1:1:\nerror: the compiler unexpectedly panicked\n`;
+    expect(isIceStderr(atStart(1))).toBe(true);
+    expect(equal(atStart(1000), atStart(1001), true)).toBe(false);
+  });
   test("Miri: the subject's ICE does not turn the mask on for the oracle's program panic", () => {
     expect(equal("thread 'main' (1000) panicked at a.rs:1:1:\nboom\n", `thread 'main' (1001) panicked at a.rs:1:1:\nboom\n${ICE_NOTE}`, true)).toBe(false);
   });
@@ -131,6 +146,8 @@ describe("the mask is a comparison's, not a detector's", () => {
     expect(stderrMask(false, "")(line)).toBe("thread 'main' (<tid>) panicked at a.rs:1:1:\n");
     expect(stderrMask(true, line)(line)).toBe(line);
     expect(isIceStderr(line + ICE_NOTE)).toBe(true);
-    expect(stderrMask(true, line + ICE_NOTE)(line)).toBe("thread 'main' (<tid>) panicked at a.rs:1:1:\n");
+    // Review harness-w40 L2: this used to expect `thread 'main' (<tid>)`. On an ICE only the host's thread is masked.
+    expect(stderrMask(true, line + ICE_NOTE)(line)).toBe(line);
+    expect(stderrMask(true, line + ICE_NOTE)("thread 'rustc' (73787783) panicked at a.rs:1:1:\n")).toBe("thread 'rustc' (<tid>) panicked at a.rs:1:1:\n");
   });
 });
