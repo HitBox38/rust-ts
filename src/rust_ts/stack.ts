@@ -124,7 +124,13 @@ function env_can_carry(entries: readonly OsString[]): boolean {
  * sorts it, adds `PWD`, `SHLVL` and `_`, acts on `SHELLOPTS`, `IFS`, `OPTIND`, and SIP strips `DYLD_*` from it. So:
  *
  *     execve("/bin/sh", [sh, -c, script, sh, <entries>, <execPath>, <argv...>], [])
- *     script: if ulimit -S -s N; then set -- JSC_STACK_VAR=M "$@"; fi; exec /usr/bin/env -i MARKER=1 "$@"
+ *     script: unset PWD OLDPWD SHLVL; if ulimit -S -s N; then set -- JSC_STACK_VAR=M "$@"; fi; exec /usr/bin/env -i MARKER=1 "$@"
+ *
+ * Only the first `execve` can come back to say it did not fit (E2BIG, and the process stays on the default stack, exact); a later
+ * one failing would end the run with exit 1, where the oracle compiles (docs/reviews/fixers-41.md F4). So the first must be the
+ * largest. It carries the marker and `JSC_STACK_VAR` in the script's text, and more besides; what is left to keep out of the next
+ * one is the shell's own `PWD`, as long as the cwd. Read at every byte around the limit, with 31- and 533-byte Bun paths and with 3,000
+ * entries, on macOS: no later stage fails. The kernel's count is not documented, so a change there would show here as that exit 1.
  *
  * The shell starts with an empty environment, so it reads nothing, and holds the caller's entries only as positional
  * parameters, which it passes on byte for byte (`"$@"`, every byte value checked in stack.test.ts). `env -i` then sets them in
@@ -172,7 +178,7 @@ function reexec_with_stack(marker: string, entries: readonly OsString[]): void {
     out.set(b);
     return out;
   };
-  const script = `if ulimit -S -s ${soft_kib} 2>/dev/null; then set -- ${JSC_STACK_VAR}=${js_stack} "$@"; fi; exec ${ENV_PROGRAM} -i ${marker}=1 "$@"`;
+  const script = `unset PWD OLDPWD SHLVL; if ulimit -S -s ${soft_kib} 2>/dev/null; then set -- ${JSC_STACK_VAR}=${js_stack} "$@"; fi; exec ${ENV_PROGRAM} -i ${marker}=1 "$@"`;
   const args = ["sh", "-c", script, "sh"]
     .map(cstr)
     .concat(entries.map(cstr), [cstr(process.execPath)], argv.slice(1).map(cstr));

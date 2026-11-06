@@ -2,7 +2,7 @@
 // process with the stack it needs and exactly the environment it was started with. The programs that show that environment under
 // the oracle, too, are in environment.oracle.test.ts; this file holds what is cheap enough to try many environments on.
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import "../rustc_session/options.ts"; // LOAD ORDER: see rustc_session/config.ts
@@ -111,6 +111,40 @@ describe.skipIf(process.platform === "win32")("ensure_stack", () => {
   test("an environment `env` cannot carry stays exact, on the default stack", () => {
     for (const entries of NOT_CARRIED) expect(seen_with(entries).environ).toEqual([...entries]);
     expect(seen_with(NOT_CARRIED[3]!).process_env.DUP).toBe("first");
+  });
+
+  test("an environment close to the limit, with a long cwd, keeps running: the shell's own exec cannot be what fails", () => {
+    const dir = mkdtempSync(join(tmpdir(), "rust-ts-arg-max-"));
+    try {
+      let cwd = dir;
+      while (cwd.length < 900) cwd = join(cwd, "d".repeat(Math.min(200, 900 - cwd.length)));
+      mkdirSync(cwd, { recursive: true });
+      const env = (n: number): Record<string, string> => ({ PAD: "x".repeat(n), __CF_USER_TEXT_ENCODING: CF_KEEP.slice(CF_KEEP.indexOf("=") + 1) });
+      const fits = (n: number): boolean => {
+        try {
+          return Bun.spawnSync(["/usr/bin/true", DRIVER], { env: env(n), stdout: "ignore", stderr: "ignore" }).exitCode === 0;
+        } catch {
+          return false;
+        }
+      };
+      let lo = 0;
+      let hi = 8 * 1024 * 1024;
+      while (hi - lo > 64) {
+        const mid = (lo + hi) >>> 1;
+        if (fits(mid)) lo = mid;
+        else hi = mid;
+      }
+      // Bytes below the limit where, before the fix, this cwd made `exec env` fail with exit 1 (docs/reviews/fixers-41.md F4).
+      for (const below of [500, 1000]) {
+        const r = Bun.spawnSync([process.execPath, DRIVER], { cwd, env: env(lo - below), stdout: "pipe", stderr: "pipe" });
+        expect(r.stderr.toString()).toBe("");
+        expect(r.exitCode).toBe(0);
+        const seen = JSON.parse(r.stdout.toString()) as Seen;
+        expect(seen.environ).toEqual([`PAD=${"x".repeat(lo - below)}`, CF_KEEP]);
+      }
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   test("a `.env` in the cwd does not reach the environment, under any of Bun's names; a real variable keeps its value", () => {
