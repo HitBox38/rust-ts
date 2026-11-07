@@ -41,6 +41,7 @@ import {
 } from "../rustc_session/config.ts";
 import { CG_OPTIONS, type OptionDesc, OptionDesc as OptionDescC, type UnstableOptions, Z_OPTIONS, str_cmp } from "../rustc_session/options.ts";
 import { find_gated_cfg } from "../rustc_feature/builtin_attrs.ts";
+import * as apple from "../rustc_target/spec/base/apple/mod.ts";
 import { Target_to_json, spec as target_spec } from "../rustc_target/lib.ts";
 import { JsonObject, to_string_pretty } from "../rustc_target/json.ts";
 import { TargetTuple } from "../rustc_target/spec/tuple.ts";
@@ -648,8 +649,7 @@ export function print_crate_info(codegen_backend: CodegenBackend, sess: Session,
       }
       case "DeploymentTarget":
         if (sess.target.is_like_darwin) {
-          // `deployment_target_env_var(&sess.target.os)` = `sess.apple_deployment_target().fmt_pretty()`
-          return unported("rustc_session::session::EarlySession::apple_deployment_target (--print deployment-target)");
+          println_info(`${apple.deployment_target_env_var(sess.target.os)}=${sess.apple_deployment_target().fmt_pretty()}`);
         } else {
           sess.dcx().fatal("only Apple targets currently support deployment version info");
         }

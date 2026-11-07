@@ -194,9 +194,8 @@ export class EarlySession {
         // `Ord::max`: the second argument when they are equal.
         return cmp_OSVersion(version._0, min) > 0 ? version._0 : min;
       } else {
-        // PORT: the error is `std::num::ParseIntError`, whose `Display` the diagnostic stops `unported` on (diagnostics.ts).
         this.dcx().emit_err(
-          diagnostics_gen.AppleDeploymentTarget_diagnostic({ $: "Invalid", env_var: env_var_, error: version._0 as unknown as diagnostics.ParseIntError }),
+          diagnostics_gen.AppleDeploymentTarget_diagnostic({ $: "Invalid", env_var: env_var_, error: version._0 }),
         );
         return min;
       }

@@ -509,6 +509,8 @@ Queued from wave 40b's reviews, none blocking:
 
 - `tests/ui/rustc-env/def-path-hash-ice-157238.rs` in `mono-ui`, DIFF and not protected, as in the wave 40a gate: under `RUSTC_LOG`, the port does not print `some trace filter directives would enable traces that are disabled statically`.
 
+- An invalid `MACOSX_DEPLOYMENT_TARGET` (`abc`, `99999`) at `--emit=metadata`: the oracle reports the parse error and exits 1, the port compiles and exits 0, on main too. Find where the oracle reads it on that path. Also object-write-macho review N1 (`rlib_macho.oracle.test.ts` reads fixtures, and one embeds a scratch path), N2 (`write/macho.ts:407` counts relocations by length, not upstream's formula; harmless while relocations stay unported); the proposed `host-rlib` report suite needs its sides run from one directory and `*_DEPLOYMENT_TARGET` in scripts/lib/env.ts's scrubbed set first.
+
 Also queued: `tests/ui/closures/supertrait-hint-cycle.rs` under `mir-heavy` (first report run, on AC, 2026-11-06): the oracle takes 60.3 s and 9 GB, and the port timed out at 1,800 s with 12.7 GB, so it is at least 30x slower there; worth a performance look, not protected. near-limit `dynamic-drop.rs` and `issue-8827.rs` (60-62%).
 
 ## Wave 40c (started 2026-11-07) — still independent of D4
