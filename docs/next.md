@@ -510,3 +510,12 @@ Queued from wave 40b's reviews, none blocking:
 - `tests/ui/rustc-env/def-path-hash-ice-157238.rs` in `mono-ui`, DIFF and not protected, as in the wave 40a gate: under `RUSTC_LOG`, the port does not print `some trace filter directives would enable traces that are disabled statically`.
 
 Also queued: `tests/ui/closures/supertrait-hint-cycle.rs` under `mir-heavy` (first report run, on AC, 2026-11-06): the oracle takes 60.3 s and 9 GB, and the port timed out at 1,800 s with 12.7 GB, so it is at least 30x slower there; worth a performance look, not protected. near-limit `dynamic-drop.rs` and `issue-8827.rs` (60-62%).
+
+## Wave 40c (started 2026-11-07) — still independent of D4
+| lane | scope | status |
+|---|---|---|
+| fixers-45 | driver and environment: fixers-43 review F2, F3, F4, F6, the temp-dir error's path, `POLONIUS_ALGORITHM`'s location; `RUSTC_LOG` INFO events (rust-log.rs, log-backtrace.rs, def-path-hash-ice-157238.rs and mono-ui's trace filter warning) | running |
+| fixers-46 | ABI, lint and Miri stops: fixers-44 review F2, F5; root-w41 N2, N5, N6; miri-sysroot review F1 (`custom_local_sysroot`), F6 | running |
+| harness-w43 | harness-w42 review N1, N2, N4, N6; root-w41 N3, N4; fixers-44 W5 (`coverage.ts --order --require-clean` for `rustc_monomorphize`); miri-sysroot review F2; the `criteria.ts` M7 group; the slowest unit tests (unit step 68% of its limit) | running |
+| object-write-macho | docs/handoff/miri-sysroot.md chained lane 1: Mach-O `Object` (write/macho.rs) and the darwin branches of `create_object_file`, for host rlibs in M7 | running |
+| perf-heavy | `supertrait-hint-cycle.rs` under `mir-heavy` (port timed out at 1,800 s where the oracle takes 60 s); then sysroot core's 19x and 10.9 GB if the same cause | running |
