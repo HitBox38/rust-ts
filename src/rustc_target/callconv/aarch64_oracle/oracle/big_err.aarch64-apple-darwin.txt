@@ -17,6 +17,15 @@ error[E0512]: cannot transmute between types of different sizes, or dependently-
    = note: source type: `Generic<T>` (size can vary because of T)
    = note: target type: `&u8` (64 bits)
 
-error: aborting due to 2 previous errors
+error[E0512]: cannot transmute between types of different sizes, or dependently-sized types
+  --> big_err.rs:37:14
+   |
+37 |     unsafe { transmute(foo) }
+   |              ^^^^^^^^^
+   |
+   = note: source type: `fn() {foo}` (0 bits)
+   = note: target type: `B53` (72057594037927936 bits)
+
+error: aborting due to 3 previous errors
 
 For more information about this error, try `rustc --explain E0512`.

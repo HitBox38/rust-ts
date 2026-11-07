@@ -30,3 +30,9 @@ pub struct Generic<T>([u8; 9007199254740992], T);
 pub fn generic<T>(x: Generic<T>) -> &'static u8 {
     unsafe { transmute(x) }
 }
+
+// rustc_hir_typeck intrinsicck `check_transmute`'s E0591: a function item transmuted to a type of 2^53 bytes (review fixers-46 F1).
+fn foo() {}
+pub fn fn_item() -> B53 {
+    unsafe { transmute(foo) }
+}

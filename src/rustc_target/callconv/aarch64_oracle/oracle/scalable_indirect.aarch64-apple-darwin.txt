@@ -1,6 +1,6 @@
 101
 
-thread 'rustc' (60294247) panicked at /rustc-dev/6f5da406b56c2db6607202b63daee73aa8c61297/compiler/rustc_ty_utils/src/abi.rs:456:13:
+thread 'rustc' (0) panicked at /rustc-dev/6f5da406b56c2db6607202b63daee73aa8c61297/compiler/rustc_ty_utils/src/abi.rs:456:13:
 assertion `left matches right` failed: the "C" ABI does not implement `#[rustc_pass_indirectly_in_non_rustic_abis]`
   left: Direct(ArgAttributes { regular: , arg_ext: None, pointee_size: Size(0 bytes), pointee_align: None })
  right: PassMode::Indirect { mode: IndirectMode::Pointer, .. }

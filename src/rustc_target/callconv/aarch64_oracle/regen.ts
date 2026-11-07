@@ -16,5 +16,7 @@ for (const c of CASES) {
   rmSync(out, { recursive: true, force: true });
   const r = Bun.spawnSync(["rustc", `+${PIN.toolchain}`, ...abi_args(c, out)], { cwd: HERE, env: test_env(), stdout: "pipe", stderr: "pipe" });
   if (r.stdout.length !== 0) throw new Error(`ERROR: unexpected stdout from the oracle for ${c.file} on ${c.target}`);
-  writeFileSync(join(HERE, "oracle", c.oracle), `${r.exitCode}\n${r.stderr.toString()}`);
+  // An ICE report names the oracle's thread id, which changes on every run; the test reads only the panic message (review fixers-46 F3).
+  const stderr = r.stderr.toString().replace(/^thread '([^']*)' \(\d+\)/gm, "thread '$1' (0)");
+  writeFileSync(join(HERE, "oracle", c.oracle), `${r.exitCode}\n${stderr}`);
 }
