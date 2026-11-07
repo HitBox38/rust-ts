@@ -140,7 +140,8 @@ class MoveCheckVisitor extends Visitor {
     if (layout.$ !== "Ok") {
       return undefined;
     }
-    if (layout._0.size.bytes_usize() > limit._0) {
+    // PORT (size-bigint): `bytes_usize()` is the `u64` on a 64-bit host, compared exactly (a size reaches 2^61 - 1).
+    if (layout._0.size.bytes_u64() > BigInt(limit._0)) {
       // debug!(?layout);
       return layout._0.size;
     } else {
@@ -178,7 +179,8 @@ class MoveCheckVisitor extends Visitor {
       reported_span,
       LargeAssignmentsLint_diagnostic({
         span: reported_span,
-        size: too_large_size.bytes(),
+        // PORT (size-bigint): `size: u64` is a `bigint` (tools/codegen/mir.typemap.json `fields`).
+        size: too_large_size.bytes_u64(),
         limit,
       }),
     );

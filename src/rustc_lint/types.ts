@@ -901,17 +901,21 @@ VariantSizeDifferences.prototype.check_item = function (this: VariantSizeDiffere
     }
     const [tag, variants] = [lv.tag, lv.variants];
 
-    const tag_size = Scalar.size(tag, cx.tcx).bytes();
+    // PORT (size-bigint): `tag_size`, `bytes`, `largest` and `slargest` are upstream's `u64`s as `bigint`s: a variant's
+    // size reaches 2^61 - 1 (`obj_size_bound`), past `number`'s exact range, so `bytes_u64()`, never `bytes()`. The
+    // generated `VariantSizeDifferencesDiag.largest` is a `bigint` too (tools/codegen/lint.typemap.json).
+    const tag_size = Scalar.size(tag, cx.tcx).bytes_u64();
 
     // debug!("enum `{}` is {} bytes large with layout:\n{:#?}", t, layout.size.bytes(), layout);
 
     // `iter::zip(enum_definition.variants, variants).map(..).enumerate().fold((0, 0, 0), ..)`
-    let [largest, slargest, largest_index] = [0, 0, 0];
+    let [largest, slargest, largest_index] = [0n, 0n, 0];
     const n = Math.min(enum_definition.variants.length, variants.length);
     for (let idx = 0; idx < n; idx++) {
       const variant_layout = variants[idx]!;
       // Subtract the size of the enum tag.
-      const bytes = Math.max(variant_layout.size.bytes() - tag_size, 0);
+      const variant_bytes = variant_layout.size.bytes_u64();
+      const bytes = variant_bytes > tag_size ? variant_bytes - tag_size : 0n;
 
       // debug!("- variant `{}` is {} bytes large", variant.ident, bytes);
       const size = bytes;
@@ -924,7 +928,7 @@ VariantSizeDifferences.prototype.check_item = function (this: VariantSizeDiffere
 
     // We only warn if the largest variant is at least thrice as large as
     // the second-largest.
-    if (largest > slargest * 3 && slargest > 0) {
+    if (largest > slargest * 3n && slargest > 0n) {
       cx.emit_span_lint(VARIANT_SIZE_DIFFERENCES, enum_definition.variants[largest_index]!.span, VariantSizeDifferencesDiag_diagnostic({ largest }));
     }
   }

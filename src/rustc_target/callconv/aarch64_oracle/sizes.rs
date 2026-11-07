@@ -28,6 +28,10 @@ pub struct B53([u8; 9007199254740992]);
 pub struct B53Above([u8; 9007199254740993]);
 pub struct B60([u8; 1152921504606846976]);
 pub struct B61Below([u8; 2305843009213693951]);
+// x86_win64.rs's `match a.layout.size.bits()` arms 8, 16 and 32 (docs/reviews/root-w41-check.md N2).
+pub struct B1([u8; 1]);
+pub struct B2([u8; 2]);
+pub struct B4([u8; 4]);
 
 macro_rules! each_size {
     ($($rust:ident $c:ident: $ty:ty;)*) => {
@@ -51,4 +55,7 @@ each_size! {
     Rust53Above C53Above: B53Above;
     Rust60 C60: B60;
     Rust61Below C61Below: B61Below;
+    Rust1 C1: B1;
+    Rust2 C2: B2;
+    Rust4 C4: B4;
 }

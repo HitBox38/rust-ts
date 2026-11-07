@@ -15,7 +15,7 @@
 // recorded argv reproduces it. The out dir is this run's own, `<crate>/<side>.run-<pid>`: two runs of one crate and side at once,
 // from two worktrees, would otherwise remove and fill one directory (review miri-sysroot F2). It is removed afterwards unless a sysroot
 // line says `differs`, and then kept for diagnosis as `<crate>/<side>`, replacing the last one kept: core's rmeta is 69 MB.
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { DATA } from "./lib/common.ts";
 import { miriTargetLibDir } from "./lib/miri.ts";
@@ -97,6 +97,14 @@ export async function miriSysrootRun(a: MiriSysrootRunArgs): Promise<number> {
   }
   mkdirSync(out, { recursive: true });
   const inv = miriSysrootInvocation(a.crate, out);
+  // A source the crate's build wrote and deleted (`custom_local_sysroot`'s empty `lib.rs`, in its temp directory): written when
+  // absent, and never removed, as the other side or another worktree may be reading it (review miri-sysroot F1).
+  for (const [rel, text] of Object.entries(inv.sources ?? {})) {
+    const f = join(inv.cwd, rel);
+    if (existsSync(f) && readFileSync(f, "utf8") === text) continue;
+    mkdirSync(dirname(f), { recursive: true });
+    writeFileSync(f, text);
+  }
   const p = Bun.spawn([...a.compiler, ...inv.args], { cwd: inv.cwd, env: { ...process.env, ...inv.env }, stdin: "ignore", stdout: "pipe", stderr: "pipe" });
   const pass = (sig: NodeJS.Signals) => () => p.kill(sig);
   process.on("SIGTERM", pass("SIGTERM"));

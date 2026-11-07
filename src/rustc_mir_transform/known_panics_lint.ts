@@ -10,7 +10,7 @@
 // (every assigned value is built fresh), so `Value::Aggregate`'s `variant` is mutated in place (`SetDiscriminant`).
 // The interpreter values (`ImmTy`, `OpTy`) and `InterpCx<DummyMachine>` come from rustc_const_eval (D8): reached through
 // its `lib.ts` at call time.
-import { Size, type TargetDataLayout } from "../rustc_abi/lib.ts";
+import { Size, Size_cmp, type TargetDataLayout } from "../rustc_abi/lib.ts";
 import { FieldIdx, VariantIdx } from "../rustc_abi/layout.ts";
 import { find_attr } from "../rustc_attr_ir/lib.ts";
 import { const_eval, interpret } from "../rustc_const_eval/lib.ts";
@@ -1112,7 +1112,7 @@ class CanConstProp extends Visitor {
         cpv.can_const_prop[local] = "NoPropagation";
       } else {
         const layout = tcx.layout_of(typing_env.as_query_input(ty));
-        if (layout.$ === "Ok" && layout._0.size.bytes() < Size.from_bytes(MAX_ALLOC_LIMIT).bytes()) {
+        if (layout.$ === "Ok" && Size_cmp(layout._0.size, Size.from_bytes(MAX_ALLOC_LIMIT)) < 0) {
           // (nothing)
         }
         // Either the layout fails to compute, then we can't use this local anyway

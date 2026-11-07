@@ -3851,7 +3851,7 @@ export function MissingGpuKernelExportName_diagnostic(self: MissingGpuKernelExpo
 
 // rustc-type: compiler/rustc_lint/src/diagnostics.rs:2574 VariantSizeDifferencesDiag
 export interface VariantSizeDifferencesDiag {
-  largest: number;
+  largest: bigint;
 }
 /** `#[derive(Diagnostic)]`: `impl<'_sess> Diagnostic<'_sess> for VariantSizeDifferencesDiag` */
 // rustc-derive: compiler/rustc_lint/src/diagnostics.rs:2574 Diagnostic VariantSizeDifferencesDiag

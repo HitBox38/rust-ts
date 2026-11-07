@@ -1,0 +1,18 @@
+101
+
+thread 'rustc' (60294247) panicked at /rustc-dev/6f5da406b56c2db6607202b63daee73aa8c61297/compiler/rustc_ty_utils/src/abi.rs:456:13:
+assertion `left matches right` failed: the "C" ABI does not implement `#[rustc_pass_indirectly_in_non_rustic_abis]`
+  left: Direct(ArgAttributes { regular: , arg_ext: None, pointee_size: Size(0 bytes), pointee_align: None })
+ right: PassMode::Indirect { mode: IndirectMode::Pointer, .. }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+error: the compiler unexpectedly panicked. This is a bug
+
+note: using internal features is not supported and expected to cause internal compiler errors when used incorrectly
+
+note: rustc 1.101.0-nightly (6f5da406b 2026-10-10) running on aarch64-apple-darwin
+
+query stack during panic:
+#0 [fn_abi_of_fn_ptr] computing call ABI of `extern "C" fn(ScalableIndirect)` function pointers
+#1 [analysis] running analysis passes on crate `abi`
+end of query stack

@@ -37,6 +37,7 @@ import {
   type ReprOptions,
   Scalar,
   Size,
+  Size_eq,
   type TargetDataLayout,
   type TyAbiInterface,
   TyAndLayout as abi_TyAndLayout,
@@ -781,7 +782,8 @@ export const SizeSkeleton = {
             switch (field.$) {
               case "Known": {
                 const [size, align] = [field._0, field._1];
-                const is_1zst = size.bytes() === 0 && align !== undefined && align.bytes() === 1;
+                // PORT (size-bigint): `size.bytes() == 0` on the exact `u64`: a field's size reaches 2^61 - 1.
+                const is_1zst = size.bytes_u64() === 0n && align !== undefined && align.bytes() === 1;
                 if (!is_1zst) {
                   return Err(err);
                 }
@@ -870,10 +872,10 @@ export const SizeSkeleton = {
 
   // rustc: compiler/rustc_middle/src/ty/layout.rs:601 same_size
   same_size(self: SizeSkeleton, other: SizeSkeleton): boolean {
-    // PORT: `Size`'s derived `PartialEq` compares the byte count.
+    // PORT: `Size`'s derived `PartialEq` compares the byte count (`Size_eq`, exact for a size at or above 2^53).
     if (self.$ === "Known" && other.$ === "Known") {
       const [a, b] = [self._0, other._0];
-      return a.bytes() === b.bytes();
+      return Size_eq(a, b);
     } else if (self.$ === "Pointer" && other.$ === "Pointer") {
       const [a, b] = [self.tail, other.tail];
       return a === b;

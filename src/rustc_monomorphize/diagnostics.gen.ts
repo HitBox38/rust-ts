@@ -56,7 +56,7 @@ export function NoOptimizedMir_diagnostic(self: NoOptimizedMir): Diagnostic {
 // rustc-type: compiler/rustc_monomorphize/src/diagnostics.rs:32 LargeAssignmentsLint
 export interface LargeAssignmentsLint {
   span: Span;
-  size: number;
+  size: bigint;
   limit: number;
 }
 /** `#[derive(Diagnostic)]`: `impl<'_sess> Diagnostic<'_sess> for LargeAssignmentsLint` */

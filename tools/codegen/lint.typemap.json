@@ -1,0 +1,9 @@
+{
+  "//": "Set-local type map of set rustc_lint (typemap_extra). `fields`: PORTING §5 `u64` fields whose values reach 2^53 (typemap.json maps `u64` to `number`): `VariantSizeDifferencesDiag.largest` is a variant's size in bytes, up to `obj_size_bound` (2^61 - 1) (lane fixers-46, fixers-44 review F5)",
+  "types": [
+    {"paths": ["rust_ts::u64_exact"], "ts": "bigint", "debug": "debug_int($v, $f)", "clone": "copy", "note": "PORTING §5 `u64` as `bigint` for the fields listed in `fields` below"}
+  ],
+  "fields": {
+    "rustc_lint::diagnostics::VariantSizeDifferencesDiag::largest": "::rust_ts::u64_exact"
+  }
+}

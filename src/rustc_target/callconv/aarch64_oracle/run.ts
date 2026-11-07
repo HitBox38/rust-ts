@@ -6,7 +6,7 @@
 // work. The oracle's output comes from one process per target (regen.ts), and rustc never runs two sessions in a process. Darwin
 // runs first, in a fresh process, as rustc does; a bug only a fresh process shows on linux-gnu would not show here.
 //
-// Exit codes as src/rust_ts/main.ts for a stop: 70 = reached unported code, 101 = ICE. Otherwise 0.
+// Exit codes as src/rust_ts/main.ts for a stop: 70 = reached unported code, 101 = ICE outside an `ice` case. Otherwise 0.
 import { ensure_stack } from "../../../rust_ts/stack.ts";
 import { write_stderr } from "../../../std/io.ts";
 import { Panic, Unported } from "../../../std/panic.ts";
@@ -17,7 +17,16 @@ async function main(out: string): Promise<number> {
   const { catch_with_exit_code, compiler_entrypoint, TimePassesCallbacks } = await import("../../../rustc_driver_impl/lib.ts");
   for (const c of CASES) {
     write_stderr(`== ${c.file} ${c.target}\n`);
-    const code = catch_with_exit_code(() => compiler_entrypoint(["rustc", ...abi_args(c, out)], TimePassesCallbacks.default()));
+    let code: number;
+    try {
+      code = catch_with_exit_code(() => compiler_entrypoint(["rustc", ...abi_args(c, out)], TimePassesCallbacks.default()));
+    } catch (e) {
+      // An ICE leaves `catch_with_exit_code` (src/rust_ts/main.ts reports it); here it is the case's result, as the
+      // message main.ts prints first and exit 101. Only an `ice` case may end so (common.ts), and it runs last.
+      if (!(e instanceof Panic) || c.ice !== true) throw e;
+      write_stderr(`rust-ts: internal compiler error: ${e.message}\n`);
+      code = 101;
+    }
     write_stderr(`exit ${code}\n`);
   }
   return 0;

@@ -6,9 +6,11 @@
 // The temp directory of the setup run is gone, and the paths into it are not part of the output (checked by replaying each
 // crate with the isolated Miri: harness/miri-sysroot.ts), so `--out-dir` is `$OUT`, and `--extern` / `-L dependency=` name
 // the finished sysroot's library directory, `$LIB`, which holds the same file names. Paths under the isolated toolchain
-// are `$TC` and under its cargo home `$CARGO_HOME`. Left out: build scripts (the sysroot does not hold them), and
-// `custom_local_sysroot`, the empty crate rustc-build-sysroot writes into that temp directory. An empty `lib.rs` at that path does
-// replay it on both sides, with the sysroot's bytes (review miri-sysroot F1); nothing here does that yet.
+// are `$TC` and under its cargo home `$CARGO_HOME`. Left out: build scripts (the sysroot does not hold them).
+// `custom_local_sysroot`, the empty crate rustc-build-sysroot writes into that temp directory, is built there: its path is in the
+// crate's metadata, so its cwd and manifest are `$BUILD`, the temp directory of the run that built the sysroot (harness/miri-sysroot.ts
+// reads it from the sysroot's `.d`; this log is of another run), and its `lib.rs`, empty (rustc-build-sysroot 0.5.14
+// src/lib.rs:480-485), is in `sources`. So replayed, it gives the sysroot's bytes on both sides (review miri-sysroot F1).
 // cargo-miri adds one flag the log does not show, as bootstrap would: `-Cpanic=abort` on `panic_abort` (replaying the crate with
 // the isolated Miri gives the sysroot's bytes with it, and other bytes without it).
 import { readFileSync } from "node:fs";
@@ -45,7 +47,7 @@ function shellSplit(s: string): string[] {
 
 const TC = miriToolchainDir();
 const tmpl = (s: string): string => s.replaceAll(TC, "$TC").replaceAll(MIRI_CARGO_HOME, "$CARGO_HOME");
-const crates: Record<string, { cwd: string; args: string[]; env: Record<string, string> }> = {};
+const crates: Record<string, { cwd: string; args: string[]; env: Record<string, string>; sources?: Record<string, string> }> = {};
 // A command can span lines: a package description may hold a newline.
 for (const [, command] of readFileSync(process.argv[2]!, "utf8").matchAll(/Running `([\s\S]*?)`\n/g)) {
   const toks = shellSplit(command!);
@@ -59,7 +61,6 @@ for (const [, command] of readFileSync(process.argv[2]!, "utf8").matchAll(/Runni
   const args = toks.slice(i + 1);
   if (!args.includes("--target")) continue; // a build script, or running one
   const name = args[args.indexOf("--crate-name") + 1]!;
-  if (name === "custom_local_sysroot") continue;
   const mapped = args.map((a, k) => {
     if (args[k - 1] === "--out-dir") return "$OUT";
     if (a.startsWith("dependency=")) return "dependency=$LIB";
@@ -68,6 +69,12 @@ for (const [, command] of readFileSync(process.argv[2]!, "utf8").matchAll(/Runni
     return tmpl(a);
   });
   if (name === "panic_abort") mapped.push("-Cpanic=abort");
+  if (name === "custom_local_sysroot") {
+    const build = env.CARGO_MANIFEST_DIR!;
+    const b = (x: string): string => x.replaceAll(build, "$BUILD");
+    crates[name] = { cwd: "$BUILD", args: mapped.map(b), env: Object.fromEntries(Object.entries(env).map(([k, v]) => [k, b(v)])), sources: { "lib.rs": "" } };
+    continue;
+  }
   crates[name] = { cwd: env.CARGO_MANIFEST_DIR!, args: mapped, env };
 }
 console.log(JSON.stringify(crates, null, 1));

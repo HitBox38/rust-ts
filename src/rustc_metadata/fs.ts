@@ -3,8 +3,8 @@
 // PORT:
 // - `rustc_fs_util::TempDirBuilder` (over the `tempfile` crate's `Builder`/`TempDir`) and
 //   `rustc_data_structures::temp_dir::MaybeTempDir` are not ported; `TempDirBuilder`, `TempDir` and `MaybeTempDir`
-//   below are local stand-ins with the upstream API this file uses. `tempdir_in` makes `<dir>/<prefix>XXXXXX` (six
-//   random characters, mode 0o700 on unix: node's `mkdtempSync`, as `tempfile::Builder` names and creates it), and
+//   below are local stand-ins with the upstream API this file uses. `tempdir_in` makes `<dir>/<prefix>XXXXXX<suffix>` (six
+//   random alphanumerics, the default mode, as `tempfile::Builder` names and creates it), and
 //   dropping a `TempDir` removes it recursively, ignoring errors (tempfile's `Drop`). Move them to their crates when
 //   those are ported.
 // - Drops are explicit. In `encode_and_write_metadata` an unwinding exit (a fatal error, an ICE or an `unported`
@@ -12,14 +12,15 @@
 //   `-C save-temps`), as Rust's unwinding drop does. Then the dir moves into `EncodedMetadata::from_path`, which
 //   drops it on an empty file or its own error and otherwise keeps it in the `EncodedMetadata` (whose `drop()` its
 //   owner calls on any exit: `Linker::link` when it ends, `start_codegen` and `run_compiler` when they unwind first).
-import { closeSync, mkdtempSync, openSync, readSync, renameSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
+import { randomBytes } from "node:crypto";
+import { closeSync, mkdirSync, openSync, readSync, renameSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import { OutFileName, type OutputFilenames } from "../rustc_session/config.ts";
 import { filename_for_metadata } from "../rustc_session/output.ts";
 import type { Session } from "../rustc_session/session.ts";
 import type { ErrorGuaranteed } from "../rustc_span/lib.ts";
 import { current_dir_str } from "../std/env.ts";
-import { io_error_from_node, type IoResult, stdout_write_all } from "../std/io.ts";
+import { io_error_from_node, IoError_kind, type IoResult, stdout_write_all } from "../std/io.ts";
 import { path_is_absolute, path_join } from "../std/path.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
 import {
@@ -290,24 +291,53 @@ export class TempDirBuilder {
     return this;
   }
 
+  /**
+   * `tempfile::Builder::tempdir_in` (tempfile 3.23.0, src/lib.rs; `random_len` 6, no `permissions`): `util::create_helper`
+   * over `dir::create`. PORT: not node's `mkdtempSync`, which has no suffix and, under Bun, cuts a template of 1,018 to
+   * 1,023 bytes to 1,017 and so makes a directory where `mkdir` fails with `ENAMETOOLONG` (docs/reviews/root-w41-check.md
+   * N5); the suffix is part of the one `mkdir`, so a failure leaves nothing behind (N6). `with_err_path`'s ` at path`
+   * is not added (queued in docs/next.md).
+   */
   tempdir_in(dir: string): IoResult<TempDir> {
-    try {
-      // tempfile: a relative `dir` is made absolute first (`env::current_dir()?.join(dir)`).
-      let abs = dir;
-      if (!path_is_absolute(dir)) {
-        const cwd = current_dir_str();
-        if (cwd.$ === "Err") return cwd;
-        abs = path_join(cwd._0, dir);
-      }
-      const made = mkdtempSync(path_join(abs, this.prefix_));
-      if (this.suffix_ === "") return Ok(new TempDir(made));
-      // PORT: `mkdtemp` has no suffix: the new, private directory is renamed to `<prefix>XXXXXX<suffix>`.
-      renameSync(made, made + this.suffix_);
-      return Ok(new TempDir(made + this.suffix_));
-    } catch (e) {
-      return Err(io_error_from_node(e));
+    // `util::create_helper`: make the path absolute. Otherwise, changing the current directory can invalidate a stored
+    // path (causing issues when cleaning up temporary files).
+    let base = dir;
+    if (!path_is_absolute(dir)) {
+      const cur_dir = current_dir_str();
+      if (cur_dir.$ === "Err") return cur_dir;
+      base = path_join(cur_dir._0, dir);
     }
+    for (let i = 0; i < TEMPFILE_NUM_RETRIES; i++) {
+      // PORT: fastrand's re-seed from system randomness after three failures is moot: `tmpname` draws from `crypto`.
+      const path = path_join(base, tmpname(this.prefix_, this.suffix_, TEMPFILE_RANDOM_LEN));
+      // `dir::create`: `DirBuilder::new().create(&path)`, the default mode (0o777 less the umask).
+      try {
+        mkdirSync(path);
+      } catch (e) {
+        const err = io_error_from_node(e);
+        // `AddrInUse` is for UNIX domain sockets; `mkdir` never reports it.
+        if (IoError_kind(err) === "AlreadyExists") continue;
+        return Err(err);
+      }
+      return Ok(new TempDir(path));
+    }
+    return Err({ $: "Custom", kind: "AlreadyExists", error: "too many temporary files exist" });
   }
+}
+
+/** tempfile 3.23.0 src/lib.rs `NUM_RETRIES`. */
+const TEMPFILE_NUM_RETRIES = 65536;
+/** `tempfile::Builder::new`'s `random_len`. */
+const TEMPFILE_RANDOM_LEN = 6;
+const ALPHANUMERIC = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+
+/** tempfile 3.23.0 src/util.rs `tmpname`: `prefix`, `rand_len` random alphanumerics (`fastrand::Rng::alphanumeric`), `suffix`. */
+function tmpname(prefix: string, suffix: string, rand_len: number): string {
+  const bytes = randomBytes(rand_len);
+  let buf = prefix;
+  // PORT: `% 62` is slightly uneven; fastrand's draw is uniform. The name is never compared, only its shape.
+  for (let i = 0; i < rand_len; i++) buf += ALPHANUMERIC[bytes[i]! % ALPHANUMERIC.length];
+  return buf + suffix;
 }
 
 /** PORT: stand-in for `rustc_data_structures::temp_dir::MaybeTempDir`. */
