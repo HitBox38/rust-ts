@@ -491,7 +491,7 @@ Queued from these reviews, none blocking wave 40a:
 
 
 ## Wave 40b (started 2026-11-06) — what does not depend on D4, while D4 waits for the owner
-**ACCEPTED 2026-11-07 (gate-20261106-224720-root-i68w, main 045b7318):** 542,086 protected in 60 suites (+355, 0 lost): `run-pass-aux-miri` joins at 355 of 356. 24,269/27,053 fns (89.7%); Miri 1,506/1,535. No power loss. Regression audit: docs/reviews/w40b-audit.md, running.
+**ACCEPTED 2026-11-07 (gate-20261106-224720-root-i68w, main 045b7318):** 542,086 protected in 60 suites (+355, 0 lost): `run-pass-aux-miri` joins at 355 of 356. 24,269/27,053 fns (89.7%); Miri 1,506/1,535. No power loss. Regression audit PASS WITH NOTES (docs/reviews/w40b-audit.md): all 542,086 MATCH in the raw output; none of the 355 needs a mask or a retry, the slowest at 3.2 s of 60; rebuilt aux rlibs are byte-identical. dynamic-drop.rs 61% of its limit, issue-8827.rs 60%. Queued from it: N3, an aux rebuild that fails stops the whole suite with ERROR: (a failed gate, not a silent loss); N4, the unit step took 1,225.6 s of its 1,800 s limit (68%, up from 66%).
 | lane | scope | status |
 |---|---|---|
 | fixers-43 | environment and driver: fixers-42 R1-R3, R5; a cwd of 1,024 bytes or more; `miri.ts` and `RUST_TS_IMPL`; rustc-env.rs CRASH; check3 N1, O1 | REQUEST CHANGES on F1 (a shim under the Miri home installed an unpinned nightly), root fixed it; on integ-w41 |
