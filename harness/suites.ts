@@ -132,6 +132,13 @@ export interface Suite {
   /** An IR suite at another tier, as a report: see `irReportSuite`. */
   irAt?(tier: IrTier): Suite;
   /**
+   * A lock file per case that difftest holds around the case's two sides, and around a subject's re-run, for a case whose sides
+   * share a fixed path with any other difftest of it (scripts/lib/case-lock.ts). Taken there, the wait is outside every limit;
+   * taken only inside the command, it would count against that command's own (review root-w41-check N3). Single mode only.
+   * A heavy suite's case locks its `MIRI_TEMP` instead.
+   */
+  caseLock?(c: Case): string;
+  /**
    * A milestone-completion criterion over the suite's cases (plan-m6 A9): MATCH over every case but the ORACLE_TIMEOUT
    * ones must reach `percent`. Report only (difftest prints it and records it in `<suite>.summary.json`): never a
    * status, never a gate failure; the protected set still only grows.
@@ -2088,8 +2095,10 @@ const irToolsKey = (): string => {
   const parts = [hash(readFileSync(IR_RUN)), hash(readFileSync(join(REPO, "scripts", "lib", "ir-normal.ts"))), rustcDriverHash(), JSON.stringify(hashes)];
   return (irKeyMemo = hash(parts.join("\0")));
 };
+/** The directory both sides of an IR case write under (scripts/ir-run.ts `--out`). */
+const irOut = (suite: string, c: Case): string => join(DATA, "ir", suite, hash(c.id).slice(0, 16));
 /** One side's command of an IR suite. */
-const irRun = (suite: string, tier: IrTier, side: "oracle" | "subject", c: Case, compiler: string[]): string[] => [process.execPath, IR_RUN, "--out", join(DATA, "ir", suite, hash(c.id).slice(0, 16)), "--side", side, "--bin", llvmBinDir(oracleSysroot(), oracleHost()), "--tier", tier, "--", ...compiler];
+const irRun = (suite: string, tier: IrTier, side: "oracle" | "subject", c: Case, compiler: string[]): string[] => [process.execPath, IR_RUN, "--out", irOut(suite, c), "--side", side, "--bin", llvmBinDir(oracleSysroot(), oracleHost()), "--tier", tier, "--", ...compiler];
 /** An IR suite: what differs from one to the next, and its tier, which is the only way a suite gets one (review harness-m7a H3). */
 const irSuite = (d: { name: string; tier: IrTier; description: (tier: IrTier) => string; timeoutMs: number; oracleTimeoutMs: number; cwd: string; cases: () => Case[]; criterion?: Suite["criterion"] }): Suite => {
   const at = (name: string, tier: IrTier): Suite => ({
@@ -2104,6 +2113,8 @@ const irSuite = (d: { name: string; tier: IrTier; description: (tier: IrTier) =>
     irArgs: (c) => c.args,
     irTier: tier,
     irAt: (t) => at(`${d.name}@${t}`, t),
+    // Beside `--out`, not in it: ir-run's own `work.lock` is in it, and guards a hand run (scripts/ir-diff.ts uses another `--out`).
+    caseLock: (c) => `${irOut(name, c)}.case.lock`,
     oracleKey: () => irOracleKey(tier),
     oracle: ([c]) => irRun(name, tier, "oracle", c!, oracleRustcCmd(c!.args)),
     subject: ([c]) => irRun(name, tier, "subject", c!, [...bunCmd(RUSTC_DRIVER_ENTRY), ...c!.args]),

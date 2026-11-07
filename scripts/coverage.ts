@@ -19,6 +19,8 @@
 //                                           `// rustc-call:` anchors and `// rustc-const:` markers (scripts/lib/marker-check.ts)
 //   bun scripts/coverage.ts --order         report only: markers out of upstream's order, per TS file and upstream file
 //                                           (the rows go to $RUST_TS_DATA/coverage-order.txt; PORTING section 8 allows some)
+//   --order --require-clean PREFIX          also an ERROR line, and exit 1, for each row of a TS file under PREFIX (a tree with
+//                                           no inversions, which must stay so: the gate checks src/rustc_monomorphize/)
 //   --offline                               fetch missing vendor crate sources only from cargo's local cache
 // Vendor crate sources are resolved lazily: only the crates a mode actually reads (none for a
 // compiler `--missing` / `--crate`; for `--check`, only crates that have markers).
@@ -28,7 +30,7 @@ import { FrontmatterAllowed, strip_shebang, tokenize } from "../src/rustc_lexer/
 import { Str } from "../src/std/str.ts";
 import { crateSrc } from "./crate-src.ts";
 import { DATA, REPO, UPSTREAM, die, parseArgs, requireUpstream } from "./lib/common.ts";
-import { anchorErrors, orderRows } from "./lib/marker-check.ts";
+import { anchorErrors, orderErrors, orderRows } from "./lib/marker-check.ts";
 
 export interface UpstreamFn {
   path: string;
@@ -233,6 +235,13 @@ if (import.meta.main) {
     const sum = (f: (r: (typeof rows)[number]) => number) => rows.reduce((n, r) => n + f(r), 0);
     writeFileSync(join(DATA, "coverage-order.txt"), rows.map((r) => `${r.file} ${r.path}: ${r.outOfOrder} out of order of ${r.markers}, ${r.descents} descents; first ${r.first}\n`).join(""));
     console.log(`order (report only): ${sum((r) => r.outOfOrder)} markers out of order of ${ms.length}, ${sum((r) => r.descents)} descents, in ${rows.length} file pairs (rows: ${join(DATA, "coverage-order.txt")})`);
+    const clean = a["require-clean"];
+    if (clean !== undefined) {
+      const errors = orderErrors(rows, typeof clean === "string" ? clean : "");
+      for (const e of errors) console.log(e);
+      if (errors.length) process.exit(1);
+      console.log(`order: no inversions under ${clean}`);
+    }
     process.exit(0);
   }
 

@@ -20,8 +20,8 @@
 // (`<RUSTUP_HOME>/toolchains/.../lib/rustlib/src/rust/library/...` in backtraces and notes into std), and the argv
 // holds `--sysroot <abs path>`, so the oracle cache of a Miri suite is bound to this machine's $RUST_TS_DATA: another
 // host (or another data dir) re-runs every case. Both sides of a case use the same paths, so this never causes a DIFF.
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { DATA, PIN, die, hash } from "./common.ts";
 import { oracleHost, rustcDriverHash } from "./oracle.ts";
 import { miriToolchainError } from "./toolchain.ts";
@@ -79,13 +79,40 @@ export const MIRI_CASE_ENV: Readonly<Record<string, string | null>> = {
   MIRI_SYSROOT: null,
 };
 
+/** Whether two paths name one directory (through symlinks, where they exist). */
+function sameDir(a: string, b: string): boolean {
+  const real = (p: string): string => {
+    try {
+      return realpathSync(p);
+    } catch {
+      return resolve(p);
+    }
+  };
+  return real(a) === real(b);
+}
+
+/**
+ * Why the oracle cannot be asked for the host here, or undefined: under the isolated `RUSTUP_HOME`, `rustc +nightly` would make
+ * rustup install an unpinned nightly there (review fixers-43 F1). A shim run by hand, with no `RUST_TS_HOST_TUPLE` and no
+ * `.env.local`, reached it (review root-w41-check N4).
+ */
+export function hostLookupRefusal(rustupHome: string | undefined, tuple: string | undefined): string | undefined {
+  if (tuple !== undefined || rustupHome === undefined || !sameDir(rustupHome, MIRI_RUSTUP_HOME)) return undefined;
+  return `RUST_TS_HOST_TUPLE is not set, and RUSTUP_HOME is the isolated Miri home (${MIRI_RUSTUP_HOME}), where asking \`rustc +${PIN.toolchain} -vV\` for the host would make rustup install an unpinned toolchain: set RUST_TS_HOST_TUPLE (it is in .env.local)`;
+}
+
 let hostMemo: string | undefined;
 /**
  * The host tuple (the oracle's; the isolated toolchain is installed for the same host). `RUST_TS_HOST_TUPLE` first, which the gate
- * checks is the oracle's: a process under the isolated `RUSTUP_HOME`, as Miri's shim, asking `rustc +nightly` would make rustup
- * install an unpinned nightly there (review fixers-43 F1).
+ * checks is the oracle's. Without it, the oracle is asked, never under the isolated home (`hostLookupRefusal`).
  */
-const host = (): string => (hostMemo ??= process.env.RUST_TS_HOST_TUPLE ?? oracleHost());
+const host = (): string => {
+  if (hostMemo !== undefined) return hostMemo;
+  const tuple = process.env.RUST_TS_HOST_TUPLE;
+  const refusal = hostLookupRefusal(process.env.RUSTUP_HOME, tuple);
+  if (refusal !== undefined) die(refusal);
+  return (hostMemo = tuple ?? oracleHost());
+};
 
 /** The isolated toolchain's rustup name: `<nightlyName>-<host>`. */
 export const miriToolchainName = (): string => `${PIN.nightlyName}-${host()}`;

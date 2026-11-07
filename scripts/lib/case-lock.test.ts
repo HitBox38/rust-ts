@@ -3,7 +3,7 @@ import { expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { isStaleLock, withCaseLock } from "./case-lock.ts";
+import { addLockHolder, isStaleLock, releaseHeldLocks, withCaseLock } from "./case-lock.ts";
 
 const inTemp = async (f: (dir: string) => Promise<void>) => {
   const dir = mkdtempSync(join(tmpdir(), "rust-ts-case-lock-"));
@@ -149,3 +149,91 @@ console.log(JSON.stringify({ heavy: await status("lock-heavy"), light: await sta
     expect(JSON.parse(r.stdout.toString().trim().split("\n").at(-1)!)).toEqual({ heavy: "MATCH", light: "DIFF" });
   });
 }, 60_000);
+
+test("a holder alive keeps a dead owner's lock; holders dead, it is stale (review harness-w42 N1)", () => {
+  const HOUR = 3_600_000;
+  const alive = (pid: number) => pid === 4242;
+  const stale = (pid: number | undefined, holders: number[]) => isStaleLock(pid, 60_000, 3 * HOUR, 2 * HOUR, 1000, alive, holders);
+  expect(stale(9999, [4242])).toBe(false);
+  expect(stale(1000, [4242])).toBe(false);
+  expect(stale(9999, [9998, 9997])).toBe(true);
+  expect(stale(9999, [])).toBe(true);
+  // Age still decides, whatever lives.
+  expect(isStaleLock(9999, 2 * HOUR + 1, 3 * HOUR, 2 * HOUR, 1000, alive, [4242])).toBe(true);
+});
+
+test("addLockHolder names a holder only on a lock this process holds; a waiter waits for it (review harness-w42 N1)", async () => {
+  await inTemp(async (dir) => {
+    const lock = join(dir, "lock");
+    const holder = Bun.spawn(["/bin/sleep", "30"]);
+    try {
+      addLockHolder(lock, holder.pid);
+      expect(existsSync(lock)).toBe(false);
+      await withCaseLock(lock, 600_000, async () => {
+        addLockHolder(lock, holder.pid);
+        expect(readFileSync(lock, "utf8")).toBe(`${process.pid}\n${holder.pid}\n`);
+      });
+      // Released by its owner: gone, whatever its holders.
+      expect(existsSync(lock)).toBe(false);
+      // A dead owner with a live holder: waited for, until the holder ends.
+      const dead = Bun.spawnSync([process.execPath, "-e", ""]).pid;
+      writeFileSync(lock, `${dead}\n${holder.pid}\n`);
+      const notes: string[] = [];
+      let ran = false;
+      const waiting = withCaseLock(lock, 600_000, async () => void (ran = true), (l) => notes.push(l), 10);
+      await Bun.sleep(200);
+      expect(ran).toBe(false);
+      expect(notes.length).toBe(1);
+      holder.kill("SIGKILL");
+      await holder.exited;
+      await waiting;
+      expect(ran).toBe(true);
+    } finally {
+      holder.kill("SIGKILL");
+    }
+  });
+}, 60_000);
+
+test("releaseHeldLocks removes the locks this process holds, and no other (review harness-w42 N2)", async () => {
+  await inTemp(async (dir) => {
+    const mine = join(dir, "mine");
+    const other = join(dir, "other");
+    writeFileSync(other, "1\n");
+    let inside: string[] = [];
+    await withCaseLock(mine, 600_000, async () => {
+      releaseHeldLocks();
+      inside = readdirSync(dir);
+    });
+    expect(inside).toEqual(["other"]);
+    expect(readFileSync(other, "utf8")).toBe("1\n");
+  });
+});
+
+test("difftest takes a suite's caseLock around both sides and around a subject's re-run (review root-w41-check N3)", async () => {
+  await inTemp(async (dir) => {
+    // The oracle prints whether the lock is there. The subject times out once, so it is re-run alone, then does the same.
+    const child = `
+const { writeFileSync, readFileSync, existsSync } = await import("node:fs");
+const { join } = await import("node:path");
+const d = await import(${JSON.stringify(join(import.meta.dir, "..", "difftest.ts"))});
+const { SUITES } = await import(${JSON.stringify(join(import.meta.dir, "..", "..", "harness", "suites.ts"))});
+const { RUNS } = await import(${JSON.stringify(join(import.meta.dir, "common.ts"))});
+const TMP = ${JSON.stringify(dir)};
+const LOCK = join(TMP, "locks", "c.case.lock");
+const ONCE = join(TMP, "subject-once");
+const STUB = join(TMP, "stub.mjs");
+writeFileSync(STUB, \`import { existsSync, writeFileSync } from "node:fs";
+if (process.argv[2] === "subject" && !existsSync(\${JSON.stringify(ONCE)})) { writeFileSync(\${JSON.stringify(ONCE)}, ""); await Bun.sleep(30000); }
+console.log(existsSync(\${JSON.stringify(LOCK)}) ? "locked" : "unlocked");\`);
+SUITES.push({ name: "case-lock-ir", milestone: "test", description: "", mode: "single", cwd: TMP, timeoutMs: 3000, oracleTimeoutMs: 20000, irTier: "N1", caseLock: () => LOCK, cases: () => [{ id: "c", file: "", args: [] }], oracle: () => [process.execPath, STUB, "oracle"], subject: () => [process.execPath, STUB, "subject"] });
+await d.difftest({ suite: "case-lock-ir", runId: "run-case-lock-ir", quiet: true, jobs: 1 });
+const r = JSON.parse(readFileSync(join(RUNS, "run-case-lock-ir", "case-lock-ir.jsonl"), "utf8").trim());
+console.log(JSON.stringify({ status: r.status, retried: r.retried === true, left: existsSync(LOCK) }));
+`;
+    mkdirSync(join(dir, "rust", "compiler"), { recursive: true });
+    Bun.spawnSync(["git", "init", "-q", join(dir, "rust")]);
+    const r = Bun.spawnSync([process.execPath, "-e", child], { env: { ...process.env, RUST_TS_DATA: dir }, stdout: "pipe", stderr: "pipe" });
+    expect(r.exitCode, r.stderr.toString() + r.stdout.toString()).toBe(0);
+    expect(JSON.parse(r.stdout.toString().trim().split("\n").at(-1)!)).toEqual({ status: "MATCH", retried: true, left: false });
+  });
+}, 120_000);
