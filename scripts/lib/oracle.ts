@@ -23,7 +23,8 @@ let verified = false;
  */
 export async function verifyOraclePin(): Promise<void> {
   if (verified) return;
-  const r = await run(["rustc", `+${PIN.toolchain}`, "-vV"]);
+  // `RUSTUP_AUTO_INSTALL=0`, as `oracleHost` (review root-w42-check N1): under a home without the pin, fail rather than install.
+  const r = await run(["rustc", `+${PIN.toolchain}`, "-vV"], { env: { RUSTUP_AUTO_INSTALL: "0" } });
   const m = /commit-hash: (\w+)/.exec(r.stdout);
   const host = /^host: (\S+)$/m.exec(r.stdout);
   if (r.code !== 0 || !m || !host) die(`cannot run oracle rustc +${PIN.toolchain}: ${r.stderr.trim()}`);

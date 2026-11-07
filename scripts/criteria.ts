@@ -193,7 +193,7 @@ if (import.meta.main) {
     allMet &&= r.met;
     const why = r.problems.length ? ` (${r.problems.join("; ")})` : "";
     if (r.count) console.log(`${r.name}: MATCH ${r.match} of ${r.of} ${r.count.what} vs >= ${r.count.atLeast}, ${r.oracleTimeouts} oracle timeouts: ${r.met ? "met" : "not met"}${why}`);
-    else console.log(`${r.name}: MATCH ${r.match}/${r.of} = ${r.percent}% vs >= ${r.target}%, ${r.oracleTimeouts} oracle timeouts excluded: ${r.met ? "met" : "not met"}${why}`);
+    else console.log(`${r.name}: MATCH ${r.match}/${r.of} = ${r.percent}% vs >= ${r.target}%, ${r.oracleTimeouts} oracle timeouts ${group.allCases ? "counted" : "excluded"}: ${r.met ? "met" : "not met"}${why}`);
   }
   process.exit(allMet ? 0 : 1);
 }
