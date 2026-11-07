@@ -1,4 +1,6 @@
-import { expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { GROUPS, gateRecordProblem, groupResult, protectedNotRun, type GateRecord } from "./criteria.ts";
 
 const s = (suite: string, match: number, total: number, oracleTimeouts: string[] = []) => ({ suite, match, total, oracleTimeouts });
@@ -60,4 +62,38 @@ test("a gate narrowed to the group's suites does not meet it: losses in the prot
   expect(r.met).toBe(false);
   expect(r.problems).toEqual(["4 protected suite(s) not in this gate, so losses are unknown (lex, mir, emit, ...)"]);
   expect(protectedNotRun(g, ["miri-pass"])).toEqual([]);
+});
+
+test("M7a: the plan's four figures (plan-m7 §6 Gates), as groups of their own (review harness-m7a H3)", () => {
+  const m7a = GROUPS.filter((g) => g.milestone === "M7a").map((g) => [g.suites.join("+"), g.count ? `${g.count.atLeast} of ${g.count.of}` : g.percent]);
+  expect(m7a).toEqual([["ir-hello", 100], ["mir-o2", 99], ["mono-ui", 99], ["check-rg", "33 of 34"]]);
+});
+
+describe("a count group: check-rg's crates", () => {
+  const rg = group("check-rg");
+  const base = readFileSync(join(import.meta.dir, "..", "harness", "baseline", "check-rg.txt"), "utf8").split("\n").filter(Boolean);
+  const ids = (lost: string[], gained: string[], over: Partial<GateRecord["suites"][number]> = {}) => gate([{ ...s("check-rg", 0, 36), lost, gained, ...over }]);
+  test("its pattern names the 34 crates of the protected set: not the run's case, nor a build script's probe", () => {
+    const crates = base.filter((id) => rg.count!.cases.test(id));
+    expect(crates.length).toBe(34);
+    expect(base.filter((id) => !rg.count!.cases.test(id))).toEqual(["ripgrep-15.2.0", "ripgrep-15.2.0|anyhow (a build script's probe)"]);
+  });
+  test("MATCH is the protected set less lost plus gained, among the crates", () => {
+    const b = new Map([["check-rg", base.filter((id) => id !== "ripgrep-15.2.0|zmij")]]);
+    const all = groupResult(rg, ids([], ["ripgrep-15.2.0|zmij"]), [], b);
+    expect([all.match, all.of, all.met]).toEqual([34, 34, true]);
+    // A lost crate and a lost run case: one crate fewer, still met at 33; two crates fewer, not. (A real gate that loses a case fails, and
+    // is not met for that too; this fake one passes, so only the count decides.)
+    const full = new Map([["check-rg", base]]);
+    const one = groupResult(rg, ids(["ripgrep-15.2.0|bstr", "ripgrep-15.2.0"], []), [], full);
+    expect([one.match, one.met]).toEqual([33, true]);
+    const two = groupResult(rg, ids(["ripgrep-15.2.0|bstr", "ripgrep-15.2.0|itoa"], []), [], full);
+    expect([two.match, two.met]).toEqual([32, false]);
+  });
+  test("no protected set, or no lost and gained, is a problem, not a figure; nor is a case list longer than the plan's", () => {
+    expect(groupResult(rg, ids([], []), [], new Map()).problems).toEqual(["check-rg: no protected set, lost or gained to count crates from"]);
+    expect(groupResult(rg, gate([s("check-rg", 36, 36)]), [], new Map([["check-rg", base]])).met).toBe(false);
+    const more = groupResult(rg, ids([], ["ripgrep-15.2.0|extra_crate"]), [], new Map([["check-rg", base]]));
+    expect([more.match, more.met, more.problems]).toEqual([35, false, ["35 crates seen, where the plan counts 34"]]);
+  });
 });
