@@ -16,7 +16,7 @@
 // from two worktrees, would otherwise remove and fill one directory (review miri-sysroot F2). It is removed afterwards unless a sysroot
 // line says `differs`, and then kept for diagnosis as `<crate>/<side>`, replacing the last one kept: core's rmeta is 69 MB.
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { DATA } from "./lib/common.ts";
 import { miriTargetLibDir } from "./lib/miri.ts";
 import { miriSysrootInvocation } from "../harness/miri-sysroot.ts";
@@ -73,11 +73,28 @@ export function sysrootLine(kind: string, path: string | undefined, sysrootFile:
 
 const SIGNALS: Record<string, number> = { SIGINT: 2, SIGKILL: 9, SIGTERM: 15 };
 
+/** Whether a process with this pid exists (`EPERM`: it does, and is not ours). */
+function pidAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (e) {
+    return (e as NodeJS.ErrnoException).code === "EPERM";
+  }
+}
+
 export async function miriSysrootRun(a: MiriSysrootRunArgs): Promise<number> {
   const kept = join(DATA, "rmeta", "miri-sysroot", a.crate, a.side);
   const out = `${kept}.run-${process.pid}`;
-  // A leftover of a killed run with this pid: no live run can have it.
+  // A leftover of a killed run with this pid: no live run can have it. Nor any whose pid is gone (review harness-w43 F2).
   rmSync(out, { recursive: true, force: true });
+  const dir = dirname(kept);
+  const prefix = `${basename(kept)}.run-`;
+  for (const name of existsSync(dir) ? readdirSync(dir) : []) {
+    const pid = Number(name.slice(prefix.length));
+    if (!name.startsWith(prefix) || !Number.isInteger(pid) || pid <= 0 || pidAlive(pid)) continue;
+    rmSync(join(dir, name), { recursive: true, force: true });
+  }
   mkdirSync(out, { recursive: true });
   const inv = miriSysrootInvocation(a.crate, out);
   const p = Bun.spawn([...a.compiler, ...inv.args], { cwd: inv.cwd, env: { ...process.env, ...inv.env }, stdin: "ignore", stdout: "pipe", stderr: "pipe" });

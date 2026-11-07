@@ -238,6 +238,8 @@ if (import.meta.main) {
     const clean = a["require-clean"];
     if (clean !== undefined) {
       const errors = orderErrors(rows, typeof clean === "string" ? clean : "");
+      // A prefix that names no marked file would pass for ever (review harness-w43 F5).
+      if (typeof clean === "string" && clean !== "" && !ms.some((m) => m.file.startsWith(clean))) errors.push(`ERROR: no marked TS file under ${clean}`);
       for (const e of errors) console.log(e);
       if (errors.length) process.exit(1);
       console.log(`order: no inversions under ${clean}`);

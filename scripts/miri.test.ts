@@ -4,7 +4,7 @@
 // scripts/lib/common.ts; see scripts/lib/deps.test.ts for why), MIRI_DEFAULT_ARGS against the upstream source, the real
 // isolated toolchain, the Miri suites' cases (plan-m6 D6) and the criterion report (A9).
 import { afterAll, describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { miriToolchainError, oracleToolchainError } from "./lib/toolchain.ts";
@@ -214,6 +214,18 @@ console.log(m.miriBinary());`;
   expect(out[0]).toBe("[null,null,null]");
   expect(out[1]).toStartWith("ERROR: RUST_TS_HOST_TUPLE is not set, and RUSTUP_HOME is the isolated Miri home");
   expect(existsSync(log)).toBe(false);
+});
+
+test("the oracle toolchain is asked with RUSTUP_AUTO_INSTALL=0, so rustup never installs instead (review harness-w43 F1)", () => {
+  const dir = mkdtempSync(join(tmpdir(), "rust-ts-no-install-"));
+  dirs.push(dir);
+  writeFileSync(join(dir, "rustc"), `#!/bin/sh\necho "host: auto-install=$RUSTUP_AUTO_INSTALL"\n`);
+  chmodSync(join(dir, "rustc"), 0o755);
+  const code = `const o = await import(${JSON.stringify(join(import.meta.dir, "lib/oracle.ts"))}); console.log(o.oracleHost());`;
+  const env: Record<string, string | undefined> = { ...process.env, PATH: dir, RUSTUP_AUTO_INSTALL: undefined };
+  const r = Bun.spawnSync([process.execPath, "-e", code], { cwd: import.meta.dir, env: env as Record<string, string>, stdout: "pipe", stderr: "pipe" });
+  expect(r.exitCode, r.stderr.toString()).toBe(0);
+  expect(r.stdout.toString().trim()).toBe("auto-install=0");
 });
 
 test("Miri oracle, suites and argv (child process)", () => {

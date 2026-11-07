@@ -23,6 +23,8 @@ export interface CriteriaGroup {
   suites: string[];
   /** MATCH over the group's cases, ORACLE_TIMEOUT excluded (plan-m6 A9), at least this percent. */
   percent: number;
+  /** Every case: an oracle timeout counts against it rather than being left out. */
+  allCases?: boolean;
   /**
    * A count instead of a percent: at least `atLeast` MATCH among the cases whose id matches `cases`, of the `of` the plan counts.
    * Read from the protected set and gate.json's `lost` and `gained` (see the header).
@@ -34,7 +36,8 @@ export const GROUPS: CriteriaGroup[] = [
   { name: "plan-m6 M6b run-pass", milestone: "M6b", suites: ["run-pass-miri", "run-pass-miri-heavy"], percent: 90 },
   { name: "plan-m6 M6b run-fail", milestone: "M6b", suites: ["run-fail-miri"], percent: 90 },
   { name: "plan-m6 M6b miri-pass", milestone: "M6b", suites: ["miri-pass", "miri-pass-heavy"], percent: 80 },
-  { name: "plan-m7 M7a ir-hello", milestone: "M7a", suites: ["ir-hello"], percent: 100 },
+  // The plan says `ir-hello` MATCH: both cases, so an oracle timeout does not leave it met on the other (review harness-w43 F3).
+  { name: "plan-m7 M7a ir-hello", milestone: "M7a", suites: ["ir-hello"], percent: 100, allCases: true },
   { name: "plan-m7 M7a mir-o2", milestone: "M7a", suites: ["mir-o2"], percent: 99 },
   { name: "plan-m7 M7a mono-ui", milestone: "M7a", suites: ["mono-ui"], percent: 99 },
   // A crate's case is `ripgrep-<version>|<crate>`; not the run's own case, nor a build script's probe (`|<crate> (a build script's probe)`).
@@ -136,7 +139,7 @@ export function groupResult(group: CriteriaGroup, g: GateRecord, protectedSuites
       continue;
     }
     match += s.match;
-    of += s.total - s.oracleTimeouts.length;
+    of += group.allCases ? s.total : s.total - s.oracleTimeouts.length;
     oracleTimeouts += s.oracleTimeouts.length;
   }
   const percent = of ? Math.round(((100 * match) / of) * 100) / 100 : 0;

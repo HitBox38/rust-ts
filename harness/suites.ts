@@ -1724,7 +1724,7 @@ const miriSuite = (s: Omit<Suite, "milestone" | "mode" | "miri" | "oracle" | "su
   oracle: ([c]) => [miriBinary(), ...c!.args],
   subject: ([c]) => miriSubject(c!.args),
 });
-// A suite's share only (plan-m6 A12): the M6b figure comes from a gate, `bun scripts/criteria.ts --run <run>`.
+// A suite's share only (plan-m6 A12): the M6b figure comes from a gate, `bun scripts/criteria.ts --run <run> --milestone M6b`.
 const M6B = "this suite's share of plan-m6 gate M6b (run-pass-miri + run-pass-miri-heavy, and run-fail-miri, each >= 90% MATCH, ORACLE_TIMEOUT excluded; the figure: bun scripts/criteria.ts --run <gate run>)";
 const MIRI_HEAVY_CLASS = { rssBudgetMb: 12 * 1024 };
 SUITES.push(
@@ -1941,7 +1941,7 @@ const MIRI_PASS_UNSTABLE: UnstableCase[] = [
 const isMiriUiHeavy = (c: Case): boolean => Object.hasOwn(MIRI_UI_HEAVY, c.id);
 const uiHeavySkips = (cases: Case[]): SkippedCase[] => cases.filter(isMiriUiHeavy).map((c) => ({ id: c.id, reason: `heavy (plan-m6 A11: ${MIRI_UI_HEAVY[c.id]}): in the suite's -heavy sibling` }));
 const uiSorted = (k: SkippedCase[]): SkippedCase[] => k.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
-// This line is one suite's share. The M6b figure comes from a gate: `bun scripts/criteria.ts --run <gate run>`.
+// This line is one suite's share. The M6b figure comes from a gate: `bun scripts/criteria.ts --run <gate run> --milestone M6b`.
 const M6B_MIRI_PASS = "this suite's share of plan-m6 gate M6b (miri-pass + miri-pass-heavy >= 80% MATCH, ORACLE_TIMEOUT excluded; the figure: bun scripts/criteria.ts --run <gate run>)";
 const miriPassGated = (): Case[] => miriUiCorpus(MIRI_PASS_DIRS).cases.filter((c) => !isTreeBorrows(c));
 const miriPassCases = (): Case[] => miriPassGated().filter((c) => !isMiriUiHeavy(c));

@@ -44,6 +44,12 @@ test("ORACLE_TIMEOUT leaves the denominator and is counted (plan-m6 A9); met is 
   expect([close.percent, close.met]).toEqual([80, false]);
 });
 
+test("ir-hello counts every case: an oracle timeout on one is not met on the other (review harness-w43 F3)", () => {
+  const ir = group("ir-hello");
+  expect(groupResult(ir, gate([s("ir-hello", 1, 2, ["b"])])).met).toBe(false);
+  expect(groupResult(ir, gate([s("ir-hello", 2, 2)])).met).toBe(true);
+});
+
 test("a gate.json missing what the figure reads is named, not a crash", () => {
   const ok = gate([s("miri-pass", 1, 1)]);
   expect(gateRecordProblem(ok)).toBeUndefined();
