@@ -11,7 +11,18 @@
 // PORT(perf) (lane perf-near-limit): `intern_value` and `intern_slice` are the table as upstream has it, a hash that only picks
 // the bucket and `==` on the value (rust_ts/intern_key.ts `value_hash`, `value_eq`), and need no key string. An interner uses
 // either these or the key-string methods, never both.
+// PORT(perf) (lane perf-heavy): `share_elements`. Upstream's `List::from_arena` copies each element's bytes into the arena, so a
+// `CanonicalVarKind` costs 24 bytes in each list that holds it. Here an element is a reference to an object, and the canonicalizer
+// builds new ones each time (`{ $: "PlaceholderTy", _0: { universe, bound: { var, kind } } }`, three objects): on
+// `closures/supertrait-hint-cycle.rs` at `recursion_limit = "32"`, 11M such elements and 7.5M `(OpaqueTypeKey, Ty)` tuples were
+// kept by the lists of two tables, most of them equal. A table that shares elements stores, in a new list, an element `value_eq`
+// to one an earlier list of that table holds as that earlier object. That is the guarantee a hit already gives: `intern_slice` hands
+// back the stored list, whose elements are only `value_eq` to the ones passed (a field left out where the caller's set it to
+// `undefined`, another key order), so no caller can see more here than on a hit. What changes is that two lists can now hold one
+// object where upstream has two equal copies: only `===` on elements of two lists, or a write to an element (to a stored list's
+// elements, already a bug), could tell. Upstream compares these `Copy` values with `==`.
 
+import { INTERNED } from "./intern.ts";
 import { hash_mix, observe_interned, observe_interned_slice, value_eq, value_hash } from "../rust_ts/intern_key.ts";
 
 /** PORT(perf): test hook, see `set_intern_shadow`. */
@@ -23,6 +34,9 @@ let shadow: ((set: object, value: unknown, got: unknown) => void) | undefined;
 export function set_intern_shadow(f: typeof shadow): void {
   shadow = f;
 }
+
+/** PORT(perf): the element hashes of the slice `intern_slice` is interning, for `share_elements`; reused, so no allocation per call. */
+let elem_hashes = new Int32Array(64);
 
 function slice_eq<T>(a: readonly T[], b: readonly T[]): boolean {
   if (a.length !== b.length) return false;
@@ -38,6 +52,8 @@ export class ShardedHashMap<K, V> {
   /** PORT(perf): `value_hash` -> the later entries with that hash. Empty unless two distinct values collide. */
   private readonly collided = new Map<number, K[]>();
   private hashed_len = 0;
+  /** PORT(perf): `share_elements`: `value_hash` of an element -> the element objects lists of this table hold. */
+  private elements: Map<number, unknown[]> | undefined;
 
   // rustc: compiler/rustc_data_structures/src/sharded.rs:146 with_capacity
   static with_capacity<K, V>(_cap: number): ShardedHashMap<K, V> {
@@ -139,14 +155,23 @@ export class ShardedHashMap<K, V> {
    * PORT(perf): `intern_ref` of a slice, with no key string. The stored list is an interned object that `value_eq` compares by
    * id, so slices compare element by element here; `v` may itself be a list: it is its elements, as in `slice_intern`'s key.
    */
-  intern_slice<T>(this: InternedSet<K & readonly T[]>, v: readonly T[], make: () => K & readonly T[]): K & readonly T[] {
+  intern_slice<T>(this: InternedSet<K & readonly T[]>, v: readonly T[], make: (v: readonly T[]) => K & readonly T[]): K & readonly T[] {
     observe_interned_slice(v);
     let h = v.length;
-    for (let i = 0; i < v.length; i++) h = hash_mix(h, value_hash(v[i]));
+    if (this.elements === undefined) {
+      for (let i = 0; i < v.length; i++) h = hash_mix(h, value_hash(v[i]));
+    } else {
+      if (elem_hashes.length < v.length) elem_hashes = new Int32Array(Math.max(v.length, 2 * elem_hashes.length));
+      for (let i = 0; i < v.length; i++) {
+        const eh = value_hash(v[i]);
+        elem_hashes[i] = eh;
+        h = hash_mix(h, eh);
+      }
+    }
     const first = this.hashed.get(h);
     let got: (K & readonly T[]) | undefined;
     if (first === undefined) {
-      got = make();
+      got = make(this.shared_elements(v));
       this.hashed.set(h, got);
       this.hashed_len++;
     } else if (slice_eq(v, first)) {
@@ -162,7 +187,7 @@ export class ShardedHashMap<K, V> {
         }
       }
       if (got === undefined) {
-        got = make();
+        got = make(this.shared_elements(v));
         if (rest === undefined) this.collided.set(h, [got]);
         else rest.push(got);
         this.hashed_len++;
@@ -180,6 +205,41 @@ export class ShardedHashMap<K, V> {
     for (const e of this.table.values()) yield e[0];
     for (const k of this.hashed.values()) yield k;
     for (const rest of this.collided.values()) yield* rest;
+  }
+
+  /** PORT(perf): this table's new lists hold an element `value_eq` to one an earlier list holds as that object (module comment). */
+  share_elements(): void {
+    this.elements ??= new Map();
+  }
+
+  /**
+   * PORT(perf): `v`, or a copy whose elements are the objects earlier lists of this table hold, where `value_eq` (module comment).
+   * Only right after `intern_slice` filled `elem_hashes` for `v`. Numbers, strings and interned objects are left as they are.
+   */
+  private shared_elements<T>(v: readonly T[]): readonly T[] {
+    const elements = this.elements;
+    if (elements === undefined) return v;
+    let w: T[] | undefined;
+    for (let i = 0; i < v.length; i++) {
+      const x = v[i];
+      if (typeof x !== "object" || x === null || (x as { readonly [INTERNED]?: true })[INTERNED] === true) continue;
+      const eh = elem_hashes[i]!;
+      const bucket = elements.get(eh);
+      if (bucket === undefined) {
+        elements.set(eh, [x]);
+        continue;
+      }
+      let found: unknown;
+      for (let j = 0; j < bucket.length; j++) {
+        if (value_eq(x, bucket[j])) {
+          found = bucket[j];
+          break;
+        }
+      }
+      if (found === undefined) bucket.push(x);
+      else if (found !== x) (w ??= Array.from(v))[i] = found as T;
+    }
+    return w ?? v;
   }
 
   // rustc: compiler/rustc_data_structures/src/sharded.rs:259 contains_pointer_to
