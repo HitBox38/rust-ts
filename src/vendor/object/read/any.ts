@@ -7,7 +7,7 @@
 // implement the `Object` methods; `Section` keeps upstream's `inner: SectionInternal`. The
 // `with_inner!` / `map_inner*!` macros expand to the per-variant dispatch, as upstream.
 // COFF/PE/XCOFF files reach `unported(...)` in `File::parse` (no rust-ts target uses them).
-// Segments, symbols, comdats, relocations and the dyld cache are not ported.
+// Segments, comdats, relocations and the dyld cache are not ported; symbols only for ELF and Mach-O.
 
 import { unported } from "../../../std/panic.ts";
 import { Err, Ok } from "../../../std/result.ts";
@@ -15,6 +15,7 @@ import type { BinaryFormat } from "../common.ts";
 import { ElfFile32, ElfFile64, type ElfFile, type ElfSection } from "./elf/mod.ts";
 import { MachOFile32, MachOFile64, type MachOFile, type MachOSection } from "./macho/mod.ts";
 import { ElfSymbolIterator } from "./elf/symbol.ts";
+import { MachOSymbolIterator } from "./macho/symbol.ts";
 import { Error, FileKind, type ObjectKind, type Result, type SectionIndex } from "./mod.ts";
 import type { Object, ObjectSection } from "./traits.ts";
 import { WasmFile, type WasmSection } from "./wasm.ts";
@@ -90,11 +91,14 @@ export class File implements Object<Section> {
     }
   }
 
-  /// PORT: `Object::symbols` (any.rs:421): `SymbolIterator` is the ELF iterator; other formats have no symbol API yet.
+  /// PORT: `Object::symbols` (any.rs:421): `SymbolIterator` is the ELF or the Mach-O iterator; other formats have no symbol
+  /// API yet. `MachOFile::symbols` (macho/file.rs:391) is `MachOSymbolIterator::new(self)`, spelled out here: the file's
+  /// `symbols` field has that name.
   // crate: object-0.39.1/src/read/any.rs:421 symbols
-  symbols(): ElfSymbolIterator {
+  symbols(): ElfSymbolIterator | MachOSymbolIterator {
     const inner = this.inner;
     if (inner.$ === "Elf32" || inner.$ === "Elf64") return new ElfSymbolIterator(inner._0.endian_, inner._0.symbols);
+    if (inner.$ === "MachO32" || inner.$ === "MachO64") return MachOSymbolIterator.new(inner._0);
     return unported(`object::read::File::symbols (${inner.$})`);
   }
 

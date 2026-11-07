@@ -175,6 +175,23 @@ export type SubArchitecture = "Arm64E" | "Arm64EC";
 /// This may differ from the address size supported by the file format (such as for COFF).
 export type AddressSize = "U8" | "U16" | "U32" | "U64";
 
+export const AddressSize = {
+  /// The size in bytes of an address value.
+  // crate: object-0.39.1/src/common.rs:124 bytes
+  bytes(self: AddressSize): number {
+    switch (self) {
+      case "U8":
+        return 1;
+      case "U16":
+        return 2;
+      case "U32":
+        return 4;
+      case "U64":
+        return 8;
+    }
+  },
+};
+
 export const Architecture = {
   /// The size of an address value for this architecture.
   ///
