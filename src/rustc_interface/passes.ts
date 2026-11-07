@@ -7,7 +7,7 @@
 // shims below ("Pending-lane shims"), named and typed as upstream, whose bodies call `unported` with the
 // upstream path and the owning lane. Root replaces each shim by the import when that lane lands.
 import "../rustc_session/options.ts"; // LOAD ORDER: see rustc_session/config.ts
-import { mkdirSync, realpathSync, statSync, writeFileSync } from "node:fs";
+import { mkdirSync, statSync, writeFileSync } from "node:fs";
 import { resolve as path_resolve_win32 } from "node:path/win32";
 import type { Crate, Item } from "../rustc_ast/ast.gen.ts";
 import type { NodeId } from "../rustc_ast/node_id.ts";
@@ -15,13 +15,11 @@ import { Input, type OutputFilenames, type OutFileName, std_print, UnstableOptio
 import type { Session } from "../rustc_session/session.ts";
 import "../rustc_session/utils.ts"; // `Session::time`
 import { current_dir_str, to_string_lossy, var_ as std_env_var } from "../std/env.ts";
-import { debug_IoError } from "../std/io.ts";
 import { unported, unreachable } from "../std/panic.ts";
-import { unwrap_result } from "../std/result.ts";
 import * as rustc_resolve from "../rustc_resolve/lib.ts";
 import * as rustc_ast_passes from "../rustc_ast_passes/lib.ts";
 import { Resolver } from "../rustc_resolve/lib.ts";
-import { path_components, path_eq, path_file_stem, path_is_absolute, path_join } from "../std/path.ts";
+import { host_canonicalize, path_components, path_eq, path_file_stem, path_is_absolute, path_join } from "../std/path.ts";
 import { AttributeParser } from "../rustc_attr_parsing/lib.ts";
 import type { ShouldEmit } from "../rustc_attr_parsing/lib.ts";
 import * as rustc_expand_config from "../rustc_expand/config.ts";
@@ -543,11 +541,8 @@ function OutFileNameC_as_path(o: OutFileName): string {
  * PORT (driver-m2): rustc_fs_util is not ported; `std::path::absolute` is written out below.
  */
 function try_canonicalize(path: string): string | undefined {
-  try {
-    return realpathSync.native(path);
-  } catch {
-    return std_path_absolute(path);
-  }
+  const r = host_canonicalize(path);
+  return r.$ === "Ok" ? r._0 : std_path_absolute(path);
 }
 
 /**
@@ -579,7 +574,10 @@ function std_path_absolute(path: string): string | undefined {
   if (path_is_absolute(path)) {
     normalized = (path.startsWith("//") && !path.startsWith("///") ? "//" : "/") + parts.join("/");
   } else {
-    normalized = path_join(unwrap_result(current_dir_str(), debug_IoError), parts.join("/"));
+    // `env::current_dir()?`, then `.ok()`
+    const cwd = current_dir_str();
+    if (cwd.$ === "Err") return undefined;
+    normalized = path_join(cwd._0, parts.join("/"));
   }
   if (path.endsWith("/") && parts.length !== 0) normalized += "/";
   return normalized;
