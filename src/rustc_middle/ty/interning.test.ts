@@ -19,7 +19,7 @@ import { Unported } from "../../std/panic.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
 import { CommonConsts, CommonLifetimes, CommonTypes, CtxtInterners, type GlobalCtxt, TyCtxt } from "./context.ts";
 import { GenericArg } from "./generic_args.ts";
-import { RawList } from "./list.ts";
+import { LIST_MUTATORS, RawList } from "./list.ts";
 import type { CanonicalVarKind } from "../../rustc_type_ir/canonical.gen.ts";
 import { ScalarInt } from "./consts/int.ts";
 import { ValTree, Value } from "./consts/valtree.ts";
@@ -249,6 +249,24 @@ describe("List", () => {
     expect(tcx.mk_type_list_from_iter(bad(), CollectAndApply_Result)).toEqual(Err("e"));
     expect(pulled).toBe(2);
     expect(tcx.mk_args_trait(t.bool, [t.char])).toBe(tcx.mk_args([t.bool, t.char]));
+  });
+
+  // Lane perf-heavy: lists are frozen only in tests and under the alias checker (list.ts `FREEZE_LISTS`); the methods that write
+  // in place panic everywhere.
+  test("a list's in-place methods panic, and under bun test the list is frozen too", () => {
+    const tcx = mk_tcx();
+    const t = tcx.types;
+    const l = tcx.mk_type_list([t.char, t.bool]) as unknown as Ty[];
+    expect(Object.isFrozen(l)).toBe(true);
+    expect(LIST_MUTATORS.length).toBe(9);
+    for (const m of LIST_MUTATORS) expect(() => (l[m] as (...a: unknown[]) => unknown)(t.u8)).toThrow(`an interned list is immutable: \`${m}\``);
+    expect(() => l.sort()).toThrow("an interned list is immutable");
+    expect([...l]).toEqual([t.char, t.bool]);
+    // Plain arrays made from a list are not lists, and can be written to.
+    const copy = l.slice();
+    copy.push(t.u8);
+    expect(copy.length).toBe(3);
+    expect(l.toSorted((a, b) => a.id - b.id)).not.toBeInstanceOf(RawList);
   });
 
   test("mk_canonical_var_kinds shares equal elements between lists, mk_args does not need to", () => {

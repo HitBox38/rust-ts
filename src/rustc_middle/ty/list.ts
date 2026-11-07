@@ -1,8 +1,8 @@
 // Port of compiler/rustc_middle/src/ty/list.rs (lane ty-contract, docs/plan-m3.md D2).
 //
 // PORT (D2):
-// - `RawList<H, T>` (an arena-allocated header + length + elements, used as `&'tcx RawList<H, T>`) is a frozen
-//   **array subclass**: a `List<T>` *is* a `readonly T[]` (indexing, `length`, `for..of`, every `&[T]` API), plus
+// - `RawList<H, T>` (an arena-allocated header + length + elements, used as `&'tcx RawList<H, T>`) is an immutable
+//   **array subclass** (frozen in tests and under the alias checker; see `FREEZE_LISTS`): a `List<T>` *is* a `readonly T[]` (indexing, `length`, `for..of`, every `&[T]` API), plus
 //   the `header` and the intern `id`. Lists are made only by the `CtxtInterners` slice interners (context.ts:
 //   `mk_type_list`, `mk_args`, ...), one object per distinct element sequence, so equality is `===` and a list is
 //   its own `Map`/`Set` key (upstream `PartialEq`/`Hash` are pointer-based).
@@ -19,7 +19,7 @@ import type { CanonicalVarKind } from "../../rustc_type_ir/canonical.gen.ts";
 import { INNERMOST, TypeFlags_empty } from "../../rustc_type_ir/decls.ts";
 import type { FlagComputation } from "../../rustc_type_ir/flags.ts";
 import { type Debug, debug_list, type Fmt } from "../../std/fmt.ts";
-import { assert, unported } from "../../std/panic.ts";
+import { assert, panic, unported } from "../../std/panic.ts";
 import { type Encodable, type Encoder, encode_slice } from "../../rustc_serialize/serialize.ts";
 import type { FxHasher } from "../../vendor/rustc_hash/lib.ts";
 import type { TyCtxt } from "./context.ts";
@@ -27,6 +27,22 @@ import type { Arena } from "./decls.ts";
 import type { Ordering } from "./mod.ts";
 
 /// A list type stored in the arena with a header and a length; see `List` for docs.
+/**
+ * PORT(perf) (lane perf-heavy; a value-representation decision for root, docs/handoff/perf-heavy.md): JSC keeps a frozen array's
+ * elements in a sparse map, not a vector, as no array with non-writable elements can stay contiguous: each element costs a map entry, and
+ * each read a lookup. On `closures/supertrait-hint-cycle.rs` at `recursion_limit = "32"`, interned lists held 69M elements; unfrozen,
+ * instructions fell 22% (1,128 to 885 G), and with `share_elements` (rustc_data_structures/sharded.ts) max RSS fell from 6.7 to 3.7 GB.
+ * So a list is frozen only where a write must be caught: under `bun test`, under the alias checker (`RUST_TS_ALIAS_OUT`, whose
+ * evidence counts on writes to a list throwing), and with `RUST_TS_FREEZE_LISTS=1`. Everywhere, the methods that write in place
+ * panic (`LIST_MUTATORS`); an index or `length` write to an unfrozen list is the one write not caught at run time, and the `readonly`
+ * type of `List<T>` rejects it unless something casts it away.
+ */
+const FREEZE_LISTS: boolean =
+  process.env.RUST_TS_FREEZE_LISTS === "1" || process.env.NODE_ENV === "test" || process.env.RUST_TS_ALIAS_OUT !== undefined;
+
+/** PORT(perf): every `Array.prototype` method that writes to its receiver in place; each panics on a `RawList` (`FREEZE_LISTS`). */
+export const LIST_MUTATORS = ["copyWithin", "fill", "pop", "push", "reverse", "shift", "sort", "splice", "unshift"] as const;
+
 // rustc-type: compiler/rustc_middle/src/ty/list.rs:38 RawList
 export class RawList<H, T> extends Array<T> {
   declare readonly [INTERNED]: true;
@@ -39,13 +55,14 @@ export class RawList<H, T> extends Array<T> {
     return Array;
   }
 
-  /** PORT: only the interners (and `empty`) construct; the list is frozen. */
+  /** PORT: only the interners (and `empty`) construct; the list is frozen where `FREEZE_LISTS` says. */
   static of_slice<H, T>(header: H, slice: readonly T[]): RawList<H, T> {
     const list = new RawList<H, T>();
-    for (let i = 0; i < slice.length; i++) list.push(slice[i]!);
+    // PORT(perf): index writes, as `push` throws on a list (`LIST_MUTATORS`).
+    for (let i = 0; i < slice.length; i++) (list as T[])[i] = slice[i]!;
     Object.defineProperty(list, "id", { value: next_intern_id(), enumerable: false });
     Object.defineProperty(list, "header", { value: header, enumerable: false });
-    return Object.freeze(list) as RawList<H, T>;
+    return (FREEZE_LISTS ? Object.freeze(list) : list) as RawList<H, T>;
   }
 
   // PORT: `impl<T> Default for &List<T>`; `T` is a phantom here (see `empty`).
@@ -188,6 +205,17 @@ export const TypeInfo = {
     };
   },
 };
+
+for (const m of LIST_MUTATORS) {
+  Object.defineProperty(RawList.prototype, m, {
+    value: function (this: RawList<unknown, unknown>): never {
+      return panic(`an interned list is immutable: \`${m}\` on list #${this.id}`);
+    },
+    writable: false,
+    enumerable: false,
+    configurable: false,
+  });
+}
 
 const EMPTY_LIST = RawList.of_slice<null, unknown>(null, []);
 const EMPTY_LIST_WITH_TYPE_INFO = RawList.of_slice<TypeInfo, unknown>(TypeInfo.empty(), []);
