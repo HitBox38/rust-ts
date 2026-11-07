@@ -1,5 +1,5 @@
 // Port of object 0.39.1 `src/write/util.rs` (the part the ELF writer reaches: `WritableBuffer`, the `Vec<u8>` impl,
-// `align`, `write_align`). `StreamingBuffer`, `BytesMut` and the LEB128 writers are not ported: nothing reaches them.
+// `align`, `align_u64`, `write_align`). `StreamingBuffer`, `BytesMut` and the LEB128 writers are not ported: nothing reaches them.
 //
 // Copyright (c) 2015 The Gimli Developers; licensed under MIT OR Apache-2.0 (object).
 //
@@ -78,6 +78,13 @@ export class VecBuffer implements WritableBuffer {
 export function align(offset: number, size: number): number {
   // PORT: `(offset + (size - 1)) & !(size - 1)` on `usize`; a bit `&` here would wrap at 2^31 and these offsets need not
   // fit (`size` is a power of two).
+  const n = offset + (size - 1);
+  return n - (n % size);
+}
+
+// crate: object-0.39.1/src/write/util.rs:238 align_u64
+export function align_u64(offset: number, size: number): number {
+  // PORT: as `align`: remainders, not a bit `&`.
   const n = offset + (size - 1);
   return n - (n % size);
 }
