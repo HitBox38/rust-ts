@@ -99,20 +99,20 @@ error: fn_abi_of(RustV64) = FnAbi {
            conv: Rust,
            can_unwind: true,
        }
-  --> sizes.rs:36:13
+  --> sizes.rs:40:13
    |
-32 |   macro_rules! each_size {
+36 |   macro_rules! each_size {
 ...
-36 |               pub type $rust = fn($ty) -> $ty;
+40 |               pub type $rust = fn($ty) -> $ty;
    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-43 | / each_size! {
-44 | |     RustV64 CV64: V64;
-45 | |     Rust8 C8: B8;
-46 | |     Rust9 C9: B9;
+47 | / each_size! {
+48 | |     RustV64 CV64: V64;
+49 | |     Rust8 C8: B8;
+50 | |     Rust9 C9: B9;
 ...  |
-53 | |     Rust61Below C61Below: B61Below;
-54 | | }
+60 | |     Rust4 C4: B4;
+61 | | }
    | |_- in this macro invocation
 
 error: fn_abi_of(CV64) = FnAbi {
@@ -207,20 +207,20 @@ error: fn_abi_of(CV64) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-  --> sizes.rs:38:13
+  --> sizes.rs:42:13
    |
-32 |   macro_rules! each_size {
+36 |   macro_rules! each_size {
 ...
-38 |               pub type $c = extern "C" fn($ty) -> $ty;
+42 |               pub type $c = extern "C" fn($ty) -> $ty;
    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-43 | / each_size! {
-44 | |     RustV64 CV64: V64;
-45 | |     Rust8 C8: B8;
-46 | |     Rust9 C9: B9;
+47 | / each_size! {
+48 | |     RustV64 CV64: V64;
+49 | |     Rust8 C8: B8;
+50 | |     Rust9 C9: B9;
 ...  |
-53 | |     Rust61Below C61Below: B61Below;
-54 | | }
+60 | |     Rust4 C4: B4;
+61 | | }
    | |_- in this macro invocation
 
 error: fn_abi_of(Rust8) = FnAbi {
@@ -335,20 +335,20 @@ error: fn_abi_of(Rust8) = FnAbi {
            conv: Rust,
            can_unwind: true,
        }
-  --> sizes.rs:36:13
+  --> sizes.rs:40:13
    |
-32 |   macro_rules! each_size {
+36 |   macro_rules! each_size {
 ...
-36 |               pub type $rust = fn($ty) -> $ty;
+40 |               pub type $rust = fn($ty) -> $ty;
    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-43 | / each_size! {
-44 | |     RustV64 CV64: V64;
-45 | |     Rust8 C8: B8;
-46 | |     Rust9 C9: B9;
+47 | / each_size! {
+48 | |     RustV64 CV64: V64;
+49 | |     Rust8 C8: B8;
+50 | |     Rust9 C9: B9;
 ...  |
-53 | |     Rust61Below C61Below: B61Below;
-54 | | }
+60 | |     Rust4 C4: B4;
+61 | | }
    | |_- in this macro invocation
 
 error: fn_abi_of(C8) = FnAbi {
@@ -463,20 +463,20 @@ error: fn_abi_of(C8) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-  --> sizes.rs:38:13
+  --> sizes.rs:42:13
    |
-32 |   macro_rules! each_size {
+36 |   macro_rules! each_size {
 ...
-38 |               pub type $c = extern "C" fn($ty) -> $ty;
+42 |               pub type $c = extern "C" fn($ty) -> $ty;
    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-43 | / each_size! {
-44 | |     RustV64 CV64: V64;
-45 | |     Rust8 C8: B8;
-46 | |     Rust9 C9: B9;
+47 | / each_size! {
+48 | |     RustV64 CV64: V64;
+49 | |     Rust8 C8: B8;
+50 | |     Rust9 C9: B9;
 ...  |
-53 | |     Rust61Below C61Below: B61Below;
-54 | | }
+60 | |     Rust4 C4: B4;
+61 | | }
    | |_- in this macro invocation
 
 error: fn_abi_of(Rust9) = FnAbi {
@@ -573,20 +573,20 @@ error: fn_abi_of(Rust9) = FnAbi {
            conv: Rust,
            can_unwind: true,
        }
-  --> sizes.rs:36:13
+  --> sizes.rs:40:13
    |
-32 |   macro_rules! each_size {
+36 |   macro_rules! each_size {
 ...
-36 |               pub type $rust = fn($ty) -> $ty;
+40 |               pub type $rust = fn($ty) -> $ty;
    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-43 | / each_size! {
-44 | |     RustV64 CV64: V64;
-45 | |     Rust8 C8: B8;
-46 | |     Rust9 C9: B9;
+47 | / each_size! {
+48 | |     RustV64 CV64: V64;
+49 | |     Rust8 C8: B8;
+50 | |     Rust9 C9: B9;
 ...  |
-53 | |     Rust61Below C61Below: B61Below;
-54 | | }
+60 | |     Rust4 C4: B4;
+61 | | }
    | |_- in this macro invocation
 
 error: fn_abi_of(C9) = FnAbi {
@@ -683,20 +683,20 @@ error: fn_abi_of(C9) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-  --> sizes.rs:38:13
+  --> sizes.rs:42:13
    |
-32 |   macro_rules! each_size {
+36 |   macro_rules! each_size {
 ...
-38 |               pub type $c = extern "C" fn($ty) -> $ty;
+42 |               pub type $c = extern "C" fn($ty) -> $ty;
    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-43 | / each_size! {
-44 | |     RustV64 CV64: V64;
-45 | |     Rust8 C8: B8;
-46 | |     Rust9 C9: B9;
+47 | / each_size! {
+48 | |     RustV64 CV64: V64;
+49 | |     Rust8 C8: B8;
+50 | |     Rust9 C9: B9;
 ...  |
-53 | |     Rust61Below C61Below: B61Below;
-54 | | }
+60 | |     Rust4 C4: B4;
+61 | | }
    | |_- in this macro invocation
 
 error: fn_abi_of(Rust16) = FnAbi {
@@ -793,20 +793,20 @@ error: fn_abi_of(Rust16) = FnAbi {
            conv: Rust,
            can_unwind: true,
        }
-  --> sizes.rs:36:13
+  --> sizes.rs:40:13
    |
-32 |   macro_rules! each_size {
+36 |   macro_rules! each_size {
 ...
-36 |               pub type $rust = fn($ty) -> $ty;
+40 |               pub type $rust = fn($ty) -> $ty;
    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-43 | / each_size! {
-44 | |     RustV64 CV64: V64;
-45 | |     Rust8 C8: B8;
-46 | |     Rust9 C9: B9;
+47 | / each_size! {
+48 | |     RustV64 CV64: V64;
+49 | |     Rust8 C8: B8;
+50 | |     Rust9 C9: B9;
 ...  |
-53 | |     Rust61Below C61Below: B61Below;
-54 | | }
+60 | |     Rust4 C4: B4;
+61 | | }
    | |_- in this macro invocation
 
 error: fn_abi_of(C16) = FnAbi {
@@ -903,20 +903,20 @@ error: fn_abi_of(C16) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-  --> sizes.rs:38:13
+  --> sizes.rs:42:13
    |
-32 |   macro_rules! each_size {
+36 |   macro_rules! each_size {
 ...
-38 |               pub type $c = extern "C" fn($ty) -> $ty;
+42 |               pub type $c = extern "C" fn($ty) -> $ty;
    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-43 | / each_size! {
-44 | |     RustV64 CV64: V64;
-45 | |     Rust8 C8: B8;
-46 | |     Rust9 C9: B9;
+47 | / each_size! {
+48 | |     RustV64 CV64: V64;
+49 | |     Rust8 C8: B8;
+50 | |     Rust9 C9: B9;
 ...  |
-53 | |     Rust61Below C61Below: B61Below;
-54 | | }
+60 | |     Rust4 C4: B4;
+61 | | }
    | |_- in this macro invocation
 
 error: fn_abi_of(Rust17) = FnAbi {
@@ -1013,20 +1013,20 @@ error: fn_abi_of(Rust17) = FnAbi {
            conv: Rust,
            can_unwind: true,
        }
-  --> sizes.rs:36:13
+  --> sizes.rs:40:13
    |
-32 |   macro_rules! each_size {
+36 |   macro_rules! each_size {
 ...
-36 |               pub type $rust = fn($ty) -> $ty;
+40 |               pub type $rust = fn($ty) -> $ty;
    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-43 | / each_size! {
-44 | |     RustV64 CV64: V64;
-45 | |     Rust8 C8: B8;
-46 | |     Rust9 C9: B9;
+47 | / each_size! {
+48 | |     RustV64 CV64: V64;
+49 | |     Rust8 C8: B8;
+50 | |     Rust9 C9: B9;
 ...  |
-53 | |     Rust61Below C61Below: B61Below;
-54 | | }
+60 | |     Rust4 C4: B4;
+61 | | }
    | |_- in this macro invocation
 
 error: fn_abi_of(C17) = FnAbi {
@@ -1123,20 +1123,20 @@ error: fn_abi_of(C17) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-  --> sizes.rs:38:13
+  --> sizes.rs:42:13
    |
-32 |   macro_rules! each_size {
+36 |   macro_rules! each_size {
 ...
-38 |               pub type $c = extern "C" fn($ty) -> $ty;
+42 |               pub type $c = extern "C" fn($ty) -> $ty;
    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-43 | / each_size! {
-44 | |     RustV64 CV64: V64;
-45 | |     Rust8 C8: B8;
-46 | |     Rust9 C9: B9;
+47 | / each_size! {
+48 | |     RustV64 CV64: V64;
+49 | |     Rust8 C8: B8;
+50 | |     Rust9 C9: B9;
 ...  |
-53 | |     Rust61Below C61Below: B61Below;
-54 | | }
+60 | |     Rust4 C4: B4;
+61 | | }
    | |_- in this macro invocation
 
 error: fn_abi_of(Rust53Below) = FnAbi {
@@ -1233,20 +1233,20 @@ error: fn_abi_of(Rust53Below) = FnAbi {
            conv: Rust,
            can_unwind: true,
        }
-  --> sizes.rs:36:13
+  --> sizes.rs:40:13
    |
-32 |   macro_rules! each_size {
+36 |   macro_rules! each_size {
 ...
-36 |               pub type $rust = fn($ty) -> $ty;
+40 |               pub type $rust = fn($ty) -> $ty;
    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-43 | / each_size! {
-44 | |     RustV64 CV64: V64;
-45 | |     Rust8 C8: B8;
-46 | |     Rust9 C9: B9;
+47 | / each_size! {
+48 | |     RustV64 CV64: V64;
+49 | |     Rust8 C8: B8;
+50 | |     Rust9 C9: B9;
 ...  |
-53 | |     Rust61Below C61Below: B61Below;
-54 | | }
+60 | |     Rust4 C4: B4;
+61 | | }
    | |_- in this macro invocation
 
 error: fn_abi_of(C53Below) = FnAbi {
@@ -1343,20 +1343,20 @@ error: fn_abi_of(C53Below) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-  --> sizes.rs:38:13
+  --> sizes.rs:42:13
    |
-32 |   macro_rules! each_size {
+36 |   macro_rules! each_size {
 ...
-38 |               pub type $c = extern "C" fn($ty) -> $ty;
+42 |               pub type $c = extern "C" fn($ty) -> $ty;
    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-43 | / each_size! {
-44 | |     RustV64 CV64: V64;
-45 | |     Rust8 C8: B8;
-46 | |     Rust9 C9: B9;
+47 | / each_size! {
+48 | |     RustV64 CV64: V64;
+49 | |     Rust8 C8: B8;
+50 | |     Rust9 C9: B9;
 ...  |
-53 | |     Rust61Below C61Below: B61Below;
-54 | | }
+60 | |     Rust4 C4: B4;
+61 | | }
    | |_- in this macro invocation
 
 error: fn_abi_of(Rust53) = FnAbi {
@@ -1453,20 +1453,20 @@ error: fn_abi_of(Rust53) = FnAbi {
            conv: Rust,
            can_unwind: true,
        }
-  --> sizes.rs:36:13
+  --> sizes.rs:40:13
    |
-32 |   macro_rules! each_size {
+36 |   macro_rules! each_size {
 ...
-36 |               pub type $rust = fn($ty) -> $ty;
+40 |               pub type $rust = fn($ty) -> $ty;
    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-43 | / each_size! {
-44 | |     RustV64 CV64: V64;
-45 | |     Rust8 C8: B8;
-46 | |     Rust9 C9: B9;
+47 | / each_size! {
+48 | |     RustV64 CV64: V64;
+49 | |     Rust8 C8: B8;
+50 | |     Rust9 C9: B9;
 ...  |
-53 | |     Rust61Below C61Below: B61Below;
-54 | | }
+60 | |     Rust4 C4: B4;
+61 | | }
    | |_- in this macro invocation
 
 error: fn_abi_of(C53) = FnAbi {
@@ -1563,20 +1563,20 @@ error: fn_abi_of(C53) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-  --> sizes.rs:38:13
+  --> sizes.rs:42:13
    |
-32 |   macro_rules! each_size {
+36 |   macro_rules! each_size {
 ...
-38 |               pub type $c = extern "C" fn($ty) -> $ty;
+42 |               pub type $c = extern "C" fn($ty) -> $ty;
    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-43 | / each_size! {
-44 | |     RustV64 CV64: V64;
-45 | |     Rust8 C8: B8;
-46 | |     Rust9 C9: B9;
+47 | / each_size! {
+48 | |     RustV64 CV64: V64;
+49 | |     Rust8 C8: B8;
+50 | |     Rust9 C9: B9;
 ...  |
-53 | |     Rust61Below C61Below: B61Below;
-54 | | }
+60 | |     Rust4 C4: B4;
+61 | | }
    | |_- in this macro invocation
 
 error: fn_abi_of(Rust53Above) = FnAbi {
@@ -1673,20 +1673,20 @@ error: fn_abi_of(Rust53Above) = FnAbi {
            conv: Rust,
            can_unwind: true,
        }
-  --> sizes.rs:36:13
+  --> sizes.rs:40:13
    |
-32 |   macro_rules! each_size {
+36 |   macro_rules! each_size {
 ...
-36 |               pub type $rust = fn($ty) -> $ty;
+40 |               pub type $rust = fn($ty) -> $ty;
    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-43 | / each_size! {
-44 | |     RustV64 CV64: V64;
-45 | |     Rust8 C8: B8;
-46 | |     Rust9 C9: B9;
+47 | / each_size! {
+48 | |     RustV64 CV64: V64;
+49 | |     Rust8 C8: B8;
+50 | |     Rust9 C9: B9;
 ...  |
-53 | |     Rust61Below C61Below: B61Below;
-54 | | }
+60 | |     Rust4 C4: B4;
+61 | | }
    | |_- in this macro invocation
 
 error: fn_abi_of(C53Above) = FnAbi {
@@ -1783,20 +1783,20 @@ error: fn_abi_of(C53Above) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-  --> sizes.rs:38:13
+  --> sizes.rs:42:13
    |
-32 |   macro_rules! each_size {
+36 |   macro_rules! each_size {
 ...
-38 |               pub type $c = extern "C" fn($ty) -> $ty;
+42 |               pub type $c = extern "C" fn($ty) -> $ty;
    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-43 | / each_size! {
-44 | |     RustV64 CV64: V64;
-45 | |     Rust8 C8: B8;
-46 | |     Rust9 C9: B9;
+47 | / each_size! {
+48 | |     RustV64 CV64: V64;
+49 | |     Rust8 C8: B8;
+50 | |     Rust9 C9: B9;
 ...  |
-53 | |     Rust61Below C61Below: B61Below;
-54 | | }
+60 | |     Rust4 C4: B4;
+61 | | }
    | |_- in this macro invocation
 
 error: fn_abi_of(Rust60) = FnAbi {
@@ -1893,20 +1893,20 @@ error: fn_abi_of(Rust60) = FnAbi {
            conv: Rust,
            can_unwind: true,
        }
-  --> sizes.rs:36:13
+  --> sizes.rs:40:13
    |
-32 |   macro_rules! each_size {
+36 |   macro_rules! each_size {
 ...
-36 |               pub type $rust = fn($ty) -> $ty;
+40 |               pub type $rust = fn($ty) -> $ty;
    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-43 | / each_size! {
-44 | |     RustV64 CV64: V64;
-45 | |     Rust8 C8: B8;
-46 | |     Rust9 C9: B9;
+47 | / each_size! {
+48 | |     RustV64 CV64: V64;
+49 | |     Rust8 C8: B8;
+50 | |     Rust9 C9: B9;
 ...  |
-53 | |     Rust61Below C61Below: B61Below;
-54 | | }
+60 | |     Rust4 C4: B4;
+61 | | }
    | |_- in this macro invocation
 
 error: fn_abi_of(C60) = FnAbi {
@@ -2003,20 +2003,20 @@ error: fn_abi_of(C60) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-  --> sizes.rs:38:13
+  --> sizes.rs:42:13
    |
-32 |   macro_rules! each_size {
+36 |   macro_rules! each_size {
 ...
-38 |               pub type $c = extern "C" fn($ty) -> $ty;
+42 |               pub type $c = extern "C" fn($ty) -> $ty;
    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-43 | / each_size! {
-44 | |     RustV64 CV64: V64;
-45 | |     Rust8 C8: B8;
-46 | |     Rust9 C9: B9;
+47 | / each_size! {
+48 | |     RustV64 CV64: V64;
+49 | |     Rust8 C8: B8;
+50 | |     Rust9 C9: B9;
 ...  |
-53 | |     Rust61Below C61Below: B61Below;
-54 | | }
+60 | |     Rust4 C4: B4;
+61 | | }
    | |_- in this macro invocation
 
 error: fn_abi_of(Rust61Below) = FnAbi {
@@ -2113,20 +2113,20 @@ error: fn_abi_of(Rust61Below) = FnAbi {
            conv: Rust,
            can_unwind: true,
        }
-  --> sizes.rs:36:13
+  --> sizes.rs:40:13
    |
-32 |   macro_rules! each_size {
+36 |   macro_rules! each_size {
 ...
-36 |               pub type $rust = fn($ty) -> $ty;
+40 |               pub type $rust = fn($ty) -> $ty;
    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-43 | / each_size! {
-44 | |     RustV64 CV64: V64;
-45 | |     Rust8 C8: B8;
-46 | |     Rust9 C9: B9;
+47 | / each_size! {
+48 | |     RustV64 CV64: V64;
+49 | |     Rust8 C8: B8;
+50 | |     Rust9 C9: B9;
 ...  |
-53 | |     Rust61Below C61Below: B61Below;
-54 | | }
+60 | |     Rust4 C4: B4;
+61 | | }
    | |_- in this macro invocation
 
 error: fn_abi_of(C61Below) = FnAbi {
@@ -2223,21 +2223,789 @@ error: fn_abi_of(C61Below) = FnAbi {
            conv: C,
            can_unwind: false,
        }
-  --> sizes.rs:38:13
+  --> sizes.rs:42:13
    |
-32 |   macro_rules! each_size {
+36 |   macro_rules! each_size {
 ...
-38 |               pub type $c = extern "C" fn($ty) -> $ty;
+42 |               pub type $c = extern "C" fn($ty) -> $ty;
    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-43 | / each_size! {
-44 | |     RustV64 CV64: V64;
-45 | |     Rust8 C8: B8;
-46 | |     Rust9 C9: B9;
+47 | / each_size! {
+48 | |     RustV64 CV64: V64;
+49 | |     Rust8 C8: B8;
+50 | |     Rust9 C9: B9;
 ...  |
-53 | |     Rust61Below C61Below: B61Below;
-54 | | }
+60 | |     Rust4 C4: B4;
+61 | | }
    | |_- in this macro invocation
 
-error: aborting due to 20 previous errors
+error: fn_abi_of(Rust1) = FnAbi {
+           args: [
+               ArgAbi {
+                   layout: TyAndLayout {
+                       ty: B1,
+                       layout: Layout {
+                           size: Size(1 bytes),
+                           align: AbiAlign {
+                               abi: Align(1 bytes),
+                           },
+                           backend_repr: Memory {
+                               sized: true,
+                           },
+                           fields: Arbitrary {
+                               offsets: [
+                                   Size(0 bytes),
+                               ],
+                               in_memory_order: [
+                                   0,
+                               ],
+                           },
+                           largest_niche: None,
+                           uninhabited: false,
+                           variants: Single {
+                               index: 0,
+                           },
+                           max_repr_align: None,
+                           unadjusted_abi_align: Align(1 bytes),
+                           repr_c: false,
+                           randomization_seed: 15786949652499773352,
+                       },
+                   },
+                   mode: Cast {
+                       pad_i32_count: 0,
+                       cast: CastTarget {
+                           prefix: [],
+                           rest_offset: None,
+                           rest: Uniform {
+                               unit: Reg {
+                                   kind: Integer,
+                                   size: Size(1 bytes),
+                               },
+                               total: Size(1 bytes),
+                               is_consecutive: false,
+                           },
+                           attrs: ArgAttributes {
+                               regular: NoUndef,
+                               arg_ext: None,
+                               pointee_size: Size(0 bytes),
+                               pointee_align: None,
+                           },
+                       },
+                   },
+               },
+           ],
+           ret: ArgAbi {
+               layout: TyAndLayout {
+                   ty: B1,
+                   layout: Layout {
+                       size: Size(1 bytes),
+                       align: AbiAlign {
+                           abi: Align(1 bytes),
+                       },
+                       backend_repr: Memory {
+                           sized: true,
+                       },
+                       fields: Arbitrary {
+                           offsets: [
+                               Size(0 bytes),
+                           ],
+                           in_memory_order: [
+                               0,
+                           ],
+                       },
+                       largest_niche: None,
+                       uninhabited: false,
+                       variants: Single {
+                           index: 0,
+                       },
+                       max_repr_align: None,
+                       unadjusted_abi_align: Align(1 bytes),
+                       repr_c: false,
+                       randomization_seed: 15786949652499773352,
+                   },
+               },
+               mode: Cast {
+                   pad_i32_count: 0,
+                   cast: CastTarget {
+                       prefix: [],
+                       rest_offset: None,
+                       rest: Uniform {
+                           unit: Reg {
+                               kind: Integer,
+                               size: Size(1 bytes),
+                           },
+                           total: Size(1 bytes),
+                           is_consecutive: false,
+                       },
+                       attrs: ArgAttributes {
+                           regular: NoUndef,
+                           arg_ext: None,
+                           pointee_size: Size(0 bytes),
+                           pointee_align: None,
+                       },
+                   },
+               },
+           },
+           c_variadic: false,
+           fixed_count: 1,
+           conv: Rust,
+           can_unwind: true,
+       }
+  --> sizes.rs:40:13
+   |
+36 |   macro_rules! each_size {
+...
+40 |               pub type $rust = fn($ty) -> $ty;
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+47 | / each_size! {
+48 | |     RustV64 CV64: V64;
+49 | |     Rust8 C8: B8;
+50 | |     Rust9 C9: B9;
+...  |
+60 | |     Rust4 C4: B4;
+61 | | }
+   | |_- in this macro invocation
+
+error: fn_abi_of(C1) = FnAbi {
+           args: [
+               ArgAbi {
+                   layout: TyAndLayout {
+                       ty: B1,
+                       layout: Layout {
+                           size: Size(1 bytes),
+                           align: AbiAlign {
+                               abi: Align(1 bytes),
+                           },
+                           backend_repr: Memory {
+                               sized: true,
+                           },
+                           fields: Arbitrary {
+                               offsets: [
+                                   Size(0 bytes),
+                               ],
+                               in_memory_order: [
+                                   0,
+                               ],
+                           },
+                           largest_niche: None,
+                           uninhabited: false,
+                           variants: Single {
+                               index: 0,
+                           },
+                           max_repr_align: None,
+                           unadjusted_abi_align: Align(1 bytes),
+                           repr_c: false,
+                           randomization_seed: 15786949652499773352,
+                       },
+                   },
+                   mode: Cast {
+                       pad_i32_count: 0,
+                       cast: CastTarget {
+                           prefix: [],
+                           rest_offset: None,
+                           rest: Uniform {
+                               unit: Reg {
+                                   kind: Integer,
+                                   size: Size(1 bytes),
+                               },
+                               total: Size(1 bytes),
+                               is_consecutive: false,
+                           },
+                           attrs: ArgAttributes {
+                               regular: ,
+                               arg_ext: None,
+                               pointee_size: Size(0 bytes),
+                               pointee_align: None,
+                           },
+                       },
+                   },
+               },
+           ],
+           ret: ArgAbi {
+               layout: TyAndLayout {
+                   ty: B1,
+                   layout: Layout {
+                       size: Size(1 bytes),
+                       align: AbiAlign {
+                           abi: Align(1 bytes),
+                       },
+                       backend_repr: Memory {
+                           sized: true,
+                       },
+                       fields: Arbitrary {
+                           offsets: [
+                               Size(0 bytes),
+                           ],
+                           in_memory_order: [
+                               0,
+                           ],
+                       },
+                       largest_niche: None,
+                       uninhabited: false,
+                       variants: Single {
+                           index: 0,
+                       },
+                       max_repr_align: None,
+                       unadjusted_abi_align: Align(1 bytes),
+                       repr_c: false,
+                       randomization_seed: 15786949652499773352,
+                   },
+               },
+               mode: Cast {
+                   pad_i32_count: 0,
+                   cast: CastTarget {
+                       prefix: [],
+                       rest_offset: None,
+                       rest: Uniform {
+                           unit: Reg {
+                               kind: Integer,
+                               size: Size(1 bytes),
+                           },
+                           total: Size(1 bytes),
+                           is_consecutive: false,
+                       },
+                       attrs: ArgAttributes {
+                           regular: ,
+                           arg_ext: None,
+                           pointee_size: Size(0 bytes),
+                           pointee_align: None,
+                       },
+                   },
+               },
+           },
+           c_variadic: false,
+           fixed_count: 1,
+           conv: C,
+           can_unwind: false,
+       }
+  --> sizes.rs:42:13
+   |
+36 |   macro_rules! each_size {
+...
+42 |               pub type $c = extern "C" fn($ty) -> $ty;
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+47 | / each_size! {
+48 | |     RustV64 CV64: V64;
+49 | |     Rust8 C8: B8;
+50 | |     Rust9 C9: B9;
+...  |
+60 | |     Rust4 C4: B4;
+61 | | }
+   | |_- in this macro invocation
+
+error: fn_abi_of(Rust2) = FnAbi {
+           args: [
+               ArgAbi {
+                   layout: TyAndLayout {
+                       ty: B2,
+                       layout: Layout {
+                           size: Size(2 bytes),
+                           align: AbiAlign {
+                               abi: Align(1 bytes),
+                           },
+                           backend_repr: Memory {
+                               sized: true,
+                           },
+                           fields: Arbitrary {
+                               offsets: [
+                                   Size(0 bytes),
+                               ],
+                               in_memory_order: [
+                                   0,
+                               ],
+                           },
+                           largest_niche: None,
+                           uninhabited: false,
+                           variants: Single {
+                               index: 0,
+                           },
+                           max_repr_align: None,
+                           unadjusted_abi_align: Align(1 bytes),
+                           repr_c: false,
+                           randomization_seed: 10410921694991423954,
+                       },
+                   },
+                   mode: Cast {
+                       pad_i32_count: 0,
+                       cast: CastTarget {
+                           prefix: [],
+                           rest_offset: None,
+                           rest: Uniform {
+                               unit: Reg {
+                                   kind: Integer,
+                                   size: Size(2 bytes),
+                               },
+                               total: Size(2 bytes),
+                               is_consecutive: false,
+                           },
+                           attrs: ArgAttributes {
+                               regular: NoUndef,
+                               arg_ext: None,
+                               pointee_size: Size(0 bytes),
+                               pointee_align: None,
+                           },
+                       },
+                   },
+               },
+           ],
+           ret: ArgAbi {
+               layout: TyAndLayout {
+                   ty: B2,
+                   layout: Layout {
+                       size: Size(2 bytes),
+                       align: AbiAlign {
+                           abi: Align(1 bytes),
+                       },
+                       backend_repr: Memory {
+                           sized: true,
+                       },
+                       fields: Arbitrary {
+                           offsets: [
+                               Size(0 bytes),
+                           ],
+                           in_memory_order: [
+                               0,
+                           ],
+                       },
+                       largest_niche: None,
+                       uninhabited: false,
+                       variants: Single {
+                           index: 0,
+                       },
+                       max_repr_align: None,
+                       unadjusted_abi_align: Align(1 bytes),
+                       repr_c: false,
+                       randomization_seed: 10410921694991423954,
+                   },
+               },
+               mode: Cast {
+                   pad_i32_count: 0,
+                   cast: CastTarget {
+                       prefix: [],
+                       rest_offset: None,
+                       rest: Uniform {
+                           unit: Reg {
+                               kind: Integer,
+                               size: Size(2 bytes),
+                           },
+                           total: Size(2 bytes),
+                           is_consecutive: false,
+                       },
+                       attrs: ArgAttributes {
+                           regular: NoUndef,
+                           arg_ext: None,
+                           pointee_size: Size(0 bytes),
+                           pointee_align: None,
+                       },
+                   },
+               },
+           },
+           c_variadic: false,
+           fixed_count: 1,
+           conv: Rust,
+           can_unwind: true,
+       }
+  --> sizes.rs:40:13
+   |
+36 |   macro_rules! each_size {
+...
+40 |               pub type $rust = fn($ty) -> $ty;
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+47 | / each_size! {
+48 | |     RustV64 CV64: V64;
+49 | |     Rust8 C8: B8;
+50 | |     Rust9 C9: B9;
+...  |
+60 | |     Rust4 C4: B4;
+61 | | }
+   | |_- in this macro invocation
+
+error: fn_abi_of(C2) = FnAbi {
+           args: [
+               ArgAbi {
+                   layout: TyAndLayout {
+                       ty: B2,
+                       layout: Layout {
+                           size: Size(2 bytes),
+                           align: AbiAlign {
+                               abi: Align(1 bytes),
+                           },
+                           backend_repr: Memory {
+                               sized: true,
+                           },
+                           fields: Arbitrary {
+                               offsets: [
+                                   Size(0 bytes),
+                               ],
+                               in_memory_order: [
+                                   0,
+                               ],
+                           },
+                           largest_niche: None,
+                           uninhabited: false,
+                           variants: Single {
+                               index: 0,
+                           },
+                           max_repr_align: None,
+                           unadjusted_abi_align: Align(1 bytes),
+                           repr_c: false,
+                           randomization_seed: 10410921694991423954,
+                       },
+                   },
+                   mode: Cast {
+                       pad_i32_count: 0,
+                       cast: CastTarget {
+                           prefix: [],
+                           rest_offset: None,
+                           rest: Uniform {
+                               unit: Reg {
+                                   kind: Integer,
+                                   size: Size(2 bytes),
+                               },
+                               total: Size(2 bytes),
+                               is_consecutive: false,
+                           },
+                           attrs: ArgAttributes {
+                               regular: ,
+                               arg_ext: None,
+                               pointee_size: Size(0 bytes),
+                               pointee_align: None,
+                           },
+                       },
+                   },
+               },
+           ],
+           ret: ArgAbi {
+               layout: TyAndLayout {
+                   ty: B2,
+                   layout: Layout {
+                       size: Size(2 bytes),
+                       align: AbiAlign {
+                           abi: Align(1 bytes),
+                       },
+                       backend_repr: Memory {
+                           sized: true,
+                       },
+                       fields: Arbitrary {
+                           offsets: [
+                               Size(0 bytes),
+                           ],
+                           in_memory_order: [
+                               0,
+                           ],
+                       },
+                       largest_niche: None,
+                       uninhabited: false,
+                       variants: Single {
+                           index: 0,
+                       },
+                       max_repr_align: None,
+                       unadjusted_abi_align: Align(1 bytes),
+                       repr_c: false,
+                       randomization_seed: 10410921694991423954,
+                   },
+               },
+               mode: Cast {
+                   pad_i32_count: 0,
+                   cast: CastTarget {
+                       prefix: [],
+                       rest_offset: None,
+                       rest: Uniform {
+                           unit: Reg {
+                               kind: Integer,
+                               size: Size(2 bytes),
+                           },
+                           total: Size(2 bytes),
+                           is_consecutive: false,
+                       },
+                       attrs: ArgAttributes {
+                           regular: ,
+                           arg_ext: None,
+                           pointee_size: Size(0 bytes),
+                           pointee_align: None,
+                       },
+                   },
+               },
+           },
+           c_variadic: false,
+           fixed_count: 1,
+           conv: C,
+           can_unwind: false,
+       }
+  --> sizes.rs:42:13
+   |
+36 |   macro_rules! each_size {
+...
+42 |               pub type $c = extern "C" fn($ty) -> $ty;
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+47 | / each_size! {
+48 | |     RustV64 CV64: V64;
+49 | |     Rust8 C8: B8;
+50 | |     Rust9 C9: B9;
+...  |
+60 | |     Rust4 C4: B4;
+61 | | }
+   | |_- in this macro invocation
+
+error: fn_abi_of(Rust4) = FnAbi {
+           args: [
+               ArgAbi {
+                   layout: TyAndLayout {
+                       ty: B4,
+                       layout: Layout {
+                           size: Size(4 bytes),
+                           align: AbiAlign {
+                               abi: Align(1 bytes),
+                           },
+                           backend_repr: Memory {
+                               sized: true,
+                           },
+                           fields: Arbitrary {
+                               offsets: [
+                                   Size(0 bytes),
+                               ],
+                               in_memory_order: [
+                                   0,
+                               ],
+                           },
+                           largest_niche: None,
+                           uninhabited: false,
+                           variants: Single {
+                               index: 0,
+                           },
+                           max_repr_align: None,
+                           unadjusted_abi_align: Align(1 bytes),
+                           repr_c: false,
+                           randomization_seed: 8856165571840906009,
+                       },
+                   },
+                   mode: Cast {
+                       pad_i32_count: 0,
+                       cast: CastTarget {
+                           prefix: [],
+                           rest_offset: None,
+                           rest: Uniform {
+                               unit: Reg {
+                                   kind: Integer,
+                                   size: Size(4 bytes),
+                               },
+                               total: Size(4 bytes),
+                               is_consecutive: false,
+                           },
+                           attrs: ArgAttributes {
+                               regular: NoUndef,
+                               arg_ext: None,
+                               pointee_size: Size(0 bytes),
+                               pointee_align: None,
+                           },
+                       },
+                   },
+               },
+           ],
+           ret: ArgAbi {
+               layout: TyAndLayout {
+                   ty: B4,
+                   layout: Layout {
+                       size: Size(4 bytes),
+                       align: AbiAlign {
+                           abi: Align(1 bytes),
+                       },
+                       backend_repr: Memory {
+                           sized: true,
+                       },
+                       fields: Arbitrary {
+                           offsets: [
+                               Size(0 bytes),
+                           ],
+                           in_memory_order: [
+                               0,
+                           ],
+                       },
+                       largest_niche: None,
+                       uninhabited: false,
+                       variants: Single {
+                           index: 0,
+                       },
+                       max_repr_align: None,
+                       unadjusted_abi_align: Align(1 bytes),
+                       repr_c: false,
+                       randomization_seed: 8856165571840906009,
+                   },
+               },
+               mode: Cast {
+                   pad_i32_count: 0,
+                   cast: CastTarget {
+                       prefix: [],
+                       rest_offset: None,
+                       rest: Uniform {
+                           unit: Reg {
+                               kind: Integer,
+                               size: Size(4 bytes),
+                           },
+                           total: Size(4 bytes),
+                           is_consecutive: false,
+                       },
+                       attrs: ArgAttributes {
+                           regular: NoUndef,
+                           arg_ext: None,
+                           pointee_size: Size(0 bytes),
+                           pointee_align: None,
+                       },
+                   },
+               },
+           },
+           c_variadic: false,
+           fixed_count: 1,
+           conv: Rust,
+           can_unwind: true,
+       }
+  --> sizes.rs:40:13
+   |
+36 |   macro_rules! each_size {
+...
+40 |               pub type $rust = fn($ty) -> $ty;
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+47 | / each_size! {
+48 | |     RustV64 CV64: V64;
+49 | |     Rust8 C8: B8;
+50 | |     Rust9 C9: B9;
+...  |
+60 | |     Rust4 C4: B4;
+61 | | }
+   | |_- in this macro invocation
+
+error: fn_abi_of(C4) = FnAbi {
+           args: [
+               ArgAbi {
+                   layout: TyAndLayout {
+                       ty: B4,
+                       layout: Layout {
+                           size: Size(4 bytes),
+                           align: AbiAlign {
+                               abi: Align(1 bytes),
+                           },
+                           backend_repr: Memory {
+                               sized: true,
+                           },
+                           fields: Arbitrary {
+                               offsets: [
+                                   Size(0 bytes),
+                               ],
+                               in_memory_order: [
+                                   0,
+                               ],
+                           },
+                           largest_niche: None,
+                           uninhabited: false,
+                           variants: Single {
+                               index: 0,
+                           },
+                           max_repr_align: None,
+                           unadjusted_abi_align: Align(1 bytes),
+                           repr_c: false,
+                           randomization_seed: 8856165571840906009,
+                       },
+                   },
+                   mode: Cast {
+                       pad_i32_count: 0,
+                       cast: CastTarget {
+                           prefix: [],
+                           rest_offset: None,
+                           rest: Uniform {
+                               unit: Reg {
+                                   kind: Integer,
+                                   size: Size(4 bytes),
+                               },
+                               total: Size(4 bytes),
+                               is_consecutive: false,
+                           },
+                           attrs: ArgAttributes {
+                               regular: ,
+                               arg_ext: None,
+                               pointee_size: Size(0 bytes),
+                               pointee_align: None,
+                           },
+                       },
+                   },
+               },
+           ],
+           ret: ArgAbi {
+               layout: TyAndLayout {
+                   ty: B4,
+                   layout: Layout {
+                       size: Size(4 bytes),
+                       align: AbiAlign {
+                           abi: Align(1 bytes),
+                       },
+                       backend_repr: Memory {
+                           sized: true,
+                       },
+                       fields: Arbitrary {
+                           offsets: [
+                               Size(0 bytes),
+                           ],
+                           in_memory_order: [
+                               0,
+                           ],
+                       },
+                       largest_niche: None,
+                       uninhabited: false,
+                       variants: Single {
+                           index: 0,
+                       },
+                       max_repr_align: None,
+                       unadjusted_abi_align: Align(1 bytes),
+                       repr_c: false,
+                       randomization_seed: 8856165571840906009,
+                   },
+               },
+               mode: Cast {
+                   pad_i32_count: 0,
+                   cast: CastTarget {
+                       prefix: [],
+                       rest_offset: None,
+                       rest: Uniform {
+                           unit: Reg {
+                               kind: Integer,
+                               size: Size(4 bytes),
+                           },
+                           total: Size(4 bytes),
+                           is_consecutive: false,
+                       },
+                       attrs: ArgAttributes {
+                           regular: ,
+                           arg_ext: None,
+                           pointee_size: Size(0 bytes),
+                           pointee_align: None,
+                       },
+                   },
+               },
+           },
+           c_variadic: false,
+           fixed_count: 1,
+           conv: C,
+           can_unwind: false,
+       }
+  --> sizes.rs:42:13
+   |
+36 |   macro_rules! each_size {
+...
+42 |               pub type $c = extern "C" fn($ty) -> $ty;
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+47 | / each_size! {
+48 | |     RustV64 CV64: V64;
+49 | |     Rust8 C8: B8;
+50 | |     Rust9 C9: B9;
+...  |
+60 | |     Rust4 C4: B4;
+61 | | }
+   | |_- in this macro invocation
+
+error: aborting due to 26 previous errors
 
