@@ -23,6 +23,8 @@
 // (`Result: IntoIterator`), exactly as upstream (also a `RerunNonErased` error).
 // PORT: `panic!("unexpected self type for `{goal:?}`")` needs `Debug` of `Goal<I, G>`; the `GoalKind<G>` table has no
 // `Debug` descriptor for `G` (decls.ts), so those two arms are `unported(..)` (binder.ts `instantiate` precedent).
+import { debug_vec } from "../../../std/fmt.ts";
+import { debug_Goal } from "../../../rustc_type_ir/solve/mod.ts";
 import * as tracing from "../../../rust_ts/tracing.ts";
 import { type ControlFlow, ControlFlow as ControlFlowC, type VisitorResult, VisitorResult as VisitorResultC } from "../../../rustc_ast_ir/visit.ts";
 import type { TyCtxt } from "../../../rustc_middle/ty/context.ts";
@@ -1303,166 +1305,167 @@ EvalCtxt.prototype.try_assemble_bounds_via_registered_opaques = function <G>(
   candidates: Candidate[],
   G: GoalKind<G>,
 ): Result<undefined, RerunNonErased> {
-  tracing.info_unconverted("rustc_next_trait_solver::solve::assembly", "compiler/rustc_next_trait_solver/src/solve/assembly/mod.rs:1123 (`#[instrument]`: `Vec<Candidate>`'s Debug)");
-  const self_ty = G.self_ty(goal.predicate);
-  // We only use this hack during HIR typeck.
-  let opaque_types: OpaqueAliasTy[];
-  const typing_mode = this.typing_mode();
-  switch (typing_mode.$) {
-    case "Typeck":
-      opaque_types = this.opaques_with_sub_unified_hidden_type(self_ty);
-      break;
-    case "Coherence":
-    case "PostTypeckUntilBorrowck":
-    case "PostBorrowck":
-    case "PostAnalysis":
-    case "Reflection":
-    case "Codegen":
-      opaque_types = [];
-      break;
-    case "ErasedNotCoherence": {
-      const r = AccessedOpaques.rerun_if_any_opaque_has_infer_as_hidden_type(this.opaque_accesses, RerunReason.SelfTyInfer);
-      if (r.$ === "Err") return r;
-      opaque_types = [];
-      break;
-    }
-  }
-
-  if (opaque_types.length === 0) {
-    const c = this.forced_ambiguity(MaybeInfo.AMBIGUOUS);
-    if (c.$ === "Ok") candidates.push(c._0);
-    return Ok(undefined);
-  }
-
-  for (const opaque_ty of opaque_types) {
-    // debug!("self ty is sub unified with {opaque_ty:?}");
-
-    class ReplaceOpaque implements TypeFolder {
-      constructor(
-        public cx_: TyCtxt,
-        public opaque_ty: OpaqueAliasTy,
-        public self_ty: Ty,
-      ) {}
-
-      // rustc: compiler/rustc_next_trait_solver/src/solve/assembly/mod.rs:1161 cx
-      cx(): TyCtxt {
-        return this.cx_;
+  return tracing.instrument("rustc_next_trait_solver::solve::assembly", "try_assemble_bounds_via_registered_opaques", () => [["goal", () => debug_Goal(goal, PLAIN, goal_kind_debug(G, "compiler/rustc_next_trait_solver/src/solve/assembly/mod.rs:1123"))], ["candidates", () => debug_vec(candidates, PLAIN, debug_Candidate)]], () => {
+    const self_ty = G.self_ty(goal.predicate);
+    // We only use this hack during HIR typeck.
+    let opaque_types: OpaqueAliasTy[];
+    const typing_mode = this.typing_mode();
+    switch (typing_mode.$) {
+      case "Typeck":
+        opaque_types = this.opaques_with_sub_unified_hidden_type(self_ty);
+        break;
+      case "Coherence":
+      case "PostTypeckUntilBorrowck":
+      case "PostBorrowck":
+      case "PostAnalysis":
+      case "Reflection":
+      case "Codegen":
+        opaque_types = [];
+        break;
+      case "ErasedNotCoherence": {
+        const r = AccessedOpaques.rerun_if_any_opaque_has_infer_as_hidden_type(this.opaque_accesses, RerunReason.SelfTyInfer);
+        if (r.$ === "Err") return r;
+        opaque_types = [];
+        break;
       }
+    }
 
-      // rustc: compiler/rustc_next_trait_solver/src/solve/assembly/mod.rs:1164 fold_ty
-      fold_ty(ty: Ty): Ty {
-        const k = ty.kind();
-        if (k.$ === "Alias") {
-          const opaque_ty = AliasTyC.try_to_opaque(k._1);
-          if (opaque_ty !== undefined) {
-            // PORT: derived `PartialEq` of `OpaqueAliasTy` (contract rule 4).
-            if (intern_key(opaque_ty) === intern_key(this.opaque_ty)) {
-              // debug_assert_eq!(is_rigid, ty::IsRigid::No);
-              return this.self_ty;
+    if (opaque_types.length === 0) {
+      const c = this.forced_ambiguity(MaybeInfo.AMBIGUOUS);
+      if (c.$ === "Ok") candidates.push(c._0);
+      return Ok(undefined);
+    }
+
+    for (const opaque_ty of opaque_types) {
+      // debug!("self ty is sub unified with {opaque_ty:?}");
+
+      class ReplaceOpaque implements TypeFolder {
+        constructor(
+          public cx_: TyCtxt,
+          public opaque_ty: OpaqueAliasTy,
+          public self_ty: Ty,
+        ) {}
+
+        // rustc: compiler/rustc_next_trait_solver/src/solve/assembly/mod.rs:1161 cx
+        cx(): TyCtxt {
+          return this.cx_;
+        }
+
+        // rustc: compiler/rustc_next_trait_solver/src/solve/assembly/mod.rs:1164 fold_ty
+        fold_ty(ty: Ty): Ty {
+          const k = ty.kind();
+          if (k.$ === "Alias") {
+            const opaque_ty = AliasTyC.try_to_opaque(k._1);
+            if (opaque_ty !== undefined) {
+              // PORT: derived `PartialEq` of `OpaqueAliasTy` (contract rule 4).
+              if (intern_key(opaque_ty) === intern_key(this.opaque_ty)) {
+                // debug_assert_eq!(is_rigid, ty::IsRigid::No);
+                return this.self_ty;
+              }
             }
           }
+          return fold_Ty.super_fold_with(ty, this);
         }
-        return fold_Ty.super_fold_with(ty, this);
+
+        // PORT: the provided `TypeFolder` methods it does not override.
+        fold_binder<T>(t: Binder<T>, d: TypeFoldable<T>): Binder<T> {
+          return TypeFolder_provided.fold_binder(this, t, d);
+        }
+        fold_region(r: Region): Region {
+          return TypeFolder_provided.fold_region(this, r);
+        }
+        fold_const(c: Const): Const {
+          return TypeFolder_provided.fold_const(this, c);
+        }
+        fold_predicate<P>(p: P, d: PredicateProxy<P>): P {
+          return TypeFolder_provided.fold_predicate(this, p, d);
+        }
+        fold_clauses(c: Clauses): Clauses {
+          return TypeFolder_provided.fold_clauses(this, c);
+        }
       }
 
-      // PORT: the provided `TypeFolder` methods it does not override.
-      fold_binder<T>(t: Binder<T>, d: TypeFoldable<T>): Binder<T> {
-        return TypeFolder_provided.fold_binder(this, t, d);
-      }
-      fold_region(r: Region): Region {
-        return TypeFolder_provided.fold_region(this, r);
-      }
-      fold_const(c: Const): Const {
-        return TypeFolder_provided.fold_const(this, c);
-      }
-      fold_predicate<P>(p: P, d: PredicateProxy<P>): P {
-        return TypeFolder_provided.fold_predicate(this, p, d);
-      }
-      fold_clauses(c: Clauses): Clauses {
-        return TypeFolder_provided.fold_clauses(this, c);
+      // We look at all item-bounds of the opaque, replacing the
+      // opaque with the current self type before considering
+      // them as a candidate. Imagine we've got `?x: Trait<?y>`
+      // and `?x` has been sub-unified with the hidden type of
+      // `impl Trait<u32>`, We take the item bound `opaque: Trait<u32>`
+      // and replace all occurrences of `opaque` with `?x`. This results
+      // in a `?x: Trait<u32>` alias-bound candidate.
+      for (const item_bound of iter_bounds(this.cx(), as_interner(this.cx()).item_self_bounds(opaque_ty.kind), opaque_ty.args)) {
+        const assumption = fold_Clause.fold_with(item_bound, new ReplaceOpaque(this.cx(), opaque_ty, self_ty));
+        const c = G.probe_and_match_goal_against_assumption(
+          this,
+          { $: "AliasBound", _0: AliasBoundKind.SelfBounds },
+          goal,
+          assumption,
+          (ecx) =>
+            // We want to reprove this goal once we've inferred the
+            // hidden type, so we force the certainty to `Maybe`.
+            ecx.evaluate_added_goals_and_make_canonical_response(Certainty.AMBIGUOUS),
+        );
+        if (c.$ === "Ok") candidates.push(c._0);
       }
     }
 
-    // We look at all item-bounds of the opaque, replacing the
-    // opaque with the current self type before considering
-    // them as a candidate. Imagine we've got `?x: Trait<?y>`
-    // and `?x` has been sub-unified with the hidden type of
-    // `impl Trait<u32>`, We take the item bound `opaque: Trait<u32>`
-    // and replace all occurrences of `opaque` with `?x`. This results
-    // in a `?x: Trait<u32>` alias-bound candidate.
-    for (const item_bound of iter_bounds(this.cx(), as_interner(this.cx()).item_self_bounds(opaque_ty.kind), opaque_ty.args)) {
-      const assumption = fold_Clause.fold_with(item_bound, new ReplaceOpaque(this.cx(), opaque_ty, self_ty));
-      const c = G.probe_and_match_goal_against_assumption(
-        this,
-        { $: "AliasBound", _0: AliasBoundKind.SelfBounds },
-        goal,
-        assumption,
-        (ecx) =>
-          // We want to reprove this goal once we've inferred the
-          // hidden type, so we force the certainty to `Maybe`.
-          ecx.evaluate_added_goals_and_make_canonical_response(Certainty.AMBIGUOUS),
+    // If the self type is sub unified with any opaque type, we also look at blanket
+    // impls for it.
+    //
+    // See tests/ui/impl-trait/non-defining-uses/use-blanket-impl.rs for an example.
+    if (AssembleCandidatesFrom.should_assemble_impl_candidates(assemble_from)) {
+      const cx = this.cx();
+      const goal_trait_ref = G.trait_ref(goal.predicate, cx);
+
+      const r = as_interner(cx).for_each_blanket_impl(
+        G.trait_def_id(goal.predicate, cx),
+        (impl_def_id): Result<null, RerunNonErased> => {
+          const m = RerunResultExt_for_Result.map_err_to_rerun(
+            G.consider_impl_candidate(this, goal, goal_trait_ref, impl_def_id, (ecx) => {
+              if (Ty_provided.is_ty_var(ecx.shallow_resolve(self_ty))) {
+                // We force the certainty of impl candidates to be `Maybe`.
+                return ecx.evaluate_added_goals_and_make_canonical_response(Certainty.AMBIGUOUS);
+              } else {
+                // We don't want to use impls if they constrain the opaque.
+                //
+                // FIXME(trait-system-refactor-initiative#229): This isn't
+                // perfect yet as it still allows us to incorrectly constrain
+                // other inference variables.
+                return Err(NoSolutionOrRerunNonErased.from_NoSolution(NoSolution));
+              }
+            }),
+          );
+          if (m.$ === "Err") return m;
+          switch (m._0.$) {
+            case "Ok":
+              candidates.push(m._0._0);
+              break;
+            case "Err":
+              break;
+          }
+
+          return Ok(null);
+        },
+        VisitorResultC.Result<RerunNonErased>(),
       );
+      if (r.$ === "Err") return r;
+    }
+
+    if (candidates.length === 0) {
+      const source: CandidateSource = { $: "BuiltinImpl", _0: { $: "Misc" } };
+      const certainty: Certainty = {
+        $: "Maybe",
+        _0: {
+          cause: { $: "Ambiguity" },
+          opaque_types_jank: "ErrorIfRigidSelfTy",
+          stalled_on_coroutines: "No",
+        },
+      };
+      const c = this.probe_trait_candidate(source).enter((this_) => this_.evaluate_added_goals_and_make_canonical_response(certainty));
       if (c.$ === "Ok") candidates.push(c._0);
     }
-  }
 
-  // If the self type is sub unified with any opaque type, we also look at blanket
-  // impls for it.
-  //
-  // See tests/ui/impl-trait/non-defining-uses/use-blanket-impl.rs for an example.
-  if (AssembleCandidatesFrom.should_assemble_impl_candidates(assemble_from)) {
-    const cx = this.cx();
-    const goal_trait_ref = G.trait_ref(goal.predicate, cx);
-
-    const r = as_interner(cx).for_each_blanket_impl(
-      G.trait_def_id(goal.predicate, cx),
-      (impl_def_id): Result<null, RerunNonErased> => {
-        const m = RerunResultExt_for_Result.map_err_to_rerun(
-          G.consider_impl_candidate(this, goal, goal_trait_ref, impl_def_id, (ecx) => {
-            if (Ty_provided.is_ty_var(ecx.shallow_resolve(self_ty))) {
-              // We force the certainty of impl candidates to be `Maybe`.
-              return ecx.evaluate_added_goals_and_make_canonical_response(Certainty.AMBIGUOUS);
-            } else {
-              // We don't want to use impls if they constrain the opaque.
-              //
-              // FIXME(trait-system-refactor-initiative#229): This isn't
-              // perfect yet as it still allows us to incorrectly constrain
-              // other inference variables.
-              return Err(NoSolutionOrRerunNonErased.from_NoSolution(NoSolution));
-            }
-          }),
-        );
-        if (m.$ === "Err") return m;
-        switch (m._0.$) {
-          case "Ok":
-            candidates.push(m._0._0);
-            break;
-          case "Err":
-            break;
-        }
-
-        return Ok(null);
-      },
-      VisitorResultC.Result<RerunNonErased>(),
-    );
-    if (r.$ === "Err") return r;
-  }
-
-  if (candidates.length === 0) {
-    const source: CandidateSource = { $: "BuiltinImpl", _0: { $: "Misc" } };
-    const certainty: Certainty = {
-      $: "Maybe",
-      _0: {
-        cause: { $: "Ambiguity" },
-        opaque_types_jank: "ErrorIfRigidSelfTy",
-        stalled_on_coroutines: "No",
-      },
-    };
-    const c = this.probe_trait_candidate(source).enter((this_) => this_.evaluate_added_goals_and_make_canonical_response(certainty));
-    if (c.$ === "Ok") candidates.push(c._0);
-  }
-
-  return Ok(undefined);
+    return Ok(undefined);
+  });
 };
 
 /// Assemble and merge candidates for goals which are related to an underlying trait
@@ -1801,4 +1804,12 @@ function fold_Goal<G>(G: GoalKind<G>): TypeFoldable<Goal<G>> {
  * tyir-solve). */
 function debug_CandidateHeadUsages(_v: CandidateHeadUsages, _f: Fmt): string {
   return unported("rustc_type_ir::search_graph::CandidateHeadUsages: Debug (search_graph/mod.rs, derived)");
+}
+
+/** PORT: `G: Debug` of a `GoalKind` descriptor, registered beside it (src/rust_ts/tracing.ts `register_debug`); another
+ *  one stops with `unported` when the span would be recorded. */
+function goal_kind_debug<G>(G: GoalKind<G>, site: string): Debug<G> {
+  const d = tracing.registered_debug<G>(G.fold_with);
+  if (d === undefined) return unported(`tracing INFO site: ${site}: the \`Debug\` of a \`GoalKind\` with none registered`);
+  return d;
 }

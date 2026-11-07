@@ -11,6 +11,8 @@
 // fields of `RegionInferenceContextInner` have the same names.
 // PORT: `Option<&mut Vec<ClosureOutlivesRequirement>>` is the vector or `undefined`; `&mut Option<&mut Vec<..>>` is a
 // `MutRef` of it. `impl Fn(RegionVid) -> bool` is an arrow fn. `T: TypeFoldable` adds the descriptor `d_T` last.
+import { debug_OutlivesConstraint } from "../constraints/mod.ts";
+import { debug_option, debug_tuple, debug_vec } from "../../std/fmt.ts";
 import * as tracing from "../../rust_ts/tracing.ts";
 import { Iterator_EdgesFromGraph, Iterator_EdgesFromStatic } from "../constraints/graph.ts";
 import { clone_OutlivesConstraint, type ConstraintSccIndex, type OutlivesConstraint } from "../constraints/mod.ts";
@@ -546,11 +548,12 @@ RegionInferenceContextInner.prototype.constraint_path_to = function (
   target_test: (a0: RegionVid) => boolean,
   include_placeholder_static: boolean,
 ): [OutlivesConstraint[], RegionVid] | undefined {
-  tracing.info_unconverted("rustc_borrowck::region_infer::region_context", "compiler/rustc_borrowck/src/region_infer/region_context.rs:411 (`#[instrument(.., ret)]`)");
-  return (
-    this.find_constraint_path_between_regions_inner(true, from_region, target_test, include_placeholder_static) ??
-    this.find_constraint_path_between_regions_inner(false, from_region, target_test, include_placeholder_static)
-  );
+  return tracing.instrument("rustc_borrowck::region_infer::region_context", "constraint_path_to", () => [["from_region", () => debug_RegionVid(from_region, PLAIN)], ["include_placeholder_static", () => String(include_placeholder_static)]], () => {
+    return (
+      this.find_constraint_path_between_regions_inner(true, from_region, target_test, include_placeholder_static) ??
+      this.find_constraint_path_between_regions_inner(false, from_region, target_test, include_placeholder_static)
+    );
+  }, (x) => debug_option(x, PLAIN, ([path, r], f) => debug_tuple(f, "", [debug_vec(path, f, debug_OutlivesConstraint), debug_RegionVid(r, f)])));
 };
 
 /// The constraints we get from equating the hidden type of each use of an opaque

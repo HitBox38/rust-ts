@@ -19,6 +19,8 @@
 // generators, so they are consumed in the same order and as lazily as upstream.
 // PORT: `#[instrument]`, `debug!`, `trace!` (tracing) produce no output in the oracle: kept as comments.
 // `debug_assert!` is a comment (release oracle).
+import * as tracing from "../../rust_ts/tracing.ts";
+import { debug_TraitClause } from "../../rustc_type_ir/predicate.ts";
 import { VisitorResult } from "../../rustc_ast_ir/visit.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import type { AdtDef, BoundExistentialPredicates, Clause, GenericArgs, Predicate } from "../../rustc_middle/ty/decls.ts";
@@ -1134,6 +1136,8 @@ export const GoalKind_TraitClause: GoalKind<TraitClause> = {
   },
 
 };
+// PORT: `G: Debug` for the `#[instrument]`ed fns generic over a `GoalKind` (src/rust_ts/tracing.ts `register_debug`).
+tracing.register_debug(GoalKind_TraitClause.fold_with, debug_TraitClause);
 
 /// Small helper function to change the `def_id` of a trait predicate - this is not normally
 /// something that you want to do, as different traits will require different args and so making
