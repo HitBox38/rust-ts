@@ -9,12 +9,12 @@ error[E0512]: cannot transmute between types of different sizes, or dependently-
    = note: target type: `B53Above` (72057594037927944 bits)
 
 error[E0512]: cannot transmute between types of different sizes, or dependently-sized types
-  --> big_err.rs:30:14
+  --> big_err.rs:31:14
    |
-30 |     unsafe { transmute(x) }
+31 |     unsafe { transmute(x) }
    |              ^^^^^^^^^
    |
-   = note: source type: `Generic<T>` (the type `T` has an unknown layout)
+   = note: source type: `Generic<T>` (size can vary because of T)
    = note: target type: `&u8` (64 bits)
 
 error: aborting due to 2 previous errors

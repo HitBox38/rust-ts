@@ -25,7 +25,8 @@ pub fn different(x: B53) -> B53Above {
 }
 
 // rustc_middle ty::layout `SizeSkeleton::compute`: the 1-ZST test on a known-size field of a generic struct.
-pub struct Generic<T: PointeeSized + 'static>(&'static T, [u8; 9007199254740992]);
-pub fn generic<T: PointeeSized>(x: Generic<T>) -> &'static u8 {
+// `T` makes the layout `TooGeneric`, and the known field comes first.
+pub struct Generic<T>([u8; 9007199254740992], T);
+pub fn generic<T>(x: Generic<T>) -> &'static u8 {
     unsafe { transmute(x) }
 }
