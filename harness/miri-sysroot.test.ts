@@ -97,3 +97,38 @@ console.log(JSON.stringify({
   expect(j.absent).toBe("sysroot rlib: differs: not in the sysroot");
   writeFileSync(join(TMP, "done"), "");
 }, 30_000);
+
+test("two runs of one crate and side at once each compile into a directory of their own (review miri-sysroot F2)", async () => {
+  const data = join(TMP, "data");
+  const stub = join(TMP, "stub-compiler.ts");
+  // Writes its three files a second after it starts, into the out dir it was given, as rustc would fail to if that dir were gone.
+  writeFileSync(
+    stub,
+    `import { writeFileSync } from "node:fs";
+const a = process.argv.slice(2);
+const i = a.indexOf("--out-dir");
+const out = i >= 0 ? a[i + 1] : a.find((x) => x.startsWith("--out-dir="))!.slice("--out-dir=".length);
+await Bun.sleep(1000);
+writeFileSync(out + "/libcore.rmeta", "rmeta");
+writeFileSync(out + "/libcore.rlib", "rlib!");
+writeFileSync(out + "/core.d", out + "/libcore.rmeta: lib.rs\\n");
+`,
+  );
+  // The crate's cwd, under the temp data root's toolchain.
+  const setup = `const { miriSysrootInvocation } = await import(${JSON.stringify(join(REPO, "harness/miri-sysroot.ts"))}); console.log(miriSysrootInvocation("core", "x").cwd);`;
+  const env = { ...process.env, RUST_TS_DATA: data } as Record<string, string>;
+  const cwd = Bun.spawnSync([process.execPath, "-e", setup], { cwd: REPO, env, stdout: "pipe", stderr: "pipe" });
+  expect(cwd.exitCode, cwd.stderr.toString()).toBe(0);
+  Bun.spawnSync(["mkdir", "-p", cwd.stdout.toString().trim()]);
+  const one = () => Bun.spawn([process.execPath, join(REPO, "scripts/miri-sysroot-run.ts"), "--crate", "core", "--side", "subject", "--", process.execPath, stub], { cwd: REPO, env, stdout: "pipe", stderr: "pipe" });
+  const first = one();
+  await Bun.sleep(300);
+  const second = one();
+  const rs = await Promise.all([first, second].map(async (p) => [await p.exited, await new Response(p.stdout).text(), await new Response(p.stderr).text()] as const));
+  expect(rs[0]![0], rs[0]![2]).toBe(0);
+  expect(rs[1]).toEqual(rs[0]!);
+  expect(rs[0]![1]).toContain("rmeta: 5 bytes, sha256 ");
+  expect(rs[0]![1]).toContain("files: core.d libcore.rlib libcore.rmeta\n");
+  // Not in this sysroot, so `differs`: one is kept for diagnosis under the side's name, and no run's own directory is left.
+  expect(readdirSync(join(data, "rmeta", "miri-sysroot", "core"))).toEqual(["subject"]);
+}, 60_000);
