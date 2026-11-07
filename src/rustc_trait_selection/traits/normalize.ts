@@ -12,6 +12,8 @@
 //
 // Init order: top-level code here touches only rustc_infer (loaded first by ../lib.ts) and other crates.
 
+import { debug_GenericArg, fold_Predicate } from "../../rustc_middle/ty/structural_impls.ts";
+import { fold_GenericArg } from "../../rustc_middle/ty/generic_args.ts";
 import { At, type InferCtxt } from "../../rustc_infer/decls.ts";
 import { InferOk } from "../../rustc_infer/infer/mod.ts";
 import type { FromSolverError, TraitEngine } from "../../rustc_infer/traits/engine.ts";
@@ -24,11 +26,15 @@ import { Term as TermC, Ty } from "../../rustc_middle/ty/mod.ts";
 import { Predicate_upcast_from_Clause, Predicate_upcast_from_ClauseKind } from "../../rustc_middle/ty/predicate.ts";
 import { debug_Obligation } from "../../rustc_infer/traits/mod.ts";
 import { debug_Predicate } from "../../rustc_middle/ty/predicate.ts";
-import { fold_Clause, fold_Ty } from "../../rustc_middle/ty/structural_impls.ts";
-import { fold_Term } from "../../rustc_middle/ty/mod.ts";
+import { debug_Clause, debug_Ty, fold_Clause, fold_Ty } from "../../rustc_middle/ty/structural_impls.ts";
+import { debug_Term, fold_Term } from "../../rustc_middle/ty/mod.ts";
 import type { DefId } from "../../rustc_span/def_id.ts";
 import type { Span } from "../../rustc_span/lib.ts";
 import { type Binder, EarlyBinder, fold_Binder } from "../../rustc_type_ir/binder.ts";
+import { debug_Binder } from "../../rustc_type_ir/binder.gen.ts";
+import { fold_with_TraitRef } from "../../rustc_type_ir/predicate.gen.ts";
+import { debug_TraitRef } from "../../rustc_type_ir/ir_print.ts";
+import { debug_FnSig, fold_FnSig } from "../../rustc_type_ir/ty_kind.ts";
 import { AliasConstKind } from "../../rustc_type_ir/const_kind.ts";
 import type { Pending } from "../../rustc_type_ir/decls.ts";
 import type { AliasTerm } from "../../rustc_type_ir/ty/alias.ts";
@@ -51,7 +57,9 @@ import { fold_with_Alias, try_fold_with_Alias, visit_with_Alias } from "../../ru
 import { fold_GenericArgs } from "../../rustc_middle/ty/generic_args.ts";
 import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
 import { type TypeVisitable, TypeVisitableExt } from "../../rustc_type_ir/visit.ts";
-import { debug_vec, PRETTY } from "../../std/fmt.ts";
+import { type Debug, debug_tuple, debug_vec, type Fmt, PLAIN, PRETTY } from "../../std/fmt.ts";
+import * as tracing from "../../rust_ts/tracing.ts";
+import { debug_Unnormalized } from "../../rustc_type_ir/unnormalized.gen.ts";
 import { assert, unported, unreachable } from "../../std/panic.ts";
 import { span_bug } from "../../rustc_span/macros.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
@@ -158,13 +166,58 @@ export function normalize_with_depth_to<T>(
   obligations: PredicateObligations,
   d_T: TypeFoldable<T>,
 ): T {
-  // debug!(obligations.len = obligations.len());
-  const normalizer = AssocTypeNormalizer.new(selcx, param_env, cause, depth, obligations);
-  const result = normalizer.fold(Unnormalized.skip_normalization(value), d_T);
-  // debug!(?result, obligations.len = normalizer.obligations.len());
-  // debug!(?normalizer.obligations,);
-  return result;
+  return tracing.instrument(
+    "rustc_trait_selection::traits::normalize",
+    "normalize_with_depth_to",
+    () => [
+      ["depth", () => String(depth)],
+      ["value", () => debug_Unnormalized(value, PLAIN, debug_of_foldable(d_T, "compiler/rustc_trait_selection/src/traits/normalize.rs:112"))],
+    ],
+    () => {
+      // debug!(obligations.len = obligations.len());
+      const normalizer = AssocTypeNormalizer.new(selcx, param_env, cause, depth, obligations);
+      const result = normalizer.fold(Unnormalized.skip_normalization(value), d_T);
+      // debug!(?result, obligations.len = normalizer.obligations.len());
+      // debug!(?normalizer.obligations,);
+      return result;
+    },
+  );
 }
+
+/**
+ * PORT: the `T: Debug` bound of a generic fn under `#[instrument]` (its argument's `{:?}`), found from `T`'s
+ * `TypeFoldable` descriptor, which is what the port passes for `T`. Descriptors are local objects in many files, but most
+ * share `T`'s `fold_with` function, so that is the key (`tracing.register_debug`; a file whose descriptor has its own
+ * `fold_with` registers that). A `fold_Binder(d)` descriptor is `Binder<T>` with `d`'s Debug, a `fold_tuple2/3` descriptor the tuple of its parts'. Another descriptor stops
+ * with `unported` when the span would be recorded (`site` names the instrumented fn).
+ */
+function debug_of_foldable<T>(d_T: TypeFoldable<T>, site: string): Debug<T> {
+  const inner = (d_T as { [tracing.BINDER_INNER]?: TypeFoldable<unknown> })[tracing.BINDER_INNER];
+  if (inner !== undefined) {
+    const debug_inner = debug_of_foldable(inner, site);
+    return ((v: Binder<unknown>, f: Fmt) => debug_Binder(v, f, debug_inner)) as unknown as Debug<T>;
+  }
+  const parts = (d_T as { [tracing.TUPLE_PARTS]?: readonly TypeFoldable<unknown>[] })[tracing.TUPLE_PARTS];
+  if (parts !== undefined) {
+    const debug_parts = parts.map((p) => debug_of_foldable(p, site));
+    return ((v: readonly unknown[], f: Fmt) => debug_tuple(f, "", debug_parts.map((d, i) => d(v[i], f)))) as unknown as Debug<T>;
+  }
+  const d = tracing.registered_debug<T>(d_T.fold_with);
+  if (d === undefined) return unported(`tracing INFO site: ${site}: the \`Debug\` of a value whose \`TypeFoldable\` descriptor (\`${d_T.fold_with.name}\`) has none registered`);
+  return d;
+}
+tracing.register_debug(fold_Ty.fold_with, debug_Ty);
+tracing.register_debug(fold_Term.fold_with, debug_Term);
+tracing.register_debug(fold_Clause.fold_with, debug_Clause);
+tracing.register_debug(fold_with_TraitRef, debug_TraitRef);
+tracing.register_debug(fold_FnSig.fold_with, debug_FnSig);
+tracing.register_debug(fold_GenericArg.fold_with, debug_GenericArg);
+tracing.register_debug(fold_Predicate.fold_with, debug_Predicate);
+// `std::any::type_name` of the types defined at compiler/rustc_middle/src/ty/mod.rs:517 (`Ty`),
+// ty/generic_args.rs:37 (`GenericArg`) and ty/predicate.rs:46 (`Predicate`); a lifetime parameter prints as `'_`.
+tracing.register_type_name(fold_Ty.fold_with, "rustc_middle::ty::Ty<'_>");
+tracing.register_type_name(fold_GenericArg.fold_with, "rustc_middle::ty::generic_args::GenericArg<'_>");
+tracing.register_type_name(fold_Predicate.fold_with, "rustc_middle::ty::predicate::Predicate<'_>");
 
 // rustc: compiler/rustc_trait_selection/src/traits/normalize.rs:132 needs_normalization
 export function needs_normalization<T>(infcx: InferCtxt, value: T, d_T: TypeVisitable<T>): boolean {

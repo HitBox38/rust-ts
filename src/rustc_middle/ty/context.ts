@@ -88,7 +88,8 @@ import { DefId_eq, DefIndex, debug_DefId, debug_LocalDefId } from "../../rustc_s
 import type { ErrorGuaranteed } from "../../rustc_span/lib.ts";
 import { sym } from "../../rustc_span/symbol.ts";
 import { PRETTY, type Debug, type Fmt, debug_bool, debug_struct, debug_vec } from "../../std/fmt.ts";
-import { unwrap } from "../../std/panic.ts";
+import { unreachable, unwrap } from "../../std/panic.ts";
+import { TypeFlags } from "../../rustc_type_ir/flags.ts";
 import { FnSig, FnSigKind, PolyFnSig } from "../../rustc_type_ir/ty_kind.ts";
 import { Binder, EarlyBinder } from "../../rustc_type_ir/binder.ts";
 import { supertrait_def_ids } from "../../rustc_type_ir/elaborate.ts";
@@ -2801,10 +2802,75 @@ function sty_debug_print_go(fmt: Fmt, tcx: TyCtxt, variants: readonly TyKind["$"
   void fmt;
   const total: DebugStat = { total: 0, lt_infer: 0, ty_infer: 0, ct_infer: 0, all_infer: 0 };
   const per_variant = new Map<string, DebugStat>(variants.map((v) => [v, { ...total }]));
-  void [tcx, per_variant];
 
-  // for shard in tcx.interners.type_.lock_shards() { for &(InternedInSet(t), ()) in shard.iter() { .. } }
-  return unported("rustc_data_structures::sharded::Sharded::lock_shards (iterating an interner; TyCtxt::debug_stats)");
+  for (const t of tcx.interners.type_.keys()) {
+    const k = t.kind().$;
+    if (k === "Bool" || k === "Char" || k === "Int" || k === "Uint" || k === "Float" || k === "Str" || k === "Never") continue;
+    if (k === "Error") continue; // unimportant
+    const variant = per_variant.get(k);
+    if (variant === undefined) return unreachable(`sty_debug_print: a type kind not listed: ${k}`);
+    const flags = t.flags();
+    const lt = TypeFlags.intersects(flags, TypeFlags.HAS_RE_INFER);
+    const ty = TypeFlags.intersects(flags, TypeFlags.HAS_TY_INFER);
+    const ct = TypeFlags.intersects(flags, TypeFlags.HAS_CT_INFER);
+
+    variant.total += 1;
+    total.total += 1;
+    if (lt) {
+      total.lt_infer += 1;
+      variant.lt_infer += 1;
+    }
+    if (ty) {
+      total.ty_infer += 1;
+      variant.ty_infer += 1;
+    }
+    if (ct) {
+      total.ct_infer += 1;
+      variant.ct_infer += 1;
+    }
+    if (lt && ty && ct) {
+      total.all_infer += 1;
+      variant.all_infer += 1;
+    }
+  }
+  const pc = (n: number, width: number): string => f64_fixed1((n * 100.0) / total.total).padStart(width);
+  let out = "Ty interner             total           ty lt ct all\n";
+  for (const name of variants) {
+    const v = per_variant.get(name)!;
+    out += `    ${name.padEnd(18)}: ${String(v.total).padStart(6)} ${pc(v.total, 4)}%, ${pc(v.ty_infer, 4)}% ${pc(v.lt_infer, 5)}% ${pc(v.ct_infer, 4)}% ${pc(v.all_infer, 4)}%\n`;
+  }
+  out += `                  total ${String(total.total).padStart(6)}        ${pc(total.ty_infer, 4)}% ${pc(total.lt_infer, 5)}% ${pc(total.ct_infer, 4)}% ${pc(total.all_infer, 4)}%\n`;
+  return out;
+}
+
+/**
+ * `format!("{:.1}", x)` for a finite or NaN `f64`: the exact decimal value of `x`, rounded to one fractional digit with
+ * ties to even (core's `float_to_decimal_common_exact`, `flt2dec::to_exact_fixed_str`), `NaN` for NaN. PORT: written
+ * here for `debug_stats`, its only user; src/std/fmt.ts has no precision.
+ */
+function f64_fixed1(x: number): string {
+  if (Number.isNaN(x)) return "NaN";
+  if (!Number.isFinite(x)) return x > 0 ? "inf" : "-inf";
+  const neg = x < 0 || Object.is(x, -0);
+  const buf = new DataView(new ArrayBuffer(8));
+  buf.setFloat64(0, Math.abs(x));
+  const bits = buf.getBigUint64(0);
+  const exp = Number((bits >> 52n) & 0x7ffn);
+  const frac = bits & 0xfffffffffffffn;
+  const m = exp === 0 ? frac : frac | (1n << 52n);
+  const e = (exp === 0 ? 1 : exp) - 1075;
+  // x * 10 = m * 10 * 2^e, rounded to an integer, ties to even.
+  let q: bigint;
+  if (e >= 0) {
+    q = m * 10n * (1n << BigInt(e));
+  } else {
+    const num = m * 10n;
+    const den = 1n << BigInt(-e);
+    q = num / den;
+    const r2 = (num % den) * 2n;
+    if (r2 > den || (r2 === den && q % 2n === 1n)) q += 1n;
+  }
+  return `${neg ? "-" : ""}${q / 10n}.${q % 10n}`;
 }
 
 // This type holds a `T` in the interner. The `T` is stored in the arena and

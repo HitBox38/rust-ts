@@ -13,6 +13,9 @@
 // - `format!("{ty}")` of a `Ty` is `display_Ty`; of a `Symbol` `Symbol.as_str`.
 // Init order: top-level code here may touch only ../decls.ts (the classes), this file's .gen.ts and other crates; every
 // other rustc_hir_typeck export is read inside function bodies only.
+import { PLAIN } from "../../std/fmt.ts";
+import { debug_Ty } from "../../rustc_middle/ty/structural_impls.ts";
+import * as tracing from "../../rust_ts/tracing.ts";
 import { ExprPrecedence, ExprPrecedence_discriminant } from "../../rustc_ast/util/parser.gen.ts";
 import { Mutability } from "../../rustc_ast_ir/lib.ts";
 import { LangItem } from "../../rustc_attr_ir/lang_items.ts";
@@ -716,47 +719,74 @@ FnCtxt.prototype.suggest_impl_fn_for_fn_ptr_ret = function (this: FnCtxt, err: D
 // #[instrument(skip(self, err))]
 // rustc: compiler/rustc_hir_typeck/src/fn_ctxt/suggestions.rs:745 suggest_calling_boxed_future_when_appropriate
 FnCtxt.prototype.suggest_calling_boxed_future_when_appropriate = function (this: FnCtxt, err: Diag, expr: hir.Expr, expected: Ty, found: Ty): boolean {
-  // Handle #68197.
+  return tracing.instrument("rustc_hir_typeck::fn_ctxt::suggestions", "suggest_calling_boxed_future_when_appropriate", () => [["expr", () => hir.debug_Expr(expr, PLAIN)], ["expected", () => debug_Ty(expected, PLAIN)], ["found", () => debug_Ty(found, PLAIN)]], () => {
+    // Handle #68197.
 
-  if (this.tcx.hir_is_inside_const_context(expr.hir_id)) {
-    // Do not suggest `Box::new` in const context.
-    return false;
-  }
-  const pin_did = this.tcx.lang_items().pin_type();
-  // This guards the `new_box` below.
-  if (pin_did === undefined || this.tcx.lang_items().owned_box() === undefined) {
-    return false;
-  }
-  const box_found = Ty.new_box(this.tcx, found);
-  const pin_box_found = Ty.new_lang_item(this.tcx, box_found, LangItem.Pin);
-  if (pin_box_found === undefined) {
-    return false;
-  }
-  const pin_found = Ty.new_lang_item(this.tcx, found, LangItem.Pin);
-  if (pin_found === undefined) {
-    return false;
-  }
-  const ek = expected.kind();
-  if (ek.$ === "Adt" && DefId_eq(ek._0.did(), pin_did)) {
-    if (this.may_coerce(pin_box_found, expected)) {
-      // debug!("can coerce {:?} to {:?}, suggesting Box::pin", pin_box_found, expected);
-      const fk = found.kind();
-      if (fk.$ === "Adt" && fk._0.is_box()) {
-        err.help("use `Box::pin`");
+    if (this.tcx.hir_is_inside_const_context(expr.hir_id)) {
+      // Do not suggest `Box::new` in const context.
+      return false;
+    }
+    const pin_did = this.tcx.lang_items().pin_type();
+    // This guards the `new_box` below.
+    if (pin_did === undefined || this.tcx.lang_items().owned_box() === undefined) {
+      return false;
+    }
+    const box_found = Ty.new_box(this.tcx, found);
+    const pin_box_found = Ty.new_lang_item(this.tcx, box_found, LangItem.Pin);
+    if (pin_box_found === undefined) {
+      return false;
+    }
+    const pin_found = Ty.new_lang_item(this.tcx, found, LangItem.Pin);
+    if (pin_found === undefined) {
+      return false;
+    }
+    const ek = expected.kind();
+    if (ek.$ === "Adt" && DefId_eq(ek._0.did(), pin_did)) {
+      if (this.may_coerce(pin_box_found, expected)) {
+        // debug!("can coerce {:?} to {:?}, suggesting Box::pin", pin_box_found, expected);
+        const fk = found.kind();
+        if (fk.$ === "Adt" && fk._0.is_box()) {
+          err.help("use `Box::pin`");
+        } else {
+          const name = this.tcx.hir_maybe_get_struct_pattern_shorthand_field(expr);
+          const prefix = name !== undefined ? `${Symbol.as_str(name)}: ` : "";
+          const suggestion: [Span, string][] = [
+            [Span.shrink_to_lo(expr.span), `${prefix}Box::pin(`],
+            [Span.shrink_to_hi(expr.span), ")"],
+          ];
+          err.multipart_suggestion("you need to pin and box this expression", suggestion, Applicability.MaybeIncorrect);
+        }
+        return true;
+      } else if (this.may_coerce(pin_found, expected)) {
+        const fk = found.kind();
+        if (fk.$ === "Adt" && fk._0.is_box()) {
+          err.help("use `Box::pin`");
+          return true;
+        } else {
+          return false;
+        }
       } else {
-        const name = this.tcx.hir_maybe_get_struct_pattern_shorthand_field(expr);
-        const prefix = name !== undefined ? `${Symbol.as_str(name)}: ` : "";
-        const suggestion: [Span, string][] = [
-          [Span.shrink_to_lo(expr.span), `${prefix}Box::pin(`],
-          [Span.shrink_to_hi(expr.span), ")"],
-        ];
-        err.multipart_suggestion("you need to pin and box this expression", suggestion, Applicability.MaybeIncorrect);
+        return false;
       }
-      return true;
-    } else if (this.may_coerce(pin_found, expected)) {
-      const fk = found.kind();
-      if (fk.$ === "Adt" && fk._0.is_box()) {
-        err.help("use `Box::pin`");
+    } else if (ek.$ === "Adt" && ek._0.is_box() && this.may_coerce(box_found, expected)) {
+      // Check if the parent expression is a call to Pin::new. If it
+      // is and we were expecting a Box, ergo Pin<Box<expected>>, we
+      // can suggest Box::pin.
+      const parent = this.tcx.parent_hir_node(expr.hir_id);
+      if (!(parent.$ === "Expr" && parent._0.kind.$ === "Call")) {
+        return false;
+      }
+      const fn_name = parent._0.kind._0;
+      const fk = fn_name.kind;
+      if (
+        fk.$ === "Path" &&
+        fk._0.$ === "TypeRelative" &&
+        fk._0._0.kind.$ === "Path" &&
+        fk._0._0.kind._0.$ === "Resolved" &&
+        (() => { const d = Res.opt_def_id(fk._0._0.kind._0._1.res); return d !== undefined && DefId_eq(d, pin_did); })() &&
+        fk._0._1.ident.name === sym.new
+      ) {
+        err.span_suggestion(fn_name.span, "use `Box::pin` to pin and box this expression", "Box::pin", Applicability.MachineApplicable);
         return true;
       } else {
         return false;
@@ -764,32 +794,7 @@ FnCtxt.prototype.suggest_calling_boxed_future_when_appropriate = function (this:
     } else {
       return false;
     }
-  } else if (ek.$ === "Adt" && ek._0.is_box() && this.may_coerce(box_found, expected)) {
-    // Check if the parent expression is a call to Pin::new. If it
-    // is and we were expecting a Box, ergo Pin<Box<expected>>, we
-    // can suggest Box::pin.
-    const parent = this.tcx.parent_hir_node(expr.hir_id);
-    if (!(parent.$ === "Expr" && parent._0.kind.$ === "Call")) {
-      return false;
-    }
-    const fn_name = parent._0.kind._0;
-    const fk = fn_name.kind;
-    if (
-      fk.$ === "Path" &&
-      fk._0.$ === "TypeRelative" &&
-      fk._0._0.kind.$ === "Path" &&
-      fk._0._0.kind._0.$ === "Resolved" &&
-      (() => { const d = Res.opt_def_id(fk._0._0.kind._0._1.res); return d !== undefined && DefId_eq(d, pin_did); })() &&
-      fk._0._1.ident.name === sym.new
-    ) {
-      err.span_suggestion(fn_name.span, "use `Box::pin` to pin and box this expression", "Box::pin", Applicability.MachineApplicable);
-      return true;
-    } else {
-      return false;
-    }
-  } else {
-    return false;
-  }
+  });
 };
 
 /// A common error is to forget to add a semicolon at the end of a block, e.g.,
@@ -1673,82 +1678,84 @@ FnCtxt.prototype.suggest_block_to_brackets = function (this: FnCtxt, diag: Diag,
 // #[instrument(skip(self, err))]
 // rustc: compiler/rustc_hir_typeck/src/fn_ctxt/suggestions.rs:1827 suggest_floating_point_literal
 FnCtxt.prototype.suggest_floating_point_literal = function (this: FnCtxt, err: Diag, expr: hir.Expr, expected_ty: Ty): boolean {
-  if (!expected_ty.is_floating_point()) {
-    return false;
-  }
-  const ek = expr.kind;
-  let qpath;
-  if (ek.$ === "Struct" && ek._1.length === 2 && hir.is_range_literal(expr) && this.tcx.qpath_is_lang_item(ek._0, LangItem.Range)) {
-    const [start, end] = [ek._1[0]!, ek._1[1]!];
-    err.span_suggestion_verbose(
-      Span.with_hi(Span.shrink_to_hi(start.expr.span), Span.lo(end.expr.span)),
-      "remove the unnecessary `.` operator for a floating point literal",
-      ".",
-      Applicability.MaybeIncorrect,
-    );
-    return true;
-  } else if (
-    ek.$ === "Struct" &&
-    ek._1.length === 1 &&
-    hir.is_range_literal(expr) &&
-    ((qpath = this.tcx.qpath_lang_item(ek._0)) === LangItem.RangeFrom || qpath === LangItem.RangeTo)
-  ) {
-    const arg = ek._1[0]!;
-    const range_span = unwrap(Span.parent_callsite(expr.span));
-    switch (qpath) {
-      case LangItem.RangeFrom:
-        err.span_suggestion_verbose(
-          Span.with_lo(range_span, Span.hi(arg.expr.span)),
-          "remove the unnecessary `.` operator for a floating point literal",
-          ".",
-          Applicability.MaybeIncorrect,
-        );
-        break;
-      default:
-        err.span_suggestion_verbose(
-          Span.until(range_span, arg.expr.span),
-          "remove the unnecessary `.` operator and add an integer part for a floating point literal",
-          "0.",
-          Applicability.MaybeIncorrect,
-        );
-    }
-    return true;
-  } else if (ek.$ === "Lit" && ek._0.node.$ === "Int" && ek._0.node._1.$ === "Unsuffixed") {
-    const lit = ek._0.node._0;
-    const span = ek._0.span;
-    const r = this.tcx.sess.source_map().span_to_snippet(span);
-    if (r.$ !== "Ok") {
+  return tracing.instrument("rustc_hir_typeck::fn_ctxt::suggestions", "suggest_floating_point_literal", () => [["expr", () => hir.debug_Expr(expr, PLAIN)], ["expected_ty", () => debug_Ty(expected_ty, PLAIN)]], () => {
+    if (!expected_ty.is_floating_point()) {
       return false;
     }
-    const snippet = r._0;
-    if (!(snippet.starts_with("0x") || snippet.starts_with("0X"))) {
-      return false;
-    }
-    if (snippet.len() <= 5 || !str_is_char_boundary(snippet, snippet.len() - 3)) {
-      return false;
-    }
-    const suffix = snippet.slice(snippet.len() - 3).toString();
-    let value: bigint;
-    switch (suffix) {
-      case "f32":
-        value = (lit - 0xf32n) / (16n * 16n * 16n);
-        break;
-      case "f64":
-        value = (lit - 0xf64n) / (16n * 16n * 16n);
-        break;
-      default:
+    const ek = expr.kind;
+    let qpath;
+    if (ek.$ === "Struct" && ek._1.length === 2 && hir.is_range_literal(expr) && this.tcx.qpath_is_lang_item(ek._0, LangItem.Range)) {
+      const [start, end] = [ek._1[0]!, ek._1[1]!];
+      err.span_suggestion_verbose(
+        Span.with_hi(Span.shrink_to_hi(start.expr.span), Span.lo(end.expr.span)),
+        "remove the unnecessary `.` operator for a floating point literal",
+        ".",
+        Applicability.MaybeIncorrect,
+      );
+      return true;
+    } else if (
+      ek.$ === "Struct" &&
+      ek._1.length === 1 &&
+      hir.is_range_literal(expr) &&
+      ((qpath = this.tcx.qpath_lang_item(ek._0)) === LangItem.RangeFrom || qpath === LangItem.RangeTo)
+    ) {
+      const arg = ek._1[0]!;
+      const range_span = unwrap(Span.parent_callsite(expr.span));
+      switch (qpath) {
+        case LangItem.RangeFrom:
+          err.span_suggestion_verbose(
+            Span.with_lo(range_span, Span.hi(arg.expr.span)),
+            "remove the unnecessary `.` operator for a floating point literal",
+            ".",
+            Applicability.MaybeIncorrect,
+          );
+          break;
+        default:
+          err.span_suggestion_verbose(
+            Span.until(range_span, arg.expr.span),
+            "remove the unnecessary `.` operator and add an integer part for a floating point literal",
+            "0.",
+            Applicability.MaybeIncorrect,
+          );
+      }
+      return true;
+    } else if (ek.$ === "Lit" && ek._0.node.$ === "Int" && ek._0.node._1.$ === "Unsuffixed") {
+      const lit = ek._0.node._0;
+      const span = ek._0.span;
+      const r = this.tcx.sess.source_map().span_to_snippet(span);
+      if (r.$ !== "Ok") {
         return false;
+      }
+      const snippet = r._0;
+      if (!(snippet.starts_with("0x") || snippet.starts_with("0X"))) {
+        return false;
+      }
+      if (snippet.len() <= 5 || !str_is_char_boundary(snippet, snippet.len() - 3)) {
+        return false;
+      }
+      const suffix = snippet.slice(snippet.len() - 3).toString();
+      let value: bigint;
+      switch (suffix) {
+        case "f32":
+          value = (lit - 0xf32n) / (16n * 16n * 16n);
+          break;
+        case "f64":
+          value = (lit - 0xf64n) / (16n * 16n * 16n);
+          break;
+        default:
+          return false;
+      }
+      err.span_suggestions(
+        expr.span,
+        "rewrite this as a decimal floating point literal, or use `as` to turn a hex literal into a float",
+        [`0x${value.toString(16).toUpperCase()} as ${suffix}`, `${value.toString()}_${suffix}`],
+        Applicability.MaybeIncorrect,
+      );
+      return true;
+    } else {
+      return false;
     }
-    err.span_suggestions(
-      expr.span,
-      "rewrite this as a decimal floating point literal, or use `as` to turn a hex literal into a float",
-      [`0x${value.toString(16).toUpperCase()} as ${suffix}`, `${value.toString()}_${suffix}`],
-      Applicability.MaybeIncorrect,
-    );
-    return true;
-  } else {
-    return false;
-  }
+  });
 };
 
 /// Suggest providing `std::ptr::null()` or `std::ptr::null_mut()` if they
@@ -1756,40 +1763,42 @@ FnCtxt.prototype.suggest_floating_point_literal = function (this: FnCtxt, err: D
 // #[instrument(skip(self, err))]
 // rustc: compiler/rustc_hir_typeck/src/fn_ctxt/suggestions.rs:1909 suggest_null_ptr_for_literal_zero_given_to_ptr_arg
 FnCtxt.prototype.suggest_null_ptr_for_literal_zero_given_to_ptr_arg = function (this: FnCtxt, err: Diag, expr: hir.Expr, expected_ty: Ty): boolean {
-  // Expected type needs to be a raw pointer.
-  const ek = expected_ty.kind();
-  if (ek.$ !== "RawPtr") {
-    return false;
-  }
-  const mutbl = ek._1;
+  return tracing.instrument("rustc_hir_typeck::fn_ctxt::suggestions", "suggest_null_ptr_for_literal_zero_given_to_ptr_arg", () => [["expr", () => hir.debug_Expr(expr, PLAIN)], ["expected_ty", () => debug_Ty(expected_ty, PLAIN)]], () => {
+    // Expected type needs to be a raw pointer.
+    const ek = expected_ty.kind();
+    if (ek.$ !== "RawPtr") {
+      return false;
+    }
+    const mutbl = ek._1;
 
-  // Provided expression needs to be a literal `0`.
-  const xk = expr.kind;
-  if (!(xk.$ === "Lit" && xk._0.node.$ === "Int" && xk._0.node._0 === 0n)) {
-    return false;
-  }
-  const span = xk._0.span;
+    // Provided expression needs to be a literal `0`.
+    const xk = expr.kind;
+    if (!(xk.$ === "Lit" && xk._0.node.$ === "Int" && xk._0.node._0 === 0n)) {
+      return false;
+    }
+    const span = xk._0.span;
 
-  // We need to find a null pointer symbol to suggest
-  let null_sym: Symbol;
-  switch (mutbl) {
-    case "Not":
-      null_sym = sym.ptr_null;
-      break;
-    case "Mut":
-      null_sym = sym.ptr_null_mut;
-      break;
-  }
-  const null_did = this.tcx.get_diagnostic_item(null_sym);
-  if (null_did === undefined) {
-    return false;
-  }
-  const null_path_str = with_no_trimmed_paths(() => this.tcx.def_path_str(null_did));
+    // We need to find a null pointer symbol to suggest
+    let null_sym: Symbol;
+    switch (mutbl) {
+      case "Not":
+        null_sym = sym.ptr_null;
+        break;
+      case "Mut":
+        null_sym = sym.ptr_null_mut;
+        break;
+    }
+    const null_did = this.tcx.get_diagnostic_item(null_sym);
+    if (null_did === undefined) {
+      return false;
+    }
+    const null_path_str = with_no_trimmed_paths(() => this.tcx.def_path_str(null_did));
 
-  // We have satisfied all requirements to provide a suggestion. Emit it.
-  err.span_suggestion(span, `if you meant to create a null pointer, use \`${null_path_str}()\``, null_path_str + "()", Applicability.MachineApplicable);
+    // We have satisfied all requirements to provide a suggestion. Emit it.
+    err.span_suggestion(span, `if you meant to create a null pointer, use \`${null_path_str}()\``, null_path_str + "()", Applicability.MachineApplicable);
 
-  return true;
+    return true;
+  });
 };
 
 // rustc: compiler/rustc_hir_typeck/src/fn_ctxt/suggestions.rs:1947 suggest_associated_const

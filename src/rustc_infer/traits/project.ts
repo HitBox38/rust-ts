@@ -5,6 +5,11 @@
 //
 // PORT: `tracing` (`debug!` / `info!`) is left out (kept as comments).
 
+import { debug_Normalized } from "./structural_impls.ts";
+import { debug_ProjectionCacheEntry } from "./project.gen.ts";
+import { debug_Term } from "../../rustc_middle/ty/mod.ts";
+import { debug_option } from "../../std/fmt.ts";
+import * as tracing from "../../rust_ts/tracing.ts";
 import { clone_Normalized, clone_ProjectionCacheEntry, debug_ProjectionCacheKey, Normalized, ProjectionCacheEntry, ProjectionCacheKey } from "./project.gen.ts";
 
 export * from "./project.gen.ts";
@@ -165,7 +170,7 @@ ProjectionCache.prototype.complete = function (this: ProjectionCache, key: Proje
   const map = this.map();
   const entry = map.get(key);
   if (entry !== undefined && entry.$ === "NormalizedTerm") {
-    // info!("ProjectionCacheEntry::complete({:?}) - completing {:?}", key, ty);
+    tracing.info("rustc_infer::traits::project", () => `ProjectionCacheEntry::complete(${debug_ProjectionCacheKey(key, PLAIN)}) - completing ${debug_Normalized(entry.ty, PLAIN, debug_Term)}`);
     const ty = clone_Normalized(entry.ty, (x) => x);
     if (EvaluationResult.must_apply_considering_regions(result)) {
       ty.obligations = [];
@@ -174,7 +179,7 @@ ProjectionCache.prototype.complete = function (this: ProjectionCache, key: Proje
   } else {
     // Type inference could "strand behind" old cache entries. Leave
     // them alone for now.
-    // info!("ProjectionCacheEntry::complete({:?}) - ignoring {:?}", key, value);
+    tracing.info("rustc_infer::traits::project", () => `ProjectionCacheEntry::complete(${debug_ProjectionCacheKey(key, PLAIN)}) - ignoring ${debug_option(entry, PLAIN, debug_ProjectionCacheEntry)}`);
   }
 };
 

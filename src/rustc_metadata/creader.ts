@@ -47,7 +47,9 @@ import { display_Symbol, type Ident, Symbol, sym } from "../rustc_span/symbol.ts
 import type { StackProtector } from "../rustc_target/spec/mod.ts";
 import type { PanicStrategy, Target } from "../rustc_target/spec/mod.ts";
 import type { CrateType } from "../rustc_structures/lib.ts";
-import { type Debug, debug_bool, type Fmt } from "../std/fmt.ts";
+import { type Debug, debug_bool, type Fmt, PLAIN } from "../std/fmt.ts";
+import * as tracing from "../rust_ts/tracing.ts";
+import { display_Svh } from "../rustc_data_structures/svh.ts";
 import { assert, panic } from "../std/panic.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
 import * as diagnostics from "./diagnostics.ts";
@@ -692,7 +694,7 @@ export class CStore {
     if (feed.$ === "Err") return feed;
     const cnum = feed._0.key();
 
-    // info!("register crate `{}` (cnum = {}. private_dep = {})", crate_root.name(), cnum, private_dep);
+    tracing.info("rustc_metadata::creader", () => `register crate \`${display_Symbol(crate_root.name())}\` (cnum = ${String(cnum)}. private_dep = ${String(private_dep)})`);
 
     // Maintain a reference to the top most crate.
     // Stash paths for top-most crate locally if necessary.
@@ -858,7 +860,7 @@ export class CStore {
 
   // rustc: compiler/rustc_metadata/src/creader.rs:787 maybe_resolve_crate
   maybe_resolve_crate(tcx: TyCtxt, name: Symbol, dep_kind: CrateDepKind, origin: CrateOrigin): Result<CrateNum, CrateError> {
-    // info!("resolving crate `{}`", name);
+    tracing.info("rustc_metadata::creader", () => `resolving crate \`${display_Symbol(name)}\``);
     if (!is_ascii(Symbol.as_str(name))) {
       return Err({ $: "NonAsciiName", _0: name });
     }
@@ -876,7 +878,7 @@ export class CStore {
     if (cnum_ !== undefined) {
       result = [{ $: "Previous", _0: cnum_ }, undefined];
     } else {
-      // info!("falling back to a load");
+      tracing.info("rustc_metadata::creader", () => "falling back to a load");
       const locator = CrateLocator.new(
         tcx.sess,
         this.metadata_loader,
@@ -896,7 +898,7 @@ export class CStore {
       if (res !== undefined) {
         result = [res, undefined];
       } else {
-        // info!("falling back to loading proc_macro");
+        tracing.info("rustc_metadata::creader", () => "falling back to loading proc_macro");
         dep_kind = "MacrosOnly";
         const pm = this.load_proc_macro(tcx.sess, locator, crate_rejections, path_kind, host_hash);
         if (pm.$ === "Err") return pm;
@@ -913,7 +915,7 @@ export class CStore {
     const [load_result, host_library] = result;
     if (load_result.$ === "Previous" && host_library === undefined) {
       const cnum = load_result._0;
-      // info!("library for `{}` was loaded previously, cnum {cnum}", name);
+      tracing.info("rustc_metadata::creader", () => `library for \`${display_Symbol(name)}\` was loaded previously, cnum ${String(cnum)}`);
       // When `private_dep` is none, it indicates the directly dependent crate. If it is
       // not specified by `--extern` on command line parameters, it may be
       // `private-dependency` when `register_crate` is called for the first time. Then it must be updated to
@@ -928,7 +930,7 @@ export class CStore {
       return Ok(cnum);
     } else if (load_result.$ === "Loaded") {
       const library = load_result._0;
-      // info!("register newly loaded library for `{}`", name);
+      tracing.info("rustc_metadata::creader", () => `register newly loaded library for \`${display_Symbol(name)}\``);
       return this.register_crate(tcx, host_library, origin, library, dep_kind, name, private_dep);
     } else {
       return panic();
@@ -954,7 +956,7 @@ export class CStore {
     for (const [cnum, data] of this.iter_crate_data()) {
       if (data.name() === root_name && data.hash() === root_hash) {
         assert(locator.hash === undefined, "assertion failed: locator.hash.is_none()");
-        // info!("load success, going to previous cnum: {}", cnum);
+        tracing.info("rustc_metadata::creader", () => `load success, going to previous cnum: ${String(cnum)}`);
         result = { $: "Previous", _0: cnum };
         break;
       }
@@ -999,7 +1001,11 @@ export class CStore {
     for (let i = 0; i < n; i++) {
       const dep = deps[i]!;
       const dep_extra_filename = dep_extra_filenames[i + 1]!;
-      // info!("resolving dep `{}`->`{}` hash: `{}` extra filename: `{}` private {}", ..);
+      tracing.info(
+        "rustc_metadata::creader",
+        () =>
+          `resolving dep \`${display_Symbol(crate_root.name())}\`->\`${display_Symbol(dep.name)}\` hash: \`${display_Svh(dep.hash)}\` extra filename: \`${dep_extra_filename}\` private ${String(dep.is_private)}`,
+      );
       const dep_kind_: CrateDepKind = dep_kind === "MacrosOnly" ? "MacrosOnly" : dep.kind;
       const cnum = this.maybe_resolve_crate(tcx, dep.name, dep_kind_, {
         $: "IndirectDependency",
@@ -1030,7 +1036,7 @@ export class CStore {
     // panic runtime, so we just skip this section entirely.
     const only_rlib = tcx.crate_types().every((ct: CrateType) => ct === "Rlib");
     if (only_rlib && !is_std) {
-      // info!("panic runtime injection skipped, only generating rlib");
+      tracing.info("rustc_metadata::creader", () => "panic runtime injection skipped, only generating rlib");
       return;
     }
 
@@ -1081,7 +1087,7 @@ export class CStore {
       return;
     }
 
-    // info!("panic runtime not found -- loading {}", name);
+    tracing.info("rustc_metadata::creader", () => `panic runtime not found -- loading ${display_Symbol(name)}`);
 
     // By this point we know that we need a panic runtime. Here we just load
     // an appropriate default runtime for our panic strategy.
@@ -1125,7 +1131,7 @@ export class CStore {
       return;
     }
 
-    // info!("loading profiler");
+    tracing.info("rustc_metadata::creader", () => "loading profiler");
 
     // HACK: This uses conditional despite actually being unconditional to ensure that
     // there is no error emitted when two dylibs independently depend on profiler_builtins.
@@ -1280,15 +1286,15 @@ export class CStore {
   inject_compiler_builtins(tcx: TyCtxt, krate: Crate): void {
     // `compiler_builtins` does not get extern builtins, nor do `#![no_core]` crates
     if (attr.contains_name(krate.attrs, sym.compiler_builtins) || attr.contains_name(krate.attrs, sym.no_core)) {
-      // info!("`compiler_builtins` unneeded");
+      tracing.info("rustc_metadata::creader", () => "`compiler_builtins` unneeded");
       return;
     }
 
     // If a `#![compiler_builtins]` crate already exists, avoid injecting it twice. This is
     // the common case since usually it appears as a dependency of `std` or `alloc`.
-    for (const [_cnum, cmeta] of this.iter_crate_data()) {
+    for (const [cnum, cmeta] of this.iter_crate_data()) {
       if (cmeta.is_compiler_builtins()) {
-        // info!("`compiler_builtins` already exists (cnum = {cnum}); skipping injection");
+        tracing.info("rustc_metadata::creader", () => `\`compiler_builtins\` already exists (cnum = ${String(cnum)}); skipping injection`);
         return;
       }
     }
@@ -1296,7 +1302,7 @@ export class CStore {
     // `compiler_builtins` is not yet in the graph; inject it. Error on resolution failure.
     const cnum = this.resolve_crate(tcx, sym.compiler_builtins, Span.shrink_to_lo(krate.spans.inner_span), "Unconditional", CrateOrigin.Injected);
     if (cnum === undefined) {
-      // info!("`compiler_builtins` not resolved");
+      tracing.info("rustc_metadata::creader", () => "`compiler_builtins` not resolved");
       return;
     }
 
@@ -1380,7 +1386,7 @@ export class CStore {
     this.report_unused_deps_in_crate(tcx, krate);
     this.report_future_incompatible_deps(tcx, krate);
 
-    // info!("{:?}", self);
+    tracing.info("rustc_metadata::creader", () => debug_CStore(this, PLAIN));
   }
 
   /// Process an `extern crate foo` AST node.

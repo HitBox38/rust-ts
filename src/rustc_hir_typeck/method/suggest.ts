@@ -12,6 +12,7 @@
 // Init order: top-level code here may touch only ../decls.ts (the classes), this file's .gen.ts and other crates; every
 // other rustc_hir_typeck export is read inside function bodies only.
 export * from "./suggest.gen.ts";
+import * as tracing from "../../rust_ts/tracing.ts";
 import { unported_methods } from "../../rust_ts/stubs.ts";
 import { unported } from "../../std/panic.ts";
 import { FnCtxt } from "../decls.ts";
@@ -1829,7 +1830,7 @@ FnCtxt.prototype.handle_unsatisfied_predicates = function (
   if (bound_list.length !== 0 || skip_list.size !== 0) {
     const bound_list_str = bound_list.map(([, path]) => path).join("\n");
     const actual_prefix = rcvr_ty.prefix_string(this.tcx);
-    // info!("unimplemented_traits.len() == {}", unimplemented_traits.len());
+    tracing.info("rustc_hir_typeck::method::suggest", () => `unimplemented_traits.len() == ${unimplemented_traits.size}`);
     let primary_message: string | undefined;
     let label: string | undefined;
     let notes: string[];

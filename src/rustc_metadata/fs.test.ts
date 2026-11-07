@@ -6,7 +6,7 @@ import { expect, test } from "bun:test";
 import { mkdirSync, readdirSync, rmdirSync, statSync } from "node:fs";
 import { basename, join } from "node:path";
 import { test_scratch_dir } from "../rust_ts/test_scratch.ts";
-import { IoError_raw_os_error } from "../std/io.ts";
+import { display_IoError, IoError_kind, type IoError, io_error_from_node } from "../std/io.ts";
 import { TempDirBuilder } from "./fs.ts";
 
 const SCRATCH = test_scratch_dir("metadata-fs");
@@ -41,19 +41,19 @@ test("the suffix path: <prefix><6 alphanumerics><suffix>, a directory, the only 
   expect(readdirSync(dir)).toEqual([]);
 });
 
-test("at the path length limit it fails where mkdir does, with mkdir's error, and leaves nothing (N5, N6)", () => {
+test("at the path length limit it fails where mkdir does, with mkdir's error and the path, and leaves nothing (N5, N6)", () => {
   let failed = 0;
   for (const suffix of ["", ".sfx"]) {
     // `total` is the new directory's path length: 1,019 to 1,029 bytes on darwin, of which 1,024 and up fail.
     for (let total = PATH_MAX - 5; total <= PATH_MAX + 5; total++) {
       const name_len = "rmeta".length + 6 + suffix.length;
       const dir = dir_of_length(`limit${suffix}${total}`, total - 1 - name_len);
-      let plain: number | undefined;
+      let plain: IoError | undefined;
       try {
         mkdirSync(join(dir, "p".repeat(name_len)));
         rmdirSync(join(dir, "p".repeat(name_len)));
       } catch (e) {
-        plain = (e as { errno: number }).errno;
+        plain = io_error_from_node(e);
       }
       const r = TempDirBuilder.new().prefix("rmeta").suffix(suffix).tempdir_in(dir);
       if (plain === undefined) {
@@ -63,8 +63,12 @@ test("at the path length limit it fails where mkdir does, with mkdir's error, an
       } else {
         failed++;
         expect(r.$).toBe("Err");
-        // node's `errno` is negative.
-        if (r.$ === "Err") expect(IoError_raw_os_error(r._0)).toBe(Math.abs(plain));
+        // tempfile wraps it (`with_err_path`): the kind is kept, and the Display adds ` at path "<the new directory>"`.
+        if (r.$ === "Err") {
+          expect(IoError_kind(r._0)).toBe(IoError_kind(plain));
+          const esc = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          expect(display_IoError(r._0)).toMatch(new RegExp(`^${esc(display_IoError(plain))} at path "${esc(dir)}/rmeta[A-Za-z0-9]{6}${esc(suffix)}"$`));
+        }
       }
       expect(readdirSync(dir)).toEqual([]);
     }

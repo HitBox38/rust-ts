@@ -55,13 +55,15 @@
 // PORT: `IndexVec<CrateNum, Linkage>` is an array indexed by the crate number; `IndexVec::push` returns the new
 // element's index, which the `assert_eq!(ret.push(..), cnum)` checks compare as `ret.length - 1`. `info!` tracing
 // is kept as comments.
-import { CrateDepKind, type LinkagePreference } from "../rustc_crate_store/lib.ts";
+import { CrateDepKind, debug_LinkagePreference, type LinkagePreference } from "../rustc_crate_store/lib.ts";
+import * as tracing from "../rust_ts/tracing.ts";
+import { PLAIN } from "../std/fmt.ts";
 import { UnstableFeatures } from "../rustc_feature/lib.ts";
 import { type Dependencies, type DependencyList, Linkage } from "../rustc_middle/middle/dependency_format.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import { CrateNum, LOCAL_CRATE } from "../rustc_span/def_id.ts";
 import { bug } from "../rustc_span/macros.ts";
-import { Symbol, sym } from "../rustc_span/symbol.ts";
+import { display_Symbol, Symbol, sym } from "../rustc_span/symbol.ts";
 import type { CrateType } from "../rustc_structures/crate_type.ts";
 import type { PanicStrategy } from "../rustc_target/spec/mod.ts";
 import { assert } from "../std/panic.ts";
@@ -204,18 +206,18 @@ function calculate_type(tcx: TyCtxt, ty: CrateType): DependencyList {
   // dependency to be relied upon twice is for both cases to rely on a dylib.
   for (const cnum of all_dylibs()) {
     if (upstream_in_dylibs.has(cnum)) {
-      // info!("skipping dylib: {}", tcx.crate_name(cnum));
+      tracing.info("rustc_metadata::dependency_format", () => `skipping dylib: ${display_Symbol(tcx.crate_name(cnum))}`);
       // If this dylib is also available statically linked to another dylib
       // we try to use that instead.
       continue;
     }
 
-    const _name = tcx.crate_name(cnum);
-    // info!("adding dylib: {}", name);
+    const name = tcx.crate_name(cnum);
+    tracing.info("rustc_metadata::dependency_format", () => `adding dylib: ${display_Symbol(name)}`);
     add_library(tcx, cnum, "RequireDynamic", formats, unavailable_as_static);
     const deps = tcx.dylib_dependency_formats(cnum);
     for (const [depnum, style] of deps) {
-      // info!("adding {:?}: {}", style, tcx.crate_name(depnum));
+      tracing.info("rustc_metadata::dependency_format", () => `adding ${debug_LinkagePreference(style, PLAIN)}: ${display_Symbol(tcx.crate_name(depnum))}`);
       add_library(tcx, depnum, style, formats, unavailable_as_static);
     }
   }
@@ -248,7 +250,7 @@ function calculate_type(tcx: TyCtxt, ty: CrateType): DependencyList {
     const src = tcx.used_crate_source(cnum);
     if (src.dylib === undefined && !formats.has(cnum) && tcx.crate_dep_kind(cnum) === "Unconditional") {
       assert(src.rlib !== undefined || src.rmeta !== undefined, "assertion failed: src.rlib.is_some() || src.rmeta.is_some()");
-      // info!("adding staticlib: {}", tcx.crate_name(cnum));
+      tracing.info("rustc_metadata::dependency_format", () => `adding staticlib: ${display_Symbol(tcx.crate_name(cnum))}`);
       add_library(tcx, cnum, "RequireStatic", formats, unavailable_as_static);
       ret[cnum] = Linkage.Static;
     }

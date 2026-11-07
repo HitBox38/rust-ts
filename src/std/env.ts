@@ -17,7 +17,7 @@ import { readFileSync } from "node:fs";
 import { constants, homedir } from "node:os";
 import { dlopen, FFIType, type Pointer, ptr, read, toArrayBuffer } from "bun:ffi";
 import { io_error_from_node, io_error_from_raw_os_error, type IoResult } from "./io.ts";
-import { panic } from "./panic.ts";
+import { panic, unported } from "./panic.ts";
 import { Err, Ok, type Result } from "./result.ts";
 import { debug_os_bytes, from_utf8 } from "./str.ts";
 
@@ -330,14 +330,37 @@ export function set_current_dir(path: string | OsString): IoResult<null> {
   const last_errno = errno_reader();
   if (libc.chdir(ptr(p)) !== 0) return Err(io_error_from_raw_os_error(last_errno()));
   // PORT: Bun keeps its own copy of the cwd, which a child takes by default and against which `process.chdir` resolves a relative path.
-  // This refreshes it. It fails harmlessly, leaving the cwd alone, when the path is too long for Bun's buffer or not UTF-8.
-  const now = current_dir_str();
+  // This refreshes it. It fails harmlessly, leaving the cwd alone, when the path is too long for Bun's buffer. A cwd that is not UTF-8
+  // is skipped: its lossy decoding names another directory (`a\u{FFFD}b` for `a\xffb`), and if that one exists `process.chdir` would
+  // move the process there (fixers-43 review F6; Linux only, as APFS refuses such names, so fixed by reading).
+  const now = current_dir();
   if (now.$ === "Ok") {
-    try {
-      process.chdir(now._0);
-    } catch {}
+    const text = from_utf8(now._0);
+    if (text.$ === "Ok") {
+      try {
+        process.chdir(text._0);
+      } catch {}
+    }
   }
   return Ok(null);
+}
+
+/** `env::split_paths(unparsed).collect::<Vec<_>>()` on unix: the bytes split at every `:`, empty parts kept. PORT: Windows' rules
+ *  (`;`, `"` quoting) are not ported here; a Windows host stops. */
+// std: library/std/src/sys/paths/unix.rs:67 split_paths
+export function split_paths(unparsed: OsString): OsString[] {
+  if (process.platform === "win32") return unported("std::sys::paths::windows::split_paths (env::split_paths on a Windows host)");
+  // `PATH_SEPARATOR` is `b':'`.
+  const out: OsString[] = [];
+  let start = 0;
+  for (let i = 0; i < unparsed.length; i++) {
+    if (unparsed[i] === 0x3a) {
+      out.push(unparsed.subarray(start, i));
+      start = i + 1;
+    }
+  }
+  out.push(unparsed.subarray(start));
+  return out;
 }
 
 /** `std::env::VarError` */

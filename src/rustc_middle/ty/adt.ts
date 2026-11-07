@@ -17,6 +17,7 @@
 // the file (`const_eval_poly` / `ErrorHandled`: mir/interpret, lane mir-interp-b) (lane repr-options: `ReprOptions` is rustc_abi's). (merge-w15b: `VariantDef`,
 // `FieldDef`, `Destructor` are ty/mod.ts's, `Discr` / `IntTypeExt` ty/util.ts's, `ty::Value` / `ScalarInt`
 // ty/consts/*.ts's; ty/mod.ts / util.ts / valtree.ts are reached lazily.)
+import * as tracing from "../../rust_ts/tracing.ts";
 import { Fingerprint } from "../../rustc_data_structures/fingerprint.ts";
 import { Interned } from "../../rustc_data_structures/intern.ts";
 import { type StableHashCtxt, StableHasher, stable_hash_Fingerprint, stable_hash_IndexVec } from "../../rustc_data_structures/stable_hash.ts";
@@ -759,6 +760,7 @@ export class AdtDef extends Interned {
           return Ok(new (ty_util().Discr)(b, ty));
         } else {
           // info!("invalid enum discriminant: {:#?}", val);
+          tracing.info_unconverted("rustc_middle::ty::adt", "compiler/rustc_middle/src/ty/adt.rs:645 (`ConstValue`'s `{:#?}`)");
           const guar = tcx.dcx().emit_err(
             ConstEvalNonIntError_diagnostic({
               span: tcx.def_span(expr_did),

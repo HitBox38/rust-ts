@@ -4,22 +4,18 @@
 // need it). Not ported (no markers): `fix_windows_verbatim_for_gcc` (:24/:51, Windows linker paths),
 // `link_or_copy` (:62), `path_to_c_string` (:88/:99) and `TempDirBuilder` (:113..; output files, M5+).
 // `PathBuf` is a UTF-8 string (PORTING section 5).
-import { realpathSync } from "node:fs";
 import { win32 } from "node:path";
 import { current_dir_str } from "../std/env.ts";
 import { io_error_other, type IoResult } from "../std/io.ts";
 import { unreachable } from "../std/panic.ts";
-import { path_components, path_is_absolute, path_join } from "../std/path.ts";
+import { host_canonicalize, path_components, path_is_absolute, path_join } from "../std/path.ts";
 import { Err, Ok } from "../std/result.ts";
 
 // rustc: compiler/rustc_fs_util/src/lib.rs:104 try_canonicalize
 export function try_canonicalize(path: string): IoResult<string> {
   // `fs::canonicalize(&path).or_else(|_| absolute(&path))`
-  try {
-    return Ok(realpathSync.native(path));
-  } catch {
-    return absolute(path);
-  }
+  const r = host_canonicalize(path);
+  return r.$ === "Ok" ? r : absolute(path);
 }
 
 /**

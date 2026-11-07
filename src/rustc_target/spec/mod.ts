@@ -73,10 +73,11 @@ import { type Debug, debug_str } from "../../std/fmt.ts";
 import type { MutRef } from "../../std/mut_ref.ts";
 import { assert_eq, panic, unported, unwrap } from "../../std/panic.ts";
 import type { Decoder } from "../../rustc_serialize/serialize.ts";
-import { path_join } from "../../std/path.ts";
+import { path_is_absolute, path_join } from "../../std/path.ts";
+import { type OsString, split_paths, var_os } from "../../std/env.ts";
+import { from_utf8 } from "../../std/str.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
 import { existsSync, readFileSync, statSync } from "node:fs";
-import { delimiter } from "node:path";
 import { type Json, JsonObject, num_to_json, slice_to_json, str_to_json } from "../json.ts";
 import {
   relative_target_rustlib_path,
@@ -2794,11 +2795,20 @@ export class Target {
         // search for a file named `target_tuple`.json in RUST_TARGET_PATH
         const path = `${tuple}.json`;
 
-        const target_path = process.env.RUST_TARGET_PATH ?? "";
+        const target_path = var_os("RUST_TARGET_PATH") ?? new Uint8Array(0);
 
-        // PORT: `env::split_paths` (the platform's path-list separator; no quoting on Windows).
-        for (const dir of target_path.split(delimiter)) {
-          const p = path_join(dir, path);
+        for (const dir_os of split_paths(target_path)) {
+          // PORT: `PathBuf` is a string. A directory that is not UTF-8 is joined and tested as bytes (`dir.join(&path)` appends
+          // `/` unless `dir` is empty or ends with one, and an absolute `path` replaces it); if it names a file, loading it from a
+          // byte path is not ported.
+          const dir = from_utf8(dir_os);
+          if (dir.$ === "Err") {
+            if (is_file_os(join_os(dir_os, path))) {
+              return unported("rustc_target::spec::Target::search load_file (a RUST_TARGET_PATH directory that is not UTF-8)");
+            }
+            continue;
+          }
+          const p = path_join(dir._0, path);
           if (is_file(p)) {
             return load_file(p, unstable_options);
           }
@@ -2966,6 +2976,27 @@ function is_file(p: PathBuf): boolean {
   } catch {
     return false;
   }
+}
+
+/** `Path::is_file` of a byte path. */
+function is_file_os(p: OsString): boolean {
+  try {
+    return statSync(Buffer.from(p)).isFile();
+  } catch {
+    return false;
+  }
+}
+
+/** `dir.join(path)` for a byte `dir` and a string `path` (unix: `PathBuf::push`). */
+function join_os(dir: OsString, path: PathBuf): OsString {
+  const p = new TextEncoder().encode(path);
+  if (path_is_absolute(path)) return p;
+  const need_sep = dir.length > 0 && dir[dir.length - 1] !== 0x2f;
+  const out = new Uint8Array(dir.length + (need_sep ? 1 : 0) + p.length);
+  out.set(dir);
+  if (need_sep) out[dir.length] = 0x2f;
+  out.set(p, dir.length + (need_sep ? 1 : 0));
+  return out;
 }
 
 /// Metadata about a target like the description or tier.

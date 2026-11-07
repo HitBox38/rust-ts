@@ -83,7 +83,8 @@ import { FatalErrorMarker } from "../../rustc_span/fatal_error.ts";
 import { Panic, Unported, assert, panic, unported } from "../../std/panic.ts";
 import { report_uncaught, update_hook } from "../../std/panicking.ts";
 import { Err, Ok, type Result, unwrap_result } from "../../std/result.ts";
-import { existsSync, readdirSync, realpathSync, statSync } from "node:fs";
+import { existsSync, readdirSync, statSync } from "node:fs";
+import { host_canonicalize } from "../../std/path.ts";
 import { join } from "node:path";
 import { debug_IoError, write_stderr } from "../../std/io.ts";
 
@@ -141,7 +142,7 @@ class MiriCompilerCalls implements Callbacks {
     const file_name = Input.file_name(tcx.sess.io.input, tcx.sess);
     config.args.splice(0, 0, FileName.prefer_local_unconditionally(file_name).to_string());
     // And configure the executable.
-    // PORT (D14): `Path::canonicalize` is `realpathSync` (host file system).
+    // PORT (D14): `Path::canonicalize` is `host_canonicalize` (host file system, src/std/path.ts).
     const local = FileName.into_local_path(file_name);
     config.current_exe = local === undefined ? undefined : canonicalize(local);
 
@@ -215,11 +216,8 @@ function as_pending_exit_result(r: Result<null, number>): Result<null, Pending<"
 
 /** `Path::canonicalize(p).ok()` (PORT: D14, host file system). */
 function canonicalize(p: string): string | undefined {
-  try {
-    return realpathSync(p);
-  } catch {
-    return undefined;
-  }
+  const r = host_canonicalize(p);
+  return r.$ === "Ok" ? r._0 : undefined;
 }
 
 /** `eprintln!` */
