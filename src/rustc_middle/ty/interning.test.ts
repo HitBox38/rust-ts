@@ -20,6 +20,7 @@ import { Err, Ok, type Result } from "../../std/result.ts";
 import { CommonConsts, CommonLifetimes, CommonTypes, CtxtInterners, type GlobalCtxt, TyCtxt } from "./context.ts";
 import { GenericArg } from "./generic_args.ts";
 import { RawList } from "./list.ts";
+import type { CanonicalVarKind } from "../../rustc_type_ir/canonical.gen.ts";
 import { ScalarInt } from "./consts/int.ts";
 import { ValTree, Value } from "./consts/valtree.ts";
 import { Term, Ty } from "./mod.ts";
@@ -248,6 +249,17 @@ describe("List", () => {
     expect(tcx.mk_type_list_from_iter(bad(), CollectAndApply_Result)).toEqual(Err("e"));
     expect(pulled).toBe(2);
     expect(tcx.mk_args_trait(t.bool, [t.char])).toBe(tcx.mk_args([t.bool, t.char]));
+  });
+
+  test("mk_canonical_var_kinds shares equal elements between lists, mk_args does not need to", () => {
+    const tcx = mk_tcx();
+    const ty0 = { $: "Ty", ui: 0, sub_root: 0 } as CanonicalVarKind;
+    const re0 = { $: "Region", _0: 0 } as CanonicalVarKind;
+    const a = tcx.mk_canonical_var_kinds([ty0, re0]);
+    const b = tcx.mk_canonical_var_kinds([{ $: "Region", _0: 0 } as CanonicalVarKind]);
+    expect(b).not.toBe(a);
+    expect(b[0]).toBe(re0);
+    expect(tcx.mk_canonical_var_kinds([{ $: "Ty", ui: 0, sub_root: 0 } as CanonicalVarKind, { $: "Region", _0: 0 } as CanonicalVarKind])).toBe(a);
   });
 });
 

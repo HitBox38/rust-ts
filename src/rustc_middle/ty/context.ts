@@ -270,7 +270,7 @@ export class CtxtInterners {
     // the interner in functions like `intern_ty`. Bigger benchmarks tend to give more
     // accurate ratios, so use something like `x perf eprintln --includes cargo`.
     // PORT: the arena (first field) is erased; the capacities are hints only (sharded.ts).
-    return new CtxtInterners(
+    const interners = new CtxtInterners(
       ShardedHashMap.with_capacity(N * 16), // type_
       ShardedHashMap.with_capacity(N * 4), // const_lists
       ShardedHashMap.with_capacity(N * 4), // args
@@ -298,6 +298,12 @@ export class CtxtInterners {
       ShardedHashMap.with_capacity(N), // outlives
       ShardedHashMap.with_capacity(N), // canonical_inputs
     );
+    // PORT(perf) (lane perf-heavy): upstream copies these `Copy` elements into each list; here new lists share equal element
+    // objects (rustc_data_structures/sharded.ts `share_elements`). On `closures/supertrait-hint-cycle.rs` at
+    // `recursion_limit = "32"` their lists kept 18.5M elements, nearly all equal to an earlier one.
+    interners.canonical_var_kinds.share_elements();
+    interners.predefined_opaques_in_body.share_elements();
+    return interners;
   }
 
   /// Interns a type. (Use `mk_*` functions instead, where possible.)
@@ -339,7 +345,7 @@ export class CtxtInterners {
       return RawList.empty_with_type_info();
     } else {
       // PORT (lane small-gaps-18): element-wise key even for an interned list (as `slice_intern`).
-      return this.clauses.intern_slice(clauses, () => {
+      return this.clauses.intern_slice(clauses, (clauses) => {
         const flags = FlagComputation.for_clauses(clauses);
 
         return RawList.from_arena(undefined, TypeInfo.from(flags), clauses);
@@ -1948,7 +1954,7 @@ export class TyCtxt {
     } else {
       // PORT (lane small-gaps-18): the key is element-wise even when `v` is itself an interned `List` (`intern_key`
       // keys an interned object by its id): `tcx.mk_args(args)` of an interned `args` must return that same list.
-      return set.intern_slice(v, () => RawList.from_arena(undefined, null, v));
+      return set.intern_slice(v, (v) => RawList.from_arena(undefined, null, v));
     }
   }
   // rustc-macro: compiler/rustc_middle/src/ty/context.rs:2045 slice_interners! mk_const_list
