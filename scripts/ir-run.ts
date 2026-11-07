@@ -9,16 +9,20 @@
 //   its exit code. One that exits 0 and writes no `.ll` prints `ir: none` and exits 0.
 // - **Both sides use that one path, one at a time under a lock,** as scripts/rg-check.ts's tree: `-Csplit-debuginfo` writes the output directory
 //   into the IR (`splitDebugFilename`, review harness-m7a H5), so a path with the side and pid in it would differ between any two runs.
+//   The compiler is a holder of that lock too (scripts/lib/case-lock.ts `addLockHolder`): one that outlives a SIGKILLed run keeps it
+//   until it ends, so its `.ll` cannot land in the next run's `work` (review harness-w42 N1). A wait here counts against this
+//   process's own limit, so difftest takes the case's lock (`Suite.caseLock`) around both sides first (review root-w41-check N3).
 // - Each `.ll`, in byte order of its name, prints `ir: <file name> <tier>`, then its normal form. The default tier is N1.
 // - An `opt` or `llvm-as` failure (the module does not parse or verify) prints `ir: normal form failed: <first error line>` and
 //   exits `EXIT_NORMAL_FORM`, a difference from any oracle that succeeded (plan-m7 D16: never retried, never hidden).
 // - `--keep` keeps the raw texts as `<dir>/<side>/<file name>` (renamed), for scripts/ir-diff.ts and to read the other tiers later
 //   without running a compiler again. An IR suite does not pass it: a suite's raw text is about 230 MB (plan-m7 §6).
-// - SIGTERM/SIGINT (difftest's timeout) are passed on to the compiler.
+// - SIGTERM/SIGINT (difftest's timeout) are passed on to the compiler while it runs. At any other time they end this run at once, with
+//   128 + the signal, as their default action would, but with `work` and the lock removed (review harness-w42 N2).
 // No ERROR lines of its own: what it prints is part of the compared output. Only a malformed command line exits 2.
 import { mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeSync } from "node:fs";
 import { join } from "node:path";
-import { withCaseLock } from "./lib/case-lock.ts";
+import { addLockHolder, releaseHeldLocks, withCaseLock } from "./lib/case-lock.ts";
 import { isIrTier, normalForm, type IrTier } from "./lib/ir-normal.ts";
 
 /** Not a code rustc uses: 0, 1, 70 (the port's `unported`) or 101 (an ICE). */
@@ -71,20 +75,30 @@ export function parseIrRunArgs(argv: string[]): IrRunArgs {
 
 const SIGNALS: Record<string, number> = { SIGINT: 2, SIGKILL: 9, SIGTERM: 15 };
 
-/** Runs a child with inherited stdio, passing SIGTERM/SIGINT on; its exit code (128 + signal if it was killed). */
-async function child(cmd: string[]): Promise<number> {
+/** The compiler while it runs, which a signal is passed on to; and `work` while this run holds the lock and may have written it. */
+const running: { compiler?: Bun.Subprocess; work?: string } = {};
+
+/** SIGTERM/SIGINT for the whole run (see the header). */
+function onSignal(sig: "SIGTERM" | "SIGINT"): void {
+  if (running.compiler !== undefined) {
+    running.compiler.kill(sig);
+    return;
+  }
+  if (running.work !== undefined) rmSync(running.work, { recursive: true, force: true });
+  releaseHeldLocks();
+  process.exit(128 + SIGNALS[sig]!);
+}
+
+/** Runs a child with inherited stdio, as a holder of the lock `lock`; its exit code (128 + signal if it was killed). */
+async function child(cmd: string[], lock: string): Promise<number> {
   const p = Bun.spawn(cmd, { stdin: "ignore", stdout: "inherit", stderr: "inherit" });
-  const pass = (sig: NodeJS.Signals) => () => p.kill(sig);
-  const onTerm = pass("SIGTERM");
-  const onInt = pass("SIGINT");
-  process.on("SIGTERM", onTerm);
-  process.on("SIGINT", onInt);
+  running.compiler = p;
   try {
+    addLockHolder(lock, p.pid);
     const code = await p.exited;
     return p.signalCode ? 128 + (SIGNALS[p.signalCode] ?? 0) : code;
   } finally {
-    process.off("SIGTERM", onTerm);
-    process.off("SIGINT", onInt);
+    running.compiler = undefined;
   }
 }
 
@@ -96,16 +110,27 @@ function writeAll(text: string): void {
 
 export async function irRun(a: IrRunArgs): Promise<number> {
   mkdirSync(a.out, { recursive: true });
-  // No note on waiting: what this prints is compared.
-  return withCaseLock(join(a.out, "work.lock"), LOCK_MAX_HOLD_MS, () => irRunLocked(a), () => {}, 50);
+  const onTerm = () => onSignal("SIGTERM");
+  const onInt = () => onSignal("SIGINT");
+  process.on("SIGTERM", onTerm);
+  process.on("SIGINT", onInt);
+  try {
+    const lock = join(a.out, "work.lock");
+    // No note on waiting: what this prints is compared.
+    return await withCaseLock(lock, LOCK_MAX_HOLD_MS, () => irRunLocked(a, lock), () => {}, 50);
+  } finally {
+    process.off("SIGTERM", onTerm);
+    process.off("SIGINT", onInt);
+  }
 }
 
-async function irRunLocked(a: IrRunArgs): Promise<number> {
+async function irRunLocked(a: IrRunArgs, lock: string): Promise<number> {
   const tmp = join(a.out, "work");
+  running.work = tmp;
   rmSync(tmp, { recursive: true, force: true });
   mkdirSync(tmp, { recursive: true });
   try {
-    const code = await child([...a.compiler, "--out-dir", tmp]);
+    const code = await child([...a.compiler, "--out-dir", tmp], lock);
     if (code !== 0) return code;
     const files = readdirSync(tmp)
       .filter((f) => f.endsWith(".ll"))
@@ -134,6 +159,7 @@ async function irRunLocked(a: IrRunArgs): Promise<number> {
     return failed ? EXIT_NORMAL_FORM : 0;
   } finally {
     rmSync(tmp, { recursive: true, force: true });
+    running.work = undefined;
   }
 }
 

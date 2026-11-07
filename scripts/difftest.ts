@@ -61,9 +61,9 @@
 // diagnostics are all the test expects), the subject's normalized stderr is compared too: PASS or FAIL.
 // Other cases are NOT_COVERED (with the first oracle/blessed difference), N/A (no blessed comparison,
 // with why) or ORACLE_TIMEOUT. Written to `<suite>.blessed.jsonl` and summary `blessed`.
-import { existsSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { availableParallelism } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { SUITES, irReportSuite, suite as getSuite, type Case, type Suite } from "../harness/suites.ts";
 import { isIrTier } from "./lib/ir-normal.ts";
 import type { Blessed } from "../harness/compiletest.ts";
@@ -909,6 +909,17 @@ export function criterionOf(c: NonNullable<Suite["criterion"]>, counts: Record<S
   return { match: counts.MATCH, of, oracleTimeouts: counts.ORACLE_TIMEOUT, percent: Math.round(percent * 100) / 100, target: c.percent, met: of > 0 && percent >= c.percent, what: c.what };
 }
 
+/** How long a case's lock can be held: both sides with the oracle's retry, twice over. Past it a lock is a leftover (scripts/lib/case-lock.ts). */
+const caseLockHoldMs = (s: Suite): number => 2 * ((1 + ORACLE_RETRY_FACTOR) * (s.oracleTimeoutMs ?? s.timeoutMs) + s.timeoutMs);
+
+/** `fn` holding the case's `Suite.caseLock`, if the suite has one. */
+async function withSuiteCaseLock<T>(s: Suite, c: Case, fn: () => Promise<T>): Promise<T> {
+  const file = s.caseLock?.(c);
+  if (file === undefined) return fn();
+  mkdirSync(dirname(file), { recursive: true });
+  return withCaseLock(file, caseLockHoldMs(s), fn);
+}
+
 export async function difftest(
   opts: RunOptions,
 ): Promise<{
@@ -1023,12 +1034,13 @@ export async function difftest(
       const miriTemp = chunk[0]?.env?.MIRI_TEMP;
       const [o, sub] = s.heavy
         ? typeof miriTemp === "string"
-          ? await withCaseLock(`${miriTemp}.lock`, 2 * ((1 + ORACLE_RETRY_FACTOR) * (s.oracleTimeoutMs ?? s.timeoutMs) + s.timeoutMs), heavySides)
+          ? await withCaseLock(`${miriTemp}.lock`, caseLockHoldMs(s), heavySides)
           : await heavySides()
         : s.irTier
           ? // Its sides compile at one work directory under a lock (scripts/ir-run.ts): together, a wait for the other would
             // count against this side's own limit, and a first run of a new key gives false TIMEOUTs (review harness-w42 F1).
-            [await runOracle(s, chunk), await runSubject(s, chunk, impl, stats, sUsage)]
+            // Another difftest of the case waits here, outside both limits (`Suite.caseLock`, review root-w41-check N3).
+            await withSuiteCaseLock(s, chunk[0]!, async () => [await runOracle(s, chunk), await runSubject(s, chunk, impl, stats, sUsage)] as const)
           : await Promise.all([runOracle(s, chunk), runSubject(s, chunk, impl, stats, sUsage)]);
       for (const c of chunk) {
         const oc = o.get(c.id)!;
@@ -1060,7 +1072,7 @@ export async function difftest(
     if (!opts.quiet) process.stderr.write(`\r${s.name}: re-running subject timeout ${retries.retried + 1}/${Math.min(timedOut.length, SUBJECT_TIMEOUT_RETRY_CAP)} alone`);
     retries.retried++;
     const aloneUsage = new Map<string, Usage>();
-    const sc = (await runSubject(s, [c], impl, stats, aloneUsage)).get(c.id)!;
+    const sc = (await withSuiteCaseLock(s, c, () => runSubject(s, [c], impl, stats, aloneUsage))).get(c.id)!;
     if (!sc.timedOut) retries.finished++;
     record(c, oc, sc, true, { pool, alone: aloneUsage.get(c.id)! });
   }
