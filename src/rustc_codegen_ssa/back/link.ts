@@ -3,6 +3,7 @@
 // `are_upstream_rust_objects_already_included` (for `CrateInfo::new`). Linking proper (staticlibs, the native linker,
 // sanitizer runtimes, linker args, ...) is M7: those crate types in the `should_link()` branch call `unported`.
 // PORT: a bundled static native library stops `unported` in `link_rlib` (`find_native_static_library`, `add_archive`).
+import * as tracing from "../../rust_ts/tracing.ts";
 import { readFileSync, rmSync } from "node:fs";
 import type { DiagCtxtHandle } from "../../rustc_errors/lib.ts";
 import { DuplicateEiiImpls_diagnostic } from "../../rustc_middle/diagnostics.gen.ts";
@@ -185,6 +186,7 @@ export function link_binary(
           case "Rlib": {
             const _timer = sess.timer("link_rlib");
             // info!("preparing rlib to {:?}", out_filename);
+            tracing.info_unconverted("rustc_codegen_ssa::back::link", "compiler/rustc_codegen_ssa/src/back/link.rs:363");
             link_rlib(sess, archive_builder_builder, compiled_modules, crate_info, metadata, "Normal", path).build(out_filename_);
             break;
           }
@@ -204,7 +206,7 @@ export function link_binary(
         if (sess.target.options.binary_format === "Elf") {
           const r = warn_if_linked_with_gold(sess, out_filename_);
           // if let Err(err) = ... { info!(?err, "Error while checking if gold was the linker"); }
-          void r;
+          if (r.$ === "Err") tracing.info_unconverted("rustc_codegen_ssa::back::link", "compiler/rustc_codegen_ssa/src/back/link.rs:421");
         }
 
         if (OutFileName.is_stdout(output)) {

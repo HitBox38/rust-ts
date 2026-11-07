@@ -14,6 +14,7 @@
 //! ## Note
 //!
 //! This API is completely unstable and subject to change.
+import * as tracing from "../rust_ts/tracing.ts";
 import { FreezeLock } from "../rustc_data_structures/sync/freeze.ts";
 import { path_hasher, type RawSpan, type StableHashCtxt, StableHasher } from "../rustc_data_structures/stable_hash.ts";
 import type { Hasher } from "../vendor/rustc_stable_hash/lib.ts";
@@ -2712,7 +2713,7 @@ export class SourceFile {
         // that want to use the display col instead of byte offsets to modify Rust code, but
         // that is a problem for another day, the previous code was already incorrect for
         // both displaying *and* third party tools using the json output naïvely.
-        // tracing::info!("couldn't find line {line} {:?}", self.name);
+        tracing.info("rustc_span", () => `couldn't find line ${line} ${debug_FileName(this.name, PLAIN)}`);
         return [line, col_or_chpos, col_or_chpos];
       }
       let display_col = 0;

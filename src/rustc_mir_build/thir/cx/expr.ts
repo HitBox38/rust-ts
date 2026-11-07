@@ -4,6 +4,8 @@
 // The rustc_middle `mir/syntax.rs` enums THIR stores (`BorrowKind`, `MutBorrowKind`, `BinOp`, `UnOp`, `AssignOp`,
 // `FakeReadCause`) come from the partial rustc_middle mir/syntax.ts (codegen set rustc_middle_mir; lane
 // thir-pattern).
+import { debug_Span } from "../../../rustc_span/lib.ts";
+import * as tracing from "../../../rust_ts/tracing.ts";
 import { find_attr, type UnrollAttr } from "../../../rustc_attr_ir/lib.ts";
 import { clone_UnrollAttr } from "../../../rustc_attr_ir/lib.ts";
 import type { AssignOpKind, BinOpKind } from "../../../rustc_ast/lib.ts";
@@ -517,7 +519,7 @@ ThirBuildCx.prototype.make_mirror_unadjusted = function (this: ThirBuildCx, expr
       } else {
         // Rewrite a.b(c) into UFCS form like Trait::b(a, c)
         const expr_ = this.method_callee(expr, segment.ident.span, undefined);
-        // info!("Using method span: {:?}", expr.span);
+        tracing.info("rustc_mir_build::thir::cx::expr", () => `Using method span: ${debug_Span(expr_.span, PLAIN)}`);
 
         const args_ = [receiver, ...args].map((expr) => this.mirror_expr(expr));
         kind = {

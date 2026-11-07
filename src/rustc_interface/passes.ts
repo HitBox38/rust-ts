@@ -8,6 +8,8 @@
 // upstream path and the owning lane. Root replaces each shim by the import when that lane lands.
 import "../rustc_session/options.ts"; // LOAD ORDER: see rustc_session/config.ts
 import { mkdirSync, statSync, writeFileSync } from "node:fs";
+import * as tracing from "../rust_ts/tracing.ts";
+import { PLAIN } from "../std/fmt.ts";
 import { resolve as path_resolve_win32 } from "node:path/win32";
 import type { Crate, Item } from "../rustc_ast/ast.gen.ts";
 import type { NodeId } from "../rustc_ast/node_id.ts";
@@ -398,7 +400,7 @@ function early_lint_checks(tcx: TyCtxt, _: null): null {
   // Add all buffered lints from the `ParseSess` to the `Session`.
   {
     const buffered_lints = sess.psess.buffered_lints;
-    // info!("{} parse sess buffered_lints", buffered_lints.len());
+    tracing.info("rustc_interface::passes", () => `${buffered_lints.length} parse sess buffered_lints`);
     for (const early_lint of buffered_lints.splice(0)) {
       lint_buffer.add_early_lint(early_lint);
     }
@@ -1407,7 +1409,7 @@ export function start_codegen(codegen_backend: CodegenBackend, tcx: TyCtxt): [un
     guar.raise_fatal();
   }
 
-  // info!("Pre-codegen\n{:?}", tcx.debug_stats());
+  tracing.info("rustc_interface::passes", () => `Pre-codegen\n${tcx.debug_stats()(null, PLAIN)}`);
 
   const r = rustc_metadata_fs.encode_and_write_metadata(tcx);
   if (r.$ === "Err") {
@@ -1437,7 +1439,7 @@ export function start_codegen(codegen_backend: CodegenBackend, tcx: TyCtxt): [un
       }
     });
 
-    // info!("Post-codegen\n{:?}", tcx.debug_stats());
+    tracing.info("rustc_interface::passes", () => `Post-codegen\n${tcx.debug_stats()(null, PLAIN)}`);
 
     // This must run after monomorphization so that all generic types
     // have been instantiated.

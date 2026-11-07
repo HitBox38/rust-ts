@@ -23,6 +23,7 @@
 // (`Result: IntoIterator`), exactly as upstream (also a `RerunNonErased` error).
 // PORT: `panic!("unexpected self type for `{goal:?}`")` needs `Debug` of `Goal<I, G>`; the `GoalKind<G>` table has no
 // `Debug` descriptor for `G` (decls.ts), so those two arms are `unported(..)` (binder.ts `instantiate` precedent).
+import * as tracing from "../../../rust_ts/tracing.ts";
 import { type ControlFlow, ControlFlow as ControlFlowC, type VisitorResult, VisitorResult as VisitorResultC } from "../../../rustc_ast_ir/visit.ts";
 import type { TyCtxt } from "../../../rustc_middle/ty/context.ts";
 import type { Clause, Clauses, GenericArg, ParamEnv, Predicate, Ty } from "../../../rustc_middle/ty/decls.ts";
@@ -1302,6 +1303,7 @@ EvalCtxt.prototype.try_assemble_bounds_via_registered_opaques = function <G>(
   candidates: Candidate[],
   G: GoalKind<G>,
 ): Result<undefined, RerunNonErased> {
+  tracing.info_unconverted("rustc_next_trait_solver::solve::assembly", "compiler/rustc_next_trait_solver/src/solve/assembly/mod.rs:1123 (`#[instrument]`: `Vec<Candidate>`'s Debug)");
   const self_ty = G.self_ty(goal.predicate);
   // We only use this hack during HIR typeck.
   let opaque_types: OpaqueAliasTy[];

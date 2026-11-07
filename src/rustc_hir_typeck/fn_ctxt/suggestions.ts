@@ -13,6 +13,7 @@
 // - `format!("{ty}")` of a `Ty` is `display_Ty`; of a `Symbol` `Symbol.as_str`.
 // Init order: top-level code here may touch only ../decls.ts (the classes), this file's .gen.ts and other crates; every
 // other rustc_hir_typeck export is read inside function bodies only.
+import * as tracing from "../../rust_ts/tracing.ts";
 import { ExprPrecedence, ExprPrecedence_discriminant } from "../../rustc_ast/util/parser.gen.ts";
 import { Mutability } from "../../rustc_ast_ir/lib.ts";
 import { LangItem } from "../../rustc_attr_ir/lang_items.ts";
@@ -716,6 +717,7 @@ FnCtxt.prototype.suggest_impl_fn_for_fn_ptr_ret = function (this: FnCtxt, err: D
 // #[instrument(skip(self, err))]
 // rustc: compiler/rustc_hir_typeck/src/fn_ctxt/suggestions.rs:745 suggest_calling_boxed_future_when_appropriate
 FnCtxt.prototype.suggest_calling_boxed_future_when_appropriate = function (this: FnCtxt, err: Diag, expr: hir.Expr, expected: Ty, found: Ty): boolean {
+  tracing.info_unconverted("rustc_hir_typeck::fn_ctxt::suggestions", "compiler/rustc_hir_typeck/src/fn_ctxt/suggestions.rs:744 (`#[instrument]`)");
   // Handle #68197.
 
   if (this.tcx.hir_is_inside_const_context(expr.hir_id)) {
@@ -1673,6 +1675,7 @@ FnCtxt.prototype.suggest_block_to_brackets = function (this: FnCtxt, diag: Diag,
 // #[instrument(skip(self, err))]
 // rustc: compiler/rustc_hir_typeck/src/fn_ctxt/suggestions.rs:1827 suggest_floating_point_literal
 FnCtxt.prototype.suggest_floating_point_literal = function (this: FnCtxt, err: Diag, expr: hir.Expr, expected_ty: Ty): boolean {
+  tracing.info_unconverted("rustc_hir_typeck::fn_ctxt::suggestions", "compiler/rustc_hir_typeck/src/fn_ctxt/suggestions.rs:1826 (`#[instrument]`)");
   if (!expected_ty.is_floating_point()) {
     return false;
   }
@@ -1756,6 +1759,7 @@ FnCtxt.prototype.suggest_floating_point_literal = function (this: FnCtxt, err: D
 // #[instrument(skip(self, err))]
 // rustc: compiler/rustc_hir_typeck/src/fn_ctxt/suggestions.rs:1909 suggest_null_ptr_for_literal_zero_given_to_ptr_arg
 FnCtxt.prototype.suggest_null_ptr_for_literal_zero_given_to_ptr_arg = function (this: FnCtxt, err: Diag, expr: hir.Expr, expected_ty: Ty): boolean {
+  tracing.info_unconverted("rustc_hir_typeck::fn_ctxt::suggestions", "compiler/rustc_hir_typeck/src/fn_ctxt/suggestions.rs:1908 (`#[instrument]`)");
   // Expected type needs to be a raw pointer.
   const ek = expected_ty.kind();
   if (ek.$ !== "RawPtr") {

@@ -6,6 +6,7 @@
 // (docs/handoff/evalctxt-contract.md "Init order").
 // PORT: `cx.type_of(..)` / `cx.type_of_opaque_hir_typeck(..)` are reached through `as_interner(cx)` (free_alias.ts
 // header). `LocalDefIds::contains` is `includes` (branded numbers).
+import * as tracing from "../../../rust_ts/tracing.ts";
 import type { GenericArg } from "../../../rustc_middle/ty/decls.ts";
 import { GenericArg as MGenericArg } from "../../../rustc_middle/ty/generic_args.ts";
 import { Predicate_upcast_from_PredicateKind } from "../../../rustc_middle/ty/predicate.ts";
@@ -31,6 +32,7 @@ import { goal_with } from "../mod.ts";
 
 // rustc: compiler/rustc_next_trait_solver/src/solve/project_goals/opaque_types.rs:17 normalize_opaque_type
 EvalCtxt.prototype.normalize_opaque_type = function (this: EvalCtxt, goal: Goal<ProjectionClause>): QueryResultOrRerunNonErased {
+  tracing.info_unconverted("rustc_next_trait_solver::solve::project_goals::opaque_types", "compiler/rustc_next_trait_solver/src/solve/project_goals/opaque_types.rs:16 (`#[instrument]`)");
   const cx = this.cx();
   const opaque_ty = goal.predicate.projection_term;
   const expected = unwrap(Term_provided.as_type(goal.predicate.term), "no such thing as an opaque const");

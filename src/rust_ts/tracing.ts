@@ -27,6 +27,13 @@
 // interpreted statement) the call site hoists that check, `if (tracing.INFO_ENABLED) tracing.info(..)`, so a disabled
 // event allocates nothing.
 //
+// `#[instrument]` at INFO (the default level) is `instrument(target, "<fn>", () => [<args>], () => <body>, <ret>?)`, the
+// span entered for the body; its arguments not skipped are fields, each its `{:?}`.
+//
+// Every upstream INFO site in a ported fn is live, or is `info_unconverted(target, "<upstream site>")`, which stops with
+// `unported` when the filter would record it (its output is not ported yet, so rustc would print lines the port cannot).
+// `bun src/rust_ts/info_sites_check.ts` checks that no ported fn misses one.
+//
 // EnvFilter: the static directives (`target=level`, bare `level`, bare `target`) are ported, with the
 // "would enable traces that are disabled statically" warning. Directives with a span name or field filters
 // (`target[span{field=value}]=level`) are dynamic filters and stop with `unported`.
@@ -218,15 +225,17 @@ export function LevelFilter_current(): LevelFilter {
  * it enables the callsite. PORT: the callsite interest cache is subsumed by the subscriber's `enabled` (both come
  * from the same static directives, `EnvFilter::register_callsite`).
  */
-export function event(level: Level, target: string, message: () => string, fields: readonly (readonly [string, () => string])[]): void {
+export function event(level: Level, target: string, message: (() => string) | undefined, fields: readonly (readonly [string, () => string])[]): void {
   // `level_enabled!(level)`: `level <= STATIC_MAX_LEVEL && level <= LevelFilter::current()`
   if (VERBOSITY[level] > MAX_LEVEL) return;
   const dispatch = GLOBAL_DISPATCH;
   if (dispatch === undefined || !dispatch.enabled(level, target)) return;
+  // An event without a format string (`event!(level, return = ?x)`) has no `message` field.
+  const named = fields.map(([name, debug]) => ({ name, debug }));
   dispatch.event({
     level,
     target,
-    fields: [{ name: "message", debug: message }, ...fields.map(([name, debug]) => ({ name, debug }))],
+    fields: message === undefined ? named : [{ name: "message", debug: message }, ...named],
   });
 }
 
@@ -295,6 +304,74 @@ export function span(level: Level, target: string, name: string, fields: readonl
 export function info_span(target: string, name: string, ...fields: (readonly [string, () => string])[]): Span {
   if (MAX_LEVEL < V_INFO) return Span.none();
   return span("INFO", target, name, fields);
+}
+
+/**
+ * A fn under `#[instrument]` at INFO (tracing-attributes-0.1.31 src/expand.rs `gen_block`, sync, no `err`): when
+ * `level_enabled!(INFO)`, `span!(target: module_path!(), INFO, "<fn name>", <arg> = debug(&<arg>), ..)` is made and
+ * entered for the whole body; with `ret`, `event!(target: module_path!(), INFO, return = ?x)` follows the body inside
+ * the span. The guard's drop exits the span, then the span's drop closes it, on return or unwind.
+ * `fields()` gives the arguments not skipped, in parameter order, each as its `{:?}` (a thunk: a disabled call allocates no array) (`RecordType::Value` arguments,
+ * integers, `bool`, `str`, ..., need their own care at the call site).
+ */
+export function instrument<T>(
+  target: string,
+  name: string,
+  fields: () => readonly (readonly [string, () => string])[],
+  body: () => T,
+  ret?: (x: T) => string,
+): T {
+  if (MAX_LEVEL < V_INFO) return body();
+  const span = info_span(target, name, ...fields());
+  span.with_subscriber((id, dispatch) => dispatch.enter(id));
+  try {
+    const x = body();
+    if (ret !== undefined) event("INFO", target, undefined, [["return", () => ret(x)]]);
+    return x;
+  } finally {
+    span.with_subscriber((id, dispatch) => dispatch.exit(id));
+    span.drop();
+  }
+}
+
+/** rust-ts (not upstream): on a `fold_Binder(d)` descriptor (src/rustc_type_ir/binder.ts), the descriptor `d` of `T` it was
+ *  made from. A fn under `#[instrument]` that is generic over `T: Debug` finds `T`'s `{:?}` through it
+ *  (src/rustc_trait_selection/traits/normalize.ts `debug_of_foldable`). */
+export const BINDER_INNER: unique symbol = Symbol("fold_Binder inner descriptor");
+/** rust-ts (not upstream): on a `fold_tuple2` / `fold_tuple3` descriptor (src/rustc_type_ir/fold.ts), its parts' descriptors. */
+export const TUPLE_PARTS: unique symbol = Symbol("fold_tuple parts");
+
+/** rust-ts (not upstream): `T`'s `{:?}` for a generic fn under `#[instrument]` whose `T` reaches it as a descriptor (a
+ *  `TypeFoldable`'s `fold_with`, src/rustc_trait_selection/traits/normalize.ts). Keyed on the function's identity. */
+const REGISTERED_DEBUG = new Map<unknown, (v: never, f: { readonly alternate: boolean }) => string>();
+export function register_debug<T>(key: unknown, debug: (v: T, f: { readonly alternate: boolean }) => string): void {
+  REGISTERED_DEBUG.set(key, debug as (v: never, f: { readonly alternate: boolean }) => string);
+}
+export function registered_debug<T>(key: unknown): ((v: T, f: { readonly alternate: boolean }) => string) | undefined {
+  return REGISTERED_DEBUG.get(key) as ((v: T, f: { readonly alternate: boolean }) => string) | undefined;
+}
+
+/** rust-ts (not upstream): `std::any::type_name::<T>()` in the oracle's binary, for `T` reached as a descriptor, keyed as
+ *  `register_debug` is. Only names read off upstream's definitions are registered. */
+const REGISTERED_TYPE_NAME = new Map<unknown, string>();
+export function register_type_name(key: unknown, name: string): void {
+  REGISTERED_TYPE_NAME.set(key, name);
+}
+export function registered_type_name(key: unknown): string | undefined {
+  return REGISTERED_TYPE_NAME.get(key);
+}
+
+/**
+ * rust-ts (not upstream): an upstream INFO-level site (`info!`, `info_span!`, `#[instrument]` at INFO) whose output
+ * is not converted yet. If the global subscriber would record an INFO callsite of `target` here, it stops with
+ * `unported` rather than print fewer lines than rustc; otherwise it does nothing, as the disabled site does upstream.
+ * `site` names the upstream line (`compiler/<crate>/src/<path>.rs:<line>`) and what it lacks.
+ */
+export function info_unconverted(target: string, site: string): void {
+  if (MAX_LEVEL < V_INFO) return;
+  const dispatch = GLOBAL_DISPATCH;
+  if (dispatch === undefined || !dispatch.enabled("INFO", target)) return;
+  unported(`tracing INFO site not converted: ${site} (target \`${target}\`, enabled by RUSTC_LOG/MIRI_LOG)`);
 }
 
 // ---- tracing-subscriber: EnvFilter (static directives) --------------------------------------------------------------
@@ -669,50 +746,6 @@ export class EnvFilter {
   max_level_hint(): LevelFilter {
     return this.statics.max_level;
   }
-}
-
-// ---- rust-ts: which targets' INFO call sites are live ---------------------------------------------------------------
-
-/**
- * The targets whose INFO-level call sites (`info!`, `info_span!`, INFO-level `#[instrument]`, the `#[instrument]`
- * default) are all live in the port. Each entry covers the target itself and the modules under it (`<entry>::..`).
- * This is the only list of converted targets. Add an entry only when every INFO site under it is converted. A target
- * with no INFO sites at all counts as converted.
- * - `rustc_const_eval::interpret`: `call.rs:1110`, `step.rs:71` / `:89` / `:527` (`info!`), `stack.rs:429` (the
- *   `frame` span). Its `enter_trace_span!` sites are `()` (the `Machine::enter_trace_span` default) and its
- *   `#[instrument]`s are all `level = "debug"` / `"trace"`.
- * - `rustc_middle::mir::interpret`: no INFO sites.
- * - `miri::machine` (`machine.rs:1994`, `:2017`) and `miri::borrow_tracker` (`borrow_tracker/mod.rs:282`). Miri's
- *   own `#[instrument]`s are all DEBUG/TRACE.
- *   Not yet `miri` as a whole: `miri::eval` (`eval.rs:571`) and `miri::concurrency::thread` (`thread.rs:516`) are
- *   still comments. Once both are live, replace the two `miri::` entries with `miri`. `concurrency/scheduler.rs:65`
- *   and `concurrency/genmc/run.rs` are GenMC only, which is out of scope (plan-m6 D2). So `MIRI_LOG=<level>`
- *   (`miri=<level>` among its directives, bin/log/setup.rs) stops until then.
- * Everywhere else (e.g. 27 compiler files with `info!`, and INFO `#[instrument]`s such as rustc_infer's) INFO sites are
- * still comments, so enabling INFO there would print fewer lines than rustc.
- */
-export const INFO_CONVERTED_TARGETS: readonly string[] = [
-  "rustc_const_eval::interpret",
-  "rustc_middle::mir::interpret",
-  "miri::machine",
-  "miri::borrow_tracker",
-];
-
-/**
- * rust-ts (not upstream): the first static directive of `filter` that enables INFO (or a more verbose level) for a
- * target that may have unconverted INFO sites, if any. It is conservative: a directive is accepted only if its target
- * lies within an `INFO_CONVERTED_TARGETS` entry (equal to it, or starting with `<entry>::`). A bare level (no target)
- * enables INFO everywhere. A prefix that is not a whole module path (`rustc_const_eval::interp`) also matches other
- * modules, so it is rejected too. The caller stops with `unported`, so a filter never prints a partial trace silently.
- */
-export function unconverted_info_directive(filter: EnvFilter): StaticDirective | undefined {
-  for (const d of filter.statics.directives) {
-    if (VERBOSITY[d.level] < V_INFO) continue;
-    const t = d.target;
-    if (t !== undefined && INFO_CONVERTED_TARGETS.some((c) => t === c || t.startsWith(`${c}::`))) continue;
-    return d;
-  }
-  return undefined;
 }
 
 // ---- tracing-subscriber: Registry, Layer, Context -------------------------------------------------------------------

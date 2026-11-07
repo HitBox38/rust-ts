@@ -172,6 +172,16 @@ export class ShardedHashMap<K, V> {
     return got;
   }
 
+  /**
+   * PORT: `lock_shards()` and each shard's `iter()`: every stored key. The port keeps one table, so this is not upstream's
+   * order; its one user (`TyCtxt::debug_stats`, whose upstream loop says "ordering doesn't affect anything here") only counts.
+   */
+  *keys(): Generator<K> {
+    for (const e of this.table.values()) yield e[0];
+    for (const k of this.hashed.values()) yield k;
+    for (const rest of this.collided.values()) yield* rest;
+  }
+
   // rustc: compiler/rustc_data_structures/src/sharded.rs:259 contains_pointer_to
   /** PORT: `IntoPointer` is object identity: is `value` the object stored under `key`? */
   contains_pointer_to(this: InternedSet<K>, value: K, key: string): boolean {

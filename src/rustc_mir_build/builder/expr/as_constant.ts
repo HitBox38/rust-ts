@@ -1,6 +1,7 @@
 // Port of compiler/rustc_mir_build/src/builder/expr/as_constant.rs (declared by lane builder-contract, filled by lane
 // mb-expr-a, plan-m4 wave 22; builder/mod.ts's header has the representation notes).
 //! See docs in builder/expr/mod.rs
+import * as tracing from "../../../rust_ts/tracing.ts";
 import { Size } from "../../../rustc_abi/lib.ts";
 import { debug_LitKind } from "../../../rustc_ast/lib.ts";
 import { LangItem } from "../../../rustc_attr_ir/lang_items.ts";
@@ -168,70 +169,72 @@ export function as_constant_inner(expr: Expr, push_cuta: (a0: CanonicalUserType)
 // #[instrument(skip(tcx, lit_input))]
 // rustc: compiler/rustc_mir_build/src/builder/expr/as_constant.rs:145 lit_to_mir_constant
 export function lit_to_mir_constant(tcx: TyCtxt, lit_input: LitToConstInput): Const {
-  const { lit, ty: ty0, neg } = lit_input;
+  return tracing.instrument("rustc_mir_build::builder::expr::as_constant", "lit_to_mir_constant", () => [], () => {
+    const { lit, ty: ty0, neg } = lit_input;
 
-  const ty = unwrap(ty0, "type of literal must be known at this point");
+    const ty = unwrap(ty0, "type of literal must be known at this point");
 
-  const er = TypeVisitableExt.error_reported(ty, fold_Ty);
-  if (er.$ === "Err") {
-    const guar = er._0;
-    return { $: "Ty", _0: TyC.new_error(tcx, guar), _1: ty_Const.new_error(tcx, guar) };
-  }
+    const er = TypeVisitableExt.error_reported(ty, fold_Ty);
+    if (er.$ === "Err") {
+      const guar = er._0;
+      return { $: "Ty", _0: TyC.new_error(tcx, guar), _1: ty_Const.new_error(tcx, guar) };
+    }
 
-  const tk = ty.kind();
-  const lit_ty = tk.$ === "Pat" ? tk._0 : ty;
+    const tk = ty.kind();
+    const lit_ty = tk.$ === "Pat" ? tk._0 : ty;
 
-  const trunc = (n: bigint): ConstValue => {
-    const width = lit_ty.primitive_size(tcx);
-    // trace!("trunc {} with size {} and shift {}", n, width.bits(), 128 - width.bits());
-    const result = width.truncate(n);
-    // trace!("trunc result: {}", result);
-    return { $: "Scalar", _0: Scalar.from_uint(result, width) };
-  };
+    const trunc = (n: bigint): ConstValue => {
+      const width = lit_ty.primitive_size(tcx);
+      // trace!("trunc {} with size {} and shift {}", n, width.bits(), 128 - width.bits());
+      const result = width.truncate(n);
+      // trace!("trunc result: {}", result);
+      return { $: "Scalar", _0: Scalar.from_uint(result, width) };
+    };
 
-  const k = lit_ty.kind();
-  let value: ConstValue;
-  if (lit.$ === "Str" && k.$ === "Ref" && k._1.is_str()) {
-    const s = new TextEncoder().encode(Symbol.as_str(lit._0));
-    const len = s.length;
-    const allocation = tcx.allocate_bytes_dedup(s, CTFE_ALLOC_SALT);
-    value = { $: "Slice", alloc_id: allocation, meta: len };
-  } else if (lit.$ === "ByteStr" && k.$ === "Ref" && k._1.kind().$ === "Slice") {
-    const data = ByteSymbol.as_byte_str(lit._0);
-    const len = data.length;
-    const allocation = tcx.allocate_bytes_dedup(data, CTFE_ALLOC_SALT);
-    value = { $: "Slice", alloc_id: allocation, meta: len };
-  } else if (lit.$ === "ByteStr" && k.$ === "Ref" && k._1.is_array()) {
-    const id = tcx.allocate_bytes_dedup(ByteSymbol.as_byte_str(lit._0), CTFE_ALLOC_SALT);
-    value = { $: "Scalar", _0: Scalar.from_pointer(Pointer_from_AllocId(id), tcx) };
-  } else if (lit.$ === "CStr" && k.$ === "Ref" && is_cstr_adt(tcx, k._1)) {
-    const data = ByteSymbol.as_byte_str(lit._0);
-    const len = data.length;
-    const allocation = tcx.allocate_bytes_dedup(data, CTFE_ALLOC_SALT);
-    value = { $: "Slice", alloc_id: allocation, meta: len };
-  } else if (lit.$ === "Byte" && k.$ === "Uint" && k._0 === "U8") {
-    value = { $: "Scalar", _0: Scalar.from_uint(BigInt(lit._0), Size.from_bytes(1)) };
-  } else if (lit.$ === "Int" && k.$ === "Uint" && !neg) {
-    value = trunc(lit._0);
-  } else if (lit.$ === "Int" && k.$ === "Int") {
-    const n = lit._0;
-    // Unsigned "negation" has the same bitwise effect as signed negation,
-    // which gets the result we want without additional casts.
-    value = trunc(neg ? BigInt.asUintN(128, -n) : n);
-  } else if (lit.$ === "Float" && k.$ === "Float") {
-    value = unwrap(parse_float_into_constval(lit._0, k._0, neg));
-  } else if (lit.$ === "Bool" && k.$ === "Bool") {
-    value = { $: "Scalar", _0: Scalar.from_bool(lit._0) };
-  } else if (lit.$ === "Char" && k.$ === "Char") {
-    value = { $: "Scalar", _0: Scalar.from_char(lit._0) };
-  } else if (lit.$ === "Err") {
-    const guar = lit._0;
-    return { $: "Ty", _0: TyC.new_error(tcx, guar), _1: ty_Const.new_error(tcx, guar) };
-  } else {
-    return bug(`invalid lit/ty combination in \`lit_to_mir_constant\`: ${debug_LitKind(lit, PLAIN)}: ${debug_Ty(ty, PLAIN)}`);
-  }
+    const k = lit_ty.kind();
+    let value: ConstValue;
+    if (lit.$ === "Str" && k.$ === "Ref" && k._1.is_str()) {
+      const s = new TextEncoder().encode(Symbol.as_str(lit._0));
+      const len = s.length;
+      const allocation = tcx.allocate_bytes_dedup(s, CTFE_ALLOC_SALT);
+      value = { $: "Slice", alloc_id: allocation, meta: len };
+    } else if (lit.$ === "ByteStr" && k.$ === "Ref" && k._1.kind().$ === "Slice") {
+      const data = ByteSymbol.as_byte_str(lit._0);
+      const len = data.length;
+      const allocation = tcx.allocate_bytes_dedup(data, CTFE_ALLOC_SALT);
+      value = { $: "Slice", alloc_id: allocation, meta: len };
+    } else if (lit.$ === "ByteStr" && k.$ === "Ref" && k._1.is_array()) {
+      const id = tcx.allocate_bytes_dedup(ByteSymbol.as_byte_str(lit._0), CTFE_ALLOC_SALT);
+      value = { $: "Scalar", _0: Scalar.from_pointer(Pointer_from_AllocId(id), tcx) };
+    } else if (lit.$ === "CStr" && k.$ === "Ref" && is_cstr_adt(tcx, k._1)) {
+      const data = ByteSymbol.as_byte_str(lit._0);
+      const len = data.length;
+      const allocation = tcx.allocate_bytes_dedup(data, CTFE_ALLOC_SALT);
+      value = { $: "Slice", alloc_id: allocation, meta: len };
+    } else if (lit.$ === "Byte" && k.$ === "Uint" && k._0 === "U8") {
+      value = { $: "Scalar", _0: Scalar.from_uint(BigInt(lit._0), Size.from_bytes(1)) };
+    } else if (lit.$ === "Int" && k.$ === "Uint" && !neg) {
+      value = trunc(lit._0);
+    } else if (lit.$ === "Int" && k.$ === "Int") {
+      const n = lit._0;
+      // Unsigned "negation" has the same bitwise effect as signed negation,
+      // which gets the result we want without additional casts.
+      value = trunc(neg ? BigInt.asUintN(128, -n) : n);
+    } else if (lit.$ === "Float" && k.$ === "Float") {
+      value = unwrap(parse_float_into_constval(lit._0, k._0, neg));
+    } else if (lit.$ === "Bool" && k.$ === "Bool") {
+      value = { $: "Scalar", _0: Scalar.from_bool(lit._0) };
+    } else if (lit.$ === "Char" && k.$ === "Char") {
+      value = { $: "Scalar", _0: Scalar.from_char(lit._0) };
+    } else if (lit.$ === "Err") {
+      const guar = lit._0;
+      return { $: "Ty", _0: TyC.new_error(tcx, guar), _1: ty_Const.new_error(tcx, guar) };
+    } else {
+      return bug(`invalid lit/ty combination in \`lit_to_mir_constant\`: ${debug_LitKind(lit, PLAIN)}: ${debug_Ty(ty, PLAIN)}`);
+    }
 
-  return { $: "Val", _0: value, _1: ty };
+    return { $: "Val", _0: value, _1: ty };
+  });
 }
 
 /** The guard of the `CStr` arm: `matches!(inner_ty.kind(), ty::Adt(def, _) if tcx.is_lang_item(def.did(), LangItem::CStr))`. */

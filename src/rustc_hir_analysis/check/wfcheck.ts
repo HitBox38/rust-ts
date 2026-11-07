@@ -27,6 +27,8 @@
 // Init order: top-level code here touches only other crates; this crate's modules are read inside function bodies.
 
 // check-wf-a imports
+import { debug_LocalDefId } from "../../rustc_span/def_id.ts";
+import * as tracing from "../../rust_ts/tracing.ts";
 import { Applicability, E0714, E0750, type Diag, struct_span_code_err } from "../../rustc_errors/lib.ts";
 import { MultiSpan } from "../../rustc_error_messages/lib.ts";
 import { DiagSymbolList_from } from "../../rustc_errors/diagnostic_impls.ts";
@@ -1230,24 +1232,26 @@ export function check_type_defn(tcx: TyCtxt, item: LocalDefId, all_sized_: boole
 // #[instrument(skip(tcx))]
 // rustc: compiler/rustc_hir_analysis/src/check/wfcheck.rs:1088 check_trait
 export function check_trait(tcx: TyCtxt, def_id: LocalDefId): Result<null, ErrorGuaranteed> {
-  if (tcx.is_lang_item(LocalDefIdC.to_def_id(def_id), LangItem.PointeeSized)) {
-    // `PointeeSized` is removed during lowering.
-    return Ok(null);
-  }
-
-  const trait_def = tcx.trait_def(def_id) as TraitDef;
-  if (trait_def.is_marker || trait_def.specialization_kind === "Marker") {
-    for (const associated_def_id of tcx.associated_item_def_ids(def_id) as readonly DefId[]) {
-      struct_span_code_err(tcx.dcx(), tcx.def_span(associated_def_id), E0714, "marker traits cannot have associated items").emit();
+  return tracing.instrument("rustc_hir_analysis::check::wfcheck", "check_trait", () => [["def_id", () => debug_LocalDefId(def_id, PLAIN)]], () => {
+    if (tcx.is_lang_item(LocalDefIdC.to_def_id(def_id), LangItem.PointeeSized)) {
+      // `PointeeSized` is removed during lowering.
+      return Ok(null);
     }
-  }
 
-  const res = enter_wf_checking_ctxt(tcx, def_id, (wfcx) => {
-    check_where_clauses(wfcx, def_id);
-    return Ok(null);
+    const trait_def = tcx.trait_def(def_id) as TraitDef;
+    if (trait_def.is_marker || trait_def.specialization_kind === "Marker") {
+      for (const associated_def_id of tcx.associated_item_def_ids(def_id) as readonly DefId[]) {
+        struct_span_code_err(tcx.dcx(), tcx.def_span(associated_def_id), E0714, "marker traits cannot have associated items").emit();
+      }
+    }
+
+    const res = enter_wf_checking_ctxt(tcx, def_id, (wfcx) => {
+      check_where_clauses(wfcx, def_id);
+      return Ok(null);
+    });
+
+    return res;
   });
-
-  return res;
 }
 
 /// Checks all associated type defaults of trait `trait_def_id`.

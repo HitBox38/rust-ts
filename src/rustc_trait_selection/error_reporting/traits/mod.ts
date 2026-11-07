@@ -9,6 +9,7 @@
 // Ported here by lane errctxt-contract (small foundational items used by other files and crates): `FindExprBySpan`
 // (hand class: an intravisit `Visitor`, with `new`) and the `impl ArgKind` companion.
 export * from "./mod.gen.ts";
+import * as tracing from "../../../rust_ts/tracing.ts";
 import type { ExternCrate } from "../../../rustc_crate_store/cstore.gen.ts";
 import { type Diag, E0038, E0276, MultiSpan, struct_span_code_err } from "../../../rustc_errors/lib.ts";
 import * as hir from "../../../rustc_hir/lib.ts";
@@ -241,6 +242,7 @@ TypeErrCtxt.prototype.report_fulfillment_errors = function (this: TypeErrCtxt, e
             covered_by_trait_error(error2, error)
           ) {
             // info!("skipping {:?} (implied by {:?})", error, error2);
+            tracing.info_unconverted("rustc_trait_selection::error_reporting::traits", "compiler/rustc_trait_selection/src/error_reporting/traits/mod.rs:262 (`ErrorDescriptor`'s Debug)");
             is_suppressed[index] = true;
             break;
           }

@@ -12,6 +12,7 @@
 // Init order: top-level code here may touch only ../../decls.ts, this file's .gen.ts and other crates; every other
 // rustc_infer export is read inside function bodies only.
 
+import * as tracing from "../../../rust_ts/tracing.ts";
 import { intern_key } from "../../../rust_ts/intern_key.ts";
 import { KeyedSet } from "../../../rust_ts/keyed.ts";
 import type { TyCtxt } from "../../../rustc_middle/ty/context.ts";
@@ -603,67 +604,69 @@ LexicalResolver.prototype.lub_concrete_regions = function (this: LexicalResolver
 // #[instrument(skip(self, var_data, errors))]
 // rustc: compiler/rustc_infer/src/infer/lexical_region_resolve/mod.rs:548 collect_errors
 LexicalResolver.prototype.collect_errors = function (this: LexicalResolver, var_data: LexicalRegionResolutions, errors: gen.RegionResolutionError[]): void {
-  for (const [c, origin] of this.data.constraints) {
-    // debug!(?c, ?origin);
-    switch (c.kind) {
-      case "RegSubVar":
-      case "VarSubVar":
-        // Expansion will ensure that these constraints hold. Ignore.
-        break;
+  return tracing.instrument("rustc_infer::infer::lexical_region_resolve", "collect_errors", () => [], () => {
+    for (const [c, origin] of this.data.constraints) {
+      // debug!(?c, ?origin);
+      switch (c.kind) {
+        case "RegSubVar":
+        case "VarSubVar":
+          // Expansion will ensure that these constraints hold. Ignore.
+          break;
 
-      case "RegSubReg": {
-        if (this.sub_concrete_regions(c.sub, c.sup)) {
-          continue;
+        case "RegSubReg": {
+          if (this.sub_concrete_regions(c.sub, c.sup)) {
+            continue;
+          }
+
+          // debug!("region error at {:?}: cannot verify that {:?} <= {:?}", origin, c.sub, c.sup);
+
+          errors.push({ $: "ConcreteFailure", _0: clone_SubregionOrigin(origin), _1: c.sub, _2: c.sup });
+          break;
         }
 
-        // debug!("region error at {:?}: cannot verify that {:?} <= {:?}", origin, c.sub, c.sup);
+        case "VarSubReg": {
+          const sub_vid = c.sub.as_var();
+          const sub_data = value_slot(var_data, sub_vid);
+          // debug!("contraction: {:?} == {:?}, {:?}", sub_vid, sub_data, c.sup);
 
-        errors.push({ $: "ConcreteFailure", _0: clone_SubregionOrigin(origin), _1: c.sub, _2: c.sup });
-        break;
+          const sub_value = sub_data.value;
+          if (sub_value.$ !== "Value") {
+            continue;
+          }
+          const sub_region = sub_value._0;
+
+          // Do not report these errors immediately:
+          // instead, set the variable value to error and
+          // collect them later.
+          if (!this.sub_concrete_regions(sub_region, c.sup)) {
+            // debug!("region error at {:?}: cannot verify that {:?}={:?} <= {:?}", origin, sub_vid, sub_region, c.sup);
+            sub_data.value = gen.VarValue.ErrorValue;
+          }
+          break;
+        }
+
+        case "VarEqVar":
+        case "VarEqReg":
+        case "RegEqReg":
+          unreachable();
       }
-
-      case "VarSubReg": {
-        const sub_vid = c.sub.as_var();
-        const sub_data = value_slot(var_data, sub_vid);
-        // debug!("contraction: {:?} == {:?}, {:?}", sub_vid, sub_data, c.sup);
-
-        const sub_value = sub_data.value;
-        if (sub_value.$ !== "Value") {
-          continue;
-        }
-        const sub_region = sub_value._0;
-
-        // Do not report these errors immediately:
-        // instead, set the variable value to error and
-        // collect them later.
-        if (!this.sub_concrete_regions(sub_region, c.sup)) {
-          // debug!("region error at {:?}: cannot verify that {:?}={:?} <= {:?}", origin, sub_vid, sub_region, c.sup);
-          sub_data.value = gen.VarValue.ErrorValue;
-        }
-        break;
-      }
-
-      case "VarEqVar":
-      case "VarEqReg":
-      case "RegEqReg":
-        unreachable();
-    }
-  }
-
-  for (const verify of this.data.verifys) {
-    // debug!("collect_errors: verify={:?}", verify);
-    const sub = var_data.normalize(this.tcx(), verify.region, fold_Region);
-
-    let verify_kind_ty = GenericKind.to_ty(verify.kind, this.tcx());
-    verify_kind_ty = var_data.normalize(this.tcx(), verify_kind_ty, fold_Ty);
-    if (this.bound_is_met(verify.bound, var_data, verify_kind_ty, sub)) {
-      continue;
     }
 
-    // debug!("collect_errors: region error at {:?}: cannot verify that {:?} <= {:?}", verify.origin, verify.region, verify.bound);
+    for (const verify of this.data.verifys) {
+      // debug!("collect_errors: verify={:?}", verify);
+      const sub = var_data.normalize(this.tcx(), verify.region, fold_Region);
 
-    errors.push({ $: "GenericBoundFailure", _0: clone_SubregionOrigin(verify.origin), _1: verify.kind, _2: sub });
-  }
+      let verify_kind_ty = GenericKind.to_ty(verify.kind, this.tcx());
+      verify_kind_ty = var_data.normalize(this.tcx(), verify_kind_ty, fold_Ty);
+      if (this.bound_is_met(verify.bound, var_data, verify_kind_ty, sub)) {
+        continue;
+      }
+
+      // debug!("collect_errors: region error at {:?}: cannot verify that {:?} <= {:?}", verify.origin, verify.region, verify.bound);
+
+      errors.push({ $: "GenericBoundFailure", _0: clone_SubregionOrigin(verify.origin), _1: verify.kind, _2: sub });
+    }
+  });
 };
 
 /// Go over the variables that were declared to be error variables

@@ -1,6 +1,7 @@
 // Partial port of compiler/rustc_codegen_ssa/src/back/lto.rs: `crate_type_allows_lto` and `exported_symbols_for_lto`,
 // which `CrateInfo::new` calls. The LTO machinery (`ThinModule`, `ThinShared`, `SerializedModule`,
 // `check_lto_allowed`, ...) is codegen (M7) and not ported.
+import * as tracing from "../../rust_ts/tracing.ts";
 import type { AllocatorKind } from "../../rustc_ast/expand/allocator.gen.ts";
 import { type ExportedSymbol, type SymbolExportInfo, SymbolExportLevel } from "../../rustc_middle/middle/exported_symbols.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
@@ -59,7 +60,7 @@ export function exported_symbols_for_lto(tcx: TyCtxt, each_linked_rlib_for_lto: 
   // PORT: the `tcx.prof.generic_activity("lto_generate_symbols_below_threshold")` timers are dropped (the profiler
   // stand-in records nothing; driver-m2 decision 8).
   const symbols_below_threshold = copy_symbols(LOCAL_CRATE);
-  // info!("{} symbols to preserve in this crate", symbols_below_threshold.len());
+  tracing.info("rustc_codegen_ssa::back::lto", () => `${symbols_below_threshold.length} symbols to preserve in this crate`);
 
   // If we're performing LTO for the entire crate graph, then for each of our
   // upstream dependencies, include their exported symbols.

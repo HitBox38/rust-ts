@@ -19,6 +19,7 @@
 // Init order: top-level code here touches only ./project.gen.ts and other crates; this crate's other modules
 // (normalize.ts, util.ts, specialize/**) are read inside function bodies only.
 
+import * as tracing from "../../rust_ts/tracing.ts";
 import { intern_key } from "../../rust_ts/intern_key.ts";
 import { LangItem } from "../../rustc_attr_ir/lang_items.ts";
 import { ToTrace_AliasTerm, ToTrace_Term, ToTrace_Ty } from "../../rustc_infer/infer/at.ts";
@@ -124,6 +125,7 @@ const d_AliasTerm: TypeFoldable<AliasTerm> = {
   try_fold_with: (v, folder) => try_fold_with_Alias(v, folder, try_fold_with_AliasTermKind),
   fold_with: (v, folder) => fold_with_Alias(v, folder, fold_with_AliasTermKind),
 };
+tracing.register_debug(d_AliasTerm.fold_with, debug_AliasTerm);
 /** The derived `TypeFoldable` of `ProjectionClause`. */
 const d_ProjectionClause: TypeFoldable<ProjectionClause> = {
   visit_with: visit_with_ProjectionClause,
@@ -746,87 +748,89 @@ Progress.prototype.with_addl_obligations = function (this: ProgressT, obligation
 // #[instrument(level = "info", skip(selcx))]
 // rustc: compiler/rustc_trait_selection/src/traits/project.rs:691 project
 function project(selcx: SelectionContext, obligation: ProjectionTermObligation): Result<Projected, ProjectionError> {
-  if (!selcx.tcx().recursion_limit().value_within_limit(obligation.recursion_depth)) {
-    // This should really be an immediate error, but some existing code
-    // relies on being able to recover from this.
-    return Err({ $: "TraitSelectionError", _0: { $: "Overflow", _0: OverflowError.Canonical } });
-  }
+  return tracing.instrument("rustc_trait_selection::traits::project", "project", () => [["obligation", () => debug_Obligation(obligation, PLAIN, debug_AliasTerm)]], () => {
+    if (!selcx.tcx().recursion_limit().value_within_limit(obligation.recursion_depth)) {
+      // This should really be an immediate error, but some existing code
+      // relies on being able to recover from this.
+      return Err({ $: "TraitSelectionError", _0: { $: "Overflow", _0: OverflowError.Canonical } });
+    }
 
-  // We can still compute a projection type when there are only region errors,
-  // but type/const errors require early return.
-  const reported = TypeVisitableExt.non_region_error_reported(obligation.predicate, d_AliasTerm);
-  if (reported.$ === "Err") {
-    const guar = reported._0;
-    return Ok({ $: "Progress", _0: Progress.error_for_term(selcx.tcx(), obligation.predicate, guar) });
-  }
+    // We can still compute a projection type when there are only region errors,
+    // but type/const errors require early return.
+    const reported = TypeVisitableExt.non_region_error_reported(obligation.predicate, d_AliasTerm);
+    if (reported.$ === "Err") {
+      const guar = reported._0;
+      return Ok({ $: "Progress", _0: Progress.error_for_term(selcx.tcx(), obligation.predicate, guar) });
+    }
 
-  // `<dyn Trait>::Name` is only valid when `Trait` is dyn-compatible.
-  // If it isn't, create an error at the projection site and return a tainted error term.
-  const self_ty = selcx.infcx.shallow_resolve(AliasTermC.self_ty(obligation.predicate));
-  const sk = self_ty.kind();
-  if (sk.$ === "Dynamic") {
-    const data = sk._0;
-    const def_id = data.principal_def_id();
-    if (def_id !== undefined) {
-      const tcx = selcx.tcx();
-      // Delaying a bug is fine here:
-      // - In case of a dymmy span, we are in a canonical query.
-      // - `CheckAssociatedTypeBounds` means that the trait object is part of the trait's item bounds
-      //   or the impl's associated type; both are checked at their own definition
-      //   where the error is already reported with a better span.
-      if (!tcx.is_dyn_compatible(def_id)) {
-        const span = obligation.cause.span;
-        let guar: ErrorGuaranteed;
-        if (Span.is_dummy(span) || obligation.cause.code_().$ === "CheckAssociatedTypeBounds") {
-          guar = tcx.dcx().span_delayed_bug(span, `projection from non-dyn-compatible trait \`${tcx.def_path_str(def_id)}\``);
-        } else {
-          const violations = tcx.dyn_compatibility_violations(def_id);
-          guar = report_dyn_incompatibility(tcx, span, undefined, def_id, violations).emit_err();
+    // `<dyn Trait>::Name` is only valid when `Trait` is dyn-compatible.
+    // If it isn't, create an error at the projection site and return a tainted error term.
+    const self_ty = selcx.infcx.shallow_resolve(AliasTermC.self_ty(obligation.predicate));
+    const sk = self_ty.kind();
+    if (sk.$ === "Dynamic") {
+      const data = sk._0;
+      const def_id = data.principal_def_id();
+      if (def_id !== undefined) {
+        const tcx = selcx.tcx();
+        // Delaying a bug is fine here:
+        // - In case of a dymmy span, we are in a canonical query.
+        // - `CheckAssociatedTypeBounds` means that the trait object is part of the trait's item bounds
+        //   or the impl's associated type; both are checked at their own definition
+        //   where the error is already reported with a better span.
+        if (!tcx.is_dyn_compatible(def_id)) {
+          const span = obligation.cause.span;
+          let guar: ErrorGuaranteed;
+          if (Span.is_dummy(span) || obligation.cause.code_().$ === "CheckAssociatedTypeBounds") {
+            guar = tcx.dcx().span_delayed_bug(span, `projection from non-dyn-compatible trait \`${tcx.def_path_str(def_id)}\``);
+          } else {
+            const violations = tcx.dyn_compatibility_violations(def_id);
+            guar = report_dyn_incompatibility(tcx, span, undefined, def_id, violations).emit_err();
+          }
+          return Ok({ $: "Progress", _0: Progress.error_for_term(tcx, obligation.predicate, guar) });
         }
-        return Ok({ $: "Progress", _0: Progress.error_for_term(tcx, obligation.predicate, guar) });
       }
     }
-  }
 
-  const candidates: MutRef<ProjectionCandidateSet> = { value: ProjectionCandidateSet.None };
+    const candidates: MutRef<ProjectionCandidateSet> = { value: ProjectionCandidateSet.None };
 
-  // Make sure that the following procedures are kept in order. ParamEnv
-  // needs to be first because it has highest priority, and Select checks
-  // the return value of push_candidate which assumes it's ran at last.
-  assemble_candidates_from_param_env(selcx, obligation, candidates);
+    // Make sure that the following procedures are kept in order. ParamEnv
+    // needs to be first because it has highest priority, and Select checks
+    // the return value of push_candidate which assumes it's ran at last.
+    assemble_candidates_from_param_env(selcx, obligation, candidates);
 
-  assemble_candidates_from_trait_def(selcx, obligation, candidates);
+    assemble_candidates_from_trait_def(selcx, obligation, candidates);
 
-  assemble_candidates_from_object_ty(selcx, obligation, candidates);
+    assemble_candidates_from_object_ty(selcx, obligation, candidates);
 
-  if (candidates.value.$ === "Single" && candidates.value._0.$ === "Object") {
-    // Avoid normalization cycle from selection (see
-    // `assemble_candidates_from_object_ty`).
-    // FIXME(lazy_normalization): Lazy normalization should save us from
-    // having to special case this.
-  } else {
-    assemble_candidates_from_impls(selcx, obligation, candidates);
-  }
-
-  const c = candidates.value;
-  switch (c.$) {
-    case "Single": {
-      const candidate = c._0;
-      return confirm_candidate(selcx, obligation, candidate);
+    if (candidates.value.$ === "Single" && candidates.value._0.$ === "Object") {
+      // Avoid normalization cycle from selection (see
+      // `assemble_candidates_from_object_ty`).
+      // FIXME(lazy_normalization): Lazy normalization should save us from
+      // having to special case this.
+    } else {
+      assemble_candidates_from_impls(selcx, obligation, candidates);
     }
-    case "None": {
-      const tcx = selcx.tcx();
-      const term = AliasTermC.to_term(obligation.predicate, tcx, "No");
-      return Ok({ $: "NoProgress", _0: term });
+
+    const c = candidates.value;
+    switch (c.$) {
+      case "Single": {
+        const candidate = c._0;
+        return confirm_candidate(selcx, obligation, candidate);
+      }
+      case "None": {
+        const tcx = selcx.tcx();
+        const term = AliasTermC.to_term(obligation.predicate, tcx, "No");
+        return Ok({ $: "NoProgress", _0: term });
+      }
+      // Error occurred while trying to processing impls.
+      case "Error":
+        return Err({ $: "TraitSelectionError", _0: c._0 });
+      // Inherent ambiguity that prevents us from even enumerating the
+      // candidates.
+      case "Ambiguous":
+        return Err(ProjectionErrorC.TooManyCandidates);
     }
-    // Error occurred while trying to processing impls.
-    case "Error":
-      return Err({ $: "TraitSelectionError", _0: c._0 });
-    // Inherent ambiguity that prevents us from even enumerating the
-    // candidates.
-    case "Ambiguous":
-      return Err(ProjectionErrorC.TooManyCandidates);
-  }
+  });
 }
 
 /// The first thing we have to do is scan through the parameter

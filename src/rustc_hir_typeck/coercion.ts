@@ -51,6 +51,12 @@
 // Init order: top-level code here may touch only ../decls.ts (the classes), this file's .gen.ts and other crates; every
 // other rustc_hir_typeck export is read inside function bodies only.
 export * from "./coercion.gen.ts";
+import * as tracing from "../rust_ts/tracing.ts";
+import { debug_InferOk } from "../rustc_infer/infer/mod.gen.ts";
+import { debug_TypeError } from "../rustc_type_ir/error.ts";
+import { debug_Adjustment } from "../rustc_middle/ty/structural_impls.ts";
+import { debug_tuple, debug_vec } from "../std/fmt.ts";
+import { debug_result } from "../std/result.ts";
 import { assert, panic, unreachable, unwrap } from "../std/panic.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
 import { FnCtxt, register_deref, TypeckRootCtxt } from "./decls.ts";
@@ -253,116 +259,118 @@ Coerce.prototype.unify_and = function (
 // #[instrument(skip(self), ret)]
 // rustc: compiler/rustc_hir_typeck/src/coercion.rs:242 coerce
 Coerce.prototype.coerce = function (this: Coerce, a0: Ty, b0: Ty): CoerceResult {
-  // First, remove any resolved type variables (at the top level, at least):
-  const a = this.shallow_resolve(a0);
-  const b = this.shallow_resolve(b0);
-  // debug!("Coerce.tys({:?} => {:?})", a, b);
+  return tracing.instrument("rustc_hir_typeck::coercion", "coerce", () => [["a", () => debug_Ty(a0, PLAIN)], ["b", () => debug_Ty(b0, PLAIN)]], () => {
+    // First, remove any resolved type variables (at the top level, at least):
+    const a = this.shallow_resolve(a0);
+    const b = this.shallow_resolve(b0);
+    // debug!("Coerce.tys({:?} => {:?})", a, b);
 
-  // Coercing from `!` to any type is allowed:
-  if (a.is_never()) {
-    if (this.coerce_never) {
-      return success([{ kind: Adjust.NeverToAny, target: b }], b, []);
+    // Coercing from `!` to any type is allowed:
+    if (a.is_never()) {
+      if (this.coerce_never) {
+        return success([{ kind: Adjust.NeverToAny, target: b }], b, []);
+      } else {
+        // Otherwise the only coercion we can do is unification.
+        return this.unify(a, b, "No");
+      }
+    }
+
+    // Coercing *from* an unresolved inference variable means that
+    // we have no information about the source type. This will always
+    // ultimately fall back to some form of subtyping.
+    if (a.is_ty_var()) {
+      return this.coerce_from_inference_variable(a, b);
+    }
+
+    // Consider coercing the subtype to a DST
+    //
+    // NOTE: this is wrapped in a `commit_if_ok` because it creates
+    // a "spurious" type variable, and we don't want to have that
+    // type variable in memory if the coercion fails.
+    const unsize = this.commit_if_ok((_) => this.coerce_unsized(a, b));
+    switch (unsize.$) {
+      case "Ok": {
+        // debug!("coerce: unsize successful");
+        return unsize;
+      }
+      case "Err": {
+        // debug!(?error, "coerce: unsize failed");
+        break;
+      }
+    }
+
+    // Examine the target type and consider type-specific coercions, such
+    // as auto-borrowing, coercing pointer mutability, pin-ergonomics, or
+    // generic reborrow.
+    const bk = b.kind();
+    let to_pin_ref: CoerceMaybePinnedRef | undefined;
+    if (bk.$ === "RawPtr") {
+      const b_mutbl = bk._1;
+      return this.coerce_to_raw_ptr(a, b, b_mutbl);
+    } else if (bk.$ === "Ref") {
+      const [r_b, mutbl_b] = [bk._0, bk._2];
+      const pin_ref_to_ref = this.maybe_pin_ref_to_ref(a, b);
+      if (pin_ref_to_ref !== undefined) {
+        return this.coerce_pin_ref_to_ref(pin_ref_to_ref);
+      }
+      return this.coerce_to_ref(a, b, r_b, mutbl_b);
+    } else if ((to_pin_ref = this.maybe_to_pin_ref(a, b)) !== undefined) {
+      return this.coerce_to_pin_ref(to_pin_ref);
+    } else if (
+      bk.$ === "Adt" &&
+      this.tcx.features().reborrow() &&
+      EvaluationResult.must_apply_modulo_regions(
+        this.fcx.infcx.type_implements_trait(
+          unwrap(this.tcx.lang_items().reborrow(), "Unexpectedly using core/std without reborrow"),
+          [GenericArg.from_Ty(b)],
+          this.fcx.param_env,
+        ),
+      )
+    ) {
+      const reborrow_coerce = this.commit_if_ok((_) => this.coerce_reborrow(a, b));
+      if (reborrow_coerce.$ === "Ok") {
+        return reborrow_coerce;
+      }
     } else {
-      // Otherwise the only coercion we can do is unification.
-      return this.unify(a, b, "No");
+      // _ => {}
     }
-  }
 
-  // Coercing *from* an unresolved inference variable means that
-  // we have no information about the source type. This will always
-  // ultimately fall back to some form of subtyping.
-  if (a.is_ty_var()) {
-    return this.coerce_from_inference_variable(a, b);
-  }
-
-  // Consider coercing the subtype to a DST
-  //
-  // NOTE: this is wrapped in a `commit_if_ok` because it creates
-  // a "spurious" type variable, and we don't want to have that
-  // type variable in memory if the coercion fails.
-  const unsize = this.commit_if_ok((_) => this.coerce_unsized(a, b));
-  switch (unsize.$) {
-    case "Ok": {
-      // debug!("coerce: unsize successful");
-      return unsize;
+    const ak = a.kind();
+    switch (ak.$) {
+      case "FnDef": {
+        // Function items are coercible to any closure
+        // type; function pointers are not (that would
+        // require double indirection).
+        // Additionally, we permit coercion of function
+        // items to drop the unsafe qualifier.
+        return this.coerce_from_fn_item(a, b);
+      }
+      case "FnPtr": {
+        const [a_sig_tys, a_hdr] = [ak._0, ak._1];
+        // We permit coercion of fn pointers to drop the
+        // unsafe qualifier.
+        return this.coerce_from_fn_pointer(a, PolyFnSigTys.with(a_sig_tys, a_hdr), b);
+      }
+      case "Closure": {
+        // Non-capturing closures are coercible to
+        // function pointers or unsafe function pointers.
+        // It cannot convert closures that require unsafe.
+        return this.coerce_closure_to_fn(a, b);
+      }
+      default:
+        break;
     }
-    case "Err": {
-      // debug!(?error, "coerce: unsize failed");
-      break;
+    if (ak.$ === "Adt" && this.tcx.features().reborrow()) {
+      const reborrow_coerce = this.commit_if_ok((_) => this.coerce_shared_reborrow(a, b));
+      if (reborrow_coerce.$ === "Ok") {
+        return reborrow_coerce;
+      } else {
+        return this.unify(a, b, "No");
+      }
     }
-  }
-
-  // Examine the target type and consider type-specific coercions, such
-  // as auto-borrowing, coercing pointer mutability, pin-ergonomics, or
-  // generic reborrow.
-  const bk = b.kind();
-  let to_pin_ref: CoerceMaybePinnedRef | undefined;
-  if (bk.$ === "RawPtr") {
-    const b_mutbl = bk._1;
-    return this.coerce_to_raw_ptr(a, b, b_mutbl);
-  } else if (bk.$ === "Ref") {
-    const [r_b, mutbl_b] = [bk._0, bk._2];
-    const pin_ref_to_ref = this.maybe_pin_ref_to_ref(a, b);
-    if (pin_ref_to_ref !== undefined) {
-      return this.coerce_pin_ref_to_ref(pin_ref_to_ref);
-    }
-    return this.coerce_to_ref(a, b, r_b, mutbl_b);
-  } else if ((to_pin_ref = this.maybe_to_pin_ref(a, b)) !== undefined) {
-    return this.coerce_to_pin_ref(to_pin_ref);
-  } else if (
-    bk.$ === "Adt" &&
-    this.tcx.features().reborrow() &&
-    EvaluationResult.must_apply_modulo_regions(
-      this.fcx.infcx.type_implements_trait(
-        unwrap(this.tcx.lang_items().reborrow(), "Unexpectedly using core/std without reborrow"),
-        [GenericArg.from_Ty(b)],
-        this.fcx.param_env,
-      ),
-    )
-  ) {
-    const reborrow_coerce = this.commit_if_ok((_) => this.coerce_reborrow(a, b));
-    if (reborrow_coerce.$ === "Ok") {
-      return reborrow_coerce;
-    }
-  } else {
-    // _ => {}
-  }
-
-  const ak = a.kind();
-  switch (ak.$) {
-    case "FnDef": {
-      // Function items are coercible to any closure
-      // type; function pointers are not (that would
-      // require double indirection).
-      // Additionally, we permit coercion of function
-      // items to drop the unsafe qualifier.
-      return this.coerce_from_fn_item(a, b);
-    }
-    case "FnPtr": {
-      const [a_sig_tys, a_hdr] = [ak._0, ak._1];
-      // We permit coercion of fn pointers to drop the
-      // unsafe qualifier.
-      return this.coerce_from_fn_pointer(a, PolyFnSigTys.with(a_sig_tys, a_hdr), b);
-    }
-    case "Closure": {
-      // Non-capturing closures are coercible to
-      // function pointers or unsafe function pointers.
-      // It cannot convert closures that require unsafe.
-      return this.coerce_closure_to_fn(a, b);
-    }
-    default:
-      break;
-  }
-  if (ak.$ === "Adt" && this.tcx.features().reborrow()) {
-    const reborrow_coerce = this.commit_if_ok((_) => this.coerce_shared_reborrow(a, b));
-    if (reborrow_coerce.$ === "Ok") {
-      return reborrow_coerce;
-    } else {
-      return this.unify(a, b, "No");
-    }
-  }
-  // Otherwise, just use unification rules.
-  return this.unify(a, b, "No");
+    // Otherwise, just use unification rules.
+    return this.unify(a, b, "No");
+  }, (x) => debug_result(x, PLAIN, (ok, f) => debug_InferOk(ok, f, (v, f) => debug_tuple(f, "", [debug_vec(v[0], f, debug_Adjustment), debug_Ty(v[1], f)])), debug_TypeError));
 };
 
 /// Coercing *from* an inference variable. In this case, we have no information

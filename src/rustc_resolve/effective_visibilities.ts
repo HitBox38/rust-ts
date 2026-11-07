@@ -7,7 +7,9 @@
 // crates; another rustc_resolve module's exports are read inside function bodies only.
 import { ast, attr, type Attribute, type Crate, type Item, visit } from "../rustc_ast/lib.ts";
 import { type DefKind, Res } from "../rustc_hir/def.ts";
-import { EffectiveVisibilities, EffectiveVisibility, type Level } from "../rustc_middle/middle/privacy.ts";
+import { debug_EffectiveVisibilities, EffectiveVisibilities, EffectiveVisibility, type Level } from "../rustc_middle/middle/privacy.ts";
+import * as tracing from "../rust_ts/tracing.ts";
+import { PRETTY } from "../std/fmt.ts";
 import { Visibility, Visibility_eq } from "../rustc_middle/ty/mod.ts";
 import { CRATE_DEF_ID, CRATE_MOD_ID, LocalDefId, LocalModId } from "../rustc_span/def_id.ts";
 import { sym } from "../rustc_span/symbol.ts";
@@ -121,7 +123,7 @@ export class EffectiveVisibilitiesVisitor extends visit.Visitor {
       }
     }
 
-    // info!("resolve::effective_visibilities: {:#?}", r.effective_visibilities);
+    tracing.info("rustc_resolve::effective_visibilities", () => `resolve::effective_visibilities: ${debug_EffectiveVisibilities(r.effective_visibilities, PRETTY)}`);
 
     return exported_ambiguities;
   }
