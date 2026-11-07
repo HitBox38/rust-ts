@@ -17,3 +17,7 @@ pub fn f() -> ([u8; 2000], Box<[u8; 2000]>) {
     take(a);
     (b, Box::new(a))
 }
+// A copy at or above 2^53 bytes: the size test and the lint's `size` are `u64`s (docs/reviews/fixers-44.md F5, lane fixers-46).
+#[derive(Clone, Copy)]
+pub struct Huge(pub [u8; 9007199254741001]);
+pub fn huge(h: &Huge) -> Huge { *h }

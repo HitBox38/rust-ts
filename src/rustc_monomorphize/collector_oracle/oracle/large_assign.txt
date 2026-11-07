@@ -1,6 +1,7 @@
 exit 0
 == MONO_ITEM
 MONO_ITEM fn f @@ large_assign.5fd03cb2a5381526-cgu.0[External]
+MONO_ITEM fn huge @@ large_assign.5fd03cb2a5381526-cgu.0[External]
 MONO_ITEM fn moved @@ large_assign.5fd03cb2a5381526-cgu.0[External]
 MONO_ITEM fn overlap @@ large_assign.5fd03cb2a5381526-cgu.0[External]
 MONO_ITEM fn std::alloc::Global::alloc_impl_runtime @@ large_assign.5fd03cb2a5381526-cgu.0[Internal]
@@ -10,6 +11,7 @@ MONO_ITEM fn std::ptr::NonNull::<T>::new_unchecked::precondition_check @@ large_
 MONO_ITEM fn take @@ large_assign.5fd03cb2a5381526-cgu.0[External]
 MONO_ITEM fn take_move @@ large_assign.5fd03cb2a5381526-cgu.0[External]
 == FP
+FP 01149498dc0a178d34cea83b7387965b fn huge
 FP 036b286f8d65e39b96da1f0632872c78 fn std::boxed::Box::<[u8; 2000]>::new
 FP 1e436a791aeb9e6f386a66ce6b9e5052 fn std::alloc::Global::alloc_impl_runtime
 FP 222b10dc854c19be5a1584c9252d5467 fn overlap
@@ -57,5 +59,13 @@ warning: moving 2000 bytes
    |
    = note: the current maximum size is 1000, but it can be customized with the move_size_limit attribute: `#![move_size_limit = "..."]`
 
-warning: 4 warnings emitted
+warning: moving 9007199254741001 bytes
+  --> $FILE:23:33
+   |
+23 | pub fn huge(h: &Huge) -> Huge { *h }
+   |                                 ^^ value moved from here
+   |
+   = note: the current maximum size is 1000, but it can be customized with the move_size_limit attribute: `#![move_size_limit = "..."]`
+
+warning: 5 warnings emitted
 
