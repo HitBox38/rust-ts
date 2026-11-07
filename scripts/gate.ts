@@ -3,7 +3,8 @@
 //
 //   bun scripts/gate.ts run [--suites lex,parse] [--skip-static] [--skip-heavy]
 //       oracle check (pinned commit and components, scripts/lib/toolchain.ts) + probe check + typecheck + unit tests (src/tools, then scripts/harness in a second process;
-//       RUST_TS_REQUIRE_PROBES=1; any skipped test not in ALLOWED_SKIPS fails) + marker check + full difftest of each suite; prints lost/gained.
+//       RUST_TS_REQUIRE_PROBES=1; any skipped test not in ALLOWED_SKIPS fails) + marker check + marker order of src/rustc_monomorphize/ + full difftest
+//       of each suite; prints lost/gained.
 //       Heavy suites (`Suite.heavy`, plan-m5 §4.2: core-scale runs, one process at a time) run after all the
 //       others, one after another, and print each run's wall/user time and max RSS (an RSS over the suite's budget
 //       is a `note:`, not a failure: D11). `--skip-heavy` leaves them out: they are listed as not run (`notRun` in
@@ -305,6 +306,8 @@ export async function staticChecks(runDir: string): Promise<{ ok: boolean; skips
     }),
     // --offline: a vendor crate missing from cargo's cache is an ERROR, never network I/O.
     { name: "markers", cmd: [process.execPath, "scripts/coverage.ts", "--check", "--offline"], env: {} },
+    // A crate with no marker out of upstream's order stays so (PORTING section 3; fixers-44 W5). Others have allowed inversions (section 8).
+    { name: "marker order", cmd: [process.execPath, "scripts/coverage.ts", "--order", "--require-clean", "src/rustc_monomorphize/"], env: {} },
   ];
   let ok = true;
   let skips: SkipReport | undefined;

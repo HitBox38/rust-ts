@@ -132,3 +132,13 @@ export function orderRows(ms: readonly OrderMarker[]): OrderRow[] {
   }
   return rows.sort((a, b) => b.outOfOrder - a.outOfOrder || b.descents - a.descents || (a.file < b.file ? -1 : 1));
 }
+
+/**
+ * `--order --require-clean <prefix>` (scripts/coverage.ts; fixers-44 W5): one `ERROR:` line per row whose TS file starts with
+ * `prefix`, a tree that must stay in upstream's order. A check only where it has no inversions today: elsewhere PORTING
+ * section 8's allowed ones would need an allowlist first. An empty prefix would check the whole repo, so it is refused.
+ */
+export function orderErrors(rows: readonly OrderRow[], prefix: string): string[] {
+  if (prefix === "") return ["ERROR: --require-clean needs a path prefix, such as src/rustc_monomorphize/"];
+  return rows.filter((r) => r.file.startsWith(prefix)).map((r) => `ERROR: ${r.file}: markers of ${r.path} out of upstream's order (${r.outOfOrder} of ${r.markers}); first ${r.first ?? "?"}`);
+}
