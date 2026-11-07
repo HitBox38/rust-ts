@@ -13,7 +13,7 @@
 // What this cannot see: among sibling calls of one name with no key, an anchor on the wrong sibling (review N3).
 // `map_call` does the same lookup at run time, so a stale anchor there refuses, and this finds it before anything reaches it.
 import { readFileSync } from "node:fs";
-import { ts_file, up_file } from "../../src/rust_ts/track_caller.ts";
+import { RESULT_METHODS, ts_file, up_file } from "../../src/rust_ts/track_caller.ts";
 
 /** Whether a TS source can hold markers these checks read (the resolver and its tests quote the syntax). */
 export const hasAnchorSyntax = (text: string): boolean => /^\s*\/\/\s*rustc-(?:call|const):/m.test(text);
@@ -59,10 +59,13 @@ export function anchorErrors(file: string, rel: string): string[] {
       return cl === ul && c0 + 1 === uc;
     });
     if (call === undefined) return void out.push(`${rel}:${line}: ${at}: no call of \`${name}\` starts there in the body of ${owner.path}:${owner.line}`);
+    // The port's name for the call: upstream's, or a `Result` method the resolver maps to it (`RESULT_METHODS`, review fixers-45 6).
+    const tsNames = [name, ...[...RESULT_METHODS].filter(([, up]) => up === name).map(([t]) => t)];
+    for (const tsName of tsNames)
     for (const macro of [false, true]) {
-      for (const [tl, tc] of ts.calls_in(owner, name, macro)) {
+      for (const [tl, tc] of ts.calls_in(owner, tsName, macro)) {
         if (tl !== line + 1) continue;
-        const tk = ts.call_key(tl, tc, name);
+        const tk = ts.call_key(tl, tc, tsName);
         const uk = up.call_key(call, name);
         // (A literal on one side and a struct on the other say nothing: `assert(.., "msg")` for a bare `assert!(..)`.)
         if (tk !== undefined && uk !== undefined && tk !== uk && tk.split(" ")[0] === uk.split(" ")[0]) out.push(`${rel}:${line}: ${at}: key ${JSON.stringify(tk)} in TS, ${JSON.stringify(uk)} upstream`);
