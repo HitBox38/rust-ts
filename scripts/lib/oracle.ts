@@ -23,7 +23,8 @@ let verified = false;
  */
 export async function verifyOraclePin(): Promise<void> {
   if (verified) return;
-  const r = await run(["rustc", `+${PIN.toolchain}`, "-vV"]);
+  // `RUSTUP_AUTO_INSTALL=0`, as `oracleHost` (review root-w42-check N1): under a home without the pin, fail rather than install.
+  const r = await run(["rustc", `+${PIN.toolchain}`, "-vV"], { env: { RUSTUP_AUTO_INSTALL: "0" } });
   const m = /commit-hash: (\w+)/.exec(r.stdout);
   const host = /^host: (\S+)$/m.exec(r.stdout);
   if (r.code !== 0 || !m || !host) die(`cannot run oracle rustc +${PIN.toolchain}: ${r.stderr.trim()}`);
@@ -88,17 +89,23 @@ export function oraclePinnedPathEnv(): Record<string, string> {
 
 let sysrootPath: string | undefined;
 
+/**
+ * The environment for asking the oracle toolchain about itself: rustup must never install `+nightly` instead of failing, as it
+ * did under the isolated Miri home (reviews fixers-43 F1, harness-w43 F1). Under the real home the pin is installed.
+ */
+const NO_INSTALL = (): Record<string, string> => ({ ...(process.env as Record<string, string>), RUSTUP_AUTO_INSTALL: "0" });
+
 /** `rustc +<toolchain> --print sysroot` of the oracle toolchain. */
 export function oracleSysroot(): string {
   if (sysrootPath) return sysrootPath;
-  const r = Bun.spawnSync(["rustc", `+${PIN.toolchain}`, "--print", "sysroot"]);
+  const r = Bun.spawnSync(["rustc", `+${PIN.toolchain}`, "--print", "sysroot"], { env: NO_INSTALL() });
   if (r.exitCode !== 0) die(`cannot run oracle rustc +${PIN.toolchain} --print sysroot`);
   return (sysrootPath = r.stdout.toString().trim());
 }
 
 /** Host triple of the oracle toolchain (`rustc -vV`). */
 export function oracleHost(): string {
-  const r = Bun.spawnSync(["rustc", `+${PIN.toolchain}`, "-vV"]);
+  const r = Bun.spawnSync(["rustc", `+${PIN.toolchain}`, "-vV"], { env: NO_INSTALL() });
   const m = /^host: (\S+)$/m.exec(r.stdout.toString());
   if (r.exitCode !== 0 || !m) die(`cannot run oracle rustc +${PIN.toolchain} -vV`);
   return m[1]!;

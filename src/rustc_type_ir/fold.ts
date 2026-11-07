@@ -72,6 +72,7 @@
 // PORT (D4): `I::Ty` and `I::Clauses` impls live in rustc_middle (ty/structural_impls.rs), not ported yet:
 // `fold_Ty` / `fold_Clauses` at the end of this file stand in for their descriptors.
 // PORT: `#[instrument]` / `debug!` (tracing) produce no output in the oracle and are left out.
+import { TUPLE_PARTS } from "../rust_ts/tracing.ts";
 import { type AliasConstKind, fold_with_AliasConstKind } from "./const_kind.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import type { Clauses } from "../rustc_middle/ty/list.ts";
@@ -493,15 +494,17 @@ export function fold_with_IndexVec<T>(self: readonly T[], folder: TypeFolder, fo
 // PORT (D4): descriptor adapters over the container impls above (and visit.ts's), for generic code that takes a
 // descriptor (`shift_vars(cx, [a, b], n, fold_tuple2(fold_A, fold_B))`). No upstream counterpart: in Rust the
 // impls are found by the trait solver.
-export function fold_tuple2<T, U>(d_T: TypeFoldable<T>, d_U: TypeFoldable<U>): TypeFoldable<[T, U]> {
+export function fold_tuple2<T, U>(d_T: TypeFoldable<T>, d_U: TypeFoldable<U>): TypeFoldable<[T, U]> & { readonly [TUPLE_PARTS]: readonly TypeFoldable<unknown>[] } {
   return {
+    [TUPLE_PARTS]: [d_T, d_U] as readonly TypeFoldable<unknown>[],
     visit_with: (self, visitor) => visit_with_tuple2(self, visitor, d_T.visit_with, d_U.visit_with),
     try_fold_with: (self, folder) => try_fold_with_tuple2(self, folder, d_T.try_fold_with, d_U.try_fold_with),
     fold_with: (self, folder) => fold_with_tuple2(self, folder, d_T.fold_with, d_U.fold_with),
   };
 }
-export function fold_tuple3<A, B, C>(d_A: TypeFoldable<A>, d_B: TypeFoldable<B>, d_C: TypeFoldable<C>): TypeFoldable<[A, B, C]> {
+export function fold_tuple3<A, B, C>(d_A: TypeFoldable<A>, d_B: TypeFoldable<B>, d_C: TypeFoldable<C>): TypeFoldable<[A, B, C]> & { readonly [TUPLE_PARTS]: readonly TypeFoldable<unknown>[] } {
   return {
+    [TUPLE_PARTS]: [d_A, d_B, d_C] as readonly TypeFoldable<unknown>[],
     visit_with: (self, visitor) => visit_with_tuple3(self, visitor, d_A.visit_with, d_B.visit_with, d_C.visit_with),
     try_fold_with: (self, folder) => try_fold_with_tuple3(self, folder, d_A.try_fold_with, d_B.try_fold_with, d_C.try_fold_with),
     fold_with: (self, folder) => fold_with_tuple3(self, folder, d_A.fold_with, d_B.fold_with, d_C.fold_with),

@@ -251,3 +251,17 @@ export type SymbolSection =
   | { $: "Common" }
   /// The symbol is defined in the given section.
   | { $: "Section"; _0: SectionIndex };
+
+export const SymbolSection = {
+  /// Returns the section index for the section where the symbol is defined.
+  ///
+  /// May return `None` if the symbol is not defined in a section.
+  // crate: object-0.39.1/src/read/mod.rs:417 index
+  index(self: SymbolSection): SectionIndex | undefined {
+    if (self.$ === "Section") {
+      return self._0;
+    } else {
+      return undefined;
+    }
+  },
+};

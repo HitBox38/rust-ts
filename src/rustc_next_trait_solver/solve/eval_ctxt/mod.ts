@@ -24,6 +24,11 @@
 // PORT (D4): the descriptors of the concrete foldables this file traverses (`Goal<I, I::Predicate>`,
 // `(OpaqueTypeKey, Ty)`, `QueryInput`, `PredicateKind`, `AliasConst`, `ExternalConstraintsData`, `Response`) are
 // module-local, built from the generated `visit_with_*` / `try_fold_with_*` / `fold_with_*` fns (end of file).
+import * as tracing from "../../../rust_ts/tracing.ts";
+import { debug_MayBeErased, debug_TypingMode } from "../../../rustc_type_ir/infer_ctxt.ts";
+import { debug_OpaqueTypeKey } from "../../../rustc_type_ir/opaque_ty.ts";
+import { debug_RerunCondition } from "../../../rustc_type_ir/solve/mod.ts";
+import { debug_tuple, debug_vec } from "../../../std/fmt.ts";
 import { type ControlFlow, ControlFlow as ControlFlowC, type VisitorResult, VisitorResult as VisitorResultC } from "../../../rustc_ast_ir/visit.ts";
 import type { TyCtxt } from "../../../rustc_middle/ty/context.ts";
 import { inherent_Features } from "../../../rustc_middle/ty/context.ts";
@@ -2149,79 +2154,81 @@ export function should_rerun_after_erased_canonicalization(
   original_typing_mode: TypingModeT,
   parent_opaque_types: readonly (readonly [OpaqueTypeKey, Ty])[],
 ): RerunDecision {
-  const rerun = _0.rerun;
-  // PORT: `parent_opaque_types.iter().map(|(key, _)| key.def_id.into())` (a lazy iterator, consumed at most once).
-  const parent_opaque_def_ids = parent_opaque_types.map(([key, _]) => key.def_id);
-  const opaque_in_storage = (opaques: readonly import("../../../rustc_span/def_id.ts").LocalDefId[], def_ids: SmallCopySet<import("../../../rustc_span/def_id.ts").LocalDefId>): RerunDecision => {
-    if (SmallCopySet.as_ref(def_ids).length === 0) {
-      return RerunDecision.No;
-    } else if ([...opaques, ...parent_opaque_def_ids].some((opaque) => SmallCopySet.as_ref(def_ids).includes(opaque))) {
-      return RerunDecision.Yes;
-    } else {
-      return RerunDecision.No;
-    }
-  };
-  const any_opaque_has_infer_as_hidden = (): RerunDecision => {
-    if (parent_opaque_types.some(([_, ty]) => ty.is_ty_var())) {
-      return RerunDecision.Yes;
-    } else {
-      return RerunDecision.No;
-    }
-  };
+  return tracing.instrument("rustc_next_trait_solver::solve::eval_ctxt", "should_rerun_after_erased_canonicalization", () => [["rerun", () => debug_RerunCondition(_0.rerun, PLAIN)], ["original_typing_mode", () => debug_TypingMode(original_typing_mode, PLAIN, debug_MayBeErased)], ["parent_opaque_types", () => debug_vec(parent_opaque_types, PLAIN, ([k, t], f) => debug_tuple(f, "", [debug_OpaqueTypeKey(k, f), debug_Ty(t, f)]))]], () => {
+    const rerun = _0.rerun;
+    // PORT: `parent_opaque_types.iter().map(|(key, _)| key.def_id.into())` (a lazy iterator, consumed at most once).
+    const parent_opaque_def_ids = parent_opaque_types.map(([key, _]) => key.def_id);
+    const opaque_in_storage = (opaques: readonly import("../../../rustc_span/def_id.ts").LocalDefId[], def_ids: SmallCopySet<import("../../../rustc_span/def_id.ts").LocalDefId>): RerunDecision => {
+      if (SmallCopySet.as_ref(def_ids).length === 0) {
+        return RerunDecision.No;
+      } else if ([...opaques, ...parent_opaque_def_ids].some((opaque) => SmallCopySet.as_ref(def_ids).includes(opaque))) {
+        return RerunDecision.Yes;
+      } else {
+        return RerunDecision.No;
+      }
+    };
+    const any_opaque_has_infer_as_hidden = (): RerunDecision => {
+      if (parent_opaque_types.some(([_, ty]) => ty.is_ty_var())) {
+        return RerunDecision.Yes;
+      } else {
+        return RerunDecision.No;
+      }
+    };
 
-  const m = original_typing_mode;
-  // =============================
-  if (rerun.$ === "Never") return RerunDecision.No;
-  // =============================
-  if (m.$ === "ErasedNotCoherence") return RerunDecision.EagerlyPropagateToParent;
-  // =============================
-  // In coherence, we never switch to erased mode, so we will never register anything
-  // in the rerun state, so we should've taken the first branch of this match
-  if (m.$ === "Coherence") return unreachable();
-  // =============================
-  if (rerun.$ === "Always") return RerunDecision.Yes;
-  // =============================
-  if (rerun.$ === "OpaqueInStorage" && (m.$ === "PostAnalysis" || m.$ === "Codegen" || m.$ === "Reflection")) {
-    return RerunDecision.Yes;
-  }
-  if (rerun.$ === "OpaqueInStorage") {
-    const defids = rerun._0;
-    if (m.$ === "PostBorrowck") return opaque_in_storage(m.defined_opaque_types, defids);
-    if (m.$ === "Typeck") return opaque_in_storage(m.defining_opaque_types_and_generators, defids);
-    if (m.$ === "PostTypeckUntilBorrowck") return opaque_in_storage(m.defining_opaque_types, defids);
-  }
-  // =============================
-  if (rerun.$ === "AnyOpaqueHasInferAsHidden" && m.$ === "Typeck") {
-    return any_opaque_has_infer_as_hidden();
-  }
-  if (
-    rerun.$ === "AnyOpaqueHasInferAsHidden" &&
-    (m.$ === "PostBorrowck" || m.$ === "PostAnalysis" || m.$ === "Codegen" || m.$ === "Reflection" || m.$ === "PostTypeckUntilBorrowck")
-  ) {
-    return RerunDecision.No;
-  }
-  // =============================
-  if (rerun.$ === "OpaqueInStorageOrAnyOpaqueHasInferAsHidden" && (m.$ === "PostAnalysis" || m.$ === "Codegen" || m.$ === "Reflection")) {
-    return RerunDecision.Yes;
-  }
-  if (rerun.$ === "OpaqueInStorageOrAnyOpaqueHasInferAsHidden" && m.$ === "Typeck") {
-    const defids = rerun._0;
-    const opaques = m.defining_opaque_types_and_generators;
-    if (any_opaque_has_infer_as_hidden() === "Yes") {
+    const m = original_typing_mode;
+    // =============================
+    if (rerun.$ === "Never") return RerunDecision.No;
+    // =============================
+    if (m.$ === "ErasedNotCoherence") return RerunDecision.EagerlyPropagateToParent;
+    // =============================
+    // In coherence, we never switch to erased mode, so we will never register anything
+    // in the rerun state, so we should've taken the first branch of this match
+    if (m.$ === "Coherence") return unreachable();
+    // =============================
+    if (rerun.$ === "Always") return RerunDecision.Yes;
+    // =============================
+    if (rerun.$ === "OpaqueInStorage" && (m.$ === "PostAnalysis" || m.$ === "Codegen" || m.$ === "Reflection")) {
       return RerunDecision.Yes;
-    } else if (opaque_in_storage(opaques, defids) === "Yes") {
-      return RerunDecision.Yes;
-    } else {
+    }
+    if (rerun.$ === "OpaqueInStorage") {
+      const defids = rerun._0;
+      if (m.$ === "PostBorrowck") return opaque_in_storage(m.defined_opaque_types, defids);
+      if (m.$ === "Typeck") return opaque_in_storage(m.defining_opaque_types_and_generators, defids);
+      if (m.$ === "PostTypeckUntilBorrowck") return opaque_in_storage(m.defining_opaque_types, defids);
+    }
+    // =============================
+    if (rerun.$ === "AnyOpaqueHasInferAsHidden" && m.$ === "Typeck") {
+      return any_opaque_has_infer_as_hidden();
+    }
+    if (
+      rerun.$ === "AnyOpaqueHasInferAsHidden" &&
+      (m.$ === "PostBorrowck" || m.$ === "PostAnalysis" || m.$ === "Codegen" || m.$ === "Reflection" || m.$ === "PostTypeckUntilBorrowck")
+    ) {
       return RerunDecision.No;
     }
-  }
-  if (rerun.$ === "OpaqueInStorageOrAnyOpaqueHasInferAsHidden") {
-    const defids = rerun._0;
-    if (m.$ === "PostBorrowck") return opaque_in_storage(m.defined_opaque_types, defids);
-    if (m.$ === "PostTypeckUntilBorrowck") return opaque_in_storage(m.defining_opaque_types, defids);
-  }
-  // The match above is exhaustive.
-  return unreachable();
+    // =============================
+    if (rerun.$ === "OpaqueInStorageOrAnyOpaqueHasInferAsHidden" && (m.$ === "PostAnalysis" || m.$ === "Codegen" || m.$ === "Reflection")) {
+      return RerunDecision.Yes;
+    }
+    if (rerun.$ === "OpaqueInStorageOrAnyOpaqueHasInferAsHidden" && m.$ === "Typeck") {
+      const defids = rerun._0;
+      const opaques = m.defining_opaque_types_and_generators;
+      if (any_opaque_has_infer_as_hidden() === "Yes") {
+        return RerunDecision.Yes;
+      } else if (opaque_in_storage(opaques, defids) === "Yes") {
+        return RerunDecision.Yes;
+      } else {
+        return RerunDecision.No;
+      }
+    }
+    if (rerun.$ === "OpaqueInStorageOrAnyOpaqueHasInferAsHidden") {
+      const defids = rerun._0;
+      if (m.$ === "PostBorrowck") return opaque_in_storage(m.defined_opaque_types, defids);
+      if (m.$ === "PostTypeckUntilBorrowck") return opaque_in_storage(m.defining_opaque_types, defids);
+    }
+    // The match above is exhaustive.
+    return unreachable();
+  }, (x) => debug_RerunDecision(x, PLAIN));
 }
 
 /// Do not call this directly, use the `tcx` query instead.

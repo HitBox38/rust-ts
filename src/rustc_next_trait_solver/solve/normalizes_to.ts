@@ -8,6 +8,7 @@
 // inherent.ts (solve/mod.ts header). TyCtxt methods whose query values are typed `unknown` in queries.gen.ts
 // (`type_of`, `impl_trait_ref`, `impl_polarity`, `adt_def`) and the `Interner`-typed rustc_type_ir helpers are reached
 // through `as_interner(cx)` (rustc_type_ir predicate.ts precedent).
+import * as tracing from "../../rust_ts/tracing.ts";
 import { type DefId, DefId_eq, debug_DefId } from "../../rustc_span/def_id.ts";
 import type { ErrorGuaranteed } from "../../rustc_span/lib.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
@@ -1296,6 +1297,8 @@ export const GoalKind_NormalizesTo: GoalKind<NormalizesTo> = {
   },
 
 };
+// PORT: `G: Debug` for the `#[instrument]`ed fns generic over a `GoalKind` (src/rust_ts/tracing.ts `register_debug`).
+tracing.register_debug(GoalKind_NormalizesTo.fold_with, debug_NormalizesTo_);
 
 // rustc: compiler/rustc_next_trait_solver/src/solve/normalizes_to.rs:1097 translate_args
 EvalCtxt.prototype.translate_args = function (

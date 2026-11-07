@@ -344,22 +344,24 @@ export class LayoutCalculator<Cx extends HasDataLayout> {
       // Foo<Type> and Foo<dyn Trait> which would break unsizing.
       if (kind.$ !== "MaybeUnsized" && layout_.largest_niche !== undefined) {
         const niche = layout_.largest_niche;
-        const head_space = niche.offset.bytes();
-        const niche_len = Primitive.size(niche.value, dl).bytes();
-        const tail_space = layout_.size.bytes() - head_space - niche_len;
+        // PORT (size-bigint): the `u64`s `head_space`, `niche_len`, `tail_space` and the `alt_` ones are `bigint`s
+        // (`bytes_u64()`): a niche's offset and a struct's size reach 2^61 - 1, past `number`'s exact range.
+        const head_space = niche.offset.bytes_u64();
+        const niche_len = Primitive.size(niche.value, dl).bytes_u64();
+        const tail_space = layout_.size.bytes_u64() - head_space - niche_len;
         // This may end up doing redundant work if the niche is already in the last
         // field (e.g. a trailing bool) and there is tail padding. But it's non-trivial
         // to get the unpadded size so we try anyway.
-        if (fields.length > 1 && head_space !== 0 && tail_space > 0) {
+        if (fields.length > 1 && head_space !== 0n && tail_space > 0n) {
           const alt = this.layout_of_univariant_biased(fields, repr, kind, NicheBias.End);
           // PORT (abi-layout-a): `.expect("alt layout should always work")` formats the error's `F: Debug` payload, which
           // has no generic Debug here; the end-biased run fails only where the start-biased one did, so it is unreachable.
           if (alt.$ === "Err") return unported("rustc_abi::layout::LayoutCalculator::layout_of_univariant: Debug of F in `alt layout should always work`");
           const alt_layout = alt._0;
           const alt_niche = unwrap(alt_layout.largest_niche, "alt layout should have a niche like the regular one");
-          const alt_head_space = alt_niche.offset.bytes();
-          const alt_niche_len = Primitive.size(alt_niche.value, dl).bytes();
-          const alt_tail_space = alt_layout.size.bytes() - alt_head_space - alt_niche_len;
+          const alt_head_space = alt_niche.offset.bytes_u64();
+          const alt_niche_len = Primitive.size(alt_niche.value, dl).bytes_u64();
+          const alt_tail_space = alt_layout.size.bytes_u64() - alt_head_space - alt_niche_len;
 
           // debug_assert_eq!(layout.size.bytes(), alt_layout.size.bytes());
 

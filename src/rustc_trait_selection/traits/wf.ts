@@ -14,6 +14,14 @@
 //
 // Init order: rustc_infer is loaded through its crate root; other rustc_infer / rustc_middle modules are read inside
 // function bodies only.
+import { PLAIN, debug_vec } from "../../std/fmt.ts";
+import { debug_Clause } from "../../rustc_middle/ty/structural_impls.ts";
+import { debug_LocalDefId } from "../../rustc_span/def_id.ts";
+import { debug_Obligation } from "../../rustc_infer/traits/structural_impls.ts";
+import { debug_ParamEnv } from "../../rustc_middle/ty/mod.ts";
+import { debug_Predicate } from "../../rustc_middle/ty/predicate.ts";
+import { debug_Span } from "../../rustc_span/lib.ts";
+import * as tracing from "../../rust_ts/tracing.ts";
 import { normalize_with_depth_to } from "./normalize.ts";
 import { SelectionContext } from "./select/mod.ts";
 import { compute_inherent_assoc_term_args } from "./project.ts";
@@ -213,56 +221,58 @@ export function clause_obligations(
   clause: Clause,
   span: Span,
 ): PredicateObligations {
-  const wf = new WfPredicates(infcx, param_env, body_def_id, span, [], 0, undefined, DelayedSet_default());
+  return tracing.instrument("rustc_trait_selection::traits::wf", "clause_obligations", () => [["param_env", () => debug_ParamEnv(param_env, PLAIN)], ["body_def_id", () => debug_LocalDefId(body_def_id, PLAIN)], ["clause", () => debug_Clause(clause, PLAIN)], ["span", () => debug_Span(span, PLAIN)]], () => {
+    const wf = new WfPredicates(infcx, param_env, body_def_id, span, [], 0, undefined, DelayedSet_default());
 
-  // It's ok to skip the binder here because wf code is prepared for it
-  const k: ClauseKind = Binder.skip_binder(clause.kind());
-  switch (k.$) {
-    case "Trait": {
-      wf.add_wf_preds_for_trait_pred(k._0, "None");
-      break;
-    }
-    case "HostEffect": {
-      // Technically the well-formedness of this clause is implied by
-      // the corresponding trait clause it should've been generated beside.
-      break;
-    }
-    case "RegionOutlives":
-      break;
-    case "TypeOutlives": {
-      const ty = k._0._0;
-      wf.add_wf_preds_for_term(Term.from_Ty(ty));
-      break;
-    }
-    case "Projection": {
-      const t = k._0;
-      wf.add_wf_preds_for_projection_term(t.projection_term);
-      wf.add_wf_preds_for_term(t.term);
-      break;
-    }
-    case "ConstArgHasType": {
-      const ct = k._0;
-      const ty = k._1;
-      wf.add_wf_preds_for_term(Term.from_Const(ct));
-      wf.add_wf_preds_for_term(Term.from_Ty(ty));
-      break;
-    }
-    case "WellFormed": {
-      const term = k._0;
-      wf.add_wf_preds_for_term(term);
-      break;
+    // It's ok to skip the binder here because wf code is prepared for it
+    const k: ClauseKind = Binder.skip_binder(clause.kind());
+    switch (k.$) {
+      case "Trait": {
+        wf.add_wf_preds_for_trait_pred(k._0, "None");
+        break;
+      }
+      case "HostEffect": {
+        // Technically the well-formedness of this clause is implied by
+        // the corresponding trait clause it should've been generated beside.
+        break;
+      }
+      case "RegionOutlives":
+        break;
+      case "TypeOutlives": {
+        const ty = k._0._0;
+        wf.add_wf_preds_for_term(Term.from_Ty(ty));
+        break;
+      }
+      case "Projection": {
+        const t = k._0;
+        wf.add_wf_preds_for_projection_term(t.projection_term);
+        wf.add_wf_preds_for_term(t.term);
+        break;
+      }
+      case "ConstArgHasType": {
+        const ct = k._0;
+        const ty = k._1;
+        wf.add_wf_preds_for_term(Term.from_Const(ct));
+        wf.add_wf_preds_for_term(Term.from_Ty(ty));
+        break;
+      }
+      case "WellFormed": {
+        const term = k._0;
+        wf.add_wf_preds_for_term(term);
+        break;
+      }
+
+      case "ConstEvaluatable": {
+        const ct = k._0;
+        wf.add_wf_preds_for_term(Term.from_Const(ct));
+        break;
+      }
+      case "UnstableFeature":
+        break;
     }
 
-    case "ConstEvaluatable": {
-      const ct = k._0;
-      wf.add_wf_preds_for_term(Term.from_Const(ct));
-      break;
-    }
-    case "UnstableFeature":
-      break;
-  }
-
-  return wf.normalize(infcx);
+    return wf.normalize(infcx);
+  }, (x) => debug_vec(x, PLAIN, (o, f) => debug_Obligation(o, f, debug_Predicate)));
 }
 
 /// Controls whether we "elaborate" supertraits and so forth on the WF

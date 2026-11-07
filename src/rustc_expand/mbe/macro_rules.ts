@@ -17,6 +17,11 @@
 // Load order: base.ts imports this module (for `ParserAnyMacro.from_tts`); top-level code here reads no
 // base.ts / expand.ts / diagnostics.ts values.
 
+import { PLAIN } from "../../std/fmt.ts";
+import { debug_Ident } from "../../rustc_span/symbol.ts";
+import { debug_NodeId } from "../../rustc_ast/node_id.gen.ts";
+import { debug_Span } from "../../rustc_span/lib.ts";
+import * as tracing from "../../rust_ts/tracing.ts";
 import "../../rustc_parse/lib.ts";
 import { ast, token, tokenstream } from "../../rustc_ast/lib.ts";
 import type { NonterminalKind, Token, TokenKind } from "../../rustc_ast/token.ts";
@@ -127,21 +132,23 @@ export class ParserAnyMacro implements MacResult {
     bindings: readonly MacroRule[],
     matched_rule_bindings: readonly MatcherLoc[],
   ): ParserAnyMacro {
-    return new ParserAnyMacro(
-      Parser.new(cx.sess.psess, tts, undefined),
+    return tracing.instrument("rustc_expand::mbe::macro_rules", "from_tts", () => [["site_span", () => debug_Span(site_span, PLAIN)], ["arm_span", () => debug_Span(arm_span, PLAIN)], ["is_local", () => String(is_local)], ["macro_ident", () => debug_Ident(macro_ident, PLAIN)]], () => {
+      return new ParserAnyMacro(
+        Parser.new(cx.sess.psess, tts, undefined),
 
-      // Pass along the original expansion site and the name of the macro
-      // so we can print a useful error message if the parse of the expanded
-      // macro leaves unparsed tokens.
-      site_span,
-      macro_ident,
-      cx.current_expansion.lint_node_id,
-      cx.current_expansion.is_trailing_mac,
-      arm_span,
-      is_local,
-      bindings,
-      matched_rule_bindings,
-    );
+        // Pass along the original expansion site and the name of the macro
+        // so we can print a useful error message if the parse of the expanded
+        // macro leaves unparsed tokens.
+        site_span,
+        macro_ident,
+        cx.current_expansion.lint_node_id,
+        cx.current_expansion.is_trailing_mac,
+        arm_span,
+        is_local,
+        bindings,
+        matched_rule_bindings,
+      );
+    });
   }
 
   // `impl MacResult for ParserAnyMacro` (expand.rs, `ParserAnyMacro_MacResult` in expand.ts; markers there).
@@ -501,61 +508,63 @@ function expand_macro(
   rules: readonly MacroRule[],
   on_unmatched_args: Directive | undefined,
 ): MacResult {
-  const psess = cx.sess.psess;
-
-  if (cx.trace_macros()) {
-    const msg = `expanding \`${display_Ident(name)}! { ${pprust.tts_to_string(arg)} }\``;
-    trace_macros_note(cx.expansions, sp, msg);
-  }
-
-  // Track nothing for the best performance.
-  const try_success_result = try_match_macro(psess, arg, rules, new NoopTracker());
-
-  if (try_success_result.$ === "Ok") {
-    const [rule_index, rule, named_matches] = try_success_result._0;
-    if (rule.$ !== "Func") {
-      return panic("try_match_macro returned non-func rule");
-    }
-    const { lhs, rhs: rhs_ } = rule;
-    if (rhs_.$ !== "Delimited") {
-      return cx.dcx().span_bug(sp, "malformed macro rhs");
-    }
-    const [rhs_span, rhs] = [rhs_._0, rhs_._2];
-    const arm_span = rhs_span.entire();
-
-    // rhs has holes ( `$id` and `$(...)` that need filled)
-    const id = cx.current_expansion.id;
-    const t = transcribe(psess, named_matches, rhs, rhs_span, transparency, id);
-    let tts: TokenStream;
-    if (t.$ === "Ok") {
-      tts = t._0;
-    } else {
-      const guar = t._0.emit_err();
-      return DummyResult.any(arm_span, guar);
-    }
+  return tracing.instrument("rustc_expand::mbe::macro_rules", "expand_macro", () => [["sp", () => debug_Span(sp, PLAIN)], ["def_span", () => debug_Span(def_span, PLAIN)], ["node_id", () => debug_NodeId(node_id, PLAIN)], ["name", () => debug_Ident(name, PLAIN)]], () => {
+    const psess = cx.sess.psess;
 
     if (cx.trace_macros()) {
-      const msg = `to \`${pprust.tts_to_string(tts)}\``;
+      const msg = `expanding \`${display_Ident(name)}! { ${pprust.tts_to_string(arg)} }\``;
       trace_macros_note(cx.expansions, sp, msg);
     }
 
-    const is_local = is_defined_in_current_crate(node_id);
-    if (is_local) {
-      cx.resolver.record_macro_rule_usage(node_id, rule_index);
-    }
+    // Track nothing for the best performance.
+    const try_success_result = try_match_macro(psess, arg, rules, new NoopTracker());
 
-    // Let the context choose how to interpret the result. Weird, but useful for X-macros.
-    return ParserAnyMacro.from_tts(cx, tts, sp, arm_span, is_local, name, rules, lhs);
-  } else if (try_success_result._0.$ === "No") {
-    const guar = try_success_result._0._0;
-    // debug!("Will not retry matching as an error was emitted already");
-    return DummyResult.any(sp, guar);
-  } else {
-    // Retry and emit a better error.
-    const [span, guar] = failed_to_match_macro(cx.psess(), sp, def_span, name, FailedMacro.Func, arg, rules, on_unmatched_args);
-    cx.macro_error_and_trace_macros_diag();
-    return DummyResult.any(span, guar);
-  }
+    if (try_success_result.$ === "Ok") {
+      const [rule_index, rule, named_matches] = try_success_result._0;
+      if (rule.$ !== "Func") {
+        return panic("try_match_macro returned non-func rule");
+      }
+      const { lhs, rhs: rhs_ } = rule;
+      if (rhs_.$ !== "Delimited") {
+        return cx.dcx().span_bug(sp, "malformed macro rhs");
+      }
+      const [rhs_span, rhs] = [rhs_._0, rhs_._2];
+      const arm_span = rhs_span.entire();
+
+      // rhs has holes ( `$id` and `$(...)` that need filled)
+      const id = cx.current_expansion.id;
+      const t = transcribe(psess, named_matches, rhs, rhs_span, transparency, id);
+      let tts: TokenStream;
+      if (t.$ === "Ok") {
+        tts = t._0;
+      } else {
+        const guar = t._0.emit_err();
+        return DummyResult.any(arm_span, guar);
+      }
+
+      if (cx.trace_macros()) {
+        const msg = `to \`${pprust.tts_to_string(tts)}\``;
+        trace_macros_note(cx.expansions, sp, msg);
+      }
+
+      const is_local = is_defined_in_current_crate(node_id);
+      if (is_local) {
+        cx.resolver.record_macro_rule_usage(node_id, rule_index);
+      }
+
+      // Let the context choose how to interpret the result. Weird, but useful for X-macros.
+      return ParserAnyMacro.from_tts(cx, tts, sp, arm_span, is_local, name, rules, lhs);
+    } else if (try_success_result._0.$ === "No") {
+      const guar = try_success_result._0._0;
+      // debug!("Will not retry matching as an error was emitted already");
+      return DummyResult.any(sp, guar);
+    } else {
+      // Retry and emit a better error.
+      const [span, guar] = failed_to_match_macro(cx.psess(), sp, def_span, name, FailedMacro.Func, arg, rules, on_unmatched_args);
+      cx.macro_error_and_trace_macros_diag();
+      return DummyResult.any(span, guar);
+    }
+  });
 }
 
 /// Expands the rules based macro defined by `rules` for a given attribute `args` and `body`.
@@ -574,68 +583,70 @@ function expand_macro_attr(
   rules: readonly MacroRule[],
   on_unmatched_args: Directive | undefined,
 ): Result<TokenStream, ErrorGuaranteed> {
-  const psess = cx.sess.psess;
-  // Macros defined in the current crate have a real node id,
-  // whereas macros from an external crate have a dummy id.
-  const is_local = node_id !== DUMMY_NODE_ID;
+  return tracing.instrument("rustc_expand::mbe::macro_rules", "expand_macro_attr", () => [["sp", () => debug_Span(sp, PLAIN)], ["def_span", () => debug_Span(def_span, PLAIN)], ["node_id", () => debug_NodeId(node_id, PLAIN)], ["name", () => debug_Ident(name, PLAIN)], ["safety", () => ast.debug_Safety(safety, PLAIN)]], () => {
+    const psess = cx.sess.psess;
+    // Macros defined in the current crate have a real node id,
+    // whereas macros from an external crate have a dummy id.
+    const is_local = node_id !== DUMMY_NODE_ID;
 
-  if (!is_local && !cx.ecfg.features.macro_attr()) {
-    feature_err(cx.sess, sym.macro_attr, sp, "`macro_rules!` attributes are unstable").emit();
-  }
-
-  if (cx.trace_macros()) {
-    const msg = `expanding \`#[${display_Ident(name)}(${pprust.tts_to_string(args)})] ${pprust.tts_to_string(body)}\``;
-    trace_macros_note(cx.expansions, sp, msg);
-  }
-
-  // Track nothing for the best performance.
-  const r = try_match_macro_attr(psess, args, body, rules, new NoopTracker());
-  if (r.$ === "Ok") {
-    const [i, rule, named_matches] = r._0;
-    if (rule.$ !== "Attr") {
-      return panic("try_macro_match_attr returned non-attr rule");
+    if (!is_local && !cx.ecfg.features.macro_attr()) {
+      feature_err(cx.sess, sym.macro_attr, sp, "`macro_rules!` attributes are unstable").emit();
     }
-    const { rhs: rhs_, unsafe_rule } = rule;
-    if (rhs_.$ !== "Delimited") {
-      return cx.dcx().span_bug(sp, "malformed macro rhs");
-    }
-    const [rhs_span, rhs] = [rhs_._0, rhs_._2];
-
-    if ((safety.$ === "Default" && !unsafe_rule) || (safety.$ === "Unsafe" && unsafe_rule)) {
-      // ok
-    } else if (safety.$ === "Default" && unsafe_rule) {
-      cx.dcx().span_err(sp, "unsafe attribute invocation requires `unsafe`");
-    } else if (safety.$ === "Unsafe" && !unsafe_rule) {
-      const span = safety._0;
-      cx.dcx().span_err(span, "unnecessary `unsafe` on safe attribute invocation");
-    } else if (safety.$ === "Safe") {
-      const span = safety._0;
-      cx.dcx().span_bug(span, "unexpected `safe` keyword");
-    }
-
-    const id = cx.current_expansion.id;
-    const t = transcribe(psess, named_matches, rhs, rhs_span, transparency, id);
-    if (t.$ === "Err") return Err(t._0.emit_err());
-    const tts = t._0;
 
     if (cx.trace_macros()) {
-      const msg = `to \`${pprust.tts_to_string(tts)}\``;
+      const msg = `expanding \`#[${display_Ident(name)}(${pprust.tts_to_string(args)})] ${pprust.tts_to_string(body)}\``;
       trace_macros_note(cx.expansions, sp, msg);
     }
 
-    if (is_local) {
-      cx.resolver.record_macro_rule_usage(node_id, i);
-    }
+    // Track nothing for the best performance.
+    const r = try_match_macro_attr(psess, args, body, rules, new NoopTracker());
+    if (r.$ === "Ok") {
+      const [i, rule, named_matches] = r._0;
+      if (rule.$ !== "Attr") {
+        return panic("try_macro_match_attr returned non-attr rule");
+      }
+      const { rhs: rhs_, unsafe_rule } = rule;
+      if (rhs_.$ !== "Delimited") {
+        return cx.dcx().span_bug(sp, "malformed macro rhs");
+      }
+      const [rhs_span, rhs] = [rhs_._0, rhs_._2];
 
-    return Ok(tts);
-  } else if (r._0.$ === "No") {
-    return Err(r._0._0);
-  } else {
-    // Retry and emit a better error.
-    const [, guar] = failed_to_match_macro(cx.psess(), sp, def_span, name, FailedMacro.Attr(args), body, rules, on_unmatched_args);
-    cx.trace_macros_diag();
-    return Err(guar);
-  }
+      if ((safety.$ === "Default" && !unsafe_rule) || (safety.$ === "Unsafe" && unsafe_rule)) {
+        // ok
+      } else if (safety.$ === "Default" && unsafe_rule) {
+        cx.dcx().span_err(sp, "unsafe attribute invocation requires `unsafe`");
+      } else if (safety.$ === "Unsafe" && !unsafe_rule) {
+        const span = safety._0;
+        cx.dcx().span_err(span, "unnecessary `unsafe` on safe attribute invocation");
+      } else if (safety.$ === "Safe") {
+        const span = safety._0;
+        cx.dcx().span_bug(span, "unexpected `safe` keyword");
+      }
+
+      const id = cx.current_expansion.id;
+      const t = transcribe(psess, named_matches, rhs, rhs_span, transparency, id);
+      if (t.$ === "Err") return Err(t._0.emit_err());
+      const tts = t._0;
+
+      if (cx.trace_macros()) {
+        const msg = `to \`${pprust.tts_to_string(tts)}\``;
+        trace_macros_note(cx.expansions, sp, msg);
+      }
+
+      if (is_local) {
+        cx.resolver.record_macro_rule_usage(node_id, i);
+      }
+
+      return Ok(tts);
+    } else if (r._0.$ === "No") {
+      return Err(r._0._0);
+    } else {
+      // Retry and emit a better error.
+      const [, guar] = failed_to_match_macro(cx.psess(), sp, def_span, name, FailedMacro.Attr(args), body, rules, on_unmatched_args);
+      cx.trace_macros_diag();
+      return Err(guar);
+    }
+  });
 }
 
 // rustc-type: compiler/rustc_expand/src/mbe/macro_rules.rs:597 CanRetry

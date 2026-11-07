@@ -219,7 +219,7 @@
 // - `PathBuf`/`&Path` are UTF-8 strings (PORTING section 5); `Path::display()` is the string itself.
 // - `FxIndexMap`/`FxIndexSet` are insertion-ordered `Map`/`Set` (PORTING section 5).
 // - `OwnedSlice` (`rustc_data_structures::owned_slice`) is a `Uint8Array`; `OwnedSlice::slice` is `subarray`.
-// - `info!`/`debug!` (tracing) are comments.
+// - `debug!` (tracing) are comments: rustc is built with `max_level_info`. `info!` sites are live (`src/rust_ts/tracing.ts`).
 // - Reading metadata goes through `MetadataBlob::{new, check_compatibility, get_header, get_crate_hash}`
 //   (rmeta/decoder.ts, wave 11 rmeta-decoder) and the backend's `MetadataLoader` (rlib/dylib: wave 11
 //   object-read); those stubs call `unported` until their lanes land.
@@ -236,6 +236,8 @@ import { display_Symbol, Symbol } from "../rustc_span/symbol.ts";
 import { Target } from "../rustc_target/spec/mod.ts";
 import { TargetTuple } from "../rustc_target/spec/tuple.ts";
 import { debug_str } from "../std/fmt.ts";
+import * as tracing from "../rust_ts/tracing.ts";
+import { display_Svh } from "../rustc_data_structures/svh.ts";
 import { io_error_other, type IoResult } from "../std/io.ts";
 import type { MutRef } from "../std/mut_ref.ts";
 import { assert, panic, unported, unwrap } from "../std/panic.ts";
@@ -425,7 +427,7 @@ export class CrateLocator {
       }
 
       for (const [hash, spf_path] of this.filesearch.get_library_candidates(prefix, suffix, this.path_kind)) {
-        // info!("lib candidate: {}", spf_path.display());
+        tracing.info("rustc_metadata::locator", () => `lib candidate: ${spf_path}`);
 
         let entry = candidates.get(hash);
         if (entry === undefined) {
@@ -587,7 +589,7 @@ export class CrateLocator {
     let ret: PathBuf | undefined = undefined;
     let err_data: PathBuf[] | undefined = undefined;
     for (const lib of m) {
-      // info!("{} reading metadata from: {}", flavor, lib.display());
+      tracing.info("rustc_metadata::locator", () => `${display_CrateFlavor(flavor)} reading metadata from: ${lib}`);
       if (flavor === CrateFlavor.Rmeta && file_len(lib) === 0) {
         // Empty files will cause get_metadata_section to fail. Rmeta
         // files can be empty, for example with binaries (which can
@@ -606,21 +608,21 @@ export class CrateLocator {
         if (h !== undefined) {
           [hash, metadata] = [h, blob];
         } else {
-          // info!("metadata mismatch");
+          tracing.info("rustc_metadata::locator", () => "metadata mismatch");
           continue;
         }
       } else {
         const err = r._0;
         if (err.$ === "VersionMismatch") {
-          const { found_version } = err;
+          const { expected_version, found_version } = err;
           // The file was present and created by the same compiler version, but we
           // couldn't load it for some reason. Give a hard error instead of silently
           // ignoring it, but only if we would have given an error anyway.
-          // info!("Rejecting via version: expected {} got {}", expected_version, found_version);
+          tracing.info("rustc_metadata::locator", () => `Rejecting via version: expected ${expected_version} got ${found_version}`);
           crate_rejections.via_version.push({ path: lib, got: found_version });
           continue;
         } else if (err.$ === "LoadFailure") {
-          // info!("no metadata found: {}", err);
+          tracing.info("rustc_metadata::locator", () => `no metadata found: ${display_MetadataError(err)}`);
           // Metadata was loaded from interface file earlier.
           if (slot.value !== undefined && slot.value[3] === CrateFlavor.SDylib) {
             ret = lib;
@@ -633,7 +635,7 @@ export class CrateLocator {
           continue;
         } else {
           // Err(err @ MetadataError::NotPresent(_))
-          // info!("no metadata found: {}", err);
+          tracing.info("rustc_metadata::locator", () => `no metadata found: ${display_MetadataError(err)}`);
           continue;
         }
       }
@@ -685,17 +687,17 @@ export class CrateLocator {
   crate_matches(crate_rejections: CrateRejections, metadata: MetadataBlob, libpath: PathBuf): Svh | undefined {
     const header = metadata.get_header();
     if (header.is_proc_macro_crate !== this.is_proc_macro) {
-      // info!("Rejecting via proc macro: expected {} got {}", self.is_proc_macro, header.is_proc_macro_crate);
+      tracing.info("rustc_metadata::locator", () => `Rejecting via proc macro: expected ${String(this.is_proc_macro)} got ${String(header.is_proc_macro_crate)}`);
       return undefined;
     }
 
     if (this.exact_paths.length === 0 && this.crate_name !== header.name) {
-      // info!("Rejecting via crate name");
+      tracing.info("rustc_metadata::locator", () => "Rejecting via crate name");
       return undefined;
     }
 
     if (!TargetTuple.eq(header.triple, this.tuple)) {
-      // info!("Rejecting via crate triple: expected {} got {}", self.tuple, header.triple);
+      tracing.info("rustc_metadata::locator", () => `Rejecting via crate triple: expected ${TargetTuple.display(this.tuple)} got ${TargetTuple.display(header.triple)}`);
       crate_rejections.via_triple.push({ path: libpath, got: TargetTuple.display(header.triple) });
       return undefined;
     }
@@ -704,7 +706,7 @@ export class CrateLocator {
     if (this.hash !== undefined) {
       const expected_hash = this.hash;
       if (hash !== expected_hash) {
-        // info!("Rejecting via hash: expected {} got {}", expected_hash, hash);
+        tracing.info("rustc_metadata::locator", () => `Rejecting via hash: expected ${display_Svh(expected_hash)} got ${display_Svh(hash)}`);
         crate_rejections.via_hash.push({ path: libpath, got: hash });
         return undefined;
       }

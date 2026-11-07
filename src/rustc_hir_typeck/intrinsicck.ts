@@ -4,7 +4,7 @@
 // merge-layout).
 // PORT: `trace!` is tracing only and not ported.
 // Init order: top-level code here touches only ./decls.ts and other crates.
-import { debug_Size, Primitive } from "../rustc_abi/lib.ts";
+import { debug_Size, Primitive, Size_eq } from "../rustc_abi/lib.ts";
 import { into_MultiSpan } from "../rustc_error_messages/lib.ts";
 import { E0512, E0591, struct_span_code_err } from "../rustc_errors/lib.ts";
 import type { HirId } from "../rustc_hir_id/lib.ts";
@@ -67,8 +67,8 @@ export function skeleton_string(ty: Ty, sk: Result<SizeSkeleton, LayoutError>): 
   } else if (sk.$ === "Ok" && sk._0.$ === "Known") {
     const size = sk._0._0;
     // PORT: `u128::from(size.bytes()).checked_mul(8)` cannot overflow a u128 for a u64 byte count; kept as a `bigint`
-    // check against `u128::MAX`.
-    const v = BigInt(size.bytes()) * 8n;
+    // check against `u128::MAX`. PORT (size-bigint): `bytes_u64()`, as a size reaches 2^61 - 1.
+    const v = size.bytes_u64() * 8n;
     if (v <= (1n << 128n) - 1n) {
       return `${v} bits`;
     } else {
@@ -126,7 +126,7 @@ export function check_transmute(tcx: TyCtxt, typing_env: TypingEnv, from_: Unnor
     if (
       from_.kind().$ === "FnDef" &&
       sk.$ === "Known" &&
-      sk._0.bytes() === Primitive.size({ $: "Pointer", _0: tcx.data_layout().instruction_address_space }, tcx).bytes()
+      Size_eq(sk._0, Primitive.size({ $: "Pointer", _0: tcx.data_layout().instruction_address_space }, tcx))
     ) {
       struct_span_code_err(tcx.sess.dcx(), span, E0591, "can't transmute zero-sized type")
         .with_note(`source type: ${display_Ty(from_)}`)

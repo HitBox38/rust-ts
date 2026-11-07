@@ -188,7 +188,7 @@ const SELF = `${SRC_ROOT}/rust_ts/track_caller.ts`;
 /** Constructors and internals of the machinery: they name no call a port site can make. */
 const PANIC_INTERNALS: ReadonlySet<string> = new Set(["Panic", "ExplicitBug", "panic_with_hook", "panic_stack", "unwrap_failed"]);
 /** `Result`'s methods are free functions under other names (std/result.ts): the upstream call a TS call of one of these ports. */
-const RESULT_METHODS: ReadonlyMap<string, string> = new Map([
+export const RESULT_METHODS: ReadonlyMap<string, string> = new Map([
   ["unwrap_result", "unwrap"],
   ["expect_result", "expect"],
 ]);

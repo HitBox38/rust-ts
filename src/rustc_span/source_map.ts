@@ -11,6 +11,7 @@
 //
 // PORT: module-level code here must not touch lib.ts bindings at evaluation time (lib.ts imports
 // this module, so either may be evaluated first).
+import * as tracing from "../rust_ts/tracing.ts";
 import { closeSync, existsSync, fstatSync, openSync, readFileSync } from "node:fs";
 import { FreezeLock } from "../rustc_data_structures/sync/freeze.ts";
 import type { CrateNum } from "./def_id.ts";
@@ -1108,60 +1109,62 @@ export class SourceMap {
   // #[instrument(skip(self, sp))]
   // rustc: compiler/rustc_span/src/source_map.rs:1017 find_width_of_character_at_span
   find_width_of_character_at_span(sp: SpanData, forwards: boolean): number {
-    if (sp.lo === sp.hi && !forwards) {
-      // debug!("early return empty span");
-      return 1;
-    }
-
-    const local_begin = this.lookup_byte_offset(sp.lo);
-    const local_end = this.lookup_byte_offset(sp.hi);
-    // debug!("local_begin=`{:?}`, local_end=`{:?}`", local_begin, local_end);
-
-    if (local_begin.sf.start_pos !== local_end.sf.start_pos) {
-      // debug!("begin and end are in different files");
-      return 1;
-    }
-
-    const start_index = BytePos.to_usize(local_begin.pos);
-    const end_index = BytePos.to_usize(local_end.pos);
-    // debug!("start_index=`{:?}`, end_index=`{:?}`", start_index, end_index);
-
-    // Disregard indexes that are at the start or end of their spans, they can't fit bigger
-    // characters.
-    if ((!forwards && end_index === 0) || (forwards && start_index === USIZE_MAX)) {
-      // debug!("start or end of span, cannot be multibyte");
-      return 1;
-    }
-
-    const source_len = RelativeBytePos.to_usize(local_begin.sf.normalized_source_len);
-    // debug!("source_len=`{:?}`", source_len);
-    // Ensure indexes are also not malformed.
-    // PORT: `source_len - 1` wraps to usize::MAX for an empty file (rustc ships without
-    // overflow checks).
-    if (start_index > end_index || end_index > (source_len === 0 ? USIZE_MAX : source_len - 1)) {
-      // debug!("source indexes are malformed");
-      return 1;
-    }
-
-    const src = local_begin.sf.external_src.read();
-
-    let snippet: Str;
-    if (local_begin.sf.src !== undefined) {
-      snippet = local_begin.sf.src;
-    } else {
-      const s = ExternalSource.get_source(src);
-      if (s !== undefined) {
-        snippet = s;
-      } else {
+    return tracing.instrument("rustc_span::source_map", "find_width_of_character_at_span", () => [["forwards", () => String(forwards)]], () => {
+      if (sp.lo === sp.hi && !forwards) {
+        // debug!("early return empty span");
         return 1;
       }
-    }
 
-    if (forwards) {
-      return str_ceil_char_boundary(snippet, end_index + 1) - end_index;
-    } else {
-      return end_index - str_floor_char_boundary(snippet, end_index - 1);
-    }
+      const local_begin = this.lookup_byte_offset(sp.lo);
+      const local_end = this.lookup_byte_offset(sp.hi);
+      // debug!("local_begin=`{:?}`, local_end=`{:?}`", local_begin, local_end);
+
+      if (local_begin.sf.start_pos !== local_end.sf.start_pos) {
+        // debug!("begin and end are in different files");
+        return 1;
+      }
+
+      const start_index = BytePos.to_usize(local_begin.pos);
+      const end_index = BytePos.to_usize(local_end.pos);
+      // debug!("start_index=`{:?}`, end_index=`{:?}`", start_index, end_index);
+
+      // Disregard indexes that are at the start or end of their spans, they can't fit bigger
+      // characters.
+      if ((!forwards && end_index === 0) || (forwards && start_index === USIZE_MAX)) {
+        // debug!("start or end of span, cannot be multibyte");
+        return 1;
+      }
+
+      const source_len = RelativeBytePos.to_usize(local_begin.sf.normalized_source_len);
+      // debug!("source_len=`{:?}`", source_len);
+      // Ensure indexes are also not malformed.
+      // PORT: `source_len - 1` wraps to usize::MAX for an empty file (rustc ships without
+      // overflow checks).
+      if (start_index > end_index || end_index > (source_len === 0 ? USIZE_MAX : source_len - 1)) {
+        // debug!("source indexes are malformed");
+        return 1;
+      }
+
+      const src = local_begin.sf.external_src.read();
+
+      let snippet: Str;
+      if (local_begin.sf.src !== undefined) {
+        snippet = local_begin.sf.src;
+      } else {
+        const s = ExternalSource.get_source(src);
+        if (s !== undefined) {
+          snippet = s;
+        } else {
+          return 1;
+        }
+      }
+
+      if (forwards) {
+        return str_ceil_char_boundary(snippet, end_index + 1) - end_index;
+      } else {
+        return end_index - str_floor_char_boundary(snippet, end_index - 1);
+      }
+    });
   }
 
   // rustc: compiler/rustc_span/src/source_map.rs:1068 get_source_file

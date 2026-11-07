@@ -10,6 +10,11 @@
 // The values of the `lookup_*stability` / `associated_item` / `adt_def` / `generics_of` / `hir_crate_items` /
 // `lib_features` queries are typed `unknown` in queries.gen.ts; they are cast to their Rust types at each use.
 // `#[instrument]` (tracing) is a comment.
+import * as tracing from "../rust_ts/tracing.ts";
+import { debug_HirId } from "../rustc_hir_id/lib.ts";
+import { debug_LocalDefId } from "../rustc_span/def_id.ts";
+import { debug_vec } from "../std/fmt.ts";
+import { debug_UseTree } from "../rustc_hir/lib.ts";
 import { RustcVersion_cmp, display_RustcVersion } from "../rustc_ast/attr/version.ts";
 import { extern_abi_stability } from "../rustc_ast_lowering/stability.ts";
 import { type AttributeKind, find_attr } from "../rustc_attr_ir/lib.ts";
@@ -956,50 +961,52 @@ class Checker extends Visitor {
     // #[instrument(skip(visitor))]
     // rustc: compiler/rustc_passes/src/stability.rs:898 recurse
     function recurse(visitor: Checker, tree: hir.UseTree, hir_id: HirId, def_id: LocalDefId, stack: (readonly hir.PathSegment[])[]): void {
-      const { segments, res, span } = tree.prefix;
+      return tracing.instrument("rustc_passes::stability", "recurse", () => [["tree", () => debug_UseTree(tree, PLAIN)], ["hir_id", () => debug_HirId(hir_id, PLAIN)], ["def_id", () => debug_LocalDefId(def_id, PLAIN)], ["stack", () => debug_vec(stack, PLAIN, (s, f) => debug_vec(s, f, debug_PathSegment))]], () => {
+        const { segments, res, span } = tree.prefix;
 
-      switch (tree.kind.$) {
-        case "Single":
-        case "Glob": {
-          if (visitor.tcx.features().staged_api() && Visibility.is_public(visitor.tcx.local_visibility(def_id))) {
-            if (tree.kind.$ === "Single") {
-              visitor.check_single_unstable_reexport(hir_id, tree.prefix);
+        switch (tree.kind.$) {
+          case "Single":
+          case "Glob": {
+            if (visitor.tcx.features().staged_api() && Visibility.is_public(visitor.tcx.local_visibility(def_id))) {
+              if (tree.kind.$ === "Single") {
+                visitor.check_single_unstable_reexport(hir_id, tree.prefix);
+              } else {
+                visitor.check_glob_unstable_reexport(hir_id, def_id, tree.prefix);
+              }
+            }
+            // A use item can import something from two namespaces at the same time.
+            // For deprecation/stability we don't want to warn twice.
+            // This specifically happens with constructors for unit/tuple structs.
+            const res_ = res.value_ns ?? res.type_ns;
+            if (res_ !== undefined) {
+              visitor.check_path(new Path(span, res_, segments), hir_id, stack);
+            }
+
+            // Though, visit the macro namespace if it exists,
+            // regardless of the checks above relating to constructors.
+            const res_m = res.macro_ns;
+            if (res_m !== undefined) {
+              visitor.check_path(new Path(span, res_m, segments), hir_id, stack);
+            }
+            break;
+          }
+          case "Nested": {
+            const items = tree.kind.items;
+            stack.push(tree.prefix.segments);
+            if (items.length === 0) {
+              // need to handle `use foo::bar::{};`
+              const last = segments.at(-1);
+              visitor.check_path(new Path(span, last === undefined ? ResC.Err : last.res, segments), hir_id, stack);
             } else {
-              visitor.check_glob_unstable_reexport(hir_id, def_id, tree.prefix);
+              for (const [tree, id, def_id] of items) {
+                recurse(visitor, tree, id, def_id, stack);
+              }
             }
+            stack.pop();
+            break;
           }
-          // A use item can import something from two namespaces at the same time.
-          // For deprecation/stability we don't want to warn twice.
-          // This specifically happens with constructors for unit/tuple structs.
-          const res_ = res.value_ns ?? res.type_ns;
-          if (res_ !== undefined) {
-            visitor.check_path(new Path(span, res_, segments), hir_id, stack);
-          }
-
-          // Though, visit the macro namespace if it exists,
-          // regardless of the checks above relating to constructors.
-          const res_m = res.macro_ns;
-          if (res_m !== undefined) {
-            visitor.check_path(new Path(span, res_m, segments), hir_id, stack);
-          }
-          break;
         }
-        case "Nested": {
-          const items = tree.kind.items;
-          stack.push(tree.prefix.segments);
-          if (items.length === 0) {
-            // need to handle `use foo::bar::{};`
-            const last = segments.at(-1);
-            visitor.check_path(new Path(span, last === undefined ? ResC.Err : last.res, segments), hir_id, stack);
-          } else {
-            for (const [tree, id, def_id] of items) {
-              recurse(visitor, tree, id, def_id, stack);
-            }
-          }
-          stack.pop();
-          break;
-        }
-      }
+      });
     }
     recurse(this, tree, hir_id, def_id, v);
     return undefined;

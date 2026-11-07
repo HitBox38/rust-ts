@@ -4,14 +4,14 @@
 //   tracing_oracle/gen.ts (expected.json); a second test checks the fixtures are the current oracle output.
 // - Format: the event path of src/rust_ts/tracing_tree.ts on cases the fixture crate does not reach (named fields,
 //   ERROR, multi-line messages, recursion), with the bytes tracing-tree 0.4.1's code produces.
-// - Converted targets: a `RUSTC_LOG` filter that enables INFO outside `INFO_CONVERTED_TARGETS` (src/rust_ts/tracing.ts)
-//   stops with `unported`; within them it runs.
+// - INFO sites: an unconverted one (`info_unconverted`) stops with `unported` only when the filter enables INFO for its
+//   target; `#[instrument]` (`instrument`) prints its span line, the events inside it, and `ret`'s `return` event.
 import { afterEach, expect, test } from "bun:test";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { type Outcome, run_oracle, run_variant, tydump_probe, VARIANTS } from "./tracing_oracle/gen.ts";
 import { LoggerConfig, display_Error, init_logger } from "./lib.ts";
-import { INFO_CONVERTED_TARGETS, error, reset_global_default_for_tests, set_global_default, LayeredSubscriber, warn } from "../rust_ts/tracing.ts";
+import { EnvFilter, error, info_unconverted, instrument, reset_global_default_for_tests, set_global_default, LayeredSubscriber, warn } from "../rust_ts/tracing.ts";
 import { HierarchicalLayer, type Writer } from "../rust_ts/tracing_tree.ts";
 import { Unported } from "../std/panic.ts";
 import { Err, Ok } from "../std/result.ts";
@@ -122,34 +122,35 @@ test("rustc_log errors", () => {
   expect(bad.$ === "Err" && display_Error(bad._0)).toBe("invalid log WRAPTREE value 'x': expected a non-negative integer");
 });
 
-test("a filter that enables INFO outside the converted targets stops (unported); inside them it runs", () => {
-  const cfg = (filter: string) => {
-    const no = Err({ $: "NotPresent" as const });
-    return new LoggerConfig(Ok(filter), no, no, no, no, no, no, no, no);
-  };
-  // rustc prints INFO events of these targets that are still comments in the port: a loud stop, not partial output.
-  for (const f of [
-    "rustc_infer=info",
-    "info",
-    "warn,rustc_infer::infer=info",
-    "no_such_target=info",
-    "rustc_const_eval::interp=info", // a string prefix of `rustc_const_eval::interpret`, but not within it
-    "rustc_const_eval=info",
-    // `MIRI_LOG=info` (bin/log/setup.rs): `miri::eval` and `miri::concurrency::thread` are not converted yet.
-    "rustc_middle::mir::interpret=info,rustc_const_eval::interpret=info,miri=info",
-  ]) {
-    expect(() => init_logger(cfg(f))).toThrow(Unported);
-    reset_global_default_for_tests();
-  }
-  for (const f of [
-    "rustc_const_eval::interpret=info",
-    "rustc_const_eval::interpret::step=info,rustc_infer=warn",
-    "rustc_middle::mir::interpret=info,rustc_const_eval::interpret=info,miri::machine=info,miri::borrow_tracker=info",
-    "rustc_infer=warn,error",
-    "off,rustc_infer=off", // no INFO anywhere
-  ]) {
-    expect(init_logger(cfg(f))).toEqual(Ok(null));
-    reset_global_default_for_tests();
-  }
-  expect(INFO_CONVERTED_TARGETS).toEqual(["rustc_const_eval::interpret", "rustc_middle::mir::interpret", "miri::machine", "miri::borrow_tracker"]);
+test("an unconverted INFO site stops (unported) only when the filter enables INFO for its target", () => {
+  const out: string[] = [];
+  const layer = HierarchicalLayer.default()
+    .with_writer(() => ({ write_all: (s: string) => (out.push(s), undefined) }))
+    .with_ansi(false)
+    .with_targets(true)
+    .with_indent_amount(2);
+  // `RUSTC_LOG=warn,rustc_infer=info`: INFO is on for `rustc_infer` only.
+  const filter = EnvFilter.new("warn,rustc_infer=info");
+  expect(set_global_default(new LayeredSubscriber([layer], filter))).toEqual(Ok(null));
+  info_unconverted("rustc_metadata::creader", "x.rs:1"); // INFO off for this target: nothing
+  expect(() => info_unconverted("rustc_infer::traits::project", "x.rs:2")).toThrow(Unported);
+  expect(out).toEqual([]);
+});
+
+test("#[instrument] at INFO: the span line, events inside it indented, `ret` as a `return` event", () => {
+  const out: string[] = [];
+  const layer = HierarchicalLayer.default()
+    .with_writer(() => ({ write_all: (s: string) => (out.push(s), undefined) }))
+    .with_ansi(false)
+    .with_targets(true)
+    .with_indent_amount(2);
+  expect(set_global_default(new LayeredSubscriber([layer], EnvFilter.new("info")))).toEqual(Ok(null));
+  const r = instrument("rustc_hir_typeck::coercion", "coerce", () => [["a", () => "()"], ["b", () => "()"]], () => 7, (x) => `Ok(${x})`);
+  expect(r).toBe(7);
+  instrument("rustc_lint::lifetime_syntax", "check_fn", () => [], () => undefined);
+  expect(out.join("")).toBe(
+    " rustc_hir_typeck::coercion::coerce a=(), b=()\n" +
+      "  INFO rustc_hir_typeck::coercion return=Ok(7)\n" +
+      " rustc_lint::lifetime_syntax::check_fn \n",
+  );
 });

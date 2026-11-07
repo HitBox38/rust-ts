@@ -3,6 +3,7 @@
 // PORT: `Rc<DenseLocationMap>` is the shared `DenseLocationMap`. `N: Idx` of `RegionValues<N>` is a branded number
 // (`N extends number`; the generated class carries `N & number` in its field types).
 // PORT: `LivenessValues::location_map()` is `location_map_()`: the field `location_map` has the same name.
+import * as tracing from "../../rust_ts/tracing.ts";
 import type { BorrowIndex } from "../dataflow.gen.ts";
 import type { LiveLoans } from "../polonius/mod.gen.ts";
 import { intern_key, intern_key_eq } from "../../rust_ts/intern_key.ts";
@@ -213,19 +214,21 @@ LivenessValues.prototype.add_points = function (this: LivenessValues, region: Re
 /// Records `region` as being live at all the control-flow points.
 // rustc: compiler/rustc_borrowck/src/region_infer/values.rs:157 add_all_points
 LivenessValues.prototype.add_all_points = function (this: LivenessValues, region: RegionVid): void {
-  const live_regions = this.live_regions;
-  switch (live_regions.$) {
-    case "AtPoints": {
-      const points = live_regions._0;
-      points.insert_all_into_row(region);
-      break;
+  return tracing.instrument("rustc_borrowck::region_infer::values", "add_all_points", () => [["region", () => debug_RegionVid(region, PLAIN)]], () => {
+    const live_regions = this.live_regions;
+    switch (live_regions.$) {
+      case "AtPoints": {
+        const points = live_regions._0;
+        points.insert_all_into_row(region);
+        break;
+      }
+      case "InBody": {
+        const live_regions_ = live_regions._0;
+        live_regions_.add(region);
+        break;
+      }
     }
-    case "InBody": {
-      const live_regions_ = live_regions._0;
-      live_regions_.add(region);
-      break;
-    }
-  }
+  });
 };
 
 /// Returns whether `region` is marked live at the given

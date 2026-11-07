@@ -5,6 +5,9 @@
 // Init order: top-level code here touches only ./decls.ts, this file's .gen.ts and other crates; every other
 // rustc_hir_typeck export is read inside function bodies only.
 export * from "./callee.gen.ts";
+import { debug_Expectation } from "./expectation.gen.ts";
+import { debug_vec } from "../std/fmt.ts";
+import * as tracing from "../rust_ts/tracing.ts";
 import { CanonAbi } from "../rustc_abi/canon_abi.ts";
 import { display_ExternAbi, type ExternAbi } from "../rustc_abi/extern_abi.ts";
 import { ExprPrecedence_discriminant } from "../rustc_ast/util/parser.gen.ts";
@@ -109,89 +112,91 @@ export function check_legal_trait_for_method_call(tcx: TyCtxt, span: Span, recei
 // #[tracing::instrument(skip(self))]
 // rustc: compiler/rustc_hir_typeck/src/callee.rs:89 check_expr_call
 FnCtxt.prototype.check_expr_call = function (this: FnCtxt, call_expr: hir.Expr, callee_expr: hir.Expr, arg_exprs: readonly hir.Expr[], expected: Expectation): Ty {
-  let original_callee_ty: Ty;
-  const ck = callee_expr.kind;
-  if (ck.$ === "Path" && (ck._0.$ === "Resolved" || ck._0.$ === "TypeRelative")) {
-    original_callee_ty = this.check_expr_with_expectation_and_args(callee_expr, Expectation.NoExpectation, [call_expr, arg_exprs]);
-  } else {
-    original_callee_ty = this.check_expr(callee_expr);
-  }
-
-  const expr_ty = this.deeply_resolve_ignoring_regions_with_obligations(original_callee_ty, fold_Ty);
-
-  const autoderef = this.autoderef(callee_expr.span, expr_ty);
-  let result: CallStep | undefined = undefined;
-  while (result === undefined && autoderef.next() !== undefined) {
-    result = this.try_overloaded_call_step(call_expr, callee_expr, arg_exprs, autoderef);
-  }
-
-  const fk = autoderef.final_ty().kind();
-  switch (fk.$) {
-    case "FnDef": {
-      const abi = FnSig.abi(Binder.skip_binder(EarlyBinder.skip_binder(this.tcx.fn_sig(fk._0) as EarlyBinder<PolyFnSig>)));
-      this.check_call_abi(abi, call_expr.span);
-      break;
-    }
-    case "FnPtr": {
-      this.check_call_abi(FnHeader.abi(fk._1), call_expr.span);
-      break;
-    }
-    default: {
-      /* cannot have a non-rust abi */
-    }
-  }
-
-  if (this.is_scalable_vector_ctor(autoderef.final_ty())) {
-    const err = this.dcx().create_err(
-      diagnostics.ScalableVectorCtor_diagnostic({
-        span: callee_expr.span,
-        ty: autoderef.final_ty(),
-      }),
-    );
-    err.span_label(callee_expr.span, "you can create scalable vectors using intrinsics");
-    Ty.new_error(this.tcx, err.emit_err());
-  }
-
-  this.register_predicates(autoderef.into_obligations());
-
-  let output: Ty;
-  if (result === undefined) {
-    // Check all of the arg expressions, but with no expectations
-    // since we don't have a signature to compare them to.
-    for (const arg of arg_exprs) {
-      this.check_expr(arg);
+  return tracing.instrument("rustc_hir_typeck::callee", "check_expr_call", () => [["call_expr", () => hir.debug_Expr(call_expr, PLAIN)], ["callee_expr", () => hir.debug_Expr(callee_expr, PLAIN)], ["arg_exprs", () => debug_vec(arg_exprs, PLAIN, hir.debug_Expr)], ["expected", () => debug_Expectation(expected, PLAIN)]], () => {
+    let original_callee_ty: Ty;
+    const ck = callee_expr.kind;
+    if (ck.$ === "Path" && (ck._0.$ === "Resolved" || ck._0.$ === "TypeRelative")) {
+      original_callee_ty = this.check_expr_with_expectation_and_args(callee_expr, Expectation.NoExpectation, [call_expr, arg_exprs]);
+    } else {
+      original_callee_ty = this.check_expr(callee_expr);
     }
 
-    if (callee_expr.kind.$ === "Path" && callee_expr.kind._0.$ === "Resolved" && callee_expr.kind._0._1.segments.length === 1) {
-      const segment = callee_expr.kind._0._1.segments[0]!;
-      this.dcx().try_steal_modify_and_emit_err(segment.ident.span, StashKey.CallIntoMethod, (err) => {
-        // Try suggesting `foo(a)` -> `a.foo()` if possible.
-        this.suggest_call_as_method(err, segment, arg_exprs, call_expr, expected);
-      });
+    const expr_ty = this.deeply_resolve_ignoring_regions_with_obligations(original_callee_ty, fold_Ty);
+
+    const autoderef = this.autoderef(callee_expr.span, expr_ty);
+    let result: CallStep | undefined = undefined;
+    while (result === undefined && autoderef.next() !== undefined) {
+      result = this.try_overloaded_call_step(call_expr, callee_expr, arg_exprs, autoderef);
     }
 
-    const guar = this.report_invalid_callee(call_expr, callee_expr, expr_ty, arg_exprs);
-    output = Ty.new_error(this.tcx, guar);
-  } else {
-    switch (result.$) {
-      case "Builtin":
-        output = this.confirm_builtin_call(call_expr, callee_expr, result._0, arg_exprs, expected);
+    const fk = autoderef.final_ty().kind();
+    switch (fk.$) {
+      case "FnDef": {
+        const abi = FnSig.abi(Binder.skip_binder(EarlyBinder.skip_binder(this.tcx.fn_sig(fk._0) as EarlyBinder<PolyFnSig>)));
+        this.check_call_abi(abi, call_expr.span);
         break;
-
-      case "DeferredClosure":
-        output = this.confirm_deferred_closure_call(call_expr, arg_exprs, expected, result._0, result._1);
+      }
+      case "FnPtr": {
+        this.check_call_abi(FnHeader.abi(fk._1), call_expr.span);
         break;
-
-      case "Overloaded":
-        output = this.confirm_overloaded_call(call_expr, arg_exprs, expected, result._0);
-        break;
+      }
+      default: {
+        /* cannot have a non-rust abi */
+      }
     }
-  }
 
-  // we must check that return type of called functions is WF:
-  this.register_wf_obligation(Term.from_Ty(output), call_expr.span, { $: "WellFormed", _0: { $: "HirId", _0: call_expr.hir_id } });
+    if (this.is_scalable_vector_ctor(autoderef.final_ty())) {
+      const err = this.dcx().create_err(
+        diagnostics.ScalableVectorCtor_diagnostic({
+          span: callee_expr.span,
+          ty: autoderef.final_ty(),
+        }),
+      );
+      err.span_label(callee_expr.span, "you can create scalable vectors using intrinsics");
+      Ty.new_error(this.tcx, err.emit_err());
+    }
 
-  return output;
+    this.register_predicates(autoderef.into_obligations());
+
+    let output: Ty;
+    if (result === undefined) {
+      // Check all of the arg expressions, but with no expectations
+      // since we don't have a signature to compare them to.
+      for (const arg of arg_exprs) {
+        this.check_expr(arg);
+      }
+
+      if (callee_expr.kind.$ === "Path" && callee_expr.kind._0.$ === "Resolved" && callee_expr.kind._0._1.segments.length === 1) {
+        const segment = callee_expr.kind._0._1.segments[0]!;
+        this.dcx().try_steal_modify_and_emit_err(segment.ident.span, StashKey.CallIntoMethod, (err) => {
+          // Try suggesting `foo(a)` -> `a.foo()` if possible.
+          this.suggest_call_as_method(err, segment, arg_exprs, call_expr, expected);
+        });
+      }
+
+      const guar = this.report_invalid_callee(call_expr, callee_expr, expr_ty, arg_exprs);
+      output = Ty.new_error(this.tcx, guar);
+    } else {
+      switch (result.$) {
+        case "Builtin":
+          output = this.confirm_builtin_call(call_expr, callee_expr, result._0, arg_exprs, expected);
+          break;
+
+        case "DeferredClosure":
+          output = this.confirm_deferred_closure_call(call_expr, arg_exprs, expected, result._0, result._1);
+          break;
+
+        case "Overloaded":
+          output = this.confirm_overloaded_call(call_expr, arg_exprs, expected, result._0);
+          break;
+      }
+    }
+
+    // we must check that return type of called functions is WF:
+    this.register_wf_obligation(Term.from_Ty(output), call_expr.span, { $: "WellFormed", _0: { $: "HirId", _0: call_expr.hir_id } });
+
+    return output;
+  });
 };
 
 /// Can a function with this ABI be called with a rust call expression?

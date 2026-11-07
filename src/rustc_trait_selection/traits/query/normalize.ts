@@ -19,6 +19,10 @@
 // Init order: top-level code here may touch only rustc_infer (loaded first by ../../lib.ts), ./normalize.gen.ts and other
 // crates; this crate's other modules are read inside function bodies.
 
+import { debug_NoSolution } from "../../../rustc_type_ir/solve/mod.ts";
+import { debug_result as std_debug_result } from "../../../std/result.ts";
+import { unported } from "../../../std/panic.ts";
+import * as tracing from "../../../rust_ts/tracing.ts";
 import { upcast_from_self } from "../../../rustc_type_ir/upcast.ts";
 import { At, type InferCtxt } from "../../../rustc_infer/decls.ts";
 import type { PredicateObligation, PredicateObligations } from "../../../rustc_infer/traits/mod.ts";
@@ -161,6 +165,16 @@ At.prototype.query_normalize = function <T>(this: At, value: T, d_T: TypeFoldabl
 
   const result = d_T.try_fold_with(value, normalizer);
   // info!("normalize::<{}>: result={:?} with {} obligations", std::any::type_name::<T>(), result, normalizer.obligations.len());
+  tracing.info("rustc_trait_selection::traits::query::normalize", () => {
+    // PORT: `std::any::type_name::<T>()` and `T: Debug` are found from `T`'s descriptor (src/rust_ts/tracing.ts
+    // `registered_type_name`, `registered_debug`); a descriptor with neither stops.
+    const type_name = tracing.registered_type_name(d_T.fold_with);
+    const debug_T = tracing.registered_debug<T>(d_T.fold_with);
+    if (type_name === undefined || debug_T === undefined) {
+      return unported(`tracing INFO site: compiler/rustc_trait_selection/src/traits/query/normalize.rs:125: \`type_name\` / \`Debug\` of \`${d_T.fold_with.name}\``);
+    }
+    return `normalize::<${type_name}>: result=${std_debug_result(result, PLAIN, debug_T, debug_NoSolution)} with ${normalizer.obligations.length} obligations`;
+  });
   // debug!("normalize::<{}>: obligations={:?}", std::any::type_name::<T>(), normalizer.obligations);
   if (result.$ === "Err") return result;
   return Ok(new Normalized(result._0, normalizer.obligations));

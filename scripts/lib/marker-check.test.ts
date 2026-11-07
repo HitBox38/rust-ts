@@ -4,7 +4,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { anchorErrors, orderRows } from "./marker-check.ts";
+import { anchorErrors, orderErrors, orderRows } from "./marker-check.ts";
 
 const TMP = mkdtempSync(join(tmpdir(), "rust-ts-marker-check-"));
 afterAll(() => rmSync(TMP, { recursive: true, force: true }));
@@ -84,5 +84,11 @@ describe("the order report", () => {
   });
   test("worst first", () => {
     expect(orderRows([m("a", 2), m("a", 1), m("b", 3), m("b", 2), m("b", 1)]).map((r) => r.file)).toEqual(["b", "a"]);
+  });
+  test("--require-clean: an ERROR line per row under the prefix, and none elsewhere (fixers-44 W5)", () => {
+    const rows = orderRows([m("src/x/a.ts", 2), m("src/x/a.ts", 1), m("src/y/b.ts", 2), m("src/y/b.ts", 1), m("src/x/c.ts", 1), m("src/x/c.ts", 2)]);
+    expect(orderErrors(rows, "src/x/")).toEqual(["ERROR: src/x/a.ts: markers of p out of upstream's order (1 of 2); first f1:1 after f2:2"]);
+    expect(orderErrors(rows, "src/z/")).toEqual([]);
+    expect(orderErrors(rows, "")[0]).toStartWith("ERROR: --require-clean needs a path prefix");
   });
 });

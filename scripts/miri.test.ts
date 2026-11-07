@@ -4,7 +4,7 @@
 // scripts/lib/common.ts; see scripts/lib/deps.test.ts for why), MIRI_DEFAULT_ARGS against the upstream source, the real
 // isolated toolchain, the Miri suites' cases (plan-m6 D6) and the criterion report (A9).
 import { afterAll, describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { miriToolchainError, oracleToolchainError } from "./lib/toolchain.ts";
@@ -189,6 +189,43 @@ test("with RUST_TS_HOST_TUPLE set, the Miri binary's path runs no rustc, which u
   const r = Bun.spawnSync([process.execPath, "-e", code], { cwd: import.meta.dir, env: env as Record<string, string>, stdout: "pipe", stderr: "pipe" });
   expect(r.exitCode, r.stderr.toString()).toBe(0);
   expect(r.stdout.toString().trim()).toEndWith("-some-host/bin/miri");
+});
+
+test("with no RUST_TS_HOST_TUPLE, under the isolated home: one ERROR line, and no rustc is run (review root-w41-check N4)", () => {
+  const dir = mkdtempSync(join(tmpdir(), "rust-ts-miri-host-"));
+  dirs.push(dir);
+  const log = join(dir, "rustc-calls");
+  writeFileSync(join(dir, "rustc"), `#!/bin/sh\necho "$@" >> ${log}\nexit 1\n`, { mode: 0o755 });
+  // After the import, which fills the tuple in from .env.local, as a hand run in a checkout without one would not have it.
+  // Loaded in the child only: scripts/lib/common.ts fixes the data directory when it loads.
+  const code = `const m = await import(${JSON.stringify(join(import.meta.dir, "lib/miri.ts"))});
+// Anywhere else, or with the tuple, nothing to refuse.
+console.log(JSON.stringify([m.hostLookupRefusal(undefined, undefined), m.hostLookupRefusal(${JSON.stringify(dir)}, undefined), m.hostLookupRefusal(m.MIRI_RUSTUP_HOME, "some-host")]));
+delete process.env.RUST_TS_HOST_TUPLE;
+process.env.RUSTUP_HOME = m.MIRI_RUSTUP_HOME + "/";
+console.log(m.miriBinary());`;
+  // PATH holds only the logging rustc, from the start, and auto-install is off: a regression here can reach no rustup, so it installs nothing.
+  const env: Record<string, string> = {};
+  for (const [k, v] of Object.entries(process.env)) if (v !== undefined && k !== "RUST_TS_HOST_TUPLE") env[k] = v;
+  const r = Bun.spawnSync([process.execPath, "-e", code], { cwd: import.meta.dir, env: { ...env, PATH: dir, RUSTUP_AUTO_INSTALL: "0" }, stdout: "pipe", stderr: "pipe" });
+  expect(r.exitCode, r.stderr.toString()).toBe(1);
+  const out = r.stdout.toString().trim().split("\n");
+  expect(out.length).toBe(2);
+  expect(out[0]).toBe("[null,null,null]");
+  expect(out[1]).toStartWith("ERROR: RUST_TS_HOST_TUPLE is not set, and RUSTUP_HOME is the isolated Miri home");
+  expect(existsSync(log)).toBe(false);
+});
+
+test("the oracle toolchain is asked with RUSTUP_AUTO_INSTALL=0, so rustup never installs instead (review harness-w43 F1)", () => {
+  const dir = mkdtempSync(join(tmpdir(), "rust-ts-no-install-"));
+  dirs.push(dir);
+  writeFileSync(join(dir, "rustc"), `#!/bin/sh\necho "host: auto-install=$RUSTUP_AUTO_INSTALL"\n`);
+  chmodSync(join(dir, "rustc"), 0o755);
+  const code = `const o = await import(${JSON.stringify(join(import.meta.dir, "lib/oracle.ts"))}); console.log(o.oracleHost());`;
+  const env: Record<string, string | undefined> = { ...process.env, PATH: dir, RUSTUP_AUTO_INSTALL: undefined };
+  const r = Bun.spawnSync([process.execPath, "-e", code], { cwd: import.meta.dir, env: env as Record<string, string>, stdout: "pipe", stderr: "pipe" });
+  expect(r.exitCode, r.stderr.toString()).toBe(0);
+  expect(r.stdout.toString().trim()).toBe("auto-install=0");
 });
 
 test("Miri oracle, suites and argv (child process)", () => {

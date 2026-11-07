@@ -9,8 +9,8 @@
 //! using [`Object`]. This does not support writing executable files.
 //! This supports the following file formats: COFF, ELF, Mach-O, and XCOFF.
 //
-// PORT: only ELF is ported (write/elf/object.ts); `emit` and the format dispatches stop `unported` on COFF, Mach-O and XCOFF
-// (chained lane, docs/handoff/miri-sysroot.md). Not ported, because a wrapper file adds neither: symbols (`add_symbol` and
+// PORT: ELF (write/elf/object.ts) and Mach-O (write/macho.ts) are ported; `emit` and the format dispatches stop `unported` on
+// COFF and XCOFF (docs/handoff/miri-sysroot.md, docs/handoff/object-write-macho.md). Not ported, because a wrapper file adds neither: symbols (`add_symbol` and
 // the rest, reached only by `create_compressed_metadata_file` and the COFF/XCOFF branches of `create_wrapper_file`),
 // relocations and comdats. `symbols` and `comdats` stay as empty lists so `elf_write` reads as upstream.
 import { panic, unported } from "../../../std/panic.ts";
@@ -28,10 +28,12 @@ import {
 } from "../common.ts";
 import type { Endianness } from "../endian.ts";
 import { elf_section_flags, elf_section_info, elf_symbol_flags, elf_write } from "./elf/object.ts";
+import { type MachOBuildVersion, macho_section_flags, macho_section_info, macho_segment_name, macho_symbol_flags, macho_write } from "./macho.ts";
 import { VecBuffer, type WritableBuffer } from "./util.ts";
 
 export * from "./util.ts";
 export type { StringId } from "./string.ts";
+export { MachOBuildVersion, set_macho_build_version, set_macho_cpu_subtype } from "./macho.ts";
 
 /// The error type used within the write module.
 export class Error {
@@ -55,6 +57,14 @@ export class Object {
   flags: FileFlags = { $: "None" };
   /// The symbol name mangling scheme.
   mangling_: Mangling;
+  /// Mach-O "_tlv_bootstrap" symbol.
+  /** PORT: `Option<SymbolId>`; `macho_tlv_bootstrap` is not ported (write/macho.ts), so it stays `None`. */
+  tlv_bootstrap: number | undefined = undefined;
+  /// Mach-O CPU subtype.
+  macho_cpu_subtype: number | undefined = undefined;
+  macho_build_version: MachOBuildVersion | undefined = undefined;
+  /// Mach-O MH_SUBSECTIONS_VIA_SYMBOLS flag. Only ever set if format is Mach-O.
+  macho_subsections_via_symbols = false;
 
   /// Create an empty object file.
   // crate: object-0.39.1/src/write/mod.rs:102 new
@@ -105,14 +115,14 @@ export class Object {
   ///
   /// This will vary based on the file format.
   // crate: object-0.39.1/src/write/mod.rs:167 segment_name
-  segment_name(_segment: StandardSegment): Uint8Array {
+  segment_name(segment: StandardSegment): Uint8Array {
     switch (this.format_) {
       case "Coff":
         return new Uint8Array(0);
       case "Elf":
         return new Uint8Array(0);
       case "MachO":
-        return unported("object::write::Object::macho_segment_name (Mach-O object files)");
+        return macho_segment_name(segment);
       default:
         return panic("not implemented");
     }
@@ -200,7 +210,7 @@ export class Object {
       case "Elf":
         return elf_section_info(this, section);
       case "MachO":
-        return unported("object::write::Object::macho_section_info (Mach-O object files)");
+        return macho_section_info(section);
       case "Xcoff":
         return unported("object::write::Object::xcoff_section_info (XCOFF object files)");
       default:
@@ -217,7 +227,7 @@ export class Object {
       case "Elf":
         return elf_section_flags(section);
       case "MachO":
-        return unported("object::write::Object::macho_section_flags (Mach-O object files)");
+        return macho_section_flags(section);
       case "Xcoff":
         return unported("object::write::Object::xcoff_section_flags (XCOFF object files)");
       default:
@@ -244,7 +254,7 @@ export class Object {
       case "Elf":
         return elf_symbol_flags(symbol);
       case "MachO":
-        return unported("object::write::Object::macho_symbol_flags (Mach-O object files)");
+        return macho_symbol_flags(symbol);
       case "Xcoff":
         return unported("object::write::Object::xcoff_symbol_flags (XCOFF object files)");
       default:
@@ -280,7 +290,7 @@ export class Object {
       case "Elf":
         return elf_write(this, buffer);
       case "MachO":
-        return unported("object::write::Object::macho_write (Mach-O object files)");
+        return macho_write(this, buffer);
       case "Xcoff":
         return unported("object::write::Object::xcoff_write (XCOFF object files)");
       default:
@@ -390,6 +400,16 @@ export class Section {
   name_str(): string | undefined {
     try {
       return new TextDecoder("utf-8", { fatal: true }).decode(this.name);
+    } catch {
+      return undefined;
+    }
+  }
+
+  /// Try to convert the segment to a utf8 string.
+  // crate: object-0.39.1/src/write/mod.rs:939 segment
+  segment_str(): string | undefined {
+    try {
+      return new TextDecoder("utf-8", { fatal: true }).decode(this.segment);
     } catch {
       return undefined;
     }

@@ -27,6 +27,7 @@ import { Edition } from "../rustc_span/edition.ts";
 import type { ErrorGuaranteed, RealFileName, Span } from "../rustc_span/lib.ts";
 import { FileName, Span as SpanC } from "../rustc_span/lib.ts";
 import { var_ as env_var } from "../std/env.ts";
+import * as apple from "../rustc_target/spec/base/apple/mod.ts";
 import { path_components, path_is_absolute, path_join, path_parent } from "../std/path.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
 import { FilePathMapping, SourceMap, get_source_map } from "../rustc_span/source_map.ts";
@@ -163,9 +164,45 @@ export class EarlySession {
   /// or fall back to the minimum version supported by `rustc`.
   ///
   /// This should be guarded behind `if sess.target.is_like_darwin`.
-  // not ported (no marker): compiler/rustc_session/src/session.rs:384 apple_deployment_target
-  apple_deployment_target(): never {
-    return unported("rustc_target::spec::apple::OSVersion (EarlySession::apple_deployment_target)");
+  // rustc: compiler/rustc_session/src/session.rs:384 apple_deployment_target
+  apple_deployment_target(): apple.OSVersion {
+    const min = apple.OSVersion.minimum_deployment_target(this.target);
+    const env_var_ = apple.deployment_target_env_var(this.target.os);
+
+    // FIXME(madsmtm): Track changes to this.
+    const deployment_target = env_var(env_var_);
+    if (deployment_target.$ === "Ok") {
+      const version = apple.OSVersion.from_str(deployment_target._0);
+      if (version.$ === "Ok") {
+        const os_min = apple.OSVersion.os_minimum_deployment_target(this.target.os);
+        // It is common that the deployment target is set a bit too low, for example on
+        // macOS Aarch64 to also target older x86_64. So we only want to warn when
+        // variable is lower than the minimum OS supported by rustc, not when the
+        // variable is lower than the minimum for a specific target.
+        if (cmp_OSVersion(version._0, os_min) < 0) {
+          this.dcx().emit_warn(
+            diagnostics_gen.AppleDeploymentTarget_diagnostic({
+              $: "TooLow",
+              env_var: env_var_,
+              version: version._0.fmt_pretty(),
+              os_min: os_min.fmt_pretty(),
+            }),
+          );
+        }
+
+        // Raise the deployment target to the minimum supported.
+        // `Ord::max`: the second argument when they are equal.
+        return cmp_OSVersion(version._0, min) > 0 ? version._0 : min;
+      } else {
+        this.dcx().emit_err(
+          diagnostics_gen.AppleDeploymentTarget_diagnostic({ $: "Invalid", env_var: env_var_, error: version._0 }),
+        );
+        return min;
+      }
+    } else {
+      // If no deployment target variable is set, default to the minimum found above.
+      return min;
+    }
   }
 
   // rustc: compiler/rustc_session/src/session.rs:420 sanitizers
@@ -346,6 +383,10 @@ export class Session {
   /** `EarlySession::panic_strategy` through `Deref`. */
   panic_strategy(): PanicStrategy {
     return this.early_sess.panic_strategy();
+  }
+  /** `EarlySession::apple_deployment_target` through `Deref`. */
+  apple_deployment_target(): apple.OSVersion {
+    return this.early_sess.apple_deployment_target();
   }
   /** `EarlySession::code_model` through `Deref`. */
   code_model(): CodeModel | undefined {
@@ -1585,3 +1626,10 @@ function mk_emitter(output: ErrorOutputType): DynEmitter {
   return emitter;
 }
 
+/** The derived `Ord` of `apple::OSVersion` (`major`, then `minor`, then `patch`). */
+function cmp_OSVersion(a: apple.OSVersion, b: apple.OSVersion): number {
+  if (a.major !== b.major) return a.major < b.major ? -1 : 1;
+  if (a.minor !== b.minor) return a.minor < b.minor ? -1 : 1;
+  if (a.patch !== b.patch) return a.patch < b.patch ? -1 : 1;
+  return 0;
+}

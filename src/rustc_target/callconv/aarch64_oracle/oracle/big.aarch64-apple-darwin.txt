@@ -1,0 +1,15 @@
+0
+warning: enum variant is more than three times larger (9007199254740992 bytes) than the next largest
+  --> big.rs:32:5
+   |
+32 |     Big(B53),
+   |     ^^^^^^^^
+   |
+note: the lint level is defined here
+  --> big.rs:8:9
+   |
+ 8 | #![warn(variant_size_differences)]
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: 1 warning emitted
+

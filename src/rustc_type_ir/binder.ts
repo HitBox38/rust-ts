@@ -16,6 +16,7 @@
 // panicking with the formatted value.
 // PORT: an `IntoIterator` value (`Binder<I, T: IntoIterator>`, `EarlyBinder<I, Iter>`) is a `readonly T[]`; its
 // `IntoIter` is `SliceIntoIter` (end of file).
+import { BINDER_INNER } from "../rust_ts/tracing.ts";
 import { ControlFlow, type VisitorResult, VisitorResult as VisitorResultC } from "../rustc_ast_ir/visit.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import type { ParamEnv } from "../rustc_middle/ty/decls.ts";
@@ -199,10 +200,12 @@ export const Binder = {
   },
 };
 
+
 /** The D4 descriptor of `Binder<T>`: `impl TypeFoldable` (:64), `TypeVisitable` (:74), `TypeSuperFoldable` (:80),
  *  `TypeSuperVisitable` (:93), given the descriptor `d` of `T`. */
-export function fold_Binder<T>(d: TypeFoldable<T>): TypeSuperFoldable<Binder<T>> & TypeSuperVisitable<Binder<T>> {
+export function fold_Binder<T>(d: TypeFoldable<T>): TypeSuperFoldable<Binder<T>> & TypeSuperVisitable<Binder<T>> & { readonly [BINDER_INNER]: TypeFoldable<T> } {
   return {
+    [BINDER_INNER]: d,
     // rustc: compiler/rustc_type_ir/src/binder.rs:65 try_fold_with
     try_fold_with<E>(self: Binder<T>, folder: FallibleTypeFolder<E>): Result<Binder<T>, E> {
       return folder.try_fold_binder(self, d);

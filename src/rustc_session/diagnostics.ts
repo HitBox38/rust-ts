@@ -53,11 +53,12 @@ import type { Session } from "./lib.ts";
 import type { ParseSess } from "./parse.ts";
 
 export * from "./diagnostics.gen.ts";
+import { display_ParseIntError, type ParseIntError as AbiParseIntError } from "../rustc_abi/lib.ts";
 
 // ---- PORT: stand-ins for field types of the generated diagnostics whose crates are not ported ----
 
-/** PORT: opaque stand-in for `std::num::ParseIntError` (std::num is not ported; AppleDeploymentTarget). */
-export type ParseIntError = { readonly __standin: "std::num::ParseIntError" };
+/** `std::num::ParseIntError` (AppleDeploymentTarget): its kind, as `rustc_abi`'s, which `OSVersion::from_str` returns. */
+export type ParseIntError = AbiParseIntError;
 export type { SplitDebuginfo, StackProtector } from "../rustc_target/spec/mod.ts";
 export type { TargetTuple } from "../rustc_target/spec/tuple.ts";
 import type { SplitDebuginfo, StackProtector } from "../rustc_target/spec/mod.ts";
@@ -65,9 +66,9 @@ import type { TargetTuple } from "../rustc_target/spec/tuple.ts";
 import { spec as target_spec } from "../rustc_target/lib.ts";
 import { TargetTuple_into_diag_arg as TargetTuple_into_diag_arg_ } from "../rustc_target/spec/tuple.ts";
 
-/** `into_diag_arg_using_display!(ParseIntError)` (rustc_error_messages). PORT: Display of std's ParseIntError is not ported. */
-export function ParseIntError_into_diag_arg(_self: ParseIntError, _path: MutRef<PathBuf | undefined>): DiagArgValue {
-  return unported("std::num::ParseIntError Display (IntoDiagArg)");
+/** `into_diag_arg_using_display!(ParseIntError)` (rustc_error_messages) */
+export function ParseIntError_into_diag_arg(self: ParseIntError, _path: MutRef<PathBuf | undefined>): DiagArgValue {
+  return { $: "Str", _0: display_ParseIntError(self) };
 }
 /** `into_diag_arg_using_display!(StackProtector)` (rustc_target/src/spec/mod.rs) */
 export function StackProtector_into_diag_arg(self: StackProtector, path: MutRef<PathBuf | undefined>): DiagArgValue {

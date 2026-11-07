@@ -9,6 +9,10 @@
 // Ported here by lane errctxt-contract (small foundational items used by other files and crates): `FindExprBySpan`
 // (hand class: an intravisit `Visitor`, with `new`) and the `impl ArgKind` companion.
 export * from "./mod.gen.ts";
+import { type Fmt, PLAIN, debug_option, debug_struct } from "../../../std/fmt.ts";
+import { debug_Goal } from "../../../rustc_type_ir/solve/mod.ts";
+import { debug_Predicate } from "../../../rustc_middle/ty/predicate.ts";
+import * as tracing from "../../../rust_ts/tracing.ts";
 import type { ExternCrate } from "../../../rustc_crate_store/cstore.gen.ts";
 import { type Diag, E0038, E0276, MultiSpan, struct_span_code_err } from "../../../rustc_errors/lib.ts";
 import * as hir from "../../../rustc_hir/lib.ts";
@@ -136,6 +140,12 @@ interface ErrorDescriptor {
   goal: Goal<Predicate>;
   index: number | undefined; // None if this is an old error
 }
+/** `#[derive(Debug)]` of `ErrorDescriptor` */
+const debug_ErrorDescriptor = (v: ErrorDescriptor, f: Fmt): string =>
+  debug_struct(f, "ErrorDescriptor", [
+    ["goal", debug_Goal(v.goal, f, debug_Predicate)],
+    ["index", debug_option(v.index, f, (i) => String(i))],
+  ]);
 
 // rustc: compiler/rustc_trait_selection/src/error_reporting/traits/mod.rs:141 report_fulfillment_errors
 TypeErrCtxt.prototype.report_fulfillment_errors = function (this: TypeErrCtxt, errors_: FulfillmentError[]): ErrorGuaranteed {
@@ -240,7 +250,7 @@ TypeErrCtxt.prototype.report_fulfillment_errors = function (this: TypeErrCtxt, e
               !(option_usize_ge(error2.index, error.index) && this.error_implies(error.goal, error2.goal))) ||
             covered_by_trait_error(error2, error)
           ) {
-            // info!("skipping {:?} (implied by {:?})", error, error2);
+            tracing.info("rustc_trait_selection::error_reporting::traits", () => `skipping ${debug_ErrorDescriptor(error, PLAIN)} (implied by ${debug_ErrorDescriptor(error2, PLAIN)})`);
             is_suppressed[index] = true;
             break;
           }

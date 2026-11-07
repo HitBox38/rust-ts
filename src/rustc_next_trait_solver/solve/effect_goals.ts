@@ -10,6 +10,7 @@
 // PORT: the generic code's `I::Clause` / `I::Ty` methods resolve to rustc_type_ir inherent.ts (solve/mod.ts header).
 // TyCtxt methods whose query values are typed `unknown` in queries.gen.ts (`impl_trait_ref`) and the `Interner`-typed
 // rustc_type_ir helpers are reached through `as_interner(cx)` (rustc_type_ir predicate.ts precedent).
+import * as tracing from "../../rust_ts/tracing.ts";
 import { type DefId, DefId_eq } from "../../rustc_span/def_id.ts";
 import type { ErrorGuaranteed } from "../../rustc_span/lib.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
@@ -604,6 +605,8 @@ export const GoalKind_HostEffectClause: GoalKind<HostEffectClauseT> = {
   },
 
 };
+// PORT: `G: Debug` for the `#[instrument]`ed fns generic over a `GoalKind` (src/rust_ts/tracing.ts `register_debug`).
+tracing.register_debug(GoalKind_HostEffectClause.fold_with, debug_HostEffectClause);
 
 // rustc: compiler/rustc_next_trait_solver/src/solve/effect_goals.rs:482 compute_host_effect_goal
 EvalCtxt.prototype.compute_host_effect_goal = function (this: EvalCtxt, goal: GoalT<HostEffectClauseT>): QueryResultOrRerunNonErased {

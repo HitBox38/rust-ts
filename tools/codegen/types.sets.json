@@ -1085,6 +1085,7 @@
       "compiler/rustc_lint/src/opaque_hidden_inferred_bound.rs",
       "compiler/rustc_lint/src/transmute.rs"
     ],
+    "typemap_extra": ["lint.typemap.json"],
     "class": [],
     "hand": [
       "rustc_lint::transmute::CheckTransmutes",

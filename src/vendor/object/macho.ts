@@ -9,11 +9,80 @@
 //!
 //! This module is based heavily on header files from MacOSX11.1.sdk.
 //
-// PORT: only the definitions the read path uses are ported. The `E: Endian` type parameter is
+// PORT: only the definitions the read path and the writer (write/macho.ts) use are ported. The `E: Endian` type parameter is
 // erased (see elf.ts); `MachHeader*::magic` is `U32<BigEndian>`, read with `BigEndian`.
 
 import { U16, U32, U64 } from "./endian.ts";
 import { type Pod, pod_bytes, pod_struct, pod_u8 } from "./pod.ts";
+
+// Definitions from "/usr/include/mach/machine.h".
+
+/*
+ * Capability bits used in the definition of cpu_type.
+ */
+
+/// 64 bit ABI
+export const CPU_ARCH_ABI64 = 0x0100_0000;
+/// ABI for 64-bit hardware with 32-bit types; LP32
+export const CPU_ARCH_ABI64_32 = 0x0200_0000;
+
+/*
+ *	Machine types known by all.
+ */
+
+export const CPU_TYPE_X86 = 7;
+export const CPU_TYPE_X86_64 = (CPU_TYPE_X86 | CPU_ARCH_ABI64) >>> 0;
+export const CPU_TYPE_ARM = 12;
+export const CPU_TYPE_ARM64 = (CPU_TYPE_ARM | CPU_ARCH_ABI64) >>> 0;
+export const CPU_TYPE_ARM64_32 = (CPU_TYPE_ARM | CPU_ARCH_ABI64_32) >>> 0;
+export const CPU_TYPE_POWERPC = 18;
+export const CPU_TYPE_POWERPC64 = (CPU_TYPE_POWERPC | CPU_ARCH_ABI64) >>> 0;
+
+/// pointer authentication with versioned ABI
+export const CPU_SUBTYPE_PTRAUTH_ABI = 0x8000_0000;
+
+/*
+ *	I386 subtypes
+ */
+
+// crate: object-0.39.1/src/macho.rs:128 cpu_subtype_intel
+export function cpu_subtype_intel(f: number, m: number): number {
+  return f + (m << 4);
+}
+
+export const CPU_SUBTYPE_I386_ALL = cpu_subtype_intel(3, 0);
+
+export const CPU_SUBTYPE_X86_64_ALL = 3;
+
+/*
+ *	PowerPC subtypes
+ */
+export const CPU_SUBTYPE_POWERPC_ALL = 0;
+
+/*
+ *	ARM subtypes
+ */
+export const CPU_SUBTYPE_ARM_ALL = 0;
+
+/*
+ *  ARM64 subtypes
+ */
+export const CPU_SUBTYPE_ARM64_ALL = 0;
+export const CPU_SUBTYPE_ARM64E = 2;
+
+/*
+ *  ARM64_32 subtypes
+ */
+export const CPU_SUBTYPE_ARM64_32_V8 = 1;
+
+// Definitions from "/usr/include/mach/vm_prot.h".
+
+/// read permission
+export const VM_PROT_READ = 0x01;
+/// write permission
+export const VM_PROT_WRITE = 0x02;
+/// execute permission
+export const VM_PROT_EXECUTE = 0x04;
 
 /// The 32-bit mach header.
 ///
@@ -97,6 +166,10 @@ export const MH_PRELOAD = 0x5;
 /// dynamically bound shared library
 export const MH_DYLIB = 0x6;
 
+// Constants for the flags field of the mach_header
+/// safe to divide up the sections into sub-sections via symbols for dead code stripping
+export const MH_SUBSECTIONS_VIA_SYMBOLS = 0x2000;
+
 /// Common fields at the start of every load command.
 ///
 /// The load commands directly follow the mach_header.  The total size of all
@@ -135,8 +208,12 @@ export class LoadCommand {
 export const LC_SEGMENT = 0x1;
 /// link-edit stab symbol table info
 export const LC_SYMTAB = 0x2;
+/// dynamic link-edit symbol table info
+export const LC_DYSYMTAB = 0xb;
 /// 64-bit segment of this file to be mapped
 export const LC_SEGMENT_64 = 0x19;
+/// build for platform min OS version
+export const LC_BUILD_VERSION = 0x32;
 
 /// 32-bit segment load command.
 ///
@@ -300,10 +377,36 @@ export const SECTION_TYPE = 0x0000_00ff;
 /* Constants for the type of a section */
 /// zero fill on demand section
 export const S_ZEROFILL = 0x1;
+/// section with only literal C strings
+export const S_CSTRING_LITERALS = 0x2;
+/// section contains symbols that are to be coalesced
+export const S_COALESCED = 0xb;
 /// zero fill on demand section (that can be larger than 4 gigabytes)
 export const S_GB_ZEROFILL = 0xc;
 /// template of initial values for TLVs
+/// template of initial values for TLVs
+export const S_THREAD_LOCAL_REGULAR = 0x11;
+/// template of initial values for TLVs
 export const S_THREAD_LOCAL_ZEROFILL = 0x12;
+/// TLV descriptors
+export const S_THREAD_LOCAL_VARIABLES = 0x13;
+
+/*
+ * Constants for the section attributes part of the flags field of a section
+ * structure.
+ */
+/// section contains only true machine instructions
+export const S_ATTR_PURE_INSTRUCTIONS = 0x8000_0000;
+/// section contains coalesced symbols that are not to be in a ranlib table of contents
+export const S_ATTR_NO_TOC = 0x4000_0000;
+/// ok to strip static symbols in this section in files with the MH_DYLDLINK flag
+export const S_ATTR_STRIP_STATIC_SYMS = 0x2000_0000;
+/// blocks are live if they reference live blocks
+export const S_ATTR_LIVE_SUPPORT = 0x0800_0000;
+/// a debug section
+export const S_ATTR_DEBUG = 0x0200_0000;
+/// section contains some machine instructions
+export const S_ATTR_SOME_INSTRUCTIONS = 0x0000_0400;
 
 /// Symbol table load command.
 export class SymtabCommand {
@@ -327,6 +430,100 @@ export class SymtabCommand {
     (...f: never[]) => new (SymtabCommand as new (...a: never[]) => SymtabCommand)(...f),
   );
 }
+
+/// Dynamic symbol table load command (see upstream for the description of its groups).
+export class DysymtabCommand {
+  constructor(
+    /// LC_DYSYMTAB
+    readonly cmd: U32,
+    /// sizeof(struct DysymtabCommand)
+    readonly cmdsize: U32,
+    /// index to local symbols
+    readonly ilocalsym: U32,
+    /// number of local symbols
+    readonly nlocalsym: U32,
+    /// index to externally defined symbols
+    readonly iextdefsym: U32,
+    /// number of externally defined symbols
+    readonly nextdefsym: U32,
+    /// index to undefined symbols
+    readonly iundefsym: U32,
+    /// number of undefined symbols
+    readonly nundefsym: U32,
+    /// file offset to table of contents
+    readonly tocoff: U32,
+    /// number of entries in table of contents
+    readonly ntoc: U32,
+    /// file offset to module table
+    readonly modtaboff: U32,
+    /// number of module table entries
+    readonly nmodtab: U32,
+    /// offset to referenced symbol table
+    readonly extrefsymoff: U32,
+    /// number of referenced symbol table entries
+    readonly nextrefsyms: U32,
+    /// file offset to the indirect symbol table
+    readonly indirectsymoff: U32,
+    /// number of indirect symbol table entries
+    readonly nindirectsyms: U32,
+    /// offset to external relocation entries
+    readonly extreloff: U32,
+    /// number of external relocation entries
+    readonly nextrel: U32,
+    /// offset to local relocation entries
+    readonly locreloff: U32,
+    /// number of local relocation entries
+    readonly nlocrel: U32,
+  ) {}
+
+  static readonly POD: Pod<DysymtabCommand> = pod_struct(
+    [U32.POD, U32.POD, U32.POD, U32.POD, U32.POD, U32.POD, U32.POD, U32.POD, U32.POD, U32.POD, U32.POD, U32.POD, U32.POD, U32.POD, U32.POD, U32.POD, U32.POD, U32.POD, U32.POD, U32.POD],
+    (...f: never[]) => new (DysymtabCommand as new (...a: never[]) => DysymtabCommand)(...f),
+  );
+}
+
+/*
+ * The BuildVersionCommand contains the min OS version on which this
+ * binary was built to run for its platform.  The list of known platforms and
+ * tool values following it.
+ */
+export class BuildVersionCommand {
+  constructor(
+    /// LC_BUILD_VERSION
+    readonly cmd: U32,
+    /// sizeof(struct BuildVersionCommand) plus ntools * sizeof(struct BuildToolVersion)
+    readonly cmdsize: U32,
+    /// platform
+    readonly platform: U32,
+    /// X.Y.Z is encoded in nibbles xxxx.yy.zz
+    readonly minos: U32,
+    /// X.Y.Z is encoded in nibbles xxxx.yy.zz
+    readonly sdk: U32,
+    /// number of tool entries following this
+    readonly ntools: U32,
+  ) {}
+
+  static readonly POD: Pod<BuildVersionCommand> = pod_struct(
+    [U32.POD, U32.POD, U32.POD, U32.POD, U32.POD, U32.POD],
+    (...f: never[]) => new (BuildVersionCommand as new (...a: never[]) => BuildVersionCommand)(...f),
+  );
+}
+
+/* Known values for the platform field above. */
+export const PLATFORM_MACOS = 1;
+export const PLATFORM_IOS = 2;
+export const PLATFORM_TVOS = 3;
+export const PLATFORM_WATCHOS = 4;
+export const PLATFORM_MACCATALYST = 6;
+export const PLATFORM_IOSSIMULATOR = 7;
+export const PLATFORM_TVOSSIMULATOR = 8;
+export const PLATFORM_WATCHOSSIMULATOR = 9;
+export const PLATFORM_VISIONOS = 11;
+export const PLATFORM_VISIONOSSIMULATOR = 12;
+/// Compatibility alias for [`PLATFORM_VISIONOS`].
+export const PLATFORM_XROS = PLATFORM_VISIONOS;
+/// Compatibility alias for [`PLATFORM_VISIONOSSIMULATOR`].
+export const PLATFORM_XROSSIMULATOR = PLATFORM_VISIONOSSIMULATOR;
 
 /// 32-bit symbol table entry.
 export class Nlist32 {
@@ -369,3 +566,35 @@ export class Nlist64 {
     (...f: never[]) => new (Nlist64 as new (...a: never[]) => Nlist64)(...f),
   );
 }
+
+/*
+ * The n_type field really contains four fields:
+ *	unsigned char N_STAB:3,
+ *		      N_PEXT:1,
+ *		      N_TYPE:3,
+ *		      N_EXT:1;
+ * which are used via the following masks.
+ */
+/// if any of these bits set, a symbolic debugging entry
+export const N_STAB = 0xe0;
+/// private external symbol bit
+export const N_PEXT = 0x10;
+/// mask for the type bits
+export const N_TYPE = 0x0e;
+/// external symbol bit, set for external symbols
+export const N_EXT = 0x01;
+
+/*
+ * Values for N_TYPE bits of the n_type field.
+ */
+/// undefined, n_sect == NO_SECT
+export const N_UNDF = 0x0;
+/// absolute, n_sect == NO_SECT
+export const N_ABS = 0x2;
+/// defined in section number n_sect
+export const N_SECT = 0xe;
+
+/// symbol is weak referenced
+export const N_WEAK_REF = 0x0040;
+/// coalesced symbol is a weak definition
+export const N_WEAK_DEF = 0x0080;

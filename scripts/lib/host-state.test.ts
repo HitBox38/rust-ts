@@ -87,10 +87,11 @@ describe("a command that will not end", () => {
         return false;
       }
     };
-    const until = performance.now() + 1_500;
+    // The command never ends by itself, so only the kill can end it; the loop ends as soon as it is gone (review harness-w42 N6).
+    const until = performance.now() + 30_000;
     while (alive() && performance.now() < until) await Bun.sleep(10);
     expect(alive()).toBe(false);
-  });
+  }, 60_000);
   test("killed, and its child holds stdout", async () => {
     await sampled("child-holds", "sleep 2\nexit 0");
   });
@@ -128,20 +129,22 @@ describe("a read stuck past the limit (review root-w40-check F2)", () => {
     expect(notes.length).toBe(1);
     expect(notes[0]).toStartWith("note: host reader pmset is stuck: ");
     expect(notes[0]).not.toContain("\n");
+    // A held-back reader answers at once; one that is not waits out the limit, so the bound is one limit, however slow the host (review harness-w42 N6).
+    const LIMIT_MS = 15_000;
     const started = performance.now();
     for (let i = 0; i < 5; i++) {
-      const s = await sampleHost(r, 5_000, stuck);
+      const s = await sampleHost(r, LIMIT_MS, stuck);
       expect(s.power).toBeNull();
       expect(s.swapUsedMb).toBe(512.25);
     }
     expect(h.ends.length).toBe(1);
-    expect(performance.now() - started).toBeLessThan(2_000); // no sample waits out its limit
+    expect(performance.now() - started).toBeLessThan(LIMIT_MS); // no sample waits out its limit
     h.ends[0]!(AC);
     await Bun.sleep(0);
     await sampleHost(r, 10, stuck);
     expect(h.ends.length).toBe(2); // read again, and past the limit again: still the one note
     expect(notes.length).toBe(1);
-  });
+  }, 120_000);
   test("a stuck read that ends in a failure also releases it", async () => {
     const stuck = new StuckReads(() => {});
     const h = held();
@@ -169,12 +172,13 @@ describe("a read stuck past the limit (review root-w40-check F2)", () => {
     const marker = join(TMP, "pids");
     const pids = () => (existsSync(marker) ? readFileSync(marker, "utf8").split("\n").filter(Boolean).map(Number) : []);
     // Its own limit is past the test's: to this reader it is unkillable, as one stuck in the kernel would be.
-    const r = readers(() => commandOutput(["/bin/sh", "-c", `echo $$ >> ${marker}\nexec sleep 20`], 20_000));
+    const r = readers(() => commandOutput(["/bin/sh", "-c", `echo $$ >> ${marker}\nexec sleep 60`], 60_000));
     const notes: string[] = [];
     const stuck = new StuckReads((l) => notes.push(l));
     try {
       for (let i = 0; i < 4; i++) await sampleHost(r, 50, stuck);
-      const until = performance.now() + 2_000;
+      // Ends as soon as the pid is there: a wide deadline costs nothing when it passes (review harness-w42 N6).
+      const until = performance.now() + 20_000;
       while (pids().length === 0 && performance.now() < until) await Bun.sleep(10);
       await Bun.sleep(20);
       expect(pids().length).toBe(1);
@@ -183,7 +187,7 @@ describe("a read stuck past the limit (review root-w40-check F2)", () => {
       for (const pid of pids()) process.kill(pid, "SIGKILL");
       rmSync(TMP, { recursive: true, force: true });
     }
-  });
+  }, 60_000);
 });
 
 test("a process.exit during a read kills the command (review harness-w41 N1)", async () => {
@@ -194,9 +198,9 @@ test("a process.exit during a read kills the command (review harness-w41 N1)", a
     script,
     `import { readFileSync } from "node:fs";
 const { commandOutput } = await import(${JSON.stringify(join(import.meta.dir, "host-state.ts"))});
-void commandOutput(["/bin/sh", "-c", "echo $$ > ${marker}\\ntrap '' TERM\\nexec sleep 20"], 20_000);
+void commandOutput(["/bin/sh", "-c", "echo $$ > ${marker}\\ntrap '' TERM\\nexec sleep 120"], 120_000);
 const written = () => { try { return readFileSync(${JSON.stringify(marker)}, "utf8").endsWith("\\n"); } catch { return false; } };
-const until = Date.now() + 10_000;
+const until = Date.now() + 30_000;
 while (!written()) {
   if (Date.now() > until) process.exit(3);
   await Bun.sleep(5);
@@ -217,12 +221,27 @@ process.exit(1);
     }
   };
   try {
-    const until = performance.now() + 1_500;
+    // The command never ends by itself, so only the kill can end it; the loop ends as soon as it is gone (review harness-w42 N6).
+    const until = performance.now() + 30_000;
     while (alive() && performance.now() < until) await Bun.sleep(10);
     expect(alive()).toBe(false);
   } finally {
     if (alive()) process.kill(pid, "SIGKILL");
     rmSync(TMP, { recursive: true, force: true });
+  }
+}, 120_000);
+
+test("a read that ends removes its exit listener: none build up over a gate's samples (review harness-w42 N4)", async () => {
+  // By identity, not count: a read an earlier test left running can end, and drop its own listener, during this one.
+  const before = new Set(process.listeners("exit"));
+  const added = () => process.listeners("exit").filter((l) => !before.has(l));
+  for (let i = 0; i < 20; i++) {
+    const reading = commandOutput(["/bin/sh", "-c", "exit 0"]);
+    // The read has its listener while it runs, so there is one to remove.
+    expect(added().length).toBe(1);
+    expect(await reading).toBe("");
+    await Bun.sleep(0);
+    expect(added()).toEqual([]);
   }
 });
 

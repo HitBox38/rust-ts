@@ -171,6 +171,7 @@ export function compute_regions(
     if (polonius_output_wanted) {
       const algorithm_ = infcx.tcx.env_var("POLONIUS_ALGORITHM");
       const algorithm__ = algorithm_.$ === "Ok" ? algorithm_._0 : "Hybrid";
+      // rustc-call: 177:60
       const algorithm = unwrap_result(Algorithm.from_str(algorithm__), (e) => debug_str(e));
       // debug!("compute_regions: using polonius algorithm {:?}", algorithm);
       // PORT: `tcx.prof.generic_activity(..)` timer dropped (driver-m2 decision 8).

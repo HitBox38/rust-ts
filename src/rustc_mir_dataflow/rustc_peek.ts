@@ -10,6 +10,9 @@
 //   `kind.contains(&RustcMirKind::X)` compares the (unit) variant tags.
 // - `debug!` / `info!` are comments (tracing is not compiled in).
 
+import { PLAIN } from "../std/fmt.ts";
+import { debug_Place } from "../rustc_middle/mir/syntax.ts";
+import * as tracing from "../rust_ts/tracing.ts";
 import { find_attr } from "../rustc_attr_ir/lib.ts";
 import type { RustcMirKind } from "../rustc_attr_ir/data_structures.gen.ts";
 import type { DenseBitSet } from "../rustc_index/bit_set.ts";
@@ -278,7 +281,7 @@ function RustcPeekAt_HasMoveData<D, A extends Analysis<D, unknown> & HasMoveData
 const RustcPeekAt_MaybeLiveLocals: RustcPeekAt<DenseBitSet<Local>, MaybeLiveLocals> = {
   // rustc: compiler/rustc_mir_dataflow/src/rustc_peek.rs:234 peek_at
   peek_at(_self: MaybeLiveLocals, tcx: TyCtxt, place: Place, state: DenseBitSet<Local>, call: PeekCall): void {
-    // info!(?place, "peek_at");
+    tracing.info("rustc_mir_dataflow::rustc_peek", () => "peek_at", ["place", () => debug_Place(place, PLAIN)]);
     const local = place.as_local();
     if (local === undefined) {
       tcx.dcx().emit_err(PeekArgumentNotALocal_diagnostic({ span: call.span }));

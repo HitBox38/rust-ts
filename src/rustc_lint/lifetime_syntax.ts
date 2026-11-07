@@ -1,5 +1,9 @@
 // Port of compiler/rustc_lint/src/lifetime_syntax.rs. The lint static and the `declare_lint_pass!` expansion are
 // generated (lifetime_syntax.lints.gen.ts).
+import { PLAIN } from "../std/fmt.ts";
+import { debug_Lifetime as hir_debug_Lifetime, debug_Ty as hir_debug_Ty } from "../rustc_hir/lib.ts";
+import { unreachable } from "../std/panic.ts";
+import * as tracing from "../rust_ts/tracing.ts";
 import { KeyedMap } from "../rust_ts/keyed.ts";
 import type { AmbigArg, Body, FnDecl, ForeignItem, Lifetime, LifetimeKind, TraitItem, Ty } from "../rustc_hir/hir.ts";
 import { type FnKind, Visitor, walk_ty, walk_unambig_ty } from "../rustc_hir/intravisit.ts";
@@ -32,39 +36,45 @@ LifetimeSyntax.prototype.check_fn = function (
   ___: Span,
   ____: LocalDefId,
 ): void {
-  check_fn_like(cx, fd);
+  return tracing.instrument("rustc_lint::lifetime_syntax", "check_fn", () => [], () => {
+    check_fn_like(cx, fd);
+  });
 };
 
 // #[instrument(skip_all)]
 // rustc: compiler/rustc_lint/src/lifetime_syntax.rs:92 check_trait_item
 LifetimeSyntax.prototype.check_trait_item = function (this: LifetimeSyntax, cx: LateContext, ti: TraitItem): void {
-  switch (ti.kind.$) {
-    case "Const":
-      break;
-    case "Fn": {
-      const fn_sig = ti.kind._0;
-      check_fn_like(cx, fn_sig.decl);
-      break;
+  return tracing.instrument("rustc_lint::lifetime_syntax", "check_trait_item", () => [], () => {
+    switch (ti.kind.$) {
+      case "Const":
+        break;
+      case "Fn": {
+        const fn_sig = ti.kind._0;
+        check_fn_like(cx, fn_sig.decl);
+        break;
+      }
+      case "Type":
+        break;
     }
-    case "Type":
-      break;
-  }
+  });
 };
 
 // #[instrument(skip_all)]
 // rustc: compiler/rustc_lint/src/lifetime_syntax.rs:101 check_foreign_item
 LifetimeSyntax.prototype.check_foreign_item = function (this: LifetimeSyntax, cx: LateContext, fi: ForeignItem): void {
-  switch (fi.kind.$) {
-    case "Fn": {
-      const fn_sig = fi.kind._0;
-      check_fn_like(cx, fn_sig.decl);
-      break;
+  return tracing.instrument("rustc_lint::lifetime_syntax", "check_foreign_item", () => [], () => {
+    switch (fi.kind.$) {
+      case "Fn": {
+        const fn_sig = fi.kind._0;
+        check_fn_like(cx, fn_sig.decl);
+        break;
+      }
+      case "Static":
+        break;
+      case "Type":
+        break;
     }
-    case "Static":
-      break;
-    case "Type":
-      break;
-  }
+  });
 };
 
 /** PORT: `FxIndexMap<hir::LifetimeKind, _>` key: the derived `Hash`/`Eq` of `LifetimeKind` (`LocalDefId` is a handle;
@@ -588,21 +598,25 @@ class LifetimeInfoCollector extends Visitor {
   // #[instrument(skip(self))]
   // rustc: compiler/rustc_lint/src/lifetime_syntax.rs:599 visit_lifetime
   override visit_lifetime(lifetime: Lifetime): undefined {
-    const syntax_category = LifetimeSyntaxCategory.new(lifetime);
-    if (syntax_category !== undefined) {
-      const info = new Info(lifetime, syntax_category, this.ty);
-      this.info_func(info);
-    }
-    return undefined;
+    return tracing.instrument("rustc_lint::lifetime_syntax", "visit_lifetime", () => [["lifetime", () => hir_debug_Lifetime(lifetime, PLAIN)]], () => {
+      const syntax_category = LifetimeSyntaxCategory.new(lifetime);
+      if (syntax_category !== undefined) {
+        const info = new Info(lifetime, syntax_category, this.ty);
+        this.info_func(info);
+      }
+      return undefined;
+    });
   }
 
   // #[instrument(skip(self))]
   // rustc: compiler/rustc_lint/src/lifetime_syntax.rs:607 visit_ty
   override visit_ty(ty: Ty<AmbigArg>): undefined {
-    const old_ty = this.ty;
-    this.ty = ty.as_unambig_ty();
-    walk_ty(this, ty);
-    this.ty = old_ty;
-    return undefined;
+    return tracing.instrument("rustc_lint::lifetime_syntax", "visit_ty", () => [["ty", () => hir_debug_Ty(ty, PLAIN, (_x: AmbigArg) => unreachable("AmbigArg is uninhabited"))]], () => {
+      const old_ty = this.ty;
+      this.ty = ty.as_unambig_ty();
+      walk_ty(this, ty);
+      this.ty = old_ty;
+      return undefined;
+    });
   }
 }

@@ -8,6 +8,10 @@
 // - `debug!` / `#[instrument]` are tracing only and stay as comments.
 // Init order: top-level code here touches only ./decls.ts, this file's .gen.ts and other crates.
 export * from "./opaque_types.gen.ts";
+import { debug_OpaqueTypeKey } from "../rustc_type_ir/opaque_ty.ts";
+import { debug_ProvisionalHiddenType } from "../rustc_middle/ty/mod.ts";
+import { debug_UsageKind } from "./opaque_types.gen.ts";
+import * as tracing from "../rust_ts/tracing.ts";
 import * as middle_ty from "../rustc_middle/ty/mod.ts";
 import { opaque_type_has_defining_use_args, report_item_does_not_constrain_error } from "../rustc_trait_selection/opaque_types.ts";
 import type { Diag } from "../rustc_errors/diagnostic.ts";
@@ -227,38 +231,40 @@ FnCtxt.prototype.compute_definition_site_hidden_types = function (
 // #[tracing::instrument(skip(self), ret)]
 // rustc: compiler/rustc_hir_typeck/src/opaque_types.rs:219 consider_opaque_type_use
 FnCtxt.prototype.consider_opaque_type_use = function (this: FnCtxt, opaque_type_key: OpaqueTypeKey, hidden_type_: ProvisionalHiddenType): UsageKind {
-  const r = opaque_type_has_defining_use_args(this.infcx, opaque_type_key, hidden_type_.span, "HirTypeck");
-  if (r.$ === "Err") {
-    const err = r._0;
-    if (err.$ === "Tainted") {
-      const guar = err._0;
-      return { $: "HasDefiningUse", _0: DefinitionSiteHiddenType.new_error(this.tcx, guar) };
-    } else {
-      return { $: "NonDefiningUse", _0: opaque_type_key, _1: hidden_type_ };
+  return tracing.instrument("rustc_hir_typeck::opaque_types", "consider_opaque_type_use", () => [["opaque_type_key", () => debug_OpaqueTypeKey(opaque_type_key, PLAIN)], ["hidden_type", () => debug_ProvisionalHiddenType(hidden_type_, PLAIN)]], () => {
+    const r = opaque_type_has_defining_use_args(this.infcx, opaque_type_key, hidden_type_.span, "HirTypeck");
+    if (r.$ === "Err") {
+      const err = r._0;
+      if (err.$ === "Tainted") {
+        const guar = err._0;
+        return { $: "HasDefiningUse", _0: DefinitionSiteHiddenType.new_error(this.tcx, guar) };
+      } else {
+        return { $: "NonDefiningUse", _0: opaque_type_key, _1: hidden_type_ };
+      }
     }
-  }
 
-  // We ignore uses of the opaque if they have any inference variables
-  // as this can frequently happen with recursive calls.
-  //
-  // See `tests/ui/traits/next-solver/opaques/universal-args-non-defining.rs`.
-  if (TypeVisitableExt.has_non_region_infer(hidden_type_.ty, fold_Ty)) {
-    return { $: "UnconstrainedHiddenType", _0: hidden_type_ };
-  }
+    // We ignore uses of the opaque if they have any inference variables
+    // as this can frequently happen with recursive calls.
+    //
+    // See `tests/ui/traits/next-solver/opaques/universal-args-non-defining.rs`.
+    if (TypeVisitableExt.has_non_region_infer(hidden_type_.ty, fold_Ty)) {
+      return { $: "UnconstrainedHiddenType", _0: hidden_type_ };
+    }
 
-  const cause = ObligationCause.misc(hidden_type_.span, this.body_def_id);
-  const at = this.at(cause, this.param_env);
-  let hidden_type: ProvisionalHiddenType;
-  const n = deeply_normalize<ProvisionalHiddenType, FulfillmentError>(at, Unnormalized.new_wip(hidden_type_), FromSolverError_FulfillmentError, fold_ProvisionalHiddenType);
-  if (n.$ === "Ok") {
-    hidden_type = n._0;
-  } else {
-    const errors = n._0;
-    const guar = this.err_ctxt().report_fulfillment_errors(errors);
-    hidden_type = ProvisionalHiddenType.new_error(this.tcx, guar);
-  }
-  const hidden_type2 = hidden_type.remap_generic_params_to_declaration_params(opaque_type_key, this.tcx, "HirTypeck");
-  return { $: "HasDefiningUse", _0: hidden_type2 };
+    const cause = ObligationCause.misc(hidden_type_.span, this.body_def_id);
+    const at = this.at(cause, this.param_env);
+    let hidden_type: ProvisionalHiddenType;
+    const n = deeply_normalize<ProvisionalHiddenType, FulfillmentError>(at, Unnormalized.new_wip(hidden_type_), FromSolverError_FulfillmentError, fold_ProvisionalHiddenType);
+    if (n.$ === "Ok") {
+      hidden_type = n._0;
+    } else {
+      const errors = n._0;
+      const guar = this.err_ctxt().report_fulfillment_errors(errors);
+      hidden_type = ProvisionalHiddenType.new_error(this.tcx, guar);
+    }
+    const hidden_type2 = hidden_type.remap_generic_params_to_declaration_params(opaque_type_key, this.tcx, "HirTypeck");
+    return { $: "HasDefiningUse", _0: hidden_type2 };
+  }, (x) => debug_UsageKind(x, PLAIN));
 };
 
 /// We may in theory add further uses of an opaque after cloning the opaque

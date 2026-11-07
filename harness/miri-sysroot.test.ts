@@ -8,11 +8,13 @@ import { join, resolve } from "node:path";
 const REPO = resolve(import.meta.dir, "..");
 const TMP = mkdtempSync(join(tmpdir(), "rust-ts-miri-sysroot-"));
 afterAll(() => rmSync(TMP, { recursive: true, force: true }));
-const CORPUS = JSON.parse(readFileSync(join(REPO, "harness/corpus/miri-sysroot/crates.json"), "utf8")) as Record<string, { cwd: string; args: string[]; env: Record<string, string> }>;
+const CORPUS = JSON.parse(readFileSync(join(REPO, "harness/corpus/miri-sysroot/crates.json"), "utf8")) as Record<
+  string,
+  { cwd: string; args: string[]; env: Record<string, string>; sources?: Record<string, string> }
+>;
 
-test("the corpus: the 26 crates with a source left, cargo-miri's flags, nothing tied to the setup run but OUT_DIR", () => {
-  expect(Object.keys(CORPUS).length).toBe(26);
-  expect(Object.keys(CORPUS)).not.toContain("custom_local_sysroot");
+test("the corpus: all 27 crates, cargo-miri's flags, nothing tied to the setup run but OUT_DIR", () => {
+  expect(Object.keys(CORPUS).length).toBe(27);
   for (const [name, c] of Object.entries(CORPUS)) {
     expect(c.args[c.args.indexOf("--crate-name") + 1]).toBe(name);
     expect(c.args.filter((a) => a === "$OUT").length).toBe(1);
@@ -21,8 +23,19 @@ test("the corpus: the 26 crates with a source left, cargo-miri's flags, nothing 
     expect(c.args[c.args.indexOf("--target") + 1]).toBe("x86_64-unknown-linux-gnu");
     expect(JSON.stringify(c.args)).not.toContain("/var/folders");
     expect(c.cwd).toBe(c.env.CARGO_MANIFEST_DIR!);
+    expect(JSON.stringify({ ...c.env, OUT_DIR: undefined })).not.toContain("rustc-build-sysroot-");
+    if (name === "custom_local_sysroot") continue;
     expect(c.cwd.startsWith("$TC/") || c.cwd.startsWith("$CARGO_HOME/")).toBe(true);
+    expect(c.sources).toBeUndefined();
   }
+  // rustc-build-sysroot's own crate (review miri-sysroot F1): built in its temp directory, `$BUILD`, from an empty `lib.rs`.
+  const local = CORPUS.custom_local_sysroot!;
+  expect(local.cwd).toBe("$BUILD");
+  expect(local.env.CARGO_MANIFEST_PATH).toBe("$BUILD/Cargo.toml");
+  expect(local.sources).toEqual({ "lib.rs": "" });
+  expect(local.args).toContain("lib.rs");
+  expect(local.args.filter((a) => a.includes("$BUILD"))).toEqual([]);
+  expect(local.args.filter((a) => /^(std|sysroot)=/.test(a))).toEqual(["std=$LIB/libstd-823d78ffe8cfce5b.rlib", "std=$LIB/libstd-823d78ffe8cfce5b.rmeta", "sysroot=$LIB/libsysroot-8bee418f84e2411a.rmeta"]);
   // cargo passes both files of a dep, both now in the sysroot's library directory.
   expect(CORPUS.core!.args).not.toContain("--extern");
   expect(CORPUS.std!.args.filter((a) => a.startsWith("core=$LIB/libcore-"))).toHaveLength(2);
@@ -39,10 +52,15 @@ const m = await import(${JSON.stringify(join(REPO, "harness/miri-sysroot.ts"))})
 const { miriBinary, MIRI_SYSROOT } = await import(${JSON.stringify(join(REPO, "scripts/lib/miri.ts"))});
 const names = ["miri-sysroot-core", "miri-sysroot-alloc", "miri-sysroot-std"];
 const inv = m.miriSysrootInvocation("alloc", "/o");
+const local = m.miriSysrootInvocation("custom_local_sysroot", "/o");
+const lib = (await import(${JSON.stringify(join(REPO, "scripts/lib/miri.ts"))})).miriTargetLibDir();
+const dfile = (await import("node:fs")).readdirSync(lib).find((f) => /^custom_local_sysroot-[0-9a-f]+\\.d$/.test(f));
+const dtext = (await import("node:fs")).readFileSync(lib + "/" + dfile, "utf8");
 console.log(JSON.stringify({
   fields: names.map((n) => { const x = s.suite(n); return { mode: x.mode, miri: x.miri, heavy: Boolean(x.heavy), criterion: x.criterion, ids: x.cases().map((c) => c.id), runs: g.oracleRuns(x.oracle(x.cases())), isMiri: g.oracleRuns(x.oracle(x.cases()))[0] === miriBinary(), undeclared: g.undeclaredRuns(x), subject: x.subject(x.cases()).slice(-2)[1], side: [x.oracle(x.cases())[5], x.subject(x.cases())[5]] }; }),
   all: s.SUITES.map((x) => x.name),
   dupes: s.SUITES.length - new Set(s.SUITES.map((x) => x.name)).size,
+  local: { cwd: local.cwd, manifest: local.env.CARGO_MANIFEST_DIR, sources: local.sources, left: JSON.stringify(local).match(/\\$(TC|LIB|OUT|CARGO_HOME|BUILD)/g), inD: dtext.startsWith(local.cwd + "/target/x86_64-unknown-linux-gnu/custom_sysroot/build/custom-local-sysroot/"), expand: [m.expandMiriSysroot("$BUILD/x", { tc: "", cargoHome: "", lib: "", out: "", build: () => "/b" }), m.expandMiriSysroot("$TC", { tc: "/t", cargoHome: "", lib: "", out: "", build: () => { throw new Error("read"); } })] },
   inv: { hasOut: inv.args.includes("/o"), sysroot: inv.args.slice(-2)[0], be: inv.env.MIRI_BE_RUSTC, left: JSON.stringify(inv).match(/\\$(TC|LIB|OUT|CARGO_HOME)/g), extern: inv.args.filter((a) => a.startsWith("core=")).map((a) => a.startsWith("core=" + MIRI_SYSROOT + "/lib/rustlib/x86_64-unknown-linux-gnu/lib/libcore-")) },
 }));
 `;
@@ -62,6 +80,13 @@ console.log(JSON.stringify({
   }
   expect(j.dupes).toBe(0);
   expect(j.inv).toEqual({ hasOut: true, sysroot: "--sysroot", be: "target", left: null, extern: [true] });
+  // `$BUILD` is the directory the sysroot's own dep-info names, read only when a template uses it.
+  expect(j.local.cwd).toMatch(/\/rustc-build-sysroot-[A-Za-z0-9]+$/);
+  expect(j.local.manifest).toBe(j.local.cwd);
+  expect(j.local.sources).toEqual({ "lib.rs": "" });
+  expect(j.local.left).toBeNull();
+  expect(j.local.inD).toBe(true);
+  expect(j.local.expand).toEqual(["/b/x", "/t"]);
   // scripts/gate.ts's default is the suites with a baseline file: these have none.
   const base = readdirSync(join(REPO, "harness/baseline"));
   for (const c of ["core", "alloc", "std"]) expect(base).not.toContain(`miri-sysroot-${c}.txt`);
@@ -97,3 +122,38 @@ console.log(JSON.stringify({
   expect(j.absent).toBe("sysroot rlib: differs: not in the sysroot");
   writeFileSync(join(TMP, "done"), "");
 }, 30_000);
+
+test("two runs of one crate and side at once each compile into a directory of their own (review miri-sysroot F2)", async () => {
+  const data = join(TMP, "data");
+  const stub = join(TMP, "stub-compiler.ts");
+  // Writes its three files a second after it starts, into the out dir it was given, as rustc would fail to if that dir were gone.
+  writeFileSync(
+    stub,
+    `import { writeFileSync } from "node:fs";
+const a = process.argv.slice(2);
+const i = a.indexOf("--out-dir");
+const out = i >= 0 ? a[i + 1] : a.find((x) => x.startsWith("--out-dir="))!.slice("--out-dir=".length);
+await Bun.sleep(1000);
+writeFileSync(out + "/libcore.rmeta", "rmeta");
+writeFileSync(out + "/libcore.rlib", "rlib!");
+writeFileSync(out + "/core.d", out + "/libcore.rmeta: lib.rs\\n");
+`,
+  );
+  // The crate's cwd, under the temp data root's toolchain.
+  const setup = `const { miriSysrootInvocation } = await import(${JSON.stringify(join(REPO, "harness/miri-sysroot.ts"))}); console.log(miriSysrootInvocation("core", "x").cwd);`;
+  const env = { ...process.env, RUST_TS_DATA: data } as Record<string, string>;
+  const cwd = Bun.spawnSync([process.execPath, "-e", setup], { cwd: REPO, env, stdout: "pipe", stderr: "pipe" });
+  expect(cwd.exitCode, cwd.stderr.toString()).toBe(0);
+  Bun.spawnSync(["mkdir", "-p", cwd.stdout.toString().trim()]);
+  const one = () => Bun.spawn([process.execPath, join(REPO, "scripts/miri-sysroot-run.ts"), "--crate", "core", "--side", "subject", "--", process.execPath, stub], { cwd: REPO, env, stdout: "pipe", stderr: "pipe" });
+  const first = one();
+  await Bun.sleep(300);
+  const second = one();
+  const rs = await Promise.all([first, second].map(async (p) => [await p.exited, await new Response(p.stdout).text(), await new Response(p.stderr).text()] as const));
+  expect(rs[0]![0], rs[0]![2]).toBe(0);
+  expect(rs[1]).toEqual(rs[0]!);
+  expect(rs[0]![1]).toContain("rmeta: 5 bytes, sha256 ");
+  expect(rs[0]![1]).toContain("files: core.d libcore.rlib libcore.rmeta\n");
+  // Not in this sysroot, so `differs`: one is kept for diagnosis under the side's name, and no run's own directory is left.
+  expect(readdirSync(join(data, "rmeta", "miri-sysroot", "core"))).toEqual(["subject"]);
+}, 60_000);
