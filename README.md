@@ -36,7 +36,7 @@ including legacy Polonius), `rustc_mir_transform` and `rustc_const_eval`. Nearly
 | `check-std`, `rmeta-std`, `mir-std` (M5) | libstd with its 13 dependencies (built by the oracle): the same | 1 / 18,196 / 5,204 |
 | `pm-ui`, `pm-expanded` (M6) | tests/ui proc-macro cases with real proc-macro dylibs (built by the oracle, loaded through `bun:ffi`): diagnostics, and `-Zunpretty=expanded` | 281 / 281 |
 | `miri-hello`, `run-pass-miri` + heavy, `run-fail-miri` (M6) | real programs: the port of the pinned nightly's Miri runs them, stdout + stderr + exit against the real Miri (std hello world; tests/ui run-pass and run-fail) | 1 / 3,473 of 3,478 / 294 of 294 |
-| `run-pass-aux-miri` (M6) | run-pass programs with auxiliary crates under Miri, the aux crates built by the oracle | 355 of 356 |
+| `run-pass-aux-miri` (M6) | tests/ui run-pass programs with non-proc-macro auxiliary crates under Miri, the aux crates built by the real Miri as its compiler (`MIRI_BE_RUSTC=target`) | 355 of 356 |
 | `miri-pass` + heavy (M6) | Miri's own test suite (tests/pass, tests/panic), Stacked Borrows revisions | 350 of 360 |
 | `mir-o2`, `mir-opt-o4`, `mono-ui` (M7 preflight) | optimized MIR at `-O` on run-pass programs, upstream's `tests/mir-opt` at level 4, and `-Zprint-mono-items` | 3,474 / 405 / 3,475 |
 | `check-rg`, `-encode-mir`, `-host`, `check-ui-encode-mir` (M7 preflight) | ripgrep 15.2.0's whole tree through real `cargo check`, byte-identical `.rmeta`, in plain, encoded-MIR and aarch64 host modes; encoded MIR on small crates | 36 / 36 / 36 / 146 |
