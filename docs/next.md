@@ -543,3 +543,10 @@ Parallel unit trial (root, quiet machine, AC, 2026-11-08): `bun test ./src ./too
 | fixers-47 | fixers-45 review F1, F2 (`host_canonicalize` by bytes), F5 (E0464 with a symlinked -L); fixers-46 review F4 (2^53 `static`, `gvn.ts` index); an invalid `MACOSX_DEPLOYMENT_TARGET` and the too-low warning at --emit=metadata; object-write-macho review N1, N2 | APPROVE WITH NITS; on integ-w43 |
 | harness-w44 | `info_sites_check.ts` fails loudly and becomes a gate step (fixers-45 F4, w40c audit N2); a gate step with a frozen-lists sample, then perf-heavy's 0d4092c4 re-landed; root-w42-check N4 tests; harness-w43 review F6, F7; w40c audit N4; the proposed `host-rlib` report suite | APPROVE WITH NITS (c8ca9c27 kept; 0d4092c4 re-landed behind the frozen-lists step); on integ-w43 |
 | link-rlib-native | docs/handoff/miri-sysroot.md chained lane 2: `add_archive`, `find_native_static_library`, `walk_native_lib_search_dirs`, bundled native libraries | APPROVE WITH NITS (root pinned N2); on integ-w43 |
+
+## Wave 40e (started 2026-11-08) — still independent of D4
+| lane | scope | status |
+|---|---|---|
+| perf-tait | the three protected TAIT cases in mir (recursive-drop-elaboration.rs, -2.rs, error-tainting-issue-122904.rs): 46-47 s alone of 60, timing out beside any sample (w40d audit N1); get them under about 30 s, faithfully | running |
+| fixers-48 | fixers-47 review F1 (`pat.ts` 2^53 rest bindings, E0527), F2; link-rlib-native review N1 (a directory named like the library), N3 (TMPDIR unset or empty); unit-parallel review N2 (the `Printer` cycle and the other first-import failures) | running |
+| harness-w45 | w40d audit N2 (frozen-lists.ts's header, and guarding the TAIT cases' margin); unit-parallel review N3 (a file that throws at load named in the report), N4 (each report's slowest test, flagged over about 30 s); harness-w44 review N2-N4; root-w42-check N6; `scripts/mono-run.ts` and the logger | running |
