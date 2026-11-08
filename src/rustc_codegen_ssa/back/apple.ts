@@ -4,7 +4,11 @@
 // `stdout_to_path` are ported. The linker's half stops `unported`: `add_data_and_relocation` needs `object::write`
 // relocations (not ported), and `get_sdk_root`, `xcrun_show_sdk_path`, `xcode_select_developer_dir` are reached only from
 // `link_natively` (not ported). `debug!` tracing calls are kept as comments.
-import { Env, Os, type Target } from "../../rustc_target/spec/mod.ts";
+// Load order: `Os` and `Env` come through the crate root, not spec/mod.ts. spec/mod.ts, lib.ts and spec/json.ts form a
+// cycle that only lib.ts enters safely (spec/json.ts reads `Os` at its top level), and test files reach this module
+// first (lane unit-parallel; fixers-43 O1).
+import { spec } from "../../rustc_target/lib.ts";
+import type { Target } from "../../rustc_target/spec/mod.ts";
 import type { OSVersion } from "../../rustc_target/spec/base/apple/mod.ts";
 import { debug_str } from "../../std/fmt.ts";
 import { assert, panic, unported, unreachable } from "../../std/panic.ts";
@@ -29,7 +33,7 @@ export function sdk_name(target: Target): string {
   if (os === "WatchOs" && env === "Unspecified") return "WatchOS";
   if (os === "WatchOs" && env === "Sim") return "WatchSimulator";
   return unreachable(
-    `internal error: entered unreachable code: invalid os '${Os.desc(target.os)}' / abi '${Env.desc(target.env)}' combination for Apple target`,
+    `internal error: entered unreachable code: invalid os '${spec.Os.desc(target.os)}' / abi '${spec.Env.desc(target.env)}' combination for Apple target`,
   );
 }
 
@@ -48,7 +52,7 @@ export function macho_platform(target: Target): number {
   if (os === "VisionOs" && env === "Sim") return macho.PLATFORM_XROSSIMULATOR;
   if (os === "VisionOs") return macho.PLATFORM_XROS;
   return unreachable(
-    `internal error: entered unreachable code: invalid os '${Os.desc(target.os)}' / env '${Env.desc(target.env)}' combination for Apple target`,
+    `internal error: entered unreachable code: invalid os '${spec.Os.desc(target.os)}' / env '${spec.Env.desc(target.env)}' combination for Apple target`,
   );
 }
 
