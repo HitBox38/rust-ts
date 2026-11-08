@@ -138,6 +138,7 @@ const open_env_libc = () =>
     getpwuid_r: { args: [FFIType.u32, FFIType.ptr, FFIType.ptr, FFIType.u64, FFIType.ptr], returns: FFIType.i32 },
     realpath: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
     free: { args: [FFIType.ptr], returns: FFIType.void },
+    confstr: { args: [FFIType.i32, FFIType.ptr, FFIType.u64], returns: FFIType.u64 },
   });
 let ENV_LIBC: ReturnType<typeof open_env_libc> | undefined;
 const env_libc = () => (ENV_LIBC ??= open_env_libc());
@@ -266,6 +267,75 @@ export function home_dir(): OsString | undefined {
   const home = var_os("HOME");
   if (home !== undefined && home.length > 0) return home;
   return ENV_FROM_LIBC ? home_dir_fallback() : encoder.encode(homedir());
+}
+
+/** `libc::_CS_DARWIN_USER_TEMP_DIR`, from the pinned libc-0.2.189 `src/unix/bsd/apple/mod.rs:3166`. */
+const CS_DARWIN_USER_TEMP_DIR = 65537;
+
+/// Returns the value for [`confstr(key, ...)`][posix_confstr]. Currently only
+/// used on Darwin, but should work on any unix (in case we need to get
+/// `_CS_PATH` or `_CS_V[67]_ENV` in the future).
+// PORT: `buf`'s capacity is the number `Vec::reserve` would give it (`max(2 * cap, needed, 8)` for bytes); only a truncated
+// result, which makes it loop, could show it.
+// std: library/std/src/sys/pal/unix/conf.rs:16 confstr
+function confstr(key: number, size_hint: number | undefined): IoResult<OsString> {
+  const libc = env_libc().symbols;
+  const last_errno = errno_reader();
+  let buf = new Uint8Array(0);
+  let bytes_needed_including_nul = Math.max(
+    size_hint ??
+      // Treat "None" as "do an extra call to get the length". In theory
+      // we could move this into the loop below, but it's hard to do given
+      // that it isn't 100% clear if it's legal to pass 0 for `len` when
+      // the buffer isn't null.
+      Number(libc.confstr(key, null, 0)),
+    1,
+  );
+  // If the value returned by `confstr` is greater than the len passed into
+  // it, then the value was truncated, meaning we need to retry. Note that
+  // while `confstr` results don't seem to change for a process, it's unclear
+  // if this is guaranteed anywhere, so looping does seem required.
+  while (bytes_needed_including_nul > buf.length) {
+    buf = new Uint8Array(Math.max(2 * buf.length, bytes_needed_including_nul, 8));
+    // `confstr` returns
+    // - 0 in the case of errors: we break and return an error.
+    // - The number of bytes written, iff the provided buffer is enough to
+    //   hold the entire value: we break and return the data in `buf`.
+    // - Otherwise, the number of bytes needed (including nul): we go
+    //   through the loop again.
+    bytes_needed_including_nul = Number(libc.confstr(key, ptr(buf), buf.length));
+  }
+  // `confstr` returns 0 in the case of an error.
+  if (bytes_needed_including_nul === 0) {
+    return Err(io_error_from_raw_os_error(last_errno()));
+  }
+  // Remove the NUL-terminator.
+  const last_byte = buf[bytes_needed_including_nul - 1];
+  // ... and smoke-check that it *was* a NUL-terminator.
+  if (last_byte !== 0) {
+    panic(`assertion \`left == right\` failed: \`confstr\` provided a string which wasn't nul-terminated\n  left: ${last_byte === undefined ? "None" : `Some(${last_byte})`}\n right: Some(0)`);
+  }
+  return Ok(buf.slice(0, bytes_needed_including_nul - 1));
+}
+
+// std: library/std/src/sys/paths/unix.rs:432 darwin_temp_dir
+function darwin_temp_dir(): OsString {
+  const r = confstr(CS_DARWIN_USER_TEMP_DIR, 64);
+  // It failed for whatever reason (there are several possible reasons),
+  // so return the global one.
+  return r.$ === "Ok" ? r._0 : encoder.encode("/tmp");
+}
+
+/** `env::temp_dir()`. PORT: `TMPDIR` is taken as it is, even when empty; Windows (`GetTempPath2W`) is unported. */
+// std: library/std/src/sys/paths/unix.rs:442 temp_dir
+export function temp_dir(): OsString {
+  if (process.platform === "win32") return unported("std::sys::paths::windows::temp_dir (GetTempPath2W)");
+  const v = var_os("TMPDIR");
+  if (v !== undefined) return v;
+  // cfg_select! { target_vendor = "apple" => darwin_temp_dir(), target_os = "android" => "/data/local/tmp", _ => "/tmp" }
+  if (process.platform === "darwin") return darwin_temp_dir();
+  if (process.platform === "linux") return encoder.encode("/tmp");
+  return unported(`std::env::temp_dir on ${process.platform}`);
 }
 
 /** `libc::_SC_GETPW_R_SIZE_MAX`, and where `pw_dir` is in `struct passwd`: after `pw_name`, `pw_passwd`, `pw_uid`, `pw_gid`, and on macOS
