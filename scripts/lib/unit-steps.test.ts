@@ -1,8 +1,9 @@
 // Unit tests of scripts/lib/unit-steps.ts (lane harness-w35): every test file of the repo runs in exactly one of the
 // gate's unit-test processes (review gate-runner-unit N4).
 import { expect, test } from "bun:test";
-import { resolve } from "node:path";
-import { UNIT_STEPS, unitStepsOf } from "./unit-steps.ts";
+import { join, resolve } from "node:path";
+import { existsSync } from "node:fs";
+import { UNIT_STEPS, aloneJunit, aloneStepArgs, unitStepArgs, unitStepEnv, unitStepsOf } from "./unit-steps.ts";
 
 const REPO = resolve(import.meta.dir, "..", "..");
 
@@ -37,4 +38,36 @@ test("every test file of the repo (tracked or not ignored, any of bun's test-fil
   expect(files).toContain("src/rustc_passes/abi_test.ts");
   const bad = files.map((f) => ({ f, steps: unitStepsOf(f) })).filter((x) => x.steps.length !== 1);
   expect(bad).toEqual([]);
+});
+
+// Lane unit-parallel: the src/tools step runs in workers, the runner step does not (its files are not audited for --isolate).
+test("unitStepArgs: --parallel only where the step sets it; unitStepEnv: an unset host tuple stays unset", () => {
+  expect(UNIT_STEPS.map((s) => s.parallel)).toEqual([4, undefined]);
+  expect(unitStepArgs({ name: "n", roots: ["a", "b"], junit: "j", parallel: 2 }, "/r/j.xml", 500)).toEqual(["test", "./a", "./b", "--parallel=2", "--timeout=500", "--reporter=junit", "--reporter-outfile=/r/j.xml"]);
+  expect(unitStepArgs({ name: "n", roots: ["a"], junit: "j" }, "/r/j.xml")).toEqual(["test", "./a", "--timeout=60000", "--reporter=junit", "--reporter-outfile=/r/j.xml"]);
+  expect(unitStepEnv("/d", undefined)).toEqual({ RUST_TS_REQUIRE_PROBES: "1", CI: "true", RUST_TS_DATA: "/d" });
+  expect(unitStepEnv("/d", "t")).toEqual({ RUST_TS_REQUIRE_PROBES: "1", CI: "true", RUST_TS_DATA: "/d", RUST_TS_HOST_TUPLE: "t" });
+});
+
+test("alone files: workers leave them out by whole path, one process runs them; each is a test file under its step's roots", () => {
+  const u = { name: "n", roots: ["a"], junit: "j.junit.xml", parallel: 2, alone: ["a/x.test.ts", "a/b/y.test.ts"] };
+  expect(unitStepArgs(u, "/r/j.xml", 500)).toEqual(["test", "./a", "--parallel=2", "--path-ignore-patterns=a/x.test.ts", "--path-ignore-patterns=a/b/y.test.ts", "--timeout=500", "--reporter=junit", "--reporter-outfile=/r/j.xml"]);
+  expect(aloneJunit(u)).toBe("j.alone.junit.xml");
+  expect(aloneStepArgs(u, "/r/k.xml", 500)).toEqual(["test", "./a/x.test.ts", "./a/b/y.test.ts", "--timeout=500", "--reporter=junit", "--reporter-outfile=/r/k.xml"]);
+  // No workers: the step runs every file in one process already, so nothing runs twice or is left out.
+  expect(aloneStepArgs({ ...u, parallel: undefined }, "/r/k.xml")).toBeUndefined();
+  expect(unitStepArgs({ ...u, parallel: undefined }, "/r/j.xml")).not.toContain("--path-ignore-patterns=a/x.test.ts");
+  expect(aloneStepArgs({ ...u, alone: [] }, "/r/k.xml")).toBeUndefined();
+  for (const s of UNIT_STEPS) {
+    // The second report must not overwrite the first, nor another step's.
+    if (s.alone?.length) expect(UNIT_STEPS.map((t) => t.junit)).not.toContain(aloneJunit(s));
+    for (const f of s.alone ?? []) {
+      expect(s.parallel).toBeDefined();
+      expect(unitStepsOf(f)).toEqual([s.name]);
+      expect(f).toMatch(/\.test\.ts$/);
+      // A glob character would make --path-ignore-patterns match other paths, or none.
+      expect(f).not.toMatch(/[*?[\]{}!]/);
+      expect(existsSync(join(REPO, f))).toBe(true);
+    }
+  }
 });

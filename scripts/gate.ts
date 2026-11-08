@@ -2,7 +2,7 @@
 // ever been accepted as MATCH. A revision is acceptable only if it loses none of them.
 //
 //   bun scripts/gate.ts run [--suites lex,parse] [--skip-static] [--skip-heavy]
-//       oracle check (pinned commit and components, scripts/lib/toolchain.ts) + probe check + typecheck + unit tests (src/tools, then scripts/harness in a second process;
+//       oracle check (pinned commit and components, scripts/lib/toolchain.ts) + probe check + typecheck + unit tests (src/tools in 4 worker processes, then its heaviest files alone, then scripts/harness in a second process, one file at a time;
 //       RUST_TS_REQUIRE_PROBES=1; any skipped test not in ALLOWED_SKIPS fails) + marker check + marker order of src/rustc_monomorphize/ + full difftest
 //       of each suite; prints lost/gained.
 //       Heavy suites (`Suite.heavy`, plan-m5 §4.2: core-scale runs, one process at a time) run after all the
@@ -24,11 +24,11 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { IR_RUN, MIRI_SYSROOT_RUN, RG_CHECK, RMETA_RUN, SUITES, suite as getSuite, type Suite } from "../harness/suites.ts";
 import { difftest, heavyErrorLines, heavyLine, unstableOf, type HeavyRun, type OracleRerun, type Usage } from "./difftest.ts";
-import { REPO, RUNS, UPSTREAM, die, ensureDir, nowId, parseArgs, run } from "./lib/common.ts";
+import { DATA, REPO, RUNS, UPSTREAM, die, ensureDir, nowId, parseArgs, run } from "./lib/common.ts";
 import { HostLog, REAL_HOST, StuckReads, batteryRefusal, sampleHost, type HostReaders, type HostSample } from "./lib/host-state.ts";
 import { miriBinary } from "./lib/miri.ts";
 import { verifyOraclePin } from "./lib/oracle.ts";
-import { UNIT_STEPS } from "./lib/unit-steps.ts";
+import { UNIT_STEPS, UNIT_TEST_TIMEOUT_MS, aloneJunit, aloneStepArgs, unitStepArgs, unitStepEnv, type UnitStep } from "./lib/unit-steps.ts";
 import { upstreamError, upstreamStatus } from "./lib/upstream.ts";
 import { oracleTestProbes, probeBinary, probeStaleness } from "./probes.ts";
 import { parseIrRunArgs } from "./ir-run.ts";
@@ -284,26 +284,65 @@ interface SkipReport {
   unexpected: SkippedTest[];
 }
 
+/** One static step of the gate. `junit`: the step writes that junit report, whose skipped tests are checked. */
+export interface StaticStep {
+  name: string;
+  cmd: string[];
+  env: Record<string, string>;
+  junit?: string;
+  /** Working directory; default the repo. */
+  cwd?: string;
+}
+
+/**
+ * The static steps of unit-test step `u` (scripts/lib/unit-steps.ts), their junit reports in `runDir`: the step, then
+ * "<name> (alone)" if it runs files alone after its workers.
+ */
+export function unitStaticSteps(u: UnitStep, runDir: string, timeoutMs: number = UNIT_TEST_TIMEOUT_MS): StaticStep[] {
+  const env = unitStepEnv(DATA, process.env.RUST_TS_HOST_TUPLE);
+  const junit = join(runDir, u.junit);
+  const steps: StaticStep[] = [{ name: u.name, cmd: [process.execPath, ...unitStepArgs(u, junit, timeoutMs)], env, junit }];
+  const aloneReport = join(runDir, aloneJunit(u));
+  const alone = aloneStepArgs(u, aloneReport, timeoutMs);
+  if (alone) steps.push({ name: `${u.name} (alone)`, cmd: [process.execPath, ...alone], env, junit: aloneReport });
+  return steps;
+}
+
+/**
+ * Runs one static step with the gate's 30-minute limit, prints its `ok`/`ERROR:` lines, and checks the skipped tests of
+ * its junit report, if it writes one, against ALLOWED_SKIPS. `pass`: the step passed and nothing it skipped was not allowed.
+ */
+export async function runStaticStep(step: StaticStep): Promise<{ pass: boolean; skips?: { allowed: SkippedTest[]; unexpected: SkippedTest[] } }> {
+  const { name, cmd, env, junit: report, cwd } = step;
+  const r = await run(cmd, { timeoutMs: 1_800_000, env, ...(cwd === undefined ? {} : { cwd }) });
+  let pass = r.code === 0;
+  console.log(`${pass ? "ok   " : "ERROR:"} ${name}`);
+  if (!pass) console.log((r.stdout + r.stderr).split("\n").filter(Boolean).slice(-15).join("\n"));
+  if (report === undefined) return { pass };
+  if (!existsSync(report)) {
+    console.log(`ERROR: ${name} wrote no junit report (${report}); cannot check for skipped tests`);
+    return { pass: false };
+  }
+  let found: SkippedTest[];
+  try {
+    found = junitSkips(readFileSync(report, "utf8"));
+  } catch (e) {
+    console.log(`ERROR: cannot read the ${name} junit report ${report}: ${e instanceof Error ? e.message : String(e)}`);
+    return { pass: false };
+  }
+  const { allowed, unexpected } = classifySkips(found);
+  console.log(`${unexpected.length ? "ERROR:" : "ok   "} ${name.replace(/s$/, "")} skips: ${allowed.length + unexpected.length} (${allowed.length} allowlisted, ${unexpected.length} not allowed under RUST_TS_REQUIRE_PROBES=1)`);
+  for (const t of unexpected.slice(0, 20)) console.log(`  skipped: ${t.file}: ${t.path.join(" > ")}`);
+  if (unexpected.length) pass = false;
+  return { pass, skips: { allowed, unexpected } };
+}
+
 export async function staticChecks(runDir: string): Promise<{ ok: boolean; skips?: SkipReport }> {
-  // `junit`: the step writes that junit report, whose skipped tests are checked below. The unit-test steps are
-  // UNIT_STEPS (scripts/lib/unit-steps.ts): disjoint roots, each passed as a path.
-  const steps: { name: string; cmd: string[]; env: Record<string, string>; junit?: string }[] = [
+  // The unit-test steps are UNIT_STEPS (scripts/lib/unit-steps.ts): disjoint roots, each passed as a path; their
+  // environment and arguments (`unitStepEnv`, `unitStepArgs`) say why each part is there.
+  const steps: StaticStep[] = [
     { name: "typecheck", cmd: ["bunx", "tsc", "--noEmit", "-p", "."], env: {} },
-    // RUST_TS_REQUIRE_PROBES=1: a missing probe fails a test instead of skipping it; the junit report lists the
-    // tests that skipped anyway (checked below against ALLOWED_SKIPS).
-    // CI=true: Bun fails the run on a leftover `.only` (which would otherwise drop the other tests
-    // of its file from the run, and from the report, without counting them as skipped).
-    // --timeout: Bun's 5 s per-test default flakes under load (seen: options oracle, unicode_width
-    // all-scalar, termize pty); a hung test still fails, after 60 s.
-    ...UNIT_STEPS.map((u) => {
-      const junit = join(runDir, u.junit);
-      return {
-        name: u.name,
-        cmd: [process.execPath, "test", ...u.roots.map((r) => `./${r}`), "--timeout=60000", "--reporter=junit", `--reporter-outfile=${junit}`],
-        env: { RUST_TS_REQUIRE_PROBES: "1", CI: "true" },
-        junit,
-      };
-    }),
+    ...UNIT_STEPS.flatMap((u) => unitStaticSteps(u, runDir)),
     // --offline: a vendor crate missing from cargo's cache is an ERROR, never network I/O.
     { name: "markers", cmd: [process.execPath, "scripts/coverage.ts", "--check", "--offline"], env: {} },
     // A crate with no marker out of upstream's order stays so (PORTING section 3; fixers-44 W5). Others have allowed inversions (section 8).
@@ -311,39 +350,16 @@ export async function staticChecks(runDir: string): Promise<{ ok: boolean; skips
   ];
   let ok = true;
   let skips: SkipReport | undefined;
-  for (const { name, cmd, env, junit: report } of steps) {
-    const r = await run(cmd, { timeoutMs: 1_800_000, env });
-    const pass = r.code === 0;
-    console.log(`${pass ? "ok   " : "ERROR:"} ${name}`);
-    if (!pass) {
-      ok = false;
-      console.log((r.stdout + r.stderr).split("\n").filter(Boolean).slice(-15).join("\n"));
-    }
-    if (report !== undefined) {
-      if (!existsSync(report)) {
-        console.log(`ERROR: ${name} wrote no junit report (${report}); cannot check for skipped tests`);
-        ok = false;
-        continue;
-      }
-      let found: SkippedTest[];
-      try {
-        found = junitSkips(readFileSync(report, "utf8"));
-      } catch (e) {
-        console.log(`ERROR: cannot read the ${name} junit report ${report}: ${e instanceof Error ? e.message : String(e)}`);
-        ok = false;
-        continue;
-      }
-      const { allowed, unexpected } = classifySkips(found);
-      // Both reports add up into one SkipReport (`skips` of the run record).
+  for (const step of steps) {
+    const r = await runStaticStep(step);
+    if (!r.pass) ok = false;
+    // Both reports add up into one SkipReport (`skips` of the run record).
+    if (r.skips)
       skips = {
-        skipped: (skips?.skipped ?? 0) + allowed.length + unexpected.length,
-        allowed: (skips?.allowed ?? 0) + allowed.length,
-        unexpected: [...(skips?.unexpected ?? []), ...unexpected],
+        skipped: (skips?.skipped ?? 0) + r.skips.allowed.length + r.skips.unexpected.length,
+        allowed: (skips?.allowed ?? 0) + r.skips.allowed.length,
+        unexpected: [...(skips?.unexpected ?? []), ...r.skips.unexpected],
       };
-      console.log(`${unexpected.length ? "ERROR:" : "ok   "} ${name.replace(/s$/, "")} skips: ${allowed.length + unexpected.length} (${allowed.length} allowlisted, ${unexpected.length} not allowed under RUST_TS_REQUIRE_PROBES=1)`);
-      for (const t of unexpected.slice(0, 20)) console.log(`  skipped: ${t.file}: ${t.path.join(" > ")}`);
-      if (unexpected.length) ok = false;
-    }
   }
   return { ok, skips };
 }
