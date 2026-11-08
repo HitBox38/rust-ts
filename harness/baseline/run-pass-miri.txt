@@ -2730,6 +2730,7 @@ tests/ui/runtime/signal-alternate-stack-cleanup.rs
 tests/ui/runtime/stdout-before-main.rs
 tests/ui/runtime/stdout-during-shutdown-unix.rs
 tests/ui/rust-2018/uniform-paths/redundant.rs
+tests/ui/rustc-env/def-path-hash-ice-157238.rs
 tests/ui/sanitizer/cfi/async-closures.rs#cfi
 tests/ui/sanitizer/cfi/async-closures.rs#kcfi
 tests/ui/sanitizer/cfi/closures.rs#cfi

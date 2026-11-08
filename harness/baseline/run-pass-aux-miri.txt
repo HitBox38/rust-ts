@@ -295,6 +295,7 @@ tests/ui/rust-2018/extern-crate-referenced-by-self-path.rs
 tests/ui/rust-2018/uniform-paths/direct-renamed-extern-crate.rs
 tests/ui/rust-2018/uniform-paths/glob-import-renamed-crate.rs
 tests/ui/rust-2018/uniform-paths/reexport-crate.rs
+tests/ui/rustc-env/rust-log.rs
 tests/ui/self/explicit_self_xcrate_exe.rs
 tests/ui/sepcomp/sepcomp-cci.rs
 tests/ui/sepcomp/sepcomp-extern.rs
