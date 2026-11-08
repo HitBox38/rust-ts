@@ -140,6 +140,9 @@ test("the unit-test step under --parallel: report, skips, failures, .only, timeo
     // A failing test fails the step, among the workers or alone.
     expect(j.fail.pass).toEqual([false]);
     expect(j.fail.lines[0]).toBe("ERROR: unit tests");
+    // The report names it, wherever its worker's output landed.
+    expect(j.fail.lines).toContain("  failed: src/f.test.ts: fails");
+    expect(j.ok.lines.some((l: string) => l.startsWith("  failed:"))).toBe(false);
     expect(j.aloneFail.pass).toEqual([true, false]);
     expect(j.aloneFail.lines).toContain("ERROR: unit tests (alone)");
     // CI=true refuses a .only; the same tree without CI passes, so the refusal is what failed it.

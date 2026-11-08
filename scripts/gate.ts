@@ -222,18 +222,19 @@ const xmlAttr = (attrs: string, k: string): string | undefined => {
 };
 
 /**
- * Skipped test cases of a `bun test --reporter=junit` report. Bun writes one `<testsuite>` per
+ * Skipped and failed test cases of a `bun test --reporter=junit` report. Bun writes one `<testsuite>` per
  * file, nested `<testsuite>`s for `describe` blocks, and `<testcase ...>` elements (self-closing,
  * or holding `<skipped .../>` / `<failure>`). The report is read as a sequence of these tags, with
  * attributes matched as `k="..."` pairs (a value may contain `>`, never a raw `"`), keeping a stack
  * of open `<testsuite>` names for each test's `describe` path. Throws on an unbalanced report or if
- * the count disagrees with the report's own `<testsuites skipped="N">` total.
+ * the skipped count disagrees with the report's own `<testsuites skipped="N">` total.
  */
-export function junitSkips(xml: string): SkippedTest[] {
+export function junitTests(xml: string): { skipped: SkippedTest[]; failed: SkippedTest[] } {
   const out: SkippedTest[] = [];
+  const failed: SkippedTest[] = [];
   const suites: string[] = [];
-  let cur: { file: string; path: string[]; skipped: boolean } | undefined;
-  const tags = /<(\/?)(testsuites|testsuite|testcase|skipped)\b((?:\s+[\w:.-]+="[^"]*")*)\s*(\/?)>/g;
+  let cur: { file: string; path: string[]; skipped: boolean; failed: boolean } | undefined;
+  const tags = /<(\/?)(testsuites|testsuite|testcase|skipped|failure)\b((?:\s+[\w:.-]+="[^"]*")*)\s*(\/?)>/g;
   for (const m of xml.matchAll(tags)) {
     const [, close, tag, attrs, selfClose] = m as unknown as [string, string, string, string, string];
     if (tag === "testsuite") {
@@ -244,23 +245,29 @@ export function junitSkips(xml: string): SkippedTest[] {
       if (close) {
         if (!cur) throw new Error("junit report: unbalanced </testcase>");
         if (cur.skipped) out.push({ file: cur.file, path: cur.path });
+        if (cur.failed) failed.push({ file: cur.file, path: cur.path });
         cur = undefined;
       } else {
         if (cur) throw new Error("junit report: nested <testcase>");
         // suites[0] is the file's own <testsuite>; the rest are describe blocks.
-        const t = { file: (xmlAttr(attrs, "file") ?? "").replaceAll("\\", "/"), path: [...suites.slice(1), xmlAttr(attrs, "name") ?? ""], skipped: false };
+        const t = { file: (xmlAttr(attrs, "file") ?? "").replaceAll("\\", "/"), path: [...suites.slice(1), xmlAttr(attrs, "name") ?? ""], skipped: false, failed: false };
         if (!selfClose) cur = t;
       }
     } else if (tag === "skipped" && !close && cur) {
       cur.skipped = true;
+    } else if (tag === "failure" && !close && cur) {
+      cur.failed = true;
     }
   }
   if (cur || suites.length) throw new Error("junit report: unterminated <testcase>/<testsuite>");
   const total = /<testsuites\b(?:\s+[\w:.-]+="[^"]*")*?\s+skipped="(\d+)"/.exec(xml);
   if (!total) throw new Error("junit report has no <testsuites skipped=...> total");
   if (Number(total[1]) !== out.length) throw new Error(`junit report says ${total[1]} skipped, found ${out.length} skipped testcases`);
-  return out;
+  return { skipped: out, failed };
 }
+
+/** Skipped test cases of a `bun test --reporter=junit` report (`junitTests`). */
+export const junitSkips = (xml: string): SkippedTest[] => junitTests(xml).skipped;
 
 /** Splits skips into allowlisted and unexpected ones; each ALLOWED_SKIPS entry is used at most once. */
 export function classifySkips(skips: SkippedTest[]): { allowed: SkippedTest[]; unexpected: SkippedTest[] } {
@@ -324,12 +331,16 @@ export async function runStaticStep(step: StaticStep): Promise<{ pass: boolean; 
     return { pass: false };
   }
   let found: SkippedTest[];
+  let failed: SkippedTest[];
   try {
-    found = junitSkips(readFileSync(report, "utf8"));
+    ({ skipped: found, failed } = junitTests(readFileSync(report, "utf8")));
   } catch (e) {
     console.log(`ERROR: cannot read the ${name} junit report ${report}: ${e instanceof Error ? e.message : String(e)}`);
     return { pass: false };
   }
+  // Under --parallel the failures print wherever their worker's output lands, often outside the tail above.
+  for (const t of failed.slice(0, 20)) console.log(`  failed: ${t.file}: ${t.path.join(" > ")}`);
+  if (failed.length > 20) console.log(`  ... and ${failed.length - 20} more failed tests (${report})`);
   const { allowed, unexpected } = classifySkips(found);
   console.log(`${unexpected.length ? "ERROR:" : "ok   "} ${name.replace(/s$/, "")} skips: ${allowed.length + unexpected.length} (${allowed.length} allowlisted, ${unexpected.length} not allowed under RUST_TS_REQUIRE_PROBES=1)`);
   for (const t of unexpected.slice(0, 20)) console.log(`  skipped: ${t.file}: ${t.path.join(" > ")}`);
