@@ -5,7 +5,7 @@
 // `ArArchiveBuilder` must rebuild each rlib byte for byte from the oracle's own `lib.rmeta` and `lib.rmeta-link` members
 // and the input archives; whole compilations are compared in docs/handoff/link-rlib-native.md.
 import { afterAll, expect, test } from "bun:test";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Session } from "../../rustc_session/session.ts";
@@ -20,6 +20,7 @@ import { ArArchiveBuilder } from "./archive.ts";
 import { try_find_native_static_library } from "./link.ts";
 import { create_wrapper_file } from "./metadata.ts";
 import { RmetaLink } from "./rmeta_link.ts";
+import { display_IoError } from "../../std/io.ts";
 
 const b64 = (s: string): Uint8Array => Uint8Array.from(Buffer.from(s, "base64"));
 
@@ -167,6 +168,24 @@ test("add_archive takes the arm64 slice of a universal file on the host", () => 
   } finally {
     if (saved === undefined) delete process.env.TMPDIR;
     else process.env.TMPDIR = saved;
+  }
+});
+
+test("add_archive of a directory, or of /dev/null, gives memmap2's error (review link-rlib-native N1)", () => {
+  // The oracle, `-L d -l static=dir` with a directory `d/libdir.a/`: "failed to add native library d/libdir.a: Invalid argument (os
+  // error 22)" on the host (mmap(2) of a directory; other hosts give their own errno), the same with `--target
+  // x86_64-unknown-linux-gnu`. A `libnull.a` linked to `/dev/null` (`st_size` 0): "… memory map must have a non-zero length".
+  const d = fresh_dir({});
+  mkdirSync(join(d, "libdir.a"));
+  symlinkSync("/dev/null", join(d, "libnull.a"));
+  for (const s of [HOST, ELF]) {
+    const ab = ArArchiveBuilder.new(s, DEFAULT_OBJECT_READER);
+    const dir = ab.add_archive(join(d, "libdir.a"), { $: "Other" });
+    if (dir.$ !== "Err") throw new Error("a directory maps");
+    expect(dir._0.$).toBe("Os");
+    if (process.platform === "darwin") expect(display_IoError(dir._0)).toBe("Invalid argument (os error 22)");
+    const nul = ab.add_archive(join(d, "libnull.a"), { $: "Other" });
+    expect(nul.$ === "Err" ? display_IoError(nul._0) : "Ok").toBe("memory map must have a non-zero length");
   }
 });
 

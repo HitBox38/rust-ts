@@ -145,7 +145,7 @@ const env_libc = () => (ENV_LIBC ??= open_env_libc());
 let ERRNO: (() => number) | undefined;
 /** The reader of `errno` (library/std/src/sys/io/error/unix.rs), for right after a failed call, as `io::Error::last_os_error()` does. Take it
  *  before that call: its first use runs `dlopen`, which overwrites `errno`. */
-function errno_reader(): () => number {
+export function errno_reader(): () => number {
   if (ERRNO === undefined) {
     const linux = process.platform === "linux";
     const name = linux ? "__errno_location" : "__error";
