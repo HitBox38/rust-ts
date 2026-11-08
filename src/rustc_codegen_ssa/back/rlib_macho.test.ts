@@ -7,9 +7,21 @@
 // Rebuilding them with the ported `create_wrapper_file` and `write_archive_to_stream` must give the same bytes; whole
 // compilations are compared in docs/handoff/object-write-macho.md. The fixtures are captured once, so this test does not run
 // the oracle (hence no `.oracle.` in its name). The host rlib was rebuilt by fixers-47 so its rmeta embeds no host path: in a
-// directory holding only `nc.rs` (the three sizedness lang items under `#![feature(no_core, lang_items)] #![no_core]`, then
-// `pub fn f() {}`), `env -u MACOSX_DEPLOYMENT_TARGET rustc +nightly --crate-type rlib --emit=link -Zcodegen-backend=dummy
-// --target aarch64-apple-darwin --remap-path-prefix="$PWD=/x" nc.rs`, then `base64 -i libnc.rlib`.
+// directory holding only `nc.rs`, `env -u MACOSX_DEPLOYMENT_TARGET rustc +nightly --crate-type rlib --emit=link
+// -Zcodegen-backend=dummy --target aarch64-apple-darwin --remap-path-prefix="$PWD=/x" nc.rs`, then `base64 -i libnc.rlib`.
+// The rmeta embeds the source's length, hash and spans, so `nc.rs` must be exactly these 11 lines, each ending in `\n`, 221 bytes:
+// `grep '^// |' rlib_macho.test.ts | sed 's/^\/\/ |//' > nc.rs` (review fixers-47 F2; fixers-48 rebuilt it so, byte-identical):
+// |#![feature(no_core, lang_items)]
+// |#![no_core]
+// |
+// |#[lang = "pointee_sized"]
+// |pub trait PointeeSized {}
+// |#[lang = "meta_sized"]
+// |pub trait MetaSized: PointeeSized {}
+// |#[lang = "sized"]
+// |pub trait Sized: MetaSized {}
+// |
+// |pub fn f() {}
 import { expect, test } from "bun:test";
 import type { Session } from "../../rustc_session/session.ts";
 import { OSVersion } from "../../rustc_target/spec/base/apple/mod.ts";
