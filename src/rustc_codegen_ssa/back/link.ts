@@ -2,9 +2,10 @@
 // with `ensure_removed` and the EII linkage check they call, and `each_linked_rlib`, `ignored_for_lto`,
 // `are_upstream_rust_objects_already_included` (for `CrateInfo::new`). Linking proper (staticlibs, the native linker,
 // sanitizer runtimes, linker args, ...) is M7: those crate types in the `should_link()` branch call `unported`.
-// PORT: a bundled static native library stops `unported` in `link_rlib` (`find_native_static_library`, `add_archive`).
+// Bundled static native libraries (`walk_native_lib_search_dirs`, `find_native_static_library`, lane link-rlib-native) are
+// ported for rlibs.
 import * as tracing from "../../rust_ts/tracing.ts";
-import { readFileSync, rmSync } from "node:fs";
+import { readFileSync, rmSync, statSync } from "node:fs";
 import type { DiagCtxtHandle } from "../../rustc_errors/lib.ts";
 import { DuplicateEiiImpls_diagnostic } from "../../rustc_middle/diagnostics.gen.ts";
 import { emit_wrapper_file, MaybeTempDir, METADATA_FILENAME, TempDirBuilder } from "../../rustc_metadata/fs.ts";
@@ -23,8 +24,12 @@ import { debug_list, PLAIN } from "../../std/fmt.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
 import { debug_CrateType, type CrateType } from "../../rustc_structures/crate_type.ts";
 import { debug_Linkage } from "../../rustc_middle/middle/dependency_format.ts";
-import { CreateTempDir_diagnostic, LinkRlibError } from "../diagnostics.gen.ts";
-import { path_file_name, path_parent } from "../../std/path.ts";
+import { AddNativeLibrary_diagnostic, CreateTempDir_diagnostic, LinkRlibError, MissingNativeLibrary_diagnostic, ReadFileError_diagnostic } from "../diagnostics.gen.ts";
+import { MissingNativeLibrary } from "../diagnostics.ts";
+import { path_file_name, path_join, path_parent } from "../../std/path.ts";
+import { io_error_from_node } from "../../std/io.ts";
+import { ControlFlow } from "../../rustc_ast_ir/visit.ts";
+import { LinkSelfContainedComponents } from "../../rustc_target/spec/mod.ts";
 import { FileHeader32_impl, FileHeader64_impl, FileHeader_provided } from "../../vendor/object/read/elf/file.ts";
 import type { ArchiveBuilder, ArchiveBuilderBuilder } from "./archive.ts";
 import { create_wrapper_file } from "./metadata.ts";
@@ -113,6 +118,154 @@ function check_externally_implementable_item_linkage(sess: Session, crate_info: 
   }
 }
 
+/// The fallback directories are passed to linker, but not used when rustc does the search,
+/// because in the latter case the set of fallback directories cannot always be determined
+/// consistently at the moment.
+interface NativeLibSearchFallback {
+  self_contained_components: LinkSelfContainedComponents;
+  apple_sdk_root: string | undefined;
+}
+
+/** `Path::exists`: `fs::metadata(path).is_ok()` (follows symlinks). */
+function path_exists(path: string): boolean {
+  try {
+    statSync(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// rustc: compiler/rustc_codegen_ssa/src/back/link.rs:142 walk_native_lib_search_dirs
+function walk_native_lib_search_dirs<R>(
+  sess: Session,
+  fallback: NativeLibSearchFallback | undefined,
+  f: (dir: string, is_framework: boolean) => ControlFlow<R>,
+): ControlFlow<R> {
+  let r: ControlFlow<R>;
+  // Library search paths explicitly supplied by user (`-L` on the command line).
+  for (const search_path of sess.target_filesearch().cli_search_paths("Native")) {
+    if ((r = f(search_path.dir, false)).$ === "Break") return r;
+  }
+  for (const search_path of sess.target_filesearch().cli_search_paths("Framework")) {
+    // Frameworks are looked up strictly in framework-specific paths.
+    if (search_path.kind !== "All") {
+      if ((r = f(search_path.dir, true)).$ === "Break") return r;
+    }
+  }
+
+  if (fallback === undefined) {
+    return ControlFlow.Continue(null);
+  }
+  const { self_contained_components, apple_sdk_root } = fallback;
+
+  // The toolchain ships some native library components and self-contained linking was enabled.
+  // Add the self-contained library directory to search paths.
+  if ((self_contained_components & (LinkSelfContainedComponents.LIBC | LinkSelfContainedComponents.UNWIND | LinkSelfContainedComponents.MINGW)) !== 0) {
+    if ((r = f(path_join(sess.target_tlib_path.dir, "self-contained"), false)).$ === "Break") return r;
+  }
+
+  const has_shared_llvm_apple_darwin = sess.target.is_like_darwin && path_exists(path_join(sess.target_tlib_path.dir, "libLLVM.dylib"));
+
+  // Toolchains for some targets may ship `libunwind.a`, but place it into the main sysroot
+  // library directory instead of the self-contained directories.
+  // Sanitizer libraries have the same issue and are also linked by name on Apple targets.
+  // The targets here should be in sync with `copy_third_party_objects` in bootstrap.
+  // On Apple targets, shared LLVM is linked by name, so when `libLLVM.dylib` is
+  // present in the target libdir, add that directory to the linker search path.
+  // FIXME: implement `-Clink-self-contained=+/-unwind,+/-sanitizers`, move the shipped libunwind
+  // and sanitizers to self-contained directory, and stop adding this search path.
+  // FIXME: On AIX this also has the side-effect of making the list of library search paths
+  // non-empty, which is needed or the linker may decide to record the LIBPATH env, if
+  // defined, as the search path instead of appending the default search paths.
+  if (
+    sess.target.cfg_abi.$ === "Fortanix" ||
+    sess.target.os.$ === "Linux" ||
+    sess.target.os.$ === "Fuchsia" ||
+    sess.target.is_like_aix ||
+    (sess.target.is_like_darwin && (sess.sanitizers() !== 0 || has_shared_llvm_apple_darwin)) ||
+    (sess.target.os.$ === "Windows" && sess.target.env.$ === "Gnu" && sess.target.cfg_abi.$ === "Llvm")
+  ) {
+    if ((r = f(sess.target_tlib_path.dir, false)).$ === "Break") return r;
+  }
+
+  // Mac Catalyst uses the macOS SDK, but to link to iOS-specific frameworks
+  // we must have the support library stubs in the library search path (#121430).
+  if (apple_sdk_root !== undefined && sess.target.env.$ === "MacAbi") {
+    if ((r = f(path_join(apple_sdk_root, "System/iOSSupport/usr/lib"), false)).$ === "Break") return r;
+    if ((r = f(path_join(apple_sdk_root, "System/iOSSupport/System/Library/Frameworks"), true)).$ === "Break") return r;
+  }
+
+  return ControlFlow.Continue(null);
+}
+
+// rustc: compiler/rustc_codegen_ssa/src/back/link.rs:212 try_find_native_static_library
+export function try_find_native_static_library(sess: Session, name: string, verbatim: boolean): string | undefined {
+  const default_ = sess.staticlib_components(verbatim);
+  let formats: [string, string][];
+  if (verbatim) {
+    formats = [default_];
+  } else {
+    // On Windows, static libraries sometimes show up as libfoo.a and other
+    // times show up as foo.lib
+    const unix: [string, string] = ["lib", ".a"];
+    formats = default_[0] === unix[0] && default_[1] === unix[1] ? [default_] : [default_, unix];
+  }
+
+  const r = walk_native_lib_search_dirs<string>(sess, undefined, (dir, is_framework) => {
+    if (!is_framework) {
+      for (const [prefix, suffix] of formats) {
+        const test = path_join(dir, `${prefix}${name}${suffix}`);
+        if (path_exists(test)) {
+          return ControlFlow.Break(test);
+        }
+      }
+    }
+    return ControlFlow.Continue(null);
+  });
+  return r.$ === "Break" ? r._0 : undefined;
+}
+
+// rustc: compiler/rustc_codegen_ssa/src/back/link.rs:241 try_find_native_dynamic_library
+export function try_find_native_dynamic_library(sess: Session, name: string, verbatim: boolean): string | undefined {
+  const default_ = sess.staticlib_components(verbatim);
+  let formats: [string, string][];
+  if (verbatim) {
+    formats = [default_];
+  } else {
+    // While the official naming convention for MSVC import libraries
+    // is foo.lib, Meson follows the libfoo.dll.a convention to
+    // disambiguate .a for static libraries
+    const meson: [string, string] = ["lib", ".dll.a"];
+    // and MinGW uses .a altogether
+    const mingw: [string, string] = ["lib", ".a"];
+    formats = [default_, meson, mingw];
+  }
+
+  const r = walk_native_lib_search_dirs<string>(sess, undefined, (dir, is_framework) => {
+    if (!is_framework) {
+      for (const [prefix, suffix] of formats) {
+        const test = path_join(dir, `${prefix}${name}${suffix}`);
+        if (path_exists(test)) {
+          return ControlFlow.Break(test);
+        }
+      }
+    }
+    return ControlFlow.Continue(null);
+  });
+  return r.$ === "Break" ? r._0 : undefined;
+}
+
+// rustc: compiler/rustc_codegen_ssa/src/back/link.rs:273 find_native_static_library
+export function find_native_static_library(name: string, verbatim: boolean, sess: Session): string {
+  const r = try_find_native_static_library(sess, name, verbatim);
+  if (r !== undefined) return r;
+  return sess.dcx().emit_fatal(MissingNativeLibrary_diagnostic(MissingNativeLibrary.new(name, verbatim)));
+}
+
+/// If `lib` is a static library that is bundled into the rlib as a packed archive, returns the
+/// file name of that archive. Returns `None` for libraries that are instead unpacked into loose
+/// object files, or not bundled at all.
 // rustc: compiler/rustc_codegen_ssa/src/back/link.rs:282 find_bundled_library
 function find_bundled_library(lib: NativeLib, sess: Session, crate_types: readonly CrateType[]): Symbol | undefined {
   if (
@@ -121,7 +274,9 @@ function find_bundled_library(lib: NativeLib, sess: Session, crate_types: readon
     crate_types.some((t) => t === "Rlib" || t === "StaticLib") &&
     (sess.opts.unstable_opts.packed_bundled_libs || lib.cfg !== undefined || lib.kind.whole_archive === true)
   ) {
-    return unported(`rustc_codegen_ssa::back::link::find_native_static_library (${Symbol.as_str(lib.name)})`);
+    // `.file_name().and_then(|s| s.to_str()).map(Symbol::intern)`: paths are strings here.
+    const file_name = path_file_name(find_native_static_library(Symbol.as_str(lib.name), lib.verbatim, sess));
+    return file_name === undefined ? undefined : Symbol.intern(file_name);
   }
   return undefined;
 }
@@ -437,12 +592,30 @@ function link_rlib(
   // feature then we'll need to figure out how to record what objects were
   // loaded from the libraries found here and then encode that into the
   // metadata of the rlib we're generating somehow.
-  for (const lib of crate_info.used_libraries) {
+  for (let i = 0; i < crate_info.used_libraries.length; i++) {
+    const lib = crate_info.used_libraries[i]!;
     if (!(lib.kind.$ === "Static" && (lib.kind.bundle === undefined || lib.kind.bundle === true))) {
       continue;
     }
-    // PORT: `read(find_native_static_library(..))` + `.bundled_lib` wrapper, or `add_archive`: a bundled native library (M7).
-    unported(`rustc_codegen_ssa::back::link::link_rlib (bundled native library ${Symbol.as_str(lib.name)})`);
+    const filename = native_lib_filenames[i];
+    if (flavor === "Normal" && filename !== undefined) {
+      const path = find_native_static_library(Symbol.as_str(filename), true, sess);
+      let src: Uint8Array;
+      try {
+        src = readFileSync(path);
+      } catch (e) {
+        src = sess.dcx().emit_fatal(ReadFileError_diagnostic({ message: io_error_from_node(e) }));
+      }
+      const [data] = create_wrapper_file(sess, ".bundled_lib", src);
+      const wrapper_file = emit_wrapper_file(sess, data, tmpdir.as_ref(), Symbol.as_str(filename));
+      packed_bundled_libs.push(wrapper_file);
+    } else {
+      const path = find_native_static_library(Symbol.as_str(lib.name), lib.verbatim, sess);
+      const r = ab.add_archive(path, { $: "Other" });
+      if (r.$ === "Err") {
+        sess.dcx().emit_fatal(AddNativeLibrary_diagnostic({ library_path: path, error: r._0 }));
+      }
+    }
   }
 
   // On Windows, we add the raw-dylib import libraries to the rlibs already.

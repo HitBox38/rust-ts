@@ -14,9 +14,10 @@
 //! 64-bit Mach-O files. There are type aliases for these parameters ([`MachOFile32`] and
 //! [`MachOFile64`]).
 //
-// PORT: dyld caches, fat archives, exports tries, function starts and relocations are not
+// PORT: dyld caches, exports tries, function starts and relocations are not
 // ported (unused on rustc's metadata read path).
 
+export * from "./fat.ts";
 export * from "./file.ts";
 export * from "./load_command.ts";
 export * from "./segment.ts";

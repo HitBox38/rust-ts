@@ -32,6 +32,7 @@ export const CPU_ARCH_ABI64_32 = 0x0200_0000;
 
 export const CPU_TYPE_X86 = 7;
 export const CPU_TYPE_X86_64 = (CPU_TYPE_X86 | CPU_ARCH_ABI64) >>> 0;
+export const CPU_TYPE_MIPS = 8;
 export const CPU_TYPE_ARM = 12;
 export const CPU_TYPE_ARM64 = (CPU_TYPE_ARM | CPU_ARCH_ABI64) >>> 0;
 export const CPU_TYPE_ARM64_32 = (CPU_TYPE_ARM | CPU_ARCH_ABI64_32) >>> 0;
@@ -83,6 +84,94 @@ export const VM_PROT_READ = 0x01;
 export const VM_PROT_WRITE = 0x02;
 /// execute permission
 export const VM_PROT_EXECUTE = 0x04;
+
+// Definitions from "/usr/include/mach-o/fat.h".
+
+/*
+ * This header file describes the structures of the file format for "fat"
+ * architecture specific file (wrapper design).  At the beginning of the file
+ * there is one `FatHeader` structure followed by a number of `FatArch*`
+ * structures.  For each architecture in the file, specified by a pair of
+ * cputype and cpusubtype, the `FatHeader` describes the file offset, file
+ * size and alignment in the file of the architecture specific member.
+ * The padded bytes in the file to place each member on it's specific alignment
+ * are defined to be read as zeros and can be left as "holes" if the file system
+ * can support them as long as they read as zeros.
+ *
+ * All structures defined here are always written and read to/from disk
+ * in big-endian order.
+ */
+
+export const FAT_MAGIC = 0xcafe_babe;
+/// NXSwapLong(FAT_MAGIC)
+export const FAT_CIGAM = 0xbeba_feca;
+
+export class FatHeader {
+  constructor(
+    /// FAT_MAGIC or FAT_MAGIC_64
+    readonly magic: U32,
+    /// number of structs that follow
+    readonly nfat_arch: U32,
+  ) {}
+
+  static readonly POD: Pod<FatHeader> = pod_struct(
+    [U32.POD, U32.POD],
+    (...f: never[]) => new (FatHeader as new (...a: never[]) => FatHeader)(...f),
+  );
+}
+
+export class FatArch32 {
+  constructor(
+    /// cpu specifier (int)
+    readonly cputype: U32,
+    /// machine specifier (int)
+    readonly cpusubtype: U32,
+    /// file offset to this object file
+    readonly offset: U32,
+    /// size of this object file
+    readonly size: U32,
+    /// alignment as a power of 2
+    readonly align: U32,
+  ) {}
+
+  static readonly POD: Pod<FatArch32> = pod_struct(
+    [U32.POD, U32.POD, U32.POD, U32.POD, U32.POD],
+    (...f: never[]) => new (FatArch32 as new (...a: never[]) => FatArch32)(...f),
+  );
+}
+
+/*
+ * The support for the 64-bit fat file format described here is a work in
+ * progress and not yet fully supported in all the Apple Developer Tools.
+ *
+ * When a slice is greater than 4mb or an offset to a slice is greater than 4mb
+ * then the 64-bit fat file format is used.
+ */
+export const FAT_MAGIC_64 = 0xcafe_babf;
+/// NXSwapLong(FAT_MAGIC_64)
+export const FAT_CIGAM_64 = 0xbfba_feca;
+
+export class FatArch64 {
+  constructor(
+    /// cpu specifier (int)
+    readonly cputype: U32,
+    /// machine specifier (int)
+    readonly cpusubtype: U32,
+    /// file offset to this object file
+    readonly offset: U64,
+    /// size of this object file
+    readonly size: U64,
+    /// alignment as a power of 2
+    readonly align: U32,
+    /// reserved
+    readonly reserved: U32,
+  ) {}
+
+  static readonly POD: Pod<FatArch64> = pod_struct(
+    [U32.POD, U32.POD, U64.POD, U64.POD, U32.POD, U32.POD],
+    (...f: never[]) => new (FatArch64 as new (...a: never[]) => FatArch64)(...f),
+  );
+}
 
 /// The 32-bit mach header.
 ///
