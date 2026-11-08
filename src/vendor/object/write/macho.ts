@@ -403,8 +403,9 @@ export function macho_write(self: Object, buffer: WritableBuffer): Result<null> 
 
   // Calculate size of relocations.
   for (const [index, section] of self.sections.entries()) {
-    // PORT: `1 + usize::from(reloc.addend != 0) + usize::from(reloc.subtractor.is_some())` per relocation: there are none.
-    const count: number = section.relocations.length;
+    const count: number = section.relocations
+      .map((reloc) => 1 + (reloc.addend !== 0n ? 1 : 0) + (reloc.subtractor !== undefined ? 1 : 0))
+      .reduce((a, b) => a + b, 0);
     if (count !== 0) {
       offset = align(offset, pointer_align);
       section_offsets[index]!.reloc_offset = offset;

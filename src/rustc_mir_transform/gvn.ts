@@ -1097,7 +1097,9 @@ class VnState extends MutVisitor {
           return [projection_ty, v._0];
         } else if (v.$ === "Aggregate") {
           const operands = v._1;
-          const offset_ = from_end ? operands.length - offset : offset;
+          // PORT: `offset as usize` is `Number(offset)`: it only indexes `operands`, and a value of 2^53 or more is out of
+          // range rounded or not (a negative `offset_`, upstream's wrapped `usize`, reads `undefined` as `get` gives `None`).
+          const offset_ = from_end ? operands.length - Number(offset) : Number(offset);
           const value_ = operands[offset_];
           if (value_ === undefined) return undefined;
           return [projection_ty, value_];
@@ -1158,10 +1160,7 @@ class VnState extends MutVisitor {
           offset + 1n <= 0xffff_ffff_ffff_ffffn
         ) {
           const min_length = offset + 1n;
-          if (min_length > BigInt(Number.MAX_SAFE_INTEGER)) {
-            return unported("rustc_mir_transform::gvn::simplify_place_projection (ConstantIndex offset beyond 2^53)");
-          }
-          (owned ??= borrowed.slice())[i] = { $: "ConstantIndex", offset: Number(offset), min_length: Number(min_length), from_end: false };
+          (owned ??= borrowed.slice())[i] = { $: "ConstantIndex", offset, min_length, from_end: false };
         } else if ((new_idx_local = this.try_as_local(idx, location)) !== undefined && idx_local !== new_idx_local) {
           (owned ??= borrowed.slice())[i] = { $: "Index", _0: new_idx_local };
           this.reused_locals.insert(new_idx_local);

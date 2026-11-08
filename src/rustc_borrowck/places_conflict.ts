@@ -386,7 +386,8 @@ function place_projection_conflict(
     const min_length1 = e1.min_length;
     const min_length2 = e2.min_length;
     // both patterns matched so it must be at least the greater of the two
-    const min_length = Math.max(min_length1, min_length2);
+    // PORT: `max` of two `u64`s (`bigint`).
+    const min_length = min_length1 > min_length2 ? min_length1 : min_length2;
     // `offset_from_end` can be in range `[1..min_length]`, 1 indicates the last
     // element (like -1 in Python) and `min_length` the first.
     // Therefore, `min_length - offset_from_end` gives the minimal possible

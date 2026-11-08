@@ -627,8 +627,9 @@ Ty.new_foreign = function (tcx: TyCtxt, def_id: DefId): Ty {
   return Ty.new(tcx, { $: "Foreign", _0: def_id });
 };
 
+// PORT: `n: u64` is a `number`, or a `bigint` where the length can reach 2^53 (a `Subslice` of an array, lane fixers-47).
 // rustc: compiler/rustc_middle/src/ty/sty.rs:676 new_array
-Ty.new_array = function (tcx: TyCtxt, ty: Ty, n: number): Ty {
+Ty.new_array = function (tcx: TyCtxt, ty: Ty, n: number | bigint): Ty {
   return Ty.new(tcx, { $: "Array", _0: ty, _1: Const.from_target_usize(tcx, n) });
 };
 

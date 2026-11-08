@@ -36,14 +36,18 @@
     {"paths": ["dyn rustc_middle::mir::interpret::error::MachineStopType"], "ts": "MachineStopType", "import": "src/rustc_middle/mir/interpret/error.ts", "types": ["MachineStopType"], "debug": "$v.debug($f)", "clone": null, "note": "`Box<dyn MachineStopType>`: the hand interface of error.ts (`Debug` is a member)"}
   ],
   "fields": {
-    "//": "PORTING §5: `u64`/`i64` fields whose values reach 2^53 (typemap.json maps `u64`/`i64` to `number`); the dangling / out-of-bounds pointer errors carry raw addresses and offsets (lane followups-34: consts/offset_ub, consts/offset_from_ub, consts/const_transmute_type_id2); `BoundsCheckFailed { len, index }` carries a raw `u64` index (`from.saturating_add(to)`, a usize operand; lane followups-35); `LargeAssignmentsLint.size` is a moved value's size in bytes, up to 2^61 - 1 (lane fixers-46)",
+    "//": "PORTING §5: `u64`/`i64` fields whose values reach 2^53 (typemap.json maps `u64`/`i64` to `number`); the dangling / out-of-bounds pointer errors carry raw addresses and offsets (lane followups-34: consts/offset_ub, consts/offset_from_ub, consts/const_transmute_type_id2); `BoundsCheckFailed { len, index }` carries a raw `u64` index (`from.saturating_add(to)`, a usize operand; lane followups-35); `LargeAssignmentsLint.size` is a moved value's size in bytes, up to 2^61 - 1 (lane fixers-46); `ProjectionElem`'s `ConstantIndex` and `Subslice` hold array indices and lengths, up to 2^61 - 1 for bytes (lane fixers-47: gvn's `simplify_place_projection`, `prefix_slice_suffix`)",
     "rustc_middle::mir::interpret::error::UndefinedBehaviorInfo::PointerOutOfBounds::ptr_offset": "::rust_ts::i64_exact",
     "rustc_middle::mir::interpret::error::UndefinedBehaviorInfo::PointerOutOfBounds::inbounds_size": "::rust_ts::i64_exact",
     "rustc_middle::mir::interpret::error::UndefinedBehaviorInfo::DanglingIntPointer::addr": "::rust_ts::u64_exact",
     "rustc_middle::mir::interpret::error::UndefinedBehaviorInfo::DanglingIntPointer::inbounds_size": "::rust_ts::i64_exact",
     "rustc_middle::mir::interpret::error::UndefinedBehaviorInfo::BoundsCheckFailed::len": "::rust_ts::u64_exact",
     "rustc_middle::mir::interpret::error::UndefinedBehaviorInfo::BoundsCheckFailed::index": "::rust_ts::u64_exact",
-    "rustc_monomorphize::diagnostics::LargeAssignmentsLint::size": "::rust_ts::u64_exact"
+    "rustc_monomorphize::diagnostics::LargeAssignmentsLint::size": "::rust_ts::u64_exact",
+    "rustc_middle::mir::syntax::ProjectionElem::ConstantIndex::offset": "::rust_ts::u64_exact",
+    "rustc_middle::mir::syntax::ProjectionElem::ConstantIndex::min_length": "::rust_ts::u64_exact",
+    "rustc_middle::mir::syntax::ProjectionElem::Subslice::from": "::rust_ts::u64_exact",
+    "rustc_middle::mir::syntax::ProjectionElem::Subslice::to": "::rust_ts::u64_exact"
   },
   "type_fold": [
     { "paths": ["rustc_middle::ty::consts::Const", "rustc_middle::ty::Const"], "import": "src/rustc_type_ir/sty/consts.ts", "visit": "visit_with_Const as visit_with_ty_Const", "try_fold": "try_fold_with_Const as try_fold_with_ty_Const", "fold": "fold_with_Const as fold_with_ty_Const", "note": "type_fold.json's `ty::Const` entry, imported under aliases (mir/consts.rs's `Const` derives its own)" }

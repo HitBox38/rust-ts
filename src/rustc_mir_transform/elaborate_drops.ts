@@ -298,7 +298,8 @@ class ElaborateDropsCtxt implements DropElaborator<MovePathIndex> {
       if (e.$ === "ConstantIndex") {
         // debug_assert!(size == min_length, "min_length should be exact for arrays");
         assert(!e.from_end, "from_end should not be used for array element ConstantIndex");
-        return e.offset === index;
+        // PORT: `index: u64` is a `number` (an iteration count of `open_drop_for_array`); `offset` is a `bigint`.
+        return e.offset === BigInt(index);
       }
       return false;
     });

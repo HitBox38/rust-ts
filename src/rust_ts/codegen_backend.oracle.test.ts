@@ -191,3 +191,21 @@ for (const [target, flags] of [
     expect(run([process.execPath, REPO_MAIN])).toEqual(run(RUSTC));
   }, 120_000);
 }
+
+// `target_config` reads the deployment target (`versioned_llvm_target`, lane fixers-47), so on an Apple target an
+// invalid `MACOSX_DEPLOYMENT_TARGET` is an error and a too-low one a warning in every session, `--emit=metadata` and
+// `--print cfg` alike (docs/reviews/root-w42-check.md N5).
+for (const value of ["abc", "10.5"]) {
+  test.skipIf(SKIP)(`target_config: MACOSX_DEPLOYMENT_TARGET=${value} rustc --print cfg --target aarch64-apple-darwin`, () => {
+    const env: Record<string, string> = {};
+    for (const [k, v] of Object.entries(process.env)) if (v !== undefined && !k.endsWith("_DEPLOYMENT_TARGET")) env[k] = v;
+    env.MACOSX_DEPLOYMENT_TARGET = value;
+    const run = (cmd: string[]) => {
+      const r = Bun.spawnSync([...cmd, "--print", "cfg", "--target", "aarch64-apple-darwin"], { env, stdout: "pipe", stderr: "pipe" });
+      return { code: r.exitCode, stdout: r.stdout.toString(), stderr: r.stderr.toString() };
+    };
+    const oracle = run(RUSTC);
+    expect(oracle.stderr).toContain("MACOSX_DEPLOYMENT_TARGET");
+    expect(run([process.execPath, REPO_MAIN])).toEqual(oracle);
+  }, 120_000);
+}

@@ -108,6 +108,9 @@ export const AllocBytes_Box: AllocBytes<Uint8Array> = {
   // array (`RangeError`). Upstream documents this error as host-dependent (`Allocation::new_inner`).
   // rustc: compiler/rustc_middle/src/mir/interpret/allocation.rs:70 zeroed
   zeroed(size: Size, _align: Align, _params: null): Uint8Array | undefined {
+    // PORT (fixers-47): a size of 2^53 bytes or more exceeds the address space of every 64-bit host in use (48 to 57 bits),
+    // so upstream's allocation fails there on any host; `size.bytes()` cannot return it exactly, so it is decided here.
+    if (size.is_big()) return undefined;
     let bytes: Uint8Array;
     try {
       bytes = new Uint8Array(size.bytes());

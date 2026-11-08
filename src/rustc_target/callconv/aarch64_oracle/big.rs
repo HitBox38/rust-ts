@@ -41,3 +41,32 @@ pub fn niche(_: Niche) {}
 pub fn same_size(x: B53) -> B53Too {
     unsafe { transmute(x) }
 }
+
+// rustc_mir_transform gvn `simplify_place_projection`: a `ConstantIndex` offset of 2^53 (review fixers-46 F4). Typeck asks for
+// an `Index` impl before it uses the built-in indexing of arrays; its body is never used.
+#[lang = "index"]
+pub trait Index<Idx> {
+    type Output;
+    fn index(&self, index: Idx) -> &Self::Output;
+}
+impl<T, const N: usize> Index<usize> for [T; N] {
+    type Output = T;
+    fn index(&self, _: usize) -> &T {
+        loop {}
+    }
+}
+impl Copy for u8 {}
+#[lang = "legacy_receiver"]
+pub trait LegacyReceiver {}
+impl<T: PointeeSized> LegacyReceiver for &T {}
+pub fn index(x: [u8; 9007199254740993]) -> u8 {
+    let i: usize = 9007199254740992;
+    x[i]
+}
+
+// rustc_mir_build matches `prefix_slice_suffix`: `ConstantIndex` and `Subslice` at 2^53 - 1, `PlaceTy::projection_ty`'s array
+// type for the `Subslice`, and rustc_mir_dataflow's move paths of the pattern (lane fixers-47).
+pub fn pattern(x: [u8; 9007199254740993]) -> u8 {
+    let [a, _rest @ .., _b] = x;
+    a
+}

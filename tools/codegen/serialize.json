@@ -43,6 +43,8 @@
     { "paths": ["i16"], "decode": "decode_i16($D)", "encode": "encode_i16($v, $E)" },
     { "paths": ["i32"], "decode": "decode_i32($D)", "encode": "encode_i32($v, $E)" },
     { "paths": ["i64"], "decode": "Number(decode_i64($D))", "encode": "encode_i64(BigInt($v), $E)", "note": "see u64" },
+    { "paths": ["rust_ts::u64_exact"], "decode": "decode_u64($D)", "encode": "encode_u64($v, $E)", "note": "a `u64` field kept as `bigint` by a typemap's `fields` override (mir.typemap.json; lane fixers-47)" },
+    { "paths": ["rust_ts::i64_exact"], "decode": "decode_i64($D)", "encode": "encode_i64($v, $E)", "note": "see rust_ts::u64_exact" },
     { "paths": ["i128"], "decode": "decode_i128($D)", "encode": "encode_i128($v, $E)" },
     { "paths": ["bool"], "decode": "decode_bool($D)", "encode": "encode_bool($v, $E)" },
     { "paths": ["char"], "decode": "decode_char($D)", "encode": "encode_char($v, $E)" },

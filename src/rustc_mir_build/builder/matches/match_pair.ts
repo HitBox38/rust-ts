@@ -15,7 +15,6 @@ import { Builder } from "../mod.ts";
 import { span_bug } from "../../../rustc_span/macros.ts";
 import { PLAIN } from "../../../std/fmt.ts";
 import { assert_eq, panic } from "../../../std/panic.ts";
-import { u64_to_number } from "../../../rust_ts/u64.ts";
 export * from "./match_pair.gen.ts";
 
 declare module "./mod.gen.ts" {
@@ -38,10 +37,10 @@ declare module "./match_pair.gen.ts" {
 /// For an array or slice pattern's subpatterns (prefix/slice/suffix), returns a list
 /// of those subpatterns, each paired with a suitably-projected [`PlaceBuilder`].
 // rustc: compiler/rustc_mir_build/src/builder/matches/match_pair.rs:18 prefix_slice_suffix
-export function prefix_slice_suffix(place: PlaceBuilder, array_len: number | undefined, prefix: readonly Pat[], opt_slice: Pat | undefined, suffix: readonly Pat[]): [PlaceBuilder, Pat][] {
+export function prefix_slice_suffix(place: PlaceBuilder, array_len: bigint | undefined, prefix: readonly Pat[], opt_slice: Pat | undefined, suffix: readonly Pat[]): [PlaceBuilder, Pat][] {
   // Some for array patterns; None for slice patterns
-  const prefix_len = prefix.length;
-  const suffix_len = suffix.length;
+  const prefix_len = BigInt(prefix.length);
+  const suffix_len = BigInt(suffix.length);
 
   const output_pairs: [PlaceBuilder, Pat][] = [];
 
@@ -50,10 +49,11 @@ export function prefix_slice_suffix(place: PlaceBuilder, array_len: number | und
   // we have to index them relative to the end of the slice.
   //
   // For array patterns, all subpatterns are indexed relative to the start.
-  const [min_length, is_array]: [number, boolean] = array_len !== undefined ? [array_len, true] : [prefix_len + suffix_len, false];
+  const [min_length, is_array]: [bigint, boolean] = array_len !== undefined ? [array_len, true] : [prefix_len + suffix_len, false];
 
-  for (let offset = 0; offset < prefix.length; offset++) {
-    const prefix_subpat = prefix[offset]!;
+  for (let i = 0; i < prefix.length; i++) {
+    const offset = BigInt(i);
+    const prefix_subpat = prefix[i]!;
     const elem: PlaceElem = { $: "ConstantIndex", offset, min_length, from_end: false };
     const subplace = place.clone_project(elem);
     output_pairs.push([subplace, prefix_subpat]);
@@ -71,8 +71,9 @@ export function prefix_slice_suffix(place: PlaceBuilder, array_len: number | und
     output_pairs.push([subplace, slice_subpat]);
   }
 
-  for (let offset_from_end = 1; offset_from_end <= suffix.length; offset_from_end++) {
-    const suffix_subpat = suffix[suffix.length - offset_from_end]!;
+  for (let i = 1; i <= suffix.length; i++) {
+    const offset_from_end = BigInt(i);
+    const suffix_subpat = suffix[suffix.length - i]!;
     const elem: PlaceElem = {
       $: "ConstantIndex",
       offset: is_array ? min_length - offset_from_end : offset_from_end,
@@ -325,7 +326,7 @@ export function squash_inter_pat(
 
       const subpats: InterPat[] = [];
       if (array_len !== undefined) {
-        for (const [subplace, subpat] of prefix_slice_suffix(place_builder, u64_to_number(array_len, "prefix_slice_suffix"), prefix, slice, suffix)) {
+        for (const [subplace, subpat] of prefix_slice_suffix(place_builder, array_len, prefix, slice, suffix)) {
           subpats.push(InterPat.lower_thir_pat(cx, subplace, subpat));
         }
       } else {

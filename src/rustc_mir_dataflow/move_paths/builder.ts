@@ -50,7 +50,6 @@ import {
   MoveSubPath,
   MoveSubPath_key,
 } from "./mod.ts";
-import { u64_to_number } from "../../rust_ts/u64.ts";
 
 // rustc-type: compiler/rustc_mir_dataflow/src/move_paths/builder.rs:16 MoveDataBuilder
 class MoveDataBuilder {
@@ -266,12 +265,12 @@ class MoveDataBuilder {
           // drop(iter); // drop for borrowck
 
           let elem_ty: Ty;
-          let len: number;
+          let len: bigint;
           const k = place_ty.kind();
           if (k.$ === "Array") {
             const [ty, size] = [k._0, k._1];
             elem_ty = ty;
-            len = u64_to_number(unwrap(size.try_to_target_usize(this.tcx), "expected subslice projection on fixed-size array"), "MoveDataBuilder::move_path_for");
+            len = unwrap(size.try_to_target_usize(this.tcx), "expected subslice projection on fixed-size array");
           } else {
             bug("from_end: false slice pattern of non-array type");
           }

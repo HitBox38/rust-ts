@@ -1,5 +1,5 @@
 // Port of compiler/rustc_const_eval/src/interpret/util.rs (declared by lane interp-contract, filled by lane interp-ops).
-import { debug_Size } from "../../rustc_abi/lib.ts";
+import { debug_Size, Size_eq } from "../../rustc_abi/lib.ts";
 import { type CompileTimeInterpCx, type FxIndexMap_AllocMap } from "../const_eval/machine.ts";
 import type { CtfeMemoryKind } from "./machine.ts";
 import type { MemoryKind } from "./memory.gen.ts";
@@ -147,7 +147,7 @@ export function create_static_alloc(ecx: CompileTimeInterpCx, static_def_id: Loc
   // Inherit size and align from the `GlobalAlloc::Static` so we can avoid duplicating
   // the alignment attribute logic.
   const [size, align] = GlobalAlloc.size_and_align({ $: "Static", _0: LocalDefId.to_def_id(static_def_id) }, ecx.tcx.deref(), ecx.typing_env);
-  assert_eq(size, layout.size, (v) => debug_Size(v, PLAIN), (a, b) => a.bytes() === b.bytes());
+  assert_eq(size, layout.size, (v) => debug_Size(v, PLAIN), Size_eq);
   assert(align.pow2 >= layout.align.abi.pow2, "assertion failed: align >= layout.align.abi");
 
   const alloc = Allocation.try_new(size, align, AllocInit.Uninit, null);

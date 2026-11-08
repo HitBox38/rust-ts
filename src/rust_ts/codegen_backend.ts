@@ -18,6 +18,7 @@ import type { MetadataLoaderDyn } from "../rustc_metadata/creader.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import type { ArchiveBuilderBuilder } from "../rustc_codegen_ssa/back/archive.ts";
 import { link_binary } from "../rustc_codegen_ssa/back/link.ts";
+import { versioned_llvm_target } from "../rustc_codegen_ssa/back/mod.ts";
 import { wants_wasm_eh } from "../rustc_codegen_ssa/base.ts";
 import { CpuRequired_diagnostic, CpuUnsupported_diagnostic } from "../rustc_codegen_ssa/diagnostics.ts";
 import * as target_features from "../rustc_codegen_ssa/target_features.ts";
@@ -181,6 +182,12 @@ export class LlvmCodegenBackend implements CodegenBackend {
     if (input !== undefined) {
       return unported(`rustc_codegen_llvm::llvm_util::target_config (${input})`);
     }
+    // PORT: `let triple = SmallCStr::new(&versioned_llvm_target(sess));`, at upstream's place (after
+    // `global_llvm_features`, before `target_cpu`). It reads the deployment target on Apple targets, which reports an
+    // invalid or too-low `*_DEPLOYMENT_TARGET` (lane fixers-47). The triple itself goes only to LLVM, whose answer is
+    // the table below, keyed by the tuple: the table was read with no deployment-target variable set, and the OS version
+    // in the triple does not change the features LLVM reports.
+    versioned_llvm_target(sess);
     const tuple = TargetTuple.tuple(sess.opts.target_triple);
     const t = sess.opts.target_triple.$ === "TargetTuple" ? TARGET_CONFIGS.get(tuple) : undefined;
     if (t === undefined) {

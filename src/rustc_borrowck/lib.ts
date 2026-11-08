@@ -1076,8 +1076,8 @@ declare module "./lib.gen.ts" {
       desired_action: InitializationRequiringAction,
       place_span: [PlaceRef, Span],
       maybe_uninits: MixedBitSet<MovePathIndex>,
-      from: number,
-      to: number,
+      from: bigint,
+      to: bigint,
     ): void;
     // lib.rs:2137 (lane bck-lib-b)
     check_if_path_or_subpath_is_moved(location: Location, desired_action: InitializationRequiringAction, place_span: [PlaceRef, Span], state: BorrowckDomain): void;
@@ -1967,7 +1967,6 @@ MirBorrowckCtxt.prototype.check_if_full_path_is_moved = function (this: MirBorro
 ///
 /// * Does this element overlap with our slice.
 /// * Is any part of it uninitialized.
-// PORT: `from: u64, to: u64` are `number`, as `ProjectionElem::Subslice`'s fields in rustc_middle (array lengths, < 2^53).
 // rustc: compiler/rustc_borrowck/src/lib.rs:2098 check_if_subslice_element_is_moved
 MirBorrowckCtxt.prototype.check_if_subslice_element_is_moved = function (
   this: MirBorrowckCtxt,
@@ -1975,8 +1974,8 @@ MirBorrowckCtxt.prototype.check_if_subslice_element_is_moved = function (
   desired_action: InitializationRequiringAction,
   place_span: [PlaceRef, Span],
   maybe_uninits: MixedBitSet<MovePathIndex>,
-  from: number,
-  to: number,
+  from: bigint,
+  to: bigint,
 ): void {
   const mpi = this.move_path_for_place(place_span[0]);
   if (mpi !== undefined) {
