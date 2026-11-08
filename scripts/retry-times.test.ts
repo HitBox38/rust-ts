@@ -1,5 +1,5 @@
 // `CaseResult.attempts` (scripts/difftest.ts, lane harness-w40): a subject that times out in the pool records each attempt's
-// time and max RSS, and that record changes no status. A real run of `difftest()` with a stub suite; as
+// time and max RSS and the host's load around them, and that record changes no status. A real run of `difftest()` with a stub suite; as
 // scripts/unported-buckets.test.ts, in a child, with RUST_TS_DATA at a temp dir holding an empty git repository as its
 // upstream checkout: the shared oracle cache and run directories are never touched.
 import { afterAll, expect, test } from "bun:test";
@@ -60,6 +60,18 @@ test("a pool timeout records each attempt; statuses are what they were", () => {
   expect(always.status).toBe("TIMEOUT");
   expect(always.retried).toBe(true);
   expect(always.attempts!.alone!.timedOut).toBe(true);
+  // The host's 1-minute load at the pool's timeout and around the re-run (lane harness-w45, review w40d-audit N1); on Windows
+  // `os.loadavg()` is always 0, elsewhere a busy test host is above 0.
+  const loads = (row: typeof once) => (row.attempts as unknown as { load1: Record<string, number> }).load1;
+  for (const row of [once, always]) {
+    expect(Object.keys(loads(row))).toEqual(["pool", "aloneStart", "aloneEnd"]);
+    for (const v of Object.values(loads(row))) {
+      expect(Number.isFinite(v) && v >= 0).toBe(true);
+      // Two decimals: `19.01 * 100` is 1901.0000000000002 in floating point, so compare with a tolerance (review harness-w45 F1).
+      expect(Math.abs(Math.round(v * 100) - v * 100)).toBeLessThan(1e-6);
+    }
+  }
+  if (process.platform !== "win32") expect(Object.values(loads(once)).some((v) => v > 0)).toBe(true);
   // No timeout, no record: the rows of every other case keep their fields.
   expect(rows.get("plain")).toEqual({ id: "plain", status: "MATCH" });
   expect(rows.get("differs")!.status).toBe("DIFF");

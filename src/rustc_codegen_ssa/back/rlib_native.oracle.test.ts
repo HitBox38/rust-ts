@@ -5,7 +5,7 @@
 // `ArArchiveBuilder` must rebuild each rlib byte for byte from the oracle's own `lib.rmeta` and `lib.rmeta-link` members
 // and the input archives; whole compilations are compared in docs/handoff/link-rlib-native.md.
 import { afterAll, expect, test } from "bun:test";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Session } from "../../rustc_session/session.ts";
@@ -20,6 +20,8 @@ import { ArArchiveBuilder } from "./archive.ts";
 import { try_find_native_static_library } from "./link.ts";
 import { create_wrapper_file } from "./metadata.ts";
 import { RmetaLink } from "./rmeta_link.ts";
+import { remove_var, set_var, var_os } from "../../std/env.ts";
+import { display_IoError } from "../../std/io.ts";
 
 const b64 = (s: string): Uint8Array => Uint8Array.from(Buffer.from(s, "base64"));
 
@@ -158,15 +160,42 @@ test("add_archive skips an archive already added (`-l static=foo` twice)", () =>
 });
 
 test("add_archive takes the arm64 slice of a universal file on the host", () => {
-  const saved = process.env.TMPDIR;
-  // `try_extract_macho_fat_archive` keeps its temp file, as upstream does: put it where the test cleans up.
-  process.env.TMPDIR = fresh_dir({});
+  // `try_extract_macho_fat_archive` keeps its temp file, as upstream does: put it where the test cleans up. `env::temp_dir()`
+  // reads C's environ, which `process.env` writes do not reach.
+  const saved = var_os("TMPDIR");
+  const tmp = fresh_dir({});
+  set_var("TMPDIR", tmp);
   try {
     const got = rebuild(HOST, RLIB_HOST_FOO_BAZ, [join(INPUTS, "libfat.a"), join(INPUTS, "libbaz.a")]);
     expect([...got]).toEqual([...RLIB_HOST_FOO_BAZ]);
+    expect(readdirSync(tmp).map((n) => n.replace(/^\.tmp[A-Za-z0-9]{6}/, ".tmpXXXXXX"))).toEqual([".tmpXXXXXXlibfat.a"]);
+    // tempfile's `with_err_path` (review link-rlib-native N3). The oracle, `TMPDIR=/nonexistent`: "failed to add native library
+    // fat/libfat.a: No such file or directory (os error 2) at path \"/nonexistent/.tmpA6nZXYlibfat.a\"".
+    set_var("TMPDIR", join(tmp, "nonexistent"));
+    const r = ArArchiveBuilder.new(HOST, DEFAULT_OBJECT_READER).add_archive(join(INPUTS, "libfat.a"), { $: "Other" });
+    const msg = r.$ === "Err" ? display_IoError(r._0) : "Ok";
+    expect(msg.replace(/\.tmp[A-Za-z0-9]{6}/, ".tmpXXXXXX")).toBe(`No such file or directory (os error 2) at path "${join(tmp, "nonexistent")}/.tmpXXXXXXlibfat.a"`);
   } finally {
-    if (saved === undefined) delete process.env.TMPDIR;
-    else process.env.TMPDIR = saved;
+    if (saved === undefined) remove_var("TMPDIR");
+    else set_var("TMPDIR", saved);
+  }
+});
+
+test("add_archive of a directory, or of /dev/null, gives memmap2's error (review link-rlib-native N1)", () => {
+  // The oracle, `-L d -l static=dir` with a directory `d/libdir.a/`: "failed to add native library d/libdir.a: Invalid argument (os
+  // error 22)" on the host (mmap(2) of a directory; other hosts give their own errno), the same with `--target
+  // x86_64-unknown-linux-gnu`. A `libnull.a` linked to `/dev/null` (`st_size` 0): "… memory map must have a non-zero length".
+  const d = fresh_dir({});
+  mkdirSync(join(d, "libdir.a"));
+  symlinkSync("/dev/null", join(d, "libnull.a"));
+  for (const s of [HOST, ELF]) {
+    const ab = ArArchiveBuilder.new(s, DEFAULT_OBJECT_READER);
+    const dir = ab.add_archive(join(d, "libdir.a"), { $: "Other" });
+    if (dir.$ !== "Err") throw new Error("a directory maps");
+    expect(dir._0.$).toBe("Os");
+    if (process.platform === "darwin") expect(display_IoError(dir._0)).toBe("Invalid argument (os error 22)");
+    const nul = ab.add_archive(join(d, "libnull.a"), { $: "Other" });
+    expect(nul.$ === "Err" ? display_IoError(nul._0) : "Ok").toBe("memory map must have a non-zero length");
   }
 });
 

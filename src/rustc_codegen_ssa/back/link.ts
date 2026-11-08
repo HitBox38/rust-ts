@@ -29,6 +29,10 @@ import { MissingNativeLibrary } from "../diagnostics.ts";
 import { path_file_name, path_join, path_parent } from "../../std/path.ts";
 import { io_error_from_node } from "../../std/io.ts";
 import { ControlFlow } from "../../rustc_ast_ir/visit.ts";
+// Load order: rustc_target through its crate root first. spec/mod.ts imports lib.ts, which evaluates spec/json.ts and
+// target_features.ts, and both read spec/mod.ts's bindings at their top level: entered from spec/mod.ts, the cycle reads `Os`
+// before it exists (lanes unit-parallel, fixers-48).
+import "../../rustc_target/lib.ts";
 import { LinkSelfContainedComponents } from "../../rustc_target/spec/mod.ts";
 import { FileHeader32_impl, FileHeader64_impl, FileHeader_provided } from "../../vendor/object/read/elf/file.ts";
 import type { ArchiveBuilder, ArchiveBuilderBuilder } from "./archive.ts";

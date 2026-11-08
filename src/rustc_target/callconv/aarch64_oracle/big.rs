@@ -70,3 +70,10 @@ pub fn pattern(x: [u8; 9007199254740993]) -> u8 {
     let [a, _rest @ .., _b] = x;
     a
 }
+
+// rustc_hir_typeck pat `check_array_pat_len`: a rest binding of 2^53 + 1 elements, so `r`'s array type is that long (review
+// fixers-47 F1).
+pub fn rest(x: &[u8; 9007199254740995]) -> &[u8; 9007199254740993] {
+    let [_, r @ .., _] = x;
+    r
+}

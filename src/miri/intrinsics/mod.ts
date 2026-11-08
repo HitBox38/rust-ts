@@ -29,6 +29,10 @@ import { type BasicBlock, type UnwindAction } from "../../rustc_middle/mir/mod.t
 import { type GenericArgsRef } from "../../rustc_middle/ty/generic_args.ts";
 import { Instance } from "../../rustc_middle/ty/instance.ts";
 import { Symbol, sym } from "../../rustc_span/symbol.ts";
+// Load order: rustc_target through its crate root first. spec/mod.ts imports lib.ts, which evaluates spec/json.ts and
+// target_features.ts, and both read spec/mod.ts's bindings at their top level: entered from spec/mod.ts, the cycle reads `Os`
+// before it exists (lanes unit-parallel, fixers-48).
+import "../../rustc_target/lib.ts";
 import { Arch } from "../../rustc_target/spec/mod.ts";
 import { panic, unported } from "../../std/panic.ts";
 import { Err } from "../../std/result.ts";

@@ -50,7 +50,9 @@
 // Extension module (docs/handoff/ty-contract.md "Init order"): rustc_middle/lib.ts loads it after the classes; its
 // top-level code touches only the classes it imports. ty/mod.ts's `provide` reaches `provide` through `require`.
 import { typing_env_no } from "../../../rust_ts/typing_env_no.ts";
-import { debug_DefKind } from "../../../rustc_hir/def.gen.ts";
+// Load order: through def.ts, which owns def.gen.ts (the def.gen.ts/hir.ts/def.ts cycle, entered from def.gen.ts, reads
+// `MacroKinds` before it exists; lanes unit-parallel, fixers-48).
+import { debug_DefKind } from "../../../rustc_hir/def.ts";
 import { type DefId, DefIdSet, type LocalModId } from "../../../rustc_span/def_id.ts";
 import { bug } from "../../../rustc_span/macros.ts";
 import { EarlyBinder } from "../../../rustc_type_ir/binder.ts";

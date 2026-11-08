@@ -53,9 +53,9 @@ import { enter_context, ImplicitCtxt } from "./context/tls.ts";
 import { Visibility } from "./mod.ts";
 import type { Ordering } from "./mod.ts";
 import { Interned } from "../../rustc_data_structures/intern.ts";
-import { type InternedSet as InternedSetImpl, ShardedHashMap } from "../../rustc_data_structures/sharded.ts";
+import { type ElementEq, type InternedSet as InternedSetImpl, ShardedHashMap } from "../../rustc_data_structures/sharded.ts";
 import { Layout as AbiLayout, TargetDataLayoutError_into_diag } from "../../rustc_abi/lib.ts";
-import { intern_key, intern_key_eq } from "../../rust_ts/intern_key.ts";
+import { hash_mix, intern_key, intern_key_eq, value_eq, value_hash } from "../../rust_ts/intern_key.ts";
 import type { ArgOutlivesClause, BoundVar, BoundVariableKind, CanonicalInputData, CanonicalVarKind, ConstKind, DebruijnIndex, ExternalConstraintsData, ImplPolarity, OpaqueTypeKey, PatternKind, PolyExistentialPredicate, PredicateKind, RegionKind, RegionVid, TraitRef, TyKind, TyVid, ValTreeKind } from "../../rustc_type_ir/decls.ts";
 import { FlagComputation } from "../../rustc_type_ir/flags.ts";
 import { CollectAndApply_Result, CollectAndApply_T } from "../../rustc_type_ir/interner.ts";
@@ -224,6 +224,161 @@ type Place = import("../mir/syntax.ts").Place;
 /** PORT (D2): `ShardedHashMap<InternedInSet<'tcx, T>, ()>`; the stored `K` is the hash-consed object itself. */
 type InternedSet<K> = InternedSetImpl<K>;
 
+/**
+ * PORT(perf) (lane perf-tait): the derived `Hash` and `PartialEq` of `CanonicalVarKind` (rustc_type_ir canonical.rs), for the
+ * `canonical_var_kinds` table (rustc_data_structures/sharded.ts `ElementEq`). `eq` is `value_eq` on every `CanonicalVarKind`: the
+ * variant, then each field the variant has, where `UniverseIndex` and `BoundVar` are `u32` indices compared with `===` (no `-0` or
+ * `NaN`), `PhantomData` fields (`_tcx`, always `undefined`) are skipped as `value_eq` skips `undefined`, and a bound var's kind
+ * (`BoundTyKind`, `BoundRegionKind`; none in `BoundConst`) is identity or else `value_eq`. A variant this does not list goes to
+ * `value_eq` and `value_hash` whole. element_eq.test.ts checks both against `value_eq` on every variant.
+ */
+export const CANONICAL_VAR_KIND_EQ: ElementEq = {
+  hash: hash_CanonicalVarKind,
+  eq: eq_CanonicalVarKind,
+  hash_slice(v, out) {
+    let h = v.length;
+    for (let i = 0; i < v.length; i++) {
+      const eh = hash_CanonicalVarKind(v[i]);
+      if (out !== undefined) out[i] = eh;
+      h = hash_mix(h, eh);
+    }
+    return h;
+  },
+  slice_eq(a, b) {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) if (!eq_CanonicalVarKind(a[i], b[i])) return false;
+    return true;
+  },
+};
+
+function hash_CanonicalVarKind(v: unknown): number {
+  const k = v as CanonicalVarKind;
+  switch (k.$) {
+    case "Ty":
+      return hash_mix(hash_mix(1, k.ui | 0), k.sub_root | 0);
+    case "Int":
+      return 2;
+    case "Float":
+      return 3;
+    case "PlaceholderTy":
+      return hash_mix(4, hash_placeholder(k._0));
+    case "Region":
+      return hash_mix(5, k._0 | 0);
+    case "PlaceholderRegion":
+      return hash_mix(6, hash_placeholder(k._0));
+    case "Const":
+      return hash_mix(7, k._0 | 0);
+    case "PlaceholderConst":
+      return hash_mix(8, hash_placeholder(k._0));
+    default:
+      return value_hash(k);
+  }
+}
+
+function eq_CanonicalVarKind(x: unknown, y: unknown): boolean {
+  if (x === y) return true;
+  const a = x as CanonicalVarKind;
+  const b = y as CanonicalVarKind;
+  if (a.$ !== b.$) return false;
+  switch (a.$) {
+    case "Ty":
+      return a.ui === (b as typeof a).ui && a.sub_root === (b as typeof a).sub_root;
+    case "Int":
+    case "Float":
+      return true;
+    case "Region":
+    case "Const":
+      return a._0 === (b as typeof a)._0;
+    case "PlaceholderTy":
+    case "PlaceholderRegion":
+    case "PlaceholderConst":
+      return eq_placeholder(a._0, (b as typeof a)._0);
+    default:
+      return value_eq(a, b);
+  }
+}
+
+/** `Placeholder<BoundTy | BoundRegion | BoundConst>`'s share of `CANONICAL_VAR_KIND_EQ.hash`: `universe`, `bound.var`, `bound.kind`. */
+function hash_placeholder(p: { readonly universe: number; readonly bound: { readonly var: number; readonly kind?: unknown } }): number {
+  const kind = p.bound.kind;
+  // `Anon`, the kind of nearly every canonical placeholder, without the generic walk; `value_eq`-equal kinds share `$`.
+  const kh = kind === undefined ? 0 : (kind as { readonly $: string }).$ === "Anon" ? 9 : value_hash(kind);
+  return hash_mix(hash_mix(p.universe | 0, p.bound.var | 0), kh);
+}
+
+/** `Placeholder<BoundTy | BoundRegion | BoundConst>`'s derived `PartialEq`, as `value_eq` (see `CANONICAL_VAR_KIND_EQ`). */
+function eq_placeholder(
+  a: { readonly universe: number; readonly bound: { readonly var: number; readonly kind?: unknown } },
+  b: { readonly universe: number; readonly bound: { readonly var: number; readonly kind?: unknown } },
+): boolean {
+  if (a === b) return true;
+  if (a.universe !== b.universe) return false;
+  const ba = a.bound;
+  const bb = b.bound;
+  return ba === bb || (ba.var === bb.var && (ba.kind === bb.kind || value_eq(ba.kind, bb.kind)));
+}
+
+/**
+ * PORT(perf) (lane perf-tait): `GenericArg`'s `Hash` and `PartialEq`, for the `args` table (rustc_data_structures/sharded.ts
+ * `ElementEq`). A `GenericArg` is a `Ty`, `Region` or `Const`, each an interned object, unique per id (PORTING §5): `value_hash`
+ * of one is its `id`, and `value_eq` of two is `===`. element_eq.test.ts checks both.
+ */
+export const INTERNED_ELEMENT_EQ: ElementEq = {
+  hash: (v: unknown): number => (v as { readonly id: number }).id | 0,
+  eq: (a: unknown, b: unknown): boolean => a === b,
+  hash_slice(v, out) {
+    let h = v.length;
+    for (let i = 0; i < v.length; i++) {
+      const eh = (v[i] as { readonly id: number }).id | 0;
+      if (out !== undefined) out[i] = eh;
+      h = hash_mix(h, eh);
+    }
+    return h;
+  },
+  slice_eq(a, b) {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+    return true;
+  },
+};
+
+/**
+ * PORT(perf) (lane perf-tait): the derived `Hash` and `PartialEq` of `(OpaqueTypeKey, Ty)`, for the `predefined_opaques_in_body`
+ * table (rustc_data_structures/sharded.ts `ElementEq`). `OpaqueTypeKey { def_id: LocalDefId, args: GenericArgs }`: a `u32` index
+ * and an interned list, and `Ty` interned, so `eq` is `===` on the three, which is `value_eq` on them (an interned object is unique
+ * per id). element_eq.test.ts checks it against `value_eq`.
+ */
+export const PREDEFINED_OPAQUE_EQ: ElementEq = {
+  hash: hash_predefined_opaque,
+  eq: eq_predefined_opaque,
+  hash_slice(v, out) {
+    let h = v.length;
+    for (let i = 0; i < v.length; i++) {
+      const eh = hash_predefined_opaque(v[i]);
+      if (out !== undefined) out[i] = eh;
+      h = hash_mix(h, eh);
+    }
+    return h;
+  },
+  slice_eq(a, b) {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) if (!eq_predefined_opaque(a[i], b[i])) return false;
+    return true;
+  },
+};
+
+function hash_predefined_opaque(v: unknown): number {
+  const [key, ty] = v as readonly [OpaqueTypeKey, Ty];
+  return hash_mix(hash_mix(key.def_id | 0, key.args.id | 0), ty.id | 0);
+}
+
+function eq_predefined_opaque(x: unknown, y: unknown): boolean {
+  if (x === y) return true;
+  const a = x as readonly [OpaqueTypeKey, Ty];
+  const b = y as readonly [OpaqueTypeKey, Ty];
+  return a[1] === b[1] && (a[0] === b[0] || (a[0].def_id === b[0].def_id && a[0].args === b[0].args));
+}
+
 // rustc-type: compiler/rustc_middle/src/ty/context.rs:138 CtxtInterners
 // PORT (D2): each set finds the one object made for a value by upstream's `InternedInSet` `Borrow`/`Hash`/`Eq` impls
 // (context.rs:1906-1999): `value_hash` and `value_eq` on the stored value where it is hot (`intern_value`, `intern_slice`), else
@@ -302,8 +457,12 @@ export class CtxtInterners {
     // PORT(perf) (lane perf-heavy): upstream copies these `Copy` elements into each list; here new lists share equal element
     // objects (rustc_data_structures/sharded.ts `share_elements`). On `closures/supertrait-hint-cycle.rs` at
     // `recursion_limit = "32"` their lists kept 18.5M elements, nearly all equal to an earlier one.
-    interners.canonical_var_kinds.share_elements();
-    interners.predefined_opaques_in_body.share_elements();
+    // PORT(perf) (lane perf-tait): with their element types' derived `Hash` and `PartialEq` (`CANONICAL_VAR_KIND_EQ`,
+    // `PREDEFINED_OPAQUE_EQ`, and for `args`, whose 33.7M interns on recursive-drop-elaboration-2.rs averaged 5 elements,
+    // `INTERNED_ELEMENT_EQ`) in place of the generic walk.
+    interners.canonical_var_kinds.share_elements(CANONICAL_VAR_KIND_EQ);
+    interners.predefined_opaques_in_body.share_elements(PREDEFINED_OPAQUE_EQ);
+    interners.args.elements_eq(INTERNED_ELEMENT_EQ);
     return interners;
   }
 

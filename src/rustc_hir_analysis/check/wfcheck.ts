@@ -112,7 +112,9 @@ import { type ControlFlow, ControlFlow as ControlFlowC } from "../../rustc_ast_i
 import { find_attr } from "../../rustc_attr_ir/lib.ts";
 import { TransitiveRelationBuilder } from "../../rustc_data_structures/transitive_relation.ts";
 import { E0392, msg } from "../../rustc_errors/lib.ts";
-import { debug_DefKind } from "../../rustc_hir/def.gen.ts";
+// Load order: through def.ts, which owns def.gen.ts (the def.gen.ts/hir.ts/def.ts cycle, entered from def.gen.ts, reads
+// `MacroKinds` before it exists; lanes unit-parallel, fixers-48).
+import { debug_DefKind } from "../../rustc_hir/def.ts";
 import { FnRetTy, ImplicitSelfKind, ItemKind, ParamName } from "../../rustc_hir/hir.ts";
 import { debug_ItemKind } from "../../rustc_hir/hir.gen.ts";
 import { Visitor, walk_item, walk_ty } from "../../rustc_hir/intravisit.ts";

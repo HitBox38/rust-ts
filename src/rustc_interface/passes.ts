@@ -91,6 +91,10 @@ import { utf8 } from "../std/str.ts";
 import { Symbol, sym } from "../rustc_span/symbol.ts";
 import { CrateType_discriminant, type CrateType } from "../rustc_structures/lib.ts";
 import type { Limit } from "../rustc_structures/limit.ts";
+// Load order: rustc_target through its crate root first. spec/mod.ts imports lib.ts, which evaluates spec/json.ts and
+// target_features.ts, and both read spec/mod.ts's bindings at their top level: entered from spec/mod.ts, the cycle reads `Os`
+// before it exists (lanes unit-parallel, fixers-48).
+import "../rustc_target/lib.ts";
 import { PanicStrategy } from "../rustc_target/spec/mod.ts";
 import { assert_eq, Panic, panic } from "../std/panic.ts";
 import { is_whitespace } from "../std/char.ts";

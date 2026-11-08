@@ -11,9 +11,11 @@
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import type { Ty } from "../../rustc_middle/ty/mod.ts";
 import { HasAttrs_LocalDefId } from "../../rustc_middle/ty/mod.ts";
-import { IrPrint_print, IrPrint_print_debug, type Print, print_Region, print_Ty } from "../../rustc_middle/ty/print/mod.ts";
+// Load order: pretty.ts before print/mod.ts. print/mod.ts re-exports pretty.ts, whose `PrettyPrinter` extends print/mod.ts's
+// `Printer`, so the cycle entered from print/mod.ts reads `Printer` before it exists (unit-parallel review N2; fixers-48).
 import type { FmtPrinter } from "../../rustc_middle/ty/print/pretty.ts";
 import { print_OutlivesClause } from "../../rustc_middle/ty/print/pretty.ts";
+import { IrPrint_print, IrPrint_print_debug, type Print, print_Region, print_Ty } from "../../rustc_middle/ty/print/mod.ts";
 import type { Clause } from "../../rustc_middle/ty/predicate.ts";
 import { debug_ClauseKind } from "../../rustc_type_ir/predicate_kind.ts";
 import { find_attr } from "../../rustc_attr_ir/lib.ts";

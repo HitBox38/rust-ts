@@ -41,13 +41,15 @@ import { GenericArg } from "../rustc_middle/ty/generic_args.ts";
 import type { List } from "../rustc_middle/ty/list.ts";
 import { type ParamEnv, Ty, TypingEnv } from "../rustc_middle/ty/mod.ts";
 import type { PolyExistentialPredicate } from "../rustc_middle/ty/predicate.ts";
-import { PRINT_OK, type PrintError, type PrintResult, Printer } from "../rustc_middle/ty/print/mod.ts";
+// Load order: pretty.ts before print/mod.ts. print/mod.ts re-exports pretty.ts, whose `PrettyPrinter` extends print/mod.ts's
+// `Printer`, so the cycle entered from print/mod.ts reads `Printer` before it exists (unit-parallel review N2; fixers-48).
 import {
   display_TraitRefPrintOnlyTraitPath,
   display_Ty,
   TraitRef_print_only_trait_path,
   with_no_trimmed_paths,
 } from "../rustc_middle/ty/print/pretty.ts";
+import { PRINT_OK, type PrintError, type PrintResult, Printer } from "../rustc_middle/ty/print/mod.ts";
 import { fold_Ty } from "../rustc_middle/ty/structural_impls.ts";
 import type { TypeckResults } from "../rustc_middle/ty/typeck_results.ts";
 import { TypingMode } from "../rustc_type_ir/infer_ctxt.ts";

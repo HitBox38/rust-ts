@@ -13,8 +13,10 @@ import type { TyCtxt } from "../../context.ts";
 import type { GenericArg } from "../../generic_args.ts";
 import type { List } from "../../list.ts";
 import type { Ty } from "../../mod.ts";
-import { PRINT_OK, type PrintResult } from "../mod.ts";
+// Load order: pretty.ts before print/mod.ts. print/mod.ts re-exports pretty.ts, whose `PrettyPrinter` extends print/mod.ts's
+// `Printer`, so the cycle entered from print/mod.ts reads `Printer` before it exists (unit-parallel review N2; fixers-48).
 import { PrettyPrinter, with_crate_prefix, with_forced_impl_filename_line, with_resolve_crate_name } from "../pretty.ts";
+import { PRINT_OK, type PrintResult } from "../mod.ts";
 
 export class TestPrinter extends PrettyPrinter {
   fmt = "";

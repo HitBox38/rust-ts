@@ -62,7 +62,7 @@
 // Other cases are NOT_COVERED (with the first oracle/blessed difference), N/A (no blessed comparison,
 // with why) or ORACLE_TIMEOUT. Written to `<suite>.blessed.jsonl` and summary `blessed`.
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { availableParallelism } from "node:os";
+import { availableParallelism, loadavg } from "node:os";
 import { dirname, join } from "node:path";
 import { SUITES, irReportSuite, suite as getSuite, type Case, type Suite } from "../harness/suites.ts";
 import { isIrTier } from "./lib/ir-normal.ts";
@@ -115,9 +115,22 @@ export interface CaseResult {
    * A subject that timed out in the pool: each attempt's wall and CPU time and max RSS, for the question a status cannot
    * answer: how slow was it alone, and how much of the pool's timeout was contention (lane harness-w40, review m6-audit F1).
    * Report only: nothing reads it to decide a status. `alone` is missing past the retry cap.
+   * `load1`: the host's 1-minute load average when the pool's attempt was seen to time out, and at the start and end of the
+   * one alone, so a near-limit case lost to outside load can be told from a slowdown (lane harness-w45, review w40d-audit
+   * N1). `os.loadavg()`; always 0 on Windows.
    */
-  attempts?: { pool: Usage; alone?: Usage };
+  attempts?: { pool: Usage; alone?: Usage; load1?: RetryLoad };
 }
+
+/** `CaseResult.attempts.load1`: the 1-minute load average around a pool TIMEOUT's attempts (`aloneStart`/`aloneEnd` missing past the retry cap). */
+export interface RetryLoad {
+  pool: number;
+  aloneStart?: number;
+  aloneEnd?: number;
+}
+
+/** The host's 1-minute load average, rounded to 0.01 (`RetryLoad`). */
+const load1 = (): number => Math.round(loadavg()[0]! * 100) / 100;
 
 /** `unportedBuckets` key of an UNPORTED case whose subject printed no `rust-ts: unported:` line. */
 export const UNPORTED_NO_REASON = "(no reason printed)";
@@ -1059,7 +1072,7 @@ export async function difftest(
     }
   };
   /** Cases whose subject timed out in the parallel pool (with their oracle output). */
-  const timedOut: { c: Case; oc: Output; pool: Usage }[] = [];
+  const timedOut: { c: Case; oc: Output; pool: Usage; poolLoad: number }[] = [];
   await pool(
     chunks,
     jobs,
@@ -1086,7 +1099,7 @@ export async function difftest(
         const sc = sub.get(c.id)!;
         if (s.heavy) heavyRuns.push(heavyRun(s, c.id, oUsage.get(c.id) ?? "cached", sUsage.get(c.id)!));
         // (A heavy subject already ran alone: its TIMEOUT is not re-run.)
-        if (classify(oc, sc) === "TIMEOUT" && !s.heavy) timedOut.push({ c, oc, pool: sUsage.get(c.id)! }); // (A TIMEOUT is only ever a process of its own: see `runBatch`.)
+        if (classify(oc, sc) === "TIMEOUT" && !s.heavy) timedOut.push({ c, oc, pool: sUsage.get(c.id)!, poolLoad: load1() }); // (A TIMEOUT is only ever a process of its own: see `runBatch`.)
         else record(c, oc, sc, false);
       }
     },
@@ -1102,18 +1115,26 @@ export async function difftest(
   // case's, but a subject slower than the limit on its own still times out. Past the cap the rest keep
   // their TIMEOUT unretried (a hang on a common path would otherwise cost a timeout per case, serially).
   const retries = { retried: 0, finished: 0, notRetried: 0 };
-  for (const { c, oc, pool } of timedOut) {
+  for (const { c, oc, pool, poolLoad } of timedOut) {
     if (retries.retried >= SUBJECT_TIMEOUT_RETRY_CAP) {
       retries.notRetried++;
-      record(c, oc, { text: "", code: 0, timedOut: true }, false, { pool });
+      record(c, oc, { text: "", code: 0, timedOut: true }, false, { pool, load1: { pool: poolLoad } });
       continue;
     }
     if (!opts.quiet) process.stderr.write(`\r${s.name}: re-running subject timeout ${retries.retried + 1}/${Math.min(timedOut.length, SUBJECT_TIMEOUT_RETRY_CAP)} alone`);
     retries.retried++;
     const aloneUsage = new Map<string, Usage>();
-    const sc = (await withSuiteCaseLock(s, c, () => runSubject(s, [c], impl, stats, aloneUsage))).get(c.id)!;
+    let aloneStart = 0;
+    // Sampled inside the case lock, so a wait for another difftest of the case is not in it.
+    const sc = (
+      await withSuiteCaseLock(s, c, async () => {
+        aloneStart = load1();
+        return await runSubject(s, [c], impl, stats, aloneUsage);
+      })
+    ).get(c.id)!;
+    const aloneEnd = load1();
     if (!sc.timedOut) retries.finished++;
-    record(c, oc, sc, true, { pool, alone: aloneUsage.get(c.id)! });
+    record(c, oc, sc, true, { pool, alone: aloneUsage.get(c.id)!, load1: { pool: poolLoad, aloneStart, aloneEnd } });
   }
   if (!opts.quiet && retries.retried) process.stderr.write("\n");
   /** Split suites: ids of the sections only the subject printed (see the header). */

@@ -14,6 +14,10 @@ import type { Session } from "../rustc_session/session.ts";
 import { LocalExpnId, SyntaxContext, Transparency } from "../rustc_span/hygiene.ts";
 import { DUMMY_SP, Span } from "../rustc_span/lib.ts";
 import { Ident, Symbol, sym } from "../rustc_span/symbol.ts";
+// Load order: rustc_target through its crate root first. spec/mod.ts imports lib.ts, which evaluates spec/json.ts and
+// target_features.ts, and both read spec/mod.ts's bindings at their top level: entered from spec/mod.ts, the cycle reads `Os`
+// before it exists (lanes unit-parallel, fixers-48).
+import "../rustc_target/lib.ts";
 import { PanicStrategy } from "../rustc_target/spec/mod.ts";
 import { unwrap } from "../std/panic.ts";
 import * as diagnostics from "./diagnostics.ts";

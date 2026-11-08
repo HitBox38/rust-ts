@@ -11,6 +11,10 @@ import { type OutputFilenames, std_print } from "../rustc_session/config.ts";
 import type { CrateType } from "../rustc_structures/crate_type.ts";
 import { TargetTuple } from "../rustc_target/spec/tuple.ts";
 import { TARGET_CONFIGS } from "./target_config.gen.ts";
+// Load order: rustc_target through its crate root first. spec/mod.ts imports lib.ts, which evaluates spec/json.ts and
+// target_features.ts, and both read spec/mod.ts's bindings at their top level: entered from spec/mod.ts, the cycle reads `Os`
+// before it exists (lanes unit-parallel, fixers-48).
+import "../rustc_target/lib.ts";
 import { SanitizerSet } from "../rustc_target/spec/mod.ts";
 import { sym } from "../rustc_span/symbol.ts";
 import { unported } from "../std/panic.ts";

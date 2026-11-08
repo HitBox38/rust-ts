@@ -116,6 +116,10 @@ import type { EarlyBinder } from "../../rustc_type_ir/binder.ts";
 import { always_storage_live_locals } from "../../rustc_mir_dataflow/impls/storage_liveness.ts";
 import { type DefId, DefId_eq } from "../../rustc_span/def_id.ts";
 import { bug, span_bug } from "../../rustc_span/macros.ts";
+// Load order: rustc_target through its crate root first. spec/mod.ts imports lib.ts, which evaluates spec/json.ts and
+// target_features.ts, and both read spec/mod.ts's bindings at their top level: entered from spec/mod.ts, the cycle reads `Os`
+// before it exists (lanes unit-parallel, fixers-48).
+import "../../rustc_target/lib.ts";
 import { PanicStrategy } from "../../rustc_target/spec/mod.ts";
 import { PLAIN } from "../../std/fmt.ts";
 import type { MutRef } from "../../std/mut_ref.ts";

@@ -33,6 +33,10 @@ import type { CrateType } from "../../rustc_structures/crate_type.ts";
 import * as rustc_symbol_mangling from "../../rustc_symbol_mangling/lib.ts";
 import { is_offload_kernel, mangle_internal_symbol } from "../../rustc_symbol_mangling/lib.ts";
 import type { ArgAbi } from "../../rustc_target/callconv/mod.ts";
+// Load order: rustc_target through its crate root first. spec/mod.ts imports lib.ts, which evaluates spec/json.ts and
+// target_features.ts, and both read spec/mod.ts's bindings at their top level: entered from spec/mod.ts, the cycle reads `Os`
+// before it exists (lanes unit-parallel, fixers-48).
+import "../../rustc_target/lib.ts";
 import { Arch, BinaryFormat } from "../../rustc_target/spec/mod.ts";
 import type { EarlyBinder } from "../../rustc_type_ir/binder.ts";
 import { EarlyBinder as EarlyBinderC } from "../../rustc_type_ir/binder.ts";

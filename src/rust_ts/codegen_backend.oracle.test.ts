@@ -12,6 +12,10 @@ import { join } from "node:path";
 import { DATA, PIN } from "../../scripts/lib/common.ts";
 import { compiler_entrypoint } from "../rustc_driver_impl/lib.ts";
 import { type Config, run_compiler } from "../rustc_interface/interface.ts";
+// Load order: rustc_target through its crate root first. spec/mod.ts imports lib.ts, which evaluates spec/json.ts and
+// target_features.ts, and both read spec/mod.ts's bindings at their top level: entered from spec/mod.ts, the cycle reads `Os`
+// before it exists (lanes unit-parallel, fixers-48).
+import "../rustc_target/lib.ts";
 import { Target } from "../rustc_target/spec/mod.ts";
 import { TargetTuple } from "../rustc_target/spec/tuple.ts";
 import { sym } from "../rustc_span/symbol.ts";

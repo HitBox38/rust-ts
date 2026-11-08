@@ -12,10 +12,15 @@
 // A file the compiler did not write prints `<kind>: none`, so a build that stops `unported` in the linker still reports its
 // rmeta. The exit code is the compiler's (128 + signal if it was killed). The last two lines compare with the finished
 // Miri sysroot under `$RUST_TS_DATA/miri-sysroot`, the suite's point; on the oracle side they say whether replaying the
-// recorded argv reproduces it. The out dir is this run's own, `<crate>/<side>.run-<pid>`: two runs of one crate and side at once,
+// recorded argv reproduces it. The out dir is this run's own, `<crate>/<side>.run-<ns>-<pid>`: two runs of one crate and side at once,
 // from two worktrees, would otherwise remove and fill one directory (review miri-sysroot F2). It is removed afterwards unless a sysroot
 // line says `differs`, and then kept for diagnosis as `<crate>/<side>`, replacing the last one kept: core's rmeta is 69 MB.
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+// A run removes the leftovers of its crate and side whose pid is gone, but only those of its own pid namespace: `<ns>` (`pidNamespace`)
+// names the host and, on Linux, its boot and pid namespace, so a run in a VM or container that shares `$RUST_TS_DATA` never judges
+// another namespace's pid (review root-w42-check N6). Another namespace's leftovers, and those named before `<ns>` existed
+// (`<side>.run-<pid>`), stay until removed by hand: a leak, never the loss of a live run's directory.
+import { existsSync, mkdirSync, readdirSync, readFileSync, readlinkSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { hostname } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { DATA } from "./lib/common.ts";
 import { miriTargetLibDir } from "./lib/miri.ts";
@@ -83,18 +88,50 @@ function pidAlive(pid: number): boolean {
   }
 }
 
+/** A file's text, trimmed, or "" if it cannot be read (no such file off Linux). */
+function readOr(path: string): string {
+  try {
+    return readFileSync(path, "utf8").trim();
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * This process's pid namespace, as 12 hex digits of a hash: the host name, and on Linux the boot id and the pid namespace's
+ * inode (`/proc/self/ns/pid`), so a VM (another boot) and a container (another namespace, often the same boot) differ from
+ * the host. Off Linux there are no pid namespaces, and the host name stands for the kernel. A host name that changes (a
+ * macOS name from DHCP) only leaks the older leftovers.
+ */
+export function pidNamespace(): string {
+  let ns = "";
+  try {
+    ns = readlinkSync("/proc/self/ns/pid");
+  } catch {
+    // Not Linux.
+  }
+  return sha256([hostname(), readOr("/proc/sys/kernel/random/boot_id"), ns].join("\0")).slice(0, 12);
+}
+
+/** The names in `names` of this side's run directories of namespace `ns` whose pid is gone (see the header). */
+export function staleRunDirs(names: readonly string[], side: string, ns: string, alive: (pid: number) => boolean = pidAlive): string[] {
+  const prefix = `${side}.run-${ns}-`;
+  return names.filter((name) => {
+    if (!name.startsWith(prefix)) return false;
+    const pid = Number(name.slice(prefix.length));
+    return /^[1-9]\d*$/.test(name.slice(prefix.length)) && Number.isSafeInteger(pid) && !alive(pid);
+  });
+}
+
 export async function miriSysrootRun(a: MiriSysrootRunArgs): Promise<number> {
   const kept = join(DATA, "rmeta", "miri-sysroot", a.crate, a.side);
-  const out = `${kept}.run-${process.pid}`;
-  // A leftover of a killed run with this pid: no live run can have it. Nor any whose pid is gone (review harness-w43 F2).
+  const ns = pidNamespace();
+  const out = `${kept}.run-${ns}-${process.pid}`;
+  // A leftover of a killed run with this pid: no live run can have it. Nor any whose pid is gone (review harness-w43 F2), in this
+  // pid namespace only (review root-w42-check N6).
   rmSync(out, { recursive: true, force: true });
   const dir = dirname(kept);
-  const prefix = `${basename(kept)}.run-`;
-  for (const name of existsSync(dir) ? readdirSync(dir) : []) {
-    const pid = Number(name.slice(prefix.length));
-    if (!name.startsWith(prefix) || !Number.isInteger(pid) || pid <= 0 || pidAlive(pid)) continue;
-    rmSync(join(dir, name), { recursive: true, force: true });
-  }
+  for (const name of staleRunDirs(existsSync(dir) ? readdirSync(dir) : [], basename(kept), ns)) rmSync(join(dir, name), { recursive: true, force: true });
   mkdirSync(out, { recursive: true });
   const inv = miriSysrootInvocation(a.crate, out);
   // A source the crate's build wrote and deleted (`custom_local_sysroot`'s empty `lib.rs`, in its temp directory): written when
