@@ -3,7 +3,7 @@
 // scripts/gate-probes.test.ts) it runs in a child, with RUST_TS_DATA at a temp dir; the runs and history it reads are temp
 // files, so nothing shared is read or written. See scripts/lib/deps.test.ts.
 import { afterAll, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -36,6 +36,7 @@ const flat = (x) => ({ ok: x.ok, notes: x.notes, mir: [...(x.cases.get("mir") ??
 out.missing = flat(f.nearLimitCases(["mir"], HISTORY + "\\n" + accept("g-none"), RUNS, {}));
 out.partial = flat(f.nearLimitCases(["mir", "mir-o2"], [accept("g-new"), accept("g-old")].join("\\n"), RUNS, {}));
 out.none = flat(f.nearLimitCases(["mir"], "", RUNS));
+out.known = Object.fromEntries(Object.entries(f.KNOWN_NEAR_LIMIT).map(([s, m]) => [s, Object.keys(m)]));
 out.malformed = flat(f.nearLimitCases(["mir"], "not json\\n" + HISTORY, RUNS, {}));
 // Seeds and sizes: with the exclusion, never an excluded id; without it, the same seeds and sizes pick them.
 const ids = Array.from({ length: 400 }, (_, i) => "tests/ui/c" + i + ".rs");
@@ -92,6 +93,11 @@ test("frozen lists: cases near their limit are left out of the sample, whatever 
   expect(j.partial.notes).toEqual(["the latest accepted gate run g-old records no retryTimes for mir-o2"]);
   expect(j.none.notes).toEqual(["no accepted gate run in docs/state/history.jsonl"]);
   expect(j.none.mir).toContain("tests/ui/type-alias-impl-trait/recursive-drop-elaboration.rs");
+  // Every KNOWN_NEAR_LIMIT id is a protected case of its suite: a typo would silently exclude nothing (root-w44-check N4).
+  for (const [suite, ids] of Object.entries(j.known as Record<string, string[]>)) {
+    const base = new Set(readFileSync(join(REPO, "harness", "baseline", `${suite}.txt`), "utf8").split("\n"));
+    for (const id of ids) expect(base.has(id), `${suite} ${id}`).toBe(true);
+  }
   expect(j.malformed.notes).toEqual(["docs/state/history.jsonl line 1 is not JSON; it is skipped"]);
   expect(j.malformed.mir).toEqual(["tests/ui/old-slow.rs", "tests/ui/tait.rs"]);
   // No seed and no sample size picks an excluded case; without the exclusion they do.

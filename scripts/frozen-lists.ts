@@ -17,8 +17,9 @@
 // review F5: 46 s became 62 s against a limit of 60), so a sampled near-limit case would TIMEOUT. `mir-o2` has a limit of
 // 240 s. `mir` and `check-ui` are mostly ordinary tests/ui files and auxiliary crates, but **`mir` has protected cases near
 // its limit**: the three type-alias-impl-trait cases `recursive-drop-elaboration.rs`, `recursive-drop-elaboration-2.rs`
-// and `error-tainting-issue-122904.rs` take 46-48 s of 60 alone, and time out frozen even alone (docs/reviews/w40d-audit.md
-// N2). Their margin also depends on the interned lists staying unfrozen outside tests (`0d4092c4`).
+// and `error-tainting-issue-122904.rs` took 46-48 s of 60 alone and timed out frozen even alone (docs/reviews/w40d-audit.md
+// N2); since lane perf-tait they take about 25-27 s alone, but stay left out, as frozen lists still make them about 22%
+// slower and their margin also depends on the interned lists staying unfrozen outside tests (`0d4092c4`).
 //
 // So the sample never takes a case the gate has recorded near its limit (`nearLimitCases`, lane harness-w45): every case in
 // the `retryTimes` of an accepted gate run (docs/state/history.jsonl `accept` records; `<run>/gate.json`), that is, a case
@@ -63,10 +64,10 @@ export type NearLimit = { ok: true; cases: Map<string, Map<string, string>>; run
  */
 export const KNOWN_NEAR_LIMIT: Readonly<Record<string, Readonly<Record<string, string>>>> = {
   mir: {
-    "tests/ui/type-alias-impl-trait/recursive-drop-elaboration.rs": "known: 46-48 s alone of 60 (w40d audit N1)",
-    "tests/ui/type-alias-impl-trait/recursive-drop-elaboration-2.rs": "known: 46-48 s alone of 60 (w40d audit N1)",
-    "tests/ui/type-alias-impl-trait/error-tainting-issue-122904.rs": "known: 46-48 s alone of 60 (w40d audit N1)",
-    "tests/ui/type-alias-impl-trait/hkl_forbidden.rs": "known: retried in an accepted gate (lane harness-w45)",
+    "tests/ui/type-alias-impl-trait/recursive-drop-elaboration.rs": "known: retried in accepted gates at 46-48 s alone of 60 (w40d audit N1; about 26 s since perf-tait)",
+    "tests/ui/type-alias-impl-trait/recursive-drop-elaboration-2.rs": "known: retried in accepted gates at 46-48 s alone of 60 (w40d audit N1; about 26 s since perf-tait)",
+    "tests/ui/type-alias-impl-trait/error-tainting-issue-122904.rs": "known: retried in accepted gates at 46-48 s alone of 60 (w40d audit N1; about 26 s since perf-tait)",
+    "tests/ui/type-alias-impl-trait/hkl_forbidden.rs": "known: retried in an accepted gate (its pool run timed out)",
   },
 };
 
@@ -93,7 +94,7 @@ interface RetryGate {
 
 /**
  * Every case of `suites` in the `retryTimes` of an accepted gate run under `runsDir` (see the header), keyed by suite, then
- * id, with the runs it timed out in. The latest accepted run's gate.json must exist and list every suite of `suites`.
+ * id, with the runs it timed out in, plus `known`. What cannot be read is a note (see the header), never a failure.
  */
 export function nearLimitCases(
   suites: readonly string[],
