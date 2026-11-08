@@ -24,9 +24,10 @@
 // the `retryTimes` of an accepted gate run (docs/state/history.jsonl `accept` records; `<run>/gate.json`), that is, a case
 // whose subject timed out in a gate's pool, at its limit, whatever its time alone. They are left out before sampling, so
 // no seed and no sample size can pick one. A case the gate never had to retry has no recorded time: it finished inside
-// its limit in the gate's 12-job pool every time. The latest accepted run's `gate.json` must be readable and hold every
-// sampled suite, or the step fails (it cannot tell which cases are near their limit). Accepted runs whose run directory is
-// gone (the first three, before `retryTimes` existed) add nothing.
+// its limit in the gate's 12-job pool every time. The run directories are host-local, so which cases they add depends on
+// what this host keeps: `KNOWN_NEAR_LIMIT`, committed, holds the cases known near their limit whatever the host keeps
+// (review harness-w45 F2, N4). A missing or unreadable `gate.json`, or a malformed history line, is a `note:`, never a
+// failure: a step that cannot clear without a hand restore would stop every gate after (review F2).
 // Details go to `$RUST_TS_DATA/runs/<run id>/` like any difftest run; nothing is written into the tree.
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -53,15 +54,34 @@ function protectedIds(suite: string): string[] {
 export const frozenSample = (ids: readonly string[], n: number, exclude: ReadonlyMap<string, string> | ReadonlySet<string> = new Set(), seed: string = SEED): string[] =>
   sample(ids.filter((id) => !exclude.has(id)).map((id) => ({ id })), n, seed).map((x) => x.id);
 
-/** The protected cases of `suites` the gate has recorded near their limit (see the header), with why; or one error message. */
-export type NearLimit = { ok: true; cases: Map<string, Map<string, string>>; runs: number } | { ok: false; error: string };
+/** The protected cases of `suites` near their limit (see the header), with why, and what could not be read. */
+export type NearLimit = { ok: true; cases: Map<string, Map<string, string>>; runs: number; notes: string[] };
+
+/**
+ * Cases known near their limit, kept here so that no host's run directories decide it (review harness-w45 F2). Each was
+ * retried in an accepted gate: docs/reviews/w40d-audit.md N1 for the three type-alias-impl-trait ones.
+ */
+export const KNOWN_NEAR_LIMIT: Readonly<Record<string, Readonly<Record<string, string>>>> = {
+  mir: {
+    "tests/ui/type-alias-impl-trait/recursive-drop-elaboration.rs": "known: 46-48 s alone of 60 (w40d audit N1)",
+    "tests/ui/type-alias-impl-trait/recursive-drop-elaboration-2.rs": "known: 46-48 s alone of 60 (w40d audit N1)",
+    "tests/ui/type-alias-impl-trait/error-tainting-issue-122904.rs": "known: 46-48 s alone of 60 (w40d audit N1)",
+    "tests/ui/type-alias-impl-trait/hkl_forbidden.rs": "known: retried in an accepted gate (lane harness-w45)",
+  },
+};
 
 /** The gate runs `history` (docs/state/history.jsonl's text) records as accepted, oldest first. */
-export function acceptedRuns(history: string): string[] {
+export function acceptedRuns(history: string, notes: string[] = []): string[] {
   const out: string[] = [];
-  for (const line of history.split("\n")) {
+  for (const [i, line] of history.split("\n").entries()) {
     if (!line.trim()) continue;
-    const r = JSON.parse(line) as { kind?: string; data?: { runId?: unknown } };
+    let r: { kind?: string; data?: { runId?: unknown } };
+    try {
+      r = JSON.parse(line) as typeof r;
+    } catch {
+      notes.push(`docs/state/history.jsonl line ${i + 1} is not JSON; it is skipped`);
+      continue;
+    }
     if (r.kind === "accept" && typeof r.data?.runId === "string") out.push(r.data.runId);
   }
   return out;
@@ -75,28 +95,35 @@ interface RetryGate {
  * Every case of `suites` in the `retryTimes` of an accepted gate run under `runsDir` (see the header), keyed by suite, then
  * id, with the runs it timed out in. The latest accepted run's gate.json must exist and list every suite of `suites`.
  */
-export function nearLimitCases(suites: readonly string[], history: string, runsDir: string): NearLimit {
-  const runs = acceptedRuns(history);
+export function nearLimitCases(
+  suites: readonly string[],
+  history: string,
+  runsDir: string,
+  known: Readonly<Record<string, Readonly<Record<string, string>>>> = KNOWN_NEAR_LIMIT,
+): NearLimit {
+  const notes: string[] = [];
+  const runs = acceptedRuns(history, notes);
   const latest = runs.at(-1);
-  if (latest === undefined) return { ok: false, error: "no accepted gate run in docs/state/history.jsonl" };
-  const cases = new Map<string, Map<string, string>>(suites.map((s) => [s, new Map()]));
+  if (latest === undefined) notes.push("no accepted gate run in docs/state/history.jsonl");
+  const cases = new Map<string, Map<string, string>>(suites.map((s) => [s, new Map(Object.entries(known[s] ?? {}))]));
   let read = 0;
   for (const runId of runs) {
     const p = join(runsDir, runId, "gate.json");
     if (!existsSync(p)) {
-      if (runId === latest) return { ok: false, error: `the latest accepted gate run's ${p} is missing, so the cases it recorded near their limit are unknown` };
+      if (runId === latest) notes.push(`the latest accepted gate run's ${p} is missing: only KNOWN_NEAR_LIMIT and older runs are left out`);
       continue;
     }
     let g: RetryGate;
     try {
       g = JSON.parse(readFileSync(p, "utf8")) as RetryGate;
     } catch (e) {
-      return { ok: false, error: `cannot read ${p}: ${e instanceof Error ? e.message : String(e)}` };
+      notes.push(`cannot read ${p} (${e instanceof Error ? e.message : String(e)}); it adds nothing`);
+      continue;
     }
     read++;
     if (runId === latest) {
       const missing = suites.filter((s) => !g.suites?.some((x) => x.suite === s && Array.isArray(x.retryTimes)));
-      if (missing.length) return { ok: false, error: `the latest accepted gate run ${runId} records no retryTimes for ${missing.join(", ")}` };
+      if (missing.length) notes.push(`the latest accepted gate run ${runId} records no retryTimes for ${missing.join(", ")}`);
     }
     for (const s of g.suites ?? []) {
       const m = cases.get(s.suite);
@@ -109,16 +136,13 @@ export function nearLimitCases(suites: readonly string[], history: string, runsD
       }
     }
   }
-  return { ok: true, cases, runs: read };
+  return { ok: true, cases, runs: read, notes };
 }
 
 export async function frozenLists(runId: string, perSuite: number, seed: string = SEED): Promise<number> {
   const historyPath = join(REPO, "docs", "state", "history.jsonl");
   const near = nearLimitCases(SUITES, existsSync(historyPath) ? readFileSync(historyPath, "utf8") : "", RUNS);
-  if (!near.ok) {
-    console.log(`ERROR: frozen lists: ${near.error}; the sample could take a protected case near its limit`);
-    return 1;
-  }
+  for (const n of near.notes) console.log(`note: frozen lists: ${n}`);
   // Every subject difftest starts inherits it (scripts/lib/env.ts keeps `RUST_TS_*`).
   process.env.RUST_TS_FREEZE_LISTS = "1";
   const started = performance.now();
@@ -146,7 +170,7 @@ export async function frozenLists(runId: string, perSuite: number, seed: string 
   }
   const secs = ((performance.now() - started) / 1000).toFixed(0);
   console.log(`frozen lists: ${match}/${total} protected cases of ${SUITES.join(", ")} MATCH with RUST_TS_FREEZE_LISTS=1 (${secs} s; run ${runId}${seed === SEED ? "" : `; seed ${seed}`})`);
-  console.log(`frozen lists: left out ${excluded.length} protected case(s) near their limit (in the retryTimes of ${near.runs} accepted gate run(s))${excluded.length ? `: ${excluded.join(", ")}` : ""}`);
+  console.log(`frozen lists: left out ${excluded.length} protected case(s) near their limit (KNOWN_NEAR_LIMIT and the retryTimes of ${near.runs} accepted gate run(s))${excluded.length ? `: ${excluded.join(", ")}` : ""}`);
   for (const e of errors.slice(0, 20)) console.log(e);
   if (errors.length > 20) console.log(`ERROR: frozen lists: ${errors.length - 20} more`);
   return errors.length === 0 ? 0 : 1;

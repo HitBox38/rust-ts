@@ -30,11 +30,13 @@ const HISTORY = ${JSON.stringify(HISTORY)};
 const accept = (runId) => JSON.stringify({ ts: "t", kind: "accept", msg: "m", data: { runId, suites: {} } });
 const out = {};
 out.accepted = f.acceptedRuns(HISTORY);
-const r = f.nearLimitCases(["mir", "mir-o2", "check-ui"], HISTORY, RUNS);
-out.near = r.ok ? { ok: true, runs: r.runs, cases: [...r.cases].map(([s, m]) => [s, [...m]]) } : r;
-out.missing = f.nearLimitCases(["mir"], HISTORY + "\\n" + accept("g-none"), RUNS);
-out.partial = f.nearLimitCases(["mir", "mir-o2"], [accept("g-new"), accept("g-old")].join("\\n"), RUNS);
-out.none = f.nearLimitCases(["mir"], "", RUNS);
+const r = f.nearLimitCases(["mir", "mir-o2", "check-ui"], HISTORY, RUNS, {});
+out.near = { ok: r.ok, runs: r.runs, notes: r.notes, cases: [...r.cases].map(([s, m]) => [s, [...m]]) };
+const flat = (x) => ({ ok: x.ok, notes: x.notes, mir: [...(x.cases.get("mir") ?? new Map()).keys()] });
+out.missing = flat(f.nearLimitCases(["mir"], HISTORY + "\\n" + accept("g-none"), RUNS, {}));
+out.partial = flat(f.nearLimitCases(["mir", "mir-o2"], [accept("g-new"), accept("g-old")].join("\\n"), RUNS, {}));
+out.none = flat(f.nearLimitCases(["mir"], "", RUNS));
+out.malformed = flat(f.nearLimitCases(["mir"], "not json\\n" + HISTORY, RUNS, {}));
 // Seeds and sizes: with the exclusion, never an excluded id; without it, the same seeds and sizes pick them.
 const ids = Array.from({ length: 400 }, (_, i) => "tests/ui/c" + i + ".rs");
 const exclude = new Map(ids.filter((_, i) => i % 37 === 5).map((id) => [id, "slow"]));
@@ -69,6 +71,7 @@ test("frozen lists: cases near their limit are left out of the sample, whatever 
   expect(j.near).toEqual({
     ok: true,
     runs: 2,
+    notes: [],
     cases: [
       [
         "mir",
@@ -81,11 +84,16 @@ test("frozen lists: cases near their limit are left out of the sample, whatever 
       ["check-ui", []],
     ],
   });
-  // The latest accepted run must be readable and hold every sampled suite (g-old has no mir-o2).
-  expect(j.missing.ok).toBe(false);
-  expect(j.missing.error).toContain("the latest accepted gate run's");
-  expect(j.partial).toEqual({ ok: false, error: "the latest accepted gate run g-old records no retryTimes for mir-o2" });
-  expect(j.none).toEqual({ ok: false, error: "no accepted gate run in docs/state/history.jsonl" });
+  // What cannot be read is a note, never a failure (review harness-w45 F2): a missing latest run keeps the older runs' cases,
+  // a run without a suite's retryTimes says so, no history at all keeps KNOWN_NEAR_LIMIT, a malformed line is skipped (N5).
+  expect(j.missing.ok).toBe(true);
+  expect(j.missing.notes.join(" ")).toContain("the latest accepted gate run's");
+  expect(j.missing.mir).toEqual(["tests/ui/old-slow.rs", "tests/ui/tait.rs"]);
+  expect(j.partial.notes).toEqual(["the latest accepted gate run g-old records no retryTimes for mir-o2"]);
+  expect(j.none.notes).toEqual(["no accepted gate run in docs/state/history.jsonl"]);
+  expect(j.none.mir).toContain("tests/ui/type-alias-impl-trait/recursive-drop-elaboration.rs");
+  expect(j.malformed.notes).toEqual(["docs/state/history.jsonl line 1 is not JSON; it is skipped"]);
+  expect(j.malformed.mir).toEqual(["tests/ui/old-slow.rs", "tests/ui/tait.rs"]);
   // No seed and no sample size picks an excluded case; without the exclusion they do.
   expect(j.sizes.excluded).toBeGreaterThan(5);
   expect(j.sizes.picked).toBe(0);

@@ -67,7 +67,8 @@ test("a pool timeout records each attempt; statuses are what they were", () => {
     expect(Object.keys(loads(row))).toEqual(["pool", "aloneStart", "aloneEnd"]);
     for (const v of Object.values(loads(row))) {
       expect(Number.isFinite(v) && v >= 0).toBe(true);
-      expect(Math.round(v * 100)).toBe(v * 100);
+      // Two decimals: `19.01 * 100` is 1901.0000000000002 in floating point, so compare with a tolerance (review harness-w45 F1).
+      expect(Math.abs(Math.round(v * 100) - v * 100)).toBeLessThan(1e-6);
     }
   }
   if (process.platform !== "win32") expect(Object.values(loads(once)).some((v) => v > 0)).toBe(true);
