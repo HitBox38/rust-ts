@@ -375,6 +375,13 @@ export const StandardSection = {
   },
 };
 
+/** PORT: upstream's `pub(crate) struct RelocationInternal`, reduced to the fields `macho_write` reads to size the relocations
+ * (`subtractor: Option<SymbolId>`, `addend: i64`). `add_relocation` is not ported, so none is ever made. */
+export interface RelocationInternal {
+  subtractor: number | undefined;
+  addend: bigint;
+}
+
 /// An identifier used to reference a section.
 export type SectionId = number & { readonly __brand: "write::SectionId" };
 
@@ -385,7 +392,7 @@ export class Section {
   /** PORT: `Cow<'a, [u8]>`, which is always owned here. */
   data: Uint8Array = new Uint8Array(0);
   /** PORT: `Vec<RelocationInternal>`, always empty: `add_relocation` is not ported. */
-  relocations: never[] = [];
+  relocations: RelocationInternal[] = [];
   /// Section flags that are specific to each file format.
   flags: SectionFlags = SectionFlags.None;
 
