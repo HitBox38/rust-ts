@@ -1074,10 +1074,11 @@ export async function difftest(
         ? typeof miriTemp === "string"
           ? await withCaseLock(`${miriTemp}.lock`, caseLockHoldMs(s), heavySides)
           : await heavySides()
-        : s.irTier
+        : s.irTier || s.caseLock
           ? // Its sides compile at one work directory under a lock (scripts/ir-run.ts): together, a wait for the other would
             // count against this side's own limit, and a first run of a new key gives false TIMEOUTs (review harness-w42 F1).
             // Another difftest of the case waits here, outside both limits (`Suite.caseLock`, review root-w41-check N3).
+            // A suite with a case lock and no IR tier (`host-rlib`: one fixed directory per case) runs its sides the same way.
             await withSuiteCaseLock(s, chunk[0]!, async () => [await runOracle(s, chunk), await runSubject(s, chunk, impl, stats, sUsage)] as const)
           : await Promise.all([runOracle(s, chunk), runSubject(s, chunk, impl, stats, sUsage)]);
       for (const c of chunk) {

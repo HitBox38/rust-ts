@@ -239,3 +239,31 @@ console.log(JSON.stringify({ status: r.status, retried: r.retried === true, left
     expect(JSON.parse(r.stdout.toString().trim().split("\n").at(-1)!)).toEqual({ status: "MATCH", retried: true, left: false });
   });
 }, 120_000);
+
+test("a suite with a caseLock and no IR tier runs a case's two sides one after the other (lane harness-w44, `host-rlib`)", async () => {
+  await inTemp(async (dir) => {
+    // The oracle marks itself running for 1.5 s and always prints "alone"; the subject looks for that mark 0.5 s after it starts and
+    // prints whether it saw it, so sides run at once give a DIFF.
+    const child = `
+const { writeFileSync, readFileSync } = await import("node:fs");
+const { join } = await import("node:path");
+const d = await import(${JSON.stringify(join(import.meta.dir, "..", "difftest.ts"))});
+const { SUITES } = await import(${JSON.stringify(join(import.meta.dir, "..", "..", "harness", "suites.ts"))});
+const { RUNS } = await import(${JSON.stringify(join(import.meta.dir, "common.ts"))});
+const TMP = ${JSON.stringify(dir)};
+const STUB = join(TMP, "stub.mjs");
+writeFileSync(STUB, \`import { existsSync, rmSync, writeFileSync } from "node:fs";
+const me = process.argv[2];
+if (me === "oracle") { writeFileSync(\${JSON.stringify(TMP)} + "/oracle.running", ""); await Bun.sleep(1500); rmSync(\${JSON.stringify(TMP)} + "/oracle.running"); console.log("alone"); }
+else { await Bun.sleep(500); console.log(existsSync(\${JSON.stringify(TMP)} + "/oracle.running") ? "together" : "alone"); }\`);
+SUITES.push({ name: "case-lock-seq", milestone: "test", description: "", mode: "single", cwd: TMP, timeoutMs: 30000, caseLock: () => join(TMP, "locks", "c.case.lock"), cases: () => [{ id: "c", file: "", args: [] }], oracle: () => [process.execPath, STUB, "oracle"], subject: () => [process.execPath, STUB, "subject"] });
+await d.difftest({ suite: "case-lock-seq", runId: "run-case-lock-seq", quiet: true, jobs: 1 });
+console.log(JSON.parse(readFileSync(join(RUNS, "run-case-lock-seq", "case-lock-seq.jsonl"), "utf8").trim()).status);
+`;
+    mkdirSync(join(dir, "rust", "compiler"), { recursive: true });
+    Bun.spawnSync(["git", "init", "-q", join(dir, "rust")]);
+    const r = Bun.spawnSync([process.execPath, "-e", child], { env: { ...process.env, RUST_TS_DATA: dir }, stdout: "pipe", stderr: "pipe" });
+    expect(r.exitCode, r.stderr.toString() + r.stdout.toString()).toBe(0);
+    expect(r.stdout.toString().trim().split("\n").at(-1)).toBe("MATCH");
+  });
+}, 60_000);

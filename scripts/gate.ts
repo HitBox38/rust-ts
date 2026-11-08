@@ -26,7 +26,7 @@
 // when a run starts (or it stops with `ERROR:`), and a run fails if a suite changes it (scripts/lib/upstream.ts).
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
-import { IR_RUN, MIRI_SYSROOT_RUN, RG_CHECK, RMETA_RUN, SUITES, suite as getSuite, type Suite } from "../harness/suites.ts";
+import { HOST_RLIB_RUN, IR_RUN, MIRI_SYSROOT_RUN, RG_CHECK, RMETA_RUN, SUITES, suite as getSuite, type Suite } from "../harness/suites.ts";
 import { difftest, heavyErrorLines, heavyLine, unstableOf, type HeavyRun, type OracleRerun, type Usage } from "./difftest.ts";
 import { REPO, RUNS, UPSTREAM, die, ensureDir, nowId, parseArgs, run } from "./lib/common.ts";
 import { HostLog, REAL_HOST, StuckReads, batteryRefusal, sampleHost, type HostReaders, type HostSample } from "./lib/host-state.ts";
@@ -37,6 +37,7 @@ import { upstreamError, upstreamStatus } from "./lib/upstream.ts";
 import { oracleTestProbes, probeBinary, probeStaleness } from "./probes.ts";
 import { parseIrRunArgs } from "./ir-run.ts";
 import type { IrTier } from "./lib/ir-normal.ts";
+import { parseHostRlibRunArgs } from "./host-rlib-run.ts";
 import { parseMiriSysrootRunArgs } from "./miri-sysroot-run.ts";
 import { parseRmetaRunArgs } from "./rmeta-run.ts";
 import { record } from "./state.ts";
@@ -174,7 +175,7 @@ export function checkProbes(suites: string[], unitTests: boolean): boolean {
 
 /**
  * The programs an oracle command runs: its first word, except for scripts/rmeta-run.ts under Bun (the rmeta suites),
- * or scripts/miri-sysroot-run.ts
+ * or scripts/miri-sysroot-run.ts or scripts/host-rlib-run.ts
  * where it is the wrapper's compiler (the first word after its `--`) and, with `--dump`, its probe, for scripts/ir-run.ts
  * (the IR suites), its compiler, and for scripts/rg-check.ts (the check-rg suites), the oracle rustc through its cargo.
  * Throws on a malformed wrapper command line (`parseRmetaRunArgs`, `parseIrRunArgs`).
@@ -183,6 +184,7 @@ export function oracleRuns(cmd: string[]): string[] {
   if (cmd[0] === process.execPath && cmd[1] === IR_RUN) return [parseIrRunArgs(cmd.slice(2)).compiler[0]!];
   if (cmd[0] === process.execPath && cmd[1] === RG_CHECK) return ["rustc"];
   if (cmd[0] === process.execPath && cmd[1] === MIRI_SYSROOT_RUN) return [parseMiriSysrootRunArgs(cmd.slice(2)).compiler[0]!];
+  if (cmd[0] === process.execPath && cmd[1] === HOST_RLIB_RUN) return [parseHostRlibRunArgs(cmd.slice(2)).compiler[0]!];
   if (cmd[0] === process.execPath && cmd[1] === RMETA_RUN) {
     const a = parseRmetaRunArgs(cmd.slice(2));
     return [a.compiler[0]!, ...(a.dump !== undefined ? [a.dump] : [])];
