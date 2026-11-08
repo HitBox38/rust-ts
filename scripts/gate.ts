@@ -3,12 +3,8 @@
 //
 //   bun scripts/gate.ts run [--suites lex,parse] [--skip-static] [--skip-heavy]
 //       oracle check (pinned commit and components, scripts/lib/toolchain.ts) + probe check + typecheck + unit tests (src/tools, then scripts/harness in a second process;
-//       RUST_TS_REQUIRE_PROBES=1; any skipped test not in ALLOWED_SKIPS fails) + marker check + marker order of src/rustc_monomorphize/ + INFO sites
-//       (src/rust_ts/info_sites_check.ts) + frozen lists (scripts/frozen-lists.ts) + full difftest of each suite; prints lost/gained.
-//       A failed static step stops the run before the suites (lane harness-w44, review harness-w43 F7): the run cannot be accepted, so
-//       its suites would cost hours for nothing. gate.json is written with `pass: false`, no suite results, and every suite listed in
-//       `notRun`; `--skip-static` runs the suites without the static steps (and that run cannot be accepted either).
-//       It refuses to start while `RUST_TS_FREEZE_LISTS` or `NODE_ENV` is set (`freezeEnvRefusal`): every subject would inherit it.
+//       RUST_TS_REQUIRE_PROBES=1; any skipped test not in ALLOWED_SKIPS fails) + marker check + marker order of src/rustc_monomorphize/ + full difftest
+//       of each suite; prints lost/gained.
 //       Heavy suites (`Suite.heavy`, plan-m5 §4.2: core-scale runs, one process at a time) run after all the
 //       others, one after another, and print each run's wall/user time and max RSS (an RSS over the suite's budget
 //       is a `note:`, not a failure: D11). `--skip-heavy` leaves them out: they are listed as not run (`notRun` in
@@ -17,6 +13,12 @@
 //       timeout can become a false protected loss (docs/reviews/perf-near-limit.md, question c). Power lost during a run is a `note:`, never
 //       a failure. gate.json records power, load, swap and times (`host`, `SuiteGate.startedAt`...), which no status or verdict reads
 //       (scripts/lib/host-state.ts). On a host with no battery or no `pmset`, none of this does anything but record `power: null`.
+//       The static steps end with two more (lane harness-w44): INFO sites (src/rust_ts/info_sites_check.ts: every upstream INFO site
+//       in a ported fn is live or a stop) and frozen lists (scripts/frozen-lists.ts: a fixed sample of protected cases with the
+//       interned lists frozen). A failed static step stops the run before the suites (review harness-w43 F7): the run cannot be
+//       accepted, so its suites would cost hours for nothing. gate.json is written with `pass: false`, no suite results, and every
+//       suite listed in `notRun`; `--skip-static` runs the suites without the static steps (and that run cannot be accepted either).
+//       It refuses to start while `RUST_TS_FREEZE_LISTS` or `NODE_ENV` is set (`freezeEnvRefusal`): every subject would inherit it.
 //   bun scripts/gate.ts accept --run <run-id>
 //       grow the protected set with that gate run's new MATCHes. Refused if the run lost anything,
 //       skipped static checks, skipped a protected suite, ran on a dirty tree, or HEAD has moved since.
