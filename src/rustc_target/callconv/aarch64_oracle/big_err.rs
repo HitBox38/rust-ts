@@ -41,3 +41,8 @@ pub fn fn_item() -> B53 {
 // `assert_eq!` of the sizes) for a `static` of 2^53 + 1 bytes: E0080 (review fixers-46 F4).
 impl Copy for u8 {}
 pub static mut STATIC: [u8; 9007199254740993] = [0; 9007199254740993];
+
+// rustc_hir_typeck pat `check_array_pat_len`'s E0527: an array of 2^53 + 1 elements against a pattern of two (review fixers-47 F1).
+pub fn too_few(x: [u8; 9007199254740993]) {
+    let [_a, _b] = x;
+}

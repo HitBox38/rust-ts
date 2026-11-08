@@ -1319,9 +1319,9 @@ export interface FnCtxt extends Omit<TypeckRootCtxt, FnCtxt_shadowed> {
   // pat.rs:3152
   check_array_pat_len(span: Span, element_ty: Ty, arr_ty: Ty, slice: hir.Pat | undefined, len: Const, min_len: number): [Ty | undefined, Ty];
   // pat.rs:3200
-  error_scrutinee_inconsistent_length(span: Span, min_len: number, size: number): ErrorGuaranteed;
+  error_scrutinee_inconsistent_length(span: Span, min_len: bigint, size: bigint): ErrorGuaranteed;
   // pat.rs:3219
-  error_scrutinee_with_rest_inconsistent_length(span: Span, min_len: number, size: number): ErrorGuaranteed;
+  error_scrutinee_with_rest_inconsistent_length(span: Span, min_len: bigint, size: bigint): ErrorGuaranteed;
   // pat.rs:3241
   error_scrutinee_unfixed_length(span: Span): ErrorGuaranteed;
   // pat.rs:3251

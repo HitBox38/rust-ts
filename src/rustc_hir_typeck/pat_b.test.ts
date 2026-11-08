@@ -92,8 +92,8 @@ function pat_info(tcx: TyCtxt, binding_mode: ByRef = ByRef.No): PatInfo {
 test_("pat.rs:3200/3219/3241: array length errors (messages, codes, labels)", () => {
   const { em, dcx } = mk_dcx();
   const fcx = { dcx: () => dcx.handle() };
-  call("error_scrutinee_inconsistent_length", fcx, sp(0, 5), 1, 3);
-  call("error_scrutinee_with_rest_inconsistent_length", fcx, sp(0, 5), 4, 1);
+  call("error_scrutinee_inconsistent_length", fcx, sp(0, 5), 1n, 3n);
+  call("error_scrutinee_with_rest_inconsistent_length", fcx, sp(0, 5), 4n, 1n);
   call("error_scrutinee_unfixed_length", fcx, sp(0, 5));
   expect(em.out.map((d) => format_diag_messages(d.messages, d.args))).toEqual([
     "pattern requires 1 element but array has 3",
