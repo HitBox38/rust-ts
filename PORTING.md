@@ -144,10 +144,12 @@ globals. Equality is `===`, maps key on them directly. `newtype_index!` types ge
 format, e.g. `NodeId(4294967040)`).
 
 **Hash-consed type-system values** (`Interned<'tcx, T>` and the lists): `Ty`, `Region`, `Const`, `Predicate`/
-`Clause`, `ValTree`, `Pattern`, `AdtDef`, ... and `&'tcx List<T>` are **frozen class instances, unique per
-value**, made only by the `CtxtInterners` of `TyCtxt` (rustc_middle ty/context.ts). Each extends
-`rustc_data_structures/intern.ts`'s `Interned` (lists: `RawList`, a frozen `Array` subclass, so a `List<T>` is a
-`readonly T[]`) and carries a sequential `id`: what `hash_Interned` writes and what memo tables key on, so it is not free to change. Equality is `===`, `Map`/`Set` key on
+`Clause`, `ValTree`, `Pattern`, `AdtDef`, ... and `&'tcx List<T>` are **class instances, unique per value, never
+written after interning**, made only by the `CtxtInterners` of `TyCtxt` (rustc_middle ty/context.ts). Each extends
+`rustc_data_structures/intern.ts`'s `Interned` (lists: `RawList`, an `Array` subclass, so a `List<T>` is a
+`readonly T[]`; it is frozen only under `bun test`, the alias checker and `RUST_TS_FREEZE_LISTS=1`, which the gate's
+`frozen lists` step uses, as frozen arrays are slow in JSC; elsewhere a stray write does not throw, so those must catch it,
+and the in-place Array methods panic everywhere) and carries a sequential `id`: what `hash_Interned` writes and what memo tables key on, so it is not free to change. Equality is `===`, `Map`/`Set` key on
 the object, methods live on the prototype (`ty.kind()`); `Interned` has no `Ord`, so nothing orders on them.
 Interning is upstream's table where it is hot: a hash that only picks the bucket, then `==` on the stored value, with no
 key string (`intern_value`/`intern_slice`, rustc_data_structures/sharded.ts; `value_hash`/`value_eq`, rust_ts/intern_key.ts:

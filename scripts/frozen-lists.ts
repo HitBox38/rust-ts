@@ -56,7 +56,7 @@ export async function frozenLists(runId: string, perSuite: number): Promise<numb
       total++;
       const r = byId.get(id);
       if (r?.status === "MATCH") match++;
-      else errors.push(`ERROR: frozen lists: ${suite} ${id}: ${r === undefined ? "no longer a case of the suite" : `${r.status}${r.first ? ` at ${r.first}` : ""}${r.unported ? ` (${r.unported})` : ""}${r.status === "TIMEOUT" ? "; frozen lists read about 10x slower, so a protected case near its limit can time out here: exclude it in scripts/frozen-lists.ts, or change the seed" : ""}`}`);
+      else errors.push(`ERROR: frozen lists: ${suite} ${id}: ${r === undefined ? "no longer a case of the suite" : `${r.status}${r.first ? ` at ${r.first}` : ""}${r.unported ? ` (${r.unported})` : ""}${r.status === "TIMEOUT" ? "; frozen lists make a whole case run about 22-35% longer, so a protected case near its limit can time out here: change the sample's seed, or exclude the case (a reviewed scripts/ change)" : ""}`}`);
     }
   }
   const secs = ((performance.now() - started) / 1000).toFixed(0);

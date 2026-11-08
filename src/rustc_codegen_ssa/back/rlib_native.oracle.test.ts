@@ -64,7 +64,8 @@ function sess(llvm_target: string, arch: string, archive_format: string, macho: 
     os: { $: macho ? "MacOs" : "Linux" },
     env: { $: macho ? "Unspecified" : "Gnu" },
     arch: { $: arch },
-    options: { archive_format, endian: "Little", binary_format: macho ? "MachO" : "Elf", is_like_darwin: macho, is_like_wasm: false },
+    // `os` and `env` at both levels: `create_object_file` reads them from `options` (`elf_os_abi`), others from the target.
+    options: { archive_format, endian: "Little", binary_format: macho ? "MachO" : "Elf", is_like_darwin: macho, is_like_wasm: false, os: { $: macho ? "MacOs" : "Linux" }, env: { $: macho ? "Unspecified" : "Gnu" } },
     object_architecture: () => [arch === "AArch64" ? "Aarch64" : "X86_64", undefined],
   } as unknown as Target;
   return {
@@ -136,10 +137,13 @@ test("the foo/baz rlibs' rmeta-link records list two unpacked native libraries, 
     const record = RmetaLink.decode(section(link, ".rmeta-link"));
     expect([record?.rust_object_files, record?.native_lib_filenames]).toEqual([[], [undefined, undefined]]);
   }
-  const [, [, link]] = members(RLIB_HOST_FOO_BAZ) as [[string, Uint8Array], [string, Uint8Array]];
-  const written = [...create_wrapper_file(HOST, ".rmeta-link", new RmetaLink([], [undefined, undefined]).encode())[0]];
-  while (written.length % 8 !== 0) written.push(0x0a);
-  expect(written).toEqual([...link]);
+  // A darwin archive pads a member to 8 bytes, a GNU one to 2, with `\n` (root-w43-check N2: the ELF wrapper too).
+  for (const [sess, rlib, align] of [[HOST, RLIB_HOST_FOO_BAZ, 8], [ELF, RLIB_ELF_FOO_BAZ, 2]] as const) {
+    const [, [, link]] = members(rlib) as [[string, Uint8Array], [string, Uint8Array]];
+    const written = [...create_wrapper_file(sess, ".rmeta-link", new RmetaLink([], [undefined, undefined]).encode())[0]];
+    while (written.length % align !== 0) written.push(0x0a);
+    expect(written).toEqual([...link]);
+  }
 });
 
 test("add_archive of two Mach-O archives with the same member names rebuilds the host rlib", () => {
