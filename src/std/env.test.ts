@@ -90,6 +90,48 @@ test.skipIf(process.platform === "win32")("current_dir and set_current_dir past 
   }
 });
 
+// `fs::canonicalize` is `realpath(3)` on the path's bytes (docs/reviews/fixers-45.md F1): in a cwd of 1,015 bytes, a short relative path
+// resolves, where joining it to the cwd first gave `ENAMETOOLONG`. The answers are those of `std::fs::canonicalize` from the oracle
+// toolchain in the same layout (docs/handoff/fixers-47.md). In a child, as it changes the cwd.
+test.skipIf(process.platform === "win32")("host_canonicalize resolves a relative path against a cwd near PATH_MAX", () => {
+  const dir = mkdtempSync(join(tmpdir(), "rust-ts-canon-"));
+  try {
+    const script = `
+      import { mkdirSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
+      import { current_dir_str, set_current_dir } from ${JSON.stringify(join(import.meta.dir, "env.ts"))};
+      import { host_canonicalize } from ${JSON.stringify(join(import.meta.dir, "path.ts"))};
+      import { debug_IoError } from ${JSON.stringify(join(import.meta.dir, "io.ts"))};
+      import { PLAIN } from ${JSON.stringify(join(import.meta.dir, "fmt.ts"))};
+      const cwd = () => { const r = current_dir_str(); if (r.$ === "Err") throw new Error(); return r._0; };
+      const canon = (p) => { const r = host_canonicalize(p); return r.$ === "Ok" ? r._0 : debug_IoError(r._0, PLAIN); };
+      mkdirSync("short");
+      writeFileSync("short/f", "");
+      const short = realpathSync("short");
+      while (cwd().length + 201 < 1015) { mkdirSync("d".repeat(200)); if (set_current_dir("d".repeat(200)).$ !== "Ok") throw new Error(); }
+      const last = "e".repeat(1015 - cwd().length - 1);
+      mkdirSync(last);
+      if (set_current_dir(last).$ !== "Ok") throw new Error();
+      symlinkSync(short, "link");
+      const out = [cwd().length, canon("link/f") === short + "/f", canon("link") === short, canon("link/nope"), canon(""), canon("./link/../link/f"), canon("a\\0b")];
+      console.log(JSON.stringify(out));
+    `;
+    const r = Bun.spawnSync([process.execPath, "-e", script], { cwd: dir });
+    expect(r.stderr.toString()).toBe("");
+    expect(JSON.parse(r.stdout.toString())).toEqual([
+      1015,
+      true,
+      true,
+      'Os { code: 2, kind: NotFound, message: "No such file or directory" }',
+      'Os { code: 2, kind: NotFound, message: "No such file or directory" }',
+      // `link/..` is the parent of `short`, which holds no `link`.
+      'Os { code: 2, kind: NotFound, message: "No such file or directory" }',
+      'Error { kind: InvalidInput, message: "file name contained an unexpected NUL byte" }',
+    ]);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test.skipIf(process.platform === "win32")("home_dir: HOME's bytes, and the passwd home when it is empty or unset", () => {
   // In a directory of its own: given an empty HOME, Bun makes a `Library/Caches` in the cwd.
   const dir = mkdtempSync(join(tmpdir(), "rust-ts-home-"));

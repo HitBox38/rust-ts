@@ -136,6 +136,8 @@ const open_env_libc = () =>
     sysconf: { args: [FFIType.i32], returns: FFIType.i64_fast },
     getuid: { args: [], returns: FFIType.u32 },
     getpwuid_r: { args: [FFIType.u32, FFIType.ptr, FFIType.ptr, FFIType.u64, FFIType.ptr], returns: FFIType.i32 },
+    realpath: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
+    free: { args: [FFIType.ptr], returns: FFIType.void },
   });
 let ENV_LIBC: ReturnType<typeof open_env_libc> | undefined;
 const env_libc = () => (ENV_LIBC ??= open_env_libc());
@@ -311,6 +313,23 @@ export function current_dir(): IoResult<OsString> {
 export function current_dir_str(): IoResult<string> {
   const r = current_dir();
   return r.$ === "Ok" ? Ok(lossy.decode(r._0)) : r;
+}
+
+/** `fs::canonicalize(path)` on unix: `realpath(3)` on the path's bytes, which resolves a relative path against the process
+ *  cwd (std's `run_path_with_cstr` gives an interior NUL's error first). `undefined` where libc is not read (Windows): the
+ *  caller (src/std/path.ts `host_canonicalize`) stands in. */
+// std: library/std/src/sys/fs/unix.rs:2053 canonicalize
+export function libc_canonicalize(path: string | OsString): IoResult<OsString> | undefined {
+  if (!ENV_FROM_LIBC) return undefined;
+  const p = to_cstr(path);
+  if (p === undefined) return Err({ $: "SimpleMessage", kind: "InvalidInput", message: "file name contained an unexpected NUL byte" });
+  const libc = env_libc().symbols;
+  const last_errno = errno_reader();
+  const r = libc.realpath(ptr(p), null) as Pointer | null;
+  if (r === null) return Err(io_error_from_raw_os_error(last_errno()));
+  const buf = read_cstr(r);
+  libc.free(r);
+  return Ok(buf);
 }
 
 /** `env::set_current_dir(path)`. PORT: `process.chdir` takes only a string, and where libc is not read it stands in. */
