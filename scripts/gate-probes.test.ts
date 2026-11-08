@@ -150,7 +150,9 @@ SUITES.push({ name: "stale-stub", milestone: "test", description: "", mode: "sin
 const readers = { pmset: async () => undefined, swapusage: async () => undefined, load: () => [], now: () => new Date() };
 await gateRun(["stale-stub"], true, false, false, { readers, pollMs: 60000, keepEveryMs: 3600000 });
 `;
-    const r = Bun.spawnSync([process.execPath, "-e", child], { cwd: REPO, stdout: "pipe", stderr: "pipe", env: { ...process.env, RUST_TS_DATA: data } });
+    // Without `bun test`'s NODE_ENV=test: the gate refuses to start with it (scripts/gate.ts `freezeEnvRefusal`).
+    const { NODE_ENV: _node, RUST_TS_FREEZE_LISTS: _freeze, ...inherited } = process.env;
+    const r = Bun.spawnSync([process.execPath, "-e", child], { cwd: REPO, stdout: "pipe", stderr: "pipe", env: { ...inherited, RUST_TS_DATA: data } });
     const out = r.stdout.toString() + r.stderr.toString();
     expect(r.exitCode, out).toBe(1);
     expect(out).toContain("ERROR: probe 'rmetadump' was built from other sources");

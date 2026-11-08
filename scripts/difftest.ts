@@ -876,6 +876,8 @@ export interface RunOptions {
   sample?: number;
   seed?: string;
   filter?: string;
+  /** Only the cases with these ids (single and batch mode; scripts/frozen-lists.ts). Applied before `sample`. */
+  ids?: ReadonlySet<string>;
   impl?: string;
   jobs?: number;
   batchSize?: number;
@@ -953,7 +955,7 @@ export async function difftest(
   if (s.miri) verifyMiriOracle();
   let cases = s.cases();
   const listedUnstable = unstableOf(s);
-  if (!opts.filter && !opts.sample) {
+  if (!opts.filter && !opts.sample && !opts.ids) {
     const ids = new Set(cases.map((c) => c.id));
     const stale = [...listedUnstable.keys()].filter((id) => !ids.has(id));
     if (stale.length) console.log(`note: suite ${s.name} lists ${stale.length} unstable case(s) that are not cases of it (e.g. ${stale[0]})`);
@@ -965,6 +967,10 @@ export async function difftest(
   if (s.heavy && s.mode === "batch") die(`suite ${s.name}: a batch suite cannot be heavy`);
   // A split suite's runs all run; `--filter`/`--sample` select among the cases they report (see the header).
   if (opts.filter && !split) cases = cases.filter((c) => c.id.includes(opts.filter!));
+  if (opts.ids) {
+    if (split) die(`suite ${s.name}: a split suite's cases cannot be chosen by id`);
+    cases = cases.filter((c) => opts.ids!.has(c.id));
+  }
   const skipped = (s.skipped?.() ?? []).filter((k) => !opts.filter || k.id.includes(opts.filter));
   const seed = opts.seed ?? process.env.RUST_TS_AGENT ?? "0";
   if (opts.sample && !split) cases = sample(cases, opts.sample, seed);
