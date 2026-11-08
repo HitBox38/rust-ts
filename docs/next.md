@@ -530,3 +530,13 @@ Also queued: `tests/ui/closures/supertrait-hint-cycle.rs` under `mir-heavy` (fir
 | harness-w43 | harness-w42 review N1, N2, N4, N6; root-w41 N3, N4; fixers-44 W5 (`coverage.ts --order --require-clean` for `rustc_monomorphize`); miri-sysroot review F2; the `criteria.ts` M7 group; the slowest unit tests (unit step 68% of its limit) | APPROVE WITH NITS (root fixed F1-F5; F1's last oracle call, verifyOraclePin, after root-w42-check N1); on integ-w42 |
 | object-write-macho | docs/handoff/miri-sysroot.md chained lane 1: Mach-O `Object` (write/macho.rs) and the darwin branches of `create_object_file`, for host rlibs in M7 | APPROVE WITH NITS; on integ-w42 |
 | perf-heavy | `supertrait-hint-cycle.rs` under `mir-heavy` (port timed out at 1,800 s where the oracle takes 60 s); then sysroot core's 19x and 10.9 GB if the same cause | APPROVE WITH NITS; 90fad7d0 on integ-w42, 0d4092c4 (unfrozen lists) dropped for now |
+
+## Wave 40d (started 2026-11-08) — still independent of D4
+Parallel unit trial (root, quiet machine, AC, 2026-11-08): `bun test ./src ./tools --parallel=4` took 386-402 s on three runs against 1,226 s serial, tree unchanged. With `RUST_TS_DATA` exported, as the gate's children get it, the same 5 files fail on every run, each from a module-order cycle that per-file isolation exposes: `Cannot access 'Os' before initialization` (src/rustc_metadata/rmeta/decoder_a.oracle.test.ts, root.oracle.test.ts, src/rustc_codegen_ssa/back/link.test.ts, rlib_stub.oracle.test.ts) and `'MacroKinds'` (src/rustc_hir_analysis/contract.test.ts). Without `RUST_TS_DATA` exported, workers do not read `.env.local`.
+
+| lane | scope | status |
+|---|---|---|
+| unit-parallel | fix the two cycles without changing real compile entries' module order; then the gate's src/tools unit step at `--parallel=4`, with the environment its workers need, the skip allowlist and the junit report intact | running |
+| fixers-47 | fixers-45 review F1, F2 (`host_canonicalize` by bytes), F5 (E0464 with a symlinked -L); fixers-46 review F4 (2^53 `static`, `gvn.ts` index); an invalid `MACOSX_DEPLOYMENT_TARGET` and the too-low warning at --emit=metadata; object-write-macho review N1, N2 | running |
+| harness-w44 | `info_sites_check.ts` fails loudly and becomes a gate step (fixers-45 F4, w40c audit N2); a gate step with a frozen-lists sample, then perf-heavy's 0d4092c4 re-landed; root-w42-check N4 tests; harness-w43 review F6, F7; w40c audit N4; the proposed `host-rlib` report suite | running |
+| link-rlib-native | docs/handoff/miri-sysroot.md chained lane 2: `add_archive`, `find_native_static_library`, `walk_native_lib_search_dirs`, bundled native libraries | running |
