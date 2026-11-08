@@ -59,6 +59,24 @@ describe("rustc-call", () => {
   });
 });
 
+// `Result`'s methods are free functions in the port (`unwrap_result` for upstream's `.unwrap()`; track_caller.ts `RESULT_METHODS`), so an
+// anchor on an upstream `unwrap` accepts the TS call by that name too, and only by the names the resolver maps (review root-w42-check N4).
+describe("rustc-call on a Result method", () => {
+  const NLL = "// rustc: compiler/rustc_borrowck/src/nll.rs:114 compute_regions\nfunction compute_regions() {\n";
+  const unwrap = (anchor: string, call: string) => `${NLL}  // rustc-call: ${anchor}\n  const algorithm = ${call};\n}\n`;
+  test("upstream `.unwrap()` anchored on the port's `unwrap_result(..)`", () => expect(errors(unwrap("177:60", "unwrap_result(Algorithm.from_str(a), (e) => debug_str(e))"))).toEqual([]));
+  test("upstream's own name still passes", () => expect(errors(unwrap("177:60", "Algorithm.from_str(a).unwrap()"))).toEqual([]));
+  test("another `Result` method's port name does not", () => {
+    expect(errors(unwrap("177:60", "expect_result(Algorithm.from_str(a), (e) => debug_str(e))"))[0]).toContain("the next line calls no `unwrap`");
+  });
+  test("a name that only starts like it does not", () => {
+    expect(errors(unwrap("177:60", "unwrap_resultx(Algorithm.from_str(a))"))[0]).toContain("the next line calls no `unwrap`");
+  });
+  test("the anchor must still be on the `unwrap`: 177:39, inside the path call `Algorithm::from_str`, is rejected", () => {
+    expect(errors(unwrap("177:39", "unwrap_result(Algorithm.from_str(a), (e) => debug_str(e))"))).toHaveLength(1);
+  });
+});
+
 describe("rustc-const", () => {
   test("a good marker", () => expect(errors(`// rustc-const: ${CONST}:45 ATTRIBUTES\nconst A = 1;\n`)).toEqual([]));
   test("text after the name is allowed, as `TEMPLATE = include_str!(..)` has it", () => {

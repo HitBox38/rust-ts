@@ -212,6 +212,8 @@ test("releaseHeldLocks removes the locks this process holds, and no other (revie
 test("difftest takes a suite's caseLock around both sides and around a subject's re-run (review root-w41-check N3)", async () => {
   await inTemp(async (dir) => {
     // The oracle prints whether the lock is there. The subject times out once, so it is re-run alone, then does the same.
+    // timeoutMs is 10 s, not 3: the re-run alone must start Bun and print within it, which a 3 s limit could miss at a load of 100
+    // or more (review harness-w43 F6). The pool's subject sleeps 30 s, so it still times out.
     const child = `
 const { writeFileSync, readFileSync, existsSync } = await import("node:fs");
 const { join } = await import("node:path");
@@ -225,7 +227,7 @@ const STUB = join(TMP, "stub.mjs");
 writeFileSync(STUB, \`import { existsSync, writeFileSync } from "node:fs";
 if (process.argv[2] === "subject" && !existsSync(\${JSON.stringify(ONCE)})) { writeFileSync(\${JSON.stringify(ONCE)}, ""); await Bun.sleep(30000); }
 console.log(existsSync(\${JSON.stringify(LOCK)}) ? "locked" : "unlocked");\`);
-SUITES.push({ name: "case-lock-ir", milestone: "test", description: "", mode: "single", cwd: TMP, timeoutMs: 3000, oracleTimeoutMs: 20000, irTier: "N1", caseLock: () => LOCK, cases: () => [{ id: "c", file: "", args: [] }], oracle: () => [process.execPath, STUB, "oracle"], subject: () => [process.execPath, STUB, "subject"] });
+SUITES.push({ name: "case-lock-ir", milestone: "test", description: "", mode: "single", cwd: TMP, timeoutMs: 10000, oracleTimeoutMs: 20000, irTier: "N1", caseLock: () => LOCK, cases: () => [{ id: "c", file: "", args: [] }], oracle: () => [process.execPath, STUB, "oracle"], subject: () => [process.execPath, STUB, "subject"] });
 await d.difftest({ suite: "case-lock-ir", runId: "run-case-lock-ir", quiet: true, jobs: 1 });
 const r = JSON.parse(readFileSync(join(RUNS, "run-case-lock-ir", "case-lock-ir.jsonl"), "utf8").trim());
 console.log(JSON.stringify({ status: r.status, retried: r.retried === true, left: existsSync(LOCK) }));
