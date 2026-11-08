@@ -46,7 +46,7 @@ const step = async (key, roots, files, opts = {}) => {
   const dir = fixture(files);
   const runDir = join(TMP, "run-" + key);
   mkdirSync(runDir);
-  const steps = g.unitStaticSteps({ name: "unit tests", roots, junit: "u.junit.xml", parallel: 3, ...(opts.alone ? { alone: opts.alone } : {}) }, runDir, opts.timeoutMs).map((s) => ({ ...s, cwd: dir }));
+  const steps = g.unitStaticSteps({ name: "unit tests", roots, junit: "u.junit.xml", parallel: 3, ...(opts.alone ? { alone: opts.alone } : {}) }, runDir, opts.timeoutMs).map((s) => ({ ...s, cwd: dir, ...(opts.slowNoteS === undefined ? {} : { slowNoteS: opts.slowNoteS }) }));
   if (opts.noCi) for (const s of steps) delete s.env.CI;
   const before = listing(dir);
   const lines = [];
@@ -56,11 +56,13 @@ const step = async (key, roots, files, opts = {}) => {
   const rs = [];
   try { for (const s of steps) rs.push(await g.runStaticStep(s)); } finally { console.log = log; }
   const junitFiles = (f) => [...new Set([...readFileSync(join(runDir, f), "utf8").matchAll(/<testsuite name="[^"]*" file="([^"]*)"/g)].map((m) => m[1]))].sort();
+  // The slowest-test lines carry times that vary: they are compared with the time masked.
+  const timed = (l) => l.replace(/\\(\\d+\\.\\d s\\)/, "(T s)");
   out[key] = {
     names: steps.map((s) => s.name),
     pass: rs.map((r) => r.pass),
     skips: rs.map((r) => r.skips ?? null),
-    lines,
+    lines: lines.map(timed),
     unchanged: JSON.stringify(listing(dir)) === JSON.stringify(before),
     junit: listing(runDir),
     files: listing(runDir).map(junitFiles),
@@ -82,6 +84,30 @@ const ONLY = { "src/a.test.ts": PASS, "src/o.test.ts": 'import { expect, test } 
 await step("only", ["src"], ONLY);
 await step("onlyNoCi", ["src"], ONLY, { noCi: true });
 await step("aloneFail", ["src"], { "src/a.test.ts": PASS, "src/f.test.ts": 'import { expect, test } from "bun:test";\\ntest("fails", () => { expect(1).toBe(2); });\\n' }, { alone: ["src/f.test.ts"] });
+// A file that throws at load is not in the junit report; the step names it from bun's output, among the workers or alone.
+const LOADS = { "src/a.test.ts": PASS, "src/bad.test.ts": 'import { test } from "bun:test";\\nthrow new Error("boom at load");\\ntest("never", () => {});\\n', "src/imp.test.ts": 'import { test } from "bun:test";\\nimport "./nope.ts";\\ntest("never", () => {});\\n' };
+await step("load", ["src"], LOADS);
+await step("aloneLoad", ["src"], LOADS, { alone: ["src/bad.test.ts"] });
+// process.exit(0) in the alone pass: bun exits 0 and writes no report; the step must not print ok first.
+await step("aloneExit0", ["src"], { "src/a.test.ts": PASS, "src/x.test.ts": 'import { test } from "bun:test";\\ntest("exits", () => { process.exit(0); });\\n' }, { alone: ["src/x.test.ts"] });
+// Every report prints its slowest test, and one over the step's note threshold is a note (here 0.3 s, as 30 s is too slow to test).
+const SLOWISH = { "src/a.test.ts": PASS, "src/s.test.ts": 'import { test } from "bun:test";\\ntest("slowish", async () => { await Bun.sleep(600); });\\n' };
+await step("slowNote", ["src"], SLOWISH, { slowNoteS: 0.3, alone: ["src/a.test.ts"] });
+await step("slowAloneNote", ["src"], SLOWISH, { slowNoteS: 0.3, alone: ["src/s.test.ts"] });
+// A step that fails and leaves a clean report and no file in its output: the step says that nothing is named.
+{
+  const runDir = join(TMP, "run-nameless");
+  mkdirSync(runDir);
+  const junit = join(runDir, "n.junit.xml");
+  const lines = [];
+  const log = console.log;
+  console.log = (...a) => lines.push(a.join(" "));
+  let r;
+  try {
+    r = await g.runStaticStep({ name: "unit tests", cmd: [process.execPath, "-e", \`require("node:fs").writeFileSync(\${JSON.stringify(junit)}, '<testsuites name="bun test" tests="0" failures="0" skipped="0"></testsuites>'); process.exit(3);\`], env: {}, junit });
+  } finally { console.log = log; }
+  out.nameless = { pass: r.pass, lines };
+}
 const SLOW = { "src/a.test.ts": PASS, "src/t.test.ts": 'import { test } from "bun:test";\\ntest("slow", async () => { await Bun.sleep(1500); });\\n' };
 await step("timeout", ["src"], SLOW, { timeoutMs: 300 });
 await step("inTime", ["src"], SLOW, { timeoutMs: 20000 });
@@ -120,12 +146,11 @@ test("the unit-test step under --parallel: report, skips, failures, .only, timeo
     expect(j.ok.names).toEqual(["unit tests", "unit tests (alone)"]);
     expect<boolean[]>(j.ok.pass, j.ok.lines.join("\n")).toEqual([true, true]);
     expect(j.ok.skips).toEqual([{ allowed: [{ file: "src/rustc_span/source_map/tests.test.ts", path: ["read_binary_file_handles_lying_stat"] }], unexpected: [] }, { allowed: [], unexpected: [] }]);
-    expect(j.ok.lines).toEqual([
-      "ok    unit tests",
-      "ok    unit test skips: 1 (1 allowlisted, 0 not allowed under RUST_TS_REQUIRE_PROBES=1)",
-      "ok    unit tests (alone)",
-      "ok    unit tests (alone) skips: 0 (0 allowlisted, 0 not allowed under RUST_TS_REQUIRE_PROBES=1)",
-    ]);
+    expect(j.ok.lines).toHaveLength(6);
+    expect(j.ok.lines.slice(0, 2)).toEqual(["ok    unit tests", "ok    unit test skips: 1 (1 allowlisted, 0 not allowed under RUST_TS_REQUIRE_PROBES=1)"]);
+    expect(j.ok.lines[2]).toMatch(/^  slowest: (src|tools)\/[\w/]+\.test\.ts: env \w+ \(T s\)$/);
+    expect(j.ok.lines.slice(3, 5)).toEqual(["ok    unit tests (alone)", "ok    unit tests (alone) skips: 0 (0 allowlisted, 0 not allowed under RUST_TS_REQUIRE_PROBES=1)"]);
+    expect(j.ok.lines[5]).toMatch(/^  slowest: (src\/heavy\.test\.ts: env h|tools\/heavy2\.test\.ts: env h2) \(T s\)$/);
     expect(j.ok.unchanged).toBe(true);
     expect(j.ok.junit).toEqual(["u.alone.junit.xml", "u.junit.xml"]);
     expect(j.ok.files).toEqual([["src/heavy.test.ts", "tools/heavy2.test.ts"], ["src/a1.test.ts", "src/a2.test.ts", "src/rustc_span/source_map/tests.test.ts", "tools/b.test.ts"]]);
@@ -149,6 +174,37 @@ test("the unit-test step under --parallel: report, skips, failures, .only, timeo
     expect<boolean[]>(j.only.pass, j.only.lines.join("\n")).toEqual([false]);
     expect(j.only.lines[0]).toBe("ERROR: unit tests");
     expect<boolean[]>(j.onlyNoCi.pass, j.onlyNoCi.lines.join("\n")).toEqual([true]);
+    // A file that throws at load (or imports a missing module) is named, and said to be missing from the report (review
+    // unit-parallel N3): among the workers and alone.
+    const loadLines = ["  failed: src/bad.test.ts: an error outside any test (it threw at load, a bad import or a throwing describe: the file is not in the junit report)", "  failed: src/imp.test.ts: an error outside any test (it threw at load, a bad import or a throwing describe: the file is not in the junit report)"];
+    expect(j.load.pass).toEqual([false]);
+    expect(j.load.files).toEqual([["src/a.test.ts"]]);
+    expect(j.load.lines[0]).toBe("ERROR: unit tests");
+    for (const l of loadLines) expect(j.load.lines).toContain(l);
+    expect(j.aloneLoad.pass).toEqual([false, false]);
+    expect(j.aloneLoad.lines).toContain(loadLines[0]);
+    expect(j.aloneLoad.lines.filter((l: string) => l.includes("src/bad.test.ts: an error"))).toHaveLength(1);
+    // exit(0) alone: no ok line for it, only the missing report.
+    expect(j.aloneExit0.pass).toEqual([true, false]);
+    const exit0 = j.aloneExit0.lines.slice(j.aloneExit0.lines.findIndex((l: string) => l.startsWith("  slowest:")) + 1);
+    expect(exit0).toHaveLength(1);
+    expect(exit0[0]).toStartWith("ERROR: unit tests (alone) wrote no junit report (");
+    expect(exit0[0]).toEndWith("; cannot check for skipped tests (bun test exited 0: a test that called process.exit?)");
+    // The .only refusal is an error outside any test too, so its file is named.
+    expect(j.only.lines).toContain("  failed: src/o.test.ts: an error outside any test (it threw at load, a bad import or a throwing describe: the file is not in the junit report)");
+    // A failed step that names nothing says so.
+    expect(j.nameless.pass).toBe(false);
+    expect(j.nameless.lines[0]).toBe("ERROR: unit tests");
+    expect(j.nameless.lines).toContain("ERROR: unit tests: bun test exited 3, but its junit report names no failed test and its output no file: a crash, a .only under CI=true, or a timeout of the step (see the output above)");
+    expect(j.fail.lines.some((l: string) => l.includes("names no failed test"))).toBe(false);
+    // The slowest test of each report, and a note over the threshold, with advice that depends on the step.
+    expect<boolean[]>(j.slowNote.pass, j.slowNote.lines.join("\n")).toEqual([true, true]);
+    expect(j.slowNote.lines).toContain("  slowest: src/s.test.ts: slowish (T s)");
+    expect(j.slowNote.lines.filter((l: string) => l.startsWith("note:"))).toEqual([
+      "note: unit tests: its slowest test took over 0.3 s, src/s.test.ts: slowish (T s); among the workers, a test this slow can reach the 60 s per-test limit under load: consider adding its file to the step's alone list (scripts/lib/unit-steps.ts)",
+    ]);
+    expect(j.slowAloneNote.lines.filter((l: string) => l.startsWith("note:"))).toEqual(["note: unit tests (alone): its slowest test took over 0.3 s, src/s.test.ts: slowish (T s); even alone, a test this slow can reach the 60 s per-test limit under load"]);
+    expect(j.ok.lines.some((l: string) => l.startsWith("note:"))).toBe(false);
     // A test over the per-test timeout fails the step; with time enough it passes.
     expect(j.timeout.pass).toEqual([false]);
     expect(j.timeout.lines.join("\n")).toContain("timed out after 300ms");

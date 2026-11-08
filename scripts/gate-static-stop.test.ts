@@ -13,7 +13,7 @@ afterAll(() => rmSync(TMP, { recursive: true, force: true }));
 
 const AC = "Now drawing from 'AC Power'\n -InternalBattery-0 (id=1)\t100%; charged; 0:00 remaining present: true\n";
 
-function gate(name: string, staticOk: boolean, extraEnv: Record<string, string> = {}) {
+function gate(name: string, staticOk: boolean, extraEnv: Record<string, string> = {}, opts: { dirtyUpstream?: boolean; frozenDir?: boolean } = {}) {
   const data = join(TMP, name);
   const child = `
 const { gateRun } = await import(${JSON.stringify(join(REPO, "scripts/gate.ts"))});
@@ -27,7 +27,15 @@ SUITES.push({
 });
 const readers = { pmset: async () => ${JSON.stringify(AC)}, swapusage: async () => "total = 2048.00M  used = 512.00M  free = 1536.00M", load: () => [1, 2, 3], now: () => new Date() };
 let calls = 0;
-const staticChecks = async () => { calls++; console.log("static checks ran"); return { ok: ${staticOk} }; };
+const { mkdirSync, writeFileSync } = await import("node:fs");
+const staticChecks = async (runDir) => {
+  calls++;
+  console.log("static checks ran");
+  // As a static step that leaves a stray in the upstream checkout; as the frozen lists step's own run directory.
+  if (${Boolean(opts.dirtyUpstream)}) writeFileSync(${JSON.stringify(join(data, "rust", "stray.txt"))}, "x");
+  if (${Boolean(opts.frozenDir)}) mkdirSync(runDir + "-frozen-lists");
+  return { ok: ${staticOk} };
+};
 await gateRun(["static-stub"], false, false, false, { readers, pollMs: 1000, keepEveryMs: 3600000, staticChecks });
 `;
   mkdirSync(join(data, "rust", "compiler"), { recursive: true });
@@ -39,7 +47,7 @@ await gateRun(["static-stub"], false, false, false, { readers, pollMs: 1000, kee
   Object.assign(env, extraEnv);
   const r = Bun.spawnSync([process.execPath, "-e", child], { cwd: REPO, stdout: "pipe", stderr: "pipe", env: env as Record<string, string> });
   const runs = join(data, "runs");
-  const dirs = existsSync(runs) ? readdirSync(runs).filter((d) => d.startsWith("gate-")) : [];
+  const dirs = existsSync(runs) ? readdirSync(runs).filter((d) => d.startsWith("gate-") && !d.endsWith("-frozen-lists")) : [];
   const dir = dirs[0] === undefined ? undefined : join(runs, dirs[0]);
   return {
     code: r.exitCode,
@@ -61,6 +69,20 @@ test("a failed static check stops the gate before the suites", () => {
   expect(r.gateJson.staticOk).toBe(false);
   expect(r.gateJson.suites).toEqual([]);
   expect(r.gateJson.notRun).toEqual([{ suite: "static-stub", reason: "a static check failed" }]);
+  // Checked, and clean (review harness-w44 N2); no frozen lists run directory, so none named.
+  expect(r.gateJson.upstreamOk).toBe(true);
+  expect(r.gateJson.upstreamChanges).toBeUndefined();
+  expect(r.gateJson.frozenLists).toBeNull();
+}, 60_000);
+
+test("a stopped gate checks the upstream checkout and names the frozen lists run (review harness-w44 N2)", () => {
+  const r = gate("fails-dirty", false, {}, { dirtyUpstream: true, frozenDir: true });
+  expect(r.code).toBe(1);
+  expect(r.stdout).toContain("ERROR: a static step changed the upstream checkout: 1 path(s)");
+  expect(r.gateJson.upstreamOk).toBe(false);
+  expect(r.gateJson.upstreamChanges).toEqual(["?? stray.txt"]);
+  const id = `${r.gateJson.runId}-frozen-lists`;
+  expect(r.gateJson.frozenLists).toEqual({ runId: id, dir: join(TMP, "fails-dirty", "runs", id) });
 }, 60_000);
 
 test("passing static checks go on to the suites", () => {
@@ -70,6 +92,14 @@ test("passing static checks go on to the suites", () => {
   expect(r.ranSuite).toBe(true);
   expect(r.gateJson.staticOk).toBe(true);
   expect(r.gateJson.suites.map((s: { suite: string }) => s.suite)).toEqual(["static-stub"]);
+  expect(r.gateJson.frozenLists).toBeNull();
+}, 60_000);
+
+test("a passing gate names the frozen lists run", () => {
+  const r = gate("passes-frozen", true, {}, { frozenDir: true });
+  expect(r.ranSuite).toBe(true);
+  const id = `${r.gateJson.runId}-frozen-lists`;
+  expect(r.gateJson.frozenLists).toEqual({ runId: id, dir: join(TMP, "passes-frozen", "runs", id) });
 }, 60_000);
 
 for (const [k, v] of [

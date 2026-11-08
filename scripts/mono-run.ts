@@ -19,7 +19,7 @@ export const AFTER_COLLECTION = "rustc_codegen_llvm::LlvmCodegenBackend::codegen
 async function main(): Promise<number> {
   ensure_stack();
   // Loaded here, in this order: the driver first, as main.ts (PORTING section 8).
-  const { catch_with_exit_code, compiler_entrypoint } = await import("../src/rustc_driver_impl/lib.ts");
+  const { catch_with_exit_code, compiler_entrypoint, init_rustc_env_logger } = await import("../src/rustc_driver_impl/lib.ts");
   const { raw_args } = await import("../src/rustc_driver_impl/args.ts");
   const { EarlyDiagCtxt } = await import("../src/rustc_session/session.ts");
   const { ErrorOutputType } = await import("../src/rustc_session/config.ts");
@@ -44,6 +44,10 @@ async function main(): Promise<number> {
     },
   };
   const early_dcx = EarlyDiagCtxt.new(ErrorOutputType.default());
+  // As rustc_driver_impl::main (and src/rust_ts/mirdump.ts): `RUSTC_LOG` and its companions apply, and with `RUSTC_LOG` unset
+  // tracing's default filter prints WARN and ERROR events (lane harness-w45). A bad `RUSTC_LOG_*` value is an `early_fatal`:
+  // `FatalErrorMarker` below, exit 101.
+  init_rustc_env_logger(early_dcx);
   return catch_with_exit_code(() => compiler_entrypoint(raw_args(early_dcx), callbacks));
 }
 

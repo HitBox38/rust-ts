@@ -158,7 +158,7 @@ writeFileSync(out + "/core.d", out + "/libcore.rmeta: lib.rs\\n");
   expect(readdirSync(join(data, "rmeta", "miri-sysroot", "core"))).toEqual(["subject"]);
 }, 60_000);
 
-test("a run removes the run directories of its crate and side whose pid is gone, and only those (review root-w42-check N4)", async () => {
+test("a run removes the run directories of its crate, side and pid namespace whose pid is gone, and only those (review root-w42-check N4, N6)", async () => {
   const data = join(TMP, "data-stale");
   const stub = join(TMP, "stub-compiler-stale.ts");
   writeFileSync(
@@ -175,18 +175,26 @@ writeFileSync(out + "/libcore.rmeta", "rmeta");
   const cwd = Bun.spawnSync([process.execPath, "-e", setup], { cwd: REPO, env, stdout: "pipe", stderr: "pipe" });
   expect(cwd.exitCode, cwd.stderr.toString()).toBe(0);
   Bun.spawnSync(["mkdir", "-p", cwd.stdout.toString().trim()]);
+  // This host's pid namespace tag, as the run computes it: stable, 12 hex digits.
+  const nsOf = () => Bun.spawnSync([process.execPath, "-e", `const { pidNamespace } = await import(${JSON.stringify(join(REPO, "scripts/miri-sysroot-run.ts"))}); console.log(pidNamespace());`], { cwd: REPO, env, stdout: "pipe", stderr: "pipe" }).stdout.toString().trim();
+  const ns = nsOf();
+  expect(ns).toMatch(/^[0-9a-f]{12}$/);
+  expect(nsOf()).toBe(ns);
+  const other = ns === "000000000000" ? "111111111111" : "000000000000";
   // A pid that has exited, and one that lives for the whole run (killed below; only processes this test started).
   const dead = Bun.spawnSync(["true"]).pid;
   const live = Bun.spawn(["sleep", "60"], { stdout: "ignore", stderr: "ignore" });
   try {
     const crate = join(data, "rmeta", "miri-sysroot", "core");
-    const leftovers = [`subject.run-${dead}`, `subject.run-${live.pid}`, "subject.run-abc", "subject.run-0", "subject.run-1", `oracle.run-${dead}`, "subject"];
+    const mine = (x: string | number) => `subject.run-${ns}-${x}`;
+    const leftovers = [mine(dead), mine(live.pid), mine("abc"), mine("0"), mine("1"), mine("0x1"), `subject.run-${other}-${dead}`, `subject.run-${dead}`, `oracle.run-${ns}-${dead}`, "subject"];
     for (const d of leftovers) mkdirSync(join(crate, d), { recursive: true });
     const r = Bun.spawnSync([process.execPath, join(REPO, "scripts/miri-sysroot-run.ts"), "--crate", "core", "--side", "subject", "--", process.execPath, stub], { cwd: REPO, env, stdout: "pipe", stderr: "pipe" });
     expect(r.exitCode, r.stderr.toString()).toBe(0);
-    // Gone: the dead pid's directory of this side. Kept: a live pid's, pid 1 (`EPERM`: alive, not ours), names that are no pid, the
-    // other side's, and `subject` (replaced by this run's, which differs from the sysroot).
-    expect(readdirSync(crate).sort()).toEqual([`oracle.run-${dead}`, "subject", "subject.run-0", "subject.run-1", `subject.run-${live.pid}`, "subject.run-abc"].sort());
+    // Gone: the dead pid's directory of this side and namespace. Kept: a live pid's, pid 1 (`EPERM`: alive, not ours), names that are
+    // no pid, another pid namespace's (a VM or container sharing the data root: its pids mean nothing here), one named before the
+    // namespace tag, the other side's, and `subject` (replaced by this run's, which differs from the sysroot).
+    expect(readdirSync(crate).sort()).toEqual(leftovers.filter((d) => d !== mine(dead)).sort());
   } finally {
     live.kill();
   }

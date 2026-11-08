@@ -20,7 +20,11 @@
 // - a site whose enclosing fn the scanner cannot find (a module-level `macro_rules!` body; key `<file>:0`), unless `SKIP`
 //   lists it;
 // - a fn with no marker at the scanner's line while the port has a marker of the same upstream file and fn name at
-//   another line (the scanner and the marker disagree about where the fn is, so the sites would go unchecked);
+//   another line (the scanner and the marker disagree about where the fn is, so the sites would go unchecked). A marker
+//   whose own upstream line declares a fn of that name (`fn <name>`) is a namesake, a different fn of the same file
+//   (`coerce` in coercion.rs at 242, 1134 and 1609), so it does not count: the fn at the scanner's line is then "not ported"
+//   (review harness-w44 N3). The markers step (`coverage.ts --check`) already holds every marker to an upstream fn;
+//   an unreadable file counts as no namesake (the stricter rule before the namesake exception);
 // - a `SKIP` entry that names no site (upstream moved, or the entry is stale).
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -157,8 +161,17 @@ export interface CheckResult {
   readonly unported_fns: number;
 }
 
-/** Checks `sites` against `marks` (keyed `<path>:<line>`), with `skip` as `SKIP` (see the header). */
-export function check(sites: readonly Site[], marks: ReadonlyMap<string, readonly Marker[]>, skip: Readonly<Record<string, string>> = SKIP): CheckResult {
+/** Whether upstream `line` (1-based) of `lines` declares a fn named `name`. */
+export function declares_fn(lines: readonly string[] | undefined, line: number, name: string): boolean {
+  const l = lines?.[line - 1];
+  return l !== undefined && !/^\s*\/\//.test(l) && new RegExp(`\\bfn\\s+${name}\\b`).test(l);
+}
+
+/**
+ * Checks `sites` against `marks` (keyed `<path>:<line>`), with `skip` as `SKIP` (see the header). `upstream` gives an
+ * upstream file's lines (by its checkout-relative path), to tell a namesake marker from a disagreeing one.
+ */
+export function check(sites: readonly Site[], marks: ReadonlyMap<string, readonly Marker[]>, skip: Readonly<Record<string, string>> = SKIP, upstream: (file: string) => readonly string[] | undefined = () => undefined): CheckResult {
   const by_fn = new Map<string, Site[]>();
   const errors: string[] = [];
   const report: string[] = [];
@@ -179,11 +192,13 @@ export function check(sites: readonly Site[], marks: ReadonlyMap<string, readonl
     by_fn.set(key, list);
   }
   for (const at of Object.keys(skip)) if (!skip_used.has(at)) errors.push(`ERROR: SKIP lists ${at}, which is no INFO site; remove or move the entry`);
-  // Markers by upstream file and fn name, for the fns the scanner finds no marker at.
+  // Markers by upstream file and fn name, for the fns the scanner finds no marker at; a namesake's marker is left out.
   const by_name = new Map<string, string[]>();
   for (const [key, list] of marks) {
     const file = key.slice(0, key.lastIndexOf(":"));
+    const line = Number(key.slice(key.lastIndexOf(":") + 1));
     for (const m of list) {
+      if (declares_fn(upstream(file), line, m.name)) continue;
       const k = `${file} ${m.name}`;
       const l = by_name.get(k) ?? [];
       l.push(`${key} (${m.ts})`);
@@ -240,7 +255,15 @@ function main(argv: readonly string[]): number {
       sites.push(...scan(f.slice(UPSTREAM.length + 1), src));
     }
   }
-  const r = check(sites, markers());
+  const lines = new Map<string, readonly string[] | undefined>();
+  const upstream_lines = (file: string): readonly string[] | undefined => {
+    if (!lines.has(file)) {
+      const p = join(UPSTREAM, file);
+      lines.set(file, existsSync(p) ? readFileSync(p, "utf8").split("\n") : undefined);
+    }
+    return lines.get(file);
+  };
+  const r = check(sites, markers(), SKIP, upstream_lines);
   mkdirSync(out, { recursive: true });
   writeFileSync(join(out, "report.txt"), [...r.errors, ...r.report].join("\n") + "\n");
   console.log(`upstream INFO sites ${sites.length} (skipped ${r.skipped}); in ported fns ${r.in_ported}; fns not ported ${r.unported_fns}`);
