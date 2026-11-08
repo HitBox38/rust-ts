@@ -2275,3 +2275,83 @@ SUITES.push(
     };
   }),
 );
+
+// `host-rlib` (lane harness-w44; docs/handoff/object-write-macho.md "Proposed report suite", review object-write-macho §7; report only:
+// no baseline, so in no gate by default): host rlibs with metadata only, built with `--crate-type rlib --emit=dep-info,metadata,link
+// -Zcodegen-backend=dummy --sysroot <oracle sysroot> --out-dir out` (upstream's codegen-free rlib path). Both sides run
+// scripts/host-rlib-run.ts in one fixed directory per case (`hostRlibDir`: the rmeta embeds the working directory and the source
+// path), one side after the other under the case lock; it copies the case's sources in by base name and prints, after the compiler's
+// own output, every file under `out`: dep-info as text, the rmeta and rlib as size and sha256. Cases (written for the root host,
+// aarch64-apple-darwin: a darwin archive whose members are Mach-O wrapper objects):
+// - `nocore`: harness/host-rlib/nocore.rs (`#![no_core]`, the sizedness lang items, one fn); `nocore@x86_64-apple-darwin`;
+//   `nocore@MACOSX_DEPLOYMENT_TARGET=<v>` for 13.2, 15.1.3, 10.9 (below the minimum: a warning) and abc (invalid: an error);
+// - `std`: harness/host-rlib/std_lib.rs (a `Vec`, a generic fn, a trait impl);
+// - `extern`: dep.rs, then user.rs with `--extern dep=out/libdep.rlib`, each side loading its own dep;
+// - `rlib+staticlib`: std_lib.rs with both crate types (the dummy backend drops `staticlib`, with a warning);
+// - harness/host-rlib/ui.txt: 213 tests/ui files the oracle builds this way (`--edition` from their directives).
+// The scrubbed environment has no `*_DEPLOYMENT_TARGET` (scripts/lib/env.ts); a case that needs one sets it in `Case.env`. The cache
+// key adds the wrapper, the oracle rustc build, harness/host-rlib/, the case directories' root and the oracle sysroot.
+export const HOST_RLIB_RUN = join(REPO, "scripts", "host-rlib-run.ts");
+const HOST_RLIB_SRC = join(REPO, "harness", "host-rlib");
+/** A case's fixed directory: both sides compile in `<it>/work`. */
+const hostRlibDir = (c: Case): string => join(DATA, "host-rlib", hash(c.id).slice(0, 16));
+/** The files a case copies in: its tests/ui file, or the harness sources its args name. */
+const hostRlibSrcs = (c: Case): string[] => (c.file !== "" ? [join(UPSTREAM, c.file)] : c.args.filter((a) => a.endsWith(".rs")).map((a) => join(HOST_RLIB_SRC, a)));
+const hostRlibArgs = (edition: string): string[] => ["--crate-type", "rlib", "--emit=dep-info,metadata,link", "-Zcodegen-backend=dummy", "--sysroot", oracleSysroot(), "--out-dir", "out", `--edition=${edition}`];
+const hostRlibCases = (): Case[] => {
+  const base = hostRlibArgs("2021");
+  const nocore = (id: string, extra: string[] = [], env: Record<string, string> = {}): Case => ({ id, file: "", args: [...base, ...extra, "nocore.rs"], env: { ...NOCORE_ENV, ...env } });
+  const ui = readFileSync(join(HOST_RLIB_SRC, "ui.txt"), "utf8")
+    .split("\n")
+    .filter((l) => l !== "" && !l.startsWith("#"));
+  return [
+    nocore("nocore"),
+    nocore("nocore@x86_64-apple-darwin", ["--target", "x86_64-apple-darwin"]),
+    ...["13.2", "15.1.3", "10.9", "abc"].map((v) => nocore(`nocore@MACOSX_DEPLOYMENT_TARGET=${v}`, [], { MACOSX_DEPLOYMENT_TARGET: v })),
+    { id: "std", file: "", args: [...base, "std_lib.rs"], env: NOCORE_ENV },
+    { id: "extern", file: "", args: [...base, "dep.rs", "--then", ...base, "--extern", "dep=out/libdep.rlib", "user.rs"], env: NOCORE_ENV },
+    { id: "rlib+staticlib", file: "", args: [...base, "--crate-type", "staticlib", "std_lib.rs"], env: NOCORE_ENV },
+    ...ui.map((f) => pinSessionEnv({ id: f, file: f, args: [...hostRlibArgs(edition(f)), f.slice(f.lastIndexOf("/") + 1)], env: NOCORE_ENV })),
+  ];
+};
+let hostRlibKeyMemo: string | undefined;
+const hostRlibRun = (side: "oracle" | "subject", c: Case, compiler: string[]): string[] => [
+  process.execPath,
+  HOST_RLIB_RUN,
+  "--dir",
+  hostRlibDir(c),
+  "--side",
+  side,
+  ...hostRlibSrcs(c).flatMap((f) => ["--src", f]),
+  "--compiler",
+  String(compiler.length),
+  "--",
+  ...compiler,
+  ...c.args,
+];
+SUITES.push({
+  name: "host-rlib",
+  milestone: "M7",
+  description:
+    "report only: host rlibs with metadata only (--crate-type rlib --emit=dep-info,metadata,link -Zcodegen-backend=dummy), both sides in one fixed directory per case: stdout + stderr + exit, dep-info, and the rmeta and rlib's size and sha256 (scripts/host-rlib-run.ts)",
+  mode: "single",
+  timeoutMs: 120_000,
+  oracleTimeoutMs: 60_000,
+  cases: hostRlibCases,
+  caseLock: (c) => `${hostRlibDir(c)}.case.lock`,
+  oracleKey: () =>
+    (hostRlibKeyMemo ??= hash(
+      [
+        hash(readFileSync(HOST_RLIB_RUN)),
+        rustcDriverHash(),
+        ...readdirSync(HOST_RLIB_SRC)
+          .sort()
+          .map((f) => `${f} ${hash(readFileSync(join(HOST_RLIB_SRC, f)))}`),
+        join(DATA, "host-rlib"),
+        oracleSysroot(),
+      ].join("\0"),
+    )),
+  // `oracleRustcCmd([])` is `rustc +<toolchain>`, its argv being the case's (above).
+  oracle: ([c]) => hostRlibRun("oracle", c!, oracleRustcCmd([])),
+  subject: ([c]) => hostRlibRun("subject", c!, bunCmd("src/rust_ts/main.ts")),
+});

@@ -5,6 +5,7 @@ import { relative_target_rustlib_path } from "../rustc_target/lib.ts";
 import type { Target } from "../rustc_target/spec/mod.ts";
 import { path_join } from "../std/path.ts";
 import { unported } from "../std/panic.ts";
+import { slice_sort_unstable_by } from "../std/slice_sort.ts";
 import { PathKind, type SearchPath } from "./search_paths.ts";
 
 export class FileSearch {
@@ -86,7 +87,11 @@ export class FileSearch {
         files.push(new FileSearchCandidate(search_path.dir, filename, search_path.kind, is_sysroot));
       }
     }
-    files.sort((lhs, rhs) => byte_cmp(lhs.filename, rhs.filename));
+    // PORT: `sort_unstable_by` is core's ipnsort (src/std/slice_sort.ts), not a stable sort: the key is the file name alone,
+    // so the order of one name found in two search paths (a directory given twice, once through a symlink) is ipnsort's,
+    // and the locator keeps the first of them (docs/reviews/fixers-45.md F5). The layout is `FileSearchCandidate`'s:
+    // `Arc<Path>` and `Box<str>` (16 bytes each), `PathKind` and `bool`, 40 bytes; no `UnsafeCell`, not `Copy`.
+    slice_sort_unstable_by(files, (lhs, rhs) => byte_cmp(lhs.filename, rhs.filename), { size_of: 40, freeze: true, copy: false });
 
     return new FileSearch([...cli_search_paths], tlib_path, use_implicit_sysroot_deps, files);
   }

@@ -1,7 +1,7 @@
 // `std::path` (library/std/src/path.rs, sys/path/{windows,windows_prefix,unix}.rs at the pin), as
 // far as the compiler needs it. Moved from rustc_span/source_map.ts (review w23a, batch 3 #9).
 import { realpathSync } from "node:fs";
-import { current_dir_str } from "./env.ts";
+import { current_dir_str, libc_canonicalize, to_string_lossy } from "./env.ts";
 import { io_error_from_node, type IoResult } from "./io.ts";
 import { panic, unported } from "./panic.ts";
 import { Err, Ok } from "./result.ts";
@@ -768,17 +768,17 @@ function sys_path_absolute(path: string): IoResult<string> {
 }
 
 /**
- * `fs::canonicalize(path)` on the host: `realpath(3)` (library/std/src/sys/fs/unix.rs `canonicalize`), through node's
- * `realpathSync.native`.
+ * `fs::canonicalize(path)` on the host: `realpath(3)` on the path's bytes (library/std/src/sys/fs/unix.rs `canonicalize`,
+ * src/std/env.ts `libc_canonicalize`), so a relative path resolves against the process cwd, as upstream: only the path
+ * itself has to fit `PATH_MAX`, and the cwd is never decoded (docs/reviews/fixers-45.md F1, F2). The result is decoded
+ * lossily, as every `PathBuf` that is a `string` here.
  *
- * PORT: Bun resolves a relative path against its own copy of the cwd, not the process's. Once the cwd has 1,024 bytes or
- * more that copy is stale (it reads `~/.bun/bin`), so `realpathSync.native("bun")` names Bun's own binary. `realpath(3)`
- * resolves a relative path against the process cwd, so a relative path is joined to `env::current_dir()` first. In such a
- * cwd both sides then fail (`getcwd` into a `PATH_MAX` buffer upstream, `ENAMETOOLONG` here), and an error from
- * `current_dir` fails it too, as `realpath(3)` does. The error's kind may differ from upstream's; every caller drops it.
- * An empty path goes through as it is (`ENOENT`).
+ * PORT: where libc is not read (Windows), node's `realpathSync.native` stands in. Bun resolves a relative path against its
+ * own copy of the cwd, not the process's, so a relative path is joined to `env::current_dir()` first there.
  */
 export function host_canonicalize(path: string): IoResult<string> {
+  const r = libc_canonicalize(path);
+  if (r !== undefined) return r.$ === "Ok" ? Ok(to_string_lossy(r._0)) : r;
   let p = path;
   if (p !== "" && !path_is_absolute(p)) {
     const cwd = current_dir_str();

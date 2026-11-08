@@ -78,9 +78,9 @@ Const.from_bool = function (tcx: TyCtxt, v: boolean): Const {
 
 // #[inline]
 /// Creates an interned usize constant.
-// PORT: `n: u64` is declared `number` in decls.ts.
+// PORT: `n: u64` is declared `number | bigint` in decls.ts (`bigint` where it can reach 2^53, as `Ty::new_array`'s).
 // rustc: compiler/rustc_middle/src/ty/consts.rs:65 from_target_usize
-Const.from_target_usize = function (tcx: TyCtxt, n: number): Const {
+Const.from_target_usize = function (tcx: TyCtxt, n: number | bigint): Const {
   return Const.from_bits(tcx, BigInt(n), ty_mod().TypingEnv.fully_monomorphized(), tcx.types.usize);
 };
 

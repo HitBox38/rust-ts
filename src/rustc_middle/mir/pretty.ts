@@ -1752,9 +1752,9 @@ export function post_fmt_projection(projection: readonly PlaceElem[], fmt: Fmt):
       }
       case "Subslice": {
         const { from, to, from_end } = elem;
-        if (to === 0 && from_end) {
+        if (to === 0n && from_end) {
           s += `[${debug_int(from, PLAIN)}:]`;
-        } else if (from === 0 && from_end) {
+        } else if (from === 0n && from_end) {
           s += `[:-${debug_int(to, PLAIN)}]`;
         } else if (from_end) {
           s += `[${debug_int(from, PLAIN)}:-${debug_int(to, PLAIN)}]`;

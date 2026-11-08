@@ -1,5 +1,5 @@
-// E0512 at or above 2^53 bytes: the sizes in bits (rustc_hir_typeck intrinsicck `skeleton_string`), and a generic struct with a
-// field that large (lane fixers-46). See big.rs.
+// E0512 and E0080 at or above 2^53 bytes: the sizes in bits (rustc_hir_typeck intrinsicck `skeleton_string`), a generic struct with a
+// field that large (lane fixers-46), and a `static` that large (lane fixers-47). See big.rs.
 #![feature(no_core, lang_items, rustc_attrs, intrinsics)]
 #![crate_type = "lib"]
 #![no_core]
@@ -36,3 +36,8 @@ fn foo() {}
 pub fn fn_item() -> B53 {
     unsafe { transmute(foo) }
 }
+
+// rustc_middle mir::interpret allocation `AllocBytes::zeroed` (and rustc_const_eval interpret util `create_static_alloc`'s
+// `assert_eq!` of the sizes) for a `static` of 2^53 + 1 bytes: E0080 (review fixers-46 F4).
+impl Copy for u8 {}
+pub static mut STATIC: [u8; 9007199254740993] = [0; 9007199254740993];

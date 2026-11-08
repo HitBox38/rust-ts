@@ -49,7 +49,9 @@ console.log(\`pmset reads: \${i}\`);
 `;
   mkdirSync(join(data, "rust", "compiler"), { recursive: true });
   expect(Bun.spawnSync(["git", "init", "-q", join(data, "rust")]).exitCode).toBe(0);
-  const r = Bun.spawnSync([process.execPath, "-e", child], { cwd: REPO, stdout: "pipe", stderr: "pipe", env: { ...process.env, RUST_TS_DATA: data } });
+  // Without `bun test`'s NODE_ENV=test: the gate refuses to start with it (scripts/gate.ts `freezeEnvRefusal`).
+  const { NODE_ENV: _node, RUST_TS_FREEZE_LISTS: _freeze, ...inherited } = process.env;
+  const r = Bun.spawnSync([process.execPath, "-e", child], { cwd: REPO, stdout: "pipe", stderr: "pipe", env: { ...inherited, RUST_TS_DATA: data } });
   const stdout = r.stdout.toString();
   const runs = join(data, "runs");
   const dirs = (() => {

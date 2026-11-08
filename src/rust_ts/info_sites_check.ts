@@ -1,7 +1,8 @@
-// rust-ts tool (not an upstream mirror, not a gate step): checks that every upstream INFO-level tracing site in a ported fn
-// is live in the port or stops loudly.
+// rust-ts tool (not an upstream mirror): checks that every upstream INFO-level tracing site in a ported fn is live in the
+// port or stops loudly. A static step of the gate (scripts/gate.ts `staticChecks`, "info sites"; lane harness-w44), since
+// protected cases set `RUSTC_LOG` (docs/reviews/w40c-audit.md N2).
 //
-//   bun src/rust_ts/info_sites_check.ts
+//   bun src/rust_ts/info_sites_check.ts [--out <dir>]
 //
 // rustc is built with tracing's `max_level_info`, so `info!`, `info_span!` and the `#[instrument]`s at INFO (the default
 // level) are the only tracing call sites that print. A `RUSTC_LOG` / `MIRI_LOG` filter that enables INFO for a target
@@ -11,15 +12,23 @@
 // fn has sites. A site in a fn the port does not have is reported only as a count: that fn's caller stops first.
 //
 // It is a count per fn, not a site-by-site map, so it catches a forgotten site, not a misplaced one. `SKIP` lists the
-// sites that never print in the oracle, with the reason. Details go to `$RUST_TS_DATA/tmp/info-sites-check/`; a few
-// summary lines go to stdout, and a failure prints `ERROR:` lines and exits 1.
-import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+// sites that never print in the oracle, with the reason. Details go to `<dir>/report.txt` (default
+// `$RUST_TS_DATA/tmp/info-sites-check/`; never the tree); a few summary lines go to stdout, and a failure prints `ERROR:`
+// lines and exits 1.
+//
+// What the method cannot see fails instead of counting as "not ported" (docs/reviews/fixers-45.md F4):
+// - a site whose enclosing fn the scanner cannot find (a module-level `macro_rules!` body; key `<file>:0`), unless `SKIP`
+//   lists it;
+// - a fn with no marker at the scanner's line while the port has a marker of the same upstream file and fn name at
+//   another line (the scanner and the marker disagree about where the fn is, so the sites would go unchecked);
+// - a `SKIP` entry that names no site (upstream moved, or the entry is stale).
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 const SRC_ROOT = resolve(import.meta.dir, "..");
 const DATA = resolve(process.env.RUST_TS_DATA ?? join(SRC_ROOT, "..", ".data"));
 const UPSTREAM = join(DATA, "rust");
-const OUT = join(DATA, "tmp", "info-sites-check");
+const DEFAULT_OUT = join(DATA, "tmp", "info-sites-check");
 
 /** Upstream sites that never print in the oracle, or that the port's fn stops before reaching. */
 const SKIP: Readonly<Record<string, string>> = {
@@ -31,7 +40,7 @@ const SKIP: Readonly<Record<string, string>> = {
 /** The upstream directories scanned (relative to the checkout), and the path prefix their markers use. */
 const ROOTS: readonly string[] = ["compiler", "src/tools/miri/src"];
 
-interface Site {
+export interface Site {
   readonly file: string; // e.g. compiler/rustc_metadata/src/creader.rs
   readonly line: number;
   readonly text: string;
@@ -51,7 +60,7 @@ function walk(dir: string, out: string[]): void {
 const FN_RE = /^\s*(pub(\([^)]*\))?\s+)?(const\s+)?(async\s+)?(unsafe\s+)?(extern\s+"[^"]*"\s+)?fn\s+(\w+)/;
 
 /** The INFO-level sites of one upstream file. */
-function scan(rel: string, src: string): Site[] {
+export function scan(rel: string, src: string): Site[] {
   const lines = src.split("\n");
   const sites: Site[] = [];
   const enclosing = (i: number): [number, string] => {
@@ -98,8 +107,15 @@ function scan(rel: string, src: string): Site[] {
   return sites;
 }
 
-/** Every `// rustc: <path>:<line> <name>` marker of the port, with the TS text up to the next marker in that file. */
-function markers(): Map<string, { ts: string; body: string }[]> {
+/** One marker of the port: where it is (`<ts file>:<line>`), its upstream fn name, and the TS text up to the next marker in that file. */
+export interface Marker {
+  readonly ts: string;
+  readonly name: string;
+  readonly body: string;
+}
+
+/** Every `// rustc: <path>:<line> <name>` marker of the port, keyed `<path>:<line>`. */
+function markers(): Map<string, Marker[]> {
   const files: string[] = [];
   const walk_ts = (dir: string): void => {
     for (const e of readdirSync(dir)) {
@@ -109,21 +125,21 @@ function markers(): Map<string, { ts: string; body: string }[]> {
     }
   };
   walk_ts(SRC_ROOT);
-  const out = new Map<string, { ts: string; body: string }[]>();
+  const out = new Map<string, Marker[]>();
   for (const f of files) {
     const text = readFileSync(f, "utf8");
     if (!text.includes("// rustc: ")) continue;
     const lines = text.split("\n");
-    const at: [number, string][] = [];
+    const at: [number, string, string][] = [];
     for (let i = 0; i < lines.length; i++) {
-      const m = /\/\/ rustc: (\S+:\d+) /.exec(lines[i]!);
-      if (m !== null) at.push([i, m[1]!]);
+      const m = /\/\/ rustc: (\S+:\d+) (\S+)/.exec(lines[i]!);
+      if (m !== null) at.push([i, m[1]!, m[2]!]);
     }
     for (let k = 0; k < at.length; k++) {
-      const [i, key] = at[k]!;
+      const [i, key, name] = at[k]!;
       const end = k + 1 < at.length ? at[k + 1]![0] : lines.length;
       const list = out.get(key) ?? [];
-      list.push({ ts: `${f.slice(SRC_ROOT.length + 1)}:${i + 1}`, body: lines.slice(i, end).join("\n") });
+      list.push({ ts: `${f.slice(SRC_ROOT.length + 1)}:${i + 1}`, name, body: lines.slice(i, end).join("\n") });
       out.set(key, list);
     }
   }
@@ -132,7 +148,88 @@ function markers(): Map<string, { ts: string; body: string }[]> {
 
 const LIVE_RE = /\btracing\.(info|info_span|instrument|info_unconverted)\(|\btracing\.event\("INFO"/g;
 
-function main(): number {
+/** The checker's verdict on the upstream sites against the port's markers (see the header). */
+export interface CheckResult {
+  readonly errors: string[];
+  readonly report: string[];
+  readonly skipped: number;
+  readonly in_ported: number;
+  readonly unported_fns: number;
+}
+
+/** Checks `sites` against `marks` (keyed `<path>:<line>`), with `skip` as `SKIP` (see the header). */
+export function check(sites: readonly Site[], marks: ReadonlyMap<string, readonly Marker[]>, skip: Readonly<Record<string, string>> = SKIP): CheckResult {
+  const by_fn = new Map<string, Site[]>();
+  const errors: string[] = [];
+  const report: string[] = [];
+  const skip_used = new Set<string>();
+  for (const s of sites) {
+    const at = `${s.file}:${s.line}`;
+    if (skip[at] !== undefined) {
+      skip_used.add(at);
+      continue;
+    }
+    if (s.fn_line === 0) {
+      errors.push(`ERROR: ${at}: an INFO site in no fn the scanner can find (${s.text}); port it with its enclosing fn's marker, or list it in SKIP with the reason it never prints`);
+      continue;
+    }
+    const key = `${s.file}:${s.fn_line}`;
+    const list = by_fn.get(key) ?? [];
+    list.push(s);
+    by_fn.set(key, list);
+  }
+  for (const at of Object.keys(skip)) if (!skip_used.has(at)) errors.push(`ERROR: SKIP lists ${at}, which is no INFO site; remove or move the entry`);
+  // Markers by upstream file and fn name, for the fns the scanner finds no marker at.
+  const by_name = new Map<string, string[]>();
+  for (const [key, list] of marks) {
+    const file = key.slice(0, key.lastIndexOf(":"));
+    for (const m of list) {
+      const k = `${file} ${m.name}`;
+      const l = by_name.get(k) ?? [];
+      l.push(`${key} (${m.ts})`);
+      by_name.set(k, l);
+    }
+  }
+  let in_ported = 0;
+  let unported_fns = 0;
+  for (const [key, list] of by_fn) {
+    const ts = marks.get(key);
+    const fn_name = list[0]!.fn_name;
+    if (ts === undefined) {
+      const elsewhere = by_name.get(`${list[0]!.file} ${fn_name}`);
+      if (elsewhere !== undefined) {
+        errors.push(`ERROR: ${key} ${fn_name}: ${list.length} upstream INFO site(s) (${list.map((s) => s.line).join(", ")}), no marker at that line, but the port marks ${fn_name} at ${elsewhere.join(", ")}; the scanner and the marker disagree, so these sites are unchecked`);
+        continue;
+      }
+      unported_fns++;
+      report.push(`not ported: ${key} ${fn_name} (${list.length} site(s))`);
+      continue;
+    }
+    in_ported += list.length;
+    const live = ts.reduce((n, t) => n + (t.body.match(LIVE_RE)?.length ?? 0), 0);
+    const where = ts.map((t) => t.ts).join(", ");
+    if (live < list.length) {
+      errors.push(`ERROR: ${key} ${fn_name}: ${list.length} upstream INFO site(s) (${list.map((s) => s.line).join(", ")}), ${live} live or stopped in ${where}`);
+    } else {
+      report.push(`ok: ${key} ${fn_name}: ${list.length} site(s), ${live} in ${where}`);
+    }
+  }
+  return { errors, report, skipped: skip_used.size, in_ported, unported_fns };
+}
+
+function main(argv: readonly string[]): number {
+  let out = DEFAULT_OUT;
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === "--out" && argv[i + 1] !== undefined) out = resolve(argv[++i]!);
+    else {
+      console.log(`ERROR: info_sites_check: unknown argument ${argv[i]} (usage: bun src/rust_ts/info_sites_check.ts [--out <dir>])`);
+      return 2;
+    }
+  }
+  if (!existsSync(UPSTREAM)) {
+    console.log(`ERROR: info_sites_check: no upstream checkout at ${UPSTREAM}`);
+    return 1;
+  }
   const sites: Site[] = [];
   for (const root of ROOTS) {
     const files: string[] = [];
@@ -143,45 +240,13 @@ function main(): number {
       sites.push(...scan(f.slice(UPSTREAM.length + 1), src));
     }
   }
-  const marks = markers();
-  const by_fn = new Map<string, Site[]>();
-  let skipped = 0;
-  for (const s of sites) {
-    if (SKIP[`${s.file}:${s.line}`] !== undefined) {
-      skipped++;
-      continue;
-    }
-    const key = `${s.file}:${s.fn_line}`;
-    const list = by_fn.get(key) ?? [];
-    list.push(s);
-    by_fn.set(key, list);
-  }
-  const report: string[] = [];
-  const errors: string[] = [];
-  let in_ported = 0;
-  let unported_fns = 0;
-  for (const [key, list] of by_fn) {
-    const ts = marks.get(key);
-    if (ts === undefined) {
-      unported_fns++;
-      report.push(`not ported: ${key} ${list[0]!.fn_name} (${list.length} site(s))`);
-      continue;
-    }
-    in_ported += list.length;
-    const live = ts.reduce((n, t) => n + (t.body.match(LIVE_RE)?.length ?? 0), 0);
-    const where = ts.map((t) => t.ts).join(", ");
-    if (live < list.length) {
-      errors.push(`ERROR: ${key} ${list[0]!.fn_name}: ${list.length} upstream INFO site(s) (${list.map((s) => s.line).join(", ")}), ${live} live or stopped in ${where}`);
-    } else {
-      report.push(`ok: ${key} ${list[0]!.fn_name}: ${list.length} site(s), ${live} in ${where}`);
-    }
-  }
-  mkdirSync(OUT, { recursive: true });
-  writeFileSync(join(OUT, "report.txt"), [...errors, ...report].join("\n") + "\n");
-  console.log(`upstream INFO sites ${sites.length} (skipped ${skipped}); in ported fns ${in_ported}; fns not ported ${unported_fns}`);
-  console.log(`details: ${join(OUT, "report.txt")}`);
-  for (const e of errors) console.log(e);
-  return errors.length === 0 ? 0 : 1;
+  const r = check(sites, markers());
+  mkdirSync(out, { recursive: true });
+  writeFileSync(join(out, "report.txt"), [...r.errors, ...r.report].join("\n") + "\n");
+  console.log(`upstream INFO sites ${sites.length} (skipped ${r.skipped}); in ported fns ${r.in_ported}; fns not ported ${r.unported_fns}`);
+  console.log(`details: ${join(out, "report.txt")}`);
+  for (const e of r.errors) console.log(e);
+  return r.errors.length === 0 ? 0 : 1;
 }
 
-process.exitCode = main();
+if (import.meta.main) process.exitCode = main(process.argv.slice(2));

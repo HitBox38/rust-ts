@@ -23,7 +23,7 @@
   "names": { "visitor": "TypeVisitor", "folder": "TypeFolder", "fallible_folder": "FallibleTypeFolder", "visit_fn": "VisitWith", "try_fold_fn": "TryFoldWith", "fold_fn": "FoldWith" },
   "trivial_fns": { "visit": "visit_with_trivial", "try_fold": "try_fold_with_trivial", "fold": "fold_with_trivial" },
   "trivial": [
-    "bool", "i8", "i16", "i32", "i64", "i128", "isize", "u8", "u16", "u32", "u64", "usize",
+    "bool", "i8", "i16", "i32", "i64", "i128", "isize", "u8", "u16", "u32", "u64", "usize", "rust_ts::u64_exact", "rust_ts::i64_exact",
     "rustc_type_ir::predicate::BoundConstness", "rustc_middle::ty::BoundConstness",
     "rustc_type_ir::BoundVar",
     "rustc_type_ir::predicate::ClausePolarity",
