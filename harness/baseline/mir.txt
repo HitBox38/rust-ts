@@ -20210,6 +20210,7 @@ tests/ui/type-alias-impl-trait/duplicate-lifetimes-from-rpit-containing-tait.rs
 tests/ui/type-alias-impl-trait/duplicate-lifetimes-from-rpit-containing-tait2.rs
 tests/ui/type-alias-impl-trait/equal-lifetime-params-not-ok.rs
 tests/ui/type-alias-impl-trait/equal-lifetime-params-ok.rs
+tests/ui/type-alias-impl-trait/error-tainting-issue-122904.rs
 tests/ui/type-alias-impl-trait/escaping-bound-var.rs
 tests/ui/type-alias-impl-trait/failed-to-normalize-ice-99945.rs
 tests/ui/type-alias-impl-trait/field-types.rs
@@ -20391,6 +20392,8 @@ tests/ui/type-alias-impl-trait/param_mismatch4.rs
 tests/ui/type-alias-impl-trait/path_resolution_taint.rs
 tests/ui/type-alias-impl-trait/precise-capture-155151.rs
 tests/ui/type-alias-impl-trait/privacy.rs
+tests/ui/type-alias-impl-trait/recursive-drop-elaboration-2.rs
+tests/ui/type-alias-impl-trait/recursive-drop-elaboration.rs
 tests/ui/type-alias-impl-trait/recursive-fn-tait.rs
 tests/ui/type-alias-impl-trait/recursive-tait-conflicting-defn-2.rs
 tests/ui/type-alias-impl-trait/recursive-tait-conflicting-defn.rs

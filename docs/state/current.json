@@ -35,7 +35,7 @@
     "hir-tree-nocore": 21523,
     "fluent-format": 4210,
     "tydump-minicore": 46,
-    "mir": 21522,
+    "mir": 21525,
     "resdump": 21523,
     "resdump-nocore": 21523,
     "miri-pass": 345,
@@ -63,7 +63,7 @@
     "pm-expanded": 281,
     "miri-pass-heavy": 5
   },
-  "updated": "2026-11-08T05:26:37.475Z",
+  "updated": "2026-11-08T16:41:48.855Z",
   "open_stops": [],
   "coverage": {
     "ported": 24289,
