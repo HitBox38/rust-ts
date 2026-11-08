@@ -34,8 +34,22 @@ import type { Ordering } from "./mod.ts";
  * instructions fell 22% (1,128 to 885 G), and with `share_elements` (rustc_data_structures/sharded.ts) max RSS fell from 6.7 to 3.7 GB.
  * So a list is frozen only where a write must be caught: under `bun test`, under the alias checker (`RUST_TS_ALIAS_OUT`, whose
  * evidence counts on writes to a list throwing), and with `RUST_TS_FREEZE_LISTS=1`. Everywhere, the methods that write in place
- * panic (`LIST_MUTATORS`); an index or `length` write to an unfrozen list is the one write not caught at run time, and the `readonly`
- * type of `List<T>` rejects it unless something casts it away.
+ * panic (`LIST_MUTATORS`).
+ *
+ * What an unfrozen list does not stop at run time (review perf-heavy F4; none of these occurs in the tree, as that review searched):
+ * an index write (`l[0] = x`, `Reflect.set`, `Object.assign`, `Object.defineProperty` of an index), a `length` write, `delete l[0]`,
+ * an `Array.prototype.<m>.call(l, ..)` / `.apply` (the panics sit on `RawList.prototype`, which `.call` bypasses), a new own property,
+ * and `Object.setPrototypeOf(l, Array.prototype)` (after which `l.push` works). The `readonly` type of `List<T>` rejects the first
+ * kinds unless something casts it away. `Object.preventExtensions` or `Object.seal` would stop some of them, but they cost what
+ * `freeze` costs (lane harness-w44, measured in Bun: both move the elements to the same sparse storage, 10x slower reads and 3x the
+ * heap of a plain array), so neither is used. What catches them is the gate's "frozen lists" step (scripts/frozen-lists.ts), which
+ * runs a sample of protected cases with `RUST_TS_FREEZE_LISTS=1`, and the unit tests.
+ *
+ * `NODE_ENV`: `bun test` sets it to `test` only when it is unset, so under a caller's `NODE_ENV=production` the tests run unfrozen
+ * (review perf-heavy F2). The tripwire `Object.isFrozen` in interning.test.ts then fails, and scripts/gate.ts refuses to start with
+ * `NODE_ENV` or `RUST_TS_FREEZE_LISTS` set, since the harness passes both on to every subject (review perf-heavy F3: frozen, the
+ * output is the same, but heavy next-solver cases run about 22% longer). A `bun build --compile` bundle hard-codes `NODE_ENV`, so
+ * it never freezes by `NODE_ENV`; no harness path builds one.
  */
 const FREEZE_LISTS: boolean =
   process.env.RUST_TS_FREEZE_LISTS === "1" || process.env.NODE_ENV === "test" || process.env.RUST_TS_ALIAS_OUT !== undefined;
