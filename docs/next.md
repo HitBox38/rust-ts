@@ -522,7 +522,7 @@ Queued from wave 40c's reviews, none blocking:
 Also queued: `tests/ui/closures/supertrait-hint-cycle.rs` under `mir-heavy` (first report run, on AC, 2026-11-06): the oracle takes 60.3 s and 9 GB, and the port timed out at 1,800 s with 12.7 GB, so it is at least 30x slower there; worth a performance look, not protected. near-limit `dynamic-drop.rs` and `issue-8827.rs` (60-62%).
 
 ## Wave 40c (started 2026-11-07) — still independent of D4
-**Gate running on main; accept and audit to follow.**
+**ACCEPTED 2026-11-08 (gate-20261107-141645-root-lspa, main 71ef4101):** 542,089 protected in 60 suites (+3, 0 lost): def-path-hash-ice-157238.rs (mir-o2), rust-log.rs (run-pass-aux-miri, now 356 of 356), one run-pass-miri case. 24,279/27,053 fns (89.7%). M7a figures: mir-o2 and mono-ui 99.89%, check-rg 34 of 34; ir-hello not yet in a gate. No power loss. Regression audit: docs/reviews/w40c-audit.md, running.
 | lane | scope | status |
 |---|---|---|
 | fixers-45 | driver and environment: fixers-43 review F2, F3, F4, F6, the temp-dir error's path, `POLONIUS_ALGORITHM`'s location; `RUSTC_LOG` INFO events (rust-log.rs, log-backtrace.rs, def-path-hash-ice-157238.rs and mono-ui's trace filter warning) | APPROVE WITH NITS; on integ-w42 |
