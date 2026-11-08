@@ -77,7 +77,7 @@ function check_against_value_eq(ee: ElementEq, values: readonly unknown[]): void
   expect([...out1]).toEqual([...out2]);
   expect(ee.hash_slice(values, undefined)).toBe(element_hash_slice(ee.hash, values, undefined));
   const rev = [...values].reverse();
-  const pairs: [readonly unknown[], readonly unknown[]][] = [[values, values], [values, [...values]], [values, rev], [values, values.slice(1)], [[], []]];
+  const pairs: [readonly unknown[], readonly unknown[]][] = [[values, values], [values, [...values]], [values, rev], [values, values.slice(1)], [values, values.slice(0, -1)], [values.slice(0, -1), values], [[], []]];
   // Slices that differ in one place only, at each place: the first, the last and every other.
   const unequal = values.find((x) => !value_eq(x, values[0]))!;
   for (let i = 0; i < values.length; i++) {
@@ -85,6 +85,10 @@ function check_against_value_eq(ee: ElementEq, values: readonly unknown[]): void
     w[i] = value_eq(w[i], unequal) ? values[0] : unequal;
     pairs.push([values, w]);
   }
+  // A list and the same list less its last element are never equal (review perf-tait N1: without the length check a stored
+  // list would be found for its own prefix whenever their hashes collide).
+  expect(ee.slice_eq(values, values.slice(0, -1))).toBe(false);
+  expect(ee.slice_eq(values.slice(0, -1), values)).toBe(false);
   for (const [a, b] of pairs) {
     expect(ee.slice_eq(a, b)).toBe(element_slice_eq(ee.eq, a, b));
     expect(ee.slice_eq(a, b)).toBe(element_slice_eq(value_eq, a, b));
