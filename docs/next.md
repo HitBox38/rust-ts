@@ -534,7 +534,7 @@ Also queued: `tests/ui/closures/supertrait-hint-cycle.rs` under `mir-heavy` (fir
 | perf-heavy | `supertrait-hint-cycle.rs` under `mir-heavy` (port timed out at 1,800 s where the oracle takes 60 s); then sysroot core's 19x and 10.9 GB if the same cause | APPROVE WITH NITS; 90fad7d0 on integ-w42, 0d4092c4 (unfrozen lists) dropped for now |
 
 ## Wave 40d (started 2026-11-08) — still independent of D4
-**Gate running on main; accept and audit to follow.**
+**ACCEPTED 2026-11-08 (gate-20261108-052654-root-cpy7, main 4ed419a1):** 542,092 protected in 60 suites (+3, 0 lost): the three type-alias-impl-trait cases in mir, matching only on the solo retry at 45.7-48.3 s of 60 (decision in docs/state; a performance lane for them is first in the queue). First gate with the parallel unit step and the info sites and frozen lists steps. 24,290/27,053 fns (89.8%). No power loss. Regression audit: docs/reviews/w40d-audit.md, running.
 Parallel unit trial (root, quiet machine, AC, 2026-11-08): `bun test ./src ./tools --parallel=4` took 386-402 s on three runs against 1,226 s serial, tree unchanged. With `RUST_TS_DATA` exported, as the gate's children get it, the same 5 files fail on every run, each from a module-order cycle that per-file isolation exposes: `Cannot access 'Os' before initialization` (src/rustc_metadata/rmeta/decoder_a.oracle.test.ts, root.oracle.test.ts, src/rustc_codegen_ssa/back/link.test.ts, rlib_stub.oracle.test.ts) and `'MacroKinds'` (src/rustc_hir_analysis/contract.test.ts). Without `RUST_TS_DATA` exported, workers do not read `.env.local`.
 
 | lane | scope | status |
