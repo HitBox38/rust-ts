@@ -21,8 +21,15 @@
 // `undefined`, another key order), so no caller can see more here than on a hit. What changes is that two lists can now hold one
 // object where upstream has two equal copies: only `===` on elements of two lists, or a write to an element (to a stored list's
 // elements, already a bug), could tell. Upstream compares these `Copy` values with `==`.
+// PORT(perf) (lane perf-tait): a table that shares may also take its element type's derived `Hash` and `PartialEq` as functions
+// (`ElementEq`), used in place of the generic `value_hash` / `value_eq` for its elements: upstream hashes and compares these elements
+// with exactly those derives. The functions must agree with `value_eq` on every value of the element type (each pair's own test says
+// how), and the hash with the eq; the hash only picks a bucket, and every table uses one hash for all its lists. On the `mir` cases
+// `type-alias-impl-trait/recursive-drop-elaboration*.rs` the two sharing tables hashed 106M elements (lists of about 300 elements, made
+// afresh by each canonicalization) and compared 75M on hits, about 30% of the run in the generic walk.
 
 import { INTERNED } from "./intern.ts";
+import { panic } from "../std/panic.ts";
 import { hash_mix, observe_interned, observe_interned_slice, value_eq, value_hash } from "../rust_ts/intern_key.ts";
 
 /** PORT(perf): test hook, see `set_intern_shadow`. */
@@ -44,6 +51,114 @@ function slice_eq<T>(a: readonly T[], b: readonly T[]): boolean {
   return true;
 }
 
+/**
+ * PORT(perf): a list element type's derived `Hash` and `PartialEq` (module comment). `eq` must be `value_eq` on values of the type,
+ * and `eq(a, b)` must imply `hash(a) === hash(b)`. `hash_slice` and `slice_eq` are the loops over a slice, written out per type so
+ * that each loop calls one function (element_hash_slice, element_slice_eq give their meaning).
+ */
+export interface ElementEq {
+  readonly hash: (v: unknown) => number;
+  readonly eq: (a: unknown, b: unknown) => boolean;
+  /** `element_hash_slice(this.hash, v, out)` */
+  readonly hash_slice: (v: readonly unknown[], out: Int32Array | undefined) => number;
+  /** `element_slice_eq(this.eq, a, b)` */
+  readonly slice_eq: (a: readonly unknown[], b: readonly unknown[]) => boolean;
+}
+
+/** PORT(perf): what `ElementEq.hash_slice` computes: a slice's hash from its elements' (`intern_slice`), each also put in `out`. */
+export function element_hash_slice(hash: (v: unknown) => number, v: readonly unknown[], out: Int32Array | undefined): number {
+  let h = v.length;
+  for (let i = 0; i < v.length; i++) {
+    const eh = hash(v[i]);
+    if (out !== undefined) out[i] = eh;
+    h = hash_mix(h, eh);
+  }
+  return h;
+}
+
+/** PORT(perf): what `ElementEq.slice_eq` computes: the slices' `==`, element by element. */
+export function element_slice_eq(eq: (a: unknown, b: unknown) => boolean, a: readonly unknown[], b: readonly unknown[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (!eq(a[i], b[i])) return false;
+  return true;
+}
+
+/** PORT(perf): the generic element functions, for a table without its own. */
+const VALUE_ELEMENT_EQ: ElementEq = {
+  hash: value_hash,
+  eq: value_eq,
+  hash_slice(v, out) {
+    let h = v.length;
+    for (let i = 0; i < v.length; i++) {
+      const eh = value_hash(v[i]);
+      if (out !== undefined) out[i] = eh;
+      h = hash_mix(h, eh);
+    }
+    return h;
+  },
+  slice_eq,
+};
+
+/**
+ * PORT(perf) (lane perf-tait): `share_elements`' representatives, one per value, found by element hash then `eq`: an open-addressing
+ * table (linear probing over an `Int32Array` of hashes beside an array of the objects), in place of a `Map` from hash to an array of
+ * objects, whose lookups were 7% of the `mir` case `type-alias-impl-trait/recursive-drop-elaboration-2.rs` (19M + 9M elements of
+ * lists that missed). Representatives are pairwise unequal, so at most one matches, and the probe order cannot matter.
+ */
+export class ElementPool {
+  private hashes = new Int32Array(1024);
+  private objects: unknown[] = new Array<unknown>(1024).fill(undefined);
+  private count = 0;
+
+  /** The representative `eq` to `x` (whose hash is `h`); if there is none, `x`, which becomes it. `x` is an object. */
+  share(x: unknown, h: number, eq: (a: unknown, b: unknown) => boolean): unknown {
+    const objects = this.objects;
+    const mask = objects.length - 1;
+    let i = slot_of(h) & mask;
+    for (;;) {
+      const o = objects[i];
+      if (o === undefined) break;
+      if (this.hashes[i] === h && eq(x, o)) return o;
+      i = (i + 1) & mask;
+    }
+    objects[i] = x;
+    this.hashes[i] = h;
+    if (++this.count * 2 > objects.length) this.grow();
+    return x;
+  }
+
+  /** The number of representatives (for tests). */
+  get size(): number {
+    return this.count;
+  }
+
+  private grow(): void {
+    const old_hashes = this.hashes;
+    const old_objects = this.objects;
+    const n = old_objects.length * 2;
+    const hashes = new Int32Array(n);
+    const objects = new Array<unknown>(n).fill(undefined);
+    const mask = n - 1;
+    for (let j = 0; j < old_objects.length; j++) {
+      const o = old_objects[j];
+      if (o === undefined) continue;
+      const h = old_hashes[j]!;
+      let i = slot_of(h) & mask;
+      while (objects[i] !== undefined) i = (i + 1) & mask;
+      objects[i] = o;
+      hashes[i] = h;
+    }
+    this.hashes = hashes;
+    this.objects = objects;
+  }
+}
+
+/** The start slot of hash `h`: its bits spread, as the element hashes of small values are small numbers. */
+function slot_of(h: number): number {
+  const x = Math.imul(h ^ (h >>> 16), 0x45d9f3b);
+  return x ^ (x >>> 16);
+}
+
 export class ShardedHashMap<K, V> {
   /** canonical key of the borrowed value -> the stored `(K, V)` */
   protected readonly table = new Map<string, [K, V]>();
@@ -52,8 +167,10 @@ export class ShardedHashMap<K, V> {
   /** PORT(perf): `value_hash` -> the later entries with that hash. Empty unless two distinct values collide. */
   private readonly collided = new Map<number, K[]>();
   private hashed_len = 0;
-  /** PORT(perf): `share_elements`: `value_hash` of an element -> the element objects lists of this table hold. */
-  private elements: Map<number, unknown[]> | undefined;
+  /** PORT(perf): `share_elements`: the element objects lists of this table hold, by element hash. */
+  private elements: ElementPool | undefined;
+  /** PORT(perf): `elements_eq`: the element type's hash and eq (`ElementEq`). */
+  private element_eq: ElementEq = VALUE_ELEMENT_EQ;
 
   // rustc: compiler/rustc_data_structures/src/sharded.rs:146 with_capacity
   static with_capacity<K, V>(_cap: number): ShardedHashMap<K, V> {
@@ -157,16 +274,13 @@ export class ShardedHashMap<K, V> {
    */
   intern_slice<T>(this: InternedSet<K & readonly T[]>, v: readonly T[], make: (v: readonly T[]) => K & readonly T[]): K & readonly T[] {
     observe_interned_slice(v);
-    let h = v.length;
+    const ee = this.element_eq;
+    let h: number;
     if (this.elements === undefined) {
-      for (let i = 0; i < v.length; i++) h = hash_mix(h, value_hash(v[i]));
+      h = ee.hash_slice(v, undefined);
     } else {
       if (elem_hashes.length < v.length) elem_hashes = new Int32Array(Math.max(v.length, 2 * elem_hashes.length));
-      for (let i = 0; i < v.length; i++) {
-        const eh = value_hash(v[i]);
-        elem_hashes[i] = eh;
-        h = hash_mix(h, eh);
-      }
+      h = ee.hash_slice(v, elem_hashes);
     }
     const first = this.hashed.get(h);
     let got: (K & readonly T[]) | undefined;
@@ -174,13 +288,13 @@ export class ShardedHashMap<K, V> {
       got = make(this.shared_elements(v));
       this.hashed.set(h, got);
       this.hashed_len++;
-    } else if (slice_eq(v, first)) {
+    } else if (ee.slice_eq(v, first)) {
       got = first;
     } else {
       const rest = this.collided.get(h);
       if (rest !== undefined) {
         for (let i = 0; i < rest.length; i++) {
-          if (slice_eq(v, rest[i]!)) {
+          if (ee.slice_eq(v, rest[i]!)) {
             got = rest[i]!;
             break;
           }
@@ -207,9 +321,22 @@ export class ShardedHashMap<K, V> {
     for (const rest of this.collided.values()) yield* rest;
   }
 
-  /** PORT(perf): this table's new lists hold an element `value_eq` to one an earlier list holds as that object (module comment). */
-  share_elements(): void {
-    this.elements ??= new Map();
+  /**
+   * PORT(perf): this table's new lists hold an element `value_eq` to one an earlier list holds as that object (module comment).
+   * `element_eq`: as `elements_eq`.
+   */
+  share_elements(element_eq?: ElementEq): void {
+    if (element_eq !== undefined) this.elements_eq(element_eq);
+    this.elements ??= new ElementPool();
+  }
+
+  /**
+   * PORT(perf): `element_eq`, the element type's own hash and eq, replaces `value_hash` / `value_eq` for this table's elements
+   * (module comment), without sharing; only before the first `intern_slice`, as the table keeps one hash for all its lists.
+   */
+  elements_eq(element_eq: ElementEq): void {
+    if (this.hashed_len !== 0) panic("elements_eq: the element hash of a table that holds lists changed");
+    this.element_eq = element_eq;
   }
 
   /**
@@ -219,25 +346,13 @@ export class ShardedHashMap<K, V> {
   private shared_elements<T>(v: readonly T[]): readonly T[] {
     const elements = this.elements;
     if (elements === undefined) return v;
+    const eq = this.element_eq.eq;
     let w: T[] | undefined;
     for (let i = 0; i < v.length; i++) {
       const x = v[i];
       if (typeof x !== "object" || x === null || (x as { readonly [INTERNED]?: true })[INTERNED] === true) continue;
-      const eh = elem_hashes[i]!;
-      const bucket = elements.get(eh);
-      if (bucket === undefined) {
-        elements.set(eh, [x]);
-        continue;
-      }
-      let found: unknown;
-      for (let j = 0; j < bucket.length; j++) {
-        if (value_eq(x, bucket[j])) {
-          found = bucket[j];
-          break;
-        }
-      }
-      if (found === undefined) bucket.push(x);
-      else if (found !== x) (w ??= Array.from(v))[i] = found as T;
+      const found = elements.share(x, elem_hashes[i]!, eq);
+      if (found !== x) (w ??= Array.from(v))[i] = found as T;
     }
     return w ?? v;
   }

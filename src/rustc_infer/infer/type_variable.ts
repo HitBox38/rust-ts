@@ -106,6 +106,37 @@ export class TypeVariableStorage implements Rollback<UndoLog> {
     public sub_unification_table: UnificationTableStorage<TyVidSubKey, undefined, NoError>,
   ) {}
 
+  // PORT(perf) (lane perf-tait): the views `with_log`, `eq_relations()` and `sub_unification_table()` make (a `TypeVariableTable`; an
+  // ena `UnificationTable` over an `InPlace` over a `SnapshotVec`, with the undo log's `as_` view) are references only: no field of
+  // theirs is ever written, and the storages and arrays they point to are never replaced, only written in place. Upstream they are
+  // borrows, which cost nothing. Here each call made 3 to 5 objects, about 8% of the `mir` case
+  // `type-alias-impl-trait/recursive-drop-elaboration-2.rs`, so the last view of each kind is kept with the undo log it was made for
+  // and given out again for that same log object: it is the same view a new call would make. A clone is a new storage, with no views.
+  #table_log: InferCtxtUndoLogs | undefined = undefined;
+  #table: TypeVariableTable | undefined = undefined;
+  #eq_log: InferCtxtUndoLogs | undefined = undefined;
+  #eq: InferUnificationTable<TyVidEqKey, TypeVariableValue, NoError> | undefined = undefined;
+  #sub_log: InferCtxtUndoLogs | undefined = undefined;
+  #sub: InferUnificationTable<TyVidSubKey, undefined, NoError> | undefined = undefined;
+
+  /** PORT(perf): `self.eq_relations.with_log(undo_log)` (`TypeVariableTable::eq_relations`), the kept view (see above). */
+  eq_relations_with_log(undo_log_: InferCtxtUndoLogs): InferUnificationTable<TyVidEqKey, TypeVariableValue, NoError> {
+    if (this.#eq_log !== undo_log_ || this.#eq === undefined) {
+      this.#eq = this.eq_relations.with_log(undo_log_.as_(undo_log.UndoLog.from_TyVidEqKey));
+      this.#eq_log = undo_log_;
+    }
+    return this.#eq;
+  }
+
+  /** PORT(perf): `self.sub_unification_table.with_log(undo_log)` (`TypeVariableTable::sub_unification_table`), the kept view. */
+  sub_unification_table_with_log(undo_log_: InferCtxtUndoLogs): InferUnificationTable<TyVidSubKey, undefined, NoError> {
+    if (this.#sub_log !== undo_log_ || this.#sub === undefined) {
+      this.#sub = this.sub_unification_table.with_log(undo_log_.as_(undo_log.UndoLog.from_TyVidSubKey));
+      this.#sub_log = undo_log_;
+    }
+    return this.#sub;
+  }
+
   /** `#[derive(Default)]` */
   static default_(): TypeVariableStorage {
     return new TypeVariableStorage(
@@ -145,7 +176,12 @@ export class TypeVariableStorage implements Rollback<UndoLog> {
 
   // rustc: compiler/rustc_infer/src/infer/type_variable.rs:143 with_log
   with_log(undo_log: InferCtxtUndoLogs): TypeVariableTable {
-    return new TypeVariableTable(this, undo_log);
+    // PORT(perf): the kept view for this log (see `#table`).
+    if (this.#table_log !== undo_log || this.#table === undefined) {
+      this.#table = new TypeVariableTable(this, undo_log);
+      this.#table_log = undo_log;
+    }
+    return this.#table;
   }
 
   // rustc: compiler/rustc_infer/src/infer/type_variable.rs:151 eq_relations_ref
@@ -386,12 +422,14 @@ TypeVariableTable.prototype.inlined_probe_with_vid = function (this: TypeVariabl
 
 // rustc: compiler/rustc_infer/src/infer/type_variable.rs:293 eq_relations
 TypeVariableTable.prototype.eq_relations = function (this: TypeVariableTable): InferUnificationTable<TyVidEqKey, TypeVariableValue, NoError> {
-  return this.storage.eq_relations.with_log(this.undo_log.as_(undo_log.UndoLog.from_TyVidEqKey));
+  // PORT(perf): `self.storage.eq_relations.with_log(self.undo_log)`, the view kept for this log (`TypeVariableStorage` `#eq`).
+  return this.storage.eq_relations_with_log(this.undo_log);
 };
 
 // rustc: compiler/rustc_infer/src/infer/type_variable.rs:298 sub_unification_table
 TypeVariableTable.prototype.sub_unification_table = function (this: TypeVariableTable): InferUnificationTable<TyVidSubKey, undefined, NoError> {
-  return this.storage.sub_unification_table.with_log(this.undo_log.as_(undo_log.UndoLog.from_TyVidSubKey));
+  // PORT(perf): `self.storage.sub_unification_table.with_log(self.undo_log)`, the view kept for this log (`#sub`).
+  return this.storage.sub_unification_table_with_log(this.undo_log);
 };
 
 /// Returns a range of the type variables created during the snapshot.
