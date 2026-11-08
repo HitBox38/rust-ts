@@ -11,7 +11,9 @@ import { intern_key, value_eq, value_hash } from "../../rust_ts/intern_key.ts";
 import { KeyedMap } from "../../rust_ts/keyed.ts";
 import { DefId, DefIndex, CrateNum } from "../../rustc_span/def_id.ts";
 import { key_OpaqueTypeKey } from "../../rustc_infer/infer/opaque_types/table.ts";
-import { CANONICAL_VAR_KIND_EQ, INTERNED_ELEMENT_EQ, PREDEFINED_OPAQUE_EQ } from "./context.ts";
+import { CANONICAL_VAR_KIND_EQ, CommonLifetimes, CommonTypes, CtxtInterners, type GlobalCtxt, INTERNED_ELEMENT_EQ, PREDEFINED_OPAQUE_EQ, TyCtxt } from "./context.ts";
+import { GenericArg } from "./generic_args.ts";
+import type { ConstVid } from "../../rustc_type_ir/decls.ts";
 
 /** Stand-ins for interned objects: one object per id, as the interners guarantee. */
 const interned = new Map<number, object>();
@@ -75,7 +77,15 @@ function check_against_value_eq(ee: ElementEq, values: readonly unknown[]): void
   expect([...out1]).toEqual([...out2]);
   expect(ee.hash_slice(values, undefined)).toBe(element_hash_slice(ee.hash, values, undefined));
   const rev = [...values].reverse();
-  for (const [a, b] of [[values, values], [values, [...values]], [values, rev], [values, values.slice(1)], [[], []]] as const) {
+  const pairs: [readonly unknown[], readonly unknown[]][] = [[values, values], [values, [...values]], [values, rev], [values, values.slice(1)], [[], []]];
+  // Slices that differ in one place only, at each place: the first, the last and every other.
+  const unequal = values.find((x) => !value_eq(x, values[0]))!;
+  for (let i = 0; i < values.length; i++) {
+    const w = [...values];
+    w[i] = value_eq(w[i], unequal) ? values[0] : unequal;
+    pairs.push([values, w]);
+  }
+  for (const [a, b] of pairs) {
     expect(ee.slice_eq(a, b)).toBe(element_slice_eq(ee.eq, a, b));
     expect(ee.slice_eq(a, b)).toBe(element_slice_eq(value_eq, a, b));
   }
@@ -123,6 +133,24 @@ test("a table with an ElementEq gives the same lists as one with value_eq", () =
   }
 });
 
+test("a table decides a hit with its ElementEq's slice_eq: lists whose hashes all collide stay apart", () => {
+  // A hash that puts every element in one bucket, so every list of a length shares one hash.
+  const one_bucket: ElementEq = {
+    hash: () => 7,
+    eq: value_eq,
+    hash_slice: (v, out) => element_hash_slice(() => 7, v, out),
+    slice_eq: (a, b) => element_slice_eq(value_eq, a, b),
+  };
+  const s = ShardedHashMap.with_capacity<readonly unknown[], null>(0);
+  s.share_elements(one_bucket);
+  const make = (w: readonly unknown[]): readonly unknown[] => Object.freeze([...w]);
+  const lists = [[{ a: 1 }, { a: 2 }], [{ a: 2 }, { a: 1 }], [{ a: 1 }, { a: 1 }], [{ a: 3 }, { a: 2 }]];
+  const got = lists.map((l) => s.intern_slice<unknown>(l, make));
+  expect(new Set(got).size).toBe(4);
+  for (let i = 0; i < lists.length; i++) expect(s.intern_slice<unknown>(lists[i]!.map((x) => ({ ...x })), make)).toBe(got[i]!);
+  expect(s.len()).toBe(4);
+});
+
 test("the element functions of a table cannot change once it holds a list", () => {
   const s = ShardedHashMap.with_capacity<readonly unknown[], null>(0);
   s.intern_slice<unknown>([I(1)], (w) => [...w]);
@@ -132,8 +160,9 @@ test("the element functions of a table cannot change once it holds a list", () =
 test("key_OpaqueTypeKey: two keys give one text exactly when intern_key gives them one", () => {
   const keys: { def_id: number; args: object }[] = [];
   // Around the bounds of the number form (a def id below 2^21, an args id below 2^32) and the text form's separator.
-  for (const def_id of [0, 1, 2, 12, 123, 0x1f_ffff, 0x20_0000, 0x20_0001, 0xffff_ffff]) {
-    for (const args of [0, 1, 2, 3, 23, 0x7fff_ffff, 0xffff_ffff, 0x1_0000_0000, 0x1_0000_0001]) keys.push({ def_id, args: I(args) });
+  // `0x20_0000` (2097152) with `12` and 20971521 with `2` read alike as digits, without the separator.
+  for (const def_id of [0, 1, 2, 12, 123, 0x1f_ffff, 0x20_0000, 0x20_0001, 20971521, 0xffff_ffff]) {
+    for (const args of [0, 1, 2, 3, 12, 23, 0x7fff_ffff, 0xffff_ffff, 0x1_0000_0000, 0x1_0000_0001]) keys.push({ def_id, args: I(args) });
   }
   const kinds = new Set<string>();
   for (const a of keys) {
@@ -183,4 +212,17 @@ test("ElementPool: one representative per value, through collisions and growth",
   expect(pool.share(b, -(1 << 30), eq)).toBe(b);
   expect(pool.share({ a: 1 }, 1 << 30, eq)).toBe(a);
   expect(pool.share({ b: 1 }, -(1 << 30), eq)).toBe(b);
+});
+
+test("GenericArg::as_region / as_type / as_const are kind()'s arms, without the GenericArgKind", () => {
+  const interners = CtxtInterners.new(undefined);
+  const gcx = { interners, types: CommonTypes.new(interners), lifetimes: CommonLifetimes.new(interners) };
+  const tcx = new TyCtxt(gcx as unknown as GlobalCtxt);
+  const args: GenericArg[] = [tcx.types.bool, tcx.lifetimes.re_static, tcx.mk_ct_from_kind({ $: "Infer", _0: { $: "Var", _0: 0 as ConstVid } })];
+  for (const a of args) {
+    const k = GenericArg.kind(a);
+    expect(GenericArg.as_region(a)).toBe(k.$ === "Lifetime" ? k._0 : undefined);
+    expect(GenericArg.as_type(a)).toBe(k.$ === "Type" ? k._0 : undefined);
+    expect(GenericArg.as_const(a)).toBe(k.$ === "Const" ? k._0 : undefined);
+  }
 });
