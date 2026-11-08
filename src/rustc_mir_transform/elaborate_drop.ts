@@ -209,7 +209,8 @@ export interface DropElaborator<Path> {
   /// If this returns `None`, elements of `path` will not get a dedicated drop flag.
   ///
   /// This is only relevant for array patterns, which can move out of individual array elements.
-  // PORT: `index` / `size` are `u64` array lengths, `number` as in `ProjectionElem::ConstantIndex`.
+  // PORT: `index` / `size` are `u64` array lengths, `number`s: `open_drop_for_array` walks every index up to `size`, as
+  // upstream does, so they stay iteration counts (`ProjectionElem::ConstantIndex`'s own fields are `bigint`s).
   // rustc: compiler/rustc_mir_transform/src/elaborate_drop.rs:139 array_subpath
   array_subpath(path: Path, index: number, size: number): Path | undefined;
 }
@@ -1296,11 +1297,12 @@ class DropCtxt<Path> {
           let project: PlaceElem;
           let path: Path | undefined;
           switch (p.$) {
+            // PORT: the `u64`s here are `number`s (this loop walks every index up to `size`); `ProjectionElem`'s are `bigint`s.
             case "Drop":
-              [project, path] = [{ $: "Subslice", from: p.start, to: p.end, from_end: false }, undefined];
+              [project, path] = [{ $: "Subslice", from: BigInt(p.start), to: BigInt(p.end), from_end: false }, undefined];
               break;
             case "Keep":
-              [project, path] = [{ $: "ConstantIndex", offset: p._0, min_length: size, from_end: false }, p._1];
+              [project, path] = [{ $: "ConstantIndex", offset: BigInt(p._0), min_length: BigInt(size), from_end: false }, p._1];
               break;
           }
           fields.push([tcx.mk_place_elem(this.place, project), path]);

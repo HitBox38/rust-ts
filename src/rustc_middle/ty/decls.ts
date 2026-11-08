@@ -552,7 +552,7 @@ declare module "./mod.ts" {
     // ty/sty.rs:671
     function new_foreign(tcx: TyCtxt, def_id: DefId): Ty;
     // ty/sty.rs:676
-    function new_array(tcx: TyCtxt, ty: Ty, n: number): Ty;
+    function new_array(tcx: TyCtxt, ty: Ty, n: number | bigint): Ty;
     // ty/sty.rs:681
     function new_array_with_const_len(tcx: TyCtxt, ty: Ty, ct: Const): Ty;
     // ty/sty.rs:690
@@ -980,7 +980,7 @@ declare module "../../rustc_type_ir/sty/consts.ts" {
     // ty/consts.rs:59
     function from_bool(tcx: TyCtxt, v: boolean): Const;
     // ty/consts.rs:65
-    function from_target_usize(tcx: TyCtxt, n: number): Const;
+    function from_target_usize(tcx: TyCtxt, n: number | bigint): Const;
   }
 }
 

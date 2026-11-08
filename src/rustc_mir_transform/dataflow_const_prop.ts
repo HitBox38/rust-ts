@@ -17,8 +17,8 @@
 //   rvalue slot; each stored `Const` is copied (`clone_Const`) where rustc copies it.
 // - The interpreter (`InterpCx<DummyMachine>`, `ImmTy`, `OpTy`, ...) comes from rustc_const_eval (D8), reached through
 //   its `lib.ts` at call time (as known_panics_lint.ts). `ImmTy`'s `Deref<Target = Immediate>` is `.imm`.
-// - `PlaceElem::ConstantIndex`'s `u64` fields are numbers in the port: `offset` (a `bigint` from `to_target_usize`) and
-//   `offset.checked_add(1)` (`None` past `u64::MAX`) become numbers.
+// - `PlaceElem::ConstantIndex`'s `u64` fields are `bigint`s, as `to_target_usize` gives `offset` (lane fixers-47; they were
+//   `number`s, which rounded an offset of 2^53 or more).
 // - The `tracing` spans (`debug_span!(..).in_scope(..)`) run their closure.
 import { BackendRepr, Size } from "../rustc_abi/lib.ts";
 import { FIRST_VARIANT, FieldIdx, type VariantIdx } from "../rustc_abi/layout.ts";
@@ -644,7 +644,7 @@ class ConstAnalysis extends AnalysisBase<ConstState> {
         const offset = idx.$ === "Elem" ? InterpResult.discard_err(Scalar.to_target_usize(idx._0, this.tcx)) : undefined;
         const min_length = offset !== undefined && offset < 0xffff_ffff_ffff_ffffn ? offset + 1n : undefined;
         if (offset !== undefined && min_length !== undefined) {
-          proj_elem = { $: "ConstantIndex", offset: Number(offset), min_length: Number(min_length), from_end: false };
+          proj_elem = { $: "ConstantIndex", offset, min_length, from_end: false };
         } else {
           return;
         }
@@ -882,7 +882,7 @@ class Patch extends MutVisitor {
       if (offset === undefined) return undefined;
       if (!(offset < 0xffff_ffff_ffff_ffffn)) return undefined;
       const min_length = offset + 1n;
-      return { $: "ConstantIndex", offset: Number(offset), min_length: Number(min_length), from_end: false };
+      return { $: "ConstantIndex", offset, min_length, from_end: false };
     } else {
       return undefined;
     }

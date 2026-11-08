@@ -139,7 +139,8 @@ ProjectedUserTypesNode.build_user_type_projections = function (self: ProjectedUs
       case "Subslice": {
         const { from, to } = op;
         for (const p of projections) {
-          p.projs.push({ $: "Subslice", from, to, from_end: true });
+          // PORT: `ProjectedUserTypesOp::Subslice`'s `u64`s are `number` (pattern lengths); `ProjectionElem`'s are `bigint`.
+          p.projs.push({ $: "Subslice", from: BigInt(from), to: BigInt(to), from_end: true });
         }
         break;
       }

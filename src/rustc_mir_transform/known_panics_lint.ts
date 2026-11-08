@@ -156,8 +156,8 @@ const Value = {
       } else if (proj_.$ === "ConstantIndex" && !proj_.from_end && this_.$ === "Aggregate") {
         const offset = proj_.offset;
         // `u64::try_into::<u32>().ok()?`
-        if (offset > 0xffff_ffff) return undefined;
-        this_ = this_.fields[FieldIdx.from_u32(offset)] ?? Value.Uninit;
+        if (offset > 0xffff_ffffn) return undefined;
+        this_ = this_.fields[FieldIdx.from_u32(Number(offset))] ?? Value.Uninit;
       } else {
         return undefined;
       }

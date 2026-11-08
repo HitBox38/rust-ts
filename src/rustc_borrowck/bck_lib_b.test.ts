@@ -354,16 +354,16 @@ run_compiler(config_from_args(["--crate-type", "lib", "--edition", "2024", FILE]
         m.mbcx.check_if_path_or_subpath_is_moved(loc(0, 1), "Use", [place(1, []).as_ref(), span_of(m.body)], m.state([place(1, [field(0)])], [])),
       );
       go("full fmove _1 uninit _1.0", "fmove", (m) => m.mbcx.check_if_full_path_is_moved(loc(0, 1), "Use", [place(1, []).as_ref(), span_of(m.body)], m.state([place(1, [field(0)])], [])));
-      const ci0: PlaceElem = { $: "ConstantIndex", offset: 0, min_length: 2, from_end: false };
+      const ci0: PlaceElem = { $: "ConstantIndex", offset: 0n, min_length: 2n, from_end: false };
       go("subslice arr _1[0..1] uninit _1[0 of 2]", "arr", (m) =>
-        m.mbcx.check_if_subslice_element_is_moved(loc(0, 1), "Use", [place(1, []).as_ref(), span_of(m.body)], m.state([place(1, [ci0])], []).uninits, 0, 1),
+        m.mbcx.check_if_subslice_element_is_moved(loc(0, 1), "Use", [place(1, []).as_ref(), span_of(m.body)], m.state([place(1, [ci0])], []).uninits, 0n, 1n),
       );
       go("subslice arr _1[1..2] uninit _1[0 of 2]", "arr", (m) =>
-        m.mbcx.check_if_subslice_element_is_moved(loc(0, 1), "Use", [place(1, []).as_ref(), span_of(m.body)], m.state([place(1, [ci0])], []).uninits, 1, 2),
+        m.mbcx.check_if_subslice_element_is_moved(loc(0, 1), "Use", [place(1, []).as_ref(), span_of(m.body)], m.state([place(1, [ci0])], []).uninits, 1n, 2n),
       );
       // `_1[1..2]` (a `Subslice` of an array): checked element-wise on the base `_1`
       go("path_or_subpath arr _1[0..1] uninit _1[0 of 2]", "arr", (m) =>
-        m.mbcx.check_if_path_or_subpath_is_moved(loc(0, 1), "Borrow", [place(1, [{ $: "Subslice", from: 0, to: 1, from_end: false }]).as_ref(), span_of(m.body)], m.state([place(1, [ci0])], [])),
+        m.mbcx.check_if_path_or_subpath_is_moved(loc(0, 1), "Borrow", [place(1, [{ $: "Subslice", from: 0n, to: 1n, from_end: false }]).as_ref(), span_of(m.body)], m.state([place(1, [ci0])], [])),
       );
       R.set("moved", out);
     }

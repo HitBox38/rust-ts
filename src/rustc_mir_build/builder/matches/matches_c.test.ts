@@ -69,7 +69,7 @@ test("user_ty: ProjectedUserTypesNode builds user-type projections in push order
   expect([...ProjectedUserTypesNode.iter_ops_reversed(n4)].map((op) => op.$)).toEqual(["Leaf", "Deref", "Subslice", "Index", "PushUserTypes"]);
   const projs = [
     { $: "Index", _0: null },
-    { $: "Subslice", from: 1, to: 3, from_end: true },
+    { $: "Subslice", from: 1n, to: 3n, from_end: true },
     { $: "Deref" },
     { $: "Field", _0: 4, _1: null },
   ];

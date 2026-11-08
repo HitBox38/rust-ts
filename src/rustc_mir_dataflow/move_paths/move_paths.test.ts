@@ -203,9 +203,9 @@ run_compiler(config_from_args(["--crate-type", "lib", "--edition", "2024", FILE]
     {
       const md = datas.get("arr")!;
       R.set("arr:find", [
-        lookup(md.rev_lookup.find(place(1, [{ $: "ConstantIndex", offset: 2, min_length: 3, from_end: false }]).as_ref())),
-        lookup(md.rev_lookup.find(place(1, [{ $: "ConstantIndex", offset: 0, min_length: 3, from_end: true }]).as_ref())),
-        lookup(md.rev_lookup.find(place(1, [{ $: "Subslice", from: 1, to: 3, from_end: false }]).as_ref())),
+        lookup(md.rev_lookup.find(place(1, [{ $: "ConstantIndex", offset: 2n, min_length: 3n, from_end: false }]).as_ref())),
+        lookup(md.rev_lookup.find(place(1, [{ $: "ConstantIndex", offset: 0n, min_length: 3n, from_end: true }]).as_ref())),
+        lookup(md.rev_lookup.find(place(1, [{ $: "Subslice", from: 1n, to: 3n, from_end: false }]).as_ref())),
       ]);
       R.set("arr:display", md.move_paths.map((p) => display_MovePath(p)));
     }
@@ -423,8 +423,8 @@ test("MovePathLookup::find, MovePath iterators and searches", () => {
   // MoveSubPath::of
   expect(MoveSubPath.of({ $: "OpaqueCast", _0: null }).$).toBe("Skip");
   expect(MoveSubPath.of({ $: "Index", _0: null }).$).toBe("Stop");
-  expect(MoveSubPath.of({ $: "Subslice", from: 1, to: 2, from_end: true }).$).toBe("Stop");
-  expect(MoveSubPath.of({ $: "ConstantIndex", offset: 4, min_length: 5, from_end: false })).toEqual({ $: "One", _0: { $: "ConstantIndex", _0: 4 } });
+  expect(MoveSubPath.of({ $: "Subslice", from: 1n, to: 2n, from_end: true }).$).toBe("Stop");
+  expect(MoveSubPath.of({ $: "ConstantIndex", offset: 4n, min_length: 5n, from_end: false })).toEqual({ $: "One", _0: { $: "ConstantIndex", _0: 4n } });
   expect(() => MoveSubPath.of({ $: "PhantomDeref" })).toThrow("unexpected PhantomDeref in MoveSubPath::of");
 
   // a bare lookup table: an untracked local is `Parent(None)`

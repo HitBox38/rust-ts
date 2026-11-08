@@ -328,8 +328,8 @@ function insert_discr_cast_to_u128(
       [
         {
           $: "Subslice",
-          from: offset.bytes(),
-          to: offset.bytes() + discr.size.bytes(),
+          from: offset.bytes_u64(),
+          to: offset.bytes_u64() + discr.size.bytes_u64(),
           from_end: false,
         },
       ],

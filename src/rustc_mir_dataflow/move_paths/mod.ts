@@ -13,8 +13,8 @@
 // - `impl Debug` / `Display for MovePath` are `debug_MovePath` / `display_MovePath`; `Debug for MoveOut` / `Init` are
 //   `debug_MoveOut` / `debug_Init`.
 // - `HasMoveData<'tcx>` is an interface (`move_data()`); `impl Fn(..)` parameters are closures.
-// - PORT: `MoveSubPath::ConstantIndex(u64)` / `MoveSubPathResult::Subslice { from, to }` are `number`s, as
-//   `ProjectionElem::ConstantIndex` / `Subslice` (mir syntax.gen.ts: array offsets stay < 2^53).
+// - PORT: `MoveSubPath::ConstantIndex(u64)` / `MoveSubPathResult::Subslice { from, to }` are `bigint`s, as
+//   `ProjectionElem::ConstantIndex` / `Subslice` (mir syntax.gen.ts: array offsets reach 2^53, lane fixers-47).
 // - PORT: the derived `Debug` of `MoveData` / `LocationMap` / `MovePathLookup` is not ported (only `debug!` uses it,
 //   compiled out of release rustc).
 //! [`MovePath`]s track the initialization state of places and their sub-paths.
@@ -520,7 +520,7 @@ export type LookupResult =
 export type MoveSubPath =
   | { readonly $: "Deref" }
   | { readonly $: "Field"; readonly _0: FieldIdx }
-  | { readonly $: "ConstantIndex"; readonly _0: number }
+  | { readonly $: "ConstantIndex"; readonly _0: bigint }
   | { readonly $: "Downcast"; readonly _0: VariantIdx }
   | { readonly $: "UnwrapUnsafeBinder" };
 
@@ -533,7 +533,7 @@ export function MoveSubPath_key(mpi: MovePathIndex, sub: MoveSubPath): string {
 // rustc-type: compiler/rustc_mir_dataflow/src/move_paths/mod.rs:443 MoveSubPathResult
 export type MoveSubPathResult =
   | { readonly $: "One"; readonly _0: MoveSubPath }
-  | { readonly $: "Subslice"; readonly from: number; readonly to: number }
+  | { readonly $: "Subslice"; readonly from: bigint; readonly to: bigint }
   | { readonly $: "Skip" }
   | { readonly $: "Stop" };
 
