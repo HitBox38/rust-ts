@@ -82,7 +82,9 @@ import { type TraitRef, TraitRef as TraitRefC } from "../../rustc_type_ir/predic
 import { visit_with_TraitRef } from "../../rustc_type_ir/predicate.gen.ts";
 import { upcast_from_self } from "../../rustc_type_ir/upcast.ts";
 import type { Variance } from "../../rustc_type_ir/lib.ts";
-import { debug_DefKind } from "../../rustc_hir/def.gen.ts";
+// Load order: through def.ts, which owns def.gen.ts (the def.gen.ts/hir.ts/def.ts cycle, entered from def.gen.ts, reads
+// `MacroKinds` before it exists; lanes unit-parallel, fixers-48).
+import { debug_DefKind } from "../../rustc_hir/def.ts";
 import { debug_Node } from "../../rustc_hir/hir.gen.ts";
 import { PLAIN } from "../../std/fmt.ts";
 import type { OpaqueTypeKey } from "../../rustc_type_ir/opaque_ty.gen.ts";

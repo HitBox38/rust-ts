@@ -74,7 +74,9 @@ import { CallSource as CallSourceC, debug_CastKind, debug_ProjectionElem, type P
 import { debug_PlaceTy, Place_from_Local } from "../../rustc_middle/mir/statement.ts";
 import { UnevaluatedConst } from "../../rustc_middle/mir/consts.gen.ts";
 import type { CodegenFnAttrs } from "../../rustc_middle/middle/codegen_fn_attrs.ts";
-import { debug_DefKind } from "../../rustc_hir/def.gen.ts";
+// Load order: through def.ts, which owns def.gen.ts (the def.gen.ts/hir.ts/def.ts cycle, entered from def.gen.ts, reads
+// `MacroKinds` before it exists; lanes unit-parallel, fixers-48).
+import { debug_DefKind } from "../../rustc_hir/def.ts";
 import { Safety } from "../../rustc_hir/lib.ts";
 import type { AdtDef } from "../../rustc_middle/ty/adt.ts";
 import { RawList } from "../../rustc_middle/ty/list.ts";

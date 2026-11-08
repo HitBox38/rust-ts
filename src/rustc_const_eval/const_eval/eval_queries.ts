@@ -34,7 +34,9 @@ import { display_Instance, Instance, InstanceKind } from "../../rustc_middle/ty/
 import { TypingMode } from "../../rustc_type_ir/infer_ctxt.ts";
 import { EarlyBinder } from "../../rustc_type_ir/binder.ts";
 import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
-import { debug_DefKind } from "../../rustc_hir/def.gen.ts";
+// Load order: through def.ts, which owns def.gen.ts (the def.gen.ts/hir.ts/def.ts cycle, entered from def.gen.ts, reads
+// `MacroKinds` before it exists; lanes unit-parallel, fixers-48).
+import { debug_DefKind } from "../../rustc_hir/def.ts";
 import { debug_Size, Size } from "../../rustc_abi/lib.ts";
 import { type ErrorGuaranteed } from "../../rustc_span/lib.ts";
 import { type Span } from "../../rustc_span/lib.ts";

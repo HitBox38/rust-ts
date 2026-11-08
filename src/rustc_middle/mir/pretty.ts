@@ -21,7 +21,9 @@ import { VariantIdx, Size } from "../../rustc_abi/lib.ts";
 import { InlineAsmTemplatePiece, debug_InlineAsmOptions } from "../../rustc_ast/lib.ts";
 import { Mutability } from "../../rustc_ast_ir/lib.ts";
 import type { PathBuf } from "../../rustc_error_messages/lib.ts";
-import { Namespace } from "../../rustc_hir/def.ts";
+// Load order: through def.ts, which owns def.gen.ts (the def.gen.ts/hir.ts/def.ts cycle, entered from def.gen.ts, reads
+// `MacroKinds` before it exists; lanes unit-parallel, fixers-48).
+import { debug_DefKind, Namespace } from "../../rustc_hir/def.ts";
 import { debug_DefId } from "../../rustc_span/def_id.ts";
 import { debug_Span } from "../../rustc_span/lib.ts";
 import { display_Symbol, Symbol } from "../../rustc_span/symbol.ts";
@@ -51,7 +53,6 @@ import { type BitMatrix, debug_BitMatrix_with } from "../../rustc_index/bit_set.
 import { LocalDefId } from "../../rustc_span/def_id.ts";
 import type { Constness, CoroutineKind } from "../../rustc_hir/hir.ts";
 import { debug_CoroutineKind } from "../../rustc_hir/hir.gen.ts";
-import { debug_DefKind } from "../../rustc_hir/def.gen.ts";
 import { bug } from "../../rustc_span/macros.ts";
 import { Binder } from "../../rustc_type_ir/binder.ts";
 import { display_Canonical } from "../../rustc_type_ir/canonical.ts";

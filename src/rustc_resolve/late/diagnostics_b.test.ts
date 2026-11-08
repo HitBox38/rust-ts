@@ -24,7 +24,9 @@ import { type Crate, DUMMY_NODE_ID, type Fn, type Item, type Lifetime, type Ty }
 import { FnCtxt } from "../../rustc_ast/visit.gen.ts";
 import { AnnotateSnippetEmitter } from "../../rustc_errors/annotate_snippet_emitter_writer.ts";
 import type { DiagCtxtHandle } from "../../rustc_errors/lib.ts";
-import { PerNS } from "../../rustc_hir/def.gen.ts";
+// Load order: through def.ts, which owns def.gen.ts (the def.gen.ts/hir.ts/def.ts cycle, entered from def.gen.ts, reads
+// `MacroKinds` before it exists; lanes unit-parallel, fixers-48).
+import { PerNS } from "../../rustc_hir/def.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import { FatalErrorMarker } from "../../rustc_span/fatal_error.ts";
 import { AutoStream, ColorChoice } from "../../vendor/anstream/lib.ts";

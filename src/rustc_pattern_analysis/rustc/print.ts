@@ -19,8 +19,10 @@ import { Mutability } from "../../rustc_ast_ir/lib.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import type { AdtDef } from "../../rustc_middle/ty/adt.ts";
 import type { Ty, VariantDef } from "../../rustc_middle/ty/mod.ts";
-import { PRINT_OK, type PrintResult } from "../../rustc_middle/ty/print/mod.ts";
+// Load order: pretty.ts before print/mod.ts. print/mod.ts re-exports pretty.ts, whose `PrettyPrinter` extends print/mod.ts's
+// `Printer`, so the cycle entered from print/mod.ts reads `Printer` before it exists (unit-parallel review N2; fixers-48).
 import { display_Ty, with_types_for_suggestion } from "../../rustc_middle/ty/print/pretty.ts";
+import { PRINT_OK, type PrintResult } from "../../rustc_middle/ty/print/mod.ts";
 import { bug } from "../../rustc_span/macros.ts";
 import { display_Symbol, sym } from "../../rustc_span/symbol.ts";
 import type { MutRef } from "../../std/mut_ref.ts";
