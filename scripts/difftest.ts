@@ -61,7 +61,7 @@
 // diagnostics are all the test expects), the subject's normalized stderr is compared too: PASS or FAIL.
 // Other cases are NOT_COVERED (with the first oracle/blessed difference), N/A (no blessed comparison,
 // with why) or ORACLE_TIMEOUT. Written to `<suite>.blessed.jsonl` and summary `blessed`.
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { availableParallelism } from "node:os";
 import { dirname, join } from "node:path";
 import { SUITES, irReportSuite, suite as getSuite, type Case, type Suite } from "../harness/suites.ts";
@@ -74,7 +74,7 @@ import { caseEnv } from "./lib/env.ts";
 import { EXIT_MARK, STDERR_MARK, UNSTABLE_ORACLE_PATTERNS, maskedTexts, stderrMask, unstableOracleReason } from "./lib/unstable.ts";
 import { upstreamChanges, upstreamError, upstreamStatus } from "./lib/upstream.ts";
 import { verifyMiriOracle } from "./lib/miri.ts";
-import { ORACLE_RETRY_FACTOR, rustcDriverHash, verifyOraclePin } from "./lib/oracle.ts";
+import { ORACLE_RETRY_FACTOR, oracleSysroot, rustcDriverHash, verifyOraclePin } from "./lib/oracle.ts";
 import { SPLITTERS, compareSections, splitHashes, type SplitHashes, type SplitOutput } from "./lib/split.ts";
 import { isRustcDevProbe } from "./probes.ts";
 
@@ -374,7 +374,39 @@ export function oracleCacheKey(s: Suite, c: Case, fileHash: string, deps: Dep[])
   if (s.inputDirs) parts.push({ inputDirs: inputDirsHash(s) });
   if (s.mode === "split") parts.push(splitKey(s));
   if (s.oracleKey) parts.push({ oracleKey: s.oracleKey() });
+  if (logsSysrootPaths(s, c)) parts.push({ sysrootFiles: sysrootFilesHash() });
   return hash(JSON.stringify(parts));
+}
+
+/**
+ * A case of a rustc suite that turns rustc's logger on (`RUSTC_LOG` in `Case.env`): its output names the files the crate locator
+ * lists under the oracle's sysroot (`mir-o2`'s def-path-hash-ice-157238.rs, at `trace`: 121 paths under
+ * `lib/rustlib/x86_64-unknown-linux-gnu/lib`), which `oracleVersion` (the rustc_driver build) does not cover. Another rustup home,
+ * or another file set of a target's `rust-std`, would make a cached oracle output disagree with a correct subject: a false loss. So
+ * the sysroot's path and file list (`sysrootFilesHash`) join the key of these cases only (lane harness-w44, review w40c-audit N4);
+ * no suite's `oracleKey` changes. The Miri suites' key already covers their sysroot (`miriOracleKey`).
+ */
+export function logsSysrootPaths(s: Suite, c: Case): boolean {
+  if (c.env === undefined || !Object.entries(c.env).some(([k, v]) => k === "RUSTC_LOG" && typeof v === "string")) return false;
+  return s.oracle([{ id: "", file: "", args: [] }])[0] === "rustc";
+}
+
+let sysrootFilesMemo: string | undefined;
+/** The oracle sysroot's path, and every file under each `lib/rustlib/<target>/lib` with its size, hashed (see `logsSysrootPaths`). */
+function sysrootFilesHash(): string {
+  if (sysrootFilesMemo !== undefined) return sysrootFilesMemo;
+  const root = oracleSysroot();
+  const rustlib = join(root, "lib", "rustlib");
+  const files: string[] = [];
+  const walk = (rel: string) => {
+    for (const e of readdirSync(join(rustlib, rel), { withFileTypes: true })) {
+      const r = `${rel}/${e.name}`;
+      if (e.isDirectory()) walk(r);
+      else files.push(`${r} ${statSync(join(rustlib, r)).size}`);
+    }
+  };
+  for (const t of readdirSync(rustlib, { withFileTypes: true })) if (t.isDirectory() && existsSync(join(rustlib, t.name, "lib"))) walk(`${t.name}/lib`);
+  return (sysrootFilesMemo = hash(JSON.stringify([root, files.sort()])));
 }
 
 /** `oracleCacheKey` of a case, with its file hash and dependencies as difftest computes them. */
