@@ -24,6 +24,10 @@ import { decode_SymbolManglingVersion, encode_SymbolManglingVersion, SymbolMangl
 import "../../rustc_span/lib.ts";
 import { CrateType, decode_CrateType, encode_CrateType } from "../../rustc_structures/crate_type.ts";
 import { X86InlineAsmRegClass } from "../../rustc_target/asm/x86.ts";
+// Load order: rustc_target through its crate root first. spec/mod.ts imports lib.ts, which evaluates spec/json.ts and
+// target_features.ts, and both read spec/mod.ts's bindings at their top level: entered from spec/mod.ts, the cycle reads `Os`
+// before it exists (lanes unit-parallel, fixers-48).
+import "../../rustc_target/lib.ts";
 import { decode_PanicStrategy, encode_PanicStrategy, PanicStrategy } from "../../rustc_target/spec/mod.ts";
 import { decode_TargetTuple, encode_TargetTuple, type TargetTuple } from "../../rustc_target/spec/tuple.ts";
 import { Unported } from "../../std/panic.ts";

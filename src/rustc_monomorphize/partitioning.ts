@@ -129,8 +129,10 @@ import type { BasicBlockData } from "../rustc_middle/mir/mod.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import { Instance, InstanceKind } from "../rustc_middle/ty/instance.ts";
 import { TyCtxt_assoc_parent, TyCtxt_instance_mir, type Ty, TypingEnv } from "../rustc_middle/ty/mod.ts";
-import { characteristic_def_id_of_type } from "../rustc_middle/ty/print/mod.ts";
+// Load order: pretty.ts before print/mod.ts. print/mod.ts re-exports pretty.ts, whose `PrettyPrinter` extends print/mod.ts's
+// `Printer`, so the cycle entered from print/mod.ts reads `Printer` before it exists (unit-parallel review N2; fixers-48).
 import { with_no_trimmed_paths } from "../rustc_middle/ty/print/pretty.ts";
+import { characteristic_def_id_of_type } from "../rustc_middle/ty/print/mod.ts";
 import { fold_Ty } from "../rustc_middle/ty/structural_impls.ts";
 import type { Providers } from "../rustc_middle/util/mod.ts";
 import { KeyedMap, KeyedSet } from "../rust_ts/keyed.ts";
@@ -142,6 +144,10 @@ import { Span } from "../rustc_span/lib.ts";
 import { bug } from "../rustc_span/macros.ts";
 import { Symbol, debug_Symbol } from "../rustc_span/symbol.ts";
 import { mangle_cgu } from "../rustc_symbol_mangling/lib.ts";
+// Load order: rustc_target through its crate root first. spec/mod.ts imports lib.ts, which evaluates spec/json.ts and
+// target_features.ts, and both read spec/mod.ts's bindings at their top level: entered from spec/mod.ts, the cycle reads `Os`
+// before it exists (lanes unit-parallel, fixers-48).
+import "../rustc_target/lib.ts";
 import { SymbolVisibility } from "../rustc_target/spec/mod.ts";
 import type { EarlyBinder } from "../rustc_type_ir/binder.ts";
 import { PLAIN } from "../std/fmt.ts";

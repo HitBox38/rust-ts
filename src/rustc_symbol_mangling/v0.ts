@@ -19,6 +19,9 @@ import { Hash64 } from "../rustc_hashes/lib.ts";
 import { type DefPathData, DefPathData as DefPathDataC, type DisambiguatedDefPathData } from "../rustc_hir_id/definitions.ts";
 import { type Generics } from "../rustc_middle/ty/generics.ts";
 import { IntegerExt } from "../rustc_middle/ty/layout.ts";
+// Load order: pretty.ts before print/mod.ts. print/mod.ts re-exports pretty.ts, whose `PrettyPrinter` extends print/mod.ts's
+// `Printer`, so the cycle entered from print/mod.ts reads `Printer` before it exists (unit-parallel review N2; fixers-48).
+import { display_Ty } from "../rustc_middle/ty/print/pretty.ts";
 import { type PrintResult, PRINT_OK, Printer, print_Const, print_Region, print_Ty } from "../rustc_middle/ty/print/mod.ts";
 import { Ty, TypingEnv } from "../rustc_middle/ty/mod.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
@@ -52,7 +55,6 @@ import { RawList } from "../rustc_middle/ty/list.ts";
 import { debug_Region } from "../rustc_type_ir/sty/mod.ts";
 import { debug_Const } from "../rustc_type_ir/sty/mod.ts";
 import { debug_ValTree } from "../rustc_middle/ty/consts/valtree.ts";
-import { display_Ty } from "../rustc_middle/ty/print/pretty.ts";
 import { debug_DefPathData } from "../rustc_hir_id/definitions.gen.ts";
 import { encode as punycode_encode } from "../vendor/punycode/lib.ts";
 import { from_utf8 } from "../std/str.ts";

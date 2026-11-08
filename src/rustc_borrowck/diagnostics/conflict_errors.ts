@@ -2453,8 +2453,9 @@ MirBorrowckCtxt.prototype.suggest_slice_method_if_applicable = function (
 import { BytePos } from "../../rustc_span/lib.ts";
 import { DesugaringKind } from "../../rustc_span/hygiene.ts";
 import { bug } from "../../rustc_span/macros.ts";
-import { debug_DefKind } from "../../rustc_hir/def.gen.ts";
-import type { DefKind } from "../../rustc_hir/def.ts";
+// Load order: through def.ts, which owns def.gen.ts (the def.gen.ts/hir.ts/def.ts cycle, entered from def.gen.ts, reads
+// `MacroKinds` before it exists; lanes unit-parallel, fixers-48).
+import { debug_DefKind, type DefKind } from "../../rustc_hir/def.ts";
 import { LocalDefId as LocalDefIdC } from "../../rustc_span/def_id.ts";
 import type { OutlivesConstraint } from "../constraints/mod.gen.ts";
 import {

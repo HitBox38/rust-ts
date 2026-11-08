@@ -24,8 +24,10 @@ import { stable_hash_GenericArg, stable_hash_RawList } from "../rustc_middle/ty/
 import { stable_hash_Ty } from "../rustc_middle/stable_hash.gen.ts";
 import { stable_hash_Binder, stable_hash_FnSig } from "../rustc_type_ir/ty_stable_hash.gen.ts";
 import { type Ty, TypingEnv } from "../rustc_middle/ty/mod.ts";
-import { type Print, type PrintResult, PRINT_OK, PrettyPrinter, print_Binder, print_ExistentialPredicate, print_GenericArg, print_ParamConst, print_Ty } from "../rustc_middle/ty/print/mod.ts";
+// Load order: pretty.ts before print/mod.ts. print/mod.ts re-exports pretty.ts, whose `PrettyPrinter` extends print/mod.ts's
+// `Printer`, so the cycle entered from print/mod.ts reads `Printer` before it exists (unit-parallel review N2; fixers-48).
 import { display_Ty } from "../rustc_middle/ty/print/pretty.ts";
+import { type Print, type PrintResult, PRINT_OK, PrettyPrinter, print_Binder, print_ExistentialPredicate, print_GenericArg, print_ParamConst, print_Ty } from "../rustc_middle/ty/print/mod.ts";
 import { fold_Ty } from "../rustc_middle/ty/structural_impls.ts";
 import { type CrateNum, DefId, debug_DefId } from "../rustc_span/def_id.ts";
 import { stable_hash_DefPathHash, stable_hash_StableCrateId } from "../rustc_span/stable_hash.gen.ts";

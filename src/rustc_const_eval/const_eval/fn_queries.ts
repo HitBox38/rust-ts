@@ -4,7 +4,9 @@
 // queries.gen.ts; they are cast to the upstream value types.
 import { find_attr } from "../../rustc_attr_ir/lib.ts";
 import type { ConstStability } from "../../rustc_attr_ir/stability.gen.ts";
-import { debug_DefKind } from "../../rustc_hir/def.gen.ts";
+// Load order: through def.ts, which owns def.gen.ts (the def.gen.ts/hir.ts/def.ts cycle, entered from def.gen.ts, reads
+// `MacroKinds` before it exists; lanes unit-parallel, fixers-48).
+import { debug_DefKind } from "../../rustc_hir/def.ts";
 import { Constness, debug_Node } from "../../rustc_hir/hir.ts";
 import type { Providers } from "../../rustc_middle/queries.gen.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";

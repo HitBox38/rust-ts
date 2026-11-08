@@ -64,7 +64,6 @@ import { debug_PatExprKind } from "../rustc_hir/hir.gen.ts";
 import * as hir from "../rustc_hir/lib.ts";
 import * as diagnostics from "./diagnostics.gen.ts";
 import * as gen from "./pat.gen.ts";
-import { u64_to_number } from "../rust_ts/u64.ts";
 
 // ==== lane typeck-pat-a: pat.rs:1..1779 ====
 // Port notes (lane typeck-pat-a):
@@ -2838,17 +2837,17 @@ FnCtxt.prototype.check_array_pat_len = function (
         return [undefined, arr_ty];
       }
 
-      guar = this.error_scrutinee_inconsistent_length(span, min_len, u64_to_number(len, "error_scrutinee_inconsistent_length"));
+      guar = this.error_scrutinee_inconsistent_length(span, BigInt(min_len), len);
     } else if (len >= min_len) {
       // `len.checked_sub(min_len)` is `Some(pat_len)`
       const pat_len = len - BigInt(min_len);
       // The variable-length pattern was there,
       // so it has an array type with the remaining elements left as its size...
-      return [Ty.new_array(this.tcx, element_ty, u64_to_number(pat_len, "Ty::new_array")), arr_ty];
+      return [Ty.new_array(this.tcx, element_ty, pat_len), arr_ty];
     } else {
       // ...however, in this case, there were no remaining elements.
       // That is, the slice pattern requires more than the array type offers.
-      guar = this.error_scrutinee_with_rest_inconsistent_length(span, min_len, u64_to_number(len, "error_scrutinee_with_rest_inconsistent_length"));
+      guar = this.error_scrutinee_with_rest_inconsistent_length(span, BigInt(min_len), len);
     }
   } else if (slice === undefined) {
     // We have a pattern with a fixed length,
@@ -2867,17 +2866,20 @@ FnCtxt.prototype.check_array_pat_len = function (
   return [Ty.new_error(this.tcx, guar), arr_ty];
 };
 
+// PORT: `min_len` and `size` are `u64`, so `bigint` (a length can pass 2^53, review fixers-47 F1). `pluralize` tests `== 1`,
+// and `Number(x) === 1` exactly when `x === 1n`.
 // rustc: compiler/rustc_hir_typeck/src/pat.rs:3200 error_scrutinee_inconsistent_length
-FnCtxt.prototype.error_scrutinee_inconsistent_length = function (this: FnCtxt, span: Span, min_len: number, size: number): ErrorGuaranteed {
-  return struct_span_code_err(this.dcx(), span, E0527, `pattern requires ${min_len} element${pluralize(min_len)} but array has ${size}`)
-    .with_span_label(span, `expected ${size} element${pluralize(size)}`)
+FnCtxt.prototype.error_scrutinee_inconsistent_length = function (this: FnCtxt, span: Span, min_len: bigint, size: bigint): ErrorGuaranteed {
+  return struct_span_code_err(this.dcx(), span, E0527, `pattern requires ${min_len} element${pluralize(Number(min_len))} but array has ${size}`)
+    .with_span_label(span, `expected ${size} element${pluralize(Number(size))}`)
     .emit_err();
 };
 
+// PORT: `u64` arguments as `bigint`, as `error_scrutinee_inconsistent_length`.
 // rustc: compiler/rustc_hir_typeck/src/pat.rs:3219 error_scrutinee_with_rest_inconsistent_length
-FnCtxt.prototype.error_scrutinee_with_rest_inconsistent_length = function (this: FnCtxt, span: Span, min_len: number, size: number): ErrorGuaranteed {
-  return struct_span_code_err(this.dcx(), span, E0528, `pattern requires at least ${min_len} element${pluralize(min_len)} but array has ${size}`)
-    .with_span_label(span, `pattern cannot match array of ${size} element${pluralize(size)}`)
+FnCtxt.prototype.error_scrutinee_with_rest_inconsistent_length = function (this: FnCtxt, span: Span, min_len: bigint, size: bigint): ErrorGuaranteed {
+  return struct_span_code_err(this.dcx(), span, E0528, `pattern requires at least ${min_len} element${pluralize(Number(min_len))} but array has ${size}`)
+    .with_span_label(span, `pattern cannot match array of ${size} element${pluralize(Number(size))}`)
     .emit_err();
 };
 

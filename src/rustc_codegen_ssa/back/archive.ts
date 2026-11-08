@@ -11,15 +11,16 @@
 // - `io::Error::new(kind, err)` of an `object::read::Error` or a `FromUtf8Error` is a `Custom` error holding the error's
 //   `Display` (all the diagnostics print); its `Debug` would differ from upstream's, and nothing prints it.
 import { closeSync, openSync, renameSync, writeSync } from "node:fs";
-import { tmpdir } from "node:os";
 import * as rmeta_link from "./rmeta_link.ts";
 import type { RmetaLinkCache } from "./rmeta_link.ts";
 import { File as FsFile, Mmap } from "../../rustc_data_structures/memmap.ts";
 import { ArchiveBuildFailure_diagnostic, IncompatibleArchiveFormat_diagnostic, UnknownArchiveKind_diagnostic } from "../diagnostics.gen.ts";
 import { TempDirBuilder } from "../../rustc_metadata/fs.ts";
 import type { Session } from "../../rustc_session/session.ts";
-import { display_IoError, type ErrorKind, io_error_from_node, io_error_other, type IoError, type IoResult } from "../../std/io.ts";
-import { path_eq, path_file_name, path_join, path_parent } from "../../std/path.ts";
+import { current_dir_str, temp_dir, to_string_lossy } from "../../std/env.ts";
+import { debug_str } from "../../std/fmt.ts";
+import { display_IoError, type ErrorKind, io_error_from_node, io_error_other, type IoError, IoError_kind, type IoResult } from "../../std/io.ts";
+import { path_eq, path_file_name, path_is_absolute, path_join, path_parent } from "../../std/path.ts";
 import { from_utf8 } from "../../std/str.ts";
 import { Err, Ok } from "../../std/result.ts";
 import type { Architecture } from "../../vendor/object/common.ts";
@@ -171,21 +172,44 @@ function try_filter_fat_archs<F>(
 
 /** `tempfile::Builder::new().suffix(suffix).tempfile()?.keep().unwrap()`: a new file `.tmpXXXXXX<suffix>` in
  *  `env::temp_dir()`, created exclusively with mode 0o600 and kept (never removed). Returns the open fd and the path.
- *  PORT: tempfile's random names (`fastrand`) are not reproduced; the name is not in any output but a diagnostic's path. */
+ *  As tempfile 3.23.0 does (`Builder::tempfile_in`, src/util.rs `create_helper`, src/file/mod.rs `create_named`): no
+ *  `override_temp_dir` is set, so the base is std's `env::temp_dir()`; a relative base (an empty `TMPDIR`, say) is joined to
+ *  `env::current_dir()?`; `AlreadyExists` and `AddrInUse` retry, up to `NUM_RETRIES` (65,536) names; a failed create's error
+ *  is wrapped by `with_err_path` (src/error.rs: `"{err} at path {path:?}"`, the same kind), as the final "too many temporary
+ *  files exist" is with the base.
+ *  PORT: tempfile's random names (`fastrand`, reseeded at the 4th try) are not reproduced; the name is not in any output but a
+ *  diagnostic's path. `PathBuf` is a `string` here, so a non-UTF-8 `TMPDIR` is decoded lossily. */
 function tempfile_with_suffix(suffix: string): IoResult<[number, string]> {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  const dir = process.env.TMPDIR !== undefined && process.env.TMPDIR !== "" ? process.env.TMPDIR : tmpdir();
-  for (;;) {
+  let base = to_string_lossy(temp_dir());
+  // Make the path absolute. Otherwise, changing the current directory can invalidate a stored
+  // path (causing issues when cleaning up temporary files.
+  if (!path_is_absolute(base)) {
+    const cur_dir = current_dir_str();
+    if (cur_dir.$ === "Err") return cur_dir;
+    base = path_join(cur_dir._0, base);
+  }
+  const NUM_RETRIES = 65536;
+  for (let i = 0; i < NUM_RETRIES; i++) {
     let name = ".tmp";
-    for (let i = 0; i < 6; i++) name += chars[Math.floor(Math.random() * chars.length)];
-    const path = path_join(dir, name + suffix);
+    for (let j = 0; j < 6; j++) name += chars[Math.floor(Math.random() * chars.length)];
+    const path = path_join(base, name + suffix);
+    let e: IoError;
     try {
       return Ok([openSync(path, "wx", 0o600), path]);
-    } catch (e) {
-      if ((e as { code?: string }).code === "EEXIST") continue;
-      return Err(io_error_from_node(e));
+    } catch (err) {
+      e = io_error_from_node(err);
     }
+    const kind = IoError_kind(e);
+    if (kind === "AlreadyExists" || kind === "AddrInUse") continue;
+    return Err(with_err_path(e, path));
   }
+  return Err(with_err_path(io_error_new("AlreadyExists", "too many temporary files exist"), base));
+}
+
+/** tempfile 3.23.0 src/error.rs `IoResultExt::with_err_path`: `io::Error::new(e.kind(), PathError { path, err: e })`. */
+function with_err_path(e: IoError, path: string): IoError {
+  return io_error_new(IoError_kind(e), `${display_IoError(e)} at path ${debug_str(path)}`);
 }
 
 // rustc: compiler/rustc_codegen_ssa/src/back/archive.rs:445 try_extract_macho_fat_archive

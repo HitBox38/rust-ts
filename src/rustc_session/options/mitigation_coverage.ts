@@ -14,6 +14,10 @@ import { type StackProtector, debug_StackProtector } from "../stand_ins.ts";
 import { Options } from "../options.ts";
 import { type Decoder, decode_bool, encode_bool } from "../../rustc_serialize/serialize.ts";
 import type { SpanEncoder } from "../../rustc_span/lib.ts";
+// Load order: rustc_target through its crate root first. spec/mod.ts imports lib.ts, which evaluates spec/json.ts and
+// target_features.ts, and both read spec/mod.ts's bindings at their top level: entered from spec/mod.ts, the cycle reads `Os`
+// before it exists (lanes unit-parallel, fixers-48).
+import "../../rustc_target/lib.ts";
 import { decode_StackProtector, encode_StackProtector } from "../../rustc_target/spec/mod.ts";
 import { panic } from "../../std/panic.ts";
 import {

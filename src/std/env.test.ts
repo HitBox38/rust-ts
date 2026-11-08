@@ -3,7 +3,7 @@ import { expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { environ_entries, remove_var, set_var, var_, var_os, vars_os } from "./env.ts";
+import { environ_entries, remove_var, set_var, temp_dir, var_, var_os, vars_os } from "./env.ts";
 
 const text = (b: Uint8Array | undefined) => (b === undefined ? undefined : new TextDecoder().decode(b));
 
@@ -149,5 +149,24 @@ test.skipIf(process.platform === "win32")("home_dir: HOME's bytes, and the passw
     expect(home_bytes([])).toBe(passwd);
   } finally {
     rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test.skipIf(process.platform === "win32")("temp_dir: TMPDIR as it is, even empty; unset, the darwin per-user dir or /tmp (review link-rlib-native N3)", () => {
+  const saved = var_os("TMPDIR");
+  try {
+    // Its bytes, not UTF-8 or not.
+    set_var("TMPDIR", Uint8Array.of(0x2f, 0x78, 0xff, 0x79));
+    expect([...temp_dir()]).toEqual([0x2f, 0x78, 0xff, 0x79]);
+    set_var("TMPDIR", "");
+    expect(text(temp_dir())).toBe("");
+    remove_var("TMPDIR");
+    // `confstr(_CS_DARWIN_USER_TEMP_DIR)`, which `getconf DARWIN_USER_TEMP_DIR` prints too.
+    const want = process.platform === "darwin" ? Bun.spawnSync(["getconf", "DARWIN_USER_TEMP_DIR"]).stdout.toString().trimEnd() : "/tmp";
+    expect(want.length).toBeGreaterThan(0);
+    expect(text(temp_dir())).toBe(want);
+  } finally {
+    if (saved === undefined) remove_var("TMPDIR");
+    else set_var("TMPDIR", saved);
   }
 });

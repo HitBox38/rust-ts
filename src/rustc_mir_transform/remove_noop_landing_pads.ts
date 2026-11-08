@@ -9,6 +9,10 @@ import type { TypingEnv } from "../rustc_middle/ty/mod.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import { fold_Ty } from "../rustc_middle/ty/structural_impls.ts";
 import { EarlyBinder } from "../rustc_type_ir/binder.ts";
+// Load order: rustc_target through its crate root first. spec/mod.ts imports lib.ts, which evaluates spec/json.ts and
+// target_features.ts, and both read spec/mod.ts's bindings at their top level: entered from spec/mod.ts, the cycle reads `Os`
+// before it exists (lanes unit-parallel, fixers-48).
+import "../rustc_target/lib.ts";
 import { PanicStrategy } from "../rustc_target/spec/mod.ts";
 import { MirPass, type PassCtx, PassPolicy } from "./pass_manager.ts";
 import { MirPatch } from "./patch.ts";
