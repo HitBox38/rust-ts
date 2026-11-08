@@ -25,6 +25,10 @@
 // - `env!`/`option_env!` of variables a cargo build sets: `CARGO` and the `CARGO_` prefix (`CARGO_PKG_*`,
 //   `CARGO_MANIFEST_DIR`, `CARGO_CRATE_NAME`, ...; tests/ui reads several, e.g. env-macro typo tests), except
 //   `CARGO_HOME`, which rustup needs to find the oracle toolchain;
+// - Apple deployment targets: `MACOSX_DEPLOYMENT_TARGET`, `IPHONEOS_`, `WATCHOS_`, `TVOS_`, `XROS_DEPLOYMENT_TARGET`
+//   (rustc_session `apple_deployment_target`, rustc_target spec/base/apple `deployment_target_env_var`): read for darwin targets
+//   only, they change the `LC_BUILD_VERSION` of a host rlib's members, a warning, or an error (lane harness-w44, review
+//   object-write-macho §7; the report suite `host-rlib` sets them per case). `SDKROOT` is read only for linking;
 // - macOS libmalloc debugging (`MallocStackLogging`, `MallocScribble`, `MallocGuardEdges`, ...: some print a
 //   `malloc: ...` line to stderr of every process): the `Malloc` prefix.
 // Not scrubbed: what the processes need to start and find the toolchain (`PATH`, `HOME`, `USERPROFILE`,
@@ -62,6 +66,11 @@ export const SCRUBBED_ENV_VARS: readonly string[] = [
   "COLORTERM",
   "TERM",
   "CARGO",
+  "MACOSX_DEPLOYMENT_TARGET",
+  "IPHONEOS_DEPLOYMENT_TARGET",
+  "WATCHOS_DEPLOYMENT_TARGET",
+  "TVOS_DEPLOYMENT_TARGET",
+  "XROS_DEPLOYMENT_TARGET",
 ];
 
 /** Scrubbed variables, by name prefix (see the header). */
