@@ -66,7 +66,8 @@ export function unitStepArgs(u: UnitStep, junit: string, timeoutMs: number = UNI
 /** The arguments of the process that runs step `u`'s `alone` files one after another, or undefined if it has none (or no workers). */
 export function aloneStepArgs(u: UnitStep, junit: string, timeoutMs: number = UNIT_TEST_TIMEOUT_MS): string[] | undefined {
   if (u.parallel === undefined || !u.alone?.length) return undefined;
-  return ["test", ...u.alone.map((f) => `./${f}`), `--timeout=${timeoutMs}`, "--reporter=junit", `--reporter-outfile=${junit}`];
+  // `--isolate`: each file gets fresh modules, as under the workers, so a module-order cycle in the second file cannot hide (review unit-parallel N1).
+  return ["test", ...u.alone.map((f) => `./${f}`), "--isolate", `--timeout=${timeoutMs}`, "--reporter=junit", `--reporter-outfile=${junit}`];
 }
 
 /**

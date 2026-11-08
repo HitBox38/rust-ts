@@ -53,7 +53,7 @@ test("alone files: workers leave them out by whole path, one process runs them; 
   const u = { name: "n", roots: ["a"], junit: "j.junit.xml", parallel: 2, alone: ["a/x.test.ts", "a/b/y.test.ts"] };
   expect(unitStepArgs(u, "/r/j.xml", 500)).toEqual(["test", "./a", "--parallel=2", "--path-ignore-patterns=a/x.test.ts", "--path-ignore-patterns=a/b/y.test.ts", "--timeout=500", "--reporter=junit", "--reporter-outfile=/r/j.xml"]);
   expect(aloneJunit(u)).toBe("j.alone.junit.xml");
-  expect(aloneStepArgs(u, "/r/k.xml", 500)).toEqual(["test", "./a/x.test.ts", "./a/b/y.test.ts", "--timeout=500", "--reporter=junit", "--reporter-outfile=/r/k.xml"]);
+  expect(aloneStepArgs(u, "/r/k.xml", 500)).toEqual(["test", "./a/x.test.ts", "./a/b/y.test.ts", "--isolate", "--timeout=500", "--reporter=junit", "--reporter-outfile=/r/k.xml"]);
   // No workers: the step runs every file in one process already, so nothing runs twice or is left out.
   expect(aloneStepArgs({ ...u, parallel: undefined }, "/r/k.xml")).toBeUndefined();
   expect(unitStepArgs({ ...u, parallel: undefined }, "/r/j.xml")).not.toContain("--path-ignore-patterns=a/x.test.ts");

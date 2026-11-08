@@ -112,7 +112,7 @@ test("the unit-test step under --parallel: report, skips, failures, .only, timeo
     const report = (f: string) => ["--timeout=60000", "--reporter=junit", `--reporter-outfile=/run/${f}`];
     expect(j.real).toEqual([
       { name: "unit tests", cmd: ["test", "./src", "./tools", "--parallel=4", ...alone.map((f) => `--path-ignore-patterns=${f}`), ...report("unit-tests.junit.xml")], env, junit: "/run/unit-tests.junit.xml" },
-      { name: "unit tests (alone)", cmd: ["test", ...alone.map((f) => `./${f}`), ...report("unit-tests.alone.junit.xml")], env, junit: "/run/unit-tests.alone.junit.xml" },
+      { name: "unit tests (alone)", cmd: ["test", ...alone.map((f) => `./${f}`), "--isolate", ...report("unit-tests.alone.junit.xml")], env, junit: "/run/unit-tests.alone.junit.xml" },
       { name: "runner unit tests", cmd: ["test", "./scripts", "./harness", ...report("runner-unit-tests.junit.xml")], env, junit: "/run/runner-unit-tests.junit.xml" },
     ]);
     // Passing files over several workers, each seeing the step's env; the alone files once each, only in the second
