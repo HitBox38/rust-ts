@@ -129,6 +129,19 @@ test("the fixtures hold the members the oracle bundled", () => {
   expect(members(RLIB_HOST_WHOLE_ARCHIVE).map(([n]) => n)).toEqual(["lib.rmeta", "lib.rmeta-link", "libfoo.a"]);
 });
 
+test("the foo/baz rlibs' rmeta-link records list two unpacked native libraries, and the host's is the port's byte for byte (review N2)", () => {
+  // `native_lib_filenames` has one entry per bundled library: `None` where it is unpacked into the rlib (not `+whole-archive`).
+  for (const rlib of [RLIB_HOST_FOO_BAZ, RLIB_ELF_FOO_BAZ]) {
+    const [, [, link]] = members(rlib) as [[string, Uint8Array], [string, Uint8Array]];
+    const record = RmetaLink.decode(section(link, ".rmeta-link"));
+    expect([record?.rust_object_files, record?.native_lib_filenames]).toEqual([[], [undefined, undefined]]);
+  }
+  const [, [, link]] = members(RLIB_HOST_FOO_BAZ) as [[string, Uint8Array], [string, Uint8Array]];
+  const written = [...create_wrapper_file(HOST, ".rmeta-link", new RmetaLink([], [undefined, undefined]).encode())[0]];
+  while (written.length % 8 !== 0) written.push(0x0a);
+  expect(written).toEqual([...link]);
+});
+
 test("add_archive of two Mach-O archives with the same member names rebuilds the host rlib", () => {
   const got = rebuild(HOST, RLIB_HOST_FOO_BAZ, [join(INPUTS, "libfoo.a"), join(INPUTS, "libbaz.a")]);
   expect([...got]).toEqual([...RLIB_HOST_FOO_BAZ]);
