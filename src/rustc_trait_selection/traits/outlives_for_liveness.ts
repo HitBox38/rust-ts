@@ -12,7 +12,9 @@
 // Init order: top-level code here touches only ./outlives_for_liveness.gen.ts and other crates.
 
 import { VisitorResult } from "../../rustc_ast_ir/visit.ts";
-import { debug_DefKind } from "../../rustc_hir/def.gen.ts";
+// Load order: through def.ts, which owns def.gen.ts. Entered from def.gen.ts, the def.gen.ts/hir.ts/def.ts cycle runs
+// def.ts before def.gen.ts has defined `MacroKinds` (lane unit-parallel; fixers-43 O1).
+import { debug_DefKind } from "../../rustc_hir/def.ts";
 import type { OpaqueTyOrigin } from "../../rustc_hir/hir.gen.ts";
 import { DenseBitSet } from "../../rustc_index/bit_set.ts";
 import type { SubregionOrigin } from "../../rustc_infer/infer/mod.ts";
