@@ -34,10 +34,14 @@ export class OpaqueTypeStorage {
  * PORT(perf) (lane perf-tait): `OpaqueTypeKey`'s derived `Hash` + `Eq` as a `KeyedMap` key, in place of the generic `intern_key`
  * (`{args:#<id>,def_id:<n>}`, whose generic walk was 10% of the `mir` case `type-alias-impl-trait/recursive-drop-elaboration-2.rs`,
  * through `register`). `def_id` is a `LocalDefId` (a `u32` index) and `args` an interned list, unique per id, so two keys give the same
- * text exactly when both fields are equal, as with `intern_key`: two integers with a separator. element_eq.test.ts checks it.
+ * key exactly when both fields are equal, as with `intern_key`. element_eq.test.ts checks it, at the bounds of the number form.
  */
-export function key_OpaqueTypeKey(k: OpaqueTypeKey): string {
-  return k.def_id + ":" + k.args.id;
+export function key_OpaqueTypeKey(k: OpaqueTypeKey): string | number {
+  const def_id = k.def_id as number;
+  const args = k.args.id;
+  // Both fields as one exact number while it fits in 53 bits (a `def_id` below 2^21 and an `args` id below 2^32): `def_id` and
+  // `args` are its quotient and remainder by 2^32, so it is injective there. Otherwise text, which no number equals.
+  return def_id < 0x20_0000 && args < 0x1_0000_0000 ? def_id * 0x1_0000_0000 + args : def_id + ":" + args;
 }
 
 /** `#[derive(Default)]` */
@@ -93,13 +97,29 @@ OpaqueTypeStorage.prototype.is_empty = function (this: OpaqueTypeStorage): boole
   return opaque_types.size === 0 && duplicate_entries.length === 0;
 };
 
+/**
+ * PORT(perf) (lane perf-tait): `map`'s entries from the `skip`th on, then `dups`' from the `skip_dups`th on, as one array: what
+ * `[...[...map].slice(skip), ...dups.slice(skip_dups)]` gives, in the same order, through `Map.prototype.forEach`. A spread of
+ * the `KeyedMap` (a `Map` subclass) takes JSC's generic iteration, which was 3% of the `mir` case
+ * `type-alias-impl-trait/recursive-drop-elaboration-2.rs` (300-entry tables, copied at every canonicalization).
+ */
+function entries_of<K, V>(map: Map<K, V>, skip: number, dups: readonly [K, V][], skip_dups: number): [K, V][] {
+  const out: [K, V][] = [];
+  let i = 0;
+  map.forEach((v, k) => {
+    if (i++ >= skip) out.push([k, v]);
+  });
+  for (let j = skip_dups; j < dups.length; j++) out.push(dups[j]!);
+  return out;
+}
+
 // rustc: compiler/rustc_infer/src/infer/opaque_types/table.rs:61 take_opaque_types
 OpaqueTypeStorage.prototype.take_opaque_types = function (this: OpaqueTypeStorage): Iterable<[OpaqueTypeKey, ProvisionalHiddenType]> {
   const { opaque_types, duplicate_entries } = this;
   // `std::mem::take(opaque_types)` / `std::mem::take(duplicate_entries)`
   this.opaque_types = new KeyedMap<OpaqueTypeKey, ProvisionalHiddenType>(key_OpaqueTypeKey);
   this.duplicate_entries = [];
-  return [...opaque_types, ...duplicate_entries];
+  return entries_of(opaque_types, 0, duplicate_entries, 0);
 };
 
 // rustc: compiler/rustc_infer/src/infer/opaque_types/table.rs:68 num_entries
@@ -109,7 +129,7 @@ OpaqueTypeStorage.prototype.num_entries = function (this: OpaqueTypeStorage): Op
 
 // rustc: compiler/rustc_infer/src/infer/opaque_types/table.rs:75 opaque_types_added_since
 OpaqueTypeStorage.prototype.opaque_types_added_since = function (this: OpaqueTypeStorage, prev_entries: OpaqueTypeStorageEntries): Iterable<[OpaqueTypeKey, ProvisionalHiddenType]> {
-  return [...[...this.opaque_types].slice(prev_entries.opaque_types), ...this.duplicate_entries.slice(prev_entries.duplicate_entries)];
+  return entries_of(this.opaque_types, prev_entries.opaque_types, this.duplicate_entries, prev_entries.duplicate_entries);
 };
 
 /// Only returns the opaque types from the lookup table. These are used
@@ -119,7 +139,7 @@ OpaqueTypeStorage.prototype.opaque_types_added_since = function (this: OpaqueTyp
 /// to also consider duplicate entries.
 // rustc: compiler/rustc_infer/src/infer/opaque_types/table.rs:91 iter_lookup_table
 OpaqueTypeStorage.prototype.iter_lookup_table = function (this: OpaqueTypeStorage): Iterable<[OpaqueTypeKey, ProvisionalHiddenType]> {
-  return [...this.opaque_types];
+  return entries_of(this.opaque_types, 0, [], 0);
 };
 
 /// Only returns the opaque types which are stored in `duplicate_entries`.
@@ -135,7 +155,7 @@ OpaqueTypeStorage.prototype.iter_duplicate_entries = function (this: OpaqueTypeS
 // rustc: compiler/rustc_infer/src/infer/opaque_types/table.rs:108 iter_opaque_types
 OpaqueTypeStorage.prototype.iter_opaque_types = function (this: OpaqueTypeStorage): Iterable<[OpaqueTypeKey, ProvisionalHiddenType]> {
   const { opaque_types, duplicate_entries } = this;
-  return [...opaque_types, ...duplicate_entries];
+  return entries_of(opaque_types, 0, duplicate_entries, 0);
 };
 
 // #[inline]

@@ -99,6 +99,66 @@ const VALUE_ELEMENT_EQ: ElementEq = {
   slice_eq,
 };
 
+/**
+ * PORT(perf) (lane perf-tait): `share_elements`' representatives, one per value, found by element hash then `eq`: an open-addressing
+ * table (linear probing over an `Int32Array` of hashes beside an array of the objects), in place of a `Map` from hash to an array of
+ * objects, whose lookups were 7% of the `mir` case `type-alias-impl-trait/recursive-drop-elaboration-2.rs` (19M + 9M elements of
+ * lists that missed). Representatives are pairwise unequal, so at most one matches, and the probe order cannot matter.
+ */
+export class ElementPool {
+  private hashes = new Int32Array(1024);
+  private objects: unknown[] = new Array<unknown>(1024).fill(undefined);
+  private count = 0;
+
+  /** The representative `eq` to `x` (whose hash is `h`); if there is none, `x`, which becomes it. `x` is an object. */
+  share(x: unknown, h: number, eq: (a: unknown, b: unknown) => boolean): unknown {
+    const objects = this.objects;
+    const mask = objects.length - 1;
+    let i = slot_of(h) & mask;
+    for (;;) {
+      const o = objects[i];
+      if (o === undefined) break;
+      if (this.hashes[i] === h && eq(x, o)) return o;
+      i = (i + 1) & mask;
+    }
+    objects[i] = x;
+    this.hashes[i] = h;
+    if (++this.count * 2 > objects.length) this.grow();
+    return x;
+  }
+
+  /** The number of representatives (for tests). */
+  get size(): number {
+    return this.count;
+  }
+
+  private grow(): void {
+    const old_hashes = this.hashes;
+    const old_objects = this.objects;
+    const n = old_objects.length * 2;
+    const hashes = new Int32Array(n);
+    const objects = new Array<unknown>(n).fill(undefined);
+    const mask = n - 1;
+    for (let j = 0; j < old_objects.length; j++) {
+      const o = old_objects[j];
+      if (o === undefined) continue;
+      const h = old_hashes[j]!;
+      let i = slot_of(h) & mask;
+      while (objects[i] !== undefined) i = (i + 1) & mask;
+      objects[i] = o;
+      hashes[i] = h;
+    }
+    this.hashes = hashes;
+    this.objects = objects;
+  }
+}
+
+/** The start slot of hash `h`: its bits spread, as the element hashes of small values are small numbers. */
+function slot_of(h: number): number {
+  const x = Math.imul(h ^ (h >>> 16), 0x45d9f3b);
+  return x ^ (x >>> 16);
+}
+
 export class ShardedHashMap<K, V> {
   /** canonical key of the borrowed value -> the stored `(K, V)` */
   protected readonly table = new Map<string, [K, V]>();
@@ -107,8 +167,8 @@ export class ShardedHashMap<K, V> {
   /** PORT(perf): `value_hash` -> the later entries with that hash. Empty unless two distinct values collide. */
   private readonly collided = new Map<number, K[]>();
   private hashed_len = 0;
-  /** PORT(perf): `share_elements`: the element hash -> the element objects lists of this table hold. */
-  private elements: Map<number, unknown[]> | undefined;
+  /** PORT(perf): `share_elements`: the element objects lists of this table hold, by element hash. */
+  private elements: ElementPool | undefined;
   /** PORT(perf): `elements_eq`: the element type's hash and eq (`ElementEq`). */
   private element_eq: ElementEq = VALUE_ELEMENT_EQ;
 
@@ -267,7 +327,7 @@ export class ShardedHashMap<K, V> {
    */
   share_elements(element_eq?: ElementEq): void {
     if (element_eq !== undefined) this.elements_eq(element_eq);
-    this.elements ??= new Map();
+    this.elements ??= new ElementPool();
   }
 
   /**
@@ -291,21 +351,8 @@ export class ShardedHashMap<K, V> {
     for (let i = 0; i < v.length; i++) {
       const x = v[i];
       if (typeof x !== "object" || x === null || (x as { readonly [INTERNED]?: true })[INTERNED] === true) continue;
-      const eh = elem_hashes[i]!;
-      const bucket = elements.get(eh);
-      if (bucket === undefined) {
-        elements.set(eh, [x]);
-        continue;
-      }
-      let found: unknown;
-      for (let j = 0; j < bucket.length; j++) {
-        if (eq(x, bucket[j])) {
-          found = bucket[j];
-          break;
-        }
-      }
-      if (found === undefined) bucket.push(x);
-      else if (found !== x) (w ??= Array.from(v))[i] = found as T;
+      const found = elements.share(x, elem_hashes[i]!, eq);
+      if (found !== x) (w ??= Array.from(v))[i] = found as T;
     }
     return w ?? v;
   }

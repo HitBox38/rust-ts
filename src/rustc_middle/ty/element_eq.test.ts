@@ -6,7 +6,7 @@
 import { expect, test } from "bun:test";
 import "../lib.ts";
 import { INTERNED } from "../../rustc_data_structures/intern.ts";
-import { element_hash_slice, element_slice_eq, type ElementEq, ShardedHashMap } from "../../rustc_data_structures/sharded.ts";
+import { element_hash_slice, element_slice_eq, type ElementEq, ElementPool, ShardedHashMap } from "../../rustc_data_structures/sharded.ts";
 import { intern_key, value_eq, value_hash } from "../../rust_ts/intern_key.ts";
 import { KeyedMap } from "../../rust_ts/keyed.ts";
 import { DefId, DefIndex, CrateNum } from "../../rustc_span/def_id.ts";
@@ -131,8 +131,18 @@ test("the element functions of a table cannot change once it holds a list", () =
 
 test("key_OpaqueTypeKey: two keys give one text exactly when intern_key gives them one", () => {
   const keys: { def_id: number; args: object }[] = [];
-  for (const def_id of [0, 1, 2, 12, 123, 0xffff_ffff]) for (const args of [0, 3, 23, 1, 2, 0x7fff_ffff]) keys.push({ def_id, args: I(args) });
-  for (const a of keys) for (const b of keys) expect(key_OpaqueTypeKey(a as never) === key_OpaqueTypeKey(b as never)).toBe(intern_key(a) === intern_key(b));
+  // Around the bounds of the number form (a def id below 2^21, an args id below 2^32) and the text form's separator.
+  for (const def_id of [0, 1, 2, 12, 123, 0x1f_ffff, 0x20_0000, 0x20_0001, 0xffff_ffff]) {
+    for (const args of [0, 1, 2, 3, 23, 0x7fff_ffff, 0xffff_ffff, 0x1_0000_0000, 0x1_0000_0001]) keys.push({ def_id, args: I(args) });
+  }
+  const kinds = new Set<string>();
+  for (const a of keys) {
+    kinds.add(typeof key_OpaqueTypeKey(a as never));
+    for (const b of keys) expect(key_OpaqueTypeKey(a as never) === key_OpaqueTypeKey(b as never)).toBe(intern_key(a) === intern_key(b));
+  }
+  expect([...kinds].sort()).toEqual(["number", "string"]);
+  expect(key_OpaqueTypeKey({ def_id: 0x1f_ffff, args: I(0xffff_ffff) } as never)).toBe(0x1f_ffff * 2 ** 32 + 0xffff_ffff);
+  expect(Number.isSafeInteger(key_OpaqueTypeKey({ def_id: 0x1f_ffff, args: I(0xffff_ffff) } as never))).toBe(true);
 });
 
 test("KeyedMap.replace is get then set", () => {
@@ -146,4 +156,31 @@ test("KeyedMap.replace is get then set", () => {
   expect([...m]).toEqual([[k1, "c"], [{ k: 2 }, "b"]]);
   expect([...m.keys()][0]).toBe(k1);
   expect(m.size).toBe(2);
+});
+
+test("ElementPool: one representative per value, through collisions and growth", () => {
+  const pool = new ElementPool();
+  const eq = (a: unknown, b: unknown): boolean => value_eq(a, b);
+  const reps = new Map<number, unknown>();
+  // 5,000 values (past several doublings of the 1,024 slots), on only 64 distinct hashes, each offered three times as fresh objects.
+  for (let round = 0; round < 3; round++) {
+    for (let n = 0; n < 5000; n++) {
+      const x = { n };
+      const got = pool.share(x, n % 64, eq);
+      if (round === 0) {
+        expect(got).toBe(x);
+        reps.set(n, x);
+      } else {
+        expect(got).toBe(reps.get(n));
+      }
+    }
+  }
+  expect(pool.size).toBe(5000);
+  // Hashes that differ only in high bits, and negative ones, find their own.
+  const a = { a: 1 };
+  const b = { b: 1 };
+  expect(pool.share(a, 1 << 30, eq)).toBe(a);
+  expect(pool.share(b, -(1 << 30), eq)).toBe(b);
+  expect(pool.share({ a: 1 }, 1 << 30, eq)).toBe(a);
+  expect(pool.share({ b: 1 }, -(1 << 30), eq)).toBe(b);
 });
