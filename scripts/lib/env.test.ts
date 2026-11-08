@@ -66,6 +66,15 @@ describe("scrubbed variables", () => {
     // Case-sensitive off Windows.
     expect(isScrubbedEnvVar("rustc_log", "linux")).toBe(false);
   });
+  test("the Apple deployment targets are scrubbed, and a case's own value wins (lane harness-w44)", () => {
+    const apple = ["MACOSX_DEPLOYMENT_TARGET", "IPHONEOS_DEPLOYMENT_TARGET", "WATCHOS_DEPLOYMENT_TARGET", "TVOS_DEPLOYMENT_TARGET", "XROS_DEPLOYMENT_TARGET"];
+    const b = { ...base, ...Object.fromEntries(apple.map((k) => [k, "13.0"])) };
+    for (const k of apple) expect(scrubbedEnv(b, "darwin")[k]).toBeNull();
+    const env = mergeEnv(b, caseEnv({ MACOSX_DEPLOYMENT_TARGET: "15.1.3" }, b, "darwin"), "darwin");
+    expect(env.MACOSX_DEPLOYMENT_TARGET).toBe("15.1.3");
+    expect(apple.filter((k) => k in env)).toEqual(["MACOSX_DEPLOYMENT_TARGET"]);
+    expect(isScrubbedEnvVar("SDKROOT", "darwin")).toBe(false);
+  });
   test("win32: names match case-insensitively; CARGO_HOME is kept in any spelling", () => {
     expect(isScrubbedEnvVar("rustc_log", "win32")).toBe(true);
     expect(isScrubbedEnvVar("Cargo_Pkg_Name", "win32")).toBe(true);

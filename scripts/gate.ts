@@ -13,6 +13,12 @@
 //       timeout can become a false protected loss (docs/reviews/perf-near-limit.md, question c). Power lost during a run is a `note:`, never
 //       a failure. gate.json records power, load, swap and times (`host`, `SuiteGate.startedAt`...), which no status or verdict reads
 //       (scripts/lib/host-state.ts). On a host with no battery or no `pmset`, none of this does anything but record `power: null`.
+//       The static steps end with two more (lane harness-w44): INFO sites (src/rust_ts/info_sites_check.ts: every upstream INFO site
+//       in a ported fn is live or a stop) and frozen lists (scripts/frozen-lists.ts: a fixed sample of protected cases with the
+//       interned lists frozen). A failed static step stops the run before the suites (review harness-w43 F7): the run cannot be
+//       accepted, so its suites would cost hours for nothing. gate.json is written with `pass: false`, no suite results, and every
+//       suite listed in `notRun`; `--skip-static` runs the suites without the static steps (and that run cannot be accepted either).
+//       It refuses to start while `RUST_TS_FREEZE_LISTS` or `NODE_ENV` is set (`freezeEnvRefusal`): every subject would inherit it.
 //   bun scripts/gate.ts accept --run <run-id>
 //       grow the protected set with that gate run's new MATCHes. Refused if the run lost anything,
 //       skipped static checks, skipped a protected suite, ran on a dirty tree, or HEAD has moved since.
@@ -21,8 +27,8 @@
 // protected: a run fails if a baseline lists one, and accept refuses to add one. The upstream checkout must be clean
 // when a run starts (or it stops with `ERROR:`), and a run fails if a suite changes it (scripts/lib/upstream.ts).
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { IR_RUN, MIRI_SYSROOT_RUN, RG_CHECK, RMETA_RUN, SUITES, suite as getSuite, type Suite } from "../harness/suites.ts";
+import { basename, join } from "node:path";
+import { HOST_RLIB_RUN, IR_RUN, MIRI_SYSROOT_RUN, RG_CHECK, RMETA_RUN, SUITES, suite as getSuite, type Suite } from "../harness/suites.ts";
 import { difftest, heavyErrorLines, heavyLine, unstableOf, type HeavyRun, type OracleRerun, type Usage } from "./difftest.ts";
 import { REPO, RUNS, UPSTREAM, die, ensureDir, nowId, parseArgs, run } from "./lib/common.ts";
 import { HostLog, REAL_HOST, StuckReads, batteryRefusal, sampleHost, type HostReaders, type HostSample } from "./lib/host-state.ts";
@@ -33,6 +39,7 @@ import { upstreamError, upstreamStatus } from "./lib/upstream.ts";
 import { oracleTestProbes, probeBinary, probeStaleness } from "./probes.ts";
 import { parseIrRunArgs } from "./ir-run.ts";
 import type { IrTier } from "./lib/ir-normal.ts";
+import { parseHostRlibRunArgs } from "./host-rlib-run.ts";
 import { parseMiriSysrootRunArgs } from "./miri-sysroot-run.ts";
 import { parseRmetaRunArgs } from "./rmeta-run.ts";
 import { record } from "./state.ts";
@@ -100,8 +107,23 @@ export interface GateHost {
   keepEveryMs: number;
   /** `sampleHost`'s limit; tests shorten it. */
   readLimitMs?: number;
+  /** Tests only: replaces `staticChecks` (then the unit tests' probes are not required: no unit test runs). */
+  staticChecks?: (runDir: string) => Promise<{ ok: boolean; skips?: SkipReport }>;
 }
 const REAL_GATE_HOST: GateHost = { readers: REAL_HOST, pollMs: 60_000, keepEveryMs: 600_000 };
+
+/**
+ * Why the gate must not start with this environment, or `undefined`. `RUST_TS_FREEZE_LISTS=1` (or `NODE_ENV=test`) freezes the
+ * interned lists of every subject it starts (src/rustc_middle/ty/list.ts `FREEZE_LISTS`; scripts/lib/env.ts passes both on): the
+ * output is the same, but heavy next-solver cases run about 22% longer, enough to turn a case near its limit into a false loss
+ * (review perf-heavy F3). Any other `NODE_ENV` would leave the unit tests' lists unfrozen (`bun test` sets it only when unset,
+ * review perf-heavy F2). The "frozen lists" step sets the variable for its own sample only.
+ */
+export function freezeEnvRefusal(env: Record<string, string | undefined> = process.env): string | undefined {
+  const set = ["RUST_TS_FREEZE_LISTS", "NODE_ENV"].filter((k) => env[k] !== undefined);
+  if (set.length === 0) return undefined;
+  return `${set.map((k) => `${k}=${env[k]}`).join(" and ")} set: every subject (and \`bun test\`) would inherit it; unset it and re-run the gate (the "frozen lists" step freezes its own sample)`;
+}
 
 /** Protected ids of `suite` that its `Suite.unstable` lists: an unstable case can never be protected. */
 export function protectedUnstable(suite: string, base: Set<string> = readBaseline(suite)): string[] {
@@ -155,7 +177,7 @@ export function checkProbes(suites: string[], unitTests: boolean): boolean {
 
 /**
  * The programs an oracle command runs: its first word, except for scripts/rmeta-run.ts under Bun (the rmeta suites),
- * or scripts/miri-sysroot-run.ts
+ * or scripts/miri-sysroot-run.ts or scripts/host-rlib-run.ts
  * where it is the wrapper's compiler (the first word after its `--`) and, with `--dump`, its probe, for scripts/ir-run.ts
  * (the IR suites), its compiler, and for scripts/rg-check.ts (the check-rg suites), the oracle rustc through its cargo.
  * Throws on a malformed wrapper command line (`parseRmetaRunArgs`, `parseIrRunArgs`).
@@ -164,6 +186,7 @@ export function oracleRuns(cmd: string[]): string[] {
   if (cmd[0] === process.execPath && cmd[1] === IR_RUN) return [parseIrRunArgs(cmd.slice(2)).compiler[0]!];
   if (cmd[0] === process.execPath && cmd[1] === RG_CHECK) return ["rustc"];
   if (cmd[0] === process.execPath && cmd[1] === MIRI_SYSROOT_RUN) return [parseMiriSysrootRunArgs(cmd.slice(2)).compiler[0]!];
+  if (cmd[0] === process.execPath && cmd[1] === HOST_RLIB_RUN) return [parseHostRlibRunArgs(cmd.slice(2)).compiler[0]!];
   if (cmd[0] === process.execPath && cmd[1] === RMETA_RUN) {
     const a = parseRmetaRunArgs(cmd.slice(2));
     return [a.compiler[0]!, ...(a.dump !== undefined ? [a.dump] : [])];
@@ -308,6 +331,10 @@ export async function staticChecks(runDir: string): Promise<{ ok: boolean; skips
     { name: "markers", cmd: [process.execPath, "scripts/coverage.ts", "--check", "--offline"], env: {} },
     // A crate with no marker out of upstream's order stays so (PORTING section 3; fixers-44 W5). Others have allowed inversions (section 8).
     { name: "marker order", cmd: [process.execPath, "scripts/coverage.ts", "--order", "--require-clean", "src/rustc_monomorphize/"], env: {} },
+    // Every upstream INFO site in a ported fn is live or a stop: protected cases set `RUSTC_LOG` (lane harness-w44, review w40c-audit N2).
+    { name: "info sites", cmd: [process.execPath, "src/rust_ts/info_sites_check.ts", "--out", join(runDir, "info-sites")], env: {} },
+    // Protected cases with the interned lists frozen, so a write to one fails here (lane harness-w44, review perf-heavy F1).
+    { name: "frozen lists", cmd: [process.execPath, "scripts/frozen-lists.ts", "--run-id", `${basename(runDir)}-frozen-lists`], env: { RUST_TS_FREEZE_LISTS: "1" } },
   ];
   let ok = true;
   let skips: SkipReport | undefined;
@@ -366,6 +393,8 @@ function protectedSuites(): string[] {
 
 export async function gateRun(requested: string[], skipStatic: boolean, skipHeavy: boolean, allowBattery = false, gateHost: GateHost = REAL_GATE_HOST): Promise<void> {
   for (const name of requested) getSuite(name); // unknown suite names fail here
+  const envRefused = freezeEnvRefusal();
+  if (envRefused !== undefined) die(envRefused);
   // Before anything starts. What this reads decides only whether a run starts: no status or verdict reads the record below.
   const note = (l: string) => console.log(l);
   const stuck = new StuckReads(note);
@@ -386,7 +415,7 @@ export async function gateRun(requested: string[], skipStatic: boolean, skipHeav
   if (prov.dirty.length) console.log(`note: tree is dirty (${prov.dirty.length} paths); this run cannot be accepted`);
   // Before anything runs the oracle (unit tests, aux builds, suites): the pinned commit and components.
   await verifyOraclePin();
-  if (!checkProbes(suites, !skipStatic)) die("a probe is missing or stale; do what the lines above say and re-run the gate");
+  if (!checkProbes(suites, !skipStatic && gateHost.staticChecks === undefined)) die("a probe is missing or stale; do what the lines above say and re-run the gate");
   const dirtyUpstream = upstreamStatus(UPSTREAM);
   if (dirtyUpstream.length) {
     console.log(upstreamError("the upstream checkout is not clean", dirtyUpstream, UPSTREAM));
@@ -401,8 +430,18 @@ export async function gateRun(requested: string[], skipStatic: boolean, skipHeav
     }
   }
   const runDir = ensureDir(join(RUNS, runId));
-  const st = skipStatic ? { ok: true, skips: undefined } : await staticChecks(runDir);
+  const st = skipStatic ? { ok: true, skips: undefined } : await (gateHost.staticChecks ?? staticChecks)(runDir);
   const staticOk = st.ok;
+  if (!staticOk) {
+    // A failed static step: the run cannot be accepted, so the suites are not run (see the header).
+    console.log(`ERROR: a static check failed; the ${suites.length} suite(s) are not run (fix it and re-run; --skip-static runs the suites without the static checks)`);
+    await host.mark();
+    host.stop();
+    const stopped = [...notRun, ...suites.map((suite) => ({ suite, reason: "a static check failed" }))];
+    writeFileSync(join(runDir, "gate.json"), JSON.stringify({ runId, pass: false, staticOk, skipStatic, unitTestSkips: st.skips ?? null, head: prov.head, dirty: prov.dirty, unstableOk, upstreamOk: true, suites: [], notRun: stopped, host: host.record(allowBattery) }, null, 1));
+    console.log(`gate FAIL run=${runId}`);
+    process.exit(1);
+  }
   const out: SuiteGate[] = [];
   for (const suite of suites) {
     const hostStart = await host.mark();

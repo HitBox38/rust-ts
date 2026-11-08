@@ -209,27 +209,36 @@ describe("ir-run", () => {
   test("a SIGKILLed run whose compiler lives on keeps the lock until the compiler ends, so its IR is not the next run's (review harness-w42 N1)", async () => {
     const out = join(TMP, "orphan");
     const pid = join(TMP, "orphan-pid");
-    // The orphan writes its `.ll` 3 s after it starts. The next run's compiler writes none, and outlasts those 3 s.
-    const orphan = ["/bin/sh", "-c", `echo $$ > ${pid}; sleep 3; echo orphan > "$2/orphan.ll"`, "sh"];
+    const go = join(TMP, "orphan-go");
+    // The orphan writes its `.ll` only once `go` exists, so nothing here races a fixed sleep at any load (review harness-w43 F6): the test
+    // creates `go` after it has seen the next run still blocked. A next run that does not wait runs its compiler (which writes none) at
+    // once and ends before `go`, which fails the test.
+    const orphan = ["/bin/sh", "-c", `echo $$ > ${pid}; while [ ! -e ${go} ]; do sleep 0.05; done; echo orphan > "$2/orphan.ll"`, "sh"];
     const first = Bun.spawn([process.execPath, IR_RUN, "--out", out, "--side", "oracle", "--bin", BIN, "--", ...orphan], { stdout: "pipe", stderr: "pipe" });
     let orphanPid = 0;
     try {
       await until(() => existsSync(pid) && readFileSync(pid, "utf8").endsWith("\n"));
       orphanPid = Number(readFileSync(pid, "utf8"));
-      // The run names its compiler in the lock as soon as it has started it; a short wait for that, which a run that never does it outlasts.
-      const settled = performance.now() + 500;
-      while (!readFileSync(join(out, "work.lock"), "utf8").includes(`\n${orphanPid}\n`) && performance.now() < settled) await Bun.sleep(10);
+      // The run names its compiler in the lock as soon as it has started it (a run that never does fails here).
+      await until(() => readFileSync(join(out, "work.lock"), "utf8").includes(`\n${orphanPid}\n`));
       first.kill("SIGKILL");
       await first.exited;
       expect(alive(orphanPid)).toBe(true);
-      const next = Bun.spawnSync([process.execPath, IR_RUN, "--out", out, "--side", "subject", "--bin", BIN, "--", "/bin/sh", "-c", "sleep 4", "sh"], { stdout: "pipe", stderr: "pipe" });
-      expect([next.exitCode, next.stdout.toString(), next.stderr.toString()]).toEqual([0, "ir: none\n", ""]);
+      const next = Bun.spawn([process.execPath, IR_RUN, "--out", out, "--side", "subject", "--bin", BIN, "--", "/bin/sh", "-c", "true", "sh"], { stdout: "pipe", stderr: "pipe" });
+      let nextDone = false;
+      void next.exited.then(() => (nextDone = true));
+      await Bun.sleep(1000);
+      expect(nextDone).toBe(false);
+      writeFileSync(go, "");
+      const code = await next.exited;
+      expect([code, await new Response(next.stdout).text(), await new Response(next.stderr).text()]).toEqual([0, "ir: none\n", ""]);
       expect(alive(orphanPid)).toBe(false);
       expect(readdirSync(out)).toEqual([]);
     } finally {
+      writeFileSync(go, "");
       if (orphanPid && alive(orphanPid)) process.kill(orphanPid, "SIGKILL");
     }
-  }, 60_000);
+  }, 90_000);
   test("a SIGTERM while the normal form is made ends the run with 143, and leaves neither `work` nor the lock (review harness-w42 N2)", async () => {
     const out = join(TMP, "term-in-normal-form");
     const bin = join(TMP, "slow-bin");
