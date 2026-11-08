@@ -21,8 +21,15 @@
 // `undefined`, another key order), so no caller can see more here than on a hit. What changes is that two lists can now hold one
 // object where upstream has two equal copies: only `===` on elements of two lists, or a write to an element (to a stored list's
 // elements, already a bug), could tell. Upstream compares these `Copy` values with `==`.
+// PORT(perf) (lane perf-tait): a table that shares may also take its element type's derived `Hash` and `PartialEq` as functions
+// (`ElementEq`), used in place of the generic `value_hash` / `value_eq` for its elements: upstream hashes and compares these elements
+// with exactly those derives. The functions must agree with `value_eq` on every value of the element type (each pair's own test says
+// how), and the hash with the eq; the hash only picks a bucket, and every table uses one hash for all its lists. On the `mir` cases
+// `type-alias-impl-trait/recursive-drop-elaboration*.rs` the two sharing tables hashed 106M elements (lists of about 300 elements, made
+// afresh by each canonicalization) and compared 75M on hits, about 30% of the run in the generic walk.
 
 import { INTERNED } from "./intern.ts";
+import { panic } from "../std/panic.ts";
 import { hash_mix, observe_interned, observe_interned_slice, value_eq, value_hash } from "../rust_ts/intern_key.ts";
 
 /** PORT(perf): test hook, see `set_intern_shadow`. */
@@ -44,6 +51,54 @@ function slice_eq<T>(a: readonly T[], b: readonly T[]): boolean {
   return true;
 }
 
+/**
+ * PORT(perf): a list element type's derived `Hash` and `PartialEq` (module comment). `eq` must be `value_eq` on values of the type,
+ * and `eq(a, b)` must imply `hash(a) === hash(b)`. `hash_slice` and `slice_eq` are the loops over a slice, written out per type so
+ * that each loop calls one function (element_hash_slice, element_slice_eq give their meaning).
+ */
+export interface ElementEq {
+  readonly hash: (v: unknown) => number;
+  readonly eq: (a: unknown, b: unknown) => boolean;
+  /** `element_hash_slice(this.hash, v, out)` */
+  readonly hash_slice: (v: readonly unknown[], out: Int32Array | undefined) => number;
+  /** `element_slice_eq(this.eq, a, b)` */
+  readonly slice_eq: (a: readonly unknown[], b: readonly unknown[]) => boolean;
+}
+
+/** PORT(perf): what `ElementEq.hash_slice` computes: a slice's hash from its elements' (`intern_slice`), each also put in `out`. */
+export function element_hash_slice(hash: (v: unknown) => number, v: readonly unknown[], out: Int32Array | undefined): number {
+  let h = v.length;
+  for (let i = 0; i < v.length; i++) {
+    const eh = hash(v[i]);
+    if (out !== undefined) out[i] = eh;
+    h = hash_mix(h, eh);
+  }
+  return h;
+}
+
+/** PORT(perf): what `ElementEq.slice_eq` computes: the slices' `==`, element by element. */
+export function element_slice_eq(eq: (a: unknown, b: unknown) => boolean, a: readonly unknown[], b: readonly unknown[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (!eq(a[i], b[i])) return false;
+  return true;
+}
+
+/** PORT(perf): the generic element functions, for a table without its own. */
+const VALUE_ELEMENT_EQ: ElementEq = {
+  hash: value_hash,
+  eq: value_eq,
+  hash_slice(v, out) {
+    let h = v.length;
+    for (let i = 0; i < v.length; i++) {
+      const eh = value_hash(v[i]);
+      if (out !== undefined) out[i] = eh;
+      h = hash_mix(h, eh);
+    }
+    return h;
+  },
+  slice_eq,
+};
+
 export class ShardedHashMap<K, V> {
   /** canonical key of the borrowed value -> the stored `(K, V)` */
   protected readonly table = new Map<string, [K, V]>();
@@ -52,8 +107,10 @@ export class ShardedHashMap<K, V> {
   /** PORT(perf): `value_hash` -> the later entries with that hash. Empty unless two distinct values collide. */
   private readonly collided = new Map<number, K[]>();
   private hashed_len = 0;
-  /** PORT(perf): `share_elements`: `value_hash` of an element -> the element objects lists of this table hold. */
+  /** PORT(perf): `share_elements`: the element hash -> the element objects lists of this table hold. */
   private elements: Map<number, unknown[]> | undefined;
+  /** PORT(perf): `elements_eq`: the element type's hash and eq (`ElementEq`). */
+  private element_eq: ElementEq = VALUE_ELEMENT_EQ;
 
   // rustc: compiler/rustc_data_structures/src/sharded.rs:146 with_capacity
   static with_capacity<K, V>(_cap: number): ShardedHashMap<K, V> {
@@ -157,16 +214,13 @@ export class ShardedHashMap<K, V> {
    */
   intern_slice<T>(this: InternedSet<K & readonly T[]>, v: readonly T[], make: (v: readonly T[]) => K & readonly T[]): K & readonly T[] {
     observe_interned_slice(v);
-    let h = v.length;
+    const ee = this.element_eq;
+    let h: number;
     if (this.elements === undefined) {
-      for (let i = 0; i < v.length; i++) h = hash_mix(h, value_hash(v[i]));
+      h = ee.hash_slice(v, undefined);
     } else {
       if (elem_hashes.length < v.length) elem_hashes = new Int32Array(Math.max(v.length, 2 * elem_hashes.length));
-      for (let i = 0; i < v.length; i++) {
-        const eh = value_hash(v[i]);
-        elem_hashes[i] = eh;
-        h = hash_mix(h, eh);
-      }
+      h = ee.hash_slice(v, elem_hashes);
     }
     const first = this.hashed.get(h);
     let got: (K & readonly T[]) | undefined;
@@ -174,13 +228,13 @@ export class ShardedHashMap<K, V> {
       got = make(this.shared_elements(v));
       this.hashed.set(h, got);
       this.hashed_len++;
-    } else if (slice_eq(v, first)) {
+    } else if (ee.slice_eq(v, first)) {
       got = first;
     } else {
       const rest = this.collided.get(h);
       if (rest !== undefined) {
         for (let i = 0; i < rest.length; i++) {
-          if (slice_eq(v, rest[i]!)) {
+          if (ee.slice_eq(v, rest[i]!)) {
             got = rest[i]!;
             break;
           }
@@ -207,9 +261,22 @@ export class ShardedHashMap<K, V> {
     for (const rest of this.collided.values()) yield* rest;
   }
 
-  /** PORT(perf): this table's new lists hold an element `value_eq` to one an earlier list holds as that object (module comment). */
-  share_elements(): void {
+  /**
+   * PORT(perf): this table's new lists hold an element `value_eq` to one an earlier list holds as that object (module comment).
+   * `element_eq`: as `elements_eq`.
+   */
+  share_elements(element_eq?: ElementEq): void {
+    if (element_eq !== undefined) this.elements_eq(element_eq);
     this.elements ??= new Map();
+  }
+
+  /**
+   * PORT(perf): `element_eq`, the element type's own hash and eq, replaces `value_hash` / `value_eq` for this table's elements
+   * (module comment), without sharing; only before the first `intern_slice`, as the table keeps one hash for all its lists.
+   */
+  elements_eq(element_eq: ElementEq): void {
+    if (this.hashed_len !== 0) panic("elements_eq: the element hash of a table that holds lists changed");
+    this.element_eq = element_eq;
   }
 
   /**
@@ -219,6 +286,7 @@ export class ShardedHashMap<K, V> {
   private shared_elements<T>(v: readonly T[]): readonly T[] {
     const elements = this.elements;
     if (elements === undefined) return v;
+    const eq = this.element_eq.eq;
     let w: T[] | undefined;
     for (let i = 0; i < v.length; i++) {
       const x = v[i];
@@ -231,7 +299,7 @@ export class ShardedHashMap<K, V> {
       }
       let found: unknown;
       for (let j = 0; j < bucket.length; j++) {
-        if (value_eq(x, bucket[j])) {
+        if (eq(x, bucket[j])) {
           found = bucket[j];
           break;
         }

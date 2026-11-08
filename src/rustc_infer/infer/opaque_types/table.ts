@@ -9,7 +9,6 @@ import { OpaqueTypeStorageEntries, OpaqueTypeTable } from "./table.gen.ts";
 
 export * from "./table.gen.ts";
 
-import { intern_key } from "../../../rust_ts/intern_key.ts";
 import { KeyedMap } from "../../../rust_ts/keyed.ts";
 import { index_map_swap_remove } from "../../../rustc_errors/decorate_diag.ts";
 import type { ProvisionalHiddenType, Ty } from "../../../rustc_middle/ty/mod.ts";
@@ -21,7 +20,7 @@ import type { InferCtxtUndoLogs } from "../snapshot/undo_log.ts";
 
 // rustc-type: compiler/rustc_infer/src/infer/opaque_types/table.rs:12 OpaqueTypeStorage
 // PORT: hand class (codegen `hand`): `FxIndexMap<OpaqueTypeKey, _>` is keyed by a plain struct (`OpaqueTypeKey` is
-// `#[derive(Hash, Eq)]`), so `opaque_types` is a `KeyedMap` on `intern_key` (rust_ts/keyed.ts), insertion-ordered as
+// `#[derive(Hash, Eq)]`), so `opaque_types` is a `KeyedMap` on `key_OpaqueTypeKey` (rust_ts/keyed.ts), insertion-ordered as
 // the `IndexMap`. The derived `Default` / `Clone` are `default_OpaqueTypeStorage` / `clone_OpaqueTypeStorage` below; the
 // derived `Debug` is generated (`debug_OpaqueTypeStorage`).
 export class OpaqueTypeStorage {
@@ -31,15 +30,25 @@ export class OpaqueTypeStorage {
   ) {}
 }
 
+/**
+ * PORT(perf) (lane perf-tait): `OpaqueTypeKey`'s derived `Hash` + `Eq` as a `KeyedMap` key, in place of the generic `intern_key`
+ * (`{args:#<id>,def_id:<n>}`, whose generic walk was 10% of the `mir` case `type-alias-impl-trait/recursive-drop-elaboration-2.rs`,
+ * through `register`). `def_id` is a `LocalDefId` (a `u32` index) and `args` an interned list, unique per id, so two keys give the same
+ * text exactly when both fields are equal, as with `intern_key`: two integers with a separator. element_eq.test.ts checks it.
+ */
+export function key_OpaqueTypeKey(k: OpaqueTypeKey): string {
+  return k.def_id + ":" + k.args.id;
+}
+
 /** `#[derive(Default)]` */
 export function default_OpaqueTypeStorage(): OpaqueTypeStorage {
-  return new OpaqueTypeStorage(new KeyedMap<OpaqueTypeKey, ProvisionalHiddenType>(intern_key), []);
+  return new OpaqueTypeStorage(new KeyedMap<OpaqueTypeKey, ProvisionalHiddenType>(key_OpaqueTypeKey), []);
 }
 
 /** `#[derive(Clone)]` (keys and hidden types are `Copy`). */
 export function clone_OpaqueTypeStorage(v: OpaqueTypeStorage): OpaqueTypeStorage {
   return new OpaqueTypeStorage(
-    new KeyedMap<OpaqueTypeKey, ProvisionalHiddenType>(intern_key, v.opaque_types),
+    new KeyedMap<OpaqueTypeKey, ProvisionalHiddenType>(key_OpaqueTypeKey, v.opaque_types),
     v.duplicate_entries.map((x) => [x[0], x[1]] as [OpaqueTypeKey, ProvisionalHiddenType]),
   );
 }
@@ -88,7 +97,7 @@ OpaqueTypeStorage.prototype.is_empty = function (this: OpaqueTypeStorage): boole
 OpaqueTypeStorage.prototype.take_opaque_types = function (this: OpaqueTypeStorage): Iterable<[OpaqueTypeKey, ProvisionalHiddenType]> {
   const { opaque_types, duplicate_entries } = this;
   // `std::mem::take(opaque_types)` / `std::mem::take(duplicate_entries)`
-  this.opaque_types = new KeyedMap<OpaqueTypeKey, ProvisionalHiddenType>(intern_key);
+  this.opaque_types = new KeyedMap<OpaqueTypeKey, ProvisionalHiddenType>(key_OpaqueTypeKey);
   this.duplicate_entries = [];
   return [...opaque_types, ...duplicate_entries];
 };
@@ -147,15 +156,23 @@ OpaqueTypeTable.prototype.deref = function (this: OpaqueTypeTable): OpaqueTypeSt
 // #[instrument(skip(self), level = "debug")]
 // rustc: compiler/rustc_infer/src/infer/opaque_types/table.rs:138 register
 OpaqueTypeTable.prototype.register = function (this: OpaqueTypeTable, key: OpaqueTypeKey, hidden_type: ProvisionalHiddenType): Ty | undefined {
-  const entry = this.storage.opaque_types.get(key);
+  const map = this.storage.opaque_types;
+  if (map instanceof KeyedMap) {
+    // PORT(perf) (lane perf-tait): `get_mut` then `mem::replace` or `insert`, as below, in one `KeyedMap::replace` (one key
+    // computation instead of two). A hidden type is never `undefined`, so `undefined` is "no entry".
+    const prev = (map as KeyedMap<OpaqueTypeKey, ProvisionalHiddenType>).replace(key, hidden_type);
+    this.undo_log.push({ $: "OpaqueTypes", _0: key, _1: prev });
+    return prev === undefined ? undefined : prev.ty;
+  }
+  const entry = map.get(key);
   if (entry !== undefined) {
     // `std::mem::replace(entry, hidden_type)`
     const prev = entry;
-    this.storage.opaque_types.set(key, hidden_type);
+    map.set(key, hidden_type);
     this.undo_log.push({ $: "OpaqueTypes", _0: key, _1: prev });
     return prev.ty;
   }
-  this.storage.opaque_types.set(key, hidden_type);
+  map.set(key, hidden_type);
   this.undo_log.push({ $: "OpaqueTypes", _0: key, _1: undefined });
   return undefined;
 };

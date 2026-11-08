@@ -45,6 +45,23 @@ export class KeyedMap<K, V> extends Map<K, V> {
     return super.set(s, v);
   }
 
+  /**
+   * PORT(perf) (lane perf-tait): `set(k, v)` that returns the value it replaced (`undefined` if there was none), as
+   * `get(k)` then `set(k, v)` would, with one key computation and one lookup of it instead of two.
+   */
+  replace(k: K, v: V): V | undefined {
+    const c = this.key(k);
+    const s = this.#canon.get(c);
+    if (s === undefined) {
+      this.#canon.set(c, k);
+      super.set(k, v);
+      return undefined;
+    }
+    const prev = super.get(s);
+    super.set(s, v);
+    return prev;
+  }
+
   override delete(k: K): boolean {
     const c = this.key(k);
     const s = this.#canon.get(c);

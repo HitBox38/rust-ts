@@ -197,20 +197,20 @@ export const GenericArg = {
 
   // rustc: compiler/rustc_middle/src/ty/generic_args.rs:249 as_region
   as_region(self: GenericArg): Region | undefined {
-    const k = GenericArg.kind(self);
-    return k.$ === "Lifetime" ? k._0 : undefined;
+    // PORT(perf) (lane perf-tait): `match self.kind()` without allocating the `GenericArgKind`, as in `fold_with`: `kind`'s arm.
+    return self instanceof Region ? self : undefined;
   },
 
   // rustc: compiler/rustc_middle/src/ty/generic_args.rs:257 as_type
   as_type(self: GenericArg): Ty | undefined {
-    const k = GenericArg.kind(self);
-    return k.$ === "Type" ? k._0 : undefined;
+    // PORT(perf) (lane perf-tait): `match self.kind()` without allocating the `GenericArgKind`, as in `fold_with`: `kind`'s arm.
+    return self instanceof Ty ? self : undefined;
   },
 
   // rustc: compiler/rustc_middle/src/ty/generic_args.rs:265 as_const
   as_const(self: GenericArg): Const | undefined {
-    const k = GenericArg.kind(self);
-    return k.$ === "Const" ? k._0 : undefined;
+    // PORT(perf) (lane perf-tait): `match self.kind()` without allocating the `GenericArgKind`, as in `fold_with`: `kind`'s arm.
+    return self instanceof Const ? self : undefined;
   },
 
   // rustc: compiler/rustc_middle/src/ty/generic_args.rs:273 as_term
