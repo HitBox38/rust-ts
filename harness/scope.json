@@ -98,6 +98,8 @@
     "rand_core": "=0.10.1",
     "chacha20": "=0.10.0",
     "rand_xoshiro": "=0.7.0",
-    "jobserver": "=0.1.34"
+    "jobserver": "=0.1.34",
+    "memmap2": "=0.2.3",
+    "tempfile": "=3.23.0"
   }
 }
