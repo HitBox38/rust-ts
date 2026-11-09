@@ -1,6 +1,6 @@
 # Handoff: perf-miri
 
-Branch `t3/4ed5136c`, based on `74f215e6` (`main`). Speed work on the two protected `run-pass-miri` cases that time out in the gate's
+Branch `t3/optimize-miri-performance`, based on `74f215e6` (`main`). Speed work on the two protected `run-pass-miri` cases that time out in the gate's
 12-job pool and match only on the solo retry: `drop/dynamic-drop.rs` and `threads-sendsync/issue-8827.rs`. No output change, no
 representation change, nothing touched in `harness/`, `scripts/` or baselines. No `unported(...)` added, no markers added or moved.
 
@@ -16,7 +16,7 @@ constant factor on upstream's algorithm, spread over the whole interpreter; the 
 
 **Alone**, default settings (the gate's), one process at a time, base and head alternated, AC power. Load is the 1-minute figure at
 start and end of each run. Every run's output hash is equal to base's (`dynamic-drop.rs` `3b71bf232208`, `issue-8827.rs`
-`43402cedebcc`), and both MATCH the oracle.
+`43402cedebcc`), and both MATCH the oracle on head (`difftest --suite run-pass-miri --filter`, one at a time).
 
 | case | side | wall s (3 runs) | user s | max RSS MB | Ginstr | load |
 |---|---|---|---|---|---|---|
