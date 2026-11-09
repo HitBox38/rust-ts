@@ -549,9 +549,16 @@ Parallel unit trial (root, quiet machine, AC, 2026-11-08): `bun test ./src ./too
 | link-rlib-native | docs/handoff/miri-sysroot.md chained lane 2: `add_archive`, `find_native_static_library`, `walk_native_lib_search_dirs`, bundled native libraries | APPROVE WITH NITS (root pinned N2); on integ-w43 |
 
 ## Wave 40e (started 2026-11-08) — still independent of D4
-**ACCEPTED 2026-11-09 (gate-20261108-194803-root-0xx0, main 39811561):** 542,092 protected (0 gained, 0 lost). The three TAIT cases: 25.2-25.5 s on the solo retry (42% of their limit). No power loss. Regression audit: docs/reviews/w40e-audit.md, running.
+**ACCEPTED 2026-11-09 (gate-20261108-194803-root-0xx0, main 39811561):** 542,092 protected (0 gained, 0 lost). The three TAIT cases: 25.2-25.5 s on the solo retry (42% of their limit). No power loss. Regression audit PASS WITH NOTES (docs/reviews/w40e-audit.md): all 542,092 MATCH; only 3 of 372,123 oracle keys moved, all report-only; the TAIT cases 24.5-25.3 s alone and 32-33 s beside a 4-job sample, 9 of 9 each, but they still time out beside 12 jobs, so a plain `--sample` beside a gate would lose them, as it would dynamic-drop.rs and issue-8827.rs.
 | lane | scope | status |
 |---|---|---|
-| perf-tait | the three protected TAIT cases in mir (recursive-drop-elaboration.rs, -2.rs, error-tainting-issue-122904.rs): 46-47 s alone of 60, timing out beside any sample (w40d audit N1); get them under about 30 s, faithfully | APPROVE WITH NITS (root closed N1); on integ-w44: the three cases at about 25 s alone, 27-32 s beside a 4-job sample |
+| perf-tait | the three protected TAIT cases in mir (recursive-drop-elaboration.rs, -2.rs, error-tainting-issue-122904.rs): 46-47 s alone of 60, timing out beside any sample (w40d audit N1); get them under about 30 s, faithfully | APPROVE WITH NITS (root closed N1); on integ-w44: the three cases at about 25 s alone, 32-33 s beside a 4-job sample (w40e audit) |
 | fixers-48 | fixers-47 review F1 (`pat.ts` 2^53 rest bindings, E0527), F2; link-rlib-native review N1 (a directory named like the library), N3 (TMPDIR unset or empty); unit-parallel review N2 (the `Printer` cycle and the other first-import failures) | APPROVE WITH NITS; on integ-w44 |
 | harness-w45 | w40d audit N2 (frozen-lists.ts's header, and guarding the TAIT cases' margin); unit-parallel review N3 (a file that throws at load named in the report), N4 (each report's slowest test, flagged over about 30 s); harness-w44 review N2-N4; root-w42-check N6; `scripts/mono-run.ts` and the logger | REQUEST CHANGES (F1 a flaky float test, F2 a missing gate.json stopped every gate), root fixed both; on integ-w44 |
+
+## Wave 40f (started 2026-11-09) — still independent of D4
+| lane | scope | status |
+|---|---|---|
+| perf-miri | run-pass-miri's `dynamic-drop.rs` (36.3 s alone of 60) and `issue-8827.rs` (35.2 s), retried in every gate: the Miri interpreter's cost there, faithfully | running |
+| fixers-49 | the three module-order cycles (`BoundRegionKind`, `ObligationCause`, `InferOk`); `-Zprint-type-sizes` at 2^53 bytes; perf-tait review N2, N3 tests; vendor markers for memmap2 0.2.3 and tempfile 3.23.0 with their `harness/scope.json` vendor entries (PORTING 5b); fixers-47 O1, O3 | running |
+| harness-w46 | root-w44-check N1 (a passing static step's `note:` lines reach the gate log); harness-w45 review N1, N6; unit-parallel N5 (`.rlib` files beside tests); the proposed `rlib-native` report suite | running |
