@@ -573,4 +573,4 @@ Root measured 2026-11-09: the port takes 0.48 s to start (`--version`), and a `b
 | lane | scope | status |
 |---|---|---|
 | subject-bin | harness batch: run the gate's and difftest's subject from a compiled bytecode build of the tested tree, cached by content, with a source fallback; prove byte-identical raw output on samples of every protected suite; oracle keys unchanged | running |
-| fixers-50 | fixers-49 review N1, N3 (`code_stats.ts` ties in FxHashSet order); perf-tait N4; fixers-48 O2; fixers-44 F2, F5; fixers-43 F2, F4; root-w40-check3 O1 (`InlineAttr` first-import) | running |
+| fixers-50 | fixers-49 review N1, N3 (`code_stats.ts` ties in FxHashSet order); perf-tait N4; fixers-48 O2; fixers-44 F2, F5; fixers-43 F2, F4; root-w40-check3 O1 (`InlineAttr` first-import) | done (branch t3/fix-rustc-port-findings-1, fa44dce6): ties ported (60/60 generated tie files match), `as_*` panics, temp read+write, `InferOk` first-import in coercion.ts and _match.ts; items 4-6 were already fixed earlier (fixers-44 F2/F5, fixers-43 F2/F4, check3 O1); review running |
