@@ -549,7 +549,7 @@ Parallel unit trial (root, quiet machine, AC, 2026-11-08): `bun test ./src ./too
 | link-rlib-native | docs/handoff/miri-sysroot.md chained lane 2: `add_archive`, `find_native_static_library`, `walk_native_lib_search_dirs`, bundled native libraries | APPROVE WITH NITS (root pinned N2); on integ-w43 |
 
 ## Wave 40e (started 2026-11-08) — still independent of D4
-**Gate running on main; accept and audit to follow.**
+**ACCEPTED 2026-11-09 (gate-20261108-194803-root-0xx0, main 39811561):** 542,092 protected (0 gained, 0 lost). The three TAIT cases: 25.2-25.5 s on the solo retry (42% of their limit). No power loss. Regression audit: docs/reviews/w40e-audit.md, running.
 | lane | scope | status |
 |---|---|---|
 | perf-tait | the three protected TAIT cases in mir (recursive-drop-elaboration.rs, -2.rs, error-tainting-issue-122904.rs): 46-47 s alone of 60, timing out beside any sample (w40d audit N1); get them under about 30 s, faithfully | APPROVE WITH NITS (root closed N1); on integ-w44: the three cases at about 25 s alone, 27-32 s beside a 4-job sample |
