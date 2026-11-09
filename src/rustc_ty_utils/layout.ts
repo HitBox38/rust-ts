@@ -7,8 +7,8 @@
 //   `Err`, in upstream order; `IndexVec`s are arrays.
 // - `ty::Adt(def, _) if def.repr().scalable()` / `if def.repr().simd()` / `ty::Adt(def, args)` are one `case "Adt"`
 //   with the guards as `if`s in upstream arm order.
-// - `-Zprint-type-sizes`: rustc_session code_stats.rs is not ported; its types are local views at the bottom of this
-//   file and `Session::code_stats` (a deferred field) stops UNPORTED when a layout is recorded.
+// - `-Zprint-type-sizes`: the `u64` byte counts of code_stats.rs's `FieldInfo`/`VariantInfo` are `bigint`s
+//   (`Size::bytes_u64`), so a layout of 2^53 bytes or more is recorded exactly (lane fixers-49).
 import { find_attr } from "../rustc_attr_ir/lib.ts";
 import { LangItem } from "../rustc_attr_ir/lang_items.gen.ts";
 import {
@@ -58,7 +58,8 @@ import {
   SimdLayoutError,
   type TyAndLayout as MiddleTyAndLayout,
 } from "../rustc_middle/ty/layout.ts";
-import { DataTypeKind_from_AdtKind, type DataTypeKind } from "../rustc_middle/ty/adt.ts";
+import { DataTypeKind_from_AdtKind } from "../rustc_middle/ty/adt.ts";
+import type { DataTypeKind, FieldInfo, VariantInfo } from "../rustc_session/code_stats.ts";
 import { HasAttrs_DefId, type ParamEnv, type PseudoCanonicalInput, Ty, type TypingEnv, ParamEnv_eq, TypingEnv as TypingEnvC } from "../rustc_middle/ty/mod.ts";
 import { display_Ty, with_no_trimmed_paths } from "../rustc_middle/ty/print/pretty.ts";
 import { debug_Ty, fold_Ty } from "../rustc_middle/ty/structural_impls.ts";
@@ -1119,7 +1120,7 @@ export function record_layout_for_printing(cx: LayoutCxT, layout: MiddleTyAndLay
   // (delay format until we actually need it)
   const record = (kind: DataTypeKind, packed: boolean, opt_discr_size: Size | undefined, variants: VariantInfo[]): void => {
     const type_desc = with_no_trimmed_paths(() => `${display_Ty(layout.ty)}`);
-    (cx.tcx_().sess.code_stats as CodeStats).record_type_size(kind, type_desc, layout.align.abi, layout.size, packed, opt_discr_size, variants);
+    cx.tcx_().sess.code_stats.record_type_size(kind, type_desc, layout.align.abi, layout.size, packed, opt_discr_size, variants);
   };
 
   const k = layout.ty.kind();
@@ -1167,8 +1168,8 @@ export function variant_info_for_adt(cx: LayoutCxT, layout: MiddleTyAndLayout, a
       return {
         kind: "AdtField",
         name,
-        offset: offset.bytes(),
-        size: field_layout.size.bytes(),
+        offset: offset.bytes_u64(),
+        size: field_layout.size.bytes_u64(),
         align: field_layout.align.abi.bytes(),
         type_name: undefined,
       };
@@ -1178,7 +1179,7 @@ export function variant_info_for_adt(cx: LayoutCxT, layout: MiddleTyAndLayout, a
       name: n,
       kind: layout.is_unsized() ? "Min" : "Exact",
       align: layout.align.abi.bytes(),
-      size: min_size.bytes() === 0 ? layout.size.bytes() : min_size.bytes(),
+      size: min_size.bytes_u64() === 0n ? layout.size.bytes_u64() : min_size.bytes_u64(),
       fields: field_info,
     };
   };
@@ -1237,8 +1238,8 @@ export function variant_info_for_coroutine(cx: LayoutCxT, layout: MiddleTyAndLay
     return {
       kind: "Upvar",
       name: name,
-      offset: offset.bytes(),
-      size: field_layout.size.bytes(),
+      offset: offset.bytes_u64(),
+      size: field_layout.size.bytes_u64(),
       align: field_layout.align.abi.bytes(),
       type_name: undefined,
     };
@@ -1258,8 +1259,8 @@ export function variant_info_for_coroutine(cx: LayoutCxT, layout: MiddleTyAndLay
         return {
           kind: "CoroutineLocal",
           name: field_name ?? Symbol.intern(`.coroutine_field${local}`),
-          offset: offset.bytes(),
-          size: field_layout.size.bytes(),
+          offset: offset.bytes_u64(),
+          size: field_layout.size.bytes_u64(),
           align: field_layout.align.abi.bytes(),
           // Include the type name if there is no field name, or if the name is the
           // __awaitee placeholder symbol which means a child future being `.await`ed.
@@ -1295,7 +1296,7 @@ export function variant_info_for_coroutine(cx: LayoutCxT, layout: MiddleTyAndLay
     return {
       name: Symbol.intern(CoroutineArgs_variant_name(variant_idx)),
       kind: "Exact",
-      size: variant_size.bytes(),
+      size: variant_size.bytes_u64(),
       align: variant_layout.align.abi.bytes(),
       fields,
     };
@@ -1316,43 +1317,6 @@ export function variant_info_for_coroutine(cx: LayoutCxT, layout: MiddleTyAndLay
 
 // ---- PORT views of types other files own that are not ported yet -------------------------------------------------
 // Not markers. Root repoints them at the real ports.
-
-/** rustc_session code_stats.rs `SizeKind` (code_stats.rs is not ported; PORTING §5 shape). */
-export type SizeKind = "Exact" | "Min";
-/** rustc_session code_stats.rs `FieldKind`. */
-export type FieldKind = "AdtField" | "Upvar" | "CoroutineLocal";
-/** rustc_session code_stats.rs `FieldInfo` (`u64`s are byte counts, `number`). */
-export interface FieldInfo {
-  kind: FieldKind;
-  name: Symbol;
-  offset: number;
-  size: number;
-  align: number;
-  /// Name of the type of this field.
-  /// Present only if the creator thought that this would be important for identifying the field,
-  /// typically because the field name is uninformative.
-  type_name: Symbol | undefined;
-}
-/** rustc_session code_stats.rs `VariantInfo`. */
-export interface VariantInfo {
-  name: Symbol | undefined;
-  kind: SizeKind;
-  size: number;
-  align: number;
-  fields: FieldInfo[];
-}
-/** rustc_session code_stats.rs `CodeStats` (`Session::code_stats` is a deferred field: reading it stops UNPORTED). */
-interface CodeStats {
-  record_type_size(
-    kind: DataTypeKind,
-    type_desc: string,
-    align: Align,
-    overall_size: Size,
-    packed: boolean,
-    opt_discr_size: Size | undefined,
-    variants: VariantInfo[],
-  ): void;
-}
 
 /** `ty::CoroutineArgs::variant_name` (rustc_middle ty/sty.rs:137, ported on `CoroutineArgsExt`). */
 function CoroutineArgs_variant_name(v: VariantIdx): string {

@@ -1448,8 +1448,7 @@ export function start_codegen(codegen_backend: CodegenBackend, tcx: TyCtxt): [un
     // This must run after monomorphization so that all generic types
     // have been instantiated.
     if (tcx.sess.opts.unstable_opts.print_type_sizes) {
-      // tcx.sess.code_stats.print_type_sizes();
-      unported("rustc_session::code_stats::CodeStats::print_type_sizes (-Z print-type-sizes)");
+      tcx.sess.code_stats.print_type_sizes();
     }
 
     const crate_info = CrateInfo_new(tcx, codegen_backend.target_cpu(tcx.sess));
