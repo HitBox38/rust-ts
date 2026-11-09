@@ -6,7 +6,9 @@ import "../lib.ts";
 import { Size } from "../../rustc_abi/lib.ts";
 import { BytePos, DUMMY_SP, Span, create_default_session_globals_then } from "../../rustc_span/lib.ts";
 import { TerminationInfoStop, type TerminationInfo, display_TerminationInfo } from "../diagnostics.ts";
-import { AccessType, GlobalState, MemoryCellClocks, NaReadType, NaWriteType, VClockAlloc } from "./data_race.ts";
+import { AccessType, FrameState, GlobalState, MemoryCellClocks, NaReadType, NaWriteType, VClockAlloc } from "./data_race.ts";
+import { type MiriMachine } from "../machine.ts";
+import { type Local } from "../../rustc_middle/mir/mod.ts";
 import { ThreadId, type ThreadManager } from "./thread.ts";
 import { VClock, VTimestamp, VectorIdx, clone_VClock } from "./vector_clock.ts";
 import { type MiriConfig } from "../eval.ts";
@@ -292,5 +294,45 @@ test("report_data_race: branch order (an unsynchronized atomic store is reported
     expect(display_TerminationInfo(info)).toBe(
       "Data race detected between (1) atomic store on thread `t1` and (2) non-atomic write on thread `t2` at alloc3",
     );
+  });
+});
+
+// Lane perf-miri: `FrameState::local_write` / `local_read` read `current_user_relevant_span()` after the `race_detecting()`
+// early return (upstream reads it before; see the PORT(perf) note). With race detection on, the span must still reach the
+// active thread's clock entry, which is what a later race report names (miri-fail data_race/local_variable_*_race.rs).
+test("FrameState::local_write / local_read: the span reaches the clock with race detection on, and is not read with it off", () => {
+  create_default_session_globals_then(() => {
+    const { g, tm, mgr } = setup();
+    let span_reads = 0;
+    const machine = {
+      data_race: { $: "Vclocks", _0: g },
+      threads: mgr,
+      current_user_relevant_span: (): Span => {
+        span_reads++;
+        return tm.span(tm.active);
+      },
+    } as unknown as MiriMachine;
+    tm.span = thread_span;
+    const frame = (FrameState as unknown as { default: () => FrameState }).default();
+    const local = 3 as Local;
+    const clock_span = (): Span => g.active_thread_state_mut(mgr)[1].clock.index(g.active_thread_index(mgr)).span;
+    // Single-threaded: nothing is recorded, and the span is not needed.
+    frame.local_write(local, true, machine);
+    frame.local_read(local, machine);
+    expect(span_reads).toBe(0);
+    expect(frame.local_clocks.size).toBe(0);
+    // Multi-threaded: each access records its thread's current span.
+    spawn(g, tm, mgr, 1);
+    frame.local_write(local, true, machine);
+    expect(span_reads).toBe(1);
+    expect(clock_span()).toBe(thread_span(0));
+    expect(frame.local_clocks.get(local)?.write_type).toBe("Allocate");
+    tm.active = 1;
+    frame.local_read(local, machine);
+    expect(span_reads).toBe(2);
+    expect(clock_span()).toBe(thread_span(1));
+    frame.local_write(local, false, machine);
+    expect(frame.local_clocks.get(local)?.write_type).toBe("Write");
+    expect(span_reads).toBe(3);
   });
 });

@@ -1492,11 +1492,17 @@ function entry_or_default(clocks: Map<Local, LocalClocks>, local: Local): LocalC
 
 // rustc: src/tools/miri/src/concurrency/data_race.rs:1324 local_write
 FrameState.prototype.local_write = function (this: FrameState, local: Local, storage_live: boolean, machine: MiriMachine): void {
-  const current_span = machine.current_user_relevant_span();
+  // PORT(perf): upstream reads `machine.current_user_relevant_span()` before the `race_detecting()` early return; it is read
+  // here after it. The call is a pure read of the active thread's stack (no state is written, and it cannot fail: the top
+  // frame's location is always in its body), and its value is used only below, so skipping it when race detection is off
+  // (every single-threaded program) changes nothing. Measured (docs/handoff/perf-miri.md, synchronous JIT): dynamic-drop.rs
+  // 480.3 to 470.3 Ginstr (-2.1%); issue-8827.rs unchanged (race detection is on from its first spawn).
+  // Test: data_race.test.ts "FrameState::local_write / local_read".
   const global = unwrap(GlobalDataRaceHandler.as_vclocks_ref(machine.data_race));
   if (!global.race_detecting()) {
     return;
   }
+  const current_span = machine.current_user_relevant_span();
   const [index, thread_clocks] = global.active_thread_state_mut(machine.threads);
   // This should do the same things as `MemoryCellClocks::write_race_detect`.
   if (!Span.is_dummy(current_span)) {
@@ -1523,11 +1529,17 @@ FrameState.prototype.local_write = function (this: FrameState, local: Local, sto
 
 // rustc: src/tools/miri/src/concurrency/data_race.rs:1354 local_read
 FrameState.prototype.local_read = function (this: FrameState, local: Local, machine: MiriMachine): void {
-  const current_span = machine.current_user_relevant_span();
+  // PORT(perf): upstream reads `machine.current_user_relevant_span()` before the `race_detecting()` early return; it is read
+  // here after it. The call is a pure read of the active thread's stack (no state is written, and it cannot fail: the top
+  // frame's location is always in its body), and its value is used only below, so skipping it when race detection is off
+  // (every single-threaded program) changes nothing. Measured (docs/handoff/perf-miri.md, synchronous JIT): dynamic-drop.rs
+  // 480.3 to 470.3 Ginstr (-2.1%); issue-8827.rs unchanged (race detection is on from its first spawn).
+  // Test: data_race.test.ts "FrameState::local_write / local_read".
   const global = unwrap(GlobalDataRaceHandler.as_vclocks_ref(machine.data_race));
   if (!global.race_detecting()) {
     return;
   }
+  const current_span = machine.current_user_relevant_span();
   const [index, thread_clocks] = global.active_thread_state_mut(machine.threads);
   // This should do the same things as `MemoryCellClocks::read_race_detect`.
   if (!Span.is_dummy(current_span)) {
