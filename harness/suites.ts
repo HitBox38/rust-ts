@@ -2355,3 +2355,146 @@ SUITES.push({
   oracle: ([c]) => hostRlibRun("oracle", c!, oracleRustcCmd([])),
   subject: ([c]) => hostRlibRun("subject", c!, bunCmd("src/rust_ts/main.ts")),
 });
+
+// `rlib-native` (lane harness-w46; docs/handoff/link-rlib-native.md "Proposed report suite", review link-rlib-native §6; report only:
+// no baseline, so in no gate by default): rlibs that bundle native static libraries (`-l static=`, `#[link(kind = "static")]`, the
+// bundle / whole-archive / verbatim modifiers, `-Zpacked-bundled-libs`, `-L` kinds, universal, thin, GNU-on-darwin, BSD-on-Linux, empty
+// and corrupt archives, a crate using such an rlib through `--extern`), built with `--crate-type rlib --emit=dep-info,metadata,link
+// -Zcodegen-backend=dummy --out-dir out`. Both sides run scripts/rlib-native-run.ts in one fixed directory per case (`rlibNativeDir`:
+// the rmeta embeds the working directory and the source path, so the sources are named by base name, review §6.1), one side after
+// the other under the case lock, each with that directory's own `TMPDIR`. It prints, after the compiler's own output, every file under
+// `out` (dep-info as text, others as size and sha256), each rlib's members with their sizes (§6.3), and the temp files left (a
+// universal library's extracted slice). The static libraries are checked in (harness/corpus/rlib-native/libs, made by
+// harness/corpus/gen-rlib-native.ts with the host's clang, ar and lipo and the oracle toolchain's llvm-ar, never the port), so no case
+// builds one. Left out (§6.2): any case whose diagnostics name the extracted temp file (a universal library whose slice is not a
+// Darwin archive: the oracle prints a random path), and a directory named like a library (an `unported` today, review N1). Cases
+// target the root host (aarch64-apple-darwin), x86_64-apple-darwin and x86_64-unknown-linux-gnu with `#![no_core]` crates (no
+// sysroot), and the host with std (`std:`, `--sysroot <oracle sysroot>`). The cache key adds both wrappers (rlib-native-run.ts uses
+// host-rlib-run.ts's report), the oracle rustc build, harness/corpus/rlib-native/, the case directories' root and the oracle sysroot.
+export const RLIB_NATIVE_RUN = join(REPO, "scripts", "rlib-native-run.ts");
+const RLIB_NATIVE_CORPUS = join(REPO, "harness", "corpus", "rlib-native");
+/** A case's fixed directory: both sides compile in `<it>/work`, with `<it>/tmp` as `TMPDIR`. */
+const rlibNativeDir = (c: Case): string => join(DATA, "rlib-native", hash(c.id).slice(0, 16));
+const RLIB_NATIVE_BASE = ["--crate-type", "rlib", "--emit=dep-info,metadata,link", "-Zcodegen-backend=dummy", "--out-dir", "out", "--edition=2021"];
+/**
+ * The cases: each is one compiler invocation's arguments after RLIB_NATIVE_BASE (steps split by `--then`), and is its own id; `std:`
+ * cases add `--sysroot <oracle sysroot>`, which their id leaves out. Every one gave the same output on both sides when written (lane
+ * harness-w46). The `-L` directories are those of harness/corpus/rlib-native/libs: host (aarch64-apple-darwin), elf
+ * (x86_64-unknown-linux-gnu), x86 (x86_64-apple-darwin).
+ */
+const RLIB_NATIVE_CASES: string[] = [
+  // The host: bundling, its modifiers and packing.
+  "-L host nc_link.rs",
+  "-L host -l static=foo nc.rs",
+  "-L host -l static:+bundle=foo nc.rs",
+  "-L host -l static:-bundle=foo nc.rs",
+  "-L host -l static:-bundle,+whole-archive=foo nc.rs",
+  "-L host -l dylib=foo nc.rs",
+  "-L host -l static:+whole-archive=foo nc.rs",
+  "-L host -l static=foo -Zpacked-bundled-libs nc.rs",
+  "-L host -l static=foo -l static=baz nc.rs",
+  "-L host -l static=foo -l static=baz -Zpacked-bundled-libs nc.rs",
+  "-L host -l static=foo -l static:+whole-archive=baz nc.rs",
+  "-L host -l static=foo -l static=foo nc.rs",
+  "-L host nc_cfg.rs",
+  "-L host -l static=foo --crate-type staticlib nc.rs",
+  // The host: finding the library.
+  "-L host -l static=nope nc.rs",
+  "-L host -l static:+whole-archive=nope nc.rs",
+  "-L host -l static=libfoo.a nc.rs",
+  "-L host -l static:+verbatim=libfoo.a nc.rs",
+  "-L host -l static:+verbatim=foo nc.rs",
+  "-L native=host -l static=foo nc.rs",
+  "-L all=host -l static=foo nc.rs",
+  "-L nonexistent -L host -l static=foo nc.rs",
+  "-L framework=host -l static=foo nc.rs",
+  "-L dependency=host -l static=foo nc.rs",
+  "-L host -L elf -l static=foo nc.rs",
+  "-L elf -L host -l static=foo nc.rs",
+  // The host: archive kinds.
+  "-L host -l static=bad nc.rs",
+  "-L host -l static=fat nc.rs",
+  "-L host -l static=fat -l static=fat nc.rs",
+  "-L host -l static=fat -Zpacked-bundled-libs nc.rs",
+  "-L host -l static=thin nc.rs",
+  "-L host -l static=gnu nc.rs",
+  "-L host -l static=empty nc.rs",
+  "-L host -l static=long nc.rs",
+  "-L elf -l static=foo nc.rs",
+  // The host: a crate using such an rlib, and a std crate.
+  "-L host nc_link.rs --then --extern nc_link=out/libnc_link.rlib nc_user.rs",
+  "-L host -l static:+whole-archive=baz nc_link.rs --then --extern nc_link=out/libnc_link.rlib -L host -l static=foo nc_user.rs",
+  "std: -L host std_link.rs",
+  // x86_64-unknown-linux-gnu (ELF objects, GNU archives).
+  "--target x86_64-unknown-linux-gnu -L elf -l static=foo nc.rs",
+  "--target x86_64-unknown-linux-gnu -L elf -l static:-bundle=foo nc.rs",
+  "--target x86_64-unknown-linux-gnu -L elf -l static:+whole-archive=foo nc.rs",
+  "--target x86_64-unknown-linux-gnu -L elf -l static=foo -Zpacked-bundled-libs nc.rs",
+  "--target x86_64-unknown-linux-gnu -L elf -l static=foo -l static=baz nc.rs",
+  "--target x86_64-unknown-linux-gnu -L elf -l static=foo -l static=baz -Zpacked-bundled-libs nc.rs",
+  "--target x86_64-unknown-linux-gnu -L elf -l static=foo -l static=foo nc.rs",
+  "--target x86_64-unknown-linux-gnu -L elf -l static:+verbatim=libfoo.a nc.rs",
+  "--target x86_64-unknown-linux-gnu -L elf -l static=nope nc.rs",
+  "--target x86_64-unknown-linux-gnu -L elf -l static=bsd nc.rs",
+  "--target x86_64-unknown-linux-gnu -L elf -l static=long nc.rs",
+  "--target x86_64-unknown-linux-gnu -L elf nc_cfg.rs",
+  "--target x86_64-unknown-linux-gnu -L host -l static=thin nc.rs",
+  "--target x86_64-unknown-linux-gnu -L host -l static=empty nc.rs",
+  "--target x86_64-unknown-linux-gnu -L host -l static=foo nc.rs",
+  "--target x86_64-unknown-linux-gnu -L host -l static=fat nc.rs",
+  // x86_64-apple-darwin.
+  "--target x86_64-apple-darwin -L x86 -l static=foo nc.rs",
+  "--target x86_64-apple-darwin -L host -l static=fat nc.rs",
+  "--target x86_64-apple-darwin -L host -l static=fat -Zpacked-bundled-libs nc.rs",
+  "--target x86_64-apple-darwin -L elf -l static=foo nc.rs",
+];
+const rlibNativeCases = (): Case[] =>
+  RLIB_NATIVE_CASES.map((id) => {
+    const std = id.startsWith("std: ");
+    const steps = (std ? id.slice(5) : id).split(" --then ").map((s) => [...RLIB_NATIVE_BASE, ...(std ? ["--sysroot", oracleSysroot()] : []), ...s.split(" ")]);
+    return { id, file: "", args: steps.flatMap((s, i) => (i === 0 ? s : ["--then", ...s])), env: NOCORE_ENV };
+  });
+let rlibNativeKeyMemo: string | undefined;
+/** Every file under `dir`, relative and sorted. */
+const filesUnder = (dir: string): string[] => readdirSync(dir, { recursive: true }).map(String).filter((f) => statSync(join(dir, f)).isFile()).sort();
+const rlibNativeRun = (side: "oracle" | "subject", c: Case, compiler: string[]): string[] => [
+  process.execPath,
+  RLIB_NATIVE_RUN,
+  "--dir",
+  rlibNativeDir(c),
+  "--side",
+  side,
+  "--tree",
+  join(RLIB_NATIVE_CORPUS, "libs"),
+  ...c.args.filter((a) => a.endsWith(".rs")).flatMap((f) => ["--src", join(RLIB_NATIVE_CORPUS, "src", f)]),
+  "--compiler",
+  String(compiler.length),
+  "--",
+  ...compiler,
+  ...c.args,
+];
+SUITES.push({
+  name: "rlib-native",
+  milestone: "M7",
+  description:
+    "report only: rlibs bundling native static libraries (checked-in archives; --crate-type rlib --emit=dep-info,metadata,link -Zcodegen-backend=dummy), both sides in one fixed directory and TMPDIR per case: stdout + stderr + exit, dep-info, the rmeta and rlib's size and sha256, the rlib's members, the temp files left (scripts/rlib-native-run.ts)",
+  mode: "single",
+  timeoutMs: 120_000,
+  oracleTimeoutMs: 60_000,
+  cases: rlibNativeCases,
+  caseLock: (c) => `${rlibNativeDir(c)}.case.lock`,
+  oracleKey: () =>
+    (rlibNativeKeyMemo ??= hash(
+      [
+        hash(readFileSync(RLIB_NATIVE_RUN)),
+        hash(readFileSync(HOST_RLIB_RUN)),
+        rustcDriverHash(),
+        ...filesUnder(RLIB_NATIVE_CORPUS).map((f) => `${f} ${hash(readFileSync(join(RLIB_NATIVE_CORPUS, f)))}`),
+        join(DATA, "rlib-native"),
+        oracleSysroot(),
+      ].join("\0"),
+    )),
+  // `oracleRustcCmd([])` is `rustc +<toolchain>`, its argv being the case's (above).
+  oracle: ([c]) => rlibNativeRun("oracle", c!, oracleRustcCmd([])),
+  subject: ([c]) => rlibNativeRun("subject", c!, bunCmd("src/rust_ts/main.ts")),
+});
