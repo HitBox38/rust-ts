@@ -188,7 +188,8 @@ function try_filter_fat_archs<F>(
 // crate: tempfile-3.23.0/src/util.rs:22 create_helper
 // crate: tempfile-3.23.0/src/file/mod.rs:1063 create_named
 // crate: tempfile-3.23.0/src/file/imp/unix.rs:14 create_named
-function tempfile_with_suffix(suffix: string): IoResult<[number, string]> {
+// PORT: exported for archive.test.ts (fixers-50).
+export function tempfile_with_suffix(suffix: string): IoResult<[number, string]> {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
   let base = to_string_lossy(temp_dir());
   // Make the path absolute. Otherwise, changing the current directory can invalidate a stored
@@ -205,7 +206,8 @@ function tempfile_with_suffix(suffix: string): IoResult<[number, string]> {
     const path = path_join(base, name + suffix);
     let e: IoError;
     try {
-      return Ok([openSync(path, "wx", 0o600), path]);
+      // `open_options.read(true).write(true).create_new(true)`, `mode(0o600)` (fixers-48 review O2: read and write).
+      return Ok([openSync(path, "wx+", 0o600), path]);
     } catch (err) {
       e = io_error_from_node(err);
     }
