@@ -2,6 +2,7 @@
 import { expect, test } from "bun:test";
 import { INTERNED } from "./intern.ts";
 import { ShardedHashMap } from "./sharded.ts";
+import { hash_mix, value_hash } from "../rust_ts/intern_key.ts";
 
 interface Boxed {
   readonly v: unknown;
@@ -42,6 +43,31 @@ test("intern_slice: element-wise, so a list and an array with the same elements 
   expect(s.intern_slice<number>([1, 2], () => expect.unreachable() as never)).toBe(first);
   expect(s.intern_slice<number>([2, 1], make([2, 1]))).not.toBe(first);
   expect(s.len()).toBe(2);
+});
+
+// Lane fixers-49 (review perf-tait N1's aside): the generic slice `==` (`VALUE_ELEMENT_EQ.slice_eq`) checks the lengths. Without it a
+// stored list is found for its own prefix when their hashes collide, so this builds such a collision.
+test("intern_slice: a list is not found for its prefix of the same hash", () => {
+  const s = ShardedHashMap.with_capacity<readonly number[], null>(0);
+  // `[a]` hashes to `hash_mix(1, a)`, `[a, b]` to `hash_mix(hash_mix(2, a), b)`, and a small integer's `value_hash` is itself.
+  // `hash_mix(m, b) = imul(m ^ b, K) ^ (m >>> 15)` with `K` odd, so solve for `b` with `K`'s inverse modulo 2^32.
+  const K = 0x9e3779b1 | 0;
+  let inv = K;
+  for (let i = 0; i < 5; i++) inv = Math.imul(inv, 2 - Math.imul(K, inv));
+  expect(Math.imul(K, inv)).toBe(1);
+  const a = 7;
+  const m = hash_mix(2, a);
+  const b = Math.imul(hash_mix(1, a) ^ (m >>> 15), inv) ^ m;
+  expect(value_hash(b)).toBe(b);
+  expect(hash_mix(m, b)).toBe(hash_mix(1, a));
+  const make = (v: readonly number[]) => (): readonly number[] => [...v];
+  const long = s.intern_slice<number>([a, b], make([a, b]));
+  const short = s.intern_slice<number>([a], make([a]));
+  expect(short).not.toBe(long);
+  expect([...short]).toEqual([a]);
+  expect(s.len()).toBe(2);
+  expect(s.intern_slice<number>([a], () => expect.unreachable() as never)).toBe(short);
+  expect(s.intern_slice<number>([a, b], () => expect.unreachable() as never)).toBe(long);
 });
 
 // Lane perf-heavy: `share_elements`.
