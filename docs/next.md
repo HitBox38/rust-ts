@@ -560,6 +560,7 @@ Parallel unit trial (root, quiet machine, AC, 2026-11-08): `bun test ./src ./too
 | harness-w45 | w40d audit N2 (frozen-lists.ts's header, and guarding the TAIT cases' margin); unit-parallel review N3 (a file that throws at load named in the report), N4 (each report's slowest test, flagged over about 30 s); harness-w44 review N2-N4; root-w42-check N6; `scripts/mono-run.ts` and the logger | REQUEST CHANGES (F1 a flaky float test, F2 a missing gate.json stopped every gate), root fixed both; on integ-w44 |
 
 ## Wave 40f (started 2026-11-09) — still independent of D4
+**Gate running on main; accept and audit to follow.**
 | lane | scope | status |
 |---|---|---|
 | perf-miri | run-pass-miri's `dynamic-drop.rs` (36.3 s alone of 60) and `issue-8827.rs` (35.2 s), retried in every gate: the Miri interpreter's cost there, faithfully | APPROVE WITH NITS: one faithful change (2.1% of dynamic-drop.rs); faithful work cannot fit them in the 12-job pool (about 8-9x the real Miri per step, spread across the interpreter); on integ-w45 |
