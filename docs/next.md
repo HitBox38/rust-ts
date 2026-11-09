@@ -566,3 +566,11 @@ Parallel unit trial (root, quiet machine, AC, 2026-11-08): `bun test ./src ./too
 | perf-miri | run-pass-miri's `dynamic-drop.rs` (36.3 s alone of 60) and `issue-8827.rs` (35.2 s), retried in every gate: the Miri interpreter's cost there, faithfully | APPROVE WITH NITS: one faithful change (2.1% of dynamic-drop.rs); faithful work cannot fit them in the 12-job pool (about 8-9x the real Miri per step, spread across the interpreter); on integ-w45 |
 | fixers-49 | the three module-order cycles (`BoundRegionKind`, `ObligationCause`, `InferOk`); `-Zprint-type-sizes` at 2^53 bytes; perf-tait review N2, N3 tests; vendor markers for memmap2 0.2.3 and tempfile 3.23.0 with their `harness/scope.json` vendor entries (PORTING 5b); fixers-47 O1, O3 | APPROVE WITH NITS (root closed N2); on integ-w45 |
 | harness-w46 | root-w44-check N1 (a passing static step's `note:` lines reach the gate log); harness-w45 review N1, N6; unit-parallel N5 (`.rlib` files beside tests); the proposed `rlib-native` report suite | APPROVE WITH NITS; on integ-w45 |
+
+## Wave 40g (started 2026-11-09) — still independent of D4
+Root measured 2026-11-09: the port takes 0.48 s to start (`--version`), and a `bun build --compile --bytecode` binary of `src/rust_ts/main.ts` takes 0.05 s. Its `-Zunpretty=hir` and `=expanded` output on dynamic-drop.rs is byte-identical, at 0.17 s against 0.67-0.72 s. The 13 suites of about 21.5k cases take 32-56 min each in the gate.
+
+| lane | scope | status |
+|---|---|---|
+| subject-bin | harness batch: run the gate's and difftest's subject from a compiled bytecode build of the tested tree, cached by content, with a source fallback; prove byte-identical raw output on samples of every protected suite; oracle keys unchanged | running |
+| fixers-50 | fixers-49 review N1, N3 (`code_stats.ts` ties in FxHashSet order); perf-tait N4; fixers-48 O2; fixers-44 F2, F5; fixers-43 F2, F4; root-w40-check3 O1 (`InlineAttr` first-import) | running |
