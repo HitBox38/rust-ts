@@ -9,7 +9,12 @@
 //     --run-id ID       output dir name under $RUST_TS_DATA/runs (default: timestamp)
 //     --report blessed  also write the blessed-output report (suites with `Suite.blessed`; never a status)
 //     --ir-tier T       an IR suite at normal form tier N1, N2 or N3, as a report under the name <suite>@<T> (harness/suites.ts `irReportSuite`)
+//     --raw-subject D   also write every subject process's raw output to directory D (scripts/subject-bin-compare.ts)
 //     --list            list suites
+//
+// Subject: `RUST_TS_SUBJECT=binary` runs the subject entries that have one from their compiled build, `source` (the default:
+// scripts/lib/subject-bin.ts `DEFAULT_SUBJECT_MODE`) from source; a run builds or finds the build before any case runs, and
+// `<suite>.summary.json` records the mode and each build's hash (`subject`).
 //
 // Statuses: MATCH | DIFF | UNPORTED (exit 70) | CRASH (subject ICE/exit mismatch with no output) |
 // TIMEOUT (the subject timed out, in the parallel pool and again in its serial re-run) | ORACLE_TIMEOUT (the oracle timed out twice, the second time with
@@ -77,6 +82,7 @@ import { verifyMiriOracle } from "./lib/miri.ts";
 import { ORACLE_RETRY_FACTOR, oracleSysroot, rustcDriverHash, verifyOraclePin } from "./lib/oracle.ts";
 import { SPLITTERS, compareSections, splitHashes, type SplitHashes, type SplitOutput } from "./lib/split.ts";
 import { isRustcDevProbe } from "./probes.ts";
+import { prepareSubject, subjectBinPaths, type SubjectRecord } from "./lib/subject-bin.ts";
 
 export type Status = "MATCH" | "DIFF" | "UNPORTED" | "CRASH" | "TIMEOUT" | "ORACLE_TIMEOUT" | "UNSTABLE";
 export const STATUSES: Status[] = ["MATCH", "DIFF", "UNPORTED", "CRASH", "TIMEOUT", "ORACLE_TIMEOUT", "UNSTABLE"];
@@ -524,6 +530,34 @@ export interface SubjectStats {
 }
 
 /** `usage`: filled with the resources of each process that ran one case alone (in a batch suite, those only). */
+/** Where `runSubjectProcess` writes each subject process's raw output (`--raw-subject`), or `undefined`. */
+let rawSubjectDir: string | undefined;
+const rawAttempts = new Map<string, number>();
+
+/**
+ * One subject process of `cases`. With `--raw-subject`, its command (the subject build's path and the repo written as
+ * `<subject:entry>` and `<repo>`, so the two modes' records compare), exit code, timeout, stdout and stderr go to
+ * `<dir>/<hash of the case ids>-<attempt>.json`: scripts/subject-bin-compare.ts compares two such directories.
+ */
+async function runSubjectProcess(s: Suite, cases: Case[], opts: { cwd: string; timeoutMs: number; env: Record<string, string | null> }): Promise<ProcResult> {
+  const cmd = s.subject(cases);
+  const r = await run(cmd, opts);
+  if (rawSubjectDir !== undefined) {
+    const ids = cases.map((c) => c.id);
+    const key = hash(JSON.stringify([s.name, ids])).slice(0, 20);
+    const attempt = rawAttempts.get(key) ?? 0;
+    rawAttempts.set(key, attempt + 1);
+    const bins = subjectBinPaths();
+    const shown = cmd.map((w) => {
+      for (const [entry, path] of bins) if (w === path) return `<subject:${entry}>`;
+      return w.split(REPO).join("<repo>");
+    });
+    const rec = { suite: s.name, ids, attempt, cmd: shown, code: r.code, timedOut: r.timedOut, ms: Math.round(r.ms), stdout: r.stdout, stderr: r.stderr };
+    writeFileSync(join(ensureDir(rawSubjectDir), `${key}-${attempt}.json`), JSON.stringify(rec));
+  }
+  return r;
+}
+
 export async function runSubject(s: Suite, cases: Case[], impl: string, stats?: SubjectStats, usage?: Map<string, Usage>): Promise<Map<string, Output>> {
   const env = { RUST_TS_IMPL: impl };
   const out = new Map<string, Output>();
@@ -532,7 +566,7 @@ export async function runSubject(s: Suite, cases: Case[], impl: string, stats?: 
   const exec = async (batch: Case[]) => {
     if (stats) stats.processes++;
     // (Only single-mode suites have per-case env; `difftest` rejects it in batch suites.)
-    const r = await run(s.subject(batch), { cwd: cwdOf(s), timeoutMs: s.timeoutMs, env: { ...caseEnv(batch[0]!.env), ...env } });
+    const r = await runSubjectProcess(s, batch, { cwd: cwdOf(s), timeoutMs: s.timeoutMs, env: { ...caseEnv(batch[0]!.env), ...env } });
     if (batch.length > 1 && (r.code !== 0 || r.timedOut)) failedBatches.push({ ids: new Set(batch.map((c) => c.id)), timedOut: r.timedOut });
     return r;
   };
@@ -816,7 +850,7 @@ export async function runSplit(s: Suite, c: Case, impl: string, stats: SubjectSt
   };
   const subjectSide = (): Promise<ProcResult> => {
     stats.processes++;
-    return run(s.subject([c]), { cwd, timeoutMs: s.timeoutMs, env: { ...caseEnv(c.env), RUST_TS_IMPL: impl } });
+    return runSubjectProcess(s, [c], { cwd, timeoutMs: s.timeoutMs, env: { ...caseEnv(c.env), RUST_TS_IMPL: impl } });
   };
   const [o, r] = s.heavy ? [await oracleSide(), await subjectSide()] : await Promise.all([oracleSide(), subjectSide()]);
   /** The heavy run's resources, once every process of the run has run (the oracle's re-run, if any, comes last). */
@@ -930,6 +964,8 @@ export interface RunOptions {
   quiet?: boolean;
   /** `blessed`: also write the blessed-output report (see the header). */
   report?: string;
+  /** `--raw-subject`: the directory each subject process's raw output is written to (see `runSubjectProcess`). */
+  rawSubject?: string;
 }
 
 /**
@@ -990,9 +1026,14 @@ export async function difftest(
   oracleReruns?: OracleRerun[];
   /** Suites with `Suite.criterion`: the MATCH share it is measured on (report only). */
   criterion?: CriterionResult;
+  /** The subject's mode and the hash of each build it ran (scripts/lib/subject-bin.ts). */
+  subject: SubjectRecord;
 }> {
   requireUpstream();
   await verifyOraclePin();
+  // The subject binary is built (or found) before any case runs; a failed build ends the run with one `ERROR:` line.
+  const subject = prepareSubject();
+  rawSubjectDir = opts.rawSubject;
   const upstreamBefore = upstreamStatus(UPSTREAM);
   if (upstreamBefore.length) console.log(upstreamError("the upstream checkout is not clean before the run", upstreamBefore, UPSTREAM));
   const s = getSuite(opts.suite);
@@ -1218,6 +1259,7 @@ export async function difftest(
     ...(split ? { extra: extra.length, oracleReruns } : {}),
     ...(s.heavy ? { heavy: heavyRuns } : {}),
     ...(s.irTier ? { irTier: s.irTier } : {}),
+    subject,
   };
   const criterion = s.criterion ? criterionOf(s.criterion, counts, results.length) : undefined;
   if (criterion) Object.assign(summary, { criterion });
@@ -1236,6 +1278,7 @@ export async function difftest(
     upstreamChanges: changed,
     ...(split ? { extra: extra.length, oracleReruns } : {}),
     ...(s.heavy ? { heavy: heavyRuns } : {}),
+    subject,
   };
 }
 
@@ -1254,7 +1297,7 @@ if (import.meta.main) {
     a.suite = report.name;
   }
   const num = (k: string) => (typeof a[k] === "string" ? Number(a[k]) : undefined);
-  const { dir, counts, results, stats, skipped, oracleTimeoutSubjects: ots, subsets, blessed, extra, heavy, oracleReruns, criterion } = await difftest({
+  const { dir, counts, results, stats, skipped, oracleTimeoutSubjects: ots, subsets, blessed, extra, heavy, oracleReruns, criterion, subject } = await difftest({
     suite: String(a.suite),
     sample: num("sample"),
     seed: typeof a.seed === "string" ? a.seed : undefined,
@@ -1264,9 +1307,11 @@ if (import.meta.main) {
     batchSize: num("batch-size"),
     runId: typeof a["run-id"] === "string" ? a["run-id"] : undefined,
     report: typeof a.report === "string" ? a.report : undefined,
+    rawSubject: typeof a["raw-subject"] === "string" ? a["raw-subject"] : undefined,
   });
   const pct = results.length ? ((100 * counts.MATCH) / results.length).toFixed(2) : "0";
   console.log(`suite=${a.suite} total=${results.length} ${STATUSES.map((s) => `${s}=${counts[s]}`).join(" ")} match%=${pct}${skipped !== undefined ? ` skipped=${skipped}` : ""}`);
+  if (subject.mode === "binary") console.log(`subject: binary (${Object.entries(subject.bins).map(([e, h]) => `${e} ${h.slice(0, 12)}`).join(", ")})`);
   const irTier = getSuite(String(a.suite)).irTier;
   if (irTier) console.log(`ir tier: ${irTier}${String(a.suite).includes("@") ? " (a report; no gate reads this name)" : ""}`);
   for (const [name, sc] of Object.entries(subsets ?? {})) {

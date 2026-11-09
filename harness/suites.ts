@@ -13,6 +13,7 @@ import { llvmBinDir, llvmToolHashes, llvmToolsError, llvmToolsPinError } from ".
 import { MIRI_CASE_ENV, MIRI_DEFAULT_ARGS, MIRI_SYSROOT, miriBinary, miriOracleKey, miriPin } from "../scripts/lib/miri.ts";
 import { COMPILETEST_TARGET, collectUiTests, mirOptCases, uiBlessed, uiCases, uiFileCases, uiOutputBaseDir, uiTestCases, type Blessed, type ErrorFormat, type UiCase } from "./compiletest.ts";
 import { MIRI_SYSROOT_CORPUS, MIRI_SYSROOT_SUITE_CRATES } from "./miri-sysroot.ts";
+import { subjectCmd } from "../scripts/lib/subject-bin.ts";
 import { AUX_STALE_MS, EMPTY_SYSROOT, M5_TARGET, libArgs, libCrate, libEnv, oracleLibRmeta, pruneStaleAux, touchAuxDir } from "./library.ts";
 
 export interface Case {
@@ -174,7 +175,11 @@ function edition(file: string): string {
   return m ? m[1]! : "2015";
 }
 
-const bunCmd = (script: string) => [process.execPath, join(REPO, script)];
+/**
+ * The command that runs subject script `script` (repo-relative): `bun <repo>/<script>`, or, in binary mode, the compiled build of an
+ * entry that has one (scripts/lib/subject-bin.ts: `RUST_TS_SUBJECT`, `BINARY_ENTRIES`). No oracle command or oracle key reads it.
+ */
+const bunCmd = (script: string) => subjectCmd(script);
 
 // Left out of `parse` (root's decision 2026-11-06, docs/reviews/harness-w40.md item 5): the oracle timed out on each in all of the last 3
 // gates, and an ORACLE_TIMEOUT is never cached, so every run pays up to 25 minutes of process time per file. None is in `parse`'s baseline.
@@ -1687,7 +1692,9 @@ export const MIRI_SUBJECT_ENTRY: string = MIRI_DRIVER_ENTRY;
  * evaluates anything, so without this the process that only re-execs (src/rust_ts/stack.ts) parses all of Miri for nothing. `miri.ts` imports this
  * file first anyway, so the modules evaluate in the same order, and the file's `Bun.main` check holds under a preload. `process.argv` is the
  * same; only `process.execArgv` and the raw argv show the flag, and no port code reads them for anything but the tail after the script.
- * An oracle key never reads a subject's command.
+ * An oracle key never reads a subject's command. The subject binary (scripts/lib/subject-bin.ts, binary mode) has no preload: it is miri.ts
+ * bundled, whose first import is this file, and its `Bun.main` is defined as miri.ts's path, so the check holds and `ensure_stack` runs before
+ * the rest of the modules evaluate, as under the preload.
  */
 export const MIRI_STACK_PRELOAD = "src/rust_ts/miri_stack_first.ts";
 
@@ -1697,7 +1704,7 @@ export const MIRI_STACK_PRELOAD = "src/rust_ts/miri_stack_first.ts";
  * `-Zmiri-*` and without the program's arguments after `--`.
  */
 export function miriSubjectOf(entry: string, args: string[]): string[] {
-  if (entry === MIRI_DRIVER_ENTRY) return [process.execPath, "--preload", join(REPO, MIRI_STACK_PRELOAD), join(REPO, MIRI_DRIVER_ENTRY), ...args];
+  if (entry === MIRI_DRIVER_ENTRY) return subjectCmd(MIRI_DRIVER_ENTRY, args, { preload: MIRI_STACK_PRELOAD });
   const dd = args.indexOf("--");
   const rustc = (dd < 0 ? args : args.slice(0, dd)).filter((a) => !a.startsWith("-Zmiri-"));
   return [...bunCmd(entry), ...MIRI_DEFAULT_ARGS, ...rustc];
