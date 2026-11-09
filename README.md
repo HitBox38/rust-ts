@@ -10,7 +10,7 @@ The mirror image of [ts-rust](https://github.com/pingdotgg/ts-rust).
 | Upstream pin | `rust-lang/rust@6f5da406b` = `rustc 1.101.0-nightly (2026-10-10)` |
 | Milestone | M0–M6 done (harness; lexer/parser; expansion + name resolution; typeck + trait solving; MIR build, borrowck, MIR transforms, const eval; check core → alloc → std; running programs through a port of the pinned nightly's Miri). **The crate metadata (.rmeta) of core, alloc and std is byte-identical to rustc's.** **Programs run through the port and match the real Miri's stdout, stderr and exit code: 3,474 of 3,478 run-pass cases (a match includes the 199 that real Miri itself refuses or fails; of those it runs to exit 0, 99.85%), 294 of 294 run-fail cases, and 350 of 360 of Miri's own tests. Native builds are M7.** Next: M7 (text LLVM IR → clang). **Proc macros run: oracle-built proc-macro dylibs load into the port and match rustc on 281/282 ui cases.** |
 | Protected parity | **542,092** cases across 60 suites that match the real compiler byte-for-byte and can never regress (24 of them through a mask of digits the compiler itself does not reproduce from run to run: thread ids and long-type hashes) |
-| Ported | 24,290 / 27,053 in-scope upstream functions (89.8%; Miri 1,506 / 1,535) |
+| Ported | 24,293 / 27,053 in-scope upstream functions (89.8%; Miri 1,506 / 1,535) |
 
 At 100%: the front end (`rustc_lexer`, `rustc_span`, `rustc_ast`, `rustc_ast_lowering`, `rustc_ast_passes`,
 `rustc_builtin_macros`, `rustc_attr_parsing`, `rustc_resolve`), type checking (`rustc_hir_typeck`,
