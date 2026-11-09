@@ -83,3 +83,21 @@ export function aloneStepArgs(u: UnitStep, junit: string, timeoutMs: number = UN
 export function unitStepEnv(data: string, hostTuple: string | undefined): Record<string, string> {
   return { RUST_TS_REQUIRE_PROBES: "1", CI: "true", RUST_TS_DATA: data, ...(hostTuple === undefined ? {} : { RUST_TS_HOST_TUPLE: hostTuple }) };
 }
+
+/**
+ * Variables that make `bun test` (1.4.3) quiet, as for an AI agent: with any of them set it prints no file names and no
+ * passing tests, only failures (measured one at a time; others it checks, if any, were not found). The gate is often started
+ * from such an agent's shell, so they reach the unit steps.
+ */
+export const BUN_QUIET_VARS: readonly string[] = ["CLAUDECODE", "AGENT", "REPL_ID"];
+
+/**
+ * The environment of a one-process pass (the alone files, and a step without workers): `env` with BUN_QUIET_VARS unset, so
+ * that Bun prints each test file's name as it starts it (review harness-w45 N1). A test that ends the process
+ * (`process.exit`, an abort, a crash) leaves no junit report, and the last name Bun printed is then the file it was in. The
+ * workers need no such thing: Bun names a file whose worker died. Nothing in the repo reads these variables (they change
+ * only what Bun prints).
+ */
+export function oneProcessEnv(env: Record<string, string>): Record<string, string | null> {
+  return { ...env, ...Object.fromEntries(BUN_QUIET_VARS.map((k) => [k, null])) };
+}

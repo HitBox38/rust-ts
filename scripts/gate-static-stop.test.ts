@@ -34,7 +34,7 @@ const staticChecks = async (runDir) => {
   // As a static step that leaves a stray in the upstream checkout; as the frozen lists step's own run directory.
   if (${Boolean(opts.dirtyUpstream)}) writeFileSync(${JSON.stringify(join(data, "rust", "stray.txt"))}, "x");
   if (${Boolean(opts.frozenDir)}) mkdirSync(runDir + "-frozen-lists");
-  return { ok: ${staticOk} };
+  return { ok: ${staticOk}, notes: [{ step: "frozen lists", note: "note: frozen lists: a note" }] };
 };
 await gateRun(["static-stub"], false, false, false, { readers, pollMs: 1000, keepEveryMs: 3600000, staticChecks });
 `;
@@ -73,6 +73,8 @@ test("a failed static check stops the gate before the suites", () => {
   expect(r.gateJson.upstreamOk).toBe(true);
   expect(r.gateJson.upstreamChanges).toBeUndefined();
   expect(r.gateJson.frozenLists).toBeNull();
+  // A static step's notes are recorded (review root-w44-check N1).
+  expect(r.gateJson.staticNotes).toEqual([{ step: "frozen lists", note: "note: frozen lists: a note" }]);
 }, 60_000);
 
 test("a stopped gate checks the upstream checkout and names the frozen lists run (review harness-w44 N2)", () => {
@@ -93,6 +95,7 @@ test("passing static checks go on to the suites", () => {
   expect(r.gateJson.staticOk).toBe(true);
   expect(r.gateJson.suites.map((s: { suite: string }) => s.suite)).toEqual(["static-stub"]);
   expect(r.gateJson.frozenLists).toBeNull();
+  expect(r.gateJson.staticNotes).toEqual([{ step: "frozen lists", note: "note: frozen lists: a note" }]);
 }, 60_000);
 
 test("a passing gate names the frozen lists run", () => {

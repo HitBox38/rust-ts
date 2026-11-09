@@ -20,6 +20,10 @@ const TMP = ${JSON.stringify(tmp)};
 // Only the step's own environment may reach the workers: the child's copies are removed after the step is built.
 process.env.RUST_TS_HOST_TUPLE = "tuple-under-test";
 const strip = () => { for (const k of ["RUST_TS_DATA", "RUST_TS_HOST_TUPLE", "RUST_TS_REQUIRE_PROBES", "CI"]) delete process.env[k]; };
+// As when the gate runs from an AI agent's shell, which makes bun test quiet (scripts/lib/unit-steps.ts BUN_QUIET_VARS); the
+// one-process passes unset them, the workers keep them.
+process.env.CLAUDECODE = "1";
+process.env.AGENT = "1";
 let n = 0;
 const fixture = (files) => {
   const dir = join(TMP, "f" + ++n);
@@ -46,7 +50,7 @@ const step = async (key, roots, files, opts = {}) => {
   const dir = fixture(files);
   const runDir = join(TMP, "run-" + key);
   mkdirSync(runDir);
-  const steps = g.unitStaticSteps({ name: "unit tests", roots, junit: "u.junit.xml", parallel: 3, ...(opts.alone ? { alone: opts.alone } : {}) }, runDir, opts.timeoutMs).map((s) => ({ ...s, cwd: dir, ...(opts.slowNoteS === undefined ? {} : { slowNoteS: opts.slowNoteS }) }));
+  const steps = g.unitStaticSteps({ name: "unit tests", roots, junit: "u.junit.xml", ...(opts.oneProcess ? {} : { parallel: 3 }), ...(opts.alone ? { alone: opts.alone } : {}) }, runDir, opts.timeoutMs).map((s) => ({ ...s, cwd: dir, ...(opts.slowNoteS === undefined ? {} : { slowNoteS: opts.slowNoteS }) }));
   if (opts.noCi) for (const s of steps) delete s.env.CI;
   const before = listing(dir);
   const lines = [];
@@ -90,6 +94,11 @@ await step("load", ["src"], LOADS);
 await step("aloneLoad", ["src"], LOADS, { alone: ["src/bad.test.ts"] });
 // process.exit(0) in the alone pass: bun exits 0 and writes no report; the step must not print ok first.
 await step("aloneExit0", ["src"], { "src/a.test.ts": PASS, "src/x.test.ts": 'import { test } from "bun:test";\\ntest("exits", () => { process.exit(0); });\\n' }, { alone: ["src/x.test.ts"] });
+// A non-zero exit, an abort at load, and an exit in a pass without workers: the file is named by the last file name Bun printed (review harness-w45 N1).
+const EXITS = { "src/a.test.ts": PASS, "src/x.test.ts": 'import { test } from "bun:test";\\ntest("before", () => {});\\ntest("exits", () => { process.exit(1); });\\n', "src/y.test.ts": 'process.abort();\\n', "src/z.test.ts": PASS };
+await step("aloneExit1", ["src"], { "src/a.test.ts": PASS, "src/x.test.ts": EXITS["src/x.test.ts"], "src/z.test.ts": PASS }, { alone: ["src/x.test.ts", "src/a.test.ts"] });
+await step("aloneAbort", ["src"], { "src/a.test.ts": PASS, "src/b.test.ts": PASS, "src/y.test.ts": EXITS["src/y.test.ts"], "src/z.test.ts": PASS }, { alone: ["src/a.test.ts", "src/y.test.ts", "src/z.test.ts"] });
+await step("oneExit", ["src"], { "src/a.test.ts": PASS, "src/x.test.ts": EXITS["src/x.test.ts"], "src/z.test.ts": PASS }, { oneProcess: true });
 // Every report prints its slowest test, and one over the step's note threshold is a note (here 0.3 s, as 30 s is too slow to test).
 const SLOWISH = { "src/a.test.ts": PASS, "src/s.test.ts": 'import { test } from "bun:test";\\ntest("slowish", async () => { await Bun.sleep(600); });\\n' };
 await step("slowNote", ["src"], SLOWISH, { slowNoteS: 0.3, alone: ["src/a.test.ts"] });
@@ -107,6 +116,23 @@ await step("slowAloneNote", ["src"], SLOWISH, { slowNoteS: 0.3, alone: ["src/s.t
     r = await g.runStaticStep({ name: "unit tests", cmd: [process.execPath, "-e", \`require("node:fs").writeFileSync(\${JSON.stringify(junit)}, '<testsuites name="bun test" tests="0" failures="0" skipped="0"></testsuites>'); process.exit(3);\`], env: {}, junit });
   } finally { console.log = log; }
   out.nameless = { pass: r.pass, lines };
+}
+// A step without a report: its note: lines are printed and returned when it passes (review root-w44-check N1), and when it
+// fails, those the tail did not show; its pass is its exit code alone.
+{
+  const noteStep = async (code, extra) => {
+    const lines = [];
+    const log = console.log;
+    console.log = (...a) => lines.push(a.join(" "));
+    let r;
+    try {
+      r = await g.runStaticStep({ name: "frozen lists", cmd: [process.execPath, "-e", \`console.log("frozen lists: 48/48"); console.log("note: frozen lists: the latest accepted gate run's gate.json is missing"); console.error("note: second"); \${extra} process.exit(\${code});\`], env: {} });
+    } finally { console.log = log; }
+    return { pass: r.pass, notes: r.notes, lines };
+  };
+  out.notesPass = await noteStep(0, "");
+  out.notesFail = await noteStep(1, 'for (let i = 0; i < 20; i++) console.log("line " + i);');
+  out.notesFailTail = await noteStep(1, "");
 }
 const SLOW = { "src/a.test.ts": PASS, "src/t.test.ts": 'import { test } from "bun:test";\\ntest("slow", async () => { await Bun.sleep(1500); });\\n' };
 await step("timeout", ["src"], SLOW, { timeoutMs: 300 });
@@ -133,13 +159,15 @@ test("the unit-test step under --parallel: report, skips, failures, .only, timeo
     // The real steps: src/tools in 4 workers without its alone files, then those files in one process; scripts/harness in
     // one process; the 60 s per-test timeout; the env.
     const env = { RUST_TS_REQUIRE_PROBES: "1", CI: "true", RUST_TS_DATA: data, RUST_TS_HOST_TUPLE: "tuple-under-test" };
+    // The one-process passes unset the variables that make bun test quiet (review harness-w45 N1).
+    const oneEnv = { ...env, CLAUDECODE: null, AGENT: null, REPL_ID: null };
     const alone: string[] = j.alone;
     expect(alone.length).toBeGreaterThan(0);
     const report = (f: string) => ["--timeout=60000", "--reporter=junit", `--reporter-outfile=/run/${f}`];
     expect(j.real).toEqual([
       { name: "unit tests", cmd: ["test", "./src", "./tools", "--parallel=4", ...alone.map((f) => `--path-ignore-patterns=${f}`), ...report("unit-tests.junit.xml")], env, junit: "/run/unit-tests.junit.xml" },
-      { name: "unit tests (alone)", cmd: ["test", ...alone.map((f) => `./${f}`), "--isolate", ...report("unit-tests.alone.junit.xml")], env, junit: "/run/unit-tests.alone.junit.xml" },
-      { name: "runner unit tests", cmd: ["test", "./scripts", "./harness", ...report("runner-unit-tests.junit.xml")], env, junit: "/run/runner-unit-tests.junit.xml" },
+      { name: "unit tests (alone)", cmd: ["test", ...alone.map((f) => `./${f}`), "--isolate", ...report("unit-tests.alone.junit.xml")], env: oneEnv, junit: "/run/unit-tests.alone.junit.xml" },
+      { name: "runner unit tests", cmd: ["test", "./scripts", "./harness", ...report("runner-unit-tests.junit.xml")], env: oneEnv, junit: "/run/runner-unit-tests.junit.xml" },
     ]);
     // Passing files over several workers, each seeing the step's env; the alone files once each, only in the second
     // report; the allowlisted skip is allowed; nothing written beside the tests.
@@ -187,9 +215,23 @@ test("the unit-test step under --parallel: report, skips, failures, .only, timeo
     // exit(0) alone: no ok line for it, only the missing report.
     expect(j.aloneExit0.pass).toEqual([true, false]);
     const exit0 = j.aloneExit0.lines.slice(j.aloneExit0.lines.findIndex((l: string) => l.startsWith("  slowest:")) + 1);
-    expect(exit0).toHaveLength(1);
+    expect(exit0).toHaveLength(2);
     expect(exit0[0]).toStartWith("ERROR: unit tests (alone) wrote no junit report (");
-    expect(exit0[0]).toEndWith("; cannot check for skipped tests (bun test exited 0: a test that called process.exit?)");
+    expect(exit0[0]).toEndWith("; cannot check for skipped tests (bun test exited 0: a test that called process.exit, an abort or a crash?)");
+    const crashed = (f: string) => `  failed: ${f}: the last test file bun test started; the process ended in it with no report (process.exit, an abort or a crash, at load or in a test)`;
+    expect(exit0[1]).toBe(crashed("src/x.test.ts"));
+    // Any exit code, an abort, and a pass without workers name the file (review harness-w45 N1); the workers named theirs already.
+    const noReport = (r: { lines: string[] }) => r.lines.filter((l: string) => l.includes("wrote no junit report") || l.includes("the last test file bun test started") || l.includes("printed no test file"));
+    expect(j.aloneExit1.pass).toEqual([true, false]);
+    expect(noReport(j.aloneExit1)).toHaveLength(2);
+    expect(noReport(j.aloneExit1)[0]).toEndWith("(bun test exited 1: a test that called process.exit, an abort or a crash?)");
+    expect(noReport(j.aloneExit1)[1]).toBe(crashed("src/x.test.ts"));
+    expect(j.aloneAbort.pass).toEqual([true, false]);
+    expect(noReport(j.aloneAbort)).toEqual([expect.stringContaining("(bun test exited 134: "), crashed("src/y.test.ts")]);
+    expect(j.oneExit.pass).toEqual([false]);
+    expect(noReport(j.oneExit)).toEqual([expect.stringContaining("(bun test exited 1: "), crashed("src/x.test.ts")]);
+    // The tail printed for a failed one-process pass keeps the failure, not the passing tests Bun now prints.
+    expect(j.oneExit.lines.some((l: string) => l.startsWith("(pass)"))).toBe(false);
     // The .only refusal is an error outside any test too, so its file is named.
     expect(j.only.lines).toContain("  failed: src/o.test.ts: an error outside any test (it threw at load, a bad import or a throwing describe: the file is not in the junit report)");
     // A failed step that names nothing says so.
@@ -205,6 +247,17 @@ test("the unit-test step under --parallel: report, skips, failures, .only, timeo
     ]);
     expect(j.slowAloneNote.lines.filter((l: string) => l.startsWith("note:"))).toEqual(["note: unit tests (alone): its slowest test took over 0.3 s, src/s.test.ts: slowish (T s); even alone, a test this slow can reach the 60 s per-test limit under load"]);
     expect(j.ok.lines.some((l: string) => l.startsWith("note:"))).toBe(false);
+    // A passing step without a report prints its notes after its ok line, and returns them; pass and fail are its exit code.
+    expect(j.notesPass).toEqual({ pass: true, notes: ["note: frozen lists: the latest accepted gate run's gate.json is missing", "note: second"], lines: ["ok    frozen lists", "note: frozen lists: the latest accepted gate run's gate.json is missing", "note: second"] });
+    expect(j.notesFail.pass).toBe(false);
+    expect(j.notesFail.notes).toEqual(j.notesPass.notes);
+    expect(j.notesFail.lines[0]).toBe("ERROR: frozen lists");
+    // The first note was pushed out of the tail by the 20 lines after it, so it follows; the second (on stderr) ends the tail.
+    expect(j.notesFail.lines.slice(-1)).toEqual([j.notesPass.notes[0]]);
+    expect(j.notesFail.lines[1]).toEndWith("line 19\nnote: second");
+    // Notes already in the printed tail are not printed twice.
+    expect(j.notesFailTail.pass).toBe(false);
+    expect(j.notesFailTail.lines).toEqual(["ERROR: frozen lists", "frozen lists: 48/48\nnote: frozen lists: the latest accepted gate run's gate.json is missing\nnote: second"]);
     // A test over the per-test timeout fails the step; with time enough it passes.
     expect(j.timeout.pass).toEqual([false]);
     expect(j.timeout.lines.join("\n")).toContain("timed out after 300ms");

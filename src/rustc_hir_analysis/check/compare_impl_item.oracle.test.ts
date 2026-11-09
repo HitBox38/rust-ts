@@ -12,8 +12,9 @@
 //    unported item (exit 70, other wave-17 lanes); the rest must equal the oracle's stderr and exit code byte for byte.
 //
 // Without the pinned toolchain this is a visible skip; RUST_TS_REQUIRE_PROBES=1 makes that a failure.
-import { beforeAll, expect, test } from "bun:test";
-import { readdirSync } from "node:fs";
+import { afterAll, beforeAll, expect, test } from "bun:test";
+import { mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { REPO } from "../../../scripts/lib/common.ts";
 
@@ -23,6 +24,11 @@ const CASES_DIR = join(HERE, "compare_impl_item_oracle", "cases");
 const RUNNER = join(HERE, "compare_impl_item_oracle", "run.ts");
 const MAIN = join(REPO, "src", "rust_ts", "main.ts");
 const ARGS = ["--edition", "2021", "--crate-type", "lib", "-Ainternal_features"];
+
+// The oracle's output files (`lib<case>.rlib`) go to a scratch dir, not beside the cases (review unit-parallel N5).
+const OUT_DIR = mkdtempSync(join(tmpdir(), "rust-ts-oracle-out-"));
+afterAll(() => rmSync(OUT_DIR, { recursive: true, force: true }));
+const CASES_BEFORE = readdirSync(CASES_DIR).sort();
 
 const CASES = readdirSync(CASES_DIR)
   .filter((f) => f.endsWith(".rs"))
@@ -89,10 +95,16 @@ beforeAll(async () => {
   oracle_cmd = oracle.oracleRustcCmd;
   await Promise.all(
     CASES.map(async (c) => {
-      oracle_out.set(c, await run(oracle.oracleRustcCmd([...ARGS, `${c}.rs`])));
+      oracle_out.set(c, await run(oracle.oracleRustcCmd([...ARGS, "--out-dir", OUT_DIR, `${c}.rs`])));
     }),
   );
 }, 120_000);
+
+test("the oracle writes its output to the scratch dir, nothing beside the cases (review unit-parallel N5)", () => {
+  if (oracle_out.size === 0) return;
+  expect(readdirSync(CASES_DIR).sort()).toEqual(CASES_BEFORE);
+  expect(readdirSync(OUT_DIR).some((n) => n.endsWith(".rlib"))).toBe(true);
+});
 
 test("the cases exist", () => {
   expect(CASES.length).toBeGreaterThanOrEqual(14);
