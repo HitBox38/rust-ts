@@ -65,7 +65,9 @@ import { Spanned_into_diag } from "../../rustc_errors/diagnostic.ts";
 import type { DefId } from "../../rustc_span/def_id.ts";
 import { DUMMY_SP, type ErrorGuaranteed, Span, debug_ErrorGuaranteed } from "../../rustc_span/lib.ts";
 import { bug, span_bug } from "../../rustc_span/macros.ts";
-import { type Binder, debug_Binder } from "../../rustc_type_ir/binder.gen.ts";
+// Load order: through binder.ts, which owns binder.gen.ts (the binder.gen.ts/binder.ts cycle, entered from binder.gen.ts, reads
+// `BoundRegionKind` before it exists when v0.ts is the first module; lane fixers-49).
+import { type Binder, debug_Binder } from "../../rustc_type_ir/binder.ts";
 import type { TypeFoldable } from "../../rustc_type_ir/fold.ts";
 import { debug_FnSig } from "../../rustc_type_ir/ty_kind.ts";
 import { Instance as InstanceC, debug_Instance, display_Instance } from "./instance.ts";

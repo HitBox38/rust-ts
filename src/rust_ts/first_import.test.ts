@@ -5,6 +5,10 @@
 // - `rustc_target/spec/mod.ts` (`Os`): spec/mod.ts -> lib.ts -> spec/json.ts and target_features.ts read spec/mod.ts. Import
 //   `rustc_target/lib.ts` first.
 // - `rustc_middle/ty/print/mod.ts` (`Printer`): print/mod.ts -> pretty.ts, whose `PrettyPrinter` extends `Printer`. Import pretty.ts first.
+// Three more (lane fixers-49, docs/handoff/fixers-48.md "Other cycles found") are a generated module and the hand-written one that owns
+// it: `rustc_type_ir/binder.gen.ts` (`BoundRegionKind`), `rustc_middle/traits/mod.gen.ts` (`ObligationCause`) and
+// `rustc_infer/infer/mod.gen.ts` (`InferOk`). Entered from the gen side, the owner runs first and spreads or assigns onto a gen binding that
+// does not exist yet. Import the owner (binder.ts, traits/mod.ts, infer/mod.ts), which re-exports its gen module.
 // A module here that fails has gained an import that enters one of them (or another cycle) from its unsafe side.
 import { expect, test } from "bun:test";
 import { join } from "node:path";
@@ -24,6 +28,10 @@ const MODULES = [
   "rustc_symbol_mangling/legacy.ts",
   "rustc_pattern_analysis/rustc/print.ts",
   "rustc_hir_analysis/outlives/dump.ts",
+  // binder.gen.ts, traits/mod.gen.ts, infer/mod.gen.ts
+  "rustc_symbol_mangling/v0.ts",
+  "rustc_hir_typeck/op.ts",
+  "rustc_hir_typeck/method/suggest.ts",
 ];
 
 test("each module loads as the first module of a process", async () => {
