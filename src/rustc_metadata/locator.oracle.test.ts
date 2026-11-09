@@ -97,7 +97,7 @@ function setup(): void {
 
 /**
  * Whether `FileSearch::new`'s sort (ipnsort, `slice_sort_unstable_by` with `FileSearchCandidate`'s layout, rustc_session
- * filesearch.ts) of the `lib*` files of `dirs`, in `readdir` order, gives an order a stable sort does not.
+ * filesearch.ts) of the `lib*` files of `dirs`, in `readdir` order, puts the `libfoo` files in an order a stable sort does not.
  */
 function ipnsort_differs_from_stable(dirs: string[]): boolean {
   const files = dirs.flatMap((d) => readdirSync(join(WORK, d)).filter((f) => f.startsWith("lib")).map((f) => ({ d, f })));
@@ -105,7 +105,10 @@ function ipnsort_differs_from_stable(dirs: string[]): boolean {
   const unstable = [...files];
   slice_sort_unstable_by(unstable, cmp, { size_of: 40, freeze: true, copy: false });
   const stable = [...files].sort(cmp);
-  return unstable.some((x, i) => x !== stable[i]);
+  // Only the `libfoo` entries decide E0464's candidates: filler pairs that sort differently prove nothing (review fixers-49 N2).
+  const foo = (v: typeof files) => v.filter((x) => x.f.startsWith("libfoo"));
+  const [u, s] = [foo(unstable), foo(stable)];
+  return u.some((x, i) => x !== s[i]);
 }
 
 interface Case {
