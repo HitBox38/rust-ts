@@ -3,13 +3,18 @@
 // - The `u64` byte counts (`size`, `offset`, `overall_size`, `opt_discr_size`) are `bigint`: a layout can be as large as
 //   `obj_size_bound` (2^61 - 1 on 64-bit targets), past 2^53 (PORTING §5). The `align`s stay `number`s: an `Align` is at
 //   most 2^29 bytes (`Align::MAX`), and `Align::bytes()` is already a `number`.
-// - `Lock<FxHashSet<TypeSizeInfo>>` is a `Map` keyed by the derived `Hash`/`Eq` of `TypeSizeInfo` as a string
-//   (`key_TypeSizeInfo`), so an equal `TypeSizeInfo` is inserted once, as `HashSet::insert` does.
+// - `Lock<FxHashSet<TypeSizeInfo>>` is an `FxKeyedMap<TypeSizeInfo, ()>` (src/rust_ts/hash_map.ts): its `Eq` is the derived
+//   `PartialEq`/`Eq` as a string (`key_TypeSizeInfo`), so an equal `TypeSizeInfo` is inserted once, as `HashSet::insert`
+//   does, and it iterates in hashbrown's bucket order under FxHasher with the derived `Hash` (`TypeSizeInfo_key`), as
+//   upstream's `type_sizes.iter()` does (`HashSet<T>` is `HashMap<T, ()>`: the same table). `print_type_sizes`' stable sort
+//   keeps that order for infos of equal size and description (fixers-49 review N1, N3).
 // - `println!`/`print!` are `write_stdout` (src/std/io.ts).
 import type { Align, Size } from "../rustc_abi/lib.ts";
 import { display_Symbol, type Symbol } from "../rustc_span/symbol.ts";
-import { assert, panic, unported } from "../std/panic.ts";
+import { FxKeyedMap, type KeyType, LAYOUT_UNIT } from "../rust_ts/hash_map.ts";
+import { assert, panic } from "../std/panic.ts";
 import { write_stdout } from "../std/io.ts";
+import type { Hasher } from "../vendor/rustc_stable_hash/stable_hasher.ts";
 import { str_cmp } from "./options.ts";
 
 // #[derive(Clone, PartialEq, Eq, Hash, Debug)]
@@ -24,6 +29,8 @@ export interface VariantInfo {
 // #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
 export type SizeKind = "Exact" | "Min";
 export const SizeKind = { Exact: "Exact", Min: "Min" } as const;
+/** The discriminants the derived `Hash` writes. */
+const SizeKind_discriminant: Record<SizeKind, number> = { Exact: 0, Min: 1 };
 
 // #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
 export type FieldKind = "AdtField" | "Upvar" | "CoroutineLocal";
@@ -32,6 +39,8 @@ export const FieldKind = {
   Upvar: "Upvar",
   CoroutineLocal: "CoroutineLocal",
 } as const;
+/** The discriminants the derived `Hash` writes. */
+const FieldKind_discriminant: Record<FieldKind, number> = { AdtField: 0, Upvar: 1, CoroutineLocal: 2 };
 
 // `impl std::fmt::Display for FieldKind`
 // rustc: compiler/rustc_session/src/code_stats.rs:31 fmt
@@ -68,6 +77,8 @@ export const DataTypeKind = {
   Closure: "Closure",
   Coroutine: "Coroutine",
 } as const;
+/** The discriminants the derived `Hash` writes. */
+const DataTypeKind_discriminant: Record<DataTypeKind, number> = { Struct: 0, Union: 1, Enum: 2, Closure: 3, Coroutine: 4 };
 
 // #[derive(PartialEq, Eq, Hash, Debug)]
 export interface TypeSizeInfo {
@@ -95,6 +106,62 @@ function key_TypeSizeInfo(v: TypeSizeInfo): string {
   ]);
 }
 
+const utf8 = new TextEncoder();
+
+/** PORT: `Option<T>`'s derived `Hash`: the discriminant (`isize`, `None` = 0, `Some` = 1) through `write_isize`, then the value. */
+function hash_Option<T>(v: T | undefined, state: Hasher, hash_T: (v: T, state: Hasher) => void): void {
+  if (v === undefined) {
+    state.write_isize(0);
+  } else {
+    state.write_isize(1);
+    hash_T(v, state);
+  }
+}
+
+/** `Symbol`: derived over `SymbolIndex`, a `u32` (`write_u32`). */
+function hash_Symbol(v: Symbol, state: Hasher): void {
+  state.write_u32(v);
+}
+
+/** `#[derive(Hash)]` of `FieldInfo`: every field in declaration order; a fieldless enum hashes its discriminant as an
+ * `isize` (`discriminant_value`), a `u64` through `write_u64`. */
+function hash_FieldInfo(v: FieldInfo, state: Hasher): void {
+  state.write_isize(FieldKind_discriminant[v.kind]);
+  hash_Symbol(v.name, state);
+  state.write_u64(v.offset);
+  state.write_u64(v.size);
+  state.write_u64(BigInt(v.align));
+  hash_Option(v.type_name, state, hash_Symbol);
+}
+
+/** `#[derive(Hash)]` of `VariantInfo`; a `Vec<T>` is `[T]::hash`: `write_length_prefix(len)`, then each element. */
+function hash_VariantInfo(v: VariantInfo, state: Hasher): void {
+  hash_Option(v.name, state, hash_Symbol);
+  state.write_isize(SizeKind_discriminant[v.kind]);
+  state.write_u64(v.size);
+  state.write_u64(BigInt(v.align));
+  state.write_length_prefix(v.fields.length);
+  for (const f of v.fields) hash_FieldInfo(f, state);
+}
+
+/** `#[derive(Hash)]` of `TypeSizeInfo` (`String` through `write_str`, `bool` through `write_u8`) and its layout:
+ * `size_of::<TypeSizeInfo>()` is 88 (two `Vec`/`String`s of 24, two `u64`s, an `Option<u64>` of 16, `kind` and `packed`
+ * padded to 8), `align_of` 8. */
+const TypeSizeInfo_key: KeyType<TypeSizeInfo> = {
+  hash: (v, state) => {
+    state.write_isize(DataTypeKind_discriminant[v.kind]);
+    state.write_str(utf8.encode(v.type_description));
+    state.write_u64(BigInt(v.align));
+    state.write_u64(v.overall_size);
+    state.write_u8(v.packed ? 1 : 0);
+    hash_Option(v.opt_discr_size, state, (s, st) => st.write_u64(s));
+    state.write_length_prefix(v.variants.length);
+    for (const x of v.variants) hash_VariantInfo(x, state);
+  },
+  size: 88,
+  align: 8,
+};
+
 /** PORT: `u64` subtraction as rustc is built (no overflow checks): wrapping. */
 function u64_wrapping_sub(a: bigint, b: bigint): bigint {
   return BigInt.asUintN(64, a - b);
@@ -105,12 +172,12 @@ export class CodeStats {
   constructor(
     /// The hash set that actually holds all the type size information.
     /// The field is public for use in external tools. See #139876.
-    public type_sizes: Map<string, TypeSizeInfo>,
+    public type_sizes: FxKeyedMap<TypeSizeInfo, undefined>,
   ) {}
 
   /** `CodeStats::default()` */
   static default(): CodeStats {
-    return new CodeStats(new Map());
+    return new CodeStats(new FxKeyedMap<TypeSizeInfo, undefined>(TypeSizeInfo_key, LAYOUT_UNIT, key_TypeSizeInfo));
   }
 
   // PORT: `type_desc: S` where `S: ToString` is the `String` the one caller formats.
@@ -142,8 +209,8 @@ export class CodeStats {
       opt_discr_size: opt_discr_size === undefined ? undefined : opt_discr_size.bytes_u64(),
       variants,
     };
-    const key = key_TypeSizeInfo(info);
-    if (!this.type_sizes.has(key)) this.type_sizes.set(key, info);
+    // `HashSet::insert`: an equal element already present stays (hashbrown's `insert` keeps the stored key).
+    this.type_sizes.set(info, undefined);
   }
 
   // rustc: compiler/rustc_session/src/code_stats.rs:111 print_type_sizes
@@ -151,17 +218,15 @@ export class CodeStats {
     const type_sizes = this.type_sizes;
     // We will soon sort, so the initial order does not matter.
     // #[allow(rustc::potential_query_instability)]
-    const sorted: TypeSizeInfo[] = [...type_sizes.values()];
+    const sorted: TypeSizeInfo[] = [...type_sizes.keys()];
 
     // Primary sort: large-to-small.
     // Secondary sort: description (dictionary order)
-    // PORT: two different infos with the same key keep the order of the `FxHashSet`'s iteration (the sort is stable), which
-    // the `Map` does not reproduce: such a tie stops UNPORTED rather than print an order the oracle may not.
+    // `sort_by_key(|info| (Reverse(info.overall_size), &info.type_description))`: stable, so infos with the same key keep
+    // the `FxHashSet`'s iteration order.
     sorted.sort((a, b) => {
       if (a.overall_size !== b.overall_size) return a.overall_size > b.overall_size ? -1 : 1;
-      const c = str_cmp(a.type_description, b.type_description);
-      if (c === 0) unported("rustc_session::code_stats::CodeStats::print_type_sizes: two types with the same size and description (FxHashSet order)");
-      return c;
+      return str_cmp(a.type_description, b.type_description);
     });
 
     for (const info of sorted) {
