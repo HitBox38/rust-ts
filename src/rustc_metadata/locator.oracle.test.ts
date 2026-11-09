@@ -11,9 +11,10 @@
 //     oracle's stderr. When those lanes land, these cases turn into "full" ones (the test then fails: update it).
 // Skips (visibly) if rustc is unavailable; fails instead under RUST_TS_REQUIRE_PROBES=1.
 import { expect, test } from "bun:test";
-import { mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { DATA, PIN, REPO } from "../../scripts/lib/common.ts";
+import { slice_sort_unstable_by } from "../std/slice_sort.ts";
 
 const REQUIRE = process.env.RUST_TS_REQUIRE_PROBES === "1";
 const RUSTC = ["rustc", `+${PIN.toolchain}`];
@@ -72,19 +73,39 @@ function setup(): void {
   // A non-empty rmeta that is not metadata: the locator reads it, `MetadataBlob::new` decides.
   writeFileSync(join(WORK, "d_garbage/libfoo.rmeta"), "not metadata");
   // One directory searched twice, once through a symlink (docs/reviews/fixers-45.md F5): two `foo`s, built by the oracle, and
-  // 17 other `lib*` names, so that `FileSearch::new` sorts more than 20 files, past `sort_unstable_by`'s insertion sort. With
-  // 17 (on APFS, whose `readdir` order these names fix), ipnsort orders both pairs of equal names unlike a stable sort,
-  // so a stable sort fails the case below in either `-L` order (lane fixers-47; one order is run, for the unit budget).
+  // at least 17 other `lib*` names, so that `FileSearch::new` sorts more than 20 files, past `sort_unstable_by`'s insertion sort.
+  // Whether ipnsort then orders a pair of equal names unlike a stable sort depends on the input order, which is the file
+  // system's `readdir` order (lane fixers-47 found 17 enough on APFS). So filler names are added until the list the locator
+  // sorts for the case below (`-L d_dup_link -L ./d_dup`) comes out of ipnsort unlike a stable sort (review fixers-47 O3):
+  // as the case compares with the oracle live, a stable sort then fails it on any file system.
   rmSync(join(WORK, "d_dup"), { recursive: true, force: true });
   rmSync(join(WORK, "d_dup_link"), { force: true });
   mkdirSync(join(WORK, "d_dup"));
-  for (let i = 0; i < 17; i++) writeFileSync(join(WORK, `d_dup/libz${i}.txt`), "");
   writeFileSync(join(WORK, "foo_lib.rs"), NO_CORE);
   for (const m of ["a", "b"]) {
     const r = run([...RUSTC, "--target", "x86_64-unknown-linux-gnu", "--crate-type", "lib", "--crate-name", "foo", "--emit=metadata", `-Cmetadata=${m}`, "foo_lib.rs", "-o", `d_dup/libfoo-${m}.rmeta`]);
     if (r.code !== 0) throw new Error(`ERROR: oracle failed to build d_dup/libfoo-${m}.rmeta: ${r.stderr}`);
   }
   symlinkSync("d_dup", join(WORK, "d_dup_link"));
+  let n = 0;
+  for (; n < 17; n++) writeFileSync(join(WORK, `d_dup/libz${n}.txt`), "");
+  for (; !ipnsort_differs_from_stable(["d_dup_link", "./d_dup"]); n++) {
+    if (n >= 200) throw new Error("ERROR: no filler count up to 200 makes ipnsort order d_dup's equal names unlike a stable sort");
+    writeFileSync(join(WORK, `d_dup/libz${n}.txt`), "");
+  }
+}
+
+/**
+ * Whether `FileSearch::new`'s sort (ipnsort, `slice_sort_unstable_by` with `FileSearchCandidate`'s layout, rustc_session
+ * filesearch.ts) of the `lib*` files of `dirs`, in `readdir` order, gives an order a stable sort does not.
+ */
+function ipnsort_differs_from_stable(dirs: string[]): boolean {
+  const files = dirs.flatMap((d) => readdirSync(join(WORK, d)).filter((f) => f.startsWith("lib")).map((f) => ({ d, f })));
+  const cmp = (a: { f: string }, b: { f: string }): number => Buffer.compare(Buffer.from(a.f), Buffer.from(b.f));
+  const unstable = [...files];
+  slice_sort_unstable_by(unstable, cmp, { size_of: 40, freeze: true, copy: false });
+  const stable = [...files].sort(cmp);
+  return unstable.some((x, i) => x !== stable[i]);
 }
 
 interface Case {
