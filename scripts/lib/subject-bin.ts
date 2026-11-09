@@ -23,6 +23,8 @@
 // - `Bun.main` is defined as the entry's source path (src/rust_ts/miri_stack_first.ts compares it).
 // - `process.env.NODE_ENV` would be inlined as "development" (`--compile` defines it): it is defined to a global getter that
 //   reads the environment at run time, as the source does (src/rustc_middle/ty/list.ts `FREEZE_LISTS`).
+// - The bytecode optimizer is off (`BuildSpec.optimizeBytecode`): it makes frames larger, so the stack would hold less nesting. Even
+//   off, a bundle's frames are not the source's: the build overflows about 1% sooner on deep nesting (handoff).
 // - Stack frames name files relative to the directory the build ran in (the repo), not absolute paths, and the bundler renames
 //   top-level names that collide across modules (`foo` -> `foo2`), which shows in `Function.name` and frame names. Neither can
 //   be undone from here: see the handoff for what that means for src/rust_ts/track_caller.ts and for JS stacks in crash reports.
@@ -211,6 +213,13 @@ export interface BuildSpec {
   format: "esm";
   target: "bun";
   bytecode: true;
+  /**
+   * Bun's build-time bytecode optimizer (`bun build --no-optimize-bytecode` turns it off; in `Bun.build` the undocumented
+   * `optimize: { bytecode: false }`). Off: with it on, the compiler's JS frames are larger than from source, and a nesting the
+   * source still compiles overflows the stack (parenthesised literal at -Zunpretty=normal: source to ~10,150 levels, optimized
+   * build ~9,720, unoptimized ~10,060; see the handoff). Startup is the same either way.
+   */
+  optimizeBytecode: false;
   sourcemap: "inline";
   compile: { autoloadDotenv: boolean; autoloadBunfig: boolean; autoloadTsconfig: boolean; autoloadPackageJson: boolean };
 }
@@ -233,6 +242,7 @@ export function buildSpec(entry: string, repo: string = REPO, bunPath: string = 
     format: "esm",
     target: "bun",
     bytecode: true,
+    optimizeBytecode: false,
     sourcemap: "inline",
     // As `bun <entry>` does: it loads `.env*` and `bunfig.toml` from the cwd; the code is already transpiled.
     compile: { autoloadDotenv: true, autoloadBunfig: true, autoloadTsconfig: false, autoloadPackageJson: false },
@@ -253,7 +263,7 @@ function bunBuildConfig(spec: BuildSpec, outfile: string | undefined): Parameter
     throw: false,
   };
   if (outfile === undefined) return base as Parameters<typeof Bun.build>[0];
-  return { ...base, bytecode: spec.bytecode, compile: { ...spec.compile, outfile } } as Parameters<typeof Bun.build>[0];
+  return { ...base, bytecode: spec.bytecode, optimize: { bytecode: spec.optimizeBytecode }, compile: { ...spec.compile, outfile } } as Parameters<typeof Bun.build>[0];
 }
 
 /** The build failed: the messages, one line. */

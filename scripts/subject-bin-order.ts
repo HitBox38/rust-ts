@@ -72,6 +72,7 @@ Bun.plugin({
       define: spec.define,
       banner: `${TRACE_START} ${spec.banner}`,
       bytecode: spec.bytecode,
+      optimize: { bytecode: spec.optimizeBytecode },
       compile: { ...spec.compile, outfile: bin },
       throw: false,
       plugins: [
