@@ -21,6 +21,8 @@
 //       Its `upstreamOk` is checked then (the static steps must leave the upstream checkout clean). Both records name the frozen
 //       lists step's run directory (`frozenLists`, `<run>-frozen-lists`), null when it wrote none.
 //       It refuses to start while `RUST_TS_FREEZE_LISTS` or `NODE_ENV` is set (`freezeEnvRefusal`): every subject would inherit it.
+//       A static step without a junit report that prints `note:` lines (frozen lists, on a missing `gate.json`) has them printed in
+//       the gate's output and recorded in gate.json `staticNotes` (review root-w44-check N1); they never decide anything.
 //   bun scripts/gate.ts accept --run <run-id>
 //       grow the protected set with that gate run's new MATCHes. Refused if the run lost anything,
 //       skipped static checks, skipped a protected suite, ran on a dirty tree, or HEAD has moved since.
@@ -30,13 +32,13 @@
 // when a run starts (or it stops with `ERROR:`), and a run fails if a suite changes it (scripts/lib/upstream.ts).
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
-import { HOST_RLIB_RUN, IR_RUN, MIRI_SYSROOT_RUN, RG_CHECK, RMETA_RUN, SUITES, suite as getSuite, type Suite } from "../harness/suites.ts";
+import { HOST_RLIB_RUN, IR_RUN, MIRI_SYSROOT_RUN, RG_CHECK, RLIB_NATIVE_RUN, RMETA_RUN, SUITES, suite as getSuite, type Suite } from "../harness/suites.ts";
 import { difftest, heavyErrorLines, heavyLine, unstableOf, type HeavyRun, type OracleRerun, type RetryLoad, type Usage } from "./difftest.ts";
 import { DATA, REPO, RUNS, UPSTREAM, die, ensureDir, nowId, parseArgs, run } from "./lib/common.ts";
 import { HostLog, REAL_HOST, StuckReads, batteryRefusal, sampleHost, type HostReaders, type HostSample } from "./lib/host-state.ts";
 import { miriBinary } from "./lib/miri.ts";
 import { verifyOraclePin } from "./lib/oracle.ts";
-import { UNIT_STEPS, UNIT_TEST_TIMEOUT_MS, aloneJunit, aloneStepArgs, unitStepArgs, unitStepEnv, type UnitStep } from "./lib/unit-steps.ts";
+import { BUN_QUIET_VARS, UNIT_STEPS, UNIT_TEST_TIMEOUT_MS, aloneJunit, aloneStepArgs, oneProcessEnv, unitStepArgs, unitStepEnv, type UnitStep } from "./lib/unit-steps.ts";
 import { upstreamError, upstreamStatus } from "./lib/upstream.ts";
 import { oracleTestProbes, probeBinary, probeStaleness } from "./probes.ts";
 import { parseIrRunArgs } from "./ir-run.ts";
@@ -44,6 +46,7 @@ import type { IrTier } from "./lib/ir-normal.ts";
 import { parseHostRlibRunArgs } from "./host-rlib-run.ts";
 import { parseMiriSysrootRunArgs } from "./miri-sysroot-run.ts";
 import { parseRmetaRunArgs } from "./rmeta-run.ts";
+import { parseRlibNativeRunArgs } from "./rlib-native-run.ts";
 import { record } from "./state.ts";
 
 const BASELINE = join(REPO, "harness", "baseline");
@@ -112,7 +115,7 @@ export interface GateHost {
   /** `sampleHost`'s limit; tests shorten it. */
   readLimitMs?: number;
   /** Tests only: replaces `staticChecks` (then the unit tests' probes are not required: no unit test runs). */
-  staticChecks?: (runDir: string) => Promise<{ ok: boolean; skips?: SkipReport }>;
+  staticChecks?: (runDir: string) => Promise<StaticChecks>;
 }
 const REAL_GATE_HOST: GateHost = { readers: REAL_HOST, pollMs: 60_000, keepEveryMs: 600_000 };
 
@@ -181,7 +184,7 @@ export function checkProbes(suites: string[], unitTests: boolean): boolean {
 
 /**
  * The programs an oracle command runs: its first word, except for scripts/rmeta-run.ts under Bun (the rmeta suites),
- * or scripts/miri-sysroot-run.ts or scripts/host-rlib-run.ts
+ * or scripts/miri-sysroot-run.ts or scripts/host-rlib-run.ts or scripts/rlib-native-run.ts
  * where it is the wrapper's compiler (the first word after its `--`) and, with `--dump`, its probe, for scripts/ir-run.ts
  * (the IR suites), its compiler, and for scripts/rg-check.ts (the check-rg suites), the oracle rustc through its cargo.
  * Throws on a malformed wrapper command line (`parseRmetaRunArgs`, `parseIrRunArgs`).
@@ -191,6 +194,7 @@ export function oracleRuns(cmd: string[]): string[] {
   if (cmd[0] === process.execPath && cmd[1] === RG_CHECK) return ["rustc"];
   if (cmd[0] === process.execPath && cmd[1] === MIRI_SYSROOT_RUN) return [parseMiriSysrootRunArgs(cmd.slice(2)).compiler[0]!];
   if (cmd[0] === process.execPath && cmd[1] === HOST_RLIB_RUN) return [parseHostRlibRunArgs(cmd.slice(2)).compiler[0]!];
+  if (cmd[0] === process.execPath && cmd[1] === RLIB_NATIVE_RUN) return [parseRlibNativeRunArgs(cmd.slice(2)).compiler[0]!];
   if (cmd[0] === process.execPath && cmd[1] === RMETA_RUN) {
     const a = parseRmetaRunArgs(cmd.slice(2));
     return [a.compiler[0]!, ...(a.dump !== undefined ? [a.dump] : [])];
@@ -356,7 +360,8 @@ interface SkipReport {
 export interface StaticStep {
   name: string;
   cmd: string[];
-  env: Record<string, string>;
+  /** Added to the gate's environment; null unsets a variable. */
+  env: Record<string, string | null>;
   junit?: string;
   /** Working directory; default the repo. */
   cwd?: string;
@@ -368,16 +373,59 @@ export interface StaticStep {
 
 /**
  * The static steps of unit-test step `u` (scripts/lib/unit-steps.ts), their junit reports in `runDir`: the step, then
- * "<name> (alone)" if it runs files alone after its workers.
+ * "<name> (alone)" if it runs files alone after its workers. A pass in one process (the alone files, or a step without
+ * workers) has `oneProcessEnv`, so that Bun names its files as it starts them (`crashedIn`, review harness-w45 N1).
  */
 export function unitStaticSteps(u: UnitStep, runDir: string, timeoutMs: number = UNIT_TEST_TIMEOUT_MS): StaticStep[] {
   const env = unitStepEnv(DATA, process.env.RUST_TS_HOST_TUPLE);
   const junit = join(runDir, u.junit);
-  const steps: StaticStep[] = [{ name: u.name, cmd: [process.execPath, ...unitStepArgs(u, junit, timeoutMs)], env, junit }];
+  const steps: StaticStep[] = [{ name: u.name, cmd: [process.execPath, ...unitStepArgs(u, junit, timeoutMs)], env: u.parallel === undefined ? oneProcessEnv(env) : env, junit }];
   const aloneReport = join(runDir, aloneJunit(u));
   const alone = aloneStepArgs(u, aloneReport, timeoutMs);
-  if (alone) steps.push({ name: `${u.name} (alone)`, cmd: [process.execPath, ...alone], env, junit: aloneReport, alone: true });
+  if (alone) steps.push({ name: `${u.name} (alone)`, cmd: [process.execPath, ...alone], env: oneProcessEnv(env), junit: aloneReport, alone: true });
   return steps;
+}
+
+/** A line of `bun test`'s output that names the test file Bun is starting (`src/x.test.ts:`). */
+const BUN_FILE_LINE = /^(\S.*\.test\.[cm]?[jt]sx?):$/;
+
+/**
+ * The test file `bun test` was running when its process ended without a junit report: the last file name in its output
+ * (stderr, where Bun prints them), or undefined if it printed none. Bun prints a file's name as it starts the file, before
+ * loading it, unless a BUN_QUIET_VARS variable is set (then only before a failure): so in a one-process pass with
+ * `oneProcessEnv`, it is the file that called `process.exit`, aborted or crashed, at load or in a test (review harness-w45 N1).
+ */
+export function crashedIn(stderr: string): string | undefined {
+  const lines = stderr.split(/\r?\n/);
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const m = BUN_FILE_LINE.exec(lines[i]!);
+    if (m) return m[1]!.replaceAll("\\", "/");
+  }
+  return undefined;
+}
+
+/**
+ * The lines of a failed step's output worth printing: non-empty, without Bun's passing tests (`(pass) ...`), nor a file name
+ * that nothing follows but another file name or the closing counts. With `oneProcessEnv` Bun prints both for every file,
+ * and they would push the failure out of the tail the gate prints. Reporting only.
+ */
+export function outputTail(output: string, n = 15): string[] {
+  const lines = output.split("\n").filter((l) => l.trim() !== "" && !l.startsWith("(pass) "));
+  const kept = lines.filter((l, i) => !(BUN_FILE_LINE.test(l) && i + 1 < lines.length && (BUN_FILE_LINE.test(lines[i + 1]!) || /^ \d+ pass$/.test(lines[i + 1]!))));
+  return kept.slice(-n);
+}
+
+/** A `note:` line a static step printed (gate.json `staticNotes`; review root-w44-check N1). */
+export interface StaticNote {
+  step: string;
+  note: string;
+}
+
+/** What the static steps found: `ok` decides; `skips` and `notes` are recorded. */
+export interface StaticChecks {
+  ok: boolean;
+  skips?: SkipReport;
+  notes?: StaticNote[];
 }
 
 /**
@@ -387,19 +435,25 @@ export function unitStaticSteps(u: UnitStep, runDir: string, timeoutMs: number =
  * `bun test` leaves exit 0 and no report). A failed one names its failed tests and the files with an error outside any test
  * (`errorsOutsideTests`), or says that nothing is named. Each report's slowest test is printed, and one over `slowNoteS`
  * is a `note:` (review unit-parallel N4; reporting only: no file is moved).
+ * A step without a report returns the `note:` lines it printed (`notes`), and prints them after its `ok` line, or, if it
+ * failed, those not in the tail already printed (review root-w44-check N1: frozen lists' notes left no trace). A `bun test`
+ * step's output holds its tests' own output, so its `note:` lines are not taken. Reporting only: `pass` is decided as before.
  */
-export async function runStaticStep(step: StaticStep): Promise<{ pass: boolean; skips?: { allowed: SkippedTest[]; unexpected: SkippedTest[] } }> {
+export async function runStaticStep(step: StaticStep): Promise<{ pass: boolean; skips?: { allowed: SkippedTest[]; unexpected: SkippedTest[] }; notes?: string[] }> {
   const { name, cmd, env, junit: report, cwd } = step;
   const r = await run(cmd, { timeoutMs: 1_800_000, env, ...(cwd === undefined ? {} : { cwd }) });
   let pass = r.code === 0;
   const output = r.stdout + r.stderr;
+  const tail = pass ? [] : outputTail(output);
   if (!pass) {
     console.log(`ERROR: ${name}`);
-    console.log(output.split("\n").filter(Boolean).slice(-15).join("\n"));
+    console.log(tail.join("\n"));
   }
   if (report === undefined) {
+    const notes = output.split(/\r?\n/).filter((l) => l.startsWith("note:"));
     if (pass) console.log(`ok    ${name}`);
-    return { pass };
+    for (const l of notes) if (pass || !tail.includes(l)) console.log(l);
+    return { pass, notes };
   }
   // Files with an error outside any test: in no report, so named from the output (review unit-parallel N3).
   const outside = pass ? [] : errorsOutsideTests(output);
@@ -407,8 +461,13 @@ export async function runStaticStep(step: StaticStep): Promise<{ pass: boolean; 
     for (const f of outside.slice(0, 20)) console.log(`  failed: ${f}: an error outside any test${inReport.includes(f) ? "" : " (it threw at load, a bad import or a throwing describe: the file is not in the junit report)"}`);
   };
   if (!existsSync(report)) {
-    console.log(`ERROR: ${name} wrote no junit report (${report}); cannot check for skipped tests${pass ? " (bun test exited 0: a test that called process.exit?)" : ""}`);
+    const exit = r.timedOut ? "timed out" : `exited ${r.code}`;
+    console.log(`ERROR: ${name} wrote no junit report (${report}); cannot check for skipped tests (bun test ${exit}${r.timedOut ? "" : ": a test that called process.exit, an abort or a crash?"})`);
     nameOutside([]);
+    // A worker that dies is named among the failures above; one process that ends names nothing but the last file it started (review harness-w45 N1).
+    const last = crashedIn(r.stderr);
+    if (last !== undefined) console.log(`  failed: ${last}: the last test file bun test started; the process ended in it with no report (process.exit, an abort or a crash, at load or in a test)`);
+    else console.log(`  ${name}: bun test printed no test file's name, so the file is not known (Bun names its files only in a one-process pass, and only when none of ${BUN_QUIET_VARS.join(", ")} is set)`);
     return { pass: false };
   }
   let found: SkippedTest[];
@@ -458,7 +517,7 @@ export function frozenListsRecord(runDir: string): { runId: string; dir: string 
   return existsSync(dir) ? { runId, dir } : null;
 }
 
-export async function staticChecks(runDir: string): Promise<{ ok: boolean; skips?: SkipReport }> {
+export async function staticChecks(runDir: string): Promise<StaticChecks> {
   // The unit-test steps are UNIT_STEPS (scripts/lib/unit-steps.ts): disjoint roots, each passed as a path; their
   // environment and arguments (`unitStepEnv`, `unitStepArgs`) say why each part is there.
   const steps: StaticStep[] = [
@@ -475,9 +534,11 @@ export async function staticChecks(runDir: string): Promise<{ ok: boolean; skips
   ];
   let ok = true;
   let skips: SkipReport | undefined;
+  const notes: StaticNote[] = [];
   for (const step of steps) {
     const r = await runStaticStep(step);
     if (!r.pass) ok = false;
+    for (const note of r.notes ?? []) notes.push({ step: step.name, note });
     // Both reports add up into one SkipReport (`skips` of the run record).
     if (r.skips)
       skips = {
@@ -486,7 +547,7 @@ export async function staticChecks(runDir: string): Promise<{ ok: boolean; skips
         unexpected: [...(skips?.unexpected ?? []), ...r.skips.unexpected],
       };
   }
-  return { ok, skips };
+  return { ok, skips, notes };
 }
 
 /** Commit and cleanliness of the tree under test, recorded so an accepted run names exactly what it tested. */
@@ -544,7 +605,7 @@ export async function gateRun(requested: string[], skipStatic: boolean, skipHeav
     }
   }
   const runDir = ensureDir(join(RUNS, runId));
-  const st = skipStatic ? { ok: true, skips: undefined } : await (gateHost.staticChecks ?? staticChecks)(runDir);
+  const st: StaticChecks = skipStatic ? { ok: true } : await (gateHost.staticChecks ?? staticChecks)(runDir);
   const staticOk = st.ok;
   if (!staticOk) {
     // A failed static step: the run cannot be accepted, so the suites are not run (see the header).
@@ -555,7 +616,7 @@ export async function gateRun(requested: string[], skipStatic: boolean, skipHeav
     // Checked, not assumed (review harness-w44 N2): it was clean at the start, and only the static steps ran since.
     const staticUpstream = upstreamStatus(UPSTREAM);
     if (staticUpstream.length) console.log(upstreamError("a static step changed the upstream checkout", staticUpstream, UPSTREAM));
-    writeFileSync(join(runDir, "gate.json"), JSON.stringify({ runId, pass: false, staticOk, skipStatic, unitTestSkips: st.skips ?? null, head: prov.head, dirty: prov.dirty, unstableOk, upstreamOk: staticUpstream.length === 0, ...(staticUpstream.length ? { upstreamChanges: staticUpstream } : {}), frozenLists: frozenListsRecord(runDir), suites: [], notRun: stopped, host: host.record(allowBattery) }, null, 1));
+    writeFileSync(join(runDir, "gate.json"), JSON.stringify({ runId, pass: false, staticOk, skipStatic, unitTestSkips: st.skips ?? null, staticNotes: st.notes ?? [], head: prov.head, dirty: prov.dirty, unstableOk, upstreamOk: staticUpstream.length === 0, ...(staticUpstream.length ? { upstreamChanges: staticUpstream } : {}), frozenLists: frozenListsRecord(runDir), suites: [], notRun: stopped, host: host.record(allowBattery) }, null, 1));
     console.log(`gate FAIL run=${runId}`);
     process.exit(1);
   }
@@ -619,7 +680,7 @@ export async function gateRun(requested: string[], skipStatic: boolean, skipHeav
   await host.mark();
   host.stop();
   if (host.powerLost.length) console.log(`note: this gate lost power ${host.powerLost.length} time(s), first seen at ${host.powerLost[0]!.at}; a lost case from about then on may be a false timeout (\`host\` in gate.json)`);
-  writeFileSync(join(RUNS, runId, "gate.json"), JSON.stringify({ runId, pass, staticOk, skipStatic, unitTestSkips: st.skips ?? null, head: prov.head, dirty: prov.dirty, unstableOk, upstreamOk, frozenLists: frozenListsRecord(runDir), suites: out, ...(notRun.length ? { notRun } : {}), host: host.record(allowBattery) }, null, 1));
+  writeFileSync(join(RUNS, runId, "gate.json"), JSON.stringify({ runId, pass, staticOk, skipStatic, unitTestSkips: st.skips ?? null, staticNotes: st.notes ?? [], head: prov.head, dirty: prov.dirty, unstableOk, upstreamOk, frozenLists: frozenListsRecord(runDir), suites: out, ...(notRun.length ? { notRun } : {}), host: host.record(allowBattery) }, null, 1));
   console.log(`gate ${pass ? "PASS" : "FAIL"} run=${runId}`);
   if (!pass) process.exit(1);
 }

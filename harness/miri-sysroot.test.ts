@@ -199,3 +199,58 @@ writeFileSync(out + "/libcore.rmeta", "rmeta");
     live.kill();
   }
 }, 60_000);
+
+// Review harness-w45 N6: on Linux with an unreadable /proc/self/ns/pid, two containers with one boot and one host name would share a
+// tag (and pids repeat across containers), so the namespace is not known, the run takes a random tag no namespace has, and removes nothing.
+test("a pid namespace that cannot be known: no tag, a random run directory no namespace matches, nothing removed (review harness-w45 N6)", async () => {
+  const child = (code: string, data: string) => {
+    const r = Bun.spawnSync([process.execPath, "-e", code], { cwd: REPO, env: { ...process.env, RUST_TS_DATA: data } as Record<string, string>, stdout: "pipe", stderr: "pipe" });
+    expect(r.exitCode, r.stderr.toString()).toBe(0);
+    return r.stdout.toString().trim();
+  };
+  const RUN = JSON.stringify(join(REPO, "scripts/miri-sysroot-run.ts"));
+  const data = join(TMP, "data-unknown-ns");
+  const got = JSON.parse(
+    child(
+      `const m = await import(${RUN});
+const reader = (platform, link) => ({ platform, hostname: () => "fixed", readlink: () => { if (link === undefined) throw new Error("EACCES"); return link; }, readFile: () => "boot" });
+const tags = ["pid:[4026531836]", "pid:[4026532001]"].map((l) => m.pidNamespace(reader("linux", l)));
+const dir = m.runDirOf("/d/core/subject", undefined, 77, () => "0123456789ab");
+console.log(JSON.stringify({
+  linuxUnknown: m.pidNamespace(reader("linux", undefined)) ?? null,
+  linuxKnown: tags,
+  darwin: m.pidNamespace(reader("darwin", undefined)),
+  known: m.runDirOf("/d/core/subject", "abcdefabcdef", 77),
+  dir,
+  random: [m.runDirOf("/d", undefined, 1), m.runDirOf("/d", undefined, 1)],
+  // As every namespace would judge it, with every pid gone: never stale.
+  stale: [tags[0], tags[1], "0123456789ab", "r0123456789a"].flatMap((ns) => m.staleRunDirs(["subject.run-r0123456789ab-77"], "subject", ns, () => false)),
+}));`,
+      data,
+    ),
+  );
+  expect(got.linuxUnknown).toBeNull();
+  expect(got.linuxKnown[0]).toMatch(/^[0-9a-f]{12}$/);
+  expect(got.linuxKnown[1]).toMatch(/^[0-9a-f]{12}$/);
+  expect(got.linuxKnown[0]).not.toBe(got.linuxKnown[1]);
+  expect(got.darwin).toMatch(/^[0-9a-f]{12}$/);
+  expect(got.known).toBe("/d/core/subject.run-abcdefabcdef-77");
+  expect(got.dir).toBe("/d/core/subject.run-r0123456789ab-77");
+  expect(got.random[0]).toMatch(/^\/d\.run-r[0-9a-f]{12}-1$/);
+  expect(got.random[0]).not.toBe(got.random[1]);
+  expect(got.stale).toEqual([]);
+  // A whole run with the namespace unknown: every leftover stays, even a dead pid's of this host's own tag.
+  const stub = join(TMP, "stub-compiler-unknown.ts");
+  writeFileSync(stub, `import { writeFileSync } from "node:fs";\nconst a = process.argv.slice(2);\nwriteFileSync(a[a.indexOf("--out-dir") + 1] + "/libcore.rmeta", "rmeta");\n`);
+  mkdirSync(child(`const { miriSysrootInvocation } = await import(${JSON.stringify(join(REPO, "harness/miri-sysroot.ts"))}); console.log(miriSysrootInvocation("core", "x").cwd);`, data), { recursive: true });
+  const ns = child(`const { pidNamespace } = await import(${RUN}); console.log(pidNamespace());`, data);
+  const dead = Bun.spawnSync(["true"]).pid;
+  const crate = join(data, "rmeta", "miri-sysroot", "core");
+  const leftovers = [`subject.run-${ns}-${dead}`, `subject.run-r0123456789ab-${dead}`, `subject.run-${dead}`];
+  for (const d of leftovers) mkdirSync(join(crate, d), { recursive: true });
+  const out = child(`const m = await import(${RUN}); const code = await m.miriSysrootRun({ crate: "core", side: "subject", compiler: [process.execPath, ${JSON.stringify(stub)}] }, () => undefined); console.log("exit " + code);`, data);
+  expect(out).toContain("rmeta: 5 bytes");
+  expect(out.endsWith("exit 0")).toBe(true);
+  // The run's own directory differed from the sysroot, so it is kept as `subject`; nothing else changed.
+  expect(readdirSync(crate).sort()).toEqual([...leftovers, "subject"].sort());
+}, 60_000);

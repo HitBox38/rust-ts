@@ -17,7 +17,9 @@ import { type Diag, E0067, E0368, E0369, E0600, struct_span_code_err } from "../
 import type * as hir from "../rustc_hir/lib.ts";
 import { HirId_eq } from "../rustc_hir_id/lib.ts";
 import { ObligationCause, type ObligationCauseCode } from "../rustc_middle/traits/mod.ts";
-import { clone_ObligationCause } from "../rustc_middle/traits/mod.gen.ts";
+// Load order: through traits/mod.ts, which owns traits/mod.gen.ts (the mod.gen.ts/mod.ts cycle, entered from mod.gen.ts, reads
+// `ObligationCause` before it exists when op.ts is the first module; the import above is type-only at run time; lane fixers-49).
+import { clone_ObligationCause } from "../rustc_middle/traits/mod.ts";
 import { AutoBorrowMutability, type Adjustment } from "../rustc_middle/ty/adjustment.ts";
 import { AssocItem, type AssocItem as AssocItemT } from "../rustc_middle/ty/assoc.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";

@@ -179,6 +179,15 @@ function try_filter_fat_archs<F>(
  *  files exist" is with the base.
  *  PORT: tempfile's random names (`fastrand`, reseeded at the 4th try) are not reproduced; the name is not in any output but a
  *  diagnostic's path. `PathBuf` is a `string` here, so a non-UTF-8 `TMPDIR` is decoded lossily. */
+// PORT: one function for the tempfile 3.23.0 call chain `Builder::tempfile` -> `env::temp_dir` (no override) -> `tempfile_in` ->
+// `util::create_helper` -> `file::create_named` -> `imp::create_named` (unix), with the builder's fixed fields (`prefix` ".tmp",
+// `random_len` 6, the given `suffix`, no `append`, no `permissions`) folded in. `util::tmpname` is not ported (the names above).
+// crate: tempfile-3.23.0/src/lib.rs:533 tempfile
+// crate: tempfile-3.23.0/src/env.rs:45 temp_dir
+// crate: tempfile-3.23.0/src/lib.rs:562 tempfile_in
+// crate: tempfile-3.23.0/src/util.rs:22 create_helper
+// crate: tempfile-3.23.0/src/file/mod.rs:1063 create_named
+// crate: tempfile-3.23.0/src/file/imp/unix.rs:14 create_named
 function tempfile_with_suffix(suffix: string): IoResult<[number, string]> {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
   let base = to_string_lossy(temp_dir());
@@ -208,6 +217,7 @@ function tempfile_with_suffix(suffix: string): IoResult<[number, string]> {
 }
 
 /** tempfile 3.23.0 src/error.rs `IoResultExt::with_err_path`: `io::Error::new(e.kind(), PathError { path, err: e })`. */
+// crate: tempfile-3.23.0/src/error.rs:30 with_err_path
 function with_err_path(e: IoError, path: string): IoError {
   return io_error_new(IoError_kind(e), `${display_IoError(e)} at path ${debug_str(path)}`);
 }

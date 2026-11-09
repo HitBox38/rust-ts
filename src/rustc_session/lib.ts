@@ -1,7 +1,7 @@
 // Port of compiler/rustc_session/src/lib.rs.
 //
-// PORT: `pub mod x;` -> `export * as x from "./x.ts"`. Modules not ported yet (code_stats,
-// filesearch, output, search_paths, session) are listed as comments.
+// PORT: `pub mod x;` -> `export * as x from "./x.ts"`. Modules not re-exported here yet (filesearch, output,
+// search_paths, session) are listed as comments.
 // `pub(crate) use rustc_lint_defs as lint;` is crate-private: modules import src/rustc_lint_defs directly.
 
 // pub use session::*;
@@ -10,7 +10,7 @@
 import "./options.ts";
 export * from "./session.ts";
 
-// pub mod code_stats;
+export * as code_stats from "./code_stats.ts";
 export * as diagnostics from "./diagnostics.ts";
 export * as parse from "./parse.ts";
 export * as utils from "./utils.ts";

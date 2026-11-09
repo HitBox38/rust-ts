@@ -113,6 +113,9 @@ let MMAP_LIBC: ReturnType<typeof open_mmap_libc> | undefined;
  * maps), the bytes are copied and the mapping is unmapped at once, where upstream keeps it until the `Mmap` drops: nothing
  * here writes through it or outlives it. Windows (`CreateFileMappingW`) is unported.
  */
+// PORT: one function for both memmap2 fns: `map_copy_read_only` at offset 0 and the `MmapInner::new` it calls.
+// crate: memmap2-0.2.3/src/unix.rs:119 map_copy_read_only
+// crate: memmap2-0.2.3/src/unix.rs:36 new
 function map_copy_read_only_ffi(fd: number, len: number): IoResult<Mmap> {
   if (process.platform !== "darwin" && process.platform !== "linux") return unported("memmap2 0.2.3 map of a non-regular file on this host");
   // Taken before the call: its first use runs `dlopen`, which overwrites `errno`.

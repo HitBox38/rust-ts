@@ -25,6 +25,7 @@ test("a kept view is given out for the same log only, and sees writes made throu
   const t2 = storage.with_log(other);
   expect(t2).not.toBe(t1);
   expect(t2.eq_relations()).not.toBe(t1.eq_relations());
+  expect(t2.sub_unification_table()).not.toBe(t1.sub_unification_table());
   expect(t2.num_vars()).toBe(2);
   t2.equate(a, b);
   // Back on the first log: a new view for it again, which sees the union made through `t2`.
@@ -62,4 +63,19 @@ test("a clone has views of its own", () => {
   copy.with_log(log).equate(a, b);
   expect(copy.with_log(log).root_var(a)).toBe(copy.with_log(log).root_var(b));
   expect(storage.with_log(log).root_var(a)).not.toBe(storage.with_log(log).root_var(b));
+});
+
+test("a kept sub_unification_table view logs to the log it was made for (review perf-tait N3)", () => {
+  const storage = TypeVariableStorage.default_();
+  const log = InferCtxtUndoLogs.default_();
+  const a = storage.with_log(log).new_var(UniverseIndex.ROOT, origin);
+  const b = storage.with_log(log).new_var(UniverseIndex.ROOT, origin);
+  // Keep a sub view for `log`, which is in no snapshot, so nothing written through it is logged.
+  storage.with_log(log).sub_unification_table();
+  const other = InferCtxtUndoLogs.default_();
+  other.start_snapshot();
+  storage.with_log(other).sub_unify(a, b);
+  expect(log.logs.length).toBe(0);
+  expect(other.logs.some((u) => u.$ === "TypeVariables")).toBe(true);
+  expect(storage.with_log(other).sub_unification_table_root_var(a)).toBe(storage.with_log(other).sub_unification_table_root_var(b));
 });

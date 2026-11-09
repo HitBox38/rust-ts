@@ -69,6 +69,7 @@ import {
   defer_field,
 } from "./stand_ins.ts";
 import { FileSearch } from "./filesearch.ts";
+import { CodeStats } from "./code_stats.ts";
 import { existsSync } from "node:fs";
 import { asm as target_asm, spec as target_spec } from "../rustc_target/lib.ts";
 const LinkerFlavor = target_spec.LinkerFlavor;
@@ -265,8 +266,7 @@ export class Session {
     public timings: TimingSectionHandler,
 
     /// Data about code being compiled, gathered during compilation.
-    // PORT: `CodeStats` (code_stats.rs) is not ported.
-    public code_stats: unknown,
+    public code_stats: CodeStats,
 
     /// This only ever stores a `LintStore` but we don't want a dependency on that type here.
     public lint_store: DynLintStore | undefined,
@@ -1201,7 +1201,7 @@ export function build_session(
     io,
     prof,
     timings,
-    /* code_stats */ undefined,
+    /* code_stats */ CodeStats.default(),
     /* lint_store */ undefined,
     driver_lint_caps,
     ctfe_backtrace,
@@ -1229,10 +1229,8 @@ export function build_session(
   // one calls `unported` (stand_ins.ts `defer_field`). Upstream computes, in order:
   // - `global_backend_features`, `replaced_intrinsics`, `fallback_intrinsics`, `thin_lto_supported`:
   //   destructured from `codegen_backend_init` (the codegen backend stand-in defers them too)
-  // - `code_stats` (code_stats.rs)
   // `config`/`check_config`/`lint_store`/`internal_target_features` start empty as upstream; the
   // driver (rustc_interface::interface::run_compiler) fills or defers them.
-  defer_field(sess, "code_stats", "rustc_session::code_stats::CodeStats");
   for (const key of ["global_backend_features", "replaced_intrinsics", "fallback_intrinsics", "thin_lto_supported"] as const) {
     const desc = Object.getOwnPropertyDescriptor(codegen_backend_init, key);
     if (desc?.get !== undefined) {

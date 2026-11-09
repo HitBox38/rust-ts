@@ -18,8 +18,12 @@
 // A run removes the leftovers of its crate and side whose pid is gone, but only those of its own pid namespace: `<ns>` (`pidNamespace`)
 // names the host and, on Linux, its boot and pid namespace, so a run in a VM or container that shares `$RUST_TS_DATA` never judges
 // another namespace's pid (review root-w42-check N6). Another namespace's leftovers, and those named before `<ns>` existed
-// (`<side>.run-<pid>`), stay until removed by hand: a leak, never the loss of a live run's directory.
+// (`<side>.run-<pid>`), stay until removed by hand: a leak, never the loss of a live run's directory. On Linux with an unreadable
+// `/proc/self/ns/pid` the namespace is not known: two containers with one boot and one host name would get one tag, and their pids
+// repeat, so the run takes a random tag of its own (`r<12 hex>`, which no namespace's tag can equal) and removes nothing; a killed
+// run's directory then leaks (review harness-w45 N6).
 import { existsSync, mkdirSync, readdirSync, readFileSync, readlinkSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { randomBytes } from "node:crypto";
 import { hostname } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { DATA } from "./lib/common.ts";
@@ -97,20 +101,42 @@ function readOr(path: string): string {
   }
 }
 
+/** What `pidNamespace` reads; tests pass their own. */
+export interface NamespaceReaders {
+  platform: string;
+  hostname: () => string;
+  /** Throws if the link cannot be read. */
+  readlink: (path: string) => string;
+  /** "" if the file cannot be read. */
+  readFile: (path: string) => string;
+}
+const REAL_NAMESPACE: NamespaceReaders = { platform: process.platform, hostname, readlink: (p) => readlinkSync(p), readFile: readOr };
+
 /**
  * This process's pid namespace, as 12 hex digits of a hash: the host name, and on Linux the boot id and the pid namespace's
  * inode (`/proc/self/ns/pid`), so a VM (another boot) and a container (another namespace, often the same boot) differ from
  * the host. Off Linux there are no pid namespaces, and the host name stands for the kernel. A host name that changes (a
- * macOS name from DHCP) only leaks the older leftovers.
+ * macOS name from DHCP) only leaks the older leftovers. Undefined on Linux when the namespace link cannot be read (a
+ * restricted `/proc`): two containers that share the boot and the host name could not be told apart (review harness-w45 N6).
  */
-export function pidNamespace(): string {
+export function pidNamespace(r: NamespaceReaders = REAL_NAMESPACE): string | undefined {
   let ns = "";
   try {
-    ns = readlinkSync("/proc/self/ns/pid");
+    ns = r.readlink("/proc/self/ns/pid");
   } catch {
-    // Not Linux.
+    // Not Linux, or a restricted /proc.
   }
-  return sha256([hostname(), readOr("/proc/sys/kernel/random/boot_id"), ns].join("\0")).slice(0, 12);
+  if (ns === "" && r.platform === "linux") return undefined;
+  return sha256([r.hostname(), r.readFile("/proc/sys/kernel/random/boot_id"), ns].join("\0")).slice(0, 12);
+}
+
+/**
+ * The out dir of a run with pid `pid` whose side's kept directory is `kept`: `<kept>.run-<ns>-<pid>`, or, when the namespace is
+ * not known, `<kept>.run-r<12 random hex>-<pid>`. That tag is the run's own, and `staleRunDirs` of any namespace never matches it
+ * (a namespace's tag is 12 hex digits, and `r` is not one).
+ */
+export function runDirOf(kept: string, ns: string | undefined, pid: number, random: () => string = () => randomBytes(6).toString("hex")): string {
+  return `${kept}.run-${ns ?? `r${random()}`}-${pid}`;
 }
 
 /** The names in `names` of this side's run directories of namespace `ns` whose pid is gone (see the header). */
@@ -123,15 +149,18 @@ export function staleRunDirs(names: readonly string[], side: string, ns: string,
   });
 }
 
-export async function miriSysrootRun(a: MiriSysrootRunArgs): Promise<number> {
+/** One run (see the header); `namespace` is `pidNamespace` (tests pass their own). */
+export async function miriSysrootRun(a: MiriSysrootRunArgs, namespace: () => string | undefined = pidNamespace): Promise<number> {
+  const ns = namespace();
   const kept = join(DATA, "rmeta", "miri-sysroot", a.crate, a.side);
-  const ns = pidNamespace();
-  const out = `${kept}.run-${ns}-${process.pid}`;
+  const out = runDirOf(kept, ns, process.pid);
   // A leftover of a killed run with this pid: no live run can have it. Nor any whose pid is gone (review harness-w43 F2), in this
-  // pid namespace only (review root-w42-check N6).
-  rmSync(out, { recursive: true, force: true });
-  const dir = dirname(kept);
-  for (const name of staleRunDirs(existsSync(dir) ? readdirSync(dir) : [], basename(kept), ns)) rmSync(join(dir, name), { recursive: true, force: true });
+  // pid namespace only (review root-w42-check N6). In a namespace not known, nothing (review harness-w45 N6).
+  if (ns !== undefined) {
+    rmSync(out, { recursive: true, force: true });
+    const dir = dirname(kept);
+    for (const name of staleRunDirs(existsSync(dir) ? readdirSync(dir) : [], basename(kept), ns)) rmSync(join(dir, name), { recursive: true, force: true });
+  }
   mkdirSync(out, { recursive: true });
   const inv = miriSysrootInvocation(a.crate, out);
   // A source the crate's build wrote and deleted (`custom_local_sysroot`'s empty `lib.rs`, in its temp directory): written when

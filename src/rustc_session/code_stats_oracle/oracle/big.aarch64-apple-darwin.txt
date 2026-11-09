@@ -1,0 +1,48 @@
+0
+print-type-size type: `EBig`: 9007199254741008 bytes, alignment: 8 bytes
+print-type-size     discriminant: 1 bytes
+print-type-size     variant `C`: 9007199254741007 bytes
+print-type-size         field `.y`: 9007199254740995 bytes
+print-type-size         padding: 4 bytes
+print-type-size         field `.x`: 8 bytes, alignment: 8 bytes
+print-type-size     variant `B`: 9007199254740995 bytes
+print-type-size         padding: 1 bytes
+print-type-size         field `.0`: 9007199254740994 bytes, alignment: 2 bytes
+print-type-size     variant `A`: 1 bytes
+print-type-size         field `.0`: 1 bytes
+print-type-size type: `Big`: 9007199254741000 bytes, alignment: 4 bytes
+print-type-size     field `.c`: 4 bytes
+print-type-size     field `.a`: 1 bytes
+print-type-size     field `.b`: 9007199254740993 bytes
+print-type-size     end padding: 2 bytes
+print-type-size type: `PBig`: 9007199254740997 bytes, alignment: 1 bytes
+print-type-size     field `.a`: 1 bytes
+print-type-size     field `.b`: 9007199254740996 bytes
+print-type-size type: `UBig`: 9007199254740993 bytes, alignment: 1 bytes
+print-type-size     variant `UBig`: 9007199254740993 bytes
+print-type-size         field `.a`: 1 bytes
+print-type-size         field `.b`: 9007199254740993 bytes, offset: 0 bytes, alignment: 1 bytes
+print-type-size type: `E`: 16 bytes, alignment: 8 bytes
+print-type-size     discriminant: 1 bytes
+print-type-size     variant `B`: 15 bytes
+print-type-size         field `.y`: 1 bytes
+print-type-size         padding: 6 bytes
+print-type-size         field `.x`: 8 bytes, alignment: 8 bytes
+print-type-size     variant `A`: 1 bytes
+print-type-size         field `.0`: 1 bytes
+print-type-size     variant `C`: 0 bytes
+print-type-size type: `S`: 8 bytes, alignment: 4 bytes
+print-type-size     field `.b`: 4 bytes
+print-type-size     field `.c`: 2 bytes
+print-type-size     field `.a`: 1 bytes
+print-type-size     end padding: 1 bytes
+print-type-size type: `Alpha`: 4 bytes, alignment: 2 bytes
+print-type-size     field `.0`: 2 bytes
+print-type-size     field `.1`: 2 bytes
+print-type-size type: `Four`: 4 bytes, alignment: 4 bytes
+print-type-size     field `.0`: 4 bytes
+print-type-size type: `CLike`: 1 bytes, alignment: 1 bytes
+print-type-size     discriminant: 1 bytes
+print-type-size     variant `X`: 0 bytes
+print-type-size     variant `Y`: 0 bytes
+print-type-size     variant `Z`: 0 bytes

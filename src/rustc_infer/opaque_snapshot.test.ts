@@ -327,8 +327,12 @@ describe("opaque_types", () => {
     ] as never);
     expect([...st.iter_duplicate_entries()].length).toBe(1);
     expect([...st.iter_opaque_types()].map(([, v]) => v.ty)).toEqual([tcx.types.u16, tcx.types.u32, tcx.types.u64]);
+    // Entries taken after a duplicate: only the later duplicate is new, not the earlier one (`skip_dups`, review perf-tait N2).
+    const e2 = st.num_entries();
+    infcx.inner.opaque_types().add_duplicate(opaque_key(tcx, 1, args), new ProvisionalHiddenType(DUMMY_SP, tcx.types.i64));
+    expect([...st.opaque_types_added_since(e2)].map(([k, v]) => [k.def_id, v.ty])).toEqual([[1, tcx.types.i64]] as never);
     expect(infcx.inner.opaque_types().deref()).toBe(st);
-    expect([...st.take_opaque_types()].length).toBe(3);
+    expect([...st.take_opaque_types()].length).toBe(4);
     expect(st.is_empty()).toBe(true);
   });
 

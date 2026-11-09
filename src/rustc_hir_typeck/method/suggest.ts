@@ -38,7 +38,9 @@ import * as hir_ from "../../rustc_hir/lib.ts";
 import { debug_Node } from "../../rustc_hir/hir.gen.ts";
 import { Visitor, walk_pat, walk_stmt } from "../../rustc_hir/intravisit.ts";
 import { type HirId, HirId_eq, type ItemLocalId } from "../../rustc_hir_id/lib.ts";
-import { BoundRegionConversionTime } from "../../rustc_infer/infer/mod.gen.ts";
+// Load order: through infer/mod.ts, which owns infer/mod.gen.ts (the mod.gen.ts/mod.ts cycle, entered from mod.gen.ts, reads
+// `InferOk` before it exists when suggest.ts is the first module; lane fixers-49).
+import { BoundRegionConversionTime } from "../../rustc_infer/infer/mod.ts";
 import { Obligation } from "../../rustc_infer/traits/mod.ts";
 import type { PredicateObligation } from "../../rustc_infer/traits/mod.gen.ts";
 import { clone_ObligationCause } from "../../rustc_middle/traits/mod.ts";
