@@ -52,7 +52,9 @@
 // other rustc_hir_typeck export is read inside function bodies only.
 export * from "./coercion.gen.ts";
 import * as tracing from "../rust_ts/tracing.ts";
-import { debug_InferOk } from "../rustc_infer/infer/mod.gen.ts";
+// Load order: through infer/mod.ts, which owns infer/mod.gen.ts (the mod.gen.ts/mod.ts cycle, entered from mod.gen.ts, reads
+// `InferOk` before it exists when coercion.ts or _match.ts is the first module; lane fixers-50).
+import { debug_InferOk } from "../rustc_infer/infer/mod.ts";
 import { debug_TypeError } from "../rustc_type_ir/error.ts";
 import { debug_Adjustment } from "../rustc_middle/ty/structural_impls.ts";
 import { debug_tuple, debug_vec } from "../std/fmt.ts";
