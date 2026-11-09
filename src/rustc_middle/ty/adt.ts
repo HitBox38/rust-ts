@@ -915,8 +915,9 @@ export const AdtKind = {
 /** `#[derive(Debug)]` */
 export const debug_AdtKind: Debug<AdtKind> = (v) => v;
 
-/** PORT(decls): pending rustc_session code_stats.rs:54 `DataTypeKind` (a fieldless enum; PORTING §5 shape). */
-export type DataTypeKind = "Struct" | "Union" | "Enum" | "Closure" | "Coroutine";
+/** rustc_session code_stats.rs `DataTypeKind` (type-only, so rustc_session is not loaded from here). */
+export type { DataTypeKind } from "../../rustc_session/code_stats.ts";
+import type { DataTypeKind } from "../../rustc_session/code_stats.ts";
 
 // `impl From<AdtKind> for DataTypeKind`
 // rustc: compiler/rustc_middle/src/ty/adt.rs:333 from
