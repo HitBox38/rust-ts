@@ -1,5 +1,8 @@
 // rust-ts: `impl Hash for Path` (path_hash) feeds the hasher the same calls upstream does.
 import { expect, test } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { type Hasher, path_hash } from "./path.ts";
 
 /** Records every hasher call, so equal logs mean equal hashes upstream. */
@@ -48,4 +51,28 @@ test("chunk_bits separates `foo/bar` from `foobar`", () => {
   const rotr = (x: bigint): bigint => ((x >> 2n) | (x << 62n)) & ((1n << 64n) - 1n);
   expect(a.at(-1)).toBe(`usize(${rotr(rotr(3n) + 3n)})`);
   expect(b.at(-1)).toBe(`usize(${rotr(6n)})`);
+});
+
+// fixers-50 (fixers-43 review F4): `std::path::absolute` on a relative path is `env::current_dir()?`: with the cwd removed it
+// returns `getcwd`'s error, never a panic. In a child, as it changes and removes its cwd.
+test.skipIf(process.platform === "win32")("absolute returns current_dir's error when the cwd is gone", () => {
+  const dir = mkdtempSync(join(tmpdir(), "rust-ts-absolute-"));
+  try {
+    const script = `
+      import { mkdirSync, rmdirSync } from "node:fs";
+      import { set_current_dir } from ${JSON.stringify(join(import.meta.dir, "env.ts"))};
+      import { IoError_kind } from ${JSON.stringify(join(import.meta.dir, "io.ts"))};
+      import { absolute } from ${JSON.stringify(join(import.meta.dir, "path.ts"))};
+      mkdirSync("gone");
+      if (set_current_dir("gone").$ !== "Ok") throw new Error("chdir");
+      rmdirSync(${JSON.stringify(join(dir, "gone"))});
+      const show = (r) => (r.$ === "Ok" ? "Ok " + r._0 : "Err " + IoError_kind(r._0));
+      console.log([show(absolute("x")), show(absolute("/a/./b"))].join("|"));
+    `;
+    const r = Bun.spawnSync([process.execPath, "-e", script], { cwd: dir, stdout: "pipe", stderr: "pipe" });
+    expect(r.stderr.toString()).toBe("");
+    expect(r.stdout.toString()).toBe("Err NotFound|Ok /a/b\n");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

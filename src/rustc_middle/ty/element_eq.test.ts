@@ -229,4 +229,19 @@ test("GenericArg::as_region / as_type / as_const are kind()'s arms, without the 
     expect(GenericArg.as_type(a)).toBe(k.$ === "Type" ? k._0 : undefined);
     expect(GenericArg.as_const(a)).toBe(k.$ === "Const" ? k._0 : undefined);
   }
+  // perf-tait review N4: on a value that is none of the three, each panics as `kind()` does (`intrinsics::unreachable()`),
+  // not with `expect_*`'s `bug!` after an `undefined`.
+  const other = { [INTERNED]: true, id: 1 } as unknown as GenericArg;
+  const msg = ((): string => {
+    try {
+      GenericArg.kind(other);
+    } catch (e) {
+      return String(e);
+    }
+    return "no panic";
+  })();
+  expect(msg).toContain("GenericArg::kind: not a Ty, Region or Const");
+  for (const f of [GenericArg.as_region, GenericArg.as_type, GenericArg.as_const, GenericArg.expect_region, GenericArg.expect_ty, GenericArg.expect_const]) {
+    expect(() => f(other)).toThrow("GenericArg::kind: not a Ty, Region or Const");
+  }
 });
