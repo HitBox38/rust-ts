@@ -63,6 +63,36 @@ console.log(JSON.stringify({
   })(),
   combined: [[false, false], [false, undefined], [true, undefined], [undefined, undefined]].map((rs) => c.combineLayouts(rs.map((randomized, i) => ({ randomized, why: "w" + i })))),
   layoutTmpLeft: (await import("node:fs")).existsSync(c.oracleStdLayoutsRandomized().dir),
+  // lane harness-w49: needs-llvm-components.
+  llvm: (() => {
+    const { readFileSync } = require("node:fs");
+    const { UPSTREAM } = require(${JSON.stringify(join(REPO, "scripts/lib/common.ts"))});
+    const parsed = c.rustcLlvmComponents(readFileSync(UPSTREAM + "/compiler/rustc_llvm/build.rs", "utf8"), readFileSync(UPSTREAM + "/compiler/rustc_llvm/src/lib.rs", "utf8"));
+    const real = c.oracleLlvmComponents();
+    // An LLVM with x86 and arm only, as nm prints a Mach-O dylib's imports and an ELF library's definitions.
+    const fake = c.llvmComponentOracle(parsed, c.nmSymbols("                 U _LLVMInitializeX86TargetInfo\\n0000000000001234 T LLVMInitializeARMTargetInfo\\n                 U _LLVMInitializeX86Target\\n"));
+    const noNm = c.llvmComponentOracle(parsed, "nm failed");
+    const d = (line, o) => c.llvmComponentsLineDecision(line, o);
+    const unstable = "tests/ui/linkage-attr/unstable-flavor.rs";
+    return {
+      required: parsed.required,
+      optional: [...parsed.optional],
+      realAll: [...parsed.optional.keys()].filter((k) => real(k).present !== true),
+      real: d("//@ needs-llvm-components: x86 nvptx xtensa"),
+      fake: [d("//@ needs-llvm-components: x86 arm", fake), d("//@ needs-llvm-components: x86 riscv arm", fake), d("//@ needs-llvm-components: bpf nvptx", fake), d("//@ [r] needs-llvm-components: ipo x86", fake)],
+      unknown: [d("//@ needs-llvm-components: x86 spirv", fake), d("//@ needs-llvm-components: riscv spirv", fake)],
+      noNm: [d("//@ needs-llvm-components: x86", noNm), d("//@ needs-llvm-components: lto", noNm)],
+      malformed: [d("//@ needs-llvm-components", fake), d("//@ needs-llvm-components:", fake)],
+      badSources: [
+        (() => { try { c.rustcLlvmComponents("const REQUIRED_COMPONENTS: &[&str] = &[\\"ipo\\"];", ""); return "NO ERROR"; } catch (e) { return String(e); } })(),
+        (() => { try { c.rustcLlvmComponents("const REQUIRED_COMPONENTS: &[&str] = &[];\\nconst OPTIONAL_COMPONENTS: &[&str] = &[\\"x86\\"];", ""); return "NO ERROR"; } catch (e) { return String(e); } })(),
+        (() => { try { c.rustcLlvmComponents("const REQUIRED_COMPONENTS: &[&str] = &[];\\nconst OPTIONAL_COMPONENTS: &[&str] = &[];", "init_target!(llvm_component = \\"x86\\", LLVMInitializeX86TargetInfo);"); return "NO ERROR"; } catch (e) { return String(e); } })(),
+        (() => { try { c.rustcLlvmComponents("const REQUIRED_COMPONENTS: &[&str] = &[];\\nconst OPTIONAL_COMPONENTS: &[&str] = &[\\"x86\\"];", "init_target!(llvm_component = \\"x86\\", LLVMInitializeX86Target);"); return "NO ERROR"; } catch (e) { return String(e); } })(),
+      ],
+      unstableOld: json(c.uiFileCases([unstable], "human", {})),
+      unstableNew: json(c.uiFileCases([unstable], "human", { llvmComponents: true })),
+    };
+  })(),
 }));
 `;
 // Failing aux builds, independent of timing and of the shared cache (review: cache poisoning, history 2026-11-04). The child
@@ -216,4 +246,44 @@ test("a failed aux build is an ERROR that stops the case list, never a skip, and
   expect(lines.filter((l) => l.startsWith("NO ERROR")).length).toBe(0);
   // Neither a temp dir nor a cached entry: no failed build is ever cached.
   expect(failLeft).toEqual([]);
+});
+
+test("needs-llvm-components: decided from the oracle's rustc_driver, as directives.rs `ignore_llvm` (lane harness-w49)", () => {
+  const L = R.llvm;
+  // compiler/rustc_llvm at the pin: build.rs's lists and lib.rs's `init_target!` pairs.
+  expect(L.required).toEqual(["ipo", "bitreader", "bitwriter", "linker", "asmparser", "lto", "coverage", "instrumentation"]);
+  expect(L.optional.length).toBe(19);
+  expect(L.optional).toContainEqual(["x86", "LLVMInitializeX86TargetInfo"]);
+  expect(L.optional).toContainEqual(["webassembly", "LLVMInitializeWebAssemblyTargetInfo"]);
+  expect(L.optional).toContainEqual(["systemz", "LLVMInitializeSystemZTargetInfo"]);
+  // The stock nightly carries every optional component.
+  expect(L.realAll).toEqual([]);
+  expect(L.real).toEqual({});
+  // Components present (one as an import, one as a definition, a required one) continue; the first missing one ignores,
+  // in the directive's order; a revision's line is evaluated like any other.
+  expect(L.fake).toEqual([{}, { ignore: "ignored when the riscv LLVM component is missing" }, { ignore: "ignored when the bpf LLVM component is missing" }, {}]);
+  // A component the driver cannot show is never guessed: the test is rejected, unless an earlier one is already missing.
+  expect(L.unknown[0].reject).toContain("`needs-llvm-components: spirv` cannot be decided: `spirv` is not in rustc_llvm's REQUIRED_COMPONENTS or OPTIONAL_COMPONENTS");
+  expect(L.unknown[1]).toEqual({ ignore: "ignored when the riscv LLVM component is missing" });
+  // Without a symbol table only the required components are known.
+  expect(L.noNm).toEqual([{ reject: "`needs-llvm-components: x86` cannot be decided: nm failed" }, {}]);
+  // compiletest panics on a directive without a value.
+  expect(L.malformed).toEqual([{ reject: "directive `needs-llvm-components` must be followed by a colon and value" }, { reject: "empty value for directive `needs-llvm-components`" }]);
+  expect(L.badSources[0]).toContain("no `OPTIONAL_COMPONENTS`");
+  expect(L.badSources[1]).toContain('optional LLVM component "x86" has no `init_target!`');
+  expect(L.badSources[2]).toContain('`init_target!` for "x86", which is not in OPTIONAL_COMPONENTS');
+  expect(L.badSources[3]).toContain("is `LLVMInitializeX86Target`, not a TargetInfo initializer");
+});
+
+test("needs-llvm-components: only callers with `llvmComponents` evaluate it; the others still reject the test", () => {
+  const { unstableOld, unstableNew } = R.llvm;
+  expect(unstableOld.cases).toEqual([]);
+  expect(unstableOld.skipped.map((k: { id: string; reason: string }) => [k.id, k.reason])).toEqual([
+    ["tests/ui/linkage-attr/unstable-flavor.rs#bpf", "`needs-llvm-components` (LLVM version/components) is not evaluated by this harness"],
+    ["tests/ui/linkage-attr/unstable-flavor.rs#llbc", "`needs-llvm-components` (LLVM version/components) is not evaluated by this harness"],
+  ]);
+  expect(unstableNew.skipped).toEqual([]);
+  expect(unstableNew.cases.map((k: { id: string }) => k.id)).toEqual(["tests/ui/linkage-attr/unstable-flavor.rs#bpf", "tests/ui/linkage-attr/unstable-flavor.rs#llbc"]);
+  const bpf: string[] = unstableNew.cases[0].args;
+  expect(bpf).toContain("--target=bpfel-unknown-none");
 });
