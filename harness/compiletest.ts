@@ -16,7 +16,7 @@
 // auxiliary crates (`aux-*`, `proc-macro`) unless the caller asks for `aux` (below), `add-minicore`,
 // `incremental`, conditions that depend on
 // compiletest configuration this harness does not have (stage, debug assertions, LLVM version, most
-// `needs-*`), and anything compiletest itself would reject (it panics, so the test never runs).
+// `needs-*`, and `needs-llvm-components` unless the caller asks for `llvmComponents`), and anything compiletest itself would reject (it panics, so the test never runs).
 //
 // Bootstrap's `--target-rustcflags` for the ui suite (src/bootstrap/src/core/build_steps/test.rs at
 // the pin: `-Crpath`, `-Cdebuginfo=<debuginfo-level-tests, default 0>`, `-Lnative=<test helpers>`)
@@ -405,8 +405,10 @@ function builtinCfgNames(): Set<string> {
  * Ignore decision of one directive line (`make_test_description`'s `decision!` chain), or undefined to continue.
  * `needs`: evaluate every `needs-*` directive as needs.rs does (`needsDecision`); otherwise only `needs-subprocess`
  * is, and every other `needs-*` rejects the test (the case sets of the suites built before lane harness-w36).
+ * `llvmComponents`: evaluate `needs-llvm-components` as directives.rs `ignore_llvm` does (`llvmComponentsDecision`);
+ * otherwise it rejects the test (the case sets of the suites built before lane harness-w49).
  */
-function ignoreDecision(ln: DirectiveLine, needs = false): string | undefined {
+function ignoreDecision(ln: DirectiveLine, needs = false, llvmComponents = false): string | undefined {
   const EXTERNAL_IGNORES = new Set(["ignore-backends", "ignore-cdb", "ignore-gdb", "ignore-gdb-version", "ignore-lldb", "ignore-llvm-version", "ignore-parallel-frontend"]);
   const EXTERNAL_ONLY = new Set(["only-cdb", "only-gdb", "only-lldb"]);
   for (const prefix of ["ignore-", "only-"] as const) {
@@ -430,6 +432,8 @@ function ignoreDecision(ln: DirectiveLine, needs = false): string | undefined {
     }
     throw new Reject(`\`${ln.name}\` is not evaluated by this harness`);
   }
+  // `llvmComponents`: directives.rs `ignore_llvm`'s `needs-llvm-components` half (`llvmComponentsDecision`, lane harness-w49).
+  if (llvmComponents && ln.name === "needs-llvm-components") return llvmComponentsDecision(ln);
   if (["needs-llvm-components", "min-llvm-version", "max-llvm-major-version", "min-system-llvm-version", "ignore-llvm-version", "exact-llvm-major-version"].includes(ln.name)) {
     throw new Reject(`\`${ln.name}\` (LLVM version/components) is not evaluated by this harness`);
   }
@@ -679,6 +683,121 @@ function needsDecision(ln: DirectiveLine): string | undefined {
   if (condition) return undefined;
   const remark = remarkAfterSpace(ln);
   return remark !== undefined ? `${need.reason} (${remark.trim()})` : need.reason;
+}
+
+// ---- needs-llvm-components (directives.rs `ignore_llvm`, lane harness-w49) ----
+//
+// `uiFileCases(.., { llvmComponents: true })` (the minicore corpus: tydump-, thirdump-, mirdump-minicore, mir-minicore,
+// mir-o0) evaluates `needs-llvm-components: <c>...` as `ignore_llvm` does: the test is ignored ("ignored when the <c>
+// LLVM component is missing") when one of the listed components is not in `config.llvm_components`, else it continues.
+// compiletest gets that list from bootstrap (build_steps/test.rs: `llvm-config --components` of the LLVM that built the
+// compiler under test; `--llvm-components ""` without one). The oracle is a dist toolchain with no `llvm-config`, so the
+// list is read from its `rustc_driver` library, by upstream's own construction (compiler/rustc_llvm at the pin):
+// - build.rs keeps the components of `llvm-config --components` that are in `REQUIRED_COMPONENTS` or
+//   `OPTIONAL_COMPONENTS`, panics when a required one is missing, and sets `cfg(llvm_component = "<c>")` for each kept;
+// - src/lib.rs `initialize_available_targets` calls an optional component's `init_target!` functions (the first is
+//   `LLVMInitialize<T>TargetInfo`) only under that cfg; they are LLVM's, so rustc_driver references them (as imports of
+//   the libLLVM dylib, or linked in) exactly when the component was in the list.
+// So a required component is always in the list, and an optional one is iff rustc_driver's symbol table (`nm`) names its
+// TargetInfo initializer. A component in neither list (none in tests/ui at the pin) cannot be decided this way, nor can
+// any component when `nm` fails or the driver is not found: the test is rejected with that reason, as before this lane.
+// The lists and the component -> symbol pairs are parsed from the upstream sources, not copied. Callers without
+// `llvmComponents` keep the old rule (the directive rejects the test), so their case sets do not change.
+
+/** The parse of compiler/rustc_llvm at the pin: required components, and each optional one's TargetInfo initializer. */
+export function rustcLlvmComponents(buildRs: string, libRs: string): { required: string[]; optional: Map<string, string> } {
+  const list = (name: string): string[] => {
+    const m = new RegExp(`const ${name}: &\\[&str\\] =\\s*&\\[([^\\]]*)\\];`).exec(buildRs);
+    if (!m) throw new Error(`ERROR: no \`${name}\` in compiler/rustc_llvm/build.rs`);
+    return [...m[1]!.matchAll(/"([^"]*)"/g)].map((x) => x[1]!);
+  };
+  const required = list("REQUIRED_COMPONENTS");
+  const optionalNames = list("OPTIONAL_COMPONENTS");
+  const optional = new Map<string, string>();
+  for (const m of libRs.matchAll(/init_target!\(\s*llvm_component = "([^"]*)",\s*(\w+)/g)) {
+    if (optional.has(m[1]!)) throw new Error(`ERROR: two \`init_target!\` for llvm_component "${m[1]}" in compiler/rustc_llvm/src/lib.rs`);
+    optional.set(m[1]!, m[2]!);
+  }
+  for (const c of optionalNames) {
+    const sym = optional.get(c);
+    if (sym === undefined) throw new Error(`ERROR: optional LLVM component "${c}" has no \`init_target!\` in compiler/rustc_llvm/src/lib.rs`);
+    if (!/^LLVMInitialize\w+TargetInfo$/.test(sym)) throw new Error(`ERROR: the first \`init_target!\` function of "${c}" is \`${sym}\`, not a TargetInfo initializer`);
+  }
+  for (const c of optional.keys()) if (!optionalNames.includes(c)) throw new Error(`ERROR: \`init_target!\` for "${c}", which is not in OPTIONAL_COMPONENTS`);
+  return { required, optional };
+}
+
+/** The symbol names in `nm` output (a leading `_`, the Mach-O C prefix, dropped). */
+export function nmSymbols(nmOut: string): Set<string> {
+  const syms = new Set<string>();
+  for (const line of nmOut.split("\n")) {
+    const name = line.trim().split(/\s+/).pop();
+    if (name) syms.add(name.startsWith("_") ? name.slice(1) : name);
+  }
+  return syms;
+}
+
+/** Whether `component` is in the oracle's `llvm-config --components` (see above), or why that cannot be decided. */
+export type LlvmComponentOracle = (component: string) => { present: boolean | undefined; why?: string };
+
+/** The oracle's `LlvmComponentOracle`, from `rustcLlvmComponents` of the pinned sources and `symbols` of its rustc_driver. */
+export function llvmComponentOracle(parsed: { required: string[]; optional: Map<string, string> }, symbols: Set<string> | string): LlvmComponentOracle {
+  return (c) => {
+    if (parsed.required.includes(c)) return { present: true };
+    const sym = parsed.optional.get(c);
+    if (sym === undefined) return { present: undefined, why: `\`${c}\` is not in rustc_llvm's REQUIRED_COMPONENTS or OPTIONAL_COMPONENTS, so the oracle's rustc_driver does not show whether its LLVM has it` };
+    if (typeof symbols === "string") return { present: undefined, why: symbols };
+    return { present: symbols.has(sym) };
+  };
+}
+
+let llvmComponentsMemo: LlvmComponentOracle | undefined;
+export function oracleLlvmComponents(): LlvmComponentOracle {
+  if (llvmComponentsMemo) return llvmComponentsMemo;
+  const parsed = rustcLlvmComponents(readFileSync(join(UPSTREAM, "compiler/rustc_llvm/build.rs"), "utf8"), readFileSync(join(UPSTREAM, "compiler/rustc_llvm/src/lib.rs"), "utf8"));
+  let symbols: Set<string> | string = "no rustc_driver library in the oracle sysroot";
+  const sysroot = oracleSysroot();
+  for (const dir of [join(sysroot, "lib"), join(sysroot, "bin")]) {
+    const lib = existsSync(dir) ? readdirSync(dir).find((n) => /^(lib)?rustc_driver-[0-9a-f]+\.(dll|so|dylib)$/.test(n)) : undefined;
+    if (lib === undefined) continue;
+    let r: { exitCode: number | null; stdout: Buffer } | undefined;
+    try {
+      r = Bun.spawnSync(["nm", join(dir, lib)], { stdout: "pipe", stderr: "ignore" });
+    } catch {
+      r = undefined;
+    }
+    symbols = r?.exitCode === 0 ? nmSymbols(r.stdout.toString()) : `\`nm ${lib}\` failed, so the oracle's LLVM components are unknown`;
+    break;
+  }
+  return (llvmComponentsMemo = llvmComponentOracle(parsed, symbols));
+}
+
+/** directives.rs `ignore_llvm` for a `needs-llvm-components` line, against `oracle` (see above). */
+export function llvmComponentsDecision(ln: DirectiveLine, oracle: LlvmComponentOracle = oracleLlvmComponents()): string | undefined {
+  const needed = nameValueDirective(ln, "needs-llvm-components");
+  if (needed === undefined) return undefined;
+  // `needed_components.split_whitespace().find(|c| !components.contains(c))`: the first missing one, in order.
+  for (const c of needed.split(/\s+/).filter(Boolean)) {
+    const { present, why } = oracle(c);
+    if (present === undefined) throw new Reject(`\`needs-llvm-components: ${c}\` cannot be decided: ${why}`);
+    // COMPILETEST_REQUIRE_ALL_LLVM_COMPONENTS (a panic instead) is CI's; unset here as when bootstrap runs locally.
+    if (!present) return `ignored when the ${c} LLVM component is missing`;
+  }
+  return undefined;
+}
+
+/** `llvmComponentsDecision` of one directive line (`//@ ...`), for tests: the ignore reason, or why compiletest's
+ * decision is not reproduced. */
+export function llvmComponentsLineDecision(line: string, oracle?: LlvmComponentOracle): { ignore?: string; reject?: string } {
+  try {
+    const ln = lineDirective(line);
+    if (ln === undefined) throw new Error(`ERROR: not a directive line: ${line}`);
+    const ignore = llvmComponentsDecision(ln, oracle);
+    return ignore === undefined ? {} : { ignore };
+  } catch (e) {
+    if (e instanceof Reject) return { reject: e.message };
+    throw e;
+  }
 }
 
 // ---- TestProps (the subset that shapes the compile command) ----
@@ -1323,12 +1442,12 @@ const memo = new Map<string, { cases: UiCase[]; skipped: Skip[] }>();
  * Every UI test under `dirs` (repo paths under `tests/ui`), one case per revision (id
  * `<file>#<revision>`), with the compile command compiletest would run and `-Zparse-crate-root-only`.
  */
-export function uiCases(dirs: string[], format: ErrorFormat): { cases: UiCase[]; skipped: Skip[] } {
-  const key = `${format}|${dirs.join("|")}`;
+export function uiCases(dirs: string[], format: ErrorFormat, opts: { llvmComponents?: boolean } = {}): { cases: UiCase[]; skipped: Skip[] } {
+  const key = `${format}|${opts.llvmComponents ? "llvm-components|" : ""}${dirs.join("|")}`;
   const m = memo.get(key);
   if (m) return m;
   const files = dirs.filter((d) => existsSync(join(UPSTREAM, d))).flatMap((d) => collectUiTests(d)).sort();
-  const r = uiFileCases(files, format, {});
+  const r = uiFileCases(files, format, opts.llvmComponents ? { llvmComponents: true } : {});
   memo.set(key, r);
   return r;
 }
@@ -1347,11 +1466,13 @@ export function uiCases(dirs: string[], format: ErrorFormat): { cases: UiCase[];
  * for COMPILETEST_TARGET (see "needs-*" above) instead of rejecting the test.
  * With `miriAux` (needs `aux`; run-pass-aux-miri, lane harness-m6c), the aux crates are built by the isolated Miri (see
  * the header's Miri section).
+ * With `llvmComponents` (the minicore corpus, lane harness-w49), `needs-llvm-components` is evaluated as compiletest does
+ * against the oracle's LLVM components (see "needs-llvm-components" above) instead of rejecting the test.
  */
 export function uiFileCases(
   files: string[],
   format: ErrorFormat,
-  opts: { aux?: boolean; auxTimeoutMs?: number; run?: boolean; procMacro?: boolean; needs?: boolean; miriAux?: boolean },
+  opts: { aux?: boolean; auxTimeoutMs?: number; run?: boolean; procMacro?: boolean; needs?: boolean; miriAux?: boolean; llvmComponents?: boolean },
 ): { cases: UiCase[]; skipped: Skip[]; auxFiles: Map<string, string[]>; auxSteps: Map<string, AuxStep[]> } {
   if (opts.aux && opts.auxTimeoutMs === undefined) throw new Error("ERROR: uiFileCases: `aux` needs `auxTimeoutMs`");
   if (opts.procMacro && !opts.aux) throw new Error("ERROR: uiFileCases: `procMacro` needs `aux`");
@@ -1404,7 +1525,7 @@ export function uiFileCases(
         for (const ln of lines) {
           if (!appliesTo(ln, rev)) continue;
           if ((ln.name.startsWith("aux-") || ln.name === "proc-macro") && valueAfterColon(ln) !== undefined) aux ??= ln.raw;
-          ignore = ignoreDecision(ln, opts.needs) ?? ignore;
+          ignore = ignoreDecision(ln, opts.needs, opts.llvmComponents) ?? ignore;
         }
         if (ignore !== undefined) {
           skipped.push({ id, reason: `ignored by compiletest on ${host().target}: ${ignore}` });

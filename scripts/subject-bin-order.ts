@@ -2,8 +2,9 @@
 // handoff's claim that a bundle evaluates the port's modules in the order `bun <entry>` does, first-import cycles and lazy
 // `require()`s included.
 //
-//   bun scripts/subject-bin-order.ts [--entry src/rust_ts/main.ts] [--cwd DIR] [--env K=V]... -- <args...>
+//   bun scripts/subject-bin-order.ts [--entry src/rust_ts/main.ts] [--cwd DIR] [--env K=V]... [--keep] [--verbose] -- <args...>
 //
+// Every word before `--` must be one of these options (`orderArgs`): Bun drops a `--` that comes first after the script.
 // The cwd defaults to a fresh temp directory (pass absolute input paths); both sides get `RUSTC_ICE=0` unless an `--env` sets it.
 //
 // Both sides prepend one statement to line 1 of every repo module, which records the module's path when its body starts (lines
@@ -15,7 +16,7 @@
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
-import { REPO, parseArgs } from "./lib/common.ts";
+import { REPO } from "./lib/common.ts";
 import { buildSpec, rewriteModule } from "./lib/subject-bin.ts";
 
 /** The statement prepended to every repo module (same text on both sides). */
@@ -25,26 +26,55 @@ const TRACE_START = `globalThis.__rtsOrder = []; process.on("exit", () => proces
 
 const isRepoModule = (p: string) => p.startsWith(REPO + "/") && /\.ts$/.test(p) && !p.includes("/node_modules/");
 
+/** This tool's options: those taking a value, and the flags. */
+const VALUE_OPTIONS = ["entry", "cwd", "env"];
+const FLAG_OPTIONS = ["keep", "verbose"];
+
+/**
+ * This tool's options and the subject's arguments from `process.argv`, or why the command line is refused. Every word before
+ * the `--` must be one of this tool's options (with its value), so that a subject argument read as an option is an error, not a
+ * run with fewer arguments (review perf-subject-bin N1). Bun drops a `--` that comes first after the script (`bun x.ts --
+ * --version` gives argv `[--version]`), and a forgotten `--` (`--entry m.ts --version`) leaves the subject's arguments among the
+ * tool's: both are refused unless every such word is an option of this tool. `--env` may repeat.
+ */
+export function orderArgs(argv: readonly string[]): { error: string } | { entry: string; cwd: string | undefined; env: Record<string, string>; keep: boolean; verbose: boolean; args: string[] } {
+  const dd = argv.indexOf("--");
+  const words = argv.slice(2, dd < 0 ? undefined : dd);
+  const args = dd < 0 ? [] : argv.slice(dd + 1);
+  const opts: Record<string, string | true> = {};
+  // RUSTC_ICE=0: an ICE must not leave a `rustc-ice-*.txt` report in the cwd (an `--env` can still set it elsewhere).
+  const env: Record<string, string> = { RUSTC_ICE: "0" };
+  const why = dd < 0 ? " (no `--` before it: Bun drops a `--` that comes first, so pass an option first, e.g. `--entry src/rust_ts/main.ts -- <args>`)" : "";
+  for (let i = 0; i < words.length; i++) {
+    const w = words[i]!;
+    const eq = w.indexOf("=");
+    const name = w.startsWith("--") ? w.slice(2, eq > 0 ? eq : undefined) : undefined;
+    if (name !== undefined && VALUE_OPTIONS.includes(name)) {
+      const value = eq > 0 ? w.slice(eq + 1) : words[++i];
+      if (value === undefined || (eq < 0 && value.startsWith("--"))) return { error: `\`--${name}\` needs a value${why}` };
+      if (name === "env") {
+        if (!value.includes("=")) return { error: `\`--env ${value}\` is not K=V` };
+        env[value.slice(0, value.indexOf("="))] = value.slice(value.indexOf("=") + 1);
+      } else if (opts[name] !== undefined) return { error: `\`--${name}\` given twice` };
+      else opts[name] = value;
+    } else if (name !== undefined && FLAG_OPTIONS.includes(name) && eq < 0) opts[name] = true;
+    else return { error: `\`${w}\` is not an option of this tool${why}` };
+  }
+  return { entry: typeof opts.entry === "string" ? opts.entry : "src/rust_ts/main.ts", cwd: typeof opts.cwd === "string" ? opts.cwd : undefined, env, keep: opts.keep === true, verbose: opts.verbose === true, args };
+}
+
 if (import.meta.main) {
-  const dd = process.argv.indexOf("--");
-  // Bun drops a `--` that comes first after the script (`bun x.ts -- --version` gives argv `[--version]`), so the subject's
-  // arguments would be read as this tool's and the entry run with none (rustc's help, the same on both sides).
-  if (dd < 0 && process.argv.length > 2 && !process.argv.slice(2).some((w) => w === "--entry" || w.startsWith("--entry=") || w === "--cwd" || w.startsWith("--cwd=") || w === "--env" || w === "--keep" || w === "--verbose")) {
-    console.log("ERROR: no `--` before the subject's arguments (Bun drops a leading one): pass an option first, e.g. `--entry src/rust_ts/main.ts -- <args>`");
+  const o = orderArgs(process.argv);
+  if ("error" in o) {
+    console.log(`ERROR: ${o.error}`);
     process.exit(1);
   }
-  const a = parseArgs(process.argv.slice(2, dd < 0 ? undefined : dd));
-  const args = dd < 0 ? [] : process.argv.slice(dd + 1);
-  const entry = typeof a.entry === "string" ? a.entry : "src/rust_ts/main.ts";
-  // RUSTC_ICE=0: an ICE must not leave a `rustc-ice-*.txt` report in the cwd (an `--env` can still set it elsewhere).
-  const extraEnv: Record<string, string> = { RUSTC_ICE: "0" };
-  for (const kv of ([] as (string | boolean)[]).concat(a.env ?? [])) {
-    if (typeof kv !== "string" || !kv.includes("=")) continue;
-    extraEnv[kv.slice(0, kv.indexOf("="))] = kv.slice(kv.indexOf("=") + 1);
-  }
+  const a = { keep: o.keep, verbose: o.verbose };
+  const { args, entry } = o;
+  const extraEnv = o.env;
   const tmp = mkdtempSync(join(tmpdir(), "rts-order-"));
   // Default cwd: a fresh directory of this run, never the upstream checkout (nothing the port writes there may stay).
-  const cwd = typeof a.cwd === "string" ? a.cwd : mkdtempSync(join(tmp, "cwd-"));
+  const cwd = o.cwd ?? mkdtempSync(join(tmp, "cwd-"));
   try {
     // The source side's preload: a runtime plugin, then the trace.
     const preload = join(tmp, "preload.ts");
@@ -118,7 +148,8 @@ Bun.plugin({
     console.log(
       `${sameOrder ? "same order" : "ORDER DIFFERS"}: ${src.order.length} modules from source, ${bun.order.length} from the build${sameOrder ? "" : `; first difference at #${at}: source ${src.order[at] ?? "(end)"}, build ${bun.order[at] ?? "(end)"}`}`,
     );
-    console.log(`${sameOut ? "same output" : "OUTPUT DIFFERS"}: exit ${src.code}/${bun.code}, stdout ${src.stdout.length}/${bun.stdout.length} bytes, stderr ${src.stderr.length}/${bun.stderr.length} bytes`);
+    // The subject's argument count: a run with none shows (review perf-subject-bin N1).
+    console.log(`${sameOut ? "same output" : "OUTPUT DIFFERS"} (${args.length} subject argument${args.length === 1 ? "" : "s"}): exit ${src.code}/${bun.code}, stdout ${src.stdout.length}/${bun.stdout.length} bytes, stderr ${src.stderr.length}/${bun.stderr.length} bytes`);
     if (!sameOut && a.verbose) console.log(`--- source stderr\n${src.stderr}\n--- build stderr\n${bun.stderr}`);
     process.exitCode = sameOrder && sameOut ? 0 : 1;
   } finally {

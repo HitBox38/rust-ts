@@ -7,8 +7,10 @@
 // subject process. Its command is compared with the source side's `bun [--preload <repo>/X] <repo>/<entry>` written as the
 // binary side's `<subject:entry>`; everything after it must be equal. stdout and exit code must be equal byte for byte; stderr
 // too, except a panic's thread id (`thread '<name>' (<pid>) panicked`), the process id that differs between any two runs, which
-// is counted apart (`pid-masked`). A process that timed out on either side is not compared (`timed out`). Prints one summary
-// line, and `ERROR:` with the first difference of each differing process (all of them with `--out`); exit 1 if any differs.
+// is counted apart (`pid-masked`). A process that timed out is not compared: on both sides it counts as `timed-out`, on one side
+// only as `one-side-timed-out` with a `note:` naming the side and both times, since that is where a speed or stack-depth
+// difference between the modes would show (review subject-bin N6; a note, not an error: under load a time is noisy). Prints one
+// summary line, and `ERROR:` with the first difference of each differing process (all of them with `--out`); exit 1 if any differs.
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "./lib/common.ts";
@@ -54,10 +56,11 @@ export function firstDifference(a: string, b: string): string {
   return "same lines";
 }
 
-export type Verdict = { kind: "same" | "pid-masked" | "timed out" } | { kind: "differs"; why: string };
+export type Verdict = { kind: "same" | "pid-masked" | "timed out" } | { kind: "differs" | "one side timed out"; why: string };
 
 export function compareRecords(src: RawRecord, bin: RawRecord): Verdict {
-  if (src.timedOut || bin.timedOut) return { kind: "timed out" };
+  if (src.timedOut && bin.timedOut) return { kind: "timed out" };
+  if (src.timedOut || bin.timedOut) return { kind: "one side timed out", why: `only the ${src.timedOut ? "source" : "binary"} side timed out (source ${src.ms} ms, binary ${bin.ms} ms)` };
   const sc = normalizeCmd(src.cmd);
   const bc = normalizeCmd(bin.cmd);
   if (JSON.stringify(sc) !== JSON.stringify(bc)) return { kind: "differs", why: `command: source ${JSON.stringify(sc).slice(0, 300)}, binary ${JSON.stringify(bc).slice(0, 300)}` };
@@ -78,7 +81,8 @@ if (import.meta.main) {
   const read = (dir: string) => new Map(readdirSync(dir).filter((f) => f.endsWith(".json")).map((f) => [f, JSON.parse(readFileSync(join(dir, f), "utf8")) as RawRecord]));
   const S = read(srcDir);
   const B = read(binDir);
-  const counts: Record<string, number> = { same: 0, "pid-masked": 0, "timed out": 0, differs: 0, missing: 0 };
+  const counts: Record<string, number> = { same: 0, "pid-masked": 0, "timed out": 0, "one side timed out": 0, differs: 0, missing: 0 };
+  const notes: string[] = [];
   const lines: string[] = [];
   let srcMs = 0;
   let binMs = 0;
@@ -95,12 +99,13 @@ if (import.meta.main) {
     const v = compareRecords(s, b);
     counts[v.kind]!++;
     if (v.kind === "differs") lines.push(`ERROR: ${s.suite} ${s.ids.join(", ").slice(0, 200)} (attempt ${s.attempt}): ${v.why}`);
+    if (v.kind === "one side timed out") notes.push(`note: ${s.suite} ${s.ids.join(", ").slice(0, 200)} (attempt ${s.attempt}): ${v.why}`);
   }
-  if (typeof a.out === "string") writeFileSync(a.out, lines.join("\n") + (lines.length ? "\n" : ""));
-  for (const l of lines.slice(0, 5)) console.log(l);
-  if (lines.length > 5) console.log(`... ${lines.length - 5} more${typeof a.out === "string" ? ` in ${a.out}` : ""}`);
+  if (typeof a.out === "string") writeFileSync(a.out, [...lines, ...notes].join("\n") + (lines.length + notes.length ? "\n" : ""));
+  for (const l of [...lines.slice(0, 5), ...notes.slice(0, 5)]) console.log(l);
+  if (lines.length + notes.length > 10) console.log(`... more${typeof a.out === "string" ? ` in ${a.out}` : ""}`);
   console.log(
-    `processes=${S.size}/${B.size} ${Object.entries(counts).map(([k, n]) => `${k.replace(" ", "-")}=${n}`).join(" ")} subject-seconds source=${(srcMs / 1000).toFixed(1)} binary=${(binMs / 1000).toFixed(1)}`,
+    `processes=${S.size}/${B.size} ${Object.entries(counts).map(([k, n]) => `${k.replaceAll(" ", "-")}=${n}`).join(" ")} subject-seconds source=${(srcMs / 1000).toFixed(1)} binary=${(binMs / 1000).toFixed(1)}`,
   );
   process.exitCode = counts.differs! + counts.missing! > 0 ? 1 : 0;
 }
