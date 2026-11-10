@@ -79,9 +79,19 @@ export function aloneStepArgs(u: UnitStep, junit: string, timeoutMs: number = UN
  * - RUST_TS_DATA, RUST_TS_HOST_TUPLE: `bun test` and its `--parallel` workers do not read `.env.local` (Bun loads
  *   `.env.test` there), so the gate's values (scripts/lib/common.ts reads `.env.local`) are passed by name. A host tuple
  *   the gate does not have stays unset.
+ * - RUST_TS_SUBJECT=source: the unit tests test the harness in its default mode, whatever mode the gate's suites run in.
+ *   A gate run with `RUST_TS_SUBJECT=binary` passed it on, and the harness tests that read a suite's subject command (which
+ *   names `src/rust_ts/main.ts` in source mode) failed (gate-20261110-013859-root-j9yr). Binary mode has its own tests
+ *   (scripts/subject-bin.cases.ts).
  */
 export function unitStepEnv(data: string, hostTuple: string | undefined): Record<string, string> {
-  return { RUST_TS_REQUIRE_PROBES: "1", CI: "true", RUST_TS_DATA: data, ...(hostTuple === undefined ? {} : { RUST_TS_HOST_TUPLE: hostTuple }) };
+  return {
+    RUST_TS_REQUIRE_PROBES: "1",
+    CI: "true",
+    RUST_TS_DATA: data,
+    RUST_TS_SUBJECT: "source",
+    ...(hostTuple === undefined ? {} : { RUST_TS_HOST_TUPLE: hostTuple }),
+  };
 }
 
 /**

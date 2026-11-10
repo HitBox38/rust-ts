@@ -45,8 +45,8 @@ test("unitStepArgs: --parallel only where the step sets it; unitStepEnv: an unse
   expect(UNIT_STEPS.map((s) => s.parallel)).toEqual([4, undefined]);
   expect(unitStepArgs({ name: "n", roots: ["a", "b"], junit: "j", parallel: 2 }, "/r/j.xml", 500)).toEqual(["test", "./a", "./b", "--parallel=2", "--timeout=500", "--reporter=junit", "--reporter-outfile=/r/j.xml"]);
   expect(unitStepArgs({ name: "n", roots: ["a"], junit: "j" }, "/r/j.xml")).toEqual(["test", "./a", "--timeout=60000", "--reporter=junit", "--reporter-outfile=/r/j.xml"]);
-  expect(unitStepEnv("/d", undefined)).toEqual({ RUST_TS_REQUIRE_PROBES: "1", CI: "true", RUST_TS_DATA: "/d" });
-  expect(unitStepEnv("/d", "t")).toEqual({ RUST_TS_REQUIRE_PROBES: "1", CI: "true", RUST_TS_DATA: "/d", RUST_TS_HOST_TUPLE: "t" });
+  expect(unitStepEnv("/d", undefined)).toEqual({ RUST_TS_REQUIRE_PROBES: "1", CI: "true", RUST_TS_DATA: "/d", RUST_TS_SUBJECT: "source" });
+  expect(unitStepEnv("/d", "t")).toEqual({ RUST_TS_REQUIRE_PROBES: "1", CI: "true", RUST_TS_DATA: "/d", RUST_TS_SUBJECT: "source", RUST_TS_HOST_TUPLE: "t" });
 });
 
 test("alone files: workers leave them out by whole path, one process runs them; each is a test file under its step's roots", () => {

@@ -158,7 +158,7 @@ test("the unit-test step under --parallel: report, skips, failures, .only, timeo
     expect(j.data).toBe(data);
     // The real steps: src/tools in 4 workers without its alone files, then those files in one process; scripts/harness in
     // one process; the 60 s per-test timeout; the env.
-    const env = { RUST_TS_REQUIRE_PROBES: "1", CI: "true", RUST_TS_DATA: data, RUST_TS_HOST_TUPLE: "tuple-under-test" };
+    const env = { RUST_TS_REQUIRE_PROBES: "1", CI: "true", RUST_TS_DATA: data, RUST_TS_SUBJECT: "source", RUST_TS_HOST_TUPLE: "tuple-under-test" };
     // The one-process passes unset the variables that make bun test quiet (review harness-w45 N1).
     const oneEnv = { ...env, CLAUDECODE: null, AGENT: null, REPL_ID: null };
     const alone: string[] = j.alone;
