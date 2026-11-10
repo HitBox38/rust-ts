@@ -3,8 +3,8 @@
 //   <name> (lane <lane>)` comment over a declaration whose body calls `unported(..)` with a path in the fn's own
 //   module), never both; the framework (framework/{mod, cursor, direction, fmt, lattice, results, visitor, tests}.rs) and
 //   lib.rs have no stubs;
-// - the crate root loads, the stubs stop as UNPORTED at runtime (representative calls), and `iterate_to_fixpoint` under
-//   `-Zdump-mir-dataflow` reaches the graphviz stub;
+// - the crate root loads, and `iterate_to_fixpoint` without `-Zdump-mir-dataflow` writes no graphviz (no stub is left:
+//   framework/graphviz.rs, the last, is ported and tested by framework/graphviz.test.ts);
 // - a `MixedBitSet` domain's `Large` arm (rustc_index `ChunkedBitSet`) goes through the framework's lattice / fmt impls.
 import { expect, test } from "bun:test";
 import { readdirSync, readFileSync, statSync } from "node:fs";
@@ -13,9 +13,7 @@ import { upstreamFns } from "../../scripts/coverage.ts";
 import { REPO } from "../../scripts/lib/common.ts";
 import { DenseBitSet } from "../rustc_index/bit_set.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
-import { Unported } from "../std/panic.ts";
 import { DebugWithContext_Local } from "./framework/fmt.ts";
-import { write_graphviz_results } from "./framework/graphviz.ts";
 import { AnalysisBase, type Domain, Domain_DenseBitSet, Domain_MixedBitSet } from "./framework/mod.ts";
 import * as lib from "./lib.ts";
 import { MaybeLiveLocals } from "./impls/liveness.ts";
@@ -155,8 +153,8 @@ test("every fn of rustc_mir_dataflow is ported or declared as a stub, never both
   // nothing outside the crate's files
   for (const d of [...stubs, ...markers]) expect(FILES.some((f) => `${CRATE}/${f}` === d.path)).toBe(true);
   expect(total).toBe(378);
-  expect(markers.length).toBe(348);
-  expect(stubs.length).toBe(30);
+  expect(markers.length).toBe(378);
+  expect(stubs.length).toBe(0);
 });
 
 test("the crate root loads and re-exports the framework", () => {
@@ -172,22 +170,9 @@ function one_block_body(): Body {
   return Body.new_cfg_only([BasicBlockData.new_stmts([], new Terminator(SourceInfo.outermost(DUMMY_SP), TerminatorKind.Return), false)]);
 }
 
-function stops(f: () => unknown, what: string): void {
-  let err: unknown;
-  try {
-    f();
-  } catch (e) {
-    err = e;
-  }
-  expect(err).toBeInstanceOf(Unported);
-  expect((err as Unported).what).toBe(what);
-}
-
-test("stubs stop as UNPORTED in their own module", () => {
-  const tcx = {} as TyCtxt;
-  const body = {} as Body;
+test("filled modules run", () => {
   // (move_paths / drop_flag_effects / un_derefer / points / debuginfo are ported: move_paths/move_paths.test.ts)
-  stops(() => write_graphviz_results(tcx, body, {} as never, undefined), "rustc_mir_dataflow::framework::graphviz::write_graphviz_results");
+  // (framework/graphviz.rs is ported too, lane dataflow-graphviz: framework/graphviz.test.ts)
   // a filled analysis (lane dataflow-impls; tested on built MIR in impls/impls.test.ts): bottom = no local live
   expect(new MaybeLiveLocals().bottom_value(one_block_body()).domain_size()).toBe(0);
   expect(new MaybeLiveLocals().Direction.IS_BACKWARD).toBe(true);
@@ -203,11 +188,11 @@ class Empty extends AnalysisBase<DenseBitSet<number>> {
   apply_primary_statement_effect(): void {}
 }
 
-test("iterate_to_fixpoint under -Zdump-mir-dataflow reaches the graphviz stub", () => {
+// With -Zdump-mir-dataflow it writes the graphviz files: framework/graphviz.test.ts (lane dataflow-graphviz).
+test("iterate_to_fixpoint without -Zdump-mir-dataflow writes no graphviz", () => {
   const body = one_block_body();
   const tcx = (dump: boolean) => ({ sess: { opts: { unstable_opts: { dump_mir_dataflow: dump } } } }) as unknown as TyCtxt;
   expect(new Empty().iterate_to_fixpoint(tcx(false), body, undefined).entry_states.length).toBe(1);
-  stops(() => new Empty().iterate_to_fixpoint(tcx(true), body, "pass"), "rustc_mir_dataflow::framework::graphviz::write_graphviz_results");
 });
 
 test("a MixedBitSet domain past CHUNK_BITS (the Large arm) joins, compares and prints", () => {
