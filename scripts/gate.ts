@@ -23,6 +23,9 @@
 //       It refuses to start while `RUST_TS_FREEZE_LISTS` or `NODE_ENV` is set (`freezeEnvRefusal`): every subject would inherit it.
 //       A static step without a junit report that prints `note:` lines (frozen lists, on a missing `gate.json`) has them printed in
 //       the gate's output and recorded in gate.json `staticNotes` (review root-w44-check N1); they never decide anything.
+//       Subject: with `RUST_TS_SUBJECT=binary` every subject entry that has a compiled build (scripts/lib/subject-bin.ts) runs from it,
+//       for the static steps' subjects (frozen lists) and every suite; the build is made or found before the static steps, a failed
+//       build stops the run, and gate.json `subject` records the mode and each build's hash. Unset: `DEFAULT_SUBJECT_MODE`.
 //   bun scripts/gate.ts accept --run <run-id>
 //       grow the protected set with that gate run's new MATCHes. Refused if the run lost anything,
 //       skipped static checks, skipped a protected suite, ran on a dirty tree, or HEAD has moved since.
@@ -37,6 +40,7 @@ import { difftest, heavyErrorLines, heavyLine, unstableOf, type HeavyRun, type O
 import { DATA, REPO, RUNS, UPSTREAM, die, ensureDir, nowId, parseArgs, run } from "./lib/common.ts";
 import { HostLog, REAL_HOST, StuckReads, batteryRefusal, sampleHost, type HostReaders, type HostSample } from "./lib/host-state.ts";
 import { miriBinary } from "./lib/miri.ts";
+import { prepareSubject } from "./lib/subject-bin.ts";
 import { verifyOraclePin } from "./lib/oracle.ts";
 import { BUN_QUIET_VARS, UNIT_STEPS, UNIT_TEST_TIMEOUT_MS, aloneJunit, aloneStepArgs, oneProcessEnv, unitStepArgs, unitStepEnv, type UnitStep } from "./lib/unit-steps.ts";
 import { upstreamError, upstreamStatus } from "./lib/upstream.ts";
@@ -587,6 +591,10 @@ export async function gateRun(requested: string[], skipStatic: boolean, skipHeav
   for (const { suite } of notRun) console.log(`note: heavy suite ${suite} not run (--skip-heavy): none of its cases counts as lost, and a run that skips a protected suite cannot be accepted`);
   const runId = `gate-${nowId()}`;
   const prov = await provenance();
+  // The subject binary of the tree under test, built (or found) once, before anything runs a subject: a failed build is one
+  // `ERROR:` line and no run (scripts/lib/subject-bin.ts). gate.json `subject` records the mode and each build's hash.
+  const subject = prepareSubject();
+  if (subject.mode === "binary") console.log(`note: subject binary (${Object.entries(subject.bins).map(([e, h]) => `${e} ${h}`).join(", ")})`);
   if (prov.dirty.length) console.log(`note: tree is dirty (${prov.dirty.length} paths); this run cannot be accepted`);
   // Before anything runs the oracle (unit tests, aux builds, suites): the pinned commit and components.
   await verifyOraclePin();
@@ -616,7 +624,7 @@ export async function gateRun(requested: string[], skipStatic: boolean, skipHeav
     // Checked, not assumed (review harness-w44 N2): it was clean at the start, and only the static steps ran since.
     const staticUpstream = upstreamStatus(UPSTREAM);
     if (staticUpstream.length) console.log(upstreamError("a static step changed the upstream checkout", staticUpstream, UPSTREAM));
-    writeFileSync(join(runDir, "gate.json"), JSON.stringify({ runId, pass: false, staticOk, skipStatic, unitTestSkips: st.skips ?? null, staticNotes: st.notes ?? [], head: prov.head, dirty: prov.dirty, unstableOk, upstreamOk: staticUpstream.length === 0, ...(staticUpstream.length ? { upstreamChanges: staticUpstream } : {}), frozenLists: frozenListsRecord(runDir), suites: [], notRun: stopped, host: host.record(allowBattery) }, null, 1));
+    writeFileSync(join(runDir, "gate.json"), JSON.stringify({ runId, pass: false, staticOk, skipStatic, unitTestSkips: st.skips ?? null, staticNotes: st.notes ?? [], head: prov.head, dirty: prov.dirty, unstableOk, upstreamOk: staticUpstream.length === 0, ...(staticUpstream.length ? { upstreamChanges: staticUpstream } : {}), frozenLists: frozenListsRecord(runDir), suites: [], notRun: stopped, subject, host: host.record(allowBattery) }, null, 1));
     console.log(`gate FAIL run=${runId}`);
     process.exit(1);
   }
@@ -680,7 +688,7 @@ export async function gateRun(requested: string[], skipStatic: boolean, skipHeav
   await host.mark();
   host.stop();
   if (host.powerLost.length) console.log(`note: this gate lost power ${host.powerLost.length} time(s), first seen at ${host.powerLost[0]!.at}; a lost case from about then on may be a false timeout (\`host\` in gate.json)`);
-  writeFileSync(join(RUNS, runId, "gate.json"), JSON.stringify({ runId, pass, staticOk, skipStatic, unitTestSkips: st.skips ?? null, staticNotes: st.notes ?? [], head: prov.head, dirty: prov.dirty, unstableOk, upstreamOk, frozenLists: frozenListsRecord(runDir), suites: out, ...(notRun.length ? { notRun } : {}), host: host.record(allowBattery) }, null, 1));
+  writeFileSync(join(RUNS, runId, "gate.json"), JSON.stringify({ runId, pass, staticOk, skipStatic, unitTestSkips: st.skips ?? null, staticNotes: st.notes ?? [], head: prov.head, dirty: prov.dirty, unstableOk, upstreamOk, frozenLists: frozenListsRecord(runDir), suites: out, ...(notRun.length ? { notRun } : {}), subject, host: host.record(allowBattery) }, null, 1));
   console.log(`gate ${pass ? "PASS" : "FAIL"} run=${runId}`);
   if (!pass) process.exit(1);
 }

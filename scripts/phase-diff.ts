@@ -16,14 +16,17 @@
 // strips it, scripts/lib/mir-dump.ts), and `<run dir>` is a fresh directory per run,
 // `$RUST_TS_DATA/phase-diff/mir-dump/<RUST_TS_AGENT>-XXXXXX`, so concurrent runs never share or delete each other's
 // dumps; it is removed when the stage matches and kept (its path printed) when it diverges.
+// Subject: `RUST_TS_SUBJECT=binary` runs src/rust_ts/main.ts's compiled build, as difftest does (scripts/lib/subject-bin.ts);
+// the build is made or found before the first phase, and its hash is printed.
 import { isAbsolute, join, dirname, basename } from "node:path";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { DATA, REPO, UPSTREAM, ensureDir, parseArgs, run } from "./lib/common.ts";
+import { DATA, UPSTREAM, ensureDir, parseArgs, run } from "./lib/common.ts";
 import { caseEnv } from "./lib/env.ts";
 import { dumpFilesInOrder, firstDumpDifference } from "./lib/mir-dump.ts";
 import { maskedTexts } from "./lib/unstable.ts";
 import { upstreamChanges, upstreamError, upstreamStatus } from "./lib/upstream.ts";
 import { oracleRustcCmd, verifyOraclePin } from "./lib/oracle.ts";
+import { prepareSubject, subjectCmd } from "./lib/subject-bin.ts";
 
 const PHASES: [string, string[]][] = [
   ["parse", ["-Zunpretty=ast-tree"]],
@@ -43,6 +46,8 @@ if (!file) {
   process.exit(0);
 }
 await verifyOraclePin();
+const subject = prepareSubject();
+if (subject.mode === "binary") console.log(`subject: binary (${Object.entries(subject.bins).map(([e, h]) => `${e} ${h.slice(0, 12)}`).join(", ")})`);
 const abs = isAbsolute(file) ? file : join(UPSTREAM, file);
 const cwd = dirname(abs);
 const rel = basename(abs);
@@ -68,7 +73,7 @@ for (const [phase, flags] of PHASES) {
   const sideArgs = (side: "oracle" | "subject") => (dump ? [`-Zdump-mir-dir=${dumpDir(side)}`, ...args] : args);
   const [o, s] = await Promise.all([
     run(oracleRustcCmd(sideArgs("oracle")), { cwd, timeoutMs: 120_000, env: oracleEnv }),
-    run([process.execPath, join(REPO, "src/rust_ts/main.ts"), ...sideArgs("subject")], { cwd, timeoutMs: 120_000, env }),
+    run(subjectCmd("src/rust_ts/main.ts", sideArgs("subject")), { cwd, timeoutMs: 120_000, env }),
   ]);
   if (dump) {
     const d = firstDumpDifference(dumpDir("oracle"), dumpDir("subject"));
