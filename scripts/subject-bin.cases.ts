@@ -112,7 +112,7 @@ describe("rewrites keep every line and column", () => {
 });
 
 describe("cache key", () => {
-  const spec = buildSpec("scripts/subject-bin.test.ts");
+  const spec = buildSpec("scripts/subject-bin.cases.ts");
   const inputs = [
     { path: "src/a.ts", sha1: "1" },
     { path: "src/b.ts", sha1: "2" },
