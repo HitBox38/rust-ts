@@ -72,11 +72,28 @@ export function subjectModeOf(env: Record<string, string | undefined> = process.
  * (`BUN_JSC_useTailCalls=0` keeps every frame from source, but a build made with tail calls keeps them in its bytecode whatever
  * the subject's environment says), and the key does not cover the environment: so neither the build nor its runs take one.
  */
-export function binaryModeRefusal(env: Record<string, string | undefined> = process.env): string | undefined {
+export function binaryModeRefusal(
+  env: Record<string, string | undefined> = process.env,
+  bun: { version: string; revision: string } = { version: Bun.version, revision: Bun.revision },
+): string | undefined {
   const jsc = Object.keys(env).filter((k) => k.startsWith("BUN_JSC_") && env[k] !== undefined);
-  if (jsc.length === 0) return undefined;
-  return `${jsc.join(", ")} set: a subject binary's bytecode does not follow JSC options of its run (unset them, or run with ${SUBJECT_MODE_VAR}=source)`;
+  if (jsc.length > 0) {
+    return `${jsc.join(", ")} set: a subject binary's bytecode does not follow JSC options of its run (unset them, or run with ${SUBJECT_MODE_VAR}=source)`;
+  }
+  if (!VALIDATED_BUN.some((v) => v.version === bun.version && v.revision === bun.revision)) {
+    return `Bun ${bun.version} (${bun.revision.slice(0, 12)}) is not a validated build for subject binaries: \`optimize: { bytecode: false }\` is not type-checked and a release that renamed it would be ignored silently (docs/reviews/subject-bin.md F2); re-run the depth and module-order checks of docs/handoff/subject-bin.md on it and add it to VALIDATED_BUN, or run with ${SUBJECT_MODE_VAR}=source`;
+  }
+  return undefined;
 }
+
+/**
+ * The Bun builds the subject binary was validated on (docs/reviews/subject-bin.md F2): `Bun.build` accepts an unknown option
+ * without a word, so `optimize: { bytecode: false }` (`bunBuildConfig`) is only known to take effect on these. A build joins
+ * the list only after the handoff's nesting-depth and module-order checks pass on it.
+ */
+export const VALIDATED_BUN: readonly { version: string; revision: string }[] = [
+  { version: "1.4.3", revision: "c6da4a4d3010e5553438c60f6bd76d981976867c" },
+];
 
 /** The mode from the environment; an unknown value prints one `ERROR:` line and exits. */
 export function subjectMode(env: Record<string, string | undefined> = process.env): SubjectMode {
@@ -284,9 +301,31 @@ function metaInputs(r: unknown, repo: string): string[] {
 /** This file's source: the plugin and every option above are in it. */
 const BUILDER_SOURCE = hash(readFileSync(import.meta.path));
 
-/** A build's key: the hash of `spec`, the Bun build, this builder, and each input file's path and content. */
-export function subjectBinKeyOf(spec: BuildSpec, inputs: { path: string; sha1: string }[], bun = { version: Bun.version, revision: Bun.revision }, builder = BUILDER_SOURCE): string {
-  return hash(JSON.stringify({ v: 1, spec, bun, builder, inputs }));
+/**
+ * Files the bundler reads that are not in its metafile's inputs (docs/reviews/subject-bin.md F1): `tsconfig.json` changes how
+ * every module is transpiled, and `package.json`, `bunfig.toml` and `bun.lock` can change resolution and bundling. A missing file
+ * is keyed as absent.
+ */
+export const CONFIG_FILES = ["tsconfig.json", "package.json", "bunfig.toml", "bun.lock"] as const;
+const ABSENT = "absent";
+
+/** Each of `CONFIG_FILES` in `repo` with its content's hash, or `absent`. */
+export function configInputs(repo: string): { path: string; sha1: string }[] {
+  return CONFIG_FILES.map((p) => {
+    const f = join(repo, p);
+    return { path: p, sha1: existsSync(f) ? hash(readFileSync(f)) : ABSENT };
+  });
+}
+
+/** A build's key: the hash of `spec`, the Bun build, this builder, each input file's path and content, and the config files. */
+export function subjectBinKeyOf(
+  spec: BuildSpec,
+  inputs: { path: string; sha1: string }[],
+  bun = { version: Bun.version, revision: Bun.revision },
+  builder = BUILDER_SOURCE,
+  config: { path: string; sha1: string }[] = configInputs(spec.repo),
+): string {
+  return hash(JSON.stringify({ v: 2, spec, bun, builder, inputs, config }));
 }
 
 export interface SubjectBin {
@@ -302,11 +341,12 @@ export interface SubjectBin {
 }
 
 /** The key of `spec`'s build of the tree as it is now, with its inputs. */
-export async function subjectBinKey(spec: BuildSpec): Promise<{ hash: string; inputs: { path: string; sha1: string }[] }> {
+export async function subjectBinKey(spec: BuildSpec): Promise<{ hash: string; inputs: { path: string; sha1: string }[]; config: { path: string; sha1: string }[] }> {
+  const config = configInputs(spec.repo);
   const r = await Bun.build(bunBuildConfig(spec, undefined));
   if (!r.success) throw new Error(`bundling ${spec.entry} failed: ${buildLogs(r)}`);
   const inputs = metaInputs(r, spec.repo).map((p) => ({ path: p, sha1: hash(readFileSync(join(spec.repo, p))) }));
-  return { hash: subjectBinKeyOf(spec, inputs), inputs };
+  return { hash: subjectBinKeyOf(spec, inputs, undefined, undefined, config), inputs, config };
 }
 
 /** `meta.json` of a build. */
@@ -316,6 +356,7 @@ export interface SubjectBinMeta {
   spec: BuildSpec;
   bun: { version: string; revision: string };
   inputs: { path: string; sha1: string }[];
+  config: { path: string; sha1: string }[];
   builtAt: string;
   buildMs: number;
 }
@@ -379,7 +420,7 @@ let buildQueue: Promise<void> = Promise.resolve();
 
 async function ensureIn(entry: string, repo: string, root: string, opts: { bunPath?: string; smoke?: Smoke }): Promise<SubjectBin> {
   const spec = buildSpec(entry, repo, opts.bunPath);
-  const { hash: key, inputs } = await subjectBinKey(spec);
+  const { hash: key, inputs, config } = await subjectBinKey(spec);
   const dir = join(root, key);
   const have = finished(dir, key, entry);
   if (have) return have;
@@ -398,9 +439,12 @@ async function ensureIn(entry: string, repo: string, root: string, opts: { bunPa
     for (const i of inputs) {
       if (hash(readFileSync(join(repo, i.path))) !== i.sha1) throw new Error(`${i.path} changed while ${entry} was being built`);
     }
+    for (const c of configInputs(repo)) {
+      if (config.find((k) => k.path === c.path)?.sha1 !== c.sha1) throw new Error(`${c.path} changed while ${entry} was being built`);
+    }
     const why = (opts.smoke ?? versionSmoke)(join(tmp, BIN_NAME), spec);
     if (why !== undefined) throw new Error(`the build of ${entry} fails its check: ${why}`);
-    const meta: SubjectBinMeta = { hash: key, entry, spec, bun: { version: Bun.version, revision: Bun.revision }, inputs, builtAt: new Date().toISOString(), buildMs: Math.round(performance.now() - started) };
+    const meta: SubjectBinMeta = { hash: key, entry, spec, bun: { version: Bun.version, revision: Bun.revision }, inputs, config, builtAt: new Date().toISOString(), buildMs: Math.round(performance.now() - started) };
     writeFileSync(join(tmp, "meta.json"), JSON.stringify(meta, null, 1));
     try {
       renameSync(tmp, dir);

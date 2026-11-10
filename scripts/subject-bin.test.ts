@@ -10,6 +10,7 @@ import {
   DEFAULT_SUBJECT_MODE,
   binaryModeRefusal,
   buildSpec,
+  CONFIG_FILES,
   ensureSubjectBin,
   metaFnName,
   pruneSubjectBins,
@@ -21,6 +22,7 @@ import {
   subjectModeOf,
   subjectRecord,
   usesBinary,
+  VALIDATED_BUN,
 } from "./lib/subject-bin.ts";
 
 const tmp = realpathSync(mkdtempSync(join(tmpdir(), "subject-bin-test-")));
@@ -36,8 +38,15 @@ describe("mode", () => {
   });
 
   test("binary mode refuses any BUN_JSC_ option in the environment", () => {
-    expect(binaryModeRefusal({ PATH: "/bin" })).toBeUndefined();
-    expect(binaryModeRefusal({ BUN_JSC_useTailCalls: "0" })).toContain("BUN_JSC_useTailCalls");
+    const ok = VALIDATED_BUN[0]!;
+    expect(binaryModeRefusal({ PATH: "/bin" }, ok)).toBeUndefined();
+    expect(binaryModeRefusal({ BUN_JSC_useTailCalls: "0" }, ok)).toContain("BUN_JSC_useTailCalls");
+  });
+
+  test("binary mode refuses a Bun build not in VALIDATED_BUN (review F2)", () => {
+    const ok = VALIDATED_BUN[0]!;
+    expect(binaryModeRefusal({}, { version: "1.4.4", revision: ok.revision })).toContain("not a validated build");
+    expect(binaryModeRefusal({}, { version: ok.version, revision: "0".repeat(40) })).toContain("not a validated build");
   });
 
   test("only the binary entries use a build, and only in binary mode", () => {
@@ -122,6 +131,16 @@ describe("cache key", () => {
     expect(subjectBinKeyOf({ ...spec, repo: "/elsewhere" }, inputs, bun, "builder")).not.toBe(k);
     expect(subjectBinKeyOf({ ...spec, bunPath: "/other/bun" }, inputs, bun, "builder")).not.toBe(k);
   });
+  test("each config file's content, or its absence, changes it (review F1)", () => {
+    const config = CONFIG_FILES.map((p) => ({ path: p, sha1: "c" }));
+    const kc = subjectBinKeyOf(spec, inputs, bun, "builder", config);
+    for (let i = 0; i < config.length; i++) {
+      const changed = config.map((c, j) => (j === i ? { ...c, sha1: "d" } : c));
+      const absent = config.map((c, j) => (j === i ? { ...c, sha1: "absent" } : c));
+      expect(subjectBinKeyOf(spec, inputs, bun, "builder", changed)).not.toBe(kc);
+      expect(subjectBinKeyOf(spec, inputs, bun, "builder", absent)).not.toBe(kc);
+    }
+  });
 });
 
 describe("builder (fixture tree)", () => {
@@ -182,6 +201,16 @@ describe("builder (fixture tree)", () => {
     const removed = pruneSubjectBins([join(root, names[0]!)], 3 * 24 * 3600 * 1000, root);
     expect(removed.sort()).toEqual(names.slice(1).sort());
     expect(readdirSync(root)).toEqual([names[0]!]);
+  });
+
+  test("a tsconfig.json edit makes a new build, though no bundled file changed (review F1)", async () => {
+    writeFileSync(join(repo, "src", "lib", "named.ts"), "export const n = 5;\n");
+    const a = await ensureSubjectBin("src/entry.ts", { repo, root, smoke: noSmoke });
+    writeFileSync(join(repo, "tsconfig.json"), JSON.stringify({ compilerOptions: { useDefineForClassFields: false } }));
+    const b = await ensureSubjectBin("src/entry.ts", { repo, root, smoke: noSmoke });
+    expect(b.hash).not.toBe(a.hash);
+    expect(b.built).toBe(true);
+    expect(b.inputs).toBe(a.inputs);
   });
 });
 
