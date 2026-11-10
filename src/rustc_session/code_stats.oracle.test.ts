@@ -19,7 +19,8 @@ test("-Zprint-type-sizes of code_stats_oracle/big.rs against the oracle", () => 
 });
 
 // fixers-50 (fixers-49 review N1, N3): infos with the same size and description print in upstream's `FxHashSet<TypeSizeInfo>`
-// iteration order, which `print_type_sizes`' stable sort keeps. Each case in code_stats_oracle/ties/ has such ties; the
+// iteration order, which `print_type_sizes`' stable sort keeps. Each case in code_stats_oracle/ties/ has such ties (`closures.rs`'s
+// also print the same in insertion order, so only `upvars.rs` and `locals.rs` pin FxHashSet order; root-w46-check N3); the
 // pinned rustc runs live on the same file (host target, its own sysroot, `-Zcodegen-backend=dummy` on both sides), and
 // stdout, stderr and the exit code must be equal. `upvars.rs` and `locals.rs` tie async blocks whose hashes hold upvar,
 // local and variant-name `Symbol`s, so they also pin the port's Symbol indices to upstream's (hashing each Symbol as
@@ -43,7 +44,7 @@ function tied(stdout: string): string[] {
 }
 
 for (const file of readdirSync(TIES).filter((f) => f.endsWith(".rs")).sort()) {
-  test.skipIf(SKIP_TIES)(`-Zprint-type-sizes ties in FxHashSet order: ties/${file}`, () => {
+  test.skipIf(SKIP_TIES)(`-Zprint-type-sizes ties as the oracle prints them: ties/${file}`, () => {
     const out = join(WORK, "ties", file);
     rmSync(out, { recursive: true, force: true });
     const sysroot = Bun.spawnSync([...RUSTC, "--print", "sysroot"], { env: test_env() }).stdout.toString().trim();
