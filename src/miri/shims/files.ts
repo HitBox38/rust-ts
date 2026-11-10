@@ -17,8 +17,8 @@
 // - `FdTable.fds` is a `BTreeMap`; the generated `Map` is not key-ordered, so ordered walks sort the keys.
 // - Host I/O (D14): stdin / stdout / stderr are the host's fds 0 / 1 / 2 through `node:fs` (`readSync` / `writeSync`, one
 //   read(2) / write(2) each), with std's buffering on top (`Stdin`'s `BufReader`, `Stdout`'s `LineWriter`), see
-//   `HostStdin` / `HostStdout` / `HostStderr` below. `std::fs::File` / `Dir` (FileHandle / DirHandle, isolation off) stop
-//   `unported` (miri-fs, plan-m6 D14).
+//   `HostStdin` / `HostStdout` / `HostStderr` below. `std::fs::File` / `Dir` (FileHandle / DirHandle, isolation off) are
+//   src/std/fs.ts's host values (miri-host-fs, plan-m6 D14); their drop glue (unix/fs.ts) closes the host fd.
 import { readSync, writeSync } from "node:fs";
 import { isatty } from "node:tty";
 import { type Pointer } from "../lib.ts";
@@ -29,7 +29,7 @@ import { isolation_abort_error } from "../helpers.ts";
 import { HostError, type IoError, IoError_from_ErrorKind, LibcError } from "./io_error.ts";
 import { type Readiness, Readiness_EMPTY, type ReadinessWatched, ReadinessWatched_default } from "./readiness.ts";
 import { type UnixFileDescription } from "./unix/fd.ts";
-import type * as fs from "../../std/fs.ts";
+import * as fs from "../../std/fs.ts";
 import { Size } from "../../rustc_abi/lib.ts";
 import { InterpCx } from "../../rustc_const_eval/interpret/eval_context.ts";
 import { type AnyMachine, type Machine } from "../../rustc_const_eval/interpret/machine.ts";
@@ -804,7 +804,7 @@ function debug_io_error_plain(e: io_Error): string {
 
 /** `impl FileDescription for FileHandle` (files.rs:432). `FileHandle` is a generated interface (lane miri-fs builds the
  *  values); the impl is this table, which miri-fs installs on its values. `file` is a host `std::fs::File` (isolation off,
- *  D14): every host access stops `unported` until src/std has a `File` stand-in. */
+ *  D14): src/std/fs.ts (host libc). */
 export const FileDescription_FileHandle = {
   // rustc: src/tools/miri/src/shims/files.rs:433 name
   name(this: FileHandle): string {
@@ -812,7 +812,7 @@ export const FileDescription_FileHandle = {
   },
 
   // rustc: src/tools/miri/src/shims/files.rs:437 read
-  read(this: FileHandle, self_: FileDescriptionRef<FileDescription>, communicate_allowed: boolean, _ptr: Pointer, _len: number, ecx: MiriInterpCx, finish: DynMachineCallback<Result<number, IoError>>): InterpResult {
+  read(this: FileHandle, self_: FileDescriptionRef<FileDescription>, communicate_allowed: boolean, ptr: Pointer, len: number, ecx: MiriInterpCx, finish: DynMachineCallback<Result<number, IoError>>): InterpResult {
     assert(communicate_allowed, "isolation should have prevented even opening a file");
 
     if (!(self_.deref() as unknown as FileHandle).readable) {
@@ -822,14 +822,20 @@ export const FileDescription_FileHandle = {
       return finish.call(ecx, Err(err));
     }
 
-    // let mut file = &self.file;
-    // let result = ecx.read_from_host(|buf| file.read(buf), len, ptr)?;
-    // finish.call(ecx, result)
-    return unported("std::fs::File::read (host file I/O, isolation off; plan-m6 D14)");
+    const file = (self_.deref() as unknown as FileHandle).file as unknown as fs.File;
+    const result = ecx.read_from_host((buf) => file.read(buf), len, ptr);
+    if (result.$ === "Err") {
+      self_.drop();
+      return result;
+    }
+    const r = finish.call(ecx, result._0);
+    // `self` (the handle) is dropped at the end of the fn.
+    self_.drop();
+    return r;
   },
 
   // rustc: src/tools/miri/src/shims/files.rs:462 write
-  write(this: FileHandle, self_: FileDescriptionRef<FileDescription>, communicate_allowed: boolean, _ptr: Pointer, _len: number, ecx: MiriInterpCx, finish: DynMachineCallback<Result<number, IoError>>): InterpResult {
+  write(this: FileHandle, self_: FileDescriptionRef<FileDescription>, communicate_allowed: boolean, ptr: Pointer, len: number, ecx: MiriInterpCx, finish: DynMachineCallback<Result<number, IoError>>): InterpResult {
     assert(communicate_allowed, "isolation should have prevented even opening a file");
 
     if (!(self_.deref() as unknown as FileHandle).writable) {
@@ -838,29 +844,32 @@ export const FileDescription_FileHandle = {
       self_.drop();
       return finish.call(ecx, Err(err));
     }
-    // let result = ecx.write_to_host(&self.file, len, ptr)?;
-    // finish.call(ecx, result)
-    return unported("std::fs::File::write (host file I/O, isolation off; plan-m6 D14)");
+    const result = ecx.write_to_host((self_.deref() as unknown as FileHandle).file as unknown as fs.File, len, ptr);
+    if (result.$ === "Err") {
+      self_.drop();
+      return result;
+    }
+    const r = finish.call(ecx, result._0);
+    // `self` (the handle) is dropped at the end of the fn.
+    self_.drop();
+    return r;
   },
 
   // rustc: src/tools/miri/src/shims/files.rs:485 seek
-  seek(this: FileHandle, communicate_allowed: boolean, _offset: SeekFrom): InterpResult<Result<bigint, io_Error>> {
+  seek(this: FileHandle, communicate_allowed: boolean, offset: SeekFrom): InterpResult<Result<bigint, io_Error>> {
     assert(communicate_allowed, "isolation should have prevented even opening a file");
-    // interp_ok((&mut &self.file).seek(offset))
-    return unported("std::fs::File::seek (host file I/O, isolation off; plan-m6 D14)");
+    return interp_ok((this.file as unknown as fs.File).seek(offset));
   },
 
   // rustc: src/tools/miri/src/shims/files.rs:494 metadata
   metadata(this: FileHandle): InterpResult<Either<Result<Pending<"fs::Metadata">, io_Error>, string>> {
-    // interp_ok(Either::Left(self.file.metadata()))
-    return unported("std::fs::File::metadata (host file I/O, isolation off; plan-m6 D14)");
+    // PORT: the generated `Pending<"fs::Metadata">` is a src/std/fs.ts `Metadata`.
+    return interp_ok({ $: "Left", _0: (this.file as unknown as fs.File).metadata() as unknown as Result<Pending<"fs::Metadata">, io_Error> });
   },
 
   // rustc: src/tools/miri/src/shims/files.rs:498 is_tty
   is_tty(this: FileHandle, communicate_allowed: boolean): boolean {
-    // communicate_allowed && self.file.is_terminal()
-    if (!communicate_allowed) return false;
-    return unported("std::fs::File::is_terminal (host file I/O, isolation off; plan-m6 D14)");
+    return communicate_allowed && (this.file as unknown as fs.File).is_terminal();
   },
 
   // rustc: src/tools/miri/src/shims/files.rs:502 short_fd_operations
@@ -887,8 +896,7 @@ export const FileDescription_DirHandle = {
   // rustc: src/tools/miri/src/shims/files.rs:526 metadata
   metadata(this: DirHandle): InterpResult<Either<Result<Pending<"fs::Metadata">, io_Error>, string>> {
     // #[cfg(not(bootstrap))]
-    // return interp_ok(Either::Left(self.dir.self_metadata()));
-    return unported("std::fs::Dir::self_metadata (host file I/O, isolation off; plan-m6 D14)");
+    return interp_ok({ $: "Left", _0: (this.dir as unknown as fs.Dir).self_metadata() as unknown as Result<Pending<"fs::Metadata">, io_Error> });
   },
 
   // rustc: src/tools/miri/src/shims/files.rs:535 read
@@ -1059,9 +1067,29 @@ InterpCx.prototype.write_to_host = function (this: MiriInterpCx, file: HostWrite
 ///
 /// Note that on Windows hosts, `custom_flags` is ignored if `root` is `Some`!
 // rustc: src/tools/miri/src/shims/files.rs:706 open_file_or_dir
-export function open_file_or_dir(_root: fs.Dir | undefined, _path: string, _opts: fs.OpenOptions): Result<Either<fs.File, fs.Dir>, io_Error> {
+export function open_file_or_dir(root: fs.Dir | undefined, path: string, opts: fs.OpenOptions): Result<Either<fs.File, fs.Dir>, io_Error> {
   // On Unix, `open`/`openat` works for files and directories.
   // On Windows, that fails with `PermissionDenied`, so we need to open an `fs::Dir` instead.
   // (But that may succeed even on a file! So we still have to check the metadata.)
-  return unported("miri::shims::files::open_file_or_dir (host std::fs, isolation off; plan-m6 D14)");
+  const file_r = root !== undefined ? root.open_file_with(path, opts) : opts.open(path);
+  if (process.platform === "win32") {
+    // #[cfg(windows)]: the retry through `fs::Dir`.
+    return unported("miri::shims::files::open_file_or_dir: the cfg(windows) host branch (retry via fs::Dir)");
+  }
+  if (file_r.$ === "Err") return file_r;
+  const file = file_r._0;
+
+  const metadata_r = file.metadata();
+  if (metadata_r.$ === "Err") {
+    return panic(`just-opened file/dir should have metadata: ${debug_io_Error(metadata_r._0, PLAIN)}`);
+  }
+  const metadata = metadata_r._0;
+  if (metadata.is_dir()) {
+    assert(!metadata.is_symlink(), "assertion failed: !metadata.is_symlink()"); // Rust makes this mutually exclusive with `is_dir`
+    // Convert to dir.
+    // unix: Ok(Either::Right(OwnedFd::from(file).into()))
+    return Ok({ $: "Right", _0: fs.Dir.from_owned_fd(file.into_owned_fd()) });
+  } else {
+    return Ok({ $: "Left", _0: file });
+  }
 }
