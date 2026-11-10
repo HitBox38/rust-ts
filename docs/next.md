@@ -568,7 +568,7 @@ Parallel unit trial (root, quiet machine, AC, 2026-11-08): `bun test ./src ./too
 | harness-w46 | root-w44-check N1 (a passing static step's `note:` lines reach the gate log); harness-w45 review N1, N6; unit-parallel N5 (`.rlib` files beside tests); the proposed `rlib-native` report suite | APPROVE WITH NITS; on integ-w45 |
 
 ## Wave 40g (started 2026-11-09) — still independent of D4
-**Gate running on main in binary mode (`RUST_TS_SUBJECT=binary`); accept and audit to follow.** Queued: root-w46-check N1 (a tsconfig edit in the second before the key is computed), N2 (no test of the post-build config re-check or the config list); subject-bin review N1, N2, N4-N7.
+**First gate (gate-20261110-013859-root-j9yr, main a37f0d84) FAILED in its static steps, no suite run:** the gate passed `RUST_TS_SUBJECT=binary` to the runner unit tests, and 4 harness tests that read a suite's subject command failed. Root's fix (9bd994f1 on integ-w47: `unitStepEnv` sets `RUST_TS_SUBJECT=source`) is under independent check (root-w47-check); the gate re-runs in binary mode after it. Queued: root-w46-check N1 (a tsconfig edit in the second before the key is computed), N2 (no test of the post-build config re-check or the config list); subject-bin review N1, N2, N4-N7.
 Root measured 2026-11-09: the port takes 0.48 s to start (`--version`), and a `bun build --compile --bytecode` binary of `src/rust_ts/main.ts` takes 0.05 s. Its `-Zunpretty=hir` and `=expanded` output on dynamic-drop.rs is byte-identical, at 0.17 s against 0.67-0.72 s. The 13 suites of about 21.5k cases take 32-56 min each in the gate.
 
 | lane | scope | status |
