@@ -26,10 +26,17 @@
 // dylib's Rust frames. The callback keeps it, answers the RPC with `Err(PanicMessage::Unknown)` (which the client
 // resumes as a panic, caught by its `run_client`; `resume_unwind` runs no panic hook, so nothing is printed), and
 // `run` rethrows it when the client returns. A panic that aborts inside the dylib kills the process, as in rustc.
+//
+// Cross-thread execution (server.rs `MaybeCrossThread`; decision in docs/handoff/pm-cross-thread.md): each dylib
+// client's `run` is registered with `set_cross_thread_native`, which gives server.ts the `thread::spawn` closure as
+// native code (proc_macro_host.c `rts_client_thread_main`: the `BridgeConfig` with a `dispatch` closure over the
+// client end of the `MessagePipe`) and the `Buffer` codec of the pipe's native channels (src/std/sync/mpsc.ts). The
+// client thread (src/std/thread.ts, a pthread) never calls into JS; the server loop runs on the JS thread.
 
 import { cc, CString, JSCallback, ptr, read, toArrayBuffer } from "bun:ffi";
 import { join } from "node:path";
 import { bridge } from "../proc_macro/lib.ts";
+import { type CrossThreadNative, type MessagePipe, set_cross_thread_native } from "../proc_macro/bridge/server.ts";
 import type { Buffer as BufferT } from "../proc_macro/bridge/buffer.ts";
 import type { Client as ClientT } from "../proc_macro/bridge/client.ts";
 import type { Closure } from "../proc_macro/bridge/closure.ts";
@@ -37,6 +44,8 @@ import type { BridgeConfig } from "../proc_macro/bridge/mod.ts";
 import { unported } from "../std/panic.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
 import { write_stderr } from "../std/io.ts";
+import { chan_fns, type NativeCodec } from "../std/sync/mpsc.ts";
+import type { NativeThunk } from "../std/thread.ts";
 
 // ---------------------------------------------------------------------------------------------------------------
 // The C side
@@ -54,6 +63,9 @@ interface Native {
   rts_dlopen(path: number, flags: number): number;
   rts_dlsym(handle: number, symbol: number): number;
   rts_dlerror(): number;
+  rts_client_thread_new(run: number, input: number, force_show_panics: number, tx: number, rx: number, fns: number): number;
+  rts_client_thread_start(): number;
+  rts_client_thread_finish(t: number, out: number): void;
 }
 
 let NATIVE: Native | undefined;
@@ -77,6 +89,9 @@ function native(): Native {
       rts_dlopen: { args: ["ptr", "i32"], returns: "ptr" },
       rts_dlsym: { args: ["ptr", "ptr"], returns: "ptr" },
       rts_dlerror: { args: [], returns: "ptr" },
+      rts_client_thread_new: { args: ["ptr", "ptr", "i32", "ptr", "ptr", "ptr"], returns: "ptr" },
+      rts_client_thread_start: { args: [], returns: "ptr" },
+      rts_client_thread_finish: { args: ["ptr", "ptr"], returns: "void" },
     },
   });
   // PORT: bun:ffi's symbol types are not expressible as the interface above; the signatures are the ones declared.
@@ -334,7 +349,7 @@ function dispatch_callback(env: number | null, io: number | null): void {
 
 /** `client.run` for the `extern "C" fn(BridgeConfig) -> Buffer` at address `run`. */
 function dylib_run(run: number): (config: BridgeConfig) => BufferT {
-  return (config: BridgeConfig): BufferT => {
+  const f = (config: BridgeConfig): BufferT => {
     const n = native();
     const { input, dispatch, force_show_panics } = config;
     const input_s = struct_buffer();
@@ -354,5 +369,48 @@ function dylib_run(run: number): (config: BridgeConfig) => BufferT {
       throw frame.error.value;
     }
     return result;
+  };
+  set_cross_thread_native(f, cross_thread_native(run));
+  return f;
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// The cross-thread execution strategy (server.rs `MaybeCrossThread::run_bridge_and_client`; see server.ts)
+
+/** A `Buffer` moved through a native channel slot: its 5 words. */
+const BUFFER_CODEC: NativeCodec<BufferT> = {
+  words: BUFFER_WORDS,
+  write(b: BufferT, out: number): void {
+    const s = struct_buffer();
+    write_native(b, s);
+    new BigUint64Array(toArrayBuffer(out, 0, BUFFER_WORDS * WORD)).set(words_of(s));
+  },
+  read(p: number): BufferT {
+    return from_native_at(p);
+  },
+};
+
+/** The native `thread::spawn` closure for the dylib client whose `extern "C" fn` is at `run`. */
+function cross_thread_native(run: number): CrossThreadNative {
+  return {
+    buffer_codec: BUFFER_CODEC,
+    client_thread(input: BufferT, client: MessagePipe<BufferT>, force_show_panics: boolean): NativeThunk<BufferT> {
+      const n = native();
+      const input_s = struct_buffer();
+      write_native(input, input_s);
+      const fns = new Float64Array(4);
+      new BigUint64Array(fns.buffer).set(chan_fns().map(BigInt));
+      // `input` and `client` move into the closure.
+      const t = nonnull(n.rts_client_thread_new(run, ptr(input_s), force_show_panics ? 1 : 0, client.tx.into_raw(), client.rx.into_raw(), ptr(fns)));
+      return {
+        start: nonnull(n.rts_client_thread_start()),
+        arg: t,
+        take_result(): BufferT {
+          const out = struct_buffer();
+          n.rts_client_thread_finish(t, ptr(out));
+          return from_native_at(ptr(out));
+        },
+      };
+    },
   };
 }

@@ -120,6 +120,97 @@ void rts_run(void *run, Buffer *input, void *env, int force_show_panics, Buffer 
   *out = ((RunFn)run)(config);
 }
 
+// ---- the cross-thread strategy's client thread (library/proc_macro/src/bridge/server.rs:192) ----
+//
+// The closure `MaybeCrossThread::run_bridge_and_client` hands to `thread::spawn`:
+//
+//     move || {
+//         let mut dispatch = |b: Buffer| -> Buffer {
+//             client.send(b);
+//             client.recv().expect("server died while client waiting for reply")
+//         };
+//         run_client(BridgeConfig { input, dispatch: (&mut dispatch).into(), force_show_panics })
+//     }
+//
+// It runs on a pthread made by src/std/thread.c, so it calls no JS. `client` is the client end of the
+// `MessagePipe<Buffer>`: two channels of src/std/thread.c (passed in as raw pointers), reached through that unit's
+// function pointers (`rts_chan_fns`), since the two TinyCC units are not linked together.
+
+typedef int (*rts_chan_send_fn)(void *chan, const Buffer *msg);
+typedef int (*rts_chan_recv_fn)(void *chan, Buffer *out);
+typedef void (*rts_chan_drop_fn)(void *chan);
+
+typedef struct {
+  // captured by the closure
+  void *run;
+  Buffer input;
+  int force_show_panics;
+  void *tx; // client.tx: SyncSender<Buffer>
+  void *rx; // client.rx: Receiver<Buffer>
+  // src/std/thread.c's channel functions
+  rts_chan_send_fn send;
+  rts_chan_recv_fn recv;
+  rts_chan_drop_fn drop_sender;
+  rts_chan_drop_fn drop_receiver;
+  // the closure's return value, read after `join`
+  Buffer out;
+} ClientThread;
+
+// The `dispatch` closure, as `Closure::call` (closure.rs) calls it.
+static Buffer rts_pipe_dispatch(void *env, Buffer b) {
+  ClientThread *t = (ClientThread *)env;
+  Buffer r;
+  // `client.send(b)` = `self.tx.send(value).unwrap()`. A panic here (or in the `expect` below) would unwind out of
+  // the `extern "C"` `Closure::call`, which aborts. Neither can happen: the server keeps its end until the client
+  // thread is joined.
+  if (t->send(t->tx, &b) != 0) abort();
+  // `client.recv().expect("server died while client waiting for reply")`
+  if (t->recv(t->rx, &r) != 0) abort();
+  return r;
+}
+
+static void *rts_client_thread_main(void *arg) {
+  ClientThread *t = (ClientThread *)arg;
+  BridgeConfig config;
+  config.input = t->input;
+  config.dispatch.call = rts_pipe_dispatch;
+  config.dispatch.env = t;
+  config.force_show_panics = t->force_show_panics != 0;
+  t->out = ((RunFn)t->run)(config);
+  // The closure returns: its captured `client` is dropped (fields in order: `tx`, then `rx`). The server's `recv`
+  // then sees the disconnect and leaves its loop.
+  t->drop_sender(t->tx);
+  t->drop_receiver(t->rx);
+  return 0;
+}
+
+/// The closure's captures; `fns` is `rts_chan_fns`'s output (send, recv, drop_sender, drop_receiver).
+ClientThread *rts_client_thread_new(void *run, Buffer *input, int force_show_panics, void *tx, void *rx, void **fns) {
+  ClientThread *t = (ClientThread *)malloc(sizeof(ClientThread));
+  if (t == 0) abort(); // handle_alloc_error
+  t->run = run;
+  t->input = *input;
+  t->force_show_panics = force_show_panics;
+  t->tx = tx;
+  t->rx = rx;
+  t->send = (rts_chan_send_fn)fns[0];
+  t->recv = (rts_chan_recv_fn)fns[1];
+  t->drop_sender = (rts_chan_drop_fn)fns[2];
+  t->drop_receiver = (rts_chan_drop_fn)fns[3];
+  return t;
+}
+
+/// The thread's start routine (`extern "C" fn(*mut c_void) -> *mut c_void`).
+void *rts_client_thread_start(void) {
+  return (void *)rts_client_thread_main;
+}
+
+/// After `join`: the closure's return value; frees the captures.
+void rts_client_thread_finish(ClientThread *t, Buffer *out) {
+  *out = t->out;
+  free(t);
+}
+
 // ---- libloading::os::unix (dlopen / dlsym / dlerror) ----
 
 void *rts_dlopen(const char *path, int flags) {
