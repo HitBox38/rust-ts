@@ -11,12 +11,17 @@
 //   other: `Suite.caseLock`), and the case's args name the sources by their base names.
 // - A step that fails ends the run with its exit code (128 + signal if it was killed). SIGTERM/SIGINT (difftest's timeout) are
 //   passed on.
+// - The run holds the lock `<case dir>/work.lock` (scripts/lib/case-lock.ts), and each compiler it starts is a holder of it
+//   (`addLockHolder`), as in scripts/ir-run.ts: a compiler that outlives a SIGKILLed run keeps the lock until it ends, so the next
+//   run cannot empty `work` while it still writes there (review harness-w46 N3). difftest's case lock (`Suite.caseLock`) is taken
+//   first, so a wait here is only for such a compiler; nothing is printed about it, as what this prints is compared.
 // - Then, for every file under `work/out`, sorted: a dep-info file (`*.d`) prints `<name>:` and its text with the work
 //   directory (as given, or its real path) spelled `$DIR`; any other file prints `<name>: <size> bytes, sha256 <hex>`. The out directory is then kept as
 //   `<case dir>/<side>.out` for diagnosis (`cmp` the two sides' files), replacing the last one.
 // No ERROR lines of its own: what it prints is part of the compared output.
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeSync } from "node:fs";
 import { basename, isAbsolute, join, sep } from "node:path";
+import { addLockHolder, withCaseLock } from "./lib/case-lock.ts";
 
 export interface HostRlibRunArgs {
   dir: string;
@@ -104,9 +109,16 @@ export function outReport(out: string, work: string): string {
 
 const SIGNALS: Record<string, number> = { SIGINT: 2, SIGKILL: 9, SIGTERM: 15 };
 
-/** Runs a child in `cwd` with inherited stdio, passing SIGTERM/SIGINT on; its exit code (128 + signal if it was killed). */
-async function child(cmd: string[], cwd: string): Promise<number> {
+/** Past any limit difftest sets on a case, as scripts/ir-run.ts's; a dead owner's lock goes sooner (scripts/lib/case-lock.ts). */
+export const LOCK_MAX_HOLD_MS = 2 * 3_600_000;
+
+/** The lock a run on `<case dir>` holds (see the header). */
+export const workLock = (dir: string): string => join(dir, "work.lock");
+
+/** Runs a child in `cwd` with inherited stdio, as a holder of the lock `lock`, passing SIGTERM/SIGINT on; its exit code (128 + signal if it was killed). */
+async function child(cmd: string[], cwd: string, lock: string): Promise<number> {
   const p = Bun.spawn(cmd, { cwd, stdin: "ignore", stdout: "inherit", stderr: "inherit" });
+  addLockHolder(lock, p.pid);
   const pass = (sig: NodeJS.Signals) => () => p.kill(sig);
   const onTerm = pass("SIGTERM");
   const onInt = pass("SIGINT");
@@ -125,13 +137,19 @@ export async function hostRlibRun(a: HostRlibRunArgs): Promise<number> {
   const refused = caseDirRefusal(a.dir);
   if (refused !== undefined) throw new Error(refused);
   if (a.steps.length === 0) throw new Error("host-rlib-run: no step after the compiler command");
+  mkdirSync(a.dir, { recursive: true });
+  const lock = workLock(a.dir);
+  return await withCaseLock(lock, LOCK_MAX_HOLD_MS, () => hostRlibRunLocked(a, lock), () => {}, 50);
+}
+
+async function hostRlibRunLocked(a: HostRlibRunArgs, lock: string): Promise<number> {
   const work = join(a.dir, "work");
   const out = join(work, "out");
   rmSync(work, { recursive: true, force: true });
   mkdirSync(out, { recursive: true });
   for (const s of a.srcs) copyFileSync(s, join(work, basename(s)));
   for (const step of a.steps) {
-    const code = await child([...a.compiler, ...step], work);
+    const code = await child([...a.compiler, ...step], work, lock);
     if (code !== 0) return code;
   }
   writeSync(1, outReport(out, work));

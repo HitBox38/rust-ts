@@ -18,10 +18,14 @@
 //   <hex>` (§6.3: a DIFF names the member); and each file left in the temp directory, `tmp: <name>: <size> bytes`, with the 6 random characters of
 //   `.tmpXXXXXX` masked, or `tmp: none`. The exit code is the failed step's (128 + signal if it was killed), else 0. The out directory
 //   is kept as `<case dir>/<side>.out` for diagnosis, replacing the last one. SIGTERM/SIGINT (difftest's timeout) are passed on.
+// - The run holds the lock `<case dir>/work.lock`, and each compiler it starts is a holder of it, as scripts/host-rlib-run.ts's
+//   and scripts/ir-run.ts's do: a compiler that outlives a SIGKILLed run keeps the lock until it ends, so the next run cannot empty
+//   `work` and `tmp` while it still writes there (review harness-w46 N3).
 // No ERROR lines of its own: what it prints is part of the compared output.
 import { copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeSync } from "node:fs";
 import { basename, isAbsolute, join, sep } from "node:path";
-import { outReport, parseHostRlibRunArgs } from "./host-rlib-run.ts";
+import { LOCK_MAX_HOLD_MS, outReport, parseHostRlibRunArgs, workLock } from "./host-rlib-run.ts";
+import { addLockHolder, withCaseLock } from "./lib/case-lock.ts";
 
 export interface RlibNativeRunArgs {
   dir: string;
@@ -122,9 +126,10 @@ export function tmpReport(tmp: string): string {
 
 const SIGNALS: Record<string, number> = { SIGINT: 2, SIGKILL: 9, SIGTERM: 15 };
 
-/** Runs a child in `cwd` with inherited stdio and `env` over this process's, passing SIGTERM/SIGINT on; its exit code (128 + signal if killed). */
-async function child(cmd: string[], cwd: string, env: Record<string, string>): Promise<number> {
+/** Runs a child in `cwd` with inherited stdio and `env` over this process's, as a holder of the lock `lock`, passing SIGTERM/SIGINT on; its exit code (128 + signal if killed). */
+async function child(cmd: string[], cwd: string, env: Record<string, string>, lock: string): Promise<number> {
   const p = Bun.spawn(cmd, { cwd, env: { ...process.env, ...env }, stdin: "ignore", stdout: "inherit", stderr: "inherit" });
+  addLockHolder(lock, p.pid);
   const pass = (sig: NodeJS.Signals) => () => p.kill(sig);
   const onTerm = pass("SIGTERM");
   const onInt = pass("SIGINT");
@@ -143,6 +148,12 @@ export async function rlibNativeRun(a: RlibNativeRunArgs): Promise<number> {
   const refused = rlibNativeDirRefusal(a.dir);
   if (refused !== undefined) throw new Error(refused);
   if (a.steps.length === 0) throw new Error("rlib-native-run: no step after the compiler command");
+  mkdirSync(a.dir, { recursive: true });
+  const lock = workLock(a.dir);
+  return await withCaseLock(lock, LOCK_MAX_HOLD_MS, () => rlibNativeRunLocked(a, lock), () => {}, 50);
+}
+
+async function rlibNativeRunLocked(a: RlibNativeRunArgs, lock: string): Promise<number> {
   const work = join(a.dir, "work");
   const tmp = join(a.dir, "tmp");
   const out = join(work, "out");
@@ -154,7 +165,7 @@ export async function rlibNativeRun(a: RlibNativeRunArgs): Promise<number> {
   for (const s of a.srcs) copyFileSync(s, join(work, basename(s)));
   let code = 0;
   for (const step of a.steps) {
-    code = await child([...a.compiler, ...step], work, { TMPDIR: tmp });
+    code = await child([...a.compiler, ...step], work, { TMPDIR: tmp }, lock);
     if (code !== 0) break;
   }
   writeSync(1, outReport(out, work) + rlibMembersReport(out) + tmpReport(tmp));
