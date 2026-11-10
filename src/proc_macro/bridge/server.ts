@@ -11,13 +11,21 @@
 // PORT: `Marked<S::X, client::X>` is `S::X` (see mod.ts). The handle-store codecs below are the impls for the
 // marked types; `Dispatcher.dispatch` (`define_dispatcher!`) names the codec of each argument and return type.
 //
-// PORT: the cross-thread execution strategy (`MessagePipe`, `thread::spawn`) needs a second thread with its own
-// thread-locals for the client; it stops with `unported(..)`. It runs for `-Zproc-macro-execution-strategy=
-// cross-thread` and for proc macros nested inside a same-thread one (`TokenStream::expand_expr`).
+// PORT: the cross-thread execution strategy (`-Zproc-macro-execution-strategy=cross-thread`, and every proc macro
+// nested inside a same-thread one through `TokenStream::expand_expr`) runs the client on a real second OS thread
+// (decision: docs/handoff/pm-cross-thread.md). A client is a proc-macro dylib's `extern "C" fn`, native code
+// whose thread-locals (the bridge state, the client's symbol interner, its panic hook's view of the bridge) must be
+// those of a fresh thread, as upstream's. The spawned closure is native (src/rust_ts/proc_macro_host.c), the
+// `MessagePipe` is a `std::sync::mpsc` stand-in over native memory (src/std/sync/mpsc.ts) and `thread::spawn` a
+// pthread (src/std/thread.ts); the server loop stays here, on the JS thread, blocking in `recv` as upstream's
+// server thread does. A TS client (`Client.expand1` etc., used by tests) cannot run on another thread: it stops
+// with `unported(..)`.
 
 import { assert, panicking, unported } from "../../std/panic.ts";
 import type { MutRef } from "../../std/mut_ref.ts";
-import type { Result } from "../../std/result.ts";
+import { ok, type Result, unwrap_result } from "../../std/result.ts";
+import { debug_SendError, type NativeCodec, type Receiver, type SyncSender, sync_channel } from "../../std/sync/mpsc.ts";
+import * as thread from "../../std/thread.ts";
 import { Buffer } from "./buffer.ts";
 import { Client } from "./client.ts";
 import { Closure } from "./closure.ts";
@@ -544,13 +552,54 @@ export class MaybeCrossThread implements ExecutionStrategy {
     force_show_panics: boolean,
   ): Buffer {
     if (this.cross_thread || ALREADY_RUNNING_SAME_THREAD) {
-      // let (mut server, mut client) = MessagePipe::new();
-      // let join_handle = thread::spawn(move || { .. run_client(BridgeConfig { input, dispatch, force_show_panics }) });
-      // while let Some(b) = server.recv() { server.send(dispatcher.dispatch(b)); }
-      // join_handle.join().unwrap()
-      return unported(
-        "proc_macro::bridge::server::MaybeCrossThread::run_bridge_and_client (cross-thread proc-macro execution: -Zproc-macro-execution-strategy=cross-thread or a nested proc macro)",
-      );
+      const native = cross_thread_native(run_client);
+      const [server, client] = MessagePipe.new<Buffer>(native.buffer_codec);
+
+      // PORT: the spawned closure,
+      //   move || {
+      //       let mut dispatch = |b: Buffer| -> Buffer {
+      //           client.send(b);
+      //           client.recv().expect("server died while client waiting for reply")
+      //       };
+      //       run_client(BridgeConfig { input, dispatch: (&mut dispatch).into(), force_show_panics })
+      //   }
+      // is native code (proc_macro_host.c `rts_client_thread_main`); `input` and `client` move into it.
+      const join_handle = thread.spawn(native.client_thread(input, client, force_show_panics));
+
+      // PORT: a JS exception out of `dispatch` (an `unported(..)` or a port bug in a server method; server panics
+      // are caught by `Dispatcher::dispatch` itself) cannot unwind into the client thread. As for a same-thread
+      // dylib client (proc_macro_host.ts, Errors), the first one is kept, the request is answered with
+      // `Err(PanicMessage::Unknown)` (the client resumes it as a panic and returns), and it is rethrown once the
+      // client thread is joined.
+      let error: { value: unknown } | undefined;
+      let b: Buffer | undefined;
+      while ((b = server.recv()) !== undefined) {
+        let r: Buffer;
+        try {
+          r = dispatcher.dispatch(b);
+        } catch (e) {
+          error ??= { value: e };
+          // The dispatcher reuses the request buffer for its response.
+          r = b;
+          r.clear();
+          encode_Result<void, PanicMessage, HandleStore<TokenStream, Span, Symbol>>(
+            { $: "Err", _0: PanicMessage.Unknown },
+            r,
+            dispatcher.handle_store,
+            encode_unit,
+            encode_PanicMessage,
+          );
+        }
+        server.send(r);
+      }
+
+      const result = unwrap_result(join_handle.join(), thread.debug_Any);
+      server.drop();
+      if (error !== undefined) {
+        result.drop_();
+        throw error.value;
+      }
+      return result;
     } else {
       const _guard = RunningSameThreadGuard.new();
       try {
@@ -569,23 +618,25 @@ export const CROSS_THREAD: MaybeCrossThread = new MaybeCrossThread(true);
 
 /// A message pipe used for communicating between server and client threads.
 // std-type: library/proc_macro/src/bridge/server.rs:226 MessagePipe
-// PORT: `mpsc::SyncSender<T>` / `mpsc::Receiver<T>` between two threads: unported (see the header).
-class MessagePipe<T> {
+// PORT: `T` crosses a native channel (std/sync/mpsc.ts), so `new` takes its `NativeCodec`.
+export class MessagePipe<T> {
   constructor(
-    public tx: unknown,
-    public rx: unknown,
+    public tx: SyncSender<T>,
+    public rx: Receiver<T>,
   ) {}
 
   /// Creates a new pair of endpoints for the message pipe.
   // std: library/proc_macro/src/bridge/server.rs:233 new
-  static new<T>(): [MessagePipe<T>, MessagePipe<T>] {
-    return unported("proc_macro::bridge::server::MessagePipe::new (mpsc::sync_channel between threads)");
+  static new<T>(codec: NativeCodec<T>): [MessagePipe<T>, MessagePipe<T>] {
+    const [tx1, rx1] = sync_channel<T>(1, codec);
+    const [tx2, rx2] = sync_channel<T>(1, codec);
+    return [new MessagePipe(tx1, rx2), new MessagePipe(tx2, rx1)];
   }
 
   /// Send a message to the other endpoint of this pipe.
   // std: library/proc_macro/src/bridge/server.rs:240 send
-  send(_value: T): void {
-    return unported("proc_macro::bridge::server::MessagePipe::send (mpsc::sync_channel between threads)");
+  send(value: T): void {
+    unwrap_result(this.tx.send(value), debug_SendError);
   }
 
   /// Receive a message from the other endpoint of this pipe.
@@ -594,10 +645,48 @@ class MessagePipe<T> {
   /// message was received.
   // std: library/proc_macro/src/bridge/server.rs:248 recv
   recv(): T | undefined {
-    return unported("proc_macro::bridge::server::MessagePipe::recv (mpsc::sync_channel between threads)");
+    return ok(this.rx.recv());
+  }
+
+  /** `drop(pipe)`: drops both channel ends. */
+  drop(): void {
+    this.tx.drop();
+    this.rx.drop();
   }
 }
-void MessagePipe;
+
+/**
+ * PORT: the native half of the cross-thread strategy (see the header), installed by the proc-macro dylib FFI edge
+ * (src/rust_ts/proc_macro_host.ts) for each dylib client's `run`.
+ */
+export interface CrossThreadNative {
+  /** How a `#[repr(C)] Buffer` moves through the `MessagePipe`'s native channel. */
+  readonly buffer_codec: NativeCodec<Buffer>;
+  /**
+   * The `thread::spawn` closure of `run_bridge_and_client` for this client: runs the client's `extern "C" fn`
+   * with `BridgeConfig { input, dispatch: <client.send(b); client.recv()>, force_show_panics }`; `input` and
+   * `client` are moved into it. Its result is the client's response buffer.
+   */
+  client_thread(input: Buffer, client: MessagePipe<Buffer>, force_show_panics: boolean): thread.NativeThunk<Buffer>;
+}
+
+/** The `CrossThreadNative` of each dylib client's `run` (`extern "C" fn`). */
+const CROSS_THREAD_NATIVES = new WeakMap<(config: BridgeConfig) => Buffer, CrossThreadNative>();
+
+/** PORT: marks `run` as an `extern "C" fn` of a proc-macro dylib that can run on a second thread through `native`. */
+export function set_cross_thread_native(run: (config: BridgeConfig) => Buffer, native: CrossThreadNative): void {
+  CROSS_THREAD_NATIVES.set(run, native);
+}
+
+function cross_thread_native(run_client: (config: BridgeConfig) => Buffer): CrossThreadNative {
+  const native = CROSS_THREAD_NATIVES.get(run_client);
+  if (native === undefined) {
+    return unported(
+      "proc_macro::bridge::server::MaybeCrossThread::run_bridge_and_client (cross-thread execution of a TS client: -Zproc-macro-execution-strategy=cross-thread or a nested proc macro)",
+    );
+  }
+  return native;
+}
 
 // std: library/proc_macro/src/bridge/server.rs:253 run_server
 function run_server<TokenStream, Span, Symbol, I, O>(

@@ -99,8 +99,44 @@ test("unitEnvRefusal: each refused variable refuses, set to anything (even \"\")
   expect(two).toStartWith("RUST_TS_IMPL=shim and REGEN=1 set: ");
 });
 
-/** The variables a file reads by name: `process.env.X`, `process.env["X"]`, `var_os("X")`. */
-const envReads = (text: string): string[] => [...text.matchAll(/process\.env\.([A-Za-z_][A-Za-z0-9_]*)|process\.env\[\s*["'`]([A-Za-z_][A-Za-z0-9_]*)["'`]\s*\]|\bvar_os\(\s*"([A-Za-z_][A-Za-z0-9_]*)"\s*\)/g)].map((m) => (m[1] ?? m[2] ?? m[3])!);
+/** An environment object: `process.env`, `Bun.env`, `import.meta.env`. */
+const ENV_OBJ = String.raw`(?:process\.env|Bun\.env|import\.meta\.env)\b`;
+const NAME = String.raw`[A-Za-z_][A-Za-z0-9_]*`;
+/**
+ * The variables a file reads by name: `<env>.X`, `<env>["X"]` and the keys of a destructuring `{ X, Y: y, ...rest } = <env>`
+ * (`<env>` any of ENV_OBJ), and `var_os("X")` (review harness-w48 N1).
+ */
+const envReads = (text: string): string[] => {
+  const names = [...text.matchAll(new RegExp(String.raw`${ENV_OBJ}(?:\.(${NAME})|\[\s*["'\`](${NAME})["'\`]\s*\])|\bvar_os\(\s*"(${NAME})"\s*\)`, "g"))].map((m) => (m[1] ?? m[2] ?? m[3])!);
+  for (const m of text.matchAll(new RegExp(String.raw`\{([^{}]*)\}\s*=\s*${ENV_OBJ}`, "g"))) {
+    for (const entry of m[1]!.split(",")) {
+      const key = entry.trim().split(/\s*[:=]\s*/)[0]!;
+      if (new RegExp(`^${NAME}$`).test(key)) names.push(key);
+    }
+  }
+  return names;
+};
+/**
+ * The reads the scan cannot name: `<env>[expr]` with a computed key, a computed key in a destructuring (`{ [k]: v } = <env>`),
+ * and the environment object itself assigned to a name (`const e = process.env`, which is then read by any key). A spread copy
+ * (`{ ...process.env }`) is no read: it hands every variable to a child, which the scan of the child's code covers.
+ */
+const unnamedEnvReads = (text: string): string[] => [
+  ...[...text.matchAll(new RegExp(String.raw`${ENV_OBJ}\[\s*(?!["'\`]${NAME}["'\`]\s*\])[^\]]*\]`, "g"))].map((m) => m[0]),
+  ...[...text.matchAll(new RegExp(String.raw`\{[^{}]*\[[^{}]*\}\s*=\s*${ENV_OBJ}`, "g"))].map((m) => m[0]),
+  ...[...text.matchAll(new RegExp(String.raw`\b${NAME}\s*=\s*${ENV_OBJ}\s*(?:[;,)\n]|$)`, "gm"))].map((m) => m[0].trim()),
+];
+
+/**
+ * The test files that read the environment by a key the scan cannot name (`unnamedEnvReads`), and why no value from the gate's
+ * environment can make one of their tests pass falsely. A new one fails the test below until it is named here.
+ */
+const UNIT_ENV_UNNAMED: Record<string, string> = {
+  "scripts/gate-unit.test.ts": "deletes the variables of a literal list (RUST_TS_DATA, RUST_TS_HOST_TUPLE, RUST_TS_REQUIRE_PROBES, CI) before its steps run",
+  "src/std/env.test.ts": "reads, sets and deletes a variable named by the test itself, unset before it starts",
+  "src/vendor/anstyle_query/lib.test.ts": "saves, sets and restores its own literal list VARS (TERM, NO_COLOR, CLICOLOR, CLICOLOR_FORCE, COLORTERM, all named harmless)",
+  "tools/probes/fixtures.test.ts": "a child it starts prints MIRI_BE_RUSTC, MIRI_LOG, RUSTC_LOG and RUSTUP_HOME, a literal list, to check they are scrubbed",
+};
 
 /**
  * Every other variable a test file reads by name, and why a value from the gate's environment cannot make a test pass that
@@ -141,6 +177,8 @@ const UNIT_ENV_HARMLESS: Record<string, string> = {
   RUSTUP_HOME: "set by the test's child itself (scripts/miri.test.ts)",
   CLAUDECODE: "set by the test's child itself (scripts/gate-unit.test.ts); Bun's output only (unit-steps.ts BUN_QUIET_VARS)",
   AGENT: "set by the test's child itself (scripts/gate-unit.test.ts); Bun's output only (unit-steps.ts BUN_QUIET_VARS)",
+  NODE_ENV: "left out of the environment the test gives the gate it starts (scripts/gate-power.test.ts, gate-probes.test.ts); the gate refuses to start with it set (gate.ts freezeEnvRefusal)",
+  RUST_TS_FREEZE_LISTS: "left out of the environment the test gives the gate it starts (scripts/gate-power.test.ts, gate-probes.test.ts); the gate refuses to start with it set (gate.ts freezeEnvRefusal)",
 };
 
 /** Every tracked or untracked-not-ignored file under `roots` matching `pattern` (a pathspec, where `*` matches `/` too). */
@@ -152,6 +190,10 @@ const repoFiles = (roots: string[], pattern: string): string[] => {
 
 test("every variable a test file reads by name is refused at the gate's start or named harmless here", () => {
   expect(envReads(`process.env.A_1; process.env["B"]; var_os("C"); process.env.BUN_JSC_x`)).toEqual(["A_1", "B", "C", "BUN_JSC_x"]);
+  // Bun.env, import.meta.env and destructuring (review harness-w48 N1); a rest element or a spread copy names nothing.
+  expect(envReads(`Bun.env.D; Bun.env['E']; import.meta.env.F; const { G, H: h, I = "x", ...rest } = process.env; const { J } = Bun.env; f({ ...process.env })`)).toEqual(["D", "E", "F", "G", "H", "I", "J"]);
+  expect(unnamedEnvReads(`process.env.A; process.env["B"]; ({ ...process.env }); const { C } = process.env;`)).toEqual([]);
+  expect(unnamedEnvReads(`process.env[k]; Bun.env[\`X_\${s}\`]; const { [k]: v } = process.env; const e = Bun.env;\nx = import.meta.env\n`)).toEqual(["process.env[k]", "Bun.env[`X_${s}`]", "{ [k]: v } = process.env", "e = Bun.env;", "x = import.meta.env"]);
   // This file's own samples above are not reads.
   const files = repoFiles(UNIT_STEPS.flatMap((u) => u.roots), "*.test.ts").filter((f) => f !== "scripts/lib/unit-steps.test.ts");
   expect(files.length).toBeGreaterThan(100);
@@ -162,15 +204,21 @@ test("every variable a test file reads by name is refused at the gate's start or
   const unknown = [...seen].filter(([k]) => !(k in UNIT_ENV_REFUSED) && !(k in UNIT_ENV_HARMLESS)).map(([k, f]) => `${k} (${f})`);
   expect(unknown).toEqual([]);
   for (const k of Object.keys(UNIT_ENV_HARMLESS)) expect(k in UNIT_ENV_REFUSED).toBe(false);
+  // Reads the scan cannot name are only in the files listed, and each listed file still has one.
+  const unnamed = files.filter((f) => unnamedEnvReads(readFileSync(join(REPO, f), "utf8")).length > 0).sort();
+  expect(unnamed).toEqual(Object.keys(UNIT_ENV_UNNAMED).sort());
 });
 
 // A fixture writer that a test reaches through a helper module (src/rust_ts/typeck_oracle_fixtures.ts reads REGEN) is no test file.
 test("every fixture-writer variable (REGEN, BLESS, UPDATE, *_WRITE, ...) read anywhere in the repo is refused at the gate's start", () => {
-  const writer = /^(REGEN|BLESS|UPDATE|OVERWRITE)$|(^|_)(REGEN|BLESS|UPDATE|WRITE|OVERWRITE|RECORD|SNAPSHOT)(_|$)/;
-  expect(["REGEN", "TYREPR_WRITE", "RUST_TS_WRITE_ORACLE", "UPDATE_EXPECT", "X_BLESS"].every((k) => writer.test(k))).toBe(true);
-  expect(["RUST_TS_DATA", "WRITER", "REGENERATE_X"].some((k) => writer.test(k))).toBe(false);
+  // `_PROBE` as a suffix only: a `<X>_PROBE` switch compares with a probe instead of a checked-in fixture (TYREPR_PROBE, review
+  // harness-w48 N2); FAKE_PROBE_EXIT (a stub's exit code) and RUST_TS_REQUIRE_PROBES are no such switch.
+  const writer = /^(REGEN|BLESS|UPDATE|OVERWRITE)$|(^|_)(REGEN|BLESS|UPDATE|WRITE|OVERWRITE|RECORD|SNAPSHOT)(_|$)|_PROBE$/;
+  expect(["REGEN", "TYREPR_WRITE", "RUST_TS_WRITE_ORACLE", "UPDATE_EXPECT", "X_BLESS", "TYREPR_PROBE", "X_PROBE"].every((k) => writer.test(k))).toBe(true);
+  expect(["RUST_TS_DATA", "WRITER", "REGENERATE_X", "FAKE_PROBE_EXIT", "RUST_TS_REQUIRE_PROBES", "PROBE"].some((k) => writer.test(k))).toBe(false);
   const found = new Map<string, string>();
   for (const f of repoFiles(["src", "tools", "scripts", "harness"], "*.ts")) for (const k of envReads(readFileSync(join(REPO, f), "utf8"))) if (writer.test(k) && !found.has(k)) found.set(k, f);
   expect(found.get("REGEN")).toBeDefined();
+  expect(found.get("TYREPR_PROBE")).toBeDefined();
   expect([...found].filter(([k]) => !(k in UNIT_ENV_REFUSED)).map(([k, f]) => `${k} (${f})`)).toEqual([]);
 });

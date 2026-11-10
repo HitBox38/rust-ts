@@ -636,6 +636,9 @@ SUITES.push({
 //     minus the `-Zparse-crate-root-only` it appends for the parse-ui suites. Tests compiletest.ts does not
 //     reproduce are skipped with its reason: today every `add-minicore` test (minicore is not built yet:
 //     tests/auxiliary is outside the sparse checkout, plan-m3 D11) and every test with an aux crate.
+//     `needs-llvm-components` is evaluated against the oracle's LLVM (lane harness-w49): every component the tests
+//     name is in the stock nightly's, so those tests are cases (most target another spec than the port has, and stop
+//     `unported`); before that lane each was skipped as "not evaluated by this harness".
 const CG_CLIF_EXAMPLE = "compiler/rustc_codegen_cranelift/example";
 const cgClifArgs = (): string[] => [
   "-Cdebuginfo=2",
@@ -685,7 +688,8 @@ function minicoreCorpus(): { cases: Case[]; skipped: SkippedCase[] } {
   // uiCases takes directories (recursively): the files' directories, without those under another one.
   const dirs = [...new Set(files.map((f) => f.slice(0, f.lastIndexOf("/"))))].sort();
   const roots = dirs.filter((d) => !dirs.some((p) => p !== d && d.startsWith(p + "/")));
-  const ui = uiCases(roots, "human");
+  // `needs-llvm-components` evaluated against the oracle's LLVM (lane harness-w49, harness/compiletest.ts).
+  const ui = uiCases(roots, "human", { llvmComponents: true });
   const fileOf = (id: string) => id.split("#")[0]!;
   for (const c of ui.cases) {
     if (!want.has(c.file)) continue;

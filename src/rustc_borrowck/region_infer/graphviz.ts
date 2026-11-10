@@ -3,11 +3,10 @@
 //! This module provides linkage between RegionInferenceContext and
 //! `rustc_graphviz` traits, specialized to attaching borrowck analysis
 //! data to rendered labels.
-// PORT: rustc_graphviz is not ported (as for rustc_mir_dataflow framework/graphviz.ts): `dot::Id`, `dot::LabelText` are
-// the local placeholders `dot_Id` / `dot_LabelText` below until it is (see the note there); `dot::Nodes<N>` / `dot::Edges<E>` (`Cow<[T]>`)
-// are `readonly T[]`. `RawConstraints` / `SccConstraints` are generated interfaces, so their `dot::Labeller` /
-// `dot::GraphWalk` impls are impl tables (`Labeller_RawConstraints`, ...). `&mut dyn io::Write` is vendor/anstream's
-// `Write` and `io::Result<()>` `IoResult<null>` (rustc_middle mir/pretty.ts precedent).
+// PORT: `dot::Nodes<N>` / `dot::Edges<E>` (`Cow<[T]>`) are `readonly T[]`. `RawConstraints` / `SccConstraints` are
+// generated interfaces, so their `dot::Labeller` / `dot::GraphWalk` impls are impl tables (`Labeller_RawConstraints`,
+// ...), bound to the value for `dot::render` by `as_dot_graph`. `&mut dyn io::Write` is vendor/anstream's `Write` and
+// `io::Result<()>` `IoResult<null>` (rustc_middle mir/pretty.ts precedent).
 import type { ConstraintSccIndex, OutlivesConstraint } from "../constraints/mod.gen.ts";
 import { debug_Location } from "../../rustc_middle/mir/mod.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
@@ -15,31 +14,55 @@ import { Symbol } from "../../rustc_span/symbol.ts";
 import { bug } from "../../rustc_span/macros.ts";
 import { debug_UniverseIndex, UniverseIndex } from "../../rustc_type_ir/lib.ts";
 import { debug_RegionVid, type RegionVid } from "../../rustc_type_ir/region_kind.ts";
-import { PLAIN } from "../../std/fmt.ts";
+import { type Debug, PLAIN } from "../../std/fmt.ts";
 import type { IoResult } from "../../std/io.ts";
-import { unported } from "../../std/panic.ts";
+import { Ok, unwrap_result } from "../../std/result.ts";
+import * as dot from "../../rustc_graphviz/lib.ts";
 import type { Write } from "../../vendor/anstream/stream.ts";
 import type { RawConstraints, SccConstraints } from "./graphviz.gen.ts";
 import { RegionInferenceContext } from "./region_context.gen.ts";
 
 export * from "./graphviz.gen.ts";
 
-// PORT (lane bck-regions-b): as rustc_data_structures obligation_forest/mod.ts: `dot::Id<'_>` is its validated name (a
-// string; `dot::Id::new` stops as UNPORTED), `dot::LabelText` is `{ $: "LabelStr", _0: string }` (only `LabelStr` is
-// built here) and `dot::render` stops as UNPORTED. Only `-Zdump-mir=nll` (nll.rs `dump_nll_mir`) reaches them.
-/** PORT: `rustc_graphviz::Id<'a>` (rustc_graphviz is not ported). */
-export type dot_Id = string;
-/** PORT: `rustc_graphviz::LabelText<'a>` (rustc_graphviz is not ported; only `LabelStr` is built here). */
-export type dot_LabelText = { readonly $: "LabelStr"; readonly _0: string };
+/** `dot::Id<'_>` (rustc_graphviz). */
+export type dot_Id = dot.Id;
+/** `dot::LabelText<'_>` (rustc_graphviz). */
+export type dot_LabelText = dot.LabelText;
 
-/** `dot::Id::new(name).unwrap()` (rustc_graphviz, not ported). */
-function dot_Id_new(_name: string): dot_Id {
-  return unported("rustc_graphviz::Id::new");
+/** Debug for `()`: `dot::Id::new`'s error type, for the panic message of its `.unwrap()`. */
+const debug_unit: Debug<null> = () => "()";
+
+/** `dot::Id::new(name).unwrap()` */
+function dot_Id_new(name: string): dot_Id {
+  return unwrap_result(dot.Id.new(name), debug_unit);
 }
 
-/** `dot::render(g, w)` (rustc_graphviz, not ported). */
-function dot_render<N, E>(_g: RawConstraints | SccConstraints, _w: Write): IoResult<null> {
-  return unported("rustc_graphviz::render");
+/**
+ * `&RawConstraints` / `&SccConstraints` as `impl dot::Labeller + dot::GraphWalk`: the impl tables bound to `g` (a
+ * method the table leaves out is the trait's provided one, `dot::Labeller_provided`).
+ */
+function as_dot_graph<G, N, E>(
+  g: G,
+  labeller: { graph_id(self: G): dot_Id; node_id(self: G, n: N): dot_Id; node_shape(self: G, n: N): dot_LabelText | undefined; node_label(self: G, n: N): dot_LabelText; edge_label?(self: G, e: E): dot_LabelText },
+  walk: { nodes(self: G): readonly N[]; edges(self: G): readonly E[]; source(self: G, e: E): N; target(self: G, e: E): N },
+): dot.Labeller<N, E> & dot.GraphWalk<N, E> {
+  const edge_label = labeller.edge_label;
+  return {
+    graph_id: () => labeller.graph_id(g),
+    node_id: (n) => labeller.node_id(g, n),
+    node_shape: (n) => labeller.node_shape(g, n),
+    node_label: (n) => labeller.node_label(g, n),
+    ...(edge_label !== undefined ? { edge_label: (e: E) => edge_label(g, e) } : {}),
+    nodes: () => walk.nodes(g),
+    edges: () => walk.edges(g),
+    source: (e) => walk.source(g, e),
+    target: (e) => walk.target(g, e),
+  };
+}
+
+/** `io::Result<()>` of `dot::render` as this file's `IoResult<null>`. */
+function to_null(r: IoResult<void>): IoResult<null> {
+  return r.$ === "Err" ? r : Ok(null);
 }
 
 // rustc: compiler/rustc_borrowck/src/region_infer/graphviz.rs:15 render_outlives_constraint
@@ -124,7 +147,7 @@ declare module "./region_context.gen.ts" {
 /// Write out the region constraint graph.
 // rustc: compiler/rustc_borrowck/src/region_infer/graphviz.rs:69 dump_graphviz_raw_constraints
 RegionInferenceContext.prototype.dump_graphviz_raw_constraints = function (this: RegionInferenceContext, tcx: TyCtxt, w: Write): IoResult<null> {
-  return dot_render<RegionVid, OutlivesConstraint>({ tcx, regioncx: this }, w);
+  return to_null(dot.render(as_dot_graph({ tcx, regioncx: this }, Labeller_RawConstraints, GraphWalk_RawConstraints), w));
 };
 
 /// Write out the region constraint SCC graph.
@@ -138,7 +161,7 @@ RegionInferenceContext.prototype.dump_graphviz_scc_constraints = function (this:
     nodes_per_scc[scc]!.push(region);
   }
 
-  return dot_render<ConstraintSccIndex, [ConstraintSccIndex, ConstraintSccIndex]>({ tcx, regioncx: this, nodes_per_scc }, w);
+  return to_null(dot.render(as_dot_graph({ tcx, regioncx: this, nodes_per_scc }, Labeller_SccConstraints, GraphWalk_SccConstraints), w));
 };
 
 // impl<'a, 'this, 'tcx> dot::Labeller<'this> for RawConstraints<'a, 'tcx> (type Node = RegionVid; type Edge = OutlivesConstraint)

@@ -267,9 +267,19 @@ export class FileHandleDesc implements FileHandle {
     public readable: boolean,
     public writable: boolean,
   ) {}
+
+  /** Drop glue of `FileHandle`: its host `File`'s (`OwnedFd` closes the fd). */
+  drop_glue(): void {
+    (this.file as unknown as fs.File).drop();
+  }
 }
 export class DirHandleDesc implements DirHandle {
   constructor(public dir: DirHandle["dir"]) {}
+
+  /** Drop glue of `DirHandle`: its host `Dir`'s (`OwnedFd` closes the fd). */
+  drop_glue(): void {
+    (this.dir as unknown as fs.Dir).drop();
+  }
 }
 let desc_impls_installed = false;
 function install_desc_impls(): void {
@@ -1038,7 +1048,10 @@ function open_tail(
     if (writable) {
       // On Windows, opening a folder writable can succeed.
       // But here we want it to always fail.
-      return this_.set_errno_and_return_neg1_i32(LibcError("EISDIR"));
+      const r = this_.set_errno_and_return_neg1_i32(LibcError("EISDIR"));
+      // `dir` is dropped at the end of the arm.
+      dir.drop();
+      return r;
     }
 
     const fd = this_.machine.fds.insert_new(new_DirHandle(dir));
@@ -1046,13 +1059,18 @@ function open_tail(
   } else {
     const file = f_or_d._0._0;
     if (want_directory) {
-      return this_.set_errno_and_return_neg1_i32(LibcError("ENOTDIR"));
+      const r = this_.set_errno_and_return_neg1_i32(LibcError("ENOTDIR"));
+      // `file` is dropped at the end of the arm.
+      file.drop();
+      return r;
     }
     if (unwrap_result(file.metadata(), debug_io_Error).is_symlink()) {
       if (nofollow) {
         // On Windows, FILE_FLAG_OPEN_REPARSE_POINT makes opening still succeed, it
         // just opens the symlink rather than the target. Turn that into an error.
-        return this_.set_errno_and_return_neg1_i32(LibcError("ELOOP"));
+        const r = this_.set_errno_and_return_neg1_i32(LibcError("ELOOP"));
+        file.drop();
+        return r;
       }
       return panic("we should not get a symlink here");
     }
@@ -1730,6 +1748,8 @@ InterpCx.prototype.opendir = function (this: MiriInterpCx, name_op: OpTy): Inter
     // needs), then we'll use that.
     const dir_r = fs.Dir.open(name._0);
     if (dir_r.$ === "Err") {
+      // `read_dir` is dropped on the way out.
+      read_dir.drop();
       return throw_unsup_format("cannot `opendir` this directory: failed to create directory handle");
     }
     const dir = this_.machine.fds.new_ref(new_DirHandle(dir_r._0));
@@ -1980,7 +2000,8 @@ InterpCx.prototype.closedir = function (this: MiriInterpCx, dirp_op: OpTy): Inte
     if (d.$ === "Err") return d;
   }
   // We drop the `open_dir`, which will close the host dir handle.
-  // drop(open_dir);
+  // drop(open_dir);  (PORT: the host `ReadDir` is the only field with drop glue.)
+  (open_dir.read_dir as unknown as fs.ReadDir).drop();
 
   return interp_ok(interp_Scalar.from_i32(0));
 };

@@ -10,14 +10,16 @@
 // tree's build (made if needed), or `--bin <path>` instead of it (e.g. a gate's own build). Rounds interleave the modes. Prints
 // one line per run (wall, user, sys s, max RSS MB, G instructions, G cycles, exit, output hash, 1-minute load) and the medians;
 // `ERROR:` when the modes' outputs differ (exit code, stdout, stderr with a panic's thread id masked). Run it on AC power, on a
-// quiet machine, and never while a gate runs.
+// quiet machine, and never while a gate runs: it refuses to start on battery (`pmset`, as the gate) or while
+// `$RUST_TS_DATA/tmp/GATE_RUNNING` exists, unless `--allow-battery` / `--allow-gate` (`benchRefusal`, review perf-subject-bin N4).
 import { appendFileSync, existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { loadavg, tmpdir } from "node:os";
 import { join } from "node:path";
 import { suite as getSuite, type Case } from "../harness/suites.ts";
 import { cwdOf } from "./difftest.ts";
-import { hash, parseArgs, run } from "./lib/common.ts";
+import { DATA, hash, parseArgs, run } from "./lib/common.ts";
 import { caseEnv } from "./lib/env.ts";
+import { commandOutput, parsePower, type PowerState } from "./lib/host-state.ts";
 import { BINARY_ENTRIES, SUBJECT_MODE_VAR, type SubjectMode } from "./lib/subject-bin.ts";
 
 /** A panic's thread id differs between any two runs (as scripts/subject-bin-compare.ts masks it). */
@@ -46,10 +48,29 @@ export function withBinary(cmd: readonly string[], bin: string): string[] {
   return [bin, ...cmd.slice(i + 1)];
 }
 
+/** The marker root keeps while a gate runs. */
+export const GATE_RUNNING = join(DATA, "tmp", "GATE_RUNNING");
+
+/**
+ * Why a bench must not start, or `undefined` (review perf-subject-bin N4): on battery a run is up to 3.5x slower and looks
+ * valid (the gate refuses on battery too: scripts/lib/host-state.ts `batteryRefusal`), and a bench during a gate disturbs the gate's timing as much as the gate disturbs it.
+ */
+export function benchRefusal(power: PowerState | null, gateRunning: boolean, opts: { allowBattery: boolean; allowGate: boolean }): string | undefined {
+  if (power?.onBattery && !opts.allowBattery) return `this host is on battery${power.percent === null ? "" : ` at ${power.percent}%`}: a bench on battery runs up to 3.5x slower and its numbers look valid (docs/reviews/perf-near-limit.md); plug it in, or pass --allow-battery`;
+  if (gateRunning && !opts.allowGate) return `a gate is running (${GATE_RUNNING} exists): a bench now disturbs the gate's timing and its own numbers; wait for the gate, or pass --allow-gate`;
+  return undefined;
+}
+
 if (import.meta.main) {
   const a = parseArgs(process.argv.slice(2));
   if (typeof a.suite !== "string" || typeof a.file !== "string") {
-    console.log("usage: bun scripts/subject-bin-bench.ts --suite <suite> --file <case file or id> [--reps 3] [--modes source,binary] [--bin <path>] [--out <tsv>]");
+    console.log("usage: bun scripts/subject-bin-bench.ts --suite <suite> --file <case file or id> [--reps 3] [--modes source,binary] [--bin <path>] [--out <tsv>] [--allow-battery] [--allow-gate]");
+    process.exit(1);
+  }
+  const pmset = await commandOutput(["/usr/bin/pmset", "-g", "batt"]);
+  const refused = benchRefusal(pmset === undefined ? null : (parsePower(pmset) ?? null), existsSync(GATE_RUNNING), { allowBattery: a["allow-battery"] === true, allowGate: a["allow-gate"] === true });
+  if (refused !== undefined) {
+    console.log(`ERROR: ${refused}`);
     process.exit(1);
   }
   const s = getSuite(a.suite);

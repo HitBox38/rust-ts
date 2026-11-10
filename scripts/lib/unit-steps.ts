@@ -120,7 +120,13 @@ export function oneProcessEnv(env: Record<string, string>): Record<string, strin
  * the subject builds unset it (scripts/lib/subject-bin.ts). A refusal rather than unsetting them in the unit steps: whoever
  * set one meant something the gate cannot do, and a fixture rewrite would otherwise surface only at the end of the run, as
  * "the tree changed while the gate was running". scripts/lib/unit-steps.test.ts checks that every variable a test file reads
- * is here or named harmless there, and that every fixture-writer name (`REGEN`, `*_WRITE`, ...) in the repo is here.
+ * by name (`process.env.X`, `Bun.env.X`, `import.meta.env.X`, the `["X"]` forms, a destructuring `{ X } = process.env`,
+ * `var_os("X")`) is here or named harmless there, that a test file reading by a computed key or through an alias of the
+ * environment object is listed there with why, and that every fixture-writer name (`REGEN`, `*_WRITE`, `*_PROBE`, ...) read
+ * anywhere in the repo is here (review harness-w48 N1, N2). Its boundary: code outside test files (helpers, drivers a test
+ * starts) is checked for those writer names only, so a helper's other knob (`RUST_TS_ALIAS_MONO`, `RUST_TS_CREADER_MODE`,
+ * `LOWER_TYS`, `THIRDUMP_FORMAT`, ...) is neither listed nor refused; the review found none that a gate value could make pass
+ * falsely (tests set them, or a wrong value fails), and a new one of that kind belongs here.
  */
 export const UNIT_ENV_REFUSED: Readonly<Record<string, string>> = {
   RUST_TS_IMPL:

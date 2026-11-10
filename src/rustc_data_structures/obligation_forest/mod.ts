@@ -85,11 +85,15 @@
 //   `ObligationTreeIdGenerator` (`(0..).map(ObligationTreeId)`) is the counter `ObligationTreeIdGenerator`.
 // - `Result<(), ()>` is `Result<null, null>`.
 
+import { closeSync, openSync, writeSync } from "node:fs";
+import * as dot from "../../rustc_graphviz/lib.ts";
+import { debug_IoError, type IoError, io_error_from_node } from "../../std/io.ts";
 import { path_join } from "../../std/path.ts";
+import { VecU8 } from "../../vendor/anstream/stream.ts";
 import type { Debug, Fmt } from "../../std/fmt.ts";
 import { debug_struct, debug_tuple, debug_vec } from "../../std/fmt.ts";
 import { assert, unported, unreachable } from "../../std/panic.ts";
-import { Err, Ok, type Result } from "../../std/result.ts";
+import { Err, Ok, type Result, unwrap_result } from "../../std/result.ts";
 
 // rustc-trait: compiler/rustc_data_structures/src/obligation_forest/mod.rs:88 ForestObligation
 export interface ForestObligation<O> {
@@ -667,9 +671,29 @@ export class ObligationForest<O> {
 
     const file_path = path_join(dir, `${String(counter).padStart(10, "0")}_${description}.gv`);
 
-    void file_path;
-    // PORT: `dot::render(&self, &mut gv_file)`: rustc_graphviz is not ported.
-    unported("rustc_graphviz::render (obligation_forest::dump_graphviz)");
+    // PORT: `File::create_buffered(file_path).unwrap()` is Node's `openSync`; the `BufWriter` is a `VecU8` written
+    // to the file when it goes out of scope (its `Drop` flushes, ignoring errors).
+    let fd_: Result<number, IoError>;
+    try {
+      fd_ = Ok(openSync(file_path, "w"));
+    } catch (e) {
+      fd_ = Err(io_error_from_node(e));
+    }
+    const fd = unwrap_result(fd_, debug_IoError);
+    const gv_file = new VecU8();
+
+    try {
+      unwrap_result(dot.render(as_dot_graph(this), gv_file), debug_IoError);
+    } finally {
+      try {
+        const bytes = gv_file.bytes();
+        let off = 0;
+        while (off < bytes.length) off += writeSync(fd, bytes, off, bytes.length - off);
+      } catch {
+        // ignored, as `BufWriter`'s `Drop`
+      }
+      closeSync(fd);
+    }
   }
 }
 
@@ -822,42 +846,40 @@ export function debug_Error<O, E>(v: Error<O, E>, f: Fmt, d_O: Debug<O>, d_E: De
 }
 
 // ---- graphviz.rs: `impl dot::Labeller for &ObligationForest<O>` / `impl dot::GraphWalk for &ObligationForest<O>` ----
-// PORT: rustc_graphviz is not ported. `dot::Id<'_>` is its validated name (a string; `Id::new` stops as UNPORTED),
-// `dot::LabelText` is `{ $: "LabelStr", _0: string }`, `dot::Nodes` / `dot::Edges` are arrays. Nothing calls these
-// unless `DUMP_OBLIGATION_FOREST_GRAPHVIZ` is set (and `dump_graphviz` itself stops at `dot::render`).
+// PORT: the impls are the tables `Labeller_ObligationForest` / `GraphWalk_ObligationForest`, bound to a forest for
+// `dot::render` by `as_dot_graph`. `dot::Nodes` / `dot::Edges` are arrays. Nothing calls `dump_graphviz` (upstream's
+// is `#[allow(dead_code)]`), and it does nothing unless `DUMP_OBLIGATION_FOREST_GRAPHVIZ` is set.
 
-/** `dot::LabelText::LabelStr` (rustc_graphviz, not ported). */
-export interface LabelStr {
-  readonly $: "LabelStr";
-  readonly _0: string;
-}
+/** Debug for `()`: `dot::Id::new`'s error type, for the panic message of its `.unwrap()`. */
+const debug_unit: Debug<null> = () => "()";
 
-/** `dot::Id::new(name).unwrap()` (rustc_graphviz, not ported). */
-function dot_Id_new(_name: string): string {
-  return unported("rustc_graphviz::Id::new");
+/** `dot::Id::new(name).unwrap()` */
+function dot_Id_new(name: string): dot.Id {
+  return unwrap_result(dot.Id.new(name), debug_unit);
 }
 
 export const Labeller_ObligationForest = {
   // rustc: compiler/rustc_data_structures/src/obligation_forest/graphviz.rs:45 graph_id
-  graph_id<O>(_self: ObligationForest<O>): string {
+  graph_id<O>(_self: ObligationForest<O>): dot.Id {
     return dot_Id_new("trait_obligation_forest");
   },
 
   // rustc: compiler/rustc_data_structures/src/obligation_forest/graphviz.rs:49 node_id
-  node_id<O>(_self: ObligationForest<O>, index: number): string {
+  node_id<O>(_self: ObligationForest<O>, index: number): dot.Id {
     return dot_Id_new(`obligation_${index}`);
   },
 
   // rustc: compiler/rustc_data_structures/src/obligation_forest/graphviz.rs:53 node_label
-  node_label<O>(self: ObligationForest<O>, index: number, f: Fmt): LabelStr {
+  node_label<O>(self: ObligationForest<O>, index: number): dot.LabelText {
     const node = self.nodes[index]!;
-    const label = `${self.d_O.debug(node.obligation, f)} (${debug_NodeState(node.state, f)})`;
-
-    return { $: "LabelStr", _0: label };
+    // PORT: `{:?}` of `node.obligation.as_cache_key()`: `as_cache_key` returns a canonical key, not the `CacheKey`
+    // value (see the header), so its `Debug` cannot be written.
+    void node;
+    return unported("rustc_data_structures::obligation_forest::graphviz: Debug of ForestObligation::CacheKey");
   },
 
   // rustc: compiler/rustc_data_structures/src/obligation_forest/graphviz.rs:60 edge_label
-  edge_label<O>(_self: ObligationForest<O>, _edge: [number, number]): LabelStr {
+  edge_label<O>(_self: ObligationForest<O>, _edge: [number, number]): dot.LabelText {
     return { $: "LabelStr", _0: "" };
   },
 };
@@ -871,9 +893,10 @@ export const GraphWalk_ObligationForest = {
   // rustc: compiler/rustc_data_structures/src/obligation_forest/graphviz.rs:73 edges
   edges<O>(self: ObligationForest<O>): [number, number][] {
     const out: [number, number][] = [];
-    for (let index = 0; index < self.nodes.length; index++) {
-      const node = self.nodes[index]!;
-      for (const dependent of node.dependents) out.push([index, dependent]);
+    for (let i = 0; i < self.nodes.length; i++) {
+      const node = self.nodes[i]!;
+
+      for (const d of node.dependents) out.push([d, i]);
     }
     return out;
   },
@@ -888,3 +911,17 @@ export const GraphWalk_ObligationForest = {
     return t;
   },
 };
+
+/** `&ObligationForest<O>` as `impl dot::Labeller + dot::GraphWalk` (the tables above, bound to `forest`). */
+function as_dot_graph<O>(forest: ObligationForest<O>): dot.Labeller<number, [number, number]> & dot.GraphWalk<number, [number, number]> {
+  return {
+    graph_id: () => Labeller_ObligationForest.graph_id(forest),
+    node_id: (n) => Labeller_ObligationForest.node_id(forest, n),
+    node_label: (n) => Labeller_ObligationForest.node_label(forest, n),
+    edge_label: (e) => Labeller_ObligationForest.edge_label(forest, e),
+    nodes: () => GraphWalk_ObligationForest.nodes(forest),
+    edges: () => GraphWalk_ObligationForest.edges(forest),
+    source: (e) => GraphWalk_ObligationForest.source(e),
+    target: (e) => GraphWalk_ObligationForest.target(e),
+  };
+}
