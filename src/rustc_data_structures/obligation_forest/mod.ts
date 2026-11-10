@@ -850,9 +850,12 @@ export function debug_Error<O, E>(v: Error<O, E>, f: Fmt, d_O: Debug<O>, d_E: De
 // `dot::render` by `as_dot_graph`. `dot::Nodes` / `dot::Edges` are arrays. Nothing calls `dump_graphviz` (upstream's
 // is `#[allow(dead_code)]`), and it does nothing unless `DUMP_OBLIGATION_FOREST_GRAPHVIZ` is set.
 
+/** Debug for `()`: `dot::Id::new`'s error type, for the panic message of its `.unwrap()`. */
+const debug_unit: Debug<null> = () => "()";
+
 /** `dot::Id::new(name).unwrap()` */
 function dot_Id_new(name: string): dot.Id {
-  return unwrap_result(dot.Id.new(name));
+  return unwrap_result(dot.Id.new(name), debug_unit);
 }
 
 export const Labeller_ObligationForest = {

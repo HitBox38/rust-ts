@@ -22,8 +22,8 @@ import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import { HasAttrs_DefId } from "../../rustc_middle/ty/mod.ts";
 import { with_no_trimmed_paths } from "../../rustc_middle/ty/print/pretty.ts";
 import type { DefId } from "../../rustc_span/def_id.ts";
-import { PLAIN, PRETTY } from "../../std/fmt.ts";
-import { type IoResult, io_error_from_node } from "../../std/io.ts";
+import { type Debug, PLAIN, PRETTY } from "../../std/fmt.ts";
+import { debug_IoError, type IoResult, io_error_from_node } from "../../std/io.ts";
 import { assert, panic, unreachable, unwrap } from "../../std/panic.ts";
 import { path_file_name, path_join, path_parent } from "../../std/path.ts";
 import { Err, Ok, unwrap_result } from "../../std/result.ts";
@@ -33,6 +33,9 @@ import type { DebugWithContext } from "./fmt.ts";
 import type { Analysis } from "./mod.ts";
 import type { Results } from "./results.ts";
 import { type ResultsVisitor, ResultsVisitor_provided, visit_results } from "./visitor.ts";
+
+/** Debug for `()`: `dot::Id::new`'s error type, for the panic message of its `.unwrap()`. */
+const debug_unit: Debug<null> = () => "()";
 
 /// Writes a DOT file containing the results of a dataflow analysis if the user requested it via
 /// `rustc_mir` attributes and `-Z dump-mir-dataflow`. The `Result` in and the `Results` out are
@@ -229,12 +232,12 @@ class Formatter<D, A extends Analysis<D, unknown>> implements dot.Labeller<Basic
   // rustc: compiler/rustc_mir_dataflow/src/framework/graphviz.rs:184 graph_id
   graph_id(): dot.Id {
     const name = graphviz_safe_def_name(this.body.source.def_id());
-    return unwrap_result(dot.Id.new(`graph_for_def_id_${name}`));
+    return unwrap_result(dot.Id.new(`graph_for_def_id_${name}`), debug_unit);
   }
 
   // rustc: compiler/rustc_mir_dataflow/src/framework/graphviz.rs:189 node_id
   node_id(n: BasicBlock): dot.Id {
-    return unwrap_result(dot.Id.new(`bb_${BasicBlock.index(n)}`));
+    return unwrap_result(dot.Id.new(`bb_${BasicBlock.index(n)}`), debug_unit);
   }
 
   // rustc: compiler/rustc_mir_dataflow/src/framework/graphviz.rs:193 node_label
@@ -242,7 +245,7 @@ class Formatter<D, A extends Analysis<D, unknown>> implements dot.Labeller<Basic
     const diffs = StateDiffCollector.run<D, A>(this.body, block, this.results, this.style);
 
     const fmt = new BlockFormatter<D, A>(ResultsCursor.new_borrowing<D, A>(this.body, this.results), Background.Light, this.style);
-    const label = unwrap_result(fmt.write_node_label(block, diffs));
+    const label = unwrap_result(fmt.write_node_label(block, diffs), debug_IoError);
 
     return dot.LabelText.html(label);
   }

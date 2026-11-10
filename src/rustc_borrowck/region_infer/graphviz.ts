@@ -14,7 +14,7 @@ import { Symbol } from "../../rustc_span/symbol.ts";
 import { bug } from "../../rustc_span/macros.ts";
 import { debug_UniverseIndex, UniverseIndex } from "../../rustc_type_ir/lib.ts";
 import { debug_RegionVid, type RegionVid } from "../../rustc_type_ir/region_kind.ts";
-import { PLAIN } from "../../std/fmt.ts";
+import { type Debug, PLAIN } from "../../std/fmt.ts";
 import type { IoResult } from "../../std/io.ts";
 import { Ok, unwrap_result } from "../../std/result.ts";
 import * as dot from "../../rustc_graphviz/lib.ts";
@@ -29,9 +29,12 @@ export type dot_Id = dot.Id;
 /** `dot::LabelText<'_>` (rustc_graphviz). */
 export type dot_LabelText = dot.LabelText;
 
+/** Debug for `()`: `dot::Id::new`'s error type, for the panic message of its `.unwrap()`. */
+const debug_unit: Debug<null> = () => "()";
+
 /** `dot::Id::new(name).unwrap()` */
 function dot_Id_new(name: string): dot_Id {
-  return unwrap_result(dot.Id.new(name));
+  return unwrap_result(dot.Id.new(name), debug_unit);
 }
 
 /**
