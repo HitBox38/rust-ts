@@ -28,6 +28,10 @@
 // - Stack frames name files relative to the directory the build ran in (the repo), not absolute paths, and the bundler renames
 //   top-level names that collide across modules (`foo` -> `foo2`), which shows in `Function.name` and frame names. Neither can
 //   be undone from here: see the handoff for what that means for src/rust_ts/track_caller.ts and for JS stacks in crash reports.
+// - A long run is slower than from source (about 18% more instructions, 11-14% more wall time; docs/handoff/perf-subject-bin.md).
+//   The cost is the bundle's shape, not the compile step: a plain `Bun.build` bundle run with `bun` costs the same, and neither
+//   bytecode, the bytecode optimizer nor the sourcemap changes it. The `require()`s and the dynamic import in the port make the
+//   bundler wrap nearly every module in a lazy `__esm` initializer, which JSC runs less well. No build option removes that.
 import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, utimesSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -53,7 +57,14 @@ export const SUBJECT_BIN_DIR = join(DATA, "subject-bin");
 /** The binary's file name in a build directory. */
 const BIN_NAME = "rts";
 
-/** A build left unused (no run resolved it) for this long is removed by `pruneSubjectBins` (each is ~160 MB). */
+/**
+ * What `Bun.build` writes next to the binary although the map is embedded in it (`sourcemap: "inline"` with `compile`): nothing
+ * reads it (stack frames resolve the same without it; docs/handoff/perf-subject-bin.md), so the builder deletes it (60-64 MB per
+ * build, w40g-audit N3). Any other file in a fresh build stops it (`buildFiles`).
+ */
+const STRAY_MAP = `${BIN_NAME}.map`;
+
+/** A build left unused (no run resolved it) for this long is removed by `pruneSubjectBins` (each is ~175 MB: main.ts 174, miri.ts 179). */
 export const PRUNE_AFTER_MS = 3 * 24 * 3600 * 1000;
 
 /** The global the `NODE_ENV` define reads (see the file comment). Not enumerable. */
@@ -89,7 +100,9 @@ export function binaryModeRefusal(
 /**
  * The Bun builds the subject binary was validated on (docs/reviews/subject-bin.md F2): `Bun.build` accepts an unknown option
  * without a word, so `optimize: { bytecode: false }` (`bunBuildConfig`) is only known to take effect on these. A build joins
- * the list only after the handoff's nesting-depth and module-order checks pass on it.
+ * the list only after the handoff's nesting-depth and module-order checks pass on it. The option is there for depth only: on
+ * 1.4.3 it changes nothing at run time (docs/handoff/perf-subject-bin.md, H2). Also check, on a new Bun, that a build still
+ * writes only `rts` and `rts.map` (`buildFiles`), and that frames still resolve without `rts.map` (the cases' frame test).
  */
 export const VALIDATED_BUN: readonly { version: string; revision: string }[] = [
   { version: "1.4.3", revision: "c6da4a4d3010e5553438c60f6bd76d981976867c" },
@@ -234,7 +247,9 @@ export interface BuildSpec {
    * Bun's build-time bytecode optimizer (`bun build --no-optimize-bytecode` turns it off; in `Bun.build` the undocumented
    * `optimize: { bytecode: false }`). Off: with it on, the compiler's JS frames are larger than from source, and a nesting the
    * source still compiles overflows the stack (parenthesised literal at -Zunpretty=normal: source to ~10,150 levels, optimized
-   * build ~9,720, unoptimized ~10,060; see the handoff). Startup is the same either way.
+   * build ~9,720, unoptimized ~10,060; see the handoff). Startup is the same either way, and so is a long run: on
+   * recursive-drop-elaboration.rs the optimized build ran 613-617 G instructions and 28.8-29.1 s, the unoptimized 608 G and
+   * 28.3-28.8 s (docs/handoff/perf-subject-bin.md), so turning it on would only cost depth.
    */
   optimizeBytecode: false;
   sourcemap: "inline";
@@ -361,6 +376,16 @@ export interface SubjectBinMeta {
   buildMs: number;
 }
 
+/**
+ * Leaves only the binary in a fresh build directory: deletes `STRAY_MAP`, and throws if any other file is there (a Bun that
+ * wrote something new would otherwise go unnoticed, or into the cache unrecorded).
+ */
+export function buildFiles(dir: string): void {
+  rmSync(join(dir, STRAY_MAP), { force: true });
+  const left = readdirSync(dir).sort();
+  if (left.length !== 1 || left[0] !== BIN_NAME) throw new Error(`a build left ${JSON.stringify(left)}, not just ${BIN_NAME}`);
+}
+
 /** The finished build at `dir`, or `undefined` if there is none (a missing binary or meta.json). */
 function finished(dir: string, key: string, entry: string): SubjectBin | undefined {
   const meta = join(dir, "meta.json");
@@ -432,6 +457,7 @@ async function ensureIn(entry: string, repo: string, root: string, opts: { bunPa
     const started = performance.now();
     const r = await Bun.build(bunBuildConfig(spec, join(tmp, BIN_NAME)));
     if (!r.success) throw new Error(`building ${entry} failed: ${buildLogs(r)}`);
+    buildFiles(tmp);
     // The binary must hold exactly the files the key hashed (a file that changed between the two bundler passes would not).
     const built = metaInputs(r, repo);
     const keyed = inputs.map((i) => i.path);
