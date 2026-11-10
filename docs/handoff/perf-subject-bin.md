@@ -1,6 +1,6 @@
 # Handoff: perf-subject-bin (wave 40h; harness batch, needs an independent review)
 
-Branch `t3/7f5f0ad9`. Files: `scripts/lib/subject-bin.ts`, `scripts/subject-bin.cases.ts`, `scripts/subject-bin-bench.ts` (new),
+Branch `t3/optimize-subject-binary` (worktree `t3-7f5f0ad9`). Files: `scripts/lib/subject-bin.ts`, `scripts/subject-bin.cases.ts`, `scripts/subject-bin-bench.ts` (new),
 `scripts/subject-bin-order.ts`, this file. No `src/`, `harness/`, baseline, suite, oracle output or runner change. No `unported(...)`.
 
 **Bottom line.** The binary is slower on long cases because of **the shape of Bun's bundle**, not because of the compile step.
