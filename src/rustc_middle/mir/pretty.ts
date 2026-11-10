@@ -32,11 +32,12 @@ import { display_Region } from "../../rustc_type_ir/ir_print.ts";
 import { debug_Variance } from "../../rustc_type_ir/lib.ts";
 import { type Debug, debug_int, debug_struct, debug_tuple, debug_vec, type Fmt, format_debug, PLAIN, PRETTY } from "../../std/fmt.ts";
 import type { IoResult } from "../../std/io.ts";
-import { assert_eq, panic, unported, unreachable, unwrap } from "../../std/panic.ts";
+import { assert_eq, panic, unreachable, unwrap } from "../../std/panic.ts";
 import { Ok, type Result } from "../../std/result.ts";
 import type { FmtError, FmtResult, FmtWrite, Write } from "../../vendor/anstream/stream.ts";
 import type { AdtDef } from "../ty/adt.ts";
 import { with_ } from "../ty/context/tls.ts";
+import { write_mir_fn_graphviz } from "./graphviz.ts";
 import type { TyCtxt } from "../ty/context.ts";
 import type { Ty } from "../ty/decls.ts";
 import { debug_Ty } from "../ty/mod.ts";
@@ -373,8 +374,7 @@ export class MirDumper {
       const file = this.create_dump_file("dot", body);
       if (file.$ === "Ok") {
         try {
-          // write_mir_fn_graphviz(self.tcx(), body, false, &mut file)?;
-          unported("rustc_middle::mir::graphviz::write_mir_fn_graphviz");
+          write_mir_fn_graphviz(this.tcx(), body, false, file._0);
         } finally {
           (file._0 as DumpFile).drop();
         }
