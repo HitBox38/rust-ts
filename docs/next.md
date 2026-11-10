@@ -580,4 +580,4 @@ Root measured 2026-11-09: the port takes 0.48 s to start (`--version`), and a `b
 | lane | scope | status |
 |---|---|---|
 | perf-subject-bin | the binary's cost on long cases (w40g-audit N1, N2: +11% wall, +14% user, +20% memory) and the `rts.map` (N3): find the cause and remove it without losing byte-identical output or the stack depth | running |
-| harness-w48 | root-w47-check N1-N3 (gate variables reaching the unit steps: `RUST_TS_IMPL`, `REGEN`, the fixture writers); harness-w46 review N1-N3; outside `scripts/lib/subject-bin.ts` | running |
+| harness-w48 | root-w47-check N1-N3 (gate variables reaching the unit steps: `RUST_TS_IMPL`, `REGEN`, the fixture writers); harness-w46 review N1-N3; outside `scripts/lib/subject-bin.ts` | done (branch t3/harness-w48-runner-fixes, 3789f879): the gate refuses to start with `RUST_TS_IMPL`, `REGEN`, `RUST_TS_WRITE_ORACLE`, `TY*_WRITE` or `TY*_PROBE` set (two scan tests keep the list complete); rlib-native and host-rlib hold `work.lock` (their report-suite caches miss once); review running |
