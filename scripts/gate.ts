@@ -21,6 +21,8 @@
 //       Its `upstreamOk` is checked then (the static steps must leave the upstream checkout clean). Both records name the frozen
 //       lists step's run directory (`frozenLists`, `<run>-frozen-lists`), null when it wrote none.
 //       It refuses to start while `RUST_TS_FREEZE_LISTS` or `NODE_ENV` is set (`freezeEnvRefusal`): every subject would inherit it.
+//       Nor while a variable that changes what a unit test checks is set (`RUST_TS_IMPL`, `REGEN`, the fixture writers:
+//       scripts/lib/unit-steps.ts `UNIT_ENV_REFUSED`, `unitEnvRefusal`; review root-w47-check N1, N2).
 //       A static step without a junit report that prints `note:` lines (frozen lists, on a missing `gate.json`) has them printed in
 //       the gate's output and recorded in gate.json `staticNotes` (review root-w44-check N1); they never decide anything.
 //       Subject: with `RUST_TS_SUBJECT=binary` every subject entry that has a compiled build (scripts/lib/subject-bin.ts) runs from it,
@@ -42,7 +44,7 @@ import { HostLog, REAL_HOST, StuckReads, batteryRefusal, sampleHost, type HostRe
 import { miriBinary } from "./lib/miri.ts";
 import { prepareSubject } from "./lib/subject-bin.ts";
 import { verifyOraclePin } from "./lib/oracle.ts";
-import { BUN_QUIET_VARS, UNIT_STEPS, UNIT_TEST_TIMEOUT_MS, aloneJunit, aloneStepArgs, oneProcessEnv, unitStepArgs, unitStepEnv, type UnitStep } from "./lib/unit-steps.ts";
+import { BUN_QUIET_VARS, UNIT_STEPS, UNIT_TEST_TIMEOUT_MS, aloneJunit, aloneStepArgs, oneProcessEnv, unitEnvRefusal, unitStepArgs, unitStepEnv, type UnitStep } from "./lib/unit-steps.ts";
 import { upstreamError, upstreamStatus } from "./lib/upstream.ts";
 import { oracleTestProbes, probeBinary, probeStaleness } from "./probes.ts";
 import { parseIrRunArgs } from "./ir-run.ts";
@@ -409,12 +411,23 @@ export function crashedIn(stderr: string): string | undefined {
 }
 
 /**
+ * The line naming the file a one-process `bun test` was running when it ended with no report (`crashedIn`), killed by the gate's
+ * limit or not. The file it names is where the process was, not always the cause: async work an earlier file left running (a
+ * timer, a pending promise) ends the process during a later file (review harness-w46 N1).
+ */
+export function crashedLine(file: string, timedOut: boolean): string {
+  if (timedOut) return `  failed: ${file}: the test file bun test was running when the gate's limit killed it (a test there hung, or work an earlier file left running kept it busy)`;
+  return `  failed: ${file}: the test file bun test was running when its process ended with no report (process.exit, an abort or a crash, at load or in a test there; or async work an earlier file left running, such as a timer)`;
+}
+
+/**
  * The lines of a failed step's output worth printing: non-empty, without Bun's passing tests (`(pass) ...`), nor a file name
  * that nothing follows but another file name or the closing counts. With `oneProcessEnv` Bun prints both for every file,
  * and they would push the failure out of the tail the gate prints. Reporting only.
  */
 export function outputTail(output: string, n = 15): string[] {
-  const lines = output.split("\n").filter((l) => l.trim() !== "" && !l.startsWith("(pass) "));
+  // `\r?\n`, as the notes and `crashedIn`: on Windows a `\r` left on a line would print a note twice and keep Bun's file-name lines (review harness-w46 N2).
+  const lines = output.split(/\r?\n/).filter((l) => l.trim() !== "" && !l.startsWith("(pass) "));
   const kept = lines.filter((l, i) => !(BUN_FILE_LINE.test(l) && i + 1 < lines.length && (BUN_FILE_LINE.test(lines[i + 1]!) || /^ \d+ pass$/.test(lines[i + 1]!))));
   return kept.slice(-n);
 }
@@ -470,7 +483,7 @@ export async function runStaticStep(step: StaticStep): Promise<{ pass: boolean; 
     nameOutside([]);
     // A worker that dies is named among the failures above; one process that ends names nothing but the last file it started (review harness-w45 N1).
     const last = crashedIn(r.stderr);
-    if (last !== undefined) console.log(`  failed: ${last}: the last test file bun test started; the process ended in it with no report (process.exit, an abort or a crash, at load or in a test)`);
+    if (last !== undefined) console.log(crashedLine(last, r.timedOut));
     else console.log(`  ${name}: bun test printed no test file's name, so the file is not known (Bun names its files only in a one-process pass, and only when none of ${BUN_QUIET_VARS.join(", ")} is set)`);
     return { pass: false };
   }
@@ -572,7 +585,7 @@ function protectedSuites(): string[] {
 
 export async function gateRun(requested: string[], skipStatic: boolean, skipHeavy: boolean, allowBattery = false, gateHost: GateHost = REAL_GATE_HOST): Promise<void> {
   for (const name of requested) getSuite(name); // unknown suite names fail here
-  const envRefused = freezeEnvRefusal();
+  const envRefused = freezeEnvRefusal() ?? unitEnvRefusal(process.env);
   if (envRefused !== undefined) die(envRefused);
   // Before anything starts. What this reads decides only whether a run starts: no status or verdict reads the record below.
   const note = (l: string) => console.log(l);

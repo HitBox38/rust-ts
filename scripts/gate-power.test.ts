@@ -5,6 +5,7 @@ import { afterAll, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { UNIT_ENV_REFUSED } from "./lib/unit-steps.ts";
 
 const REPO = resolve(import.meta.dir, "..");
 const TMP = mkdtempSync(join(tmpdir(), "rust-ts-gate-power-"));
@@ -51,6 +52,9 @@ console.log(\`pmset reads: \${i}\`);
   expect(Bun.spawnSync(["git", "init", "-q", join(data, "rust")]).exitCode).toBe(0);
   // Without `bun test`'s NODE_ENV=test: the gate refuses to start with it (scripts/gate.ts `freezeEnvRefusal`).
   const { NODE_ENV: _node, RUST_TS_FREEZE_LISTS: _freeze, ...inherited } = process.env;
+  // Nor with a variable that changes what a unit test checks (scripts/lib/unit-steps.ts `unitEnvRefusal`), which a unit step's own
+  // environment may hold when its run is reproduced outside the gate.
+  for (const k of Object.keys(UNIT_ENV_REFUSED)) delete inherited[k];
   const r = Bun.spawnSync([process.execPath, "-e", child], { cwd: REPO, stdout: "pipe", stderr: "pipe", env: { ...inherited, RUST_TS_DATA: data } });
   const stdout = r.stdout.toString();
   const runs = join(data, "runs");

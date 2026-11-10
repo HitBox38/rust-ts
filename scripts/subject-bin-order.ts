@@ -27,6 +27,12 @@ const isRepoModule = (p: string) => p.startsWith(REPO + "/") && /\.ts$/.test(p) 
 
 if (import.meta.main) {
   const dd = process.argv.indexOf("--");
+  // Bun drops a `--` that comes first after the script (`bun x.ts -- --version` gives argv `[--version]`), so the subject's
+  // arguments would be read as this tool's and the entry run with none (rustc's help, the same on both sides).
+  if (dd < 0 && process.argv.length > 2 && !process.argv.slice(2).some((w) => w === "--entry" || w.startsWith("--entry=") || w === "--cwd" || w.startsWith("--cwd=") || w === "--env" || w === "--keep" || w === "--verbose")) {
+    console.log("ERROR: no `--` before the subject's arguments (Bun drops a leading one): pass an option first, e.g. `--entry src/rust_ts/main.ts -- <args>`");
+    process.exit(1);
+  }
   const a = parseArgs(process.argv.slice(2, dd < 0 ? undefined : dd));
   const args = dd < 0 ? [] : process.argv.slice(dd + 1);
   const entry = typeof a.entry === "string" ? a.entry : "src/rust_ts/main.ts";

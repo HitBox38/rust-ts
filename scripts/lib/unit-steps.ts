@@ -79,8 +79,9 @@ export function aloneStepArgs(u: UnitStep, junit: string, timeoutMs: number = UN
  * - RUST_TS_DATA, RUST_TS_HOST_TUPLE: `bun test` and its `--parallel` workers do not read `.env.local` (Bun loads
  *   `.env.test` there), so the gate's values (scripts/lib/common.ts reads `.env.local`) are passed by name. A host tuple
  *   the gate does not have stays unset.
- * - RUST_TS_SUBJECT=source: the unit tests test the harness in its default mode, whatever mode the gate's suites run in.
- *   A gate run with `RUST_TS_SUBJECT=binary` passed it on, and the harness tests that read a suite's subject command (which
+ * - RUST_TS_SUBJECT=source: the unit tests test the harness in source mode, whatever mode the gate's suites run in. Source
+ *   is the harness's default (`DEFAULT_SUBJECT_MODE` in scripts/lib/subject-bin.ts, which this file may not import, see
+ *   its header; scripts/lib/unit-steps.test.ts checks that the two agree, review root-w47-check N3). A gate run with `RUST_TS_SUBJECT=binary` passed it on, and the harness tests that read a suite's subject command (which
  *   names `src/rust_ts/main.ts` in source mode) failed (gate-20261110-013859-root-j9yr). Binary mode has its own tests
  *   (scripts/subject-bin.cases.ts).
  */
@@ -110,4 +111,34 @@ export const BUN_QUIET_VARS: readonly string[] = ["CLAUDECODE", "AGENT", "REPL_I
  */
 export function oneProcessEnv(env: Record<string, string>): Record<string, string | null> {
   return { ...env, ...Object.fromEntries(BUN_QUIET_VARS.map((k) => [k, null])) };
+}
+
+/**
+ * Variables that change what a unit test checks, each with why; the gate refuses to start while any is set
+ * (`unitEnvRefusal`, review root-w47-check N1, N2), since every unit test would inherit it. Nothing the gate runs needs one
+ * from the gate's own environment: difftest, miri-diff and phase-diff set `RUST_TS_IMPL` for each subject they start, and
+ * the subject builds unset it (scripts/lib/subject-bin.ts). A refusal rather than unsetting them in the unit steps: whoever
+ * set one meant something the gate cannot do, and a fixture rewrite would otherwise surface only at the end of the run, as
+ * "the tree changed while the gate was running". scripts/lib/unit-steps.test.ts checks that every variable a test file reads
+ * is here or named harmless there, and that every fixture-writer name (`REGEN`, `*_WRITE`, ...) in the repo is here.
+ */
+export const UNIT_ENV_REFUSED: Readonly<Record<string, string>> = {
+  RUST_TS_IMPL:
+    "the unit tests that start src/rust_ts/main.ts with a copy of their environment pass it on: `shim` runs the oracle in the port's place, so such a test compares the oracle with itself, and `stub` fails it (src/rustc_const_eval/const_eval/eval_queries.oracle.test.ts)",
+  REGEN: "the oracle tests that read it rewrite their checked-in fixtures from the oracle, so a test of a fixture passes by construction",
+  RUST_TS_WRITE_ORACLE: "src/rustc_parse/parser/item.test.ts rewrites its checked-in oracle output",
+  TYREPR_WRITE: "src/rustc_middle/ty/repr.oracle.test.ts rewrites its expected.json",
+  TYPRINT_WRITE: "src/rustc_middle/ty/print/pretty_b.test.ts rewrites its expected.json",
+  TYCONSTS_WRITE: "src/rustc_middle/ty/consts/consts.oracle.test.ts rewrites its expected.json",
+  TYREPR_PROBE: "src/rustc_middle/ty/repr.oracle.test.ts compares with that probe instead of its checked-in expected.json",
+  TYPRINT_PROBE: "src/rustc_middle/ty/print/pretty_b.test.ts compares with that probe instead of its checked-in expected.json",
+  TYCONSTS_PROBE: "src/rustc_middle/ty/consts/consts.oracle.test.ts compares with that probe instead of its checked-in expected.json",
+};
+
+/** Why the gate must not start with this environment, or `undefined`: a `UNIT_ENV_REFUSED` variable is set (even to ""). */
+export function unitEnvRefusal(env: Record<string, string | undefined>): string | undefined {
+  const set = Object.keys(UNIT_ENV_REFUSED).filter((k) => env[k] !== undefined);
+  if (set.length === 0) return undefined;
+  const why = set.map((k) => `${k}: ${UNIT_ENV_REFUSED[k]}`).join("; ");
+  return `${set.map((k) => `${k}=${env[k]}`).join(" and ")} set: every unit test would inherit it (${why}); no gate step needs it from the gate's environment: unset it and re-run the gate`;
 }

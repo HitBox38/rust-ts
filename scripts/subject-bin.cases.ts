@@ -11,6 +11,7 @@ import {
   BINARY_ENTRIES,
   DEFAULT_SUBJECT_MODE,
   binaryModeRefusal,
+  buildFiles,
   buildSpec,
   CONFIG_FILES,
   ensureSubjectBin,
@@ -214,6 +215,34 @@ describe("builder (fixture tree)", () => {
     expect(b.built).toBe(true);
     expect(b.inputs).toBe(a.inputs);
   });
+
+  test("a build keeps only the binary and meta.json, and its frames still name the source's file, line and column (w40g-audit N3)", async () => {
+    // The frame comes from an imported module: the embedded map must resolve it with no `rts.map` beside the binary.
+    writeFileSync(join(repo, "src", "lib", "frame_lib.ts"), "export function frame(): string {\n  return new Error().stack!.split('\\n').find((l) => l.includes('frame_lib'))!.trim();\n}\n");
+    writeFileSync(join(repo, "src", "frame.ts"), 'import { frame } from "./lib/frame_lib.ts";\nconsole.log(frame());\n');
+    const b = await ensureSubjectBin("src/frame.ts", { repo, root, smoke: noSmoke });
+    expect(readdirSync(b.dir).sort()).toEqual(["meta.json", "rts"]);
+    const run = (cmd: string[]) => Bun.spawnSync(cmd, { cwd: tmp, stdout: "pipe" }).stdout.toString().trim();
+    const fromSource = run([process.execPath, join(repo, "src", "frame.ts")]);
+    expect(fromSource).toContain(`${join(repo, "src", "lib", "frame_lib.ts")}:2:`);
+    // The build names the file relative to the repo (docs/handoff/subject-bin.md 4.1), at the same line and column.
+    expect(run([b.path])).toBe(fromSource.replace(`${repo}/`, ""));
+  });
+
+  test("buildFiles deletes the stray map and refuses any other file", () => {
+    const d = join(tmp, "build-files");
+    mkdirSync(d);
+    writeFileSync(join(d, "rts"), "");
+    writeFileSync(join(d, "rts.map"), "{}");
+    buildFiles(d);
+    expect(readdirSync(d)).toEqual(["rts"]);
+    buildFiles(d);
+    writeFileSync(join(d, "rts.extra"), "");
+    expect(() => buildFiles(d)).toThrow('a build left ["rts","rts.extra"], not just rts');
+    rmSync(join(d, "rts"));
+    rmSync(join(d, "rts.extra"));
+    expect(() => buildFiles(d)).toThrow("a build left [], not just rts");
+  });
 });
 
 describe("raw comparison (scripts/subject-bin-compare.ts)", async () => {
@@ -232,5 +261,20 @@ describe("raw comparison (scripts/subject-bin-compare.ts)", async () => {
     expect(compareRecords(rec({ stderr: "pid 12" }), bin({ stderr: "pid 13" })).kind).toBe("differs");
     expect(compareRecords(rec({ code: 1 }), bin({ code: 101 })).kind).toBe("differs");
     expect(compareRecords(rec({ timedOut: true }), bin({})).kind).toBe("timed out");
+  });
+});
+
+describe("timing tool (scripts/subject-bin-bench.ts)", async () => {
+  const { maskPid, median, timeCounters, withBinary } = await import("./subject-bin-bench.ts");
+  test("reads `/usr/bin/time -l` counters, takes medians, swaps the subject prefix and masks only a panic's thread id", () => {
+    expect(timeCounters("  1.0 real\n  1087059093  instructions retired\n   674269595  cycles elapsed\n")).toEqual({ instructions: 1087059093, cycles: 674269595 });
+    expect(timeCounters("  1.0 real\n")).toEqual({ instructions: undefined, cycles: undefined });
+    expect(median([3, 1, 2])).toBe(2);
+    expect(median([4, 1, 3, 2])).toBe(2.5);
+    expect(withBinary(["/b/bun", "--preload", "/r/src/rust_ts/miri_stack_first.ts", "/r/src/miri/bin/miri.ts", "-x"], "/c/rts")).toEqual(["/c/rts", "-x"]);
+    expect(withBinary(["/b/bun", "/r/src/rust_ts/main.ts", "a.rs"], "/c/rts")).toEqual(["/c/rts", "a.rs"]);
+    expect(() => withBinary(["/b/bun", "/r/src/rust_ts/tydump.ts"], "/c/rts")).toThrow("no subject entry");
+    expect(maskPid("thread 'rustc' (123) panicked at x")).toBe("thread 'rustc' (PID) panicked at x");
+    expect(maskPid("thread 'rustc' (123) said")).toBe("thread 'rustc' (123) said");
   });
 });

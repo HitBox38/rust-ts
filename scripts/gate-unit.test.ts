@@ -133,7 +133,12 @@ await step("slowAloneNote", ["src"], SLOWISH, { slowNoteS: 0.3, alone: ["src/s.t
   out.notesPass = await noteStep(0, "");
   out.notesFail = await noteStep(1, 'for (let i = 0; i < 20; i++) console.log("line " + i);');
   out.notesFailTail = await noteStep(1, "");
+  // Output with Windows line ends: the tail splits as the notes do, so a note in it is not printed again (review harness-w46 N2).
+  out.notesFailCrlf = await noteStep(1, 'process.stdout.write("crlf one\\\\r\\\\nnote: crlf\\\\r\\\\n");');
 }
+// Bun's file-name lines with Windows line ends are dropped as with Unix ones (review harness-w46 N2).
+out.tailCrlf = g.outputTail("src/a.test.ts:\\r\\nsrc/b.test.ts:\\r\\n(pass) p\\r\\n(fail) f\\r\\nsrc/c.test.ts:\\r\\n 3 pass\\r\\n");
+out.crashTimedOut = g.crashedLine("src/x.test.ts", true);
 const SLOW = { "src/a.test.ts": PASS, "src/t.test.ts": 'import { test } from "bun:test";\\ntest("slow", async () => { await Bun.sleep(1500); });\\n' };
 await step("timeout", ["src"], SLOW, { timeoutMs: 300 });
 await step("inTime", ["src"], SLOW, { timeoutMs: 20000 });
@@ -218,10 +223,11 @@ test("the unit-test step under --parallel: report, skips, failures, .only, timeo
     expect(exit0).toHaveLength(2);
     expect(exit0[0]).toStartWith("ERROR: unit tests (alone) wrote no junit report (");
     expect(exit0[0]).toEndWith("; cannot check for skipped tests (bun test exited 0: a test that called process.exit, an abort or a crash?)");
-    const crashed = (f: string) => `  failed: ${f}: the last test file bun test started; the process ended in it with no report (process.exit, an abort or a crash, at load or in a test)`;
+    // The file named is where the process was when it ended, which async work left by an earlier file can make the wrong one (review harness-w46 N1).
+    const crashed = (f: string) => `  failed: ${f}: the test file bun test was running when its process ended with no report (process.exit, an abort or a crash, at load or in a test there; or async work an earlier file left running, such as a timer)`;
     expect(exit0[1]).toBe(crashed("src/x.test.ts"));
     // Any exit code, an abort, and a pass without workers name the file (review harness-w45 N1); the workers named theirs already.
-    const noReport = (r: { lines: string[] }) => r.lines.filter((l: string) => l.includes("wrote no junit report") || l.includes("the last test file bun test started") || l.includes("printed no test file"));
+    const noReport = (r: { lines: string[] }) => r.lines.filter((l: string) => l.includes("wrote no junit report") || l.includes("the test file bun test was running") || l.includes("printed no test file"));
     expect(j.aloneExit1.pass).toEqual([true, false]);
     expect(noReport(j.aloneExit1)).toHaveLength(2);
     expect(noReport(j.aloneExit1)[0]).toEndWith("(bun test exited 1: a test that called process.exit, an abort or a crash?)");
@@ -258,6 +264,11 @@ test("the unit-test step under --parallel: report, skips, failures, .only, timeo
     // Notes already in the printed tail are not printed twice.
     expect(j.notesFailTail.pass).toBe(false);
     expect(j.notesFailTail.lines).toEqual(["ERROR: frozen lists", "frozen lists: 48/48\nnote: frozen lists: the latest accepted gate run's gate.json is missing\nnote: second"]);
+    // The same with \r\n line ends: each note once, and no \r left on a tail line (review harness-w46 N2).
+    expect(j.notesFailCrlf.lines).toEqual(["ERROR: frozen lists", "frozen lists: 48/48\nnote: frozen lists: the latest accepted gate run's gate.json is missing\ncrlf one\nnote: crlf\nnote: second"]);
+    expect(j.tailCrlf).toEqual(["src/b.test.ts:", "(fail) f", " 3 pass"]);
+    // Killed by the gate's limit: said so, not a crash (review harness-w46 N1).
+    expect(j.crashTimedOut).toBe("  failed: src/x.test.ts: the test file bun test was running when the gate's limit killed it (a test there hung, or work an earlier file left running kept it busy)");
     // A test over the per-test timeout fails the step; with time enough it passes.
     expect(j.timeout.pass).toEqual([false]);
     expect(j.timeout.lines.join("\n")).toContain("timed out after 300ms");
