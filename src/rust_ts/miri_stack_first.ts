@@ -6,5 +6,5 @@
 import { join } from "node:path";
 import { ensure_stack } from "./stack.ts";
 
-// A `--compile` bundle's `Bun.main` does not match: miri.ts's own call does the same work, later.
+// The harness's subject binary (scripts/lib/subject-bin.ts) defines `Bun.main` and `import.meta.dir` as `bun <entry>` has them, so this matches there too; a plain `--compile` bundle's does not, and miri.ts's own call then does the same work, later.
 if (Bun.main === join(import.meta.dir, "../miri/bin/miri.ts")) ensure_stack();

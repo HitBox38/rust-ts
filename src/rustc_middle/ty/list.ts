@@ -48,8 +48,8 @@ import type { Ordering } from "./mod.ts";
  * `NODE_ENV`: `bun test` sets it to `test` only when it is unset, so under a caller's `NODE_ENV=production` the tests run unfrozen
  * (review perf-heavy F2). The tripwire `Object.isFrozen` in interning.test.ts then fails, and scripts/gate.ts refuses to start with
  * `NODE_ENV` or `RUST_TS_FREEZE_LISTS` set, since the harness passes both on to every subject (review perf-heavy F3: frozen, the
- * output is the same, but heavy next-solver cases run about 22% longer). A `bun build --compile` bundle hard-codes `NODE_ENV`, so
- * it never freezes by `NODE_ENV`; no harness path builds one.
+ * output is the same, but heavy next-solver cases run about 22% longer). `bun build --compile` hard-codes `NODE_ENV`; the harness's
+ * subject binary (scripts/lib/subject-bin.ts, `RUST_TS_SUBJECT=binary`) reads it at run time again, so it freezes as source does.
  */
 const FREEZE_LISTS: boolean =
   process.env.RUST_TS_FREEZE_LISTS === "1" || process.env.NODE_ENV === "test" || process.env.RUST_TS_ALIAS_OUT !== undefined;

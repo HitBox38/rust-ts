@@ -9,6 +9,8 @@
 // it: `rustc_type_ir/binder.gen.ts` (`BoundRegionKind`), `rustc_middle/traits/mod.gen.ts` (`ObligationCause`) and
 // `rustc_infer/infer/mod.gen.ts` (`InferOk`). Entered from the gen side, the owner runs first and spreads or assigns onto a gen binding that
 // does not exist yet. Import the owner (binder.ts, traits/mod.ts, infer/mod.ts), which re-exports its gen module.
+// Lane fixers-50 found two more entries to infer/mod.gen.ts from its gen side: `rustc_hir_typeck/coercion.ts` (its `debug_InferOk`
+// import) and `rustc_hir_typeck/_match.ts`, which reaches it through coercion.ts.
 // A module here that fails has gained an import that enters one of them (or another cycle) from its unsafe side.
 import { expect, test } from "bun:test";
 import { join } from "node:path";
@@ -32,6 +34,8 @@ const MODULES = [
   "rustc_symbol_mangling/v0.ts",
   "rustc_hir_typeck/op.ts",
   "rustc_hir_typeck/method/suggest.ts",
+  "rustc_hir_typeck/coercion.ts",
+  "rustc_hir_typeck/_match.ts",
 ];
 
 test("each module loads as the first module of a process", async () => {

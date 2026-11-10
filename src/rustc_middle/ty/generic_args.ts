@@ -198,19 +198,28 @@ export const GenericArg = {
   // rustc: compiler/rustc_middle/src/ty/generic_args.rs:249 as_region
   as_region(self: GenericArg): Region | undefined {
     // PORT(perf) (lane perf-tait): `match self.kind()` without allocating the `GenericArgKind`, as in `fold_with`: `kind`'s arm.
-    return self instanceof Region ? self : undefined;
+    // A value that is none of the three panics as `kind()` does (perf-tait review N4).
+    if (self instanceof Region) return self;
+    if (self instanceof Ty || self instanceof Const) return undefined;
+    return panic_unreachable();
   },
 
   // rustc: compiler/rustc_middle/src/ty/generic_args.rs:257 as_type
   as_type(self: GenericArg): Ty | undefined {
     // PORT(perf) (lane perf-tait): `match self.kind()` without allocating the `GenericArgKind`, as in `fold_with`: `kind`'s arm.
-    return self instanceof Ty ? self : undefined;
+    // A value that is none of the three panics as `kind()` does (perf-tait review N4).
+    if (self instanceof Ty) return self;
+    if (self instanceof Region || self instanceof Const) return undefined;
+    return panic_unreachable();
   },
 
   // rustc: compiler/rustc_middle/src/ty/generic_args.rs:265 as_const
   as_const(self: GenericArg): Const | undefined {
     // PORT(perf) (lane perf-tait): `match self.kind()` without allocating the `GenericArgKind`, as in `fold_with`: `kind`'s arm.
-    return self instanceof Const ? self : undefined;
+    // A value that is none of the three panics as `kind()` does (perf-tait review N4).
+    if (self instanceof Const) return self;
+    if (self instanceof Region || self instanceof Ty) return undefined;
+    return panic_unreachable();
   },
 
   // rustc: compiler/rustc_middle/src/ty/generic_args.rs:273 as_term

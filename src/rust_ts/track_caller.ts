@@ -98,12 +98,22 @@ function parse_stack(stack: string): (Frame | undefined)[] {
   const out: (Frame | undefined)[] = [];
   for (const l of stack.split("\n").slice(1)) {
     const m = /^\s*at (?:.*? \()?(.+?):(\d+):(\d+)\)?$/.exec(l);
-    out.push(m === null ? undefined : { file: m[1]!, line: Number(m[2]), col: Number(m[3]) });
+    out.push(m === null ? undefined : { file: frame_file(m[1]!), line: Number(m[2]), col: Number(m[3]) });
   }
   return out;
 }
 
 const SRC_ROOT = resolve_path(import.meta.dir, "..");
+
+/**
+ * A frame's file as an absolute path. `bun <entry>` names it so; the subject binary (`bun build --compile` with its sourcemap,
+ * scripts/lib/subject-bin.ts) names it relative to the directory it was built in, the repo, which is `SRC_ROOT`'s parent (the
+ * build gives `import.meta.dir` the source's value). Only the repo's two directories a bundle holds are mapped, so a source run's
+ * frames (always absolute) are untouched; any other path stays as it is, and is refused as before.
+ */
+function frame_file(file: string): string {
+  return /^(?:src|scripts)\//.test(file) ? join(SRC_ROOT, "..", file) : file;
+}
 
 /** Whether JSC eliminates frames of strict-mode `return f(..)` calls (proper tail calls, on unless
  *  `BUN_JSC_useTailCalls=0`). Then a frame of the chain can be missing; links are checked by name below. */
