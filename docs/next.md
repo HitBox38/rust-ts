@@ -588,7 +588,7 @@ From docs/handoff/scout-unported.md: the latest gate has 51 non-MATCH rows, 8 of
 
 | lane | scope | status |
 |---|---|---|
-| dataflow-graphviz | `rustc_mir_dataflow/src/framework/graphviz.rs`, `rustc_middle/src/mir/generic_graphviz.rs`, `write_mir_fn_graphviz`, wiring the ported `rustc_graphviz` into the remaining stubs (borrowck region graphviz, obligation forest); mir-opt-o4 `dump_dataflow.rs` | running |
+| dataflow-graphviz | `rustc_mir_dataflow/src/framework/graphviz.rs`, `rustc_middle/src/mir/generic_graphviz.rs`, `write_mir_fn_graphviz`, wiring the ported `rustc_graphviz` into the remaining stubs (borrowck region graphviz, obligation forest); mir-opt-o4 `dump_dataflow.rs` | done (branch t3/port-dataflow-graphviz, 5f595507): +37 fns, `dump_dataflow.rs` UNPORTED -> MATCH with all 138 dump files byte-identical (not yet compared by the harness); obligation_forest edges were reversed, fixed; review running |
 | miri-host-fs | `src/std/fs.ts` (assigned to this lane) host implementations Miri's file shims reach with isolation off, and the `open_file_or_dir` stop in `src/miri/shims/files.ts`; 4 gate cases (miri-pass 1, miri-pass-heavy 3) + 2 miri-fail | running |
 | pm-cross-thread | `library/proc_macro/src/bridge/server.rs` `MaybeCrossThread::run_bridge_and_client`, `MessagePipe`; an `mpsc` stand-in; the lane proposes how the second thread is modelled (plan-m6 D8), root records it after review; pm-ui and pm-expanded `expand-expr.rs` | running |
 | harness-w49 | minicore suites evaluate `needs-llvm-components` (132 of 520 skipped cases target only the port's specs); queued nits: harness-w48 review N1-N4, perf-subject-bin review N1, N4, root-w46-check N1, N2, subject-bin review N1, N2, N5, N6 | running |
