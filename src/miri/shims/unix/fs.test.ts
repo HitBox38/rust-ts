@@ -285,27 +285,26 @@ test("DirTable: Default skips id 0, insert_new counts up; DirStream yields `..`,
     { $: "Ok", _0: { $: "Right", _0: "." } },
     { $: "Ok", _0: { $: "Right", _0: ".." } },
   ]);
-  // then the host `ReadDir` (isolation off only): unported
+  // then the host `ReadDir` (isolation off only; none here)
   expect(() => s.next_host_entry()).toThrow();
   let visited = 0;
   t.visit_provenance(() => visited++);
   expect(visited).toBe(0);
 });
 
-test("std::fs stand-in: pure builders, host operations unported; std::path::absolute", () => {
+test("std::fs stand-in: pure builders, host operations (src/std/fs.test.ts has the rest); std::path::absolute", () => {
   const o = std_fs.OpenOptions.new().read(true).write(true).create_new(true).mode(0o600).custom_flags(4);
   expect([o.read_, o.write_, o.create_new_, o.create_, o.mode_, o.custom_flags_]).toEqual([true, true, true, false, 0o600, 4]);
   expect(std_fs.OpenOptions.new().mode_).toBe(0o666);
   expect(std_fs.Permissions.from_mode(0o444).readonly()).toBe(true);
   expect(std_fs.Permissions.from_mode(0o644).readonly()).toBe(false);
   expect(std_fs.DirBuilder.new().mode_).toBe(0o777);
-  let err: unknown;
-  try {
-    std_fs.metadata("x");
-  } catch (e) {
-    err = e;
+  // A host operation: on the root host (aarch64-apple-darwin) the host's answer, elsewhere `unported` (src/std/fs.ts).
+  if (process.platform === "darwin" && process.arch === "arm64") {
+    expect(std_fs.metadata("\0")).toEqual({ $: "Err", _0: { $: "SimpleMessage", kind: "InvalidInput", message: "file name contained an unexpected NUL byte" } });
+  } else {
+    expect(() => std_fs.metadata("x")).toThrow(Unported);
   }
-  expect(err).toBeInstanceOf(Unported);
   expect(absolute("/proc/self/../x")).toEqual({ $: "Ok", _0: "/proc/self/../x" });
   expect(absolute("/a//b/./c/")).toEqual({ $: "Ok", _0: "/a/b/c/" });
   expect(absolute("./x")).toEqual({ $: "Ok", _0: `${process.cwd()}/x` });
