@@ -139,6 +139,25 @@ await step("slowAloneNote", ["src"], SLOWISH, { slowNoteS: 0.3, alone: ["src/s.t
 // Bun's file-name lines with Windows line ends are dropped as with Unix ones (review harness-w46 N2).
 out.tailCrlf = g.outputTail("src/a.test.ts:\\r\\nsrc/b.test.ts:\\r\\n(pass) p\\r\\n(fail) f\\r\\nsrc/c.test.ts:\\r\\n 3 pass\\r\\n");
 out.crashTimedOut = g.crashedLine("src/x.test.ts", true);
+// Through runStaticStep (review harness-w48 N4): a one-process step the gate's limit (here 1 s) kills names the file it was in
+// with the timed-out wording.
+{
+  const dir = fixture({ "src/a.test.ts": PASS, "src/h.test.ts": 'import { test } from "bun:test";\\ntest("hangs", async () => { await Bun.sleep(60000); }, 120000);\\n' });
+  const runDir = join(TMP, "run-limit");
+  mkdirSync(runDir);
+  const steps = g.unitStaticSteps({ name: "unit tests", roots: ["src"], junit: "l.junit.xml" }, runDir, 120000).map((s) => ({ ...s, cwd: dir, limitMs: 1000 }));
+  const lines = [];
+  const log = console.log;
+  console.log = (...a) => lines.push(a.join(" "));
+  strip();
+  const t0 = Date.now();
+  let r;
+  try { r = await g.runStaticStep(steps[0]); } finally { console.log = log; }
+  out.limit = { pass: r.pass, lines, steps: steps.length, fast: Date.now() - t0 < 30000 };
+}
+out.limitDefault = g.STATIC_STEP_LIMIT_MS;
+// Every refusal that applies is named at once (review harness-w48 N3).
+out.envRefusal = { both: g.gateEnvRefusal({ NODE_ENV: "test", REGEN: "1", PATH: "/bin" }), freeze: g.gateEnvRefusal({ NODE_ENV: "test" }), unit: g.gateEnvRefusal({ REGEN: "1" }), none: g.gateEnvRefusal({ PATH: "/bin" }) ?? null };
 const SLOW = { "src/a.test.ts": PASS, "src/t.test.ts": 'import { test } from "bun:test";\\ntest("slow", async () => { await Bun.sleep(1500); });\\n' };
 await step("timeout", ["src"], SLOW, { timeoutMs: 300 });
 await step("inTime", ["src"], SLOW, { timeoutMs: 20000 });
@@ -269,6 +288,18 @@ test("the unit-test step under --parallel: report, skips, failures, .only, timeo
     expect(j.tailCrlf).toEqual(["src/b.test.ts:", "(fail) f", " 3 pass"]);
     // Killed by the gate's limit: said so, not a crash (review harness-w46 N1).
     expect(j.crashTimedOut).toBe("  failed: src/x.test.ts: the test file bun test was running when the gate's limit killed it (a test there hung, or work an earlier file left running kept it busy)");
+    // The same through runStaticStep, with the step's limit at 1 s (review harness-w48 N4).
+    expect(j.limit.steps).toBe(1);
+    expect(j.limit.fast).toBe(true);
+    expect(j.limit.pass).toBe(false);
+    expect(j.limit.lines.some((l: string) => l.startsWith("ERROR: unit tests wrote no junit report") && l.endsWith("(bun test timed out)"))).toBe(true);
+    expect(j.limit.lines).toContain(j.crashTimedOut.replace("src/x.test.ts", "src/h.test.ts"));
+    expect(j.limitDefault).toBe(1_800_000);
+    // Both families of refused variables are named in one refusal (review harness-w48 N3).
+    expect(j.envRefusal.none).toBeNull();
+    expect(j.envRefusal.freeze).toStartWith("NODE_ENV=test set: ");
+    expect(j.envRefusal.unit).toStartWith("REGEN=1 set: ");
+    expect(j.envRefusal.both).toBe(`${j.envRefusal.freeze}; and ${j.envRefusal.unit}`);
     // A test over the per-test timeout fails the step; with time enough it passes.
     expect(j.timeout.pass).toEqual([false]);
     expect(j.timeout.lines.join("\n")).toContain("timed out after 300ms");

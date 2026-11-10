@@ -22,7 +22,8 @@
 //       lists step's run directory (`frozenLists`, `<run>-frozen-lists`), null when it wrote none.
 //       It refuses to start while `RUST_TS_FREEZE_LISTS` or `NODE_ENV` is set (`freezeEnvRefusal`): every subject would inherit it.
 //       Nor while a variable that changes what a unit test checks is set (`RUST_TS_IMPL`, `REGEN`, the fixture writers:
-//       scripts/lib/unit-steps.ts `UNIT_ENV_REFUSED`, `unitEnvRefusal`; review root-w47-check N1, N2).
+//       scripts/lib/unit-steps.ts `UNIT_ENV_REFUSED`, `unitEnvRefusal`; review root-w47-check N1, N2). One refusal names every
+//       such variable that is set (`gateEnvRefusal`, review harness-w48 N3).
 //       A static step without a junit report that prints `note:` lines (frozen lists, on a missing `gate.json`) has them printed in
 //       the gate's output and recorded in gate.json `staticNotes` (review root-w44-check N1); they never decide anything.
 //       Subject: with `RUST_TS_SUBJECT=binary` every subject entry that has a compiled build (scripts/lib/subject-bin.ts) runs from it,
@@ -136,6 +137,15 @@ export function freezeEnvRefusal(env: Record<string, string | undefined> = proce
   const set = ["RUST_TS_FREEZE_LISTS", "NODE_ENV"].filter((k) => env[k] !== undefined);
   if (set.length === 0) return undefined;
   return `${set.map((k) => `${k}=${env[k]}`).join(" and ")} set: every subject (and \`bun test\`) would inherit it; unset it and re-run the gate (the "frozen lists" step freezes its own sample)`;
+}
+
+/**
+ * Why the gate must not start with `env`, or `undefined`: every refusal that applies (`freezeEnvRefusal`, then
+ * scripts/lib/unit-steps.ts `unitEnvRefusal`), joined, so that one run names every variable to unset (review harness-w48 N3).
+ */
+export function gateEnvRefusal(env: Record<string, string | undefined> = process.env): string | undefined {
+  const all = [freezeEnvRefusal(env), unitEnvRefusal(env)].filter((r) => r !== undefined);
+  return all.length === 0 ? undefined : all.join("; and ");
 }
 
 /** Protected ids of `suite` that its `Suite.unstable` lists: an unstable case can never be protected. */
@@ -375,7 +385,12 @@ export interface StaticStep {
   slowNoteS?: number;
   /** With `junit`: the files of this step's report are run one after another, alone (the note's advice differs). */
   alone?: boolean;
+  /** The step's limit in ms (default `STATIC_STEP_LIMIT_MS`, the gate's 30 minutes); a test sets a short one (review harness-w48 N4). */
+  limitMs?: number;
 }
+
+/** The gate's limit on one static step. */
+export const STATIC_STEP_LIMIT_MS = 1_800_000;
 
 /**
  * The static steps of unit-test step `u` (scripts/lib/unit-steps.ts), their junit reports in `runDir`: the step, then
@@ -458,7 +473,7 @@ export interface StaticChecks {
  */
 export async function runStaticStep(step: StaticStep): Promise<{ pass: boolean; skips?: { allowed: SkippedTest[]; unexpected: SkippedTest[] }; notes?: string[] }> {
   const { name, cmd, env, junit: report, cwd } = step;
-  const r = await run(cmd, { timeoutMs: 1_800_000, env, ...(cwd === undefined ? {} : { cwd }) });
+  const r = await run(cmd, { timeoutMs: step.limitMs ?? STATIC_STEP_LIMIT_MS, env, ...(cwd === undefined ? {} : { cwd }) });
   let pass = r.code === 0;
   const output = r.stdout + r.stderr;
   const tail = pass ? [] : outputTail(output);
@@ -585,7 +600,7 @@ function protectedSuites(): string[] {
 
 export async function gateRun(requested: string[], skipStatic: boolean, skipHeavy: boolean, allowBattery = false, gateHost: GateHost = REAL_GATE_HOST): Promise<void> {
   for (const name of requested) getSuite(name); // unknown suite names fail here
-  const envRefused = freezeEnvRefusal() ?? unitEnvRefusal(process.env);
+  const envRefused = gateEnvRefusal();
   if (envRefused !== undefined) die(envRefused);
   // Before anything starts. What this reads decides only whether a run starts: no status or verdict reads the record below.
   const note = (l: string) => console.log(l);

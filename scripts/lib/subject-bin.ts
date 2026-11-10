@@ -149,15 +149,41 @@ export function metaFnName(prop: MetaProp): string {
   return base + "_".repeat(want - base.length);
 }
 
+/** The code uses (not comments, strings, template text or regexes) of each `import.meta.<prop>` of `META_PROPS` in `text`, as Bun parses it. */
+export function metaCodeUses(text: string, file: string): Map<MetaProp, number> {
+  const marker = (p: MetaProp) => `__rts_meta_use_${p}__`;
+  for (const p of META_PROPS) if (text.includes(marker(p))) throw new Error(`${file}: holds \`${marker(p)}\`, which the import.meta check uses`);
+  const define = Object.fromEntries(META_PROPS.map((p) => [`import.meta.${p}`, marker(p)]));
+  // `define` replaces only code uses; with dead-code elimination off, every one of them is kept.
+  const out = new Bun.Transpiler({ loader: /\.tsx$/.test(file) ? "tsx" : /\.[cm]?js$/.test(file) ? "js" : "ts", define, deadCodeElimination: false }).transformSync(text);
+  return new Map(META_PROPS.map((p) => [p, out.split(marker(p)).length - 1]));
+}
+
 /**
  * The module text with every `import.meta.<prop>` of `META_PROPS` replaced by a same-length call, and the functions appended
  * (hoisted declarations, so they work from the module's first statement). `undefined` when the text has no `import.meta`. Throws
  * on a use it cannot replace exactly: another property, `import.meta` as a value, or a match that may sit inside a string on
- * its line (an odd number of quotes before it).
+ * its line (an odd number of quotes before it). The replacement judges comments and strings one line at a time, so it is
+ * checked against Bun's own parse (`metaCodeUses`, review subject-bin N2): the replacements of each property must equal its
+ * code uses in the text, and the result must hold no code use left; otherwise a match inside a multi-line template or block
+ * comment was replaced, or a code use was not, and the build stops.
  */
 export function rewriteImportMeta(text: string, file: string): string | undefined {
   if (!text.includes("import.meta")) return undefined;
+  const { out, replaced } = rewriteImportMetaLines(text, file);
+  const before = metaCodeUses(text, file);
+  const after = metaCodeUses(out, file);
+  for (const p of META_PROPS) {
+    if (before.get(p) !== (replaced.get(p) ?? 0)) throw new Error(`${file}: ${replaced.get(p) ?? 0} \`import.meta.${p}\` replaced, but Bun parses ${before.get(p)} in code: a match in a multi-line string or comment was replaced, or a code use on a line taken for a comment was not`);
+    if (after.get(p) !== 0) throw new Error(`${file}: a code use of \`import.meta.${p}\` was not replaced (a line the rewrite took for a comment?)`);
+  }
+  return out;
+}
+
+/** `rewriteImportMeta`'s replacement, line by line (see there), with how many uses of each property it replaced. */
+function rewriteImportMetaLines(text: string, file: string): { out: string; replaced: Map<MetaProp, number> } {
   const used = new Set<MetaProp>();
+  const replaced = new Map<MetaProp, number>();
   const lines = text.split("\n");
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
@@ -174,14 +200,15 @@ export function rewriteImportMeta(text: string, file: string): string | undefine
         if ((before.split(q).length - 1) % 2 === 1) throw new Error(`${file}:${i + 1}: \`${m}\` may be inside a string; the subject binary would change its text`);
       }
       used.add(prop as MetaProp);
+      replaced.set(prop as MetaProp, (replaced.get(prop as MetaProp) ?? 0) + 1);
       const call = `${metaFnName(prop as MetaProp)}()`;
       if (call.length !== m.length) throw new Error(`internal: ${call} is not as long as ${m}`);
       return call;
     });
   }
-  if (used.size === 0) return lines.join("\n");
+  if (used.size === 0) return { out: lines.join("\n"), replaced };
   const decls = [...used].map((p) => `;function ${metaFnName(p)}() { return ${JSON.stringify(metaValue(file, p))}; }`);
-  return `${lines.join("\n")}\n${decls.join("\n")}\n`;
+  return { out: `${lines.join("\n")}\n${decls.join("\n")}\n`, replaced };
 }
 
 /** A star re-export alone on its line: `export * from "x";` or `export * as ns from "x";`. */
@@ -332,6 +359,32 @@ export function configInputs(repo: string): { path: string; sha1: string }[] {
   });
 }
 
+/**
+ * The config files Bun may hold an older copy of than the one on disk (review root-w46-check N1). Bun reads a directory's
+ * `tsconfig.json` (and its other config) once per process and keeps it: the runtime at process start for the repo this module
+ * lives in (it transpiles the module with it), the bundler at its first build for any other repo. So a key that hashes the disk
+ * could name a build made with the old content. `firstSeen`: the contents when this process first built in `repo`; without it
+ * (the module's own repo) a file modified at or after `since` (this process's start) is stale, as its content then is unknown.
+ */
+export function staleConfigs(repo: string, firstSeen: readonly { path: string; sha1: string }[] | undefined, since: number = performance.timeOrigin): string[] {
+  if (firstSeen !== undefined) {
+    const now = configInputs(repo);
+    return now.filter((c) => firstSeen.find((f) => f.path === c.path)?.sha1 !== c.sha1).map((c) => c.path);
+  }
+  return CONFIG_FILES.filter((p) => {
+    try {
+      return statSync(join(repo, p)).mtimeMs >= since;
+    } catch {
+      return false;
+    }
+  });
+}
+
+/** Per repo outside this module's own, the config files' contents when this process first built there (`staleConfigs`). */
+const firstConfigs = new Map<string, { path: string; sha1: string }[]>();
+/** Whether this module lives in `repo`, so the runtime read `repo`'s config at process start. */
+const isOwnRepo = (repo: string) => import.meta.path.startsWith(join(repo, "/"));
+
 /** A build's key: the hash of `spec`, the Bun build, this builder, each input file's path and content, and the config files. */
 export function subjectBinKeyOf(
   spec: BuildSpec,
@@ -390,12 +443,19 @@ export function buildFiles(dir: string): void {
 function finished(dir: string, key: string, entry: string): SubjectBin | undefined {
   const meta = join(dir, "meta.json");
   const bin = join(dir, BIN_NAME);
-  if (!existsSync(meta) || !existsSync(bin)) return undefined;
-  const m = JSON.parse(readFileSync(meta, "utf8")) as SubjectBinMeta;
+  let m: SubjectBinMeta;
+  try {
+    // Marks the build as used, for `pruneSubjectBins`, before anything else: a prune that has not yet moved it away then keeps
+    // it (it looks again after its move), and one that has makes this fail as if it were never there (review subject-bin N1).
+    const now = new Date();
+    utimesSync(meta, now, now);
+    m = JSON.parse(readFileSync(meta, "utf8")) as SubjectBinMeta;
+    if (!existsSync(bin)) return undefined;
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    throw e;
+  }
   if (m.hash !== key || m.entry !== entry) throw new Error(`${meta} is not the build of ${entry} with key ${key}`);
-  // Marks the build as used, for `pruneSubjectBins`.
-  const now = new Date();
-  utimesSync(meta, now, now);
   return { entry, hash: key, path: bin, dir, built: false, inputs: m.inputs.length };
 }
 
@@ -419,9 +479,10 @@ export const versionSmoke: Smoke = (bin, spec) => {
 
 /**
  * The build of `entry` for the tree at `repo`: from the cache, or built now. Throws (with one line) when the build or its smoke
- * check fails. `root`: the cache directory (tests use their own).
+ * check fails. `root`: the cache directory (tests use their own). `afterBuild`: tests only, run right after the bundler's
+ * second pass, before the checks that compare the tree with its key (review root-w46-check N2).
  */
-export async function ensureSubjectBin(entry: string, opts: { repo?: string; root?: string; bunPath?: string; smoke?: Smoke } = {}): Promise<SubjectBin> {
+export async function ensureSubjectBin(entry: string, opts: { repo?: string; root?: string; bunPath?: string; smoke?: Smoke; afterBuild?: () => void } = {}): Promise<SubjectBin> {
   const repo = opts.repo ?? REPO;
   // The bundler names its inputs and the sourcemap's sources relative to the cwd: the repo, so that frames read `src/...`. The cwd
   // is the process's, so builds in one process take turns (concurrent runs are separate processes; the rename settles those).
@@ -443,8 +504,11 @@ export async function ensureSubjectBin(entry: string, opts: { repo?: string; roo
 
 let buildQueue: Promise<void> = Promise.resolve();
 
-async function ensureIn(entry: string, repo: string, root: string, opts: { bunPath?: string; smoke?: Smoke }): Promise<SubjectBin> {
+async function ensureIn(entry: string, repo: string, root: string, opts: { bunPath?: string; smoke?: Smoke; afterBuild?: () => void }): Promise<SubjectBin> {
   const spec = buildSpec(entry, repo, opts.bunPath);
+  if (!isOwnRepo(repo) && !firstConfigs.has(repo)) firstConfigs.set(repo, configInputs(repo));
+  const stale = staleConfigs(repo, isOwnRepo(repo) ? undefined : firstConfigs.get(repo));
+  if (stale.length > 0) throw new Error(`${stale.join(", ")} changed after this process first read it, and Bun keeps the first copy: build in a new process (bun scripts/subject-bin.ts build)`);
   const { hash: key, inputs, config } = await subjectBinKey(spec);
   const dir = join(root, key);
   const have = finished(dir, key, entry);
@@ -457,6 +521,7 @@ async function ensureIn(entry: string, repo: string, root: string, opts: { bunPa
     const started = performance.now();
     const r = await Bun.build(bunBuildConfig(spec, join(tmp, BIN_NAME)));
     if (!r.success) throw new Error(`building ${entry} failed: ${buildLogs(r)}`);
+    opts.afterBuild?.();
     buildFiles(tmp);
     // The binary must hold exactly the files the key hashed (a file that changed between the two bundler passes would not).
     const built = metaInputs(r, repo);
@@ -486,25 +551,52 @@ async function ensureIn(entry: string, repo: string, root: string, opts: { bunPa
   }
 }
 
+/** When a build directory (or an abandoned temp or trash dir) was last used: its `meta.json`'s mtime, else the directory's. */
+function lastUsed(dir: string): number | undefined {
+  const meta = join(dir, "meta.json");
+  try {
+    return statSync(existsSync(meta) ? meta : dir).mtimeMs;
+  } catch {
+    return undefined;
+  }
+}
+
 /**
- * Removes builds (and abandoned temp dirs) no run has used for `maxAgeMs`, except `keep`. A build that a run resolved within
- * that time stays, so a long gate never loses its binary; a process already running keeps its file open regardless.
+ * Removes builds (and abandoned temp and trash dirs) no run has used for `maxAgeMs`, except `keep`. A build that a run resolved
+ * within that time stays, so a long gate never loses its binary; a process already running keeps its file open regardless.
+ * A run may resolve a build between the look at its age and its removal (review subject-bin N1): so the build is first moved
+ * to a `.trash-*` name, which a resolver no longer finds (it builds anew), and looked at again there; if a run marked it as used
+ * before the move, it is moved back. `now()` is read for each look; `afterLook` is for tests (a resolver in that window).
  */
-export function pruneSubjectBins(keep: readonly string[], maxAgeMs: number = PRUNE_AFTER_MS, root: string = SUBJECT_BIN_DIR, now: number = Date.now()): string[] {
+export function pruneSubjectBins(keep: readonly string[], maxAgeMs: number = PRUNE_AFTER_MS, root: string = SUBJECT_BIN_DIR, now: () => number = Date.now, afterLook?: (dir: string) => void): string[] {
   if (!existsSync(root)) return [];
   const removed: string[] = [];
   for (const name of readdirSync(root)) {
     const dir = join(root, name);
     if (keep.includes(dir)) continue;
-    const meta = join(dir, "meta.json");
-    let used: number;
-    try {
-      used = statSync(existsSync(meta) ? meta : dir).mtimeMs;
-    } catch {
+    const used = lastUsed(dir);
+    if (used === undefined || now() - used < maxAgeMs) continue;
+    afterLook?.(dir);
+    if (name.startsWith(".trash-")) {
+      rmSync(dir, { recursive: true, force: true });
+      removed.push(name);
       continue;
     }
-    if (now - used < maxAgeMs) continue;
-    rmSync(dir, { recursive: true, force: true });
+    const trash = join(root, `.trash-${name}-${process.pid}-${Math.random().toString(36).slice(2, 8)}`);
+    try {
+      renameSync(dir, trash);
+    } catch {
+      continue; // gone already (another prune), or not movable now: left for a later prune
+    }
+    const again = lastUsed(trash);
+    if (again !== undefined && now() - again < maxAgeMs) {
+      // Used after all. If a run built the same key anew in the meantime, that build stays and this one goes.
+      try {
+        renameSync(trash, dir);
+        continue;
+      } catch {}
+    }
+    rmSync(trash, { recursive: true, force: true });
     removed.push(name);
   }
   return removed;
