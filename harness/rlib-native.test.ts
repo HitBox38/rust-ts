@@ -173,3 +173,56 @@ writeFileSync(process.env.TMPDIR + "/.tmpQ1w2E3libfat.a", "slice");
   expect(bad.exitCode).toBe(2);
   expect(existsSync(join(other, "work"))).toBe(true);
 }, 30_000);
+
+const alive = (pid: number) => {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+};
+/** Polls `f` until it holds; an assertion fails after `ms`, never sooner. */
+const until = async (f: () => boolean, ms = 30_000) => {
+  const end = performance.now() + ms;
+  while (!f() && performance.now() < end) await Bun.sleep(10);
+  expect(f()).toBe(true);
+};
+
+// As scripts/ir-normal.test.ts's test of ir-run (review harness-w42 N1).
+test("a SIGKILLed run whose compiler lives on keeps the work lock until the compiler ends, so the next run does not empty `work` under it (review harness-w46 N3)", async () => {
+  const dir = join(TMP, "rlib-native", "fedcba9876543210");
+  const pid = join(TMP, "orphan-pid");
+  const go = join(TMP, "orphan-go");
+  const tree = join(TMP, "orphan-tree");
+  mkdirSync(tree, { recursive: true });
+  // The orphan writes into `out` only once `go` exists, which the test creates after it has seen the next run still blocked: a next
+  // run that does not wait empties `work`, runs its compiler and ends before `go`, which fails the test.
+  const orphan = ["/bin/sh", "-c", `echo $$ > ${pid}; while [ ! -e ${go} ]; do sleep 0.05; done; echo orphan > out/orphan.rlib`, "sh"];
+  const wrapper = (side: string, compiler: string[]) => [process.execPath, join(REPO, "scripts/rlib-native-run.ts"), "--dir", dir, "--side", side, "--tree", tree, "--compiler", String(compiler.length), "--", ...compiler, "x"];
+  const first = Bun.spawn(wrapper("oracle", orphan), { stdout: "pipe", stderr: "pipe" });
+  let orphanPid = 0;
+  try {
+    await until(() => existsSync(pid) && readFileSync(pid, "utf8").endsWith("\n"));
+    orphanPid = Number(readFileSync(pid, "utf8"));
+    // The run names its compiler in the lock as soon as it has started it (a run that never does fails here).
+    await until(() => existsSync(join(dir, "work.lock")) && readFileSync(join(dir, "work.lock"), "utf8").includes(`\n${orphanPid}\n`));
+    first.kill("SIGKILL");
+    await first.exited;
+    expect(alive(orphanPid)).toBe(true);
+    const next = Bun.spawn(wrapper("subject", ["/bin/sh", "-c", "true", "sh"]), { stdout: "pipe", stderr: "pipe" });
+    let nextDone = false;
+    void next.exited.then(() => (nextDone = true));
+    await Bun.sleep(1000);
+    expect(nextDone).toBe(false);
+    writeFileSync(go, "");
+    const code = await next.exited;
+    expect([code, await new Response(next.stdout).text(), await new Response(next.stderr).text()]).toEqual([0, "out: none\ntmp: none\n", ""]);
+    expect(alive(orphanPid)).toBe(false);
+    // The orphan's file was emptied with `work` before the next run's compiler ran; the lock is gone.
+    expect(readdirSync(dir).sort()).toEqual(["subject.out", "tmp", "work"]);
+  } finally {
+    writeFileSync(go, "");
+    if (orphanPid && alive(orphanPid)) process.kill(orphanPid, "SIGKILL");
+  }
+}, 90_000);

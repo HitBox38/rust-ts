@@ -1,11 +1,13 @@
 // `scripts/gate.ts run` stops before the suites when a static step fails (lane harness-w44, review harness-w43 F7), and refuses
-// to start while RUST_TS_FREEZE_LISTS or NODE_ENV is set (review perf-heavy F3). As scripts/gate-power.test.ts: a real `gateRun`
+// to start while RUST_TS_FREEZE_LISTS or NODE_ENV is set (review perf-heavy F3), or a variable that changes what a unit test checks
+// (review root-w47-check N1, N2). As scripts/gate-power.test.ts: a real `gateRun`
 // with a stub suite, in a child, with RUST_TS_DATA at a temp dir holding an empty git repository as its upstream checkout, and
 // `GateHost.staticChecks` in place of the real static steps.
 import { afterAll, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { UNIT_ENV_REFUSED } from "./lib/unit-steps.ts";
 
 const REPO = resolve(import.meta.dir, "..");
 const TMP = mkdtempSync(join(tmpdir(), "rust-ts-gate-static-"));
@@ -44,6 +46,7 @@ await gateRun(["static-stub"], false, false, false, { readers, pollMs: 1000, kee
   // `bun test` sets NODE_ENV=test; the child must not inherit it unless a test sets it.
   if (!("NODE_ENV" in extraEnv)) delete env.NODE_ENV;
   delete env.RUST_TS_FREEZE_LISTS;
+  for (const k of Object.keys(UNIT_ENV_REFUSED)) delete env[k];
   Object.assign(env, extraEnv);
   const r = Bun.spawnSync([process.execPath, "-e", child], { cwd: REPO, stdout: "pipe", stderr: "pipe", env: env as Record<string, string> });
   const runs = join(data, "runs");
@@ -108,6 +111,10 @@ test("a passing gate names the frozen lists run", () => {
 for (const [k, v] of [
   ["RUST_TS_FREEZE_LISTS", "1"],
   ["NODE_ENV", "production"],
+  // Variables that change what a unit test checks (review root-w47-check N1, N2; scripts/lib/unit-steps.ts UNIT_ENV_REFUSED).
+  ["RUST_TS_IMPL", "shim"],
+  ["REGEN", "1"],
+  ["TYREPR_WRITE", ""],
 ] as const) {
   test(`${k} set: refused before anything runs`, () => {
     const r = gate(`env-${k}`, true, { [k]: v });
