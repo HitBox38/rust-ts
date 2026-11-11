@@ -25,19 +25,26 @@
 //   `?attrs %F <index> [%A, ...]`           the attribute set of a function at an index changed: the whole set, in LLVM's order
 //   `?dsolocal %V`                          a global or function is `dso_local` where that is not implied (read from LLVM's
 //                                           printed header, once, just before `LLVMContextDispose`)
+//   `?inst %I %BB <next|end> <opcode> [operands] {<index>:[attributes] ...}`   an instruction no recorded call returned, where
+//                                           it sits, its operands (`#<n>` for an integer constant no recorded call made) and, for
+//                                           a call, its call-site attributes (lane llir-core-b)
+//   `?csattrs %I <index> [%A, ...]`         the call-site attribute set of a known call or invoke at an index changed
+// And after each recorded `LLVMBuild*` call that returns an instruction in a block, ` @ %BB <next|end>`: where the builder
+// put it, so replay can tell when a hidden wrapper (`LLVMRustPositionBuilderAtStart`) positioned the builder.
 // When the context is disposed (on another thread, in rustc), its modules are looked at once more, so effects after the building
 // thread's last recorded call are kept. Within one gap between recorded calls, inferred lines come in the order above, not in
 // the order the wrappers ran.
-// Not observed, so absent from every script: call-site attributes (`LLVMRustAddCallSiteAttributes`), the builder wrappers
-// (`LLVMRustBuildMemCpy`, `LLVMRustPositionBuilder*`, ...), debuginfo wrappers, inline asm, and any other change a wrapper makes to
-// an existing value. Nothing projects these away: a case that needs one fails its N1 comparison.
+// Not observed, so absent from every script: the builder wrappers that only change state the C API cannot read (fast-math flags,
+// `LLVMRustSetNoSanitize*`), debuginfo wrappers, inline asm, and any other change a wrapper makes to an existing value. Nothing
+// projects these away: a case that needs one fails its N1 comparison.
 //
 // **Script format,** one call per line: `<thread>\t<line>`, `<line>` being an inferred line or
 // `[%<ret> = ]<fn>(<arg>, ...)`. Arguments: a handle `%N` (numbered on first sight; a deleted global's or function's number is
 // retired, as its address may be reused) or `null`; an integer in decimal; a double `d0x<16 hex>`; a byte string `"..."`
 // (printable ASCII but `"` and `\` as is, other bytes `\XX`); an array `[a, b]`; an out-parameter's value after the call
 // `&<value>` (integers, handles, and the arrays `LLVMGetParamTypes` / `LLVMGetStructElementTypes` fill); `?` for what the recorder
-// does not decode (callbacks, other out-parameters). A returned string is `"..."`.
+// does not decode (callbacks, other out-parameters). A returned string is `"..."`. A disposed builder's or bundle's number is
+// retired too.
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";

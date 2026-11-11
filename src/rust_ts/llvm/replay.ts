@@ -12,6 +12,12 @@
 // table of rustc's call sites below; an effect no call site of rustc produces throws. A wrapper the model leaves to another
 // lane (`LLVMRustSetDataLayoutFromTargetMachine`) has its effect applied to the model directly and is listed in
 // `ReplayResult.stubbedEffects`, so a proof can assert which those are.
+//
+// Function bodies (lane llir-core-b): a builder call's recorded place (` @ %BB <next>`) is where the model's builder must insert;
+// if it would not, replay infers rustc's positioning wrapper first (`LLVMRustPositionBuilderAtStart`, `...PastAllocas`) and
+// checks the instruction lands there. `?inst` lines replay as the memory-intrinsic wrapper that made the call, on the builder
+// positioned there; `?csattrs` as `LLVMRustAddCallSiteAttributes`. `?attr` lines are recreated when first used, so the
+// attributes of an intrinsic declaration (`Intrinsic::getAttributes`, left to the parser) are counted, never recreated.
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import * as L from "./ffi.ts";
@@ -419,7 +425,12 @@ export function replay(calls: readonly Call[], upstream: string, opts: ReplayOpt
     const got = [...(set?.values() ?? [])];
     if (got.length !== list.length || list.some((a) => !got.includes(a))) throw new Error(`replay: the attribute set differs from the oracle's (${got.length} attributes, the oracle ${list.length}) at ${where(c)}`);
   };
-  const placeOf = (c: Call, at: NonNullable<Call["at"]>): [BasicBlock, Inst | undefined] => [handle(c, at.bb) as BasicBlock, at.next === undefined ? undefined : (handle(c, at.next) as Inst)];
+  const placeOf = (c: Call, at: NonNullable<Call["at"]>): [BasicBlock, Inst | undefined] => {
+    const bb = handle(c, at.bb);
+    const next = at.next === undefined ? undefined : handle(c, at.next);
+    if (!(bb instanceof BasicBlock) || !(next === undefined || next instanceof Inst)) throw new Error(`replay: a recorded place that is not a block and an instruction at ${where(c)}`);
+    return [bb, next];
+  };
 
   /** Before a builder call: the builder must insert where the oracle's did. If it would not, a hidden wrapper positioned it:
    * `LLVMRustPositionBuilderAtStart` (builder.rs:1638, `position_at_start`, which `alloca` uses) when the place is the block's
