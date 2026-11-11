@@ -1,6 +1,6 @@
 # driver-cli (wave 40j) — handoff
 
-Porter lane. Pin `6f5da406b56c`. Base: `0ce28aa2`. Branch `t3/72cd2caa`. AC power throughout; no gate, no full suite.
+Porter lane. Pin `6f5da406b56c`. Base: `0ce28aa2`. Branch `t3/port-driver-cli`. AC power throughout; no gate, no full suite.
 Scope: scout-unported §5 Lane 1 and the §7 single cases.
 
 ## Result
