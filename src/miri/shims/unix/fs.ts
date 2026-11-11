@@ -1984,24 +1984,30 @@ InterpCx.prototype.closedir = function (this: MiriInterpCx, dirp_op: OpTy): Inte
   }
   this_.machine.dirs.streams.delete(dirp._0);
 
-  // Check that the backing FD is still valid.
-  if (backing_fd_tampered(this_, open_dir)) {
-    return throw_ub_format("the backing FD for this DIR stream has been tampered with");
-  }
-  // And close it.
-  const c = this_.close(open_dir.fd_num);
-  if (c.$ === "Err") return c;
+  // PORT: `open_dir` is owned from here on, so Rust drops it on every exit: the explicit `drop` below and the three
+  // early returns (the UB, `close`'s `?`, `deallocate_ptr`'s `?`), each before the error propagates. The `finally`
+  // is that drop; the host `ReadDir` is the only field with drop glue (docs/reviews/miri-host-fs.md N2).
+  try {
+    // Check that the backing FD is still valid.
+    if (backing_fd_tampered(this_, open_dir)) {
+      return throw_ub_format("the backing FD for this DIR stream has been tampered with");
+    }
+    // And close it.
+    const c = this_.close(open_dir.fd_num);
+    if (c.$ === "Err") return c;
 
-  const taken = open_dir.entry;
-  open_dir.entry = undefined;
-  if (taken !== undefined) {
-    const [entry, _type] = taken;
-    const d = this_.deallocate_ptr(entry, undefined, MemoryKind_from_MiriMemoryKind("Runtime"));
-    if (d.$ === "Err") return d;
+    const taken = open_dir.entry;
+    open_dir.entry = undefined;
+    if (taken !== undefined) {
+      const [entry, _type] = taken;
+      const d = this_.deallocate_ptr(entry, undefined, MemoryKind_from_MiriMemoryKind("Runtime"));
+      if (d.$ === "Err") return d;
+    }
+    // We drop the `open_dir`, which will close the host dir handle.
+    // drop(open_dir);  (the `finally`)
+  } finally {
+    (open_dir.read_dir as unknown as fs.ReadDir).drop();
   }
-  // We drop the `open_dir`, which will close the host dir handle.
-  // drop(open_dir);  (PORT: the host `ReadDir` is the only field with drop glue.)
-  (open_dir.read_dir as unknown as fs.ReadDir).drop();
 
   return interp_ok(interp_Scalar.from_i32(0));
 };

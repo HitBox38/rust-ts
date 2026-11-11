@@ -2,6 +2,7 @@
 // host itself. Expected values come from `node:fs` (libuv's own calls into the same libc), the OS errno names of
 // `node:os`, and std's documented results (error kinds and messages from library/std/src/sys/fs/unix.rs).
 // The libc layouts in fs.ts are aarch64-apple-darwin's; elsewhere the host operations stop `unported` (checked below).
+import { dlopen, FFIType } from "bun:ffi";
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { fstatSync, lstatSync, mkdirSync, mkdtempSync, opendirSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { constants, tmpdir } from "node:os";
@@ -284,4 +285,46 @@ test.skipIf(!HOST)("Dir: open, self_metadata, metadata at a path, try_clone, ope
   expect(() => asfile.metadata()).toThrow();
   expect(ok(asdir.self_metadata()).is_dir()).toBe(true);
   for (const x of [asdir, f, c, h]) x.drop();
+});
+
+// docs/reviews/miri-host-fs.md N3: `fcntl`'s variadic argument (the first stack slot on Apple arm64, after six zero pads)
+// must reach the callee exactly. `try_clone`'s `>= 3` above also holds when the minimum is lost while fds 0-2 are open.
+test.skipIf(!HOST)("fcntl: the variadic F_DUPFD_CLOEXEC minimum arrives exactly", () => {
+  const F_DUPFD_CLOEXEC = 67;
+  const f = ok(fs.File.open(dir));
+  const fd = f.inner._0.fd;
+  const c = fs.libc("test");
+  for (const min of [200, 777]) {
+    expect(() => fstatSync(min)).toThrow(); // free
+    const d = c.fcntl(fd, F_DUPFD_CLOEXEC, 0, 0, 0, 0, 0, 0, min);
+    expect(d).toBe(min);
+    expect(c.close(d)).toBe(0);
+  }
+  f.drop();
+});
+
+// The same through std's `try_clone_to_owned` (`fcntl(fd, F_DUPFD_CLOEXEC, 3)`): with fd 0 free, a lost minimum would
+// hand out 0; std's answer is the lowest free fd from 3 up. fd 0 is moved away and restored around the call.
+test.skipIf(!HOST)("try_clone: the duplicate skips a free stdio fd (the minimum 3 reaches fcntl)", () => {
+  const sys = dlopen("libSystem.B.dylib", {
+    dup: { args: [FFIType.i32], returns: FFIType.i32 },
+    dup2: { args: [FFIType.i32, FFIType.i32], returns: FFIType.i32 },
+    close: { args: [FFIType.i32], returns: FFIType.i32 },
+  }).symbols;
+  const h = ok(fs.Dir.open(dir));
+  const saved = sys.dup(0);
+  expect(saved).toBeGreaterThanOrEqual(3);
+  let cloned: fs.Dir | undefined;
+  try {
+    expect(sys.close(0)).toBe(0);
+    cloned = ok(h.try_clone());
+  } finally {
+    expect(sys.dup2(saved, 0)).toBe(0);
+    sys.close(saved);
+  }
+  if (cloned === undefined) throw new Error("try_clone did not return");
+  const got = cloned.inner._0.fd;
+  expect(got).toBeGreaterThanOrEqual(3);
+  cloned.drop();
+  h.drop();
 });

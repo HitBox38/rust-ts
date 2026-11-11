@@ -10,6 +10,7 @@
 //   paths read the host clock: `Instant::now()` is `process.hrtime.bigint()` (monotonic, like CLOCK_MONOTONIC /
 //   CLOCK_UPTIME_RAW), `SystemTime::now()` is `performance.timeOrigin + performance.now()` (wall clock, sub-ms; the host
 //   value differs per run anyway, D14).
+import type { IoError } from "./io.ts";
 import { panic } from "./panic.ts";
 import { Err, Ok, type Result } from "./result.ts";
 
@@ -18,6 +19,11 @@ const NANOS_PER_SEC_N = 1_000_000_000n;
 const U64_MAX = (1n << 64n) - 1n;
 const I64_MAX = (1n << 63n) - 1n;
 const I64_MIN = -(1n << 63n);
+const NSEC_PER_SEC = 1_000_000_000n;
+
+// PORT: `#[cfg(target_vendor = "apple")]` is the host's: the port mirrors the std of the oracle it runs beside, which is
+// built for the host (aarch64-apple-darwin on the root host, AGENTS.md §5).
+const TARGET_VENDOR_APPLE = process.platform === "darwin";
 
 /// A `Duration` type to represent a span of time, typically used for system
 /// timeouts.
@@ -175,6 +181,43 @@ class Timespec {
     readonly tv_nsec: number,
   ) {}
 
+  // std: library/std/src/sys/pal/unix/time.rs:39 new_unchecked
+  static new_unchecked(tv_sec: bigint, tv_nsec: bigint): Timespec {
+    // `Nanoseconds::new_unchecked(tv_nsec as u32)`
+    return new Timespec(tv_sec, Number(BigInt.asUintN(32, tv_nsec)));
+  }
+
+  // std: library/std/src/sys/pal/unix/time.rs:43 zero
+  static zero(): Timespec {
+    return Timespec.new_unchecked(0n, 0n);
+  }
+
+  // std: library/std/src/sys/pal/unix/time.rs:47 new
+  static new(tv_sec: bigint, tv_nsec: bigint): Result<Timespec, IoError> {
+    // On Apple OS, dates before epoch are represented differently than on other
+    // Unix platforms: e.g. 1/10th of a second before epoch is represented as `seconds=-1`
+    // and `nanoseconds=100_000_000` on other platforms, but is `seconds=0` and
+    // `nanoseconds=-900_000_000` on Apple OS.
+    //
+    // To compensate, we first detect this special case by checking if both
+    // seconds and nanoseconds are in range, and then correct the value for seconds
+    // and nanoseconds to match the common unix representation.
+    //
+    // Please note that Apple OS nonetheless accepts the standard unix format when
+    // setting file times, which makes this compensation round-trippable and generally
+    // transparent.
+    if (TARGET_VENDOR_APPLE) {
+      if (tv_sec <= 0n && tv_sec > I64_MIN && tv_nsec < 0n && tv_nsec > -1_000_000_000n) {
+        [tv_sec, tv_nsec] = [tv_sec - 1n, tv_nsec + 1_000_000_000n];
+      }
+    }
+    if (tv_nsec >= 0n && tv_nsec < NSEC_PER_SEC) {
+      return Ok(Timespec.new_unchecked(tv_sec, tv_nsec));
+    } else {
+      return Err({ $: "SimpleMessage", kind: "InvalidData", message: "invalid timestamp" });
+    }
+  }
+
   /** derive(PartialOrd) (lexicographic). */
   ge(other: Timespec): boolean {
     return this.tv_sec > other.tv_sec || (this.tv_sec === other.tv_sec && this.tv_nsec >= other.tv_nsec);
@@ -285,7 +328,16 @@ export class SystemTime {
 
   /// An anchor in time which can be used to create new `SystemTime` instances or
   /// learn about where in time a `SystemTime` lies.
-  static readonly UNIX_EPOCH: SystemTime = new SystemTime(new Timespec(0n, 0));
+  // PORT: `UNIX_EPOCH = SystemTime { t: Timespec::zero() }` (library/std/src/sys/time/unix.rs:6); std's public
+  // `SystemTime` wraps sys's, which this class collapses into one.
+  static readonly UNIX_EPOCH: SystemTime = new SystemTime(Timespec.zero());
+
+  // std: library/std/src/sys/time/unix.rs:19 new
+  static new(tv_sec: bigint, tv_nsec: bigint): Result<SystemTime, IoError> {
+    const t = Timespec.new(tv_sec, tv_nsec);
+    if (t.$ === "Err") return t;
+    return Ok(new SystemTime(t._0));
+  }
 
   // std: library/std/src/time.rs:601 now
   static now(): SystemTime {
