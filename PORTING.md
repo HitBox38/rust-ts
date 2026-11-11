@@ -171,6 +171,20 @@ version in upstream's `Cargo.lock` (record it in `harness/scope.json` → `vendo
 `bun scripts/crate-src.ts <crate>` (prints the path of the unpacked crate). Port its unit tests too.
 Markers for vendor code: `// crate: <crate>-<version>/<path>:<line> <name>`.
 
+## 5c. LLVM's sources and rustc's C++ wrappers (M7)
+The IR model (`src/rust_ts/llvm/`, plan-m7 D5) is not ported rustc code, but where it follows LLVM or rustc's C++ it carries a
+marker on the line directly above the TS function, and `bun scripts/coverage.ts --check` verifies it:
+- `// llvm: <path>:<line> <name>`: a function of LLVM, `<path>` relative to the llvm-project root (`llvm/lib/IR/Core.cpp`). The
+  file must be listed in `harness/llvm-manifest.json` (the commit of the rust checkout's `src/llvm-project` gitlink, each file
+  by SHA-256); `bun scripts/llvm-src.ts fetch` puts the files under `$RUST_TS_DATA/llvm-src/<commit>/`, and
+  `bun scripts/llvm-src.ts add <path>` pins a new one. Not counted in any coverage figure.
+- `// rustc: compiler/rustc_llvm/llvm-wrapper/<file>:<line> <name>` (`.cpp` or `.h`): a function of rustc's wrappers, such as
+  `LLVMRustAddFunctionAttributes`. `rustc_llvm` stays excluded from the compiler TOTAL; these count in a separate WRAPPER
+  figure (`bun scripts/coverage.ts --crate llvm-wrapper`).
+
+For both, `<line>` is the line of the function's name in its definition (not a declaration), and `<name>` is the name as
+written there (`ConstantInt::get`, `operator==`) or its last segment (`get`).
+
 ### Traits
 - `#[derive(Debug)]` → `export const debug_<Type>: Debug<Type> = (v, f) => ...` using
   `src/std/fmt.ts` builders (`debug_struct`, `debug_tuple`, `debug_option`, ...). Output must

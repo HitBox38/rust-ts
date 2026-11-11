@@ -1,7 +1,6 @@
 {
   "comment": "Which upstream compiler crates are ported. Changing this file needs the owner's approval (see AGENTS.md).",
   "excluded": {
-    "rustc_codegen_llvm": "LLVM backend; replaced by our own text-LLVM-IR backend (M7)",
     "rustc_codegen_gcc": "GCC backend",
     "rustc_codegen_cranelift": "Cranelift backend",
     "rustc_llvm": "C++ LLVM bindings",
@@ -16,6 +15,21 @@
     "rustc_log": "tracing setup",
     "rustc_sanitizers": "sanitizer instrumentation (later, if ever)",
     "rustc": "binary wrapper around rustc_driver"
+  },
+  "crates": {
+    "comment": "Compiler crates with per-path scope, like `miri` (lane scope-m7, plan-m7 D4): paths relative to compiler/<crate>. `excluded`: files, or directories with everything under them, out of coverage (unported paths stop with unported(...)). `partial`: files of which only the listed fns are in scope. Markers on excluded paths are still checked against upstream; they count for nothing.",
+    "rustc_codegen_llvm": {
+      "excluded": {
+        "src/llvm/ffi.rs": "the seam (plan-m7 D4): its extern fns are the IR model's (src/rust_ts/llvm/, D5), not ported fns; owner decision 2026-11-11",
+        "src/llvm/enzyme_ffi.rs": "Enzyme FFI, -Zautodiff (plan-m7 D18); owner decision 2026-11-11",
+        "src/builder/autodiff.rs": "-Zautodiff (plan-m7 D18); owner decision 2026-11-11",
+        "src/typetree.rs": "Enzyme type trees, -Zautodiff (plan-m7 D18); owner decision 2026-11-11",
+        "src/builder/gpu_offload.rs": "-Zoffload (plan-m7 D18); owner decision 2026-11-11",
+        "src/llvm/offload_ffi.rs": "-Zoffload FFI (plan-m7 D18); owner decision 2026-11-11",
+        "src/coverageinfo": "-Cinstrument-coverage (plan-m7 D18); owner decision 2026-11-11"
+      },
+      "partial": {}
+    }
   },
   "miri": {
     "comment": "Miri, ported like a compiler crate (plan-m6 D2): src/tools/miri/src/<path>.rs -> src/miri/<path>.ts, markers `// rustc: src/tools/miri/src/<path>:<line> <name>`, coverage crate `miri`. `excluded`: paths (files, or directories with everything under them) out of M6's scope, which stop with unported(...). `partial`: files of which only the listed fns are in scope.",
