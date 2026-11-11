@@ -294,8 +294,18 @@ test.skipIf(!HOST)("fcntl: the variadic F_DUPFD_CLOEXEC minimum arrives exactly"
   const f = ok(fs.File.open(dir));
   const fd = f.inner._0.fd;
   const c = fs.libc("test");
-  for (const min of [200, 777]) {
-    expect(() => fstatSync(min)).toThrow(); // free
+  // The lowest free fd at or above `from`: the test needs a minimum no open fd sits on, so the exact answer is the
+  // minimum itself (fixers-51 review N1: a fixed 200 or 777 failed whenever the process already had it open).
+  const free_from = (from: number): number => {
+    for (let n = from; ; n++) {
+      try {
+        fstatSync(n);
+      } catch {
+        return n;
+      }
+    }
+  };
+  for (const min of [free_from(200), free_from(777)]) {
     const d = c.fcntl(fd, F_DUPFD_CLOEXEC, 0, 0, 0, 0, 0, 0, min);
     expect(d).toBe(min);
     expect(c.close(d)).toBe(0);
@@ -304,27 +314,22 @@ test.skipIf(!HOST)("fcntl: the variadic F_DUPFD_CLOEXEC minimum arrives exactly"
 });
 
 // The same through std's `try_clone_to_owned` (`fcntl(fd, F_DUPFD_CLOEXEC, 3)`): with fd 0 free, a lost minimum would
-// hand out 0; std's answer is the lowest free fd from 3 up. fd 0 is moved away and restored around the call.
+// hand out 0; std's answer is the lowest free fd from 3 up. fd 0 is closed only in a child process (fixers-51 review
+// N1: closed in the test process, one of Bun's own threads could be handed fd 0, and the restore would clobber it).
 test.skipIf(!HOST)("try_clone: the duplicate skips a free stdio fd (the minimum 3 reaches fcntl)", () => {
-  const sys = dlopen("libSystem.B.dylib", {
-    dup: { args: [FFIType.i32], returns: FFIType.i32 },
-    dup2: { args: [FFIType.i32, FFIType.i32], returns: FFIType.i32 },
-    close: { args: [FFIType.i32], returns: FFIType.i32 },
-  }).symbols;
-  const h = ok(fs.Dir.open(dir));
-  const saved = sys.dup(0);
-  expect(saved).toBeGreaterThanOrEqual(3);
-  let cloned: fs.Dir | undefined;
-  try {
-    expect(sys.close(0)).toBe(0);
-    cloned = ok(h.try_clone());
-  } finally {
-    expect(sys.dup2(saved, 0)).toBe(0);
-    sys.close(saved);
-  }
-  if (cloned === undefined) throw new Error("try_clone did not return");
-  const got = cloned.inner._0.fd;
-  expect(got).toBeGreaterThanOrEqual(3);
-  cloned.drop();
-  h.drop();
+  const child = `
+    const { dlopen, FFIType } = await import("bun:ffi");
+    const fs = await import(${JSON.stringify(join(import.meta.dir, "fs.ts"))});
+    const sys = dlopen("libSystem.B.dylib", { close: { args: [FFIType.i32], returns: FFIType.i32 } }).symbols;
+    const h = fs.Dir.open(${JSON.stringify(dir)});
+    if (h.$ !== "Ok") throw new Error("open failed");
+    if (sys.close(0) !== 0) throw new Error("close(0) failed");
+    const c = h._0.try_clone();
+    if (c.$ !== "Ok") throw new Error("try_clone failed");
+    process.stdout.write(String(c._0.inner._0.fd));
+  `;
+  const p = Bun.spawnSync([process.execPath, "-e", child], { stdin: "ignore", stdout: "pipe", stderr: "pipe" });
+  expect(p.stderr.toString()).toBe("");
+  expect(p.exitCode).toBe(0);
+  expect(Number(p.stdout.toString())).toBeGreaterThanOrEqual(3);
 });
