@@ -544,3 +544,39 @@ export const debug_f64: Debug<number> = (v) => float_to_general_debug(F64_SPEC, 
 export const debug_f32: Debug<number> = (v) => float_to_general_debug(F32_SPEC, v);
 /** `<f64 as Display>::fmt` without precision (`float_to_decimal_display` -> `float_to_decimal_common_shortest(.., 0)`). */
 export const display_f64 = (v: number): string => to_shortest_str(F64_SPEC, v, 0);
+
+/**
+ * `format!("{:.1}", v)` for an `f64` (`<f64 as Display>::fmt` with precision 1, no width, no `+`):
+ * `float_to_decimal_display` -> `float_to_decimal_common_exact(fmt, v, Sign::Minus, 1)` ->
+ * `flt2dec::to_exact_fixed_str(grisu::format_exact, ..)`. The result is the exact decimal value of `v` rounded to one
+ * fractional digit, ties to even on the last kept digit (Dragon's `format_exact`, which Grisu either matches or falls
+ * back to); `Sign::Minus` keeps the `-` of a negative value and of `-0.0`; `NaN`, `inf`, `-inf`.
+ * PORT: only precision 1 is modelled (`Fmt` carries no precision), as `round(v * 10)` in exact BigInt arithmetic on
+ * the binary value rather than a digit-by-digit `format_exact`; the two are observably identical. Checked against the
+ * oracle's `{:.1}` and `{:4.1}` on 44,963 values (docs/reviews/stats.md) and re-checked on a sample by lane fixers-52.
+ * JS `toFixed` breaks ties upwards, so it is not used. Shared by rustc_data_structures thousands/mod.ts,
+ * rustc_passes input_stats.ts, rustc_metadata rmeta/encoder.ts and rustc_middle ty/context.ts.
+ */
+// std: library/core/src/fmt/float.rs:36 float_to_decimal_common_exact
+export function f64_fixed1(x: number): string {
+  if (Number.isNaN(x)) return "NaN";
+  if (!Number.isFinite(x)) return x > 0 ? "inf" : "-inf";
+  const neg = x < 0 || Object.is(x, -0);
+  const bits = F64_SPEC.to_bits(Math.abs(x));
+  const exp = Number((bits >> 52n) & 0x7ffn);
+  const frac = bits & 0xfffffffffffffn;
+  const m = exp === 0 ? frac : frac | (1n << 52n);
+  const e = (exp === 0 ? 1 : exp) - 1075;
+  // x * 10 = m * 10 * 2^e, rounded to an integer, ties to even.
+  let q: bigint;
+  if (e >= 0) {
+    q = m * 10n * (1n << BigInt(e));
+  } else {
+    const num = m * 10n;
+    const den = 1n << BigInt(-e);
+    q = num / den;
+    const r2 = (num % den) * 2n;
+    if (r2 > den || (r2 === den && q % 2n === 1n)) q += 1n;
+  }
+  return `${neg ? "-" : ""}${q / 10n}.${q % 10n}`;
+}

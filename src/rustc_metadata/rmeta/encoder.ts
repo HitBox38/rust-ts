@@ -99,7 +99,7 @@ import { debug_ErrorGuaranteed, BytePos, debug_ExternalSource, encode_BytePos, e
 import { bug, span_bug } from "../../rustc_span/macros.ts";
 import { ByteSymbol, type Ident, Symbol } from "../../rustc_span/symbol.ts";
 import { assert, assert_eq, panic, unported, unwrap } from "../../std/panic.ts";
-import { PLAIN } from "../../std/fmt.ts";
+import { PLAIN, f64_fixed1 } from "../../std/fmt.ts";
 import type { Result } from "../../std/result.ts";
 import { XxHash3_128 } from "../../vendor/twox_hash/lib.ts";
 import { encode_SpanTag } from "../decodable.gen.ts";
@@ -109,7 +109,7 @@ import { type CrateDep, CrateRoot, type CrateRootUnhashed, debug_LazyState, type
 import { type Asyncness, type CoroutineKind, fse_Option_LazyValue, TableBuilder } from "./table.ts";
 // lane encoder-d
 import { closeSync, fstatSync, openSync, readFileSync, readSync, writeSync } from "node:fs";
-import { f64_fixed1, usize_with_underscores } from "../../rustc_data_structures/thousands/mod.ts";
+import { usize_with_underscores } from "../../rustc_data_structures/thousands/mod.ts";
 import type { CanonicalSymbols } from "../../rustc_attr_ir/canonical_symbols.ts";
 import { clone_StrippedCfgItem, encode_StrippedCfgItem } from "../../rustc_attr_ir/data_structures.gen.ts";
 import { encode_LangItem } from "../../rustc_attr_ir/lang_items.gen.ts";
@@ -867,7 +867,7 @@ export class EncodeContext implements TyEncoder {
       // `RUSTFLAGS='-Zmeta-stats' cargo build`). It still doesn't guarantee
       // non-interleaving, though.
       // PORT: `{:<w$}` / `{:>w$}` pad ASCII labels and numbers (a label is a `&'static str` of the `stat!` calls), so
-      // `padEnd` / `padStart` count what `fmt` counts; `{:4.1}` / `{:.1}` are `f64_fixed1` (thousands/mod.ts).
+      // `padEnd` / `padStart` count what `fmt` counts; `{:4.1}` / `{:.1}` are `f64_fixed1` (src/std/fmt.ts).
       let s = "";
       s += `${prefix} ${"=".repeat(banner_w)}\n`;
       s += `${prefix} METADATA STATS: ${Symbol.as_str(tcx.crate_name(LOCAL_CRATE))}\n`;
