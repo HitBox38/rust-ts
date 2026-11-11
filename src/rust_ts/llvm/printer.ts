@@ -151,8 +151,11 @@ const printAddressSpace = (as: number, prefix: string, suffix: string, force = f
 /** llir-core-b's hook: prints a definition's blocks (`{` and `}` excluded) with the printer's slot numbering. */
 export type BodyPrinter = (f: Function, p: Printer) => string;
 let bodyPrinter: BodyPrinter | undefined;
-export function setBodyPrinter(b: BodyPrinter): void {
+/** llir-core-b's slot numbering of a function's unnamed locals (`SlotTracker::incorporateFunction`). */
+let functionSlots: ((f: Function) => (v: Value) => string) | undefined;
+export function setBodyPrinter(b: BodyPrinter, slots: (f: Function) => (v: Value) => string): void {
   bodyPrinter = b;
+  functionSlots = slots;
 }
 
 /** One printing of a module (or of a lone value): the slot numbers of unnamed globals, struct types, metadata, attributes. */
@@ -440,6 +443,16 @@ export class Printer {
   // llvm: llvm/lib/IR/AsmWriter.cpp:4139 AssemblyWriter::printFunction
   function(f: Function): string {
     const decl = f.isDeclaration();
+    // `Machine.incorporateFunction(F)` before the header: unnamed arguments print as their slots.
+    const prev = this.localOperand;
+    if (!decl && functionSlots !== undefined) this.localOperand = functionSlots(f);
+    try {
+      return this.functionText(f, decl);
+    } finally {
+      this.localOperand = prev;
+    }
+  }
+  private functionText(f: Function, decl: boolean): string {
     let o = decl ? `declare${this.mdAttachments(f, " ")} ` : "define ";
     o += getLinkageNameWithSpace(f.linkage) + printDSOLocation(f) + printVisibility(f) + printDLLStorageClass(f);
     // PORT: a non-C convention prints as `cc N`, which the parser reads as the named convention `printCallingConv` writes.

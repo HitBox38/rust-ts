@@ -58,6 +58,25 @@ const C_API = {
   LLVMSetInitializer: { args: [P, P], returns: "void" },
   LLVMSetLinkage: { args: [P, "u32"], returns: "void" },
   LLVMSetVisibility: { args: [P, "u32"], returns: "void" },
+  // llir-core-b: the builder's folds.
+  LLVMCreateBuilderInContext: { args: [P], returns: P },
+  LLVMDisposeBuilder: { args: [P], returns: "void" },
+  LLVMBuildBinOp: { args: [P, "u32", P, P, P], returns: P },
+  LLVMBuildICmp: { args: [P, "u32", P, P, P], returns: P },
+  LLVMBuildFCmp: { args: [P, "u32", P, P, P], returns: P },
+  LLVMBuildSelect: { args: [P, P, P, P, P], returns: P },
+  LLVMBuildExtractValue: { args: [P, P, "u32", P], returns: P },
+  LLVMBuildInsertValue: { args: [P, P, P, "u32", P], returns: P },
+  LLVMBuildTrunc: { args: [P, P, P, P], returns: P },
+  LLVMBuildZExt: { args: [P, P, P, P], returns: P },
+  LLVMBuildSExt: { args: [P, P, P, P], returns: P },
+  LLVMBuildNeg: { args: [P, P, P], returns: P },
+  LLVMBuildNot: { args: [P, P, P], returns: P },
+  LLVMBuildFNeg: { args: [P, P, P], returns: P },
+  LLVMIsAConstant: { args: [P], returns: P },
+  LLVMGetPoison: { args: [P], returns: P },
+  LLVMConstReal: { args: [P, "f64"], returns: P },
+  LLVMDoubleTypeInContext: { args: [P], returns: P },
 } as const;
 
 const cstr = (s: string | Uint8Array): Buffer => Buffer.concat([typeof s === "string" ? Buffer.from(s, "utf8") : Buffer.from(s), Buffer.from([0])]);
@@ -193,5 +212,119 @@ describe.skipIf(!HAVE && !REQUIRE)("model vs libLLVM C API", () => {
     L.LLVMSetLinkage(mg, "PrivateLinkage");
     expect(printValueToString(mg)).toBe(owned(lib.LLVMPrintValueToString(rg)));
     lib.LLVMContextDispose(rc);
+  });
+
+  /** The builder's constant folds (ConstantFolder; fold.ts), op by op over corner-case operands: the model gives LLVM's printed
+   * constant, or an instruction where LLVM makes one, or stops `unported` (never another answer). Returns the stop count. */
+  /** A printed `double` constant as its bit pattern (the model prints hex, LLVM a decimal that round-trips; llir-core-a
+   * PORT decision 4); anything else unchanged. */
+  const fpBits = (t: string): string => {
+    const m = /^double (f?0x[0-9A-F]+|[-+0-9.e]+|[-+](?:inf|qnan))$/.exec(t);
+    if (m === null) return t;
+    const v = m[1]!;
+    // LLVM's spelling of the special values (`+qnan`, `-inf`, ...): the default quiet NaN and the infinities.
+    const special: Record<string, bigint> = { "+qnan": 0x7ff8000000000000n, "-qnan": 0xfff8000000000000n, "+inf": 0x7ff0000000000000n, "-inf": 0xfff0000000000000n };
+    if (v in special) return `double bits ${special[v]}`;
+    if (/^f?0x/.test(v)) return `double bits ${BigInt(`0x${v.replace(/^f?0x/, "")}`)}`;
+    const dv = new DataView(new ArrayBuffer(8));
+    dv.setFloat64(0, Number(v));
+    return `double bits ${dv.getBigUint64(0)}`;
+  };
+  const foldCases = (run: (r: (name: string) => Pointer | null, m: () => L.Value | "unported", what: string) => void) => run;
+  test("builder folds of integer and floating-point constants (lane llir-core-b)", () => {
+    const rc = lib.LLVMContextCreate();
+    const rb = lib.LLVMCreateBuilderInContext(rc);
+    const mc = L.LLVMContextCreate();
+    const mb = L.LLVMCreateBuilderInContext(mc);
+    const noName = cstr("");
+    let agree = 0;
+    const stops: string[] = [];
+    const check = (what: string, r: Pointer | null, m: () => L.Value): void => {
+      let mv: L.Value;
+      try {
+        mv = m();
+      } catch (e) {
+        if ((e as Error).constructor.name === "Unported") {
+          stops.push(what);
+          return;
+        }
+        throw new Error(`${what}: ${(e as Error).message}`);
+      }
+      const realConst = lib.LLVMIsAConstant(r) !== null;
+      if (!realConst) {
+        expect([what, mv.constructor.name]).toEqual([what, "Inst"]);
+      } else {
+        expect([what, fpBits(printValueToString(mv))]).toEqual([what, fpBits(owned(lib.LLVMPrintValueToString(r)))]);
+      }
+      agree++;
+    };
+    const ints = (bits: number): [string, (rt: Pointer | null) => Pointer | null, (mt: L.Type) => L.Value][] => {
+      const mask = (1n << BigInt(bits)) - 1n;
+      const vals = bits === 1 ? [0n, 1n] : [0n, 1n, 2n, 7n, mask, 1n << BigInt(bits - 1), (1n << BigInt(bits - 1)) - 1n, BigInt(bits)];
+      return [
+        ...vals.map((v): [string, (rt: Pointer | null) => Pointer | null, (mt: L.Type) => L.Value] => [`i${bits} ${v}`, (rt) => lib.LLVMConstInt(rt, v, 0), (mt) => L.LLVMConstInt(mt, v, L.FALSE)]),
+        [`undef i${bits}`, (rt) => lib.LLVMGetUndef(rt), (mt) => L.LLVMGetUndef(mt)],
+        [`poison i${bits}`, (rt) => lib.LLVMGetPoison(rt), (mt) => L.LLVMGetPoison(mt)],
+      ];
+    };
+    const OPS: [string, number][] = [["Add", 8], ["Sub", 10], ["Mul", 12], ["UDiv", 14], ["SDiv", 15], ["URem", 17], ["SRem", 18], ["Shl", 20], ["LShr", 21], ["AShr", 22], ["And", 23], ["Or", 24], ["Xor", 25]];
+    const lib2 = L as unknown as Record<string, (...a: unknown[]) => L.Value>;
+    for (const bits of [1, 8, 32]) {
+      const rt = lib.LLVMIntTypeInContext(rc, bits);
+      const mt = L.LLVMIntTypeInContext(mc, bits);
+      const vs = ints(bits);
+      for (const [op, code] of OPS)
+        for (const [an, ar, am] of vs)
+          for (const [bn, br, bm] of vs) check(`${op} ${an}, ${bn}`, lib.LLVMBuildBinOp(rb, code, ar(rt), br(rt), noName), () => lib2[`LLVMBuild${op}`]!(mb, am(mt), bm(mt), ""));
+      // Every integer predicate.
+      for (let p = 32; p <= 41; p++) for (const [an, ar, am] of vs) for (const [bn, br, bm] of vs) check(`icmp ${p} ${an}, ${bn}`, lib.LLVMBuildICmp(rb, p, ar(rt), br(rt), noName), () => L.LLVMBuildICmp(mb, p, am(mt), bm(mt), ""));
+      for (const [an, ar, am] of vs) {
+        check(`neg ${an}`, lib.LLVMBuildNeg(rb, ar(rt), noName), () => L.LLVMBuildNeg(mb, am(mt), ""));
+        check(`not ${an}`, lib.LLVMBuildNot(rb, ar(rt), noName), () => L.LLVMBuildNot(mb, am(mt), ""));
+        for (const to of [1, 8, 16, 64]) {
+          if (to === bits) continue;
+          const rto = lib.LLVMIntTypeInContext(rc, to);
+          const mto = L.LLVMIntTypeInContext(mc, to);
+          if (to < bits) check(`trunc ${an} to i${to}`, lib.LLVMBuildTrunc(rb, ar(rt), rto, noName), () => L.LLVMBuildTrunc(mb, am(mt), mto, ""));
+          else {
+            check(`zext ${an} to i${to}`, lib.LLVMBuildZExt(rb, ar(rt), rto, noName), () => L.LLVMBuildZExt(mb, am(mt), mto, ""));
+            check(`sext ${an} to i${to}`, lib.LLVMBuildSExt(rb, ar(rt), rto, noName), () => L.LLVMBuildSExt(mb, am(mt), mto, ""));
+          }
+        }
+      }
+      // select over every i1 condition.
+      const i1 = ints(1);
+      for (const [cn, cr, cm] of i1) for (const [an, ar, am] of vs) for (const [bn, br, bm] of vs.slice(-3)) {
+        check(`select ${cn}, ${an}, ${bn}`, lib.LLVMBuildSelect(rb, cr(lib.LLVMIntTypeInContext(rc, 1)), ar(rt), br(rt), noName), () => L.LLVMBuildSelect(mb, cm(L.LLVMIntTypeInContext(mc, 1)), am(mt), bm(mt), ""));
+      }
+    }
+    // Doubles: the identities and undef/poison rules fold; arithmetic of two values stops (APFloat), comparisons fold.
+    const rd = lib.LLVMDoubleTypeInContext(rc);
+    const md = L.LLVMDoubleTypeInContext(mc);
+    const ds: [string, () => Pointer | null, () => L.Value][] = [
+      ...[0, -0, 1, 1.5, -2, Number.NaN, Number.POSITIVE_INFINITY].map((v): [string, () => Pointer | null, () => L.Value] => [`double ${v}`, () => lib.LLVMConstReal(rd, v), () => L.LLVMConstReal(md, v)]),
+      ["undef double", () => lib.LLVMGetUndef(rd), () => L.LLVMGetUndef(md)],
+      ["poison double", () => lib.LLVMGetPoison(rd), () => L.LLVMGetPoison(md)],
+    ];
+    const FOPS: [string, number][] = [["FAdd", 9], ["FSub", 11], ["FMul", 13], ["FDiv", 16], ["FRem", 19]];
+    for (const [op, code] of FOPS) for (const [an, ar, am] of ds) for (const [bn, br, bm] of ds) check(`${op} ${an}, ${bn}`, lib.LLVMBuildBinOp(rb, code, ar(), br(), noName), () => lib2[`LLVMBuild${op}`]!(mb, am(), bm(), ""));
+    for (let p = 0; p <= 15; p++) for (const [an, ar, am] of ds) for (const [bn, br, bm] of ds) check(`fcmp ${p} ${an}, ${bn}`, lib.LLVMBuildFCmp(rb, p, ar(), br(), noName), () => L.LLVMBuildFCmp(mb, p, am(), bm(), ""));
+    for (const [an, ar, am] of ds) check(`fneg ${an}`, lib.LLVMBuildFNeg(rb, ar(), noName), () => L.LLVMBuildFNeg(mb, am(), ""));
+    // extractvalue / insertvalue of constant aggregates.
+    const r8 = lib.LLVMIntTypeInContext(rc, 8);
+    const m8 = L.LLVMIntTypeInContext(mc, 8);
+    const rs = lib.LLVMConstStructInContext(rc, ptrs([lib.LLVMConstInt(r8, 1n, 0), lib.LLVMGetUndef(r8), lib.LLVMConstInt(r8, 0n, 0)]), 3, 0);
+    const ms = L.LLVMConstStructInContext(mc, [L.LLVMConstInt(m8, 1n, L.FALSE), L.LLVMGetUndef(m8), L.LLVMConstInt(m8, 0n, L.FALSE)], 3, L.FALSE);
+    for (let i = 0; i < 3; i++) {
+      check(`extractvalue ${i}`, lib.LLVMBuildExtractValue(rb, rs, i, noName), () => L.LLVMBuildExtractValue(mb, ms, i, ""));
+      for (const v of [0n, 5n]) check(`insertvalue ${i} ${v}`, lib.LLVMBuildInsertValue(rb, rs, lib.LLVMConstInt(r8, v, 0), i, noName), () => L.LLVMBuildInsertValue(mb, ms, L.LLVMConstInt(m8, v, L.FALSE), i, ""));
+      check(`insertvalue ${i} undef`, lib.LLVMBuildInsertValue(rb, rs, lib.LLVMGetUndef(r8), i, noName), () => L.LLVMBuildInsertValue(mb, ms, L.LLVMGetUndef(m8), i, ""));
+    }
+    // Every other case agrees; the only stops are the APFloat arithmetic of two doubles.
+    expect(agree).toBeGreaterThan(6500);
+    expect(stops.filter((w) => !/^F(Add|Sub|Mul|Div|Rem) double \S+, double \S+$/.test(w))).toEqual([]);
+    lib.LLVMDisposeBuilder(rb);
+    lib.LLVMContextDispose(rc);
+    void foldCases;
   });
 });

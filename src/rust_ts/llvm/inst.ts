@@ -898,21 +898,18 @@ function printBasicBlock(bb: BasicBlock, p: Printer, first: boolean): string {
   return o;
 }
 
-/** The body printer printer.ts calls for a definition: its blocks with the function's slot numbering. */
-setBodyPrinter((f, p) => {
-  const slots = functionSlots(f);
-  const prev = p.localOperand;
-  p.localOperand = (v) => {
-    if (v.hasName()) return `%${printLLVMNameWithoutPrefix(v.name)}`;
-    const s = slots.get(v);
-    return s === undefined ? "<badref>" : `%${s}`;
-  };
-  try {
-    return (f.blocks as BasicBlock[]).map((bb, i) => printBasicBlock(bb, p, i === 0)).join("");
-  } finally {
-    p.localOperand = prev;
-  }
-});
+/** The body printer printer.ts calls for a definition, with the function's slot numbering already set (`localOperand`). */
+setBodyPrinter(
+  (f, p) => (f.blocks as BasicBlock[]).map((bb, i) => printBasicBlock(bb, p, i === 0)).join(""),
+  (f) => {
+    const slots = functionSlots(f);
+    return (v) => {
+      if (v.hasName()) return `%${printLLVMNameWithoutPrefix(v.name)}`;
+      const s = slots.get(v);
+      return s === undefined ? "<badref>" : `%${s}`;
+    };
+  },
+);
 
 /** The type finder's walk of function bodies (`TypeFinder::run`, TypeFinder.cpp:34): each instruction's type, its
  * non-instruction operands, a GEP's source element type, an alloca's type and a call's attribute types. */

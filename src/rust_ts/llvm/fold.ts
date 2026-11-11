@@ -54,8 +54,9 @@ export const ICMP = { EQ: 32, NE: 33, UGT: 34, UGE: 35, ULT: 36, ULE: 37, SGT: 3
 const FCMP = { OEQ: 1, OGT: 2, OGE: 3, OLT: 4, OLE: 5, ONE: 6, ORD: 7, UNO: 8, UEQ: 9, UGT: 10, UGE: 11, ULT: 12, ULE: 13, UNE: 14 } as const;
 export const isIntPredicate = (p: number): boolean => p >= ICMP.EQ && p <= ICMP.SLE;
 export const isFPPredicate = (p: number): boolean => p >= FCMP_FALSE && p <= FCMP_TRUE;
-/** `CmpInst::isEquality`: eq/ne, and the FP oeq/one/ueq/une. */
-const isEquality = (p: number): boolean => (isIntPredicate(p) ? p === ICMP.EQ || p === ICMP.NE : p === FCMP.OEQ || p === FCMP.ONE || p === FCMP.UEQ || p === FCMP.UNE);
+/** `ICmpInst::isEquality(Predicate)` (Instructions.h): eq or ne. The fold's undef rule asks this one, not `CmpInst::isEquality`
+ * (which also takes the FP oeq/one/ueq/une): `fcmp oeq 0.0, undef` folds to false, not undef (C API differential test). */
+const isEquality = (p: number): boolean => p === ICMP.EQ || p === ICMP.NE;
 /** `CmpInst::getSwappedPredicate`. */
 function getSwappedPredicate(p: number): number {
   const swap: Readonly<Record<number, number>> = {
@@ -624,7 +625,7 @@ export function constantFoldCompareInstruction(predicate: number, c1: Constant, 
     const isIntegerPredicate = isIntPredicate(predicate);
     // For EQ and NE, we can always pick a value for the undef to make the predicate pass or fail, so we can return undef.
     // Also, if both operands are undef, we can return undef for int comparison.
-    if (isEquality(predicate) || (isIntegerPredicate && c1 === c2)) return getUndef(resultTy);
+    if (isEquality(predicate) || (isIntegerPredicate && c1 === c2)) return getUndef(resultTy); // ICmpInst::isEquality
     // Otherwise, for integer compare, pick the same value as the non-undef operand, and fold it to true or false.
     if (isIntegerPredicate) return getConstantInt(resultTy as IntegerType, isTrueWhenEqual(predicate) ? 1n : 0n);
     // Choosing NaN for the undef will always make unordered comparison succeed and ordered comparison fails.
