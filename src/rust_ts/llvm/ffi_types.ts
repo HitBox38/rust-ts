@@ -2,172 +2,172 @@
 // an implementation module and rerun `bun src/rust_ts/llvm/ffi_gen.ts`. Not ported code (lane llir-core-a).
 import { flags_companion } from "../../vendor/bitflags/traits.ts";
 
-// ffi: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:115 LLVMRustResult
+// From compiler/rustc_codegen_llvm/src/llvm/ffi.rs:115 (enum LLVMRustResult).
 export type LLVMRustResult = "Success" | "Failure";
 export const LLVMRustResult = { Success: "Success", Failure: "Failure" } as const;
 export const LLVMRustResult_discriminant: Readonly<Record<LLVMRustResult, number>> = { Success: 0, Failure: 1 };
 
-// ffi: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:134 ModuleFlagMergeBehavior
+// From compiler/rustc_codegen_llvm/src/llvm/ffi.rs:134 (enum ModuleFlagMergeBehavior).
 export type ModuleFlagMergeBehavior = "Error" | "Warning" | "Require" | "Override" | "Append" | "AppendUnique" | "Max" | "Min";
 export const ModuleFlagMergeBehavior = { Error: "Error", Warning: "Warning", Require: "Require", Override: "Override", Append: "Append", AppendUnique: "AppendUnique", Max: "Max", Min: "Min" } as const;
 export const ModuleFlagMergeBehavior_discriminant: Readonly<Record<ModuleFlagMergeBehavior, number>> = { Error: 1, Warning: 2, Require: 3, Override: 4, Append: 5, AppendUnique: 6, Max: 7, Min: 8 };
 
-// ffi: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:151 TailCallKind
+// From compiler/rustc_codegen_llvm/src/llvm/ffi.rs:151 (enum TailCallKind).
 export type TailCallKind = "None" | "Tail" | "MustTail" | "NoTail";
 export const TailCallKind = { None: "None", Tail: "Tail", MustTail: "MustTail", NoTail: "NoTail" } as const;
 export const TailCallKind_discriminant: Readonly<Record<TailCallKind, number>> = { None: 0, Tail: 1, MustTail: 2, NoTail: 3 };
 
-// ffi: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:163 CallConv
+// From compiler/rustc_codegen_llvm/src/llvm/ffi.rs:163 (enum CallConv).
 export type CallConv = "CCallConv" | "FastCallConv" | "ColdCallConv" | "PreserveMost" | "PreserveAll" | "SwiftCallConv" | "Tail" | "PreserveNone" | "X86StdcallCallConv" | "X86FastcallCallConv" | "ArmAapcsCallConv" | "Msp430Intr" | "X86_ThisCall" | "PtxKernel" | "X86_64_SysV" | "X86_64_Win64" | "X86_VectorCall" | "X86_Intr" | "AvrNonBlockingInterrupt" | "AvrInterrupt" | "AmdgpuKernel";
 export const CallConv = { CCallConv: "CCallConv", FastCallConv: "FastCallConv", ColdCallConv: "ColdCallConv", PreserveMost: "PreserveMost", PreserveAll: "PreserveAll", SwiftCallConv: "SwiftCallConv", Tail: "Tail", PreserveNone: "PreserveNone", X86StdcallCallConv: "X86StdcallCallConv", X86FastcallCallConv: "X86FastcallCallConv", ArmAapcsCallConv: "ArmAapcsCallConv", Msp430Intr: "Msp430Intr", X86_ThisCall: "X86_ThisCall", PtxKernel: "PtxKernel", X86_64_SysV: "X86_64_SysV", X86_64_Win64: "X86_64_Win64", X86_VectorCall: "X86_VectorCall", X86_Intr: "X86_Intr", AvrNonBlockingInterrupt: "AvrNonBlockingInterrupt", AvrInterrupt: "AvrInterrupt", AmdgpuKernel: "AmdgpuKernel" } as const;
 export const CallConv_discriminant: Readonly<Record<CallConv, number>> = { CCallConv: 0, FastCallConv: 8, ColdCallConv: 9, PreserveMost: 14, PreserveAll: 15, SwiftCallConv: 16, Tail: 18, PreserveNone: 21, X86StdcallCallConv: 64, X86FastcallCallConv: 65, ArmAapcsCallConv: 67, Msp430Intr: 69, X86_ThisCall: 70, PtxKernel: 71, X86_64_SysV: 78, X86_64_Win64: 79, X86_VectorCall: 80, X86_Intr: 83, AvrNonBlockingInterrupt: 84, AvrInterrupt: 85, AmdgpuKernel: 91 };
 
-// ffi: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:190 Linkage
+// From compiler/rustc_codegen_llvm/src/llvm/ffi.rs:190 (enum Linkage).
 export type Linkage = "ExternalLinkage" | "AvailableExternallyLinkage" | "LinkOnceAnyLinkage" | "LinkOnceODRLinkage" | "LinkOnceODRAutoHideLinkage" | "WeakAnyLinkage" | "WeakODRLinkage" | "AppendingLinkage" | "InternalLinkage" | "PrivateLinkage" | "DLLImportLinkage" | "DLLExportLinkage" | "ExternalWeakLinkage" | "GhostLinkage" | "CommonLinkage" | "LinkerPrivateLinkage" | "LinkerPrivateWeakLinkage";
 export const Linkage = { ExternalLinkage: "ExternalLinkage", AvailableExternallyLinkage: "AvailableExternallyLinkage", LinkOnceAnyLinkage: "LinkOnceAnyLinkage", LinkOnceODRLinkage: "LinkOnceODRLinkage", LinkOnceODRAutoHideLinkage: "LinkOnceODRAutoHideLinkage", WeakAnyLinkage: "WeakAnyLinkage", WeakODRLinkage: "WeakODRLinkage", AppendingLinkage: "AppendingLinkage", InternalLinkage: "InternalLinkage", PrivateLinkage: "PrivateLinkage", DLLImportLinkage: "DLLImportLinkage", DLLExportLinkage: "DLLExportLinkage", ExternalWeakLinkage: "ExternalWeakLinkage", GhostLinkage: "GhostLinkage", CommonLinkage: "CommonLinkage", LinkerPrivateLinkage: "LinkerPrivateLinkage", LinkerPrivateWeakLinkage: "LinkerPrivateWeakLinkage" } as const;
 export const Linkage_discriminant: Readonly<Record<Linkage, number>> = { ExternalLinkage: 0, AvailableExternallyLinkage: 1, LinkOnceAnyLinkage: 2, LinkOnceODRLinkage: 3, LinkOnceODRAutoHideLinkage: 4, WeakAnyLinkage: 5, WeakODRLinkage: 6, AppendingLinkage: 7, InternalLinkage: 8, PrivateLinkage: 9, DLLImportLinkage: 10, DLLExportLinkage: 11, ExternalWeakLinkage: 12, GhostLinkage: 13, CommonLinkage: 14, LinkerPrivateLinkage: 15, LinkerPrivateWeakLinkage: 16 };
 
-// ffi: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:217 Visibility
+// From compiler/rustc_codegen_llvm/src/llvm/ffi.rs:217 (enum Visibility).
 export type Visibility = "Default" | "Hidden" | "Protected";
 export const Visibility = { Default: "Default", Hidden: "Hidden", Protected: "Protected" } as const;
 export const Visibility_discriminant: Readonly<Record<Visibility, number>> = { Default: 0, Hidden: 1, Protected: 2 };
 
-// ffi: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:225 UnnamedAddr
+// From compiler/rustc_codegen_llvm/src/llvm/ffi.rs:225 (enum UnnamedAddr).
 export type UnnamedAddr = "No" | "Local" | "Global";
 export const UnnamedAddr = { No: "No", Local: "Local", Global: "Global" } as const;
 export const UnnamedAddr_discriminant: Readonly<Record<UnnamedAddr, number>> = { No: 0, Local: 1, Global: 2 };
 
-// ffi: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:235 DLLStorageClass
+// From compiler/rustc_codegen_llvm/src/llvm/ffi.rs:235 (enum DLLStorageClass).
 export type DLLStorageClass = "Default" | "DllImport" | "DllExport";
 export const DLLStorageClass = { Default: "Default", DllImport: "DllImport", DllExport: "DllExport" } as const;
 export const DLLStorageClass_discriminant: Readonly<Record<DLLStorageClass, number>> = { Default: 0, DllImport: 1, DllExport: 2 };
 
-// ffi: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:246 UWTableKind
+// From compiler/rustc_codegen_llvm/src/llvm/ffi.rs:246 (enum UWTableKind).
 export type UWTableKind = "None" | "Sync" | "Async";
 export const UWTableKind = { None: "None", Sync: "Sync", Async: "Async" } as const;
 export const UWTableKind_discriminant: Readonly<Record<UWTableKind, number>> = { None: 0, Sync: 1, Async: 2 };
 
-// ffi: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:259 FramePointerKind
+// From compiler/rustc_codegen_llvm/src/llvm/ffi.rs:259 (enum FramePointerKind).
 export type FramePointerKind = "None" | "NonLeaf" | "All" | "Reserved" | "NonLeafNoReserve";
 export const FramePointerKind = { None: "None", NonLeaf: "NonLeaf", All: "All", Reserved: "Reserved", NonLeafNoReserve: "NonLeafNoReserve" } as const;
 export const FramePointerKind_discriminant: Readonly<Record<FramePointerKind, number>> = { None: 0, NonLeaf: 1, All: 2, Reserved: 3, NonLeafNoReserve: 4 };
 
-// ffi: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:273 AttributeKind
+// From compiler/rustc_codegen_llvm/src/llvm/ffi.rs:273 (enum AttributeKind).
 export type AttributeKind = "AlwaysInline" | "ByVal" | "Cold" | "InlineHint" | "MinSize" | "Naked" | "NoAlias" | "CapturesAddress" | "NoInline" | "NonNull" | "NoRedZone" | "NoReturn" | "NoUnwind" | "OptimizeForSize" | "ReadOnly" | "SExt" | "StructRet" | "UWTable" | "ZExt" | "InReg" | "SanitizeThread" | "SanitizeAddress" | "SanitizeMemory" | "NonLazyBind" | "OptimizeNone" | "ReadNone" | "SanitizeHWAddress" | "WillReturn" | "StackProtectReq" | "StackProtectStrong" | "StackProtect" | "NoUndef" | "SanitizeMemTag" | "NoCfCheck" | "ShadowCallStack" | "AllocSize" | "AllocatedPointer" | "AllocAlign" | "SanitizeSafeStack" | "FnRetThunkExtern" | "Writable" | "DeadOnUnwind" | "DeadOnReturn" | "CapturesReadOnly" | "CapturesNone" | "SanitizeRealtimeNonblocking" | "SanitizeRealtimeBlocking" | "Convergent" | "NoFree";
 export const AttributeKind = { AlwaysInline: "AlwaysInline", ByVal: "ByVal", Cold: "Cold", InlineHint: "InlineHint", MinSize: "MinSize", Naked: "Naked", NoAlias: "NoAlias", CapturesAddress: "CapturesAddress", NoInline: "NoInline", NonNull: "NonNull", NoRedZone: "NoRedZone", NoReturn: "NoReturn", NoUnwind: "NoUnwind", OptimizeForSize: "OptimizeForSize", ReadOnly: "ReadOnly", SExt: "SExt", StructRet: "StructRet", UWTable: "UWTable", ZExt: "ZExt", InReg: "InReg", SanitizeThread: "SanitizeThread", SanitizeAddress: "SanitizeAddress", SanitizeMemory: "SanitizeMemory", NonLazyBind: "NonLazyBind", OptimizeNone: "OptimizeNone", ReadNone: "ReadNone", SanitizeHWAddress: "SanitizeHWAddress", WillReturn: "WillReturn", StackProtectReq: "StackProtectReq", StackProtectStrong: "StackProtectStrong", StackProtect: "StackProtect", NoUndef: "NoUndef", SanitizeMemTag: "SanitizeMemTag", NoCfCheck: "NoCfCheck", ShadowCallStack: "ShadowCallStack", AllocSize: "AllocSize", AllocatedPointer: "AllocatedPointer", AllocAlign: "AllocAlign", SanitizeSafeStack: "SanitizeSafeStack", FnRetThunkExtern: "FnRetThunkExtern", Writable: "Writable", DeadOnUnwind: "DeadOnUnwind", DeadOnReturn: "DeadOnReturn", CapturesReadOnly: "CapturesReadOnly", CapturesNone: "CapturesNone", SanitizeRealtimeNonblocking: "SanitizeRealtimeNonblocking", SanitizeRealtimeBlocking: "SanitizeRealtimeBlocking", Convergent: "Convergent", NoFree: "NoFree" } as const;
 export const AttributeKind_discriminant: Readonly<Record<AttributeKind, number>> = { AlwaysInline: 0, ByVal: 1, Cold: 2, InlineHint: 3, MinSize: 4, Naked: 5, NoAlias: 6, CapturesAddress: 7, NoInline: 8, NonNull: 9, NoRedZone: 10, NoReturn: 11, NoUnwind: 12, OptimizeForSize: 13, ReadOnly: 14, SExt: 15, StructRet: 16, UWTable: 17, ZExt: 18, InReg: 19, SanitizeThread: 20, SanitizeAddress: 21, SanitizeMemory: 22, NonLazyBind: 23, OptimizeNone: 24, ReadNone: 26, SanitizeHWAddress: 28, WillReturn: 29, StackProtectReq: 30, StackProtectStrong: 31, StackProtect: 32, NoUndef: 33, SanitizeMemTag: 34, NoCfCheck: 35, ShadowCallStack: 36, AllocSize: 37, AllocatedPointer: 38, AllocAlign: 39, SanitizeSafeStack: 40, FnRetThunkExtern: 41, Writable: 42, DeadOnUnwind: 43, DeadOnReturn: 44, CapturesReadOnly: 45, CapturesNone: 46, SanitizeRealtimeNonblocking: 47, SanitizeRealtimeBlocking: 48, Convergent: 49, NoFree: 50 };
 
-// ffi: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:328 IntPredicate
+// From compiler/rustc_codegen_llvm/src/llvm/ffi.rs:328 (enum IntPredicate).
 export type IntPredicate = "IntEQ" | "IntNE" | "IntUGT" | "IntUGE" | "IntULT" | "IntULE" | "IntSGT" | "IntSGE" | "IntSLT" | "IntSLE";
 export const IntPredicate = { IntEQ: "IntEQ", IntNE: "IntNE", IntUGT: "IntUGT", IntUGE: "IntUGE", IntULT: "IntULT", IntULE: "IntULE", IntSGT: "IntSGT", IntSGE: "IntSGE", IntSLT: "IntSLT", IntSLE: "IntSLE" } as const;
 export const IntPredicate_discriminant: Readonly<Record<IntPredicate, number>> = { IntEQ: 32, IntNE: 33, IntUGT: 34, IntUGE: 35, IntULT: 36, IntULE: 37, IntSGT: 38, IntSGE: 39, IntSLT: 40, IntSLE: 41 };
 
-// ffi: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:344 RealPredicate
+// From compiler/rustc_codegen_llvm/src/llvm/ffi.rs:344 (enum RealPredicate).
 export type RealPredicate = "RealPredicateFalse" | "RealOEQ" | "RealOGT" | "RealOGE" | "RealOLT" | "RealOLE" | "RealONE" | "RealORD" | "RealUNO" | "RealUEQ" | "RealUGT" | "RealUGE" | "RealULT" | "RealULE" | "RealUNE" | "RealPredicateTrue";
 export const RealPredicate = { RealPredicateFalse: "RealPredicateFalse", RealOEQ: "RealOEQ", RealOGT: "RealOGT", RealOGE: "RealOGE", RealOLT: "RealOLT", RealOLE: "RealOLE", RealONE: "RealONE", RealORD: "RealORD", RealUNO: "RealUNO", RealUEQ: "RealUEQ", RealUGT: "RealUGT", RealUGE: "RealUGE", RealULT: "RealULT", RealULE: "RealULE", RealUNE: "RealUNE", RealPredicateTrue: "RealPredicateTrue" } as const;
 export const RealPredicate_discriminant: Readonly<Record<RealPredicate, number>> = { RealPredicateFalse: 0, RealOEQ: 1, RealOGT: 2, RealOGE: 3, RealOLT: 4, RealOLE: 5, RealONE: 6, RealORD: 7, RealUNO: 8, RealUEQ: 9, RealUGT: 10, RealUGE: 11, RealULT: 12, RealULE: 13, RealUNE: 14, RealPredicateTrue: 15 };
 
-// ffi: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:372 TypeKind
+// From compiler/rustc_codegen_llvm/src/llvm/ffi.rs:372 (enum TypeKind).
 export type TypeKind = "Void" | "Half" | "Float" | "Double" | "X86_FP80" | "FP128" | "PPC_FP128" | "Label" | "Integer" | "Function" | "Struct" | "Array" | "Pointer" | "Vector" | "Metadata" | "Token" | "ScalableVector" | "BFloat" | "X86_AMX";
 export const TypeKind = { Void: "Void", Half: "Half", Float: "Float", Double: "Double", X86_FP80: "X86_FP80", FP128: "FP128", PPC_FP128: "PPC_FP128", Label: "Label", Integer: "Integer", Function: "Function", Struct: "Struct", Array: "Array", Pointer: "Pointer", Vector: "Vector", Metadata: "Metadata", Token: "Token", ScalableVector: "ScalableVector", BFloat: "BFloat", X86_AMX: "X86_AMX" } as const;
 export const TypeKind_discriminant: Readonly<Record<TypeKind, number>> = { Void: 0, Half: 1, Float: 2, Double: 3, X86_FP80: 4, FP128: 5, PPC_FP128: 6, Label: 7, Integer: 8, Function: 9, Struct: 10, Array: 11, Pointer: 12, Vector: 13, Metadata: 14, Token: 16, ScalableVector: 17, BFloat: 18, X86_AMX: 19 };
 
-// ffi: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:397 AtomicRmwBinOp
+// From compiler/rustc_codegen_llvm/src/llvm/ffi.rs:397 (enum AtomicRmwBinOp).
 export type AtomicRmwBinOp = "AtomicXchg" | "AtomicAdd" | "AtomicSub" | "AtomicAnd" | "AtomicNand" | "AtomicOr" | "AtomicXor" | "AtomicMax" | "AtomicMin" | "AtomicUMax" | "AtomicUMin";
 export const AtomicRmwBinOp = { AtomicXchg: "AtomicXchg", AtomicAdd: "AtomicAdd", AtomicSub: "AtomicSub", AtomicAnd: "AtomicAnd", AtomicNand: "AtomicNand", AtomicOr: "AtomicOr", AtomicXor: "AtomicXor", AtomicMax: "AtomicMax", AtomicMin: "AtomicMin", AtomicUMax: "AtomicUMax", AtomicUMin: "AtomicUMin" } as const;
 export const AtomicRmwBinOp_discriminant: Readonly<Record<AtomicRmwBinOp, number>> = { AtomicXchg: 0, AtomicAdd: 1, AtomicSub: 2, AtomicAnd: 3, AtomicNand: 4, AtomicOr: 5, AtomicXor: 6, AtomicMax: 7, AtomicMin: 8, AtomicUMax: 9, AtomicUMin: 10 };
 
-// ffi: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:414 AtomicOrdering
+// From compiler/rustc_codegen_llvm/src/llvm/ffi.rs:414 (enum AtomicOrdering).
 export type AtomicOrdering = "NotAtomic" | "Unordered" | "Monotonic" | "Acquire" | "Release" | "AcquireRelease" | "SequentiallyConsistent";
 export const AtomicOrdering = { NotAtomic: "NotAtomic", Unordered: "Unordered", Monotonic: "Monotonic", Acquire: "Acquire", Release: "Release", AcquireRelease: "AcquireRelease", SequentiallyConsistent: "SequentiallyConsistent" } as const;
 export const AtomicOrdering_discriminant: Readonly<Record<AtomicOrdering, number>> = { NotAtomic: 0, Unordered: 1, Monotonic: 2, Acquire: 4, Release: 5, AcquireRelease: 6, SequentiallyConsistent: 7 };
 
-// ffi: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:430 FileType
+// From compiler/rustc_codegen_llvm/src/llvm/ffi.rs:430 (enum FileType).
 export type FileType = "AssemblyFile" | "ObjectFile";
 export const FileType = { AssemblyFile: "AssemblyFile", ObjectFile: "ObjectFile" } as const;
 export const FileType_discriminant: Readonly<Record<FileType, number>> = { AssemblyFile: 0, ObjectFile: 1 };
 
-// ffi: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:438 AsmDialect
+// From compiler/rustc_codegen_llvm/src/llvm/ffi.rs:438 (enum AsmDialect).
 export type AsmDialect = "Att" | "Intel";
 export const AsmDialect = { Att: "Att", Intel: "Intel" } as const;
 export const AsmDialect_discriminant: Readonly<Record<AsmDialect, number>> = { Att: 0, Intel: 1 };
 
-// ffi: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:446 CodeGenOptLevel
+// From compiler/rustc_codegen_llvm/src/llvm/ffi.rs:446 (enum CodeGenOptLevel).
 export type CodeGenOptLevel = "None" | "Less" | "Default" | "Aggressive";
 export const CodeGenOptLevel = { None: "None", Less: "Less", Default: "Default", Aggressive: "Aggressive" } as const;
 export const CodeGenOptLevel_discriminant: Readonly<Record<CodeGenOptLevel, number>> = { None: 0, Less: 1, Default: 2, Aggressive: 3 };
 
-// ffi: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:455 PassBuilderOptLevel
+// From compiler/rustc_codegen_llvm/src/llvm/ffi.rs:455 (enum PassBuilderOptLevel).
 export type PassBuilderOptLevel = "O0" | "O1" | "O2" | "O3" | "Os" | "Oz";
 export const PassBuilderOptLevel = { O0: "O0", O1: "O1", O2: "O2", O3: "O3", Os: "Os", Oz: "Oz" } as const;
 export const PassBuilderOptLevel_discriminant: Readonly<Record<PassBuilderOptLevel, number>> = { O0: 0, O1: 1, O2: 2, O3: 3, Os: 4, Oz: 5 };
 
-// ffi: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:467 OptStage
+// From compiler/rustc_codegen_llvm/src/llvm/ffi.rs:467 (enum OptStage).
 export type OptStage = "PreLinkNoLTO" | "PreLinkThinLTO" | "PreLinkFatLTO" | "ThinLTO" | "FatLTO";
 export const OptStage = { PreLinkNoLTO: "PreLinkNoLTO", PreLinkThinLTO: "PreLinkThinLTO", PreLinkFatLTO: "PreLinkFatLTO", ThinLTO: "ThinLTO", FatLTO: "FatLTO" } as const;
 export const OptStage_discriminant: Readonly<Record<OptStage, number>> = { PreLinkNoLTO: 0, PreLinkThinLTO: 1, PreLinkFatLTO: 2, ThinLTO: 3, FatLTO: 4 };
 
-// ffi: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:501 RelocModel
+// From compiler/rustc_codegen_llvm/src/llvm/ffi.rs:501 (enum RelocModel).
 export type RelocModel = "Static" | "PIC" | "DynamicNoPic" | "ROPI" | "RWPI" | "ROPI_RWPI";
 export const RelocModel = { Static: "Static", PIC: "PIC", DynamicNoPic: "DynamicNoPic", ROPI: "ROPI", RWPI: "RWPI", ROPI_RWPI: "ROPI_RWPI" } as const;
 export const RelocModel_discriminant: Readonly<Record<RelocModel, number>> = { Static: 0, PIC: 1, DynamicNoPic: 2, ROPI: 3, RWPI: 4, ROPI_RWPI: 5 };
 
-// ffi: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:513 FloatAbi
+// From compiler/rustc_codegen_llvm/src/llvm/ffi.rs:513 (enum FloatAbi).
 export type FloatAbi = "Default" | "Soft" | "Hard";
 export const FloatAbi = { Default: "Default", Soft: "Soft", Hard: "Hard" } as const;
 export const FloatAbi_discriminant: Readonly<Record<FloatAbi, number>> = { Default: 0, Soft: 1, Hard: 2 };
 
-// ffi: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:522 CodeModel
+// From compiler/rustc_codegen_llvm/src/llvm/ffi.rs:522 (enum CodeModel).
 export type CodeModel = "Tiny" | "Small" | "Kernel" | "Medium" | "Large" | "None";
 export const CodeModel = { Tiny: "Tiny", Small: "Small", Kernel: "Kernel", Medium: "Medium", Large: "Large", None: "None" } as const;
 export const CodeModel_discriminant: Readonly<Record<CodeModel, number>> = { Tiny: 0, Small: 1, Kernel: 2, Medium: 3, Large: 4, None: 5 };
 
-// ffi: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:535 DiagnosticKind
+// From compiler/rustc_codegen_llvm/src/llvm/ffi.rs:535 (enum DiagnosticKind).
 export type DiagnosticKind = "Other" | "InlineAsm" | "StackSize" | "DebugMetadataVersion" | "SampleProfile" | "OptimizationRemark" | "OptimizationRemarkMissed" | "OptimizationRemarkAnalysis" | "OptimizationRemarkAnalysisFPCommute" | "OptimizationRemarkAnalysisAliasing" | "OptimizationRemarkOther" | "OptimizationFailure" | "PGOProfile" | "Linker" | "Unsupported" | "SrcMgr";
 export const DiagnosticKind = { Other: "Other", InlineAsm: "InlineAsm", StackSize: "StackSize", DebugMetadataVersion: "DebugMetadataVersion", SampleProfile: "SampleProfile", OptimizationRemark: "OptimizationRemark", OptimizationRemarkMissed: "OptimizationRemarkMissed", OptimizationRemarkAnalysis: "OptimizationRemarkAnalysis", OptimizationRemarkAnalysisFPCommute: "OptimizationRemarkAnalysisFPCommute", OptimizationRemarkAnalysisAliasing: "OptimizationRemarkAnalysisAliasing", OptimizationRemarkOther: "OptimizationRemarkOther", OptimizationFailure: "OptimizationFailure", PGOProfile: "PGOProfile", Linker: "Linker", Unsupported: "Unsupported", SrcMgr: "SrcMgr" } as const;
 export const DiagnosticKind_discriminant: Readonly<Record<DiagnosticKind, number>> = { Other: 0, InlineAsm: 1, StackSize: 2, DebugMetadataVersion: 3, SampleProfile: 4, OptimizationRemark: 5, OptimizationRemarkMissed: 6, OptimizationRemarkAnalysis: 7, OptimizationRemarkAnalysisFPCommute: 8, OptimizationRemarkAnalysisAliasing: 9, OptimizationRemarkOther: 10, OptimizationFailure: 11, PGOProfile: 12, Linker: 13, Unsupported: 14, SrcMgr: 15 };
 
-// ffi: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:558 DiagnosticLevel
+// From compiler/rustc_codegen_llvm/src/llvm/ffi.rs:558 (enum DiagnosticLevel).
 export type DiagnosticLevel = "Error" | "Warning" | "Note" | "Remark";
 export const DiagnosticLevel = { Error: "Error", Warning: "Warning", Note: "Note", Remark: "Remark" } as const;
 export const DiagnosticLevel_discriminant: Readonly<Record<DiagnosticLevel, number>> = { Error: 0, Warning: 1, Note: 2, Remark: 3 };
 
-// ffi: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:581 ThreadLocalMode
+// From compiler/rustc_codegen_llvm/src/llvm/ffi.rs:581 (enum ThreadLocalMode).
 export type ThreadLocalMode = "NotThreadLocal" | "GeneralDynamic" | "LocalDynamic" | "InitialExec" | "LocalExec";
 export const ThreadLocalMode = { NotThreadLocal: "NotThreadLocal", GeneralDynamic: "GeneralDynamic", LocalDynamic: "LocalDynamic", InitialExec: "InitialExec", LocalExec: "LocalExec" } as const;
 export const ThreadLocalMode_discriminant: Readonly<Record<ThreadLocalMode, number>> = { NotThreadLocal: 0, GeneralDynamic: 1, LocalDynamic: 2, InitialExec: 3, LocalExec: 4 };
 
-// ffi: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:593 ChecksumKind
+// From compiler/rustc_codegen_llvm/src/llvm/ffi.rs:593 (enum ChecksumKind).
 export type ChecksumKind = "None" | "MD5" | "SHA1" | "SHA256";
 export const ChecksumKind = { None: "None", MD5: "MD5", SHA1: "SHA1", SHA256: "SHA256" } as const;
 export const ChecksumKind_discriminant: Readonly<Record<ChecksumKind, number>> = { None: 0, MD5: 1, SHA1: 2, SHA256: 3 };
 
-// ffi: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:603 MemoryEffects
+// From compiler/rustc_codegen_llvm/src/llvm/ffi.rs:603 (enum MemoryEffects).
 export type MemoryEffects = "None" | "ReadOnly" | "InaccessibleMemOnly" | "ReadOnlyNotPure";
 export const MemoryEffects = { None: "None", ReadOnly: "ReadOnly", InaccessibleMemOnly: "InaccessibleMemOnly", ReadOnlyNotPure: "ReadOnlyNotPure" } as const;
 export const MemoryEffects_discriminant: Readonly<Record<MemoryEffects, number>> = { None: 0, ReadOnly: 1, InaccessibleMemOnly: 2, ReadOnlyNotPure: 3 };
 
-// ffi: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:614 Opcode
+// From compiler/rustc_codegen_llvm/src/llvm/ffi.rs:614 (enum Opcode).
 export type Opcode = "Ret" | "Br" | "Switch" | "IndirectBr" | "Invoke" | "Unreachable" | "CallBr" | "FNeg" | "Add" | "FAdd" | "Sub" | "FSub" | "Mul" | "FMul" | "UDiv" | "SDiv" | "FDiv" | "URem" | "SRem" | "FRem" | "Shl" | "LShr" | "AShr" | "And" | "Or" | "Xor" | "Alloca" | "Load" | "Store" | "GetElementPtr" | "Trunc" | "ZExt" | "SExt" | "FPToUI" | "FPToSI" | "UIToFP" | "SIToFP" | "FPTrunc" | "FPExt" | "PtrToInt" | "IntToPtr" | "BitCast" | "AddrSpaceCast" | "ICmp" | "FCmp" | "PHI" | "Call" | "Select" | "UserOp1" | "UserOp2" | "VAArg" | "ExtractElement" | "InsertElement" | "ShuffleVector" | "ExtractValue" | "InsertValue" | "Freeze" | "Fence" | "AtomicCmpXchg" | "AtomicRMW" | "Resume" | "LandingPad" | "CleanupRet" | "CatchRet" | "CatchPad" | "CleanupPad" | "CatchSwitch";
 export const Opcode = { Ret: "Ret", Br: "Br", Switch: "Switch", IndirectBr: "IndirectBr", Invoke: "Invoke", Unreachable: "Unreachable", CallBr: "CallBr", FNeg: "FNeg", Add: "Add", FAdd: "FAdd", Sub: "Sub", FSub: "FSub", Mul: "Mul", FMul: "FMul", UDiv: "UDiv", SDiv: "SDiv", FDiv: "FDiv", URem: "URem", SRem: "SRem", FRem: "FRem", Shl: "Shl", LShr: "LShr", AShr: "AShr", And: "And", Or: "Or", Xor: "Xor", Alloca: "Alloca", Load: "Load", Store: "Store", GetElementPtr: "GetElementPtr", Trunc: "Trunc", ZExt: "ZExt", SExt: "SExt", FPToUI: "FPToUI", FPToSI: "FPToSI", UIToFP: "UIToFP", SIToFP: "SIToFP", FPTrunc: "FPTrunc", FPExt: "FPExt", PtrToInt: "PtrToInt", IntToPtr: "IntToPtr", BitCast: "BitCast", AddrSpaceCast: "AddrSpaceCast", ICmp: "ICmp", FCmp: "FCmp", PHI: "PHI", Call: "Call", Select: "Select", UserOp1: "UserOp1", UserOp2: "UserOp2", VAArg: "VAArg", ExtractElement: "ExtractElement", InsertElement: "InsertElement", ShuffleVector: "ShuffleVector", ExtractValue: "ExtractValue", InsertValue: "InsertValue", Freeze: "Freeze", Fence: "Fence", AtomicCmpXchg: "AtomicCmpXchg", AtomicRMW: "AtomicRMW", Resume: "Resume", LandingPad: "LandingPad", CleanupRet: "CleanupRet", CatchRet: "CatchRet", CatchPad: "CatchPad", CleanupPad: "CleanupPad", CatchSwitch: "CatchSwitch" } as const;
 export const Opcode_discriminant: Readonly<Record<Opcode, number>> = { Ret: 1, Br: 2, Switch: 3, IndirectBr: 4, Invoke: 5, Unreachable: 7, CallBr: 67, FNeg: 66, Add: 8, FAdd: 9, Sub: 10, FSub: 11, Mul: 12, FMul: 13, UDiv: 14, SDiv: 15, FDiv: 16, URem: 17, SRem: 18, FRem: 19, Shl: 20, LShr: 21, AShr: 22, And: 23, Or: 24, Xor: 25, Alloca: 26, Load: 27, Store: 28, GetElementPtr: 29, Trunc: 30, ZExt: 31, SExt: 32, FPToUI: 33, FPToSI: 34, UIToFP: 35, SIToFP: 36, FPTrunc: 37, FPExt: 38, PtrToInt: 39, IntToPtr: 40, BitCast: 41, AddrSpaceCast: 60, ICmp: 42, FCmp: 43, PHI: 44, Call: 45, Select: 46, UserOp1: 47, UserOp2: 48, VAArg: 49, ExtractElement: 50, InsertElement: 51, ShuffleVector: 52, ExtractValue: 53, InsertValue: 54, Freeze: 68, Fence: 55, AtomicCmpXchg: 56, AtomicRMW: 57, Resume: 58, LandingPad: 59, CleanupRet: 61, CatchRet: 62, CatchPad: 63, CleanupPad: 64, CatchSwitch: 65 };
 
-// ffi: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:687 CompressionKind
+// From compiler/rustc_codegen_llvm/src/llvm/ffi.rs:687 (enum CompressionKind).
 export type CompressionKind = "None" | "Zlib" | "Zstd";
 export const CompressionKind = { None: "None", Zlib: "Zlib", Zstd: "Zstd" } as const;
 export const CompressionKind_discriminant: Readonly<Record<CompressionKind, number>> = { None: 0, Zlib: 1, Zstd: 2 };
 
-// ffi: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:830 DebugEmissionKind
+// From compiler/rustc_codegen_llvm/src/llvm/ffi.rs:830 (enum DebugEmissionKind).
 export type DebugEmissionKind = "NoDebug" | "FullDebug" | "LineTablesOnly" | "DebugDirectivesOnly";
 export const DebugEmissionKind = { NoDebug: "NoDebug", FullDebug: "FullDebug", LineTablesOnly: "LineTablesOnly", DebugDirectivesOnly: "DebugDirectivesOnly" } as const;
 export const DebugEmissionKind_discriminant: Readonly<Record<DebugEmissionKind, number>> = { NoDebug: 0, FullDebug: 1, LineTablesOnly: 2, DebugDirectivesOnly: 3 };
 
-// ffi: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:840 DebugNameTableKind
+// From compiler/rustc_codegen_llvm/src/llvm/ffi.rs:840 (enum DebugNameTableKind).
 export type DebugNameTableKind = "Default" | "Gnu" | "None";
 export const DebugNameTableKind = { Default: "Default", Gnu: "Gnu", None: "None" } as const;
 export const DebugNameTableKind_discriminant: Readonly<Record<DebugNameTableKind, number>> = { Default: 0, Gnu: 1, None: 2 };
 
-// ffi: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:776 DIFlags
+// From compiler/rustc_codegen_llvm/src/llvm/ffi.rs:776 (bitflags DIFlags).
 export type DIFlags = number & { readonly __brand: "DIFlags" };
 export const DIFlags = flags_companion<DIFlags, { FlagZero: DIFlags; FlagPrivate: DIFlags; FlagProtected: DIFlags; FlagPublic: DIFlags; FlagFwdDecl: DIFlags; FlagAppleBlock: DIFlags; FlagReservedBit4: DIFlags; FlagVirtual: DIFlags; FlagArtificial: DIFlags; FlagExplicit: DIFlags; FlagPrototyped: DIFlags; FlagObjcClassComplete: DIFlags; FlagObjectPointer: DIFlags; FlagVector: DIFlags; FlagStaticMember: DIFlags; FlagLValueReference: DIFlags; FlagRValueReference: DIFlags; FlagReserved: DIFlags; FlagSingleInheritance: DIFlags; FlagMultipleInheritance: DIFlags; FlagVirtualInheritance: DIFlags; FlagIntroducedVirtual: DIFlags; FlagBitField: DIFlags; FlagNoReturn: DIFlags; FlagTypePassByValue: DIFlags; FlagTypePassByReference: DIFlags; FlagEnumClass: DIFlags; FlagThunk: DIFlags; FlagNonTrivial: DIFlags; FlagBigEndian: DIFlags; FlagLittleEndian: DIFlags }>(
   32,
@@ -175,7 +175,7 @@ export const DIFlags = flags_companion<DIFlags, { FlagZero: DIFlags; FlagPrivate
   [["FlagZero", 0 as DIFlags], ["FlagPrivate", 1 as DIFlags], ["FlagProtected", 2 as DIFlags], ["FlagPublic", 3 as DIFlags], ["FlagFwdDecl", 4 as DIFlags], ["FlagAppleBlock", 8 as DIFlags], ["FlagReservedBit4", 16 as DIFlags], ["FlagVirtual", 32 as DIFlags], ["FlagArtificial", 64 as DIFlags], ["FlagExplicit", 128 as DIFlags], ["FlagPrototyped", 256 as DIFlags], ["FlagObjcClassComplete", 512 as DIFlags], ["FlagObjectPointer", 1024 as DIFlags], ["FlagVector", 2048 as DIFlags], ["FlagStaticMember", 4096 as DIFlags], ["FlagLValueReference", 8192 as DIFlags], ["FlagRValueReference", 16384 as DIFlags], ["FlagReserved", 32768 as DIFlags], ["FlagSingleInheritance", 65536 as DIFlags], ["FlagMultipleInheritance", 131072 as DIFlags], ["FlagVirtualInheritance", 196608 as DIFlags], ["FlagIntroducedVirtual", 262144 as DIFlags], ["FlagBitField", 524288 as DIFlags], ["FlagNoReturn", 1048576 as DIFlags], ["FlagTypePassByValue", 4194304 as DIFlags], ["FlagTypePassByReference", 8388608 as DIFlags], ["FlagEnumClass", 16777216 as DIFlags], ["FlagThunk", 33554432 as DIFlags], ["FlagNonTrivial", 67108864 as DIFlags], ["FlagBigEndian", 134217728 as DIFlags], ["FlagLittleEndian", 268435456 as DIFlags]],
 );
 
-// ffi: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:816 DISPFlags
+// From compiler/rustc_codegen_llvm/src/llvm/ffi.rs:816 (bitflags DISPFlags).
 export type DISPFlags = number & { readonly __brand: "DISPFlags" };
 export const DISPFlags = flags_companion<DISPFlags, { SPFlagZero: DISPFlags; SPFlagVirtual: DISPFlags; SPFlagPureVirtual: DISPFlags; SPFlagLocalToUnit: DISPFlags; SPFlagDefinition: DISPFlags; SPFlagOptimized: DISPFlags; SPFlagMainSubprogram: DISPFlags }>(
   32,
@@ -183,7 +183,7 @@ export const DISPFlags = flags_companion<DISPFlags, { SPFlagZero: DISPFlags; SPF
   [["SPFlagZero", 0 as DISPFlags], ["SPFlagVirtual", 1 as DISPFlags], ["SPFlagPureVirtual", 2 as DISPFlags], ["SPFlagLocalToUnit", 4 as DISPFlags], ["SPFlagDefinition", 8 as DISPFlags], ["SPFlagOptimized", 16 as DISPFlags], ["SPFlagMainSubprogram", 32 as DISPFlags]],
 );
 
-// ffi: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:852 AllocKindFlags
+// From compiler/rustc_codegen_llvm/src/llvm/ffi.rs:852 (bitflags AllocKindFlags).
 export type AllocKindFlags = number & { readonly __brand: "AllocKindFlags" };
 export const AllocKindFlags = flags_companion<AllocKindFlags, { Unknown: AllocKindFlags; Alloc: AllocKindFlags; Realloc: AllocKindFlags; Free: AllocKindFlags; Uninitialized: AllocKindFlags; Zeroed: AllocKindFlags; Aligned: AllocKindFlags }>(
   32,
@@ -191,7 +191,7 @@ export const AllocKindFlags = flags_companion<AllocKindFlags, { Unknown: AllocKi
   [["Unknown", 0 as AllocKindFlags], ["Alloc", 1 as AllocKindFlags], ["Realloc", 2 as AllocKindFlags], ["Free", 4 as AllocKindFlags], ["Uninitialized", 8 as AllocKindFlags], ["Zeroed", 16 as AllocKindFlags], ["Aligned", 32 as AllocKindFlags]],
 );
 
-// ffi: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:867 GEPNoWrapFlags
+// From compiler/rustc_codegen_llvm/src/llvm/ffi.rs:867 (bitflags GEPNoWrapFlags).
 export type GEPNoWrapFlags = number & { readonly __brand: "GEPNoWrapFlags" };
 export const GEPNoWrapFlags = flags_companion<GEPNoWrapFlags, { InBounds: GEPNoWrapFlags; NUSW: GEPNoWrapFlags; NUW: GEPNoWrapFlags }>(
   32,

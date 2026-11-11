@@ -3,7 +3,7 @@
 // (`compiler/rustc_llvm/src/lib.rs`, an excluded crate whose only Rust is this buffer).
 import type { Debug } from "../../std/fmt.ts";
 
-// ffi: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:39 Bool
+// From compiler/rustc_codegen_llvm/src/llvm/ffi.rs:39 (struct Bool).
 /** In the LLVM-C API, boolean values are passed as `typedef int LLVMBool`. This wrapper does not implement `PartialEq`;
  * to test the underlying boolean value, use `is_true`. */
 export class Bool {
@@ -14,11 +14,11 @@ export class Bool {
   static of(value: number): Bool {
     return value === 0 ? Bool.FALSE : value === 1 ? Bool.TRUE : new Bool(value);
   }
-  // ffi: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:50 from_bool
+  // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:50 from_bool
   static from_bool(rust_bool: boolean): Bool {
     return rust_bool ? Bool.TRUE : Bool.FALSE;
   }
-  // ffi: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:55 is_true
+  // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:55 is_true
   /** Converts this LLVM-C boolean to a Rust `bool`. Any nonzero value is true, following the C convention. */
   is_true(): boolean {
     return this.value !== Bool.FALSE.value;
@@ -27,7 +27,7 @@ export class Bool {
 export const TRUE = Bool.TRUE;
 export const FALSE = Bool.FALSE;
 
-// ffi: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:63 fmt
+// rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:63 fmt
 export const debug_Bool: Debug<Bool> = (v) => {
   switch (v.value) {
     case 0:
@@ -40,18 +40,18 @@ export const debug_Bool: Debug<Bool> = (v) => {
   }
 };
 
-// ffi: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:83 to_llvm_bool
+// rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:83 to_llvm_bool
 /** `ToLlvmBool for bool`: `b.to_llvm_bool()`. */
 export const to_llvm_bool = (b: boolean): Bool => Bool.from_bool(b);
 
-// ffi: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:95 RawEnum
+// From compiler/rustc_codegen_llvm/src/llvm/ffi.rs:95 (struct RawEnum).
 /** Wrapper for a raw enum value returned from LLVM's C APIs; `to_rust` converts it to the Rust-side enum. */
 export class RawEnum<T extends string> {
   constructor(
     readonly value: number,
     private readonly variants: Readonly<Record<T, number>>,
   ) {}
-  // ffi: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:103 to_rust
+  // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:103 to_rust
   to_rust(): T {
     // If this fails, the Rust-side enum is out of sync with LLVM's enum.
     for (const [k, v] of Object.entries(this.variants) as [T, number][]) if (v === this.value) return k;

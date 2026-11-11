@@ -314,7 +314,7 @@ export function genTypes(items: FfiItems): string {
   let o = HEADER("its enums, bitflags and debuginfo aliases");
   o += `import { flags_companion } from "../../vendor/bitflags/traits.ts";\n`;
   for (const e of items.enums) {
-    o += `\n// ffi: ${FFI_PATH}:${e.line} ${e.name}\n`;
+    o += `\n// From ${FFI_PATH}:${e.line} (enum ${e.name}).\n`;
     o += `export type ${e.name} = ${e.variants.map((v) => JSON.stringify(v.name)).join(" | ")};\n`;
     o += `export const ${e.name} = { ${e.variants.map((v) => `${v.name}: ${JSON.stringify(v.name)}`).join(", ")} } as const;\n`;
     o += `export const ${e.name}_discriminant: Readonly<Record<${e.name}, number>> = { ${e.variants.map((v) => `${v.name}: ${v.value}`).join(", ")} };\n`;
@@ -322,7 +322,7 @@ export function genTypes(items: FfiItems): string {
   for (const f of items.flags) {
     // PORT: `AllocKindFlags: u64` holds bits below 2^6, so it is a 32-bit flags type here.
     const bits = f.repr === "u64" ? 32 : f.repr === "u8" ? 8 : f.repr === "u16" ? 16 : 32;
-    o += `\n// ffi: ${FFI_PATH}:${f.line} ${f.name}\n`;
+    o += `\n// From ${FFI_PATH}:${f.line} (bitflags ${f.name}).\n`;
     o += `export type ${f.name} = number & { readonly __brand: ${JSON.stringify(f.name)} };\n`;
     o += `export const ${f.name} = flags_companion<${f.name}, { ${f.consts.map((c) => `${c.name}: ${f.name}`).join("; ")} }>(\n  ${bits},\n`;
     o += `  { ${f.consts.map((c) => `${c.name}: ${c.value} as ${f.name}`).join(", ")} },\n`;
@@ -351,7 +351,7 @@ export function genFns(items: FfiItems, impls: ReadonlyMap<string, string>): str
     const ret = f.ret === undefined ? "void" : tsType(f.ret, undefined, items, true);
     const mod = impls.get(f.name);
     const rhs = mod === undefined ? `stub(${JSON.stringify(f.name)})` : `bind(${JSON.stringify(f.name)}, impl${mods.indexOf(mod)}.${f.name})`;
-    o += `\n// ffi: ${FFI_PATH}:${f.line} ${f.name}\nexport const ${f.name}: (${params}) => ${ret} = ${rhs};\n`;
+    o += `\n// rustc: ${FFI_PATH}:${f.line} ${f.name}\nexport const ${f.name}: (${params}) => ${ret} = ${rhs};\n`;
   }
   return o;
 }
