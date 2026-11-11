@@ -1,6 +1,6 @@
 # M7 plan — text LLVM IR → pinned `opt` + `llc`, run-pass parity, ripgrep
 
-**Status: accepted with amendments (root, 2026-11-05).** The amendments in `docs/reviews/plan-m7.md` (findings F1-F13 and its Decisions table) take precedence over the text below. Pending the owner: D4's change to `harness/scope.json` and the PLAN.md edits for D1 and D3; no lane depends on them before wave 40.
+**Status: accepted with amendments (root, 2026-11-05).** The amendments in `docs/reviews/plan-m7.md` (findings F1-F13 and its Decisions table) take precedence over the text below. The owner approved D1, D3 and D4 on 2026-11-11 (docs/state); PLAN.md is amended, and the `scope.json` change for D4 goes through lane scope-m7.
 
 Source: the plan-m7 planner (design lane; it ports no code). Status: see above. Decisions D1–D20 are in §7. Pin `6f5da406b56c` (1.101.0-nightly, LLVM 23.1.3). Base: main `db323c3b`
 (24,230 / 27,053 fns). Paths are relative to the upstream checkout (`compiler/…`, `library/…`). Line counts are `wc -l` at
