@@ -5,12 +5,13 @@ import type { Bool, MetadataKindId, MutRef, PtrLenStr, RawEnum, SanitizerOptions
 import type { AllocKindFlags, AsmDialect, AtomicOrdering, AtomicRmwBinOp, AttributeKind, CallConv, ChecksumKind, CodeGenOptLevel, CodeModel, CompressionKind, DIFlags, DISPFlags, DLLStorageClass, DebugEmissionKind, DebugNameTableKind, DiagnosticKind, DiagnosticLevel, FileType, FloatAbi, FramePointerKind, GEPNoWrapFlags, IntPredicate, LLVMRustResult, Linkage, MemoryEffects, ModuleFlagMergeBehavior, Opcode, OptStage, PassBuilderOptLevel, RealPredicate, RelocModel, TailCallKind, ThreadLocalMode, TypeKind, UWTableKind, UnnamedAddr, Visibility } from "./ffi_types.ts";
 import { bind, stub } from "./trace.ts";
 import * as impl0 from "./core.ts";
+import * as impl1 from "./build.ts";
 
 export type { Attribute, BasicBlock, Buffer, Builder, Comdat, ConstantInt, Context, DIArray, DIBasicType, DIBuilder, DICompositeType, DIDerivedType, DIDescriptor, DIFile, DILexicalBlock, DILocation, DIScope, DISubprogram, DITemplateTypeParameter, DIType, DIVariable, DbgRecord, DiagnosticHandler, DiagnosticInfo, Linker, MCSubtargetInfo, Metadata, Module, OperandBundle, RustString, SMDiagnostic, TargetMachine, ThinLTOData, Twine, Type, Value } from "./handles.ts";
 export * from "./ffi_types.ts";
 export * from "./support.ts";
 
-/** The 138 of 381 functions an implementation module provides; every other one is a stub. */
+/** The 255 of 381 functions an implementation module provides; every other one is a stub. */
 export const IMPLEMENTED: ReadonlySet<string> = new Set([
   "LLVMContextCreate",
   "LLVMContextDispose",
@@ -50,6 +51,8 @@ export const IMPLEMENTED: ReadonlySet<string> = new Set([
   "LLVMGetValueName2",
   "LLVMSetValueName2",
   "LLVMReplaceAllUsesWith",
+  "LLVMGetMetadata",
+  "LLVMSetMetadata",
   "LLVMGlobalSetMetadata",
   "LLVMGlobalAddMetadata",
   "LLVMValueAsMetadata",
@@ -67,6 +70,7 @@ export const IMPLEMENTED: ReadonlySet<string> = new Set([
   "LLVMConstStringInContext2",
   "LLVMConstStructInContext",
   "LLVMConstNamedStruct",
+  "LLVMConstVector",
   "LLVMConstInBoundsGEP2",
   "LLVMConstPtrToInt",
   "LLVMConstIntToPtr",
@@ -97,6 +101,8 @@ export const IMPLEMENTED: ReadonlySet<string> = new Set([
   "LLVMSetThreadLocalMode",
   "LLVMIsGlobalConstant",
   "LLVMSetGlobalConstant",
+  "LLVMSetTailCall",
+  "LLVMSetTailCallKind",
   "LLVMSetExternallyInitialized",
   "LLVMAddAlias2",
   "LLVMGetFirstGlobalAlias",
@@ -109,6 +115,103 @@ export const IMPLEMENTED: ReadonlySet<string> = new Set([
   "LLVMIsAArgument",
   "LLVMCountParams",
   "LLVMGetParam",
+  "LLVMGetBasicBlockParent",
+  "LLVMAppendBasicBlockInContext",
+  "LLVMIsAInstruction",
+  "LLVMGetFirstBasicBlock",
+  "LLVMGetOperand",
+  "LLVMSetInstructionCallConv",
+  "LLVMSetVolatile",
+  "LLVMSetOrdering",
+  "LLVMAddIncoming",
+  "LLVMCreateBuilderInContext",
+  "LLVMPositionBuilderAtEnd",
+  "LLVMGetInsertBlock",
+  "LLVMDisposeBuilder",
+  "LLVMSetCurrentDebugLocation2",
+  "LLVMGetCurrentDebugLocation2",
+  "LLVMBuildRetVoid",
+  "LLVMBuildRet",
+  "LLVMBuildBr",
+  "LLVMBuildCondBr",
+  "LLVMBuildSwitch",
+  "LLVMBuildLandingPad",
+  "LLVMBuildResume",
+  "LLVMBuildUnreachable",
+  "LLVMBuildCleanupPad",
+  "LLVMBuildCleanupRet",
+  "LLVMBuildCatchPad",
+  "LLVMBuildCatchRet",
+  "LLVMBuildCatchSwitch",
+  "LLVMAddHandler",
+  "LLVMSetPersonalityFn",
+  "LLVMAddCase",
+  "LLVMAddClause",
+  "LLVMSetCleanup",
+  "LLVMBuildAdd",
+  "LLVMBuildFAdd",
+  "LLVMBuildSub",
+  "LLVMBuildFSub",
+  "LLVMBuildMul",
+  "LLVMBuildFMul",
+  "LLVMBuildUDiv",
+  "LLVMBuildExactUDiv",
+  "LLVMBuildSDiv",
+  "LLVMBuildExactSDiv",
+  "LLVMBuildFDiv",
+  "LLVMBuildURem",
+  "LLVMBuildSRem",
+  "LLVMBuildFRem",
+  "LLVMBuildShl",
+  "LLVMBuildLShr",
+  "LLVMBuildAShr",
+  "LLVMBuildNSWAdd",
+  "LLVMBuildNUWAdd",
+  "LLVMBuildNSWSub",
+  "LLVMBuildNUWSub",
+  "LLVMBuildNSWMul",
+  "LLVMBuildNUWMul",
+  "LLVMBuildAnd",
+  "LLVMBuildOr",
+  "LLVMBuildXor",
+  "LLVMBuildNeg",
+  "LLVMBuildFNeg",
+  "LLVMBuildNot",
+  "LLVMSetIsDisjoint",
+  "LLVMSetNUW",
+  "LLVMSetNSW",
+  "LLVMBuildAlloca",
+  "LLVMBuildLoad2",
+  "LLVMBuildStore",
+  "LLVMBuildGEPWithNoWrapFlags",
+  "LLVMBuildTrunc",
+  "LLVMBuildZExt",
+  "LLVMBuildSExt",
+  "LLVMBuildFPToUI",
+  "LLVMBuildFPToSI",
+  "LLVMBuildUIToFP",
+  "LLVMBuildSIToFP",
+  "LLVMBuildFPTrunc",
+  "LLVMBuildFPExt",
+  "LLVMBuildPtrToInt",
+  "LLVMBuildIntToPtr",
+  "LLVMBuildBitCast",
+  "LLVMBuildPointerCast",
+  "LLVMBuildIntCast2",
+  "LLVMBuildICmp",
+  "LLVMBuildFCmp",
+  "LLVMBuildPhi",
+  "LLVMBuildSelect",
+  "LLVMBuildVAArg",
+  "LLVMBuildExtractElement",
+  "LLVMBuildInsertElement",
+  "LLVMBuildShuffleVector",
+  "LLVMBuildExtractValue",
+  "LLVMBuildInsertValue",
+  "LLVMBuildAtomicCmpXchg",
+  "LLVMSetWeak",
+  "LLVMBuildAtomicRMW",
+  "LLVMBuildFence",
   "LLVMStructCreateNamed",
   "LLVMStructSetBody",
   "LLVMCountStructElementTypes",
@@ -118,6 +221,10 @@ export const IMPLEMENTED: ReadonlySet<string> = new Set([
   "LLVMIsAConstantInt",
   "LLVMGetOrInsertComdat",
   "LLVMSetComdat",
+  "LLVMCreateOperandBundle",
+  "LLVMDisposeOperandBundle",
+  "LLVMBuildCallWithOperandBundles",
+  "LLVMBuildInvokeWithOperandBundles",
   "LLVMRustIsNonGVFunctionPointerTy",
   "LLVMRustStripPointerCasts",
   "LLVMRustConstIntGetZExtValue",
@@ -138,6 +245,15 @@ export const IMPLEMENTED: ReadonlySet<string> = new Set([
   "LLVMRustCreateAllocSizeAttr",
   "LLVMRustCreateAllocKindAttr",
   "LLVMRustAddFunctionAttributes",
+  "LLVMRustAddCallSiteAttributes",
+  "LLVMRustSetFastMath",
+  "LLVMRustSetAlgebraicMath",
+  "LLVMRustSetAllowReassoc",
+  "LLVMRustSetNoSignedZeros",
+  "LLVMRustBuildMemCpy",
+  "LLVMRustBuildMemMove",
+  "LLVMRustBuildMemSet",
+  "LLVMRustGetLastError",
   "LLVMRustDebugMetadataVersion",
   "LLVMRustVersionMajor",
   "LLVMRustAddModuleFlagU32",
@@ -146,6 +262,8 @@ export const IMPLEMENTED: ReadonlySet<string> = new Set([
   "LLVMRustWriteValueToString",
   "LLVMRustPrintModule",
   "LLVMRustSetNormalizedTarget",
+  "LLVMRustPositionBuilderPastAllocas",
+  "LLVMRustPositionBuilderAtStart",
   "LLVMRustSetModulePICLevel",
   "LLVMRustSetModulePIELevel",
   "LLVMRustSetModuleCodeModel",
@@ -276,10 +394,10 @@ export const LLVMSetValueName2: (Val: Value, Name: PtrLenStr | undefined, NameLe
 export const LLVMReplaceAllUsesWith: (OldVal: Value, NewVal: Value) => void = bind("LLVMReplaceAllUsesWith", impl0.LLVMReplaceAllUsesWith);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:991 LLVMGetMetadata
-export const LLVMGetMetadata: (Val: Value, KindID: MetadataKindId) => Value | undefined = stub("LLVMGetMetadata");
+export const LLVMGetMetadata: (Val: Value, KindID: MetadataKindId) => Value | undefined = bind("LLVMGetMetadata", impl1.LLVMGetMetadata);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:995 LLVMSetMetadata
-export const LLVMSetMetadata: (Val: Value, KindID: MetadataKindId, Node: Value) => void = stub("LLVMSetMetadata");
+export const LLVMSetMetadata: (Val: Value, KindID: MetadataKindId, Node: Value) => void = bind("LLVMSetMetadata", impl1.LLVMSetMetadata);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:996 LLVMGlobalSetMetadata
 export const LLVMGlobalSetMetadata: (Val: Value, KindID: MetadataKindId, Metadata: Metadata) => void = bind("LLVMGlobalSetMetadata", impl0.LLVMGlobalSetMetadata);
@@ -336,7 +454,7 @@ export const LLVMConstStructInContext: (C: Context, ConstantVals: readonly Value
 export const LLVMConstNamedStruct: (StructTy: Type, ConstantVals: readonly Value[], Count: number) => Value = bind("LLVMConstNamedStruct", impl0.LLVMConstNamedStruct);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1064 LLVMConstVector
-export const LLVMConstVector: (ScalarConstantVals: readonly Value[], Size: number) => Value = stub("LLVMConstVector");
+export const LLVMConstVector: (ScalarConstantVals: readonly Value[], Size: number) => Value = bind("LLVMConstVector", impl1.LLVMConstVector);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1067 LLVMConstInBoundsGEP2
 export const LLVMConstInBoundsGEP2: (ty: Type, ConstantVal: Value, ConstantIndices: readonly Value[], NumIndices: number) => Value = bind("LLVMConstInBoundsGEP2", impl0.LLVMConstInBoundsGEP2);
@@ -429,10 +547,10 @@ export const LLVMIsGlobalConstant: (GlobalVar: Value) => Bool = bind("LLVMIsGlob
 export const LLVMSetGlobalConstant: (GlobalVar: Value, IsConstant: Bool) => void = bind("LLVMSetGlobalConstant", impl0.LLVMSetGlobalConstant);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1106 LLVMSetTailCall
-export const LLVMSetTailCall: (CallInst: Value, IsTailCall: Bool) => void = stub("LLVMSetTailCall");
+export const LLVMSetTailCall: (CallInst: Value, IsTailCall: Bool) => void = bind("LLVMSetTailCall", impl1.LLVMSetTailCall);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1107 LLVMSetTailCallKind
-export const LLVMSetTailCallKind: (CallInst: Value, kind: TailCallKind) => void = stub("LLVMSetTailCallKind");
+export const LLVMSetTailCallKind: (CallInst: Value, kind: TailCallKind) => void = bind("LLVMSetTailCallKind", impl1.LLVMSetTailCallKind);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1108 LLVMSetExternallyInitialized
 export const LLVMSetExternallyInitialized: (GlobalVar: Value, IsExtInit: Bool) => void = bind("LLVMSetExternallyInitialized", impl0.LLVMSetExternallyInitialized);
@@ -486,295 +604,295 @@ export const LLVMCountParams: (Fn: Value) => number = bind("LLVMCountParams", im
 export const LLVMGetParam: (Fn: Value, Index: number) => Value = bind("LLVMGetParam", impl0.LLVMGetParam);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1169 LLVMGetBasicBlockParent
-export const LLVMGetBasicBlockParent: (BB: BasicBlock) => Value = stub("LLVMGetBasicBlockParent");
+export const LLVMGetBasicBlockParent: (BB: BasicBlock) => Value = bind("LLVMGetBasicBlockParent", impl1.LLVMGetBasicBlockParent);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1170 LLVMAppendBasicBlockInContext
-export const LLVMAppendBasicBlockInContext: (C: Context, Fn: Value, Name: string | undefined) => BasicBlock = stub("LLVMAppendBasicBlockInContext");
+export const LLVMAppendBasicBlockInContext: (C: Context, Fn: Value, Name: string | undefined) => BasicBlock = bind("LLVMAppendBasicBlockInContext", impl1.LLVMAppendBasicBlockInContext);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1177 LLVMIsAInstruction
-export const LLVMIsAInstruction: (Val: Value) => Value | undefined = stub("LLVMIsAInstruction");
+export const LLVMIsAInstruction: (Val: Value) => Value | undefined = bind("LLVMIsAInstruction", impl1.LLVMIsAInstruction);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1178 LLVMGetFirstBasicBlock
-export const LLVMGetFirstBasicBlock: (Fn: Value) => BasicBlock = stub("LLVMGetFirstBasicBlock");
+export const LLVMGetFirstBasicBlock: (Fn: Value) => BasicBlock = bind("LLVMGetFirstBasicBlock", impl1.LLVMGetFirstBasicBlock);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1179 LLVMGetOperand
-export const LLVMGetOperand: (Val: Value, Index: number) => Value | undefined = stub("LLVMGetOperand");
+export const LLVMGetOperand: (Val: Value, Index: number) => Value | undefined = bind("LLVMGetOperand", impl1.LLVMGetOperand);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1182 LLVMSetInstructionCallConv
-export const LLVMSetInstructionCallConv: (Instr: Value, CC: number) => void = stub("LLVMSetInstructionCallConv");
+export const LLVMSetInstructionCallConv: (Instr: Value, CC: number) => void = bind("LLVMSetInstructionCallConv", impl1.LLVMSetInstructionCallConv);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1185 LLVMSetVolatile
-export const LLVMSetVolatile: (MemoryAccessInst: Value, volatile: Bool) => void = stub("LLVMSetVolatile");
+export const LLVMSetVolatile: (MemoryAccessInst: Value, volatile: Bool) => void = bind("LLVMSetVolatile", impl1.LLVMSetVolatile);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1186 LLVMSetOrdering
-export const LLVMSetOrdering: (MemoryAccessInst: Value, Ordering: AtomicOrdering) => void = stub("LLVMSetOrdering");
+export const LLVMSetOrdering: (MemoryAccessInst: Value, Ordering: AtomicOrdering) => void = bind("LLVMSetOrdering", impl1.LLVMSetOrdering);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1189 LLVMAddIncoming
-export const LLVMAddIncoming: (PhiNode: Value, IncomingValues: readonly Value[], IncomingBlocks: readonly BasicBlock[], Count: number) => void = stub("LLVMAddIncoming");
+export const LLVMAddIncoming: (PhiNode: Value, IncomingValues: readonly Value[], IncomingBlocks: readonly BasicBlock[], Count: number) => void = bind("LLVMAddIncoming", impl1.LLVMAddIncoming);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1197 LLVMCreateBuilderInContext
-export const LLVMCreateBuilderInContext: (C: Context) => Builder = stub("LLVMCreateBuilderInContext");
+export const LLVMCreateBuilderInContext: (C: Context) => Builder = bind("LLVMCreateBuilderInContext", impl1.LLVMCreateBuilderInContext);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1198 LLVMPositionBuilderAtEnd
-export const LLVMPositionBuilderAtEnd: (Builder: Builder, Block: BasicBlock) => void = stub("LLVMPositionBuilderAtEnd");
+export const LLVMPositionBuilderAtEnd: (Builder: Builder, Block: BasicBlock) => void = bind("LLVMPositionBuilderAtEnd", impl1.LLVMPositionBuilderAtEnd);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1199 LLVMGetInsertBlock
-export const LLVMGetInsertBlock: (Builder: Builder) => BasicBlock = stub("LLVMGetInsertBlock");
+export const LLVMGetInsertBlock: (Builder: Builder) => BasicBlock = bind("LLVMGetInsertBlock", impl1.LLVMGetInsertBlock);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1200 LLVMDisposeBuilder
-export const LLVMDisposeBuilder: (Builder: Builder) => void = stub("LLVMDisposeBuilder");
+export const LLVMDisposeBuilder: (Builder: Builder) => void = bind("LLVMDisposeBuilder", impl1.LLVMDisposeBuilder);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1203 LLVMSetCurrentDebugLocation2
-export const LLVMSetCurrentDebugLocation2: (Builder: Builder, Loc: Metadata | undefined) => void = stub("LLVMSetCurrentDebugLocation2");
+export const LLVMSetCurrentDebugLocation2: (Builder: Builder, Loc: Metadata | undefined) => void = bind("LLVMSetCurrentDebugLocation2", impl1.LLVMSetCurrentDebugLocation2);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1204 LLVMGetCurrentDebugLocation2
-export const LLVMGetCurrentDebugLocation2: (Builder: Builder) => Metadata | undefined = stub("LLVMGetCurrentDebugLocation2");
+export const LLVMGetCurrentDebugLocation2: (Builder: Builder) => Metadata | undefined = bind("LLVMGetCurrentDebugLocation2", impl1.LLVMGetCurrentDebugLocation2);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1207 LLVMBuildRetVoid
-export const LLVMBuildRetVoid: (B: Builder) => Value = stub("LLVMBuildRetVoid");
+export const LLVMBuildRetVoid: (B: Builder) => Value = bind("LLVMBuildRetVoid", impl1.LLVMBuildRetVoid);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1208 LLVMBuildRet
-export const LLVMBuildRet: (B: Builder, V: Value) => Value = stub("LLVMBuildRet");
+export const LLVMBuildRet: (B: Builder, V: Value) => Value = bind("LLVMBuildRet", impl1.LLVMBuildRet);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1209 LLVMBuildBr
-export const LLVMBuildBr: (B: Builder, Dest: BasicBlock) => Value = stub("LLVMBuildBr");
+export const LLVMBuildBr: (B: Builder, Dest: BasicBlock) => Value = bind("LLVMBuildBr", impl1.LLVMBuildBr);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1210 LLVMBuildCondBr
-export const LLVMBuildCondBr: (B: Builder, If: Value, Then: BasicBlock, Else: BasicBlock) => Value = stub("LLVMBuildCondBr");
+export const LLVMBuildCondBr: (B: Builder, If: Value, Then: BasicBlock, Else: BasicBlock) => Value = bind("LLVMBuildCondBr", impl1.LLVMBuildCondBr);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1216 LLVMBuildSwitch
-export const LLVMBuildSwitch: (B: Builder, V: Value, Else: BasicBlock, NumCases: number) => Value = stub("LLVMBuildSwitch");
+export const LLVMBuildSwitch: (B: Builder, V: Value, Else: BasicBlock, NumCases: number) => Value = bind("LLVMBuildSwitch", impl1.LLVMBuildSwitch);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1222 LLVMBuildLandingPad
-export const LLVMBuildLandingPad: (B: Builder, Ty: Type, PersFn: Value | undefined, NumClauses: number, Name: string | undefined) => Value = stub("LLVMBuildLandingPad");
+export const LLVMBuildLandingPad: (B: Builder, Ty: Type, PersFn: Value | undefined, NumClauses: number, Name: string | undefined) => Value = bind("LLVMBuildLandingPad", impl1.LLVMBuildLandingPad);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1229 LLVMBuildResume
-export const LLVMBuildResume: (B: Builder, Exn: Value) => Value = stub("LLVMBuildResume");
+export const LLVMBuildResume: (B: Builder, Exn: Value) => Value = bind("LLVMBuildResume", impl1.LLVMBuildResume);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1230 LLVMBuildUnreachable
-export const LLVMBuildUnreachable: (B: Builder) => Value = stub("LLVMBuildUnreachable");
+export const LLVMBuildUnreachable: (B: Builder) => Value = bind("LLVMBuildUnreachable", impl1.LLVMBuildUnreachable);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1232 LLVMBuildCleanupPad
-export const LLVMBuildCleanupPad: (B: Builder, ParentPad: Value | undefined, Args: readonly Value[], NumArgs: number, Name: string | undefined) => Value | undefined = stub("LLVMBuildCleanupPad");
+export const LLVMBuildCleanupPad: (B: Builder, ParentPad: Value | undefined, Args: readonly Value[], NumArgs: number, Name: string | undefined) => Value | undefined = bind("LLVMBuildCleanupPad", impl1.LLVMBuildCleanupPad);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1239 LLVMBuildCleanupRet
-export const LLVMBuildCleanupRet: (B: Builder, CleanupPad: Value, BB: BasicBlock | undefined) => Value | undefined = stub("LLVMBuildCleanupRet");
+export const LLVMBuildCleanupRet: (B: Builder, CleanupPad: Value, BB: BasicBlock | undefined) => Value | undefined = bind("LLVMBuildCleanupRet", impl1.LLVMBuildCleanupRet);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1244 LLVMBuildCatchPad
-export const LLVMBuildCatchPad: (B: Builder, ParentPad: Value, Args: readonly Value[], NumArgs: number, Name: string | undefined) => Value | undefined = stub("LLVMBuildCatchPad");
+export const LLVMBuildCatchPad: (B: Builder, ParentPad: Value, Args: readonly Value[], NumArgs: number, Name: string | undefined) => Value | undefined = bind("LLVMBuildCatchPad", impl1.LLVMBuildCatchPad);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1251 LLVMBuildCatchRet
-export const LLVMBuildCatchRet: (B: Builder, CatchPad: Value, BB: BasicBlock) => Value | undefined = stub("LLVMBuildCatchRet");
+export const LLVMBuildCatchRet: (B: Builder, CatchPad: Value, BB: BasicBlock) => Value | undefined = bind("LLVMBuildCatchRet", impl1.LLVMBuildCatchRet);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1256 LLVMBuildCatchSwitch
-export const LLVMBuildCatchSwitch: (Builder: Builder, ParentPad: Value | undefined, UnwindBB: BasicBlock | undefined, NumHandlers: number, Name: string | undefined) => Value | undefined = stub("LLVMBuildCatchSwitch");
+export const LLVMBuildCatchSwitch: (Builder: Builder, ParentPad: Value | undefined, UnwindBB: BasicBlock | undefined, NumHandlers: number, Name: string | undefined) => Value | undefined = bind("LLVMBuildCatchSwitch", impl1.LLVMBuildCatchSwitch);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1263 LLVMAddHandler
-export const LLVMAddHandler: (CatchSwitch: Value, Dest: BasicBlock) => void = stub("LLVMAddHandler");
+export const LLVMAddHandler: (CatchSwitch: Value, Dest: BasicBlock) => void = bind("LLVMAddHandler", impl1.LLVMAddHandler);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1264 LLVMSetPersonalityFn
-export const LLVMSetPersonalityFn: (Func: Value, Pers: Value) => void = stub("LLVMSetPersonalityFn");
+export const LLVMSetPersonalityFn: (Func: Value, Pers: Value) => void = bind("LLVMSetPersonalityFn", impl1.LLVMSetPersonalityFn);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1267 LLVMAddCase
-export const LLVMAddCase: (Switch: Value, OnVal: Value, Dest: BasicBlock) => void = stub("LLVMAddCase");
+export const LLVMAddCase: (Switch: Value, OnVal: Value, Dest: BasicBlock) => void = bind("LLVMAddCase", impl1.LLVMAddCase);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1270 LLVMAddClause
-export const LLVMAddClause: (LandingPad: Value, ClauseVal: Value) => void = stub("LLVMAddClause");
+export const LLVMAddClause: (LandingPad: Value, ClauseVal: Value) => void = bind("LLVMAddClause", impl1.LLVMAddClause);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1273 LLVMSetCleanup
-export const LLVMSetCleanup: (LandingPad: Value, Val: Bool) => void = stub("LLVMSetCleanup");
+export const LLVMSetCleanup: (LandingPad: Value, Val: Bool) => void = bind("LLVMSetCleanup", impl1.LLVMSetCleanup);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1276 LLVMBuildAdd
-export const LLVMBuildAdd: (B: Builder, LHS: Value, RHS: Value, Name: string | undefined) => Value = stub("LLVMBuildAdd");
+export const LLVMBuildAdd: (B: Builder, LHS: Value, RHS: Value, Name: string | undefined) => Value = bind("LLVMBuildAdd", impl1.LLVMBuildAdd);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1282 LLVMBuildFAdd
-export const LLVMBuildFAdd: (B: Builder, LHS: Value, RHS: Value, Name: string | undefined) => Value = stub("LLVMBuildFAdd");
+export const LLVMBuildFAdd: (B: Builder, LHS: Value, RHS: Value, Name: string | undefined) => Value = bind("LLVMBuildFAdd", impl1.LLVMBuildFAdd);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1288 LLVMBuildSub
-export const LLVMBuildSub: (B: Builder, LHS: Value, RHS: Value, Name: string | undefined) => Value = stub("LLVMBuildSub");
+export const LLVMBuildSub: (B: Builder, LHS: Value, RHS: Value, Name: string | undefined) => Value = bind("LLVMBuildSub", impl1.LLVMBuildSub);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1294 LLVMBuildFSub
-export const LLVMBuildFSub: (B: Builder, LHS: Value, RHS: Value, Name: string | undefined) => Value = stub("LLVMBuildFSub");
+export const LLVMBuildFSub: (B: Builder, LHS: Value, RHS: Value, Name: string | undefined) => Value = bind("LLVMBuildFSub", impl1.LLVMBuildFSub);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1300 LLVMBuildMul
-export const LLVMBuildMul: (B: Builder, LHS: Value, RHS: Value, Name: string | undefined) => Value = stub("LLVMBuildMul");
+export const LLVMBuildMul: (B: Builder, LHS: Value, RHS: Value, Name: string | undefined) => Value = bind("LLVMBuildMul", impl1.LLVMBuildMul);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1306 LLVMBuildFMul
-export const LLVMBuildFMul: (B: Builder, LHS: Value, RHS: Value, Name: string | undefined) => Value = stub("LLVMBuildFMul");
+export const LLVMBuildFMul: (B: Builder, LHS: Value, RHS: Value, Name: string | undefined) => Value = bind("LLVMBuildFMul", impl1.LLVMBuildFMul);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1312 LLVMBuildUDiv
-export const LLVMBuildUDiv: (B: Builder, LHS: Value, RHS: Value, Name: string | undefined) => Value = stub("LLVMBuildUDiv");
+export const LLVMBuildUDiv: (B: Builder, LHS: Value, RHS: Value, Name: string | undefined) => Value = bind("LLVMBuildUDiv", impl1.LLVMBuildUDiv);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1318 LLVMBuildExactUDiv
-export const LLVMBuildExactUDiv: (B: Builder, LHS: Value, RHS: Value, Name: string | undefined) => Value = stub("LLVMBuildExactUDiv");
+export const LLVMBuildExactUDiv: (B: Builder, LHS: Value, RHS: Value, Name: string | undefined) => Value = bind("LLVMBuildExactUDiv", impl1.LLVMBuildExactUDiv);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1324 LLVMBuildSDiv
-export const LLVMBuildSDiv: (B: Builder, LHS: Value, RHS: Value, Name: string | undefined) => Value = stub("LLVMBuildSDiv");
+export const LLVMBuildSDiv: (B: Builder, LHS: Value, RHS: Value, Name: string | undefined) => Value = bind("LLVMBuildSDiv", impl1.LLVMBuildSDiv);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1330 LLVMBuildExactSDiv
-export const LLVMBuildExactSDiv: (B: Builder, LHS: Value, RHS: Value, Name: string | undefined) => Value = stub("LLVMBuildExactSDiv");
+export const LLVMBuildExactSDiv: (B: Builder, LHS: Value, RHS: Value, Name: string | undefined) => Value = bind("LLVMBuildExactSDiv", impl1.LLVMBuildExactSDiv);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1336 LLVMBuildFDiv
-export const LLVMBuildFDiv: (B: Builder, LHS: Value, RHS: Value, Name: string | undefined) => Value = stub("LLVMBuildFDiv");
+export const LLVMBuildFDiv: (B: Builder, LHS: Value, RHS: Value, Name: string | undefined) => Value = bind("LLVMBuildFDiv", impl1.LLVMBuildFDiv);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1342 LLVMBuildURem
-export const LLVMBuildURem: (B: Builder, LHS: Value, RHS: Value, Name: string | undefined) => Value = stub("LLVMBuildURem");
+export const LLVMBuildURem: (B: Builder, LHS: Value, RHS: Value, Name: string | undefined) => Value = bind("LLVMBuildURem", impl1.LLVMBuildURem);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1348 LLVMBuildSRem
-export const LLVMBuildSRem: (B: Builder, LHS: Value, RHS: Value, Name: string | undefined) => Value = stub("LLVMBuildSRem");
+export const LLVMBuildSRem: (B: Builder, LHS: Value, RHS: Value, Name: string | undefined) => Value = bind("LLVMBuildSRem", impl1.LLVMBuildSRem);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1354 LLVMBuildFRem
-export const LLVMBuildFRem: (B: Builder, LHS: Value, RHS: Value, Name: string | undefined) => Value = stub("LLVMBuildFRem");
+export const LLVMBuildFRem: (B: Builder, LHS: Value, RHS: Value, Name: string | undefined) => Value = bind("LLVMBuildFRem", impl1.LLVMBuildFRem);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1360 LLVMBuildShl
-export const LLVMBuildShl: (B: Builder, LHS: Value, RHS: Value, Name: string | undefined) => Value = stub("LLVMBuildShl");
+export const LLVMBuildShl: (B: Builder, LHS: Value, RHS: Value, Name: string | undefined) => Value = bind("LLVMBuildShl", impl1.LLVMBuildShl);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1366 LLVMBuildLShr
-export const LLVMBuildLShr: (B: Builder, LHS: Value, RHS: Value, Name: string | undefined) => Value = stub("LLVMBuildLShr");
+export const LLVMBuildLShr: (B: Builder, LHS: Value, RHS: Value, Name: string | undefined) => Value = bind("LLVMBuildLShr", impl1.LLVMBuildLShr);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1372 LLVMBuildAShr
-export const LLVMBuildAShr: (B: Builder, LHS: Value, RHS: Value, Name: string | undefined) => Value = stub("LLVMBuildAShr");
+export const LLVMBuildAShr: (B: Builder, LHS: Value, RHS: Value, Name: string | undefined) => Value = bind("LLVMBuildAShr", impl1.LLVMBuildAShr);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1378 LLVMBuildNSWAdd
-export const LLVMBuildNSWAdd: (B: Builder, LHS: Value, RHS: Value, Name: string | undefined) => Value = stub("LLVMBuildNSWAdd");
+export const LLVMBuildNSWAdd: (B: Builder, LHS: Value, RHS: Value, Name: string | undefined) => Value = bind("LLVMBuildNSWAdd", impl1.LLVMBuildNSWAdd);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1384 LLVMBuildNUWAdd
-export const LLVMBuildNUWAdd: (B: Builder, LHS: Value, RHS: Value, Name: string | undefined) => Value = stub("LLVMBuildNUWAdd");
+export const LLVMBuildNUWAdd: (B: Builder, LHS: Value, RHS: Value, Name: string | undefined) => Value = bind("LLVMBuildNUWAdd", impl1.LLVMBuildNUWAdd);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1390 LLVMBuildNSWSub
-export const LLVMBuildNSWSub: (B: Builder, LHS: Value, RHS: Value, Name: string | undefined) => Value = stub("LLVMBuildNSWSub");
+export const LLVMBuildNSWSub: (B: Builder, LHS: Value, RHS: Value, Name: string | undefined) => Value = bind("LLVMBuildNSWSub", impl1.LLVMBuildNSWSub);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1396 LLVMBuildNUWSub
-export const LLVMBuildNUWSub: (B: Builder, LHS: Value, RHS: Value, Name: string | undefined) => Value = stub("LLVMBuildNUWSub");
+export const LLVMBuildNUWSub: (B: Builder, LHS: Value, RHS: Value, Name: string | undefined) => Value = bind("LLVMBuildNUWSub", impl1.LLVMBuildNUWSub);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1402 LLVMBuildNSWMul
-export const LLVMBuildNSWMul: (B: Builder, LHS: Value, RHS: Value, Name: string | undefined) => Value = stub("LLVMBuildNSWMul");
+export const LLVMBuildNSWMul: (B: Builder, LHS: Value, RHS: Value, Name: string | undefined) => Value = bind("LLVMBuildNSWMul", impl1.LLVMBuildNSWMul);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1408 LLVMBuildNUWMul
-export const LLVMBuildNUWMul: (B: Builder, LHS: Value, RHS: Value, Name: string | undefined) => Value = stub("LLVMBuildNUWMul");
+export const LLVMBuildNUWMul: (B: Builder, LHS: Value, RHS: Value, Name: string | undefined) => Value = bind("LLVMBuildNUWMul", impl1.LLVMBuildNUWMul);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1414 LLVMBuildAnd
-export const LLVMBuildAnd: (B: Builder, LHS: Value, RHS: Value, Name: string | undefined) => Value = stub("LLVMBuildAnd");
+export const LLVMBuildAnd: (B: Builder, LHS: Value, RHS: Value, Name: string | undefined) => Value = bind("LLVMBuildAnd", impl1.LLVMBuildAnd);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1420 LLVMBuildOr
-export const LLVMBuildOr: (B: Builder, LHS: Value, RHS: Value, Name: string | undefined) => Value = stub("LLVMBuildOr");
+export const LLVMBuildOr: (B: Builder, LHS: Value, RHS: Value, Name: string | undefined) => Value = bind("LLVMBuildOr", impl1.LLVMBuildOr);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1426 LLVMBuildXor
-export const LLVMBuildXor: (B: Builder, LHS: Value, RHS: Value, Name: string | undefined) => Value = stub("LLVMBuildXor");
+export const LLVMBuildXor: (B: Builder, LHS: Value, RHS: Value, Name: string | undefined) => Value = bind("LLVMBuildXor", impl1.LLVMBuildXor);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1432 LLVMBuildNeg
-export const LLVMBuildNeg: (B: Builder, V: Value, Name: string | undefined) => Value = stub("LLVMBuildNeg");
+export const LLVMBuildNeg: (B: Builder, V: Value, Name: string | undefined) => Value = bind("LLVMBuildNeg", impl1.LLVMBuildNeg);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1434 LLVMBuildFNeg
-export const LLVMBuildFNeg: (B: Builder, V: Value, Name: string | undefined) => Value = stub("LLVMBuildFNeg");
+export const LLVMBuildFNeg: (B: Builder, V: Value, Name: string | undefined) => Value = bind("LLVMBuildFNeg", impl1.LLVMBuildFNeg);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1439 LLVMBuildNot
-export const LLVMBuildNot: (B: Builder, V: Value, Name: string | undefined) => Value = stub("LLVMBuildNot");
+export const LLVMBuildNot: (B: Builder, V: Value, Name: string | undefined) => Value = bind("LLVMBuildNot", impl1.LLVMBuildNot);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1443 LLVMSetIsDisjoint
-export const LLVMSetIsDisjoint: (Instr: Value, IsDisjoint: Bool) => void = stub("LLVMSetIsDisjoint");
+export const LLVMSetIsDisjoint: (Instr: Value, IsDisjoint: Bool) => void = bind("LLVMSetIsDisjoint", impl1.LLVMSetIsDisjoint);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1444 LLVMSetNUW
-export const LLVMSetNUW: (ArithInst: Value, HasNUW: Bool) => void = stub("LLVMSetNUW");
+export const LLVMSetNUW: (ArithInst: Value, HasNUW: Bool) => void = bind("LLVMSetNUW", impl1.LLVMSetNUW);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1445 LLVMSetNSW
-export const LLVMSetNSW: (ArithInst: Value, HasNSW: Bool) => void = stub("LLVMSetNSW");
+export const LLVMSetNSW: (ArithInst: Value, HasNSW: Bool) => void = bind("LLVMSetNSW", impl1.LLVMSetNSW);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1448 LLVMBuildAlloca
-export const LLVMBuildAlloca: (B: Builder, Ty: Type, Name: string | undefined) => Value = stub("LLVMBuildAlloca");
+export const LLVMBuildAlloca: (B: Builder, Ty: Type, Name: string | undefined) => Value = bind("LLVMBuildAlloca", impl1.LLVMBuildAlloca);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1453 LLVMBuildLoad2
-export const LLVMBuildLoad2: (B: Builder, Ty: Type, PointerVal: Value, Name: string | undefined) => Value = stub("LLVMBuildLoad2");
+export const LLVMBuildLoad2: (B: Builder, Ty: Type, PointerVal: Value, Name: string | undefined) => Value = bind("LLVMBuildLoad2", impl1.LLVMBuildLoad2);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1460 LLVMBuildStore
-export const LLVMBuildStore: (B: Builder, Val: Value, Ptr: Value) => Value = stub("LLVMBuildStore");
+export const LLVMBuildStore: (B: Builder, Val: Value, Ptr: Value) => Value = bind("LLVMBuildStore", impl1.LLVMBuildStore);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1462 LLVMBuildGEPWithNoWrapFlags
-export const LLVMBuildGEPWithNoWrapFlags: (B: Builder, Ty: Type, Pointer: Value, Indices: readonly Value[], NumIndices: number, Name: string | undefined, Flags: GEPNoWrapFlags) => Value = stub("LLVMBuildGEPWithNoWrapFlags");
+export const LLVMBuildGEPWithNoWrapFlags: (B: Builder, Ty: Type, Pointer: Value, Indices: readonly Value[], NumIndices: number, Name: string | undefined, Flags: GEPNoWrapFlags) => Value = bind("LLVMBuildGEPWithNoWrapFlags", impl1.LLVMBuildGEPWithNoWrapFlags);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1473 LLVMBuildTrunc
-export const LLVMBuildTrunc: (B: Builder, Val: Value, DestTy: Type, Name: string | undefined) => Value = stub("LLVMBuildTrunc");
+export const LLVMBuildTrunc: (B: Builder, Val: Value, DestTy: Type, Name: string | undefined) => Value = bind("LLVMBuildTrunc", impl1.LLVMBuildTrunc);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1479 LLVMBuildZExt
-export const LLVMBuildZExt: (B: Builder, Val: Value, DestTy: Type, Name: string | undefined) => Value = stub("LLVMBuildZExt");
+export const LLVMBuildZExt: (B: Builder, Val: Value, DestTy: Type, Name: string | undefined) => Value = bind("LLVMBuildZExt", impl1.LLVMBuildZExt);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1485 LLVMBuildSExt
-export const LLVMBuildSExt: (B: Builder, Val: Value, DestTy: Type, Name: string | undefined) => Value = stub("LLVMBuildSExt");
+export const LLVMBuildSExt: (B: Builder, Val: Value, DestTy: Type, Name: string | undefined) => Value = bind("LLVMBuildSExt", impl1.LLVMBuildSExt);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1491 LLVMBuildFPToUI
-export const LLVMBuildFPToUI: (B: Builder, Val: Value, DestTy: Type, Name: string | undefined) => Value = stub("LLVMBuildFPToUI");
+export const LLVMBuildFPToUI: (B: Builder, Val: Value, DestTy: Type, Name: string | undefined) => Value = bind("LLVMBuildFPToUI", impl1.LLVMBuildFPToUI);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1497 LLVMBuildFPToSI
-export const LLVMBuildFPToSI: (B: Builder, Val: Value, DestTy: Type, Name: string | undefined) => Value = stub("LLVMBuildFPToSI");
+export const LLVMBuildFPToSI: (B: Builder, Val: Value, DestTy: Type, Name: string | undefined) => Value = bind("LLVMBuildFPToSI", impl1.LLVMBuildFPToSI);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1503 LLVMBuildUIToFP
-export const LLVMBuildUIToFP: (B: Builder, Val: Value, DestTy: Type, Name: string | undefined) => Value = stub("LLVMBuildUIToFP");
+export const LLVMBuildUIToFP: (B: Builder, Val: Value, DestTy: Type, Name: string | undefined) => Value = bind("LLVMBuildUIToFP", impl1.LLVMBuildUIToFP);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1509 LLVMBuildSIToFP
-export const LLVMBuildSIToFP: (B: Builder, Val: Value, DestTy: Type, Name: string | undefined) => Value = stub("LLVMBuildSIToFP");
+export const LLVMBuildSIToFP: (B: Builder, Val: Value, DestTy: Type, Name: string | undefined) => Value = bind("LLVMBuildSIToFP", impl1.LLVMBuildSIToFP);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1515 LLVMBuildFPTrunc
-export const LLVMBuildFPTrunc: (B: Builder, Val: Value, DestTy: Type, Name: string | undefined) => Value = stub("LLVMBuildFPTrunc");
+export const LLVMBuildFPTrunc: (B: Builder, Val: Value, DestTy: Type, Name: string | undefined) => Value = bind("LLVMBuildFPTrunc", impl1.LLVMBuildFPTrunc);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1521 LLVMBuildFPExt
-export const LLVMBuildFPExt: (B: Builder, Val: Value, DestTy: Type, Name: string | undefined) => Value = stub("LLVMBuildFPExt");
+export const LLVMBuildFPExt: (B: Builder, Val: Value, DestTy: Type, Name: string | undefined) => Value = bind("LLVMBuildFPExt", impl1.LLVMBuildFPExt);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1527 LLVMBuildPtrToInt
-export const LLVMBuildPtrToInt: (B: Builder, Val: Value, DestTy: Type, Name: string | undefined) => Value = stub("LLVMBuildPtrToInt");
+export const LLVMBuildPtrToInt: (B: Builder, Val: Value, DestTy: Type, Name: string | undefined) => Value = bind("LLVMBuildPtrToInt", impl1.LLVMBuildPtrToInt);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1533 LLVMBuildIntToPtr
-export const LLVMBuildIntToPtr: (B: Builder, Val: Value, DestTy: Type, Name: string | undefined) => Value = stub("LLVMBuildIntToPtr");
+export const LLVMBuildIntToPtr: (B: Builder, Val: Value, DestTy: Type, Name: string | undefined) => Value = bind("LLVMBuildIntToPtr", impl1.LLVMBuildIntToPtr);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1539 LLVMBuildBitCast
-export const LLVMBuildBitCast: (B: Builder, Val: Value, DestTy: Type, Name: string | undefined) => Value = stub("LLVMBuildBitCast");
+export const LLVMBuildBitCast: (B: Builder, Val: Value, DestTy: Type, Name: string | undefined) => Value = bind("LLVMBuildBitCast", impl1.LLVMBuildBitCast);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1545 LLVMBuildPointerCast
-export const LLVMBuildPointerCast: (B: Builder, Val: Value, DestTy: Type, Name: string | undefined) => Value = stub("LLVMBuildPointerCast");
+export const LLVMBuildPointerCast: (B: Builder, Val: Value, DestTy: Type, Name: string | undefined) => Value = bind("LLVMBuildPointerCast", impl1.LLVMBuildPointerCast);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1551 LLVMBuildIntCast2
-export const LLVMBuildIntCast2: (B: Builder, Val: Value, DestTy: Type, IsSigned: Bool, Name: string | undefined) => Value = stub("LLVMBuildIntCast2");
+export const LLVMBuildIntCast2: (B: Builder, Val: Value, DestTy: Type, IsSigned: Bool, Name: string | undefined) => Value = bind("LLVMBuildIntCast2", impl1.LLVMBuildIntCast2);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1560 LLVMBuildICmp
-export const LLVMBuildICmp: (B: Builder, Op: number, LHS: Value, RHS: Value, Name: string | undefined) => Value = stub("LLVMBuildICmp");
+export const LLVMBuildICmp: (B: Builder, Op: number, LHS: Value, RHS: Value, Name: string | undefined) => Value = bind("LLVMBuildICmp", impl1.LLVMBuildICmp);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1567 LLVMBuildFCmp
-export const LLVMBuildFCmp: (B: Builder, Op: number, LHS: Value, RHS: Value, Name: string | undefined) => Value = stub("LLVMBuildFCmp");
+export const LLVMBuildFCmp: (B: Builder, Op: number, LHS: Value, RHS: Value, Name: string | undefined) => Value = bind("LLVMBuildFCmp", impl1.LLVMBuildFCmp);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1576 LLVMBuildPhi
-export const LLVMBuildPhi: (B: Builder, Ty: Type, Name: string | undefined) => Value = stub("LLVMBuildPhi");
+export const LLVMBuildPhi: (B: Builder, Ty: Type, Name: string | undefined) => Value = bind("LLVMBuildPhi", impl1.LLVMBuildPhi);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1578 LLVMBuildSelect
-export const LLVMBuildSelect: (B: Builder, If: Value, Then: Value, Else: Value, Name: string | undefined) => Value = stub("LLVMBuildSelect");
+export const LLVMBuildSelect: (B: Builder, If: Value, Then: Value, Else: Value, Name: string | undefined) => Value = bind("LLVMBuildSelect", impl1.LLVMBuildSelect);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1585 LLVMBuildVAArg
-export const LLVMBuildVAArg: (B: Builder, list: Value, Ty: Type, Name: string | undefined) => Value = stub("LLVMBuildVAArg");
+export const LLVMBuildVAArg: (B: Builder, list: Value, Ty: Type, Name: string | undefined) => Value = bind("LLVMBuildVAArg", impl1.LLVMBuildVAArg);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1591 LLVMBuildExtractElement
-export const LLVMBuildExtractElement: (B: Builder, VecVal: Value, Index: Value, Name: string | undefined) => Value = stub("LLVMBuildExtractElement");
+export const LLVMBuildExtractElement: (B: Builder, VecVal: Value, Index: Value, Name: string | undefined) => Value = bind("LLVMBuildExtractElement", impl1.LLVMBuildExtractElement);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1597 LLVMBuildInsertElement
-export const LLVMBuildInsertElement: (B: Builder, VecVal: Value, EltVal: Value, Index: Value, Name: string | undefined) => Value = stub("LLVMBuildInsertElement");
+export const LLVMBuildInsertElement: (B: Builder, VecVal: Value, EltVal: Value, Index: Value, Name: string | undefined) => Value = bind("LLVMBuildInsertElement", impl1.LLVMBuildInsertElement);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1604 LLVMBuildShuffleVector
-export const LLVMBuildShuffleVector: (B: Builder, V1: Value, V2: Value, Mask: Value, Name: string | undefined) => Value = stub("LLVMBuildShuffleVector");
+export const LLVMBuildShuffleVector: (B: Builder, V1: Value, V2: Value, Mask: Value, Name: string | undefined) => Value = bind("LLVMBuildShuffleVector", impl1.LLVMBuildShuffleVector);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1611 LLVMBuildExtractValue
-export const LLVMBuildExtractValue: (B: Builder, AggVal: Value, Index: number, Name: string | undefined) => Value = stub("LLVMBuildExtractValue");
+export const LLVMBuildExtractValue: (B: Builder, AggVal: Value, Index: number, Name: string | undefined) => Value = bind("LLVMBuildExtractValue", impl1.LLVMBuildExtractValue);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1617 LLVMBuildInsertValue
-export const LLVMBuildInsertValue: (B: Builder, AggVal: Value, EltVal: Value, Index: number, Name: string | undefined) => Value = stub("LLVMBuildInsertValue");
+export const LLVMBuildInsertValue: (B: Builder, AggVal: Value, EltVal: Value, Index: number, Name: string | undefined) => Value = bind("LLVMBuildInsertValue", impl1.LLVMBuildInsertValue);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1626 LLVMBuildAtomicCmpXchg
-export const LLVMBuildAtomicCmpXchg: (B: Builder, LHS: Value, CMP: Value, RHS: Value, Order: AtomicOrdering, FailureOrder: AtomicOrdering, SingleThreaded: Bool) => Value = stub("LLVMBuildAtomicCmpXchg");
+export const LLVMBuildAtomicCmpXchg: (B: Builder, LHS: Value, CMP: Value, RHS: Value, Order: AtomicOrdering, FailureOrder: AtomicOrdering, SingleThreaded: Bool) => Value = bind("LLVMBuildAtomicCmpXchg", impl1.LLVMBuildAtomicCmpXchg);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1636 LLVMSetWeak
-export const LLVMSetWeak: (CmpXchgInst: Value, IsWeak: Bool) => void = stub("LLVMSetWeak");
+export const LLVMSetWeak: (CmpXchgInst: Value, IsWeak: Bool) => void = bind("LLVMSetWeak", impl1.LLVMSetWeak);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1638 LLVMBuildAtomicRMW
-export const LLVMBuildAtomicRMW: (B: Builder, Op: AtomicRmwBinOp, LHS: Value, RHS: Value, Order: AtomicOrdering, SingleThreaded: Bool) => Value = stub("LLVMBuildAtomicRMW");
+export const LLVMBuildAtomicRMW: (B: Builder, Op: AtomicRmwBinOp, LHS: Value, RHS: Value, Order: AtomicOrdering, SingleThreaded: Bool) => Value = bind("LLVMBuildAtomicRMW", impl1.LLVMBuildAtomicRMW);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1647 LLVMBuildFence
-export const LLVMBuildFence: (B: Builder, Order: AtomicOrdering, SingleThreaded: Bool, Name: string | undefined) => Value = stub("LLVMBuildFence");
+export const LLVMBuildFence: (B: Builder, Order: AtomicOrdering, SingleThreaded: Bool, Name: string | undefined) => Value = bind("LLVMBuildFence", impl1.LLVMBuildFence);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1655 LLVMWriteBitcodeToFile
 export const LLVMWriteBitcodeToFile: (M: Module, Path: string | undefined) => number = stub("LLVMWriteBitcodeToFile");
@@ -816,16 +934,16 @@ export const LLVMGetOrInsertComdat: (M: Module, Name: string | undefined) => Com
 export const LLVMSetComdat: (V: Value, C: Comdat) => void = bind("LLVMSetComdat", impl0.LLVMSetComdat);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1684 LLVMCreateOperandBundle
-export const LLVMCreateOperandBundle: (Tag: PtrLenStr | undefined, TagLen: number, Args: readonly Value[], NumArgs: number) => OperandBundle | undefined = stub("LLVMCreateOperandBundle");
+export const LLVMCreateOperandBundle: (Tag: PtrLenStr | undefined, TagLen: number, Args: readonly Value[], NumArgs: number) => OperandBundle | undefined = bind("LLVMCreateOperandBundle", impl1.LLVMCreateOperandBundle);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1690 LLVMDisposeOperandBundle
-export const LLVMDisposeOperandBundle: (Bundle: OperandBundle) => void = stub("LLVMDisposeOperandBundle");
+export const LLVMDisposeOperandBundle: (Bundle: OperandBundle) => void = bind("LLVMDisposeOperandBundle", impl1.LLVMDisposeOperandBundle);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1692 LLVMBuildCallWithOperandBundles
-export const LLVMBuildCallWithOperandBundles: (B: Builder, Ty: Type, Fn: Value, Args: readonly Value[], NumArgs: number, Bundles: readonly OperandBundle[], NumBundles: number, Name: string | undefined) => Value = stub("LLVMBuildCallWithOperandBundles");
+export const LLVMBuildCallWithOperandBundles: (B: Builder, Ty: Type, Fn: Value, Args: readonly Value[], NumArgs: number, Bundles: readonly OperandBundle[], NumBundles: number, Name: string | undefined) => Value = bind("LLVMBuildCallWithOperandBundles", impl1.LLVMBuildCallWithOperandBundles);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1702 LLVMBuildInvokeWithOperandBundles
-export const LLVMBuildInvokeWithOperandBundles: (B: Builder, Ty: Type, Fn: Value, Args: readonly Value[], NumArgs: number, Then: BasicBlock, Catch: BasicBlock, Bundles: readonly OperandBundle[], NumBundles: number, Name: string | undefined) => Value = stub("LLVMBuildInvokeWithOperandBundles");
+export const LLVMBuildInvokeWithOperandBundles: (B: Builder, Ty: Type, Fn: Value, Args: readonly Value[], NumArgs: number, Then: BasicBlock, Catch: BasicBlock, Bundles: readonly OperandBundle[], NumBundles: number, Name: string | undefined) => Value = bind("LLVMBuildInvokeWithOperandBundles", impl1.LLVMBuildInvokeWithOperandBundles);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1714 LLVMBuildCallBr
 export const LLVMBuildCallBr: (B: Builder, Ty: Type, Fn: Value, DefaultDest: BasicBlock, IndirectDests: readonly BasicBlock[], NumIndirectDests: number, Args: readonly Value[], NumArgs: number, Bundles: readonly OperandBundle[], NumBundles: number, Name: string | undefined) => Value = stub("LLVMBuildCallBr");
@@ -981,28 +1099,28 @@ export const LLVMRustCreateRangeAttribute: (C: Context, NumBits: number, LowerWo
 export const LLVMRustAddFunctionAttributes: (Fn: Value, index: number, Attrs: readonly Attribute[], AttrsLen: number) => void = bind("LLVMRustAddFunctionAttributes", impl0.LLVMRustAddFunctionAttributes);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2057 LLVMRustAddCallSiteAttributes
-export const LLVMRustAddCallSiteAttributes: (Instr: Value, index: number, Attrs: readonly Attribute[], AttrsLen: number) => void = stub("LLVMRustAddCallSiteAttributes");
+export const LLVMRustAddCallSiteAttributes: (Instr: Value, index: number, Attrs: readonly Attribute[], AttrsLen: number) => void = bind("LLVMRustAddCallSiteAttributes", impl1.LLVMRustAddCallSiteAttributes);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2064 LLVMRustSetFastMath
-export const LLVMRustSetFastMath: (Instr: Value) => void = stub("LLVMRustSetFastMath");
+export const LLVMRustSetFastMath: (Instr: Value) => void = bind("LLVMRustSetFastMath", impl1.LLVMRustSetFastMath);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2065 LLVMRustSetAlgebraicMath
-export const LLVMRustSetAlgebraicMath: (Instr: Value) => void = stub("LLVMRustSetAlgebraicMath");
+export const LLVMRustSetAlgebraicMath: (Instr: Value) => void = bind("LLVMRustSetAlgebraicMath", impl1.LLVMRustSetAlgebraicMath);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2066 LLVMRustSetAllowReassoc
-export const LLVMRustSetAllowReassoc: (Instr: Value) => void = stub("LLVMRustSetAllowReassoc");
+export const LLVMRustSetAllowReassoc: (Instr: Value) => void = bind("LLVMRustSetAllowReassoc", impl1.LLVMRustSetAllowReassoc);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2067 LLVMRustSetNoSignedZeros
-export const LLVMRustSetNoSignedZeros: (Instr: Value) => void = stub("LLVMRustSetNoSignedZeros");
+export const LLVMRustSetNoSignedZeros: (Instr: Value) => void = bind("LLVMRustSetNoSignedZeros", impl1.LLVMRustSetNoSignedZeros);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2070 LLVMRustBuildMemCpy
-export const LLVMRustBuildMemCpy: (B: Builder, Dst: Value, DstAlign: number, Src: Value, SrcAlign: number, Size: Value, IsVolatile: boolean) => Value = stub("LLVMRustBuildMemCpy");
+export const LLVMRustBuildMemCpy: (B: Builder, Dst: Value, DstAlign: number, Src: Value, SrcAlign: number, Size: Value, IsVolatile: boolean) => Value = bind("LLVMRustBuildMemCpy", impl1.LLVMRustBuildMemCpy);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2079 LLVMRustBuildMemMove
-export const LLVMRustBuildMemMove: (B: Builder, Dst: Value, DstAlign: number, Src: Value, SrcAlign: number, Size: Value, IsVolatile: boolean) => Value = stub("LLVMRustBuildMemMove");
+export const LLVMRustBuildMemMove: (B: Builder, Dst: Value, DstAlign: number, Src: Value, SrcAlign: number, Size: Value, IsVolatile: boolean) => Value = bind("LLVMRustBuildMemMove", impl1.LLVMRustBuildMemMove);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2088 LLVMRustBuildMemSet
-export const LLVMRustBuildMemSet: (B: Builder, Dst: Value, DstAlign: number, Val: Value, Size: Value, IsVolatile: boolean) => Value = stub("LLVMRustBuildMemSet");
+export const LLVMRustBuildMemSet: (B: Builder, Dst: Value, DstAlign: number, Val: Value, Size: Value, IsVolatile: boolean) => Value = bind("LLVMRustBuildMemSet", impl1.LLVMRustBuildMemSet);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2097 LLVMRustBuildVScale
 export const LLVMRustBuildVScale: (B: Builder, Ty: Type) => Value = stub("LLVMRustBuildVScale");
@@ -1017,7 +1135,7 @@ export const LLVMRustTimeTraceProfilerFinishThread: () => void = stub("LLVMRustT
 export const LLVMRustTimeTraceProfilerFinish: (FileName: string | undefined) => void = stub("LLVMRustTimeTraceProfilerFinish");
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2106 LLVMRustGetLastError
-export const LLVMRustGetLastError: () => string | undefined = stub("LLVMRustGetLastError");
+export const LLVMRustGetLastError: () => string | undefined = bind("LLVMRustGetLastError", impl0.LLVMRustGetLastError);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2109 LLVMRustPrintPassTimings
 export const LLVMRustPrintPassTimings: (OutStr: RustString) => void = stub("LLVMRustPrintPassTimings");
@@ -1185,10 +1303,10 @@ export const LLVMRustUnpackSMDiagnostic: (d: SMDiagnostic, message_out: RustStri
 export const LLVMRustSetDataLayoutFromTargetMachine: (M: Module, TM: TargetMachine) => void = stub("LLVMRustSetDataLayoutFromTargetMachine");
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2528 LLVMRustPositionBuilderPastAllocas
-export const LLVMRustPositionBuilderPastAllocas: (B: Builder, Fn: Value) => void = stub("LLVMRustPositionBuilderPastAllocas");
+export const LLVMRustPositionBuilderPastAllocas: (B: Builder, Fn: Value) => void = bind("LLVMRustPositionBuilderPastAllocas", impl1.LLVMRustPositionBuilderPastAllocas);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2529 LLVMRustPositionBuilderAtStart
-export const LLVMRustPositionBuilderAtStart: (B: Builder, BB: BasicBlock) => void = stub("LLVMRustPositionBuilderAtStart");
+export const LLVMRustPositionBuilderAtStart: (B: Builder, BB: BasicBlock) => void = bind("LLVMRustPositionBuilderAtStart", impl1.LLVMRustPositionBuilderAtStart);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2531 LLVMRustSetModulePICLevel
 export const LLVMRustSetModulePICLevel: (M: Module) => void = bind("LLVMRustSetModulePICLevel", impl0.LLVMRustSetModulePICLevel);
