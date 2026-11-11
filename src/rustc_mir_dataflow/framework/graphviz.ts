@@ -22,7 +22,7 @@ import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import { HasAttrs_DefId } from "../../rustc_middle/ty/mod.ts";
 import { with_no_trimmed_paths } from "../../rustc_middle/ty/print/pretty.ts";
 import type { DefId } from "../../rustc_span/def_id.ts";
-import { type Debug, PLAIN, PRETTY } from "../../std/fmt.ts";
+import { type Debug, debug_unit, PLAIN, PRETTY } from "../../std/fmt.ts";
 import { debug_IoError, type IoResult, io_error_from_node } from "../../std/io.ts";
 import { assert, panic, unreachable, unwrap } from "../../std/panic.ts";
 import { path_file_name, path_join, path_parent } from "../../std/path.ts";
@@ -33,9 +33,6 @@ import type { DebugWithContext } from "./fmt.ts";
 import type { Analysis } from "./mod.ts";
 import type { Results } from "./results.ts";
 import { type ResultsVisitor, ResultsVisitor_provided, visit_results } from "./visitor.ts";
-
-/** Debug for `()`: `dot::Id::new`'s error type, for the panic message of its `.unwrap()`. */
-const debug_unit: Debug<null> = () => "()";
 
 /// Writes a DOT file containing the results of a dataflow analysis if the user requested it via
 /// `rustc_mir` attributes and `-Z dump-mir-dataflow`. The `Result` in and the `Results` out are
@@ -245,8 +242,13 @@ class Formatter<D, A extends Analysis<D, unknown>> implements dot.Labeller<Basic
     const diffs = StateDiffCollector.run<D, A>(this.body, block, this.results, this.style);
 
     const fmt = new BlockFormatter<D, A>(ResultsCursor.new_borrowing<D, A>(this.body, this.results), Background.Light, this.style);
+    // rustc-call: 201:57
     const label = unwrap_result(fmt.write_node_label(block, diffs), debug_IoError);
 
+    // PORT: `String::from_utf8(label).unwrap()`: the label is written to a string, not a `Vec<u8>` (the string-buffer
+    // PORT), so the conversion is the identity and cannot fail; its `unwrap` has no mirror here, which is why the one
+    // above carries a `rustc-call:` anchor (the track_caller walk would otherwise count 1 call against upstream's 2 and
+    // refuse; docs/reviews/root-w49-check.md N1).
     return dot.LabelText.html(label);
   }
 
@@ -505,13 +507,14 @@ class BlockFormatter<D, A extends Analysis<D, unknown>> {
   // rustc: compiler/rustc_mir_dataflow/src/framework/graphviz.rs:463 write_statements_and_terminator
   write_statements_and_terminator(w: string[], block: BasicBlock, diffs: StateDiffCollector<D, A>): IoResult<null> {
     let r: IoResult<null>;
-    // PORT: the `vec::IntoIter`s are the vectors themselves, consumed from the front (`next`) or back (`next_back`).
-    const diffs_before: string[] | undefined = diffs.before;
-    const diffs_after: string[] = diffs.after;
+    // PORT: a `vec::IntoIter` is the vector plus a cursor at each end: `next` takes at `start`, `next_back` before `end`,
+    // and it is empty when they meet (constant time, as std's; `Array.shift` would be linear per call).
+    const diffs_before: VecIntoIter | undefined = diffs.before === undefined ? undefined : { v: diffs.before, start: 0, end: diffs.before.length };
+    const diffs_after: VecIntoIter = { v: diffs.after, start: 0, end: diffs.after.length };
 
     const IS_FORWARD = this.cursor.analysis().Direction.IS_FORWARD;
-    const next_in_dataflow_order = (it: string[]): string => {
-      return IS_FORWARD ? unwrap(it.shift()) : unwrap(it.pop());
+    const next_in_dataflow_order = (it: VecIntoIter): string => {
+      return IS_FORWARD ? unwrap(it.start < it.end ? it.v[it.start++] : undefined) : unwrap(it.start < it.end ? it.v[--it.end] : undefined);
     };
 
     const statements = this.cursor.body().index(block).statements;
@@ -537,9 +540,9 @@ class BlockFormatter<D, A extends Analysis<D, unknown>> {
     const after = next_in_dataflow_order(diffs_after);
     const before = diffs_before === undefined ? undefined : next_in_dataflow_order(diffs_before);
 
-    assert(diffs_after.length === 0, "assertion failed: diffs_after.is_empty()");
+    assert(diffs_after.start === diffs_after.end, "assertion failed: diffs_after.is_empty()");
     assert(
-      diffs_before === undefined || diffs_before.length === 0,
+      diffs_before === undefined || diffs_before.start === diffs_before.end,
       "assertion failed: diffs_before.as_ref().is_none_or(ExactSizeIterator::is_empty)",
     );
 
@@ -655,10 +658,18 @@ class StateDiffCollector<D, A extends Analysis<D, unknown>> implements ResultsVi
   }
 }
 
+/** `std::vec::IntoIter<String>` (see `write_statements_and_terminator`). */
+interface VecIntoIter {
+  readonly v: string[];
+  start: number;
+  end: number;
+}
+
 /** `static RE: LazyLock<Regex> = Regex::new("\t?\u{001f}([+-])")` (global: `replace_all`). */
 const RE = /\t?\u001f([+-])/g;
 
 // PORT: `T: DebugWithContext<C>` is passed as the impl table `T_` (plan-m4 D5); `new == old` is `T_.eq`.
+// Exported for graphviz.test.ts only; upstream's is private.
 // rustc: compiler/rustc_mir_dataflow/src/framework/graphviz.rs:646 diff_pretty
 export function diff_pretty<T, C>(new_: T, old: T, ctxt: C, T_: DebugWithContext<T, C>): string {
   if (T_.eq(new_, old)) {

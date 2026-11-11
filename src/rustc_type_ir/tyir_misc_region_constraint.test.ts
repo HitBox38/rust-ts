@@ -10,7 +10,7 @@ import { describe, expect, test } from "bun:test";
 import "../rustc_middle/lib.ts";
 import { TransitiveRelationBuilder } from "../rustc_data_structures/transitive_relation.ts";
 import { CommonLifetimes, CommonTypes, CtxtInterners, type GlobalCtxt, TyCtxt } from "../rustc_middle/ty/context.ts";
-import { type Debug, debug_vec, format_debug, PLAIN, PRETTY } from "../std/fmt.ts";
+import { type Debug, debug_unit, debug_vec, format_debug, PLAIN, PRETTY } from "../std/fmt.ts";
 import { Panic } from "../std/panic.ts";
 import type { BoundRegion, BoundVar, DebruijnIndex, RegionVid, UniverseIndex } from "./decls.ts";
 import type { InferCtxtLike } from "./infer_ctxt.ts";
@@ -62,7 +62,6 @@ const er = tcx.intern_region({ $: "ReErased" });
 const lo = (a: Region, b: Region): LeafRegionConstraint => ({ $: "RegionOutlives", _0: a, _1: b, _2: null });
 const amb: LeafRegionConstraint = { $: "Ambiguity", _0: null };
 
-const debug_unit: Debug<null> = () => "()";
 const dbg_leaf = (l: LeafRegionConstraint, f = PLAIN) => format_debug(l, (v, f) => debug_LeafRegionConstraint(v, f, debug_unit), f);
 const dbg_and = (a: And, f = PLAIN) => format_debug(a, (v, f) => debug_And(v, f, debug_unit), f);
 const dbg_or = (o: Or, f = PLAIN) => format_debug(o, (v, f) => debug_Or(v, f, debug_unit), f);

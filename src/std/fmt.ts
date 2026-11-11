@@ -175,6 +175,10 @@ export function debug_vec<T>(v: readonly T[], f: Fmt, inner: Debug<T>): string {
 }
 
 export const debug_bool: Debug<boolean> = (v) => (v ? "true" : "false");
+
+/** `impl Debug for ()`: `f.pad("()")`. PORT: `Fmt` carries no width or precision, so the padding is the text itself. */
+// std: library/core/src/fmt/mod.rs:3135 fmt
+export const debug_unit: Debug<null> = () => "()";
 export const debug_int: Debug<number | bigint> = (v) => String(v);
 
 /**
