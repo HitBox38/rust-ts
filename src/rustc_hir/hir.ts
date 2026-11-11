@@ -113,9 +113,6 @@ export function ItemLocalId_cmp(a: ItemLocalId, b: ItemLocalId): number {
   return a - b;
 }
 
-/** `impl Debug for ()` (the `Unambig` type argument of `Ty` / `ConstArg` / `TyKind` / `ConstArgKind`). */
-export const debug_unit: Debug<null> = () => "()";
-
 // ---- LifetimeSyntax ---------------------------------------------------------------------------------------------
 
 export type LifetimeSyntax = gen.LifetimeSyntax;

@@ -32,7 +32,7 @@ import { debug_IoError, type ErrorKind, type IoError, type IoResult, IoError_kin
 import { panic, unported } from "./panic.ts";
 import { host_canonicalize } from "./path.ts";
 import { Err, Ok, type Result } from "./result.ts";
-import { Duration, SystemTime } from "./time.ts";
+import { SystemTime } from "./time.ts";
 
 /** A host file-system operation on a host whose libc this file does not describe. */
 function host(what: string): never {
@@ -141,7 +141,9 @@ const open_libc = () =>
   });
 let LIBC: ReturnType<typeof open_libc>["symbols"] | undefined;
 /** The host libc's symbols; `undefined` on a host this file does not describe. */
-function libc(what: string): ReturnType<typeof open_libc>["symbols"] {
+// PORT: exported for src/std/fs.test.ts only, which calls the variadic declarations directly (docs/reviews/miri-host-fs.md
+// N3: `fcntl`'s variadic minimum); upstream has no such item.
+export function libc(what: string): ReturnType<typeof open_libc>["symbols"] {
   if (!HOST_LIBC) return host(what);
   return (LIBC ??= open_libc().symbols);
 }
@@ -260,37 +262,11 @@ function read_stat(buf: Uint8Array): stat64 {
   };
 }
 
-/** `SystemTime::new(tv_sec, tv_nsec)` (library/std/src/sys/time/unix.rs:19 → sys/pal/unix/time.rs:47 `Timespec::new`).
- *  PORT: src/std/time.ts keeps `Timespec` private, so the same value is built from `UNIX_EPOCH` (exact: whole seconds,
- *  then the nanoseconds, which `Timespec::new` has checked to be in `0..1e9`). Not a marker: time.ts owns those fns. */
-function SystemTime_new(tv_sec: bigint, tv_nsec: bigint): IoResult<SystemTime> {
-  // On Apple OS, dates before epoch are represented differently than on other
-  // Unix platforms: e.g. 1/10th of a second before epoch is represented as `seconds=-1`
-  // and `nanoseconds=100_000_000` on other platforms, but is `seconds=0` and
-  // `nanoseconds=-900_000_000` on Apple OS.
-  //
-  // To compensate, we first detect this special case by checking if both
-  // seconds and nanoseconds are in range, and then correct the value for seconds
-  // and nanoseconds to match the common unix representation.
-  const I64_MIN = -(1n << 63n);
-  if (tv_sec <= 0n && tv_sec > I64_MIN && tv_nsec < 0n && tv_nsec > -1_000_000_000n) {
-    tv_sec = tv_sec - 1n;
-    tv_nsec = tv_nsec + 1_000_000_000n;
-  }
-  if (!(tv_nsec >= 0n && tv_nsec < 1_000_000_000n)) {
-    return Err({ $: "SimpleMessage", kind: "InvalidData", message: "invalid timestamp" });
-  }
-  const whole = tv_sec >= 0n ? SystemTime.UNIX_EPOCH.checked_add(Duration.new(tv_sec, 0)) : SystemTime.UNIX_EPOCH.checked_sub(Duration.new(-tv_sec, 0));
-  const t = whole?.checked_add(Duration.new(0n, Number(tv_nsec)));
-  if (t === undefined) return panic("SystemTime_new: a valid i64 timespec is out of SystemTime's range");
-  return Ok(t);
-}
-
 /** `sys::fs::FileAttr` (no `statx` on Apple): `struct FileAttr { stat: stat64 }`. */
 class FileAttr {
   constructor(public stat: stat64) {}
 
-  /** `FileAttr::from_stat64` */
+  // std: library/std/src/sys/fs/unix.rs:520 from_stat64
   static from_stat64(stat: stat64): FileAttr {
     return new FileAttr(stat);
   }
@@ -311,17 +287,17 @@ class FileAttr {
 
   // std: library/std/src/sys/fs/unix.rs:587 modified
   modified(): IoResult<SystemTime> {
-    return SystemTime_new(this.stat.st_mtime, this.stat.st_mtime_nsec);
+    return SystemTime.new(this.stat.st_mtime, this.stat.st_mtime_nsec);
   }
 
   // std: library/std/src/sys/fs/unix.rs:627 accessed
   accessed(): IoResult<SystemTime> {
-    return SystemTime_new(this.stat.st_atime, this.stat.st_atime_nsec);
+    return SystemTime.new(this.stat.st_atime, this.stat.st_atime_nsec);
   }
 
   // std: library/std/src/sys/fs/unix.rs:664 created
   created(): IoResult<SystemTime> {
-    return SystemTime_new(this.stat.st_birthtime, this.stat.st_birthtime_nsec);
+    return SystemTime.new(this.stat.st_birthtime, this.stat.st_birthtime_nsec);
   }
 }
 

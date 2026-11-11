@@ -14,6 +14,7 @@ import {
   debug_str,
   debug_struct,
   debug_tuple,
+  debug_unit,
   debug_vec,
   type Fmt,
   format_debug,
@@ -549,4 +550,10 @@ test("format_debug of a deep chain is linear in the output size", () => {
   expect(n_big).toBeGreaterThan(50 * n_small);
   const per_byte_ratio = t_big / n_big / (Math.max(t_small, 0.5) / n_small);
   expect(per_byte_ratio).toBeLessThan(3);
+});
+
+// docs/reviews/root-w49-check.md N3: one `impl Debug for ()` for the files that each defined their own.
+test("debug_unit: `()` in both forms", () => {
+  expect(debug_unit(null, PLAIN)).toBe("()");
+  expect(format_debug(null, debug_unit, PRETTY)).toBe("()");
 });

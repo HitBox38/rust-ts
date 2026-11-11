@@ -128,7 +128,7 @@ import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
 import { type TypeVisitable, TypeVisitableExt } from "../../rustc_type_ir/visit.ts";
 import type { RegionBoundPairs } from "../../rustc_infer/infer/outlives/env.ts";
 import { debug_Location, type Location as MirLocation } from "../../rustc_middle/mir/mod.ts";
-import { type Debug, debug_option, debug_vec, type Fmt, format_debug, PLAIN, PRETTY } from "../../std/fmt.ts";
+import { type Debug, debug_option, debug_unit, debug_vec, type Fmt, format_debug, PLAIN, PRETTY } from "../../std/fmt.ts";
 import type { MutRef } from "../../std/mut_ref.ts";
 import { assert, assert_eq, unreachable, unwrap } from "../../std/panic.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
@@ -206,7 +206,6 @@ function FnSig_eq(a: FnSig, b: FnSig): boolean {
 
 /** `{:?}` of `Vec<ProjectionKind>` (`ProjectionKind = ProjectionElem<(), ()>`). */
 function debug_ProjectionKinds(v: readonly ProjectionKind[], f: Fmt): string {
-  const debug_unit: Debug<null> = () => "()";
   return debug_vec(v, f, (e, f) => debug_ProjectionElem(e, f, debug_unit, debug_unit));
 }
 

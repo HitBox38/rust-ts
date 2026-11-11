@@ -11,13 +11,14 @@
 // current; `REGEN=1 bun test src/rustc_mir_dataflow/framework/graphviz.test.ts` rewrites it.
 import { expect, test } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DenseBitSet } from "../../rustc_index/bit_set.ts";
 import type { Local } from "../../rustc_middle/mir/mod.ts";
 import { PIN, REPO } from "../../../scripts/lib/common.ts";
 import { DebugWithContext_DenseBitSet, DebugWithContext_Local } from "./fmt.ts";
 import { diff_pretty } from "./graphviz.ts";
+import { test_scratch_dir } from "../../rust_ts/test_scratch.ts";
+import { map_call, ts_file } from "../../rust_ts/track_caller.ts";
 
 const DIR = join(import.meta.dir, "graphviz_oracle");
 const CASE = "dataflow.rs";
@@ -41,9 +42,15 @@ function rustc_at_pin(): boolean {
   }
 }
 
+const HAVE = rustc_at_pin();
+if (!HAVE && !REQUIRE) console.log(`SKIP: pinned rustc (${PIN.toolchain}, ${PIN.commit.slice(0, 12)}) unavailable; RUST_TS_REQUIRE_PROBES=1 makes this a failure`);
+
+/** Under `$RUST_TS_DATA/tmp` (not the system temp dir), so a run killed before its `finally` leaves a visible directory. */
+const SCRATCH = test_scratch_dir("dataflow-graphviz");
+
 /** Runs `cmd ... dataflow.rs ARGS` in graphviz_oracle/ with its dumps in a fresh directory; returns the `.dot` files of `DOTS`. */
 function run_dumps(cmd: string[]): { code: number | null; stderr: string; dots: Map<string, string> } {
-  const tmp = mkdtempSync(join(tmpdir(), "dataflow-graphviz-"));
+  const tmp = mkdtempSync(join(SCRATCH, "run-"));
   try {
     const r = Bun.spawnSync([...cmd, CASE, ...ARGS, `-Zdump-mir-dir=${tmp}`, "--emit=metadata", "-o", join(tmp, "x.rmeta")], {
       cwd: DIR,
@@ -85,6 +92,21 @@ test("diff_pretty: removal, additions, and both (oracle cells)", () => {
   expect(diff_pretty(set(20), set(19), undefined, LocalSet)).toBe('<font color="darkgreen">+_20<br align="left"/></font><font color="red">-_19</font>');
 });
 
+// ---- node_label's panic location (docs/reviews/root-w49-check.md N1) ------------------------------
+
+// Upstream's `node_label` has two `.unwrap()`s (graphviz.rs:201 and `String::from_utf8(label).unwrap()` at :203); the port
+// has only the first, so without its `rustc-call:` anchor the track_caller walk counts 1 against 2 and refuses.
+test("node_label: its unwrap_result maps to graphviz.rs:201's .unwrap()", () => {
+  const ts = ts_file(join(import.meta.dir, "graphviz.ts"));
+  const owner = ts.owners.find((o) => o.kind === "fn" && o.path.endsWith("framework/graphviz.rs") && o.name === "node_label");
+  if (owner === undefined) throw new Error("no node_label owner");
+  const calls = ts.calls_in(owner, "unwrap_result", false);
+  expect(calls.length).toBe(1);
+  const m = map_call(ts, owner, "unwrap_result", false, calls[0]![0], calls[0]![1]);
+  if (!m.ok) throw new Error(m.why);
+  expect(m.up.line_col(m.call.pos)).toEqual([201, 56]);
+});
+
 // ---- the writers, end to end ---------------------------------------------------------------------
 
 test(
@@ -102,13 +124,12 @@ test(
   120_000,
 );
 
-test(
+// Skipped (visibly) without the pinned toolchain, as src/rustc_middle/mir/debug.oracle.test.ts does; a failure under
+// RUST_TS_REQUIRE_PROBES=1.
+test.skipIf(!HAVE && !REQUIRE)(
   "the graphviz_oracle fixture is the current oracle output",
   () => {
-    if (!rustc_at_pin()) {
-      if (REQUIRE) throw new Error(`ERROR: rustc +${PIN.toolchain} at ${PIN.commit} unavailable`);
-      return;
-    }
+    if (!HAVE) throw new Error(`ERROR: rustc +${PIN.toolchain} at ${PIN.commit} unavailable`);
     const oracle = run_dumps(["rustc", `+${PIN.toolchain}`]);
     expect(oracle.code).toBe(0);
     for (const name of DOTS) {
@@ -118,7 +139,7 @@ test(
   120_000,
 );
 
-if (process.env.REGEN === "1" && rustc_at_pin()) {
+if (process.env.REGEN === "1" && HAVE) {
   const oracle = run_dumps(["rustc", `+${PIN.toolchain}`]);
   for (const [name, text] of oracle.dots) writeFileSync(join(DIR, name), text);
 }
