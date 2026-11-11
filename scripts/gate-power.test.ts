@@ -15,7 +15,7 @@ const AC = "Now drawing from 'AC Power'\n -InternalBattery-0 (id=1)\t100%; charg
 const BATT = "Now drawing from 'Battery Power'\n -InternalBattery-0 (id=1)\t57%; discharging; 3:21 remaining present: true\n";
 
 /** Runs `gateRun` once: the readers' `pmset` gives each of `pmset` in turn, the last one staying. */
-function gate(name: string, pmset: (string | null)[], allowBattery: boolean, hostile: boolean | "never answers" = false) {
+function gate(name: string, pmset: (string | null)[], allowBattery: boolean, hostile: boolean | "never answers" = false, extraEnv: Record<string, string> = {}) {
   const data = join(TMP, name);
   const child = `
 import { writeFileSync } from "node:fs";
@@ -55,7 +55,7 @@ console.log(\`pmset reads: \${i}\`);
   // Nor with a variable that changes what a unit test checks (scripts/lib/unit-steps.ts `unitEnvRefusal`), which a unit step's own
   // environment may hold when its run is reproduced outside the gate.
   for (const k of Object.keys(UNIT_ENV_REFUSED)) delete inherited[k];
-  const r = Bun.spawnSync([process.execPath, "-e", child], { cwd: REPO, stdout: "pipe", stderr: "pipe", env: { ...inherited, RUST_TS_DATA: data } });
+  const r = Bun.spawnSync([process.execPath, "-e", child], { cwd: REPO, stdout: "pipe", stderr: "pipe", env: { ...inherited, ...extraEnv, RUST_TS_DATA: data } });
   const stdout = r.stdout.toString();
   const runs = join(data, "runs");
   const dirs = (() => {
@@ -83,6 +83,17 @@ test("on battery: refused before anything runs, one ERROR: line naming the flag"
   expect(errors.length).toBe(1);
   expect(errors[0]).toContain("on battery at 57%");
   expect(errors[0]).toContain("--allow-battery");
+  expect(r.gateJson).toBeUndefined();
+});
+
+test("`gateRun` refuses with every env refusal at once: `gateEnvRefusal`, not the first family only (review harness-w49 N2)", () => {
+  const r = gate("env-refused", [AC], false, false, { NODE_ENV: "test", REGEN: "1" });
+  expect(r.code).toBe(1);
+  const errors = r.stdout.split("\n").filter((l) => l.startsWith("ERROR:"));
+  expect(errors.length, r.stdout + r.stderr).toBe(1);
+  // Both families' variables in the one line, in `gateEnvRefusal`'s order.
+  expect(errors[0]).toMatch(/NODE_ENV=test set: .*; and REGEN=1 set: every unit test would inherit it/);
+  expect(r.stdout).not.toContain("pmset reads");
   expect(r.gateJson).toBeUndefined();
 });
 

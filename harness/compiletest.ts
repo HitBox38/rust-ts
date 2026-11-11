@@ -700,7 +700,10 @@ function needsDecision(ln: DirectiveLine): string | undefined {
 //   the libLLVM dylib, or linked in) exactly when the component was in the list.
 // So a required component is always in the list, and an optional one is iff rustc_driver's symbol table (`nm`) names its
 // TargetInfo initializer. A component in neither list (none in tests/ui at the pin) cannot be decided this way, nor can
-// any component when `nm` fails or the driver is not found: the test is rejected with that reason, as before this lane.
+// any component when `nm` fails, the driver is not found, or its table names no TargetInfo initializer at all (an empty or
+// stripped table, not an LLVM without targets): the test is rejected with that reason, as before this lane.
+// The driver read is the oracle's (aarch64-apple-darwin), not one built for COMPILETEST_TARGET: the oracle is what compiles
+// the case, and CI builds the same LLVM_TARGETS_TO_BUILD for every dist host, so the list is the same (review harness-w49 N4).
 // The lists and the component -> symbol pairs are parsed from the upstream sources, not copied. Callers without
 // `llvmComponents` keep the old rule (the directive rejects the test), so their case sets do not change.
 
@@ -727,12 +730,16 @@ export function rustcLlvmComponents(buildRs: string, libRs: string): { required:
   return { required, optional };
 }
 
-/** The symbol names in `nm` output (a leading `_`, the Mach-O C prefix, dropped). */
+/** The symbol names in `nm` output (a leading `_`, the Mach-O C prefix, dropped; an ELF symbol version, `@VER` or
+ * `@@VER` as GNU `nm` prints it, dropped too). */
 export function nmSymbols(nmOut: string): Set<string> {
   const syms = new Set<string>();
   for (const line of nmOut.split("\n")) {
-    const name = line.trim().split(/\s+/).pop();
-    if (name) syms.add(name.startsWith("_") ? name.slice(1) : name);
+    let name = line.trim().split(/\s+/).pop();
+    if (!name) continue;
+    const at = name.indexOf("@");
+    if (at > 0) name = name.slice(0, at);
+    syms.add(name.startsWith("_") ? name.slice(1) : name);
   }
   return syms;
 }
@@ -742,6 +749,12 @@ export type LlvmComponentOracle = (component: string) => { present: boolean | un
 
 /** The oracle's `LlvmComponentOracle`, from `rustcLlvmComponents` of the pinned sources and `symbols` of its rustc_driver. */
 export function llvmComponentOracle(parsed: { required: string[]; optional: Map<string, string> }, symbols: Set<string> | string): LlvmComponentOracle {
+  // rustc cannot run without a target, so a driver whose table names no TargetInfo initializer at all is a table this
+  // reading cannot use (empty, stripped, or an LLVM linked in with local symbols stripped), not an LLVM without targets:
+  // every optional component is then undecided (review harness-w49 N1).
+  const table = symbols;
+  if (typeof table !== "string" && ![...parsed.optional.values()].some((sym) => table.has(sym)))
+    symbols = "the oracle's rustc_driver symbol table names no `LLVMInitialize*TargetInfo` function, so it does not show its LLVM components";
   return (c) => {
     if (parsed.required.includes(c)) return { present: true };
     const sym = parsed.optional.get(c);
