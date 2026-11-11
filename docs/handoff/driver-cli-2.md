@@ -1,6 +1,6 @@
 # driver-cli-2 (wave 40k): handoff
 
-Porter lane. Pin `6f5da406b56c`. Base `92c72880`. Branch `t3/2c0d3fb4`. AC power throughout. Bun 1.4.4 (the machine's,
+Porter lane. Pin `6f5da406b56c`. Base `92c72880`. Branch `t3/driver-cli-metrics-targetmodifier`. AC power throughout. Bun 1.4.4 (the machine's,
 per the owner decision). `RUST_TS_AGENT=driver-cli-2 RUST_TS_REQUIRE_PROBES=1 RUSTUP_AUTO_INSTALL=0`, `--jobs 6`. No
 gate and no full suites other than the `cli` report suite the brief asks for.
 
