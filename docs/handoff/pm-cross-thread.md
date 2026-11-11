@@ -37,7 +37,9 @@ execution. What does depend on the thread:
    this (`pre_expand_ident.to_string() == "ident"` after `expand_expr` ran `echo_pm!`); a wrong answer is a client
    panic, reported as `error: proc macro panicked` lines the oracle does not print.
 2. **The thread name in a proc macro's panic message**, printed when the panic is shown (`-Zproc-macro-backtrace`):
-   `thread 'rustc'` same-thread, `thread '<unnamed>' (<tid>)` cross-thread (the tid is masked by the harness).
+   `thread '<unnamed>' (<tid>)` in both strategies (the tid is masked by the harness). The hook runs in the dylib's own
+   libstd, which never learns rustc's thread name (corrected after review: docs/reviews/pm-cross-thread.md N4; the
+   same-thread form is checked by proc_macro_host.oracle.test.ts's `-Zproc-macro-backtrace` test).
 3. **Stack size** of the client thread (std's `RUST_MIN_STACK` or 2 MiB): only visible as a stack overflow.
 4. **Nesting depth.** `recursive_expand!` nests one cross-thread client per level up to the recursion limit (128
    live threads at once, each blocked in `recv` on its own pipe, the server's JS stack holding one dispatch frame
@@ -57,8 +59,8 @@ execution. What does depend on the thread:
   as a queue. The RPC order would be the same, but the client is native code with OS-thread-local state, which the
   port cannot swap: a nested client would run inside the outer client's thread-locals. That is the re-entrance the
   upstream comment rules out, and in expand-expr.rs it invalidates the outer `expand_expr_is!`'s `Ident`/`Literal`
-  symbols (point 1), so the outputs differ. It would also print `thread 'rustc'` for a panic that the oracle prints
-  as `thread '<unnamed>'` (point 2). **Not faithful.** (It would fit a TS client, whose "thread-locals" are module
+  symbols (point 1), so the outputs differ. **Not faithful.** (Point 1 alone decides this: the thread name is
+  `<unnamed>` in both strategies, review N4.) (It would fit a TS client, whose "thread-locals" are module
   globals the port could save and restore. No real case has a TS client on this path, so TS clients stay `unported`.)
 - **C. A Bun Worker running the client.** The Worker would call the dylib's `run` through its own FFI and post each
   request to the main thread, which would block on `Atomics.wait` over a SharedArrayBuffer. Same fidelity as A for
@@ -154,8 +156,10 @@ is unchanged except that `dylib_run` now registers its `run` with `set_cross_thr
   sender (no `clone`); `into_raw` moves an end to native code, which then owns its drop.
 - thread.ts: `spawn` takes a `NativeThunk` (C entry point + argument + how to read the return value after `join`);
   `join` is always `Ok` (a native closure cannot unwind); not reproduced: spawn hooks, output capture, `Thread` /
-  `ThreadId`, and std's stack-overflow handler (an overflow on the client thread is a plain SIGSEGV/SIGBUS instead of
-  "has overflowed its stack" + SIGABRT; no case overflows).
+  `ThreadId`, and std's stack-overflow handler. An overflow on the client thread happens at the same depths on both
+  sides, but the oracle prints rustc_driver's `error: rustc interrupted by SIGBUS, printing backtrace` with frames and
+  exits 138, where the port prints Bun's crash report and exits 132 (SIGILL); no case overflows (corrected after review
+  N3, re-checked by lane fixers-51 with a recursive proc macro in both strategies).
 - proc_macro_host.c `rts_pipe_dispatch`: the `unwrap`/`expect` failures abort, as a panic out of the `extern "C"`
   `Closure::call` does upstream (and neither can happen: the server keeps its end until the join).
 

@@ -16,7 +16,7 @@ import { PIN, REPO } from "../../scripts/lib/common.ts";
 import "../proc_macro/lib.ts";
 import type { Client } from "../proc_macro/bridge/client.ts";
 import type { ExpnGlobals, TokenTree } from "../proc_macro/bridge/mod.ts";
-import { SAME_THREAD, type Server } from "../proc_macro/bridge/server.ts";
+import { CROSS_THREAD, SAME_THREAD, type Server } from "../proc_macro/bridge/server.ts";
 import { Unported, unported } from "../std/panic.ts";
 import { dlsym_proc_macros } from "../rustc_metadata/host_dylib.ts";
 import { Hash64 } from "../rustc_hashes/lib.ts";
@@ -422,6 +422,8 @@ interface MiniTS {
 }
 /** Answers what `echo!` asks (into_trees, concat_trees); `fail` makes `ts_into_trees` throw `unported`. */
 class MiniServer {
+  /** The server methods called, in order. */
+  calls: string[] = [];
   constructor(public fail: boolean) {}
   static intern_symbol(ident: string): string {
     return ident;
@@ -436,17 +438,20 @@ class MiniServer {
     return { def_site: 10, call_site: 11, mixed_site: 12 };
   }
   ts_into_trees(stream: MiniTS): TokenTree<MiniTS, number, string>[] {
+    this.calls.push("ts_into_trees");
     if (this.fail) return unported("pm-host test: a server method that is not ported");
     return stream.trees;
   }
   ts_concat_trees(base: MiniTS | undefined, trees: TokenTree<MiniTS, number, string>[]): MiniTS {
+    this.calls.push("ts_concat_trees");
     return { trees: [...(base?.trees ?? []), ...trees] };
   }
-  ts_drop(_stream: MiniTS): void {}
+  ts_drop(_stream: MiniTS): void {
+    this.calls.push("ts_drop");
+  }
 }
 /** The rest of `Server` is not called by `echo!`; a call fails the test. */
-function mini_server(fail: boolean): Server<MiniTS, number, string> {
-  const m = new MiniServer(fail);
+function mini_server(fail: boolean, m: MiniServer = new MiniServer(fail)): Server<MiniTS, number, string> {
   return new Proxy(m, {
     get(target, key, recv) {
       if (key in target) return Reflect.get(target, key, recv);
@@ -456,6 +461,22 @@ function mini_server(fail: boolean): Server<MiniTS, number, string> {
     },
   }) as unknown as Server<MiniTS, number, string>;
 }
+
+/** A bang macro that survives a failing `into_trees` (the server's `Err` resumed as a panic in the client) and then
+ *  asks the server for one more thing: its output stream (`ts_concat_trees`). */
+const RECOVER_PM = `extern crate proc_macro;
+use proc_macro::{Ident, Span, TokenStream, TokenTree};
+use std::panic::{catch_unwind, AssertUnwindSafe};
+
+#[proc_macro]
+pub fn recover(input: TokenStream) -> TokenStream {
+    let _ = catch_unwind(AssertUnwindSafe(move || input.into_iter().count()));
+    vec![TokenTree::Ident(Ident::new("after", Span::call_site()))].into_iter().collect()
+}
+`;
+
+/** What `echo!` asks of the server on success. */
+const CALLS_OK = ["ts_into_trees", "ts_concat_trees"];
 
 describe.skipIf(SKIP)("proc-macro host dylibs in process (Client.run1 through the FFI edge)", () => {
   let echo: Client | undefined;
@@ -467,6 +488,15 @@ describe.skipIf(SKIP)("proc-macro host dylibs in process (Client.run1 through th
     // The decls order is the crate's: echo (bang), hello (derive), wrap (attr).
     echo = r._0[0]!;
     return echo;
+  };
+  let recover: Client | undefined;
+  const recover_client = (): Client => {
+    if (recover !== undefined) return recover;
+    const file = build_proc_macro("recover_pm_inproc", RECOVER_PM);
+    const r = dlsym_proc_macros(join(WORK, file), StableCrateId.of(Hash64.new(decls_id(file))));
+    if (r.$ !== "Ok") throw new Error(`dlsym_proc_macros failed: ${r._0._1}`);
+    recover = r._0[0]!;
+    return recover;
   };
   const input = (): MiniTS => ({ trees: [{ $: "Ident", _0: { sym: "a", kind: "Normal", span: 11 } }] });
 
@@ -482,6 +512,35 @@ describe.skipIf(SKIP)("proc-macro host dylibs in process (Client.run1 through th
   test("a JS exception in a server method is rethrown after the client returns; the bridge stays usable", () => {
     expect(() => echo_client().run1(SAME_THREAD, mini_server(true), input(), false)).toThrow(Unported);
     const again = echo_client().run1(SAME_THREAD, mini_server(false), input(), false);
+    expect(again.$).toBe("Ok");
+  }, 60_000);
+
+  // The cross-thread strategy (server.ts `MaybeCrossThread::run_bridge_and_client`): the client runs on a second
+  // native thread while the server loop runs here.
+  test("echo! cross-thread: the same answer as same-thread", () => {
+    const m = new MiniServer(false);
+    const r = echo_client().run1(CROSS_THREAD, mini_server(false, m), input(), false);
+    expect(r.$).toBe("Ok");
+    if (r.$ === "Ok") {
+      expect(r._0.trees.length).toBe(2);
+      expect(r._0.trees[1]).toEqual({ $: "Ident", _0: { sym: "extra", kind: "Normal", span: 11 } });
+    }
+    expect(m.calls).toEqual(CALLS_OK);
+  }, 60_000);
+
+  // docs/reviews/pm-cross-thread.md N5: a JS exception out of `dispatcher.dispatch` while the client is on the other
+  // thread is answered `Err(PanicMessage::Unknown)`; the client resumes it as a panic, which `recover!` catches, so it
+  // makes one more server call (`ts_concat_trees` for its output) and returns; only after the join is the exception
+  // rethrown. Without the catch the exception would leave the server loop at once, with the client blocked in `recv`
+  // for its reply, and the second call would never reach the server.
+  test("a JS exception in a server method while the client is on the other thread is rethrown after the join", () => {
+    const same = new MiniServer(true);
+    expect(() => recover_client().run1(SAME_THREAD, mini_server(true, same), input(), false)).toThrow(Unported);
+    expect(same.calls).toEqual(["ts_into_trees", "ts_concat_trees"]);
+    const m = new MiniServer(true);
+    expect(() => recover_client().run1(CROSS_THREAD, mini_server(true, m), input(), false)).toThrow(Unported);
+    expect(m.calls).toEqual(["ts_into_trees", "ts_concat_trees"]);
+    const again = echo_client().run1(CROSS_THREAD, mini_server(false), input(), false);
     expect(again.$).toBe("Ok");
   }, 60_000);
 });

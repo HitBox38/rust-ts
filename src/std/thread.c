@@ -34,8 +34,22 @@ void *dlsym(void *handle, const char *symbol);
 #endif
 
 #define RTS_EINVAL 22
-// `libc::PTHREAD_STACK_MIN` on macOS (aarch64 and x86_64) and on Linux glibc.
+// `libc::PTHREAD_STACK_MIN` (libc 0.2.189, the version in library/Cargo.lock). PORT: one value, which holds only on
+// aarch64-apple-darwin (src/unix/bsd/apple/mod.rs:2543, the root host, where it is checked) and on glibc for arm, x86,
+// x86_64, s390x and riscv (src/unix/linux_like/linux/gnu/mod.rs:973; there it is only the fallback when
+// `__pthread_get_minstack` is missing). Elsewhere libc has another value: 8192 on x86_64 apple (apple/mod.rs:2545),
+// 0x6000 on glibc sparc and 131072 on glibc aarch64 and the remaining arches (gnu/mod.rs:975,977), and 2048 on musl
+// (src/unix/linux_like/linux/musl/mod.rs:576, where std does not look up `__pthread_get_minstack` at all, unlike the
+// `#ifdef __linux__` below). It matters only when `RUST_MIN_STACK` is below the floor.
 #define RTS_PTHREAD_STACK_MIN 16384
+
+// `rts_thread_spawn`'s `*err` values other than 0 and a positive `pthread_create` error (src/std/thread.ts reads
+// them): each is a point where std's `Thread::new` returns an error or fails an assertion, either of which becomes a
+// panic, so thread.ts stops `unported` instead of the process aborting here.
+#define RTS_SPAWN_INVALID_STACK_SIZE (-1) // Err(io::const_error!(InvalidInput, "invalid stack size"))
+#define RTS_SPAWN_ATTR_INIT_FAILED (-2)   // assert_eq!(libc::pthread_attr_init(..), 0)
+#define RTS_SPAWN_SETSTACKSIZE_FAILED (-3) // assert_eq!(n, libc::EINVAL)
+#define RTS_SPAWN_ATTR_DESTROY_FAILED (-4) // the DropGuard's assert_eq!(libc::pthread_attr_destroy(..), 0)
 
 typedef struct {
   _Alignas(16) unsigned char bytes[128];
@@ -59,30 +73,57 @@ static rts_size_t rts_min_stack_size(void *attr) {
 }
 
 /// `Thread::new(stack, ..)`: a joinable thread running `start(arg)` with a stack of at least `stack` bytes.
-/// Returns null and sets `*err` to the `pthread_create` error on failure.
+/// Returns the thread with `*err` = 0, or null with `*err` = the `pthread_create` error (> 0) or one of the
+/// `RTS_SPAWN_*` codes (< 0). `RTS_SPAWN_ATTR_DESTROY_FAILED` can also come after the thread was created: then the
+/// thread is returned (it runs, as upstream's does when its guard's assertion panics) and the caller stops.
 void *rts_thread_spawn(void *(*start)(void *), void *arg, rts_size_t stack, int *err) {
   rts_opaque attr;
   rts_size_t stack_size;
   int r;
+  int ret;
   rts_thread *t = (rts_thread *)calloc(1, sizeof(rts_thread));
   if (t == 0) abort(); // handle_alloc_error
-  if (pthread_attr_init(&attr) != 0) abort(); // assert_eq!(.., 0)
+  if (pthread_attr_init(&attr) != 0) {
+    free(t);
+    *err = RTS_SPAWN_ATTR_INIT_FAILED;
+    return 0;
+  }
   stack_size = stack > rts_min_stack_size(&attr) ? stack : rts_min_stack_size(&attr);
   r = pthread_attr_setstacksize(&attr, stack_size);
-  if (r == RTS_EINVAL) {
+  if (r != 0) {
+    rts_size_t page_size;
+    if (r != RTS_EINVAL) {
+      // The assertion panics while the DropGuard is live, so the guard still destroys `attr` while unwinding.
+      pthread_attr_destroy(&attr);
+      free(t);
+      *err = RTS_SPAWN_SETSTACKSIZE_FAILED;
+      return 0;
+    }
     // EINVAL means |stack_size| is either too small or not a multiple of the system page size. Because it's
     // definitely >= PTHREAD_STACK_MIN, it must be an alignment issue. Round up to the nearest page and try again.
-    rts_size_t page_size = (rts_size_t)getpagesize();
+    page_size = (rts_size_t)getpagesize();
     stack_size = (stack_size + page_size - 1) & (-(long)(page_size - 1) - 1);
-    if (pthread_attr_setstacksize(&attr, stack_size) != 0) abort(); // assert_eq!(.., 0)
-  } else if (r != 0) {
-    abort(); // assert_eq!(.., 0)
+    // Some libc implementations, e.g. musl, place an upper bound on the stack size, in which case we can only
+    // gracefully return an error here.
+    if (pthread_attr_setstacksize(&attr, stack_size) != 0) {
+      free(t);
+      *err = pthread_attr_destroy(&attr) != 0 ? RTS_SPAWN_ATTR_DESTROY_FAILED : RTS_SPAWN_INVALID_STACK_SIZE;
+      return 0;
+    }
   }
-  r = pthread_create(&t->native, &attr, start, arg);
-  pthread_attr_destroy(&attr);
-  if (r != 0) {
+  ret = pthread_create(&t->native, &attr, start, arg);
+  // The DropGuard runs when `new` returns, after `pthread_create` either way.
+  if (pthread_attr_destroy(&attr) != 0) {
+    if (ret != 0) {
+      free(t);
+      t = 0;
+    }
+    *err = RTS_SPAWN_ATTR_DESTROY_FAILED;
+    return t;
+  }
+  if (ret != 0) {
     free(t);
-    *err = r;
+    *err = ret;
     return 0;
   }
   *err = 0;
