@@ -27,7 +27,11 @@ export interface UnitStep {
  * - "unit tests" (src/, tools/): oracle unit tests fail (instead of skipping) when their probe is missing. Four workers
  *   (lane unit-parallel), then its `alone` files in one process.
  * - "runner unit tests" (scripts/, harness/), in a process of their own: they point RUST_TS_DATA and the modules
- *   that read it (scripts/lib/common.ts) at temp dirs, which the src/tools tests must not see. One file after another:
+ *   that read it (scripts/lib/common.ts) at temp dirs, which the src/tools tests must not see. **common.ts reads RUST_TS_DATA
+ *   once, when it first loads, so a runner test file that loads it in this process (directly or through any import) fixes
+ *   RUST_TS_DATA for every later file**: breakage that depends on file order and shows only in the gate's one-process step
+ *   (lane scope-m7). Such a file runs its common.ts users in a child with a temp RUST_TS_DATA instead (scripts/subject-bin.test.ts);
+ *   scripts/lib/unit-steps.test.ts fails on any new one (`COMMON_LOADERS`, review scope-m7 N4). One file after another:
  *   under `--isolate` a file would load common.ts again with whatever env an earlier file of its worker left behind
  *   (review harness-w43 section 8), and no one has audited these files for that.
  * The roots are disjoint and cover every `*.test.ts` of the repo (scripts/lib/unit-steps.test.ts).

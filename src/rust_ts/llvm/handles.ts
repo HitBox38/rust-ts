@@ -3,10 +3,11 @@
 // (LLVM's pointer equality, which the model keeps by uniquing types and constants), and never reads their fields.
 //
 // A handle the model implements is its class in ir.ts. The others are opaque brands until their lane gives them a class:
-// llir-core-b (`BasicBlock`, `Builder`, `OperandBundle`, `DbgRecord`), llir-di (`DIBuilder`), the driver lanes
+// llir-di (`DbgRecord`, `DIBuilder`; `BasicBlock`, `Builder` and `OperandBundle` are llir-core-b's inst.ts classes), the driver lanes
 // (`TargetMachine`, `MCSubtargetInfo`, `Buffer`, `ThinLTOData`, `Linker`, diagnostics). Such a lane replaces the brand here
 // with its class; the name stays, so ffi.ts and its callers do not change.
-import type { Attribute as IrAttribute, BasicBlockBase, Comdat as IrComdat, ConstantInt as IrConstantInt, Context as IrContext, Metadata as IrMetadata, Module as IrModule, Type as IrType, Value as IrValue } from "./ir.ts";
+import type { BasicBlock as InstBasicBlock, IRBuilder, OperandBundleDef } from "./inst.ts";
+import type { Attribute as IrAttribute, Comdat as IrComdat, ConstantInt as IrConstantInt, Context as IrContext, Metadata as IrMetadata, Module as IrModule, Type as IrType, Value as IrValue } from "./ir.ts";
 
 export type { RustString } from "./support.ts";
 
@@ -18,14 +19,13 @@ export type ConstantInt = IrConstantInt;
 export type Attribute = IrAttribute;
 export type Metadata = IrMetadata;
 export type Comdat = IrComdat;
-/** llir-core-b's basic block class extends `BasicBlockBase`. */
-export type BasicBlock = BasicBlockBase;
+export type BasicBlock = InstBasicBlock;
+export type Builder = IRBuilder;
+export type OperandBundle = OperandBundleDef;
 
 declare const opaque: unique symbol;
 type Opaque<N extends string> = { readonly [opaque]: N };
 
-export type Builder = Opaque<"Builder">;
-export type OperandBundle = Opaque<"OperandBundle">;
 export type DbgRecord = Opaque<"DbgRecord">;
 export type DIBuilder = Opaque<"DIBuilder">;
 export type TargetMachine = Opaque<"TargetMachine">;

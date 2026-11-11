@@ -7,7 +7,7 @@
 // `gate.ts run` runs from a private copy of its Bun (`gateBunClone`, review bun-144-recheck F1-r): tested through the real copy and
 // second process, with a swap of the original that is undone before the next reading.
 import { afterAll, expect, test } from "bun:test";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, lutimesSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 // No import may load scripts/lib/common.ts (scripts/lib/subject-bin.ts does): this file runs in the runner unit-test process
@@ -362,6 +362,9 @@ test("builtByRefusal: every subject binary must be built by the gate's Bun", () 
   // A build that records its builder's file content must have been built by the gate's file.
   expect(builtByRefusal([{ ...bins[0]!, bun: { ...GATE_BUN, sha1: "a".repeat(40) } }], GATE_BUN, "a".repeat(40))).toBeUndefined();
   expect(builtByRefusal([{ ...bins[0]!, bun: { ...GATE_BUN, sha1: "b".repeat(40) } }], GATE_BUN, "a".repeat(40))).toContain("sha1 bbbbbbbbbbbb");
+  // When the gate knows its file's content, a record without the builder's is refused (review bun-144-recheck3 N3); without it, not.
+  expect(builtByRefusal(bins, GATE_BUN, "a".repeat(40))).toContain("subject binary src/rust_ts/main.ts (aaaaaaaaaaaa, built by Bun");
+  expect(builtByRefusal(bins, GATE_BUN)).toBeUndefined();
 });
 
 /**
@@ -537,6 +540,115 @@ test("pruneGateBunDirs removes only copies whose gate is gone, and half-made one
   utimesSync(old, new Date(Date.now() - 3_600_000), new Date(Date.now() - 3_600_000));
   expect(pruneGateBunDirs(root).map((d) => d.slice(root.length + 1)).sort()).toEqual(["dead", "old"]);
   expect(readdirSync(root).sort()).toEqual(["fresh", "live"]);
+});
+
+test("pruneGateBunDirs keeps a copy while either process its owner.json records is alive (review bun-144-recheck3 N1)", () => {
+  const root = mkdtempSync(join(TMP, "prune-pids-"));
+  const dead = Bun.spawnSync(["/usr/bin/true"]).pid;
+  for (const [name, owner] of [["orphan", { pid: dead, child: process.pid }], ["first", { pid: process.pid, child: dead }], ["both-gone", { pid: dead, child: dead }], ["null", null]] as const) {
+    mkdirSync(join(root, name));
+    writeFileSync(join(root, name, "owner.json"), JSON.stringify(owner));
+  }
+  expect(pruneGateBunDirs(root).map((d) => d.slice(root.length + 1)).sort()).toEqual(["both-gone", "null"]);
+  expect(readdirSync(root).sort()).toEqual(["first", "orphan"]);
+});
+
+test("pruneGateBunDirs: a dangling link or an entry gone mid-scan is no error; any other failure is one line naming the entry (recheck3 N2)", () => {
+  const root = mkdtempSync(join(TMP, "prune-odd-"));
+  const target = join(TMP, "prune-odd-target");
+  mkdirSync(target);
+  writeFileSync(join(target, "keep"), "");
+  // A link is never followed: a fresh one stays, an old one goes (the link alone, not what it names); a dangling one likewise.
+  symlinkSync(target, join(root, "link-fresh"));
+  symlinkSync(target, join(root, "link-old"));
+  symlinkSync(join(TMP, "nowhere"), join(root, "dangling"));
+  const hourAgo = new Date(Date.now() - 3_600_000);
+  for (const l of ["link-old", "dangling"]) lutimesSync(join(root, l), hourAgo, hourAgo);
+  mkdirSync(join(root, "vanishes"));
+  utimesSync(join(root, "vanishes"), hourAgo, hourAgo);
+  const removed = pruneGateBunDirs(root, Date.now(), () => rmSync(join(root, "vanishes"), { recursive: true }));
+  expect(removed.map((d) => d.slice(root.length + 1)).sort()).toEqual(["dangling", "link-old"]);
+  expect(readdirSync(root).sort()).toEqual(["link-fresh"]);
+  expect(readdirSync(target)).toEqual(["keep"]);
+  // A directory it cannot remove: thrown as one line that names it (gate.ts prints it as its one `ERROR:` line).
+  const locked = join(root, "locked");
+  mkdirSync(join(locked, "inner"), { recursive: true });
+  chmodSync(locked, 0o500);
+  utimesSync(locked, hourAgo, hourAgo);
+  try {
+    expect(() => pruneGateBunDirs(root)).toThrow(new RegExp(`^cannot prune ${locked}: `));
+    // Through gate.ts: one ERROR: line, no stack trace.
+    const r = cloneChild("prune-locked", root, "");
+    expect(r.code).toBe(1);
+    expect(errorLines(r.out)).toEqual([expect.stringMatching(new RegExp(`^ERROR: cannot prune ${locked}: `))]);
+    expect(r.out + r.err).not.toContain("    at ");
+  } finally {
+    chmodSync(locked, 0o700);
+  }
+});
+
+/** A child that runs `gateBunClone({ dir })` from the running Bun, then `then` in the second process. */
+function cloneChild(name: string, dir: string, then: string, opts: { wait?: false } = {}) {
+  const { data, env } = dataDir(name);
+  const script = join(data, "clone-child.ts");
+  writeFileSync(script, `
+const { gateBunClone } = await import(${JSON.stringify(join(REPO, "scripts/gate.ts"))});
+const c = await gateBunClone({ dir: ${JSON.stringify(dir)} });
+${then}
+`);
+  if (opts.wait === false) return { proc: Bun.spawn([process.execPath, script], { cwd: REPO, stdout: "pipe", stderr: "pipe", env }), data, code: 0, out: "", err: "" };
+  const p = Bun.spawnSync([process.execPath, script], { cwd: REPO, stdout: "pipe", stderr: "pipe", env });
+  return { proc: undefined, data, code: p.exitCode, out: p.stdout.toString(), err: p.stderr.toString() };
+}
+
+test("a gate whose first process is SIGKILLed keeps its copy through a later prune, which removes it once that gate ends (recheck3 N1)", async () => {
+  const root = join(mkdtempSync(join(TMP, "orphan-")), "gate-bun");
+  const ready = join(TMP, "orphan-ready");
+  const stop = join(TMP, "orphan-stop");
+  const c = cloneChild("orphan", root, `
+const { existsSync, writeFileSync } = await import("node:fs");
+writeFileSync(${JSON.stringify(ready)}, String(process.pid));
+while (!existsSync(${JSON.stringify(stop)})) await Bun.sleep(50);
+`, { wait: false });
+  const first = c.proc!;
+  const until = async (cond: () => boolean) => {
+    for (let i = 0; i < 400 && !cond(); i++) await Bun.sleep(50);
+    expect(cond()).toBe(true);
+  };
+  await until(() => existsSync(ready) && readFileSync(ready, "utf8") !== "");
+  const second = Number(readFileSync(ready, "utf8"));
+  const [home] = readdirSync(root);
+  const owner = JSON.parse(readFileSync(join(root, home!, "owner.json"), "utf8"));
+  expect(owner).toEqual({ pid: first.pid, child: second, startedAt: expect.any(String) });
+  first.kill("SIGKILL");
+  await first.exited;
+  // The orphan runs on: the prune keeps its copy.
+  expect(pruneGateBunDirs(root)).toEqual([]);
+  expect(existsSync(join(root, home!, "bun"))).toBe(true);
+  writeFileSync(stop, "");
+  await until(() => {
+    try {
+      process.kill(second, 0);
+      return false;
+    } catch {
+      return true;
+    }
+  });
+  expect(pruneGateBunDirs(root)).toEqual([join(root, home!)]);
+}, 60_000);
+
+test("a RUST_TS_DATA whose real path holds a \`:\` is refused before any copy (recheck3 N4)", () => {
+  const parent = mkdtempSync(join(TMP, "colon-"));
+  const viaLink = join(parent, "plain");
+  mkdirSync(join(parent, "a:b"));
+  symlinkSync(join(parent, "a:b"), viaLink);
+  for (const dir of [join(parent, "a:b", "gate-bun"), join(viaLink, "gate-bun")]) {
+    const r = cloneChild("colon", dir, `console.log("second process");`);
+    expect(r.code, r.out + r.err).toBe(1);
+    expect(errorLines(r.out)).toEqual([expect.stringContaining("whose path holds a `:`")]);
+    expect(r.out).not.toContain("second process");
+    expect(readdirSync(join(parent, "a:b", "gate-bun"))).toEqual([]);
+  }
 });
 
 test("gate.ts run refuses a subject binary its builder's record says another Bun built (review bun-144-recheck2 N8, N7)", () => {

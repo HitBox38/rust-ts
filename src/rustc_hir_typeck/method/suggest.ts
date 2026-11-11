@@ -32,7 +32,7 @@ import { find_attr } from "../../rustc_attr_ir/lib.ts";
 import { LangItem } from "../../rustc_attr_ir/lang_items.ts";
 import { SortedMap } from "../../rustc_data_structures/sorted_map.ts";
 import { MultiSpan } from "../../rustc_error_messages/lib.ts";
-import { listify, pluralize, StringPart, str_trim, struct_span_code_err } from "../../rustc_errors/lib.ts";
+import { listify, pluralize, StringPart, struct_span_code_err } from "../../rustc_errors/lib.ts";
 import { E0034, E0599, E0624 } from "../../rustc_errors/error_codes.gen.ts";
 import * as hir_ from "../../rustc_hir/lib.ts";
 import { debug_Node } from "../../rustc_hir/hir.gen.ts";
@@ -76,7 +76,7 @@ import { is_whitespace } from "../../std/char.ts";
 import type { MutRef } from "../../std/mut_ref.ts";
 import { unreachable, unwrap } from "../../std/panic.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
-import { utf8_len } from "../../std/str.ts";
+import { string_trim, string_trim_end, utf8_len } from "../../std/str.ts";
 import { PLAIN } from "../../std/fmt.ts";
 import { expr_place } from "../expr_use_visitor.ts";
 import { Expectation } from "../expectation.ts";
@@ -128,22 +128,6 @@ function vec_dedup_by<T>(v: T[], same_bucket: (a: T, b: T) => boolean): void {
     v[w++] = v[r]!;
   }
   v.length = w;
-}
-
-/** `str::trim_end` (Unicode `White_Space`). */
-function string_trim_end(s: string): string {
-  const cps = Array.from(s);
-  let b = cps.length;
-  while (b > 0 && is_whitespace(cps[b - 1]!.codePointAt(0)!)) b--;
-  return cps.slice(0, b).join("");
-}
-
-/** `str::trim` (Unicode `White_Space`, both ends). */
-function string_trim(s: string): string {
-  const cps = Array.from(string_trim_end(s));
-  let a = 0;
-  while (a < cps.length && is_whitespace(cps[a]!.codePointAt(0)!)) a++;
-  return cps.slice(a).join("");
 }
 
 /** `SortedMap::get_mut_or_insert_default` (rustc_data_structures sorted_map.rs) for a `Vec` value. */
@@ -459,7 +443,7 @@ FnCtxt.prototype.report_method_error = function (this: FnCtxt, call_id: HirId, r
           const suggest_for_privacy = (err: Diag, msg: string, suggs: string[]): void => {
             if (suggs.length === 1) {
               const sugg = suggs[0]!;
-              err.help(`trait \`${str_trim(sugg)}\` provides \`${display_Ident(item_name)}\` is implemented but not reachable`);
+              err.help(`trait \`${string_trim(sugg)}\` provides \`${display_Ident(item_name)}\` is implemented but not reachable`);
             } else {
               msg += ` but ${pluralize("is", suggs.length)} not reachable`;
               err.help(`${msg}:\n${string_trim_end(suggs.join(""))}`);

@@ -34,6 +34,15 @@ describe("definitions", () => {
   test("noexcept, override, final, const &, trailing return types, function-try-blocks", () => {
     expect(fns("struct S {\n  void a() const noexcept {}\n  void b() override final {}\n  int &c() & { return x; }\n  auto d() -> int { return 1; }\n  void e() noexcept(true) {}\n  void f() try { g(); } catch (...) {}\n};\n")).toEqual(["2 a", "3 b", "4 c", "5 d", "6 e", "7 f"]);
   });
+  test("a class template with default template arguments keeps its body (IRBuilder.h's head; review scope-m7 N1)", () => {
+    expect(fns("template <typename FolderTy = ConstantFolder,\n          typename InserterTy = IRBuilderDefaultInserter>\nclass IRBuilder : public IRBuilderBase {\n  FolderTy Folder;\npublic:\n  IRBuilder(LLVMContext &C, FolderTy Folder, InserterTy Inserter = InserterTy())\n      : IRBuilderBase(C, this->Folder, this->Inserter), Folder(Folder) {}\n  InserterTy &getInserter() { return Inserter; }\n};\n")).toEqual(["6 IRBuilder", "8 getInserter"]);
+    expect(fns("template <typename T = int> class Box { void get() {} };\ntemplate <typename T, typename U = std::vector<std::pair<T, int>>> struct Two { U u() { return {}; } };\n")).toEqual(["1 get", "2 u"]);
+    // A variable's `=` still makes the brace an initializer.
+    expect(fns("struct P p = { 1, 2 };\ntemplate <typename T = int> struct Q q = {};\nvoid after() {}\n")).toEqual(["3 after"]);
+  });
+  test("a brace-init then a paren-init in an initializer list: one definition (review scope-m7 N7)", () => {
+    expect(fns("Foo::Foo(int a) : Base{a}, Member(a) {\n  init();\n}\nstruct S {\n  S(int x) : A<int>{x}, B{x, {1}} { go(); }\npublic:\n  int g() const { return 1; }\n  S() override : C(1) {}\npublic:\n  auto h() -> Foo { return {}; }\n};\n")).toEqual(["1 Foo::Foo", "5 S", "7 g", "8 S", "10 h"]);
+  });
   test("a macro call before a definition, with no semicolon", () => expect(fns("DEFINE_SIMPLE_CONVERSION_FUNCTIONS(Foo, LLVMFooRef)\nextern \"C\" void g(int x) {}\n")).toEqual(["2 g"]));
 });
 

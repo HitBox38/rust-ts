@@ -350,6 +350,7 @@
     "derive_decodable": true,
     "derive_encodable": true,
     "decodable_types": [
+      "rustc_crate_store::cstore::CrateSource",
       "rustc_crate_store::cstore::CrateDepKind",
       "rustc_crate_store::cstore::LinkagePreference",
       "rustc_crate_store::cstore::NativeLib",
@@ -360,7 +361,7 @@
     ],
     "hand_notes": {
       "rustc_crate_store::cstore::CrateStoreDyn": "`dyn CrateStore + DynSync + DynSend`: the trait object is the hand-written CrateStore interface (cstore.ts)",
-      "decodable_types": "the types crate metadata's eagerly decoded parts contain (rmeta CrateDep, dylib_dependency_formats); `NativeLib` / `ForeignModule` and their field types: the crate root's `native_libraries` / `foreign_modules` (rmeta encoder.rs `encode_native_libraries` / `encode_foreign_modules`, decoder.rs `get_native_libraries` / `get_foreign_modules`; lane rmeta-gaps-a)"
+      "decodable_types": "the types crate metadata's eagerly decoded parts contain (rmeta CrateDep, dylib_dependency_formats); `NativeLib` / `ForeignModule` and their field types: the crate root's `native_libraries` / `foreign_modules` (rmeta encoder.rs `encode_native_libraries` / `encode_foreign_modules`, decoder.rs `get_native_libraries` / `get_foreign_modules`; lane rmeta-gaps-a); `CrateSource`: rustc_codegen_ssa `CrateInfo.used_crate_source` (rlink, set rustc_codegen_ssa_lib; codegen-sets-m7)"
     }
   },
   "rustc_attr_ir": {
@@ -1906,8 +1907,6 @@
       "rustc_codegen_ssa::diagnostics::LinkingFailed",
       "rustc_codegen_ssa::diagnostics::ProcessingDymutilFailed",
       "rustc_codegen_ssa::diagnostics::StrippingDebugInfoFailed",
-      "rustc_codegen_ssa::diagnostics::InvalidMonomorphization",
-      "rustc_codegen_ssa::diagnostics::FailedToGetLayout",
       "rustc_codegen_ssa::diagnostics::FeatureNotValid",
       "rustc_codegen_ssa::diagnostics::CrossArchFeatureNote",
       "rustc_codegen_ssa::diagnostics::FeatureNotValidHint"
@@ -1917,14 +1916,61 @@
       "rustc_codegen_ssa::diagnostics::LinkingFailed": "fields `ExitStatus` / `back::command::Command` (linker, not ported)",
       "rustc_codegen_ssa::diagnostics::ProcessingDymutilFailed": "field `ExitStatus` (linker, not ported)",
       "rustc_codegen_ssa::diagnostics::StrippingDebugInfoFailed": "field `ExitStatus` (linker, not ported)",
-      "rustc_codegen_ssa::diagnostics::InvalidMonomorphization": "field `rustc_abi::NumScalableVectors` (codegen intrinsics, not ported)",
-      "rustc_codegen_ssa::diagnostics::FailedToGetLayout": "field `LayoutError` (no IntoDiagArg in TS yet)",
       "rustc_codegen_ssa::diagnostics::FeatureNotValid": "hand-written in src/rustc_codegen_ssa/diagnostics.ts (lane codegen-fn-attrs) with its two subdiagnostics below",
       "rustc_codegen_ssa::diagnostics::CrossArchFeatureNote": "derive(Subdiagnostic) with a `DiagSymbolList<&str>` field: the generator emits `DiagSymbolList_into_diag_arg_with((x) => x)(..)`, whose `S` tsc cannot infer (TS2322); hand-written in src/rustc_codegen_ssa/diagnostics.ts until the generator types the `$display0` lambda",
       "rustc_codegen_ssa::diagnostics::FeatureNotValidHint": "as CrossArchFeatureNote (`DiagSymbolList<&str>` field); hand-written in src/rustc_codegen_ssa/diagnostics.ts"
     },
     "derive_default": true,
-    "typemap_extra": ["tyir.typemap.json"]
+    "typemap_extra": ["tyir.typemap.json", "codegen_ssa.typemap.json"],
+    "diag_args_lazy": ["rustc_middle::ty::layout::LayoutError"],
+    "diag_args_lazy_note": "codegen-sets-m7: FailedToGetLayout's `LayoutError_into_diag_arg` is in rustc_middle ty/layout.ts, an extension module (layout-contract decision 9), so it is required at call time, not imported"
+  },
+  "rustc_codegen_ssa_lib": {
+    "files": ["compiler/rustc_codegen_ssa/src/lib.rs"],
+    "class": ["rustc_codegen_ssa::SymbolExport", "rustc_codegen_ssa::CompiledModules", "rustc_codegen_ssa::CodegenLintLevelSpecs"],
+    "hand": [],
+    "discriminant": [],
+    "skip": [],
+    "derive_only": true,
+    "derive_decodable": true,
+    "derive_encodable": true,
+    "decodable_types": [
+      "rustc_codegen_ssa::CompiledModule",
+      "rustc_codegen_ssa::ModuleKind",
+      "rustc_codegen_ssa::NativeLib",
+      "rustc_codegen_ssa::SymbolExport",
+      "rustc_codegen_ssa::EiiLinkageImplInfo",
+      "rustc_codegen_ssa::EiiLinkageInfo",
+      "rustc_codegen_ssa::CrateInfo",
+      "rustc_codegen_ssa::CompiledModules",
+      "rustc_codegen_ssa::CodegenLintLevelSpecs"
+    ],
+    "typemap_extra": ["codegen_ssa.typemap.json"],
+    "hand_notes": {
+      "*": "lane codegen-sets-m7: the types of lib.rs are hand-written in src/rustc_codegen_ssa/lib.ts (lane ssa-contract and earlier); this set only generates rustc_codegen_ssa/decodable.gen.ts, the derive(Encodable/Decodable) that `CompiledModules::serialize_rlink` / `deserialize_rlink` use (`-Zno-link` / `-Zlink-only`)",
+      "class": "constructed with `new T(fields in declaration order)`"
+    }
+  },
+  "rustc_codegen_ssa_link": {
+    "files_note": "lane codegen-sets-m7: the derive(Diagnostic) `LinkerOutput` of back/link.rs (`report_linker_output`), into back/link.gen.ts; the file's other types are hand-written in back/link.ts",
+    "files": ["compiler/rustc_codegen_ssa/src/back/link.rs"],
+    "class": [],
+    "hand": [],
+    "discriminant": [],
+    "skip": ["rustc_codegen_ssa::back::link::NativeLibSearchFallback", "rustc_codegen_ssa::back::link::RlibFlavor"],
+    "skip_notes": {
+      "rustc_codegen_ssa::back::link::NativeLibSearchFallback": "hand-written (module-private interface) in src/rustc_codegen_ssa/back/link.ts",
+      "rustc_codegen_ssa::back::link::RlibFlavor": "hand-written (module-private string union) in src/rustc_codegen_ssa/back/link.ts"
+    }
+  },
+  "rustc_codegen_llvm": {
+    "files_note": "lane codegen-sets-m7 (plan-m7 wave 40): the crate's diagnostics.rs; `ParseTargetMachineConfig` and `WithLlvmError` have manual `Diagnostic` impls (only their types are generated)",
+    "files": ["compiler/rustc_codegen_llvm/src/diagnostics.rs"],
+    "class": [],
+    "hand": [],
+    "discriminant": [],
+    "skip": [],
+    "typemap_extra": ["codegen_llvm.typemap.json"]
   },
   "rustc_hir_typeck": {
     "files": [

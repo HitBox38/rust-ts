@@ -5,12 +5,15 @@
 //       (`--json`: one JSON line, what scripts/lib/subject-bin.ts `subjectBin` reads). A failure is one `ERROR:` line, exit 1.
 //   bun scripts/subject-bin.ts list      the cached builds
 //   bun scripts/subject-bin.ts prune     removes builds no run has used for 3 days
+//   bun scripts/subject-bin.ts prune --pre-v4
+//       removes the builds keyed before `v: 4` (their meta.json records no builder sha1), which no builder finds again, whatever
+//       their age (review bun-144-recheck3 N5)
 //
 // The harness picks the mode with RUST_TS_SUBJECT=binary|source (default: scripts/lib/subject-bin.ts `DEFAULT_SUBJECT_MODE`).
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "./lib/common.ts";
-import { BINARY_ENTRIES, PRUNE_AFTER_MS, binaryModeRefusal, SUBJECT_BIN_DIR, ensureSubjectBin, pruneSubjectBins, type SubjectBinMeta } from "./lib/subject-bin.ts";
+import { BINARY_ENTRIES, PRUNE_AFTER_MS, binaryModeRefusal, SUBJECT_BIN_DIR, ensureSubjectBin, prunePreV4Builds, pruneSubjectBins, type SubjectBinMeta } from "./lib/subject-bin.ts";
 
 const a = parseArgs(process.argv.slice(2));
 const cmd = a._[0];
@@ -49,10 +52,13 @@ if (cmd === "build") {
       console.log(`${name} ${m.entry} built ${m.builtAt} last used ${statSync(meta).mtime.toISOString()} (${m.inputs.length} files, bun ${m.bun.version})`);
     }
   }
+} else if (cmd === "prune" && a["pre-v4"]) {
+  const removed = prunePreV4Builds();
+  console.log(`removed ${removed.length} build(s) keyed before v: 4${removed.length ? `: ${removed.join(", ")}` : ""}`);
 } else if (cmd === "prune") {
   const removed = pruneSubjectBins([], PRUNE_AFTER_MS);
   console.log(`removed ${removed.length} build(s)`);
 } else {
-  console.log("usage: bun scripts/subject-bin.ts build [--entry <entry>] [--json] | list | prune");
+  console.log("usage: bun scripts/subject-bin.ts build [--entry <entry>] [--json] | list | prune [--pre-v4]");
   process.exit(cmd === undefined ? 0 : 1);
 }

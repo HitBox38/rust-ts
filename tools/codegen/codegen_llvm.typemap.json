@@ -1,0 +1,16 @@
+{
+  "//": [
+    "Set-local type map of set rustc_codegen_llvm (lane codegen-sets-m7; types.sets.json `typemap_extra`): the field types of",
+    "compiler/rustc_codegen_llvm/src/diagnostics.rs that no global map has.",
+    "`CString` / `SmallCStr` are `Uint8Array`, the type the `IntoDiagArg` impls of src/rustc_error_messages/diagnostic_impls.ts",
+    "(`CString_into_diag_arg`, `SmallCStr_into_diag_arg`) take; whether the NUL is kept is for the lane that ports `to_string_lossy`.",
+    "`c_uint` is `u32`, or `u16` on 16-bit targets (core ffi/primitives.rs): a `number` either way."
+  ],
+  "cfg": { "true": [], "false": [] },
+  "helpers": {},
+  "types": [
+    { "paths": ["std::ffi::c_uint", "core::ffi::c_uint"], "ts": "number", "debug": "debug_int($v, $f)", "clone": "copy", "note": "header" },
+    { "paths": ["std::ffi::CString", "alloc::ffi::CString", "CString"], "ts": "Uint8Array", "debug": null, "note": "header" },
+    { "paths": ["rustc_data_structures::small_c_str::SmallCStr"], "ts": "Uint8Array", "debug": null, "note": "header" }
+  ]
+}

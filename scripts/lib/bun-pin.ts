@@ -26,7 +26,7 @@
 // `GATE_BUN` here, and only then run the runner unit tests on the new Bun: the tests that drive `gateRun` (gate-power, gate-static-stop,
 // gate-probes, gate-bun) run it on the running Bun, which the pin refuses until `GATE_BUN` names it (review bun-144 N3). The next
 // gate re-runs the Bun-run oracles (their keys change with the binary).
-import { chmodSync, copyFileSync, existsSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
+import { chmodSync, copyFileSync, existsSync, lstatSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 
 /** A Bun build: `Bun.version` and `Bun.revision`. */
@@ -175,10 +175,12 @@ export function acceptBunCloneRefusal(runId: string, clone: BunClone | null | un
 
 /**
  * Why the gate must refuse subject binaries built by another Bun than `bun` (a binary embeds its builder's runtime), or
- * `undefined`. `sha1`: the gate's Bun file's content; a build that records its builder's (`meta.json` `bun.sha1`) must match it.
+ * `undefined`. `sha1`: the gate's Bun file's content; when given, every build must record its builder's (`meta.json` `bun.sha1`), equal to it.
  */
 export function builtByRefusal(bins: readonly { entry: string; hash: string; bun: (BunBuild & { sha1?: string }) | undefined }[], bun: BunBuild, sha1?: string): string | undefined {
-  const bad = bins.filter((b) => b.bun === undefined || !sameBun(b.bun, bun) || (sha1 !== undefined && b.bun.sha1 !== undefined && b.bun.sha1 !== sha1));
+  // A record without the builder's sha1 is refused too when the gate knows its own (review bun-144-recheck3 N3): every `v: 4`
+  // build records it, so only an older build or a hand-written meta.json lacks it.
+  const bad = bins.filter((b) => b.bun === undefined || !sameBun(b.bun, bun) || (sha1 !== undefined && b.bun.sha1 !== sha1));
   if (bad.length === 0) return undefined;
   return `subject binary ${bad.map((b) => `${b.entry} (${b.hash.slice(0, 12)}, built by Bun ${b.bun ? `${showBun(b.bun)}${b.bun.sha1 ? ` sha1 ${b.bun.sha1.slice(0, 12)}` : ""}` : "unknown"})`).join(", ")} was not built by the gate's Bun ${showBun(bun)}: it embeds its builder's runtime; remove the build and re-run the gate`;
 }
@@ -214,25 +216,40 @@ function alive(pid: number): boolean {
 }
 
 /**
- * Removes the run directories under `root` whose first process is gone (`owner.json`'s pid is not alive), and half-made ones (no
- * `owner.json`) older than 10 minutes; never one a live gate holds (review bun-144-recheck2 N3). Returns what it removed.
+ * Removes the run directories under `root` whose gate is gone: neither pid `owner.json` records is alive, the first process's
+ * (`pid`) nor the second's (`child`, which runs on alone when the first is SIGKILLed: review bun-144-recheck3 N1). An entry with no
+ * readable `owner.json` (half-made, or not a directory: a stray file or link) goes when its own `lstat` is older than 10 minutes; a
+ * link is never followed. Never one a live gate holds (review bun-144-recheck2 N3). An entry that vanishes mid-scan (another gate's
+ * first process removed it) is skipped; any other failure throws one line naming the entry (recheck3 N2). Returns what it removed.
+ * `afterList`: tests only.
  */
-export function pruneGateBunDirs(root: string, now: number = Date.now()): string[] {
+export function pruneGateBunDirs(root: string, now: number = Date.now(), afterList?: (names: string[]) => void): string[] {
   const removed: string[] = [];
-  for (const name of existsSync(root) ? readdirSync(root) : []) {
+  const names = existsSync(root) ? readdirSync(root) : [];
+  afterList?.(names); // tests: another gate removes an entry between the listing and the look
+  for (const name of names) {
     const dir = join(root, name);
-    let owner: { pid?: number } | undefined;
     try {
-      owner = JSON.parse(readFileSync(join(dir, "owner.json"), "utf8")) as { pid?: number };
-    } catch {
-      owner = undefined;
-    }
-    const stale = owner === undefined ? now - statSync(dir).mtimeMs > 600_000 : typeof owner.pid !== "number" || !alive(owner.pid);
-    if (stale) {
-      rmSync(dir, { recursive: true, force: true });
-      removed.push(dir);
+      const st = lstatSync(dir);
+      let owner: { pid?: unknown; child?: unknown } | undefined;
+      if (st.isDirectory()) {
+        try {
+          const o: unknown = JSON.parse(readFileSync(join(dir, "owner.json"), "utf8"));
+          owner = typeof o === "object" && o !== null ? (o as { pid?: unknown; child?: unknown }) : {};
+        } catch {
+          owner = undefined;
+        }
+      }
+      const pids = owner === undefined ? [] : [owner.pid, owner.child].filter((p): p is number => typeof p === "number");
+      const stale = owner === undefined ? now - st.mtimeMs > 600_000 : !pids.some(alive);
+      if (stale) {
+        rmSync(dir, { recursive: true, force: true });
+        removed.push(dir);
+      }
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code === "ENOENT") continue;
+      throw new Error(`cannot prune ${dir}: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
   return removed;
 }
-

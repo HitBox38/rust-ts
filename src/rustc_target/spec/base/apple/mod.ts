@@ -1,8 +1,8 @@
 // compiler/rustc_target/src/spec/base/apple/mod.rs
-import type { ParseIntError } from "../../../../rustc_abi/lib.ts";
+import { type ParseIntError, u8_from_str, u16_from_str } from "../../../../std/num.ts";
 import { type Debug, debug_struct } from "../../../../std/fmt.ts";
 import { unreachable } from "../../../../std/panic.ts";
-import { Err, Ok, type Result } from "../../../../std/result.ts";
+import { Ok, type Result } from "../../../../std/result.ts";
 import { debug_target_spec_other as debug_target_spec_other_value } from "../../../lib.ts";
 import {
   type Arch as SpecArch,
@@ -342,22 +342,22 @@ export class OSVersion {
     if (i !== -1) {
       const major_s = version.slice(0, i);
       const minor_s = version.slice(i + 1);
-      const major = parse_uint(major_s, 0xffff);
+      const major = u16_from_str(major_s);
       if (major.$ === "Err") return major;
       const j = minor_s.indexOf(".");
       if (j !== -1) {
-        const minor = parse_uint(minor_s.slice(0, j), 0xff);
+        const minor = u8_from_str(minor_s.slice(0, j));
         if (minor.$ === "Err") return minor;
-        const patch = parse_uint(minor_s.slice(j + 1), 0xff);
+        const patch = u8_from_str(minor_s.slice(j + 1));
         if (patch.$ === "Err") return patch;
         return Ok(new OSVersion(major._0, minor._0, patch._0));
       } else {
-        const minor = parse_uint(minor_s, 0xff);
+        const minor = u8_from_str(minor_s);
         if (minor.$ === "Err") return minor;
         return Ok(new OSVersion(major._0, minor._0, 0));
       }
     } else {
-      const major = parse_uint(version, 0xffff);
+      const major = u16_from_str(version);
       if (major.$ === "Err") return major;
       return Ok(new OSVersion(major._0, 0, 0));
     }
@@ -465,20 +465,6 @@ export const debug_OSVersion: Debug<OSVersion> = (v, f) =>
     ["minor", String(v.minor)],
     ["patch", String(v.patch)],
   ]);
-
-/** PORT: `u16::from_str`/`u8::from_str` (radix 10, optional leading `+`). */
-function parse_uint(s: string, max: number): Result<number, ParseIntError> {
-  let digits = s;
-  if (digits.startsWith("+") && digits.length > 1) digits = digits.slice(1);
-  if (digits.length === 0) return Err("Empty");
-  let v = 0;
-  for (const c of digits) {
-    if (c < "0" || c > "9") return Err("InvalidDigit");
-    v = v * 10 + (c.charCodeAt(0) - 48);
-    if (v > max) return Err("PosOverflow");
-  }
-  return Ok(v);
-}
 
 /// Name of the environment variable used to fetch the deployment target on the given OS.
 // rustc: compiler/rustc_target/src/spec/base/apple/mod.rs:354 deployment_target_env_var

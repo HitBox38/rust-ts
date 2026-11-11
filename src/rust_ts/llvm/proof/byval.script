@@ -1,0 +1,340 @@
+1	1 = LLVMIsMultithreaded()
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	LLVMGetVersion(&23, &1, &3)
+1	%1 = LLVMContextCreate()
+1	LLVMContextSetDiscardValueNames(%1, 0)
+1	%2 = LLVMModuleCreateWithNameInContext("byval.d6b5b3d0a94879da-cgu.0", %1)
+1	%3 = LLVMIntTypeInContext(%1, 64)
+1	LLVMGetVersion(&23, &1, &3)
+1	?datalayout %2 "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128"
+1	LLVMGetDataLayoutStr(%2) -> "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128"
+1	LLVMDisposeTargetMachine(%4)
+1	LLVMSetDataLayout(%2, "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128")
+1	?triple %2 "x86_64-unknown-linux-gnu"
+1	?flag %2 8 "PIC Level" i 2
+1	?flag %2 2 "RtLibUseGOT" i 1
+1	?flag %2 7 "uwtable" i 2
+1	%5 = LLVMMDStringInContext2(%1, "rustc version 1.101.0-nightly (6f5da406b 2026-10-10)", 52)
+1	%6 = LLVMMDNodeInContext2(%1, [%5], 1)
+1	%7 = LLVMMetadataAsValue(%1, %6)
+1	LLVMAddNamedMetadataOperand(%2, "llvm.ident", %7)
+1	%3 = LLVMIntTypeInContext(%1, 64)
+1	%8 = LLVMPointerTypeInContext(%1, 0)
+1	%9 = LLVMVoidTypeInContext(%1)
+1	%3 = LLVMInt64TypeInContext(%1)
+1	%10 = LLVMFunctionType(%9, [%8, %3], 2, 0)
+1	%11 = LLVMGetOrInsertFunction(%2, "_RNvCsiqTuK0ReWr6_5byval4give", 29, %10)
+1	LLVMSetFunctionCallConv(%11, 0)
+1	LLVMSetUnnamedAddress(%11, 2)
+1	LLVMSetVisibility(%11, 0)
+1	?attr %12 nounwind 0
+1	?attr %13 nonlazybind 0
+1	?attrs %11 4294967295 [%12, %13]
+1	?attr %14 align 8
+1	?attrs %11 1 [%14]
+1	%15 = LLVMInt8TypeInContext(%1)
+1	%16 = LLVMArrayType2(%15, 32)
+1	?attr %17 sret type %16
+1	?attrs %11 1 [%17, %14]
+1	%18 = LLVMCreateStringAttribute(%1, "probe-stack", 11, "inline-asm", 10)
+1	%19 = LLVMCreateStringAttribute(%1, "target-cpu", 10, "x86-64", 6)
+1	?attr %20 uwtable 2
+1	?attrs %11 4294967295 [%12, %13, %20, %18, %19]
+1	LLVMSetLinkage(%11, 0)
+1	LLVMSetVisibility(%11, 0)
+1	0 = LLVMGetLinkage(%11)
+1	0 = LLVMGetVisibility(%11)
+1	null = LLVMIsAGlobalVariable(%11)
+1	%8 = LLVMPointerTypeInContext(%1, 0)
+1	%21 = LLVMFunctionType(%3, [%8], 1, 0)
+1	%22 = LLVMGetOrInsertFunction(%2, "_RNvCsiqTuK0ReWr6_5byval4take", 29, %21)
+1	LLVMSetFunctionCallConv(%22, 0)
+1	LLVMSetUnnamedAddress(%22, 2)
+1	LLVMSetVisibility(%22, 0)
+1	?attrs %22 4294967295 [%12, %13]
+1	?attrs %22 1 [%14]
+1	%15 = LLVMInt8TypeInContext(%1)
+1	%16 = LLVMArrayType2(%15, 32)
+1	?attr %23 byval type %16
+1	?attrs %22 1 [%23, %14]
+1	%18 = LLVMCreateStringAttribute(%1, "probe-stack", 11, "inline-asm", 10)
+1	%19 = LLVMCreateStringAttribute(%1, "target-cpu", 10, "x86-64", 6)
+1	?attrs %22 4294967295 [%12, %13, %20, %18, %19]
+1	LLVMSetLinkage(%22, 0)
+1	LLVMSetVisibility(%22, 0)
+1	0 = LLVMGetLinkage(%22)
+1	0 = LLVMGetVisibility(%22)
+1	null = LLVMIsAGlobalVariable(%22)
+1	%24 = LLVMAppendBasicBlockInContext(%1, %11, "start")
+1	%25 = LLVMCreateBuilderInContext(%1)
+1	LLVMPositionBuilderAtEnd(%25, %24)
+1	%24 = LLVMGetInsertBlock(%25)
+1	%11 = LLVMGetBasicBlockParent(%24)
+1	2 = LLVMCountParams(%11)
+1	%26 = LLVMGetParam(%11, 1)
+1	%24 = LLVMGetInsertBlock(%25)
+1	%11 = LLVMGetBasicBlockParent(%24)
+1	2 = LLVMCountParams(%11)
+1	%27 = LLVMGetParam(%11, 0)
+1	%28 = LLVMCreateBuilderInContext(%1)
+1	%24 = LLVMGetInsertBlock(%25)
+1	%11 = LLVMGetBasicBlockParent(%24)
+1	%24 = LLVMGetFirstBasicBlock(%11)
+1	%15 = LLVMInt8TypeInContext(%1)
+1	%29 = LLVMArrayType2(%15, 20)
+1	%30 = LLVMBuildAlloca(%28, %29, "") @ %24 end
+1	LLVMSetAlignment(%30, 1)
+1	%8 = LLVMPointerTypeInContext(%1, 0)
+1	%30 = LLVMBuildPointerCast(%28, %30, %8, "") @ %24 end
+1	LLVMDisposeBuilder(%28)
+1	%27 = LLVMIsAArgument(%27)
+1	LLVMGetValueName2(%27, &0) -> ""
+1	LLVMSetValueName2(%27, "_0", 2)
+1	%26 = LLVMIsAArgument(%26)
+1	LLVMGetValueName2(%26, &0) -> ""
+1	LLVMSetValueName2(%26, "a", 1)
+1	null = LLVMIsAArgument(%30)
+1	%30 = LLVMIsAInstruction(%30)
+1	LLVMGetValueName2(%30, &0) -> ""
+1	LLVMSetValueName2(%30, "_2", 2)
+1	LLVMDisposeBuilder(%25)
+1	%31 = LLVMCreateBuilderInContext(%1)
+1	LLVMPositionBuilderAtEnd(%31, %24)
+1	%15 = LLVMInt8TypeInContext(%1)
+1	%15 = LLVMIntTypeInContext(%1, 8)
+1	%32 = LLVMConstIntOfArbitraryPrecision(%15, 2, [7, 0])
+1	%32 = LLVMConstBitCast(%32, %15)
+1	%33 = LLVMConstInt(%3, 20, 0)
+1	%32 = LLVMIsAConstantInt(%32)
+1	%15 = LLVMInt8TypeInContext(%1)
+1	%32 = LLVMConstInt(%15, 7, 0)
+1	?function %34 "llvm.memset.p0.i64" %2
+1	?attr %35 kind25 0
+1	?attr %36 nofree 0
+1	?attr %37 kind43 0
+1	?attr %38 willreturn 0
+1	?attr %39 memory 2
+1	?attrs %34 4294967295 [%35, %36, %37, %12, %38, %39]
+1	?attr %40 kind83 0
+1	?attr %41 captures 0
+1	?attrs %34 1 [%40, %41]
+1	?attr %42 kind15 0
+1	?attrs %34 4 [%42]
+1	?attr %43 align 1
+1	?inst %44 %24 end 45 [%30, %32, %33, #0, %34] {1:[%43]}
+1	%3 = LLVMTypeOf(%26)
+1	%45 = LLVMInt1TypeInContext(%1)
+1	%8 = LLVMTypeOf(%27)
+1	12 = LLVMGetTypeKind(%8)
+1	%46 = LLVMBuildStore(%31, %26, %27) @ %24 end
+1	LLVMSetAlignment(%46, 8)
+1	%47 = LLVMInt32TypeInContext(%1)
+1	%47 = LLVMIntTypeInContext(%1, 32)
+1	%48 = LLVMConstIntOfArbitraryPrecision(%47, 2, [1, 0])
+1	%48 = LLVMConstBitCast(%48, %47)
+1	%49 = LLVMConstInt(%3, 8, 0)
+1	%15 = LLVMInt8TypeInContext(%1)
+1	%50 = LLVMBuildGEPWithNoWrapFlags(%31, %15, %27, [%49], 1, "", 1) @ %24 end
+1	%47 = LLVMTypeOf(%48)
+1	%45 = LLVMInt1TypeInContext(%1)
+1	%8 = LLVMTypeOf(%50)
+1	12 = LLVMGetTypeKind(%8)
+1	%51 = LLVMBuildStore(%31, %48, %50) @ %24 end
+1	LLVMSetAlignment(%51, 8)
+1	%52 = LLVMConstInt(%3, 12, 0)
+1	%15 = LLVMInt8TypeInContext(%1)
+1	%53 = LLVMBuildGEPWithNoWrapFlags(%31, %15, %27, [%52], 1, "", 1) @ %24 end
+1	%33 = LLVMConstInt(%3, 20, 0)
+1	%33 = LLVMBuildIntCast2(%31, %33, %3, 0, "")
+1	?function %54 "llvm.memcpy.p0.p0.i64" %2
+1	?attr %55 memory 3
+1	?attrs %54 4294967295 [%35, %36, %37, %12, %38, %55]
+1	?attr %56 noalias 0
+1	?attrs %54 1 [%56, %40, %41]
+1	?attr %57 readonly 0
+1	?attrs %54 2 [%56, %57, %41]
+1	?attrs %54 4 [%42]
+1	?attr %58 align 4
+1	?inst %59 %24 end 45 [%53, %30, %33, #0, %54] {1:[%58] 2:[%43]}
+1	%60 = LLVMBuildRetVoid(%31) @ %24 end
+1	LLVMDisposeBuilder(%31)
+1	%61 = LLVMAppendBasicBlockInContext(%1, %22, "start")
+1	%62 = LLVMCreateBuilderInContext(%1)
+1	LLVMPositionBuilderAtEnd(%62, %61)
+1	%47 = LLVMInt32TypeInContext(%1)
+1	%47 = LLVMInt32TypeInContext(%1)
+1	%8 = LLVMPointerTypeInContext(%1, 0)
+1	%8 = LLVMPointerTypeInContext(%1, 0)
+1	%63 = LLVMFunctionType(%47, [%47, %47, %3, %8, %8], 5, 0)
+1	%64 = LLVMGetOrInsertFunction(%2, "rust_eh_personality", 19, %63)
+1	LLVMSetFunctionCallConv(%64, 0)
+1	LLVMSetUnnamedAddress(%64, 2)
+1	LLVMSetVisibility(%64, 0)
+1	?attrs %64 4294967295 [%12, %13]
+1	%18 = LLVMCreateStringAttribute(%1, "probe-stack", 11, "inline-asm", 10)
+1	%19 = LLVMCreateStringAttribute(%1, "target-cpu", 10, "x86-64", 6)
+1	?attrs %64 4294967295 [%12, %13, %20, %18, %19]
+1	LLVMSetLinkage(%64, 0)
+1	0 = LLVMGetLinkage(%64)
+1	0 = LLVMGetVisibility(%64)
+1	null = LLVMIsAGlobalVariable(%64)
+1	%61 = LLVMGetInsertBlock(%62)
+1	%22 = LLVMGetBasicBlockParent(%61)
+1	LLVMSetPersonalityFn(%22, %64)
+1	%61 = LLVMGetInsertBlock(%62)
+1	%22 = LLVMGetBasicBlockParent(%61)
+1	1 = LLVMCountParams(%22)
+1	%65 = LLVMGetParam(%22, 0)
+1	%65 = LLVMIsAArgument(%65)
+1	LLVMGetValueName2(%65, &0) -> ""
+1	LLVMSetValueName2(%65, "s", 1)
+1	LLVMDisposeBuilder(%62)
+1	%66 = LLVMCreateBuilderInContext(%1)
+1	LLVMPositionBuilderAtEnd(%66, %61)
+1	null = LLVMIsAGlobalVariable(%65)
+1	%67 = LLVMBuildLoad2(%66, %3, %65, "") @ %61 end
+1	LLVMSetAlignment(%67, 8)
+1	null = LLVMIsAArgument(%67)
+1	%67 = LLVMIsAInstruction(%67)
+1	LLVMGetValueName2(%67, &0) -> ""
+1	LLVMSetValueName2(%67, "_3", 2)
+1	%49 = LLVMConstInt(%3, 8, 0)
+1	%15 = LLVMInt8TypeInContext(%1)
+1	%68 = LLVMBuildGEPWithNoWrapFlags(%66, %15, %65, [%49], 1, "", 1) @ %61 end
+1	null = LLVMIsAGlobalVariable(%68)
+1	%69 = LLVMBuildLoad2(%66, %47, %68, "") @ %61 end
+1	LLVMSetAlignment(%69, 8)
+1	null = LLVMIsAArgument(%69)
+1	%69 = LLVMIsAInstruction(%69)
+1	LLVMGetValueName2(%69, &0) -> ""
+1	LLVMSetValueName2(%69, "_5", 2)
+1	%70 = LLVMBuildIntCast2(%66, %69, %3, 0, "") @ %61 end
+1	null = LLVMIsAArgument(%70)
+1	%70 = LLVMIsAInstruction(%70)
+1	LLVMGetValueName2(%70, &0) -> ""
+1	LLVMSetValueName2(%70, "_4", 2)
+1	%71 = LLVMBuildAdd(%66, %67, %70, "") @ %61 end
+1	null = LLVMIsAArgument(%71)
+1	%71 = LLVMIsAInstruction(%71)
+1	LLVMGetValueName2(%71, &0) -> ""
+1	LLVMSetValueName2(%71, "_2", 2)
+1	%3 = LLVMInt64TypeInContext(%1)
+1	%3 = LLVMIntTypeInContext(%1, 64)
+1	%72 = LLVMConstIntOfArbitraryPrecision(%3, 2, [3, 0])
+1	%72 = LLVMConstBitCast(%72, %3)
+1	null = LLVMIsAArgument(%72)
+1	null = LLVMIsAInstruction(%72)
+1	%3 = LLVMIntTypeInContext(%1, 64)
+1	%33 = LLVMConstIntOfArbitraryPrecision(%3, 2, [20, 0])
+1	%33 = LLVMConstBitCast(%33, %3)
+1	%73 = LLVMBuildICmp(%66, 36, %72, %33, "")
+1	null = LLVMIsAArgument(%73)
+1	null = LLVMIsAInstruction(%73)
+1	%73 = LLVMIsAConstantInt(%73)
+1	%52 = LLVMConstInt(%3, 12, 0)
+1	%15 = LLVMInt8TypeInContext(%1)
+1	%74 = LLVMBuildGEPWithNoWrapFlags(%66, %15, %65, [%52], 1, "", 1) @ %61 end
+1	%72 = LLVMIsAConstantInt(%72)
+1	%75 = LLVMBuildGEPWithNoWrapFlags(%66, %15, %74, [%72], 1, "", 5) @ %61 end
+1	null = LLVMIsAGlobalVariable(%75)
+1	%76 = LLVMBuildLoad2(%66, %15, %75, "") @ %61 end
+1	LLVMSetAlignment(%76, 1)
+1	null = LLVMIsAArgument(%76)
+1	%76 = LLVMIsAInstruction(%76)
+1	LLVMGetValueName2(%76, &0) -> ""
+1	LLVMSetValueName2(%76, "_7", 2)
+1	%77 = LLVMBuildIntCast2(%66, %76, %3, 0, "") @ %61 end
+1	null = LLVMIsAArgument(%77)
+1	%77 = LLVMIsAInstruction(%77)
+1	LLVMGetValueName2(%77, &0) -> ""
+1	LLVMSetValueName2(%77, "_6", 2)
+1	%78 = LLVMBuildAdd(%66, %71, %77, "") @ %61 end
+1	null = LLVMIsAArgument(%78)
+1	%78 = LLVMIsAInstruction(%78)
+1	LLVMGetValueName2(%78, &0) -> ""
+1	LLVMSetValueName2(%78, "_0", 2)
+1	%79 = LLVMBuildRet(%66, %78) @ %61 end
+1	LLVMDisposeBuilder(%66)

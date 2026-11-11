@@ -35,7 +35,7 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { crateSrc } from "./crate-src.ts";
 import { DATA, REPO, UPSTREAM, die, parseArgs, requireUpstream } from "./lib/common.ts";
-import { LLVM_MANIFEST, type LlvmManifest, WRAPPER_ROOT, isWrapperPath, llvmMarkerErrors, llvmMarkersOf, llvmSrcDir, readManifest, wrapperFiles, wrapperFns, wrapperMarkerErrors } from "./lib/llvm-src.ts";
+import { LLVM_MANIFEST, type LlvmManifest, WRAPPER_EXCLUDED, WRAPPER_ROOT, isWrapperPath, wrapperExcludedErrors, llvmMarkerErrors, llvmMarkersOf, llvmSrcDir, readManifest, wrapperFiles, wrapperFns, wrapperMarkerErrors } from "./lib/llvm-src.ts";
 import { anchorErrors, orderErrors, orderRows } from "./lib/marker-check.ts";
 import { type UpstreamFn, rustFns } from "./lib/rust-fns.ts";
 import { type PathScope, type ScopeJson, cratePathScope, cratesEntryErrors, miriPathScope, pathPartial, scopeErrors, scopeOfPath, scopeFiles, scopeFns, scopedCrates, upstreamPathExcluded } from "./lib/scope.ts";
@@ -215,6 +215,8 @@ if (import.meta.main) {
     if (ps && x !== undefined) console.log(`note: ${a.missing} is out of scope (harness/scope.json ${ps.label}.excluded ${x}: ${ps.s.excluded[x]})`);
     const part = ps && pathPartial(ps.s, a.missing);
     if (part) console.log(`note: only ${part.fns.join(", ")} of ${a.missing} are in scope (harness/scope.json ${ps.label}.partial: ${part.reason})`);
+    const wx = WRAPPER_EXCLUDED[a.missing];
+    if (wx !== undefined) console.log(`note: ${a.missing} is out of the WRAPPER figure (scripts/lib/llvm-src.ts WRAPPER_EXCLUDED: ${wx})`);
     const fns: UpstreamFn[] = v ? upstreamFns(a.missing, dirname(v.dir)) : isWrapperPath(a.missing) ? wrapperFns(UPSTREAM, a.missing) : ps ? scopeFns(ps.s, a.missing, (p) => upstreamFns(p)) : upstreamFns(a.missing);
     const inLibrary = !v && a.missing.startsWith("library/");
     const miss = fns.filter((f) => !(v ? vmarked : inLibrary ? smarked : marked).has(key(f.path, f.line)));
@@ -316,6 +318,7 @@ if (import.meta.main) {
       ? []
       : [
           ...cratesEntryErrors(scope, readdirSync(join(UPSTREAM, "compiler"))),
+          ...wrapperExcludedErrors(wrapperFiles(UPSTREAM)),
           ...pathScopes.flatMap((p) => scopeErrors(p.s, UPSTREAM, p.label, (f) => upstreamFns(f))),
         ];
   // rustc's C++ wrappers (compiler/rustc_llvm/llvm-wrapper, scripts/lib/llvm-src.ts): `rustc_llvm` stays excluded, so they are
@@ -323,6 +326,7 @@ if (import.meta.main) {
   const wrow = { crate: WRAPPER_CRATE, total: 0, ported: 0, files: [] as { path: string; total: number; ported: number }[] };
   if (typeof a.crate !== "string" || a.crate === WRAPPER_CRATE) {
     for (const f of wrapperFiles(UPSTREAM)) {
+      if (f in WRAPPER_EXCLUDED) continue; // out of M7 (plan-m7 D18; review scope-m7 N6)
       const fns = wrapperFns(UPSTREAM, f);
       const ported = fns.filter((fn) => marked.has(key(fn.path, fn.line))).length;
       wrow.total += fns.length;

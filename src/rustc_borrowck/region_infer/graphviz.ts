@@ -29,7 +29,6 @@ export type dot_Id = dot.Id;
 /** `dot::LabelText<'_>` (rustc_graphviz). */
 export type dot_LabelText = dot.LabelText;
 
-
 /** `dot::Id::new(name).unwrap()` */
 function dot_Id_new(name: string): dot_Id {
   return unwrap_result(dot.Id.new(name), debug_unit);

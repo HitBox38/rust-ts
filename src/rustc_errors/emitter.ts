@@ -35,11 +35,11 @@ import { panic, unwrap } from "../std/panic.ts";
 import { Ok } from "../std/result.ts";
 import { binary_search_by } from "../std/slice.ts";
 import { path_strip_prefix } from "../std/path.ts";
-import { utf8_len } from "../std/str.ts";
+import { string_trim, utf8_len } from "../std/str.ts";
 import { format_diag_message } from "./formatting.ts";
 import type { TimingRecord } from "./timings.ts";
 import type { CodeSuggestion, DiagInner, LintLevel, Style } from "./lib.ts";
-import { type Level, Subdiag, Sublevel, SuggestionStyle, display_Level, str_trim } from "./lib.ts";
+import { type Level, Subdiag, Sublevel, SuggestionStyle, display_Level } from "./lib.ts";
 
 /// Describes the way the content of the `rendered` field of the json output is generated
 export class HumanReadableErrorType {
@@ -153,7 +153,7 @@ export abstract class Emitter {
           SuggestionStyle.ShowAlways,
         ]).includes(sugg.style)
       ) {
-        const snippet = str_trim(part.snippet);
+        const snippet = string_trim(part.snippet);
         let msg2: string;
         if (snippet === "" || SuggestionStyle.hide_inline(sugg.style)) {
           // This substitution is only removal OR we explicitly don't want to show the

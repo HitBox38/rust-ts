@@ -4,12 +4,13 @@
 //   bun scripts/llvm-src.ts fetch          fetch the missing or different manifest files (raw.githubusercontent.com), each
 //                                          checked against its SHA-256 before it is moved into place
 //   bun scripts/llvm-src.ts check          the manifest's commit is the checkout's gitlink, every file is present and pinned
-//   bun scripts/llvm-src.ts add <path>...  fetch new files at the commit and record their SHA-256 in the manifest
+//   bun scripts/llvm-src.ts add <path>...  fetch new files at the commit and record their SHA-256 in the manifest; the paths
+//                                          are checked first, and all are downloaded before any is written (review scope-m7 N3)
 // `// llvm:` markers are checked by `bun scripts/coverage.ts --check` (scripts/lib/llvm-src.ts).
 import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { DATA, PIN, REPO, UPSTREAM, die, run } from "./lib/common.ts";
-import { LLVM_MANIFEST, type LlvmManifest, fileStates, llvmSrcDir, rawUrl, readManifest, sha256 } from "./lib/llvm-src.ts";
+import { LLVM_MANIFEST, type LlvmManifest, addFiles, addPathErrors, fileStates, llvmSrcDir, rawUrl, readManifest, sha256 } from "./lib/llvm-src.ts";
 
 const manifestFile = join(REPO, LLVM_MANIFEST);
 
@@ -64,15 +65,18 @@ if (cmd === "fetch") {
 } else if (cmd === "add") {
   const paths = process.argv.slice(3);
   if (!paths.length) die("usage: bun scripts/llvm-src.ts add <path>...");
+  // Before anything else: no request for, and no write of, a path outside llvm-src/<commit>/.
+  const bad = addPathErrors(paths);
+  if (bad.length) die(`add: ${bad.join("; ")}; nothing fetched or written`);
   const link = await gitlink();
   if (link !== m.commit) die(`${LLVM_MANIFEST} commit ${m.commit} is not the checkout's src/llvm-project gitlink ${link ?? "(none)"}`);
-  const files = { ...m.files };
-  for (const p of paths) {
-    const bytes = await download(m, p);
-    files[p] = sha256(bytes);
-    place(dir, p, bytes);
+  let files: Record<string, string>;
+  try {
+    files = await addFiles(m, paths, (p) => download(m, p), (p, bytes) => place(dir, p, bytes));
+  } catch (e) {
+    die(String((e as Error).message));
   }
-  const next = { ...(JSON.parse(readFileSync(manifestFile, "utf8")) as object), files: Object.fromEntries(Object.entries(files).sort(([a], [b]) => (a < b ? -1 : 1))) };
+  const next = { ...(JSON.parse(readFileSync(manifestFile, "utf8")) as object), files };
   // Validated before it replaces the manifest.
   const tmp = `${manifestFile}.tmp-${process.pid}`;
   writeFileSync(tmp, `${JSON.stringify(next, null, 2)}\n`);

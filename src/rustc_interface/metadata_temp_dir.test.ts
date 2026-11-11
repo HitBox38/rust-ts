@@ -18,8 +18,10 @@ beforeAll(() => {
 });
 afterAll(() => rmSync(cwd, { recursive: true, force: true }));
 
-function leftovers(): string[] {
-  return readdirSync(cwd, { recursive: true, encoding: "utf8" }).filter((n) => n.split("/").at(-1)!.startsWith("rmeta"));
+/** The `rmeta*` temp dirs left in this test's own output dir `sub` (the temp dir is made directly in the output dir),
+ *  so each test points at its own exit, not at another test's leftovers (docs/reviews/driver-cli-2.md N2). */
+function leftovers(sub: string): string[] {
+  return readdirSync(join(cwd, sub), { encoding: "utf8" }).filter((n) => n.startsWith("rmeta"));
 }
 
 test("start_codegen: abort_if_errors, --emit=metadata -o - at a terminal", () => {
@@ -29,7 +31,7 @@ test("start_codegen: abort_if_errors, --emit=metadata -o - at a terminal", () =>
   // The error is the oracle's, so this exit is the one meant. `script` passes the status on.
   expect(r.stdout.toString()).toContain("stdout is a tty");
   expect(r.exitCode).toBe(1);
-  expect(leftovers()).toEqual([]);
+  expect(leftovers(".")).toEqual([]);
 });
 
 // The stop: `-Zincremental-verify-ich` stops in `tcx.finish()` (`verify_query_key_hashes`, unported: no dep graph, D3), after
@@ -41,10 +43,12 @@ test("start_codegen: abort_if_errors, --emit=metadata -o - at a terminal", () =>
 // mutation: without `built_linker?.drop()` this run leaves `d2/rmeta*`.
 test("run_compiler: a stop once the Linker exists, -Zincremental-verify-ich --emit=metadata", () => {
   const r = Bun.spawnSync([process.execPath, MAIN, "libfoo.rs", "-Zincremental-verify-ich", "--emit=metadata", "--out-dir", "d2"], { cwd, stdout: "pipe", stderr: "pipe" });
-  expect(r.stderr.toString()).toContain("rust-ts: unported:");
+  // This stop and no other (docs/reviews/driver-cli-2.md N1): another `unported` after `encode_and_write_metadata`
+  // but before the Linker exists would leave by a different `catch`.
+  expect(r.stderr.toString()).toContain("rust-ts: unported: rustc_query_impl::incremental::verify_query_key_hashes");
   expect(r.exitCode).toBe(70);
   expect(existsSync(join(cwd, "d2", "liblibfoo.rmeta"))).toBe(true);
-  expect(leftovers()).toEqual([]);
+  expect(leftovers("d2")).toEqual([]);
 });
 
 // The error for a missing metrics dir is emitted after the Linker exists; the run then exits 1 from `link`
@@ -54,5 +58,5 @@ test("Linker::link: the -Zmetrics-dir error, --emit=metadata", () => {
   expect(r.stderr.toString()).toBe("error: cannot dump feature usage metrics: No such file or directory (os error 2)\n\nerror: aborting due to 1 previous error\n\n");
   expect(r.exitCode).toBe(1);
   expect(existsSync(join(cwd, "d3", "liblibfoo.rmeta"))).toBe(true);
-  expect(leftovers()).toEqual([]);
+  expect(leftovers("d3")).toEqual([]);
 });

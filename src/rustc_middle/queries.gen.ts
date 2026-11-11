@@ -19,11 +19,15 @@ import { type Steal, debug_Steal } from "../rustc_data_structures/steal.ts";
 import { type Svh, debug_Svh, stable_hash_Svh } from "../rustc_data_structures/svh.ts";
 import { type Features } from "../rustc_feature/unstable.ts";
 import { type DefKind, debug_DefKind } from "../rustc_hir/def.ts";
-import { stable_hash_DefKind } from "../rustc_hir/stable_hash.gen.ts";
+import { type Constness, debug_Constness } from "../rustc_hir/hir.ts";
+import { stable_hash_Constness, stable_hash_DefKind } from "../rustc_hir/stable_hash.gen.ts";
 import { type ItemLocalId, type OwnerId, debug_ItemLocalId } from "../rustc_hir_id/lib.ts";
 import { stable_hash_ItemLocalId } from "../rustc_hir_id/stable_hash.gen.ts";
 import { type HirId, type LintId, type StableLintExpectationId, debug_HirId } from "../rustc_lint_defs/lib.ts";
+import { type ModuleItems } from "./hir/mod.ts";
+import { type CodegenFnAttrs, type SanitizerFnAttrs } from "./middle/codegen_fn_attrs.ts";
 import { type Dependencies } from "./middle/dependency_format.ts";
+import { type ExportedSymbol, type SymbolExportInfo } from "./middle/exported_symbols.ts";
 import { type EffectiveVisibilities, debug_EffectiveVisibilities, stable_hash_EffectiveVisibilities } from "./middle/privacy.ts";
 import { type ScopeTree, debug_ScopeTree } from "./middle/region.ts";
 import { type AstOwner, type DocLinkResMap, type ModChild, type ResolverAstLowering, type ResolverGlobalCtxt, debug_DocLinkResMap, debug_ModChild, debug_ResolverAstLowering, debug_ResolverGlobalCtxt } from "./middle/resolve.ts";
@@ -34,7 +38,7 @@ import { type EvalStaticInitializerRawResult, type EvalToAllocationRawResult, ty
 import { type AllocId, type GlobalId, debug_AllocId } from "./mir/interpret/mod.ts";
 import { type Body, type Promoted, debug_Body, debug_Promoted } from "./mir/mod.ts";
 import { type ConstQualifs, type CoroutineLayout, debug_ConstQualifs, debug_CoroutineLayout } from "./mir/query.ts";
-import { type CollectionMode } from "./mono.ts";
+import { type CodegenUnit, type CollectionMode, type MonoItem, type MonoItemPartitions, type NormalizationErrorInMono, debug_CodegenUnit, debug_MonoItem, debug_NormalizationErrorInMono } from "./mono.ts";
 import { describe_as_module } from "./queries.ts";
 import { into_query_key_DefId, into_query_key_LocalDefId, into_query_key_identity } from "./query/into_query_key.ts";
 import { KEY_AliasTyKind, KEY_CanonicalAliasGoal, KEY_CanonicalDropckOutlivesGoal, KEY_CanonicalImpliedOutlivesBoundsGoal_bool, KEY_CanonicalInput_usize, KEY_CanonicalMethodAutoderefStepsGoal, KEY_CanonicalPredicateGoal, KEY_CanonicalTypeOpAscribeUserTypeGoal, KEY_CanonicalTypeOpNormalizeGoal_Clause, KEY_CanonicalTypeOpNormalizeGoal_FnSig, KEY_CanonicalTypeOpNormalizeGoal_PolyFnSig, KEY_CanonicalTypeOpNormalizeGoal_Ty, KEY_CanonicalTypeOpProvePredicateGoal, KEY_Clauses, KEY_CrateNum, KEY_CrateNum_DefId, KEY_CrateNum_SimplifiedType, KEY_DefId, KEY_DefId_DefId, KEY_DefId_GenericArgsRef, KEY_DefId_Ident, KEY_DefId_SizedTraitKind, KEY_GenericArgsRef, KEY_Instance, KEY_InstanceKind, KEY_Instance_CollectionMode, KEY_LitToConstInput, KEY_LocalDefId, KEY_LocalDefId_LocalDefId_Ident, KEY_LocalExpnId_TokenStream, KEY_LocalModId, KEY_ModId, KEY_Option_Symbol, KEY_OsStr, KEY_OwnerId, KEY_Predicate_WellFormedLoc, KEY_PseudoCanonicalInput_AdtDef_GenericArgsRef, KEY_PseudoCanonicalInput_DefId_GenericArgsRef, KEY_PseudoCanonicalInput_GenericArg, KEY_PseudoCanonicalInput_GlobalId, KEY_PseudoCanonicalInput_Instance_List_Ty, KEY_PseudoCanonicalInput_PolyFnSig_List_Ty, KEY_PseudoCanonicalInput_TraitRef, KEY_PseudoCanonicalInput_Ty, KEY_PseudoCanonicalInput_Ty_VariantIdx, KEY_ShimKind, KEY_SimplifiedType, KEY_Symbol, KEY_TraitRef, KEY_Ty, KEY_Ty_Option_ExistentialTraitRef, KEY_Ty_Ty, KEY_ValidityRequirement_PseudoCanonicalInput_Ty, KEY_Value, KEY_unit, type LocalQueryKeyOf } from "./query/keys.ts";
@@ -49,24 +53,27 @@ import { type LitToConstInput } from "./ty/consts/lit.ts";
 import { type Limits, type TyCtxt } from "./ty/context.ts";
 import { type SimplifiedType, debug_SimplifiedType } from "./ty/fast_reject.ts";
 import { type GenericArg, debug_GenericArg } from "./ty/generic_args.ts";
-import { type GenericClauses, debug_GenericClauses } from "./ty/generics.ts";
+import { type GenericClauses, type Generics, debug_GenericClauses, debug_Generics } from "./ty/generics.ts";
 import { stable_hash_GenericArg, stable_hash_RawList } from "./ty/impls_ty.ts";
 import { type InhabitedPredicate, debug_InhabitedPredicate } from "./ty/inhabitedness/inhabited_predicate.ts";
 import { type Instance, type InstanceKind, type ShimKind, debug_Instance, display_Instance } from "./ty/instance.ts";
 import { type FnAbiError, type LayoutError, type TyAndLayout, type ValidityRequirement } from "./ty/layout.ts";
 import { type List, debug_RawList } from "./ty/list.ts";
-import { type PseudoCanonicalInput, type Ty, type Visibility, debug_Ty, debug_Visibility } from "./ty/mod.ts";
+import { type Asyncness, type ImplTraitHeader, type PseudoCanonicalInput, type SymbolName, type Ty, type Visibility, debug_Asyncness, debug_ImplTraitHeader, debug_SymbolName, debug_Ty, debug_Visibility } from "./ty/mod.ts";
 import { type Clause, type Predicate, debug_Clause, debug_Predicate } from "./ty/predicate.ts";
 import { display_GenericArg, display_PolyFnSig, display_Predicate, display_Ty } from "./ty/print/pretty.ts";
+import { type TypeckResults } from "./ty/typeck_results.ts";
 import { type VtblEntry, debug_VtblEntry } from "./ty/vtable.ts";
 import { stable_hash_Clause } from "./ty_stable_hash.gen.ts";
+import { type OptLevel, type SymbolManglingVersion, debug_OptLevel, debug_SymbolManglingVersion } from "../rustc_session/config.ts";
 import { type CrateNum, type DefId, type DefIdMap, LOCAL_CRATE, type LocalDefId, type LocalModId, type ModId, debug_CrateNum, debug_DefId, debug_LocalDefId, debug_ModId, display_CrateNum, stable_hash_CrateNum, stable_hash_DefId, stable_hash_LocalDefId } from "../rustc_span/def_id.ts";
 import { type ExpnId, type LocalExpnId, debug_ExpnId, stable_hash_ExpnId } from "../rustc_span/hygiene.ts";
-import { type ErrorGuaranteed, type Span, type Spanned, debug_ErrorGuaranteed, debug_Span, stable_hash_Span } from "../rustc_span/lib.ts";
+import { type ErrorGuaranteed, type Span, type Spanned, debug_ErrorGuaranteed, debug_Span, debug_Spanned, stable_hash_Span } from "../rustc_span/lib.ts";
 import { stable_hash_ErrorGuaranteed, stable_hash_Ident, stable_hash_ModId } from "../rustc_span/stable_hash.gen.ts";
 import { type Ident, type Symbol, debug_Ident, debug_Symbol, display_Ident, display_Symbol, stable_hash_Symbol } from "../rustc_span/symbol.ts";
 import { type FnAbi } from "../rustc_target/callconv/mod.ts";
 import { type PanicStrategy } from "../rustc_target/spec/mod.ts";
+import { type Stability as target_features_Stability } from "../rustc_target/target_features.ts";
 import { type EarlyBinder, debug_EarlyBinder } from "../rustc_type_ir/binder.ts";
 import { type PolyFnSig } from "../rustc_type_ir/decls.ts";
 import { display_AliasTerm, display_TraitRef } from "../rustc_type_ir/ir_print.ts";
@@ -139,16 +146,14 @@ export interface QueryTypes {
   /**
    * All items in the crate.
    */
-  // PORT: value `&'tcx rustc_middle::hir::ModuleItems` not ported (`unknown`)
-  hir_crate_items: { Key: null; KeyArg: null; LocalKey: null; Value: unknown; ProvidedValue: unknown };
+  hir_crate_items: { Key: null; KeyArg: null; LocalKey: null; Value: ModuleItems; ProvidedValue: ModuleItems };
   /**
    * The items in a module.
    *
    * This can be conveniently accessed by `tcx.hir_visit_item_likes_in_module`.
    * Avoid calling this query directly.
    */
-  // PORT: value `&'tcx rustc_middle::hir::ModuleItems` not ported (`unknown`)
-  hir_module_items: { Key: LocalModId; KeyArg: LocalModId; LocalKey: LocalModId; Value: unknown; ProvidedValue: unknown };
+  hir_module_items: { Key: LocalModId; KeyArg: LocalModId; LocalKey: LocalModId; Value: ModuleItems; ProvidedValue: ModuleItems };
   /**
    * Gives access to the HIR node's parent for the HIR owner `key`.
    *
@@ -265,8 +270,7 @@ export interface QueryTypes {
   /**
    * Returns the *generics* of the definition given by `DefId`.
    */
-  // PORT: value `&'tcx ty::Generics` not ported (`unknown`)
-  generics_of: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: unknown; ProvidedValue: unknown };
+  generics_of: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: Generics; ProvidedValue: Generics };
   /**
    * Returns the (elaborated) *clauses* of the definition given by `DefId`
    * that must be proven true at usage sites (and which can be assumed at definition site).
@@ -608,10 +612,8 @@ export interface QueryTypes {
    *
    * [^1]: Tuple struct/variant constructors, closures and free, associated and foreign functions.
    */
-  // PORT: value `hir::Constness` not ported (`unknown`)
-  constness: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: unknown; ProvidedValue: unknown };
-  // PORT: value `ty::Asyncness` not ported (`unknown`)
-  asyncness: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: unknown; ProvidedValue: unknown };
+  constness: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: Constness; ProvidedValue: Constness };
+  asyncness: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: Asyncness; ProvidedValue: Asyncness };
   /**
    * Returns `true` if calls to the function may be promoted.
    *
@@ -719,8 +721,7 @@ export interface QueryTypes {
   /**
    * Given an `impl_id`, return the trait it implements along with some header information.
    */
-  // PORT: value `ty::ImplTraitHeader<'tcx>` not ported (`unknown`)
-  impl_trait_header: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: unknown; ProvidedValue: unknown };
+  impl_trait_header: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: ImplTraitHeader; ProvidedValue: ImplTraitHeader };
   /**
    * Whether all generic parameters of the type are unique unconstrained generic parameters
    * of the impl. `Bar<'static>` or `Foo<'a, 'a>` or outlives bounds on the lifetimes cause
@@ -799,8 +800,7 @@ export interface QueryTypes {
    * Caches `CoerceUnsized` kinds for impls on custom types.
    */
   coerce_unsized_info: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: Result<CoerceUnsizedInfo, ErrorGuaranteed>; ProvidedValue: Result<CoerceUnsizedInfo, ErrorGuaranteed> };
-  // PORT: value `&'tcx ty::TypeckResults<'tcx>` not ported (`unknown`)
-  typeck_root: { Key: LocalDefId; KeyArg: Parameters<typeof into_query_key_LocalDefId>[0]; LocalKey: LocalDefId; Value: unknown; ProvidedValue: unknown };
+  typeck_root: { Key: LocalDefId; KeyArg: Parameters<typeof into_query_key_LocalDefId>[0]; LocalKey: LocalDefId; Value: TypeckResults; ProvidedValue: TypeckResults };
   used_trait_imports: { Key: LocalDefId; KeyArg: Parameters<typeof into_query_key_LocalDefId>[0]; LocalKey: LocalDefId; Value: Set<LocalDefId>; ProvidedValue: Set<LocalDefId> };
   coherent_trait: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: DefId; Value: Result<null, ErrorGuaranteed>; ProvidedValue: Result<null, ErrorGuaranteed> };
   /**
@@ -930,8 +930,7 @@ export interface QueryTypes {
    * given instance from the local crate. In particular, it will also
    * look up the correct symbol name of instances from upstream crates.
    */
-  // PORT: value `ty::SymbolName<'tcx>` not ported (`unknown`)
-  symbol_name: { Key: Instance; KeyArg: Instance; LocalKey: Instance; Value: unknown; ProvidedValue: unknown };
+  symbol_name: { Key: Instance; KeyArg: Instance; LocalKey: Instance; Value: SymbolName; ProvidedValue: SymbolName };
   def_kind: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: DefKind; ProvidedValue: DefKind };
   /**
    * Gets the span for the definition.
@@ -984,8 +983,7 @@ export interface QueryTypes {
    * Using this query would include the attribute regardless of the actual instance
    * kind at the call site.
    */
-  // PORT: value `&'tcx CodegenFnAttrs` not ported (`unknown`)
-  codegen_fn_attrs: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: unknown; ProvidedValue: unknown };
+  codegen_fn_attrs: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: CodegenFnAttrs; ProvidedValue: CodegenFnAttrs };
   asm_target_features: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: DefId; Value: Set<Symbol>; ProvidedValue: Set<Symbol> };
   fn_arg_idents: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: readonly (Ident | undefined)[]; ProvidedValue: readonly (Ident | undefined)[] };
   /**
@@ -1190,8 +1188,7 @@ export interface QueryTypes {
   required_panic_strategy: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: PanicStrategy | undefined; ProvidedValue: PanicStrategy | undefined };
   panic_in_drop_strategy: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: PanicStrategy; ProvidedValue: PanicStrategy };
   is_no_builtins: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: boolean; ProvidedValue: boolean };
-  // PORT: value `SymbolManglingVersion` not ported (`unknown`)
-  symbol_mangling_version: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: unknown; ProvidedValue: unknown };
+  symbol_mangling_version: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: SymbolManglingVersion; ProvidedValue: SymbolManglingVersion };
   // PORT: value `Option<&'tcx ExternCrate>` not ported (`unknown`)
   extern_crate: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: unknown | undefined; ProvidedValue: unknown | undefined };
   specialization_enabled_in: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: boolean; ProvidedValue: boolean };
@@ -1208,8 +1205,7 @@ export interface QueryTypes {
   default_field: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: DefId | undefined; ProvidedValue: DefId | undefined };
   check_well_formed: { Key: LocalDefId; KeyArg: Parameters<typeof into_query_key_LocalDefId>[0]; LocalKey: LocalDefId; Value: Result<null, ErrorGuaranteed>; ProvidedValue: Result<null, ErrorGuaranteed> };
   enforce_impl_non_lifetime_params_are_constrained: { Key: LocalDefId; KeyArg: Parameters<typeof into_query_key_LocalDefId>[0]; LocalKey: LocalDefId; Value: Result<null, ErrorGuaranteed>; ProvidedValue: Result<null, ErrorGuaranteed> };
-  // PORT: value `&'tcx DefIdMap<SymbolExportInfo>` not ported (`unknown`)
-  reachable_non_generics: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: DefIdMap<unknown>; ProvidedValue: DefIdMap<unknown> };
+  reachable_non_generics: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: DefIdMap<SymbolExportInfo>; ProvidedValue: DefIdMap<SymbolExportInfo> };
   is_reachable_non_generic: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: boolean; ProvidedValue: boolean };
   is_unreachable_local_definition: { Key: LocalDefId; KeyArg: Parameters<typeof into_query_key_LocalDefId>[0]; LocalKey: LocalDefId; Value: boolean; ProvidedValue: boolean };
   /**
@@ -1562,8 +1558,7 @@ export interface QueryTypes {
    * - The `exported_non_generic_symbols` and `exported_generic_symbols`
    *   sets of different crates do not intersect.
    */
-  // PORT: value `&'tcx [(ExportedSymbol<'tcx>, SymbolExportInfo)]` not ported (`unknown`)
-  exported_non_generic_symbols: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: readonly [unknown, unknown][]; ProvidedValue: readonly [unknown, unknown][] };
+  exported_non_generic_symbols: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: readonly [ExportedSymbol, SymbolExportInfo][]; ProvidedValue: readonly [ExportedSymbol, SymbolExportInfo][] };
   /**
    * The list of generic symbols exported from the given crate.
    *
@@ -1573,15 +1568,11 @@ export interface QueryTypes {
    * - The `exported_non_generic_symbols` and `exported_generic_symbols`
    *   sets of different crates do not intersect.
    */
-  // PORT: value `&'tcx [(ExportedSymbol<'tcx>, SymbolExportInfo)]` not ported (`unknown`)
-  exported_generic_symbols: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: readonly [unknown, unknown][]; ProvidedValue: readonly [unknown, unknown][] };
-  // PORT: value `MonoItemPartitions<'tcx>` not ported (`unknown`)
-  collect_and_partition_mono_items: { Key: null; KeyArg: null; LocalKey: null; Value: unknown; ProvidedValue: unknown };
+  exported_generic_symbols: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: readonly [ExportedSymbol, SymbolExportInfo][]; ProvidedValue: readonly [ExportedSymbol, SymbolExportInfo][] };
+  collect_and_partition_mono_items: { Key: null; KeyArg: null; LocalKey: null; Value: MonoItemPartitions; ProvidedValue: MonoItemPartitions };
   is_codegened_item: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: DefId; Value: boolean; ProvidedValue: boolean };
-  // PORT: value `&'tcx CodegenUnit<'tcx>` not ported (`unknown`)
-  codegen_unit: { Key: Symbol; KeyArg: Symbol; LocalKey: Symbol; Value: unknown; ProvidedValue: unknown };
-  // PORT: value `OptLevel` not ported (`unknown`)
-  backend_optimization_level: { Key: null; KeyArg: null; LocalKey: null; Value: unknown; ProvidedValue: unknown };
+  codegen_unit: { Key: Symbol; KeyArg: Symbol; LocalKey: Symbol; Value: CodegenUnit; ProvidedValue: CodegenUnit };
+  backend_optimization_level: { Key: null; KeyArg: null; LocalKey: null; Value: OptLevel; ProvidedValue: OptLevel };
   /**
    * Return the filenames where output artefacts shall be stored.
    *
@@ -1681,8 +1672,7 @@ export interface QueryTypes {
    * Returns a list of all Rust target features for the current target (not just the ones that
    * are enabled). These are not always the same as LLVM target features!
    */
-  // PORT: value `&'tcx UnordMap<String, rustc_target::target_features::Stability>` not ported (`unknown`)
-  all_rust_target_features: { Key: CrateNum; KeyArg: CrateNum; LocalKey: CrateNum; Value: Map<string, unknown>; ProvidedValue: Map<string, unknown> };
+  all_rust_target_features: { Key: CrateNum; KeyArg: CrateNum; LocalKey: CrateNum; Value: Map<string, target_features_Stability>; ProvidedValue: Map<string, target_features_Stability> };
   implied_target_features: { Key: Symbol; KeyArg: Symbol; LocalKey: Symbol; Value: Symbol[]; ProvidedValue: Symbol[] };
   features_query: { Key: null; KeyArg: null; LocalKey: null; Value: Features; ProvidedValue: Features };
   crate_for_resolver: { Key: null; KeyArg: null; LocalKey: null; Value: Steal<[Crate, AttrVec]>; ProvidedValue: Steal<[Crate, AttrVec]> };
@@ -1740,8 +1730,7 @@ export interface QueryTypes {
    * monomorphized.
    */
   check_mono_item: { Key: Instance; KeyArg: Instance; LocalKey: Instance; Value: null; ProvidedValue: null };
-  // PORT: value `Result<(&'tcx [Spanned<MonoItem<'tcx>>], &'tcx [Spanned<MonoItem<'tcx>>]), NormalizationErrorInMono>` not ported (`unknown`)
-  items_of_instance: { Key: [Instance, CollectionMode]; KeyArg: [Instance, CollectionMode]; LocalKey: [Instance, CollectionMode]; Value: Result<[readonly Spanned<unknown>[], readonly Spanned<unknown>[]], unknown>; ProvidedValue: Result<[readonly Spanned<unknown>[], readonly Spanned<unknown>[]], unknown> };
+  items_of_instance: { Key: [Instance, CollectionMode]; KeyArg: [Instance, CollectionMode]; LocalKey: [Instance, CollectionMode]; Value: Result<[readonly Spanned<MonoItem>[], readonly Spanned<MonoItem>[]], NormalizationErrorInMono>; ProvidedValue: Result<[readonly Spanned<MonoItem>[], readonly Spanned<MonoItem>[]], NormalizationErrorInMono> };
   size_estimate: { Key: Instance; KeyArg: Instance; LocalKey: Instance; Value: number; ProvidedValue: number };
   // PORT: value `ty::AnonConstKind` not ported (`unknown`)
   anon_const_kind: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: unknown; ProvidedValue: unknown };
@@ -1753,8 +1742,7 @@ export interface QueryTypes {
    *
    * Returns the sanitizer settings for this def.
    */
-  // PORT: value `SanitizerFnAttrs` not ported (`unknown`)
-  sanitizer_settings_for: { Key: LocalDefId; KeyArg: Parameters<typeof into_query_key_LocalDefId>[0]; LocalKey: LocalDefId; Value: unknown; ProvidedValue: unknown };
+  sanitizer_settings_for: { Key: LocalDefId; KeyArg: Parameters<typeof into_query_key_LocalDefId>[0]; LocalKey: LocalDefId; Value: SanitizerFnAttrs; ProvidedValue: SanitizerFnAttrs };
   check_externally_implementable_items: { Key: null; KeyArg: null; LocalKey: null; Value: null; ProvidedValue: null };
   /**
    * Returns a list of all `externally implementable items` crate.
@@ -2294,7 +2282,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: true,
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `computing generics of \`${__0}\``; },
-    debug_value: undefined,
+    debug_value: (v, f) => debug_Generics(v, f),
     stable_hash_value: undefined,
   },
   clauses_of: {
@@ -3266,8 +3254,8 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: true,
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `checking if item is const: \`${__0}\``; },
-    debug_value: undefined,
-    stable_hash_value: undefined,
+    debug_value: (v, f) => debug_Constness(v, f),
+    stable_hash_value: stable_hash_Constness,
   },
   asyncness: {
     name: "asyncness",
@@ -3284,7 +3272,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: true,
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `checking if the function is async: \`${__0}\``; },
-    debug_value: undefined,
+    debug_value: (v, f) => debug_Asyncness(v, f),
     stable_hash_value: undefined,
   },
   is_promotable_const_fn: {
@@ -3536,7 +3524,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: true,
     returns_error_guaranteed: false,
     desc: (tcx, impl_id) => { const __0 = tcx.def_path_str(impl_id); return `computing trait implemented by \`${__0}\``; },
-    debug_value: undefined,
+    debug_value: (v, f) => debug_ImplTraitHeader(v, f),
     stable_hash_value: undefined,
   },
   impl_is_fully_generic_for_reflection: {
@@ -4346,7 +4334,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: false,
     returns_error_guaranteed: false,
     desc: (_tcx, key) => { const __0 = key; return `computing the symbol for \`${display_Instance(__0)}\``; },
-    debug_value: undefined,
+    debug_value: (v, f) => debug_SymbolName(v, f),
     stable_hash_value: undefined,
   },
   def_kind: {
@@ -5516,7 +5504,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: true,
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `getting a crate's symbol mangling version`,
-    debug_value: undefined,
+    debug_value: (v, f) => debug_SymbolManglingVersion(v, f),
     stable_hash_value: undefined,
   },
   extern_crate: {
@@ -6866,7 +6854,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: false,
     returns_error_guaranteed: false,
     desc: (_tcx, sym) => `getting codegen unit \`${display_Symbol(sym)}\``,
-    debug_value: undefined,
+    debug_value: (v, f) => debug_CodegenUnit(v, f),
     stable_hash_value: undefined,
   },
   backend_optimization_level: {
@@ -6884,7 +6872,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: false,
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `optimization level used by backend`,
-    debug_value: undefined,
+    debug_value: (v, f) => debug_OptLevel(v, f),
     stable_hash_value: undefined,
   },
   output_filenames: {
@@ -7550,7 +7538,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: false,
     returns_error_guaranteed: false,
     desc: (_tcx, key) => { const __0 = key[0]; return `collecting items used by \`${display_Instance(__0)}\``; },
-    debug_value: undefined,
+    debug_value: (v, f) => debug_result(v, f, ((x, f) => debug_tuple(f, "", [debug_vec(x[0], f, (x, f) => debug_Spanned(x, f, ((x, f) => debug_MonoItem(x, f)))), debug_vec(x[1], f, (x, f) => debug_Spanned(x, f, ((x, f) => debug_MonoItem(x, f))))])), ((x, f) => debug_NormalizationErrorInMono(x, f))),
     stable_hash_value: undefined,
   },
   size_estimate: {

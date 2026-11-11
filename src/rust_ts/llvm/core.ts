@@ -71,6 +71,7 @@ import {
   ValueAsMetadata,
   VectorType,
 } from "./ir.ts";
+import { type BasicBlock, Inst } from "./inst.ts";
 import { printEscapedString, printModule, printTypeToString, printValueToString } from "./printer.ts";
 import { Bool, type MetadataKindId, type MutRef, type PtrLenStr, RawEnum, type RustString } from "./support.ts";
 
@@ -669,16 +670,29 @@ export function LLVMSetVisibility(Global: Value, Viz: Visibility): void {
   asGlobalValue(Global).setVisibility(Viz);
 }
 
+/** The instructions that have an alignment (`AllocaInst`, `LoadInst`, `StoreInst`, `AtomicRMWInst`, `AtomicCmpXchgInst`). */
+const ALIGNED_OPCODES = ["alloca", "load", "store", "atomicrmw", "cmpxchg"];
+
 // llvm: llvm/lib/IR/Core.cpp:2192 LLVMGetAlignment
 export function LLVMGetAlignment(Global: Value): number {
   if (Global instanceof GlobalVariable || Global instanceof Function) return Global.alignment ?? 0;
-  return unported("llir: LLVMGetAlignment of an instruction (llir-core-b)");
+  if (Global instanceof Inst && ALIGNED_OPCODES.includes(Global.opcode)) {
+    // An instruction's `getAlign()` is always set; the model leaves the data layout's default undefined (inst.ts header).
+    if (Global.align === undefined) return unported("llir: LLVMGetAlignment of an instruction with the data layout's default alignment");
+    return Global.align;
+  }
+  throw new Error("llvm: only GlobalValue, AllocaInst, LoadInst, StoreInst, AtomicRMWInst, and AtomicCmpXchgInst have alignment");
 }
 
 // llvm: llvm/lib/IR/Core.cpp:2214 LLVMSetAlignment
 export function LLVMSetAlignment(Global: Value, Bytes: number): void {
   if (Global instanceof GlobalVariable || Global instanceof Function) return Global.setAlignment(Bytes);
-  return unported("llir: LLVMSetAlignment of an instruction (llir-core-b)");
+  if (Global instanceof Inst && ALIGNED_OPCODES.includes(Global.opcode)) {
+    // `setAlignment(Align(Bytes))`: an `Align` of 0 is an assertion (off in the oracle's build), never passed by rustc.
+    Global.align = Bytes;
+    return;
+  }
+  throw new Error("llvm: only GlobalValue, AllocaInst, LoadInst, StoreInst, AtomicRMWInst, and AtomicCmpXchgInst have alignment");
 }
 
 // llvm: llvm/lib/IR/Core.cpp:2146 LLVMSetDLLStorageClass
@@ -848,8 +862,10 @@ export function LLVMAddFunction(Mod: Module, Name: string | undefined, FunctionT
 
 // llvm: llvm/lib/IR/Core.cpp:2538 LLVMDeleteFunction
 export function LLVMDeleteFunction(Fn: Value): void {
+  // `Function::eraseFromParent`: the body goes first (`dropAllReferences` of every instruction, then the blocks).
   const f = asFunction(Fn);
-  if (f.blocks.length) return unported("llir: LLVMDeleteFunction of a definition (llir-core-b drops the body)");
+  for (const bb of f.blocks as BasicBlock[]) for (const I of bb.insts) I.dropAllReferences();
+  f.blocks.length = 0;
   f.removeFromParent();
   f.dropAllReferences();
 }
@@ -1015,9 +1031,36 @@ export { FUNCTION_INDEX };
 
 // rustc: compiler/rustc_llvm/llvm-wrapper/PassWrapper.cpp:1154 LLVMRustPrintModule
 export function LLVMRustPrintModule(M: Module, Output: string | undefined, _Demangle: unknown): LLVMRustResult {
-  if (Output === undefined) throw new Error("llvm: LLVMRustPrintModule: a null output path");
+  // `raw_fd_ostream(Path, EC, OF_None)`: a null path is `StringRef()`, the empty path, whose `open` fails with ENOENT; the
+  // error's message becomes the last error and the result Failure (review llir-core-a R3).
+  if (Output === undefined || Output === "") {
+    LLVMRustSetLastError("No such file or directory");
+    return LLVMRustResult.Failure;
+  }
   // PORT: the oracle prints through an annotation writer that adds `; <demangled>` comments; the normal form drops every
   // comment line (plan-m7 §1b), so the model prints none.
-  writeFileSync(Output, Buffer.from(printModule(M), "latin1"));
+  const text = printModule(M);
+  try {
+    writeFileSync(Output, Buffer.from(text, "latin1"));
+  } catch (e) {
+    // PORT: `std::error_code::message()` of an `open` failure is the C library's strerror text, which Node does not expose;
+    // stop rather than guess it.
+    return unported(`llir: LLVMRustPrintModule could not open ${JSON.stringify(Output)} (${(e as Error).message}): raw_fd_ostream's error message`);
+  }
   return LLVMRustResult.Success;
+}
+
+/** `LastError` (RustWrapper.cpp:82), thread-local in C++; one thread here. */
+let LAST_ERROR: string | undefined;
+
+/** `LLVMRustSetLastError` (RustWrapper.cpp:140), internal to the wrappers. */
+function LLVMRustSetLastError(Err: string): void {
+  LAST_ERROR = Err;
+}
+
+// rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:134 LLVMRustGetLastError
+export function LLVMRustGetLastError(): string | undefined {
+  const ret = LAST_ERROR;
+  LAST_ERROR = undefined;
+  return ret;
 }

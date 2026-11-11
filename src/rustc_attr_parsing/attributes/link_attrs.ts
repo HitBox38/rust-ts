@@ -11,7 +11,7 @@
 import { ExternAbi } from "../../rustc_abi/extern_abi.ts";
 import type { CfgEntry } from "../../rustc_ast/attr/data_structures.ts";
 import { type LinkEntry, type Linkage, type PeImportNameType, target as target_mod } from "../../rustc_attr_ir/lib.ts";
-import { msg, str_trim } from "../../rustc_errors/lib.ts";
+import { msg } from "../../rustc_errors/lib.ts";
 import { AttributeStability, type Features } from "../../rustc_feature/lib.ts";
 import { ILL_FORMED_ATTRIBUTE_INPUT, UNUSED_ATTRIBUTES } from "../../rustc_lint_defs/builtin.ts";
 import type { Session } from "../../rustc_session/lib.ts";
@@ -22,7 +22,7 @@ import type { NativeLibKind } from "../../rustc_structures/native_lib_kind.ts";
 import { field_mut, type MutRef } from "../../std/mut_ref.ts";
 import { panic, unwrap } from "../../std/panic.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
-import { utf8_len } from "../../std/str.ts";
+import { string_trim, utf8_len } from "../../std/str.ts";
 import { type AcceptContext, ExpectNameValue, ExpectStringLiteral, type FinalizeCheckContext } from "../context.ts";
 import {
   AsNeededCompatibility_diagnostic,
@@ -571,7 +571,7 @@ function check_link_section_macho(name: Symbol): Result<undefined, InvalidMachoS
   // PORT: the `split(',').map(|s| s.trim())` iterator is an array walked with `next`.
   const parts = Symbol.as_str(name)
     .split(",")
-    .map((s) => str_trim(s));
+    .map((s) => string_trim(s));
   let next = 0;
 
   // The segment can be empty.

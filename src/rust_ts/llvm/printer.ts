@@ -12,6 +12,7 @@ import {
   ArrayType,
   type Attribute,
   Constant,
+  type Context,
   ConstantAggregateZero,
   ConstantArray,
   ConstantDataSequential,
@@ -20,10 +21,12 @@ import {
   ConstantInt,
   ConstantPointerNull,
   ConstantStruct,
+  ConstantTokenNone,
   ConstantVector,
   FUNCTION_INDEX,
   Function,
   FunctionType,
+  getSplatValue,
   GlobalAlias,
   GlobalObject,
   GlobalValue,
@@ -149,8 +152,11 @@ const printAddressSpace = (as: number, prefix: string, suffix: string, force = f
 /** llir-core-b's hook: prints a definition's blocks (`{` and `}` excluded) with the printer's slot numbering. */
 export type BodyPrinter = (f: Function, p: Printer) => string;
 let bodyPrinter: BodyPrinter | undefined;
-export function setBodyPrinter(b: BodyPrinter): void {
+/** llir-core-b's slot numbering of a function's unnamed locals (`SlotTracker::incorporateFunction`). */
+let functionSlots: ((f: Function) => (v: Value) => string) | undefined;
+export function setBodyPrinter(b: BodyPrinter, slots: (f: Function) => (v: Value) => string): void {
   bodyPrinter = b;
+  functionSlots = slots;
 }
 
 /** One printing of a module (or of a lone value): the slot numbers of unnamed globals, struct types, metadata, attributes. */
@@ -294,6 +300,12 @@ export class Printer {
     }
     if (c instanceof ConstantAggregateZero) return "zeroinitializer";
     if (c instanceof ConstantArray) return `[${c.operands.map((o) => this.operand(o, true)).join(", ")}]`;
+    if ((c instanceof ConstantDataSequential || c instanceof ConstantVector) && c.type instanceof VectorType) {
+      // The shorthand for a splat vector, `splat (<ty> <val>)` (AsmWriter.cpp writeConstantInternal, "Use the same shorthand
+      // for splat vector"): when the splat value is a ConstantInt or ConstantFP.
+      const splat = getSplatValue(c);
+      if (splat instanceof ConstantInt || splat instanceof ConstantFP) return `splat (${this.operand(splat, true)})`;
+    }
     if (c instanceof ConstantDataSequential) {
       if (c.isString()) return `c"${printEscapedString(String.fromCharCode(...c.elements.map((e) => Number((e as ConstantInt).value))))}"`;
       const elems = c.elements.map((e) => this.operand(e, true)).join(", ");
@@ -310,6 +322,7 @@ export class Printer {
       if (c.type.isVectorTy()) return unported("llir: printing a vector ConstantPointerNull (splat)");
       return "null";
     }
+    if (c instanceof ConstantTokenNone) return "none";
     if (c instanceof PoisonValue) return "poison";
     if (c instanceof UndefValue) return "undef";
     if (c instanceof ConstantExpr) {
@@ -363,9 +376,23 @@ export class Printer {
   }
 
   private mdAttachments(g: GlobalObject, sep: string): string {
-    const kinds = [...g.context.mdKinds.entries()];
-    // `getAllMetadata`: sorted by kind ID, stably (Metadata.cpp `Value::getAllMetadata`).
-    return [...g.metadata].sort((a, b) => a[0] - b[0]).map(([k, n]) => `${sep}!${this.mdName(kinds.find(([, id]) => id === k)![0])} !${this.mdSlot(n)}`).join("");
+    return this.attachments(g.metadata, sep, g.context);
+  }
+
+  // llvm: llvm/lib/IR/AsmWriter.cpp:4986 AssemblyWriter::printMetadataAttachments
+  /** A value's attachments, `getAllMetadata`'s order: sorted by kind ID, stably (Metadata.cpp `Value::getAllMetadata`). */
+  attachments(list: readonly (readonly [number, MDNode])[], sep: string, ctx: Context): string {
+    if (list.length === 0) return "";
+    const kinds = this.kindNames(ctx);
+    return [...list].sort((a, b) => a[0] - b[0]).map(([k, n]) => `${sep}!${this.mdName(kinds[k] ?? unported(`llir: metadata kind #${k} has no name`))} !${this.mdSlot(n)}`).join("");
+  }
+  private kindNamesCache: string[] | undefined;
+  private kindNames(ctx: Context): string[] {
+    if (this.kindNamesCache === undefined) {
+      this.kindNamesCache = [];
+      for (const [name, id] of ctx.mdKinds) this.kindNamesCache[id] = name;
+    }
+    return this.kindNamesCache;
   }
 
   // ---- attributes ----
@@ -374,7 +401,8 @@ export class Printer {
   attributeSet(set: Map<string, Attribute> | undefined): string {
     return set === undefined ? "" : [...set.values()].map((a) => a.print(false)).join(" ");
   }
-  private attributeGroup(set: Map<string, Attribute>): number {
+  /** `getAttributeGroupSlot`: the `#N` of a function or call-site attribute set. */
+  attributeGroup(set: Map<string, Attribute>): number {
     const text = [...set.values()].map((a) => a.print(true)).join(" ");
     let n = this.attrGroups.get(text);
     if (n === undefined) this.attrGroups.set(text, (n = this.attrGroups.size));
@@ -422,6 +450,16 @@ export class Printer {
   // llvm: llvm/lib/IR/AsmWriter.cpp:4139 AssemblyWriter::printFunction
   function(f: Function): string {
     const decl = f.isDeclaration();
+    // `Machine.incorporateFunction(F)` before the header: unnamed arguments print as their slots.
+    const prev = this.localOperand;
+    if (!decl && functionSlots !== undefined) this.localOperand = functionSlots(f);
+    try {
+      return this.functionText(f, decl);
+    } finally {
+      this.localOperand = prev;
+    }
+  }
+  private functionText(f: Function, decl: boolean): string {
     let o = decl ? `declare${this.mdAttachments(f, " ")} ` : "define ";
     o += getLinkageNameWithSpace(f.linkage) + printDSOLocation(f) + printVisibility(f) + printDLLStorageClass(f);
     // PORT: a non-C convention prints as `cc N`, which the parser reads as the named convention `printCallingConv` writes.
@@ -523,15 +561,29 @@ export class Printer {
       visitType(a.valueType);
       visitValue(a.aliasee);
     }
+    // `TypeFinder::incorporateAttributes` (TypeFinder.cpp:205): the types of type attributes (`byval(%T)`, `sret(%T)`,
+    // `elementtype(%T)`), set by set in `AttributeList` order: function, return, then each parameter (review R2).
+    const visitAttrs = (list: Map<number, Map<string, Attribute>>): void => {
+      const order = [...list.keys()].sort((a, b) => attrListPos(a) - attrListPos(b));
+      for (const i of order) for (const a of list.get(i)!.values()) if (a.type !== undefined) visitType(a.type);
+    };
     for (const f of m.functions) {
       visitType(f.valueType);
-      // `TypeFinder::incorporateAttributes`: the types of type attributes (`byval(%T)`, `sret(%T)`, `elementtype(%T)`).
-      for (const set of f.attributes.values()) for (const a of set.values()) if (a.type !== undefined) visitType(a.type);
+      visitAttrs(f.attributes);
+      // The arguments' types are the function type's; the body (inst.ts) adds what its instructions use.
+      typeFinderHooks.body?.(f, visitType, visitValue, visitAttrs);
     }
-    // PORT: types used only in function bodies are llir-core-b's to add (its body walk).
     return out;
   }
 }
+
+/** `AttributeList`'s array position of an attribute index (`attrIdxToArrayIdx`): function 0, return 1, parameter i at i + 2. */
+const attrListPos = (index: number): number => (index === FUNCTION_INDEX ? 0 : index + 1);
+
+/** The type finder's hook for function bodies (inst.ts registers it). */
+export const typeFinderHooks: {
+  body?: (f: Function, visitType: (t: Type) => void, visitValue: (v: Value) => void, visitAttrs: (list: Map<number, Map<string, Attribute>>) => void) => void;
+} = {};
 
 /** `Instruction::getOpcodeName` of the constant expression opcodes. */
 const OPCODE_NAME: Readonly<Record<string, string>> = {

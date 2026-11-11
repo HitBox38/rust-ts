@@ -41,7 +41,7 @@ import { display_IoError, type IoResult } from "../std/io.ts";
 import { panic, unported } from "../std/panic.ts";
 import { Ok } from "../std/result.ts";
 import { binary_search_by } from "../std/slice.ts";
-import { Str, utf8_len } from "../std/str.ts";
+import { Str, string_trim, utf8_len } from "../std/str.ts";
 import {
   ConfusionType,
   type Destination,
@@ -59,7 +59,7 @@ import { format_diag_message, format_diag_messages } from "./formatting.ts";
 import { pluralize } from "../rustc_lint_defs/lib.ts";
 import * as lock from "./lock.ts";
 import type { CodeSuggestion, DiagInner, ErrCode, Style, Subdiag, Sublevel, Substitution, SubstitutionPart, TerminalUrl } from "./lib.ts";
-import { Level, Suggestions, debug_TerminalUrl, display_ErrCode, str_trim } from "./lib.ts";
+import { Level, Suggestions, debug_TerminalUrl, display_ErrCode } from "./lib.ts";
 
 /// Generates diagnostics using annotate-snippet
 export class AnnotateSnippetEmitter extends Emitter {
@@ -410,13 +410,13 @@ export class AnnotateSnippetEmitter extends Emitter {
                 let b: string | undefined;
                 if (
                   parts.length === 1 &&
-                  str_trim(parts[0]![1]).startsWith("#[") &&
+                  string_trim(parts[0]![1]).startsWith("#[") &&
                   // This allows for spaces to come between the attribute and the newline
-                  str_trim(parts[0]![1]).endsWith("]") &&
+                  string_trim(parts[0]![1]).endsWith("]") &&
                   parts[0]![1].endsWith("\n") &&
                   Span.hi(parts[0]![0]) === Span.lo(parts[0]![0]) &&
                   (b = prev_source_last_line(sm, parts[0]![0])) !== undefined &&
-                  str_trim(b) === ""
+                  string_trim(b) === ""
                 ) {
                   const part = parts[0]!;
                   // FIXME: This is a hack:

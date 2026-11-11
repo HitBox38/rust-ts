@@ -12,6 +12,7 @@ import { is_alphabetic } from "../std/char.ts";
 import { debug_Hash64, Hash64 } from "../rustc_hashes/lib.ts";
 import { type Debug, debug_bool, debug_int, debug_option, debug_struct, debug_tuple, debug_vec, type Fmt, PLAIN } from "../std/fmt.ts";
 import { field_mut, type MutRef } from "../std/mut_ref.ts";
+import { type ParseIntError, display_ParseIntError, u32_from_str, u64_from_str } from "../std/num.ts";
 import { assert, panic, unported, unreachable } from "../std/panic.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
 import { to_writer } from "../vendor/bitflags/parser.ts";
@@ -33,43 +34,12 @@ export { FIRST_VARIANT, FieldIdx, LayoutCalculator, LayoutCalculatorError, Varia
 export { Layout, TyAndLayout, debug_Layout, debug_TyAndLayout, register_ty_abi_interface, type TyAbiInterface } from "./layout/ty.ts";
 export { WrappingRange, WrappingRange_eq, debug_WrappingRange } from "./wrapping_range.ts";
 
-/**
- * `core::num::ParseIntError` (the `kind` only). PORT: `str::parse::<u32>()`/`parse::<u64>()` below are
- * reimplemented over decimal digit strings (an optional leading `+`, as core accepts).
- */
-export type ParseIntError = "Empty" | "InvalidDigit" | "PosOverflow";
-/** `impl Display for ParseIntError` */
-export function display_ParseIntError(e: ParseIntError): string {
-  switch (e) {
-    case "Empty":
-      return "cannot parse integer from empty string";
-    case "InvalidDigit":
-      return "invalid digit found in string";
-    case "PosOverflow":
-      return "number too large to fit in target type";
-  }
-}
-/** PORT: `<uN as FromStr>::from_str` (radix 10) for `u32` (`max` = 2^32-1) and `u64` (`max` = 2^64-1). */
-function parse_uint(s: string, max: bigint): Result<bigint, ParseIntError> {
-  let digits = s;
-  if (digits.startsWith("+") && digits.length > 1) digits = digits.slice(1);
-  if (digits.length === 0) return Err("Empty");
-  let v = 0n;
-  for (const c of digits) {
-    if (c < "0" || c > "9") return Err("InvalidDigit");
-    v = v * 10n + BigInt(c.charCodeAt(0) - 48);
-    if (v > max) return Err("PosOverflow");
-  }
-  return Ok(v);
-}
-function parse_u32(s: string): Result<number, ParseIntError> {
-  const r = parse_uint(s, 0xffff_ffffn);
-  return r.$ === "Ok" ? Ok(Number(r._0)) : r;
-}
+// `core::num::ParseIntError`, its `Display` and `str::parse::<u32>()`/`parse::<u64>()` are src/std/num.ts's
+// (docs/reviews/driver-cli-2.md N4).
 // PORT: the `u64` values parsed here are bit counts; values above 2^53 lose precision as `number`, which
 // only matters for data layouts no target uses.
 function parse_u64(s: string): Result<number, ParseIntError> {
-  const r = parse_uint(s, 0xffff_ffff_ffff_ffffn);
+  const r = u64_from_str(s);
   return r.$ === "Ok" ? Ok(Number(r._0)) : r;
 }
 
@@ -515,7 +485,7 @@ export class TargetDataLayout {
   ): Result<TargetDataLayout, TargetDataLayoutError> {
     // Parse an address space index from a string.
     const parse_address_space = (s: string, cause: string): Result<AddressSpace, TargetDataLayoutError> => {
-      const r = parse_u32(s);
+      const r = u32_from_str(s);
       return r.$ === "Ok" ? Ok(r._0 as AddressSpace) : Err({ $: "InvalidAddressSpace", addr_space: s, cause, err: r._0 });
     };
 
