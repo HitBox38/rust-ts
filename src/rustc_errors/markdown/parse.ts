@@ -2,11 +2,13 @@
 // PORT: the parser's `&'a [u8]` buffers are `Uint8Array` views (`subarray`, so `wip_buf.len() - loop_buf.len()` is
 // still the consumed length); the `&'a str` it hands to `MdTree` are JS strings (see mod.ts). The `str` methods
 // used on them (`trim`, `trim_end`, `ends_with(char::is_whitespace)`, ...) follow Rust's `char::is_whitespace`,
-// not JS's `trim`, through the helpers at the end of this file.
+// not JS's `trim`: `trim`/`trim_end` and `parse::<u16>` are src/std's (`string_trim*`, num.ts), the pattern forms
+// (`trim_matches('\n')`, `{starts,ends}_with(char::is_whitespace)`) and the `[u8]` ones are at the end of this file.
 // PORT: the private fns and consts upstream's `tests` child module uses are exported for tests/parse.test.ts.
 import { is_whitespace } from "../../std/char.ts";
 import { panic, unreachable } from "../../std/panic.ts";
-import { from_utf8, utf8 } from "../../std/str.ts";
+import { u16_from_str } from "../../std/num.ts";
+import { from_utf8, string_trim, string_trim_end, utf8 } from "../../std/str.ts";
 import { MdStream, MdTree } from "./mod.ts";
 
 /// Short aliases that we can use in match patterns. If an end pattern is not
@@ -79,7 +81,7 @@ export type ParseOpt =
 // rustc: compiler/rustc_errors/src/markdown/parse.rs:71 entrypoint
 export function entrypoint(txt: string): MdStream {
   const ctx: Context = { top_block: true, prev: "Newline" };
-  return normalize(parse_recursive(utf8(str_trim(txt)), ctx), []);
+  return normalize(parse_recursive(utf8(string_trim(txt)), ctx), []);
 }
 
 /// Parse a buffer with specified context
@@ -180,7 +182,7 @@ export function parse_simple_pat(buf: Uint8Array, start_pat: Uint8Array, end_pat
   const [txt_, rest] = r;
   let txt = from_utf8_unwrap(txt_);
   if (trim) {
-    txt = str_trim(txt);
+    txt = string_trim(txt);
   }
   return [create_tt(txt), rest];
 }
@@ -317,8 +319,8 @@ function ord_list_start(buf: Uint8Array): [number, number] | undefined {
   if (!u8_is_ascii_whitespace(next)) {
     return undefined;
   }
-  const v = parse_u16(n._0);
-  return v === undefined ? undefined : [v, pos + 2];
+  const v = u16_from_str(n._0);
+  return v.$ === "Err" ? undefined : [v._0, pos + 2];
 }
 
 /// Parse links. `can_be_def` indicates that a link definition is possible (top
@@ -336,7 +338,7 @@ export function parse_any_link(buf: Uint8Array, can_be_def: boolean): ParseResul
   const c = rest[0]!;
   if (can_be_def && c === 0x3a) {
     const [link_, tmp] = parse_to_newline(rest.subarray(1));
-    const link = str_trim(from_utf8_unwrap(link_));
+    const link = string_trim(from_utf8_unwrap(link_));
     return [{ $: "LinkDef", id: disp, link }, tmp];
   } else if (c === 0x28) {
     return parse_simple_pat(rest, utf8("("), utf8(")"), "TrimNoEsc", (link) => ({ $: "Link", disp, link }));
@@ -434,7 +436,7 @@ function normalize(stream_: MdStream, linkdefs: MdTree[]): MdStream {
     to_keep.push(
       !(
         (w1.$ === "ParagraphBreak" && matches_always1_or_never(should_break(w0, w2))) ||
-        (w1.$ === "PlainText" && str_trim(w1._0) === "" && matches_always_or_never(should_break(w0, w2)))
+        (w1.$ === "PlainText" && string_trim(w1._0) === "" && matches_always_or_never(should_break(w0, w2)))
       ),
     );
   }
@@ -557,7 +559,7 @@ function is_break_ty(val: MdTree): boolean {
     val.$ === "ParagraphBreak" ||
     val.$ === "LineBreak" ||
     // >1 break between paragraphs acts as a break
-    (val.$ === "PlainText" && str_trim(val._0) === "")
+    (val.$ === "PlainText" && string_trim(val._0) === "")
   );
 }
 
@@ -614,7 +616,7 @@ function expand_plaintext(txt: string, stream: MdTree[], f: (txt: string) => MdT
     for (let idx = 0; idx < queue1.length; idx++) {
       queue1[idx] = trim_extra_ws(queue1[idx]!);
       if (idx < queue1.length - 1 && str_ends_with_whitespace(queue1[idx]!) && str_starts_with_whitespace(queue1[idx + 1]!)) {
-        queue1[idx] = str_trim_end(queue1[idx]!);
+        queue1[idx] = string_trim_end(queue1[idx]!);
       }
     }
     stream.push(...queue1.filter((txt) => txt !== "").map(f));
@@ -712,48 +714,10 @@ function from_utf8_unwrap(b: Uint8Array): string {
   return r._0;
 }
 
-/** `str::parse::<u16>().ok()` */
-function parse_u16(s: string): number | undefined {
-  let digits = s;
-  if (s.length === 0) return undefined;
-  if (s[0] === "+" || s[0] === "-") {
-    if (s.length === 1) return undefined;
-    // an unsigned type takes a leading `+` only
-    if (s[0] === "+") digits = s.slice(1);
-  }
-  let v = 0;
-  for (let i = 0; i < digits.length; i++) {
-    const c = digits.charCodeAt(i);
-    if (c < 0x30 || c > 0x39) return undefined;
-    v = v * 10 + (c - 0x30);
-    if (v > 0xffff) return undefined;
-  }
-  return v;
-}
-
 /** `s.chars().all(pred)` (over Unicode scalar values) */
 function chars_all(s: string, pred: (ch: string) => boolean): boolean {
   for (const ch of s) if (!pred(ch)) return false;
   return true;
-}
-
-/** `str::trim` (`char::is_whitespace`; every whitespace char is in the BMP, so code units suffice) */
-export function str_trim(s: string): string {
-  return str_trim_end(str_trim_start(s));
-}
-
-/** `str::trim_start` */
-export function str_trim_start(s: string): string {
-  let i = 0;
-  while (i < s.length && is_whitespace(s.charCodeAt(i))) i++;
-  return s.slice(i);
-}
-
-/** `str::trim_end` */
-export function str_trim_end(s: string): string {
-  let j = s.length;
-  while (j > 0 && is_whitespace(s.charCodeAt(j - 1))) j--;
-  return s.slice(0, j);
 }
 
 /** `str::trim_matches('\n')` */

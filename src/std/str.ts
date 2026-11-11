@@ -279,6 +279,31 @@ export function str_trim_end(s: Str): Str {
   return found === undefined ? s.slice(0, 0) : s.slice(0, found[0] + len_utf8(found[1]));
 }
 
+// The same three on a plain JS string (lane driver-cli-2; docs/reviews/driver-cli.md N4). Every char that
+// `char::is_whitespace` accepts is in the BMP, so testing UTF-16 code units gives the same cut.
+
+/** `str::trim` on a JS string */
+// std: library/core/src/str/mod.rs:2185 trim
+export function string_trim(s: string): string {
+  return string_trim_end(string_trim_start(s));
+}
+
+/** `str::trim_start` on a JS string */
+// std: library/core/src/str/mod.rs:2224 trim_start
+export function string_trim_start(s: string): string {
+  let i = 0;
+  while (i < s.length && is_whitespace(s.charCodeAt(i))) i++;
+  return s.slice(i);
+}
+
+/** `str::trim_end` on a JS string */
+// std: library/core/src/str/mod.rs:2263 trim_end
+export function string_trim_end(s: string): string {
+  let j = s.length;
+  while (j > 0 && is_whitespace(s.charCodeAt(j - 1))) j--;
+  return s.slice(0, j);
+}
+
 /** `s.chars().count()` */
 export function str_chars_count(s: Str): number {
   let n = 0;

@@ -188,14 +188,26 @@ function writeln_str(buf: VecU8, s: Str): IoResult<void> {
   return buf.write_all(utf8("\n"));
 }
 
-/** `s.char_indices()`, collected: `[byte index, char]` */
-function char_indices(s: Str): [number, number][] {
-  const out: [number, number][] = [];
-  const chars = s.chars();
-  for (let pos = chars.pos, c = chars.next(); c !== undefined; pos = chars.pos, c = chars.next()) {
-    out.push([pos - s.lo, c]);
+/**
+ * `str::char_indices` as Rust's lazy iterator: `(byte index, char)` pairs are decoded only as far as they are asked for,
+ * so `write_wrapping` decodes about one line's chars per line, not the whole remaining text (docs/reviews/driver-cli.md
+ * N5). Indices are positions in the iteration (`get(n)` is what `nth(n)` on a fresh iterator returns).
+ */
+class CharIndices {
+  private readonly items: [number, number][] = [];
+  private readonly chars: ReturnType<Str["chars"]>;
+  constructor(private readonly s: Str) {
+    this.chars = s.chars();
   }
-  return out;
+  get(n: number): [number, number] | undefined {
+    while (this.items.length <= n) {
+      const pos = this.chars.pos;
+      const c = this.chars.next();
+      if (c === undefined) return undefined;
+      this.items.push([pos - this.s.lo, c]);
+    }
+    return this.items[n];
+  }
 }
 
 const C_UNDERSCORE = 0x5f;
@@ -225,10 +237,10 @@ export function write_wrapping(buf: VecU8, text: string, indent: number, link_ur
     }
     // PORT: `usize` subtraction; `CURSOR` never exceeds `WIDTH` (it grows by at most `ch_count` below).
     const ch_count = WIDTH - CURSOR;
-    const iter = char_indices(to_write);
+    const iter = new CharIndices(to_write);
     let iter_pos = 0;
     // `iter.nth(ch_count)`
-    const nth = iter[ch_count];
+    const nth = iter.get(ch_count);
     if (nth === undefined) {
       // Write entire line
       if ((r = buf.write_all(bytes_of(to_write))).$ === "Err") return r;
@@ -241,7 +253,7 @@ export function write_wrapping(buf: VecU8, text: string, indent: number, link_ur
     // `to_write[..end_idx].char_indices().rev().find(|(_idx, ch)| ch.is_whitespace() || ['_', '-'].contains(ch))`
     let found: [number, number] | undefined;
     for (let i = ch_count - 1; i >= 0; i--) {
-      const [idx, ch] = iter[i]!;
+      const [idx, ch] = iter.get(i)!;
       if (is_whitespace(ch) || ch === C_UNDERSCORE || ch === C_HYPHEN) {
         found = [idx, ch];
         break;
@@ -261,8 +273,8 @@ export function write_wrapping(buf: VecU8, text: string, indent: number, link_ur
     } else {
       // No whitespace, we need to just split
       let ws_idx = to_write.len();
-      for (; iter_pos < iter.length; iter_pos++) {
-        const [idx, ch] = iter[iter_pos]!;
+      for (let e = iter.get(iter_pos); e !== undefined; e = iter.get(++iter_pos)) {
+        const [idx, ch] = e;
         if (is_whitespace(ch)) {
           ws_idx = idx;
           break;

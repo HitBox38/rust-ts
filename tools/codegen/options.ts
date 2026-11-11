@@ -217,6 +217,112 @@ function macroFnLine(path: string, toks: Tok[], mac: string, name: string): numb
   return f[0]!.line;
 }
 
+/**
+ * The `#[derive(..)]` names on the item `<kw> <name>` (`name` as token texts, e.g. `["$", "tmod_enum"]`): inside
+ * `macro_rules! <mac>`, or at the file's top level when `mac` is undefined. ERROR unless exactly one such item exists.
+ */
+function itemDerives(path: string, toks: Tok[], mac: string | undefined, kw: "enum" | "struct", name: string[]): { derives: string[]; at: number } {
+  let lo = 0;
+  let hi = toks.length;
+  if (mac !== undefined) {
+    const def = toks.findIndex((t, i) => t.text === "macro_rules" && toks[i + 1]?.kind.$ === "Bang" && toks[i + 2]?.text === mac);
+    if (def < 0) fail(path, undefined, `no macro_rules! ${mac}`);
+    lo = def;
+    hi = group(path, toks, def + 3);
+  }
+  const hits: number[] = [];
+  for (let i = lo; i < hi; i++) if (toks[i]!.text === kw && name.every((n, k) => toks[i + 1 + k]?.text === n)) hits.push(i);
+  if (hits.length !== 1) fail(path, toks[hits[1] ?? lo], `expected exactly one \`${kw} ${name.join("")}\`${mac ? ` in macro_rules! ${mac}` : ""}, found ${hits.length}`);
+  const at = hits[0]!;
+  let j = at - 1;
+  if (toks[j]?.text === "pub") j--;
+  const derives: string[] = [];
+  // outer attributes before the item, last to first
+  while (toks[j]?.kind.$ === "CloseBracket") {
+    let depth = 0;
+    let o = j;
+    for (; o >= 0; o--) {
+      const k = toks[o]!.kind.$;
+      if (k === "CloseBracket") depth++;
+      else if (k === "OpenBracket" && --depth === 0) break;
+    }
+    if (toks[o - 1]?.kind.$ !== "Pound") fail(path, toks[o], "expected an outer attribute");
+    if (toks[o + 1]?.text === "derive") {
+      const inner = toks.slice(o + 3, j - 1);
+      if (toks[o + 2]?.kind.$ !== "OpenParen" || toks[j - 1]?.kind.$ !== "CloseParen") fail(path, toks[o + 1], "expected `derive(..)`");
+      for (let k = 0; k < inner.length; k += 2) {
+        if (inner[k]!.kind.$ !== "Ident" || (inner[k + 1] !== undefined && inner[k + 1]!.kind.$ !== "Comma")) fail(path, inner[k], "unsupported derive list");
+        derives.push(inner[k]!.text);
+      }
+    }
+    j = o - 2;
+  }
+  return { derives, at };
+}
+
+/** ERROR unless the item derives both `Encodable` and `BlobDecodable` (the codecs this generator emits for it). */
+function requireCodecDerives(path: string, toks: Tok[], what: string, d: { derives: string[]; at: number }): void {
+  for (const n of ["Encodable", "BlobDecodable"]) if (!d.derives.includes(n)) fail(path, toks[d.at], `${what} does not derive ${n}`);
+}
+
+/**
+ * `#[derive(Encodable)]` and `#[derive(BlobDecodable)]` of an enum whose variants have at most one field, expanded as
+ * rustc_macros serialize.rs `encodable_body` / `decodable_body` do: no variant decodes as the `has no variants`
+ * panic and encodes nothing; one variant reads and writes no tag; more read and write the variant index (`u8` below
+ * `u8::MAX` variants, else `usize`), then the variant's field. `variants[i].field`: the codec fns of the field, or
+ * undefined for a unit variant. `ctor(v, x)`: the TS value of variant `v` with field value `x`; `tagOf`: the TS
+ * expression of `self`'s variant name; `fieldOf`: of its field.
+ */
+export function emitEnumCodecs(
+  body: string[],
+  ty: string,
+  rust: string,
+  variants: { name: string; field?: { enc: string; dec: string } }[],
+  ctor: (v: string, x: string | undefined) => string,
+  tagOf: string,
+  fieldOf: string,
+): void {
+  const n = variants.length;
+  const wide = n >= 255;
+  const unit = n === 0 || (n === 1 && variants[0]!.field === undefined);
+  body.push(`/** \`#[derive(BlobDecodable)]\` of \`${rust}\` (rustc_macros serialize.rs \`decodable_body\`) */`);
+  body.push(`export function decode_${ty}(${unit ? "_decoder" : "__decoder"}: BlobDecoder): ${ty} {`);
+  if (n === 0) body.push(`  return panic(${lit(`\`${rust}\` has no variants to decode`)});`);
+  else if (n === 1) {
+    const f = variants[0]!.field;
+    body.push(`  return ${ctor(variants[0]!.name, f ? `${f.dec}(__decoder)` : undefined)};`);
+  } else {
+    body.push(`  const __tag = __decoder.${wide ? "read_usize" : "read_u8"}();`);
+    body.push("  switch (__tag) {");
+    variants.forEach((v, i) => {
+      body.push(`    case ${i}:`);
+      body.push(`      return ${ctor(v.name, v.field ? `${v.field.dec}(__decoder)` : undefined)};`);
+    });
+    body.push("    default:");
+    body.push(`      return panic(\`invalid enum variant tag while decoding \\\`${rust}\\\`, expected 0..${n}, actual \${__tag}\`);`);
+    body.push("  }");
+  }
+  body.push("}");
+  body.push(`/** \`#[derive(Encodable)]\` of \`${rust}\` (rustc_macros serialize.rs \`encodable_body\`) */`);
+  body.push(`export function encode_${ty}(${unit ? "_self" : "self"}: ${ty}, ${unit ? "_encoder" : "__encoder"}: Encoder): void {`);
+  if (unit) body.push("  // Unit-like types don't need to encode anything.");
+  else if (n === 1) body.push(`  ${variants[0]!.field!.enc}(${fieldOf}, __encoder);`);
+  else {
+    body.push(`  __encoder.${wide ? "emit_usize" : "emit_u8"}(${ty}_discriminant[${tagOf}]);`);
+    if (variants.some((v) => v.field !== undefined)) {
+      body.push(`  switch (${tagOf}) {`);
+      for (const v of variants) {
+        if (v.field === undefined) continue;
+        body.push(`    case ${lit(v.name)}:`);
+        body.push(`      ${v.field.enc}(${fieldOf}, __encoder);`);
+        body.push("      break;");
+      }
+      body.push("  }");
+    }
+  }
+  body.push("}");
+}
+
 /** [open, close] of the delimited input of every invocation `name!{..}` (not the macro_rules definition). */
 function invocations(path: string, toks: Tok[], name: string): [number, number][] {
   const out: [number, number][] = [];
@@ -1068,6 +1174,9 @@ function genOptions(): Map<string, string> {
     if (!g || f.ty.k !== "path" || f.ty.name !== g.struct_name) fail(path, undefined, `top-level target modifier ${f.name} does not match an options! invocation`);
   }
 
+  // The derived codecs of `$tmod_enum` (one `#[derive]` in `macro_rules! options` for both invocations).
+  requireCodecDerives(path, toks, "$tmod_enum", itemDerives(path, toks, "options", "enum", ["$", "tmod_enum"]));
+
   // -- top_level_options! --
   // -- macro_rules! insert --
   const insertTok = toks.find((tk, i) => tk.text === "insert" && toks[i - 1]?.text === "!" && toks[i - 2]?.text === "macro_rules");
@@ -1135,6 +1244,20 @@ function genOptions(): Map<string, string> {
   body.push("}");
   v("../std/fmt.ts", "debug_tuple");
   body.push("export const debug_OptionsTargetModifiers: Debug<OptionsTargetModifiers> = (v, f) => debug_tuple(f, v.$, [v._0]);");
+  requireCodecDerives(path, toks, "OptionsTargetModifiers", itemDerives(path, toks, "top_level_options", "enum", ["OptionsTargetModifiers"]));
+  t("../rustc_span/lib.ts", "BlobDecoder");
+  t("../rustc_serialize/serialize.ts", "Encoder");
+  emitEnumCodecs(
+    body,
+    "OptionsTargetModifiers",
+    "OptionsTargetModifiers",
+    tmodFields.map((f) => ({ name: f.tmod!, field: { enc: `encode_${f.tmodEnum}`, dec: `decode_${f.tmodEnum}` } })),
+    (vn, x) => `OptionsTargetModifiers.${vn}(${x})`,
+    "self.$",
+    "self._0",
+  );
+  body.push("");
+  genTargetModifierCodecs(path, toks, body, v);
   body.push("");
   body.push(...top.docs.map((d) => `///${d}`));
   body.push(...top.attrs.filter((a) => !a.startsWith("#[doc")).map((a) => `// ${a}`));
@@ -1255,6 +1378,48 @@ function genOptions(): Map<string, string> {
   lines.push("");
   lines.push(...body);
   return new Map([[OUT_OPTIONS, lines.join("\n") + "\n"]]);
+}
+
+/**
+ * `#[derive(Encodable, BlobDecodable)]` of `pub struct TargetModifier` (options.rs, outside the macros; the struct itself is
+ * the hand class of options.ts, whose constructor takes the fields in declaration order). A struct reads and writes its
+ * fields in declaration order (serialize.rs `decodable_body` / `encodable_body`, one variant with bindings). Field types:
+ * `OptionsTargetModifiers` (the codecs above) and `String` (rustc_serialize); any other is an ERROR.
+ */
+function genTargetModifierCodecs(path: string, toks: Tok[], body: string[], v: (mod: string, name: string) => void): void {
+  const d = itemDerives(path, toks, undefined, "struct", ["TargetModifier"]);
+  requireCodecDerives(path, toks, "TargetModifier", d);
+  const p = new Parser(path, toks, d.at + 2, toks.length);
+  if (!p.is("OpenBrace")) fail(path, p.peek(), "expected `TargetModifier { .. }`");
+  const [bo, bc] = p.groupAt();
+  const q = new Parser(path, toks, bo + 1, bc);
+  const fields: { name: string; enc: string; dec: string }[] = [];
+  for (;;) {
+    leading(q);
+    if (q.peek() === undefined) break;
+    q.ident("pub");
+    const name = q.ident().text;
+    q.expect("Colon");
+    const ty = q.ident();
+    if (q.peek() !== undefined) q.expect("Comma");
+    if (ty.text === "OptionsTargetModifiers") fields.push({ name, enc: "encode_OptionsTargetModifiers", dec: "decode_OptionsTargetModifiers" });
+    else if (ty.text === "String") {
+      v("../rustc_serialize/serialize.ts", "encode_String");
+      v("../rustc_serialize/serialize.ts", "decode_String");
+      fields.push({ name, enc: "encode_String", dec: "decode_String" });
+    } else fail(path, ty, "unsupported TargetModifier field type");
+  }
+  v("./options.ts", "TargetModifier");
+  const line = toks[d.at]!.line;
+  body.push(`/** \`#[derive(BlobDecodable)]\` of \`TargetModifier\` (${path}:${line}; rustc_macros serialize.rs \`decodable_body\`) */`);
+  body.push("export function decode_TargetModifier(__decoder: BlobDecoder): TargetModifier {");
+  for (const f of fields) body.push(`  const ${f.name} = ${f.dec}(__decoder);`);
+  body.push(`  return new TargetModifier(${fields.map((f) => f.name).join(", ")});`);
+  body.push("}");
+  body.push(`/** \`#[derive(Encodable)]\` of \`TargetModifier\` (${path}:${line}; rustc_macros serialize.rs \`encodable_body\`) */`);
+  body.push("export function encode_TargetModifier(self: TargetModifier, __encoder: Encoder): void {");
+  for (const f of fields) body.push(`  ${f.enc}(self.${f.name}, __encoder);`);
+  body.push("}");
 }
 
 function genOptionsGroup(
@@ -1388,6 +1553,15 @@ function genOptionsGroup(
   body.push("    }");
   body.push("  },");
   body.push("} as const;");
+  emitEnumCodecs(
+    body,
+    E,
+    E,
+    tmods.map((e) => ({ name: e.tmod! })),
+    (vn) => lit(vn),
+    "self",
+    "self",
+  );
   body.push("");
 
   // mod $optmod (emitted before the table: the table refers to the setters while it is evaluated)
