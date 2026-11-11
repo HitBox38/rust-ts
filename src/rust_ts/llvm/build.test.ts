@@ -285,3 +285,24 @@ describe("review llir-core-a nits", () => {
     expect(L.LLVMRustGetLastError()).toBeUndefined();
   });
 });
+
+describe("review llir-core-b F1: replay infers a builder position only in rustc's alloca pattern", () => {
+  const script = (): string => readFileSync(join(import.meta.dir, "proof", "switch.script"), "latin1");
+  /** The committed switch script with one line changed; the mutation must have applied. */
+  const mutate = (from: string, to: string): string => {
+    const s = script();
+    expect(s.includes(from)).toBe(true);
+    return s.replace(from, to);
+  };
+  test.skipIf(!existsSync(UPSTREAM))("the committed script replays", () => {
+    expect(() => replay(parseScript(script()), UPSTREAM)).not.toThrow();
+  });
+  test.skipIf(!existsSync(UPSTREAM))("M1: a deleted LLVMPositionBuilderAtEnd fails replay", () => {
+    const s = mutate("1\tLLVMPositionBuilderAtEnd(%34, %26)\n", "");
+    expect(() => replay(parseScript(s), UPSTREAM)).toThrow(/not in rustc's alloca pattern/);
+  });
+  test.skipIf(!existsSync(UPSTREAM))("M2: LLVMPositionBuilderAtEnd pointed at the wrong block fails replay", () => {
+    const s = mutate("1\tLLVMPositionBuilderAtEnd(%34, %26)\n", "1\tLLVMPositionBuilderAtEnd(%34, %28)\n");
+    expect(() => replay(parseScript(s), UPSTREAM)).toThrow(/not in rustc's alloca pattern/);
+  });
+});

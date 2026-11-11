@@ -14,8 +14,8 @@
 // `ReplayResult.stubbedEffects`, so a proof can assert which those are.
 //
 // Function bodies (lane llir-core-b): a builder call's recorded place (` @ %BB <next>`) is where the model's builder must insert;
-// if it would not, replay infers rustc's positioning wrapper first (`LLVMRustPositionBuilderAtStart`, `...PastAllocas`) and
-// checks the instruction lands there. `?inst` lines replay as the memory-intrinsic wrapper that made the call, on the builder
+// if it would not, replay infers `LLVMRustPositionBuilderAtStart` only in rustc's `alloca` pattern (a fresh builder, the entry
+// block's first insertion point, `LLVMBuildAlloca`) and otherwise throws; it checks the instruction lands there. `?inst` lines replay as the memory-intrinsic wrapper that made the call, on the builder
 // positioned there; `?csattrs` as `LLVMRustAddCallSiteAttributes`. `?attr` lines are recreated when first used, so the
 // attributes of an intrinsic declaration (`Intrinsic::getAttributes`, left to the parser) are counted, never recreated.
 import { readFileSync } from "node:fs";
@@ -432,22 +432,25 @@ export function replay(calls: readonly Call[], upstream: string, opts: ReplayOpt
     return [bb, next];
   };
 
-  /** Before a builder call: the builder must insert where the oracle's did. If it would not, a hidden wrapper positioned it:
-   * `LLVMRustPositionBuilderAtStart` (builder.rs:1638, `position_at_start`, which `alloca` uses) when the place is the block's
-   * first insertion point, `LLVMRustPositionBuilderPastAllocas` (gpu_offload.rs) when it is past the entry block's allocas;
-   * no other wrapper of rustc positions a builder, so anything else throws. */
+  /** Before a builder call: the builder must insert where the oracle's did. If it would not, a hidden wrapper positioned it,
+   * and replay infers that wrapper only in the one pattern rustc has (review llir-core-b F1): `alloca` and `alloca_with_ty`
+   * (builder.rs:669, :681) create a builder (`Builder::with_cx`, a recorded `LLVMCreateBuilderInContext`), position it with
+   * `position_at_start(LLVMGetFirstBasicBlock(llfn))` (builder.rs:1638, `LLVMRustPositionBuilderAtStart`), and call
+   * `LLVMBuildAlloca`. So the builder must never have been positioned, the block must be its function's entry block, the
+   * place its first insertion point, and the call `LLVMBuildAlloca`. Anything else throws: a model bug in positioning (a
+   * no-op `LLVMPositionBuilderAtEnd`, a builder in the wrong block) cannot be repaired by an inferred wrapper.
+   * `LLVMRustPositionBuilderPastAllocas` is never inferred: its only callers are in gpu_offload.rs (:563, :615), out of scope. */
   const positionFor = (c: Call, B: IRBuilder, at: NonNullable<Call["at"]>): void => {
     const [bb, next] = placeOf(c, at);
     if (B.block === bb && B.insertBefore === next) return;
     const idx = next === undefined ? bb.insts.length : bb.insts.indexOf(next);
     if (idx < 0) throw new Error(`replay: the oracle inserted before an instruction of another block at ${where(c)}`);
-    if (idx === bb.getFirstInsertionPt()) {
+    if (c.fn === "LLVMBuildAlloca" && B.block === undefined && bb.isEntryBlock() && idx === bb.getFirstInsertionPt()) {
       L.LLVMRustPositionBuilderAtStart(B, bb);
       inferred("LLVMRustPositionBuilderAtStart");
-    } else if (bb.isEntryBlock() && idx === bb.getFirstNonPHIOrDbgOrAlloca()) {
-      L.LLVMRustPositionBuilderPastAllocas(B, bb.parentFn!);
-      inferred("LLVMRustPositionBuilderPastAllocas");
-    } else throw new Error(`replay: the builder inserts where no rustc wrapper positions one at ${where(c)}`);
+      return;
+    }
+    throw new Error(`replay: the builder inserts where the model's builder does not, and not in rustc's alloca pattern (builder.rs:669), at ${where(c)}`);
   };
   /** After a builder call: the instruction is where the oracle put it. */
   const checkPlaced = (c: Call, r: unknown, at: NonNullable<Call["at"]>): void => {
