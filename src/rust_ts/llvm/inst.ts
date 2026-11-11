@@ -371,8 +371,9 @@ export class IRBuilder {
 
   // llvm: llvm/include/llvm/IR/IRBuilder.h:1422 CreateAdd
   /** `CreateAdd`/`CreateSub`/`CreateMul`/`CreateShl` (`FoldNoWrapBinOp`, `CreateInsertNUWNSWBinOp`), `CreateUDiv`/`SDiv`/
-   * `LShr`/`AShr` (`FoldExactBinOp`), `CreateOr` (`IsDisjoint`), the others (`FoldBinOp`), and the FP ones (`FoldBinOpFMF`,
-   * `setFPAttrs` with no FP math tag and the builder's empty flags). */
+   * `LShr`/`AShr` (`FoldExactBinOp`), the others (`FoldBinOp`), and the FP ones (`FoldBinOpFMF`, `setFPAttrs` with no FP math tag
+   * and the builder's empty flags). The C API's `LLVMBuildOr` is `CreateOr` without `IsDisjoint`; `disjoint` is set later by
+   * `LLVMSetIsDisjoint` (review llir-core-b N4). */
   createBinOp(op: BinaryOps, lhs: Value, rhs: Value, name: string, f: { nuw?: boolean; nsw?: boolean; exact?: boolean } = {}): Value {
     const flags = op === "Add" || op === "Sub" || op === "Mul" || op === "Shl" ? (f.nuw ? 1 : 0) | (f.nsw ? 2 : 0) : f.exact ? 1 : 0;
     const v = foldBinOp(op, lhs, rhs, flags);
@@ -490,6 +491,8 @@ export class IRBuilder {
 
   // llvm: llvm/include/llvm/IR/IRBuilder.h:2316 CreateIntCast
   createIntCast(v: Value, destTy: Type, isSigned: boolean, name: string): Value {
+    // At this pin `CreateIntCast` picks by scalar width itself (IRBuilder.h:2316-2321), not through `CastInst::getCastOpcode`;
+    // equal widths give a same-type `CreateCast`, which returns `V` (review llir-core-b N6).
     const op: CastOpcode = scalarSizeInBits(v.type) > scalarSizeInBits(destTy) ? "Trunc" : isSigned ? "SExt" : "ZExt";
     return this.createCast(op, v, destTy, name);
   }

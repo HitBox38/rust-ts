@@ -58,7 +58,7 @@ export const isFPPredicate = (p: number): boolean => p >= FCMP_FALSE && p <= FCM
 /** `ICmpInst::isEquality(Predicate)` (Instructions.h): eq or ne. The fold's undef rule asks this one, not `CmpInst::isEquality`
  * (which also takes the FP oeq/one/ueq/une): `fcmp oeq 0.0, undef` folds to false, not undef (C API differential test). */
 const isEquality = (p: number): boolean => p === ICMP.EQ || p === ICMP.NE;
-/** `CmpInst::getSwappedPredicate`. */
+// llvm: llvm/lib/IR/Instructions.cpp:3766 CmpInst::getSwappedPredicate
 function getSwappedPredicate(p: number): number {
   const swap: Readonly<Record<number, number>> = {
     [ICMP.SGT]: ICMP.SLT, [ICMP.SLT]: ICMP.SGT, [ICMP.SGE]: ICMP.SLE, [ICMP.SLE]: ICMP.SGE,
@@ -196,7 +196,7 @@ export function constantExprGet(opcode: BinaryOps, c1: Constant, c2: Constant, f
   return internExpr(c1.type, opcode, [c1, c2], flags, undefined);
 }
 
-/** `ConstantExpr::getXor`, `getNot` (Constants.cpp:2797). */
+/** `ConstantExpr::getXor` (Constants.cpp:2817), `getNot` (Constants.cpp:2797). */
 const getXor = (c1: Constant, c2: Constant): Constant => constantExprGet("Xor", c1, c2);
 const getNot = (c: Constant): Constant => getXor(c, getAllOnesValue(c.type));
 
