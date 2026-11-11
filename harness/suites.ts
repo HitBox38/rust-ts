@@ -14,7 +14,8 @@ import { MIRI_CASE_ENV, MIRI_DEFAULT_ARGS, MIRI_SYSROOT, miriBinary, miriOracleK
 import { COMPILETEST_TARGET, collectUiTests, mirOptCases, uiBlessed, uiCases, uiFileCases, uiOutputBaseDir, uiTestCases, type Blessed, type ErrorFormat, type UiCase } from "./compiletest.ts";
 import { MIRI_SYSROOT_CORPUS, MIRI_SYSROOT_SUITE_CRATES } from "./miri-sysroot.ts";
 import { subjectCmd } from "../scripts/lib/subject-bin.ts";
-import { AUX_STALE_MS, EMPTY_SYSROOT, M5_TARGET, libArgs, libCrate, libEnv, oracleLibRmeta, pruneStaleAux, touchAuxDir } from "./library.ts";
+import { AUX_STALE_MS, EMPTY_SYSROOT, M5_TARGET, libArgs, libClosure, libCrate, libEnv, oracleLibRmeta, pruneStaleAux, touchAuxDir } from "./library.ts";
+import { cliSuite } from "./cli.ts";
 
 export interface Case {
   /** Stable id; the protected set (harness/baseline) is a list of these. */
@@ -2509,3 +2510,18 @@ SUITES.push({
   oracle: ([c]) => rlibNativeRun("oracle", c!, oracleRustcCmd([])),
   subject: ([c]) => rlibNativeRun("subject", c!, bunCmd("src/rust_ts/main.ts")),
 });
+
+// `cli` (lane harness-cli; report only: no baseline, so in no gate by default): driver requests that need no source file or a fixed
+// one, every list read from upstream (harness/cli.ts has the cases and the exclusions). `-Zls` reads the M5 aux rmetas of std's
+// closure (without std), which `oracleLibRmeta` builds on demand.
+SUITES.push(
+  cliSuite({
+    upstream: UPSTREAM,
+    target: COMPILETEST_TARGET,
+    sysroot: oracleSysroot,
+    oracle: oracleRustcCmd,
+    subject: (args) => [...bunCmd("src/rust_ts/main.ts"), ...args],
+    checkUi: RMETA_UI_CORPUS,
+    lsRmetas: () => libClosure("std").filter((c) => c.name !== "std").map((c) => ({ crate: c.name, path: oracleLibRmeta(c.name) })),
+  }),
+);
