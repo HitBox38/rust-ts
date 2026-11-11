@@ -1,6 +1,6 @@
 # Handoff: cg-contract (M7, plan-m7 wave 40, ✱ contract-first): rustc_codegen_llvm FFI helpers, `LlvmCodegenBackend`, the `CodegenCx`/`Builder` skeleton
 
-Branch `t3/27c33409` (from `b3772ebb`; no merges). Commits: see the end.
+Branch `t3/llvm-codegen-contract` (from `b3772ebb`; no merges). Commits: see the end.
 
 ## Summary
 - **Ported in full, in upstream order, with markers:** `llvm/mod.rs` (60/60), `llvm/conversions.rs` (9/9),
@@ -277,4 +277,4 @@ Stubs carry no marker; the fill lane replaces each with the port. A test checks 
 
 ## Commits
 - `72e43136` cg-contract: rustc_codegen_llvm FFI helpers, LlvmCodegenBackend, CodegenCx/Builder skeleton (code and tests).
-- The commit adding this handoff (its SHA is in the final report).
+- `7bec77d8` this handoff; a follow-up commit fixes the branch name above.
