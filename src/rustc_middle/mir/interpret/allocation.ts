@@ -106,7 +106,7 @@ export const AllocBytes_Box: AllocBytes<Uint8Array> = {
 
   // PORT: `Box::try_new_zeroed_slice` fails when the host cannot allocate; here when the JS engine refuses the typed
   // array (`RangeError`). Upstream documents this error as host-dependent (`Allocation::new_inner`).
-  // PORT (fixers-49, review fixers-47 O1): so the port fails some allocations the host could make. JSC (Bun 1.4.3) refuses a
+  // PORT (fixers-49, review fixers-47 O1): so the port fails some allocations the host could make. JSC (Bun 1.4.3, 1.4.4) refuses a
   // typed array or `toArrayBuffer` view longer than 2^32 bytes, even over memory that a host `calloc` gave (checked at 8 and
   // 64 GiB on the root host), while upstream's lazy `calloc` succeeds up to the host's virtual memory limit. A static of
   // 2^32 + 1 bytes builds with the oracle and gives E0080 here. Doing what the host does needs `AllocBytes` that are not one

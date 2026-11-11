@@ -128,6 +128,8 @@ test("power lost during a run: a note, and neither the verdict nor a status chan
   expect(s.hostEnd.load).toEqual([1, 2, 3]);
   expect(s.hostEnd.swapUsedMb).toBe(512);
   expect(steady.gateJson.host.samples.length).toBeGreaterThanOrEqual(4); // the run's start and end, the suite's two
+  // The Bun build it ran on (scripts/lib/bun-pin.ts; `accept` checks it, scripts/gate-bun.test.ts).
+  expect(steady.gateJson.bun).toEqual({ version: Bun.version, revision: Bun.revision });
 });
 
 test("with the flag, a move to battery just after the gate's first reading is still a loss", () => {

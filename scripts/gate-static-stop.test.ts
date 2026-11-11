@@ -78,6 +78,10 @@ test("a failed static check stops the gate before the suites", () => {
   expect(r.gateJson.frozenLists).toBeNull();
   // A static step's notes are recorded (review root-w44-check N1).
   expect(r.gateJson.staticNotes).toEqual([{ step: "frozen lists", note: "note: frozen lists: a note" }]);
+  // The Bun build and file it ran on (scripts/lib/bun-pin.ts; review bun-144 N2, F1), in this write too.
+  expect(r.gateJson.bun).toEqual({ version: Bun.version, revision: Bun.revision });
+  expect(r.gateJson.bunExec.start.version).toBe(Bun.version);
+  expect(r.gateJson.bunExec.end.sha1).toBe(r.gateJson.bunExec.start.sha1);
 }, 60_000);
 
 test("a stopped gate checks the upstream checkout and names the frozen lists run (review harness-w44 N2)", () => {

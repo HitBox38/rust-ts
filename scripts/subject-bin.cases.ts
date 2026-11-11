@@ -30,6 +30,7 @@ import {
   usesBinary,
   VALIDATED_BUN,
 } from "./lib/subject-bin.ts";
+import { GATE_BUN, sameBun } from "./lib/bun-pin.ts";
 
 const tmp = realpathSync(mkdtempSync(join(tmpdir(), "subject-bin-test-")));
 afterAll(() => rmSync(tmp, { recursive: true, force: true }));
@@ -53,6 +54,11 @@ describe("mode", () => {
     const ok = VALIDATED_BUN[0]!;
     expect(binaryModeRefusal({}, { version: "1.4.4", revision: ok.revision })).toContain("not a validated build");
     expect(binaryModeRefusal({}, { version: ok.version, revision: "0".repeat(40) })).toContain("not a validated build");
+  });
+
+  test("the gate's Bun (scripts/lib/bun-pin.ts GATE_BUN) is a validated build: gates run with RUST_TS_SUBJECT=binary", () => {
+    expect(VALIDATED_BUN.some((v) => sameBun(v, GATE_BUN))).toBe(true);
+    expect(binaryModeRefusal({}, GATE_BUN)).toBeUndefined();
   });
 
   test("only the binary entries use a build, and only in binary mode", () => {
@@ -140,7 +146,7 @@ describe("cache key", () => {
   test("the same inputs give the same key", () => {
     expect(subjectBinKeyOf(spec, inputs.map((i) => ({ ...i })), { ...bun }, "builder")).toBe(k);
   });
-  test("a file's content or path, the Bun build, the builder, an option, the repo or the bun path changes it", () => {
+  test("a file's content or path, the Bun build or its file's content, the builder, an option or the repo changes it; the bun path does not", () => {
     expect(subjectBinKeyOf(spec, [inputs[0]!, { path: "src/b.ts", sha1: "3" }], bun, "builder")).not.toBe(k);
     expect(subjectBinKeyOf(spec, [inputs[0]!, { path: "src/c.ts", sha1: "2" }], bun, "builder")).not.toBe(k);
     expect(subjectBinKeyOf(spec, [inputs[0]!], bun, "builder")).not.toBe(k);
@@ -149,7 +155,11 @@ describe("cache key", () => {
     expect(subjectBinKeyOf(spec, inputs, bun, "builder2")).not.toBe(k);
     expect(subjectBinKeyOf({ ...spec, compile: { ...spec.compile, autoloadDotenv: false } }, inputs, bun, "builder")).not.toBe(k);
     expect(subjectBinKeyOf({ ...spec, repo: "/elsewhere" }, inputs, bun, "builder")).not.toBe(k);
-    expect(subjectBinKeyOf({ ...spec, bunPath: "/other/bun" }, inputs, bun, "builder")).not.toBe(k);
+    expect(subjectBinKeyOf(spec, inputs, { ...bun, sha1: "f".repeat(40) }, "builder")).not.toBe(k);
+    expect(subjectBinKeyOf(spec, inputs, { ...bun, sha1: "e".repeat(40) }, "builder")).not.toBe(subjectBinKeyOf(spec, inputs, { ...bun, sha1: "f".repeat(40) }, "builder"));
+    // The Bun is keyed by content, not path (review bun-144-recheck2 N7): a gate's private copy reuses a lane's build.
+    expect(subjectBinKeyOf(buildSpec("scripts/subject-bin.cases.ts", spec.repo, "/other/bun"), inputs, bun, "builder")).toBe(k);
+    expect(buildSpec("scripts/subject-bin.cases.ts", spec.repo, "/other/bun").banner).toContain('process.argv[0] = "/other/bun";');
   });
   test("each config file's content, or its absence, changes it (review F1)", () => {
     const config = CONFIG_FILES.map((p) => ({ path: p, sha1: "c" }));
