@@ -30,19 +30,92 @@ Branch `t3/implement-llir-core-b`, base `b3772ebb`. This lane touches only `src/
 - **Proof**: seven new cases with function bodies (below) are recorded from the pinned rustc. Each replays with every answer
   checked and reaches the oracle IR's N1 normal form byte for byte. So do the four llir-core-a cases, whose committed scripts did
   not change.
-- **C API differential test of the folds**: 6,976 expect() calls in `capi.oracle.test.ts`.
+- **C API differential test of the folds**: 6,976 expect() calls in `capi.oracle.test.ts` at first, plus 4,463 folds and 40
+  vector bitcasts added at review (see Review fixes).
   - **Every case the model folds agrees with libLLVM.** The only stops are APFloat arithmetic on two doubles.
   - The test caught a real bug, now fixed: the undef rule of `ConstantFoldCompareInstruction` must use `ICmpInst::isEquality`.
     With `CmpInst::isEquality` instead, `fcmp oeq 0.0, undef` folded to `undef`, where LLVM gives `false`.
 
-Commits: `45701877`, `2377d8ef`, `d6e7aec8` (docs, the replay place check, this file), and one fixing this line.
+Commits: `45701877`, `2377d8ef`, `d6e7aec8` (docs, the replay place check, this file), `2f13c6f3`. Review fixes
+(`docs/reviews/llir-core-b.md`, REQUEST CHANGES): `b99513d3` (F1), `29971ac7` (F2, F3), `c507f1c9` (N3–N6), and the commit of
+this update.
+
+## Review fixes (`docs/reviews/llir-core-b.md`)
+
+- **F1, position inference.** `positionFor` (`replay.ts`) now infers `LLVMRustPositionBuilderAtStart` only in rustc's one
+  pattern: `alloca` / `alloca_with_ty` (builder.rs:669, :681) create a builder, call `position_at_start` on the entry block, then
+  `LLVMBuildAlloca`.
+  - The builder must never have been positioned (`B.block === undefined`), the block must be its function's entry block, the
+    place its first insertion point, and the call `LLVMBuildAlloca`. Anything else throws.
+  - `LLVMRustPositionBuilderPastAllocas` is never inferred: its only callers are in gpu_offload.rs (:563, :615).
+  - All 11 proof cases still pass under the strict rule.
+  - The reviewer's M1 (`switch.script`, `LLVMPositionBuilderAtEnd(%34, %26)` deleted) and M2 (pointed at `%28`) are tests in
+    `build.test.ts` that must fail replay. Mutation check: under the old `replay.ts` both were accepted; under the new one both
+    throw "not in rustc's alloca pattern".
+- **F2, vector all-ones.** In `ir.ts`:
+  - `Constant.isAllOnesValue` has the vector arm of Constants.cpp:68, through `getSplatValue` (Constants.cpp:1846; ConstantVector
+    :1887, ConstantDataVector :3505).
+  - `getAllOnesValue` moved into `ir.ts` with its vector arm, `ConstantVector::getSplat` (:1602; `ConstantDataVector::getSplat`
+    for integer data vectors).
+  - `FoldBitCast` of an all-ones value folds to `getAllOnesValue(DestTy)`.
+  - The other predicate, `isNullValue`, has no vector gap: it is LLVM's construction-time flag (Constant.h:64), and the model's
+    vector constants that hold data are never all zero, because their getters collapse those to `zeroinitializer` as LLVM's do.
+  - Porting this exposed a second gap. `ConstantFoldCastInstruction` stopped on every vector-to-vector cast. It now follows
+    ConstantFold.cpp: only when element counts match, with the splat fast path through `foldMaybeUndesirableCast` (:156). A
+    non-splat vector still stops.
+  - The printer uses LLVM's `splat (<ty> <v>)` shorthand for data vectors.
+  - `bitcast <2 x i32> <-1, -1> to i64` is now `i64 -1`, as in LLVM. The differential test covers 40 vector bitcasts, folded and
+    unfolded, through the builder and `LLVMConstBitCast`.
+- **F3, a plain `Error`.** `signBit` (the `ConstantFP::getZero` of FAdd's identity) stops with `unported` for a vector type.
+  - A vector-typed `ConstantFP` splat is not in the model. LLVM folds `fadd <2 x float> undef, undef`; the model stops. The test
+    asserts LLVM folds the three cases and the model throws `Unported`.
+  - **Audit:** the remaining `throw new Error` in `fold.ts`, `inst.ts` and `build.ts` are LLVM's assertions, `llvm_unreachable`
+    or crashes on invalid input: a value of the wrong kind (`unwrap<CallInst>` ...), an invalid predicate or cast opcode, an
+    alloca without an insertion block, a null Twine. None is reachable from valid IR. The one reachable path the review found,
+    `Type.fpBits()` on a vector, is now guarded at every caller in `fold.ts` and `inst.ts`.
+- **N1, the APFloat stops**: listed below, for an APFloat lane.
+- **N2**: added to PORT 6.
+- **N3**: the fold differential test adds 4,463 comparisons, and all agree:
+  - NSW/NUW add, sub and mul, and exact udiv/sdiv, next to the plain ops;
+  - i8/i64/i128 with `ptrtoint(@g)` operands, inttoptr, intcast2;
+  - GEPs with every no-wrap flag combination over global, struct-global, null, inttoptr, undef and poison bases, with i8, array
+    and struct types;
+  - ptrtoint and pointercast.
+
+  The stops are asserted to be only the rules the model lacks. **Not done:** building the forms module a second time through
+  libLLVM. That means writing each of ~60 calls twice against two signatures (C strings, raw arrays, numeric enums), or an
+  interpreter of scripts for libLLVM. The forms module stays checked by hand-written lines plus the pinned `opt -passes=verify`.
+  That is a candidate for the harness's typed interposer (llir-core-a N12).
+- **N4**: comment fixed.
+- **N5**: `getSwappedPredicate` has its marker (Instructions.cpp:3766), and `getXor` cites :2817.
+- **N6**: at this pin `CreateIntCast` itself picks by scalar width (IRBuilder.h:2316-2321), not through
+  `CastInst::getCastOpcode`, so the model follows it as written. A comment says so.
+
+### Floating-point (APFloat) stops, for root to plan an APFloat lane
+
+The model holds an FP constant's bits but has no APFloat arithmetic. These stops are reachable from rustc today. The first three
+come early: at opt-level 0, rustc keeps SSA constants as operands. The reviewer recorded `let x = 5i64; x as f64` (a constant
+`LLVMBuildSIToFP`) and `1.5f64 * 2.0` (a constant `LLVMBuildFMul`): LLVM folds both, and the model stops on the first.
+
+| Stop (`llir: ...`) | Where | LLVM rule |
+|---|---|---|
+| `ConstantFoldBinaryInstruction FAdd/FSub/FMul/FDiv/FRem of two floating-point constants (APFloat arithmetic)` | fold.ts | ConstantFold.cpp:883 (`APFloat::add` ..., `mod`) |
+| `ConstantFoldCastInstruction FPTrunc/FPExt/FPToUI/FPToSI/UIToFP/SIToFP (APFloat conversion)` | ir.ts | ConstantFold.cpp:229 on, the cast switch (`convert`, `convertToInteger`, `convertFromAPInt`) |
+| `ConstantFoldCastInstruction of a cast of a cast` (`f as usize as u32`) | ir.ts | `foldConstantCastPair` / `CastInst::isEliminableCastPair`; not APFloat, but just as early |
+| `ConstantFP::get(<type>, double) (APFloat conversion)` for half, bfloat, x86_fp80, fp128, ppc_fp128; `ConstantFP::get(float, NaN)` | ir.ts `getConstantFPOfDouble` | Constants.cpp:1108 |
+| `comparing <type> constants (APFloat::compare)` for FP types other than double/float; `ConstantFP::getNaN(<type>)` | fold.ts | Instructions.cpp:3914, Constants.cpp:1149 |
+| `the sign of a ppc_fp128 constant` | fold.ts | `APFloat::getZero` / `changeSign` of the double-double |
+| vector-typed `ConstantFP` splats: `ConstantFP::getZero of a vector type`, `a floating-point vector splat`, `getNullValue of a vector of floats`, `ConstantFP::get of a vector type` | fold.ts, ir.ts | Constants.cpp:1122, :1167, :1602, :384 |
+
+**IEEE double and float** cover nearly all of rustc's constants. JS gives their arithmetic and conversions exactly, but NaN
+payloads and the `convert` status rules need APFloat's source.
 
 ## Evidence
 
 | Check | Result |
 |---|---|
 | `bunx tsc --noEmit -p .` | clean |
-| `RUST_TS_REQUIRE_PROBES=1 bun test src/rust_ts/llvm/`, 5 runs | **63 pass, 0 fail** each time; 1.96, 1.69, 1.72, 1.57, 1.57 s wall |
+| `RUST_TS_REQUIRE_PROBES=1 bun test src/rust_ts/llvm/`, 5 runs | **63 pass, 0 fail** each time; 1.96, 1.69, 1.72, 1.57, 1.57 s wall. After the review fixes: **68 pass, 0 fail** each time; 2.26, 1.73, 1.56, 1.57, 1.62 s; the 22 proof tests (11 oracle cases, 11 committed scripts) run, none skipped; marker check `llvm 354`, no ERROR; ffi check up to date; result.test 3/3 |
 | that includes `proof.oracle.test.ts` | 22 pass: 11 oracle cases (record, recorder-transparency, script = committed, replay, wrapper sets, N1) + 11 committed-script replays; none skipped |
 | `bun test ./src/std/result.test.ts` | 3 pass |
 | `bun tools/llir/ffi_gen.ts --check` and `ffi.test.ts` (staleness) | "contract up to date: 381 fns, 33 enums, 4 bitflags"; ffi.test.ts passes |
@@ -77,9 +150,10 @@ The recorder (`record.ts`) gains three kinds of observation:
 
 - **` @ %BB <next|end>` after each recorded `LLVMBuild*` call that returns an instruction in a block**: where the builder put it.
   Before each such call, replay checks that the model's builder would insert there.
-  - If it would not, a hidden wrapper positioned the builder. Replay infers `LLVMRustPositionBuilderAtStart` when the place is the
-    block's first insertion point. That is `alloca`'s `position_at_start` (builder.rs:1638).
-  - It infers `LLVMRustPositionBuilderPastAllocas` when the place is past the entry block's static allocas (gpu_offload.rs).
+  - If it would not, a hidden wrapper positioned the builder. Replay infers `LLVMRustPositionBuilderAtStart` only in rustc's
+    `alloca` pattern (builder.rs:669, :681): a never-positioned builder, the entry block's first insertion point, and
+    `LLVMBuildAlloca`. This is review F1.
+  - `LLVMRustPositionBuilderPastAllocas` is never inferred; it is gpu_offload.rs's.
   - Anything else throws.
   - After the call, replay checks the instruction landed there.
 - **`?inst %I %BB <next|end> <opcode> [operands] {<index>:[attributes]}`**: an instruction no recorded call returned.
@@ -110,11 +184,9 @@ Mutation checks I ran on the committed scripts:
 
 ### What a replay of bodies still cannot catch
 
-1. **Two positions that coincide.** When the place is both the block's first insertion point and past the entry allocas, replay
-   attributes it to `PositionBuilderAtStart`.
-   - A builder positioned at start that inserts before an existing first instruction is indistinguishable from one placed there
-     by a recorded call.
-   - The N1 comparison catches a wrong order.
+1. **Which allocas went through `position_at_start`.** Within the alloca pattern, replay assumes the hidden wrapper ran. A model
+   bug in `LLVMRustPositionBuilderAtStart` itself would show as a wrong instruction order, which the N1 comparison catches.
+   Since review F1, a model bug in any recorded positioning call fails replay.
 2. **Builder state the C API cannot read**: fast-math flags (`LLVMRustSetFastMath` and kin), `LLVMRustSetNoSanitize*`,
    `LLVMRustBuildVScale`, and inline asm.
 3. **Hidden instructions other than the memory intrinsics** throw. That is correct today, but a new rustc wrapper would need a
@@ -146,6 +218,9 @@ Mutation checks I ran on the committed scripts:
 ## Every `unported(...)` left by this lane (all `llir: ...`)
 
 **Folds (fold.ts)**:
+
+- added at review: a non-splat vector cast (`ConstantExpr::getExtractElement` per element); vector splats other than integer data
+  vectors (FP, pointer null, other elements, scalable): `ConstantVector::getSplat`; `ConstantFP::getZero` of a vector type (F3);
 
 - `ConstantFoldBinaryInstruction` of two floating-point constants (APFloat arithmetic);
 - folds of vectors: binary, unary, select with a vector condition, compares (a vector `i1` result),
@@ -194,13 +269,16 @@ Mutation checks I ran on the committed scripts:
    types.
 6. **Builder state rustc never sets is absent**: debug location, default FP math tag, fast-math flags, constrained FP and
    default operand bundles. Setting a debug location stops.
+   - When llir-di adds debug locations, `SetInsertPoint(BB, IP)` must also copy `IP`'s debug location (IRBuilder.h:196-201).
+   - `LLVMRustPositionBuilderAtStart` into a non-empty block goes through that path. `LLVMPositionBuilderAtEnd` and
+     `SetInsertPointPastAllocas` do not (review N2).
 7. **`LLVMGetFirstBasicBlock` and `LLVMGetInsertBlock` throw where LLVM returns null.** ffi.rs declares the results non-null.
 8. **A call's `returned` argument is not followed by `stripPointerCasts`**: no creator of the model makes `returned`.
 9. **`LLVMRustPrintModule(null)`'s last error is `No such file or directory`** (R3).
 
 ## Manifest
 
-**Marked files outside `harness/llvm-manifest.json`: none.** All 347 `// llvm:` markers resolve.
+**Marked files outside `harness/llvm-manifest.json`: none.** All 354 `// llvm:` markers resolve.
 
 **Read and cited in comments without a marker**: please add these so reviewers have the same files. I fetched them into my
 scratchpad only, not into `$RUST_TS_DATA/llvm-src/`.
@@ -215,6 +293,7 @@ scratchpad only, not into `$RUST_TS_DATA/llvm-src/`.
 - `llvm/include/llvm/Support/AtomicOrdering.h`: `toIRString`.
 - `llvm/lib/IR/Operator.cpp`: `FastMathFlags::print` (:284).
 - `llvm/include/llvm/IR/FMF.h`: the flag bits.
+- `llvm/include/llvm/IR/Instruction.h`: `Instruction::isAssociative(unsigned)`, cited at `fold.ts:47` (review).
 
 The wrapper markers point into `compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp` (lines 134, 411, 606, 620, 637, 644, 1372, 1383,
 1395, 1403, 1408).
