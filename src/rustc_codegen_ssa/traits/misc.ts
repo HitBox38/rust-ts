@@ -1,16 +1,11 @@
 // Port of compiler/rustc_codegen_ssa/src/traits/misc.rs (lane ssa-contract). Conventions: backend.ts's header.
 import type { Instance } from "../../rustc_middle/ty/instance.ts";
 import type { Ty } from "../../rustc_middle/ty/mod.ts";
-import type { Session } from "../../rustc_session/session.ts";
+import type { PointerAuthSchema, Session } from "../../rustc_session/session.ts";
 import type { Symbol } from "../../rustc_span/symbol.ts";
 import type { ExistentialTraitRef } from "../../rustc_type_ir/predicate.ts";
 import type { KeyedMap } from "../../rust_ts/keyed.ts";
 import type { BackendTypes, BackendTypesOf } from "./backend.ts";
-
-/** PORT (ssa-contract): `rustc_session::PointerAuthSchema` (session.rs:118) is not ported: `PointerAuthConfig` exists
- *  only for `CfgAbi::Pauthtest` targets, whose session construction stops, so an `Option<&PointerAuthSchema>` is
- *  always `None`. Placed here for the traits' signatures; rustc_session owns the real type (handoff). */
-export type PointerAuthSchema = never;
 
 // rustc-trait: compiler/rustc_codegen_ssa/src/traits/misc.rs:10 MiscCodegenMethods
 export interface MiscCodegenMethods<B extends BackendTypes> extends BackendTypesOf<B> {

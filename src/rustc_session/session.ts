@@ -102,6 +102,77 @@ export interface DynLintStore {
   lint_groups_iter(): Iterable<LintGroup>;
 }
 
+/// Hardware pointer-signing keys in ARM8.3.
+/// These values are the same as used in ptrauth.h.
+// #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+// rustc-type: compiler/rustc_session/src/session.rs:90 PointerAuthARM8_3Key
+export type PointerAuthARM8_3Key = "ASIA" | "ASIB" | "ASDA" | "ASDB";
+export const PointerAuthARM8_3Key = { ASIA: "ASIA", ASIB: "ASIB", ASDA: "ASDA", ASDB: "ASDB" } as const;
+/** The explicit discriminants (`ASIA = 0`, ...). */
+export const PointerAuthARM8_3Key_discriminant: Readonly<Record<PointerAuthARM8_3Key, number>> = { ASIA: 0, ASIB: 1, ASDA: 2, ASDB: 3 };
+
+/// Forms of extra discrimination.
+// rustc-type: compiler/rustc_session/src/session.rs:98 PointerAuthDiscrimination
+export type PointerAuthDiscrimination =
+  /// No additional discrimination.
+  | "None"
+  /// Include a hash of the entity's type.
+  | "Type"
+  /// Include a hash of the entity's identity.
+  | "Decl"
+  /// Discriminate using a constant value.
+  | "Constant";
+export const PointerAuthDiscrimination = { None: "None", Type: "Type", Decl: "Decl", Constant: "Constant" } as const;
+
+/// Types of address discrimination.
+// rustc-type: compiler/rustc_session/src/session.rs:110 PointerAuthAddressDiscriminator
+export type PointerAuthAddressDiscriminator =
+  /// Enable/disable hardware address discrimination.
+  | { readonly $: "HardwareAddress"; readonly _0: boolean }
+  /// Use a synthetic value. For instance init/fini entries can not the address of the arrays,
+  /// they must use a synthetic value of `1`.
+  // PORT: `u64` -> `bigint`.
+  | { readonly $: "Synthetic"; readonly _0: bigint };
+
+// rustc-type: compiler/rustc_session/src/session.rs:118 PointerAuthSchema
+// PORT: its `impl` (`function_pointers_default`, `init_fini_default`, session.rs:125, 134) is not ported: only
+// `PointerAuthConfig::from_raw` calls it, which `build_session` does not reach (it stops for `CfgAbi::Pauthtest`, the
+// one kind of target that has a config). Moved here from rustc_codegen_ssa traits/misc.ts (docs/reviews/ssa-contract.md N4).
+export interface PointerAuthSchema {
+  is_address_discriminated: PointerAuthAddressDiscriminator;
+  discrimination_kind: PointerAuthDiscrimination;
+  key: PointerAuthARM8_3Key;
+  constant_discriminator: number;
+}
+
+// rustc-type: compiler/rustc_session/src/session.rs:146 PointerAuthConfig
+// PORT: its `impl` (`default`, `calculate_pauth_abi_version`, `from_raw`, session.rs:170-231) is not ported, as for
+// `PointerAuthSchema`: `build_session` stops before `from_raw` for a `CfgAbi::Pauthtest` target, and every other target
+// has no config, so `Session::pointer_auth_config` is always `None` in the port.
+export interface PointerAuthConfig {
+  /// Should return addresses be authenticated?
+  return_addresses: boolean;
+  /// Do authentication failures cause a trap?
+  auth_traps: boolean;
+  /// Do indirect goto label addresses need to be authenticated?
+  indirect_gotos: boolean;
+  /// Should ELF GOT entries be signed?
+  elf_got: boolean;
+  /// Use hardened lowering for jump-table dispatch?
+  aarch64_jump_table_hardening: boolean;
+  /// The ABI for C function pointers.
+  function_pointers: PointerAuthSchema | undefined;
+  /// The ABI for function addresses in .init_array and .fini_array
+  init_fini: PointerAuthSchema | undefined;
+  /// Use of pointer authentication intrinsics.
+  intrinsics: boolean;
+  /// The following are used only for compatibility with C++ and control over generated abi
+  /// version. They do not control Rust code generation.
+  typeinfo_vt_ptr_discrimination: boolean;
+  vt_ptr_addr_discrimination: boolean;
+  vt_ptr_type_discrimination: boolean;
+}
+
 /// Partial session built before the full session. More specifically, `EarlySession` is used to
 /// init the codegen backend, and then both pieces are used to build the full `Session`.
 export class EarlySession {
@@ -346,8 +417,7 @@ export class Session {
     public removed_rustc_main_attr: boolean,
 
     /// Config specifying targets' pointer authentication preference.
-    // PORT: `PointerAuthConfig` (this file, 146) is not ported.
-    public pointer_auth_config: unknown,
+    public pointer_auth_config: PointerAuthConfig | undefined,
 
     /// Cached sanitizer set. Cached because it is accessed frequently.
     private sanitizers_: SanitizerSet,
@@ -999,6 +1069,21 @@ export class Session {
   // rustc: compiler/rustc_session/src/session.rs:1263 sanitizers
   sanitizers(): SanitizerSet {
     return this.sanitizers_;
+  }
+
+  // rustc: compiler/rustc_session/src/session.rs:1267 pointer_authentication
+  pointer_authentication(): boolean {
+    return this.pointer_auth_config !== undefined;
+  }
+
+  // rustc: compiler/rustc_session/src/session.rs:1271 pointer_authentication_functions
+  pointer_authentication_functions(): PointerAuthSchema | undefined {
+    return this.pointer_auth_config?.function_pointers;
+  }
+
+  // rustc: compiler/rustc_session/src/session.rs:1275 pointer_authentication_init_fini
+  pointer_authentication_init_fini(): PointerAuthSchema | undefined {
+    return this.pointer_auth_config?.init_fini;
   }
 }
 
