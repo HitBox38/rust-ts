@@ -3,9 +3,8 @@
 // (`write_dep_info`), `create_and_enter_global_ctxt` with its helpers, `run_required_analyses`, `analysis` and
 // `start_codegen` (metadata-only, plan-m5 D5: codegen itself is the backend's, unported).
 //
-// PORT: the crates that the path calls into and that other lanes are porting are reached through local
-// shims below ("Pending-lane shims"), named and typed as upstream, whose bodies call `unported` with the
-// upstream path and the owning lane. Root replaces each shim by the import when that lane lands.
+// PORT: the crates that the path calls into and that other lanes were porting used to be reached through local
+// "Pending-lane shims"; the last two (`rustc_passes::input_stats`) were replaced by the import in lane stats.
 import "../rustc_session/options.ts"; // LOAD ORDER: see rustc_session/config.ts
 import { mkdirSync, statSync, writeFileSync } from "node:fs";
 import * as tracing from "../rust_ts/tracing.ts";
@@ -74,6 +73,7 @@ import { type Providers as QueryProviders, QUERY_DECLS, QUERY_NAMES } from "../r
 import type { Providers as MiddleProviders } from "../rustc_middle/util/mod.ts";
 import { provide as rustc_passes_provide } from "../rustc_passes/lib.ts";
 import * as rustc_passes from "../rustc_passes/lib.ts";
+import { input_stats } from "../rustc_passes/lib.ts";
 import { par_fns } from "../rustc_data_structures/sync/parallel.ts";
 import { EarlyBinder } from "../rustc_type_ir/binder.ts";
 import { Unnormalized } from "../rustc_type_ir/unnormalized.ts";
@@ -479,7 +479,7 @@ function early_lint_checks(tcx: TyCtxt, _: null): null {
   const lint_buffer = resolver.lint_buffer.steal();
 
   if (sess.opts.unstable_opts.input_stats) {
-    rustc_passes_input_stats_print_ast_stats(tcx, krate);
+    input_stats.print_ast_stats(tcx, krate);
   }
 
   // Needs to go *after* expansion to be able to check the results of macro expansion.
@@ -1274,7 +1274,7 @@ export function emit_delayed_lints(tcx: TyCtxt): void {
 // rustc: compiler/rustc_interface/src/passes.rs:1100 run_required_analyses
 function run_required_analyses(tcx: TyCtxt): void {
   if (tcx.sess.opts.unstable_opts.input_stats) {
-    rustc_passes_input_stats_print_hir_stats(tcx);
+    rustc_passes.input_stats.print_hir_stats(tcx);
   }
   // When using rustdoc's "jump to def" feature, it enters this code and `check_crate`
   // is not defined. So we need to cfg it out.
@@ -1693,20 +1693,6 @@ function get_recursion_limit(krate_attrs: readonly Attribute[], sess: Session): 
 function clone_MiddleProviders(p: MiddleProviders): MiddleProviders {
   // `#[derive(Copy, Clone)] struct Providers` (rustc_middle/src/util/mod.rs)
   return { queries: clone_Providers(p.queries), extern_queries: clone_ExternProviders(p.extern_queries), hooks: clone_HookProviders(p.hooks) };
-}
-
-// ---- Pending-lane shims ------------------------------------------------------------------------------------
-// Each is named and typed as upstream; its body calls `unported` with the upstream path and the lane that
-// ports it. Root replaces each by the import when the lane lands (handoff driver-m2).
-
-/** `rustc_passes::input_stats::print_ast_stats` (input_stats.rs:71). PORT: no lane yet (-Zinput-stats). */
-function rustc_passes_input_stats_print_ast_stats(_tcx: TyCtxt, _krate: Crate): void {
-  unported("rustc_passes::input_stats::print_ast_stats (-Zinput-stats)");
-}
-
-/** `rustc_passes::input_stats::print_hir_stats` (input_stats.rs:63). PORT: no lane yet (-Zinput-stats). */
-function rustc_passes_input_stats_print_hir_stats(_tcx: TyCtxt): void {
-  unported("rustc_passes::input_stats::print_hir_stats (-Zinput-stats)");
 }
 
 export type { BufferedEarlyLint };
