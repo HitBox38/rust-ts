@@ -11,8 +11,8 @@
 // Comments, strings, character and raw string literals are skipped; preprocessor lines are skipped, and the branches of an
 // `#if` / `#elif` / `#else` chain are each read from the state at the `#if` (ctags' rule), so alternative headers of one
 // definition do not unbalance the braces and each branch's definitions are found (both lines are then valid for a marker).
-// Not handled (none in the files read today): a macro that expands to a definition, `template<...>` arguments that hold a
-// `(`, K&R definitions.
+// Not handled (none in the files read today): a macro that expands to a definition (a marker names the macro in a `// PORT:`
+// comment instead, PORTING §5c), `template<...>` arguments that hold a `(` before a function's name, K&R definitions.
 
 export interface CppFn {
   path: string;
@@ -137,12 +137,53 @@ function suffixOk(rest: readonly Tok[]): boolean {
 
 type Brace = "container" | "fn" | "other";
 
+/**
+ * `toks` without its `template <...>` parameter lists (angle brackets balanced, those inside parentheses not counted): a default
+ * template argument's `=` is not the `=` of a variable (`template <typename FolderTy = ConstantFolder, ...> class IRBuilder`,
+ * review scope-m7 N1).
+ */
+function withoutTemplateParams(toks: readonly Tok[]): Tok[] {
+  const out: Tok[] = [];
+  for (let i = 0; i < toks.length; i++) {
+    if (toks[i]!.t !== "template" || toks[i + 1]?.t !== "<") {
+      out.push(toks[i]!);
+      continue;
+    }
+    let angle = 0;
+    let paren = 0;
+    let j = i + 1;
+    for (; j < toks.length; j++) {
+      const t = toks[j]!.t;
+      if (t === "(") paren++;
+      else if (t === ")") paren--;
+      else if (paren === 0 && t === "<") angle++;
+      else if (paren === 0 && t === ">" && --angle === 0) break;
+    }
+    i = j;
+  }
+  return out;
+}
+
+/**
+ * Whether a `{` after `toks` (at namespace / class scope) is a brace-init in a constructor's initializer list (`: Base{a}, M(a) {`):
+ * a definition's head with a `:` after its first `)`, and the `{` right after a name (or a template's `>`), where the body's `{` comes after the
+ * last initializer's `)` or `}` (review scope-m7 N7).
+ */
+function braceInit(toks: readonly Tok[]): boolean {
+  const last = toks[toks.length - 1];
+  if (last === undefined || !(last.k === "id" || last.t === ">")) return false;
+  // The initializer list's `:` comes after the parameters' `)` (an access specifier's `public:` comes before them).
+  const close = toks.findIndex((t) => t.t === ")");
+  return close >= 0 && toks.some((t, i) => i > close && t.t === ":") && fnOf(toks) !== undefined;
+}
+
 function classify(toks: readonly Tok[]): { kind: Brace; fn?: { name: string; line: number } } {
   const fn = fnOf(toks);
   if (fn) return { kind: "fn", fn };
   if (toks.some((t) => t.t === "namespace")) return { kind: "container" };
   if (toks.length === 2 && toks[0]!.t === "extern" && toks[1]!.k === "str") return { kind: "container" };
-  if (toks.some((t) => t.t === "class" || t.t === "struct" || t.t === "union") && !toks.some((t) => t.t === "=" || t.t === "enum")) return { kind: "container" };
+  const head = withoutTemplateParams(toks);
+  if (head.some((t) => t.t === "class" || t.t === "struct" || t.t === "union") && !head.some((t) => t.t === "=" || t.t === "enum")) return { kind: "container" };
   return { kind: "other" };
 }
 
@@ -160,6 +201,8 @@ export function cppFns(text: string, path: string): CppFn[] {
   let lineStart = true;
   // Open parens in `buf`: braces inside them are a default argument or brace-init (`ArrayRef<T> Ops = {}`), not a block.
   const parens = () => buf.reduce((d, t) => d + (t.t === "(" ? 1 : t.t === ")" ? -1 : 0), 0);
+  // Open braces in `buf`: an initializer list's brace-init (`braceInit`) and what is inside it.
+  const braces = () => buf.reduce((d, t) => d + (t.t === "{" ? 1 : t.t === "}" ? -1 : 0), 0);
   const push = (tok: Tok) => {
     if (!atTop()) {
       if (tok.t === "{") stack.push("other");
@@ -169,7 +212,8 @@ export function cppFns(text: string, path: string): CppFn[] {
       }
       return;
     }
-    if ((tok.t === "{" || tok.t === "}" || tok.t === ";") && parens() > 0) buf.push(tok);
+    if ((tok.t === "{" || tok.t === "}" || tok.t === ";") && (parens() > 0 || braces() > 0)) buf.push(tok);
+    else if (tok.t === "{" && braceInit(buf)) buf.push(tok);
     else if (tok.t === ";") buf = [];
     else if (tok.t === "{") {
       const c = classify(buf);

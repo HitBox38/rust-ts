@@ -657,6 +657,37 @@ export function pruneSubjectBins(keep: readonly string[], maxAgeMs: number = PRU
   return removed;
 }
 
+/**
+ * Removes the finished builds whose `meta.json` records no builder sha1 (`bun.sha1`): they were keyed before `v: 4`, which keys
+ * the Bun by its content (`subjectBinKeyOf`), so no builder of `v: 4` or later finds them again, and each is a whole binary
+ * (review bun-144-recheck3 N5). Builds that record one, unfinished ones and trash are left to `pruneSubjectBins`; a meta.json
+ * that does not parse is left too. Each is moved to a `.trash-*` name first, as `pruneSubjectBins` does. Returns the names removed.
+ */
+export function prunePreV4Builds(root: string = SUBJECT_BIN_DIR): string[] {
+  if (!existsSync(root)) return [];
+  const removed: string[] = [];
+  for (const name of readdirSync(root)) {
+    if (name.startsWith(".")) continue;
+    const dir = join(root, name);
+    let meta: { bun?: { sha1?: unknown } } | undefined;
+    try {
+      meta = JSON.parse(readFileSync(join(dir, "meta.json"), "utf8")) as { bun?: { sha1?: unknown } };
+    } catch {
+      continue; // unfinished, gone, or unreadable: not known to be pre-v4
+    }
+    if (typeof meta !== "object" || meta === null || typeof meta.bun !== "object" || meta.bun === null || typeof meta.bun.sha1 === "string") continue;
+    const trash = join(root, `.trash-${name}-${process.pid}-${Math.random().toString(36).slice(2, 8)}`);
+    try {
+      renameSync(dir, trash);
+    } catch {
+      continue; // gone already (another prune)
+    }
+    rmSync(trash, { recursive: true, force: true });
+    removed.push(name);
+  }
+  return removed;
+}
+
 // ---- the subject command ----------------------------------------------------------------------------------------------------
 
 /** The CLI that builds (scripts/subject-bin.ts). */

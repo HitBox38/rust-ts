@@ -9,11 +9,12 @@
 // `ConstantInt::get`, or its last segment). Not ported rustc code, so not counted in the coverage tables.
 // `// rustc: compiler/rustc_llvm/llvm-wrapper/<file>:<line> <name>` (`.cpp` or `.h`): rustc's C++ wrappers, in the checkout
 // at the pin. `rustc_llvm` stays excluded from the compiler TOTAL; these markers are checked the same way and counted in a
-// separate WRAPPER figure over every function of llvm-wrapper/.
+// separate WRAPPER figure over every function of llvm-wrapper/ but the files of `WRAPPER_EXCLUDED` (plan-m7 D18).
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join, relative } from "node:path";
 import { type CppFn, cppFns, cppNameMatches } from "./cpp-fns.ts";
+import { rustFns } from "./rust-fns.ts";
 
 export interface LlvmManifest {
   repo: string;
@@ -41,6 +42,38 @@ export function manifestErrors(m: unknown): string[] {
 }
 
 const safeRel = (p: string): boolean => p !== "" && !p.startsWith("/") && !p.includes("\\") && !p.split("/").some((s) => s === "" || s === "." || s === "..");
+
+/**
+ * One message per path `bun scripts/llvm-src.ts add` must refuse before it downloads or writes anything (review scope-m7 N3): a
+ * path that is not relative and inside llvm-project (`..`, `.`, empty segments, absolute, backslashes; it would be written
+ * outside `llvm-src/<commit>/`), or one given twice.
+ */
+export function addPathErrors(paths: readonly string[]): string[] {
+  const out: string[] = [];
+  paths.forEach((p, i) => {
+    if (!safeRel(p)) out.push(`${JSON.stringify(p)} is not a relative path inside llvm-project`);
+    else if (paths.indexOf(p) !== i) out.push(`${JSON.stringify(p)} is given twice`);
+  });
+  return out;
+}
+
+/**
+ * `add`'s work, in an order that leaves nothing behind on a refusal (review scope-m7 N3): every path is checked
+ * (`addPathErrors`, thrown as one Error) and every file downloaded (`download` throws or exits on a failure) before the first
+ * is placed. Returns the manifest's new `files`, sorted by path.
+ */
+export async function addFiles(m: LlvmManifest, paths: readonly string[], download: (path: string) => Promise<Uint8Array>, place: (path: string, bytes: Uint8Array) => void): Promise<Record<string, string>> {
+  const errs = addPathErrors(paths);
+  if (errs.length) throw new Error(`add: ${errs.join("; ")}; nothing fetched or written`);
+  const got: [string, Uint8Array][] = [];
+  for (const p of paths) got.push([p, await download(p)]);
+  const files = { ...m.files };
+  for (const [p, bytes] of got) {
+    files[p] = sha256(bytes);
+    place(p, bytes);
+  }
+  return Object.fromEntries(Object.entries(files).sort(([a], [b]) => (a < b ? -1 : 1)));
+}
 
 /** The manifest at `file`, or a thrown Error naming what is wrong with it. */
 export function readManifest(file: string): LlvmManifest {
@@ -125,6 +158,23 @@ export const WRAPPER_ROOT = "compiler/rustc_llvm/llvm-wrapper";
 /** Whether a `// rustc:` marker path points into the wrappers (a `.cpp` or `.h` under WRAPPER_ROOT). */
 export const isWrapperPath = (path: string): boolean => path.startsWith(`${WRAPPER_ROOT}/`) && /\.(?:cpp|h)$/.test(path) && safeRel(path);
 
+/**
+ * Wrapper files left out of the WRAPPER figure, with the reason: their Rust callers are out of M7 (plan-m7 D18; harness/scope.json
+ * `crates.rustc_codegen_llvm.excluded`), so their functions would be a denominator the port cannot reach (review scope-m7 N6).
+ * Markers into them are still checked. A key that names no wrapper file is an error (`wrapperExcludedErrors`).
+ */
+export const WRAPPER_EXCLUDED: Record<string, string> = {
+  [`${WRAPPER_ROOT}/CoverageMappingWrapper.cpp`]: "-Cinstrument-coverage (plan-m7 D18), as rustc_codegen_llvm's src/coverageinfo",
+  [`${WRAPPER_ROOT}/offload/OffloadWrapper.cpp`]: "-Zoffload (plan-m7 D18), as rustc_codegen_llvm's src/builder/gpu_offload.rs and src/llvm/offload_ffi.rs",
+};
+
+/** One message per `WRAPPER_EXCLUDED` key that is not among `files` (`wrapperFiles` of the checkout): a typo would widen the figure. */
+export function wrapperExcludedErrors(files: readonly string[], excluded: Record<string, string> = WRAPPER_EXCLUDED): string[] {
+  return Object.keys(excluded)
+    .filter((p) => !files.includes(p))
+    .map((p) => `ERROR: scripts/lib/llvm-src.ts WRAPPER_EXCLUDED names ${p}, which is no wrapper file of the upstream checkout`);
+}
+
 /** Every `.cpp` / `.h` under WRAPPER_ROOT of the checkout at `root`, as sorted upstream-relative paths. */
 export function wrapperFiles(root: string): string[] {
   const dir = join(root, WRAPPER_ROOT);
@@ -144,13 +194,25 @@ export function wrapperFiles(root: string): string[] {
 /** The C++ functions of an upstream-relative wrapper file in the checkout at `root`. */
 export const wrapperFns = (root: string, path: string): CppFn[] => cppFns(readFileSync(join(root, path), "utf8"), path);
 
-/** One message per wrapper marker that names no C++ function definition of the checkout at `root`. */
+/** The crate of the wrappers: excluded from the compiler TOTAL, so its markers are checked here, not with the crates'. */
+export const RUSTC_LLVM_ROOT = "compiler/rustc_llvm";
+
+/**
+ * One message per wrapper marker that names no C++ function definition of the checkout at `root`, and per other `// rustc:`
+ * marker under `RUSTC_LLVM_ROOT` that names no Rust fn of the crate there either: a typo of the wrapper path (`llvm_wrapper/`,
+ * `.cc`) would otherwise fall to the excluded-crate rule and go unchecked (review scope-m7 N2).
+ */
 export function wrapperMarkerErrors(markers: readonly CppMarker[], root: string): string[] {
   const out: string[] = [];
   const fns = new Map<string, CppFn[]>();
   for (const k of markers) {
-    if (!isWrapperPath(k.path)) continue;
     const at = `${k.file}: marker ${k.path}:${k.line} ${k.name}`;
+    if (!isWrapperPath(k.path)) {
+      if (!k.path.startsWith(`${RUSTC_LLVM_ROOT}/`)) continue;
+      const rust = k.path.endsWith(".rs") && safeRel(k.path) && existsSync(join(root, k.path)) ? rustFns(k.path, root) : [];
+      if (!rust.some((f) => f.line === k.line && f.name === k.name)) out.push(`${at} names neither a wrapper function (${WRAPPER_ROOT}/<file>.cpp or .h) nor a fn of ${RUSTC_LLVM_ROOT}'s Rust`);
+      continue;
+    }
     if (!existsSync(join(root, k.path))) {
       out.push(`${at} names no file of the upstream checkout`);
       continue;

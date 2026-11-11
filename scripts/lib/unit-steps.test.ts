@@ -1,7 +1,7 @@
 // Unit tests of scripts/lib/unit-steps.ts (lane harness-w35): every test file of the repo runs in exactly one of the
 // gate's unit-test processes (review gate-runner-unit N4).
 import { expect, test } from "bun:test";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 import { UNIT_ENV_REFUSED, UNIT_STEPS, aloneJunit, aloneStepArgs, unitEnvRefusal, unitStepArgs, unitStepEnv, unitStepsOf } from "./unit-steps.ts";
 
@@ -40,7 +40,57 @@ test("every test file of the repo (tracked or not ignored, any of bun's test-fil
   expect(bad).toEqual([]);
 });
 
-// Lane unit-parallel: the src/tools step runs in workers, the runner step does not (its files are not audited for --isolate).
+/**
+ * Runner test files that load scripts/lib/common.ts in the runner step's process, on purpose: deps.test.ts sets its temp
+ * RUST_TS_DATA before its dynamic import of it (see the header of scripts/lib/unit-steps.ts).
+ */
+const COMMON_LOADERS = ["scripts/lib/deps.test.ts"];
+
+/**
+ * The runner test files that load `target` in the test process: through the file's own imports of any kind (static, side-effect,
+ * `export ... from`, dynamic, `require`), since its tests run there, and then through the static imports of every module reached.
+ * Type-only imports are not loads (Bun's scanner drops them). A lazy import inside a module's function is not followed.
+ */
+function runnerLoadersOf(target: string): { loaders: string[]; files: number; modules: number } {
+  const scan = new Bun.Transpiler({ loader: "ts" });
+  const resolveFrom = (spec: string, from: string): string | undefined => {
+    if (!spec.startsWith(".")) return undefined;
+    try {
+      return Bun.resolveSync(spec, dirname(from));
+    } catch {
+      return undefined;
+    }
+  };
+  const importsOf = (f: string) => scan.scanImports(readFileSync(f, "utf8"));
+  const r = Bun.spawnSync(["git", "ls-files", "--cached", "--others", "--exclude-standard", "--", ...BUN_TEST_PATTERNS], { cwd: REPO, stdout: "pipe", stderr: "pipe" });
+  const files = r.stdout.toString().split("\n").filter((f) => f && unitStepsOf(f).includes("runner unit tests"));
+  const modules = new Set<string>();
+  const loaders: string[] = [];
+  for (const rel of files) {
+    const seen = new Set<string>();
+    const reaches = (f: string, own: boolean): boolean => {
+      if (f === target) return true;
+      if (seen.has(f) || !/\.[cm]?[jt]sx?$/.test(f)) return false;
+      seen.add(f);
+      modules.add(f);
+      return importsOf(f).some((i) => (own || i.kind === "import-statement") && ((p) => p !== undefined && reaches(p, false))(resolveFrom(i.path, f)));
+    };
+    if (reaches(join(REPO, rel), true)) loaders.push(rel);
+  }
+  return { loaders: loaders.sort(), files: files.length, modules: modules.size };
+}
+
+// The gate runs the runner test files one after another in one process, where the first module to load scripts/lib/common.ts
+// fixes RUST_TS_DATA for every later file (scripts/lib/deps.test.ts's "uses a temp oracle cache" failed when one did, lane
+// scope-m7). So no runner test file may load it but the allowlisted ones, today's and every file added later (review scope-m7 N4).
+test("no runner test file loads scripts/lib/common.ts in the step's process, but COMMON_LOADERS", () => {
+  const { loaders, files, modules } = runnerLoadersOf(join(REPO, "scripts", "lib", "common.ts"));
+  expect(files).toBeGreaterThan(40);
+  expect(modules).toBeGreaterThan(files);
+  expect(loaders).toEqual(COMMON_LOADERS);
+});
+
+// Lane unit-parallel: the src/tools step runs in workers, the runner step does not (its files are not audited for --isolate).// Lane unit-parallel: the src/tools step runs in workers, the runner step does not (its files are not audited for --isolate).
 test("unitStepArgs: --parallel only where the step sets it; unitStepEnv: an unset host tuple stays unset", () => {
   expect(UNIT_STEPS.map((s) => s.parallel)).toEqual([4, undefined]);
   expect(unitStepArgs({ name: "n", roots: ["a", "b"], junit: "j", parallel: 2 }, "/r/j.xml", 500)).toEqual(["test", "./a", "./b", "--parallel=2", "--timeout=500", "--reporter=junit", "--reporter-outfile=/r/j.xml"]);

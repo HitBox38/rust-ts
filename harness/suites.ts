@@ -15,7 +15,9 @@ import { COMPILETEST_TARGET, collectUiTests, mirOptCases, uiBlessed, uiCases, ui
 import { MIRI_SYSROOT_CORPUS, MIRI_SYSROOT_SUITE_CRATES } from "./miri-sysroot.ts";
 import { subjectCmd } from "../scripts/lib/subject-bin.ts";
 import { AUX_STALE_MS, EMPTY_SYSROOT, M5_TARGET, libArgs, libClosure, libCrate, libEnv, oracleLibRmeta, pruneStaleAux, touchAuxDir } from "./library.ts";
-import { cliSuite } from "./cli.ts";
+import { PRINT_REQUEST_RS, cliSuite } from "./cli.ts";
+import { STATS_UI_DIR, statsUiArgs, statsUiSuite } from "./stats.ts";
+import { TARGET_SPEC_MOD_RS, targetSpecSuite } from "./target-specs.ts";
 
 export interface Case {
   /** Stable id; the protected set (harness/baseline) is a list of these. */
@@ -2535,5 +2537,41 @@ SUITES.push(
     subject: (args) => [...bunCmd("src/rust_ts/main.ts"), ...args],
     checkUi: RMETA_UI_CORPUS,
     lsRmetas: () => libClosure("std").filter((c) => c.name !== "std").map((c) => ({ crate: c.name, path: oracleLibRmeta(c.name) })),
+  }),
+);
+
+// `stats-ui` (lane harness-w51; report only: no baseline, so in no gate by default): -Zinput-stats, -Zmacro-stats and
+// -Zmeta-stats (harness/stats.ts has the cases). The UI tests as pm-ui runs its tests (compiletest's main compile, `needs-*`
+// evaluated, metadata only, into the checkout's `build/`, whose output base dir making the cases creates, as compiletest's `run`
+// does); check-ui's crates through scripts/rmeta-run.ts as check-ui, without its byte line.
+let statsUiMemo: { cases: Case[]; skipped: SkippedCase[] } | undefined;
+const statsUi = (): { cases: Case[]; skipped: SkippedCase[] } => {
+  if (statsUiMemo) return statsUiMemo;
+  const ui = uiFileCases(collectUiTests(STATS_UI_DIR).sort(), "human", { run: true, needs: true });
+  const cases = ui.cases.map((c) => {
+    mkdirSync(join(UPSTREAM, uiOutputBaseDir(c.id)), { recursive: true });
+    return pinSessionEnv({ id: c.id, file: c.file, args: statsUiArgs(c.id, c.args), env: { ...NOCORE_ENV, ...c.env } });
+  });
+  return (statsUiMemo = { cases, skipped: ui.skipped });
+};
+SUITES.push(
+  statsUiSuite({
+    ui: statsUi,
+    crates: RMETA_UI_CORPUS,
+    uiCmd: (side, c) => (side === "oracle" ? oracleRustcCmd(c.args) : [...bunCmd("src/rust_ts/main.ts"), ...c.args]),
+    crateCmd: (side, c) => rmetaRun("stats-ui", side, c, false, undefined, side === "oracle" ? oracleRustcCmd(c.args) : [...bunCmd("src/rust_ts/main.ts"), ...c.args]),
+    oracleKey: () => rmetaOracleKey(false),
+  }),
+);
+
+// `target-specs` (lane harness-w51, owner's approval 2026-11-11; report only: no baseline): `--print target-spec-json` for every
+// built-in target, the list read from rustc_target's spec/mod.rs (harness/target-specs.ts).
+SUITES.push(
+  targetSpecSuite({
+    specModRs: () => readFileSync(join(UPSTREAM, TARGET_SPEC_MOD_RS), "utf8"),
+    printRequest: () => readFileSync(join(UPSTREAM, PRINT_REQUEST_RS), "utf8"),
+    sysroot: oracleSysroot,
+    oracle: oracleRustcCmd,
+    subject: (args) => [...bunCmd("src/rust_ts/main.ts"), ...args],
   }),
 );
