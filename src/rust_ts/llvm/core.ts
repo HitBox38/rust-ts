@@ -1,0 +1,963 @@
+// rust-ts: the C API functions of llir-core-a's half of the model (lane llir-core-a): contexts, modules, types, constants,
+// globals, functions and their parameters, attributes, value names, module flags and named metadata, and the printer's
+// entry points. Each is the LLVM-C function (`// llvm:`, llvm/lib/IR/Core.cpp and Comdat.cpp) or rustc's C++ wrapper
+// (`// rustc:`, compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp) of the same name, over the model in ir.ts. ffi_gen.ts binds
+// every function exported here into ffi.ts; ffi.ts's signatures are the contract these must satisfy (tsc checks it).
+import { writeFileSync } from "node:fs";
+import { unported } from "../../std/panic.ts";
+import {
+  AttributeKind,
+  CallConv_discriminant,
+  DLLStorageClass,
+  Linkage,
+  Linkage_discriminant,
+  LLVMRustResult,
+  type ModuleFlagMergeBehavior,
+  ModuleFlagMergeBehavior_discriminant,
+  Opcode_discriminant,
+  type ThreadLocalMode,
+  type TypeKind,
+  TypeKind_discriminant,
+  type UnnamedAddr,
+  Visibility,
+  Visibility_discriminant,
+} from "./ffi_types.ts";
+import {
+  Argument,
+  ArrayType,
+  Attribute,
+  bstrOfBytes,
+  bstrOfString,
+  Comdat,
+  Constant,
+  ConstantExpr,
+  ConstantInt,
+  Context,
+  FUNCTION_INDEX,
+  Function,
+  FunctionType,
+  getAggregateElement,
+  getBitCast,
+  getConstantArray,
+  getConstantDataSequential,
+  getConstantFPOfDouble,
+  getConstantInt,
+  getConstantIntU64,
+  getConstantStruct,
+  getGetElementPtr,
+  getIntToPtr,
+  getNullValue,
+  getPointerCast,
+  getPoison,
+  getPtrToInt,
+  getUndef,
+  GlobalAlias,
+  GlobalObject,
+  GlobalValue,
+  GlobalVariable,
+  IntegerType,
+  type LinkageTypes,
+  MDNode,
+  MDString,
+  type Metadata,
+  MetadataAsValue,
+  Module,
+  PointerType,
+  StructType,
+  stringOfBstr,
+  type Type,
+  type Value,
+  ValueAsMetadata,
+  VectorType,
+} from "./ir.ts";
+import { printEscapedString, printModule, printTypeToString, printValueToString } from "./printer.ts";
+import { Bool, type MetadataKindId, type MutRef, type PtrLenStr, RawEnum, type RustString } from "./support.ts";
+
+// ---- argument conversions ----------------------------------------------------------------------------------------------
+
+/** A PTR_LEN_STR argument's first `len` bytes, as a byte string. */
+function bytesArg(s: PtrLenStr, len: number): string {
+  if (typeof s === "string") {
+    const b = bstrOfString(s);
+    return len < b.length ? b.slice(0, len) : b;
+  }
+  return bstrOfBytes(s.subarray(0, len));
+}
+/** A `*const c_char` (NUL-terminated) argument, as a byte string. */
+const cstrArg = (s: string): string => bstrOfString(s);
+
+const asFunction = (v: Value): Function => {
+  if (!(v instanceof Function)) throw new Error("llvm: unwrap<Function> of a value that is not a function");
+  return v;
+};
+const asGlobalVariable = (v: Value): GlobalVariable => {
+  if (!(v instanceof GlobalVariable)) throw new Error("llvm: unwrap<GlobalVariable> of a value that is not a global variable");
+  return v;
+};
+const asGlobalValue = (v: Value): GlobalValue => {
+  if (!(v instanceof GlobalValue)) throw new Error("llvm: unwrap<GlobalValue> of a value that is not a global value");
+  return v;
+};
+const asGlobalObject = (v: Value): GlobalObject => {
+  if (!(v instanceof GlobalObject)) throw new Error("llvm: unwrap<GlobalObject> of a value that is not a global object");
+  return v;
+};
+const asConstant = (v: Value): Constant => {
+  if (!(v instanceof Constant)) throw new Error("llvm: unwrap<Constant> of a value that is not a constant");
+  return v;
+};
+
+// ---- contexts ----------------------------------------------------------------------------------------------------------
+
+// llvm: llvm/lib/IR/Core.cpp:104 LLVMContextCreate
+export function LLVMContextCreate(): Context {
+  return new Context();
+}
+
+// llvm: llvm/lib/IR/Core.cpp:143 LLVMContextDispose
+export function LLVMContextDispose(_C: Context): void {
+  // Garbage collection disposes of the context and its modules.
+}
+
+// llvm: llvm/lib/IR/Core.cpp:139 LLVMContextSetDiscardValueNames
+export function LLVMContextSetDiscardValueNames(C: Context, Discard: Bool): void {
+  C.discardValueNames = Discard.is_true();
+}
+
+// llvm: llvm/lib/IR/Core.cpp:147 LLVMGetMDKindIDInContext
+export function LLVMGetMDKindIDInContext(C: Context, Name: PtrLenStr, SLen: number): MetadataKindId {
+  return C.getMDKindID(bytesArg(Name, SLen)) as MetadataKindId;
+}
+
+// llvm: llvm/lib/IR/Core.cpp:73 LLVMGetVersion
+export function LLVMGetVersion(major: MutRef<number>, minor: MutRef<number>, patch: MutRef<number>): void {
+  // PORT: LLVM_VERSION_{MAJOR,MINOR,PATCH} of the oracle's LLVM: `rustc -vV` says `LLVM version: 23.1.3`; the C API
+  // differential test checks these against libLLVM's own `LLVMGetVersion`.
+  major.value = LLVM_VERSION[0];
+  minor.value = LLVM_VERSION[1];
+  patch.value = LLVM_VERSION[2];
+}
+export const LLVM_VERSION: readonly [number, number, number] = [23, 1, 3];
+
+// ---- modules -----------------------------------------------------------------------------------------------------------
+
+// llvm: llvm/lib/IR/Core.cpp:299 LLVMModuleCreateWithNameInContext
+export function LLVMModuleCreateWithNameInContext(ModuleID: string, C: Context): Module {
+  return new Module(C, cstrArg(ModuleID));
+}
+
+// llvm: llvm/lib/IR/Core.cpp:329 LLVMGetDataLayoutStr
+export function LLVMGetDataLayoutStr(M: Module): string | undefined {
+  return stringOfBstr(M.dataLayout);
+}
+
+// llvm: llvm/lib/IR/Core.cpp:337 LLVMSetDataLayout
+export function LLVMSetDataLayout(M: Module, Triple: string): void {
+  // `Module::setDataLayout(StringRef)`: `DataLayout::parseLayoutString` keeps the string as given.
+  M.dataLayout = cstrArg(Triple);
+}
+
+// rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:145 LLVMRustSetNormalizedTarget
+export function LLVMRustSetNormalizedTarget(M: Module, triple: string): void {
+  // PORT: `Triple::normalize` is not in the model. The triples the D3 targets give LLVM are their own normal form, which the
+  // C API differential test checks with libLLVM's `LLVMNormalizeTargetTriple`; any other triple stops.
+  if (!NORMAL_TRIPLES.includes(triple)) return unported(`llir: Triple::normalize(${JSON.stringify(triple)})`);
+  M.targetTriple = cstrArg(triple);
+}
+/** Triples checked to be their own `Triple::normalize` (capi.oracle.test.ts). */
+export const NORMAL_TRIPLES: readonly string[] = ["x86_64-unknown-linux-gnu", "arm64-apple-macosx11.0.0"];
+
+// rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:929 LLVMRustAddModuleFlagU32
+export function LLVMRustAddModuleFlagU32(M: Module, MergeBehavior: ModuleFlagMergeBehavior, Name: PtrLenStr, NameLen: number, Value: number): void {
+  // `fromRust(LLVMRustModuleFlagMergeBehavior)` maps each to the `Module::ModFlagBehavior` of the same value (1-8).
+  // `Module::addModuleFlag(Behavior, Key, uint32_t)`: an i32 constant (Module.cpp:393).
+  M.addModuleFlag(ModuleFlagMergeBehavior_discriminant[MergeBehavior], bytesArg(Name, NameLen), M.context.constantAsMetadata(getConstantInt(M.context.getIntType(32), BigInt(Value >>> 0))));
+}
+
+// rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:936 LLVMRustAddModuleFlagString
+export function LLVMRustAddModuleFlagString(M: Module, MergeBehavior: ModuleFlagMergeBehavior, Name: PtrLenStr, NameLen: number, Value: PtrLenStr, ValueLen: number): void {
+  M.addModuleFlag(ModuleFlagMergeBehavior_discriminant[MergeBehavior], bytesArg(Name, NameLen), M.context.getMDString(bytesArg(Value, ValueLen)));
+}
+
+// rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:881 LLVMRustDebugMetadataVersion
+export function LLVMRustDebugMetadataVersion(): number {
+  // `DEBUG_METADATA_VERSION` (llvm/include/llvm/IR/Metadata.h:54) is 3.
+  return 3;
+}
+
+// rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:885 LLVMRustVersionMajor
+export function LLVMRustVersionMajor(): number {
+  return LLVM_VERSION[0];
+}
+
+// llvm: llvm/lib/IR/Core.cpp:1489 LLVMAddNamedMetadataOperand
+export function LLVMAddNamedMetadataOperand(M: Module, Name: string, Val: Value): void {
+  const n = M.getOrInsertNamedMetadata(cstrArg(Name));
+  // `extractMDNode(MetadataAsValue*)`: the wrapped node; a wrapped value (ValueAsMetadata) would become a fresh MDNode.
+  if (!(Val instanceof MetadataAsValue)) throw new Error("llvm: unwrap<MetadataAsValue> of a value that is not metadata");
+  if (!(Val.md instanceof MDNode)) return unported("llir: LLVMAddNamedMetadataOperand of a non-node (extractMDNode wraps it)");
+  n.push(Val.md);
+}
+
+// llvm: llvm/lib/IR/Core.cpp:1322 LLVMMDStringInContext2
+export function LLVMMDStringInContext2(C: Context, Str: PtrLenStr, SLen: number): Metadata {
+  return C.getMDString(bytesArg(Str, SLen));
+}
+
+// llvm: llvm/lib/IR/Core.cpp:1327 LLVMMDNodeInContext2
+export function LLVMMDNodeInContext2(C: Context, Vals: readonly Metadata[], Count: number): Metadata {
+  return C.getMDNode(Vals.slice(0, Count));
+}
+
+// llvm: llvm/lib/IR/Core.cpp:1378 LLVMValueAsMetadata
+export function LLVMValueAsMetadata(Node: Value): Metadata {
+  if (Node instanceof Constant) return Node.context.constantAsMetadata(Node);
+  if (Node instanceof MetadataAsValue) return Node.md;
+  return Node.context.constantAsMetadata(Node);
+}
+
+// llvm: llvm/lib/IR/Core.cpp:1374 LLVMMetadataAsValue
+export function LLVMMetadataAsValue(C: Context, MD: Metadata): Value {
+  return C.getMetadataAsValue(MD);
+}
+
+// ---- types -------------------------------------------------------------------------------------------------------------
+
+// llvm: llvm/lib/IR/Core.cpp:613 LLVMGetTypeKind
+export function LLVMGetTypeKind(Ty: Type): RawEnum<TypeKind> {
+  return new RawEnum(TypeKind_discriminant[Ty.typeID], TypeKind_discriminant);
+}
+
+// llvm: llvm/lib/IR/Core.cpp:700 LLVMInt1TypeInContext
+export function LLVMInt1TypeInContext(C: Context): Type {
+  return C.getIntType(1);
+}
+
+// llvm: llvm/lib/IR/Core.cpp:703 LLVMInt8TypeInContext
+export function LLVMInt8TypeInContext(C: Context): Type {
+  return C.getIntType(8);
+}
+
+// llvm: llvm/lib/IR/Core.cpp:706 LLVMInt16TypeInContext
+export function LLVMInt16TypeInContext(C: Context): Type {
+  return C.getIntType(16);
+}
+
+// llvm: llvm/lib/IR/Core.cpp:709 LLVMInt32TypeInContext
+export function LLVMInt32TypeInContext(C: Context): Type {
+  return C.getIntType(32);
+}
+
+// llvm: llvm/lib/IR/Core.cpp:712 LLVMInt64TypeInContext
+export function LLVMInt64TypeInContext(C: Context): Type {
+  return C.getIntType(64);
+}
+
+// llvm: llvm/lib/IR/Core.cpp:718 LLVMIntTypeInContext
+export function LLVMIntTypeInContext(C: Context, NumBits: number): Type {
+  return C.getIntType(NumBits);
+}
+
+// llvm: llvm/lib/IR/Core.cpp:744 LLVMGetIntTypeWidth
+export function LLVMGetIntTypeWidth(IntegerTy: Type): number {
+  return (IntegerTy as IntegerType).bits;
+}
+
+// llvm: llvm/lib/IR/Core.cpp:750 LLVMHalfTypeInContext
+export function LLVMHalfTypeInContext(C: Context): Type {
+  return C.getFloatingType("Half");
+}
+
+// llvm: llvm/lib/IR/Core.cpp:756 LLVMFloatTypeInContext
+export function LLVMFloatTypeInContext(C: Context): Type {
+  return C.getFloatingType("Float");
+}
+
+// llvm: llvm/lib/IR/Core.cpp:759 LLVMDoubleTypeInContext
+export function LLVMDoubleTypeInContext(C: Context): Type {
+  return C.getFloatingType("Double");
+}
+
+// llvm: llvm/lib/IR/Core.cpp:765 LLVMFP128TypeInContext
+export function LLVMFP128TypeInContext(C: Context): Type {
+  return C.getFloatingType("FP128");
+}
+
+// llvm: llvm/lib/IR/Core.cpp:753 LLVMBFloatTypeInContext
+export function LLVMBFloatTypeInContext(C: Context): Type {
+  return C.getFloatingType("BFloat");
+}
+
+// llvm: llvm/lib/IR/Core.cpp:768 LLVMPPCFP128TypeInContext
+export function LLVMPPCFP128TypeInContext(C: Context): Type {
+  return C.getFloatingType("PPC_FP128");
+}
+
+// llvm: llvm/lib/IR/Core.cpp:980 LLVMVoidTypeInContext
+export function LLVMVoidTypeInContext(C: Context): Type {
+  return C.getVoidType();
+}
+
+// llvm: llvm/lib/IR/Core.cpp:802 LLVMFunctionType
+export function LLVMFunctionType(ReturnType: Type, ParamTypes: readonly Type[], ParamCount: number, IsVarArg: Bool): Type {
+  return ReturnType.context.getFunctionType(ReturnType, ParamTypes.slice(0, ParamCount), IsVarArg.is_true());
+}
+
+// llvm: llvm/lib/IR/Core.cpp:817 LLVMCountParamTypes
+export function LLVMCountParamTypes(FunctionTy: Type): number {
+  return (FunctionTy as FunctionType).params.length;
+}
+
+// llvm: llvm/lib/IR/Core.cpp:821 LLVMGetParamTypes
+export function LLVMGetParamTypes(FunctionTy: Type, Dest: Type[]): void {
+  (FunctionTy as FunctionType).params.forEach((p, i) => (Dest[i] = p));
+}
+
+// llvm: llvm/lib/IR/Core.cpp:813 LLVMGetReturnType
+export function LLVMGetReturnType(FunctionTy: Type): Type {
+  return (FunctionTy as FunctionType).returnType;
+}
+
+// llvm: llvm/lib/IR/Core.cpp:809 LLVMIsFunctionVarArg
+export function LLVMIsFunctionVarArg(FunctionTy: Type): Bool {
+  return Bool.from_bool((FunctionTy as FunctionType).isVarArg);
+}
+
+// llvm: llvm/lib/IR/Core.cpp:829 LLVMStructTypeInContext
+export function LLVMStructTypeInContext(C: Context, ElementTypes: readonly Type[], ElementCount: number, Packed: Bool): Type {
+  return C.getLiteralStructType(ElementTypes.slice(0, ElementCount), Packed.is_true());
+}
+
+// llvm: llvm/lib/IR/Core.cpp:976 LLVMPointerTypeInContext
+export function LLVMPointerTypeInContext(C: Context, AddressSpace: number): Type {
+  return C.getPointerType(AddressSpace);
+}
+
+// llvm: llvm/lib/IR/Core.cpp:922 LLVMVectorType
+export function LLVMVectorType(ElementType: Type, ElementCount: number): Type {
+  return ElementType.context.getVectorType(ElementType, ElementCount, false);
+}
+
+// llvm: llvm/lib/IR/Core.cpp:926 LLVMScalableVectorType
+export function LLVMScalableVectorType(ElementType: Type, ElementCount: number): Type {
+  return ElementType.context.getVectorType(ElementType, ElementCount, true);
+}
+
+// llvm: llvm/lib/IR/Core.cpp:931 LLVMGetElementType
+export function LLVMGetElementType(Ty: Type): Type {
+  if (Ty instanceof ArrayType) return Ty.elementType;
+  return (Ty as VectorType).elementType;
+}
+
+// llvm: llvm/lib/IR/Core.cpp:954 LLVMGetVectorSize
+export function LLVMGetVectorSize(VectorTy: Type): number {
+  // `getElementCount().getKnownMinValue()`.
+  return (VectorTy as VectorType).numElements;
+}
+
+// llvm: llvm/lib/IR/Core.cpp:909 LLVMArrayType2
+export function LLVMArrayType2(ElementType: Type, ElementCount: number): Type {
+  return ElementType.context.getArrayType(ElementType, ElementCount);
+}
+
+// llvm: llvm/lib/IR/Core.cpp:841 LLVMStructCreateNamed
+export function LLVMStructCreateNamed(C: Context, Name: string): Type {
+  return C.createNamedStruct(cstrArg(Name));
+}
+
+// llvm: llvm/lib/IR/Core.cpp:854 LLVMStructSetBody
+export function LLVMStructSetBody(StructTy: Type, ElementTypes: readonly Type[], ElementCount: number, Packed: Bool): void {
+  (StructTy as StructType).setBody(ElementTypes.slice(0, ElementCount), Packed.is_true());
+}
+
+// llvm: llvm/lib/IR/Core.cpp:860 LLVMCountStructElementTypes
+export function LLVMCountStructElementTypes(StructTy: Type): number {
+  return (StructTy as StructType).body?.length ?? 0;
+}
+
+// llvm: llvm/lib/IR/Core.cpp:864 LLVMGetStructElementTypes
+export function LLVMGetStructElementTypes(StructTy: Type, Dest: Type[]): void {
+  ((StructTy as StructType).body ?? []).forEach((t, i) => (Dest[i] = t));
+}
+
+// rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:1166 LLVMRustWriteTypeToString
+export function LLVMRustWriteTypeToString(Type: Type, s: RustString): void {
+  for (const c of printTypeToString(Type)) s.bytes.push(c.charCodeAt(0));
+}
+
+// ---- values ------------------------------------------------------------------------------------------------------------
+
+// llvm: llvm/lib/IR/Core.cpp:1041 LLVMTypeOf
+export function LLVMTypeOf(Val: Value): Type {
+  return Val.type;
+}
+
+// llvm: llvm/lib/IR/Core.cpp:1057 LLVMGetValueName2
+export function LLVMGetValueName2(Val: Value, Length: MutRef<number>): string | undefined {
+  Length.value = Val.name.length;
+  return stringOfBstr(Val.name);
+}
+
+// llvm: llvm/lib/IR/Core.cpp:1063 LLVMSetValueName2
+export function LLVMSetValueName2(Val: Value, Name: PtrLenStr, NameLen: number): void {
+  Val.setName(bytesArg(Name, NameLen));
+}
+
+// llvm: llvm/lib/IR/Core.cpp:1107 LLVMReplaceAllUsesWith
+export function LLVMReplaceAllUsesWith(OldVal: Value, NewVal: Value): void {
+  OldVal.replaceAllUsesWith(NewVal);
+}
+
+// llvm: llvm/lib/IR/Core.cpp:2267 LLVMGlobalSetMetadata
+export function LLVMGlobalSetMetadata(Val: Value, KindID: MetadataKindId, Metadata: Metadata): void {
+  asGlobalObject(Val).setMetadata(KindID, Metadata as MDNode);
+}
+
+// llvm: llvm/lib/IR/Core.cpp:2272 LLVMGlobalAddMetadata
+export function LLVMGlobalAddMetadata(Val: Value, KindID: MetadataKindId, Metadata: Metadata): void {
+  asGlobalObject(Val).addMetadata(KindID, Metadata as MDNode);
+}
+
+// rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:1171 LLVMRustWriteValueToString
+export function LLVMRustWriteValueToString(value_ref: Value, s: RustString): void {
+  // `(<type>:<value>)`.
+  const text = `(${printTypeToString(value_ref.type)}:${printValueToString(value_ref)})`;
+  for (const c of text) s.bytes.push(c.charCodeAt(0));
+}
+
+// rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:1690 LLVMRustStripPointerCasts
+export function LLVMRustStripPointerCasts(V: Value): Value {
+  return V.stripPointerCasts();
+}
+
+// rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:1679 LLVMRustIsNonGVFunctionPointerTy
+export function LLVMRustIsNonGVFunctionPointerTy(V: Value): boolean {
+  if (V.type.isPointerTy()) {
+    if (V instanceof GlobalValue && V.valueType.isFunctionTy()) return false;
+    return true;
+  }
+  return false;
+}
+
+// ---- constants ---------------------------------------------------------------------------------------------------------
+
+// llvm: llvm/lib/IR/Core.cpp:1282 LLVMConstNull
+export function LLVMConstNull(Ty: Type): Value {
+  return getNullValue(Ty);
+}
+
+// llvm: llvm/lib/IR/Core.cpp:1290 LLVMGetUndef
+export function LLVMGetUndef(Ty: Type): Value {
+  return getUndef(Ty);
+}
+
+// llvm: llvm/lib/IR/Core.cpp:1294 LLVMGetPoison
+export function LLVMGetPoison(Ty: Type): Value {
+  return getPoison(Ty);
+}
+
+// llvm: llvm/lib/IR/Core.cpp:1579 LLVMConstInt
+export function LLVMConstInt(IntTy: Type, N: bigint, SignExtend: Bool): Value {
+  return getConstantIntU64(IntTy as IntegerType, BigInt.asUintN(64, N), SignExtend.is_true());
+}
+
+// llvm: llvm/lib/IR/Core.cpp:1584 LLVMConstIntOfArbitraryPrecision
+export function LLVMConstIntOfArbitraryPrecision(IntTy: Type, Wn: number, Ws: readonly bigint[]): Value {
+  // `APInt(BitWidth, ArrayRef(Words, NumWords))`: little-endian 64-bit words, truncated to the width.
+  let v = 0n;
+  for (let i = Wn - 1; i >= 0; i--) v = (v << 64n) | BigInt.asUintN(64, Ws[i]!);
+  return getConstantInt(IntTy as IntegerType, v);
+}
+
+// llvm: llvm/lib/IR/Core.cpp:1628 LLVMConstReal
+export function LLVMConstReal(RealTy: Type, N: number): Value {
+  return getConstantFPOfDouble(RealTy, N);
+}
+
+// llvm: llvm/lib/IR/Core.cpp:1738 LLVMConstArray2
+export function LLVMConstArray2(ElementTy: Type, ConstantVals: readonly Value[], Length: number): Value {
+  const ty = ElementTy.context.getArrayType(ElementTy, Length);
+  return getConstantArray(ty, ConstantVals.slice(0, Length).map(asConstant))!;
+}
+
+// llvm: llvm/lib/IR/Core.cpp:1693 LLVMConstStringInContext2
+export function LLVMConstStringInContext2(C: Context, Str: PtrLenStr, Length: number, DontNullTerminate: Bool): Value {
+  // `ConstantDataArray::getString(Context, Str, AddNull = DontNullTerminate == 0)`: an [N x i8] data array.
+  let bytes = bytesArg(Str, Length);
+  if (!DontNullTerminate.is_true()) bytes += "\0";
+  const i8 = C.getIntType(8);
+  const elems = [...bytes].map((c) => getConstantInt(i8, BigInt(c.charCodeAt(0))));
+  return getConstantDataSequential(C.getArrayType(i8, elems.length), elems);
+}
+
+// llvm: llvm/lib/IR/Core.cpp:1751 LLVMConstStructInContext
+export function LLVMConstStructInContext(C: Context, ConstantVals: readonly Value[], Count: number, Packed: Bool): Value {
+  // `ConstantStruct::getAnon`: the literal struct type of the elements' types.
+  const elems = ConstantVals.slice(0, Count).map(asConstant);
+  const ty = C.getLiteralStructType(
+    elems.map((e) => e.type),
+    Packed.is_true(),
+  );
+  return getConstantStruct(ty, elems)!;
+}
+
+// llvm: llvm/lib/IR/Core.cpp:1765 LLVMConstNamedStruct
+export function LLVMConstNamedStruct(StructTy: Type, ConstantVals: readonly Value[], Count: number): Value {
+  return getConstantStruct(StructTy as StructType, ConstantVals.slice(0, Count).map(asConstant))!;
+}
+
+// llvm: llvm/lib/IR/Core.cpp:1914 LLVMConstInBoundsGEP2
+export function LLVMConstInBoundsGEP2(Ty: Type, ConstantVal: Value, ConstantIndices: readonly Value[], NumIndices: number): Value {
+  // `ConstantExpr::getInBoundsGetElementPtr`: `GEPNoWrapFlags::inBounds()`, which is InBounds | NUSW (raw 3).
+  return getGetElementPtr(Ty, asConstant(ConstantVal), ConstantIndices.slice(0, NumIndices).map(asConstant), GEP_INBOUNDS);
+}
+/** `GEPNoWrapFlags::inBounds()` raw bits: `InBoundsFlag | NUSWFlag` (GEPNoWrapFlags.h). */
+const GEP_INBOUNDS = 3;
+
+// llvm: llvm/lib/IR/Core.cpp:1940 LLVMConstPtrToInt
+export function LLVMConstPtrToInt(ConstantVal: Value, ToType: Type): Value {
+  return getPtrToInt(asConstant(ConstantVal), ToType);
+}
+
+// llvm: llvm/lib/IR/Core.cpp:1945 LLVMConstIntToPtr
+export function LLVMConstIntToPtr(ConstantVal: Value, ToType: Type): Value {
+  return getIntToPtr(asConstant(ConstantVal), ToType);
+}
+
+// llvm: llvm/lib/IR/Core.cpp:1950 LLVMConstBitCast
+export function LLVMConstBitCast(ConstantVal: Value, ToType: Type): Value {
+  return getBitCast(asConstant(ConstantVal), ToType);
+}
+
+// llvm: llvm/lib/IR/Core.cpp:1967 LLVMConstPointerCast
+export function LLVMConstPointerCast(ConstantVal: Value, ToType: Type): Value {
+  return getPointerCast(asConstant(ConstantVal), ToType);
+}
+
+// llvm: llvm/lib/IR/Core.cpp:1708 LLVMGetAggregateElement
+export function LLVMGetAggregateElement(ConstantVal: Value, Idx: number): Value | undefined {
+  return getAggregateElement(asConstant(ConstantVal), Idx);
+}
+
+// llvm: llvm/lib/IR/Core.cpp:1838 LLVMGetConstOpcode
+export function LLVMGetConstOpcode(ConstantVal: Value): import("./ffi_types.ts").Opcode {
+  // `map_to_llvmopcode`: the C API's opcode numbering, which ffi.rs's `Opcode` mirrors by name.
+  const op = (ConstantVal as ConstantExpr).opcode;
+  if (!(op in Opcode_discriminant)) return unported(`llir: LLVMGetConstOpcode of ${op}`);
+  return op as import("./ffi_types.ts").Opcode;
+}
+
+// `LLVMIsAConstantExpr`: Core.cpp:1183's `LLVM_FOR_EACH_VALUE_SUBCLASS(LLVM_DEFINE_VALUE_CAST)` (a macro, no definition line to mark).
+export function LLVMIsAConstantExpr(Val: Value): Value | undefined {
+  return Val instanceof ConstantExpr ? Val : undefined;
+}
+
+// `LLVMIsAConstantInt`: Core.cpp:1183's `LLVM_FOR_EACH_VALUE_SUBCLASS(LLVM_DEFINE_VALUE_CAST)` (a macro, no definition line to mark).
+export function LLVMIsAConstantInt(value_ref: Value): ConstantInt | undefined {
+  return value_ref instanceof ConstantInt ? value_ref : undefined;
+}
+
+// rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:1446 LLVMRustConstIntGetZExtValue
+export function LLVMRustConstIntGetZExtValue(ConstantVal: ConstantInt, Value: MutRef<bigint>): boolean {
+  if (ConstantVal.intType.bits > 64) return false;
+  Value.value = ConstantVal.value;
+  return true;
+}
+
+// rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:1456 LLVMRustConstInt128Get
+export function LLVMRustConstInt128Get(ConstantVal: ConstantInt, SExt: boolean, high: MutRef<bigint>, low: MutRef<bigint>): boolean {
+  if (ConstantVal.intType.bits > 128) return false;
+  const ap = BigInt.asUintN(128, SExt ? ConstantVal.sextValue : ConstantVal.value);
+  low.value = BigInt.asUintN(64, ap);
+  high.value = ap >> 64n;
+  return true;
+}
+
+// ---- globals -----------------------------------------------------------------------------------------------------------
+
+// llvm: llvm/lib/IR/Core.cpp:2023 LLVMIsDeclaration
+export function LLVMIsDeclaration(Global: Value): Bool {
+  return Bool.from_bool(asGlobalValue(Global).isDeclaration());
+}
+
+// llvm: llvm/lib/IR/Core.cpp:2027 LLVMGetLinkage
+export function LLVMGetLinkage(Global: Value): RawEnum<Linkage> {
+  return new RawEnum(Linkage_discriminant[asGlobalValue(Global).linkage], Linkage_discriminant);
+}
+
+// llvm: llvm/lib/IR/Core.cpp:2056 LLVMSetLinkage
+export function LLVMSetLinkage(Global: Value, RustLinkage: Linkage): void {
+  const gv = asGlobalValue(Global);
+  let lt: LinkageTypes | undefined;
+  switch (RustLinkage) {
+    case "LinkerPrivateLinkage":
+    case "LinkerPrivateWeakLinkage":
+      lt = "PrivateLinkage";
+      break;
+    // "no longer supported": LLVM_DEBUG only, the linkage is unchanged.
+    case "LinkOnceODRAutoHideLinkage":
+    case "DLLImportLinkage":
+    case "DLLExportLinkage":
+    case "GhostLinkage":
+      lt = undefined;
+      break;
+    default:
+      lt = RustLinkage;
+  }
+  if (lt !== undefined) gv.setLinkage(lt);
+}
+
+// llvm: llvm/lib/IR/Core.cpp:2127 LLVMSetSection
+export function LLVMSetSection(Global: Value, Section: string): void {
+  asGlobalObject(Global).setSection(cstrArg(Section));
+}
+
+// llvm: llvm/lib/IR/Core.cpp:2131 LLVMGetVisibility
+export function LLVMGetVisibility(Global: Value): RawEnum<Visibility> {
+  return new RawEnum(Visibility_discriminant[asGlobalValue(Global).visibility], Visibility_discriminant);
+}
+
+// llvm: llvm/lib/IR/Core.cpp:2136 LLVMSetVisibility
+export function LLVMSetVisibility(Global: Value, Viz: Visibility): void {
+  asGlobalValue(Global).setVisibility(Viz);
+}
+
+// llvm: llvm/lib/IR/Core.cpp:2192 LLVMGetAlignment
+export function LLVMGetAlignment(Global: Value): number {
+  if (Global instanceof GlobalVariable || Global instanceof Function) return Global.alignment ?? 0;
+  return unported("llir: LLVMGetAlignment of an instruction (llir-core-b)");
+}
+
+// llvm: llvm/lib/IR/Core.cpp:2214 LLVMSetAlignment
+export function LLVMSetAlignment(Global: Value, Bytes: number): void {
+  if (Global instanceof GlobalVariable || Global instanceof Function) return Global.setAlignment(Bytes);
+  return unported("llir: LLVMSetAlignment of an instruction (llir-core-b)");
+}
+
+// llvm: llvm/lib/IR/Core.cpp:2146 LLVMSetDLLStorageClass
+export function LLVMSetDLLStorageClass(V: Value, C: DLLStorageClass): void {
+  asGlobalValue(V).dllStorageClass = C;
+}
+
+// llvm: llvm/lib/IR/Core.cpp:2186 LLVMGlobalGetValueType
+export function LLVMGlobalGetValueType(Global: Value): Type {
+  return asGlobalValue(Global).valueType;
+}
+
+// `LLVMIsAGlobalVariable`: Core.cpp:1183's `LLVM_FOR_EACH_VALUE_SUBCLASS(LLVM_DEFINE_VALUE_CAST)` (a macro, no definition line to mark).
+export function LLVMIsAGlobalVariable(GlobalVar: Value): Value | undefined {
+  return GlobalVar instanceof GlobalVariable ? GlobalVar : undefined;
+}
+
+/** `new GlobalVariable(M, Ty, false, ExternalLinkage, nullptr, Name, nullptr, NotThreadLocal, AddressSpace)`. */
+function newGlobalVariable(M: Module, ty: Type, name: string, addressSpace: number): GlobalVariable {
+  const gv = new GlobalVariable(M.context.getPointerType(addressSpace), ty, "ExternalLinkage");
+  // GlobalValue's constructor sets the name with no symbol table; joining the module re-inserts it (`reinsertValue`).
+  gv.name = name;
+  M.insertGlobalVariable(gv);
+  return gv;
+}
+
+// llvm: llvm/lib/IR/Core.cpp:2292 LLVMAddGlobal
+export function LLVMAddGlobal(M: Module, Ty: Type, Name: string): Value {
+  return newGlobalVariable(M, Ty, cstrArg(Name), M.layoutAddressSpace("G"));
+}
+
+// llvm: llvm/lib/IR/Core.cpp:2306 LLVMGetNamedGlobal
+export function LLVMGetNamedGlobal(M: Module, Name: string): Value | undefined {
+  // `Module::getNamedGlobal(Name)` is `getGlobalVariable(Name, AllowLocal = true)` (Module.h:521).
+  return M.getGlobalVariable(cstrArg(Name), true);
+}
+
+// llvm: llvm/lib/IR/Core.cpp:2315 LLVMGetFirstGlobal
+export function LLVMGetFirstGlobal(M: Module): Value | undefined {
+  return M.globals[0];
+}
+
+// llvm: llvm/lib/IR/Core.cpp:2331 LLVMGetNextGlobal
+export function LLVMGetNextGlobal(GlobalVar: Value): Value | undefined {
+  const gv = asGlobalVariable(GlobalVar);
+  const list = gv.parent!.globals;
+  return list[list.indexOf(gv) + 1];
+}
+
+// llvm: llvm/lib/IR/Core.cpp:2347 LLVMDeleteGlobal
+export function LLVMDeleteGlobal(GlobalVar: Value): void {
+  const gv = asGlobalVariable(GlobalVar);
+  gv.removeFromParent();
+  gv.dropAllReferences();
+}
+
+// llvm: llvm/lib/IR/Core.cpp:2351 LLVMGetInitializer
+export function LLVMGetInitializer(GlobalVar: Value): Value | undefined {
+  return asGlobalVariable(GlobalVar).initializer;
+}
+
+// llvm: llvm/lib/IR/Core.cpp:2358 LLVMSetInitializer
+export function LLVMSetInitializer(GlobalVar: Value, ConstantVal: Value): void {
+  asGlobalVariable(GlobalVar).setInitializer(ConstantVal === undefined ? undefined : asConstant(ConstantVal));
+}
+
+// llvm: llvm/lib/IR/Core.cpp:2363 LLVMIsThreadLocal
+export function LLVMIsThreadLocal(GlobalVar: Value): Bool {
+  return Bool.from_bool(asGlobalVariable(GlobalVar).threadLocalMode !== "NotThreadLocal");
+}
+
+// llvm: llvm/lib/IR/Core.cpp:2396 LLVMSetThreadLocalMode
+export function LLVMSetThreadLocalMode(GlobalVar: Value, Mode: ThreadLocalMode): void {
+  asGlobalVariable(GlobalVar).threadLocalMode = Mode;
+}
+
+// llvm: llvm/lib/IR/Core.cpp:2371 LLVMIsGlobalConstant
+export function LLVMIsGlobalConstant(GlobalVar: Value): Bool {
+  return Bool.from_bool(asGlobalVariable(GlobalVar).isConstantGlobal);
+}
+
+// llvm: llvm/lib/IR/Core.cpp:2375 LLVMSetGlobalConstant
+export function LLVMSetGlobalConstant(GlobalVar: Value, IsConstant: Bool): void {
+  asGlobalVariable(GlobalVar).isConstantGlobal = IsConstant.is_true();
+}
+
+// llvm: llvm/lib/IR/Core.cpp:2422 LLVMSetExternallyInitialized
+export function LLVMSetExternallyInitialized(GlobalVar: Value, IsExtInit: Bool): void {
+  asGlobalVariable(GlobalVar).isExternallyInitialized = IsExtInit.is_true();
+}
+
+// llvm: llvm/lib/IR/Core.cpp:2428 LLVMAddAlias2
+export function LLVMAddAlias2(M: Module, ValueTy: Type, AddressSpace: number, Aliasee: Value, Name: string): Value {
+  // `GlobalAlias::create(Ty, AddressSpace, ExternalLinkage, Name, Aliasee, M)`.
+  const ga = new GlobalAlias(M.context.getPointerType(AddressSpace), ValueTy, "ExternalLinkage", asConstant(Aliasee));
+  ga.name = cstrArg(Name);
+  M.insertAlias(ga);
+  return ga;
+}
+
+// llvm: llvm/lib/IR/Core.cpp:2441 LLVMGetFirstGlobalAlias
+export function LLVMGetFirstGlobalAlias(M: Module): Value | undefined {
+  return M.aliases[0];
+}
+
+// llvm: llvm/lib/IR/Core.cpp:2457 LLVMGetNextGlobalAlias
+export function LLVMGetNextGlobalAlias(GA: Value): Value | undefined {
+  const list = (GA as GlobalAlias).parent!.aliases;
+  return list[list.indexOf(GA as GlobalAlias) + 1];
+}
+
+// llvm: llvm/lib/IR/Core.cpp:2163 LLVMSetUnnamedAddress
+export function LLVMSetUnnamedAddress(Global: Value, UnnamedAddr: UnnamedAddr): void {
+  asGlobalValue(Global).unnamedAddr = UnnamedAddr === "No" ? "None" : UnnamedAddr;
+}
+
+// llvm: llvm/lib/IR/Comdat.cpp:34 LLVMGetOrInsertComdat
+export function LLVMGetOrInsertComdat(M: Module, Name: string): Comdat {
+  // `Module::getOrInsertComdat` (Module.cpp:621): a new comdat selects `Any`.
+  const n = cstrArg(Name);
+  let c = M.comdats.get(n);
+  if (c === undefined) M.comdats.set(n, (c = new Comdat(n)));
+  return c;
+}
+
+// llvm: llvm/lib/IR/Comdat.cpp:43 LLVMSetComdat
+export function LLVMSetComdat(V: Value, C: Comdat): void {
+  asGlobalObject(V).comdat = C;
+}
+
+// rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:1473 LLVMRustSetDSOLocal
+export function LLVMRustSetDSOLocal(Global: Value, is_dso_local: boolean): void {
+  asGlobalValue(Global).isDSOLocal = is_dso_local;
+}
+
+// rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:221 LLVMRustGetOrInsertGlobal
+export function LLVMRustGetOrInsertGlobal(M: Module, Name: PtrLenStr, NameLen: number, T: Type): Value {
+  return LLVMRustGetOrInsertGlobalInAddrspace(M, Name, NameLen, T, M.layoutAddressSpace("G"));
+}
+
+// rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:201 LLVMRustGetOrInsertGlobalInAddrspace
+export function LLVMRustGetOrInsertGlobalInAddrspace(M: Module, Name: PtrLenStr, NameLen: number, T: Type, AddressSpace: number): Value {
+  // We don't use Module::getOrInsertGlobal because that returns a Constant*, which may either be the real GlobalVariable*,
+  // or a constant bitcast of it if our type doesn't match the original declaration.
+  const name = bytesArg(Name, NameLen);
+  return M.getGlobalVariable(name, true) ?? newGlobalVariable(M, T, name, AddressSpace);
+}
+
+// rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:169 LLVMRustGetNamedValue
+export function LLVMRustGetNamedValue(M: Module, Name: PtrLenStr, NameLen: number): Value | undefined {
+  return M.getNamedValue(bytesArg(Name, NameLen));
+}
+
+// ---- functions ---------------------------------------------------------------------------------------------------------
+
+// llvm: llvm/lib/IR/Core.cpp:2624 LLVMSetFunctionCallConv
+export function LLVMSetFunctionCallConv(Fn: Value, CC: number): void {
+  asFunction(Fn).callingConv = CC;
+}
+
+// llvm: llvm/lib/IR/Core.cpp:2483 LLVMAddFunction
+export function LLVMAddFunction(Mod: Module, Name: string, FunctionTy: Type): Value {
+  // `Function::Create(Ty, ExternalLinkage, Name, M)`: the address space is the data layout's program address space.
+  return new Function(FunctionTy as FunctionType, "ExternalLinkage", Mod.layoutAddressSpace("P"), cstrArg(Name), Mod);
+}
+
+// llvm: llvm/lib/IR/Core.cpp:2538 LLVMDeleteFunction
+export function LLVMDeleteFunction(Fn: Value): void {
+  const f = asFunction(Fn);
+  if (f.blocks.length) return unported("llir: LLVMDeleteFunction of a definition (llir-core-b drops the body)");
+  f.removeFromParent();
+  f.dropAllReferences();
+}
+
+// llvm: llvm/lib/IR/Core.cpp:2489 LLVMGetOrInsertFunction
+export function LLVMGetOrInsertFunction(M: Module, Name: PtrLenStr, NameLen: number, FunctionTy: Type): Value {
+  // `Module::getOrInsertFunction(Name, Ty)` (Module.cpp:211): the named value if there is one, whatever its type.
+  const name = bytesArg(Name, NameLen);
+  return M.getNamedValue(name) ?? new Function(FunctionTy as FunctionType, "ExternalLinkage", M.layoutAddressSpace("P"), name, M);
+}
+
+// `LLVMIsAArgument`: Core.cpp:1183's `LLVM_FOR_EACH_VALUE_SUBCLASS(LLVM_DEFINE_VALUE_CAST)` (a macro, no definition line to mark).
+export function LLVMIsAArgument(Val: Value): Value | undefined {
+  return Val instanceof Argument ? Val : undefined;
+}
+
+// llvm: llvm/lib/IR/Core.cpp:2724 LLVMCountParams
+export function LLVMCountParams(Fn: Value): number {
+  // `Function::arg_size`: the function type's parameter count.
+  return asFunction(Fn).args.length;
+}
+
+// llvm: llvm/lib/IR/Core.cpp:2736 LLVMGetParam
+export function LLVMGetParam(Fn: Value, Index: number): Value {
+  return asFunction(Fn).args[Index]!;
+}
+
+// ---- attributes --------------------------------------------------------------------------------------------------------
+
+/** `Attribute::getNameFromAttrKind` of the enum kinds the model creates (Attributes.td's `EnumAttr<"name">`, by C++ kind). */
+const ATTR_NAME: Readonly<Record<string, string>> = {
+  AlwaysInline: "alwaysinline", ByVal: "byval", Cold: "cold", InlineHint: "inlinehint", MinSize: "minsize", Naked: "naked",
+  NoAlias: "noalias", NoCfCheck: "nocf_check", NoInline: "noinline", NonNull: "nonnull", NoRedZone: "noredzone",
+  NoReturn: "noreturn", NoUnwind: "nounwind", OptimizeForSize: "optsize", ReadOnly: "readonly", SExt: "signext",
+  StructRet: "sret", UWTable: "uwtable", ZExt: "zeroext", InReg: "inreg", SanitizeThread: "sanitize_thread",
+  SanitizeAddress: "sanitize_address", SanitizeMemory: "sanitize_memory", NonLazyBind: "nonlazybind", OptimizeNone: "optnone",
+  ReadNone: "readnone", SanitizeHWAddress: "sanitize_hwaddress", WillReturn: "willreturn", StackProtectReq: "sspreq",
+  StackProtectStrong: "sspstrong", StackProtect: "ssp", NoUndef: "noundef", SanitizeMemTag: "sanitize_memtag",
+  ShadowCallStack: "shadowcallstack", AllocSize: "allocsize", AllocatedPointer: "allocptr", AllocAlign: "allocalign",
+  SafeStack: "safestack", FnRetThunkExtern: "fn_ret_thunk_extern", Writable: "writable", DeadOnUnwind: "dead_on_unwind",
+  DeadOnReturn: "dead_on_return", SanitizeRealtime: "sanitize_realtime", SanitizeRealtimeBlocking: "sanitize_realtime_blocking",
+  Convergent: "convergent", NoFree: "nofree", ElementType: "elementtype", ByRef: "byref",
+};
+
+/** `fromRust(LLVMRustAttributeKind)` (RustWrapper.cpp:285): the C++ attribute kind of each Rust-side kind. */
+function fromRust(k: AttributeKind): string {
+  switch (k) {
+    case "SanitizeSafeStack":
+      return "SafeStack";
+    case "SanitizeRealtimeNonblocking":
+      return "SanitizeRealtime";
+    case "CapturesAddress":
+    case "CapturesReadOnly":
+    case "CapturesNone":
+      throw new Error("llvm: report_fatal_error: Should be handled separately");
+    default:
+      return k;
+  }
+}
+
+const enumAttr = (kind: string): Attribute => new Attribute(kind, () => ATTR_NAME[kind] ?? unported(`llir: attribute name of ${kind}`), false);
+
+// rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:431 LLVMRustCreateAttrNoValue
+export function LLVMRustCreateAttrNoValue(_C: Context, RustAttr: AttributeKind): Attribute {
+  // Captures attributes print as `captures(...)` (ModRef.cpp's `operator<<(CaptureInfo)`): with no `ret:` part when the
+  // return components equal the others, which `CaptureInfo(CC)` makes them.
+  if (RustAttr === "CapturesNone") return new Attribute("Captures", () => "captures(none)", false);
+  if (RustAttr === "CapturesAddress") return new Attribute("Captures", () => "captures(address)", false);
+  if (RustAttr === "CapturesReadOnly") return new Attribute("Captures", () => "captures(address, read_provenance)", false);
+  if (RustAttr === "DeadOnReturn") return unported("llir: LLVMRustCreateAttrNoValue(DeadOnReturn) (DeadOnReturnInfo printing)");
+  const kind = fromRust(RustAttr);
+  // `Attribute::get(Context, Kind)` of an int attribute kind takes a value; only enum kinds are created with none.
+  if (kind === "AllocSize" || kind === "UWTable") return unported(`llir: LLVMRustCreateAttrNoValue(${kind}) (an int attribute without a value)`);
+  return enumAttr(kind);
+}
+
+// rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:453 LLVMRustCreateAlignmentAttr
+export function LLVMRustCreateAlignmentAttr(_C: Context, bytes: number): Attribute {
+  return new Attribute("Alignment", (g) => (g ? `align=${bytes}` : `align ${bytes}`), false);
+}
+
+// rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:458 LLVMRustCreateDereferenceableAttr
+export function LLVMRustCreateDereferenceableAttr(_C: Context, bytes: number): Attribute {
+  return new Attribute("Dereferenceable", (g) => (g ? `dereferenceable=${bytes}` : `dereferenceable(${bytes})`), false);
+}
+
+// rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:464 LLVMRustCreateDereferenceableOrNullAttr
+export function LLVMRustCreateDereferenceableOrNullAttr(_C: Context, bytes: number): Attribute {
+  return new Attribute("DereferenceableOrNull", (g) => (g ? `dereferenceable_or_null=${bytes}` : `dereferenceable_or_null(${bytes})`), false);
+}
+
+const typeAttr = (kind: string, ty: Type): Attribute => new Attribute(kind, () => `${ATTR_NAME[kind]}(${printTypeToString(ty)})`, false);
+
+// rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:468 LLVMRustCreateByValAttr
+export function LLVMRustCreateByValAttr(_C: Context, ty: Type): Attribute {
+  return typeAttr("ByVal", ty);
+}
+
+// rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:473 LLVMRustCreateByRefAttr
+export function LLVMRustCreateByRefAttr(_C: Context, ty: Type): Attribute {
+  return typeAttr("ByRef", ty);
+}
+
+// rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:478 LLVMRustCreateStructRetAttr
+export function LLVMRustCreateStructRetAttr(_C: Context, ty: Type): Attribute {
+  return typeAttr("StructRet", ty);
+}
+
+// rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:483 LLVMRustCreateElementTypeAttr
+export function LLVMRustCreateElementTypeAttr(_C: Context, ty: Type): Attribute {
+  return typeAttr("ElementType", ty);
+}
+
+// rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:488 LLVMRustCreateUWTableAttr
+export function LLVMRustCreateUWTableAttr(_C: Context, async_: boolean): Attribute {
+  // `UWTableKind::Default` is `Async` (Attributes.cpp prints the default kind as plain `uwtable`).
+  return new Attribute("UWTable", () => (async_ ? "uwtable" : "uwtable(sync)"), false);
+}
+
+// rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:495 LLVMRustCreateAllocSizeAttr
+export function LLVMRustCreateAllocSizeAttr(_C: Context, ElementSizeArg: number): Attribute {
+  return new Attribute("AllocSize", () => `allocsize(${ElementSizeArg})`, false);
+}
+
+// rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:558 LLVMRustCreateAllocKindAttr
+export function LLVMRustCreateAllocKindAttr(_C: Context, size_arg: number): Attribute {
+  // `allocKindFromRust` maps each Rust flag to the AllocFnKind of the same name; `getAsString` lists the set ones in order.
+  const k = size_arg;
+  const parts = (["alloc", "realloc", "free", "uninitialized", "zeroed", "aligned"] as const).filter((_, i) => k & (1 << i));
+  return new Attribute("AllocKind", () => `allockind("${parts.join(",")}")`, false);
+}
+
+// llvm: llvm/lib/IR/Core.cpp:228 LLVMCreateStringAttribute
+export function LLVMCreateStringAttribute(_C: Context, Name: PtrLenStr, NameLen: number, Value: PtrLenStr, ValueLen: number): Attribute {
+  const k = bytesArg(Name, NameLen);
+  const v = bytesArg(Value, ValueLen);
+  // `Attribute::getAsString` of a string attribute: `"key"`, then `="value"` with the value escaped when it is not empty.
+  return new Attribute(k, () => (v === "" ? `"${k}"` : `"${k}"="${printEscapedString(v)}"`), true);
+}
+
+// rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:404 LLVMRustAddFunctionAttributes
+export function LLVMRustAddFunctionAttributes(Fn: Value, index: number, Attrs: readonly Attribute[], AttrsLen: number): void {
+  // `AddAttributes`: an AttrBuilder over the index's attributes; `addAttribute` replaces an attribute of the same kind.
+  const f = asFunction(Fn);
+  let set = f.attributes.get(index);
+  if (set === undefined) f.attributes.set(index, (set = new Map()));
+  for (const a of Attrs.slice(0, AttrsLen)) set.set(a.key, a);
+}
+export { FUNCTION_INDEX };
+
+// ---- printing ----------------------------------------------------------------------------------------------------------
+
+// rustc: compiler/rustc_llvm/llvm-wrapper/PassWrapper.cpp:1154 LLVMRustPrintModule
+export function LLVMRustPrintModule(M: Module, Output: string, _Demangle: unknown): LLVMRustResult {
+  // PORT: the oracle prints through an annotation writer that adds `; <demangled>` comments; the normal form drops every
+  // comment line (plan-m7 §1b), so the model prints none.
+  writeFileSync(Output, Buffer.from(printModule(M), "latin1"));
+  return LLVMRustResult.Success;
+}
