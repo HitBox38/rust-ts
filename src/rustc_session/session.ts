@@ -858,6 +858,22 @@ export class Session {
     }
   }
 
+  // rustc: compiler/rustc_session/src/session.rs:1060 fewer_names
+  fewer_names(): boolean {
+    const fewer_names = this.opts.unstable_opts.fewer_names;
+    if (fewer_names !== undefined) {
+      return fewer_names;
+    } else {
+      const more_names =
+        this.opts.output_types.contains_key("LlvmAssembly") ||
+        this.opts.output_types.contains_key("Bitcode") ||
+        // AddressSanitizer and MemorySanitizer use alloca name when reporting an issue.
+        // PORT: `SanitizerSet::intersects` is a nonzero `&` of the bit sets, as in `emit_lifetime_markers` above.
+        (this.sanitizers() & (SanitizerSet.ADDRESS | SanitizerSet.MEMORY)) !== 0;
+      return !more_names;
+    }
+  }
+
   // rustc: compiler/rustc_session/src/session.rs:1072 unstable_options
   unstable_options(): boolean {
     return this.opts.unstable_opts.unstable_options;
