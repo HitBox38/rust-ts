@@ -1,6 +1,6 @@
 # Handoff: llir-core-b (plan-m7 wave 40, contract lane, second half of the IR model)
 
-Branch `t3/0cfc2aa4`, base `b3772ebb`. This lane touches only `src/rust_ts/llvm/` and this file.
+Branch `t3/implement-llir-core-b`, base `b3772ebb`. This lane touches only `src/rust_ts/llvm/` and this file.
 
 ## Result
 
@@ -35,7 +35,7 @@ Branch `t3/0cfc2aa4`, base `b3772ebb`. This lane touches only `src/rust_ts/llvm/
   - The test caught a real bug, now fixed: the undef rule of `ConstantFoldCompareInstruction` must use `ICmpInst::isEquality`.
     With `CmpInst::isEquality` instead, `fcmp oeq 0.0, undef` folded to `undef`, where LLVM gives `false`.
 
-Commits: `45701877`, `2377d8ef`, and a third with docs, the replay place check and this file.
+Commits: `45701877`, `2377d8ef`, `d6e7aec8` (docs, the replay place check, this file), and one fixing this line.
 
 ## Evidence
 
