@@ -3,10 +3,9 @@
 //! # Note
 //!
 //! This API is completely unstable and subject to change.
-// Partial port of compiler/rustc_driver_impl/src/lib.rs: the `main` → `compiler_entrypoint` →
-// `handle_options` → `run_compiler` path, version/help printing and the `-Zunpretty` early exit.
-// Everything after parsing (expansion, analysis, codegen, linking), `--explain`, `-W help`,
-// `--print`, metadata listing and rlink processing is unported (see each fn).
+// Port of compiler/rustc_driver_impl/src/lib.rs. Not ported: `process_rlink` (`-Zlink-only`, needs codegen), the
+// codegen backend's `--print` requests, `--print target-spec-json-schema`, and the platform and logging glue listed
+// at each site.
 import "../rustc_session/options.ts"; // LOAD ORDER: see rustc_session/config.ts
 import "../rustc_session/lib.ts";
 import type { AttrVec, Crate } from "../rustc_ast/ast.gen.ts";
@@ -21,7 +20,9 @@ import { displayed_sysroot_path } from "../rustc_session/filesearch.ts";
 import { filename_for_input, invalid_output_for_target } from "../rustc_session/output.ts";
 import { CrateType as CrateTypeC } from "../rustc_structures/crate_type.ts";
 import { DUMMY_SP } from "../rustc_span/lib.ts";
-import { path_file_name } from "../std/path.ts";
+import { path_file_name, path_join } from "../std/path.ts";
+import { LOCAL_CRATE } from "../rustc_span/def_id.ts";
+import { display_Svh } from "../rustc_data_structures/svh.ts";
 import type { CodegenBackend } from "../rustc_interface/stand_ins.ts";
 import { get_codegen_backend } from "../rustc_interface/util.ts";
 import { Linker } from "../rustc_interface/queries.ts";
@@ -54,13 +55,28 @@ import * as env from "../std/env.ts";
 import { type DiagCtxtHandle, DelayedBugPanic, DiagCtxt, ExplicitBug } from "../rustc_errors/lib.ts";
 import { AnnotateSnippetEmitter } from "../rustc_errors/annotate_snippet_emitter_writer.ts";
 import { stderr_destination } from "../rustc_errors/emitter.ts";
-import { extra_compiler_flags } from "../rustc_session/utils.ts";
+import { extra_compiler_flags, was_invoked_from_cargo } from "../rustc_session/utils.ts";
 import { panic, unported } from "../std/panic.ts";
 import { CURRENT_THREAD, display_location, js_backtrace, type PanicHookInfo, set_backtrace_style, update_hook } from "../std/panicking.ts";
 import { display_IoError, io_error_from_node, write_stderr } from "../std/io.ts";
 import * as diagnostics from "./diagnostics.gen.ts";
 import { expect_result } from "../std/result.ts";
-import { from_utf8 } from "../std/str.ts";
+import { Str, from_utf8, str_find_pred, utf8, utf8_len } from "../std/str.ts";
+import { is_whitespace } from "../std/char.ts";
+import { ErrCode, try_find_description } from "../rustc_errors/codes.ts";
+import type { ColorConfig } from "../rustc_errors/emitter.ts";
+import * as markdown from "../rustc_errors/markdown/mod.ts";
+import { AutoStream } from "../vendor/anstream/lib.ts";
+import { type Stdout as StdStdout, VecU8, stdout as std_stdout } from "../vendor/anstream/stream.ts";
+import { list_file_metadata } from "../rustc_metadata/locator.ts";
+import type { MetadataLoader } from "../rustc_metadata/creader.ts";
+import * as highlighter from "./highlighter.ts";
+import { unerased_lint_store } from "../rustc_lint/late.ts";
+import { LintLevelsBuilder } from "../rustc_lint/levels.ts";
+import { features as rustc_expand_features } from "../rustc_expand/config.ts";
+import { registered_lint_tools_ast } from "../rustc_resolve/lib.ts";
+import { all_names } from "../rustc_abi/extern_abi.ts";
+import { Level, Level_discriminant, type Lint, Lint as LintC, type LintId, LintId as LintIdC } from "../rustc_lint_defs/lib.ts";
 import { FileName } from "../rustc_span/lib.ts";
 import { appendFileSync, readFileSync } from "node:fs";
 import * as getopts from "../vendor/getopts/lib.ts";
@@ -69,7 +85,7 @@ import * as pretty from "./pretty.ts";
 import * as signal_handler from "./signal_handler.ts";
 import * as rustc_log from "../rustc_log/lib.ts";
 import * as tracing from "../rust_ts/tracing.ts";
-import { safe_println } from "./print.ts";
+import { safe_print, safe_println } from "./print.ts";
 
 export * as args from "./args.ts";
 export * as pretty from "./pretty.ts";
@@ -257,8 +273,7 @@ export function compiler_entrypoint(at_args0: readonly string[], callbacks: Call
     }
 
     if (sess.opts.unstable_opts.ls.length !== 0) {
-      // `list_metadata(sess, &*codegen_backend.metadata_loader())`
-      unported("rustc_driver_impl::list_metadata (-Z ls)");
+      list_metadata(sess, codegen_backend.metadata_loader());
       return;
     }
 
@@ -339,8 +354,7 @@ export function compiler_entrypoint(at_args0: readonly string[], callbacks: Call
 
         const metrics_dir = sess.opts.unstable_opts.metrics_dir;
         if (metrics_dir !== undefined) {
-          // dump_feature_usage_metrics(tcx, metrics_dir);
-          unported("rustc_driver_impl::dump_feature_usage_metrics (-Z metrics-dir)");
+          dump_feature_usage_metrics(tcx, metrics_dir);
         }
 
         tcx.report_unused_features();
@@ -360,7 +374,21 @@ export function compiler_entrypoint(at_args0: readonly string[], callbacks: Call
   });
 }
 
-// `dump_feature_usage_metrics` (lib.rs:356): not ported (rustc_middle).
+// rustc: compiler/rustc_driver_impl/src/lib.rs:356 dump_feature_usage_metrics
+function dump_feature_usage_metrics(tcx: TyCtxt, metrics_dir: PathBuf): void {
+  const hash = tcx.crate_hash(LOCAL_CRATE);
+  const crate_name = tcx.crate_name(LOCAL_CRATE);
+  const metrics_file_name = `unstable_feature_usage_metrics-${Symbol.as_str(crate_name)}-${display_Svh(hash)}.json`;
+  const metrics_path = path_join(metrics_dir, metrics_file_name);
+  const r = tcx.features().dump_feature_usage_metrics(metrics_path);
+  if (r.$ === "Err") {
+    const error = r._0;
+    // FIXME(yaahc): once metrics can be enabled by default we will want "failure to emit
+    // default metrics" to only produce a warning when metrics are enabled by default and emit
+    // an error only when the user manually enables metrics
+    tcx.dcx().emit_err(diagnostics.UnstableFeatureUsage_diagnostic({ error }));
+  }
+}
 
 /// Extract output directory and file from matches.
 // rustc: compiler/rustc_driver_impl/src/lib.rs:370 make_output
@@ -441,11 +469,216 @@ function parse_isize(s: string): { $: "Ok"; _0: number } | { $: "Err"; _0: strin
 // #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 export type Compilation = "Stop" | "Continue";
 
-// `handle_explain` (lib.rs:426), `show_md_content_with_pager` (471), `show_colored_md_content` (534),
-// `process_rlink` (557), `list_metadata` (597): not ported (error-code docs registry, pager, markdown
-// rendering, rustc_metadata).
-function handle_explain(_early_dcx: EarlyDiagCtxt, code: string, _color: unknown): void {
-  unported(`rustc_driver_impl::handle_explain (--explain ${code})`);
+// rustc: compiler/rustc_driver_impl/src/lib.rs:426 handle_explain
+function handle_explain(early_dcx: EarlyDiagCtxt, code: string, color: ColorConfig): void {
+  // Allow "E0123" or "0123" form.
+  const upper_cased_code = code.replace(/[a-z]/g, (c) => c.toUpperCase());
+  const code_ = parse_u32(upper_cased_code.startsWith("E") ? upper_cased_code.slice(1) : upper_cased_code);
+  let description: string | undefined;
+  if (code_ !== undefined && code_ <= ErrCode.MAX_AS_U32) {
+    const d = try_find_description(ErrCode.from_u32(code_));
+    if (d.$ === "Ok") description = d._0.text();
+  }
+  if (description !== undefined) {
+    let is_in_code_block = false;
+    let text = "";
+    // Slice off the leading newline and print.
+    for (const line of Str.from(description).lines()) {
+      const indent_level = str_find_pred(line, (c) => !is_whitespace(c)) ?? line.len();
+      const dedented_line = line.slice(indent_level);
+      if (dedented_line.starts_with("```")) {
+        is_in_code_block = !is_in_code_block;
+        text += line.slice(0, indent_level + 3).toString();
+      } else if (is_in_code_block && dedented_line.starts_with("# ")) {
+        continue;
+      } else {
+        text += line.toString();
+      }
+      text += "\n";
+    }
+
+    // If output is a terminal, use a pager to display the content.
+    if (std_stdout().is_terminal()) {
+      show_md_content_with_pager(text, color);
+    } else {
+      // Otherwise, if the user has requested colored output
+      // print the content in color, else print the md content.
+      if (color === "Always") {
+        show_colored_md_content(text);
+      } else {
+        safe_print(text);
+      }
+    }
+  } else {
+    early_dcx.early_fatal(`${code} is not a valid error code`);
+  }
+}
+
+/** `str::parse::<u32>().ok()` */
+function parse_u32(s: string): number | undefined {
+  let digits = s;
+  if (s.length === 0) return undefined;
+  if (s[0] === "+" || s[0] === "-") {
+    if (s.length === 1) return undefined;
+    // an unsigned type takes a leading `+` only
+    if (s[0] === "+") digits = s.slice(1);
+  }
+  let v = 0;
+  for (let i = 0; i < digits.length; i++) {
+    const c = digits.charCodeAt(i);
+    if (c < 0x30 || c > 0x39) return undefined;
+    v = v * 10 + (c - 0x30);
+    if (v > 0xffff_ffff) return undefined;
+  }
+  return v;
+}
+
+/** `cfg!(windows)`: rust-ts follows the non-windows host (as vendor/anstream). */
+const CFG_WINDOWS = false as boolean;
+
+/// If `color` is `always` or `auto`, try to print pretty (formatted & colorized) markdown. If
+/// that fails or `color` is `never`, print the raw markdown.
+///
+/// Uses a pager if possible, falls back to stdout.
+// rustc: compiler/rustc_driver_impl/src/lib.rs:471 show_md_content_with_pager
+function show_md_content_with_pager(content: string, color: ColorConfig): void {
+  const pager_os = env.var_os("PAGER");
+  // PORT: `OsString` compared and spawned as its UTF-8 (lossy) text.
+  const pager_name = pager_os !== undefined ? env.to_string_lossy(pager_os) : CFG_WINDOWS ? "more.com" : "less";
+
+  const cmd: string[] = [pager_name];
+  if (pager_name === "less") {
+    cmd.push("-R"); // allows color escape sequences
+  }
+
+  let pretty_on_pager: boolean;
+  switch (color) {
+    case "Auto":
+      // Add other pagers that accept color escape sequences here.
+      pretty_on_pager = ["less", "bat", "batcat", "delta"].some((v) => v === pager_name);
+      break;
+    case "Always":
+      pretty_on_pager = true;
+      break;
+    case "Never":
+      pretty_on_pager = false;
+      break;
+  }
+
+  // Try to prettify the raw markdown text. The result can be used by the pager or on stdout.
+  let pretty_data: [AutoStream<StdStdout>, Uint8Array] | undefined;
+  {
+    const mdstream = markdown.MdStream.parse_str(content);
+    const bufwtr = markdown.create_stdout_bufwtr();
+    const mdbuf = new VecU8();
+    if (mdstream.write_anstream_buf(mdbuf, highlighter.highlight).$ === "Ok") {
+      pretty_data = [bufwtr, mdbuf.bytes()];
+    } else {
+      pretty_data = undefined;
+    }
+  }
+
+  // Try to print via the pager, pretty output if possible.
+  // PORT: `Command::new(..).stdin(Stdio::piped()).spawn()`, `write_all` to its stdin and `wait()` are one
+  // `Bun.spawnSync` with the bytes as stdin (stdout and stderr inherited, as `Command`'s are). A failed spawn throws;
+  // a failed write to the pager's stdin (it exited early) is not seen, so that `None` does not fall back to stdout here.
+  let pager_res: true | undefined;
+  try {
+    const data = pretty_on_pager && pretty_data !== undefined ? pretty_data[1] : utf8(content);
+    Bun.spawnSync(cmd, { stdin: data, stdout: "inherit", stderr: "inherit" });
+    pager_res = true;
+  } catch {
+    pager_res = undefined;
+  }
+  if (pager_res !== undefined) {
+    return;
+  }
+
+  // The pager failed. Try to print pretty output to stdout.
+  if (pretty_data !== undefined) {
+    const [bufwtr, mdbuf] = pretty_data;
+    if (bufwtr.write_all(mdbuf).$ === "Ok") {
+      return;
+    }
+  }
+
+  // Everything failed. Print the raw markdown text.
+  safe_print(content);
+}
+
+/// Prints the markdown content with colored output.
+///
+/// This function is used when the output is not a terminal,
+/// but the user has requested colored output with `--color=always`.
+// rustc: compiler/rustc_driver_impl/src/lib.rs:534 show_colored_md_content
+function show_colored_md_content(content: string): void {
+  // Try to prettify the raw markdown text.
+  let pretty_data: [AutoStream<StdStdout>, Uint8Array] | undefined;
+  {
+    const mdstream = markdown.MdStream.parse_str(content);
+    const bufwtr = markdown.create_stdout_bufwtr();
+    const mdbuf = new VecU8();
+    if (mdstream.write_anstream_buf(mdbuf, highlighter.highlight).$ === "Ok") {
+      pretty_data = [bufwtr, mdbuf.bytes()];
+    } else {
+      pretty_data = undefined;
+    }
+  }
+
+  if (pretty_data !== undefined) {
+    const [bufwtr, mdbuf] = pretty_data;
+    if (bufwtr.write_all(mdbuf).$ === "Ok") {
+      return;
+    }
+  }
+
+  // Everything failed. Print the raw markdown text.
+  safe_print(content);
+}
+
+// `process_rlink` (lib.rs:557): not ported (needs an `.rlink` from codegen; M7).
+
+// rustc: compiler/rustc_driver_impl/src/lib.rs:597 list_metadata
+function list_metadata(sess: Session, metadata_loader: MetadataLoader): void {
+  const input = sess.io.input;
+  switch (input.$) {
+    case "File": {
+      const path = input._0;
+      const v = new VecU8();
+      const r = list_file_metadata(sess.target, path, metadata_loader, v, sess.opts.unstable_opts.ls, sess.cfg_version);
+      if (r.$ === "Err") {
+        const error = r._0;
+        if (path_extension(path) === "rs") {
+          const err = sess.dcx().struct_fatal("`-Zls` takes a `.rmeta` file as input, not a source file");
+          if (was_invoked_from_cargo()) {
+            // Give a Cargo-tailored suggestion if we're coming from Cargo
+            err.note("use `rustc +nightly -Zls=... path/to/file.rmeta` directly, instead of going through Cargo");
+          }
+          err.emit();
+        }
+        sess.dcx().fatal(display_IoError(error));
+      }
+      const s = from_utf8(v.bytes());
+      // PORT: `VecU8` holds the UTF-8 of JS strings only, so this `unwrap` cannot fail.
+      if (s.$ === "Err") unported("rustc_driver_impl::list_metadata (String::from_utf8(..).unwrap() on invalid UTF-8)");
+      safe_println(s._0);
+      break;
+    }
+    case "Str":
+    case "DocTestStr": {
+      sess.dcx().fatal("cannot list metadata for stdin");
+    }
+  }
+}
+
+/** `Path::extension` (library/std/src/path.rs): the part of the file name after its last `.`, unless that is the
+ *  whole name (a leading dot) or there is none. */
+function path_extension(path: string): string | undefined {
+  const file = path_file_name(path);
+  if (file === undefined || file === "..") return undefined;
+  const i = file.lastIndexOf(".");
+  if (i <= 0) return undefined;
+  return file.slice(i + 1);
 }
 
 // rustc: compiler/rustc_driver_impl/src/lib.rs:629 print_crate_info
@@ -551,8 +784,23 @@ export function print_crate_info(codegen_backend: CodegenBackend, sess: Session,
           // no crate attributes, print out an error and exit
           return "Continue";
         }
-        // rustc_lint `LintLevelsBuilder::crate_root`, rustc_expand `features`, rustc_resolve tools
-        return unported("rustc_driver_impl::print_crate_info (--print crate-root-lint-levels)");
+        {
+          const crate_name = passes.get_crate_name(sess, attrs);
+          const lint_store = unerased_lint_store(sess);
+          const features = rustc_expand_features(sess, attrs, crate_name);
+          const registered_lint_tools = registered_lint_tools_ast(sess, attrs);
+          const builder = LintLevelsBuilder.crate_root(sess, features, true, lint_store, registered_lint_tools, attrs);
+          for (const lint of lint_store.get_lints()) {
+            const feature_symbol = lint.feature_gate;
+            if (feature_symbol !== undefined && !features.enabled(feature_symbol)) {
+              // lint is unstable and feature gate isn't active, don't print
+              continue;
+            }
+            const level = builder.lint_level_spec(lint).level_();
+            println_info(`${LintC.name_lower(lint)}=${Level.as_str(level)}`);
+          }
+        }
+        break;
       case "Cfg": {
         const cfgs = sess.config
           .iter()
@@ -615,8 +863,11 @@ export function print_crate_info(codegen_backend: CodegenBackend, sess: Session,
         break;
       }
       case "CallingConventions":
-        // `rustc_abi::all_names()`
-        return unported("rustc_abi::all_names (--print calling-conventions)");
+      {
+        const calling_conventions = all_names();
+        println_info(calling_conventions.join("\n"));
+        break;
+      }
       case "BackendHasMnemonic":
         // `codegen_backend.has_mnemonic(sess, req.arg)`
         return unported("rustc_codegen_llvm::llvm_util::target_has_mnemonic (--print backend-has-mnemonic)");
@@ -751,9 +1002,120 @@ the command line flag directly.
 }
 
 /// Write to stdout lint command options, together with a list of all available lints
-// `describe_lints` (lib.rs:974): not ported (needs the lint store, rustc_lint).
-export function describe_lints(_sess: Session, _registered_lints: boolean): void {
-  unported("rustc_driver_impl::describe_lints (-W help)");
+// rustc: compiler/rustc_driver_impl/src/lib.rs:974 describe_lints
+export function describe_lints(sess: Session, registered_lints: boolean): void {
+  safe_println(
+    `
+Available lint options:
+    -W <foo>           Warn about <foo>
+    -A <foo>           Allow <foo>
+    -D <foo>           Deny <foo>
+    -F <foo>           Forbid <foo> (deny <foo> and all attempts to override)
+
+`,
+  );
+
+  // rustc: compiler/rustc_driver_impl/src/lib.rs:986 sort_lints
+  function sort_lints(sess: Session, lints_: Lint[]): Lint[] {
+    // The sort doesn't case-fold but it's doubtful we care.
+    // `sort_by_cached_key(|x| (x.default_level(sess.edition()), x.name))`: a stable sort on the key.
+    const keyed = lints_.map((x): [number, string, Lint] => [Level_discriminant[LintC.default_level(x, sess.edition())], x.name, x]);
+    keyed.sort((a, b) => a[0] - b[0] || str_cmp(a[1], b[1]));
+    const lints = keyed.map(([, , x]) => x);
+    return lints;
+  }
+
+  // rustc: compiler/rustc_driver_impl/src/lib.rs:992 sort_lint_groups
+  function sort_lint_groups(lints_: [string, LintId[], boolean][]): [string, LintId[]][] {
+    const lints: [string, LintId[]][] = lints_.map(([x, y, _]) => [x, y]);
+    lints.sort((a, b) => str_cmp(a[0], b[0]));
+    return lints;
+  }
+
+  const lint_store = unerased_lint_store(sess);
+  const loaded_: Lint[] = [];
+  const builtin_: Lint[] = [];
+  for (const lint of lint_store.get_lints()) (lint.is_externally_loaded ? loaded_ : builtin_).push(lint);
+  const loaded = sort_lints(sess, loaded_);
+  const builtin = sort_lints(sess, builtin_);
+
+  const loaded_groups_: [string, LintId[], boolean][] = [];
+  const builtin_groups_: [string, LintId[], boolean][] = [];
+  for (const g of lint_store.get_lint_groups()) (g[2] ? loaded_groups_ : builtin_groups_).push(g);
+  const loaded_groups = sort_lint_groups(loaded_groups_);
+  const builtin_groups = sort_lint_groups(builtin_groups_);
+
+  const chars_count = (s: string): number => [...s].length;
+  /** `format!("{:7.7}", s)` */
+  const w7 = (s: string): string => [...s].slice(0, 7).join("").padEnd(7);
+
+  let max_name_len = Math.max(0, ...[...loaded, ...builtin].map((s) => chars_count(s.name)));
+  let padded = (x: string): string => {
+    let s = " ".repeat(max_name_len - chars_count(x));
+    s += x;
+    return s;
+  };
+
+  safe_println("Lint checks provided by rustc:\n");
+
+  const print_lints = (lints: Lint[]): void => {
+    safe_println(`    ${padded("name")}  ${w7("default")}  ${"meaning"}`);
+    safe_println(`    ${padded("----")}  ${w7("-------")}  ${"-------"}`);
+    for (const lint of lints) {
+      const name = LintC.name_lower(lint).replaceAll("_", "-");
+      safe_println(`    ${padded(name)}  ${w7(Level.as_str(LintC.default_level(lint, sess.edition())))}  ${lint.desc}`);
+    }
+    safe_println("\n");
+  };
+
+  print_lints(builtin);
+
+  max_name_len = Math.max(utf8_len("warnings"), Math.max(0, ...[...loaded_groups, ...builtin_groups].map(([s]) => chars_count(s))));
+
+  padded = (x: string): string => {
+    let s = " ".repeat(max_name_len - chars_count(x));
+    s += x;
+    return s;
+  };
+
+  safe_println("Lint groups provided by rustc:\n");
+
+  const print_lint_groups = (lints: [string, LintId[]][], all_warnings: boolean): void => {
+    safe_println(`    ${padded("name")}  sub-lints`);
+    safe_println(`    ${padded("----")}  ---------`);
+
+    if (all_warnings) {
+      safe_println(`    ${padded("warnings")}  all lints that are set to issue warnings`);
+    }
+
+    for (const [name_, to] of lints) {
+      const name = name_.toLowerCase().replaceAll("_", "-");
+      const desc = to.map((x) => LintIdC.to_string(x).replaceAll("_", "-")).join(", ");
+      safe_println(`    ${padded(name)}  ${desc}`);
+    }
+    safe_println("\n");
+  };
+
+  print_lint_groups(builtin_groups, true);
+
+  const l = loaded.length;
+  const g = loaded_groups.length;
+  if (!registered_lints && (l === 0 || g === 0)) {
+    safe_println("Lint tools like Clippy can load additional lints and lint groups.");
+  } else if (!registered_lints) {
+    panic("didn't load additional lints but got them anyway!");
+  } else if (l === 0 && g === 0) {
+    safe_println("This crate does not load any additional lints or lint groups.");
+  } else {
+    if (l > 0) {
+      safe_println("Lint checks loaded by this crate:\n");
+      print_lints(loaded);
+    }
+    if (g > 0) {
+      safe_println("Lint groups loaded by this crate:\n");
+      print_lint_groups(loaded_groups, false);
+    }
+  }
 }
 
 /// Show help for flag categories shared between rustdoc and rustc.

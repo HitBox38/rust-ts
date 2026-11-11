@@ -38,7 +38,7 @@ import "../../rustc_session/lib.ts";
 import "../../rustc_target/lib.ts";
 import type { MacroDef } from "../../rustc_ast/lib.ts";
 import type { Attribute } from "../../rustc_attr_ir/attr.ts";
-import type { LangItem } from "../../rustc_attr_ir/lang_items.ts";
+import { LangItem } from "../../rustc_attr_ir/lang_items.ts";
 import type { CrateDepKind, CrateSource, ExternCrate, ForeignModule, LinkagePreference, NativeLib } from "../../rustc_crate_store/lib.ts";
 import { debug_CrateDepKind, debug_LinkagePreference, decode_ForeignModule, decode_LinkagePreference as decode_LinkagePreference_, decode_NativeLib } from "../../rustc_crate_store/lib.ts";
 import { debug_Fingerprint, decode_Fingerprint, encode_Fingerprint, Fingerprint } from "../../rustc_data_structures/fingerprint.ts";
@@ -52,7 +52,8 @@ import { AllocDecodingSession, AllocDecodingState, type AllocId } from "../../ru
 import type { Visibility } from "../../rustc_middle/ty/mod.ts";
 import { MemDecoder } from "../../rustc_serialize/opaque.ts";
 import { type Decodable, type Decoder, Decoder_provided, decode_Option as decode_Option_, decode_String, decode_tuple as decode_tuple_, decode_Vec, type Encoder } from "../../rustc_serialize/serialize.ts";
-import type { TargetModifier } from "../../rustc_session/options.ts";
+import { type TargetModifier, TargetModifier as TargetModifierC } from "../../rustc_session/options.ts";
+import { CodegenOptionsTargetModifiers_discriminant, OptionsTargetModifiers, UnstableOptionsTargetModifiers_discriminant } from "../../rustc_session/options.gen.ts";
 import type { DeniedPartialMitigation } from "../../rustc_session/options/mitigation_coverage.ts";
 import { CrateNum, DefId, DefIndex, LOCAL_CRATE, LocalDefId, type ModId, type StableCrateId, debug_StableCrateId } from "../../rustc_span/def_id.ts";
 import { display_Edition } from "../../rustc_span/edition.ts";
@@ -1303,10 +1304,22 @@ MetadataBlob.prototype.list_crate_metadata = function (this: MetadataBlob, out: 
         break;
       }
 
-      case "lang_items":
-        // PORT: `root.lang_items` decodes `(LocalDefId, LangItem)` and prints `DefPath::make(..)` of each; LangItem's
-        // derive(BlobDecodable) is not generated yet (rustc_attr_ir lang_items.rs, `language_item_table!`).
-        return unported("rustc_metadata::rmeta::decoder::MetadataBlob::list_crate_metadata (-Zls=lang_items: Decodable for LangItem)");
+      case "lang_items": {
+        if ((r = w(out, "=Lang items=\n")).$ === "Err") return r;
+        for (const [id, lang_item] of (root.lang_items as LazyArray<[LocalDefId, LangItem]>).decode(this, (d) =>
+          decode_tuple_(d, (d) => d.decode_local_def_id(), decode_LangItem),
+        )) {
+          const path = DefPath_.make(LOCAL_CRATE, LocalDefId.local_def_index(id), (parent) =>
+            unwrap(root.tables.def_keys.get(fse_Option_LazyValue, this, parent) as LazyValue<DefKey> | undefined).decode(this, decode_DefKey),
+          ).to_string_no_crate_verbose();
+          if ((r = w(out, `${Symbol.as_str(LangItem.name(lang_item))} = crate${path}\n`)).$ === "Err") return r;
+        }
+        for (const lang_item of (root.lang_items_missing as LazyArray<LangItem>).decode(this, decode_LangItem)) {
+          if ((r = w(out, `${Symbol.as_str(LangItem.name(lang_item))} = <missing>\n`)).$ === "Err") return r;
+        }
+        if ((r = w(out, "\n")).$ === "Err") return r;
+        break;
+      }
 
       case "features": {
         if ((r = w(out, "=Lib features=\n")).$ === "Err") return r;
@@ -1362,9 +1375,16 @@ MetadataBlob.prototype.list_crate_metadata = function (this: MetadataBlob, out: 
         if ((r = w(out, "\n")).$ === "Err") return r;
         break;
       }
-      case "target_modifiers":
-        // PORT: `root.decode_target_modifiers(self)`; `TargetModifier`'s derive(BlobDecodable) is not generated yet.
-        return unported("rustc_metadata::rmeta::decoder::MetadataBlob::list_crate_metadata (-Zls=target_modifiers: Decodable for TargetModifier)");
+      case "target_modifiers": {
+        if ((r = w(out, "=Target modifiers=\n")).$ === "Err") return r;
+
+        for (const modifier of root.decode_target_modifiers(this)) {
+          const extended = modifier.extend();
+
+          if ((r = w(out, `-${extended.prefix}${extended.name}=${modifier.value_name} [${extended.tech_value}]\n`)).$ === "Err") return r;
+        }
+        break;
+      }
 
       default:
         if ((r = w(out, "unknown -Zls kind. allowed values are: all, root, lang_items, features, items, target_modifiers\n")).$ === "Err") return r;
@@ -1436,9 +1456,40 @@ CrateRoot.prototype.decode_denied_partial_mitigations = function (this: CrateRoo
   return [...(this.denied_partial_mitigations as LazyArray<DeniedPartialMitigation>).decode(metadata, decode_DeniedPartialMitigation)];
 };
 
-/** `TargetModifier`'s derive(BlobDecodable) (rustc_session options.rs): not generated yet. */
-function decode_TargetModifier(_d: BlobDecoder): TargetModifier {
-  return unported("Decodable for rustc_session::config::TargetModifier (derive(BlobDecodable) not generated)");
+/**
+ * `TargetModifier`'s `#[derive(BlobDecodable)]` (rustc_session options.rs:80), with those of `OptionsTargetModifiers`
+ * (options.rs:239) and of the `$tmod_enum`s (options.rs:546). PORT: hand-written in the form the derive expands to
+ * (rustc_macros serialize.rs `decodable_body`: fields in order; an enum of 2..255 variants reads a `u8` tag, a
+ * one-variant enum reads none), because tools/codegen does not emit the derives of these `options!`-generated types
+ * (handoff driver-cli).
+ */
+function decode_TargetModifier(d: BlobDecoder): TargetModifier {
+  const opt = decode_OptionsTargetModifiers(d);
+  const value_name = decode_String(d);
+  return new TargetModifierC(opt, value_name);
+}
+
+/** `OptionsTargetModifiers`' `#[derive(BlobDecodable)]` (see `decode_TargetModifier`) */
+function decode_OptionsTargetModifiers(d: BlobDecoder): OptionsTargetModifiers {
+  const tag = d.read_u8();
+  switch (tag) {
+    case 0:
+      return OptionsTargetModifiers.UnstableOptions(decode_tmod_enum(d, "UnstableOptionsTargetModifiers", UnstableOptionsTargetModifiers_discriminant));
+    case 1:
+      return OptionsTargetModifiers.CodegenOptions(decode_tmod_enum(d, "CodegenOptionsTargetModifiers", CodegenOptionsTargetModifiers_discriminant));
+    default:
+      return panic(`invalid enum variant tag while decoding \`OptionsTargetModifiers\`, expected 0..2, actual ${tag}`);
+  }
+}
+
+/** A fieldless `$tmod_enum`'s `#[derive(BlobDecodable)]` (see `decode_TargetModifier`), by its discriminant table. */
+function decode_tmod_enum<V extends string>(d: BlobDecoder, ty_name: string, discriminant: Record<V, number>): V {
+  const variants = (Object.keys(discriminant) as V[]).sort((a, b) => discriminant[a] - discriminant[b]);
+  if (variants.length === 1) return variants[0]!;
+  const tag = d.read_u8();
+  const v = variants[tag];
+  if (v === undefined) return panic(`invalid enum variant tag while decoding \`${ty_name}\`, expected 0..${variants.length}, actual ${tag}`);
+  return v;
 }
 
 // ---- impl CrateMetadata (decoder.rs:1027) ----
