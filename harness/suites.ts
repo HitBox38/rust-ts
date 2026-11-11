@@ -2057,6 +2057,7 @@ SUITES.push(
 // - `check-ui-encode-mir`: every 5th crate of `check-ui` with `-Copt-level=3 -Zalways-encode-mir` (F7 item 1).
 // - `mir-opt-o4`: harness/compiletest.ts `mirOptCases`. **Each side has its own `-Zdump-mir-dir`, last on the command line,** so a test's own
 //   `-Zdump-mir` (dump_dataflow.rs writes graphviz files) cannot write into the upstream checkout, the cwd: one such run dirtied it in a review.
+//   Since lane harness-w50 that dump tree is compared too (see `mirOptDumpRun`).
 //   Needs `tests/mir-opt` in the checkout (UPSTREAM.json `sparse`; `bun scripts/upstream.ts fetch`).
 // - `check-rg`, `check-rg-encode-mir`, `check-rg-host`: real cargo, scripts/rg-check.ts. Heavy: one side at a time, at one target path.
 //   Compiles that emit `link` go to the oracle on both sides, as the port has no codegen yet (scripts/rg-rustc.ts).
@@ -2141,8 +2142,17 @@ export function irReportSuite(s: Suite, tier: IrTier): Suite {
   return s.irTier === tier ? s : s.irAt(tier);
 }
 
+// `mir-opt-o4`'s two sides (lane harness-w50): scripts/mir-dump-run.ts runs the compiler with the case's argv and `-Zdump-mir-dir=<the side's dump
+// dir>` (`mirOptDumpPath`) last, and prints, after the compiler's output, every file it wrote there (names and bytes, the dump dir spelled
+// `$DUMP_DIR`). So a MATCH covers a test's own `-Zdump-mir` tree (dump_dataflow.rs: 138 files) as well as stdout, stderr and exit, and the oracle
+// cache holds the oracle's tree; before, the dumps were written and never compared (docs/reviews/dataflow-graphviz.md). A case lock is held around
+// the two sides, as each side's dump dir is fixed per case. The key adds the wrapper and the oracle rustc build: changing the commands this way
+// changed every mir-opt-o4 oracle key once, so its oracle outputs were made anew (all 406 protected cases MATCH, docs/handoff/harness-w50.md).
+export const MIR_DUMP_RUN = join(REPO, "scripts", "mir-dump-run.ts");
 /** Where a side of `mir-opt-o4` writes what a test's `-Zdump-mir` asks for. */
-const mirOptDumpDir = (side: string, c: Case): string => `-Zdump-mir-dir=${join(DATA, "tmp", "mir-opt-o4", side, hash(c.id).slice(0, 16))}`;
+const mirOptDumpPath = (side: "oracle" | "subject", c: Case): string => join(DATA, "tmp", "mir-opt-o4", side, hash(c.id).slice(0, 16));
+let mirOptDumpKeyMemo: string | undefined;
+const mirOptDumpRun = (side: "oracle" | "subject", c: Case, compiler: string[]): string[] => [process.execPath, MIR_DUMP_RUN, "--dir", mirOptDumpPath(side, c), "--", ...compiler, ...c.args];
 let mirOptMemo: { cases: Case[]; skipped: SkippedCase[] } | undefined;
 function mirOptCorpus(): { cases: Case[]; skipped: SkippedCase[] } {
   if (mirOptMemo) return mirOptMemo;
@@ -2221,14 +2231,16 @@ SUITES.push(
   {
     name: "mir-opt-o4",
     milestone: "M7",
-    description: "tests/mir-opt at -Zmir-opt-level=4 with each test's flags and pass, -Zvalidate-mir -Zlint-mir (review plan-m7 F7), except that a test's own later -Zmir-opt-level wins, so 60 of 406 run at the test's level (3 on 2, 2 on 21, 1 on 8, 0 on 29): -Zunpretty=mir, stdout + stderr + exit; not compiletest's .diff comparison",
+    description: "tests/mir-opt at -Zmir-opt-level=4 with each test's flags and pass, -Zvalidate-mir -Zlint-mir (review plan-m7 F7), except that a test's own later -Zmir-opt-level wins, so 60 of 406 run at the test's level (3 on 2, 2 on 21, 1 on 8, 0 on 29): -Zunpretty=mir, stdout + stderr + exit + the -Zdump-mir-dir tree a test's own -Zdump-mir writes (scripts/mir-dump-run.ts); not compiletest's .diff comparison",
     mode: "single",
     timeoutMs: 120_000,
     oracleTimeoutMs: 300_000,
     cases: () => mirOptCorpus().cases,
     skipped: () => mirOptCorpus().skipped,
-    oracle: ([c]) => oracleRustcCmd([...c!.args, mirOptDumpDir("oracle", c!)]),
-    subject: ([c]) => [...bunCmd(RUSTC_DRIVER_ENTRY), ...c!.args, mirOptDumpDir("subject", c!)],
+    caseLock: (c) => join(DATA, "tmp", "mir-opt-o4", `${hash(c.id).slice(0, 16)}.case.lock`),
+    oracleKey: () => (mirOptDumpKeyMemo ??= hash([hash(readFileSync(MIR_DUMP_RUN)), rustcDriverHash()].join("\0"))),
+    oracle: ([c]) => mirOptDumpRun("oracle", c!, oracleRustcCmd([])),
+    subject: ([c]) => mirOptDumpRun("subject", c!, bunCmd(RUSTC_DRIVER_ENTRY)),
   },
   rmetaSuite(
     {

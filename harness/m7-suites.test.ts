@@ -23,8 +23,9 @@ console.log(JSON.stringify({
   encode: get("check-ui-encode-mir").cases().slice(0, 1).map((c) => [c.args.includes("-Zalways-encode-mir"), c.args.includes("-Copt-level=3"), c.args.at(-1) === c.file])[0],
   encodeCount: get("check-ui-encode-mir").cases().length,
   ui: get("check-ui").cases().length,
-  dumpOracle: get("mir-opt-o4").oracle([fake]).at(-1),
-  dumpSubject: get("mir-opt-o4").subject([fake]).at(-1),
+  // Each side's dump dir, which scripts/mir-dump-run.ts passes last as -Zdump-mir-dir= (lane harness-w50; harness/mir-dump.test.ts).
+  dumpOracle: ((c) => c[c.indexOf("--dir") + 1])(get("mir-opt-o4").oracle([fake])),
+  dumpSubject: ((c) => c[c.indexOf("--dir") + 1])(get("mir-opt-o4").subject([fake])),
   rgDescriptions: ["check-rg", "check-rg-encode-mir", "check-rg-host"].map((n) => get(n).description),
   rg: ["check-rg", "check-rg-encode-mir", "check-rg-host"].map((n) => [get(n).mode, get(n).split, Boolean(get(n).heavy), get(n).oracle([fake]).slice(2).join(" "), get(n).subject([fake]).slice(2).join(" ")]),
 }));
@@ -89,8 +90,8 @@ test("the suites, without running one", () => {
   expect(j.hello).toEqual([["hello -O", true, true, true], ["hello -Copt-level=0", false, true, true]]);
   expect(j.encode).toEqual([true, true, true]);
   expect(j.encodeCount).toBe(Math.ceil(j.ui / 5));
-  expect(j.dumpOracle).toContain("-Zdump-mir-dir=");
-  expect(j.dumpSubject).toContain("-Zdump-mir-dir=");
+  expect(j.dumpOracle).toContain("/tmp/mir-opt-o4/oracle/");
+  expect(j.dumpSubject).toContain("/tmp/mir-opt-o4/subject/");
   expect(j.dumpOracle).not.toBe(j.dumpSubject);
   // Root's and lane real-crates' terms.
   for (const d of j.rgDescriptions) {
