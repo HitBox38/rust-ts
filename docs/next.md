@@ -606,7 +606,7 @@ From docs/handoff/scout-unported.md: the latest gate has 51 non-MATCH rows, 8 of
 
 ## Wave 40k (started 2026-11-11) — still independent of D4
 Owner decision: the project moves to the machine's Bun 1.4.4 (docs/state). Gates wait for bun-144.
-**All six lanes merged to main** (integ-w51; root's manifest commit 4ce97419 checked APPROVE WITH NITS, docs/reviews/root-w51-check.md). **Gate running on main in binary mode on Bun 1.4.4** (the gate clones its Bun and re-execs from the clone; the 2,307 Bun-dependent oracles re-run once); accept and audit to follow.
+**All six lanes merged to main** (integ-w51; root's manifest commit 4ce97419 checked APPROVE WITH NITS, docs/reviews/root-w51-check.md). **ACCEPTED 2026-11-11 (gate-20261111-141426-root-vl2w, main ab750e50), the first gate on Bun 1.4.4** (binary mode, run from the gate's clone; main.ts 49a56593, miri.ts 45bb8067; gate.json records `bun`, `bunClone`, `bunExec` start = end): 542,304 protected (0 gained, 0 lost); the 2,307 Bun-dependent oracles re-ran on 1.4.4 and every protected case still MATCHes (check-ui 730/730, mir-opt-o4 406/406, rmeta-*). Every static step clean, AC power throughout; suites 6.3 h; solo retries steady (dynamic-drop.rs 39.6 s, issue-8827.rs 39.0 s, TAIT 28.5-28.7 s). `step_overflowing.rs` (run-pass-miri-heavy, unprotected) timed out at 1,800 s, as in the previous two gates. Coverage 24,763 / 27,873 (88.8%; the denominator now counts `rustc_codegen_llvm`'s 820; rustc_codegen_ssa 433/1,091); WRAPPER 32/218. Regression audit to follow.
 
 | lane | scope | status |
 |---|---|---|
