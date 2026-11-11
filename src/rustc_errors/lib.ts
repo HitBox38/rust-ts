@@ -20,9 +20,8 @@ import type { MutRef } from "../rustc_span/hygiene.ts";
 import { DUMMY_SP, ErrorGuaranteed, Span } from "../rustc_span/lib.ts";
 import type { SourceMap } from "../rustc_span/source_map.ts";
 import { type Debug, PLAIN } from "../std/fmt.ts";
-import { is_whitespace } from "../std/char.ts";
 import { keep_frame, assert, assert_eq, assert_matches, Panic, panic, panicking, unported, unwrap } from "../std/panic.ts";
-import { utf8_len } from "../std/str.ts";
+import { string_trim, utf8_len } from "../std/str.ts";
 import { type ErrCode, display_ErrCode, try_find_description } from "./codes.ts";
 import { Diag, type Diagnostic, DiagInner } from "./diagnostic.ts";
 import { type ElidedLifetimeInPathSubdiag, DiagLocation_into_diag_arg as DiagLocation_into_diag_arg_lazy } from "./diagnostic_impls.ts";
@@ -211,7 +210,7 @@ TrimmedSubstitutionPart.prototype.is_addition = function (this: TrimmedSubstitut
 
 // rustc: compiler/rustc_errors/src/lib.rs:214 is_deletion
 TrimmedSubstitutionPart.prototype.is_deletion = function (this: TrimmedSubstitutionPart, sm: SourceMap): boolean {
-  return str_trim(this.snippet) === "" && this.replaces_meaningful_content(sm);
+  return string_trim(this.snippet) === "" && this.replaces_meaningful_content(sm);
 };
 
 // rustc: compiler/rustc_errors/src/lib.rs:218 is_replacement
@@ -230,7 +229,7 @@ TrimmedSubstitutionPart.prototype.is_destructive_replacement = function (
 ): boolean {
   if (!this.is_replacement(sm)) return false;
   const r = sm.span_to_snippet(this.span);
-  const is_ok_and = r.$ === "Ok" && as_substr(str_trim(r._0.toString()), str_trim(this.snippet)) !== undefined;
+  const is_ok_and = r.$ === "Ok" && as_substr(string_trim(r._0.toString()), string_trim(this.snippet)) !== undefined;
   return !is_ok_and;
 };
 
@@ -240,18 +239,8 @@ TrimmedSubstitutionPart.prototype.replaces_meaningful_content = function (
   sm: SourceMap,
 ): boolean {
   const r = sm.span_to_snippet(this.span);
-  return r.$ === "Ok" ? str_trim(r._0.toString()) !== "" : !Span.is_empty(this.span);
+  return r.$ === "Ok" ? string_trim(r._0.toString()) !== "" : !Span.is_empty(this.span);
 };
-
-/** PORT: `str::trim` (Unicode `White_Space`, unlike JS `trim`, which also strips U+FEFF). Belongs in src/std/str.ts. */
-export function str_trim(s: string): string {
-  const cps = Array.from(s);
-  let a = 0;
-  let b = cps.length;
-  while (a < b && is_whitespace(cps[a]!.codePointAt(0)!)) a++;
-  while (b > a && is_whitespace(cps[b - 1]!.codePointAt(0)!)) b--;
-  return cps.slice(a, b).join("");
-}
 
 /// Given an original string like `AACC`, and a suggestion like `AABBCC`, try to detect
 /// the case where a substring of the suggestion is "sandwiched" in the original, like

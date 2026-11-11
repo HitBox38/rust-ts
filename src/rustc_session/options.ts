@@ -21,8 +21,9 @@ import type { MutRef } from "../rustc_span/hygiene.ts";
 import { SourceFileHashAlgorithm } from "../rustc_span/lib.ts";
 import { is_whitespace } from "../std/char.ts";
 import { type Debug, debug_str, debug_struct } from "../std/fmt.ts";
+import { type ParseIntError, nonzero_usize_from_str, u8_from_str, u32_from_str, u64_from_str, usize_from_str } from "../std/num.ts";
 import { assert, panic } from "../std/panic.ts";
-import { Err, Ok, type Result } from "../std/result.ts";
+import { type Result } from "../std/result.ts";
 import {
   type AnnotateMoves,
   type AutoDiff,
@@ -110,58 +111,9 @@ export * as mitigation_coverage from "./options/mitigation_coverage.ts";
 
 // ---- helpers for std behavior the parsers rely on ----
 
-/** `core::num::IntErrorKind` */
-export type IntErrorKind = "Empty" | "InvalidDigit" | "PosOverflow" | "NegOverflow" | "Zero";
-
-// PORT: `<uN as FromStr>::from_str` (radix 10): an optional leading `+`, then one or more ASCII
-// digits; `""` is `Empty`, a lone `+` or any other character is `InvalidDigit`, a value above
-// `max` is `PosOverflow` (reported as soon as the accumulated value overflows, like core).
-function uint_from_str(s: string, max: bigint): Result<bigint, IntErrorKind> {
-  if (s.length === 0) return Err("Empty");
-  let digits = s;
-  if (digits.length === 1 && (digits === "+" || digits === "-")) return Err("InvalidDigit");
-  if (digits.startsWith("+")) digits = digits.slice(1);
-  let v = 0n;
-  for (let i = 0; i < digits.length; i++) {
-    const c = digits.charCodeAt(i);
-    if (c < 0x30 || c > 0x39) return Err("InvalidDigit");
-    v = v * 10n + BigInt(c - 0x30);
-    if (v > max) return Err("PosOverflow");
-  }
-  return Ok(v);
-}
-const U8_MAX = 0xffn;
-const U32_MAX = 0xffff_ffffn;
-const U64_MAX = 0xffff_ffff_ffff_ffffn;
-/** `u8::from_str` */
-export function u8_from_str(s: string): Result<number, IntErrorKind> {
-  const r = uint_from_str(s, U8_MAX);
-  return r.$ === "Err" ? r : Ok(Number(r._0));
-}
-/** `u32::from_str` */
-export function u32_from_str(s: string): Result<number, IntErrorKind> {
-  const r = uint_from_str(s, U32_MAX);
-  return r.$ === "Err" ? r : Ok(Number(r._0));
-}
-/** `u64::from_str` (PORT: u64 option values are `bigint`; every u64 is accepted exactly). */
-export function u64_from_str(s: string): Result<bigint, IntErrorKind> {
-  return uint_from_str(s, U64_MAX);
-}
-/**
- * `usize::from_str` for the 64-bit hosts the oracle runs on. PORT: usize option values (counts,
- * thresholds, limits) are `number`: every u64 string is accepted like upstream, values above 2^53
- * are rounded to the nearest double.
- */
-export function usize_from_str(s: string): Result<number, IntErrorKind> {
-  const r = uint_from_str(s, U64_MAX);
-  return r.$ === "Err" ? r : Ok(Number(r._0));
-}
-/** `NonZero<usize>::from_str`: `usize::from_str`, then `Zero` for 0. */
-export function nonzero_usize_from_str(s: string): Result<number, IntErrorKind> {
-  const r = usize_from_str(s);
-  if (r.$ === "Err") return r;
-  return r._0 === 0 ? Err("Zero") : r;
-}
+// `<uN as FromStr>::from_str` and `<NonZero<usize> as FromStr>::from_str` are src/std/num.ts's (docs/reviews/driver-cli-2.md
+// N4); re-exported for options.gen.ts, which imports them from here.
+export { nonzero_usize_from_str, u8_from_str, u32_from_str, u64_from_str, usize_from_str } from "../std/num.ts";
 
 /** `str::split_whitespace` (`char::is_whitespace` separators, empty pieces skipped). */
 function split_whitespace(s: string): string[] {
@@ -792,7 +744,7 @@ export function parse_opt_comma_list(slot: MutRef<string[] | undefined>, v: stri
 
 /// Use this for any numeric option that has a static default.
 // rustc: compiler/rustc_session/src/options.rs:1198 parse_number
-export function parse_number<T>(slot: MutRef<T>, v: string | undefined, from_str: (s: string) => Result<T, IntErrorKind>): boolean {
+export function parse_number<T>(slot: MutRef<T>, v: string | undefined, from_str: (s: string) => Result<T, ParseIntError>): boolean {
   const r = v === undefined ? undefined : from_str(v);
   if (r !== undefined && r.$ === "Ok") {
     slot.value = r._0;
@@ -803,7 +755,7 @@ export function parse_number<T>(slot: MutRef<T>, v: string | undefined, from_str
 
 /// Use this for any numeric option that lacks a static default.
 // rustc: compiler/rustc_session/src/options.rs:1209 parse_opt_number
-export function parse_opt_number<T>(slot: MutRef<T | undefined>, v: string | undefined, from_str: (s: string) => Result<T, IntErrorKind>): boolean {
+export function parse_opt_number<T>(slot: MutRef<T | undefined>, v: string | undefined, from_str: (s: string) => Result<T, ParseIntError>): boolean {
   if (v !== undefined) {
     const r = from_str(v);
     slot.value = r.$ === "Ok" ? r._0 : undefined;
@@ -1527,7 +1479,7 @@ export function parse_treat_err_as_bug(slot: MutRef<number | undefined>, v: stri
       return true;
     } else {
       slot.value = undefined;
-      return r._0 === "Zero";
+      return r._0.kind === "Zero";
     }
   } else {
     slot.value = 1;

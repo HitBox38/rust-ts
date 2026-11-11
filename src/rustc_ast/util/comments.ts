@@ -1,8 +1,7 @@
 // Port of compiler/rustc_ast/src/util/comments.rs
 // Types and derived Debug impls are generated into comments.gen.ts (tools/codegen/types.ts).
 import { Symbol } from "../../rustc_span/symbol.ts";
-import { is_whitespace } from "../../std/char.ts";
-import { utf8_len } from "../../std/str.ts";
+import { string_trim, string_trim_start, utf8_len } from "../../std/str.ts";
 import type { CommentKind } from "../token.ts";
 
 export * from "./comments.gen.ts";
@@ -53,13 +52,13 @@ export function beautify_doc_string(data: Symbol, kind: CommentKind): Symbol {
     switch (kind) {
       case "Block": {
         // Whatever happens, we skip the first line.
-        let i = lines_.length > 0 ? (str_trim_start(lines_[0]!).startsWith("*") ? 0 : 1) : 0;
+        let i = lines_.length > 0 ? (string_trim_start(lines_[0]!).startsWith("*") ? 0 : 1) : 0;
         let j = lines_.length;
 
-        while (i < j && str_trim(lines_[i]!).length === 0) {
+        while (i < j && string_trim(lines_[i]!).length === 0) {
           i += 1;
         }
-        while (j > i && str_trim(lines_[j - 1]!).length === 0) {
+        while (j > i && string_trim(lines_[j - 1]!).length === 0) {
           j -= 1;
         }
         lines = lines_.slice(i, j);
@@ -162,26 +161,3 @@ function str_lines(s: string): string[] {
   return out;
 }
 
-/** `str::trim_start` (Unicode `White_Space`). */
-function str_trim_start(s: string): string {
-  let i = 0;
-  while (i < s.length) {
-    const c = s.codePointAt(i)!;
-    if (!is_whitespace(c)) break;
-    i += c > 0xffff ? 2 : 1;
-  }
-  return s.slice(i);
-}
-
-/** `str::trim` (Unicode `White_Space`). */
-function str_trim(s: string): string {
-  const t = str_trim_start(s);
-  let j = t.length;
-  while (j > 0) {
-    const lo = t.charCodeAt(j - 1);
-    const c = lo >= 0xdc00 && lo <= 0xdfff && j >= 2 ? t.codePointAt(j - 2)! : lo;
-    if (!is_whitespace(c)) break;
-    j -= c > 0xffff ? 2 : 1;
-  }
-  return t.slice(0, j);
-}

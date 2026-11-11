@@ -53,12 +53,12 @@ import type { Session } from "./lib.ts";
 import type { ParseSess } from "./parse.ts";
 
 export * from "./diagnostics.gen.ts";
-import { display_ParseIntError, type ParseIntError as AbiParseIntError } from "../rustc_abi/lib.ts";
+import { display_ParseIntError, type ParseIntError as StdParseIntError } from "../std/num.ts";
 
 // ---- PORT: stand-ins for field types of the generated diagnostics whose crates are not ported ----
 
-/** `std::num::ParseIntError` (AppleDeploymentTarget): its kind, as `rustc_abi`'s, which `OSVersion::from_str` returns. */
-export type ParseIntError = AbiParseIntError;
+/** `std::num::ParseIntError` (AppleDeploymentTarget), which `OSVersion::from_str` returns: src/std/num.ts's. */
+export type ParseIntError = StdParseIntError;
 export type { SplitDebuginfo, StackProtector } from "../rustc_target/spec/mod.ts";
 export type { TargetTuple } from "../rustc_target/spec/tuple.ts";
 import type { SplitDebuginfo, StackProtector } from "../rustc_target/spec/mod.ts";

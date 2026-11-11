@@ -12,7 +12,7 @@ import { type DiagArgValue, type PathBuf } from "../rustc_error_messages/lib.ts"
 import { Diag, type DiagCtxtHandle, type Diagnostic, E0538, E0539, E0565, E0805, type Level } from "../rustc_errors/lib.ts";
 import { type DiagSymbolList, DiagSymbolList_into_diag_arg } from "../rustc_errors/diagnostic_impls.ts";
 import { Applicability } from "../rustc_lint_defs/lib.ts";
-import type { IntErrorKind } from "../rustc_session/options.ts";
+import type { IntErrorKind } from "../std/num.ts";
 import type { MutRef } from "../rustc_span/hygiene.ts";
 import type { Span } from "../rustc_span/lib.ts";
 import { display_Symbol, type Symbol } from "../rustc_span/symbol.ts";
