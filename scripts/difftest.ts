@@ -202,7 +202,7 @@ export interface HeavyRun {
 /**
  * Below this, a max RSS reported for a process that used at least `PLAUSIBLE_RSS_AFTER_MS` of CPU is taken as a unit
  * error, not a measurement: every process a heavy suite runs (the Bun subject, rustc) has a far larger RSS. Bun 1.4.3
- * reports bytes on every platform (src/spawn_sys/spawn_process.rs `RusageFields::maxrss`: `ru_maxrss` as is on Apple,
+ * and 1.4.4 report bytes on every platform (src/spawn_sys/spawn_process.rs `RusageFields::maxrss`: `ru_maxrss` as is on Apple,
  * times 1024 on Linux/BSD, `PeakWorkingSetSize` on Windows), so this guards against a Bun that passes the KiB through.
  */
 export const MIN_PLAUSIBLE_RSS_BYTES = 16 * 2 ** 20;

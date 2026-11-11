@@ -104,9 +104,13 @@ export function binaryModeRefusal(
  * the list only after the handoff's nesting-depth and module-order checks pass on it. The option is there for depth only: on
  * 1.4.3 it changes nothing at run time (docs/handoff/perf-subject-bin.md, H2). Also check, on a new Bun, that a build still
  * writes only `rts` and `rts.map` (`buildFiles`), and that frames still resolve without `rts.map` (the cases' frame test).
+ * 1.4.4 joined on 2026-11-11 (docs/handoff/bun-144.md): depth, module order, the option (a build with it differs from one
+ * without, and one with a misspelt key equals one without), a raw source/binary comparison and the long cases' timings.
+ * The gate runs on one of these: scripts/lib/bun-pin.ts `GATE_BUN`.
  */
 export const VALIDATED_BUN: readonly { version: string; revision: string }[] = [
   { version: "1.4.3", revision: "c6da4a4d3010e5553438c60f6bd76d981976867c" },
+  { version: "1.4.4", revision: "38afee6c84fcf48c0edb2466aa4b27d287a59c30" },
 ];
 
 /** The mode from the environment; an unknown value prints one `ERROR:` line and exits. */

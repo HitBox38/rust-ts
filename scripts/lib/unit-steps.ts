@@ -96,8 +96,10 @@ export function unitStepEnv(data: string, hostTuple: string | undefined): Record
 }
 
 /**
- * Variables that make `bun test` (1.4.3) quiet, as for an AI agent: with any of them set it prints no file names and no
- * passing tests, only failures (measured one at a time; others it checks, if any, were not found). The gate is often started
+ * Variables that make `bun test` (1.4.3 and 1.4.4) quiet, as for an AI agent: with any of them set it prints no file names and
+ * no passing tests, only failures (measured one at a time; others it checks, if any, were not found; on 1.4.4 these 14 others
+ * do nothing to it: CLAUDE_CODE, GEMINI_CLI, CODEX_SANDBOX, CODEX_THREAD_ID, COPILOT_CLI, JUNIE_DATA, JUNIE_SHIM_PATH,
+ * CURSOR_AGENT, CURSOR_AGENT_RULE_DISABLED, CLAUDE_CODE_AGENT_RULE_DISABLED, OPENCODE, AMP_HOME, CLINE_ACTIVE, AUGMENT_AGENT). The gate is often started
  * from such an agent's shell, so they reach the unit steps.
  */
 export const BUN_QUIET_VARS: readonly string[] = ["CLAUDECODE", "AGENT", "REPL_ID"];
