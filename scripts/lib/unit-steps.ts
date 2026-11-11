@@ -139,6 +139,7 @@ export const UNIT_ENV_REFUSED: Readonly<Record<string, string>> = {
   TYREPR_PROBE: "src/rustc_middle/ty/repr.oracle.test.ts compares with that probe instead of its checked-in expected.json",
   TYPRINT_PROBE: "src/rustc_middle/ty/print/pretty_b.test.ts compares with that probe instead of its checked-in expected.json",
   TYCONSTS_PROBE: "src/rustc_middle/ty/consts/consts.oracle.test.ts compares with that probe instead of its checked-in expected.json",
+  RUSTC_BLESS: "src/rustc_errors/markdown/tests/term.test.ts (upstream's `--bless`) rewrites its copy of upstream's output.stdout",
 };
 
 /** Why the gate must not start with this environment, or `undefined`: a `UNIT_ENV_REFUSED` variable is set (even to ""). */

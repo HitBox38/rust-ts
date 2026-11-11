@@ -10,13 +10,16 @@
 // at least `PTHREAD_STACK_MIN`, rounded up to the page size on EINVAL). It is unnamed, as std's are by default.
 // Not reproduced (no output depends on them in the port's cases; a native closure cannot unwind, see `join`):
 // std's spawn hooks, output capture, the `Thread` handle and `ThreadId`, and the stack-overflow guard page
-// handler (a stack overflow on the second thread is a plain SIGSEGV/SIGBUS instead of std's "has overflowed its
-// stack" message followed by SIGABRT).
+// handler. A stack overflow on the second thread overflows at the same depths on both sides
+// (docs/reviews/pm-cross-thread.md, probe), but the text differs: the oracle on the root host prints rustc_driver's
+// `error: rustc interrupted by SIGBUS, printing backtrace` with its frames and exits 138 (its signal handler, not
+// std's "has overflowed its stack"); the port prints Bun's crash report and exits 132 (SIGILL). No case overflows.
 //
 // thread.c holds the native side (also the channel of mpsc.ts, so that the two share one TinyCC unit).
 
-import { cc, FFIType, ptr } from "bun:ffi";
+import { FFIType, ptr } from "bun:ffi";
 import { join } from "node:path";
+import { cc_or_unported } from "../rust_ts/tinycc.ts";
 import { var_os } from "./env.ts";
 import { type Debug, debug_struct_non_exhaustive } from "./fmt.ts";
 import { unported } from "./panic.ts";
@@ -44,7 +47,7 @@ export function native_sync(): NativeSync {
     // PORT: Windows threads (`CreateThread`) and its synchronization primitives are not written.
     return unported(`std::thread (native threads on ${process.platform})`);
   }
-  const lib = cc({
+  const lib = cc_or_unported("std::thread (compiling thread.c)", {
     source: join(import.meta.dir, "thread.c"),
     symbols: {
       rts_thread_spawn: { args: ["ptr", "ptr", "u64", "ptr"], returns: "ptr" },
@@ -154,10 +157,30 @@ export function spawn<T>(f: NativeThunk<T>): JoinHandle<T> {
   const err = new Int32Array(1);
   const n = native_sync();
   const t = n.rts_thread_spawn(f.start, f.arg, stack, ptr(err));
-  if (t === 0 || t === null) {
-    // PORT: the panic message is `failed to spawn thread: {io::Error:?}` (an `Os { code, kind, message }`); the
-    // port does not format OS errors from an errno here.
-    return unported(`std::thread::spawn (pthread_create failed: errno ${err[0]})`);
-  }
+  if (err[0] !== 0) return unported(`std::thread::spawn (${spawn_error(err[0]!)})`);
+  if (t === 0 || t === null) return unported("std::thread::spawn (no thread and no error)");
   return new JoinHandle(t, f);
+}
+
+/**
+ * PORT: what `Thread::new` (library/std/src/sys/thread/unix.rs) did instead of returning a thread, from thread.c's
+ * `*err`. Each is a panic upstream, which the port does not reproduce: the `Err`s become `.expect("failed to spawn
+ * thread")`'s `failed to spawn thread: {io::Error:?}`, whose location is in std, where the track_caller walk
+ * (rust_ts/track_caller.ts) has no marker to resolve; the assertions panic inside std. None is reachable on the
+ * root host: thread.ts passes a stack size of at most 2^53, which the page rounding cannot wrap.
+ */
+export function spawn_error(code: number): string {
+  switch (code) {
+    case -1:
+      return "failed to spawn thread: invalid stack size"; // Err(io::const_error!(InvalidInput, "invalid stack size"))
+    case -2:
+      return "pthread_attr_init failed"; // assert_eq!(libc::pthread_attr_init(..), 0)
+    case -3:
+      return "pthread_attr_setstacksize failed with an error other than EINVAL"; // assert_eq!(n, libc::EINVAL)
+    case -4:
+      return "pthread_attr_destroy failed"; // the DropGuard's assert_eq!(libc::pthread_attr_destroy(..), 0)
+    default:
+      // `Err(io::Error::from_raw_os_error(ret))`; the panic would format it as `Os { code, kind, message }`.
+      return `failed to spawn thread: pthread_create failed: errno ${code}`;
+  }
 }

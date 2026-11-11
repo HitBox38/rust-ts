@@ -21,6 +21,7 @@ import {
   rewriteExportStar,
   rewriteImportMeta,
   rewriteModule,
+  RUNTIME_C_FILES,
   staleConfigs,
   subjectBinKeyOf,
   subjectCmd,
@@ -160,6 +161,76 @@ describe("cache key", () => {
       expect(subjectBinKeyOf(spec, inputs, bun, "builder", absent)).not.toBe(kc);
     }
   });
+  test("each run-time C source's content, or its absence, changes it (review w40i-audit N1)", () => {
+    const config = CONFIG_FILES.map((p) => ({ path: p, sha1: "c" }));
+    const runtimeC = RUNTIME_C_FILES.map((p) => ({ path: p, sha1: "c" }));
+    const kc = subjectBinKeyOf(spec, inputs, bun, "builder", config, runtimeC);
+    expect(subjectBinKeyOf(spec, inputs, bun, "builder", config, runtimeC.map((c) => ({ ...c })))).toBe(kc);
+    for (let i = 0; i < runtimeC.length; i++) {
+      const changed = runtimeC.map((c, j) => (j === i ? { ...c, sha1: "d" } : c));
+      const absent = runtimeC.map((c, j) => (j === i ? { ...c, sha1: "absent" } : c));
+      expect(subjectBinKeyOf(spec, inputs, bun, "builder", config, changed)).not.toBe(kc);
+      expect(subjectBinKeyOf(spec, inputs, bun, "builder", config, absent)).not.toBe(kc);
+    }
+  });
+});
+
+describe("run-time C sources (review w40i-audit N1)", () => {
+  // Every tracked TypeScript file but tests: the subject's modules, and anything a later entry might bundle.
+  const tracked = Bun.spawnSync(["git", "ls-files", "-z"], { cwd: REPO, stdout: "pipe" }).stdout.toString().split("\0").filter(Boolean);
+  const isTest = (f: string) => /\.(test|cases)\.ts$/.test(f);
+  /**
+   * The repo-relative `.c` files a module compiles with bun:ffi's `cc`, directly or through
+   * `cc_or_unported("<what>", { source: ... })` (src/rust_ts/tinycc.ts), or why its calls cannot be read. tinycc.ts's own
+   * `cc(options)` forwards its caller's options, so it is the one call allowed without a literal source.
+   */
+  const TINYCC = "src/rust_ts/tinycc.ts";
+  const ccSources = (file: string, raw: string): string[] | string => {
+    if (!raw.includes("bun:ffi") && !raw.includes("cc_or_unported")) return [];
+    // Calls only: a comment that names `cc(...)` is not one.
+    const text = raw.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+    if (file === TINYCC) {
+      const fwd = [...text.matchAll(/\bcc\s*\(/g)].length;
+      return fwd === 1 && /\breturn cc\(options\);/.test(text) ? [] : `${file}: expected exactly one forwarding \`return cc(options);\`, found ${fwd} \`cc(\` call(s)`;
+    }
+    const calls = [...text.matchAll(/\b(?:cc|cc_or_unported)\s*\(/g)].length - [...text.matchAll(/\bfunction\s+cc_or_unported\s*\(/g)].length;
+    const sources = [
+      ...text.matchAll(/\b(?:cc\s*\(|cc_or_unported\s*\(\s*"[^"]*",)\s*\{\s*source:\s*join\(import\.meta\.dir,\s*"([^"]+)"\)/g),
+    ].map((m) => join(file, "..", m[1]!));
+    if (sources.length !== calls) return `${file}: ${calls} \`cc(\`/\`cc_or_unported(\` call(s), ${sources.length} read with a literal \`source: join(import.meta.dir, "<file>")\``;
+    return sources;
+  };
+  test("RUNTIME_C_FILES is exactly the files non-test modules compile with `cc`, and each exists", () => {
+    const found = new Set<string>();
+    const unreadable: string[] = [];
+    for (const f of tracked.filter((f) => f.endsWith(".ts") && !isTest(f))) {
+      const r = ccSources(f, readFileSync(join(REPO, f), "utf8"));
+      if (typeof r === "string") unreadable.push(r);
+      else for (const c of r) found.add(c);
+    }
+    expect(unreadable).toEqual([]);
+    expect([...found].sort()).toEqual([...RUNTIME_C_FILES].sort());
+    for (const c of RUNTIME_C_FILES) expect(existsSync(join(REPO, c))).toBe(true);
+  });
+  test("the reading of `cc` calls: a call it cannot read is an error, not an empty list", () => {
+    const ok = 'import { cc } from "bun:ffi";\nconst lib = cc({\n  source: join(import.meta.dir, "x.c"),\n});\n';
+    expect(ccSources("src/a/m.ts", ok)).toEqual(["src/a/x.c"]);
+    expect(ccSources("src/a/m.ts", 'import { cc } from "bun:ffi";\nconst lib = cc({ source: SRC });\n')).toContain("1 `cc(`/`cc_or_unported(` call(s), 0 read");
+    expect(ccSources("src/a/m.ts", 'import { cc } from "bun:ffi";\n// cc({ source: join(import.meta.dir, "c.c") })\n')).toEqual([]);
+    expect(ccSources("src/a/m.ts", "const lib = cc({ source: SRC });\n")).toEqual([]);
+    const wrapped = 'import { cc_or_unported } from "../rust_ts/tinycc.ts";\nconst lib = cc_or_unported("x (compiling x.c)", {\n  source: join(import.meta.dir, "x.c"),\n});\n';
+    expect(ccSources("src/a/m.ts", wrapped)).toEqual(["src/a/x.c"]);
+    expect(ccSources("src/a/m.ts", 'import { cc_or_unported } from "./t.ts";\nconst lib = cc_or_unported("x", { source: SRC });\n')).toContain("1 `cc(`/`cc_or_unported(` call(s), 0 read");
+    expect(ccSources(TINYCC, 'import { cc } from "bun:ffi";\nexport function cc_or_unported(w, options) {\n  return cc(options);\n}\n')).toEqual([]);
+    expect(ccSources(TINYCC, 'import { cc } from "bun:ffi";\nexport function cc_or_unported(w, options) {\n  cc({ source: "y.c" });\n  return cc(options);\n}\n')).toContain("exactly one forwarding");
+  });
+  test("every other tracked .c under src/ is compiled by tests only, and a keyed file includes no local header", () => {
+    for (const c of tracked.filter((f) => f.startsWith("src/") && /\.[ch]$/.test(f) && !(RUNTIME_C_FILES as readonly string[]).includes(f))) {
+      const users = tracked.filter((f) => f.endsWith(".ts") && readFileSync(join(REPO, f), "utf8").includes(basename(c)));
+      expect({ c, nonTest: users.filter((f) => !isTest(f)) }).toEqual({ c, nonTest: [] });
+    }
+    for (const c of RUNTIME_C_FILES) expect(readFileSync(join(REPO, c), "utf8")).not.toMatch(/^\s*#\s*include\s*"/m);
+  });
 });
 
 describe("builder (fixture tree)", () => {
@@ -266,6 +337,32 @@ describe("builder (fixture tree)", () => {
     expect(readdirSync(root).sort()).toEqual(before);
   });
 
+  test("a run-time C edit makes a new build, and one during the build stops it (review w40i-audit N1)", async () => {
+    writeFileSync(join(repo, "src", "lib", "named.ts"), "export const n = 9;\n");
+    const c = join(repo, RUNTIME_C_FILES[0]);
+    mkdirSync(join(c, ".."), { recursive: true });
+    writeFileSync(c, "int f(void) { return 1; }\n");
+    try {
+      const a = await ensureSubjectBin("src/entry.ts", { repo, root, smoke: noSmoke });
+      const meta = JSON.parse(readFileSync(join(a.dir, "meta.json"), "utf8")) as { runtimeC: { path: string; sha1: string }[] };
+      expect(meta.runtimeC.map((r) => [r.path, r.sha1 === "absent"])).toEqual(RUNTIME_C_FILES.map((p, i) => [p, i !== 0]));
+      const before = readdirSync(root).sort();
+      // A changed input, so that this resolve builds (an unchanged tree would find `a`).
+      writeFileSync(join(repo, "src", "lib", "named.ts"), "export const n = 10;\n");
+      await expect(ensureSubjectBin("src/entry.ts", { repo, root, smoke: noSmoke, afterBuild: () => writeFileSync(c, "int f(void) { return 2; }\n") })).rejects.toThrow(
+        `${RUNTIME_C_FILES[0]} changed while src/entry.ts was being built`,
+      );
+      expect(readdirSync(root).sort()).toEqual(before);
+      // Back to `a`'s bundled files; the C edit stays: the next resolve keys the new C, so it builds anew.
+      writeFileSync(join(repo, "src", "lib", "named.ts"), "export const n = 9;\n");
+      const b = await ensureSubjectBin("src/entry.ts", { repo, root, smoke: noSmoke });
+      expect(b.hash).not.toBe(a.hash);
+      expect(b.built).toBe(true);
+    } finally {
+      rmSync(c, { force: true });
+    }
+  });
+
   test("a tsconfig.json edit makes a new build, though no bundled file changed (review F1), only from a new process (review root-w46-check N1)", async () => {
     writeFileSync(join(repo, "src", "lib", "named.ts"), "export const n = 5;\n");
     const a = await ensureSubjectBin("src/entry.ts", { repo, root, smoke: noSmoke });
@@ -331,7 +428,14 @@ describe("builder (fixture tree)", () => {
 });
 
 describe("raw comparison (scripts/subject-bin-compare.ts)", async () => {
-  const { compareRecords, normalizeCmd } = await import("./subject-bin-compare.ts");
+  const { compareRecords, normalizeCmd, shownFindings } = await import("./subject-bin-compare.ts");
+  test("prints at most 5 errors and 5 notes, each list with its own count of the rest (review harness-w49 N3)", () => {
+    const n = (k: string, c: number) => Array.from({ length: c }, (_, i) => `${k}${i}`);
+    expect(shownFindings(n("E", 7), [], undefined)).toEqual([...n("E", 5), "... 2 more"]);
+    expect(shownFindings(n("E", 5), n("N", 6), "/o.txt")).toEqual([...n("E", 5), ...n("N", 5), "... 1 more in /o.txt"]);
+    expect(shownFindings(n("E", 6), n("N", 7), undefined)).toEqual([...n("E", 5), "... 1 more", ...n("N", 5), "... 2 more"]);
+    expect(shownFindings(n("E", 5), n("N", 5), undefined)).toEqual([...n("E", 5), ...n("N", 5)]);
+  });
   test("the source command of an entry and its build's compare equal, wrappers and preload included", () => {
     expect(normalizeCmd(["/b/bun", "<repo>/src/rust_ts/main.ts", "-x"])).toEqual(["<subject:src/rust_ts/main.ts>", "-x"]);
     expect(normalizeCmd(["/b/bun", "--preload", "<repo>/src/rust_ts/miri_stack_first.ts", "<repo>/src/miri/bin/miri.ts", "a"])).toEqual(["<subject:src/miri/bin/miri.ts>", "a"]);

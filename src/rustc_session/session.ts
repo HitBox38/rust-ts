@@ -95,8 +95,10 @@ export interface CompilerIO {
   temps_dir: PathBuf | undefined;
 }
 
-/** `dyn DynLintStore` (session.rs:83). PORT: opaque; rustc_lint is not ported. */
+// pub trait DynLintStore: Any + DynSync + DynSend
 export interface DynLintStore {
+  /// Provides a way to access lint groups without depending on `rustc_lint`
+  // rustc: compiler/rustc_session/src/session.rs:84 lint_groups_iter
   lint_groups_iter(): Iterable<LintGroup>;
 }
 

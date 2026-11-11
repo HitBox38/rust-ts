@@ -2,6 +2,7 @@
 // host itself. Expected values come from `node:fs` (libuv's own calls into the same libc), the OS errno names of
 // `node:os`, and std's documented results (error kinds and messages from library/std/src/sys/fs/unix.rs).
 // The libc layouts in fs.ts are aarch64-apple-darwin's; elsewhere the host operations stop `unported` (checked below).
+import { dlopen, FFIType } from "bun:ffi";
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { fstatSync, lstatSync, mkdirSync, mkdtempSync, opendirSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { constants, tmpdir } from "node:os";
@@ -284,4 +285,51 @@ test.skipIf(!HOST)("Dir: open, self_metadata, metadata at a path, try_clone, ope
   expect(() => asfile.metadata()).toThrow();
   expect(ok(asdir.self_metadata()).is_dir()).toBe(true);
   for (const x of [asdir, f, c, h]) x.drop();
+});
+
+// docs/reviews/miri-host-fs.md N3: `fcntl`'s variadic argument (the first stack slot on Apple arm64, after six zero pads)
+// must reach the callee exactly. `try_clone`'s `>= 3` above also holds when the minimum is lost while fds 0-2 are open.
+test.skipIf(!HOST)("fcntl: the variadic F_DUPFD_CLOEXEC minimum arrives exactly", () => {
+  const F_DUPFD_CLOEXEC = 67;
+  const f = ok(fs.File.open(dir));
+  const fd = f.inner._0.fd;
+  const c = fs.libc("test");
+  // The lowest free fd at or above `from`: the test needs a minimum no open fd sits on, so the exact answer is the
+  // minimum itself (fixers-51 review N1: a fixed 200 or 777 failed whenever the process already had it open).
+  const free_from = (from: number): number => {
+    for (let n = from; ; n++) {
+      try {
+        fstatSync(n);
+      } catch {
+        return n;
+      }
+    }
+  };
+  for (const min of [free_from(200), free_from(777)]) {
+    const d = c.fcntl(fd, F_DUPFD_CLOEXEC, 0, 0, 0, 0, 0, 0, min);
+    expect(d).toBe(min);
+    expect(c.close(d)).toBe(0);
+  }
+  f.drop();
+});
+
+// The same through std's `try_clone_to_owned` (`fcntl(fd, F_DUPFD_CLOEXEC, 3)`): with fd 0 free, a lost minimum would
+// hand out 0; std's answer is the lowest free fd from 3 up. fd 0 is closed only in a child process (fixers-51 review
+// N1: closed in the test process, one of Bun's own threads could be handed fd 0, and the restore would clobber it).
+test.skipIf(!HOST)("try_clone: the duplicate skips a free stdio fd (the minimum 3 reaches fcntl)", () => {
+  const child = `
+    const { dlopen, FFIType } = await import("bun:ffi");
+    const fs = await import(${JSON.stringify(join(import.meta.dir, "fs.ts"))});
+    const sys = dlopen("libSystem.B.dylib", { close: { args: [FFIType.i32], returns: FFIType.i32 } }).symbols;
+    const h = fs.Dir.open(${JSON.stringify(dir)});
+    if (h.$ !== "Ok") throw new Error("open failed");
+    if (sys.close(0) !== 0) throw new Error("close(0) failed");
+    const c = h._0.try_clone();
+    if (c.$ !== "Ok") throw new Error("try_clone failed");
+    process.stdout.write(String(c._0.inner._0.fd));
+  `;
+  const p = Bun.spawnSync([process.execPath, "-e", child], { stdin: "ignore", stdout: "pipe", stderr: "pipe" });
+  expect(p.stderr.toString()).toBe("");
+  expect(p.exitCode).toBe(0);
+  expect(Number(p.stdout.toString())).toBeGreaterThanOrEqual(3);
 });

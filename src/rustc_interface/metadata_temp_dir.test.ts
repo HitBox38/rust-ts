@@ -32,9 +32,12 @@ test("start_codegen: abort_if_errors, --emit=metadata -o - at a terminal", () =>
   expect(leftovers()).toEqual([]);
 });
 
+// The stop: `dump_feature_usage_metrics` was the unported call here; since lane driver-cli ported it, the run stops later on
+// the same path (the warning for the missing metrics dir needs an `IntoDiagArg` the port lacks). Any `unported` stop after the
+// Linker exists exercises this exit, so the test names the kind of stop, not its message.
 test("run_compiler: a stop once the Linker exists, -Zmetrics-dir --emit=metadata", () => {
   const r = Bun.spawnSync([process.execPath, MAIN, "libfoo.rs", "-Zmetrics-dir=d2/m", "--emit=metadata", "--out-dir", "d2"], { cwd, stdout: "pipe", stderr: "pipe" });
-  expect(r.stderr.toString()).toContain("dump_feature_usage_metrics");
+  expect(r.stderr.toString()).toContain("rust-ts: unported:");
   expect(r.exitCode).toBe(70);
   expect(leftovers()).toEqual([]);
 });

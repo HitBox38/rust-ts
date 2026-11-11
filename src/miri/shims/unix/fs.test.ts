@@ -18,7 +18,8 @@ import { TerminationInfoStop } from "../../diagnostics.ts";
 import { MiriMachine, type MiriInterpCx } from "../../machine.ts";
 import { DirTable, DirStream } from "./fs.ts";
 import { InterpCx } from "../../../rustc_const_eval/interpret/eval_context.ts";
-import { interp_ok, Pointer, Scalar, type InterpResult } from "../../../rustc_middle/mir/interpret/mod.ts";
+import { InterpErrorInfo_from_InterpErrorKind, interp_ok, Pointer, Scalar, type InterpResult } from "../../../rustc_middle/mir/interpret/mod.ts";
+import { Err } from "../../../std/result.ts";
 import { Size } from "../../../rustc_abi/lib.ts";
 import { spec } from "../../../rustc_target/lib.ts";
 import * as std_fs from "../../../std/fs.ts";
@@ -310,4 +311,34 @@ test("std::fs stand-in: pure builders, host operations (src/std/fs.test.ts has t
   expect(absolute("./x")).toEqual({ $: "Ok", _0: `${process.cwd()}/x` });
   expect(absolute("")).toEqual({ $: "Err", _0: { $: "SimpleMessage", kind: "InvalidInput", message: "cannot make an empty path absolute" } });
   void Panic;
+});
+
+// docs/reviews/miri-host-fs.md N2: once `closedir` has taken the stream out of the table, Rust drops it (closing the
+// host `DIR*`) on every exit, the three early returns included, before the error propagates.
+test("closedir: the host ReadDir is dropped on each early return, as on success", () => {
+  type Exit = "tampered" | "close" | "dealloc" | "ok";
+  const run = (exit: Exit): [string, number] => {
+    const [cx, _rec] = ecx("Allow");
+    let drops = 0;
+    const read_dir = { drop: () => drops++ };
+    const fd_id = { _0: 7 };
+    const stream = DirStream.new(read_dir as never, 3, fd_id as never);
+    stream.entry = exit === "dealloc" || exit === "ok" ? (["ENTRY", "dirent64"] as never) : undefined;
+    const id = cx.machine.dirs.insert_new(stream);
+    const own = cx as unknown as Record<string, unknown>;
+    if (exit !== "tampered") {
+      (cx.machine as unknown as { fds: unknown }).fds = { get: () => ({ id: () => fd_id, drop: () => {} }) };
+    }
+    const fail = (what: string) => Err(InterpErrorInfo_from_InterpErrorKind({ $: "UndefinedBehavior", _0: { $: "Ub", _0: what } } as never));
+    own.close = () => (exit === "close" ? fail("close failed") : interp_ok(Scalar.from_i32(0)));
+    own.deallocate_ptr = () => (exit === "dealloc" ? fail("deallocate failed") : interp_ok(undefined));
+    const r = cx.closedir(ptr(Number(id)) as never);
+    expect(cx.machine.dirs.streams.has(id)).toBe(false);
+    const what = r.$ === "Ok" ? "Ok" : JSON.stringify((r._0.kind() as { _0: { _0: string } })._0._0);
+    return [what, drops];
+  };
+  expect(run("tampered")).toEqual([JSON.stringify("the backing FD for this DIR stream has been tampered with"), 1]);
+  expect(run("close")).toEqual([JSON.stringify("close failed"), 1]);
+  expect(run("dealloc")).toEqual([JSON.stringify("deallocate failed"), 1]);
+  expect(run("ok")).toEqual(["Ok", 1]);
 });

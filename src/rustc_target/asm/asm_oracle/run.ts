@@ -8,7 +8,7 @@ import { Options_default } from "../../../rustc_session/config.ts";
 import { create_default_session_globals_then } from "../../../rustc_span/lib.ts";
 import { debug_Symbol, Symbol } from "../../../rustc_span/symbol.ts";
 import { debug_target_spec_other, spec } from "../../lib.ts";
-import { type Debug, debug_char, debug_option, debug_set, debug_str, debug_vec, type Fmt, PLAIN } from "../../../std/fmt.ts";
+import { type Debug, debug_char, debug_option, debug_set, debug_str, debug_unit, debug_vec, type Fmt, PLAIN } from "../../../std/fmt.ts";
 import { panic } from "../../../std/panic.ts";
 import { debug_result } from "../../../std/result.ts";
 import {
@@ -100,7 +100,6 @@ function types(): InlineAsmType[] {
 
 const f: Fmt = PLAIN;
 const dbg = <T>(v: T, d: Debug<T>): string => d(v, f);
-const debug_unit: Debug<null> = () => "()";
 const debug_strs: Debug<readonly string[]> = (v) => debug_vec(v, f, (s) => debug_str(s));
 const debug_syms: Debug<readonly Symbol[]> = (v) => debug_vec(v, f, debug_Symbol);
 const debug_regs: Debug<readonly InlineAsmReg[]> = (v) => debug_vec(v, f, debug_InlineAsmReg);

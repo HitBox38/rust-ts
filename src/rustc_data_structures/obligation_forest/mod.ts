@@ -91,7 +91,7 @@ import { debug_IoError, type IoError, io_error_from_node } from "../../std/io.ts
 import { path_join } from "../../std/path.ts";
 import { VecU8 } from "../../vendor/anstream/stream.ts";
 import type { Debug, Fmt } from "../../std/fmt.ts";
-import { debug_struct, debug_tuple, debug_vec } from "../../std/fmt.ts";
+import { debug_struct, debug_tuple, debug_unit, debug_vec } from "../../std/fmt.ts";
 import { assert, unported, unreachable } from "../../std/panic.ts";
 import { Err, Ok, type Result, unwrap_result } from "../../std/result.ts";
 
@@ -850,8 +850,6 @@ export function debug_Error<O, E>(v: Error<O, E>, f: Fmt, d_O: Debug<O>, d_E: De
 // `dot::render` by `as_dot_graph`. `dot::Nodes` / `dot::Edges` are arrays. Nothing calls `dump_graphviz` (upstream's
 // is `#[allow(dead_code)]`), and it does nothing unless `DUMP_OBLIGATION_FOREST_GRAPHVIZ` is set.
 
-/** Debug for `()`: `dot::Id::new`'s error type, for the panic message of its `.unwrap()`. */
-const debug_unit: Debug<null> = () => "()";
 
 /** `dot::Id::new(name).unwrap()` */
 function dot_Id_new(name: string): dot.Id {

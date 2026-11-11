@@ -72,6 +72,11 @@ console.log(JSON.stringify({
     // An LLVM with x86 and arm only, as nm prints a Mach-O dylib's imports and an ELF library's definitions.
     const fake = c.llvmComponentOracle(parsed, c.nmSymbols("                 U _LLVMInitializeX86TargetInfo\\n0000000000001234 T LLVMInitializeARMTargetInfo\\n                 U _LLVMInitializeX86Target\\n"));
     const noNm = c.llvmComponentOracle(parsed, "nm failed");
+    // nm exited 0 but the table names no TargetInfo initializer (empty, stripped): undecided, not "every one missing".
+    const empty = c.llvmComponentOracle(parsed, c.nmSymbols(""));
+    const noTargetInfo = c.llvmComponentOracle(parsed, c.nmSymbols("0000000000001234 T _main\\n                 U _LLVMInitializeX86Target\\n"));
+    // GNU nm on an ELF driver linked to a versioned libLLVM.so.
+    const versioned = c.llvmComponentOracle(parsed, c.nmSymbols("                 U LLVMInitializeX86TargetInfo@LLVM_23.1\\n                 U LLVMInitializeARMTargetInfo@@LLVM_23.1\\n"));
     const d = (line, o) => c.llvmComponentsLineDecision(line, o);
     const unstable = "tests/ui/linkage-attr/unstable-flavor.rs";
     return {
@@ -82,6 +87,8 @@ console.log(JSON.stringify({
       fake: [d("//@ needs-llvm-components: x86 arm", fake), d("//@ needs-llvm-components: x86 riscv arm", fake), d("//@ needs-llvm-components: bpf nvptx", fake), d("//@ [r] needs-llvm-components: ipo x86", fake)],
       unknown: [d("//@ needs-llvm-components: x86 spirv", fake), d("//@ needs-llvm-components: riscv spirv", fake)],
       noNm: [d("//@ needs-llvm-components: x86", noNm), d("//@ needs-llvm-components: lto", noNm)],
+      empty: [d("//@ needs-llvm-components: x86", empty), d("//@ needs-llvm-components: lto", empty), d("//@ needs-llvm-components: avr", noTargetInfo)],
+      versioned: [d("//@ needs-llvm-components: x86 arm", versioned), d("//@ needs-llvm-components: arm riscv", versioned)],
       malformed: [d("//@ needs-llvm-components", fake), d("//@ needs-llvm-components:", fake)],
       badSources: [
         (() => { try { c.rustcLlvmComponents("const REQUIRED_COMPONENTS: &[&str] = &[\\"ipo\\"];", ""); return "NO ERROR"; } catch (e) { return String(e); } })(),
@@ -267,6 +274,11 @@ test("needs-llvm-components: decided from the oracle's rustc_driver, as directiv
   expect(L.unknown[1]).toEqual({ ignore: "ignored when the riscv LLVM component is missing" });
   // Without a symbol table only the required components are known.
   expect(L.noNm).toEqual([{ reject: "`needs-llvm-components: x86` cannot be decided: nm failed" }, {}]);
+  // A table that names no TargetInfo initializer at all is unusable, not an LLVM without targets (review harness-w49 N1).
+  const noTable = "cannot be decided: the oracle's rustc_driver symbol table names no `LLVMInitialize*TargetInfo` function, so it does not show its LLVM components";
+  expect(L.empty).toEqual([{ reject: `\`needs-llvm-components: x86\` ${noTable}` }, {}, { reject: `\`needs-llvm-components: avr\` ${noTable}` }]);
+  // GNU nm's symbol versions (`@VER`, `@@VER`) are not part of the name.
+  expect(L.versioned).toEqual([{}, { ignore: "ignored when the riscv LLVM component is missing" }]);
   // compiletest panics on a directive without a value.
   expect(L.malformed).toEqual([{ reject: "directive `needs-llvm-components` must be followed by a colon and value" }, { reject: "empty value for directive `needs-llvm-components`" }]);
   expect(L.badSources[0]).toContain("no `OPTIONAL_COMPONENTS`");

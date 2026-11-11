@@ -71,6 +71,17 @@ export function compareRecords(src: RawRecord, bin: RawRecord): Verdict {
   return { kind: "differs", why: `stderr ${firstDifference(src.stderr, bin.stderr)}` };
 }
 
+/** The first 5 errors and the first 5 notes, each list followed by how many more it has, if any (review harness-w49 N3). */
+export function shownFindings(lines: readonly string[], notes: readonly string[], out: string | undefined): string[] {
+  const where = out === undefined ? "" : ` in ${out}`;
+  const shown: string[] = [];
+  for (const list of [lines, notes]) {
+    shown.push(...list.slice(0, 5));
+    if (list.length > 5) shown.push(`... ${list.length - 5} more${where}`);
+  }
+  return shown;
+}
+
 if (import.meta.main) {
   const a = parseArgs(process.argv.slice(2));
   const [srcDir, binDir] = a._;
@@ -102,8 +113,7 @@ if (import.meta.main) {
     if (v.kind === "one side timed out") notes.push(`note: ${s.suite} ${s.ids.join(", ").slice(0, 200)} (attempt ${s.attempt}): ${v.why}`);
   }
   if (typeof a.out === "string") writeFileSync(a.out, [...lines, ...notes].join("\n") + (lines.length + notes.length ? "\n" : ""));
-  for (const l of [...lines.slice(0, 5), ...notes.slice(0, 5)]) console.log(l);
-  if (lines.length + notes.length > 10) console.log(`... more${typeof a.out === "string" ? ` in ${a.out}` : ""}`);
+  for (const l of shownFindings(lines, notes, typeof a.out === "string" ? a.out : undefined)) console.log(l);
   console.log(
     `processes=${S.size}/${B.size} ${Object.entries(counts).map(([k, n]) => `${k.replaceAll(" ", "-")}=${n}`).join(" ")} subject-seconds source=${(srcMs / 1000).toFixed(1)} binary=${(binMs / 1000).toFixed(1)}`,
   );

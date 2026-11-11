@@ -33,7 +33,7 @@
 // client end of the `MessagePipe`) and the `Buffer` codec of the pipe's native channels (src/std/sync/mpsc.ts). The
 // client thread (src/std/thread.ts, a pthread) never calls into JS; the server loop runs on the JS thread.
 
-import { cc, CString, JSCallback, ptr, read, toArrayBuffer } from "bun:ffi";
+import { CString, JSCallback, ptr, read, toArrayBuffer } from "bun:ffi";
 import { join } from "node:path";
 import { bridge } from "../proc_macro/lib.ts";
 import { type CrossThreadNative, type MessagePipe, set_cross_thread_native } from "../proc_macro/bridge/server.ts";
@@ -46,6 +46,7 @@ import { Err, Ok, type Result } from "../std/result.ts";
 import { write_stderr } from "../std/io.ts";
 import { chan_fns, type NativeCodec } from "../std/sync/mpsc.ts";
 import type { NativeThunk } from "../std/thread.ts";
+import { cc_or_unported } from "./tinycc.ts";
 
 // ---------------------------------------------------------------------------------------------------------------
 // The C side
@@ -78,7 +79,7 @@ function native(): Native {
     return unported(`rust_ts::proc_macro_host (proc-macro dylibs on ${process.platform})`);
   }
   // PORT: `cc`'s C ABI is the platform's (AAPCS64 on aarch64-apple-darwin; checked by proc_macro_host.oracle.test.ts on darwin/aarch64).
-  const lib = cc({
+  const lib = cc_or_unported("rust_ts::proc_macro_host (compiling proc_macro_host.c)", {
     source: join(import.meta.dir, "proc_macro_host.c"),
     symbols: {
       rts_buffer_with_capacity: { args: ["u64", "ptr"], returns: "void" },
