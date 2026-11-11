@@ -1,0 +1,20 @@
+# Template: scripts/probes.ts substitutes @SRC@ and builds this in $RUST_TS_DATA/probes.
+#
+# A rustc-dev probe (see tools/probes/tokdump/Cargo.toml.in and the header of scripts/probes.ts): it links the
+# pinned nightly's own compiler crates (rustc_ast, rustc_hir, rustc_attr_ir) through `#![feature(rustc_private)]`
+# + `extern crate`, so `size_of::<T>()` is the layout of the oracle compiler's own AST and HIR types, which
+# `-Zinput-stats` prints (rustc_passes input_stats.rs `size_of_val`). Output: tools/gen-input-stats-sizes.ts.
+[package]
+name = "nodesizes"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata.rust-ts]
+rustc_dev = true
+
+[[bin]]
+name = "nodesizes"
+path = "@SRC@/main.rs"
+
+[workspace]
