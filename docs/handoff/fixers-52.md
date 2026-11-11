@@ -1,6 +1,6 @@
 # Handoff: lane `fixers-52` (wave 40l), queued review findings in `src/`
 
-Branch `t3/46211e01`, from `b3772ebb`. Commits:
+Branch `t3/fixer-review-findings`, from `b3772ebb`. Commits:
 
 | commit | items |
 |---|---|
