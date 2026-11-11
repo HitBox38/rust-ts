@@ -12,9 +12,11 @@
 // `bunExec` records the start and end readings, and `accept` refuses a run whose two differ (`acceptBunExeRefusal`, review bun-144 F1).
 // Readings at suite boundaries miss a swap that is undone before the next one (review bun-144-recheck F1-r: swap, start a child,
 // swap back). So `gate.ts run` first clones its Bun file (`cloneBunFile`: APFS `cp -c`, which shares the blocks and costs no disk;
-// a plain copy where clonefile is unavailable, with a note), checks the clone (`cloneRefusal`) and re-runs itself from it: then
-// `process.execPath` of the gate and of every child is a file only the gate knows, under `$RUST_TS_DATA/gate-bun/`, removed at
-// the end. The readings stay, now of the clone, as a belt. gate.json `bunClone` records it, and `accept` refuses a run that did
+// a plain copy where clonefile is unavailable, with a note) into a directory of its own under `$RUST_TS_DATA/gate-bun/` (with
+// `owner.json`; `pruneGateBunDirs` removes only those whose gate is gone), checks the clone (`cloneRefusal`) and re-runs itself
+// from it with that directory, which also holds a `bunx` link, first on PATH: then `process.execPath`, and every bare `bun` or
+// `bunx`, of the gate and of every child is a file only the gate knows, removed at the end (reviews recheck F1-r, recheck2
+// F1-rr, N3). The readings stay, now of the clone, as a belt. gate.json `bunClone` records it, and `accept` refuses a run that did
 // not run from one (`acceptBunCloneRefusal`). A subject binary embeds the Bun that built it, so the gate also refuses a build
 // whose builder Bun is not its own (`builtByRefusal`).
 // This file imports only node built-ins (scripts/gate-bun.test.ts loads it in the runner unit-test process).
@@ -24,7 +26,8 @@
 // `GATE_BUN` here, and only then run the runner unit tests on the new Bun: the tests that drive `gateRun` (gate-power, gate-static-stop,
 // gate-probes, gate-bun) run it on the running Bun, which the pin refuses until `GATE_BUN` names it (review bun-144 N3). The next
 // gate re-runs the Bun-run oracles (their keys change with the binary).
-import { chmodSync, copyFileSync, readFileSync } from "node:fs";
+import { chmodSync, copyFileSync, existsSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
+import { join } from "node:path";
 
 /** A Bun build: `Bun.version` and `Bun.revision`. */
 export interface BunBuild {
@@ -103,13 +106,18 @@ export function execBunRefusal(exe: BunExe, bun: BunBuild): string | undefined {
   return `the Bun the gate's children run, ${exe.path}, is ${showBunExe(exe)}${exe.error ? `: ${exe.error}` : ""}, not the gate's own Bun ${showBun(bun)}; start the gate with that file, unchanged`;
 }
 
+/** `s` as one word of a POSIX shell command: single-quoted, each `'` written `'\''`. */
+export const shellQuote = (s: string): string => `'${s.replaceAll("'", "'\\''")}'`;
+
 /**
  * The command that lists the oracle cache entries born after `since` (an ISO time): macOS `/usr/bin/find` (BSD; it parses
- * `YYYY-MM-DD HH:MM:SS UTC`), run it as is to see them, with `-delete` to remove them.
+ * `YYYY-MM-DD HH:MM:SS UTC`), run it as is to see them, with ` -delete` appended to remove them. It changes into the cache first
+ * and walks only `.` from there, with the path quoted, so it can act nowhere else (if the `cd` fails, nothing runs; review
+ * bun-144-recheck2 N5).
  */
 export function bornSinceCommand(cacheDir: string, since: string): string {
   const t = new Date(since).toISOString().replace("T", " ").replace(/\.\d+Z$/, " UTC");
-  return `/usr/bin/find ${cacheDir} -type f -newerBt '${t}'`;
+  return `cd ${shellQuote(cacheDir)} && /usr/bin/find . -type f -newerBt '${t}'`;
 }
 
 /**
@@ -133,6 +141,8 @@ export interface BunClone {
   sha1: string;
   /** `clonefile` (APFS `cp -c`: no disk cost) or `copy` (a plain copy where clonefile failed). */
   how: "clonefile" | "copy";
+  /** The pid of the first process, which made the copy: the second process's parent. */
+  parent: number;
 }
 
 /** Copies the Bun file `src` to `dst` as an APFS clone (`cp -c`); a plain copy if that fails. Returns which, and why not a clone. */
@@ -163,11 +173,14 @@ export function acceptBunCloneRefusal(runId: string, clone: BunClone | null | un
   return `gate run ${runId} did not run from a private copy of its Bun (gate.json \`bunClone\` is null: it was not started by \`gate.ts run\`); nothing accepted`;
 }
 
-/** Why the gate must refuse subject binaries built by another Bun than `bun` (a binary embeds its builder's runtime), or `undefined`. */
-export function builtByRefusal(bins: readonly { entry: string; hash: string; bun: BunBuild | undefined }[], bun: BunBuild): string | undefined {
-  const bad = bins.filter((b) => b.bun === undefined || !sameBun(b.bun, bun));
+/**
+ * Why the gate must refuse subject binaries built by another Bun than `bun` (a binary embeds its builder's runtime), or
+ * `undefined`. `sha1`: the gate's Bun file's content; a build that records its builder's (`meta.json` `bun.sha1`) must match it.
+ */
+export function builtByRefusal(bins: readonly { entry: string; hash: string; bun: (BunBuild & { sha1?: string }) | undefined }[], bun: BunBuild, sha1?: string): string | undefined {
+  const bad = bins.filter((b) => b.bun === undefined || !sameBun(b.bun, bun) || (sha1 !== undefined && b.bun.sha1 !== undefined && b.bun.sha1 !== sha1));
   if (bad.length === 0) return undefined;
-  return `subject binary ${bad.map((b) => `${b.entry} (${b.hash.slice(0, 12)}, built by Bun ${b.bun ? showBun(b.bun) : "unknown"})`).join(", ")} was not built by the gate's Bun ${showBun(bun)}: it embeds its builder's runtime; remove the build and re-run the gate`;
+  return `subject binary ${bad.map((b) => `${b.entry} (${b.hash.slice(0, 12)}, built by Bun ${b.bun ? `${showBun(b.bun)}${b.bun.sha1 ? ` sha1 ${b.bun.sha1.slice(0, 12)}` : ""}` : "unknown"})`).join(", ")} was not built by the gate's Bun ${showBun(bun)}: it embeds its builder's runtime; remove the build and re-run the gate`;
 }
 
 /** gate.json `bunExec`: the Bun file the gate's children ran, read at the start and at the end (or where a change was seen). */
@@ -189,3 +202,37 @@ export function acceptBunExeRefusal(runId: string, rec: BunExecRecord | undefine
   if (rec.start?.sha1 != null && rec.end?.sha1 === rec.start.sha1) return undefined;
   return `gate run ${runId}: the Bun file its children ran changed during the run (${rec.start ? showBunExe(rec.start) : "?"} at the start, ${rec.end ? showBunExe(rec.end) : "?"} at the end); nothing accepted`;
 }
+
+/** Whether process `pid` is alive (EPERM: it is, under another user). */
+function alive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (e) {
+    return (e as NodeJS.ErrnoException).code === "EPERM";
+  }
+}
+
+/**
+ * Removes the run directories under `root` whose first process is gone (`owner.json`'s pid is not alive), and half-made ones (no
+ * `owner.json`) older than 10 minutes; never one a live gate holds (review bun-144-recheck2 N3). Returns what it removed.
+ */
+export function pruneGateBunDirs(root: string, now: number = Date.now()): string[] {
+  const removed: string[] = [];
+  for (const name of existsSync(root) ? readdirSync(root) : []) {
+    const dir = join(root, name);
+    let owner: { pid?: number } | undefined;
+    try {
+      owner = JSON.parse(readFileSync(join(dir, "owner.json"), "utf8")) as { pid?: number };
+    } catch {
+      owner = undefined;
+    }
+    const stale = owner === undefined ? now - statSync(dir).mtimeMs > 600_000 : typeof owner.pid !== "number" || !alive(owner.pid);
+    if (stale) {
+      rmSync(dir, { recursive: true, force: true });
+      removed.push(dir);
+    }
+  }
+  return removed;
+}
+

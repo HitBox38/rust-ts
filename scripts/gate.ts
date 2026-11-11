@@ -35,10 +35,13 @@
 //       and is read again before each suite and at the end: a change is one `ERROR:` line, the suites left are not run (`notRun`),
 //       and the run fails; gate.json `bunExec` records the start and end readings (review bun-144 F1).
 //       Before all that, `gate.ts run` copies its Bun file (an APFS clone, `cp -c`: no disk cost; a plain copy where that fails, with
-//       a note) to `$RUST_TS_DATA/gate-bun/<sha1>/bun`, checks the copy and runs the gate again from it (`gateBunClone`), so the gate
-//       and every child (static steps, oracle wrappers, subjects, the subject builder) run a file nothing else touches: a swap of
-//       the machine's Bun, even one undone before the next reading, cannot reach them (review bun-144-recheck F1-r). gate.json
-//       `bunClone` records the copy, which is removed at the end. A subject binary built by another Bun is refused (it embeds it).
+//       a note) into a directory of its own under `$RUST_TS_DATA/gate-bun/`, checks the copy and runs the gate again from it, with
+//       that directory (and a `bunx` link) first on PATH (`gateBunClone`): the gate and every child (static steps, `bun test` and the
+//       bare `bun` its tests start, oracle wrappers, subjects, the subject builder) run a file nothing else touches, so a swap of the
+//       machine's Bun, even one undone before the next reading, cannot reach them (reviews bun-144-recheck F1-r, recheck2 F1-rr).
+//       gate.json `bunClone` records the copy, which is removed at the end. A subject binary built by another Bun is refused (it
+//       embeds it). **Stop a gate with SIGTERM to the `gate.ts run` pid** (SIGINT and SIGHUP work too): it is passed on to the gate,
+//       and the copy is removed after it ends; a SIGKILL leaves the gate running and its copy behind until a later gate prunes it.
 //   bun scripts/gate.ts accept --run <run-id>
 //       grow the protected set with that gate run's new MATCHes. Refused if the run lost anything,
 //       skipped static checks, skipped a protected suite, ran on a dirty tree, ran on a Bun build other than `GATE_BUN`
@@ -48,7 +51,7 @@
 // Unstable cases (`Suite.unstable`, difftest's UNSTABLE status: oracle output that is not reproducible) are never
 // protected: a run fails if a baseline lists one, and accept refuses to add one. The upstream checkout must be clean
 // when a run starts (or it stops with `ERROR:`), and a run fails if a suite changes it (scripts/lib/upstream.ts).
-import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { HOST_RLIB_RUN, IR_RUN, MIR_DUMP_RUN, MIRI_SYSROOT_RUN, RG_CHECK, RLIB_NATIVE_RUN, RMETA_RUN, SUITES, suite as getSuite, type Suite } from "../harness/suites.ts";
 import { difftest, heavyErrorLines, heavyLine, unstableOf, type HeavyRun, type OracleRerun, type RetryLoad, type Usage } from "./difftest.ts";
@@ -56,7 +59,7 @@ import { DATA, ORACLE_CACHE, REPO, RUNS, UPSTREAM, die, ensureDir, nowId, parseA
 import { HostLog, REAL_HOST, StuckReads, batteryRefusal, sampleHost, type HostReaders, type HostSample } from "./lib/host-state.ts";
 import { miriBinary } from "./lib/miri.ts";
 import { prepareSubject, subjectBinBuilds } from "./lib/subject-bin.ts";
-import { acceptBunCloneRefusal, acceptBunExeRefusal, acceptBunRefusal, builtByRefusal, bunExeChange, cloneBunFile, cloneRefusal, execBunRefusal, gateBunRefusal, readBunExe, runningBun, showBunExe, type BunBuild, type BunClone, type BunExecRecord } from "./lib/bun-pin.ts";
+import { pruneGateBunDirs, acceptBunCloneRefusal, acceptBunExeRefusal, acceptBunRefusal, builtByRefusal, bunExeChange, cloneBunFile, cloneRefusal, execBunRefusal, gateBunRefusal, readBunExe, runningBun, showBunExe, type BunBuild, type BunClone, type BunExecRecord } from "./lib/bun-pin.ts";
 import { verifyOraclePin } from "./lib/oracle.ts";
 import { BUN_QUIET_VARS, UNIT_STEPS, UNIT_TEST_TIMEOUT_MS, aloneJunit, aloneStepArgs, oneProcessEnv, unitEnvRefusal, unitStepArgs, unitStepEnv, type UnitStep } from "./lib/unit-steps.ts";
 import { upstreamError, upstreamStatus } from "./lib/upstream.ts";
@@ -574,7 +577,8 @@ export async function staticChecks(runDir: string): Promise<StaticChecks> {
   // The unit-test steps are UNIT_STEPS (scripts/lib/unit-steps.ts): disjoint roots, each passed as a path; their
   // environment and arguments (`unitStepEnv`, `unitStepArgs`) say why each part is there.
   const steps: StaticStep[] = [
-    // `bun x`, as the gate's own Bun (its private copy), not `bunx` from PATH (review bun-144-recheck N2).
+    // `bun x` through the gate's Bun (its copy) resolves node_modules/.bin/tsc, which runs on node (its `#!/usr/bin/env node`);
+    // tsc's result does not depend on the runtime (reviews bun-144-recheck N2, recheck2 N6).
     { name: "typecheck", cmd: [process.execPath, "x", "tsc", "--noEmit", "-p", "."], env: {} },
     ...UNIT_STEPS.flatMap((u) => unitStaticSteps(u, runDir)),
     // --offline: a vendor crate missing from cargo's cache is an ERROR, never network I/O.
@@ -671,7 +675,7 @@ export async function gateRun(requested: string[], skipStatic: boolean, skipHeav
   // `ERROR:` line and no run (scripts/lib/subject-bin.ts). gate.json `subject` records the mode and each build's hash.
   const subject = prepareSubject();
   // A binary embeds the Bun that built it (review bun-144-recheck F1-r): it must be the gate's.
-  const builtBy = builtByRefusal(subjectBinBuilds(), bun);
+  const builtBy = builtByRefusal(subjectBinBuilds(), bun, bunExecStart.sha1 ?? undefined);
   if (builtBy !== undefined) die(builtBy);
   if (subject.mode === "binary") console.log(`note: subject binary (${Object.entries(subject.bins).map(([e, h]) => `${e} ${h}`).join(", ")})`);
   if (prov.dirty.length) console.log(`note: tree is dirty (${prov.dirty.length} paths); this run cannot be accepted`);
@@ -796,27 +800,38 @@ function matchesOfRun(runId: string, suite: string): Set<string> {
   return ids;
 }
 
-/** The variable that tells the gate's second process which copy of its Bun it runs from (JSON of a `BunClone`). */
-export const GATE_BUN_CLONE_VAR = "RUST_TS_GATE_BUN_CLONE";
-/** Where the gate copies its Bun: `<dir>/<sha1 12>/bun` (one path per build, so the subject binary's key, which holds it, is stable). */
+/** The argument (`--gate-bun-clone=<record file>`) by which the first process tells the second which copy of its Bun it runs from. */
+export const GATE_BUN_CLONE_ARG = "--gate-bun-clone";
+/** Where the gate copies its Bun: one directory per run, `<dir>/run-<pid>-<random>/` (`bun`, `bunx`, `owner.json`, `clone.json`). */
 export const GATE_BUN_DIR = join(DATA, "gate-bun");
 
 /**
- * `gate.ts run`'s first step (review bun-144-recheck F1-r). In the first process: refuses another Bun (`gateBunRefusal`, and the
- * file at `process.execPath` must be this build), copies that file (`cloneBunFile`), checks the copy (`cloneRefusal`), runs
- * `argv` again from the copy with `GATE_BUN_CLONE_VAR` set, waits, notes a change of the original (harmless now), removes the
- * copy and exits with the second process's code: it never returns. In the second process: checks that it runs from the copy the
- * variable names, unsets the variable (no child inherits it) and returns the copy for gate.json. `cp`: tests only.
+ * `gate.ts run`'s first step (review bun-144-recheck F1-r, recheck2 F1-rr, N1-N4). In the first process: refuses another Bun
+ * (`gateBunRefusal`, and the file at `process.execPath` must be this build), removes the copies of gates that are gone
+ * (`pruneGateBunDirs`), copies that file into a directory of its own (`cloneBunFile`) with a `bunx` link beside it, checks the copy
+ * (`cloneRefusal`), writes the copy's record there, and runs `argv` again from the copy with `GATE_BUN_CLONE_ARG=<record>` and the
+ * copy's directory first on `PATH`, so a bare `bun`/`bunx` that any child starts is the copy too. It waits, passes SIGINT, SIGTERM
+ * and SIGHUP on, notes a change of the original (harmless now), removes its directory and exits with the second process's code:
+ * it never returns. In the second process: checks that the record is its parent's (`parent` = `process.ppid`), that it runs from
+ * that copy, under `dir`, and returns it for gate.json. The hand-off is an argument, so no child inherits it. `cp`: tests only.
  */
 export async function gateBunClone(opts: { argv?: string[]; dir?: string; cp?: readonly string[] } = {}): Promise<BunClone> {
-  const marker = process.env[GATE_BUN_CLONE_VAR];
-  if (marker !== undefined) {
-    delete process.env[GATE_BUN_CLONE_VAR];
-    const clone = JSON.parse(marker) as BunClone;
+  const argv = opts.argv ?? process.argv;
+  const root = opts.dir ?? GATE_BUN_DIR;
+  const handed = argv.find((a) => a.startsWith(`${GATE_BUN_CLONE_ARG}=`));
+  if (handed !== undefined) {
+    const record = handed.slice(GATE_BUN_CLONE_ARG.length + 1);
+    let clone: BunClone;
+    try {
+      clone = JSON.parse(readFileSync(record, "utf8")) as BunClone;
+    } catch (e) {
+      die(`the gate's second process cannot read its copy's record ${record}: ${e instanceof Error ? e.message : String(e)}`);
+    }
+    // Tied to the first process that made it: a stale record, or one handed on, is refused.
+    if (clone.parent !== process.ppid) die(`the record ${record} names first process ${clone.parent}, but this process's parent is ${process.ppid}: ${GATE_BUN_CLONE_ARG} is passed only by \`gate.ts run\` to its own second process`);
     if (realpathSync(process.execPath) !== realpathSync(clone.path)) die(`the gate's second process runs ${process.execPath}, not its copy of Bun ${clone.path}`);
-    // A copy the first process made, not a variable set by hand to skip the copy.
-    const home = realpathSync(opts.dir ?? GATE_BUN_DIR);
-    if (!realpathSync(clone.path).startsWith(home + "/")) die(`the gate's copy of its Bun, ${clone.path}, is not under ${home}: ${GATE_BUN_CLONE_VAR} is set only by \`gate.ts run\` for its second process`);
+    const home = realpathSync(root);
+    if (!realpathSync(clone.path).startsWith(home + "/") || dirname(realpathSync(clone.path)) !== dirname(realpathSync(record))) die(`the gate's copy of its Bun, ${clone.path}, is not a copy the first process made under ${home}`);
     return clone;
   }
   const bun = runningBun();
@@ -826,9 +841,11 @@ export async function gateBunClone(opts: { argv?: string[]; dir?: string; cp?: r
   const orig = readBunExe(from);
   const notBun = execBunRefusal(orig, bun);
   if (notBun !== undefined) die(notBun);
-  const home = join(opts.dir ?? GATE_BUN_DIR, orig.sha1!.slice(0, 12));
-  rmSync(home, { recursive: true, force: true });
-  mkdirSync(home, { recursive: true });
+  mkdirSync(root, { recursive: true });
+  for (const d of pruneGateBunDirs(root)) console.log(`note: removed ${d}, the Bun copy of a gate that is gone`);
+  // A directory of its own: a second gate on this data dir, or an orphan, never removes another's copy (review recheck2 N3).
+  const home = mkdtempSync(join(root, `run-${process.pid}-`));
+  writeFileSync(join(home, "owner.json"), JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() }));
   const path = join(home, "bun");
   const made = cloneBunFile(from, path, opts.cp);
   if (made.how === "copy") console.log(`note: the gate's Bun could not be cloned (${made.why}); it runs from a plain copy (${path}), which takes disk space until the gate ends`);
@@ -838,14 +855,23 @@ export async function gateBunClone(opts: { argv?: string[]; dir?: string; cp?: r
     rmSync(home, { recursive: true, force: true });
     die(bad);
   }
+  // Bun picks its mode from argv[0]: `bunx` beside the copy is the copy's bunx.
+  symlinkSync("bun", join(home, "bunx"));
   // Its real path: what `process.execPath` reports in the second process (`/var` is `/private/var` on macOS).
-  const clone: BunClone = { path: realpathSync(path), from, sha1: copy.sha1!, how: made.how };
-  const argv = opts.argv ?? process.argv;
-  const child = Bun.spawn([path, ...process.execArgv, ...argv.slice(1)], { stdio: ["inherit", "inherit", "inherit"], env: { ...process.env, [GATE_BUN_CLONE_VAR]: JSON.stringify(clone) } });
-  // A terminal's ^C reaches both processes; this one waits for the gate to end and then cleans up. SIGTERM goes on to the gate.
-  process.on("SIGINT", () => {});
-  process.on("SIGTERM", () => child.kill("SIGTERM"));
-  process.on("SIGHUP", () => child.kill("SIGHUP"));
+  const realHome = realpathSync(home);
+  const clone: BunClone = { path: join(realHome, "bun"), from, sha1: copy.sha1!, how: made.how, parent: process.pid };
+  const record = join(realHome, "clone.json");
+  writeFileSync(record, JSON.stringify(clone));
+  const child = Bun.spawn([clone.path, ...process.execArgv, ...argv.slice(1), `${GATE_BUN_CLONE_ARG}=${record}`], {
+    stdio: ["inherit", "inherit", "inherit"],
+    // The copy first on PATH: a child that starts a bare `bun` or `bunx` (66 src test files, harness/miri-ui.test.ts, the typeck
+    // fixtures helper) runs the copy as well (review recheck2 F1-rr).
+    env: { ...process.env, PATH: `${realHome}:${process.env.PATH ?? "/usr/bin:/bin"}` },
+  });
+  // Stop a gate with SIGTERM (or SIGINT/SIGHUP) to this, the `gate.ts run` process: passed on to the gate, which ends, and then this
+  // one removes the copy. A terminal's ^C reaches both; the gate gets it twice, which ends it the same way. SIGKILL of this process
+  // leaves the gate running alone, and its copy until a later gate prunes it.
+  for (const sig of ["SIGINT", "SIGTERM", "SIGHUP"] as const) process.on(sig, () => child.kill(sig));
   const code = await child.exited;
   const after = readBunExe(from);
   if (after.sha1 !== orig.sha1) console.log(`note: ${from} changed while the gate ran (${showBunExe(orig)} -> ${showBunExe(after)}); the gate and its children ran its copy, so the run is not affected`);
