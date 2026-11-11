@@ -37,7 +37,7 @@ import type { Size, TargetDataLayout } from "../rustc_abi/lib.ts";
 import type { Float, Integer, Primitive, Scalar as abi_Scalar, VariantIdx } from "../rustc_abi/lib.ts";
 import type { CodegenMethods } from "../rustc_codegen_ssa/traits/mod.ts";
 import { DerivedTypeCodegenMethods_provided } from "../rustc_codegen_ssa/traits/type_.ts";
-import type { MiscCodegenMethods, PointerAuthSchema } from "../rustc_codegen_ssa/traits/misc.ts";
+import type { MiscCodegenMethods } from "../rustc_codegen_ssa/traits/misc.ts";
 import type { DefIdMap } from "../rustc_span/def_id.ts";
 import type { CodegenUnit } from "../rustc_middle/mono.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
@@ -55,7 +55,7 @@ import {
 } from "../rustc_middle/ty/layout.ts";
 import type { List } from "../rustc_middle/ty/list.ts";
 import type { Ty, TypingEnv } from "../rustc_middle/ty/mod.ts";
-import type { Session } from "../rustc_session/session.ts";
+import type { PointerAuthSchema, Session } from "../rustc_session/session.ts";
 import type { Span } from "../rustc_span/lib.ts";
 import type { Symbol } from "../rustc_span/symbol.ts";
 import type { FnAbi } from "../rustc_target/callconv/mod.ts";

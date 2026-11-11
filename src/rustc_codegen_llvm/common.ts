@@ -8,7 +8,7 @@ import type { Scalar as abi_Scalar, Size } from "../rustc_abi/lib.ts";
 import type { Scalar } from "../rustc_middle/mir/interpret/value.ts";
 import type { BackendTypes } from "../rustc_codegen_ssa/traits/backend.ts";
 import { ConstCodegenMethods_provided } from "../rustc_codegen_ssa/traits/consts.ts";
-import type { PointerAuthSchema } from "../rustc_codegen_ssa/traits/misc.ts";
+import type { PointerAuthSchema } from "../rustc_session/session.ts";
 import { unported } from "../std/panic.ts";
 import { CodegenCx, GenericCx, type SCxBorrow } from "./context.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
