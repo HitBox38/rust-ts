@@ -1267,6 +1267,13 @@ export class Context {
   readonly mdNodes = new Map<string, MDNode>();
   readonly valueAsMetadata = new Map<Value, ValueAsMetadata>();
   readonly metadataAsValue = new Map<Metadata, MetadataAsValue>();
+  /** `AttrsSet`: attributes are uniqued per context by kind and value (`Attribute::get` profiles and looks them up). */
+  readonly attributes = new Map<string, Attribute>();
+  getAttribute(key: string, make: () => Attribute): Attribute {
+    let a = this.attributes.get(key);
+    if (a === undefined) this.attributes.set(key, (a = make()));
+    return a;
+  }
   /** `MDKindNames`, seeded with the fixed kinds (LLVMContext::LLVMContext). */
   readonly mdKinds = new Map<string, number>(FIXED_MD_KINDS.map((n, i) => [n, i]));
 

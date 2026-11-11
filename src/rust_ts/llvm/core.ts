@@ -832,7 +832,7 @@ export function LLVMGetParam(Fn: Value, Index: number): Value {
 // ---- attributes --------------------------------------------------------------------------------------------------------
 
 /** `Attribute::getNameFromAttrKind` of the enum kinds the model creates (Attributes.td's `EnumAttr<"name">`, by C++ kind). */
-const ATTR_NAME: Readonly<Record<string, string>> = {
+export const ATTR_NAME: Readonly<Record<string, string>> = {
   AlwaysInline: "alwaysinline", ByVal: "byval", Cold: "cold", InlineHint: "inlinehint", MinSize: "minsize", Naked: "naked",
   NoAlias: "noalias", NoCfCheck: "nocf_check", NoInline: "noinline", NonNull: "nonnull", NoRedZone: "noredzone",
   NoReturn: "noreturn", NoUnwind: "nounwind", OptimizeForSize: "optsize", ReadOnly: "readonly", SExt: "signext",
@@ -862,38 +862,47 @@ function fromRust(k: AttributeKind): string {
   }
 }
 
+/** The Rust-side kind that `LLVMRustCreateAttrNoValue` makes into the enum attribute printed as `llvmName` (for replay.ts). */
+export function rustAttributeKindOf(llvmName: string): AttributeKind | undefined {
+  for (const k of Object.keys(AttributeKind) as AttributeKind[]) {
+    if (k === "CapturesAddress" || k === "CapturesReadOnly" || k === "CapturesNone") continue;
+    if (ATTR_NAME[fromRust(k)] === llvmName) return k;
+  }
+  return undefined;
+}
+
 const enumAttr = (kind: string): Attribute => new Attribute(kind, () => ATTR_NAME[kind] ?? unported(`llir: attribute name of ${kind}`), false);
 
 // rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:431 LLVMRustCreateAttrNoValue
-export function LLVMRustCreateAttrNoValue(_C: Context, RustAttr: AttributeKind): Attribute {
+export function LLVMRustCreateAttrNoValue(C: Context, RustAttr: AttributeKind): Attribute {
   // Captures attributes print as `captures(...)` (ModRef.cpp's `operator<<(CaptureInfo)`): with no `ret:` part when the
   // return components equal the others, which `CaptureInfo(CC)` makes them.
-  if (RustAttr === "CapturesNone") return new Attribute("Captures", () => "captures(none)", false);
-  if (RustAttr === "CapturesAddress") return new Attribute("Captures", () => "captures(address)", false);
-  if (RustAttr === "CapturesReadOnly") return new Attribute("Captures", () => "captures(address, read_provenance)", false);
+  if (RustAttr === "CapturesNone") return C.getAttribute("captures:none", () => new Attribute("Captures", () => "captures(none)", false));
+  if (RustAttr === "CapturesAddress") return C.getAttribute("captures:address", () => new Attribute("Captures", () => "captures(address)", false));
+  if (RustAttr === "CapturesReadOnly") return C.getAttribute("captures:address,read_provenance", () => new Attribute("Captures", () => "captures(address, read_provenance)", false));
   if (RustAttr === "DeadOnReturn") return unported("llir: LLVMRustCreateAttrNoValue(DeadOnReturn) (DeadOnReturnInfo printing)");
   const kind = fromRust(RustAttr);
   // `Attribute::get(Context, Kind)` of an int attribute kind takes a value; only enum kinds are created with none.
   if (kind === "AllocSize" || kind === "UWTable") return unported(`llir: LLVMRustCreateAttrNoValue(${kind}) (an int attribute without a value)`);
-  return enumAttr(kind);
+  return C.getAttribute(`enum:${kind}`, () => enumAttr(kind));
 }
 
 // rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:453 LLVMRustCreateAlignmentAttr
-export function LLVMRustCreateAlignmentAttr(_C: Context, bytes: number): Attribute {
-  return new Attribute("Alignment", (g) => (g ? `align=${bytes}` : `align ${bytes}`), false);
+export function LLVMRustCreateAlignmentAttr(C: Context, bytes: number): Attribute {
+  return C.getAttribute(`align:${bytes}`, () => new Attribute("Alignment", (g) => (g ? `align=${bytes}` : `align ${bytes}`), false));
 }
 
 // rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:458 LLVMRustCreateDereferenceableAttr
-export function LLVMRustCreateDereferenceableAttr(_C: Context, bytes: number): Attribute {
-  return new Attribute("Dereferenceable", (g) => (g ? `dereferenceable=${bytes}` : `dereferenceable(${bytes})`), false);
+export function LLVMRustCreateDereferenceableAttr(C: Context, bytes: number): Attribute {
+  return C.getAttribute(`deref:${bytes}`, () => new Attribute("Dereferenceable", (g) => (g ? `dereferenceable=${bytes}` : `dereferenceable(${bytes})`), false));
 }
 
 // rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:464 LLVMRustCreateDereferenceableOrNullAttr
-export function LLVMRustCreateDereferenceableOrNullAttr(_C: Context, bytes: number): Attribute {
-  return new Attribute("DereferenceableOrNull", (g) => (g ? `dereferenceable_or_null=${bytes}` : `dereferenceable_or_null(${bytes})`), false);
+export function LLVMRustCreateDereferenceableOrNullAttr(C: Context, bytes: number): Attribute {
+  return C.getAttribute(`deref_or_null:${bytes}`, () => new Attribute("DereferenceableOrNull", (g) => (g ? `dereferenceable_or_null=${bytes}` : `dereferenceable_or_null(${bytes})`), false));
 }
 
-const typeAttr = (kind: string, ty: Type): Attribute => new Attribute(kind, () => `${ATTR_NAME[kind]}(${printTypeToString(ty)})`, false);
+const typeAttr = (kind: string, ty: Type): Attribute => ty.context.getAttribute(`type:${kind}:${ty.id}`, () => new Attribute(kind, () => `${ATTR_NAME[kind]}(${printTypeToString(ty)})`, false));
 
 // rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:468 LLVMRustCreateByValAttr
 export function LLVMRustCreateByValAttr(_C: Context, ty: Type): Attribute {
@@ -916,30 +925,30 @@ export function LLVMRustCreateElementTypeAttr(_C: Context, ty: Type): Attribute 
 }
 
 // rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:488 LLVMRustCreateUWTableAttr
-export function LLVMRustCreateUWTableAttr(_C: Context, async_: boolean): Attribute {
+export function LLVMRustCreateUWTableAttr(C: Context, async_: boolean): Attribute {
   // `UWTableKind::Default` is `Async` (Attributes.cpp prints the default kind as plain `uwtable`).
-  return new Attribute("UWTable", () => (async_ ? "uwtable" : "uwtable(sync)"), false);
+  return C.getAttribute(`uwtable:${async_}`, () => new Attribute("UWTable", () => (async_ ? "uwtable" : "uwtable(sync)"), false));
 }
 
 // rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:495 LLVMRustCreateAllocSizeAttr
-export function LLVMRustCreateAllocSizeAttr(_C: Context, ElementSizeArg: number): Attribute {
-  return new Attribute("AllocSize", () => `allocsize(${ElementSizeArg})`, false);
+export function LLVMRustCreateAllocSizeAttr(C: Context, ElementSizeArg: number): Attribute {
+  return C.getAttribute(`allocsize:${ElementSizeArg}`, () => new Attribute("AllocSize", () => `allocsize(${ElementSizeArg})`, false));
 }
 
 // rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:558 LLVMRustCreateAllocKindAttr
-export function LLVMRustCreateAllocKindAttr(_C: Context, size_arg: number): Attribute {
+export function LLVMRustCreateAllocKindAttr(C: Context, size_arg: number): Attribute {
   // `allocKindFromRust` maps each Rust flag to the AllocFnKind of the same name; `getAsString` lists the set ones in order.
   const k = size_arg;
   const parts = (["alloc", "realloc", "free", "uninitialized", "zeroed", "aligned"] as const).filter((_, i) => k & (1 << i));
-  return new Attribute("AllocKind", () => `allockind("${parts.join(",")}")`, false);
+  return C.getAttribute(`allockind:${parts.join(",")}`, () => new Attribute("AllocKind", () => `allockind("${parts.join(",")}")`, false));
 }
 
 // llvm: llvm/lib/IR/Core.cpp:228 LLVMCreateStringAttribute
-export function LLVMCreateStringAttribute(_C: Context, Name: PtrLenStr, NameLen: number, Value: PtrLenStr, ValueLen: number): Attribute {
+export function LLVMCreateStringAttribute(C: Context, Name: PtrLenStr, NameLen: number, Value: PtrLenStr, ValueLen: number): Attribute {
   const k = bytesArg(Name, NameLen);
   const v = bytesArg(Value, ValueLen);
   // `Attribute::getAsString` of a string attribute: `"key"`, then `="value"` with the value escaped when it is not empty.
-  return new Attribute(k, () => (v === "" ? `"${k}"` : `"${k}"="${printEscapedString(v)}"`), true);
+  return C.getAttribute(`str:${k}\0${v}`, () => new Attribute(k, () => (v === "" ? `"${k}"` : `"${k}"="${printEscapedString(v)}"`), true));
 }
 
 // rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:404 LLVMRustAddFunctionAttributes

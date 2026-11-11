@@ -343,6 +343,9 @@ export function genFns(items: FfiItems, impls: ReadonlyMap<string, string>): str
   const mods = [...new Set(impls.values())];
   mods.forEach((m, i) => (o += `import * as impl${i} from ${JSON.stringify(m)};\n`));
   o += `\nexport type { ${handleNames.join(", ")} } from "./handles.ts";\nexport * from "./ffi_types.ts";\nexport * from "./support.ts";\n`;
+  const done = items.fns.filter((f) => impls.has(f.name)).map((f) => f.name);
+  o += `\n/** The ${done.length} of ${items.fns.length} functions an implementation module provides; every other one is a stub. */\n`;
+  o += `export const IMPLEMENTED: ReadonlySet<string> = new Set([\n${done.map((n) => `  ${JSON.stringify(n)},\n`).join("")}]);\n`;
   for (const f of items.fns) {
     const params = f.params.map((p) => `${tsParamName(p.name)}: ${tsType(p.rust, p.name, items, false)}`).join(", ");
     const ret = f.ret === undefined ? "void" : tsType(f.ret, undefined, items, true);
