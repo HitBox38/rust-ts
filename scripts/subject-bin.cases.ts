@@ -17,6 +17,7 @@ import {
   ensureSubjectBin,
   metaCodeUses,
   metaFnName,
+  prunePreV4Builds,
   pruneSubjectBins,
   rewriteExportStar,
   rewriteImportMeta,
@@ -301,6 +302,25 @@ describe("builder (fixture tree)", () => {
     const removed = pruneSubjectBins([join(root, names[0]!)], 3 * 24 * 3600 * 1000, root);
     expect(removed.sort()).toEqual(names.slice(1).sort());
     expect(readdirSync(root)).toEqual([names[0]!]);
+  });
+
+  test("prune --pre-v4 removes only finished builds whose meta.json records no builder sha1 (review bun-144-recheck3 N5)", () => {
+    const r = mkdtempSync(join(tmp, "pre-v4-"));
+    const make = (name: string, meta?: unknown) => {
+      mkdirSync(join(r, name));
+      writeFileSync(join(r, name, "rts"), "");
+      if (meta !== undefined) writeFileSync(join(r, name, "meta.json"), typeof meta === "string" ? meta : JSON.stringify(meta));
+    };
+    const bun = { version: "1.4.4", revision: "38afee6c84fcf48c0edb2466aa4b27d287a59c30" };
+    make("v3", { hash: "v3", bun });
+    make("v4", { hash: "v4", bun: { ...bun, sha1: "a".repeat(40) } });
+    make("unfinished");
+    make("garbled", "{");
+    make("nobun", { hash: "nobun" });
+    make(".trash-old", { bun });
+    expect(prunePreV4Builds(r)).toEqual(["v3"]);
+    expect(readdirSync(r).sort()).toEqual([".trash-old", "garbled", "nobun", "unfinished", "v4"]);
+    expect(prunePreV4Builds(join(r, "none"))).toEqual([]);
   });
 
   test("prune keeps a build a run resolves between prune's look and its removal (review subject-bin N1)", async () => {
