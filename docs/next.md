@@ -606,6 +606,7 @@ From docs/handoff/scout-unported.md: the latest gate has 51 non-MATCH rows, 8 of
 
 ## Wave 40k (started 2026-11-11) — still independent of D4
 Owner decision: the project moves to the machine's Bun 1.4.4 (docs/state). Gates wait for bun-144.
+**All six lanes merged to main** (integ-w51; root's manifest commit 4ce97419 checked APPROVE WITH NITS, docs/reviews/root-w51-check.md). **Gate running on main in binary mode on Bun 1.4.4** (the gate clones its Bun and re-execs from the clone; the 2,307 Bun-dependent oracles re-run once); accept and audit to follow.
 
 | lane | scope | status |
 |---|---|---|
