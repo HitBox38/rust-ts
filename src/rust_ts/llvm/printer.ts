@@ -489,6 +489,7 @@ export class Printer {
     return o;
   }
 
+  // llvm: llvm/lib/IR/TypeFinder.cpp:34 TypeFinder::run
   /** `TypeFinder::run(M, onlyNamed = false)`'s identified structs: from globals, their initializers, functions, attributes. */
   private usedIdentifiedStructs(m: Module): StructType[] {
     const seen = new Set<Type>();
@@ -522,9 +523,12 @@ export class Printer {
       visitType(a.valueType);
       visitValue(a.aliasee);
     }
-    for (const f of m.functions) visitType(f.valueType);
-    // PORT: types inside type attributes (`byval(%T)`) and in bodies are found when they print, as unnamed slots are; a named
-    // struct used only there is llir-core-b's to add (its body walk).
+    for (const f of m.functions) {
+      visitType(f.valueType);
+      // `TypeFinder::incorporateAttributes`: the types of type attributes (`byval(%T)`, `sret(%T)`, `elementtype(%T)`).
+      for (const set of f.attributes.values()) for (const a of set.values()) if (a.type !== undefined) visitType(a.type);
+    }
+    // PORT: types used only in function bodies are llir-core-b's to add (its body walk).
     return out;
   }
 }

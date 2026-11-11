@@ -30,12 +30,22 @@ const HAVE = SYSROOT !== "" && process.platform === "darwin" && process.arch ===
 if (!HAVE && !REQUIRE) console.log("SKIP: the pinned toolchain on aarch64 macOS is unavailable; RUST_TS_REQUIRE_PROBES=1 makes this a failure");
 
 const PROOF = join(import.meta.dir, "proof");
-/** Case -> extra rustc arguments (the target). */
-const CASES: Record<string, string[]> = {
-  statics: ["--target", "x86_64-unknown-linux-gnu"],
-  decls: ["--target", "x86_64-unknown-linux-gnu"],
-  host: [],
+/** Case -> extra rustc arguments, and the hidden wrappers whose effects its replay must attribute (besides the common ones). */
+const CASES: Record<string, { args: string[]; wrappers: string[] }> = {
+  statics: { args: ["--target", "x86_64-unknown-linux-gnu"], wrappers: ["LLVMRustGetOrInsertGlobal"] },
+  decls: { args: ["--target", "x86_64-unknown-linux-gnu"], wrappers: ["LLVMRustGetOrInsertGlobal", "LLVMRustAddFunctionAttributes", "LLVMRustCreateAttrNoValue", "LLVMRustCreateUWTableAttr"] },
+  host: { args: [], wrappers: ["LLVMRustGetOrInsertGlobal", "LLVMRustAddFunctionAttributes", "LLVMRustCreateAttrNoValue", "LLVMRustCreateUWTableAttr"] },
+  pic: {
+    args: ["--target", "x86_64-unknown-linux-gnu", "-Crelocation-model=pie", "-Ccode-model=large", "-Zlarge-data-threshold=65536"],
+    wrappers: ["LLVMRustGetOrInsertGlobal", "LLVMRustSetModulePIELevel", "LLVMRustSetModuleCodeModel", "LLVMRustSetModuleLargeDataThreshold", "LLVMRustSetDSOLocal"],
+  },
 };
+/** Every compile's module setup: triple, PIC level (every case is PIC or PIE), and `add_module_flag_u32`'s flags. */
+const COMMON_WRAPPERS = ["LLVMRustSetNormalizedTarget", "LLVMRustSetModulePICLevel", "LLVMRustAddModuleFlagU32"];
+/** Calls another lane implements, which the replay may skip (their results are never used by this half). */
+const SKIP_ALLOWED = new Set(["LLVMIsMultithreaded", "LLVMDisposeTargetMachine"]);
+/** Hidden wrappers the model leaves to another lane, whose effects replay applies directly. */
+const STUBBED_ALLOWED = new Set(["LLVMRustSetDataLayoutFromTargetMachine"]);
 const WORK = join(DATA, "tmp", "llir-proof", `${process.env.RUST_TS_AGENT ?? "default"}-${process.pid}`);
 
 /** The building thread's lines, as thread 1, with handles renumbered in order of first appearance. */
@@ -53,7 +63,7 @@ describe.skipIf(!HAVE && !REQUIRE)("llir-core-a proof against the oracle's IR", 
   });
   afterAll(() => rmSync(WORK, { recursive: true, force: true }));
 
-  for (const [name, extra] of Object.entries(CASES)) {
+  for (const [name, { args: extra, wrappers }] of Object.entries(CASES)) {
     test(name, async () => {
       writeFileSync(join(WORK, `${name}.rs`), readFileSync(join(PROOF, `${name}.rs`)));
       const argv = (out: string) => [...extra, "--emit=llvm-ir", "-Cno-prepopulate-passes", `${name}.rs`, "-o", out];
@@ -70,6 +80,9 @@ describe.skipIf(!HAVE && !REQUIRE)("llir-core-a proof against the oracle's IR", 
       // Replay, print, and compare normal forms.
       const r = replay(parseScript(script), UPSTREAM);
       expect(r.modules.length).toBe(1);
+      expect([...r.skipped.keys()].filter((f) => !SKIP_ALLOWED.has(f))).toEqual([]);
+      expect([...r.stubbedEffects.keys()].filter((f) => !STUBBED_ALLOWED.has(f))).toEqual([]);
+      expect([...r.inferredBy.keys()].sort()).toEqual([...new Set([...COMMON_WRAPPERS, ...wrappers])].sort());
       const bin = llvmBinDir(SYSROOT, "aarch64-apple-darwin");
       const want = await normalForm(new Uint8Array(oracle), "N1", bin);
       const got = await normalForm(new Uint8Array(Buffer.from(printModule(r.modules[0]!), "latin1")), "N1", bin);
@@ -79,11 +92,13 @@ describe.skipIf(!HAVE && !REQUIRE)("llir-core-a proof against the oracle's IR", 
 });
 
 describe.skipIf(!existsSync(UPSTREAM) && !REQUIRE)("committed proof scripts replay", () => {
-  for (const name of Object.keys(CASES)) {
+  for (const [name, { wrappers }] of Object.entries(CASES)) {
     test(name, () => {
       const r = replay(parseScript(readFileSync(join(PROOF, `${name}.script`), "latin1")), UPSTREAM);
       expect(r.modules.length).toBe(1);
-      expect(printModule(r.modules[0]!)).toContain("target triple");
+      expect([...r.skipped.keys()].filter((f) => !SKIP_ALLOWED.has(f))).toEqual([]);
+      expect([...r.inferredBy.keys()].sort()).toEqual([...new Set([...COMMON_WRAPPERS, ...wrappers])].sort());
+      expect(printModule(r.modules[0]!)).toContain("!llvm.module.flags");
     });
   }
 });

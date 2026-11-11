@@ -7,6 +7,7 @@ import { writeFileSync } from "node:fs";
 import { unported } from "../../std/panic.ts";
 import {
   AttributeKind,
+  type CodeModel,
   CallConv_discriminant,
   DLLStorageClass,
   Linkage,
@@ -75,16 +76,29 @@ import { Bool, type MetadataKindId, type MutRef, type PtrLenStr, RawEnum, type R
 
 // ---- argument conversions ----------------------------------------------------------------------------------------------
 
-/** A PTR_LEN_STR argument's first `len` bytes, as a byte string. */
-function bytesArg(s: PtrLenStr, len: number): string {
+/** A PTR_LEN_STR argument's first `len` bytes, as a byte string. `StringRef(nullptr, 0)` is the empty string; a null pointer
+ * with a length is undefined behaviour in C, here an error. */
+function bytesArg(s: PtrLenStr | undefined, len: number): string {
+  if (s === undefined) {
+    if (len === 0) return "";
+    throw new Error(`llvm: a null pointer with length ${len}`);
+  }
   if (typeof s === "string") {
     const b = bstrOfString(s);
     return len < b.length ? b.slice(0, len) : b;
   }
   return bstrOfBytes(s.subarray(0, len));
 }
-/** A `*const c_char` (NUL-terminated) argument, as a byte string. */
-const cstrArg = (s: string): string => bstrOfString(s);
+/** A `*const c_char` (NUL-terminated) argument, as a byte string. What LLVM makes of null depends on the type it becomes:
+ * `StringRef(const char*)` takes null as the empty string (llvm/ADT/StringRef.h:94), `Twine(const char*)` reads `Str[0]`
+ * (llvm/ADT/Twine.h:257), so a null there is a crash in the oracle and an error here. */
+function cstrArg(s: string | undefined, as: "StringRef" | "Twine", fn: string): string {
+  if (s === undefined) {
+    if (as === "StringRef") return "";
+    throw new Error(`llvm: ${fn}: Twine(const char*) of a null pointer`);
+  }
+  return bstrOfString(s);
+}
 
 const asFunction = (v: Value): Function => {
   if (!(v instanceof Function)) throw new Error("llvm: unwrap<Function> of a value that is not a function");
@@ -125,7 +139,7 @@ export function LLVMContextSetDiscardValueNames(C: Context, Discard: Bool): void
 }
 
 // llvm: llvm/lib/IR/Core.cpp:147 LLVMGetMDKindIDInContext
-export function LLVMGetMDKindIDInContext(C: Context, Name: PtrLenStr, SLen: number): MetadataKindId {
+export function LLVMGetMDKindIDInContext(C: Context, Name: PtrLenStr | undefined, SLen: number): MetadataKindId {
   return C.getMDKindID(bytesArg(Name, SLen)) as MetadataKindId;
 }
 
@@ -142,8 +156,9 @@ export const LLVM_VERSION: readonly [number, number, number] = [23, 1, 3];
 // ---- modules -----------------------------------------------------------------------------------------------------------
 
 // llvm: llvm/lib/IR/Core.cpp:299 LLVMModuleCreateWithNameInContext
-export function LLVMModuleCreateWithNameInContext(ModuleID: string, C: Context): Module {
-  return new Module(C, cstrArg(ModuleID));
+export function LLVMModuleCreateWithNameInContext(ModuleID: string | undefined, C: Context): Module {
+  // `new Module(StringRef ModuleID, ...)`.
+  return new Module(C, cstrArg(ModuleID, "StringRef", "LLVMModuleCreateWithNameInContext"));
 }
 
 // llvm: llvm/lib/IR/Core.cpp:329 LLVMGetDataLayoutStr
@@ -152,31 +167,58 @@ export function LLVMGetDataLayoutStr(M: Module): string | undefined {
 }
 
 // llvm: llvm/lib/IR/Core.cpp:337 LLVMSetDataLayout
-export function LLVMSetDataLayout(M: Module, Triple: string): void {
+export function LLVMSetDataLayout(M: Module, Triple: string | undefined): void {
   // `Module::setDataLayout(StringRef)`: `DataLayout::parseLayoutString` keeps the string as given.
-  M.dataLayout = cstrArg(Triple);
+  M.dataLayout = cstrArg(Triple, "StringRef", "LLVMSetDataLayout");
 }
 
 // rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:145 LLVMRustSetNormalizedTarget
-export function LLVMRustSetNormalizedTarget(M: Module, triple: string): void {
+export function LLVMRustSetNormalizedTarget(M: Module, triple: string | undefined): void {
+  // `Triple::normalize(StringRef Str)`: a null target is the empty string, which no D3 target is.
+  if (triple === undefined) return unported("llir: Triple::normalize(\"\")");
   // PORT: `Triple::normalize` is not in the model. The triples the D3 targets give LLVM are their own normal form, which the
   // C API differential test checks with libLLVM's `LLVMNormalizeTargetTriple`; any other triple stops.
   if (!NORMAL_TRIPLES.includes(triple)) return unported(`llir: Triple::normalize(${JSON.stringify(triple)})`);
-  M.targetTriple = cstrArg(triple);
+  M.targetTriple = cstrArg(triple, "StringRef", "LLVMRustSetNormalizedTarget");
 }
 /** Triples checked to be their own `Triple::normalize` (capi.oracle.test.ts). */
 export const NORMAL_TRIPLES: readonly string[] = ["x86_64-unknown-linux-gnu", "arm64-apple-macosx11.0.0"];
 
 // rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:929 LLVMRustAddModuleFlagU32
-export function LLVMRustAddModuleFlagU32(M: Module, MergeBehavior: ModuleFlagMergeBehavior, Name: PtrLenStr, NameLen: number, Value: number): void {
+export function LLVMRustAddModuleFlagU32(M: Module, MergeBehavior: ModuleFlagMergeBehavior, Name: PtrLenStr | undefined, NameLen: number, Value: number): void {
   // `fromRust(LLVMRustModuleFlagMergeBehavior)` maps each to the `Module::ModFlagBehavior` of the same value (1-8).
   // `Module::addModuleFlag(Behavior, Key, uint32_t)`: an i32 constant (Module.cpp:393).
   M.addModuleFlag(ModuleFlagMergeBehavior_discriminant[MergeBehavior], bytesArg(Name, NameLen), M.context.constantAsMetadata(getConstantInt(M.context.getIntType(32), BigInt(Value >>> 0))));
 }
 
 // rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:936 LLVMRustAddModuleFlagString
-export function LLVMRustAddModuleFlagString(M: Module, MergeBehavior: ModuleFlagMergeBehavior, Name: PtrLenStr, NameLen: number, Value: PtrLenStr, ValueLen: number): void {
+export function LLVMRustAddModuleFlagString(M: Module, MergeBehavior: ModuleFlagMergeBehavior, Name: PtrLenStr | undefined, NameLen: number, Value: PtrLenStr | undefined, ValueLen: number): void {
   M.addModuleFlag(ModuleFlagMergeBehavior_discriminant[MergeBehavior], bytesArg(Name, NameLen), M.context.getMDString(bytesArg(Value, ValueLen)));
+}
+
+// rustc: compiler/rustc_llvm/llvm-wrapper/PassWrapper.cpp:1202 LLVMRustSetModulePICLevel
+export function LLVMRustSetModulePICLevel(M: Module): void {
+  // `setPICLevel(PICLevel::Level::BigPIC)`; BigPIC is 2 (llvm/Support/CodeGen.h:36).
+  M.setPICLevel(2);
+}
+
+// rustc: compiler/rustc_llvm/llvm-wrapper/PassWrapper.cpp:1206 LLVMRustSetModulePIELevel
+export function LLVMRustSetModulePIELevel(M: Module): void {
+  // `setPIELevel(PIELevel::Level::Large)`; Large is 2 (llvm/Support/CodeGen.h:40).
+  M.setPIELevel(2);
+}
+
+// rustc: compiler/rustc_llvm/llvm-wrapper/PassWrapper.cpp:1210 LLVMRustSetModuleCodeModel
+export function LLVMRustSetModuleCodeModel(M: Module, Model: CodeModel): void {
+  // `fromRust(LLVMRustCodeModel)` (PassWrapper.cpp:138): `None` is no code model (nothing is set), the others map by name
+  // to `CodeModel::Model`, whose values are its order (CodeGen.h:31: Tiny, Small, Kernel, Medium, Large).
+  if (Model === "None") return;
+  M.setCodeModel(["Tiny", "Small", "Kernel", "Medium", "Large"].indexOf(Model));
+}
+
+// rustc: compiler/rustc_llvm/llvm-wrapper/PassWrapper.cpp:1218 LLVMRustSetModuleLargeDataThreshold
+export function LLVMRustSetModuleLargeDataThreshold(M: Module, Threshold: bigint): void {
+  M.setLargeDataThreshold(BigInt.asUintN(64, Threshold));
 }
 
 // rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:881 LLVMRustDebugMetadataVersion
@@ -191,8 +233,8 @@ export function LLVMRustVersionMajor(): number {
 }
 
 // llvm: llvm/lib/IR/Core.cpp:1489 LLVMAddNamedMetadataOperand
-export function LLVMAddNamedMetadataOperand(M: Module, Name: string, Val: Value): void {
-  const n = M.getOrInsertNamedMetadata(cstrArg(Name));
+export function LLVMAddNamedMetadataOperand(M: Module, Name: string | undefined, Val: Value): void {
+  const n = M.getOrInsertNamedMetadata(cstrArg(Name, "StringRef", "LLVMAddNamedMetadataOperand"));
   // `extractMDNode(MetadataAsValue*)`: the wrapped node; a wrapped value (ValueAsMetadata) would become a fresh MDNode.
   if (!(Val instanceof MetadataAsValue)) throw new Error("llvm: unwrap<MetadataAsValue> of a value that is not metadata");
   if (!(Val.md instanceof MDNode)) return unported("llir: LLVMAddNamedMetadataOperand of a non-node (extractMDNode wraps it)");
@@ -200,7 +242,7 @@ export function LLVMAddNamedMetadataOperand(M: Module, Name: string, Val: Value)
 }
 
 // llvm: llvm/lib/IR/Core.cpp:1322 LLVMMDStringInContext2
-export function LLVMMDStringInContext2(C: Context, Str: PtrLenStr, SLen: number): Metadata {
+export function LLVMMDStringInContext2(C: Context, Str: PtrLenStr | undefined, SLen: number): Metadata {
   return C.getMDString(bytesArg(Str, SLen));
 }
 
@@ -356,13 +398,14 @@ export function LLVMGetVectorSize(VectorTy: Type): number {
 }
 
 // llvm: llvm/lib/IR/Core.cpp:909 LLVMArrayType2
-export function LLVMArrayType2(ElementType: Type, ElementCount: number): Type {
+export function LLVMArrayType2(ElementType: Type, ElementCount: bigint): Type {
   return ElementType.context.getArrayType(ElementType, ElementCount);
 }
 
 // llvm: llvm/lib/IR/Core.cpp:841 LLVMStructCreateNamed
-export function LLVMStructCreateNamed(C: Context, Name: string): Type {
-  return C.createNamedStruct(cstrArg(Name));
+export function LLVMStructCreateNamed(C: Context, Name: string | undefined): Type {
+  // `StructType::create(Context, StringRef Name)`.
+  return C.createNamedStruct(cstrArg(Name, "StringRef", "LLVMStructCreateNamed"));
 }
 
 // llvm: llvm/lib/IR/Core.cpp:854 LLVMStructSetBody
@@ -394,12 +437,14 @@ export function LLVMTypeOf(Val: Value): Type {
 
 // llvm: llvm/lib/IR/Core.cpp:1057 LLVMGetValueName2
 export function LLVMGetValueName2(Val: Value, Length: MutRef<number>): string | undefined {
+  // PORT: `Length` is the name's byte length and the result its bytes decoded as UTF-8, where C hands back the bytes (rustc's
+  // `get_value_name` works on `&[u8]`). Lossless because every name rustc gives is a Rust `&str` (review llir-core-a N13).
   Length.value = Val.name.length;
   return stringOfBstr(Val.name);
 }
 
 // llvm: llvm/lib/IR/Core.cpp:1063 LLVMSetValueName2
-export function LLVMSetValueName2(Val: Value, Name: PtrLenStr, NameLen: number): void {
+export function LLVMSetValueName2(Val: Value, Name: PtrLenStr | undefined, NameLen: number): void {
   Val.setName(bytesArg(Name, NameLen));
 }
 
@@ -420,7 +465,8 @@ export function LLVMGlobalAddMetadata(Val: Value, KindID: MetadataKindId, Metada
 
 // rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:1171 LLVMRustWriteValueToString
 export function LLVMRustWriteValueToString(value_ref: Value, s: RustString): void {
-  // `(<type>:<value>)`.
+  // `(<type>:<value>)`. This reaches rustc's `Debug` for `Value`. Known differences from LLVM's text: a floating-point
+  // constant prints in hex and a non-C calling convention as `cc N` (printer.ts header, trace.ts `builtAnswer`).
   const text = `(${printTypeToString(value_ref.type)}:${printValueToString(value_ref)})`;
   for (const c of text) s.bytes.push(c.charCodeAt(0));
 }
@@ -475,19 +521,19 @@ export function LLVMConstReal(RealTy: Type, N: number): Value {
 }
 
 // llvm: llvm/lib/IR/Core.cpp:1738 LLVMConstArray2
-export function LLVMConstArray2(ElementTy: Type, ConstantVals: readonly Value[], Length: number): Value {
+export function LLVMConstArray2(ElementTy: Type, ConstantVals: readonly Value[], Length: bigint): Value {
   const ty = ElementTy.context.getArrayType(ElementTy, Length);
-  return getConstantArray(ty, ConstantVals.slice(0, Length).map(asConstant))!;
+  return getConstantArray(ty, ConstantVals.slice(0, Number(Length)).map(asConstant))!;
 }
 
 // llvm: llvm/lib/IR/Core.cpp:1693 LLVMConstStringInContext2
-export function LLVMConstStringInContext2(C: Context, Str: PtrLenStr, Length: number, DontNullTerminate: Bool): Value {
+export function LLVMConstStringInContext2(C: Context, Str: PtrLenStr | undefined, Length: number, DontNullTerminate: Bool): Value {
   // `ConstantDataArray::getString(Context, Str, AddNull = DontNullTerminate == 0)`: an [N x i8] data array.
   let bytes = bytesArg(Str, Length);
   if (!DontNullTerminate.is_true()) bytes += "\0";
   const i8 = C.getIntType(8);
   const elems = [...bytes].map((c) => getConstantInt(i8, BigInt(c.charCodeAt(0))));
-  return getConstantDataSequential(C.getArrayType(i8, elems.length), elems);
+  return getConstantDataSequential(C.getArrayType(i8, BigInt(elems.length)), elems);
 }
 
 // llvm: llvm/lib/IR/Core.cpp:1751 LLVMConstStructInContext
@@ -608,8 +654,9 @@ export function LLVMSetLinkage(Global: Value, RustLinkage: Linkage): void {
 }
 
 // llvm: llvm/lib/IR/Core.cpp:2127 LLVMSetSection
-export function LLVMSetSection(Global: Value, Section: string): void {
-  asGlobalObject(Global).setSection(cstrArg(Section));
+export function LLVMSetSection(Global: Value, Section: string | undefined): void {
+  // `setSection(StringRef)`.
+  asGlobalObject(Global).setSection(cstrArg(Section, "StringRef", "LLVMSetSection"));
 }
 
 // llvm: llvm/lib/IR/Core.cpp:2131 LLVMGetVisibility
@@ -659,14 +706,15 @@ function newGlobalVariable(M: Module, ty: Type, name: string, addressSpace: numb
 }
 
 // llvm: llvm/lib/IR/Core.cpp:2292 LLVMAddGlobal
-export function LLVMAddGlobal(M: Module, Ty: Type, Name: string): Value {
-  return newGlobalVariable(M, Ty, cstrArg(Name), M.layoutAddressSpace("G"));
+export function LLVMAddGlobal(M: Module, Ty: Type, Name: string | undefined): Value {
+  // The name is a `Twine`.
+  return newGlobalVariable(M, Ty, cstrArg(Name, "Twine", "LLVMAddGlobal"), M.layoutAddressSpace("G"));
 }
 
 // llvm: llvm/lib/IR/Core.cpp:2306 LLVMGetNamedGlobal
-export function LLVMGetNamedGlobal(M: Module, Name: string): Value | undefined {
+export function LLVMGetNamedGlobal(M: Module, Name: string | undefined): Value | undefined {
   // `Module::getNamedGlobal(Name)` is `getGlobalVariable(Name, AllowLocal = true)` (Module.h:521).
-  return M.getGlobalVariable(cstrArg(Name), true);
+  return M.getGlobalVariable(cstrArg(Name, "StringRef", "LLVMGetNamedGlobal"), true);
 }
 
 // llvm: llvm/lib/IR/Core.cpp:2315 LLVMGetFirstGlobal
@@ -724,10 +772,10 @@ export function LLVMSetExternallyInitialized(GlobalVar: Value, IsExtInit: Bool):
 }
 
 // llvm: llvm/lib/IR/Core.cpp:2428 LLVMAddAlias2
-export function LLVMAddAlias2(M: Module, ValueTy: Type, AddressSpace: number, Aliasee: Value, Name: string): Value {
+export function LLVMAddAlias2(M: Module, ValueTy: Type, AddressSpace: number, Aliasee: Value, Name: string | undefined): Value {
   // `GlobalAlias::create(Ty, AddressSpace, ExternalLinkage, Name, Aliasee, M)`.
   const ga = new GlobalAlias(M.context.getPointerType(AddressSpace), ValueTy, "ExternalLinkage", asConstant(Aliasee));
-  ga.name = cstrArg(Name);
+  ga.name = cstrArg(Name, "Twine", "LLVMAddAlias2");
   M.insertAlias(ga);
   return ga;
 }
@@ -749,9 +797,9 @@ export function LLVMSetUnnamedAddress(Global: Value, UnnamedAddr: UnnamedAddr): 
 }
 
 // llvm: llvm/lib/IR/Comdat.cpp:34 LLVMGetOrInsertComdat
-export function LLVMGetOrInsertComdat(M: Module, Name: string): Comdat {
+export function LLVMGetOrInsertComdat(M: Module, Name: string | undefined): Comdat {
   // `Module::getOrInsertComdat` (Module.cpp:621): a new comdat selects `Any`.
-  const n = cstrArg(Name);
+  const n = cstrArg(Name, "StringRef", "LLVMGetOrInsertComdat");
   let c = M.comdats.get(n);
   if (c === undefined) M.comdats.set(n, (c = new Comdat(n)));
   return c;
@@ -768,12 +816,12 @@ export function LLVMRustSetDSOLocal(Global: Value, is_dso_local: boolean): void 
 }
 
 // rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:221 LLVMRustGetOrInsertGlobal
-export function LLVMRustGetOrInsertGlobal(M: Module, Name: PtrLenStr, NameLen: number, T: Type): Value {
+export function LLVMRustGetOrInsertGlobal(M: Module, Name: PtrLenStr | undefined, NameLen: number, T: Type): Value {
   return LLVMRustGetOrInsertGlobalInAddrspace(M, Name, NameLen, T, M.layoutAddressSpace("G"));
 }
 
 // rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:201 LLVMRustGetOrInsertGlobalInAddrspace
-export function LLVMRustGetOrInsertGlobalInAddrspace(M: Module, Name: PtrLenStr, NameLen: number, T: Type, AddressSpace: number): Value {
+export function LLVMRustGetOrInsertGlobalInAddrspace(M: Module, Name: PtrLenStr | undefined, NameLen: number, T: Type, AddressSpace: number): Value {
   // We don't use Module::getOrInsertGlobal because that returns a Constant*, which may either be the real GlobalVariable*,
   // or a constant bitcast of it if our type doesn't match the original declaration.
   const name = bytesArg(Name, NameLen);
@@ -781,7 +829,7 @@ export function LLVMRustGetOrInsertGlobalInAddrspace(M: Module, Name: PtrLenStr,
 }
 
 // rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:169 LLVMRustGetNamedValue
-export function LLVMRustGetNamedValue(M: Module, Name: PtrLenStr, NameLen: number): Value | undefined {
+export function LLVMRustGetNamedValue(M: Module, Name: PtrLenStr | undefined, NameLen: number): Value | undefined {
   return M.getNamedValue(bytesArg(Name, NameLen));
 }
 
@@ -793,9 +841,9 @@ export function LLVMSetFunctionCallConv(Fn: Value, CC: number): void {
 }
 
 // llvm: llvm/lib/IR/Core.cpp:2483 LLVMAddFunction
-export function LLVMAddFunction(Mod: Module, Name: string, FunctionTy: Type): Value {
+export function LLVMAddFunction(Mod: Module, Name: string | undefined, FunctionTy: Type): Value {
   // `Function::Create(Ty, ExternalLinkage, Name, M)`: the address space is the data layout's program address space.
-  return new Function(FunctionTy as FunctionType, "ExternalLinkage", Mod.layoutAddressSpace("P"), cstrArg(Name), Mod);
+  return new Function(FunctionTy as FunctionType, "ExternalLinkage", Mod.layoutAddressSpace("P"), cstrArg(Name, "Twine", "LLVMAddFunction"), Mod);
 }
 
 // llvm: llvm/lib/IR/Core.cpp:2538 LLVMDeleteFunction
@@ -807,7 +855,7 @@ export function LLVMDeleteFunction(Fn: Value): void {
 }
 
 // llvm: llvm/lib/IR/Core.cpp:2489 LLVMGetOrInsertFunction
-export function LLVMGetOrInsertFunction(M: Module, Name: PtrLenStr, NameLen: number, FunctionTy: Type): Value {
+export function LLVMGetOrInsertFunction(M: Module, Name: PtrLenStr | undefined, NameLen: number, FunctionTy: Type): Value {
   // `Module::getOrInsertFunction(Name, Ty)` (Module.cpp:211): the named value if there is one, whatever its type.
   const name = bytesArg(Name, NameLen);
   return M.getNamedValue(name) ?? new Function(FunctionTy as FunctionType, "ExternalLinkage", M.layoutAddressSpace("P"), name, M);
@@ -888,21 +936,21 @@ export function LLVMRustCreateAttrNoValue(C: Context, RustAttr: AttributeKind): 
 }
 
 // rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:453 LLVMRustCreateAlignmentAttr
-export function LLVMRustCreateAlignmentAttr(C: Context, bytes: number): Attribute {
+export function LLVMRustCreateAlignmentAttr(C: Context, bytes: bigint): Attribute {
   return C.getAttribute(`align:${bytes}`, () => new Attribute("Alignment", (g) => (g ? `align=${bytes}` : `align ${bytes}`), false));
 }
 
 // rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:458 LLVMRustCreateDereferenceableAttr
-export function LLVMRustCreateDereferenceableAttr(C: Context, bytes: number): Attribute {
+export function LLVMRustCreateDereferenceableAttr(C: Context, bytes: bigint): Attribute {
   return C.getAttribute(`deref:${bytes}`, () => new Attribute("Dereferenceable", (g) => (g ? `dereferenceable=${bytes}` : `dereferenceable(${bytes})`), false));
 }
 
 // rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:464 LLVMRustCreateDereferenceableOrNullAttr
-export function LLVMRustCreateDereferenceableOrNullAttr(C: Context, bytes: number): Attribute {
+export function LLVMRustCreateDereferenceableOrNullAttr(C: Context, bytes: bigint): Attribute {
   return C.getAttribute(`deref_or_null:${bytes}`, () => new Attribute("DereferenceableOrNull", (g) => (g ? `dereferenceable_or_null=${bytes}` : `dereferenceable_or_null(${bytes})`), false));
 }
 
-const typeAttr = (kind: string, ty: Type): Attribute => ty.context.getAttribute(`type:${kind}:${ty.id}`, () => new Attribute(kind, () => `${ATTR_NAME[kind]}(${printTypeToString(ty)})`, false));
+const typeAttr = (kind: string, ty: Type): Attribute => ty.context.getAttribute(`type:${kind}:${ty.id}`, () => new Attribute(kind, () => `${ATTR_NAME[kind]}(${printTypeToString(ty)})`, false, ty));
 
 // rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:468 LLVMRustCreateByValAttr
 export function LLVMRustCreateByValAttr(_C: Context, ty: Type): Attribute {
@@ -936,15 +984,17 @@ export function LLVMRustCreateAllocSizeAttr(C: Context, ElementSizeArg: number):
 }
 
 // rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:558 LLVMRustCreateAllocKindAttr
-export function LLVMRustCreateAllocKindAttr(C: Context, size_arg: number): Attribute {
+export function LLVMRustCreateAllocKindAttr(C: Context, size_arg: bigint): Attribute {
   // `allocKindFromRust` maps each Rust flag to the AllocFnKind of the same name; `getAsString` lists the set ones in order.
-  const k = size_arg;
+  const k = Number(BigInt.asUintN(32, size_arg));
   const parts = (["alloc", "realloc", "free", "uninitialized", "zeroed", "aligned"] as const).filter((_, i) => k & (1 << i));
   return C.getAttribute(`allockind:${parts.join(",")}`, () => new Attribute("AllocKind", () => `allockind("${parts.join(",")}")`, false));
 }
 
 // llvm: llvm/lib/IR/Core.cpp:228 LLVMCreateStringAttribute
-export function LLVMCreateStringAttribute(C: Context, Name: PtrLenStr, NameLen: number, Value: PtrLenStr, ValueLen: number): Attribute {
+export function LLVMCreateStringAttribute(C: Context, Name: PtrLenStr | undefined, NameLen: number, Value: PtrLenStr | undefined, ValueLen: number): Attribute {
+  // `StringRef(K, KLength)`, `StringRef(V, VLength)`: rustc passes a null value with length 0 for a valueless attribute
+  // (`llvm::CreateAttrString`, llvm/mod.rs:104), which is the empty string.
   const k = bytesArg(Name, NameLen);
   const v = bytesArg(Value, ValueLen);
   // `Attribute::getAsString` of a string attribute: `"key"`, then `="value"` with the value escaped when it is not empty.
@@ -957,14 +1007,15 @@ export function LLVMRustAddFunctionAttributes(Fn: Value, index: number, Attrs: r
   const f = asFunction(Fn);
   let set = f.attributes.get(index);
   if (set === undefined) f.attributes.set(index, (set = new Map()));
-  for (const a of Attrs.slice(0, AttrsLen)) set.set(a.key, a);
+  for (const a of Attrs.slice(0, AttrsLen)) set.set(a.slot, a);
 }
 export { FUNCTION_INDEX };
 
 // ---- printing ----------------------------------------------------------------------------------------------------------
 
 // rustc: compiler/rustc_llvm/llvm-wrapper/PassWrapper.cpp:1154 LLVMRustPrintModule
-export function LLVMRustPrintModule(M: Module, Output: string, _Demangle: unknown): LLVMRustResult {
+export function LLVMRustPrintModule(M: Module, Output: string | undefined, _Demangle: unknown): LLVMRustResult {
+  if (Output === undefined) throw new Error("llvm: LLVMRustPrintModule: a null output path");
   // PORT: the oracle prints through an annotation writer that adds `; <demangled>` comments; the normal form drops every
   // comment line (plan-m7 §1b), so the model prints none.
   writeFileSync(Output, Buffer.from(printModule(M), "latin1"));

@@ -7,7 +7,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { UPSTREAM } from "../../../scripts/lib/common.ts";
 import { Unported } from "../../std/panic.ts";
-import { FFI_PATH, genFns, genTypes, implMap, parseFfi } from "./ffi_gen.ts";
+import { FFI_PATH, genFns, genTypes, implMap, parseFfi } from "../../../tools/llir/ffi_gen.ts";
 import * as L from "./ffi.ts";
 
 const FFI = join(UPSTREAM, FFI_PATH);

@@ -138,7 +138,8 @@ export class ArrayType extends Type {
   constructor(
     context: Context,
     readonly elementType: Type,
-    readonly numElements: number,
+    /** `uint64_t` (review N7: `[(); usize::MAX]`). */
+    readonly numElements: bigint,
   ) {
     super(context, "Array");
   }
@@ -795,7 +796,8 @@ export function getAggregateElement(c: Constant, elt: number): Constant | undefi
 
 /** Elements of an aggregate or vector type (`getNumElements` / `getStructNumElements`). */
 function elementCount(t: Type): number {
-  if (t instanceof ArrayType || t instanceof VectorType) return t.numElements;
+  if (t instanceof ArrayType) return t.numElements > BigInt(Number.MAX_SAFE_INTEGER) ? unported("llir: an aggregate element count beyond 2^53") : Number(t.numElements);
+  if (t instanceof VectorType) return t.numElements;
   if (t instanceof StructType) return t.body?.length ?? 0;
   return 0;
 }
@@ -1165,17 +1167,25 @@ export class MetadataAsValue extends Value {
 
 // ---- attributes --------------------------------------------------------------------------------------------------------
 
-/** An attribute (`Attribute`): `key` is the enum kind name (`NoAlias`) or the string attribute's key; `text` and `groupText`
- * are `Attribute::getAsString(false)` and `getAsString(true)` (they differ only for `align`). Types print lazily. */
+/** An attribute (`Attribute`): `key` is the enum kind name (`NoAlias`) or the string attribute's key; `print(inGroup)` is
+ * `Attribute::getAsString(inGroup)` (they differ only for `align`); `type` is a type attribute's type. */
 export class Attribute {
   constructor(
     readonly key: string,
     readonly print: (inGroup: boolean) => string,
     readonly isString: boolean,
+    readonly type?: Type,
   ) {}
+  /** What an `AttrBuilder` replaces by: enum kinds and string keys are separate spaces (review N8). */
+  get slot(): string {
+    return this.isString ? `str:${this.key}` : `kind:${this.key}`;
+  }
 }
 
 // ---- modules and contexts ----------------------------------------------------------------------------------------------
+
+/** `Module::ModFlagBehavior` (Module.h; ffi.rs's `ModuleFlagMergeBehavior` mirrors its values). */
+export const MOD_FLAG_BEHAVIOR = { Error: 1, Warning: 2, Require: 3, Override: 4, Append: 5, AppendUnique: 6, Max: 7, Min: 8 } as const;
 
 export class Module {
   readonly globals: GlobalVariable[] = [];
@@ -1247,6 +1257,30 @@ export class Module {
     this.getOrInsertNamedMetadata("llvm.module.flags").push(ctx.getMDNode(ops));
   }
 
+  // llvm: llvm/lib/IR/Module.cpp:637 Module::setPICLevel
+  setPICLevel(pl: number): void {
+    // The merge result of a non-PIC object and a PIC object can only be reliably used as a non-PIC object, so use the Min
+    // merge behavior (8).
+    this.addModuleFlag(MOD_FLAG_BEHAVIOR.Min, "PIC Level", this.context.constantAsMetadata(getConstantInt(this.context.getIntType(32), BigInt(pl))));
+  }
+
+  // llvm: llvm/lib/IR/Module.cpp:653 Module::setPIELevel
+  setPIELevel(pl: number): void {
+    this.addModuleFlag(MOD_FLAG_BEHAVIOR.Max, "PIE Level", this.context.constantAsMetadata(getConstantInt(this.context.getIntType(32), BigInt(pl))));
+  }
+
+  // llvm: llvm/lib/IR/Module.cpp:667 Module::setCodeModel
+  setCodeModel(cl: number): void {
+    // Linking object files with different code models is undefined behavior; mixing them is treated as an error.
+    this.addModuleFlag(MOD_FLAG_BEHAVIOR.Error, "Code Model", this.context.constantAsMetadata(getConstantInt(this.context.getIntType(32), BigInt(cl))));
+  }
+
+  // llvm: llvm/lib/IR/Module.cpp:685 Module::setLargeDataThreshold
+  setLargeDataThreshold(threshold: bigint): void {
+    // Since the large data threshold goes along with the code model, the merge behavior is the same; the value is an i64.
+    this.addModuleFlag(MOD_FLAG_BEHAVIOR.Error, "Large Data Threshold", this.context.constantAsMetadata(getConstantInt(this.context.getIntType(64), threshold)));
+  }
+
   /** The default address spaces of the data layout (`DataLayout::getProgramAddressSpace`, `getDefaultGlobalsAddressSpace`). */
   layoutAddressSpace(component: "P" | "G"): number {
     // PORT: the model does not parse data layouts. Both default to 0, and no layout the D3 targets use names `P` or `G`;
@@ -1313,7 +1347,7 @@ export class Context {
   }
 
   // llvm: llvm/lib/IR/Type.cpp:817 ArrayType::get
-  getArrayType(elem: Type, n: number): ArrayType {
+  getArrayType(elem: Type, n: bigint): ArrayType {
     const k = `A:${elem.id}:${n}`;
     let t = this.types.get(k);
     if (t === undefined) this.types.set(k, (t = new ArrayType(this, elem, n)));

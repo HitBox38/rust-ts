@@ -1,13 +1,15 @@
 // rust-ts: unit tests of the IR model's own rules (lane llir-core-a), through ffi.ts as the ported codegen calls it. The
 // differential tests against libLLVM are capi.oracle.test.ts; the proof against rustc's IR is proof.oracle.test.ts.
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { UPSTREAM } from "../../../scripts/lib/common.ts";
 import { Unported } from "../../std/panic.ts";
 import * as L from "./ffi.ts";
 import { ConstantExpr, GlobalVariable } from "./ir.ts";
 import { printModule, printValueToString } from "./printer.ts";
+import { parseScript, replay } from "./replay.ts";
 
 function fresh() {
   const C = L.LLVMContextCreate();
@@ -19,7 +21,7 @@ describe("types and constants are uniqued", () => {
   test("types", () => {
     const { C, i8 } = fresh();
     expect(L.LLVMInt8TypeInContext(C)).toBe(i8);
-    expect(L.LLVMArrayType2(i8, 3)).toBe(L.LLVMArrayType2(i8, 3));
+    expect(L.LLVMArrayType2(i8, 3n)).toBe(L.LLVMArrayType2(i8, 3n));
     expect(L.LLVMStructTypeInContext(C, [i8, i8], 2, L.FALSE)).toBe(L.LLVMStructTypeInContext(C, [i8, i8], 2, L.FALSE));
     expect(L.LLVMStructTypeInContext(C, [i8], 1, L.TRUE)).not.toBe(L.LLVMStructTypeInContext(C, [i8], 1, L.FALSE));
     // Identified structs are distinct even with one name (the second is renamed).
@@ -146,4 +148,68 @@ L.LLVMSetValueName2(L.LLVMGetParam(f, 0), "x", 1); L.LLVMSetValueName2(L.LLVMGet
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+describe("review llir-core-a fixes", () => {
+  test("F2: null C pointers where C accepts them", () => {
+    const { C, M, i8 } = fresh();
+    // `llvm::CreateAttrString` passes a null value with length 0 (llvm/mod.rs:104).
+    const a = L.LLVMCreateStringAttribute(C, "probe", 5, undefined, 0);
+    expect(a.print(true)).toBe('"probe"');
+    // `StringRef(const char*)` takes null as empty; `Twine(const char*)` dereferences it.
+    expect(L.LLVMGetNamedGlobal(M, undefined)).toBeUndefined();
+    expect(() => L.LLVMAddGlobal(M, i8, undefined)).toThrow("Twine");
+  });
+  test("F1: PIC, PIE, code model and large data threshold wrappers", () => {
+    const { M } = fresh();
+    L.LLVMRustSetModulePICLevel(M);
+    L.LLVMRustSetModulePIELevel(M);
+    L.LLVMRustSetModuleCodeModel(M, "None");
+    L.LLVMRustSetModuleCodeModel(M, "Large");
+    L.LLVMRustSetModuleLargeDataThreshold(M, 65536n);
+    const text = printModule(M);
+    expect(text).toContain('!{i32 8, !"PIC Level", i32 2}');
+    expect(text).toContain('!{i32 7, !"PIE Level", i32 2}');
+    expect(text).toContain('!{i32 1, !"Code Model", i32 4}');
+    expect(text).toContain('!{i32 1, !"Large Data Threshold", i64 65536}');
+    expect(text.match(/Code Model/g)?.length).toBe(1);
+  });
+  test("N8: a string attribute never replaces an enum attribute of the same name", () => {
+    const { C, M, i32 } = fresh();
+    const f = L.LLVMAddFunction(M, "f", L.LLVMFunctionType(i32, [], 0, L.FALSE));
+    L.LLVMRustAddFunctionAttributes(f, 0xffffffff, [L.LLVMRustCreateAttrNoValue(C, "NoUnwind"), L.LLVMCreateStringAttribute(C, "NoUnwind", 8, "x", 1)], 2);
+    expect(printModule(M)).toContain('attributes #0 = { nounwind "NoUnwind"="x" }');
+  });
+  test("N9: a named struct used only in a declaration's type attribute gets its definition", () => {
+    const { C, M, i32, ptr } = fresh();
+    const T = L.LLVMStructCreateNamed(C, "T");
+    L.LLVMStructSetBody(T, [i32], 1, L.FALSE);
+    const f = L.LLVMAddFunction(M, "f", L.LLVMFunctionType(L.LLVMVoidTypeInContext(C), [ptr], 1, L.FALSE));
+    L.LLVMRustAddFunctionAttributes(f, 1, [L.LLVMRustCreateByValAttr(C, T)], 1);
+    const text = printModule(M);
+    expect(text).toContain("%T = type { i32 }");
+    expect(text).toContain("declare void @f(ptr byval(%T))");
+  });
+});
+
+describe.skipIf(!existsSync(UPSTREAM))("replay catches", () => {
+  const head = ['1\t%1 = LLVMContextCreate()', '1\t%2 = LLVMModuleCreateWithNameInContext("m", %1)'];
+  const run = (lines: string[]) => replay(parseScript([...head, ...lines, ""].join("\n")), UPSTREAM);
+  test("over-uniquing: one object where the oracle returned two handles", () => {
+    expect(() => run(["1\t%3 = LLVMInt32TypeInContext(%1)", "1\t%4 = LLVMInt32TypeInContext(%1)"])).toThrow("over-uniquing");
+  });
+  test("under-uniquing: two objects where the oracle returned one handle", () => {
+    expect(() => run(['1\t%3 = LLVMStructCreateNamed(%1, "T")', '1\t%3 = LLVMStructCreateNamed(%1, "U")'])).toThrow("under-uniquing");
+  });
+  test("an out-parameter that differs", () => {
+    expect(() => run(["1\t%3 = LLVMInt8TypeInContext(%1)", '1\t%4 = LLVMAddGlobal(%2, %3, "x")', '1\tLLVMGetValueName2(%4, &5) -> "x"'])).toThrow("out-parameter");
+  });
+  test("an effect no rustc wrapper produces", () => {
+    expect(() => run(['1\t?flag %2 2 "not-a-rustc-flag" s "v"'])).toThrow("no rustc call site");
+    expect(() => run(['1\t?function %3 "llvm.x" %2'])).toThrow("hidden wrapper");
+  });
+  test("module flags go through the wrapper rustc calls for them", () => {
+    const r = run(['1\t?flag %2 8 "PIC Level" i 2', '1\t?flag %2 7 "PIE Level" i 2', '1\t?flag %2 1 "Code Model" i 4', '1\t?flag %2 2 "RtLibUseGOT" i 1']);
+    expect([...r.inferredBy.keys()].sort()).toEqual(["LLVMRustAddModuleFlagU32", "LLVMRustSetModuleCodeModel", "LLVMRustSetModulePICLevel", "LLVMRustSetModulePIELevel"]);
+  });
 });

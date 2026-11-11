@@ -1,34 +1,37 @@
-// rust-ts: generator of the IR model's contract (plan-m7 D4, D5; review plan-m7 F6; lane llir-core-a). Not ported code.
+// rust-ts: generator of the IR model's contract (src/rust_ts/llvm/) (plan-m7 D4, D5; review plan-m7 F6; lane llir-core-a). Not ported code.
 //
 // `rustc_codegen_llvm/src/llvm/ffi.rs` is the seam: the ported codegen calls its functions, and the model in this directory
 // answers them in place of libLLVM. This file reads ffi.rs **at the pin** and writes the two generated files of the contract:
 //
 //   ffi_types.ts  the enums and bitflags ffi.rs declares (PORTING §5 shapes), and the debuginfo handle aliases
 //   ffi.ts        one export per `fn` of ffi.rs, in ffi.rs's order, named as in ffi.rs and typed from its signature. A name an
-//                 implementation module (`IMPL_MODULES`) exports is bound to it; any other is a stub that stops with
+//                 implementation module (src/rust_ts/llvm/impl_modules.ts `IMPL_MODULES`) exports is bound to it; any other is a stub that stops with
 //                 `unported("llir: <name>")`. Every export goes through `bind` (trace.ts), which writes the port's side of the
 //                 call trace when `RUST_TS_LLVM_TRACE` is set (scripts/lib/llvm-trace.ts's format).
 //
-//   bun src/rust_ts/llvm/ffi_gen.ts           rewrite both files
-//   bun src/rust_ts/llvm/ffi_gen.ts --check   exit 1 with an ERROR line if either file is not what this generator writes now
+//   bun tools/llir/ffi_gen.ts           rewrite both files
+//   bun tools/llir/ffi_gen.ts --check   exit 1 with an ERROR line if either file is not what this generator writes now
 //
 // ffi.test.ts runs the check, and checks the contract against ffi.rs independently of this generator's own output (every fn,
 // in order, with its arity), so a stale contract or a fn lost by the parser fails a unit test.
 //
 // Types (PORT decisions, recorded in docs/handoff/llir-core-a.md):
-// - Handles (`&Value`, `&'a mut Builder<'a>`, `ptr::NonNull<TargetMachine>`) are the handle types of handles.ts; `Option<&T>` and a
-//   returned `*mut T` are `T | undefined`.
+// - Handles (`&Value`, `&'a mut Builder<'a>`, `ptr::NonNull<TargetMachine>`) are the handle types of handles.ts. A reference
+//   (`&T`, `NonNull`) is never null; `Option<&T>` and **every raw pointer** (`*const T` / `*mut T` of a handle, `c_char`,
+//   `c_uchar` or `u8`, as parameter or result) are `T | undefined`, since C allows null and rustc passes `ptr::null()` to some
+//   (review llir-core-a F2: `LLVMCreateStringAttribute`'s value, `LLVMSetCurrentDebugLocation2`, `LLVMRustConstPtrAuth`, ...).
 // - Pointer and length pairs stay two parameters, as in ffi.rs, so a ported call reads like the Rust one: a `*const &T` is
-//   `readonly T[]`, a PTR_LEN_STR `*const c_uchar` is `PtrLenStr` (a `string` is its UTF-8 bytes), a `*const c_char` is `string`.
-// - `u64` / `c_ulonglong` / `i64` are `bigint` (a value: `LLVMConstInt`'s `N`), except parameters whose name says they are a count,
-//   size, length, byte count, alignment, offset or bit width, which stay below 2^53 and are `number` (PORTING §5).
+//   `readonly T[]` (a `ptr::null()` with length 0 is ported as `[]`), a PTR_LEN_STR `*const c_uchar` is `PtrLenStr` (a
+//   `string` is its UTF-8 bytes), a `*const c_char` is `string`.
+// - 64-bit integers (`u64`, `c_ulonglong`, `i64`) are `bigint`, counts included: no width below 2^53 is provable from the type
+//   (review N7: `[(); usize::MAX]`'s `LLVMArrayType2`). `size_t` / `usize` / `c_uint` are `number`, as PORTING §5 maps `usize`.
 // - Out-parameters (`&mut c_uint`, `*mut size_t`) are `MutRef<T>` (PORTING §8); C callbacks are `unknown` (driver lanes refine them).
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 export const FFI_PATH = "compiler/rustc_codegen_llvm/src/llvm/ffi.rs";
-/** Implementation modules, in the order they are searched. llir-core-b and later llir lanes add theirs here. */
-export const IMPL_MODULES = ["./core.ts"] as const;
+/** The model's directory: the generated files go there, and impl_modules.ts's paths are relative to it. */
+export const MODEL_DIR = join(import.meta.dir, "..", "..", "src", "rust_ts", "llvm");
 
 export interface FfiParam {
   name: string;
@@ -200,9 +203,6 @@ export function parseFfi(raw: string): FfiItems {
 const RESERVED = new Set(["default", "new", "delete", "this", "in", "function", "var", "class", "enum", "export", "import", "super", "switch", "case", "with", "yield", "void", "null", "typeof", "instanceof", "package", "interface", "private", "protected", "public", "static", "let", "const", "catch", "finally", "throw", "try", "do", "debugger"]);
 export const tsParamName = (n: string): string => (RESERVED.has(n) ? `${n}_` : n);
 
-/** Parameters whose `u64` holds a count, size or similar (< 2^53): `number`; any other `u64` is `bigint`. */
-const SMALL_U64 = /count|size|len|align|offset|bits|elements|bytes/i;
-
 /** Handle types: the opaque types of ffi.rs plus the handles the generator knows from other files. */
 const EXTRA_HANDLES = ["DIBuilder", "RustString"];
 
@@ -216,7 +216,6 @@ export function tsType(rust: string, param: string | undefined, items: FfiItems,
     const h = s.replace(/^(&mut |&|ptr::NonNull<|\*const |\*mut )/, "").replace(/>$/, "").replace(/<.*>$/, "").replace(/^crate::llvm::|^llvm::/, "");
     return handles.has(h) ? h : undefined;
   };
-  const small = param !== undefined && SMALL_U64.test(param);
   switch (t) {
     case "Bool":
     case "llvm::Bool":
@@ -236,18 +235,19 @@ export function tsType(rust: string, param: string | undefined, items: FfiItems,
     case "u64":
     case "c_ulonglong":
     case "i64":
-      return small ? "number" : "bigint";
+      return "bigint";
     case "MetadataKindId":
     case "LLVMRustResult":
       return t;
+    // Raw pointers may be null in C, and rustc passes null to some (`ptr::null()`): every raw pointer is `| undefined`.
     case "*const c_char":
-      return ret ? "string | undefined" : "string";
+      return "string | undefined";
     case "*mut c_char":
       return ret ? "string | undefined" : "unknown";
     case "*const c_uchar":
-      return "PtrLenStr";
+      return "PtrLenStr | undefined";
     case "*const u8":
-      return "Uint8Array";
+      return "Uint8Array | undefined";
     case "*const u64":
       return "readonly bigint[]";
     case "*const c_uint":
@@ -266,7 +266,7 @@ export function tsType(rust: string, param: string | undefined, items: FfiItems,
     case "&mut size_t":
       return "MutRef<number>";
     case "&mut u64":
-      return small ? "MutRef<number>" : "MutRef<bigint>";
+      return "MutRef<bigint>";
     case "&mut *const c_char":
       return "MutRef<string | undefined>";
     case "&mut DiagnosticLevel":
@@ -298,15 +298,14 @@ export function tsType(rust: string, param: string | undefined, items: FfiItems,
   if (m && handleOf(m[1]!)) return `readonly ${handleOf(m[1]!)}[]`;
   m = /^\*mut &(\w+)$/.exec(t);
   if (m && handleOf(m[1]!)) return `${handleOf(m[1]!)}[]`;
-  if (/^\*mut /.test(t) && handleOf(t)) return ret ? `${handleOf(t)} | undefined` : handleOf(t)!;
-  if (/^\*const /.test(t) && handleOf(t)) return ret ? `${handleOf(t)} | undefined` : handleOf(t)!;
+  if (/^\*(mut|const) /.test(t) && handleOf(t)) return `${handleOf(t)} | undefined`;
   if (handleOf(t)) return handleOf(t)!;
   throw new Error(`ffi_gen: no TS type for \`${rust}\`${param ? ` (parameter ${param})` : ""}`);
 }
 
 const HEADER = (what: string) =>
-  `// GENERATED by src/rust_ts/llvm/ffi_gen.ts from ${FFI_PATH} at the pin (${what}). Do not edit: change the generator or
-// an implementation module and rerun \`bun src/rust_ts/llvm/ffi_gen.ts\`. Not ported code (lane llir-core-a).
+  `// GENERATED by tools/llir/ffi_gen.ts from ${FFI_PATH} at the pin (${what}). Do not edit: change the generator or
+// an implementation module (impl_modules.ts) and rerun \`bun tools/llir/ffi_gen.ts\`. Not ported code (lane llir-core-a).
 `;
 
 /** ffi_types.ts: enums (string unions + companion + discriminants), bitflags (branded numbers + `flags_companion`), aliases. */
@@ -359,6 +358,7 @@ export function genFns(items: FfiItems, impls: ReadonlyMap<string, string>): str
 /** Which implementation module exports each ffi fn (the first in `IMPL_MODULES` order). */
 export async function implMap(items: FfiItems, dir: string): Promise<Map<string, string>> {
   const map = new Map<string, string>();
+  const { IMPL_MODULES } = (await import(join(dir, "impl_modules.ts"))) as { IMPL_MODULES: readonly string[] };
   for (const m of IMPL_MODULES) {
     const mod = (await import(join(dir, m))) as Record<string, unknown>;
     for (const f of items.fns) if (!map.has(f.name) && typeof mod[f.name] === "function") map.set(f.name, m);
@@ -372,8 +372,8 @@ export async function generate(upstream: string, dir: string): Promise<{ types: 
 }
 
 if (import.meta.main) {
-  const { UPSTREAM } = await import("../../../scripts/lib/common.ts");
-  const dir = import.meta.dir;
+  const { UPSTREAM } = await import("../../scripts/lib/common.ts");
+  const dir = MODEL_DIR;
   const items = parseFfi(readFileSync(join(UPSTREAM, FFI_PATH), "utf8"));
   const check = process.argv.includes("--check");
   const typesFile = join(dir, "ffi_types.ts");
@@ -395,7 +395,7 @@ if (import.meta.main) {
   if (check) {
     if (current(fnsFile) !== fns) stale.push("ffi.ts");
     if (stale.length) {
-      console.log(`ERROR: stale contract: ${stale.join(", ")}; run bun src/rust_ts/llvm/ffi_gen.ts`);
+      console.log(`ERROR: stale contract: ${stale.join(", ")}; run bun tools/llir/ffi_gen.ts`);
       process.exit(1);
     }
     console.log(`contract up to date: ${items.fns.length} fns, ${items.enums.length} enums, ${items.flags.length} bitflags`);
