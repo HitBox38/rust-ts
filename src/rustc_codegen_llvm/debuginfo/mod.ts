@@ -13,16 +13,52 @@ import type { BytePos, SourceFile, Span } from "../../rustc_span/lib.ts";
 import type { Symbol } from "../../rustc_span/symbol.ts";
 import type { FnAbi } from "../../rustc_target/callconv/mod.ts";
 import type { ExistentialTraitRef } from "../../rustc_type_ir/predicate.ts";
-import type { DILocation, DIScope, DIVariable, Value } from "../llvm/mod.ts";
+import type { DILocation, DIScope, DIVariable, Module, Value } from "../llvm/mod.ts";
+import type { Session } from "../../rustc_session/session.ts";
 import { unported } from "../../std/panic.ts";
 import { Builder } from "../builder.ts";
 import { CodegenCx } from "../context.ts";
 
-/** Placeholder (cg-contract): `pub(crate) struct CodegenUnitDebugContext<'ll, 'tcx>` (debuginfo/mod.rs), for `FullCx.dbg_cx`;
- *  never constructed until the debuginfo lane ports it. */
-export interface CodegenUnitDebugContext {
-  readonly __CodegenUnitDebugContext: never;
+/** `pub(crate) struct CodegenUnitDebugContext<'ll, 'tcx>` (debuginfo/mod.rs:51), for `FullCx.dbg_cx`. Its fields are the debuginfo
+ *  lane's to add; the methods other fill lanes call are typed stubs (review F2). */
+export class CodegenUnitDebugContext {
+  private constructor() {}
+
+  // Stub (cg-contract): new (debuginfo/mod.rs:64)
+  static new(_llmod: Module, _sess: Session): CodegenUnitDebugContext {
+    return unported("cg-di-a: compiler/rustc_codegen_llvm/src/debuginfo/mod.rs new");
+  }
+
+  // Stub (cg-contract): finalize (debuginfo/mod.rs:117)
+  finalize(): void {
+    return unported("cg-di-a: compiler/rustc_codegen_llvm/src/debuginfo/mod.rs finalize");
+  }
 }
+
+// ---- impl Builder (debuginfo/mod.rs:122): Cross-lane surface (cg-contract, review F2) ----
+declare module "../builder.ts" {
+  interface Builder {
+    get_dbg_loc(): DILocation | undefined;
+  }
+}
+
+// Stub (cg-contract): get_dbg_loc (debuginfo/mod.rs:123)
+Builder.prototype.get_dbg_loc = function (this: Builder): DILocation | undefined {
+  return unported("cg-di-a: compiler/rustc_codegen_llvm/src/debuginfo/mod.rs get_dbg_loc");
+};
+
+// ---- impl CodegenCx (debuginfo/mod.rs:681): Cross-lane surface (cg-contract, review F2) ----
+declare module "../context.ts" {
+  interface CodegenCx {
+    debuginfo_finalize(): void;
+  }
+}
+
+// Stub (cg-contract): debuginfo_finalize (debuginfo/mod.rs:727)
+CodegenCx.prototype.debuginfo_finalize = function (this: CodegenCx): void {
+  return unported("cg-di-a: compiler/rustc_codegen_llvm/src/debuginfo/mod.rs debuginfo_finalize");
+};
+
 
 // ---- impl DebugInfoCodegenMethods for CodegenCx (debuginfo/mod.rs:744) ----
 declare module "../context.ts" {

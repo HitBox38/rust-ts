@@ -11,7 +11,7 @@
 // - `print`, `has_zstd` and `has_mnemonic` are methods of the class, though `CodegenBackend` has no such members
 //   (ssa-contract decision 9): rustc_driver_impl reaches them only when it calls them on this class.
 // - Calls into code no lane has ported yet stop in a local stub naming its owner: `rustc_codegen_ssa::base::codegen_crate`
-//   (ssa-base), `OngoingCodegen::join` (ssa-write), `Session::fewer_names` (rustc_session), and the Enzyme / offload
+//   (ssa-base), `OngoingCodegen::join` (ssa-write), and the Enzyme / offload
 //   wrappers (out of M7, plan-m7 D18).
 // - `ModuleLlvm`'s `Drop` is a `drop()` method (llvm/mod.ts header); `ManuallyDrop` is erased.
 // - This backend is not registered: rustc_interface still constructs src/rust_ts/codegen_backend.ts's stand-in.
@@ -59,11 +59,6 @@ export interface LlvmWriteTypes extends WriteBackendTypes {
   ModuleBuffer: ModuleBuffer;
   TargetMachine: OwnedTargetMachine;
   ThinData: ThinData;
-}
-
-/** Stub (cg-contract): `rustc_session::Session::fewer_names` (session.rs) is not on the TS `Session` yet (rustc_session). */
-function fewer_names(_sess: Session): boolean {
-  return unported("rustc_session::Session::fewer_names (rustc_session/src/session.rs, not ported)");
 }
 
 /** Stub (cg-contract): `rustc_codegen_ssa::base::codegen_crate` (base.rs), lane ssa-base. */
@@ -467,7 +462,7 @@ export class ModuleLlvm {
   // rustc: compiler/rustc_codegen_llvm/src/back/llvm_backend.rs:436 new
   static new(tcx: TyCtxt, mod_name: string): ModuleLlvm {
     const llcx = llvm.LLVMContextCreate();
-    llvm.LLVMContextSetDiscardValueNames(llcx, llvm.to_llvm_bool(fewer_names(tcx.sess)));
+    llvm.LLVMContextSetDiscardValueNames(llcx, llvm.to_llvm_bool(tcx.sess.fewer_names()));
     const llmod_raw = create_module(tcx, llcx, mod_name);
     return new ModuleLlvm(llcx, llmod_raw, create_target_machine(tcx, mod_name));
   }
@@ -475,7 +470,7 @@ export class ModuleLlvm {
   // rustc: compiler/rustc_codegen_llvm/src/back/llvm_backend.rs:449 new_metadata
   static new_metadata(tcx: TyCtxt, mod_name: string): ModuleLlvm {
     const llcx = llvm.LLVMContextCreate();
-    llvm.LLVMContextSetDiscardValueNames(llcx, llvm.to_llvm_bool(fewer_names(tcx.sess)));
+    llvm.LLVMContextSetDiscardValueNames(llcx, llvm.to_llvm_bool(tcx.sess.fewer_names()));
     const llmod_raw = create_module(tcx, llcx, mod_name);
     return new ModuleLlvm(llcx, llmod_raw, create_informational_target_machine(tcx.sess));
   }

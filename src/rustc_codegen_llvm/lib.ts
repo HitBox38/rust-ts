@@ -11,8 +11,10 @@
 // - PORTING §5's extension pattern: context.ts (`GenericCx`, `SimpleCx`, `CodegenCx`) and builder.ts (`Builder`) never
 //   import the files that attach trait methods to them; this file imports those files for their side effects, then runs
 //   the auto-deref installers (context.ts `install_deref_methods`), which must see every method attached.
-// - Files of modules out of M7 (`typetree`, `builder::autodiff`, `builder::gpu_offload`, `llvm::enzyme_ffi`,
-//   `llvm::offload_ffi`; harness/scope.json) do not exist; `coverageinfo` holds only what the skeleton needs.
+// - Of the modules out of M7 (harness/scope.json), `coverageinfo`, `typetree`, `builder::autodiff` and
+//   `builder::gpu_offload` hold only the stubs other files call; `llvm::enzyme_ffi` and `llvm::offload_ffi` do not exist.
+// - Files that only export free fns (attributes.ts, callee.ts, va_arg.ts, debuginfo/metadata.ts, ...) are imported by
+//   their callers; this file imports the ones that attach methods to a class.
 // - Not yet imported by any other crate: rustc_interface still constructs src/rust_ts/codegen_backend.ts's stand-in
 //   (plan-m7 wave 40: the backend is not registered until codegen reaches the oracle).
 
@@ -51,6 +53,7 @@ import "./coverageinfo/mod.ts";
 // mod debuginfo;
 import "./debuginfo/mod.ts";
 // mod declare;
+import "./declare.ts";
 // mod diagnostics;
 // mod intrinsic;
 import "./intrinsic.ts";
@@ -62,6 +65,7 @@ import "./mono_item.ts";
 // mod type_;
 import "./type_.ts";
 // mod type_of;
+import "./type_of.ts";
 // mod typetree;
 // mod va_arg;
 // mod value;

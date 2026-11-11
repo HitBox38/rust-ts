@@ -4,10 +4,22 @@
 // is attached at run time, nor the auto-deref forwarders lib.ts installs. The member lists are the ssa-contract interfaces'
 // members (rustc_codegen_ssa/traits/*.ts), per implementing class.
 import { describe, expect, test } from "bun:test";
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { join } from "node:path";
+import type { Align } from "../rustc_abi/lib.ts";
+import type { TyAndLayout } from "../rustc_middle/ty/layout.ts";
+import type { Ty } from "../rustc_middle/ty/mod.ts";
+import { TyAndLayout as TyAndLayout_ } from "../rustc_abi/layout/ty.ts";
+import "../rustc_target/lib.ts";
+import { FnAbi } from "../rustc_target/callconv/mod.ts";
 import { Unported } from "../std/panic.ts";
 import { LlvmCodegenBackend } from "./lib.ts";
-import { Builder } from "./builder.ts";
+import * as attributes from "./attributes.ts";
+import { Builder, GenericBuilder } from "./builder.ts";
+import * as common from "./common.ts";
 import { CodegenCx, FullCx, GenericCx, SCx, SimpleCx } from "./context.ts";
+import * as llvm from "./llvm/mod.ts";
+import * as llvm_util from "./llvm_util.ts";
 
 /** Members of `BaseTypeCodegenMethods` (on `GenericCx`). */
 const GENERIC_CX = [
@@ -99,6 +111,74 @@ describe("stubs name their fill lane", () => {
   });
 });
 
+describe("stub counts per lane", () => {
+  // Every `unported("<lane>: ...")` in the crate's sources, by lane: trait methods, the cross-lane surface (review F2) and the
+  // callees of back/llvm_backend.ts. A fill lane that ports a stub lowers its count here.
+  const EXPECTED: Record<string, number> = {
+    "cg-abi-consts": 20,
+    "cg-asm": 4,
+    "cg-builder": 151,
+    "cg-context": 73,
+    "cg-di-a": 21,
+    "cg-intrinsic-a": 10,
+    "cg-intrinsic-b": 2,
+    "cg-lto-diag": 8,
+    "cg-types-attrs": 80,
+    "cg-write": 21,
+    "excluded (plan-m7 D18)": 10,
+    "llir": 2,
+    "rustc_codegen_llvm": 3,
+    "ssa-base": 1,
+    "ssa-write": 5,
+  };
+  test("matches the table in docs/handoff/cg-contract.md", () => {
+    const counts: Record<string, number> = {};
+    const walk = (dir: string): void => {
+      for (const name of readdirSync(dir)) {
+        const p = join(dir, name);
+        if (statSync(p).isDirectory()) walk(p);
+        else if (p.endsWith(".ts") && !p.endsWith(".test.ts")) {
+          for (const m of readFileSync(p, "utf8").matchAll(/unported\("([^:"]+):/g)) counts[m[1]!] = (counts[m[1]!] ?? 0) + 1;
+        }
+      }
+    };
+    walk(import.meta.dir);
+    expect(counts).toEqual(EXPECTED);
+  });
+});
+
+/** A fill lane's view (review F2): `cx.llcx()` and calls into other lanes' files typecheck as upstream reads. Each line is the
+ *  upstream form it stands for. tsc checks this function; the test below runs it over marker objects. */
+function fill_lane_sketch(cx: CodegenCx, bx: Builder, layout: TyAndLayout, fn_abi: FnAbi<Ty>, align: Align): unknown[] {
+  const out: unknown[] = [];
+  const step = (f: () => unknown): void => {
+    try {
+      out.push(f());
+    } catch (e) {
+      out.push(e instanceof Unported ? e.what : e);
+    }
+  };
+  step(() => cx.llcx()); // cx.llcx (type_.rs:152, ported)
+  step(() => bx.cx_.llmod()); // self.cx.llmod (field read written as the accessor)
+  step(() => bx.isize_ty()); // bx.isize_ty(), through Builder's deref to CodegenCx
+  step(() => cx.statics_to_rauw()); // context.rs:734, ported
+  step(() => bx.type_i1()); // bx.type_i1() (type_.rs, cg-types-attrs)
+  step(() => layout.llvm_type(cx)); // layout.llvm_type(cx) (type_of.rs LayoutLlvmExt)
+  step(() => fn_abi.llvm_type(cx)); // fn_abi.llvm_type(cx) (abi.rs FnAbiLlvmExt)
+  step(() => cx.declare_global("g", cx.type_i8())); // declare.rs
+  step(() => cx.const_bytes(new Uint8Array([1]))); // common.rs
+  step(() => cx.get_intrinsic("llvm.trap", [])); // context.rs:1087
+  step(() => attributes.apply_to_llfn(undefined as never, llvm.AttributePlace.Function, [])); // attributes::apply_to_llfn
+  step(() => common.val_ty(undefined as never)); // common::val_ty
+  step(() => bx.load_inherent(cx.type_i8(), undefined as never, align)); // bx.load(..) on a concrete Builder (review F1)
+  step(() => bx.call_intrinsic("llvm.trap", [], [])); // builder.rs:1881
+  step(() => Builder.build_inherent(cx, undefined as never)); // Builder::build(cx, llbb): the inherent fn, typed `Builder`
+  step(() => llvm_util.get_version()); // llvm_util::get_version
+  const built: () => Builder = () => Builder.build_inherent(cx, undefined as never);
+  void built;
+  return out;
+}
+
 describe("auto-deref", () => {
   /** A `FullCx` with marker values (`CodegenCx::new`, which builds real ones, is cg-context's). */
   function full_cx(): FullCx {
@@ -135,6 +215,47 @@ describe("auto-deref", () => {
     stops(() => bx.data_layout(), /^cg-builder: .* data_layout$/);
     // The Debug members of the associated types reach value.rs's impl.
     expect(bx.debug_Value).toBe(cx.debug_Value);
+  });
+
+  test("the fill-lane sketch: ported accessors answer, cross-lane calls stop in their owner's stub", () => {
+    const cx = new CodegenCx(full_cx());
+    const bx = new Builder("llbuilder" as never, cx, 0 as never);
+    const layout = Object.create(TyAndLayout_.prototype) as TyAndLayout;
+    const fn_abi = Object.create(FnAbi.prototype) as FnAbi<Ty>;
+    expect(fill_lane_sketch(cx, bx, layout, fn_abi, undefined as never)).toEqual([
+      "llcx",
+      "llmod",
+      "isize",
+      "field11",
+      "cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs type_i1",
+      expect.stringMatching(/^cg-types-attrs: .*\/type_of\.rs llvm_type$/) as unknown as string,
+      expect.stringMatching(/^cg-abi-consts: .*\/abi\.rs llvm_type$/) as unknown as string,
+      "cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs type_i8",
+      "cg-context: compiler/rustc_codegen_llvm/src/common.rs const_bytes",
+      "cg-context: compiler/rustc_codegen_llvm/src/context.rs get_intrinsic",
+      "cg-types-attrs: compiler/rustc_codegen_llvm/src/attributes.rs apply_to_llfn",
+      "cg-context: compiler/rustc_codegen_llvm/src/common.rs val_ty",
+      "cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs type_i8",
+      "cg-builder: compiler/rustc_codegen_llvm/src/builder.rs call_intrinsic",
+      "cg-builder: compiler/rustc_codegen_llvm/src/builder.rs build",
+      "cg-write: compiler/rustc_codegen_llvm/src/llvm_util.rs get_version",
+    ]);
+  });
+
+  test("inherent before trait (review F1): GenericBuilder's inherent methods keep the `_inherent` names", () => {
+    const names = ["trunc", "bitcast", "ret_void", "ret", "inbounds_gep", "store", "load", "va_arg"];
+    for (const n of names) {
+      expect(typeof (GenericBuilder.prototype as unknown as Record<string, unknown>)[`${n}_inherent`]).toBe("function");
+      // The trait method is a different member of `Builder`.
+      expect((Builder.prototype as unknown as Record<string, unknown>)[n]).not.toBe((GenericBuilder.prototype as unknown as Record<string, unknown>)[`${n}_inherent`]);
+    }
+    expect(typeof GenericBuilder.build_inherent).toBe("function");
+    expect(typeof GenericBuilder.append_block_inherent).toBe("function");
+    const bx = Object.create(Builder.prototype) as Builder;
+    stops(() => bx.load_inherent(undefined as never, undefined as never, undefined as never), /^cg-builder: .*\/builder\.rs load$/);
+    stops(() => bx.load(undefined as never, undefined as never, undefined as never), /^cg-builder: .*\/builder\.rs load$/);
+    expect(typeof (GenericCx.prototype as unknown as Record<string, unknown>).const_null_inherent).toBe("function");
+    expect(typeof (SimpleCx.prototype as unknown as Record<string, unknown>).val_ty_inherent).toBe("function");
   });
 });
 

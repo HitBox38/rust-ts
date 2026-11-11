@@ -19,7 +19,7 @@ import type { WrappingRange } from "../../rustc_abi/wrapping_range.ts";
 import { type Debug, debug_struct, debug_vec } from "../../std/fmt.ts";
 import { assert, unported, unwrap } from "../../std/panic.ts";
 import { expect_result, type Result } from "../../std/result.ts";
-import { from_utf8, type Utf8Error } from "../../std/str.ts";
+import { from_utf8, type Utf8Error, utf8_len } from "../../std/str.ts";
 import * as ffi from "../../rust_ts/llvm/ffi.ts";
 import {
   AllocKindFlags,
@@ -43,8 +43,8 @@ import {
   type Value,
   type Visibility,
 } from "../../rust_ts/llvm/ffi.ts";
-// PORT: rustc_llvm's `RustString` class. ffi.ts re-exports it type-only (`export type { RustString }` from handles.ts
-// shadows support.ts's class), so the value comes from the contract's support module (handoff, for the llir lanes).
+// `use rustc_llvm::RustString;` (mod.rs:10): rustc_llvm's Rust items live in src/rust_ts/llvm/support.ts, the TS home of
+// that crate's Rust side (src/rustc_llvm/ does not exist). ffi.rs only names the type, so ffi.ts re-exports it type-only.
 import { RustString } from "../../rust_ts/llvm/support.ts";
 
 
@@ -65,10 +65,8 @@ export const LLVMRustResult_impl = {
   },
 };
 
-/** UTF-8 byte length of a Rust `&str` (`name.len()`). */
-function str_len(s: string): number {
-  return Buffer.byteLength(s, "utf8");
-}
+/** `name.len()` of a Rust `&str` (PORTING §5: `utf8_len`). */
+const str_len = utf8_len;
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/mod.rs:37 AddFunctionAttributes
 export function AddFunctionAttributes(llfn: Value, idx: AttributePlace, attrs: readonly Attribute[]): void {

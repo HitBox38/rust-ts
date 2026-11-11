@@ -1,7 +1,7 @@
 // compiler/rustc_codegen_llvm/src/type_.rs: the SKELETON (lane cg-contract). The fill lane cg-types-attrs (plan-m7 §8 wave 41) owns this file and ports
 // type_.rs here, replacing each `Stub (cg-contract)` with its port.
 //
-// What is here: `impl BaseTypeCodegenMethods for GenericCx`, `impl LayoutTypeCodegenMethods for CodegenCx` and `impl
+// What is here: the inherent fns other lanes call (review F2; `llcx`, `llmod`, `isize_ty` ported), `impl BaseTypeCodegenMethods for GenericCx`, `impl LayoutTypeCodegenMethods for CodegenCx` and `impl
 // TypeMembershipCodegenMethods for CodegenCx`, and `impl fmt::Debug for Type` (the `debug_Type` / `debug_FunctionSignature`
 // members of `GenericCx`, context.ts header), as typed stubs attached with PORTING §5's extension pattern (lib.ts imports this file after the
 // class's own module).
@@ -11,13 +11,13 @@ import type { BaseTypeCodegenMethods, LayoutTypeCodegenMethods, TypeMembershipCo
 import type { TyAndLayout } from "../rustc_middle/ty/layout.ts";
 import type { Ty } from "../rustc_middle/ty/mod.ts";
 import type { CastTarget, FnAbi } from "../rustc_target/callconv/mod.ts";
-import type { Type, Value } from "./llvm/mod.ts";
+import type { Context, Module, Type, Value } from "./llvm/mod.ts";
+import type { FloatTy, IntTy, UintTy } from "../rustc_ast_ir/lib.ts";
 import { unported } from "../std/panic.ts";
 import { CodegenCx } from "./context.ts";
 import { GenericCx } from "./context.ts";
 import type { SCxBorrow } from "./context.ts";
 import type { Debug } from "../std/fmt.ts";
-import { GenericCx as GenericCx_ } from "./context.ts";
 
 // impl fmt::Debug for Type
 // Stub (cg-contract): <Type as Debug>::fmt (type_.rs:36)
@@ -25,8 +25,142 @@ export const debug_Type: Debug<Type> = (_self) => {
   return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs fmt");
 };
 // `CodegenObject: Debug` of `Type` and `FunctionSignature` (both `&Type`), as `GenericCx` members (context.ts header).
-Object.defineProperty(GenericCx_.prototype, "debug_Type", { get: () => debug_Type, configurable: true });
-Object.defineProperty(GenericCx_.prototype, "debug_FunctionSignature", { get: () => debug_Type, configurable: true });
+Object.defineProperty(GenericCx.prototype, "debug_Type", { get: () => debug_Type, configurable: true });
+Object.defineProperty(GenericCx.prototype, "debug_FunctionSignature", { get: () => debug_Type, configurable: true });
+
+// ---- impl GenericCx (type_.rs:47): Cross-lane surface (cg-contract, review F2) ----
+declare module "./context.ts" {
+  interface GenericCx<T extends SCxBorrow> {
+    type_named_struct(name: string): Type;
+    set_struct_body(ty: Type, els: readonly Type[], packed: boolean): void;
+    type_void(): Type;
+    type_ix(num_bits: number): Type;
+    type_vector(ty: Type, count: number): Type;
+    get_return_type(ty: Type): Type;
+    func_params_types(ty: Type): Type[];
+    func_is_variadic(ty: Type): boolean;
+    struct_element_types(ty: Type): Type[];
+  }
+}
+
+// Stub (cg-contract): type_named_struct (type_.rs:48)
+GenericCx.prototype.type_named_struct = function (this: GenericCx<SCxBorrow>, _name: string): Type {
+  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs type_named_struct");
+};
+
+// Stub (cg-contract): set_struct_body (type_.rs:53)
+GenericCx.prototype.set_struct_body = function (this: GenericCx<SCxBorrow>, _ty: Type, _els: readonly Type[], _packed: boolean): void {
+  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs set_struct_body");
+};
+
+// Stub (cg-contract): type_void (type_.rs:58)
+GenericCx.prototype.type_void = function (this: GenericCx<SCxBorrow>): Type {
+  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs type_void");
+};
+
+/** x Creates an integer type with the given number of bits, e.g., i24. `num_bits: u64`, a bit width: a `number`. */
+// Stub (cg-contract): type_ix (type_.rs:63)
+GenericCx.prototype.type_ix = function (this: GenericCx<SCxBorrow>, _num_bits: number): Type {
+  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs type_ix");
+};
+
+/** `count: u64`, a lane count: a `number` (as `vector_length`). */
+// Stub (cg-contract): type_vector (type_.rs:67)
+GenericCx.prototype.type_vector = function (this: GenericCx<SCxBorrow>, _ty: Type, _count: number): Type {
+  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs type_vector");
+};
+
+// Stub (cg-contract): get_return_type (type_.rs:80)
+GenericCx.prototype.get_return_type = function (this: GenericCx<SCxBorrow>, _ty: Type): Type {
+  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs get_return_type");
+};
+
+// Stub (cg-contract): func_params_types (type_.rs:84)
+GenericCx.prototype.func_params_types = function (this: GenericCx<SCxBorrow>, _ty: Type): Type[] {
+  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs func_params_types");
+};
+
+// Stub (cg-contract): func_is_variadic (type_.rs:94)
+GenericCx.prototype.func_is_variadic = function (this: GenericCx<SCxBorrow>, _ty: Type): boolean {
+  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs func_is_variadic");
+};
+
+// Stub (cg-contract): struct_element_types (type_.rs:98)
+GenericCx.prototype.struct_element_types = function (this: GenericCx<SCxBorrow>, _ty: Type): Type[] {
+  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs struct_element_types");
+};
+
+// ---- impl CodegenCx (type_.rs:108): Cross-lane surface (cg-contract, review F2) ----
+declare module "./context.ts" {
+  interface CodegenCx {
+    type_int_from_ty(t: IntTy): Type;
+    type_uint_from_ty(t: UintTy): Type;
+    type_float_from_ty(t: FloatTy): Type;
+  }
+}
+
+// Stub (cg-contract): type_int_from_ty (type_.rs:109)
+CodegenCx.prototype.type_int_from_ty = function (this: CodegenCx, _t: IntTy): Type {
+  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs type_int_from_ty");
+};
+
+// Stub (cg-contract): type_uint_from_ty (type_.rs:120)
+CodegenCx.prototype.type_uint_from_ty = function (this: CodegenCx, _t: UintTy): Type {
+  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs type_uint_from_ty");
+};
+
+// Stub (cg-contract): type_float_from_ty (type_.rs:131)
+CodegenCx.prototype.type_float_from_ty = function (this: CodegenCx, _t: FloatTy): Type {
+  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs type_float_from_ty");
+};
+
+// ---- impl GenericCx (type_.rs:151): `llcx` / `llmod` / `isize_ty` ported (`(**self).borrow().x`); Cross-lane surface (cg-contract, review F2) ----
+declare module "./context.ts" {
+  interface GenericCx<T extends SCxBorrow> {
+    llcx(): Context;
+    llmod(): Module;
+    isize_ty(): Type;
+    type_variadic_func(args: readonly Type[], ret: Type): Type;
+    type_i1(): Type;
+    type_struct(els: readonly Type[], packed: boolean): Type;
+    type_bf16(): Type;
+  }
+}
+
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:152 llcx
+GenericCx.prototype.llcx = function (this: GenericCx<SCxBorrow>): Context {
+  return this.deref().borrow().llcx;
+};
+
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:156 llmod
+GenericCx.prototype.llmod = function (this: GenericCx<SCxBorrow>): Module {
+  return this.deref().borrow().llmod;
+};
+
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:160 isize_ty
+GenericCx.prototype.isize_ty = function (this: GenericCx<SCxBorrow>): Type {
+  return this.deref().borrow().isize_ty;
+};
+
+// Stub (cg-contract): type_variadic_func (type_.rs:164)
+GenericCx.prototype.type_variadic_func = function (this: GenericCx<SCxBorrow>, _args: readonly Type[], _ret: Type): Type {
+  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs type_variadic_func");
+};
+
+// Stub (cg-contract): type_i1 (type_.rs:168)
+GenericCx.prototype.type_i1 = function (this: GenericCx<SCxBorrow>): Type {
+  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs type_i1");
+};
+
+// Stub (cg-contract): type_struct (type_.rs:172)
+GenericCx.prototype.type_struct = function (this: GenericCx<SCxBorrow>, _els: readonly Type[], _packed: boolean): Type {
+  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs type_struct");
+};
+
+// Stub (cg-contract): type_bf16 (type_.rs:183)
+GenericCx.prototype.type_bf16 = function (this: GenericCx<SCxBorrow>): Type {
+  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs type_bf16");
+};
 
 // ---- impl BaseTypeCodegenMethods for GenericCx (type_.rs:188) ----
 declare module "./context.ts" {

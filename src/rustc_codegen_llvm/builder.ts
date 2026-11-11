@@ -20,6 +20,24 @@
 // - `BuilderMethods::build` / `append_block` (no `self`) are statics of `Builder`, so `Builder` itself is the
 //   `BuilderMethodsStatic<LlvmTypes, CodegenCx, Builder>` that generic code takes as `Bx_` (ssa-contract decision 4).
 // - `BuilderMethods` defaults that builder.rs does not override forward to `BuilderMethods_provided`.
+// - **Inherent before trait (review F1; decision for root to record).** Rust tries a type's inherent methods before its trait
+//   methods at the same autoderef step. `impl<CX> GenericBuilder<CX>` has 10 inherent methods with the names of `BuilderMethods`
+//   methods that `Builder` implements: `append_block` (:101), `trunc` (:112), `bitcast` (:116), `ret_void` (:120), `ret` (:124),
+//   `build` (:130), `inbounds_gep` (:156), `store` (:175), `load` (:185), `va_arg` (:1875). So every direct call of those names
+//   on a concrete `Builder` / `SBuilder` / `GenericBuilder` inside rustc_codegen_llvm (`bx.load(..)` in va_arg.rs,
+//   intrinsic.rs, abi.rs, asm.rs, and in builder.rs itself, the trait impl's bodies included; `Builder::build(cx, llbb)`)
+//   calls the inherent method; only generic rustc_codegen_ssa code (`Bx: BuilderMethods`) reaches the trait method.
+//   In TS the subclass's trait method would shadow the base class's inherent one, so the rule is: **an inherent method
+//   whose name is also a trait method of the same type is named `<name>_inherent`**, and a crate call site writes the
+//   `_inherent` name exactly where upstream's resolution picks the inherent method (a method call or `Type::name` path on
+//   the concrete type), and the trait name where it picks the trait method (generic code, `BuilderMethods::name(bx, ..)`).
+//   Why a suffix and not a free function: the method stays on the class it belongs to, so `SBuilder` (which has no trait
+//   impl) and `Builder` share it, `this` is typed, and a grep for the upstream name finds both forms.
+//   Bodies: `load` and `store` **differ** (the trait methods clamp the alignment to `max_reliable_alignment()`, builder.rs:694
+//   and :887 via `store_with_flags`; the inherent ones do not); the other eight are identical, but follow the same rule so that
+//   no call site depends on which pair it is. The same rule covers `GenericCx`'s `const_null` / `const_struct` (common.rs:168,
+//   :172 against `ConstCodegenMethods`, identical bodies) and `SimpleCx`'s `val_ty` (context.rs:873 against
+//   `BaseTypeCodegenMethods::val_ty`, identical bodies). No other inherent/trait pair exists on these types (review F1's scan).
 // - `UNNAMED` (`c"".as_ptr()`) is `""`.
 import type { Align, Scalar, Size, TargetDataLayout } from "../rustc_abi/lib.ts";
 import type { WrappingRange } from "../rustc_abi/wrapping_range.ts";
@@ -56,7 +74,7 @@ import type { PolyFnSig } from "../rustc_type_ir/decls.ts";
 import { unported } from "../std/panic.ts";
 import type { Funclet, LlvmTypes } from "./common.ts";
 import type { CodegenCx, FullCx, GenericCx, SCx, SCxBorrow } from "./context.ts";
-import type * as llvm from "./llvm/mod.ts";
+import * as llvm from "./llvm/mod.ts";
 import type { BasicBlock, Type, Value } from "./llvm/mod.ts";
 
 // #[must_use]
@@ -72,6 +90,77 @@ export class GenericBuilder<CX extends SCxBorrow> {
   // Stub (cg-contract): GenericBuilder::drop
   drop(): void {
     return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs drop");
+  }
+
+  // ---- impl<CX: Borrow<SCx>> GenericBuilder<CX>: the inherent methods (review F1 and F2; header) ----
+  /** Inherent (header, review F1). */
+  // Stub (cg-contract): append_block (builder.rs:101)
+  static append_block_inherent<CX extends SCxBorrow>(_cx: GenericCx<CX>, _llfn: Value, _name: string): BasicBlock {
+    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs append_block");
+  }
+
+  /** Inherent (header, review F1). */
+  // Stub (cg-contract): trunc (builder.rs:112)
+  trunc_inherent(_val: Value, _dest_ty: Type): Value {
+    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs trunc");
+  }
+
+  /** Inherent (header, review F1). */
+  // Stub (cg-contract): bitcast (builder.rs:116)
+  bitcast_inherent(_val: Value, _dest_ty: Type): Value {
+    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs bitcast");
+  }
+
+  /** Inherent (header, review F1). */
+  // Stub (cg-contract): ret_void (builder.rs:120)
+  ret_void_inherent(): void {
+    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs ret_void");
+  }
+
+  /** Inherent (header, review F1). */
+  // Stub (cg-contract): ret (builder.rs:124)
+  ret_inherent(_v: Value): void {
+    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs ret");
+  }
+
+  /** Inherent (header, review F1). `-> Self`: called on `Builder` (`Builder::build(cx, llbb)`), it returns a `Builder`. */
+  // Stub (cg-contract): build (builder.rs:130)
+  static build_inherent<CX extends SCxBorrow, Self_ extends GenericBuilder<CX>>(this: new (llbuilder: llvm.Builder, cx_: GenericCx<CX>, span: Span) => Self_, _cx: GenericCx<CX>, _llbb: BasicBlock): Self_ {
+    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs build");
+  }
+
+  /** Inherent (header, review F1). */
+  // Stub (cg-contract): inbounds_gep (builder.rs:156)
+  inbounds_gep_inherent(_ty: Type, _ptr: Value, _indices: readonly Value[]): Value {
+    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs inbounds_gep");
+  }
+
+  /** Inherent (header, review F1). Its body differs from `BuilderMethods::store`, which clamps the alignment to `max_reliable_alignment()`. */
+  // Stub (cg-contract): store (builder.rs:175)
+  store_inherent(_val: Value, _ptr: Value, _align: Align): Value {
+    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs store");
+  }
+
+  /** Inherent (header, review F1). Its body differs from `BuilderMethods::load`, which clamps the alignment to `max_reliable_alignment()`. */
+  // Stub (cg-contract): load (builder.rs:185)
+  load_inherent(_ty: Type, _ptr: Value, _align: Align): Value {
+    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs load");
+  }
+
+  // Stub (cg-contract): add_clause (builder.rs:1819)
+  add_clause(_landing_pad: Value, _clause: Value): void {
+    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs add_clause");
+  }
+
+  // Stub (cg-contract): catch_ret (builder.rs:1825)
+  catch_ret(_funclet: Funclet, _unwind: BasicBlock): Value {
+    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs catch_ret");
+  }
+
+  /** Inherent (header, review F1). */
+  // Stub (cg-contract): va_arg (builder.rs:1875)
+  va_arg_inherent(_list: Value, _ty: Type): Value {
+    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs va_arg");
   }
 }
 
@@ -894,6 +983,33 @@ export class Builder extends GenericBuilder<FullCx> implements BuilderMethods<Ll
   // Stub (cg-contract): StaticBuilderMethods::get_static
   get_static(_def_id: DefId): Value {
     return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs get_static");
+  }
+
+  // ---- impl Builder (builder.rs:1584, :1642, :1880, :1929): Cross-lane surface (cg-contract, review F2) ----
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1585 llfn
+  llfn(): Value {
+      return llvm.LLVMGetBasicBlockParent(this.llbb());
+  }
+
+  // Stub (cg-contract): set_unpredictable (builder.rs:1652)
+  set_unpredictable(_inst: Value): void {
+    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs set_unpredictable");
+  }
+
+  // Stub (cg-contract): shuffle_vector (builder.rs:1749)
+  shuffle_vector(_v1: Value, _v2: Value, _mask: Value): Value {
+    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs shuffle_vector");
+  }
+
+  /** `base_name: impl Into<Cow<'static, str>>` */
+  // Stub (cg-contract): call_intrinsic (builder.rs:1881)
+  call_intrinsic(_base_name: string, _type_params: readonly Type[], _args: readonly Value[]): Value {
+    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs call_intrinsic");
+  }
+
+  // Stub (cg-contract): landing_pad (builder.rs:1930)
+  landing_pad(_ty: Type, _pers_fn: Value, _num_clauses: number): Value {
+    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs landing_pad");
   }
 }
 

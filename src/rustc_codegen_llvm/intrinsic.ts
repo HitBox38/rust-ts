@@ -11,7 +11,12 @@ import type { IntrinsicCallBuilderMethods } from "../rustc_codegen_ssa/traits/in
 import type { Instance } from "../rustc_middle/ty/instance.ts";
 import type { TyAndLayout } from "../rustc_middle/ty/layout.ts";
 import type { Span } from "../rustc_span/lib.ts";
-import type { Value } from "./llvm/mod.ts";
+import type { Type, Value } from "./llvm/mod.ts";
+import type { GenericArgsRef } from "../rustc_middle/ty/generic_args.ts";
+import type { Ty } from "../rustc_middle/ty/mod.ts";
+import type { ErrorGuaranteed } from "../rustc_span/lib.ts";
+import type { Symbol } from "../rustc_span/symbol.ts";
+import type { Result } from "../std/result.ts";
 import { unported } from "../std/panic.ts";
 import { Builder } from "./builder.ts";
 
@@ -80,3 +85,10 @@ Builder.prototype.retag_mem = function (this: Builder, _place: Value, _info: Ret
 Builder.prototype.retag_reg = function (this: Builder, _ptr: Value, _info: RetagInfo<Value>): Value {
   return unported("cg-intrinsic-a: compiler/rustc_codegen_llvm/src/intrinsic.rs retag_reg");
 };
+
+// Cross-lane surface (cg-contract, review F2): the SIMD half (intrinsic.rs:2047-end) is lane cg-intrinsic-b's (plan-m7 §8 wave 43).
+/** Private upstream (`fn`); exported for the scalar half. */
+// Stub (cg-contract): generic_simd_intrinsic (intrinsic.rs:2047)
+export function generic_simd_intrinsic(_bx: Builder, _name: Symbol, _fn_args: GenericArgsRef, _args: readonly OperandRef<Value>[], _ret_ty: Ty, _llret_ty: Type, _span: Span): Result<Value, ErrorGuaranteed> {
+  return unported("cg-intrinsic-b: compiler/rustc_codegen_llvm/src/intrinsic.rs generic_simd_intrinsic");
+}

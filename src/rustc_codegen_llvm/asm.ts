@@ -8,7 +8,7 @@ import type { AsmBuilderMethods, AsmCodegenMethods, GlobalAsmOperandRef, InlineA
 import type { Instance } from "../rustc_middle/ty/instance.ts";
 import type { Span } from "../rustc_span/lib.ts";
 import type { Funclet, LlvmTypes } from "./common.ts";
-import type { BasicBlock } from "./llvm/mod.ts";
+import type { AsmDialect, BasicBlock, Type, Value } from "./llvm/mod.ts";
 import { unported } from "../std/panic.ts";
 import { Builder } from "./builder.ts";
 import { CodegenCx } from "./context.ts";
@@ -42,3 +42,9 @@ declare module "./builder.ts" {
 Builder.prototype.codegen_inline_asm = function (this: Builder, _template: readonly InlineAsmTemplatePiece[], _operands: readonly InlineAsmOperandRef<LlvmTypes>[], _options: InlineAsmOptions, _line_spans: readonly Span[], _instance: Instance, _dest: BasicBlock | undefined, _catch_funclet: readonly [BasicBlock, Funclet | undefined] | undefined): void {
   return unported("cg-asm: compiler/rustc_codegen_llvm/src/asm.rs codegen_inline_asm");
 };
+
+// Cross-lane surface (cg-contract, review F2)
+// Stub (cg-contract): inline_asm_call (asm.rs:536)
+export function inline_asm_call(_bx: Builder, _asm: string, _cons: string, _inputs: readonly Value[], _output: Type, _labels: readonly BasicBlock[], _volatile: boolean, _alignstack: boolean, _dia: AsmDialect, _line_spans: readonly Span[], _unwind: boolean, _dest: BasicBlock | undefined, _catch_funclet: readonly [BasicBlock, Funclet | undefined] | undefined): Value | undefined {
+  return unported("cg-asm: compiler/rustc_codegen_llvm/src/asm.rs inline_asm_call");
+}

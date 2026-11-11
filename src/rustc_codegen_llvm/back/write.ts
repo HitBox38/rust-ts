@@ -9,6 +9,8 @@ import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import type { OptLevel } from "../../rustc_session/config.ts";
 import type { Session } from "../../rustc_session/session.ts";
 import { unported } from "../../std/panic.ts";
+import type { CodeModel } from "../../rustc_target/spec/mod.ts";
+import type * as llvm from "../llvm/mod.ts";
 import type { LlvmWriteTypes, ModuleLlvm } from "./llvm_backend.ts";
 import type { OwnedTargetMachine } from "./owned_target_machine.ts";
 
@@ -20,6 +22,11 @@ export function create_informational_target_machine(_sess: Session): OwnedTarget
 // Stub (cg-contract): create_target_machine (write.rs:105)
 export function create_target_machine(_tcx: TyCtxt, _mod_name: string): OwnedTargetMachine {
   return unported("cg-write: compiler/rustc_codegen_llvm/src/back/write.rs create_target_machine");
+}
+
+// Stub (cg-contract): to_llvm_code_model (back/write.rs:160)
+export function to_llvm_code_model(_code_model: CodeModel | undefined): llvm.CodeModel {
+  return unported("cg-write: compiler/rustc_codegen_llvm/src/back/write.rs to_llvm_code_model");
 }
 
 // Stub (cg-contract): target_machine_factory (write.rs:179)

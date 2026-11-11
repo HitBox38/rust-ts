@@ -22,10 +22,13 @@
 //   and the private `eh_personality` (`MiscCodegenMethods::eh_personality`). The `SCx` fields (`llmod`, `llcx`,
 //   `isize_ty`) are not forwarded either: upstream has the methods `llmod()`, `llcx()`, `isize_ty()` (type_.rs:152) that
 //   return them, so `cx.llcx` is written `cx.llcx()`.
-// - The deref `FullCx` -> `SimpleCx` gives `CodegenCx` the methods of `impl SimpleCx` (`val_ty`, `get_type_of_global`):
+// - The deref `FullCx` -> `SimpleCx` gives `CodegenCx` the methods of `impl SimpleCx` (`get_type_of_global`):
 //   `install_deref_methods(CodegenCx, SimpleCx, (cx) => cx._0.scx)` forwards every method of `SimpleCx.prototype` that
-//   `CodegenCx` lacks. It runs in lib.ts after every extension module is loaded; cg-context declares each forwarded
-//   method's type in `SimpleCxDeref` below.
+//   `CodegenCx` lacks. It runs in lib.ts after every extension module is loaded; each forwarded method's type is listed in
+//   `SimpleCxDeref` below. (`val_ty` is not one: `CodegenCx` has `BaseTypeCodegenMethods::val_ty`, which Rust picks before
+//   the deref; `impl SimpleCx`'s own `val_ty` is `val_ty_inherent`, builder.ts header.)
+// - Inherent methods with the name of a trait method of the same type (`GenericCx`'s `const_null` / `const_struct`,
+//   `SimpleCx`'s `val_ty`) are `<name>_inherent` (review F1; the rule is in builder.ts's header).
 // - Trait methods that collide with nothing keep their names. `HasTyCtxt::tcx` / `HasTypingEnv::typing_env` are `tcx_()`
 //   / `typing_env_()` (layout-contract), so `cx.tcx` stays the field.
 // - The associated types are `LlvmTypes` (common.ts, `impl BackendTypes for GenericCx`); `implements` below names the
@@ -65,7 +68,9 @@ import type { LlvmTypes } from "./common.ts";
 import type { CguCoverageContext } from "./coverageinfo/mod.ts";
 import type { CodegenUnitDebugContext } from "./debuginfo/mod.ts";
 import type { Debug } from "../std/fmt.ts";
-import type { Context, Module, ThreadLocalMode, Type, Value } from "./llvm/mod.ts";
+import type { Context, Metadata, MetadataKindId, Module, ThreadLocalMode, Type, Value } from "./llvm/mod.ts";
+import type { ModuleLlvm } from "./back/llvm_backend.ts";
+import type { OffloadGlobals, OffloadKernelGlobals } from "./builder/gpu_offload.ts";
 import { debug_Value } from "./value.ts";
 
 /** PORT (cg-contract): `rustc_sanitizers::ignorelist::SanitizerIgnoreList`. rustc_sanitizers is out of scope
@@ -73,10 +78,6 @@ import { debug_Value } from "./value.ts";
 export interface SanitizerIgnoreList {
   readonly __SanitizerIgnoreList: never;
 }
-/** PORT (cg-contract): `builder::gpu_offload::{OffloadGlobals, OffloadKernelGlobals}` (builder/gpu_offload.rs, `-Zoffload`,
- *  out of M7 per plan-m7 D18): never constructed. */
-export type OffloadGlobals = never;
-export type OffloadKernelGlobals = never;
 
 /// `TyCtxt` (and related cache datastructures) can't be move between threads.
 /// However, there are various cx related functions which we want to be available to the builder and
@@ -235,9 +236,73 @@ export class GenericCx<T extends SCxBorrow> {
   }
   declare readonly debug_Type: Debug<Type>;
   declare readonly debug_FunctionSignature: Debug<Type>;
+
+  // ---- impl<CX: Borrow<SCx>> GenericCx<CX> (context.rs:888, :1180): Cross-lane surface (cg-contract, review F2) ----
+  // Stub (cg-contract): get_metadata_value (context.rs:889)
+  get_metadata_value(_metadata: Metadata): Value {
+    return unported("cg-context: compiler/rustc_codegen_llvm/src/context.rs get_metadata_value");
+  }
+
+  /** `n: u64`, a constant's value: a `bigint` (ssa-contract decision 6). */
+  // Stub (cg-contract): get_const_i32 (context.rs:901)
+  get_const_i32(_n: bigint): Value {
+    return unported("cg-context: compiler/rustc_codegen_llvm/src/context.rs get_const_i32");
+  }
+
+  // Stub (cg-contract): get_md_kind_id (context.rs:913)
+  get_md_kind_id(_name: string): MetadataKindId {
+    return unported("cg-context: compiler/rustc_codegen_llvm/src/context.rs get_md_kind_id");
+  }
+
+  // Stub (cg-contract): create_metadata (context.rs:917)
+  create_metadata(_name: Uint8Array): Metadata {
+    return unported("cg-context: compiler/rustc_codegen_llvm/src/context.rs create_metadata");
+  }
+
+  // Stub (cg-contract): md_node_in_context (context.rs:1182)
+  md_node_in_context(_md_list: readonly Metadata[]): Metadata {
+    return unported("cg-context: compiler/rustc_codegen_llvm/src/context.rs md_node_in_context");
+  }
+
+  // Stub (cg-contract): set_metadata (context.rs:1187)
+  set_metadata(_val: Value, _kind_id: MetadataKindId, _md: Metadata): void {
+    return unported("cg-context: compiler/rustc_codegen_llvm/src/context.rs set_metadata");
+  }
+
+  // Stub (cg-contract): set_metadata_node (context.rs:1201)
+  set_metadata_node(_instruction: Value, _kind_id: MetadataKindId, _md_list: readonly Metadata[]): Metadata {
+    return unported("cg-context: compiler/rustc_codegen_llvm/src/context.rs set_metadata_node");
+  }
+
+  // Stub (cg-contract): module_add_named_metadata_node (context.rs:1216)
+  module_add_named_metadata_node(_module: Module, _kind_name: string, _md_list: readonly Metadata[]): void {
+    return unported("cg-context: compiler/rustc_codegen_llvm/src/context.rs module_add_named_metadata_node");
+  }
+
+  // Stub (cg-contract): global_add_metadata_node (context.rs:1230)
+  global_add_metadata_node(_global: Value, _kind_id: MetadataKindId, _md_list: readonly Metadata[]): void {
+    return unported("cg-context: compiler/rustc_codegen_llvm/src/context.rs global_add_metadata_node");
+  }
+
+  // Stub (cg-contract): global_set_metadata_node (context.rs:1243)
+  global_set_metadata_node(_global: Value, _kind_id: MetadataKindId, _md_list: readonly Metadata[]): void {
+    return unported("cg-context: compiler/rustc_codegen_llvm/src/context.rs global_set_metadata_node");
+  }
 }
 
 export class SimpleCx extends GenericCx<SCx> {
+  // ---- impl SimpleCx (context.rs:869): Cross-lane surface (cg-contract, review F2) ----
+  // Stub (cg-contract): get_type_of_global (context.rs:870)
+  get_type_of_global(_val: Value): Type {
+    return unported("cg-context: compiler/rustc_codegen_llvm/src/context.rs get_type_of_global");
+  }
+
+  /** Inherent; `BaseTypeCodegenMethods::val_ty` (on `GenericCx`) has the same name (review F1: builder.ts header). A `CodegenCx` call resolves to the trait method. */
+  // Stub (cg-contract): val_ty (context.rs:873)
+  val_ty_inherent(_v: Value): Type {
+    return unported("cg-context: compiler/rustc_codegen_llvm/src/context.rs val_ty");
+  }
+
   // Stub (cg-contract): SimpleCx::new (context.rs:878)
   static new(_llmod: Module, _llcx: Context, _pointer_size: Size): SimpleCx {
     return unported("cg-context: compiler/rustc_codegen_llvm/src/context.rs new");
@@ -287,14 +352,63 @@ export const FULL_CX_DEREF_FIELDS = [
 ] as const satisfies readonly (keyof FullCx)[];
 type FullCxDeref = Pick<FullCx, (typeof FULL_CX_DEREF_FIELDS)[number]>;
 
-/** The methods of `impl SimpleCx` that `CodegenCx` reaches through `FullCx`'s deref to `SimpleCx` (header). cg-context lists
- *  each one it ports (`Pick<SimpleCx, "val_ty" | ...>`); `install_deref_methods` forwards them at run time. */
-type SimpleCxDeref = Pick<SimpleCx, never>;
+/** The methods of `impl SimpleCx` that `CodegenCx` reaches through `FullCx`'s deref to `SimpleCx` (header);
+ *  `install_deref_methods` forwards them at run time. */
+type SimpleCxDeref = Pick<SimpleCx, "get_type_of_global">;
 
 // Declaration merging: the deref'd fields and methods are members of `CodegenCx` (header).
 export interface CodegenCx extends FullCxDeref, SimpleCxDeref {}
 
 export class CodegenCx extends GenericCx<FullCx> implements CodegenMethods<LlvmTypes>, MiscCodegenMethods<LlvmTypes> {
+  // ---- impl CodegenCx (context.rs:599): Cross-lane surface (cg-contract, review F2) ----
+  /** Builds `new CodegenCx(new FullCx(..all fields in order..))` (header). */
+  // Stub (cg-contract): new (context.rs:600)
+  static new(_tcx: TyCtxt, _codegen_unit: CodegenUnit, _llvm_module: ModuleLlvm, _bitcode_needed: boolean): CodegenCx {
+    return unported("cg-context: compiler/rustc_codegen_llvm/src/context.rs new");
+  }
+
+  // rustc: compiler/rustc_codegen_llvm/src/context.rs:734 statics_to_rauw
+  statics_to_rauw(): [Value, Value][] {
+      return this._0.statics_to_rauw;
+  }
+
+  /** `name: &'static CStr` */
+  // Stub (cg-contract): create_used_variable_impl (context.rs:745)
+  create_used_variable_impl(_name: string, _values: readonly Value[]): void {
+    return unported("cg-context: compiler/rustc_codegen_llvm/src/context.rs create_used_variable_impl");
+  }
+
+  // Stub (cg-contract): objc_abi_version (context.rs:757)
+  objc_abi_version(): number {
+    return unported("cg-context: compiler/rustc_codegen_llvm/src/context.rs objc_abi_version");
+  }
+
+  // Stub (cg-contract): add_ptrauth_elf_got_flag (context.rs:769)
+  add_ptrauth_elf_got_flag(): void {
+    return unported("cg-context: compiler/rustc_codegen_llvm/src/context.rs add_ptrauth_elf_got_flag");
+  }
+
+  // Stub (cg-contract): add_ptrauth_sign_personality_flag (context.rs:778)
+  add_ptrauth_sign_personality_flag(): void {
+    return unported("cg-context: compiler/rustc_codegen_llvm/src/context.rs add_ptrauth_sign_personality_flag");
+  }
+
+  // Stub (cg-contract): add_ptrauth_pauthabi_version_and_platform_flags (context.rs:787)
+  add_ptrauth_pauthabi_version_and_platform_flags(_aarch64_elf_pauthabi_version: number): void {
+    return unported("cg-context: compiler/rustc_codegen_llvm/src/context.rs add_ptrauth_pauthabi_version_and_platform_flags");
+  }
+
+  // Stub (cg-contract): add_objc_module_flags (context.rs:813)
+  add_objc_module_flags(): void {
+    return unported("cg-context: compiler/rustc_codegen_llvm/src/context.rs add_objc_module_flags");
+  }
+
+  /** `sanitizer: &CStr` */
+  // Stub (cg-contract): is_sanitizer_type_ignored (context.rs:858)
+  is_sanitizer_type_ignored(_sanitizer: string, _fn_abi: FnAbi<Ty>): boolean {
+    return unported("cg-context: compiler/rustc_codegen_llvm/src/context.rs is_sanitizer_type_ignored");
+  }
+
   // ---- impl MiscCodegenMethods for CodegenCx (context.rs:932) ----
   // Stub (cg-contract): MiscCodegenMethods::vtables
   vtables(): KeyedMap<readonly [Ty, ExistentialTraitRef | undefined], Value> {
@@ -385,6 +499,18 @@ export class CodegenCx extends GenericCx<FullCx> implements CodegenMethods<LlvmT
   // (provided) DerivedTypeCodegenMethods::type_from_scalar -> DerivedTypeCodegenMethods_provided.type_from_scalar
   type_from_scalar(s: abi_Scalar): Type {
     return DerivedTypeCodegenMethods_provided.type_from_scalar(this, s);
+  }
+
+  // ---- impl CodegenCx (context.rs:1086, :1150): Cross-lane surface (cg-contract, review F2) ----
+  /** `base_name: Cow<'static, str>` */
+  // Stub (cg-contract): get_intrinsic (context.rs:1087)
+  get_intrinsic(_base_name: string, _type_params: readonly Type[]): [Type, Value] {
+    return unported("cg-context: compiler/rustc_codegen_llvm/src/context.rs get_intrinsic");
+  }
+
+  // Stub (cg-contract): generate_local_symbol_name (context.rs:1153)
+  generate_local_symbol_name(_prefix: string): string {
+    return unported("cg-context: compiler/rustc_codegen_llvm/src/context.rs generate_local_symbol_name");
   }
 
   // ---- impl HasDataLayout for CodegenCx (context.rs:1254) ----

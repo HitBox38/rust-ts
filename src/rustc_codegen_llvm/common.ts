@@ -1,8 +1,8 @@
 // compiler/rustc_codegen_llvm/src/common.rs: the SKELETON (lane cg-contract). The fill lane cg-context (plan-m7 §8 wave 41)
 // owns this file and ports the rest of common.rs here, replacing each `Stub (cg-contract)` with its port.
 //
-// What is here: `impl BackendTypes for GenericCx` as the type record `LlvmTypes` (ssa-contract decision 1), the struct
-// `Funclet` (fields only; its methods are stubs), and `impl ConstCodegenMethods for CodegenCx` as typed stubs attached to
+// What is here: the inherent and free fns other fill lanes call (review F2), `impl BackendTypes for GenericCx` as the type record `LlvmTypes` (ssa-contract decision 1), the struct
+// `Funclet` (its accessors ported, `new` a stub), and `impl ConstCodegenMethods for CodegenCx` as typed stubs attached to
 // `CodegenCx.prototype` (PORTING §5's extension pattern; lib.ts imports this file after context.ts).
 import type { Scalar as abi_Scalar, Size } from "../rustc_abi/lib.ts";
 import type { Scalar } from "../rustc_middle/mir/interpret/value.ts";
@@ -10,7 +10,10 @@ import type { BackendTypes } from "../rustc_codegen_ssa/traits/backend.ts";
 import { ConstCodegenMethods_provided } from "../rustc_codegen_ssa/traits/consts.ts";
 import type { PointerAuthSchema } from "../rustc_codegen_ssa/traits/misc.ts";
 import { unported } from "../std/panic.ts";
-import { CodegenCx } from "./context.ts";
+import { CodegenCx, GenericCx, type SCxBorrow } from "./context.ts";
+import type { TyCtxt } from "../rustc_middle/ty/context.ts";
+import type { DefId } from "../rustc_span/def_id.ts";
+import type { DllImport } from "../rustc_crate_store/cstore.gen.ts";
 import type { BasicBlock, DILocation, DIScope, DIVariable, OperandBundle, OperandBundleBox, Type, Value } from "./llvm/mod.ts";
 
 /// A structure representing an active landing pad for the duration of a basic
@@ -42,14 +45,14 @@ export class Funclet {
     return unported("cg-context: compiler/rustc_codegen_llvm/src/common.rs new");
   }
 
-  // Stub (cg-contract): Funclet::cleanuppad
+  // rustc: compiler/rustc_codegen_llvm/src/common.rs:119 cleanuppad
   cleanuppad(): Value {
-    return unported("cg-context: compiler/rustc_codegen_llvm/src/common.rs cleanuppad");
+    return this.cleanuppad_;
   }
 
-  // Stub (cg-contract): Funclet::bundle
+  // rustc: compiler/rustc_codegen_llvm/src/common.rs:123 bundle
   bundle(): OperandBundle {
-    return unported("cg-context: compiler/rustc_codegen_llvm/src/common.rs bundle");
+    return this.operand.as_ref();
   }
 }
 
@@ -68,6 +71,44 @@ export interface LlvmTypes extends BackendTypes {
   DILocation: DILocation;
   DIVariable: DIVariable;
 }
+
+// ---- impl GenericCx (common.rs:143): Cross-lane surface (cg-contract, review F2) ----
+declare module "./context.ts" {
+  interface GenericCx<T extends SCxBorrow> {
+    const_array(ty: Type, elts: readonly Value[]): Value;
+    const_bytes(bytes: Uint8Array): Value;
+    null_terminate_const_bytes(bytes: Uint8Array): Value;
+    const_null_inherent(t: Type): Value;
+    const_struct_inherent(elts: readonly Value[], packed: boolean): Value;
+  }
+}
+
+// Stub (cg-contract): const_array (common.rs:144)
+GenericCx.prototype.const_array = function (this: GenericCx<SCxBorrow>, _ty: Type, _elts: readonly Value[]): Value {
+  return unported("cg-context: compiler/rustc_codegen_llvm/src/common.rs const_array");
+};
+
+// Stub (cg-contract): const_bytes (common.rs:149)
+GenericCx.prototype.const_bytes = function (this: GenericCx<SCxBorrow>, _bytes: Uint8Array): Value {
+  return unported("cg-context: compiler/rustc_codegen_llvm/src/common.rs const_bytes");
+};
+
+// Stub (cg-contract): null_terminate_const_bytes (common.rs:153)
+GenericCx.prototype.null_terminate_const_bytes = function (this: GenericCx<SCxBorrow>, _bytes: Uint8Array): Value {
+  return unported("cg-context: compiler/rustc_codegen_llvm/src/common.rs null_terminate_const_bytes");
+};
+
+/** Inherent; `ConstCodegenMethods::const_null` has the same name (review F1: builder.ts header). */
+// Stub (cg-contract): const_null (common.rs:168)
+GenericCx.prototype.const_null_inherent = function (this: GenericCx<SCxBorrow>, _t: Type): Value {
+  return unported("cg-context: compiler/rustc_codegen_llvm/src/common.rs const_null");
+};
+
+/** Inherent; `ConstCodegenMethods::const_struct` has the same name (review F1: builder.ts header). */
+// Stub (cg-contract): const_struct (common.rs:172)
+GenericCx.prototype.const_struct_inherent = function (this: GenericCx<SCxBorrow>, _elts: readonly Value[], _packed: boolean): Value {
+  return unported("cg-context: compiler/rustc_codegen_llvm/src/common.rs const_struct");
+};
 
 // ---- impl ConstCodegenMethods for CodegenCx (common.rs:265) ----
 declare module "./context.ts" {
@@ -224,3 +265,19 @@ CodegenCx.prototype.scalar_to_backend_with_pac = function (this: CodegenCx, _cv:
 CodegenCx.prototype.const_ptr_byte_offset = function (this: CodegenCx, _val: Value, _offset: Size): Value {
   return unported("cg-context: compiler/rustc_codegen_llvm/src/common.rs const_ptr_byte_offset");
 };
+
+// Cross-lane surface (cg-contract, review F2)
+// Stub (cg-contract): val_ty (common.rs:468)
+export function val_ty(_v: Value): Type {
+  return unported("cg-context: compiler/rustc_codegen_llvm/src/common.rs val_ty");
+}
+
+// Stub (cg-contract): named_struct (common.rs:483)
+export function named_struct(_ty: Type, _elts: readonly Value[]): Value {
+  return unported("cg-context: compiler/rustc_codegen_llvm/src/common.rs named_struct");
+}
+
+// Stub (cg-contract): get_dllimport (common.rs:506)
+export function get_dllimport(_tcx: TyCtxt, _id: DefId, _name: string): DllImport | undefined {
+  return unported("cg-context: compiler/rustc_codegen_llvm/src/common.rs get_dllimport");
+}
