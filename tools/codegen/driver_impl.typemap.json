@@ -1,0 +1,16 @@
+{
+  "//": [
+    "Set-local type map of set rustc_driver_impl (lane driver-cli-2; types.sets.json `typemap_extra`).",
+    "PORT: `Box<dyn Error>` is `IoError` here, as in rustc_borrowck polonius/legacy/facts.ts. The one field of this type in the set,",
+    "UnstableFeatureUsage.error (diagnostics.rs:114), holds the error of `Features::dump_feature_usage_metrics` (rustc_feature",
+    "unstable.rs): an io::Error, or a serde_json::Error made by `Error::io`, whose Display is the io error's (line 0). Not global:",
+    "rustc_codegen_ssa's `Box<dyn std::error::Error>` fields (ExtractBundledLibsError) hold other errors. The matching IntoDiagArg is",
+    "diag_args.json's `Box` entry for `arg0` `dyn Error`, which takes an `IoError`, so a set that reaches it with another TS type",
+    "fails `tsc`."
+  ],
+  "cfg": { "true": [], "false": [] },
+  "helpers": {},
+  "types": [
+    { "paths": ["dyn std::error::Error", "dyn core::error::Error"], "ts": "IoError", "import": "src/std/io.ts", "types": ["IoError"], "values": ["debug_IoError"], "debug": "debug_IoError($v, $f)" }
+  ]
+}

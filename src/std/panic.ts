@@ -35,7 +35,7 @@ export function set_panic_with_hook(f: ((payload: Panic) => void) | undefined): 
 /**
  * Keeps the calling frame on the stack where a call returns a value and `#[track_caller]` needs that frame: JSC's proper
  * tail calls drop it on `return f(..)`. Write `return keep_frame(f(..))`, or a bare `f(..);` for a `never` call. Other shapes
- * do not work: Bun 1.4.3 folds `const r = f(); return r;` back into a tail call (src/rust_ts/track_caller.test.ts pins this).
+ * do not work: Bun 1.4.3 and 1.4.4 fold `const r = f(); return r;` back into a tail call (src/rust_ts/track_caller.test.ts pins this).
  */
 export function keep_frame<T>(value: T): T {
   return value;

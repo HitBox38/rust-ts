@@ -1,8 +1,10 @@
 // Partial port of compiler/rustc_codegen_ssa/src/lib.rs: the data the metadata-only driver path carries from
 // `start_codegen` to `link_binary` (`CompiledModule(s)`, `NativeLib`, `SymbolExport`, the EII linkage info,
-// `CrateInfo`, `CodegenLintLevelSpecs`) and `provide`. Not ported (backend, M7): `ModuleCodegen`
-// (`new_regular`, `new_allocator`, `into_compiled_module`), `CompiledModule::for_each_output`, `MemFlags`,
-// `RetagInfo`, rlink (de)serialization (`serialize_rlink`, `deserialize_rlink`).
+// `CrateInfo`, `CodegenLintLevelSpecs`) and `provide`. Not ported (backend, M7): `ModuleCodegen`'s methods
+// (`new_regular`, `new_allocator`, `into_compiled_module`), `CompiledModule::for_each_output`, rlink
+// (de)serialization (`serialize_rlink`, `deserialize_rlink`).
+// PORT (ssa-contract): `ModuleCodegen`'s fields, `MemFlags`, `RetagInfo` and `RetagFlags` are the type surface the
+// traits (traits/*.ts) need, placed here for lane ssa-base, which ports the rest of this file.
 import type { CfgEntry } from "../rustc_ast/attr/data_structures.ts";
 import type { WindowsSubsystemKind } from "../rustc_attr_ir/data_structures.gen.ts";
 import type { CrateSource, DllImport, NativeLib as cstore_NativeLib } from "../rustc_crate_store/cstore.gen.ts";
@@ -20,6 +22,7 @@ import type { Span } from "../rustc_span/lib.ts";
 import type { Symbol } from "../rustc_span/symbol.ts";
 import type { CrateType } from "../rustc_structures/crate_type.ts";
 import type { NativeLibKind } from "../rustc_structures/native_lib_kind.ts";
+import type { Size } from "../rustc_abi/lib.ts";
 import * as symbol_export from "./back/symbol_export.ts";
 import * as base from "./base.ts";
 import * as codegen_attrs from "./codegen_attrs.ts";
@@ -27,6 +30,24 @@ import * as target_features from "./target_features.ts";
 
 export * as codegen_attrs from "./codegen_attrs.ts";
 export * as target_features from "./target_features.ts";
+
+// PORT (ssa-contract): the struct's fields only; `new_regular` (:73), `new_allocator` (:82) and
+// `into_compiled_module` (:91) are lane ssa-base's.
+export class ModuleCodegen<M> {
+  constructor(
+    /// The name of the module. When the crate may be saved between
+    /// compilations, incremental compilation requires that name be
+    /// unique amongst **all** crates. Therefore, it should contain
+    /// something unique to this crate (e.g., a module path) as well
+    /// as the crate name and disambiguator.
+    /// We currently generate these names via CodegenUnit::build_cgu_name().
+    public name: string,
+    public module_llvm: M,
+    public kind: ModuleKind,
+    /// Saving the ThinLTO buffer for embedding in the object file.
+    public thin_lto_buffer: Uint8Array | undefined,
+  ) {}
+}
 
 // #[derive(Debug, Encodable, Decodable)]
 export interface CompiledModule {
@@ -43,6 +64,55 @@ export interface CompiledModule {
 // #[derive(Copy, Clone, Debug, PartialEq, Encodable, Decodable)]
 export type ModuleKind = "Regular" | "Allocator";
 export const ModuleKind = { Regular: "Regular", Allocator: "Allocator" } as const;
+
+/// This previously had an `UNALIGNED` variant, but that should never be done via flags.
+/// If you want something to be unaligned, see [`mir::place::PlaceRef::unaligned`].
+// #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+// PORT (ssa-contract): `bitflags!` struct over u8 -> number + companion (the rustc_span `RemapPathScopeComponents`
+// form). Its `Debug` is not here: lane ssa-base adds it with the first `{:?}` that needs it.
+export type MemFlags = number;
+export const MemFlags = {
+  VOLATILE: 1 << 0,
+  NONTEMPORAL: 1 << 1,
+  /// Indicates that writing through the stored pointer is undefined behavior.
+  /// Only valid on stores of pointers, or pairs where the first element is a pointer.
+  /// In the latter case, the flag only applies to the first element of the pair.
+  CAPTURES_READ_ONLY: 1 << 3,
+
+  empty: (): MemFlags => 0,
+  contains: (self: MemFlags, other: MemFlags): boolean => (self & other) === other,
+} as const;
+
+// #[derive(Debug, Copy, Clone)]
+export interface RetagInfo<V> {
+  /// The size of the initial range within the allocation that is
+  /// associated with the permission created by the retag.
+  size: Size;
+  /// Encoded type information used to determine the kind of permission
+  /// created by the retag.
+  flags: RetagFlags;
+  /// A pointer to a constant array of (offset, size) pairs describing
+  /// the ranges covered by `UnsafeCell` within the pointee type.
+  im_layout: V;
+  /// A pointer to a constant array of (offset, size) pairs describing
+  /// the ranges covered by `UnsafePinned` within the pointee type.
+  pin_layout: V;
+}
+
+// #[repr(C)]
+// #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+// PORT (ssa-contract): `bitflags!` struct over u8 -> number + companion, as `MemFlags`.
+export type RetagFlags = number;
+export const RetagFlags = {
+  /// If this is a function-entry retag.
+  IS_PROTECTED: 1 << 0,
+  /// If this is a mutable reference or a `Box`.
+  IS_MUTABLE: 1 << 1,
+  /// If this is a `Box`.
+  IS_BOX: 1 << 2,
+  /// If the pointee type is `Freeze`
+  IS_FREEZE: 1 << 3,
+} as const;
 
 // This is the same as `rustc_crate_store::NativeLib`, except:
 // - (important) the `foreign_module` field is missing, because it contains a `DefId`, which can't

@@ -20,7 +20,8 @@ import { displayed_sysroot_path } from "../rustc_session/filesearch.ts";
 import { filename_for_input, invalid_output_for_target } from "../rustc_session/output.ts";
 import { CrateType as CrateTypeC } from "../rustc_structures/crate_type.ts";
 import { DUMMY_SP } from "../rustc_span/lib.ts";
-import { path_file_name, path_join } from "../std/path.ts";
+import { u32_from_str } from "../std/num.ts";
+import { path_extension, path_file_name, path_join } from "../std/path.ts";
 import { LOCAL_CRATE } from "../rustc_span/def_id.ts";
 import { display_Svh } from "../rustc_data_structures/svh.ts";
 import type { CodegenBackend } from "../rustc_interface/stand_ins.ts";
@@ -344,8 +345,8 @@ export function compiler_entrypoint(at_args0: readonly string[], callbacks: Call
         if (sess.opts.output_types.contains_key("Mir")) {
           const r = pretty.emit_mir(tcx);
           if (r.$ === "Err") {
-            // `tcx.dcx().emit_fatal(CantEmitMIR { error })` (diagnostics.rs: a `#[derive(Diagnostic)]`, generated).
-            return unported("rustc_driver_impl::diagnostics::CantEmitMIR (--emit=mir write error)");
+            const error = r._0;
+            tcx.dcx().emit_fatal(diagnostics.CantEmitMIR_diagnostic({ error }));
           }
         }
 
@@ -473,10 +474,10 @@ export type Compilation = "Stop" | "Continue";
 function handle_explain(early_dcx: EarlyDiagCtxt, code: string, color: ColorConfig): void {
   // Allow "E0123" or "0123" form.
   const upper_cased_code = code.replace(/[a-z]/g, (c) => c.toUpperCase());
-  const code_ = parse_u32(upper_cased_code.startsWith("E") ? upper_cased_code.slice(1) : upper_cased_code);
+  const code_ = u32_from_str(upper_cased_code.startsWith("E") ? upper_cased_code.slice(1) : upper_cased_code);
   let description: string | undefined;
-  if (code_ !== undefined && code_ <= ErrCode.MAX_AS_U32) {
-    const d = try_find_description(ErrCode.from_u32(code_));
+  if (code_.$ === "Ok" && code_._0 <= ErrCode.MAX_AS_U32) {
+    const d = try_find_description(ErrCode.from_u32(code_._0));
     if (d.$ === "Ok") description = d._0.text();
   }
   if (description !== undefined) {
@@ -512,25 +513,6 @@ function handle_explain(early_dcx: EarlyDiagCtxt, code: string, color: ColorConf
   } else {
     early_dcx.early_fatal(`${code} is not a valid error code`);
   }
-}
-
-/** `str::parse::<u32>().ok()` */
-function parse_u32(s: string): number | undefined {
-  let digits = s;
-  if (s.length === 0) return undefined;
-  if (s[0] === "+" || s[0] === "-") {
-    if (s.length === 1) return undefined;
-    // an unsigned type takes a leading `+` only
-    if (s[0] === "+") digits = s.slice(1);
-  }
-  let v = 0;
-  for (let i = 0; i < digits.length; i++) {
-    const c = digits.charCodeAt(i);
-    if (c < 0x30 || c > 0x39) return undefined;
-    v = v * 10 + (c - 0x30);
-    if (v > 0xffff_ffff) return undefined;
-  }
-  return v;
 }
 
 /** `cfg!(windows)`: rust-ts follows the non-windows host (as vendor/anstream). */
@@ -656,12 +638,14 @@ function list_metadata(sess: Session, metadata_loader: MetadataLoader): void {
           }
           err.emit();
         }
+        // rustc-call: 619:28
         sess.dcx().fatal(display_IoError(error));
       }
-      const s = from_utf8(v.bytes());
-      // PORT: `VecU8` holds the UTF-8 of JS strings only, so this `unwrap` cannot fail.
-      if (s.$ === "Err") unported("rustc_driver_impl::list_metadata (String::from_utf8(..).unwrap() on invalid UTF-8)");
-      safe_println(s._0);
+      // PORT: `String::from_utf8(v).unwrap()`: `VecU8` holds only the UTF-8 encodings of JS strings (every write to it is
+      // a `write!` of one), so the conversion cannot fail and its `unwrap` has no mirror here, as in `node_label`
+      // (rustc_mir_dataflow framework/graphviz.ts). The two `fatal`s still pair with upstream's by count; the first has no
+      // message literal to key on, hence its `rustc-call:` anchor (src/rust_ts/track_caller.ts).
+      safe_println(Str.of_bytes(v.bytes()).toString());
       break;
     }
     case "Str":
@@ -669,16 +653,6 @@ function list_metadata(sess: Session, metadata_loader: MetadataLoader): void {
       sess.dcx().fatal("cannot list metadata for stdin");
     }
   }
-}
-
-/** `Path::extension` (library/std/src/path.rs): the part of the file name after its last `.`, unless that is the
- *  whole name (a leading dot) or there is none. */
-function path_extension(path: string): string | undefined {
-  const file = path_file_name(path);
-  if (file === undefined || file === "..") return undefined;
-  const i = file.lastIndexOf(".");
-  if (i <= 0) return undefined;
-  return file.slice(i + 1);
 }
 
 // rustc: compiler/rustc_driver_impl/src/lib.rs:629 print_crate_info

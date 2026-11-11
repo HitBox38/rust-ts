@@ -104,9 +104,13 @@ export function binaryModeRefusal(
  * the list only after the handoff's nesting-depth and module-order checks pass on it. The option is there for depth only: on
  * 1.4.3 it changes nothing at run time (docs/handoff/perf-subject-bin.md, H2). Also check, on a new Bun, that a build still
  * writes only `rts` and `rts.map` (`buildFiles`), and that frames still resolve without `rts.map` (the cases' frame test).
+ * 1.4.4 joined on 2026-11-11 (docs/handoff/bun-144.md): depth, module order, the option (a build with it differs from one
+ * without, and one with a misspelt key equals one without), a raw source/binary comparison and the long cases' timings.
+ * The gate runs on one of these: scripts/lib/bun-pin.ts `GATE_BUN`.
  */
 export const VALIDATED_BUN: readonly { version: string; revision: string }[] = [
   { version: "1.4.3", revision: "c6da4a4d3010e5553438c60f6bd76d981976867c" },
+  { version: "1.4.4", revision: "38afee6c84fcf48c0edb2466aa4b27d287a59c30" },
 ];
 
 /** The mode from the environment; an unknown value prints one `ERROR:` line and exits. */
@@ -407,19 +411,35 @@ const firstConfigs = new Map<string, { path: string; sha1: string }[]>();
 /** Whether this module lives in `repo`, so the runtime read `repo`'s config at process start. */
 const isOwnRepo = (repo: string) => import.meta.path.startsWith(join(repo, "/"));
 
+/** The Bun file this process runs, hashed once: what `Bun.build` compiles into a binary as its runtime. */
+let runningBunSha1: string | undefined;
+/** The Bun build that builds here: version, revision and the content of its file (`process.execPath`). */
+export function builderBun(): { version: string; revision: string; sha1: string } {
+  runningBunSha1 ??= hash(readFileSync(process.execPath));
+  return { version: Bun.version, revision: Bun.revision, sha1: runningBunSha1 };
+}
+
+/** The placeholder for the Bun path in a keyed spec (see `subjectBinKeyOf`). */
+const KEYED_BUN_PATH = "<bun>";
+
 /**
  * A build's key: the hash of `spec`, the Bun build, this builder, each input file's path and content, the config files and the
- * run-time C sources.
+ * run-time C sources. The Bun is keyed by its content (version, revision, sha1 of the file), not by its path: `spec.bunPath`
+ * (and the banner's `process.argv[0] = …` that holds it) is replaced by a placeholder, so a gate, which runs from a private
+ * copy of its Bun (scripts/gate.ts `gateBunClone`), reuses a lane's build of the same tree with the same Bun (review
+ * bun-144-recheck2 N7). The path stays baked into the binary as `process.argv[0]`, which nothing in the port reads (the
+ * driver's `args_os` starts at `argv[1]`, src/std/env.ts), so a reused build behaves the same.
  */
 export function subjectBinKeyOf(
   spec: BuildSpec,
   inputs: { path: string; sha1: string }[],
-  bun = { version: Bun.version, revision: Bun.revision },
+  bun: { version: string; revision: string; sha1?: string } = builderBun(),
   builder = BUILDER_SOURCE,
   config: { path: string; sha1: string }[] = configInputs(spec.repo),
   runtimeC: { path: string; sha1: string }[] = runtimeCInputs(spec.repo),
 ): string {
-  return hash(JSON.stringify({ v: 3, spec, bun, builder, inputs, config, runtimeC }));
+  const keyed = { ...spec, bunPath: KEYED_BUN_PATH, banner: spec.banner.split(JSON.stringify(spec.bunPath)).join(JSON.stringify(KEYED_BUN_PATH)) };
+  return hash(JSON.stringify({ v: 4, spec: keyed, bun, builder, inputs, config, runtimeC }));
 }
 
 export interface SubjectBin {
@@ -432,6 +452,8 @@ export interface SubjectBin {
   built: boolean;
   /** How many files went into it. */
   inputs: number;
+  /** The Bun that built it, which is also the runtime it embeds (`meta.json` `bun`, with its file's sha1 since bun-144); the gate requires its own (review bun-144-recheck F1-r). */
+  bun: { version: string; revision: string; sha1?: string };
 }
 
 /** The key of `spec`'s build of the tree as it is now, with its inputs. */
@@ -451,7 +473,7 @@ export interface SubjectBinMeta {
   hash: string;
   entry: string;
   spec: BuildSpec;
-  bun: { version: string; revision: string };
+  bun: { version: string; revision: string; sha1?: string };
   inputs: { path: string; sha1: string }[];
   config: { path: string; sha1: string }[];
   /** `RUNTIME_C_FILES`, as keyed. */
@@ -487,7 +509,7 @@ function finished(dir: string, key: string, entry: string): SubjectBin | undefin
     throw e;
   }
   if (m.hash !== key || m.entry !== entry) throw new Error(`${meta} is not the build of ${entry} with key ${key}`);
-  return { entry, hash: key, path: bin, dir, built: false, inputs: m.inputs.length };
+  return { entry, hash: key, path: bin, dir, built: false, inputs: m.inputs.length, bun: m.bun };
 }
 
 /**
@@ -568,7 +590,7 @@ async function ensureIn(entry: string, repo: string, root: string, opts: { bunPa
     }
     const why = (opts.smoke ?? versionSmoke)(join(tmp, BIN_NAME), spec);
     if (why !== undefined) throw new Error(`the build of ${entry} fails its check: ${why}`);
-    const meta: SubjectBinMeta = { hash: key, entry, spec, bun: { version: Bun.version, revision: Bun.revision }, inputs, config, runtimeC, builtAt: new Date().toISOString(), buildMs: Math.round(performance.now() - started) };
+    const meta: SubjectBinMeta = { hash: key, entry, spec, bun: builderBun(), inputs, config, runtimeC, builtAt: new Date().toISOString(), buildMs: Math.round(performance.now() - started) };
     writeFileSync(join(tmp, "meta.json"), JSON.stringify(meta, null, 1));
     try {
       renameSync(tmp, dir);
@@ -578,7 +600,7 @@ async function ensureIn(entry: string, repo: string, root: string, opts: { bunPa
       if (other) return other;
       throw e;
     }
-    return { entry, hash: key, path: join(dir, BIN_NAME), dir, built: true, inputs: inputs.length };
+    return { entry, hash: key, path: join(dir, BIN_NAME), dir, built: true, inputs: inputs.length, bun: meta.bun };
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }
@@ -666,6 +688,10 @@ export function subjectBin(entry: string): SubjectBin {
   resolvedBins.set(entry, bin);
   return bin;
 }
+
+/** The builds this process resolved, with the Bun each was built by (scripts/gate.ts checks it against its own). */
+export const subjectBinBuilds = (): { entry: string; hash: string; bun: { version: string; revision: string; sha1?: string } | undefined }[] =>
+  [...resolvedBins].map(([entry, b]) => ({ entry, hash: b.hash, bun: b.bun }));
 
 /** The builds this process resolved: `[entry, binary path]`. */
 export const subjectBinPaths = (): [string, string][] => [...resolvedBins].map(([e, b]) => [e, b.path]);

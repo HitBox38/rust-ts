@@ -8,16 +8,17 @@ import { Hash64 } from "../rustc_hashes/lib.ts";
 import type { Level } from "../rustc_lint_defs/lib.ts";
 import type { Edition } from "../rustc_span/edition.ts";
 import type { MutRef } from "../rustc_span/hygiene.ts";
-import type { RealFileName, RemapPathScopeComponents, SourceFileHashAlgorithm } from "../rustc_span/lib.ts";
+import type { BlobDecoder, RealFileName, RemapPathScopeComponents, SourceFileHashAlgorithm } from "../rustc_span/lib.ts";
 import { type Debug, PLAIN, debug_bool, debug_int, debug_option, debug_str, debug_tuple, debug_vec } from "../std/fmt.ts";
 import { panic } from "../std/panic.ts";
 import { AnnotateMoves, type AutoDiff, type BranchProtection, BranchProtection_eq, CFGuard, CFProtection, type CodegenRetagOptions, CoverageOptions, DebugInfo, DebugInfoCompression, DumpMonoStatsFormat, type DynDepTrackingHash, type ErrorOutputType, FmtDebug, FunctionReturn, type IncrementalStateAssertion, InliningThreshold, InstrumentCoverage, InstrumentMcount, type InstrumentXRay, type JsonUnusedExterns, LinkSelfContained, LinkerFeaturesCli, LinkerPluginLto, LocationDetail, LtoCli, MirIncludeSpans, MirStripDebugInfo, NextSolverConfig, type Offload, type OptLevel, Passes, PatchableFunctionEntry, type PointerAuthOption, Polonius, ProcMacroExecutionStrategy, type ResolveDocLinks, SplitDwarfKind, Strip, SwitchWithOptPath, type SymbolManglingVersion, type WasiExecModel, debug_BranchProtection, debug_PointerAuthOption, dep_tracking } from "./config.ts";
 import { type Align, type CodeModel, CollapseMacroDebuginfo, type CrateType, type EarlyDiagCtxt, type Externs, FramePointer, type Jobs, type LinkerFlavorCli, type Matches, type MergeFunctions, OnBrokenPipe, type OutputTypes, PanicStrategy, type PpMode, type PrintRequest, type RelocModel, type RelroLevel, SanitizerSet, type SearchPath, type SplitDebuginfo, StackProtector, type SymbolVisibility, type Sysroot, type TargetTuple, TimePassesFormat, type TlsModel, debug_SanitizerSet } from "./stand_ins.ts";
 import type { NativeLib } from "./utils.ts";
-import { type CollectedOptions, type ExtendedTargetModifierInfo, type OptionDescrs, type TargetModifier, build_options, option_eq, parse_align, parse_annotate_moves, parse_assert_incr_state, parse_autodiff, parse_bool, parse_branch_protection, parse_cargo_src_file_hash, parse_cfguard, parse_cfprotection, parse_code_model, parse_codegen_retag_options, parse_collapse_macro_debuginfo, parse_comma_list, parse_coverage_options, parse_debuginfo, parse_debuginfo_compression, parse_dump_mono_stats, parse_fmt_debug, parse_frame_pointer, parse_function_return, parse_ignore, parse_inlining_threshold, parse_instrument_coverage, parse_instrument_mcount, parse_instrument_xray, parse_link_self_contained, parse_linker_features, parse_linker_flavor, parse_linker_plugin_lto, parse_list, parse_list_with_polarity, parse_llvm_module_flag, parse_location_detail, parse_lto, parse_merge_functions, parse_mir_include_spans, parse_mir_strip_debuginfo, parse_next_solver_config, parse_no_value, parse_number, parse_offload, parse_on_broken_pipe, parse_opt_bool, parse_opt_comma_list, parse_opt_number, parse_opt_panic_strategy, parse_opt_pathbuf, parse_opt_string, parse_opt_symbol_visibility, parse_panic_strategy, parse_passes, parse_patchable_function_entry, parse_pointer_authentication_list_with_polarity, parse_polonius, parse_proc_macro_execution_strategy, parse_relocation_model, parse_relro_level, parse_rust_version, parse_sanitizer_memory_track_origins, parse_sanitizers, parse_split_debuginfo, parse_split_dwarf_kind, parse_src_file_hash, parse_stack_protector, parse_string, parse_string_push, parse_strip, parse_switch_with_opt_path, parse_symbol_mangling_version, parse_target_feature, parse_terminal_url, parse_time_passes_format, parse_tls_model, parse_treat_err_as_bug, parse_unpretty, parse_wasi_exec_model, parse_wasm_c_abi, tmod_push_impl, u32_from_str, u64_from_str, usize_from_str, vec_eq } from "./options.ts";
+import { type CollectedOptions, type ExtendedTargetModifierInfo, type OptionDescrs, TargetModifier, build_options, option_eq, parse_align, parse_annotate_moves, parse_assert_incr_state, parse_autodiff, parse_bool, parse_branch_protection, parse_cargo_src_file_hash, parse_cfguard, parse_cfprotection, parse_code_model, parse_codegen_retag_options, parse_collapse_macro_debuginfo, parse_comma_list, parse_coverage_options, parse_debuginfo, parse_debuginfo_compression, parse_dump_mono_stats, parse_fmt_debug, parse_frame_pointer, parse_function_return, parse_ignore, parse_inlining_threshold, parse_instrument_coverage, parse_instrument_mcount, parse_instrument_xray, parse_link_self_contained, parse_linker_features, parse_linker_flavor, parse_linker_plugin_lto, parse_list, parse_list_with_polarity, parse_llvm_module_flag, parse_location_detail, parse_lto, parse_merge_functions, parse_mir_include_spans, parse_mir_strip_debuginfo, parse_next_solver_config, parse_no_value, parse_number, parse_offload, parse_on_broken_pipe, parse_opt_bool, parse_opt_comma_list, parse_opt_number, parse_opt_panic_strategy, parse_opt_pathbuf, parse_opt_string, parse_opt_symbol_visibility, parse_panic_strategy, parse_passes, parse_patchable_function_entry, parse_pointer_authentication_list_with_polarity, parse_polonius, parse_proc_macro_execution_strategy, parse_relocation_model, parse_relro_level, parse_rust_version, parse_sanitizer_memory_track_origins, parse_sanitizers, parse_split_debuginfo, parse_split_dwarf_kind, parse_src_file_hash, parse_stack_protector, parse_string, parse_string_push, parse_strip, parse_switch_with_opt_path, parse_symbol_mangling_version, parse_target_feature, parse_terminal_url, parse_time_passes_format, parse_tls_model, parse_treat_err_as_bug, parse_unpretty, parse_wasi_exec_model, parse_wasm_c_abi, tmod_push_impl, u32_from_str, u64_from_str, usize_from_str, vec_eq } from "./options.ts";
 import { DeniedPartialMitigationKind } from "./options/mitigation_coverage.gen.ts";
 import type { MitigationCoverageMap } from "./options/mitigation_coverage.ts";
 import { StableHasher } from "../rustc_data_structures/stable_hash.ts";
+import { type Encoder, decode_String, encode_String } from "../rustc_serialize/serialize.ts";
 
 // `macro_rules! insert` (compiler/rustc_session/src/options.rs:29), used by `hash_opt!` of the `dep_tracking_hash` fns.
 function insert(opt_name: string, opt_expr: DynDepTrackingHash, sub_hashes: Map<string, DynDepTrackingHash>): void {
@@ -80,6 +81,42 @@ export function OptionsTargetModifiers_cmp(a: OptionsTargetModifiers, b: Options
   return 0;
 }
 export const debug_OptionsTargetModifiers: Debug<OptionsTargetModifiers> = (v, f) => debug_tuple(f, v.$, [v._0]);
+/** `#[derive(BlobDecodable)]` of `OptionsTargetModifiers` (rustc_macros serialize.rs `decodable_body`) */
+export function decode_OptionsTargetModifiers(__decoder: BlobDecoder): OptionsTargetModifiers {
+  const __tag = __decoder.read_u8();
+  switch (__tag) {
+    case 0:
+      return OptionsTargetModifiers.UnstableOptions(decode_UnstableOptionsTargetModifiers(__decoder));
+    case 1:
+      return OptionsTargetModifiers.CodegenOptions(decode_CodegenOptionsTargetModifiers(__decoder));
+    default:
+      return panic(`invalid enum variant tag while decoding \`OptionsTargetModifiers\`, expected 0..2, actual ${__tag}`);
+  }
+}
+/** `#[derive(Encodable)]` of `OptionsTargetModifiers` (rustc_macros serialize.rs `encodable_body`) */
+export function encode_OptionsTargetModifiers(self: OptionsTargetModifiers, __encoder: Encoder): void {
+  __encoder.emit_u8(OptionsTargetModifiers_discriminant[self.$]);
+  switch (self.$) {
+    case "UnstableOptions":
+      encode_UnstableOptionsTargetModifiers(self._0, __encoder);
+      break;
+    case "CodegenOptions":
+      encode_CodegenOptionsTargetModifiers(self._0, __encoder);
+      break;
+  }
+}
+
+/** `#[derive(BlobDecodable)]` of `TargetModifier` (compiler/rustc_session/src/options.rs:81; rustc_macros serialize.rs `decodable_body`) */
+export function decode_TargetModifier(__decoder: BlobDecoder): TargetModifier {
+  const opt = decode_OptionsTargetModifiers(__decoder);
+  const value_name = decode_String(__decoder);
+  return new TargetModifier(opt, value_name);
+}
+/** `#[derive(Encodable)]` of `TargetModifier` (compiler/rustc_session/src/options.rs:81; rustc_macros serialize.rs `encodable_body`) */
+export function encode_TargetModifier(self: TargetModifier, __encoder: Encoder): void {
+  encode_OptionsTargetModifiers(self.opt, __encoder);
+  encode_String(self.value_name, __encoder);
+}
 
 /// The top-level command-line options struct.
 ///
@@ -654,6 +691,14 @@ export const CodegenOptionsTargetModifiers = {
     }
   },
 } as const;
+/** `#[derive(BlobDecodable)]` of `CodegenOptionsTargetModifiers` (rustc_macros serialize.rs `decodable_body`) */
+export function decode_CodegenOptionsTargetModifiers(_decoder: BlobDecoder): CodegenOptionsTargetModifiers {
+  return "TargetCpu";
+}
+/** `#[derive(Encodable)]` of `CodegenOptionsTargetModifiers` (rustc_macros serialize.rs `encodable_body`) */
+export function encode_CodegenOptionsTargetModifiers(_self: CodegenOptionsTargetModifiers, _encoder: Encoder): void {
+  // Unit-like types don't need to encode anything.
+}
 
 // mod cgopts
 // PORT: emitted before `CG_OPTIONS` (upstream: after), which refers to these setters while it is evaluated.
@@ -2450,6 +2495,42 @@ export const UnstableOptionsTargetModifiers = {
     }
   },
 } as const;
+/** `#[derive(BlobDecodable)]` of `UnstableOptionsTargetModifiers` (rustc_macros serialize.rs `decodable_body`) */
+export function decode_UnstableOptionsTargetModifiers(__decoder: BlobDecoder): UnstableOptionsTargetModifiers {
+  const __tag = __decoder.read_u8();
+  switch (__tag) {
+    case 0:
+      return "BranchProtection";
+    case 1:
+      return "FixedX18";
+    case 2:
+      return "IndirectBranchCsPrefix";
+    case 3:
+      return "LlvmTargetFeature";
+    case 4:
+      return "PointerAuthentication";
+    case 5:
+      return "RegStructReturn";
+    case 6:
+      return "Regparm";
+    case 7:
+      return "Retpoline";
+    case 8:
+      return "RetpolineExternalThunk";
+    case 9:
+      return "Sanitizer";
+    case 10:
+      return "SanitizerCfiNormalizeIntegers";
+    case 11:
+      return "SanitizerCfiMinimalRuntime";
+    default:
+      return panic(`invalid enum variant tag while decoding \`UnstableOptionsTargetModifiers\`, expected 0..12, actual ${__tag}`);
+  }
+}
+/** `#[derive(Encodable)]` of `UnstableOptionsTargetModifiers` (rustc_macros serialize.rs `encodable_body`) */
+export function encode_UnstableOptionsTargetModifiers(self: UnstableOptionsTargetModifiers, __encoder: Encoder): void {
+  __encoder.emit_u8(UnstableOptionsTargetModifiers_discriminant[self]);
+}
 
 // mod dbopts
 // PORT: emitted before `Z_OPTIONS` (upstream: after), which refers to these setters while it is evaluated.

@@ -112,6 +112,7 @@ import { path_parent } from "../std/path.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
 import {
   Annotatable,
+  clone_Annotatable,
   type DeriveResolution,
   DummyResult,
   type ExpandResult,
@@ -127,6 +128,7 @@ import { StripUnconfigured } from "./config.ts";
 import * as diagnostics from "./diagnostics.ts";
 import { DirOwnership, mod_dir_path, mod_file_path_from_attr, parse_external_mod } from "./module.ts";
 import { PlaceholderExpander, placeholder } from "./placeholders.ts";
+import { update_attr_macro_stats, update_bang_macro_stats, update_derive_macro_stats } from "./stats.ts";
 
 const { TokenKind: TK } = token;
 
@@ -1392,7 +1394,7 @@ export class MacroExpander {
           const r = validate_attr.parse_meta(this.cx.sess.psess, attr);
           if (r.$ === "Ok") {
             const meta = r._0;
-            const item_clone = macro_stats ? clone_Annotatable_for_stats(item) : undefined;
+            const item_clone = macro_stats ? clone_Annotatable(item) : undefined;
             const er = expander.expand(this.cx, span, meta, item, false);
             let items: Annotatable[];
             if (er.$ === "Ready") {
@@ -1573,30 +1575,6 @@ export class MacroExpander {
       return AstFragmentKind.dummy(kind, span, guar);
     }
   }
-}
-
-// PORT: `crate::stats::update_{bang,attr,derive}_macro_stats` (`-Zmacro-stats`): stats.rs is not
-// assigned yet; reached only with `-Zmacro-stats`.
-function update_bang_macro_stats(_ecx: ExtCtxt, _fragment_kind: AstFragmentKind, _span: Span, _mac: MacCall, _fragment: AstFragment): void {
-  unported("rustc_expand::stats::update_bang_macro_stats");
-}
-function update_attr_macro_stats(
-  _ecx: ExtCtxt,
-  _fragment_kind: AstFragmentKind,
-  _span: Span,
-  _path: Path,
-  _attr: Attribute,
-  _item: Annotatable,
-  _fragment: AstFragment,
-): void {
-  unported("rustc_expand::stats::update_attr_macro_stats");
-}
-function update_derive_macro_stats(_ecx: ExtCtxt, _fragment_kind: AstFragmentKind, _span: Span, _path: Path, _fragment: AstFragment): void {
-  unported("rustc_expand::stats::update_derive_macro_stats");
-}
-// PORT: `item.clone()` for `-Zmacro-stats` only (`macro_stats.then(|| item.clone())`).
-function clone_Annotatable_for_stats(_item: Annotatable): Annotatable {
-  return unported("rustc_expand::stats (Annotatable::clone for -Zmacro-stats)");
 }
 
 // rustc: compiler/rustc_expand/src/expand.rs:1079 parse_ast_fragment

@@ -1,6 +1,7 @@
 // Partial port of compiler/rustc_codegen_ssa/src/base.rs: what the metadata-only driver path reaches
 // (`wants_wasm_eh`, `allocator_kind_for_codegen`, `needs_allocator_shim_for_linking`, `allocator_shim_contents`,
-// `collect_eii_linkage`, `eii_linkage_needed`, `CrateInfo::new`, `provide`). Codegen proper (comparisons,
+// `collect_eii_linkage`, `eii_linkage_needed`, `CrateInfo::new`, `provide`), and the two comparison-predicate
+// mappings the traits' provided methods call (lane ssa-contract). Codegen proper (`compare_simd_types`,
 // unsizing, `codegen_instance`, entry wrappers, allocator shims, `codegen_crate`, `determine_cgu_reuse`, ...) is
 // M7 and not ported.
 import type { EiiDecl, EiiImpl } from "../rustc_attr_ir/data_structures.gen.ts";
@@ -23,6 +24,8 @@ import { panic, unported, unwrap } from "../std/panic.ts";
 import { str_cmp } from "../rustc_session/options.ts";
 import type { Dependencies } from "../rustc_middle/middle/dependency_format.ts";
 import { metadata_symbol_name, type SymbolExportKind } from "../rustc_middle/middle/exported_symbols.ts";
+import { type BinOp, debug_BinOp } from "../rustc_middle/mir/syntax.ts";
+import { IntPredicate, RealPredicate } from "./common.ts";
 import type { AllocatorKind, AllocatorMethod } from "../rustc_ast/expand/allocator.gen.ts";
 import { ALLOC_ERROR_HANDLER, ALLOCATOR_METHODS } from "../rustc_ast/expand/allocator.ts";
 import type { Target as TargetSpec } from "../rustc_target/spec/mod.ts";
@@ -36,6 +39,41 @@ import {
   type EiiLinkageInfo,
   NativeLib_from,
 } from "./lib.ts";
+
+// rustc: compiler/rustc_codegen_ssa/src/base.rs:58 bin_op_to_icmp_predicate
+export function bin_op_to_icmp_predicate(op: BinOp, signed: boolean): IntPredicate {
+  if (op === "Eq") return IntPredicate.IntEQ;
+  if (op === "Ne") return IntPredicate.IntNE;
+  if (op === "Lt" && signed) return IntPredicate.IntSLT;
+  if (op === "Lt" && !signed) return IntPredicate.IntULT;
+  if (op === "Le" && signed) return IntPredicate.IntSLE;
+  if (op === "Le" && !signed) return IntPredicate.IntULE;
+  if (op === "Gt" && signed) return IntPredicate.IntSGT;
+  if (op === "Gt" && !signed) return IntPredicate.IntUGT;
+  if (op === "Ge" && signed) return IntPredicate.IntSGE;
+  if (op === "Ge" && !signed) return IntPredicate.IntUGE;
+  return bug(`bin_op_to_icmp_predicate: expected comparison operator, found ${debug_BinOp(op, PLAIN)}`);
+}
+
+// rustc: compiler/rustc_codegen_ssa/src/base.rs:74 bin_op_to_fcmp_predicate
+export function bin_op_to_fcmp_predicate(op: BinOp): RealPredicate {
+  switch (op) {
+    case "Eq":
+      return RealPredicate.RealOEQ;
+    case "Ne":
+      return RealPredicate.RealUNE;
+    case "Lt":
+      return RealPredicate.RealOLT;
+    case "Le":
+      return RealPredicate.RealOLE;
+    case "Gt":
+      return RealPredicate.RealOGT;
+    case "Ge":
+      return RealPredicate.RealOGE;
+    default:
+      return bug(`bin_op_to_fcmp_predicate: expected comparison operator, found ${debug_BinOp(op, PLAIN)}`);
+  }
+}
 
 // Returns `true` if this session's target will use native wasm
 // exceptions. This means that the VM does the unwinding for

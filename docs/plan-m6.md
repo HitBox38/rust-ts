@@ -145,7 +145,7 @@ What the gate needs at the pin:
   ~0.08 s (38/40 sampled built; 2 need their own directives). Today the compiletest-aware suites skip them (plan-m2 D6).
 
 Measured feasibility (`pm/`, `ffi/`): an oracle-built `--crate-type proc-macro` dylib (aarch64-apple-darwin, 478 KB) opens
-with `bun:ffi` `dlopen` and its decls symbol resolves; `bun:ffi`'s `cc` (embedded TinyCC, Bun 1.4.3) compiles and runs C
+with `bun:ffi` `dlopen` and its decls symbol resolves; `bun:ffi`'s `cc` (embedded TinyCC, Bun 1.4.3; still on 1.4.4, src/rust_ts/tinycc.test.ts) compiles and runs C
 with struct-by-value returns. Bun's FFI itself has no struct-by-value arguments, so the `extern "C" fn(BridgeConfig) ->
 Buffer` call and the `Closure.call` / `Buffer.reserve` / `Buffer.drop` callbacks need a small C trampoline (compiled by
 `cc` at load) that converts them to pointer-argument calls into `JSCallback`s.

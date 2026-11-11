@@ -91,6 +91,7 @@ import { encode_u64 } from "../../rustc_serialize/serialize.ts";
 import type { DeniedPartialMitigation } from "../../rustc_session/options/mitigation_coverage.ts";
 import { Options_impl } from "../../rustc_session/config.ts";
 import type { TargetModifier } from "../../rustc_session/options.ts";
+import { encode_TargetModifier } from "../../rustc_session/options.gen.ts";
 import { encode_ExpnData, encode_ExpnHash, encode_Ident, encode_Transparency } from "../../rustc_span/decodable.gen.ts";
 import { CrateNum, type DefId, DefIndex, DefPathHash, debug_CrateNum, encode_LocalDefId, LOCAL_CRATE, LocalDefId, LocalModId } from "../../rustc_span/def_id.ts";
 import { type ExpnData, type ExpnHash, type ExpnId, ExpnIndex, HygieneEncodeContext, LocalExpnId, SyntaxContext, type SyntaxContextKey } from "../../rustc_span/hygiene.ts";
@@ -108,6 +109,7 @@ import { type CrateDep, CrateRoot, type CrateRootUnhashed, debug_LazyState, type
 import { type Asyncness, type CoroutineKind, fse_Option_LazyValue, TableBuilder } from "./table.ts";
 // lane encoder-d
 import { closeSync, fstatSync, openSync, readFileSync, readSync, writeSync } from "node:fs";
+import { f64_fixed1, usize_with_underscores } from "../../rustc_data_structures/thousands/mod.ts";
 import type { CanonicalSymbols } from "../../rustc_attr_ir/canonical_symbols.ts";
 import { clone_StrippedCfgItem, encode_StrippedCfgItem } from "../../rustc_attr_ir/data_structures.gen.ts";
 import { encode_LangItem } from "../../rustc_attr_ir/lang_items.gen.ts";
@@ -131,7 +133,7 @@ import { encode_SimplifiedType } from "../../rustc_type_ir/fast_reject.gen.ts";
 import { simplify_type, TreatParams } from "../../rustc_type_ir/fast_reject.ts";
 import { as_interner } from "../../rustc_type_ir/predicate.ts";
 import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
-import { io_error_from_node, type IoResult } from "../../std/io.ts";
+import { io_error_from_node, type IoResult, write_stderr } from "../../std/io.ts";
 import { Err, Ok, unwrap_result } from "../../std/result.ts";
 import { encode_CrateDep, encode_CrateHeader, encode_IncoherentImpls, encode_ProcMacroKind, encode_TraitImpls } from "../decodable.gen.ts";
 import { FailCreateFileEncoder_diagnostic, FailWriteFile_diagnostic } from "../diagnostics.ts";
@@ -816,9 +818,68 @@ export class EncodeContext implements TyEncoder {
     assert_eq(total_bytes, computed_total_bytes, String);
 
     if (tcx.sess.opts.unstable_opts.meta_stats) {
-      // PORT: `-Zmeta-stats` rewinds the metadata file to count its zero bytes and prints the table with
-      // `usize_with_underscores` (rustc_data_structures thousands.rs, not ported) and `{:4.1}` float formatting.
-      unported("rustc_metadata::rmeta::encoder::encode_crate_root: -Zmeta-stats (rustc_data_structures::thousands::usize_with_underscores)");
+      // use std::fmt::Write;
+
+      this.opaque.flush();
+
+      // Rewind and re-read all the metadata to count the zero bytes we wrote.
+      // PORT: `file.stream_position()` is the bytes written so far (`FileEncoder` only appends: its file was created
+      // truncated and `flush` writes at the cursor). Upstream rewinds and reads to the end, which leaves the cursor
+      // where it was (its `assert_eq!`); positional reads (`pread`) read the same bytes without moving the cursor.
+      // An I/O error is upstream's `.unwrap()` panic.
+      const pos_before_rewind = this.opaque.flushed;
+      let zero_bytes = 0;
+      {
+        const chunk = new Uint8Array(64 * 1024);
+        let pos = 0;
+        for (;;) {
+          let n: number;
+          try {
+            n = readSync(this.opaque.file(), chunk, 0, chunk.length, pos);
+          } catch (e) {
+            return panic(`called \`Result::unwrap()\` on an \`Err\` value: ${String(e)}`);
+          }
+          if (n === 0) break;
+          for (let i = 0; i < n; i++) {
+            if (chunk[i] === 0) {
+              zero_bytes += 1;
+            }
+          }
+          pos += n;
+        }
+        assert_eq(pos, pos_before_rewind, String);
+      }
+
+      // `sort_by_key` is stable, as is `Array.prototype.sort`.
+      stats.sort((a, b) => a[1] - b[1]);
+      stats.reverse(); // bigger items first
+
+      const prefix = "meta-stats";
+      const perc = (bytes: number): number => (bytes * 100) / total_bytes;
+
+      const section_w = 23;
+      const size_w = 10;
+      const banner_w = 64;
+
+      // We write all the text into a string and print it with a single
+      // `eprint!`. This is an attempt to minimize interleaved text if multiple
+      // rustc processes are printing macro-stats at the same time (e.g. with
+      // `RUSTFLAGS='-Zmeta-stats' cargo build`). It still doesn't guarantee
+      // non-interleaving, though.
+      // PORT: `{:<w$}` / `{:>w$}` pad ASCII labels and numbers (a label is a `&'static str` of the `stat!` calls), so
+      // `padEnd` / `padStart` count what `fmt` counts; `{:4.1}` / `{:.1}` are `f64_fixed1` (thousands/mod.ts).
+      let s = "";
+      s += `${prefix} ${"=".repeat(banner_w)}\n`;
+      s += `${prefix} METADATA STATS: ${Symbol.as_str(tcx.crate_name(LOCAL_CRATE))}\n`;
+      s += `${prefix} ${"Section".padEnd(section_w)}${"Size".padStart(size_w)}\n`;
+      s += `${prefix} ${"-".repeat(banner_w)}\n`;
+      for (const [label, size] of stats) {
+        s += `${prefix} ${label.padEnd(section_w)}${usize_with_underscores(size).padStart(size_w)} (${f64_fixed1(perc(size)).padStart(4)}%)\n`;
+      }
+      s += `${prefix} ${"-".repeat(banner_w)}\n`;
+      s += `${prefix} ${"Total".padEnd(section_w)}${usize_with_underscores(total_bytes).padStart(size_w)} (of which ${f64_fixed1(perc(zero_bytes))}% are zero bytes)\n`;
+      s += `${prefix} ${"=".repeat(banner_w)}\n`;
+      write_stderr(s);
     }
 
     return [root, unhashed];
@@ -2882,10 +2943,6 @@ function decode_Vec_u8(d: Decoder): Uint8Array {
 /** `DebuggerVisualizerFile`'s derived `Encodable`: not generated (rustc_middle middle/debugger_visualizer.rs). */
 function encode_DebuggerVisualizerFile(_v: DebuggerVisualizerFile, _e: EncodeContext): void {
   unported("rustc_middle::middle::debugger_visualizer: Encodable for DebuggerVisualizerFile (#[debugger_visualizer])");
-}
-/** `TargetModifier`'s derived `Encodable`: not generated (rustc_session options.rs; decoder.ts's decoder is unported too). */
-function encode_TargetModifier(_v: TargetModifier, _e: EncodeContext): void {
-  unported("rustc_session::options: Encodable for TargetModifier (target-modifier flags)");
 }
 /** `(ExportedSymbol<'static>, SymbolExportInfo)` */
 function encode_ExportedSymbol_SymbolExportInfo(v: [ExportedSymbol, SymbolExportInfo], e: EncodeContext): void {

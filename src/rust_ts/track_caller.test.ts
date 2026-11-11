@@ -55,7 +55,7 @@ test("with tail calls a dropped frame makes the location unported, never a guess
   expect(r.stderr).not.toContain("created at");
 });
 
-// Bun 1.4.3: the shapes that keep the frame of a call that must stay on the stack (docs/reviews/plan-ice-report.md F2).
+// Bun 1.4.3 and 1.4.4: the shapes that keep the frame of a call that must stay on the stack (docs/reviews/plan-ice-report.md F2).
 // A Bun upgrade can change these.
 function stack_here(): string {
   return new Error().stack ?? "";
