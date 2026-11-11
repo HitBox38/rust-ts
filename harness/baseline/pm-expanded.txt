@@ -127,6 +127,7 @@ tests/ui/proc-macro/edition-imports-2018.rs
 tests/ui/proc-macro/empty-crate.rs
 tests/ui/proc-macro/empty-where-clause.rs
 tests/ui/proc-macro/env.rs
+tests/ui/proc-macro/expand-expr.rs
 tests/ui/proc-macro/expand-to-derive.rs
 tests/ui/proc-macro/expand-to-unstable.rs
 tests/ui/proc-macro/expand-with-a-macro.rs

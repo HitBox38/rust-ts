@@ -216,6 +216,7 @@ tests/pass/multi_arg_closure.rs
 tests/pass/negative_discriminant.rs
 tests/pass/no_core.rs
 tests/pass/observed_local_mut.rs
+tests/pass/open_a_file_in_proc.rs
 tests/pass/option_box_transmute_ptr.rs#stack
 tests/pass/option_eq.rs
 tests/pass/overflow_checks_off.rs

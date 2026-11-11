@@ -2,4 +2,7 @@ tests/pass/0weak_memory/consistency.rs
 tests/pass/0weak_memory/consistency_sc.rs
 tests/pass/0weak_memory/weak.rs
 tests/pass/float_nan.rs
+tests/pass/issues/issue-miri-3680.rs
+tests/pass/shims/fs-permissions.rs
+tests/pass/shims/fs.rs
 tests/pass/shims/time.rs

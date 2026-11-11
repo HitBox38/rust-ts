@@ -187,6 +187,7 @@ tests/mir-opt/dest-prop/nrvo_miscompile_111005.rs
 tests/mir-opt/dest-prop/simple.rs
 tests/mir-opt/dont_inline_type_id.rs
 tests/mir-opt/dont_reset_cast_kind_without_updating_operand.rs
+tests/mir-opt/dump_dataflow.rs
 tests/mir-opt/early_otherwise_branch.rs
 tests/mir-opt/early_otherwise_branch_3_element_tuple.rs
 tests/mir-opt/early_otherwise_branch_68867.rs
