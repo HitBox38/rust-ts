@@ -1,6 +1,8 @@
 // Partial port of compiler/rustc_codegen_ssa/src/back/lto.rs: `crate_type_allows_lto` and `exported_symbols_for_lto`,
-// which `CrateInfo::new` calls. The LTO machinery (`ThinModule`, `ThinShared`, `SerializedModule`,
+// which `CrateInfo::new` calls. The LTO machinery (`ThinModule`'s methods, `SerializedModule`'s methods,
 // `check_lto_allowed`, ...) is codegen (M7) and not ported.
+// PORT (ssa-contract): the data of `ThinModule`, `ThinShared` and `SerializedModule` is the type surface the traits
+// (traits/write.ts, back/write.ts) need, placed here for lane ssa-base. `CString` is `string`; `Mmap` is the bytes.
 import * as tracing from "../../rust_ts/tracing.ts";
 import type { AllocatorKind } from "../../rustc_ast/expand/allocator.gen.ts";
 import { type ExportedSymbol, type SymbolExportInfo, SymbolExportLevel } from "../../rustc_middle/middle/exported_symbols.ts";
@@ -8,8 +10,28 @@ import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import { type CrateNum, LOCAL_CRATE } from "../../rustc_span/def_id.ts";
 import type { CrateType } from "../../rustc_structures/crate_type.ts";
 import { allocator_kind_for_codegen } from "../base.ts";
+import type { ModuleBufferMethods, WriteBackendTypes } from "../traits/write.ts";
 import * as symbol_export from "./symbol_export.ts";
 import { allocator_shim_symbols, symbol_name_for_instance_in_crate } from "./symbol_export.ts";
+
+// PORT (ssa-contract): fields only; `name` (:27), `cost` (:31) and `data` (:37) are lane ssa-base's.
+export class ThinModule<W extends WriteBackendTypes> {
+  constructor(
+    public shared: ThinShared<W>,
+    public idx: number,
+  ) {}
+}
+
+export interface ThinShared<W extends WriteBackendTypes> {
+  data: W["ThinData"];
+  modules: SerializedModule<W["ModuleBuffer"]>[];
+  module_names: string[];
+}
+
+export type SerializedModule<M extends ModuleBufferMethods> =
+  | { readonly $: "Local"; _0: M }
+  | { readonly $: "FromRlib"; _0: Uint8Array }
+  | { readonly $: "FromUncompressedFile"; _0: Uint8Array };
 
 // PORT: exported (private upstream) so the unported `check_lto_allowed` caller can import it when it lands at M7.
 // rustc: compiler/rustc_codegen_ssa/src/back/lto.rs:77 crate_type_allows_lto
