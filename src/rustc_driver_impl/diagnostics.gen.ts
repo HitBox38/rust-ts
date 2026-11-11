@@ -3,8 +3,6 @@
 import { into_diag_arg_using_display, number_into_diag_arg, Path_into_diag_arg, PathBuf_into_diag_arg, str_into_diag_arg, String_into_diag_arg } from "../rustc_error_messages/diagnostic_impls.ts";
 import { Diag, type DiagArgMap, type DiagCtxtHandle, type Diagnostic, format_diag_message, IntoDiagArg, type Level, type Subdiagnostic } from "../rustc_errors/lib.ts";
 import { display_IoError, type IoError } from "../std/io.ts";
-import { unported } from "../std/panic.ts";
-const unported_into_diag_arg = (_v: unknown, _path: unknown): never => unported("IntoDiagArg without a TS impl (see types report)");
 
 // rustc-type: compiler/rustc_driver_impl/src/diagnostics.rs:7 CantEmitMIR
 export interface CantEmitMIR {
@@ -306,14 +304,14 @@ export function IceExcludeCargoDefaults_diagnostic(self: IceExcludeCargoDefaults
 
 // rustc-type: compiler/rustc_driver_impl/src/diagnostics.rs:113 UnstableFeatureUsage
 export interface UnstableFeatureUsage {
-  error: unknown /* dyn Error */;
+  error: IoError;
 }
 /** `#[derive(Diagnostic)]`: `impl<'_sess> Diagnostic<'_sess> for UnstableFeatureUsage` */
 // rustc-derive: compiler/rustc_driver_impl/src/diagnostics.rs:113 Diagnostic UnstableFeatureUsage
 export function UnstableFeatureUsage_into_diag(self: UnstableFeatureUsage, dcx: DiagCtxtHandle, level: Level): Diag {
   const { error: __binding_0 } = self;
   const diag = Diag.new(dcx, level, { $: "Inline", _0: "cannot dump feature usage metrics: {$error}" });
-  diag.arg("error", IntoDiagArg.of(__binding_0, unported_into_diag_arg));
+  diag.arg("error", IntoDiagArg.of(__binding_0, into_diag_arg_using_display(display_IoError)));
   return diag;
 }
 /** `UnstableFeatureUsage` as a `Diagnostic` trait object. */

@@ -954,7 +954,8 @@
     "class": [],
     "hand": [],
     "discriminant": [],
-    "skip": []
+    "skip": [],
+    "typemap_extra": ["driver_impl.typemap.json"]
   },
   "rustc_monomorphize": {
     "files": ["compiler/rustc_monomorphize/src/diagnostics.rs"],

@@ -522,6 +522,16 @@ export function path_file_stem(self_: string): string | undefined {
   return before ?? after;
 }
 
+/** `Path::extension`: the part of the file name after its last `.`, unless that dot leads the name or there is none. */
+// std: library/std/src/path.rs:2960 extension
+export function path_extension(self_: string): string | undefined {
+  const name = path_file_name(self_);
+  if (name === undefined) return undefined;
+  // `.and_then(|(before, after)| before.and(after))`
+  const [before, after] = rsplit_file_at_dot(name);
+  return before !== undefined ? after : undefined;
+}
+
 /** `Path::join` = `to_path_buf()` + `PathBuf::_push` */
 export function path_join(self_: string, path: string): string {
   let inner = self_;

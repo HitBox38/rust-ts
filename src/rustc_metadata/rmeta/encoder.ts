@@ -91,6 +91,7 @@ import { encode_u64 } from "../../rustc_serialize/serialize.ts";
 import type { DeniedPartialMitigation } from "../../rustc_session/options/mitigation_coverage.ts";
 import { Options_impl } from "../../rustc_session/config.ts";
 import type { TargetModifier } from "../../rustc_session/options.ts";
+import { encode_TargetModifier } from "../../rustc_session/options.gen.ts";
 import { encode_ExpnData, encode_ExpnHash, encode_Ident, encode_Transparency } from "../../rustc_span/decodable.gen.ts";
 import { CrateNum, type DefId, DefIndex, DefPathHash, debug_CrateNum, encode_LocalDefId, LOCAL_CRATE, LocalDefId, LocalModId } from "../../rustc_span/def_id.ts";
 import { type ExpnData, type ExpnHash, type ExpnId, ExpnIndex, HygieneEncodeContext, LocalExpnId, SyntaxContext, type SyntaxContextKey } from "../../rustc_span/hygiene.ts";
@@ -2942,10 +2943,6 @@ function decode_Vec_u8(d: Decoder): Uint8Array {
 /** `DebuggerVisualizerFile`'s derived `Encodable`: not generated (rustc_middle middle/debugger_visualizer.rs). */
 function encode_DebuggerVisualizerFile(_v: DebuggerVisualizerFile, _e: EncodeContext): void {
   unported("rustc_middle::middle::debugger_visualizer: Encodable for DebuggerVisualizerFile (#[debugger_visualizer])");
-}
-/** `TargetModifier`'s derived `Encodable`: not generated (rustc_session options.rs; decoder.ts's decoder is unported too). */
-function encode_TargetModifier(_v: TargetModifier, _e: EncodeContext): void {
-  unported("rustc_session::options: Encodable for TargetModifier (target-modifier flags)");
 }
 /** `(ExportedSymbol<'static>, SymbolExportInfo)` */
 function encode_ExportedSymbol_SymbolExportInfo(v: [ExportedSymbol, SymbolExportInfo], e: EncodeContext): void {
