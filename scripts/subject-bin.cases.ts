@@ -30,6 +30,7 @@ import {
   usesBinary,
   VALIDATED_BUN,
 } from "./lib/subject-bin.ts";
+import { GATE_BUN, sameBun } from "./lib/bun-pin.ts";
 
 const tmp = realpathSync(mkdtempSync(join(tmpdir(), "subject-bin-test-")));
 afterAll(() => rmSync(tmp, { recursive: true, force: true }));
@@ -53,6 +54,11 @@ describe("mode", () => {
     const ok = VALIDATED_BUN[0]!;
     expect(binaryModeRefusal({}, { version: "1.4.4", revision: ok.revision })).toContain("not a validated build");
     expect(binaryModeRefusal({}, { version: ok.version, revision: "0".repeat(40) })).toContain("not a validated build");
+  });
+
+  test("the gate's Bun (scripts/lib/bun-pin.ts GATE_BUN) is a validated build: gates run with RUST_TS_SUBJECT=binary", () => {
+    expect(VALIDATED_BUN.some((v) => sameBun(v, GATE_BUN))).toBe(true);
+    expect(binaryModeRefusal({}, GATE_BUN)).toBeUndefined();
   });
 
   test("only the binary entries use a build, and only in binary mode", () => {
