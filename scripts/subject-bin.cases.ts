@@ -179,12 +179,25 @@ describe("run-time C sources (review w40i-audit N1)", () => {
   // Every tracked TypeScript file but tests: the subject's modules, and anything a later entry might bundle.
   const tracked = Bun.spawnSync(["git", "ls-files", "-z"], { cwd: REPO, stdout: "pipe" }).stdout.toString().split("\0").filter(Boolean);
   const isTest = (f: string) => /\.(test|cases)\.ts$/.test(f);
-  /** The repo-relative `.c` files a module compiles with bun:ffi's `cc`, or why its calls cannot be read. */
-  const ccSources = (file: string, text: string): string[] | string => {
-    if (!text.includes("bun:ffi")) return [];
-    const calls = [...text.matchAll(/\bcc\s*\(/g)].length;
-    const sources = [...text.matchAll(/\bcc\s*\(\s*\{\s*source:\s*join\(import\.meta\.dir,\s*"([^"]+)"\)/g)].map((m) => join(file, "..", m[1]!));
-    if (sources.length !== calls) return `${file}: ${calls} \`cc(\` call(s), ${sources.length} read as \`cc({ source: join(import.meta.dir, "<file>") ...\``;
+  /**
+   * The repo-relative `.c` files a module compiles with bun:ffi's `cc`, directly or through
+   * `cc_or_unported("<what>", { source: ... })` (src/rust_ts/tinycc.ts), or why its calls cannot be read. tinycc.ts's own
+   * `cc(options)` forwards its caller's options, so it is the one call allowed without a literal source.
+   */
+  const TINYCC = "src/rust_ts/tinycc.ts";
+  const ccSources = (file: string, raw: string): string[] | string => {
+    if (!raw.includes("bun:ffi") && !raw.includes("cc_or_unported")) return [];
+    // Calls only: a comment that names `cc(...)` is not one.
+    const text = raw.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+    if (file === TINYCC) {
+      const fwd = [...text.matchAll(/\bcc\s*\(/g)].length;
+      return fwd === 1 && /\breturn cc\(options\);/.test(text) ? [] : `${file}: expected exactly one forwarding \`return cc(options);\`, found ${fwd} \`cc(\` call(s)`;
+    }
+    const calls = [...text.matchAll(/\b(?:cc|cc_or_unported)\s*\(/g)].length - [...text.matchAll(/\bfunction\s+cc_or_unported\s*\(/g)].length;
+    const sources = [
+      ...text.matchAll(/\b(?:cc\s*\(|cc_or_unported\s*\(\s*"[^"]*",)\s*\{\s*source:\s*join\(import\.meta\.dir,\s*"([^"]+)"\)/g),
+    ].map((m) => join(file, "..", m[1]!));
+    if (sources.length !== calls) return `${file}: ${calls} \`cc(\`/\`cc_or_unported(\` call(s), ${sources.length} read with a literal \`source: join(import.meta.dir, "<file>")\``;
     return sources;
   };
   test("RUNTIME_C_FILES is exactly the files non-test modules compile with `cc`, and each exists", () => {
@@ -202,8 +215,14 @@ describe("run-time C sources (review w40i-audit N1)", () => {
   test("the reading of `cc` calls: a call it cannot read is an error, not an empty list", () => {
     const ok = 'import { cc } from "bun:ffi";\nconst lib = cc({\n  source: join(import.meta.dir, "x.c"),\n});\n';
     expect(ccSources("src/a/m.ts", ok)).toEqual(["src/a/x.c"]);
-    expect(ccSources("src/a/m.ts", 'import { cc } from "bun:ffi";\nconst lib = cc({ source: SRC });\n')).toContain("1 `cc(` call(s), 0 read");
+    expect(ccSources("src/a/m.ts", 'import { cc } from "bun:ffi";\nconst lib = cc({ source: SRC });\n')).toContain("1 `cc(`/`cc_or_unported(` call(s), 0 read");
+    expect(ccSources("src/a/m.ts", 'import { cc } from "bun:ffi";\n// cc({ source: join(import.meta.dir, "c.c") })\n')).toEqual([]);
     expect(ccSources("src/a/m.ts", "const lib = cc({ source: SRC });\n")).toEqual([]);
+    const wrapped = 'import { cc_or_unported } from "../rust_ts/tinycc.ts";\nconst lib = cc_or_unported("x (compiling x.c)", {\n  source: join(import.meta.dir, "x.c"),\n});\n';
+    expect(ccSources("src/a/m.ts", wrapped)).toEqual(["src/a/x.c"]);
+    expect(ccSources("src/a/m.ts", 'import { cc_or_unported } from "./t.ts";\nconst lib = cc_or_unported("x", { source: SRC });\n')).toContain("1 `cc(`/`cc_or_unported(` call(s), 0 read");
+    expect(ccSources(TINYCC, 'import { cc } from "bun:ffi";\nexport function cc_or_unported(w, options) {\n  return cc(options);\n}\n')).toEqual([]);
+    expect(ccSources(TINYCC, 'import { cc } from "bun:ffi";\nexport function cc_or_unported(w, options) {\n  cc({ source: "y.c" });\n  return cc(options);\n}\n')).toContain("exactly one forwarding");
   });
   test("every other tracked .c under src/ is compiled by tests only, and a keyed file includes no local header", () => {
     for (const c of tracked.filter((f) => f.startsWith("src/") && /\.[ch]$/.test(f) && !(RUNTIME_C_FILES as readonly string[]).includes(f))) {
