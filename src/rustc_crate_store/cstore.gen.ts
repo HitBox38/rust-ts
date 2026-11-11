@@ -8,7 +8,7 @@ import { debug_PeImportNameType, decode_PeImportNameType, encode_PeImportNameTyp
 import { type CrateStoreDyn } from "./cstore.ts";
 import { type Svh } from "../rustc_data_structures/svh.ts";
 import { type Definitions } from "../rustc_hir_id/definitions.ts";
-import { decode_bool, decode_Option, decode_u64, decode_usize, decode_Vec, encode_bool, encode_Option, encode_u64, encode_usize, encode_Vec } from "../rustc_serialize/serialize.ts";
+import { decode_bool, decode_Option, decode_PathBuf, decode_u64, decode_usize, decode_Vec, encode_bool, encode_Option, encode_PathBuf, encode_u64, encode_usize, encode_Vec } from "../rustc_serialize/serialize.ts";
 import { type CrateNum, debug_CrateNum, debug_DefId, type DefId, type StableCrateIdMap } from "../rustc_span/def_id.ts";
 import { type BlobDecoder, debug_Span, type Span, type SpanDecoder, type SpanEncoder } from "../rustc_span/lib.ts";
 import { debug_Symbol, type Symbol } from "../rustc_span/symbol.ts";
@@ -37,6 +37,17 @@ export const debug_CrateSource: Debug<CrateSource> = (v, f) =>
   ]);
 export function clone_CrateSource(v: CrateSource): CrateSource {
   return new CrateSource(v.dylib, v.rlib, v.rmeta, v.sdylib_interface);
+}
+// rustc-derive: compiler/rustc_crate_store/src/cstore.rs:24 Decodable for CrateSource
+export function decode_CrateSource(__decoder: SpanDecoder): CrateSource {
+  return new CrateSource(decode_Option(__decoder, decode_PathBuf), decode_Option(__decoder, decode_PathBuf), decode_Option(__decoder, decode_PathBuf), decode_Option(__decoder, decode_PathBuf));
+}
+// rustc-derive: compiler/rustc_crate_store/src/cstore.rs:24 Encodable for CrateSource
+export function encode_CrateSource(self: CrateSource, __encoder: SpanEncoder): void {
+  encode_Option(self.dylib, __encoder, encode_PathBuf);
+  encode_Option(self.rlib, __encoder, encode_PathBuf);
+  encode_Option(self.rmeta, __encoder, encode_PathBuf);
+  encode_Option(self.sdylib_interface, __encoder, encode_PathBuf);
 }
 
 // rustc-type: compiler/rustc_crate_store/src/cstore.rs:40 CrateDepKind

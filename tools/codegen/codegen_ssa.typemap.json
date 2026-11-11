@@ -1,0 +1,38 @@
+{
+  "//": [
+    "Set-local type map of set rustc_codegen_ssa (lane codegen-sets-m7; types.sets.json `typemap_extra`).",
+    "`fields`: the eight `Box<dyn std::error::Error>` fields of `ExtractBundledLibsError` (diagnostics.rs:623), each typed by the",
+    "error it holds, from its one construction site, `ArchiveBuilderBuilder::extract_bundled_libs` (back/archive.rs:153):",
+    "  OpenFile, MmapFile, WriteFile: `std::io::Error` (`File::open`, `Mmap::map`, `std::fs::write`);",
+    "  ParseArchive, ReadEntry, ArchiveMember: `object::read::Error` (`ArchiveFile::parse`, `members()`'s items, `ArchiveMember::data`);",
+    "  ConvertName: `core::str::Utf8Error` (`std::str::from_utf8`);",
+    "  ExtractSection: a `String` (`search_for_section`'s error), boxed by `Box::<dyn Error>::from` as alloc's private `StringError`,",
+    "  whose Display is the string's (alloc boxed/convert.rs:591).",
+    "The diagnostic reads them only through `IntoDiagArg for Box<dyn std::error::Error>`, which is `into_diag_arg_using_display!`",
+    "(rustc_error_messages diagnostic_impls.rs:71): the Display of the boxed error. The `rust_ts::dyn_error::*` paths below are",
+    "that Box with a known content, and diag_args.json gives each the Box impl over its content's Display.",
+    "`CrateInfo.natvis_debugger_visualizers` (set rustc_codegen_ssa_lib): the hand-written lib.ts types it as an array, not a set.",
+    "Not the `dyn Error` entry of driver_impl.typemap.json / diag_args.json (review driver-cli-2 N3), whose content is an io error only."
+  ],
+  "cfg": { "true": [], "false": [] },
+  "helpers": {},
+  "fields": {
+    "rustc_codegen_ssa::diagnostics::ExtractBundledLibsError::OpenFile::error": "::rust_ts::dyn_error::Io",
+    "rustc_codegen_ssa::diagnostics::ExtractBundledLibsError::MmapFile::error": "::rust_ts::dyn_error::Io",
+    "rustc_codegen_ssa::diagnostics::ExtractBundledLibsError::ParseArchive::error": "::rust_ts::dyn_error::ObjectRead",
+    "rustc_codegen_ssa::diagnostics::ExtractBundledLibsError::ReadEntry::error": "::rust_ts::dyn_error::ObjectRead",
+    "rustc_codegen_ssa::diagnostics::ExtractBundledLibsError::ArchiveMember::error": "::rust_ts::dyn_error::ObjectRead",
+    "rustc_codegen_ssa::diagnostics::ExtractBundledLibsError::ConvertName::error": "::rust_ts::dyn_error::Utf8",
+    "rustc_codegen_ssa::diagnostics::ExtractBundledLibsError::WriteFile::error": "::rust_ts::dyn_error::Io",
+    "rustc_codegen_ssa::diagnostics::ExtractBundledLibsError::ExtractSection::error": "::rust_ts::dyn_error::String",
+    "rustc_codegen_ssa::CrateInfo::natvis_debugger_visualizers": "::rust_ts::natvis_debugger_visualizers"
+  },
+  "types": [
+    { "paths": ["rustc_abi::NumScalableVectors"], "ts": "NumScalableVectors", "import": "src/rustc_abi/lib.ts", "types": ["NumScalableVectors"], "values": ["debug_NumScalableVectors"], "debug": "debug_NumScalableVectors($v, $f)", "clone": "copy", "note": "branded number (rustc_abi lib.ts, lane layout-contract): InvalidMonomorphization's fields" },
+    { "paths": ["rust_ts::natvis_debugger_visualizers"], "ts": "DebuggerVisualizerFile[]", "import": "src/rustc_middle/middle/debugger_visualizer.ts", "types": ["DebuggerVisualizerFile"], "debug": null, "note": "`BTreeSet<DebuggerVisualizerFile>`, an array in the hand-written `CrateInfo` (lib.ts PORT note); no serialize.json entry, so its Decodable/Encodable stay unported (header)" },
+    { "paths": ["rust_ts::dyn_error::Io"], "ts": "IoError", "import": "src/std/io.ts", "types": ["IoError"], "values": ["debug_IoError"], "debug": "debug_IoError($v, $f)", "note": "`Box<dyn Error>` holding a `std::io::Error` (header)" },
+    { "paths": ["rust_ts::dyn_error::ObjectRead"], "ts": "object_read_Error", "import": "src/vendor/object/read/mod.ts", "types": ["Error as object_read_Error"], "values": ["debug_Error as debug_object_read_Error"], "debug": "debug_object_read_Error($v, $f)", "note": "`Box<dyn Error>` holding an `object::read::Error` (header); imported as `object_read_Error`, not shadowing the global `Error`" },
+    { "paths": ["rust_ts::dyn_error::Utf8"], "ts": "Utf8Error", "import": "src/std/str.ts", "types": ["Utf8Error"], "debug": null, "clone": "copy", "note": "`Box<dyn Error>` holding a `core::str::Utf8Error` (header)" },
+    { "paths": ["rust_ts::dyn_error::String"], "ts": "string", "debug": "debug_str($v)", "note": "`Box<dyn Error>` from a `String` (alloc's `StringError`, header)" }
+  ]
+}
