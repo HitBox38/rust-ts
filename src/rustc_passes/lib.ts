@@ -36,7 +36,8 @@ export * as diagnostics from "./diagnostics.ts";
 export * as entry from "./entry.ts";
 // mod fake_doc_items;        (private: imported above for `provide`)
 // pub mod hir_id_validator;    (not ported)
-// pub mod input_stats;         (not ported)
+// pub mod input_stats;
+export * as input_stats from "./input_stats.ts";
 export * as lang_items from "./lang_items.ts";
 // pub mod layout_test;
 export * as layout_test from "./layout_test.ts";

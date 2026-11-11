@@ -20,6 +20,7 @@ import { emit_delayed_lints } from "../rustc_interface/passes.ts";
 import { creader } from "../rustc_metadata/lib.ts";
 import { par_fns } from "../rustc_data_structures/sync/parallel.ts";
 import { check_glob_and_list_delegations_target_expr } from "../rustc_passes/delegation.ts";
+import { print_hir_stats } from "../rustc_passes/input_stats.ts";
 import { Defaultness, type MaybeOwner, MaybeOwner as MaybeOwnerC } from "../rustc_hir/lib.ts";
 import type { OwnerInfo } from "../rustc_hir/hir.gen.ts";
 import { debug_DefKind, type DefKind } from "../rustc_hir/def.ts";
@@ -67,7 +68,7 @@ import type { Result } from "../std/result.ts";
  */
 export function run_required_analyses_prefix(tcx: TyCtxt): number {
   if (tcx.sess.opts.unstable_opts.input_stats) {
-    unported("rustc_passes::input_stats::print_hir_stats");
+    print_hir_stats(tcx);
   }
   // (passes.rs:1104-1107 `rustc_passes::hir_id_validator::check_crate(tcx)`: debug assertions
   // only, see the header.)

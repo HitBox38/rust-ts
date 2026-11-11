@@ -3,9 +3,8 @@
 // (`write_dep_info`), `create_and_enter_global_ctxt` with its helpers, `run_required_analyses`, `analysis` and
 // `start_codegen` (metadata-only, plan-m5 D5: codegen itself is the backend's, unported).
 //
-// PORT: the crates that the path calls into and that other lanes are porting are reached through local
-// shims below ("Pending-lane shims"), named and typed as upstream, whose bodies call `unported` with the
-// upstream path and the owning lane. Root replaces each shim by the import when that lane lands.
+// PORT: the crates that the path calls into and that other lanes were porting used to be reached through local
+// "Pending-lane shims"; the last two (`rustc_passes::input_stats`) were replaced by the import in lane stats.
 import "../rustc_session/options.ts"; // LOAD ORDER: see rustc_session/config.ts
 import { mkdirSync, statSync, writeFileSync } from "node:fs";
 import * as tracing from "../rust_ts/tracing.ts";
@@ -74,6 +73,7 @@ import { type Providers as QueryProviders, QUERY_DECLS, QUERY_NAMES } from "../r
 import type { Providers as MiddleProviders } from "../rustc_middle/util/mod.ts";
 import { provide as rustc_passes_provide } from "../rustc_passes/lib.ts";
 import * as rustc_passes from "../rustc_passes/lib.ts";
+import { input_stats } from "../rustc_passes/lib.ts";
 import { par_fns } from "../rustc_data_structures/sync/parallel.ts";
 import { EarlyBinder } from "../rustc_type_ir/binder.ts";
 import { Unnormalized } from "../rustc_type_ir/unnormalized.ts";
@@ -87,7 +87,10 @@ import { filename_for_input, invalid_output_for_target, validate_crate_name } fr
 import { LOCAL_CRATE, LocalDefId, StableCrateId, type StableCrateIdMap } from "../rustc_span/def_id.ts";
 import { FatalErrorMarker } from "../rustc_span/fatal_error.ts";
 import { DUMMY_SP, type ErrorGuaranteed, display_SourceFileHash, FileName, type SourceFileHash, type SourceFileHashAlgorithm, Span as SpanC, type Span } from "../rustc_span/lib.ts";
-import { utf8 } from "../std/str.ts";
+import { utf8, utf8_len } from "../std/str.ts";
+import { write_stderr } from "../std/io.ts";
+import { ExpnKind, type MacroKind } from "../rustc_span/hygiene.ts";
+import * as thousands from "../rustc_data_structures/thousands/mod.ts";
 import { Symbol, sym } from "../rustc_span/symbol.ts";
 import { CrateType_discriminant, type CrateType } from "../rustc_structures/lib.ts";
 import type { Limit } from "../rustc_structures/limit.ts";
@@ -375,13 +378,96 @@ function env_join_paths_windows(paths: readonly string[]): string | undefined {
   return joined;
 }
 
-/**
- * `print_macro_stats(ecx)` (passes.rs:321). PORT: not ported: `-Zmacro-stats` needs rustc_expand's stats.rs
- * (unowned; its `update_*_macro_stats` are unported, so this is unreachable) and
- * `rustc_data_structures::thousands`.
- */
-function print_macro_stats(_ecx: ExtCtxt): void {
-  unported("rustc_interface::passes::print_macro_stats (-Zmacro-stats)");
+// rustc: compiler/rustc_interface/src/passes.rs:321 print_macro_stats
+function print_macro_stats(ecx: ExtCtxt): void {
+  const crate_name0 = Symbol.as_str(ecx.ecfg.crate_name);
+  let crate_name: string;
+  if (crate_name0 === "build_script_build") {
+    // This is a build script. Get the package name from the environment.
+    const r = std_env_var("CARGO_PKG_NAME");
+    const pkg_name = r.$ === "Ok" ? r._0 : "<unknown crate>";
+    crate_name = `${pkg_name} build script`;
+  } else {
+    crate_name = crate_name0;
+  }
+
+  // No instability because we immediately sort the produced vector.
+  // #[allow(rustc::potential_query_instability)]
+  // PORT: the key of `ecx.macro_stats` is `macro_stats_key(name, kind)` (rustc_expand base.ts), `<name>:<kind>`.
+  const macro_stats: [number, number, number, Symbol, MacroKind][] = [...ecx.macro_stats].map(([key, stat]) => {
+    const colon = key.lastIndexOf(":");
+    const name = Number(key.slice(0, colon)) as Symbol;
+    const kind = key.slice(colon + 1) as MacroKind;
+    // This gives the desired sort order: sort by bytes, then lines, etc.
+    return [stat.bytes, stat.lines, stat.uses, name, kind];
+  });
+  // PORT: `sort_unstable` on the tuples: `Symbol` orders by its index, `MacroKind` by its declaration order. No two
+  // entries are equal (`(name, kind)` is the map key), so a stable sort gives the same order.
+  const kind_ord = (k: MacroKind): number => (k === "Bang" ? 0 : k === "Attr" ? 1 : 2);
+  macro_stats.sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2] || a[3] - b[3] || kind_ord(a[4]) - kind_ord(b[4]));
+  macro_stats.reverse(); // bigger items first
+
+  const prefix = "macro-stats";
+  const name_w = 32;
+  const uses_w = 7;
+  const lines_w = 11;
+  const avg_lines_w = 11;
+  const bytes_w = 11;
+  const avg_bytes_w = 11;
+  const banner_w = name_w + uses_w + lines_w + avg_lines_w + bytes_w + avg_bytes_w;
+
+  // We write all the text into a string and print it with a single
+  // `eprint!`. This is an attempt to minimize interleaved text if multiple
+  // rustc processes are printing macro-stats at the same time (e.g. with
+  // `RUSTFLAGS='-Zmacro-stats' cargo build`). It still doesn't guarantee
+  // non-interleaving, though.
+  let s = "";
+  s += `${prefix} ${"=".repeat(banner_w)}\n`;
+  s += `${prefix} MACRO EXPANSION STATS: ${crate_name}\n`;
+  s += `${prefix} ${fmt_left("Macro Name", name_w)}${fmt_right("Uses", uses_w)}${fmt_right("Lines", lines_w)}${fmt_right("Avg Lines", avg_lines_w)}${fmt_right("Bytes", bytes_w)}${fmt_right("Avg Bytes", avg_bytes_w)}\n`;
+  s += `${prefix} ${"-".repeat(banner_w)}\n`;
+  // It's helpful to print something when there are no entries, otherwise it
+  // might look like something went wrong.
+  if (macro_stats.length === 0) {
+    s += `${prefix} (none)\n`;
+  }
+  for (const [bytes, lines, uses, name_sym, kind] of macro_stats) {
+    let name = ExpnKind.descr({ $: "Macro", _0: kind, _1: name_sym });
+    const uses_with_underscores = thousands.usize_with_underscores(uses);
+    const avg_lines = lines / uses;
+    const avg_bytes = bytes / uses;
+
+    // Ensure the "Macro Name" and "Uses" columns are as compact as possible.
+    let uses_w_ = uses_w;
+    if (utf8_len(name) + utf8_len(uses_with_underscores) >= name_w + uses_w_) {
+      // The name would abut or overlap the uses value. Print the name
+      // on a line by itself, then set the name to empty and print things
+      // normally, to show the stats on the next line.
+      s += `${prefix} ${fmt_left(name, name_w)}\n`;
+      name = "";
+    } else if (utf8_len(name) >= name_w) {
+      // The name won't abut or overlap with the uses value, but it does
+      // overlap with the empty part of the uses column. Shrink the width
+      // of the uses column to account for the excess name length.
+      uses_w_ -= utf8_len(name) - name_w;
+    }
+
+    s += `${prefix} ${fmt_left(name, name_w)}${fmt_right(uses_with_underscores, uses_w_)}${fmt_right(thousands.usize_with_underscores(lines), lines_w)}${fmt_right(thousands.f64p1_with_underscores(avg_lines), avg_lines_w)}${fmt_right(thousands.usize_with_underscores(bytes), bytes_w)}${fmt_right(thousands.f64p1_with_underscores(avg_bytes), avg_bytes_w)}\n`;
+  }
+  s += `${prefix} ${"=".repeat(banner_w)}\n`;
+  write_stderr(s);
+}
+
+/** PORT: `{:<w$}` on a `&str`: pads with spaces to `w` chars (`fmt::Formatter::pad` counts `char`s). */
+function fmt_left(s: string, w: number): string {
+  const n = [...s].length;
+  return n >= w ? s : s + " ".repeat(w - n);
+}
+
+/** PORT: `{:>w$}` on a `&str` (see `fmt_left`). */
+function fmt_right(s: string, w: number): string {
+  const n = [...s].length;
+  return n >= w ? s : " ".repeat(w - n) + s;
 }
 
 // rustc: compiler/rustc_interface/src/passes.rs:411 early_lint_checks
@@ -393,7 +479,7 @@ function early_lint_checks(tcx: TyCtxt, _: null): null {
   const lint_buffer = resolver.lint_buffer.steal();
 
   if (sess.opts.unstable_opts.input_stats) {
-    rustc_passes_input_stats_print_ast_stats(tcx, krate);
+    input_stats.print_ast_stats(tcx, krate);
   }
 
   // Needs to go *after* expansion to be able to check the results of macro expansion.
@@ -1188,7 +1274,7 @@ export function emit_delayed_lints(tcx: TyCtxt): void {
 // rustc: compiler/rustc_interface/src/passes.rs:1100 run_required_analyses
 function run_required_analyses(tcx: TyCtxt): void {
   if (tcx.sess.opts.unstable_opts.input_stats) {
-    rustc_passes_input_stats_print_hir_stats(tcx);
+    rustc_passes.input_stats.print_hir_stats(tcx);
   }
   // When using rustdoc's "jump to def" feature, it enters this code and `check_crate`
   // is not defined. So we need to cfg it out.
@@ -1607,20 +1693,6 @@ function get_recursion_limit(krate_attrs: readonly Attribute[], sess: Session): 
 function clone_MiddleProviders(p: MiddleProviders): MiddleProviders {
   // `#[derive(Copy, Clone)] struct Providers` (rustc_middle/src/util/mod.rs)
   return { queries: clone_Providers(p.queries), extern_queries: clone_ExternProviders(p.extern_queries), hooks: clone_HookProviders(p.hooks) };
-}
-
-// ---- Pending-lane shims ------------------------------------------------------------------------------------
-// Each is named and typed as upstream; its body calls `unported` with the upstream path and the lane that
-// ports it. Root replaces each by the import when the lane lands (handoff driver-m2).
-
-/** `rustc_passes::input_stats::print_ast_stats` (input_stats.rs:71). PORT: no lane yet (-Zinput-stats). */
-function rustc_passes_input_stats_print_ast_stats(_tcx: TyCtxt, _krate: Crate): void {
-  unported("rustc_passes::input_stats::print_ast_stats (-Zinput-stats)");
-}
-
-/** `rustc_passes::input_stats::print_hir_stats` (input_stats.rs:63). PORT: no lane yet (-Zinput-stats). */
-function rustc_passes_input_stats_print_hir_stats(_tcx: TyCtxt): void {
-  unported("rustc_passes::input_stats::print_hir_stats (-Zinput-stats)");
 }
 
 export type { BufferedEarlyLint };
