@@ -6,8 +6,9 @@
 //
 // Build and cache: a build is keyed by a content hash of everything that goes into it (`subjectBinKey`): every file the bundle
 // includes (the bundler's own list of its inputs, with each file's content), the Bun build (`Bun.version`, `Bun.revision`), the
-// entry, the repo path and the bun path the binary stands in for (both are baked into it, see below), every build option, and
-// this file's own source (the plugin). It lives in `$RUST_TS_DATA/subject-bin/<hash>/` (`rts` and `meta.json`), built in a
+// entry, the repo path and the bun path the binary stands in for (both are baked into it, see below), every build option,
+// this file's own source (the plugin), the config files Bun reads (`CONFIG_FILES`) and the C sources the subject compiles at run
+// time (`RUNTIME_C_FILES`). It lives in `$RUST_TS_DATA/subject-bin/<hash>/` (`rts` and `meta.json`), built in a
 // temp dir that is then renamed into place, so a concurrent run either finds the finished build or builds its own and drops it.
 // A build that fails, or whose binary does not answer `--version` exactly as the source does, is one `ERROR:` line and ends the
 // run: nothing falls back to the source path silently.
@@ -351,12 +352,33 @@ const BUILDER_SOURCE = hash(readFileSync(import.meta.path));
 export const CONFIG_FILES = ["tsconfig.json", "package.json", "bunfig.toml", "bun.lock"] as const;
 const ABSENT = "absent";
 
-/** Each of `CONFIG_FILES` in `repo` with its content's hash, or `absent`. */
-export function configInputs(repo: string): { path: string; sha1: string }[] {
-  return CONFIG_FILES.map((p) => {
+/** Each of `files` in `repo` with its content's hash, or `absent`. */
+function fileInputs(repo: string, files: readonly string[]): { path: string; sha1: string }[] {
+  return files.map((p) => {
     const f = join(repo, p);
     return { path: p, sha1: existsSync(f) ? hash(readFileSync(f)) : ABSENT };
   });
+}
+
+/** Each of `CONFIG_FILES` in `repo` with its content's hash, or `absent`. */
+export function configInputs(repo: string): { path: string; sha1: string }[] {
+  return fileInputs(repo, CONFIG_FILES);
+}
+
+/**
+ * C sources the subject compiles at run time with bun:ffi's `cc` (TinyCC), each named by a `source` beside its module (from
+ * `import.meta.dir`). The bundle keeps that call, with `import.meta.dir` replaced by the source directory of the build's repo, so the binary
+ * compiles the repo's working-tree file in each process that needs it: the C is not in the binary, and not in the bundler's
+ * inputs. Keying it means a build's hash identifies the C its binary runs, as long as the tree is not edited after the build,
+ * which the gate checks (`git status` at start and end) (review w40i-audit N1). Every listed file is keyed for every entry,
+ * whether or not its entry bundles the module that compiles it. scripts/subject-bin.cases.ts fails when a `cc` call names a
+ * file not listed here.
+ */
+export const RUNTIME_C_FILES = ["src/std/thread.c", "src/rust_ts/proc_macro_host.c"] as const;
+
+/** Each of `RUNTIME_C_FILES` in `repo` with its content's hash, or `absent`. */
+export function runtimeCInputs(repo: string): { path: string; sha1: string }[] {
+  return fileInputs(repo, RUNTIME_C_FILES);
 }
 
 /**
@@ -385,15 +407,19 @@ const firstConfigs = new Map<string, { path: string; sha1: string }[]>();
 /** Whether this module lives in `repo`, so the runtime read `repo`'s config at process start. */
 const isOwnRepo = (repo: string) => import.meta.path.startsWith(join(repo, "/"));
 
-/** A build's key: the hash of `spec`, the Bun build, this builder, each input file's path and content, and the config files. */
+/**
+ * A build's key: the hash of `spec`, the Bun build, this builder, each input file's path and content, the config files and the
+ * run-time C sources.
+ */
 export function subjectBinKeyOf(
   spec: BuildSpec,
   inputs: { path: string; sha1: string }[],
   bun = { version: Bun.version, revision: Bun.revision },
   builder = BUILDER_SOURCE,
   config: { path: string; sha1: string }[] = configInputs(spec.repo),
+  runtimeC: { path: string; sha1: string }[] = runtimeCInputs(spec.repo),
 ): string {
-  return hash(JSON.stringify({ v: 2, spec, bun, builder, inputs, config }));
+  return hash(JSON.stringify({ v: 3, spec, bun, builder, inputs, config, runtimeC }));
 }
 
 export interface SubjectBin {
@@ -409,12 +435,15 @@ export interface SubjectBin {
 }
 
 /** The key of `spec`'s build of the tree as it is now, with its inputs. */
-export async function subjectBinKey(spec: BuildSpec): Promise<{ hash: string; inputs: { path: string; sha1: string }[]; config: { path: string; sha1: string }[] }> {
+export async function subjectBinKey(
+  spec: BuildSpec,
+): Promise<{ hash: string; inputs: { path: string; sha1: string }[]; config: { path: string; sha1: string }[]; runtimeC: { path: string; sha1: string }[] }> {
   const config = configInputs(spec.repo);
+  const runtimeC = runtimeCInputs(spec.repo);
   const r = await Bun.build(bunBuildConfig(spec, undefined));
   if (!r.success) throw new Error(`bundling ${spec.entry} failed: ${buildLogs(r)}`);
   const inputs = metaInputs(r, spec.repo).map((p) => ({ path: p, sha1: hash(readFileSync(join(spec.repo, p))) }));
-  return { hash: subjectBinKeyOf(spec, inputs, undefined, undefined, config), inputs, config };
+  return { hash: subjectBinKeyOf(spec, inputs, undefined, undefined, config, runtimeC), inputs, config, runtimeC };
 }
 
 /** `meta.json` of a build. */
@@ -425,6 +454,8 @@ export interface SubjectBinMeta {
   bun: { version: string; revision: string };
   inputs: { path: string; sha1: string }[];
   config: { path: string; sha1: string }[];
+  /** `RUNTIME_C_FILES`, as keyed. */
+  runtimeC: { path: string; sha1: string }[];
   builtAt: string;
   buildMs: number;
 }
@@ -509,7 +540,7 @@ async function ensureIn(entry: string, repo: string, root: string, opts: { bunPa
   if (!isOwnRepo(repo) && !firstConfigs.has(repo)) firstConfigs.set(repo, configInputs(repo));
   const stale = staleConfigs(repo, isOwnRepo(repo) ? undefined : firstConfigs.get(repo));
   if (stale.length > 0) throw new Error(`${stale.join(", ")} changed after this process first read it, and Bun keeps the first copy: build in a new process (bun scripts/subject-bin.ts build)`);
-  const { hash: key, inputs, config } = await subjectBinKey(spec);
+  const { hash: key, inputs, config, runtimeC } = await subjectBinKey(spec);
   const dir = join(root, key);
   const have = finished(dir, key, entry);
   if (have) return have;
@@ -530,12 +561,14 @@ async function ensureIn(entry: string, repo: string, root: string, opts: { bunPa
     for (const i of inputs) {
       if (hash(readFileSync(join(repo, i.path))) !== i.sha1) throw new Error(`${i.path} changed while ${entry} was being built`);
     }
-    for (const c of configInputs(repo)) {
-      if (config.find((k) => k.path === c.path)?.sha1 !== c.sha1) throw new Error(`${c.path} changed while ${entry} was being built`);
+    for (const [now, keyedAs] of [[configInputs(repo), config], [runtimeCInputs(repo), runtimeC]] as const) {
+      for (const c of now) {
+        if (keyedAs.find((k) => k.path === c.path)?.sha1 !== c.sha1) throw new Error(`${c.path} changed while ${entry} was being built`);
+      }
     }
     const why = (opts.smoke ?? versionSmoke)(join(tmp, BIN_NAME), spec);
     if (why !== undefined) throw new Error(`the build of ${entry} fails its check: ${why}`);
-    const meta: SubjectBinMeta = { hash: key, entry, spec, bun: { version: Bun.version, revision: Bun.revision }, inputs, config, builtAt: new Date().toISOString(), buildMs: Math.round(performance.now() - started) };
+    const meta: SubjectBinMeta = { hash: key, entry, spec, bun: { version: Bun.version, revision: Bun.revision }, inputs, config, runtimeC, builtAt: new Date().toISOString(), buildMs: Math.round(performance.now() - started) };
     writeFileSync(join(tmp, "meta.json"), JSON.stringify(meta, null, 1));
     try {
       renameSync(tmp, dir);
