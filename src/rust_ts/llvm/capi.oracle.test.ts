@@ -9,6 +9,7 @@ import { join } from "node:path";
 import { PIN } from "../../../scripts/lib/common.ts";
 import { LLVM_VERSION, NORMAL_TRIPLES } from "./core.ts";
 import * as L from "./ffi.ts";
+import { Unported } from "../../std/panic.ts";
 import { printValueToString } from "./printer.ts";
 
 const REQUIRE = process.env.RUST_TS_REQUIRE_PROBES === "1";
@@ -77,6 +78,11 @@ const C_API = {
   LLVMGetPoison: { args: [P], returns: P },
   LLVMConstReal: { args: [P, "f64"], returns: P },
   LLVMDoubleTypeInContext: { args: [P], returns: P },
+  LLVMFloatTypeInContext: { args: [P], returns: P },
+  LLVMVectorType: { args: [P, "u32"], returns: P },
+  LLVMConstVector: { args: [P, "u32"], returns: P },
+  LLVMBuildBitCast: { args: [P, P, P, P], returns: P },
+  LLVMConstBitCast: { args: [P, P], returns: P },
 } as const;
 
 const cstr = (s: string | Uint8Array): Buffer => Buffer.concat([typeof s === "string" ? Buffer.from(s, "utf8") : Buffer.from(s), Buffer.from([0])]);
@@ -326,5 +332,55 @@ describe.skipIf(!HAVE && !REQUIRE)("model vs libLLVM C API", () => {
     lib.LLVMDisposeBuilder(rb);
     lib.LLVMContextDispose(rc);
     void foldCases;
+  });
+
+  test("vector constants: all-ones splats fold through bitcast, FP-vector identities stop (review llir-core-b F2, F3)", () => {
+    const rc = lib.LLVMContextCreate();
+    const rb = lib.LLVMCreateBuilderInContext(rc);
+    const mc = L.LLVMContextCreate();
+    const mb = L.LLVMCreateBuilderInContext(mc);
+    const noName = cstr("");
+    const R = (bits: number) => lib.LLVMIntTypeInContext(rc, bits);
+    const M = (bits: number) => L.LLVMIntTypeInContext(mc, bits);
+    const rvec = (bits: number, vals: bigint[]) => lib.LLVMConstVector(ptrs(vals.map((v) => lib.LLVMConstInt(R(bits), v, 0))), vals.length);
+    const mvec = (bits: number, vals: bigint[]) => L.LLVMConstVector(vals.map((v) => L.LLVMConstInt(M(bits), v, L.FALSE)), vals.length);
+    const ones32 = 0xffffffffn;
+    const cases: [string, Pointer | null, () => L.Value][] = [];
+    for (const [what, bits, vals] of [
+      ["<2 x i32> all ones", 32, [ones32, ones32]],
+      ["<2 x i32> <-1, 1>", 32, [ones32, 1n]],
+      ["<4 x i16> all ones", 16, [0xffffn, 0xffffn, 0xffffn, 0xffffn]],
+      ["<8 x i8> all ones", 8, new Array<bigint>(8).fill(0xffn)],
+      ["<2 x i32> <7, 7>", 32, [7n, 7n]],
+    ] as [string, number, bigint[]][]) {
+      for (const [to, rt, mt] of [
+        ["i64", R(64), M(64)],
+        ["<4 x i16>", lib.LLVMVectorType(R(16), 4), L.LLVMVectorType(M(16), 4)],
+        ["<2 x i32>", lib.LLVMVectorType(R(32), 2), L.LLVMVectorType(M(32), 2)],
+        ["<8 x i8>", lib.LLVMVectorType(R(8), 8), L.LLVMVectorType(M(8), 8)],
+      ] as [string, Pointer | null, L.Type][]) {
+        cases.push([`builder bitcast ${what} to ${to}`, lib.LLVMBuildBitCast(rb, rvec(bits, vals), rt, noName), () => L.LLVMBuildBitCast(mb, mvec(bits, vals), mt, "")]);
+        cases.push([`const bitcast ${what} to ${to}`, lib.LLVMConstBitCast(rvec(bits, vals), rt), () => L.LLVMConstBitCast(mvec(bits, vals), mt)]);
+      }
+    }
+    for (const [what, r, m] of cases) expect([what, printValueToString(m())]).toEqual([what, owned(lib.LLVMPrintValueToString(r))]);
+    // An all-ones vector bitcast to a float vector, and FP-vector identities, need a vector-typed ConstantFP: they stop.
+    const rf2 = lib.LLVMVectorType(lib.LLVMFloatTypeInContext(rc), 2);
+    const mf2 = L.LLVMVectorType(L.LLVMFloatTypeInContext(mc), 2);
+    expect(lib.LLVMIsAConstant(lib.LLVMBuildBitCast(rb, rvec(32, [ones32, ones32]), rf2, noName))).not.toBeNull();
+    expect(() => L.LLVMBuildBitCast(mb, mvec(32, [ones32, ones32]), mf2, "")).toThrow(Unported);
+    const rd2 = lib.LLVMVectorType(lib.LLVMDoubleTypeInContext(rc), 2);
+    const md2 = L.LLVMVectorType(L.LLVMDoubleTypeInContext(mc), 2);
+    for (const [what, rv, mv] of [
+      ["fadd <2 x float> undef, undef", [lib.LLVMGetUndef(rf2), lib.LLVMGetUndef(rf2)], [L.LLVMGetUndef(mf2), L.LLVMGetUndef(mf2)]],
+      ["fadd <2 x float> poison, undef", [lib.LLVMGetPoison(rf2), lib.LLVMGetUndef(rf2)], [L.LLVMGetPoison(mf2), L.LLVMGetUndef(mf2)]],
+      ["fadd <2 x double> undef, undef", [lib.LLVMGetUndef(rd2), lib.LLVMGetUndef(rd2)], [L.LLVMGetUndef(md2), L.LLVMGetUndef(md2)]],
+    ] as [string, (Pointer | null)[], L.Value[]][]) {
+      // LLVM folds each to a constant; the model stops (never a plain Error, review F3).
+      expect([what, lib.LLVMIsAConstant(lib.LLVMBuildBinOp(rb, 9, rv[0], rv[1], noName)) !== null]).toEqual([what, true]);
+      expect(() => L.LLVMBuildFAdd(mb, mv[0]!, mv[1]!, "")).toThrow(Unported);
+    }
+    lib.LLVMDisposeBuilder(rb);
+    lib.LLVMContextDispose(rc);
   });
 });

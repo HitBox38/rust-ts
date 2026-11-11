@@ -26,6 +26,7 @@ import {
   FUNCTION_INDEX,
   Function,
   FunctionType,
+  getSplatValue,
   GlobalAlias,
   GlobalObject,
   GlobalValue,
@@ -299,6 +300,12 @@ export class Printer {
     }
     if (c instanceof ConstantAggregateZero) return "zeroinitializer";
     if (c instanceof ConstantArray) return `[${c.operands.map((o) => this.operand(o, true)).join(", ")}]`;
+    if ((c instanceof ConstantDataSequential || c instanceof ConstantVector) && c.type instanceof VectorType) {
+      // The shorthand for a splat vector, `splat (<ty> <val>)` (AsmWriter.cpp writeConstantInternal, "Use the same shorthand
+      // for splat vector"): when the splat value is a ConstantInt or ConstantFP.
+      const splat = getSplatValue(c);
+      if (splat instanceof ConstantInt || splat instanceof ConstantFP) return `splat (${this.operand(splat, true)})`;
+    }
     if (c instanceof ConstantDataSequential) {
       if (c.isString()) return `c"${printEscapedString(String.fromCharCode(...c.elements.map((e) => Number((e as ConstantInt).value))))}"`;
       const elems = c.elements.map((e) => this.operand(e, true)).join(", ");

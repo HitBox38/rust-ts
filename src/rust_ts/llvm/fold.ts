@@ -14,6 +14,7 @@ import {
   ConstantPointerNull,
   Function as IrFunction,
   getAggregateElement,
+  getAllOnesValue,
   getBitCast,
   getConstantArray,
   getConstantFP,
@@ -93,16 +94,14 @@ function cmpResultType(t: Type): Type {
 
 // ---- constants the folds build ----------------------------------------------------------------------------------------
 
-// llvm: llvm/lib/IR/Constants.cpp:427 Constant::getAllOnesValue
-export function getAllOnesValue(ty: Type): Constant {
-  if (ty instanceof IntegerType) return getConstantInt(ty, ty.mask);
-  // `APFloat::getAllOnesValue`: every bit of the format set.
-  if (ty.isFloatingPointTy()) return getConstantFP(ty, (1n << BigInt(ty.fpBits())) - 1n);
-  return unported("llir: Constant::getAllOnesValue of a vector (ConstantVector::getSplat)");
-}
+/** `Constant::getAllOnesValue` lives in ir.ts (FoldBitCast needs it); re-exported for inst.ts. */
+export { getAllOnesValue };
 
 /** The sign bit of an IEEE format (`APFloat::getZero(Sem, Negative = true)`, `changeSign`); ppc_fp128 is a pair of doubles. */
 function signBit(ty: Type): bigint {
+  // `ConstantFP::getZero(Ty, Negative)` of a vector type is a vector-typed ConstantFP splat (Constants.cpp:1167, :1123), which
+  // the model does not have: stop (review llir-core-b F3; `fadd <2 x float> undef, undef` reaches this through the FAdd identity).
+  if (ty instanceof VectorType) return unported("llir: ConstantFP::getZero of a vector type (a vector-typed ConstantFP splat)");
   if (ty.typeID === "PPC_FP128") return unported("llir: the sign of a ppc_fp128 constant (APFloat's double-double)");
   return 1n << BigInt(ty.fpBits() - 1);
 }

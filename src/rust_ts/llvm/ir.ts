@@ -451,12 +451,22 @@ export const NON_GLOBAL_VALUE_MAX_NAME_SIZE = 1024;
 export abstract class Constant extends User {
   /** Set by `destroyConstant`. */
   destroyed = false;
-  /** `Constant::isNullValue`. */
+  /** `Constant::isNullValue`: the `IsNullValue` flag, set when a zero constant is made (Constant.h:64). The model's vector
+   * constants that hold data (ConstantDataSequential, ConstantVector) are never all zero: their getters collapse those to
+   * ConstantAggregateZero, as LLVM's do, so only the subclasses that can be zero override this. */
   isNullValue(): boolean {
     return false;
   }
-  /** `Constant::isAllOnesValue`. */
+
+  // llvm: llvm/lib/IR/Constants.cpp:68 Constant::isAllOnesValue
+  /** The scalar arms are the ConstantInt / ConstantFP overrides; this is the rest: a constant splat vector of all-ones values
+   * (review llir-core-b F2). */
   isAllOnesValue(): boolean {
+    // Check for constant splat vectors of 1 values.
+    if (this.type.isVectorTy()) {
+      const splatVal = getSplatValue(this);
+      if (splatVal !== undefined) return splatVal.isAllOnesValue();
+    }
     return false;
   }
   /** The key this constant is uniqued under in its context's table, or undefined if it is not uniqued that way. */
@@ -833,11 +843,64 @@ function elementTypeAt(t: Type, i: number): Type {
 
 export type CastOpcode = "Trunc" | "PtrToInt" | "IntToPtr" | "BitCast" | "AddrSpaceCast" | "ZExt" | "SExt" | "FPTrunc" | "FPExt" | "UIToFP" | "SIToFP" | "FPToUI" | "FPToSI";
 
+// llvm: llvm/lib/IR/Constants.cpp:1846 Constant::getSplatValue
+/** `getSplatValue(AllowPoison = false)` of a vector constant: the one element, or undefined. */
+export function getSplatValue(c: Constant): Constant | undefined {
+  if (!(c.type instanceof VectorType)) throw new Error("llvm: Only valid for vectors!");
+  if (c instanceof PoisonValue) return getPoison(c.type.elementType);
+  if (c instanceof ConstantAggregateZero) return getNullValue(c.type.elementType);
+  // (Vector-typed ConstantInt / ConstantFP / ConstantPointerNull splats are not made by the model.)
+  if (c instanceof ConstantDataSequential) return constantDataVectorSplatValue(c);
+  if (c instanceof ConstantVector) return constantVectorSplatValue(c);
+  // A `shufflevector (insertelement undef, X, 0), undef, zeroinitializer` constant expression is not made by the model.
+  return undefined;
+}
+
+// llvm: llvm/lib/IR/Constants.cpp:1887 ConstantVector::getSplatValue
+function constantVectorSplatValue(c: ConstantVector): Constant | undefined {
+  // Check out first element; then make sure all remaining elements point to the same value (strict mode).
+  const elt = c.operands[0] as Constant;
+  for (let i = 1; i < c.operands.length; i++) if (c.operands[i] !== elt) return undefined;
+  return elt;
+}
+
+// llvm: llvm/lib/IR/Constants.cpp:3505 ConstantDataVector::getSplatValue
+function constantDataVectorSplatValue(c: ConstantDataSequential): Constant | undefined {
+  // If they're all the same, return the 0th one as a representative (`isSplatData` compares the raw element bytes; the
+  // elements are uniqued constants of one type, so equal bytes are the same object).
+  const e0 = c.elements[0]!;
+  return c.elements.every((e) => e === e0) ? e0 : undefined;
+}
+
+// llvm: llvm/lib/IR/Constants.cpp:427 Constant::getAllOnesValue
+export function getAllOnesValue(ty: Type): Constant {
+  if (ty instanceof IntegerType) return getConstantInt(ty, ty.mask);
+  // `APFloat::getAllOnesValue`: every bit of the format set.
+  if (ty.isFloatingPointTy()) return getConstantFP(ty, (1n << BigInt(ty.fpBits())) - 1n);
+  if (!(ty instanceof VectorType)) throw new Error(`llvm: cast<VectorType> of ${ty.typeID} (Constant::getAllOnesValue)`);
+  return getSplat(ty.numElements, ty.scalable, getAllOnesValue(ty.elementType));
+}
+
+// llvm: llvm/lib/IR/Constants.cpp:1602 ConstantVector::getSplat
+/** `ConstantVector::getSplat(EC, V)` for the splats the model can hold: a fixed-length splat of an integer the data vectors
+ * take (`ConstantDataVector::getSplat`, Constants.cpp:3304). The rest (FP, pointer null and byte splats are vector-typed
+ * constants; other elements go through `ConstantVector::get`) stop. */
+export function getSplat(n: number, scalable: boolean, v: Constant): Constant {
+  if (v instanceof ConstantFP) return unported("llir: a floating-point vector splat (a vector-typed ConstantFP)");
+  if (v instanceof ConstantPointerNull) return unported("llir: a pointer-null vector splat (a vector-typed ConstantPointerNull)");
+  if (!scalable) {
+    // (`UseConstantIntForFixedLengthSplat` is off by default.) If this splat is compatible with ConstantDataVector, use it.
+    if (v instanceof ConstantInt && isElementTypeCompatible(v.type)) return getConstantDataSequential(v.context.getVectorType(v.type, n, false), new Array<ConstantInt>(n).fill(v));
+    return unported("llir: ConstantVector::getSplat of other elements (ConstantVector::get)");
+  }
+  return unported("llir: a scalable vector splat");
+}
+
 // llvm: llvm/lib/IR/ConstantFold.cpp:63 FoldBitCast
 function foldBitCast(v: Constant, destTy: Type): Constant | undefined {
   const srcTy = v.type;
   if (srcTy === destTy) return v; // no-op cast
-  if (v.isAllOnesValue()) return unported("llir: FoldBitCast of an all-ones value (Constant::getAllOnesValue)");
+  if (v.isAllOnesValue()) return getAllOnesValue(destTy);
   // Handle ConstantInt -> Constant{Byte, FP}
   if (v instanceof ConstantInt) {
     if (destTy.isVectorTy() && !srcTy.isVectorTy()) return unported("llir: FoldBitCast scalar-to-vector");
@@ -856,6 +919,24 @@ function foldBitCast(v: Constant, destTy: Type): Constant | undefined {
   return undefined;
 }
 
+// llvm: llvm/lib/IR/ConstantFold.cpp:156 foldMaybeUndesirableCast
+function foldMaybeUndesirableCast(opc: CastOpcode, v: Constant, destTy: Type): Constant | undefined {
+  // `ConstantExpr::isDesirableCastOp(opc) ? ConstantExpr::getCast(opc, V, DestTy) : ConstantFoldCastInstruction(opc, V, DestTy)`.
+  switch (opc) {
+    case "Trunc":
+    case "AddrSpaceCast":
+      return getFoldedCast(opc, v, destTy);
+    case "PtrToInt":
+      return getPtrToInt(v, destTy);
+    case "IntToPtr":
+      return getIntToPtr(v, destTy);
+    case "BitCast":
+      return getBitCast(v, destTy);
+    default:
+      return constantFoldCastInstruction(opc, v, destTy);
+  }
+}
+
 // llvm: llvm/lib/IR/ConstantFold.cpp:163 ConstantFoldCastInstruction
 export function constantFoldCastInstruction(opc: CastOpcode, v: Constant, destTy: Type): Constant | undefined {
   if (v instanceof PoisonValue) return getPoison(destTy);
@@ -868,7 +949,19 @@ export function constantFoldCastInstruction(opc: CastOpcode, v: Constant, destTy
   if (v.isNullValue() && destTy.typeID !== "X86_AMX" && opc !== "AddrSpaceCast") return getNullValue(destTy);
   // If the cast operand is a constant expression, there's a few things we can do to try to simplify it.
   if (v instanceof ConstantExpr && v.isCast()) return unported("llir: ConstantFoldCastInstruction of a cast of a cast (foldConstantCastPair / CastInst::isEliminableCastPair)");
-  if (destTy.isVectorTy() && v.type.isVectorTy()) return unported("llir: ConstantFoldCastInstruction of a vector");
+  // If the cast operand is a constant vector, perform the cast by operating on each element. In the cast of bitcasts, the
+  // element count may be mismatched; don't attempt to handle that here.
+  if (destTy instanceof VectorType && v.type instanceof VectorType && destTy.numElements === v.type.numElements && destTy.scalable === v.type.scalable) {
+    // Fast path for splatted constants.
+    const splat = getSplatValue(v);
+    if (splat !== undefined) {
+      const res = foldMaybeUndesirableCast(opc, splat, destTy.elementType);
+      if (res === undefined) return undefined;
+      return getSplat(destTy.numElements, destTy.scalable, res);
+    }
+    if (destTy.scalable) return undefined;
+    return unported("llir: ConstantFoldCastInstruction of a non-splat vector (ConstantExpr::getExtractElement per element)");
+  }
   switch (opc) {
     case "FPTrunc":
     case "FPExt":
