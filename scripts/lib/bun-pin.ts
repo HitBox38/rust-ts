@@ -10,6 +10,13 @@
 // (`readBunExe`: its content hash, and the version and revision it prints) at the start, where it must be the running build
 // (`execBunRefusal`), before each suite and at the end. A change stops the run with one `ERROR:` line (`bunExeChange`); gate.json
 // `bunExec` records the start and end readings, and `accept` refuses a run whose two differ (`acceptBunExeRefusal`, review bun-144 F1).
+// Readings at suite boundaries miss a swap that is undone before the next one (review bun-144-recheck F1-r: swap, start a child,
+// swap back). So `gate.ts run` first clones its Bun file (`cloneBunFile`: APFS `cp -c`, which shares the blocks and costs no disk;
+// a plain copy where clonefile is unavailable, with a note), checks the clone (`cloneRefusal`) and re-runs itself from it: then
+// `process.execPath` of the gate and of every child is a file only the gate knows, under `$RUST_TS_DATA/gate-bun/`, removed at
+// the end. The readings stay, now of the clone, as a belt. gate.json `bunClone` records it, and `accept` refuses a run that did
+// not run from one (`acceptBunCloneRefusal`). A subject binary embeds the Bun that built it, so the gate also refuses a build
+// whose builder Bun is not its own (`builtByRefusal`).
 // This file imports only node built-ins (scripts/gate-bun.test.ts loads it in the runner unit-test process).
 //
 // Moving the project to another Bun is a reviewed harness batch: validate it for subject binaries (scripts/lib/subject-bin.ts
@@ -17,7 +24,7 @@
 // `GATE_BUN` here, and only then run the runner unit tests on the new Bun: the tests that drive `gateRun` (gate-power, gate-static-stop,
 // gate-probes, gate-bun) run it on the running Bun, which the pin refuses until `GATE_BUN` names it (review bun-144 N3). The next
 // gate re-runs the Bun-run oracles (their keys change with the binary).
-import { readFileSync } from "node:fs";
+import { chmodSync, copyFileSync, readFileSync } from "node:fs";
 
 /** A Bun build: `Bun.version` and `Bun.revision`. */
 export interface BunBuild {
@@ -96,10 +103,71 @@ export function execBunRefusal(exe: BunExe, bun: BunBuild): string | undefined {
   return `the Bun the gate's children run, ${exe.path}, is ${showBunExe(exe)}${exe.error ? `: ${exe.error}` : ""}, not the gate's own Bun ${showBun(bun)}; start the gate with that file, unchanged`;
 }
 
-/** The one `ERROR:` text (without the prefix) for a Bun file that changed between `start` and `now`, seen `where`; `undefined` if the same. */
-export function bunExeChange(start: BunExe, now: BunExe, where: string): string | undefined {
+/**
+ * The command that lists the oracle cache entries born after `since` (an ISO time): macOS `/usr/bin/find` (BSD; it parses
+ * `YYYY-MM-DD HH:MM:SS UTC`), run it as is to see them, with `-delete` to remove them.
+ */
+export function bornSinceCommand(cacheDir: string, since: string): string {
+  const t = new Date(since).toISOString().replace("T", " ").replace(/\.\d+Z$/, " UTC");
+  return `/usr/bin/find ${cacheDir} -type f -newerBt '${t}'`;
+}
+
+/**
+ * The one `ERROR:` text (without the prefix) for a Bun file that changed between `start` and `now`, seen `where`; `undefined` if
+ * the same. `cache`: the oracle cache and the time of the last reading that was still `start`, so the text names exactly what to
+ * delete (the entries born since then may hold the other build's output under this build's key: scripts/difftest.ts
+ * `oracleVersion` hashes the file once per suite).
+ */
+export function bunExeChange(start: BunExe, now: BunExe, where: string, cache?: { dir: string; since: string }): string | undefined {
   if (now.sha1 !== null && now.sha1 === start.sha1) return undefined;
-  return `the Bun file the gate's children run (${start.path}) changed ${where}: ${showBunExe(start)} at the start, now ${showBunExe(now)}${now.error ? ` (${now.error})` : ""}; the run fails, the suites left are not run, and the oracle cache entries the last suite wrote may be keyed to the old build (scripts/difftest.ts \`oracleVersion\` hashes the file once per suite)`;
+  const purge = cache === undefined ? "" : `; delete the oracle cache entries born since the last good reading (${cache.since}): \`${bornSinceCommand(cache.dir, cache.since)} -delete\` (without \`-delete\` it lists them)`;
+  return `the Bun file the gate's children run (${start.path}) changed ${where}: ${showBunExe(start)} at the start, now ${showBunExe(now)}${now.error ? ` (${now.error})` : ""}; the run fails and the suites left are not run${purge}`;
+}
+
+/** gate.json `bunClone`: the gate's private copy of its Bun, which it and every child ran. */
+export interface BunClone {
+  /** The copy (`process.execPath` of the gate and its children). */
+  path: string;
+  /** The Bun file it was made from. */
+  from: string;
+  sha1: string;
+  /** `clonefile` (APFS `cp -c`: no disk cost) or `copy` (a plain copy where clonefile failed). */
+  how: "clonefile" | "copy";
+}
+
+/** Copies the Bun file `src` to `dst` as an APFS clone (`cp -c`); a plain copy if that fails. Returns which, and why not a clone. */
+export function cloneBunFile(src: string, dst: string, cp: readonly string[] = ["/bin/cp", "-c"]): { how: "clonefile" | "copy"; why?: string } {
+  let why: string;
+  try {
+    const p = Bun.spawnSync([...cp, src, dst], { stdout: "pipe", stderr: "pipe" });
+    if (p.exitCode === 0) return { how: "clonefile" };
+    why = `${cp.join(" ")} exited ${p.exitCode}: ${p.stderr.toString().trim().slice(0, 200)}`;
+  } catch (e) {
+    why = `${cp.join(" ")} failed: ${e instanceof Error ? e.message : String(e)}`;
+  }
+  copyFileSync(src, dst);
+  chmodSync(dst, 0o755);
+  return { how: "copy", why };
+}
+
+/** Why the clone read as `clone` must not stand in for the original read as `orig` (the gate's own Bun is `bun`), or `undefined`. */
+export function cloneRefusal(orig: BunExe, clone: BunExe, bun: BunBuild): string | undefined {
+  const notBun = execBunRefusal(clone, bun);
+  if (notBun === undefined && clone.sha1 === orig.sha1) return undefined;
+  return `the gate's copy of its Bun, ${clone.path}, reads as ${showBunExe(clone)}${clone.error ? ` (${clone.error})` : ""}, not as ${orig.path}, ${showBunExe(orig)}`;
+}
+
+/** Why `accept` must refuse a run whose gate.json records `clone`: `null` (a run not started through `gate.ts run`); absent: let through. */
+export function acceptBunCloneRefusal(runId: string, clone: BunClone | null | undefined): string | undefined {
+  if (clone !== null) return undefined;
+  return `gate run ${runId} did not run from a private copy of its Bun (gate.json \`bunClone\` is null: it was not started by \`gate.ts run\`); nothing accepted`;
+}
+
+/** Why the gate must refuse subject binaries built by another Bun than `bun` (a binary embeds its builder's runtime), or `undefined`. */
+export function builtByRefusal(bins: readonly { entry: string; hash: string; bun: BunBuild | undefined }[], bun: BunBuild): string | undefined {
+  const bad = bins.filter((b) => b.bun === undefined || !sameBun(b.bun, bun));
+  if (bad.length === 0) return undefined;
+  return `subject binary ${bad.map((b) => `${b.entry} (${b.hash.slice(0, 12)}, built by Bun ${b.bun ? showBun(b.bun) : "unknown"})`).join(", ")} was not built by the gate's Bun ${showBun(bun)}: it embeds its builder's runtime; remove the build and re-run the gate`;
 }
 
 /** gate.json `bunExec`: the Bun file the gate's children ran, read at the start and at the end (or where a change was seen). */
@@ -108,6 +176,8 @@ export interface BunExecRecord {
   end: BunExe;
   /** Where the change was seen (`before suite <s>`, `at the end`, ...), when it was. */
   changed?: string;
+  /** When the file last read as `start` (the start, or the last unchanged reading). */
+  goodAt?: string;
 }
 
 /**

@@ -34,23 +34,29 @@
 //       The file at `process.execPath`, which every child runs, must be that build at the start (read by content and `--revision`),
 //       and is read again before each suite and at the end: a change is one `ERROR:` line, the suites left are not run (`notRun`),
 //       and the run fails; gate.json `bunExec` records the start and end readings (review bun-144 F1).
+//       Before all that, `gate.ts run` copies its Bun file (an APFS clone, `cp -c`: no disk cost; a plain copy where that fails, with
+//       a note) to `$RUST_TS_DATA/gate-bun/<sha1>/bun`, checks the copy and runs the gate again from it (`gateBunClone`), so the gate
+//       and every child (static steps, oracle wrappers, subjects, the subject builder) run a file nothing else touches: a swap of
+//       the machine's Bun, even one undone before the next reading, cannot reach them (review bun-144-recheck F1-r). gate.json
+//       `bunClone` records the copy, which is removed at the end. A subject binary built by another Bun is refused (it embeds it).
 //   bun scripts/gate.ts accept --run <run-id>
 //       grow the protected set with that gate run's new MATCHes. Refused if the run lost anything,
 //       skipped static checks, skipped a protected suite, ran on a dirty tree, ran on a Bun build other than `GATE_BUN`
-//       (when its gate.json records one), saw the Bun file change (`bunExec`, when recorded), or HEAD has moved since.
+//       (when its gate.json records one), saw the Bun file change (`bunExec`, when recorded), did not run from a copy of its Bun
+//       (`bunClone` null; absent in older runs: a note), or HEAD has moved since.
 //
 // Unstable cases (`Suite.unstable`, difftest's UNSTABLE status: oracle output that is not reproducible) are never
 // protected: a run fails if a baseline lists one, and accept refuses to add one. The upstream checkout must be clean
 // when a run starts (or it stops with `ERROR:`), and a run fails if a suite changes it (scripts/lib/upstream.ts).
-import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { HOST_RLIB_RUN, IR_RUN, MIR_DUMP_RUN, MIRI_SYSROOT_RUN, RG_CHECK, RLIB_NATIVE_RUN, RMETA_RUN, SUITES, suite as getSuite, type Suite } from "../harness/suites.ts";
 import { difftest, heavyErrorLines, heavyLine, unstableOf, type HeavyRun, type OracleRerun, type RetryLoad, type Usage } from "./difftest.ts";
-import { DATA, REPO, RUNS, UPSTREAM, die, ensureDir, nowId, parseArgs, run } from "./lib/common.ts";
+import { DATA, ORACLE_CACHE, REPO, RUNS, UPSTREAM, die, ensureDir, nowId, parseArgs, run } from "./lib/common.ts";
 import { HostLog, REAL_HOST, StuckReads, batteryRefusal, sampleHost, type HostReaders, type HostSample } from "./lib/host-state.ts";
 import { miriBinary } from "./lib/miri.ts";
-import { prepareSubject } from "./lib/subject-bin.ts";
-import { acceptBunExeRefusal, acceptBunRefusal, bunExeChange, execBunRefusal, gateBunRefusal, readBunExe, runningBun, type BunBuild, type BunExecRecord } from "./lib/bun-pin.ts";
+import { prepareSubject, subjectBinBuilds } from "./lib/subject-bin.ts";
+import { acceptBunCloneRefusal, acceptBunExeRefusal, acceptBunRefusal, builtByRefusal, bunExeChange, cloneBunFile, cloneRefusal, execBunRefusal, gateBunRefusal, readBunExe, runningBun, showBunExe, type BunBuild, type BunClone, type BunExecRecord } from "./lib/bun-pin.ts";
 import { verifyOraclePin } from "./lib/oracle.ts";
 import { BUN_QUIET_VARS, UNIT_STEPS, UNIT_TEST_TIMEOUT_MS, aloneJunit, aloneStepArgs, oneProcessEnv, unitEnvRefusal, unitStepArgs, unitStepEnv, type UnitStep } from "./lib/unit-steps.ts";
 import { upstreamError, upstreamStatus } from "./lib/upstream.ts";
@@ -135,6 +141,8 @@ export interface GateHost {
   bun?: BunBuild;
   /** Tests only: the Bun file the run checks instead of `process.execPath` (its children still run `process.execPath`). */
   execPath?: string;
+  /** The private copy of the gate's Bun it runs from (`gateBunClone`); gate.json `bunClone`, null without one (tests). */
+  bunClone?: BunClone;
 }
 const REAL_GATE_HOST: GateHost = { readers: REAL_HOST, pollMs: 60_000, keepEveryMs: 600_000 };
 
@@ -566,7 +574,8 @@ export async function staticChecks(runDir: string): Promise<StaticChecks> {
   // The unit-test steps are UNIT_STEPS (scripts/lib/unit-steps.ts): disjoint roots, each passed as a path; their
   // environment and arguments (`unitStepEnv`, `unitStepArgs`) say why each part is there.
   const steps: StaticStep[] = [
-    { name: "typecheck", cmd: ["bunx", "tsc", "--noEmit", "-p", "."], env: {} },
+    // `bun x`, as the gate's own Bun (its private copy), not `bunx` from PATH (review bun-144-recheck N2).
+    { name: "typecheck", cmd: [process.execPath, "x", "tsc", "--noEmit", "-p", "."], env: {} },
     ...UNIT_STEPS.flatMap((u) => unitStaticSteps(u, runDir)),
     // --offline: a vendor crate missing from cargo's cache is an ERROR, never network I/O.
     { name: "markers", cmd: [process.execPath, "scripts/coverage.ts", "--check", "--offline"], env: {} },
@@ -621,12 +630,17 @@ export async function gateRun(requested: string[], skipStatic: boolean, skipHeav
   const bunExecStart = readBunExe(execPath);
   const execRefused = execBunRefusal(bunExecStart, bun);
   if (execRefused !== undefined) die(execRefused);
-  const bunExec: BunExecRecord = { start: bunExecStart, end: bunExecStart };
+  const bunExec: BunExecRecord = { start: bunExecStart, end: bunExecStart, goodAt: new Date().toISOString() };
+  const bunClone = gateHost.bunClone ?? null;
   /** Reads the Bun file again: true if it is unchanged; otherwise one `ERROR:` line, and `bunExec` records where. */
   const bunUnchanged = (where: string): boolean => {
+    const at = new Date().toISOString();
     bunExec.end = readBunExe(execPath);
-    const change = bunExeChange(bunExecStart, bunExec.end, where);
-    if (change === undefined) return true;
+    const change = bunExeChange(bunExecStart, bunExec.end, where, { dir: ORACLE_CACHE, since: bunExec.goodAt! });
+    if (change === undefined) {
+      if (bunExec.changed === undefined) bunExec.goodAt = at;
+      return true;
+    }
     if (bunExec.changed === undefined) {
       bunExec.changed = where;
       console.log(`ERROR: ${change}`);
@@ -656,6 +670,9 @@ export async function gateRun(requested: string[], skipStatic: boolean, skipHeav
   // The subject binary of the tree under test, built (or found) once, before anything runs a subject: a failed build is one
   // `ERROR:` line and no run (scripts/lib/subject-bin.ts). gate.json `subject` records the mode and each build's hash.
   const subject = prepareSubject();
+  // A binary embeds the Bun that built it (review bun-144-recheck F1-r): it must be the gate's.
+  const builtBy = builtByRefusal(subjectBinBuilds(), bun);
+  if (builtBy !== undefined) die(builtBy);
   if (subject.mode === "binary") console.log(`note: subject binary (${Object.entries(subject.bins).map(([e, h]) => `${e} ${h}`).join(", ")})`);
   if (prov.dirty.length) console.log(`note: tree is dirty (${prov.dirty.length} paths); this run cannot be accepted`);
   // Before anything runs the oracle (unit tests, aux builds, suites): the pinned commit and components.
@@ -687,14 +704,14 @@ export async function gateRun(requested: string[], skipStatic: boolean, skipHeav
     const staticUpstream = upstreamStatus(UPSTREAM);
     if (staticUpstream.length) console.log(upstreamError("a static step changed the upstream checkout", staticUpstream, UPSTREAM));
     bunUnchanged("during the static steps");
-    writeFileSync(join(runDir, "gate.json"), JSON.stringify({ runId, pass: false, staticOk, skipStatic, unitTestSkips: st.skips ?? null, staticNotes: st.notes ?? [], head: prov.head, dirty: prov.dirty, unstableOk, upstreamOk: staticUpstream.length === 0, ...(staticUpstream.length ? { upstreamChanges: staticUpstream } : {}), frozenLists: frozenListsRecord(runDir), suites: [], notRun: stopped, subject, bun, bunExec, host: host.record(allowBattery) }, null, 1));
+    writeFileSync(join(runDir, "gate.json"), JSON.stringify({ runId, pass: false, staticOk, skipStatic, unitTestSkips: st.skips ?? null, staticNotes: st.notes ?? [], head: prov.head, dirty: prov.dirty, unstableOk, upstreamOk: staticUpstream.length === 0, ...(staticUpstream.length ? { upstreamChanges: staticUpstream } : {}), frozenLists: frozenListsRecord(runDir), suites: [], notRun: stopped, subject, bun, bunExec, bunClone, host: host.record(allowBattery) }, null, 1));
     console.log(`gate FAIL run=${runId}`);
     process.exit(1);
   }
   const out: SuiteGate[] = [];
   for (const [i, suite] of suites.entries()) {
     // A changed Bun file stops the run here: the suites left would run on a build the run did not start on.
-    if (!bunUnchanged(i === 0 ? `before suite ${suite} (during the static steps)` : `before suite ${suite} (during ${suites[i - 1]})`)) {
+    if (!bunUnchanged(i === 0 ? `before suite ${suite} (since the start)` : `before suite ${suite} (during ${suites[i - 1]})`)) {
       for (const left of suites.slice(i)) notRun.push({ suite: left, reason: `the Bun file changed ${bunExec.changed}` });
       break;
     }
@@ -753,12 +770,12 @@ export async function gateRun(requested: string[], skipStatic: boolean, skipHeav
   const upstreamOk = out.every((s) => !s.upstreamChanges?.length);
   if (!upstreamOk) console.log("ERROR: a suite changed the upstream checkout (see `upstreamChanges` in gate.json)");
   // At the end too (a change during the last suite); a change seen before a suite keeps its first reading of where.
-  const bunOk = bunExec.changed === undefined && bunUnchanged(`at the end (during ${suites.at(-1) ?? "the static steps"})`);
+  const bunOk = bunExec.changed === undefined && bunUnchanged(`at the end (during ${suites.at(-1) ?? "the run"})`);
   const pass = staticOk && unchanged && unstableOk && upstreamOk && bunOk && out.every((s) => s.lost.length === 0);
   await host.mark();
   host.stop();
   if (host.powerLost.length) console.log(`note: this gate lost power ${host.powerLost.length} time(s), first seen at ${host.powerLost[0]!.at}; a lost case from about then on may be a false timeout (\`host\` in gate.json)`);
-  writeFileSync(join(RUNS, runId, "gate.json"), JSON.stringify({ runId, pass, staticOk, skipStatic, unitTestSkips: st.skips ?? null, staticNotes: st.notes ?? [], head: prov.head, dirty: prov.dirty, unstableOk, upstreamOk, frozenLists: frozenListsRecord(runDir), suites: out, ...(notRun.length ? { notRun } : {}), subject, bun, bunExec, host: host.record(allowBattery) }, null, 1));
+  writeFileSync(join(RUNS, runId, "gate.json"), JSON.stringify({ runId, pass, staticOk, skipStatic, unitTestSkips: st.skips ?? null, staticNotes: st.notes ?? [], head: prov.head, dirty: prov.dirty, unstableOk, upstreamOk, frozenLists: frozenListsRecord(runDir), suites: out, ...(notRun.length ? { notRun } : {}), subject, bun, bunExec, bunClone, host: host.record(allowBattery) }, null, 1));
   console.log(`gate ${pass ? "PASS" : "FAIL"} run=${runId}`);
   if (!pass) process.exit(1);
 }
@@ -779,10 +796,67 @@ function matchesOfRun(runId: string, suite: string): Set<string> {
   return ids;
 }
 
+/** The variable that tells the gate's second process which copy of its Bun it runs from (JSON of a `BunClone`). */
+export const GATE_BUN_CLONE_VAR = "RUST_TS_GATE_BUN_CLONE";
+/** Where the gate copies its Bun: `<dir>/<sha1 12>/bun` (one path per build, so the subject binary's key, which holds it, is stable). */
+export const GATE_BUN_DIR = join(DATA, "gate-bun");
+
+/**
+ * `gate.ts run`'s first step (review bun-144-recheck F1-r). In the first process: refuses another Bun (`gateBunRefusal`, and the
+ * file at `process.execPath` must be this build), copies that file (`cloneBunFile`), checks the copy (`cloneRefusal`), runs
+ * `argv` again from the copy with `GATE_BUN_CLONE_VAR` set, waits, notes a change of the original (harmless now), removes the
+ * copy and exits with the second process's code: it never returns. In the second process: checks that it runs from the copy the
+ * variable names, unsets the variable (no child inherits it) and returns the copy for gate.json. `cp`: tests only.
+ */
+export async function gateBunClone(opts: { argv?: string[]; dir?: string; cp?: readonly string[] } = {}): Promise<BunClone> {
+  const marker = process.env[GATE_BUN_CLONE_VAR];
+  if (marker !== undefined) {
+    delete process.env[GATE_BUN_CLONE_VAR];
+    const clone = JSON.parse(marker) as BunClone;
+    if (realpathSync(process.execPath) !== realpathSync(clone.path)) die(`the gate's second process runs ${process.execPath}, not its copy of Bun ${clone.path}`);
+    // A copy the first process made, not a variable set by hand to skip the copy.
+    const home = realpathSync(opts.dir ?? GATE_BUN_DIR);
+    if (!realpathSync(clone.path).startsWith(home + "/")) die(`the gate's copy of its Bun, ${clone.path}, is not under ${home}: ${GATE_BUN_CLONE_VAR} is set only by \`gate.ts run\` for its second process`);
+    return clone;
+  }
+  const bun = runningBun();
+  const refused = gateBunRefusal(bun);
+  if (refused !== undefined) die(refused);
+  const from = process.execPath;
+  const orig = readBunExe(from);
+  const notBun = execBunRefusal(orig, bun);
+  if (notBun !== undefined) die(notBun);
+  const home = join(opts.dir ?? GATE_BUN_DIR, orig.sha1!.slice(0, 12));
+  rmSync(home, { recursive: true, force: true });
+  mkdirSync(home, { recursive: true });
+  const path = join(home, "bun");
+  const made = cloneBunFile(from, path, opts.cp);
+  if (made.how === "copy") console.log(`note: the gate's Bun could not be cloned (${made.why}); it runs from a plain copy (${path}), which takes disk space until the gate ends`);
+  const copy = readBunExe(path);
+  const bad = cloneRefusal(orig, copy, bun);
+  if (bad !== undefined) {
+    rmSync(home, { recursive: true, force: true });
+    die(bad);
+  }
+  // Its real path: what `process.execPath` reports in the second process (`/var` is `/private/var` on macOS).
+  const clone: BunClone = { path: realpathSync(path), from, sha1: copy.sha1!, how: made.how };
+  const argv = opts.argv ?? process.argv;
+  const child = Bun.spawn([path, ...process.execArgv, ...argv.slice(1)], { stdio: ["inherit", "inherit", "inherit"], env: { ...process.env, [GATE_BUN_CLONE_VAR]: JSON.stringify(clone) } });
+  // A terminal's ^C reaches both processes; this one waits for the gate to end and then cleans up. SIGTERM goes on to the gate.
+  process.on("SIGINT", () => {});
+  process.on("SIGTERM", () => child.kill("SIGTERM"));
+  process.on("SIGHUP", () => child.kill("SIGHUP"));
+  const code = await child.exited;
+  const after = readBunExe(from);
+  if (after.sha1 !== orig.sha1) console.log(`note: ${from} changed while the gate ran (${showBunExe(orig)} -> ${showBunExe(after)}); the gate and its children ran its copy, so the run is not affected`);
+  rmSync(home, { recursive: true, force: true });
+  process.exit(code ?? 1);
+}
+
 async function gateAccept(runId: string): Promise<void> {
   const p = join(RUNS, runId, "gate.json");
   if (!existsSync(p)) die(`no gate result at ${p}`);
-  const g = JSON.parse(readFileSync(p, "utf8")) as { pass: boolean; skipStatic?: boolean; head?: string; dirty?: string[]; bun?: BunBuild; bunExec?: BunExecRecord; suites: SuiteGate[] };
+  const g = JSON.parse(readFileSync(p, "utf8")) as { pass: boolean; skipStatic?: boolean; head?: string; dirty?: string[]; bun?: BunBuild; bunExec?: BunExecRecord; bunClone?: BunClone | null; suites: SuiteGate[] };
   if (!g.pass) die(`gate run ${runId} did not pass; nothing accepted`);
   // The run's Bun must be the gate's (scripts/lib/bun-pin.ts); a gate.json from before `bun` was recorded is let through with a note.
   const bunRefused = acceptBunRefusal(runId, g.bun);
@@ -792,6 +866,9 @@ async function gateAccept(runId: string): Promise<void> {
   const exeRefused = acceptBunExeRefusal(runId, g.bunExec);
   if (exeRefused !== undefined) die(exeRefused);
   if (g.bunExec === undefined) console.log(`note: gate run ${runId} records no reading of the Bun file its children ran (gate.json from before \`bunExec\`); a change during the run is not checked`);
+  const cloneRefused = acceptBunCloneRefusal(runId, g.bunClone);
+  if (cloneRefused !== undefined) die(cloneRefused);
+  if (g.bunClone === undefined) console.log(`note: gate run ${runId} records no private copy of its Bun (gate.json from before \`bunClone\`)`);
   if (g.head === undefined || g.dirty === undefined) die(`gate run ${runId} has no provenance (older gate.ts); re-run the gate`);
   if (g.skipStatic) die(`gate run ${runId} skipped static checks; nothing accepted`);
   if (g.dirty.length) die(`gate run ${runId} ran on a dirty tree (${g.dirty.length} paths); commit, then re-run the gate`);
@@ -833,7 +910,9 @@ if (import.meta.main) {
       typeof a.suites === "string"
         ? a.suites.split(",")
         : protectedSuites();
-    await gateRun(suites, Boolean(a["skip-static"]), Boolean(a["skip-heavy"]), Boolean(a["allow-battery"]));
+    // From a private copy of the gate's Bun (`gateBunClone`): the first process runs the gate again from it and exits.
+    const bunClone = await gateBunClone();
+    await gateRun(suites, Boolean(a["skip-static"]), Boolean(a["skip-heavy"]), Boolean(a["allow-battery"]), { ...REAL_GATE_HOST, bunClone });
   } else if (cmd === "accept" && typeof a.run === "string") {
     await gateAccept(a.run);
   } else {

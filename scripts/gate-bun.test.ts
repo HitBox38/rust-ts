@@ -3,15 +3,17 @@
 // RUST_TS_DATA at a temp dir (an empty git repository as its upstream checkout, as scripts/gate-power.test.ts): the shared run
 // directories, baselines and state records are never touched. That gate.json records the build is checked by gate-power.test.ts.
 // The file the gate's children run (`process.execPath`) is checked at the start, before each suite and at the end (review bun-144
-// F1): here through `GateHost.execPath`, a symlink to the running Bun that a stub suite's subject swaps for a fake Bun.
+// F1): here through `GateHost.execPath`, a symlink to the running Bun that a stub suite's subject swaps for a fake Bun. And
+// `gate.ts run` runs from a private copy of its Bun (`gateBunClone`, review bun-144-recheck F1-r): tested through the real copy and
+// second process, with a swap of the original that is undone before the next reading.
 import { afterAll, expect, test } from "bun:test";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 // No import may load scripts/lib/common.ts (scripts/lib/subject-bin.ts does): this file runs in the runner unit-test process
 // before scripts/lib/deps.test.ts, which needs common.ts to read its temp RUST_TS_DATA. That `GATE_BUN` is in `VALIDATED_BUN` is
 // checked in scripts/subject-bin.cases.ts, which runs in a child.
-import { GATE_BUN, acceptBunExeRefusal, acceptBunRefusal, bunExeChange, execBunRefusal, gateBunRefusal, readBunExe } from "./lib/bun-pin.ts";
+import { GATE_BUN, acceptBunCloneRefusal, acceptBunExeRefusal, acceptBunRefusal, bornSinceCommand, builtByRefusal, bunExeChange, cloneBunFile, cloneRefusal, execBunRefusal, gateBunRefusal, readBunExe } from "./lib/bun-pin.ts";
 import { UNIT_ENV_REFUSED } from "./lib/unit-steps.ts";
 
 const REPO = resolve(import.meta.dir, "..");
@@ -221,6 +223,8 @@ test("readBunExe: the running Bun reads as itself; a fake answers as its build; 
   expect(execBunRefusal(missing, { version: Bun.version, revision: Bun.revision })).toBeDefined();
   // A change is by content: the same reading is no change; another file, or an unreadable one, is.
   expect(bunExeChange(me, { ...me }, "x")).toBeUndefined();
+  // Same version and revision, other content: a change (review bun-144-recheck N1).
+  expect(bunExeChange(me, { ...me, sha1: "0".repeat(40) }, "x")).toContain("changed x");
   expect(bunExeChange(me, fake, "before suite s")).toContain("changed before suite s");
   expect(bunExeChange(me, missing, "at the end")).toContain("changed at the end");
 });
@@ -294,4 +298,179 @@ test("accept refuses a run whose Bun file changed; the same file at both ends, o
   const old = acceptOf("exe-old", { head: NO_HEAD, bun: GATE_BUN });
   expect(old.stdout).toContain(`note: gate run ${old.runId} records no reading of the Bun file`);
   expect(errorLines(old.stdout)).toEqual([expect.stringContaining("tested 0000000000 but HEAD is")]);
+});
+
+test("the cache warning names the exact command that lists (and with -delete removes) the entries born since the last good reading", () => {
+  expect(bornSinceCommand("/d/oracle-cache", "2026-11-11T12:43:05.123Z")).toBe("/usr/bin/find /d/oracle-cache -type f -newerBt '2026-11-11 12:43:05 UTC'");
+  const me = readBunExe(process.execPath);
+  const msg = bunExeChange(me, { ...me, sha1: "0".repeat(40) }, "before suite s (during r)", { dir: "/d/oracle-cache", since: "2026-11-11T12:43:05.000Z" })!;
+  expect(msg).toContain("delete the oracle cache entries born since the last good reading (2026-11-11T12:43:05.000Z): `/usr/bin/find /d/oracle-cache -type f -newerBt '2026-11-11 12:43:05 UTC' -delete`");
+  // BSD find parses that form (the shell's `find` may be another tool).
+  const dir = mkdtempSync(join(TMP, "find-"));
+  writeFileSync(join(dir, "x"), "x");
+  const listed = Bun.spawnSync(["/bin/sh", "-c", bornSinceCommand(dir, new Date(Date.now() - 3_600_000).toISOString())]);
+  expect(listed.exitCode).toBe(0);
+  expect(listed.stdout.toString().trim()).toBe(join(dir, "x"));
+});
+
+test("cloneBunFile: an APFS clone; a plain copy, with the reason, when clonefile fails; cloneRefusal checks the copy", () => {
+  const dir = mkdtempSync(join(TMP, "clone-"));
+  const fake = fakeBun(dir);
+  const a = cloneBunFile(fake, join(dir, "a"));
+  expect(a).toEqual({ how: "clonefile" });
+  expect(readFileSync(join(dir, "a"), "utf8")).toBe(readFileSync(fake, "utf8"));
+  const b = cloneBunFile(fake, join(dir, "b"), ["/usr/bin/false"]);
+  expect(b.how).toBe("copy");
+  expect(b.why).toContain("/usr/bin/false exited 1");
+  expect(readBunExe(join(dir, "b")).revision).toBe("0123abcde");
+  const me = readBunExe(process.execPath);
+  const running = { version: Bun.version, revision: Bun.revision };
+  expect(cloneRefusal(me, { ...me, path: "/c/bun" }, running)).toBeUndefined();
+  expect(cloneRefusal(me, readBunExe(fake), running)).toContain("not as");
+  expect(cloneRefusal(me, { ...me, path: "/c/bun", sha1: "0".repeat(40) }, running)).toContain("reads as");
+});
+
+test("builtByRefusal: every subject binary must be built by the gate's Bun", () => {
+  const bins = [{ entry: "src/rust_ts/main.ts", hash: "a".repeat(40), bun: GATE_BUN }, { entry: "src/miri/bin/miri.ts", hash: "b".repeat(40), bun: { ...GATE_BUN } }];
+  expect(builtByRefusal(bins, GATE_BUN)).toBeUndefined();
+  expect(builtByRefusal([], GATE_BUN)).toBeUndefined();
+  const old = { version: "1.4.3", revision: "c6da4a4d3010e5553438c60f6bd76d981976867c" };
+  expect(builtByRefusal([bins[0]!, { ...bins[1]!, bun: old }], GATE_BUN)).toContain("subject binary src/miri/bin/miri.ts (bbbbbbbbbbbb, built by Bun 1.4.3 (c6da4a4d3010))");
+  expect(builtByRefusal([{ ...bins[0]!, bun: undefined }], GATE_BUN)).toContain("built by Bun unknown");
+});
+
+/**
+ * `gate.ts run`'s copy and second process (`gateBunClone`) on the two stub suites, started from `<dir>/bin/bun`, an APFS clone
+ * of the running Bun standing for the machine's. `swap-a`'s subject replaces that file with a fake Bun, starts
+ * `process.execPath --revision` (a child the gate starts in that window), records what it ran, and puts the real Bun back
+ * before the next reading (review bun-144-recheck F1-r).
+ */
+function gateCloned(name: string, opts: { cp?: string[] } = {}) {
+  const { data, env } = dataDir(name);
+  const bin = join(data, "bin");
+  mkdirSync(bin);
+  const orig = join(bin, "bun");
+  const real2 = join(bin, "bun-again");
+  for (const f of [orig, real2]) cloneBunFile(process.execPath, f);
+  const fake = fakeBun(bin);
+  const witness = join(data, "witness.json");
+  const stub = join(data, "stub.mjs");
+  const script = join(data, "gate-child.ts");
+  writeFileSync(script, `
+import { writeFileSync } from "node:fs";
+const { gateBunClone, gateRun } = await import(${JSON.stringify(join(REPO, "scripts/gate.ts"))});
+const bunClone = await gateBunClone(${opts.cp ? JSON.stringify({ cp: opts.cp }) : ""});
+console.log("second process on " + process.execPath);
+const { SUITES } = await import(${JSON.stringify(join(REPO, "harness/suites.ts"))});
+const { PIN } = await import(${JSON.stringify(join(REPO, "scripts/lib/common.ts"))});
+const ORACLE = ["rustc", \`+\${PIN.toolchain}\`, "-vV"];
+writeFileSync(${JSON.stringify(stub)}, \`
+import { existsSync, renameSync, writeFileSync } from "node:fs";
+if (process.argv[2] === "swap-a" && existsSync(\${JSON.stringify(${JSON.stringify(fake)})})) {
+  renameSync(\${JSON.stringify(${JSON.stringify(fake)})}, \${JSON.stringify(${JSON.stringify(orig)})});
+  const p = Bun.spawnSync([process.execPath, "--revision"]);
+  writeFileSync(\${JSON.stringify(${JSON.stringify(witness)})}, JSON.stringify({ execPath: process.execPath, revision: p.stdout.toString().trim() }));
+  renameSync(\${JSON.stringify(${JSON.stringify(real2)})}, \${JSON.stringify(${JSON.stringify(orig)})});
+}
+await Bun.write(Bun.stdout, Bun.spawnSync(\${JSON.stringify(ORACLE)}).stdout);
+\`);
+for (const name of ["swap-a", "swap-b"]) SUITES.push({
+  name, milestone: "test", description: "", mode: "single", cwd: ${JSON.stringify(data)}, timeoutMs: 30000,
+  cases: () => [{ id: "same", file: "", args: [] }],
+  oracle: () => ORACLE, subject: () => [process.execPath, ${JSON.stringify(stub)}, name],
+});
+const readers = { pmset: async () => "Now drawing from 'AC Power'\\n", swapusage: async () => "total = 2048.00M  used = 512.00M  free = 1536.00M", load: () => [1, 2, 3], now: () => new Date() };
+await gateRun(["swap-a", "swap-b"], true, false, false, { readers, pollMs: 3600000, keepEveryMs: 3600000, bunClone });
+`);
+  const r = Bun.spawnSync([orig, script], { cwd: REPO, stdout: "pipe", stderr: "pipe", env });
+  const runs = join(data, "runs");
+  const dirs = existsSync(runs) ? readdirSync(runs).filter((d) => d.startsWith("gate-")) : [];
+  const dir = dirs[0] === undefined ? undefined : join(runs, dirs[0]);
+  return {
+    code: r.exitCode,
+    stdout: r.stdout.toString(),
+    stderr: r.stderr.toString(),
+    orig,
+    gateBunDir: join(data, "gate-bun"),
+    witness: existsSync(witness) ? (JSON.parse(readFileSync(witness, "utf8")) as { execPath: string; revision: string }) : undefined,
+    gateJson: dir === undefined ? undefined : (JSON.parse(readFileSync(join(dir, "gate.json"), "utf8")) as any),
+  };
+}
+
+test("a swap of the machine's Bun undone before the next reading cannot reach the gate's children: they run its private copy", () => {
+  const r = gateCloned("clone-swap-restore");
+  expect(r.code, r.stdout + r.stderr).toBe(0);
+  const sha12 = readBunExe(process.execPath).sha1!.slice(0, 12);
+  // The child started while the original was swapped ran the gate's copy, so the gate's build.
+  expect(r.witness).toBeDefined();
+  expect(r.witness!.revision).toBe(`${Bun.version}+${Bun.revision.slice(0, 9)}`);
+  expect(r.witness!.execPath.endsWith(`/gate-bun/${sha12}/bun`)).toBe(true);
+  expect(r.stdout).toMatch(new RegExp(`^second process on .*/gate-bun/${sha12}/bun$`, "m"));
+  expect(errorLines(r.stdout)).toEqual([]);
+  expect(r.gateJson.pass).toBe(true);
+  const c = r.gateJson.bunClone;
+  expect(c.path.endsWith(`/gate-bun/${sha12}/bun`)).toBe(true);
+  expect(c.from.endsWith("/bin/bun")).toBe(true);
+  expect(c.sha1).toBe(readBunExe(process.execPath).sha1);
+  expect(c.how).toBe("clonefile");
+  // The readings were of the copy, unchanged.
+  expect(r.gateJson.bunExec.start.path).toBe(c.path);
+  expect(r.gateJson.bunExec.end.sha1).toBe(c.sha1);
+  // The copy is removed at the end; the original was put back, so no note about it.
+  expect(existsSync(join(r.gateBunDir, sha12))).toBe(false);
+  expect(r.stdout).not.toContain("changed while the gate ran");
+});
+
+test("a copy of the gate's Bun that does not read as the original: one ERROR: line, no run, no copy left", () => {
+  const r = gateCloned("clone-bad", { cp: ["/bin/sh", "-c", 'echo junk > "$2"', "sh"] });
+  expect(r.code, r.stdout + r.stderr).toBe(1);
+  expect(errorLines(r.stdout)).toEqual([expect.stringContaining("the gate's copy of its Bun")]);
+  expect(r.stdout).not.toContain("second process on");
+  expect(r.gateJson).toBeUndefined();
+  expect(readdirSync(r.gateBunDir)).toEqual([]);
+});
+
+test("acceptBunCloneRefusal and accept: a run with no copy (null) is refused; an old gate.json (absent) gets a note", () => {
+  expect(acceptBunCloneRefusal("r", undefined)).toBeUndefined();
+  expect(acceptBunCloneRefusal("r", { path: "/c/bun", from: "/b/bun", sha1: "a".repeat(40), how: "clonefile" })).toBeUndefined();
+  expect(acceptBunCloneRefusal("r", null)).toContain("did not run from a private copy");
+  const me = readBunExe(process.execPath);
+  const base = { head: NO_HEAD, bun: GATE_BUN, bunExec: { start: me, end: me } };
+  const none = acceptOf("clone-null", { ...base, bunClone: null });
+  expect(errorLines(none.stdout)).toEqual([expect.stringContaining(`gate run ${none.runId} did not run from a private copy of its Bun`)]);
+  const ok = acceptOf("clone-ok", { ...base, bunClone: { path: "/c/bun", from: "/b/bun", sha1: me.sha1, how: "clonefile" } });
+  expect(errorLines(ok.stdout)).toEqual([expect.stringContaining("tested 0000000000 but HEAD is")]);
+  expect(ok.stdout).not.toContain("records no private copy");
+  const old = acceptOf("clone-old", base);
+  expect(old.stdout).toContain(`note: gate run ${old.runId} records no private copy of its Bun`);
+  expect(errorLines(old.stdout)).toEqual([expect.stringContaining("tested 0000000000 but HEAD is")]);
+});
+
+test("the gate's second process checks that it runs from the copy the variable names, and no child inherits the variable", () => {
+  const { data, env } = dataDir("clone-second");
+  const script = join(data, "second.ts");
+  writeFileSync(script, `
+const { gateBunClone, GATE_BUN_CLONE_VAR } = await import(${JSON.stringify(join(REPO, "scripts/gate.ts"))});
+const c = await gateBunClone();
+console.log("returned " + c.path + "; variable now " + (Object.keys(process.env).includes(GATE_BUN_CLONE_VAR) ? "set" : "unset"));
+`);
+  const me = readBunExe(process.execPath);
+  const record = (path: string) => JSON.stringify({ path, from: "/b/bun", sha1: me.sha1, how: "clonefile" });
+  // A copy where the first process puts it (`GATE_BUN_DIR` of the child's RUST_TS_DATA).
+  mkdirSync(join(data, "gate-bun", "x"), { recursive: true });
+  const copy = join(data, "gate-bun", "x", "bun");
+  cloneBunFile(process.execPath, copy);
+  const copyReal = realpathSync(copy);
+  // Run from the copy it names: returns it, and the variable is gone.
+  const ok = Bun.spawnSync([copy, script], { cwd: REPO, stdout: "pipe", stderr: "pipe", env: { ...env, RUST_TS_GATE_BUN_CLONE: record(copyReal) } });
+  expect(ok.exitCode, ok.stdout.toString() + ok.stderr.toString()).toBe(0);
+  expect(ok.stdout.toString()).toContain(`returned ${copyReal}; variable now unset`);
+  // Run from anything else: refused.
+  const bad = Bun.spawnSync([process.execPath, script], { cwd: REPO, stdout: "pipe", stderr: "pipe", env: { ...env, RUST_TS_GATE_BUN_CLONE: record(copyReal) } });
+  expect(bad.exitCode).toBe(1);
+  expect(errorLines(bad.stdout.toString())).toEqual([`ERROR: the gate's second process runs ${process.execPath}, not its copy of Bun ${copyReal}`]);
+  // The variable set by hand to the Bun itself, to skip the copy: refused too.
+  const byHand = Bun.spawnSync([process.execPath, script], { cwd: REPO, stdout: "pipe", stderr: "pipe", env: { ...env, RUST_TS_GATE_BUN_CLONE: record(process.execPath) } });
+  expect(byHand.exitCode).toBe(1);
+  expect(errorLines(byHand.stdout.toString())).toEqual([expect.stringContaining(`the gate's copy of its Bun, ${process.execPath}, is not under`)]);
 });

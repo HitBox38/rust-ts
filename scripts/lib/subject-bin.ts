@@ -436,6 +436,8 @@ export interface SubjectBin {
   built: boolean;
   /** How many files went into it. */
   inputs: number;
+  /** The Bun that built it, which is also the runtime it embeds (`meta.json` `bun`); the gate requires its own (review bun-144-recheck F1-r). */
+  bun: { version: string; revision: string };
 }
 
 /** The key of `spec`'s build of the tree as it is now, with its inputs. */
@@ -491,7 +493,7 @@ function finished(dir: string, key: string, entry: string): SubjectBin | undefin
     throw e;
   }
   if (m.hash !== key || m.entry !== entry) throw new Error(`${meta} is not the build of ${entry} with key ${key}`);
-  return { entry, hash: key, path: bin, dir, built: false, inputs: m.inputs.length };
+  return { entry, hash: key, path: bin, dir, built: false, inputs: m.inputs.length, bun: m.bun };
 }
 
 /**
@@ -582,7 +584,7 @@ async function ensureIn(entry: string, repo: string, root: string, opts: { bunPa
       if (other) return other;
       throw e;
     }
-    return { entry, hash: key, path: join(dir, BIN_NAME), dir, built: true, inputs: inputs.length };
+    return { entry, hash: key, path: join(dir, BIN_NAME), dir, built: true, inputs: inputs.length, bun: meta.bun };
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }
@@ -670,6 +672,10 @@ export function subjectBin(entry: string): SubjectBin {
   resolvedBins.set(entry, bin);
   return bin;
 }
+
+/** The builds this process resolved, with the Bun each was built by (scripts/gate.ts checks it against its own). */
+export const subjectBinBuilds = (): { entry: string; hash: string; bun: { version: string; revision: string } | undefined }[] =>
+  [...resolvedBins].map(([entry, b]) => ({ entry, hash: b.hash, bun: b.bun }));
 
 /** The builds this process resolved: `[entry, binary path]`. */
 export const subjectBinPaths = (): [string, string][] => [...resolvedBins].map(([e, b]) => [e, b.path]);
