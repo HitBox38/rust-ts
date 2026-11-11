@@ -1,6 +1,6 @@
 // Port of compiler/rustc_data_structures/src/thousands/tests.rs.
 import { expect, test } from "bun:test";
-import { f64_fixed1, f64p1_with_underscores, format_with_underscores, isize_with_underscores, usize_with_underscores } from "./mod.ts";
+import { f64p1_with_underscores, format_with_underscores, isize_with_underscores, usize_with_underscores } from "./mod.ts";
 
 // rustc: compiler/rustc_data_structures/src/thousands/tests.rs:4 test_format_with_underscores
 test("test_format_with_underscores", () => {
@@ -51,13 +51,4 @@ test("test_f64p1_with_underscores", () => {
   expect(f64p1_with_underscores(-100_000)).toBe("-100_000.0");
   expect(f64p1_with_underscores(123456789.123456789)).toBe("123_456_789.1");
   expect(f64p1_with_underscores(-123456789.123456789)).toBe("-123_456_789.1");
-});
-
-// Not upstream: `format!("{x:.1}")` ties, as the oracle printed them (rustc 1.101.0-nightly 6f5da406b): ties to even
-// on the exact binary value, which JS `toFixed` does not do.
-test("f64_fixed1 matches the oracle's {:.1}", () => {
-  const cases: [number, string][] = [
-    [0.25, "0.2"], [0.75, "0.8"], [0.05, "0.1"], [1.25, "1.2"], [-0.25, "-0.2"], [-0, "-0.0"], [268.25, "268.2"], [236.875, "236.9"],
-  ];
-  for (const [x, s] of cases) expect(f64_fixed1(x)).toBe(s);
 });

@@ -2,21 +2,18 @@
 import type { AttrItem } from "../../rustc_ast/lib.ts";
 import { RustcVersion } from "../../rustc_ast/attr/version.ts";
 import { is_builtin_attr_name } from "../../rustc_feature/lib.ts";
-import { u32_from_str, usize_from_str } from "../../rustc_session/options.ts";
 import { Symbol } from "../../rustc_span/symbol.ts";
 import { Limit } from "../../rustc_structures/limit.ts";
+import { u16_from_str, usize_from_str } from "../../std/num.ts";
 import { panic } from "../../std/panic.ts";
 import { AcceptContext, ExpectStringLiteral } from "../context.ts";
 import { LimitInvalid_diagnostic } from "../diagnostics.ts";
 import { type ArgParser, MetaItemOrLitParser, type NameValueParser } from "../parser.ts";
 
-// PORT: `str::parse::<u16>()`: `u32::from_str`, then values above `u16::MAX` are `PosOverflow`
-// (core reports the overflow as soon as the accumulated value exceeds the type's max, which yields the
-// same error kind).
+// PORT: `str::parse::<u16>().ok()` (src/std/num.ts `u16_from_str`).
 function u16_parse(s: string): number | undefined {
-  const r = u32_from_str(s);
-  if (r.$ === "Err" || r._0 > 0xffff) return undefined;
-  return r._0;
+  const r = u16_from_str(s);
+  return r.$ === "Ok" ? r._0 : undefined;
 }
 
 /// Parse a rustc version number written inside string literal in an attribute,
@@ -88,7 +85,7 @@ function parse_limit_int(this: AcceptContext, nv: NameValueParser): Limit | unde
   if (r.$ === "Ok") {
     return Limit.new(r._0);
   }
-  switch (r._0) {
+  switch (r._0.kind) {
     case "PosOverflow":
       error_str = "`limit` is too large";
       break;

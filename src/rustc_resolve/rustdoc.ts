@@ -28,7 +28,7 @@ import { Err, Ok, type Result } from "../std/result.ts";
 
 type DocFragmentKind = token.DocFragmentKind;
 const DocFragmentKind = token.DocFragmentKind;
-import { Str, str_lines, utf8, utf8_len } from "../std/str.ts";
+import { Str, str_lines, string_trim, utf8, utf8_len } from "../std/str.ts";
 import { type BrokenLink, type Event, type LinkType, Options, Parser } from "../vendor/pulldown_cmark/lib.ts";
 import type { DocFragment, DocStrings, MalformedGenerics } from "./rustdoc.gen.ts";
 import type { Range } from "./lib.ts";
@@ -383,16 +383,6 @@ export function has_primitive_or_keyword_or_attribute_docs<A>(attrs: readonly A[
   return false;
 }
 
-/** `str::trim` (Unicode `White_Space`). */
-function str_trim(s: string): string {
-  const cps = [...s];
-  let lo = 0;
-  let hi = cps.length;
-  while (lo < hi && is_whitespace(cps[lo]!.codePointAt(0)!)) lo++;
-  while (hi > lo && is_whitespace(cps[hi - 1]!.codePointAt(0)!)) hi--;
-  return cps.slice(lo, hi).join("");
-}
-
 /** `str::trim_suffix` */
 function trim_suffix(s: string, suffix: string): string {
   return s.endsWith(suffix) ? s.slice(0, s.length - suffix.length) : s;
@@ -407,7 +397,7 @@ export function preprocess_link(link: string): string {
 
   link = link.replaceAll("`", "");
   link = link.split("#")[0]!;
-  link = str_trim(link);
+  link = string_trim(link);
   {
     // `split_once('@').map_or(link, |(_, rhs)| rhs)`
     const at = link.indexOf("@");
@@ -417,7 +407,7 @@ export function preprocess_link(link: string): string {
   link = trim_suffix(link, "{}");
   link = trim_suffix(link, "[]");
   link = link !== "!" ? trim_suffix(link, "!") : link;
-  link = str_trim(link);
+  link = string_trim(link);
   const r = strip_generics_from_path(link);
   return r.$ === "Ok" ? r._0 : link;
 }

@@ -6,8 +6,7 @@
 //   `ConstStabilityParser`'s) is `<Parser>_inherent`, spread into the parser's table (see repr.ts).
 // - `&mut Option<Symbol>` out-parameters are `MutRef<Symbol | undefined>`; `Option<()>` is
 //   `[] | undefined` (as `AcceptContext::expect_no_args`).
-// - `issue_str.parse::<NonZero<u32>>()` is `u32_from_str` (rustc_session/options.ts), then
-//   `IntErrorKind::Zero` for 0.
+// - `issue_str.parse::<NonZero<u32>>()` is src/std/num.ts `nonzero_u32_from_str`.
 import type { ErrorGuaranteed } from "../../rustc_errors/lib.ts";
 import {
   type DefaultBodyStability,
@@ -22,7 +21,7 @@ import {
 } from "../../rustc_attr_ir/lib.ts";
 import { ACCEPTED_LANG_FEATURES } from "../../rustc_feature/lib.ts";
 import { is_ident } from "../../rustc_lexer/lib.ts";
-import { u32_from_str } from "../../rustc_session/options.ts";
+import { nonzero_u32_from_str } from "../../std/num.ts";
 import type { Span } from "../../rustc_span/lib.ts";
 import { type Ident, Symbol, sym } from "../../rustc_span/symbol.ts";
 import type { MutRef } from "../../std/mut_ref.ts";
@@ -505,12 +504,11 @@ export function parse_unstability(cx: AcceptContext, args: ArgParser): [Symbol, 
         if (issue_str === "none") {
           issue_num = undefined;
         } else {
-          const parsed = u32_from_str(issue_str);
-          const r = parsed.$ === "Ok" && parsed._0 === 0 ? Err("Zero" as const) : parsed;
+          const r = nonzero_u32_from_str(issue_str);
           if (r.$ === "Ok") {
             issue_num = r._0;
           } else {
-            const err = r._0;
+            const err = r._0.kind;
             cx.shared.emit_err(
               diagnostics.InvalidIssueString_diagnostic({
                 span: param.span(),

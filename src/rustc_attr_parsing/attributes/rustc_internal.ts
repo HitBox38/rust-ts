@@ -9,7 +9,7 @@ import {
   RustcMirKind,
 } from "../../rustc_attr_ir/lib.ts";
 import { AttributeStability } from "../../rustc_feature/lib.ts";
-import { is_whitespace } from "../../std/char.ts";
+import { string_trim } from "../../std/str.ts";
 import type { MutRef } from "../../std/mut_ref.ts";
 import { panic, unwrap } from "../../std/panic.ts";
 import { path_components } from "../../std/path.ts";
@@ -860,29 +860,6 @@ export const RustcNonConstTraitMethodParser: NoArgsAttributeParser = NoArgsAttri
   CREATE: (_) => AttributeKind.RustcNonConstTraitMethod,
 });
 
-// PORT: `str::trim` trims `char::is_whitespace` (Unicode `White_Space`) from both ends; JS
-// `String.prototype.trim` uses a different set (it trims U+FEFF and keeps U+0085).
-function str_trim(s: string): string {
-  let start = 0;
-  let end = s.length;
-  while (start < end) {
-    const c = s.codePointAt(start)!;
-    if (!is_whitespace(c)) break;
-    start += c > 0xffff ? 2 : 1;
-  }
-  while (end > start) {
-    let i = end - 1;
-    const lo = s.charCodeAt(i);
-    if (lo >= 0xdc00 && lo <= 0xdfff && i > start) {
-      const hi = s.charCodeAt(i - 1);
-      if (hi >= 0xd800 && hi <= 0xdbff) i -= 1;
-    }
-    if (!is_whitespace(s.codePointAt(i)!)) break;
-    end = i;
-  }
-  return s.slice(start, end);
-}
-
 export const RustcCleanParser: CombineAttributeParser<RustcCleanAttribute> = CombineAttributeParser_provided<RustcCleanAttribute>({
   PATH: [sym.rustc_clean],
 
@@ -953,14 +930,14 @@ export const RustcCleanParser: CombineAttributeParser<RustcCleanAttribute> = Com
       } else if (ident.name === sym.except) {
         const entries = Symbol.as_str(value)
           .split(",")
-          .map((s) => Symbol.intern(str_trim(s)));
+          .map((s) => Symbol.intern(string_trim(s)));
         except = { entries, span: value_span };
       } else if (ident.name === sym.loaded_from_disk && loaded_from_disk !== undefined) {
         cx.adcx().duplicate_key(MetaItemOrLitParser.span(item), sym.loaded_from_disk);
       } else if (ident.name === sym.loaded_from_disk) {
         const entries = Symbol.as_str(value)
           .split(",")
-          .map((s) => Symbol.intern(str_trim(s)));
+          .map((s) => Symbol.intern(string_trim(s)));
         loaded_from_disk = { entries, span: value_span };
       } else {
         cx.adcx().expected_specific_argument(ident.span, [sym.cfg, sym.except, sym.loaded_from_disk]);

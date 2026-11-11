@@ -18,8 +18,8 @@
 //   out sequentially from 1), so it is not inserted into the tracked set (no `BorTag` can equal it): the observable
 //   behaviour (the set is only ever queried for membership) is unchanged. `-Zmiri-track-alloc-id` likewise (allocation
 //   ids are sequential too; `AllocId` is a branded number).
-// - `str::parse` of the flag values: `u32` / `u64` through rustc_session's `u32_from_str` / `u64_from_str` (core's
-//   radix-10 rules), `NonZero<u64>` adds the `Zero` error; `f64` through `f64_from_str` below (core's dec2flt grammar).
+// - `str::parse` of the flag values: `u32` / `u64` through src/std/num.ts's `u32_from_str` / `u64_from_str` (core's
+//   radix-10 rules), `NonZero<u64>` through its `nonzero_u64_from_str`; `f64` through `f64_from_str` below (core's dec2flt grammar).
 //   The `ParseIntError` texts are core's `IntErrorKind` descriptions.
 import "../../rust_ts/miri_stack_first.ts"; // LOAD ORDER: before everything else, see that file.
 import "../lib.ts";
@@ -74,7 +74,7 @@ import type { EncodedMetadata } from "../../rustc_metadata/lib.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import type { AllocId } from "../../rustc_middle/mir/interpret/mod.ts";
 import { ErrorOutputType, Input, type OutputFilenames, host_tuple } from "../../rustc_session/config.ts";
-import { type IntErrorKind, u32_from_str, u64_from_str } from "../../rustc_session/options.ts";
+import { display_ParseIntError, nonzero_u64_from_str, u32_from_str, u64_from_str } from "../../std/num.ts";
 import { type CodegenBackendInit, EarlyDiagCtxt, type EarlySession, type Session } from "../../rustc_session/session.ts";
 import type { MetadataLoaderDyn } from "../../rustc_metadata/creader.ts";
 import type { CrateType } from "../../rustc_structures/crate_type.ts";
@@ -470,30 +470,6 @@ function run_compiler_and_exit(args: readonly string[], callbacks: Callbacks): n
   // Invoke compiler, catch any unwinding panics and handle return code.
   const exit_code = catch_with_exit_code(() => compiler_entrypoint(args, callbacks));
   return exit(exit_code === EXIT_SUCCESS ? EXIT_SUCCESS : EXIT_FAILURE);
-}
-
-/** `core::num::IntErrorKind` as `ParseIntError`'s `Display` (library/core/src/num/error.rs `description`). */
-function display_ParseIntError(kind: IntErrorKind): string {
-  switch (kind) {
-    case "Empty":
-      return "cannot parse integer from empty string";
-    case "InvalidDigit":
-      return "invalid digit found in string";
-    case "PosOverflow":
-      return "number too large to fit in target type";
-    case "NegOverflow":
-      return "number too small to fit in target type";
-    case "Zero":
-      return "number would be zero for non-zero type";
-  }
-}
-
-/** `<NonZero<u64> as FromStr>::from_str` (`u64::from_str_radix(src, 10)?`, then `Zero` for 0). */
-function nonzero_u64_from_str(s: string): Result<bigint, IntErrorKind> {
-  const r = u64_from_str(s);
-  if (r.$ === "Err") return r;
-  if (r._0 === 0n) return Err("Zero");
-  return r;
 }
 
 /** `<f64 as FromStr>::from_str` (core dec2flt): an optional sign, then `inf` / `infinity` / `nan` (ASCII

@@ -15,10 +15,12 @@
 // - `record_variants!` is the function `record_variants`, with the macro's variant list: the match arm taken is the
 //   one whose variant name is the kind's `$` tag (a tag outside the list is `unreachable`, as the exhaustive match
 //   rules out upstream).
+// - `class StatCollector` holds both the struct (line 57) and its `impl` (line 81). Upstream's two entry points
+//   (lines 63, 71) sit between them, so they come just before the class, keeping the fns in upstream order.
 import { type AttrVec, type NodeId, visit as ast_visit } from "../rustc_ast/lib.ts";
 import type * as ast from "../rustc_ast/ast.gen.ts";
 import type { Attribute as HirAttribute } from "../rustc_attr_ir/lib.ts";
-import { usize_with_underscores, f64_fixed1 } from "../rustc_data_structures/thousands/mod.ts";
+import { usize_with_underscores } from "../rustc_data_structures/thousands/mod.ts";
 import type * as hir from "../rustc_hir/hir.ts";
 import { type AmbigArg } from "../rustc_hir/hir.gen.ts";
 import { GenericArg as hir_GenericArg } from "../rustc_hir/hir.ts"; // also the `hir_id()` methods
@@ -28,6 +30,7 @@ import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import { LOCAL_CRATE, type LocalDefId, type LocalModId } from "../rustc_span/def_id.ts";
 import type { Span } from "../rustc_span/lib.ts";
 import { Symbol } from "../rustc_span/symbol.ts";
+import { f64_fixed1 } from "../std/fmt.ts";
 import { write_stderr } from "../std/io.ts";
 import { unreachable, unwrap } from "../std/panic.ts";
 import { NODE_SIZES, type NodeSizeKey } from "./input_stats_sizes.gen.ts";
@@ -62,6 +65,23 @@ class Node {
   static new(): Node {
     return new Node(NodeStats.new(), new Map());
   }
+}
+
+// rustc: compiler/rustc_passes/src/input_stats.rs:63 print_hir_stats
+export function print_hir_stats(tcx: TyCtxt): void {
+  const collector = new StatCollector_hir(new StatCollector(tcx, new Map(), new HirIdSet()));
+  tcx.hir_walk_toplevel_module(collector);
+  tcx.hir_walk_attributes(collector);
+  collector.c.print(tcx, "HIR STATS", "hir-stats");
+}
+
+// rustc: compiler/rustc_passes/src/input_stats.rs:71 print_ast_stats
+export function print_ast_stats(tcx: TyCtxt, krate: ast.Crate): void {
+  // use rustc_ast::visit::Visitor;
+
+  const collector = new StatCollector_ast(new StatCollector(undefined, new Map(), new HirIdSet()));
+  collector.visit_crate(krate);
+  collector.c.print(tcx, "POST EXPANSION AST STATS", "ast-stats");
 }
 
 /// This type measures the size of AST and HIR nodes, by implementing the AST
@@ -204,23 +224,6 @@ function pad_l(s: string, w: number): string {
 /** PORT: `{:>w$}` of an ASCII `&str` or a formatted number. */
 function pad_r(s: string, w: number): string {
   return s.padStart(w);
-}
-
-// rustc: compiler/rustc_passes/src/input_stats.rs:63 print_hir_stats
-export function print_hir_stats(tcx: TyCtxt): void {
-  const collector = new StatCollector_hir(new StatCollector(tcx, new Map(), new HirIdSet()));
-  tcx.hir_walk_toplevel_module(collector);
-  tcx.hir_walk_attributes(collector);
-  collector.c.print(tcx, "HIR STATS", "hir-stats");
-}
-
-// rustc: compiler/rustc_passes/src/input_stats.rs:71 print_ast_stats
-export function print_ast_stats(tcx: TyCtxt, krate: ast.Crate): void {
-  // use rustc_ast::visit::Visitor;
-
-  const collector = new StatCollector_ast(new StatCollector(undefined, new Map(), new HirIdSet()));
-  collector.visit_crate(krate);
-  collector.c.print(tcx, "POST EXPANSION AST STATS", "ast-stats");
 }
 
 // Used to avoid boilerplate for types with many variants.

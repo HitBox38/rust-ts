@@ -58,12 +58,11 @@ import { bug } from "../../rustc_span/macros.ts";
 import { Binder } from "../../rustc_type_ir/binder.ts";
 import { display_Canonical } from "../../rustc_type_ir/canonical.ts";
 import { TypeVisitableExt } from "../../rustc_type_ir/visit.ts";
-import { is_whitespace } from "../../std/char.ts";
 import { debug_option, debug_str } from "../../std/fmt.ts";
 import { debug_IoError, ErrorKind_as_str, type IoError, io_error_from_node } from "../../std/io.ts";
 import { assert } from "../../std/panic.ts";
 import { Err, unwrap_result } from "../../std/result.ts";
-import { utf8_len } from "../../std/str.ts";
+import { string_trim, utf8_len } from "../../std/str.ts";
 import { type FmtArguments, Write_default } from "../../vendor/anstream/stream.ts";
 import type { Scalar as ty_Scalar, Value } from "../ty/decls.ts";
 import { debug_GenericArgs, fold_GenericArgs, GenericArg } from "../ty/generic_args.ts";
@@ -154,16 +153,6 @@ function center(s: string, fill: string, width: number): string {
 /** `{:0width$x}` of an integer. */
 function hex_pad(x: number | bigint, width: number): string {
   return x.toString(16).padStart(width, "0");
-}
-
-/** `str::trim` (Unicode `White_Space`). */
-function str_trim(s: string): string {
-  const cps = [...s];
-  let a = 0;
-  let b = cps.length;
-  while (a < b && is_whitespace(cps[a]!.codePointAt(0)!)) a++;
-  while (b > a && is_whitespace(cps[b - 1]!.codePointAt(0)!)) b--;
-  return cps.slice(a, b).join("");
 }
 
 /** `format!` of a `Display` / `Debug` impl that returned `fmt::Error` (std's `format` panics). */
@@ -285,7 +274,7 @@ export class MirDumper {
       const node_path = with_no_trimmed_paths(() => with_forced_impl_filename_line(() => tcx.def_path_str(body.source.def_id())));
       dump_enabled = filters.split("|").some((or_filter) =>
         or_filter.split("&").every((and_filter) => {
-          const and_filter_trimmed = str_trim(and_filter);
+          const and_filter_trimmed = string_trim(and_filter);
           return and_filter_trimmed === "all" || pass_name.includes(and_filter_trimmed) || node_path.includes(and_filter_trimmed);
         }),
       );

@@ -6,7 +6,7 @@
 import type { Scalar as abi_Scalar, Size } from "../../rustc_abi/lib.ts";
 import type { Scalar } from "../../rustc_middle/mir/interpret/value.ts";
 import type { BackendTypes, BackendTypesOf } from "./backend.ts";
-import type { PointerAuthSchema } from "./misc.ts";
+import type { PointerAuthSchema } from "../../rustc_session/session.ts";
 
 // rustc-trait: compiler/rustc_codegen_ssa/src/traits/consts.rs:7 ConstCodegenMethods
 export interface ConstCodegenMethods<B extends BackendTypes> extends BackendTypesOf<B> {

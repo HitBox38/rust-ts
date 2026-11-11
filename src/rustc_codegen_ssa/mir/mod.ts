@@ -1,7 +1,8 @@
 // compiler/rustc_codegen_ssa/src/mir/mod.rs: NOT PORTED YET (lane ssa-mir-core, plan-m7 wave 41).
 //
 // PORT (ssa-contract): the type surface the traits (traits/intrinsic.ts) need, placed in the file lane ssa-mir-core
-// will port: `IntrinsicResult`, an enum with data (a `$`-tagged union, PORTING §5).
+// will port: `IntrinsicResult`, an enum with data (a `$`-tagged union, PORTING §5, with its unit variant's frozen singleton
+// on the companion const).
 import type { Instance } from "../../rustc_middle/ty/instance.ts";
 import type { ErrorGuaranteed } from "../../rustc_span/lib.ts";
 import type { OperandValue } from "./operand.ts";
@@ -27,3 +28,7 @@ export type IntrinsicResult<V> =
 
   /// Arguably this shouldn't exist, per MCP#620, but a bunch do it.
   | { readonly $: "Err"; _0: ErrorGuaranteed };
+export const IntrinsicResult = {
+  /** Shared frozen singleton of the unit variant (PORTING §5; docs/reviews/ssa-contract.md N2). */
+  WroteIntoPlace: Object.freeze({ $: "WroteIntoPlace" }) as { readonly $: "WroteIntoPlace" },
+} as const;

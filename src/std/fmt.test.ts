@@ -16,6 +16,7 @@ import {
   debug_tuple,
   debug_unit,
   debug_vec,
+  f64_fixed1,
   type Fmt,
   format_debug,
   PLAIN,
@@ -556,4 +557,19 @@ test("format_debug of a deep chain is linear in the output size", () => {
 test("debug_unit: `()` in both forms", () => {
   expect(debug_unit(null, PLAIN)).toBe("()");
   expect(format_debug(null, debug_unit, PRETTY)).toBe("()");
+});
+
+// docs/reviews/stats.md N2: one `{:.1}` for thousands/mod.ts, input_stats.ts, rmeta/encoder.ts and ty/context.ts. The
+// expected strings are what the oracle (rustc 1.101.0-nightly 6f5da406b) printed for `format!("{x:.1}")`: ties to even
+// on the exact binary value (JS `toFixed` rounds ties up), `-` kept on `-0.0` and on negatives that round to zero.
+test("f64_fixed1 matches the oracle's {:.1}", () => {
+  const cases: [number, string][] = [
+    [0.25, "0.2"], [0.75, "0.8"], [0.05, "0.1"], [1.25, "1.2"], [-0.25, "-0.2"], [-0, "-0.0"], [0, "0.0"],
+    [268.25, "268.2"], [236.875, "236.9"], [0.04, "0.0"], [-0.04, "-0.0"], [0.15, "0.1"], [0.35, "0.3"],
+    [0.95, "0.9"], [2.675, "2.7"], [9.95, "9.9"], [99.95, "100.0"], [100 / 3, "33.3"],
+    [Number.NaN, "NaN"], [Infinity, "inf"], [-Infinity, "-inf"], [5e-324, "0.0"], [-5e-324, "-0.0"],
+    [4503599627370495.5, "4503599627370495.5"], [9007199254740993, "9007199254740992.0"],
+    [Number.MAX_VALUE, `${BigInt(Number.MAX_VALUE)}.0`], [-Number.MAX_VALUE, `-${BigInt(Number.MAX_VALUE)}.0`],
+  ];
+  for (const [x, s] of cases) expect([x, f64_fixed1(x)]).toEqual([x, s]);
 });

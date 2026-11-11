@@ -14,17 +14,15 @@ import type { TyAndLayout } from "../rustc_middle/ty/layout.ts";
 import { RawList } from "../rustc_middle/ty/list.ts";
 import { display_Ty } from "../rustc_middle/ty/print/pretty.ts";
 import type { Ty } from "../rustc_middle/ty/mod.ts";
-import type { Session } from "../rustc_session/session.ts";
 import type { Span } from "../rustc_span/lib.ts";
 import { bug, span_bug } from "../rustc_span/macros.ts";
 import { Symbol } from "../rustc_span/symbol.ts";
 import type { Target } from "../rustc_target/spec/mod.ts";
 import { type Debug, PLAIN } from "../std/fmt.ts";
-import { unported, unreachable } from "../std/panic.ts";
+import { unreachable } from "../std/panic.ts";
 import type { BackendTypes } from "./traits/backend.ts";
 import type { BuilderMethods } from "./traits/builder.ts";
 import type { FnAbi } from "../rustc_target/callconv/mod.ts";
-import type { PointerAuthSchema } from "./traits/misc.ts";
 
 // #[derive(Copy, Clone, Debug)]
 export type IntPredicate =
@@ -181,16 +179,6 @@ export const debug_TypeKind: Debug<TypeKind> = (v) => v;
 //     }
 // }
 
-/** PORT (ssa-contract): `Session::pointer_authentication_functions` (rustc_session session.rs:1271) is not on the TS
- *  `Session`. Its `pointer_auth_config` is always `None` in the port (rustc_session `build_session`: only `Pauthtest`
- *  targets build one, and that path stops), so the answer is `None` exactly when the config is absent. Not a marker:
- *  rustc_session owns the fn (handoff). */
-function pointer_authentication_functions(sess: Session): PointerAuthSchema | undefined {
-  return sess.pointer_auth_config === undefined
-    ? undefined
-    : unported("rustc_session::Session::pointer_authentication_functions (PointerAuthConfig)");
-}
-
 // rustc: compiler/rustc_codegen_ssa/src/common.rs:112 build_langcall
 export function build_langcall<B extends BackendTypes>(
   bx: BuilderMethods<B>,
@@ -202,7 +190,7 @@ export function build_langcall<B extends BackendTypes>(
   const instance = Instance.mono(tcx, def_id);
   return [
     bx.fn_abi_of_instance(instance, RawList.empty()),
-    bx.get_fn_addr(instance, pointer_authentication_functions(tcx.sess)),
+    bx.get_fn_addr(instance, tcx.sess.pointer_authentication_functions()),
     instance,
   ];
 }

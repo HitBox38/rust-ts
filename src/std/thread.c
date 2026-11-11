@@ -50,6 +50,9 @@ void *dlsym(void *handle, const char *symbol);
 #define RTS_SPAWN_ATTR_INIT_FAILED (-2)   // assert_eq!(libc::pthread_attr_init(..), 0)
 #define RTS_SPAWN_SETSTACKSIZE_FAILED (-3) // assert_eq!(n, libc::EINVAL)
 #define RTS_SPAWN_ATTR_DESTROY_FAILED (-4) // the DropGuard's assert_eq!(libc::pthread_attr_destroy(..), 0)
+// -3 and then the DropGuard's assertion failing too, while unwinding from the first panic: a panic in a destructor
+// during unwinding, which aborts the process upstream.
+#define RTS_SPAWN_SETSTACKSIZE_THEN_DESTROY_FAILED (-5)
 
 typedef struct {
   _Alignas(16) unsigned char bytes[128];
@@ -93,10 +96,11 @@ void *rts_thread_spawn(void *(*start)(void *), void *arg, rts_size_t stack, int 
   if (r != 0) {
     rts_size_t page_size;
     if (r != RTS_EINVAL) {
-      // The assertion panics while the DropGuard is live, so the guard still destroys `attr` while unwinding.
-      pthread_attr_destroy(&attr);
+      // The assertion panics while the DropGuard is live, so the guard still destroys `attr` while unwinding; if its
+      // own assertion fails there, that second panic aborts (docs/reviews/fixers-51.md N2). Neither failure happens
+      // on a host the port supports (setstacksize fails only with EINVAL, destroy does not fail).
       free(t);
-      *err = RTS_SPAWN_SETSTACKSIZE_FAILED;
+      *err = pthread_attr_destroy(&attr) != 0 ? RTS_SPAWN_SETSTACKSIZE_THEN_DESTROY_FAILED : RTS_SPAWN_SETSTACKSIZE_FAILED;
       return 0;
     }
     // EINVAL means |stack_size| is either too small or not a multiple of the system page size. Because it's

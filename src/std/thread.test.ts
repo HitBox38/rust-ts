@@ -17,3 +17,15 @@ test.skipIf(!NATIVE)("rts_thread_spawn: a failed page-rounded retry is the inval
   expect(err[0]).toBe(-1);
   expect(thread.spawn_error(err[0]!)).toBe("failed to spawn thread: invalid stack size");
 });
+
+// docs/reviews/fixers-51.md N2: on the -3 path (`assert_eq!(n, EINVAL)` fails), the DropGuard runs while unwinding;
+// if its `pthread_attr_destroy` assertion fails too, upstream aborts (a panic in a destructor during unwinding).
+// thread.c reports that as its own code instead of ignoring destroy's result. No supported host can fail either call,
+// so this checks the mapping only.
+test("spawn_error: each RTS_SPAWN code, with the double failure on the -3 path as its own stop", () => {
+  expect([-3, -4, -5].map(thread.spawn_error)).toEqual([
+    "pthread_attr_setstacksize failed with an error other than EINVAL",
+    "pthread_attr_destroy failed",
+    "pthread_attr_setstacksize failed with an error other than EINVAL, then pthread_attr_destroy failed while unwinding (abort)",
+  ]);
+});

@@ -12,7 +12,7 @@ import type { Diag, PResult } from "../../../rustc_errors/lib.ts";
 import { Applicability } from "../../../rustc_lint_defs/lib.ts";
 import { Span, type Spanned, respan } from "../../../rustc_span/lib.ts";
 import { sym } from "../../../rustc_span/symbol.ts";
-import { is_whitespace } from "../../../std/char.ts";
+import { string_trim } from "../../../std/str.ts";
 import { Err, Ok } from "../../../std/result.ts";
 import * as diagnostics from "../../diagnostics.ts";
 import { Parser } from "../mod.ts";
@@ -232,16 +232,6 @@ Parser.prototype.recover_from_postfix_dec_op = function (this: Parser, lhs: Expr
   }
 };
 
-/// PORT: `str::trim` (Unicode `White_Space`, as `char::is_whitespace`).
-function str_trim(s: string): string {
-  const cs = [...s];
-  let i = 0;
-  let j = cs.length;
-  while (i < j && is_whitespace(cs[i]!.codePointAt(0)!)) i++;
-  while (j > i && is_whitespace(cs[j - 1]!.codePointAt(0)!)) j--;
-  return cs.slice(i, j).join("");
-}
-
 /// Report increment operator `++` & decrement operator `--` as found in many C-style languages.
 // rustc: compiler/rustc_parse/src/parser/expr/diagnostics.rs:185 report_inc_dec_op
 Parser.prototype.report_inc_dec_op = function (
@@ -308,7 +298,7 @@ Parser.prototype.report_inc_dec_op = function (
         // won't suggest since we can not handle the precedences
         // for example: `a + b++` has been parsed (a + b)++ and we can not suggest here
         if (base.kind.$ !== "Binary") {
-          const tmp_var = str_trim(base_src) === "tmp" ? "tmp_" : "tmp";
+          const tmp_var = string_trim(base_src) === "tmp" ? "tmp_" : "tmp";
           err.multipart_suggestion(
             `use \`${op2}\` instead`,
             [
