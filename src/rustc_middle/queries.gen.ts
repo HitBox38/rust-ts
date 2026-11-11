@@ -27,7 +27,7 @@ import { type HirId, type LintId, type StableLintExpectationId, debug_HirId } fr
 import { type ModuleItems } from "./hir/mod.ts";
 import { type CodegenFnAttrs, type SanitizerFnAttrs } from "./middle/codegen_fn_attrs.ts";
 import { type Dependencies } from "./middle/dependency_format.ts";
-import { type ExportedSymbol } from "./middle/exported_symbols.ts";
+import { type ExportedSymbol, type SymbolExportInfo } from "./middle/exported_symbols.ts";
 import { type EffectiveVisibilities, debug_EffectiveVisibilities, stable_hash_EffectiveVisibilities } from "./middle/privacy.ts";
 import { type ScopeTree, debug_ScopeTree } from "./middle/region.ts";
 import { type AstOwner, type DocLinkResMap, type ModChild, type ResolverAstLowering, type ResolverGlobalCtxt, debug_DocLinkResMap, debug_ModChild, debug_ResolverAstLowering, debug_ResolverGlobalCtxt } from "./middle/resolve.ts";
@@ -53,7 +53,7 @@ import { type LitToConstInput } from "./ty/consts/lit.ts";
 import { type Limits, type TyCtxt } from "./ty/context.ts";
 import { type SimplifiedType, debug_SimplifiedType } from "./ty/fast_reject.ts";
 import { type GenericArg, debug_GenericArg } from "./ty/generic_args.ts";
-import { type GenericClauses, debug_GenericClauses } from "./ty/generics.ts";
+import { type GenericClauses, type Generics, debug_GenericClauses, debug_Generics } from "./ty/generics.ts";
 import { stable_hash_GenericArg, stable_hash_RawList } from "./ty/impls_ty.ts";
 import { type InhabitedPredicate, debug_InhabitedPredicate } from "./ty/inhabitedness/inhabited_predicate.ts";
 import { type Instance, type InstanceKind, type ShimKind, debug_Instance, display_Instance } from "./ty/instance.ts";
@@ -270,8 +270,7 @@ export interface QueryTypes {
   /**
    * Returns the *generics* of the definition given by `DefId`.
    */
-  // PORT: value `&'tcx ty::Generics` not ported (`unknown`)
-  generics_of: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: unknown; ProvidedValue: unknown };
+  generics_of: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: Generics; ProvidedValue: Generics };
   /**
    * Returns the (elaborated) *clauses* of the definition given by `DefId`
    * that must be proven true at usage sites (and which can be assumed at definition site).
@@ -1206,8 +1205,7 @@ export interface QueryTypes {
   default_field: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: DefId | undefined; ProvidedValue: DefId | undefined };
   check_well_formed: { Key: LocalDefId; KeyArg: Parameters<typeof into_query_key_LocalDefId>[0]; LocalKey: LocalDefId; Value: Result<null, ErrorGuaranteed>; ProvidedValue: Result<null, ErrorGuaranteed> };
   enforce_impl_non_lifetime_params_are_constrained: { Key: LocalDefId; KeyArg: Parameters<typeof into_query_key_LocalDefId>[0]; LocalKey: LocalDefId; Value: Result<null, ErrorGuaranteed>; ProvidedValue: Result<null, ErrorGuaranteed> };
-  // PORT: value `&'tcx DefIdMap<SymbolExportInfo>` not ported (`unknown`)
-  reachable_non_generics: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: DefIdMap<unknown>; ProvidedValue: DefIdMap<unknown> };
+  reachable_non_generics: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: DefIdMap<SymbolExportInfo>; ProvidedValue: DefIdMap<SymbolExportInfo> };
   is_reachable_non_generic: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: boolean; ProvidedValue: boolean };
   is_unreachable_local_definition: { Key: LocalDefId; KeyArg: Parameters<typeof into_query_key_LocalDefId>[0]; LocalKey: LocalDefId; Value: boolean; ProvidedValue: boolean };
   /**
@@ -1560,8 +1558,7 @@ export interface QueryTypes {
    * - The `exported_non_generic_symbols` and `exported_generic_symbols`
    *   sets of different crates do not intersect.
    */
-  // PORT: value `&'tcx [(ExportedSymbol<'tcx>, SymbolExportInfo)]` not ported (`unknown`)
-  exported_non_generic_symbols: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: readonly [ExportedSymbol, unknown][]; ProvidedValue: readonly [ExportedSymbol, unknown][] };
+  exported_non_generic_symbols: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: readonly [ExportedSymbol, SymbolExportInfo][]; ProvidedValue: readonly [ExportedSymbol, SymbolExportInfo][] };
   /**
    * The list of generic symbols exported from the given crate.
    *
@@ -1571,8 +1568,7 @@ export interface QueryTypes {
    * - The `exported_non_generic_symbols` and `exported_generic_symbols`
    *   sets of different crates do not intersect.
    */
-  // PORT: value `&'tcx [(ExportedSymbol<'tcx>, SymbolExportInfo)]` not ported (`unknown`)
-  exported_generic_symbols: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: readonly [ExportedSymbol, unknown][]; ProvidedValue: readonly [ExportedSymbol, unknown][] };
+  exported_generic_symbols: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: readonly [ExportedSymbol, SymbolExportInfo][]; ProvidedValue: readonly [ExportedSymbol, SymbolExportInfo][] };
   collect_and_partition_mono_items: { Key: null; KeyArg: null; LocalKey: null; Value: MonoItemPartitions; ProvidedValue: MonoItemPartitions };
   is_codegened_item: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: DefId; Value: boolean; ProvidedValue: boolean };
   codegen_unit: { Key: Symbol; KeyArg: Symbol; LocalKey: Symbol; Value: CodegenUnit; ProvidedValue: CodegenUnit };
@@ -2286,7 +2282,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: true,
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `computing generics of \`${__0}\``; },
-    debug_value: undefined,
+    debug_value: (v, f) => debug_Generics(v, f),
     stable_hash_value: undefined,
   },
   clauses_of: {

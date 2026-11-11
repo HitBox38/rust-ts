@@ -44,6 +44,7 @@ import { Ident } from "../../rustc_span/symbol.ts";
 import { AttributeMap, type OwnerNodes } from "../../rustc_hir/lib.ts";
 import { OwnerId } from "../../rustc_hir_id/lib.ts";
 import { Fingerprint } from "../../rustc_data_structures/fingerprint.ts";
+import type { Generics } from "../ty/generics.ts";
 
 const test_ = (name: string, f: () => void): void => {
   test(name, () => create_default_session_globals_then(f));
@@ -370,7 +371,7 @@ test_("cycle handler `variances_of` (handle_cycle_error modifier): delays the cy
       // PORT (test): `generics_of` plays rustc_hir_analysis; the handler reads only `Generics::count`.
       p.generics_of = () => {
         generics_calls++;
-        return { count: () => 2 };
+        return { count: () => 2 } as unknown as Generics;
       };
     },
     (tcx, sp) => {

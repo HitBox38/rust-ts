@@ -595,7 +595,7 @@ export const PROVIDE_EXTERN: { readonly [N in ExternQuery]?: ProvideEntry<N> } =
   reachable_non_generics: [
     IntoArgs_CrateNum,
     (tcx, _def_id, _other, cdata) => {
-      const reachable_non_generics = new KeyedMap<DefId, unknown>(DefId_hash_key);
+      const reachable_non_generics = new KeyedMap<DefId, SymbolExportInfo>(DefId_hash_key);
       for (const [exported_symbol, export_info] of tcx.exported_non_generic_symbols(cdata.cnum) as [ExportedSymbol, SymbolExportInfo][]) {
         if (exported_symbol.$ === "NonGeneric") {
           const def_id = exported_symbol._0;

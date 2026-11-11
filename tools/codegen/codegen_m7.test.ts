@@ -137,9 +137,9 @@ test("queries.gen.ts: the query values the mono / codegen lanes listed are typed
     backend_optimization_level: "OptLevel",
     symbol_mangling_version: "SymbolManglingVersion",
   });
-  // left `unknown`, with their reasons in docs/handoff/codegen-sets-m7.md: generics_of / reachable_non_generics (a hand call
-  // site each must change with them), entry_fn (`EntryFnType` is not in rustc_session config.ts)
-  expect(value("generics_of")).toBe("unknown");
-  expect(value("reachable_non_generics")).toBe("DefIdMap<unknown>");
+  // generics_of / reachable_non_generics typed by root's follow-up (docs/reviews/codegen-sets-m7.md); entry_fn stays `unknown`
+  // (`EntryFnType` is not in rustc_session config.ts)
+  expect(value("generics_of")).toBe("Generics");
+  expect(value("reachable_non_generics")).toBe("DefIdMap<SymbolExportInfo>");
   expect(value("entry_fn")).toBe("[DefId, unknown] | undefined");
 });
