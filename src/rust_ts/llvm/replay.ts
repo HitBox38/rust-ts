@@ -18,7 +18,8 @@ import * as L from "./ffi.ts";
 import * as T from "./ffi_types.ts";
 import { FFI_PATH, type FfiFn, type FfiItems, parseFfi, tsType } from "../../../tools/llir/ffi_gen.ts";
 import { rustAttributeKindOf } from "./core.ts";
-import { Function as IrFunction, Module } from "./ir.ts";
+import { BasicBlock, IRBuilder, Inst } from "./inst.ts";
+import { Attribute, Constant, ConstantInt, Function as IrFunction, Module, stringOfBstr } from "./ir.ts";
 
 type Arg =
   | { k: "h"; id: number }
@@ -28,6 +29,8 @@ type Arg =
   | { k: "str"; b: Uint8Array }
   | { k: "arr"; items: Arg[] }
   | { k: "skip" }
+  /** An integer constant no recorded call made (`#<value>`, in `?inst` lines). */
+  | { k: "cint"; v: bigint }
   /** An out-parameter's value after the call (`&<value>`). */
   | { k: "out"; v: Arg };
 
@@ -41,6 +44,10 @@ export interface Call {
   args: Arg[];
   ret: Arg | undefined;
   retStr: Uint8Array | undefined;
+  /** Where a builder put the instruction it returned (` @ %BB <next or end>`). */
+  at?: { bb: Arg; next: Arg | undefined };
+  /** `?inst`'s call-site attributes, by index. */
+  attrs?: Map<number, Arg[]>;
 }
 
 function parseString(s: string, i: number): [Uint8Array, number] {
@@ -73,6 +80,10 @@ function parseArg(s: string, i: number): [Arg, number] {
       i = s.startsWith(", ", j) ? j + 2 : j;
     }
     return [{ k: "arr", items }, i + 1];
+  }
+  if (s[i] === "#") {
+    const d = /^#(\d+)/.exec(s.slice(i))!;
+    return [{ k: "cint", v: BigInt(d[1]!) }, i + d[0].length];
   }
   const m = /^(%\d+|null|d0x[0-9A-F]+|-?\d+|\?)/.exec(s.slice(i))!;
   const t = m[1]!;
@@ -115,6 +126,17 @@ export function parseScript(text: string): Call[] {
     const thread = Number(row.slice(0, tab));
     const body = row.slice(tab + 1);
     const base = { line: n + 1, thread, text: body };
+    if (body.startsWith("?inst ")) {
+      // `?inst %I %BB <next|end> <opcode> [operands] {<index>:[attributes] ...}`.
+      const m = /^\?inst (%\d+) (%\d+) (%\d+|end) (\d+) (\[.*?\])(?: \{(.*)\})?$/.exec(body);
+      if (m === null) throw new Error(`replay: malformed ?inst at script line ${n + 1}`);
+      const h = (t: string): Arg => parseArg(t, 0)[0];
+      const attrs = new Map<number, Arg[]>();
+      for (const g of (m[6] ?? "").matchAll(/(\d+):(\[[^\]]*\])/g)) attrs.set(Number(g[1]), (parseArg(g[2]!, 0)[0] as { items: Arg[] }).items);
+      const args = [h(m[1]!), h(m[2]!), m[3] === "end" ? { k: "null" as const } : h(m[3]!), { k: "int" as const, v: BigInt(m[4]!) }, parseArg(m[5]!, 0)[0]];
+      calls.push({ ...base, fn: "?inst", args, ret: undefined, retStr: undefined, attrs });
+      return;
+    }
     if (body.startsWith("?")) {
       const sp = body.indexOf(" ");
       calls.push({ ...base, fn: body.slice(0, sp), args: parseWords(body.slice(sp + 1)), ret: undefined, retStr: undefined });
@@ -137,8 +159,14 @@ export function parseScript(text: string): Call[] {
       i = body.startsWith(", ", j) ? j + 2 : j;
     }
     let retStr: Uint8Array | undefined;
+    let at: Call["at"];
+    if (body.startsWith(" @ ", i + 1)) {
+      const [bb, j] = parseArg(body, i + 4);
+      const next = body.startsWith(" end", j) ? undefined : parseArg(body, j + 1)[0];
+      at = { bb, next };
+    }
     if (body.startsWith(" -> ", i + 1)) retStr = body.startsWith('"', i + 5) ? parseString(body, i + 5)[0] : undefined;
-    calls.push({ ...base, fn, args, ret, retStr });
+    calls.push({ ...base, fn, args, ret, retStr, ...(at ? { at } : {}) });
   });
   return calls;
 }
@@ -161,6 +189,15 @@ export interface ReplayResult {
   inferredBy: Map<string, number>;
   /** Inferred effects of wrappers the model leaves to another lane, applied to the model directly. */
   stubbedEffects: Map<string, number>;
+  /** `?attrs` lines of an intrinsic declaration a hidden wrapper made in the same gap: `Intrinsic::getAttributes`, which the
+   * model leaves to the parser (plan-m7 §1b; llir-core-a PORT decision 5), so they are counted, not applied. */
+  intrinsicAttributeSets: number;
+}
+
+export interface ReplayOptions {
+  /** Module flag keys that come from outside rustc's literal call sites: the case's `-Z llvm-module-flag=<key>:...` keys and the
+   * target's small-data flag key (context.rs:593, :514). An integer flag matching no call site must be one of these (review R1). */
+  flagKeys?: readonly string[];
 }
 
 // ---- which rustc wrapper produces each inferred effect (rustc_codegen_llvm at the pin) -------------------------------------
@@ -230,15 +267,20 @@ const FLAG_SITES: readonly [key: string, behavior: T.ModuleFlagMergeBehavior, ki
 const LLVM_CODE_MODELS: readonly T.CodeModel[] = ["Tiny", "Small", "Kernel", "Medium", "Large"];
 
 /** Plays `calls` through ffi.ts. Throws on the first answer that differs from the oracle's. */
-export function replay(calls: readonly Call[], upstream: string): ReplayResult {
+export function replay(calls: readonly Call[], upstream: string, opts: ReplayOptions = {}): ReplayResult {
   const items: FfiItems = parseFfi(readFileSync(join(upstream, FFI_PATH), "utf8"));
   const sig = new Map<string, FfiFn>(items.fns.map((f) => [f.name, f]));
   const enumNames = new Set(items.enums.map((e) => e.name));
+  const flagNames = new Set(items.flags.map((f) => f.name));
   const env = new Map<number, unknown>();
   /** The reverse of `env` for objects: one handle per model object. */
   const ids = new Map<object, number>();
   const skippedBy = new Map<number, string>();
-  const res: ReplayResult = { modules: [], replayed: 0, skipped: new Map(), inferred: 0, inferredBy: new Map(), stubbedEffects: new Map() };
+  const res: ReplayResult = { modules: [], replayed: 0, skipped: new Map(), inferred: 0, inferredBy: new Map(), stubbedEffects: new Map(), intrinsicAttributeSets: 0 };
+  /** `?attr` lines not yet needed: an attribute is recreated (and its creator counted) when a later line uses it. */
+  const pendingAttrs = new Map<number, Call>();
+  /** `?function` lines of memory intrinsics, bound when the `?inst` of the hidden wrapper that declared them replays. */
+  const pendingIntrinsics = new Map<number, { name: string; m: Module }>();
   const lib = L as unknown as Record<string, (...a: unknown[]) => unknown>;
   const where = (c: Call): string => `script line ${c.line}: ${c.text.slice(0, 200)}`;
   const count = (m: Map<string, number>, k: string): void => void m.set(k, (m.get(k) ?? 0) + 1);
@@ -251,8 +293,11 @@ export function replay(calls: readonly Call[], upstream: string): ReplayResult {
   const bind = (c: Call, id: number, v: unknown): void => {
     const had = env.get(id);
     if (env.has(id) && had !== SKIPPED) {
-      if (had !== v) throw new Error(`replay: returned a different object than the oracle's %${id} (under-uniquing) at ${where(c)}`);
-      return;
+      if (had === v) return;
+      // LLVM frees a constant that `handleOperandChange` replaced (`destroyConstant`) and may reuse its address for a new one;
+      // the handle then names the new object (review llir-core-a R6).
+      if (!(had instanceof Constant && had.destroyed)) throw new Error(`replay: returned a different object than the oracle's %${id} (under-uniquing) at ${where(c)}`);
+      ids.delete(had);
     }
     if (typeof v === "object" && v !== null) {
       const other = ids.get(v);
@@ -264,6 +309,13 @@ export function replay(calls: readonly Call[], upstream: string): ReplayResult {
   const handle = (c: Call, a: Arg): unknown => {
     if (a.k === "null") return undefined;
     if (a.k !== "h") throw new Error(`replay: expected a handle at ${where(c)}`);
+    const pa = pendingAttrs.get(a.id);
+    if (pa !== undefined && !env.has(a.id)) {
+      pendingAttrs.delete(a.id);
+      const [attr, wrapper] = inferAttribute(pa);
+      bind(pa, a.id, attr);
+      inferred(wrapper);
+    }
     if (!env.has(a.id)) throw new Error(`replay: %${a.id} was never defined (made by an unrecorded LLVMRust* wrapper?) at ${where(c)}`);
     const v = env.get(a.id);
     if (v === SKIPPED) throw new Error(`replay: needs %${a.id} from ${skippedBy.get(a.id)}, which llir-core-a does not implement (${where(c)})`);
@@ -289,6 +341,8 @@ export function replay(calls: readonly Call[], upstream: string): ReplayResult {
     if (ts === "bigint") return intOf(a);
     if (ts === "boolean") return intOf(a) !== 0n;
     if (ts === "MetadataKindId") return Number(intOf(a));
+    // A bitflags type (`GEPNoWrapFlags`, ...): its bits.
+    if (flagNames.has(ts)) return Number(intOf(a));
     if (ts === "PtrLenStr" || ts === "Uint8Array") return bytes(a);
     if (ts === "string") return new TextDecoder().decode(bytes(a));
     if (enumNames.has(ts)) {
@@ -336,8 +390,9 @@ export function replay(calls: readonly Call[], upstream: string): ReplayResult {
    * -> LLVMRustCreateAttrNoValue (:232), `CreateAlignmentAttr` (:110), `CreateDereferenceable[OrNull]Attr` (:114, :118),
    * `CreateByValAttr` / `CreateByRefAttr` / `CreateStructRetAttr` (:122-:131), `CreateUWTableAttr` (:134). String attributes
    * come from LLVMCreateStringAttribute, a recorded C call, so a `?attr str` has no rustc producer and throws. The others rustc
-   * has (`CreateAllocSizeAttr`, `CreateAllocKindAttr`, `CreateRangeAttr`, memory effects, element type) are not decodable from
-   * the C API's view yet and throw. */
+   * has (`CreateAllocSizeAttr`, `CreateAllocKindAttr`, `CreateRangeAttr`, memory effects) are not decodable from the C API's
+   * view yet and throw. A function-level `elementtype` is decodable (a type attribute) but has no rustc producer: rustc puts it
+   * only on call sites (abi.rs:754, `apply_to_callsite`), so it throws too (review llir-core-a R5). */
   const inferAttribute = (c: Call): [L.Attribute, string] => {
     const [, kindArg, a, b] = c.args as [Arg, Arg, Arg | undefined, Arg | undefined];
     const kind = new TextDecoder().decode(bytes(kindArg));
@@ -357,6 +412,97 @@ export function replay(calls: readonly Call[], upstream: string): ReplayResult {
     const rust = rustAttributeKindOf(kind);
     if (rust !== undefined && n === 0n) return [L.LLVMRustCreateAttrNoValue(ctx, rust), "LLVMRustCreateAttrNoValue"];
     throw new Error(`replay: no rustc creator recreates attribute ${kind}${n === undefined ? "" : ` ${n}`} (${where(c)})`);
+  };
+
+  /** The attribute set an inferred line describes must be the model's whole set at that index (order aside). */
+  const checkAttrSet = (c: Call, set: Map<string, L.Attribute> | undefined, list: readonly L.Attribute[]): void => {
+    const got = [...(set?.values() ?? [])];
+    if (got.length !== list.length || list.some((a) => !got.includes(a))) throw new Error(`replay: the attribute set differs from the oracle's (${got.length} attributes, the oracle ${list.length}) at ${where(c)}`);
+  };
+  const placeOf = (c: Call, at: NonNullable<Call["at"]>): [BasicBlock, Inst | undefined] => [handle(c, at.bb) as BasicBlock, at.next === undefined ? undefined : (handle(c, at.next) as Inst)];
+
+  /** Before a builder call: the builder must insert where the oracle's did. If it would not, a hidden wrapper positioned it:
+   * `LLVMRustPositionBuilderAtStart` (builder.rs:1638, `position_at_start`, which `alloca` uses) when the place is the block's
+   * first insertion point, `LLVMRustPositionBuilderPastAllocas` (gpu_offload.rs) when it is past the entry block's allocas;
+   * no other wrapper of rustc positions a builder, so anything else throws. */
+  const positionFor = (c: Call, B: IRBuilder, at: NonNullable<Call["at"]>): void => {
+    const [bb, next] = placeOf(c, at);
+    if (B.block === bb && B.insertBefore === next) return;
+    const idx = next === undefined ? bb.insts.length : bb.insts.indexOf(next);
+    if (idx < 0) throw new Error(`replay: the oracle inserted before an instruction of another block at ${where(c)}`);
+    if (idx === bb.getFirstInsertionPt()) {
+      L.LLVMRustPositionBuilderAtStart(B, bb);
+      inferred("LLVMRustPositionBuilderAtStart");
+    } else if (bb.isEntryBlock() && idx === bb.getFirstNonPHIOrDbgOrAlloca()) {
+      L.LLVMRustPositionBuilderPastAllocas(B, bb.parentFn!);
+      inferred("LLVMRustPositionBuilderPastAllocas");
+    } else throw new Error(`replay: the builder inserts where no rustc wrapper positions one at ${where(c)}`);
+  };
+  /** After a builder call: the instruction is where the oracle put it. */
+  const checkPlaced = (c: Call, r: unknown, at: NonNullable<Call["at"]>): void => {
+    const [bb, next] = placeOf(c, at);
+    if (!(r instanceof Inst) || r.parent !== bb || bb.insts[bb.insts.indexOf(r) + 1] !== next) throw new Error(`replay: the instruction is not where the oracle put it at ${where(c)}`);
+  };
+
+  /** A `?inst` line: an instruction a hidden wrapper made. rustc's hidden instruction makers are the memory-intrinsic wrappers
+   * (`memcpy` / `memmove` / `memset` in builder.rs:1179, :1213, :1236), each a call of the intrinsic it declares; the builder is
+   * the one positioned where the call went. Anything else throws. */
+  const replayHiddenInst = (c: Call): void => {
+    const [iA, bbA, nextA, opA, opsA] = c.args as [Arg, Arg, Arg, Arg, Arg];
+    const op = Number(intOf(opA));
+    if (op !== 45) throw new Error(`replay: an instruction (opcode ${op}) made by a hidden wrapper at ${where(c)}`);
+    const ops = (opsA as { items: Arg[] }).items;
+    const calleeArg = ops[ops.length - 1]!;
+    const pend = calleeArg.k === "h" ? pendingIntrinsics.get(calleeArg.id) : undefined;
+    const calleeName = pend?.name ?? stringOfBstr((handle(c, calleeArg) as IrFunction).name);
+    const kind = /^llvm\.(memcpy|memmove|memset)\./.exec(calleeName)?.[1];
+    if (kind === undefined) throw new Error(`replay: a call of ${calleeName} made by a hidden wrapper at ${where(c)}`);
+    const at = { bb: bbA, next: nextA.k === "null" ? undefined : nextA };
+    const [bb, next] = placeOf(c, at);
+    const builders = [...env.values()].filter((v): v is IRBuilder => v instanceof IRBuilder && v.block === bb && v.insertBefore === next);
+    if (builders.length === 0) throw new Error(`replay: no builder is positioned where the hidden ${kind} call went at ${where(c)}`);
+    // `MaybeAlign(N)`: the `align` parameter attribute the wrapper adds, decoded from its `?attr` line (not recreated: the
+    // wrapper makes it, not one of rustc's creators); 0 when there is none.
+    const alignAt = (index: number): number => {
+      const list = c.attrs?.get(index) ?? [];
+      for (const a of list) {
+        if (a.k !== "h") continue;
+        const pa = pendingAttrs.get(a.id);
+        if (pa !== undefined && new TextDecoder().decode(bytes(pa.args[1]!)) === "align") return Number(intOf(pa.args[2]!));
+        const known = env.get(a.id);
+        if (known instanceof Attribute && known.key === "Alignment") return Number(known.print(false).split(" ")[1]);
+      }
+      return 0;
+    };
+    const intArg = (a: Arg): bigint => (a.k === "cint" ? a.v : (handle(c, a) as ConstantInt).value);
+    const isVolatile = intArg(ops[3]!) !== 0n;
+    const B = builders[0]!;
+    let r: unknown;
+    if (kind === "memset") r = L.LLVMRustBuildMemSet(B, handle(c, ops[0]!) as L.Value, alignAt(1), handle(c, ops[1]!) as L.Value, handle(c, ops[2]!) as L.Value, isVolatile);
+    else {
+      const make = kind === "memcpy" ? L.LLVMRustBuildMemCpy : L.LLVMRustBuildMemMove;
+      r = make(B, handle(c, ops[0]!) as L.Value, alignAt(1), handle(c, ops[1]!) as L.Value, alignAt(2), handle(c, ops[2]!) as L.Value, isVolatile);
+    }
+    checkPlaced(c, r, at);
+    const call = r as Inst;
+    bind(c, (iA as { id: number }).id, call);
+    if (pend !== undefined) {
+      bind(c, (calleeArg as { id: number }).id, call.callee);
+      pendingIntrinsics.delete((calleeArg as { id: number }).id);
+      if (stringOfBstr(call.callee.name) !== pend.name) throw new Error(`replay: the wrapper declared ${call.callee.name}, the oracle ${pend.name}, at ${where(c)}`);
+    }
+    // Its call-site attributes are the wrapper's: bind the oracle's handles to the model's and compare the sets.
+    for (const [index, list] of c.attrs ?? []) {
+      const got = [...(call.attributes.get(index)?.values() ?? [])];
+      if (got.length !== list.length) throw new Error(`replay: the hidden call's attributes at ${index} differ from the oracle's at ${where(c)}`);
+      list.forEach((a, k) => {
+        if (a.k === "h" && pendingAttrs.has(a.id)) {
+          pendingAttrs.delete(a.id);
+          bind(c, a.id, got[k]);
+        } else if (a.k !== "h" || !got.includes(handle(c, a) as L.Attribute)) throw new Error(`replay: the hidden call's attributes at ${index} differ from the oracle's at ${where(c)}`);
+      });
+    }
+    inferred(kind === "memcpy" ? "LLVMRustBuildMemCpy" : kind === "memmove" ? "LLVMRustBuildMemMove" : "LLVMRustBuildMemSet");
   };
 
   for (const c of calls) {
@@ -380,22 +526,48 @@ export function replay(calls: readonly Call[], upstream: string): ReplayResult {
       continue;
     }
     if (c.fn === "?function") {
-      // A function no recorded call made. rustc's only hidden producer is `LLVMRustUpgradeIntrinsicFunction`'s `NewFn`
-      // (intrinsic.rs:1308), which the model stubs (intrinsics are a fill lane's).
+      // A function no recorded call made. Its hidden producers in rustc: the memory-intrinsic wrappers (LLVMRustBuildMemCpy,
+      // ...MemMove, ...MemSet declare `llvm.memcpy.*` etc. through `Intrinsic::getOrInsertDeclaration`), bound when their
+      // `?inst` replays; and `LLVMRustUpgradeIntrinsicFunction`'s `NewFn` (intrinsic.rs:1308), which the model stubs.
+      const [fa, nameArg, m] = c.args as [Arg, Arg, Arg];
+      const name = new TextDecoder().decode(bytes(nameArg));
+      if (/^llvm\.(memcpy|memmove|memset)\./.test(name)) {
+        pendingIntrinsics.set((fa as { id: number }).id, { name, m: handle(c, m) as Module });
+        continue;
+      }
       throw new Error(`replay: a function made by a hidden wrapper (LLVMRustUpgradeIntrinsicFunction, stubbed) at ${where(c)}`);
     }
     if (c.fn === "?attr") {
-      const [a, wrapper] = inferAttribute(c);
-      bind(c, (c.args[0] as { id: number }).id, a);
-      inferred(wrapper);
+      // Recreated when first used (`handle`), so an intrinsic declaration's attributes, which no rustc creator makes, are not.
+      pendingAttrs.set((c.args[0] as { id: number }).id, c);
       continue;
     }
     if (c.fn === "?attrs") {
+      if (c.args[0]!.k === "h" && pendingIntrinsics.has(c.args[0].id)) {
+        res.intrinsicAttributeSets++;
+        continue;
+      }
       // `llvm::AddFunctionAttributes` (llvm/mod.rs:43) is rustc's one caller of LLVMRustAddFunctionAttributes.
       const f = handle(c, c.args[0]!) as IrFunction;
+      const index = Number(intOf(c.args[1]!));
       const list = (c.args[2] as { items: Arg[] }).items.map((a) => handle(c, a) as L.Attribute);
-      L.LLVMRustAddFunctionAttributes(f, Number(intOf(c.args[1]!)), list, list.length);
+      L.LLVMRustAddFunctionAttributes(f, index, list, list.length);
+      checkAttrSet(c, f.attributes.get(index), list);
       inferred("LLVMRustAddFunctionAttributes");
+      continue;
+    }
+    if (c.fn === "?csattrs") {
+      // `llvm::AddCallSiteAttributes` (llvm/mod.rs:61) is rustc's one caller of LLVMRustAddCallSiteAttributes.
+      const I = handle(c, c.args[0]!) as Inst;
+      const index = Number(intOf(c.args[1]!));
+      const list = (c.args[2] as { items: Arg[] }).items.map((a) => handle(c, a) as L.Attribute);
+      L.LLVMRustAddCallSiteAttributes(I, index, list, list.length);
+      checkAttrSet(c, I.attributes.get(index), list);
+      inferred("LLVMRustAddCallSiteAttributes");
+      continue;
+    }
+    if (c.fn === "?inst") {
+      replayHiddenInst(c);
       continue;
     }
     if (c.fn === "?datalayout") {
@@ -450,8 +622,9 @@ export function replay(calls: readonly Call[], upstream: string): ReplayResult {
       }
       const v = intOf(val);
       if (v > 0xffffffffn) throw new Error(`replay: flag ${key} = ${v} does not fit add_module_flag_u32's u32 (${where(c)})`);
+      // A literal call site, or one of the two whose key comes from elsewhere (context.rs:514, :593), which the case names.
+      if (site === undefined && !(opts.flagKeys ?? []).includes(key)) throw new Error(`replay: no rustc call site adds integer flag ${key} (${behavior}), and the case names no such -Z llvm-module-flag or small-data key, at ${where(c)}`);
       L.LLVMRustAddModuleFlagU32(M, behavior, kb, kb.length, Number(v));
-      // A literal call site, or one of the two whose key comes from elsewhere (context.rs:514, :593).
       inferred(site === undefined ? "LLVMRustAddModuleFlagU32 (key from the target or -Z llvm-module-flag)" : "LLVMRustAddModuleFlagU32");
       continue;
     }
@@ -467,8 +640,10 @@ export function replay(calls: readonly Call[], upstream: string): ReplayResult {
       continue;
     }
     const args = f.params.map((p, i) => convert(c, c.args[i] ?? { k: "skip" }, tsType(p.rust, p.name, items, false)));
+    if (c.at !== undefined && args[0] instanceof IRBuilder) positionFor(c, args[0], c.at);
     const r = lib[c.fn]!(...args);
     res.replayed++;
+    if (c.at !== undefined) checkPlaced(c, r, c.at);
     if (r instanceof Module && !res.modules.includes(r)) res.modules.push(r);
     // Check the answer and the out-parameters.
     if (c.ret?.k === "h") bind(c, c.ret.id, r);

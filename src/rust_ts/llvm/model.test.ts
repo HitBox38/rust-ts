@@ -116,9 +116,9 @@ describe("printer", () => {
 });
 
 describe("stops", () => {
-  test("a function body is llir-core-b's", () => {
-    const { C } = fresh();
-    expect(() => L.LLVMCreateBuilderInContext(C)).toThrow(Unported);
+  test("debuginfo is llir-di's", () => {
+    const { M } = fresh();
+    expect(() => L.LLVMCreateDIBuilder(M)).toThrow(Unported);
   });
   test("an unsourced fold stops instead of guessing", () => {
     const { C, i64, ptr, M, i8 } = fresh();

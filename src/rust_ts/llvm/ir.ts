@@ -301,10 +301,13 @@ export class Value {
         v = nv;
       } else if (v instanceof ConstantExpr && v.opcode === "AddrSpaceCast") {
         v = v.operands[0]!;
-      } else if (v instanceof Constant || v instanceof Argument) {
-        return v;
+      } else if (v instanceof Instruction) {
+        // GEP with all-zero indices, bitcast of a pointer, addrspacecast, a call's `returned` argument (inst.ts).
+        const next = v.stripPointerCastStep();
+        if (next === undefined) return v;
+        v = next;
       } else {
-        return unported("llir: stripPointerCasts through an instruction (GEP, cast, call with `returned`): llir-core-b");
+        return v;
       }
     } while (!visited.has(v) && visited.add(v));
     return v;
@@ -348,9 +351,12 @@ export class User extends Value {
   }
 }
 
-/** llir-core-b's instructions extend this; `getSymTab` needs to know an instruction's function. */
+/** llir-core-b's instructions (inst.ts) extend this; `getSymTab` needs to know an instruction's function. */
 export abstract class Instruction extends User {
   abstract parentFunction(): Function | undefined;
+  /** One step of `stripPointerCastsAndOffsets<PSK_ZeroIndices>` through this instruction: the value it strips to, or
+   * undefined where the walk stops. */
+  abstract stripPointerCastStep(): Value | undefined;
 }
 
 /** llir-core-b's basic blocks extend this. */
@@ -443,6 +449,8 @@ export const NON_GLOBAL_VALUE_MAX_NAME_SIZE = 1024;
 // ---- constants ---------------------------------------------------------------------------------------------------------
 
 export abstract class Constant extends User {
+  /** Set by `destroyConstant`. */
+  destroyed = false;
   /** `Constant::isNullValue`. */
   isNullValue(): boolean {
     return false;
@@ -474,6 +482,8 @@ export abstract class Constant extends User {
 
   /** `Constant::destroyConstant`: drops it from its uniquing table and its operands' users. */
   destroyConstant(): void {
+    // LLVM frees it, and its address may be reused (replay.ts rebinds a handle whose object was destroyed; review R6).
+    this.destroyed = true;
     const k = this.uniqueKey();
     if (k !== undefined && this.context.constants.get(k) === this) this.context.constants.delete(k);
     this.dropAllReferences();
@@ -535,6 +545,12 @@ export class ConstantAggregateZero extends Constant {
 }
 
 export class UndefValue extends Constant {}
+/** `ConstantTokenNone`: the `none` token, a funclet pad's parent at the top level. */
+export class ConstantTokenNone extends Constant {
+  override isNullValue(): boolean {
+    return true;
+  }
+}
 export class PoisonValue extends UndefValue {}
 
 /** `ConstantArray`, `ConstantStruct`, `ConstantVector`: elements are operands. */
@@ -625,6 +641,11 @@ const aggregateKey = (kind: string, type: Type, ops: readonly Value[]): string =
 const exprKey = (type: Type, opcode: string, ops: readonly Value[], flags: number, src: Type | undefined): string =>
   `CE:${opcode}:${type.id}:${flags}:${src?.id ?? ""}:${ops.map((o) => o.id).join(",")}`;
 
+/** A constant expression, uniqued by its key (`ExprConstants.getOrCreate`), for the folders outside this file (fold.ts). */
+export function internExpr(type: Type, opcode: ExprOpcode, ops: readonly Constant[], flags: number, src: Type | undefined): ConstantExpr {
+  return intern(type.context, exprKey(type, opcode, ops, flags, src), () => new ConstantExpr(type, opcode, ops, flags, src));
+}
+
 function intern<T extends Constant>(ctx: Context, key: string, make: () => T): T {
   let c = ctx.constants.get(key);
   if (c === undefined) {
@@ -713,7 +734,8 @@ export function getNullValue(ty: Type): Constant {
     case "Array":
       return getConstantAggregateZero(ty);
     case "Token":
-      return unported("llir: ConstantTokenNone");
+      // `ConstantTokenNone::get(Ty->getContext())` (Constants.cpp:1659): one per context.
+      return intern(ty.context, "TOKENNONE", () => new ConstantTokenNone(ty, []));
     default:
       throw new Error(`llvm: Cannot create a null constant of that type! (${ty.typeID})`);
   }
@@ -1328,6 +1350,9 @@ export class Context {
   }
   getMetadataType(): Type {
     return this.simple("Metadata");
+  }
+  getTokenType(): Type {
+    return this.simple("Token");
   }
 
   // llvm: llvm/lib/IR/Type.cpp:348 IntegerType::get

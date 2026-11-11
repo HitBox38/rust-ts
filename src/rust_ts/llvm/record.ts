@@ -73,7 +73,11 @@ function argFmts(f: FfiFn, items: FfiItems): ArgFmt[] {
     const lenAt = isLen(i + 1) ? i + 1 : isLen(i - 1) ? i - 1 : -1;
     if (t === "*const c_uchar") return lenAt >= 0 ? { k: "bytes", len: lenAt } : { k: "skip" };
     if (t === "*const c_char") return { k: "cstr" };
-    if (/^\*const (&|Option<&)/.test(t)) return lenAt >= 0 ? { k: "harr", len: lenAt } : { k: "skip" };
+    if (/^\*const (&|Option<&)/.test(t)) {
+      // Two arrays can share one count (`LLVMAddIncoming(PhiNode, IncomingValues, IncomingBlocks, Count)`): the next later one.
+      const later = f.params.findIndex((_, k) => k > i && isLen(k));
+      return lenAt >= 0 ? { k: "harr", len: lenAt } : later >= 0 ? { k: "harr", len: later } : { k: "skip" };
+    }
     if (t === "*const u64") return lenAt >= 0 ? { k: "warr", len: lenAt } : { k: "skip" };
     if (t === "*mut size_t" || t === "&mut usize" || t === "&mut size_t") return { k: "outint", c: "size_t" };
     if (t === "*mut c_uint" || t === "&mut c_uint") return { k: "outint", c: "unsigned" };
@@ -116,6 +120,10 @@ extern unsigned LLVMGetEnumAttributeKindForName(const char*, size_t); extern P L
 extern P LLVMIsAConstantInt(P); extern unsigned long long LLVMConstIntGetZExtValue(P); extern P LLVMIsAMDString(P);
 extern const char* LLVMGetMDString(P, unsigned*); extern char* LLVMPrintValueToString(P); extern void LLVMDisposeMessage(char*); extern P LLVMTypeOf(P); extern unsigned LLVMGetPointerAddressSpace(P);
 extern unsigned LLVMCountParamTypes(P); extern unsigned LLVMCountStructElementTypes(P);
+extern P LLVMIsAInstruction(P); extern P LLVMGetInstructionParent(P); extern P LLVMGetNextInstruction(P); extern P LLVMGetFirstInstruction(P);
+extern P LLVMGetFirstBasicBlock(P); extern P LLVMGetNextBasicBlock(P); extern unsigned LLVMGetInstructionOpcode(P); extern int LLVMGetNumOperands(P);
+extern P LLVMGetOperand(P, unsigned); extern unsigned LLVMGetNumArgOperands(P); extern unsigned LLVMGetCallSiteAttributeCount(P, unsigned);
+extern void LLVMGetCallSiteAttributes(P, unsigned, P*);
 static FILE* out; static pthread_mutex_t mu = PTHREAD_RECURSIVE_MUTEX_INITIALIZER; static pthread_key_t key; static long threads;
 static P* ids; static size_t nids, capids; static long ptid; /* the thread number scan() writes */
 #define MAXM 64
@@ -135,6 +143,24 @@ static const char* attrname(unsigned k){ if(!attrinit){ for(size_t i=0;i<sizeof(
 typedef struct { P f; unsigned n; unsigned* cnt; P** lst; } FA; static FA* fas; static size_t nfas, capfas;
 static FA* fa(P f){ for(size_t i=0;i<nfas;i++) if(fas[i].f==f) return &fas[i]; if(nfas==capfas){ capfas=capfas?capfas*2:256; fas=realloc(fas,capfas*sizeof(FA)); }
   unsigned n=LLVMCountParams(f)+2; fas[nfas]=(FA){f,n,calloc(n,sizeof(unsigned)),calloc(n,sizeof(P*))}; return &fas[nfas++]; }
+/* Call-site attribute sets of call and invoke instructions (LLVMRustAddCallSiteAttributes), as FA for functions. */
+static FA* cas; static size_t ncas, capcas;
+static int iscall(P i){ unsigned op=LLVMGetInstructionOpcode(i); return op==45 || op==5 || op==67; }
+static FA* ca(P c){ for(size_t i=0;i<ncas;i++) if(cas[i].f==c) return &cas[i]; if(ncas==capcas){ capcas=capcas?capcas*2:256; cas=realloc(cas,capcas*sizeof(FA)); }
+  unsigned n=LLVMGetNumArgOperands(c)+2; cas[ncas]=(FA){c,n,calloc(n,sizeof(unsigned)),calloc(n,sizeof(P*))}; return &cas[ncas++]; }
+static void attr(P a);
+/* Brings a call's attribute state up to date; with emit, logs each changed index as "?csattrs %I <index> [...]", or, for a
+   new instruction (whole=1), returns them for its "?inst" line. */
+static void csync(P c, int emit, int whole){ FA* s=ca(c);
+  for(unsigned j=0;j<s->n;j++){ unsigned idx = j==0 ? 0xFFFFFFFFu : j-1; unsigned n=LLVMGetCallSiteAttributeCount(c,idx);
+    P* as=calloc(n?n:1,sizeof(P)); if(n) LLVMGetCallSiteAttributes(c,idx,as);
+    if(n==s->cnt[j] && (n==0 || !memcmp(as,s->lst[j],n*sizeof(P)))){ free(as); continue; }
+    if(emit){ for(unsigned k=0;k<n;k++) attr(as[k]);
+      if(!whole){ fprintf(out,"%ld\\t?csattrs ",ptid); h(c); fprintf(out," %u [",idx); for(unsigned k=0;k<n;k++){ if(k) fputs(", ",out); h(as[k]); } fputs("]\\n",out); } }
+    free(s->lst[j]); s->lst[j]=as; s->cnt[j]=n; } }
+/* An operand of a "?inst" line: a handle, or "#<value>" for an integer constant no recorded call made (an i1 flag a wrapper
+   adds, for instance). */
+static void opnd(P v){ if(v && !find(v) && LLVMIsAConstantInt(v)) fprintf(out,"#%llu",LLVMConstIntGetZExtValue(v)); else h(v); }
 /* An attribute handle no recorded call made (an LLVMRustCreate* wrapper's): described by kind and value. */
 static void attr(P a){ if(find(a)) return; long i=id(a); fprintf(out,"%ld\\t?attr %%%ld ",ptid,i);
   if(LLVMIsStringAttribute(a)){ unsigned kl=0,vl=0; const char* k=LLVMGetStringAttributeKind(a,&kl); const char* v=LLVMGetStringAttributeValue(a,&vl); fputs("str ",out); bytes((const unsigned char*)k,kl); fputc(' ',out); bytes((const unsigned char*)v,vl); }
@@ -192,7 +218,20 @@ static void scan(int emit, P ctx){
         if(n==s->cnt[j] && (n==0 || !memcmp(as,s->lst[j],n*sizeof(P)))){ free(as); continue; }
         if(emit){ for(unsigned k=0;k<n;k++) attr(as[k]);
           fprintf(out,"%ld\\t?attrs ",ptid); h(f); fprintf(out," %u [",idx); for(unsigned k=0;k<n;k++){ if(k) fputs(", ",out); h(as[k]); } fputs("]\\n",out); }
-        free(s->lst[j]); s->lst[j]=as; s->cnt[j]=n; } } }
+        free(s->lst[j]); s->lst[j]=as; s->cnt[j]=n; } }
+    /* Function bodies: an instruction no recorded call returned was made by a hidden wrapper (LLVMRustBuildMemCpy and the
+       like): "?inst %I %BB <next or end> <opcode> [operands] {<index>:[attributes] ...}"; a known call whose call-site
+       attributes changed gives "?csattrs". */
+    for(P f=LLVMGetFirstFunction(M); f; f=LLVMGetNextFunction(f)) for(P bb=LLVMGetFirstBasicBlock(f); bb; bb=LLVMGetNextBasicBlock(bb))
+      for(P i=LLVMGetFirstInstruction(bb); i; i=LLVMGetNextInstruction(i)){ int call=iscall(i);
+        if(!find(i)){
+          if(!emit){ id(i); if(call) csync(i,0,1); continue; }
+          if(call) csync(i,1,1);
+          fprintf(out,"%ld\\t?inst ",ptid); h(i); fputc(' ',out); h(bb); fputc(' ',out); P nx=LLVMGetNextInstruction(i); if(nx) h(nx); else fputs("end",out);
+          fprintf(out," %u [",LLVMGetInstructionOpcode(i)); int no=LLVMGetNumOperands(i); for(int k=0;k<no;k++){ if(k) fputs(", ",out); opnd(LLVMGetOperand(i,(unsigned)k)); } fputc(']',out);
+          if(call){ FA* s=ca(i); fputs(" {",out); int first=1; for(unsigned j=0;j<s->n;j++){ if(!s->cnt[j]) continue; if(!first) fputc(' ',out); first=0; fprintf(out,"%u:[",j==0?0xFFFFFFFFu:j-1); for(unsigned k=0;k<s->cnt[j];k++){ if(k) fputs(", ",out); h(s->lst[j][k]); } fputc(']',out); } fputc('}',out); }
+          fputc('\\n',out); continue; }
+        if(call) csync(i,emit,0); } }
 }
 `;
   fns.forEach((f, i) => {
@@ -205,7 +244,10 @@ static void scan(int emit, P ctx){
     if (f.name === "LLVMContextDispose") c += `  if(out){ pthread_mutex_lock(&mu); scan(1,a0); dsoscan(a0); for(int m=0;m<nmods;m++) if(mods[m] && LLVMGetModuleContext(mods[m])==a0) mods[m]=0; pthread_mutex_unlock(&mu); }\n`;
     c += `  ${ret === "void" ? "" : `${ret} r = `}o${i}(${f.params.map((_, j) => `a${j}`).join(", ")});\n`;
     c += `  if(out){ pthread_mutex_lock(&mu);${f.name === "LLVMModuleCreateWithNameInContext" ? " if(nmods<MAXM){ modtid[nmods]=tid(); mods[nmods++]=(P)r; }" : ""} fprintf(out,"%ld\\t",tid());`;
-    const forgets = /^LLVM(DeleteGlobal|DeleteFunction)$/.test(f.name);
+    // A deleted value's or a disposed builder's or bundle's address may be reused by a later one.
+    const forgets = /^LLVM(DeleteGlobal|DeleteFunction|DisposeBuilder|DisposeOperandBundle)$/.test(f.name);
+    // Where a builder put the instruction it made: " @ %BB <next instruction or end>" (replay.ts infers hidden positioning).
+    const at = f.name.startsWith("LLVMBuild") && ret === "void*";
     if (ret !== "void") c += retStr ? ` fputs("",out);` : ret === "void*" ? ` h((P)r); fputs(" = ",out);` : ` fprintf(out,"%lld = ",(long long)r);`;
     c += ` fputs("${f.name}(",out);`;
     fmts.forEach((fm, j) => {
@@ -250,6 +292,7 @@ static void scan(int emit, P ctx){
       }
     });
     c += ` fputs(")",out);`;
+    if (at) c += ` if(r && LLVMIsAInstruction((P)r) && LLVMGetInstructionParent((P)r)){ P nx=LLVMGetNextInstruction((P)r); fputs(" @ ",out); h(LLVMGetInstructionParent((P)r)); fputc(' ',out); if(nx) h(nx); else fputs("end",out); }`;
     if (retStr) c += ` fputs(" -> ",out); if(r) bytes((const unsigned char*)r,strlen((const char*)r)); else fputs("null",out);`;
     c += ` fputc('\\n',out);${forgets ? " forget((P)a0);" : ""} scan(0,0); pthread_mutex_unlock(&mu); }\n  ${ret === "void" ? "" : "return r;"}\n}\n`;
     c += `__attribute__((used,section("__DATA,__interpose"))) static struct{void*a;void*b;} ip${i}={(void*)w${i},(void*)o${i}};\n`;

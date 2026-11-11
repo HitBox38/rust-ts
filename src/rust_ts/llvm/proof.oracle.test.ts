@@ -1,4 +1,4 @@
-// rust-ts: the proof of llir-core-a's half of the model against the oracle (review plan-m7 F6; lane llir-core-a). For each case
+// rust-ts: the proof of the IR model against the oracle (review plan-m7 F6; lanes llir-core-a, llir-core-b). For each case
 // in proof/: the pinned rustc compiles it with the recorder loaded (record.ts), its IR must equal the IR of an unrecorded run
 // (the recorder changes nothing), the recorded calls are replayed through ffi.ts (replay.ts, which checks every answer), and
 // the model's printed module must reach the oracle IR's normal form (scripts/lib/ir-normal.ts, N1) byte for byte.
@@ -31,6 +31,9 @@ if (!HAVE && !REQUIRE) console.log("SKIP: the pinned toolchain on aarch64 macOS 
 
 const PROOF = join(import.meta.dir, "proof");
 /** Case -> extra rustc arguments, and the hidden wrappers whose effects its replay must attribute (besides the common ones). */
+const BODY = ["--target", "x86_64-unknown-linux-gnu", "-Coverflow-checks=off"];
+/** Every function definition's attributes and its `uwtable`. */
+const DEFN = ["LLVMRustAddFunctionAttributes", "LLVMRustCreateAttrNoValue", "LLVMRustCreateUWTableAttr"];
 const CASES: Record<string, { args: string[]; wrappers: string[] }> = {
   statics: { args: ["--target", "x86_64-unknown-linux-gnu"], wrappers: ["LLVMRustGetOrInsertGlobal"] },
   decls: { args: ["--target", "x86_64-unknown-linux-gnu"], wrappers: ["LLVMRustGetOrInsertGlobal", "LLVMRustAddFunctionAttributes", "LLVMRustCreateAttrNoValue", "LLVMRustCreateUWTableAttr"] },
@@ -38,6 +41,17 @@ const CASES: Record<string, { args: string[]; wrappers: string[] }> = {
   pic: {
     args: ["--target", "x86_64-unknown-linux-gnu", "-Crelocation-model=pie", "-Ccode-model=large", "-Zlarge-data-threshold=65536"],
     wrappers: ["LLVMRustGetOrInsertGlobal", "LLVMRustSetModulePIELevel", "LLVMRustSetModuleCodeModel", "LLVMRustSetModuleLargeDataThreshold", "LLVMRustSetDSOLocal"],
+  },
+  // llir-core-b: function bodies.
+  arith: { args: BODY, wrappers: [...DEFN, "LLVMRustGetOrInsertGlobal", "LLVMRustPositionBuilderAtStart", "LLVMRustCreateAlignmentAttr", "LLVMRustAddCallSiteAttributes"] },
+  phi: { args: BODY, wrappers: [...DEFN, "LLVMRustCreateAlignmentAttr", "LLVMRustCreateStructRetAttr"] },
+  switch: { args: BODY, wrappers: [...DEFN, "LLVMRustPositionBuilderAtStart"] },
+  invoke: { args: BODY, wrappers: [...DEFN, "LLVMRustCreateAlignmentAttr", "LLVMRustAddCallSiteAttributes", "LLVMRustPositionBuilderAtStart"] },
+  atomic: { args: BODY, wrappers: DEFN },
+  memcpy: { args: BODY, wrappers: [...DEFN, "LLVMRustCreateAlignmentAttr", "LLVMRustCreateStructRetAttr", "LLVMRustBuildMemCpy"] },
+  byval: {
+    args: BODY,
+    wrappers: [...DEFN, "LLVMRustCreateAlignmentAttr", "LLVMRustCreateStructRetAttr", "LLVMRustCreateByValAttr", "LLVMRustPositionBuilderAtStart", "LLVMRustBuildMemSet", "LLVMRustBuildMemCpy"],
   },
 };
 /** Every compile's module setup: triple, PIC level (every case is PIC or PIE), and `add_module_flag_u32`'s flags. */
@@ -55,7 +69,7 @@ export function canonicalScript(raw: string): string {
   return calls.map((c) => `1\t${c.text.replace(/%\d+/g, (h) => ids.get(h) ?? (ids.set(h, `%${ids.size + 1}`), ids.get(h)!))}\n`).join("");
 }
 
-describe.skipIf(!HAVE && !REQUIRE)("llir-core-a proof against the oracle's IR", () => {
+describe.skipIf(!HAVE && !REQUIRE)("IR model proof against the oracle's IR", () => {
   let dylib = "";
   beforeAll(() => {
     mkdirSync(WORK, { recursive: true });
@@ -97,6 +111,8 @@ describe.skipIf(!existsSync(UPSTREAM) && !REQUIRE)("committed proof scripts repl
       const r = replay(parseScript(readFileSync(join(PROOF, `${name}.script`), "latin1")), UPSTREAM);
       expect(r.modules.length).toBe(1);
       expect([...r.skipped.keys()].filter((f) => !SKIP_ALLOWED.has(f))).toEqual([]);
+      // Review llir-core-a R4: the stubbed effects, as the oracle test asserts them.
+      expect([...r.stubbedEffects.keys()].filter((f) => !STUBBED_ALLOWED.has(f))).toEqual([]);
       expect([...r.inferredBy.keys()].sort()).toEqual([...new Set([...COMMON_WRAPPERS, ...wrappers])].sort());
       expect(printModule(r.modules[0]!)).toContain("!llvm.module.flags");
     });
