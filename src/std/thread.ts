@@ -179,6 +179,9 @@ export function spawn_error(code: number): string {
       return "pthread_attr_setstacksize failed with an error other than EINVAL"; // assert_eq!(n, libc::EINVAL)
     case -4:
       return "pthread_attr_destroy failed"; // the DropGuard's assert_eq!(libc::pthread_attr_destroy(..), 0)
+    case -5:
+      // -3, then the DropGuard's assertion while unwinding: a panic in a destructor during unwinding aborts.
+      return "pthread_attr_setstacksize failed with an error other than EINVAL, then pthread_attr_destroy failed while unwinding (abort)";
     default:
       // `Err(io::Error::from_raw_os_error(ret))`; the panic would format it as `Os { code, kind, message }`.
       return `failed to spawn thread: pthread_create failed: errno ${code}`;
