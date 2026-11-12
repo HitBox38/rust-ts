@@ -1,4 +1,5 @@
-// Fixture of abi_consts.test.ts (lane cg-abi-consts): one `#[no_mangle]` fn per ABI shape. The oracle's `--emit=llvm-ir`
+// Fixture of abi_consts.test.ts (lane cg-abi-consts): one `#[no_mangle]` fn per ABI shape, plus callers (`call_all`) and fns
+// whose argument is spilled to memory (`spill_*`). The oracle's `--emit=llvm-ir`
 // shows each fn's LLVM signature (return and parameter types, their attributes, the calling convention) on its `define` /
 // `declare` line; the port computes it with `FnAbiLlvmExt::{llvm_type, llvm_cconv, apply_attrs_llfn}` (abi.rs).
 #![crate_type = "lib"]
@@ -57,3 +58,7 @@ pub struct RustPair { a: u32, b: u16 }
     let _ = c_intfloat(s);
     r.a + c_byval(b) + c_u8(2) as u64 + c_i16(3) as u64 + cc_win64(4) as u64
 }
+// Arguments spilled to memory (`ArgAbiExt::store_fn_arg`, through rustc_codegen_ssa's `arg_local_refs`).
+#[no_mangle] pub fn spill_pair(p: RustPair) -> u16 { let r = &p; r.b }
+#[no_mangle] pub fn spill_direct(x: u64) -> u64 { let r = &x; *r }
+#[no_mangle] pub fn spill_bool(b: bool) -> bool { let r = &b; *r }

@@ -11,6 +11,8 @@
 //    (docs/handoff/cg-types-attrs.md, "For the llir lanes").
 // 2. **call sites** (sigs.rs `call_*`): `apply_attrs_callsite` on a call built with the IR model, against the oracle's `call`
 //    line; it then stops in the IR model's `LLVMRustGetElementTypeArgIndex`.
+// 2b. **arguments spilled to memory** (sigs.rs `spill_*`): `ArgAbiExt::store_fn_arg` into an alloca, as rustc_codegen_ssa's
+//    `arg_local_refs` calls it, against the first instructions of the oracle's entry block (Pair, Direct, a `bool`).
 // 3. **statics** (statics.rs): the CGU's items in `items_in_deterministic_order`, `predefine_static` (cg-types-attrs) then
 //    `codegen_static` for each static, then `llvm.used` / `llvm.compiler.used` and the static RAUW, as `base::module_codegen`
 //    does. Compared with the oracle's global lines, in order. Both sides use `-Zfewer-names=yes`: without it the anonymous
@@ -43,6 +45,7 @@ import { type Config, run_compiler } from "../rustc_interface/interface.ts";
 import { create_and_enter_global_ctxt, parse } from "../rustc_interface/passes.ts";
 import "../rustc_middle/lib.ts";
 import type { ModuleItems } from "../rustc_middle/hir/mod.ts";
+import { PlaceRef } from "../rustc_codegen_ssa/mir/place.ts";
 import { MonoItem, type CodegenUnit, type MonoItemPartitions } from "../rustc_middle/mono.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import { Instance } from "../rustc_middle/ty/instance.ts";
@@ -380,6 +383,39 @@ describe("FnAbiLlvmExt::apply_attrs_callsite against the oracle's call lines (si
     for (const line of text.split("\n")) {
       const m = /call .*?@([\w.$]+)\(/.exec(line);
       if (m && callees.includes(m[1]!)) expect(`${m[1]}: ${canon_sig(line.trim(), "call")}`).toBe(`${m[1]}: ${oracle.get(m[1]!)}`);
+    }
+  }, 120_000);
+});
+
+// ---- 2b. arguments spilled to memory ----
+describe("ArgAbiExt::store_fn_arg against the oracle's entry blocks (sigs.rs `spill_*`)", () => {
+  test("-Copt-level=0: Pair, Direct, and a bool (i1 -> i8)", () => {
+    const flags = ["-Copt-level=0"];
+    const ir = oracle_ir("sigs.rs", flags);
+    const oracle = new Map<string, string[]>();
+    for (const m of ir.matchAll(/^define .*?@(spill_\w+)\(.*\nstart:\n((?:  .*\n)*?)}/gm)) oracle.set(m[1]!, m[2]!.split("\n").filter((l) => l !== ""));
+    expect([...oracle.keys()].sort()).toEqual(["spill_bool", "spill_direct", "spill_pair"]);
+    install_doubles();
+    const text = with_tcx("sigs.rs", flags, (tcx) => {
+      const cx = make_cx(tcx, undefined);
+      for (const [instance, name] of local_fns(tcx, /^spill_/)) {
+        const fn_abi = cx.fn_abi_of_instance(instance, RawList.empty<Ty>());
+        const llfn = declare_sig(cx, instance, name);
+        const bx = Builder.build_inherent(cx, llvm.LLVMAppendBasicBlockInContext(cx.llcx(), llfn, "start"));
+        // rustc_codegen_ssa's `arg_local_refs` (mir/mod.rs, ssa-mir-core): an alloca for the argument's layout, named after
+        // the local, then `bx.store_fn_arg(arg, &mut llarg_idx, place)`.
+        const arg = fn_abi.args[0]!;
+        const alloca = bx.alloca(arg.layout.size, arg.layout.align.abi);
+        llvm.set_value_name(alloca, new TextEncoder().encode(name === "spill_pair" ? "p" : name === "spill_direct" ? "x" : "b"));
+        const idx = { value: 0 };
+        bx.store_fn_arg(arg, idx, PlaceRef.new_sized(alloca, arg.layout));
+        expect(idx.value).toBe(arg.mode.$ === "Pair" ? 2 : 1);
+      }
+      return printModule(cx.llmod());
+    });
+    for (const m of text.matchAll(/^define .*?@(spill_\w+)\(.*\nstart:\n((?:  .*\n)*?)}/gm)) {
+      const ours = m[2]!.split("\n").filter((l) => l !== "");
+      expect(`${m[1]}:\n${ours.join("\n")}`).toBe(`${m[1]}:\n${oracle.get(m[1]!)!.slice(0, ours.length).join("\n")}`);
     }
   }, 120_000);
 });
