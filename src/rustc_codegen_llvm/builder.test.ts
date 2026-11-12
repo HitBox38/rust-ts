@@ -387,6 +387,8 @@ describe("invoke with a cleanup landing pad, a filter pad and resume (with_clean
     bx.resume(e0, e1);
 
     const ir = printModule(fx.M);
+    // The oracle's line also has `unnamed_addr #1` and `!guid !N`: the fixture's `LLVMAddFunction` and declare.rs /
+    // attributes.rs (cg-types-attrs) add those, not builder.rs, so the expectation drops them (review cg-builder N4).
     expect(ir).toContain("define void @with_cleanup(i32 %x) personality ptr @rust_eh_personality {");
     expect(llvm.LLVMGetBasicBlockParent(start!)).toBe(f);
     expect(body(ir, "with_cleanup")).toBe(
