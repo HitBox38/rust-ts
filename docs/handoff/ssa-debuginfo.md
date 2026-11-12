@@ -1,6 +1,6 @@
 # Handoff: ssa-debuginfo (M7, wave 40o): rustc_codegen_ssa `mir/debuginfo.rs`, `debuginfo/{mod,type_names}.rs`
 
-Branch `t3/7b70f718`, from `ba273e7f`. No merges.
+Branch `t3/port-ssa-debuginfo`, from `ba273e7f`. No merges.
 
 ## Summary
 - All three files are ported in upstream order with markers: **54/54 fns**.
