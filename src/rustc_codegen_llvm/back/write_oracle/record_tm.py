@@ -1,4 +1,5 @@
-# Records the arguments of the pinned rustc's `LLVMRustCreateTargetMachine` calls (lane cg-write; used by ../write.test.ts).
+# Records the arguments of the pinned rustc's `LLVMRustCreateTargetMachine` calls (lane cg-write). record.ts runs it
+# by hand to write the fixtures ../write.test.ts reads (README.md); no test runs it.
 #
 # `LLVMRustCreateTargetMachine` is a wrapper inside librustc_driver, so src/rust_ts/llvm/record.ts (which interposes on the
 # exported LLVM C API) never sees it. Its symbol is in the dylib's local symbol table, so lldb can stop at its entry:

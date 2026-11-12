@@ -81,7 +81,8 @@ function callback(state: unknown, symbol_name: Uint8Array): IoError | undefined 
 function error_callback(error: Uint8Array): IoError {
   // let error = unsafe { CStr::from_ptr(error) };
   // io::Error::new(io::ErrorKind::Other, format!("LLVM error: {}", error.to_string_lossy()))
-  return io_error_other(`LLVM error: ${new TextDecoder("utf-8").decode(error)}`);
+  // (`ignoreBOM`: `to_string_lossy` keeps a leading U+FEFF, which a default `TextDecoder` strips.)
+  return io_error_other(`LLVM error: ${new TextDecoder("utf-8", { ignoreBOM: true }).decode(error)}`);
 }
 
 // rustc: compiler/rustc_codegen_llvm/src/back/archive.rs:92 llvm_is_64_bit_object_file

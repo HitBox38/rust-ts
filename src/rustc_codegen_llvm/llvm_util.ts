@@ -397,8 +397,11 @@ export function target_config(sess: EarlySession): TargetConfig {
   const target_features = global_llvm_features(sess, /* for_cfg */ true);
 
   // let triple = SmallCStr::new(&versioned_llvm_target(sess));
-  const triple = versioned_llvm_target(sess);
   // let cpu = SmallCStr::new(target_cpu(sess));
+  // PORT: the `SmallCStr`s are the text, and `SmallCStr::new`'s interior-NUL panic ("The string \"..\" cannot be converted into a
+  // CStr: ..") is dropped: a NUL cannot come from argv (`-C target-cpu`), only from a target-spec JSON's `\u0000`, which no suite
+  // has. The same drop as `target_machine_factory`'s (back/write.ts) and `create_module`'s (context.ts).
+  const triple = versioned_llvm_target(sess);
   const cpu = target_cpu(sess);
   const features = cstring_new_unwrap(target_features.join(","));
   const r = OwnedMCSubtargetInfo.new(triple, cpu, features);

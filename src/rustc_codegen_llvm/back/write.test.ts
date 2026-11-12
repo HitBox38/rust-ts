@@ -5,9 +5,11 @@
 //    `create_informational_target_machine` (through `create_module`) and `create_target_machine` (through `ModuleLlvm::new`),
 //    against the pinned rustc's for the same compile (write_oracle/<target>.tm). `LLVMRustCreateTargetMachine` is a wrapper
 //    inside librustc_driver, which src/rust_ts/llvm/record.ts cannot see, so the oracle's calls are recorded at the wrapper's
-//    entry with lldb (write_oracle/record_tm.py, in record.ts's argument form). With the pinned toolchain present the fixtures
-//    are re-recorded and must be unchanged.
+//    entry with lldb (write_oracle/record_tm.py, in record.ts's argument form). The recording is a tool run by hand
+//    (`bun src/rustc_codegen_llvm/back/write_oracle/record.ts`, write_oracle/README.md), never by this test: the oracle cannot
+//    change, and lldb is no pinned tool (review cg-write N1).
 // 2. **`get_version`** and **`print_version`** against the oracle's `rustc -vV` (`LLVM version: ...`, write_oracle/version.txt).
+//    With the pinned toolchain present, `rustc -vV` is re-run and must still print the fixture's line.
 // 3. **The `--emit=llvm-ir` path of `codegen`**: a module the port built (`ModuleLlvm::new` + `CodegenCx::new`, as context.test.ts
 //    builds it) is written through `codegen` with `emit_ir` set and must be the oracle's `--emit=llvm-ir -Cno-prepopulate-passes`
 //    text byte for byte (context_oracle/<target>.ll, cg-context's fixture).
@@ -91,18 +93,24 @@ function config_from_args(args: string[]): Config {
   return config;
 }
 
-/** Runs `f` with the `TyCtxt` of `context_oracle/empty.rs`, compiled with the oracle fixtures' flags plus `extra`. */
+/** Runs `f` with the `TyCtxt` of `context_oracle/empty.rs`, compiled with the oracle fixtures' flags plus `extra`, as the oracle
+ *  was run: from the work directory, with the relative path `empty.rs` (review cg-write N3). The cwd is restored afterwards. */
 function with_tcx<R>(target: string, extra: string[], f: (tcx: TyCtxt) => R): R {
   mkdirSync(WORK, { recursive: true });
-  const file = join(WORK, "empty.rs");
-  writeFileSync(file, readFileSync(join(CONTEXT_ORACLE, "empty.rs")));
+  writeFileSync(join(WORK, "empty.rs"), readFileSync(join(CONTEXT_ORACLE, "empty.rs")));
   let out: R | undefined;
-  run_compiler(config_from_args(["--crate-type", "lib", "--target", target, "--emit=llvm-ir", "-Cno-prepopulate-passes", ...extra, file]), (compiler) => {
-    const krate: Crate = parse(compiler.sess);
-    create_and_enter_global_ctxt(compiler, krate, (tcx) => {
-      out = f(tcx);
+  const cwd = process.cwd();
+  process.chdir(WORK);
+  try {
+    run_compiler(config_from_args(["--crate-type", "lib", "--target", target, "--emit=llvm-ir", "-Cno-prepopulate-passes", ...extra, "empty.rs"]), (compiler) => {
+      const krate: Crate = parse(compiler.sess);
+      create_and_enter_global_ctxt(compiler, krate, (tcx) => {
+        out = f(tcx);
+      });
     });
-  });
+  } finally {
+    process.chdir(cwd);
+  }
   return out as R;
 }
 
@@ -297,45 +305,7 @@ describe("create_target_machine: the settings passed to LLVMRustCreateTargetMach
   }
 });
 
-describe.skipIf(!HAVE && !REQUIRE)("the oracle fixtures are current", () => {
-  for (const target of TARGETS) {
-    test(`${target}: LLVMRustCreateTargetMachine (record_tm.py under lldb)`, () => {
-      mkdirSync(WORK, { recursive: true });
-      writeFileSync(join(WORK, "empty.rs"), readFileSync(join(CONTEXT_ORACLE, "empty.rs")));
-      const r = Bun.spawnSync(
-        [
-          "lldb",
-          "--batch",
-          "-o",
-          `command script import ${join(ORACLE, "record_tm.py")}`,
-          "-o",
-          "process handle -p true -s false -n false SIGUSR1",
-          "-o",
-          "run",
-          "-k",
-          "process kill",
-          "--",
-          join(SYSROOT, "bin", "rustc"),
-          "--crate-type",
-          "lib",
-          "--target",
-          target,
-          "--emit=llvm-ir",
-          "-Cno-prepopulate-passes",
-          "empty.rs",
-        ],
-        { cwd: WORK, env: { ...process.env, RUSTC_ICE: "0" }, timeout: 300_000 },
-      );
-      const out = r.stdout.toString();
-      expect(out).toContain("exited with status = 0");
-      const got = out
-        .split("\n")
-        .filter((l) => l.startsWith("RECORD\t"))
-        .map((l) => `${l.slice("RECORD\t".length)}\n`)
-        .join("");
-      expect(got).toBe(readFileSync(join(ORACLE, `${target}.tm`), "utf8"));
-    });
-  }
+describe.skipIf(!HAVE && !REQUIRE)("the version fixture is current", () => {
   test("LLVM version (rustc -vV)", () => {
     const r = Bun.spawnSync([join(SYSROOT, "bin", "rustc"), "-vV"]);
     expect(r.exitCode).toBe(0);
@@ -368,8 +338,9 @@ describe("codegen: the --emit=llvm-ir output of a module the port built, against
   for (const target of TARGETS) {
     test(target, () => {
       const d = install_doubles(oracle_data_layout(target));
-      const outdir = join(WORK, `emit-${target}`);
-      mkdirSync(outdir, { recursive: true });
+      // Relative to the work directory, where `with_tcx` compiles.
+      const outdir = `emit-${target}`;
+      mkdirSync(join(WORK, outdir), { recursive: true });
       let out_path = "";
       let stop: unknown;
       try {
@@ -428,8 +399,9 @@ describe("codegen: the --emit=llvm-ir output of a module the port built, against
       // `DiagnosticHandlers::new` and its drop: the old handler is read, the new one configured (no remark passes, no file, no PGO),
       // and the old one put back.
       expect(d.diag_calls).toEqual(["get", "configure false [] 0 undefined false", "set undefined"]);
-      expect(existsSync(out_path)).toBe(true);
-      expect(readFileSync(out_path, "utf8")).toBe(readFileSync(join(CONTEXT_ORACLE, `${target}.ll`), "utf8"));
+      // `out_path` is relative to the work directory (the cwd `with_tcx` restored).
+      expect(existsSync(join(WORK, out_path))).toBe(true);
+      expect(readFileSync(join(WORK, out_path), "utf8")).toBe(readFileSync(join(CONTEXT_ORACLE, `${target}.ll`), "utf8"));
     });
   }
 });

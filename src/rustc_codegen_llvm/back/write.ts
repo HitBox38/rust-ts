@@ -251,6 +251,7 @@ export function target_machine_factory(sess: Session, optlvl: OptLevel): TargetM
 
   const singlethread = sess.target.singlethread_(sess.internal_target_features);
 
+  // PORT: the `SmallCStr`s below are the text; `SmallCStr::new`'s interior-NUL panic is dropped (llvm_util.ts `target_config`).
   // let triple = SmallCStr::new(&versioned_llvm_target(sess));
   const triple = versioned_llvm_target(sess.early_sess);
   // let cpu = SmallCStr::new(llvm_util::target_cpu(sess));

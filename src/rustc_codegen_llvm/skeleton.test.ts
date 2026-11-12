@@ -270,7 +270,7 @@ describe("auto-deref", () => {
       typeError(/B\.createLoad is not a function/), // builder.rs load, ported (cg-builder): the marker llbuilder is no IR-model builder
       typeError(/intrinsics\.get is not a function/), // builder.rs:1881 call_intrinsic (cg-builder) reaches get_intrinsic, as above
       typeError(/evaluating 'Block\.insts'/), // builder.rs:130 build (cg-builder): the IR model rejects the marker basic block
-      [23, 1, 3], // llvm_util.rs:469 get_version, ported (cg-write): the IR model's LLVMGetVersion (llvm_util.test.ts checks the oracle's)
+      [23, 1, 3], // llvm_util.rs:469 get_version, ported (cg-write): the IR model's LLVMGetVersion (back/write.test.ts checks the oracle's)
     ]);
     expect(out[7]).toBeDefined();
     expect(printValueToString(out[8] as Value)).toBe("[1 x i8] c\"\\01\""); // const_bytes: a real constant in the real llcx
