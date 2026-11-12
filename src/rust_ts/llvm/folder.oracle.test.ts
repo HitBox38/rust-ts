@@ -95,6 +95,8 @@ const C_API = {
   LLVMStructTypeInContext: { args: [P, P, "u32", "i32"], returns: P },
   LLVMArrayType2: { args: [P, "u64"], returns: P },
   LLVMAddGlobalInAddressSpace: { args: [P, P, P, "u32"], returns: P },
+  LLVMBuildGEPWithNoWrapFlags: { args: [P, P, P, P, "u32", P, "u32"], returns: P },
+  LLVMBuildFCmp: { args: [P, "u32", P, P, P], returns: P },
   LLVMIntrinsicGetName: { args: ["u32", P], returns: P },
   LLVMLookupIntrinsicID: { args: [P, "usize"], returns: "u32" },
 } as const;
@@ -615,6 +617,45 @@ describe.skipIf(!HAVE && !REQUIRE)("llir-folder vs libLLVM", () => {
     got.push(printValueToString(mF as never).trim());
     expect(got).toEqual(want);
     expect(want.filter((w) => w.endsWith(": i1 true") || w.endsWith(": i1 false")).length).toBeGreaterThan(100);
+  });
+
+  test("vector icmp, fcmp and GEP instructions print as libLLVM's", () => {
+    const rc = lib.LLVMContextCreate();
+    const rm = lib.LLVMModuleCreateWithNameInContext(cstr("m"), rc);
+    const mc = L.LLVMContextCreate();
+    const mm = L.LLVMModuleCreateWithNameInContext("m", mc);
+    const rV = lib.LLVMVectorType(lib.LLVMIntTypeInContext(rc, 32), 4);
+    const mV = L.LLVMVectorType(L.LLVMIntTypeInContext(mc, 32), 4);
+    const rD = lib.LLVMVectorType(lib.LLVMDoubleTypeInContext(rc), 2);
+    const mD = L.LLVMVectorType(L.LLVMDoubleTypeInContext(mc), 2);
+    const rP = lib.LLVMPointerTypeInContext(rc, 0);
+    const mP = L.LLVMPointerTypeInContext(mc, 0);
+    const rPV = lib.LLVMVectorType(rP, 4);
+    const mPV = L.LLVMVectorType(mP, 4);
+    const rf = lib.LLVMAddFunction(rm, cstr("f"), lib.LLVMFunctionType(lib.LLVMVoidTypeInContext(rc), ptrs([rV, rV, rD, rD, rP, rPV]), 6, 0));
+    const mf = L.LLVMAddFunction(mm, "f", L.LLVMFunctionType(L.LLVMVoidTypeInContext(mc), [mV, mV, mD, mD, mP, mPV], 6, L.FALSE));
+    const rB = lib.LLVMCreateBuilderInContext(rc);
+    const mB = L.LLVMCreateBuilderInContext(mc);
+    lib.LLVMPositionBuilderAtEnd(rB, lib.LLVMAppendBasicBlockInContext(rc, rf, cstr("start")));
+    L.LLVMPositionBuilderAtEnd(mB, L.LLVMAppendBasicBlockInContext(mc, mf, "start"));
+    const r = (i: number) => lib.LLVMGetParam(rf, i);
+    const m = (i: number) => L.LLVMGetParam(mf, i);
+    for (const p of [32, 36, 41]) {
+      lib.LLVMBuildICmp(rB, p, r(0), r(1), cstr(""));
+      L.LLVMBuildICmp(mB, p, m(0), m(1), "");
+    }
+    for (const p of [1, 8, 14]) {
+      lib.LLVMBuildFCmp(rB, p, r(2), r(3), cstr(""));
+      L.LLVMBuildFCmp(mB, p, m(2), m(3), "");
+    }
+    // A scalar pointer with a vector index, and a vector of pointers with a scalar index.
+    lib.LLVMBuildGEPWithNoWrapFlags(rB, lib.LLVMIntTypeInContext(rc, 32), r(4), ptrs([r(0)]), 1, cstr(""), 0);
+    L.LLVMBuildGEPWithNoWrapFlags(mB, L.LLVMIntTypeInContext(mc, 32), m(4), [m(0)], 1, "", L.GEPNoWrapFlags.empty());
+    lib.LLVMBuildGEPWithNoWrapFlags(rB, lib.LLVMIntTypeInContext(rc, 8), r(5), ptrs([lib.LLVMConstInt(lib.LLVMIntTypeInContext(rc, 64), 3n, 0)]), 1, cstr(""), 0);
+    L.LLVMBuildGEPWithNoWrapFlags(mB, L.LLVMIntTypeInContext(mc, 8), m(5), [L.LLVMConstInt(L.LLVMIntTypeInContext(mc, 64), 3n, L.FALSE)], 1, "", L.GEPNoWrapFlags.empty());
+    lib.LLVMBuildRetVoid(rB);
+    L.LLVMBuildRetVoid(mB);
+    expect(printValueToString(mf as never).trim()).toBe(noComments(message(lib.LLVMPrintValueToString(rf))));
   });
 
   test("armExclusiveIntrinsic is libLLVM's arm_ldrex / arm_strex, and the ARM names it relies on", () => {

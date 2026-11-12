@@ -470,9 +470,7 @@ export class IRBuilder {
   createGEP(ty: Type, ptr: Value, idxList: readonly Value[], name: string, nw: number): Value {
     const v = foldGEP(ty, ptr, idxList, nw);
     if (v !== undefined) return v;
-    // `GetElementPtrInst::getGEPReturnType`: the pointer's type, or a vector of it when an index is a vector.
-    if (ptr.type.isVectorTy() || idxList.some((i) => i.type.isVectorTy())) return unported("llir: a vector GEP instruction");
-    const g = new Inst("getelementptr", ptr.type, [ptr, ...idxList]);
+    const g = new Inst("getelementptr", getGEPReturnType(ptr, idxList), [ptr, ...idxList]);
     g.srcElementType = ty;
     g.gepFlags = nw;
     return this.insert(g, name);
@@ -653,11 +651,27 @@ export class IRBuilder {
   }
 }
 
+// llvm: llvm/include/llvm/IR/Instructions.h:1135 getGEPReturnType
+/** `GetElementPtrInst::getGEPReturnType` (lane llir-folder): the pointer's type, or a vector of it when an index is a vector. */
+function getGEPReturnType(Ptr: Value, IdxList: readonly Value[]): Type {
+  // Vector GEP
+  const Ty = Ptr.type;
+  if (Ty.isVectorTy()) return Ty;
+  for (const Index of IdxList) if (Index.type instanceof VectorType) return Ty.context.getVectorType(Ty, Index.type.numElements, Index.type.scalable);
+  // Scalar GEP
+  return Ty;
+}
+
+// llvm: llvm/include/llvm/IR/InstrTypes.h:1049 makeCmpResultType
+/** `CmpInst::makeCmpResultType` (lane llir-folder): i1, or a vector of i1 of the operand's element count. */
+function makeCmpResultType(opnd_type: Type): Type {
+  if (opnd_type instanceof VectorType) return opnd_type.context.getVectorType(opnd_type.context.getIntType(1), opnd_type.numElements, opnd_type.scalable);
+  return opnd_type.context.getIntType(1);
+}
+
 function cmpInst(opcode: "icmp" | "fcmp", p: number, lhs: Value, rhs: Value): Inst {
   if ((opcode === "fcmp") !== isFPPredicate(p)) throw new Error(`llvm: Invalid ${opcode} predicate ${p}`);
-  // `CmpInst::makeCmpResultType`: i1, or a vector of i1.
-  if (lhs.type.isVectorTy()) return unported("llir: a vector comparison instruction");
-  const c = new Inst(opcode, lhs.type.context.getIntType(1), [lhs, rhs]);
+  const c = new Inst(opcode, makeCmpResultType(lhs.type), [lhs, rhs]);
   c.predicate = p;
   return c;
 }
