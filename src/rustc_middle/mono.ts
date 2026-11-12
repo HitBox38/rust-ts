@@ -9,7 +9,8 @@
 // PORT: `CodegenUnit`'s fields `name`, `symbol_name`, `items`, `size_estimate` and `is_code_coverage_dead_code_cgu`
 // share their names with its methods, so they carry a trailing underscore.
 // PORT: `DepNode`, `WorkProduct` and `WorkProductId` (incremental, out of scope, PORTING §3) are not ported: the
-// functions that return them stop at `unported`.
+// functions that return them stop at `unported`, except `CodegenUnit::codegen_dep_node`, whose node the disabled dep graph
+// never reads (its PORT note).
 import { InlineAttr, type Linkage, debug_Linkage } from "../rustc_attr_ir/data_structures.ts";
 import { type BaseNString, CASE_INSENSITIVE, ToBaseN_u128, to_base_fixed_len } from "../rustc_data_structures/base_n.ts";
 import { Fingerprint } from "../rustc_data_structures/fingerprint.ts";
@@ -749,9 +750,13 @@ export class CodegenUnit {
     }
   }
 
+  // PORT: no dep graph (D3, docs/plan-m2.md; dep_graph/graph.ts header). `make_compile_codegen_unit(tcx, self.name())` is
+  // `DepNode::construct(tcx, DepKind::CompileCodegenUnit, &name)`, which only fingerprints the name with the stable
+  // hasher (no side effect). `DepNode` is not ported, and the disabled graph's `with_task` never reads its node, so the node
+  // is `undefined`, as for `with_feed_task` in query/calls.ts.
   // rustc: compiler/rustc_middle/src/mono.rs:596 codegen_dep_node
-  codegen_dep_node(_tcx: TyCtxt): never {
-    return unported("rustc_middle::dep_graph::dep_node::make_compile_codegen_unit (incremental)");
+  codegen_dep_node(_tcx: TyCtxt): undefined {
+    return undefined;
   }
 
   // impl ToStableHashKey for CodegenUnit<'_>

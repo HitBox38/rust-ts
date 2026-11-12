@@ -3,7 +3,7 @@
 // PORT: hand-written types (the typedefs probe cannot parse this file's `const impl Default for SanitizerFnAttrs`,
 // like middle/privacy.rs), so the derives (`Debug`, `Clone`, `PartialEq`, and `TyDecodable` for crate metadata's
 // `codegen_fn_attrs`, as rustc_macros/src/serialize.rs `decodable_body` emits it: fields in declaration order, enum tag
-// `read_u8`) are written here next to each type. `mono::Visibility`'s `TyDecodable` too (declared here).
+// `read_u8`) are written here next to each type. `mono::Visibility`'s `TyDecodable` too (the type is mono.ts's).
 // `TyEncodable` likewise mirrors each decoder (lane encoder-c: crate metadata's `codegen_fn_attrs` table).
 // `CodegenFnAttrFlags` is a branded number with the `bitflags!` API on its companion, as tools/codegen emits for
 // `struct X(u32)` + `bitflags! { impl X: u32 { .. } }` (e.g. rustc_abi `ReprFlags`).
@@ -64,15 +64,13 @@ import { to_writer } from "../../vendor/bitflags/parser.ts";
 import { flags_companion } from "../../vendor/bitflags/traits.ts";
 import { InstanceKind as InstanceKindC, type InstanceKind } from "../ty/instance.ts";
 import type { TyCtxt } from "../ty/context.ts";
+import { debug_Visibility, type Visibility } from "../mono.ts";
 
-/**
- * `rustc_middle::mono::Visibility` (compiler/rustc_middle/src/mono.rs; mono.rs is not ported).
- * PORT: declared here because `CodegenFnAttrs::foreign_item_symbol_aliases` names it.
- */
-// #[derive(Copy, Clone, PartialEq, Debug, StableHash, TyEncodable, TyDecodable)]
-export type Visibility = "Default" | "Hidden" | "Protected" | "Interposable";
-export const Visibility = { Default: "Default", Hidden: "Hidden", Protected: "Protected", Interposable: "Interposable" } as const;
-export const debug_Visibility: Debug<Visibility> = (v) => v;
+// PORT: `CodegenFnAttrs::foreign_item_symbol_aliases` names `mono::Visibility`, which is mono.ts's (re-exported here for
+// this module's users). It used to be declared here, with a fourth variant `Interposable` that `mono::Visibility` does
+// not have (it is `SymbolVisibility`'s); nothing ever built it (codegen_attrs.rs builds only `Default`). Its
+// `TyDecodable`/`TyEncodable` stay here, beside the `CodegenFnAttrs` codecs that use them.
+export type { Visibility } from "../mono.ts";
 /** `#[derive(TyDecodable)]` (mono.rs:384) */
 export function decode_Visibility(__decoder: SpanDecoder): Visibility {
   const __tag = __decoder.read_u8();
@@ -83,10 +81,8 @@ export function decode_Visibility(__decoder: SpanDecoder): Visibility {
       return "Hidden";
     case 2:
       return "Protected";
-    case 3:
-      return "Interposable";
     default:
-      return panic(`invalid enum variant tag while decoding \`Visibility\`, expected 0..4, actual ${__tag}`);
+      return panic(`invalid enum variant tag while decoding \`Visibility\`, expected 0..3, actual ${__tag}`);
   }
 }
 /** `#[derive(TyEncodable)]` (mono.rs:384) */
@@ -100,9 +96,6 @@ export function encode_Visibility(self: Visibility, __encoder: SpanEncoder): voi
       break;
     case "Protected":
       __encoder.emit_u8(2);
-      break;
-    case "Interposable":
-      __encoder.emit_u8(3);
       break;
   }
 }
