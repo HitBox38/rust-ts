@@ -1,10 +1,6 @@
-// compiler/rustc_codegen_llvm/src/builder.rs: the SKELETON (lane cg-contract). The fill lane cg-builder (plan-m7 §8 wave 41)
-// owns this file and ports builder.rs here, replacing each `Stub (cg-contract)` with its port.
+// Port of compiler/rustc_codegen_llvm/src/builder.rs (skeleton: lane cg-contract; bodies: lane cg-builder, plan-m7 §8 wave 41).
 //
-// What is here: the struct `GenericBuilder` and the aliases `SBuilder` / `Builder`, `Builder`'s `Deref` impl (ported), and
-// builder.rs's trait impls for `Builder` (`BuilderMethods`, `StaticBuilderMethods`, the `Has*` / `LayoutOfHelpers` /
-// `FnAbiOfHelpers` forwarders) as typed stubs. The other trait impls for `Builder` (abi.rs, intrinsic.rs, asm.rs,
-// debuginfo/mod.rs, coverageinfo/mod.rs) are typed stubs in those files.
+// The other trait impls for `Builder` (abi.rs, intrinsic.rs, asm.rs, debuginfo/mod.rs, coverageinfo/mod.rs) live in those files.
 //
 // PORT (cg-contract), the representation (as context.ts's `GenericCx`):
 // - `GenericBuilder<'a, 'll, CX: Borrow<SCx<'ll>>>` is the class `GenericBuilder<CX extends SCxBorrow>`; the aliases are
@@ -20,38 +16,57 @@
 // - `BuilderMethods::build` / `append_block` (no `self`) are statics of `Builder`, so `Builder` itself is the
 //   `BuilderMethodsStatic<LlvmTypes, CodegenCx, Builder>` that generic code takes as `Bx_` (ssa-contract decision 4).
 // - `BuilderMethods` defaults that builder.rs does not override forward to `BuilderMethods_provided`.
-// - **Inherent before trait (review F1; decision for root to record).** Rust tries a type's inherent methods before its trait
-//   methods at the same autoderef step. `impl<CX> GenericBuilder<CX>` has 10 inherent methods with the names of `BuilderMethods`
-//   methods that `Builder` implements: `append_block` (:101), `trunc` (:112), `bitcast` (:116), `ret_void` (:120), `ret` (:124),
-//   `build` (:130), `inbounds_gep` (:156), `store` (:175), `load` (:185), `va_arg` (:1875). So every direct call of those names
-//   on a concrete `Builder` / `SBuilder` / `GenericBuilder` inside rustc_codegen_llvm (`bx.load(..)` in va_arg.rs,
-//   intrinsic.rs, abi.rs, asm.rs, and in builder.rs itself, the trait impl's bodies included; `Builder::build(cx, llbb)`)
-//   calls the inherent method; only generic rustc_codegen_ssa code (`Bx: BuilderMethods`) reaches the trait method.
-//   In TS the subclass's trait method would shadow the base class's inherent one, so the rule is: **an inherent method
-//   whose name is also a trait method of the same type is named `<name>_inherent`**, and a crate call site writes the
-//   `_inherent` name exactly where upstream's resolution picks the inherent method (a method call or `Type::name` path on
-//   the concrete type), and the trait name where it picks the trait method (generic code, `BuilderMethods::name(bx, ..)`).
-//   Why a suffix and not a free function: the method stays on the class it belongs to, so `SBuilder` (which has no trait
-//   impl) and `Builder` share it, `this` is typed, and a grep for the upstream name finds both forms.
+// - **Inherent before trait (review F1; decision recorded 2026-11-11).** Rust tries a type's inherent methods before its trait
+//   methods at the same autoderef step. `impl<CX> GenericBuilder<CX>` has 10 inherent methods with the names of
+//   `BuilderMethods` methods that `Builder` implements: `append_block` (:101), `trunc` (:112), `bitcast` (:116), `ret_void`
+//   (:120), `ret` (:124), `build` (:130), `inbounds_gep` (:156), `store` (:175), `load` (:185), `va_arg` (:1875). So every
+//   direct call of those names on a concrete `Builder` / `SBuilder` / `GenericBuilder` inside rustc_codegen_llvm (`bx.load(..)`
+//   in va_arg.rs, intrinsic.rs, asm.rs, and in builder.rs itself, the trait impl's bodies included; `Builder::build(cx, llbb)`,
+//   `Self::build(..)`) calls the inherent method; only generic rustc_codegen_ssa code (`Bx: BuilderMethods`) reaches the trait
+//   method. In TS the subclass's trait method would shadow the base class's inherent one, so **an inherent method whose name
+//   is also a trait method of the same type is named `<name>_inherent`**, and a crate call site writes the `_inherent` name
+//   exactly where upstream's resolution picks the inherent method.
 //   Bodies: `load` and `store` **differ** (the trait methods clamp the alignment to `max_reliable_alignment()`, builder.rs:694
-//   and :887 via `store_with_flags`; the inherent ones do not); the other eight are identical, but follow the same rule so that
-//   no call site depends on which pair it is. The same rule covers `GenericCx`'s `const_null` / `const_struct` (common.rs:168,
-//   :172 against `ConstCodegenMethods`, identical bodies) and `SimpleCx`'s `val_ty` (context.rs:873 against
-//   `BaseTypeCodegenMethods::val_ty`, identical bodies). No other inherent/trait pair exists on these types (review F1's scan).
-// - `UNNAMED` (`c"".as_ptr()`) is `""`.
-import type { Align, Scalar, Size, TargetDataLayout } from "../rustc_abi/lib.ts";
+//   and :887 via `store_with_flags`; the inherent ones do not); the other eight are identical. The same rule covers
+//   `GenericCx`'s `const_null` / `const_struct` (common.rs:168, :172) and `SimpleCx`'s `val_ty` (context.rs:873).
+//   In this file that means: `volatile_load` and `load_operand` call `load_inherent` (no clamp), `unchecked_utrunc` /
+//   `unchecked_strunc` call `trunc_inherent`, `tail_call` calls `ret_void_inherent` / `ret_inherent`, `check_call` calls
+//   `bitcast_inherent`, `write_operand_repeatedly_unoptimized` calls `inbounds_gep_inherent`, `switch_to_block` and the
+//   `write_operand_repeatedly_*` call `build_inherent` (`Self::build`), `append_sibling_block` calls `append_block_inherent`
+//   (`Self::append_block`), and `vector_splat` calls `const_null_inherent` (`self.const_null(..)` autoderefs to `CodegenCx`,
+//   where the inherent `GenericCx::const_null` wins).
+// - `UNNAMED` (`c"".as_ptr()`) is `""`; other `c"..."` / `SmallCStr` names are the string.
+//
+// PORT (cg-builder):
+// - `*self = Self::build(self.cx, llbb)` (`switch_to_block`, `write_operand_repeatedly_*`) assigns the new builder's three
+//   fields to `this`. The old builder's `Drop` (`LLVMDisposeBuilder`) is not run (cg-contract decision 12: `drop()` methods
+//   nothing calls).
+// - `math_builder_methods!` / `set_math_builder_methods!` (builder.rs:267, :277) generate methods with no `fn` line of their
+//   own, so they carry a `// PORT: generated by` line instead of a `// rustc:` marker.
+// - `debug!` / `#[instrument]` (tracing) are not ported: they print nothing unless `RUSTC_LOG` is set.
+// - Numbers: `align.bytes() as c_uint` is `align.bytes()` (at most 2^29); `size.bytes() as c_uint` is `size.bytes() >>> 0`;
+//   `const_usize(size.bytes())` passes `bytes_u64()` (ssa-contract decision 6).
+// - `rustc_sanitizers` (`cfi`, `kcfi`) is out of scope (harness/scope.json): the items builder.rs names are local typed stubs.
+import { Align, Align_min, BackendRepr, CanonAbi, debug_AlignFromBytesError, Scalar, Size, type TargetDataLayout } from "../rustc_abi/lib.ts";
 import type { WrappingRange } from "../rustc_abi/wrapping_range.ts";
 import type { FncTree } from "../rustc_ast/expand/typetree.ts";
 import type { UnrollAttr } from "../rustc_attr_ir/data_structures.gen.ts";
-import type { AtomicRmwBinOp, IntPredicate, RealPredicate, SynchronizationScope } from "../rustc_codegen_ssa/common.ts";
-import type { MemFlags } from "../rustc_codegen_ssa/lib.ts";
-import type { OperandRef } from "../rustc_codegen_ssa/mir/operand.ts";
-import type { PlaceRef, PlaceValue } from "../rustc_codegen_ssa/mir/place.ts";
-import { BuilderMethods_provided, type BuilderMethods, type BuilderMethodsStatic, type OverflowOp, type ReturnSlot } from "../rustc_codegen_ssa/traits/builder.ts";
+import {
+  type AtomicRmwBinOp as generic_AtomicRmwBinOp,
+  IntPredicate,
+  type RealPredicate,
+  SynchronizationScope,
+  TypeKind,
+  debug_TypeKind,
+} from "../rustc_codegen_ssa/common.ts";
+import { MemFlags } from "../rustc_codegen_ssa/lib.ts";
+import { OperandRef, OperandValue } from "../rustc_codegen_ssa/mir/operand.ts";
+import { PlaceRef, type PlaceValue } from "../rustc_codegen_ssa/mir/place.ts";
+import { BuilderMethods_provided, OverflowOp, ReturnSlot, type BuilderMethods, type BuilderMethodsStatic } from "../rustc_codegen_ssa/traits/builder.ts";
 import type { StaticBuilderMethods } from "../rustc_codegen_ssa/traits/statics.ts";
 import type { CodegenFnAttrs } from "../rustc_middle/middle/codegen_fn_attrs.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
-import type { AtomicOrdering } from "../rustc_middle/ty/consts/int.ts";
+import type { AtomicOrdering as generic_AtomicOrdering } from "../rustc_middle/ty/consts/int.ts";
 import type { Instance } from "../rustc_middle/ty/instance.ts";
 import {
   FnAbiOf_provided,
@@ -66,16 +81,27 @@ import {
 } from "../rustc_middle/ty/layout.ts";
 import type { List } from "../rustc_middle/ty/list.ts";
 import type { Ty, TypingEnv } from "../rustc_middle/ty/mod.ts";
+import { display_Ty } from "../rustc_middle/ty/print/pretty.ts";
+import { PointerAuthARM8_3Key_discriminant } from "../rustc_session/session.ts";
 import type { DefId } from "../rustc_span/def_id.ts";
-import type { Span } from "../rustc_span/lib.ts";
+import { DUMMY_SP, FileName, Span } from "../rustc_span/lib.ts";
+import { bug } from "../rustc_span/macros.ts";
 import type { FnAbi } from "../rustc_target/callconv/mod.ts";
-import type { Target } from "../rustc_target/spec/mod.ts";
+import { SanitizerSet, type Target } from "../rustc_target/spec/mod.ts";
 import type { PolyFnSig } from "../rustc_type_ir/decls.ts";
-import { unported } from "../std/panic.ts";
-import type { Funclet, LlvmTypes } from "./common.ts";
+import { PLAIN } from "../std/fmt.ts";
+import { assert, assert_eq, panic, unported, unreachable, unwrap } from "../std/panic.ts";
+import { unwrap_result } from "../std/result.ts";
+import { utf8 } from "../std/str.ts";
+import * as attributes from "./attributes.ts";
+import { Funclet, type LlvmTypes } from "./common.ts";
 import type { CodegenCx, FullCx, GenericCx, SCx, SCxBorrow } from "./context.ts";
 import * as llvm from "./llvm/mod.ts";
-import type { BasicBlock, Type, Value } from "./llvm/mod.ts";
+import type { BasicBlock, Metadata, Type, Value } from "./llvm/mod.ts";
+import { add_tt } from "./typetree.ts";
+
+/** The constructor of a `GenericBuilder` subclass: `Self` in `Self::with_cx(..)` / `Self::build(..)`. */
+type GenericBuilderCtor<CX extends SCxBorrow, Self_> = new (llbuilder: llvm.Builder, cx_: GenericCx<CX>, span: Span) => Self_;
 
 // #[must_use]
 export class GenericBuilder<CX extends SCxBorrow> {
@@ -87,84 +113,200 @@ export class GenericBuilder<CX extends SCxBorrow> {
   ) {}
 
   // impl<'a, 'll, CX: Borrow<SCx<'ll>>> Drop for GenericBuilder<'a, 'll, CX>
-  // Stub (cg-contract): GenericBuilder::drop
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:54 drop
   drop(): void {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs drop");
+    llvm.LLVMDisposeBuilder(this.llbuilder);
   }
 
-  // ---- impl<CX: Borrow<SCx>> GenericBuilder<CX>: the inherent methods (review F1 and F2; header) ----
-  /** Inherent (header, review F1). */
-  // Stub (cg-contract): append_block (builder.rs:101)
-  static append_block_inherent<CX extends SCxBorrow>(_cx: GenericCx<CX>, _llfn: Value, _name: string): BasicBlock {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs append_block");
-  }
-
-  /** Inherent (header, review F1). */
-  // Stub (cg-contract): trunc (builder.rs:112)
-  trunc_inherent(_val: Value, _dest_ty: Type): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs trunc");
+  // ---- impl<'a, 'll, CX: Borrow<SCx<'ll>>> GenericBuilder<'a, 'll, CX> (builder.rs:94) ----
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:95 with_cx
+  static with_cx<CX extends SCxBorrow, Self_ extends GenericBuilder<CX>>(this: GenericBuilderCtor<CX, Self_>, scx: GenericCx<CX>): Self_ {
+    // Create a fresh builder from the simple context.
+    const llbuilder = llvm.LLVMCreateBuilderInContext(scx.deref().borrow().llcx);
+    return new this(llbuilder, scx, DUMMY_SP);
   }
 
   /** Inherent (header, review F1). */
-  // Stub (cg-contract): bitcast (builder.rs:116)
-  bitcast_inherent(_val: Value, _dest_ty: Type): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs bitcast");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:101 append_block
+  static append_block_inherent<CX extends SCxBorrow>(cx: GenericCx<CX>, llfn: Value, name: string): BasicBlock {
+    return llvm.LLVMAppendBasicBlockInContext(cx.llcx(), llfn, name);
   }
 
   /** Inherent (header, review F1). */
-  // Stub (cg-contract): ret_void (builder.rs:120)
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:112 trunc
+  trunc_inherent(val: Value, dest_ty: Type): Value {
+    return llvm.LLVMBuildTrunc(this.llbuilder, val, dest_ty, UNNAMED);
+  }
+
+  /** Inherent (header, review F1). */
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:116 bitcast
+  bitcast_inherent(val: Value, dest_ty: Type): Value {
+    return llvm.LLVMBuildBitCast(this.llbuilder, val, dest_ty, UNNAMED);
+  }
+
+  /** Inherent (header, review F1). */
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:120 ret_void
   ret_void_inherent(): void {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs ret_void");
+    llvm.LLVMBuildRetVoid(this.llbuilder);
   }
 
   /** Inherent (header, review F1). */
-  // Stub (cg-contract): ret (builder.rs:124)
-  ret_inherent(_v: Value): void {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs ret");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:124 ret
+  ret_inherent(v: Value): void {
+    llvm.LLVMBuildRet(this.llbuilder, v);
   }
 
   /** Inherent (header, review F1). `-> Self`: called on `Builder` (`Builder::build(cx, llbb)`), it returns a `Builder`. */
-  // Stub (cg-contract): build (builder.rs:130)
-  static build_inherent<CX extends SCxBorrow, Self_ extends GenericBuilder<CX>>(this: new (llbuilder: llvm.Builder, cx_: GenericCx<CX>, span: Span) => Self_, _cx: GenericCx<CX>, _llbb: BasicBlock): Self_ {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs build");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:130 build
+  static build_inherent<CX extends SCxBorrow, Self_ extends GenericBuilder<CX>>(this: GenericBuilderCtor<CX, Self_>, cx: GenericCx<CX>, llbb: BasicBlock): Self_ {
+    // `Self::with_cx(cx)`
+    const with_cx: (this: GenericBuilderCtor<CX, Self_>, scx: GenericCx<CX>) => Self_ = GenericBuilder.with_cx;
+    const bx = with_cx.call(this, cx);
+    llvm.LLVMPositionBuilderAtEnd(bx.llbuilder, llbb);
+    return bx;
+  }
+
+  // The generic builder has less functionality and thus (unlike the other alloca) we can not
+  // easily jump to the beginning of the function to place our allocas there. We trust the user
+  // to manually do that. FIXME(offload): improve the genericCx and add more llvm wrappers to
+  // handle this.
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:142 direct_alloca
+  direct_alloca(ty: Type, align: Align, name: string): Value {
+    const alloca = llvm.LLVMBuildAlloca(this.llbuilder, ty, UNNAMED);
+    llvm.LLVMSetAlignment(alloca, align.bytes());
+    // Cast to default addrspace if necessary
+    const val = llvm.LLVMBuildPointerCast(this.llbuilder, alloca, this.cx_.type_ptr(), UNNAMED);
+    if (name !== "") {
+      // `std::ffi::CString::new(name).unwrap()`: an interior NUL byte panics.
+      const name_ = unwrap_cstring(name);
+      llvm.set_value_name(val, name_);
+    }
+    return val;
   }
 
   /** Inherent (header, review F1). */
-  // Stub (cg-contract): inbounds_gep (builder.rs:156)
-  inbounds_gep_inherent(_ty: Type, _ptr: Value, _indices: readonly Value[]): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs inbounds_gep");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:156 inbounds_gep
+  inbounds_gep_inherent(ty: Type, ptr: Value, indices: readonly Value[]): Value {
+    return llvm.LLVMBuildGEPWithNoWrapFlags(this.llbuilder, ty, ptr, indices, indices.length >>> 0, UNNAMED, llvm.GEPNoWrapFlags.InBounds);
   }
 
   /** Inherent (header, review F1). Its body differs from `BuilderMethods::store`, which clamps the alignment to `max_reliable_alignment()`. */
-  // Stub (cg-contract): store (builder.rs:175)
-  store_inherent(_val: Value, _ptr: Value, _align: Align): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs store");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:175 store
+  store_inherent(val: Value, ptr: Value, align: Align): Value {
+    // debug!("Store {:?} -> {:?}", val, ptr);
+    assert_eq(this.cx_.type_kind(this.cx_.val_ty(ptr)), TypeKind.Pointer, (k) => debug_TypeKind(k, PLAIN));
+    const store = llvm.LLVMBuildStore(this.llbuilder, val, ptr);
+    llvm.LLVMSetAlignment(store, align.bytes());
+    return store;
   }
 
   /** Inherent (header, review F1). Its body differs from `BuilderMethods::load`, which clamps the alignment to `max_reliable_alignment()`. */
-  // Stub (cg-contract): load (builder.rs:185)
-  load_inherent(_ty: Type, _ptr: Value, _align: Align): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs load");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:185 load
+  load_inherent(ty: Type, ptr: Value, align: Align): Value {
+    const load = llvm.LLVMBuildLoad2(this.llbuilder, ty, ptr, UNNAMED);
+    llvm.LLVMSetAlignment(load, align.bytes());
+    return load;
   }
 
-  // Stub (cg-contract): add_clause (builder.rs:1819)
-  add_clause(_landing_pad: Value, _clause: Value): void {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs add_clause");
+  // ---- impl<'a, 'll, CX: Borrow<SCx<'ll>>> GenericBuilder<'a, 'll, CX> (builder.rs:1635) ----
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1636 position_at_start
+  position_at_start(llbb: BasicBlock): void {
+    llvm.LLVMRustPositionBuilderAtStart(this.llbuilder, llbb);
   }
 
-  // Stub (cg-contract): catch_ret (builder.rs:1825)
-  catch_ret(_funclet: Funclet, _unwind: BasicBlock): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs catch_ret");
+  // ---- impl<'a, 'll, CX: Borrow<SCx<'ll>>> GenericBuilder<'a, 'll, CX> (builder.rs:1818) ----
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1819 add_clause
+  add_clause(landing_pad: Value, clause: Value): void {
+    llvm.LLVMAddClause(landing_pad, clause);
+  }
+
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1825 catch_ret
+  catch_ret(funclet: Funclet, unwind: BasicBlock): Value {
+    const ret = llvm.LLVMBuildCatchRet(this.llbuilder, funclet.cleanuppad(), unwind);
+    return unwrap(ret, "LLVM does not have support for catchret");
+  }
+
+  /** `-> Cow<'b, [&'ll Value]>`: the borrowed `args` when every argument matches, else a new array. */
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1834 check_call
+  check_call(typ: string, fn_ty: Type, llfn: Value, args: readonly Value[]): readonly Value[] {
+    assert(this.cx_.type_kind(fn_ty) === TypeKind.Function, () => `builder::${typ} not passed a function, but ${this.cx_.debug_Type(fn_ty, PLAIN)}`);
+
+    const param_tys = this.cx_.func_params_types(fn_ty);
+
+    // `iter::zip(..).all(..)`: stops at the shorter sequence, and at the first mismatch.
+    let all_args_match = true;
+    for (let i = 0; i < Math.min(param_tys.length, args.length); i++) {
+      const expected_ty = param_tys[i]!;
+      const actual_ty = this.cx_.val_ty(args[i]!);
+      if (!(expected_ty === actual_ty)) {
+        all_args_match = false;
+        break;
+      }
+    }
+
+    if (all_args_match) {
+      return args;
+    }
+
+    const casted_args: Value[] = [];
+    for (let i = 0; i < Math.min(param_tys.length, args.length); i++) {
+      const expected_ty = param_tys[i]!;
+      const actual_val = args[i]!;
+      const actual_ty = this.cx_.val_ty(actual_val);
+      if (expected_ty !== actual_ty) {
+        // debug!(
+        //     "type mismatch in function call of {:?}. \
+        //         Expected {:?} for param {}, got {:?}; injecting bitcast",
+        //     llfn, expected_ty, i, actual_ty
+        // );
+        void llfn;
+        casted_args.push(this.bitcast_inherent(actual_val, expected_ty));
+      } else {
+        casted_args.push(actual_val);
+      }
+    }
+
+    return casted_args;
   }
 
   /** Inherent (header, review F1). */
-  // Stub (cg-contract): va_arg (builder.rs:1875)
-  va_arg_inherent(_list: Value, _ty: Type): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs va_arg");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1875 va_arg
+  va_arg_inherent(list: Value, ty: Type): Value {
+    return llvm.LLVMBuildVAArg(this.llbuilder, list, ty, UNNAMED);
+  }
+
+  // ---- impl<'a, 'll, CX: Borrow<SCx<'ll>>> GenericBuilder<'a, 'll, CX> (builder.rs:1908) ----
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1909 phi
+  phi(ty: Type, vals: readonly Value[], bbs: readonly BasicBlock[]): Value {
+    assert_eq(vals.length, bbs.length, String);
+    const phi = llvm.LLVMBuildPhi(this.llbuilder, ty, UNNAMED);
+    llvm.LLVMAddIncoming(phi, vals, bbs, vals.length >>> 0);
+    return phi;
+  }
+
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1923 add_incoming_to_phi
+  add_incoming_to_phi(phi: Value, val: Value, bb: BasicBlock): void {
+    llvm.LLVMAddIncoming(phi, [val], [bb], 1);
   }
 }
 
-export class SBuilder extends GenericBuilder<SCx> {}
+export class SBuilder extends GenericBuilder<SCx> {
+  // ---- impl<'a, 'll> SBuilder<'a, 'll> (builder.rs:61) ----
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:62 call
+  call(llty: Type, llfn: Value, args_: readonly Value[], funclet: Funclet | undefined): Value {
+    // debug!("call {:?} with args ({:?})", llfn, args);
+
+    const args = this.check_call("call", llty, llfn, args_);
+    const funclet_bundle = funclet === undefined ? undefined : funclet.bundle();
+    const bundles: llvm.OperandBundle[] = [];
+    if (funclet_bundle !== undefined) {
+      bundles.push(funclet_bundle);
+    }
+
+    const call = llvm.LLVMBuildCallWithOperandBundles(this.llbuilder, llty, llfn, args, args.length >>> 0, bundles, bundles.length >>> 0, "");
+    return call;
+  }
+}
 
 /// Empty string, to be used where LLVM expects an instruction name, indicating
 /// that the instruction is to be left unnamed (i.e. numbered, in textual IR).
@@ -204,27 +346,29 @@ export class Builder extends GenericBuilder<FullCx> implements BuilderMethods<Ll
   declare cx_: CodegenCx;
 
   // ---- impl abi::HasDataLayout for Builder (builder.rs:213) ----
-  // Stub (cg-contract): HasDataLayout::data_layout
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:214 data_layout
   data_layout(): TargetDataLayout {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs data_layout");
+    return this.cx_.data_layout();
   }
 
   // ---- impl HasTyCtxt for Builder (builder.rs:219) ----
-  // Stub (cg-contract): HasTyCtxt::tcx (`tcx_`)
+  // #[inline]
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:221 tcx
   tcx_(): TyCtxt {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs tcx");
+    return this.cx_.tcx;
   }
 
   // ---- impl HasTypingEnv for Builder (builder.rs:226) ----
-  // Stub (cg-contract): HasTypingEnv::typing_env (`typing_env_`)
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:227 typing_env
   typing_env_(): TypingEnv {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs typing_env");
+    return this.cx_.typing_env_();
   }
 
   // ---- impl HasTargetSpec for Builder (builder.rs:232) ----
-  // Stub (cg-contract): HasTargetSpec::target_spec
+  // #[inline]
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:234 target_spec
   target_spec(): Target {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs target_spec");
+    return this.cx_.target_spec();
   }
 
   // ---- impl LayoutOfHelpers for Builder (builder.rs:239) ----
@@ -236,9 +380,10 @@ export class Builder extends GenericBuilder<FullCx> implements BuilderMethods<Ll
   layout_tcx_at_span(): Span {
     return LayoutOfHelpers_provided.layout_tcx_at_span(this);
   }
-  // Stub (cg-contract): LayoutOfHelpers::handle_layout_err
-  handle_layout_err(_err: LayoutError, _span: Span, _ty: Ty): never {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs handle_layout_err");
+  // #[inline]
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:241 handle_layout_err
+  handle_layout_err(err: LayoutError, span: Span, ty: Ty): never {
+    return this.cx_.handle_layout_err(err, span, ty);
   }
 
   // ---- impl FnAbiOfHelpers for Builder (builder.rs:246) ----
@@ -246,9 +391,10 @@ export class Builder extends GenericBuilder<FullCx> implements BuilderMethods<Ll
   get FnAbiOfResult(): MaybeResult<FnAbi<Ty>, FnAbi<Ty>, never> {
     return MaybeResult_T;
   }
-  // Stub (cg-contract): FnAbiOfHelpers::handle_fn_abi_err
-  handle_fn_abi_err(_err: FnAbiError, _span: Span, _fn_abi_request: FnAbiRequest): never {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs handle_fn_abi_err");
+  // #[inline]
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:248 handle_fn_abi_err
+  handle_fn_abi_err(err: FnAbiError, span: Span, fn_abi_request: FnAbiRequest): never {
+    return this.cx_.handle_fn_abi_err(err, span, fn_abi_request);
   }
 
   // ---- impl<'tcx, C: LayoutOfHelpers<'tcx>> LayoutOf<'tcx> for C {} (rustc_middle ty/layout.rs) ----
@@ -282,66 +428,120 @@ export class Builder extends GenericBuilder<FullCx> implements BuilderMethods<Ll
     return this.cx_;
   }
 
-  // ---- impl BuilderMethods for Builder: the associated fns without `self` (header) ----
-  // Stub (cg-contract): BuilderMethods::build
-  static build(_cx: CodegenCx, _llbb: BasicBlock): Builder {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs build");
-  }
-
-  // Stub (cg-contract): BuilderMethods::append_block
-  static append_block(_cx: CodegenCx, _llfn: Value, _name: string): BasicBlock {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs append_block");
+  // ---- impl BuilderMethods for Builder (builder.rs:289): the associated fns without `self` (header) ----
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:292 build
+  static build(cx: CodegenCx, llbb: BasicBlock): Builder {
+    const bx = Builder.with_cx(cx);
+    llvm.LLVMPositionBuilderAtEnd(bx.llbuilder, llbb);
+    return bx;
   }
 
   // ---- impl BuilderMethods for Builder (builder.rs:289) ----
-  // Stub (cg-contract): BuilderMethods::cx
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:300 cx
   cx(): CodegenCx {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs cx");
+    return this.cx_;
   }
 
-  // Stub (cg-contract): BuilderMethods::llbb
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:304 llbb
   llbb(): BasicBlock {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs llbb");
+    return llvm.LLVMGetInsertBlock(this.llbuilder);
   }
 
-  // Stub (cg-contract): BuilderMethods::set_span
-  set_span(_span: Span): void {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs set_span");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:308 set_span
+  set_span(span: Span): void {
+    this.span = span;
   }
 
-  // Stub (cg-contract): BuilderMethods::append_sibling_block
-  append_sibling_block(_name: string): BasicBlock {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs append_sibling_block");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:312 append_block
+  static append_block(cx: CodegenCx, llfn: Value, name: string): BasicBlock {
+    return llvm.LLVMAppendBasicBlockInContext(cx.llcx(), llfn, name);
   }
 
-  // Stub (cg-contract): BuilderMethods::switch_to_block
-  switch_to_block(_llbb: BasicBlock): void {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs switch_to_block");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:319 append_sibling_block
+  append_sibling_block(name: string): BasicBlock {
+    return Builder.append_block_inherent(this.cx_, this.llfn(), name);
   }
 
-  // Stub (cg-contract): BuilderMethods::ret_void
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:323 switch_to_block
+  switch_to_block(llbb: BasicBlock): void {
+    // `*self = Self::build(self.cx, llbb)` (header)
+    const bx = Builder.build_inherent(this.cx_, llbb);
+    this.llbuilder = bx.llbuilder;
+    this.cx_ = bx.cx_;
+    this.span = bx.span;
+  }
+
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:327 ret_void
   ret_void(): void {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs ret_void");
+    llvm.LLVMBuildRetVoid(this.llbuilder);
   }
 
-  // Stub (cg-contract): BuilderMethods::ret
-  ret(_v: Value): void {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs ret");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:331 ret
+  ret(v: Value): void {
+    llvm.LLVMBuildRet(this.llbuilder, v);
   }
 
-  // Stub (cg-contract): BuilderMethods::br
-  br(_dest: BasicBlock): void {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs br");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:337 br
+  br(dest: BasicBlock): void {
+    llvm.LLVMBuildBr(this.llbuilder, dest);
   }
 
-  // Stub (cg-contract): BuilderMethods::br_with_attrs
-  br_with_attrs(_dest: BasicBlock, _loop_hint_attrs: readonly UnrollAttr[]): void {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs br_with_attrs");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:343 br_with_attrs
+  br_with_attrs(dest: BasicBlock, loop_hint_attrs: readonly UnrollAttr[]): void {
+    const val = llvm.LLVMBuildBr(this.llbuilder, dest);
+
+    const nodes: Metadata[] = [];
+
+    for (const unroll of loop_hint_attrs) {
+      // UnrollAttr::Count needs a second operand, the provided count, but the other
+      // unroll hints do not.
+      let md_node: Metadata;
+      if (unroll.$ === "Count") {
+        const count_ = unroll._0;
+        const unroll_meta = this.create_metadata(utf8("llvm.loop.unroll.count"));
+        const count = llvm.LLVMValueAsMetadata(this.get_const_i32(BigInt(count_)));
+        md_node = this.md_node_in_context([unroll_meta, count]);
+      } else {
+        let metadata_str: string;
+        switch (unroll.$) {
+          case "Hint":
+            metadata_str = "llvm.loop.unroll.enable";
+            break;
+          case "Full":
+            metadata_str = "llvm.loop.unroll.full";
+            break;
+          case "Never":
+            metadata_str = "llvm.loop.unroll.disable";
+            break;
+          // UnrollAttr::Count(_) => unreachable!(): excluded by the `if` above (TS narrows it away).
+          default:
+            return unreachable();
+        }
+        const unroll_meta = this.create_metadata(utf8(metadata_str));
+        md_node = this.md_node_in_context([unroll_meta]);
+      }
+      nodes.push(md_node);
+    }
+
+    if (nodes.length >= 1) {
+      const first = nodes[0]!;
+      nodes.splice(0, 0, first);
+
+      // Create the loop metadata node
+      const loop_meta_mdnode = this.set_metadata_node(val, llvm.MD_loop, nodes);
+
+      // Look up the metadata node as a value
+      const loop_meta_val = unwrap(llvm.LLVMGetMetadata(val, llvm.MD_loop));
+
+      // Replace the first entry with a reference to itself
+      // This is required by LLVM. See the LangRef page for llvm.loop metadata.
+      llvm.LLVMReplaceMDNodeOperandWith(loop_meta_val, 0, loop_meta_mdnode);
+    }
   }
 
-  // Stub (cg-contract): BuilderMethods::cond_br
-  cond_br(_cond: Value, _then_llbb: BasicBlock, _else_llbb: BasicBlock): void {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs cond_br");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:385 cond_br
+  cond_br(cond: Value, then_llbb: BasicBlock, else_llbb: BasicBlock): void {
+    llvm.LLVMBuildCondBr(this.llbuilder, cond, then_llbb, else_llbb);
   }
 
   // (provided) BuilderMethods::cond_br_with_expect -> BuilderMethods_provided.cond_br_with_expect
@@ -349,24 +549,111 @@ export class Builder extends GenericBuilder<FullCx> implements BuilderMethods<Ll
     return BuilderMethods_provided.cond_br_with_expect(this, cond, then_llbb, else_llbb, expect);
   }
 
-  // Stub (cg-contract): BuilderMethods::switch
-  switch(_v: Value, _else_llbb: BasicBlock, _cases: readonly (readonly [bigint, BasicBlock])[]): void {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs switch");
+  /** `cases: impl ExactSizeIterator<Item = (u128, &'ll BasicBlock)>` (ssa-contract decision 7). */
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:396 switch
+  switch(v: Value, else_llbb: BasicBlock, cases: readonly (readonly [bigint, BasicBlock])[]): void {
+    const switch_ = llvm.LLVMBuildSwitch(this.llbuilder, v, else_llbb, cases.length >>> 0);
+    for (const [on_val_, dest] of cases) {
+      const on_val = this.const_uint_big(this.val_ty(v), on_val_);
+      llvm.LLVMAddCase(switch_, on_val, dest);
+    }
   }
 
-  // Stub (cg-contract): BuilderMethods::switch_with_weights
-  switch_with_weights(_v: Value, _else_llbb: BasicBlock, _else_is_cold: boolean, _cases: readonly (readonly [bigint, BasicBlock, boolean])[]): void {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs switch_with_weights");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:410 switch_with_weights
+  switch_with_weights(v: Value, else_llbb: BasicBlock, else_is_cold: boolean, cases: readonly (readonly [bigint, BasicBlock, boolean])[]): void {
+    if (this.cx_.sess().opts.optimize === "No") {
+      this.switch(
+        v,
+        else_llbb,
+        cases.map(([val, dest]) => [val, dest] as const),
+      );
+      return;
+    }
+
+    const id = this.cx_.create_metadata(utf8("branch_weights"));
+
+    // For switch instructions with 2 targets, the `llvm.expect` intrinsic is used.
+    // This function handles switch instructions with more than 2 targets and it needs to
+    // emit branch weights metadata instead of using the intrinsic.
+    // The values 1 and 2000 are the same as the values used by the `llvm.expect` intrinsic.
+    const cold_weight = llvm.LLVMValueAsMetadata(this.cx_.const_u32(1));
+    const hot_weight = llvm.LLVMValueAsMetadata(this.cx_.const_u32(2000));
+    const weight = (is_cold: boolean): Metadata => (is_cold ? cold_weight : hot_weight);
+
+    const md: Metadata[] = [];
+    md.push(id);
+    md.push(weight(else_is_cold));
+
+    const switch_ = llvm.LLVMBuildSwitch(this.llbuilder, v, else_llbb, cases.length >>> 0);
+    for (const [on_val_, dest, is_cold] of cases) {
+      const on_val = this.const_uint_big(this.val_ty(v), on_val_);
+      llvm.LLVMAddCase(switch_, on_val, dest);
+      md.push(weight(is_cold));
+    }
+
+    this.cx_.set_metadata_node(switch_, llvm.MD_prof, md);
   }
 
-  // Stub (cg-contract): BuilderMethods::invoke
-  invoke(_llty: Type, _fn_attrs: CodegenFnAttrs | undefined, _fn_abi: FnAbi<Ty> | undefined, _llfn: Value, _return_slot: ReturnSlot<Value>, _args: readonly Value[], _then: BasicBlock, _catch_: BasicBlock, _funclet: Funclet | undefined, _instance: Instance | undefined): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs invoke");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:448 invoke
+  invoke(
+    llty: Type,
+    fn_attrs: CodegenFnAttrs | undefined,
+    fn_abi: FnAbi<Ty> | undefined,
+    llfn: Value,
+    return_slot: ReturnSlot<Value>,
+    args_: readonly Value[],
+    then: BasicBlock,
+    catch_: BasicBlock,
+    funclet: Funclet | undefined,
+    instance: Instance | undefined,
+  ): Value {
+    // If this function returns indirectly (`PassMode::Indirect`),
+    // the `return_slot` should be the first argument.
+    let args0: Value[];
+    switch (return_slot.$) {
+      case "Direct":
+        args0 = args_.slice();
+        break;
+      case "Indirect": {
+        const sret_ptr = return_slot._0;
+        const args = args_.slice();
+        args.splice(0, 0, sret_ptr);
+        args0 = args;
+        break;
+      }
+    }
+    // debug!("invoke {:?} with args ({:?})", llfn, args);
+    const args = this.check_call("invoke", llty, llfn, args0);
+    const funclet_bundle = funclet === undefined ? undefined : funclet.bundle();
+    const bundles: llvm.OperandBundle[] = [];
+    if (funclet_bundle !== undefined) {
+      bundles.push(funclet_bundle);
+    }
+
+    // Emit CFI pointer type membership test
+    this.cfi_type_test(fn_attrs, fn_abi, instance, llfn);
+
+    // Emit KCFI operand bundle
+    const kcfi_bundle = this.kcfi_operand_bundle(fn_attrs, fn_abi, instance, llfn);
+    if (kcfi_bundle !== undefined) {
+      bundles.push(kcfi_bundle.as_ref());
+    }
+
+    const pauth = this.ptrauth_operand_bundle(llfn, fn_abi);
+    if (pauth !== undefined) {
+      bundles.push(pauth.as_ref());
+    }
+
+    const invoke = llvm.LLVMBuildInvokeWithOperandBundles(this.llbuilder, llty, llfn, args, args.length >>> 0, then, catch_, bundles, bundles.length >>> 0, UNNAMED);
+    if (fn_abi !== undefined) {
+      fn_abi.apply_attrs_callsite(this, invoke);
+    }
+    return invoke;
   }
 
-  // Stub (cg-contract): BuilderMethods::unreachable
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:513 unreachable
   unreachable(): void {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs unreachable");
+    llvm.LLVMBuildUnreachable(this.llbuilder);
   }
 
   // (provided) BuilderMethods::unreachable_nonterminator -> BuilderMethods_provided.unreachable_nonterminator
@@ -374,259 +661,338 @@ export class Builder extends GenericBuilder<FullCx> implements BuilderMethods<Ll
     return BuilderMethods_provided.unreachable_nonterminator(this);
   }
 
-  // Stub (cg-contract): BuilderMethods::add
-  add(_lhs: Value, _rhs: Value): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs add");
+  // ---- math_builder_methods! { .. } (builder.rs:519; header) ----
+  // PORT: generated by math_builder_methods! (builder.rs:267) for add (builder.rs:520)
+  add(a: Value, b: Value): Value {
+    return llvm.LLVMBuildAdd(this.llbuilder, a, b, UNNAMED);
+  }
+  // PORT: generated by math_builder_methods! (builder.rs:267) for fadd (builder.rs:521)
+  fadd(a: Value, b: Value): Value {
+    return llvm.LLVMBuildFAdd(this.llbuilder, a, b, UNNAMED);
+  }
+  // PORT: generated by math_builder_methods! (builder.rs:267) for sub (builder.rs:522)
+  sub(a: Value, b: Value): Value {
+    return llvm.LLVMBuildSub(this.llbuilder, a, b, UNNAMED);
+  }
+  // PORT: generated by math_builder_methods! (builder.rs:267) for fsub (builder.rs:523)
+  fsub(a: Value, b: Value): Value {
+    return llvm.LLVMBuildFSub(this.llbuilder, a, b, UNNAMED);
+  }
+  // PORT: generated by math_builder_methods! (builder.rs:267) for mul (builder.rs:524)
+  mul(a: Value, b: Value): Value {
+    return llvm.LLVMBuildMul(this.llbuilder, a, b, UNNAMED);
+  }
+  // PORT: generated by math_builder_methods! (builder.rs:267) for fmul (builder.rs:525)
+  fmul(a: Value, b: Value): Value {
+    return llvm.LLVMBuildFMul(this.llbuilder, a, b, UNNAMED);
+  }
+  // PORT: generated by math_builder_methods! (builder.rs:267) for udiv (builder.rs:526)
+  udiv(a: Value, b: Value): Value {
+    return llvm.LLVMBuildUDiv(this.llbuilder, a, b, UNNAMED);
+  }
+  // PORT: generated by math_builder_methods! (builder.rs:267) for exactudiv (builder.rs:527)
+  exactudiv(a: Value, b: Value): Value {
+    return llvm.LLVMBuildExactUDiv(this.llbuilder, a, b, UNNAMED);
+  }
+  // PORT: generated by math_builder_methods! (builder.rs:267) for sdiv (builder.rs:528)
+  sdiv(a: Value, b: Value): Value {
+    return llvm.LLVMBuildSDiv(this.llbuilder, a, b, UNNAMED);
+  }
+  // PORT: generated by math_builder_methods! (builder.rs:267) for exactsdiv (builder.rs:529)
+  exactsdiv(a: Value, b: Value): Value {
+    return llvm.LLVMBuildExactSDiv(this.llbuilder, a, b, UNNAMED);
+  }
+  // PORT: generated by math_builder_methods! (builder.rs:267) for fdiv (builder.rs:530)
+  fdiv(a: Value, b: Value): Value {
+    return llvm.LLVMBuildFDiv(this.llbuilder, a, b, UNNAMED);
+  }
+  // PORT: generated by math_builder_methods! (builder.rs:267) for urem (builder.rs:531)
+  urem(a: Value, b: Value): Value {
+    return llvm.LLVMBuildURem(this.llbuilder, a, b, UNNAMED);
+  }
+  // PORT: generated by math_builder_methods! (builder.rs:267) for srem (builder.rs:532)
+  srem(a: Value, b: Value): Value {
+    return llvm.LLVMBuildSRem(this.llbuilder, a, b, UNNAMED);
+  }
+  // PORT: generated by math_builder_methods! (builder.rs:267) for frem (builder.rs:533)
+  frem(a: Value, b: Value): Value {
+    return llvm.LLVMBuildFRem(this.llbuilder, a, b, UNNAMED);
+  }
+  // PORT: generated by math_builder_methods! (builder.rs:267) for shl (builder.rs:534)
+  shl(a: Value, b: Value): Value {
+    return llvm.LLVMBuildShl(this.llbuilder, a, b, UNNAMED);
+  }
+  // PORT: generated by math_builder_methods! (builder.rs:267) for lshr (builder.rs:535)
+  lshr(a: Value, b: Value): Value {
+    return llvm.LLVMBuildLShr(this.llbuilder, a, b, UNNAMED);
+  }
+  // PORT: generated by math_builder_methods! (builder.rs:267) for ashr (builder.rs:536)
+  ashr(a: Value, b: Value): Value {
+    return llvm.LLVMBuildAShr(this.llbuilder, a, b, UNNAMED);
+  }
+  // PORT: generated by math_builder_methods! (builder.rs:267) for and (builder.rs:537)
+  and(a: Value, b: Value): Value {
+    return llvm.LLVMBuildAnd(this.llbuilder, a, b, UNNAMED);
+  }
+  // PORT: generated by math_builder_methods! (builder.rs:267) for or (builder.rs:538)
+  or(a: Value, b: Value): Value {
+    return llvm.LLVMBuildOr(this.llbuilder, a, b, UNNAMED);
+  }
+  // PORT: generated by math_builder_methods! (builder.rs:267) for xor (builder.rs:539)
+  xor(a: Value, b: Value): Value {
+    return llvm.LLVMBuildXor(this.llbuilder, a, b, UNNAMED);
+  }
+  // PORT: generated by math_builder_methods! (builder.rs:267) for neg (builder.rs:540)
+  neg(x: Value): Value {
+    return llvm.LLVMBuildNeg(this.llbuilder, x, UNNAMED);
+  }
+  // PORT: generated by math_builder_methods! (builder.rs:267) for fneg (builder.rs:541)
+  fneg(x: Value): Value {
+    return llvm.LLVMBuildFNeg(this.llbuilder, x, UNNAMED);
+  }
+  // PORT: generated by math_builder_methods! (builder.rs:267) for not (builder.rs:542)
+  not(x: Value): Value {
+    return llvm.LLVMBuildNot(this.llbuilder, x, UNNAMED);
+  }
+  // PORT: generated by math_builder_methods! (builder.rs:267) for unchecked_sadd (builder.rs:543)
+  unchecked_sadd(x: Value, y: Value): Value {
+    return llvm.LLVMBuildNSWAdd(this.llbuilder, x, y, UNNAMED);
+  }
+  // PORT: generated by math_builder_methods! (builder.rs:267) for unchecked_uadd (builder.rs:544)
+  unchecked_uadd(x: Value, y: Value): Value {
+    return llvm.LLVMBuildNUWAdd(this.llbuilder, x, y, UNNAMED);
+  }
+  // PORT: generated by math_builder_methods! (builder.rs:267) for unchecked_ssub (builder.rs:545)
+  unchecked_ssub(x: Value, y: Value): Value {
+    return llvm.LLVMBuildNSWSub(this.llbuilder, x, y, UNNAMED);
+  }
+  // PORT: generated by math_builder_methods! (builder.rs:267) for unchecked_usub (builder.rs:546)
+  unchecked_usub(x: Value, y: Value): Value {
+    return llvm.LLVMBuildNUWSub(this.llbuilder, x, y, UNNAMED);
+  }
+  // PORT: generated by math_builder_methods! (builder.rs:267) for unchecked_smul (builder.rs:547)
+  unchecked_smul(x: Value, y: Value): Value {
+    return llvm.LLVMBuildNSWMul(this.llbuilder, x, y, UNNAMED);
+  }
+  // PORT: generated by math_builder_methods! (builder.rs:267) for unchecked_umul (builder.rs:548)
+  unchecked_umul(x: Value, y: Value): Value {
+    return llvm.LLVMBuildNUWMul(this.llbuilder, x, y, UNNAMED);
   }
 
-  // Stub (cg-contract): BuilderMethods::fadd
-  fadd(_lhs: Value, _rhs: Value): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs fadd");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:551 unchecked_suadd
+  unchecked_suadd(a: Value, b: Value): Value {
+    const add = llvm.LLVMBuildAdd(this.llbuilder, a, b, UNNAMED);
+    if (llvm.LLVMIsAInstruction(add) !== undefined) {
+      llvm.LLVMSetNUW(add, llvm.TRUE);
+      llvm.LLVMSetNSW(add, llvm.TRUE);
+    }
+    return add;
+  }
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:561 unchecked_susub
+  unchecked_susub(a: Value, b: Value): Value {
+    const sub = llvm.LLVMBuildSub(this.llbuilder, a, b, UNNAMED);
+    if (llvm.LLVMIsAInstruction(sub) !== undefined) {
+      llvm.LLVMSetNUW(sub, llvm.TRUE);
+      llvm.LLVMSetNSW(sub, llvm.TRUE);
+    }
+    return sub;
+  }
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:571 unchecked_sumul
+  unchecked_sumul(a: Value, b: Value): Value {
+    const mul = llvm.LLVMBuildMul(this.llbuilder, a, b, UNNAMED);
+    if (llvm.LLVMIsAInstruction(mul) !== undefined) {
+      llvm.LLVMSetNUW(mul, llvm.TRUE);
+      llvm.LLVMSetNSW(mul, llvm.TRUE);
+    }
+    return mul;
   }
 
-  // Stub (cg-contract): BuilderMethods::fadd_fast
-  fadd_fast(_lhs: Value, _rhs: Value): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs fadd_fast");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:582 or_disjoint
+  or_disjoint(a: Value, b: Value): Value {
+    const or = llvm.LLVMBuildOr(this.llbuilder, a, b, UNNAMED);
+
+    // If a and b are both values, then `or` is a value, rather than
+    // an instruction, so we need to check before setting the flag.
+    // (See also `LLVMBuildNUWNeg` which also needs a check.)
+    if (llvm.LLVMIsAInstruction(or) !== undefined) {
+      llvm.LLVMSetIsDisjoint(or, llvm.TRUE);
+    }
+    return or;
   }
 
-  // Stub (cg-contract): BuilderMethods::fadd_algebraic
-  fadd_algebraic(_lhs: Value, _rhs: Value): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs fadd_algebraic");
+  // ---- set_math_builder_methods! { .. } (builder.rs:596; header) ----
+  // PORT: generated by set_math_builder_methods! (builder.rs:277) for fadd_fast (builder.rs:597)
+  fadd_fast(x: Value, y: Value): Value {
+    const instr = llvm.LLVMBuildFAdd(this.llbuilder, x, y, UNNAMED);
+    llvm.LLVMRustSetFastMath(instr);
+    return instr;
+  }
+  // PORT: generated by set_math_builder_methods! (builder.rs:277) for fsub_fast (builder.rs:598)
+  fsub_fast(x: Value, y: Value): Value {
+    const instr = llvm.LLVMBuildFSub(this.llbuilder, x, y, UNNAMED);
+    llvm.LLVMRustSetFastMath(instr);
+    return instr;
+  }
+  // PORT: generated by set_math_builder_methods! (builder.rs:277) for fmul_fast (builder.rs:599)
+  fmul_fast(x: Value, y: Value): Value {
+    const instr = llvm.LLVMBuildFMul(this.llbuilder, x, y, UNNAMED);
+    llvm.LLVMRustSetFastMath(instr);
+    return instr;
+  }
+  // PORT: generated by set_math_builder_methods! (builder.rs:277) for fdiv_fast (builder.rs:600)
+  fdiv_fast(x: Value, y: Value): Value {
+    const instr = llvm.LLVMBuildFDiv(this.llbuilder, x, y, UNNAMED);
+    llvm.LLVMRustSetFastMath(instr);
+    return instr;
+  }
+  // PORT: generated by set_math_builder_methods! (builder.rs:277) for frem_fast (builder.rs:601)
+  frem_fast(x: Value, y: Value): Value {
+    const instr = llvm.LLVMBuildFRem(this.llbuilder, x, y, UNNAMED);
+    llvm.LLVMRustSetFastMath(instr);
+    return instr;
+  }
+  // PORT: generated by set_math_builder_methods! (builder.rs:277) for fadd_algebraic (builder.rs:602)
+  fadd_algebraic(x: Value, y: Value): Value {
+    const instr = llvm.LLVMBuildFAdd(this.llbuilder, x, y, UNNAMED);
+    llvm.LLVMRustSetAlgebraicMath(instr);
+    return instr;
+  }
+  // PORT: generated by set_math_builder_methods! (builder.rs:277) for fsub_algebraic (builder.rs:603)
+  fsub_algebraic(x: Value, y: Value): Value {
+    const instr = llvm.LLVMBuildFSub(this.llbuilder, x, y, UNNAMED);
+    llvm.LLVMRustSetAlgebraicMath(instr);
+    return instr;
+  }
+  // PORT: generated by set_math_builder_methods! (builder.rs:277) for fmul_algebraic (builder.rs:604)
+  fmul_algebraic(x: Value, y: Value): Value {
+    const instr = llvm.LLVMBuildFMul(this.llbuilder, x, y, UNNAMED);
+    llvm.LLVMRustSetAlgebraicMath(instr);
+    return instr;
+  }
+  // PORT: generated by set_math_builder_methods! (builder.rs:277) for fdiv_algebraic (builder.rs:605)
+  fdiv_algebraic(x: Value, y: Value): Value {
+    const instr = llvm.LLVMBuildFDiv(this.llbuilder, x, y, UNNAMED);
+    llvm.LLVMRustSetAlgebraicMath(instr);
+    return instr;
+  }
+  // PORT: generated by set_math_builder_methods! (builder.rs:277) for frem_algebraic (builder.rs:606)
+  frem_algebraic(x: Value, y: Value): Value {
+    const instr = llvm.LLVMBuildFRem(this.llbuilder, x, y, UNNAMED);
+    llvm.LLVMRustSetAlgebraicMath(instr);
+    return instr;
   }
 
-  // Stub (cg-contract): BuilderMethods::sub
-  sub(_lhs: Value, _rhs: Value): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs sub");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:609 checked_binop
+  checked_binop(oop: OverflowOp, ty: Ty, lhs: Value, rhs: Value): [Value, Value] {
+    const [size, signed] = ty.int_size_and_signed(this.tcx);
+    const width = size.bits();
+
+    if (!signed) {
+      switch (oop) {
+        case OverflowOp.Sub: {
+          // Emit sub and icmp instead of llvm.usub.with.overflow. LLVM considers these
+          // to be the canonical form. It will attempt to reform llvm.usub.with.overflow
+          // in the backend if profitable.
+          const sub = this.sub(lhs, rhs);
+          const cmp = this.icmp(IntPredicate.IntULT, lhs, rhs);
+          return [sub, cmp];
+        }
+        case OverflowOp.Add: {
+          // Like with sub above, using icmp is the preferred form. See
+          // <https://rust-lang.zulipchat.com/#narrow/channel/187780-t-compiler.2Fllvm/topic/.60uadd.2Ewith.2Eoverflow.60.20.28again.29/near/533041085>
+          const add = this.add(lhs, rhs);
+          const cmp = this.icmp(IntPredicate.IntULT, add, lhs);
+          return [add, cmp];
+        }
+        case OverflowOp.Mul:
+          break;
+      }
+    }
+
+    let oop_str: string;
+    switch (oop) {
+      case OverflowOp.Add:
+        oop_str = "add";
+        break;
+      case OverflowOp.Sub:
+        oop_str = "sub";
+        break;
+      case OverflowOp.Mul:
+        oop_str = "mul";
+        break;
+    }
+
+    const name = `llvm.${signed ? "s" : "u"}${oop_str}.with.overflow`;
+
+    const res = this.call_intrinsic(name, [this.type_ix(width)], [lhs, rhs]);
+    return [this.extract_value(res, 0), this.extract_value(res, 1)];
   }
 
-  // Stub (cg-contract): BuilderMethods::fsub
-  fsub(_lhs: Value, _rhs: Value): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs fsub");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:652 from_immediate
+  from_immediate(val: Value): Value {
+    if (this.cx().val_ty(val) === this.cx().type_i1()) {
+      return this.zext(val, this.cx().type_i8());
+    } else {
+      return val;
+    }
   }
 
-  // Stub (cg-contract): BuilderMethods::fsub_fast
-  fsub_fast(_lhs: Value, _rhs: Value): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs fsub_fast");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:660 to_immediate_scalar
+  to_immediate_scalar(val: Value, scalar: Scalar): Value {
+    if (Scalar.is_bool(scalar)) {
+      return this.unchecked_utrunc(val, this.cx().type_i1());
+    }
+    return val;
   }
 
-  // Stub (cg-contract): BuilderMethods::fsub_algebraic
-  fsub_algebraic(_lhs: Value, _rhs: Value): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs fsub_algebraic");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:667 alloca
+  alloca(size: Size, align: Align): Value {
+    const bx = Builder.with_cx(this.cx_);
+    bx.position_at_start(llvm.LLVMGetFirstBasicBlock(this.llfn()));
+    const ty = this.cx().type_array(this.cx().type_i8(), size.bytes_u64());
+    const alloca = llvm.LLVMBuildAlloca(bx.llbuilder, ty, UNNAMED);
+    llvm.LLVMSetAlignment(alloca, align.bytes());
+    // Cast to default addrspace if necessary
+    return llvm.LLVMBuildPointerCast(bx.llbuilder, alloca, this.cx().type_ptr(), UNNAMED);
   }
 
-  // Stub (cg-contract): BuilderMethods::mul
-  mul(_lhs: Value, _rhs: Value): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs mul");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:679 alloca_with_ty
+  alloca_with_ty(layout: TyAndLayout): Value {
+    const bx = Builder.with_cx(this.cx_);
+    bx.position_at_start(llvm.LLVMGetFirstBasicBlock(this.llfn()));
+    const scalable_vector_ty = layout.llvm_type(this.cx_);
+
+    const alloca = llvm.LLVMBuildAlloca(bx.llbuilder, scalable_vector_ty, UNNAMED);
+    llvm.LLVMSetAlignment(alloca, layout.align.abi.bytes());
+    return alloca;
   }
 
-  // Stub (cg-contract): BuilderMethods::fmul
-  fmul(_lhs: Value, _rhs: Value): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs fmul");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:691 load
+  load(ty: Type, ptr: Value, align_: Align): Value {
+    const load = llvm.LLVMBuildLoad2(this.llbuilder, ty, ptr, UNNAMED);
+    const align = Align_min(align_, this.cx().tcx.sess.target.max_reliable_alignment());
+    llvm.LLVMSetAlignment(load, align.bytes());
+    return load;
   }
 
-  // Stub (cg-contract): BuilderMethods::fmul_fast
-  fmul_fast(_lhs: Value, _rhs: Value): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs fmul_fast");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:700 volatile_load
+  volatile_load(ty: Type, ptr: Value, align: Align): Value {
+    const load = this.load_inherent(ty, ptr, align);
+    llvm.LLVMSetVolatile(load, llvm.TRUE);
+    return load;
   }
 
-  // Stub (cg-contract): BuilderMethods::fmul_algebraic
-  fmul_algebraic(_lhs: Value, _rhs: Value): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs fmul_algebraic");
-  }
-
-  // Stub (cg-contract): BuilderMethods::udiv
-  udiv(_lhs: Value, _rhs: Value): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs udiv");
-  }
-
-  // Stub (cg-contract): BuilderMethods::exactudiv
-  exactudiv(_lhs: Value, _rhs: Value): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs exactudiv");
-  }
-
-  // Stub (cg-contract): BuilderMethods::sdiv
-  sdiv(_lhs: Value, _rhs: Value): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs sdiv");
-  }
-
-  // Stub (cg-contract): BuilderMethods::exactsdiv
-  exactsdiv(_lhs: Value, _rhs: Value): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs exactsdiv");
-  }
-
-  // Stub (cg-contract): BuilderMethods::fdiv
-  fdiv(_lhs: Value, _rhs: Value): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs fdiv");
-  }
-
-  // Stub (cg-contract): BuilderMethods::fdiv_fast
-  fdiv_fast(_lhs: Value, _rhs: Value): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs fdiv_fast");
-  }
-
-  // Stub (cg-contract): BuilderMethods::fdiv_algebraic
-  fdiv_algebraic(_lhs: Value, _rhs: Value): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs fdiv_algebraic");
-  }
-
-  // Stub (cg-contract): BuilderMethods::urem
-  urem(_lhs: Value, _rhs: Value): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs urem");
-  }
-
-  // Stub (cg-contract): BuilderMethods::srem
-  srem(_lhs: Value, _rhs: Value): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs srem");
-  }
-
-  // Stub (cg-contract): BuilderMethods::frem
-  frem(_lhs: Value, _rhs: Value): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs frem");
-  }
-
-  // Stub (cg-contract): BuilderMethods::frem_fast
-  frem_fast(_lhs: Value, _rhs: Value): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs frem_fast");
-  }
-
-  // Stub (cg-contract): BuilderMethods::frem_algebraic
-  frem_algebraic(_lhs: Value, _rhs: Value): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs frem_algebraic");
-  }
-
-  // Stub (cg-contract): BuilderMethods::shl
-  shl(_lhs: Value, _rhs: Value): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs shl");
-  }
-
-  // Stub (cg-contract): BuilderMethods::lshr
-  lshr(_lhs: Value, _rhs: Value): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs lshr");
-  }
-
-  // Stub (cg-contract): BuilderMethods::ashr
-  ashr(_lhs: Value, _rhs: Value): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs ashr");
-  }
-
-  // Stub (cg-contract): BuilderMethods::unchecked_sadd
-  unchecked_sadd(_lhs: Value, _rhs: Value): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs unchecked_sadd");
-  }
-
-  // Stub (cg-contract): BuilderMethods::unchecked_uadd
-  unchecked_uadd(_lhs: Value, _rhs: Value): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs unchecked_uadd");
-  }
-
-  // Stub (cg-contract): BuilderMethods::unchecked_suadd
-  unchecked_suadd(_lhs: Value, _rhs: Value): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs unchecked_suadd");
-  }
-
-  // Stub (cg-contract): BuilderMethods::unchecked_ssub
-  unchecked_ssub(_lhs: Value, _rhs: Value): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs unchecked_ssub");
-  }
-
-  // Stub (cg-contract): BuilderMethods::unchecked_usub
-  unchecked_usub(_lhs: Value, _rhs: Value): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs unchecked_usub");
-  }
-
-  // Stub (cg-contract): BuilderMethods::unchecked_susub
-  unchecked_susub(_lhs: Value, _rhs: Value): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs unchecked_susub");
-  }
-
-  // Stub (cg-contract): BuilderMethods::unchecked_smul
-  unchecked_smul(_lhs: Value, _rhs: Value): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs unchecked_smul");
-  }
-
-  // Stub (cg-contract): BuilderMethods::unchecked_umul
-  unchecked_umul(_lhs: Value, _rhs: Value): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs unchecked_umul");
-  }
-
-  // Stub (cg-contract): BuilderMethods::unchecked_sumul
-  unchecked_sumul(_lhs: Value, _rhs: Value): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs unchecked_sumul");
-  }
-
-  // Stub (cg-contract): BuilderMethods::and
-  and(_lhs: Value, _rhs: Value): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs and");
-  }
-
-  // Stub (cg-contract): BuilderMethods::or
-  or(_lhs: Value, _rhs: Value): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs or");
-  }
-
-  // Stub (cg-contract): BuilderMethods::or_disjoint
-  or_disjoint(_lhs: Value, _rhs: Value): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs or_disjoint");
-  }
-
-  // Stub (cg-contract): BuilderMethods::xor
-  xor(_lhs: Value, _rhs: Value): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs xor");
-  }
-
-  // Stub (cg-contract): BuilderMethods::neg
-  neg(_v: Value): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs neg");
-  }
-
-  // Stub (cg-contract): BuilderMethods::fneg
-  fneg(_v: Value): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs fneg");
-  }
-
-  // Stub (cg-contract): BuilderMethods::not
-  not(_v: Value): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs not");
-  }
-
-  // Stub (cg-contract): BuilderMethods::checked_binop
-  checked_binop(_oop: OverflowOp, _ty: Ty, _lhs: Value, _rhs: Value): [Value, Value] {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs checked_binop");
-  }
-
-  // Stub (cg-contract): BuilderMethods::from_immediate
-  from_immediate(_val: Value): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs from_immediate");
-  }
-
-  // Stub (cg-contract): BuilderMethods::to_immediate_scalar
-  to_immediate_scalar(_val: Value, _scalar: Scalar): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs to_immediate_scalar");
-  }
-
-  // Stub (cg-contract): BuilderMethods::alloca
-  alloca(_size: Size, _align: Align): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs alloca");
-  }
-
-  // Stub (cg-contract): BuilderMethods::alloca_with_ty
-  alloca_with_ty(_layout: TyAndLayout): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs alloca_with_ty");
-  }
-
-  // Stub (cg-contract): BuilderMethods::load
-  load(_ty: Type, _ptr: Value, _align: Align): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs load");
-  }
-
-  // Stub (cg-contract): BuilderMethods::volatile_load
-  volatile_load(_ty: Type, _ptr: Value, _align: Align): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs volatile_load");
-  }
-
-  // Stub (cg-contract): BuilderMethods::atomic_load
-  atomic_load(_ty: Type, _ptr: Value, _order: AtomicOrdering, _volatile: boolean, _size: Size): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs atomic_load");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:708 atomic_load
+  atomic_load(ty: Type, ptr: Value, order: generic_AtomicOrdering, volatile: boolean, size: Size): Value {
+    const load = llvm.LLVMBuildLoad2(this.llbuilder, ty, ptr, UNNAMED);
+    // Set atomic ordering
+    llvm.LLVMSetOrdering(load, llvm.FromGeneric_for_AtomicOrdering.from_generic(order));
+    if (volatile) {
+      llvm.LLVMSetVolatile(load, llvm.TRUE);
+    }
+    // LLVM requires the alignment of atomic loads to be at least the size of the type.
+    llvm.LLVMSetAlignment(load, size.bytes() >>> 0);
+    return load;
   }
 
   // (provided) BuilderMethods::load_from_place -> BuilderMethods_provided.load_from_place
@@ -634,14 +1000,136 @@ export class Builder extends GenericBuilder<FullCx> implements BuilderMethods<Ll
     return BuilderMethods_provided.load_from_place(this, ty, place);
   }
 
-  // Stub (cg-contract): BuilderMethods::load_operand
-  load_operand(_place: PlaceRef<Value>): OperandRef<Value> {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs load_operand");
+  // #[instrument(level = "trace", skip(self))]
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:730 load_operand
+  load_operand(place: PlaceRef<Value>): OperandRef<Value> {
+    if (place.layout.is_unsized()) {
+      const tail = this.tcx.struct_tail_for_codegen(place.layout.ty, this.typing_env_());
+      if (tail.kind().$ === "Foreign") {
+        // Unsized locals and, at least conceptually, even unsized arguments must be copied
+        // around, which requires dynamically determining their size. Therefore, we cannot
+        // allow `extern` types here. Consult t-opsem before removing this check.
+        panic("unsized locals must not be `extern` types");
+      }
+    }
+    assert_eq(place.val.llextra !== undefined, place.layout.is_unsized(), String);
+
+    if (place.layout.is_zst()) {
+      return OperandRef.zero_sized(place.layout);
+    }
+
+    // #[instrument(level = "trace", skip(bx))]
+    // rustc: compiler/rustc_codegen_llvm/src/builder.rs:747 scalar_load_metadata
+    function scalar_load_metadata(bx: Builder, load: Value, scalar: Scalar, layout: TyAndLayout, offset: Size): void {
+      if (bx.cx_.sess().opts.optimize === "No") {
+        // Don't emit metadata we're not going to use
+        return;
+      }
+
+      if (!Scalar.is_uninit_valid(scalar)) {
+        bx.noundef_metadata(load);
+      }
+
+      const primitive = Scalar.primitive(scalar);
+      switch (primitive.$) {
+        case "Int": {
+          if (!Scalar.is_always_valid(scalar, bx)) {
+            bx.range_metadata(load, Scalar.valid_range(scalar, bx));
+          }
+          break;
+        }
+        case "Pointer": {
+          if (!Scalar.valid_range(scalar, bx).contains(0n)) {
+            bx.nonnull_metadata(load);
+          }
+
+          const pointee = layout.pointee_info_at(bx, offset);
+          if (pointee !== undefined && pointee.align.bytes() > Align.ONE.bytes()) {
+            bx.align_metadata(load, pointee.align);
+          }
+          break;
+        }
+        case "Float":
+          break;
+      }
+    }
+
+    let val: OperandValue<Value>;
+    if (place.val.llextra !== undefined) {
+      // FIXME: Merge with the `else` below?
+      val = { $: "Ref", _0: place.val };
+    } else if (BackendRepr.is_scalar_or_simd(place.layout.backend_repr)) {
+      let const_llval: Value | undefined = undefined;
+      const llty = place.layout.llvm_type(this.cx_);
+      const global = llvm.LLVMIsAGlobalVariable(place.val.llval);
+      if (global !== undefined) {
+        if (llvm.LLVMIsGlobalConstant(global).is_true()) {
+          const init = llvm.LLVMGetInitializer(global);
+          if (init !== undefined) {
+            if (this.val_ty(init) === llty) {
+              const_llval = init;
+            }
+          }
+        }
+      }
+
+      let llval: Value;
+      if (const_llval !== undefined) {
+        llval = const_llval;
+      } else {
+        const load = this.load_inherent(llty, place.val.llval, place.val.align);
+        const backend_repr = place.layout.backend_repr;
+        if (backend_repr.$ === "Scalar") {
+          const scalar = backend_repr._0;
+          scalar_load_metadata(this, load, scalar, place.layout, Size.ZERO);
+          llval = this.to_immediate_scalar(load, scalar);
+        } else {
+          llval = load;
+        }
+      }
+      val = { $: "Immediate", _0: llval };
+    } else if (place.layout.backend_repr.$ === "ScalarPair") {
+      const { a, b, b_offset } = place.layout.backend_repr;
+      const load = (i: number, scalar: Scalar, layout: TyAndLayout, align: Align, offset: Size): Value => {
+        let llptr: Value;
+        if (i === 0) {
+          llptr = place.val.llval;
+        } else {
+          llptr = this.inbounds_ptradd(place.val.llval, this.const_usize(b_offset.bytes_u64()));
+        }
+        const llty = place.layout.scalar_pair_element_llvm_type(this.cx_, i, false);
+        const load = this.load_inherent(llty, llptr, align);
+        scalar_load_metadata(this, load, scalar, layout, offset);
+        return this.to_immediate_scalar(load, scalar);
+      };
+
+      val = {
+        $: "Pair",
+        _0: load(0, a, place.layout, place.val.align, Size.ZERO),
+        _1: load(1, b, place.layout, place.val.align.restrict_for_offset(b_offset), b_offset),
+      };
+    } else {
+      val = { $: "Ref", _0: place.val };
+    }
+
+    return new OperandRef(val, place.layout, undefined);
   }
 
-  // Stub (cg-contract): BuilderMethods::write_operand_repeatedly
-  write_operand_repeatedly(_elem: OperandRef<Value>, _count: bigint, _dest: PlaceRef<Value>): void {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs write_operand_repeatedly");
+  /** `count: u64` (ssa-contract decision 6: `bigint`). */
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:834 write_operand_repeatedly
+  write_operand_repeatedly(cg_elem: OperandRef<Value>, count: bigint, dest: PlaceRef<Value>): void {
+    if (this.cx_.sess().opts.optimize === "No") {
+      // To let debuggers single-step over lines like
+      //
+      //     let foo = ["bar"; 42];
+      //
+      // we need the debugger-friendly LLVM IR that `_unoptimized()`
+      // provides. The `_optimized()` version generates trickier LLVM IR.
+      // See PR #148058 for a failed attempt at handling that.
+      this.write_operand_repeatedly_unoptimized(cg_elem, count, dest);
+    } else {
+      this.write_operand_repeatedly_optimized(cg_elem, count, dest);
+    }
   }
 
   // (provided) BuilderMethods::assume_integer_range -> BuilderMethods_provided.assume_integer_range
@@ -654,19 +1142,30 @@ export class Builder extends GenericBuilder<FullCx> implements BuilderMethods<Ll
     return BuilderMethods_provided.assume_nonnull(this, val);
   }
 
-  // Stub (cg-contract): BuilderMethods::range_metadata
-  range_metadata(_load: Value, _range: WrappingRange): void {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs range_metadata");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:854 range_metadata
+  range_metadata(load: Value, range: WrappingRange): void {
+    if (this.cx_.sess().opts.optimize === "No") {
+      // Don't emit metadata we're not going to use
+      return;
+    }
+
+    const llty = this.cx_.val_ty(load);
+    const md = [
+      llvm.LLVMValueAsMetadata(this.cx_.const_uint_big(llty, range.start)),
+      // `range.end.wrapping_add(1)` (u128)
+      llvm.LLVMValueAsMetadata(this.cx_.const_uint_big(llty, BigInt.asUintN(128, range.end + 1n))),
+    ];
+    this.set_metadata_node(load, llvm.MD_range, md);
   }
 
-  // Stub (cg-contract): BuilderMethods::nonnull_metadata
-  nonnull_metadata(_load: Value): void {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs nonnull_metadata");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:868 nonnull_metadata
+  nonnull_metadata(load: Value): void {
+    this.set_metadata_node(load, llvm.MD_nonnull, []);
   }
 
-  // Stub (cg-contract): BuilderMethods::store
-  store(_val: Value, _ptr: Value, _align: Align): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs store");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:872 store
+  store(val: Value, ptr: Value, align: Align): Value {
+    return this.store_with_flags(val, ptr, align, MemFlags.empty());
   }
 
   // (provided) BuilderMethods::store_to_place -> BuilderMethods_provided.store_to_place
@@ -674,9 +1173,50 @@ export class Builder extends GenericBuilder<FullCx> implements BuilderMethods<Ll
     return BuilderMethods_provided.store_to_place(this, val, place);
   }
 
-  // Stub (cg-contract): BuilderMethods::store_with_flags
-  store_with_flags(_val: Value, _ptr: Value, _align: Align, _flags: MemFlags): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs store_with_flags");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:876 store_with_flags
+  store_with_flags(val: Value, ptr: Value, align_: Align, flags: MemFlags): Value {
+    // debug!("Store {:?} -> {:?} ({:?})", val, ptr, flags);
+    assert_eq(this.cx_.type_kind(this.cx_.val_ty(ptr)), TypeKind.Pointer, (k) => debug_TypeKind(k, PLAIN));
+    const store = llvm.LLVMBuildStore(this.llbuilder, val, ptr);
+    const align0 = Align_min(align_, this.cx().tcx.sess.target.max_reliable_alignment());
+    const align = align0.bytes();
+    llvm.LLVMSetAlignment(store, align);
+    if (MemFlags.contains(flags, MemFlags.VOLATILE)) {
+      llvm.LLVMSetVolatile(store, llvm.TRUE);
+    }
+    if (MemFlags.contains(flags, MemFlags.NONTEMPORAL)) {
+      // Make sure that the current target architectures supports "sane" non-temporal
+      // stores, i.e., non-temporal stores that are equivalent to regular stores except
+      // for performance. LLVM doesn't seem to care about this, and will happily treat
+      // `!nontemporal` stores as-if they were normal stores (for reordering optimizations
+      // etc) even on x86, despite later lowering them to MOVNT which do *not* behave like
+      // regular stores but require special fences. So we keep a list of architectures
+      // where `!nontemporal` is known to be truly just a hint, and use regular stores
+      // everywhere else. (In the future, we could alternatively ensure that an sfence
+      // gets emitted after a sequence of movnt before any kind of synchronizing
+      // operation. But it's not clear how to do that with LLVM.)
+      // For more context, see <https://github.com/rust-lang/rust/issues/114582> and
+      // <https://github.com/llvm/llvm-project/issues/64521>.
+      const arch = this.cx_.tcx.sess.target.arch;
+      const use_nontemporal = arch.$ === "AArch64" || arch.$ === "Arm" || arch.$ === "RiscV32" || arch.$ === "RiscV64";
+      if (use_nontemporal) {
+        // According to LLVM [1] building a nontemporal store must
+        // *always* point to a metadata value of the integer 1.
+        //
+        // [1]: https://llvm.org/docs/LangRef.html#store-instruction
+        const one = llvm.LLVMValueAsMetadata(this.cx_.const_i32(1));
+        this.set_metadata_node(store, llvm.MD_nontemporal, [one]);
+      }
+    }
+    if (MemFlags.contains(flags, MemFlags.CAPTURES_READ_ONLY)) {
+      assert(this.type_kind(this.val_ty(val)) === TypeKind.Pointer, "CAPTURED_READ_ONLY is only supported on pointer stores");
+      const args = [this.cx_.create_metadata(utf8("address")), this.cx_.create_metadata(utf8("read_provenance"))];
+      // FIXME: Switch this to use MD_captures once LLVM 22 is the minimum.
+      const id = this.get_md_kind_id("captures");
+      const md = llvm.LLVMMDNodeInContext2(this.cx_.llcx(), args, args.length);
+      this.set_metadata(store, id, md);
+    }
+    return store;
   }
 
   // (provided) BuilderMethods::store_to_place_with_flags -> BuilderMethods_provided.store_to_place_with_flags
@@ -684,24 +1224,41 @@ export class Builder extends GenericBuilder<FullCx> implements BuilderMethods<Ll
     return BuilderMethods_provided.store_to_place_with_flags(this, val, place, flags);
   }
 
-  // Stub (cg-contract): BuilderMethods::atomic_store
-  atomic_store(_val: Value, _ptr: Value, _order: AtomicOrdering, _volatile: boolean, _size: Size): void {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs atomic_store");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:937 atomic_store
+  atomic_store(val: Value, ptr: Value, order: generic_AtomicOrdering, volatile: boolean, size: Size): void {
+    // debug!("Store {:?} -> {:?}", val, ptr);
+    assert_eq(this.cx_.type_kind(this.cx_.val_ty(ptr)), TypeKind.Pointer, (k) => debug_TypeKind(k, PLAIN));
+    const store = llvm.LLVMBuildStore(this.llbuilder, val, ptr);
+    // Set atomic ordering
+    llvm.LLVMSetOrdering(store, llvm.FromGeneric_for_AtomicOrdering.from_generic(order));
+    if (volatile) {
+      llvm.LLVMSetVolatile(store, llvm.TRUE);
+    }
+    // LLVM requires the alignment of atomic stores to be at least the size of the type.
+    llvm.LLVMSetAlignment(store, size.bytes() >>> 0);
   }
 
-  // Stub (cg-contract): BuilderMethods::gep
-  gep(_ty: Type, _ptr: Value, _indices: readonly Value[]): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs gep");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:959 gep
+  gep(ty: Type, ptr: Value, indices: readonly Value[]): Value {
+    return llvm.LLVMBuildGEPWithNoWrapFlags(this.llbuilder, ty, ptr, indices, indices.length >>> 0, UNNAMED, llvm.GEPNoWrapFlags.empty());
   }
 
-  // Stub (cg-contract): BuilderMethods::inbounds_gep
-  inbounds_gep(_ty: Type, _ptr: Value, _indices: readonly Value[]): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs inbounds_gep");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:973 inbounds_gep
+  inbounds_gep(ty: Type, ptr: Value, indices: readonly Value[]): Value {
+    return llvm.LLVMBuildGEPWithNoWrapFlags(this.llbuilder, ty, ptr, indices, indices.length >>> 0, UNNAMED, llvm.GEPNoWrapFlags.InBounds);
   }
 
-  // Stub (cg-contract): BuilderMethods::inbounds_nuw_gep
-  inbounds_nuw_gep(_ty: Type, _ptr: Value, _indices: readonly Value[]): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs inbounds_nuw_gep");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:992 inbounds_nuw_gep
+  inbounds_nuw_gep(ty: Type, ptr: Value, indices: readonly Value[]): Value {
+    return llvm.LLVMBuildGEPWithNoWrapFlags(
+      this.llbuilder,
+      ty,
+      ptr,
+      indices,
+      indices.length >>> 0,
+      UNNAMED,
+      llvm.GEPNoWrapFlags.union(llvm.GEPNoWrapFlags.InBounds, llvm.GEPNoWrapFlags.NUW),
+    );
   }
 
   // (provided) BuilderMethods::ptradd -> BuilderMethods_provided.ptradd
@@ -714,89 +1271,137 @@ export class Builder extends GenericBuilder<FullCx> implements BuilderMethods<Ll
     return BuilderMethods_provided.inbounds_ptradd(this, ptr, offset);
   }
 
-  // Stub (cg-contract): BuilderMethods::trunc
-  trunc(_val: Value, _dest_ty: Type): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs trunc");
+  /* Casts */
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1012 trunc
+  trunc(val: Value, dest_ty: Type): Value {
+    return llvm.LLVMBuildTrunc(this.llbuilder, val, dest_ty, UNNAMED);
   }
 
-  // Stub (cg-contract): BuilderMethods::unchecked_utrunc
-  unchecked_utrunc(_val: Value, _dest_ty: Type): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs unchecked_utrunc");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1016 unchecked_utrunc
+  unchecked_utrunc(val: Value, dest_ty: Type): Value {
+    // debug_assert_ne!(self.val_ty(val), dest_ty);
+
+    const trunc = this.trunc_inherent(val, dest_ty);
+    if (llvm.LLVMIsAInstruction(trunc) !== undefined) {
+      llvm.LLVMSetNUW(trunc, llvm.TRUE);
+    }
+    return trunc;
   }
 
-  // Stub (cg-contract): BuilderMethods::unchecked_strunc
-  unchecked_strunc(_val: Value, _dest_ty: Type): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs unchecked_strunc");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1028 unchecked_strunc
+  unchecked_strunc(val: Value, dest_ty: Type): Value {
+    // debug_assert_ne!(self.val_ty(val), dest_ty);
+
+    const trunc = this.trunc_inherent(val, dest_ty);
+    if (llvm.LLVMIsAInstruction(trunc) !== undefined) {
+      llvm.LLVMSetNSW(trunc, llvm.TRUE);
+    }
+    return trunc;
   }
 
-  // Stub (cg-contract): BuilderMethods::sext
-  sext(_val: Value, _dest_ty: Type): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs sext");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1040 sext
+  sext(val: Value, dest_ty: Type): Value {
+    return llvm.LLVMBuildSExt(this.llbuilder, val, dest_ty, UNNAMED);
   }
 
-  // Stub (cg-contract): BuilderMethods::fptoui_sat
-  fptoui_sat(_val: Value, _dest_ty: Type): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs fptoui_sat");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1044 fptoui_sat
+  fptoui_sat(val: Value, dest_ty: Type): Value {
+    return this.call_intrinsic("llvm.fptoui.sat", [dest_ty, this.val_ty(val)], [val]);
   }
 
-  // Stub (cg-contract): BuilderMethods::fptosi_sat
-  fptosi_sat(_val: Value, _dest_ty: Type): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs fptosi_sat");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1048 fptosi_sat
+  fptosi_sat(val: Value, dest_ty: Type): Value {
+    return this.call_intrinsic("llvm.fptosi.sat", [dest_ty, this.val_ty(val)], [val]);
   }
 
-  // Stub (cg-contract): BuilderMethods::fptoui
-  fptoui(_val: Value, _dest_ty: Type): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs fptoui");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1052 fptoui
+  fptoui(val: Value, dest_ty: Type): Value {
+    // On WebAssembly the `fptoui` and `fptosi` instructions currently have
+    // poor codegen. The reason for this is that the corresponding wasm
+    // instructions, `i32.trunc_f32_s` for example, will trap when the float
+    // is out-of-bounds, infinity, or nan. This means that LLVM
+    // automatically inserts control flow around `fptoui` and `fptosi`
+    // because the LLVM instruction `fptoui` is defined as producing a
+    // poison value, not having UB on out-of-bounds values.
+    //
+    // This method, however, is only used with non-saturating casts that
+    // have UB on out-of-bounds values. This means that it's ok if we use
+    // the raw wasm instruction since out-of-bounds values can do whatever
+    // we like. To ensure that LLVM picks the right instruction we choose
+    // the raw wasm intrinsic functions which avoid LLVM inserting all the
+    // other control flow automatically.
+    if (this.sess().target.is_like_wasm) {
+      const src_ty = this.cx_.val_ty(val);
+      if (this.cx_.type_kind(src_ty) !== TypeKind.Vector) {
+        const float_width = this.cx_.float_width(src_ty);
+        const int_width = this.cx_.int_width(dest_ty);
+        if ((int_width === 32 || int_width === 64) && (float_width === 32 || float_width === 64)) {
+          return this.call_intrinsic("llvm.wasm.trunc.unsigned", [dest_ty, src_ty], [val]);
+        }
+      }
+    }
+    return llvm.LLVMBuildFPToUI(this.llbuilder, val, dest_ty, UNNAMED);
   }
 
-  // Stub (cg-contract): BuilderMethods::fptosi
-  fptosi(_val: Value, _dest_ty: Type): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs fptosi");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1084 fptosi
+  fptosi(val: Value, dest_ty: Type): Value {
+    // see `fptoui` above for why wasm is different here
+    if (this.sess().target.is_like_wasm) {
+      const src_ty = this.cx_.val_ty(val);
+      if (this.cx_.type_kind(src_ty) !== TypeKind.Vector) {
+        const float_width = this.cx_.float_width(src_ty);
+        const int_width = this.cx_.int_width(dest_ty);
+        if ((int_width === 32 || int_width === 64) && (float_width === 32 || float_width === 64)) {
+          return this.call_intrinsic("llvm.wasm.trunc.signed", [dest_ty, src_ty], [val]);
+        }
+      }
+    }
+    return llvm.LLVMBuildFPToSI(this.llbuilder, val, dest_ty, UNNAMED);
   }
 
-  // Stub (cg-contract): BuilderMethods::uitofp
-  uitofp(_val: Value, _dest_ty: Type): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs uitofp");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1103 uitofp
+  uitofp(val: Value, dest_ty: Type): Value {
+    return llvm.LLVMBuildUIToFP(this.llbuilder, val, dest_ty, UNNAMED);
   }
 
-  // Stub (cg-contract): BuilderMethods::sitofp
-  sitofp(_val: Value, _dest_ty: Type): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs sitofp");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1107 sitofp
+  sitofp(val: Value, dest_ty: Type): Value {
+    return llvm.LLVMBuildSIToFP(this.llbuilder, val, dest_ty, UNNAMED);
   }
 
-  // Stub (cg-contract): BuilderMethods::fptrunc
-  fptrunc(_val: Value, _dest_ty: Type): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs fptrunc");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1111 fptrunc
+  fptrunc(val: Value, dest_ty: Type): Value {
+    return llvm.LLVMBuildFPTrunc(this.llbuilder, val, dest_ty, UNNAMED);
   }
 
-  // Stub (cg-contract): BuilderMethods::fpext
-  fpext(_val: Value, _dest_ty: Type): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs fpext");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1115 fpext
+  fpext(val: Value, dest_ty: Type): Value {
+    return llvm.LLVMBuildFPExt(this.llbuilder, val, dest_ty, UNNAMED);
   }
 
-  // Stub (cg-contract): BuilderMethods::ptrtoint
-  ptrtoint(_val: Value, _dest_ty: Type): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs ptrtoint");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1119 ptrtoint
+  ptrtoint(val: Value, dest_ty: Type): Value {
+    return llvm.LLVMBuildPtrToInt(this.llbuilder, val, dest_ty, UNNAMED);
   }
 
-  // Stub (cg-contract): BuilderMethods::inttoptr
-  inttoptr(_val: Value, _dest_ty: Type): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs inttoptr");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1123 inttoptr
+  inttoptr(val: Value, dest_ty: Type): Value {
+    return llvm.LLVMBuildIntToPtr(this.llbuilder, val, dest_ty, UNNAMED);
   }
 
-  // Stub (cg-contract): BuilderMethods::bitcast
-  bitcast(_val: Value, _dest_ty: Type): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs bitcast");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1127 bitcast
+  bitcast(val: Value, dest_ty: Type): Value {
+    return llvm.LLVMBuildBitCast(this.llbuilder, val, dest_ty, UNNAMED);
   }
 
-  // Stub (cg-contract): BuilderMethods::intcast
-  intcast(_val: Value, _dest_ty: Type, _is_signed: boolean): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs intcast");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1131 intcast
+  intcast(val: Value, dest_ty: Type, is_signed: boolean): Value {
+    return llvm.LLVMBuildIntCast2(this.llbuilder, val, dest_ty, llvm.to_llvm_bool(is_signed), UNNAMED);
   }
 
-  // Stub (cg-contract): BuilderMethods::pointercast
-  pointercast(_val: Value, _dest_ty: Type): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs pointercast");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1137 pointercast
+  pointercast(val: Value, dest_ty: Type): Value {
+    return llvm.LLVMBuildPointerCast(this.llbuilder, val, dest_ty, UNNAMED);
   }
 
   // (provided) BuilderMethods::cast_float_to_int -> BuilderMethods_provided.cast_float_to_int
@@ -804,39 +1409,64 @@ export class Builder extends GenericBuilder<FullCx> implements BuilderMethods<Ll
     return BuilderMethods_provided.cast_float_to_int(this, signed, x, dest_ty);
   }
 
-  // Stub (cg-contract): BuilderMethods::icmp
-  icmp(_op: IntPredicate, _lhs: Value, _rhs: Value): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs icmp");
+  /* Comparisons */
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1142 icmp
+  icmp(op_: IntPredicate, lhs: Value, rhs: Value): Value {
+    const op = llvm.FromGeneric_for_IntPredicate.from_generic(op_);
+    return llvm.LLVMBuildICmp(this.llbuilder, llvm.IntPredicate_discriminant[op], lhs, rhs, UNNAMED);
   }
 
-  // Stub (cg-contract): BuilderMethods::fcmp
-  fcmp(_op: RealPredicate, _lhs: Value, _rhs: Value): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs fcmp");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1147 fcmp
+  fcmp(op_: RealPredicate, lhs: Value, rhs: Value): Value {
+    const op = llvm.FromGeneric_for_RealPredicate.from_generic(op_);
+    return llvm.LLVMBuildFCmp(this.llbuilder, llvm.RealPredicate_discriminant[op], lhs, rhs, UNNAMED);
   }
 
-  // Stub (cg-contract): BuilderMethods::three_way_compare
-  three_way_compare(_ty: Ty, _lhs: Value, _rhs: Value): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs three_way_compare");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1152 three_way_compare
+  three_way_compare(ty: Ty, lhs: Value, rhs: Value): Value {
+    const size = ty.primitive_size(this.tcx);
+    const name = ty.is_signed() ? "llvm.scmp" : "llvm.ucmp";
+
+    return this.call_intrinsic(name, [this.type_i8(), this.type_ix(size.bits())], [lhs, rhs]);
   }
 
-  // Stub (cg-contract): BuilderMethods::memcpy
-  memcpy(_dst: Value, _dst_align: Align, _src: Value, _src_align: Align, _size: Value, _flags: MemFlags, _tt: FncTree | undefined): void {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs memcpy");
+  /* Miscellaneous instructions */
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1165 memcpy
+  memcpy(dst: Value, dst_align: Align, src: Value, src_align: Align, size_: Value, flags: MemFlags, tt: FncTree | undefined): void {
+    assert(!MemFlags.contains(flags, MemFlags.NONTEMPORAL), "non-temporal memcpy not supported");
+    const size = this.intcast(size_, this.type_isize(), false);
+    const is_volatile = MemFlags.contains(flags, MemFlags.VOLATILE);
+    const memcpy = llvm.LLVMRustBuildMemCpy(this.llbuilder, dst, dst_align.bytes(), src, src_align.bytes(), size, is_volatile);
+
+    // TypeTree metadata for memcpy is especially important: when Enzyme encounters
+    // a memcpy during autodiff, it needs to know the structure of the data being
+    // copied to properly track derivatives. For example, copying an array of floats
+    // vs. copying a struct with mixed types requires different derivative handling.
+    // The TypeTree tells Enzyme exactly what memory layout to expect.
+    if (tt !== undefined) {
+      // `self` deref-coerces to `&FullCx` (Builder -> CodegenCx -> FullCx).
+      add_tt(this.cx_._0, memcpy, tt);
+    }
   }
 
-  // Stub (cg-contract): BuilderMethods::memmove
-  memmove(_dst: Value, _dst_align: Align, _src: Value, _src_align: Align, _size: Value, _flags: MemFlags): void {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs memmove");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1200 memmove
+  memmove(dst: Value, dst_align: Align, src: Value, src_align: Align, size_: Value, flags: MemFlags): void {
+    assert(!MemFlags.contains(flags, MemFlags.NONTEMPORAL), "non-temporal memmove not supported");
+    const size = this.intcast(size_, this.type_isize(), false);
+    const is_volatile = MemFlags.contains(flags, MemFlags.VOLATILE);
+    llvm.LLVMRustBuildMemMove(this.llbuilder, dst, dst_align.bytes(), src, src_align.bytes(), size, is_volatile);
   }
 
-  // Stub (cg-contract): BuilderMethods::memset
-  memset(_ptr: Value, _fill_byte: Value, _size: Value, _align: Align, _flags: MemFlags): void {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs memset");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1225 memset
+  memset(ptr: Value, fill_byte: Value, size: Value, align: Align, flags: MemFlags): void {
+    assert(!MemFlags.contains(flags, MemFlags.NONTEMPORAL), "non-temporal memset not supported");
+    const is_volatile = MemFlags.contains(flags, MemFlags.VOLATILE);
+    llvm.LLVMRustBuildMemSet(this.llbuilder, ptr, align.bytes(), fill_byte, size, is_volatile);
   }
 
-  // Stub (cg-contract): BuilderMethods::vscale
-  vscale(_ty: Type): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs vscale");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1247 vscale
+  vscale(ty: Type): Value {
+    return llvm.LLVMRustBuildVScale(this.llbuilder, ty);
   }
 
   // (provided) BuilderMethods::typed_place_copy -> BuilderMethods_provided.typed_place_copy
@@ -854,164 +1484,811 @@ export class Builder extends GenericBuilder<FullCx> implements BuilderMethods<Ll
     return BuilderMethods_provided.typed_place_swap(this, left, right, layout);
   }
 
-  // Stub (cg-contract): BuilderMethods::select
-  select(_cond: Value, _then_val: Value, _else_val: Value): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs select");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1251 select
+  select(cond: Value, then_val: Value, else_val: Value): Value {
+    return llvm.LLVMBuildSelect(this.llbuilder, cond, then_val, else_val, UNNAMED);
   }
 
-  // Stub (cg-contract): BuilderMethods::va_arg
-  va_arg(_list: Value, _ty: Type): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs va_arg");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1260 va_arg
+  va_arg(list: Value, ty: Type): Value {
+    return llvm.LLVMBuildVAArg(this.llbuilder, list, ty, UNNAMED);
   }
 
-  // Stub (cg-contract): BuilderMethods::extract_element
-  extract_element(_vec: Value, _idx: Value): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs extract_element");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1264 extract_element
+  extract_element(vec: Value, idx: Value): Value {
+    return llvm.LLVMBuildExtractElement(this.llbuilder, vec, idx, UNNAMED);
   }
 
-  // Stub (cg-contract): BuilderMethods::vector_splat
-  vector_splat(_num_elts: number, _elt: Value): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs vector_splat");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1268 vector_splat
+  vector_splat(num_elts: number, elt: Value): Value {
+    const elt_ty = this.cx_.val_ty(elt);
+    const undef = llvm.LLVMGetUndef(this.type_vector(elt_ty, num_elts));
+    const vec = this.insert_element(undef, elt, this.cx_.const_i32(0));
+    const vec_i32_ty = this.type_vector(this.type_i32(), num_elts);
+    return this.shuffle_vector(vec, undef, this.const_null_inherent(vec_i32_ty));
   }
 
-  // Stub (cg-contract): BuilderMethods::extract_value
-  extract_value(_agg_val: Value, _idx: number): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs extract_value");
+  /** `idx: u64` (ssa-contract decision 6: `number`). */
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1278 extract_value
+  extract_value(agg_val: Value, idx: number): Value {
+    assert_eq(idx >>> 0, idx, String);
+    return llvm.LLVMBuildExtractValue(this.llbuilder, agg_val, idx >>> 0, UNNAMED);
   }
 
-  // Stub (cg-contract): BuilderMethods::insert_value
-  insert_value(_agg_val: Value, _elt: Value, _idx: number): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs insert_value");
+  /** `idx: u64` (ssa-contract decision 6: `number`). */
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1283 insert_value
+  insert_value(agg_val: Value, elt: Value, idx: number): Value {
+    assert_eq(idx >>> 0, idx, String);
+    return llvm.LLVMBuildInsertValue(this.llbuilder, agg_val, elt, idx >>> 0, UNNAMED);
   }
 
-  // Stub (cg-contract): BuilderMethods::set_personality_fn
-  set_personality_fn(_personality: Value): void {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs set_personality_fn");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1288 set_personality_fn
+  set_personality_fn(personality: Value): void {
+    llvm.LLVMSetPersonalityFn(this.llfn(), personality);
   }
 
-  // Stub (cg-contract): BuilderMethods::cleanup_landing_pad
-  cleanup_landing_pad(_pers_fn: Value): [Value, Value] {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs cleanup_landing_pad");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1294 cleanup_landing_pad
+  cleanup_landing_pad(pers_fn: Value): [Value, Value] {
+    const ty = this.type_struct([this.type_ptr(), this.type_i32()], false);
+    const landing_pad = this.landing_pad(ty, pers_fn, 0);
+    llvm.LLVMSetCleanup(landing_pad, llvm.TRUE);
+    return [this.extract_value(landing_pad, 0), this.extract_value(landing_pad, 1)];
   }
 
-  // Stub (cg-contract): BuilderMethods::filter_landing_pad
-  filter_landing_pad(_pers_fn: Value): void {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs filter_landing_pad");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1303 filter_landing_pad
+  filter_landing_pad(pers_fn: Value): void {
+    const ty = this.type_struct([this.type_ptr(), this.type_i32()], false);
+    const landing_pad = this.landing_pad(ty, pers_fn, 1);
+    this.add_clause(landing_pad, this.const_array(this.type_ptr(), []));
   }
 
-  // Stub (cg-contract): BuilderMethods::resume
-  resume(_exn0: Value, _exn1: Value): void {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs resume");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1309 resume
+  resume(exn0: Value, exn1: Value): void {
+    const ty = this.type_struct([this.type_ptr(), this.type_i32()], false);
+    let exn = this.const_poison(ty);
+    exn = this.insert_value(exn, exn0, 0);
+    exn = this.insert_value(exn, exn1, 1);
+    llvm.LLVMBuildResume(this.llbuilder, exn);
   }
 
-  // Stub (cg-contract): BuilderMethods::cleanup_pad
-  cleanup_pad(_parent: Value | undefined, _args: readonly Value[]): Funclet {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs cleanup_pad");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1319 cleanup_pad
+  cleanup_pad(parent: Value | undefined, args: readonly Value[]): Funclet {
+    const ret = llvm.LLVMBuildCleanupPad(this.llbuilder, parent, args, args.length >>> 0, "cleanuppad");
+    return Funclet.new(unwrap(ret, "LLVM does not have support for cleanuppad"));
   }
 
-  // Stub (cg-contract): BuilderMethods::cleanup_ret
-  cleanup_ret(_funclet: Funclet, _unwind: BasicBlock | undefined): void {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs cleanup_ret");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1332 cleanup_ret
+  cleanup_ret(funclet: Funclet, unwind: BasicBlock | undefined): void {
+    unwrap(llvm.LLVMBuildCleanupRet(this.llbuilder, funclet.cleanuppad(), unwind), "LLVM does not have support for cleanupret");
   }
 
-  // Stub (cg-contract): BuilderMethods::catch_pad
-  catch_pad(_parent: Value, _args: readonly Value[]): Funclet {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs catch_pad");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1339 catch_pad
+  catch_pad(parent: Value, args: readonly Value[]): Funclet {
+    const ret = llvm.LLVMBuildCatchPad(this.llbuilder, parent, args, args.length >>> 0, "catchpad");
+    return Funclet.new(unwrap(ret, "LLVM does not have support for catchpad"));
   }
 
-  // Stub (cg-contract): BuilderMethods::catch_switch
-  catch_switch(_parent: Value | undefined, _unwind: BasicBlock | undefined, _handlers: readonly BasicBlock[]): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs catch_switch");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1352 catch_switch
+  catch_switch(parent: Value | undefined, unwind: BasicBlock | undefined, handlers: readonly BasicBlock[]): Value {
+    const ret0 = llvm.LLVMBuildCatchSwitch(this.llbuilder, parent, unwind, handlers.length >>> 0, "catchswitch");
+    const ret = unwrap(ret0, "LLVM does not have support for catchswitch");
+    for (const handler of handlers) {
+      llvm.LLVMAddHandler(ret, handler);
+    }
+    return ret;
   }
 
-  // Stub (cg-contract): BuilderMethods::get_funclet_cleanuppad
-  get_funclet_cleanuppad(_funclet: Funclet): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs get_funclet_cleanuppad");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1376 get_funclet_cleanuppad
+  get_funclet_cleanuppad(funclet: Funclet): Value {
+    return funclet.cleanuppad();
   }
 
-  // Stub (cg-contract): BuilderMethods::atomic_cmpxchg
-  atomic_cmpxchg(_dst: Value, _cmp: Value, _src: Value, _order: AtomicOrdering, _failure_order: AtomicOrdering, _weak: boolean): [Value, Value] {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs atomic_cmpxchg");
+  // Atomic Operations
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1381 atomic_cmpxchg
+  atomic_cmpxchg(dst: Value, cmp: Value, src: Value, order: generic_AtomicOrdering, failure_order: generic_AtomicOrdering, weak: boolean): [Value, Value] {
+    const value = llvm.LLVMBuildAtomicCmpXchg(
+      this.llbuilder,
+      dst,
+      cmp,
+      src,
+      llvm.FromGeneric_for_AtomicOrdering.from_generic(order),
+      llvm.FromGeneric_for_AtomicOrdering.from_generic(failure_order),
+      llvm.FALSE, // SingleThreaded
+    );
+    llvm.LLVMSetWeak(value, llvm.to_llvm_bool(weak));
+    const val = this.extract_value(value, 0);
+    const success = this.extract_value(value, 1);
+    return [val, success];
   }
 
-  // Stub (cg-contract): BuilderMethods::atomic_rmw
-  atomic_rmw(_op: AtomicRmwBinOp, _dst: Value, _src: Value, _order: AtomicOrdering, _ret_ptr: boolean): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs atomic_rmw");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1407 atomic_rmw
+  atomic_rmw(op: generic_AtomicRmwBinOp, dst: Value, src: Value, order: generic_AtomicOrdering, ret_ptr: boolean): Value {
+    // FIXME: If `ret_ptr` is true and `src` is not a pointer, we *should* tell LLVM that the
+    // LHS is a pointer and the operation should be provenance-preserving, but LLVM does not
+    // currently support that (https://github.com/llvm/llvm-project/issues/120837).
+    let res = llvm.LLVMBuildAtomicRMW(
+      this.llbuilder,
+      llvm.FromGeneric_for_AtomicRmwBinOp.from_generic(op),
+      dst,
+      src,
+      llvm.FromGeneric_for_AtomicOrdering.from_generic(order),
+      llvm.FALSE, // SingleThreaded
+    );
+    if (ret_ptr && this.val_ty(res) !== this.type_ptr()) {
+      res = this.inttoptr(res, this.type_ptr());
+    }
+    return res;
   }
 
-  // Stub (cg-contract): BuilderMethods::atomic_fence
-  atomic_fence(_order: AtomicOrdering, _scope: SynchronizationScope): void {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs atomic_fence");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1434 atomic_fence
+  atomic_fence(order: generic_AtomicOrdering, scope: SynchronizationScope): void {
+    let single_threaded: boolean;
+    switch (scope) {
+      case SynchronizationScope.SingleThread:
+        single_threaded = true;
+        break;
+      case SynchronizationScope.CrossThread:
+        single_threaded = false;
+        break;
+    }
+    llvm.LLVMBuildFence(this.llbuilder, llvm.FromGeneric_for_AtomicOrdering.from_generic(order), llvm.to_llvm_bool(single_threaded), UNNAMED);
   }
 
-  // Stub (cg-contract): BuilderMethods::set_invariant_load
-  set_invariant_load(_load: Value): void {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs set_invariant_load");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1453 set_invariant_load
+  set_invariant_load(load: Value): void {
+    this.set_metadata_node(load, llvm.MD_invariant_load, []);
   }
 
-  // Stub (cg-contract): BuilderMethods::lifetime_start
-  lifetime_start(_ptr: Value, _size: Size): void {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs lifetime_start");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1457 lifetime_start
+  lifetime_start(ptr: Value, size: Size): void {
+    this.call_lifetime_intrinsic("llvm.lifetime.start", ptr, size);
   }
 
-  // Stub (cg-contract): BuilderMethods::lifetime_end
-  lifetime_end(_ptr: Value, _size: Size): void {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs lifetime_end");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1461 lifetime_end
+  lifetime_end(ptr: Value, size: Size): void {
+    this.call_lifetime_intrinsic("llvm.lifetime.end", ptr, size);
   }
 
-  // Stub (cg-contract): BuilderMethods::call
-  call(_llty: Type, _caller_attrs: CodegenFnAttrs | undefined, _fn_abi: FnAbi<Ty> | undefined, _fn_val: Value, _return_slot: ReturnSlot<Value>, _args: readonly Value[], _funclet: Funclet | undefined, _callee_instance: Instance | undefined): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs call");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1465 call
+  call(
+    llty: Type,
+    caller_attrs: CodegenFnAttrs | undefined,
+    fn_abi: FnAbi<Ty> | undefined,
+    llfn: Value,
+    return_slot: ReturnSlot<Value>,
+    args_: readonly Value[],
+    funclet: Funclet | undefined,
+    callee_instance: Instance | undefined,
+  ): Value {
+    // If this function returns indirectly (`PassMode::Indirect`),
+    // the `return_slot` should be the first argument.
+    let args0: Value[];
+    switch (return_slot.$) {
+      case "Direct":
+        args0 = args_.slice();
+        break;
+      case "Indirect": {
+        const sret_ptr = return_slot._0;
+        const args = args_.slice();
+        args.splice(0, 0, sret_ptr);
+        args0 = args;
+        break;
+      }
+    }
+    // debug!("call {:?} with args ({:?})", llfn, args);
+    const args = this.check_call("call", llty, llfn, args0);
+    const funclet_bundle = funclet === undefined ? undefined : funclet.bundle();
+    const bundles: llvm.OperandBundle[] = [];
+    if (funclet_bundle !== undefined) {
+      bundles.push(funclet_bundle);
+    }
+
+    // Emit CFI pointer type membership test
+    this.cfi_type_test(caller_attrs, fn_abi, callee_instance, llfn);
+
+    // Emit KCFI operand bundle
+    const kcfi_bundle = this.kcfi_operand_bundle(caller_attrs, fn_abi, callee_instance, llfn);
+    if (kcfi_bundle !== undefined) {
+      bundles.push(kcfi_bundle.as_ref());
+    }
+
+    const pauth = this.ptrauth_operand_bundle(llfn, fn_abi);
+    if (pauth !== undefined) {
+      bundles.push(pauth.as_ref());
+    }
+
+    const call = llvm.LLVMBuildCallWithOperandBundles(this.llbuilder, llty, llfn, args, args.length >>> 0, bundles, bundles.length >>> 0, "");
+
+    if (fn_abi !== undefined) {
+      fn_abi.apply_attrs_callsite(this, call);
+    }
+    return call;
   }
 
-  // Stub (cg-contract): BuilderMethods::tail_call
-  tail_call(_llty: Type, _caller_attrs: CodegenFnAttrs | undefined, _fn_abi: FnAbi<Ty>, _llfn: Value, _return_slot: ReturnSlot<Value>, _args: readonly Value[], _funclet: Funclet | undefined, _callee_instance: Instance | undefined): void {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs tail_call");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1527 tail_call
+  tail_call(
+    llty: Type,
+    caller_attrs: CodegenFnAttrs | undefined,
+    fn_abi: FnAbi<Ty>,
+    llfn: Value,
+    return_slot: ReturnSlot<Value>,
+    args: readonly Value[],
+    funclet: Funclet | undefined,
+    callee_instance: Instance | undefined,
+  ): void {
+    const call = this.call(llty, caller_attrs, fn_abi, llfn, return_slot, args, funclet, callee_instance);
+    llvm.LLVMSetTailCallKind(call, llvm.TailCallKind.MustTail);
+
+    const mode = fn_abi.ret.mode;
+    switch (mode.$) {
+      case "Ignore":
+      case "Indirect":
+        this.ret_void_inherent();
+        break;
+      case "Direct":
+      case "Pair":
+      case "Cast":
+        this.ret_inherent(call);
+        break;
+      case "IndirectUnsized":
+        bug("unsized returns are not supported");
+    }
   }
 
-  // Stub (cg-contract): BuilderMethods::zext
-  zext(_val: Value, _dest_ty: Type): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs zext");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1557 zext
+  zext(val: Value, dest_ty: Type): Value {
+    return llvm.LLVMBuildZExt(this.llbuilder, val, dest_ty, UNNAMED);
   }
 
-  // Stub (cg-contract): BuilderMethods::apply_attrs_to_cleanup_callsite
-  apply_attrs_to_cleanup_callsite(_llret: Value): void {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs apply_attrs_to_cleanup_callsite");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1561 apply_attrs_to_cleanup_callsite
+  apply_attrs_to_cleanup_callsite(llret: Value): void {
+    // Cleanup is always the cold path.
+    const cold_inline = llvm.AttributeKind_impl.create_attr(llvm.AttributeKind.Cold, this.llcx());
+    attributes.apply_to_callsite(llret, llvm.AttributePlace.Function, [cold_inline]);
   }
 
-  // ---- impl StaticBuilderMethods for Builder (builder.rs:1568) ----
-  // Stub (cg-contract): StaticBuilderMethods::get_static
-  get_static(_def_id: DefId): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs get_static");
+  // ---- impl<'ll> StaticBuilderMethods for Builder<'_, 'll, '_> (builder.rs:1568) ----
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1569 get_static
+  get_static(def_id: DefId): Value {
+    // Forward to the `get_static` method of `CodegenCx`
+    const global = this.cx().get_static(def_id);
+    if (this.cx().tcx.is_thread_local_static(def_id)) {
+      const pointer = this.call_intrinsic("llvm.threadlocal.address", [this.val_ty(global)], [global]);
+      // Cast to default address space if globals are in a different addrspace
+      return this.pointercast(pointer, this.type_ptr());
+    } else {
+      // Cast to default address space if globals are in a different addrspace
+      return this.cx().const_pointercast(global, this.type_ptr());
+    }
   }
 
-  // ---- impl Builder (builder.rs:1584, :1642, :1880, :1929): Cross-lane surface (cg-contract, review F2) ----
+  // ---- impl<'a, 'll, 'tcx> Builder<'a, 'll, 'tcx> (builder.rs:1584) ----
   // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1585 llfn
   llfn(): Value {
-      return llvm.LLVMGetBasicBlockParent(this.llbb());
+    return llvm.LLVMGetBasicBlockParent(this.llbb());
   }
 
-  // Stub (cg-contract): set_unpredictable (builder.rs:1652)
-  set_unpredictable(_inst: Value): void {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs set_unpredictable");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1589 generate_ubsan_cfi_diag_data
+  generate_ubsan_cfi_diag_data(span: Span, expected_ty: string, check_kind: number): Value {
+    const cx = this.cx();
+    const tcx = cx.tcx;
+
+    const loc = tcx.sess.source_map().lookup_char_pos(Span.lo(span));
+
+    const filename_str = `${FileName.prefer_local_unconditionally(loc.file.name).to_string()}\0`;
+    const filename_val = cx.const_bytes(utf8(filename_str));
+    const filename_ptr = cx.static_addr_of_impl(filename_val, Align.ONE, undefined);
+
+    // SourceLocation UBSan struct: { const char *filename, uint32_t line, uint32_t column }
+    const source_location = cx.const_struct_inherent(
+      [
+        filename_ptr,
+        cx.const_u32(loc.line >>> 0),
+        // UBSan columns are 1-based
+        cx.const_u32(((loc.col >>> 0) + 1) >>> 0),
+      ],
+      false, // packed = false
+    );
+
+    const ty_name = `${expected_ty}\0`;
+    const ty_name_val = cx.const_bytes(utf8(ty_name));
+
+    // TypeDescriptor UBSan struct: { uint16_t TypeKind, uint16_t TypeInfo, const char *TypeName }
+    // `0xffffu16 as i16` is -1.
+    const type_descriptor = cx.const_struct_inherent([cx.const_i16((0xffff << 16) >> 16), cx.const_i16(0), ty_name_val], false);
+
+    const type_descriptor_ptr = cx.static_addr_of_impl(type_descriptor, unwrap_result(Align.from_bytes(2), debug_AlignFromBytesError), undefined);
+
+    // CFICheckFailData UBSan struct: { uint8_t CheckKind, SourceLocation Loc, TypeDescriptor *Type }
+    const cfi_check_fail_data = cx.const_struct_inherent([cx.const_u8(check_kind), source_location, type_descriptor_ptr], false);
+    const align = tcx.data_layout().aggregate_align;
+
+    // Returns the final opaque pointer to the struct to be passed to __ubsan_handle_cfi_check_fail
+    return cx.static_addr_of_mut(cfi_check_fail_data, align, "__ubsan_cfi_check_fail_data");
   }
 
-  // Stub (cg-contract): shuffle_vector (builder.rs:1749)
-  shuffle_vector(_v1: Value, _v2: Value, _mask: Value): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs shuffle_vector");
+  // ---- impl<'a, 'll, 'tcx> Builder<'a, 'll, 'tcx> (builder.rs:1642) ----
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1643 align_metadata
+  align_metadata(load: Value, align: Align): void {
+    const md = [llvm.LLVMValueAsMetadata(this.cx_.const_u64(BigInt(align.bytes())))];
+    this.set_metadata_node(load, llvm.MD_align, md);
   }
 
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1648 noundef_metadata
+  noundef_metadata(load: Value): void {
+    this.set_metadata_node(load, llvm.MD_noundef, []);
+  }
+
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1652 set_unpredictable
+  set_unpredictable(inst: Value): void {
+    this.set_metadata_node(inst, llvm.MD_unpredictable, []);
+  }
+
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1656 write_operand_repeatedly_optimized
+  write_operand_repeatedly_optimized(cg_elem: OperandRef<Value>, count_: bigint, dest: PlaceRef<Value>): void {
+    const zero = this.const_usize(0n);
+    const count = this.const_usize(count_);
+
+    const header_bb = this.append_sibling_block("repeat_loop_header");
+    const body_bb = this.append_sibling_block("repeat_loop_body");
+    const next_bb = this.append_sibling_block("repeat_loop_next");
+
+    this.br(header_bb);
+
+    const header_bx = Builder.build_inherent(this.cx_, header_bb);
+    const i = header_bx.phi(this.val_ty(zero), [zero], [this.llbb()]);
+
+    const keep_going = header_bx.icmp(IntPredicate.IntULT, i, count);
+    header_bx.cond_br(keep_going, body_bb, next_bb);
+
+    const body_bx = Builder.build_inherent(this.cx_, body_bb);
+    const dest_elem = dest.project_index(body_bx, i);
+    OperandValue.store(cg_elem.val, body_bx, dest_elem);
+
+    const next = body_bx.unchecked_uadd(i, this.const_usize(1n));
+    body_bx.br(header_bb);
+    header_bx.add_incoming_to_phi(i, next, body_bb);
+
+    // `*self = Self::build(self.cx, next_bb)` (header)
+    const bx = Builder.build_inherent(this.cx_, next_bb);
+    this.llbuilder = bx.llbuilder;
+    this.cx_ = bx.cx_;
+    this.span = bx.span;
+  }
+
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1688 write_operand_repeatedly_unoptimized
+  write_operand_repeatedly_unoptimized(cg_elem: OperandRef<Value>, count_: bigint, dest: PlaceRef<Value>): void {
+    const zero = this.const_usize(0n);
+    const count = this.const_usize(count_);
+    const start = dest.project_index(this, zero).val.llval;
+    const end = dest.project_index(this, count).val.llval;
+
+    const header_bb = this.append_sibling_block("repeat_loop_header");
+    const body_bb = this.append_sibling_block("repeat_loop_body");
+    const next_bb = this.append_sibling_block("repeat_loop_next");
+
+    this.br(header_bb);
+
+    const header_bx = Builder.build_inherent(this.cx_, header_bb);
+    const current = header_bx.phi(this.val_ty(start), [start], [this.llbb()]);
+
+    const keep_going = header_bx.icmp(IntPredicate.IntNE, current, end);
+    header_bx.cond_br(keep_going, body_bb, next_bb);
+
+    const body_bx = Builder.build_inherent(this.cx_, body_bb);
+    const align = dest.val.align.restrict_for_offset(dest.layout.field(this.cx(), 0).size);
+    OperandValue.store(cg_elem.val, body_bx, PlaceRef.new_sized_aligned(current, cg_elem.layout, align));
+
+    const next = body_bx.inbounds_gep_inherent(this.backend_type(cg_elem.layout), current, [this.const_usize(1n)]);
+    body_bx.br(header_bb);
+    header_bx.add_incoming_to_phi(current, next, body_bb);
+
+    // `*self = Self::build(self.cx, next_bb)` (header)
+    const bx = Builder.build_inherent(this.cx_, next_bb);
+    this.llbuilder = bx.llbuilder;
+    this.cx_ = bx.cx_;
+    this.span = bx.span;
+  }
+
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1728 minimum_number_nsz
+  minimum_number_nsz(lhs: Value, rhs: Value): Value {
+    const call = this.call_intrinsic("llvm.minimumnum", [this.val_ty(lhs)], [lhs, rhs]);
+    llvm.LLVMRustSetNoSignedZeros(call);
+    return call;
+  }
+
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1734 maximum_number_nsz
+  maximum_number_nsz(lhs: Value, rhs: Value): Value {
+    const call = this.call_intrinsic("llvm.maximumnum", [this.val_ty(lhs)], [lhs, rhs]);
+    llvm.LLVMRustSetNoSignedZeros(call);
+    return call;
+  }
+
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1740 insert_element
+  insert_element(vec: Value, elt: Value, idx: Value): Value {
+    return llvm.LLVMBuildInsertElement(this.llbuilder, vec, elt, idx, UNNAMED);
+  }
+
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1749 shuffle_vector
+  shuffle_vector(v1: Value, v2: Value, mask: Value): Value {
+    return llvm.LLVMBuildShuffleVector(this.llbuilder, v1, v2, mask, UNNAMED);
+  }
+
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1758 vector_reduce_fadd
+  vector_reduce_fadd(acc: Value, src: Value): Value {
+    return this.call_intrinsic("llvm.vector.reduce.fadd", [this.val_ty(src)], [acc, src]);
+  }
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1761 vector_reduce_fmul
+  vector_reduce_fmul(acc: Value, src: Value): Value {
+    return this.call_intrinsic("llvm.vector.reduce.fmul", [this.val_ty(src)], [acc, src]);
+  }
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1764 vector_reduce_fadd_reassoc
+  vector_reduce_fadd_reassoc(acc: Value, src: Value): Value {
+    const instr = this.call_intrinsic("llvm.vector.reduce.fadd", [this.val_ty(src)], [acc, src]);
+    llvm.LLVMRustSetAllowReassoc(instr);
+    return instr;
+  }
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1776 vector_reduce_fmul_reassoc
+  vector_reduce_fmul_reassoc(acc: Value, src: Value): Value {
+    const instr = this.call_intrinsic("llvm.vector.reduce.fmul", [this.val_ty(src)], [acc, src]);
+    llvm.LLVMRustSetAllowReassoc(instr);
+    return instr;
+  }
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1788 vector_reduce_add
+  vector_reduce_add(src: Value): Value {
+    return this.call_intrinsic("llvm.vector.reduce.add", [this.val_ty(src)], [src]);
+  }
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1791 vector_reduce_mul
+  vector_reduce_mul(src: Value): Value {
+    return this.call_intrinsic("llvm.vector.reduce.mul", [this.val_ty(src)], [src]);
+  }
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1794 vector_reduce_and
+  vector_reduce_and(src: Value): Value {
+    return this.call_intrinsic("llvm.vector.reduce.and", [this.val_ty(src)], [src]);
+  }
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1797 vector_reduce_or
+  vector_reduce_or(src: Value): Value {
+    return this.call_intrinsic("llvm.vector.reduce.or", [this.val_ty(src)], [src]);
+  }
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1800 vector_reduce_xor
+  vector_reduce_xor(src: Value): Value {
+    return this.call_intrinsic("llvm.vector.reduce.xor", [this.val_ty(src)], [src]);
+  }
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1803 vector_reduce_min
+  vector_reduce_min(src: Value, is_signed: boolean): Value {
+    return this.call_intrinsic(is_signed ? "llvm.vector.reduce.smin" : "llvm.vector.reduce.umin", [this.val_ty(src)], [src]);
+  }
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1810 vector_reduce_max
+  vector_reduce_max(src: Value, is_signed: boolean): Value {
+    return this.call_intrinsic(is_signed ? "llvm.vector.reduce.smax" : "llvm.vector.reduce.umax", [this.val_ty(src)], [src]);
+  }
+
+  // ---- impl<'a, 'll, 'tcx> Builder<'a, 'll, 'tcx> (builder.rs:1880) ----
   /** `base_name: impl Into<Cow<'static, str>>` */
-  // Stub (cg-contract): call_intrinsic (builder.rs:1881)
-  call_intrinsic(_base_name: string, _type_params: readonly Type[], _args: readonly Value[]): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs call_intrinsic");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1881 call_intrinsic
+  call_intrinsic(base_name: string, type_params: readonly Type[], args: readonly Value[]): Value {
+    const [ty, f] = this.cx_.get_intrinsic(base_name, type_params);
+    // No LLVM intrinsic returns its data indirectly (via `sret`).
+    return this.call(ty, undefined, undefined, f, ReturnSlot.Direct, args, undefined, undefined);
   }
 
-  // Stub (cg-contract): landing_pad (builder.rs:1930)
-  landing_pad(_ty: Type, _pers_fn: Value, _num_clauses: number): Value {
-    return unported("cg-builder: compiler/rustc_codegen_llvm/src/builder.rs landing_pad");
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1892 call_lifetime_intrinsic
+  call_lifetime_intrinsic(intrinsic: string, ptr_: Value, size_: Size): void {
+    const size = size_.bytes_u64();
+    if (size === 0n) {
+      return;
+    }
+
+    if (!this.cx().sess().emit_lifetime_markers()) {
+      return;
+    }
+
+    // LLVM 22 requires the lifetime intrinsic to act directly on the alloca,
+    // there can't be an addrspacecast in between.
+    const ptr = llvm.LLVMRustStripPointerCasts(ptr_);
+    this.call_intrinsic(intrinsic, [this.val_ty(ptr)], [ptr]);
+  }
+
+  // ---- impl<'a, 'll, 'tcx> Builder<'a, 'll, 'tcx> (builder.rs:1929) ----
+  /** `num_clauses: usize` */
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1930 landing_pad
+  landing_pad(ty: Type, pers_fn: Value, num_clauses: number): Value {
+    // Use LLVMSetPersonalityFn to set the personality. It supports arbitrary Consts while,
+    // LLVMBuildLandingPad requires the argument to be a Function (as of LLVM 12). The
+    // personality lives on the parent function anyway.
+    this.set_personality_fn(pers_fn);
+    return llvm.LLVMBuildLandingPad(this.llbuilder, ty, undefined, num_clauses >>> 0, UNNAMED);
+  }
+
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:1945 callbr
+  callbr(
+    llty: Type,
+    fn_attrs: CodegenFnAttrs | undefined,
+    fn_abi: FnAbi<Ty> | undefined,
+    llfn: Value,
+    args_: readonly Value[],
+    default_dest: BasicBlock,
+    indirect_dest: readonly BasicBlock[],
+    funclet: Funclet | undefined,
+    instance: Instance | undefined,
+  ): Value {
+    // debug!("invoke {:?} with args ({:?})", llfn, args);
+
+    const args = this.check_call("callbr", llty, llfn, args_);
+    const funclet_bundle = funclet === undefined ? undefined : funclet.bundle();
+    const bundles: llvm.OperandBundle[] = [];
+    if (funclet_bundle !== undefined) {
+      bundles.push(funclet_bundle);
+    }
+
+    // Emit CFI pointer type membership test
+    this.cfi_type_test(fn_attrs, fn_abi, instance, llfn);
+
+    // Emit KCFI operand bundle
+    const kcfi_bundle = this.kcfi_operand_bundle(fn_attrs, fn_abi, instance, llfn);
+    if (kcfi_bundle !== undefined) {
+      bundles.push(kcfi_bundle.as_ref());
+    }
+
+    const pauth = this.ptrauth_operand_bundle(llfn, fn_abi);
+    if (pauth !== undefined) {
+      bundles.push(pauth.as_ref());
+    }
+
+    const callbr = llvm.LLVMBuildCallBr(
+      this.llbuilder,
+      llty,
+      llfn,
+      default_dest,
+      indirect_dest,
+      indirect_dest.length >>> 0,
+      args,
+      args.length >>> 0,
+      bundles,
+      bundles.length >>> 0,
+      UNNAMED,
+    );
+    if (fn_abi !== undefined) {
+      fn_abi.apply_attrs_callsite(this, callbr);
+    }
+    return callbr;
+  }
+
+  // Emits CFI pointer type membership tests.
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:2002 cfi_type_test
+  cfi_type_test(fn_attrs: CodegenFnAttrs | undefined, fn_abi: FnAbi<Ty> | undefined, instance: Instance | undefined, llfn: Value): void {
+    const is_indirect_call = llvm.LLVMRustIsNonGVFunctionPointerTy(llfn);
+    if (this.tcx.sess.is_sanitizer_cfi_enabled() && fn_abi !== undefined && is_indirect_call) {
+      if (fn_attrs !== undefined && SanitizerSet.contains(fn_attrs.sanitizers.disabled, SanitizerSet.CFI)) {
+        return;
+      }
+      if (llvm.HasStringAttribute(this.llfn(), "no-sanitize-cfi")) {
+        return;
+      }
+
+      let options = cfi.TypeIdOptions.empty();
+      if (this.tcx.sess.is_sanitizer_cfi_generalize_pointers_enabled()) {
+        options = cfi.TypeIdOptions.insert(options, cfi.TypeIdOptions.GENERALIZE_POINTERS());
+      }
+      if (this.tcx.sess.is_sanitizer_cfi_normalize_integers_enabled()) {
+        options = cfi.TypeIdOptions.insert(options, cfi.TypeIdOptions.NORMALIZE_INTEGERS());
+      }
+
+      if (this.cx_.is_sanitizer_type_ignored("cfi", fn_abi)) {
+        return;
+      }
+
+      let typeid0: string;
+      if (instance !== undefined) {
+        typeid0 = cfi.typeid_for_instance(this.tcx, instance, options);
+      } else {
+        typeid0 = cfi.typeid_for_fnabi(this.tcx, fn_abi, options);
+      }
+      const typeid_metadata = this.cx_.create_metadata(utf8(typeid0));
+      const dbg_loc = this.get_dbg_loc();
+
+      // Test whether the function pointer is associated with the type identifier using the
+      // llvm.type.test intrinsic. The LowerTypeTests link-time optimization pass replaces
+      // calls to this intrinsic with code to test type membership.
+      const typeid = this.get_metadata_value(typeid_metadata);
+      const cond = this.call_intrinsic("llvm.type.test", [], [llfn, typeid]);
+      const bb_pass = this.append_sibling_block("type_test.pass");
+      const bb_fail = this.append_sibling_block("type_test.fail");
+      this.cond_br(cond, bb_pass, bb_fail);
+
+      this.switch_to_block(bb_fail);
+      if (dbg_loc !== undefined) {
+        this.set_dbg_loc(dbg_loc);
+      }
+
+      const is_diag = this.tcx.sess.opts.unstable_opts.sanitizer_cfi_diag ?? false;
+      const is_recover = this.tcx.sess.opts.unstable_opts.sanitizer_cfi_recover ?? false;
+      const is_minimal = this.tcx.sess.opts.unstable_opts.sanitizer_cfi_minimal_runtime ?? false;
+
+      if (is_diag || is_recover) {
+        let fty: Type;
+        if (is_minimal) {
+          fty = this.cx_.type_func([], this.cx_.type_void());
+        } else {
+          fty = this.cx_.type_func([this.cx_.type_ptr(), this.cx_.type_isize(), this.cx_.type_isize()], this.cx_.type_void());
+        }
+        let handler_name: string;
+        if (is_minimal && is_recover) handler_name = "__ubsan_handle_cfi_check_fail_minimal";
+        else if (is_minimal && !is_recover) handler_name = "__ubsan_handle_cfi_check_fail_minimal_abort";
+        else if (!is_minimal && is_recover) handler_name = "__ubsan_handle_cfi_check_fail";
+        else handler_name = "__ubsan_handle_cfi_check_fail_abort";
+        const ubsan_handler = this.declare_cfn(handler_name, llvm.UnnamedAddr.Global, fty);
+
+        let expected_ty = "fn(";
+        fn_abi.args.forEach((arg, i) => {
+          if (i > 0) {
+            expected_ty += ", ";
+          }
+          expected_ty += display_Ty(arg.layout.ty);
+        });
+        expected_ty += ")";
+        if (!fn_abi.ret.layout.ty.is_unit()) {
+          expected_ty += ` -> ${display_Ty(fn_abi.ret.layout.ty)}`;
+        }
+
+        // 4 for cfi-icall (indirect call)
+        const check_kind = 4;
+        const diag_data = this.generate_ubsan_cfi_diag_data(this.span, expected_ty, check_kind);
+
+        const function_address = this.ptrtoint(llfn, this.cx_.type_isize());
+        const arguments_: readonly Value[] = is_minimal ? [] : [diag_data, function_address, this.const_usize(0n)];
+        this.call(fty, undefined, undefined, ubsan_handler, ReturnSlot.Direct, arguments_, undefined, undefined);
+        if (is_recover) {
+          this.br(bb_pass);
+        } else {
+          this.unreachable();
+        }
+      } else {
+        this.abort_immediate();
+        this.unreachable();
+      }
+
+      this.switch_to_block(bb_pass);
+      if (dbg_loc !== undefined) {
+        this.set_dbg_loc(dbg_loc);
+      }
+    }
+  }
+
+  // Emits KCFI operand bundles.
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:2136 kcfi_operand_bundle
+  kcfi_operand_bundle(fn_attrs: CodegenFnAttrs | undefined, fn_abi: FnAbi<Ty> | undefined, instance: Instance | undefined, llfn: Value): llvm.OperandBundleBox | undefined {
+    const is_indirect_call = llvm.LLVMRustIsNonGVFunctionPointerTy(llfn);
+    let kcfi_bundle: llvm.OperandBundleBox | undefined;
+    if (this.tcx.sess.is_sanitizer_kcfi_enabled() && fn_abi !== undefined && is_indirect_call) {
+      if (fn_attrs !== undefined && SanitizerSet.contains(fn_attrs.sanitizers.disabled, SanitizerSet.KCFI)) {
+        return undefined;
+      }
+      if (llvm.HasStringAttribute(this.llfn(), "no-sanitize-kcfi")) {
+        return undefined;
+      }
+
+      let options = kcfi.TypeIdOptions.empty();
+      if (this.tcx.sess.is_sanitizer_cfi_generalize_pointers_enabled()) {
+        options = kcfi.TypeIdOptions.insert(options, kcfi.TypeIdOptions.GENERALIZE_POINTERS());
+      }
+      if (this.tcx.sess.is_sanitizer_cfi_normalize_integers_enabled()) {
+        options = kcfi.TypeIdOptions.insert(options, kcfi.TypeIdOptions.NORMALIZE_INTEGERS());
+      }
+
+      if (this.cx_.is_sanitizer_type_ignored("kcfi", fn_abi)) {
+        return undefined;
+      }
+
+      let kcfi_typeid: number;
+      if (instance !== undefined) {
+        kcfi_typeid = kcfi.typeid_for_instance(this.tcx, instance, options);
+      } else {
+        kcfi_typeid = kcfi.typeid_for_fnabi(this.tcx, fn_abi, options);
+      }
+
+      kcfi_bundle = llvm.OperandBundleBox.new("kcfi", [this.const_u32(kcfi_typeid)]);
+    } else {
+      kcfi_bundle = undefined;
+    }
+    return kcfi_bundle;
+  }
+
+  // Emits pauth operand bundle.
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:2183 ptrauth_operand_bundle
+  ptrauth_operand_bundle(llfn: Value, fn_abi: FnAbi<Ty> | undefined): llvm.OperandBundleBox | undefined {
+    const schema = this.sess().pointer_authentication_functions();
+    if (schema === undefined) return undefined;
+
+    // Pointer authentication support is currently limited to extern "C" calls; filter out other
+    // ABIs.
+    if (fn_abi === undefined) return undefined;
+    if (fn_abi.conv.$ !== CanonAbi.C.$) {
+      return undefined;
+    }
+    // Filter out LLVM intrinsics.
+    if (starts_with_bytes(llvm.get_value_name(llfn), utf8("llvm."))) {
+      return undefined;
+    }
+
+    // FIXME(jchlanda) Operand bundles should only be attached to indirect function calls.
+    // However, function pointer signing is currently performed in `get_fn_addr`, which causes
+    // the logic to be applied too broadly, including to function values (not just pointers).
+    // As a result, direct calls using signed function values must also receive operand
+    // bundles.
+    // Once this is resolved, we should analyze each call and skip direct calls. See the
+    // discussion in the rust-lang issue: <https://github.com/rust-lang/rust/issues/152532>
+    return llvm.OperandBundleBox.new("ptrauth", [
+      this.const_u32(PointerAuthARM8_3Key_discriminant[schema.key]),
+      this.const_u64(BigInt(schema.constant_discriminator)),
+    ]);
+  }
+
+  /// Emits a call to `llvm.instrprof.increment`. Used by coverage instrumentation.
+  // #[instrument(level = "debug", skip(self))]
+  // rustc: compiler/rustc_codegen_llvm/src/builder.rs:2218 instrprof_increment
+  instrprof_increment(fn_name: Value, hash: Value, num_counters: Value, index: Value): void {
+    this.call_intrinsic("llvm.instrprof.increment", [], [fn_name, hash, num_counters, index]);
   }
 }
 
 /** `Builder`'s static side is `BuilderMethodsStatic` (header), checked here without a cast. */
 export const Builder_static: BuilderMethodsStatic<LlvmTypes, CodegenCx, Builder> = Builder;
+
+// ---- Helpers for std forms (not upstream fns) ----
+
+/** `std::ffi::CString::new(name).unwrap()`, as the bytes `set_value_name` takes: panics on an interior NUL byte. */
+function unwrap_cstring(name: string): Uint8Array {
+  const bytes = utf8(name);
+  const pos = bytes.indexOf(0);
+  if (pos >= 0) {
+    panic(`called \`Result::unwrap()\` on an \`Err\` value: NulError(${pos}, ${debug_bytes(bytes)})`);
+  }
+  return bytes;
+}
+
+/** `Vec<u8>`'s derived Debug (`[104, 0, ..]`), for `NulError`'s. */
+function debug_bytes(bytes: Uint8Array): string {
+  return `[${Array.from(bytes).join(", ")}]`;
+}
+
+/** `<[u8]>::starts_with`. */
+function starts_with_bytes(s: Uint8Array, prefix: Uint8Array): boolean {
+  if (s.length < prefix.length) return false;
+  for (let i = 0; i < prefix.length; i++) if (s[i] !== prefix[i]) return false;
+  return true;
+}
+
+
+// ---- rustc_sanitizers::{cfi, kcfi}: out of scope (harness/scope.json), the items builder.rs names (header) ----
+
+/** `rustc_sanitizers::{cfi, kcfi}::TypeIdOptions` (bitflags): opaque here. */
+type TypeIdOptions = number & { readonly __brand: "rustc_sanitizers::TypeIdOptions" };
+
+function sanitizers_stub(what: string): never {
+  return unported(`rustc_sanitizers: ${what} (rustc_sanitizers is out of scope, harness/scope.json)`);
+}
+
+const cfi = {
+  TypeIdOptions: {
+    empty: (): TypeIdOptions => sanitizers_stub("cfi::TypeIdOptions::empty"),
+    GENERALIZE_POINTERS: (): TypeIdOptions => sanitizers_stub("cfi::TypeIdOptions::GENERALIZE_POINTERS"),
+    NORMALIZE_INTEGERS: (): TypeIdOptions => sanitizers_stub("cfi::TypeIdOptions::NORMALIZE_INTEGERS"),
+    insert: (_self: TypeIdOptions, _other: TypeIdOptions): TypeIdOptions => sanitizers_stub("cfi::TypeIdOptions::insert"),
+  },
+  typeid_for_instance: (_tcx: TyCtxt, _instance: Instance, _options: TypeIdOptions): string => sanitizers_stub("cfi::typeid_for_instance"),
+  typeid_for_fnabi: (_tcx: TyCtxt, _fn_abi: FnAbi<Ty>, _options: TypeIdOptions): string => sanitizers_stub("cfi::typeid_for_fnabi"),
+};
+
+const kcfi = {
+  TypeIdOptions: {
+    empty: (): TypeIdOptions => sanitizers_stub("kcfi::TypeIdOptions::empty"),
+    GENERALIZE_POINTERS: (): TypeIdOptions => sanitizers_stub("kcfi::TypeIdOptions::GENERALIZE_POINTERS"),
+    NORMALIZE_INTEGERS: (): TypeIdOptions => sanitizers_stub("kcfi::TypeIdOptions::NORMALIZE_INTEGERS"),
+    insert: (_self: TypeIdOptions, _other: TypeIdOptions): TypeIdOptions => sanitizers_stub("kcfi::TypeIdOptions::insert"),
+  },
+  /** `-> u32` */
+  typeid_for_instance: (_tcx: TyCtxt, _instance: Instance, _options: TypeIdOptions): number => sanitizers_stub("kcfi::typeid_for_instance"),
+  /** `-> u32` */
+  typeid_for_fnabi: (_tcx: TyCtxt, _fn_abi: FnAbi<Ty>, _options: TypeIdOptions): number => sanitizers_stub("kcfi::typeid_for_fnabi"),
+};

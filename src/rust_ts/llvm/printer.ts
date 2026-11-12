@@ -3,10 +3,12 @@
 // byte for byte. It follows `AsmWriter.cpp` (`// llvm:` markers) for what the normal form keeps: order of globals and
 // functions, names, linkage and every other flag, attributes, initializers, metadata. It need not reproduce what the parser
 // renumbers or canonicalises (review plan-m7 F6 "Size"): attribute group and metadata numbers, the order of type and comdat
-// definitions, floating-point spelling (always hex here), and the spelling of calling conventions (`cc N`).
+// definitions, and the spelling of calling conventions (`cc N`). Floating-point constants are spelt as AsmWriter spells them
+// (`writeAPFloatInternal`: decimal when it round-trips, else hex; lane llir-apfloat).
 //
 // Function bodies are llir-core-b's: `bodyPrinter` is the hook its instructions register.
 import { unported } from "../../std/panic.ts";
+import { APFloat, semanticsSizeInBits } from "./apfloat.ts";
 import {
   Argument,
   ArrayType,
@@ -160,6 +162,51 @@ export function setBodyPrinter(b: BodyPrinter, slots: (f: Function) => (v: Value
 }
 
 /** One printing of a module (or of a lone value): the slot numbers of unnamed globals, struct types, metadata, attributes. */
+// llvm: llvm/lib/IR/AsmWriter.cpp:1540 WriteFullHexAPInt
+/** `0x` and the value's hex digits, zero-padded to the width's digit count (`toStringUnsigned` writes upper case). */
+function writeFullHexAPInt(val: bigint, bitWidth: number): string {
+  const bits = val.toString(16).toUpperCase();
+  const numDigits = Math.max(Math.floor((bitWidth + 3) / 4), 1);
+  return `0x${"0".repeat(Math.max(numDigits - bits.length, 0))}${bits}`;
+}
+
+// llvm: llvm/lib/IR/AsmWriter.cpp:1550 writeAPFloatInternal
+export function writeAPFloatInternal(apf: APFloat): string {
+  let forceBitwiseOutput = false;
+  if (apf.semantics === "PPCDoubleDouble") {
+    // ppc_fp128 types are double-double. The special cases set the second (high) double to +0.0, so if the high word is
+    // nonzero, force the use of bitwise output.
+    const hiWord = apf.bitcastToAPInt() >> 64n;
+    forceBitwiseOutput = hiWord !== 0n;
+  }
+  if (!forceBitwiseOutput) {
+    // Check for special values in APFloat.
+    if (apf.isInfinity()) return `${apf.isNegative() ? "-" : "+"}inf`;
+    if (apf.isNaN()) {
+      let o = apf.isNegative() ? "-" : "+";
+      const payload = apf.getNaNPayload();
+      // The quiet bit of a NaN is the highest bit of the payload, so the preferred QNaN value happens to be the sign mask
+      // value.
+      const signMask = 1n << BigInt(payload.width - 1);
+      if (payload.value === signMask) {
+        o += "qnan";
+      } else {
+        if (apf.isSignaling()) o += "s";
+        // Clear out the signaling/quiet bit of the payload for output, then trim the string to exclude leading 0's.
+        const cleared = payload.value & (signMask - 1n);
+        o += `nan(${writeFullHexAPInt(cleared, cleared === 0n ? 0 : cleared.toString(2).length)})`;
+      }
+      return o;
+    }
+  }
+  // Try for a decimal string output. If the value is convertible back to the same APFloat value, then we know that it is
+  // safe to use it. Otherwise, fall back onto the hexadecimal format.
+  const strVal = apf.toString(6, 0, false);
+  if (APFloat.fromString(apf.semantics, strVal).equals(apf)) return strVal;
+  // Fallback to the hexadecimal format representing the bit string exactly.
+  return `f${writeFullHexAPInt(apf.bitcastToAPInt(), semanticsSizeInBits(apf.semantics))}`;
+}
+
 export class Printer {
   private readonly typeSlots = new Map<StructType, number>();
   private readonly globalSlots = new Map<GlobalValue, number>();
@@ -293,10 +340,15 @@ export class Printer {
       return c.sextValue.toString();
     }
     if (c instanceof ConstantFP) {
-      // PORT: always the hex form (`f0x` and the full bit pattern, `WriteFullHexAPInt`), which the parser reads back exactly;
-      // the oracle prints a decimal when it round-trips, and the normal form re-prints both the same way.
-      const digits = Math.max(Math.ceil(c.type.fpBits() / 4), 1);
-      return `f0x${c.bits.toString(16).toUpperCase().padStart(digits, "0")}`;
+      const ty = c.type;
+      let o = "";
+      if (ty.isVectorTy()) {
+        if (c.getValueAPF().bitcastToAPInt() === 0n) return "zeroinitializer";
+        o += `splat (${this.type(ty.getScalarType())} `;
+      }
+      o += writeAPFloatInternal(c.getValueAPF());
+      if (ty.isVectorTy()) o += ")";
+      return o;
     }
     if (c instanceof ConstantAggregateZero) return "zeroinitializer";
     if (c instanceof ConstantArray) return `[${c.operands.map((o) => this.operand(o, true)).join(", ")}]`;

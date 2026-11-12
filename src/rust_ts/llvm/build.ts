@@ -14,7 +14,7 @@ import {
   type Context,
   Function,
   FunctionType,
-  getConstantDataSequential,
+  getConstantVector,
   getNullValue,
   Instruction,
   MDNode,
@@ -587,11 +587,7 @@ export function LLVMBuildInsertValue(B: IRBuilder, AggVal: Value, EltVal: Value,
 
 // llvm: llvm/lib/IR/Core.cpp:1774 LLVMConstVector
 export function LLVMConstVector(ScalarConstantVals: readonly Value[], Size: number): Value {
-  // `ConstantVector::get`: an all-zero, all-undef or data vector collapses (ConstantDataVector when the elements fit).
-  const elems = ScalarConstantVals.slice(0, Size) as Constant[];
-  const ty = (elems[0] as Constant).context.getVectorType(elems[0]!.type, Size, false);
-  if (elems.every((e) => e instanceof ConstantInt) && [8, 16, 32, 64].includes((elems[0]!.type as { bits?: number }).bits ?? 0)) return getConstantDataSequential(ty, elems as ConstantInt[]);
-  return unported("llir: ConstantVector::get of other elements (ConstantVector::getImpl's splat and undef rules)");
+  return getConstantVector(ScalarConstantVals.slice(0, Size) as Constant[]);
 }
 
 // ---- operand bundles, calls and invokes --------------------------------------------------------------------------------
