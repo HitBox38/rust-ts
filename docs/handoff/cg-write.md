@@ -27,7 +27,7 @@ Branch `t3/port-cg-write-backend` (from `ba273e7f`; no merges). Commits: see the
 | `src/rustc_codegen_llvm/back/profiling.ts` | new: profiling.rs |
 | `src/rustc_codegen_llvm/back/archive.ts` | archive.rs, ported (was the skeleton) |
 | `src/rustc_codegen_llvm/back/write.test.ts` | new: tests (Evidence) |
-| `src/rustc_codegen_llvm/back/write_oracle/` | new: `<target>.tm` (recorded TM arguments), `version.txt`, `record_tm.py` (the lldb recorder) |
+| `src/rustc_codegen_llvm/back/write_oracle/` | new: `<target>.tm` (recorded TM arguments), `version.txt`, `record_tm.py` (the lldb recorder), `record.ts` (its hand-run driver) and `README.md` (review N1) |
 | `src/rustc_codegen_llvm/skeleton.test.ts` | the count table (cg-write's line gone; the new owners below), the sketch's `get_version` step, and the two `init`/`print` stops |
 
 `.env.local` was copied for setup (gitignored).
@@ -52,7 +52,7 @@ Branch `t3/port-cg-write-backend` (from `ba273e7f`; no merges). Commits: see the
 - `RUST_TS_REQUIRE_PROBES=1 bun test ./src/rustc_codegen_llvm/ ./src/rust_ts/llvm/ ./src/std/result.test.ts`: **216 pass, 0 fail**
   (19 files).
 - `bun test ./scripts/lib/unit-steps.test.ts`: 10 pass. The new test reads only `RUST_TS_REQUIRE_PROBES` and `RUST_TS_AGENT`.
-- `back/write.test.ts` (14 tests):
+- `back/write.test.ts` (14 tests at first; 12 after review N1 removed the two lldb re-recordings):
   - **Target machine settings, per target.** A real `TyCtxt` from the port's front end for `context_oracle/empty.rs` with the
     oracle's flags; `ModuleLlvm::new(tcx, <oracle ModuleID>)`; each `LLVMRustCreateTargetMachine` call is written in record.ts's
     argument form and must equal `write_oracle/<target>.tm`. The oracle side:
@@ -64,9 +64,10 @@ Branch `t3/port-cg-write-backend` (from `ba273e7f`; no merges). Commits: see the
     _LLVMRustCreateTargetMachine`), so `write_oracle/record_tm.py` breaks at its entry under lldb and reads the arguments: x0-x7,
     then the stack per Apple's arm64 ABI (natural size and alignment). Its header documents the layout. The strings read through
     the stack pointers (`""` and the object path) confirm the offsets.
-  - **The fixtures are current** (skip without the toolchain unless `RUST_TS_REQUIRE_PROBES=1`): record_tm.py is re-run under
-    lldb for both targets (about 1 s each) and must reproduce `<target>.tm`; `rustc -vV` must reproduce `version.txt`. rustc
-    gets a SIGUSR1 on the host target, so lldb is told to pass it without stopping.
+  - **The version fixture is current** (skips without the toolchain unless `RUST_TS_REQUIRE_PROBES=1`): `rustc -vV` must reproduce
+    `version.txt`. *Superseded by review N1:* the lldb re-recording of `<target>.tm` is no longer a test; it is
+    `bun src/rustc_codegen_llvm/back/write_oracle/record.ts`, run by hand (write_oracle/README.md says when). rustc gets a SIGUSR1 on
+    the host target, so the recorder tells lldb to pass it without stopping.
   - **get_version / print_version** (`std_print` spied) against `version.txt`.
   - **`--emit=llvm-ir`**: the module from `ModuleLlvm::new` + `CodegenCx::new` goes through `write::codegen` with a `ModuleConfig`
     of `emit_ir` only and `--out-dir` in the work directory. The written `.rcgu.ll` must equal `context_oracle/<target>.ll`.
@@ -160,15 +161,38 @@ On particular flags:
    breakpoint could move into the harness-owned interposer (review llir-core-a N12).
 
 ## For root
-- The gate's unit step runs `lldb` (Xcode command-line tools) under `RUST_TS_REQUIRE_PROBES=1` for the fixtures-current test. It
-  worked here from a normal shell; if the gate's environment cannot debug a child process, that test fails instead of skipping.
+- *Resolved by review N1:* no unit test runs lldb any more.
 - src/rust_ts/codegen_backend.ts still holds its own copies of `global_llvm_features`, `to_llvm_features`,
   `update_target_reliable_float_cfg` and `target_cpu`. The test checks the port gives the stand-in's `global_backend_features`
   on both targets. Once the backend is registered the copies can go (not this lane's file).
 - `x86_64-unknown-linux-gnu`'s `RelaxELFRelocations` is `0` in the oracle's call too; the port matches.
 
+## Review fixes (docs/reviews/cg-write.md, PASS WITH NOTES; branch `t3/review-cg-write-port`, `11153680`)
+- **N1 (root's decision):** the lldb re-recording is out of the unit tests. `write.test.ts` keeps the comparison of the port's 23
+  `LLVMRustCreateTargetMachine` arguments with the committed `<target>.tm` and the `rustc -vV` check against `version.txt`.
+  Re-recording is `bun src/rustc_codegen_llvm/back/write_oracle/record.ts` (writes `<target>.tm` and `version.txt`; one line per
+  file, `ERROR:` on failure), and `write_oracle/README.md` says how and when to re-run it. Run once here: the three fixtures came out
+  unchanged. No environment variable is read by the test or the script (the script spreads `process.env` to its children only);
+  nothing under `scripts/` or `harness/` changed.
+  - `bun test ./scripts/lib/unit-steps.test.ts`: passes (in the run below).
+  - With lldb unresolvable (`PATH=$HOME/.cargo/bin:/bin`, where `command -v lldb` finds nothing) and
+    `RUST_TS_REQUIRE_PROBES=1`: `write.test.ts` **12 pass, 0 fail**, nothing skipped. PATH was only set for that command.
+- **N3:** `with_tcx` compiles the relative `empty.rs` from the work directory, as the oracle was run (cwd restored in a `finally`).
+  The emit test's `--out-dir` is relative too, and its output is read through the work directory.
+- **N4:** the skeleton.test.ts comment names `back/write.test.ts`.
+- **N5 (optional, done):** archive.ts's `error_callback` decodes with `{ ignoreBOM: true }`, as `to_string_lossy` keeps U+FEFF.
+- **N6:** `target_config` (llvm_util.ts) says why `SmallCStr::new`'s interior-NUL panic is dropped (a NUL cannot come from argv,
+  only from a target-spec JSON); `target_machine_factory` (write.ts) points at it.
+- **N2 (optional, not done):** `SelfProfilerRef_generic_activity_with_arg` keeps the stand-in's `VerboseTimingGuard` type. The
+  stand-in has no `TimingGuard` type to return, so the fix belongs with moving these helpers onto the stand-in (PORT decision 2).
+- After the fixes: `bunx tsc --noEmit -p .` clean; `coverage.ts --check --offline` markers ok (26657); `RUST_TS_REQUIRE_PROBES=1
+  bun test ./src/rustc_codegen_llvm/ ./src/rust_ts/llvm/ ./src/std/result.test.ts ./scripts/lib/unit-steps.test.ts`: **224 pass,
+  0 fail** (20 files).
+
 ## Commits
 - `2e11cd16` port of the six files, skeleton.test.ts counts.
 - `b2203c1a` tests and oracle fixtures.
 - `f042a45c` `create_msvc_imps`: the `__imp_` name as UTF-8 text.
-- The commit of this handoff.
+- `d50983fe` this handoff.
+- `c43c885f` review fixes N1, N3, N4, N5, N6.
+- The commit of this handoff update.
