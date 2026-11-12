@@ -126,8 +126,6 @@ describe("stub counts per lane", () => {
     "cg-write": 21,
     "excluded (plan-m7 D18)": 10,
     "llir": 2,
-    // cg-builder's local stubs for ssa-operand-place methods that had no stub (builder.ts; docs/handoff/cg-builder.md).
-    "ssa-operand-place": 3,
     "rustc_codegen_llvm": 3,
     "ssa-base": 1,
     "ssa-write": 5,

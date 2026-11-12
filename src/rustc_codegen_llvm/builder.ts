@@ -46,9 +46,6 @@
 // - `debug!` / `#[instrument]` (tracing) are not ported: they print nothing unless `RUSTC_LOG` is set.
 // - Numbers: `align.bytes() as c_uint` is `align.bytes()` (at most 2^29); `size.bytes() as c_uint` is `size.bytes() >>> 0`;
 //   `const_usize(size.bytes())` passes `bytes_u64()` (ssa-contract decision 6).
-// - Calls into lane ssa-operand-place's methods that have no stub yet (`OperandRef::zero_sized`, `PlaceRef::project_index`,
-//   `PlaceRef::new_sized_aligned`) go through the local typed stubs at the end of this file; at integration root replaces each
-//   with the ported method (docs/handoff/cg-builder.md).
 // - `rustc_sanitizers` (`cfi`, `kcfi`) is out of scope (harness/scope.json): the items builder.rs names are local typed stubs.
 import { Align, Align_min, BackendRepr, CanonAbi, debug_AlignFromBytesError, Scalar, Size, type TargetDataLayout } from "../rustc_abi/lib.ts";
 import type { WrappingRange } from "../rustc_abi/wrapping_range.ts";
@@ -64,7 +61,7 @@ import {
 } from "../rustc_codegen_ssa/common.ts";
 import { MemFlags } from "../rustc_codegen_ssa/lib.ts";
 import { OperandRef, OperandValue } from "../rustc_codegen_ssa/mir/operand.ts";
-import type { PlaceRef, PlaceValue } from "../rustc_codegen_ssa/mir/place.ts";
+import { PlaceRef, type PlaceValue } from "../rustc_codegen_ssa/mir/place.ts";
 import { BuilderMethods_provided, OverflowOp, ReturnSlot, type BuilderMethods, type BuilderMethodsStatic } from "../rustc_codegen_ssa/traits/builder.ts";
 import type { StaticBuilderMethods } from "../rustc_codegen_ssa/traits/statics.ts";
 import type { CodegenFnAttrs } from "../rustc_middle/middle/codegen_fn_attrs.ts";
@@ -1018,7 +1015,7 @@ export class Builder extends GenericBuilder<FullCx> implements BuilderMethods<Ll
     assert_eq(place.val.llextra !== undefined, place.layout.is_unsized(), String);
 
     if (place.layout.is_zst()) {
-      return OperandRef_zero_sized(place.layout);
+      return OperandRef.zero_sized(place.layout);
     }
 
     // #[instrument(level = "trace", skip(bx))]
@@ -1845,7 +1842,7 @@ export class Builder extends GenericBuilder<FullCx> implements BuilderMethods<Ll
     header_bx.cond_br(keep_going, body_bb, next_bb);
 
     const body_bx = Builder.build_inherent(this.cx_, body_bb);
-    const dest_elem = PlaceRef_project_index(dest, body_bx, i);
+    const dest_elem = dest.project_index(body_bx, i);
     OperandValue.store(cg_elem.val, body_bx, dest_elem);
 
     const next = body_bx.unchecked_uadd(i, this.const_usize(1n));
@@ -1863,8 +1860,8 @@ export class Builder extends GenericBuilder<FullCx> implements BuilderMethods<Ll
   write_operand_repeatedly_unoptimized(cg_elem: OperandRef<Value>, count_: bigint, dest: PlaceRef<Value>): void {
     const zero = this.const_usize(0n);
     const count = this.const_usize(count_);
-    const start = PlaceRef_project_index(dest, this, zero).val.llval;
-    const end = PlaceRef_project_index(dest, this, count).val.llval;
+    const start = dest.project_index(this, zero).val.llval;
+    const end = dest.project_index(this, count).val.llval;
 
     const header_bb = this.append_sibling_block("repeat_loop_header");
     const body_bb = this.append_sibling_block("repeat_loop_body");
@@ -1880,7 +1877,7 @@ export class Builder extends GenericBuilder<FullCx> implements BuilderMethods<Ll
 
     const body_bx = Builder.build_inherent(this.cx_, body_bb);
     const align = dest.val.align.restrict_for_offset(dest.layout.field(this.cx(), 0).size);
-    OperandValue.store(cg_elem.val, body_bx, PlaceRef_new_sized_aligned(current, cg_elem.layout, align));
+    OperandValue.store(cg_elem.val, body_bx, PlaceRef.new_sized_aligned(current, cg_elem.layout, align));
 
     const next = body_bx.inbounds_gep_inherent(this.backend_type(cg_elem.layout), current, [this.const_usize(1n)]);
     body_bx.br(header_bb);
@@ -2262,23 +2259,6 @@ function starts_with_bytes(s: Uint8Array, prefix: Uint8Array): boolean {
   return true;
 }
 
-
-// ---- Calls into lane ssa-operand-place (wave 41, in parallel) that have no stub yet (header) ----
-
-/** Stub (cg-builder): `OperandRef::zero_sized` (rustc_codegen_ssa mir/operand.rs), lane ssa-operand-place. */
-function OperandRef_zero_sized(_layout: TyAndLayout): OperandRef<Value> {
-  return unported("ssa-operand-place: compiler/rustc_codegen_ssa/src/mir/operand.rs zero_sized");
-}
-
-/** Stub (cg-builder): `PlaceRef::project_index` (rustc_codegen_ssa mir/place.rs), lane ssa-operand-place. */
-function PlaceRef_project_index(_self: PlaceRef<Value>, _bx: Builder, _llindex: Value): PlaceRef<Value> {
-  return unported("ssa-operand-place: compiler/rustc_codegen_ssa/src/mir/place.rs project_index");
-}
-
-/** Stub (cg-builder): `PlaceRef::new_sized_aligned` (rustc_codegen_ssa mir/place.rs), lane ssa-operand-place. */
-function PlaceRef_new_sized_aligned(_llval: Value, _layout: TyAndLayout, _align: Align): PlaceRef<Value> {
-  return unported("ssa-operand-place: compiler/rustc_codegen_ssa/src/mir/place.rs new_sized_aligned");
-}
 
 // ---- rustc_sanitizers::{cfi, kcfi}: out of scope (harness/scope.json), the items builder.rs names (header) ----
 

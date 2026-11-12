@@ -29,6 +29,7 @@ import { llvmBinDir } from "../../scripts/lib/llvm-tools.ts";
 import { Align, Size } from "../rustc_abi/lib.ts";
 import { IntPredicate, SynchronizationScope } from "../rustc_codegen_ssa/common.ts";
 import { MemFlags } from "../rustc_codegen_ssa/lib.ts";
+import { OperandValue } from "../rustc_codegen_ssa/mir/operand.ts";
 import { OverflowOp, ReturnSlot } from "../rustc_codegen_ssa/traits/builder.ts";
 import type { Ty } from "../rustc_middle/ty/mod.ts";
 import { printModule } from "../rust_ts/llvm/printer.ts";
@@ -664,11 +665,11 @@ describe("unit behaviour of builder.rs's own logic", () => {
     expect(stop(() => bx.br_with_attrs(bbs[0]!, [{ $: "Full" }]))).toMatch(/LLVMReplaceMDNodeOperandWith/);
     // `cleanup_pad` reaches cg-context's `Funclet::new` stub (common.rs:115) once LLVM builds the pad.
     expect(stop(() => bx.cleanup_pad(undefined, []))).toBe("cg-context: compiler/rustc_codegen_llvm/src/common.rs new");
-    // load_operand of a ZST reaches lane ssa-operand-place's `OperandRef::zero_sized` (local stub).
+    // load_operand of a ZST returns `OperandRef::zero_sized(place.layout)` (builder.rs; ssa-operand-place's port, root at integ-w53).
     const zst = { is_unsized: () => false, is_zst: () => true };
-    expect(stop(() => bx.load_operand({ layout: zst, val: { llextra: undefined } } as never))).toBe(
-      "ssa-operand-place: compiler/rustc_codegen_ssa/src/mir/operand.rs zero_sized",
-    );
+    const op = bx.load_operand({ layout: zst, val: { llextra: undefined } } as never);
+    expect(op.val).toBe(OperandValue.ZeroSized);
+    expect(op.layout).toBe(zst as never);
   });
 
   test("allocator::codegen stops in cg-types-attrs' stubs (no type of its own)", () => {
