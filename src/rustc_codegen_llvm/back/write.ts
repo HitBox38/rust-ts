@@ -1311,10 +1311,10 @@ function create_msvc_imps(cgcx: CodegenContext, llcx: llvm.Context, llmod: llvm.
     // let imp_name = CString::new(imp_name).unwrap();
     const nul = imp_name_.indexOf(0);
     if (nul >= 0) panic(`called \`Result::unwrap()\` on an \`Err\` value: NulError(${nul}, [${Array.from(imp_name_).join(", ")}])`);
-    const imp_name = new TextDecoder("latin1").decode(imp_name_);
+    // PORT: `llvm::add_global(llmod, ptr_ty, &imp_name)` takes the name as text here (`&CStr` upstream): the bytes as UTF-8
+    // text. A symbol name that is not UTF-8 has no such text, so it stops instead of being re-encoded.
+    const imp_name = from_utf8(imp_name_) ?? unported("rustc_codegen_llvm: create_msvc_imps of a symbol name that is not UTF-8 (add_global takes text)");
 
-    // PORT: `llvm::add_global(llmod, ptr_ty, &imp_name)` takes the name as text here; the name is the bytes as latin1, which
-    // the model writes back byte for byte (the `\x01` prefix and a non-ASCII symbol keep their bytes).
     const imp = llvm.add_global(llmod, ptr_ty, imp_name);
 
     llvm.set_initializer(imp, val);

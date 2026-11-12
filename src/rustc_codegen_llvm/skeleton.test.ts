@@ -133,8 +133,9 @@ describe("stub counts per lane", () => {
     // `rustc_llvm::initialize_available_targets` in `configure_llvm`.
     "llir": 5,
     // 3, plus cg-types-attrs's 2, plus cg-intrinsic-a's 2 in intrinsic.ts (`i32 as u64` of a negative index,
-    // `str::from_utf8(..).unwrap()`'s panic text; its third, `assert_matches!`'s message, is a template literal this count skips).
-    "rustc_codegen_llvm": 7,
+    // `str::from_utf8(..).unwrap()`'s panic text; its third, `assert_matches!`'s message, is a template literal this count skips),
+    // plus cg-write's non-UTF-8 symbol name in `create_msvc_imps`.
+    "rustc_codegen_llvm": 8,
     // cg-write: the self-profiler (`-Z self-profile`) in back/profiling.ts (`TimingGuard::start`) and back/write.ts
     // (`get_self_profiler`, `llvm_recording_enabled`, `artifact_size`).
     "rustc_data_structures": 4,
