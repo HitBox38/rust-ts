@@ -4,9 +4,6 @@
 // (traits/write.ts, back/write.ts) need. `CString` is `string`; `Mmap` is the bytes.
 // PORT (ssa-base):
 // - `SerializedModule`'s methods (`from_file`, `data`) are on its companion const (PORTING §8).
-// - `check_lto_allowed` reads four fields of `CodegenContext`, which back/write.ts (lane ssa-write) still declares as an
-//   opaque placeholder. It reads them through `CodegenContext_lto_fields`, the upstream field types, until ssa-write
-//   ports the struct (root: drop the cast then).
 import * as tracing from "../../rust_ts/tracing.ts";
 import type { AllocatorKind } from "../../rustc_ast/expand/allocator.gen.ts";
 import { File as FsFile, Mmap } from "../../rustc_data_structures/memmap.ts";
@@ -161,17 +158,8 @@ export function exported_symbols_for_lto(tcx: TyCtxt, each_linked_rlib_for_lto: 
   return symbols_below_threshold;
 }
 
-/** PORT (header): the `CodegenContext` fields `check_lto_allowed` reads, with their upstream types (back/write.rs:322). */
-interface CodegenContext_lto_fields {
-  lto: Lto;
-  crate_types: CrateType[];
-  dylib_lto: boolean;
-  prefer_dynamic: boolean;
-}
-
 // rustc: compiler/rustc_codegen_ssa/src/back/lto.rs:139 check_lto_allowed
-export function check_lto_allowed(cgcx_: CodegenContext, dcx: DiagCtxtHandle): void {
-  const cgcx = cgcx_ as unknown as CodegenContext_lto_fields;
+export function check_lto_allowed(cgcx: CodegenContext, dcx: DiagCtxtHandle): void {
   if (cgcx.lto === "ThinLocal") {
     // Crate local LTO is always allowed
     return;

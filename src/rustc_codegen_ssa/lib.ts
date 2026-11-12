@@ -6,9 +6,8 @@
 // PORT (ssa-base):
 // - `CompiledModule` stays a data interface (the generated `Decodable` builds it as an object literal); its one method,
 //   `for_each_output`, is on the companion const `CompiledModule`.
-// - `OutputFilenames::{temp_path_for_cgu, temp_path_dwo_for_cgu}` (rustc_session config.rs) are not on the TS
-//   `OutputFilenames` (its header: "codegen ... not ported"); `into_compiled_module` reaches them only for an output it
-//   emits, through the typed stubs at the end of this file.
+// - `OutputFilenames::{temp_path_for_cgu, temp_path_dwo_for_cgu}` are rustc_session's (ported by ssa-write; root at
+//   integ-w55, they were stubs).
 // - `TargetConfig` (lib.rs:272) stays in rustc_interface/stand_ins.ts, where its users import it from.
 import type { CfgEntry } from "../rustc_ast/attr/data_structures.ts";
 import type { WindowsSubsystemKind } from "../rustc_attr_ir/data_structures.gen.ts";
@@ -92,11 +91,11 @@ export class ModuleCodegen<M> {
     emit_ir: boolean,
     outputs: OutputFilenames,
   ): CompiledModule {
-    const object = emit_obj ? OutputFilenames_temp_path_for_cgu(outputs, "Object", this.name) : undefined;
-    const dwarf_object = emit_dwarf_obj ? OutputFilenames_temp_path_dwo_for_cgu(outputs, this.name) : undefined;
-    const bytecode = emit_bc ? OutputFilenames_temp_path_for_cgu(outputs, "Bitcode", this.name) : undefined;
-    const assembly = emit_asm ? OutputFilenames_temp_path_for_cgu(outputs, "Assembly", this.name) : undefined;
-    const llvm_ir = emit_ir ? OutputFilenames_temp_path_for_cgu(outputs, "LlvmAssembly", this.name) : undefined;
+    const object = emit_obj ? outputs.temp_path_for_cgu("Object", this.name) : undefined;
+    const dwarf_object = emit_dwarf_obj ? outputs.temp_path_dwo_for_cgu(this.name) : undefined;
+    const bytecode = emit_bc ? outputs.temp_path_for_cgu("Bitcode", this.name) : undefined;
+    const assembly = emit_asm ? outputs.temp_path_for_cgu("Assembly", this.name) : undefined;
+    const llvm_ir = emit_ir ? outputs.temp_path_for_cgu("LlvmAssembly", this.name) : undefined;
 
     return {
       name: this.name,
@@ -452,16 +451,6 @@ function starts_with(data: Uint8Array, prefix: Uint8Array): boolean {
 }
 
 // ---- Foreign stubs (header) ------------------------------------------------------------------------------------------
-
-/** `OutputFilenames::temp_path_for_cgu` (rustc_session config.rs), not on the TS `OutputFilenames` (header). */
-function OutputFilenames_temp_path_for_cgu(_outputs: OutputFilenames, _flavor: OutputType, _codegen_unit_name: string): PathBuf {
-  return unported("rustc_session::config::OutputFilenames::temp_path_for_cgu (rustc_session, no M7 lane yet)");
-}
-
-/** `OutputFilenames::temp_path_dwo_for_cgu` (rustc_session config.rs), not on the TS `OutputFilenames` (header). */
-function OutputFilenames_temp_path_dwo_for_cgu(_outputs: OutputFilenames, _codegen_unit_name: string): PathBuf {
-  return unported("rustc_session::config::OutputFilenames::temp_path_dwo_for_cgu (rustc_session, no M7 lane yet)");
-}
 
 /** `impl Encodable for OutputFilenames` (derived, rustc_session config.rs): not generated (rlink only). */
 function encode_OutputFilenames(_outputs: OutputFilenames, _e: FileEncoder): void {

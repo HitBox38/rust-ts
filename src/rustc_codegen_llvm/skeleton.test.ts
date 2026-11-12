@@ -135,7 +135,6 @@ describe("stub counts per lane", () => {
     // cg-context's 2 (`SanitizerIgnoreList::new`, `typename_for_ignore_list`) and cg-types-attrs's 3 (rustc_sanitizers is out
     // of scope).
     "rustc_sanitizers": 5,
-    "ssa-write": 5,
   };
   test("matches the table in docs/handoff/cg-contract.md", () => {
     const counts: Record<string, number> = {};
