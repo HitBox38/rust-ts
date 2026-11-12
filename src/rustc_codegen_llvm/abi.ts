@@ -19,8 +19,6 @@
 // - `SmallVec` / `Vec` are arrays; `&{ func_attrs }` is the array.
 // - `llvm_version >= (23, 0, 0)` on tuples is `version_ge` (lexicographic, the derived `PartialOrd`).
 // - `ArgAttribute` bitflags: `regular -= NonNull` (bitflags `Sub`) is `ArgAttribute.difference`.
-// - `rustc_codegen_ssa::mir::store_cast` (mir/block.rs, re-exported by mir/mod.rs) has no TS home yet: lane ssa-block ports
-//   mir/block.rs in parallel. It is the local typed stub `store_cast` below, with that lane's message (handoff).
 import "../rustc_target/lib.ts";
 import { type Align, type Integer, Integer as IntegerC, Primitive, Reg, type Scalar, Scalar as ScalarC, Size, WrappingRange, debug_Reg, debug_Size } from "../rustc_abi/lib.ts";
 import { RegKind, RegKind_eq, debug_RegKind } from "../rustc_abi/callconv/reg.ts";
@@ -46,11 +44,7 @@ import type { CodegenCx } from "./context.ts";
 import * as llvm from "./llvm/mod.ts";
 import { type Attribute, AttributeKind, AttributeKind_impl, AttributePlace, type CallConv, type Type, type Value } from "./llvm/mod.ts";
 import * as llvm_util from "./llvm_util.ts";
-
-/** `rustc_codegen_ssa::mir::store_cast` (mir/block.rs:2587): lane ssa-block's, not in this branch (header). */
-function store_cast(_bx: Builder, _cast: CastTarget, _value: Value, _dst: Value, _dst_align: Align): void {
-  return unported("ssa-block: compiler/rustc_codegen_ssa/src/mir/block.rs store_cast");
-}
+import { store_cast } from "../rustc_codegen_ssa/mir/mod.ts";
 
 /** `(u32, u32, u32) >= (u32, u32, u32)` (derived `PartialOrd`, lexicographic). */
 function version_ge(a: readonly [number, number, number], b: readonly [number, number, number]): boolean {

@@ -139,8 +139,6 @@ describe("stub counts per lane", () => {
     "ssa-base": 4,
     // cg-types-attrs: `MonoItemExt::predefine` / `define` in base.ts.
     "ssa-mir-core": 2,
-    // cg-abi-consts: `rustc_codegen_ssa::mir::store_cast` (mir/block.rs) in `ArgAbiExt::store`, a local stub until ssa-block lands.
-    "ssa-block": 1,
     "ssa-write": 5,
   };
   test("matches the table in docs/handoff/cg-contract.md", () => {

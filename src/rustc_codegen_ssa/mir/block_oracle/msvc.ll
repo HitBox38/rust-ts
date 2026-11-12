@@ -3,9 +3,9 @@ source_filename = "block.5f01549d810e38c7-cgu.0"
 target datalayout = "e-m:w-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-windows-msvc"
 
-@alloc_25bed4179d008cfd4477b0632e84ebf6 = private unnamed_addr constant [101 x i8] c"/Users/tomernorman/.t3/worktrees/rust-ts/t3-a29c7b43/src/rustc_codegen_ssa/mir/block_oracle/block.rs\00", align 1, !guid !0
-@alloc_33cf5c5d403022e1412a38d6b2ae29e8 = private unnamed_addr constant <{ ptr, [16 x i8] }> <{ ptr @alloc_25bed4179d008cfd4477b0632e84ebf6, [16 x i8] c"d\00\00\00\00\00\00\00/\00\00\00\09\00\00\00" }>, align 8, !guid !1
-@alloc_8018e073b439d6aa08c9eb9fb34d44ce = private unnamed_addr constant <{ ptr, [16 x i8] }> <{ ptr @alloc_25bed4179d008cfd4477b0632e84ebf6, [16 x i8] c"d\00\00\00\00\00\00\00\92\00\00\00\05\00\00\00" }>, align 8, !guid !2
+@alloc_fcae1f6ab2c08624ff805a831f3109c8 = private unnamed_addr constant [9 x i8] c"block.rs\00", align 1, !guid !0
+@alloc_7dc0a0701df88f31d4db2bdc84771828 = private unnamed_addr constant <{ ptr, [16 x i8] }> <{ ptr @alloc_fcae1f6ab2c08624ff805a831f3109c8, [16 x i8] c"\08\00\00\00\00\00\00\00/\00\00\00\09\00\00\00" }>, align 8, !guid !1
+@alloc_d1c06f2dba7da650d405debccbba2fbc = private unnamed_addr constant <{ ptr, [16 x i8] }> <{ ptr @alloc_fcae1f6ab2c08624ff805a831f3109c8, [16 x i8] c"\08\00\00\00\00\00\00\00\92\00\00\00\05\00\00\00" }>, align 8, !guid !2
 
 ; block::drop_glue::<block::D>
 ; Function Attrs: uwtable
@@ -59,7 +59,7 @@ bb1:                                              ; preds = %start
 
 panic:                                            ; preds = %start
 ; call block::panic_const_add_overflow
-  call void @_RNvCs89I2US0CO3P_5block24panic_const_add_overflow(ptr align 8 @alloc_33cf5c5d403022e1412a38d6b2ae29e8) #4
+  call void @_RNvCs89I2US0CO3P_5block24panic_const_add_overflow(ptr align 8 @alloc_7dc0a0701df88f31d4db2bdc84771828) #4
   unreachable
 }
 
@@ -82,7 +82,7 @@ bb1:                                              ; preds = %start
 
 panic:                                            ; preds = %start
 ; call block::panic_const_add_overflow
-  call void @_RNvCs89I2US0CO3P_5block24panic_const_add_overflow(ptr align 8 @alloc_8018e073b439d6aa08c9eb9fb34d44ce) #4
+  call void @_RNvCs89I2US0CO3P_5block24panic_const_add_overflow(ptr align 8 @alloc_d1c06f2dba7da650d405debccbba2fbc) #4
   unreachable
 }
 
@@ -262,9 +262,9 @@ attributes #5 = { cold }
 !llvm.module.flags = !{!3, !4}
 !llvm.ident = !{!5}
 
-!0 = !{i64 1814869321277227270}
-!1 = !{i64 3202298266623256630}
-!2 = !{i64 7552692177077709414}
+!0 = !{i64 -5301203616376987386}
+!1 = !{i64 8469891823950944506}
+!2 = !{i64 6143569719465281810}
 !3 = !{i32 8, !"PIC Level", i32 2}
 !4 = !{i32 7, !"uwtable", i32 2}
 !5 = !{!"rustc version 1.101.0-nightly (6f5da406b 2026-10-10)"}

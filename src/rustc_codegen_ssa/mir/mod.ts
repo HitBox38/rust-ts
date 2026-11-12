@@ -72,10 +72,12 @@ import { install_FunctionCx_operand, OperandRef, OperandValue } from "./operand.
 import { install_FunctionCx_place, PlaceRef } from "./place.ts";
 import { install_FunctionCx_rvalue } from "./rvalue.ts";
 import { install_FunctionCx_intrinsic } from "./intrinsic.ts";
+import { install_FunctionCx_block } from "./block.ts";
 
 // mod analyze; mod block; mod constant; mod coverageinfo; pub mod debuginfo; mod intrinsic; mod locals;
 // pub mod naked_asm; pub mod operand; pub mod place; mod retag; mod rvalue; mod statement;
-// pub use self::block::store_cast;   (PORT: re-exported by mir/block.ts's lane, ssa-block, once it exists)
+// pub use self::block::store_cast;
+export { store_cast } from "./block.ts";
 
 // Used for tracking the state of generated basic blocks.
 export type CachedLlbb<T> =
@@ -258,12 +260,13 @@ export class FunctionCx<B extends BackendTypes, Cx extends CodegenMethods<B> = C
     this.locals.values[local] = value;
   }
 }
-// PORT (ssa-operand-place, root at integ-w53; rvalue.rs and intrinsic.rs at integ-w54): the other files' `impl FunctionCx`
+// PORT (ssa-operand-place, root at integ-w53; rvalue/intrinsic/block.rs at integ-w54): the other files' `impl FunctionCx`
 // blocks are installed here, right after the class, so that the methods exist whichever of the files loads first.
 install_FunctionCx_operand(FunctionCx);
 install_FunctionCx_place(FunctionCx);
 install_FunctionCx_rvalue(FunctionCx);
 install_FunctionCx_intrinsic(FunctionCx);
+install_FunctionCx_block(FunctionCx);
 
 export type LocalRef<V> =
   | { readonly $: "Place"; readonly _0: PlaceRef<V> }
@@ -931,16 +934,17 @@ export const xlane = {
     return unported("ssa-debuginfo: compiler/rustc_codegen_ssa/src/mir/debuginfo.rs debug_introduce_locals");
   },
 
-  // ssa-block (mir/block.rs)
+  // ssa-block (mir/block.rs): ported; these entries forward to the installed methods (root at integ-w54), so tests that
+  // record block codegen can still replace them.
   /** `fx.codegen_block(bb)` (mir/block.rs). */
-  codegen_block<B extends BackendTypes, Cx extends CodegenMethods<B>, Bx extends BuilderMethods<B, Cx>>(_fx: FunctionCx<B, Cx, Bx>, _bb: BasicBlock): void {
-    return unported("ssa-block: compiler/rustc_codegen_ssa/src/mir/block.rs codegen_block");
+  codegen_block<B extends BackendTypes, Cx extends CodegenMethods<B>, Bx extends BuilderMethods<B, Cx>>(fx: FunctionCx<B, Cx, Bx>, bb: BasicBlock): void {
+    fx.codegen_block(bb);
   },
   /** `fx.codegen_block_as_unreachable(bb)` (mir/block.rs). */
   codegen_block_as_unreachable<B extends BackendTypes, Cx extends CodegenMethods<B>, Bx extends BuilderMethods<B, Cx>>(
-    _fx: FunctionCx<B, Cx, Bx>,
-    _bb: BasicBlock,
+    fx: FunctionCx<B, Cx, Bx>,
+    bb: BasicBlock,
   ): void {
-    return unported("ssa-block: compiler/rustc_codegen_ssa/src/mir/block.rs codegen_block_as_unreachable");
+    fx.codegen_block_as_unreachable(bb);
   },
 };
