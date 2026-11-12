@@ -1,0 +1,1081 @@
+{
+ "bin": {
+  "instances": [
+   "std::boxed::box_assume_init_into_vec_unsafe::<u32, 3>",
+   "std::boxed::box_assume_init_into_vec_unsafe::<i64, 3>",
+   "std::slice::stable_sort::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
+   "std::rt::lang_start::<()>",
+   "core::slice::sort::shared::find_existing_run::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
+   "core::slice::sort::stable::driftsort_main::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}, std::vec::Vec<i64>>",
+   "core::slice::sort::stable::drift::create_run::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
+   "core::slice::sort::stable::drift::logical_merge::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
+   "core::slice::sort::stable::drift::stable_quicksort::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
+   "core::slice::sort::stable::drift::sort::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
+   "<u8 as std::slice::<impl [T]>::to_vec_in::ConvertVec>::to_vec::<std::alloc::Global>",
+   "std::rt::lang_start::<()>::{closure#0}",
+   "main",
+   "std::slice::<impl [i64]>::sort",
+   "std::string::String::len",
+   "std::string::String::new",
+   "std::string::String::push_str",
+   "core::slice::sort::stable::AlignedStorage::<i64, 4096>::as_uninit_slice_mut",
+   "std::slice::Iter::<'_, u8>::make_slice",
+   "std::boxed::Box::<[u32; 3]>::new_uninit",
+   "std::boxed::Box::<[i64; 3]>::new_uninit",
+   "std::array::iter::iter_inner::PolymorphicIter::<[std::mem::MaybeUninit<usize>]>::next",
+   "std::hint::assert_unchecked::precondition_check",
+   "<std::ops::Range<usize> as std::iter::IntoIterator>::into_iter",
+   "<std::hint::select_unpredictable::DropOnPanic<*const i64> as std::ops::Drop>::drop",
+   "<usize as std::string::SpecToString>::spec_to_string",
+   "<std::ops::Range<usize> as std::iter::range::RangeIteratorImpl>::spec_next",
+   "std::iter::range::<impl std::iter::Iterator for std::ops::Range<usize>>::next",
+   "<usize as std::string::ToString>::to_string",
+   "<usize as std::iter::Step>::forward_unchecked",
+   "std::cmp::impls::<impl std::cmp::PartialOrd for usize>::lt",
+   "<i64 as core::slice::sort::shared::smallsort::StableSmallSortTypeImpl>::small_sort_threshold",
+   "<std::string::String as std::ops::Deref>::deref",
+   "std::intrinsics::select_unpredictable::<std::mem::MaybeUninit<*const i64>>",
+   "std::intrinsics::select_unpredictable::<*mut *const i64>",
+   "std::intrinsics::typed_swap_nonoverlapping::<i64>",
+   "core::slice::sort::stable::quicksort::stable_partition::<i64, {closure@core::slice::sort::stable::quicksort::quicksort<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>::{closure#0}}>",
+   "core::slice::sort::stable::quicksort::stable_partition::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
+   "core::slice::sort::stable::quicksort::quicksort::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
+   "<std::slice::Iter<'_, u8> as std::iter::Iterator>::fold::<usize, {closure@std::iter::adapters::map::map_fold<&u8, usize, usize, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}}, {closure@<usize as std::iter::Sum>::sum<std::iter::Map<std::slice::Iter<'_, u8>, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}}>>::{closure#0}}>::{closure#0}}>",
+   "<i64 as core::slice::sort::shared::smallsort::StableSmallSortTypeImpl>::small_sort::<for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
+   "<std::slice::Iter<'_, u8> as std::iter::Iterator>::map::<usize, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}}>",
+   "<std::slice::Iter<'_, u8> as std::iter::Iterator>::filter::<{closure@cgus.rs:19:25: 19:30}>",
+   "std::iter::adapters::map::map_fold::<&u8, usize, usize, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}}, {closure@<usize as std::iter::Sum>::sum<std::iter::Map<std::slice::Iter<'_, u8>, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}}>>::{closure#0}}>::{closure#0}",
+   "core::slice::sort::stable::quicksort::quicksort::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>::{closure#0}",
+   "<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize::<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}",
+   "std::ptr::const_ptr::<impl *const ()>::is_aligned_to",
+   "core::slice::sort::stable::quicksort::PartitionState::<i64>::partition_one",
+   "std::slice::Iter::<'_, u8>::new",
+   "std::boxed::box_new_uninit",
+   "std::intrinsics::cold_path",
+   "std::ptr::const_ptr::<impl *const T>::offset_from_unsigned::precondition_check",
+   "std::slice::from_raw_parts::precondition_check",
+   "std::slice::from_raw_parts_mut::precondition_check",
+   "<i64 as core::slice::sort::stable::quicksort::IsFreeze>::is_freeze",
+   "<std::iter::Filter<std::slice::Iter<'_, u8>, {closure@cgus.rs:19:25: 19:30}> as std::iter::Iterator>::count",
+   "<std::slice::Iter<'_, u8> as std::iter::Iterator>::size_hint",
+   "<std::slice::Iter<'_, u32> as std::iter::Iterator>::next",
+   "<std::slice::Iter<'_, u8> as std::iter::adapters::filter::SpecAssumeCount>::assume_count_le_upper_bound",
+   "core::slice::iter::<impl std::iter::IntoIterator for &[u32]>::into_iter",
+   "<i64 as core::slice::sort::shared::smallsort::StableSmallSortTypeImpl>::small_sort_threshold",
+   "core::slice::sort::stable::merge::MergeState::<i64>::merge_down::<for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
+   "core::slice::sort::stable::merge::MergeState::<i64>::merge_up::<for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
+   "std::ptr::swap_chunk::<1>",
+   "std::ptr::swap_chunk::<2>",
+   "std::ptr::swap_chunk::<4>",
+   "std::ptr::swap_chunk::<8>",
+   "std::ptr::swap_nonoverlapping::<i64>",
+   "std::ptr::drop_glue::<std::vec::Vec<u8>> - shim(Some(std::vec::Vec<u8>))",
+   "std::ptr::drop_glue::<std::vec::Vec<u32>> - shim(Some(std::vec::Vec<u32>))",
+   "std::ptr::drop_glue::<std::vec::Vec<i64>> - shim(Some(std::vec::Vec<i64>))",
+   "std::ptr::drop_glue::<alloc::raw_vec::RawVec<u8>> - shim(Some(alloc::raw_vec::RawVec<u8>))",
+   "std::ptr::drop_glue::<alloc::raw_vec::RawVec<u32>> - shim(Some(alloc::raw_vec::RawVec<u32>))",
+   "std::ptr::drop_glue::<alloc::raw_vec::RawVec<i64>> - shim(Some(alloc::raw_vec::RawVec<i64>))",
+   "std::ptr::drop_glue::<std::array::IntoIter<usize, 2>> - shim(Some(std::array::IntoIter<usize, 2>))",
+   "std::ptr::drop_glue::<core::slice::sort::shared::smallsort::CopyOnDrop<i64>> - shim(Some(core::slice::sort::shared::smallsort::CopyOnDrop<i64>))",
+   "std::ptr::drop_glue::<core::slice::sort::stable::merge::MergeState<i64>> - shim(Some(core::slice::sort::stable::merge::MergeState<i64>))",
+   "std::ptr::drop_glue::<std::hint::select_unpredictable::DropOnPanic<*const i64>> - shim(Some(std::hint::select_unpredictable::DropOnPanic<*const i64>))",
+   "std::ptr::drop_glue::<std::string::String> - shim(Some(std::string::String))",
+   "std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>",
+   "core::slice::sort::shared::pivot::median3_rec::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
+   "core::slice::sort::shared::pivot::choose_pivot::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
+   "core::slice::sort::shared::pivot::median3::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
+   "core::slice::sort::stable::merge::merge::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
+   "core::slice::<impl [T]>::reverse::revswap::<i64>",
+   "std::ptr::swap_nonoverlapping_bytes::swap_nonoverlapping_chunks::<8>",
+   "medium::b::{closure#0}",
+   "<{closure@std::rt::lang_start<()>::{closure#0}} as std::ops::FnOnce<()>>::call_once - shim(vtable)",
+   "core::slice::<impl [u8]>::iter",
+   "core::slice::<impl [i64]>::split_at_mut",
+   "core::slice::<impl [i64]>::split_at_mut_unchecked",
+   "core::slice::<impl [i64]>::reverse",
+   "core::num::<impl u64>::wrapping_mul",
+   "medium::a",
+   "medium::b",
+   "std::ptr::swap_nonoverlapping_bytes",
+   "core::slice::<impl [T]>::split_at_mut_unchecked::precondition_check",
+   "std::ptr::NonNull::<T>::new_unchecked::precondition_check",
+   "std::ptr::copy_nonoverlapping::precondition_check",
+   "std::ptr::swap_nonoverlapping::precondition_check",
+   "std::ptr::swap_nonoverlapping_bytes::swap_nonoverlapping_short",
+   "core::ub_checks::maybe_is_nonoverlapping::runtime",
+   "<usize as std::slice::SliceIndex<[T]>>::get_unchecked::precondition_check",
+   "<std::ops::Range<usize> as std::slice::SliceIndex<[T]>>::get_unchecked_mut::precondition_check",
+   "std::cmp::impls::<impl std::cmp::PartialOrd for i64>::lt",
+   "<core::slice::sort::stable::merge::MergeState<i64> as std::ops::Drop>::drop",
+   "<fn() as std::ops::FnOnce<()>>::call_once - shim(fn())",
+   "<{closure@std::rt::lang_start<()>::{closure#0}} as std::ops::FnOnce<()>>::call_once - shim",
+   "<for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt} as std::ops::FnMut<(&i64, &i64)>>::call_mut - shim(for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt})",
+   "generic::twice::<u32>",
+   "generic::twice::<u64>",
+   "std::hint::select_unpredictable::<*const i64>",
+   "core::slice::sort::shared::smallsort::merge_down::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
+   "core::slice::sort::shared::smallsort::insert_tail::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
+   "core::slice::sort::shared::smallsort::sort4_stable::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
+   "core::slice::sort::shared::smallsort::sort8_stable::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
+   "core::slice::sort::shared::smallsort::bidirectional_merge::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
+   "core::slice::sort::shared::smallsort::insertion_sort_shift_left::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
+   "core::slice::sort::shared::smallsort::small_sort_general_with_scratch::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
+   "core::slice::sort::shared::smallsort::merge_up::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
+   "<usize as std::iter::Sum>::sum::<std::iter::Map<std::slice::Iter<'_, u8>, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}}>>::{closure#0}",
+   "std::alloc::Global::alloc_impl_runtime",
+   "core::num::<impl u32>::wrapping_add",
+   "alloc::raw_vec::RawVecInner::with_capacity_in",
+   "std::vec::Vec::<u8>::append_elements",
+   "std::vec::Vec::<i64>::len",
+   "large::sum",
+   "large::sort",
+   "large::text",
+   "small::one",
+   "core::num::<impl usize>::unchecked_add::precondition_check",
+   "std::vec::Vec::<T, A>::from_raw_parts_in::precondition_check",
+   "std::vec::Vec::<T, A>::set_len::precondition_check",
+   "<alloc::raw_vec::RawVec<u32> as std::ops::Drop>::drop",
+   "<alloc::raw_vec::RawVec<i64> as std::ops::Drop>::drop",
+   "<std::array::IntoIter<usize, 2> as std::ops::Drop>::drop",
+   "<core::slice::sort::shared::smallsort::CopyOnDrop<i64> as std::ops::Drop>::drop",
+   "<std::vec::Vec<u32> as std::ops::Deref>::deref",
+   "std::slice::<impl core::slice::sort::stable::BufGuard<i64> for std::vec::Vec<i64>>::with_capacity",
+   "std::slice::<impl core::slice::sort::stable::BufGuard<i64> for std::vec::Vec<i64>>::as_uninit_slice_mut",
+   "<std::vec::Vec<i64> as std::ops::DerefMut>::deref_mut",
+   "<() as std::process::Termination>::report",
+   "std::clone::impls::<impl std::clone::Clone for u32>::clone",
+   "std::clone::impls::<impl std::clone::Clone for u64>::clone",
+   "<std::vec::Vec<u32> as std::ops::Drop>::drop",
+   "<std::vec::Vec<i64> as std::ops::Drop>::drop"
+  ],
+  "mono": {
+   "fn <() as std::process::Termination>::report": [
+    "cgus.7f09c2e3dd1567c4-cgu.2"
+   ],
+   "fn <alloc::raw_vec::RawVec<i64> as std::ops::Drop>::drop": [
+    "cgus.7f09c2e3dd1567c4-cgu.2"
+   ],
+   "fn <alloc::raw_vec::RawVec<u32> as std::ops::Drop>::drop": [
+    "cgus.7f09c2e3dd1567c4-cgu.2"
+   ],
+   "fn <core::slice::sort::shared::smallsort::CopyOnDrop<i64> as std::ops::Drop>::drop": [
+    "cgus.7f09c2e3dd1567c4-cgu.2"
+   ],
+   "fn <core::slice::sort::stable::merge::MergeState<i64> as std::ops::Drop>::drop": [
+    "cgus.7f09c2e3dd1567c4-cgu.1"
+   ],
+   "fn <fn() as std::ops::FnOnce<()>>::call_once - shim(fn())": [
+    "cgus.7f09c2e3dd1567c4-cgu.1"
+   ],
+   "fn <for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt} as std::ops::FnMut<(&i64, &i64)>>::call_mut - shim(for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt})": [
+    "cgus.7f09c2e3dd1567c4-cgu.1"
+   ],
+   "fn <i64 as core::slice::sort::shared::smallsort::StableSmallSortTypeImpl>::small_sort::<for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>": [
+    "cgus.7f09c2e3dd1567c4-cgu.3"
+   ],
+   "fn <i64 as core::slice::sort::shared::smallsort::StableSmallSortTypeImpl>::small_sort_threshold": [
+    "cgus.7f09c2e3dd1567c4-cgu.0",
+    "cgus.7f09c2e3dd1567c4-cgu.3"
+   ],
+   "fn <i64 as core::slice::sort::stable::quicksort::IsFreeze>::is_freeze": [
+    "cgus.7f09c2e3dd1567c4-cgu.3"
+   ],
+   "fn <std::array::IntoIter<usize, 2> as std::ops::Drop>::drop": [
+    "cgus.7f09c2e3dd1567c4-cgu.2"
+   ],
+   "fn <std::hint::select_unpredictable::DropOnPanic<*const i64> as std::ops::Drop>::drop": [
+    "cgus.7f09c2e3dd1567c4-cgu.0"
+   ],
+   "fn <std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize::<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}": [
+    "cgus.7f09c2e3dd1567c4-cgu.3"
+   ],
+   "fn <std::iter::Filter<std::slice::Iter<'_, u8>, {closure@cgus.rs:19:25: 19:30}> as std::iter::Iterator>::count": [
+    "cgus.7f09c2e3dd1567c4-cgu.3"
+   ],
+   "fn <std::ops::Range<usize> as std::iter::IntoIterator>::into_iter": [
+    "cgus.7f09c2e3dd1567c4-cgu.0"
+   ],
+   "fn <std::ops::Range<usize> as std::iter::range::RangeIteratorImpl>::spec_next": [
+    "cgus.7f09c2e3dd1567c4-cgu.0"
+   ],
+   "fn <std::ops::Range<usize> as std::slice::SliceIndex<[T]>>::get_unchecked_mut::precondition_check": [
+    "cgus.7f09c2e3dd1567c4-cgu.1"
+   ],
+   "fn <std::slice::Iter<'_, u32> as std::iter::Iterator>::next": [
+    "cgus.7f09c2e3dd1567c4-cgu.3"
+   ],
+   "fn <std::slice::Iter<'_, u8> as std::iter::Iterator>::filter::<{closure@cgus.rs:19:25: 19:30}>": [
+    "cgus.7f09c2e3dd1567c4-cgu.3"
+   ],
+   "fn <std::slice::Iter<'_, u8> as std::iter::Iterator>::fold::<usize, {closure@std::iter::adapters::map::map_fold<&u8, usize, usize, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}}, {closure@<usize as std::iter::Sum>::sum<std::iter::Map<std::slice::Iter<'_, u8>, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}}>>::{closure#0}}>::{closure#0}}>": [
+    "cgus.7f09c2e3dd1567c4-cgu.3"
+   ],
+   "fn <std::slice::Iter<'_, u8> as std::iter::Iterator>::map::<usize, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}}>": [
+    "cgus.7f09c2e3dd1567c4-cgu.3"
+   ],
+   "fn <std::slice::Iter<'_, u8> as std::iter::Iterator>::size_hint": [
+    "cgus.7f09c2e3dd1567c4-cgu.3"
+   ],
+   "fn <std::slice::Iter<'_, u8> as std::iter::adapters::filter::SpecAssumeCount>::assume_count_le_upper_bound": [
+    "cgus.7f09c2e3dd1567c4-cgu.3"
+   ],
+   "fn <std::string::String as std::ops::Deref>::deref": [
+    "cgus.7f09c2e3dd1567c4-cgu.0"
+   ],
+   "fn <std::vec::Vec<i64> as std::ops::DerefMut>::deref_mut": [
+    "cgus.7f09c2e3dd1567c4-cgu.2"
+   ],
+   "fn <std::vec::Vec<i64> as std::ops::Drop>::drop": [
+    "cgus.7f09c2e3dd1567c4-cgu.2"
+   ],
+   "fn <std::vec::Vec<u32> as std::ops::Deref>::deref": [
+    "cgus.7f09c2e3dd1567c4-cgu.2"
+   ],
+   "fn <std::vec::Vec<u32> as std::ops::Drop>::drop": [
+    "cgus.7f09c2e3dd1567c4-cgu.2"
+   ],
+   "fn <u8 as std::slice::<impl [T]>::to_vec_in::ConvertVec>::to_vec::<std::alloc::Global>": [
+    "cgus.7f09c2e3dd1567c4-cgu.0"
+   ],
+   "fn <usize as std::iter::Step>::forward_unchecked": [
+    "cgus.7f09c2e3dd1567c4-cgu.0"
+   ],
+   "fn <usize as std::iter::Sum>::sum::<std::iter::Map<std::slice::Iter<'_, u8>, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}}>>::{closure#0}": [
+    "cgus.7f09c2e3dd1567c4-cgu.2"
+   ],
+   "fn <usize as std::slice::SliceIndex<[T]>>::get_unchecked::precondition_check": [
+    "cgus.7f09c2e3dd1567c4-cgu.1"
+   ],
+   "fn <usize as std::string::SpecToString>::spec_to_string": [
+    "cgus.7f09c2e3dd1567c4-cgu.0"
+   ],
+   "fn <usize as std::string::ToString>::to_string": [
+    "cgus.7f09c2e3dd1567c4-cgu.0"
+   ],
+   "fn <{closure@std::rt::lang_start<()>::{closure#0}} as std::ops::FnOnce<()>>::call_once - shim": [
+    "cgus.7f09c2e3dd1567c4-cgu.1"
+   ],
+   "fn <{closure@std::rt::lang_start<()>::{closure#0}} as std::ops::FnOnce<()>>::call_once - shim(vtable)": [
+    "cgus.7f09c2e3dd1567c4-cgu.1"
+   ],
+   "fn alloc::raw_vec::RawVecInner::with_capacity_in": [
+    "cgus.7f09c2e3dd1567c4-cgu.2"
+   ],
+   "fn core::num::<impl u32>::wrapping_add": [
+    "cgus.7f09c2e3dd1567c4-cgu.2"
+   ],
+   "fn core::num::<impl u64>::wrapping_mul": [
+    "cgus.7f09c2e3dd1567c4-cgu.1"
+   ],
+   "fn core::num::<impl usize>::unchecked_add::precondition_check": [
+    "cgus.7f09c2e3dd1567c4-cgu.2"
+   ],
+   "fn core::slice::<impl [T]>::reverse::revswap::<i64>": [
+    "cgus.7f09c2e3dd1567c4-cgu.1"
+   ],
+   "fn core::slice::<impl [T]>::split_at_mut_unchecked::precondition_check": [
+    "cgus.7f09c2e3dd1567c4-cgu.1"
+   ],
+   "fn core::slice::<impl [i64]>::reverse": [
+    "cgus.7f09c2e3dd1567c4-cgu.1"
+   ],
+   "fn core::slice::<impl [i64]>::split_at_mut": [
+    "cgus.7f09c2e3dd1567c4-cgu.1"
+   ],
+   "fn core::slice::<impl [i64]>::split_at_mut_unchecked": [
+    "cgus.7f09c2e3dd1567c4-cgu.1"
+   ],
+   "fn core::slice::<impl [u8]>::iter": [
+    "cgus.7f09c2e3dd1567c4-cgu.1"
+   ],
+   "fn core::slice::iter::<impl std::iter::IntoIterator for &[u32]>::into_iter": [
+    "cgus.7f09c2e3dd1567c4-cgu.3"
+   ],
+   "fn core::slice::sort::shared::find_existing_run::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>": [
+    "cgus.7f09c2e3dd1567c4-cgu.0"
+   ],
+   "fn core::slice::sort::shared::pivot::choose_pivot::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>": [
+    "cgus.7f09c2e3dd1567c4-cgu.1"
+   ],
+   "fn core::slice::sort::shared::pivot::median3::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>": [
+    "cgus.7f09c2e3dd1567c4-cgu.1"
+   ],
+   "fn core::slice::sort::shared::pivot::median3_rec::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>": [
+    "cgus.7f09c2e3dd1567c4-cgu.1"
+   ],
+   "fn core::slice::sort::shared::smallsort::bidirectional_merge::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>": [
+    "cgus.7f09c2e3dd1567c4-cgu.2"
+   ],
+   "fn core::slice::sort::shared::smallsort::insert_tail::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>": [
+    "cgus.7f09c2e3dd1567c4-cgu.2"
+   ],
+   "fn core::slice::sort::shared::smallsort::insertion_sort_shift_left::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>": [
+    "cgus.7f09c2e3dd1567c4-cgu.2"
+   ],
+   "fn core::slice::sort::shared::smallsort::merge_down::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>": [
+    "cgus.7f09c2e3dd1567c4-cgu.2"
+   ],
+   "fn core::slice::sort::shared::smallsort::merge_up::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>": [
+    "cgus.7f09c2e3dd1567c4-cgu.2"
+   ],
+   "fn core::slice::sort::shared::smallsort::small_sort_general_with_scratch::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>": [
+    "cgus.7f09c2e3dd1567c4-cgu.2"
+   ],
+   "fn core::slice::sort::shared::smallsort::sort4_stable::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>": [
+    "cgus.7f09c2e3dd1567c4-cgu.2"
+   ],
+   "fn core::slice::sort::shared::smallsort::sort8_stable::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>": [
+    "cgus.7f09c2e3dd1567c4-cgu.2"
+   ],
+   "fn core::slice::sort::stable::AlignedStorage::<i64, 4096>::as_uninit_slice_mut": [
+    "cgus.7f09c2e3dd1567c4-cgu.0"
+   ],
+   "fn core::slice::sort::stable::drift::create_run::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>": [
+    "cgus.7f09c2e3dd1567c4-cgu.0"
+   ],
+   "fn core::slice::sort::stable::drift::logical_merge::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>": [
+    "cgus.7f09c2e3dd1567c4-cgu.0"
+   ],
+   "fn core::slice::sort::stable::drift::sort::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>": [
+    "cgus.7f09c2e3dd1567c4-cgu.0"
+   ],
+   "fn core::slice::sort::stable::drift::stable_quicksort::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>": [
+    "cgus.7f09c2e3dd1567c4-cgu.0"
+   ],
+   "fn core::slice::sort::stable::driftsort_main::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}, std::vec::Vec<i64>>": [
+    "cgus.7f09c2e3dd1567c4-cgu.0"
+   ],
+   "fn core::slice::sort::stable::merge::MergeState::<i64>::merge_down::<for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>": [
+    "cgus.7f09c2e3dd1567c4-cgu.1"
+   ],
+   "fn core::slice::sort::stable::merge::MergeState::<i64>::merge_up::<for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>": [
+    "cgus.7f09c2e3dd1567c4-cgu.1"
+   ],
+   "fn core::slice::sort::stable::merge::merge::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>": [
+    "cgus.7f09c2e3dd1567c4-cgu.1"
+   ],
+   "fn core::slice::sort::stable::quicksort::PartitionState::<i64>::partition_one": [
+    "cgus.7f09c2e3dd1567c4-cgu.3"
+   ],
+   "fn core::slice::sort::stable::quicksort::quicksort::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>": [
+    "cgus.7f09c2e3dd1567c4-cgu.3"
+   ],
+   "fn core::slice::sort::stable::quicksort::quicksort::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>::{closure#0}": [
+    "cgus.7f09c2e3dd1567c4-cgu.3"
+   ],
+   "fn core::slice::sort::stable::quicksort::stable_partition::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>": [
+    "cgus.7f09c2e3dd1567c4-cgu.3"
+   ],
+   "fn core::slice::sort::stable::quicksort::stable_partition::<i64, {closure@core::slice::sort::stable::quicksort::quicksort<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>::{closure#0}}>": [
+    "cgus.7f09c2e3dd1567c4-cgu.3"
+   ],
+   "fn core::ub_checks::maybe_is_nonoverlapping::runtime": [
+    "cgus.7f09c2e3dd1567c4-cgu.1"
+   ],
+   "fn generic::twice::<u32>": [
+    "cgus.7f09c2e3dd1567c4-cgu.2"
+   ],
+   "fn generic::twice::<u64>": [
+    "cgus.7f09c2e3dd1567c4-cgu.2"
+   ],
+   "fn large::sort": [
+    "cgus.7f09c2e3dd1567c4-cgu.2"
+   ],
+   "fn large::sum": [
+    "cgus.7f09c2e3dd1567c4-cgu.2"
+   ],
+   "fn large::text": [
+    "cgus.7f09c2e3dd1567c4-cgu.2"
+   ],
+   "fn main": [
+    "cgus.7f09c2e3dd1567c4-cgu.0"
+   ],
+   "fn medium::a": [
+    "cgus.7f09c2e3dd1567c4-cgu.1"
+   ],
+   "fn medium::b": [
+    "cgus.7f09c2e3dd1567c4-cgu.1"
+   ],
+   "fn medium::b::{closure#0}": [
+    "cgus.7f09c2e3dd1567c4-cgu.1"
+   ],
+   "fn small::one": [
+    "cgus.7f09c2e3dd1567c4-cgu.2"
+   ],
+   "fn std::alloc::Global::alloc_impl_runtime": [
+    "cgus.7f09c2e3dd1567c4-cgu.2"
+   ],
+   "fn std::array::iter::iter_inner::PolymorphicIter::<[std::mem::MaybeUninit<usize>]>::next": [
+    "cgus.7f09c2e3dd1567c4-cgu.0"
+   ],
+   "fn std::boxed::Box::<[i64; 3]>::new_uninit": [
+    "cgus.7f09c2e3dd1567c4-cgu.0"
+   ],
+   "fn std::boxed::Box::<[u32; 3]>::new_uninit": [
+    "cgus.7f09c2e3dd1567c4-cgu.0"
+   ],
+   "fn std::boxed::box_assume_init_into_vec_unsafe::<i64, 3>": [
+    "cgus.7f09c2e3dd1567c4-cgu.0"
+   ],
+   "fn std::boxed::box_assume_init_into_vec_unsafe::<u32, 3>": [
+    "cgus.7f09c2e3dd1567c4-cgu.0"
+   ],
+   "fn std::boxed::box_new_uninit": [
+    "cgus.7f09c2e3dd1567c4-cgu.3"
+   ],
+   "fn std::clone::impls::<impl std::clone::Clone for u32>::clone": [
+    "cgus.7f09c2e3dd1567c4-cgu.2"
+   ],
+   "fn std::clone::impls::<impl std::clone::Clone for u64>::clone": [
+    "cgus.7f09c2e3dd1567c4-cgu.2"
+   ],
+   "fn std::cmp::impls::<impl std::cmp::PartialOrd for i64>::lt": [
+    "cgus.7f09c2e3dd1567c4-cgu.1"
+   ],
+   "fn std::cmp::impls::<impl std::cmp::PartialOrd for usize>::lt": [
+    "cgus.7f09c2e3dd1567c4-cgu.0"
+   ],
+   "fn std::hint::assert_unchecked::precondition_check": [
+    "cgus.7f09c2e3dd1567c4-cgu.0"
+   ],
+   "fn std::hint::select_unpredictable::<*const i64>": [
+    "cgus.7f09c2e3dd1567c4-cgu.2"
+   ],
+   "fn std::intrinsics::cold_path": [
+    "cgus.7f09c2e3dd1567c4-cgu.3"
+   ],
+   "fn std::intrinsics::select_unpredictable::<*mut *const i64>": [
+    "cgus.7f09c2e3dd1567c4-cgu.3"
+   ],
+   "fn std::intrinsics::select_unpredictable::<std::mem::MaybeUninit<*const i64>>": [
+    "cgus.7f09c2e3dd1567c4-cgu.3"
+   ],
+   "fn std::intrinsics::typed_swap_nonoverlapping::<i64>": [
+    "cgus.7f09c2e3dd1567c4-cgu.3"
+   ],
+   "fn std::iter::adapters::map::map_fold::<&u8, usize, usize, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}}, {closure@<usize as std::iter::Sum>::sum<std::iter::Map<std::slice::Iter<'_, u8>, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}}>>::{closure#0}}>::{closure#0}": [
+    "cgus.7f09c2e3dd1567c4-cgu.3"
+   ],
+   "fn std::iter::range::<impl std::iter::Iterator for std::ops::Range<usize>>::next": [
+    "cgus.7f09c2e3dd1567c4-cgu.0"
+   ],
+   "fn std::ptr::NonNull::<T>::new_unchecked::precondition_check": [
+    "cgus.7f09c2e3dd1567c4-cgu.1"
+   ],
+   "fn std::ptr::const_ptr::<impl *const ()>::is_aligned_to": [
+    "cgus.7f09c2e3dd1567c4-cgu.3"
+   ],
+   "fn std::ptr::const_ptr::<impl *const T>::offset_from_unsigned::precondition_check": [
+    "cgus.7f09c2e3dd1567c4-cgu.3"
+   ],
+   "fn std::ptr::copy_nonoverlapping::precondition_check": [
+    "cgus.7f09c2e3dd1567c4-cgu.1"
+   ],
+   "fn std::ptr::drop_glue::<alloc::raw_vec::RawVec<i64>> - shim(Some(alloc::raw_vec::RawVec<i64>))": [
+    "cgus.7f09c2e3dd1567c4-cgu.1"
+   ],
+   "fn std::ptr::drop_glue::<alloc::raw_vec::RawVec<u32>> - shim(Some(alloc::raw_vec::RawVec<u32>))": [
+    "cgus.7f09c2e3dd1567c4-cgu.1"
+   ],
+   "fn std::ptr::drop_glue::<alloc::raw_vec::RawVec<u8>> - shim(Some(alloc::raw_vec::RawVec<u8>))": [
+    "cgus.7f09c2e3dd1567c4-cgu.1"
+   ],
+   "fn std::ptr::drop_glue::<core::slice::sort::shared::smallsort::CopyOnDrop<i64>> - shim(Some(core::slice::sort::shared::smallsort::CopyOnDrop<i64>))": [
+    "cgus.7f09c2e3dd1567c4-cgu.1"
+   ],
+   "fn std::ptr::drop_glue::<core::slice::sort::stable::merge::MergeState<i64>> - shim(Some(core::slice::sort::stable::merge::MergeState<i64>))": [
+    "cgus.7f09c2e3dd1567c4-cgu.1"
+   ],
+   "fn std::ptr::drop_glue::<std::array::IntoIter<usize, 2>> - shim(Some(std::array::IntoIter<usize, 2>))": [
+    "cgus.7f09c2e3dd1567c4-cgu.1"
+   ],
+   "fn std::ptr::drop_glue::<std::hint::select_unpredictable::DropOnPanic<*const i64>> - shim(Some(std::hint::select_unpredictable::DropOnPanic<*const i64>))": [
+    "cgus.7f09c2e3dd1567c4-cgu.1"
+   ],
+   "fn std::ptr::drop_glue::<std::string::String> - shim(Some(std::string::String))": [
+    "cgus.7f09c2e3dd1567c4-cgu.1"
+   ],
+   "fn std::ptr::drop_glue::<std::vec::Vec<i64>> - shim(Some(std::vec::Vec<i64>))": [
+    "cgus.7f09c2e3dd1567c4-cgu.1"
+   ],
+   "fn std::ptr::drop_glue::<std::vec::Vec<u32>> - shim(Some(std::vec::Vec<u32>))": [
+    "cgus.7f09c2e3dd1567c4-cgu.1"
+   ],
+   "fn std::ptr::drop_glue::<std::vec::Vec<u8>> - shim(Some(std::vec::Vec<u8>))": [
+    "cgus.7f09c2e3dd1567c4-cgu.1"
+   ],
+   "fn std::ptr::swap_chunk::<1>": [
+    "cgus.7f09c2e3dd1567c4-cgu.1"
+   ],
+   "fn std::ptr::swap_chunk::<2>": [
+    "cgus.7f09c2e3dd1567c4-cgu.1"
+   ],
+   "fn std::ptr::swap_chunk::<4>": [
+    "cgus.7f09c2e3dd1567c4-cgu.1"
+   ],
+   "fn std::ptr::swap_chunk::<8>": [
+    "cgus.7f09c2e3dd1567c4-cgu.1"
+   ],
+   "fn std::ptr::swap_nonoverlapping::<i64>": [
+    "cgus.7f09c2e3dd1567c4-cgu.1"
+   ],
+   "fn std::ptr::swap_nonoverlapping::precondition_check": [
+    "cgus.7f09c2e3dd1567c4-cgu.1"
+   ],
+   "fn std::ptr::swap_nonoverlapping_bytes": [
+    "cgus.7f09c2e3dd1567c4-cgu.1"
+   ],
+   "fn std::ptr::swap_nonoverlapping_bytes::swap_nonoverlapping_chunks::<8>": [
+    "cgus.7f09c2e3dd1567c4-cgu.1"
+   ],
+   "fn std::ptr::swap_nonoverlapping_bytes::swap_nonoverlapping_short": [
+    "cgus.7f09c2e3dd1567c4-cgu.1"
+   ],
+   "fn std::rt::lang_start::<()>": [
+    "cgus.7f09c2e3dd1567c4-cgu.0"
+   ],
+   "fn std::rt::lang_start::<()>::{closure#0}": [
+    "cgus.7f09c2e3dd1567c4-cgu.0"
+   ],
+   "fn std::slice::<impl [i64]>::sort": [
+    "cgus.7f09c2e3dd1567c4-cgu.0"
+   ],
+   "fn std::slice::<impl core::slice::sort::stable::BufGuard<i64> for std::vec::Vec<i64>>::as_uninit_slice_mut": [
+    "cgus.7f09c2e3dd1567c4-cgu.2"
+   ],
+   "fn std::slice::<impl core::slice::sort::stable::BufGuard<i64> for std::vec::Vec<i64>>::with_capacity": [
+    "cgus.7f09c2e3dd1567c4-cgu.2"
+   ],
+   "fn std::slice::Iter::<'_, u8>::make_slice": [
+    "cgus.7f09c2e3dd1567c4-cgu.0"
+   ],
+   "fn std::slice::Iter::<'_, u8>::new": [
+    "cgus.7f09c2e3dd1567c4-cgu.3"
+   ],
+   "fn std::slice::from_raw_parts::precondition_check": [
+    "cgus.7f09c2e3dd1567c4-cgu.3"
+   ],
+   "fn std::slice::from_raw_parts_mut::precondition_check": [
+    "cgus.7f09c2e3dd1567c4-cgu.3"
+   ],
+   "fn std::slice::stable_sort::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>": [
+    "cgus.7f09c2e3dd1567c4-cgu.0"
+   ],
+   "fn std::string::String::len": [
+    "cgus.7f09c2e3dd1567c4-cgu.0"
+   ],
+   "fn std::string::String::new": [
+    "cgus.7f09c2e3dd1567c4-cgu.0"
+   ],
+   "fn std::string::String::push_str": [
+    "cgus.7f09c2e3dd1567c4-cgu.0"
+   ],
+   "fn std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>": [
+    "cgus.7f09c2e3dd1567c4-cgu.1"
+   ],
+   "fn std::vec::Vec::<T, A>::from_raw_parts_in::precondition_check": [
+    "cgus.7f09c2e3dd1567c4-cgu.2"
+   ],
+   "fn std::vec::Vec::<T, A>::set_len::precondition_check": [
+    "cgus.7f09c2e3dd1567c4-cgu.2"
+   ],
+   "fn std::vec::Vec::<i64>::len": [
+    "cgus.7f09c2e3dd1567c4-cgu.2"
+   ],
+   "fn std::vec::Vec::<u8>::append_elements": [
+    "cgus.7f09c2e3dd1567c4-cgu.2"
+   ]
+  },
+  "allocator": "370gba7z70vw642p0l8uv3rqs",
+  "main": [
+   "define i32 @main(i32 %0, ptr %1) {",
+   "top:",
+   "  %2 = sext i32 %0 to i64",
+   "  %3 = call i64 @_RINvNtCs7uvcShySr4P_3std2rt10lang_startuECsaUdHsY5rg0a_4cgus(ptr @_RNvCsaUdHsY5rg0a_4cgus4main, i64 %2, ptr %1, i8 0)",
+   "  %4 = trunc i64 %3 to i32",
+   "  ret i32 %4"
+  ]
+ },
+ "rlib": {
+  "instances": [
+   "core::slice::sort::stable::merge::MergeState::<i64>::merge_down::<for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
+   "core::slice::sort::stable::merge::MergeState::<i64>::merge_up::<for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
+   "std::ptr::swap_chunk::<1>",
+   "std::ptr::swap_chunk::<2>",
+   "std::ptr::swap_chunk::<4>",
+   "std::ptr::swap_chunk::<8>",
+   "std::ptr::swap_nonoverlapping::<i64>",
+   "core::slice::sort::shared::pivot::median3_rec::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
+   "core::slice::sort::shared::pivot::choose_pivot::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
+   "core::slice::sort::shared::pivot::median3::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
+   "core::slice::sort::stable::merge::merge::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
+   "std::ptr::swap_nonoverlapping_bytes::swap_nonoverlapping_chunks::<8>",
+   "std::iter::adapters::map::map_fold::<&u8, usize, usize, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}}, {closure@<usize as std::iter::Sum>::sum<std::iter::Map<std::slice::Iter<'_, u8>, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}}>>::{closure#0}}>::{closure#0}",
+   "<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize::<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}",
+   "std::string::String::new",
+   "std::string::String::push_str",
+   "std::slice::Iter::<'_, u8>::make_slice",
+   "std::ptr::swap_nonoverlapping_bytes",
+   "std::ptr::copy_nonoverlapping::precondition_check",
+   "std::ptr::swap_nonoverlapping::precondition_check",
+   "std::ptr::swap_nonoverlapping_bytes::swap_nonoverlapping_short",
+   "std::hint::assert_unchecked::precondition_check",
+   "<usize as std::slice::SliceIndex<[T]>>::get_unchecked::precondition_check",
+   "<std::ops::Range<usize> as std::slice::SliceIndex<[T]>>::get_unchecked_mut::precondition_check",
+   "<std::hint::select_unpredictable::DropOnPanic<*const i64> as std::ops::Drop>::drop",
+   "<usize as std::string::SpecToString>::spec_to_string",
+   "<std::iter::Filter<std::slice::Iter<'_, u8>, {closure@cgus.rs:19:25: 19:30}> as std::iter::Iterator>::count",
+   "<usize as std::string::ToString>::to_string",
+   "<core::slice::sort::stable::merge::MergeState<i64> as std::ops::Drop>::drop",
+   "<std::string::String as std::ops::Deref>::deref",
+   "std::slice::stable_sort::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
+   "std::hint::select_unpredictable::<*const i64>",
+   "core::slice::sort::shared::smallsort::merge_down::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
+   "core::slice::sort::shared::smallsort::insert_tail::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
+   "core::slice::sort::shared::smallsort::sort4_stable::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
+   "core::slice::sort::shared::smallsort::sort8_stable::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
+   "core::slice::sort::shared::smallsort::bidirectional_merge::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
+   "core::slice::sort::shared::smallsort::insertion_sort_shift_left::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
+   "core::slice::sort::shared::smallsort::small_sort_general_with_scratch::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
+   "core::slice::sort::shared::smallsort::merge_up::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
+   "<u8 as std::slice::<impl [T]>::to_vec_in::ConvertVec>::to_vec::<std::alloc::Global>",
+   "std::slice::<impl [i64]>::sort",
+   "std::array::iter::iter_inner::PolymorphicIter::<[std::mem::MaybeUninit<usize>]>::next",
+   "std::vec::Vec::<u8>::append_elements",
+   "core::num::<impl usize>::unchecked_add::precondition_check",
+   "std::vec::Vec::<T, A>::set_len::precondition_check",
+   "core::ub_checks::maybe_is_nonoverlapping::runtime",
+   "<std::array::IntoIter<usize, 2> as std::ops::Drop>::drop",
+   "<core::slice::sort::shared::smallsort::CopyOnDrop<i64> as std::ops::Drop>::drop",
+   "std::slice::<impl core::slice::sort::stable::BufGuard<i64> for std::vec::Vec<i64>>::with_capacity",
+   "std::slice::<impl core::slice::sort::stable::BufGuard<i64> for std::vec::Vec<i64>>::as_uninit_slice_mut",
+   "<std::vec::Vec<i64> as std::ops::DerefMut>::deref_mut",
+   "<usize as std::iter::Step>::forward_unchecked",
+   "<std::vec::Vec<i64> as std::ops::Drop>::drop",
+   "std::ptr::drop_glue::<std::vec::Vec<u8>> - shim(Some(std::vec::Vec<u8>))",
+   "std::ptr::drop_glue::<std::vec::Vec<i64>> - shim(Some(std::vec::Vec<i64>))",
+   "std::ptr::drop_glue::<alloc::raw_vec::RawVec<u8>> - shim(Some(alloc::raw_vec::RawVec<u8>))",
+   "std::ptr::drop_glue::<alloc::raw_vec::RawVec<i64>> - shim(Some(alloc::raw_vec::RawVec<i64>))",
+   "std::ptr::drop_glue::<std::array::IntoIter<usize, 2>> - shim(Some(std::array::IntoIter<usize, 2>))",
+   "std::ptr::drop_glue::<core::slice::sort::shared::smallsort::CopyOnDrop<i64>> - shim(Some(core::slice::sort::shared::smallsort::CopyOnDrop<i64>))",
+   "std::ptr::drop_glue::<core::slice::sort::stable::merge::MergeState<i64>> - shim(Some(core::slice::sort::stable::merge::MergeState<i64>))",
+   "std::ptr::drop_glue::<std::hint::select_unpredictable::DropOnPanic<*const i64>> - shim(Some(std::hint::select_unpredictable::DropOnPanic<*const i64>))",
+   "std::ptr::drop_glue::<std::string::String> - shim(Some(std::string::String))",
+   "core::slice::sort::shared::find_existing_run::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
+   "core::slice::sort::stable::driftsort_main::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}, std::vec::Vec<i64>>",
+   "core::slice::sort::stable::drift::create_run::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
+   "core::slice::sort::stable::drift::logical_merge::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
+   "core::slice::sort::stable::drift::stable_quicksort::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
+   "core::slice::sort::stable::drift::sort::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
+   "core::slice::<impl [T]>::reverse::revswap::<i64>",
+   "medium::b::{closure#0}",
+   "core::slice::<impl [u8]>::iter",
+   "core::slice::<impl [i64]>::split_at_mut",
+   "core::slice::<impl [i64]>::split_at_mut_unchecked",
+   "core::slice::<impl [i64]>::reverse",
+   "core::slice::sort::stable::AlignedStorage::<i64, 4096>::as_uninit_slice_mut",
+   "core::num::<impl u64>::wrapping_mul",
+   "alloc::raw_vec::RawVecInner::with_capacity_in",
+   "medium::a",
+   "medium::b",
+   "core::slice::<impl [T]>::split_at_mut_unchecked::precondition_check",
+   "std::slice::from_raw_parts::precondition_check",
+   "std::slice::from_raw_parts_mut::precondition_check",
+   "<std::ops::Range<usize> as std::iter::IntoIterator>::into_iter",
+   "std::cmp::impls::<impl std::cmp::PartialOrd for i64>::lt",
+   "<std::ops::Range<usize> as std::iter::range::RangeIteratorImpl>::spec_next",
+   "<alloc::raw_vec::RawVec<i64> as std::ops::Drop>::drop",
+   "std::iter::range::<impl std::iter::Iterator for std::ops::Range<usize>>::next",
+   "std::cmp::impls::<impl std::cmp::PartialOrd for usize>::lt",
+   "<i64 as core::slice::sort::shared::smallsort::StableSmallSortTypeImpl>::small_sort_threshold",
+   "<for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt} as std::ops::FnMut<(&i64, &i64)>>::call_mut - shim(for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt})",
+   "std::intrinsics::select_unpredictable::<std::mem::MaybeUninit<*const i64>>",
+   "std::intrinsics::select_unpredictable::<*mut *const i64>",
+   "std::intrinsics::typed_swap_nonoverlapping::<i64>",
+   "core::slice::sort::stable::quicksort::stable_partition::<i64, {closure@core::slice::sort::stable::quicksort::quicksort<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>::{closure#0}}>",
+   "core::slice::sort::stable::quicksort::stable_partition::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
+   "core::slice::sort::stable::quicksort::quicksort::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
+   "<std::slice::Iter<'_, u8> as std::iter::Iterator>::fold::<usize, {closure@std::iter::adapters::map::map_fold<&u8, usize, usize, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}}, {closure@<usize as std::iter::Sum>::sum<std::iter::Map<std::slice::Iter<'_, u8>, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}}>>::{closure#0}}>::{closure#0}}>",
+   "<i64 as core::slice::sort::shared::smallsort::StableSmallSortTypeImpl>::small_sort::<for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
+   "<std::slice::Iter<'_, u8> as std::iter::Iterator>::map::<usize, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}}>",
+   "<std::slice::Iter<'_, u8> as std::iter::Iterator>::filter::<{closure@cgus.rs:19:25: 19:30}>",
+   "core::slice::sort::stable::quicksort::quicksort::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>::{closure#0}",
+   "<usize as std::iter::Sum>::sum::<std::iter::Map<std::slice::Iter<'_, u8>, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}}>>::{closure#0}",
+   "std::ptr::const_ptr::<impl *const ()>::is_aligned_to",
+   "core::slice::sort::stable::quicksort::PartitionState::<i64>::partition_one",
+   "std::slice::Iter::<'_, u8>::new",
+   "core::num::<impl u32>::wrapping_add",
+   "std::intrinsics::cold_path",
+   "large::sum",
+   "large::sort",
+   "large::text",
+   "small::one",
+   "std::ptr::const_ptr::<impl *const T>::offset_from_unsigned::precondition_check",
+   "<i64 as core::slice::sort::stable::quicksort::IsFreeze>::is_freeze",
+   "<std::slice::Iter<'_, u8> as std::iter::Iterator>::size_hint",
+   "<std::slice::Iter<'_, u32> as std::iter::Iterator>::next",
+   "<std::slice::Iter<'_, u8> as std::iter::adapters::filter::SpecAssumeCount>::assume_count_le_upper_bound",
+   "core::slice::iter::<impl std::iter::IntoIterator for &[u32]>::into_iter",
+   "<i64 as core::slice::sort::shared::smallsort::StableSmallSortTypeImpl>::small_sort_threshold"
+  ],
+  "mono": {
+   "fn <alloc::raw_vec::RawVec<i64> as std::ops::Drop>::drop": [
+    "cgus.a762f592f3f797ae-cgu.1"
+   ],
+   "fn <core::slice::sort::shared::smallsort::CopyOnDrop<i64> as std::ops::Drop>::drop": [
+    "cgus.a762f592f3f797ae-cgu.3"
+   ],
+   "fn <core::slice::sort::stable::merge::MergeState<i64> as std::ops::Drop>::drop": [
+    "cgus.a762f592f3f797ae-cgu.0"
+   ],
+   "fn <for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt} as std::ops::FnMut<(&i64, &i64)>>::call_mut - shim(for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt})": [
+    "cgus.a762f592f3f797ae-cgu.1"
+   ],
+   "fn <i64 as core::slice::sort::shared::smallsort::StableSmallSortTypeImpl>::small_sort::<for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>": [
+    "cgus.a762f592f3f797ae-cgu.2"
+   ],
+   "fn <i64 as core::slice::sort::shared::smallsort::StableSmallSortTypeImpl>::small_sort_threshold": [
+    "cgus.a762f592f3f797ae-cgu.1",
+    "cgus.a762f592f3f797ae-cgu.2"
+   ],
+   "fn <i64 as core::slice::sort::stable::quicksort::IsFreeze>::is_freeze": [
+    "cgus.a762f592f3f797ae-cgu.2"
+   ],
+   "fn <std::array::IntoIter<usize, 2> as std::ops::Drop>::drop": [
+    "cgus.a762f592f3f797ae-cgu.3"
+   ],
+   "fn <std::hint::select_unpredictable::DropOnPanic<*const i64> as std::ops::Drop>::drop": [
+    "cgus.a762f592f3f797ae-cgu.0"
+   ],
+   "fn <std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize::<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}": [
+    "cgus.a762f592f3f797ae-cgu.0"
+   ],
+   "fn <std::iter::Filter<std::slice::Iter<'_, u8>, {closure@cgus.rs:19:25: 19:30}> as std::iter::Iterator>::count": [
+    "cgus.a762f592f3f797ae-cgu.0"
+   ],
+   "fn <std::ops::Range<usize> as std::iter::IntoIterator>::into_iter": [
+    "cgus.a762f592f3f797ae-cgu.1"
+   ],
+   "fn <std::ops::Range<usize> as std::iter::range::RangeIteratorImpl>::spec_next": [
+    "cgus.a762f592f3f797ae-cgu.1"
+   ],
+   "fn <std::ops::Range<usize> as std::slice::SliceIndex<[T]>>::get_unchecked_mut::precondition_check": [
+    "cgus.a762f592f3f797ae-cgu.0"
+   ],
+   "fn <std::slice::Iter<'_, u32> as std::iter::Iterator>::next": [
+    "cgus.a762f592f3f797ae-cgu.2"
+   ],
+   "fn <std::slice::Iter<'_, u8> as std::iter::Iterator>::filter::<{closure@cgus.rs:19:25: 19:30}>": [
+    "cgus.a762f592f3f797ae-cgu.2"
+   ],
+   "fn <std::slice::Iter<'_, u8> as std::iter::Iterator>::fold::<usize, {closure@std::iter::adapters::map::map_fold<&u8, usize, usize, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}}, {closure@<usize as std::iter::Sum>::sum<std::iter::Map<std::slice::Iter<'_, u8>, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}}>>::{closure#0}}>::{closure#0}}>": [
+    "cgus.a762f592f3f797ae-cgu.2"
+   ],
+   "fn <std::slice::Iter<'_, u8> as std::iter::Iterator>::map::<usize, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}}>": [
+    "cgus.a762f592f3f797ae-cgu.2"
+   ],
+   "fn <std::slice::Iter<'_, u8> as std::iter::Iterator>::size_hint": [
+    "cgus.a762f592f3f797ae-cgu.2"
+   ],
+   "fn <std::slice::Iter<'_, u8> as std::iter::adapters::filter::SpecAssumeCount>::assume_count_le_upper_bound": [
+    "cgus.a762f592f3f797ae-cgu.2"
+   ],
+   "fn <std::string::String as std::ops::Deref>::deref": [
+    "cgus.a762f592f3f797ae-cgu.0"
+   ],
+   "fn <std::vec::Vec<i64> as std::ops::DerefMut>::deref_mut": [
+    "cgus.a762f592f3f797ae-cgu.3"
+   ],
+   "fn <std::vec::Vec<i64> as std::ops::Drop>::drop": [
+    "cgus.a762f592f3f797ae-cgu.3"
+   ],
+   "fn <u8 as std::slice::<impl [T]>::to_vec_in::ConvertVec>::to_vec::<std::alloc::Global>": [
+    "cgus.a762f592f3f797ae-cgu.3"
+   ],
+   "fn <usize as std::iter::Step>::forward_unchecked": [
+    "cgus.a762f592f3f797ae-cgu.3"
+   ],
+   "fn <usize as std::iter::Sum>::sum::<std::iter::Map<std::slice::Iter<'_, u8>, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}}>>::{closure#0}": [
+    "cgus.a762f592f3f797ae-cgu.2"
+   ],
+   "fn <usize as std::slice::SliceIndex<[T]>>::get_unchecked::precondition_check": [
+    "cgus.a762f592f3f797ae-cgu.0"
+   ],
+   "fn <usize as std::string::SpecToString>::spec_to_string": [
+    "cgus.a762f592f3f797ae-cgu.0"
+   ],
+   "fn <usize as std::string::ToString>::to_string": [
+    "cgus.a762f592f3f797ae-cgu.0"
+   ],
+   "fn alloc::raw_vec::RawVecInner::with_capacity_in": [
+    "cgus.a762f592f3f797ae-cgu.1"
+   ],
+   "fn core::num::<impl u32>::wrapping_add": [
+    "cgus.a762f592f3f797ae-cgu.2"
+   ],
+   "fn core::num::<impl u64>::wrapping_mul": [
+    "cgus.a762f592f3f797ae-cgu.1"
+   ],
+   "fn core::num::<impl usize>::unchecked_add::precondition_check": [
+    "cgus.a762f592f3f797ae-cgu.3"
+   ],
+   "fn core::slice::<impl [T]>::reverse::revswap::<i64>": [
+    "cgus.a762f592f3f797ae-cgu.1"
+   ],
+   "fn core::slice::<impl [T]>::split_at_mut_unchecked::precondition_check": [
+    "cgus.a762f592f3f797ae-cgu.1"
+   ],
+   "fn core::slice::<impl [i64]>::reverse": [
+    "cgus.a762f592f3f797ae-cgu.1"
+   ],
+   "fn core::slice::<impl [i64]>::split_at_mut": [
+    "cgus.a762f592f3f797ae-cgu.1"
+   ],
+   "fn core::slice::<impl [i64]>::split_at_mut_unchecked": [
+    "cgus.a762f592f3f797ae-cgu.1"
+   ],
+   "fn core::slice::<impl [u8]>::iter": [
+    "cgus.a762f592f3f797ae-cgu.1"
+   ],
+   "fn core::slice::iter::<impl std::iter::IntoIterator for &[u32]>::into_iter": [
+    "cgus.a762f592f3f797ae-cgu.2"
+   ],
+   "fn core::slice::sort::shared::find_existing_run::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>": [
+    "cgus.a762f592f3f797ae-cgu.1"
+   ],
+   "fn core::slice::sort::shared::pivot::choose_pivot::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>": [
+    "cgus.a762f592f3f797ae-cgu.0"
+   ],
+   "fn core::slice::sort::shared::pivot::median3::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>": [
+    "cgus.a762f592f3f797ae-cgu.0"
+   ],
+   "fn core::slice::sort::shared::pivot::median3_rec::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>": [
+    "cgus.a762f592f3f797ae-cgu.0"
+   ],
+   "fn core::slice::sort::shared::smallsort::bidirectional_merge::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>": [
+    "cgus.a762f592f3f797ae-cgu.3"
+   ],
+   "fn core::slice::sort::shared::smallsort::insert_tail::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>": [
+    "cgus.a762f592f3f797ae-cgu.3"
+   ],
+   "fn core::slice::sort::shared::smallsort::insertion_sort_shift_left::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>": [
+    "cgus.a762f592f3f797ae-cgu.3"
+   ],
+   "fn core::slice::sort::shared::smallsort::merge_down::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>": [
+    "cgus.a762f592f3f797ae-cgu.3"
+   ],
+   "fn core::slice::sort::shared::smallsort::merge_up::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>": [
+    "cgus.a762f592f3f797ae-cgu.3"
+   ],
+   "fn core::slice::sort::shared::smallsort::small_sort_general_with_scratch::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>": [
+    "cgus.a762f592f3f797ae-cgu.3"
+   ],
+   "fn core::slice::sort::shared::smallsort::sort4_stable::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>": [
+    "cgus.a762f592f3f797ae-cgu.3"
+   ],
+   "fn core::slice::sort::shared::smallsort::sort8_stable::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>": [
+    "cgus.a762f592f3f797ae-cgu.3"
+   ],
+   "fn core::slice::sort::stable::AlignedStorage::<i64, 4096>::as_uninit_slice_mut": [
+    "cgus.a762f592f3f797ae-cgu.1"
+   ],
+   "fn core::slice::sort::stable::drift::create_run::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>": [
+    "cgus.a762f592f3f797ae-cgu.1"
+   ],
+   "fn core::slice::sort::stable::drift::logical_merge::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>": [
+    "cgus.a762f592f3f797ae-cgu.1"
+   ],
+   "fn core::slice::sort::stable::drift::sort::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>": [
+    "cgus.a762f592f3f797ae-cgu.1"
+   ],
+   "fn core::slice::sort::stable::drift::stable_quicksort::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>": [
+    "cgus.a762f592f3f797ae-cgu.1"
+   ],
+   "fn core::slice::sort::stable::driftsort_main::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}, std::vec::Vec<i64>>": [
+    "cgus.a762f592f3f797ae-cgu.1"
+   ],
+   "fn core::slice::sort::stable::merge::MergeState::<i64>::merge_down::<for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>": [
+    "cgus.a762f592f3f797ae-cgu.0"
+   ],
+   "fn core::slice::sort::stable::merge::MergeState::<i64>::merge_up::<for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>": [
+    "cgus.a762f592f3f797ae-cgu.0"
+   ],
+   "fn core::slice::sort::stable::merge::merge::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>": [
+    "cgus.a762f592f3f797ae-cgu.0"
+   ],
+   "fn core::slice::sort::stable::quicksort::PartitionState::<i64>::partition_one": [
+    "cgus.a762f592f3f797ae-cgu.2"
+   ],
+   "fn core::slice::sort::stable::quicksort::quicksort::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>": [
+    "cgus.a762f592f3f797ae-cgu.2"
+   ],
+   "fn core::slice::sort::stable::quicksort::quicksort::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>::{closure#0}": [
+    "cgus.a762f592f3f797ae-cgu.2"
+   ],
+   "fn core::slice::sort::stable::quicksort::stable_partition::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>": [
+    "cgus.a762f592f3f797ae-cgu.2"
+   ],
+   "fn core::slice::sort::stable::quicksort::stable_partition::<i64, {closure@core::slice::sort::stable::quicksort::quicksort<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>::{closure#0}}>": [
+    "cgus.a762f592f3f797ae-cgu.2"
+   ],
+   "fn core::ub_checks::maybe_is_nonoverlapping::runtime": [
+    "cgus.a762f592f3f797ae-cgu.3"
+   ],
+   "fn large::sort": [
+    "cgus.a762f592f3f797ae-cgu.2"
+   ],
+   "fn large::sum": [
+    "cgus.a762f592f3f797ae-cgu.2"
+   ],
+   "fn large::text": [
+    "cgus.a762f592f3f797ae-cgu.2"
+   ],
+   "fn medium::a": [
+    "cgus.a762f592f3f797ae-cgu.1"
+   ],
+   "fn medium::b": [
+    "cgus.a762f592f3f797ae-cgu.1"
+   ],
+   "fn medium::b::{closure#0}": [
+    "cgus.a762f592f3f797ae-cgu.1"
+   ],
+   "fn small::one": [
+    "cgus.a762f592f3f797ae-cgu.2"
+   ],
+   "fn std::array::iter::iter_inner::PolymorphicIter::<[std::mem::MaybeUninit<usize>]>::next": [
+    "cgus.a762f592f3f797ae-cgu.3"
+   ],
+   "fn std::cmp::impls::<impl std::cmp::PartialOrd for i64>::lt": [
+    "cgus.a762f592f3f797ae-cgu.1"
+   ],
+   "fn std::cmp::impls::<impl std::cmp::PartialOrd for usize>::lt": [
+    "cgus.a762f592f3f797ae-cgu.1"
+   ],
+   "fn std::hint::assert_unchecked::precondition_check": [
+    "cgus.a762f592f3f797ae-cgu.0"
+   ],
+   "fn std::hint::select_unpredictable::<*const i64>": [
+    "cgus.a762f592f3f797ae-cgu.3"
+   ],
+   "fn std::intrinsics::cold_path": [
+    "cgus.a762f592f3f797ae-cgu.2"
+   ],
+   "fn std::intrinsics::select_unpredictable::<*mut *const i64>": [
+    "cgus.a762f592f3f797ae-cgu.2"
+   ],
+   "fn std::intrinsics::select_unpredictable::<std::mem::MaybeUninit<*const i64>>": [
+    "cgus.a762f592f3f797ae-cgu.2"
+   ],
+   "fn std::intrinsics::typed_swap_nonoverlapping::<i64>": [
+    "cgus.a762f592f3f797ae-cgu.2"
+   ],
+   "fn std::iter::adapters::map::map_fold::<&u8, usize, usize, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}}, {closure@<usize as std::iter::Sum>::sum<std::iter::Map<std::slice::Iter<'_, u8>, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}}>>::{closure#0}}>::{closure#0}": [
+    "cgus.a762f592f3f797ae-cgu.0"
+   ],
+   "fn std::iter::range::<impl std::iter::Iterator for std::ops::Range<usize>>::next": [
+    "cgus.a762f592f3f797ae-cgu.1"
+   ],
+   "fn std::ptr::const_ptr::<impl *const ()>::is_aligned_to": [
+    "cgus.a762f592f3f797ae-cgu.2"
+   ],
+   "fn std::ptr::const_ptr::<impl *const T>::offset_from_unsigned::precondition_check": [
+    "cgus.a762f592f3f797ae-cgu.2"
+   ],
+   "fn std::ptr::copy_nonoverlapping::precondition_check": [
+    "cgus.a762f592f3f797ae-cgu.0"
+   ],
+   "fn std::ptr::drop_glue::<alloc::raw_vec::RawVec<i64>> - shim(Some(alloc::raw_vec::RawVec<i64>))": [
+    "cgus.a762f592f3f797ae-cgu.1"
+   ],
+   "fn std::ptr::drop_glue::<alloc::raw_vec::RawVec<u8>> - shim(Some(alloc::raw_vec::RawVec<u8>))": [
+    "cgus.a762f592f3f797ae-cgu.1"
+   ],
+   "fn std::ptr::drop_glue::<core::slice::sort::shared::smallsort::CopyOnDrop<i64>> - shim(Some(core::slice::sort::shared::smallsort::CopyOnDrop<i64>))": [
+    "cgus.a762f592f3f797ae-cgu.1"
+   ],
+   "fn std::ptr::drop_glue::<core::slice::sort::stable::merge::MergeState<i64>> - shim(Some(core::slice::sort::stable::merge::MergeState<i64>))": [
+    "cgus.a762f592f3f797ae-cgu.1"
+   ],
+   "fn std::ptr::drop_glue::<std::array::IntoIter<usize, 2>> - shim(Some(std::array::IntoIter<usize, 2>))": [
+    "cgus.a762f592f3f797ae-cgu.1"
+   ],
+   "fn std::ptr::drop_glue::<std::hint::select_unpredictable::DropOnPanic<*const i64>> - shim(Some(std::hint::select_unpredictable::DropOnPanic<*const i64>))": [
+    "cgus.a762f592f3f797ae-cgu.1"
+   ],
+   "fn std::ptr::drop_glue::<std::string::String> - shim(Some(std::string::String))": [
+    "cgus.a762f592f3f797ae-cgu.1"
+   ],
+   "fn std::ptr::drop_glue::<std::vec::Vec<i64>> - shim(Some(std::vec::Vec<i64>))": [
+    "cgus.a762f592f3f797ae-cgu.1"
+   ],
+   "fn std::ptr::drop_glue::<std::vec::Vec<u8>> - shim(Some(std::vec::Vec<u8>))": [
+    "cgus.a762f592f3f797ae-cgu.1"
+   ],
+   "fn std::ptr::swap_chunk::<1>": [
+    "cgus.a762f592f3f797ae-cgu.0"
+   ],
+   "fn std::ptr::swap_chunk::<2>": [
+    "cgus.a762f592f3f797ae-cgu.0"
+   ],
+   "fn std::ptr::swap_chunk::<4>": [
+    "cgus.a762f592f3f797ae-cgu.0"
+   ],
+   "fn std::ptr::swap_chunk::<8>": [
+    "cgus.a762f592f3f797ae-cgu.0"
+   ],
+   "fn std::ptr::swap_nonoverlapping::<i64>": [
+    "cgus.a762f592f3f797ae-cgu.0"
+   ],
+   "fn std::ptr::swap_nonoverlapping::precondition_check": [
+    "cgus.a762f592f3f797ae-cgu.0"
+   ],
+   "fn std::ptr::swap_nonoverlapping_bytes": [
+    "cgus.a762f592f3f797ae-cgu.0"
+   ],
+   "fn std::ptr::swap_nonoverlapping_bytes::swap_nonoverlapping_chunks::<8>": [
+    "cgus.a762f592f3f797ae-cgu.0"
+   ],
+   "fn std::ptr::swap_nonoverlapping_bytes::swap_nonoverlapping_short": [
+    "cgus.a762f592f3f797ae-cgu.0"
+   ],
+   "fn std::slice::<impl [i64]>::sort": [
+    "cgus.a762f592f3f797ae-cgu.3"
+   ],
+   "fn std::slice::<impl core::slice::sort::stable::BufGuard<i64> for std::vec::Vec<i64>>::as_uninit_slice_mut": [
+    "cgus.a762f592f3f797ae-cgu.3"
+   ],
+   "fn std::slice::<impl core::slice::sort::stable::BufGuard<i64> for std::vec::Vec<i64>>::with_capacity": [
+    "cgus.a762f592f3f797ae-cgu.3"
+   ],
+   "fn std::slice::Iter::<'_, u8>::make_slice": [
+    "cgus.a762f592f3f797ae-cgu.0"
+   ],
+   "fn std::slice::Iter::<'_, u8>::new": [
+    "cgus.a762f592f3f797ae-cgu.2"
+   ],
+   "fn std::slice::from_raw_parts::precondition_check": [
+    "cgus.a762f592f3f797ae-cgu.1"
+   ],
+   "fn std::slice::from_raw_parts_mut::precondition_check": [
+    "cgus.a762f592f3f797ae-cgu.1"
+   ],
+   "fn std::slice::stable_sort::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>": [
+    "cgus.a762f592f3f797ae-cgu.3"
+   ],
+   "fn std::string::String::new": [
+    "cgus.a762f592f3f797ae-cgu.0"
+   ],
+   "fn std::string::String::push_str": [
+    "cgus.a762f592f3f797ae-cgu.0"
+   ],
+   "fn std::vec::Vec::<T, A>::set_len::precondition_check": [
+    "cgus.a762f592f3f797ae-cgu.3"
+   ],
+   "fn std::vec::Vec::<u8>::append_elements": [
+    "cgus.a762f592f3f797ae-cgu.3"
+   ]
+  },
+  "allocator": null,
+  "main": null
+ }
+}
