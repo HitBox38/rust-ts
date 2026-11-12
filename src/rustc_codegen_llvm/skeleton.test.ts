@@ -97,12 +97,11 @@ describe("trait methods are attached at run time", () => {
 describe("stubs name their fill lane", () => {
   test("one stub per owning file", () => {
     const cx = Object.create(CodegenCx.prototype) as CodegenCx;
-    stops(() => cx.type_i8(), /^cg-types-attrs: compiler\/rustc_codegen_llvm\/src\/type_\.rs type_i8$/);
+    // cg-types-attrs (type_.ts, mono_item.ts, ...) is ported: its members no longer stop (type_of.test.ts, attributes.test.ts).
     stops(() => cx.const_bool(true), /^cg-context: .*\/common\.rs const_bool$/);
     stops(() => cx.sess(), /^cg-context: .*\/context\.rs sess$/);
     stops(() => cx.codegen_static(undefined as never), /^cg-abi-consts: .*\/consts\.rs codegen_static$/);
     stops(() => cx.mangled_name(undefined as never), /^cg-asm: .*\/asm\.rs mangled_name$/);
-    stops(() => cx.predefine_fn(undefined as never, undefined as never, undefined as never, ""), /^cg-types-attrs: .*\/mono_item\.rs predefine_fn$/);
     const bx = Object.create(Builder.prototype) as Builder;
     stops(() => bx.ret_void(), /^cg-builder: .*\/builder\.rs ret_void$/);
     stops(() => bx.get_param(0), /^cg-abi-consts: .*\/abi\.rs get_param$/);
@@ -123,12 +122,14 @@ describe("stub counts per lane", () => {
     "cg-intrinsic-a": 10,
     "cg-intrinsic-b": 2,
     "cg-lto-diag": 8,
-    "cg-types-attrs": 80,
     "cg-write": 21,
     "excluded (plan-m7 D18)": 10,
     "llir": 2,
-    "rustc_codegen_llvm": 3,
-    "ssa-base": 1,
+    "rustc_codegen_llvm": 5,
+    "rustc_sanitizers": 3,
+    "rustc_session": 6,
+    "ssa-base": 3,
+    "ssa-mir-core": 2,
     "ssa-write": 5,
   };
   test("matches the table in docs/handoff/cg-contract.md", () => {
@@ -209,7 +210,7 @@ describe("auto-deref", () => {
     expect(bx.tcx as unknown).toBe("tcx");
     expect(bx.deref()).toBe(cx);
     // CodegenCx trait methods, through the forwarders.
-    stops(() => bx.type_i8(), /^cg-types-attrs: .* type_i8$/);
+    expect(bx.type_isize() as unknown).toBe("isize"); // type_.rs:209, ported (cg-types-attrs)
     stops(() => bx.const_usize(1n), /^cg-context: .* const_usize$/);
     // Builder's own `data_layout` (builder.rs:213), not the cx's (context.rs:1254).
     stops(() => bx.data_layout(), /^cg-builder: .* data_layout$/);
@@ -218,28 +219,36 @@ describe("auto-deref", () => {
   });
 
   test("the fill-lane sketch: ported accessors answer, cross-lane calls stop in their owner's stub", () => {
-    const cx = new CodegenCx(full_cx());
+    // cg-types-attrs's fns are ported, so the `SCx` holds real IR-model handles (a `FullCx` with markers elsewhere).
+    const llcx = llvm.LLVMContextCreate();
+    const llmod = llvm.LLVMModuleCreateWithNameInContext("sketch", llcx);
+    const isize = llvm.LLVMInt64TypeInContext(llcx);
+    const full = full_cx();
+    full.scx = new SimpleCx(new SCx(llmod, llcx, isize));
+    const cx = new CodegenCx(full);
     const bx = new Builder("llbuilder" as never, cx, 0 as never);
     const layout = Object.create(TyAndLayout_.prototype) as TyAndLayout;
     const fn_abi = Object.create(FnAbi.prototype) as FnAbi<Ty>;
-    expect(fill_lane_sketch(cx, bx, layout, fn_abi, undefined as never)).toEqual([
-      "llcx",
-      "llmod",
-      "isize",
+    const out = fill_lane_sketch(cx, bx, layout, fn_abi, undefined as never);
+    expect(out).toEqual([
+      llcx,
+      llmod,
+      isize,
       "field11",
-      "cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs type_i1",
-      expect.stringMatching(/^cg-types-attrs: .*\/type_of\.rs llvm_type$/) as unknown as string,
+      llvm.LLVMInt1TypeInContext(llcx), // type_.rs:168, ported
+      expect.any(TypeError), // type_of.rs:234, ported; a layout with no fields (type_of.test.ts has real ones)
       expect.stringMatching(/^cg-abi-consts: .*\/abi\.rs llvm_type$/) as unknown as string,
-      "cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs type_i8",
+      llvm.LLVMRustGetNamedValue(llmod, "g", 1), // declare.rs:94, ported
       "cg-context: compiler/rustc_codegen_llvm/src/common.rs const_bytes",
       "cg-context: compiler/rustc_codegen_llvm/src/context.rs get_intrinsic",
-      "cg-types-attrs: compiler/rustc_codegen_llvm/src/attributes.rs apply_to_llfn",
+      undefined, // attributes.rs:29, ported: no attributes, no call
       "cg-context: compiler/rustc_codegen_llvm/src/common.rs val_ty",
-      "cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs type_i8",
+      "cg-builder: compiler/rustc_codegen_llvm/src/builder.rs load",
       "cg-builder: compiler/rustc_codegen_llvm/src/builder.rs call_intrinsic",
       "cg-builder: compiler/rustc_codegen_llvm/src/builder.rs build",
       "cg-write: compiler/rustc_codegen_llvm/src/llvm_util.rs get_version",
     ]);
+    expect(out[7]).toBeDefined();
   });
 
   test("inherent before trait (review F1): GenericBuilder's inherent methods keep the `_inherent` names", () => {
