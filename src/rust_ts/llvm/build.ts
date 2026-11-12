@@ -7,7 +7,9 @@ import { LLVMRustCreateAlignmentAttr } from "./core.ts";
 import type { AtomicOrdering, AtomicRmwBinOp, GEPNoWrapFlags, TailCallKind } from "./ffi_types.ts";
 import type { BinaryOps } from "./fold.ts";
 import { BasicBlock, FMF, IRBuilder, Inst, OperandBundleDef, setAlignAttrCreator } from "./inst.ts";
+import { armExclusiveIntrinsic } from "./intrinsics.ts";
 import {
+  addAttributesAtIndex,
   Attribute,
   Constant,
   ConstantInt,
@@ -619,9 +621,24 @@ export function LLVMRustAddCallSiteAttributes(Instr: Value, index: number, Attrs
   // `AddAttributes(Call, Index, ...)`: an AttrBuilder over the index's attributes; `addAttribute` replaces one of the same kind.
   const c = asInst(Instr, "CallBase");
   if (!c.isCallBase()) throw new Error("llvm: unwrap<CallBase> of an instruction that is not a call");
-  let set = c.attributes.get(index);
-  if (set === undefined) c.attributes.set(index, (set = new Map()));
-  for (const a of Attrs.slice(0, AttrsLen)) set.set(a.slot, a);
+  addAttributesAtIndex(c.attributes, index, Attrs.slice(0, AttrsLen));
+}
+
+// rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:1668 LLVMRustGetElementTypeArgIndex
+export function LLVMRustGetElementTypeArgIndex(CallSite: Value): number {
+  const CB = asInst(CallSite, "CallBase");
+  if (!CB.isCallBase()) throw new Error("llvm: unwrap<CallBase> of an instruction that is not a call");
+  // `CB->getIntrinsicID()` (Instructions.cpp:355): `dyn_cast_or_null<Function>(getCalledOperand())`, so an indirect call is
+  // `not_intrinsic`; a function's ID is its name's (Function.cpp:921). The model answers only the two IDs this switch tells
+  // apart (intrinsics.ts `armExclusiveIntrinsic`).
+  const F = CB.callee;
+  switch (F instanceof Function ? armExclusiveIntrinsic(F.name) : undefined) {
+    case "arm_ldrex":
+      return 0;
+    case "arm_strex":
+      return 1;
+  }
+  return -1;
 }
 
 // ---- fast-math flags ---------------------------------------------------------------------------------------------------

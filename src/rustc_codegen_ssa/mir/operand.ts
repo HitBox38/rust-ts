@@ -35,7 +35,7 @@ import type { ConstValue } from "../../rustc_middle/mir/consts.ts";
 import { type Either } from "../../rustc_middle/mir/mod.ts";
 import type { PlaceRef as mir_PlaceRef } from "../../rustc_middle/mir/statement.ts";
 import { debug_PlaceRef as debug_mir_PlaceRef } from "../../rustc_middle/mir/statement.ts";
-import { type ConstOperand, type Operand as mir_Operand, RuntimeChecks } from "../../rustc_middle/mir/syntax.ts";
+import { type Operand as mir_Operand, RuntimeChecks } from "../../rustc_middle/mir/syntax.ts";
 import "../../rustc_middle/ty/consts.ts";
 import { Const } from "../../rustc_type_ir/sty/consts.ts";
 import { Instance } from "../../rustc_middle/ty/instance.ts";

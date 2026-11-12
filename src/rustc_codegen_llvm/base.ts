@@ -30,7 +30,7 @@ import { MonoItemExt } from "../rustc_codegen_ssa/mono_item.ts";
 import { type Builder, Builder_static } from "./builder.ts";
 import type { LlvmTypes } from "./common.ts";
 import { SanitizerFnAttrs, type CodegenFnAttrs } from "../rustc_middle/middle/codegen_fn_attrs.ts";
-import type { MonoItem, MonoItemData, Visibility } from "../rustc_middle/mono.ts";
+import type { Visibility } from "../rustc_middle/mono.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import { Symbol } from "../rustc_span/symbol.ts";
 import { SanitizerSet } from "../rustc_target/spec/mod.ts";

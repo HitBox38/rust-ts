@@ -45,7 +45,7 @@ function naked_asm_codegen_naked_asm<B extends BackendTypes>(cx: CodegenMethods<
   naked_asm.codegen_naked_asm(cx, instance, item_data);
 }
 
-/** The stubs above, as one table so a test can replace them; not upstream. */
+/** The forwarders above, as one table so a test can replace them; not upstream. */
 export const mono_item_xlane = {
   codegen_global_asm: base_codegen_global_asm,
   codegen_instance: base_codegen_instance,

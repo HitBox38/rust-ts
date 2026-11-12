@@ -57,6 +57,7 @@ export function codegen_naked_asm<B extends BackendTypes>(cx: CodegenMethods<B> 
 
   const template_vec: InlineAsmTemplatePiece[] = [];
   template_vec.push({ $: "String", _0: begin });
+  // PORT: `template_vec.extend(template.iter().cloned())` pushes the same piece objects: plain data that is never written.
   template_vec.push(...template);
   template_vec.push({ $: "String", _0: end });
 
@@ -631,11 +632,14 @@ function writeln(w: MutRef<string>, s: string): void {
   w.value += s + "\n";
 }
 
+// PORT: `assert_eq!` with a message (`wasm_type`) is written out with core's text by this local helper.
 /** `assert_eq!(left, right, "{msg}")`: core's text with a message (`assert_failed_inner`, `AssertKind::Eq`). */
 function throw_assert_eq_msg(left: string, right: string, msg: string): never {
   return panic(`assertion \`left == right\` failed: ${msg}\n  left: ${left}\n right: ${right}`);
 }
 
+// PORT: the TS `TargetSpecOther` has no `Debug`; `{other:?}` of `Env` (`bug!("unexpected coff env ..")`) uses this local
+// helper, the derived `Debug` of `target_spec_enum!`: `Name` or `Other("..")`.
 /** The derived `Debug` of a `target_spec_enum!` enum with an `other_variant` (rustc_target/src/lib.rs:135
  *  `#[derive(.., Debug, ..)]`): a known variant prints its name, the other variant `Other("..")` (`StaticCow<str>`). */
 function debug_TargetSpecOther<T extends string, O extends string>(v: TargetSpecOther<T, O>): string {

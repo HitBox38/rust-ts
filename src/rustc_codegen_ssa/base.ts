@@ -8,8 +8,8 @@
 // - `HasTyCtxt::tcx()` / `HasTypingEnv::typing_env()` are `tcx_()` / `typing_env_()`.
 // PORT (ssa-base):
 // - `debug!` is compiled out of rustc (STATIC_MAX_LEVEL = INFO, rust_ts/tracing.ts) and stays a comment; `info!` is live.
-// - The back/write.rs fns `codegen_crate` calls (lane ssa-write, a later wave) are typed stubs in the `ssa_write` table at
-//   the end of this file; `OngoingCodegen` and `Coordinator` are opaque placeholders until ssa-write ports them.
+// - The back/write.rs fns `codegen_crate` calls (ssa-write) go through the `ssa_write` table at the end of this file, whose
+//   entries forward to the port (root at integ-w55); `OngoingCodegen` and `Coordinator` are back/write.ts's.
 // - meth.rs's `load_vtable` / `get_vtable` (ssa-mir-rest) are read lazily (`lazy_meth`; root at integ-w54, they were stubs).
 // - No dep graph (plan-m2 D3, plan-m3 D12): `codegen_crate`'s `ensure_ok().codegen_unit(..)` loop and
 //   `determine_cgu_reuse` past its first check are never reached (`is_fully_enabled()` is always false).
@@ -76,7 +76,7 @@ import { par_map } from "../rustc_data_structures/sync/parallel.ts";
 import * as tracing from "../rust_ts/tracing.ts";
 import { Duration, Instant } from "../std/time.ts";
 import { assert_module_sources, type CguReuse } from "./assert_module_sources.ts";
-import type { ModuleConfig } from "./back/write.ts";
+import type { Coordinator, ModuleConfig, OngoingCodegen } from "./back/write.ts";
 import { CpuRequired_diagnostic, CpuUnsupported_diagnostic, MultipleMainFunctions_diagnostic } from "./diagnostics.ts";
 import type { PlaceRef } from "./mir/place.ts";
 import type { AsmCodegenMethods, GlobalAsmOperandRef } from "./traits/asm.ts";
@@ -805,7 +805,7 @@ export function allocator_shim_contents(tcx: TyCtxt, kind: AllocatorKind): Alloc
 export function codegen_crate<M, W extends WriteBackendTypes & { Module: M }>(
   backend: ExtraBackendMethods<M> & WriteBackendMethods<W>,
   tcx: TyCtxt,
-): OngoingCodegen {
+): OngoingCodegen<W> {
   if (tcx.sess.target.need_explicit_cpu && tcx.sess.opts.cg.target_cpu === undefined) {
     // The target has no default cpu, but none is set explicitly
     tcx.dcx().emit_fatal(CpuRequired_diagnostic({}));
@@ -1450,60 +1450,54 @@ function print_time_passes_entry(_what: string, _dur: Duration, _start_rss: numb
   unported("rustc_data_structures::profiling::print_time_passes_entry (-Z time-passes)");
 }
 
-/** Placeholder (ssa-base): `pub struct OngoingCodegen<B>` (back/write.rs), lane ssa-write. Only its `coordinator` field is
- *  read here. */
-export interface OngoingCodegen {
-  readonly coordinator: Coordinator;
-}
-/** Placeholder (ssa-base): `pub struct Coordinator<B: WriteBackendMethods>` (back/write.rs:2054), lane ssa-write. */
-export interface Coordinator {
-  readonly __Coordinator: never;
-}
-/** The back/write.rs fns `codegen_crate` calls (lane ssa-write, a later wave: "its functions stay stubs"). Each stops with
- *  `unported("ssa-write: ...")`. Not prototype methods or statics, so nothing collides when ssa-write lands: root repoints
- *  each entry (or its call sites). Tests replace entries to drive `codegen_crate` over a mock backend. Methods take the
- *  receiver first. */
+/** The back/write.rs fns `codegen_crate` calls (ssa-write; root at integ-w55): each entry forwards to the port, read lazily
+ *  (`lazy_write`, as base.ts's other run-time imports), so tests can still replace the entries to drive `codegen_crate` over
+ *  a mock backend. Methods take the receiver first. */
 export const ssa_write = {
   /** `ModuleConfig::new(kind, tcx, no_builtins)` (back/write.rs). */
-  ModuleConfig_new(_kind: ModuleKind, _tcx: TyCtxt, _no_builtins: boolean): ModuleConfig {
-    return unported("ssa-write: compiler/rustc_codegen_ssa/src/back/write.rs ModuleConfig::new");
+  ModuleConfig_new(kind: ModuleKind, tcx: TyCtxt, no_builtins: boolean): ModuleConfig {
+    return lazy_write().ModuleConfig.new(kind, tcx, no_builtins);
   },
   /** `ModuleConfig::bitcode_needed(&self)` (back/write.rs). */
-  ModuleConfig_bitcode_needed(_self: ModuleConfig): boolean {
-    return unported("ssa-write: compiler/rustc_codegen_ssa/src/back/write.rs ModuleConfig::bitcode_needed");
+  ModuleConfig_bitcode_needed(self: ModuleConfig): boolean {
+    return self.bitcode_needed();
   },
   /** `start_async_codegen(backend, tcx, regular_config, allocator_config, allocator_module)` (back/write.rs). */
-  start_async_codegen<M, W extends WriteBackendTypes>(
-    _backend: ExtraBackendMethods<M> & WriteBackendMethods<W>,
-    _tcx: TyCtxt,
-    _regular_config: ModuleConfig,
-    _allocator_config: ModuleConfig,
-    _allocator_module: ModuleCodegen<M> | undefined,
-  ): OngoingCodegen {
-    return unported("ssa-write: compiler/rustc_codegen_ssa/src/back/write.rs start_async_codegen");
+  start_async_codegen<M, W extends WriteBackendTypes & { Module: M }>(
+    backend: ExtraBackendMethods<M> & WriteBackendMethods<W>,
+    tcx: TyCtxt,
+    regular_config: ModuleConfig,
+    allocator_config: ModuleConfig,
+    allocator_module: ModuleCodegen<M> | undefined,
+  ): OngoingCodegen<W> {
+    return lazy_write().start_async_codegen<W>(backend, tcx, regular_config, allocator_config, allocator_module);
   },
   /** `OngoingCodegen::wait_for_signal_to_codegen_item(&self)` (back/write.rs). */
-  OngoingCodegen_wait_for_signal_to_codegen_item(_self: OngoingCodegen): void {
-    return unported("ssa-write: compiler/rustc_codegen_ssa/src/back/write.rs OngoingCodegen::wait_for_signal_to_codegen_item");
+  OngoingCodegen_wait_for_signal_to_codegen_item<W extends WriteBackendTypes>(self: OngoingCodegen<W>): void {
+    self.wait_for_signal_to_codegen_item();
   },
   /** `OngoingCodegen::check_for_errors(&self, sess)` (back/write.rs). */
-  OngoingCodegen_check_for_errors(_self: OngoingCodegen, _sess: Session): void {
-    return unported("ssa-write: compiler/rustc_codegen_ssa/src/back/write.rs OngoingCodegen::check_for_errors");
+  OngoingCodegen_check_for_errors<W extends WriteBackendTypes>(self: OngoingCodegen<W>, sess: Session): void {
+    self.check_for_errors(sess);
   },
   /** `OngoingCodegen::codegen_finished(&self, tcx)` (back/write.rs). */
-  OngoingCodegen_codegen_finished(_self: OngoingCodegen, _tcx: TyCtxt): void {
-    return unported("ssa-write: compiler/rustc_codegen_ssa/src/back/write.rs OngoingCodegen::codegen_finished");
+  OngoingCodegen_codegen_finished<W extends WriteBackendTypes>(self: OngoingCodegen<W>, tcx: TyCtxt): void {
+    self.codegen_finished(tcx);
   },
   /** `submit_codegened_module_to_llvm(coordinator, module, cost)` (back/write.rs). */
-  submit_codegened_module_to_llvm<M>(_coordinator: Coordinator, _module: ModuleCodegen<M>, _cost: number): void {
-    return unported("ssa-write: compiler/rustc_codegen_ssa/src/back/write.rs submit_codegened_module_to_llvm");
+  submit_codegened_module_to_llvm<W extends WriteBackendTypes>(coordinator: Coordinator<W>, module: ModuleCodegen<W["Module"]>, cost: number): void {
+    lazy_write().submit_codegened_module_to_llvm(coordinator, module, cost);
   },
   /** `submit_pre_lto_module_to_llvm(tcx, coordinator, module)` (back/write.rs). */
-  submit_pre_lto_module_to_llvm(_tcx: TyCtxt, _coordinator: Coordinator, _module: CachedModuleCodegen): void {
-    return unported("ssa-write: compiler/rustc_codegen_ssa/src/back/write.rs submit_pre_lto_module_to_llvm");
+  submit_pre_lto_module_to_llvm<W extends WriteBackendTypes>(tcx: TyCtxt, coordinator: Coordinator<W>, module: CachedModuleCodegen): void {
+    lazy_write().submit_pre_lto_module_to_llvm(tcx, coordinator, module);
   },
   /** `submit_post_lto_module_to_llvm(coordinator, module)` (back/write.rs). */
-  submit_post_lto_module_to_llvm(_coordinator: Coordinator, _module: CachedModuleCodegen): void {
-    return unported("ssa-write: compiler/rustc_codegen_ssa/src/back/write.rs submit_post_lto_module_to_llvm");
+  submit_post_lto_module_to_llvm<W extends WriteBackendTypes>(coordinator: Coordinator<W>, module: CachedModuleCodegen): void {
+    lazy_write().submit_post_lto_module_to_llvm(coordinator, module);
   },
 };
+function lazy_write(): typeof import("./back/write.ts") {
+  return (lazy_write__m ??= require("./back/write.ts") as typeof import("./back/write.ts"));
+}
+var lazy_write__m: typeof import("./back/write.ts") | undefined;

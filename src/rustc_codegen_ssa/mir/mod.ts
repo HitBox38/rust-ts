@@ -14,9 +14,9 @@
 //   rust_ts/tracing.ts) and stay comments; locals.rs's `warn!` is live.
 // - `IndexVec<BasicBlock, T>` / `IndexVec<Local, T>` are arrays indexed by the handle (PORTING §5).
 //
-// PORT (ssa-mir-core): calls into other fill lanes go through the `xlane` table at the end of this file. Entries whose owner
-// has not landed (ssa-debuginfo) are typed stubs that stop with `unported("<lane>: <upstream path> <fn>")`; the entries of
-// landed owners (ssa-block, ssa-base, retag.rs) forward to their ports (root at integ-w54), and ssa-operand-place's call
+// PORT (ssa-mir-core): calls into other fill lanes go through the `xlane` table at the end of this file. Every owner has
+// landed: the entries forward to their ports (ssa-block, ssa-base, retag.rs at integ-w54; ssa-debuginfo at integ-w55), so
+// tests can replace them; ssa-operand-place's call
 // sites were repointed to its methods (integ-w53). They are not prototype methods or class statics, so they cannot collide
 // with the owners' real ports. Tests may replace entries to drive `codegen_mir` over a mock backend.
 // Load order: rustc_target through its crate root first. spec/mod.ts imports lib.ts, which evaluates spec/json.ts and
@@ -77,6 +77,7 @@ import { install_FunctionCx_constant } from "./constant.ts";
 import { install_FunctionCx_statement } from "./statement.ts";
 import { install_FunctionCx_coverageinfo } from "./coverageinfo.ts";
 import { install_FunctionCx_retag } from "./retag.ts";
+import { install_FunctionCx_debuginfo } from "./debuginfo.ts";
 import { wants_new_eh_instructions as base_wants_new_eh_instructions } from "../base.ts";
 
 // mod analyze; mod block; mod constant; mod coverageinfo; pub mod debuginfo; mod intrinsic; mod locals;
@@ -99,13 +100,10 @@ export const CachedLlbb = {
   Skip: Object.freeze({ $: "Skip" }) as { readonly $: "Skip" },
 } as const;
 
-// PORT (ssa-mir-core): `debuginfo::{FunctionDebugContext, PerLocalVarDebugInfo}` and `ConstDebugInfo` (mir/debuginfo.rs,
-// lane ssa-debuginfo) are not in debuginfo.ts yet. They are opaque placeholders here, never constructed by this lane;
-// ssa-debuginfo replaces them with imports of its types.
-declare const __ssa_debuginfo: unique symbol;
-export type FunctionDebugContext<_S, _L> = { readonly [__ssa_debuginfo]: "FunctionDebugContext" };
-export type PerLocalVarDebugInfo<_D> = { readonly [__ssa_debuginfo]: "PerLocalVarDebugInfo" };
-export type ConstDebugInfo<_B extends BackendTypes> = { readonly [__ssa_debuginfo]: "ConstDebugInfo" };
+// `debuginfo::{FunctionDebugContext, PerLocalVarDebugInfo}` and `ConstDebugInfo` are mir/debuginfo.ts's (ssa-debuginfo; root
+// replaced ssa-mir-core's opaque placeholders at integ-w55).
+export type { ConstDebugInfo, FunctionDebugContext, PerLocalVarDebugInfo } from "./debuginfo.ts";
+import type { ConstDebugInfo, FunctionDebugContext, PerLocalVarDebugInfo } from "./debuginfo.ts";
 
 type PerLocalVarDebugInfoIndexVec<V> = PerLocalVarDebugInfo<V>[][];
 
@@ -276,6 +274,7 @@ install_FunctionCx_constant(FunctionCx);
 install_FunctionCx_statement(FunctionCx);
 install_FunctionCx_coverageinfo(FunctionCx);
 install_FunctionCx_retag(FunctionCx);
+install_FunctionCx_debuginfo(FunctionCx);
 
 export type LocalRef<V> =
   | { readonly $: "Place"; readonly _0: PlaceRef<V> }
@@ -920,28 +919,28 @@ export const xlane = {
     return fx.codegen_retag_operand(bx, operand, is_fn_entry);
   },
 
-  // ssa-debuginfo (mir/debuginfo.rs)
+  // ssa-debuginfo (mir/debuginfo.rs): ported; the entries forward to the installed methods (root at integ-w55).
   /** `fx.fill_function_debug_context(&mut bx)` (mir/debuginfo.rs). */
   fill_function_debug_context<B extends BackendTypes, Cx extends CodegenMethods<B>, Bx extends BuilderMethods<B, Cx>>(
-    _fx: FunctionCx<B, Cx, Bx>,
-    _bx: Bx,
+    fx: FunctionCx<B, Cx, Bx>,
+    bx: Bx,
   ): void {
-    return unported("ssa-debuginfo: compiler/rustc_codegen_ssa/src/mir/debuginfo.rs fill_function_debug_context");
+    fx.fill_function_debug_context(bx);
   },
   /** `fx.compute_per_local_var_debug_info(&mut bx)` (mir/debuginfo.rs), `Option<(PerLocalVarDebugInfoIndexVec, Vec<ConstDebugInfo>)>`. */
   compute_per_local_var_debug_info<B extends BackendTypes, Cx extends CodegenMethods<B>, Bx extends BuilderMethods<B, Cx>>(
-    _fx: FunctionCx<B, Cx, Bx>,
-    _bx: Bx,
+    fx: FunctionCx<B, Cx, Bx>,
+    bx: Bx,
   ): [PerLocalVarDebugInfoIndexVec<B["DIVariable"]>, ConstDebugInfo<B>[]] | undefined {
-    return unported("ssa-debuginfo: compiler/rustc_codegen_ssa/src/mir/debuginfo.rs compute_per_local_var_debug_info");
+    return fx.compute_per_local_var_debug_info(bx);
   },
   /** `fx.debug_introduce_locals(&mut bx, consts)` (mir/debuginfo.rs). */
   debug_introduce_locals<B extends BackendTypes, Cx extends CodegenMethods<B>, Bx extends BuilderMethods<B, Cx>>(
-    _fx: FunctionCx<B, Cx, Bx>,
-    _bx: Bx,
-    _consts: ConstDebugInfo<B>[],
+    fx: FunctionCx<B, Cx, Bx>,
+    bx: Bx,
+    consts: ConstDebugInfo<B>[],
   ): void {
-    return unported("ssa-debuginfo: compiler/rustc_codegen_ssa/src/mir/debuginfo.rs debug_introduce_locals");
+    fx.debug_introduce_locals(bx, consts);
   },
 
   // ssa-block (mir/block.rs): ported; these entries forward to the installed methods (root at integ-w54), so tests that

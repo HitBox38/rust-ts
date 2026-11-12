@@ -45,12 +45,9 @@ function askedName(a: unknown): string {
 
 /** What `built()` in the oracle's tracer prints for a builder's result.
  *
- * **Known false differences for scripts/ir-diff.ts** (review llir-core-a N10): the model prints a floating-point constant
- * in hex (`double f0x3FF8000000000000`) where LLVM prints a decimal when it round-trips (`double 1.500000e+00`), and a
- * non-C calling convention as `cc N` where LLVM prints its name (`fastcc`). Both parse to the same IR, so the normal form is
- * unaffected, but a folded float `const` answer (or a printed function) differs from the oracle's trace text and would read as
- * "the model answered differently"; the trace comparison should mask float `const` answers. Integer, pointer, aggregate and
- * expression constants print as LLVM's do (capi.oracle.test.ts). */
+ * Review llir-core-a N10 listed two false differences for scripts/ir-diff.ts, both gone: floating-point constants now print as
+ * AsmWriter's `writeAPFloatInternal` (lane llir-apfloat), and non-C calling conventions by name, `printCallingConv` (lane
+ * llir-folder). Integer, pointer, aggregate and expression constants print as LLVM's do (capi.oracle.test.ts). */
 function builtAnswer(r: unknown, args: readonly unknown[]): string {
   if (r === undefined || r === null) return "null";
   for (let k = 1; k < 4; k++) if (r === args[k]) return "operand";

@@ -74,7 +74,7 @@ import {
 } from "../rustc_middle/ty/layout.ts";
 import { type List, RawList } from "../rustc_middle/ty/list.ts";
 import { type Ty, TypingEnv } from "../rustc_middle/ty/mod.ts";
-import type { BranchProtection, PacRet } from "../rustc_session/config.ts";
+import type { PacRet } from "../rustc_session/config.ts";
 import type { PointerAuthSchema, Session } from "../rustc_session/session.ts";
 import { DUMMY_SP, type Span } from "../rustc_span/lib.ts";
 import { bug } from "../rustc_span/macros.ts";

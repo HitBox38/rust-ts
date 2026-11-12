@@ -310,6 +310,7 @@ const any_: TdType = { k: "any", cls: "any" };
 const m = (n: number): TdType => ({ k: "match", n });
 const i1: TdType = { k: "int", bits: 1 };
 const i32: TdType = { k: "int", bits: 32 };
+const i64: TdType = { k: "int", bits: 64 };
 const ptr: TdType = { k: "ptr" };
 const metadata: TdType = { k: "metadata" };
 const unaryFloat = (td: number): Signature => ({ td, ret: [anyfloat], params: [m(0)] });
@@ -381,6 +382,9 @@ const SIGNATURES: ReadonlyMap<string, Signature> = new Map<string, Signature>([
   ["llvm.ptrmask", { td: 2139, ret: [any_], params: [m(0), anyint] }],
   ["llvm.threadlocal.address", { td: 2142, ret: [anyptr], params: [m(0)] }],
   ["llvm.type.checked.load", { td: 2801, ret: [ptr, i1], params: [ptr, i32, metadata] }],
+  // lane llir-folder (review cg-intrinsic-a N1): builder.rs:2047 `type_test` and builder.rs:2225 `instrprof_increment`.
+  ["llvm.type.test", { td: 2795, ret: [i1], params: [ptr, metadata] }],
+  ["llvm.instrprof.increment", { td: 1084, ret: [], params: [ptr, i64, i32, i32] }],
 ]);
 
 /** The names `SIGNATURES` covers, and each one's overload slots by class, in order (for tests). */
@@ -601,4 +605,27 @@ export function LLVMGetIntrinsicDeclaration(Mod: Module, ID: number, ParamTypes:
 // rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:1730 LLVMRustIsTargetIntrinsic
 export function LLVMRustIsTargetIntrinsic(ID: number): boolean {
   return isTargetIntrinsic(ID);
+}
+
+// ---- the two ARM intrinsics `LLVMRustGetElementTypeArgIndex` tells apart (lane llir-folder) ------------------------------
+
+/** Whether a function named `name` has the intrinsic ID `Intrinsic::arm_ldrex` or `Intrinsic::arm_strex`: the only two IDs
+ *  `LLVMRustGetElementTypeArgIndex` (build.ts) distinguishes. The model has no ARM table (header), but this question needs none:
+ *  - `Function::updateAfterNameChange` (Function.cpp:921) gives a name without the `llvm.` prefix `not_intrinsic`, and
+ *    `findTargetSubtable` (Intrinsics.cpp:740) looks a name up in the ARM table only when its first component after `llvm.` is
+ *    `arm`. Any other name is in another table, or none, so its ID is neither of the two, whatever that table holds.
+ *  - In the ARM table (IntrinsicsARM.td at the pin, lines 283-293), the only names that start with `llvm.arm.ldrex` are
+ *    `llvm.arm.ldrex` (overloaded on `llvm_anyptr_ty`) and `llvm.arm.ldrexd` (not overloaded), and likewise for `strex`.
+ *    `lookupLLVMIntrinsicByName`'s component search on `llvm.arm.ldrex.<suffix>` keeps both after the `.ldrex` component (the
+ *    `strncmp` of six bytes matches `ldrexd` too), then empties the range on the next component, since `ldrex` has the NUL and
+ *    `ldrexd` a `d` where the name has its dot; `LastLow` stays on `llvm.arm.ldrex`, a dotted prefix of the name, and the
+ *    intrinsic is overloaded, so the ID is `arm_ldrex`. `llvm.arm.ldrexd` and `llvm.arm.ldrexfoo` are not: there the dotted
+ *    prefix rule fails. So the ID is `arm_ldrex` exactly when the name is `llvm.arm.ldrex` or starts with `llvm.arm.ldrex.`.
+ *    A bare `startsWith("llvm.arm.ldrex")` would take `llvm.arm.ldrexd` (review cg-abi-consts §5).
+ *  folder.oracle.test.ts reads every ARM name out of libLLVM.dylib to check the second point, and compares this function with
+ *  libLLVM's `LLVMLookupIntrinsicID` on the ARM names and on variants of them. */
+export function armExclusiveIntrinsic(name: string): "arm_ldrex" | "arm_strex" | undefined {
+  if (name === "llvm.arm.ldrex" || name.startsWith("llvm.arm.ldrex.")) return "arm_ldrex";
+  if (name === "llvm.arm.strex" || name.startsWith("llvm.arm.strex.")) return "arm_strex";
+  return undefined;
 }

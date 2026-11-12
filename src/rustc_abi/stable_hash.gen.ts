@@ -3,8 +3,8 @@
 // (the `isize` discriminant, or the `#[repr]` integer), then the fields of the variant / struct in declaration order,
 // skipping `#[stable_hash(ignore)]` and hashing `field.name` for `#[stable_hash(project(name))]`.
 // Only `export function` declarations: hand modules may import from here inside an import cycle.
-import { type Align, type Integer, type IntegerType, type ReprFlags, type ReprOptions, type ScalableElt } from "./lib.ts";
-import { stable_hash_bool, stable_hash_Discriminant, stable_hash_Hash64, stable_hash_Option, stable_hash_u16, stable_hash_u8, type StableHash, type StableHashCtxt, type StableHasher } from "../rustc_data_structures/stable_hash.ts";
+import { type Align, type Integer, type IntegerType, type ReprFlags, type ReprOptions, type ScalableElt, type Size } from "./lib.ts";
+import { stable_hash_bool, stable_hash_Discriminant, stable_hash_Hash64, stable_hash_Option, stable_hash_u16, stable_hash_u64, stable_hash_u8, type StableHash, type StableHashCtxt, type StableHasher } from "../rustc_data_structures/stable_hash.ts";
 
 // rustc-derive: compiler/rustc_abi/src/lib.rs:82 StableHash for ReprFlags
 export function stable_hash_ReprFlags(self: ReprFlags, __hcx: StableHashCtxt, __hasher: StableHasher): void {
@@ -47,6 +47,11 @@ export function stable_hash_ReprOptions(self: ReprOptions, __hcx: StableHashCtxt
   stable_hash_ReprFlags(self.flags, __hcx, __hasher);
   stable_hash_Option(self.scalable, __hcx, __hasher, stable_hash_ScalableElt);
   stable_hash_Hash64(self.field_shuffle_seed, __hcx, __hasher);
+}
+
+// rustc-derive: compiler/rustc_abi/src/lib.rs:865 StableHash for Size
+export function stable_hash_Size(self: Size, __hcx: StableHashCtxt, __hasher: StableHasher): void {
+  stable_hash_u64(BigInt(self.bytes_u64()), __hcx, __hasher);
 }
 
 // rustc-derive: compiler/rustc_abi/src/lib.rs:1102 StableHash for Align

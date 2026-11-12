@@ -832,8 +832,8 @@ export const BuilderMethods_provided = {
     } else if (self.sess().opts.optimize === "No" && BackendRepr.is_scalar_or_simd(layout.backend_repr)) {
       // If we're not optimizing, the aliasing information from `memcpy`
       // isn't useful, so just load-store the value for smaller code.
-      const temp = self.load_operand(src.with_type(layout));
-      OperandValue.store_with_flags(temp.val, self, dst.with_type(layout), flags);
+      const temp = self.load_operand(src.with_type(layout, self.debug_Value));
+      OperandValue.store_with_flags(temp.val, self, dst.with_type(layout, self.debug_Value), flags);
     } else if (!layout.is_zst()) {
       let tt = typetree_from_ty(self.tcx_(), layout.ty);
       // We seem to pass all values to memcpy with one more indirection.
@@ -866,7 +866,7 @@ export const BuilderMethods_provided = {
     right: PlaceValue<B["Value"]>,
     layout: TyAndLayout,
   ): void {
-    let temp = self.load_operand(left.with_type(layout));
+    let temp = self.load_operand(left.with_type(layout, self.debug_Value));
     if (temp.val.$ === "Ref") {
       // The SSA value isn't stand-alone, so we need to copy it elsewhere
       const alloca = PlaceRef.alloca(self, layout);
@@ -874,6 +874,6 @@ export const BuilderMethods_provided = {
       temp = self.load_operand(alloca);
     }
     self.typed_place_copy(left, right, layout);
-    OperandValue.store(temp.val, self, right.with_type(layout));
+    OperandValue.store(temp.val, self, right.with_type(layout, self.debug_Value));
   },
 };

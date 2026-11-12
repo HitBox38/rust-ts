@@ -26,7 +26,7 @@ import { debug_TyAndLayout_Ty, type TyAndLayout } from "../../rustc_middle/ty/la
 import { Ty } from "../../rustc_middle/ty/mod.ts";
 import { fold_Ty } from "../../rustc_middle/ty/structural_impls.ts";
 import { display_Ty } from "../../rustc_middle/ty/print/pretty.ts";
-import { DUMMY_SP, type Span } from "../../rustc_span/lib.ts";
+import { DUMMY_SP } from "../../rustc_span/lib.ts";
 import { bug } from "../../rustc_span/macros.ts";
 import { type Debug, debug_option, debug_struct, format_debug, type Fmt, PLAIN, PRETTY } from "../../std/fmt.ts";
 import { assert, assert_eq, unported, unreachable, unwrap } from "../../std/panic.ts";

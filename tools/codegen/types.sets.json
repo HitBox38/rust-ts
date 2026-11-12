@@ -445,7 +445,10 @@
     "skip": [],
     "derive_only": true,
     "derive_stable_hash": true,
-    "stable_hash_types": ["rustc_abi::Align", "rustc_abi::Integer", "rustc_abi::IntegerType", "rustc_abi::ScalableElt", "rustc_abi::ReprFlags", "rustc_abi::ReprOptions"],
+    "stable_hash_types": ["rustc_abi::Align", "rustc_abi::Size", "rustc_abi::Integer", "rustc_abi::IntegerType", "rustc_abi::ScalableElt", "rustc_abi::ReprFlags", "rustc_abi::ReprOptions"],
+    "stable_hash_access": {
+      "rustc_abi::Size::raw": { "expr": "$v.bytes_u64()" }
+    },
     "derive_decodable": true,
     "derive_encodable": true,
     "decodable_types": [
@@ -462,6 +465,7 @@
     },
     "hand_notes": {
       "*": "rustc_abi's types are hand-written (src/rustc_abi/lib.ts, a subset); this set only generates rustc_abi/decodable.gen.ts.",
+      "stable_hash_access": "`Size { raw: u64 }` is a hand class keeping its value in `small` / `big`; `bytes_u64()` is the exact `raw` (lane stable-hash-alloc: `Size` for `InitMask` / `ProvenanceMap`)",
       "decodable_types": "`ReprOptions` and its field types: crate metadata's `AdtDefData.repr` (rustc_middle ty/codec.rs `Decodable for AdtDef`; lane small-gaps-18); `ExternAbi` (extern_abi.rs, hand-written in rustc_abi/extern_abi.ts): `ForeignModule.abi` (lane rmeta-gaps-a)"
     }
   },
@@ -2360,9 +2364,23 @@
     "stable_hash_module": "mir_stable_hash",
     "stable_hash_types": [
       "rustc_middle::mir::syntax::UnOp",
-      "rustc_middle::mir::syntax::BinOp"
+      "rustc_middle::mir::syntax::BinOp",
+      "rustc_middle::mir::interpret::GlobalAlloc",
+      "rustc_middle::mir::interpret::allocation::Allocation",
+      "rustc_middle::mir::interpret::allocation::ConstAllocation",
+      "rustc_middle::mir::interpret::allocation::init_mask::InitMask",
+      "rustc_middle::mir::interpret::allocation::init_mask::InitMaskBlocks",
+      "rustc_middle::mir::interpret::allocation::init_mask::InitMaskMaterialized",
+      "rustc_middle::mir::interpret::allocation::provenance_map::ProvenanceMap",
+      "rustc_middle::mir::interpret::allocation::provenance_map::PointerFrag"
     ],
-    "stable_hash_types_note": "the operators of `ty::ExprKind` (rustc_middle ty/consts/kind.rs, set rustc_ty), hashed with every const expression (plan-m5 D9, lane stablehash-gaps); rustc_middle/stable_hash.gen.ts and ty_stable_hash.gen.ts belong to the rustc_middle / rustc_ty sets",
+    "stable_hash_types_note": "the operators of `ty::ExprKind` (rustc_middle ty/consts/kind.rs, set rustc_ty), hashed with every const expression (plan-m5 D9, lane stablehash-gaps); rustc_middle/stable_hash.gen.ts and ty_stable_hash.gen.ts belong to the rustc_middle / rustc_ty sets. `GlobalAlloc`, `Allocation`, `ConstAllocation` and their parts (`InitMask*`, `ProvenanceMap`, `PointerFrag`): codegen_llvm's `alloc_to_backend` names an unnamed constant allocation `alloc_<stable hash>` (common.rs:253), and `AllocId`'s manual impl (ty/impls_ty.rs:54) hashes its `GlobalAlloc` (lane stable-hash-alloc)",
+    "stable_hash_access": {
+      "rustc_middle::mir::interpret::allocation::ConstAllocation::0": { "expr": "$v.internee" },
+      "rustc_middle::mir::interpret::allocation::init_mask::InitMaskMaterialized::blocks": { "expr": "Array.from({ length: $v.blocks.length / 2 }, (_, k) => (BigInt($v.blocks[2 * k + 1]!) << 32n) | BigInt($v.blocks[2 * k]!))" },
+      "rustc_middle::mir::interpret::allocation::provenance_map::PointerFrag::bytes": { "expr": "Uint8Array.from($v.bytes)" }
+    },
+    "stable_hash_access_note": "`ConstAllocation(Interned<Allocation>)` is a class extending Interned holding `internee` (as `AdtDef`, set rustc_middle); `InitMaskMaterialized.blocks` keeps each u64 block as two u32 words (init_mask.ts PORT D6), read back as the upstream `Vec<u64>` of blocks; `PointerFrag.bytes: [u8; 8]` is a `number[]`, hashed as the `[u8]` the derive's method call unsizes to (`stable_hash_bytes`)",
     "resolve_files": [
       "compiler/rustc_middle/src/ty/mod.rs"
     ],

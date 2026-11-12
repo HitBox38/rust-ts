@@ -23,6 +23,7 @@ import {
   getConstantFPOfType,
   getConstantInt,
   getConstantStruct,
+  getConstantVector,
   getFoldedCast,
   getGetElementPtr,
   getIntToPtr,
@@ -33,8 +34,15 @@ import {
   getSplatValue,
   getUndef,
   GlobalValue,
+  FUNCTION_INDEX,
+  Function,
+  GlobalAlias,
   GlobalVariable,
   IntegerType,
+  type LinkageTypes,
+  MDString,
+  type Module,
+  PointerType,
   internExpr,
   PoisonValue,
   StructType,
@@ -226,6 +234,39 @@ export function getCast(opc: CastOpcode, c: Constant, ty: Type): Constant {
 
 // ---- ConstantFold.cpp --------------------------------------------------------------------------------------------------
 
+// llvm: llvm/lib/IR/Value.cpp:993 Value::getPointerAlignment
+/** `GV->getPointerAlignment(DL)` of a global (lane llir-folder): a function's from the data layout's `F` spec, a variable's own
+ *  alignment. A variable without one would need the data layout's preferred or ABI alignment of its type, which the model does
+ *  not compute: it stops. Aliases and ifuncs fall through to `Align(1)`. */
+function getPointerAlignment(V: GlobalValue, M: Module): number {
+  if (V instanceof Function) {
+    const { align, type } = M.functionPtrAlign();
+    const FunctionPtrAlign = align ?? 1;
+    switch (type) {
+      case "Independent":
+        return FunctionPtrAlign;
+      case "MultipleOfFunctionAlign":
+        return Math.max(FunctionPtrAlign, V.alignment ?? 1);
+    }
+  } else if (V instanceof GlobalVariable) {
+    const Alignment = V.alignment;
+    if (Alignment === undefined) {
+      const ObjectType = V.valueType;
+      // If the object is defined in the current Module, we'll be giving it the preferred alignment. Otherwise, we have to assume
+      // that it may only have the minimum ABI alignment.
+      // PORT: the model computes only the ABI alignment of integers and arrays of them (`DataLayout::getAlignment`, DataLayout.cpp:871):
+      // a definition (`isStrongDefinitionForLinker`, `getPreferredAlign`) or another type stops.
+      if (!V.isDeclaration()) return unported("llir: Value::getPointerAlignment of a defined global variable without an alignment (DataLayout::getPreferredAlign)");
+      let t = ObjectType;
+      while (t instanceof ArrayType) t = t.elementType;
+      if (!(t instanceof IntegerType)) return unported(`llir: DataLayout::getABITypeAlign of ${t.typeID} (not modelled)`);
+      return M.integerABIAlignment(t.bits);
+    }
+    return Alignment;
+  }
+  return 1;
+}
+
 // llvm: llvm/lib/IR/ConstantFold.cpp:295 ConstantFoldSelectInstruction
 export function constantFoldSelectInstruction(cond: Constant, v1: Constant, v2: Constant): Constant | undefined {
   // Check for i1 and vector true/false conditions.
@@ -407,8 +448,28 @@ export function constantFoldBinaryInstruction(opcode: BinaryOps, c1: Constant, c
         break;
       case "And":
         // If and'ing the address of a global with a constant, fold it (by the global's pointer alignment).
+        // (lane llir-folder; the model has no `ptrtoaddr`.)
         if (c1 instanceof ConstantExpr && c1.opcode === "PtrToInt" && c1.operands[0] instanceof GlobalValue) {
-          return unported("llir: and of ptrtoint(@global) with a constant (GlobalValue::getPointerAlignment needs the data layout)");
+          const GV = c1.operands[0];
+          let GVAlign = 1; // defaults to 1
+          const TheModule = GV.parent;
+          if (TheModule !== undefined) {
+            GVAlign = getPointerAlignment(GV, TheModule);
+            // If the function alignment is not specified then assume that it is 4. This is dangerous; on x86, the alignment of
+            // the pointer corresponds to the alignment of the function, but might be less than 4 if it isn't explicitly
+            // specified. However, a fix for this behaviour was reverted because it increased code size (see
+            // https://reviews.llvm.org/D55115) FIXME: This code should be deleted once existing targets have appropriate defaults
+            if (GV instanceof Function && TheModule.functionPtrAlign().align === undefined) GVAlign = 4;
+          } else if (GV instanceof GlobalVariable) {
+            GVAlign = GV.alignment ?? 1;
+          }
+          if (GVAlign > 1) {
+            const DstWidth = (c2.type as IntegerType).bits;
+            const SrcWidth = Math.min(DstWidth, Math.log2(GVAlign));
+            const BitsNotSet = (1n << BigInt(SrcWidth)) - 1n;
+            // If checking bits we know are clear, return zero.
+            if ((c2.value & BitsNotSet) === c2.value) return getNullValue(c2.type);
+          }
         }
         break;
       default:
@@ -641,14 +702,131 @@ function fcmpCompare(lhs: APFloat, rhs: APFloat, pred: number): boolean {
 /** `ICmpInst::BAD_ICMP_PREDICATE`. */
 const BAD = -1;
 
+// ---- relations of pointer constants (lane llir-folder) ----
+
+/** `Type::isSized` (Type.h) of the types the model has: a struct is sized when it has a body of sized elements. */
+function isSized(t: Type): boolean {
+  if (t instanceof IntegerType || t instanceof PointerType || t.isFloatingPointTy()) return true;
+  if (t instanceof ArrayType || t instanceof VectorType) return isSized(t.elementType);
+  if (t instanceof StructType) return t.body !== undefined && t.body.every(isSized);
+  return false;
+}
+
+// llvm: llvm/lib/IR/Type.cpp:180 Type::isEmptyTy
+function isEmptyTy(t: Type): boolean {
+  if (t instanceof ArrayType) return t.numElements === 0n || isEmptyTy(t.elementType);
+  if (t instanceof StructType) {
+    // (`getNumElements` of an opaque struct is 0.)
+    for (const e of t.body ?? []) if (!isEmptyTy(e)) return false;
+    return true;
+  }
+  return false;
+}
+
+/** `GlobalValue::isInterposableLinkage` (GlobalValue.h:431). */
+const isInterposableLinkage = (l: LinkageTypes): boolean => l === "WeakAnyLinkage" || l === "LinkOnceAnyLinkage" || l === "CommonLinkage" || l === "ExternalWeakLinkage";
+
+// llvm: llvm/lib/IR/Globals.cpp:178 GlobalValue::isInterposable
+function isInterposable(GV: GlobalValue): boolean {
+  // `CheckNoIPA` (default true) and `isNoipaFnDef` (Globals.cpp:401): a function definition with `noipa`, which no rustc
+  // creator makes.
+  if (GV instanceof Function && !GV.isDeclaration() && GV.attributes.get(FUNCTION_INDEX)?.has("kind:NoIPA")) return true;
+  if (isInterposableLinkage(GV.linkage)) return true;
+  return !GV.isDSOLocal && GV.parent !== undefined && getSemanticInterposition(GV.parent);
+}
+
+// llvm: llvm/lib/IR/Module.cpp:704 Module::getSemanticInterposition
+function getSemanticInterposition(M: Module): boolean {
+  // `getModuleFlag("SemanticInterposition")`: rustc sets no such flag; one there (from `-Z llvm-module-flag`) stops.
+  const flags = M.namedMetadata.get("llvm.module.flags") ?? [];
+  if (flags.some((n) => { const k = n.ops[1]; return k instanceof MDString && k.str === "SemanticInterposition"; })) return unported("llir: Module::getSemanticInterposition with a SemanticInterposition flag");
+  return false;
+}
+
+// llvm: llvm/lib/IR/ConstantFold.cpp:996 areGlobalsPotentiallyEqual
+function areGlobalsPotentiallyEqual(GV1: GlobalValue, GV2: GlobalValue): number {
+  const isGlobalUnsafeForEquality = (GV: GlobalValue): boolean => {
+    if (isInterposable(GV) || GV.unnamedAddr === "Global") return true;
+    if (GV instanceof GlobalVariable) {
+      const Ty = GV.valueType;
+      // A global with opaque type might end up being zero sized.
+      if (!isSized(Ty)) return true;
+      // A global with an empty type might lie at the address of any other global.
+      if (isEmptyTy(Ty)) return true;
+    }
+    return false;
+  };
+  // Don't try to decide equality of aliases.
+  if (!(GV1 instanceof GlobalAlias) && !(GV2 instanceof GlobalAlias)) if (!isGlobalUnsafeForEquality(GV1) && !isGlobalUnsafeForEquality(GV2)) return ICMP.NE;
+  return BAD;
+}
+
+/** `GEPOperator::hasAllZeroIndices`. */
+const hasAllZeroIndices = (ce: ConstantExpr): boolean => ce.operands.slice(1).every((i) => i instanceof ConstantInt && i.value === 0n);
+
 // llvm: llvm/lib/IR/ConstantFold.cpp:1026 evaluateICmpRelation
-function evaluateICmpRelation(v1: Constant, v2: Constant): number {
-  if (v1 === v2) return ICMP.EQ;
-  if (!v1.type.isPointerTy()) return BAD;
-  // PORT: the rest relates globals, block addresses and GEPs of globals (`areGlobalsPotentiallyEqual`, which needs
-  // `isInterposable`, `Type::isSized`, `NullPointerIsDefined`). The other pointer constants (null, undef, poison) never
-  // reach here unequal, so any case left involves those; it stops rather than guess.
-  return unported("llir: evaluateICmpRelation of pointer constants (areGlobalsPotentiallyEqual, GEP relations)");
+/** This function determines if there is anything we can decide about the two constants provided. This doesn't need to handle
+ *  simple things like integer comparisons, but should instead handle ConstantExprs and GlobalValues. If we can determine that
+ *  the two constants have a particular relation to each other, we should return the corresponding ICmp predicate, otherwise
+ *  return ICmpInst::BAD_ICMP_PREDICATE. (The model has no `BlockAddress`, so its arms are left out.) */
+function evaluateICmpRelation(V1: Constant, V2: Constant): number {
+  if (V1 === V2) return ICMP.EQ;
+  // The following folds only apply to pointers.
+  if (!V1.type.isPointerTy()) return BAD;
+  // To simplify this code we canonicalize the relation so that the first operand is always the most "complex" of the two. We
+  // consider simple constants (like ConstantPointerNull) to be the simplest, followed by BlockAddress, GlobalValues, and
+  // ConstantExpr's (the most complex).
+  const GetComplexity = (V: Constant): number => (V instanceof ConstantExpr ? 3 : V instanceof GlobalValue ? 2 : 0);
+  if (GetComplexity(V1) < GetComplexity(V2)) {
+    const SwappedRelation = evaluateICmpRelation(V2, V1);
+    if (SwappedRelation !== BAD) return getSwappedPredicate(SwappedRelation);
+    return BAD;
+  }
+  if (V1 instanceof GlobalValue) {
+    const GV = V1;
+    // Now we know that the RHS is a GlobalValue, BlockAddress or simple constant.
+    if (V2 instanceof GlobalValue) return areGlobalsPotentiallyEqual(GV, V2);
+    if (V2 instanceof ConstantPointerNull) {
+      // GlobalVals can never be null unless they have external weak linkage. We don't try to evaluate aliases here. NOTE: We
+      // should not be doing this constant folding if null pointer is considered valid for the function. But currently there is
+      // no way to query it from the Constant type.
+      // `NullPointerIsDefined(nullptr, AS)` (Function.cpp:1141): true exactly for a non-zero address space.
+      if (GV.linkage !== "ExternalWeakLinkage" && !(GV instanceof GlobalAlias) && GV.addressSpace === 0) return ICMP.UGT;
+    }
+  } else if (V1 instanceof ConstantExpr) {
+    // Ok, the LHS is known to be a constantexpr. The RHS can be any of a constantexpr, a global, block address, or a simple
+    // constant.
+    const CE1 = V1;
+    const CE1Op0 = CE1.operands[0];
+    if (CE1.opcode === "GetElementPtr") {
+      // Ok, since this is a getelementptr, we know that the constant has a pointer type. Check the various cases.
+      if (V2 instanceof ConstantPointerNull) {
+        // If we are comparing a GEP to a null pointer, check to see if the base of the GEP equals the null pointer.
+        if (CE1Op0 instanceof GlobalValue) {
+          // If its not weak linkage, the GVal must have a non-zero address so the result is greater-than
+          if (CE1Op0.linkage !== "ExternalWeakLinkage" && (CE1.flags & 1) !== 0) return ICMP.UGT;
+        }
+      } else if (V2 instanceof GlobalValue) {
+        if (CE1Op0 instanceof GlobalValue) {
+          if (CE1Op0 !== V2) {
+            if (hasAllZeroIndices(CE1)) return areGlobalsPotentiallyEqual(CE1Op0, V2);
+            return BAD;
+          }
+        }
+      } else if (V2 instanceof ConstantExpr && V2.opcode === "GetElementPtr") {
+        // By far the most common case to handle is when the base pointers are obviously to the same global.
+        const CE2Op0 = V2.operands[0];
+        if (CE1Op0 instanceof GlobalValue && CE2Op0 instanceof GlobalValue) {
+          // Don't know relative ordering, but check for inequality.
+          if (CE1Op0 !== CE2Op0) {
+            if (hasAllZeroIndices(CE1) && hasAllZeroIndices(V2)) return areGlobalsPotentiallyEqual(CE1Op0, CE2Op0);
+            return BAD;
+          }
+        }
+      }
+    }
+  }
+  return BAD;
 }
 
 // llvm: llvm/lib/IR/ConstantFold.cpp:1135 ConstantFoldCompareInstruction
@@ -701,9 +879,54 @@ export function constantFoldCompareInstruction(predicate: number, c1: Constant, 
   } else {
     // Evaluate the relation between the two constants, per the predicate.
     let result = -1; // -1 = unknown, 0 = known false, 1 = known true.
-    const rel = evaluateICmpRelation(c1, c2);
-    if (rel === ICMP.EQ) result = isTrueWhenEqual(predicate) ? 1 : 0; // We know the constants are equal!
-    else if (rel !== BAD) return unported("llir: ConstantFoldCompareInstruction of a known non-equal relation");
+    const P = predicate;
+    switch (evaluateICmpRelation(c1, c2)) {
+      case BAD:
+        break; // Couldn't determine anything about these constants.
+      case ICMP.EQ: // We know the constants are equal!
+        // If we know the constants are equal, we can decide the result of this computation precisely.
+        result = isTrueWhenEqual(predicate) ? 1 : 0;
+        break;
+      // lane llir-folder: the other relations.
+      case ICMP.ULT:
+        if (P === ICMP.ULT || P === ICMP.NE || P === ICMP.ULE) result = 1;
+        else if (P === ICMP.UGT || P === ICMP.EQ || P === ICMP.UGE) result = 0;
+        break;
+      case ICMP.SLT:
+        if (P === ICMP.SLT || P === ICMP.NE || P === ICMP.SLE) result = 1;
+        else if (P === ICMP.SGT || P === ICMP.EQ || P === ICMP.SGE) result = 0;
+        break;
+      case ICMP.UGT:
+        if (P === ICMP.UGT || P === ICMP.NE || P === ICMP.UGE) result = 1;
+        else if (P === ICMP.ULT || P === ICMP.EQ || P === ICMP.ULE) result = 0;
+        break;
+      case ICMP.SGT:
+        if (P === ICMP.SGT || P === ICMP.NE || P === ICMP.SGE) result = 1;
+        else if (P === ICMP.SLT || P === ICMP.EQ || P === ICMP.SLE) result = 0;
+        break;
+      case ICMP.ULE:
+        if (P === ICMP.UGT) result = 0;
+        if (P === ICMP.ULT || P === ICMP.ULE) result = 1;
+        break;
+      case ICMP.SLE:
+        if (P === ICMP.SGT) result = 0;
+        if (P === ICMP.SLT || P === ICMP.SLE) result = 1;
+        break;
+      case ICMP.UGE:
+        if (P === ICMP.ULT) result = 0;
+        if (P === ICMP.UGT || P === ICMP.UGE) result = 1;
+        break;
+      case ICMP.SGE:
+        if (P === ICMP.SLT) result = 0;
+        if (P === ICMP.SGT || P === ICMP.SGE) result = 1;
+        break;
+      case ICMP.NE:
+        if (P === ICMP.EQ) result = 0;
+        if (P === ICMP.NE) result = 1;
+        break;
+      default:
+        throw new Error("llvm: Unknown relational!");
+    }
     // If we evaluated the result, return it now.
     if (result !== -1) return getConstantInt(resultTy as IntegerType, BigInt(result));
     if ((!(c1 instanceof ConstantExpr) && c2 instanceof ConstantExpr) || (c1.isNullValue() && !c2.isNullValue())) {
@@ -770,8 +993,133 @@ export const foldInsertValue = (agg: Value, val: Value, idxs: readonly number[])
   agg instanceof Constant && val instanceof Constant ? constantFoldInsertValueInstruction(agg, val, idxs) : undefined;
 
 /** `FoldExtractElement` / `FoldInsertElement` / `FoldShuffleVector`: `ConstantExpr::getExtractElement` etc. fold vectors. */
-export function foldVectorOp(ops: readonly Value[], what: string): Constant | undefined {
-  if (ops.every((o) => o instanceof Constant)) return unported(`llir: ${what} of constant operands (ConstantFold.cpp's vector folds)`);
+// ---- extractelement / insertelement (lane llir-folder) ----
+
+// llvm: llvm/lib/IR/ConstantFold.cpp:373 ConstantFoldExtractElementInstruction
+export function constantFoldExtractElementInstruction(Val: Constant, Idx: Constant): Constant | undefined {
+  const ValVTy = Val.type as VectorType;
+  // extractelt poison, C -> poison
+  // extractelt C, undef -> poison
+  if (Val instanceof PoisonValue || Idx instanceof UndefValue) return getPoison(ValVTy.elementType);
+  // extractelt undef, C -> undef
+  if (Val instanceof UndefValue) return getUndef(ValVTy.elementType);
+  if (!(Idx instanceof ConstantInt)) return undefined;
+  const CIdx = Idx;
+  if (!ValVTy.scalable) {
+    // ee({w,x,y,z}, wrong_value) -> poison
+    if (CIdx.value >= BigInt(ValVTy.numElements)) return getPoison(ValVTy.elementType);
+  }
+  // ee (gep (ptr, idx0, ...), idx) -> gep (ee (ptr, idx), ee (idx0, idx), ...); the `InsertElement` arm cannot arise, as the
+  // model makes no insertelement constant expressions.
+  if (Val instanceof ConstantExpr && Val.opcode === "GetElementPtr") return unported("llir: extractelement of a vector GEP constant expression");
+  const C = CIdx.value < BigInt(ValVTy.numElements) ? getAggregateElement(Val, Number(CIdx.value)) : undefined;
+  if (C !== undefined) return C;
+  // Lane < Splat minimum vector width => extractelt Splat(x), Lane -> x
+  if (CIdx.value < BigInt(ValVTy.numElements)) {
+    const SplatVal = getSplatValue(Val);
+    if (SplatVal !== undefined) return SplatVal;
+  }
+  return undefined;
+}
+
+// llvm: llvm/lib/IR/ConstantFold.cpp:437 ConstantFoldInsertElementInstruction
+export function constantFoldInsertElementInstruction(Val: Constant, Elt: Constant, Idx: Constant): Constant | undefined {
+  if (Idx instanceof UndefValue) return getPoison(Val.type);
+  // Inserting null into all zeros is still all zeros.
+  // TODO: This is true for undef and poison splats too.
+  if (Val.isNullValue() && Elt.isNullValue()) return Val;
+  if (!(Idx instanceof ConstantInt)) return undefined;
+  const CIdx = Idx;
+  // Do not iterate on scalable vector. The num of elements is unknown at compile-time.
+  const ValTy = Val.type as VectorType;
+  if (ValTy.scalable) return undefined;
+  const NumElts = ValTy.numElements;
+  if (CIdx.value >= BigInt(NumElts)) return getPoison(Val.type);
+  const Result: Constant[] = [];
+  const Ty = Val.context.getIntType(32);
+  const IdxVal = CIdx.value;
+  for (let i = 0; i !== NumElts; ++i) {
+    if (BigInt(i) === IdxVal) {
+      Result.push(Elt);
+      continue;
+    }
+    const C = getExtractElement(Val, getConstantInt(Ty, BigInt(i)));
+    Result.push(C);
+  }
+  return getConstantVector(Result);
+}
+
+// llvm: llvm/lib/IR/Constants.cpp:2720 ConstantExpr::getExtractElement
+function getExtractElement(Val: Constant, Idx: Constant): Constant {
+  const FC = constantFoldExtractElementInstruction(Val, Idx);
+  if (FC !== undefined) return FC; // Fold a few common cases.
+  return unported("llir: an extractelement constant expression (not in the model)");
+}
+
+// llvm: llvm/lib/IR/Constants.cpp:2742 ConstantExpr::getInsertElement
+function getInsertElement(Val: Constant, Elt: Constant, Idx: Constant): Constant {
+  const FC = constantFoldInsertElementInstruction(Val, Elt, Idx);
+  if (FC !== undefined) return FC; // Fold a few common cases.
+  return unported("llir: an insertelement constant expression (not in the model)");
+}
+
+// llvm: llvm/include/llvm/IR/ConstantFolder.h:148 FoldExtractElement
+export function foldExtractElement(Vec: Value, Idx: Value): Constant | undefined {
+  if (Vec instanceof Constant && Idx instanceof Constant) return getExtractElement(Vec, Idx);
+  return undefined;
+}
+
+// llvm: llvm/include/llvm/IR/ConstantFolder.h:156 FoldInsertElement
+export function foldInsertElement(Vec: Value, NewElt: Value, Idx: Value): Constant | undefined {
+  if (Vec instanceof Constant && NewElt instanceof Constant && Idx instanceof Constant) return getInsertElement(Vec, NewElt, Idx);
+  return undefined;
+}
+
+// llvm: llvm/lib/IR/ConstantFold.cpp:479 ConstantFoldShuffleVectorInstruction
+export function constantFoldShuffleVectorInstruction(V1: Constant, V2: Constant, Mask: readonly number[]): Constant | undefined {
+  const V1VTy = V1.type as VectorType;
+  const MaskNumElts = Mask.length;
+  const scalable = V1VTy.scalable;
+  const EltTy = V1VTy.elementType;
+  // Poison shuffle mask -> poison value.
+  if (Mask.every((m) => m === -1)) return getPoison(V1.context.getVectorType(EltTy, MaskNumElts, scalable));
+  // If the mask is all zeros this is a splat, no need to go through all elements.
+  if (Mask.every((m) => m === 0)) {
+    const Ty = V1.context.getIntType(32);
+    const Elt = getExtractElement(V1, getConstantInt(Ty, 0n));
+    // For scalable vectors, make sure this doesn't fold back into a shufflevector.
+    if (!scalable || Elt.isNullValue() || Elt instanceof UndefValue) return getSplat(MaskNumElts, scalable, Elt);
+  }
+  // Do not iterate on scalable vector. The num of elements is unknown at compile-time.
+  if (scalable) return undefined;
+  const SrcNumElts = V1VTy.numElements;
+  // Loop over the shuffle mask, evaluating each element.
+  const Result: Constant[] = [];
+  for (let i = 0; i !== MaskNumElts; ++i) {
+    const Elt = Mask[i]!;
+    if (Elt === -1) {
+      Result.push(getUndef(EltTy));
+      continue;
+    }
+    let InElt: Constant;
+    // `unsigned(Elt)`: the mask holds no other negative value.
+    if (Elt >= SrcNumElts * 2) InElt = getUndef(EltTy);
+    else if (Elt >= SrcNumElts) InElt = getExtractElement(V2, getConstantInt(V2.context.getIntType(32), BigInt(Elt - SrcNumElts)));
+    else InElt = getExtractElement(V1, getConstantInt(V1.context.getIntType(32), BigInt(Elt)));
+    Result.push(InElt);
+  }
+  return getConstantVector(Result);
+}
+
+// llvm: llvm/include/llvm/IR/ConstantFolder.h:166 FoldShuffleVector
+export function foldShuffleVector(V1: Value, V2: Value, Mask: readonly number[]): Constant | undefined {
+  if (V1 instanceof Constant && V2 instanceof Constant) {
+    // `ConstantExpr::getShuffleVector` (Constants.cpp:2765): the fold, else a shufflevector constant expression, which the model
+    // does not have.
+    const FC = constantFoldShuffleVectorInstruction(V1, V2, Mask);
+    if (FC !== undefined) return FC; // Fold a few common cases.
+    return unported("llir: a shufflevector constant expression (not in the model)");
+  }
   return undefined;
 }
 

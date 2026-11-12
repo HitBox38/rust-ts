@@ -2,8 +2,8 @@
 // parses to the module the model holds, so the oracle's normal form (scripts/lib/ir-normal.ts) of both texts can be compared
 // byte for byte. It follows `AsmWriter.cpp` (`// llvm:` markers) for what the normal form keeps: order of globals and
 // functions, names, linkage and every other flag, attributes, initializers, metadata. It need not reproduce what the parser
-// renumbers or canonicalises (review plan-m7 F6 "Size"): attribute group and metadata numbers, the order of type and comdat
-// definitions, and the spelling of calling conventions (`cc N`). Floating-point constants are spelt as AsmWriter spells them
+// renumbers or canonicalises (review plan-m7 F6 "Size"): attribute group and metadata numbers, and the order of type and comdat
+// definitions. Calling conventions are spelt by name and attributes in LLVM's sorted order (lane llir-folder). Floating-point constants are spelt as AsmWriter spells them
 // (`writeAPFloatInternal`: decimal when it round-trips, else hex; lane llir-apfloat).
 //
 // Function bodies are llir-core-b's: `bodyPrinter` is the hook its instructions register.
@@ -38,6 +38,7 @@ import {
   MDNode,
   MDString,
   type Metadata,
+  InlineAsm,
   MetadataAsValue,
   type Module,
   PointerType,
@@ -85,6 +86,32 @@ export function printLLVMNameWithoutPrefix(name: string): string {
   if (!needsQuotes) return name;
   // Okay, we need quotes.  Output the quotes and escape any scary characters as needed.
   return `"${printEscapedString(name)}"`;
+}
+
+/** `CallingConv::ID` values with a name of their own in `printCallingConv` (CallingConv.h at the pin; lane llir-folder).
+ *  folder.oracle.test.ts compares the model's spelling with libLLVM's for every value from 0 to 1023. */
+// prettier-ignore
+const CALLING_CONV_NAMES: ReadonlyMap<number, string> = new Map<number, string>([
+  [8, "fastcc"], [9, "coldcc"], [13, "anyregcc"], [14, "preserve_mostcc"], [15, "preserve_allcc"], [21, "preserve_nonecc"],
+  [17, "cxx_fast_tlscc"], [10, "ghccc"], [18, "tailcc"], [107, "graalcc"], [19, "cfguard_checkcc"], [64, "x86_stdcallcc"],
+  [65, "x86_fastcallcc"], [70, "x86_thiscallcc"], [92, "x86_regcallcc"], [80, "x86_vectorcallcc"], [77, "intel_ocl_bicc"],
+  [66, "arm_apcscc"], [67, "arm_aapcscc"], [68, "arm_aapcs_vfpcc"], [97, "aarch64_vector_pcs"], [98, "aarch64_sve_vector_pcs"],
+  [102, "aarch64_sme_preservemost_from_x0"], [111, "aarch64_sme_preservemost_from_x1"], [103, "aarch64_sme_preservemost_from_x2"],
+  // `avr_intrcc ` and `avr_signalcc ` carry a trailing space in AsmWriter, so the printed line has two.
+  [69, "msp430_intrcc"], [84, "avr_intrcc "], [85, "avr_signalcc "], [71, "ptx_kernel"], [72, "ptx_device"], [78, "x86_64_sysvcc"],
+  [79, "win64cc"], [75, "spir_func"], [76, "spir_kernel"], [16, "swiftcc"], [20, "swifttailcc"], [83, "x86_intrcc"], [81, "hhvmcc"],
+  [82, "hhvm_ccc"], [87, "amdgpu_vs"], [95, "amdgpu_ls"], [93, "amdgpu_hs"], [96, "amdgpu_es"], [88, "amdgpu_gs"], [89, "amdgpu_ps"],
+  [90, "amdgpu_cs"], [104, "amdgpu_cs_chain"], [105, "amdgpu_cs_chain_preserve"], [91, "amdgpu_kernel"], [100, "amdgpu_gfx"],
+  [124, "amdgpu_gfx_whole_wave"], [106, "m68k_rtdcc"], [110, "riscv_vector_cc"],
+  // `CC_VLS_CASE(ABI_VLEN)`: RISCV_VLSCall_32 (112) to RISCV_VLSCall_65536 (123).
+  ...[32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536].map((vlen, i): [number, string] => [112 + i, `riscv_vls_cc(${vlen})`]),
+  [125, "cheriot_compartmentcallcc"], [126, "cheriot_compartmentcalleecc"], [127, "cheriot_librarycallcc"],
+]);
+
+// llvm: llvm/lib/IR/AsmWriter.cpp:349 printCallingConv
+/** A calling convention as AsmWriter spells it: its name, or `cc<N>` (no space) for one without a name. */
+export function printCallingConv(cc: number): string {
+  return CALLING_CONV_NAMES.get(cc) ?? `cc${cc}`;
 }
 
 // llvm: llvm/lib/IR/AsmWriter.cpp:3472 getLinkageName
@@ -324,6 +351,16 @@ export class Printer {
       return s === undefined ? `${ty}@<badref>` : `${ty}@${s}`;
     }
     if (v instanceof Constant) return ty + this.constant(v);
+    if (v instanceof InlineAsm) {
+      // lane llir-folder.
+      let o = "asm ";
+      if (v.hasSideEffects) o += "sideeffect ";
+      if (v.isAlignStack) o += "alignstack ";
+      // We don't emit the AD_ATT dialect as it's the assumed default.
+      if (v.dialect === "AD_Intel") o += "inteldialect ";
+      if (v.canThrow) o += "unwind ";
+      return `${ty}${o}"${printEscapedString(v.asmString)}", "${printEscapedString(v.constraints)}"`;
+    }
     if (v instanceof MetadataAsValue) return ty + this.metadataOperand(v.md);
     if (v instanceof Argument && v.hasName()) return `${ty}%${printLLVMNameWithoutPrefix(v.name)}`;
     if (this.localOperand !== undefined) return ty + this.localOperand(v);
@@ -514,8 +551,8 @@ export class Printer {
   private functionText(f: Function, decl: boolean): string {
     let o = decl ? `declare${this.mdAttachments(f, " ")} ` : "define ";
     o += getLinkageNameWithSpace(f.linkage) + printDSOLocation(f) + printVisibility(f) + printDLLStorageClass(f);
-    // PORT: a non-C convention prints as `cc N`, which the parser reads as the named convention `printCallingConv` writes.
-    if (f.callingConv !== 0) o += `cc ${f.callingConv} `;
+    // Print the calling convention.
+    if (f.callingConv !== 0) o += `${printCallingConv(f.callingConv)} `;
     const ret = f.attributes.get(0);
     if (ret?.size) o += `${this.attributeSet(ret)} `;
     o += `${this.type(f.functionType.returnType)} ${this.operand(f, false)}(`;

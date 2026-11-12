@@ -387,6 +387,8 @@ describe("invoke with a cleanup landing pad, a filter pad and resume (with_clean
     bx.resume(e0, e1);
 
     const ir = printModule(fx.M);
+    // The oracle's line also has `unnamed_addr #1` and `!guid !N`: the fixture's `LLVMAddFunction` and declare.rs /
+    // attributes.rs (cg-types-attrs) add those, not builder.rs, so the expectation drops them (review cg-builder N4).
     expect(ir).toContain("define void @with_cleanup(i32 %x) personality ptr @rust_eh_personality {");
     expect(llvm.LLVMGetBasicBlockParent(start!)).toBe(f);
     expect(body(ir, "with_cleanup")).toBe(
@@ -456,15 +458,15 @@ describe("atomics (the bodies of core's atomic helpers in the oracle's module)",
         "start:",
         // Oracle :470 (`<Atomic<u32>>::fetch_add`'s `atomic_add`): `%0 = atomicrmw add ptr %self, i32 %val monotonic, align 4`.
         // builder.rs sets no alignment on atomicrmw / cmpxchg: the oracle's `, align 4` is LLVM's default (IRBuilder takes the
-        // type's store size from the DataLayout), which the IR model does not print. The M7 normal form (`opt` round trip)
-        // restores it; the `opt -passes=verify` test below checks that on an atomicrmw.
-        "  %0 = atomicrmw add ptr %dst, i32 %val monotonic",
+        // type's store size from the DataLayout), which the IR model computes since lane llir-folder (review N1; this
+        // expectation and the two cmpxchg ones below were changed to the oracle's text by that lane).
+        "  %0 = atomicrmw add ptr %dst, i32 %val monotonic, align 4",
         // Oracle :212-214 (`atomic_compare_exchange`): the cmpxchg (`, align 4`: as above) and its two extractvalues.
-        "  %1 = cmpxchg ptr %dst, i32 %old, i32 %new monotonic monotonic",
+        "  %1 = cmpxchg ptr %dst, i32 %old, i32 %new monotonic monotonic, align 4",
         "  %2 = extractvalue { i32, i1 } %1, 0",
         "  %3 = extractvalue { i32, i1 } %1, 1",
         // Oracle :309 (`acq_rel acquire`); `weak` is `compare_exchange_weak`'s form.
-        "  %4 = cmpxchg weak ptr %dst, i32 %old, i32 %new acq_rel acquire",
+        "  %4 = cmpxchg weak ptr %dst, i32 %old, i32 %new acq_rel acquire, align 4",
         "  %5 = extractvalue { i32, i1 } %4, 0",
         "  %6 = extractvalue { i32, i1 } %4, 1",
         // Oracle :87, :127, :528, :540.

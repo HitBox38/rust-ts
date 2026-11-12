@@ -10,14 +10,14 @@
 //   `LlvmWriteTypes`; the no-`self` fns are members, called on the backend value).
 // - `print`, `has_zstd` and `has_mnemonic` are methods of the class, though `CodegenBackend` has no such members
 //   (ssa-contract decision 9): rustc_driver_impl reaches them only when it calls them on this class.
-// - Calls into code no lane has ported yet stop in a local stub naming its owner: `rustc_codegen_ssa::base::codegen_crate`
-//   (ssa-base), `OngoingCodegen::join` (ssa-write), and the Enzyme / offload
-//   wrappers (out of M7, plan-m7 D18).
+// - `rustc_codegen_ssa::base::codegen_crate` (ssa-base) and back/write.rs's `OngoingCodegen`, `TargetMachineFactoryConfig`
+//   and `CodegenContext` (ssa-write) are imported (root at integ-w54/55). The Enzyme / offload wrappers stop (out of M7,
+//   plan-m7 D18).
 // - `ModuleLlvm`'s `Drop` is a `drop()` method (llvm/mod.ts header); `ManuallyDrop` is erased.
 // - This backend is not registered: rustc_interface still constructs src/rust_ts/codegen_backend.ts's stand-in.
 import type { AllocatorMethod } from "../../rustc_ast/expand/allocator.gen.ts";
 import type { ThinModule } from "../../rustc_codegen_ssa/back/lto.ts";
-import type { CodegenContext, FatLtoInput, ModuleConfig, SharedEmitter, TargetMachineFactoryFn, ThinLtoInput } from "../../rustc_codegen_ssa/back/write.ts";
+import { type CodegenContext, type FatLtoInput, type ModuleConfig, OngoingCodegen, type SharedEmitter, TargetMachineFactoryConfig, type TargetMachineFactoryFn, type ThinLtoInput } from "../../rustc_codegen_ssa/back/write.ts";
 import type { CodegenBackend, ExtraBackendMethods } from "../../rustc_codegen_ssa/traits/backend.ts";
 import { CodegenBackend_provided } from "../../rustc_codegen_ssa/traits/backend.ts";
 import { type WorkProduct, type WriteBackendMethods, WriteBackendMethods_provided, type WriteBackendTypes } from "../../rustc_codegen_ssa/traits/write.ts";
@@ -25,7 +25,7 @@ import type { CompiledModule, CompiledModules, CrateInfo, ModuleCodegen } from "
 import { link_binary } from "../../rustc_codegen_ssa/back/link.ts";
 import type { MetadataLoaderDyn } from "../../rustc_metadata/creader.ts";
 import type { PathBuf } from "../../rustc_error_messages/lib.ts";
-import type { DiagCtxtHandle } from "../../rustc_errors/lib.ts";
+import { DiagCtxt, type DiagCtxtHandle } from "../../rustc_errors/lib.ts";
 import type { IncrCompSession, TargetConfig, WorkProductMap } from "../../rustc_interface/stand_ins.ts";
 import type { EncodedMetadata } from "../../rustc_metadata/lib.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
@@ -38,7 +38,7 @@ import { type Symbol, sym } from "../../rustc_span/symbol.ts";
 import type { CrateType } from "../../rustc_structures/crate_type.ts";
 import { RelocModel, TlsModel } from "../../rustc_target/spec/mod.ts";
 import type { MutRef } from "../../std/mut_ref.ts";
-import { unported } from "../../std/panic.ts";
+import { panic, unported } from "../../std/panic.ts";
 import { unwrap_result } from "../../std/result.ts";
 import { std_print } from "../../rustc_session/config.ts";
 import * as allocator from "../allocator.ts";
@@ -60,17 +60,6 @@ export interface LlvmWriteTypes extends WriteBackendTypes {
   ModuleBuffer: ModuleBuffer;
   TargetMachine: OwnedTargetMachine;
   ThinData: ThinData;
-}
-
-/** Stub (cg-contract): `OngoingCodegen<LlvmCodegenBackend>::join` (rustc_codegen_ssa back/write.rs), lane ssa-write. The
- *  `downcast::<OngoingCodegen<LlvmCodegenBackend>>().expect(..)` before it is that lane's too. */
-function ongoing_codegen_join(
-  _ongoing_codegen: unknown,
-  _sess: Session,
-  _incr_comp_session: IncrCompSession | undefined,
-  _crate_info: CrateInfo,
-): [CompiledModules, WorkProductMap] {
-  return unported("ssa-write: compiler/rustc_codegen_ssa/src/back/write.rs OngoingCodegen::join");
 }
 
 class TimeTraceProfiler {
@@ -140,13 +129,11 @@ export class LlvmCodegenBackend implements CodegenBackend, ExtraBackendMethods<M
 
     // let dcx = DiagCtxt::new(Box::new(shared_emitter.clone()));
     // let dcx = dcx.handle();
-    // PORT: `SharedEmitter` is lane ssa-write's opaque placeholder (rustc_codegen_ssa back/write.ts), so a `DiagCtxt` over
-    // it cannot be built yet; `run_fat` above stops first in any case.
-    const dcx: DiagCtxtHandle = unported("ssa-write: DiagCtxt::new(Box::new(shared_emitter.clone())) (SharedEmitter)");
+    const dcx_ = DiagCtxt.new(shared_emitter.clone());
+    const dcx: DiagCtxtHandle = dcx_.handle();
     lto.run_pass_manager(cgcx, sess.prof, dcx, module, false);
 
-    // `&cgcx.module_config`: `CodegenContext` is ssa-write's opaque placeholder.
-    return write.codegen(cgcx, sess.prof, shared_emitter, module, unported("ssa-write: CodegenContext.module_config"));
+    return write.codegen(cgcx, sess.prof, shared_emitter, module, cgcx.module_config);
   }
   // rustc: compiler/rustc_codegen_llvm/src/back/llvm_backend.rs:120 run_thin_lto
   run_thin_lto(
@@ -389,7 +376,12 @@ export class LlvmCodegenBackend implements CodegenBackend, ExtraBackendMethods<M
     outputs: OutputFilenames,
     crate_info: CrateInfo,
   ): [CompiledModules, WorkProductMap] {
-    const [compiled_modules, work_products] = ongoing_codegen_join(ongoing_codegen, sess, incr_comp_session, crate_info);
+    // `ongoing_codegen.downcast::<OngoingCodegen<LlvmCodegenBackend>>().expect("Expected LlvmCodegenBackend's OngoingCodegen, found Box<Any>")`
+    // (`Result::expect` panics with `{msg}: {err:?}`; `Box<dyn Any>`'s Debug is `Any { .. }`.)
+    if (!(ongoing_codegen instanceof OngoingCodegen)) {
+      return panic("Expected LlvmCodegenBackend's OngoingCodegen, found Box<Any>: Any { .. }");
+    }
+    const [compiled_modules, work_products] = (ongoing_codegen as OngoingCodegen<LlvmWriteTypes>).join(sess, incr_comp_session, crate_info);
 
     if (sess.opts.unstable_opts.llvm_time_trace) {
       sess.time("llvm_dump_timing_file", () => {
@@ -475,12 +467,9 @@ export class ModuleLlvm {
   // rustc: compiler/rustc_codegen_llvm/src/back/llvm_backend.rs:462 parse
   static parse(cgcx: CodegenContext, tm_factory: TargetMachineFactoryFn<LlvmWriteTypes>, name: string, buffer: Uint8Array, dcx: DiagCtxtHandle): ModuleLlvm {
     const llcx = llvm.LLVMContextCreate();
-    // `cgcx.fewer_names`: `CodegenContext` is lane ssa-write's opaque placeholder.
-    const cgcx_fewer_names: boolean = unported("ssa-write: CodegenContext.fewer_names");
-    llvm.LLVMContextSetDiscardValueNames(llcx, llvm.to_llvm_bool(cgcx_fewer_names));
+    llvm.LLVMContextSetDiscardValueNames(llcx, llvm.to_llvm_bool(cgcx.fewer_names));
     const llmod_raw = lto.parse_module(llcx, name, buffer, dcx);
-    // `TargetMachineFactoryConfig::new(cgcx, name.to_str().unwrap())`: ssa-write's.
-    const tm = tm_factory(dcx, unported("ssa-write: TargetMachineFactoryConfig::new (rustc_codegen_ssa back/write.rs)"));
+    const tm = tm_factory(dcx, TargetMachineFactoryConfig.new(cgcx, name));
 
     return new ModuleLlvm(llcx, llmod_raw, tm);
   }

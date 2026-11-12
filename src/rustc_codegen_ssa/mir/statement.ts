@@ -3,10 +3,10 @@
 // PORT (ssa-mir-rest): one `impl FunctionCx` block, attached by `install_FunctionCx_statement(FunctionCx)` as constant.ts's
 // header says; this file imports mod.ts for types only. `#[instrument(level = "debug")]` is compiled out of rustc and stays a
 // comment.
-// PORT (ssa-mir-rest): calls into lanes that have not landed are typed module-private stubs (`unported("<lane>: <path>
-// <fn>")`), as operand.ts's are: mir/debuginfo.rs `codegen_stmt_debuginfos`, `set_debug_loc`, `debug_introduce_local`
-// (ssa-debuginfo) and mir/rvalue.rs `codegen_rvalue`, `codegen_rvalue_operand` (ssa-rvalue-intrinsic). Root repoints each
-// to the owner's method at integration (`this.codegen_rvalue(bx, dest, rvalue)`, ...).
+// PORT (ssa-mir-rest): calls into other lanes go through the `stmt_xlane` table, whose entries forward to the installed
+// methods so tests can replace them: mir/rvalue.rs `codegen_rvalue`, `codegen_rvalue_operand` (ssa-rvalue-intrinsic; root at
+// integ-w54) and mir/debuginfo.rs `codegen_stmt_debuginfos`, `set_debug_loc`, `debug_introduce_local` (ssa-debuginfo; root at
+// integ-w55).
 import type { Local, SourceInfo } from "../../rustc_middle/mir/mod.ts";
 import type { StmtDebugInfos } from "../../rustc_middle/mir/statement.gen.ts";
 import type { Statement } from "../../rustc_middle/mir/statement.ts";
@@ -26,19 +26,20 @@ import type { OperandRef } from "./operand.ts";
 import type { PlaceRef } from "./place.ts";
 import * as retag from "./retag.ts";
 
-/** Stub: `FunctionCx::codegen_stmt_debuginfos` (mir/debuginfo.rs, lane ssa-debuginfo). */
-function FunctionCx_codegen_stmt_debuginfos<B extends BackendTypes>(_fx: FunctionCx<B>, _bx: BuilderMethods<B>, _debuginfos: StmtDebugInfos): void {
-  return unported("ssa-debuginfo: compiler/rustc_codegen_ssa/src/mir/debuginfo.rs codegen_stmt_debuginfos");
+/** `FunctionCx::codegen_stmt_debuginfos` (mir/debuginfo.rs, ssa-debuginfo): forwards (root at integ-w55). Upstream passes
+ *  `&statement.debuginfos`, which derefs to the slice the method takes. */
+function FunctionCx_codegen_stmt_debuginfos<B extends BackendTypes>(fx: FunctionCx<B>, bx: BuilderMethods<B>, debuginfos: StmtDebugInfos): void {
+  fx.codegen_stmt_debuginfos(bx, debuginfos.deref());
 }
 
-/** Stub: `FunctionCx::set_debug_loc` (mir/debuginfo.rs, lane ssa-debuginfo). */
-function FunctionCx_set_debug_loc<B extends BackendTypes>(_fx: FunctionCx<B>, _bx: BuilderMethods<B>, _source_info: SourceInfo): void {
-  return unported("ssa-debuginfo: compiler/rustc_codegen_ssa/src/mir/debuginfo.rs set_debug_loc");
+/** `FunctionCx::set_debug_loc` (mir/debuginfo.rs, ssa-debuginfo): forwards (root at integ-w55). */
+function FunctionCx_set_debug_loc<B extends BackendTypes>(fx: FunctionCx<B>, bx: BuilderMethods<B>, source_info: SourceInfo): void {
+  fx.set_debug_loc(bx, source_info);
 }
 
-/** Stub: `FunctionCx::debug_introduce_local` (mir/debuginfo.rs, lane ssa-debuginfo). */
-function FunctionCx_debug_introduce_local<B extends BackendTypes>(_fx: FunctionCx<B>, _bx: BuilderMethods<B>, _local: Local): void {
-  return unported("ssa-debuginfo: compiler/rustc_codegen_ssa/src/mir/debuginfo.rs debug_introduce_local");
+/** `FunctionCx::debug_introduce_local` (mir/debuginfo.rs, ssa-debuginfo): forwards (root at integ-w55). */
+function FunctionCx_debug_introduce_local<B extends BackendTypes>(fx: FunctionCx<B>, bx: BuilderMethods<B>, local: Local): void {
+  fx.debug_introduce_local(bx, local);
 }
 
 /** `FunctionCx::codegen_rvalue` (mir/rvalue.rs, ssa-rvalue-intrinsic): forwards to the installed method (root at integ-w54). */
@@ -52,7 +53,7 @@ function FunctionCx_codegen_rvalue_operand<B extends BackendTypes>(fx: FunctionC
   return fx.codegen_rvalue_operand(bx, rvalue);
 }
 
-/** The stubs above, as one table so a test can replace them (`stmt_xlane`); not upstream. */
+/** The stubs and forwarders above, as one table so a test can replace them (`stmt_xlane`); not upstream. */
 export const stmt_xlane = {
   codegen_stmt_debuginfos: FunctionCx_codegen_stmt_debuginfos,
   set_debug_loc: FunctionCx_set_debug_loc,

@@ -2697,18 +2697,18 @@ function canon_abi_is_arm(conv: CanonAbi, call: "CCmseNonSecureCall" | "CCmseNon
 // Each entry stands for one upstream fn of another fill lane and stops with `unported`. Methods take the receiver first.
 // Root repoints each entry (or its call sites) when its owner lands; tests may replace entries.
 export const block_xlane = {
-  // ssa-debuginfo (mir/debuginfo.rs)
+  // ssa-debuginfo (mir/debuginfo.rs): ported; these entries forward to the installed methods (root at integ-w55).
   /** `fx.set_debug_loc(bx, source_info)` (mir/debuginfo.rs:221). */
-  set_debug_loc<B extends BackendTypes>(_fx: FunctionCx<B>, _bx: BuilderMethods<B>, _source_info: SourceInfo): void {
-    return unported("ssa-debuginfo: compiler/rustc_codegen_ssa/src/mir/debuginfo.rs set_debug_loc");
+  set_debug_loc<B extends BackendTypes>(fx: FunctionCx<B>, bx: BuilderMethods<B>, source_info: SourceInfo): void {
+    fx.set_debug_loc(bx, source_info);
   },
   /** `fx.debug_introduce_local(bx, local)` (mir/debuginfo.rs:310). */
-  debug_introduce_local<B extends BackendTypes>(_fx: FunctionCx<B>, _bx: BuilderMethods<B>, _local: Local): void {
-    return unported("ssa-debuginfo: compiler/rustc_codegen_ssa/src/mir/debuginfo.rs debug_introduce_local");
+  debug_introduce_local<B extends BackendTypes>(fx: FunctionCx<B>, bx: BuilderMethods<B>, local: Local): void {
+    fx.debug_introduce_local(bx, local);
   },
   /** `fx.codegen_stmt_debuginfos(bx, debuginfos)` (mir/debuginfo.rs:722). */
-  codegen_stmt_debuginfos<B extends BackendTypes>(_fx: FunctionCx<B>, _bx: BuilderMethods<B>, _debuginfos: readonly StmtDebugInfo[]): void {
-    return unported("ssa-debuginfo: compiler/rustc_codegen_ssa/src/mir/debuginfo.rs codegen_stmt_debuginfos");
+  codegen_stmt_debuginfos<B extends BackendTypes>(fx: FunctionCx<B>, bx: BuilderMethods<B>, debuginfos: readonly StmtDebugInfo[]): void {
+    fx.codegen_stmt_debuginfos(bx, debuginfos);
   },
 
   // ssa-mir-rest (mir/statement.rs, mir/constant.rs, meth.rs) and ssa-rvalue-intrinsic (mir/intrinsic.rs): ported; these
