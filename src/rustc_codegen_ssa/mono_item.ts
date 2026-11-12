@@ -7,9 +7,9 @@
 //   as `codegen_mir(Bx_, cx, instance)` does (ssa-mir-core PORT 1). `predefine::<Bx>` uses `Bx` only to type `cx`, so it
 //   takes no `Bx_`.
 // - `debug!` is compiled out of rustc (STATIC_MAX_LEVEL = INFO, rust_ts/tracing.ts) and stays a comment.
-// - Calls into lanes that have not landed are typed module-private stubs (`unported("<lane>: <path> <fn>")`): base.rs
-//   `codegen_instance` and `codegen_global_asm` (ssa-base) and mir/naked_asm.rs `codegen_naked_asm`
-//   (ssa-rvalue-intrinsic). Root repoints them at integration.
+// - base.rs `codegen_instance` / `codegen_global_asm` (ssa-base) and mir/naked_asm.rs `codegen_naked_asm`
+//   (ssa-rvalue-intrinsic) are reached through `mono_item_xlane`, whose entries forward to them (root at integ-w54), so
+//   tests can replace them.
 import type { Linkage } from "../rustc_attr_ir/data_structures.gen.ts";
 import type { ItemId } from "../rustc_hir/hir.ts";
 import { debug_ItemId } from "../rustc_hir/hir.ts";
@@ -27,7 +27,7 @@ import * as naked_asm from "./mir/naked_asm.ts";
 
 /** `rustc_codegen_ssa::base::codegen_global_asm` (base.rs, ssa-base): forwards (root at integ-w54). */
 function base_codegen_global_asm<B extends BackendTypes>(cx: CodegenMethods<B>, item_id: ItemId): void {
-  base.codegen_global_asm(cx as never, item_id);
+  base.codegen_global_asm(cx, item_id);
 }
 
 /** `rustc_codegen_ssa::base::codegen_instance::<Bx>` (base.rs, ssa-base): forwards (root at integ-w54). */
@@ -42,7 +42,7 @@ function base_codegen_instance<B extends BackendTypes, Cx extends CodegenMethods
 /** `rustc_codegen_ssa::mir::naked_asm::codegen_naked_asm::<Bx::CodegenCx>` (mir/naked_asm.rs, ssa-rvalue-intrinsic): forwards
  *  (root at integ-w54). */
 function naked_asm_codegen_naked_asm<B extends BackendTypes>(cx: CodegenMethods<B>, instance: Instance, item_data: MonoItemData): void {
-  naked_asm.codegen_naked_asm(cx as never, instance, item_data);
+  naked_asm.codegen_naked_asm(cx, instance, item_data);
 }
 
 /** The stubs above, as one table so a test can replace them; not upstream. */

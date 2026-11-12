@@ -689,13 +689,19 @@ describe("unit behaviour of builder.rs's own logic", () => {
       target: { pointer_width: 64, requires_uwtable: false, default_uwtable: false },
       default_visibility: () => SymbolVisibility.Interposable,
       opts: { debuginfo: "None", cg: { force_unwind_tables: undefined } },
-      must_emit_unwind_tables: Session.prototype.must_emit_unwind_tables,
+      must_emit_unwind_tables(this: Session): boolean {
+        uwtable_calls.push(Session.prototype.must_emit_unwind_tables.call(this));
+        return uwtable_calls.at(-1)!;
+      },
       panic_strategy: () => "Abort",
     };
+    const uwtable_calls: boolean[] = [];
     const tcx = { sess };
-    // The shim is declared (declare.rs, ported); `attributes::from_fn_attrs` then reads session options the marker
-    // session does not have (`unstable_opts`): the rest of from_fn_attrs is attributes.test.ts's.
+    // The shim is declared (declare.rs, ported); `attributes::from_fn_attrs` asks `must_emit_unwind_tables` once (false on
+    // this target), then reads session options the marker session does not have (`unstable_opts`): the rest of
+    // from_fn_attrs is attributes.test.ts's.
     expect(() => allocator_codegen(tcx as never, fx.cx.scx, "m", [])).toThrow(/unstable_opts/);
+    expect(uwtable_calls).toEqual([false]);
     expect(printModule(fx.M)).toMatch(/^declare void @\S+___rust_no_alloc_shim_is_unstable_v2\(\) unnamed_addr$/m);
   });
 });

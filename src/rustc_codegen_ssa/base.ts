@@ -278,15 +278,17 @@ function unsized_info<B extends BackendTypes>(
     if (vptr_entry_idx !== undefined) {
       const entry_idx = vptr_entry_idx;
       const ptr_size = bx.data_layout().pointer_size();
-      const vtable_byte_offset = BigInt(entry_idx) * ptr_size.bytes_u64();
-      return meth_load_vtable(bx, old_info, bx.type_ptr(), vtable_byte_offset, source, true);
+      // PORT (root at integ-w54): `u64` as a `number`, as meth.ts's `load_vtable` and `VirtualIndex` take it (a vtable
+      // offset is far below 2^53).
+      const vtable_byte_offset = entry_idx * ptr_size.bytes();
+      return lazy_meth().load_vtable(bx, old_info, bx.type_ptr(), vtable_byte_offset, source, true);
     } else {
       return old_info;
     }
   } else if (tk.$ === "Dynamic") {
     const data = tk._0;
     const principal = data.principal();
-    return meth_get_vtable(
+    return lazy_meth().get_vtable(
       cx,
       source,
       principal === undefined ? undefined : bx.tcx_().instantiate_bound_regions_with_erased(principal, d_ExistentialTraitRef),
@@ -1433,25 +1435,12 @@ function lazy_infer_traits_engine(): typeof import("../rustc_infer/traits/engine
   return (lazy_infer_traits_engine__m ??= require("../rustc_infer/traits/engine.ts") as typeof import("../rustc_infer/traits/engine.ts"));
 }
 var lazy_infer_traits_engine__m: typeof import("../rustc_infer/traits/engine.ts") | undefined;
-
-// ---- Cross-lane stubs ------------------------------------------------------------------------------------------------
-
-/** `meth::load_vtable` (rustc_codegen_ssa meth.rs): plan-m7 §2d's MIR core group; no lane owns meth.rs yet. */
-function meth_load_vtable<B extends BackendTypes>(
-  _bx: BuilderMethods<B>,
-  _llvtable: B["Value"],
-  _llty: B["Type"],
-  _vtable_byte_offset: bigint,
-  _ty: Ty,
-  _nonnull: boolean,
-): B["Value"] {
-  return unported("compiler/rustc_codegen_ssa/src/meth.rs load_vtable (plan-m7 MIR core group, no lane yet)");
+function lazy_meth(): typeof import("./meth.ts") {
+  return (lazy_meth__m ??= require("./meth.ts") as typeof import("./meth.ts"));
 }
+var lazy_meth__m: typeof import("./meth.ts") | undefined;
 
-/** `meth::get_vtable` (rustc_codegen_ssa meth.rs): plan-m7 §2d's MIR core group; no lane owns meth.rs yet. */
-function meth_get_vtable<B extends BackendTypes>(_cx: CodegenMethods<B>, _ty: Ty, _trait_ref: ExistentialTraitRef | undefined): B["Value"] {
-  return unported("compiler/rustc_codegen_ssa/src/meth.rs get_vtable (plan-m7 MIR core group, no lane yet)");
-}
+// ---- Not ported (stops) -----------------------------------------------------------------------------------------------
 
 /** `-Z time-passes` (rustc_data_structures profiling.rs): not ported (rustc_driver_impl stops on it too). */
 function get_resident_set_size(): number | undefined {
