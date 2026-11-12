@@ -642,3 +642,15 @@ plan-m7 §8 wave 41; contracts: ssa-contract, cg-contract (stubs per lane, `<nam
 
 **Next M7 wave (from wave 41's leftovers; decision recorded 2026-11-12):** lanes for `rustc_codegen_ssa/src/mir/constant.rs`, `size_of_val.rs`, `mir/retag.rs` (rename the `retag:` stub prefix); `rustc_session`'s `needs_plt`, `must_emit_unwind_tables`, `branch_protection`, `direct_access_external_data` and the two `PointerAuthConfig` methods (cg-context's three duplicate stubs in context.ts go with them); `wants_msvc_seh`, `maybe_create_entry_wrapper`, `ModuleCodegen::new_regular` (ssa-base); `MonoItemExt::predefine`/`define`; `CodegenUnit::codegen_dep_node` (dep graph off, D3); `StableHash for Allocation` (no owner, every unnamed constant allocation); the IR model's attribute order (LLVM sorts) and default `, align N` on `atomicrmw`/`cmpxchg`; `codegen_fn_attrs.ts`'s extra `Visibility::Interposable`. Then the rest of plan-m7 wave 41 (cg-abi-consts, cg-intrinsic-a, ssa-rvalue-intrinsic, ssa-block, ssa-base, ssa-debuginfo, llir-folder).
 **Queued nits (wave 40m):** root-w53-check 7 (no test reaches builder.ts's `project_index`/`new_sized_aligned` call sites); root-w53-recheck 1-3 (an unwrapped comment in mir/mod.ts:18, the `{ insts }` cast in builder.test.ts, two Bun-worded matchers in skeleton.test.ts); the lane reviews' N items above (cg-context N4, `tm.drop()`, recorded as a decision).
+
+## Wave 40n (started 2026-11-12) — M7 wave 41 continues: the rest of the fill lanes
+plan-m7 §2d groups and §8 wave 41, plus wave 40m's leftovers. Six heavy lanes (load). Held for the next round: `ssa-debuginfo`, `llir-folder` (with the IR model's attribute order and default `, align N` on `atomicrmw`/`cmpxchg`).
+
+| lane | scope | status |
+|---|---|---|
+| ssa-mir-rest | `rustc_codegen_ssa/src/mir/{constant,statement,coverageinfo,retag}.rs`, `mono_item.rs`, `meth.rs`, `size_of_val.rs`; wave 40m's leftovers outside the codegen crates: `rustc_session`'s `needs_plt`, `must_emit_unwind_tables`, `branch_protection`, `direct_access_external_data` and the two `PointerAuthConfig` methods, `CodegenUnit::codegen_dep_node`, `StableHash for Allocation`, `codegen_fn_attrs.ts`'s extra `Visibility::Interposable` | running |
+| ssa-rvalue-intrinsic | `rustc_codegen_ssa/src/mir/{rvalue,intrinsic,naked_asm}.rs` | running |
+| ssa-block | `rustc_codegen_ssa/src/mir/block.rs` (terminators, calls, unwinding) | running |
+| ssa-base | `rustc_codegen_ssa/src/{base,lib,assert_module_sources}.rs`, `back/lto.rs` (the crate driver: `codegen_crate`, `maybe_create_entry_wrapper`, `wants_msvc_seh`, `ModuleCodegen::new_regular`) | running |
+| cg-abi-consts | `rustc_codegen_llvm/src/{abi,consts}.rs` (the `cg-abi-consts` stubs) | running |
+| cg-intrinsic-a | `rustc_codegen_llvm/src/intrinsic.rs` :1–:2046 (scalar; SIMD is M7c) (the `cg-intrinsic-a` stubs) | running |
