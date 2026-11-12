@@ -1,34 +1,69 @@
-// compiler/rustc_codegen_llvm/src/type_.rs: the SKELETON (lane cg-contract). The fill lane cg-types-attrs (plan-m7 §8 wave 41) owns this file and ports
-// type_.rs here, replacing each `Stub (cg-contract)` with its port.
+// Port of compiler/rustc_codegen_llvm/src/type_.rs (skeleton: lane cg-contract; bodies: lane cg-types-attrs, plan-m7 §8 wave 41).
 //
-// What is here: the inherent fns other lanes call (review F2; `llcx`, `llmod`, `isize_ty` ported), `impl BaseTypeCodegenMethods for GenericCx`, `impl LayoutTypeCodegenMethods for CodegenCx` and `impl
-// TypeMembershipCodegenMethods for CodegenCx`, and `impl fmt::Debug for Type` (the `debug_Type` / `debug_FunctionSignature`
-// members of `GenericCx`, context.ts header), as typed stubs attached with PORTING §5's extension pattern (lib.ts imports this file after the
-// class's own module).
-import type { AddressSpace, Reg } from "../rustc_abi/lib.ts";
+// The impls on `GenericCx` / `CodegenCx` (inherent, `BaseTypeCodegenMethods`, `LayoutTypeCodegenMethods`,
+// `TypeMembershipCodegenMethods`) are attached with PORTING §5's extension pattern: a `declare module "./context.ts"`
+// augmentation plus prototype assignments, in upstream order (lib.ts imports this file after the class's own module).
+// `impl fmt::Debug for Type` is `debug_Type`, also reached as the `debug_Type` / `debug_FunctionSignature` members of
+// `GenericCx` (context.ts header).
+//
+// PORT (cg-types-attrs):
+// - `&[&'ll Type]` + `len() as c_uint` is the array and its `length` (an element count, never a UTF-8 length).
+// - `SmallCStr::new(name)` is the string itself: the IR model's `Name: string` parameters take it as is.
+// - `Vec::with_capacity(n)` + an out-pointer fill + `set_len(n)` is an empty array the model fills.
+import { type AddressSpace, type Align, AddressSpace as AddressSpace_, Integer, type Reg, type Size } from "../rustc_abi/lib.ts";
 import type { TypeKind } from "../rustc_codegen_ssa/common.ts";
-import type { BaseTypeCodegenMethods, LayoutTypeCodegenMethods, TypeMembershipCodegenMethods } from "../rustc_codegen_ssa/traits/type_.ts";
 import type { TyAndLayout } from "../rustc_middle/ty/layout.ts";
 import type { Ty } from "../rustc_middle/ty/mod.ts";
 import type { CastTarget, FnAbi } from "../rustc_target/callconv/mod.ts";
-import type { Context, Module, Type, Value } from "./llvm/mod.ts";
+import * as llvm from "./llvm/mod.ts";
+import type { Context, Type, Value } from "./llvm/mod.ts";
 import type { FloatTy, IntTy, UintTy } from "../rustc_ast_ir/lib.ts";
-import { unported } from "../std/panic.ts";
+import { assert_eq, unported } from "../std/panic.ts";
+import { bug } from "../rustc_span/macros.ts";
+import { expect_result } from "../std/result.ts";
 import { CodegenCx } from "./context.ts";
 import { GenericCx } from "./context.ts";
 import type { SCxBorrow } from "./context.ts";
 import type { Debug } from "../std/fmt.ts";
+import { debug_TypeKind } from "../rustc_codegen_ssa/common.ts";
+import { PLAIN } from "../std/fmt.ts";
+import * as common from "./common.ts";
+
+// impl PartialEq for Type
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:22 eq
+export function Type_eq(self: Type, other: Type): boolean {
+  // ptr::eq(self, other)
+  return self === other;
+}
+
+// impl Eq for Type {}
+
+// impl Hash for Type
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:30 hash
+export function hash_Type(_self: Type, /** `&mut H` (`H: Hasher`) */ _state: unknown): void {
+  // ptr::hash(self, state);
+  // PORT: a pointer address has no TS form, and nothing hashes a `Type` (maps key on the object; value.ts's `Hash for Value`).
+  return unported("rustc_codegen_llvm::type_::<Type as Hash>::hash (pointer address)");
+}
 
 // impl fmt::Debug for Type
-// Stub (cg-contract): <Type as Debug>::fmt (type_.rs:36)
-export const debug_Type: Debug<Type> = (_self) => {
-  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs fmt");
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:36 fmt
+export const debug_Type: Debug<Type> = (self) => {
+  return expect_result(
+    llvm.build_string((s) => {
+      llvm.LLVMRustWriteTypeToString(self, s);
+    }),
+    "non-UTF8 type description from LLVM",
+    llvm.debug_FromUtf8Error,
+  );
 };
 // `CodegenObject: Debug` of `Type` and `FunctionSignature` (both `&Type`), as `GenericCx` members (context.ts header).
 Object.defineProperty(GenericCx.prototype, "debug_Type", { get: () => debug_Type, configurable: true });
 Object.defineProperty(GenericCx.prototype, "debug_FunctionSignature", { get: () => debug_Type, configurable: true });
 
-// ---- impl GenericCx (type_.rs:47): Cross-lane surface (cg-contract, review F2) ----
+// impl<'ll> CodegenCx<'ll, '_> {}
+
+// ---- impl<'ll, CX: Borrow<SCx<'ll>>> GenericCx<'ll, CX> (type_.rs:47) ----
 declare module "./context.ts" {
   interface GenericCx<T extends SCxBorrow> {
     type_named_struct(name: string): Type;
@@ -36,6 +71,8 @@ declare module "./context.ts" {
     type_void(): Type;
     type_ix(num_bits: number): Type;
     type_vector(ty: Type, count: number): Type;
+    type_scalable_vector(ty: Type, count: number): Type;
+    add_func(name: string, ty: Type): Value;
     get_return_type(ty: Type): Type;
     func_params_types(ty: Type): Type[];
     func_is_variadic(ty: Type): boolean;
@@ -43,82 +80,156 @@ declare module "./context.ts" {
   }
 }
 
-// Stub (cg-contract): type_named_struct (type_.rs:48)
-GenericCx.prototype.type_named_struct = function (this: GenericCx<SCxBorrow>, _name: string): Type {
-  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs type_named_struct");
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:48 type_named_struct
+GenericCx.prototype.type_named_struct = function (this: GenericCx<SCxBorrow>, name: string): Type {
+  // let name = SmallCStr::new(name);
+  return llvm.LLVMStructCreateNamed(this.llcx(), name);
 };
 
-// Stub (cg-contract): set_struct_body (type_.rs:53)
-GenericCx.prototype.set_struct_body = function (this: GenericCx<SCxBorrow>, _ty: Type, _els: readonly Type[], _packed: boolean): void {
-  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs set_struct_body");
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:53 set_struct_body
+GenericCx.prototype.set_struct_body = function (this: GenericCx<SCxBorrow>, ty: Type, els: readonly Type[], packed: boolean): void {
+  llvm.LLVMStructSetBody(ty, els, els.length, llvm.to_llvm_bool(packed));
 };
 
-// Stub (cg-contract): type_void (type_.rs:58)
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:58 type_void
 GenericCx.prototype.type_void = function (this: GenericCx<SCxBorrow>): Type {
-  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs type_void");
+  return llvm.LLVMVoidTypeInContext(this.llcx());
 };
 
-/** x Creates an integer type with the given number of bits, e.g., i24. `num_bits: u64`, a bit width: a `number`. */
-// Stub (cg-contract): type_ix (type_.rs:63)
-GenericCx.prototype.type_ix = function (this: GenericCx<SCxBorrow>, _num_bits: number): Type {
-  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs type_ix");
+///x Creates an integer type with the given number of bits, e.g., i24
+/** `num_bits: u64`, a bit width: a `number`. */
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:63 type_ix
+GenericCx.prototype.type_ix = function (this: GenericCx<SCxBorrow>, num_bits: number): Type {
+  // `num_bits as c_uint`
+  return llvm.LLVMIntTypeInContext(this.llcx(), num_bits >>> 0);
 };
 
 /** `count: u64`, a lane count: a `number` (as `vector_length`). */
-// Stub (cg-contract): type_vector (type_.rs:67)
-GenericCx.prototype.type_vector = function (this: GenericCx<SCxBorrow>, _ty: Type, _count: number): Type {
-  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs type_vector");
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:67 type_vector
+GenericCx.prototype.type_vector = function (this: GenericCx<SCxBorrow>, ty: Type, count: number): Type {
+  return llvm.LLVMVectorType(ty, count >>> 0);
 };
 
-// Stub (cg-contract): get_return_type (type_.rs:80)
-GenericCx.prototype.get_return_type = function (this: GenericCx<SCxBorrow>, _ty: Type): Type {
-  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs get_return_type");
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:71 type_scalable_vector
+GenericCx.prototype.type_scalable_vector = function (this: GenericCx<SCxBorrow>, ty: Type, count: number): Type {
+  return llvm.LLVMScalableVectorType(ty, count >>> 0);
 };
 
-// Stub (cg-contract): func_params_types (type_.rs:84)
-GenericCx.prototype.func_params_types = function (this: GenericCx<SCxBorrow>, _ty: Type): Type[] {
-  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs func_params_types");
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:75 add_func
+GenericCx.prototype.add_func = function (this: GenericCx<SCxBorrow>, name: string, ty: Type): Value {
+  // let name = SmallCStr::new(name);
+  return llvm.LLVMAddFunction(this.llmod(), name, ty);
 };
 
-// Stub (cg-contract): func_is_variadic (type_.rs:94)
-GenericCx.prototype.func_is_variadic = function (this: GenericCx<SCxBorrow>, _ty: Type): boolean {
-  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs func_is_variadic");
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:80 get_return_type
+GenericCx.prototype.get_return_type = function (this: GenericCx<SCxBorrow>, ty: Type): Type {
+  return llvm.LLVMGetReturnType(ty);
 };
 
-// Stub (cg-contract): struct_element_types (type_.rs:98)
-GenericCx.prototype.struct_element_types = function (this: GenericCx<SCxBorrow>, _ty: Type): Type[] {
-  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs struct_element_types");
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:84 func_params_types
+GenericCx.prototype.func_params_types = function (this: GenericCx<SCxBorrow>, ty: Type): Type[] {
+  const n_args = llvm.LLVMCountParamTypes(ty);
+  // let mut args = Vec::with_capacity(n_args);
+  const args: Type[] = [];
+  llvm.LLVMGetParamTypes(ty, args);
+  // args.set_len(n_args);
+  args.length = n_args;
+  return args;
 };
 
-// ---- impl CodegenCx (type_.rs:108): Cross-lane surface (cg-contract, review F2) ----
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:94 func_is_variadic
+GenericCx.prototype.func_is_variadic = function (this: GenericCx<SCxBorrow>, ty: Type): boolean {
+  return llvm.LLVMIsFunctionVarArg(ty).is_true();
+};
+
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:98 struct_element_types
+GenericCx.prototype.struct_element_types = function (this: GenericCx<SCxBorrow>, ty: Type): Type[] {
+  const n_args = llvm.LLVMCountStructElementTypes(ty);
+  // let mut args = Vec::with_capacity(n_args);
+  const args: Type[] = [];
+  llvm.LLVMGetStructElementTypes(ty, args);
+  // args.set_len(n_args);
+  args.length = n_args;
+  return args;
+};
+
+// ---- impl<'ll, 'tcx> CodegenCx<'ll, 'tcx> (type_.rs:108) ----
 declare module "./context.ts" {
   interface CodegenCx {
     type_int_from_ty(t: IntTy): Type;
     type_uint_from_ty(t: UintTy): Type;
     type_float_from_ty(t: FloatTy): Type;
+    type_padding_filler(size: Size, align: Align): Type;
   }
 }
 
-// Stub (cg-contract): type_int_from_ty (type_.rs:109)
-CodegenCx.prototype.type_int_from_ty = function (this: CodegenCx, _t: IntTy): Type {
-  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs type_int_from_ty");
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:109 type_int_from_ty
+CodegenCx.prototype.type_int_from_ty = function (this: CodegenCx, t: IntTy): Type {
+  switch (t) {
+    case "Isize":
+      return this.type_isize();
+    case "I8":
+      return this.type_i8();
+    case "I16":
+      return this.type_i16();
+    case "I32":
+      return this.type_i32();
+    case "I64":
+      return this.type_i64();
+    case "I128":
+      return this.type_i128();
+  }
 };
 
-// Stub (cg-contract): type_uint_from_ty (type_.rs:120)
-CodegenCx.prototype.type_uint_from_ty = function (this: CodegenCx, _t: UintTy): Type {
-  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs type_uint_from_ty");
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:120 type_uint_from_ty
+CodegenCx.prototype.type_uint_from_ty = function (this: CodegenCx, t: UintTy): Type {
+  switch (t) {
+    case "Usize":
+      return this.type_isize();
+    case "U8":
+      return this.type_i8();
+    case "U16":
+      return this.type_i16();
+    case "U32":
+      return this.type_i32();
+    case "U64":
+      return this.type_i64();
+    case "U128":
+      return this.type_i128();
+  }
 };
 
-// Stub (cg-contract): type_float_from_ty (type_.rs:131)
-CodegenCx.prototype.type_float_from_ty = function (this: CodegenCx, _t: FloatTy): Type {
-  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs type_float_from_ty");
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:131 type_float_from_ty
+CodegenCx.prototype.type_float_from_ty = function (this: CodegenCx, t: FloatTy): Type {
+  switch (t) {
+    case "F16":
+      return this.type_f16();
+    case "F32":
+      return this.type_f32();
+    case "F64":
+      return this.type_f64();
+    case "F128":
+      return this.type_f128();
+  }
 };
 
-// ---- impl GenericCx (type_.rs:151): `llcx` / `llmod` / `isize_ty` ported (`(**self).borrow().x`); Cross-lane surface (cg-contract, review F2) ----
+/// Return an LLVM type that has at most the required alignment,
+/// and exactly the required size, as a best-effort padding array.
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:142 type_padding_filler
+CodegenCx.prototype.type_padding_filler = function (this: CodegenCx, size: Size, align: Align): Type {
+  const unit = Integer.approximate_align(this, align);
+  const size_ = size.bytes();
+  const unit_size = Integer.size(unit).bytes();
+  assert_eq(size_ % unit_size, 0, String);
+  // PORT: `size / unit_size` (`u64`, exact: asserted above) as the `u64` element count `type_array` takes.
+  return this.type_array(this.type_from_integer(unit), BigInt(size_ / unit_size));
+};
+
+// ---- impl<'ll, CX: Borrow<SCx<'ll>>> GenericCx<'ll, CX> (type_.rs:151) ----
 declare module "./context.ts" {
   interface GenericCx<T extends SCxBorrow> {
     llcx(): Context;
-    llmod(): Module;
+    llmod(): llvm.Module;
     isize_ty(): Type;
     type_variadic_func(args: readonly Type[], ret: Type): Type;
     type_i1(): Type;
@@ -133,7 +244,7 @@ GenericCx.prototype.llcx = function (this: GenericCx<SCxBorrow>): Context {
 };
 
 // rustc: compiler/rustc_codegen_llvm/src/type_.rs:156 llmod
-GenericCx.prototype.llmod = function (this: GenericCx<SCxBorrow>): Module {
+GenericCx.prototype.llmod = function (this: GenericCx<SCxBorrow>): llvm.Module {
   return this.deref().borrow().llmod;
 };
 
@@ -142,27 +253,27 @@ GenericCx.prototype.isize_ty = function (this: GenericCx<SCxBorrow>): Type {
   return this.deref().borrow().isize_ty;
 };
 
-// Stub (cg-contract): type_variadic_func (type_.rs:164)
-GenericCx.prototype.type_variadic_func = function (this: GenericCx<SCxBorrow>, _args: readonly Type[], _ret: Type): Type {
-  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs type_variadic_func");
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:164 type_variadic_func
+GenericCx.prototype.type_variadic_func = function (this: GenericCx<SCxBorrow>, args: readonly Type[], ret: Type): Type {
+  return llvm.LLVMFunctionType(ret, args, args.length, llvm.TRUE);
 };
 
-// Stub (cg-contract): type_i1 (type_.rs:168)
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:168 type_i1
 GenericCx.prototype.type_i1 = function (this: GenericCx<SCxBorrow>): Type {
-  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs type_i1");
+  return llvm.LLVMInt1TypeInContext(this.llcx());
 };
 
-// Stub (cg-contract): type_struct (type_.rs:172)
-GenericCx.prototype.type_struct = function (this: GenericCx<SCxBorrow>, _els: readonly Type[], _packed: boolean): Type {
-  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs type_struct");
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:172 type_struct
+GenericCx.prototype.type_struct = function (this: GenericCx<SCxBorrow>, els: readonly Type[], packed: boolean): Type {
+  return llvm.LLVMStructTypeInContext(this.llcx(), els, els.length, llvm.to_llvm_bool(packed));
 };
 
-// Stub (cg-contract): type_bf16 (type_.rs:183)
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:183 type_bf16
 GenericCx.prototype.type_bf16 = function (this: GenericCx<SCxBorrow>): Type {
-  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs type_bf16");
+  return llvm.LLVMBFloatTypeInContext(this.llcx());
 };
 
-// ---- impl BaseTypeCodegenMethods for GenericCx (type_.rs:188) ----
+// ---- impl<'ll, CX: Borrow<SCx<'ll>>> BaseTypeCodegenMethods for GenericCx<'ll, CX> (type_.rs:188) ----
 declare module "./context.ts" {
   interface GenericCx<T extends SCxBorrow> {
     type_i8(): Type;
@@ -177,7 +288,6 @@ declare module "./context.ts" {
     type_f64(): Type;
     type_f128(): Type;
     type_ppcf128(): Type;
-    type_array(ty: Type, len: bigint): Type;
     type_func(args: readonly Type[], ret: Type): Type;
     type_kind(ty: Type): TypeKind;
     type_ptr(): Type;
@@ -187,168 +297,205 @@ declare module "./context.ts" {
     float_width(ty: Type): number;
     int_width(ty: Type): number;
     val_ty(v: Value): Type;
+    type_array(ty: Type, len: bigint): Type;
   }
 }
 
-// Stub (cg-contract): BaseTypeCodegenMethods::type_i8
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:189 type_i8
 GenericCx.prototype.type_i8 = function (this: GenericCx<SCxBorrow>): Type {
-  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs type_i8");
+  return llvm.LLVMInt8TypeInContext(this.llcx());
 };
 
-// Stub (cg-contract): BaseTypeCodegenMethods::type_i16
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:193 type_i16
 GenericCx.prototype.type_i16 = function (this: GenericCx<SCxBorrow>): Type {
-  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs type_i16");
+  return llvm.LLVMInt16TypeInContext(this.llcx());
 };
 
-// Stub (cg-contract): BaseTypeCodegenMethods::type_i32
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:197 type_i32
 GenericCx.prototype.type_i32 = function (this: GenericCx<SCxBorrow>): Type {
-  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs type_i32");
+  return llvm.LLVMInt32TypeInContext(this.llcx());
 };
 
-// Stub (cg-contract): BaseTypeCodegenMethods::type_i64
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:201 type_i64
 GenericCx.prototype.type_i64 = function (this: GenericCx<SCxBorrow>): Type {
-  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs type_i64");
+  return llvm.LLVMInt64TypeInContext(this.llcx());
 };
 
-// Stub (cg-contract): BaseTypeCodegenMethods::type_i128
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:205 type_i128
 GenericCx.prototype.type_i128 = function (this: GenericCx<SCxBorrow>): Type {
-  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs type_i128");
+  return this.type_ix(128);
 };
 
-// Stub (cg-contract): BaseTypeCodegenMethods::type_isize
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:209 type_isize
 GenericCx.prototype.type_isize = function (this: GenericCx<SCxBorrow>): Type {
-  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs type_isize");
+  return this.isize_ty();
 };
 
-// Stub (cg-contract): BaseTypeCodegenMethods::type_f16
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:213 type_f16
 GenericCx.prototype.type_f16 = function (this: GenericCx<SCxBorrow>): Type {
-  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs type_f16");
+  return llvm.LLVMHalfTypeInContext(this.llcx());
 };
 
-// Stub (cg-contract): BaseTypeCodegenMethods::type_f16b
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:217 type_f16b
 GenericCx.prototype.type_f16b = function (this: GenericCx<SCxBorrow>): Type {
-  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs type_f16b");
+  return llvm.LLVMBFloatTypeInContext(this.llcx());
 };
 
-// Stub (cg-contract): BaseTypeCodegenMethods::type_f32
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:221 type_f32
 GenericCx.prototype.type_f32 = function (this: GenericCx<SCxBorrow>): Type {
-  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs type_f32");
+  return llvm.LLVMFloatTypeInContext(this.llcx());
 };
 
-// Stub (cg-contract): BaseTypeCodegenMethods::type_f64
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:225 type_f64
 GenericCx.prototype.type_f64 = function (this: GenericCx<SCxBorrow>): Type {
-  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs type_f64");
+  return llvm.LLVMDoubleTypeInContext(this.llcx());
 };
 
-// Stub (cg-contract): BaseTypeCodegenMethods::type_f128
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:229 type_f128
 GenericCx.prototype.type_f128 = function (this: GenericCx<SCxBorrow>): Type {
-  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs type_f128");
+  return llvm.LLVMFP128TypeInContext(this.llcx());
 };
 
-// Stub (cg-contract): BaseTypeCodegenMethods::type_ppcf128
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:233 type_ppcf128
 GenericCx.prototype.type_ppcf128 = function (this: GenericCx<SCxBorrow>): Type {
-  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs type_ppcf128");
+  return llvm.LLVMPPCFP128TypeInContext(this.llcx());
 };
 
-// Stub (cg-contract): BaseTypeCodegenMethods::type_array
-GenericCx.prototype.type_array = function (this: GenericCx<SCxBorrow>, _ty: Type, _len: bigint): Type {
-  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs type_array");
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:237 type_func
+GenericCx.prototype.type_func = function (this: GenericCx<SCxBorrow>, args: readonly Type[], ret: Type): Type {
+  return llvm.LLVMFunctionType(ret, args, args.length, llvm.FALSE);
 };
 
-// Stub (cg-contract): BaseTypeCodegenMethods::type_func
-GenericCx.prototype.type_func = function (this: GenericCx<SCxBorrow>, _args: readonly Type[], _ret: Type): Type {
-  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs type_func");
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:241 type_kind
+GenericCx.prototype.type_kind = function (this: GenericCx<SCxBorrow>, ty: Type): TypeKind {
+  return llvm.ToGeneric_for_TypeKind.to_generic(llvm.LLVMGetTypeKind(ty).to_rust());
 };
 
-// Stub (cg-contract): BaseTypeCodegenMethods::type_kind
-GenericCx.prototype.type_kind = function (this: GenericCx<SCxBorrow>, _ty: Type): TypeKind {
-  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs type_kind");
-};
-
-// Stub (cg-contract): BaseTypeCodegenMethods::type_ptr
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:245 type_ptr
 GenericCx.prototype.type_ptr = function (this: GenericCx<SCxBorrow>): Type {
-  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs type_ptr");
+  return llvm_type_ptr(this.llcx());
 };
 
-// Stub (cg-contract): BaseTypeCodegenMethods::type_ptr_ext
-GenericCx.prototype.type_ptr_ext = function (this: GenericCx<SCxBorrow>, _address_space: AddressSpace): Type {
-  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs type_ptr_ext");
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:249 type_ptr_ext
+GenericCx.prototype.type_ptr_ext = function (this: GenericCx<SCxBorrow>, address_space: AddressSpace): Type {
+  return llvm_type_ptr_in_address_space(this.llcx(), address_space);
 };
 
-// Stub (cg-contract): BaseTypeCodegenMethods::element_type
-GenericCx.prototype.element_type = function (this: GenericCx<SCxBorrow>, _ty: Type): Type {
-  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs element_type");
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:253 element_type
+GenericCx.prototype.element_type = function (this: GenericCx<SCxBorrow>, ty: Type): Type {
+  const other = this.type_kind(ty);
+  switch (other) {
+    case "Array":
+    case "Vector":
+      return llvm.LLVMGetElementType(ty);
+    case "Pointer":
+      return bug("element_type is not supported for opaque pointers");
+    default:
+      return bug(`element_type called on unsupported type ${debug_TypeKind(other, PLAIN)}`);
+  }
 };
 
-// Stub (cg-contract): BaseTypeCodegenMethods::vector_length
-GenericCx.prototype.vector_length = function (this: GenericCx<SCxBorrow>, _ty: Type): number {
-  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs vector_length");
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:261 vector_length
+GenericCx.prototype.vector_length = function (this: GenericCx<SCxBorrow>, ty: Type): number {
+  return llvm.LLVMGetVectorSize(ty);
 };
 
-// Stub (cg-contract): BaseTypeCodegenMethods::float_width
-GenericCx.prototype.float_width = function (this: GenericCx<SCxBorrow>, _ty: Type): number {
-  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs float_width");
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:265 float_width
+GenericCx.prototype.float_width = function (this: GenericCx<SCxBorrow>, ty: Type): number {
+  const other = this.type_kind(ty);
+  switch (other) {
+    case "Half":
+      return 16;
+    case "Float":
+      return 32;
+    case "Double":
+      return 64;
+    case "X86_FP80":
+      return 80;
+    case "FP128":
+    case "PPC_FP128":
+      return 128;
+    default:
+      return bug(`llvm_float_width called on a non-float type ${debug_TypeKind(other, PLAIN)}`);
+  }
 };
 
-// Stub (cg-contract): BaseTypeCodegenMethods::int_width
-GenericCx.prototype.int_width = function (this: GenericCx<SCxBorrow>, _ty: Type): number {
-  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs int_width");
+/** `-> u64`, a bit width: a `number`. */
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:276 int_width
+GenericCx.prototype.int_width = function (this: GenericCx<SCxBorrow>, ty: Type): number {
+  return llvm.LLVMGetIntTypeWidth(ty);
 };
 
-// Stub (cg-contract): BaseTypeCodegenMethods::val_ty
-GenericCx.prototype.val_ty = function (this: GenericCx<SCxBorrow>, _v: Value): Type {
-  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs val_ty");
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:280 val_ty
+GenericCx.prototype.val_ty = function (this: GenericCx<SCxBorrow>, v: Value): Type {
+  return common.val_ty(v);
 };
 
-// ---- impl LayoutTypeCodegenMethods for CodegenCx (type_.rs:300) ----
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:284 type_array
+GenericCx.prototype.type_array = function (this: GenericCx<SCxBorrow>, ty: Type, len: bigint): Type {
+  return llvm.LLVMArrayType2(ty, len);
+};
+
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:289 llvm_type_ptr
+export function llvm_type_ptr(llcx: Context): Type {
+  return llvm_type_ptr_in_address_space(llcx, AddressSpace_.ZERO);
+}
+
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:293 llvm_type_ptr_in_address_space
+export function llvm_type_ptr_in_address_space(llcx: Context, addr_space: AddressSpace): Type {
+  // `addr_space.0`: `AddressSpace` is a branded number.
+  return llvm.LLVMPointerTypeInContext(llcx, addr_space);
+}
+
+// ---- impl<'ll, 'tcx> LayoutTypeCodegenMethods<'tcx> for CodegenCx<'ll, 'tcx> (type_.rs:300) ----
 declare module "./context.ts" {
   interface CodegenCx {
     backend_type(layout: TyAndLayout): Type;
+    immediate_backend_type(layout: TyAndLayout): Type;
+    scalar_pair_element_backend_type(layout: TyAndLayout, index: number, immediate: boolean): Type;
     cast_backend_type(ty: CastTarget): Type;
     fn_decl_backend_type(fn_abi: FnAbi<Ty>): Type;
     fn_ptr_backend_type(fn_abi: FnAbi<Ty>): Type;
     reg_backend_type(ty: Reg): Type;
-    immediate_backend_type(layout: TyAndLayout): Type;
-    scalar_pair_element_backend_type(layout: TyAndLayout, index: number, immediate: boolean): Type;
   }
 }
 
-// Stub (cg-contract): LayoutTypeCodegenMethods::backend_type
-CodegenCx.prototype.backend_type = function (this: CodegenCx, _layout: TyAndLayout): Type {
-  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs backend_type");
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:301 backend_type
+CodegenCx.prototype.backend_type = function (this: CodegenCx, layout: TyAndLayout): Type {
+  return layout.llvm_type(this);
 };
 
-// Stub (cg-contract): LayoutTypeCodegenMethods::cast_backend_type
-CodegenCx.prototype.cast_backend_type = function (this: CodegenCx, _ty: CastTarget): Type {
-  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs cast_backend_type");
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:304 immediate_backend_type
+CodegenCx.prototype.immediate_backend_type = function (this: CodegenCx, layout: TyAndLayout): Type {
+  return layout.immediate_llvm_type(this);
 };
 
-// Stub (cg-contract): LayoutTypeCodegenMethods::fn_decl_backend_type
-CodegenCx.prototype.fn_decl_backend_type = function (this: CodegenCx, _fn_abi: FnAbi<Ty>): Type {
-  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs fn_decl_backend_type");
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:307 scalar_pair_element_backend_type
+CodegenCx.prototype.scalar_pair_element_backend_type = function (this: CodegenCx, layout: TyAndLayout, index: number, immediate: boolean): Type {
+  return layout.scalar_pair_element_llvm_type(this, index, immediate);
 };
 
-// Stub (cg-contract): LayoutTypeCodegenMethods::fn_ptr_backend_type
-CodegenCx.prototype.fn_ptr_backend_type = function (this: CodegenCx, _fn_abi: FnAbi<Ty>): Type {
-  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs fn_ptr_backend_type");
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:315 cast_backend_type
+CodegenCx.prototype.cast_backend_type = function (this: CodegenCx, ty: CastTarget): Type {
+  return ty.llvm_type(this);
 };
 
-// Stub (cg-contract): LayoutTypeCodegenMethods::reg_backend_type
-CodegenCx.prototype.reg_backend_type = function (this: CodegenCx, _ty: Reg): Type {
-  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs reg_backend_type");
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:318 fn_decl_backend_type
+CodegenCx.prototype.fn_decl_backend_type = function (this: CodegenCx, fn_abi: FnAbi<Ty>): Type {
+  return fn_abi.llvm_type(this);
 };
 
-// Stub (cg-contract): LayoutTypeCodegenMethods::immediate_backend_type
-CodegenCx.prototype.immediate_backend_type = function (this: CodegenCx, _layout: TyAndLayout): Type {
-  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs immediate_backend_type");
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:321 fn_ptr_backend_type
+CodegenCx.prototype.fn_ptr_backend_type = function (this: CodegenCx, fn_abi: FnAbi<Ty>): Type {
+  return fn_abi.ptr_to_llvm_type(this);
 };
 
-// Stub (cg-contract): LayoutTypeCodegenMethods::scalar_pair_element_backend_type
-CodegenCx.prototype.scalar_pair_element_backend_type = function (this: CodegenCx, _layout: TyAndLayout, _index: number, _immediate: boolean): Type {
-  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs scalar_pair_element_backend_type");
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:324 reg_backend_type
+CodegenCx.prototype.reg_backend_type = function (this: CodegenCx, ty: Reg): Type {
+  return ty.llvm_type(this);
 };
 
-// ---- impl TypeMembershipCodegenMethods for CodegenCx (type_.rs:329) ----
+// ---- impl<'ll, 'tcx> TypeMembershipCodegenMethods<'tcx> for CodegenCx<'ll, 'tcx> (type_.rs:329) ----
 declare module "./context.ts" {
   interface CodegenCx {
     add_type_metadata(function_: Value, typeid: Uint8Array): void;
@@ -358,22 +505,28 @@ declare module "./context.ts" {
   }
 }
 
-// Stub (cg-contract): TypeMembershipCodegenMethods::add_type_metadata
-CodegenCx.prototype.add_type_metadata = function (this: CodegenCx, _function_: Value, _typeid: Uint8Array): void {
-  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs add_type_metadata");
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:330 add_type_metadata
+CodegenCx.prototype.add_type_metadata = function (this: CodegenCx, function_: Value, typeid: Uint8Array): void {
+  const typeid_metadata = this.create_metadata(typeid);
+  const v = [llvm.LLVMValueAsMetadata(this.const_usize(0n)), typeid_metadata];
+  this.global_add_metadata_node(function_, llvm.MD_type, v);
 };
 
-// Stub (cg-contract): TypeMembershipCodegenMethods::set_type_metadata
-CodegenCx.prototype.set_type_metadata = function (this: CodegenCx, _function_: Value, _typeid: Uint8Array): void {
-  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs set_type_metadata");
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:336 set_type_metadata
+CodegenCx.prototype.set_type_metadata = function (this: CodegenCx, function_: Value, typeid: Uint8Array): void {
+  const typeid_metadata = this.create_metadata(typeid);
+  const v = [llvm.LLVMValueAsMetadata(this.const_usize(0n)), typeid_metadata];
+  this.global_set_metadata_node(function_, llvm.MD_type, v);
 };
 
-// Stub (cg-contract): TypeMembershipCodegenMethods::add_kcfi_type_metadata
-CodegenCx.prototype.add_kcfi_type_metadata = function (this: CodegenCx, _function_: Value, _typeid: number): void {
-  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs add_kcfi_type_metadata");
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:342 add_kcfi_type_metadata
+CodegenCx.prototype.add_kcfi_type_metadata = function (this: CodegenCx, function_: Value, kcfi_typeid: number): void {
+  const kcfi_type_metadata = [llvm.LLVMValueAsMetadata(this.const_u32(kcfi_typeid))];
+  this.global_add_metadata_node(function_, llvm.MD_kcfi_type, kcfi_type_metadata);
 };
 
-// Stub (cg-contract): TypeMembershipCodegenMethods::set_kcfi_type_metadata
-CodegenCx.prototype.set_kcfi_type_metadata = function (this: CodegenCx, _function_: Value, _typeid: number): void {
-  return unported("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs set_kcfi_type_metadata");
+// rustc: compiler/rustc_codegen_llvm/src/type_.rs:347 set_kcfi_type_metadata
+CodegenCx.prototype.set_kcfi_type_metadata = function (this: CodegenCx, function_: Value, kcfi_typeid: number): void {
+  const kcfi_type_metadata = [llvm.LLVMValueAsMetadata(this.const_u32(kcfi_typeid))];
+  this.global_set_metadata_node(function_, llvm.MD_kcfi_type, kcfi_type_metadata);
 };

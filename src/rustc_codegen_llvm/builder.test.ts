@@ -40,6 +40,7 @@ import "./lib.ts";
 import { codegen as allocator_codegen } from "./allocator.ts";
 import { Builder, GenericBuilder, SBuilder } from "./builder.ts";
 import { Funclet } from "./common.ts";
+import { SymbolVisibility } from "../rustc_target/spec/mod.ts";
 import { CodegenCx, FullCx, SCx, SimpleCx } from "./context.ts";
 import * as llvm from "./llvm/mod.ts";
 import type { BasicBlock, Metadata, Type, Value } from "./llvm/mod.ts";
@@ -676,15 +677,23 @@ describe("unit behaviour of builder.rs's own logic", () => {
     expect(op.layout).toBe(zst as never);
   });
 
-  test("allocator::codegen stops in cg-types-attrs' stubs (no type of its own)", () => {
+  test("allocator::codegen declares the shim through cg-types-attrs' ported fns (no type of its own)", () => {
+    // cg-types-attrs is ported (root at integ-w53): the type calls and `declare_simple_fn` run, so with no methods only
+    // `__rust_no_alloc_shim_is_unstable_v2` is declared (allocator.rs:98).
     const fx = fixture();
-    const tcx = { sess: { target: { pointer_width: 64 } } };
-    expect(() => allocator_codegen(tcx as never, fx.cx.scx, "m", [])).toThrow(Unported);
+    const sess = { target: { pointer_width: 64 }, default_visibility: () => SymbolVisibility.Interposable, opts: { debuginfo: "None" } };
+    const tcx = { sess };
+    let stop: string | undefined;
     try {
       allocator_codegen(tcx as never, fx.cx.scx, "m", []);
     } catch (e) {
-      expect((e as Unported).what).toBe("cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs type_i64");
+      if (!(e instanceof Unported)) throw e;
+      stop = e.what;
     }
+    // The shim is declared (declare.rs, ported), then `attributes::from_fn_attrs` reaches rustc_session's
+    // `must_emit_unwind_tables`, not ported yet (next M7 wave).
+    expect(printModule(fx.M)).toMatch(/^declare void @\S+___rust_no_alloc_shim_is_unstable_v2\(\) unnamed_addr$/m);
+    expect(stop).toBe("rustc_session: compiler/rustc_session/src/session.rs Session::must_emit_unwind_tables");
   });
 });
 
