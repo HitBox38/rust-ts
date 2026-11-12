@@ -3,10 +3,10 @@
 // PORT (ssa-mir-rest): one `impl FunctionCx` block, attached by `install_FunctionCx_statement(FunctionCx)` as constant.ts's
 // header says; this file imports mod.ts for types only. `#[instrument(level = "debug")]` is compiled out of rustc and stays a
 // comment.
-// PORT (ssa-mir-rest): calls into lanes that have not landed are typed module-private stubs (`unported("<lane>: <path>
-// <fn>")`), as operand.ts's are: mir/debuginfo.rs `codegen_stmt_debuginfos`, `set_debug_loc`, `debug_introduce_local`
-// (ssa-debuginfo) and mir/rvalue.rs `codegen_rvalue`, `codegen_rvalue_operand` (ssa-rvalue-intrinsic). Root repoints each
-// to the owner's method at integration (`this.codegen_rvalue(bx, dest, rvalue)`, ...).
+// PORT (ssa-mir-rest): calls into other lanes go through the module-private `stmt_xlane` table. Entries whose owner has not
+// landed are typed stubs that stop with `unported("<lane>: <path> <fn>")`: mir/debuginfo.rs `codegen_stmt_debuginfos`,
+// `set_debug_loc`, `debug_introduce_local` (ssa-debuginfo). The entries of landed owners forward to their installed methods:
+// mir/rvalue.rs `codegen_rvalue`, `codegen_rvalue_operand` (ssa-rvalue-intrinsic; root at integ-w54).
 import type { Local, SourceInfo } from "../../rustc_middle/mir/mod.ts";
 import type { StmtDebugInfos } from "../../rustc_middle/mir/statement.gen.ts";
 import type { Statement } from "../../rustc_middle/mir/statement.ts";
@@ -52,7 +52,7 @@ function FunctionCx_codegen_rvalue_operand<B extends BackendTypes>(fx: FunctionC
   return fx.codegen_rvalue_operand(bx, rvalue);
 }
 
-/** The stubs above, as one table so a test can replace them (`stmt_xlane`); not upstream. */
+/** The stubs and forwarders above, as one table so a test can replace them (`stmt_xlane`); not upstream. */
 export const stmt_xlane = {
   codegen_stmt_debuginfos: FunctionCx_codegen_stmt_debuginfos,
   set_debug_loc: FunctionCx_set_debug_loc,

@@ -98,9 +98,9 @@ function run_driver(file: string, args: string[]): Map<string, MockResult> {
   mkdirSync(WORK, { recursive: true });
   const out = join(WORK, `driver-${process.pid}-${file}.jsonl`);
   rmSync(out, { force: true });
-  const r = Bun.spawnSync([process.execPath, join(DIR, "driver.ts"), join(DIR, file), ...args, "--sysroot", SYSROOT ?? ""], {
+  const r = Bun.spawnSync([process.execPath, join(DIR, "driver.ts"), `--ssa-out=${out}`, join(DIR, file), ...args, "--sysroot", SYSROOT ?? ""], {
     cwd: WORK,
-    env: { ...ENV, RUST_TS_SSA_OUT: out },
+    env: ENV,
     stdout: "pipe",
     stderr: "pipe",
   });
