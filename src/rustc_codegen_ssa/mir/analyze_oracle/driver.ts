@@ -1,5 +1,8 @@
 // Test driver for mir/analyze.test.ts (lane ssa-mir-core; test helper, not a port).
-//   RUST_TS_SSA_OUT=<file> bun src/rustc_codegen_ssa/mir/analyze_oracle/driver.ts <rustc arguments...>
+//   bun src/rustc_codegen_ssa/mir/analyze_oracle/driver.ts --ssa-out=<file> <rustc arguments...>
+//
+// `--ssa-out=<file>` must come first; it is removed from `process.argv` before the driver reads the rustc arguments
+// (as base_oracle/driver.ts does). Without it, the lines go to stderr.
 //
 // Runs the real driver up to `analysis` (as rustc_mir_transform alias_check_oracle/driver.ts does). Then, for every
 // `#[no_mangle]` fn of the local crate (no generics), it runs `codegen_mir` over a mock backend and writes one JSON line:
@@ -27,7 +30,9 @@ import { Panic, Unported } from "../../../std/panic.ts";
 import { FatalErrorMarker } from "../../../rustc_span/fatal_error.ts";
 
 const EXIT_UNPORTED = 70;
-const OUT = process.env.RUST_TS_SSA_OUT;
+const OUT_FLAG = "--ssa-out=";
+const OUT: string | undefined = process.argv[2]?.startsWith(OUT_FLAG) ? process.argv[2].slice(OUT_FLAG.length) : undefined;
+if (OUT !== undefined) process.argv.splice(2, 1);
 
 function line(o: unknown): void {
   if (OUT !== undefined) appendFileSync(OUT, `${JSON.stringify(o)}\n`);
