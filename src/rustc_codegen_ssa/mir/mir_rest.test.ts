@@ -369,8 +369,15 @@ test("statement.rs / coverageinfo.rs / constant.rs over a mock backend", () => {
     } finally {
       Object.assign(stmt_xlane, saved);
     }
-    // Without the stubs replaced, the first cross-lane call stops by name.
-    expect(() => fx.codegen_statement(bx, stmts[0]!)).toThrow("ssa-debuginfo: compiler/rustc_codegen_ssa/src/mir/debuginfo.rs codegen_stmt_debuginfos");
+    // Without the stubs replaced, mir/debuginfo.rs runs (ssa-debuginfo; root at integ-w55): `codegen_stmt_debuginfos` returns
+    // with no per-local debuginfo (debuginfo.rs:722), `set_debug_loc` only sets the span with no debug context (:221), and
+    // `StorageLive` of `_4`, an operand local, emits nothing (statement.rs:62).
+    expect(fx.debug_context).toBeUndefined();
+    {
+      const n0 = log.length;
+      fx.codegen_statement(bx, stmts[0]!);
+      expect(log.slice(n0)).toEqual([expect.stringMatching(/^%\d+ = set_span\(/) as unknown as string]);
+    }
   });
 });
 
