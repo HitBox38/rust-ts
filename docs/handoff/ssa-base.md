@@ -1,6 +1,6 @@
 # Handoff: ssa-base (M7, plan-m7 wave 41, wave 40n): rustc_codegen_ssa crate driver
 
-Branch `t3/284633cb` (from `51dfe33c`; no merges).
+Branch `t3/port-ssa-base-crate-driver` (from `51dfe33c`; no merges).
 
 ## Summary
 - Ported the rest of `base.rs`, `lib.rs`, `assert_module_sources.rs` and `back/lto.rs` of `compiler/rustc_codegen_ssa/src/`,
