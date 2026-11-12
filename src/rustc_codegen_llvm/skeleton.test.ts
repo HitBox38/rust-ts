@@ -119,23 +119,38 @@ describe("stub counts per lane", () => {
     "cg-asm": 4,
     "cg-di-a": 21,
     "cg-intrinsic-b": 2,
-    "cg-lto-diag": 8,
-    "cg-write": 21,
+    // 8, plus cg-write's 4 in back/write.ts: the hand `Diagnostic` impls of `WithLlvmError` and `ParseTargetMachineConfig`
+    // (diagnostics.rs), `llvm::diagnostic::Diagnostic::unpack` and back/lto.rs's `Buffer::data`.
+    "cg-lto-diag": 12,
+    // cg-write (wave 40o) ported back/write.rs, llvm_util.rs, back/owned_*, back/profiling.rs and back/archive.rs whole: no stub
+    // of its own is left.
     // The 10 cg-contract left (plan-m7 D18), plus cg-context's `CguCoverageContext::new` in `CodegenCx::new` (review
     // cg-contract-recheck N1), plus cg-intrinsic-a's `OffloadMetadata::handle_abi` (rustc_middle ty/offload_meta.rs) in
-    // `codegen_offload`.
-    "excluded (plan-m7 D18)": 12,
-    // 2, plus cg-context's `LLVMGetFirstFunction` / `LLVMGetNextFunction` (llvm/enzyme_ffi.rs) in `get_functions`.
-    "llir": 4,
+    // `codegen_offload`, plus cg-write's 5 in back/write.ts (`EnzymeWrapper::get_instance`, three `RustOffloadWrapper` calls,
+    // `gpu_offload::scalar_width`).
+    "excluded (plan-m7 D18)": 17,
+    // 2, plus cg-context's `LLVMGetFirstFunction` / `LLVMGetNextFunction` (llvm/enzyme_ffi.rs) in `get_functions`, plus cg-write's
+    // `rustc_llvm::initialize_available_targets` in `configure_llvm`.
+    "llir": 5,
     // 3, plus cg-types-attrs's 2, plus cg-intrinsic-a's 2 in intrinsic.ts (`i32 as u64` of a negative index,
     // `str::from_utf8(..).unwrap()`'s panic text; its third, `assert_matches!`'s message, is a template literal this count skips).
     "rustc_codegen_llvm": 7,
+    // cg-write: the self-profiler (`-Z self-profile`) in back/profiling.ts (`TimingGuard::start`) and back/write.ts
+    // (`get_self_profiler`, `llvm_recording_enabled`, `artifact_size`).
+    "rustc_data_structures": 4,
+    // cg-write: `link_or_copy` in back/write.ts (`--emit=obj` of bitcode).
+    "rustc_fs_util": 1,
     // cg-context: `StableHash for Allocation` in `alloc_to_backend`.
     "rustc_middle": 1,
     // cg-context's 2 (`SanitizerIgnoreList::new`, `typename_for_ignore_list`) and cg-types-attrs's 3 (rustc_sanitizers is out
     // of scope).
     "rustc_sanitizers": 5,
-    "ssa-write": 5,
+    // cg-write: `filesearch::dll_path` in `configure_llvm`'s version-mismatch error.
+    "rustc_session": 1,
+    // 5, plus cg-write's 8 in back/write.ts: `ModuleConfig::{bitcode_needed, embed_bitcode}`, `SharedEmitter` as an `Emitter`,
+    // `SharedEmitter::inline_asm_error`, and `OutputFilenames::{temp_path_for_cgu, temp_path_dwo_for_cgu, temp_path_ext_for_cgu,
+    // split_dwarf_path}`.
+    "ssa-write": 13,
   };
   test("matches the table in docs/handoff/cg-contract.md", () => {
     const counts: Record<string, number> = {};
@@ -254,7 +269,7 @@ describe("auto-deref", () => {
       typeError(/B\.createLoad is not a function/), // builder.rs load, ported (cg-builder): the marker llbuilder is no IR-model builder
       typeError(/intrinsics\.get is not a function/), // builder.rs:1881 call_intrinsic (cg-builder) reaches get_intrinsic, as above
       typeError(/evaluating 'Block\.insts'/), // builder.rs:130 build (cg-builder): the IR model rejects the marker basic block
-      "cg-write: compiler/rustc_codegen_llvm/src/llvm_util.rs get_version",
+      [23, 1, 3], // llvm_util.rs:469 get_version, ported (cg-write): the IR model's LLVMGetVersion (llvm_util.test.ts checks the oracle's)
     ]);
     expect(out[7]).toBeDefined();
     expect(printValueToString(out[8] as Value)).toBe("[1 x i8] c\"\\01\""); // const_bytes: a real constant in the real llcx
@@ -308,8 +323,10 @@ describe("LlvmCodegenBackend", () => {
 
   test("what reaches an unported lane stops there, naming it", () => {
     const b = new LlvmCodegenBackend();
-    stops(() => b.init(undefined as never), /^cg-write: .*\/llvm_util\.rs init$/);
-    stops(() => b.print({ kind: "TargetCPUs" } as never, { value: "" }, undefined as never), /^cg-write: .*\/llvm_util\.rs print$/);
+    // llvm_util.rs init, ported (cg-write): its first LLVM call is the IR model's stop.
+    stops(() => b.init(undefined as never), /^llir: LLVMIsMultithreaded$/);
+    // llvm_util.rs print, ported (cg-write): `require_inited` is a `bug!` before `init` has run (it cannot run: above).
+    expect(() => b.print({ kind: "TargetCPUs" } as never, { value: "" }, undefined as never)).toThrow(/LLVM is not initialized/);
     stops(() => b.has_zstd(), /^llir: LLVMRustLLVMHasZstdCompression$/);
   });
 });
