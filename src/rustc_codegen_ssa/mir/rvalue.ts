@@ -32,7 +32,6 @@ import {
   type AggregateKind,
   BinOp,
   BorrowKind,
-  type ConstOperand,
   ConstValue,
   debug_BinOp,
   debug_CastKind,

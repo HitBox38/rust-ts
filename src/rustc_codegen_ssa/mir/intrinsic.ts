@@ -17,7 +17,7 @@ import type { Ty } from "../../rustc_middle/ty/mod.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import { COMMON_VTABLE_ENTRIES_ALIGN, COMMON_VTABLE_ENTRIES_SIZE } from "../../rustc_middle/ty/vtable.ts";
 import { FloatTy, IntTy, UintTy } from "../../rustc_ast_ir/lib.ts";
-import type { ErrorGuaranteed, Span } from "../../rustc_span/lib.ts";
+import type { ErrorGuaranteed } from "../../rustc_span/lib.ts";
 import { bug, span_bug } from "../../rustc_span/macros.ts";
 import { Symbol, sym } from "../../rustc_span/symbol.ts";
 import { debug_unit } from "../../std/fmt.ts";
