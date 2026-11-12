@@ -101,11 +101,10 @@ describe("stubs name their fill lane", () => {
     const cx = Object.create(CodegenCx.prototype) as CodegenCx;
     // cg-types-attrs (type_.ts, ...) and cg-context (context.ts, common.ts) are ported: their members no longer stop
     // (type_of.test.ts, attributes.test.ts, context.test.ts).
-    stops(() => cx.codegen_static(undefined as never), /^cg-abi-consts: .*\/consts\.rs codegen_static$/);
+    // cg-abi-consts (wave 41) ported abi.rs and consts.rs whole: no stub of its own is left (abi_consts.test.ts).
     stops(() => cx.mangled_name(undefined as never), /^cg-asm: .*\/asm\.rs mangled_name$/);
     const bx = Object.create(Builder.prototype) as Builder;
     // cg-builder (wave 41) ported builder.rs and allocator.rs whole: no stub of its own is left (builder.test.ts).
-    stops(() => bx.get_param(0), /^cg-abi-consts: .*\/abi\.rs get_param$/);
     stops(() => bx.abort_immediate(), /^cg-intrinsic-a: .*\/intrinsic\.rs abort_immediate$/);
     stops(() => bx.clear_dbg_loc(), /^cg-di-a: .*\/debuginfo\/mod\.rs clear_dbg_loc$/);
   });
@@ -115,7 +114,6 @@ describe("stub counts per lane", () => {
   // Every `unported("<lane>: ...")` in the crate's sources, by lane: trait methods, the cross-lane surface (review F2) and the
   // callees of back/llvm_backend.ts. A fill lane that ports a stub lowers its count here.
   const EXPECTED: Record<string, number> = {
-    "cg-abi-consts": 20,
     "cg-asm": 4,
     "cg-di-a": 21,
     "cg-intrinsic-a": 10,
@@ -141,6 +139,8 @@ describe("stub counts per lane", () => {
     "ssa-base": 4,
     // cg-types-attrs: `MonoItemExt::predefine` / `define` in base.ts.
     "ssa-mir-core": 2,
+    // cg-abi-consts: `rustc_codegen_ssa::mir::store_cast` (mir/block.rs) in `ArgAbiExt::store`, a local stub until ssa-block lands.
+    "ssa-block": 1,
     "ssa-write": 5,
   };
   test("matches the table in docs/handoff/cg-contract.md", () => {
@@ -251,7 +251,7 @@ describe("auto-deref", () => {
       "field11",
       llvm.LLVMInt1TypeInContext(llcx), // type_.rs:168, ported
       typeError(/this\.layout\.internee/), // type_of.rs:234, ported; a layout with no fields (type_of.test.ts has real ones)
-      expect.stringMatching(/^cg-abi-consts: .*\/abi\.rs llvm_type$/) as unknown as string,
+      typeError(/this\.ret\.mode/), // abi.rs:364 FnAbiLlvmExt::llvm_type, ported (cg-abi-consts): a marker FnAbi with no fields
       llvm.LLVMRustGetNamedValue(llmod, "g", 1), // declare.rs:94, ported (cg-types-attrs)
       out[8], // common.rs const_bytes, ported (cg-context): checked below
       typeError(/intrinsics\.get is not a function/), // context.rs get_intrinsic, ported (cg-context): the marker `FullCx` has no intrinsic map
