@@ -1,6 +1,6 @@
 # Handoff: cg-context (M7, plan-m7 wave 41): `context.rs` and `common.rs` of rustc_codegen_llvm
 
-Branch `t3/bec95dff` (from `620acf48`; no merges). Commits: see the end.
+Branch `t3/port-cg-context` (from `620acf48`; no merges). Commits: see the end.
 
 ## Summary
 - **Ported in full, in upstream order, with markers:** `compiler/rustc_codegen_llvm/src/context.rs` (**54/54**) and
