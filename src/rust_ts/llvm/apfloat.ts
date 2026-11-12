@@ -8,8 +8,8 @@
 // fptoui/fptosi poison), `convertFromAPInt`, `compare`, the decimal `toString` / `convertFromString` the AsmWriter's round trip
 // uses, NaN payloads and signs, for half, bfloat, float, double, fp128 and x86_fp80. ppc_fp128 (LLVM's `DoubleAPFloat`, which
 // the pinned LLVM changed after rustc_apfloat's base, and which rustc never makes constants of) keeps only what is plain bits:
-// zero, all-ones, sign, NaN and infinity tests, the printer's forced bitwise form and its decimal round trip; its arithmetic,
-// conversions and comparisons stop with `unported("llir: ...")`.
+// zero, all-ones, sign changes, the NaN and infinity tests and the printer's forced bitwise form; its arithmetic, conversions,
+// comparisons and decimal `toString` stop with `unported("llir: ...")`. `isSignaling` is LLVM's own (below).
 //
 // PORT: an APFloat here is immutable. LLVM's mutating members (`add`, `convert`, `changeSign`, ...) return the new value
 // alongside the status (`{ status, value }`); the folds use only the value, as ConstantFold.cpp ignores the status
@@ -266,9 +266,17 @@ export class APFloat {
     return this.v === undefined ? this.ppcHi().isInfinity() : this.ieee.is_infinite();
   }
 
-  // llvm: llvm/include/llvm/ADT/APFloat.h:1567 isSignaling
+  // llvm: llvm/lib/Support/APFloat.cpp:4392 IEEEFloat::isSignaling
+  /** A NaN whose first trailing significand bit (bit `precision - 2` of the stored significand) is clear. PORT: not
+   * rustc_apfloat's `is_signaling`, which disagrees for x86_fp80 unnormals (an exponent with the explicit integer bit
+   * clear, a NaN to LLVM): the oracle test caught it. The payload is the stored significand, so its top bit is that bit. */
   isSignaling(): boolean {
-    return this.v === undefined ? this.ppcHi().isSignaling() : this.ieee.is_signaling();
+    if (this.v === undefined) return this.ppcHi().isSignaling(); // APFloat::isSignaling: `getIEEE()`, the first double.
+    if (!this.isNaN()) return false;
+    // (No semantics here is NanOnly or FiniteOnly.) IEEE-754R 2008 6.2.1: A signaling NaN bit string should be encoded with
+    // the first bit of the trailing significand being 0.
+    const p = this.getNaNPayload();
+    return ((p.value >> BigInt(p.width - 1)) & 1n) === 0n;
   }
 
   // llvm: llvm/lib/Support/APFloat.cpp:4541 IEEEFloat::getNaNPayload

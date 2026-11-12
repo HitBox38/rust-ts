@@ -852,6 +852,46 @@ export function getConstantDataSequential(ty: ArrayType | VectorType, elems: rea
   return intern(ty.context, `CDS:${ty.id}:${elems.map((e) => e.id).join(",")}`, () => new ConstantDataSequential(ty, elems));
 }
 
+// llvm: llvm/lib/IR/Constants.cpp:1549 ConstantVector::getImpl
+/** `ConstantVector::get`: an all-zero, all-poison or all-undef vector collapses, an FP splat is a vector-typed ConstantFP, and
+ * plain integers or floats of a compatible element type are a data vector. A `ConstantVector` of other elements, and a splat
+ * of pointer nulls (a vector-typed ConstantPointerNull), are not made by the model: they stop. */
+export function getConstantVector(v: readonly Constant[]): Constant {
+  if (v.length === 0) throw new Error("llvm: Vectors can't be empty");
+  const t = v[0]!.context.getVectorType(v[0]!.type, v.length, false);
+  // If this is an all-undef or all-zero vector, return a ConstantAggregateZero or UndefValue.
+  const c = v[0]!;
+  let isZero = c.isNullValue();
+  let isUndef = c instanceof UndefValue;
+  let isPoison = c instanceof PoisonValue;
+  let isSplatFP = c instanceof ConstantFP;
+  let isSplatPtrNull = c instanceof ConstantPointerNull;
+  // (`UseConstantIntForFixedLengthSplat` is off by default; the model has no byte types.)
+  if (isZero || isUndef || isSplatFP || isSplatPtrNull) {
+    for (let i = 1; i !== v.length; ++i) {
+      if (v[i] !== c) {
+        isZero = isUndef = isPoison = isSplatFP = isSplatPtrNull = false;
+        break;
+      }
+    }
+  }
+  if (isSplatPtrNull) return unported("llir: a pointer-null vector splat (a vector-typed ConstantPointerNull)");
+  if (isZero) return getConstantAggregateZero(t);
+  if (isPoison) return getPoison(t);
+  if (isUndef) return getUndef(t);
+  if (isSplatFP) return getConstantFPSplat(c.context, v.length, false, (c as ConstantFP).getValueAPF());
+  // Check to see if all of the elements are ConstantFP or ConstantInt and if the element type is compatible with
+  // ConstantDataVector. If so, use it.
+  if (isElementTypeCompatible(c.type)) {
+    // `getSequenceIfElementsMatch`: all ConstantInt (integer element type) or all ConstantFP.
+    if (c instanceof ConstantInt && v.every((x) => x instanceof ConstantInt)) return getConstantDataSequential(t, v as ConstantInt[]);
+    if (c instanceof ConstantFP && v.every((x) => x instanceof ConstantFP)) return getConstantDataSequential(t, v as ConstantFP[]);
+  }
+  // Otherwise, the element type isn't compatible with ConstantDataVector, or the operand list contains a ConstantExpr or
+  // something else strange: `VectorConstants.getOrCreate`.
+  return unported("llir: ConstantVector::get of other elements (a ConstantVector)");
+}
+
 // llvm: llvm/lib/IR/Constants.cpp:1499 ConstantStruct::get
 export function getConstantStruct(ty: StructType, v: readonly Constant[], create = true): Constant | undefined {
   // Create a ConstantAggregateZero value if all elements are zeros.
@@ -951,16 +991,17 @@ export function getAllOnesValue(ty: Type): Constant {
 }
 
 // llvm: llvm/lib/IR/Constants.cpp:1602 ConstantVector::getSplat
-/** `ConstantVector::getSplat(EC, V)` for the splats the model can hold: a vector-typed ConstantFP, and a fixed-length splat of
- * an integer the data vectors take (`ConstantDataVector::getSplat`, Constants.cpp:3304). The rest (pointer null and byte
- * splats are vector-typed constants; other elements go through `ConstantVector::get`) stop. */
+/** `ConstantVector::getSplat(EC, V)`: a vector-typed ConstantFP, a fixed-length splat of an integer the data vectors take
+ * (`ConstantDataVector::getSplat`, Constants.cpp:3304), or `ConstantVector::get` of the copies (which collapses zero, undef
+ * and poison). Pointer-null splats (a vector-typed ConstantPointerNull), scalable splats of other values, and the
+ * ConstantVectors `get` would make, stop. */
 export function getSplat(n: number, scalable: boolean, v: Constant): Constant {
   if (v instanceof ConstantPointerNull) return unported("llir: a pointer-null vector splat (a vector-typed ConstantPointerNull)");
   if (v instanceof ConstantFP) return getConstantFPSplat(v.context, n, scalable, v.getValueAPF());
   if (!scalable) {
     // (`UseConstantIntForFixedLengthSplat` is off by default.) If this splat is compatible with ConstantDataVector, use it.
     if (v instanceof ConstantInt && isElementTypeCompatible(v.type)) return getConstantDataSequential(v.context.getVectorType(v.type, n, false), new Array<ConstantInt>(n).fill(v));
-    return unported("llir: ConstantVector::getSplat of other elements (ConstantVector::get)");
+    return getConstantVector(new Array<Constant>(n).fill(v));
   }
   return unported("llir: a scalable vector splat");
 }
