@@ -39,6 +39,7 @@ import { type AllocId, type GlobalId, debug_AllocId } from "./mir/interpret/mod.
 import { type Body, type Promoted, debug_Body, debug_Promoted } from "./mir/mod.ts";
 import { type ConstQualifs, type CoroutineLayout, debug_ConstQualifs, debug_CoroutineLayout } from "./mir/query.ts";
 import { type CodegenUnit, type CollectionMode, type MonoItem, type MonoItemPartitions, type NormalizationErrorInMono, debug_CodegenUnit, debug_MonoItem, debug_NormalizationErrorInMono } from "./mono.ts";
+import { stable_hash_Instance } from "./mono_stable_hash.gen.ts";
 import { describe_as_module } from "./queries.ts";
 import { into_query_key_DefId, into_query_key_LocalDefId, into_query_key_identity } from "./query/into_query_key.ts";
 import { KEY_AliasTyKind, KEY_CanonicalAliasGoal, KEY_CanonicalDropckOutlivesGoal, KEY_CanonicalImpliedOutlivesBoundsGoal_bool, KEY_CanonicalInput_usize, KEY_CanonicalMethodAutoderefStepsGoal, KEY_CanonicalPredicateGoal, KEY_CanonicalTypeOpAscribeUserTypeGoal, KEY_CanonicalTypeOpNormalizeGoal_Clause, KEY_CanonicalTypeOpNormalizeGoal_FnSig, KEY_CanonicalTypeOpNormalizeGoal_PolyFnSig, KEY_CanonicalTypeOpNormalizeGoal_Ty, KEY_CanonicalTypeOpProvePredicateGoal, KEY_Clauses, KEY_CrateNum, KEY_CrateNum_DefId, KEY_CrateNum_SimplifiedType, KEY_DefId, KEY_DefId_DefId, KEY_DefId_GenericArgsRef, KEY_DefId_Ident, KEY_DefId_SizedTraitKind, KEY_GenericArgsRef, KEY_Instance, KEY_InstanceKind, KEY_Instance_CollectionMode, KEY_LitToConstInput, KEY_LocalDefId, KEY_LocalDefId_LocalDefId_Ident, KEY_LocalExpnId_TokenStream, KEY_LocalModId, KEY_ModId, KEY_Option_Symbol, KEY_OsStr, KEY_OwnerId, KEY_Predicate_WellFormedLoc, KEY_PseudoCanonicalInput_AdtDef_GenericArgsRef, KEY_PseudoCanonicalInput_DefId_GenericArgsRef, KEY_PseudoCanonicalInput_GenericArg, KEY_PseudoCanonicalInput_GlobalId, KEY_PseudoCanonicalInput_Instance_List_Ty, KEY_PseudoCanonicalInput_PolyFnSig_List_Ty, KEY_PseudoCanonicalInput_TraitRef, KEY_PseudoCanonicalInput_Ty, KEY_PseudoCanonicalInput_Ty_VariantIdx, KEY_ShimKind, KEY_SimplifiedType, KEY_Symbol, KEY_TraitRef, KEY_Ty, KEY_Ty_Option_ExistentialTraitRef, KEY_Ty_Ty, KEY_ValidityRequirement_PseudoCanonicalInput_Ty, KEY_Value, KEY_unit, type LocalQueryKeyOf } from "./query/keys.ts";
@@ -7305,7 +7306,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: true,
     desc: () => unported("desc of query `resolve_instance_raw` (call of a path)"),
     debug_value: (v, f) => debug_result(v, f, ((x, f) => debug_option(x, f, ((x, f) => debug_Instance(x, f)))), ((x, f) => debug_ErrorGuaranteed(x, f))),
-    stable_hash_value: undefined,
+    stable_hash_value: (v, hcx, h) => stable_hash_Result(v, hcx, h, (v, hcx, h) => stable_hash_Option(v, hcx, h, stable_hash_Instance), stable_hash_ErrorGuaranteed),
   },
   reveal_opaque_types_in_bounds: {
     name: "reveal_opaque_types_in_bounds",

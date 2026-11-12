@@ -3,8 +3,21 @@
 // (the `isize` discriminant, or the `#[repr]` integer), then the fields of the variant / struct in declaration order,
 // skipping `#[stable_hash(ignore)]` and hashing `field.name` for `#[stable_hash(project(name))]`.
 // Only `export function` declarations: hand modules may import from here inside an import cycle.
-import { stable_hash_Discriminant, type StableHash, type StableHashCtxt, type StableHasher } from "../rustc_data_structures/stable_hash.ts";
+import { stable_hash_Size } from "../rustc_abi/stable_hash.gen.ts";
+import { stable_hash_Mutability } from "../rustc_ast_ir/stable_hash.gen.ts";
+import { stable_hash_Interned } from "../rustc_data_structures/intern.ts";
+import { stable_hash_SortedMap } from "../rustc_data_structures/sorted_map.ts";
+import { stable_hash_bool, stable_hash_bytes, stable_hash_Discriminant, stable_hash_Option, stable_hash_u64, stable_hash_u8, stable_hash_unit, stable_hash_Vec, type StableHash, type StableHashCtxt, type StableHasher } from "../rustc_data_structures/stable_hash.ts";
+import { type Allocation, type ConstAllocation } from "./mir/interpret/allocation.ts";
+import { type InitMask, type InitMaskBlocks, type InitMaskMaterialized } from "./mir/interpret/allocation/init_mask.ts";
+import { type PointerFrag, type ProvenanceMap } from "./mir/interpret/allocation/provenance_map.ts";
+import { type GlobalAlloc } from "./mir/interpret/mod.ts";
 import { type BinOp, type UnOp } from "./mir/syntax.ts";
+import { stable_hash_Instance } from "./mono_stable_hash.gen.ts";
+import { stable_hash_Ty } from "./stable_hash.gen.ts";
+import { stable_hash_CtfeProvenance, stable_hash_RawList } from "./ty/impls_ty.ts";
+import { stable_hash_DefId } from "../rustc_span/def_id.ts";
+import { stable_hash_Binder, stable_hash_ExistentialPredicate } from "../rustc_type_ir/ty_stable_hash.gen.ts";
 
 // rustc-derive: compiler/rustc_middle/src/mir/syntax.rs:1613 StableHash for UnOp
 const UnOp__discriminant = { Not: 0, Neg: 1, PtrMetadata: 2 } as const;
@@ -16,4 +29,81 @@ export function stable_hash_UnOp(self: UnOp, __hcx: StableHashCtxt, __hasher: St
 const BinOp__discriminant = { Add: 0, AddUnchecked: 1, AddWithOverflow: 2, Sub: 3, SubUnchecked: 4, SubWithOverflow: 5, Mul: 6, MulUnchecked: 7, MulWithOverflow: 8, Div: 9, Rem: 10, BitXor: 11, BitAnd: 12, BitOr: 13, Shl: 14, ShlUnchecked: 15, Shr: 16, ShrUnchecked: 17, Eq: 18, Lt: 19, Le: 20, Ne: 21, Ge: 22, Gt: 23, Cmp: 24, Offset: 25 } as const;
 export function stable_hash_BinOp(self: BinOp, __hcx: StableHashCtxt, __hasher: StableHasher): void {
   stable_hash_Discriminant(BinOp__discriminant[self], __hcx, __hasher);
+}
+
+// rustc-derive: compiler/rustc_middle/src/mir/interpret/mod.rs:255 StableHash for GlobalAlloc
+const GlobalAlloc__discriminant = { Function: 0, VTable: 1, Static: 2, Memory: 3, TypeId: 4 } as const;
+export function stable_hash_GlobalAlloc(self: GlobalAlloc, __hcx: StableHashCtxt, __hasher: StableHasher): void {
+  stable_hash_Discriminant(GlobalAlloc__discriminant[self.$], __hcx, __hasher);
+  switch (self.$) {
+    case "Function":
+      stable_hash_Instance(self.instance, __hcx, __hasher);
+      break;
+    case "VTable":
+      stable_hash_Ty(self._0, __hcx, __hasher);
+      stable_hash_RawList(self._1, __hcx, __hasher, (__v, __hcx, __hasher) => stable_hash_Binder(__v, __hcx, __hasher, stable_hash_ExistentialPredicate));
+      break;
+    case "Static":
+      stable_hash_DefId(self._0, __hcx, __hasher);
+      break;
+    case "Memory":
+      stable_hash_ConstAllocation(self._0, __hcx, __hasher);
+      break;
+    case "TypeId":
+      stable_hash_Ty(self.ty, __hcx, __hasher);
+      break;
+  }
+}
+
+// rustc-derive: compiler/rustc_middle/src/mir/interpret/allocation.rs:95 StableHash for Allocation
+export function stable_hash_Allocation<Prov, Extra, Bytes>(self: Allocation<Prov, Extra, Bytes>, __hcx: StableHashCtxt, __hasher: StableHasher, stable_hash_Prov: StableHash<Prov>, stable_hash_Extra: StableHash<Extra>, stable_hash_Bytes: StableHash<Bytes>): void {
+  stable_hash_Bytes(self.bytes, __hcx, __hasher);
+  stable_hash_ProvenanceMap(self.provenance, __hcx, __hasher, stable_hash_Prov);
+  stable_hash_InitMask(self.init_mask, __hcx, __hasher);
+  stable_hash_u8(self.align.pow2, __hcx, __hasher);
+  stable_hash_Mutability(self.mutability, __hcx, __hasher);
+  stable_hash_Extra(self.extra, __hcx, __hasher);
+}
+
+// rustc-derive: compiler/rustc_middle/src/mir/interpret/allocation.rs:286 StableHash for ConstAllocation
+export function stable_hash_ConstAllocation(self: ConstAllocation, __hcx: StableHashCtxt, __hasher: StableHasher): void {
+  stable_hash_Interned(self.internee, __hcx, __hasher, (__v, __hcx, __hasher) => stable_hash_Allocation(__v, __hcx, __hasher, stable_hash_CtfeProvenance, (__v, __hcx, __hasher) => stable_hash_unit(__v, __hcx, __hasher), (__v, __hcx, __hasher) => stable_hash_bytes(__v, __hcx, __hasher)));
+}
+
+// rustc-derive: compiler/rustc_middle/src/mir/interpret/allocation/init_mask.rs:23 StableHash for InitMask
+export function stable_hash_InitMask(self: InitMask, __hcx: StableHashCtxt, __hasher: StableHasher): void {
+  stable_hash_InitMaskBlocks(self.blocks, __hcx, __hasher);
+  stable_hash_Size(self.len, __hcx, __hasher);
+}
+
+// rustc-derive: compiler/rustc_middle/src/mir/interpret/allocation/init_mask.rs:29 StableHash for InitMaskBlocks
+const InitMaskBlocks__discriminant = { Lazy: 0, Materialized: 1 } as const;
+export function stable_hash_InitMaskBlocks(self: InitMaskBlocks, __hcx: StableHashCtxt, __hasher: StableHasher): void {
+  stable_hash_Discriminant(InitMaskBlocks__discriminant[self.$], __hcx, __hasher);
+  switch (self.$) {
+    case "Lazy":
+      stable_hash_bool(self.state, __hcx, __hasher);
+      break;
+    case "Materialized":
+      stable_hash_InitMaskMaterialized(self._0, __hcx, __hasher);
+      break;
+  }
+}
+
+// rustc-derive: compiler/rustc_middle/src/mir/interpret/allocation/init_mask.rs:188 StableHash for InitMaskMaterialized
+export function stable_hash_InitMaskMaterialized(self: InitMaskMaterialized, __hcx: StableHashCtxt, __hasher: StableHasher): void {
+  stable_hash_Vec(Array.from({ length: self.blocks.length / 2 }, (_, k) => (BigInt(self.blocks[2 * k + 1]!) << 32n) | BigInt(self.blocks[2 * k]!)), __hcx, __hasher, (__v, __hcx, __hasher) => stable_hash_u64(BigInt(__v), __hcx, __hasher));
+}
+
+// rustc-derive: compiler/rustc_middle/src/mir/interpret/allocation/provenance_map.rs:21 StableHash for PointerFrag
+export function stable_hash_PointerFrag<Prov>(self: PointerFrag<Prov>, __hcx: StableHashCtxt, __hasher: StableHasher, stable_hash_Prov: StableHash<Prov>): void {
+  stable_hash_u8(self.idx, __hcx, __hasher);
+  stable_hash_Prov(self.prov, __hcx, __hasher);
+  stable_hash_bytes(Uint8Array.from(self.bytes), __hcx, __hasher);
+}
+
+// rustc-derive: compiler/rustc_middle/src/mir/interpret/allocation/provenance_map.rs:36 StableHash for ProvenanceMap
+export function stable_hash_ProvenanceMap<Prov>(self: ProvenanceMap<Prov>, __hcx: StableHashCtxt, __hasher: StableHasher, stable_hash_Prov: StableHash<Prov>): void {
+  stable_hash_SortedMap(self.ptrs, __hcx, __hasher, stable_hash_Size, stable_hash_Prov);
+  stable_hash_Option(self.bytes, __hcx, __hasher, (__v, __hcx, __hasher) => stable_hash_SortedMap(__v, __hcx, __hasher, stable_hash_Size, (__v, __hcx, __hasher) => stable_hash_PointerFrag(__v, __hcx, __hasher, stable_hash_Prov)));
 }

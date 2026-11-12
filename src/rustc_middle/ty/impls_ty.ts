@@ -10,12 +10,14 @@ import {
   StableHasher,
   stable_hash_bool,
   stable_hash_Fingerprint,
+  stable_hash_Option,
   stable_hash_slice,
   stable_hash_tuple3,
 } from "../../rustc_data_structures/stable_hash.ts";
 import { stable_hash_GenericArgKind } from "../../rustc_type_ir/ty_stable_hash.gen.ts";
 import { unported } from "../../std/panic.ts";
 import type { AllocId } from "../mir/interpret/mod.ts";
+import { stable_hash_GlobalAlloc } from "../mir_stable_hash.gen.ts";
 import { CtfeProvenance } from "../mir/interpret/pointer.ts";
 import { with_opt } from "./context/tls.ts";
 import { GenericArg } from "./generic_args.ts";
@@ -67,12 +69,8 @@ export function stable_hash_AllocId(self: AllocId, hcx: StableHashCtxt, hasher: 
   with_opt((tcx) => {
     // trace!("hashing {:?}", *self);
     if (tcx === undefined) unported("can't hash AllocIds during hir lowering"); // `tcx.expect(..)`
-    const global_alloc = tcx.try_get_global_alloc(self);
-    // PORT: `Option<GlobalAlloc>: StableHash` (the derive on mir::interpret::GlobalAlloc) is not generated.
-    void global_alloc;
-    void hcx;
-    void hasher;
-    unported("rustc_middle::mir::interpret::GlobalAlloc: StableHash (derive not generated)");
+    // `Option<GlobalAlloc>`: the derive on mir::interpret::GlobalAlloc (mod.rs:254), generated in mir_stable_hash.gen.ts
+    stable_hash_Option(tcx.try_get_global_alloc(self), hcx, hasher, stable_hash_GlobalAlloc);
   });
 }
 
