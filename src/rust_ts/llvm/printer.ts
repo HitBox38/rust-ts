@@ -38,6 +38,7 @@ import {
   MDNode,
   MDString,
   type Metadata,
+  InlineAsm,
   MetadataAsValue,
   type Module,
   PointerType,
@@ -350,6 +351,16 @@ export class Printer {
       return s === undefined ? `${ty}@<badref>` : `${ty}@${s}`;
     }
     if (v instanceof Constant) return ty + this.constant(v);
+    if (v instanceof InlineAsm) {
+      // lane llir-folder.
+      let o = "asm ";
+      if (v.hasSideEffects) o += "sideeffect ";
+      if (v.isAlignStack) o += "alignstack ";
+      // We don't emit the AD_ATT dialect as it's the assumed default.
+      if (v.dialect === "AD_Intel") o += "inteldialect ";
+      if (v.canThrow) o += "unwind ";
+      return `${ty}${o}"${printEscapedString(v.asmString)}", "${printEscapedString(v.constraints)}"`;
+    }
     if (v instanceof MetadataAsValue) return ty + this.metadataOperand(v.md);
     if (v instanceof Argument && v.hasName()) return `${ty}%${printLLVMNameWithoutPrefix(v.name)}`;
     if (this.localOperand !== undefined) return ty + this.localOperand(v);

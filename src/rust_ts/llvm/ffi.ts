@@ -12,7 +12,7 @@ export type { Attribute, BasicBlock, Buffer, Builder, Comdat, ConstantInt, Conte
 export * from "./ffi_types.ts";
 export * from "./support.ts";
 
-/** The 261 of 381 functions an implementation module provides; every other one is a stub. */
+/** The 262 of 381 functions an implementation module provides; every other one is a stub. */
 export const IMPLEMENTED: ReadonlySet<string> = new Set([
   "LLVMContextCreate",
   "LLVMContextDispose",
@@ -22,6 +22,7 @@ export const IMPLEMENTED: ReadonlySet<string> = new Set([
   "LLVMModuleCreateWithNameInContext",
   "LLVMGetDataLayoutStr",
   "LLVMSetDataLayout",
+  "LLVMGetInlineAsm",
   "LLVMGetTypeKind",
   "LLVMInt1TypeInContext",
   "LLVMInt8TypeInContext",
@@ -308,7 +309,7 @@ export const LLVMGetDataLayoutStr: (M: Module) => string | undefined = bind("LLV
 export const LLVMSetDataLayout: (M: Module, Triple: string | undefined) => void = bind("LLVMSetDataLayout", impl0.LLVMSetDataLayout);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:917 LLVMGetInlineAsm
-export const LLVMGetInlineAsm: (Ty: Type, AsmString: PtrLenStr | undefined, AsmStringSize: number, Constraints: PtrLenStr | undefined, ConstraintsSize: number, HasSideEffects: Bool, IsAlignStack: Bool, Dialect: AsmDialect, CanThrow: Bool) => Value = stub("LLVMGetInlineAsm");
+export const LLVMGetInlineAsm: (Ty: Type, AsmString: PtrLenStr | undefined, AsmStringSize: number, Constraints: PtrLenStr | undefined, ConstraintsSize: number, HasSideEffects: Bool, IsAlignStack: Bool, Dialect: AsmDialect, CanThrow: Bool) => Value = bind("LLVMGetInlineAsm", impl0.LLVMGetInlineAsm);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:929 LLVMGetTypeKind
 export const LLVMGetTypeKind: (Ty: Type) => RawEnum<TypeKind> = bind("LLVMGetTypeKind", impl0.LLVMGetTypeKind);

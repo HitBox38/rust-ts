@@ -7,7 +7,8 @@
 //    attributes of the same kind and value (the values replay.ts decodes).
 // 4. `printCallingConv`: every calling convention from 0 to 1023 on a declaration, and 0 to 130 on calls.
 // 5. `atomicrmw` / `cmpxchg` built without an alignment get libLLVM's, over several data layouts and operand types.
-// 6. `armExclusiveIntrinsic` (and so `LLVMRustGetElementTypeArgIndex`) against libLLVM's intrinsic IDs, and the ARM names it
+// 6. `LLVMGetInlineAsm` values in calls, and the `allocsize` / `allockind` int values replay.ts decodes.
+// 7. `armExclusiveIntrinsic` (and so `LLVMRustGetElementTypeArgIndex`) against libLLVM's intrinsic IDs, and the ARM names it
 //    relies on.
 import { describe, expect, test } from "bun:test";
 import { CString, dlopen, type Pointer, toArrayBuffer } from "bun:ffi";
@@ -68,6 +69,7 @@ const C_API = {
   LLVMPrintModuleToString: { args: [P], returns: P },
   LLVMPrintValueToString: { args: [P], returns: P },
   LLVMDisposeMessage: { args: [P], returns: "void" },
+  LLVMGetInlineAsm: { args: [P, P, "usize", P, "usize", "i32", "i32", "u32", "i32"], returns: P },
   LLVMIntrinsicGetName: { args: ["u32", P], returns: P },
   LLVMLookupIntrinsicID: { args: [P, "usize"], returns: "u32" },
 } as const;
@@ -258,6 +260,10 @@ describe.skipIf(!HAVE && !REQUIRE)("llir-folder vs libLLVM", () => {
       intSpec("captures", 0n, (c) => L.LLVMRustCreateAttrNoValue(c, "CapturesNone")),
       intSpec("captures", 51n, (c) => L.LLVMRustCreateAttrNoValue(c, "CapturesAddress")),
       intSpec("captures", 119n, (c) => L.LLVMRustCreateAttrNoValue(c, "CapturesReadOnly")),
+      // replay.ts: `allocsize` is `ElemSizeArg << 32 | 0xFFFFFFFF`, `allockind` rustc's flags.
+      intSpec("allocsize", 0xffffffffn, (c) => L.LLVMRustCreateAllocSizeAttr(c, 0)),
+      intSpec("allocsize", (3n << 32n) | 0xffffffffn, (c) => L.LLVMRustCreateAllocSizeAttr(c, 3)),
+      ...[1n, 2n, 4n, 41n, 49n, 63n].map((k) => intSpec("allockind", k, (c) => L.LLVMRustCreateAllocKindAttr(c, k))),
     );
     const diffs: string[] = [];
     specs.forEach((s, i) => {
@@ -365,6 +371,45 @@ describe.skipIf(!HAVE && !REQUIRE)("llir-folder vs libLLVM", () => {
       L.LLVMBuildRetVoid(mB);
       expect(`${dl}\n${printValueToString(mf as never).trim()}`).toBe(`${dl}\n${noComments(message(lib.LLVMPrintValueToString(rf)))}`);
     }
+  });
+
+  test("inline asm values print as libLLVM's in calls", () => {
+    const rc = lib.LLVMContextCreate();
+    const rm = lib.LLVMModuleCreateWithNameInContext(cstr("m"), rc);
+    const mc = L.LLVMContextCreate();
+    const mm = L.LLVMModuleCreateWithNameInContext("m", mc);
+    const rFt = lib.LLVMFunctionType(lib.LLVMVoidTypeInContext(rc), ptrs([]), 0, 0);
+    const mFt = L.LLVMFunctionType(L.LLVMVoidTypeInContext(mc), [], 0, L.FALSE);
+    const rI = lib.LLVMIntTypeInContext(rc, 32);
+    const mI = L.LLVMIntTypeInContext(mc, 32);
+    const rFt2 = lib.LLVMFunctionType(rI, ptrs([rI]), 1, 0);
+    const mFt2 = L.LLVMFunctionType(mI, [mI], 1, L.FALSE);
+    const rf = lib.LLVMAddFunction(rm, cstr("f"), rFt);
+    const mf = L.LLVMAddFunction(mm, "f", mFt);
+    const rB = lib.LLVMCreateBuilderInContext(rc);
+    const mB = L.LLVMCreateBuilderInContext(mc);
+    lib.LLVMPositionBuilderAtEnd(rB, lib.LLVMAppendBasicBlockInContext(rc, rf, cstr("start")));
+    L.LLVMPositionBuilderAtEnd(mB, L.LLVMAppendBasicBlockInContext(mc, mf, "start"));
+    const asms: [string, string, number, number, number, number][] = [
+      ["", "~{memory}", 1, 0, 0, 0],
+      ["nop", "", 0, 0, 0, 0],
+      ["mov $0, $1\n\t\"q\"", "=r,r,~{dirflag},~{fpsr},~{flags}", 1, 1, 1, 1],
+      ["\\ \u00e9", "=&r,0", 0, 1, 0, 1],
+    ];
+    for (const [asm, cons, se, as, dialect, canThrow] of asms) {
+      const two = cons.startsWith("=");
+      const rT = two ? rFt2 : rFt;
+      const mT = two ? mFt2 : mFt;
+      const ra = lib.LLVMGetInlineAsm(rT, Buffer.from(asm, "utf8"), Buffer.byteLength(asm, "utf8"), Buffer.from(cons), cons.length, se, as, dialect, canThrow);
+      const ma = L.LLVMGetInlineAsm(mT, asm, Buffer.byteLength(asm, "utf8"), cons, cons.length, L.Bool.of(se), L.Bool.of(as), dialect === 0 ? "Att" : "Intel", L.Bool.of(canThrow));
+      // Uniqued per context by key.
+      expect(L.LLVMGetInlineAsm(mT, asm, Buffer.byteLength(asm, "utf8"), cons, cons.length, L.Bool.of(se), L.Bool.of(as), dialect === 0 ? "Att" : "Intel", L.Bool.of(canThrow))).toBe(ma);
+      lib.LLVMBuildCall2(rB, rT, ra, two ? ptrs([lib.LLVMGetPoison(rI)]) : ptrs([]), two ? 1 : 0, cstr(""));
+      L.LLVMBuildCallWithOperandBundles(mB, mT, ma, two ? [L.LLVMGetPoison(mI)] : [], two ? 1 : 0, [], 0, "");
+    }
+    lib.LLVMBuildRetVoid(rB);
+    L.LLVMBuildRetVoid(mB);
+    expect(printValueToString(mf as never).trim()).toBe(noComments(message(lib.LLVMPrintValueToString(rf))));
   });
 
   test("armExclusiveIntrinsic is libLLVM's arm_ldrex / arm_strex, and the ARM names it relies on", () => {

@@ -6,6 +6,7 @@
 import { writeFileSync } from "node:fs";
 import { unported } from "../../std/panic.ts";
 import {
+  type AsmDialect,
   AttributeKind,
   type CodeModel,
   CallConv_discriminant,
@@ -48,6 +49,7 @@ import {
   getConstantIntU64,
   getConstantStruct,
   getGetElementPtr,
+  getInlineAsm,
   getIntToPtr,
   getNullValue,
   getPointerCast,
@@ -464,6 +466,14 @@ export function LLVMGlobalSetMetadata(Val: Value, KindID: MetadataKindId, Metada
 // llvm: llvm/lib/IR/Core.cpp:2272 LLVMGlobalAddMetadata
 export function LLVMGlobalAddMetadata(Val: Value, KindID: MetadataKindId, Metadata: Metadata): void {
   asGlobalObject(Val).addMetadata(KindID, Metadata as MDNode);
+}
+
+// llvm: llvm/lib/IR/Core.cpp:529 LLVMGetInlineAsm
+export function LLVMGetInlineAsm(Ty: Type, AsmString: PtrLenStr | undefined, AsmStringSize: number, Constraints: PtrLenStr | undefined, ConstraintsSize: number, HasSideEffects: Bool, IsAlignStack: Bool, Dialect: AsmDialect, CanThrow: Bool): Value {
+  // `LLVMInlineAsmDialectATT` -> `AD_ATT`, `LLVMInlineAsmDialectIntel` -> `AD_Intel` (ffi.rs's `AsmDialect` mirrors the C enum).
+  const AD = Dialect === "Att" ? "AD_ATT" : "AD_Intel";
+  if (!(Ty instanceof FunctionType)) throw new Error("llvm: unwrap<FunctionType> of a type that is not a function type");
+  return getInlineAsm(Ty, bytesArg(AsmString, AsmStringSize), bytesArg(Constraints, ConstraintsSize), HasSideEffects.value !== 0, IsAlignStack.value !== 0, AD, CanThrow.value !== 0);
 }
 
 // rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:1171 LLVMRustWriteValueToString

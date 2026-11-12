@@ -387,6 +387,36 @@ export abstract class BasicBlockBase extends Value {
   abstract get parent(): Function | undefined;
 }
 
+/** `InlineAsm` (InlineAsm.cpp; lane llir-folder): a value of type `ptr`, uniqued per context by its key (`InlineAsmKeyType`). */
+export class InlineAsm extends Value {
+  // llvm: llvm/lib/IR/InlineAsm.cpp:30 InlineAsm::InlineAsm
+  constructor(
+    readonly fnType: FunctionType,
+    /** `bstr`. */
+    readonly asmString: string,
+    /** `bstr`. */
+    readonly constraints: string,
+    readonly hasSideEffects: boolean,
+    readonly isAlignStack: boolean,
+    readonly dialect: "AD_ATT" | "AD_Intel",
+    readonly canThrow: boolean,
+  ) {
+    // `Value(PointerType::getUnqual(FTy->getContext()), Value::InlineAsmVal)`; `verify` runs only under `!NDEBUG`.
+    super(fnType.context.getPointerType(0));
+  }
+}
+
+// llvm: llvm/lib/IR/InlineAsm.cpp:43 InlineAsm::get
+export function getInlineAsm(FTy: FunctionType, AsmString: string, Constraints: string, hasSideEffects: boolean, isAlignStack: boolean, asmDialect: "AD_ATT" | "AD_Intel", canThrow: boolean): InlineAsm {
+  // `InlineAsmKeyType(AsmString, Constraints, FTy, hasSideEffects, isAlignStack, asmDialect, canThrow)`, looked up in the
+  // context's `InlineAsms`.
+  const key = `asm:${FTy.id}:${hasSideEffects}:${isAlignStack}:${asmDialect}:${canThrow}:${AsmString.length}:${AsmString}\0${Constraints}`;
+  const ctx = FTy.context;
+  let ia = ctx.inlineAsms.get(key);
+  if (ia === undefined) ctx.inlineAsms.set(key, (ia = new InlineAsm(FTy, AsmString, Constraints, hasSideEffects, isAlignStack, asmDialect, canThrow)));
+  return ia;
+}
+
 export class Argument extends Value {
   constructor(
     type: Type,
@@ -1767,6 +1797,8 @@ export class Module {
 
 export class Context {
   discardValueNames = false;
+  /** `LLVMContextImpl::InlineAsms` (lane llir-folder). */
+  readonly inlineAsms = new Map<string, InlineAsm>();
   readonly types = new Map<string, Type>();
   readonly namedStructTypes = new Map<string, StructType>();
   namedStructTypesUniqueID = 0;

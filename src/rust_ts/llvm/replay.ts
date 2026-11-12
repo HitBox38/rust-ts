@@ -25,7 +25,7 @@ import * as T from "./ffi_types.ts";
 import { FFI_PATH, type FfiFn, type FfiItems, parseFfi, tsType } from "../../../tools/llir/ffi_gen.ts";
 import { rustAttributeKindOf } from "./core.ts";
 import { BasicBlock, IRBuilder, Inst } from "./inst.ts";
-import { Attribute, Constant, ConstantInt, Function as IrFunction, Module, stringOfBstr } from "./ir.ts";
+import { Attribute, Constant, ConstantInt, type Context, Function as IrFunction, Module, stringOfBstr } from "./ir.ts";
 
 type Arg =
   | { k: "h"; id: number }
@@ -396,10 +396,15 @@ export function replay(calls: readonly Call[], upstream: string, opts: ReplayOpt
     }
   };
 
-  const moduleOf = (c: Call): Module => {
+  /** The context an inferred attribute belongs to: that of the function, call or block the line that first uses it applies it
+   *  to. A bin's building thread makes two modules in two contexts, the allocator shim's and then the CGU's (lane llir-folder),
+   *  and LLVM uniques attributes per context, so the first module's context is not always the right one. */
+  let ctxHint: Context | undefined;
+  const contextOf = (c: Call): Context => {
+    if (ctxHint !== undefined) return ctxHint;
     const m = res.modules[0] ?? [...env.values()].find((v) => v instanceof Module);
     if (!(m instanceof Module)) throw new Error(`replay: an attribute before any module at ${where(c)}`);
-    return m;
+    return m.context;
   };
 
   /** The creator that makes the attribute a `?attr` line describes. rustc's creators (llvm/mod.rs): `AttributeKind::create_attr`
@@ -408,13 +413,13 @@ export function replay(calls: readonly Call[], upstream: string, opts: ReplayOpt
    * come from LLVMCreateStringAttribute, a recorded C call, so a `?attr str` has no rustc producer and throws. `CreateRangeAttr`
    * (:146, LLVMRustCreateRangeAttribute) is decoded from the range the recorder learns by interposing on
    * LLVMCreateConstantRangeAttribute, and `dead_on_return` with `UINT64_MAX` (DeadOnReturnInfo's "all memory") is
-   * `AttributeKind::DeadOnReturn.create_attr` (lane llir-folder). The others rustc has (`CreateAllocSizeAttr`,
-   * `CreateAllocKindAttr`, memory effects) are not decodable from the C API's view yet and throw. A function-level `elementtype` is decodable (a type attribute) but has no rustc producer: rustc puts it
+   * `AttributeKind::DeadOnReturn.create_attr`; `allocsize` and `allockind` are decoded from their int values (lane
+   * llir-folder). Memory effects are not decodable from the C API's view yet and throw. A function-level `elementtype` is decodable (a type attribute) but has no rustc producer: rustc puts it
    * only on call sites (abi.rs:754, `apply_to_callsite`), so it throws too (review llir-core-a R5). */
   const inferAttribute = (c: Call): [L.Attribute, string] => {
     const [, kindArg, a, b] = c.args as [Arg, Arg, Arg | undefined, Arg | undefined];
     const kind = new TextDecoder().decode(bytes(kindArg));
-    const ctx = moduleOf(c).context;
+    const ctx = contextOf(c);
     const n = a?.k === "int" ? a.v : undefined;
     if (a?.k === "str" && new TextDecoder().decode(a.b) === "type") {
       const ty = handle(c, b!) as L.Type;
@@ -436,6 +441,12 @@ export function replay(calls: readonly Call[], upstream: string, opts: ReplayOpt
     // kinds, which `LLVMRustCreateAttrNoValue` makes with `CaptureInfo(CC)`, both nibbles equal: none 0, address 0x33, address and
     // read_provenance 0x77 (folder.oracle.test.ts prints each value through libLLVM; lane llir-folder).
     const captures = { 0: "CapturesNone", 51: "CapturesAddress", 119: "CapturesReadOnly" } as const;
+    // `CreateAllocSizeAttr` (llvm/mod.rs, LLVMRustCreateAllocSizeAttr): `getWithAllocSizeArgs(C, ElemSizeArg, std::nullopt)`,
+    // whose int value is `ElemSizeArg << 32 | 0xFFFFFFFF` (no element-count argument); `CreateAllocKindAttr`
+    // (LLVMRustCreateAllocKindAttr): `allocKindFromRust` maps each Rust flag to the AllocFnKind bit of the same position, so the
+    // value is rustc's flags (folder.oracle.test.ts prints both through libLLVM; lane llir-folder).
+    if (kind === "allocsize" && n !== undefined && (n & 0xffffffffn) === 0xffffffffn) return [L.LLVMRustCreateAllocSizeAttr(ctx, Number(n >> 32n)), "LLVMRustCreateAllocSizeAttr"];
+    if (kind === "allockind" && n !== undefined && n > 0n && n < 64n) return [L.LLVMRustCreateAllocKindAttr(ctx, n), "LLVMRustCreateAllocKindAttr"];
     if (kind === "captures" && n !== undefined && Number(n) in captures) return [L.LLVMRustCreateAttrNoValue(ctx, captures[Number(n) as keyof typeof captures]), "LLVMRustCreateAttrNoValue"];
     const rust = rustAttributeKindOf(kind);
     if (rust !== undefined && n === 0n) return [L.LLVMRustCreateAttrNoValue(ctx, rust), "LLVMRustCreateAttrNoValue"];
@@ -495,6 +506,7 @@ export function replay(calls: readonly Call[], upstream: string, opts: ReplayOpt
     if (kind === undefined) throw new Error(`replay: a call of ${calleeName} made by a hidden wrapper at ${where(c)}`);
     const at = { bb: bbA, next: nextA.k === "null" ? undefined : nextA };
     const [bb, next] = placeOf(c, at);
+    ctxHint = bb.parentFn?.context;
     const builders = [...env.values()].filter((v): v is IRBuilder => v instanceof IRBuilder && v.block === bb && v.insertBefore === next);
     if (builders.length === 0) throw new Error(`replay: no builder is positioned where the hidden ${kind} call went at ${where(c)}`);
     // `MaybeAlign(N)`: the `align` parameter attribute the wrapper adds, decoded from its `?attr` line (not recreated: the
@@ -586,7 +598,9 @@ export function replay(calls: readonly Call[], upstream: string, opts: ReplayOpt
       // `llvm::AddFunctionAttributes` (llvm/mod.rs:43) is rustc's one caller of LLVMRustAddFunctionAttributes.
       const f = handle(c, c.args[0]!) as IrFunction;
       const index = Number(intOf(c.args[1]!));
+      ctxHint = f.context;
       const list = (c.args[2] as { items: Arg[] }).items.map((a) => handle(c, a) as L.Attribute);
+      ctxHint = undefined;
       L.LLVMRustAddFunctionAttributes(f, index, list, list.length);
       checkAttrSet(c, f.attributes.get(index), list);
       inferred("LLVMRustAddFunctionAttributes");
@@ -596,14 +610,20 @@ export function replay(calls: readonly Call[], upstream: string, opts: ReplayOpt
       // `llvm::AddCallSiteAttributes` (llvm/mod.rs:61) is rustc's one caller of LLVMRustAddCallSiteAttributes.
       const I = handle(c, c.args[0]!) as Inst;
       const index = Number(intOf(c.args[1]!));
+      ctxHint = I.context;
       const list = (c.args[2] as { items: Arg[] }).items.map((a) => handle(c, a) as L.Attribute);
+      ctxHint = undefined;
       L.LLVMRustAddCallSiteAttributes(I, index, list, list.length);
       checkAttrSet(c, I.attributes.get(index), list);
       inferred("LLVMRustAddCallSiteAttributes");
       continue;
     }
     if (c.fn === "?inst") {
-      replayHiddenInst(c);
+      try {
+        replayHiddenInst(c);
+      } finally {
+        ctxHint = undefined;
+      }
       continue;
     }
     if (c.fn === "?datalayout") {
@@ -676,10 +696,14 @@ export function replay(calls: readonly Call[], upstream: string, opts: ReplayOpt
       continue;
     }
     const args = f.params.map((p, i) => convert(c, c.args[i] ?? { k: "skip" }, tsType(p.rust, p.name, items, false)));
-    if (c.at !== undefined && args[0] instanceof IRBuilder) positionFor(c, args[0], c.at);
+    // A builder call that answers a value it was given or made before (`CreatePointerCast` of a value already of the type, a
+    // fold to an operand) inserts nothing; the recorder's ` @ ` place is then that old instruction's, not a new one's, so only
+    // the answer is checked (lane llir-folder).
+    const at = c.ret?.k === "h" && env.has(c.ret.id) && env.get(c.ret.id) !== SKIPPED ? undefined : c.at;
+    if (at !== undefined && args[0] instanceof IRBuilder) positionFor(c, args[0], at);
     const r = lib[c.fn]!(...args);
     res.replayed++;
-    if (c.at !== undefined) checkPlaced(c, r, c.at);
+    if (at !== undefined) checkPlaced(c, r, at);
     if (r instanceof Module && !res.modules.includes(r)) res.modules.push(r);
     // Check the answer and the out-parameters.
     if (c.ret?.k === "h") bind(c, c.ret.id, r);
