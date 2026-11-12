@@ -19,6 +19,7 @@ import * as attributes from "./attributes.ts";
 import { Builder, GenericBuilder } from "./builder.ts";
 import * as common from "./common.ts";
 import { CodegenCx, FullCx, GenericCx, SCx, SimpleCx } from "./context.ts";
+import { generic_simd_intrinsic } from "./intrinsic.ts";
 import type { Value } from "./llvm/mod.ts";
 import * as llvm from "./llvm/mod.ts";
 import * as llvm_util from "./llvm_util.ts";
@@ -105,7 +106,8 @@ describe("stubs name their fill lane", () => {
     stops(() => cx.mangled_name(undefined as never), /^cg-asm: .*\/asm\.rs mangled_name$/);
     const bx = Object.create(Builder.prototype) as Builder;
     // cg-builder (wave 41) ported builder.rs and allocator.rs whole: no stub of its own is left (builder.test.ts).
-    stops(() => bx.abort_immediate(), /^cg-intrinsic-a: .*\/intrinsic\.rs abort_immediate$/);
+    // cg-intrinsic-a (wave 41) ported intrinsic.rs's scalar half (:1-2046); the SIMD half's entry stays cg-intrinsic-b's.
+    stops(() => generic_simd_intrinsic(bx, undefined as never, undefined as never, [], undefined as never, undefined as never, undefined as never), /^cg-intrinsic-b: .*\/intrinsic\.rs generic_simd_intrinsic$/);
     stops(() => bx.clear_dbg_loc(), /^cg-di-a: .*\/debuginfo\/mod\.rs clear_dbg_loc$/);
   });
 });
@@ -116,17 +118,18 @@ describe("stub counts per lane", () => {
   const EXPECTED: Record<string, number> = {
     "cg-asm": 4,
     "cg-di-a": 21,
-    "cg-intrinsic-a": 10,
     "cg-intrinsic-b": 2,
     "cg-lto-diag": 8,
     "cg-write": 21,
     // The 10 cg-contract left (plan-m7 D18), plus cg-context's `CguCoverageContext::new` in `CodegenCx::new` (review
-    // cg-contract-recheck N1).
-    "excluded (plan-m7 D18)": 11,
+    // cg-contract-recheck N1), plus cg-intrinsic-a's `OffloadMetadata::handle_abi` (rustc_middle ty/offload_meta.rs) in
+    // `codegen_offload`.
+    "excluded (plan-m7 D18)": 12,
     // 2, plus cg-context's `LLVMGetFirstFunction` / `LLVMGetNextFunction` (llvm/enzyme_ffi.rs) in `get_functions`.
     "llir": 4,
-    // 3, plus cg-types-attrs's 2.
-    "rustc_codegen_llvm": 5,
+    // 3, plus cg-types-attrs's 2, plus cg-intrinsic-a's 2 in intrinsic.ts (`i32 as u64` of a negative index,
+    // `str::from_utf8(..).unwrap()`'s panic text; its third, `assert_matches!`'s message, is a template literal this count skips).
+    "rustc_codegen_llvm": 7,
     // cg-context: `StableHash for Allocation` in `alloc_to_backend`.
     "rustc_middle": 1,
     // cg-context's 2 (`SanitizerIgnoreList::new`, `typename_for_ignore_list`) and cg-types-attrs's 3 (rustc_sanitizers is out
