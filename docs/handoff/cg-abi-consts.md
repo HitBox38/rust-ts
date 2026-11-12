@@ -1,6 +1,6 @@
 # Handoff: cg-abi-consts (M7, plan-m7 wave 41, wave 40n, fill lane): rustc_codegen_llvm `abi.rs` and `consts.rs`
 
-Branch `t3/12845cdc` (from `51dfe33c`; no merges). Commits: see the end.
+Branch `t3/port-cg-abi-consts` (from `51dfe33c`; no merges). Commits: see the end.
 
 ## Summary
 - **`abi.rs` is ported in full (26/26), and `consts.rs` too (21/21).** Both are in upstream order, with markers. All 20
