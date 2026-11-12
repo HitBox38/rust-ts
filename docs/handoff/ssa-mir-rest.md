@@ -1,6 +1,6 @@
 # Handoff: ssa-mir-rest (M7, plan-m7 wave 41, wave 40n)
 
-Branch `t3/f09f04ba`, from `51dfe33c`. No merges. Code commit `4736b3d2`.
+Branch `t3/port-ssa-mir-rest`, from `51dfe33c`. No merges. Code commit `4736b3d2`.
 
 ## Summary
 - **rustc_codegen_ssa**: seven files, ported in full, in upstream order, with markers. Each goes in a new TS file at the
