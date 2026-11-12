@@ -373,16 +373,26 @@ export function replay(calls: readonly Call[], upstream: string, opts: ReplayOpt
     if (r instanceof L.RawEnum) return BigInt(r.value);
     return undefined;
   };
+  /** An out-parameter's handle: one the oracle gives out here for the first time (a type no recorded call returned before, such
+   *  as `LLVMGetParamTypes` of an intrinsic's `i1`) is bound to the model's answer, as a returned handle is, with the same
+   *  uniquing checks (lane llir-folder); a known one is looked up. */
+  const outHandle = (c: Call, w: Arg, got: unknown): unknown => {
+    if (w.k === "h" && !env.has(w.id) && !pendingAttrs.has(w.id)) {
+      bind(c, w.id, got);
+      return got;
+    }
+    return handle(c, w);
+  };
   /** Checks an out-parameter's value after the call against the recorded `&<value>`. */
   const checkOut = (c: Call, i: number, want: Arg, got: unknown): void => {
     const v = got !== null && typeof got === "object" && "value" in got ? (got as { value: unknown }).value : got;
     if (want.k === "int") {
       if (answerOf(v) !== want.v) throw new Error(`replay: out-parameter ${i} is ${String(v)}, the oracle's ${want.v} (${where(c)})`);
     } else if (want.k === "h" || want.k === "null") {
-      if (want.k === "null" ? v !== undefined : handle(c, want) !== v) throw new Error(`replay: out-parameter ${i} differs from the oracle's (${where(c)})`);
+      if (want.k === "null" ? v !== undefined : outHandle(c, want, v) !== v) throw new Error(`replay: out-parameter ${i} differs from the oracle's (${where(c)})`);
     } else if (want.k === "arr") {
       const arr = v as unknown[];
-      if (arr.length !== want.items.length || want.items.some((w, k) => handle(c, w) !== arr[k])) throw new Error(`replay: out-array ${i} differs from the oracle's (${where(c)})`);
+      if (arr.length !== want.items.length || want.items.some((w, k) => outHandle(c, w, arr[k]) !== arr[k])) throw new Error(`replay: out-array ${i} differs from the oracle's (${where(c)})`);
     }
   };
 
@@ -395,9 +405,11 @@ export function replay(calls: readonly Call[], upstream: string, opts: ReplayOpt
   /** The creator that makes the attribute a `?attr` line describes. rustc's creators (llvm/mod.rs): `AttributeKind::create_attr`
    * -> LLVMRustCreateAttrNoValue (:232), `CreateAlignmentAttr` (:110), `CreateDereferenceable[OrNull]Attr` (:114, :118),
    * `CreateByValAttr` / `CreateByRefAttr` / `CreateStructRetAttr` (:122-:131), `CreateUWTableAttr` (:134). String attributes
-   * come from LLVMCreateStringAttribute, a recorded C call, so a `?attr str` has no rustc producer and throws. The others rustc
-   * has (`CreateAllocSizeAttr`, `CreateAllocKindAttr`, `CreateRangeAttr`, memory effects) are not decodable from the C API's
-   * view yet and throw. A function-level `elementtype` is decodable (a type attribute) but has no rustc producer: rustc puts it
+   * come from LLVMCreateStringAttribute, a recorded C call, so a `?attr str` has no rustc producer and throws. `CreateRangeAttr`
+   * (:146, LLVMRustCreateRangeAttribute) is decoded from the range the recorder learns by interposing on
+   * LLVMCreateConstantRangeAttribute, and `dead_on_return` with `UINT64_MAX` (DeadOnReturnInfo's "all memory") is
+   * `AttributeKind::DeadOnReturn.create_attr` (lane llir-folder). The others rustc has (`CreateAllocSizeAttr`,
+   * `CreateAllocKindAttr`, memory effects) are not decodable from the C API's view yet and throw. A function-level `elementtype` is decodable (a type attribute) but has no rustc producer: rustc puts it
    * only on call sites (abi.rs:754, `apply_to_callsite`), so it throws too (review llir-core-a R5). */
   const inferAttribute = (c: Call): [L.Attribute, string] => {
     const [, kindArg, a, b] = c.args as [Arg, Arg, Arg | undefined, Arg | undefined];
@@ -415,6 +427,16 @@ export function replay(calls: readonly Call[], upstream: string, opts: ReplayOpt
     if (kind === "dereferenceable_or_null") return [L.LLVMRustCreateDereferenceableOrNullAttr(ctx, n!), "LLVMRustCreateDereferenceableOrNullAttr"];
     // `UWTableKind` (ffi.rs: must match llvm::UWTableKind): Sync 1, Async 2.
     if (kind === "uwtable" && (n === 1n || n === 2n)) return [L.LLVMRustCreateUWTableAttr(ctx, n === 2n), "LLVMRustCreateUWTableAttr"];
+    if (kind === "range" && n !== undefined && b?.k === "arr" && c.args[4]?.k === "arr") {
+      const words = (w: Arg): bigint[] => (w as { items: Arg[] }).items.map(intOf);
+      return [L.LLVMRustCreateRangeAttribute(ctx, Number(n), words(b), words(c.args[4])), "LLVMRustCreateRangeAttribute"];
+    }
+    if (kind === "dead_on_return" && n === (1n << 64n) - 1n) return [L.LLVMRustCreateAttrNoValue(ctx, "DeadOnReturn"), "LLVMRustCreateAttrNoValue"];
+    // `CaptureInfo`'s int value (the other components in the high nibble, the return's in the low one) of rustc's three captures
+    // kinds, which `LLVMRustCreateAttrNoValue` makes with `CaptureInfo(CC)`, both nibbles equal: none 0, address 0x33, address and
+    // read_provenance 0x77 (folder.oracle.test.ts prints each value through libLLVM; lane llir-folder).
+    const captures = { 0: "CapturesNone", 51: "CapturesAddress", 119: "CapturesReadOnly" } as const;
+    if (kind === "captures" && n !== undefined && Number(n) in captures) return [L.LLVMRustCreateAttrNoValue(ctx, captures[Number(n) as keyof typeof captures]), "LLVMRustCreateAttrNoValue"];
     const rust = rustAttributeKindOf(kind);
     if (rust !== undefined && n === 0n) return [L.LLVMRustCreateAttrNoValue(ctx, rust), "LLVMRustCreateAttrNoValue"];
     throw new Error(`replay: no rustc creator recreates attribute ${kind}${n === undefined ? "" : ` ${n}`} (${where(c)})`);

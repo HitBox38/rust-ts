@@ -12,7 +12,7 @@ export type { Attribute, BasicBlock, Buffer, Builder, Comdat, ConstantInt, Conte
 export * from "./ffi_types.ts";
 export * from "./support.ts";
 
-/** The 259 of 381 functions an implementation module provides; every other one is a stub. */
+/** The 261 of 381 functions an implementation module provides; every other one is a stub. */
 export const IMPLEMENTED: ReadonlySet<string> = new Set([
   "LLVMContextCreate",
   "LLVMContextDispose",
@@ -249,6 +249,7 @@ export const IMPLEMENTED: ReadonlySet<string> = new Set([
   "LLVMRustCreateUWTableAttr",
   "LLVMRustCreateAllocSizeAttr",
   "LLVMRustCreateAllocKindAttr",
+  "LLVMRustCreateRangeAttribute",
   "LLVMRustAddFunctionAttributes",
   "LLVMRustAddCallSiteAttributes",
   "LLVMRustSetFastMath",
@@ -273,6 +274,7 @@ export const IMPLEMENTED: ReadonlySet<string> = new Set([
   "LLVMRustSetModulePIELevel",
   "LLVMRustSetModuleCodeModel",
   "LLVMRustSetModuleLargeDataThreshold",
+  "LLVMRustGetElementTypeArgIndex",
 ]);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:888 LLVMContextCreate
@@ -1098,7 +1100,7 @@ export const LLVMRustCreateAllocKindAttr: (C: Context, size_arg: bigint) => Attr
 export const LLVMRustCreateMemoryEffectsAttr: (C: Context, effects: MemoryEffects) => Attribute = stub("LLVMRustCreateMemoryEffectsAttr");
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2041 LLVMRustCreateRangeAttribute
-export const LLVMRustCreateRangeAttribute: (C: Context, NumBits: number, LowerWords: readonly bigint[], UpperWords: readonly bigint[]) => Attribute = stub("LLVMRustCreateRangeAttribute");
+export const LLVMRustCreateRangeAttribute: (C: Context, NumBits: number, LowerWords: readonly bigint[], UpperWords: readonly bigint[]) => Attribute = bind("LLVMRustCreateRangeAttribute", impl0.LLVMRustCreateRangeAttribute);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2049 LLVMRustAddFunctionAttributes
 export const LLVMRustAddFunctionAttributes: (Fn: Value, index: number, Attrs: readonly Attribute[], AttrsLen: number) => void = bind("LLVMRustAddFunctionAttributes", impl0.LLVMRustAddFunctionAttributes);
@@ -1389,7 +1391,7 @@ export const LLVMRustContextConfigureDiagnosticHandler: (context: Context, diagn
 export const LLVMRustGetMangledName: (V: Value, out: RustString) => void = stub("LLVMRustGetMangledName");
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2601 LLVMRustGetElementTypeArgIndex
-export const LLVMRustGetElementTypeArgIndex: (CallSite: Value) => number = stub("LLVMRustGetElementTypeArgIndex");
+export const LLVMRustGetElementTypeArgIndex: (CallSite: Value) => number = bind("LLVMRustGetElementTypeArgIndex", impl1.LLVMRustGetElementTypeArgIndex);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2603 LLVMRustLLVMHasZlibCompression
 export const LLVMRustLLVMHasZlibCompression: () => boolean = stub("LLVMRustLLVMHasZlibCompression");
