@@ -49,6 +49,8 @@ const CASES: Record<string, { args: string[]; wrappers: string[] }> = {
   invoke: { args: BODY, wrappers: [...DEFN, "LLVMRustCreateAlignmentAttr", "LLVMRustAddCallSiteAttributes", "LLVMRustPositionBuilderAtStart"] },
   atomic: { args: BODY, wrappers: DEFN },
   memcpy: { args: BODY, wrappers: [...DEFN, "LLVMRustCreateAlignmentAttr", "LLVMRustCreateStructRetAttr", "LLVMRustBuildMemCpy"] },
+  // llir-apfloat: floating-point constant folds at opt-level 0.
+  fpconst: { args: BODY, wrappers: [...DEFN, "LLVMRustCreateAlignmentAttr", "LLVMRustCreateStructRetAttr"] },
   byval: {
     args: BODY,
     wrappers: [...DEFN, "LLVMRustCreateAlignmentAttr", "LLVMRustCreateStructRetAttr", "LLVMRustCreateByValAttr", "LLVMRustPositionBuilderAtStart", "LLVMRustBuildMemSet", "LLVMRustBuildMemCpy"],

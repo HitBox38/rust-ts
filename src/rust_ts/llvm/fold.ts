@@ -1,8 +1,10 @@
 // rust-ts: the constant folds the IR builder applies when an instruction's operands are constants (lane llir-core-b): LLVM's
 // `ConstantFolder` (llvm/IR/ConstantFolder.h, the folder `IRBuilder<>` uses) and the `ConstantFold.cpp` / `Constants.cpp`
 // rules it calls. Each rule carries `// llvm:` and follows the source in order; a case the model cannot compute exactly
-// (APFloat arithmetic and conversions, vectors, pointer relations that need the data layout) stops with `unported`.
+// (per-element vector folds, pointer relations that need the data layout, ppc_fp128 arithmetic) stops with `unported`.
+// Floating-point values are apfloat.ts's `APFloat` (lane llir-apfloat).
 import { unported } from "../../std/panic.ts";
+import { APFloat, type CmpResult, neg } from "./apfloat.ts";
 import {
   ArrayType,
   type CastOpcode,
@@ -17,8 +19,8 @@ import {
   getAllOnesValue,
   getBitCast,
   getConstantArray,
-  getConstantFP,
   getConstantFPOfDouble,
+  getConstantFPOfType,
   getConstantInt,
   getConstantStruct,
   getFoldedCast,
@@ -27,6 +29,8 @@ import {
   getNullValue,
   getPoison,
   getPtrToInt,
+  getSplat,
+  getSplatValue,
   getUndef,
   GlobalValue,
   GlobalVariable,
@@ -97,13 +101,16 @@ function cmpResultType(t: Type): Type {
 /** `Constant::getAllOnesValue` lives in ir.ts (FoldBitCast needs it); re-exported for inst.ts. */
 export { getAllOnesValue };
 
-/** The sign bit of an IEEE format (`APFloat::getZero(Sem, Negative = true)`, `changeSign`); ppc_fp128 is a pair of doubles. */
-function signBit(ty: Type): bigint {
-  // `ConstantFP::getZero(Ty, Negative)` of a vector type is a vector-typed ConstantFP splat (Constants.cpp:1167, :1123), which
-  // the model does not have: stop (review llir-core-b F3; `fadd <2 x float> undef, undef` reaches this through the FAdd identity).
-  if (ty instanceof VectorType) return unported("llir: ConstantFP::getZero of a vector type (a vector-typed ConstantFP splat)");
-  if (ty.typeID === "PPC_FP128") return unported("llir: the sign of a ppc_fp128 constant (APFloat's double-double)");
-  return 1n << BigInt(ty.fpBits() - 1);
+// llvm: llvm/lib/IR/Constants.cpp:1167 ConstantFP::getZero
+/** `ConstantFP::getZero(Ty, Negative)`: a splat for a vector type. */
+function getZeroFP(ty: Type, negative: boolean): Constant {
+  return getConstantFPOfType(ty, APFloat.getZero(ty.getScalarType().getFltSemantics(), negative));
+}
+
+// llvm: llvm/lib/IR/Constants.cpp:1149 ConstantFP::getNaN
+/** `ConstantFP::getNaN(Ty)`: the default quiet NaN (`APFloat::getNaN`, positive, payload 0); a splat for a vector type. */
+function getNaN(ty: Type): Constant {
+  return getConstantFPOfType(ty, APFloat.getNaN(ty.getScalarType().getFltSemantics()));
 }
 
 /** `ConstantInt::get(Ty, 1)` (an integer type; a vector would be a splat). */
@@ -126,8 +133,7 @@ export function getBinOpIdentity(opcode: BinaryOps, ty: Type, allowRHSConstant: 
       case "And": // X & -1 = X
         return getAllOnesValue(ty);
       case "FAdd": // X + -0.0 = X
-        // `ConstantFP::getZero(Ty, /*Negative=*/!NSZ)`.
-        return getConstantFP(ty, nsz ? 0n : signBit(ty));
+        return getZeroFP(ty, /*Negative=*/ !nsz);
       case "FMul": // X * 1.0 = X
         return getConstantFPOfDouble(ty, 1.0);
       default:
@@ -220,20 +226,6 @@ export function getCast(opc: CastOpcode, c: Constant, ty: Type): Constant {
 
 // ---- ConstantFold.cpp --------------------------------------------------------------------------------------------------
 
-/** A ConstantFP's value as a JS number, for the formats whose arithmetic JS does exactly (double, and float exactly held). */
-function fpValue(c: ConstantFP): number {
-  const dv = new DataView(new ArrayBuffer(8));
-  if (c.type.typeID === "Double") {
-    dv.setBigUint64(0, c.bits);
-    return dv.getFloat64(0);
-  }
-  if (c.type.typeID === "Float") {
-    dv.setUint32(0, Number(c.bits));
-    return dv.getFloat32(0);
-  }
-  return unported(`llir: comparing ${c.type.typeID} constants (APFloat::compare)`);
-}
-
 // llvm: llvm/lib/IR/ConstantFold.cpp:295 ConstantFoldSelectInstruction
 export function constantFoldSelectInstruction(cond: Constant, v1: Constant, v2: Constant): Constant | undefined {
   // Check for i1 and vector true/false conditions.
@@ -302,11 +294,19 @@ export function constantFoldUnaryInstruction(opcode: "FNeg", c: Constant): Const
   const isScalableVector = c.type instanceof VectorType && c.type.scalable;
   if ((!c.type.isVectorTy() || isScalableVector) && c instanceof UndefValue) return c; // -undef -> undef
   if (c instanceof ConstantFP) {
-    // `neg(CV)`: the sign bit flipped.
-    if (opcode === "FNeg") return getConstantFP(c.type, c.bits ^ signBit(c.type));
-    return undefined;
+    const cv = c.getValueAPF();
+    if (opcode === "FNeg") return getConstantFPOfType(c.type, neg(cv));
+  } else if (c.type instanceof VectorType) {
+    const vty = c.type;
+    // Fast path for splatted constants.
+    const splat = getSplatValue(c);
+    if (splat !== undefined) {
+      const elt = constantFoldUnaryInstruction(opcode, splat);
+      if (elt !== undefined) return getSplat(vty.numElements, vty.scalable, elt);
+    }
+    // Fold each element and create a vector constant from those constants.
+    if (!vty.scalable) return unported("llir: ConstantFoldUnaryInstruction of a non-splat vector (ConstantExpr::getExtractElement per element)");
   }
-  if (c.type.isVectorTy()) return unported("llir: ConstantFoldUnaryInstruction of a vector");
   // We don't know how to fold this.
   return undefined;
 }
@@ -382,7 +382,7 @@ export function constantFoldBinaryInstruction(opcode: BinaryOps, c1: Constant, c
         return getNullValue(c1.type);
       case "FSub":
         // -0.0 - undef --> undef (consistent with "fneg undef")
-        if (c1 instanceof ConstantFP && c1.bits === signBit(c1.type) && c2 instanceof UndefValue) return c2;
+        if (isNegZeroFP(c1) && c2 instanceof UndefValue) return c2;
         return undefFlop(c1, bothUndef);
       case "FAdd":
       case "FMul":
@@ -466,12 +466,42 @@ export function constantFoldBinaryInstruction(opcode: BinaryOps, c1: Constant, c
     }
     if (c1 === getBinOpAbsorber(opcode, c1.type, true)) return c1;
   } else if (c1 instanceof ConstantFP) {
-    if (c2 instanceof ConstantFP && (opcode === "FAdd" || opcode === "FSub" || opcode === "FMul" || opcode === "FDiv" || opcode === "FRem")) {
-      return unported(`llir: ConstantFoldBinaryInstruction ${opcode} of two floating-point constants (APFloat arithmetic)`);
+    if (c2 instanceof ConstantFP) {
+      const c1v = c1.getValueAPF();
+      const c2v = c2.getValueAPF();
+      switch (opcode) {
+        case "FAdd":
+          return getConstantFPOfType(c1.type, c1v.add(c2v, "rmNearestTiesToEven").value);
+        case "FSub":
+          return getConstantFPOfType(c1.type, c1v.subtract(c2v, "rmNearestTiesToEven").value);
+        case "FMul":
+          return getConstantFPOfType(c1.type, c1v.multiply(c2v, "rmNearestTiesToEven").value);
+        case "FDiv":
+          return getConstantFPOfType(c1.type, c1v.divide(c2v, "rmNearestTiesToEven").value);
+        case "FRem":
+          return getConstantFPOfType(c1.type, c1v.mod(c2v).value);
+        default:
+          break;
+      }
     }
   }
 
-  if (c1.type instanceof VectorType) return unported("llir: ConstantFoldBinaryInstruction of vectors");
+  if (c1.type instanceof VectorType) {
+    const vty = c1.type;
+    // Fast path for splatted constants.
+    const c2Splat = getSplatValue(c2);
+    if (c2Splat !== undefined) {
+      if (isIntDivRem(opcode) && c2Splat.isNullValue()) return getPoison(vty);
+      const c1Splat = getSplatValue(c1);
+      if (c1Splat !== undefined) {
+        const res = isDesirableBinOp(opcode) ? constantExprGet(opcode, c1Splat, c2Splat) : constantFoldBinaryInstruction(opcode, c1Splat, c2Splat);
+        if (res === undefined) return undefined;
+        return getSplat(vty.numElements, vty.scalable, res);
+      }
+    }
+    // Fold each element and create a vector constant from those constants.
+    if (!vty.scalable) return unported("llir: ConstantFoldBinaryInstruction of a non-splat vector (ConstantExpr::getExtractElement per element)");
+  }
 
   if (c1 instanceof ConstantExpr) {
     // Given ((a + b) + c), if (b + c) folds to something interesting, return (a + (b + c)).
@@ -512,19 +542,29 @@ export function constantFoldBinaryInstruction(opcode: BinaryOps, c1: Constant, c
   return undefined;
 }
 
+/** `match(C, m_NegZeroFP())`: a -0.0 scalar, or a vector splat of -0.0 (`cstfp_pred_ty<is_neg_zero_fp>`). */
+function isNegZeroFP(c: Constant): boolean {
+  if (c instanceof ConstantFP) {
+    const v = c.getValueAPF();
+    return v.isZero() && v.isNegative();
+  }
+  if (c.type instanceof VectorType) {
+    const splat = getSplatValue(c);
+    if (splat !== undefined) return isNegZeroFP(splat);
+    if (!c.type.scalable) return unported("llir: m_NegZeroFP of a non-splat vector (per-element match)");
+  }
+  return false;
+}
+
+/** `Instruction::isIntDivRem`. */
+const isIntDivRem = (op: BinaryOps): boolean => op === "UDiv" || op === "SDiv" || op === "URem" || op === "SRem";
+
 /** The `[any flop]` arm of the undef cases (the FSub fallthrough). */
 function undefFlop(c1: Constant, bothUndef: boolean): Constant {
   // [any flop] undef, undef -> undef
   if (bothUndef) return c1;
   // [any flop] C, undef -> NaN; [any flop] undef, C -> NaN
   return getNaN(c1.type);
-}
-
-/** `ConstantFP::getNaN(Ty)`: the default quiet NaN (`APFloat::getNaN`, payload 0) of a double or float. */
-function getNaN(ty: Type): Constant {
-  if (ty.typeID === "Double") return getConstantFP(ty, 0x7ff8000000000000n);
-  if (ty.typeID === "Float") return getConstantFP(ty, 0x7fc00000n);
-  return unported(`llir: ConstantFP::getNaN(${ty.typeID})`);
 }
 
 // llvm: llvm/lib/IR/Instructions.cpp:3885 ICmpInst::compare
@@ -557,11 +597,9 @@ function icmpCompare(l: ConstantInt, r: ConstantInt, pred: number): boolean {
 }
 
 // llvm: llvm/lib/IR/Instructions.cpp:3914 FCmpInst::compare
-function fcmpCompare(l: ConstantFP, r: ConstantFP, pred: number): boolean {
-  // `APFloat::compare`: unordered if either is a NaN; -0 equals +0.
-  const a = fpValue(l);
-  const b = fpValue(r);
-  const R = Number.isNaN(a) || Number.isNaN(b) ? "un" : a < b ? "lt" : a > b ? "gt" : "eq";
+function fcmpCompare(lhs: APFloat, rhs: APFloat, pred: number): boolean {
+  const c: CmpResult = lhs.compare(rhs);
+  const R = c === "cmpUnordered" ? "un" : c === "cmpLessThan" ? "lt" : c === "cmpGreaterThan" ? "gt" : "eq";
   switch (pred) {
     case FCMP_FALSE:
       return false;
@@ -652,7 +690,7 @@ export function constantFoldCompareInstruction(predicate: number, c1: Constant, 
   if (c1 instanceof ConstantInt && c2 instanceof ConstantInt) {
     return getConstantInt(resultTy as IntegerType, icmpCompare(c1, c2, predicate) ? 1n : 0n);
   } else if (c1 instanceof ConstantFP && c2 instanceof ConstantFP) {
-    return getConstantInt(resultTy as IntegerType, fcmpCompare(c1, c2, predicate) ? 1n : 0n);
+    return getConstantInt(resultTy as IntegerType, fcmpCompare(c1.getValueAPF(), c2.getValueAPF(), predicate) ? 1n : 0n);
   }
   if (c1.type.isFloatingPointTy()) {
     if (c1 === c2) {

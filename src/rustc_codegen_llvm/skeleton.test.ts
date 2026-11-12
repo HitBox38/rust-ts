@@ -97,14 +97,12 @@ describe("trait methods are attached at run time", () => {
 describe("stubs name their fill lane", () => {
   test("one stub per owning file", () => {
     const cx = Object.create(CodegenCx.prototype) as CodegenCx;
-    stops(() => cx.type_i8(), /^cg-types-attrs: compiler\/rustc_codegen_llvm\/src\/type_\.rs type_i8$/);
-    stops(() => cx.const_bool(true), /^cg-context: .*\/common\.rs const_bool$/);
-    stops(() => cx.sess(), /^cg-context: .*\/context\.rs sess$/);
+    // cg-types-attrs (type_.ts, ...) and cg-context (context.ts, common.ts) are ported: their members no longer stop
+    // (type_of.test.ts, attributes.test.ts, context.test.ts).
     stops(() => cx.codegen_static(undefined as never), /^cg-abi-consts: .*\/consts\.rs codegen_static$/);
     stops(() => cx.mangled_name(undefined as never), /^cg-asm: .*\/asm\.rs mangled_name$/);
-    stops(() => cx.predefine_fn(undefined as never, undefined as never, undefined as never, ""), /^cg-types-attrs: .*\/mono_item\.rs predefine_fn$/);
     const bx = Object.create(Builder.prototype) as Builder;
-    stops(() => bx.ret_void(), /^cg-builder: .*\/builder\.rs ret_void$/);
+    // cg-builder (wave 41) ported builder.rs and allocator.rs whole: no stub of its own is left (builder.test.ts).
     stops(() => bx.get_param(0), /^cg-abi-consts: .*\/abi\.rs get_param$/);
     stops(() => bx.abort_immediate(), /^cg-intrinsic-a: .*\/intrinsic\.rs abort_immediate$/);
     stops(() => bx.clear_dbg_loc(), /^cg-di-a: .*\/debuginfo\/mod\.rs clear_dbg_loc$/);
@@ -117,18 +115,29 @@ describe("stub counts per lane", () => {
   const EXPECTED: Record<string, number> = {
     "cg-abi-consts": 20,
     "cg-asm": 4,
-    "cg-builder": 151,
-    "cg-context": 73,
     "cg-di-a": 21,
     "cg-intrinsic-a": 10,
     "cg-intrinsic-b": 2,
     "cg-lto-diag": 8,
-    "cg-types-attrs": 80,
     "cg-write": 21,
-    "excluded (plan-m7 D18)": 10,
-    "llir": 2,
-    "rustc_codegen_llvm": 3,
-    "ssa-base": 1,
+    // cg-builder's 10, plus cg-context's `CguCoverageContext::new` in `CodegenCx::new` (review cg-contract-recheck N1).
+    "excluded (plan-m7 D18)": 11,
+    // 2, plus cg-context's `LLVMGetFirstFunction` / `LLVMGetNextFunction` (llvm/enzyme_ffi.rs) in `get_functions`.
+    "llir": 4,
+    // 3, plus cg-types-attrs's 2.
+    "rustc_codegen_llvm": 5,
+    // cg-context: `StableHash for Allocation` in `alloc_to_backend`.
+    "rustc_middle": 1,
+    // cg-context's 2 (`SanitizerIgnoreList::new`, `typename_for_ignore_list`) and cg-types-attrs's 3 (rustc_sanitizers is out
+    // of scope).
+    "rustc_sanitizers": 5,
+    // cg-context's 3 in context.ts (`Session::{needs_plt, must_emit_unwind_tables, branch_protection}`) and cg-types-attrs's 6
+    // `SESSION_STOPS` (attributes.ts), which name three of the same fns: not in rustc_session yet (next M7 wave).
+    "rustc_session": 9,
+    // 1, plus cg-context's `wants_msvc_seh` (base.rs) in `eh_personality` and cg-types-attrs's 2 in base.ts.
+    "ssa-base": 4,
+    // cg-types-attrs: `MonoItemExt::predefine` / `define` in base.ts.
+    "ssa-mir-core": 2,
     "ssa-write": 5,
   };
   test("matches the table in docs/handoff/cg-contract.md", () => {
@@ -209,37 +218,45 @@ describe("auto-deref", () => {
     expect(bx.tcx as unknown).toBe("tcx");
     expect(bx.deref()).toBe(cx);
     // CodegenCx trait methods, through the forwarders.
-    stops(() => bx.type_i8(), /^cg-types-attrs: .* type_i8$/);
-    stops(() => bx.const_usize(1n), /^cg-context: .* const_usize$/);
-    // Builder's own `data_layout` (builder.rs:213), not the cx's (context.rs:1254).
-    stops(() => bx.data_layout(), /^cg-builder: .* data_layout$/);
+    expect(bx.type_isize() as unknown).toBe("isize"); // type_.rs:209, ported (cg-types-attrs)
+    // Builder's own `data_layout` (builder.rs:214, ported by cg-builder) forwards to the cx's (context.rs:1254, ported by
+    // cg-context), which reads the marker `FullCx`'s tcx.
+    expect(() => bx.data_layout()).toThrow();
     // The Debug members of the associated types reach value.rs's impl.
     expect(bx.debug_Value).toBe(cx.debug_Value);
   });
 
   test("the fill-lane sketch: ported accessors answer, cross-lane calls stop in their owner's stub", () => {
-    const cx = new CodegenCx(full_cx());
+    // cg-types-attrs's fns are ported, so the `SCx` holds real IR-model handles (a `FullCx` with markers elsewhere).
+    const llcx = llvm.LLVMContextCreate();
+    const llmod = llvm.LLVMModuleCreateWithNameInContext("sketch", llcx);
+    const isize = llvm.LLVMInt64TypeInContext(llcx);
+    const full = full_cx();
+    full.scx = new SimpleCx(new SCx(llmod, llcx, isize));
+    const cx = new CodegenCx(full);
     const bx = new Builder("llbuilder" as never, cx, 0 as never);
     const layout = Object.create(TyAndLayout_.prototype) as TyAndLayout;
     const fn_abi = Object.create(FnAbi.prototype) as FnAbi<Ty>;
-    expect(fill_lane_sketch(cx, bx, layout, fn_abi, undefined as never)).toEqual([
-      "llcx",
-      "llmod",
-      "isize",
+    const out = fill_lane_sketch(cx, bx, layout, fn_abi, undefined as never);
+    expect(out).toEqual([
+      llcx,
+      llmod,
+      isize,
       "field11",
-      "cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs type_i1",
-      expect.stringMatching(/^cg-types-attrs: .*\/type_of\.rs llvm_type$/) as unknown as string,
+      llvm.LLVMInt1TypeInContext(llcx), // type_.rs:168, ported
+      expect.any(TypeError), // type_of.rs:234, ported; a layout with no fields (type_of.test.ts has real ones)
       expect.stringMatching(/^cg-abi-consts: .*\/abi\.rs llvm_type$/) as unknown as string,
-      "cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs type_i8",
-      "cg-context: compiler/rustc_codegen_llvm/src/common.rs const_bytes",
-      "cg-context: compiler/rustc_codegen_llvm/src/context.rs get_intrinsic",
-      "cg-types-attrs: compiler/rustc_codegen_llvm/src/attributes.rs apply_to_llfn",
-      "cg-context: compiler/rustc_codegen_llvm/src/common.rs val_ty",
-      "cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs type_i8",
-      "cg-builder: compiler/rustc_codegen_llvm/src/builder.rs call_intrinsic",
-      "cg-builder: compiler/rustc_codegen_llvm/src/builder.rs build",
+      llvm.LLVMRustGetNamedValue(llmod, "g", 1), // declare.rs:94, ported (cg-types-attrs)
+      expect.anything(), // common.rs const_bytes, ported (cg-context): a real constant in the real llcx
+      expect.any(TypeError), // context.rs get_intrinsic, ported (cg-context): the marker `FullCx` has no intrinsic map
+      undefined, // attributes.rs:29, ported: no attributes, no call
+      expect.any(TypeError), // common.rs val_ty, ported (cg-context): the marker value has no `type`
+      expect.any(TypeError), // builder.rs load, ported (cg-builder): the marker llbuilder has no IR-model builder
+      expect.any(TypeError), // builder.rs:1881 call_intrinsic (cg-builder) reaches get_intrinsic (cg-context), as above
+      expect.any(TypeError), // builder.rs:130 build (cg-builder): the IR model rejects the marker basic block
       "cg-write: compiler/rustc_codegen_llvm/src/llvm_util.rs get_version",
     ]);
+    expect(out[7]).toBeDefined();
   });
 
   test("inherent before trait (review F1): GenericBuilder's inherent methods keep the `_inherent` names", () => {
@@ -251,9 +268,7 @@ describe("auto-deref", () => {
     }
     expect(typeof GenericBuilder.build_inherent).toBe("function");
     expect(typeof GenericBuilder.append_block_inherent).toBe("function");
-    const bx = Object.create(Builder.prototype) as Builder;
-    stops(() => bx.load_inherent(undefined as never, undefined as never, undefined as never), /^cg-builder: .*\/builder\.rs load$/);
-    stops(() => bx.load(undefined as never, undefined as never, undefined as never), /^cg-builder: .*\/builder\.rs load$/);
+    // The bodies of `load` / `load_inherent` (and `store` / `store_inherent`) differ in the alignment clamp: builder.test.ts.
     expect(typeof (GenericCx.prototype as unknown as Record<string, unknown>).const_null_inherent).toBe("function");
     expect(typeof (SimpleCx.prototype as unknown as Record<string, unknown>).val_ty_inherent).toBe("function");
   });
