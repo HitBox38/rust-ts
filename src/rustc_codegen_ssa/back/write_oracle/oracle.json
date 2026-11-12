@@ -1,0 +1,42 @@
+{
+ "split": {
+  "cgus": [
+   "cgus.a762f592f3f797ae-cgu.0",
+   "cgus.a762f592f3f797ae-cgu.1"
+  ],
+  "files": [
+   "out/cgus.cgus.a762f592f3f797ae-cgu.0.rcgu.bc",
+   "out/cgus.cgus.a762f592f3f797ae-cgu.0.rcgu.dwo",
+   "out/cgus.cgus.a762f592f3f797ae-cgu.0.rcgu.ll",
+   "out/cgus.cgus.a762f592f3f797ae-cgu.0.rcgu.no-opt.bc",
+   "out/cgus.cgus.a762f592f3f797ae-cgu.0.rcgu.o",
+   "out/cgus.cgus.a762f592f3f797ae-cgu.0.rcgu.s",
+   "out/cgus.cgus.a762f592f3f797ae-cgu.1.rcgu.bc",
+   "out/cgus.cgus.a762f592f3f797ae-cgu.1.rcgu.dwo",
+   "out/cgus.cgus.a762f592f3f797ae-cgu.1.rcgu.ll",
+   "out/cgus.cgus.a762f592f3f797ae-cgu.1.rcgu.no-opt.bc",
+   "out/cgus.cgus.a762f592f3f797ae-cgu.1.rcgu.o",
+   "out/cgus.cgus.a762f592f3f797ae-cgu.1.rcgu.s"
+  ]
+ },
+ "long": {
+  "cgus": [
+   "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.eee40e5475dcde2e-cgu.0",
+   "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.eee40e5475dcde2e-cgu.1"
+  ],
+  "files": [
+   "dwo/e5ad019bb645ef48-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.eee40e5475dcde2e-cgu.0.rcgu.dwo",
+   "dwo/e5ad019bb645ef48-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.eee40e5475dcde2e-cgu.1.rcgu.dwo",
+   "out/4e9946ecdc7b8196-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.eee40e5475dcde2e-cgu.0.rcgu.bc",
+   "out/4e9946ecdc7b8196-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.eee40e5475dcde2e-cgu.0.rcgu.ll",
+   "out/4e9946ecdc7b8196-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.eee40e5475dcde2e-cgu.1.rcgu.bc",
+   "out/4e9946ecdc7b8196-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.eee40e5475dcde2e-cgu.1.rcgu.ll",
+   "out/919373f5688bad43-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.eee40e5475dcde2e-cgu.0.rcgu.no-opt.bc",
+   "out/919373f5688bad43-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.eee40e5475dcde2e-cgu.1.rcgu.no-opt.bc",
+   "out/cbf9c2302aa8b124-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.eee40e5475dcde2e-cgu.0.rcgu.o",
+   "out/cbf9c2302aa8b124-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.eee40e5475dcde2e-cgu.0.rcgu.s",
+   "out/cbf9c2302aa8b124-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.eee40e5475dcde2e-cgu.1.rcgu.o",
+   "out/cbf9c2302aa8b124-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.eee40e5475dcde2e-cgu.1.rcgu.s"
+  ]
+ }
+}
