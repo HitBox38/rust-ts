@@ -387,6 +387,36 @@ export abstract class BasicBlockBase extends Value {
   abstract get parent(): Function | undefined;
 }
 
+/** `InlineAsm` (InlineAsm.cpp; lane llir-folder): a value of type `ptr`, uniqued per context by its key (`InlineAsmKeyType`). */
+export class InlineAsm extends Value {
+  // llvm: llvm/lib/IR/InlineAsm.cpp:30 InlineAsm::InlineAsm
+  constructor(
+    readonly fnType: FunctionType,
+    /** `bstr`. */
+    readonly asmString: string,
+    /** `bstr`. */
+    readonly constraints: string,
+    readonly hasSideEffects: boolean,
+    readonly isAlignStack: boolean,
+    readonly dialect: "AD_ATT" | "AD_Intel",
+    readonly canThrow: boolean,
+  ) {
+    // `Value(PointerType::getUnqual(FTy->getContext()), Value::InlineAsmVal)`; `verify` runs only under `!NDEBUG`.
+    super(fnType.context.getPointerType(0));
+  }
+}
+
+// llvm: llvm/lib/IR/InlineAsm.cpp:43 InlineAsm::get
+export function getInlineAsm(FTy: FunctionType, AsmString: string, Constraints: string, hasSideEffects: boolean, isAlignStack: boolean, asmDialect: "AD_ATT" | "AD_Intel", canThrow: boolean): InlineAsm {
+  // `InlineAsmKeyType(AsmString, Constraints, FTy, hasSideEffects, isAlignStack, asmDialect, canThrow)`, looked up in the
+  // context's `InlineAsms`.
+  const key = `asm:${FTy.id}:${hasSideEffects}:${isAlignStack}:${asmDialect}:${canThrow}:${AsmString.length}:${AsmString}\0${Constraints}`;
+  const ctx = FTy.context;
+  let ia = ctx.inlineAsms.get(key);
+  if (ia === undefined) ctx.inlineAsms.set(key, (ia = new InlineAsm(FTy, AsmString, Constraints, hasSideEffects, isAlignStack, asmDialect, canThrow)));
+  return ia;
+}
+
 export class Argument extends Value {
   constructor(
     type: Type,
@@ -883,7 +913,8 @@ export function getConstantVector(v: readonly Constant[]): Constant {
   }
   // Otherwise, the element type isn't compatible with ConstantDataVector, or the operand list contains a ConstantExpr or
   // something else strange: `VectorConstants.getOrCreate`.
-  return unported("llir: ConstantVector::get of other elements (a ConstantVector)");
+  // (lane llir-folder: `<i32 5, i32 undef>` from a folded insertelement.)
+  return intern(t.context, aggregateKey("ConstantVector", t, v), () => new ConstantVector(t, v));
 }
 
 // llvm: llvm/lib/IR/Constants.cpp:1499 ConstantStruct::get
@@ -1574,6 +1605,71 @@ export class Attribute {
   }
 }
 
+/** `Attribute::AttrKind`'s value for each C++ kind the model creates (`Attribute.key` of a non-string attribute; lane
+ *  llir-folder). The enum is generated from Attributes.td, enum attributes first, then type, int and constant-range attributes,
+ *  each class in its own order, which is what makes `range` and `memory` sort after `noundef`. The values are data from the
+ *  oracle: read out of the toolchain's own libLLVM.dylib with `LLVMGetEnumAttributeKindForName`, which folder.oracle.test.ts
+ *  repeats and compares. Only the order matters to the model (`attributeLess`). */
+export const ATTR_KIND_ENUM: Readonly<Record<string, number>> = {
+  AllocAlign: 1, AllocatedPointer: 2, AlwaysInline: 3, Cold: 5, Convergent: 6, DeadOnUnwind: 9, FnRetThunkExtern: 12, InReg: 16,
+  InlineHint: 17, MinSize: 19, Naked: 21, NoAlias: 23, NoCfCheck: 26, NoFree: 31, NoInline: 34, NoRedZone: 39, NoReturn: 40,
+  NoUndef: 44, NoUnwind: 45, NonLazyBind: 46, NonNull: 47, OptimizeForSize: 51, OptimizeNone: 52, ReadNone: 54, ReadOnly: 55,
+  SExt: 58, SafeStack: 59, SanitizeAddress: 60, SanitizeHWAddress: 62, SanitizeMemTag: 63, SanitizeMemory: 64,
+  SanitizeRealtime: 66, SanitizeRealtimeBlocking: 67, SanitizeThread: 68, ShadowCallStack: 70, StackProtect: 74,
+  StackProtectReq: 75, StackProtectStrong: 76, WillReturn: 81, Writable: 82, ZExt: 84,
+  // Type attributes.
+  ByRef: 85, ByVal: 86, ElementType: 87, StructRet: 90,
+  // Int attributes.
+  Alignment: 91, AllocKind: 92, AllocSize: 93, Captures: 94, DeadOnReturn: 95, Dereferenceable: 97, DereferenceableOrNull: 98,
+  Memory: 99, UWTable: 102,
+  // Constant-range attributes.
+  Range: 104,
+};
+
+function attrKindEnum(a: Attribute): number {
+  return ATTR_KIND_ENUM[a.key] ?? unported(`llir: the Attribute::AttrKind value of ${a.key} (not in ATTR_KIND_ENUM)`);
+}
+
+// llvm: llvm/lib/IR/Attributes.cpp:2151 operator()
+/** `AttributeComparator` (Attributes.cpp:2150), the order of an `AttrBuilder`'s and so of an `AttributeSetNode`'s attributes:
+ *  enum kinds by their `AttrKind` value, then string attributes by key (`StringRef::operator<`, bytewise: the keys are byte
+ *  strings). A set holds one attribute per kind or key, so `AttributeImpl::cmp`'s value comparison never decides. */
+export function attributeLess(A0: Attribute, A1: Attribute): boolean {
+  const A0IsString = A0.isString;
+  const A1IsString = A1.isString;
+  if (A0IsString) {
+    if (A1IsString) return A0.key < A1.key;
+    return false;
+  }
+  if (A1IsString) return true;
+  return attrKindEnum(A0) < attrKindEnum(A1);
+}
+
+/** `AttributeList::addAttributesAtIndex(C, Index, B)` (Attributes.cpp) over the model's `index -> slot -> attribute` list: an
+ *  `AttrBuilder` over the index's set, each new attribute added with `AttrBuilder::addAttribute` (Attributes.cpp:2186), which
+ *  replaces one of the same kind or key and keeps the set sorted (`addAttributeImpl`'s `lower_bound`, :2177); the result is the
+ *  sorted `AttributeSetNode` (:1326) the printer walks in order. Used by `LLVMRustAddFunctionAttributes`,
+ *  `LLVMRustAddCallSiteAttributes` and `setDestAlignment`/`setSourceAlignment` (lane llir-folder). */
+export function addAttributesAtIndex(list: Map<number, Map<string, Attribute>>, index: number, attrs: readonly Attribute[]): void {
+  const merged = [...(list.get(index)?.values() ?? [])];
+  for (const a of attrs) {
+    // `lower_bound(Attrs, Kind, AttributeComparator())`, then swap with an attribute of the same kind or key, or insert.
+    let lo = 0;
+    let hi = merged.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1;
+      if (attributeLess(merged[mid]!, a)) lo = mid + 1;
+      else hi = mid;
+    }
+    if (lo < merged.length && merged[lo]!.slot === a.slot) merged[lo] = a;
+    else merged.splice(lo, 0, a);
+  }
+  if (merged.length === 0) return;
+  const set = new Map<string, Attribute>();
+  for (const a of merged) set.set(a.slot, a);
+  list.set(index, set);
+}
+
 // ---- modules and contexts ----------------------------------------------------------------------------------------------
 
 /** `Module::ModFlagBehavior` (Module.h; ffi.rs's `ModuleFlagMergeBehavior` mirrors its values). */
@@ -1673,6 +1769,60 @@ export class Module {
     this.addModuleFlag(MOD_FLAG_BEHAVIOR.Error, "Large Data Threshold", this.context.constantAsMetadata(getConstantInt(this.context.getIntType(64), threshold)));
   }
 
+  // llvm: llvm/lib/IR/DataLayout.cpp:746 DataLayout::getPointerSpec
+  /** The `BitWidth` of address space `AddrSpace`'s pointer spec (lane llir-folder): the spec of that address space, else address
+   *  space 0's; `DataLayout::DataLayout()` makes address space 0's 64 bits wide (DataLayout.cpp:193). */
+  pointerSpecBitWidth(AddrSpace: number): number {
+    // PORT: the model does not parse data layouts (`layoutAddressSpace`). This reads only the plain pointer specs
+    // `p[<n>]:<size>:<abi>[...]` (`parsePointerSpec`, DataLayout.cpp:436); a pointer spec with flags or an address-space name
+    // stops rather than guess.
+    const specs = new Map<number, number>();
+    for (const s of this.dataLayout.split("-")) {
+      if (!s.startsWith("p")) continue;
+      const m = /^p(\d*):(\d+):/.exec(s);
+      if (m === null) return unported(`llir: data layout pointer spec ${JSON.stringify(s)} (DataLayout parsing)`);
+      specs.set(m[1] === "" ? 0 : Number(m[1]), Number(m[2]));
+    }
+    if (AddrSpace !== 0 && specs.has(AddrSpace)) return specs.get(AddrSpace)!;
+    return specs.get(0) ?? 64;
+  }
+
+  /** The data layout's `F<type><abi>` spec (`parseSpecification`, DataLayout.cpp:603; lane llir-folder): `getFunctionPtrAlign()`
+   *  in bytes (undefined when the layout has none) and `getFunctionPtrAlignType()` (Independent by default). */
+  functionPtrAlign(): { align: number | undefined; type: "Independent" | "MultipleOfFunctionAlign" } {
+    let r: { align: number | undefined; type: "Independent" | "MultipleOfFunctionAlign" } = { align: undefined, type: "Independent" };
+    for (const s of this.dataLayout.split("-")) {
+      if (!s.startsWith("F")) continue;
+      const m = /^F([in])(\d+)$/.exec(s);
+      if (m === null) return unported(`llir: data layout function pointer spec ${JSON.stringify(s)} (DataLayout parsing)`);
+      // `parseAlignment(Rest, Alignment, "ABI")`: bits, a power of two times 8.
+      r = { align: Number(m[2]) / 8, type: m[1] === "i" ? "Independent" : "MultipleOfFunctionAlign" };
+    }
+    return r;
+  }
+
+  // llvm: llvm/lib/IR/DataLayout.cpp:780 DataLayout::getIntegerAlignment
+  /** The ABI alignment in bytes of an integer of `BitWidth` bits (lane llir-folder): the first int spec at least that wide, else
+   *  the widest. The specs are `DefaultIntSpecs` (DataLayout.cpp:180: i8:8, i16:16, i32:32, i64:32:64) with the layout's
+   *  `i<size>:<abi>[:<pref>]` specs set over them (`setPrimitiveSpec` keeps them sorted by width). */
+  integerABIAlignment(BitWidth: number): number {
+    const specs = new Map<number, number>([
+      [8, 1],
+      [16, 2],
+      [32, 4],
+      [64, 4],
+    ]);
+    for (const s of this.dataLayout.split("-")) {
+      if (!s.startsWith("i")) continue;
+      const m = /^i(\d+):(\d+)(:\d+)?$/.exec(s);
+      if (m === null) return unported(`llir: data layout integer spec ${JSON.stringify(s)} (DataLayout parsing)`);
+      specs.set(Number(m[1]), Number(m[2]) / 8);
+    }
+    const sorted = [...specs.entries()].sort((a, b) => a[0] - b[0]);
+    const I = sorted.find(([w]) => w >= BitWidth) ?? sorted[sorted.length - 1]!;
+    return I[1];
+  }
+
   /** The default address spaces of the data layout (`DataLayout::getProgramAddressSpace`, `getDefaultGlobalsAddressSpace`). */
   layoutAddressSpace(component: "P" | "G"): number {
     // PORT: the model does not parse data layouts. Both default to 0, and no layout the D3 targets use names `P` or `G`;
@@ -1684,6 +1834,8 @@ export class Module {
 
 export class Context {
   discardValueNames = false;
+  /** `LLVMContextImpl::InlineAsms` (lane llir-folder). */
+  readonly inlineAsms = new Map<string, InlineAsm>();
   readonly types = new Map<string, Type>();
   readonly namedStructTypes = new Map<string, StructType>();
   namedStructTypesUniqueID = 0;

@@ -326,15 +326,11 @@ function port_sigs(text: string): Map<string, string> {
 
 // ---- 1. fn signatures ----
 describe("FnAbiLlvmExt: fn signatures against the oracle (sigs.rs, x86_64-unknown-linux-gnu)", () => {
-  // At -O1, `apply_range_attr` reaches the IR model's `LLVMRustCreateRangeAttribute` stop for a scalar with a valid range
-  // (`char`; the slice length's computed range).
-  // (`char`; the slice length's computed range); and an `Indirect` argument's `dead_on_return` reaches the model's
-  // `LLVMRustCreateAttrNoValue(DeadOnReturn)` stop.
-  const STOPS_O1: Record<string, string> = {
-    r_char: "llir: LLVMRustCreateRangeAttribute",
-    r_slice: "llir: LLVMRustCreateRangeAttribute",
-    r_big: "llir: LLVMRustCreateAttrNoValue(DeadOnReturn) (DeadOnReturnInfo printing)",
-  };
+  // At -O1, `apply_range_attr` reaches the IR model's `LLVMRustCreateRangeAttribute` for a scalar with a valid range (`char`;
+  // the slice length's computed range), and an `Indirect` argument's `dead_on_return` reaches
+  // `LLVMRustCreateAttrNoValue(DeadOnReturn)`. Both were model stops until lane llir-folder, which emptied this table and
+  // raised the -O1 count from 23 to 26 (r_char, r_slice and r_big are now compared).
+  const STOPS_O1: Record<string, string> = {};
   for (const opt of ["0", "1"]) {
     test(`-Copt-level=${opt}`, () => {
       const flags = [`-Copt-level=${opt}`];
@@ -356,7 +352,7 @@ describe("FnAbiLlvmExt: fn signatures against the oracle (sigs.rs, x86_64-unknow
       expect(stops).toEqual(opt === "0" ? {} : STOPS_O1);
       const ours = port_sigs(text);
       const names = [...oracle.keys()].filter((n) => /^(c|r|cc)_/.test(n) && stops[n] === undefined);
-      expect(names.length).toBe(opt === "0" ? 26 : 23);
+      expect(names.length).toBe(26);
       for (const n of names) expect(`${n}: ${ours.get(n)}`).toBe(`${n}: ${oracle.get(n)}`);
     }, 120_000);
   }
@@ -364,7 +360,9 @@ describe("FnAbiLlvmExt: fn signatures against the oracle (sigs.rs, x86_64-unknow
 
 // ---- 2. call sites ----
 describe("FnAbiLlvmExt::apply_attrs_callsite against the oracle's call lines (sigs.rs `call_*`)", () => {
-  test("-Copt-level=0: the attributes, then the IR model's LLVMRustGetElementTypeArgIndex stop", () => {
+  // `apply_attrs_callsite` ran into the IR model's `LLVMRustGetElementTypeArgIndex` stop after the attributes until lane
+  // llir-folder implemented it; now no call stops.
+  test("-Copt-level=0: the attributes", () => {
     const flags = ["-Copt-level=0"];
     const ir = oracle_ir("sigs.rs", flags);
     const callees = ["c_sret", "c_byval", "c_u8", "c_i16", "r_big", "c_intfloat", "cc_win64"];
@@ -398,7 +396,8 @@ describe("FnAbiLlvmExt::apply_attrs_callsite against the oracle's call lines (si
       }
       return printModule(cx.llmod());
     });
-    expect(stops).toEqual(callees.map(() => "llir: LLVMRustGetElementTypeArgIndex"));
+    // llir-folder made `LLVMRustGetElementTypeArgIndex` real: no call site stops (root at integ-w55).
+    expect(stops).toEqual([]);
     const port_groups = attr_groups(text);
     for (const line of text.split("\n")) {
       const m = /call .*?@([\w.$]+)\(/.exec(line);

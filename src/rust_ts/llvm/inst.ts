@@ -12,13 +12,15 @@
 //   atomicrmw: [ptr, v]   cmpxchg: [ptr, cmp, new]   cleanuppad/catchpad: [parent, args...]   catchswitch: [parent, handlers...]
 //   (unwind in `unwindDest`)   cleanupret: [pad] or [pad, unwind]   catchret: [pad, dest]
 //
-// Alignment: an `align` left undefined is the data layout's default, which the model does not compute. The printer leaves it
-// out, and the parser supplies the same default (LLParser.cpp's parseAlloc/parseLoad/parseStore/parseCmpXchg/parseAtomicRMW
-// use the preferred, ABI and store-size alignments that IRBuilder's `CreateAlloca`/`CreateLoad`/`CreateStore`/
-// `CreateAtomicCmpXchg`/`CreateAtomicRMW` use), so the normal form is the same (plan-m7 §1b, default alignments).
+// Alignment: an `align` left undefined is the data layout's default, which the model does not compute for alloca, load and store.
+// The printer leaves it out, and the parser supplies the same default (LLParser.cpp's parseAlloc/parseLoad/parseStore use the
+// preferred and ABI alignments that IRBuilder's `CreateAlloca`/`CreateLoad`/`CreateStore` use), so the normal form is the same
+// (plan-m7 §1b, default alignments). `CreateAtomicCmpXchg`/`CreateAtomicRMW` do compute theirs, the operand's store size (lane
+// llir-folder, review cg-builder N1), as the oracle's text shows `, align N` on every atomic.
 import { unported } from "../../std/panic.ts";
-import { type BinaryOps, getAllOnesValue, getPredicateName, foldBinOp, foldCast, foldCmp, foldExtractValue, foldGEP, foldInsertValue, foldSelect, foldUnOp, foldVectorOp, isFPPredicate } from "./fold.ts";
+import { type BinaryOps, getAllOnesValue, getPredicateName, foldBinOp, foldCast, foldCmp, foldExtractElement, foldExtractValue, foldInsertElement, foldShuffleVector, foldGEP, foldInsertValue, foldSelect, foldUnOp, isFPPredicate } from "./fold.ts";
 import {
+  addAttributesAtIndex,
   type Attribute,
   BasicBlockBase,
   type CastOpcode,
@@ -46,7 +48,7 @@ import {
   type Value,
   VectorType,
 } from "./ir.ts";
-import { type Printer, printLLVMNameWithoutPrefix, printEscapedString, setBodyPrinter, typeFinderHooks } from "./printer.ts";
+import { type Printer, printCallingConv, printLLVMNameWithoutPrefix, printEscapedString, setBodyPrinter, typeFinderHooks } from "./printer.ts";
 
 // ---- basic blocks ------------------------------------------------------------------------------------------------------
 
@@ -438,17 +440,26 @@ export class IRBuilder {
 
   // llvm: llvm/include/llvm/IR/IRBuilder.h:1981 CreateAtomicRMW
   createAtomicRMW(op: string, ptr: Value, val: Value, ordering: Ordering, singleThread: boolean): Inst {
+    // `if (!Align) Align = llvm::Align(DL.getTypeStoreSize(Val->getType()))`, with `DL` the block's (lane llir-folder): the C
+    // API passes `MaybeAlign()` (Core.cpp:4530).
+    const align = defaultAtomicAlign(this.block, val.type);
     const r = new Inst("atomicrmw", val.type, [ptr, val]);
+    r.align = align;
     r.rmwOp = op;
     r.ordering = ordering;
     r.singleThread = singleThread;
     return this.insert(r, "");
   }
 
-  /** `CreateAtomicCmpXchg` (IRBuilder.h): the result is `{ <type of New>, i1 }`. */
+  // llvm: llvm/include/llvm/IR/IRBuilder.h:1968 CreateAtomicCmpXchg
+  /** The result is `{ <type of New>, i1 }`. */
   createAtomicCmpXchg(ptr: Value, cmp: Value, nv: Value, success: Ordering, failure: Ordering, singleThread: boolean): Inst {
+    // `if (!Align) Align = llvm::Align(DL.getTypeStoreSize(New->getType()))` (lane llir-folder; Core.cpp:4552 passes
+    // `MaybeAlign()`).
+    const align = defaultAtomicAlign(this.block, nv.type);
     const ty = this.context.getLiteralStructType([cmp.type, this.context.getIntType(1)], false);
     const c = new Inst("cmpxchg", ty, [ptr, cmp, nv]);
+    c.align = align;
     c.ordering = success;
     c.failureOrdering = failure;
     c.singleThread = singleThread;
@@ -459,9 +470,7 @@ export class IRBuilder {
   createGEP(ty: Type, ptr: Value, idxList: readonly Value[], name: string, nw: number): Value {
     const v = foldGEP(ty, ptr, idxList, nw);
     if (v !== undefined) return v;
-    // `GetElementPtrInst::getGEPReturnType`: the pointer's type, or a vector of it when an index is a vector.
-    if (ptr.type.isVectorTy() || idxList.some((i) => i.type.isVectorTy())) return unported("llir: a vector GEP instruction");
-    const g = new Inst("getelementptr", ptr.type, [ptr, ...idxList]);
+    const g = new Inst("getelementptr", getGEPReturnType(ptr, idxList), [ptr, ...idxList]);
     g.srcElementType = ty;
     g.gepFlags = nw;
     return this.insert(g, name);
@@ -547,14 +556,14 @@ export class IRBuilder {
 
   // llvm: llvm/include/llvm/IR/IRBuilder.h:2650 CreateExtractElement
   createExtractElement(vec: Value, idx: Value, name: string): Value {
-    const v = foldVectorOp([vec, idx], "extractelement");
+    const v = foldExtractElement(vec, idx);
     if (v !== undefined) return v;
     return this.insert(new Inst("extractelement", (vec.type as VectorType).elementType, [vec, idx]), name);
   }
 
   // llvm: llvm/include/llvm/IR/IRBuilder.h:2672 CreateInsertElement
   createInsertElement(vec: Value, elt: Value, idx: Value, name: string): Value {
-    const v = foldVectorOp([vec, elt, idx], "insertelement");
+    const v = foldInsertElement(vec, elt, idx);
     if (v !== undefined) return v;
     return this.insert(new Inst("insertelement", vec.type, [vec, elt, idx]), name);
   }
@@ -562,7 +571,7 @@ export class IRBuilder {
   // llvm: llvm/include/llvm/IR/IRBuilder.h:2684 CreateShuffleVector
   createShuffleVector(v1: Value, v2: Value, maskV: Value, name: string): Value {
     const mask = getShuffleMask(maskV as Constant);
-    const v = foldVectorOp([v1, v2], "shufflevector");
+    const v = foldShuffleVector(v1, v2, mask);
     if (v !== undefined) return v;
     const vt = v1.type as VectorType;
     const s = new Inst("shufflevector", this.context.getVectorType(vt.elementType, mask.length, vt.scalable), [v1, v2]);
@@ -642,11 +651,27 @@ export class IRBuilder {
   }
 }
 
+// llvm: llvm/include/llvm/IR/Instructions.h:1135 getGEPReturnType
+/** `GetElementPtrInst::getGEPReturnType` (lane llir-folder): the pointer's type, or a vector of it when an index is a vector. */
+function getGEPReturnType(Ptr: Value, IdxList: readonly Value[]): Type {
+  // Vector GEP
+  const Ty = Ptr.type;
+  if (Ty.isVectorTy()) return Ty;
+  for (const Index of IdxList) if (Index.type instanceof VectorType) return Ty.context.getVectorType(Ty, Index.type.numElements, Index.type.scalable);
+  // Scalar GEP
+  return Ty;
+}
+
+// llvm: llvm/include/llvm/IR/InstrTypes.h:1049 makeCmpResultType
+/** `CmpInst::makeCmpResultType` (lane llir-folder): i1, or a vector of i1 of the operand's element count. */
+function makeCmpResultType(opnd_type: Type): Type {
+  if (opnd_type instanceof VectorType) return opnd_type.context.getVectorType(opnd_type.context.getIntType(1), opnd_type.numElements, opnd_type.scalable);
+  return opnd_type.context.getIntType(1);
+}
+
 function cmpInst(opcode: "icmp" | "fcmp", p: number, lhs: Value, rhs: Value): Inst {
   if ((opcode === "fcmp") !== isFPPredicate(p)) throw new Error(`llvm: Invalid ${opcode} predicate ${p}`);
-  // `CmpInst::makeCmpResultType`: i1, or a vector of i1.
-  if (lhs.type.isVectorTy()) return unported("llir: a vector comparison instruction");
-  const c = new Inst(opcode, lhs.type.context.getIntType(1), [lhs, rhs]);
+  const c = new Inst(opcode, makeCmpResultType(lhs.type), [lhs, rhs]);
   c.predicate = p;
   return c;
 }
@@ -655,6 +680,29 @@ function setCallBase(c: Inst, fty: FunctionType, numArgs: number, bundles: reado
   c.fnType = fty;
   c.numArgs = numArgs;
   c.bundles = bundles.map((b) => ({ tag: b.tag, count: b.inputs.length }));
+}
+
+/** `DataLayout::getTypeStoreSize(Ty)` (DataLayout.h: `getTypeSizeInBits` rounded up to whole bytes) for the types an atomic
+ *  operand can have in rustc's IR: integers, pointers (the data layout's pointer spec) and the IEEE floating-point types
+ *  (lane llir-folder). Other types stop. */
+function getTypeStoreSize(m: Module, ty: Type): number {
+  let bits: number;
+  if (ty instanceof IntegerType) bits = ty.bits;
+  else if (ty instanceof PointerType) bits = m.pointerSpecBitWidth(ty.addressSpace);
+  else if (ty.typeID === "Half" || ty.typeID === "BFloat" || ty.typeID === "Float" || ty.typeID === "Double" || ty.typeID === "FP128") bits = ty.fpBits();
+  else return unported(`llir: DataLayout::getTypeStoreSize of ${ty.typeID} (not modelled)`);
+  return Math.ceil(bits / 8);
+}
+
+/** The alignment `CreateAtomicRMW` / `CreateAtomicCmpXchg` give an atomic built without one: `llvm::Align(DL.getTypeStoreSize(Ty))`,
+ *  `DL` being `BB->getDataLayout()`, the insertion block's module's. `Align`'s constructor asserts a power of two (an assertion,
+ *  off in the oracle's build); the model stops on another size rather than print it. */
+function defaultAtomicAlign(bb: BasicBlock | undefined, ty: Type): number {
+  const m = bb?.parentFn?.parent;
+  if (m === undefined) return unported("llir: an atomic built with no insertion block in a module (BB->getDataLayout())");
+  const size = getTypeStoreSize(m, ty);
+  if (size === 0 || (size & (size - 1)) !== 0) return unported(`llir: llvm::Align(${size}) of an atomic operand (not a power of two)`);
+  return size;
 }
 
 /** `Type::getScalarSizeInBits` (`getPrimitiveSizeInBits` of the scalar type: 0 for a pointer). */
@@ -667,10 +715,7 @@ function scalarSizeInBits(t: Type): number {
 
 /** `CallBase::addParamAttr(ArgNo, Attribute::getWithAlignment(Align))` (`setDestAlignment`, IntrinsicInst.h). */
 function setParamAlign(c: Inst, argNo: number, bytes: number): void {
-  const a = alignAttr(c.context, bytes);
-  let set = c.attributes.get(argNo + 1);
-  if (set === undefined) c.attributes.set(argNo + 1, (set = new Map()));
-  set.set(a.slot, a);
+  addAttributesAtIndex(c.attributes, argNo + 1, [alignAttr(c.context, bytes)]);
 }
 
 /** The `align` attribute (LLVMRustCreateAlignmentAttr's, uniqued by the same key; core.ts). */
@@ -750,8 +795,8 @@ function writeAtomic(ordering: Ordering, singleThread: boolean): string {
   return `${singleThread ? ' syncscope("singlethread")' : ""} ${ORDERING_IR[ordering]}`;
 }
 
-/** `printCallingConv` of a non-C convention: `cc N` (llir-core-a PORT decision 4). */
-const callingConv = (cc: number): string => (cc !== 0 ? ` cc ${cc}` : "");
+/** "Print the calling convention being used": a space and `printCallingConv` (printer.ts) of a non-C convention. */
+const callingConv = (cc: number): string => (cc !== 0 ? ` ${printCallingConv(cc)}` : "");
 
 // llvm: llvm/lib/IR/AsmWriter.cpp:4437 AssemblyWriter::printInstruction
 function printInstruction(I: Inst, p: Printer): string {

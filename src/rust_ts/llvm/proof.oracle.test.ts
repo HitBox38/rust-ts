@@ -30,11 +30,18 @@ const HAVE = SYSROOT !== "" && process.platform === "darwin" && process.arch ===
 if (!HAVE && !REQUIRE) console.log("SKIP: the pinned toolchain on aarch64 macOS is unavailable; RUST_TS_REQUIRE_PROBES=1 makes this a failure");
 
 const PROOF = join(import.meta.dir, "proof");
+/** Raw-text checks (lane llir-folder) for what the N1 normal form cannot see, since the parser restores it: the default alignment
+ *  of `atomicrmw`/`cmpxchg`, attributes in LLVM's sorted order, calling conventions by name. Every oracle line matching the
+ *  case's `raw` must be a line of the model's printed module, attribute group numbers and `!guid` (which `assign-guid` adds in
+ *  the oracle) aside. */
+const RAW_ATOMIC = /^ {2}(%\S+ = )?(atomicrmw|cmpxchg) /;
+const RAW_SIGNATURES = /^define |^ {2}(%\S+ = )?(tail )?call /;
+const rawLine = (l: string): string => l.replace(/ #\d+/g, " #N").replace(/ !guid !\d+/, "");
 /** Case -> extra rustc arguments, and the hidden wrappers whose effects its replay must attribute (besides the common ones). */
 const BODY = ["--target", "x86_64-unknown-linux-gnu", "-Coverflow-checks=off"];
 /** Every function definition's attributes and its `uwtable`. */
 const DEFN = ["LLVMRustAddFunctionAttributes", "LLVMRustCreateAttrNoValue", "LLVMRustCreateUWTableAttr"];
-const CASES: Record<string, { args: string[]; wrappers: string[] }> = {
+const CASES: Record<string, { args: string[]; wrappers: string[]; raw?: RegExp }> = {
   statics: { args: ["--target", "x86_64-unknown-linux-gnu"], wrappers: ["LLVMRustGetOrInsertGlobal"] },
   decls: { args: ["--target", "x86_64-unknown-linux-gnu"], wrappers: ["LLVMRustGetOrInsertGlobal", "LLVMRustAddFunctionAttributes", "LLVMRustCreateAttrNoValue", "LLVMRustCreateUWTableAttr"] },
   host: { args: [], wrappers: ["LLVMRustGetOrInsertGlobal", "LLVMRustAddFunctionAttributes", "LLVMRustCreateAttrNoValue", "LLVMRustCreateUWTableAttr"] },
@@ -47,7 +54,7 @@ const CASES: Record<string, { args: string[]; wrappers: string[] }> = {
   phi: { args: BODY, wrappers: [...DEFN, "LLVMRustCreateAlignmentAttr", "LLVMRustCreateStructRetAttr"] },
   switch: { args: BODY, wrappers: [...DEFN, "LLVMRustPositionBuilderAtStart"] },
   invoke: { args: BODY, wrappers: [...DEFN, "LLVMRustCreateAlignmentAttr", "LLVMRustAddCallSiteAttributes", "LLVMRustPositionBuilderAtStart"] },
-  atomic: { args: BODY, wrappers: DEFN },
+  atomic: { args: BODY, wrappers: DEFN, raw: RAW_ATOMIC },
   memcpy: { args: BODY, wrappers: [...DEFN, "LLVMRustCreateAlignmentAttr", "LLVMRustCreateStructRetAttr", "LLVMRustBuildMemCpy"] },
   // llir-apfloat: floating-point constant folds at opt-level 0.
   fpconst: { args: BODY, wrappers: [...DEFN, "LLVMRustCreateAlignmentAttr", "LLVMRustCreateStructRetAttr"] },
@@ -55,6 +62,14 @@ const CASES: Record<string, { args: string[]; wrappers: string[] }> = {
     args: BODY,
     wrappers: [...DEFN, "LLVMRustCreateAlignmentAttr", "LLVMRustCreateStructRetAttr", "LLVMRustCreateByValAttr", "LLVMRustPositionBuilderAtStart", "LLVMRustBuildMemSet", "LLVMRustBuildMemCpy"],
   },
+  // llir-folder: `range(..)`, `dead_on_return` and `captures(..)` at -Copt-level=1, on definitions and call sites (with the
+  // recorder's view of LLVMCreateConstantRangeAttribute), and non-C calling conventions on definitions and calls.
+  attrs: {
+    args: [...BODY, "-Copt-level=1"],
+    wrappers: [...DEFN, "LLVMRustCreateAlignmentAttr", "LLVMRustCreateDereferenceableAttr", "LLVMRustCreateRangeAttribute", "LLVMRustAddCallSiteAttributes"],
+    raw: RAW_SIGNATURES,
+  },
+  callconv: { args: BODY, wrappers: [...DEFN, "LLVMRustAddCallSiteAttributes"], raw: RAW_SIGNATURES },
 };
 /** Every compile's module setup: triple, PIC level (every case is PIC or PIE), and `add_module_flag_u32`'s flags. */
 const COMMON_WRAPPERS = ["LLVMRustSetNormalizedTarget", "LLVMRustSetModulePICLevel", "LLVMRustAddModuleFlagU32"];
@@ -101,8 +116,16 @@ describe.skipIf(!HAVE && !REQUIRE)("IR model proof against the oracle's IR", () 
       expect([...r.inferredBy.keys()].sort()).toEqual([...new Set([...COMMON_WRAPPERS, ...wrappers])].sort());
       const bin = llvmBinDir(SYSROOT, "aarch64-apple-darwin");
       const want = await normalForm(new Uint8Array(oracle), "N1", bin);
-      const got = await normalForm(new Uint8Array(Buffer.from(printModule(r.modules[0]!), "latin1")), "N1", bin);
+      const text = printModule(r.modules[0]!);
+      const got = await normalForm(new Uint8Array(Buffer.from(text, "latin1")), "N1", bin);
       expect(got).toEqual(want);
+      const raw = CASES[name]!.raw;
+      if (raw !== undefined) {
+        const ours = new Set(text.split("\n").map(rawLine));
+        const lines = oracle.toString("latin1").split("\n").filter((l) => raw.test(l)).map(rawLine);
+        expect(lines.length).toBeGreaterThan(0);
+        expect(lines.filter((l) => !ours.has(l))).toEqual([]);
+      }
     });
   }
 });

@@ -6,6 +6,7 @@
 import { writeFileSync } from "node:fs";
 import { unported } from "../../std/panic.ts";
 import {
+  type AsmDialect,
   AttributeKind,
   type CodeModel,
   CallConv_discriminant,
@@ -26,6 +27,8 @@ import {
 import {
   Argument,
   ArrayType,
+  addAttributesAtIndex,
+  ATTR_KIND_ENUM,
   Attribute,
   bstrOfBytes,
   bstrOfString,
@@ -46,6 +49,7 @@ import {
   getConstantIntU64,
   getConstantStruct,
   getGetElementPtr,
+  getInlineAsm,
   getIntToPtr,
   getNullValue,
   getPointerCast,
@@ -464,10 +468,18 @@ export function LLVMGlobalAddMetadata(Val: Value, KindID: MetadataKindId, Metada
   asGlobalObject(Val).addMetadata(KindID, Metadata as MDNode);
 }
 
+// llvm: llvm/lib/IR/Core.cpp:529 LLVMGetInlineAsm
+export function LLVMGetInlineAsm(Ty: Type, AsmString: PtrLenStr | undefined, AsmStringSize: number, Constraints: PtrLenStr | undefined, ConstraintsSize: number, HasSideEffects: Bool, IsAlignStack: Bool, Dialect: AsmDialect, CanThrow: Bool): Value {
+  // `LLVMInlineAsmDialectATT` -> `AD_ATT`, `LLVMInlineAsmDialectIntel` -> `AD_Intel` (ffi.rs's `AsmDialect` mirrors the C enum).
+  const AD = Dialect === "Att" ? "AD_ATT" : "AD_Intel";
+  if (!(Ty instanceof FunctionType)) throw new Error("llvm: unwrap<FunctionType> of a type that is not a function type");
+  return getInlineAsm(Ty, bytesArg(AsmString, AsmStringSize), bytesArg(Constraints, ConstraintsSize), HasSideEffects.value !== 0, IsAlignStack.value !== 0, AD, CanThrow.value !== 0);
+}
+
 // rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:1171 LLVMRustWriteValueToString
 export function LLVMRustWriteValueToString(value_ref: Value, s: RustString): void {
-  // `(<type>:<value>)`. This reaches rustc's `Debug` for `Value`. Known differences from LLVM's text: a floating-point
-  // constant prints in hex and a non-C calling convention as `cc N` (printer.ts header, trace.ts `builtAnswer`).
+  // `(<type>:<value>)`. This reaches rustc's `Debug` for `Value`. Floating-point constants print as AsmWriter's
+  // `writeAPFloatInternal` (lane llir-apfloat) and calling conventions by name (`printCallingConv`, lane llir-folder).
   const text = `(${printTypeToString(value_ref.type)}:${printValueToString(value_ref)})`;
   for (const c of text) s.bytes.push(c.charCodeAt(0));
 }
@@ -944,11 +956,23 @@ export function LLVMRustCreateAttrNoValue(C: Context, RustAttr: AttributeKind): 
   if (RustAttr === "CapturesNone") return C.getAttribute("captures:none", () => new Attribute("Captures", () => "captures(none)", false));
   if (RustAttr === "CapturesAddress") return C.getAttribute("captures:address", () => new Attribute("Captures", () => "captures(address)", false));
   if (RustAttr === "CapturesReadOnly") return C.getAttribute("captures:address,read_provenance", () => new Attribute("Captures", () => "captures(address, read_provenance)", false));
-  if (RustAttr === "DeadOnReturn") return unported("llir: LLVMRustCreateAttrNoValue(DeadOnReturn) (DeadOnReturnInfo printing)");
+  // `#if LLVM_VERSION_GE(23, 0)` (the model's LLVM is 23.1.3): `Attribute::getWithDeadOnReturnInfo(C, DeadOnReturnInfo())`
+  // (Attributes.cpp:291) is the int attribute `DeadOnReturn` with `DeadOnReturnInfo().toIntValue()`, `UINT64_MAX` for "all
+  // reachable memory" (Attributes.h:85); `getAsString` prints that value as the bare `dead_on_return` (Attributes.cpp:592).
+  if (RustAttr === "DeadOnReturn") return getWithDeadOnReturnInfo(C, U64_MAX);
   const kind = fromRust(RustAttr);
   // `Attribute::get(Context, Kind)` of an int attribute kind takes a value; only enum kinds are created with none.
   if (kind === "AllocSize" || kind === "UWTable") return unported(`llir: LLVMRustCreateAttrNoValue(${kind}) (an int attribute without a value)`);
   return C.getAttribute(`enum:${kind}`, () => enumAttr(kind));
+}
+
+const U64_MAX = (1n << 64n) - 1n;
+
+// llvm: llvm/lib/IR/Attributes.cpp:291 Attribute::getWithDeadOnReturnInfo
+function getWithDeadOnReturnInfo(C: Context, DI: bigint): Attribute {
+  // `get(Context, DeadOnReturn, DI.toIntValue())`; `getAsString` (Attributes.cpp:592): the maximum prints bare, any other value
+  // as `AttrWithBytesToString("dead_on_return")`.
+  return C.getAttribute(`int:DeadOnReturn:${DI}`, () => new Attribute("DeadOnReturn", (g) => (DI === U64_MAX ? "dead_on_return" : g ? `dead_on_return=${DI}` : `dead_on_return(${DI})`), false));
 }
 
 // rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:453 LLVMRustCreateAlignmentAttr
@@ -999,6 +1023,34 @@ export function LLVMRustCreateAllocSizeAttr(C: Context, ElementSizeArg: number):
   return C.getAttribute(`allocsize:${ElementSizeArg}`, () => new Attribute("AllocSize", () => `allocsize(${ElementSizeArg})`, false));
 }
 
+// rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:501 LLVMRustCreateRangeAttribute
+export function LLVMRustCreateRangeAttribute(C: Context, NumBits: number, LowerWords: readonly bigint[], UpperWords: readonly bigint[]): Attribute {
+  // "There appears to be no stable guarantee that C++ `AttrKind` values correspond directly to the `unsigned KindID` values
+  // accepted by LLVM-C API functions, though in practice they currently do."
+  return LLVMCreateConstantRangeAttribute(C, ATTR_KIND_ENUM.Range!, NumBits, LowerWords, UpperWords);
+}
+
+// llvm: llvm/lib/IR/Core.cpp:198 LLVMCreateConstantRangeAttribute
+function LLVMCreateConstantRangeAttribute(C: Context, KindID: number, NumBits: number, LowerWords: readonly bigint[], UpperWords: readonly bigint[]): Attribute {
+  if (KindID !== ATTR_KIND_ENUM.Range) return unported(`llir: LLVMCreateConstantRangeAttribute of attribute kind ${KindID} (only Range is modelled)`);
+  // `APInt(NumBits, ArrayRef(Words, NumWords))` with `NumWords = divideCeil(NumBits, 64)`: the words little-endian, the bits above
+  // `NumBits` cleared (`clearUnusedBits`).
+  const NumWords = Math.ceil(NumBits / 64);
+  const apint = (words: readonly bigint[]): bigint => {
+    let v = 0n;
+    for (let i = 0; i < NumWords; i++) v |= BigInt.asUintN(64, words[i] ?? unported("llir: LLVMCreateConstantRangeAttribute with fewer words than NumBits needs")) << BigInt(64 * i);
+    return BigInt.asUintN(NumBits, v);
+  };
+  const Lower = apint(LowerWords);
+  const Upper = apint(UpperWords);
+  // `ConstantRange(Lower, Upper)` asserts `Lower != Upper` unless both are the minimum or maximum value (ConstantRange.cpp:57):
+  // an assertion, off in the oracle's build; rustc never passes such a range (`apply_range_attr` skips a full range).
+  // `Attribute::getAsString` (Attributes.cpp:731): `range(i<bits> <lower>, <upper>)`, each bound printed signed
+  // (`operator<<(raw_ostream &, const APInt &)` is `print(OS, /*isSigned=*/true)`, APInt.h:2214), the same in a group.
+  const signed = (v: bigint): bigint => BigInt.asIntN(NumBits, v);
+  return C.getAttribute(`range:${NumBits}:${Lower}:${Upper}`, () => new Attribute("Range", () => `range(i${NumBits} ${signed(Lower)}, ${signed(Upper)})`, false));
+}
+
 // rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:558 LLVMRustCreateAllocKindAttr
 export function LLVMRustCreateAllocKindAttr(C: Context, size_arg: bigint): Attribute {
   // `allocKindFromRust` maps each Rust flag to the AllocFnKind of the same name; `getAsString` lists the set ones in order.
@@ -1021,9 +1073,7 @@ export function LLVMCreateStringAttribute(C: Context, Name: PtrLenStr | undefine
 export function LLVMRustAddFunctionAttributes(Fn: Value, index: number, Attrs: readonly Attribute[], AttrsLen: number): void {
   // `AddAttributes`: an AttrBuilder over the index's attributes; `addAttribute` replaces an attribute of the same kind.
   const f = asFunction(Fn);
-  let set = f.attributes.get(index);
-  if (set === undefined) f.attributes.set(index, (set = new Map()));
-  for (const a of Attrs.slice(0, AttrsLen)) set.set(a.slot, a);
+  addAttributesAtIndex(f.attributes, index, Attrs.slice(0, AttrsLen));
 }
 export { FUNCTION_INDEX };
 

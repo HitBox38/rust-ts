@@ -22,6 +22,8 @@
 //   `?triple %M "triple"`                   the module's target triple changed
 //   `?flag %M <behavior> "key" i <n>` / `... s "str"`   a module flag was added
 //   `?attr %A <llvm name> <int>` / `... type %T` / `?attr %A str "k" "v"`   an attribute handle no recorded call made
+//   `?attr %A range <bits> [<lower words>] [<upper words>]`   such an attribute made by LLVMCreateConstantRangeAttribute, which
+//                                           the recorder interposes on only to learn the range (lane llir-folder)
 //   `?attrs %F <index> [%A, ...]`           the attribute set of a function at an index changed: the whole set, in LLVM's order
 //   `?dsolocal %V`                          a global or function is `dso_local` where that is not implied (read from LLVM's
 //                                           printed header, once, just before `LLVMContextDispose`)
@@ -169,11 +171,18 @@ static void csync(P c, int emit, int whole){ FA* s=ca(c);
    adds, for instance). */
 static void opnd(P v){ if(v && !find(v) && LLVMIsAConstantInt(v)) fprintf(out,"#%llu",LLVMConstIntGetZExtValue(v)); else h(v); }
 /* An attribute handle no recorded call made (an LLVMRustCreate* wrapper's): described by kind and value. */
+/* The constant-range attributes LLVMCreateConstantRangeAttribute made (lane llir-folder): the C API cannot read a range back,
+   so the recorder interposes on the one libLLVM function rustc's LLVMRustCreateRangeAttribute calls (RustWrapper.cpp:501),
+   logs nothing for the call itself, and keeps each result's bit width and words for its "?attr ... range" line. */
+typedef struct { P a; unsigned bits; unsigned long long lo[2], hi[2]; } RG; static RG* rgs; static size_t nrgs, caprgs;
+static RG* rg(P a){ for(size_t i=0;i<nrgs;i++) if(rgs[i].a==a) return &rgs[i]; return 0; }
 static void attr(P a){ if(find(a)) return; long i=id(a); fprintf(out,"%ld\\t?attr %%%ld ",ptid,i);
   if(LLVMIsStringAttribute(a)){ unsigned kl=0,vl=0; const char* k=LLVMGetStringAttributeKind(a,&kl); const char* v=LLVMGetStringAttributeValue(a,&vl); fputs("str ",out); bytes((const unsigned char*)k,kl); fputc(' ',out); bytes((const unsigned char*)v,vl); }
   else { const char* n=attrname(LLVMGetEnumAttributeKind(a)); if(n) fputs(n,out); else fprintf(out,"kind%u",LLVMGetEnumAttributeKind(a));
     if(LLVMIsTypeAttribute(a)){ P t=LLVMGetTypeAttributeValue(a); fputs(" type ",out); if(find(t)) h(t); else fputs("?",out); }
-    else if(LLVMIsEnumAttribute(a)) fprintf(out," %llu",LLVMGetEnumAttributeValue(a)); }
+    else if(LLVMIsEnumAttribute(a)) fprintf(out," %llu",LLVMGetEnumAttributeValue(a));
+    else { RG* r=rg(a); if(r){ unsigned nw=(r->bits+63)/64; fprintf(out," %u [",r->bits); for(unsigned k=0;k<nw;k++) fprintf(out,"%s%llu",k?", ":"",r->lo[k]);
+      fputs("] [",out); for(unsigned k=0;k<nw;k++) fprintf(out,"%s%llu",k?", ":"",r->hi[k]); fputc(']',out); } } }
   fputc('\\n',out); }
 /* dso_local (LLVMRustSetDSOLocal) has no C API getter; LLVM's printed header shows it where it is not implied:
    "@x = [linkage ]dso_local ...", "declare dso_local ...", "define [linkage ]dso_local ...". */
@@ -304,7 +313,17 @@ static void scan(int emit, P ctx){
     c += ` fputc('\\n',out);${forgets ? " forget((P)a0);" : ""} scan(0,0); pthread_mutex_unlock(&mu); }\n  ${ret === "void" ? "" : "return r;"}\n}\n`;
     c += `__attribute__((used,section("__DATA,__interpose"))) static struct{void*a;void*b;} ip${i}={(void*)w${i},(void*)o${i}};\n`;
   });
-  const names = [...new Set([...Object.values(ATTR_NAME), "align", "dereferenceable", "dereferenceable_or_null", "uwtable", "allocsize", "allockind", "memory", "captures"])];
+  // The constant-range creator (above `attr`): interposed only to learn each range attribute's value; not a logged call.
+  if (syms.has("LLVMCreateConstantRangeAttribute")) {
+    c += `extern P LLVMCreateConstantRangeAttribute(P, unsigned, unsigned, const unsigned long long*, const unsigned long long*);
+static P wrg(P c, unsigned k, unsigned bits, const unsigned long long* lo, const unsigned long long* hi){ P r=LLVMCreateConstantRangeAttribute(c,k,bits,lo,hi);
+  pthread_mutex_lock(&mu); if(out && bits<=128 && !rg(r)){ if(nrgs==caprgs){ caprgs=caprgs?caprgs*2:64; rgs=realloc(rgs,caprgs*sizeof(RG)); }
+    RG* g=&rgs[nrgs++]; memset(g,0,sizeof(RG)); g->a=r; g->bits=bits; for(unsigned w=0;w<(bits+63)/64;w++){ g->lo[w]=lo[w]; g->hi[w]=hi[w]; } }
+  pthread_mutex_unlock(&mu); return r; }
+__attribute__((used,section("__DATA,__interpose"))) static struct{void*a;void*b;} iprg={(void*)wrg,(void*)LLVMCreateConstantRangeAttribute};
+`;
+  }
+  const names = [...new Set([...Object.values(ATTR_NAME), "align", "dereferenceable", "dereferenceable_or_null", "uwtable", "allocsize", "allockind", "memory", "captures", "range"])];
   return c.replace("ATTRNAMES", names.map((n) => JSON.stringify(n)).join(", "));
 }
 
