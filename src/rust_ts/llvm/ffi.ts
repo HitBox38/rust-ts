@@ -6,12 +6,13 @@ import type { AllocKindFlags, AsmDialect, AtomicOrdering, AtomicRmwBinOp, Attrib
 import { bind, stub } from "./trace.ts";
 import * as impl0 from "./core.ts";
 import * as impl1 from "./build.ts";
+import * as impl2 from "./intrinsics.ts";
 
 export type { Attribute, BasicBlock, Buffer, Builder, Comdat, ConstantInt, Context, DIArray, DIBasicType, DIBuilder, DICompositeType, DIDerivedType, DIDescriptor, DIFile, DILexicalBlock, DILocation, DIScope, DISubprogram, DITemplateTypeParameter, DIType, DIVariable, DbgRecord, DiagnosticHandler, DiagnosticInfo, Linker, MCSubtargetInfo, Metadata, Module, OperandBundle, RustString, SMDiagnostic, TargetMachine, ThinLTOData, Twine, Type, Value } from "./handles.ts";
 export * from "./ffi_types.ts";
 export * from "./support.ts";
 
-/** The 255 of 381 functions an implementation module provides; every other one is a stub. */
+/** The 259 of 381 functions an implementation module provides; every other one is a stub. */
 export const IMPLEMENTED: ReadonlySet<string> = new Set([
   "LLVMContextCreate",
   "LLVMContextDispose",
@@ -112,6 +113,10 @@ export const IMPLEMENTED: ReadonlySet<string> = new Set([
   "LLVMAddFunction",
   "LLVMDeleteFunction",
   "LLVMGetOrInsertFunction",
+  "LLVMLookupIntrinsicID",
+  "LLVMIntrinsicIsOverloaded",
+  "LLVMGetIntrinsicDeclaration",
+  "LLVMRustIsTargetIntrinsic",
   "LLVMIsAArgument",
   "LLVMCountParams",
   "LLVMGetParam",
@@ -580,19 +585,19 @@ export const LLVMDeleteFunction: (Fn: Value) => void = bind("LLVMDeleteFunction"
 export const LLVMGetOrInsertFunction: (M: Module, Name: PtrLenStr | undefined, NameLen: number, FunctionTy: Type) => Value = bind("LLVMGetOrInsertFunction", impl0.LLVMGetOrInsertFunction);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1146 LLVMLookupIntrinsicID
-export const LLVMLookupIntrinsicID: (Name: PtrLenStr | undefined, NameLen: number) => number = stub("LLVMLookupIntrinsicID");
+export const LLVMLookupIntrinsicID: (Name: PtrLenStr | undefined, NameLen: number) => number = bind("LLVMLookupIntrinsicID", impl2.LLVMLookupIntrinsicID);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1150 LLVMIntrinsicIsOverloaded
-export const LLVMIntrinsicIsOverloaded: (ID: number) => Bool = stub("LLVMIntrinsicIsOverloaded");
+export const LLVMIntrinsicIsOverloaded: (ID: number) => Bool = bind("LLVMIntrinsicIsOverloaded", impl2.LLVMIntrinsicIsOverloaded);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1151 LLVMGetIntrinsicDeclaration
-export const LLVMGetIntrinsicDeclaration: (Mod: Module, ID: number, ParamTypes: readonly Type[], ParamCount: number) => Value = stub("LLVMGetIntrinsicDeclaration");
+export const LLVMGetIntrinsicDeclaration: (Mod: Module, ID: number, ParamTypes: readonly Type[], ParamCount: number) => Value = bind("LLVMGetIntrinsicDeclaration", impl2.LLVMGetIntrinsicDeclaration);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1157 LLVMRustUpgradeIntrinsicFunction
 export const LLVMRustUpgradeIntrinsicFunction: (Fn: Value, NewFn: MutRef<Value | undefined>) => boolean = stub("LLVMRustUpgradeIntrinsicFunction");
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1161 LLVMRustIsTargetIntrinsic
-export const LLVMRustIsTargetIntrinsic: (ID: number) => boolean = stub("LLVMRustIsTargetIntrinsic");
+export const LLVMRustIsTargetIntrinsic: (ID: number) => boolean = bind("LLVMRustIsTargetIntrinsic", impl2.LLVMRustIsTargetIntrinsic);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1164 LLVMIsAArgument
 export const LLVMIsAArgument: (Val: Value) => Value | undefined = bind("LLVMIsAArgument", impl0.LLVMIsAArgument);
