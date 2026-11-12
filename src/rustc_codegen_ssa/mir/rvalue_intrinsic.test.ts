@@ -106,7 +106,7 @@ const SRC = [
   "#[rustc_intrinsic] pub unsafe fn ptr_offset_from<T>(ptr: *const T, base: *const T) -> isize { 0 }",
   "#[rustc_intrinsic] pub unsafe fn typed_swap_nonoverlapping<T>(x: *mut T, y: *mut T);",
   // locals _1.._15
-  "pub fn f(_a: i32, _b: i32, _c: u8, _d: f32, _e: f64, _p: *const u8, _w: *const [u8], _w2: *const [u8], _u: u32, _ch: char, _s: S, _q: u64, _r: &[u8; 4], _x: i8, _t: (u8, u32)) {}",
+  "pub fn f(_a: i32, _b: i32, _c: u8, _d: f32, _e: f64, _p: *const u8, _w: *const [u8], _w2: *const [u8], _u: u32, _ch: char, _s: S, _q: u64, _r: &[u8; 4], _x: i8, _t: (u8, u32), _h: u16) {}",
   "pub fn g() { let _a = copy::<u32>; let _b = copy_nonoverlapping::<u32>; let _c = ctpop::<u32>; let _d = unreachable; let _e = size_of::<u32>; let _f = exact_div::<f32>; let _g = ptr_offset_from::<u32>; let _h = typed_swap_nonoverlapping::<u32>; }",
 ].join("\n");
 
@@ -273,7 +273,7 @@ test("rvalue.rs / intrinsic.rs over a mock backend", () => {
     const decl_ty = (i: number) => f_body.local_decls[i]!.ty;
 
     // A `FunctionCx` over `f`'s MIR whose argument locals are operands (`%name:llty`), `_s` (Memory) a place.
-    const names = ["", "a", "b", "c", "d", "e", "p", "w", "w2", "u", "ch", "s", "q", "r", "x", "t"];
+    const names = ["", "a", "b", "c", "d", "e", "p", "w", "w2", "u", "ch", "s", "q", "r", "x", "t", "h"];
     const new_fx = (bx: BuilderMethods<MockTypes>): FunctionCx<MockTypes> => {
       const values: LocalRef<V>[] = f_body.local_decls.map((d, i) => {
         const l = layout(d.ty);
@@ -513,7 +513,8 @@ test("rvalue.rs / intrinsic.rs over a mock backend", () => {
       // Place form (rvalue.rs:255) of `S { a, b, c }` (Memory, size 8; port layout: b@0, c@4, a@6):
       // try_codegen_const_aggregate_as_immediate gives up at the first non-constant field; then per field
       // `project_field` (`inbounds_ptradd` only at a nonzero offset) + `store_with_flags`; `codegen_set_discr` on a
-      // single-variant struct emits nothing.
+      // single-variant struct emits nothing. The operands match the field types: `a: u8` ← `_c`, `b: u32` ← `_u`,
+      // `c: u16` ← `_h` (review ssa-rvalue-intrinsic N3).
       const s_ty = decl_ty(11);
       const k = s_ty.kind();
       if (k.$ !== "Adt") throw new Error("ERROR: S is not an ADT");
@@ -522,14 +523,14 @@ test("rvalue.rs / intrinsic.rs over a mock backend", () => {
       new_fx(bx).codegen_rvalue(bx, dest, {
         $: "Aggregate",
         _0: { $: "Adt", _0: k._0.did(), _1: 0 as VariantIdx, _2: RawList.empty(), _3: undefined, _4: undefined },
-        _1: [copy_(3), copy_(9), copy_(3)],
+        _1: [copy_(3), copy_(9), copy_(16)],
       });
       expect(log).toEqual([
         "%0 = inbounds_ptradd(%dst, usize 6)",
         "%1 = store_with_flags(%c:i8, %0, align2, 0)",
         "%2 = store_with_flags(%u:i32, %dst, align4, 0)",
         "%3 = inbounds_ptradd(%dst, usize 4)",
-        "%4 = store_with_flags(%c:i8, %3, align4, 0)",
+        "%4 = store_with_flags(%h:i16, %3, align4, 0)",
       ]);
     }
 

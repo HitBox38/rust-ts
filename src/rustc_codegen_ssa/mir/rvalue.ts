@@ -1139,6 +1139,7 @@ export function install_FunctionCx_rvalue(FunctionCx_: { prototype: FunctionCx<B
 // To or from pointers takes different methods, so we use this to restrict
 // the SimdVector case to types which can be `bitcast` between each other.
 // #[inline]
+// PORT: upstream nests this fn inside `codegen_transmute_operand`; here it is a module-level fn with its own marker.
 // rustc: compiler/rustc_codegen_ssa/src/mir/rvalue.rs:368 vector_can_bitcast
 function vector_can_bitcast(x: abi_Scalar): boolean {
   return x.$ === "Initialized" && (x.value.$ === "Int" || x.value.$ === "Float");
@@ -1156,6 +1157,8 @@ export function transmute_scalar<B extends BackendTypes>(bx: BuilderMethods<B>, 
   assert_eq(abi_Scalar.size(from_scalar, bx.cx()), abi_Scalar.size(to_scalar, bx.cx()), (v) => debug_Size(v, PLAIN), Size_eq);
   const imm_ty = bx.cx().val_ty(imm);
   {
+    // PORT: `assert_ne!(.., TypeKind::Vector, "..")` written out with core's text (`assert_failed_inner`, `AssertKind::Ne`
+    // with a message).
     const left = bx.cx().type_kind(imm_ty);
     if (left === TypeKind.Vector) {
       throw new Panic(
@@ -1266,6 +1269,7 @@ function assume_scalar_range<B extends BackendTypes>(
 
 // ---- Local helpers (not upstream) ------------------------------------------------------------------------------------
 
+// PORT: `Ord::max` on `Align` and `Size` (no `Ord` in TS) are the local helpers `Align_max` and `Size_max`.
 /** `Ord::max` on `Align` (derived `Ord` compares `pow2`); equal values are identical, so either is returned. */
 function Align_max(a: Align, b: Align): Align {
   return b.pow2 >= a.pow2 ? b : a;
@@ -1276,6 +1280,8 @@ function Size_max(a: Size, b: Size): Size {
   return Size_cmp(a, b) === 1 ? a : b;
 }
 
+// PORT: `u128::to_le_bytes` and `Itertools::all_equal_value` (itertools 0.15.0, `Cargo.lock`) are local helpers;
+// `all_equal_value`'s `Err` (empty or unequal) is `undefined`.
 /** `u128::to_le_bytes`. */
 function u128_to_le_bytes(v: bigint): number[] {
   const out: number[] = [];
