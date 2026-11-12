@@ -757,12 +757,6 @@ export function getConstantFPOfType(ty: Type, v: APFloat): ConstantFP {
   return getConstantFPOfAPFloat(ty.context, v);
 }
 
-/** `ConstantFP::get(Ty, APFloat(Ty->getScalarType()->getFltSemantics(), Bits))`: the constant of a bit pattern of the (element)
- * type, read as `APFloat(const fltSemantics&, const APInt&)` does (x86_fp80's non-canonical encodings are canonicalised). */
-export function getConstantFP(ty: Type, bits: bigint): ConstantFP {
-  return getConstantFPOfType(ty, APFloat.fromAPInt(ty.getScalarType().getFltSemantics(), bits));
-}
-
 // llvm: llvm/lib/IR/Constants.cpp:1108 ConstantFP::get
 /** `ConstantFP::get(Type*, double V)`: `V` converted to the type's semantics (round to nearest, ties to even). */
 export function getConstantFPOfDouble(ty: Type, v: number): Constant {
