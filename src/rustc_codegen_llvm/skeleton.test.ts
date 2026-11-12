@@ -104,7 +104,7 @@ describe("stubs name their fill lane", () => {
     stops(() => cx.mangled_name(undefined as never), /^cg-asm: .*\/asm\.rs mangled_name$/);
     stops(() => cx.predefine_fn(undefined as never, undefined as never, undefined as never, ""), /^cg-types-attrs: .*\/mono_item\.rs predefine_fn$/);
     const bx = Object.create(Builder.prototype) as Builder;
-    stops(() => bx.ret_void(), /^cg-builder: .*\/builder\.rs ret_void$/);
+    // cg-builder (wave 41) ported builder.rs and allocator.rs whole: no stub of its own is left (builder.test.ts).
     stops(() => bx.get_param(0), /^cg-abi-consts: .*\/abi\.rs get_param$/);
     stops(() => bx.abort_immediate(), /^cg-intrinsic-a: .*\/intrinsic\.rs abort_immediate$/);
     stops(() => bx.clear_dbg_loc(), /^cg-di-a: .*\/debuginfo\/mod\.rs clear_dbg_loc$/);
@@ -117,7 +117,6 @@ describe("stub counts per lane", () => {
   const EXPECTED: Record<string, number> = {
     "cg-abi-consts": 20,
     "cg-asm": 4,
-    "cg-builder": 151,
     "cg-context": 73,
     "cg-di-a": 21,
     "cg-intrinsic-a": 10,
@@ -127,6 +126,8 @@ describe("stub counts per lane", () => {
     "cg-write": 21,
     "excluded (plan-m7 D18)": 10,
     "llir": 2,
+    // cg-builder's local stubs for ssa-operand-place methods that had no stub (builder.ts; docs/handoff/cg-builder.md).
+    "ssa-operand-place": 3,
     "rustc_codegen_llvm": 3,
     "ssa-base": 1,
     "ssa-write": 5,
@@ -211,8 +212,8 @@ describe("auto-deref", () => {
     // CodegenCx trait methods, through the forwarders.
     stops(() => bx.type_i8(), /^cg-types-attrs: .* type_i8$/);
     stops(() => bx.const_usize(1n), /^cg-context: .* const_usize$/);
-    // Builder's own `data_layout` (builder.rs:213), not the cx's (context.rs:1254).
-    stops(() => bx.data_layout(), /^cg-builder: .* data_layout$/);
+    // Builder's own `data_layout` (builder.rs:214, ported by cg-builder), which forwards to the cx's (context.rs:1254).
+    stops(() => bx.data_layout(), /^cg-context: .*\/context\.rs data_layout$/);
     // The Debug members of the associated types reach value.rs's impl.
     expect(bx.debug_Value).toBe(cx.debug_Value);
   });
@@ -236,8 +237,10 @@ describe("auto-deref", () => {
       "cg-types-attrs: compiler/rustc_codegen_llvm/src/attributes.rs apply_to_llfn",
       "cg-context: compiler/rustc_codegen_llvm/src/common.rs val_ty",
       "cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs type_i8",
-      "cg-builder: compiler/rustc_codegen_llvm/src/builder.rs call_intrinsic",
-      "cg-builder: compiler/rustc_codegen_llvm/src/builder.rs build",
+      // builder.rs:1881 (ported by cg-builder) reaches `cx.get_intrinsic` (context.rs:1087).
+      "cg-context: compiler/rustc_codegen_llvm/src/context.rs get_intrinsic",
+      // builder.rs:130 (ported by cg-builder) reaches the IR model, which rejects the marker basic block.
+      expect.any(TypeError) as unknown as string,
       "cg-write: compiler/rustc_codegen_llvm/src/llvm_util.rs get_version",
     ]);
   });
@@ -251,9 +254,7 @@ describe("auto-deref", () => {
     }
     expect(typeof GenericBuilder.build_inherent).toBe("function");
     expect(typeof GenericBuilder.append_block_inherent).toBe("function");
-    const bx = Object.create(Builder.prototype) as Builder;
-    stops(() => bx.load_inherent(undefined as never, undefined as never, undefined as never), /^cg-builder: .*\/builder\.rs load$/);
-    stops(() => bx.load(undefined as never, undefined as never, undefined as never), /^cg-builder: .*\/builder\.rs load$/);
+    // The bodies of `load` / `load_inherent` (and `store` / `store_inherent`) differ in the alignment clamp: builder.test.ts.
     expect(typeof (GenericCx.prototype as unknown as Record<string, unknown>).const_null_inherent).toBe("function");
     expect(typeof (SimpleCx.prototype as unknown as Record<string, unknown>).val_ty_inherent).toBe("function");
   });
