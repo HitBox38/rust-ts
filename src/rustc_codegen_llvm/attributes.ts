@@ -8,9 +8,8 @@
 // - `SmallVec<[&Attribute; N]>` is an `Attribute[]`; `to_add.extend(opt)` of an `Option` pushes it when `Some`.
 // - `sanitizers() - disabled` (bitflags `Sub`) is `enabled & ~disabled`; `intersects` is `(a & b) !== 0` (the `SanitizerSet`
 //   stand-in, rustc_target/stand_ins.ts, has neither).
-// - Four `Session` methods and two `PointerAuthConfig` methods this file and base.rs call are not ported in rustc_session
-//   (which this lane does not own, PORTING §1): `SESSION_STOPS` below stops on them, naming the upstream fn. Root ports them
-//   into rustc_session/session.ts (as `Session::fewer_names` was) and these call sites switch to the methods.
+// - The `Session` and `PointerAuthConfig` methods this file calls are rustc_session's (ported by ssa-mir-rest; the
+//   `SESSION_STOPS` stubs were replaced by root at integ-w54).
 // - `rustc_sanitizers` is out of scope (harness/scope.json): a `SanitizerIgnoreList` is never constructed (context.ts), so
 //   `filter_instance_sanitizers` is unreachable and stops.
 import type { InlineAttr } from "../rustc_attr_ir/data_structures.ts";
@@ -27,7 +26,7 @@ import {
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import { Instance, InstanceKind } from "../rustc_middle/ty/instance.ts";
 import { HasAttrs_DefId } from "../rustc_middle/ty/mod.ts";
-import type { PointerAuthConfig, Session } from "../rustc_session/session.ts";
+import { PointerAuthConfig, type Session } from "../rustc_session/session.ts";
 import { type BranchProtection, InstrumentMcountOpts, SwitchWithOptPath } from "../rustc_session/config.ts";
 import { sym, Symbol } from "../rustc_span/symbol.ts";
 import { mangle_internal_symbol } from "../rustc_symbol_mangling/lib.ts";
@@ -39,34 +38,6 @@ import { PackedStackBackchainNeedsSoftfloat_diagnostic, SanitizerMemtagRequiresM
 import * as llvm from "./llvm/mod.ts";
 import { AllocKindFlags, type Attribute, AttributeKind, AttributeKind_impl, AttributePlace, MemoryEffects, MemoryEffects_impl, type Value } from "./llvm/mod.ts";
 import * as llvm_util from "./llvm_util.ts";
-
-/** PORT (cg-types-attrs): stops for the rustc_session fns this crate calls that rustc_session/session.ts lacks (header). */
-export const SESSION_STOPS = {
-  /** `Session::needs_plt` (session.rs:863) */
-  needs_plt(_sess: Session): boolean {
-    return unported("rustc_session: compiler/rustc_session/src/session.rs Session::needs_plt");
-  },
-  /** `Session::direct_access_external_data` (session.rs:1092) */
-  direct_access_external_data(_sess: Session): boolean | undefined {
-    return unported("rustc_session: compiler/rustc_session/src/session.rs Session::direct_access_external_data");
-  },
-  /** `Session::branch_protection` (session.rs:1125) */
-  branch_protection(_sess: Session): BranchProtection | undefined {
-    return unported("rustc_session: compiler/rustc_session/src/session.rs Session::branch_protection");
-  },
-  /** `Session::must_emit_unwind_tables` (session.rs:1144) */
-  must_emit_unwind_tables(_sess: Session): boolean {
-    return unported("rustc_session: compiler/rustc_session/src/session.rs Session::must_emit_unwind_tables");
-  },
-  /** `PointerAuthConfig::calculate_pauth_abi_version` (session.rs:186). Unreachable today: `pointer_auth_config` is always `None`. */
-  calculate_pauth_abi_version(_cfg: PointerAuthConfig, _target: Target): number {
-    return unported("rustc_session: compiler/rustc_session/src/session.rs PointerAuthConfig::calculate_pauth_abi_version");
-  },
-  /** `PointerAuthConfig::fn_attrs` (session.rs:301). Unreachable today: `pointer_auth_config` is always `None`. */
-  fn_attrs(_cfg: PointerAuthConfig): string[] {
-    return unported("rustc_session: compiler/rustc_session/src/session.rs PointerAuthConfig::fn_attrs");
-  },
-} as const;
 
 // rustc: compiler/rustc_codegen_llvm/src/attributes.rs:29 apply_to_llfn
 export function apply_to_llfn(llfn: Value, idx: AttributePlace, attrs: readonly Attribute[]): void {
@@ -531,7 +502,7 @@ export function target_features_attr(cx: SimpleCx, tcx: TyCtxt, function_feature
 // rustc: compiler/rustc_codegen_llvm/src/attributes.rs:455 non_lazy_bind_attr
 export function non_lazy_bind_attr(cx: SimpleCx, sess: Session): Attribute | undefined {
   // Don't generate calls through PLT if it's not necessary
-  if (!SESSION_STOPS.needs_plt(sess)) {
+  if (!sess.needs_plt()) {
     return AttributeKind_impl.create_attr(AttributeKind.NonLazyBind, cx.llcx());
   } else {
     return undefined;
@@ -599,7 +570,7 @@ export function llfn_attrs_from_instance(
     extend(inline_attr(cx, tcx, instance, codegen_fn_attrs));
   }
 
-  if (SESSION_STOPS.must_emit_unwind_tables(sess)) {
+  if (sess.must_emit_unwind_tables()) {
     to_add.push(uwtable_attr(cx.llcx(), sess.opts.unstable_opts.use_sync_unwind));
   }
 
@@ -641,7 +612,7 @@ export function llfn_attrs_from_instance(
     to_add.push(...sanitize_attrs(cx, tcx, codegen_fn_attrs.sanitizers, instance, sanitizer_ignorelist));
 
     // For non-naked functions, set branch protection attributes on aarch64.
-    const bp = SESSION_STOPS.branch_protection(sess);
+    const bp = sess.branch_protection();
     if (bp !== undefined) {
       const { bti, pac_ret, gcs } = bp;
       assert(sess.target.arch.$ === "AArch64", "assertion failed: sess.target.arch == Arch::AArch64");
@@ -770,7 +741,7 @@ export function llfn_attrs_from_instance(
 
   if (sess.pointer_authentication()) {
     const cfg = sess.pointer_auth_config!;
-    for (const ptrauth_attr of SESSION_STOPS.fn_attrs(cfg)) {
+    for (const ptrauth_attr of PointerAuthConfig.fn_attrs(cfg)) {
       to_add.push(llvm.CreateAttrString(cx.llcx(), ptrauth_attr));
     }
   }

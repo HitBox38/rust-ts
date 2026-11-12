@@ -22,24 +22,27 @@ import { unported } from "../std/panic.ts";
 import type { BackendTypes } from "./traits/backend.ts";
 import type { BuilderMethods, BuilderMethodsStatic } from "./traits/builder.ts";
 import type { CodegenMethods } from "./traits/mod.ts";
+import * as base from "./base.ts";
+import * as naked_asm from "./mir/naked_asm.ts";
 
-/** Stub: `rustc_codegen_ssa::base::codegen_global_asm` (base.rs, lane ssa-base). */
-function base_codegen_global_asm<B extends BackendTypes>(_cx: CodegenMethods<B>, _item_id: ItemId): void {
-  return unported("ssa-base: compiler/rustc_codegen_ssa/src/base.rs codegen_global_asm");
+/** `rustc_codegen_ssa::base::codegen_global_asm` (base.rs, ssa-base): forwards (root at integ-w54). */
+function base_codegen_global_asm<B extends BackendTypes>(cx: CodegenMethods<B>, item_id: ItemId): void {
+  base.codegen_global_asm(cx as never, item_id);
 }
 
-/** Stub: `rustc_codegen_ssa::base::codegen_instance::<Bx>` (base.rs, lane ssa-base). */
+/** `rustc_codegen_ssa::base::codegen_instance::<Bx>` (base.rs, ssa-base): forwards (root at integ-w54). */
 function base_codegen_instance<B extends BackendTypes, Cx extends CodegenMethods<B>, Bx extends BuilderMethods<B, Cx>>(
-  _Bx_: BuilderMethodsStatic<B, Cx, Bx>,
-  _cx: Cx,
-  _instance: Instance,
+  Bx_: BuilderMethodsStatic<B, Cx, Bx>,
+  cx: Cx,
+  instance: Instance,
 ): void {
-  return unported("ssa-base: compiler/rustc_codegen_ssa/src/base.rs codegen_instance");
+  base.codegen_instance(Bx_, cx, instance);
 }
 
-/** Stub: `rustc_codegen_ssa::mir::naked_asm::codegen_naked_asm::<Bx::CodegenCx>` (mir/naked_asm.rs, lane ssa-rvalue-intrinsic). */
-function naked_asm_codegen_naked_asm<B extends BackendTypes>(_cx: CodegenMethods<B>, _instance: Instance, _item_data: MonoItemData): void {
-  return unported("ssa-rvalue-intrinsic: compiler/rustc_codegen_ssa/src/mir/naked_asm.rs codegen_naked_asm");
+/** `rustc_codegen_ssa::mir::naked_asm::codegen_naked_asm::<Bx::CodegenCx>` (mir/naked_asm.rs, ssa-rvalue-intrinsic): forwards
+ *  (root at integ-w54). */
+function naked_asm_codegen_naked_asm<B extends BackendTypes>(cx: CodegenMethods<B>, instance: Instance, item_data: MonoItemData): void {
+  naked_asm.codegen_naked_asm(cx as never, instance, item_data);
 }
 
 /** The stubs above, as one table so a test can replace them; not upstream. */

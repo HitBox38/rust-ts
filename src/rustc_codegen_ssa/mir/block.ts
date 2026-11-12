@@ -99,6 +99,7 @@ import { CachedLlbb, type FunctionCx, type IntrinsicResult, xlane } from "./mod.
 import { debug_OperandRef, debug_OperandValue, OperandRef, OperandValue } from "./operand.ts";
 import { PlaceRef, PlaceValue } from "./place.ts";
 import * as base from "../base.ts";
+import * as meth from "../meth.ts";
 
 // Indicates if we are in the middle of merging a BB's successor into it. This
 // can happen when BB jumps directly to its successor and the successor has no
@@ -2710,36 +2711,37 @@ export const block_xlane = {
     return unported("ssa-debuginfo: compiler/rustc_codegen_ssa/src/mir/debuginfo.rs codegen_stmt_debuginfos");
   },
 
-  // ssa-mir-rest (mir/statement.rs, mir/constant.rs, meth.rs)
+  // ssa-mir-rest (mir/statement.rs, mir/constant.rs, meth.rs) and ssa-rvalue-intrinsic (mir/intrinsic.rs): ported; these
+  // entries forward to them (root at integ-w54), so tests can still replace them.
   /** `fx.codegen_statement(bx, statement)` (mir/statement.rs:12). */
-  codegen_statement<B extends BackendTypes>(_fx: FunctionCx<B>, _bx: BuilderMethods<B>, _statement: Statement): void {
-    return unported("ssa-mir-rest: compiler/rustc_codegen_ssa/src/mir/statement.rs codegen_statement");
+  codegen_statement<B extends BackendTypes>(fx: FunctionCx<B>, bx: BuilderMethods<B>, statement: Statement): void {
+    fx.codegen_statement(bx, statement);
   },
   /** `fx.eval_mir_constant(constant)` (mir/constant.rs:25). */
-  eval_mir_constant<B extends BackendTypes>(_fx: FunctionCx<B>, _constant: ConstOperand): ConstValue {
-    return unported("ssa-mir-rest: compiler/rustc_codegen_ssa/src/mir/constant.rs eval_mir_constant");
+  eval_mir_constant<B extends BackendTypes>(fx: FunctionCx<B>, constant: ConstOperand): ConstValue {
+    return fx.eval_mir_constant(constant);
   },
   /** `meth::VirtualIndex::from_index(index).get_fn(bx, llvtable, ty, fn_abi)` (meth.rs:14, :46). */
-  VirtualIndex_get_fn<B extends BackendTypes>(_index: number, _bx: BuilderMethods<B>, _llvtable: B["Value"], _ty: Ty, _fn_abi: FnAbi<Ty>): B["Value"] {
-    return unported("ssa-mir-rest: compiler/rustc_codegen_ssa/src/meth.rs get_fn");
+  VirtualIndex_get_fn<B extends BackendTypes>(index: number, bx: BuilderMethods<B>, llvtable: B["Value"], ty: Ty, fn_abi: FnAbi<Ty>): B["Value"] {
+    return meth.VirtualIndex.from_index(index).get_fn(bx, llvtable, ty, fn_abi);
   },
   /** `meth::VirtualIndex::from_index(index).get_optional_fn(bx, llvtable, ty, fn_abi)` (meth.rs:14, :36). */
-  VirtualIndex_get_optional_fn<B extends BackendTypes>(_index: number, _bx: BuilderMethods<B>, _llvtable: B["Value"], _ty: Ty, _fn_abi: FnAbi<Ty>): B["Value"] {
-    return unported("ssa-mir-rest: compiler/rustc_codegen_ssa/src/meth.rs get_optional_fn");
+  VirtualIndex_get_optional_fn<B extends BackendTypes>(index: number, bx: BuilderMethods<B>, llvtable: B["Value"], ty: Ty, fn_abi: FnAbi<Ty>): B["Value"] {
+    return meth.VirtualIndex.from_index(index).get_optional_fn(bx, llvtable, ty, fn_abi);
   },
 
   // ssa-rvalue-intrinsic (mir/intrinsic.rs)
   /** `fx.codegen_intrinsic_call(bx, instance, args, result_layout, result_place, source_info)` (mir/intrinsic.rs:57). */
   codegen_intrinsic_call<B extends BackendTypes>(
-    _fx: FunctionCx<B>,
-    _bx: BuilderMethods<B>,
-    _instance: Instance,
-    _args: readonly OperandRef<B["Value"]>[],
-    _result_layout: TyAndLayout,
-    _result_place: PlaceValue<B["Value"]> | undefined,
-    _source_info: SourceInfo,
+    fx: FunctionCx<B>,
+    bx: BuilderMethods<B>,
+    instance: Instance,
+    args: readonly OperandRef<B["Value"]>[],
+    result_layout: TyAndLayout,
+    result_place: PlaceValue<B["Value"]> | undefined,
+    source_info: SourceInfo,
   ): IntrinsicResult<B["Value"]> {
-    return unported("ssa-rvalue-intrinsic: compiler/rustc_codegen_ssa/src/mir/intrinsic.rs codegen_intrinsic_call");
+    return fx.codegen_intrinsic_call(bx, instance, args, result_layout, result_place, source_info);
   },
 
   // ssa-base (base.rs): ported; these entries forward to it (root at integ-w54), so tests can still replace them.

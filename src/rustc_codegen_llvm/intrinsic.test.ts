@@ -165,32 +165,8 @@ function install_doubles(oracle_data_layout: string): () => void {
       (m as unknown as IrModule).dataLayout = (tm as unknown as { data_layout: string }).data_layout;
     }),
   );
-  // session.rs:863 needs_plt
-  const needs_plt = (sess: Session): boolean => {
-    const want_plt = sess.target.plt_by_default;
-    const dbg_opts = sess.opts.unstable_opts;
-    const relro_level = sess.opts.cg.relro_level ?? sess.target.relro_level;
-    const full_relro = relro_level === "Full";
-    return dbg_opts.plt ?? (want_plt || !full_relro);
-  };
-  // session.rs:1144 must_emit_unwind_tables
-  const must_emit_unwind_tables = (sess: Session): boolean =>
-    sess.target.requires_uwtable || (sess.opts.cg.force_unwind_tables ?? (PanicStrategy.unwinds(sess.panic_strategy()) || sess.target.default_uwtable));
-  // session.rs:1125 branch_protection (no `-Zbranch-protection` here)
-  const branch_protection = (sess: Session): BranchProtection | undefined => {
-    if (sess.opts.unstable_opts.branch_protection !== undefined) throw new Error("ERROR: -Zbranch-protection in a test");
-    return undefined;
-  };
-  // session.rs:1092 direct_access_external_data
-  const direct_access_external_data = (sess: Session): boolean | undefined => sess.opts.unstable_opts.direct_access_external_data ?? sess.target.direct_access_external_data;
-  // The same four, stubbed twice: in context.ts (cg-context) and in attributes.ts's `SESSION_STOPS` (cg-types-attrs).
-  spies.push(spyOn(context, "Session_needs_plt").mockImplementation(needs_plt));
-  spies.push(spyOn(context, "Session_must_emit_unwind_tables").mockImplementation(must_emit_unwind_tables));
-  spies.push(spyOn(context, "Session_branch_protection").mockImplementation(branch_protection));
-  spies.push(spyOn(attributes.SESSION_STOPS, "needs_plt").mockImplementation(needs_plt));
-  spies.push(spyOn(attributes.SESSION_STOPS, "must_emit_unwind_tables").mockImplementation(must_emit_unwind_tables));
-  spies.push(spyOn(attributes.SESSION_STOPS, "branch_protection").mockImplementation(branch_protection));
-  spies.push(spyOn(attributes.SESSION_STOPS, "direct_access_external_data").mockImplementation(direct_access_external_data));
+  // rustc_session's `needs_plt`, `must_emit_unwind_tables`, `branch_protection` and `direct_access_external_data` are the
+  // real methods (ssa-mir-rest; root dropped their doubles at integ-w54).
   // The model normalizes only the triples it has checked (core.ts `NORMAL_TRIPLES`); Windows targets are out of M7 (plan-m7
   // D18). For x86_64-pc-windows-msvc the double sets the triple as given; the module's triple line is not compared.
   const set_normalized_target = ffi.LLVMRustSetNormalizedTarget;

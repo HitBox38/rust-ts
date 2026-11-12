@@ -60,7 +60,6 @@ import * as ffi from "../rust_ts/llvm/ffi.ts";
 import { printModule } from "../rust_ts/llvm/printer.ts";
 import { Unported, unported } from "../std/panic.ts";
 import "./lib.ts";
-import { SESSION_STOPS } from "./attributes.ts";
 import { Builder } from "./builder.ts";
 import { CodegenCx, FullCx, SimpleCx } from "./context.ts";
 import * as debuginfo_metadata from "./debuginfo/metadata.ts";
@@ -198,11 +197,7 @@ function install_doubles(): void {
     return [llvm_major.value, llvm_minor.value, llvm_patch.value];
   });
   restore.push(() => s.mockRestore());
-  // session.rs:1092 direct_access_external_data
-  const d = spyOn(SESSION_STOPS, "direct_access_external_data").mockImplementation(
-    (sess: Session): boolean | undefined => sess.opts.unstable_opts.direct_access_external_data ?? sess.target.direct_access_external_data,
-  );
-  restore.push(() => d.mockRestore());
+  // rustc_session's `direct_access_external_data` is the real method (ssa-mir-rest; root dropped its double at integ-w54).
   // debuginfo/metadata.rs:1473 build_global_var_di_node: its first statement, `if cx.dbg_cx.is_none() { return; }`; past it,
   // cg-di-a's stub as before (never reached here: the cx has no `dbg_cx`).
   const di = spyOn(debuginfo_metadata, "build_global_var_di_node").mockImplementation((cx: CodegenCx, _def_id, _global) => {

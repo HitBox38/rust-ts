@@ -5,9 +5,8 @@
 //   right after `class FunctionCx`; this file imports mod.ts for types only.
 // - `IntrinsicResult` is mod.ts's union; its `Operand(..)` arm is built as an object literal.
 // - `match name { sym::a | sym::b => .. }` over `Symbol`s is a `switch` on the interned handles, arms in upstream order.
-// - Calls into lanes not yet ported are typed module-private stubs (`unported("<lane>: <path> <fn>")`): block.rs
-//   `FunctionCx::get_caller_location` (ssa-block); size_of_val.rs `size_and_align_of_dst` and meth.rs
-//   `VirtualIndex::{from_index, get_usize}` (ssa-mir-rest).
+// - block.rs `FunctionCx::get_caller_location` (ssa-block), size_of_val.rs `size_and_align_of_dst` and meth.rs
+//   `VirtualIndex::{from_index, get_usize}` (ssa-mir-rest) are called directly (root at integ-w54; they were stubs).
 import { Align, type FieldIdx, Integer, WrappingRange } from "../../rustc_abi/lib.ts";
 import type { SourceInfo } from "../../rustc_middle/mir/mod.ts";
 import "../../rustc_middle/ty/consts.ts";
@@ -22,7 +21,7 @@ import type { ErrorGuaranteed, Span } from "../../rustc_span/lib.ts";
 import { bug, span_bug } from "../../rustc_span/macros.ts";
 import { Symbol, sym } from "../../rustc_span/symbol.ts";
 import { debug_unit } from "../../std/fmt.ts";
-import { unreachable, unported } from "../../std/panic.ts";
+import { unreachable } from "../../std/panic.ts";
 import { unwrap_result } from "../../std/result.ts";
 import { AtomicRmwBinOp, SynchronizationScope } from "../common.ts";
 import { InvalidMonomorphization_diagnostic } from "../diagnostics.ts";
@@ -33,28 +32,8 @@ import type { CodegenMethods } from "../traits/mod.ts";
 import type { FunctionCx, IntrinsicResult } from "./mod.ts";
 import { OperandRef, OperandRefBuilder, OperandValue } from "./operand.ts";
 import type { PlaceValue } from "./place.ts";
-
-// ---- Cross-lane stubs (header) ---------------------------------------------------------------------------------------
-
-/** Stub: `FunctionCx::get_caller_location(bx, source_info)` (mir/block.rs, lane ssa-block). */
-function FunctionCx_get_caller_location<B extends BackendTypes>(_fx: FunctionCx<B>, _bx: BuilderMethods<B>, _source_info: SourceInfo): OperandRef<B["Value"]> {
-  return unported("ssa-block: compiler/rustc_codegen_ssa/src/mir/block.rs get_caller_location");
-}
-
-/** Stub: `size_of_val::size_and_align_of_dst(bx, t, info, span)` (size_of_val.rs, lane ssa-mir-rest). */
-function size_of_val_size_and_align_of_dst<B extends BackendTypes>(
-  _bx: BuilderMethods<B>,
-  _t: Ty,
-  _info: B["Value"] | undefined,
-  _span: Span,
-): [B["Value"], B["Value"]] {
-  return unported("ssa-mir-rest: compiler/rustc_codegen_ssa/src/size_of_val.rs size_and_align_of_dst");
-}
-
-/** Stub: `meth::VirtualIndex::from_index(idx).get_usize(bx, llvtable, ty)` (meth.rs, lane ssa-mir-rest). */
-function meth_VirtualIndex_from_index_get_usize<B extends BackendTypes>(_idx: number, _bx: BuilderMethods<B>, _llvtable: B["Value"], _ty: Ty): B["Value"] {
-  return unported("ssa-mir-rest: compiler/rustc_codegen_ssa/src/meth.rs VirtualIndex::from_index / get_usize");
-}
+import { size_and_align_of_dst } from "../size_of_val.ts";
+import { VirtualIndex } from "../meth.ts";
 
 // rustc: compiler/rustc_codegen_ssa/src/mir/intrinsic.rs:18 copy_intrinsic
 function copy_intrinsic<B extends BackendTypes>(
@@ -214,7 +193,7 @@ export function install_FunctionCx_intrinsic(FunctionCx_: { prototype: FunctionC
       }
 
       case sym.caller_location: {
-        const location = FunctionCx_get_caller_location(this, bx, source_info);
+        const location = this.get_caller_location(bx, source_info);
         op_val = location.val;
         break;
       }
@@ -222,14 +201,14 @@ export function install_FunctionCx_intrinsic(FunctionCx_: { prototype: FunctionC
       case sym.size_of_val: {
         const tp_ty = fn_args.type_at(0);
         const [, meta] = OperandValue.pointer_parts(args[0]!.val, bx.debug_Value);
-        const [llsize] = size_of_val_size_and_align_of_dst(bx, tp_ty, meta, span);
+        const [llsize] = size_and_align_of_dst(bx, tp_ty, meta, span);
         op_val = { $: "Immediate", _0: llsize };
         break;
       }
       case sym.align_of_val: {
         const tp_ty = fn_args.type_at(0);
         const [, meta] = OperandValue.pointer_parts(args[0]!.val, bx.debug_Value);
-        const [, llalign] = size_of_val_size_and_align_of_dst(bx, tp_ty, meta, span);
+        const [, llalign] = size_and_align_of_dst(bx, tp_ty, meta, span);
         op_val = { $: "Immediate", _0: llalign };
         break;
       }
@@ -247,7 +226,7 @@ export function install_FunctionCx_intrinsic(FunctionCx_: { prototype: FunctionC
           default:
             return bug();
         }
-        const value = meth_VirtualIndex_from_index_get_usize(idx, bx, vtable, Instance.ty(instance, bx.tcx_(), bx.typing_env_()));
+        const value = VirtualIndex.from_index(idx).get_usize(bx, vtable, Instance.ty(instance, bx.tcx_(), bx.typing_env_()));
         switch (name) {
           // Size is always <= isize::MAX.
           case sym.vtable_size: {

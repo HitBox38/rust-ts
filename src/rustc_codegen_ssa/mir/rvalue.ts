@@ -8,9 +8,8 @@
 //   literals are `new OperandRef(val, layout, move_annotation)`.
 // - `{:?}` of a backend value uses `bx.debug_Value` (place.ts header).
 // - `debug!`/`#[instrument(level = "trace")]` are compiled out of rustc (STATIC_MAX_LEVEL = INFO) and stay comments.
-// - Calls into lanes not yet ported are typed module-private stubs (`unported("<lane>: <path> <fn>")`): constant.rs
-//   `FunctionCx::eval_mir_constant` (ssa-mir-rest). base.rs's `coerce_unsized_into`, `unsize_ptr`, `build_shift_expr_rhs`
-//   are imported (ssa-base; root at integ-w54). retag.rs `codegen_retag_operand` goes through mod.ts's `xlane` entry.
+// - constant.rs `FunctionCx::eval_mir_constant` (ssa-mir-rest) is the installed method, and base.rs's
+//   `coerce_unsized_into`, `unsize_ptr`, `build_shift_expr_rhs` (ssa-base) are imported (root at integ-w54; they were stubs). retag.rs `codegen_retag_operand` goes through mod.ts's `xlane` entry.
 import {
   AddressSpace,
   type Align,
@@ -55,7 +54,7 @@ import { bug, span_bug } from "../../rustc_span/macros.ts";
 import { Binder } from "../../rustc_type_ir/binder.ts";
 import { fold_Const } from "../../rustc_type_ir/sty/consts.ts";
 import { format_debug, PLAIN } from "../../std/fmt.ts";
-import { assert, assert_eq, assert_matches, Panic, unreachable, unported, unwrap } from "../../std/panic.ts";
+import { assert, assert_eq, assert_matches, Panic, unreachable, unwrap } from "../../std/panic.ts";
 import { bin_op_to_fcmp_predicate, bin_op_to_icmp_predicate } from "../base.ts";
 import { debug_TypeKind, IntPredicate, TypeKind } from "../common.ts";
 import { MemFlags } from "../lib.ts";
@@ -67,14 +66,6 @@ import { xlane } from "./mod.ts";
 import { debug_OperandRef, debug_OperandValue, OperandRef, OperandRefBuilder, OperandValue } from "./operand.ts";
 import { codegen_tag_value, PlaceRef, PlaceValue } from "./place.ts";
 import { build_shift_expr_rhs, coerce_unsized_into, unsize_ptr } from "../base.ts";
-
-// ---- Cross-lane stubs (header) ---------------------------------------------------------------------------------------
-
-
-/** Stub: `FunctionCx::eval_mir_constant(&self, constant)` (mir/constant.rs, lane ssa-mir-rest). */
-function FunctionCx_eval_mir_constant<B extends BackendTypes>(_fx: FunctionCx<B>, _constant: ConstOperand): ConstValue {
-  return unported("ssa-mir-rest: compiler/rustc_codegen_ssa/src/mir/constant.rs eval_mir_constant");
-}
 
 // ---- impl FunctionCx (rvalue.rs:22) ----------------------------------------------------------------------------------
 
@@ -183,7 +174,7 @@ export function install_FunctionCx_rvalue(FunctionCx_: { prototype: FunctionCx<B
         return false;
       }
       const constant = operand._0;
-      const field_value = ConstValue.try_to_bits(FunctionCx_eval_mir_constant(this, constant), field_layout.size);
+      const field_value = ConstValue.try_to_bits(this.eval_mir_constant(constant), field_layout.size);
       if (field_value === undefined) {
         return false;
       }
@@ -212,7 +203,7 @@ export function install_FunctionCx_rvalue(FunctionCx_: { prototype: FunctionCx<B
   FunctionCx_.prototype.is_entirely_uninit_const = function (this: FunctionCx<BackendTypes>, operand: mir_Operand): boolean {
     if (operand.$ !== "Constant") return false;
     const const_op = operand._0;
-    return ConstValue.all_bytes_uninit(FunctionCx_eval_mir_constant(this, const_op), this.cx.tcx_());
+    return ConstValue.all_bytes_uninit(this.eval_mir_constant(const_op), this.cx.tcx_());
   };
 
   // #[instrument(level = "trace", skip(self, bx))]

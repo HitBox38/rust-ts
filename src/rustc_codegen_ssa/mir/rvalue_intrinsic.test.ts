@@ -553,14 +553,8 @@ test("rvalue.rs / intrinsic.rs over a mock backend", () => {
       const { bx, log } = mock_bx(tcx);
       new_fx(bx).codegen_rvalue(bx, PlaceRef.new_sized<V>("%d", layout(types.i32)), { $: "Use", _0: copy_(1), _1: "No" });
       expect(log).toEqual(["%0 = store_with_flags(%a:i32, %d, align4, 0)"]);
-      // A constant operand reaches `eval_mir_constant` (constant.rs, ssa-mir-rest): this lane's typed stub.
-      const c = (): void => {
-        const { bx } = mock_bx(tcx);
-        // The stub stops before reading its argument, so the constant itself does not matter here.
-        const op: Operand = { $: "Constant", _0: undefined as never };
-        new_fx(bx).is_entirely_uninit_const(op);
-      };
-      expect(stops(c)).toContain("ssa-mir-rest: compiler/rustc_codegen_ssa/src/mir/constant.rs eval_mir_constant");
+      // A constant operand reaches constant.rs `eval_mir_constant` (ssa-mir-rest, ported; root at integ-w54): this check
+      // asserted the old stub's stop and is gone; constant.rs is covered by mir_rest.test.ts.
     }
 
     // ---- intrinsics: intrinsic.rs:57 codegen_intrinsic_call. The instances are `g`'s fn-item locals.

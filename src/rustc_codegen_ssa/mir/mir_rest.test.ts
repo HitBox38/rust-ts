@@ -39,7 +39,7 @@ import type { CodegenMethods } from "../traits/mod.ts";
 import { type BuilderMethods, BuilderMethods_provided } from "../traits/builder.ts";
 import * as meth from "../meth.ts";
 import { size_and_align_of_dst } from "../size_of_val.ts";
-import { MonoItemExt } from "../mono_item.ts";
+import { MonoItemExt, mono_item_xlane } from "../mono_item.ts";
 import { install_FunctionCx_coverageinfo } from "./coverageinfo.ts";
 import { install_FunctionCx_constant } from "./constant.ts";
 import { Locals } from "./locals.ts";
@@ -509,6 +509,12 @@ test("meth.rs / size_of_val.rs / retag.rs / mono_item.rs over a mock backend", (
       const item_data: MonoItemData = { inlined: false, linkage: "External", visibility: "Default", size_estimate: 1 };
       // `Bx_` (the builder's static side) is only handed on to the `codegen_instance` stub.
       const define = (m: MonoItem) => MonoItemExt.define<MockTypes, CodegenMethods<MockTypes>, BuilderMethods<MockTypes>>(m, {} as never, bx, "cgu", item_data);
+      // base.rs / naked_asm.rs are ported now (root at integ-w54): `mono_item_xlane`'s entries forward to them. Recorders
+      // stand in for them here, so the test checks mono_item.rs's dispatch, not those callees over this mock.
+      const saved = { ...mono_item_xlane };
+      mono_item_xlane.codegen_instance = ((_Bx: unknown, _cx: unknown, inst: Instance) => void log.push(`codegen_instance(${inst === g_inst ? "g" : "?"})`)) as never;
+      mono_item_xlane.codegen_naked_asm = ((_cx: unknown, inst: Instance) => void log.push(`codegen_naked_asm(${inst === nk_inst ? "nk" : "?"})`)) as never;
+      mono_item_xlane.codegen_global_asm = (() => void log.push("codegen_global_asm")) as never;
       sections.mono_item = [
         [...log],
         [MonoItem.symbol_name(fn_g, tcx).name, MonoItem.symbol_name(st, tcx).name],
@@ -520,11 +526,11 @@ test("meth.rs / size_of_val.rs / retag.rs / mono_item.rs over a mock backend", (
         catch_(() => MonoItemExt.to_raw_string(fn_g)),
         log.slice(2),
       ];
+      Object.assign(mono_item_xlane, saved);
     }
     dump("sections", sections);
 
     const n = "null:ptr";
-    const TRANSMUTE = "unported: ssa-rvalue-intrinsic: compiler/rustc_codegen_ssa/src/mir/rvalue.rs codegen_transmute_operand";
     // The array retag loop (retag.rs:551 -> within_loop :605), over `[&u32; 3]` at `%a`: a usize counter alloca with its
     // lifetime, `0` stored, a `retag_loop` block entered by `br`, the counter loaded as `isize`, the element projected
     // (place.rs `project_index`: `inbounds_nuw_gep` of the element type), retagged, `counter + 1` stored, `retag_loop_exit`
@@ -627,33 +633,101 @@ test("meth.rs / size_of_val.rs / retag.rs / mono_item.rs over a mock backend", (
       rp_u8: [[], []],
       // `Option<&u32>`: a variant plan (:125); the place is loaded and its discriminant read, and
       // `codegen_get_discr`'s `extract_field` of the niche reaches rvalue.rs's stub (ssa-rvalue-intrinsic).
-      rp_option: [["load_operand(%o, std::option::Option<&u32>)", `THROW ${TRANSMUTE}`], []],
+      // (root at integ-w54) The `Option<&u32>` place: loaded, `codegen_get_discr` as for `ro_option` below, then the
+      // `retag_variant` block retags the place in memory and the entry block `switch`es to it.
+      rp_option: [
+        [
+          "load_operand(%o, std::option::Option<&u32>)",
+          "%0 = val_ty(load(%o))",
+          "%1 = type_kind(%0)",
+          "%2 = type_from_integer(I64)",
+          "%3 = ptrtoint(load(%o), %2)",
+          "%4 = icmp(IntEQ, %3, %2 0)",
+          "%5 = select(%4, ity:isize 0, ity:isize 1)",
+          "%6 = llbb()",
+          "%7 = append_sibling_block(retag_join)",
+          "%8 = append_sibling_block(retag_variant)",
+          "%9 = switch_to_block(%8)",
+          `retag_mem(%o, {size4, flags=8, im=${n}, pin=${n}})`,
+          "%10 = br(%7)",
+          "%11 = switch_to_block(%6)",
+          "%12 = switch(%5, %7, [[1, %8]])",
+          "%13 = switch_to_block(%7)",
+        ],
+        [],
+      ],
       // Operands (:399): an immediate reference is `retag_reg`'d and the builder rebuilds the immediate (:437-440).
       ro_ref: ["Immediate(%0)", [`%0 = retag_reg(%r, {size4, flags=8, im=${n}, pin=${n}})`]],
       // A scalar pair: each field extracted and retagged, `update_imm` at offsets 0 and 8.
       ro_refs: ["Pair(%0, %1)", [`%0 = retag_reg(%a, {size4, flags=8, im=${n}, pin=${n}})`, `%1 = retag_reg(%b, {size1, flags=10, im=${n}, pin=${n}})`]],
       // A `Ref` operand is retagged as its place (:405) and returned unchanged.
       ro_array_ref: ["Ref(PlaceValue { llval: %a, llextra: None, align: Align(8 bytes) })", loop_a],
-      // An `Option<&u32>` immediate stops at the same stub, through `codegen_get_discr` (:481), with a constant
-      // discriminant or not.
-      ro_option: [`THROW ${TRANSMUTE}`, []],
-      ro_option_const: JSON.stringify([`THROW ${TRANSMUTE}`, []]),
+      // An `Option<&u32>` immediate (root at integ-w54: rvalue.rs `codegen_transmute_operand` is ported, so these run on).
+      // `codegen_get_discr` (place.rs, :481) reads the niche: `ptrtoint` to `i64`, `icmp eq 0`, `select` of the
+      // discriminant. Not a constant: the operand is spilled to an `alloca` (:483-486), `retag_join` / `retag_variant`
+      // blocks are appended, the `Some` variant's place is retagged in `retag_variant` (`br` to the join), the entry block
+      // `switch`es on the discriminant, and the join block reloads the operand and ends the spill's lifetime.
+      ro_option: [
+        "Immediate(load(%6))",
+        [
+          "%0 = val_ty(%o)",
+          "%1 = type_kind(%0)",
+          "%2 = type_from_integer(I64)",
+          "%3 = ptrtoint(%o, %2)",
+          "%4 = icmp(IntEQ, %3, %2 0)",
+          "%5 = select(%4, ity:isize 0, ity:isize 1)",
+          "%6 = alloca(size8, align8)",
+          "%7 = lifetime_start(%6, size8)",
+          "%8 = from_immediate(%o)",
+          "%9 = store_with_flags(%8, %6, align8, 0)",
+          "%10 = llbb()",
+          "%11 = append_sibling_block(retag_join)",
+          "%12 = append_sibling_block(retag_variant)",
+          "%13 = switch_to_block(%12)",
+          `retag_mem(%6, {size4, flags=8, im=${n}, pin=${n}})`,
+          "%14 = br(%11)",
+          "%15 = switch_to_block(%10)",
+          "%16 = switch(%5, %11, [[1, %12]])",
+          "%17 = switch_to_block(%11)",
+          "load_operand(%6, std::option::Option<&u32>)",
+          "%18 = lifetime_end(%6, size8)",
+        ],
+      ],
+      // A constant discriminant (`const_to_opt_u128` gives 1, `Some`): no blocks; the variant's field is retagged as a
+      // register (`retag_reg`) and the immediate rebuilt.
+      ro_option_const: JSON.stringify([
+        "Immediate(%8)",
+        [
+          "%0 = val_ty(%o)",
+          "%1 = type_kind(%0)",
+          "%2 = type_from_integer(I64)",
+          "%3 = ptrtoint(%o, %2)",
+          "%4 = icmp(IntEQ, %3, %2 0)",
+          "%5 = select(%4, ity:isize 0, ity:isize 1)",
+          "%6 = val_ty(%o)",
+          "%7 = type_kind(%6)",
+          `%8 = retag_reg(%o, {size4, flags=8, im=${n}, pin=${n}})`,
+        ],
+      ]),
     });
     // The typeid is the port's v0 `typeid_for_trait_ref` of `Tr` (not this lane's code), in UTF-8.
     expect(vfe_typeid).toMatch(/mir_rest2Tr$/);
     // mono_item.rs:57 predefine: `predefine_fn` / `predefine_static` with the item's symbol name; a naked fn is not
-    // predefined (:77). :29 define: a static is `codegen_static`; a fn and a naked fn go to base.rs / naked_asm.rs (stubs
-    // of ssa-base / ssa-rvalue-intrinsic), global asm to base.rs. :89 to_raw_string of a static; of a fn it stops.
+    // predefined (:77). :29 define: a static is `codegen_static`; a fn and a naked fn go to base.rs / naked_asm.rs (recorded
+    // through `mono_item_xlane`), global asm to base.rs. :89 to_raw_string of a static; of a fn it stops.
     expect(mono_item.slice(0, 6)).toEqual([
       [`predefine_fn(g, External, Hidden, ${sym_g})`, `predefine_static(S, Internal, Default, ${sym_s})`],
       [sym_g, sym_s],
       "ok",
-      "THROW unported: ssa-base: compiler/rustc_codegen_ssa/src/base.rs codegen_instance",
-      "THROW unported: ssa-rvalue-intrinsic: compiler/rustc_codegen_ssa/src/mir/naked_asm.rs codegen_naked_asm",
-      "THROW unported: ssa-base: compiler/rustc_codegen_ssa/src/base.rs codegen_global_asm",
+      "ok",
+      "ok",
+      "ok",
     ]);
     expect(mono_item[6]).toMatch(/^Static\(DefId\(0:\d+ ~ mir_rest\[[0-9a-f]{4}\]::S\)\)$/);
-    expect(mono_item.slice(7)).toEqual(["THROW unported: rustc_codegen_ssa::mono_item::to_raw_string: the address of an interned `GenericArgs` list", ["codegen_static(S)"]]);
+    expect(mono_item.slice(7)).toEqual([
+      "THROW unported: rustc_codegen_ssa::mono_item::to_raw_string: the address of an interned `GenericArgs` list",
+      ["codegen_static(S)", "codegen_instance(g)", "codegen_naked_asm(nk)", "codegen_global_asm"],
+    ]);
   });
 });
 

@@ -14,11 +14,11 @@
 //   rust_ts/tracing.ts) and stay comments; locals.rs's `warn!` is live.
 // - `IndexVec<BasicBlock, T>` / `IndexVec<Local, T>` are arrays indexed by the handle (PORTING §5).
 //
-// PORT (ssa-mir-core): calls into fill lanes that have not landed (ssa-debuginfo and retag.rs; ssa-block's and ssa-base's forward at integ-w54;
-// ssa-operand-place's were repointed to its real methods at integ-w53) go through the `xlane` table at the end of this file. Each entry is a typed stub that stops with
-// `unported("<lane>: <upstream path> <fn>")`. They are not prototype methods or class statics, so they cannot collide
-// with the owners' real ports at merge: root repoints each entry (or its call sites) when the owner lands. Tests may
-// replace entries to drive `codegen_mir` over a mock backend.
+// PORT (ssa-mir-core): calls into other fill lanes go through the `xlane` table at the end of this file. Entries whose owner
+// has not landed (ssa-debuginfo) are typed stubs that stop with `unported("<lane>: <upstream path> <fn>")`; the entries of
+// landed owners (ssa-block, ssa-base, retag.rs) forward to their ports (root at integ-w54), and ssa-operand-place's call
+// sites were repointed to its methods (integ-w53). They are not prototype methods or class statics, so they cannot collide
+// with the owners' real ports. Tests may replace entries to drive `codegen_mir` over a mock backend.
 // Load order: rustc_target through its crate root first. spec/mod.ts imports lib.ts, which evaluates spec/json.ts and
 // target_features.ts, and both read spec/mod.ts's bindings at their top level: entered from spec/mod.ts, the cycle reads `Os`
 // before it exists (as rustc_mir_transform remove_noop_landing_pads.ts).
@@ -73,6 +73,10 @@ import { install_FunctionCx_place, PlaceRef } from "./place.ts";
 import { install_FunctionCx_rvalue } from "./rvalue.ts";
 import { install_FunctionCx_intrinsic } from "./intrinsic.ts";
 import { install_FunctionCx_block } from "./block.ts";
+import { install_FunctionCx_constant } from "./constant.ts";
+import { install_FunctionCx_statement } from "./statement.ts";
+import { install_FunctionCx_coverageinfo } from "./coverageinfo.ts";
+import { install_FunctionCx_retag } from "./retag.ts";
 import { wants_new_eh_instructions as base_wants_new_eh_instructions } from "../base.ts";
 
 // mod analyze; mod block; mod constant; mod coverageinfo; pub mod debuginfo; mod intrinsic; mod locals;
@@ -261,13 +265,17 @@ export class FunctionCx<B extends BackendTypes, Cx extends CodegenMethods<B> = C
     this.locals.values[local] = value;
   }
 }
-// PORT (ssa-operand-place, root at integ-w53; rvalue/intrinsic/block.rs at integ-w54): the other files' `impl FunctionCx`
+// PORT (ssa-operand-place, root at integ-w53; the wave 41 files at integ-w54): the other files' `impl FunctionCx`
 // blocks are installed here, right after the class, so that the methods exist whichever of the files loads first.
 install_FunctionCx_operand(FunctionCx);
 install_FunctionCx_place(FunctionCx);
 install_FunctionCx_rvalue(FunctionCx);
 install_FunctionCx_intrinsic(FunctionCx);
 install_FunctionCx_block(FunctionCx);
+install_FunctionCx_constant(FunctionCx);
+install_FunctionCx_statement(FunctionCx);
+install_FunctionCx_coverageinfo(FunctionCx);
+install_FunctionCx_retag(FunctionCx);
 
 export type LocalRef<V> =
   | { readonly $: "Place"; readonly _0: PlaceRef<V> }
@@ -891,24 +899,25 @@ export const xlane = {
     return base_wants_new_eh_instructions(target);
   },
 
-  // retag.rs (plan-m7 §2d groups it with ssa-operand-place; docs/next.md assigns it to no lane yet)
+  // retag.rs (ssa-mir-rest): ported; the entries forward to the installed methods (root at integ-w54), so tests can still
+  // replace them.
   /** `fx.codegen_retag_place(bx, place, is_fn_entry)` (mir/retag.rs). */
   codegen_retag_place<B extends BackendTypes, Cx extends CodegenMethods<B>, Bx extends BuilderMethods<B, Cx>>(
-    _fx: FunctionCx<B, Cx, Bx>,
-    _bx: Bx,
-    _place: PlaceRef<B["Value"]>,
-    _is_fn_entry: boolean,
+    fx: FunctionCx<B, Cx, Bx>,
+    bx: Bx,
+    place: PlaceRef<B["Value"]>,
+    is_fn_entry: boolean,
   ): void {
-    return unported("retag: compiler/rustc_codegen_ssa/src/mir/retag.rs codegen_retag_place");
+    fx.codegen_retag_place(bx, place, is_fn_entry);
   },
   /** `fx.codegen_retag_operand(bx, operand, is_fn_entry)` (mir/retag.rs). */
   codegen_retag_operand<B extends BackendTypes, Cx extends CodegenMethods<B>, Bx extends BuilderMethods<B, Cx>>(
-    _fx: FunctionCx<B, Cx, Bx>,
-    _bx: Bx,
-    _operand: OperandRef<B["Value"]>,
-    _is_fn_entry: boolean,
+    fx: FunctionCx<B, Cx, Bx>,
+    bx: Bx,
+    operand: OperandRef<B["Value"]>,
+    is_fn_entry: boolean,
   ): OperandRef<B["Value"]> {
-    return unported("retag: compiler/rustc_codegen_ssa/src/mir/retag.rs codegen_retag_operand");
+    return fx.codegen_retag_operand(bx, operand, is_fn_entry);
   },
 
   // ssa-debuginfo (mir/debuginfo.rs)

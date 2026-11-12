@@ -10,9 +10,8 @@
 // - The `impl FunctionCx` block (`maybe_codegen_consume_direct`, `codegen_consume`, `codegen_operand`,
 //   `move_copy_annotation_instance`) is in `install_FunctionCx_operand`, which mod.ts calls after `class FunctionCx`.
 // - `itertools::Either` is rustc_middle mir/mod.ts's `Either` (`Left`/`Right`, same derived Debug).
-// - Calls into lanes not yet ported are typed module-private stubs (`unported("<lane>: <path> <fn>")`): constant.rs
-//   `FunctionCx::eval_mir_constant_to_operand` and `FunctionCx::immediate_const_vector` (plan-m7 MIR core group, no
-//   lane yet).
+// - constant.rs `FunctionCx::eval_mir_constant_to_operand` / `immediate_const_vector` are the installed methods
+//   (ssa-mir-rest; root at integ-w54, they were stubs).
 import {
   type Align,
   debug_Align,
@@ -46,7 +45,7 @@ import { fold_Ty } from "../../rustc_middle/ty/structural_impls.ts";
 import { DUMMY_SP } from "../../rustc_span/lib.ts";
 import { bug, span_bug } from "../../rustc_span/macros.ts";
 import { type Debug, debug_struct, debug_tuple, format_debug, type Fmt, PLAIN, PRETTY } from "../../std/fmt.ts";
-import { assert, assert_eq, panic, unreachable, unported, unwrap } from "../../std/panic.ts";
+import { assert, assert_eq, panic, unreachable, unwrap } from "../../std/panic.ts";
 import { IntPredicate } from "../common.ts";
 import { MemFlags } from "../lib.ts";
 import type { BackendTypes } from "../traits/backend.ts";
@@ -55,24 +54,6 @@ import type { CodegenMethods } from "../traits/mod.ts";
 import type { FunctionCx } from "./mod.ts";
 import { debug_PlaceValue, debug_V_or_stop, PlaceRef, PlaceValue } from "./place.ts";
 import { transmute_scalar } from "./rvalue.ts";
-
-/** Stub: `FunctionCx::eval_mir_constant_to_operand` (constant.rs; no lane yet). */
-function FunctionCx_eval_mir_constant_to_operand<B extends BackendTypes>(
-  _fx: FunctionCx<B>,
-  _bx: BuilderMethods<B>,
-  _constant: ConstOperand,
-): OperandRef<B["Value"]> {
-  return unported("compiler/rustc_codegen_ssa/src/mir/constant.rs eval_mir_constant_to_operand (plan-m7 MIR core group, no lane yet)");
-}
-
-/** Stub: `FunctionCx::immediate_const_vector` (constant.rs; no lane yet). */
-function FunctionCx_immediate_const_vector<B extends BackendTypes>(
-  _fx: FunctionCx<B>,
-  _bx: BuilderMethods<B>,
-  _constant: ConstOperand,
-): [B["Value"], Ty] {
-  return unported("compiler/rustc_codegen_ssa/src/mir/constant.rs immediate_const_vector (plan-m7 MIR core group, no lane yet)");
-}
 
 /// The representation of a Rust value. The enum variant is in fact
 /// uniquely determined by the value's type, but is kept as a
@@ -1368,11 +1349,11 @@ export function install_FunctionCx_operand(FunctionCx_: { prototype: FunctionCx<
           const layout = bx.layout_of(constant_ty);
           const [, element_ty] = constant_ty.simd_size_and_type(bx.tcx_());
           if (layout.backend_repr.$ === "SimdVector" && element_ty.is_numeric()) {
-            const [llval, ty] = FunctionCx_immediate_const_vector(this, bx, constant);
+            const [llval, ty] = this.immediate_const_vector(bx, constant);
             return new OperandRef<unknown>({ $: "Immediate", _0: llval }, bx.layout_of(ty), undefined);
           }
         }
-        return FunctionCx_eval_mir_constant_to_operand(this, bx, constant);
+        return this.eval_mir_constant_to_operand(bx, constant);
       }
     }
   };

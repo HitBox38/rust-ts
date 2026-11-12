@@ -135,11 +135,6 @@ describe("stub counts per lane", () => {
     // cg-context's 2 (`SanitizerIgnoreList::new`, `typename_for_ignore_list`) and cg-types-attrs's 3 (rustc_sanitizers is out
     // of scope).
     "rustc_sanitizers": 5,
-    // cg-context's 3 in context.ts (`Session::{needs_plt, must_emit_unwind_tables, branch_protection}`) and cg-types-attrs's 6
-    // `SESSION_STOPS` (attributes.ts), which name three of the same fns: not in rustc_session yet (next M7 wave).
-    "rustc_session": 9,
-    // cg-types-attrs: `MonoItemExt::predefine` / `define` in base.ts.
-    "ssa-mir-core": 2,
     "ssa-write": 5,
   };
   test("matches the table in docs/handoff/cg-contract.md", () => {

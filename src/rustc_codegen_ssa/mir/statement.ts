@@ -41,14 +41,15 @@ function FunctionCx_debug_introduce_local<B extends BackendTypes>(_fx: FunctionC
   return unported("ssa-debuginfo: compiler/rustc_codegen_ssa/src/mir/debuginfo.rs debug_introduce_local");
 }
 
-/** Stub: `FunctionCx::codegen_rvalue` (mir/rvalue.rs, lane ssa-rvalue-intrinsic). */
-function FunctionCx_codegen_rvalue<B extends BackendTypes>(_fx: FunctionCx<B>, _bx: BuilderMethods<B>, _dest: PlaceRef<B["Value"]>, _rvalue: Rvalue): void {
-  return unported("ssa-rvalue-intrinsic: compiler/rustc_codegen_ssa/src/mir/rvalue.rs codegen_rvalue");
+/** `FunctionCx::codegen_rvalue` (mir/rvalue.rs, ssa-rvalue-intrinsic): forwards to the installed method (root at integ-w54). */
+function FunctionCx_codegen_rvalue<B extends BackendTypes>(fx: FunctionCx<B>, bx: BuilderMethods<B>, dest: PlaceRef<B["Value"]>, rvalue: Rvalue): void {
+  fx.codegen_rvalue(bx, dest, rvalue);
 }
 
-/** Stub: `FunctionCx::codegen_rvalue_operand` (mir/rvalue.rs, lane ssa-rvalue-intrinsic). */
-function FunctionCx_codegen_rvalue_operand<B extends BackendTypes>(_fx: FunctionCx<B>, _bx: BuilderMethods<B>, _rvalue: Rvalue): OperandRef<B["Value"]> {
-  return unported("ssa-rvalue-intrinsic: compiler/rustc_codegen_ssa/src/mir/rvalue.rs codegen_rvalue_operand");
+/** `FunctionCx::codegen_rvalue_operand` (mir/rvalue.rs, ssa-rvalue-intrinsic): forwards to the installed method (root at
+ *  integ-w54). */
+function FunctionCx_codegen_rvalue_operand<B extends BackendTypes>(fx: FunctionCx<B>, bx: BuilderMethods<B>, rvalue: Rvalue): OperandRef<B["Value"]> {
+  return fx.codegen_rvalue_operand(bx, rvalue);
 }
 
 /** The stubs above, as one table so a test can replace them (`stmt_xlane`); not upstream. */
