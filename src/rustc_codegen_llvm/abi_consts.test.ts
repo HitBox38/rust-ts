@@ -6,11 +6,13 @@
 // 1. **fn signatures** (sigs.rs): for each `#[no_mangle]` fn, `fn_abi_of_instance` -> `FnAbiLlvmExt::llvm_type` /
 //    `llvm_cconv` -> a declaration -> `apply_attrs_llfn(cx, llfn, None)`. Compared with the oracle's `define` line: the calling
 //    convention, the return type and its attributes, each parameter's type and attributes, at `-Copt-level=0` and `=1`.
-//    `apply_attrs_llfn`'s instance attributes (`llfn_attrs_from_instance`, cg-types-attrs) go to the attribute group `#N`,
-//    which is not compared. **Attributes compare as sets**: the IR model prints them in insertion order, LLVM sorts them
+//    Of the function attributes in the attribute group `#N`, only `noreturn` and `nounwind` (`apply_attrs_llfn`'s,
+//    abi.rs:465-484) are compared; the group's other attributes are `apply_attrs_llfn`'s instance attributes
+//    (`llfn_attrs_from_instance`, cg-types-attrs), which are not. **Attributes compare as sets**: the IR model prints them in insertion order, LLVM sorts them
 //    (docs/handoff/cg-types-attrs.md, "For the llir lanes").
 // 2. **call sites** (sigs.rs `call_*`): `apply_attrs_callsite` on a call built with the IR model, against the oracle's `call`
-//    line; it then stops in the IR model's `LLVMRustGetElementTypeArgIndex`.
+//    line, with `noreturn` / `nounwind` read through the call's attribute group (abi.rs:641-648); it then stops in the IR
+//    model's `LLVMRustGetElementTypeArgIndex`.
 // 2b. **arguments spilled to memory** (sigs.rs `spill_*`): `ArgAbiExt::store_fn_arg` into an alloca, as rustc_codegen_ssa's
 //    `arg_local_refs` calls it, against the first instructions of the oracle's entry block (Pair, Direct, a `bool`).
 // 3. **statics** (statics.rs): the CGU's items in `items_in_deterministic_order`, `predefine_static` (cg-types-attrs) then
@@ -267,10 +269,28 @@ const CC_KEYWORDS: Record<string, number> = {
   win64cc: llvm.CallConv_discriminant.X86_64_Win64,
 };
 
-/** A `define` / `declare` / `call` line as `cc=<cc> ret=<canon> (<param canon>; ..)`. Value names / operands are dropped. */
-function canon_sig(line_: string, kind: "def" | "call"): string {
+/** The function attributes of `apply_attrs_llfn` (abi.rs:465-484) and `apply_attrs_callsite` (abi.rs:641-648) that the
+ *  tests compare (review cg-abi-consts N1). The `cmse` and `interrupt` strings are not reachable on x86_64. */
+const FN_FLAGS = ["noreturn", "nounwind"];
+
+/** The attribute groups of a module's text: `attributes #N = { a b .. }` as `N -> [a, b, ..]`. */
+function attr_groups(text: string): Map<string, string[]> {
+  const out = new Map<string, string[]>();
+  for (const m of text.matchAll(/^attributes #(\d+) = \{ (.*) \}$/gm)) out.set(m[1]!, m[2]!.split(/\s+/));
+  return out;
+}
+
+/** The `FN_FLAGS` among the function attributes after a line's parameter list (inline, or through its `#N` group). */
+function fn_flags(tail: string, groups: Map<string, string[]>): string {
+  const attrs = tail.split(/\s+/).flatMap((t) => (/^#\d+$/.test(t) ? (groups.get(t.slice(1)) ?? [`<no group ${t}>`]) : [t]));
+  return FN_FLAGS.filter((a) => attrs.includes(a)).join(" ");
+}
+
+/** A `define` / `declare` / `call` line as `cc=<cc> ret=<canon> (<param canon>; ..) fn=[<FN_FLAGS>]`. Value names / operands
+ *  are dropped. */
+function canon_sig(line_: string, kind: "def" | "call", groups: Map<string, string[]>): string {
   const line = line_.replace(/\b(\w+cc) /, (w, k: string) => (CC_KEYWORDS[k] !== undefined ? `cc${CC_KEYWORDS[k]} ` : w)).replace(/\bcc (\d+) /, "cc$1 ");
-  const m = kind === "def" ? /^(?:define|declare) (.*?)@"?([\w.$]+)"?\((.*)\)[^)]*$/.exec(line) : /call (.*?)@"?([\w.$]+)"?\((.*)\)[^)]*$/.exec(line);
+  const m = kind === "def" ? /^(?:define|declare) (.*?)@"?([\w.$]+)"?\((.*)\)([^)]*)$/.exec(line) : /call (.*?)@"?([\w.$]+)"?\((.*)\)([^)]*)$/.exec(line);
   if (m === null) throw new Error(`ERROR: not a ${kind} line: ${line}`);
   const pre = split_top(m[1]!, " ").filter((t) => !["internal", "private", "dso_local", "hidden", "unnamed_addr"].includes(t));
   const cc = pre.length > 1 && /^(\w+cc|cc\d+)$/.test(pre[0]!) ? pre.shift()! : "ccc";
@@ -280,23 +300,25 @@ function canon_sig(line_: string, kind: "def" | "call"): string {
     if (kind === "call" || (toks.length > 1 && toks[toks.length - 1]!.startsWith("%"))) toks.pop();
     return canon_typed(toks, true);
   });
-  return `cc=${cc} ret=${canon_typed(pre, false)} (${params.join("; ")})`;
+  return `cc=${cc} ret=${canon_typed(pre, false)} (${params.join("; ")}) fn=[${fn_flags(m[4]!, groups)}]`;
 }
 
 function oracle_sigs(ir: string): Map<string, string> {
   const out = new Map<string, string>();
+  const groups = attr_groups(ir);
   for (const line of ir.split("\n")) {
     const m = /^define .*?@"?([\w.$]+)"?\(/.exec(line);
-    if (m) out.set(m[1]!, canon_sig(line, "def"));
+    if (m) out.set(m[1]!, canon_sig(line, "def", groups));
   }
   return out;
 }
 
 function port_sigs(text: string): Map<string, string> {
   const out = new Map<string, string>();
+  const groups = attr_groups(text);
   for (const line of text.split("\n")) {
     const m = /^declare .*?@"?([\w.$]+)"?\(/.exec(line);
-    if (m) out.set(m[1]!, canon_sig(line, "def"));
+    if (m) out.set(m[1]!, canon_sig(line, "def", groups));
   }
   return out;
 }
@@ -346,9 +368,10 @@ describe("FnAbiLlvmExt::apply_attrs_callsite against the oracle's call lines (si
     const ir = oracle_ir("sigs.rs", flags);
     const callees = ["c_sret", "c_byval", "c_u8", "c_i16", "r_big", "c_intfloat", "cc_win64"];
     const oracle = new Map<string, string>();
+    const oracle_groups = attr_groups(ir);
     for (const line of ir.split("\n")) {
       const m = /call .*?@([\w.$]+)\(/.exec(line);
-      if (m && callees.includes(m[1]!)) oracle.set(m[1]!, canon_sig(line.trim(), "call"));
+      if (m && callees.includes(m[1]!)) oracle.set(m[1]!, canon_sig(line.trim(), "call", oracle_groups));
     }
     expect([...oracle.keys()].sort()).toEqual([...callees].sort());
     install_doubles();
@@ -375,9 +398,10 @@ describe("FnAbiLlvmExt::apply_attrs_callsite against the oracle's call lines (si
       return printModule(cx.llmod());
     });
     expect(stops).toEqual(callees.map(() => "llir: LLVMRustGetElementTypeArgIndex"));
+    const port_groups = attr_groups(text);
     for (const line of text.split("\n")) {
       const m = /call .*?@([\w.$]+)\(/.exec(line);
-      if (m && callees.includes(m[1]!)) expect(`${m[1]}: ${canon_sig(line.trim(), "call")}`).toBe(`${m[1]}: ${oracle.get(m[1]!)}`);
+      if (m && callees.includes(m[1]!)) expect(`${m[1]}: ${canon_sig(line.trim(), "call", port_groups)}`).toBe(`${m[1]}: ${oracle.get(m[1]!)}`);
     }
   }, 120_000);
 });
@@ -408,9 +432,15 @@ describe("ArgAbiExt::store_fn_arg against the oracle's entry blocks (sigs.rs `sp
       }
       return printModule(cx.llmod());
     });
-    for (const m of text.matchAll(/^define .*?@(spill_\w+)\(.*\nstart:\n((?:  .*\n)*?)}/gm)) {
-      const ours = m[2]!.split("\n").filter((l) => l !== "");
-      expect(`${m[1]}:\n${ours.join("\n")}`).toBe(`${m[1]}:\n${oracle.get(m[1]!)!.slice(0, ours.length).join("\n")}`);
+    const port = new Map<string, string[]>();
+    for (const m of text.matchAll(/^define .*?@(spill_\w+)\(.*\nstart:\n((?:  .*\n)*?)}/gm)) port.set(m[1]!, m[2]!.split("\n").filter((l) => l !== ""));
+    // Every `spill_*` fn has a block, of the length `store_fn_arg` gives (review cg-abi-consts N2): the alloca, then for
+    // the Pair a store, a GEP and a store (abi.rs `store_fn_arg`'s `PassMode::Pair` arm), for the Direct a store, and for
+    // the `bool` a `zext` to `i8` and a store. The oracle's lines after these are the fn's body.
+    expect([...port.keys()].sort()).toEqual(["spill_bool", "spill_direct", "spill_pair"]);
+    expect(Object.fromEntries([...port].map(([n, l]) => [n, l.length]))).toEqual({ spill_pair: 4, spill_direct: 2, spill_bool: 3 });
+    for (const [name, ours] of port) {
+      expect(`${name}:\n${ours.join("\n")}`).toBe(`${name}:\n${oracle.get(name)!.slice(0, ours.length).join("\n")}`);
     }
   }, 120_000);
 });
