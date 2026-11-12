@@ -64,13 +64,24 @@ Branch `t3/port-ssa-base-crate-driver` (from `51dfe33c`; no merges).
     wrapper.
   - **The test bites:** dropping the `.reverse()` of the second half in the CGU interleave fails 2 tests. I reverted that
     change.
-- Note: with `--emit=llvm-ir`, `-o <file>` forces one CGU on the oracle side, so the test uses `--out-dir`.
+  - **What the "codegen_instance order" test checks:** it does not call the port's `codegen_instance`, which needs a real
+    backend for `codegen_mir`. The mock `compile_codegen_unit` lists each CGU's `items_in_deterministic_order` itself. So
+    the test pins `codegen_crate`'s CGU order. That the `info!` site is live is `info_sites_check`'s job.
+- Notes on the oracle runs:
+  - With `--emit=llvm-ir`, `-o <file>` forces one CGU on the oracle side, so the test uses `--out-dir`.
+  - **Checkout independence (review F1, fixed).** rustc prints closure names with the source path as it was given. Both
+    the oracle runs and the driver therefore run with `cwd` `base_oracle/` and the relative path `cgus.rs`. `oracle.json`
+    is regenerated and contains no absolute path. I copied the worktree to another directory under the scratchpad and ran
+    `bun test ./src/rustc_codegen_ssa/base.test.ts` there: **12 pass, 0 fail**.
 - Sample difftests (`RUST_TS_AGENT=ssa-base`, `--sample 200 --jobs 6`, AC power):
   - `mono-ui`: **200/200 MATCH** (DIFF 0, UNPORTED 0, CRASH 0, TIMEOUT 0), run `20261112-140128-ssa-base-0obu`.
   - `mir-o2`: **200/200 MATCH** (DIFF 0, UNPORTED 0, CRASH 0, TIMEOUT 0), run `20261112-140425-ssa-base-0ggm`.
   - `mir`: **200/200 MATCH** (DIFF 0, UNPORTED 0, CRASH 0, TIMEOUT 0), run `20261112-140649-ssa-base-64j6`.
-- The tests read no new environment variables. They use the existing `RUST_TS_REQUIRE_PROBES`, `REGEN` and
-  `RUST_TS_AGENT` (the latter only for the scratch directory), as analyze.test.ts does.
+- **Environment variables.** The first version's driver read `RUST_TS_SSA_OUT`, which the test set for its child, so my
+  earlier claim that the tests read no new variables was wrong (review N7). The driver now takes its output path as its
+  first command-line argument, `--ssa-out=<file>`, and reads no environment variable. `base.test.ts` reads only
+  `RUST_TS_REQUIRE_PROBES`, `REGEN` and `RUST_TS_AGENT` (the last only for the scratch directory), as analyze.test.ts does.
+  `bun test ./scripts/lib/unit-steps.test.ts`: 10 pass, 0 fail.
 
 ## Stub sites root must repoint
 1. `src/rustc_codegen_llvm/context.ts:1501` `wants_msvc_seh` (cg-context's stub): import `wants_msvc_seh` from
@@ -110,13 +121,16 @@ Branch `t3/port-ssa-base-crate-driver` (from `51dfe33c`; no merges).
 - base.ts `cmp_DebuggerVisualizerFile`: `"std::path::PathBuf: Ord (compare_components) ..."`. It is reached only on MSVC
   targets with two natvis files whose bytes and kind are equal and whose paths are both `Some`.
 - base.ts `determine_cgu_reuse` past its first check: `CodegenUnit::work_product_id` (rustc_middle, existing stop). This
-  is never reached under D3.
+  is never reached with the dep graph off (plan-m2 D3, plan-m3 D12).
 - lib.ts:
   - `rustc_session::config::OutputFilenames::temp_path_for_cgu` and `temp_path_dwo_for_cgu` (rustc_session, no M7 lane
     yet). `into_compiled_module` reaches them for any output it emits. **ssa-write needs them, so root must assign them
     to a rustc_session lane.**
   - `OutputFilenames: Encodable` / `Decodable`, the rlink path.
-- assert_module_sources.ts: `rustc_codegen_ssa::diagnostics::IncorrectCguReuseType` (not generated; `-C incremental` only).
+- assert_module_sources.ts:
+  - `rustc_codegen_ssa::diagnostics::IncorrectCguReuseType` (not generated; `-C incremental` only).
+  - `"rustc_codegen_ssa::assert_module_sources: CGU_REUSE in UnordMap (FxHashMap) iteration order (-C incremental)"`, when
+    there is something to print (review N1).
 
 ## `// PORT:` decisions (for root to record)
 1. **The `ssa_write` table** (base.ts) holds typed stubs for every back/write.rs fn `codegen_crate` calls. It follows
@@ -127,14 +141,21 @@ Branch `t3/port-ssa-base-crate-driver` (from `51dfe33c`; no merges).
    `local_item_id`.
 3. **Lazy requires** in base.ts (`lazy_mir`, `lazy_mir_operand`, `lazy_trait_selection_engine`, `lazy_infer_at`,
    `lazy_infer_traits_engine`). lib.ts loads base.ts at startup, so static imports of these would change every suite's
-   load order (D14). The other new static imports are modules the front end already loads. The mono-ui and mir-o2
-   samples confirm the order is unchanged.
+   load order (D14). Not all of the other new static imports were already loaded (review N3). Three modules are new at
+   startup:
+   - `rustc_codegen_ssa/decodable.gen.ts`, via lib.ts;
+   - `std/time.ts`, via base.ts;
+   - `rustc_codegen_ssa/assert_module_sources.ts`, via base.ts.
+
+   None of them has a top-level side effect: they hold consts and functions only. The mono-ui, mir-o2 and mir samples
+   match. Root: note these for D14's bundle batch.
 4. **`backend.clone()`** is the same value, because the backends are stateless unit structs. `Arc::new(config)` is the
    value itself.
 5. **The CGU order:** `sort_by_key(Reverse(size_estimate))` is a stable descending sort.
    `first_half.interleave(second_half.rev())` uses a local `interleave` (itertools semantics: alternate, then the rest).
    `pre_compiled_cgus` (`FxHashMap`) is a `Map<number, ..>`. `par_map` is the port's sequential one.
-6. **`determine_cgu_reuse`:** after the first check, the body is upstream's text as a comment. The disabled graph (D3)
+6. **`determine_cgu_reuse`:** after the first check, the body is upstream's text as a comment. The disabled graph (plan-m2
+   D3, plan-m3 D12)
    always returns early, and `work_product_id()` stops (`never`). `DepGraph` has no `previous_work_product`,
    `assert_dep_node_not_yet_allocated_in_current_session` or `try_mark_green` to call.
 7. **`BTreeSet<DebuggerVisualizerFile>`** is a sorted, deduplicated array, using the derived `Ord`: `src` bytes, then
@@ -147,9 +168,9 @@ Branch `t3/port-ssa-base-crate-driver` (from `51dfe33c`; no merges).
    `for_each_output` lives on its companion const. `SerializedModule`'s methods also live on a companion const. The
    `CguReuse` and `ComparisonKind` companions carry `fmt` and `into_diag_arg`. `CguReuse_discriminant` gives the derived
    `PartialOrd`.
-10. **`assert_module_sources`'s `print_mono_items` loop** prints `UnordMap::items().all(..)` in the port `Map`'s insertion
-    order, which is `codegen_crate`'s order. Upstream's order there is the hash map's; it is reached only with
-    `-C incremental`, which is out of scope (D11).
+10. **`assert_module_sources`'s `print_mono_items` loop** stays upstream's text as a comment. When there is anything to
+    print, it stops `unported`. Upstream prints in the `FxHashMap`'s iteration order, which the port's insertion-ordered
+    `Map` does not reproduce (review N1). It is reachable only with `-C incremental` (plan-m7 D11).
 11. **Small translations:**
     - `Instant::elapsed()` is `Instant::now().duration_since(start)`;
     - `Duration +=` is `checked_add(..).expect("overflow when adding durations")`;
@@ -157,6 +178,9 @@ Branch `t3/port-ssa-base-crate-driver` (from `51dfe33c`; no merges).
     - `u64::try_from(entry_idx).unwrap() * ptr_size.bytes()` is a `bigint`;
     - `hir::BodyId` is cast to rustc_middle's `BodyId` for `typeck_body`, as rustc_passes does;
     - `bug!()` with no message is `bug("impossible case reached")`, upstream's text for an empty `bug!()`;
+    - assertion texts are core's (review N4): `assert_eq!(result, None)` in `unsize_ptr` prints
+      `Some((<Value>, <Value>))` with the backend's `debug_Value`, and the crate-name `assert_eq!` in `check_attrs` uses
+      `&str`'s `{:?}` (`debug_str`);
     - `ReturnSlot::Direct` is the literal `{ $: "Direct" }`, because traits/builder.ts is imported type-only.
 
 ## Notes

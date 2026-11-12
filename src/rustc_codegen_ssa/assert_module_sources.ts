@@ -44,7 +44,7 @@ import { str_cmp } from "../rustc_session/options.ts";
 import { LOCAL_CRATE } from "../rustc_span/def_id.ts";
 import type { Span } from "../rustc_span/lib.ts";
 import { Symbol } from "../rustc_span/symbol.ts";
-import { write_stdout } from "../std/io.ts";
+import { debug_str } from "../std/fmt.ts";
 import type { MutRef } from "../std/mut_ref.ts";
 import { assert, assert_eq, unported, unwrap } from "../std/panic.ts";
 import {
@@ -78,10 +78,15 @@ export function assert_module_sources(tcx: TyCtxt, set_reuse: (cgu_reuse_tracker
 
     let data: TrackerData | undefined;
     if (tcx.sess.opts.unstable_opts.print_mono_items && (data = ams.cgu_reuse_tracker.data) !== undefined) {
-      // PORT: `UnordMap::items().all(..)` visits the entries in the map's (unordered) iteration order; the port's
-      // `Map` iterates in insertion order, which is the order `codegen_crate` sets them in.
-      for (const [cgu, reuse] of data.actual_reuse) {
-        write_stdout(`CGU_REUSE ${cgu} ${CguReuse.fmt(reuse)}\n`);
+      // data.actual_reuse.items().all(|(cgu, reuse)| {
+      //     println!("CGU_REUSE {cgu} {reuse}");
+      //     true
+      // });
+      // PORT: `UnordMap::items()` visits the entries in the `FxHashMap`'s iteration order, which is printed and which the
+      // port's insertion-ordered `Map` does not reproduce (review ssa-base N1). Only reachable with `-C incremental`
+      // (plan-m7 D11).
+      if (data.actual_reuse.size !== 0) {
+        unported("rustc_codegen_ssa::assert_module_sources: CGU_REUSE in UnordMap (FxHashMap) iteration order (-C incremental)");
       }
     }
 
@@ -163,7 +168,7 @@ class AssertModuleSource {
       const iter = user_path.split("-");
 
       // Remove the crate name
-      assert_eq(unwrap(iter.shift()), crate_name, (s) => JSON.stringify(s));
+      assert_eq(unwrap(iter.shift()), crate_name, debug_str);
 
       const cgu_path_components = iter;
 

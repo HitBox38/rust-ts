@@ -11,8 +11,9 @@
 // - The back/write.rs fns `codegen_crate` calls (lane ssa-write, a later wave) are typed stubs in the `ssa_write` table at
 //   the end of this file; `OngoingCodegen` and `Coordinator` are opaque placeholders until ssa-write ports them.
 // - meth.rs (`load_vtable`, `get_vtable`) has no lane yet: typed stubs at the end of this file.
-// - No dep graph (D3): `codegen_crate`'s `ensure_ok().codegen_unit(..)` loop and `determine_cgu_reuse` past its first
-//   check are never reached (`is_fully_enabled()` is always false). `-C incremental` is out of scope (plan-m7 D11).
+// - No dep graph (plan-m2 D3, plan-m3 D12): `codegen_crate`'s `ensure_ok().codegen_unit(..)` loop and
+//   `determine_cgu_reuse` past its first check are never reached (`is_fully_enabled()` is always false).
+//   `-C incremental` is out of scope (plan-m7 D11).
 // - `-Z time-passes`' `get_resident_set_size` / `print_time_passes_entry` are not ported (rustc_driver_impl stops on
 //   them too): typed stubs.
 // - `BTreeSet<DebuggerVisualizerFile>` is a sorted, deduplicated array (`collect_debugger_visualizers_transitive`).
@@ -337,7 +338,10 @@ export function unsize_ptr<B extends BackendTypes>(
 
       const dst_f = dst_layout.field(bx.cx(), i);
       assert(src_f.ty !== dst_f.ty, () => `assertion \`left != right\` failed\n  left: ${debug_Ty(src_f.ty, PLAIN)}\n right: ${debug_Ty(dst_f.ty, PLAIN)}`);
-      assert(result === undefined, () => "assertion `left == right` failed\n  left: Some(..)\n right: None");
+      if (result !== undefined) {
+        const [r0, r1] = result;
+        assert(false, () => `assertion \`left == right\` failed\n  left: Some((${bx.debug_Value(r0, PLAIN)}, ${bx.debug_Value(r1, PLAIN)}))\n right: None`);
+      }
       result = unsize_ptr(bx, src, src_f.ty, dst_f.ty, old_info);
     }
     return unwrap(result);
@@ -1317,8 +1321,8 @@ export function determine_cgu_reuse(tcx: TyCtxt, cgu: CodegenUnit): CguReuse {
   }
 
   const work_product_id = cgu.work_product_id();
-  // PORT: no dep graph (D3): the graph is never fully enabled, so the early return above is always taken, and
-  // `work_product_id` stops (`WorkProductId` is not ported, incremental). The rest of upstream's body needs
+  // PORT: no dep graph (plan-m2 D3, plan-m3 D12): the graph is never fully enabled, so the early return above is always
+  // taken, and `work_product_id` stops (`WorkProductId` is not ported, incremental). The rest of upstream's body needs
   // `DepGraph::{previous_work_product, assert_dep_node_not_yet_allocated_in_current_session, try_mark_green}`, which the
   // disabled graph does not have; it stays as upstream's text:
   //
@@ -1462,7 +1466,7 @@ function print_time_passes_entry(_what: string, _dur: Duration, _start_rss: numb
 export interface OngoingCodegen {
   readonly coordinator: Coordinator;
 }
-/** Placeholder (ssa-base): `pub(crate) struct Coordinator<B>` (back/write.rs), lane ssa-write. */
+/** Placeholder (ssa-base): `pub struct Coordinator<B: WriteBackendMethods>` (back/write.rs:2054), lane ssa-write. */
 export interface Coordinator {
   readonly __Coordinator: never;
 }

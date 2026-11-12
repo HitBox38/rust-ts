@@ -309,8 +309,8 @@ export interface CrateInfo {
 
 // #[derive(Encodable, Decodable)]
 // PORT: a class so that `Box<dyn Any>::downcast::<CompiledModules>()` (rustc_interface `Linker::link`, the dummy
-// backend's `join_codegen`) is an `instanceof` check. Its `impl` (`serialize_rlink`, `deserialize_rlink`) follows
-// `provide`, as upstream.
+// backend's `join_codegen`) is an `instanceof` check. Its `impl` (`serialize_rlink` :350, `deserialize_rlink` :371) is in the
+// class body, before `CodegenError` and `provide` (upstream: after `provide` :339; PORTING §8 clarification 1).
 export class CompiledModules {
   constructor(
     public modules: CompiledModule[],
