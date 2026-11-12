@@ -1,5 +1,9 @@
 // Test driver for base.test.ts (lane ssa-base; test helper, not a port).
-//   RUST_TS_SSA_OUT=<file> bun src/rustc_codegen_ssa/base_oracle/driver.ts <rustc arguments...>
+//   bun src/rustc_codegen_ssa/base_oracle/driver.ts --ssa-out=<file> <rustc arguments...>
+//
+// `--ssa-out=<file>` must come first; it is removed from `process.argv` before the driver reads the rustc arguments.
+// base.test.ts runs this from base_oracle/ with the relative path `cgus.rs`, as the oracle runs, so paths printed in
+// closure names do not depend on the checkout.
 //
 // Runs the real driver up to `analysis` (as mir/analyze_oracle/driver.ts does), then runs the port's `codegen_crate`
 // over a mock backend and writes one JSON object (`DriverResult`):
@@ -9,7 +13,9 @@
 // - `cgus`: the codegen units in the order `codegen_crate` passed them to `compile_codegen_unit`. For each, the `Fn` items
 //   in `items_in_deterministic_order` (the order cg_llvm's `compile_codegen_unit` defines them, each through
 //   `base::codegen_instance` and its `info!("codegen_instance({})")`), as `[Display of the Instance (what that info!
-//   prints), Display of the MonoItem without trimmed paths (what -Zprint-mono-items prints)]`.
+//   prints), Display of the MonoItem without trimmed paths (what -Zprint-mono-items prints)]`. The mock lists the items
+//   itself and does not call the port's `codegen_instance` (which needs a real backend for `codegen_mir`), so what this
+//   pins is `codegen_crate`'s CGU order; the liveness of the `info!` site is `info_sites_check`'s.
 // - `entry`: for the CGU where `maybe_create_entry_wrapper` returned a function, the IR the mock builder emitted for it
 //   (the `define` line, `top:` and the instructions), and `entry_calls`, the context/builder calls that leave no
 //   instruction.
@@ -25,7 +31,9 @@ import { Panic, Unported } from "../../std/panic.ts";
 import { FatalErrorMarker } from "../../rustc_span/fatal_error.ts";
 
 const EXIT_UNPORTED = 70;
-const OUT = process.env.RUST_TS_SSA_OUT;
+const OUT_FLAG = "--ssa-out=";
+const OUT: string | undefined = process.argv[2]?.startsWith(OUT_FLAG) ? process.argv[2].slice(OUT_FLAG.length) : undefined;
+if (OUT !== undefined) process.argv.splice(2, 1);
 
 export interface DriverResult {
   kind: "RESULT";

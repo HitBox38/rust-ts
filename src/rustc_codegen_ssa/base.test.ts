@@ -24,7 +24,9 @@ import type { DriverResult } from "./base_oracle/driver.ts";
 const REQUIRE = process.env.RUST_TS_REQUIRE_PROBES === "1";
 const REGEN = process.env.REGEN === "1";
 const DIR = join(import.meta.dir, "base_oracle");
-const FIXTURE = join(DIR, "cgus.rs");
+// Relative to `DIR`, the cwd of every rustc and driver run: rustc prints the path as given in closure names
+// (`{closure@cgus.rs:19:25: 19:30}`), so an absolute path would tie oracle.json to one checkout (review ssa-base F1).
+const FIXTURE = "cgus.rs";
 const RUSTC = ["rustc", `+${PIN.toolchain}`];
 const WORK = join(DATA, "tmp", "ssa-base", process.env.RUST_TS_AGENT ?? "default");
 const ENV = { ...process.env, RUSTC_ICE: "0" };
@@ -62,7 +64,7 @@ function oracle_facts(name: ConfigName): OracleFacts {
   const args = [...RUSTC, FIXTURE, ...CONFIGS[name]];
   // 1. The codegen_instance log (full paths).
   const log = Bun.spawnSync([...args, "--emit=llvm-ir", "-Ztrim-diagnostic-paths=no", "--out-dir", join(dir, "log")], {
-    cwd: dir,
+    cwd: DIR,
     env: { ...ENV, RUSTC_LOG: "rustc_codegen_ssa::base=info" },
     stderr: "pipe",
   });
@@ -73,7 +75,7 @@ function oracle_facts(name: ConfigName): OracleFacts {
     if (m !== null) instances.push(m[1]!);
   }
   // 2. -Zprint-mono-items.
-  const pm = Bun.spawnSync([...args, "--emit=llvm-ir", "-Zprint-mono-items", "--out-dir", join(dir, "pm")], { cwd: dir, env: ENV, stdout: "pipe", stderr: "pipe" });
+  const pm = Bun.spawnSync([...args, "--emit=llvm-ir", "-Zprint-mono-items", "--out-dir", join(dir, "pm")], { cwd: DIR, env: ENV, stdout: "pipe", stderr: "pipe" });
   if (pm.exitCode !== 0) throw new Error(`ERROR: oracle print-mono-items exit ${pm.exitCode}: ${pm.stderr.toString()}`);
   const mono: Record<string, string[]> = {};
   for (const l of pm.stdout.toString().split("\n")) {
@@ -83,7 +85,7 @@ function oracle_facts(name: ConfigName): OracleFacts {
   // 3. and 4. -Csave-temps: the allocator module's file, and `main`.
   const st_dir = join(dir, "st");
   mkdirSync(st_dir, { recursive: true });
-  const st = Bun.spawnSync([...args, "--emit=llvm-ir", "-Csave-temps", "--out-dir", st_dir], { cwd: st_dir, env: ENV, stderr: "pipe" });
+  const st = Bun.spawnSync([...args, "--emit=llvm-ir", "-Csave-temps", "--out-dir", st_dir], { cwd: DIR, env: ENV, stderr: "pipe" });
   if (st.exitCode !== 0) throw new Error(`ERROR: oracle save-temps exit ${st.exitCode}: ${st.stderr.toString()}`);
   let allocator: string | null = null;
   let main: string[] | null = null;
@@ -114,9 +116,9 @@ function run_driver(name: ConfigName): DriverResult {
   mkdirSync(WORK, { recursive: true });
   const out = join(WORK, `driver-${process.pid}-${name}.jsonl`);
   rmSync(out, { force: true });
-  const r = Bun.spawnSync([process.execPath, join(DIR, "driver.ts"), FIXTURE, ...CONFIGS[name], "--sysroot", SYSROOT ?? ""], {
-    cwd: WORK,
-    env: { ...ENV, RUST_TS_SSA_OUT: out },
+  const r = Bun.spawnSync([process.execPath, join(DIR, "driver.ts"), `--ssa-out=${out}`, FIXTURE, ...CONFIGS[name], "--sysroot", SYSROOT ?? ""], {
+    cwd: DIR,
+    env: ENV,
     stdout: "pipe",
     stderr: "pipe",
   });

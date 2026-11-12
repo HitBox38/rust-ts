@@ -40,13 +40,13 @@
    "core::slice::sort::stable::quicksort::stable_partition::<i64, {closure@core::slice::sort::stable::quicksort::quicksort<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>::{closure#0}}>",
    "core::slice::sort::stable::quicksort::stable_partition::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
    "core::slice::sort::stable::quicksort::quicksort::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
-   "<std::slice::Iter<'_, u8> as std::iter::Iterator>::fold::<usize, {closure@std::iter::adapters::map::map_fold<&u8, usize, usize, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-284633cb/src/rustc_codegen_ssa/base_oracle/cgus.rs:19:25: 19:30}>::{closure#0}}, {closure@<usize as std::iter::Sum>::sum<std::iter::Map<std::slice::Iter<'_, u8>, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-284633cb/src/rustc_codegen_ssa/base_oracle/cgus.rs:19:25: 19:30}>::{closure#0}}>>::{closure#0}}>::{closure#0}}>",
+   "<std::slice::Iter<'_, u8> as std::iter::Iterator>::fold::<usize, {closure@std::iter::adapters::map::map_fold<&u8, usize, usize, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}}, {closure@<usize as std::iter::Sum>::sum<std::iter::Map<std::slice::Iter<'_, u8>, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}}>>::{closure#0}}>::{closure#0}}>",
    "<i64 as core::slice::sort::shared::smallsort::StableSmallSortTypeImpl>::small_sort::<for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
-   "<std::slice::Iter<'_, u8> as std::iter::Iterator>::map::<usize, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-284633cb/src/rustc_codegen_ssa/base_oracle/cgus.rs:19:25: 19:30}>::{closure#0}}>",
-   "<std::slice::Iter<'_, u8> as std::iter::Iterator>::filter::<{closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-284633cb/src/rustc_codegen_ssa/base_oracle/cgus.rs:19:25: 19:30}>",
-   "std::iter::adapters::map::map_fold::<&u8, usize, usize, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-284633cb/src/rustc_codegen_ssa/base_oracle/cgus.rs:19:25: 19:30}>::{closure#0}}, {closure@<usize as std::iter::Sum>::sum<std::iter::Map<std::slice::Iter<'_, u8>, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-284633cb/src/rustc_codegen_ssa/base_oracle/cgus.rs:19:25: 19:30}>::{closure#0}}>>::{closure#0}}>::{closure#0}",
+   "<std::slice::Iter<'_, u8> as std::iter::Iterator>::map::<usize, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}}>",
+   "<std::slice::Iter<'_, u8> as std::iter::Iterator>::filter::<{closure@cgus.rs:19:25: 19:30}>",
+   "std::iter::adapters::map::map_fold::<&u8, usize, usize, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}}, {closure@<usize as std::iter::Sum>::sum<std::iter::Map<std::slice::Iter<'_, u8>, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}}>>::{closure#0}}>::{closure#0}",
    "core::slice::sort::stable::quicksort::quicksort::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>::{closure#0}",
-   "<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize::<&u8, {closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-284633cb/src/rustc_codegen_ssa/base_oracle/cgus.rs:19:25: 19:30}>::{closure#0}",
+   "<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize::<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}",
    "std::ptr::const_ptr::<impl *const ()>::is_aligned_to",
    "core::slice::sort::stable::quicksort::PartitionState::<i64>::partition_one",
    "std::slice::Iter::<'_, u8>::new",
@@ -56,7 +56,7 @@
    "std::slice::from_raw_parts::precondition_check",
    "std::slice::from_raw_parts_mut::precondition_check",
    "<i64 as core::slice::sort::stable::quicksort::IsFreeze>::is_freeze",
-   "<std::iter::Filter<std::slice::Iter<'_, u8>, {closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-284633cb/src/rustc_codegen_ssa/base_oracle/cgus.rs:19:25: 19:30}> as std::iter::Iterator>::count",
+   "<std::iter::Filter<std::slice::Iter<'_, u8>, {closure@cgus.rs:19:25: 19:30}> as std::iter::Iterator>::count",
    "<std::slice::Iter<'_, u8> as std::iter::Iterator>::size_hint",
    "<std::slice::Iter<'_, u32> as std::iter::Iterator>::next",
    "<std::slice::Iter<'_, u8> as std::iter::adapters::filter::SpecAssumeCount>::assume_count_le_upper_bound",
@@ -121,7 +121,7 @@
    "core::slice::sort::shared::smallsort::insertion_sort_shift_left::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
    "core::slice::sort::shared::smallsort::small_sort_general_with_scratch::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
    "core::slice::sort::shared::smallsort::merge_up::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
-   "<usize as std::iter::Sum>::sum::<std::iter::Map<std::slice::Iter<'_, u8>, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-284633cb/src/rustc_codegen_ssa/base_oracle/cgus.rs:19:25: 19:30}>::{closure#0}}>>::{closure#0}",
+   "<usize as std::iter::Sum>::sum::<std::iter::Map<std::slice::Iter<'_, u8>, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}}>>::{closure#0}",
    "std::alloc::Global::alloc_impl_runtime",
    "core::num::<impl u32>::wrapping_add",
    "alloc::raw_vec::RawVecInner::with_capacity_in",
@@ -186,10 +186,10 @@
    "fn <std::hint::select_unpredictable::DropOnPanic<*const i64> as std::ops::Drop>::drop": [
     "cgus.7f09c2e3dd1567c4-cgu.0"
    ],
-   "fn <std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize::<&u8, {closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-284633cb/src/rustc_codegen_ssa/base_oracle/cgus.rs:19:25: 19:30}>::{closure#0}": [
+   "fn <std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize::<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}": [
     "cgus.7f09c2e3dd1567c4-cgu.3"
    ],
-   "fn <std::iter::Filter<std::slice::Iter<'_, u8>, {closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-284633cb/src/rustc_codegen_ssa/base_oracle/cgus.rs:19:25: 19:30}> as std::iter::Iterator>::count": [
+   "fn <std::iter::Filter<std::slice::Iter<'_, u8>, {closure@cgus.rs:19:25: 19:30}> as std::iter::Iterator>::count": [
     "cgus.7f09c2e3dd1567c4-cgu.3"
    ],
    "fn <std::ops::Range<usize> as std::iter::IntoIterator>::into_iter": [
@@ -204,13 +204,13 @@
    "fn <std::slice::Iter<'_, u32> as std::iter::Iterator>::next": [
     "cgus.7f09c2e3dd1567c4-cgu.3"
    ],
-   "fn <std::slice::Iter<'_, u8> as std::iter::Iterator>::filter::<{closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-284633cb/src/rustc_codegen_ssa/base_oracle/cgus.rs:19:25: 19:30}>": [
+   "fn <std::slice::Iter<'_, u8> as std::iter::Iterator>::filter::<{closure@cgus.rs:19:25: 19:30}>": [
     "cgus.7f09c2e3dd1567c4-cgu.3"
    ],
-   "fn <std::slice::Iter<'_, u8> as std::iter::Iterator>::fold::<usize, {closure@std::iter::adapters::map::map_fold<&u8, usize, usize, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-284633cb/src/rustc_codegen_ssa/base_oracle/cgus.rs:19:25: 19:30}>::{closure#0}}, {closure@<usize as std::iter::Sum>::sum<std::iter::Map<std::slice::Iter<'_, u8>, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-284633cb/src/rustc_codegen_ssa/base_oracle/cgus.rs:19:25: 19:30}>::{closure#0}}>>::{closure#0}}>::{closure#0}}>": [
+   "fn <std::slice::Iter<'_, u8> as std::iter::Iterator>::fold::<usize, {closure@std::iter::adapters::map::map_fold<&u8, usize, usize, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}}, {closure@<usize as std::iter::Sum>::sum<std::iter::Map<std::slice::Iter<'_, u8>, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}}>>::{closure#0}}>::{closure#0}}>": [
     "cgus.7f09c2e3dd1567c4-cgu.3"
    ],
-   "fn <std::slice::Iter<'_, u8> as std::iter::Iterator>::map::<usize, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-284633cb/src/rustc_codegen_ssa/base_oracle/cgus.rs:19:25: 19:30}>::{closure#0}}>": [
+   "fn <std::slice::Iter<'_, u8> as std::iter::Iterator>::map::<usize, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}}>": [
     "cgus.7f09c2e3dd1567c4-cgu.3"
    ],
    "fn <std::slice::Iter<'_, u8> as std::iter::Iterator>::size_hint": [
@@ -240,7 +240,7 @@
    "fn <usize as std::iter::Step>::forward_unchecked": [
     "cgus.7f09c2e3dd1567c4-cgu.0"
    ],
-   "fn <usize as std::iter::Sum>::sum::<std::iter::Map<std::slice::Iter<'_, u8>, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-284633cb/src/rustc_codegen_ssa/base_oracle/cgus.rs:19:25: 19:30}>::{closure#0}}>>::{closure#0}": [
+   "fn <usize as std::iter::Sum>::sum::<std::iter::Map<std::slice::Iter<'_, u8>, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}}>>::{closure#0}": [
     "cgus.7f09c2e3dd1567c4-cgu.2"
    ],
    "fn <usize as std::slice::SliceIndex<[T]>>::get_unchecked::precondition_check": [
@@ -453,7 +453,7 @@
    "fn std::intrinsics::typed_swap_nonoverlapping::<i64>": [
     "cgus.7f09c2e3dd1567c4-cgu.3"
    ],
-   "fn std::iter::adapters::map::map_fold::<&u8, usize, usize, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-284633cb/src/rustc_codegen_ssa/base_oracle/cgus.rs:19:25: 19:30}>::{closure#0}}, {closure@<usize as std::iter::Sum>::sum<std::iter::Map<std::slice::Iter<'_, u8>, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-284633cb/src/rustc_codegen_ssa/base_oracle/cgus.rs:19:25: 19:30}>::{closure#0}}>>::{closure#0}}>::{closure#0}": [
+   "fn std::iter::adapters::map::map_fold::<&u8, usize, usize, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}}, {closure@<usize as std::iter::Sum>::sum<std::iter::Map<std::slice::Iter<'_, u8>, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}}>>::{closure#0}}>::{closure#0}": [
     "cgus.7f09c2e3dd1567c4-cgu.3"
    ],
    "fn std::iter::range::<impl std::iter::Iterator for std::ops::Range<usize>>::next": [
@@ -610,8 +610,8 @@
    "core::slice::sort::shared::pivot::median3::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
    "core::slice::sort::stable::merge::merge::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
    "std::ptr::swap_nonoverlapping_bytes::swap_nonoverlapping_chunks::<8>",
-   "std::iter::adapters::map::map_fold::<&u8, usize, usize, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-284633cb/src/rustc_codegen_ssa/base_oracle/cgus.rs:19:25: 19:30}>::{closure#0}}, {closure@<usize as std::iter::Sum>::sum<std::iter::Map<std::slice::Iter<'_, u8>, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-284633cb/src/rustc_codegen_ssa/base_oracle/cgus.rs:19:25: 19:30}>::{closure#0}}>>::{closure#0}}>::{closure#0}",
-   "<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize::<&u8, {closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-284633cb/src/rustc_codegen_ssa/base_oracle/cgus.rs:19:25: 19:30}>::{closure#0}",
+   "std::iter::adapters::map::map_fold::<&u8, usize, usize, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}}, {closure@<usize as std::iter::Sum>::sum<std::iter::Map<std::slice::Iter<'_, u8>, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}}>>::{closure#0}}>::{closure#0}",
+   "<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize::<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}",
    "std::string::String::new",
    "std::string::String::push_str",
    "std::slice::Iter::<'_, u8>::make_slice",
@@ -624,7 +624,7 @@
    "<std::ops::Range<usize> as std::slice::SliceIndex<[T]>>::get_unchecked_mut::precondition_check",
    "<std::hint::select_unpredictable::DropOnPanic<*const i64> as std::ops::Drop>::drop",
    "<usize as std::string::SpecToString>::spec_to_string",
-   "<std::iter::Filter<std::slice::Iter<'_, u8>, {closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-284633cb/src/rustc_codegen_ssa/base_oracle/cgus.rs:19:25: 19:30}> as std::iter::Iterator>::count",
+   "<std::iter::Filter<std::slice::Iter<'_, u8>, {closure@cgus.rs:19:25: 19:30}> as std::iter::Iterator>::count",
    "<usize as std::string::ToString>::to_string",
    "<core::slice::sort::stable::merge::MergeState<i64> as std::ops::Drop>::drop",
    "<std::string::String as std::ops::Deref>::deref",
@@ -695,12 +695,12 @@
    "core::slice::sort::stable::quicksort::stable_partition::<i64, {closure@core::slice::sort::stable::quicksort::quicksort<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>::{closure#0}}>",
    "core::slice::sort::stable::quicksort::stable_partition::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
    "core::slice::sort::stable::quicksort::quicksort::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
-   "<std::slice::Iter<'_, u8> as std::iter::Iterator>::fold::<usize, {closure@std::iter::adapters::map::map_fold<&u8, usize, usize, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-284633cb/src/rustc_codegen_ssa/base_oracle/cgus.rs:19:25: 19:30}>::{closure#0}}, {closure@<usize as std::iter::Sum>::sum<std::iter::Map<std::slice::Iter<'_, u8>, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-284633cb/src/rustc_codegen_ssa/base_oracle/cgus.rs:19:25: 19:30}>::{closure#0}}>>::{closure#0}}>::{closure#0}}>",
+   "<std::slice::Iter<'_, u8> as std::iter::Iterator>::fold::<usize, {closure@std::iter::adapters::map::map_fold<&u8, usize, usize, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}}, {closure@<usize as std::iter::Sum>::sum<std::iter::Map<std::slice::Iter<'_, u8>, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}}>>::{closure#0}}>::{closure#0}}>",
    "<i64 as core::slice::sort::shared::smallsort::StableSmallSortTypeImpl>::small_sort::<for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>",
-   "<std::slice::Iter<'_, u8> as std::iter::Iterator>::map::<usize, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-284633cb/src/rustc_codegen_ssa/base_oracle/cgus.rs:19:25: 19:30}>::{closure#0}}>",
-   "<std::slice::Iter<'_, u8> as std::iter::Iterator>::filter::<{closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-284633cb/src/rustc_codegen_ssa/base_oracle/cgus.rs:19:25: 19:30}>",
+   "<std::slice::Iter<'_, u8> as std::iter::Iterator>::map::<usize, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}}>",
+   "<std::slice::Iter<'_, u8> as std::iter::Iterator>::filter::<{closure@cgus.rs:19:25: 19:30}>",
    "core::slice::sort::stable::quicksort::quicksort::<i64, for<'a, 'b> fn(&'a i64, &'b i64) -> bool {<i64 as std::cmp::PartialOrd>::lt}>::{closure#0}",
-   "<usize as std::iter::Sum>::sum::<std::iter::Map<std::slice::Iter<'_, u8>, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-284633cb/src/rustc_codegen_ssa/base_oracle/cgus.rs:19:25: 19:30}>::{closure#0}}>>::{closure#0}",
+   "<usize as std::iter::Sum>::sum::<std::iter::Map<std::slice::Iter<'_, u8>, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}}>>::{closure#0}",
    "std::ptr::const_ptr::<impl *const ()>::is_aligned_to",
    "core::slice::sort::stable::quicksort::PartitionState::<i64>::partition_one",
    "std::slice::Iter::<'_, u8>::new",
@@ -747,10 +747,10 @@
    "fn <std::hint::select_unpredictable::DropOnPanic<*const i64> as std::ops::Drop>::drop": [
     "cgus.a762f592f3f797ae-cgu.0"
    ],
-   "fn <std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize::<&u8, {closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-284633cb/src/rustc_codegen_ssa/base_oracle/cgus.rs:19:25: 19:30}>::{closure#0}": [
+   "fn <std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize::<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}": [
     "cgus.a762f592f3f797ae-cgu.0"
    ],
-   "fn <std::iter::Filter<std::slice::Iter<'_, u8>, {closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-284633cb/src/rustc_codegen_ssa/base_oracle/cgus.rs:19:25: 19:30}> as std::iter::Iterator>::count": [
+   "fn <std::iter::Filter<std::slice::Iter<'_, u8>, {closure@cgus.rs:19:25: 19:30}> as std::iter::Iterator>::count": [
     "cgus.a762f592f3f797ae-cgu.0"
    ],
    "fn <std::ops::Range<usize> as std::iter::IntoIterator>::into_iter": [
@@ -765,13 +765,13 @@
    "fn <std::slice::Iter<'_, u32> as std::iter::Iterator>::next": [
     "cgus.a762f592f3f797ae-cgu.2"
    ],
-   "fn <std::slice::Iter<'_, u8> as std::iter::Iterator>::filter::<{closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-284633cb/src/rustc_codegen_ssa/base_oracle/cgus.rs:19:25: 19:30}>": [
+   "fn <std::slice::Iter<'_, u8> as std::iter::Iterator>::filter::<{closure@cgus.rs:19:25: 19:30}>": [
     "cgus.a762f592f3f797ae-cgu.2"
    ],
-   "fn <std::slice::Iter<'_, u8> as std::iter::Iterator>::fold::<usize, {closure@std::iter::adapters::map::map_fold<&u8, usize, usize, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-284633cb/src/rustc_codegen_ssa/base_oracle/cgus.rs:19:25: 19:30}>::{closure#0}}, {closure@<usize as std::iter::Sum>::sum<std::iter::Map<std::slice::Iter<'_, u8>, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-284633cb/src/rustc_codegen_ssa/base_oracle/cgus.rs:19:25: 19:30}>::{closure#0}}>>::{closure#0}}>::{closure#0}}>": [
+   "fn <std::slice::Iter<'_, u8> as std::iter::Iterator>::fold::<usize, {closure@std::iter::adapters::map::map_fold<&u8, usize, usize, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}}, {closure@<usize as std::iter::Sum>::sum<std::iter::Map<std::slice::Iter<'_, u8>, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}}>>::{closure#0}}>::{closure#0}}>": [
     "cgus.a762f592f3f797ae-cgu.2"
    ],
-   "fn <std::slice::Iter<'_, u8> as std::iter::Iterator>::map::<usize, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-284633cb/src/rustc_codegen_ssa/base_oracle/cgus.rs:19:25: 19:30}>::{closure#0}}>": [
+   "fn <std::slice::Iter<'_, u8> as std::iter::Iterator>::map::<usize, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}}>": [
     "cgus.a762f592f3f797ae-cgu.2"
    ],
    "fn <std::slice::Iter<'_, u8> as std::iter::Iterator>::size_hint": [
@@ -795,7 +795,7 @@
    "fn <usize as std::iter::Step>::forward_unchecked": [
     "cgus.a762f592f3f797ae-cgu.3"
    ],
-   "fn <usize as std::iter::Sum>::sum::<std::iter::Map<std::slice::Iter<'_, u8>, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-284633cb/src/rustc_codegen_ssa/base_oracle/cgus.rs:19:25: 19:30}>::{closure#0}}>>::{closure#0}": [
+   "fn <usize as std::iter::Sum>::sum::<std::iter::Map<std::slice::Iter<'_, u8>, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}}>>::{closure#0}": [
     "cgus.a762f592f3f797ae-cgu.2"
    ],
    "fn <usize as std::slice::SliceIndex<[T]>>::get_unchecked::precondition_check": [
@@ -969,7 +969,7 @@
    "fn std::intrinsics::typed_swap_nonoverlapping::<i64>": [
     "cgus.a762f592f3f797ae-cgu.2"
    ],
-   "fn std::iter::adapters::map::map_fold::<&u8, usize, usize, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-284633cb/src/rustc_codegen_ssa/base_oracle/cgus.rs:19:25: 19:30}>::{closure#0}}, {closure@<usize as std::iter::Sum>::sum<std::iter::Map<std::slice::Iter<'_, u8>, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@/Users/tomernorman/.t3/worktrees/rust-ts/t3-284633cb/src/rustc_codegen_ssa/base_oracle/cgus.rs:19:25: 19:30}>::{closure#0}}>>::{closure#0}}>::{closure#0}": [
+   "fn std::iter::adapters::map::map_fold::<&u8, usize, usize, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}}, {closure@<usize as std::iter::Sum>::sum<std::iter::Map<std::slice::Iter<'_, u8>, {closure@<std::iter::Filter<I, P> as std::iter::Iterator>::count::to_usize<&u8, {closure@cgus.rs:19:25: 19:30}>::{closure#0}}>>::{closure#0}}>::{closure#0}": [
     "cgus.a762f592f3f797ae-cgu.0"
    ],
    "fn std::iter::range::<impl std::iter::Iterator for std::ops::Range<usize>>::next": [
