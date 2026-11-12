@@ -10,7 +10,7 @@
 // - `debug!` is compiled out of rustc (STATIC_MAX_LEVEL = INFO, rust_ts/tracing.ts) and stays a comment; `info!` is live.
 // - The back/write.rs fns `codegen_crate` calls (lane ssa-write, a later wave) are typed stubs in the `ssa_write` table at
 //   the end of this file; `OngoingCodegen` and `Coordinator` are opaque placeholders until ssa-write ports them.
-// - meth.rs (`load_vtable`, `get_vtable`) has no lane yet: typed stubs at the end of this file.
+// - meth.rs's `load_vtable` / `get_vtable` (ssa-mir-rest) are read lazily (`lazy_meth`; root at integ-w54, they were stubs).
 // - No dep graph (plan-m2 D3, plan-m3 D12): `codegen_crate`'s `ensure_ok().codegen_unit(..)` loop and
 //   `determine_cgu_reuse` past its first check are never reached (`is_fully_enabled()` is always false).
 //   `-C incremental` is out of scope (plan-m7 D11).
