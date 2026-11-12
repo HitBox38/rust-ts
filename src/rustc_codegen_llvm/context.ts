@@ -42,10 +42,9 @@
 //   therefore required on first use by the accessors at the end of this file (the rustc_trait_selection "read lazily (init
 //   order)" pattern), never imported eagerly; their types are `import type`. `crate::llvm` (llvm/mod.ts, the IR model) and
 //   `crate::diagnostics` are leaves and are imported.
-// - **Callees in other crates that are not ported yet** are typed stubs at the end of this file, named after the upstream
-//   fn, stopping with `<owner>: <path> <fn>` (the cross-lane stub format): `Session::needs_plt`,
-//   `Session::must_emit_unwind_tables`, `Session::branch_protection` (rustc_session), `wants_msvc_seh` (ssa-base). Root
-//   replaces each with the real one once its crate has it (docs/handoff/cg-context.md).
+// - Callees in other crates that were typed stubs at the end of this file are the real ones (root at integ-w54):
+//   `Session::{needs_plt, must_emit_unwind_tables, branch_protection}` (rustc_session, ssa-mir-rest) and `wants_msvc_seh`
+//   (rustc_codegen_ssa/base.ts, ssa-base).
 // - Tuple comparisons of `llvm_util::get_version()` (`llvm_version < (23, 0, 0)`) are `version_lt` / `version_ge`.
 import type { Size, TargetDataLayout } from "../rustc_abi/lib.ts";
 import type { Float, Integer, Primitive, Scalar as abi_Scalar, VariantIdx } from "../rustc_abi/lib.ts";
@@ -98,6 +97,7 @@ import type { Context, Metadata, MetadataKindId, Module, ThreadLocalMode, Type, 
 import type { ModuleLlvm } from "./back/llvm_backend.ts";
 import type { OffloadGlobals, OffloadKernelGlobals } from "./builder/gpu_offload.ts";
 import { debug_Value } from "./value.ts";
+import { wants_msvc_seh } from "../rustc_codegen_ssa/base.ts";
 
 /** PORT (cg-contract): `rustc_sanitizers::ignorelist::SanitizerIgnoreList`. rustc_sanitizers is out of scope
  *  (harness/scope.json), so a `FullCx` holds `None` until a lane ports it; never constructed. */
@@ -493,7 +493,7 @@ export function create_module(tcx: TyCtxt, llcx: Context, mod_name: string): Mod
 
   // If skipping the PLT is enabled, we need to add some module metadata
   // to ensure intrinsic calls don't use it.
-  if (!Session_needs_plt(sess)) {
+  if (!sess.needs_plt()) {
     llvm.add_module_flag_u32(llmod, "Warning", "RtLibUseGOT", 1);
   }
 
@@ -514,7 +514,7 @@ export function create_module(tcx: TyCtxt, llcx: Context, mod_name: string): Mod
     llvm.add_module_flag_u32(llmod, "Override", "EnableSplitLTOUnit", 1);
   }
 
-  if (Session_must_emit_unwind_tables(sess)) {
+  if (sess.must_emit_unwind_tables()) {
     // This assertion checks that Max is the correct merge behavior.
     // Async unwind tables are strictly more useful than sync uwtables.
     // const {
@@ -577,7 +577,7 @@ export function create_module(tcx: TyCtxt, llcx: Context, mod_name: string): Mod
     llvm.add_module_flag_u32(llmod, "Error", "NumRegisterParameters", regparm_count);
   }
 
-  const bp = Session_branch_protection(sess);
+  const bp = sess.branch_protection();
   if (bp !== undefined) {
     const { bti, pac_ret, gcs } = bp;
     if (sess.target.arch.$ === "AArch64") {
@@ -1480,24 +1480,3 @@ function rustc_interface_util(): typeof import("../rustc_interface/util.ts") {
   return (rustc_interface_util__m ??= require("../rustc_interface/util.ts") as typeof import("../rustc_interface/util.ts"));
 }
 var rustc_interface_util__m: typeof import("../rustc_interface/util.ts") | undefined;
-
-// ---- Callees in other crates that are not ported yet (header): typed stubs, for root to replace ----
-/** PORT (cg-context): `Session::needs_plt` (rustc_session session.rs:863) is not in rustc_session/session.ts. */
-export function Session_needs_plt(_sess: Session): boolean {
-  return unported("rustc_session: compiler/rustc_session/src/session.rs Session::needs_plt");
-}
-
-/** PORT (cg-context): `Session::must_emit_unwind_tables` (rustc_session session.rs:1144) is not in rustc_session/session.ts. */
-export function Session_must_emit_unwind_tables(_sess: Session): boolean {
-  return unported("rustc_session: compiler/rustc_session/src/session.rs Session::must_emit_unwind_tables");
-}
-
-/** PORT (cg-context): `Session::branch_protection` (rustc_session session.rs:1125) is not in rustc_session/session.ts. */
-export function Session_branch_protection(_sess: Session): BranchProtection | undefined {
-  return unported("rustc_session: compiler/rustc_session/src/session.rs Session::branch_protection");
-}
-
-/** PORT (cg-context): `rustc_codegen_ssa::base::wants_msvc_seh` (base.rs:385) is not in rustc_codegen_ssa/base.ts (ssa-base's). */
-export function wants_msvc_seh(_target: Target): boolean {
-  return unported("ssa-base: compiler/rustc_codegen_ssa/src/base.rs wants_msvc_seh");
-}

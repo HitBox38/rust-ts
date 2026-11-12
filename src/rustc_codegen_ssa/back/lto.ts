@@ -1,10 +1,26 @@
-// Partial port of compiler/rustc_codegen_ssa/src/back/lto.rs: `crate_type_allows_lto` and `exported_symbols_for_lto`,
-// which `CrateInfo::new` calls. The LTO machinery (`ThinModule`'s methods, `SerializedModule`'s methods,
-// `check_lto_allowed`, ...) is codegen (M7) and not ported.
+// Port of compiler/rustc_codegen_ssa/src/back/lto.rs (lane ssa-base, plan-m7 wave 41; `crate_type_allows_lto` and
+// `exported_symbols_for_lto` earlier, for `CrateInfo::new`).
 // PORT (ssa-contract): the data of `ThinModule`, `ThinShared` and `SerializedModule` is the type surface the traits
-// (traits/write.ts, back/write.ts) need, placed here for lane ssa-base. `CString` is `string`; `Mmap` is the bytes.
+// (traits/write.ts, back/write.ts) need. `CString` is `string`; `Mmap` is the bytes.
+// PORT (ssa-base):
+// - `SerializedModule`'s methods (`from_file`, `data`) are on its companion const (PORTING §8).
+// - `check_lto_allowed` reads four fields of `CodegenContext`, which back/write.ts (lane ssa-write) still declares as an
+//   opaque placeholder. It reads them through `CodegenContext_lto_fields`, the upstream field types, until ssa-write
+//   ports the struct (root: drop the cast then).
 import * as tracing from "../../rust_ts/tracing.ts";
 import type { AllocatorKind } from "../../rustc_ast/expand/allocator.gen.ts";
+import { File as FsFile, Mmap } from "../../rustc_data_structures/memmap.ts";
+import type { DiagCtxtHandle } from "../../rustc_errors/lib.ts";
+import type { Lto } from "../../rustc_session/config.ts";
+import { display_IoError } from "../../std/io.ts";
+import { panic } from "../../std/panic.ts";
+import {
+  DynamicLinkingWithLTO_diagnostic,
+  LtoDisallowed_diagnostic,
+  LtoDylib_diagnostic,
+  LtoProcMacro_diagnostic,
+} from "../diagnostics.ts";
+import type { CodegenContext } from "./write.ts";
 import { type ExportedSymbol, type SymbolExportInfo, SymbolExportLevel } from "../../rustc_middle/middle/exported_symbols.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import { type CrateNum, LOCAL_CRATE } from "../../rustc_span/def_id.ts";
@@ -14,12 +30,29 @@ import type { ModuleBufferMethods, WriteBackendTypes } from "../traits/write.ts"
 import * as symbol_export from "./symbol_export.ts";
 import { allocator_shim_symbols, symbol_name_for_instance_in_crate } from "./symbol_export.ts";
 
-// PORT (ssa-contract): fields only; `name` (:27), `cost` (:31) and `data` (:37) are lane ssa-base's.
 export class ThinModule<W extends WriteBackendTypes> {
   constructor(
     public shared: ThinShared<W>,
     public idx: number,
   ) {}
+
+  // impl<B: WriteBackendMethods> ThinModule<B>
+  // rustc: compiler/rustc_codegen_ssa/src/back/lto.rs:27 name
+  name(): string {
+    return this.shared.module_names[this.idx]!;
+  }
+
+  // rustc: compiler/rustc_codegen_ssa/src/back/lto.rs:31 cost
+  cost(): number {
+    // Yes, that's correct, we're using the size of the bytecode as an
+    // indicator for how costly this codegen unit is.
+    return this.data().length;
+  }
+
+  // rustc: compiler/rustc_codegen_ssa/src/back/lto.rs:37 data
+  data(): Uint8Array {
+    return SerializedModule.data(this.shared.modules[this.idx]!);
+  }
 }
 
 export interface ThinShared<W extends WriteBackendTypes> {
@@ -33,7 +66,36 @@ export type SerializedModule<M extends ModuleBufferMethods> =
   | { readonly $: "FromRlib"; _0: Uint8Array }
   | { readonly $: "FromUncompressedFile"; _0: Uint8Array };
 
-// PORT: exported (private upstream) so the unported `check_lto_allowed` caller can import it when it lands at M7.
+// impl<M: ModuleBufferMethods> SerializedModule<M>
+export const SerializedModule = {
+  // rustc: compiler/rustc_codegen_ssa/src/back/lto.rs:55 from_file
+  from_file<M extends ModuleBufferMethods>(bc_path: string): SerializedModule<M> {
+    const file = FsFile.open(bc_path);
+    if (file.$ === "Err") {
+      return panic(`failed to open LTO bitcode file \`${bc_path}\`: ${display_IoError(file._0)}`);
+    }
+
+    const mmap = Mmap.map(file._0);
+    if (mmap.$ === "Err") {
+      return panic(`failed to mmap LTO bitcode file \`${bc_path}\`: ${display_IoError(mmap._0)}`);
+    }
+    return { $: "FromUncompressedFile", _0: mmap._0.deref() };
+  },
+
+  // rustc: compiler/rustc_codegen_ssa/src/back/lto.rs:68 data
+  data<M extends ModuleBufferMethods>(self: SerializedModule<M>): Uint8Array {
+    switch (self.$) {
+      case "Local":
+        return self._0.data();
+      case "FromRlib":
+        return self._0;
+      case "FromUncompressedFile":
+        return self._0;
+    }
+  },
+};
+
+// PORT: exported (private upstream); `check_lto_allowed` below is its caller.
 // rustc: compiler/rustc_codegen_ssa/src/back/lto.rs:77 crate_type_allows_lto
 export function crate_type_allows_lto(crate_type: CrateType): boolean {
   switch (crate_type) {
@@ -97,4 +159,38 @@ export function exported_symbols_for_lto(tcx: TyCtxt, each_linked_rlib_for_lto: 
   }
 
   return symbols_below_threshold;
+}
+
+/** PORT (header): the `CodegenContext` fields `check_lto_allowed` reads, with their upstream types (back/write.rs:322). */
+interface CodegenContext_lto_fields {
+  lto: Lto;
+  crate_types: CrateType[];
+  dylib_lto: boolean;
+  prefer_dynamic: boolean;
+}
+
+// rustc: compiler/rustc_codegen_ssa/src/back/lto.rs:139 check_lto_allowed
+export function check_lto_allowed(cgcx_: CodegenContext, dcx: DiagCtxtHandle): void {
+  const cgcx = cgcx_ as unknown as CodegenContext_lto_fields;
+  if (cgcx.lto === "ThinLocal") {
+    // Crate local LTO is always allowed
+    return;
+  }
+
+  // Make sure we actually can run LTO
+  for (const crate_type of cgcx.crate_types) {
+    if (!crate_type_allows_lto(crate_type)) {
+      dcx.emit_fatal(LtoDisallowed_diagnostic({}));
+    } else if (crate_type === "Dylib") {
+      if (!cgcx.dylib_lto) {
+        dcx.emit_fatal(LtoDylib_diagnostic({}));
+      }
+    } else if (crate_type === "ProcMacro" && !cgcx.dylib_lto) {
+      dcx.emit_fatal(LtoProcMacro_diagnostic({}));
+    }
+  }
+
+  if (cgcx.prefer_dynamic && !cgcx.dylib_lto) {
+    dcx.emit_fatal(DynamicLinkingWithLTO_diagnostic({}));
+  }
 }

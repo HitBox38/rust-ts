@@ -20,12 +20,15 @@
 //   `generic_activity(name)` with the closure as a comment.
 // - `tcx.dep_graph.with_task(dep_node, tcx, || .., Some(dep_graph::hash_result))`: the disabled graph (D3) never calls the hash
 //   function; `HashStable for ModuleCodegen<ModuleLlvm>` is not ported, so it stops if it ever is.
-// - Two callees of other lanes have no stub yet (the contract lists none): `MonoItemExt::{predefine, define}`
-//   (rustc_codegen_ssa/src/mono_item.rs, ssa-mir-core) and `maybe_create_entry_wrapper` / `ModuleCodegen::new_regular`
-//   (rustc_codegen_ssa/src/base.rs and lib.rs, ssa-base). They stop at the call site, naming the owner (handoff).
+// - `MonoItemExt::{predefine, define}` (rustc_codegen_ssa mono_item.rs, ssa-mir-rest), `maybe_create_entry_wrapper` /
+//   `ModuleCodegen::new_regular` (base.rs and lib.rs, ssa-base) are imported (root at integ-w54; they were call-site stops).
 // - `c"llvm.used"` is the string `"llvm.used"` (`create_used_variable_impl` takes a `&CStr` as a string, context.ts).
 import type { Linkage } from "../rustc_attr_ir/data_structures.gen.ts";
-import type { ModuleCodegen } from "../rustc_codegen_ssa/lib.ts";
+import { ModuleCodegen } from "../rustc_codegen_ssa/lib.ts";
+import { maybe_create_entry_wrapper } from "../rustc_codegen_ssa/base.ts";
+import { MonoItemExt } from "../rustc_codegen_ssa/mono_item.ts";
+import { type Builder, Builder_static } from "./builder.ts";
+import type { LlvmTypes } from "./common.ts";
 import { SanitizerFnAttrs, type CodegenFnAttrs } from "../rustc_middle/middle/codegen_fn_attrs.ts";
 import type { MonoItem, MonoItemData, Visibility } from "../rustc_middle/mono.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
@@ -37,7 +40,7 @@ import { ModuleLlvm } from "./back/llvm_backend.ts";
 import { OffloadGlobals } from "./builder/gpu_offload.ts";
 import { CodegenCx } from "./context.ts";
 import * as attributes from "./attributes.ts";
-import { SESSION_STOPS } from "./attributes.ts";
+import { PointerAuthConfig } from "../rustc_session/session.ts";
 import * as llvm from "./llvm/mod.ts";
 import type { Value } from "./llvm/mod.ts";
 
@@ -121,17 +124,17 @@ function module_codegen(tcx: TyCtxt, cgu_name: Symbol, needs_bitcode: boolean): 
 
     const mono_items = cx.codegen_unit.items_in_deterministic_order(cx.tcx);
     for (const [mono_item, data] of mono_items) {
-      MonoItemExt_predefine(mono_item, cx, Symbol.as_str(cgu_name), data.linkage, data.visibility);
+      MonoItemExt.predefine(mono_item, cx, Symbol.as_str(cgu_name), data.linkage, data.visibility);
     }
 
     // ... and now that we have everything pre-defined, fill out those definitions.
     for (const [mono_item, item_data] of mono_items) {
-      MonoItemExt_define(mono_item, cx, Symbol.as_str(cgu_name), item_data);
+      MonoItemExt.define<LlvmTypes, CodegenCx, Builder>(mono_item, Builder_static, cx, Symbol.as_str(cgu_name), item_data);
     }
 
     // If this codegen unit contains the main function, also create the
     // wrapper here
-    const entry = maybe_create_entry_wrapper(cx, cx.codegen_unit);
+    const entry = maybe_create_entry_wrapper<LlvmTypes, CodegenCx, Builder>(Builder_static, cx, cx.codegen_unit);
     if (entry !== undefined) {
       const attrs = attributes.sanitize_attrs(cx.scx, tcx, SanitizerFnAttrs.default(), undefined, undefined);
       // When pointer authentication is enabled, ensure that the ptrauth-* attributes are
@@ -142,7 +145,7 @@ function module_codegen(tcx: TyCtxt, cgu_name: Symbol, needs_bitcode: boolean): 
       // `declare_raw_fn` could be used to provide those.
       if (cx.sess().pointer_authentication()) {
         const cfg = cx.sess().pointer_auth_config!;
-        for (const ptrauth_attr of SESSION_STOPS.fn_attrs(cfg)) {
+        for (const ptrauth_attr of PointerAuthConfig.fn_attrs(cfg)) {
           attrs.push(llvm.CreateAttrString(cx.llcx(), ptrauth_attr));
         }
       }
@@ -165,7 +168,7 @@ function module_codegen(tcx: TyCtxt, cgu_name: Symbol, needs_bitcode: boolean): 
     if (cx.sess().pointer_authentication()) {
       const cfg = cx.sess().pointer_auth_config!;
 
-      const aarch64_elf_pauthabi_version = SESSION_STOPS.calculate_pauth_abi_version(cfg, cx.sess().target);
+      const aarch64_elf_pauthabi_version = PointerAuthConfig.calculate_pauth_abi_version(cfg, cx.sess().target);
       if (aarch64_elf_pauthabi_version !== 0) {
         cx.add_ptrauth_pauthabi_version_and_platform_flags(aarch64_elf_pauthabi_version);
       }
@@ -209,30 +212,7 @@ function module_codegen(tcx: TyCtxt, cgu_name: Symbol, needs_bitcode: boolean): 
     }
   }
 
-  return ModuleCodegen_new_regular(Symbol.as_str(cgu_name), llvm_module);
-}
-
-/** `mono_item.predefine::<Builder<'_, '_, '_>>(&mut cx, cgu_name, linkage, visibility)`: `MonoItemExt` (rustc_codegen_ssa
- *  mono_item.rs:20), lane ssa-mir-core, has no stub yet (header). */
-function MonoItemExt_predefine(_self: MonoItem, _cx: CodegenCx, _cgu_name: string, _linkage: Linkage, _visibility: Visibility): void {
-  return unported("ssa-mir-core: compiler/rustc_codegen_ssa/src/mono_item.rs predefine");
-}
-
-/** `mono_item.define::<Builder<'_, '_, '_>>(&mut cx, cgu_name, item_data)`: `MonoItemExt` (rustc_codegen_ssa mono_item.rs:20),
- *  lane ssa-mir-core, has no stub yet (header). */
-function MonoItemExt_define(_self: MonoItem, _cx: CodegenCx, _cgu_name: string, _item_data: MonoItemData): void {
-  return unported("ssa-mir-core: compiler/rustc_codegen_ssa/src/mono_item.rs define");
-}
-
-/** `rustc_codegen_ssa::base::maybe_create_entry_wrapper::<Builder<'_, '_, '_>>(&cx, cx.codegen_unit)`, lane ssa-base, has no
- *  stub yet (header). */
-function maybe_create_entry_wrapper(_cx: CodegenCx, _cgu: unknown): Value | undefined {
-  return unported("ssa-base: compiler/rustc_codegen_ssa/src/base.rs maybe_create_entry_wrapper");
-}
-
-/** `ModuleCodegen::new_regular(name, module)` (rustc_codegen_ssa lib.rs:73), lane ssa-base: "left" by ssa-contract (header). */
-function ModuleCodegen_new_regular(_name: string, _module: ModuleLlvm): ModuleCodegen<ModuleLlvm> {
-  return unported("ssa-base: compiler/rustc_codegen_ssa/src/lib.rs ModuleCodegen::new_regular");
+  return ModuleCodegen.new_regular(Symbol.as_str(cgu_name), llvm_module);
 }
 
 // rustc: compiler/rustc_codegen_llvm/src/base.rs:224 set_link_section

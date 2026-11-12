@@ -10,10 +10,8 @@
 // - The `impl FunctionCx` block (`maybe_codegen_consume_direct`, `codegen_consume`, `codegen_operand`,
 //   `move_copy_annotation_instance`) is in `install_FunctionCx_operand`, which mod.ts calls after `class FunctionCx`.
 // - `itertools::Either` is rustc_middle mir/mod.ts's `Either` (`Left`/`Right`, same derived Debug).
-// - Calls into lanes not yet ported are typed module-private stubs (`unported("<lane>: <path> <fn>")`):
-//   rvalue.rs `transmute_scalar` and `FunctionCx::codegen_transmute_operand` (ssa-rvalue-intrinsic), constant.rs
-//   `FunctionCx::eval_mir_constant_to_operand` and `FunctionCx::immediate_const_vector` (plan-m7 MIR core group, no
-//   lane yet).
+// - constant.rs `FunctionCx::eval_mir_constant_to_operand` / `immediate_const_vector` are the installed methods
+//   (ssa-mir-rest; root at integ-w54, they were stubs).
 import {
   type Align,
   debug_Align,
@@ -47,7 +45,7 @@ import { fold_Ty } from "../../rustc_middle/ty/structural_impls.ts";
 import { DUMMY_SP } from "../../rustc_span/lib.ts";
 import { bug, span_bug } from "../../rustc_span/macros.ts";
 import { type Debug, debug_struct, debug_tuple, format_debug, type Fmt, PLAIN, PRETTY } from "../../std/fmt.ts";
-import { assert, assert_eq, panic, unreachable, unported, unwrap } from "../../std/panic.ts";
+import { assert, assert_eq, panic, unreachable, unwrap } from "../../std/panic.ts";
 import { IntPredicate } from "../common.ts";
 import { MemFlags } from "../lib.ts";
 import type { BackendTypes } from "../traits/backend.ts";
@@ -55,39 +53,7 @@ import type { BuilderMethods } from "../traits/builder.ts";
 import type { CodegenMethods } from "../traits/mod.ts";
 import type { FunctionCx } from "./mod.ts";
 import { debug_PlaceValue, debug_V_or_stop, PlaceRef, PlaceValue } from "./place.ts";
-
-/** Stub: `rustc_codegen_ssa::mir::rvalue::transmute_scalar` (rvalue.rs, lane ssa-rvalue-intrinsic). */
-function transmute_scalar<B extends BackendTypes>(_bx: BuilderMethods<B>, _imm: B["Value"], _from_scalar: abi_Scalar, _to_scalar: abi_Scalar): B["Value"] {
-  return unported("ssa-rvalue-intrinsic: compiler/rustc_codegen_ssa/src/mir/rvalue.rs transmute_scalar");
-}
-
-/** Stub: `FunctionCx::codegen_transmute_operand` (rvalue.rs, lane ssa-rvalue-intrinsic). */
-function FunctionCx_codegen_transmute_operand<B extends BackendTypes>(
-  _fx: FunctionCx<B>,
-  _bx: BuilderMethods<B>,
-  _operand: OperandRef<B["Value"]>,
-  _cast: TyAndLayout,
-): OperandValue<B["Value"]> {
-  return unported("ssa-rvalue-intrinsic: compiler/rustc_codegen_ssa/src/mir/rvalue.rs codegen_transmute_operand");
-}
-
-/** Stub: `FunctionCx::eval_mir_constant_to_operand` (constant.rs; no lane yet). */
-function FunctionCx_eval_mir_constant_to_operand<B extends BackendTypes>(
-  _fx: FunctionCx<B>,
-  _bx: BuilderMethods<B>,
-  _constant: ConstOperand,
-): OperandRef<B["Value"]> {
-  return unported("compiler/rustc_codegen_ssa/src/mir/constant.rs eval_mir_constant_to_operand (plan-m7 MIR core group, no lane yet)");
-}
-
-/** Stub: `FunctionCx::immediate_const_vector` (constant.rs; no lane yet). */
-function FunctionCx_immediate_const_vector<B extends BackendTypes>(
-  _fx: FunctionCx<B>,
-  _bx: BuilderMethods<B>,
-  _constant: ConstOperand,
-): [B["Value"], Ty] {
-  return unported("compiler/rustc_codegen_ssa/src/mir/constant.rs immediate_const_vector (plan-m7 MIR core group, no lane yet)");
-}
+import { transmute_scalar } from "./rvalue.ts";
 
 /// The representation of a Rust value. The enum variant is in fact
 /// uniquely determined by the value's type, but is kept as a
@@ -495,7 +461,7 @@ export class OperandRef<V> {
       val = OperandValue.ZeroSized;
     } else if (Size_eq(field.size, this.layout.size)) {
       assert_eq(offset.bytes(), 0, String);
-      val = FunctionCx_codegen_transmute_operand(fx, bx, this, field);
+      val = fx.codegen_transmute_operand(bx, this, field);
     } else {
       let in_scalar: abi_Scalar | undefined;
       let imm: B["Value"];
@@ -1383,11 +1349,11 @@ export function install_FunctionCx_operand(FunctionCx_: { prototype: FunctionCx<
           const layout = bx.layout_of(constant_ty);
           const [, element_ty] = constant_ty.simd_size_and_type(bx.tcx_());
           if (layout.backend_repr.$ === "SimdVector" && element_ty.is_numeric()) {
-            const [llval, ty] = FunctionCx_immediate_const_vector(this, bx, constant);
+            const [llval, ty] = this.immediate_const_vector(bx, constant);
             return new OperandRef<unknown>({ $: "Immediate", _0: llval }, bx.layout_of(ty), undefined);
           }
         }
-        return FunctionCx_eval_mir_constant_to_operand(this, bx, constant);
+        return this.eval_mir_constant_to_operand(bx, constant);
       }
     }
   };

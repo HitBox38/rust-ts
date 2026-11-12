@@ -161,34 +161,8 @@ function install_doubles(oracle_data_layout: string): () => void {
       return fp.value;
     }),
   );
-  // session.rs:863 needs_plt
-  spies.push(
-    spyOn(context, "Session_needs_plt").mockImplementation((sess: Session) => {
-      const want_plt = sess.target.plt_by_default;
-      const dbg_opts = sess.opts.unstable_opts;
-      const relro_level = sess.opts.cg.relro_level ?? sess.target.relro_level;
-      const full_relro = relro_level === "Full";
-      return dbg_opts.plt ?? (want_plt || !full_relro);
-    }),
-  );
-  // session.rs:1144 must_emit_unwind_tables
-  spies.push(
-    spyOn(context, "Session_must_emit_unwind_tables").mockImplementation((sess: Session) => {
-      return sess.target.requires_uwtable || (sess.opts.cg.force_unwind_tables ?? (PanicStrategy.unwinds(sess.panic_strategy()) || sess.target.default_uwtable));
-    }),
-  );
-  // session.rs:1125 branch_protection
-  spies.push(
-    spyOn(context, "Session_branch_protection").mockImplementation((sess: Session): BranchProtection | undefined => {
-      const bp = sess.opts.unstable_opts.branch_protection;
-      if (bp === undefined) return undefined;
-      const out: BranchProtection = { ...bp, pac_ret: bp.pac_ret === undefined ? undefined : { ...bp.pac_ret } };
-      if (sess.target.os.$ === "Windows" && sess.target.arch.$ === "AArch64") {
-        if (out.pac_ret !== undefined && out.pac_ret.key === "A") out.pac_ret.key = "B";
-      }
-      return out;
-    }),
-  );
+  // rustc_session's `needs_plt`, `must_emit_unwind_tables` and `branch_protection` are the real methods (ssa-mir-rest; root
+  // dropped their spies at integ-w54, review cg-context N6).
   return () => {
     for (const s of spies.reverse()) s.mockRestore();
   };

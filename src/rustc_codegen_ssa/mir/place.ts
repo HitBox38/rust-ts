@@ -15,8 +15,7 @@
 //   mod.ts calls right after `class FunctionCx`: mod.ts needs this module at run time (`PlaceRef.alloca`, ...), so a
 //   top-level `FunctionCx.prototype` write here would hit the class's TDZ whenever mod.ts loads first. This module
 //   imports mod.ts for types only.
-// - Calls into lanes not yet ported are typed module-private stubs (`unported("<lane>: <path> <fn>")`):
-//   `size_of_val::size_and_align_of_dst` (size_of_val.rs; plan-m7's MIR core group, no lane yet).
+// - `size_of_val::size_and_align_of_dst` is imported (ssa-mir-rest; root at integ-w54, it was a stub).
 import { Align, debug_Align, FieldsShape, type FieldIdx, type Size, type VariantIdx } from "../../rustc_abi/lib.ts";
 import { Scalar } from "../../rustc_middle/mir/interpret/value.ts";
 import type { PlaceRef as mir_PlaceRef } from "../../rustc_middle/mir/statement.ts";
@@ -39,16 +38,7 @@ import type { ConstCodegenMethods } from "../traits/consts.ts";
 import type { CodegenMethods } from "../traits/mod.ts";
 import type { FunctionCx } from "./mod.ts";
 import { OperandValue } from "./operand.ts";
-
-/** Stub: `rustc_codegen_ssa::size_of_val::size_and_align_of_dst` (size_of_val.rs; no lane yet). */
-function size_and_align_of_dst<B extends BackendTypes>(
-  _bx: BuilderMethods<B>,
-  _t: Ty,
-  _info: B["Value"] | undefined,
-  _span: Span,
-): [B["Value"], B["Value"]] {
-  return unported("compiler/rustc_codegen_ssa/src/size_of_val.rs size_and_align_of_dst (plan-m7 MIR core group, no lane yet)");
-}
+import { size_and_align_of_dst } from "../size_of_val.ts";
 
 /** The `Debug` of a backend value, or a stop where the caller had none to give (header). */
 export function debug_V_or_stop<V>(debug_V: Debug<V> | undefined): Debug<V> {

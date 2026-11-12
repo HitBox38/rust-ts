@@ -37,6 +37,7 @@ import { stderr } from "../vendor/anstream/stream.ts";
 import { dimensions } from "../vendor/termize/lib.ts";
 import type { Options } from "./options.ts";
 import {
+  type BranchProtection,
   FunctionReturn,
   LinkerPluginLto,
   type Lto,
@@ -146,9 +147,11 @@ export interface PointerAuthSchema {
 }
 
 // rustc-type: compiler/rustc_session/src/session.rs:146 PointerAuthConfig
-// PORT: its `impl` (`default`, `calculate_pauth_abi_version`, `from_raw`, session.rs:170-231) is not ported, as for
-// `PointerAuthSchema`: `build_session` stops before `from_raw` for a `CfgAbi::Pauthtest` target, and every other target
-// has no config, so `Session::pointer_auth_config` is always `None` in the port.
+// PORT: of its `impl`, `default` and `from_raw` (session.rs:170, 231) are not ported, as for `PointerAuthSchema`:
+// `build_session` stops before `from_raw` for a `CfgAbi::Pauthtest` target, and every other target has no config, so
+// `Session::pointer_auth_config` is always `None` in the port. `calculate_pauth_abi_version` and `fn_attrs` (which
+// rustc_codegen_llvm calls) are ported, on the companion const `PointerAuthConfig`: the struct stays an interface, as
+// object literals build it (session_pointer_auth.test.ts), so a class would change its users.
 export interface PointerAuthConfig {
   /// Should return addresses be authenticated?
   return_addresses: boolean;
@@ -172,6 +175,83 @@ export interface PointerAuthConfig {
   vt_ptr_addr_discrimination: boolean;
   vt_ptr_type_discrimination: boolean;
 }
+
+/** `impl PointerAuthConfig` (the ported methods; PORT above): a companion const, as the struct stays an interface. */
+export const PointerAuthConfig = {
+  // rustc: compiler/rustc_session/src/session.rs:186 calculate_pauth_abi_version
+  calculate_pauth_abi_version(self: PointerAuthConfig, target: target_spec.Target): number {
+    assert(target.cfg_abi.$ === "Pauthtest", "assertion failed: target.cfg_abi == CfgAbi::Pauthtest");
+    // Bit positions of version flags for AARCH64_PAUTH_PLATFORM_LLVM_LINUX.
+    // NOTE: The enum values must stay in sync with clang, see:
+    // <llvm_root>/llvm/include/llvm/BinaryFormat/ELF.h
+    //
+    // We do not expect to use C++ virtual dispatch, but enable these flags
+    // for compatibility with C++ code. Intrinsics are also always enabled.
+    //
+    // Link to PAuth core info documentation:
+    // <https://github.com/ARM-software/abi-aa/blob/2025Q4/pauthabielf64/pauthabielf64.rst#core-information>
+    const INTRINSICS = 0;
+    const CALLS = 1;
+    const RETURNS = 2;
+    const AUTHTRAPS = 3;
+    const VT_PTR_ADDR_DISCR = 4;
+    const VT_PTR_TYPE_DISCR = 5;
+    const INIT_FINI = 6;
+    const INIT_FINI_ADDR_DISC = 7;
+    const GOT = 8;
+    const GOTOS = 9;
+    const TYPEINFO_VT_PTR_DISCR = 10;
+    // FIXME(jchlanda) We don't yet support function pointer type discrimination.
+    // const FPTR_TYPE_DISCR: u32 = 11;
+
+    // PORT: `u32::from(bool)` is `Number(b)`; every shift stays below bit 11, so no `>>> 0` is needed.
+    const init_fini = self.init_fini;
+    const pauth_abi_version: number =
+      (Number(self.intrinsics) << INTRINSICS) |
+      (Number(self.function_pointers !== undefined) << CALLS) |
+      (Number(self.return_addresses) << RETURNS) |
+      (Number(self.auth_traps) << AUTHTRAPS) |
+      (Number(self.vt_ptr_addr_discrimination) << VT_PTR_ADDR_DISCR) |
+      (Number(self.vt_ptr_type_discrimination) << VT_PTR_TYPE_DISCR) |
+      (Number(self.init_fini !== undefined) << INIT_FINI) |
+      (Number(
+        init_fini !== undefined &&
+          ((init_fini.is_address_discriminated.$ === "HardwareAddress" && init_fini.is_address_discriminated._0) ||
+            init_fini.is_address_discriminated.$ === "Synthetic"),
+      ) <<
+        INIT_FINI_ADDR_DISC) |
+      (Number(self.elf_got) << GOT) |
+      (Number(self.indirect_gotos) << GOTOS) |
+      (Number(self.typeinfo_vt_ptr_discrimination) << TYPEINFO_VT_PTR_DISCR);
+
+    return pauth_abi_version;
+  },
+
+  // rustc: compiler/rustc_session/src/session.rs:301 fn_attrs
+  fn_attrs(self: PointerAuthConfig): string[] {
+    // FIXME(jchlanda) This is not an exhaustive list of all `ptrauth`-related attributes, but only
+    // those currently supported. The list is expected to grow as additional functionality is
+    // implemented, particularly for C++ interoperability.
+    const attrs: string[] = [];
+    if (self.aarch64_jump_table_hardening) {
+      attrs.push("aarch64-jump-table-hardening");
+    }
+    if (self.auth_traps) {
+      attrs.push("ptrauth-auth-traps");
+    }
+    if (self.function_pointers !== undefined) {
+      attrs.push("ptrauth-calls");
+    }
+    if (self.indirect_gotos) {
+      attrs.push("ptrauth-indirect-gotos");
+    }
+    if (self.return_addresses) {
+      attrs.push("ptrauth-returns");
+    }
+
+    return attrs;
+  },
+} as const;
 
 /// Partial session built before the full session. More specifically, `EarlySession` is used to
 /// init the codegen backend, and then both pieces are used to build the full `Session`.
@@ -729,6 +809,27 @@ export class Session {
     return Edition.at_least_rust_2024(this.edition());
   }
 
+  /// Returns `true` if we should use the PLT for shared library calls.
+  // rustc: compiler/rustc_session/src/session.rs:863 needs_plt
+  needs_plt(): boolean {
+    // Check if the current target usually wants PLT to be enabled.
+    // The user can use the command line flag to override it.
+    const want_plt = this.target.plt_by_default;
+
+    const dbg_opts = this.opts.unstable_opts;
+
+    const relro_level = this.opts.cg.relro_level ?? this.target.relro_level;
+
+    // Only enable this optimization by default if full relro is also enabled.
+    // In this case, lazy binding was already unavailable, so nothing is lost.
+    // This also ensures `-Wl,-z,now` is supported by the linker.
+    const full_relro = "Full" === relro_level;
+
+    // If user didn't explicitly forced us to use / skip the PLT,
+    // then use it unless the target doesn't want it by default or the full relro forces it on.
+    return dbg_opts.plt ?? (want_plt || !full_relro);
+  }
+
   /// Checks if LLVM lifetime markers should be emitted.
   // rustc: compiler/rustc_session/src/session.rs:883 emit_lifetime_markers
   emit_lifetime_markers(): boolean {
@@ -969,6 +1070,11 @@ export class Session {
     return this.opts.unstable_opts.contract_checks ?? false;
   }
 
+  // rustc: compiler/rustc_session/src/session.rs:1092 direct_access_external_data
+  direct_access_external_data(): boolean | undefined {
+    return this.opts.unstable_opts.direct_access_external_data ?? this.target.direct_access_external_data;
+  }
+
   // rustc: compiler/rustc_session/src/session.rs:808 target_can_use_split_dwarf
   target_can_use_split_dwarf(): boolean {
     return this.target.options.debuginfo_kind === "Dwarf";
@@ -992,6 +1098,65 @@ export class Session {
     } else {
       return "None";
     }
+  }
+
+  /// Returns the `-Zbranch-protection` info. Note that it is adjusted to the current target, e.g.
+  /// some targets only support certain Pointer Authentication Code keys.
+  ///
+  /// Accessing the session's unstable `branch_protection` option fields directly is linted
+  /// against.
+  // rustc: compiler/rustc_session/src/session.rs:1125 branch_protection
+  branch_protection(): BranchProtection | undefined {
+    // PORT: `let mut bp = <the Copy option>` and the writes through `as_mut()` act on a copy, never on the session's
+    // options: the copy is a new `BranchProtection` (and `PacRet`) object.
+    let bp = this.opts.unstable_opts.branch_protection;
+
+    if (bp !== undefined) {
+      // Windows on Arm only supports PAC Key B for return address signing, as shown in
+      // https://github.com/llvm/llvm-project/pull/203989. We parse the CLI flags for branch
+      // protection and target separately though, so we adjust this possible discrepancy here.
+      if (this.target.os.$ === "Windows" && this.target.arch.$ === "AArch64") {
+        const pac_ret = bp.pac_ret;
+        if (pac_ret !== undefined && pac_ret.key === "A") {
+          bp = { ...bp, pac_ret: { ...pac_ret, key: "B" } };
+        }
+      }
+    }
+
+    return bp;
+  }
+
+  // rustc: compiler/rustc_session/src/session.rs:1144 must_emit_unwind_tables
+  must_emit_unwind_tables(): boolean {
+    // This is used to control the emission of the `uwtable` attribute on
+    // LLVM functions. The `uwtable` attribute according to LLVM is:
+    //
+    //     This attribute indicates that the ABI being targeted requires that an
+    //     unwind table entry be produced for this function even if we can show
+    //     that no exceptions passes by it. This is normally the case for the
+    //     ELF x86-64 abi, but it can be disabled for some compilation units.
+    //
+    // Typically when we're compiling with `-C panic=abort` we don't need
+    // `uwtable` because we can't generate any exceptions! But note that
+    // some targets require unwind tables to generate backtraces.
+    // Unwind tables are needed when compiling with `-C panic=unwind`, but
+    // LLVM won't omit unwind tables unless the function is also marked as
+    // `nounwind`, so users are allowed to disable `uwtable` emission.
+    // Historically rustc always emits `uwtable` attributes by default, so
+    // even they can be disabled, they're still emitted by default.
+    //
+    // On some targets (including windows), however, exceptions include
+    // other events such as illegal instructions, segfaults, etc. This means
+    // that on Windows we end up still needing unwind tables even if the `-C
+    // panic=abort` flag is passed.
+    //
+    // You can also find more info on why Windows needs unwind tables in:
+    //      https://bugzilla.mozilla.org/show_bug.cgi?id=1302078
+    //
+    // If a target requires unwind tables, then they must be emitted.
+    // Otherwise, we can defer to the `-C force-unwind-tables=<yes/no>`
+    // value, if it is provided, or disable them, if not.
+    return this.target.requires_uwtable || (this.opts.cg.force_unwind_tables ?? (PanicStrategy.unwinds(this.panic_strategy()) || this.target.default_uwtable));
   }
 
   /// Returns the number of codegen units that should be used for this

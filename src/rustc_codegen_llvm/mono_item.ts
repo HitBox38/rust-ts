@@ -11,7 +11,6 @@
 //   inherent fns on the concrete `Builder` (review F1): `append_block_inherent`, `build_inherent`, `ret_void_inherent`,
 //   `ret_inherent`. `start_bx.call(..)` is `BuilderMethods::call` (no inherent `call` on `Builder`).
 // - `CString::new(symbol_name.name).unwrap()`: a mangled symbol name has no NUL, so the name is passed as is.
-// - `Session::direct_access_external_data` is not ported in rustc_session: `SESSION_STOPS` (attributes.ts header).
 import { AddressSpace } from "../rustc_abi/lib.ts";
 import type { Linkage } from "../rustc_attr_ir/data_structures.gen.ts";
 import type { PreDefineCodegenMethods } from "../rustc_codegen_ssa/traits/declare.ts";
@@ -30,20 +29,12 @@ import { bug } from "../rustc_span/macros.ts";
 import type { FnAbi } from "../rustc_target/callconv/mod.ts";
 import { format_debug, PLAIN } from "../std/fmt.ts";
 import { assert } from "../std/panic.ts";
-import { SESSION_STOPS } from "./attributes.ts";
 import * as base from "./base.ts";
 import { Builder } from "./builder.ts";
 import { CodegenCx } from "./context.ts";
 import { SymbolAlreadyDefined_diagnostic } from "./diagnostics.gen.ts";
 import * as llvm from "./llvm/mod.ts";
 import type { Value } from "./llvm/mod.ts";
-
-/** PORT (cg-types-attrs): `CodegenFnAttrs::foreign_item_symbol_aliases` is `Vec<(DefId, Linkage, mono::Visibility)>` upstream;
- *  codegen_fn_attrs.ts declares its own `Visibility` with a fourth variant (`Interposable`) that `mono::Visibility` lacks at the
- *  pin, so the field is read as rustc_middle mono.ts's type (handoff). */
-function foreign_item_symbol_aliases(attrs: CodegenFnAttrs): readonly [DefId, Linkage, Visibility][] {
-  return attrs.foreign_item_symbol_aliases as readonly [DefId, Linkage, Visibility][];
-}
 
 // ---- impl<'tcx> PreDefineCodegenMethods<'tcx> for CodegenCx<'_, 'tcx> (mono_item.rs:26) ----
 declare module "./context.ts" {
@@ -78,7 +69,7 @@ CodegenCx.prototype.predefine_static = function (this: CodegenCx, def_id: DefId,
   this.assume_dso_local(g, false);
 
   const attrs = TyCtxt_codegen_instance_attrs(this.tcx, instance.def);
-  this.add_static_aliases(g, foreign_item_symbol_aliases(attrs));
+  this.add_static_aliases(g, attrs.foreign_item_symbol_aliases);
 
   this.instances.set(instance, g);
 };
@@ -90,7 +81,7 @@ CodegenCx.prototype.predefine_fn = function (this: CodegenCx, instance: Instance
   const attrs = TyCtxt_codegen_instance_attrs(this.tcx, instance.def);
 
   const lldecl = this.predefine_without_aliases(instance, attrs, linkage, visibility, symbol_name);
-  this.add_function_aliases(instance, lldecl, attrs, foreign_item_symbol_aliases(attrs));
+  this.add_function_aliases(instance, lldecl, attrs, attrs.foreign_item_symbol_aliases);
 
   this.instances.set(instance, lldecl);
 };
@@ -319,7 +310,7 @@ CodegenCx.prototype.should_assume_dso_local = function (this: CodegenCx, llval: 
   }
 
   // Respect the direct-access-external-data to override default behavior if present.
-  const direct = SESSION_STOPS.direct_access_external_data(this.tcx.sess);
+  const direct = this.tcx.sess.direct_access_external_data();
   if (direct !== undefined) {
     return direct;
   }
