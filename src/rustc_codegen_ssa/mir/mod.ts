@@ -69,8 +69,8 @@ import type { BuilderMethods, BuilderMethodsStatic } from "../traits/builder.ts"
 import type { CodegenMethods } from "../traits/mod.ts";
 import * as analyze from "./analyze.ts";
 import { Locals } from "./locals.ts";
-import { OperandRef, OperandValue } from "./operand.ts";
-import { PlaceRef } from "./place.ts";
+import { install_FunctionCx_operand, OperandRef, OperandValue } from "./operand.ts";
+import { install_FunctionCx_place, PlaceRef } from "./place.ts";
 
 // mod analyze; mod block; mod constant; mod coverageinfo; pub mod debuginfo; mod intrinsic; mod locals;
 // pub mod naked_asm; pub mod operand; pub mod place; mod retag; mod rvalue; mod statement;
@@ -257,6 +257,10 @@ export class FunctionCx<B extends BackendTypes, Cx extends CodegenMethods<B> = C
     this.locals.values[local] = value;
   }
 }
+// PORT (ssa-operand-place, root at integ-w53): place.rs's and operand.rs's `impl FunctionCx` blocks are installed here,
+// right after the class, so that the methods exist whichever of the three files loads first.
+install_FunctionCx_operand(FunctionCx);
+install_FunctionCx_place(FunctionCx);
 
 export type LocalRef<V> =
   | { readonly $: "Place"; readonly _0: PlaceRef<V> }
@@ -312,7 +316,7 @@ export const LocalRef = {
       // Zero-size temporaries aren't always initialized, which
       // doesn't matter because they don't contain data, but
       // we need something sufficiently aligned in the operand.
-      return { $: "Operand", _0: xlane.OperandRef_zero_sized<V>(layout) };
+      return { $: "Operand", _0: OperandRef.zero_sized<V>(layout) };
     } else {
       return LocalRef.PendingOperand;
     }
@@ -475,13 +479,13 @@ export function codegen_mir<B extends BackendTypes, Cx extends CodegenMethods<B>
           case "Indirect": {
             // debug!("alloc: {:?} (return place) -> place", local);
             const llretptr = start_bx.get_param(0);
-            return { $: "Place", _0: xlane.PlaceRef_new_sized(llretptr, layout) };
+            return { $: "Place", _0: PlaceRef.new_sized(llretptr, layout) };
           }
           case "Cast": {
             const cast: CastTarget = mode.cast;
             // debug!("alloc: {:?} (return place) -> place", local);
             const size = Ord_max_Size(cast.size(start_bx), layout.size);
-            return { $: "Place", _0: xlane.PlaceRef_alloca_size(start_bx, size, layout) };
+            return { $: "Place", _0: PlaceRef.alloca_size(start_bx, size, layout) };
           }
           case "IndirectUnsized":
             bug("unsized returns are not supported");
@@ -493,7 +497,7 @@ export function codegen_mir<B extends BackendTypes, Cx extends CodegenMethods<B>
       if (memory_locals.contains(local)) {
         // debug!("alloc: {:?} -> place", local);
         if (layout.is_unsized()) {
-          return { $: "UnsizedPlace", _0: xlane.PlaceRef_alloca_unsized_indirect(start_bx, layout) };
+          return { $: "UnsizedPlace", _0: PlaceRef.alloca_unsized_indirect(start_bx, layout) };
         } else {
           return { $: "Place", _0: PlaceRef.alloca(start_bx, layout) };
         }
@@ -643,7 +647,7 @@ function arg_local_refs<B extends BackendTypes, Cx extends CodegenMethods<B>, Bx
         if (arg.mode.$ === "Cast") {
           llarg_idx.value += arg.mode.pad_i32_count;
         }
-        const pr_field = xlane.PlaceRef_project_field(place, bx, i);
+        const pr_field = place.project_field(bx, i);
         bx.store_fn_arg(arg, llarg_idx, pr_field);
       }
       const replaced = num_untupled;
@@ -679,7 +683,7 @@ function arg_local_refs<B extends BackendTypes, Cx extends CodegenMethods<B>, Bx
       const local_ = (op: OperandRef<B["Value"]>): LocalRef<B["Value"]> => ({ $: "Operand", _0: op });
       switch (arg.mode.$) {
         case "Ignore": {
-          return local_(xlane.OperandRef_zero_sized<B["Value"]>(arg.layout));
+          return local_(OperandRef.zero_sized<B["Value"]>(arg.layout));
         }
         case "Direct": {
           const llarg = bx.get_param(llarg_idx.value);
@@ -724,7 +728,7 @@ function arg_local_refs<B extends BackendTypes, Cx extends CodegenMethods<B>, Bx
         } else {
           const llarg = bx.get_param(llarg_idx.value);
           llarg_idx.value += 1;
-          return { $: "Place", _0: xlane.PlaceRef_new_sized(llarg, arg.layout) };
+          return { $: "Place", _0: PlaceRef.new_sized(llarg, arg.layout) };
         }
       }
       // Unsized indirect arguments
@@ -737,7 +741,7 @@ function arg_local_refs<B extends BackendTypes, Cx extends CodegenMethods<B>, Bx
         llarg_idx.value += 1;
         const indirect_operand: OperandValue<B["Value"]> = { $: "Pair", _0: llarg, _1: llextra };
 
-        const tmp = xlane.PlaceRef_alloca_unsized_indirect(bx, arg.layout);
+        const tmp = PlaceRef.alloca_unsized_indirect(bx, arg.layout);
         OperandValue.store(indirect_operand, bx, tmp);
         return { $: "UnsizedPlace", _0: tmp };
       }
@@ -878,35 +882,6 @@ export const xlane = {
   /** `base::wants_new_eh_instructions(&TargetSpec)` (base.rs:392). */
   wants_new_eh_instructions(_target: TargetSpec): boolean {
     return unported("ssa-base: compiler/rustc_codegen_ssa/src/base.rs wants_new_eh_instructions");
-  },
-
-  // ssa-operand-place (mir/place.rs, mir/operand.rs)
-  /** `PlaceRef::new_sized(llval, layout)` (place.rs). */
-  PlaceRef_new_sized<V>(_llval: V, _layout: TyAndLayout): PlaceRef<V> {
-    return unported("ssa-operand-place: compiler/rustc_codegen_ssa/src/mir/place.rs new_sized");
-  },
-  /** `PlaceRef::alloca_size(bx, size, layout)` (place.rs). */
-  PlaceRef_alloca_size<B extends BackendTypes>(_bx: BuilderMethods<B>, _size: Size, _layout: TyAndLayout): PlaceRef<B["Value"]> {
-    return unported("ssa-operand-place: compiler/rustc_codegen_ssa/src/mir/place.rs alloca_size");
-  },
-  /** `PlaceRef::alloca_unsized_indirect(bx, layout)` (place.rs). */
-  PlaceRef_alloca_unsized_indirect<B extends BackendTypes>(_bx: BuilderMethods<B>, _layout: TyAndLayout): PlaceRef<B["Value"]> {
-    return unported("ssa-operand-place: compiler/rustc_codegen_ssa/src/mir/place.rs alloca_unsized_indirect");
-  },
-  /** `place.project_field(bx, ix)` (place.rs). */
-  PlaceRef_project_field<B extends BackendTypes>(_self: PlaceRef<B["Value"]>, _bx: BuilderMethods<B>, _ix: number): PlaceRef<B["Value"]> {
-    return unported("ssa-operand-place: compiler/rustc_codegen_ssa/src/mir/place.rs project_field");
-  },
-  /** `OperandRef::zero_sized(layout)` (operand.rs). */
-  OperandRef_zero_sized<V>(_layout: TyAndLayout): OperandRef<V> {
-    return unported("ssa-operand-place: compiler/rustc_codegen_ssa/src/mir/operand.rs zero_sized");
-  },
-  /** `fx.monomorphized_place_ty(place_ref)` (place.rs). */
-  monomorphized_place_ty<B extends BackendTypes, Cx extends CodegenMethods<B>, Bx extends BuilderMethods<B, Cx>>(
-    _fx: FunctionCx<B, Cx, Bx>,
-    _place_ref: mir_PlaceRef,
-  ): Ty {
-    return unported("ssa-operand-place: compiler/rustc_codegen_ssa/src/mir/place.rs monomorphized_place_ty");
   },
 
   // retag.rs (plan-m7 §2d groups it with ssa-operand-place; docs/next.md assigns it to no lane yet)

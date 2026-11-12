@@ -166,7 +166,7 @@ class LocalAnalyzer<B extends BackendTypes, Cx extends CodegenMethods<B>, Bx ext
 
       // Scan through to ensure the only projections are those which
       // `FunctionCx::maybe_codegen_consume_direct` can handle.
-      const base_ty = xlane.monomorphized_place_ty(this.fx, PlaceRef_from_Local(place_ref.local));
+      const base_ty = this.fx.monomorphized_place_ty(PlaceRef_from_Local(place_ref.local));
       let layout: TyAndLayout = this.fx.cx.layout_of(base_ty);
       for (const elem of place_ref.projection) {
         if (elem.$ === "Field") {

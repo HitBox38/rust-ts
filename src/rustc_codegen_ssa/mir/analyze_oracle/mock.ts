@@ -1,13 +1,12 @@
 // Mock backend for mir/analyze.test.ts (lane ssa-mir-core; test helper, not a port). See driver.ts's header.
 import { CodegenFnAttrFlags } from "../../../rustc_middle/middle/codegen_fn_attrs.ts";
-import { type BasicBlock, type Body, type PlaceRef as mir_PlaceRef } from "../../../rustc_middle/mir/mod.ts";
+import { type BasicBlock, type Body } from "../../../rustc_middle/mir/mod.ts";
 import type { TyCtxt } from "../../../rustc_middle/ty/context.ts";
 import type { Ty } from "../../../rustc_middle/ty/decls.ts";
 import { Instance } from "../../../rustc_middle/ty/instance.ts";
 import type { TyAndLayout } from "../../../rustc_middle/ty/layout.ts";
 import { RawList } from "../../../rustc_middle/ty/list.ts";
 import { TypingEnv } from "../../../rustc_middle/ty/mod.ts";
-import { fold_Ty } from "../../../rustc_middle/ty/structural_impls.ts";
 import { LocalDefId } from "../../../rustc_span/def_id.ts";
 import type { Span } from "../../../rustc_span/lib.ts";
 import { Symbol, sym } from "../../../rustc_span/symbol.ts";
@@ -18,7 +17,6 @@ import { Local } from "../../../rustc_middle/mir/mod.ts";
 import { codegen_mir, type FunctionCx, xlane } from "../mod.ts";
 import * as analyze from "../analyze.ts";
 import { PlaceRef, PlaceValue } from "../place.ts";
-import { OperandValue, OperandRef } from "../operand.ts";
 
 export interface MockResult {
   kind: "FN";
@@ -147,28 +145,6 @@ export function run_codegen_mir_mock(tcx: TyCtxt): MockResult[] {
     const order: BasicBlock[] = [];
     const restore = install({
       wants_new_eh_instructions: (target: Target) => wants_wasm_eh(target) || target.is_like_msvc,
-      PlaceRef_new_sized: (llval: Any, layout: TyAndLayout) => {
-        calls.push(`new_sized ${llval}`);
-        return new PlaceRef(new PlaceValue(llval, undefined, layout.align.abi), layout);
-      },
-      PlaceRef_alloca_size: (_bx: Any, size: Any, layout: TyAndLayout) => {
-        calls.push(`alloca_size ${size.bytes()}`);
-        return new PlaceRef(new PlaceValue("alloca", undefined, layout.align.abi), layout);
-      },
-      PlaceRef_alloca_unsized_indirect: (_bx: Any, layout: TyAndLayout) => {
-        calls.push("alloca_unsized_indirect");
-        return new PlaceRef(new PlaceValue("alloca", undefined, layout.align.abi), layout);
-      },
-      PlaceRef_project_field: (place: Any, _bx: Any, i: number) => {
-        calls.push(`project_field ${i}`);
-        return place;
-      },
-      OperandRef_zero_sized: (layout: TyAndLayout) => new OperandRef(OperandValue.ZeroSized, layout, undefined),
-      monomorphized_place_ty: (fx: FunctionCx<Any, Any, Any>, place_ref: mir_PlaceRef) => {
-        // place.rs:424, upstream's body.
-        const place_ty = place_ref.ty(fx.mir.local_decls, fx.cx.tcx_());
-        return fx.monomorphize(place_ty.ty, fold_Ty);
-      },
       fill_function_debug_context: (fx: FunctionCx<Any, Any, Any>) => {
         fx_seen = fx;
       },
@@ -182,17 +158,45 @@ export function run_codegen_mir_mock(tcx: TyCtxt): MockResult[] {
         calls.push(`codegen_block_as_unreachable ${bb}`);
       },
     });
-    const prev_alloca = PlaceRef.alloca;
+    // Record ssa-operand-place's constructors (place.rs) instead of running them over the mock backend; `OperandRef::zero_sized`
+    // and `monomorphized_place_ty` (place.rs:424) run as ported (root at integ-w53, replacing the lane's xlane overrides).
+    const prev = {
+      alloca: PlaceRef.alloca,
+      new_sized: PlaceRef.new_sized,
+      alloca_size: PlaceRef.alloca_size,
+      alloca_unsized_indirect: PlaceRef.alloca_unsized_indirect,
+      project_field: PlaceRef.prototype.project_field,
+    };
     (PlaceRef as Any).alloca = (_bx: Any, layout: TyAndLayout) => {
       calls.push(`alloca ${layout.size.bytes()}`);
       return new PlaceRef(new PlaceValue("alloca", undefined, layout.align.abi), layout);
+    };
+    (PlaceRef as Any).new_sized = (llval: Any, layout: TyAndLayout) => {
+      calls.push(`new_sized ${llval}`);
+      return new PlaceRef(new PlaceValue(llval, undefined, layout.align.abi), layout);
+    };
+    (PlaceRef as Any).alloca_size = (_bx: Any, size: Any, layout: TyAndLayout) => {
+      calls.push(`alloca_size ${size.bytes()}`);
+      return new PlaceRef(new PlaceValue("alloca", undefined, layout.align.abi), layout);
+    };
+    (PlaceRef as Any).alloca_unsized_indirect = (_bx: Any, layout: TyAndLayout) => {
+      calls.push("alloca_unsized_indirect");
+      return new PlaceRef(new PlaceValue("alloca", undefined, layout.align.abi), layout);
+    };
+    (PlaceRef.prototype as Any).project_field = function (this: Any, _bx: Any, i: number) {
+      calls.push(`project_field ${i}`);
+      return this;
     };
     let non_ssa_list: number[];
     try {
       codegen_mir(Bx_ as Any, new MockCx(tcx, calls) as Any, instance);
       non_ssa_list = [...analyze.non_ssa_locals(fx_seen!, order).iter()].map((l) => Local.as_usize(l));
     } finally {
-      (PlaceRef as Any).alloca = prev_alloca;
+      (PlaceRef as Any).alloca = prev.alloca;
+      (PlaceRef as Any).new_sized = prev.new_sized;
+      (PlaceRef as Any).alloca_size = prev.alloca_size;
+      (PlaceRef as Any).alloca_unsized_indirect = prev.alloca_unsized_indirect;
+      (PlaceRef.prototype as Any).project_field = prev.project_field;
       restore();
     }
     const fx = fx_seen!;

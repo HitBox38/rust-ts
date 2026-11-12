@@ -53,7 +53,7 @@ import { MemFlags } from "../lib.ts";
 import type { BackendTypes } from "../traits/backend.ts";
 import type { BuilderMethods } from "../traits/builder.ts";
 import type { CodegenMethods } from "../traits/mod.ts";
-import type { FunctionCx } from "./mir_core_shim.ts";
+import type { FunctionCx } from "./mod.ts";
 import { debug_PlaceValue, debug_V_or_stop, PlaceRef, PlaceValue } from "./place.ts";
 
 /** Stub: `rustc_codegen_ssa::mir::rvalue::transmute_scalar` (rvalue.rs, lane ssa-rvalue-intrinsic). */
@@ -1236,7 +1236,7 @@ OperandValue.store_with_flags = function <B extends BackendTypes>(
   }
 };
 
-declare module "./mir_core_shim.ts" {
+declare module "./mod.ts" {
   interface FunctionCx<B extends BackendTypes, Cx extends CodegenMethods<B> = CodegenMethods<B>, Bx extends BuilderMethods<B, Cx> = BuilderMethods<B, Cx>> {
     maybe_codegen_consume_direct(bx: Bx, place_ref: mir_PlaceRef): OperandRef<B["Value"]> | undefined;
     codegen_consume(bx: Bx, place_ref: mir_PlaceRef): OperandRef<B["Value"]>;

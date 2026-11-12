@@ -37,7 +37,7 @@ import type { BackendTypes } from "../traits/backend.ts";
 import type { BuilderMethods } from "../traits/builder.ts";
 import type { ConstCodegenMethods } from "../traits/consts.ts";
 import type { CodegenMethods } from "../traits/mod.ts";
-import type { FunctionCx } from "./mir_core_shim.ts";
+import type { FunctionCx } from "./mod.ts";
 import { OperandValue } from "./operand.ts";
 
 /** Stub: `rustc_codegen_ssa::size_of_val::size_and_align_of_dst` (size_of_val.rs; no lane yet). */
@@ -355,7 +355,7 @@ export function debug_PlaceRef<V>(v: PlaceRef<V>, f: Fmt, debug_V: Debug<V>): st
   ]);
 }
 
-declare module "./mir_core_shim.ts" {
+declare module "./mod.ts" {
   interface FunctionCx<B extends BackendTypes, Cx extends CodegenMethods<B> = CodegenMethods<B>, Bx extends BuilderMethods<B, Cx> = BuilderMethods<B, Cx>> {
     codegen_place(bx: Bx, place_ref: mir_PlaceRef): PlaceRef<B["Value"]>;
     monomorphized_place_ty(place_ref: mir_PlaceRef): Ty;

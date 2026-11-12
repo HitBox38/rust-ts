@@ -32,7 +32,8 @@ import { Panic } from "../../std/panic.ts";
 import { MemFlags } from "../lib.ts";
 import type { BackendTypes } from "../traits/backend.ts";
 import { type BuilderMethods, BuilderMethods_provided } from "../traits/builder.ts";
-import { FunctionCx, Locals, type LocalRef } from "./mir_core_shim.ts";
+import { Locals } from "./locals.ts";
+import { FunctionCx, type LocalRef } from "./mod.ts";
 import { debug_OperandRef, debug_OperandValue, OperandRef, OperandRefBuilder, OperandValue } from "./operand.ts";
 import { codegen_tag_value, PlaceRef, PlaceValue } from "./place.ts";
 
@@ -326,7 +327,7 @@ test("operand.rs / place.rs / typetree.rs over a mock backend", () => {
     // ---- OperandRef::extract_field (operand.rs:384) on a pair --------------------------------------------------------
     {
       const { bx, log } = mock_bx(tcx);
-      const fx = new FunctionCx<MockTypes>({ span: DUMMY_SP } as never, bx, new Locals<V>([]));
+      const fx = fx_of({ span: DUMMY_SP } as never, bx, new Locals<V>([]));
       const o = new OperandRef<V>({ $: "Pair", _0: "%a", _1: "%b" }, layout(T_u8_u32), undefined);
       // field 1 (u32) at b_offset 4: `(Some(b), b_llval)`; in_scalar == out_scalar -> `imm` unchanged.
       const f1 = o.extract_field(fx, bx, 1);
@@ -364,7 +365,7 @@ test("operand.rs / place.rs / typetree.rs over a mock backend", () => {
     // ---- OperandRef::codegen_get_discr (operand.rs:459) ---------------------------------------------------------------
     {
       const { bx, log } = mock_bx(tcx);
-      const fx = new FunctionCx<MockTypes>({ span: DUMMY_SP } as never, bx, new Locals<V>([]));
+      const fx = fx_of({ span: DUMMY_SP } as never, bx, new Locals<V>([]));
       // E as a Pair (ScalarPair { tag u32, u32 }): extract_field(0) -> `%t`; Direct, unsigned, -O0 (no assume).
       expect(layout(E).backend_repr.$).toBe("ScalarPair");
       const oe = new OperandRef<V>({ $: "Pair", _0: "%t", _1: "%x" }, layout(E), undefined);
@@ -411,7 +412,7 @@ test("operand.rs / place.rs / typetree.rs over a mock backend", () => {
         { $: "Place", _0: PlaceRef.new_sized<V>("%n", layout(N)) },
         LocalRefPending(),
       ];
-      const fx = new FunctionCx<MockTypes>({ span: DUMMY_SP } as never, bx, new Locals<V>(locals));
+      const fx = fx_of({ span: DUMMY_SP } as never, bx, new Locals<V>(locals));
       const p0 = fx.codegen_place(bx, new mir_PlaceRef(0 as Local, [{ $: "Field", _0: 0 as never, _1: tcx.types.u8 }]));
       expect([p0.val.llval, p0.val.align.bytes()]).toEqual(["%0", 2]);
       const p1 = fx.codegen_place(bx, new mir_PlaceRef(1 as Local, [{ $: "ConstantIndex", offset: 1n, min_length: 4n, from_end: true }]));
@@ -485,6 +486,13 @@ test("operand.rs / place.rs / typetree.rs over a mock backend", () => {
     }
   });
 }, 240_000);
+
+/** A `FunctionCx` with only the fields place.rs and operand.rs read here (`mir`, `cx`, `locals`); the rest stay unset. */
+function fx_of(mir: unknown, cx: unknown, locals: Locals<V>): FunctionCx<MockTypes> {
+  const fx = Object.create(FunctionCx.prototype) as FunctionCx<MockTypes>;
+  Object.assign(fx, { mir, cx, locals });
+  return fx;
+}
 
 function LocalRefPending(): LocalRef<V> {
   return { $: "PendingOperand" };
