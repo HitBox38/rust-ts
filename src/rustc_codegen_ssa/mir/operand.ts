@@ -10,8 +10,7 @@
 // - The `impl FunctionCx` block (`maybe_codegen_consume_direct`, `codegen_consume`, `codegen_operand`,
 //   `move_copy_annotation_instance`) is in `install_FunctionCx_operand`, which mod.ts calls after `class FunctionCx`.
 // - `itertools::Either` is rustc_middle mir/mod.ts's `Either` (`Left`/`Right`, same derived Debug).
-// - Calls into lanes not yet ported are typed module-private stubs (`unported("<lane>: <path> <fn>")`):
-//   rvalue.rs `transmute_scalar` and `FunctionCx::codegen_transmute_operand` (ssa-rvalue-intrinsic), constant.rs
+// - Calls into lanes not yet ported are typed module-private stubs (`unported("<lane>: <path> <fn>")`): constant.rs
 //   `FunctionCx::eval_mir_constant_to_operand` and `FunctionCx::immediate_const_vector` (plan-m7 MIR core group, no
 //   lane yet).
 import {
@@ -55,21 +54,7 @@ import type { BuilderMethods } from "../traits/builder.ts";
 import type { CodegenMethods } from "../traits/mod.ts";
 import type { FunctionCx } from "./mod.ts";
 import { debug_PlaceValue, debug_V_or_stop, PlaceRef, PlaceValue } from "./place.ts";
-
-/** Stub: `rustc_codegen_ssa::mir::rvalue::transmute_scalar` (rvalue.rs, lane ssa-rvalue-intrinsic). */
-function transmute_scalar<B extends BackendTypes>(_bx: BuilderMethods<B>, _imm: B["Value"], _from_scalar: abi_Scalar, _to_scalar: abi_Scalar): B["Value"] {
-  return unported("ssa-rvalue-intrinsic: compiler/rustc_codegen_ssa/src/mir/rvalue.rs transmute_scalar");
-}
-
-/** Stub: `FunctionCx::codegen_transmute_operand` (rvalue.rs, lane ssa-rvalue-intrinsic). */
-function FunctionCx_codegen_transmute_operand<B extends BackendTypes>(
-  _fx: FunctionCx<B>,
-  _bx: BuilderMethods<B>,
-  _operand: OperandRef<B["Value"]>,
-  _cast: TyAndLayout,
-): OperandValue<B["Value"]> {
-  return unported("ssa-rvalue-intrinsic: compiler/rustc_codegen_ssa/src/mir/rvalue.rs codegen_transmute_operand");
-}
+import { transmute_scalar } from "./rvalue.ts";
 
 /** Stub: `FunctionCx::eval_mir_constant_to_operand` (constant.rs; no lane yet). */
 function FunctionCx_eval_mir_constant_to_operand<B extends BackendTypes>(
@@ -495,7 +480,7 @@ export class OperandRef<V> {
       val = OperandValue.ZeroSized;
     } else if (Size_eq(field.size, this.layout.size)) {
       assert_eq(offset.bytes(), 0, String);
-      val = FunctionCx_codegen_transmute_operand(fx, bx, this, field);
+      val = fx.codegen_transmute_operand(bx, this, field);
     } else {
       let in_scalar: abi_Scalar | undefined;
       let imm: B["Value"];

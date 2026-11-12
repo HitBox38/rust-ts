@@ -70,6 +70,8 @@ import * as analyze from "./analyze.ts";
 import { Locals } from "./locals.ts";
 import { install_FunctionCx_operand, OperandRef, OperandValue } from "./operand.ts";
 import { install_FunctionCx_place, PlaceRef } from "./place.ts";
+import { install_FunctionCx_rvalue } from "./rvalue.ts";
+import { install_FunctionCx_intrinsic } from "./intrinsic.ts";
 
 // mod analyze; mod block; mod constant; mod coverageinfo; pub mod debuginfo; mod intrinsic; mod locals;
 // pub mod naked_asm; pub mod operand; pub mod place; mod retag; mod rvalue; mod statement;
@@ -256,10 +258,12 @@ export class FunctionCx<B extends BackendTypes, Cx extends CodegenMethods<B> = C
     this.locals.values[local] = value;
   }
 }
-// PORT (ssa-operand-place, root at integ-w53): place.rs's and operand.rs's `impl FunctionCx` blocks are installed here,
-// right after the class, so that the methods exist whichever of the three files loads first.
+// PORT (ssa-operand-place, root at integ-w53; rvalue.rs and intrinsic.rs at integ-w54): the other files' `impl FunctionCx`
+// blocks are installed here, right after the class, so that the methods exist whichever of the files loads first.
 install_FunctionCx_operand(FunctionCx);
 install_FunctionCx_place(FunctionCx);
+install_FunctionCx_rvalue(FunctionCx);
+install_FunctionCx_intrinsic(FunctionCx);
 
 export type LocalRef<V> =
   | { readonly $: "Place"; readonly _0: PlaceRef<V> }

@@ -493,17 +493,10 @@ test("rvalue.rs / intrinsic.rs over a mock backend", () => {
     {
       // Operand form (rvalue.rs:811): `(u8, u32)` from two operands → OperandRefBuilder → `Pair`. No builder call.
       // ORACLE_pair: the two `insertvalue`s come from returning the pair (block.rs), not from building it.
-      // `insert_field` calls rvalue.rs `transmute_scalar` through operand.ts's stub until root repoints it to this
-      // lane's export (handoff); before that the stub stops, after it the pair is built with no call.
-      let t: { op: OperandRef<V>; log: string[] } | undefined;
-      const msg = stops(() => {
-        t = run({ $: "Aggregate", _0: { $: "Tuple" }, _1: [copy_(3), copy_(9)] });
-      });
-      if (msg !== undefined) {
-        expect(msg).toContain("ssa-rvalue-intrinsic: compiler/rustc_codegen_ssa/src/mir/rvalue.rs transmute_scalar");
-      } else {
-        expect([t!.log, val(t!.op.val), display_Ty(t!.op.layout.ty)]).toEqual([[], "Pair(%c:i8, %u:i32)", "(u8, u32)"]);
-      }
+      // `insert_field` calls rvalue.rs `transmute_scalar` (operand.ts imports this lane's export; root at integ-w54):
+      // the pair is built with no call.
+      const t = run({ $: "Aggregate", _0: { $: "Tuple" }, _1: [copy_(3), copy_(9)] });
+      expect([t.log, val(t.op.val), display_Ty(t.op.layout.ty)]).toEqual([[], "Pair(%c:i8, %u:i32)", "(u8, u32)"]);
 
       // Place form (rvalue.rs:255) of `S { a, b, c }` (Memory, size 8; port layout: b@0, c@4, a@6):
       // try_codegen_const_aggregate_as_immediate gives up at the first non-constant field; then per field
