@@ -10,7 +10,7 @@ import { llvmBinDir } from "../../../scripts/lib/llvm-tools.ts";
 import { Unported } from "../../std/panic.ts";
 import * as L from "./ffi.ts";
 import { Inst } from "./inst.ts";
-import { printModule } from "./printer.ts";
+import { printModule, printValueToString } from "./printer.ts";
 import { parseScript, replay } from "./replay.ts";
 
 function fresh() {
@@ -86,8 +86,10 @@ describe("builder", () => {
   test("an unsourced or out-of-lane form stops instead of guessing", () => {
     const { C, dbl } = fresh();
     const B = L.LLVMCreateBuilderInContext(C);
-    // Two double constants: APFloat arithmetic is not in the model.
-    expect(() => L.LLVMBuildFAdd(B, L.LLVMConstReal(dbl, 1.5), L.LLVMConstReal(dbl, 2), "")).toThrow(Unported);
+    // Two double constants fold (lane llir-apfloat); two ppc_fp128 zeros do not: DoubleAPFloat arithmetic stops.
+    expect(printValueToString(L.LLVMBuildFAdd(B, L.LLVMConstReal(dbl, 1.5), L.LLVMConstReal(dbl, 2), ""))).toBe("double 3.500000e+00");
+    const ppc0 = L.LLVMConstNull(L.LLVMPPCFP128TypeInContext(C));
+    expect(() => L.LLVMBuildFMul(B, ppc0, ppc0, "")).toThrow(Unported);
     // A debug location is llir-di's.
     expect(() => L.LLVMSetCurrentDebugLocation2(B, L.LLVMMDStringInContext2(C, "x", 1))).toThrow(Unported);
   });

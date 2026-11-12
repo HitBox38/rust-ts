@@ -11,8 +11,10 @@
 //   (core.ts) converts at the boundary: a JS `string` argument is its UTF-8 bytes, and a name handed back is decoded as UTF-8.
 // - Types and constants are uniqued per context, as in LLVM, so `===` is LLVM's pointer equality.
 // - Integer constant values are `bigint`, held as the unsigned bit pattern of the type's width (APInt's representation).
-// - Floating-point constants hold their bit pattern (`bigint`), as `APFloat::bitcastToAPInt`.
+// - Floating-point constants hold their bit pattern (`bigint`), as `APFloat::bitcastToAPInt`; their arithmetic is apfloat.ts's
+//   `APFloat` (lane llir-apfloat).
 import { unported } from "../../std/panic.ts";
+import { APFloat, type FltSemantics, opInvalidOp } from "./apfloat.ts";
 import type { Linkage as FfiLinkage } from "./ffi_types.ts";
 
 let NEXT_ID = 1;
@@ -90,6 +92,27 @@ export class Type {
   /** `getScalarType`: the element type of a vector, else the type. */
   getScalarType(): Type {
     return this instanceof VectorType ? this.elementType : this;
+  }
+  // llvm: llvm/lib/IR/Type.cpp:106 Type::getFltSemantics
+  getFltSemantics(): FltSemantics {
+    switch (this.typeID) {
+      case "Half":
+        return "IEEEhalf";
+      case "BFloat":
+        return "BFloat";
+      case "Float":
+        return "IEEEsingle";
+      case "Double":
+        return "IEEEdouble";
+      case "X86_FP80":
+        return "x87DoubleExtended";
+      case "FP128":
+        return "IEEEquad";
+      case "PPC_FP128":
+        return "PPCDoubleDouble";
+      default:
+        throw new Error("llvm: Invalid floating type");
+    }
   }
   /** `getPrimitiveSizeInBits` of the floating-point types (the only ones the model asks). */
   fpBits(): number {
@@ -524,21 +547,28 @@ export class ConstantInt extends Constant {
   }
 }
 
+/** `ConstantFP`: a floating-point scalar, or (since LLVM made FP splats native) a vector of one value in every lane, whose type
+ * is the vector type (`ConstantFP::get(LLVMContext&, ElementCount, const APFloat&)`, Constants.cpp:1189). */
 export class ConstantFP extends Constant {
   constructor(
     type: Type,
-    /** The bit pattern (`APFloat::bitcastToAPInt`). */
+    /** The bit pattern of the (element) value (`APFloat::bitcastToAPInt`), in the scalar type's semantics. */
     readonly bits: bigint,
   ) {
     super(type, []);
   }
+  /** `getValueAPF` / `getValue`: the element's APFloat. */
+  getValueAPF(): APFloat {
+    return APFloat.fromAPInt(this.type.getScalarType().getFltSemantics(), this.bits);
+  }
   override isNullValue(): boolean {
-    // The `IsNullValue` bit of a ConstantFP is set for +0.0, whose bit pattern is all zeros.
+    // The `IsNullValue` bit of a ConstantFP is set when its bit pattern is all zeros (Constants.cpp:1207: "ppc_fp128 determine
+    // isZero using high order double only so check the bitwise value"), vector or not.
     return this.bits === 0n;
   }
   override isAllOnesValue(): boolean {
-    // `Constant::isAllOnesValue`: "FP which are bitcasted from -1 integers".
-    return this.bits === (1n << BigInt(this.type.fpBits())) - 1n;
+    // `Constant::isAllOnesValue`: "FP which are bitcasted from -1 integers" (the element's bits, for a vector too).
+    return this.bits === (1n << BigInt(this.type.getScalarType().fpBits())) - 1n;
   }
 }
 
@@ -681,28 +711,58 @@ export function getConstantInt(ty: IntegerType, value: bigint): ConstantInt {
   return intern(ty.context, `CI:${ty.id}:${v}`, () => new ConstantInt(ty, v));
 }
 
-/** `ConstantFP::get(LLVMContext&, const APFloat&)`, the APFloat given by its bits. */
-export function getConstantFP(ty: Type, bits: bigint): ConstantFP {
-  return intern(ty.context, `CFP:${ty.id}:${bits}`, () => new ConstantFP(ty, bits));
+// llvm: llvm/lib/IR/Type.cpp:125 Type::getFloatingPointTy
+export function getFloatingPointTy(ctx: Context, sem: FltSemantics): Type {
+  switch (sem) {
+    case "IEEEhalf":
+      return ctx.getFloatingType("Half");
+    case "BFloat":
+      return ctx.getFloatingType("BFloat");
+    case "IEEEsingle":
+      return ctx.getFloatingType("Float");
+    case "IEEEdouble":
+      return ctx.getFloatingType("Double");
+    case "IEEEquad":
+      return ctx.getFloatingType("FP128");
+    case "PPCDoubleDouble":
+      return ctx.getFloatingType("PPC_FP128");
+    case "x87DoubleExtended":
+      return ctx.getFloatingType("X86_FP80");
+  }
+}
+
+// llvm: llvm/lib/IR/Constants.cpp:1174 ConstantFP::get
+/** `ConstantFP::get(LLVMContext&, const APFloat&)`: the uniqued scalar of the APFloat's semantics. LLVM's `FPConstants` map
+ * compares keys with `bitwiseIsEqual`, which is equality of `bitcastToAPInt`, so the key is the value's bits. */
+export function getConstantFPOfAPFloat(ctx: Context, v: APFloat): ConstantFP {
+  const ty = getFloatingPointTy(ctx, v.semantics);
+  const bits = v.bitcastToAPInt();
+  return intern(ctx, `CFP:${ty.id}:${bits}`, () => new ConstantFP(ty, bits));
+}
+
+// llvm: llvm/lib/IR/Constants.cpp:1188 ConstantFP::get
+/** `ConstantFP::get(LLVMContext&, ElementCount, const APFloat&)`: a vector with each lane set to the same APFloat
+ * (`FPSplatConstants`, keyed by the element count and the value). */
+export function getConstantFPSplat(ctx: Context, n: number, scalable: boolean, v: APFloat): ConstantFP {
+  const eltTy = getFloatingPointTy(ctx, v.semantics);
+  const vty = ctx.getVectorType(eltTy, n, scalable);
+  const bits = v.bitcastToAPInt();
+  return intern(ctx, `CFP:${vty.id}:${bits}`, () => new ConstantFP(vty, bits));
+}
+
+// llvm: llvm/lib/IR/Constants.cpp:1122 ConstantFP::get
+/** `ConstantFP::get(Type*, const APFloat&)`: a splat for a vector type. */
+export function getConstantFPOfType(ty: Type, v: APFloat): ConstantFP {
+  if (ty instanceof VectorType) return getConstantFPSplat(ty.context, ty.numElements, ty.scalable, v);
+  return getConstantFPOfAPFloat(ty.context, v);
 }
 
 // llvm: llvm/lib/IR/Constants.cpp:1108 ConstantFP::get
-/** `ConstantFP::get(Type*, double V)`: `V` converted to the type's semantics. */
+/** `ConstantFP::get(Type*, double V)`: `V` converted to the type's semantics (round to nearest, ties to even). */
 export function getConstantFPOfDouble(ty: Type, v: number): Constant {
-  if (ty.isVectorTy()) return unported("llir: ConstantFP::get of a vector type (a splat)");
-  const buf = new DataView(new ArrayBuffer(8));
-  if (ty.typeID === "Double") {
-    buf.setFloat64(0, v);
-    return getConstantFP(ty, buf.getBigUint64(0));
-  }
-  if (ty.typeID === "Float") {
-    // APFloat::convert(IEEEsingle, rmNearestTiesToEven) of a double is IEEE round-to-nearest-even, as `Math.fround`;
-    // a NaN's payload is truncated by `convert` and by `fround` alike only for quiet NaNs, so a NaN stops here.
-    if (Number.isNaN(v)) return unported("llir: ConstantFP::get(float, NaN) (APFloat NaN payload conversion)");
-    buf.setFloat32(0, v);
-    return getConstantFP(ty, BigInt(buf.getUint32(0)));
-  }
-  return unported(`llir: ConstantFP::get(${ty.typeID}, double) (APFloat conversion)`);
+  const fv = APFloat.fromDouble(v).convert(ty.getScalarType().getFltSemantics(), "rmNearestTiesToEven").value;
+  if (ty instanceof VectorType) return getConstantFPSplat(ty.context, ty.numElements, ty.scalable, fv);
+  return getConstantFPOfAPFloat(ty.context, fv);
 }
 
 export function getConstantPointerNull(ty: Type): ConstantPointerNull {
@@ -730,14 +790,14 @@ export function getNullValue(ty: Type): Constant {
     case "X86_FP80":
     case "FP128":
     case "PPC_FP128":
-      // APFloat::getZero: +0.0, all bits zero in every semantics.
-      return getConstantFP(ty, 0n);
+      return getConstantFPOfAPFloat(ty.context, APFloat.getZero(ty.getFltSemantics()));
     case "Pointer":
       return getConstantPointerNull(ty);
     case "Vector":
     case "ScalableVector": {
       const elt = (ty as VectorType).elementType;
-      if (elt.isFloatingPointTy() || elt.isPointerTy()) return unported("llir: getNullValue of a vector of floats or pointers (a splat ConstantFP/ConstantPointerNull)");
+      if (elt.isFloatingPointTy()) return getConstantFPOfType(ty, APFloat.getZero(elt.getFltSemantics()));
+      if (elt.isPointerTy()) return unported("llir: getNullValue of a vector of pointers (a splat ConstantPointerNull)");
       return getConstantAggregateZero(ty);
     }
     case "Struct":
@@ -786,6 +846,46 @@ export function getConstantDataSequential(ty: ArrayType | VectorType, elems: rea
   return intern(ty.context, `CDS:${ty.id}:${elems.map((e) => e.id).join(",")}`, () => new ConstantDataSequential(ty, elems));
 }
 
+// llvm: llvm/lib/IR/Constants.cpp:1549 ConstantVector::getImpl
+/** `ConstantVector::get`: an all-zero, all-poison or all-undef vector collapses, an FP splat is a vector-typed ConstantFP, and
+ * plain integers or floats of a compatible element type are a data vector. A `ConstantVector` of other elements, and a splat
+ * of pointer nulls (a vector-typed ConstantPointerNull), are not made by the model: they stop. */
+export function getConstantVector(v: readonly Constant[]): Constant {
+  if (v.length === 0) throw new Error("llvm: Vectors can't be empty");
+  const t = v[0]!.context.getVectorType(v[0]!.type, v.length, false);
+  // If this is an all-undef or all-zero vector, return a ConstantAggregateZero or UndefValue.
+  const c = v[0]!;
+  let isZero = c.isNullValue();
+  let isUndef = c instanceof UndefValue;
+  let isPoison = c instanceof PoisonValue;
+  let isSplatFP = c instanceof ConstantFP;
+  let isSplatPtrNull = c instanceof ConstantPointerNull;
+  // (`UseConstantIntForFixedLengthSplat` is off by default; the model has no byte types.)
+  if (isZero || isUndef || isSplatFP || isSplatPtrNull) {
+    for (let i = 1; i !== v.length; ++i) {
+      if (v[i] !== c) {
+        isZero = isUndef = isPoison = isSplatFP = isSplatPtrNull = false;
+        break;
+      }
+    }
+  }
+  if (isSplatPtrNull) return unported("llir: a pointer-null vector splat (a vector-typed ConstantPointerNull)");
+  if (isZero) return getConstantAggregateZero(t);
+  if (isPoison) return getPoison(t);
+  if (isUndef) return getUndef(t);
+  if (isSplatFP) return getConstantFPSplat(c.context, v.length, false, (c as ConstantFP).getValueAPF());
+  // Check to see if all of the elements are ConstantFP or ConstantInt and if the element type is compatible with
+  // ConstantDataVector. If so, use it.
+  if (isElementTypeCompatible(c.type)) {
+    // `getSequenceIfElementsMatch`: all ConstantInt (integer element type) or all ConstantFP.
+    if (c instanceof ConstantInt && v.every((x) => x instanceof ConstantInt)) return getConstantDataSequential(t, v as ConstantInt[]);
+    if (c instanceof ConstantFP && v.every((x) => x instanceof ConstantFP)) return getConstantDataSequential(t, v as ConstantFP[]);
+  }
+  // Otherwise, the element type isn't compatible with ConstantDataVector, or the operand list contains a ConstantExpr or
+  // something else strange: `VectorConstants.getOrCreate`.
+  return unported("llir: ConstantVector::get of other elements (a ConstantVector)");
+}
+
 // llvm: llvm/lib/IR/Constants.cpp:1499 ConstantStruct::get
 export function getConstantStruct(ty: StructType, v: readonly Constant[], create = true): Constant | undefined {
   // Create a ConstantAggregateZero value if all elements are zeros.
@@ -819,6 +919,8 @@ export function getAggregateElement(c: Constant, elt: number): Constant | undefi
     const n = elementCount(c.type);
     return elt < n ? getNullValue(elementTypeAt(c.type, elt)) : undefined;
   }
+  // A vector-typed ConstantFP: `getKnownMinValue` of its element count, scalable or not.
+  if (c instanceof ConstantFP) return elt < (c.type as VectorType).numElements ? getConstantFPOfAPFloat(c.context, c.getValueAPF()) : undefined;
   if (c.type instanceof VectorType && c.type.scalable) return undefined;
   if (c instanceof PoisonValue) return elt < elementCount(c.type) ? getPoison(elementTypeAt(c.type, elt)) : undefined;
   if (c instanceof UndefValue) return elt < elementCount(c.type) ? getUndef(elementTypeAt(c.type, elt)) : undefined;
@@ -849,7 +951,8 @@ export function getSplatValue(c: Constant): Constant | undefined {
   if (!(c.type instanceof VectorType)) throw new Error("llvm: Only valid for vectors!");
   if (c instanceof PoisonValue) return getPoison(c.type.elementType);
   if (c instanceof ConstantAggregateZero) return getNullValue(c.type.elementType);
-  // (Vector-typed ConstantInt / ConstantFP / ConstantPointerNull splats are not made by the model.)
+  // (Vector-typed ConstantInt / ConstantPointerNull splats are not made by the model.)
+  if (c instanceof ConstantFP) return getConstantFPOfAPFloat(c.context, c.getValueAPF());
   if (c instanceof ConstantDataSequential) return constantDataVectorSplatValue(c);
   if (c instanceof ConstantVector) return constantVectorSplatValue(c);
   // A `shufflevector (insertelement undef, X, 0), undef, zeroinitializer` constant expression is not made by the model.
@@ -876,24 +979,38 @@ function constantDataVectorSplatValue(c: ConstantDataSequential): Constant | und
 export function getAllOnesValue(ty: Type): Constant {
   if (ty instanceof IntegerType) return getConstantInt(ty, ty.mask);
   // `APFloat::getAllOnesValue`: every bit of the format set.
-  if (ty.isFloatingPointTy()) return getConstantFP(ty, (1n << BigInt(ty.fpBits())) - 1n);
+  if (ty.isFloatingPointTy()) return getConstantFPOfAPFloat(ty.context, APFloat.getAllOnesValue(ty.getFltSemantics()));
   if (!(ty instanceof VectorType)) throw new Error(`llvm: cast<VectorType> of ${ty.typeID} (Constant::getAllOnesValue)`);
   return getSplat(ty.numElements, ty.scalable, getAllOnesValue(ty.elementType));
 }
 
 // llvm: llvm/lib/IR/Constants.cpp:1602 ConstantVector::getSplat
-/** `ConstantVector::getSplat(EC, V)` for the splats the model can hold: a fixed-length splat of an integer the data vectors
- * take (`ConstantDataVector::getSplat`, Constants.cpp:3304). The rest (FP, pointer null and byte splats are vector-typed
- * constants; other elements go through `ConstantVector::get`) stop. */
+/** `ConstantVector::getSplat(EC, V)`: a vector-typed ConstantFP, a fixed-length splat of an integer the data vectors take
+ * (`ConstantDataVector::getSplat`, Constants.cpp:3304), or `ConstantVector::get` of the copies (which collapses zero, undef
+ * and poison). Pointer-null splats (a vector-typed ConstantPointerNull), scalable splats of other values, and the
+ * ConstantVectors `get` would make, stop. */
 export function getSplat(n: number, scalable: boolean, v: Constant): Constant {
-  if (v instanceof ConstantFP) return unported("llir: a floating-point vector splat (a vector-typed ConstantFP)");
   if (v instanceof ConstantPointerNull) return unported("llir: a pointer-null vector splat (a vector-typed ConstantPointerNull)");
+  if (v instanceof ConstantFP) return getConstantFPSplat(v.context, n, scalable, v.getValueAPF());
   if (!scalable) {
     // (`UseConstantIntForFixedLengthSplat` is off by default.) If this splat is compatible with ConstantDataVector, use it.
     if (v instanceof ConstantInt && isElementTypeCompatible(v.type)) return getConstantDataSequential(v.context.getVectorType(v.type, n, false), new Array<ConstantInt>(n).fill(v));
-    return unported("llir: ConstantVector::getSplat of other elements (ConstantVector::get)");
+    return getConstantVector(new Array<Constant>(n).fill(v));
   }
   return unported("llir: a scalable vector splat");
+}
+
+/** `getScalarSizeInBits` of an integer, FP or vector-of-those type. */
+function scalarSizeInBits(t: Type): number {
+  const s = t.getScalarType();
+  return s instanceof IntegerType ? s.bits : s.isFloatingPointTy() ? s.fpBits() : 0;
+}
+
+/** `ConstantInt::get(Type*, const APInt&)`: the integer, splatted for a vector type (Constants.cpp:994). */
+function getConstantIntOfType(ty: Type, value: bigint): Constant {
+  const c = getConstantInt(ty.getScalarType() as IntegerType, value);
+  if (ty instanceof VectorType) return getSplat(ty.numElements, ty.scalable, c);
+  return c;
 }
 
 // llvm: llvm/lib/IR/ConstantFold.cpp:63 FoldBitCast
@@ -901,22 +1018,163 @@ function foldBitCast(v: Constant, destTy: Type): Constant | undefined {
   const srcTy = v.type;
   if (srcTy === destTy) return v; // no-op cast
   if (v.isAllOnesValue()) return getAllOnesValue(destTy);
-  // Handle ConstantInt -> Constant{Byte, FP}
+  // Handle ConstantInt -> Constant{Byte, FP} (the model has no byte types)
   if (v instanceof ConstantInt) {
+    // Canonicalize scalar-to-vector bitcasts into vector-to-vector bitcasts.
     if (destTy.isVectorTy() && !srcTy.isVectorTy()) return unported("llir: FoldBitCast scalar-to-vector");
-    // Make sure dest type is compatible with the folded fp constant (not PPC_FP128).
-    if (destTy.isFloatingPointTy() && destTy.typeID !== "PPC_FP128" && destTy.fpBits() === (srcTy as IntegerType).bits) return getConstantFP(destTy, v.value);
+    // Make sure dest type is compatible with the folded fp constant. See note below regarding the PPC_FP128 restriction.
+    const destScalar = destTy.getScalarType();
+    if (destScalar.isFloatingPointTy() && destTy.typeID !== "PPC_FP128" && scalarSizeInBits(destTy) === scalarSizeInBits(srcTy)) {
+      return getConstantFPOfType(destTy, APFloat.fromAPInt(destScalar.getFltSemantics(), v.value));
+    }
     return undefined;
   }
+  // Handle ConstantFP -> Constant{Int, Byte, FP}
   if (v instanceof ConstantFP) {
     // Handle half <-> bfloat
-    if (!srcTy.isVectorTy() && destTy.isFloatingPointTy()) return getConstantFP(destTy, v.bits);
+    if (!srcTy.isVectorTy() && destTy.isFloatingPointTy()) {
+      const val = v.getValueAPF().bitcastToAPInt();
+      return getConstantFPOfAPFloat(destTy.context, APFloat.fromAPInt(destTy.getFltSemantics(), val));
+    }
+    // Canonicalize scalar-to-vector bitcasts into vector-to-vector bitcasts.
     if (destTy.isVectorTy() && !srcTy.isVectorTy()) return unported("llir: FoldBitCast scalar-to-vector");
+    // PPC_FP128 is really the sum of two consecutive doubles, where the first double is always stored first in memory,
+    // regardless of the target endianness. The memory layout of i128, however, depends on the target endianness, and so we
+    // can't fold this without target endianness information.
     if (srcTy.typeID === "PPC_FP128") return undefined;
-    if (destTy instanceof IntegerType && destTy.bits === srcTy.fpBits()) return getConstantInt(destTy, v.bits);
+    // Make sure dest type is compatible with the folded integer constant.
+    if (destTy.getScalarType() instanceof IntegerType && scalarSizeInBits(destTy) === scalarSizeInBits(srcTy)) return getConstantIntOfType(destTy, v.getValueAPF().bitcastToAPInt());
     return undefined;
   }
   return undefined;
+}
+
+// llvm: llvm/lib/IR/Instructions.cpp:2882 CastInst::isEliminableCastPair
+/** With `DL` null, as `foldConstantCastPair` passes it. Returns the opcode of the one cast that replaces the pair, or
+ * undefined (LLVM's 0). The model's `CastOpcode` has no `PtrToAddr`, whose row and column are kept for the table's shape. */
+function isEliminableCastPair(firstOp: CastOpcode, secondOp: CastOpcode, srcTy: Type, midTy: Type, dstTy: Type): CastOpcode | undefined {
+  // Define the 144 possibilities for these two cast instructions. The rows correspond to firstOp, the columns to secondOp.
+  const order = ["Trunc", "ZExt", "SExt", "FPToUI", "FPToSI", "UIToFP", "SIToFP", "FPTrunc", "FPExt", "PtrToInt", "PtrToAddr", "IntToPtr", "BitCast", "AddrSpaceCast"] as const;
+  // biome-ignore format: LLVM's table
+  const CastResults: readonly (readonly number[])[] = [
+    // T        F  F  U  S  F  F  P  P  I  B  A  -+
+    // R  Z  S  P  P  I  I  T  P  2  2  N  T  S   |
+    // U  E  E  2  2  2  2  R  E  I  A  T  C  C   +- secondOp
+    // N  X  X  U  S  F  F  N  X  N  D  2  V  V   |
+    // C  T  T  I  I  P  P  C  T  T  R  P  T  T  -+
+    [  1, 0, 0,99,99, 0, 0,99,99,99,99, 0, 3, 0], // Trunc         -+
+    [  8, 1, 9,99,99, 2,17,99,99,99,99, 2, 3, 0], // ZExt           |
+    [  8, 0, 1,99,99, 0, 2,99,99,99,99, 0, 3, 0], // SExt           |
+    [  0, 0, 0,99,99, 0, 0,99,99,99,99, 0, 3, 0], // FPToUI         |
+    [  0, 0, 0,99,99, 0, 0,99,99,99,99, 0, 3, 0], // FPToSI         |
+    [ 99,99,99, 0, 0,99,99, 0, 0,99,99,99, 4, 0], // UIToFP         +- firstOp
+    [ 99,99,99, 0, 0,99,99, 0, 0,99,99,99, 4, 0], // SIToFP         |
+    [ 99,99,99, 0, 0,99,99, 0, 0,99,99,99, 4, 0], // FPTrunc        |
+    [ 99,99,99, 2, 2,99,99, 8, 2,99,99,99, 4, 0], // FPExt          |
+    [  1, 0, 0,99,99, 0, 0,99,99,99,99, 7, 3, 0], // PtrToInt       |
+    [  0, 0, 0,99,99, 0, 0,99,99,99,99, 0, 3, 0], // PtrToAddr      |
+    [ 99,99,99,99,99,99,99,99,99,11,11,99,15, 0], // IntToPtr       |
+    [  5, 5, 5, 0, 0, 5, 5, 0, 0,16,16, 5, 1,14], // BitCast        |
+    [  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,13,12], // AddrSpaceCast -+
+  ];
+  // If either of the casts are a bitcast from scalar to vector, disallow the merging. However, any pair of bitcasts are
+  // allowed.
+  const isFirstBitcast = firstOp === "BitCast";
+  const isSecondBitcast = secondOp === "BitCast";
+  const areBothBitcasts = isFirstBitcast && isSecondBitcast;
+  // Check if any of the casts convert scalars <-> vectors.
+  if ((isFirstBitcast && srcTy.isVectorTy() !== midTy.isVectorTy()) || (isSecondBitcast && midTy.isVectorTy() !== dstTy.isVectorTy())) {
+    if (!areBothBitcasts) return undefined;
+  }
+  const isPtrOrPtrVectorTy = (t: Type): boolean => t.getScalarType().isPointerTy();
+  const addressSpace = (t: Type): number => (t.getScalarType() as PointerType).addressSpace;
+  const elimCase = CastResults[order.indexOf(firstOp)]![order.indexOf(secondOp)]!;
+  switch (elimCase) {
+    case 0:
+      // Categorically disallowed.
+      return undefined;
+    case 1:
+      // Allowed, use first cast's opcode.
+      return firstOp;
+    case 2:
+      // Allowed, use second cast's opcode.
+      return secondOp;
+    case 3:
+      // No-op cast in second op implies firstOp as long as the DestTy is integer and we are not converting between a vector
+      // and a non-vector type.
+      if (!srcTy.isVectorTy() && dstTy.isIntegerTy()) return firstOp;
+      return undefined;
+    case 4:
+      // No-op cast in second op implies firstOp as long as the DestTy matches MidTy.
+      if (dstTy === midTy) return firstOp;
+      return undefined;
+    case 5:
+      // No-op cast in first op implies secondOp as long as the SrcTy is an integer.
+      if (srcTy.isIntegerTy()) return secondOp;
+      return undefined;
+    case 7:
+      // (DisableI2pP2iOpt is off.) Cannot simplify if address spaces are different! Then: cannot simplify if the
+      // intermediate integer size is smaller than the pointer size, which needs the DL; it is null here.
+      return undefined;
+    case 8: {
+      // ext, trunc -> bitcast,    if the SrcTy and DstTy are the same
+      // ext, trunc -> ext,        if sizeof(SrcTy) < sizeof(DstTy)
+      // ext, trunc -> trunc,      if sizeof(SrcTy) > sizeof(DstTy)
+      const srcSize = scalarSizeInBits(srcTy);
+      const dstSize = scalarSizeInBits(dstTy);
+      if (srcTy === dstTy) return "BitCast";
+      if (srcSize < dstSize) return firstOp;
+      if (srcSize > dstSize) return secondOp;
+      return undefined;
+    }
+    case 9:
+      // zext, sext -> zext, because sext can't sign extend after zext
+      return "ZExt";
+    case 11:
+      // inttoptr, ptrtoint/ptrtoaddr -> integer cast: needs the DL, which is null here.
+      return undefined;
+    case 12:
+      // addrspacecast, addrspacecast -> bitcast,       if SrcAS == DstAS
+      // addrspacecast, addrspacecast -> addrspacecast, if SrcAS != DstAS
+      if (addressSpace(srcTy) !== addressSpace(dstTy)) return "AddrSpaceCast";
+      return "BitCast";
+    case 13:
+      // addrspacecast can only fold through a bitcast if the result remains a pointer.
+      if (!isPtrOrPtrVectorTy(dstTy)) return undefined;
+      // Allowed, use first cast's opcode
+      return firstOp;
+    case 14:
+      // bitcast, addrspacecast -> addrspacecast; addrspacecast can only fold through a bitcast if the source was already a
+      // pointer.
+      if (!isPtrOrPtrVectorTy(srcTy)) return undefined;
+      return "AddrSpaceCast";
+    case 15:
+      // Allowed, use first cast's opcode
+      return firstOp;
+    case 16:
+      // Allowed, use second cast's opcode
+      return secondOp;
+    case 17:
+      // (sitofp (zext x)) -> (uitofp x)
+      return "UIToFP";
+    case 99:
+      // Cast combination can't happen (error in input). This is for all cases where the MidTy is not the same for the two
+      // cast instructions.
+      throw new Error("llvm: Invalid Cast Combination");
+    default:
+      throw new Error("llvm: Error in CastResults table!!!");
+  }
+}
+
+// llvm: llvm/lib/IR/ConstantFold.cpp:45 foldConstantCastPair
+/** Which opcode folds the cast `opc` of the cast constant expression `op` (to `dstTy`) into one cast, if any. */
+function foldConstantCastPair(opc: CastOpcode, op: ConstantExpr, dstTy: Type): CastOpcode | undefined {
+  // The types and opcodes for the two Cast constant expressions
+  const srcTy = op.operands[0]!.type;
+  const midTy = op.type;
+  const firstOp = op.opcode as CastOpcode;
+  const secondOp = opc;
+  return isEliminableCastPair(firstOp, secondOp, srcTy, midTy, dstTy);
 }
 
 // llvm: llvm/lib/IR/ConstantFold.cpp:156 foldMaybeUndesirableCast
@@ -948,7 +1206,11 @@ export function constantFoldCastInstruction(opc: CastOpcode, v: Constant, destTy
   }
   if (v.isNullValue() && destTy.typeID !== "X86_AMX" && opc !== "AddrSpaceCast") return getNullValue(destTy);
   // If the cast operand is a constant expression, there's a few things we can do to try to simplify it.
-  if (v instanceof ConstantExpr && v.isCast()) return unported("llir: ConstantFoldCastInstruction of a cast of a cast (foldConstantCastPair / CastInst::isEliminableCastPair)");
+  if (v instanceof ConstantExpr && v.isCast()) {
+    // Try hard to fold cast of cast because they are often eliminable.
+    const newOpc = foldConstantCastPair(opc, v, destTy);
+    if (newOpc !== undefined) return foldMaybeUndesirableCast(newOpc, v.operands[0] as Constant, destTy);
+  }
   // If the cast operand is a constant vector, perform the cast by operating on each element. In the cast of bitcasts, the
   // element count may be mismatched; don't attempt to handle that here.
   if (destTy instanceof VectorType && v.type instanceof VectorType && destTy.numElements === v.type.numElements && destTy.scalable === v.type.scalable) {
@@ -965,11 +1227,26 @@ export function constantFoldCastInstruction(opc: CastOpcode, v: Constant, destTy
   switch (opc) {
     case "FPTrunc":
     case "FPExt":
+      if (v instanceof ConstantFP) {
+        const val = v.getValueAPF().convert(destTy.getScalarType().getFltSemantics(), "rmNearestTiesToEven").value;
+        return getConstantFPOfType(destTy, val);
+      }
+      return undefined; // Can't fold.
     case "FPToUI":
     case "FPToSI":
+      if (v instanceof ConstantFP) {
+        const r = v.getValueAPF().convertToInteger(scalarSizeInBits(destTy), opc === "FPToSI", "rmTowardZero");
+        // Undefined behavior invoked - the destination type can't represent the input constant.
+        if (r.status === opInvalidOp) return getPoison(destTy);
+        return getConstantIntOfType(destTy, r.value);
+      }
+      return undefined; // Can't fold.
     case "UIToFP":
     case "SIToFP":
-      if (v instanceof ConstantFP || v instanceof ConstantInt) return unported(`llir: ConstantFoldCastInstruction ${opc} (APFloat conversion)`);
+      if (v instanceof ConstantInt) {
+        const apf = APFloat.convertFromAPInt(destTy.getScalarType().getFltSemantics(), v.value, v.intType.bits, opc === "SIToFP", "rmNearestTiesToEven").value;
+        return getConstantFPOfType(destTy, apf);
+      }
       return undefined;
     case "ZExt":
       if (v instanceof ConstantInt) return getConstantInt(destTy as IntegerType, v.value);

@@ -123,10 +123,12 @@ describe("stops", () => {
   test("an unsourced fold stops instead of guessing", () => {
     const { C, i64, ptr, M, i8 } = fresh();
     const g = L.LLVMAddGlobal(M, i8, "g");
-    // ptrtoint of inttoptr: a cast of a cast needs CastInst::isEliminableCastPair, which the model does not have.
+    // ptrtoint of inttoptr: `CastInst::isEliminableCastPair` without a data layout keeps both casts (lane llir-apfloat).
     const ip = L.LLVMConstIntToPtr(L.LLVMConstInt(i64, 8n, L.FALSE), ptr);
-    expect(() => L.LLVMConstPtrToInt(ip, i64)).toThrow(Unported);
-    expect(() => L.LLVMConstReal(L.LLVMHalfTypeInContext(C), 1.5)).toThrow(Unported);
+    expect(printValueToString(L.LLVMConstPtrToInt(ip, i64))).toBe("i64 ptrtoint (ptr inttoptr (i64 8 to ptr) to i64)");
+    expect(printValueToString(L.LLVMConstReal(L.LLVMHalfTypeInContext(C), 1.5))).toBe("half 1.500000e+00");
+    // ppc_fp128 (DoubleAPFloat) arithmetic and conversions are not bit-checked against the pinned LLVM: they stop.
+    expect(() => L.LLVMConstReal(L.LLVMPPCFP128TypeInContext(C), 1.5)).toThrow(Unported);
     expect(g).toBeDefined();
   });
 });

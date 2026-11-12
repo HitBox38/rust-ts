@@ -379,21 +379,23 @@ describe.skipIf(!HAVE && !REQUIRE)("model vs libLLVM C API", () => {
       }
     }
     for (const [what, r, m] of cases) expect([what, printValueToString(m())]).toEqual([what, owned(lib.LLVMPrintValueToString(r))]);
-    // An all-ones vector bitcast to a float vector, and FP-vector identities, need a vector-typed ConstantFP: they stop.
+    // An all-ones vector bitcast to a float vector, and FP-vector identities, are vector-typed ConstantFPs (lane llir-apfloat).
     const rf2 = lib.LLVMVectorType(lib.LLVMFloatTypeInContext(rc), 2);
     const mf2 = L.LLVMVectorType(L.LLVMFloatTypeInContext(mc), 2);
-    expect(lib.LLVMIsAConstant(lib.LLVMBuildBitCast(rb, rvec(32, [ones32, ones32]), rf2, noName))).not.toBeNull();
-    expect(() => L.LLVMBuildBitCast(mb, mvec(32, [ones32, ones32]), mf2, "")).toThrow(Unported);
+    expect(printValueToString(L.LLVMBuildBitCast(mb, mvec(32, [ones32, ones32]), mf2, ""))).toBe(owned(lib.LLVMPrintValueToString(lib.LLVMBuildBitCast(rb, rvec(32, [ones32, ones32]), rf2, noName))));
     const rd2 = lib.LLVMVectorType(lib.LLVMDoubleTypeInContext(rc), 2);
     const md2 = L.LLVMVectorType(L.LLVMDoubleTypeInContext(mc), 2);
-    for (const [what, rv, mv] of [
-      ["fadd <2 x float> undef, undef", [lib.LLVMGetUndef(rf2), lib.LLVMGetUndef(rf2)], [L.LLVMGetUndef(mf2), L.LLVMGetUndef(mf2)]],
-      ["fadd <2 x float> poison, undef", [lib.LLVMGetPoison(rf2), lib.LLVMGetUndef(rf2)], [L.LLVMGetPoison(mf2), L.LLVMGetUndef(mf2)]],
-      ["fadd <2 x double> undef, undef", [lib.LLVMGetUndef(rd2), lib.LLVMGetUndef(rd2)], [L.LLVMGetUndef(md2), L.LLVMGetUndef(md2)]],
-    ] as [string, (Pointer | null)[], L.Value[]][]) {
-      // LLVM folds each to a constant; the model stops (never a plain Error, review F3).
-      expect([what, lib.LLVMIsAConstant(lib.LLVMBuildBinOp(rb, 9, rv[0], rv[1], noName)) !== null]).toEqual([what, true]);
-      expect(() => L.LLVMBuildFAdd(mb, mv[0]!, mv[1]!, "")).toThrow(Unported);
+    for (const [what, rv, mv, perElement] of [
+      ["fadd <2 x float> undef, undef", [lib.LLVMGetUndef(rf2), lib.LLVMGetUndef(rf2)], [L.LLVMGetUndef(mf2), L.LLVMGetUndef(mf2)], true],
+      ["fadd <2 x float> poison, undef", [lib.LLVMGetPoison(rf2), lib.LLVMGetUndef(rf2)], [L.LLVMGetPoison(mf2), L.LLVMGetUndef(mf2)], false],
+      ["fadd <2 x double> undef, undef", [lib.LLVMGetUndef(rd2), lib.LLVMGetUndef(rd2)], [L.LLVMGetUndef(md2), L.LLVMGetUndef(md2)], true],
+    ] as [string, (Pointer | null)[], L.Value[], boolean][]) {
+      const real = lib.LLVMBuildBinOp(rb, 9, rv[0], rv[1], noName);
+      expect([what, lib.LLVMIsAConstant(real) !== null]).toEqual([what, true]);
+      // An undef vector has no splat value (`getSplatValue`), so LLVM folds it per element (`getExtractElement`), which the
+      // model does not: it stops, never a plain Error (review llir-core-b F3).
+      if (perElement) expect(() => L.LLVMBuildFAdd(mb, mv[0]!, mv[1]!, "")).toThrow(Unported);
+      else expect([what, printValueToString(L.LLVMBuildFAdd(mb, mv[0]!, mv[1]!, ""))]).toEqual([what, owned(lib.LLVMPrintValueToString(real))]);
     }
     lib.LLVMDisposeBuilder(rb);
     lib.LLVMContextDispose(rc);

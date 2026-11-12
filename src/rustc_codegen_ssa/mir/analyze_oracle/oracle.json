@@ -1,0 +1,87 @@
+{
+ "locals": {
+  "allocas": {
+   "big": [
+    "_4",
+    "bg"
+   ],
+   "borrowed": [
+    "x"
+   ],
+   "branches": [
+    "y"
+   ],
+   "call_result": [],
+   "dropper": [
+    "n"
+   ],
+   "loop_sum": [
+    "i",
+    "s"
+   ],
+   "mutated_field": [
+    "p"
+   ],
+   "opt": [
+    "_0",
+    "o"
+   ],
+   "read_fields": [],
+   "scalars": [],
+   "tuple_ret": [],
+   "unit_borrow": [
+    "_1"
+   ]
+  },
+  "funclets": {
+   "big": [],
+   "borrowed": [],
+   "branches": [],
+   "call_result": [],
+   "dropper": [],
+   "loop_sum": [],
+   "mutated_field": [],
+   "opt": [],
+   "read_fields": [],
+   "scalars": [],
+   "tuple_ret": [],
+   "unit_borrow": []
+  },
+  "personality": [
+   "dropper"
+  ]
+ },
+ "funclets": {
+  "allocas": {
+   "branchy": [
+    "_d"
+   ],
+   "one": [
+    "_d"
+   ],
+   "plain": [],
+   "two": [
+    "_d1",
+    "_d2"
+   ]
+  },
+  "funclets": {
+   "branchy": [
+    5
+   ],
+   "one": [
+    3
+   ],
+   "plain": [],
+   "two": [
+    4,
+    5
+   ]
+  },
+  "personality": [
+   "branchy",
+   "one",
+   "two"
+  ]
+ }
+}
