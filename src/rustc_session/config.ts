@@ -39,7 +39,7 @@ import { path_file_name, path_file_stem, path_hash, path_join, path_parent } fro
 import { assert_eq, panic, unported, unwrap } from "../std/panic.ts";
 import type { Decoder } from "../rustc_serialize/serialize.ts";
 import { Err, Ok, type Result, unwrap_result } from "../std/result.ts";
-import { utf8 as utf8_bytes, utf8_len } from "../std/str.ts";
+import { Str, str_ceil_char_boundary, utf8 as utf8_bytes, utf8_len } from "../std/str.ts";
 import * as getopts from "../vendor/getopts/lib.ts";
 import type { Session } from "./lib.ts";
 import {
@@ -72,7 +72,7 @@ import {
 import type { CanonicalizedPath, NativeLib } from "./utils.ts";
 import type { Align } from "../rustc_abi/lib.ts";
 import type { RustcVersion } from "../rustc_ast/attr/version.ts";
-import { type StableHasher, path_hasher } from "../rustc_data_structures/stable_hash.ts";
+import { StableHasher, path_hasher } from "../rustc_data_structures/stable_hash.ts";
 import { Hash64 } from "../rustc_hashes/lib.ts";
 import { Level_discriminant } from "../rustc_lint_defs/lib.ts";
 import { type CollapseMacroDebuginfo, CollapseMacroDebuginfo_discriminant } from "../rustc_structures/collapse_macro_debug_info.gen.ts";
@@ -1420,10 +1420,64 @@ export const OutFileName = {
 } as const;
 export const debug_OutFileName: Debug<OutFileName> = (v, f) => (v.$ === "Real" ? debug_tuple(f, "Real", [debug_str(v._0)]) : "Stdout");
 
+export const RLINK_EXT: string = "rlink";
+export const RUST_CGU_EXT: string = "rcgu";
+export const DWARF_OBJECT_EXT: string = "dwo";
+export const MAX_FILENAME_LENGTH: number = 143; // ecryptfs limits filenames to 143 bytes see #49914
+
+/// Ensure the filename is not too long, as some filesystems have a limit.
+/// If the filename is too long, hash part of it and append the hash to the filename.
+/// This is a workaround for long crate names generating overly long filenames.
+// PORT (ssa-write): placed before the `OutputFilenames` class, which holds the struct and its `impl` (upstream: struct,
+// these consts, this fn, then the `impl`). `OsStr::len` and `str::len` are byte lengths (UTF-8; a JS path string holds
+// no other encoding, so `to_string_lossy` is the string itself).
+// rustc: compiler/rustc_session/src/config.rs:1239 maybe_strip_file_name
+function maybe_strip_file_name(path_: PathBuf): PathBuf {
+  let path = path_;
+  const name = path_file_name(path);
+  if ((name === undefined ? 0 : utf8_len(name)) > MAX_FILENAME_LENGTH) {
+    const filename = Str.from(name!);
+    const hash_len = 64 / 4; // Hash64 is 64 bits encoded in hex
+    const hyphen_len = 1; // the '-' we insert between hash and suffix
+
+    // number of bytes of suffix we can keep so that "hash-<suffix>" fits
+    const allowed_suffix = Math.max(0, MAX_FILENAME_LENGTH - (hash_len + hyphen_len));
+
+    // number of bytes to remove from the start
+    const stripped_bytes = Math.max(0, filename.len() - allowed_suffix);
+
+    // ensure we don't cut in a middle of a char
+    const split_at = str_ceil_char_boundary(filename, stripped_bytes);
+
+    const hasher = StableHasher.new();
+    // `filename[..split_at].hash(&mut hasher)`: `impl Hash for str` is `state.write_str(self)`.
+    hasher.write_str(utf8_bytes(filename.slice(0, split_at).toString()));
+    const hash = hasher.finish(Hash64);
+
+    path = path_set_file_name(path, `${hash.toString(16)}-${filename.slice(split_at).toString()}`);
+  }
+  return path;
+}
+
+/**
+ * `PathBuf::set_file_name` (library/std/src/path.rs `_set_file_name`): `if self.file_name().is_some() { self.pop() }`, then
+ * `self.push(file_name)`. PORT (ssa-write): not in src/std/path.ts yet, as `path_set_extension` below; move both there.
+ */
+function path_set_file_name(self_: PathBuf, file_name: string): PathBuf {
+  let inner = self_;
+  if (path_file_name(inner) !== undefined) {
+    // `pop`: truncate to the parent's length.
+    const parent = path_parent(inner);
+    if (parent !== undefined) inner = inner.slice(0, parent.length);
+  }
+  return path_join(inner, file_name);
+}
+
 // #[derive(Clone, Hash, Debug, StableHash, Encodable, Decodable)]
 // PORT (driver-m2): `OutputFilenames` and the `impl` fns on the `-Zunpretty`/dep-info path. The codegen-unit
 // temp paths (`temp_path_for_cgu`, `temp_path_dwo_for_cgu`, `temp_path_ext_for_cgu`, `maybe_strip_file_name`,
-// `split_dwarf_path`) are not ported (codegen).
+// `split_dwarf_path`) are ported by lane ssa-write (M7). The struct's fields come before the free fn
+// `maybe_strip_file_name` upstream; the class holds both the fields and the `impl` (PORTING §5 Structs).
 export class OutputFilenames {
   constructor(
     public out_directory: PathBuf,
@@ -1496,6 +1550,55 @@ export class OutputFilenames {
     }
   }
 
+  /// Gets the path where a compilation artifact of the given type for the
+  /// given codegen unit should be placed on disk. If codegen_unit_name is
+  /// None, a path distinct from those of any codegen unit will be generated.
+  // rustc: compiler/rustc_session/src/config.rs:1315 temp_path_for_cgu
+  temp_path_for_cgu(flavor: OutputType, codegen_unit_name: string): PathBuf {
+    const extension = OutputType.extension(flavor);
+    return this.temp_path_ext_for_cgu(extension, codegen_unit_name);
+  }
+
+  /// Like `temp_path`, but specifically for dwarf objects.
+  // rustc: compiler/rustc_session/src/config.rs:1321 temp_path_dwo_for_cgu
+  temp_path_dwo_for_cgu(codegen_unit_name: string): PathBuf {
+    const p = this.temp_path_ext_for_cgu(DWARF_OBJECT_EXT, codegen_unit_name);
+    const dwo_out = this.explicit_dwo_out_directory;
+    if (dwo_out !== undefined) {
+      // `let mut o = dwo_out.clone(); o.push(p.file_name().unwrap());`
+      const o = path_join(dwo_out, unwrap(path_file_name(p)));
+      return o;
+    } else {
+      return p;
+    }
+  }
+
+  /// Like `temp_path`, but also supports things where there is no corresponding
+  /// OutputType, like noopt-bitcode or lto-bitcode.
+  // rustc: compiler/rustc_session/src/config.rs:1334 temp_path_ext_for_cgu
+  temp_path_ext_for_cgu(ext: string, codegen_unit_name: string): PathBuf {
+    let extension = codegen_unit_name;
+
+    // Append `.{invocation_temp}` to ensure temporary files are unique.
+    const rng = this.invocation_temp;
+    if (rng !== undefined) {
+      extension += ".";
+      extension += rng;
+    }
+
+    // FIXME: This is sketchy that we're not appending `.rcgu` when the ext is empty.
+    // Append `.rcgu.{ext}`.
+    if (ext.length !== 0) {
+      extension += ".";
+      extension += RUST_CGU_EXT;
+      extension += ".";
+      extension += ext;
+    }
+
+    const temps_directory = this.temps_directory ?? this.out_directory;
+    return maybe_strip_file_name(this.with_directory_and_extension(temps_directory, extension));
+  }
+
   // rustc: compiler/rustc_session/src/config.rs:1356 temp_path_for_diagnostic
   temp_path_for_diagnostic(ext: string): PathBuf {
     const temps_directory = this.temps_directory ?? this.out_directory;
@@ -1512,6 +1615,26 @@ export class OutputFilenames {
     // debug!("using filestem={} for {extension}", self.filestem);
     const path = path_join(directory, this.filestem);
     return path_set_extension(path, extension)[0];
+  }
+
+  /// Returns the path for the Split DWARF file - this can differ depending on which Split DWARF
+  /// mode is being used, which is the logic that this function is intended to encapsulate.
+  // rustc: compiler/rustc_session/src/config.rs:1374 split_dwarf_path
+  split_dwarf_path(split_debuginfo_kind: SplitDebuginfo, split_dwarf_kind: SplitDwarfKind, cgu_name: string): PathBuf | undefined {
+    const obj_out = this.temp_path_for_cgu("Object", cgu_name);
+    const dwo_out = this.temp_path_dwo_for_cgu(cgu_name);
+    if (split_debuginfo_kind === "Off" && (split_dwarf_kind === "Single" || split_dwarf_kind === "Split")) {
+      return undefined;
+    } else if ((split_debuginfo_kind === "Packed" || split_debuginfo_kind === "Unpacked") && split_dwarf_kind === "Single") {
+      // Single mode doesn't change how DWARF is emitted, but does add Split DWARF attributes
+      // (pointing at the path which is being determined here). Use the path to the current
+      // object file.
+      return obj_out;
+    } else {
+      // (SplitDebuginfo::Packed | SplitDebuginfo::Unpacked, SplitDwarfKind::Split)
+      // Split mode emits the DWARF into a different file, use that path.
+      return dwo_out;
+    }
   }
 }
 
