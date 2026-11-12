@@ -1,6 +1,6 @@
 # Handoff: ssa-write (M7, plan-m7 wave 42, wave 40o): rustc_codegen_ssa `back/write.rs`
 
-Branch `t3/895a8376` (from `ba273e7f`; no merges).
+Branch `t3/port-ssa-write` (from `ba273e7f`; no merges).
 
 ## Summary
 - Ported all of `compiler/rustc_codegen_ssa/src/back/write.rs` in upstream order, with markers. That covers `ModuleConfig`,
