@@ -19,15 +19,15 @@ import { clone_TypeTree, type FncTree, TypeTree } from "../../rustc_ast/expand/t
 import type { UnrollAttr } from "../../rustc_attr_ir/data_structures.gen.ts";
 import type { CodegenFnAttrs } from "../../rustc_middle/middle/codegen_fn_attrs.ts";
 import type { BinOp } from "../../rustc_middle/mir/syntax.ts";
-import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import type { AtomicOrdering } from "../../rustc_middle/ty/consts/int.ts";
 import type { Instance } from "../../rustc_middle/ty/instance.ts";
 import type { FnAbiOf, LayoutOf, TyAndLayout } from "../../rustc_middle/ty/layout.ts";
 import type { Ty } from "../../rustc_middle/ty/mod.ts";
+import { typetree_from_ty } from "../../rustc_middle/ty/typetree.ts";
 import type { Span } from "../../rustc_span/lib.ts";
 import type { FnAbi } from "../../rustc_target/callconv/mod.ts";
 import { type Debug, debug_option, PLAIN } from "../../std/fmt.ts";
-import { assert, assert_eq, assert_matches, unported } from "../../std/panic.ts";
+import { assert, assert_eq, assert_matches } from "../../std/panic.ts";
 import { bin_op_to_icmp_predicate } from "../base.ts";
 import { type AtomicRmwBinOp, debug_TypeKind, IntPredicate, type RealPredicate, type SynchronizationScope, TypeKind } from "../common.ts";
 import { MemFlags } from "../lib.ts";
@@ -42,12 +42,6 @@ import type { IntrinsicCallBuilderMethods } from "./intrinsic.ts";
 import type { CodegenMethods } from "./mod.ts";
 import type { StaticBuilderMethods } from "./statics.ts";
 import type { ArgAbiBuilderMethods } from "./type_.ts";
-
-/** Stub (ssa-contract): `rustc_middle::ty::typetree::typetree_from_ty` (rustc_middle ty/typetree.rs:43) is not ported,
- *  and no M7 lane owns that file yet (handoff); `typed_place_copy_with_flags` calls it on its `memcpy` path. */
-function typetree_from_ty(_tcx: TyCtxt, _ty: Ty): TypeTree {
-  return unported("rustc_middle::ty::typetree::typetree_from_ty (rustc_middle/src/ty/typetree.rs, no M7 lane yet)");
-}
 
 // #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 export type OverflowOp = "Add" | "Sub" | "Mul";
