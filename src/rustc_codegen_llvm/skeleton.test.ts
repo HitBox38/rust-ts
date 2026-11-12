@@ -98,8 +98,8 @@ describe("stubs name their fill lane", () => {
   test("one stub per owning file", () => {
     const cx = Object.create(CodegenCx.prototype) as CodegenCx;
     stops(() => cx.type_i8(), /^cg-types-attrs: compiler\/rustc_codegen_llvm\/src\/type_\.rs type_i8$/);
-    stops(() => cx.const_bool(true), /^cg-context: .*\/common\.rs const_bool$/);
-    stops(() => cx.sess(), /^cg-context: .*\/context\.rs sess$/);
+    // cg-context ported context.rs and common.rs: `const_bool` (common.rs) now reaches `type_i1` (type_.rs, cg-types-attrs).
+    stops(() => cx.const_bool(true), /^cg-types-attrs: .*\/type_\.rs type_i1$/);
     stops(() => cx.codegen_static(undefined as never), /^cg-abi-consts: .*\/consts\.rs codegen_static$/);
     stops(() => cx.mangled_name(undefined as never), /^cg-asm: .*\/asm\.rs mangled_name$/);
     stops(() => cx.predefine_fn(undefined as never, undefined as never, undefined as never, ""), /^cg-types-attrs: .*\/mono_item\.rs predefine_fn$/);
@@ -117,17 +117,25 @@ describe("stub counts per lane", () => {
   const EXPECTED: Record<string, number> = {
     "cg-abi-consts": 20,
     "cg-asm": 4,
-    "cg-context": 73,
     "cg-di-a": 21,
     "cg-intrinsic-a": 10,
     "cg-intrinsic-b": 2,
     "cg-lto-diag": 8,
     "cg-types-attrs": 80,
     "cg-write": 21,
-    "excluded (plan-m7 D18)": 10,
-    "llir": 2,
+    // cg-context: `CguCoverageContext::new` in `CodegenCx::new` (review cg-contract-recheck N1).
+    "excluded (plan-m7 D18)": 11,
+    // cg-context: `LLVMGetFirstFunction` / `LLVMGetNextFunction` (llvm/enzyme_ffi.rs) in `get_functions`.
+    "llir": 4,
     "rustc_codegen_llvm": 3,
-    "ssa-base": 1,
+    // cg-context: `StableHash for Allocation` in `alloc_to_backend`.
+    "rustc_middle": 1,
+    // cg-context: `SanitizerIgnoreList::new`, `typename_for_ignore_list` (rustc_sanitizers is out of scope).
+    "rustc_sanitizers": 2,
+    // cg-context: `Session::{needs_plt, must_emit_unwind_tables, branch_protection}` (not in rustc_session yet).
+    "rustc_session": 3,
+    // cg-context: `wants_msvc_seh` (base.rs) in `eh_personality`.
+    "ssa-base": 2,
     "ssa-write": 5,
   };
   test("matches the table in docs/handoff/cg-contract.md", () => {
@@ -209,9 +217,10 @@ describe("auto-deref", () => {
     expect(bx.deref()).toBe(cx);
     // CodegenCx trait methods, through the forwarders.
     stops(() => bx.type_i8(), /^cg-types-attrs: .* type_i8$/);
-    stops(() => bx.const_usize(1n), /^cg-context: .* const_usize$/);
-    // Builder's own `data_layout` (builder.rs:214, ported by cg-builder), which forwards to the cx's (context.rs:1254).
-    stops(() => bx.data_layout(), /^cg-context: .*\/context\.rs data_layout$/);
+    stops(() => bx.const_bool(true), /^cg-types-attrs: .* type_i1$/); // common.rs const_bool (ported) through the forwarder
+    // Builder's own `data_layout` (builder.rs:214, ported by cg-builder) forwards to the cx's (context.rs:1254, ported by
+    // cg-context), which reads the marker `FullCx`'s tcx.
+    expect(() => bx.data_layout()).toThrow();
     // The Debug members of the associated types reach value.rs's impl.
     expect(bx.debug_Value).toBe(cx.debug_Value);
   });
@@ -230,13 +239,16 @@ describe("auto-deref", () => {
       expect.stringMatching(/^cg-types-attrs: .*\/type_of\.rs llvm_type$/) as unknown as string,
       expect.stringMatching(/^cg-abi-consts: .*\/abi\.rs llvm_type$/) as unknown as string,
       "cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs type_i8",
-      "cg-context: compiler/rustc_codegen_llvm/src/common.rs const_bytes",
-      "cg-context: compiler/rustc_codegen_llvm/src/context.rs get_intrinsic",
+      // cg-context ported `const_bytes` and `get_intrinsic`: they no longer stop in a stub; the marker `FullCx` has no real
+      // LLVM context or intrinsic map, so they fail on its marker values (`C.getIntType`, `intrinsics.get`) instead.
+      expect.any(TypeError) as unknown as string,
+      expect.any(TypeError) as unknown as string,
       "cg-types-attrs: compiler/rustc_codegen_llvm/src/attributes.rs apply_to_llfn",
-      "cg-context: compiler/rustc_codegen_llvm/src/common.rs val_ty",
+      expect.any(TypeError) as unknown as string, // common::val_ty, ported (cg-context): the marker value has no `type`
       "cg-types-attrs: compiler/rustc_codegen_llvm/src/type_.rs type_i8",
-      // builder.rs:1881 (ported by cg-builder) reaches `cx.get_intrinsic` (context.rs:1087).
-      "cg-context: compiler/rustc_codegen_llvm/src/context.rs get_intrinsic",
+      // builder.rs:1881 (ported by cg-builder) reaches `cx.get_intrinsic` (context.rs:1087, ported by cg-context), which
+      // fails on the marker intrinsic map.
+      expect.any(TypeError) as unknown as string,
       // builder.rs:130 (ported by cg-builder) reaches the IR model, which rejects the marker basic block.
       expect.any(TypeError) as unknown as string,
       "cg-write: compiler/rustc_codegen_llvm/src/llvm_util.rs get_version",

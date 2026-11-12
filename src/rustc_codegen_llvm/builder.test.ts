@@ -39,6 +39,7 @@ import { utf8 } from "../std/str.ts";
 import "./lib.ts";
 import { codegen as allocator_codegen } from "./allocator.ts";
 import { Builder, GenericBuilder, SBuilder } from "./builder.ts";
+import { Funclet } from "./common.ts";
 import { CodegenCx, FullCx, SCx, SimpleCx } from "./context.ts";
 import * as llvm from "./llvm/mod.ts";
 import type { BasicBlock, Metadata, Type, Value } from "./llvm/mod.ts";
@@ -663,8 +664,11 @@ describe("unit behaviour of builder.rs's own logic", () => {
     expect(stop(() => bx.vscale(fx.i64))).toMatch(/LLVMRustBuildVScale/);
     // `llvm.loop` metadata needs `LLVMReplaceMDNodeOperandWith` (model stop) after the self-reference.
     expect(stop(() => bx.br_with_attrs(bbs[0]!, [{ $: "Full" }]))).toMatch(/LLVMReplaceMDNodeOperandWith/);
-    // `cleanup_pad` reaches cg-context's `Funclet::new` stub (common.rs:115) once LLVM builds the pad.
-    expect(stop(() => bx.cleanup_pad(undefined, []))).toBe("cg-context: compiler/rustc_codegen_llvm/src/common.rs new");
+    // `cleanup_pad` wraps the pad LLVM builds in `Funclet::new` (common.rs:115, ported by cg-context; root at integ-w53).
+    const funclet = bx.cleanup_pad(undefined, []);
+    expect(funclet).toBeInstanceOf(Funclet);
+    expect(body(printModule(fx.M), "f")).toContain("cleanuppad within none []");
+    expect(funclet.bundle()).toBe(funclet.operand.as_ref());
     // load_operand of a ZST returns `OperandRef::zero_sized(place.layout)` (builder.rs; ssa-operand-place's port, root at integ-w53).
     const zst = { is_unsized: () => false, is_zst: () => true };
     const op = bx.load_operand({ layout: zst, val: { llextra: undefined } } as never);
