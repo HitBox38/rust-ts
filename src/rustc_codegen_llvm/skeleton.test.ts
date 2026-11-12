@@ -138,8 +138,6 @@ describe("stub counts per lane", () => {
     // cg-context's 3 in context.ts (`Session::{needs_plt, must_emit_unwind_tables, branch_protection}`) and cg-types-attrs's 6
     // `SESSION_STOPS` (attributes.ts), which name three of the same fns: not in rustc_session yet (next M7 wave).
     "rustc_session": 9,
-    // 1, plus cg-context's `wants_msvc_seh` (base.rs) in `eh_personality` and cg-types-attrs's 2 in base.ts.
-    "ssa-base": 4,
     // cg-types-attrs: `MonoItemExt::predefine` / `define` in base.ts.
     "ssa-mir-core": 2,
     "ssa-write": 5,

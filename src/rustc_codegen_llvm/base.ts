@@ -20,12 +20,15 @@
 //   `generic_activity(name)` with the closure as a comment.
 // - `tcx.dep_graph.with_task(dep_node, tcx, || .., Some(dep_graph::hash_result))`: the disabled graph (D3) never calls the hash
 //   function; `HashStable for ModuleCodegen<ModuleLlvm>` is not ported, so it stops if it ever is.
-// - Two callees of other lanes have no stub yet (the contract lists none): `MonoItemExt::{predefine, define}`
-//   (rustc_codegen_ssa/src/mono_item.rs, ssa-mir-core) and `maybe_create_entry_wrapper` / `ModuleCodegen::new_regular`
-//   (rustc_codegen_ssa/src/base.rs and lib.rs, ssa-base). They stop at the call site, naming the owner (handoff).
+// - `MonoItemExt::{predefine, define}` (rustc_codegen_ssa/src/mono_item.rs) has no stub yet (the contract lists none): it
+//   stops at the call site, naming the owner (handoff). `maybe_create_entry_wrapper` / `ModuleCodegen::new_regular`
+//   (rustc_codegen_ssa base.rs and lib.rs, ssa-base) are imported (root at integ-w54).
 // - `c"llvm.used"` is the string `"llvm.used"` (`create_used_variable_impl` takes a `&CStr` as a string, context.ts).
 import type { Linkage } from "../rustc_attr_ir/data_structures.gen.ts";
-import type { ModuleCodegen } from "../rustc_codegen_ssa/lib.ts";
+import { ModuleCodegen } from "../rustc_codegen_ssa/lib.ts";
+import { maybe_create_entry_wrapper } from "../rustc_codegen_ssa/base.ts";
+import { type Builder, Builder_static } from "./builder.ts";
+import type { LlvmTypes } from "./common.ts";
 import { SanitizerFnAttrs, type CodegenFnAttrs } from "../rustc_middle/middle/codegen_fn_attrs.ts";
 import type { MonoItem, MonoItemData, Visibility } from "../rustc_middle/mono.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
@@ -131,7 +134,7 @@ function module_codegen(tcx: TyCtxt, cgu_name: Symbol, needs_bitcode: boolean): 
 
     // If this codegen unit contains the main function, also create the
     // wrapper here
-    const entry = maybe_create_entry_wrapper(cx, cx.codegen_unit);
+    const entry = maybe_create_entry_wrapper<LlvmTypes, CodegenCx, Builder>(Builder_static, cx, cx.codegen_unit);
     if (entry !== undefined) {
       const attrs = attributes.sanitize_attrs(cx.scx, tcx, SanitizerFnAttrs.default(), undefined, undefined);
       // When pointer authentication is enabled, ensure that the ptrauth-* attributes are
@@ -209,7 +212,7 @@ function module_codegen(tcx: TyCtxt, cgu_name: Symbol, needs_bitcode: boolean): 
     }
   }
 
-  return ModuleCodegen_new_regular(Symbol.as_str(cgu_name), llvm_module);
+  return ModuleCodegen.new_regular(Symbol.as_str(cgu_name), llvm_module);
 }
 
 /** `mono_item.predefine::<Builder<'_, '_, '_>>(&mut cx, cgu_name, linkage, visibility)`: `MonoItemExt` (rustc_codegen_ssa
@@ -222,17 +225,6 @@ function MonoItemExt_predefine(_self: MonoItem, _cx: CodegenCx, _cgu_name: strin
  *  lane ssa-mir-core, has no stub yet (header). */
 function MonoItemExt_define(_self: MonoItem, _cx: CodegenCx, _cgu_name: string, _item_data: MonoItemData): void {
   return unported("ssa-mir-core: compiler/rustc_codegen_ssa/src/mono_item.rs define");
-}
-
-/** `rustc_codegen_ssa::base::maybe_create_entry_wrapper::<Builder<'_, '_, '_>>(&cx, cx.codegen_unit)`, lane ssa-base, has no
- *  stub yet (header). */
-function maybe_create_entry_wrapper(_cx: CodegenCx, _cgu: unknown): Value | undefined {
-  return unported("ssa-base: compiler/rustc_codegen_ssa/src/base.rs maybe_create_entry_wrapper");
-}
-
-/** `ModuleCodegen::new_regular(name, module)` (rustc_codegen_ssa lib.rs:73), lane ssa-base: "left" by ssa-contract (header). */
-function ModuleCodegen_new_regular(_name: string, _module: ModuleLlvm): ModuleCodegen<ModuleLlvm> {
-  return unported("ssa-base: compiler/rustc_codegen_ssa/src/lib.rs ModuleCodegen::new_regular");
 }
 
 // rustc: compiler/rustc_codegen_llvm/src/base.rs:224 set_link_section

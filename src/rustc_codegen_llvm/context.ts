@@ -44,7 +44,8 @@
 //   `crate::diagnostics` are leaves and are imported.
 // - **Callees in other crates that are not ported yet** are typed stubs at the end of this file, named after the upstream
 //   fn, stopping with `<owner>: <path> <fn>` (the cross-lane stub format): `Session::needs_plt`,
-//   `Session::must_emit_unwind_tables`, `Session::branch_protection` (rustc_session), `wants_msvc_seh` (ssa-base). Root
+//   `Session::must_emit_unwind_tables`, `Session::branch_protection` (rustc_session; `wants_msvc_seh` is imported from
+//   rustc_codegen_ssa/base.ts, ssa-base, root at integ-w54). Root
 //   replaces each with the real one once its crate has it (docs/handoff/cg-context.md).
 // - Tuple comparisons of `llvm_util::get_version()` (`llvm_version < (23, 0, 0)`) are `version_lt` / `version_ge`.
 import type { Size, TargetDataLayout } from "../rustc_abi/lib.ts";
@@ -98,6 +99,7 @@ import type { Context, Metadata, MetadataKindId, Module, ThreadLocalMode, Type, 
 import type { ModuleLlvm } from "./back/llvm_backend.ts";
 import type { OffloadGlobals, OffloadKernelGlobals } from "./builder/gpu_offload.ts";
 import { debug_Value } from "./value.ts";
+import { wants_msvc_seh } from "../rustc_codegen_ssa/base.ts";
 
 /** PORT (cg-contract): `rustc_sanitizers::ignorelist::SanitizerIgnoreList`. rustc_sanitizers is out of scope
  *  (harness/scope.json), so a `FullCx` holds `None` until a lane ports it; never constructed. */
@@ -1497,7 +1499,3 @@ export function Session_branch_protection(_sess: Session): BranchProtection | un
   return unported("rustc_session: compiler/rustc_session/src/session.rs Session::branch_protection");
 }
 
-/** PORT (cg-context): `rustc_codegen_ssa::base::wants_msvc_seh` (base.rs:385) is not in rustc_codegen_ssa/base.ts (ssa-base's). */
-export function wants_msvc_seh(_target: Target): boolean {
-  return unported("ssa-base: compiler/rustc_codegen_ssa/src/base.rs wants_msvc_seh");
-}

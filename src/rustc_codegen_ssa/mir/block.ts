@@ -98,6 +98,7 @@ import { CleanupKind } from "./analyze.ts";
 import { CachedLlbb, type FunctionCx, type IntrinsicResult, xlane } from "./mod.ts";
 import { debug_OperandRef, debug_OperandValue, OperandRef, OperandValue } from "./operand.ts";
 import { PlaceRef, PlaceValue } from "./place.ts";
+import * as base from "../base.ts";
 
 // Indicates if we are in the middle of merging a BB's successor into it. This
 // can happen when BB jumps directly to its successor and the successor has no
@@ -2741,13 +2742,13 @@ export const block_xlane = {
     return unported("ssa-rvalue-intrinsic: compiler/rustc_codegen_ssa/src/mir/intrinsic.rs codegen_intrinsic_call");
   },
 
-  // ssa-base (base.rs)
+  // ssa-base (base.rs): ported; these entries forward to it (root at integ-w54), so tests can still replace them.
   /** `base::wants_msvc_seh(&TargetSpec)` (base.rs:385). */
-  wants_msvc_seh(_target: TargetSpec): boolean {
-    return unported("ssa-base: compiler/rustc_codegen_ssa/src/base.rs wants_msvc_seh");
+  wants_msvc_seh(target: TargetSpec): boolean {
+    return base.wants_msvc_seh(target);
   },
   /** `base::is_call_from_compiler_builtins_to_upstream_monomorphization(tcx, instance)` (base.rs:932). */
-  is_call_from_compiler_builtins_to_upstream_monomorphization(_tcx: TyCtxt, _instance: Instance): boolean {
-    return unported("ssa-base: compiler/rustc_codegen_ssa/src/base.rs is_call_from_compiler_builtins_to_upstream_monomorphization");
+  is_call_from_compiler_builtins_to_upstream_monomorphization(tcx: TyCtxt, instance: Instance): boolean {
+    return base.is_call_from_compiler_builtins_to_upstream_monomorphization(tcx, instance);
   },
 };

@@ -8,9 +8,9 @@
 //   literals are `new OperandRef(val, layout, move_annotation)`.
 // - `{:?}` of a backend value uses `bx.debug_Value` (place.ts header).
 // - `debug!`/`#[instrument(level = "trace")]` are compiled out of rustc (STATIC_MAX_LEVEL = INFO) and stay comments.
-// - Calls into lanes not yet ported are typed module-private stubs (`unported("<lane>: <path> <fn>")`): base.rs
-//   `coerce_unsized_into`, `unsize_ptr`, `build_shift_expr_rhs` (ssa-base); constant.rs `FunctionCx::eval_mir_constant`
-//   (ssa-mir-rest). retag.rs `codegen_retag_operand` goes through mod.ts's `xlane` entry.
+// - Calls into lanes not yet ported are typed module-private stubs (`unported("<lane>: <path> <fn>")`): constant.rs
+//   `FunctionCx::eval_mir_constant` (ssa-mir-rest). base.rs's `coerce_unsized_into`, `unsize_ptr`, `build_shift_expr_rhs`
+//   are imported (ssa-base; root at integ-w54). retag.rs `codegen_retag_operand` goes through mod.ts's `xlane` entry.
 import {
   AddressSpace,
   type Align,
@@ -66,29 +66,10 @@ import type { FunctionCx } from "./mod.ts";
 import { xlane } from "./mod.ts";
 import { debug_OperandRef, debug_OperandValue, OperandRef, OperandRefBuilder, OperandValue } from "./operand.ts";
 import { codegen_tag_value, PlaceRef, PlaceValue } from "./place.ts";
+import { build_shift_expr_rhs, coerce_unsized_into, unsize_ptr } from "../base.ts";
 
 // ---- Cross-lane stubs (header) ---------------------------------------------------------------------------------------
 
-/** Stub: `base::coerce_unsized_into(bx, src, dst)` (base.rs, lane ssa-base). */
-function base_coerce_unsized_into<B extends BackendTypes>(_bx: BuilderMethods<B>, _src: PlaceRef<B["Value"]>, _dst: PlaceRef<B["Value"]>): void {
-  return unported("ssa-base: compiler/rustc_codegen_ssa/src/base.rs coerce_unsized_into");
-}
-
-/** Stub: `base::unsize_ptr(bx, src, src_ty, dst_ty, old_info)` (base.rs, lane ssa-base). */
-function base_unsize_ptr<B extends BackendTypes>(
-  _bx: BuilderMethods<B>,
-  _src: B["Value"],
-  _src_ty: Ty,
-  _dst_ty: Ty,
-  _old_info: B["Value"] | undefined,
-): [B["Value"], B["Value"]] {
-  return unported("ssa-base: compiler/rustc_codegen_ssa/src/base.rs unsize_ptr");
-}
-
-/** Stub: `base::build_shift_expr_rhs(bx, lhs, rhs, is_unchecked)` (base.rs, lane ssa-base). */
-function base_build_shift_expr_rhs<B extends BackendTypes>(_bx: BuilderMethods<B>, _lhs: B["Value"], _rhs: B["Value"], _is_unchecked: boolean): B["Value"] {
-  return unported("ssa-base: compiler/rustc_codegen_ssa/src/base.rs build_shift_expr_rhs");
-}
 
 /** Stub: `FunctionCx::eval_mir_constant(&self, constant)` (mir/constant.rs, lane ssa-mir-rest). */
 function FunctionCx_eval_mir_constant<B extends BackendTypes>(_fx: FunctionCx<B>, _constant: ConstOperand): ConstValue {
@@ -298,7 +279,7 @@ export function install_FunctionCx_rvalue(FunctionCx_: { prototype: FunctionCx<B
           const scratch = PlaceRef.alloca(bx, operand.layout);
           scratch.storage_live(bx);
           operand.store_with_annotation(bx, scratch);
-          base_coerce_unsized_into(bx, scratch, dest);
+          coerce_unsized_into(bx, scratch, dest);
           scratch.storage_dead(bx);
           break;
         }
@@ -307,7 +288,7 @@ export function install_FunctionCx_rvalue(FunctionCx_: { prototype: FunctionCx<B
           if (val_.llextra !== undefined) {
             bug("unsized coercion on an unsized rvalue");
           }
-          base_coerce_unsized_into(bx, val_.with_type(operand.layout, bx.debug_Value), dest);
+          coerce_unsized_into(bx, val_.with_type(operand.layout, bx.debug_Value), dest);
           break;
         }
         case "ZeroSized":
@@ -659,7 +640,7 @@ export function install_FunctionCx_rvalue(FunctionCx_: { prototype: FunctionCx<B
         } else if (kind.$ === "PointerCoercion" && kind._0.$ === "Unsize") {
           assert_matches(cast.backend_repr, cast.backend_repr.$ === "ScalarPair", "BackendRepr::ScalarPair { .. }", (v) => debug_BackendRepr(v, PLAIN));
           const [lldata0, llextra0] = OperandValue.pointer_parts(operand.val, bx.debug_Value);
-          const [lldata, llextra] = base_unsize_ptr(bx, lldata0, operand.layout.ty, cast.ty, llextra0);
+          const [lldata, llextra] = unsize_ptr(bx, lldata0, operand.layout.ty, cast.ty, llextra0);
           val = { $: "Pair", _0: lldata, _1: llextra };
         } else if (kind.$ === "PointerCoercion" && (kind._0.$ === "MutToConstPointer" || kind._0.$ === "ArrayToPointer")) {
           return bug(`${format_debug(kind, debug_CastKind, PLAIN)} is for borrowck, and should never appear in codegen`);
@@ -1039,12 +1020,12 @@ export function install_FunctionCx_rvalue(FunctionCx_: { prototype: FunctionCx<B
       }
       case "Shl":
       case "ShlUnchecked": {
-        const rhs_ = base_build_shift_expr_rhs(bx, lhs, rhs, op === "ShlUnchecked");
+        const rhs_ = build_shift_expr_rhs(bx, lhs, rhs, op === "ShlUnchecked");
         return bx.shl(lhs, rhs_);
       }
       case "Shr":
       case "ShrUnchecked": {
-        const rhs_ = base_build_shift_expr_rhs(bx, lhs, rhs, op === "ShrUnchecked");
+        const rhs_ = build_shift_expr_rhs(bx, lhs, rhs, op === "ShrUnchecked");
         if (is_signed) {
           return bx.ashr(lhs, rhs_);
         } else {

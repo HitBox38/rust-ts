@@ -52,6 +52,7 @@ import type { ModuleBuffer, ThinData } from "./lto.ts";
 import type { OwnedTargetMachine } from "./owned_target_machine.ts";
 import * as write from "./write.ts";
 import { create_informational_target_machine, create_target_machine } from "./write.ts";
+import { codegen_crate } from "../../rustc_codegen_ssa/base.ts";
 
 /** The associated types of `impl WriteBackendMethods for LlvmCodegenBackend` (header). */
 export interface LlvmWriteTypes extends WriteBackendTypes {
@@ -59,11 +60,6 @@ export interface LlvmWriteTypes extends WriteBackendTypes {
   ModuleBuffer: ModuleBuffer;
   TargetMachine: OwnedTargetMachine;
   ThinData: ThinData;
-}
-
-/** Stub (cg-contract): `rustc_codegen_ssa::base::codegen_crate` (base.rs), lane ssa-base. */
-function ssa_codegen_crate(_backend: LlvmCodegenBackend, _tcx: TyCtxt): unknown {
-  return unported("ssa-base: compiler/rustc_codegen_ssa/src/base.rs codegen_crate");
 }
 
 /** Stub (cg-contract): `OngoingCodegen<LlvmCodegenBackend>::join` (rustc_codegen_ssa back/write.rs), lane ssa-write. The
@@ -382,7 +378,7 @@ export class LlvmCodegenBackend implements CodegenBackend, ExtraBackendMethods<M
       unported("rustc_codegen_llvm::llvm::RustOffloadWrapper::get_or_init (-Zoffload; plan-m7 D18)");
     }
 
-    return ssa_codegen_crate(new LlvmCodegenBackend(), tcx);
+    return codegen_crate(new LlvmCodegenBackend(), tcx);
   }
 
   // rustc: compiler/rustc_codegen_llvm/src/back/llvm_backend.rs:360 join_codegen

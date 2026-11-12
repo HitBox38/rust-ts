@@ -15,8 +15,8 @@
 //
 // Test doubles: what these compiles reach in other lanes' typed stubs. Each is restored after its test.
 // - Copies of upstream bodies: `llvm_util::{get_version, target_cpu, tune_cpu}` (cg-write), `back::write::to_llvm_code_model`
-//   (cg-write), `Session::{needs_plt, must_emit_unwind_tables, branch_protection}` (rustc_session), `base::wants_msvc_seh`
-//   (ssa-base), as context.test.ts's.
+//   (cg-write), `Session::{needs_plt, must_emit_unwind_tables, branch_protection}` (rustc_session), as context.test.ts's.
+//   (`base::wants_msvc_seh` is ssa-base's real port since integ-w54.)
 // - Not copies: `back::write::{create_informational_target_machine, create_target_machine}` return an opaque target machine
 //   carrying the oracle's data layout, which the model's stub `LLVMRustSetDataLayoutFromTargetMachine` sets (its effect);
 //   `LLVMDisposeTargetMachine` is a no-op. `FnAbi::{llvm_type, llvm_cconv, apply_attrs_llfn}` (cg-abi-consts), reached by
@@ -200,8 +200,6 @@ function install_doubles(oracle_data_layout: string): () => void {
       else set_normalized_target(m, triple);
     }),
   );
-  // base.rs:385 wants_msvc_seh
-  spies.push(spyOn(context, "wants_msvc_seh").mockImplementation((target: Target) => target.is_like_msvc));
   // abi.rs (cg-abi-consts), for `__rust_try` only (header).
   spies.push(
     spyOn(FnAbi.prototype, "llvm_type").mockImplementation(function (this: FnAbi<Ty>, cx: CodegenCx): Type {

@@ -14,7 +14,7 @@
 //   rust_ts/tracing.ts) and stay comments; locals.rs's `warn!` is live.
 // - `IndexVec<BasicBlock, T>` / `IndexVec<Local, T>` are arrays indexed by the handle (PORTING §5).
 //
-// PORT (ssa-mir-core): calls into fill lanes that have not landed (ssa-debuginfo, ssa-block, ssa-base, and retag.rs;
+// PORT (ssa-mir-core): calls into fill lanes that have not landed (ssa-debuginfo and retag.rs; ssa-block's and ssa-base's forward at integ-w54;
 // ssa-operand-place's were repointed to its real methods at integ-w53) go through the `xlane` table at the end of this file. Each entry is a typed stub that stops with
 // `unported("<lane>: <upstream path> <fn>")`. They are not prototype methods or class statics, so they cannot collide
 // with the owners' real ports at merge: root repoints each entry (or its call sites) when the owner lands. Tests may
@@ -73,6 +73,7 @@ import { install_FunctionCx_place, PlaceRef } from "./place.ts";
 import { install_FunctionCx_rvalue } from "./rvalue.ts";
 import { install_FunctionCx_intrinsic } from "./intrinsic.ts";
 import { install_FunctionCx_block } from "./block.ts";
+import { wants_new_eh_instructions as base_wants_new_eh_instructions } from "../base.ts";
 
 // mod analyze; mod block; mod constant; mod coverageinfo; pub mod debuginfo; mod intrinsic; mod locals;
 // pub mod naked_asm; pub mod operand; pub mod place; mod retag; mod rvalue; mod statement;
@@ -884,10 +885,10 @@ function debug_Ty_plain(ty: Ty): string {
 // ---- Cross-lane stubs (header) ---------------------------------------------------------------------------------------
 // Each entry stands for one upstream fn of another fill lane and stops with `unported`. Methods take the receiver first.
 export const xlane = {
-  // ssa-base (base.rs)
+  // ssa-base (base.rs): ported; the entry forwards to it (root at integ-w54), so tests can still replace it.
   /** `base::wants_new_eh_instructions(&TargetSpec)` (base.rs:392). */
-  wants_new_eh_instructions(_target: TargetSpec): boolean {
-    return unported("ssa-base: compiler/rustc_codegen_ssa/src/base.rs wants_new_eh_instructions");
+  wants_new_eh_instructions(target: TargetSpec): boolean {
+    return base_wants_new_eh_instructions(target);
   },
 
   // retag.rs (plan-m7 §2d groups it with ssa-operand-place; docs/next.md assigns it to no lane yet)

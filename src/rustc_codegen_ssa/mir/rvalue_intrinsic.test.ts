@@ -42,6 +42,7 @@ import { Binder } from "../../rustc_type_ir/binder.ts";
 import { fold_GenericArgs } from "../../rustc_middle/ty/generic_args.ts";
 import type { BackendTypes } from "../traits/backend.ts";
 import { type BuilderMethods, BuilderMethods_provided } from "../traits/builder.ts";
+import { DerivedTypeCodegenMethods_provided } from "../traits/type_.ts";
 import { install_FunctionCx_intrinsic } from "./intrinsic.ts";
 import { Locals } from "./locals.ts";
 import { FunctionCx, type LocalRef } from "./mod.ts";
@@ -185,6 +186,9 @@ function mock_bx(tcx: TyCtxt): { bx: BuilderMethods<MockTypes>; log: string[] } 
     val_ty: (v: V) => (v.includes(":") ? v.slice(v.lastIndexOf(":") + 1) : v.startsWith("i8 ") ? "i8" : "?"),
     type_kind: (t: string) => (t === "float" ? "Float" : t === "double" ? "Double" : t === "ptr" ? "Pointer" : t.startsWith("i") ? "Integer" : "Vector"),
     float_width: (t: string) => (t === "float" ? 32 : t === "double" ? 64 : 0),
+    int_width: (t: string) => Number(t.slice(1)),
+    // The provided method (traits/type_.rs:84), reached by base.rs `unsize_ptr`.
+    type_is_sized: (ty: Ty) => DerivedTypeCodegenMethods_provided.type_is_sized(proxy as never, ty),
     const_poison: (t: string) => `poison:${t}`,
     const_undef: (t: string) => `undef:${t}`,
     from_immediate: (v: V) => v,
@@ -358,10 +362,12 @@ test("rvalue.rs / intrinsic.rs over a mock backend", () => {
       expect(new_fx(bx).codegen_scalar_binop(bx, "Offset", "%p:ptr", "%n:i64", ptr_u32, types.usize)).toBe("%0");
       expect(new_fx(bx).codegen_scalar_binop(bx, "Offset", "%p:ptr", "%n:i64", ptr_u32, types.isize)).toBe("%1");
       expect(log).toEqual(["%0 = inbounds_nuw_gep(i32, %p:ptr, [%n:i64])", "%1 = inbounds_gep(i32, %p:ptr, [%n:i64])"]);
-      // A shift goes through `base::build_shift_expr_rhs` (ssa-base, not yet ported): this lane's typed stub.
-      expect(stops(() => new_fx(bx).codegen_scalar_binop(bx, "Shl", "%a", "%b", types.i32, types.i32))).toContain(
-        "ssa-base: compiler/rustc_codegen_ssa/src/base.rs build_shift_expr_rhs",
-      );
+      // A shift goes through `base::build_shift_expr_rhs` (ssa-base, ported; root at integ-w54).
+      // base.rs:334: `shift_mask_val` (an Integer: `const_uint(i32, 32 - 1)`), `and` (not unchecked), equal widths: no
+      // cast; then rvalue.rs's `shl`.
+      log.length = 0;
+      expect(new_fx(bx).codegen_scalar_binop(bx, "Shl", "%a:i32", "%b:i32", types.i32, types.i32)).toBe("%4");
+      expect(log).toEqual(["%2 = const_uint(i32, 31)", "%3 = and(%b:i32, %2)", "%4 = shl(%a:i32, %3)"]);
     }
 
     // ---- wide-pointer binop (rvalue.rs:1014): `Lt` = `icmp ULT addr | (icmp EQ addr & icmp ULT extra)`.
@@ -424,17 +430,23 @@ test("rvalue.rs / intrinsic.rs over a mock backend", () => {
       // ORACLE_expose `ptrtoint ptr %a to i64`; ORACLE_from_addr `zext i16 %a to i64` + `inttoptr`.
       expect(cast("PointerExposeProvenance", 6, types.usize).log).toEqual(["%0 = ptrtoint(%p:ptr, i64)"]);
       expect(cast("PointerWithExposedProvenance", 3, ptr_u8).log).toEqual(["%0 = intcast(%c:i8, i64, false)", "%1 = inttoptr(%0, ptr)"]);
-      // Unsizing `&[u8; 4]` → `&[u8]` in operand form: `base::unsize_ptr` (ssa-base) is this lane's typed stub.
-      const unsize = (): void => {
-        const { bx } = mock_bx(tcx);
-        new_fx(bx).codegen_rvalue_operand(bx, {
+      // Unsizing `&[u8; 4]` → `&[u8]` in operand form: base.rs:225 `unsize_ptr` (ssa-base, ported; root at integ-w54), the
+      // `Ref`/`Ref` arm: `(src, unsized_info(..))`, and base.rs `unsized_info`'s `Array`/`Slice` arm is `const_usize(4)`.
+      // No backend instruction.
+      const unsize = () => {
+        const { bx, log } = mock_bx(tcx);
+        const op = new_fx(bx).codegen_rvalue_operand(bx, {
           $: "Cast",
           _0: { $: "PointerCoercion", _0: { $: "Unsize" }, _1: "Implicit" } as never,
           _1: copy_(13),
           _2: Ty.new_ref(tcx, tcx.lifetimes.re_erased, Ty.new_slice(tcx, types.u8), "Not"),
         });
+        return { op, log };
       };
-      expect(stops(unsize)).toContain("ssa-base: compiler/rustc_codegen_ssa/src/base.rs unsize_ptr");
+      {
+        const u = unsize();
+        expect([val(u.op.val), display_Ty(u.op.layout.ty), u.log]).toEqual(["Pair(%r:ptr, usize 4)", "&[u8]", []]);
+      }
       // `MutToConstPointer` is borrowck-only (rvalue.rs:573).
       const m2c = (): void => {
         const { bx } = mock_bx(tcx);

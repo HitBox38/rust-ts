@@ -23,7 +23,7 @@
 // - `debug!` (tracing) is compiled out of rustc (STATIC_MAX_LEVEL = INFO, rust_ts/tracing.ts) and stays a comment.
 // - `Cell::get` / `Cell::set` of `rust_try_fn` read / write the field. `self.intrinsic_instances.borrow()` reads the map.
 // - Calls into other lanes go through their typed stubs: `crate::asm::inline_asm_call` (cg-asm), `emit_va_arg` (cg-intrinsic-b),
-//   `wants_msvc_seh` (ssa-base; cg-context's typed stub in context.ts), `FnAbi::llvm_type` (cg-abi-consts), `llvm_util::get_version`
+//   `wants_msvc_seh` (ssa-base, imported from rustc_codegen_ssa/base.ts at integ-w54), `FnAbi::llvm_type` (cg-abi-consts), `llvm_util::get_version`
 //   (cg-write), `PointerAuthConfig::fn_attrs` (rustc_session), the autodiff and offload builders (excluded, plan-m7 D18).
 import { AddressSpace, Align, Align_eq, type BackendRepr, type Float, type Primitive, Scalar, Size_cmp, debug_Align } from "../rustc_abi/lib.ts";
 import { TyAndLayout_eq } from "../rustc_abi/layout/ty.ts";
@@ -72,7 +72,8 @@ import { adjust_activity_to_abi, generate_enzyme_call } from "./builder/autodiff
 import * as gpu_offload from "./builder/gpu_offload.ts";
 import { OffloadKernelDims, declare_omp_get_num_devices, type OffloadMetadata } from "./builder/gpu_offload.ts";
 import { Builder } from "./builder.ts";
-import { type CodegenCx, wants_msvc_seh } from "./context.ts";
+import type { CodegenCx } from "./context.ts";
+import { wants_msvc_seh } from "../rustc_codegen_ssa/base.ts";
 import { declare_raw_fn } from "./declare.ts";
 import {
   AutoDiffWithoutEnable_diagnostic,
