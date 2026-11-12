@@ -1,6 +1,6 @@
 # Handoff: llir-apfloat (M7 wave 41): floating point in the IR model
 
-Branch `t3/27f5d05c`, base `620acf48`. This lane touches only `src/rust_ts/llvm/` and this file.
+Branch `t3/implement-llvm-apfloat-folds`, base `620acf48`. This lane touches only `src/rust_ts/llvm/` and this file.
 
 ## Result
 
