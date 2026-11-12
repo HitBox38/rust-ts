@@ -10,7 +10,9 @@
 // 6. `LLVMGetInlineAsm` values in calls, and the `allocsize` / `allockind` int values replay.ts decodes.
 // 7. The folds item 6 of the lane added: `extractelement` / `insertelement` of constants, and `and (ptrtoint @g), C` by the
 //    global's pointer alignment.
-// 8. `armExclusiveIntrinsic` (and so `LLVMRustGetElementTypeArgIndex`) against libLLVM's intrinsic IDs, and the ARM names it
+// 8. `icmp` of pointer constants: globals of every linkage the model folds by, `unnamed_addr`, empty and opaque types, GEPs,
+//    null, another address space (`evaluateICmpRelation`, `areGlobalsPotentiallyEqual`).
+// 9. `armExclusiveIntrinsic` (and so `LLVMRustGetElementTypeArgIndex`) against libLLVM's intrinsic IDs, and the ARM names it
 //    relies on.
 import { describe, expect, test } from "bun:test";
 import { CString, dlopen, type Pointer, toArrayBuffer } from "bun:ffi";
@@ -84,6 +86,15 @@ const C_API = {
   LLVMBuildAnd: { args: [P, P, P, P], returns: P },
   LLVMBuildExtractElement: { args: [P, P, P, P], returns: P },
   LLVMBuildInsertElement: { args: [P, P, P, P, P], returns: P },
+  LLVMBuildShuffleVector: { args: [P, P, P, P, P], returns: P },
+  LLVMBuildICmp: { args: [P, "u32", P, P, P], returns: P },
+  LLVMConstInBoundsGEP2: { args: [P, P, P, "u32"], returns: P },
+  LLVMSetLinkage: { args: [P, "u32"], returns: "void" },
+  LLVMSetUnnamedAddress: { args: [P, "u32"], returns: "void" },
+  LLVMStructCreateNamed: { args: [P, P], returns: P },
+  LLVMStructTypeInContext: { args: [P, P, "u32", "i32"], returns: P },
+  LLVMArrayType2: { args: [P, "u64"], returns: P },
+  LLVMAddGlobalInAddressSpace: { args: [P, P, P, "u32"], returns: P },
   LLVMIntrinsicGetName: { args: ["u32", P], returns: P },
   LLVMLookupIntrinsicID: { args: [P, "usize"], returns: "u32" },
 } as const;
@@ -470,6 +481,18 @@ describe.skipIf(!HAVE && !REQUIRE)("llir-folder vs libLLVM", () => {
           }
         }
       }
+      // shufflevector of two constant vectors, with masks: all poison, all zero (a splat), mixed, out of range.
+      const masks = [[-1, -1], [0, 0, 0], [3, 0, -1, 1], [7, 2], [1, 5, 6, 0]];
+      for (const [rv1, mv1] of vecs) {
+        for (const [rv2, mv2] of vecs) {
+          if (L.LLVMTypeOf(mv1) !== L.LLVMTypeOf(mv2)) continue;
+          for (const mask of masks) {
+            const rm_ = lib.LLVMConstVector(ptrs(mask.map((m) => (m < 0 ? lib.LLVMGetPoison(rI(32)) : lib.LLVMConstInt(rI(32), BigInt(m), 0)))), mask.length);
+            const mm_ = L.LLVMConstVector(mask.map((m) => (m < 0 ? L.LLVMGetPoison(mI(32)) : L.LLVMConstInt(mI(32), BigInt(m), L.FALSE))), mask.length);
+            show(lib.LLVMBuildShuffleVector(rB, rv1, rv2, rm_, cstr("")), L.LLVMBuildShuffleVector(mB, mv1, mv2, mm_, ""));
+          }
+        }
+      }
       // and (ptrtoint @g), C: a function, globals with alignments 1, 2, 8, 16, and declarations of i8 / [4 x i32] / i64.
       const ptrTo = (n: number) => [lib.LLVMIntTypeInContext(rc, n), L.LLVMIntTypeInContext(mc, n)] as const;
       const globals: [Pointer, L.Value][] = [[rF, mF]];
@@ -497,6 +520,101 @@ describe.skipIf(!HAVE && !REQUIRE)("llir-folder vs libLLVM", () => {
       got.push(printValueToString(mF as never).trim());
       expect(got.map((g) => `${dl}: ${g}`)).toEqual(want.map((w) => `${dl}: ${w}`));
     }
+  });
+
+  test("icmp of pointer constants folds as libLLVM's", () => {
+    const rc = lib.LLVMContextCreate();
+    const rm = lib.LLVMModuleCreateWithNameInContext(cstr("m"), rc);
+    const mc = L.LLVMContextCreate();
+    const mm = L.LLVMModuleCreateWithNameInContext("m", mc);
+    const rI = (n: number) => lib.LLVMIntTypeInContext(rc, n);
+    const mI = (n: number) => L.LLVMIntTypeInContext(mc, n);
+    const rF = lib.LLVMAddFunction(rm, cstr("f"), lib.LLVMFunctionType(lib.LLVMVoidTypeInContext(rc), ptrs([]), 0, 0));
+    const mF = L.LLVMAddFunction(mm, "f", L.LLVMFunctionType(L.LLVMVoidTypeInContext(mc), [], 0, L.FALSE));
+    const rB = lib.LLVMCreateBuilderInContext(rc);
+    const mB = L.LLVMCreateBuilderInContext(mc);
+    lib.LLVMPositionBuilderAtEnd(rB, lib.LLVMAppendBasicBlockInContext(rc, rF, cstr("start")));
+    L.LLVMPositionBuilderAtEnd(mB, L.LLVMAppendBasicBlockInContext(mc, mF, "start"));
+    const vals: [string, Pointer, L.Value][] = [];
+    // Globals: [name, value type, linkage, unnamed_addr, initialized].
+    const rEmpty = lib.LLVMStructTypeInContext(rc, ptrs([]), 0, 0);
+    const mEmpty = L.LLVMStructTypeInContext(mc, [], 0, L.FALSE);
+    const rOpaque = lib.LLVMStructCreateNamed(rc, cstr("O"));
+    const mOpaque = L.LLVMStructCreateNamed(mc, "O");
+    const types: [string, Pointer, L.Type][] = [
+      ["i32", rI(32), mI(32)],
+      ["{}", rEmpty, mEmpty],
+      ["[0 x i8]", lib.LLVMArrayType2(rI(8), 0n), L.LLVMArrayType2(mI(8), 0n)],
+      ["%O", rOpaque, mOpaque],
+    ];
+    const linkages: L.Linkage[] = ["ExternalLinkage", "InternalLinkage", "PrivateLinkage", "WeakAnyLinkage", "WeakODRLinkage", "LinkOnceAnyLinkage", "LinkOnceODRLinkage", "ExternalWeakLinkage", "CommonLinkage", "AvailableExternallyLinkage"];
+    const ua: L.UnnamedAddr[] = ["No", "Local", "Global"];
+    let n = 0;
+    for (const [tn, rt, mt] of types) {
+      for (const lk of linkages) {
+        for (const u of ua) {
+          if (tn !== "i32" && u !== "No") continue;
+          const name = `g${n++}`;
+          const rg = lib.LLVMAddGlobal(rm, rt, cstr(name));
+          const mg = L.LLVMAddGlobal(mm, mt, name);
+          const def = lk !== "ExternalWeakLinkage" && tn !== "%O" && lk !== "ExternalLinkage";
+          if (def) {
+            lib.LLVMSetInitializer(rg, lib.LLVMConstNull(rt));
+            L.LLVMSetInitializer(mg, L.LLVMConstNull(mt));
+          }
+          lib.LLVMSetLinkage(rg, L.Linkage_discriminant[lk]);
+          L.LLVMSetLinkage(mg, lk);
+          lib.LLVMSetUnnamedAddress(rg, ua.indexOf(u));
+          L.LLVMSetUnnamedAddress(mg, u);
+          vals.push([`${name} ${tn} ${lk} ${u}`, rg, mg]);
+        }
+      }
+    }
+    const rPtr1 = lib.LLVMPointerTypeInContext(rc, 1);
+    const mPtr1 = L.LLVMPointerTypeInContext(mc, 1);
+    // (`LLVMRustGetOrInsertGlobalInAddrspace` is the model's only way to make one; libLLVM's C API has `LLVMAddGlobalInAddressSpace`.)
+    const rg1 = lib.LLVMAddGlobalInAddressSpace(rm, rI(32), cstr("as1"), 1);
+    const mg1 = L.LLVMRustGetOrInsertGlobalInAddrspace(mm, "as1", 3, mI(32), 1);
+    // A function, and inbounds GEPs of two globals, one with zero indices, one at offset 4.
+    const base = vals.slice(0, 2);
+    const extra: [string, Pointer, L.Value][] = [["f", rF, mF]];
+    for (const [bn, rg, mg] of base) {
+      extra.push([`gep0 ${bn}`, lib.LLVMConstInBoundsGEP2(rI(8), rg, ptrs([lib.LLVMConstInt(rI(64), 0n, 0)]), 1), L.LLVMConstInBoundsGEP2(mI(8), mg, [L.LLVMConstInt(mI(64), 0n, L.FALSE)], 1)]);
+      extra.push([`gep4 ${bn}`, lib.LLVMConstInBoundsGEP2(rI(8), rg, ptrs([lib.LLVMConstInt(rI(64), 4n, 0)]), 1), L.LLVMConstInBoundsGEP2(mI(8), mg, [L.LLVMConstInt(mI(64), 4n, L.FALSE)], 1)]);
+    }
+    const rPtr = lib.LLVMPointerTypeInContext(rc, 0);
+    const mPtr = L.LLVMPointerTypeInContext(mc, 0);
+    extra.push(["null", lib.LLVMConstNull(rPtr), L.LLVMConstNull(mPtr)]);
+    const all = [...vals, ...extra];
+    const got: string[] = [];
+    const want: string[] = [];
+    // Every pair of the first globals and the extras, and each global against null; every integer predicate.
+    const pairs: [number, number][] = [];
+    for (let i = 0; i < all.length; i++) for (let j = 0; j < all.length; j++) if (i < 8 || j < 8 || i >= vals.length || j >= vals.length || j === all.length - 1) pairs.push([i, j]);
+    for (const [i, j] of pairs) {
+      for (let p = 32; p <= 41; p++) {
+        const r = lib.LLVMBuildICmp(rB, p, all[i]![1], all[j]![1], cstr(""));
+        const m = L.LLVMBuildICmp(mB, p, all[i]![2], all[j]![2], "");
+        const isInst = L.LLVMIsAInstruction(m) !== undefined;
+        const tag = `${all[i]![0]} ${p} ${all[j]![0]}`;
+        want.push(`${tag}: ${isInst ? "(instruction)" : message(lib.LLVMPrintValueToString(r))}`);
+        got.push(`${tag}: ${isInst ? "(instruction)" : printValueToString(m as never)}`);
+      }
+    }
+    // Another address space against its null.
+    for (let p = 32; p <= 41; p++) {
+      const r = lib.LLVMBuildICmp(rB, p, rg1, lib.LLVMConstNull(rPtr1), cstr(""));
+      const m = L.LLVMBuildICmp(mB, p, mg1, L.LLVMConstNull(mPtr1), "");
+      want.push(`as1 ${p}: ${L.LLVMIsAInstruction(m) !== undefined ? "(instruction)" : message(lib.LLVMPrintValueToString(r))}`);
+      got.push(`as1 ${p}: ${L.LLVMIsAInstruction(m) !== undefined ? "(instruction)" : printValueToString(m as never)}`);
+    }
+    lib.LLVMBuildRetVoid(rB);
+    L.LLVMBuildRetVoid(mB);
+    // The unfolded comparisons: the function's text.
+    want.push(noComments(message(lib.LLVMPrintValueToString(rF))));
+    got.push(printValueToString(mF as never).trim());
+    expect(got).toEqual(want);
+    expect(want.filter((w) => w.endsWith(": i1 true") || w.endsWith(": i1 false")).length).toBeGreaterThan(100);
   });
 
   test("armExclusiveIntrinsic is libLLVM's arm_ldrex / arm_strex, and the ARM names it relies on", () => {

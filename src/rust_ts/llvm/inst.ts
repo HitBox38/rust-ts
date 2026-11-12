@@ -18,7 +18,7 @@
 // (plan-m7 §1b, default alignments). `CreateAtomicCmpXchg`/`CreateAtomicRMW` do compute theirs, the operand's store size (lane
 // llir-folder, review cg-builder N1), as the oracle's text shows `, align N` on every atomic.
 import { unported } from "../../std/panic.ts";
-import { type BinaryOps, getAllOnesValue, getPredicateName, foldBinOp, foldCast, foldCmp, foldExtractElement, foldExtractValue, foldInsertElement, foldGEP, foldInsertValue, foldSelect, foldUnOp, foldVectorOp, isFPPredicate } from "./fold.ts";
+import { type BinaryOps, getAllOnesValue, getPredicateName, foldBinOp, foldCast, foldCmp, foldExtractElement, foldExtractValue, foldInsertElement, foldShuffleVector, foldGEP, foldInsertValue, foldSelect, foldUnOp, isFPPredicate } from "./fold.ts";
 import {
   addAttributesAtIndex,
   type Attribute,
@@ -573,7 +573,7 @@ export class IRBuilder {
   // llvm: llvm/include/llvm/IR/IRBuilder.h:2684 CreateShuffleVector
   createShuffleVector(v1: Value, v2: Value, maskV: Value, name: string): Value {
     const mask = getShuffleMask(maskV as Constant);
-    const v = foldVectorOp([v1, v2], "shufflevector");
+    const v = foldShuffleVector(v1, v2, mask);
     if (v !== undefined) return v;
     const vt = v1.type as VectorType;
     const s = new Inst("shufflevector", this.context.getVectorType(vt.elementType, mask.length, vt.scalable), [v1, v2]);
