@@ -1,10 +1,15 @@
-// Partial port of compiler/rustc_codegen_ssa/src/lib.rs: the data the metadata-only driver path carries from
-// `start_codegen` to `link_binary` (`CompiledModule(s)`, `NativeLib`, `SymbolExport`, the EII linkage info,
-// `CrateInfo`, `CodegenLintLevelSpecs`) and `provide`. Not ported (backend, M7): `ModuleCodegen`'s methods
-// (`new_regular`, `new_allocator`, `into_compiled_module`), `CompiledModule::for_each_output`, rlink
-// (de)serialization (`serialize_rlink`, `deserialize_rlink`).
+// Port of compiler/rustc_codegen_ssa/src/lib.rs (the data the driver carries from `start_codegen` to `link_binary`; lane
+// ssa-base, plan-m7 wave 41, ports the rest: `ModuleCodegen`'s methods, `CompiledModule::for_each_output`,
+// `CachedModuleCodegen`, `CodegenError`, rlink (de)serialization).
 // PORT (ssa-contract): `ModuleCodegen`'s fields, `MemFlags`, `RetagInfo` and `RetagFlags` are the type surface the
-// traits (traits/*.ts) need, placed here for lane ssa-base, which ports the rest of this file.
+// traits (traits/*.ts) need.
+// PORT (ssa-base):
+// - `CompiledModule` stays a data interface (the generated `Decodable` builds it as an object literal); its one method,
+//   `for_each_output`, is on the companion const `CompiledModule`.
+// - `OutputFilenames::{temp_path_for_cgu, temp_path_dwo_for_cgu}` (rustc_session config.rs) are not on the TS
+//   `OutputFilenames` (its header: "codegen ... not ported"); `into_compiled_module` reaches them only for an output it
+//   emits, through the typed stubs at the end of this file.
+// - `TargetConfig` (lib.rs:272) stays in rustc_interface/stand_ins.ts, where its users import it from.
 import type { CfgEntry } from "../rustc_ast/attr/data_structures.ts";
 import type { WindowsSubsystemKind } from "../rustc_attr_ir/data_structures.gen.ts";
 import type { CrateSource, DllImport, NativeLib as cstore_NativeLib } from "../rustc_crate_store/cstore.gen.ts";
@@ -23,6 +28,17 @@ import type { Symbol } from "../rustc_span/symbol.ts";
 import type { CrateType } from "../rustc_structures/crate_type.ts";
 import type { NativeLibKind } from "../rustc_structures/native_lib_kind.ts";
 import type { Size } from "../rustc_abi/lib.ts";
+import type { EncodedMetadata } from "../rustc_metadata/rmeta/encoder.ts";
+import { decode_EncodedMetadata, encode_EncodedMetadata } from "../rustc_metadata/rmeta/encoder.ts";
+import type { WorkProduct } from "./traits/write.ts";
+import type { Session } from "../rustc_session/session.ts";
+import type { OutputFilenames, OutputType } from "../rustc_session/config.ts";
+import { FileEncoder, MemDecoder } from "../rustc_serialize/opaque.ts";
+import "../rustc_span/lib.ts";
+import { Err, Ok, type Result } from "../std/result.ts";
+import type { IoError } from "../std/io.ts";
+import { unported } from "../std/panic.ts";
+import { decode_CompiledModules, decode_CrateInfo, encode_CompiledModules, encode_CrateInfo } from "./decodable.gen.ts";
 import * as symbol_export from "./back/symbol_export.ts";
 import * as base from "./base.ts";
 import * as codegen_attrs from "./codegen_attrs.ts";
@@ -31,8 +47,6 @@ import * as target_features from "./target_features.ts";
 export * as codegen_attrs from "./codegen_attrs.ts";
 export * as target_features from "./target_features.ts";
 
-// PORT (ssa-contract): the struct's fields only; `new_regular` (:73), `new_allocator` (:82) and
-// `into_compiled_module` (:91) are lane ssa-base's.
 export class ModuleCodegen<M> {
   constructor(
     /// The name of the module. When the crate may be saved between
@@ -47,6 +61,54 @@ export class ModuleCodegen<M> {
     /// Saving the ThinLTO buffer for embedding in the object file.
     public thin_lto_buffer: Uint8Array | undefined,
   ) {}
+
+  // impl<M> ModuleCodegen<M>
+  // rustc: compiler/rustc_codegen_ssa/src/lib.rs:73 new_regular
+  static new_regular<M>(name: string, module: M): ModuleCodegen<M> {
+    return new ModuleCodegen(
+      /* name */ name,
+      /* module_llvm */ module,
+      /* kind */ ModuleKind.Regular,
+      /* thin_lto_buffer */ undefined,
+    );
+  }
+
+  // rustc: compiler/rustc_codegen_ssa/src/lib.rs:82 new_allocator
+  static new_allocator<M>(name: string, module: M): ModuleCodegen<M> {
+    return new ModuleCodegen(
+      /* name */ name,
+      /* module_llvm */ module,
+      /* kind */ ModuleKind.Allocator,
+      /* thin_lto_buffer */ undefined,
+    );
+  }
+
+  // rustc: compiler/rustc_codegen_ssa/src/lib.rs:91 into_compiled_module
+  into_compiled_module(
+    emit_obj: boolean,
+    emit_dwarf_obj: boolean,
+    emit_bc: boolean,
+    emit_asm: boolean,
+    emit_ir: boolean,
+    outputs: OutputFilenames,
+  ): CompiledModule {
+    const object = emit_obj ? OutputFilenames_temp_path_for_cgu(outputs, "Object", this.name) : undefined;
+    const dwarf_object = emit_dwarf_obj ? OutputFilenames_temp_path_dwo_for_cgu(outputs, this.name) : undefined;
+    const bytecode = emit_bc ? OutputFilenames_temp_path_for_cgu(outputs, "Bitcode", this.name) : undefined;
+    const assembly = emit_asm ? OutputFilenames_temp_path_for_cgu(outputs, "Assembly", this.name) : undefined;
+    const llvm_ir = emit_ir ? OutputFilenames_temp_path_for_cgu(outputs, "LlvmAssembly", this.name) : undefined;
+
+    return {
+      name: this.name,
+      kind: this.kind,
+      object,
+      global_asm_object: undefined,
+      dwarf_object,
+      bytecode,
+      assembly,
+      llvm_ir,
+    };
+  }
 }
 
 // #[derive(Debug, Encodable, Decodable)]
@@ -59,6 +121,32 @@ export interface CompiledModule {
   bytecode: PathBuf | undefined;
   assembly: PathBuf | undefined; // --emit=asm
   llvm_ir: PathBuf | undefined; // --emit=llvm-ir, llvm-bc is in bytecode
+}
+
+// impl CompiledModule (header: the methods of the data interface live on its companion)
+export const CompiledModule = {
+  /// Call `emit` function with every artifact type currently compiled
+  // rustc: compiler/rustc_codegen_ssa/src/lib.rs:135 for_each_output
+  for_each_output(self: CompiledModule, emit: (path: PathBuf, output_type: OutputType) => void): void {
+    let path: PathBuf | undefined;
+    if ((path = self.object) !== undefined) {
+      emit(path, "Object");
+    }
+    if ((path = self.bytecode) !== undefined) {
+      emit(path, "Bitcode");
+    }
+    if ((path = self.llvm_ir) !== undefined) {
+      emit(path, "LlvmAssembly");
+    }
+    if ((path = self.assembly) !== undefined) {
+      emit(path, "Assembly");
+    }
+  },
+};
+
+export interface CachedModuleCodegen {
+  name: string;
+  source: WorkProduct;
 }
 
 // #[derive(Copy, Clone, Debug, PartialEq, Encodable, Decodable)]
@@ -221,14 +309,96 @@ export interface CrateInfo {
 
 // #[derive(Encodable, Decodable)]
 // PORT: a class so that `Box<dyn Any>::downcast::<CompiledModules>()` (rustc_interface `Linker::link`, the dummy
-// backend's `join_codegen`) is an `instanceof` check. `serialize_rlink` (:350) / `deserialize_rlink` (:371) are
-// not ported (`-Zno-link` / `-Zlink-only`).
+// backend's `join_codegen`) is an `instanceof` check. Its `impl` (`serialize_rlink`, `deserialize_rlink`) follows
+// `provide`, as upstream.
 export class CompiledModules {
   constructor(
     public modules: CompiledModule[],
     public allocator_module: CompiledModule | undefined,
   ) {}
+
+  // rustc: compiler/rustc_codegen_ssa/src/lib.rs:350 serialize_rlink
+  static serialize_rlink(
+    sess: Session,
+    rlink_file: PathBuf,
+    compiled_modules: CompiledModules,
+    crate_info: CrateInfo,
+    metadata: EncodedMetadata,
+    outputs: OutputFilenames,
+  ): Result<number, IoError> {
+    const r = FileEncoder.new(rlink_file);
+    if (r.$ === "Err") return r;
+    const encoder = r._0;
+    encoder.emit_raw_bytes(RLINK_MAGIC);
+    // `emit_raw_bytes` is used to make sure that the version representation does not depend on
+    // Encoder's inner representation of `u32`.
+    encoder.emit_raw_bytes(u32_to_be_bytes(RLINK_VERSION));
+    encoder.emit_str(sess.cfg_version);
+    encode_CompiledModules(compiled_modules, encoder);
+    encode_CrateInfo(crate_info, encoder);
+    encode_EncodedMetadata(metadata, encoder);
+    encode_OutputFilenames(outputs, encoder);
+    const res = encoder.finish();
+    return res.$ === "Ok" ? res : Err(res._0[1]);
+  }
+
+  // rustc: compiler/rustc_codegen_ssa/src/lib.rs:371 deserialize_rlink
+  static deserialize_rlink(
+    sess: Session,
+    data_: Uint8Array,
+  ): Result<[CompiledModules, CrateInfo, EncodedMetadata, OutputFilenames], CodegenError> {
+    // The Decodable machinery is not used here because it panics if the input data is invalid
+    // and because its internal representation may change.
+    if (!starts_with(data_, RLINK_MAGIC)) {
+      return Err(CodegenError.WrongFileType);
+    }
+    const data = data_.subarray(RLINK_MAGIC.length);
+    if (data.length < 4) {
+      return Err(CodegenError.EmptyVersionNumber);
+    }
+
+    const version_array = new Uint8Array(4);
+    version_array.set(data.subarray(0, 4));
+    if (u32_from_be_bytes(version_array) !== RLINK_VERSION) {
+      return Err({
+        $: "EncodingVersionMismatch",
+        version_array: new TextDecoder("utf-8", { fatal: false }).decode(version_array),
+        rlink_version: RLINK_VERSION,
+      });
+    }
+
+    const md = MemDecoder.new(data.subarray(4), 0);
+    if (md.$ === "Err") {
+      return Err(CodegenError.CorruptFile);
+    }
+    const decoder = md._0;
+    const rustc_version = decoder.read_str();
+    if (rustc_version !== sess.cfg_version) {
+      return Err({
+        $: "RustcVersionMismatch",
+        rustc_version: rustc_version,
+      });
+    }
+
+    const compiled_modules = decode_CompiledModules(decoder);
+    const crate_info = decode_CrateInfo(decoder);
+    const metadata = decode_EncodedMetadata(decoder);
+    const outputs = decode_OutputFilenames(decoder);
+    return Ok([compiled_modules, crate_info, metadata, outputs]);
+  }
 }
+
+export type CodegenError =
+  | { readonly $: "WrongFileType" }
+  | { readonly $: "EmptyVersionNumber" }
+  | { readonly $: "EncodingVersionMismatch"; version_array: string; rlink_version: number }
+  | { readonly $: "RustcVersionMismatch"; rustc_version: string }
+  | { readonly $: "CorruptFile" };
+export const CodegenError = {
+  WrongFileType: Object.freeze({ $: "WrongFileType" as const }),
+  EmptyVersionNumber: Object.freeze({ $: "EmptyVersionNumber" as const }),
+  CorruptFile: Object.freeze({ $: "CorruptFile" as const }),
+} as const;
 
 // rustc: compiler/rustc_codegen_ssa/src/lib.rs:339 provide
 export function provide(providers: Providers): void {
@@ -237,6 +407,9 @@ export function provide(providers: Providers): void {
   target_features.provide(providers.queries);
   codegen_attrs.provide(providers.queries);
 }
+
+const RLINK_VERSION = 1;
+const RLINK_MAGIC: Uint8Array = new TextEncoder().encode("rustlink");
 
 /// A list of lint levels used in codegen.
 ///
@@ -257,4 +430,45 @@ export class CodegenLintLevelSpecs {
       /* linker_info */ tcx.lint_level_spec_at_node(LINKER_INFO, CRATE_HIR_ID),
     );
   }
+}
+
+// ---- Helpers (not upstream) ------------------------------------------------------------------------------------------
+
+/** `u32::to_be_bytes`. */
+function u32_to_be_bytes(v: number): Uint8Array {
+  return new Uint8Array([(v >>> 24) & 0xff, (v >>> 16) & 0xff, (v >>> 8) & 0xff, v & 0xff]);
+}
+
+/** `u32::from_be_bytes`. */
+function u32_from_be_bytes(b: Uint8Array): number {
+  return ((b[0]! << 24) | (b[1]! << 16) | (b[2]! << 8) | b[3]!) >>> 0;
+}
+
+/** `<[u8]>::starts_with`. */
+function starts_with(data: Uint8Array, prefix: Uint8Array): boolean {
+  if (data.length < prefix.length) return false;
+  for (let i = 0; i < prefix.length; i++) if (data[i] !== prefix[i]) return false;
+  return true;
+}
+
+// ---- Foreign stubs (header) ------------------------------------------------------------------------------------------
+
+/** `OutputFilenames::temp_path_for_cgu` (rustc_session config.rs), not on the TS `OutputFilenames` (header). */
+function OutputFilenames_temp_path_for_cgu(_outputs: OutputFilenames, _flavor: OutputType, _codegen_unit_name: string): PathBuf {
+  return unported("rustc_session::config::OutputFilenames::temp_path_for_cgu (rustc_session, no M7 lane yet)");
+}
+
+/** `OutputFilenames::temp_path_dwo_for_cgu` (rustc_session config.rs), not on the TS `OutputFilenames` (header). */
+function OutputFilenames_temp_path_dwo_for_cgu(_outputs: OutputFilenames, _codegen_unit_name: string): PathBuf {
+  return unported("rustc_session::config::OutputFilenames::temp_path_dwo_for_cgu (rustc_session, no M7 lane yet)");
+}
+
+/** `impl Encodable for OutputFilenames` (derived, rustc_session config.rs): not generated (rlink only). */
+function encode_OutputFilenames(_outputs: OutputFilenames, _e: FileEncoder): void {
+  return unported("rustc_session::config::OutputFilenames: Encodable (-Z no-link rlink)");
+}
+
+/** `impl Decodable for OutputFilenames` (derived, rustc_session config.rs): not generated (rlink only). */
+function decode_OutputFilenames(_d: MemDecoder): OutputFilenames {
+  return unported("rustc_session::config::OutputFilenames: Decodable (-Z link-only rlink)");
 }
