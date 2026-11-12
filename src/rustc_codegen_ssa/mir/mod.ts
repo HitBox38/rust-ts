@@ -14,8 +14,8 @@
 //   rust_ts/tracing.ts) and stay comments; locals.rs's `warn!` is live.
 // - `IndexVec<BasicBlock, T>` / `IndexVec<Local, T>` are arrays indexed by the handle (PORTING §5).
 //
-// PORT (ssa-mir-core): calls into fill lanes that have not landed (ssa-operand-place, ssa-debuginfo, ssa-block, ssa-base,
-// and retag.rs) go through the `xlane` table at the end of this file. Each entry is a typed stub that stops with
+// PORT (ssa-mir-core): calls into fill lanes that have not landed (ssa-debuginfo, ssa-block, ssa-base, and retag.rs;
+// ssa-operand-place's were repointed to its real methods at integ-w53) go through the `xlane` table at the end of this file. Each entry is a typed stub that stops with
 // `unported("<lane>: <upstream path> <fn>")`. They are not prototype methods or class statics, so they cannot collide
 // with the owners' real ports at merge: root repoints each entry (or its call sites) when the owner lands. Tests may
 // replace entries to drive `codegen_mir` over a mock backend.
@@ -34,7 +34,6 @@ import {
   fold_with_Body,
   type Local,
   Operand,
-  type PlaceRef as mir_PlaceRef,
   RETURN_PLACE,
   START_BLOCK,
   Statement,

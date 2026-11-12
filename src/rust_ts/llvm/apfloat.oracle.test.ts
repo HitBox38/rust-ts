@@ -194,7 +194,6 @@ describe.skipIf(!HAVE && !REQUIRE)("APFloat: model vs libLLVM", () => {
   /** The end of each test: no disagreement, and only the stops the handoff lists (per-element vector folds, a ConstantVector
    * of fp128/x86_fp80 elements). */
   function done(minAgreed: number): void {
-    if (process.env.APFLOAT_TEST_VERBOSE) console.log(`agreed ${agreed}; stops ${JSON.stringify([...stops])}`);
     const [w, st, a] = [[...wrong], [...stops.keys()], agreed];
     total += agreed;
     agreed = 0;

@@ -669,7 +669,8 @@ describe("unit behaviour of builder.rs's own logic", () => {
     const funclet = bx.cleanup_pad(undefined, []);
     expect(funclet).toBeInstanceOf(Funclet);
     expect(body(printModule(fx.M), "f")).toContain("cleanuppad within none []");
-    expect(funclet.bundle()).toBe(funclet.operand.as_ref());
+    // The funclet wraps the pad just built: the block's last instruction.
+    expect(funclet.cleanuppad()).toBe((bbs[0] as unknown as { insts: unknown[] }).insts.at(-1) as never);
     // load_operand of a ZST returns `OperandRef::zero_sized(place.layout)` (builder.rs; ssa-operand-place's port, root at integ-w53).
     const zst = { is_unsized: () => false, is_zst: () => true };
     const op = bx.load_operand({ layout: zst, val: { llextra: undefined } } as never);

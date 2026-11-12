@@ -5,9 +5,8 @@
 // PORT: `LocalAnalyzer` implements `Visitor` as a subclass (rustc_middle mir/visit.ts D4). `debug!` events are compiled
 // out of rustc (STATIC_MAX_LEVEL = INFO, rust_ts/tracing.ts) and stay comments. The nested fns of `cleanup_kinds`
 // (`discover_masters`, `propagate`) are module-level fns placed where upstream nests them.
-// PORT: `self.fx.monomorphized_place_ty(..)` (mir/place.rs, lane ssa-operand-place) goes through mod.ts's `xlane` stub
-// table until that lane lands; the import of mod.ts is a run-time cycle that is safe, as neither module touches the
-// other's bindings at load time.
+// PORT: `self.fx.monomorphized_place_ty(..)` is place.rs's method, installed on `FunctionCx` by mod.ts (lane
+// ssa-operand-place; joined at integ-w53). This file imports mod.ts for types only.
 import type { Dominators } from "../../rustc_data_structures/graph/dominators/mod.ts";
 import { DenseBitSet } from "../../rustc_index/bit_set.ts";
 import {
@@ -34,7 +33,7 @@ import type { TyAndLayout } from "../../rustc_middle/ty/layout.ts";
 import type { BackendTypes } from "../traits/backend.ts";
 import type { BuilderMethods } from "../traits/builder.ts";
 import type { CodegenMethods } from "../traits/mod.ts";
-import { type FunctionCx, xlane } from "./mod.ts";
+import type { FunctionCx } from "./mod.ts";
 import { fold_Ty } from "../../rustc_middle/ty/structural_impls.ts";
 
 // rustc: compiler/rustc_codegen_ssa/src/mir/analyze.rs:18 non_ssa_locals

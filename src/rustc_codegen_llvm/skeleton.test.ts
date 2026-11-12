@@ -12,12 +12,14 @@ import type { Ty } from "../rustc_middle/ty/mod.ts";
 import { TyAndLayout as TyAndLayout_ } from "../rustc_abi/layout/ty.ts";
 import "../rustc_target/lib.ts";
 import { FnAbi } from "../rustc_target/callconv/mod.ts";
+import { printValueToString } from "../rust_ts/llvm/printer.ts";
 import { Unported } from "../std/panic.ts";
 import { LlvmCodegenBackend } from "./lib.ts";
 import * as attributes from "./attributes.ts";
 import { Builder, GenericBuilder } from "./builder.ts";
 import * as common from "./common.ts";
 import { CodegenCx, FullCx, GenericCx, SCx, SimpleCx } from "./context.ts";
+import type { Value } from "./llvm/mod.ts";
 import * as llvm from "./llvm/mod.ts";
 import * as llvm_util from "./llvm_util.ts";
 
@@ -120,7 +122,8 @@ describe("stub counts per lane", () => {
     "cg-intrinsic-b": 2,
     "cg-lto-diag": 8,
     "cg-write": 21,
-    // cg-builder's 10, plus cg-context's `CguCoverageContext::new` in `CodegenCx::new` (review cg-contract-recheck N1).
+    // The 10 cg-contract left (plan-m7 D18), plus cg-context's `CguCoverageContext::new` in `CodegenCx::new` (review
+    // cg-contract-recheck N1).
     "excluded (plan-m7 D18)": 11,
     // 2, plus cg-context's `LLVMGetFirstFunction` / `LLVMGetNextFunction` (llvm/enzyme_ffi.rs) in `get_functions`.
     "llir": 4,
@@ -221,7 +224,7 @@ describe("auto-deref", () => {
     expect(bx.type_isize() as unknown).toBe("isize"); // type_.rs:209, ported (cg-types-attrs)
     // Builder's own `data_layout` (builder.rs:214, ported by cg-builder) forwards to the cx's (context.rs:1254, ported by
     // cg-context), which reads the marker `FullCx`'s tcx.
-    expect(() => bx.data_layout()).toThrow();
+    expect(() => bx.data_layout()).toThrow(/this\.tcx\.data_layout is not a function/);
     // The Debug members of the associated types reach value.rs's impl.
     expect(bx.debug_Value).toBe(cx.debug_Value);
   });
@@ -238,25 +241,29 @@ describe("auto-deref", () => {
     const layout = Object.create(TyAndLayout_.prototype) as TyAndLayout;
     const fn_abi = Object.create(FnAbi.prototype) as FnAbi<Ty>;
     const out = fill_lane_sketch(cx, bx, layout, fn_abi, undefined as never);
-    expect(out).toEqual([
+    // Errors as `<name>: <message>`, so each expected failure names the marker value it fails on.
+    const shown = out.map((x) => (x instanceof Error ? `${x.name}: ${x.message}` : x));
+    const typeError = (re: RegExp): string => expect.stringMatching(new RegExp(`^TypeError: .*${re.source}`)) as unknown as string;
+    expect(shown).toEqual([
       llcx,
       llmod,
       isize,
       "field11",
       llvm.LLVMInt1TypeInContext(llcx), // type_.rs:168, ported
-      expect.any(TypeError), // type_of.rs:234, ported; a layout with no fields (type_of.test.ts has real ones)
+      typeError(/this\.layout\.internee/), // type_of.rs:234, ported; a layout with no fields (type_of.test.ts has real ones)
       expect.stringMatching(/^cg-abi-consts: .*\/abi\.rs llvm_type$/) as unknown as string,
       llvm.LLVMRustGetNamedValue(llmod, "g", 1), // declare.rs:94, ported (cg-types-attrs)
-      expect.anything(), // common.rs const_bytes, ported (cg-context): a real constant in the real llcx
-      expect.any(TypeError), // context.rs get_intrinsic, ported (cg-context): the marker `FullCx` has no intrinsic map
+      out[8], // common.rs const_bytes, ported (cg-context): checked below
+      typeError(/intrinsics\.get is not a function/), // context.rs get_intrinsic, ported (cg-context): the marker `FullCx` has no intrinsic map
       undefined, // attributes.rs:29, ported: no attributes, no call
-      expect.any(TypeError), // common.rs val_ty, ported (cg-context): the marker value has no `type`
-      expect.any(TypeError), // builder.rs load, ported (cg-builder): the marker llbuilder has no IR-model builder
-      expect.any(TypeError), // builder.rs:1881 call_intrinsic (cg-builder) reaches get_intrinsic (cg-context), as above
-      expect.any(TypeError), // builder.rs:130 build (cg-builder): the IR model rejects the marker basic block
+      typeError(/evaluating 'Val\.type'/), // common.rs val_ty, ported (cg-context): the marker value has no `type`
+      typeError(/B\.createLoad is not a function/), // builder.rs load, ported (cg-builder): the marker llbuilder is no IR-model builder
+      typeError(/intrinsics\.get is not a function/), // builder.rs:1881 call_intrinsic (cg-builder) reaches get_intrinsic, as above
+      typeError(/evaluating 'Block\.insts'/), // builder.rs:130 build (cg-builder): the IR model rejects the marker basic block
       "cg-write: compiler/rustc_codegen_llvm/src/llvm_util.rs get_version",
     ]);
     expect(out[7]).toBeDefined();
+    expect(printValueToString(out[8] as Value)).toBe("[1 x i8] c\"\\01\""); // const_bytes: a real constant in the real llcx
   });
 
   test("inherent before trait (review F1): GenericBuilder's inherent methods keep the `_inherent` names", () => {

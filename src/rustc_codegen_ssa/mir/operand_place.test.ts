@@ -424,7 +424,7 @@ test("operand.rs / place.rs / typetree.rs over a mock backend", () => {
         "%1 = sub(usize 4, usize 1)",
         "%2 = inbounds_nuw_gep(bty:u16, %arr, [%1])",
       ]);
-      expect(() => fx.codegen_place(bx, new mir_PlaceRef(3 as Local, []))).toThrow(); // bug!
+      expect(() => fx.codegen_place(bx, new mir_PlaceRef(3 as Local, []))).toThrow("using still-pending operand local _3 as place"); // bug!
     }
 
     // ---- typetree_from_ty (typetree.rs:43) ----------------------------------------------------------------------------
