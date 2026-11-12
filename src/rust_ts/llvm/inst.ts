@@ -18,7 +18,7 @@
 // (plan-m7 §1b, default alignments). `CreateAtomicCmpXchg`/`CreateAtomicRMW` do compute theirs, the operand's store size (lane
 // llir-folder, review cg-builder N1), as the oracle's text shows `, align N` on every atomic.
 import { unported } from "../../std/panic.ts";
-import { type BinaryOps, getAllOnesValue, getPredicateName, foldBinOp, foldCast, foldCmp, foldExtractValue, foldGEP, foldInsertValue, foldSelect, foldUnOp, foldVectorOp, isFPPredicate } from "./fold.ts";
+import { type BinaryOps, getAllOnesValue, getPredicateName, foldBinOp, foldCast, foldCmp, foldExtractElement, foldExtractValue, foldInsertElement, foldGEP, foldInsertValue, foldSelect, foldUnOp, foldVectorOp, isFPPredicate } from "./fold.ts";
 import {
   addAttributesAtIndex,
   type Attribute,
@@ -558,14 +558,14 @@ export class IRBuilder {
 
   // llvm: llvm/include/llvm/IR/IRBuilder.h:2650 CreateExtractElement
   createExtractElement(vec: Value, idx: Value, name: string): Value {
-    const v = foldVectorOp([vec, idx], "extractelement");
+    const v = foldExtractElement(vec, idx);
     if (v !== undefined) return v;
     return this.insert(new Inst("extractelement", (vec.type as VectorType).elementType, [vec, idx]), name);
   }
 
   // llvm: llvm/include/llvm/IR/IRBuilder.h:2672 CreateInsertElement
   createInsertElement(vec: Value, elt: Value, idx: Value, name: string): Value {
-    const v = foldVectorOp([vec, elt, idx], "insertelement");
+    const v = foldInsertElement(vec, elt, idx);
     if (v !== undefined) return v;
     return this.insert(new Inst("insertelement", vec.type, [vec, elt, idx]), name);
   }

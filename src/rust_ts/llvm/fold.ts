@@ -23,6 +23,7 @@ import {
   getConstantFPOfType,
   getConstantInt,
   getConstantStruct,
+  getConstantVector,
   getFoldedCast,
   getGetElementPtr,
   getIntToPtr,
@@ -33,8 +34,10 @@ import {
   getSplatValue,
   getUndef,
   GlobalValue,
+  Function,
   GlobalVariable,
   IntegerType,
+  type Module,
   internExpr,
   PoisonValue,
   StructType,
@@ -226,6 +229,39 @@ export function getCast(opc: CastOpcode, c: Constant, ty: Type): Constant {
 
 // ---- ConstantFold.cpp --------------------------------------------------------------------------------------------------
 
+// llvm: llvm/lib/IR/Value.cpp:993 Value::getPointerAlignment
+/** `GV->getPointerAlignment(DL)` of a global (lane llir-folder): a function's from the data layout's `F` spec, a variable's own
+ *  alignment. A variable without one would need the data layout's preferred or ABI alignment of its type, which the model does
+ *  not compute: it stops. Aliases and ifuncs fall through to `Align(1)`. */
+function getPointerAlignment(V: GlobalValue, M: Module): number {
+  if (V instanceof Function) {
+    const { align, type } = M.functionPtrAlign();
+    const FunctionPtrAlign = align ?? 1;
+    switch (type) {
+      case "Independent":
+        return FunctionPtrAlign;
+      case "MultipleOfFunctionAlign":
+        return Math.max(FunctionPtrAlign, V.alignment ?? 1);
+    }
+  } else if (V instanceof GlobalVariable) {
+    const Alignment = V.alignment;
+    if (Alignment === undefined) {
+      const ObjectType = V.valueType;
+      // If the object is defined in the current Module, we'll be giving it the preferred alignment. Otherwise, we have to assume
+      // that it may only have the minimum ABI alignment.
+      // PORT: the model computes only the ABI alignment of integers and arrays of them (`DataLayout::getAlignment`, DataLayout.cpp:871):
+      // a definition (`isStrongDefinitionForLinker`, `getPreferredAlign`) or another type stops.
+      if (!V.isDeclaration()) return unported("llir: Value::getPointerAlignment of a defined global variable without an alignment (DataLayout::getPreferredAlign)");
+      let t = ObjectType;
+      while (t instanceof ArrayType) t = t.elementType;
+      if (!(t instanceof IntegerType)) return unported(`llir: DataLayout::getABITypeAlign of ${t.typeID} (not modelled)`);
+      return M.integerABIAlignment(t.bits);
+    }
+    return Alignment;
+  }
+  return 1;
+}
+
 // llvm: llvm/lib/IR/ConstantFold.cpp:295 ConstantFoldSelectInstruction
 export function constantFoldSelectInstruction(cond: Constant, v1: Constant, v2: Constant): Constant | undefined {
   // Check for i1 and vector true/false conditions.
@@ -407,8 +443,28 @@ export function constantFoldBinaryInstruction(opcode: BinaryOps, c1: Constant, c
         break;
       case "And":
         // If and'ing the address of a global with a constant, fold it (by the global's pointer alignment).
+        // (lane llir-folder; the model has no `ptrtoaddr`.)
         if (c1 instanceof ConstantExpr && c1.opcode === "PtrToInt" && c1.operands[0] instanceof GlobalValue) {
-          return unported("llir: and of ptrtoint(@global) with a constant (GlobalValue::getPointerAlignment needs the data layout)");
+          const GV = c1.operands[0];
+          let GVAlign = 1; // defaults to 1
+          const TheModule = GV.parent;
+          if (TheModule !== undefined) {
+            GVAlign = getPointerAlignment(GV, TheModule);
+            // If the function alignment is not specified then assume that it is 4. This is dangerous; on x86, the alignment of
+            // the pointer corresponds to the alignment of the function, but might be less than 4 if it isn't explicitly
+            // specified. However, a fix for this behaviour was reverted because it increased code size (see
+            // https://reviews.llvm.org/D55115) FIXME: This code should be deleted once existing targets have appropriate defaults
+            if (GV instanceof Function && TheModule.functionPtrAlign().align === undefined) GVAlign = 4;
+          } else if (GV instanceof GlobalVariable) {
+            GVAlign = GV.alignment ?? 1;
+          }
+          if (GVAlign > 1) {
+            const DstWidth = (c2.type as IntegerType).bits;
+            const SrcWidth = Math.min(DstWidth, Math.log2(GVAlign));
+            const BitsNotSet = (1n << BigInt(SrcWidth)) - 1n;
+            // If checking bits we know are clear, return zero.
+            if ((c2.value & BitsNotSet) === c2.value) return getNullValue(c2.type);
+          }
         }
         break;
       default:
@@ -770,6 +826,88 @@ export const foldInsertValue = (agg: Value, val: Value, idxs: readonly number[])
   agg instanceof Constant && val instanceof Constant ? constantFoldInsertValueInstruction(agg, val, idxs) : undefined;
 
 /** `FoldExtractElement` / `FoldInsertElement` / `FoldShuffleVector`: `ConstantExpr::getExtractElement` etc. fold vectors. */
+// ---- extractelement / insertelement (lane llir-folder) ----
+
+// llvm: llvm/lib/IR/ConstantFold.cpp:373 ConstantFoldExtractElementInstruction
+export function constantFoldExtractElementInstruction(Val: Constant, Idx: Constant): Constant | undefined {
+  const ValVTy = Val.type as VectorType;
+  // extractelt poison, C -> poison
+  // extractelt C, undef -> poison
+  if (Val instanceof PoisonValue || Idx instanceof UndefValue) return getPoison(ValVTy.elementType);
+  // extractelt undef, C -> undef
+  if (Val instanceof UndefValue) return getUndef(ValVTy.elementType);
+  if (!(Idx instanceof ConstantInt)) return undefined;
+  const CIdx = Idx;
+  if (!ValVTy.scalable) {
+    // ee({w,x,y,z}, wrong_value) -> poison
+    if (CIdx.value >= BigInt(ValVTy.numElements)) return getPoison(ValVTy.elementType);
+  }
+  // ee (gep (ptr, idx0, ...), idx) -> gep (ee (ptr, idx), ee (idx0, idx), ...); the `InsertElement` arm cannot arise, as the
+  // model makes no insertelement constant expressions.
+  if (Val instanceof ConstantExpr && Val.opcode === "GetElementPtr") return unported("llir: extractelement of a vector GEP constant expression");
+  const C = CIdx.value < BigInt(ValVTy.numElements) ? getAggregateElement(Val, Number(CIdx.value)) : undefined;
+  if (C !== undefined) return C;
+  // Lane < Splat minimum vector width => extractelt Splat(x), Lane -> x
+  if (CIdx.value < BigInt(ValVTy.numElements)) {
+    const SplatVal = getSplatValue(Val);
+    if (SplatVal !== undefined) return SplatVal;
+  }
+  return undefined;
+}
+
+// llvm: llvm/lib/IR/ConstantFold.cpp:437 ConstantFoldInsertElementInstruction
+export function constantFoldInsertElementInstruction(Val: Constant, Elt: Constant, Idx: Constant): Constant | undefined {
+  if (Idx instanceof UndefValue) return getPoison(Val.type);
+  // Inserting null into all zeros is still all zeros.
+  // TODO: This is true for undef and poison splats too.
+  if (Val.isNullValue() && Elt.isNullValue()) return Val;
+  if (!(Idx instanceof ConstantInt)) return undefined;
+  const CIdx = Idx;
+  // Do not iterate on scalable vector. The num of elements is unknown at compile-time.
+  const ValTy = Val.type as VectorType;
+  if (ValTy.scalable) return undefined;
+  const NumElts = ValTy.numElements;
+  if (CIdx.value >= BigInt(NumElts)) return getPoison(Val.type);
+  const Result: Constant[] = [];
+  const Ty = Val.context.getIntType(32);
+  const IdxVal = CIdx.value;
+  for (let i = 0; i !== NumElts; ++i) {
+    if (BigInt(i) === IdxVal) {
+      Result.push(Elt);
+      continue;
+    }
+    const C = getExtractElement(Val, getConstantInt(Ty, BigInt(i)));
+    Result.push(C);
+  }
+  return getConstantVector(Result);
+}
+
+// llvm: llvm/lib/IR/Constants.cpp:2720 ConstantExpr::getExtractElement
+function getExtractElement(Val: Constant, Idx: Constant): Constant {
+  const FC = constantFoldExtractElementInstruction(Val, Idx);
+  if (FC !== undefined) return FC; // Fold a few common cases.
+  return unported("llir: an extractelement constant expression (not in the model)");
+}
+
+// llvm: llvm/lib/IR/Constants.cpp:2742 ConstantExpr::getInsertElement
+function getInsertElement(Val: Constant, Elt: Constant, Idx: Constant): Constant {
+  const FC = constantFoldInsertElementInstruction(Val, Elt, Idx);
+  if (FC !== undefined) return FC; // Fold a few common cases.
+  return unported("llir: an insertelement constant expression (not in the model)");
+}
+
+// llvm: llvm/include/llvm/IR/ConstantFolder.h:148 FoldExtractElement
+export function foldExtractElement(Vec: Value, Idx: Value): Constant | undefined {
+  if (Vec instanceof Constant && Idx instanceof Constant) return getExtractElement(Vec, Idx);
+  return undefined;
+}
+
+// llvm: llvm/include/llvm/IR/ConstantFolder.h:156 FoldInsertElement
+export function foldInsertElement(Vec: Value, NewElt: Value, Idx: Value): Constant | undefined {
+  if (Vec instanceof Constant && NewElt instanceof Constant && Idx instanceof Constant) return getInsertElement(Vec, NewElt, Idx);
+  return undefined;
+}
+
 export function foldVectorOp(ops: readonly Value[], what: string): Constant | undefined {
   if (ops.every((o) => o instanceof Constant)) return unported(`llir: ${what} of constant operands (ConstantFold.cpp's vector folds)`);
   return undefined;

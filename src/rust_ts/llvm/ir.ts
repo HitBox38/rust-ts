@@ -913,7 +913,8 @@ export function getConstantVector(v: readonly Constant[]): Constant {
   }
   // Otherwise, the element type isn't compatible with ConstantDataVector, or the operand list contains a ConstantExpr or
   // something else strange: `VectorConstants.getOrCreate`.
-  return unported("llir: ConstantVector::get of other elements (a ConstantVector)");
+  // (lane llir-folder: `<i32 5, i32 undef>` from a folded insertelement.)
+  return intern(t.context, aggregateKey("ConstantVector", t, v), () => new ConstantVector(t, v));
 }
 
 // llvm: llvm/lib/IR/Constants.cpp:1499 ConstantStruct::get
@@ -1784,6 +1785,42 @@ export class Module {
     }
     if (AddrSpace !== 0 && specs.has(AddrSpace)) return specs.get(AddrSpace)!;
     return specs.get(0) ?? 64;
+  }
+
+  /** The data layout's `F<type><abi>` spec (`parseSpecification`, DataLayout.cpp:603; lane llir-folder): `getFunctionPtrAlign()`
+   *  in bytes (undefined when the layout has none) and `getFunctionPtrAlignType()` (Independent by default). */
+  functionPtrAlign(): { align: number | undefined; type: "Independent" | "MultipleOfFunctionAlign" } {
+    let r: { align: number | undefined; type: "Independent" | "MultipleOfFunctionAlign" } = { align: undefined, type: "Independent" };
+    for (const s of this.dataLayout.split("-")) {
+      if (!s.startsWith("F")) continue;
+      const m = /^F([in])(\d+)$/.exec(s);
+      if (m === null) return unported(`llir: data layout function pointer spec ${JSON.stringify(s)} (DataLayout parsing)`);
+      // `parseAlignment(Rest, Alignment, "ABI")`: bits, a power of two times 8.
+      r = { align: Number(m[2]) / 8, type: m[1] === "i" ? "Independent" : "MultipleOfFunctionAlign" };
+    }
+    return r;
+  }
+
+  // llvm: llvm/lib/IR/DataLayout.cpp:780 DataLayout::getIntegerAlignment
+  /** The ABI alignment in bytes of an integer of `BitWidth` bits (lane llir-folder): the first int spec at least that wide, else
+   *  the widest. The specs are `DefaultIntSpecs` (DataLayout.cpp:180: i8:8, i16:16, i32:32, i64:32:64) with the layout's
+   *  `i<size>:<abi>[:<pref>]` specs set over them (`setPrimitiveSpec` keeps them sorted by width). */
+  integerABIAlignment(BitWidth: number): number {
+    const specs = new Map<number, number>([
+      [8, 1],
+      [16, 2],
+      [32, 4],
+      [64, 4],
+    ]);
+    for (const s of this.dataLayout.split("-")) {
+      if (!s.startsWith("i")) continue;
+      const m = /^i(\d+):(\d+)(:\d+)?$/.exec(s);
+      if (m === null) return unported(`llir: data layout integer spec ${JSON.stringify(s)} (DataLayout parsing)`);
+      specs.set(Number(m[1]), Number(m[2]) / 8);
+    }
+    const sorted = [...specs.entries()].sort((a, b) => a[0] - b[0]);
+    const I = sorted.find(([w]) => w >= BitWidth) ?? sorted[sorted.length - 1]!;
+    return I[1];
   }
 
   /** The default address spaces of the data layout (`DataLayout::getProgramAddressSpace`, `getDefaultGlobalsAddressSpace`). */

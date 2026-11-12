@@ -8,7 +8,9 @@
 // 4. `printCallingConv`: every calling convention from 0 to 1023 on a declaration, and 0 to 130 on calls.
 // 5. `atomicrmw` / `cmpxchg` built without an alignment get libLLVM's, over several data layouts and operand types.
 // 6. `LLVMGetInlineAsm` values in calls, and the `allocsize` / `allockind` int values replay.ts decodes.
-// 7. `armExclusiveIntrinsic` (and so `LLVMRustGetElementTypeArgIndex`) against libLLVM's intrinsic IDs, and the ARM names it
+// 7. The folds item 6 of the lane added: `extractelement` / `insertelement` of constants, and `and (ptrtoint @g), C` by the
+//    global's pointer alignment.
+// 8. `armExclusiveIntrinsic` (and so `LLVMRustGetElementTypeArgIndex`) against libLLVM's intrinsic IDs, and the ARM names it
 //    relies on.
 import { describe, expect, test } from "bun:test";
 import { CString, dlopen, type Pointer, toArrayBuffer } from "bun:ffi";
@@ -70,6 +72,18 @@ const C_API = {
   LLVMPrintValueToString: { args: [P], returns: P },
   LLVMDisposeMessage: { args: [P], returns: "void" },
   LLVMGetInlineAsm: { args: [P, P, "usize", P, "usize", "i32", "i32", "u32", "i32"], returns: P },
+  LLVMVectorType: { args: [P, "u32"], returns: P },
+  LLVMConstInt: { args: [P, "u64", "i32"], returns: P },
+  LLVMConstNull: { args: [P], returns: P },
+  LLVMGetUndef: { args: [P], returns: P },
+  LLVMConstVector: { args: [P, "u32"], returns: P },
+  LLVMConstPtrToInt: { args: [P, P], returns: P },
+  LLVMAddGlobal: { args: [P, P, P], returns: P },
+  LLVMSetAlignment: { args: [P, "u32"], returns: "void" },
+  LLVMSetInitializer: { args: [P, P], returns: "void" },
+  LLVMBuildAnd: { args: [P, P, P, P], returns: P },
+  LLVMBuildExtractElement: { args: [P, P, P, P], returns: P },
+  LLVMBuildInsertElement: { args: [P, P, P, P, P], returns: P },
   LLVMIntrinsicGetName: { args: ["u32", P], returns: P },
   LLVMLookupIntrinsicID: { args: [P, "usize"], returns: "u32" },
 } as const;
@@ -410,6 +424,79 @@ describe.skipIf(!HAVE && !REQUIRE)("llir-folder vs libLLVM", () => {
     lib.LLVMBuildRetVoid(rB);
     L.LLVMBuildRetVoid(mB);
     expect(printValueToString(mf as never).trim()).toBe(noComments(message(lib.LLVMPrintValueToString(rf))));
+  });
+
+  test("constant extractelement / insertelement and and(ptrtoint @g, C) fold as libLLVM's", () => {
+    const layouts = ["", "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128", "e-m:o-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-n32:64-S128-Fn32", "e-Fi8", "e-Fn64-i32:64"];
+    for (const dl of layouts) {
+      const rc = lib.LLVMContextCreate();
+      const rm = lib.LLVMModuleCreateWithNameInContext(cstr("m"), rc);
+      const mc = L.LLVMContextCreate();
+      const mm = L.LLVMModuleCreateWithNameInContext("m", mc);
+      lib.LLVMSetDataLayout(rm, cstr(dl));
+      L.LLVMSetDataLayout(mm, dl);
+      const rI = (n: number) => lib.LLVMIntTypeInContext(rc, n);
+      const mI = (n: number) => L.LLVMIntTypeInContext(mc, n);
+      const rF = lib.LLVMAddFunction(rm, cstr("f"), lib.LLVMFunctionType(lib.LLVMVoidTypeInContext(rc), ptrs([]), 0, 0));
+      const mF = L.LLVMAddFunction(mm, "f", L.LLVMFunctionType(L.LLVMVoidTypeInContext(mc), [], 0, L.FALSE));
+      const rB = lib.LLVMCreateBuilderInContext(rc);
+      const mB = L.LLVMCreateBuilderInContext(mc);
+      lib.LLVMPositionBuilderAtEnd(rB, lib.LLVMAppendBasicBlockInContext(rc, rF, cstr("start")));
+      L.LLVMPositionBuilderAtEnd(mB, L.LLVMAppendBasicBlockInContext(mc, mF, "start"));
+      const got: string[] = [];
+      const want: string[] = [];
+      // A folded result is compared as a constant; an instruction (no fold, on both sides or one) through the function's text.
+      const show = (r: Pointer, m: L.Value): void => {
+        const isInst = L.LLVMIsAInstruction(m) !== undefined;
+        want.push(isInst ? "(instruction)" : message(lib.LLVMPrintValueToString(r)));
+        got.push(isInst ? "(instruction)" : printValueToString(m as never));
+      };
+      // Vectors: data, all-zero, undef, poison-free splat; indices in range, out of range, undef.
+      const vecs: [Pointer, L.Value][] = [
+        [lib.LLVMConstVector(ptrs([1n, 2n, 3n, 4n].map((v) => lib.LLVMConstInt(rI(32), v, 0))), 4), L.LLVMConstVector([1n, 2n, 3n, 4n].map((v) => L.LLVMConstInt(mI(32), v, L.FALSE)), 4)],
+        [lib.LLVMConstNull(lib.LLVMVectorType(rI(8), 8)), L.LLVMConstNull(L.LLVMVectorType(mI(8), 8))],
+        [lib.LLVMGetUndef(lib.LLVMVectorType(rI(16), 2)), L.LLVMGetUndef(L.LLVMVectorType(mI(16), 2))],
+        [lib.LLVMConstVector(ptrs([7n, 7n].map((v) => lib.LLVMConstInt(rI(64), v, 0))), 2), L.LLVMConstVector([7n, 7n].map((v) => L.LLVMConstInt(mI(64), v, L.FALSE)), 2)],
+      ];
+      for (const [rv, mv] of vecs) {
+        const mEl = (L.LLVMTypeOf(mv) as unknown as { elementType: L.Type }).elementType;
+        const bits = (mEl as unknown as { bits: number }).bits;
+        for (const idx of [0n, 1n, 3n, 9n, -1n]) {
+          const ri = idx < 0n ? lib.LLVMGetUndef(rI(32)) : lib.LLVMConstInt(rI(32), idx, 0);
+          const mi = idx < 0n ? L.LLVMGetUndef(mI(32)) : L.LLVMConstInt(mI(32), idx, L.FALSE);
+          show(lib.LLVMBuildExtractElement(rB, rv, ri, cstr("")), L.LLVMBuildExtractElement(mB, mv, mi, ""));
+          for (const elt of [0n, 5n]) {
+            show(lib.LLVMBuildInsertElement(rB, rv, lib.LLVMConstInt(rI(bits), elt, 0), ri, cstr("")), L.LLVMBuildInsertElement(mB, mv, L.LLVMConstInt(mI(bits), elt, L.FALSE), mi, ""));
+          }
+        }
+      }
+      // and (ptrtoint @g), C: a function, globals with alignments 1, 2, 8, 16, and declarations of i8 / [4 x i32] / i64.
+      const ptrTo = (n: number) => [lib.LLVMIntTypeInContext(rc, n), L.LLVMIntTypeInContext(mc, n)] as const;
+      const globals: [Pointer, L.Value][] = [[rF, mF]];
+      for (const align of [1, 2, 8, 16]) {
+        const rg = lib.LLVMAddGlobal(rm, rI(8), cstr(`a${align}`));
+        const mg = L.LLVMAddGlobal(mm, mI(8), `a${align}`);
+        lib.LLVMSetInitializer(rg, lib.LLVMConstInt(rI(8), 0n, 0));
+        L.LLVMSetInitializer(mg, L.LLVMConstInt(mI(8), 0n, L.FALSE));
+        lib.LLVMSetAlignment(rg, align);
+        L.LLVMSetAlignment(mg, align);
+        globals.push([rg, mg]);
+      }
+      for (const [name, rt, mt] of [["d8", rI(8), mI(8)], ["d32", rI(32), mI(32)], ["d64", rI(64), mI(64)], ["d128", rI(128), mI(128)]] as const) globals.push([lib.LLVMAddGlobal(rm, rt, cstr(name)), L.LLVMAddGlobal(mm, mt, name)]);
+      for (const [rg, mg] of globals) {
+        for (const w of [32, 64]) {
+          const [rT, mT] = ptrTo(w);
+          for (const c of [1n, 2n, 3n, 7n, 8n, 15n, 16n]) {
+            show(lib.LLVMBuildAnd(rB, lib.LLVMConstPtrToInt(rg, rT), lib.LLVMConstInt(rT, c, 0), cstr("")), L.LLVMBuildAnd(mB, L.LLVMConstPtrToInt(mg, mT), L.LLVMConstInt(mT, c, L.FALSE), ""));
+          }
+        }
+      }
+      lib.LLVMBuildRetVoid(rB);
+      L.LLVMBuildRetVoid(mB);
+      want.push(noComments(message(lib.LLVMPrintValueToString(rF))));
+      got.push(printValueToString(mF as never).trim());
+      expect(got.map((g) => `${dl}: ${g}`)).toEqual(want.map((w) => `${dl}: ${w}`));
+    }
   });
 
   test("armExclusiveIntrinsic is libLLVM's arm_ldrex / arm_strex, and the ARM names it relies on", () => {
