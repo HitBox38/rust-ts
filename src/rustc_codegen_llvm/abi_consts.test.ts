@@ -17,9 +17,10 @@
 //    `arg_local_refs` calls it, against the first instructions of the oracle's entry block (Pair, Direct, a `bool`).
 // 3. **statics** (statics.rs): the CGU's items in `items_in_deterministic_order`, `predefine_static` (cg-types-attrs) then
 //    `codegen_static` for each static, then `llvm.used` / `llvm.compiler.used` and the static RAUW, as `base::module_codegen`
-//    does. Compared with the oracle's global lines, in order. Both sides use `-Zfewer-names=yes`: without it the anonymous
-//    allocations are named `alloc_<stable hash>`, which stops in `StableHash for Allocation` (rustc_middle, cg-context's
-//    `alloc_to_backend`; tested below).
+//    does. Compared with the oracle's global lines, in order, with `-Zfewer-names=yes` and without it: then the anonymous
+//    allocations are named `alloc_<stable hash>` (cg-context's `alloc_to_backend`, the derive of `StableHash for Allocation`).
+// 4. **allocation names** (alloc_names.rs, lane stable-hash-alloc): the same, for anonymous allocations of each kind: bytes
+//    only, uninit padding (one init-mask block, and several), and relocations to a static, to another allocation and to a fn.
 //
 // Test scaffolding (each listed in docs/handoff/cg-abi-consts.md):
 // - `CodegenCx::new` needs a target machine (cg-write): the cx is built over an IR-model module with `FullCx`'s fields as
@@ -494,17 +495,27 @@ describe("consts.rs: statics against the oracle (statics.rs, x86_64-unknown-linu
     expect(ours).toEqual(oracle);
   }, 120_000);
 
-  test("without -Zfewer-names an anonymous allocation's name stops in `StableHash for Allocation` (rustc_middle)", () => {
+  // stable-hash-alloc (wave 40o): without -Zfewer-names `alloc_to_backend` names each anonymous allocation
+  // `alloc_<StableHash of the Allocation>` (common.rs:253), so the names are compared as they are.
+  test("without -Zfewer-names: every global line, in order, with the `alloc_<hash>` names", () => {
+    const flags = ["-Copt-level=0"];
+    const oracle = globals(oracle_ir("statics.rs", flags), /(?!)/g);
     install_doubles();
-    let what: string | undefined;
-    with_tcx("statics.rs", ["-Copt-level=0"], (tcx) => {
-      try {
-        codegen_statics(tcx);
-      } catch (e) {
-        if (!(e instanceof Unported)) throw e;
-        what = e.what;
-      }
-    });
-    expect(what).toBe("rustc_middle: compiler/rustc_middle/src/mir/interpret/allocation.rs StableHash for Allocation (alloc_to_backend's value name)");
+    const ours = globals(with_tcx("statics.rs", flags, codegen_statics), /(?!)/g);
+    expect(oracle.length).toBe(24);
+    expect(oracle.filter((l) => /^@alloc_[0-9a-f]{32} = /.test(l)).length).toBe(3);
+    expect(ours).toEqual(oracle);
+  }, 120_000);
+});
+
+describe("common.rs alloc_to_backend: `alloc_<hash>` names against the oracle (alloc_names.rs, x86_64-unknown-linux-gnu)", () => {
+  test("every global line, in order", () => {
+    const flags = ["-Copt-level=0"];
+    const oracle = globals(oracle_ir("alloc_names.rs", flags), /(?!)/g);
+    install_doubles();
+    const ours = globals(with_tcx("alloc_names.rs", flags, codegen_statics), /(?!)/g);
+    // `A_STR`'s "hello", `A_PAD`, `A_BIG`, `A_REF`, `A_REFSTR` and its "hi", `A_FN`, `A_DYN`, its `5u32` and its vtable
+    expect(oracle.filter((l) => /^@alloc_[0-9a-f]{32} = /.test(l)).length).toBe(10);
+    expect(ours).toEqual(oracle);
   }, 120_000);
 });

@@ -16,10 +16,14 @@ import { Mutability } from "../rustc_ast_ir/lib.ts";
 import type { BackendTypes } from "../rustc_codegen_ssa/traits/backend.ts";
 import { ConstCodegenMethods_provided } from "../rustc_codegen_ssa/traits/consts.ts";
 import type { DllImport } from "../rustc_crate_store/cstore.gen.ts";
+import { StableHasher, stable_hash_bytes, stable_hash_unit } from "../rustc_data_structures/stable_hash.ts";
+import { Hash128 } from "../rustc_hashes/lib.ts";
+import { stable_hash_Allocation } from "../rustc_middle/mir_stable_hash.gen.ts";
 import { GlobalAlloc } from "../rustc_middle/mir/interpret/mod.ts";
 import { CtfeProvenance, PointerArithmetic_provided } from "../rustc_middle/mir/interpret/pointer.ts";
 import type { Scalar } from "../rustc_middle/mir/interpret/value.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
+import { stable_hash_CtfeProvenance } from "../rustc_middle/ty/impls_ty.ts";
 import { Instance } from "../rustc_middle/ty/instance.ts";
 import type { PointerAuthSchema } from "../rustc_session/session.ts";
 import { PointerAuthARM8_3Key_discriminant } from "../rustc_session/session.ts";
@@ -317,15 +321,15 @@ CodegenCx.prototype.alloc_to_backend = function (
       break;
   }
   if (!this.sess().fewer_names() && llvm.get_value_name(value).length === 0) {
-    // let hash = self.tcx.with_stable_hashing_context(|mut hcx| {
-    //     let mut hasher = StableHasher::new();
-    //     alloc.stable_hash(&mut hcx, &mut hasher);
-    //     hasher.finish::<Hash128>()
-    // });
-    // `llvm::set_value_name(value, format!("alloc_{hash:032x}").as_bytes());`
-    // PORT (cg-context): `Allocation`'s `#[derive(StableHash)]` has no generated `stable_hash_Allocation` (tools/codegen's
-    // StableHash sets do not reach rustc_middle's mir/interpret/allocation.rs yet).
-    return unported("rustc_middle: compiler/rustc_middle/src/mir/interpret/allocation.rs StableHash for Allocation (alloc_to_backend's value name)");
+    const hash = this.tcx.with_stable_hashing_context((hcx) => {
+      const hasher = StableHasher.new();
+      // `alloc.stable_hash(..)` of `Allocation` (`<CtfeProvenance, (), Box<[u8]>>`): the generated derive, given the
+      // type arguments' impls
+      stable_hash_Allocation(alloc_, hcx, hasher, stable_hash_CtfeProvenance, stable_hash_unit, stable_hash_bytes);
+      return hasher.finish(Hash128);
+    });
+    // `format!("alloc_{hash:032x}")`: `LowerHex` of `Hash128` is its `u128`'s
+    llvm.set_value_name(value, new TextEncoder().encode(`alloc_${Hash128.as_u128(hash).toString(16).padStart(32, "0")}`));
   }
 
   return Ok(value);

@@ -130,8 +130,8 @@ describe("stub counts per lane", () => {
     // 3, plus cg-types-attrs's 2, plus cg-intrinsic-a's 2 in intrinsic.ts (`i32 as u64` of a negative index,
     // `str::from_utf8(..).unwrap()`'s panic text; its third, `assert_matches!`'s message, is a template literal this count skips).
     "rustc_codegen_llvm": 7,
-    // cg-context: `StableHash for Allocation` in `alloc_to_backend`.
-    "rustc_middle": 1,
+    // "rustc_middle": 0 (entry dropped): stable-hash-alloc (wave 40o) made cg-context's `StableHash for Allocation` stop in
+    // `alloc_to_backend` a call of the generated derive.
     // cg-context's 2 (`SanitizerIgnoreList::new`, `typename_for_ignore_list`) and cg-types-attrs's 3 (rustc_sanitizers is out
     // of scope).
     "rustc_sanitizers": 5,
