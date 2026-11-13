@@ -2,7 +2,10 @@
 // comparison go through the same steps, so an equal normal form means the two texts parse to one module, up to what is
 // listed below. Run by scripts/ir-run.ts. No imports beyond node:.
 //
-// **N1, the target (the plan's form):** `opt -passes=assign-guid,verify -S`, then the two strips below.
+// **N1, the target (the plan's form):** `opt -passes=name-anon-globals,assign-guid,verify -S`, then the two strips below.
+//   The first two passes are the two that `LLVMRustOptimize` runs on every module whose text the oracle prints, in its order
+//   (PassWrapper.cpp:992-997, under `NeedThinLTOBufferPasses`, with `CanonicalizeAliasesPass` before them, which N1 does not run).
+//   On the oracle's text they change nothing: its unnamed globals are already `@anon.<md5>.N` and carry their `!guid`.
 //   What it discards, and why that is safe:
 //   - Comments: every line starting with `; `. They are the annotation writer's demangled names and `; call ...`
 //     (PassWrapper.cpp:1067), and opt's `; ModuleID`, `; Function Attrs:` (the attributes themselves stay, on the
@@ -17,6 +20,13 @@
 //     `store` and `alloca`; `dso_local` implied by a linkage; constant expressions the parser folds; a struct type no one uses;
 //     and its auto-upgrades, each of which parses to one module, so nothing downstream of the text can tell them apart: `PIC Level`
 //     and `PIE Level` module flags' behaviour (Min to Max), `nocapture` for `captures(none)` (review harness-m7a H10).
+//   - The names of unnamed globals (`name-anon-globals` names each unnamed global object or alias `anon.<hash>.<n>`, in module
+//     order, as LLVMRustOptimize does; owner decision after review llir-folder, item 10). A model that prints `@0` where the oracle has
+//     `@anon.<md5>.0` reaches the same text. What stays visible: the hash is the MD5 of the names of the module's non-local
+//     definitions, in order, so a definition missing, extra, renamed or moved changes every anonymous name; `<n>` counts unnamed globals in
+//     order, so a missing, extra or reordered one shows; a global that should have a name but is printed unnamed gets an `anon.` name, which
+//     differs; a wrong `anon.` name on the oracle's side or ours is kept as it is (the pass renames only unnamed globals).
+//     It must run before `assign-guid`, as in rustc: the `!guid` of a global is computed from its name.
 //   - A missing `!guid` (`assign-guid` adds it, as LLVMRustOptimize does), not always: on a program with an `lto` flag some functions the
 //     text shows as `internal` keep the guid they got before internalisation, evidently (`tests/ui/sanitizer/cfi/coroutine.rs#cfi`: removing
 //     every `!guid` leaves 7 of 229 different, `main`, `lang_start` and the allocator shims; review H10 did not trace it). That is a false
@@ -55,7 +65,12 @@ export const IR_TIERS = ["N1", "N2", "N3"] as const;
 export type IrTier = (typeof IR_TIERS)[number];
 export const isIrTier = (t: string): t is IrTier => (IR_TIERS as readonly string[]).includes(t);
 
-const OPT_PASSES: Record<IrTier, string> = { N1: "assign-guid,verify", N2: "assign-guid,verify", N3: "assign-guid,function(instsimplify),verify" };
+/** Each tier's `opt -passes=`: rustc's `name-anon-globals,assign-guid` (see the header), then N3's instsimplify, then `verify`. */
+export const OPT_PASSES: Record<IrTier, string> = {
+  N1: "name-anon-globals,assign-guid,verify",
+  N2: "name-anon-globals,assign-guid,verify",
+  N3: "name-anon-globals,assign-guid,function(instsimplify),verify",
+};
 
 /** F1's rule on one suite. `history`: docs/state/history.jsonl. One line (no `ERROR:` prefix) if `tier` needs a decision that is not recorded. */
 export function irTierError(suite: string, tier: IrTier, history: string): string | undefined {

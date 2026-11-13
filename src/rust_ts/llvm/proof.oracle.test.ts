@@ -70,6 +70,11 @@ const CASES: Record<string, { args: string[]; wrappers: string[]; raw?: RegExp }
     raw: RAW_SIGNATURES,
   },
   callconv: { args: BODY, wrappers: [...DEFN, "LLVMRustAddCallSiteAttributes"], raw: RAW_SIGNATURES },
+  // An unnamed global (`@0` in the model's text, `@anon.<md5>.0` in the oracle's): scripts/lib/ir-normal.ts N1 runs name-anon-globals.
+  anon: {
+    args: BODY,
+    wrappers: [...DEFN, "LLVMRustAddCallSiteAttributes", "LLVMRustCreateAlignmentAttr", "LLVMRustCreateAllocKindAttr", "LLVMRustCreateAllocSizeAttr", "LLVMRustCreateStructRetAttr", "LLVMRustGetOrInsertGlobal", "LLVMRustPositionBuilderAtStart"],
+  },
 };
 /** Every compile's module setup: triple, PIC level (every case is PIC or PIE), and `add_module_flag_u32`'s flags. */
 const COMMON_WRAPPERS = ["LLVMRustSetNormalizedTarget", "LLVMRustSetModulePICLevel", "LLVMRustAddModuleFlagU32"];
