@@ -557,6 +557,9 @@ describe.skipIf(!HAVE && !REQUIRE)("llir-folder vs libLLVM", () => {
       // and a struct of one scalable vector type repeated is the sized exception (review llir-folder-notes F1).
       ["{ [2 x <vscale x 4 x i32>] }", lib.LLVMStructTypeInContext(rc, ptrs([lib.LLVMArrayType2(lib.LLVMScalableVectorType(rI(32), 4), 2n)]), 1, 0), L.LLVMStructTypeInContext(mc, [L.LLVMArrayType2(L.LLVMScalableVectorType(mI(32), 4), 2n)], 1, L.FALSE)],
       ["{ <vscale x 4 x i32>, <vscale x 4 x i32> }", lib.LLVMStructTypeInContext(rc, ptrs([lib.LLVMScalableVectorType(rI(32), 4), lib.LLVMScalableVectorType(rI(32), 4)]), 2, 0), L.LLVMStructTypeInContext(mc, [L.LLVMScalableVectorType(mI(32), 4), L.LLVMScalableVectorType(mI(32), 4)], 2, L.FALSE)],
+      // A struct of *different* scalable vector types is unsized: `containsHomogeneousTypes` needs every element equal
+      // (review llir-folder-notes-recheck R1).
+      ["{ <vscale x 4 x i32>, <vscale x 2 x i64> }", lib.LLVMStructTypeInContext(rc, ptrs([lib.LLVMScalableVectorType(rI(32), 4), lib.LLVMScalableVectorType(rI(64), 2)]), 2, 0), L.LLVMStructTypeInContext(mc, [L.LLVMScalableVectorType(mI(32), 4), L.LLVMScalableVectorType(mI(64), 2)], 2, L.FALSE)],
     ];
     const linkages: L.Linkage[] = ["ExternalLinkage", "InternalLinkage", "PrivateLinkage", "WeakAnyLinkage", "WeakODRLinkage", "LinkOnceAnyLinkage", "LinkOnceODRLinkage", "ExternalWeakLinkage", "CommonLinkage", "AvailableExternallyLinkage"];
     const ua: L.UnnamedAddr[] = ["No", "Local", "Global"];
