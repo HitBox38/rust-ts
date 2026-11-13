@@ -345,7 +345,7 @@ describe.skipIf(!HAVE && !REQUIRE)("tools.ts against the oracle", () => {
     expect((caught as Panic).message).toMatch(/\(exit 1\): Instruction does not dominate all uses! \(then: opt: -: error: input module is broken!\)$/);
   });
 
-  test("F4: thin bitcode without use-list order, as rustc's --emit=llvm-bc (opt's EnableSplitLTOUnit flag aside)", async () => {
+  test("F4: thin bitcode written without use-list order; the only difference in the disassembly from rustc's --emit=llvm-bc is opt's EnableSplitLTOUnit flag", async () => {
     const dir = oracle("opt.rs", ["--target", X86, "-Copt-level=2", "-Ccodegen-units=1", "--emit=llvm-bc,llvm-ir", "--out-dir", "."]);
     const M = new Module(new Context(), "opt2");
     set_module_text(M, readFileSync(join(dir, "opt.ll"), "latin1"));
@@ -354,7 +354,8 @@ describe.skipIf(!HAVE && !REQUIRE)("tools.ts against the oracle", () => {
     // What use-list order would add: the same writer with it kept gives other bytes.
     const kept = run_pinned_tool("opt", ["--thinlto-bc", "-passes=assign-guid", "-o", "-", "-"], bytes(module_text(M))).stdout;
     expect(Buffer.from(kept).equals(Buffer.from(ours))).toBe(false);
-    // Disassembled, ours has one module flag more; without it, the normal forms are equal.
+    // Disassembled, ours has one module flag more; without it, the normal forms are equal. (llvm-dis prints no use lists, so this
+    // compares contents only; the use-list part is the check above.)
     const dis = (b: Uint8Array): string => new TextDecoder("latin1").decode(run_pinned_tool_or_ice("llvm-dis", ["-o", "-", "-"], b, "bc", "bc"));
     const flag = /^(!\d+) = !\{i32 1, !"EnableSplitLTOUnit", i32 0\}$/m;
     const o = dis(ours);
@@ -362,6 +363,24 @@ describe.skipIf(!HAVE && !REQUIRE)("tools.ts against the oracle", () => {
     const withoutFlag = o.replace(flag, "").replace(new RegExp(`(!llvm\\.module\\.flags = !\\{.*), ${id}\\}`), "$1}");
     expect(flag.test(dis(theirs))).toBe(false);
     expect(await normalForm(bytes(withoutFlag), "N1", bin())).toEqual(await normalForm(bytes(dis(theirs)), "N1", bin()));
+  });
+
+  test("R1: a module that already has an EnableSplitLTOUnit flag stops before opt, which would add a second one and abort", () => {
+    const M = new Module(new Context(), "split");
+    const text = `; ModuleID = 'x'\nsource_filename = "split"\ntarget triple = "${X86}"\n\ndefine void @f() {\n  ret void\n}\n\n!llvm.module.flags = !{!0}\n\n!0 = !{i32 4, !"EnableSplitLTOUnit", i32 1}\n`;
+    set_module_text(M, text);
+    // What the stop prevents: opt --thinlto-bc on that text fails.
+    expect(run_pinned_tool("opt", ["--thinlto-bc", "-passes=assign-guid", "-o", "-", "-"], bytes(text)).status).not.toBe(0);
+    let caught: unknown;
+    try {
+      L.LLVMRustModuleSerialize(M, true);
+    } catch (e) {
+      caught = e;
+    }
+    expect(caught).toBeInstanceOf(Unported);
+    expect((caught as Unported).what).toMatch(/^llir: LLVMRustModuleSerialize of a module with an EnableSplitLTOUnit flag \(-Zsplit-lto-unit or CFI\): opt --thinlto-bc always adds another/);
+    // The module was not touched (no assign-guid run).
+    expect(module_text(M)).not.toContain("!guid");
   });
 
   test("N5: a model read after a tool rewrote the module stops", () => {

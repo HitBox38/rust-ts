@@ -445,7 +445,8 @@ export function triple_probe(triple: string | undefined): Uint8Array {
 export function canonical_extra_passes(cl: readonly string[], probe: Uint8Array, text: string): { $: "Ok"; passes: string } | { $: "Err"; message: string } {
   const r = run_pinned_tool("opt", [...cl, `-passes=${text}`, "-print-pipeline-passes", "-disable-verify", "-disable-output", "-"], probe);
   const line = firstLine(r.stderr);
-  if (r.status !== 0 && line.startsWith("opt: ")) return { $: "Err", message: line.slice("opt: ".length) };
+  // A death by a signal is never the parser's message, whatever its first line (review llir-tools-recheck N2).
+  if (r.status !== 0 && r.signal === undefined && line.startsWith("opt: ")) return { $: "Err", message: line.slice("opt: ".length) };
   if (r.status !== 0) panic(`llir: opt failed to parse the extra passes ${JSON.stringify(text)}: ${firstErrorLine(r.stderr)}`);
   return { $: "Ok", passes: new TextDecoder().decode(r.stdout).trim() };
 }
@@ -704,11 +705,20 @@ export function LLVMRustBufferLen(Buffer: LLVMRustBuffer): number {
   return live(Buffer).data.length;
 }
 
+/** A module flag named `EnableSplitLTOUnit` in a module's text (`!<n> = !{i32 <behavior>, !"EnableSplitLTOUnit", ...}`). */
+const SPLIT_LTO_UNIT_FLAG = /^!\d+ = !\{i32 \d+, !"EnableSplitLTOUnit", /m;
+
 // rustc: compiler/rustc_llvm/llvm-wrapper/PassWrapper.cpp:1523 LLVMRustModuleSerialize
 export function LLVMRustModuleSerialize(M: Module, is_thin: boolean): LLVMRustBuffer {
   if (!is_thin) {
     // `forceFullLTOSummary(M)` adds a `ThinLTO` module flag to the module itself, which its text cannot be given here.
     return unported("llir: LLVMRustModuleSerialize for fat LTO (forceFullLTOSummary, BitcodeWriterPass with a summary)");
+  }
+  // opt `--thinlto-bc` always adds an `EnableSplitLTOUnit` module flag (below). rustc writes one itself under `-Zsplit-lto-unit` or
+  // CFI (context.rs:297-303); a second flag of that name breaks the module, and opt aborts. So such a module stops by name, before any
+  // opt run (review llir-tools-recheck R1).
+  if (SPLIT_LTO_UNIT_FLAG.test(module_text(M))) {
+    return unported("llir: LLVMRustModuleSerialize of a module with an EnableSplitLTOUnit flag (-Zsplit-lto-unit or CFI): opt --thinlto-bc always adds another (optdriver.cpp:724); review llir-tools-recheck R1");
   }
   // #if LLVM_VERSION_GE(23, 0): `MPM.addPass(AssignGUIDPass())`, which changes the module itself.
   const guid = run_pinned_tool_or_ice("opt", ["-passes=assign-guid", "-S", "-o", "-", "-"], bytesOf(module_text(M)), M.moduleID);
@@ -716,9 +726,10 @@ export function LLVMRustModuleSerialize(M: Module, is_thin: boolean): LLVMRustBu
   // `ThinLTOBitcodeWriterPass(OS, nullptr)`: opt's `--thinlto-bc` (NewPMDriver.cpp:542).
   // - Its `ShouldPreserveUseListOrder` defaults to false; opt passes true (optdriver.cpp:809), which the writer's own
   //   `-preserve-bc-uselistorder=false` overrides (BitcodeWriter.cpp:117, :221) (review llir-tools F4).
-  // - PORT: opt also gives the written module an `EnableSplitLTOUnit` flag of 0 when it has none (optdriver.cpp:724), which reads as
-  //   absent (`enableSplitLTOUnit`). On tools_oracle/opt.rs that flag (and the metadata numbers after it) is the only difference
-  //   from rustc's own `--emit=llvm-bc` (tools.test.ts).
+  // - PORT: opt always gives the written module an `EnableSplitLTOUnit` flag of 0 (`addModuleFlag`, optdriver.cpp:724, no check of an
+  //   existing one; a module that has one stopped above). A flag of 0 reads as absent (`enableSplitLTOUnit`). On tools_oracle/opt.rs
+  //   that flag (and the metadata numbers after it) is the only difference in the disassembly from rustc's own `--emit=llvm-bc`
+  //   (tools.test.ts). The disassembly has no use lists, so it does not show the use-list part, which is the writer option's.
   const bc = run_pinned_tool_or_ice("opt", ["--thinlto-bc", "-preserve-bc-uselistorder=false", "-passes=assign-guid", "-o", "-", "-"], bytesOf(module_text(M)), M.moduleID);
   return new LLVMRustBuffer(bc);
 }

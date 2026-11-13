@@ -180,6 +180,7 @@ Others:
   `LLVMRustWriteOutputFile` (PORT 3).
 - `llc_target_flags` for SystemZ: llc clears `VerifyArgABICompliance` (review N3).
 - `assert_model_current`: a model read of a module a tool rewrote (review N5), for future readers.
+- `LLVMRustModuleSerialize` of a module that already has an `EnableSplitLTOUnit` flag (`-Zsplit-lto-unit`, CFI; review recheck R1).
 
 ## `// PORT:` decisions (for root to record)
 
@@ -217,9 +218,13 @@ Others:
      (optdriver.cpp:809, llvm-as.cpp:98), where rustc's writers default to false. The bitcode writer's own `-preserve-bc-uselistorder`
      overrides the tools' choice when given (BitcodeWriter.cpp:117, :221). Both now pass `-preserve-bc-uselistorder=false`, in
      `LLVMRustModuleSerialize` and `LLVMWriteBitcodeToFile`.
-   - What is left: opt adds an `EnableSplitLTOUnit` flag of 0 to the written module (optdriver.cpp:724), which reads as absent. On
-     opt.rs at O2, `tools.test.ts` checks that, without that flag, the port's thin bitcode disassembles to the N1 of rustc's own
-     `--emit=llvm-bc`. It also checks that keeping use-list order gives other bytes.
+   - What is left: opt **always** adds an `EnableSplitLTOUnit` flag of 0 to the written module (`addModuleFlag`, optdriver.cpp:724,
+     with no check for an existing one). A flag of 0 reads as absent.
+   - A module that already has the flag, which rustc writes under `-Zsplit-lto-unit` or CFI, would get a second one, and opt would
+     abort. It now stops by name before any opt run (review recheck R1).
+   - On opt.rs at O2, `tools.test.ts` checks that the flag is **the only difference in the disassembly** from rustc's own
+     `--emit=llvm-bc`. llvm-dis prints no use lists, so the bytes are not compared; a separate check shows that keeping use-list order
+     gives other bytes.
 9. **`LLVMRustParseBitcodeForLTO`**: a parse failure is the port's own bitcode, so it is ICE-class, not `Failure`.
    `enableDebugTypeODRUniquing` is not modeled; debuginfo is llir-di's.
 10. **`with_cl_args`** is a seam for tests and the evidence tools, which call the wrappers without `configure_llvm`.
@@ -279,7 +284,8 @@ Others:
   `llvm_optimize` test on the real path.
 - `5a878cfc`: the first handoff.
 - `229fb3ae`: merge of llir-init `e9e7a89d`.
-- The review-fix commit and its handoff update (below).
+- `1ebd1c1a`, `d1eb362a`: the review fixes and their handoff update (below).
+- The recheck fix commit (R1, N1, N2) and this handoff update.
 
 ## Review fixes (docs/reviews/llir-tools.md at `520666f4`: FAIL, four must-fixes)
 
@@ -304,3 +310,20 @@ After the fixes:
   **303 pass, 0 fail** (24 files).
 - `tools.test.ts`: 39 tests, about 0.6-1.1 s.
 - `objects.ts`: the 8 objects are still byte-identical; no machine involved has features.
+
+## Recheck fixes (docs/reviews/llir-tools-recheck.md at `9e868027`: FAIL, one must-fix)
+
+- **R1:** `LLVMRustModuleSerialize` stops by name, before any opt run, on a module that already has an `EnableSplitLTOUnit` flag:
+  `llir: LLVMRustModuleSerialize of a module with an EnableSplitLTOUnit flag (-Zsplit-lto-unit or CFI): opt --thinlto-bc always adds
+  another (optdriver.cpp:724); ...`.
+  - The PORT says opt always adds the flag.
+  - Test: opt fails on such a text, and the wrapper stops without touching the module.
+  - The reviewer's case (opt.rs, `-Zsplit-lto-unit -Clinker-plugin-lto --emit=llvm-bc,llvm-ir`, the oracle's `.ll`) now stops by name
+    instead of ICEing.
+- **N1:** F4's PORT, test name and comment say "the only difference in the disassembly", and that llvm-dis prints no use lists.
+- **N2:** `canonical_extra_passes` reads a failure as the parser's message only when the tool was not killed by a signal.
+- N3 (tests on the real target machine): not done. The views still match `TargetMachineArgs` structurally.
+- Checks:
+  - `bunx tsc --noEmit -p .`: clean.
+  - Test set: **304 pass, 0 fail** (24 files); `tools.test.ts` has 40.
+  - Marker check: the same 84 llir-init manifest errors, none in this lane's files.
