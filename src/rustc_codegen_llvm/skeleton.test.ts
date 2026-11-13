@@ -14,6 +14,9 @@ import "../rustc_target/lib.ts";
 import { FnAbi } from "../rustc_target/callconv/mod.ts";
 import { printValueToString } from "../rust_ts/llvm/printer.ts";
 import { Unported } from "../std/panic.ts";
+import { compiler_entrypoint } from "../rustc_driver_impl/lib.ts";
+import { type Config, run_compiler } from "../rustc_interface/interface.ts";
+import "../rustc_session/lib.ts";
 import { LlvmCodegenBackend } from "./lib.ts";
 import * as attributes from "./attributes.ts";
 import { Builder, GenericBuilder } from "./builder.ts";
@@ -296,6 +299,26 @@ describe("auto-deref", () => {
   });
 });
 
+/** Runs the port's driver for `rustc --crate-type lib context_oracle/empty.rs` with `backend` as its codegen backend
+ *  (`Config::make_codegen_backend`), so that `run_compiler` calls `backend.init(early_sess)` as it does for any backend. */
+function drive_init(backend: LlvmCodegenBackend): void {
+  class CaptureConfig extends Error {}
+  let config: Config | undefined;
+  try {
+    compiler_entrypoint(["rustc", "--crate-type", "lib", join(import.meta.dir, "context_oracle", "empty.rs")], {
+      config(c: Config) {
+        config = c;
+        throw new CaptureConfig();
+      },
+    });
+  } catch (e) {
+    if (!(e instanceof CaptureConfig)) throw e;
+  }
+  if (config === undefined) throw new Error("ERROR: no config");
+  config.make_codegen_backend = () => backend as never;
+  run_compiler(config, () => {});
+}
+
 describe("LlvmCodegenBackend", () => {
   test("name (llvm_backend.rs:176)", () => {
     expect(LlvmCodegenBackend.new().name()).toBe("llvm");
@@ -329,9 +352,11 @@ describe("LlvmCodegenBackend", () => {
 
   test("what reaches an unported lane stops there, naming it", () => {
     const b = new LlvmCodegenBackend();
-    // llvm_util.rs init, ported (cg-write): its first LLVM call is the IR model's stop.
-    stops(() => b.init(undefined as never), /^llir: LLVMIsMultithreaded$/);
-    // llvm_util.rs print, ported (cg-write): `require_inited` is a `bug!` before `init` has run (it cannot run: above).
+    // llvm_util.rs init, ported (cg-write), called by the driver on its early session: its first LLVM call, LLVMIsMultithreaded, is the IR model's (lane
+    // llir-init); `configure_llvm` then stops at llvm_util.rs's own `rustc_llvm::initialize_available_targets` (or, with `CI` set
+    // in the environment, at the IR model's LLVMRustDisableSystemDialogsOnCrash just before it).
+    stops(() => drive_init(b), /^llir: (rustc_llvm::initialize_available_targets|LLVMRustDisableSystemDialogsOnCrash)$/);
+    // llvm_util.rs print, ported (cg-write): `require_inited` is a `bug!` before `init` has run to completion.
     expect(() => b.print({ kind: "TargetCPUs" } as never, { value: "" }, undefined as never)).toThrow(/LLVM is not initialized/);
     stops(() => b.has_zstd(), /^llir: LLVMRustLLVMHasZstdCompression$/);
   });

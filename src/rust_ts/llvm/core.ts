@@ -1104,7 +1104,7 @@ export function LLVMRustPrintModule(M: Module, Output: string | undefined, _Dema
 let LAST_ERROR: string | undefined;
 
 /** `LLVMRustSetLastError` (RustWrapper.cpp:140), internal to the wrappers. */
-function LLVMRustSetLastError(Err: string): void {
+export function LLVMRustSetLastError(Err: string): void {
   LAST_ERROR = Err;
 }
 

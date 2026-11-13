@@ -46,6 +46,8 @@ import { OutputType, type OutputFilenames, type SplitDwarfKind } from "../../rus
 import type { SplitDebuginfo } from "../../rustc_target/spec/mod.ts";
 import { Unported } from "../../std/panic.ts";
 import * as ffi from "../../rust_ts/llvm/ffi.ts";
+import { initialize_available_targets } from "../../rust_ts/llvm/target.ts";
+import { TM_FIXTURES, tmArgs } from "../../rust_ts/llvm/tm_fixture.ts";
 import type { Module as IrModule } from "../../rust_ts/llvm/ir.ts";
 import { printModule } from "../../rust_ts/llvm/printer.ts";
 import "../lib.ts";
@@ -470,8 +472,13 @@ describe("what reaches the IR model's stops stops there, by name", () => {
     expect((e as Unported).what).toMatch(what);
   };
   test("owned_* and archive", () => {
-    stops(() => OwnedMCSubtargetInfo.new("t", "c", ""), /^llir: LLVMRustCreateMCSubtargetInfo$/);
-    stops(() => new OwnedTargetMachine({} as never).drop(), /^llir: LLVMDisposeTargetMachine$/);
+    // lane llir-init: the IR model creates subtargets and target machines now; a triple it does not know stops in its
+    // `Triple::normalize`, and dropping a machine disposes of it.
+    stops(() => OwnedMCSubtargetInfo.new("t", "c", ""), /^llir: Triple::normalize\("t"\)$/);
+    initialize_available_targets();
+    const tm = ffi.LLVMRustCreateTargetMachine(...tmArgs(readFileSync(join(TM_FIXTURES, "x86_64-unknown-linux-gnu.tm"), "utf8").split("\n")[0]!))!;
+    new OwnedTargetMachine(tm).drop();
+    expect(tm.disposed).toBe(true);
     stops(() => llvm_util.print_passes(), /^llir: LLVMRustPrintPasses$/);
     const ab = LlvmArchiveBuilderBuilder.new_archive_builder(undefined as never);
     expect(ab).toBeDefined();
