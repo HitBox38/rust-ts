@@ -1,6 +1,6 @@
 # Handoff: fixer lane `fixers-56` (M7, wave 40p)
 
-Branch `t3/025e4c66`, based on `7b71d658`. One commit per item; each commit message cites its finding. No behaviour change
+Branch `t3/rust-ts-fixer-nits`, based on `7b71d658`. One commit per item; each commit message cites its finding. No behaviour change
 except item 4's error handling in a hand-run tool.
 
 ## Items
