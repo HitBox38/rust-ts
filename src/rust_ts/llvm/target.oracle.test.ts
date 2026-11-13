@@ -23,7 +23,7 @@ import {
   DiagnosticHandler,
   ERROR_HANDLERS,
   initialize_available_targets,
-  llvm_cl_args,
+  llvm_cl_args, reset_llvm_options_for_tests,
   lookupTarget,
   mcSubtargetKey,
   ParseCommandLineOptions,
@@ -202,6 +202,8 @@ describe("initialize_available_targets, the target machine and the MC subtarget"
 
   test("LLVMRustSetLLVMOptions: the accepted arguments, once; anything else stops", () => {
     const argv0 = 'rustc -Cllvm-args="..." with';
+    // Another test file in this process may have driven `init`, which sets the options once (root at integ-w56).
+    reset_llvm_options_for_tests();
     expect(llvm_cl_args()).toEqual([]);
     // (The first call wins, so the stops are checked on the parser itself.)
     stops(() => ParseCommandLineOptions(2, [argv0, "-time-passes"]), /cl::ParseCommandLineOptions of "-time-passes"/);

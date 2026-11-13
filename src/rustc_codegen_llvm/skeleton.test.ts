@@ -140,9 +140,9 @@ describe("stub counts per lane", () => {
     // `gpu_offload::scalar_width`), plus cg-lto-diag's 2 in back/lto.ts (`EnzymeWrapper::get_instance` in
     // `enable_autodiff_settings`, `LLVMDumpModule` for `-Zautodiff=PrintModFinal`).
     "excluded (plan-m7 D18)": 19,
-    // 2, plus cg-context's `LLVMGetFirstFunction` / `LLVMGetNextFunction` (llvm/enzyme_ffi.rs) in `get_functions`, plus cg-write's
-    // `rustc_llvm::initialize_available_targets` in `configure_llvm`.
-    "llir": 5,
+    // 2, plus cg-context's `LLVMGetFirstFunction` / `LLVMGetNextFunction` (llvm/enzyme_ffi.rs) in `get_functions` (cg-write's
+    // `rustc_llvm::initialize_available_targets` stop became the IR model's port at integ-w56).
+    "llir": 4,
     // 3, plus cg-types-attrs's 2, plus cg-intrinsic-a's 2 in intrinsic.ts (`i32 as u64` of a negative index,
     // `str::from_utf8(..).unwrap()`'s panic text; its third, `assert_matches!`'s message, is a template literal this count skips),
     // plus cg-write's non-UTF-8 symbol name in `create_msvc_imps`, plus cg-lto-diag's 4 in back/lto.ts (two `ThinLtoInput::Green`,
@@ -352,12 +352,25 @@ describe("LlvmCodegenBackend", () => {
 
   test("what reaches an unported lane stops there, naming it", () => {
     const b = new LlvmCodegenBackend();
-    // llvm_util.rs init, ported (cg-write), called by the driver on its early session: its first LLVM call, LLVMIsMultithreaded, is the IR model's (lane
-    // llir-init); `configure_llvm` then stops at llvm_util.rs's own `rustc_llvm::initialize_available_targets` (or, with `CI` set
-    // in the environment, at the IR model's LLVMRustDisableSystemDialogsOnCrash just before it).
-    stops(() => drive_init(b), /^llir: (rustc_llvm::initialize_available_targets|LLVMRustDisableSystemDialogsOnCrash)$/);
-    // llvm_util.rs print, ported (cg-write): `require_inited` is a `bug!` before `init` has run to completion.
-    expect(() => b.print({ kind: "TargetCPUs" } as never, { value: "" }, undefined as never)).toThrow(/LLVM is not initialized/);
+    // llvm_util.rs init, ported (cg-write), called by the driver on its early session. Since llir-init (root at integ-w56),
+    // `configure_llvm` runs through the IR model's init, `initialize_available_targets` and `LLVMRustSetLLVMOptions`. With `CI`
+    // set (as the gate's unit step sets it, scripts/lib/unit-steps.ts), it first calls `LLVMRustDisableSystemDialogsOnCrash`,
+    // still the model's stop (its LLVM source is not pinned yet): then `init` stops there and LLVM stays uninitialised;
+    // without `CI`, `init` completes. Each branch checks its own outcome (a test may not read `CI` by name).
+    let stop: string | undefined;
+    try {
+      drive_init(b);
+    } catch (e) {
+      if (!(e instanceof Unported)) throw e;
+      stop = e.what;
+    }
+    if (stop !== undefined) {
+      expect(stop).toBe("llir: LLVMRustDisableSystemDialogsOnCrash");
+      // llvm_util.rs print, ported (cg-write): `require_inited` is a `bug!` before `init` has run to completion.
+      expect(() => b.print({ kind: "TargetCPUs" } as never, { value: "" }, undefined as never)).toThrow(/LLVM is not initialized/);
+    } else {
+      expect(() => b.print({ kind: "TargetCPUs" } as never, { value: "" }, undefined as never)).not.toThrow(/LLVM is not initialized/);
+    }
     stops(() => b.has_zstd(), /^llir: LLVMRustLLVMHasZstdCompression$/);
   });
 });

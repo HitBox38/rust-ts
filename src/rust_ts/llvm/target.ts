@@ -170,6 +170,14 @@ export function llvm_cl_args(): readonly string[] {
   return CL_ARGS;
 }
 
+/** Tests only, not upstream: forget the first `LLVMRustSetLLVMOptions` call. LLVM's options are process-wide, and one
+ *  `bun test` process runs every test file, so a test that drives `init` would otherwise fix them for the rest (root at
+ *  integ-w56). */
+export function reset_llvm_options_for_tests(): void {
+  Initialized = false;
+  CL_ARGS = [];
+}
+
 // rustc: compiler/rustc_llvm/llvm-wrapper/PassWrapper.cpp:440 LLVMRustSetLLVMOptions
 export function LLVMRustSetLLVMOptions(Argc: number, Argv: readonly string[]): void {
   // Initializing the command-line options more than once is not allowed. So,
