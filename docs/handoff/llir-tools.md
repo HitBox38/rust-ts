@@ -19,7 +19,7 @@ Branch `t3/implement-llir-tools` (from `7b71d658`; no merges). Commits at the en
     configure_llvm's `cl::opt`s.
   - It runs `opt -S` on the module's text and keeps the result as the module's text.
 - **`LLVMRustWriteOutputFile`** maps all 23 `LLVMRustCreateTargetMachine` arguments to `llc` flags (`llc_target_flags`), or stops
-  where llc has none, and runs `llc -filetype=asm|obj`.
+  where llc has none or no faithful form (global target features, review F1), and runs `llc -filetype=asm|obj`.
 - **Modules after a tool are held as text.** The model cannot read IR back, so the module keeps its handle and its contents are the
   tool's text (`set_module_text`). Every consumer reads `module_text`: `LLVMRustPrintModule` (core.ts, one changed line), llc,
   serialize, clone, bitcode. A model mutation after that point stops (`unported`) because the model's print no longer matches its
@@ -142,10 +142,12 @@ section in the assembly.
 
 ## Coverage
 
-`bun scripts/coverage.ts --crate llvm-wrapper`: **56/197**, up from 46/197 at `7b71d658`. This lane adds 10 wrapper functions:
-- PassWrapper.cpp: `fromRust` (PassBuilderOptLevel, :190), `LLVMRustCreateTargetMachine` (:347, on `llc_target_flags`, its llc form),
-  `fromRust` (FileType, :457), `LLVMRustWriteOutputFile` (:469), `LLVMRustOptimize` (:676, on `opt_plan` and the wrapper),
-  `LLVMRustModuleSerialize` (:1523), `LLVMRustParseBitcodeForLTO` (:1561). PassWrapper.cpp goes from 5/50 to 12/50.
+`bun scripts/coverage.ts --crate llvm-wrapper`: 56/197 at the first handoff (46 at `7b71d658`); **72/197 after merging llir-init**.
+This lane adds 9 wrapper functions:
+- PassWrapper.cpp: `fromRust` (PassBuilderOptLevel, :190), `fromRust` (FileType, :457), `LLVMRustWriteOutputFile` (:469),
+  `LLVMRustOptimize` (:676, on the wrapper only), `LLVMRustModuleSerialize` (:1523), `LLVMRustParseBitcodeForLTO` (:1561).
+- Review N1 removed two markers: the `:347 LLVMRustCreateTargetMachine` marker on `llc_target_flags` (llir-init ports that wrapper),
+  and the second `:676` marker, on `opt_plan`.
 - RustWrapper.cpp: `LLVMRustBufferFree`/`Ptr`/`Len` (:1477-1483).
 - LLVM: `LLVMWriteBitcodeToFile` (BitWriter.cpp:20).
 - `LLVMCloneModule` has no `// llvm:` marker. Its file (`llvm/lib/Transforms/Utils/CloneModule.cpp`) is not in
@@ -174,7 +176,10 @@ The other `fromRust`s (CodeModel, CodeGenOptLevel, RelocModel, FloatABI, Compres
 Others:
 - `LLVMRustModuleSerialize` for fat LTO: `forceFullLTOSummary` adds a module flag to the module itself.
 - `module_text`: the model changed after a tool rewrote the module.
-- `cl_args`: `llir-init: src/rust_ts/llvm/target.ts llvm_cl_args`, until llir-init merges (below).
+- Global target features (review F1, F2): a target machine whose `Features` is not empty stops in `LLVMRustOptimize` and in
+  `LLVMRustWriteOutputFile` (PORT 3).
+- `llc_target_flags` for SystemZ: llc clears `VerifyArgABICompliance` (review N3).
+- `assert_model_current`: a model read of a module a tool rewrote (review N5), for future readers.
 
 ## `// PORT:` decisions (for root to record)
 
@@ -185,9 +190,20 @@ Others:
    `-Cno-vectorize-slp`. `-vectorize-slp=false` makes the pass return at once (SLPVectorizer.cpp:27804), so the IR is unchanged and only
    the pipeline text has one extra pass. Interleaving and loop vectorization are forced off through `-interleave-loops=false` and
    `-vectorize-loops=false`, which reach the same `LoopVectorizePass` options; those printed the same in all 18 pipelines.
-3. **No `-mcpu`/`-mattr` for opt.** opt would write them as attributes onto every function lacking them, declarations included
-   (CommandFlags.cpp:713), and rustc does not do that. Passes read the subtarget from the function's attributes, which rustc writes on
-   every definition. llc does get them; it adds them the same way, but only codegen sees the result.
+3. **Target CPU and features (corrected after review F1, F2; my first text was wrong).**
+   - **CPU.** opt gets no `-mcpu`: it would write `target-cpu` onto every function lacking it, declarations included
+     (CommandFlags.cpp:713), which rustc's text does not have. rustc writes `target-cpu` on every definition, `__rust_try` included.
+     llc does get `-mcpu`: it fills in only functions without the attribute, which is where rustc's machine CPU applies too.
+   - **Features: a named stop when the machine has any**, by root's decision on F1. LLVM gives the machine's `Feature` (rustc's global
+     list) only to a function without `target-features`, and neither tool can do that:
+     - llc appends `-mattr` to every function's own list (CommandFlags.cpp:717-728). The global list then overrides
+       `#[target_feature]`; the reviewer got a 128-bit `_mm256_add_epi32` and an llc `Cannot select` crash.
+     - opt without `-mattr` gives `__rust_try` (`target-cpu` only, intrinsic.rs:1751) no features where rustc gives it the global
+       list, which changes inlining (F2). With `-mattr`, opt would print the list on every function.
+   - `tools.test.ts` compiles `catch_unwind.rs` with `-Ctarget-feature=+avx2` through the oracle. It checks that `__rust_try` has
+     `target-cpu` and no `target-features` while `main` has the global list, and that both wrappers stop on a machine with that list.
+   - The recorded x86_64-linux and aarch64-apple-darwin machines have no features, so this costs only `-Ctarget-feature` cases and
+     targets whose spec has base features.
 4. **Verification.** opt verifies its input and output (`VerifierKind::InputOutput`), which rustc does only under `-Zverify-llvm-ir`. That
    changes no IR and makes an invalid model module a D16 stop. llc gets `-disable-verify` unless `VerifyIR`, matching
    `addPassesToEmitFile(..., !VerifyIR)`.
@@ -195,36 +211,51 @@ Others:
    since rustc's module keeps its identifier in memory. The line is a comment, so N1 never sees it either way.
 6. **`UpgradeCallsToIntrinsic`** before the run is the parser's own upgrade in opt.
 7. **`ObjectFilenameForDebug`.** llc sets it to its `-o` file, and only CodeView reads it. Windows stops.
-8. **`LLVMRustModuleSerialize` (thin)** runs `assign-guid` on the module itself, as the wrapper does, then writes with `opt --thinlto-bc`.
-   That adds an `EnableSplitLTOUnit` flag of 0 to the written bitcode, which reads as absent.
+8. **`LLVMRustModuleSerialize` (thin)** runs `assign-guid` on the module itself, as the wrapper does, then writes with
+   `opt --thinlto-bc`.
+   - **Use-list order (review F4; my first comment was wrong).** opt and llvm-as hard-code `ShouldPreserveUseListOrder = true`
+     (optdriver.cpp:809, llvm-as.cpp:98), where rustc's writers default to false. The bitcode writer's own `-preserve-bc-uselistorder`
+     overrides the tools' choice when given (BitcodeWriter.cpp:117, :221). Both now pass `-preserve-bc-uselistorder=false`, in
+     `LLVMRustModuleSerialize` and `LLVMWriteBitcodeToFile`.
+   - What is left: opt adds an `EnableSplitLTOUnit` flag of 0 to the written module (optdriver.cpp:724), which reads as absent. On
+     opt.rs at O2, `tools.test.ts` checks that, without that flag, the port's thin bitcode disassembles to the N1 of rustc's own
+     `--emit=llvm-bc`. It also checks that keeping use-list order gives other bytes.
 9. **`LLVMRustParseBitcodeForLTO`**: a parse failure is the port's own bitcode, so it is ICE-class, not `Failure`.
    `enableDebugTypeODRUniquing` is not modeled; debuginfo is llir-di's.
 10. **`with_cl_args`** is a seam for tests and the evidence tools, which call the wrappers without `configure_llvm`.
+11. **`VerifyArgABICompliance`** (review N3): llc clears it (llc.cpp:703), and rustc leaves it on. Only SystemZ reads it, so SystemZ
+    stops.
+12. **Vector library** (review N3): opt's and llc's TargetLibraryInfo take `-vector-library` (optdriver.cpp:730, llc.cpp:715), and
+    the wrapper's has none. The option cannot reach the tools, because llir-init's `LLVMRustSetLLVMOptions` stops on anything outside
+    its allowlist.
+13. **DWO file** (review N2): upstream's open check can never fire (`EC.clear()` before `if (EC)`). llc opens the file itself and
+    fails as an ICE where upstream would write to a broken stream. Reached only with `-Csplit-debuginfo` (D18).
+14. **Signals** (review F3): a tool killed by a signal is a failure like any other. It gets status 128 + the signal number, its stderr
+    is kept, the panic says `(signal SIGABRT): LLVM ERROR: ...`, and the input is kept. Tested with llc on
+    `llvm.x86.avx2.pshuf.b` under `-mattr=-avx2`.
 
 ## For root
 
-- **Merge with llir-init.** tools.ts reads the target machine through a structural view (`ToolTargetMachine`) of the field names agreed by
-  message: the 23 parameter names of `LLVMRustCreateTargetMachine`, plus `disposed`. It reads the LLVM options through
-  `require("./target.ts").llvm_cl_args()`, which stops by name until target.ts exists. Both of us edit `impl_modules.ts` (append) and
-  `handles.ts` (different lines) and regenerate `ffi.ts`: rerun `bun tools/llir/ffi_gen.ts` after merging. llir-init said it would use
-  core.ts's `LLVMRustSetLastError` export (made here with a one-word change) rather than add one.
+- **llir-init is merged in** (`e9e7a89d`, merge commit `229fb3ae`; the conflicts and their resolution are in its message). tools.ts now
+  imports target.ts's `TargetMachineArgs` and `llvm_cl_args` directly. `with_cl_args` stays for the tests.
+- **`bun scripts/coverage.ts --check --offline` prints 84 `ERROR:` lines after the merge.** All are in llir-init's `target.ts` (39) and
+  `triple.ts` (45), "names no file of harness/llvm-manifest.json". llir-init's handoff lists the manifest files to add
+  (`bun scripts/llvm-src.ts add ...`); none of the errors is in this lane's files.
 - **`src/rustc_codegen_llvm/back/write.test.ts`** (cg-write's file, not mine). The test "llvm_optimize stops at LLVMRustOptimize" relied
   on the stub, so it is now "llvm_optimize runs LLVMRustOptimize". It drives the real `write::llvm_optimize` with an empty model module, the
   recorded x86_64 target machine's fields, and `with_cl_args`. It asserts the module comes back as opt's text, and that a ThinLTO buffer
-  cell stops by name. It passes both before and after llir-init's merge.
-- **A trial merge with llir-init** (`t3/implement-llvm-init-target-machine` at `27a971a7`), resolved in a throwaway worktree, then removed;
-  nothing was committed:
-  - conflicts only in `core.ts` (a doc line; both lanes export `LLVMRustSetLastError`), `handles.ts` (keep llir-init's lines, with
-    `export type Buffer = LLVMRustBuffer;` and the `import type { LLVMRustBuffer } from "./tools.ts";`), `impl_modules.ts`
-    (`[core, build, intrinsics, target, tools]`) and `ffi.ts` (regenerate);
-  - `write.test.ts` merges cleanly once both import blocks are kept;
-  - `tsc` clean, and the test set above **296 pass, 0 fail**;
-  - opt.rs at -O2 through llir-init's real `LLVMRustCreateTargetMachine` and `LLVMRustSetLLVMOptions` (no `with_cl_args`, no view) reaches
-    the oracle's N1, and `LLVMRustWriteOutputFile` writes an ELF object.
+  cell stops by name.
+- **For cg-lto-diag's follow-up** (that lane has finished, so this is the note):
+  - The port's bitcode now carries no use-list order, as rustc's writers do; before review F4 it did. Fat LTO links these buffers, and
+    use-list order steers the inliner.
+  - `LLVMRustModuleCost` must count the `define`s of `module_text(M)`, not the model's functions: it picks fat LTO's base module, and
+    after `optimize` the model is stale. Any function that reads a module from the model calls `assert_model_current(M, fn)` (N5).
 - **cg-lto-diag** uses the runner. `LLVMRustLinkerNew/Add/Free`, `LLVMRustRunRestrictionPass` and `LLVMRustModuleCost` are its fat-LTO
   follow-up, to go to root. cg-lto-diag's `Buffer` is `llvm.Buffer`, which is now `LLVMRustBuffer`.
-- **The recorder** times out (90 s, under load 30) on most mir-o2 programs: 6 of 150 at O0 and 7 at O2 timed out at 60 s, all in the bigger programs (threads, `fmt`, collections). llir-init is fixing its handle lookup. A rerun
-  of `evidence.ts` after that merges measures more of the sample.
+- **The recorder** timed out (60 s) on 6 of 150 mir-o2 programs at O0 and 7 at O2, all bigger programs (threads, `fmt`, collections).
+  llir-init fixed its handle lookup (now merged here); a rerun of `evidence.ts` would measure more of the sample. I did not rerun it.
+- **Startup cost (review N7, for the D14/perf work):** the first tool use in a compile spawns `rustc +<toolchain> --print sysroot` (about
+  17 ms) and hashes `opt`/`llc` (about 0.5 MB together).
 - **No `scripts/` change.** `llvm-link` and `llvm-dis` are not in `LLVM_TOOLS_PINNED`, so only their existence is checked. Pinning them is
   a scripts batch.
 
@@ -234,7 +265,7 @@ Others:
 |---|---|
 | `src/rust_ts/llvm/tools.ts` | new: the wrappers, the runner, modules as text |
 | `src/rust_ts/llvm/tools.test.ts` | new: 34 tests |
-| `src/rust_ts/llvm/tools_oracle/` | new: `record.ts` (hand-run recorder of the fixtures), `fixtures.ts` (ModuleConfig settings, configure_llvm options, target machines from `.tm`), `evidence.ts`, `objects.ts` (hand-run evidence tools), `hello.rs`, `opt.rs`, `pipelines.json`, `opt.O{0,2}.{ll,script}` |
+| `src/rust_ts/llvm/tools_oracle/` | new: `record.ts` (hand-run recorder of the fixtures), `fixtures.ts` (ModuleConfig settings, configure_llvm options, target machines from `.tm`), `evidence.ts`, `objects.ts` (hand-run evidence tools), `hello.rs`, `opt.rs`, `catch_unwind.rs`, `pipelines.json`, `opt.O{0,2}.{ll,script}` |
 | `src/rust_ts/llvm/core.ts` | `LLVMRustPrintModule` prints `module_text`; `LLVMRustSetLastError` exported |
 | `src/rust_ts/llvm/handles.ts` | `Buffer` is `LLVMRustBuffer` |
 | `src/rust_ts/llvm/impl_modules.ts` | `./tools.ts` appended |
@@ -246,4 +277,30 @@ Others:
 - `ce8718a3`: tools.ts, its tests and fixtures, core.ts/handles.ts/impl_modules.ts/ffi.ts, the first write.test.ts change.
 - `4d429c49`: the evidence tools as run for this handoff (evidence.ts's control without the recorder, N2 tier, timeouts), and write.test.ts's
   `llvm_optimize` test on the real path.
-- The commit of this handoff.
+- `5a878cfc`: the first handoff.
+- `229fb3ae`: merge of llir-init `e9e7a89d`.
+- The review-fix commit and its handoff update (below).
+
+## Review fixes (docs/reviews/llir-tools.md at `520666f4`: FAIL, four must-fixes)
+
+| Finding | Fix |
+|---|---|
+| F1 `llc -mattr` overrides `#[target_feature]` | no `-mattr`; a machine with global features stops by name (`stop_on_global_features`), root's decision; PORT 3 corrected |
+| F2 opt gives `__rust_try` no features | the same stop in `LLVMRustOptimize`; a test compiles `catch_unwind.rs` with `-Ctarget-feature=+avx2` and checks both the attributes and the two stops |
+| F3 signal deaths skip D16 | `ToolRun` has `signal`, status 128 + signo, stderr kept; the panic gives `(signal SIGABRT): LLVM ERROR: ...` and the input is kept; tested with llc on `llvm.x86.avx2.pshuf.b` under `-mattr=-avx2` |
+| F4 bitcode keeps use-list order | `-preserve-bc-uselistorder=false` (the writer's own override) for opt `--thinlto-bc` and llvm-as; comments and PORT 8 corrected; tested against rustc's `--emit=llvm-bc` |
+| N1 markers, view | llir-init merged; `TargetMachineArgs`; `llc_target_flags` and `opt_plan` lose their markers |
+| N2 DWO | follows upstream: no check of its own (PORT 13) |
+| N3 VerifyArgABICompliance, vector library | PORT 11 (SystemZ stops) and PORT 12 |
+| N4 error line | first line, plus the first error line when that is a later one (`Instruction does not dominate all uses! (then: opt: -: error: input module is broken!)`); tested |
+| N5 stale reads | `assert_model_current(M, fn)` exported, header guard text, the note for `LLVMRustModuleCost` above; tested |
+| N6 evidence host | `host_tuple()` |
+| N7 startup | noted under "For root" |
+
+After the fixes:
+- `bunx tsc --noEmit -p .`: clean.
+- `bun scripts/coverage.ts --check --offline`: 84 `ERROR:` lines, all llir-init's manifest files (above), none in this lane's files.
+- `RUST_TS_REQUIRE_PROBES=1 bun test ./src/rust_ts/llvm/ ./src/rustc_codegen_llvm/ ./src/std/result.test.ts ./scripts/lib/unit-steps.test.ts`:
+  **303 pass, 0 fail** (24 files).
+- `tools.test.ts`: 39 tests, about 0.6-1.1 s.
+- `objects.ts`: the 8 objects are still byte-identical; no machine involved has features.
