@@ -320,9 +320,10 @@ describe("LlvmCodegenBackend", () => {
 
   test("what reaches an unported lane stops there, naming it", () => {
     const b = new LlvmCodegenBackend();
-    // llvm_util.rs init, ported (cg-write): its first LLVM call is the IR model's stop.
-    stops(() => b.init(undefined as never), /^llir: LLVMIsMultithreaded$/);
-    // llvm_util.rs print, ported (cg-write): `require_inited` is a `bug!` before `init` has run (it cannot run: above).
+    // llvm_util.rs init, ported (cg-write): its first LLVM call, LLVMIsMultithreaded, is the IR model's (lane llir-init); its next
+    // stop is llvm_util.rs's own `rustc_llvm::initialize_available_targets`, after `configure_llvm` reads the session.
+    expect(llvm.LLVMIsMultithreaded().is_true()).toBe(true);
+    // llvm_util.rs print, ported (cg-write): `require_inited` is a `bug!` before `init` has run.
     expect(() => b.print({ kind: "TargetCPUs" } as never, { value: "" }, undefined as never)).toThrow(/LLVM is not initialized/);
     stops(() => b.has_zstd(), /^llir: LLVMRustLLVMHasZstdCompression$/);
   });
