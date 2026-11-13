@@ -151,6 +151,10 @@ static void hput(HM* m, P k, long v){ HE* e=hfind(m,k); if(e){ e->v=v; return; }
    calling thread's current context (the last LLVMContextCreate on it; rustc fills each context on one thread, one at a time). */
 static P* ids; static P* ctxof; static size_t nids, capids; static HM idm; static long ptid; /* the thread number scan() writes */
 static P scanctx; /* the context of the module scan() is reading, or 0 */
+/* The contexts made and not yet disposed. rustc disposes of a context on another thread than the one that filled it, so that thread's
+   current context can be a freed one until its next LLVMContextCreate (review llir-init N8): a handle first seen then is tagged 0
+   (never retired) rather than with the dead context's address, which a later context may reuse. */
+static HM livectx;
 #define MAXM 64
 static P mods[MAXM]; static long modtid[MAXM]; static int nmods; static char* triples[MAXM]; static char* layouts[MAXM]; static unsigned nflags[MAXM];
 __attribute__((constructor)) static void init(void){ const char* p=getenv("RUST_TS_LLVM_RECORD"); if(p) out=fopen(p,"w"); pthread_key_create(&key,0); pthread_key_create(&ckey,0); }
@@ -160,7 +164,8 @@ static long find(P p){ return hget(&idm,p); }
 /* A deleted value's address can be reused by a later one: its handle is retired so the later one gets a new number. */
 static void forget(P p){ long i=find(p); if(i){ ids[i-1]=(P)-1; hdel(&idm,p); } }
 static long id(P p){ long i=find(p); if(i) return i; if(nids==capids){ capids=capids?capids*2:1024; ids=realloc(ids,capids*sizeof(P)); ctxof=realloc(ctxof,capids*sizeof(P)); }
-  ctxof[nids]=scanctx?scanctx:(P)pthread_getspecific(ckey); ids[nids++]=p; hput(&idm,p,(long)nids); return (long)nids; }
+  P c=scanctx?scanctx:(P)pthread_getspecific(ckey); if(c && !hget(&livectx,c)) c=0;
+  ctxof[nids]=c; ids[nids++]=p; hput(&idm,p,(long)nids); return (long)nids; }
 static void bytes(const unsigned char* s, size_t n){ fputc('"',out); for(size_t i=0;i<n;i++){ unsigned c=s[i]; if(c>=0x20&&c<0x7f&&c!='"'&&c!='\\\\') fputc(c,out); else fprintf(out,"\\\\%02X",c);} fputc('"',out); }
 static void h(P p){ if(!p) fputs("null",out); else fprintf(out,"%%%ld",id(p)); }
 static const char* attrnames[] = { ATTRNAMES }; static unsigned attrkinds[sizeof(attrnames)/sizeof(*attrnames)]; static int attrinit;
@@ -229,6 +234,7 @@ static void retire(P ctx){
     j=hget(&cam,p); if(j){ hdel(&cam,p); cas[j-1].f=0; }
     j=hget(&rgm,p); if(j){ hdel(&rgm,p); rgs[j-1].a=0; } }
   if((P)pthread_getspecific(ckey)==ctx) pthread_setspecific(ckey,0);
+  hdel(&livectx,ctx);
 }
 /* Inferred lines: state a wrapper made since the last look. With emit=0 (after a recorded call) the cached state is only
    brought up to date, so what the recorded call itself changed is never attributed to a wrapper. */
@@ -291,7 +297,7 @@ static void scan(int emit, P ctx){
     if (f.name === "LLVMContextDispose") c += `  if(out){ pthread_mutex_lock(&mu); scan(1,a0); dsoscan(a0); for(int m=0;m<nmods;m++) if(mods[m] && LLVMGetModuleContext(mods[m])==a0) mods[m]=0; pthread_mutex_unlock(&mu); }\n`;
     c += `  ${ret === "void" ? "" : `${ret} r = `}o${i}(${f.params.map((_, j) => `a${j}`).join(", ")});\n`;
     // A new context is the calling thread's current one (handles first seen on the thread belong to it); a module is scanned.
-    const created = f.name === "LLVMModuleCreateWithNameInContext" ? " if(nmods<MAXM){ modtid[nmods]=tid(); mods[nmods++]=(P)r; }" : f.name === "LLVMContextCreate" ? " pthread_setspecific(ckey,(P)r);" : "";
+    const created = f.name === "LLVMModuleCreateWithNameInContext" ? " if(nmods<MAXM){ modtid[nmods]=tid(); mods[nmods++]=(P)r; }" : f.name === "LLVMContextCreate" ? " pthread_setspecific(ckey,(P)r); hput(&livectx,(P)r,1);" : "";
     c += `  if(out){ pthread_mutex_lock(&mu);${created} fprintf(out,"%ld\\t",tid());`;
     // A deleted value's or a disposed builder's or bundle's address may be reused by a later one.
     const forgets = /^LLVM(DeleteGlobal|DeleteFunction|DisposeBuilder|DisposeOperandBundle)$/.test(f.name);

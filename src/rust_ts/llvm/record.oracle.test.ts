@@ -37,15 +37,18 @@ extern P LLVMContextCreate(void); extern P LLVMCreateEnumAttribute(P, unsigned, 
 int main(int argc, char** argv){
   out = fopen(argv[1], "w");
   /* N-a: an attribute of context c1, logged once; after c1's handles are retired, the same address is new again. */
-  P c1 = LLVMContextCreate(); pthread_setspecific(ckey, c1);
+  P c1 = LLVMContextCreate(); pthread_setspecific(ckey, c1); hput(&livectx, c1, 1);
   long hc1 = id(c1);
   P a = LLVMCreateEnumAttribute(c1, LLVMGetEnumAttributeKindForName("nounwind", 8), 0);
   attr(a); attr(a);
-  /* A handle of another context is not retired with c1's. */
-  pthread_setspecific(ckey, (P)0x10); long other = id((P)0x1238); pthread_setspecific(ckey, c1);
+  /* A handle of another (live) context is not retired with c1's. */
+  hput(&livectx, (P)0x10, 1); pthread_setspecific(ckey, (P)0x10); long other = id((P)0x1238); pthread_setspecific(ckey, c1);
   retire(c1);
   attr(a);
   fprintf(out, "ctx %ld %ld other %ld %ld cur %p\\n", hc1, find(c1), other, find((P)0x1238), pthread_getspecific(ckey));
+  /* N8: a thread whose current context was disposed elsewhere tags a new handle 0, so no later retire takes it. */
+  pthread_setspecific(ckey, c1); long stale = id((P)0x2238); retire(c1);
+  fprintf(out, "stale %ld %ld\\n", stale, find((P)0x2238));
   /* Many handles: every lookup right, through growth, retirement and reuse. */
   long bad = 0; long first = (long)nids + 1;
   for (long i = 0; i < 300000; i++) if (id((P)(0x100000 + i * 16)) != first + i) bad++;
@@ -79,6 +82,7 @@ describe.skipIf(!HAVE && !REQUIRE)("the recorder's handle tables", () => {
         // The same address after retirement: a new handle and its own line (review llir-folder-notes N-a).
         "0\t?attr %4 nounwind 0",
         "ctx 1 0 other 3 3 cur 0x0",
+        "stale 5 5",
         "bad 0 again 0",
       ]);
     } finally {
