@@ -8,7 +8,6 @@ import * as tracing from "../../rust_ts/tracing.ts";
 import type { AllocatorKind } from "../../rustc_ast/expand/allocator.gen.ts";
 import { File as FsFile, Mmap } from "../../rustc_data_structures/memmap.ts";
 import type { DiagCtxtHandle } from "../../rustc_errors/lib.ts";
-import type { Lto } from "../../rustc_session/config.ts";
 import { display_IoError } from "../../std/io.ts";
 import { panic } from "../../std/panic.ts";
 import {

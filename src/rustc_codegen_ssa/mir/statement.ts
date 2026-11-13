@@ -15,7 +15,6 @@ import { debug_LayoutError } from "../../rustc_middle/ty/layout.ts";
 import { display_Ty } from "../../rustc_middle/ty/print/pretty.ts";
 import { bug, span_bug } from "../../rustc_span/macros.ts";
 import { PLAIN } from "../../std/fmt.ts";
-import { unported } from "../../std/panic.ts";
 import { expect_result } from "../../std/result.ts";
 import { MemFlags } from "../lib.ts";
 import type { BackendTypes } from "../traits/backend.ts";
@@ -53,7 +52,7 @@ function FunctionCx_codegen_rvalue_operand<B extends BackendTypes>(fx: FunctionC
   return fx.codegen_rvalue_operand(bx, rvalue);
 }
 
-/** The stubs and forwarders above, as one table so a test can replace them (`stmt_xlane`); not upstream. */
+/** The forwarders above, as one table so a test can replace them (`stmt_xlane`); not upstream. */
 export const stmt_xlane = {
   codegen_stmt_debuginfos: FunctionCx_codegen_stmt_debuginfos,
   set_debug_loc: FunctionCx_set_debug_loc,

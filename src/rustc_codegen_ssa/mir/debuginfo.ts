@@ -7,10 +7,9 @@
 //   This file imports mod.ts for types only.
 // - PORT (ssa-debuginfo): `Range<Size>` is `readonly [Size, Size]` (`[start, end)`), as traits/debuginfo.ts's
 //   `dbg_var_addr` takes it.
-// - PORT (ssa-debuginfo): mod.ts declares `FunctionDebugContext`, `PerLocalVarDebugInfo` and `ConstDebugInfo` as opaque
-//   placeholders until this lane lands (ssa-mir-core PORT 7). The types below have the same type parameters, so root
-//   replaces the placeholders with `export type { ... } from "./debuginfo.ts"`. Until then the `debug_context` and
-//   `per_local_var_debug_info` fields are read and written through `dctx`/`per_local` below, which cast.
+// - PORT (ssa-debuginfo): `FunctionDebugContext`, `PerLocalVarDebugInfo` and `ConstDebugInfo` are defined here; mod.ts
+//   re-exports them (root replaced ssa-mir-core's opaque placeholders at integ-w55), so `FunctionCx`'s `debug_context` and
+//   `per_local_var_debug_info` fields have these types and are read and written directly.
 // - `debug_assert!`/`debug_assert_eq!` stay comments (PORTING §3).
 import { type FieldIdx, FieldsShape, Size, Size_eq, type VariantIdx } from "../../rustc_abi/lib.ts";
 import { DenseBitSet } from "../../rustc_index/bit_set.ts";
@@ -282,18 +281,9 @@ function unsupported_projection(elem: PlaceElem, projection: readonly PlaceElem[
   );
 }
 
-/** `self.debug_context` with its real type (header). */
-function dctx<B extends BackendTypes>(fx: FunctionCx<B>): FunctionDebugContext<B["DIScope"], B["DILocation"]> | undefined {
-  return fx.debug_context as unknown as FunctionDebugContext<B["DIScope"], B["DILocation"]> | undefined;
-}
-
-/** `self.per_local_var_debug_info` with its real type (header). */
-function per_local<B extends BackendTypes>(fx: FunctionCx<B>): PerLocalVarDebugInfo<B["DIVariable"]>[][] | undefined {
-  return fx.per_local_var_debug_info as unknown as PerLocalVarDebugInfo<B["DIVariable"]>[][] | undefined;
-}
-
-// PORT: inside `declare module "./mod.ts"` the names resolve in mod.ts's scope first, where the ssa-mir-core placeholders of
-// the same names live (header); these aliases name this file's types.
+// PORT: these aliases date from when mod.ts held ssa-mir-core placeholders of the same names, which the names inside
+// `declare module "./mod.ts"` resolved to. mod.ts now imports this file's types, so the aliases and the plain names are the
+// same types; the aliases are kept only to leave the declarations below unchanged.
 type PerLocalVarDebugInfo_<D> = PerLocalVarDebugInfo<D>;
 type ConstDebugInfo_<B extends BackendTypes> = ConstDebugInfo<B>;
 type DebugScope_<S, L> = DebugScope<S, L>;
@@ -371,7 +361,7 @@ export function install_FunctionCx_debuginfo(FunctionCx_: { prototype: FunctionC
     bx: Bx,
     source_info: SourceInfo,
   ): [B["DIScope"], B["DILocation"] | undefined, Span] | undefined {
-    const debug_context = dctx(this);
+    const debug_context = this.debug_context;
     if (debug_context === undefined) return undefined;
     const scope = debug_context.scopes[source_info.scope]!;
     const span = walk_chain_collapsed(source_info.span, this.mir.span);
@@ -393,7 +383,7 @@ export function install_FunctionCx_debuginfo(FunctionCx_: { prototype: FunctionC
       return;
     }
 
-    const per_local_ = per_local(this);
+    const per_local_ = this.per_local_var_debug_info;
     if (per_local_ === undefined) return;
     const vars = per_local_[local]!;
 
@@ -426,7 +416,7 @@ export function install_FunctionCx_debuginfo(FunctionCx_: { prototype: FunctionC
   FunctionCx_.prototype.debug_introduce_local = function (this: Fx, bx: Bx, local: Local): void {
     const full_debug_info = bx.sess().opts.debuginfo === ("Full" satisfies DebugInfo);
 
-    const per_local_ = per_local(this);
+    const per_local_ = this.per_local_var_debug_info;
     if (per_local_ === undefined) return;
     const vars = per_local_[local]!;
     const whole_local_var = vars.find((var_) => var_.projection.length === 0);
@@ -900,7 +890,7 @@ export function install_FunctionCx_debuginfo(FunctionCx_: { prototype: FunctionC
       scopes: [],
       inlined_function_scopes: new KeyedMap<Instance, B["DIScope"]>(intern_key),
     };
-    this.debug_context = new_context as unknown as typeof this.debug_context;
+    this.debug_context = new_context;
 
     // Find all scopes with variables defined in them.
     let variables: DenseBitSet<SourceScope> | undefined;
@@ -923,7 +913,7 @@ export function install_FunctionCx_debuginfo(FunctionCx_: { prototype: FunctionC
     const discriminators = new Map<BytePos, number>();
     for (let scope = 0 as SourceScope; scope < this.mir.source_scopes.length; scope = (scope + 1) as SourceScope) {
       const scope_data = this.make_mir_scope(bx, variables, discriminators, scope);
-      const scopes = unwrap(dctx(this)).scopes;
+      const scopes = unwrap(this.debug_context).scopes;
       scopes.push(scope_data);
       // debug_assert_eq!(_s, scope);
     }
@@ -942,7 +932,7 @@ export function install_FunctionCx_debuginfo(FunctionCx_: { prototype: FunctionC
     if (scope_data.parent_scope !== undefined) {
       const parent = scope_data.parent_scope;
       // debug_assert!(parent.as_u32() < scope.as_u32());
-      parent_scope = unwrap(dctx(this)).scopes[parent]!;
+      parent_scope = unwrap(this.debug_context).scopes[parent]!;
     } else {
       // The root is the function itself.
       const file = this.cx.sess().source_map().lookup_source_file(Span.lo(this.mir.span));
@@ -960,7 +950,7 @@ export function install_FunctionCx_debuginfo(FunctionCx_: { prototype: FunctionC
     if (scope_data.inlined !== undefined) {
       const [callee_] = scope_data.inlined;
       const callee = this.monomorphize(callee_, d_Instance);
-      const inlined_function_scopes = unwrap(dctx(this)).inlined_function_scopes;
+      const inlined_function_scopes = unwrap(this.debug_context).inlined_function_scopes;
       const existing = inlined_function_scopes.get(callee);
       if (existing !== undefined || inlined_function_scopes.has(callee)) {
         dbg_scope = existing as B["DIScope"];
