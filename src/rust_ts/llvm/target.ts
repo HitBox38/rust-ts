@@ -20,6 +20,7 @@
 //   `codegen::InitTargetOptionsFromCodeGenFlags` is not modelled (its flags are LLVM `cl::opt`s, none of which the model accepts,
 //   so they keep their defaults). The effective relocation and code models (`getEffectiveRelocModel`, ...) are not computed:
 //   nothing in the model reads them, and `llc` derives them from the same arguments.
+import { write_stderr } from "../../std/io.ts";
 import { assert, unported } from "../../std/panic.ts";
 import { LLVMRustSetLastError, NORMAL_TRIPLES } from "./core.ts";
 import type { CodeGenOptLevel, CodeModel, CompressionKind, FloatAbi, RelocModel } from "./ffi_types.ts";
@@ -69,9 +70,10 @@ function install_out_of_memory_new_handler(): void {
   ERROR_HANDLERS.newHandlerInstalled = true;
 }
 
-/** Writes `s` to file descriptor 2 as bytes. */
+/** Writes `s` to file descriptor 2 as bytes, through `std/io.ts`'s `write_stderr` (never `process.stderr`, which makes a pipe
+ *  non-blocking; root at integ-w56, the io.test.ts guard). */
 function writeStderr(s: string): void {
-  process.stderr.write(Buffer.from(s, "utf8"));
+  write_stderr(s);
 }
 
 // Custom error handler for fatal LLVM errors.
