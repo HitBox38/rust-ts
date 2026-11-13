@@ -5,6 +5,7 @@
 // every function exported here into ffi.ts; ffi.ts's signatures are the contract these must satisfy (tsc checks it).
 import { writeFileSync } from "node:fs";
 import { unported } from "../../std/panic.ts";
+import { module_text } from "./tools.ts";
 import {
   type AsmDialect,
   AttributeKind,
@@ -1089,7 +1090,8 @@ export function LLVMRustPrintModule(M: Module, Output: string | undefined, _Dema
   }
   // PORT: the oracle prints through an annotation writer that adds `; <demangled>` comments; the normal form drops every
   // comment line (plan-m7 §1b), so the model prints none.
-  const text = printModule(M);
+  // Once a tool (tools.ts, lane llir-tools) has rewritten the module, its text is the module.
+  const text = module_text(M);
   try {
     writeFileSync(Output, Buffer.from(text, "latin1"));
   } catch (e) {
@@ -1103,7 +1105,7 @@ export function LLVMRustPrintModule(M: Module, Output: string | undefined, _Dema
 /** `LastError` (RustWrapper.cpp:82), thread-local in C++; one thread here. */
 let LAST_ERROR: string | undefined;
 
-/** `LLVMRustSetLastError` (RustWrapper.cpp:140), internal to the wrappers. */
+/** `LLVMRustSetLastError` (RustWrapper.cpp:140), internal to the wrappers (tools.ts sets it too). */
 export function LLVMRustSetLastError(Err: string): void {
   LAST_ERROR = Err;
 }

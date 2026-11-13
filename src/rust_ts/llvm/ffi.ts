@@ -8,12 +8,13 @@ import * as impl0 from "./core.ts";
 import * as impl1 from "./build.ts";
 import * as impl2 from "./intrinsics.ts";
 import * as impl3 from "./target.ts";
+import * as impl4 from "./tools.ts";
 
 export type { Attribute, BasicBlock, Buffer, Builder, Comdat, ConstantInt, Context, DIArray, DIBasicType, DIBuilder, DICompositeType, DIDerivedType, DIDescriptor, DIFile, DILexicalBlock, DILocation, DIScope, DISubprogram, DITemplateTypeParameter, DIType, DIVariable, DbgRecord, DiagnosticHandler, DiagnosticInfo, Linker, MCSubtargetInfo, Metadata, Module, OperandBundle, RustString, SMDiagnostic, TargetMachine, ThinLTOData, Twine, Type, Value } from "./handles.ts";
 export * from "./ffi_types.ts";
 export * from "./support.ts";
 
-/** The 274 of 381 functions an implementation module provides; every other one is a stub. */
+/** The 283 of 381 functions an implementation module provides; every other one is a stub. */
 export const IMPLEMENTED: ReadonlySet<string> = new Set([
   "LLVMContextCreate",
   "LLVMContextDispose",
@@ -22,6 +23,7 @@ export const IMPLEMENTED: ReadonlySet<string> = new Set([
   "LLVMGetVersion",
   "LLVMDisposeTargetMachine",
   "LLVMModuleCreateWithNameInContext",
+  "LLVMCloneModule",
   "LLVMGetDataLayoutStr",
   "LLVMSetDataLayout",
   "LLVMGetInlineAsm",
@@ -220,6 +222,7 @@ export const IMPLEMENTED: ReadonlySet<string> = new Set([
   "LLVMSetWeak",
   "LLVMBuildAtomicRMW",
   "LLVMBuildFence",
+  "LLVMWriteBitcodeToFile",
   "LLVMIsMultithreaded",
   "LLVMStructCreateNamed",
   "LLVMStructSetBody",
@@ -275,6 +278,8 @@ export const IMPLEMENTED: ReadonlySet<string> = new Set([
   "LLVMRustCreateMCSubtargetInfo",
   "LLVMRustMCSubtargetInfoCheckFeatures",
   "LLVMRustDisposeMCSubtargetInfo",
+  "LLVMRustWriteOutputFile",
+  "LLVMRustOptimize",
   "LLVMRustPrintModule",
   "LLVMRustSetLLVMOptions",
   "LLVMRustSetNormalizedTarget",
@@ -285,6 +290,11 @@ export const IMPLEMENTED: ReadonlySet<string> = new Set([
   "LLVMRustSetModulePIELevel",
   "LLVMRustSetModuleCodeModel",
   "LLVMRustSetModuleLargeDataThreshold",
+  "LLVMRustBufferPtr",
+  "LLVMRustBufferLen",
+  "LLVMRustBufferFree",
+  "LLVMRustModuleSerialize",
+  "LLVMRustParseBitcodeForLTO",
   "LLVMRustContextGetDiagnosticHandler",
   "LLVMRustContextSetDiagnosticHandler",
   "LLVMRustContextConfigureDiagnosticHandler",
@@ -313,7 +323,7 @@ export const LLVMDisposeTargetMachine: (T: TargetMachine) => void = bind("LLVMDi
 export const LLVMModuleCreateWithNameInContext: (ModuleID: string | undefined, C: Context) => Module = bind("LLVMModuleCreateWithNameInContext", impl0.LLVMModuleCreateWithNameInContext);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:910 LLVMCloneModule
-export const LLVMCloneModule: (M: Module) => Module = stub("LLVMCloneModule");
+export const LLVMCloneModule: (M: Module) => Module = bind("LLVMCloneModule", impl4.LLVMCloneModule);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:913 LLVMGetDataLayoutStr
 export const LLVMGetDataLayoutStr: (M: Module) => string | undefined = bind("LLVMGetDataLayoutStr", impl0.LLVMGetDataLayoutStr);
@@ -916,7 +926,7 @@ export const LLVMBuildAtomicRMW: (B: Builder, Op: AtomicRmwBinOp, LHS: Value, RH
 export const LLVMBuildFence: (B: Builder, Order: AtomicOrdering, SingleThreaded: Bool, Name: string | undefined) => Value = bind("LLVMBuildFence", impl1.LLVMBuildFence);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1655 LLVMWriteBitcodeToFile
-export const LLVMWriteBitcodeToFile: (M: Module, Path: string | undefined) => number = stub("LLVMWriteBitcodeToFile");
+export const LLVMWriteBitcodeToFile: (M: Module, Path: string | undefined) => number = bind("LLVMWriteBitcodeToFile", impl4.LLVMWriteBitcodeToFile);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1657 LLVMGetHostCPUFeatures
 export const LLVMGetHostCPUFeatures: () => string | undefined = stub("LLVMGetHostCPUFeatures");
@@ -1279,10 +1289,10 @@ export const LLVMRustMCSubtargetInfoCheckFeatures: (MCInfo: MCSubtargetInfo, Fea
 export const LLVMRustDisposeMCSubtargetInfo: (MCInfo: MCSubtargetInfo) => void = bind("LLVMRustDisposeMCSubtargetInfo", impl3.LLVMRustDisposeMCSubtargetInfo);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2432 LLVMRustWriteOutputFile
-export const LLVMRustWriteOutputFile: (T: TargetMachine, M: Module, Output: string | undefined, DwoOutput: string | undefined, FileType: FileType, VerifyIR: boolean, DisableSimplifyLibCalls: boolean) => LLVMRustResult = stub("LLVMRustWriteOutputFile");
+export const LLVMRustWriteOutputFile: (T: TargetMachine, M: Module, Output: string | undefined, DwoOutput: string | undefined, FileType: FileType, VerifyIR: boolean, DisableSimplifyLibCalls: boolean) => LLVMRustResult = bind("LLVMRustWriteOutputFile", impl4.LLVMRustWriteOutputFile);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2441 LLVMRustOptimize
-export const LLVMRustOptimize: (M: Module, TM: TargetMachine, OptLevel: PassBuilderOptLevel, OptStage: OptStage, IsLinkerPluginLTO: boolean, NoPrepopulatePasses: boolean, VerifyIR: boolean, LintIR: boolean, ThinLTOBuffer: unknown, ThinLTOSummaryBuffer: unknown, MergeFunctions: boolean, UnrollLoops: boolean, SLPVectorize: boolean, LoopVectorize: boolean, DisableSimplifyLibCalls: boolean, EmitLifetimeMarkers: boolean, RunEnzyme: unknown, PrintBeforeEnzyme: boolean, PrintAfterEnzyme: boolean, PrintPasses: boolean, SanitizerOptions: SanitizerOptions | undefined, PGOGenPath: string | undefined, PGOUsePath: string | undefined, InstrumentCoverage: boolean, InstrProfileOutput: string | undefined, PGOSampleUsePath: string | undefined, DebugInfoForProfiling: boolean, llvm_selfprofiler: unknown, begin_callback: unknown, end_callback: unknown, PostEnzymePasses: PtrLenStr | undefined, PostEnzymePassesLen: number, ExtraPasses: PtrLenStr | undefined, ExtraPassesLen: number, LLVMPlugins: PtrLenStr | undefined, LLVMPluginsLen: number) => LLVMRustResult = stub("LLVMRustOptimize");
+export const LLVMRustOptimize: (M: Module, TM: TargetMachine, OptLevel: PassBuilderOptLevel, OptStage: OptStage, IsLinkerPluginLTO: boolean, NoPrepopulatePasses: boolean, VerifyIR: boolean, LintIR: boolean, ThinLTOBuffer: unknown, ThinLTOSummaryBuffer: unknown, MergeFunctions: boolean, UnrollLoops: boolean, SLPVectorize: boolean, LoopVectorize: boolean, DisableSimplifyLibCalls: boolean, EmitLifetimeMarkers: boolean, RunEnzyme: unknown, PrintBeforeEnzyme: boolean, PrintAfterEnzyme: boolean, PrintPasses: boolean, SanitizerOptions: SanitizerOptions | undefined, PGOGenPath: string | undefined, PGOUsePath: string | undefined, InstrumentCoverage: boolean, InstrProfileOutput: string | undefined, PGOSampleUsePath: string | undefined, DebugInfoForProfiling: boolean, llvm_selfprofiler: unknown, begin_callback: unknown, end_callback: unknown, PostEnzymePasses: PtrLenStr | undefined, PostEnzymePassesLen: number, ExtraPasses: PtrLenStr | undefined, ExtraPassesLen: number, LLVMPlugins: PtrLenStr | undefined, LLVMPluginsLen: number) => LLVMRustResult = bind("LLVMRustOptimize", impl4.LLVMRustOptimize);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2479 LLVMRustPrintModule
 export const LLVMRustPrintModule: (M: Module, Output: string | undefined, Demangle: unknown) => LLVMRustResult = bind("LLVMRustPrintModule", impl0.LLVMRustPrintModule);
@@ -1342,13 +1352,13 @@ export const LLVMRustSetModuleCodeModel: (M: Module, Model: CodeModel) => void =
 export const LLVMRustSetModuleLargeDataThreshold: (M: Module, Threshold: bigint) => void = bind("LLVMRustSetModuleLargeDataThreshold", impl0.LLVMRustSetModuleLargeDataThreshold);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2535 LLVMRustBufferPtr
-export const LLVMRustBufferPtr: (p: Buffer) => Uint8Array | undefined = stub("LLVMRustBufferPtr");
+export const LLVMRustBufferPtr: (p: Buffer) => Uint8Array | undefined = bind("LLVMRustBufferPtr", impl4.LLVMRustBufferPtr);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2536 LLVMRustBufferLen
-export const LLVMRustBufferLen: (p: Buffer) => number = stub("LLVMRustBufferLen");
+export const LLVMRustBufferLen: (p: Buffer) => number = bind("LLVMRustBufferLen", impl4.LLVMRustBufferLen);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2537 LLVMRustBufferFree
-export const LLVMRustBufferFree: (p: Buffer) => void = stub("LLVMRustBufferFree");
+export const LLVMRustBufferFree: (p: Buffer) => void = bind("LLVMRustBufferFree", impl4.LLVMRustBufferFree);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2538 LLVMRustModuleCost
 export const LLVMRustModuleCost: (M: Module) => bigint = stub("LLVMRustModuleCost");
@@ -1357,7 +1367,7 @@ export const LLVMRustModuleCost: (M: Module) => bigint = stub("LLVMRustModuleCos
 export const LLVMRustModuleInstructionStats: (M: Module) => bigint = stub("LLVMRustModuleInstructionStats");
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2541 LLVMRustModuleSerialize
-export const LLVMRustModuleSerialize: (M: Module, is_thin: boolean) => Buffer = stub("LLVMRustModuleSerialize");
+export const LLVMRustModuleSerialize: (M: Module, is_thin: boolean) => Buffer = bind("LLVMRustModuleSerialize", impl4.LLVMRustModuleSerialize);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2542 LLVMRustCreateThinLTOData
 export const LLVMRustCreateThinLTOData: (Modules: readonly ThinLTOModule[], NumModules: number, PreservedSymbols: readonly string[], PreservedSymbolsLen: number) => ThinLTOData | undefined = stub("LLVMRustCreateThinLTOData");
@@ -1378,7 +1388,7 @@ export const LLVMRustPrepareThinLTOImport: (Data: ThinLTOData, Module: Module, T
 export const LLVMRustFreeThinLTOData: (Data: ThinLTOData) => void = stub("LLVMRustFreeThinLTOData");
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2561 LLVMRustParseBitcodeForLTO
-export const LLVMRustParseBitcodeForLTO: (Context: Context, Data: Uint8Array | undefined, len: number, Identifier: string | undefined) => Module | undefined = stub("LLVMRustParseBitcodeForLTO");
+export const LLVMRustParseBitcodeForLTO: (Context: Context, Data: Uint8Array | undefined, len: number, Identifier: string | undefined) => Module | undefined = bind("LLVMRustParseBitcodeForLTO", impl4.LLVMRustParseBitcodeForLTO);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2568 LLVMRustLinkerNew
 export const LLVMRustLinkerNew: (M: Module) => Linker = stub("LLVMRustLinkerNew");
