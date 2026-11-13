@@ -192,6 +192,6 @@ library 745; llvm 434)`.
 - **ThinLocal end to end** needs llir-tools' `LLVMRustModuleSerialize` / `Buffer*` / `LLVMRustParseBitcodeForLTO`. Until
   then, `-O` with several CGUs stops in the first `serialize_module`, by name. It no longer stops at `run_thin_lto`.
 
-## Commits (branch `t3/069730e9`)
+## Commits (branch `t3/port-cg-lto-diagnostics`)
 - `15e35af8`: the port, the write.ts stub replacements, diagnostic_impls.ts, skeleton counts and both new tests.
 - The commit of this handoff.
