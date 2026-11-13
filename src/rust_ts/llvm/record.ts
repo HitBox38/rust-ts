@@ -173,7 +173,9 @@ static void opnd(P v){ if(v && !find(v) && LLVMIsAConstantInt(v)) fprintf(out,"#
 /* An attribute handle no recorded call made (an LLVMRustCreate* wrapper's): described by kind and value. */
 /* The constant-range attributes LLVMCreateConstantRangeAttribute made (lane llir-folder): the C API cannot read a range back,
    so the recorder interposes on the one libLLVM function rustc's LLVMRustCreateRangeAttribute calls (RustWrapper.cpp:501),
-   logs nothing for the call itself, and keeps each result's bit width and words for its "?attr ... range" line. */
+   logs nothing for the call itself, and keeps each result's bit width and words for its "?attr ... range" line. Each call rewrites
+   its result's entry: one handle in a live context has one value, and an address reused after LLVMContextDispose must not keep
+   the old one (review llir-folder N2). */
 typedef struct { P a; unsigned bits; unsigned long long lo[2], hi[2]; } RG; static RG* rgs; static size_t nrgs, caprgs;
 static RG* rg(P a){ for(size_t i=0;i<nrgs;i++) if(rgs[i].a==a) return &rgs[i]; return 0; }
 static void attr(P a){ if(find(a)) return; long i=id(a); fprintf(out,"%ld\\t?attr %%%ld ",ptid,i);
@@ -317,8 +319,8 @@ static void scan(int emit, P ctx){
   if (syms.has("LLVMCreateConstantRangeAttribute")) {
     c += `extern P LLVMCreateConstantRangeAttribute(P, unsigned, unsigned, const unsigned long long*, const unsigned long long*);
 static P wrg(P c, unsigned k, unsigned bits, const unsigned long long* lo, const unsigned long long* hi){ P r=LLVMCreateConstantRangeAttribute(c,k,bits,lo,hi);
-  pthread_mutex_lock(&mu); if(out && bits<=128 && !rg(r)){ if(nrgs==caprgs){ caprgs=caprgs?caprgs*2:64; rgs=realloc(rgs,caprgs*sizeof(RG)); }
-    RG* g=&rgs[nrgs++]; memset(g,0,sizeof(RG)); g->a=r; g->bits=bits; for(unsigned w=0;w<(bits+63)/64;w++){ g->lo[w]=lo[w]; g->hi[w]=hi[w]; } }
+  pthread_mutex_lock(&mu); if(out && bits<=128){ RG* g=rg(r); if(!g){ if(nrgs==caprgs){ caprgs=caprgs?caprgs*2:64; rgs=realloc(rgs,caprgs*sizeof(RG)); } g=&rgs[nrgs++]; }
+    memset(g,0,sizeof(RG)); g->a=r; g->bits=bits; for(unsigned w=0;w<(bits+63)/64;w++){ g->lo[w]=lo[w]; g->hi[w]=hi[w]; } }
   pthread_mutex_unlock(&mu); return r; }
 __attribute__((used,section("__DATA,__interpose"))) static struct{void*a;void*b;} iprg={(void*)wrg,(void*)LLVMCreateConstantRangeAttribute};
 `;

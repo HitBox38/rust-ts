@@ -399,10 +399,16 @@ describe("FnAbiLlvmExt::apply_attrs_callsite against the oracle's call lines (si
     // llir-folder made `LLVMRustGetElementTypeArgIndex` real: no call site stops (root at integ-w55).
     expect(stops).toEqual([]);
     const port_groups = attr_groups(text);
+    const seen: string[] = [];
     for (const line of text.split("\n")) {
       const m = /call .*?@([\w.$]+)\(/.exec(line);
-      if (m && callees.includes(m[1]!)) expect(`${m[1]}: ${canon_sig(line.trim(), "call", port_groups)}`).toBe(`${m[1]}: ${oracle.get(m[1]!)}`);
+      if (m && callees.includes(m[1]!)) {
+        seen.push(m[1]!);
+        expect(`${m[1]}: ${canon_sig(line.trim(), "call", port_groups)}`).toBe(`${m[1]}: ${oracle.get(m[1]!)}`);
+      }
     }
+    // Every callee's call is in the model's text, as every one is in the oracle's (review llir-folder N6).
+    expect(seen.sort()).toEqual([...callees].sort());
   }, 120_000);
 });
 

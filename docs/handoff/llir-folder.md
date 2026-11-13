@@ -104,7 +104,7 @@ nothing there needed changing.
 | `bun scripts/coverage.ts --crate llvm-wrapper` | 46/197 (was 43); new: `LLVMRustGetElementTypeArgIndex`, `LLVMRustCreateRangeAttribute` and the DeadOnReturn arm |
 | `bun tools/llir/ffi_gen.ts --check` | `contract up to date: 381 fns, 33 enums, 4 bitflags`; 3 stubs fewer (`LLVMRustGetElementTypeArgIndex`, `LLVMRustCreateRangeAttribute`, `LLVMGetInlineAsm`) |
 
-**Differential tests against libLLVM.dylib** (`folder.oracle.test.ts`, new, 11 tests): `ATTR_KIND_ENUM`; sorted attribute sets on 24
+**Differential tests against libLLVM.dylib** (`folder.oracle.test.ts`, new, 10 tests; review llir-folder N8 corrected the count): `ATTR_KIND_ENUM`; sorted attribute sets on 24
 shuffled declarations and call sites (enum, int, type, range, string attributes, replacement); range (18 widths and bound pairs),
 `dead_on_return`, captures, `allocsize`, `allockind` printing; `printCallingConv` for every convention 0..1023 on declarations and
 0..130 on calls; atomic default alignment over five data layouts and ten operand types; inline asm in calls (dialect, alignstack,

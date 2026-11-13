@@ -508,6 +508,8 @@ describe.skipIf(!HAVE && !REQUIRE)("llir-folder vs libLLVM", () => {
         globals.push([rg, mg]);
       }
       for (const [name, rt, mt] of [["d8", rI(8), mI(8)], ["d32", rI(32), mI(32)], ["d64", rI(64), mI(64)], ["d128", rI(128), mI(128)]] as const) globals.push([lib.LLVMAddGlobal(rm, rt, cstr(name)), L.LLVMAddGlobal(mm, mt, name)]);
+      // A declaration of an opaque struct: unsized, so `getPointerAlignment` is `valueOrOne()` = 1 and nothing folds (review llir-folder N4).
+      globals.push([lib.LLVMAddGlobal(rm, lib.LLVMStructCreateNamed(rc, cstr("O")), cstr("dO")), L.LLVMAddGlobal(mm, L.LLVMStructCreateNamed(mc, "O"), "dO")]);
       for (const [rg, mg] of globals) {
         for (const w of [32, 64]) {
           const [rT, mT] = ptrTo(w);
@@ -548,6 +550,8 @@ describe.skipIf(!HAVE && !REQUIRE)("llir-folder vs libLLVM", () => {
       ["{}", rEmpty, mEmpty],
       ["[0 x i8]", lib.LLVMArrayType2(rI(8), 0n), L.LLVMArrayType2(mI(8), 0n)],
       ["%O", rOpaque, mOpaque],
+      // `isEmptyTy` truncates the element count to `unsigned`: 2^32 elements are "empty" (review llir-folder N5).
+      ["[4294967296 x i8]", lib.LLVMArrayType2(rI(8), 1n << 32n), L.LLVMArrayType2(mI(8), 1n << 32n)],
     ];
     const linkages: L.Linkage[] = ["ExternalLinkage", "InternalLinkage", "PrivateLinkage", "WeakAnyLinkage", "WeakODRLinkage", "LinkOnceAnyLinkage", "LinkOnceODRLinkage", "ExternalWeakLinkage", "CommonLinkage", "AvailableExternallyLinkage"];
     const ua: L.UnnamedAddr[] = ["No", "Local", "Global"];
@@ -583,6 +587,8 @@ describe.skipIf(!HAVE && !REQUIRE)("llir-folder vs libLLVM", () => {
     for (const [bn, rg, mg] of base) {
       extra.push([`gep0 ${bn}`, lib.LLVMConstInBoundsGEP2(rI(8), rg, ptrs([lib.LLVMConstInt(rI(64), 0n, 0)]), 1), L.LLVMConstInBoundsGEP2(mI(8), mg, [L.LLVMConstInt(mI(64), 0n, L.FALSE)], 1)]);
       extra.push([`gep4 ${bn}`, lib.LLVMConstInBoundsGEP2(rI(8), rg, ptrs([lib.LLVMConstInt(rI(64), 4n, 0)]), 1), L.LLVMConstInBoundsGEP2(mI(8), mg, [L.LLVMConstInt(mI(64), 4n, L.FALSE)], 1)]);
+      // Without `inbounds` (a folded builder GEP with no flags): the GEP-vs-null relation needs `isInBounds()` (review llir-folder N7).
+      for (const k of [0n, 4n]) extra.push([`gep${k}nf ${bn}`, lib.LLVMBuildGEPWithNoWrapFlags(rB, rI(8), rg, ptrs([lib.LLVMConstInt(rI(64), k, 0)]), 1, cstr(""), 0), L.LLVMBuildGEPWithNoWrapFlags(mB, mI(8), mg, [L.LLVMConstInt(mI(64), k, L.FALSE)], 1, "", L.GEPNoWrapFlags.empty())]);
     }
     const rPtr = lib.LLVMPointerTypeInContext(rc, 0);
     const mPtr = L.LLVMPointerTypeInContext(mc, 0);
@@ -662,12 +668,16 @@ describe.skipIf(!HAVE && !REQUIRE)("llir-folder vs libLLVM", () => {
     const lookup = (name: string): number => lib.LLVMLookupIntrinsicID(cstr(name), Buffer.byteLength(name, "latin1"));
     const len = new BigUint64Array(1);
     const arm: string[] = [];
+    // The table is sorted by name, so the ARM names are one block, followed by other targets' (bpf, ..., xcore): the loop stops
+    // when it leaves the block, never asking for an ID past `num_intrinsics`, which `Intrinsic::getName` only asserts against
+    // (review llir-folder N1). The bound and the shape checks only guard a table that is not as described.
     for (let id = 1; id < 20000; id++) {
       const p = lib.LLVMIntrinsicGetName(id, len) as Pointer | null;
       const n = Number(len[0]);
       if (p === null || n <= 5 || n > 200) break;
       const name = Buffer.from(toArrayBuffer(p, 0, n)).toString("latin1");
       if (name.startsWith("llvm.arm.")) arm.push(name);
+      else if (arm.length > 0) break;
     }
     expect(arm.length).toBeGreaterThan(100);
     // The derivation in intrinsics.ts: only these four ARM names start with the two prefixes.
