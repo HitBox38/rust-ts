@@ -7,7 +7,7 @@
 // - the shared runner's failure (D16), modules held as text, buffers, clone and bitcode.
 // The tool runs need the pinned toolchain on aarch64 macOS: without it they skip, unless RUST_TS_REQUIRE_PROBES=1.
 import { afterAll, describe, expect, test } from "bun:test";
-import { existsSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { UPSTREAM } from "../../../scripts/lib/common.ts";
 import { normalForm } from "../../../scripts/lib/ir-normal.ts";
@@ -19,6 +19,7 @@ import { Context, Module } from "./ir.ts";
 import { printModule } from "./printer.ts";
 import { parseScript, replay } from "./replay.ts";
 import {
+  assert_model_current,
   canonical_extra_passes,
   is_tool_text,
   llc_target_flags,
@@ -26,8 +27,10 @@ import {
   LLVMRustBuffer,
   module_text,
   opt_plan,
+  oracle_sysroot,
   pinned_tool,
   print_pipeline,
+  run_pinned_tool,
   run_pinned_tool_or_ice,
   set_module_text,
   triple_probe,
@@ -262,5 +265,108 @@ describe.skipIf(!HAVE && !REQUIRE)("tools.ts against the oracle", () => {
     expect(is_tool_text(M)).toBe(false);
     expect(module_text(M)).toBe(printModule(M));
     void TARGET;
+  });
+
+  /** The pinned rustc on `file` (copied into the tools' directory) with `args`; the paths of what it wrote are relative to there. */
+  function oracle(file: string, args: string[]): string {
+    const dir = llvm_tmp_dir();
+    writeFileSync(join(dir, file), readFileSync(join(HERE, file)));
+    const r = Bun.spawnSync([join(oracle_sysroot(), "bin", "rustc"), file, ...args], { cwd: dir, env: { ...process.env, RUSTC_ICE: "0", RUST_BACKTRACE: "0" }, stdout: "pipe", stderr: "pipe" });
+    expect(r.stderr.toString()).toBe("");
+    expect(r.exitCode).toBe(0);
+    return dir;
+  }
+
+  test("F1, F2: a target machine with global features stops in LLVMRustOptimize and LLVMRustWriteOutputFile", () => {
+    // The oracle's pre-pass text of catch_unwind.rs with -Ctarget-feature=+avx2: `__rust_try` is a definition with `target-cpu` and
+    // no `target-features`, which in rustc takes the machine's features; every other definition carries the global list.
+    const dir = oracle("catch_unwind.rs", ["--target", X86, "-Copt-level=2", "-Ccodegen-units=1", "-Ctarget-feature=+avx2", "-Cno-prepopulate-passes", "--emit=llvm-ir", "-o", "cu.ll"]);
+    const text = readFileSync(join(dir, "cu.ll"), "latin1");
+    const groupOf = (fn: string): string => {
+      const def = text.split("\n").find((l) => l.startsWith("define") && l.includes(`@${fn}(`))!;
+      const id = / #(\d+) /.exec(def)![1];
+      return text.split("\n").find((l) => l.startsWith(`attributes #${id} = `))!;
+    };
+    const rustTry = groupOf("__rust_try");
+    expect(rustTry).toContain('"target-cpu"="x86-64"');
+    expect(rustTry).not.toContain('"target-features"');
+    const global = /"target-features"="([^"]*)"/.exec(groupOf(/define [^@]*@(_RNv\S*4main)\(/.exec(text)![1]!))![1]!;
+    expect(global).toContain("+avx2");
+    const tm = tmFromRecorded(readFileSync(join(WRITE_ORACLE, `${X86}.tm`), "utf8").split("\n")[1]!, "Default");
+    const withFeatures = { ...tm, Features: global } as unknown as TargetMachine;
+    const M = new Module(new Context(), "cu");
+    set_module_text(M, text);
+    const stop = (f: () => unknown): string => {
+      try {
+        f();
+      } catch (e) {
+        expect(e).toBeInstanceOf(Unported);
+        return (e as Unported).what;
+      }
+      throw new Error("no stop");
+    };
+    expect(stop(() => optimize(M, withFeatures, "2"))).toMatch(/^llir: LLVMRustOptimize with global target features "[^"]*\+avx2[^"]*" \(opt cannot give them only to definitions without `target-features`, such as `__rust_try`; review llir-tools F1\/F2\)$/);
+    expect(stop(() => with_cl_args(CL_ARGS, () => L.LLVMRustWriteOutputFile(withFeatures, M, join(dir, "cu.o"), undefined, "ObjectFile", false, false)))).toMatch(
+      /^llir: LLVMRustWriteOutputFile with global target features .*\(llc appends -mattr to every function's own target-features, overriding #\[target_feature\]; review llir-tools F1\/F2\)$/,
+    );
+    // The same module through a machine without global features runs.
+    expect(optimize(M, tm as unknown as TargetMachine, "2")).toBe(L.LLVMRustResult.Success);
+  });
+
+  test("F3: a tool killed by a signal is ICE-class like any failure: the first error line, and the input kept", () => {
+    const input = bytes(`target triple = "${X86}"\ndeclare <32 x i8> @llvm.x86.avx2.pshuf.b(<32 x i8>, <32 x i8>)\ndefine <32 x i8> @f(<32 x i8> %a, <32 x i8> %b) {\n  %r = call <32 x i8> @llvm.x86.avx2.pshuf.b(<32 x i8> %a, <32 x i8> %b)\n  ret <32 x i8> %r\n}\n`);
+    // A backend `LLVM ERROR` aborts llc.
+    const args = ["-mattr=-avx2", "-o", "-", "-"];
+    const raw = run_pinned_tool("llc", args, input);
+    expect(raw.signal).toBe("SIGABRT");
+    expect(raw.status).toBe(134);
+    let caught: unknown;
+    try {
+      run_pinned_tool_or_ice("llc", args, input, "pshuf");
+    } catch (e) {
+      caught = e;
+    }
+    expect(caught).toBeInstanceOf(Panic);
+    const m = (caught as Panic).message;
+    expect(m).toMatch(/^llir: llc failed on \$RUST_TS_DATA\/tmp\/llir\/\d+\/\d+-pshuf\.ll \(signal SIGABRT\): LLVM ERROR: /);
+    expect(m).not.toContain(oracle_sysroot());
+    const kept = m.slice("llir: llc failed on $RUST_TS_DATA/tmp/llir/".length).split(" ")[0]!;
+    expect(readFileSync(join(llvm_tmp_dir(), kept.slice(kept.indexOf("/") + 1)))).toEqual(Buffer.from(input));
+  });
+
+  test("N4: an invalid module's message keeps the verifier's line", () => {
+    let caught: unknown;
+    try {
+      run_pinned_tool_or_ice("opt", ["-S", "-o", "-", "-"], bytes("define i32 @f() {\n  %a = add i32 %b, 1\n  %b = add i32 1, 1\n  ret i32 %a\n}\n"), "broken");
+    } catch (e) {
+      caught = e;
+    }
+    // Parsed, then rejected by the verifier, whose detail comes first and has no "error" in it.
+    expect((caught as Panic).message).toMatch(/\(exit 1\): Instruction does not dominate all uses! \(then: opt: -: error: input module is broken!\)$/);
+  });
+
+  test("F4: thin bitcode without use-list order, as rustc's --emit=llvm-bc (opt's EnableSplitLTOUnit flag aside)", async () => {
+    const dir = oracle("opt.rs", ["--target", X86, "-Copt-level=2", "-Ccodegen-units=1", "--emit=llvm-bc,llvm-ir", "--out-dir", "."]);
+    const M = new Module(new Context(), "opt2");
+    set_module_text(M, readFileSync(join(dir, "opt.ll"), "latin1"));
+    const ours = L.LLVMRustBufferPtr(L.LLVMRustModuleSerialize(M, true))!;
+    const theirs = new Uint8Array(readFileSync(join(dir, "opt.bc")));
+    // What use-list order would add: the same writer with it kept gives other bytes.
+    const kept = run_pinned_tool("opt", ["--thinlto-bc", "-passes=assign-guid", "-o", "-", "-"], bytes(module_text(M))).stdout;
+    expect(Buffer.from(kept).equals(Buffer.from(ours))).toBe(false);
+    // Disassembled, ours has one module flag more; without it, the normal forms are equal.
+    const dis = (b: Uint8Array): string => new TextDecoder("latin1").decode(run_pinned_tool_or_ice("llvm-dis", ["-o", "-", "-"], b, "bc", "bc"));
+    const flag = /^(!\d+) = !\{i32 1, !"EnableSplitLTOUnit", i32 0\}$/m;
+    const o = dis(ours);
+    const id = flag.exec(o)![1]!;
+    const withoutFlag = o.replace(flag, "").replace(new RegExp(`(!llvm\\.module\\.flags = !\\{.*), ${id}\\}`), "$1}");
+    expect(flag.test(dis(theirs))).toBe(false);
+    expect(await normalForm(bytes(withoutFlag), "N1", bin())).toEqual(await normalForm(bytes(dis(theirs)), "N1", bin()));
+  });
+
+  test("N5: a model read after a tool rewrote the module stops", () => {
+    const M = smallModule();
+    expect(() => assert_model_current(M, "LLVMRustModuleCost")).toThrow(Unported);
+    expect(() => assert_model_current(new Module(new Context(), "fresh"), "LLVMRustModuleCost")).not.toThrow();
   });
 });

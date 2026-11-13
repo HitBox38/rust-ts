@@ -10,8 +10,11 @@
 // (`LLVMRustPrintModule`, `LLVMRustWriteOutputFile`, `LLVMRustModuleSerialize`, `LLVMCloneModule`, `LLVMWriteBitcodeToFile`) reads
 // `module_text`. A model mutation after that point would be lost, so `module_text` compares the model's printed text with the
 // text it had when the tool's text was set, and stops if it changed. A *read* of the model after that point (the model's
-// objects describe the module before the passes) is not caught: no consumer at the pin reads a module after `optimize` but
-// `embed_bitcode` (a mutation, caught), `create_msvc_imps` (Windows, D18) and the LTO paths (lane cg-lto-diag's follow-up).
+// objects describe the module before the passes) is not caught by itself. No reachable consumer at the pin does one (review
+// llir-tools N5: `create_msvc_imps` is Windows, D18; `LLVMRustModuleInstructionStats` and `LLVMRustModuleCost` are stubs).
+// **A lane that implements a function reading a module's contents from the model** (globals, functions, instructions, counts:
+// `LLVMRustModuleCost`, `LLVMRustModuleInstructionStats`, `LLVMGetFirstGlobal`, ...) must call `assert_model_current(M, fn)` first,
+// or read `module_text(M)` instead (`LLVMRustModuleCost` must count the `define`s of the text: it picks fat LTO's base module).
 //
 // **The shared runner (agreed with lane cg-lto-diag, which uses it for fat LTO):** `pinned_tool`, `run_pinned_tool`,
 // `run_pinned_tool_or_ice`, `llvm_tmp_dir`, `module_text`, `set_module_text`. A tool failure is ICE-class (D16): the module that
@@ -24,8 +27,10 @@ import { LLVM_TOOLS_PINNED, type LlvmTool, llvmBinDir, sha256File } from "../../
 import { stdout_write_all } from "../../std/io.ts";
 import { panic, unported } from "../../std/panic.ts";
 import { LLVMRustSetLastError } from "./core.ts";
-import { type CodeGenOptLevel, type CodeModel, type FileType, type FloatAbi, LLVMRustResult, type OptStage, type PassBuilderOptLevel, type RelocModel, type CompressionKind } from "./ffi_types.ts";
+import { constants as osConstants } from "node:os";
+import { type CodeGenOptLevel, type CodeModel, type FileType, type FloatAbi, LLVMRustResult, type OptStage, type PassBuilderOptLevel, type RelocModel } from "./ffi_types.ts";
 import type { TargetMachine } from "./handles.ts";
+import { llvm_cl_args, type TargetMachineArgs } from "./target.ts";
 import { type Context, Module } from "./ir.ts";
 import { printModule } from "./printer.ts";
 import type { PtrLenStr, SanitizerOptions } from "./support.ts";
@@ -59,7 +64,7 @@ let SYSROOT: string | undefined;
  * PORT: rustc's LLVM is the library it is linked with; the port's is the toolchain the harness pins (plan-m7 D1), found the
  * way scripts/lib/oracle.ts finds it.
  */
-function oracle_sysroot(): string {
+export function oracle_sysroot(): string {
   if (SYSROOT !== undefined) return SYSROOT;
   const pin = JSON.parse(readFileSync(join(REPO, "UPSTREAM.json"), "utf8")) as { rust: { toolchain: string } };
   const r = Bun.spawnSync(["rustc", `+${pin.rust.toolchain}`, "--print", "sysroot"], { env: { ...process.env, RUSTUP_AUTO_INSTALL: "0" }, stdout: "pipe", stderr: "pipe" });
@@ -91,20 +96,28 @@ export function pinned_tool(name: PinnedTool): string {
   return p;
 }
 
-/** A tool's exit status and output. */
+/** A tool's exit status and output. A death by a signal is `status` 128 + the signal's number, as a shell reports it, with `signal`. */
 export interface ToolRun {
   status: number;
+  signal: string | undefined;
   stdout: Uint8Array;
   stderr: string;
 }
 
-/** Runs a pinned tool in the current directory. Only a failure to start it is ICE-class; the caller judges `status`. */
+/**
+ * Runs a pinned tool in the current directory; the caller judges `status`. A tool killed by a signal (an `LLVM ERROR` aborts,
+ * and so does a crash) is a run like any other, with its stderr kept (review llir-tools F3).
+ */
 export function run_pinned_tool(name: PinnedTool, args: readonly string[], stdin?: Uint8Array): ToolRun {
   const path = pinned_tool(name);
   const r = Bun.spawnSync([path, ...args], { stdin: stdin ?? "ignore", stdout: "pipe", stderr: "pipe" });
-  if (r.exitCode === null) panic(`llir: ${name} did not exit (signal ${r.signalCode ?? "unknown"})`);
-  // The tool's own path starts its messages (`<argv0>: ...`): keep the machine's paths out of them.
-  return { status: r.exitCode, stdout: new Uint8Array(r.stdout), stderr: r.stderr.toString().replaceAll(path, name) };
+  // The tool's own path starts its messages (`<argv0>: ...`) and its stack dumps: keep the machine's paths out of them.
+  const stderr = r.stderr.toString().replaceAll(path, name);
+  const stdout = new Uint8Array(r.stdout);
+  if (r.exitCode !== null) return { status: r.exitCode, signal: undefined, stdout, stderr };
+  const signal = String(r.signalCode ?? "unknown signal");
+  const signo = (osConstants.signals as Record<string, number>)[signal] ?? 0;
+  return { status: 128 + signo, signal, stdout, stderr };
 }
 
 /**
@@ -115,7 +128,7 @@ export function run_pinned_tool_or_ice(name: PinnedTool, args: readonly string[]
   const r = run_pinned_tool(name, args, input);
   if (r.status !== 0) {
     const kept = keep(input, what, ext);
-    panic(`llir: ${name} failed on ${kept} (exit ${r.status}): ${firstErrorLine(r.stderr)}`);
+    panic(`llir: ${name} failed on ${kept} (${r.signal === undefined ? `exit ${r.status}` : `signal ${r.signal}`}): ${firstErrorLine(r.stderr)}`);
   }
   return r.stdout;
 }
@@ -144,9 +157,15 @@ function firstLine(s: string): string {
   return s.split("\n").find((l) => l.trim() !== "") ?? "(no message)";
 }
 
-/** The first line naming an error (`<file>:<line>:<col>: error: ...`, `LLVM ERROR: ...`), else the first line. */
+/**
+ * The tool's first line, and the first line naming an error when that is a later one. The verifier prints its detail first
+ * (`Call parameter type does not match function signature!`) and only then `opt: <stdin>: error: input module is broken!` (review
+ * llir-tools N4); a parse error or an `LLVM ERROR:` is the first line itself.
+ */
 function firstErrorLine(stderr: string): string {
-  return stderr.split("\n").find((l) => /error/i.test(l)) ?? firstLine(stderr);
+  const first = firstLine(stderr);
+  const error = stderr.split("\n").find((l) => /error/i.test(l));
+  return error === undefined || error === first ? first : `${first} (then: ${error})`;
 }
 
 // ---- modules held as text ------------------------------------------------------------------------------------------------
@@ -182,46 +201,35 @@ export function is_tool_text(M: Module): boolean {
   return TEXT.has(M);
 }
 
+/** For a function that reads a module's contents from the model: stops once a tool's text is the module (see the header). */
+export function assert_model_current(M: Module, fn: string): void {
+  if (TEXT.has(M)) unported(`llir: ${fn} reads module ${JSON.stringify(M.moduleID)} from the model after a tool rewrote it (read module_text instead)`);
+}
+
 const bytesOf = (bstr: string): Uint8Array => new Uint8Array(Buffer.from(bstr, "latin1"));
 const bstrOf = (b: Uint8Array): string => Buffer.from(b).toString("latin1");
 
 // ---- the target machine --------------------------------------------------------------------------------------------------
 
-/**
- * The fields of `LLVMRustCreateTargetMachine`'s target machine this module reads (lane llir-init's class, src/rust_ts/llvm/
- * target.ts): its 23 arguments under ffi.rs's parameter names, agreed by message. A view, so the two lanes merge independently.
- */
-interface ToolTargetMachine {
-  readonly Triple: string | undefined;
-  readonly CPU: string | undefined;
-  readonly Features: string | undefined;
-  readonly Abi: string | undefined;
-  readonly Model: CodeModel;
-  readonly Reloc: RelocModel;
-  readonly Level: CodeGenOptLevel;
-  readonly FloatABIType: FloatAbi;
-  readonly FunctionSections: boolean;
-  readonly DataSections: boolean;
-  readonly UniqueSectionNames: boolean;
-  readonly TrapUnreachable: boolean;
-  readonly Singlethread: boolean;
-  readonly VerboseAsm: boolean;
-  readonly EmitStackSizeSection: boolean;
-  readonly RelaxELFRelocations: boolean;
-  readonly UseInitArray: boolean;
-  readonly SplitDwarfFile: string | undefined;
-  readonly OutputObjFile: string | undefined;
-  readonly DebugInfoCompression: CompressionKind;
-  readonly UseEmulatedTls: boolean;
-  readonly UseWasmEH: boolean;
-  readonly LargeDataThreshold: bigint;
-  readonly disposed?: boolean;
+/** A live target machine (lane llir-init's, target.ts). */
+function tm_(T: TargetMachine): TargetMachine {
+  if (T.disposed) panic("llir: a target machine used after LLVMDisposeTargetMachine");
+  return T;
 }
 
-function tm_(T: TargetMachine): ToolTargetMachine {
-  const tm = T as unknown as ToolTargetMachine;
-  if (tm.disposed === true) panic("llir: a target machine used after LLVMDisposeTargetMachine");
-  return tm;
+/**
+ * Global target features: the target machine's `Feature` (rustc's `global_llvm_features`, write.rs:202), which LLVM uses for a
+ * function without a `target-features` attribute. Neither tool can apply them only there (review llir-tools F1, F2), so a machine
+ * that has any stops by name.
+ * PORT: llc's `-mattr` is appended to every function's own `target-features` (CommandFlags.cpp:717-728, llc.cpp:728), so the global
+ * list would come again after a function's `#[target_feature]` ones and override them (the reviewer's `_mm256_add_epi32` became
+ * 128-bit, `_mm256_shuffle_epi8` crashed llc with `Cannot select`). opt without `-mattr` gives a definition without the attribute
+ * (`__rust_try`, intrinsic.rs:1751, gets `target-cpu` only) no features, where rustc gives it the global ones, which changes TTI
+ * and inline compatibility; opt with `-mattr` would also write the list onto every function it prints. The x86_64-linux and
+ * aarch64-apple-darwin machines without `-Ctarget-feature` have none (cg-write's recorded `.tm`s).
+ */
+function stop_on_global_features(tm: TargetMachineArgs, fn: string, why: string): void {
+  if (tm.Features !== undefined && tm.Features !== "") unported(`llir: ${fn} with global target features ${JSON.stringify(tm.Features)} (${why}; review llir-tools F1/F2)`);
 }
 
 /** `fromRust(LLVMRustRelocModel)` (PassWrapper.cpp:225) as the tools' `-relocation-model` value. */
@@ -250,19 +258,11 @@ export function with_cl_args<R>(args: readonly string[], f: () => R): R {
 
 /** The flags of `-Cllvm-args` and configure_llvm (`LLVMRustSetLLVMOptions`, lane llir-init), forwarded to every opt/llc run. */
 function cl_args(): readonly string[] {
-  if (CL_ARGS_GIVEN !== undefined) return CL_ARGS_GIVEN;
   // PORT: `cl::ParseCommandLineOptions` sets process-wide options of the one libLLVM; the tools load the same library, so its
-  // options are the same flags on their command lines. Lane llir-init's target.ts keeps them (`llvm_cl_args`); until that
-  // lands, this is a stop, not a guess.
-  const target = (() => {
-    try {
-      return require("./target.ts") as { llvm_cl_args?: () => readonly string[] };
-    } catch {
-      return undefined;
-    }
-  })();
-  if (target?.llvm_cl_args === undefined) return unported("llir-init: src/rust_ts/llvm/target.ts llvm_cl_args (the options LLVMRustSetLLVMOptions received)");
-  return target.llvm_cl_args();
+  // options are the same flags on their command lines. One option would differ: `-vector-library` gives opt's and llc's
+  // TargetLibraryInfo a vector library (optdriver.cpp:730, llc.cpp:715), where the wrapper's `TargetLibraryInfoImpl(TargetTriple)`
+  // has none (review llir-tools N3); it cannot reach here, as `LLVMRustSetLLVMOptions` stops on any option outside its allowlist.
+  return CL_ARGS_GIVEN ?? llvm_cl_args();
 }
 
 // ---- LLVMRustOptimize --------------------------------------------------------------------------------------------------
@@ -313,9 +313,8 @@ export interface OptimizeSettings {
 
 /**
  * `LLVMRustOptimize`'s pipeline construction (PassWrapper.cpp:676-1060), as `opt` flags. Where opt has no flag for a setting the
- * line says so; the stops are the settings plan-m7 D18 leaves out of M7.
+ * line says so; the stops are the settings plan-m7 D18 leaves out of M7. (The marker is on `LLVMRustOptimize` below.)
  */
-// rustc: compiler/rustc_llvm/llvm-wrapper/PassWrapper.cpp:676 LLVMRustOptimize
 export function opt_plan(s: OptimizeSettings, tm: { Reloc: RelocModel; Model: CodeModel; Level: CodeGenOptLevel }): OptPlan {
   const OptLevel = fromRust_PassBuilderOptLevel(s.OptLevel);
   const flags: string[] = [];
@@ -342,10 +341,11 @@ export function opt_plan(s: OptimizeSettings, tm: { Reloc: RelocModel; Model: Co
   if (s.DisableSimplifyLibCalls) flags.push("-disable-simplify-libcalls");
 
   // The target machine: `PassBuilder(TM, ...)` gives the passes its TargetTransformInfo. PORT: opt makes its target machine from the
-  // module's triple and these flags. `-mcpu`/`-mattr` are not passed: opt would write them as `target-cpu`/`target-features`
-  // attributes onto every function lacking them, declarations included (CommandFlags.cpp:713-729), which rustc does not do; the
-  // passes read a function's subtarget from those attributes, which rustc writes on every definition (`target-cpu` always). The
-  // rest of TargetOptions only reaches codegen (llc).
+  // module's triple and these flags. `-mcpu` is not passed: opt would write it as `target-cpu` onto every function lacking it,
+  // declarations included (CommandFlags.cpp:713), which rustc's text does not have; the passes read a function's CPU from that
+  // attribute, which rustc writes on every definition (`__rust_try` too, intrinsic.rs:1751). The machine's `Feature` (global target
+  // features) has no faithful opt form, so `LLVMRustOptimize` stops when there are any (`stop_on_global_features`, review
+  // llir-tools F2). The rest of TargetOptions only reaches codegen (llc).
   flags.push(`-relocation-model=${RELOC[tm.Reloc]}`);
   const cm = CODE_MODEL[tm.Model];
   if (cm !== undefined) flags.push(`-code-model=${cm}`);
@@ -497,6 +497,7 @@ export function LLVMRustOptimize(
   LLVMPluginsLen: number,
 ): LLVMRustResult {
   const tm = tm_(TM);
+  stop_on_global_features(tm, "LLVMRustOptimize", "opt cannot give them only to definitions without `target-features`, such as `__rust_try`");
   // `EmitLifetimeMarkers` is not read by the wrapper at the pin.
   if (llvm_selfprofiler !== undefined && llvm_selfprofiler !== null) return unported("llir: LLVMRustOptimize with an LLVM self-profiler (-Z self-profile-events=llvm)");
   if (PGOGenPath !== undefined || PGOUsePath !== undefined || PGOSampleUsePath !== undefined || DebugInfoForProfiling) {
@@ -568,19 +569,24 @@ function tripleIsOSWindows(t: string): boolean {
 }
 
 /**
- * `llc`'s command line for a target machine: `LLVMRustCreateTargetMachine`'s settings (PassWrapper.cpp:347-438) as the flags llc
- * turns into the same `TargetOptions` (CommandFlags.cpp `InitTargetOptionsFromCodeGenFlags`, llc.cpp `InitializeOptions`).
+ * `llc`'s command line for a target machine: `LLVMRustCreateTargetMachine`'s settings (PassWrapper.cpp:347-438, lane llir-init's
+ * target.ts) as the flags llc turns into the same `TargetOptions` (CommandFlags.cpp `InitTargetOptionsFromCodeGenFlags`, llc.cpp
+ * `InitializeOptions`). Not a port of the wrapper, so no marker.
  */
-// rustc: compiler/rustc_llvm/llvm-wrapper/PassWrapper.cpp:347 LLVMRustCreateTargetMachine
-export function llc_target_flags(tm: ToolTargetMachine): string[] {
+export function llc_target_flags(tm: TargetMachineArgs): string[] {
   const flags: string[] = [];
   const triple = tm.Triple ?? "";
   // `Triple(Triple::normalize(TripleStr))`: llc normalizes `-mtriple` the same way (llc.cpp:679).
   flags.push(`-mtriple=${triple}`);
+  // PORT: llc writes `-mcpu` as `target-cpu` onto the functions that lack it (CommandFlags.cpp:713, llc.cpp:728), which is where
+  // rustc's machine CPU applies too; rustc writes it on every definition.
   if (tm.CPU !== undefined && tm.CPU !== "") flags.push(`-mcpu=${tm.CPU}`);
-  // PORT: llc also writes `-mcpu`/`-mattr` onto functions that lack them (llc.cpp:728). rustc writes `target-cpu` on every
-  // definition and `target-features` (when any) as the target machine's own, so the subtarget of every function is unchanged.
-  if (tm.Features !== undefined && tm.Features !== "") flags.push(`-mattr=${tm.Features}`);
+  // `Feature`: no `-mattr`. llc would append it to every function's own `target-features` (CommandFlags.cpp:717-728), so it stops
+  // instead (`stop_on_global_features`, review llir-tools F1).
+  stop_on_global_features(tm, "LLVMRustWriteOutputFile", "llc appends -mattr to every function's own target-features, overriding #[target_feature]");
+  // PORT: llc clears `Options.VerifyArgABICompliance` (llc.cpp:703), which rustc leaves on. Only SystemZ's argument-extension check
+  // reads it (review llir-tools N3), so SystemZ stops.
+  if ((triple.split("-")[0] ?? "") === "s390x") unported("llir: llc for SystemZ (llc clears VerifyArgABICompliance, llc.cpp:703)");
   // `Options.MCOptions.ABIName = ABIStr`.
   if (tm.Abi !== undefined && tm.Abi !== "") flags.push(`-target-abi=${tm.Abi}`);
   flags.push(`-relocation-model=${RELOC[tm.Reloc]}`);
@@ -649,7 +655,8 @@ export function LLVMRustWriteOutputFile(T: TargetMachine, M: Module, Output: str
   const tm = tm_(T);
   // The legacy pass manager with the target's TargetTransformInfo, a TargetLibraryInfo (all functions disabled under
   // `DisableSimplifyLibCalls`, as llc's `-disable-simplify-libcalls`, llc.cpp:718) and RuntimeLibraryInfo from the target
-  // options: what llc's own `compileModule` adds (llc.cpp:715-764).
+  // options: what llc's own `compileModule` adds (llc.cpp:715-764). PORT: llc's TargetLibraryInfo also takes the vector library of
+  // `-vector-library` (llc.cpp:715), the wrapper's none; that option cannot reach llc (`cl_args`).
   const args = [...cl_args(), ...llc_target_flags(tm), `-filetype=${fromRust_FileType(FileType)}`];
   if (DisableSimplifyLibCalls) args.push("-disable-simplify-libcalls");
   // `addPassesToEmitFile(*PM, BOS, DwoOut, FileType, !VerifyIR)`: llc's `-disable-verify` is the same `DisableVerify` (llc.cpp:840).
@@ -659,8 +666,9 @@ export function LLVMRustWriteOutputFile(T: TargetMachine, M: Module, Output: str
   const failed = openForWrite(Output, "LLVMRustWriteOutputFile");
   if (failed !== undefined) return failed;
   if (DwoOutput !== undefined) {
-    const dwoFailed = openForWrite(DwoOutput, "LLVMRustWriteOutputFile");
-    if (dwoFailed !== undefined) return dwoFailed;
+    // `auto DOS = raw_fd_ostream(DwoPath, EC, ...); EC.clear(); if (EC) ...`: upstream's check of the DWO file can never fire.
+    // PORT: llc opens the file itself, and fails (an ICE, D16) where upstream would write to a broken stream (review llir-tools N2;
+    // reached only with -Csplit-debuginfo, D18).
     args.push(`-split-dwarf-output=${DwoOutput}`);
   }
   args.push("-o", Output!, "-");
@@ -705,10 +713,13 @@ export function LLVMRustModuleSerialize(M: Module, is_thin: boolean): LLVMRustBu
   // #if LLVM_VERSION_GE(23, 0): `MPM.addPass(AssignGUIDPass())`, which changes the module itself.
   const guid = run_pinned_tool_or_ice("opt", ["-passes=assign-guid", "-S", "-o", "-", "-"], bytesOf(module_text(M)), M.moduleID);
   set_module_text(M, bstrOf(guid));
-  // `ThinLTOBitcodeWriterPass(OS, nullptr)`: opt's `--thinlto-bc` (NewPMDriver.cpp:542). PORT: opt also gives the written module an
-  // `EnableSplitLTOUnit` flag of 0 when it has none (optdriver.cpp:724), which reads as absent (`enableSplitLTOUnit`): the bitcode
-  // has one module flag more than rustc's.
-  const bc = run_pinned_tool_or_ice("opt", ["--thinlto-bc", "-passes=assign-guid", "-o", "-", "-"], bytesOf(module_text(M)), M.moduleID);
+  // `ThinLTOBitcodeWriterPass(OS, nullptr)`: opt's `--thinlto-bc` (NewPMDriver.cpp:542).
+  // - Its `ShouldPreserveUseListOrder` defaults to false; opt passes true (optdriver.cpp:809), which the writer's own
+  //   `-preserve-bc-uselistorder=false` overrides (BitcodeWriter.cpp:117, :221) (review llir-tools F4).
+  // - PORT: opt also gives the written module an `EnableSplitLTOUnit` flag of 0 when it has none (optdriver.cpp:724), which reads as
+  //   absent (`enableSplitLTOUnit`). On tools_oracle/opt.rs that flag (and the metadata numbers after it) is the only difference
+  //   from rustc's own `--emit=llvm-bc` (tools.test.ts).
+  const bc = run_pinned_tool_or_ice("opt", ["--thinlto-bc", "-preserve-bc-uselistorder=false", "-passes=assign-guid", "-o", "-", "-"], bytesOf(module_text(M)), M.moduleID);
   return new LLVMRustBuffer(bc);
 }
 
@@ -742,8 +753,10 @@ export function LLVMWriteBitcodeToFile(M: Module, Path: string | undefined): num
   } catch {
     return -1;
   }
-  // `WriteBitcodeToFile(*unwrap(M), OS)`: llvm-as writes the same writer's output (no summary, no use-list order).
-  const bc = run_pinned_tool_or_ice("llvm-as", ["-o", "-", "-"], bytesOf(module_text(M)), M.moduleID);
+  // `WriteBitcodeToFile(*unwrap(M), OS)`: the same writer in llvm-as, without a summary. Its `ShouldPreserveUseListOrder` defaults
+  // to false; llvm-as passes true (llvm-as.cpp:98), which `-preserve-bc-uselistorder=false` overrides (BitcodeWriter.cpp:117, :221;
+  // review llir-tools F4).
+  const bc = run_pinned_tool_or_ice("llvm-as", ["-preserve-bc-uselistorder=false", "-o", "-", "-"], bytesOf(module_text(M)), M.moduleID);
   writeFileSync(Path, bc);
   return 0;
 }
