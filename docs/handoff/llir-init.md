@@ -74,10 +74,10 @@ it stopped at `LLVMIsMultithreaded`.
     five `fromRust`, `LLVMRustCreateTargetMachine`, `LLVMRustSetLLVMOptions`, `LLVMRustSetDataLayoutFromTargetMachine`;
   - RustWrapper.cpp: `FatalErrorHandler`, `BadAllocErrorHandler`, `LLVMRustInstallErrorHandlers` and the three diagnostic-handler
     wrappers.
-- `// llvm:` markers: 83 new, in target.ts and triple.ts.
-- `bun scripts/coverage.ts --check --offline`: **fails with 79 `ERROR:` lines, all "names no file of harness/llvm-manifest.json"**,
+- `// llvm:` markers: 88 new, in target.ts and triple.ts (83 at first; review fixes added 5).
+- `bun scripts/coverage.ts --check --offline`: **fails with 84 `ERROR:` lines (79 before the review fixes), all "names no file of harness/llvm-manifest.json"**,
   because this lane may not add files to the manifest. Nothing else fails.
-  - I checked the 83 markers against the pinned sources: I fetched the files from the manifest's repo and commit into my
+  - I checked the 88 markers against the pinned sources: I fetched the files from the manifest's repo and commit into my
     scratchpad (not `llvm-src/`), then ran `llvmMarkerErrors` with a temporary manifest that adds them. Result: **0 errors**.
   - After root adds the files below, the check should pass.
 
@@ -110,7 +110,7 @@ for the intrinsic table.
 - `bun test ./src/rust_ts/llvm/ ./src/rustc_codegen_llvm/ ./src/std/result.test.ts ./scripts/lib/unit-steps.test.ts`: **262 pass,
   0 fail** (23 files).
 - **Differential tests against the pinned libLLVM** (`target.oracle.test.ts`, bun:ffi; the model never calls libLLVM):
-  - **Data layouts**: for 30 triples, `Triple::computeDataLayout` equals `LLVMCopyStringRepOfTargetData(LLVMCreateTargetDataLayout(LLVMCreateTargetMachine(…)))`.
+  - **Data layouts**: for 27 distinct triples (the first version said 30, counting the M7 two twice: review N1), `Triple::computeDataLayout` equals `LLVMCopyStringRepOfTargetData(LLVMCreateTargetDataLayout(LLVMCreateTargetMachine(…)))`.
     - The triples cover both M7 targets and every branch of the X86 / AArch64 / mangling code: x32, IAMCU, Windows MSVC/GNU, UEFI,
       MachO, COFF, big-endian, ILP32, `-macho` in the environment, and `arm64_32`.
     - Through `LLVMRustCreateTargetMachine` with cg-write's recorded arguments, both targets give libLLVM's layout. That is also
@@ -191,7 +191,9 @@ for the intrinsic table.
    - All 19 `cfg(llvm_component)`s are present in the oracle (tested via libLLVM's exports).
 2. **`LLVMRustSetLLVMOptions` uses an exact-argument allowlist** (`ACCEPTED_LLVM_ARGS`), because there is no `cl::opt` registry.
    - The list is configure_llvm's four defaults plus codegen_backend.ts's `ORACLE_ACCEPTED_LLVM_ARGS`. Any other argument, or a
-     repeat, stops.
+     repeat, stops. LLVM itself accepts a repeat of these (`cl::opt`, last one wins; the oracle takes `-enable-tail-merge=0`
+     twice), so the repeat stop is conservative: the model would pass the repeat to `opt`/`llc`, and that is not checked
+     (review N5).
    - `static bool Initialized` is kept: the first call wins.
    - `llvm_cl_args()` exposes the accepted options to `opt`/`llc`.
 3. **MC subtarget feature bits come from an oracle table** (`subtarget_table.ts`), because they are TableGen output. The table is
@@ -202,6 +204,8 @@ for the intrinsic table.
 4. **`TargetOptions`** holds only the fields the wrapper and the X86/AArch64 target machines set.
    - `InitTargetOptionsFromCodeGenFlags` is not modelled: none of its flags are accepted, so they stay at their defaults.
    - The effective relocation and code models are not computed: nothing reads them.
+   - AArch64's `TLSSize = 24` is set as upstream (from the `-tls-size` default 0). Its clamps read the effective code model and
+     stop, but they cannot fire for a size of 24 (review N3).
 5. **`Triple` has no `SubArch`.** `parseSubArch` is not ported; `computeDefaultCPU` with an empty CPU stops.
 6. **`Triple::normalize`** follows core.ts's existing PORT (`NORMAL_TRIPLES`).
 7. **`llvm_is_multithreaded()` is 1** (the oracle libLLVM's `LLVM_ENABLE_THREADS`; tested).
@@ -228,6 +232,10 @@ for the intrinsic table.
     - A handle first seen on a thread with no context (a worker thread's) is never retired.
     - If a context's object is first mentioned after another context was created on the same thread, it is retired with the
       newer context: a false difference, never a false pass.
+    - Only a live context tags (review N8): a thread whose current context another thread disposed of tags new handles 0.
+13. **Placement.** `rustc_llvm::initialize_available_targets` lives in the IR model (target.ts), not at the mirrored
+    `src/rustc_llvm/lib.ts`. `rustc_llvm` is excluded, and the body is only `LLVMInitialize*` calls into the model (review N9;
+    root records it).
 
 ## Test doubles root can remove
 - `context.test.ts`: the remaining doubles `llvm_util::get_version`, `back::write::to_llvm_code_model` and
@@ -257,8 +265,61 @@ for the intrinsic table.
 - Remaining recorder cost: `scan()` still walks every global, function and instruction of the building thread's module on each
   recorded call (O(calls × module size)). It accounts for most of task-comm-7's 28 s, and could be made incremental later.
 
+## Review fixes (docs/reviews/llir-init.md on t3/review-llir-init, FAIL; fixed in `76cee423`, `c8890402`)
+- **F1** `triple.ts`: the `arc` arm now has LLVM's string with `i32:32:32-` (TargetDataLayout.cpp:566-568).
+  - **All literal arms re-checked:** a script parsed `computeDataLayout`'s switch from the pinned TargetDataLayout.cpp (lines
+    555-667) and compared each literal arm with the model. **19 arches, 0 differences**: arc, avr, dxil, hexagon, msp430, tce,
+    tcele, tcele64, xcore, xtensa, and the nine `""` arms. On the first version the same script finds the arc difference.
+  - New test: the literal layouts of the oracle's AVR, Hexagon, MSP430 and Xtensa back ends equal libLLVM's target machine's.
+- **F2** `target.ts` `X86TargetMachine`: uses `TT.isPS()`. `isPS4`, `isPS5` and `isPS` are ported in triple.ts (Triple.h:894,
+  :900, :906, marked).
+  - New test against libLLVM: libLLVM exposes `TrapUnreachable` through no C API, so the observable is whether
+    `define void @f() { unreachable }` compiles to a `ud2` (`LLVMTargetMachineEmitToMemoryBuffer`). It is compared with the
+    model's `Options.TrapUnreachable` for seven triples:
+
+    | triple | traps (model = libLLVM) |
+    |---|---|
+    | `x86_64-scei-ps4` | true |
+    | `x86_64-unknown-ps4` | false |
+    | `x86_64-sie-ps5` | true |
+    | `x86_64-unknown-ps5` | false |
+    | `i686-scei-ps4` | false |
+    | `x86_64-unknown-linux-gnu` | false |
+    | `x86_64-apple-darwin` | true (MachO) |
+
+  - The test bites: with the old OS-only test, it fails on `x86_64-unknown-ps4`, `x86_64-unknown-ps5` and `i686-scei-ps4`.
+- **N1** `DL_TRIPLES` no longer spreads `NORMAL_TRIPLES`. It has 27 entries, all distinct, which the test asserts, along with
+  both M7 triples being in it.
+- **N2** `// llvm:` markers on `AArch64beTargetMachine` (AArch64TargetMachine.cpp:572) and `setLargeDataThreshold`
+  (TargetMachine.h:277).
+- **N3** AArch64 `Options.TLSSize = 24`, as upstream (TargetOptions.h:130 `TLSSize(0)`; `-tls-size` defaults to 0 and is not
+  accepted). The clamps stop if ever reached (PORT 4). The comment is corrected.
+- **N4** `skeleton.test.ts`:
+  - The test drives `LlvmCodegenBackend::init` again, through the port's driver: `Config::make_codegen_backend` hands
+    `run_compiler` the backend, and the driver calls `init(early_sess)`.
+  - It asserts the stop `llir: rustc_llvm::initialize_available_targets`, or `LLVMRustDisableSystemDialogsOnCrash` if `CI` is
+    set.
+  - Once root makes the `llvm_util.ts` one-liner, this expectation moves to the next stop.
+- **N5** The repeated-option stop's reason is corrected (PORT 2). It is still a stop.
+- **N6 (optional, done)** The target machines copy `TargetOptions` with its `MCOptions`.
+- **N7** Every libLLVM test calls `libLLVM()` first. Without the toolchain under `RUST_TS_REQUIRE_PROBES=1`, each fails with one
+  line: `ERROR: the oracle's libLLVM.dylib is unavailable (…)`. Checked with `PATH=/bin:/usr/bin`: the 7 libLLVM tests fail
+  that way, and the 11 model tests pass.
+- **N8 (optional, done)** `record.ts`: only a live context tags a new handle (PORT 12). `record.oracle.test.ts` checks a stale
+  thread context; with the check removed, the test fails.
+- **N9** recorded as PORT 13.
+- **After the fixes:**
+  - `bunx tsc --noEmit -p .`: clean.
+  - The brief's test command: **264 pass, 0 fail** (23 files). That includes the 19 proof scripts, re-recorded byte for byte with
+    the changed recorder.
+  - `coverage.ts --check --offline`: 84 `ERROR:` lines, all "names no file of harness/llvm-manifest.json" (the same 18 files).
+  - The 88 markers checked against the pinned sources: 0 errors.
+
 ## Commits
 - `6c933b96` IR model: LLVM init, target registry, target machine, MC subtarget, diagnostic handlers; replay, proof case, test
   updates.
 - `27a971a7` Recorder: hash-table handle lookups; retire a disposed context's handles.
-- The commit of this handoff.
+- `2b54c738` this handoff.
+- `76cee423` review fixes F1, F2, N1-N7.
+- `c8890402` recorder N8.
+- The commit of this handoff update.
