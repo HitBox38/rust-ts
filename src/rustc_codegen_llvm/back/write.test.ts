@@ -499,6 +499,8 @@ describe("what reaches the IR model's stops stops there, by name", () => {
     } as unknown as ModuleConfig;
     const cgcx = { target_is_like_gpu: false, use_linker_plugin_lto: false } as unknown as CodegenContext;
     const prof = { profiler: undefined } as never;
-    stops(() => write.llvm_optimize(cgcx, prof, undefined as never, module, undefined, undefined, config, "No", "PreLinkNoLTO", "PostAD"), /^llir: LLVMRustOptimize$/);
+    // Lane llir-tools implements LLVMRustOptimize (src/rust_ts/llvm/tools.ts); its first stop is the LLVM options lane llir-init keeps
+    // (`llvm_cl_args`). Once that merges, this call reaches the model's module (a stand-in here) and the test needs a real one.
+    stops(() => write.llvm_optimize(cgcx, prof, undefined as never, module, undefined, undefined, config, "No", "PreLinkNoLTO", "PostAD"), /^llir-init: src\/rust_ts\/llvm\/target\.ts llvm_cl_args/);
   });
 });

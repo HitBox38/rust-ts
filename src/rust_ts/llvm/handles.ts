@@ -7,6 +7,7 @@
 // (`TargetMachine`, `MCSubtargetInfo`, `Buffer`, `ThinLTOData`, `Linker`, diagnostics). Such a lane replaces the brand here
 // with its class; the name stays, so ffi.ts and its callers do not change.
 import type { BasicBlock as InstBasicBlock, IRBuilder, OperandBundleDef } from "./inst.ts";
+import type { LLVMRustBuffer } from "./tools.ts";
 import type { Attribute as IrAttribute, Comdat as IrComdat, ConstantInt as IrConstantInt, Context as IrContext, Metadata as IrMetadata, Module as IrModule, Type as IrType, Value as IrValue } from "./ir.ts";
 
 export type { RustString } from "./support.ts";
@@ -34,7 +35,7 @@ export type Twine = Opaque<"Twine">;
 export type DiagnosticInfo = Opaque<"DiagnosticInfo">;
 export type SMDiagnostic = Opaque<"SMDiagnostic">;
 export type DiagnosticHandler = Opaque<"DiagnosticHandler">;
-export type Buffer = Opaque<"Buffer">;
+export type Buffer = LLVMRustBuffer;
 export type ThinLTOData = Opaque<"ThinLTOData">;
 export type Linker = Opaque<"Linker">;
 
