@@ -65,11 +65,23 @@ Upstream flow at `-O` with several CGUs (`sess.lto() == ThinLocal`):
   - `module_text(M)` and `set_module_text(M, text)`: a module held as text after `opt`; later model mutation stops.
 
   Every LTO tool call goes through it; no second runner.
-- **llir-tools takes these IR-model calls:** `LLVMRustModuleSerialize`, `LLVMRustBufferPtr` / `LLVMRustBufferLen` /
-  `LLVMRustBufferFree` (a `Buffer` class in tools.ts), and `LLVMRustParseBitcodeForLTO` if it fits their commit. Otherwise
-  their handoff lists it.
+- **llir-tools implemented these IR-model calls** (commit `ce8718a3` on `t3/implement-llir-tools`, by message):
+  - `LLVMRustModuleSerialize`, thin only; `is_thin = false` stops by name;
+  - `LLVMRustBufferPtr` / `LLVMRustBufferLen` / `LLVMRustBufferFree`. handles.ts's `Buffer` is now their `LLVMRustBuffer`
+    class, and `LLVMRustBufferPtr` always returns the bytes;
+  - `LLVMRustParseBitcodeForLTO`;
+  - also `LLVMCloneModule` and `LLVMWriteBitcodeToFile`.
+
+  Their `tools.ts` exports `pinned_tool`, `run_pinned_tool`, `run_pinned_tool_or_ice(name, args, input, what, ext?)`,
+  `llvm_tmp_dir`, `module_text`, `set_module_text` and `LLVMRustBuffer`.
 - **Buffer out-parameter contract** (sent to llir-tools): `LLVMRustOptimize` writes its model `Buffer` handle straight into the
   `{ value }` cell write.ts passes. lto.ts's `Buffer` is that handle (`#[repr(transparent)]`).
+  - **Not met yet:** `LLVMRustOptimize` stops by name when a ThinLTO buffer cell is given. Upstream writes that buffer with a
+    `ThinLTOBitcodeWriterPass` partway through the pipeline, which one `opt` run cannot produce.
+  - write.ts passes the cell when `emit_obj` is `ObjectCode(Full)` or `emit_thin_lto_summary` is set. `ObjectCode(Full)` is an
+    rlib with embedded bitcode, the default for an rlib under `--emit=link`. So **every optimized rlib stops there**, with one
+    CGU or several. A bin does not.
+  - llir-tools' handoff lists it as a follow-up.
 - **`llvm-link` is not in `LLVM_TOOLS` / `LLVM_TOOLS_PINNED`** (scripts/lib/llvm-tools.ts). tools.ts locates it and checks it
   exists, but does not hash-check it. Pinning it is a `scripts/` change for root.
 
@@ -189,9 +201,25 @@ library 745; llvm 434)`.
 
   All of them go over llir-tools' `tools.ts`.
 - **Pin `llvm-link`** in scripts/lib/llvm-tools.ts (`LLVM_TOOLS`, `LLVM_TOOLS_PINNED`). This is a scripts/ batch.
-- **ThinLocal end to end** needs llir-tools' `LLVMRustModuleSerialize` / `Buffer*` / `LLVMRustParseBitcodeForLTO`. Until
-  then, `-O` with several CGUs stops in the first `serialize_module`, by name. It no longer stops at `run_thin_lto`.
+- **ThinLocal end to end.** On this branch alone, `-O` with several CGUs stops by name in the first `serialize_module`. It no
+  longer stops at `run_thin_lto`.
+
+  With llir-tools' `ce8718a3` merged, a **bin** should get through the whole ThinLocal path:
+  - pre-link optimize;
+  - thin serialize;
+  - parse;
+  - the four skipped steps;
+  - `thinlto<Ox>`;
+  - codegen.
+
+  I have not run this: the two branches are not merged here.
+
+  An **rlib** at `-O` still stops earlier, in `LLVMRustOptimize`'s ThinLTO buffer cell (above).
+
+  `-Clto=fat` needs `is_thin = false` serialization too (stops in llir-tools' `LLVMRustModuleSerialize`), on top of the
+  follow-up above.
 
 ## Commits (branch `t3/port-cg-lto-diagnostics`)
 - `15e35af8`: the port, the write.ts stub replacements, diagnostic_impls.ts, skeleton counts and both new tests.
-- The commit of this handoff.
+- `1b55ee87`, `11aaf180`: this handoff, and the branch name in it.
+- The commit recording llir-tools' `ce8718a3`.
