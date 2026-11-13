@@ -14,7 +14,7 @@ import { suite } from "../harness/suites.ts";
 import { DATA, RUNS, UPSTREAM, ensureDir, hash, nowId, parseArgs, run } from "./lib/common.ts";
 import { caseEnv } from "./lib/env.ts";
 import { applyEdits, MUTATIONS, type Edit } from "./lib/ir-mutations.ts";
-import { IR_TIERS, normalForm, stripIrComments, type IrTier } from "./lib/ir-normal.ts";
+import { IR_TIERS, normalForm, OPT_PASSES, stripIrComments, type IrTier } from "./lib/ir-normal.ts";
 import { llvmBinDir, llvmToolsError } from "./lib/llvm-tools.ts";
 import { oracleHost, oracleRustcCmd, oracleSysroot, verifyOraclePin } from "./lib/oracle.ts";
 
@@ -83,7 +83,7 @@ async function one(c: (typeof cases)[number], w: number): Promise<void> {
   compared++;
   const ref = { N1: await nf(ir, "N1"), N2: await nf(ir, "N2"), N3: await nf(ir, "N3") };
   const as = Bun.spawnSync([join(BIN, "llvm-as"), "-", "-o", "-"], { stdin: Buffer.from(ir, "latin1"), stdout: "pipe" }).stdout;
-  const viaBitcode = Bun.spawnSync([join(BIN, "opt"), "-passes=assign-guid,verify", "-S", "-o", "-"], { stdin: as, stdout: "pipe" }).stdout;
+  const viaBitcode = Bun.spawnSync([join(BIN, "opt"), `-passes=${OPT_PASSES.N1}`, "-S", "-o", "-"], { stdin: as, stdout: "pipe" }).stdout;
   if (stripIrComments(Buffer.from(viaBitcode).toString("latin1")) !== ref.N1) bitcodeDiffers++;
   for (const m of MUTATIONS) {
     const edits = m.sites(ir);

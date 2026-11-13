@@ -126,6 +126,9 @@ export const MUST_STAY_VISIBLE: Mutation[] = [
   { name: "an unused declaration added", why: "the module's contents", sites: whole((ir) => `${ir}\ndeclare void @zz_unused()\n`), expect: ALL },
   { name: "triple changed", why: "the module's contents", sites: re(/^target triple = "[^"]+"/gm, 'target triple = "x86_64-unknown-freebsd"'), expect: ALL },
   { name: "datalayout changed", why: "the module's contents", sites: re(/-i128:128/gm, ""), expect: ALL },
+  // name-anon-globals (scripts/lib/ir-normal.ts N1) names only unnamed globals: a real name lost, or a wrong anonymous one, stays visible.
+  { name: "a named global printed unnamed", why: "name-anon-globals gives it an anon. name, not its own", sites: whole((ir) => { const n = /^@(alloc_\w+) = /m.exec(ir)?.[1]; return n === undefined ? ir : ir.replace(new RegExp(`@${n}\\b`, "g"), "@0"); }), expect: ALL },
+  { name: "an anonymous global's name wrong", why: "name-anon-globals renames only unnamed globals", sites: re(/@anon\.[0-9a-f]+\.0\b/gm, "@anon.00000000000000000000000000000000.0"), expect: ALL },
   { name: "a wrong !guid", why: "assign-guid only fills in a missing one", sites: whole((ir) => { let n = 0; return ir.replace(/!guid !(\d+)/g, (m) => (n++ === 0 ? "!guid !{i64 1}" : m)); }), expect: ALL },
   // F10's hole: the literal holds `; preds = ...`, so an unanchored strip eats what follows it on the line.
   { name: "align after a string holding `; preds =`", why: "F10", sites: re(/(c"abc {2}; preds = %bb1, %bb2"), align 1/gm, "$1, align 64"), expect: ALL },
@@ -166,6 +169,12 @@ export const TIER_ABSORBS: Mutation[] = [
 export const ALWAYS_ABSORBED: Mutation[] = [
   { name: "comment lines removed", why: "annotation writer", sites: re(/^; .*\n/gm, ""), expect: NONE },
   { name: "preds tails reordered", why: "use-list order", sites: re(/^(\w+:) +; preds = (%[^,\n]+), (%[^,\n]+)$/gm, "$1 ; preds = $3, $2"), expect: NONE },
+  {
+    name: "anonymous globals printed unnamed",
+    why: "name-anon-globals names them as LLVMRustOptimize did (owner decision after review llir-folder, item 10)",
+    sites: whole((ir) => ir.replace(/@anon\.[0-9a-f]+\.(\d+)\b/g, "@$1").replace(/^(@\d+ = .*?), !guid !\d+/gm, "$1")),
+    expect: NONE,
+  },
   { name: "!guid removed", why: "assign-guid adds it", sites: re(/, !guid !\d+| !guid !\d+(?= \{)/gm, ""), expect: NONE },
   { name: "attribute groups renumbered", why: "assigned by the printer", sites: whole((ir) => ir.replace(/(^attributes | )#(\d+)/gm, (_, a, n) => `${a}#${Number(n) + 1000}`)), expect: NONE },
   {

@@ -5,7 +5,7 @@ import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSy
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { applyEdits, MUTATIONS } from "./lib/ir-mutations.ts";
-import { IR_TIERS, normalForm, stripIrComments, tierCommands, type IrTier } from "./lib/ir-normal.ts";
+import { IR_TIERS, normalForm, OPT_PASSES, stripIrComments, tierCommands, type IrTier } from "./lib/ir-normal.ts";
 import { llvmBinDir } from "./lib/llvm-tools.ts";
 import { EXIT_NORMAL_FORM, parseIrRunArgs } from "./ir-run.ts";
 import { irTierError } from "./lib/ir-normal.ts";
@@ -64,7 +64,7 @@ describe("the oracle's text", () => {
   });
   test("bitcode with names kept gives N1's text: names are all the N2 path gives up", () => {
     const bc = Bun.spawnSync([join(BIN, "llvm-as"), "-", "-o", "-"], { stdin: Buffer.from(IR, "latin1"), stdout: "pipe" }).stdout;
-    const opt = Bun.spawnSync([join(BIN, "opt"), "-passes=assign-guid,verify", "-S", "-o", "-"], { stdin: bc, stdout: "pipe" }).stdout;
+    const opt = Bun.spawnSync([join(BIN, "opt"), `-passes=${OPT_PASSES.N1}`, "-S", "-o", "-"], { stdin: bc, stdout: "pipe" }).stdout;
     expect(stripIrComments(Buffer.from(opt).toString("latin1"))).toBe(REF.N1);
   });
 });
@@ -95,10 +95,10 @@ describe("stripIrComments", () => {
 });
 
 describe("tier commands", () => {
-  test("N1 reads text, N2 and N3 go through llvm-as; only N3 runs instsimplify; all verify", () => {
-    expect(tierCommands("N1", "/b")).toEqual([["/b/opt", "-passes=assign-guid,verify", "-S", "-o", "-"]]);
-    expect(tierCommands("N2", "/b")).toEqual([["/b/llvm-as", "-", "-o", "-"], ["/b/opt", "--discard-value-names", "-passes=assign-guid,verify", "-S", "-o", "-"]]);
-    expect(tierCommands("N3", "/b")[1]).toContain("-passes=assign-guid,function(instsimplify),verify");
+  test("N1 reads text, N2 and N3 go through llvm-as; all run rustc's name-anon-globals then assign-guid; only N3 runs instsimplify; all verify", () => {
+    expect(tierCommands("N1", "/b")).toEqual([["/b/opt", "-passes=name-anon-globals,assign-guid,verify", "-S", "-o", "-"]]);
+    expect(tierCommands("N2", "/b")).toEqual([["/b/llvm-as", "-", "-o", "-"], ["/b/opt", "--discard-value-names", "-passes=name-anon-globals,assign-guid,verify", "-S", "-o", "-"]]);
+    expect(tierCommands("N3", "/b")[1]).toContain("-passes=name-anon-globals,assign-guid,function(instsimplify),verify");
   });
   test("a broken module is an error with its first line and no absolute path", async () => {
     const n = await normalForm(Buffer.from("define void @f() {\n  bogus\n}\n"), "N1", BIN);
