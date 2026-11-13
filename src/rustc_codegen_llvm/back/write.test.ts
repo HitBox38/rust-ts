@@ -46,6 +46,11 @@ import { OutputType, type OutputFilenames, type SplitDwarfKind } from "../../rus
 import type { SplitDebuginfo } from "../../rustc_target/spec/mod.ts";
 import { Unported } from "../../std/panic.ts";
 import * as ffi from "../../rust_ts/llvm/ffi.ts";
+import { Context as IrContext, Module as IrModuleClass } from "../../rust_ts/llvm/ir.ts";
+import { is_tool_text, pinned_tool, with_cl_args } from "../../rust_ts/llvm/tools.ts";
+import { CL_ARGS, tmFromRecorded } from "../../rust_ts/llvm/tools_oracle/fixtures.ts";
+import { initialize_available_targets } from "../../rust_ts/llvm/target.ts";
+import { TM_FIXTURES, tmArgs } from "../../rust_ts/llvm/tm_fixture.ts";
 import type { Module as IrModule } from "../../rust_ts/llvm/ir.ts";
 import { printModule } from "../../rust_ts/llvm/printer.ts";
 import "../lib.ts";
@@ -470,21 +475,44 @@ describe("what reaches the IR model's stops stops there, by name", () => {
     expect((e as Unported).what).toMatch(what);
   };
   test("owned_* and archive", () => {
-    stops(() => OwnedMCSubtargetInfo.new("t", "c", ""), /^llir: LLVMRustCreateMCSubtargetInfo$/);
-    stops(() => new OwnedTargetMachine({} as never).drop(), /^llir: LLVMDisposeTargetMachine$/);
+    // lane llir-init: the IR model creates subtargets and target machines now; a triple it does not know stops in its
+    // `Triple::normalize`, and dropping a machine disposes of it.
+    stops(() => OwnedMCSubtargetInfo.new("t", "c", ""), /^llir: Triple::normalize\("t"\)$/);
+    initialize_available_targets();
+    const tm = ffi.LLVMRustCreateTargetMachine(...tmArgs(readFileSync(join(TM_FIXTURES, "x86_64-unknown-linux-gnu.tm"), "utf8").split("\n")[0]!))!;
+    new OwnedTargetMachine(tm).drop();
+    expect(tm.disposed).toBe(true);
     stops(() => llvm_util.print_passes(), /^llir: LLVMRustPrintPasses$/);
     const ab = LlvmArchiveBuilderBuilder.new_archive_builder(undefined as never);
     expect(ab).toBeDefined();
   });
-  test("llvm_optimize stops at LLVMRustOptimize", () => {
-    const tm = new OwnedTargetMachine({} as never);
-    const module = ModuleCodegen.new_regular("m", { llmod: () => ({}), llcx: {}, tm } as never);
+  // Lane llir-tools: LLVMRustOptimize runs the pinned opt (src/rust_ts/llvm/tools.ts), so llvm_optimize now rewrites the module.
+  // A target machine with the recorded x86_64 arguments (a view of the fields tools.ts reads) and configure_llvm's options.
+  const haveTools = (() => {
+    try {
+      pinned_tool("opt");
+      return true;
+    } catch {
+      return false;
+    }
+  })();
+  test.skipIf(!haveTools && !REQUIRE)("llvm_optimize runs LLVMRustOptimize", () => {
+    const tm = new OwnedTargetMachine(tmFromRecorded(readFileSync(join(ORACLE, "x86_64-unknown-linux-gnu.tm"), "utf8").split("\n")[0]!) as never);
+    const llmod = new IrModuleClass(new IrContext(), "m");
+    llmod.targetTriple = "x86_64-unknown-linux-gnu";
+    const module = ModuleCodegen.new_regular("m", { llmod: () => llmod, llcx: llmod.context, tm } as never);
     const config = {
       autodiff: [],
       autodiff_post_passes: undefined,
       merge_functions: false,
       vectorize_slp: false,
       vectorize_loop: false,
+      no_prepopulate_passes: false,
+      verify_llvm_ir: false,
+      lint_llvm_ir: false,
+      no_builtins: false,
+      emit_lifetime_markers: true,
+      debug_info_for_profiling: false,
       pgo_gen: { $: "Disabled" },
       pgo_use: undefined,
       pgo_sample_use: undefined,
@@ -499,6 +527,9 @@ describe("what reaches the IR model's stops stops there, by name", () => {
     } as unknown as ModuleConfig;
     const cgcx = { target_is_like_gpu: false, use_linker_plugin_lto: false } as unknown as CodegenContext;
     const prof = { profiler: undefined } as never;
-    stops(() => write.llvm_optimize(cgcx, prof, undefined as never, module, undefined, undefined, config, "No", "PreLinkNoLTO", "PostAD"), /^llir: LLVMRustOptimize$/);
+    with_cl_args(CL_ARGS, () => write.llvm_optimize(cgcx, prof, undefined as never, module, undefined, undefined, config, "No", "PreLinkNoLTO", "PostAD"));
+    expect(is_tool_text(llmod)).toBe(true);
+    // A ThinLTO buffer (embedded bitcode) is not written by one opt run: a stop, by name.
+    stops(() => with_cl_args(CL_ARGS, () => write.llvm_optimize(cgcx, prof, undefined as never, module, { value: undefined }, undefined, config, "No", "PreLinkNoLTO", "PostAD")), /^llir: LLVMRustOptimize's ThinLTO buffer/);
   });
 });

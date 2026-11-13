@@ -12,14 +12,14 @@
 //      same crate (context_oracle/<target>.ll), byte for byte: data layout, triple, module flags and `llvm.ident`.
 //    With the pinned toolchain present, both fixtures are re-made from the oracle and must be unchanged.
 //
-//    `create_module` calls functions of other fill lanes and crates that are typed stubs today. They are replaced here, for
-//    the duration of the test, by **test doubles that are line-by-line copies of the upstream bodies** (cited below), so what is
-//    tested is this lane's code; each double is listed in docs/handoff/cg-context.md:
-//    `llvm_util::get_version` (cg-write), `back::write::{create_informational_target_machine, to_llvm_code_model}` (cg-write),
-//    `ModuleLlvm::new`'s `back::write::create_target_machine` (cg-write), `attributes::frame_pointer` (cg-types-attrs),
-//    `Session::{needs_plt, must_emit_unwind_tables, branch_protection}` (rustc_session), and the IR model's two stubs
-//    `LLVMRustSetDataLayoutFromTargetMachine` (its effect: the target machine's data layout, the `?datalayout` the oracle shows)
-//    and `LLVMDisposeTargetMachine` (a no-op on the double's target machine).
+//    `create_module` calls functions of other fill lanes and crates that were typed stubs when this test was written. Some are
+//    still replaced here, for the duration of the test, by **test doubles that are line-by-line copies of the upstream bodies**
+//    (cited below); each double is listed in docs/handoff/cg-context.md: `llvm_util::get_version` (cg-write),
+//    `back::write::to_llvm_code_model` (cg-write) and `attributes::frame_pointer` (cg-types-attrs).
+//    The target machines are the real ones (lane llir-init): `back::write::{create_informational_target_machine,
+//    create_target_machine}` and `OwnedTargetMachine::drop` as ported, and the IR model's `LLVMRustCreateTargetMachine`,
+//    `LLVMRustSetDataLayoutFromTargetMachine` and `LLVMDisposeTargetMachine`. LLVM's targets are registered first, as
+//    `llvm_util::configure_llvm` does (`rustc_llvm::initialize_available_targets`, the IR model's).
 // 2. The pure helpers of context.rs and common.rs on the IR model, printed: metadata, constants, symbol names.
 import { afterAll, describe, expect, spyOn, test } from "bun:test";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -36,17 +36,16 @@ import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import type { Session } from "../rustc_session/session.ts";
 import { FramePointer } from "../rustc_target/spec/mod.ts";
 import * as ffi from "../rust_ts/llvm/ffi.ts";
+import { initialize_available_targets } from "../rust_ts/llvm/target.ts";
 import { ConstantInt, MDNode, MDString, type Module as IrModule, ValueAsMetadata } from "../rust_ts/llvm/ir.ts";
 import { printModule, printValueToString } from "../rust_ts/llvm/printer.ts";
 import { Size } from "../rustc_abi/lib.ts";
 import "./lib.ts";
 import * as attributes from "./attributes.ts";
 import { ModuleLlvm } from "./back/llvm_backend.ts";
-import { OwnedTargetMachine } from "./back/owned_target_machine.ts";
 import * as back_write from "./back/write.ts";
 import * as common from "./common.ts";
 import { CodegenCx, FullCx, SCx, SimpleCx } from "./context.ts";
-import type * as llvm from "./llvm/mod.ts";
 import * as llvm_util from "./llvm_util.ts";
 
 const REQUIRE = process.env.RUST_TS_REQUIRE_PROBES === "1";
@@ -98,13 +97,7 @@ function with_tcx<R>(target: string, f: (tcx: TyCtxt) => R): R {
 }
 
 // ---- test doubles: copies of the upstream bodies (header) ----
-/** The target machine the doubles hand out: opaque to the port, which only passes it back. */
-function fake_tm(data_layout: string): OwnedTargetMachine {
-  const tm = { data_layout } as unknown as llvm.TargetMachine;
-  return new OwnedTargetMachine(tm);
-}
-
-function install_doubles(oracle_data_layout: string): () => void {
+function install_doubles(): () => void {
   const spies: { mockRestore(): void }[] = [];
   // llvm_util.rs:469 get_version
   spies.push(
@@ -116,10 +109,6 @@ function install_doubles(oracle_data_layout: string): () => void {
       return [llvm_major.value, llvm_minor.value, llvm_patch.value];
     }),
   );
-  // back/write.rs:100 create_informational_target_machine, back/write.rs create_target_machine: LLVMRustCreateTargetMachine is
-  // a hidden wrapper (the recorder sees no call); the double's machine carries the oracle's data layout for it.
-  spies.push(spyOn(back_write, "create_informational_target_machine").mockImplementation(() => fake_tm(oracle_data_layout)));
-  spies.push(spyOn(back_write, "create_target_machine").mockImplementation(() => fake_tm(oracle_data_layout)));
   // back/write.rs:160 to_llvm_code_model
   spies.push(
     spyOn(back_write, "to_llvm_code_model").mockImplementation((code_model) => {
@@ -137,12 +126,6 @@ function install_doubles(oracle_data_layout: string): () => void {
         case undefined:
           return "None";
       }
-    }),
-  );
-  // owned_target_machine.rs `impl Drop for OwnedTargetMachine`: `llvm::LLVMDisposeTargetMachine(self.tm_unique.as_mut())`.
-  spies.push(
-    spyOn(OwnedTargetMachine.prototype, "drop").mockImplementation(function (this: OwnedTargetMachine) {
-      ffi.LLVMDisposeTargetMachine(this.tm_unique);
     }),
   );
   // attributes.rs:217 frame_pointer
@@ -209,23 +192,13 @@ function record_port(): { lines: string[]; restore: () => void } {
     if (typeof orig !== "function" || !/^LLVM/.test(name)) continue;
     const f = orig as (...a: unknown[]) => unknown;
     const spy = spyOn(ns, name as never).mockImplementation(((...a: unknown[]) => {
-      // The IR model's stubs that create_module reaches (header).
-      if (name === "LLVMRustSetDataLayoutFromTargetMachine") {
-        const m = a[0] as IrModule;
-        m.dataLayout = (a[1] as unknown as { data_layout: string }).data_layout;
-        lines.push(`?datalayout ${h(m)} ${bytes(utf8(m.dataLayout))}`);
-        return undefined;
-      }
-      if (name === "LLVMDisposeTargetMachine") {
-        lines.push(`LLVMDisposeTargetMachine(${arg(a[0])})`);
-        return undefined;
-      }
       const m = a[0] instanceof Object && (a[0] as object).constructor.name === "Module" ? (a[0] as IrModule) : undefined;
       const before = m === undefined ? 0 : flagsOf(m).length;
       const r = f(...a);
       if (/^LLVMRust/.test(name)) {
         // A wrapper: the recorder writes its effect, not the call.
         if (name === "LLVMRustSetNormalizedTarget") lines.push(`?triple ${h(m!)} ${bytes(utf8(m!.targetTriple))}`);
+        else if (name === "LLVMRustSetDataLayoutFromTargetMachine") lines.push(`?datalayout ${h(m!)} ${bytes(utf8(m!.dataLayout))}`);
         else if (m !== undefined) for (const node of flagsOf(m).slice(before)) lines.push(flagLine(m, node));
         return r;
       }
@@ -259,8 +232,9 @@ describe("create_module + CodegenCx::new against the oracle (empty no_core lib)"
   for (const target of TARGETS) {
     test(`${target}: the C API calls, in the oracle's order, and the printed module`, () => {
       const want = oracle_lines(target);
-      const dl = /^\?datalayout %\d+ "(.*)"$/.exec(want.find((l) => l.startsWith("?datalayout"))!)![1]!;
-      const restore_doubles = install_doubles(dl);
+      // `configure_llvm` registers LLVM's targets before any target machine is made.
+      initialize_available_targets();
+      const restore_doubles = install_doubles();
       const rec = record_port();
       let printed = "";
       try {

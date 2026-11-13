@@ -15,6 +15,7 @@ import { llvmBinDir } from "../../../scripts/lib/llvm-tools.ts";
 import { printModule } from "./printer.ts";
 import { record, recorderDylib } from "./record.ts";
 import { buildingThread, parseScript, replay } from "./replay.ts";
+import { TM_FIXTURES, tmArgs } from "./tm_fixture.ts";
 
 const REQUIRE = process.env.RUST_TS_REQUIRE_PROBES === "1";
 const REGEN = process.env.REGEN === "1";
@@ -78,8 +79,8 @@ const CASES: Record<string, { args: string[]; wrappers: string[]; raw?: RegExp }
 };
 /** Every compile's module setup: triple, PIC level (every case is PIC or PIE), and `add_module_flag_u32`'s flags. */
 const COMMON_WRAPPERS = ["LLVMRustSetNormalizedTarget", "LLVMRustSetModulePICLevel", "LLVMRustAddModuleFlagU32"];
-/** Calls another lane implements, which the replay may skip (their results are never used by this half). */
-const SKIP_ALLOWED = new Set(["LLVMIsMultithreaded", "LLVMDisposeTargetMachine"]);
+/** Calls the replay may skip: the dispose of a hidden target machine, when the case gives no target machine arguments. */
+const SKIP_ALLOWED = new Set(["LLVMDisposeTargetMachine"]);
 /** Hidden wrappers the model leaves to another lane, whose effects replay applies directly. */
 const STUBBED_ALLOWED = new Set(["LLVMRustSetDataLayoutFromTargetMachine"]);
 const WORK = join(DATA, "tmp", "llir-proof", `${process.env.RUST_TS_AGENT ?? "default"}-${process.pid}`);
@@ -135,7 +136,67 @@ describe.skipIf(!HAVE && !REQUIRE)("IR model proof against the oracle's IR", () 
   }
 });
 
+// lane llir-init: an empty `#![no_core]` lib (rustc_codegen_llvm/context_oracle/empty.rs), recorded from the start of the process,
+// replays with **no stand-ins**: nothing skipped, no effect applied directly. The hidden `LLVMRustCreateTargetMachine` calls are the
+// model's, with the arguments cg-write recorded for this compile (back/write_oracle/<target>.tm, the same argv and directory).
+const EMPTY_TARGETS = ["x86_64-unknown-linux-gnu", "aarch64-apple-darwin"] as const;
+const EMPTY_SRC = join(import.meta.dir, "../../rustc_codegen_llvm/context_oracle/empty.rs");
+const emptyMachines = (target: string): Parameters<typeof import("./ffi.ts").LLVMRustCreateTargetMachine>[] =>
+  readFileSync(join(TM_FIXTURES, `${target}.tm`), "utf8")
+    .split("\n")
+    .filter((l) => l !== "")
+    .map(tmArgs);
+const EMPTY_WRAPPERS = [...COMMON_WRAPPERS, "LLVMRustInstallErrorHandlers", "rustc_llvm::initialize_available_targets", "LLVMRustCreateTargetMachine", "LLVMRustSetDataLayoutFromTargetMachine"];
+
+describe.skipIf(!HAVE && !REQUIRE)("empty no_core lib: record, replay with no stand-ins, oracle normal form", () => {
+  let dylib = "";
+  beforeAll(() => {
+    mkdirSync(WORK, { recursive: true });
+    dylib = recorderDylib(SYSROOT, DATA, UPSTREAM);
+  });
+  for (const target of EMPTY_TARGETS) {
+    test(target, async () => {
+      const argv = ["--crate-type", "lib", "--target", target, "--emit=llvm-ir", "-Cno-prepopulate-passes", "empty.rs"];
+      const runIn = (sub: string): string => {
+        const d = join(WORK, `empty-${target}-${sub}`);
+        mkdirSync(d, { recursive: true });
+        writeFileSync(join(d, "empty.rs"), readFileSync(EMPTY_SRC));
+        return d;
+      };
+      const plainDir = runIn("plain");
+      const plain = Bun.spawnSync([join(SYSROOT, "bin", "rustc"), ...argv], { cwd: plainDir, env: { ...process.env, RUSTC_ICE: "0" } });
+      expect(plain.exitCode).toBe(0);
+      const recDir = runIn("rec");
+      expect(record(SYSROOT, dylib, join(recDir, "empty.script"), argv, recDir)).toBe(0);
+      const oracle = readFileSync(join(plainDir, "empty.ll"));
+      expect(Buffer.compare(readFileSync(join(recDir, "empty.ll")), oracle)).toBe(0);
+      const script = canonicalScript(readFileSync(join(recDir, "empty.script"), "latin1"));
+      const committed = join(PROOF, `empty.${target}.script`);
+      if (REGEN) writeFileSync(committed, Buffer.from(script, "latin1"));
+      expect(script).toBe(readFileSync(committed, "latin1"));
+      const r = replay(parseScript(script), UPSTREAM, { targetMachines: emptyMachines(target) });
+      expect(r.modules.length).toBe(1);
+      expect([...r.skipped.keys()]).toEqual([]);
+      expect([...r.stubbedEffects.keys()]).toEqual([]);
+      expect([...r.inferredBy.keys()].sort()).toEqual([...new Set(EMPTY_WRAPPERS)].sort());
+      const bin = llvmBinDir(SYSROOT, "aarch64-apple-darwin");
+      const want = await normalForm(new Uint8Array(oracle), "N1", bin);
+      const got = await normalForm(new Uint8Array(Buffer.from(printModule(r.modules[0]!), "latin1")), "N1", bin);
+      expect(got).toEqual(want);
+    });
+  }
+});
+
 describe.skipIf(!existsSync(UPSTREAM) && !REQUIRE)("committed proof scripts replay", () => {
+  for (const target of EMPTY_TARGETS) {
+    test(`empty.${target} (no stand-ins)`, () => {
+      const r = replay(parseScript(readFileSync(join(PROOF, `empty.${target}.script`), "latin1")), UPSTREAM, { targetMachines: emptyMachines(target) });
+      expect(r.modules.length).toBe(1);
+      expect([...r.skipped.keys()]).toEqual([]);
+      expect([...r.stubbedEffects.keys()]).toEqual([]);
+      expect([...r.inferredBy.keys()].sort()).toEqual([...new Set(EMPTY_WRAPPERS)].sort());
+    });
+  }
   for (const [name, { wrappers }] of Object.entries(CASES)) {
     test(name, () => {
       const r = replay(parseScript(readFileSync(join(PROOF, `${name}.script`), "latin1")), UPSTREAM);
