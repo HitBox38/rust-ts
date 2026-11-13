@@ -675,3 +675,14 @@ plan-m7 §8 wave 41's last lanes (`ssa-debuginfo`, `llir-folder`) and wave 42's 
 **Queued (wave 40o):** root-w55-check 1-4 (a wrong `statement.rs` line, stub wording on the three call tables and their unused `unported` imports, two unused type imports, stale placeholder comments in mir/debuginfo.ts); the lane reviews' N items above; cg-write-recheck R1, R2; the analyze driver's `RUST_TS_SSA_STACK`.
 **Harness (needs its own reviewed batch):** the IR normal form (N1) does not run `name-anon-globals`, so the oracle's `@anon.<md5>.N` meets the model's `@0` (rustc runs it with assign-guid, PassWrapper.cpp:992-997; review llir-folder); the recorder's quadratic handle lookup.
 **Next M7 round:** `llir-tools` (`opt`/`llc` mapping, D8, D16: `LLVMRustOptimize`, `LLVMRustWriteOutputFile`) and the IR model's LLVM-init stops cg-write lists; `cg-di-a` starting with `set_var_name`; `cg-lto-diag` (ThinLocal no-op, the hand-written diagnostics); then register the backend and fixers from `ir-hello` / `mir-o2` first differences.
+
+## Wave 40p (started 2026-11-13) — M7: LLVM init, `opt`/`llc`, debuginfo names, LTO and diagnostics
+The stops left between the ported backend and its first output (cg-write's handoff), plan-m7 D8/D16, D9's early part. Five lanes. Then: register the backend and fix from `ir-hello` / `mir-o2` first differences.
+
+| lane | scope | status |
+|---|---|---|
+| llir-init | the IR model's stops at LLVM init and the target machine (cg-write handoff): `LLVMIsMultithreaded`, `LLVMRustInstallErrorHandlers`, `initialize_available_targets`, `LLVMRustSetLLVMOptions`, the `LLVMRust*MCSubtargetInfo` calls, `LLVMRustCreateTargetMachine`/`LLVMDisposeTargetMachine`, `LLVMRustSetDataLayoutFromTargetMachine`, the diagnostic-handler wrappers; the recorder's N-a (reused addresses after context disposal) and quadratic handle lookup | running |
+| llir-tools | plan-m7 D8/D16: `LLVMRustOptimize` and `LLVMRustWriteOutputFile` through the pinned `opt`/`llc` (D1), flags mapped from the target machine and `ModuleConfig`, a `PORT:` per flag with no tool form; failures ICE-class | running |
+| cg-di-a | `rustc_codegen_llvm/src/debuginfo/{mod,utils,namespace,di_builder,dwarf_const,gdb}.rs` (the `cg-di-a` stubs reachable without `-g`, `set_var_name` first); `metadata.rs` and enums stay for wave 44 (D9) | running |
+| cg-lto-diag | `rustc_codegen_llvm/src/back/lto.rs`, `diagnostics.rs`, `llvm/diagnostic.rs` (D8: `ThinLocal` a no-op with `PORT:`, fat LTO via `llvm-link` + `opt`, `-Clto=thin` stops) | running |
+| fixers-56 | queued nits: root-w55-check 1-4; n1-name-anon N1-N3 (comments); llir-folder-notes-recheck R1 (one more test row); cg-write-recheck R1 (fold `lldb -x`, a timeout and one `ERROR:` line into `write_oracle/record.ts`), R2; the analyze driver's `RUST_TS_SSA_STACK`; lane reviews' small N items | running |
