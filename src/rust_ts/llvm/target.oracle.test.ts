@@ -7,7 +7,7 @@
 // `REGEN=1` rewrites subtarget_table.ts from libLLVM (the feature names from the pinned `llc -mattr=help`, each answer from
 // `checkFeatures`); without it the committed table must equal a fresh recording.
 import { describe, expect, test } from "bun:test";
-import { CString, dlopen, type Pointer, ptr } from "bun:ffi";
+import { CString, dlopen, type Pointer, ptr, toArrayBuffer } from "bun:ffi";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { PIN } from "../../../scripts/lib/common.ts";
@@ -61,10 +61,9 @@ const stops = (f: () => unknown, re: RegExp): void => {
 
 const fixtureCalls = (target: string): string[] => readFileSync(join(TM_FIXTURES, `${target}.tm`), "utf8").split("\n").filter((l) => l !== "");
 
-/** X86 and AArch64 triples whose data layouts the model computes: the M7 ones and the branches of computeX86DataLayout,
- *  computeAArch64DataLayout and getManglingComponent. */
+/** X86 and AArch64 triples whose data layouts the model computes (27): the M7 ones (core.ts `NORMAL_TRIPLES`, both listed) and
+ *  the branches of computeX86DataLayout, computeAArch64DataLayout and getManglingComponent. */
 const DL_TRIPLES = [
-  ...NORMAL_TRIPLES,
   "x86_64-unknown-linux-gnu",
   "x86_64-unknown-linux-gnux32",
   "x86_64-unknown-linux-muslx32",
@@ -234,10 +233,12 @@ describe("initialize_available_targets, the target machine and the MC subtarget"
 
 // ---- against the pinned libLLVM ----
 const P = "ptr" as const;
-const lib = (() => {
+/** The targets the libLLVM tests initialise: the modelled ones, and the oracle's back ends of the literal data layouts. */
+const LIB_TARGETS = ["X86", "AArch64", "AVR", "Hexagon", "MSP430", "Xtensa"];
+const loaded = (() => {
   if (!HAVE) return undefined;
-  const init: Record<string, { args: []; returns: "void" }> = {};
-  for (const c of ["X86", "AArch64"]) for (const k of ["TargetInfo", "Target", "TargetMC"]) init[`LLVMInitialize${c}${k}`] = { args: [], returns: "void" };
+  const init: Record<string, { args: []; returns: "void" }> = { LLVMInitializeX86AsmPrinter: { args: [], returns: "void" } };
+  for (const c of LIB_TARGETS) for (const k of ["TargetInfo", "Target", "TargetMC"]) init[`LLVMInitialize${c}${k}`] = { args: [], returns: "void" };
   return dlopen(DYLIB, {
     ...init,
     LLVMIsMultithreaded: { args: [], returns: "i32" },
@@ -252,19 +253,35 @@ const lib = (() => {
     // `bool MCSubtargetInfo::checkFeatures(StringRef FS) const`: C++ exports; a StringRef goes in two registers (pointer, length).
     _ZN4llvm13TargetMachine18getMCSubtargetInfoENS_9StringRefES1_: { args: [P, P, "u64", P, "u64"], returns: P },
     _ZNK4llvm15MCSubtargetInfo13checkFeaturesENS_9StringRefE: { args: [P, P, "u64"], returns: "bool" },
+    // Code generation of a small module, to observe `TargetOptions::TrapUnreachable` (no C API reads it).
+    LLVMContextCreate: { args: [], returns: P },
+    LLVMContextDispose: { args: [P], returns: "void" },
+    LLVMCreateMemoryBufferWithMemoryRangeCopy: { args: [P, "usize", P], returns: P },
+    LLVMParseIRInContext: { args: [P, P, P, P], returns: "i32" },
+    LLVMSetTarget: { args: [P, P], returns: "void" },
+    LLVMTargetMachineEmitToMemoryBuffer: { args: [P, P, "u32", P, P], returns: "i32" },
+    LLVMGetBufferStart: { args: [P], returns: P },
+    LLVMGetBufferSize: { args: [P], returns: "usize" },
+    LLVMDisposeMemoryBuffer: { args: [P], returns: "void" },
   }).symbols;
 })();
+/** The libLLVM functions; without the toolchain (under RUST_TS_REQUIRE_PROBES=1) a test fails with one `ERROR:` line. */
+function libLLVM(): NonNullable<typeof loaded> {
+  if (loaded === undefined) throw new Error(`ERROR: the oracle's libLLVM.dylib is unavailable (${DYLIB}); the pinned toolchain (${PIN.toolchain}) on aarch64 macOS is needed`);
+  return loaded;
+}
 const cstr = (s: string): Buffer => Buffer.from(`${s}\0`, "utf8");
 const owned = (p: unknown): string => {
   const s = new CString(p as Pointer).toString();
-  lib!.LLVMDisposeMessage(p as Pointer);
+  libLLVM().LLVMDisposeMessage(p as Pointer);
   return s;
 };
 
 /** libLLVM's target machine for `triple`, `cpu`, `fs` (opt level Default, reloc Default, code model Default), and its buffers. */
 function oracleTm(triple: string, cpu: string, fs: string): { tm: Pointer; keep: Buffer[] } {
-  const L2 = lib!;
-  for (const c of ["X86", "AArch64"]) for (const k of ["TargetInfo", "Target", "TargetMC"]) (L2 as unknown as Record<string, () => void>)[`LLVMInitialize${c}${k}`]!();
+  const L2 = libLLVM();
+  for (const c of LIB_TARGETS) for (const k of ["TargetInfo", "Target", "TargetMC"]) (L2 as unknown as Record<string, () => void>)[`LLVMInitialize${c}${k}`]!();
+  (L2 as unknown as Record<string, () => void>).LLVMInitializeX86AsmPrinter!();
   const T = new BigUint64Array(1);
   const E = new BigUint64Array(1);
   const tb = cstr(triple);
@@ -277,10 +294,10 @@ function oracleTm(triple: string, cpu: string, fs: string): { tm: Pointer; keep:
 
 function oracleDataLayout(triple: string): string {
   const { tm } = oracleTm(triple, "", "");
-  const td = lib!.LLVMCreateTargetDataLayout(tm)!;
-  const s = owned(lib!.LLVMCopyStringRepOfTargetData(td));
-  lib!.LLVMDisposeTargetData(td);
-  lib!.LLVMDisposeTargetMachine(tm);
+  const td = libLLVM().LLVMCreateTargetDataLayout(tm)!;
+  const s = owned(libLLVM().LLVMCopyStringRepOfTargetData(td));
+  libLLVM().LLVMDisposeTargetData(td);
+  libLLVM().LLVMDisposeTargetMachine(tm);
   return s;
 }
 
@@ -313,13 +330,13 @@ function oracleSubtarget(triple: string, cpu: string, fs: string, features: read
   const { tm, keep } = oracleTm(triple, cpu, fs);
   const cb = cstr(cpu);
   const fb = cstr(fs);
-  const sti = lib!._ZN4llvm13TargetMachine18getMCSubtargetInfoENS_9StringRefES1_(tm, ptr(cb), cpu.length, ptr(fb), Buffer.byteLength(fs))!;
+  const sti = libLLVM()._ZN4llvm13TargetMachine18getMCSubtargetInfoENS_9StringRefES1_(tm, ptr(cb), cpu.length, ptr(fb), Buffer.byteLength(fs))!;
   const enabled = features.filter((f) => {
     const b = Buffer.from(`+${f}`);
-    return lib!._ZNK4llvm15MCSubtargetInfo13checkFeaturesENS_9StringRefE(sti, ptr(b), b.length);
+    return libLLVM()._ZNK4llvm15MCSubtargetInfo13checkFeaturesENS_9StringRefE(sti, ptr(b), b.length);
   });
   void keep;
-  lib!.LLVMDisposeTargetMachine(tm);
+  libLLVM().LLVMDisposeTargetMachine(tm);
   return enabled;
 }
 
@@ -341,10 +358,12 @@ function tableSource(rows: { key: string; arch: string; features: string[]; enab
 
 describe.skipIf(!HAVE && !REQUIRE)("the model against the pinned libLLVM", () => {
   test("LLVMIsMultithreaded", () => {
-    expect(lib!.LLVMIsMultithreaded()).toBe(1);
+    libLLVM();
+    expect(libLLVM().LLVMIsMultithreaded()).toBe(1);
   });
 
   test("the components: each of initialize_available_targets' LLVMInitialize* exists, and no other target is built", () => {
+    libLLVM();
     const ok = (sym: string): boolean => {
       try {
         dlopen(DYLIB, { [sym]: { args: [], returns: "void" } }).close();
@@ -364,6 +383,10 @@ describe.skipIf(!HAVE && !REQUIRE)("the model against the pinned libLLVM", () =>
   });
 
   test("data layouts: the model's computeDataLayout equals libLLVM's target machine's", () => {
+    libLLVM();
+    expect(DL_TRIPLES.length).toBe(27);
+    expect(new Set(DL_TRIPLES).size).toBe(DL_TRIPLES.length);
+    for (const t of NORMAL_TRIPLES) expect(DL_TRIPLES).toContain(t);
     const diffs = DL_TRIPLES.map((t) => [t, new Triple(t).computeDataLayout(""), oracleDataLayout(t)] as const).filter(([, a, b]) => a !== b);
     expect(diffs).toEqual([]);
     // And through LLVMRustCreateTargetMachine, for the M7 triples.
@@ -376,6 +399,7 @@ describe.skipIf(!HAVE && !REQUIRE)("the model against the pinned libLLVM", () =>
   });
 
   test("subtarget_table.ts is libLLVM's answer for every feature", () => {
+    libLLVM();
     const rows = SUBTARGETS.map(([triple, cpu, fs]) => {
       const features = llcFeatures(triple);
       // `Find` binary-searches the table: it must be sorted as C++ compares strings (bytes).
@@ -394,17 +418,65 @@ describe.skipIf(!HAVE && !REQUIRE)("the model against the pinned libLLVM", () =>
       const { tm } = oracleTm(triple, cpu, fs);
       const cb = cstr(cpu);
       const fb = cstr(fs);
-      const sti = lib!._ZN4llvm13TargetMachine18getMCSubtargetInfoENS_9StringRefES1_(tm, ptr(cb), cpu.length, ptr(fb), Buffer.byteLength(fs))!;
+      const sti = libLLVM()._ZN4llvm13TargetMachine18getMCSubtargetInfoENS_9StringRefES1_(tm, ptr(cb), cpu.length, ptr(fb), Buffer.byteLength(fs))!;
       for (let i = 0; i < feats.length; i += 3) {
         const q = feats.slice(i, i + 3).map((f, k) => `${(i + k) % 2 ? "-" : "+"}${f}`).join(",") + ",";
         const b = Buffer.from(q);
-        expect(`${q} ${L.LLVMRustMCSubtargetInfoCheckFeatures(si, q, b.length)}`).toBe(`${q} ${lib!._ZNK4llvm15MCSubtargetInfo13checkFeaturesENS_9StringRefE(sti, ptr(b), b.length)}`);
+        expect(`${q} ${L.LLVMRustMCSubtargetInfoCheckFeatures(si, q, b.length)}`).toBe(`${q} ${libLLVM()._ZNK4llvm15MCSubtargetInfo13checkFeaturesENS_9StringRefE(sti, ptr(b), b.length)}`);
       }
-      lib!.LLVMDisposeTargetMachine(tm);
+      libLLVM().LLVMDisposeTargetMachine(tm);
     }
   });
 
+  test("the literal data layouts of the oracle's other back ends (AVR, Hexagon, MSP430, Xtensa) equal libLLVM's", () => {
+    libLLVM();
+    // (computeDataLayout's other literal arms, ARC, DXIL, TCE and XCore, have no back end in the oracle's LLVM.)
+    for (const t of ["avr-unknown-unknown", "hexagon-unknown-linux-musl", "msp430-none-elf", "xtensa-none-elf"]) {
+      expect(`${t}: ${new Triple(t).computeDataLayout("")}`).toBe(`${t}: ${oracleDataLayout(t)}`);
+    }
+  });
+
+  test("TrapUnreachable: X86TargetMachine sets it for PS4/PS5 (`Triple::isPS`) and MachO, as libLLVM's code shows", () => {
+    libLLVM();
+    // libLLVM: whether `unreachable` becomes a trap (`ud2`) in the assembly of `define void @f() { unreachable }`. The model: the
+    // machine's `Options.TrapUnreachable`, made as LLVMRustCreateTargetMachine makes it with TrapUnreachable false (the model's
+    // `Triple::normalize` knows only the M7 triples, so the target's constructor is called directly).
+    const oracleTraps = (triple: string): boolean => {
+      const L2 = libLLVM();
+      const { tm, keep } = oracleTm(triple, "", "");
+      const ctx = L2.LLVMContextCreate()!;
+      const ir = Buffer.from("define void @f() {\n  unreachable\n}\n");
+      const name = cstr("m");
+      const mb = L2.LLVMCreateMemoryBufferWithMemoryRangeCopy(ptr(ir), ir.length, ptr(name))!;
+      const M = new BigUint64Array(1);
+      const Err = new BigUint64Array(1);
+      if (L2.LLVMParseIRInContext(ctx, mb, ptr(M), ptr(Err)) !== 0) throw new Error("ERROR: libLLVM could not parse the test module");
+      L2.LLVMSetTarget(Number(M[0]) as Pointer, ptr(keep[0]!));
+      const out = new BigUint64Array(1);
+      if (L2.LLVMTargetMachineEmitToMemoryBuffer(tm, Number(M[0]) as Pointer, 0, ptr(Err), ptr(out)) !== 0) throw new Error(`ERROR: libLLVM could not emit assembly for ${triple}`);
+      const buf = Number(out[0]) as Pointer;
+      const text = Buffer.from(toArrayBuffer(L2.LLVMGetBufferStart(buf)!, 0, Number(L2.LLVMGetBufferSize(buf)))).toString("latin1");
+      L2.LLVMDisposeMemoryBuffer(buf);
+      L2.LLVMContextDispose(ctx);
+      L2.LLVMDisposeTargetMachine(tm);
+      return /\bud2\b/.test(text);
+    };
+    const modelTraps = (triple: string): boolean => {
+      const TT = new Triple(triple);
+      const tm = lookupTarget(TT, { value: "" })!.createTargetMachine(TT, "", "", { MCOptions: {} }, "Static", undefined, "Default")!;
+      return tm.Options.TrapUnreachable === true;
+    };
+    initialize_available_targets();
+    const triples = ["x86_64-scei-ps4", "x86_64-unknown-ps4", "x86_64-sie-ps5", "x86_64-unknown-ps5", "i686-scei-ps4", "x86_64-unknown-linux-gnu", "x86_64-apple-darwin"];
+    const got = triples.map((t) => `${t} ${modelTraps(t)}`);
+    expect(got).toEqual(triples.map((t) => `${t} ${oracleTraps(t)}`));
+    // The test bites: both answers occur.
+    expect(got).toContain("x86_64-scei-ps4 true");
+    expect(got).toContain("x86_64-unknown-ps4 false");
+  });
+
   test("ACCEPTED_LLVM_ARGS: the oracle takes each with no output of its own", () => {
+    libLLVM();
     for (const arg of ACCEPTED_LLVM_ARGS) {
       for (const target of ["x86_64-unknown-linux-gnu", "aarch64-apple-darwin"]) {
         const base = ["--print", "cfg", "--target", target];

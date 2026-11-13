@@ -332,6 +332,21 @@ export class Triple {
   isX86_64(): boolean {
     return this.getArch() === "x86_64";
   }
+  /// Tests whether the target is the PS4 platform.
+  // llvm: llvm/include/llvm/TargetParser/Triple.h:894 isPS4
+  isPS4(): boolean {
+    return this.getArch() === "x86_64" && this.getVendor() === "SCEI" && this.getOS() === "PS4";
+  }
+  /// Tests whether the target is the PS5 platform.
+  // llvm: llvm/include/llvm/TargetParser/Triple.h:900 isPS5
+  isPS5(): boolean {
+    return this.getArch() === "x86_64" && this.getVendor() === "SCEI" && this.getOS() === "PS5";
+  }
+  /// Tests whether the target is the PS4 or PS5 platform.
+  // llvm: llvm/include/llvm/TargetParser/Triple.h:906 isPS
+  isPS(): boolean {
+    return this.isPS4() || this.isPS5();
+  }
   /// Tests whether the target is X32.
   // llvm: llvm/include/llvm/TargetParser/Triple.h:1235 isX32
   isX32(): boolean {
@@ -408,7 +423,7 @@ export class Triple {
       case "aarch64_32":
         return computeAArch64DataLayout(this);
       case "arc":
-        return "e-m:e-p:32:32-i1:8:32-i8:8:32-i16:16:32-" + "f32:32:32-i64:32-f64:32-a:0:32-n32";
+        return "e-m:e-p:32:32-i1:8:32-i8:8:32-i16:16:32-i32:32:32-" + "f32:32:32-i64:32-f64:32-a:0:32-n32";
       case "avr":
         return "e-P1-p:16:8-i8:8-i16:8-i32:8-i64:8-f32:8-f64:8-n8:16-a:8";
       case "bpfel":

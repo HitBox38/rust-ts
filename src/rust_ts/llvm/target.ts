@@ -182,13 +182,15 @@ export function LLVMRustSetLLVMOptions(Argc: number, Argv: readonly string[]): v
 }
 
 /** `cl::ParseCommandLineOptions(Argc, Argv)` (CommandLine.cpp): PORT, the model's stand-in (header and `ACCEPTED_LLVM_ARGS`). An
- *  accepted argument given twice stops too: LLVM's options that take a value occur at most once. */
+ *  accepted argument given twice also stops. LLVM accepts that for these options (each is a `cl::opt` that keeps the last value:
+ *  the oracle takes `-enable-tail-merge=0` twice with no output), but the model would then hand `opt`/`llc` the repeat, and
+ *  whether every one of those tools' options takes a repeat silently is not checked. Conservative: a stop, never a wrong answer. */
 export function ParseCommandLineOptions(Argc: number, Argv: readonly string[]): void {
   const args = Argv.slice(1, Argc);
   for (let i = 0; i < args.length; i++) {
     const a = args[i]!;
     if (!ACCEPTED_LLVM_ARGS.has(a)) return unported(`llir: cl::ParseCommandLineOptions of ${JSON.stringify(a)} (the model has no cl::opt registry)`);
-    if (args.indexOf(a) !== i) return unported(`llir: cl::ParseCommandLineOptions of ${JSON.stringify(a)} given twice`);
+    if (args.indexOf(a) !== i) return unported(`llir: cl::ParseCommandLineOptions of ${JSON.stringify(a)} given twice (repeats are not modelled)`);
   }
   CL_ARGS = args;
 }
@@ -353,13 +355,13 @@ function X86TargetMachine(T: Target, TT: Triple, CPU: string, FS: string, Option
   void JIT;
   // : CodeGenTargetMachineImpl(T, TT.computeDataLayout(), TT, CPU, FS, Options, getEffectiveRelocModel(TT, JIT, RM),
   //                            getEffectiveX86CodeModel(TT, CM, JIT), OL)
-  const TM = new TargetMachine(T, TT.computeDataLayout(""), TT, CPU, FS, { ...Options }, OL);
+  const TM = new TargetMachine(T, TT.computeDataLayout(""), TT, CPU, FS, copyTargetOptions(Options), OL);
   // On PS4/PS5, the "return address" of a 'noreturn' call must still be within
   // the calling function. Note that this also includes __stack_chk_fail,
   // so there was some target-specific logic in the instruction selectors
   // to handle that. That code has since been generalized, so the only thing
   // needed is to set TrapUnreachable here.
-  if (TT.getOS() === "PS4" || TT.getOS() === "PS5" || TT.isOSBinFormatMachO()) {
+  if (TT.isPS() || TT.isOSBinFormatMachO()) {
     TM.Options.TrapUnreachable = true;
     TM.Options.NoTrapAfterNoreturn = TT.isOSBinFormatMachO();
   }
@@ -431,7 +433,7 @@ function AArch64leTargetMachine(T: Target, TT: Triple, CPU: string, FS: string, 
   return AArch64TargetMachine(T, TT, CPU, FS, Options, RM, CM, OL, JIT, true);
 }
 
-/** `AArch64beTargetMachine::AArch64beTargetMachine` (AArch64TargetMachine.cpp:572): the same with `LittleEndian` false. */
+// llvm: llvm/lib/Target/AArch64/AArch64TargetMachine.cpp:572 AArch64beTargetMachine
 function AArch64beTargetMachine(T: Target, TT: Triple, CPU: string, FS: string, Options: TargetOptions, RM: RelocModelLLVM, CM: CodeModelLLVM | undefined, OL: CodeGenOptLevel, JIT: boolean): TargetMachine {
   return AArch64TargetMachine(T, TT, CPU, FS, Options, RM, CM, OL, JIT, false);
 }
@@ -453,7 +455,7 @@ function AArch64TargetMachine(T: Target, TT: Triple, CPU: string, FS: string, Op
   void LittleEndian;
   // : CodeGenTargetMachineImpl(T, TT.computeDataLayout(), TT, computeDefaultCPU(TT, CPU), FS, Options,
   //                            getEffectiveRelocModel(TT, RM), getEffectiveAArch64CodeModel(TT, CM, JIT), OL)
-  const TM = new TargetMachine(T, TT.computeDataLayout(""), TT, computeDefaultCPU(TT, CPU), FS, { ...Options }, OL);
+  const TM = new TargetMachine(T, TT.computeDataLayout(""), TT, computeDefaultCPU(TT, CPU), FS, copyTargetOptions(Options), OL);
   // initAsmInfo();
 
   if (TT.isOSBinFormatMachO()) {
@@ -461,9 +463,26 @@ function AArch64TargetMachine(T: Target, TT: Triple, CPU: string, FS: string, Op
     TM.Options.NoTrapAfterNoreturn = true;
   }
 
-  // if (getMCAsmInfo().usesWindowsCFI()) { ... } and the TLS size, GlobalISel and outliner settings: the MC asm info is not
-  // modelled. PORT: Windows targets are outside M7 (plan-m7 D18), so a Windows triple stops here.
+  // if (getMCAsmInfo().usesWindowsCFI()) { ... TrapUnreachable = true; }: the MC asm info is not modelled. PORT: Windows targets
+  // are outside M7 (plan-m7 D18), so a Windows triple stops here.
   if (TT.isOSWindows()) return unported("llir: AArch64TargetMachine on Windows (MCAsmInfo::usesWindowsCFI is not modelled)");
+
+  // `TLSSize` starts at `InitTargetOptionsFromCodeGenFlags`' value, the `-tls-size` cl::opt's default 0 (CommandFlags.cpp; the model
+  // accepts no such option).
+  if ((TM.Options.TLSSize ?? 0) === 0)
+    // default
+    TM.Options.TLSSize = 24;
+  // The clamps below read `getCodeModel()`, the effective code model, which the model does not compute (header); they can only fire
+  // for a TLS size above 24, which no input of the model gives.
+  if (TM.Options.TLSSize! > 24) return unported("llir: AArch64TargetMachine TLSSize clamps (the effective code model is not modelled)");
+  // if ((getCodeModel() == CodeModel::Small || getCodeModel() == CodeModel::Kernel) && this->Options.TLSSize > 32)
+  //   // for the small (and kernel) code model, the maximum TLS size is 4GiB
+  //   this->Options.TLSSize = 32;
+  // else if (getCodeModel() == CodeModel::Tiny && this->Options.TLSSize > 24)
+  //   // for the tiny code model, the maximum TLS size is 1MiB (< 16MiB)
+  //   this->Options.TLSSize = 24;
+
+  // The GlobalISel, outliner and SVE settings that follow: code generator state, not modelled.
   return TM;
 }
 
@@ -562,6 +581,7 @@ export interface TargetOptions {
   EmulatedTLS?: boolean;
   TrapUnreachable?: boolean;
   NoTrapAfterNoreturn?: boolean;
+  TLSSize?: number;
   ThreadModel?: "Single";
   ExceptionModel?: "Wasm";
   EmitStackSizeSection?: boolean;
@@ -649,10 +669,15 @@ export class TargetMachine {
     return this.dataLayout;
   }
 
-  /** `TargetMachine::setLargeDataThreshold` (TargetMachine.h). */
+  // llvm: llvm/include/llvm/Target/TargetMachine.h:277 setLargeDataThreshold
   setLargeDataThreshold(LRT: bigint): void {
     this.largeDataThreshold = LRT;
   }
+}
+
+/** `TargetOptions` taken by value, as the C++ constructors copy it (its `MCOptions` member included). */
+function copyTargetOptions(Options: TargetOptions): TargetOptions {
+  return { ...Options, MCOptions: { ...Options.MCOptions } };
 }
 
 /** `Triple::normalize(StringRef)`: PORT, as `LLVMRustSetNormalizedTarget` (core.ts): only the triples checked to be their own
