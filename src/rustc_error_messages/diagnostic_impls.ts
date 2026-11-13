@@ -6,7 +6,7 @@
 // (ESM cycle), so top-level code here must not read lib.ts bindings.
 import type { MutRef } from "../rustc_span/hygiene.ts";
 import { Symbol } from "../rustc_span/symbol.ts";
-import { var_ as env_var } from "../std/env.ts";
+import { var_ as env_var, to_string_lossy as os_str_to_string_lossy } from "../std/env.ts";
 import { debug_char } from "../std/fmt.ts";
 import { unported } from "../std/panic.ts";
 import type { DiagArgValue, IntoDiagArg, PathBuf } from "./lib.ts";
@@ -123,13 +123,16 @@ export function PathBuf_into_diag_arg(self: PathBuf, _: MutRef<PathBuf | undefin
 }
 
 // rustc: compiler/rustc_error_messages/src/diagnostic_impls.rs:143 into_diag_arg
-export function CString_into_diag_arg(_self: Uint8Array, _: MutRef<PathBuf | undefined>): DiagArgValue {
-  return unported("std::ffi::CString::to_string_lossy (CString: IntoDiagArg)");
+// PORT: `self` is the bytes without the NUL. `CStr::to_string_lossy` is `String::from_utf8_lossy(self.to_bytes())`, the same
+// decoding as std/env.ts's `OsStr::to_string_lossy` on unix (U+FFFD per maximal invalid subpart, a leading U+FEFF kept).
+export function CString_into_diag_arg(self: Uint8Array, _: MutRef<PathBuf | undefined>): DiagArgValue {
+  return { $: "Str", _0: os_str_to_string_lossy(self) };
 }
 
 // rustc: compiler/rustc_error_messages/src/diagnostic_impls.rs:149 into_diag_arg
-export function SmallCStr_into_diag_arg(_self: Uint8Array, _: MutRef<PathBuf | undefined>): DiagArgValue {
-  return unported("rustc_data_structures::small_c_str::SmallCStr::to_string_lossy (SmallCStr: IntoDiagArg)");
+// PORT: as `CString` above (`SmallCStr` derefs to `CStr`).
+export function SmallCStr_into_diag_arg(self: Uint8Array, _: MutRef<PathBuf | undefined>): DiagArgValue {
+  return { $: "Str", _0: os_str_to_string_lossy(self) };
 }
 
 // rustc: compiler/rustc_error_messages/src/diagnostic_impls.rs:155 into_diag_arg

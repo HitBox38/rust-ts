@@ -127,23 +127,24 @@ describe("stub counts per lane", () => {
     // cg-di-a: `TypeMap::default` (metadata/type_map.rs), in `CodegenUnitDebugContext::new` (wave 44).
     "cg-di-b": 1,
     "cg-intrinsic-b": 2,
-    // 8, plus cg-write's 4 in back/write.ts: the hand `Diagnostic` impls of `WithLlvmError` and `ParseTargetMachineConfig`
-    // (diagnostics.rs), `llvm::diagnostic::Diagnostic::unpack` and back/lto.rs's `Buffer::data`.
-    "cg-lto-diag": 12,
+    // cg-lto-diag (wave 40p) ported back/lto.rs, diagnostics.rs's hand impls and llvm/diagnostic.rs whole: no stub of its own is
+    // left.
     // cg-write (wave 40o) ported back/write.rs, llvm_util.rs, back/owned_*, back/profiling.rs and back/archive.rs whole: no stub
     // of its own is left.
     // The 10 cg-contract left (plan-m7 D18), plus cg-context's `CguCoverageContext::new` in `CodegenCx::new` (review
     // cg-contract-recheck N1), plus cg-intrinsic-a's `OffloadMetadata::handle_abi` (rustc_middle ty/offload_meta.rs) in
     // `codegen_offload`, plus cg-write's 5 in back/write.ts (`EnzymeWrapper::get_instance`, three `RustOffloadWrapper` calls,
-    // `gpu_offload::scalar_width`).
-    "excluded (plan-m7 D18)": 17,
+    // `gpu_offload::scalar_width`), plus cg-lto-diag's 2 in back/lto.ts (`EnzymeWrapper::get_instance` in
+    // `enable_autodiff_settings`, `LLVMDumpModule` for `-Zautodiff=PrintModFinal`).
+    "excluded (plan-m7 D18)": 19,
     // 2, plus cg-context's `LLVMGetFirstFunction` / `LLVMGetNextFunction` (llvm/enzyme_ffi.rs) in `get_functions`, plus cg-write's
     // `rustc_llvm::initialize_available_targets` in `configure_llvm`.
     "llir": 5,
     // 3, plus cg-types-attrs's 2, plus cg-intrinsic-a's 2 in intrinsic.ts (`i32 as u64` of a negative index,
     // `str::from_utf8(..).unwrap()`'s panic text; its third, `assert_matches!`'s message, is a template literal this count skips),
-    // plus cg-write's non-UTF-8 symbol name in `create_msvc_imps`.
-    "rustc_codegen_llvm": 8,
+    // plus cg-write's non-UTF-8 symbol name in `create_msvc_imps`, plus cg-lto-diag's 4 in back/lto.ts (two `ThinLtoInput::Green`,
+    // -C incremental; `-Clto=thin`; `ThinLTOKeysMap::from_thin_lto_modules` under the ThinLocal no-op with -C incremental).
+    "rustc_codegen_llvm": 12,
     // cg-write: the self-profiler (`-Z self-profile`) in back/profiling.ts (`TimingGuard::start`) and back/write.ts
     // (`get_self_profiler`, `llvm_recording_enabled`, `artifact_size`).
     "rustc_data_structures": 4,
