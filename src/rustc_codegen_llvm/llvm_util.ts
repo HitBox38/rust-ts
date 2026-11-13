@@ -5,9 +5,8 @@
 // the port those copies stand in for, and nothing here changes the stand-in's path.
 //
 // The LLVM calls go to the IR model (src/rust_ts/llvm/ffi.ts) under their ffi.rs names. Those the model has no answer for are
-// its stops (an `unported` naming `llir: <fn>`): `LLVMIsMultithreaded` (so `init`), `LLVMRustInstallErrorHandlers`,
-// `LLVMRustSetLLVMOptions`, `LLVMRustTimeTraceProfiler*`, `LLVMRustCreateMCSubtargetInfo` (so `target_config`),
-// `LLVMRustPrintPasses`, `LLVMRustGetTargetFeature*`, `LLVMRustPrintTargetCPUs`, `LLVMRustGetHostCPUName`,
+// its stops (an `unported` naming `llir: <fn>`; llir-init implemented the init, error-handler, options and subtarget ones):
+// `LLVMRustTimeTraceProfiler*`, `LLVMRustPrintPasses`, `LLVMRustGetTargetFeature*`, `LLVMRustPrintTargetCPUs`, `LLVMRustGetHostCPUName`,
 // `LLVMGetHostCPUFeatures`, `LLVMRustTargetHasMnemonic` (docs/handoff/cg-write.md lists them).
 import { type Endian } from "../rustc_abi/lib.ts";
 import { versioned_llvm_target } from "../rustc_codegen_ssa/back/mod.ts";
@@ -37,6 +36,7 @@ import {
   UnknownLlvmTargetFeaturePrefix_diagnostic,
 } from "./diagnostics.gen.ts";
 import * as llvm from "./llvm/mod.ts";
+import { initialize_available_targets } from "../rust_ts/llvm/target.ts";
 
 /** `static INIT: Once = Once::new();` (PORTING §5 global state: a module-level value; one thread). */
 const INIT: { completed: boolean } = { completed: false };
@@ -181,9 +181,9 @@ function configure_llvm(sess: EarlySession): void {
   }
 
   // rustc_llvm::initialize_available_targets();
-  // PORT: rustc_llvm (excluded; its lib.rs registers LLVM's targets through `LLVMInitialize*` C calls) has no TS side: the
-  // IR model keeps no target registry, so this is the model's stop.
-  unported("llir: rustc_llvm::initialize_available_targets");
+  // PORT: rustc_llvm's lib.rs registers LLVM's targets through `LLVMInitialize*` C calls; the IR model's target registry
+  // holds its port (src/rust_ts/llvm/target.ts, lane llir-init; decision recorded 2026-11-14; root at integ-w56).
+  initialize_available_targets();
 
   llvm.LLVMRustSetLLVMOptions(llvm_args.length, llvm_args);
   void llvm_c_strs;
@@ -399,8 +399,9 @@ export function target_config(sess: EarlySession): TargetConfig {
   // let triple = SmallCStr::new(&versioned_llvm_target(sess));
   // let cpu = SmallCStr::new(target_cpu(sess));
   // PORT: the `SmallCStr`s are the text, and `SmallCStr::new`'s interior-NUL panic ("The string \"..\" cannot be converted into a
-  // CStr: ..") is dropped: a NUL cannot come from argv (`-C target-cpu`), only from a target-spec JSON's `\u0000`, which no suite
-  // has. The same drop as `target_machine_factory`'s (back/write.ts) and `create_module`'s (context.ts).
+  // CStr: ..") is dropped: a NUL cannot come from argv itself (`-C target-cpu`), but it can from an `@argfile` line
+  // (rustc_driver_impl/src/args.rs:26-27 reads the file and splits it with `lines()`, which keeps a U+0000, so
+  // `-Ctarget-cpu=a<NUL>b` reaches here) or from a target-spec JSON's `\u0000`, and no suite has either. The same drop as `target_machine_factory`'s (back/write.ts) and `create_module`'s (context.ts).
   const triple = versioned_llvm_target(sess);
   const cpu = target_cpu(sess);
   const features = cstring_new_unwrap(target_features.join(","));

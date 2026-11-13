@@ -22,7 +22,7 @@ import type { PathBuf } from "../../rustc_error_messages/lib.ts";
 import { DiagCtxt, type DiagCtxtHandle, Level } from "../../rustc_errors/lib.ts";
 import type { Emitter } from "../../rustc_errors/emitter.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
-import { type AutoDiff, type Lto, type Offload, type OptLevel, OutFileName, type OutputFilenames, type OutputType, type Passes, type SplitDwarfKind, type SwitchWithOptPath } from "../../rustc_session/config.ts";
+import { type Lto, type Offload, type OptLevel, OutFileName, type OutputFilenames, type OutputType, type Passes, type SplitDwarfKind, type SwitchWithOptPath } from "../../rustc_session/config.ts";
 import type { Session } from "../../rustc_session/session.ts";
 import type { SelfProfilerRef, VerboseTimingGuard } from "../../rustc_session/stand_ins.ts";
 import { BytePos, type InnerSpan, RemapPathScopeComponents, Span } from "../../rustc_span/lib.ts";
@@ -46,11 +46,11 @@ import {
   OffloadWithoutAbsPath_diagnostic,
   OffloadWrapImagesFailed_diagnostic,
   OffloadWrongFileName_diagnostic,
-  type ParseTargetMachineConfig,
   UnsupportedCompression_diagnostic,
-  type WithLlvmError,
   WriteBytecode_diagnostic,
 } from "../diagnostics.gen.ts";
+import { ParseTargetMachineConfig_diagnostic, WithLlvmError_diagnostic } from "../diagnostics.ts";
+import { Diagnostic } from "../llvm/diagnostic.ts";
 import * as llvm from "../llvm/mod.ts";
 import * as llvm_util from "../llvm_util.ts";
 import type { LlvmWriteTypes, ModuleLlvm } from "./llvm_backend.ts";
@@ -499,7 +499,7 @@ function diagnostic_handler(info: llvm.DiagnosticInfo, user: unknown): void {
   const dcx_ = DiagCtxt.new(SharedEmitter_clone_box(shared_emitter));
   const dcx = dcx_.handle();
 
-  const diag = Diagnostic_unpack(info);
+  const diag = Diagnostic.unpack(info);
   switch (diag.$) {
     case "InlineAsm": {
       const inline = diag._0;
@@ -1412,44 +1412,14 @@ export function OutputFilenames_split_dwarf_path(self: OutputFilenames, split_de
   return self.split_dwarf_path(split_debuginfo_kind, split_dwarf_kind, cgu_name);
 }
 
-// PORT: the hand-written `Diagnostic` impls of diagnostics.rs (`ParseTargetMachineConfig`, `WithLlvmError`; tools/codegen
-// generates only the derives) and llvm/diagnostic.rs are lane cg-lto-diag's (plan-m7 §2b "LTO, diagnostics", wave 43).
+// The hand-written `Diagnostic` impls of diagnostics.rs (`ParseTargetMachineConfig`, `WithLlvmError`; tools/codegen generates
+// only the derives) are in ../diagnostics.ts, `llvm::diagnostic::Diagnostic::unpack` in ../llvm/diagnostic.ts (lane cg-lto-diag).
 
-/** `impl Diagnostic for WithLlvmError<'_>` (diagnostics.rs), lane cg-lto-diag. */
-function WithLlvmError_diagnostic(_self: WithLlvmError): never {
-  return unported("cg-lto-diag: compiler/rustc_codegen_llvm/src/diagnostics.rs impl Diagnostic for WithLlvmError");
-}
-/** `impl Diagnostic for ParseTargetMachineConfig<'_>` (diagnostics.rs), lane cg-lto-diag. */
-function ParseTargetMachineConfig_diagnostic(_self: ParseTargetMachineConfig): never {
-  return unported("cg-lto-diag: compiler/rustc_codegen_llvm/src/diagnostics.rs impl Diagnostic for ParseTargetMachineConfig");
-}
-
-/** llvm/diagnostic.rs's `OptimizationDiagnosticKind` (lane cg-lto-diag): the variants this file matches on. */
-type OptimizationDiagnosticKind =
-  | "OptimizationRemark"
-  | "OptimizationMissed"
-  | "OptimizationAnalysis"
-  | "OptimizationAnalysisFPCommute"
-  | "OptimizationAnalysisAliasing"
-  | "OptimizationFailure"
-  | "OptimizationRemarkOther";
-/** llvm/diagnostic.rs's `Diagnostic<'ll>` (lane cg-lto-diag): the variants and fields this file reads. */
-type Diagnostic =
-  | { readonly $: "Optimization"; readonly _0: { kind: OptimizationDiagnosticKind; pass_name: string; filename: string; line: number; column: number; message: string } }
-  | { readonly $: "InlineAsm"; readonly _0: { level: llvm.DiagnosticLevel; cookie: bigint; message: string; source: [string, InnerSpan[]] | undefined } }
-  | { readonly $: "PGO"; readonly _0: llvm.DiagnosticInfo }
-  | { readonly $: "Linker"; readonly _0: llvm.DiagnosticInfo }
-  | { readonly $: "Unsupported"; readonly _0: llvm.DiagnosticInfo }
-  | { readonly $: "UnknownDiagnostic"; readonly _0: llvm.DiagnosticInfo };
-/** `llvm::diagnostic::Diagnostic::unpack` (llvm/diagnostic.rs), lane cg-lto-diag. */
-function Diagnostic_unpack(_di: llvm.DiagnosticInfo): Diagnostic {
-  return unported("cg-lto-diag: compiler/rustc_codegen_llvm/src/llvm/diagnostic.rs Diagnostic::unpack");
-}
-/** `pub(crate) struct Buffer(&'static mut llvm::Buffer)` of back/lto.rs (lane cg-lto-diag; private there). */
-type Buffer = { readonly __lto_Buffer: never };
-/** `Buffer::data` (back/lto.rs), lane cg-lto-diag. */
-function Buffer_data(_self: Buffer): Uint8Array {
-  return unported("cg-lto-diag: compiler/rustc_codegen_llvm/src/back/lto.rs Buffer::data");
+/** back/lto.rs's `Buffer` (lto.ts): `#[repr(transparent)]` over `&mut llvm::Buffer`, so it is the model's handle. */
+type Buffer = import("./lto.ts").Buffer;
+/** `Buffer::data` (back/lto.rs:651), lto.ts's port; lto.ts is read lazily (init order). */
+function Buffer_data(self: Buffer): Uint8Array {
+  return lto_mod().Buffer_data(self);
 }
 
 // PORT: `SelfProfilerRef` is rustc_session's stand-in, which never holds a profiler and has an empty event filter mask

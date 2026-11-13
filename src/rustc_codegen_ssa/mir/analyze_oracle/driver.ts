@@ -63,7 +63,7 @@ try {
   process.exitCode = await main();
 } catch (e) {
   if (e instanceof Unported) {
-    write_stderr(`rust-ts: unported: ${e.what}\n${process.env.RUST_TS_SSA_STACK === "1" ? `${e.stack}\n` : ""}`);
+    write_stderr(`rust-ts: unported: ${e.what}\n`);
     process.exitCode = EXIT_UNPORTED;
   } else if (e instanceof FatalErrorMarker) {
     process.exitCode = 101;

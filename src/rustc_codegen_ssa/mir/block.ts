@@ -16,8 +16,8 @@
 //   `OperandRef` with that field changed.
 // - `debug!`, `trace!` and `#[instrument(level = "trace")]` are compiled out of rustc (STATIC_MAX_LEVEL = INFO,
 //   rust_ts/tracing.ts) and stay comments; the `info!` in `do_call` is live. `debug_assert*!` are comments.
-// - Calls into lanes not ported yet go through `block_xlane` at the end of this file (the mod.ts `xlane` pattern):
-//   typed stubs that stop with `unported("<lane>: <upstream path> <fn>")`, which root repoints when the owner lands.
+// - Calls into other lanes go through `block_xlane` at the end of this file (the mod.ts `xlane` pattern): every owner has
+//   landed, so its entries are typed forwarders to the owners' ports, kept so tests can replace them.
 //   `base::wants_new_eh_instructions` and the retag fns use mod.ts's `xlane` entries.
 import { Align, Align_max, debug_Align, debug_Size, FieldsShape, Scalar as abi_Scalar, Size, Size_cmp, Size_eq, VariantIdx } from "../../rustc_abi/lib.ts";
 import type { CanonAbi } from "../../rustc_abi/canon_abi.ts";
@@ -84,7 +84,7 @@ import { PolyFnSig } from "../../rustc_type_ir/ty_kind.ts";
 import { TypeVisitableExt } from "../../rustc_type_ir/visit.ts";
 import * as tracing from "../../rust_ts/tracing.ts";
 import { type Debug, debug_option, PLAIN, PRETTY } from "../../std/fmt.ts";
-import { assert, panic, unported, unreachable, unwrap } from "../../std/panic.ts";
+import { assert, panic, unreachable, unwrap } from "../../std/panic.ts";
 import { wants_wasm_eh } from "../base.ts";
 import { build_langcall, asm_const_ptr_clean, IntPredicate } from "../common.ts";
 import { bin_op_to_icmp_predicate } from "../base.ts";
@@ -2693,9 +2693,9 @@ function canon_abi_is_arm(conv: CanonAbi, call: "CCmseNonSecureCall" | "CCmseNon
 }
 
 
-// ---- Cross-lane stubs (header) ---------------------------------------------------------------------------------------
-// Each entry stands for one upstream fn of another fill lane and stops with `unported`. Methods take the receiver first.
-// Root repoints each entry (or its call sites) when its owner lands; tests may replace entries.
+// ---- Cross-lane forwarders (header) ----------------------------------------------------------------------------------
+// Each entry forwards to one upstream fn of another fill lane, all of which have landed. Methods take the receiver first.
+// Tests may replace entries.
 export const block_xlane = {
   // ssa-debuginfo (mir/debuginfo.rs): ported; these entries forward to the installed methods (root at integ-w55).
   /** `fx.set_debug_loc(bx, source_info)` (mir/debuginfo.rs:221). */

@@ -14,10 +14,14 @@ import "../rustc_target/lib.ts";
 import { FnAbi } from "../rustc_target/callconv/mod.ts";
 import { printValueToString } from "../rust_ts/llvm/printer.ts";
 import { Unported } from "../std/panic.ts";
+import { compiler_entrypoint } from "../rustc_driver_impl/lib.ts";
+import { type Config, run_compiler } from "../rustc_interface/interface.ts";
+import "../rustc_session/lib.ts";
 import { LlvmCodegenBackend } from "./lib.ts";
 import * as attributes from "./attributes.ts";
 import { Builder, GenericBuilder } from "./builder.ts";
 import * as common from "./common.ts";
+import * as debuginfo_metadata from "./debuginfo/metadata.ts";
 import { CodegenCx, FullCx, GenericCx, SCx, SimpleCx } from "./context.ts";
 import { generic_simd_intrinsic } from "./intrinsic.ts";
 import type { Value } from "./llvm/mod.ts";
@@ -108,7 +112,9 @@ describe("stubs name their fill lane", () => {
     // cg-builder (wave 41) ported builder.rs and allocator.rs whole: no stub of its own is left (builder.test.ts).
     // cg-intrinsic-a (wave 41) ported intrinsic.rs's scalar half (:1-2046); the SIMD half's entry stays cg-intrinsic-b's.
     stops(() => generic_simd_intrinsic(bx, undefined as never, undefined as never, [], undefined as never, undefined as never, undefined as never), /^cg-intrinsic-b: .*\/intrinsic\.rs generic_simd_intrinsic$/);
-    stops(() => bx.clear_dbg_loc(), /^cg-di-a: .*\/debuginfo\/mod\.rs clear_dbg_loc$/);
+    // cg-di-a (wave 40p) ported debuginfo/{mod,utils,namespace,di_builder,dwarf_const,gdb}.rs whole, and metadata.rs's fns a
+    // compile without `-g` reaches; the rest of metadata.rs stays a typed stop (wave 44, plan-m7 D9).
+    stops(() => debuginfo_metadata.type_di_node(cx, undefined as never), /^cg-di-a: .*\/debuginfo\/metadata\.rs type_di_node$/);
   });
 });
 
@@ -117,25 +123,31 @@ describe("stub counts per lane", () => {
   // callees of back/llvm_backend.ts. A fill lane that ports a stub lowers its count here.
   const EXPECTED: Record<string, number> = {
     "cg-asm": 4,
-    "cg-di-a": 21,
+    // 21 cg-contract left; cg-di-a (wave 40p) ported debuginfo/mod.rs's 18 and 3 of metadata.rs (`build_global_var_di_node`,
+    // `apply_vcall_visibility_metadata`, `create_vtable_di_node`). Left: the 9 metadata.rs fns that debuginfo/mod.rs and those
+    // three call past their `-g` checks (wave 44, plan-m7 D9).
+    "cg-di-a": 9,
+    // cg-di-a: `TypeMap::default` (metadata/type_map.rs), in `CodegenUnitDebugContext::new` (wave 44).
+    "cg-di-b": 1,
     "cg-intrinsic-b": 2,
-    // 8, plus cg-write's 4 in back/write.ts: the hand `Diagnostic` impls of `WithLlvmError` and `ParseTargetMachineConfig`
-    // (diagnostics.rs), `llvm::diagnostic::Diagnostic::unpack` and back/lto.rs's `Buffer::data`.
-    "cg-lto-diag": 12,
+    // cg-lto-diag (wave 40p) ported back/lto.rs, diagnostics.rs's hand impls and llvm/diagnostic.rs whole: no stub of its own is
+    // left.
     // cg-write (wave 40o) ported back/write.rs, llvm_util.rs, back/owned_*, back/profiling.rs and back/archive.rs whole: no stub
     // of its own is left.
     // The 10 cg-contract left (plan-m7 D18), plus cg-context's `CguCoverageContext::new` in `CodegenCx::new` (review
     // cg-contract-recheck N1), plus cg-intrinsic-a's `OffloadMetadata::handle_abi` (rustc_middle ty/offload_meta.rs) in
     // `codegen_offload`, plus cg-write's 5 in back/write.ts (`EnzymeWrapper::get_instance`, three `RustOffloadWrapper` calls,
-    // `gpu_offload::scalar_width`).
-    "excluded (plan-m7 D18)": 17,
-    // 2, plus cg-context's `LLVMGetFirstFunction` / `LLVMGetNextFunction` (llvm/enzyme_ffi.rs) in `get_functions`, plus cg-write's
-    // `rustc_llvm::initialize_available_targets` in `configure_llvm`.
-    "llir": 5,
+    // `gpu_offload::scalar_width`), plus cg-lto-diag's 2 in back/lto.ts (`EnzymeWrapper::get_instance` in
+    // `enable_autodiff_settings`, `LLVMDumpModule` for `-Zautodiff=PrintModFinal`).
+    "excluded (plan-m7 D18)": 19,
+    // 2, plus cg-context's `LLVMGetFirstFunction` / `LLVMGetNextFunction` (llvm/enzyme_ffi.rs) in `get_functions` (cg-write's
+    // `rustc_llvm::initialize_available_targets` stop became the IR model's port at integ-w56).
+    "llir": 4,
     // 3, plus cg-types-attrs's 2, plus cg-intrinsic-a's 2 in intrinsic.ts (`i32 as u64` of a negative index,
     // `str::from_utf8(..).unwrap()`'s panic text; its third, `assert_matches!`'s message, is a template literal this count skips),
-    // plus cg-write's non-UTF-8 symbol name in `create_msvc_imps`.
-    "rustc_codegen_llvm": 8,
+    // plus cg-write's non-UTF-8 symbol name in `create_msvc_imps`, plus cg-lto-diag's 4 in back/lto.ts (two `ThinLtoInput::Green`,
+    // -C incremental; `-Clto=thin`; `ThinLTOKeysMap::from_thin_lto_modules` under the ThinLocal no-op with -C incremental).
+    "rustc_codegen_llvm": 12,
     // cg-write: the self-profiler (`-Z self-profile`) in back/profiling.ts (`TimingGuard::start`) and back/write.ts
     // (`get_self_profiler`, `llvm_recording_enabled`, `artifact_size`).
     "rustc_data_structures": 4,
@@ -287,6 +299,26 @@ describe("auto-deref", () => {
   });
 });
 
+/** Runs the port's driver for `rustc --crate-type lib context_oracle/empty.rs` with `backend` as its codegen backend
+ *  (`Config::make_codegen_backend`), so that `run_compiler` calls `backend.init(early_sess)` as it does for any backend. */
+function drive_init(backend: LlvmCodegenBackend): void {
+  class CaptureConfig extends Error {}
+  let config: Config | undefined;
+  try {
+    compiler_entrypoint(["rustc", "--crate-type", "lib", join(import.meta.dir, "context_oracle", "empty.rs")], {
+      config(c: Config) {
+        config = c;
+        throw new CaptureConfig();
+      },
+    });
+  } catch (e) {
+    if (!(e instanceof CaptureConfig)) throw e;
+  }
+  if (config === undefined) throw new Error("ERROR: no config");
+  config.make_codegen_backend = () => backend as never;
+  run_compiler(config, () => {});
+}
+
 describe("LlvmCodegenBackend", () => {
   test("name (llvm_backend.rs:176)", () => {
     expect(LlvmCodegenBackend.new().name()).toBe("llvm");
@@ -320,10 +352,25 @@ describe("LlvmCodegenBackend", () => {
 
   test("what reaches an unported lane stops there, naming it", () => {
     const b = new LlvmCodegenBackend();
-    // llvm_util.rs init, ported (cg-write): its first LLVM call is the IR model's stop.
-    stops(() => b.init(undefined as never), /^llir: LLVMIsMultithreaded$/);
-    // llvm_util.rs print, ported (cg-write): `require_inited` is a `bug!` before `init` has run (it cannot run: above).
-    expect(() => b.print({ kind: "TargetCPUs" } as never, { value: "" }, undefined as never)).toThrow(/LLVM is not initialized/);
+    // llvm_util.rs init, ported (cg-write), called by the driver on its early session. Since llir-init (root at integ-w56),
+    // `configure_llvm` runs through the IR model's init, `initialize_available_targets` and `LLVMRustSetLLVMOptions`. With `CI`
+    // set (as the gate's unit step sets it, scripts/lib/unit-steps.ts), it first calls `LLVMRustDisableSystemDialogsOnCrash`,
+    // still the model's stop (its LLVM source is not pinned yet): then `init` stops there and LLVM stays uninitialised;
+    // without `CI`, `init` completes. Each branch checks its own outcome (a test may not read `CI` by name).
+    let stop: string | undefined;
+    try {
+      drive_init(b);
+    } catch (e) {
+      if (!(e instanceof Unported)) throw e;
+      stop = e.what;
+    }
+    if (stop !== undefined) {
+      expect(stop).toBe("llir: LLVMRustDisableSystemDialogsOnCrash");
+      // llvm_util.rs print, ported (cg-write): `require_inited` is a `bug!` before `init` has run to completion.
+      expect(() => b.print({ kind: "TargetCPUs" } as never, { value: "" }, undefined as never)).toThrow(/LLVM is not initialized/);
+    } else {
+      expect(() => b.print({ kind: "TargetCPUs" } as never, { value: "" }, undefined as never)).not.toThrow(/LLVM is not initialized/);
+    }
     stops(() => b.has_zstd(), /^llir: LLVMRustLLVMHasZstdCompression$/);
   });
 });

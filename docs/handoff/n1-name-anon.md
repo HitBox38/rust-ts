@@ -32,7 +32,9 @@ the same block.
   with `assign-guid` first, "anonymous globals printed unnamed" is caught at all three tiers, so the test fails. With the new list
   it is absorbed and the two must-stay-caught mutations are caught. All three were checked.
 - The `anon` proof case, end to end through record, replay, print and N1: it passes with the new N1. With the old N1 it fails on
-  exactly `- @anon.d8d43945….0 = …` / `+ @0 = …`, and nothing else.
+  4 lines per side: the definition (`- @anon.d8d43945….0 = …` / `+ @0 = …`), its two uses (the `load ptr, ptr @…` and the
+  `getelementptr` load) and `!9 = !{i64 …}`, whose guid differs because `assign-guid` hashed the unnamed global (corrected by
+  fixers-56 after review n1-name-anon N3).
 - `bunx tsc --noEmit -p .`: clean.
 - `bun test` on `scripts/ir-normal.test.ts`, `ir-sides.test.ts`, `gate-probes.test.ts`, `lib/case-lock.test.ts`,
   `lib/unit-steps.test.ts`, `harness/host-rlib.test.ts` and `harness/rlib-native.test.ts`: 103 pass, 0 fail.

@@ -371,7 +371,7 @@ test("statement.rs / coverageinfo.rs / constant.rs over a mock backend", () => {
     }
     // Without the stubs replaced, mir/debuginfo.rs runs (ssa-debuginfo; root at integ-w55): `codegen_stmt_debuginfos` returns
     // with no per-local debuginfo (debuginfo.rs:722), `set_debug_loc` only sets the span with no debug context (:221), and
-    // `StorageLive` of `_4`, an operand local, emits nothing (statement.rs:62).
+    // `StorageLive` of `_4`, an operand local, emits nothing (statement.rs:73).
     expect(fx.debug_context).toBeUndefined();
     {
       const n0 = log.length;
