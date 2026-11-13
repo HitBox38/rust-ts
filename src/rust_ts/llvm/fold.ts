@@ -252,17 +252,20 @@ function getPointerAlignment(V: GlobalValue, M: Module): number {
     const Alignment = V.alignment;
     if (Alignment === undefined) {
       const ObjectType = V.valueType;
-      // If the object is defined in the current Module, we'll be giving it the preferred alignment. Otherwise, we have to assume
-      // that it may only have the minimum ABI alignment.
-      // PORT: the model computes only the ABI alignment of integers and arrays of them (`DataLayout::getAlignment`, DataLayout.cpp:871):
-      // a definition (`isStrongDefinitionForLinker`, `getPreferredAlign`) or another type stops.
-      if (!V.isDeclaration()) return unported("llir: Value::getPointerAlignment of a defined global variable without an alignment (DataLayout::getPreferredAlign)");
-      let t = ObjectType;
-      while (t instanceof ArrayType) t = t.elementType;
-      if (!(t instanceof IntegerType)) return unported(`llir: DataLayout::getABITypeAlign of ${t.typeID} (not modelled)`);
-      return M.integerABIAlignment(t.bits);
+      if (isSized(ObjectType)) {
+        // If the object is defined in the current Module, we'll be giving it the preferred alignment. Otherwise, we have to
+        // assume that it may only have the minimum ABI alignment.
+        // PORT: the model computes only the ABI alignment of integers and arrays of them (`DataLayout::getAlignment`,
+        // DataLayout.cpp:871): a definition (`isStrongDefinitionForLinker`, `getPreferredAlign`) or another type stops.
+        if (!V.isDeclaration()) return unported("llir: Value::getPointerAlignment of a defined global variable without an alignment (DataLayout::getPreferredAlign)");
+        let t = ObjectType;
+        while (t instanceof ArrayType) t = t.elementType;
+        if (!(t instanceof IntegerType)) return unported(`llir: DataLayout::getABITypeAlign of ${t.typeID} (not modelled)`);
+        return M.integerABIAlignment(t.bits);
+      }
     }
-    return Alignment;
+    // `Alignment.valueOrOne()`: also an unsized object's (review llir-folder N4).
+    return Alignment ?? 1;
   }
   return 1;
 }
@@ -704,17 +707,31 @@ const BAD = -1;
 
 // ---- relations of pointer constants (lane llir-folder) ----
 
-/** `Type::isSized` (Type.h) of the types the model has: a struct is sized when it has a body of sized elements. */
+// llvm: llvm/include/llvm/IR/Type.h:326 isSized
+/** `Type::isSized`, with `isSizedDerivedType` (Type.cpp:265) and `StructType::isSized` (Type.cpp:722), for the types the model
+ *  has (no X86_AMX, no target extension types). An opaque struct is unsized. A struct with a scalable vector element is sized
+ *  only when its elements are all one scalable vector type (`containsHomogeneousScalableVectorTypes`), which the model does not
+ *  decide: it stops (review llir-folder N5). `SCDB_IsSized` only caches the answer, and with opaque pointers no struct contains
+ *  itself, so `Visited` is not needed. */
 function isSized(t: Type): boolean {
-  if (t instanceof IntegerType || t instanceof PointerType || t.isFloatingPointTy()) return true;
+  // If it's a primitive, it is always sized.
+  if (t instanceof IntegerType || t.isFloatingPointTy() || t instanceof PointerType) return true;
+  // Otherwise we have to try harder to decide.
   if (t instanceof ArrayType || t instanceof VectorType) return isSized(t.elementType);
-  if (t instanceof StructType) return t.body !== undefined && t.body.every(isSized);
+  if (t instanceof StructType) {
+    if (t.body === undefined) return false; // isOpaque()
+    if (t.body.some((e) => e instanceof VectorType && e.scalable)) return unported("llir: StructType::isSized of a struct with a scalable vector element (containsHomogeneousScalableVectorTypes)");
+    return t.body.every((e) => isSized(e));
+  }
+  // If it is not something that can have a size (e.g. a function or label), it doesn't have a size.
   return false;
 }
 
 // llvm: llvm/lib/IR/Type.cpp:180 Type::isEmptyTy
 function isEmptyTy(t: Type): boolean {
-  if (t instanceof ArrayType) return t.numElements === 0n || isEmptyTy(t.elementType);
+  // `unsigned NumElements = ATy->getNumElements()`: the count truncated to 32 bits, so `[k * 2^32 x T]` is empty too (review
+  // llir-folder N5).
+  if (t instanceof ArrayType) return BigInt.asUintN(32, t.numElements) === 0n || isEmptyTy(t.elementType);
   if (t instanceof StructType) {
     // (`getNumElements` of an opaque struct is 0.)
     for (const e of t.body ?? []) if (!isEmptyTy(e)) return false;
