@@ -42,7 +42,8 @@
 //
 // **Script format,** one call per line: `<thread>\t<line>`, `<line>` being an inferred line or
 // `[%<ret> = ]<fn>(<arg>, ...)`. Arguments: a handle `%N` (numbered on first sight; a deleted global's or function's number is
-// retired, as its address may be reused) or `null`; an integer in decimal; a double `d0x<16 hex>`; a byte string `"..."`
+// retired, as its address may be reused, and so is every handle of a context at its `LLVMContextDispose`) or `null`; an integer
+// in decimal; a double `d0x<16 hex>`; a byte string `"..."`
 // (printable ASCII but `"` and `\` as is, other bytes `\XX`); an array `[a, b]`; an out-parameter's value after the call
 // `&<value>` (integers, handles, and the arrays `LLVMGetParamTypes` / `LLVMGetStructElementTypes` fill); `?` for what the recorder
 // does not decode (callbacks, other out-parameters). A returned string is `"..."`. A disposed builder's or bundle's number is
@@ -133,30 +134,46 @@ extern P LLVMIsAInstruction(P); extern P LLVMGetInstructionParent(P); extern P L
 extern P LLVMGetFirstBasicBlock(P); extern P LLVMGetNextBasicBlock(P); extern unsigned LLVMGetInstructionOpcode(P); extern int LLVMGetNumOperands(P);
 extern P LLVMGetOperand(P, unsigned); extern unsigned LLVMGetNumArgOperands(P); extern unsigned LLVMGetCallSiteAttributeCount(P, unsigned);
 extern void LLVMGetCallSiteAttributes(P, unsigned, P*);
-static FILE* out; static pthread_mutex_t mu = PTHREAD_RECURSIVE_MUTEX_INITIALIZER; static pthread_key_t key; static long threads;
-static P* ids; static size_t nids, capids; static long ptid; /* the thread number scan() writes */
+static FILE* out; static pthread_mutex_t mu = PTHREAD_RECURSIVE_MUTEX_INITIALIZER; static pthread_key_t key, ckey; static long threads;
+/* Pointer -> number hash tables (open addressing; key 0 is an empty slot and (P)1 a deleted one, addresses no LLVM object has), so
+   a handle lookup is constant time, not a scan of every handle so far (lane llir-init: the scan made large compiles quadratic). */
+typedef struct { P k; long v; } HE; typedef struct { HE* t; size_t cap, n, used; } HM;
+static size_t hh(P p){ unsigned long long x=(unsigned long long)p; x^=x>>33; x*=0xff51afd7ed558ccdULL; x^=x>>33; return (size_t)x; }
+static HE* hfind(HM* m, P k){ if(!m->cap) return 0; size_t i=hh(k)&(m->cap-1); for(;;){ HE* e=&m->t[i]; if(!e->k) return 0; if(e->k==k) return e; i=(i+1)&(m->cap-1); } }
+static long hget(HM* m, P k){ HE* e=hfind(m,k); return e?e->v:0; }
+static void hdel(HM* m, P k){ HE* e=hfind(m,k); if(e){ e->k=(P)1; e->v=0; m->n--; } }
+static void hput(HM* m, P k, long v){ HE* e=hfind(m,k); if(e){ e->v=v; return; }
+  if((m->used+1)*2>m->cap){ size_t nc=1024; while(nc<(m->n+1)*4) nc*=2; HE* old=m->t; size_t oc=m->cap; m->t=calloc(nc,sizeof(HE)); m->cap=nc; m->used=0; m->n=0;
+    for(size_t i=0;i<oc;i++) if((size_t)old[i].k>1) hput(m,old[i].k,old[i].v); free(old); }
+  size_t i=hh(k)&(m->cap-1); while((size_t)m->t[i].k>1) i=(i+1)&(m->cap-1); if(!m->t[i].k) m->used++; m->t[i].k=k; m->t[i].v=v; m->n++; }
+/* Handles: ids[n-1] is handle n's address ((P)-1 once retired), idm maps a live address to n, and ctxof[n-1] is the context the
+   handle belongs to (review llir-folder-notes N-a): the module's context for what scan() first sees in a module, otherwise the
+   calling thread's current context (the last LLVMContextCreate on it; rustc fills each context on one thread, one at a time). */
+static P* ids; static P* ctxof; static size_t nids, capids; static HM idm; static long ptid; /* the thread number scan() writes */
+static P scanctx; /* the context of the module scan() is reading, or 0 */
 #define MAXM 64
 static P mods[MAXM]; static long modtid[MAXM]; static int nmods; static char* triples[MAXM]; static char* layouts[MAXM]; static unsigned nflags[MAXM];
-__attribute__((constructor)) static void init(void){ const char* p=getenv("RUST_TS_LLVM_RECORD"); if(p) out=fopen(p,"w"); pthread_key_create(&key,0); }
+__attribute__((constructor)) static void init(void){ const char* p=getenv("RUST_TS_LLVM_RECORD"); if(p) out=fopen(p,"w"); pthread_key_create(&key,0); pthread_key_create(&ckey,0); }
 __attribute__((destructor)) static void fini(void){ if(out) fclose(out); out=0; }
 static long tid(void){ long t=(long)pthread_getspecific(key); if(!t){ t=__sync_add_and_fetch(&threads,1); pthread_setspecific(key,(void*)t);} return t; }
-static long find(P p){ for(size_t i=0;i<nids;i++) if(ids[i]==p) return (long)i+1; return 0; }
+static long find(P p){ return hget(&idm,p); }
 /* A deleted value's address can be reused by a later one: its handle is retired so the later one gets a new number. */
-static void forget(P p){ long i=find(p); if(i) ids[i-1]=(P)-1; }
-static long id(P p){ long i=find(p); if(i) return i; if(nids==capids){ capids=capids?capids*2:1024; ids=realloc(ids,capids*sizeof(P)); } ids[nids++]=p; return (long)nids; }
+static void forget(P p){ long i=find(p); if(i){ ids[i-1]=(P)-1; hdel(&idm,p); } }
+static long id(P p){ long i=find(p); if(i) return i; if(nids==capids){ capids=capids?capids*2:1024; ids=realloc(ids,capids*sizeof(P)); ctxof=realloc(ctxof,capids*sizeof(P)); }
+  ctxof[nids]=scanctx?scanctx:(P)pthread_getspecific(ckey); ids[nids++]=p; hput(&idm,p,(long)nids); return (long)nids; }
 static void bytes(const unsigned char* s, size_t n){ fputc('"',out); for(size_t i=0;i<n;i++){ unsigned c=s[i]; if(c>=0x20&&c<0x7f&&c!='"'&&c!='\\\\') fputc(c,out); else fprintf(out,"\\\\%02X",c);} fputc('"',out); }
 static void h(P p){ if(!p) fputs("null",out); else fprintf(out,"%%%ld",id(p)); }
 static const char* attrnames[] = { ATTRNAMES }; static unsigned attrkinds[sizeof(attrnames)/sizeof(*attrnames)]; static int attrinit;
 static const char* attrname(unsigned k){ if(!attrinit){ for(size_t i=0;i<sizeof(attrnames)/sizeof(*attrnames);i++) attrkinds[i]=LLVMGetEnumAttributeKindForName(attrnames[i],strlen(attrnames[i])); attrinit=1; }
   for(size_t i=0;i<sizeof(attrnames)/sizeof(*attrnames);i++) if(attrkinds[i]==k) return attrnames[i]; return 0; }
-typedef struct { P f; unsigned n; unsigned* cnt; P** lst; } FA; static FA* fas; static size_t nfas, capfas;
-static FA* fa(P f){ for(size_t i=0;i<nfas;i++) if(fas[i].f==f) return &fas[i]; if(nfas==capfas){ capfas=capfas?capfas*2:256; fas=realloc(fas,capfas*sizeof(FA)); }
-  unsigned n=LLVMCountParams(f)+2; fas[nfas]=(FA){f,n,calloc(n,sizeof(unsigned)),calloc(n,sizeof(P*))}; return &fas[nfas++]; }
+typedef struct { P f; unsigned n; unsigned* cnt; P** lst; } FA; static FA* fas; static size_t nfas, capfas; static HM fam;
+static FA* fa(P f){ long j=hget(&fam,f); if(j) return &fas[j-1]; if(nfas==capfas){ capfas=capfas?capfas*2:256; fas=realloc(fas,capfas*sizeof(FA)); }
+  unsigned n=LLVMCountParams(f)+2; fas[nfas]=(FA){f,n,calloc(n,sizeof(unsigned)),calloc(n,sizeof(P*))}; hput(&fam,f,(long)nfas+1); return &fas[nfas++]; }
 /* Call-site attribute sets of call and invoke instructions (LLVMRustAddCallSiteAttributes), as FA for functions. */
-static FA* cas; static size_t ncas, capcas;
+static FA* cas; static size_t ncas, capcas; static HM cam;
 static int iscall(P i){ unsigned op=LLVMGetInstructionOpcode(i); return op==45 || op==5 || op==67; }
-static FA* ca(P c){ for(size_t i=0;i<ncas;i++) if(cas[i].f==c) return &cas[i]; if(ncas==capcas){ capcas=capcas?capcas*2:256; cas=realloc(cas,capcas*sizeof(FA)); }
-  unsigned n=LLVMGetNumArgOperands(c)+2; cas[ncas]=(FA){c,n,calloc(n,sizeof(unsigned)),calloc(n,sizeof(P*))}; return &cas[ncas++]; }
+static FA* ca(P c){ long j=hget(&cam,c); if(j) return &cas[j-1]; if(ncas==capcas){ capcas=capcas?capcas*2:256; cas=realloc(cas,capcas*sizeof(FA)); }
+  unsigned n=LLVMGetNumArgOperands(c)+2; cas[ncas]=(FA){c,n,calloc(n,sizeof(unsigned)),calloc(n,sizeof(P*))}; hput(&cam,c,(long)ncas+1); return &cas[ncas++]; }
 static void attr(P a);
 /* Brings a call's attribute state up to date; with emit, logs each changed index as "?csattrs %I <index> [...]", or, for a
    new instruction (whole=1), returns them for its "?inst" line. */
@@ -176,8 +193,8 @@ static void opnd(P v){ if(v && !find(v) && LLVMIsAConstantInt(v)) fprintf(out,"#
    logs nothing for the call itself, and keeps each result's bit width and words for its "?attr ... range" line. Each call rewrites
    its result's entry: one handle in a live context has one value, and an address reused after LLVMContextDispose must not keep
    the old one (review llir-folder N2). */
-typedef struct { P a; unsigned bits; unsigned long long lo[2], hi[2]; } RG; static RG* rgs; static size_t nrgs, caprgs;
-static RG* rg(P a){ for(size_t i=0;i<nrgs;i++) if(rgs[i].a==a) return &rgs[i]; return 0; }
+typedef struct { P a; unsigned bits; unsigned long long lo[2], hi[2]; } RG; static RG* rgs; static size_t nrgs, caprgs; static HM rgm;
+static RG* rg(P a){ long j=hget(&rgm,a); return j?&rgs[j-1]:0; }
 static void attr(P a){ if(find(a)) return; long i=id(a); fprintf(out,"%ld\\t?attr %%%ld ",ptid,i);
   if(LLVMIsStringAttribute(a)){ unsigned kl=0,vl=0; const char* k=LLVMGetStringAttributeKind(a,&kl); const char* v=LLVMGetStringAttributeValue(a,&vl); fputs("str ",out); bytes((const unsigned char*)k,kl); fputc(' ',out); bytes((const unsigned char*)v,vl); }
   else { const char* n=attrname(LLVMGetEnumAttributeKind(a)); if(n) fputs(n,out); else fprintf(out,"kind%u",LLVMGetEnumAttributeKind(a));
@@ -202,13 +219,24 @@ static void dsoscan(P ctx){
     for(P g=LLVMGetFirstGlobal(M); g; g=LLVMGetNextGlobal(g)) if(find(g) && printedDsoLocal(g)){ fprintf(out,"%ld\\t?dsolocal ",modtid[m]); h(g); fputc('\\n',out); }
     for(P f=LLVMGetFirstFunction(M); f; f=LLVMGetNextFunction(f)) if(find(f) && printedDsoLocal(f)){ fprintf(out,"%ld\\t?dsolocal ",modtid[m]); h(f); fputc('\\n',out); } }
 }
+/* After LLVMContextDispose (review llir-folder-notes N-a): every handle of the context is retired, with the attribute-set, call-site and
+   range state kept for its addresses, so an address a later context reuses gets a new handle and its own "?attr" (or other) line
+   instead of replaying as the old object. */
+static void retire(P ctx){
+  for(size_t i=0;i<nids;i++){ P p=ids[i]; if(ctxof[i]!=ctx || p==(P)-1) continue;
+    hdel(&idm,p); ids[i]=(P)-1;
+    long j=hget(&fam,p); if(j){ hdel(&fam,p); fas[j-1].f=0; }
+    j=hget(&cam,p); if(j){ hdel(&cam,p); cas[j-1].f=0; }
+    j=hget(&rgm,p); if(j){ hdel(&rgm,p); rgs[j-1].a=0; } }
+  if((P)pthread_getspecific(ckey)==ctx) pthread_setspecific(ckey,0);
+}
 /* Inferred lines: state a wrapper made since the last look. With emit=0 (after a recorded call) the cached state is only
    brought up to date, so what the recorded call itself changed is never attributed to a wrapper. */
 static void scan(int emit, P ctx){
   for(int m=0;m<nmods;m++){ P M=mods[m]; if(!M) continue;
     /* A module is read on the thread that builds it, or, for ctx, when its context is about to go (on any thread: the module is
        finished then); its lines carry the builder's thread number. */
-    if(ctx ? LLVMGetModuleContext(M)!=ctx : modtid[m]!=tid()) continue; ptid=modtid[m];
+    if(ctx ? LLVMGetModuleContext(M)!=ctx : modtid[m]!=tid()) continue; ptid=modtid[m]; scanctx=LLVMGetModuleContext(M);
     if(emit) for(P g=LLVMGetFirstGlobal(M); g; g=LLVMGetNextGlobal(g)) if(!find(g)){ size_t n=0; const char* s=LLVMGetValueName2(g,&n); P t=LLVMGlobalGetValueType(g);
       fprintf(out,"%ld\\t?global ",ptid); h(g); fputc(' ',out); bytes((const unsigned char*)s,n); fputc(' ',out); if(find(t)) h(t); else fputs("?",out); fputc(' ',out); h(M);
       fprintf(out," %u\\n",LLVMGetPointerAddressSpace(LLVMTypeOf(g))); }
@@ -250,6 +278,7 @@ static void scan(int emit, P ctx){
           if(call){ FA* s=ca(i); fputs(" {",out); int first=1; for(unsigned j=0;j<s->n;j++){ if(!s->cnt[j]) continue; if(!first) fputc(' ',out); first=0; fprintf(out,"%u:[",j==0?0xFFFFFFFFu:j-1); for(unsigned k=0;k<s->cnt[j];k++){ if(k) fputs(", ",out); h(s->lst[j][k]); } fputc(']',out); } fputc('}',out); }
           fputc('\\n',out); continue; }
         if(call) csync(i,emit,0); } }
+  scanctx=0;
 }
 `;
   fns.forEach((f, i) => {
@@ -261,7 +290,9 @@ static void scan(int emit, P ctx){
     c += `__attribute__((used)) static ${ret} w${i}(${ps}){\n  if(out){ pthread_mutex_lock(&mu); scan(1,0); pthread_mutex_unlock(&mu); }\n`;
     if (f.name === "LLVMContextDispose") c += `  if(out){ pthread_mutex_lock(&mu); scan(1,a0); dsoscan(a0); for(int m=0;m<nmods;m++) if(mods[m] && LLVMGetModuleContext(mods[m])==a0) mods[m]=0; pthread_mutex_unlock(&mu); }\n`;
     c += `  ${ret === "void" ? "" : `${ret} r = `}o${i}(${f.params.map((_, j) => `a${j}`).join(", ")});\n`;
-    c += `  if(out){ pthread_mutex_lock(&mu);${f.name === "LLVMModuleCreateWithNameInContext" ? " if(nmods<MAXM){ modtid[nmods]=tid(); mods[nmods++]=(P)r; }" : ""} fprintf(out,"%ld\\t",tid());`;
+    // A new context is the calling thread's current one (handles first seen on the thread belong to it); a module is scanned.
+    const created = f.name === "LLVMModuleCreateWithNameInContext" ? " if(nmods<MAXM){ modtid[nmods]=tid(); mods[nmods++]=(P)r; }" : f.name === "LLVMContextCreate" ? " pthread_setspecific(ckey,(P)r);" : "";
+    c += `  if(out){ pthread_mutex_lock(&mu);${created} fprintf(out,"%ld\\t",tid());`;
     // A deleted value's or a disposed builder's or bundle's address may be reused by a later one.
     const forgets = /^LLVM(DeleteGlobal|DeleteFunction|DisposeBuilder|DisposeOperandBundle)$/.test(f.name);
     // Where a builder put the instruction it made: " @ %BB <next instruction or end>" (replay.ts infers hidden positioning).
@@ -312,14 +343,14 @@ static void scan(int emit, P ctx){
     c += ` fputs(")",out);`;
     if (at) c += ` if(r && LLVMIsAInstruction((P)r) && LLVMGetInstructionParent((P)r)){ P nx=LLVMGetNextInstruction((P)r); fputs(" @ ",out); h(LLVMGetInstructionParent((P)r)); fputc(' ',out); if(nx) h(nx); else fputs("end",out); }`;
     if (retStr) c += ` fputs(" -> ",out); if(r) bytes((const unsigned char*)r,strlen((const char*)r)); else fputs("null",out);`;
-    c += ` fputc('\\n',out);${forgets ? " forget((P)a0);" : ""} scan(0,0); pthread_mutex_unlock(&mu); }\n  ${ret === "void" ? "" : "return r;"}\n}\n`;
+    c += ` fputc('\\n',out);${forgets ? " forget((P)a0);" : ""}${f.name === "LLVMContextDispose" ? " retire((P)a0);" : ""} scan(0,0); pthread_mutex_unlock(&mu); }\n  ${ret === "void" ? "" : "return r;"}\n}\n`;
     c += `__attribute__((used,section("__DATA,__interpose"))) static struct{void*a;void*b;} ip${i}={(void*)w${i},(void*)o${i}};\n`;
   });
   // The constant-range creator (above `attr`): interposed only to learn each range attribute's value; not a logged call.
   if (syms.has("LLVMCreateConstantRangeAttribute")) {
     c += `extern P LLVMCreateConstantRangeAttribute(P, unsigned, unsigned, const unsigned long long*, const unsigned long long*);
 static P wrg(P c, unsigned k, unsigned bits, const unsigned long long* lo, const unsigned long long* hi){ P r=LLVMCreateConstantRangeAttribute(c,k,bits,lo,hi);
-  pthread_mutex_lock(&mu); if(out && bits<=128){ RG* g=rg(r); if(!g){ if(nrgs==caprgs){ caprgs=caprgs?caprgs*2:64; rgs=realloc(rgs,caprgs*sizeof(RG)); } g=&rgs[nrgs++]; }
+  pthread_mutex_lock(&mu); if(out && bits<=128){ RG* g=rg(r); if(!g){ if(nrgs==caprgs){ caprgs=caprgs?caprgs*2:64; rgs=realloc(rgs,caprgs*sizeof(RG)); } g=&rgs[nrgs++]; hput(&rgm,r,(long)nrgs); }
     memset(g,0,sizeof(RG)); g->a=r; g->bits=bits; for(unsigned w=0;w<(bits+63)/64;w++){ g->lo[w]=lo[w]; g->hi[w]=hi[w]; } }
   pthread_mutex_unlock(&mu); return r; }
 __attribute__((used,section("__DATA,__interpose"))) static struct{void*a;void*b;} iprg={(void*)wrg,(void*)LLVMCreateConstantRangeAttribute};
