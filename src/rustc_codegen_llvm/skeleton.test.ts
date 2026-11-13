@@ -18,6 +18,7 @@ import { LlvmCodegenBackend } from "./lib.ts";
 import * as attributes from "./attributes.ts";
 import { Builder, GenericBuilder } from "./builder.ts";
 import * as common from "./common.ts";
+import * as debuginfo_metadata from "./debuginfo/metadata.ts";
 import { CodegenCx, FullCx, GenericCx, SCx, SimpleCx } from "./context.ts";
 import { generic_simd_intrinsic } from "./intrinsic.ts";
 import type { Value } from "./llvm/mod.ts";
@@ -108,7 +109,9 @@ describe("stubs name their fill lane", () => {
     // cg-builder (wave 41) ported builder.rs and allocator.rs whole: no stub of its own is left (builder.test.ts).
     // cg-intrinsic-a (wave 41) ported intrinsic.rs's scalar half (:1-2046); the SIMD half's entry stays cg-intrinsic-b's.
     stops(() => generic_simd_intrinsic(bx, undefined as never, undefined as never, [], undefined as never, undefined as never, undefined as never), /^cg-intrinsic-b: .*\/intrinsic\.rs generic_simd_intrinsic$/);
-    stops(() => bx.clear_dbg_loc(), /^cg-di-a: .*\/debuginfo\/mod\.rs clear_dbg_loc$/);
+    // cg-di-a (wave 40p) ported debuginfo/{mod,utils,namespace,di_builder,dwarf_const,gdb}.rs whole, and metadata.rs's fns a
+    // compile without `-g` reaches; the rest of metadata.rs stays a typed stop (wave 44, plan-m7 D9).
+    stops(() => debuginfo_metadata.type_di_node(cx, undefined as never), /^cg-di-a: .*\/debuginfo\/metadata\.rs type_di_node$/);
   });
 });
 
@@ -117,7 +120,12 @@ describe("stub counts per lane", () => {
   // callees of back/llvm_backend.ts. A fill lane that ports a stub lowers its count here.
   const EXPECTED: Record<string, number> = {
     "cg-asm": 4,
-    "cg-di-a": 21,
+    // 21 cg-contract left; cg-di-a (wave 40p) ported debuginfo/mod.rs's 18 and 3 of metadata.rs (`build_global_var_di_node`,
+    // `apply_vcall_visibility_metadata`, `create_vtable_di_node`). Left: the 9 metadata.rs fns that debuginfo/mod.rs and those
+    // three call past their `-g` checks (wave 44, plan-m7 D9).
+    "cg-di-a": 9,
+    // cg-di-a: `TypeMap::default` (metadata/type_map.rs), in `CodegenUnitDebugContext::new` (wave 44).
+    "cg-di-b": 1,
     "cg-intrinsic-b": 2,
     // 8, plus cg-write's 4 in back/write.ts: the hand `Diagnostic` impls of `WithLlvmError` and `ParseTargetMachineConfig`
     // (diagnostics.rs), `llvm::diagnostic::Diagnostic::unpack` and back/lto.rs's `Buffer::data`.
