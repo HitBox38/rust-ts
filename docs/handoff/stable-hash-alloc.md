@@ -97,8 +97,10 @@ the names of its 10 anonymous allocations:
 | `A_FN` | relocation to `target` | `GlobalAlloc::Function` → `Instance` |
 | `A_DYN: &&dyn Sync` | relocation to a vtable, plus the `5u32` and the vtable themselves | `GlobalAlloc::VTable` → `Ty` + `RawList<Binder<ExistentialPredicate>>` |
 
-- **Negative control.** I swapped the word order in the generated `InitMaskMaterialized` read; `A_PAD`, `A_BIG` and
-  `A_REFSTR` then got wrong names and the test failed. Regeneration restored the file.
+- **Negative control.** I swapped the word order in the generated `InitMaskMaterialized` read; `A_PAD`, `A_BIG`,
+  `A_REFSTR`, `A_DYN` and the vtable allocation then got wrong names and the test failed (`A_DYN`'s `&dyn` pair is
+  written in two parts, so its init mask is materialized, as `A_REFSTR`'s is; list corrected by fixers-56 after review
+  stable-hash-alloc N1). Regeneration restored the file.
 - **Not covered:** `GlobalAlloc::TypeId`. No fixture static reaches it in an anonymous allocation.
 
 **Checks:**

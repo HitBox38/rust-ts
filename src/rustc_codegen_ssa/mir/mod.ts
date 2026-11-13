@@ -62,7 +62,7 @@ import { TypeVisitableExt } from "../../rustc_type_ir/visit.ts";
 import * as tracing from "../../rust_ts/tracing.ts";
 import { PLAIN } from "../../std/fmt.ts";
 import type { MutRef } from "../../std/mut_ref.ts";
-import { assert, panic, unported, unwrap } from "../../std/panic.ts";
+import { assert, panic, unwrap } from "../../std/panic.ts";
 import type { BackendTypes } from "../traits/backend.ts";
 import type { BuilderMethods, BuilderMethodsStatic } from "../traits/builder.ts";
 import type { CodegenMethods } from "../traits/mod.ts";
@@ -889,8 +889,8 @@ function debug_Ty_plain(ty: Ty): string {
   return debug_Ty(ty, PLAIN);
 }
 
-// ---- Cross-lane stubs (header) ---------------------------------------------------------------------------------------
-// Each entry stands for one upstream fn of another fill lane and stops with `unported`. Methods take the receiver first.
+// ---- Cross-lane forwarders (header) ----------------------------------------------------------------------------------
+// Each entry forwards to one upstream fn of another fill lane, all of which have landed. Methods take the receiver first.
 export const xlane = {
   // ssa-base (base.rs): ported; the entry forwards to it (root at integ-w54), so tests can still replace it.
   /** `base::wants_new_eh_instructions(&TargetSpec)` (base.rs:392). */

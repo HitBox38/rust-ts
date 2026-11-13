@@ -1417,7 +1417,7 @@ function start_executing_work<W extends WriteBackendTypes>(
   // PORT: `jobserver::client().into_helper_thread(move |token| { .. Message::Token(token) .. })` (HelperThread).
   const jobserver_helper = parallel !== undefined ? new HelperThread() : undefined;
 
-  const opt_level = tcx.backend_optimization_level(null) as OptLevel;
+  const opt_level = tcx.backend_optimization_level(null);
   const tm_factory = backend.target_machine_factory(tcx.sess, opt_level);
 
   let remark_dir: PathBuf | undefined;

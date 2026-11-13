@@ -3,9 +3,11 @@
 // listed below. Run by scripts/ir-run.ts. No imports beyond node:.
 //
 // **N1, the target (the plan's form):** `opt -passes=name-anon-globals,assign-guid,verify -S`, then the two strips below.
-//   The first two passes are the two that `LLVMRustOptimize` runs on every module whose text the oracle prints, in its order
-//   (PassWrapper.cpp:992-997, under `NeedThinLTOBufferPasses`, with `CanonicalizeAliasesPass` before them, which N1 does not run).
-//   On the oracle's text they change nothing: its unnamed globals are already `@anon.<md5>.N` and carry their `!guid`.
+//   The first two passes are the two that `LLVMRustOptimize` runs, in its order, on every module whose `NeedThinLTOBufferPasses`
+//   is set (PassWrapper.cpp:992-997, with `CanonicalizeAliasesPass` before them, which N1 does not run). The flag is cleared for
+//   `PreLinkThinLTO`, `PreLinkFatLTO` and `FatLTO` (PassWrapper.cpp:961, 970). Where it is set, they change nothing on the
+//   oracle's text: its unnamed globals are already `@anon.<md5>.N` and carry their `!guid`. On fat-LTO output they can rename
+//   unnamed globals, on both sides alike.
 //   What it discards, and why that is safe:
 //   - Comments: every line starting with `; `. They are the annotation writer's demangled names and `; call ...`
 //     (PassWrapper.cpp:1067), and opt's `; ModuleID`, `; Function Attrs:` (the attributes themselves stay, on the
@@ -23,7 +25,8 @@
 //   - The names of unnamed globals (`name-anon-globals` names each unnamed global object or alias `anon.<hash>.<n>`, in module
 //     order, as LLVMRustOptimize does; owner decision after review llir-folder, item 10). A model that prints `@0` where the oracle has
 //     `@anon.<md5>.0` reaches the same text. What stays visible: the hash is the MD5 of the names of the module's non-local
-//     definitions, in order, so a definition missing, extra, renamed or moved changes every anonymous name; `<n>` counts unnamed globals in
+//     definitions, in order, joined with no separator (`@f` + `@g` hashes as `@fg`) and with declarations not hashed, so a definition missing,
+//     extra, renamed or moved usually changes every anonymous name, and it shows in the definition lines anyway; `<n>` counts unnamed globals in
 //     order, so a missing, extra or reordered one shows; a global that should have a name but is printed unnamed gets an `anon.` name, which
 //     differs; a wrong `anon.` name on the oracle's side or ours is kept as it is (the pass renames only unnamed globals).
 //     It must run before `assign-guid`, as in rustc: the `!guid` of a global is computed from its name.

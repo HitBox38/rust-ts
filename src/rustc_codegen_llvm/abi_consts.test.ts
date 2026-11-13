@@ -8,8 +8,8 @@
 //    convention, the return type and its attributes, each parameter's type and attributes, at `-Copt-level=0` and `=1`.
 //    Of the function attributes in the attribute group `#N`, only `noreturn` and `nounwind` (`apply_attrs_llfn`'s,
 //    abi.rs:465-484) are compared; the group's other attributes are `apply_attrs_llfn`'s instance attributes
-//    (`llfn_attrs_from_instance`, cg-types-attrs), which are not. **Attributes compare as sets**: the IR model prints them in insertion order, LLVM sorts them
-//    (docs/handoff/cg-types-attrs.md, "For the llir lanes").
+//    (`llfn_attrs_from_instance`, cg-types-attrs), which are not. **Attributes compare as sets**: the IR model prints
+//    them in insertion order, LLVM sorts them (docs/handoff/cg-types-attrs.md, "For the llir lanes").
 // 2. **call sites** (sigs.rs `call_*`): `apply_attrs_callsite` on a call built with the IR model, against the oracle's `call`
 //    line, with `noreturn` / `nounwind` read through the call's attribute group (abi.rs:641-648); it then stops in the IR
 //    model's `LLVMRustGetElementTypeArgIndex`.
@@ -20,7 +20,8 @@
 //    does. Compared with the oracle's global lines, in order, with `-Zfewer-names=yes` and without it: then the anonymous
 //    allocations are named `alloc_<stable hash>` (cg-context's `alloc_to_backend`, the derive of `StableHash for Allocation`).
 // 4. **allocation names** (alloc_names.rs, lane stable-hash-alloc): the same, for anonymous allocations of each kind: bytes
-//    only, uninit padding (one init-mask block, and several), and relocations to a static, to another allocation and to a fn.
+//    only, uninit padding (one init-mask block, and several), and relocations to a static, to another allocation, to a fn
+//    and to a vtable (`GlobalAlloc::VTable`, mir/interpret/mod.rs:262).
 //
 // Test scaffolding (each listed in docs/handoff/cg-abi-consts.md):
 // - `CodegenCx::new` needs a target machine (cg-write): the cx is built over an IR-model module with `FullCx`'s fields as

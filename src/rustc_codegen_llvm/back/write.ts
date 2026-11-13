@@ -22,7 +22,7 @@ import type { PathBuf } from "../../rustc_error_messages/lib.ts";
 import { DiagCtxt, type DiagCtxtHandle, Level } from "../../rustc_errors/lib.ts";
 import type { Emitter } from "../../rustc_errors/emitter.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
-import { type AutoDiff, type Lto, type Offload, type OptLevel, OutFileName, type OutputFilenames, type OutputType, type Passes, type SplitDwarfKind, type SwitchWithOptPath } from "../../rustc_session/config.ts";
+import { type Lto, type Offload, type OptLevel, OutFileName, type OutputFilenames, type OutputType, type Passes, type SplitDwarfKind, type SwitchWithOptPath } from "../../rustc_session/config.ts";
 import type { Session } from "../../rustc_session/session.ts";
 import type { SelfProfilerRef, VerboseTimingGuard } from "../../rustc_session/stand_ins.ts";
 import { BytePos, type InnerSpan, RemapPathScopeComponents, Span } from "../../rustc_span/lib.ts";
