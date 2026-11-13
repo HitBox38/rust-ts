@@ -4,7 +4,7 @@
 //
 // A handle the model implements is its class in ir.ts. The others are opaque brands until their lane gives them a class:
 // llir-di (`DbgRecord`, `DIBuilder`; `BasicBlock`, `Builder` and `OperandBundle` are llir-core-b's inst.ts classes), the driver lanes
-// (`TargetMachine`, `MCSubtargetInfo`, `Buffer`, `ThinLTOData`, `Linker`, diagnostics). Such a lane replaces the brand here
+// (`Buffer`, `ThinLTOData`, `Linker`, diagnostics). (`TargetMachine`, `MCSubtargetInfo` and `DiagnosticHandler` are target.ts's classes, lane llir-init.) Such a lane replaces the brand here
 // with its class; the name stays, so ffi.ts and its callers do not change.
 import type { BasicBlock as InstBasicBlock, IRBuilder, OperandBundleDef } from "./inst.ts";
 import type { Attribute as IrAttribute, Comdat as IrComdat, ConstantInt as IrConstantInt, Context as IrContext, Metadata as IrMetadata, Module as IrModule, Type as IrType, Value as IrValue } from "./ir.ts";
@@ -28,12 +28,11 @@ type Opaque<N extends string> = { readonly [opaque]: N };
 
 export type DbgRecord = Opaque<"DbgRecord">;
 export type DIBuilder = Opaque<"DIBuilder">;
-export type TargetMachine = Opaque<"TargetMachine">;
-export type MCSubtargetInfo = Opaque<"MCSubtargetInfo">;
+export type { MCSubtargetInfo, TargetMachine } from "./target.ts";
 export type Twine = Opaque<"Twine">;
 export type DiagnosticInfo = Opaque<"DiagnosticInfo">;
 export type SMDiagnostic = Opaque<"SMDiagnostic">;
-export type DiagnosticHandler = Opaque<"DiagnosticHandler">;
+export type { DiagnosticHandler } from "./target.ts";
 export type Buffer = Opaque<"Buffer">;
 export type ThinLTOData = Opaque<"ThinLTOData">;
 export type Linker = Opaque<"Linker">;
