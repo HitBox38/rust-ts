@@ -18,7 +18,7 @@
 //   MetadataSize, MetadataAlign, Method(<u16 as Sup>::a), Method(<u16 as Sub2>::c), TraitVPtr(<u16 as Sub2>),
 //   Method(<u16 as Sub>::b)]`: `Sub2`'s vptr is entry 5, so the offset is 5 * 8 = 40; `Sup` is the prefix and has no vptr.
 // - The oracle's `-Cno-prepopulate-passes --emit=llvm-ir` of the same crate, for `fn up2(x: &dyn Sub) -> &dyn Sub2 { x }`:
-//   `getelementptr inbounds i8, ptr %x.1, i64 40` then `load ptr, ptr %0, align 8, !invariant.load !12, !nonnull !12`;
+//   `getelementptr inbounds i8, ptr %x.1, i64 40` then `load ptr, ptr %0, align 8, !invariant.load !N, !nonnull !N`;
 //   for `up1` (to `&dyn Sup`) no instruction; for `fn mk(x: &u8) -> &dyn Tr { x }` the pair `(%x, @vtable.0)`, where
 //   `@vtable.0` is `<{ [24 x i8], ptr }>` (32 bytes), align 8.
 import { expect, test } from "bun:test";

@@ -1,6 +1,6 @@
 # Handoff: fixer lane `fixers-55` (M7, wave 40o)
 
-Branch `t3/acbe0095`, based on `ba273e7f`. There is one commit per item, and each commit message cites its finding.
+Branch `t3/fixers-55-codegen-nits`, based on `ba273e7f`. There is one commit per item, and each commit message cites its finding.
 
 ## Items
 
