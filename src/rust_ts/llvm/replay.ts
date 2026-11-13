@@ -6,12 +6,13 @@
 // model returned before must not come back for a new handle (over-uniquing). A returned integer, boolean, enum or string, and
 // every out-parameter the recorder logged (`&<value>`), must equal the oracle's. The first disagreement throws, naming the
 // script line. Calls to functions the model leaves to another lane are skipped when nothing later uses their result; a later
-// use of such a result throws, naming the function.
+// use of such a result throws, naming the function. The hidden target machines are made from the case's recorded
+// `LLVMRustCreateTargetMachine` arguments when it gives them (`ReplayOptions.targetMachines`, lane llir-init).
 //
 // Each inferred line (record.ts) is replayed as a call of **the wrapper that produces that effect in rustc** at the pin, from a
-// table of rustc's call sites below; an effect no call site of rustc produces throws. A wrapper the model leaves to another
-// lane (`LLVMRustSetDataLayoutFromTargetMachine`) has its effect applied to the model directly and is listed in
-// `ReplayResult.stubbedEffects`, so a proof can assert which those are.
+// table of rustc's call sites below; an effect no call site of rustc produces throws. A wrapper the replay cannot call (today
+// `LLVMRustSetDataLayoutFromTargetMachine` without the case's target machine arguments) has its effect applied to the model
+// directly and is listed in `ReplayResult.stubbedEffects`, so a proof can assert which those are.
 //
 // Function bodies (lane llir-core-b): a builder call's recorded place (` @ %BB <next>`) is where the model's builder must insert;
 // if it would not, replay infers `LLVMRustPositionBuilderAtStart` only in rustc's `alloca` pattern (a fresh builder, the entry
@@ -24,6 +25,7 @@ import * as L from "./ffi.ts";
 import * as T from "./ffi_types.ts";
 import { FFI_PATH, type FfiFn, type FfiItems, parseFfi, tsType } from "../../../tools/llir/ffi_gen.ts";
 import { rustAttributeKindOf } from "./core.ts";
+import { initialize_available_targets } from "./target.ts";
 import { BasicBlock, IRBuilder, Inst } from "./inst.ts";
 import { Attribute, Constant, ConstantInt, type Context, Function as IrFunction, Module, stringOfBstr } from "./ir.ts";
 
@@ -204,6 +206,12 @@ export interface ReplayOptions {
   /** Module flag keys that come from outside rustc's literal call sites: the case's `-Z llvm-module-flag=<key>:...` keys and the
    * target's small-data flag key (context.rs:593, :514). An integer flag matching no call site must be one of these (review R1). */
   flagKeys?: readonly string[];
+  /** The compile's hidden `LLVMRustCreateTargetMachine` calls, in order, as ffi.ts takes them (lane llir-init). The recorder cannot
+   * see them (cg-write recorded their arguments with lldb: rustc_codegen_llvm/back/write_oracle/<target>.tm). Given, each `?datalayout`
+   * replays as the next call and `LLVMRustSetDataLayoutFromTargetMachine` on its machine, and a target machine handle first seen in
+   * `LLVMDisposeTargetMachine` is the oldest machine made so far and not yet bound, or else the next call's. Without them, the data
+   * layout is applied to the model directly (`stubbedEffects`) and such a dispose is skipped. */
+  targetMachines?: readonly Parameters<typeof L.LLVMRustCreateTargetMachine>[];
 }
 
 // ---- which rustc wrapper produces each inferred effect (rustc_codegen_llvm at the pin) -------------------------------------
@@ -293,6 +301,19 @@ export function replay(calls: readonly Call[], upstream: string, opts: ReplayOpt
   const inferred = (wrapper: string): void => {
     res.inferred++;
     count(res.inferredBy, wrapper);
+  };
+  /** Target machines made from `opts.targetMachines` and not yet bound to a handle; the next call to make. */
+  const hiddenMachines: L.TargetMachine[] = [];
+  /** How far the replay is through `llvm_util::init` (with the case's target machines). */
+  let llvmInit: "none" | "multithreaded" | "configured" = "none";
+  let nextMachine = 0;
+  const makeMachine = (c: Call): L.TargetMachine => {
+    const args = opts.targetMachines?.[nextMachine++];
+    if (args === undefined) throw new Error(`replay: more hidden target machines than the case's ${opts.targetMachines?.length ?? 0} LLVMRustCreateTargetMachine calls at ${where(c)}`);
+    const tm = L.LLVMRustCreateTargetMachine(...args);
+    if (tm === undefined) throw new Error(`replay: LLVMRustCreateTargetMachine failed (${L.LLVMRustGetLastError()}) at ${where(c)}`);
+    inferred("LLVMRustCreateTargetMachine");
+    return tm;
   };
 
   /** Binds handle `id` to `v`, or checks it: handles and objects correspond one to one. */
@@ -627,13 +648,32 @@ export function replay(calls: readonly Call[], upstream: string, opts: ReplayOpt
       continue;
     }
     if (c.fn === "?datalayout") {
-      // `LLVMRustSetDataLayoutFromTargetMachine` (context.rs:209) is rustc's one hidden producer of a data layout; it needs a
-      // TargetMachine, which is the driver lanes'. Its effect is the module's layout string (all `Module::setDataLayout`
-      // keeps), applied to the model directly.
-      (handle(c, c.args[0]!) as Module).dataLayout = Buffer.from(bytes(c.args[1]!)).toString("latin1");
+      // `LLVMRustSetDataLayoutFromTargetMachine` (context.rs:209) is rustc's one hidden producer of a data layout, on the
+      // informational target machine `create_module` makes (context.rs:207).
+      const M = handle(c, c.args[0]!) as Module;
+      const want = Buffer.from(bytes(c.args[1]!)).toString("latin1");
+      if (opts.targetMachines !== undefined) {
+        const tm = makeMachine(c);
+        L.LLVMRustSetDataLayoutFromTargetMachine(M, tm);
+        if (M.dataLayout !== want) throw new Error(`replay: the target machine's data layout is ${JSON.stringify(M.dataLayout)}, the oracle's ${JSON.stringify(want)}, at ${where(c)}`);
+        hiddenMachines.push(tm);
+        inferred("LLVMRustSetDataLayoutFromTargetMachine");
+        continue;
+      }
+      // Without the case's target machine calls, the effect (the module's layout string, all `Module::setDataLayout` keeps) is
+      // applied to the model directly.
+      M.dataLayout = want;
       res.inferred++;
       count(res.stubbedEffects, "LLVMRustSetDataLayoutFromTargetMachine");
       continue;
+    }
+    if (c.fn === "LLVMDisposeTargetMachine" && c.args[0]?.k === "h" && !env.has(c.args[0].id)) {
+      // A machine a hidden LLVMRustCreateTargetMachine made (`OwnedTargetMachine::drop`).
+      if (opts.targetMachines === undefined) {
+        count(res.skipped, c.fn);
+        continue;
+      }
+      bind(c, c.args[0].id, hiddenMachines.shift() ?? makeMachine(c));
     }
     if (c.fn === "?dsolocal") {
       // The final `dso_local` of a global or function, where it is not implied (record.ts reads it before the context goes).
@@ -703,6 +743,20 @@ export function replay(calls: readonly Call[], upstream: string, opts: ReplayOpt
     if (at !== undefined && args[0] instanceof IRBuilder) positionFor(c, args[0], at);
     const r = lib[c.fn]!(...args);
     res.replayed++;
+    // `llvm_util::init` (llvm_util.rs:31) calls LLVMIsMultithreaded, then `configure_llvm` reads the version (LLVMGetVersion) and
+    // makes its hidden calls: LLVMRustInstallErrorHandlers, `rustc_llvm::initialize_available_targets` (whose `LLVMInitialize*`
+    // are not ffi.rs functions) and LLVMRustSetLLVMOptions. With the case's target machines, the first two are replayed after that
+    // first LLVMGetVersion; the options are left out (they are process-wide, and the module shows nothing of them).
+    if (opts.targetMachines !== undefined) {
+      if (c.fn === "LLVMIsMultithreaded" && llvmInit === "none") llvmInit = "multithreaded";
+      else if (c.fn === "LLVMGetVersion" && llvmInit === "multithreaded") {
+        L.LLVMRustInstallErrorHandlers();
+        inferred("LLVMRustInstallErrorHandlers");
+        initialize_available_targets();
+        inferred("rustc_llvm::initialize_available_targets");
+        llvmInit = "configured";
+      }
+    }
     if (at !== undefined) checkPlaced(c, r, at);
     if (r instanceof Module && !res.modules.includes(r)) res.modules.push(r);
     // Check the answer and the out-parameters.
