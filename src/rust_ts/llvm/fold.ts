@@ -252,17 +252,20 @@ function getPointerAlignment(V: GlobalValue, M: Module): number {
     const Alignment = V.alignment;
     if (Alignment === undefined) {
       const ObjectType = V.valueType;
-      // If the object is defined in the current Module, we'll be giving it the preferred alignment. Otherwise, we have to assume
-      // that it may only have the minimum ABI alignment.
-      // PORT: the model computes only the ABI alignment of integers and arrays of them (`DataLayout::getAlignment`, DataLayout.cpp:871):
-      // a definition (`isStrongDefinitionForLinker`, `getPreferredAlign`) or another type stops.
-      if (!V.isDeclaration()) return unported("llir: Value::getPointerAlignment of a defined global variable without an alignment (DataLayout::getPreferredAlign)");
-      let t = ObjectType;
-      while (t instanceof ArrayType) t = t.elementType;
-      if (!(t instanceof IntegerType)) return unported(`llir: DataLayout::getABITypeAlign of ${t.typeID} (not modelled)`);
-      return M.integerABIAlignment(t.bits);
+      if (isSized(ObjectType)) {
+        // If the object is defined in the current Module, we'll be giving it the preferred alignment. Otherwise, we have to
+        // assume that it may only have the minimum ABI alignment.
+        // PORT: the model computes only the ABI alignment of integers and arrays of them (`DataLayout::getAlignment`,
+        // DataLayout.cpp:871): a definition (`isStrongDefinitionForLinker`, `getPreferredAlign`) or another type stops.
+        if (!V.isDeclaration()) return unported("llir: Value::getPointerAlignment of a defined global variable without an alignment (DataLayout::getPreferredAlign)");
+        let t = ObjectType;
+        while (t instanceof ArrayType) t = t.elementType;
+        if (!(t instanceof IntegerType)) return unported(`llir: DataLayout::getABITypeAlign of ${t.typeID} (not modelled)`);
+        return M.integerABIAlignment(t.bits);
+      }
     }
-    return Alignment;
+    // `Alignment.valueOrOne()`: also an unsized object's (review llir-folder N4).
+    return Alignment ?? 1;
   }
   return 1;
 }
@@ -704,17 +707,57 @@ const BAD = -1;
 
 // ---- relations of pointer constants (lane llir-folder) ----
 
-/** `Type::isSized` (Type.h) of the types the model has: a struct is sized when it has a body of sized elements. */
+// llvm: llvm/include/llvm/IR/Type.h:326 isSized
+/** `Type::isSized`, with `isSizedDerivedType` (Type.cpp:265), for the types the model has: no X86_AMX, no byte type (`ByteTyID`,
+ *  primitive and sized at the pin) and no target extension types. `Visited` only stops a struct that contains itself, which
+ *  cannot happen with opaque pointers. */
 function isSized(t: Type): boolean {
-  if (t instanceof IntegerType || t instanceof PointerType || t.isFloatingPointTy()) return true;
+  // If it's a primitive, it is always sized.
+  if (t instanceof IntegerType || t.isFloatingPointTy() || t instanceof PointerType) return true;
+  // Otherwise we have to try harder to decide.
   if (t instanceof ArrayType || t instanceof VectorType) return isSized(t.elementType);
-  if (t instanceof StructType) return t.body !== undefined && t.body.every(isSized);
+  if (t instanceof StructType) return structTypeIsSized(t);
+  // If it is not something that can have a size (e.g. a function or label), it doesn't have a size.
   return false;
+}
+
+// llvm: llvm/lib/IR/Type.cpp:722 StructType::isSized
+/** `SCDB_IsSized` only caches the answer (review llir-folder N5, review llir-folder-notes F1). */
+function structTypeIsSized(t: StructType): boolean {
+  if (t.body === undefined) return false; // isOpaque()
+  // Okay, our struct is sized if all of the elements are, but if one of the elements is opaque, the struct isn't sized *yet*, but
+  // may become sized in the future, so just bail out without caching. The ONLY special case inside a struct that is considered
+  // sized is when the elements are homogeneous of a scalable vector type.
+  if (containsHomogeneousScalableVectorTypes(t)) return true;
+  for (const Ty of t.body) {
+    // If the struct contains a scalable vector type, don't consider it sized. This prevents it from being used in
+    // loads/stores/allocas/GEPs. The ONLY special case right now is a structure of homogenous scalable vector types and is
+    // handled by the if-statement before this for-loop.
+    if (isScalableTy(Ty)) return false;
+    if (!isSized(Ty)) return false;
+  }
+  return true;
+}
+
+// llvm: llvm/lib/IR/Type.cpp:587 StructType::containsHomogeneousScalableVectorTypes
+function containsHomogeneousScalableVectorTypes(t: StructType): boolean {
+  const elements = t.body ?? [];
+  if (elements.length <= 0 || elements[0]!.typeID !== "ScalableVector") return false;
+  return containsHomogeneousTypes(t);
+}
+
+// llvm: llvm/lib/IR/Type.cpp:593 StructType::containsHomogeneousTypes
+function containsHomogeneousTypes(t: StructType): boolean {
+  // `all_equal`: the model's types are uniqued per context, as LLVM's are, so identity is equality.
+  const ElementTys = t.body ?? [];
+  return ElementTys.length !== 0 && ElementTys.every((e) => e === ElementTys[0]);
 }
 
 // llvm: llvm/lib/IR/Type.cpp:180 Type::isEmptyTy
 function isEmptyTy(t: Type): boolean {
-  if (t instanceof ArrayType) return t.numElements === 0n || isEmptyTy(t.elementType);
+  // `unsigned NumElements = ATy->getNumElements()`: the count truncated to 32 bits, so `[k * 2^32 x T]` is empty too (review
+  // llir-folder N5).
+  if (t instanceof ArrayType) return BigInt.asUintN(32, t.numElements) === 0n || isEmptyTy(t.elementType);
   if (t instanceof StructType) {
     // (`getNumElements` of an opaque struct is 0.)
     for (const e of t.body ?? []) if (!isEmptyTy(e)) return false;
@@ -957,15 +1000,21 @@ export const foldCmp = (p: number, lhs: Value, rhs: Value): Constant | undefined
   lhs instanceof Constant && rhs instanceof Constant ? constantFoldCompareInstruction(p, lhs, rhs) : undefined;
 
 // llvm: llvm/lib/IR/Type.cpp:61 Type::isScalableTy
+/** Also what `StructType::isSized` asks of each element (review llir-folder-notes F1). The model has no target extension types,
+ *  so `isScalableTargetExtTy()` is false. */
 function isScalableTy(t: Type, visited = new Set<Type>()): boolean {
   if (t instanceof ArrayType) return isScalableTy(t.elementType, visited);
-  if (t instanceof StructType) {
-    // `StructType::isScalableTy(Visited)`: any element, once per struct.
-    if (visited.has(t)) return false;
-    visited.add(t);
-    return (t.body ?? []).some((e) => isScalableTy(e, visited));
-  }
+  if (t instanceof StructType) return structTypeIsScalableTy(t, visited);
   return t.typeID === "ScalableVector";
+}
+
+// llvm: llvm/lib/IR/Type.cpp:504 StructType::isScalableTy
+/** `SCDB_ContainsScalableVector` / `SCDB_NotContainsScalableVector` only cache the answer. An opaque struct has no elements. */
+function structTypeIsScalableTy(t: StructType, Visited: Set<Type>): boolean {
+  if (Visited.has(t)) return false;
+  Visited.add(t);
+  for (const Ty of t.body ?? []) if (isScalableTy(Ty, Visited)) return true;
+  return false;
 }
 
 /** `FoldGEP`: a constant GEP when the pointer and every index are constants (`ConstantExpr::isSupportedGetElementPtr`). */
